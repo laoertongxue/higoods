@@ -49,6 +49,10 @@ import {
   readSelectedExecutionOrderNoFromLocation,
 } from './pda-cutting-context'
 import { buildPdaCuttingCompletedReturnHref } from './pda-cutting-nav-context'
+import {
+  PDA_PAGE_HANDLED_LOCALLY,
+  type PdaPageEventResult,
+} from '../main-handlers/pda-local-action-result'
 
 interface HandoverFormState {
   operatorName: string
@@ -1186,9 +1190,23 @@ export function updatePdaTransferBagHandoverWorkflow(
   container: HTMLElement | null,
   state: PdaTransferBagHandoverFormState,
   taskId = '',
-): void {
-  if (!container) return
+  focusField: 'bagCode' | 'sewingTaskCode' = 'bagCode',
+): boolean {
+  if (!container) return false
   container.innerHTML = renderPdaTransferBagHandoverWorkflowContent(state, taskId)
+  const focusTarget = container.querySelector<HTMLInputElement>(
+    `[data-pda-cut-handover-field="${focusField}"]`,
+  )
+  if (!focusTarget) return false
+  focusTarget.focus({ preventScroll: true })
+  return true
+}
+
+export function resolvePdaTransferBagHandoverConfirmFocus(
+  result: { ok: boolean; message?: string },
+): 'bagCode' | 'sewingTaskCode' {
+  if (result.ok) return 'bagCode'
+  return result.message?.includes('车缝任务') ? 'sewingTaskCode' : 'bagCode'
 }
 
 export function renderPdaCuttingHandoverPage(taskId: string): string {
@@ -1447,7 +1465,10 @@ function completeTransferBagHandoverFieldScan(
   updateTransferBagHandoverLiveRegion(resolveTransferBagHandoverContainer(fieldNode), next.state)
 }
 
-export function handlePdaCuttingHandoverEvent(target: HTMLElement, event?: Event): boolean {
+export function handlePdaCuttingHandoverEvent(
+  target: HTMLElement,
+  event?: Event,
+): PdaPageEventResult {
   const fieldNode = target.closest<HTMLElement>('[data-pda-cut-handover-field]')
   if (
     fieldNode instanceof HTMLInputElement ||
@@ -1574,12 +1595,16 @@ export function handlePdaCuttingHandoverEvent(target: HTMLElement, event?: Event
       resolvedExecutionOrderId,
       resolvedExecutionOrderNo,
     )
-    updatePdaTransferBagHandoverWorkflow(
+    const updatedLocally = updatePdaTransferBagHandoverWorkflow(
       resolveTransferBagHandoverContainer(actionNode),
       nextState,
       taskId,
+      resolvePdaTransferBagHandoverConfirmFocus({
+        ok: nextState.resultMessage === '交出成功',
+        message: nextState.resultMessage,
+      }),
     )
-    return true
+    return updatedLocally ? PDA_PAGE_HANDLED_LOCALLY : true
   }
 
   if (action === 'confirm') {

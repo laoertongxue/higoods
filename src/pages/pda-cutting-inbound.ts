@@ -12,6 +12,10 @@ import {
 } from './pda-cutting-context'
 import { buildTransferBagsProjection } from './process-factory/cutting/transfer-bags-projection.ts'
 import type { TransferBagTicketCandidate } from './process-factory/cutting/transfer-bags-model.ts'
+import {
+  PDA_PAGE_HANDLED_LOCALLY,
+  type PdaPageEventResult,
+} from '../main-handlers/pda-local-action-result'
 
 export type PdaCuttingInboundMode = 'bagging' | 'inbound-location'
 export type PdaCuttingInboundTicketScanStatus = 'idle' | 'valid' | 'invalid'
@@ -804,9 +808,29 @@ export function updatePdaCuttingInboundWorkflow(
   mode: PdaCuttingInboundMode,
   form: InboundFormState,
   taskId = '',
-): void {
-  if (!container) return
+  focusField: 'carrierCode' | 'scanCode' | 'locationLabel' = 'carrierCode',
+): boolean {
+  if (!container) return false
   container.innerHTML = renderPdaCuttingInboundWorkflowContent(mode, form, taskId)
+  const focusTarget = container.querySelector<HTMLInputElement>(
+    `[data-pda-cut-inbound-field="${focusField}"]`,
+  )
+  if (!focusTarget) return false
+  focusTarget.focus({ preventScroll: true })
+  return true
+}
+
+export function resolvePdaCuttingInboundConfirmFocus(
+  mode: PdaCuttingInboundMode,
+  result: InboundRoundResult,
+): 'carrierCode' | 'scanCode' | 'locationLabel' {
+  if (result.ok) return 'carrierCode'
+  const message = result.message || ''
+  if (mode === 'inbound-location' && (message.includes('库位') || message.includes('库区'))) {
+    return 'locationLabel'
+  }
+  if (mode === 'bagging' && message.includes('菲票')) return 'scanCode'
+  return 'carrierCode'
 }
 
 export function renderPdaCuttingInboundPage(taskId: string): string {
@@ -872,7 +896,10 @@ export function syncPdaCuttingInboundFormFromControls(
   if (locationLabel) form.locationLabel = locationLabel.value
 }
 
-export function handlePdaCuttingInboundEvent(target: HTMLElement, event?: Event): boolean {
+export function handlePdaCuttingInboundEvent(
+  target: HTMLElement,
+  event?: Event,
+): PdaPageEventResult {
   const mode = getInboundMode()
   const fieldNode = target.closest<HTMLElement>('[data-pda-cut-inbound-field]')
   if (
@@ -948,8 +975,14 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement, event?: Event)
     eventState.selectedExecutionOrderId,
     eventState.selectedExecutionOrderNo,
   )
-  updatePdaCuttingInboundWorkflow(workflowContainer, mode, confirmation.nextForm, taskId)
-  return true
+  const updatedLocally = updatePdaCuttingInboundWorkflow(
+    workflowContainer,
+    mode,
+    confirmation.nextForm,
+    taskId,
+    resolvePdaCuttingInboundConfirmFocus(mode, confirmation.result),
+  )
+  return updatedLocally ? PDA_PAGE_HANDLED_LOCALLY : true
 }
 
 function appTaskIdFromPath(): string {

@@ -25,10 +25,11 @@ import { handlePdaCuttingSpreadingEvent } from '../pages/pda-cutting-spreading'
 import { handlePdaCuttingInboundEvent } from '../pages/pda-cutting-inbound'
 import { handlePdaCuttingHandoverEvent } from '../pages/pda-cutting-handover'
 import { showPdaWarehouseActionToast } from '../pages/pda-warehouse-shared'
+import { normalizePdaPageEventResult } from './pda-local-action-result'
 
 export async function dispatchPdaPageEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   try {
-    return (
+    return normalizePdaPageEventResult(
       await handlePdaShellEvent(target) ||
       await handlePdaLoginEvent(target) ||
       await handlePdaOnboardingEvent(target) ||
@@ -54,7 +55,7 @@ export async function dispatchPdaPageEvent(target: HTMLElement, event?: Event): 
       await handlePdaSewingSelfReturnEvent(target) ||
       await handlePdaHandoverEvent(target) ||
       await handlePdaHandoverDetailEvent(target) ||
-      await handlePdaSettlementEvent(target)
+      await handlePdaSettlementEvent(target),
     )
   } catch (error) {
     showPdaWarehouseActionToast(error instanceof Error ? error.message : 'PDA 操作失败，请按最新页面重试。')

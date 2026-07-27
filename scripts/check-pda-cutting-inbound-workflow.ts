@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import * as workflow from '../src/pages/pda-cutting-inbound.ts'
 import { buildTransferBagsProjection } from '../src/pages/process-factory/cutting/transfer-bags-projection.ts'
+import { isPdaPageHandledLocally } from '../src/main-handlers/pda-local-action-result.ts'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const source = readFileSync(`${ROOT}/src/pages/pda-cutting-inbound.ts`, 'utf8')
@@ -319,9 +320,14 @@ class FakeInboundInputElement {
   value = ''
   dataset = {} as DOMStringMap
   closestHandler: (selector: string) => unknown = () => null
+  focusOptions: FocusOptions | null = null
 
   closest(selector: string): unknown {
     return this.closestHandler(selector)
+  }
+
+  focus(options?: FocusOptions): void {
+    this.focusOptions = options || {}
   }
 }
 ;(globalThis as typeof globalThis & { HTMLInputElement: typeof HTMLInputElement }).HTMLInputElement =
@@ -392,8 +398,8 @@ assert.equal(
 )
 assert.equal(
   handleInboundEvent(successHarness.confirmTarget as unknown as HTMLElement),
-  true,
-  '确认装袋事件必须被处理',
+  'handled-locally',
+  '工作区存在且局部更新成功时必须返回精确的局部处理结果',
 )
 assert(
   successHarness.workflowContainer.innerHTML.includes('装袋成功'),
@@ -405,12 +411,17 @@ assert.match(
   '确认装袋成功后局部工作区必须显示已清空的新一轮袋码',
 )
 assert.equal(successHarness.workflowContainer.scrollTop, 287, '局部刷新不得改变页面工作区滚动位置')
+assert.deepEqual(
+  successHarness.carrierInput.focusOptions,
+  { preventScroll: true },
+  '成功后必须聚焦替换后的袋码输入且禁止浏览器自动滚动',
+)
 
 const failedHarness = buildInboundConfirmHarness('TASK-INBOUND-LOCAL-FAIL', 'BAG-002')
 assert.equal(
   handleInboundEvent(failedHarness.confirmTarget as unknown as HTMLElement),
-  true,
-  '确认装袋失败事件必须被处理',
+  'handled-locally',
+  '确认装袋失败也必须返回精确的局部处理结果',
 )
 assert(
   failedHarness.workflowContainer.innerHTML.includes('请扫描菲票。'),
@@ -422,6 +433,60 @@ assert.match(
   '确认装袋失败后局部工作区必须保留袋码',
 )
 assert.equal(failedHarness.workflowContainer.scrollTop, 287, '失败反馈的局部刷新不得改变滚动位置')
+assert.deepEqual(
+  failedHarness.ticketInput.focusOptions,
+  { preventScroll: true },
+  '缺少菲票时必须聚焦替换后的菲票输入且禁止浏览器自动滚动',
+)
+assert.equal(
+  workflow.resolvePdaCuttingInboundConfirmFocus('bagging', {
+    ok: false,
+    message: '中转袋不存在。',
+  }),
+  'carrierCode',
+  '装袋袋码错误必须回到袋码',
+)
+assert.equal(
+  workflow.resolvePdaCuttingInboundConfirmFocus('inbound-location', {
+    ok: false,
+    message: '库位无效，请重新扫描。',
+  }),
+  'locationLabel',
+  '库位错误必须回到库位',
+)
+assert.equal(
+  workflow.updatePdaCuttingInboundWorkflow(
+    null,
+    'bagging',
+    workflow.createPdaCuttingInboundFormState(),
+    'TASK-INBOUND-NO-WORKFLOW',
+  ),
+  false,
+  '工作区缺失时局部更新 helper 必须明确返回 false',
+)
+const missingWorkflowTarget = {
+  closest(selector: string) {
+    if (selector === '[data-pda-cut-inbound-field]') return null
+    if (selector === '[data-pda-cut-inbound-action="confirm"]') {
+      return {
+        dataset: { taskId: 'TASK-INBOUND-NO-WORKFLOW', pdaCutInboundAction: 'confirm' },
+        closest: () => null,
+      }
+    }
+    return null
+  },
+}
+assert.equal(
+  handleInboundEvent(missingWorkflowTarget as unknown as HTMLElement),
+  true,
+  '工作区标识缺失时必须返回普通 true，让 main 回退整页渲染',
+)
+assert.equal(isPdaPageHandledLocally(true), false, '普通 true 不得跳过 main 的整页渲染回退')
+assert.equal(
+  isPdaPageHandledLocally('handled-locally'),
+  true,
+  '只有精确的 handled-locally 才允许跳过整页渲染',
+)
 
 if (originalHtmlInputElement) {
   ;(globalThis as typeof globalThis & { HTMLInputElement: typeof HTMLInputElement }).HTMLInputElement =
@@ -742,14 +807,16 @@ const inboundMainBranchEnd = mainSource.indexOf(
   inboundMainBranchStart,
 )
 const inboundMainBranch = mainSource.slice(inboundMainBranchStart, inboundMainBranchEnd)
-const inboundLocalReturnIndex = inboundMainBranch.indexOf(
-  "pdaCutInboundActionNode.dataset.pdaCutInboundAction === 'confirm'",
-)
+const inboundLocalReturnIndex = inboundMainBranch.indexOf('isPdaPageHandledLocally(inboundResult)')
 const inboundFullRenderIndex = inboundMainBranch.indexOf('await renderWithFocusRestore(focusSnapshot)')
-assert(inboundLocalReturnIndex >= 0, 'main 必须识别确认装袋/入仓专用 action 的局部刷新路径')
+assert(inboundLocalReturnIndex >= 0, 'main 必须按 handler 的精确结果识别局部刷新路径')
 assert(
-  inboundFullRenderIndex === -1 || inboundLocalReturnIndex < inboundFullRenderIndex,
-  '确认装袋/入仓专用 action 必须在整页渲染前直接返回',
+  inboundFullRenderIndex > inboundLocalReturnIndex,
+  '仅 handled-locally 可直接返回，普通 true 必须保留整页渲染回退',
+)
+assert(
+  !inboundMainBranch.includes("pdaCutInboundActionNode.dataset.pdaCutInboundAction === 'confirm'"),
+  'main 不得再只按 action dataset 盲目跳过整页渲染',
 )
 
 console.log('[check-pda-cutting-inbound-workflow] 两种 PDA 扫码工作流检查通过')

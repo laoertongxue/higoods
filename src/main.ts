@@ -4,6 +4,7 @@ import { hydrateIcons, isStandalonePrintPath, renderAppShell, renderSidebar } fr
 import { handleProductionObjectOverviewEvent } from './components/production-object-overview'
 import { appStore } from './state/store'
 import { resolvePdaCuttingScanKeydownTarget } from './main-handlers/pda-cutting-keydown-routing'
+import { isPdaPageHandledLocally } from './main-handlers/pda-local-action-result'
 
 type FcsHandlersModule = typeof import('./main-handlers/fcs-handlers')
 type PcsHandlersModule = typeof import('./main-handlers/pcs-handlers')
@@ -1768,10 +1769,9 @@ root.addEventListener('click', async (event) => {
   if (pdaCutInboundActionNode) {
     event.preventDefault()
     const pdaCuttingInboundPage = await import('./pages/pda-cutting-inbound')
-    if (pdaCuttingInboundPage.handlePdaCuttingInboundEvent(pdaCutInboundActionNode)) {
-      if (pdaCutInboundActionNode.dataset.pdaCutInboundAction === 'confirm') {
-        return
-      }
+    const inboundResult = pdaCuttingInboundPage.handlePdaCuttingInboundEvent(pdaCutInboundActionNode)
+    if (inboundResult) {
+      if (isPdaPageHandledLocally(inboundResult)) return
       await renderWithFocusRestore(focusSnapshot)
       return
     }
@@ -1781,13 +1781,11 @@ root.addEventListener('click', async (event) => {
   if (pdaCutHandoverActionNode) {
     event.preventDefault()
     const pdaCuttingHandoverPage = await import('./pages/pda-cutting-handover')
-    if (pdaCuttingHandoverPage.handlePdaCuttingHandoverEvent(pdaCutHandoverActionNode)) {
-      if (
-        pdaCutHandoverActionNode.dataset.pdaCutHandoverAction
-        === 'confirm-transfer-bag-handover'
-      ) {
-        return
-      }
+    const handoverResult = pdaCuttingHandoverPage.handlePdaCuttingHandoverEvent(
+      pdaCutHandoverActionNode,
+    )
+    if (handoverResult) {
+      if (isPdaPageHandledLocally(handoverResult)) return
       await renderWithFocusRestore(focusSnapshot)
       return
     }

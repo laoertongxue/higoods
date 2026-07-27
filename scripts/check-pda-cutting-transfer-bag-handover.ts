@@ -362,9 +362,14 @@ class FakeHandoverInputElement {
   value = ''
   dataset = {} as DOMStringMap
   closestHandler: (selector: string) => unknown = () => null
+  focusOptions: FocusOptions | null = null
 
   closest(selector: string): unknown {
     return this.closestHandler(selector)
+  }
+
+  focus(options?: FocusOptions): void {
+    this.focusOptions = options || {}
   }
 }
 const legacyRouteWindow = new EventTarget() as EventTarget & {
@@ -506,8 +511,8 @@ const confirmTransferTarget = {
 }
 assert.equal(
   handleTransferEvent(confirmTransferTarget as unknown as HTMLElement),
-  true,
-  '清空任务后的确认事件必须被处理',
+  'handled-locally',
+  '工作区存在且确认失败局部更新成功时必须返回精确结果',
 )
 const taskClearConfirmHtml = (
   pageModule.renderPdaCuttingHandoverPage as (taskId: string) => string
@@ -515,6 +520,11 @@ const taskClearConfirmHtml = (
 assert(taskClearConfirmHtml.includes('请扫描车缝任务。'), '清空任务后确认必须阻断并提示扫描任务')
 assert(eventContainer.innerHTML.includes('请扫描车缝任务。'), '确认失败必须立即局部显示具体原因')
 assert.equal(eventContainer.scrollTop, 319, '确认失败的局部刷新不得改变工作区滚动位置')
+assert.deepEqual(
+  taskInput.focusOptions,
+  { preventScroll: true },
+  '任务缺失时必须聚焦替换后的任务输入且禁止浏览器自动滚动',
+)
 
 taskInput.value = 'SEW-PO-202603-0102-01'
 dispatchTransferInput(taskInput, 'keydown', 'Enter')
@@ -542,8 +552,8 @@ for (const staleValue of [
 }
 assert.equal(
   handleTransferEvent(confirmTransferTarget as unknown as HTMLElement),
-  true,
-  '清空袋后的确认事件必须被处理',
+  'handled-locally',
+  '袋码失败局部更新成功时必须返回精确结果',
 )
 const bagClearConfirmHtml = (
   pageModule.renderPdaCuttingHandoverPage as (taskId: string) => string
@@ -557,8 +567,8 @@ taskInput.value = 'SEW-PO-202603-0102-01'
 dispatchTransferInput(taskInput, 'keydown', 'Enter')
 assert.equal(
   handleTransferEvent(confirmTransferTarget as unknown as HTMLElement),
-  true,
-  '完整扫描后的确认交出事件必须被处理',
+  'handled-locally',
+  '确认交出成功局部更新时必须返回精确结果',
 )
 assert(eventContainer.innerHTML.includes('交出成功'), '确认交出成功后必须立即在当前工作区显示结果')
 assert.match(
@@ -567,6 +577,47 @@ assert.match(
   '确认交出成功后局部工作区必须显示已清空的新一轮袋码',
 )
 assert.equal(eventContainer.scrollTop, 319, '确认成功的局部刷新不得改变工作区滚动位置')
+assert.deepEqual(
+  bagInput.focusOptions,
+  { preventScroll: true },
+  '成功后必须聚焦替换后的袋码输入且禁止浏览器自动滚动',
+)
+assert.equal(
+  (pageModule.resolvePdaTransferBagHandoverConfirmFocus as (
+    result: { ok: boolean; message?: string },
+  ) => string)({ ok: false, message: '中转袋不存在。' }),
+  'bagCode',
+  '袋码错误必须回到袋码',
+)
+assert.equal(
+  (pageModule.updatePdaTransferBagHandoverWorkflow as (
+    container: HTMLElement | null,
+    state: TransferBagState,
+    taskId?: string,
+  ) => boolean)(null, workflow.createPdaTransferBagHandoverFormState(), 'TASK-HANDOVER-NO-WORKFLOW'),
+  false,
+  '工作区缺失时局部更新 helper 必须明确返回 false',
+)
+const missingWorkflowConfirmTarget = {
+  closest(selector: string) {
+    if (selector === '[data-pda-cut-handover-field]') return null
+    if (selector === '[data-pda-cut-handover-action]') {
+      return {
+        dataset: {
+          pdaCutHandoverAction: 'confirm-transfer-bag-handover',
+          taskId: 'TASK-HANDOVER-NO-WORKFLOW',
+        },
+        closest: () => null,
+      }
+    }
+    return null
+  },
+}
+assert.equal(
+  handleTransferEvent(missingWorkflowConfirmTarget as unknown as HTMLElement),
+  true,
+  '工作区标识缺失时必须返回普通 true，让 main 回退整页渲染',
+)
 
 if (originalWindow) {
   ;(globalThis as typeof globalThis & { window: Window }).window = originalWindow
@@ -602,17 +653,26 @@ const handoverMainBranchEnd = mainSource.indexOf(
   handoverMainBranchStart,
 )
 const handoverMainBranch = mainSource.slice(handoverMainBranchStart, handoverMainBranchEnd)
-const handoverLocalReturnMatch = handoverMainBranch.match(
-  /pdaCutHandoverActionNode\.dataset\.pdaCutHandoverAction\s*===\s*'confirm-transfer-bag-handover'/,
+const handoverLocalReturnIndex = handoverMainBranch.indexOf(
+  'isPdaPageHandledLocally(handoverResult)',
 )
-const handoverLocalReturnIndex = handoverLocalReturnMatch?.index ?? -1
 const handoverLegacyRenderIndex = handoverMainBranch.indexOf(
   'await renderWithFocusRestore(focusSnapshot)',
 )
-assert(handoverLocalReturnIndex >= 0, 'main 必须识别中转袋交出专用确认 action')
+assert(handoverLocalReturnIndex >= 0, 'main 必须按 handler 的精确结果识别局部刷新')
 assert(
   handoverLegacyRenderIndex > handoverLocalReturnIndex,
-  '中转袋交出确认必须先局部返回，其他旧 handover action 仍走原整页渲染路径',
+  '仅 handled-locally 可直接返回，普通 true 与旧 action 仍走整页渲染路径',
+)
+assert(
+  !handoverMainBranch.includes("=== 'confirm-transfer-bag-handover'"),
+  'main 不得再只按 action dataset 盲目跳过整页渲染',
+)
+assert(
+  /return normalizePdaPageEventResult\([\s\S]*handlePdaCuttingHandoverEvent\(target, event\)/.test(
+    handlerSource,
+  ),
+  'PDA 聚合分发必须把 handled-locally 等 truthy 结果归一化为 boolean',
 )
 assert(
   pageSource.includes("window.addEventListener('higood:pda-cutting-handover-leave'"),
