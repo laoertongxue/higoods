@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import type { PdaPageEventResult } from '../src/main-handlers/pda-local-action-result.ts'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const pageSource = readFileSync(`${ROOT}/src/pages/pda-cutting-handover.ts`, 'utf8')
@@ -235,6 +236,20 @@ assert.equal(crossOrderReplacement.ok, false, '确认前仍不得用跨生产单
 assert.equal(crossOrderReplacement.state.sewingTaskNo, 'SEW-001-ALT', '跨生产单失败必须保留原有效草稿')
 assert.equal(crossOrderReplacement.state.receiverFactoryName, '印尼四厂', '跨生产单失败必须保留原派生工厂')
 
+const crossOrderBagReplacement = workflow.completePdaTransferBagHandoverScan(
+  taskScan.state,
+  'bagCode',
+  'TB-CUT-CROSS',
+  candidates,
+)
+assert.equal(crossOrderBagReplacement.ok, false, '已有任务草稿时不得改扫跨生产单中转袋')
+assert.equal(crossOrderBagReplacement.state.bagCode, 'TB-CUT-001', '跨生产单换袋失败必须保留原有效袋')
+assert.equal(crossOrderBagReplacement.state.sewingTaskNo, 'SEW-001', '跨生产单换袋失败必须保留原任务草稿')
+assert(
+  crossOrderBagReplacement.state.scanFeedbackMessage.includes('生产单不一致'),
+  '跨生产单换袋必须即时说明原因',
+)
+
 const closedTaskReplacement = workflow.completePdaTransferBagHandoverScan(
   replacementTaskScan.state,
   'sewingTaskCode',
@@ -409,7 +424,9 @@ const legacyConfirmTarget = {
   },
 }
 assert.equal(
-  (pageModule.handlePdaCuttingHandoverEvent as (target: HTMLElement) => boolean)(
+  (pageModule.handlePdaCuttingHandoverEvent as (
+    target: HTMLElement,
+  ) => PdaPageEventResult)(
     legacyConfirmTarget as unknown as HTMLElement,
   ),
   false,
@@ -446,7 +463,7 @@ const taskInput = buildEventInput('sewingTaskCode')
 const handleTransferEvent = pageModule.handlePdaCuttingHandoverEvent as (
   target: HTMLElement,
   event?: Event,
-) => boolean
+) => PdaPageEventResult
 const dispatchTransferInput = (
   input: FakeHandoverInputElement,
   type: 'input' | 'keydown',
@@ -454,8 +471,13 @@ const dispatchTransferInput = (
 ) => handleTransferEvent(input as unknown as HTMLElement, { type, key } as unknown as Event)
 
 bagInput.value = 'TB-CUT-260727-001'
-assert.equal(dispatchTransferInput(bagInput, 'keydown', 'Enter'), true, '事件级袋扫码必须被处理')
 taskInput.value = 'SEW-PO-202603-0102-01'
+assert.equal(dispatchTransferInput(bagInput, 'keydown', 'Enter'), true, '事件级袋扫码必须被处理')
+assert.equal(
+  taskInput.value,
+  'SEW-PO-202603-0102-01',
+  '袋扫码完成不得清空尚未处理的任务输入',
+)
 assert.equal(dispatchTransferInput(taskInput, 'keydown', 'Enter'), true, '事件级任务扫码必须被处理')
 taskInput.value = 'SEW-PO-202603-0102-02'
 assert.equal(dispatchTransferInput(taskInput, 'keydown', 'Enter'), true, '事件级同生产单任务换扫必须被处理')

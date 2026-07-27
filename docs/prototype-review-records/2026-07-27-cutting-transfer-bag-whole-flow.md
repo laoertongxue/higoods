@@ -64,12 +64,14 @@
 - 车缝任务扫码后自动带出车缝任务号、生产单号和接收工厂；工厂只读，不提供手选入口。
 - 袋内菲票数量由袋码 Mock 数据只读带出，仅用于整袋识别，不允许选择袋内部分内容。
 - 确认前允许改扫同一生产单且可接收的车缝任务，并覆盖任务号、生产单号和接收工厂草稿；跨生产单或不可接收任务仍被阻断并保留原有效草稿。
+- 已有正式车缝任务草稿时改扫中转袋，同生产单仍可继续，跨生产单会立即阻断并保留原有效袋与任务草稿，不允许静默污染组合关系。
 - 确认前手动清空车缝任务输入会清除任务号、生产单号、接收工厂和旧扫码反馈，但保留已识别袋及袋内菲票数量；随后必须重新扫描任务才能确认。
 - 确认前手动清空中转袋输入会重置整轮，同时清除袋、车缝任务及其派生信息；随后必须从中转袋重新开始。
 - 只有确认成功后才把最终任务写入袋台账的 `boundSewingTaskNo` 并形成真实绑定；已确认绑定阻断换绑，袋状态更新为「已交出」后同时阻断重复扫描和重复确认。
 - 本页 Mock 袋记录生产单和「待交出 / 已交出 / 已作废」状态，车缝任务记录生产单、接收工厂和是否可接收；扫码与确认都会阻断袋非待交出、任务不可接收及生产单不一致。
 - 确认成功后先把当前页袋状态改为「已交出」并记录唯一车缝任务，再清空页面进入新一轮；再次扫描或用旧状态重复确认同袋都会即时阻断。
 - Enter 立即完成扫描；无 Enter 输入停顿约 150 ms 后完成。确认前同步冲刷最新等待扫描，旧轮次回调不能在确认或成功重置后写回。
+- 袋码与车缝任务允许快速连续扫码；单字段扫描完成只校正本字段输入并刷新 live 派生区，不回写另一个尚待处理的输入框。主动清空袋码或确认后的整轮刷新仍按业务规则重建全部字段。
 - 全局键盘事件已精确接入袋码和车缝任务扫码框，Enter 会把原始事件传给交出 handler；不匹配特殊工艺或默认交出字段。
 - 路由离开清理已下沉到 `appStore.navigate` 和 `syncFromBrowser` 统一边界；菲票装袋 / 入仓与中转袋交出分别派发对应 leave 事件，main 导航、PDA 顶部待办、退出登录和浏览器前进后退均经过此边界，同 URL 不派发，且 main 不再重复派发。
 - 交出成功明确提示「交出成功」，清空袋码、任务码和派生信息，并留在同一路由开始新一轮；失败即时提示并保留有效扫码数据。
@@ -120,7 +122,7 @@
 - 确认装袋先同步冲刷当前状态键的待处理扫描，再按最新状态确认；成功重置、模式切换和路由离开均取消 timer，轮次令牌阻断迟到回调。
 - 菲票命中后只清空扫码输入并刷新已扫结果区域，不重新扫描整页图标。
 - 「确认装袋」「确认入仓」只重绘带 `data-pda-cutting-inbound-workflow` 的当前工作区；成功清空、失败保留均不重绘应用根节点。
-- 中转袋交出复用状态键、轮次令牌和确认前 `flush` 模式；成功后取消等待并重置当前轮，扫描与确认均仅更新带专用标识的交出工作区。
+- 中转袋交出复用状态键、轮次令牌和确认前 `flush` 模式；成功后取消等待并重置当前轮。字段扫描只同步当前字段与 live 区，确认 / 主动清空仍可重建整个专用工作区，避免迟到袋扫码清除操作员已输入的任务码。
 - 聚焦检查执行统一路由离开 helper，并通过 PDA 顶部待办间接调用真实 `appStore.navigate`、浏览器同步调用 `syncFromBrowser`，实际捕获 `higood:pda-cutting-inbound-leave` 与 `higood:pda-cutting-handover-leave` 各一次；同 URL 不重复派发。全局 Enter 也通过可执行 helper 验证两个交出扫码框会派发、非 Enter 与特殊工艺字段不派发。
 - 聚焦检查以真实历史深链渲染整袋交出工作区，并执行旧确认命令回归，确认旧逐菲票事件写入口不可达。
 - 快速检查 `check:pda-cutting-wait-handover-entry-routing` 只验证 `routes-pda` 根路由 / 动态路由注册、五入口固定深链、不可达旧链清理和五个 legacy 解析目标，不执行页面渲染；冷启动约 0.58 秒，保留在 `check:cutting:all`。
@@ -128,12 +130,13 @@
 - 真实集成检查冷启动约 19–20 秒（本轮独立实测 20.05 秒，此前实测 18.55 秒），未加入日常 `check:cutting:all`；已进入 `check:cutting:release` 发布就绪序列并固定先于 `check:cutting:all` 执行。
 - 本轮 `check:cutting:release` 实测为真实路由集成先通过，随后 `check:cutting:all` 在既有 `src/pages/process-factory/cutting/production-order-overview-view.ts: min-w >= 1600px` 门禁失败。本记录不宣称 `check:cutting:all` 全绿，且本轮未修改或掩盖该既有基线。
 - 失败结果通过本地状态保留袋码、菲票、数量、库位或已识别车缝任务及派生信息，不要求重新进入页面。
-- 聚焦检查覆盖自动加入、连续扫码、整袋交出精确字段与唯一按钮、任务派生工厂、同袋单任务、成功清空、失败保留和 timer/确认竞态。
-- 整袋交出聚焦检查还覆盖袋状态异常、任务不可接收、袋与任务跨生产单、成功后本地状态更新及同袋重复扫描 / 重复确认。
+- 聚焦检查覆盖自动加入、快速连续扫码、整袋交出精确字段与唯一按钮、任务派生工厂、同袋单任务、成功清空、失败保留和 timer/确认竞态。
+- 整袋交出聚焦检查还覆盖袋状态异常、任务不可接收、已有任务后跨生产单换袋阻断并保留原草稿、成功后本地状态更新及同袋重复扫描 / 重复确认。
 - Web 聚焦检查覆盖三模式字段与按钮、装袋逐票紧凑明细、成功清空、失败保留、入仓无菲票、交出无工厂 / 数量 / 菲票输入、任务派生、重复交出和高频输入不整页重绘。
 - Web 三操作交互仅修改独立页工作区内的输入、紧凑明细、只读派生结果和反馈节点，不触发应用根节点整页重绘，滚动位置不丢失。
-- 新增 `tests/cutting-transfer-bag-confirm-local-refresh.spec.ts`，在 1280×720 真实 Chromium 中以 `performance.now()` 与 `MutationObserver` 从 click 计到结果反馈 DOM 出现，覆盖装袋成功、袋码失败、菲票失败、入仓库位失败、交出成功、袋码失败和任务失败。
-- 最终七场景完整复跑实测依次为 100.4 ms、117.3 ms、141.3 ms、130.6 ms、103.1 ms、119.7 ms、109.0 ms，全部低于 200 ms。
+- `tests/cutting-transfer-bag-confirm-local-refresh.spec.ts` 在 1280×720 真实 Chromium 中以 `performance.now()` 与 `MutationObserver` 从 click 计到结果反馈 DOM 出现，覆盖装袋成功、袋码失败、菲票失败、入仓库位失败、快速连续扫码交出成功、交出袋码失败和任务失败。
+- 快速连续扫码场景在同一事件循环中先派发袋码 Enter，再立即输入并派发车缝任务 Enter，不等待袋 live 结果；随后必须识别任务并成功确认交出。
+- 使用 `--repeat-each=3 --workers=1` 完整复跑七场景共 21 项，21 项全部通过，实测 97.1–139.8 ms，全部低于 200 ms。
 - 七个真实浏览器场景均在非零 `window.scrollY` 与非零工作区 `scrollTop` 下执行，断言替换后的 `document.activeElement` 精确落到袋码、菲票、库位或车缝任务输入框；同时验证 `#app` 首层外壳和 workflow 容器对象未替换、两级滚动位置不变。
 - fake DOM 检查仅用于状态迁移、helper 返回值、聚焦目标选择和 main 回退契约，不作为真实 DOM 焦点或浏览器滚动的证明；真实焦点与滚动结论只来自上述 Playwright 用例。
 - PDA 聚合分发把页面 handler 的 truthy 联合结果归一化为 boolean，保持原 `dispatchPdaPageEvent` 对输入、旧 action 与特殊工艺调用方的布尔契约。
@@ -145,7 +148,7 @@
 - `npm run check:pda-cutting-wait-handover-entry-routing`：通过，快速契约不执行页面渲染。
 - `npm run check:pda-cutting-transfer-bag-handover`：通过。
 - `npm run check:web-cutting-transfer-bag-actions`：通过。
-- `npm run test:cutting-transfer-bag-confirm-local-refresh:e2e`：通过，七个真实浏览器成功 / 失败与焦点 / 滚动 / 节点身份场景。
+- `npx playwright test tests/cutting-transfer-bag-confirm-local-refresh.spec.ts --repeat-each=3 --workers=1`：21 / 21 通过，包含不等待 live 结果的袋码与任务快速连续 Enter 场景。
 - `npm run check:special-craft-pda-warehouse-actions`：未通过；在进入 PDA 分发断言前即因既有动作 `SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND` 未注册而报错。本轮未修改特殊工艺交出 / 回仓或 process action 注册，不扩大范围修复该既有门禁。
 - `npm run check:pda-cutting-wait-handover-route-integration`：通过，实测 20.05 秒。
 - `npm run check:list-page-governance`、`npm run check:prototype-design-governance -- --all`、`npm run build`：通过。
@@ -171,6 +174,7 @@
 | Web 原操作成功后关闭操作层并整页刷新，失败依赖系统 alert | `点错风险`、`组件误用` | 裁床仓管主管 / 文员 | 成功与失败均改为页内短反馈；成功局部清空，失败保留输入 | 否 |
 | PDA 确认后全页重绘导致装袋反馈 346.7 ms，且 `innerHTML` 替换后焦点丢失 | `组件误用` | 裁床仓务操作员 | 专用确认改为当前 workflow 局部刷新；仅 `handled-locally` 跳过整页渲染；替换后按结果聚焦新输入框并使用 `preventScroll` | 否 |
 | main 只按按钮 action 跳过整页渲染，工作区标识缺失时可能无反馈 | `组件误用` | 裁床仓务操作员 | update helper 返回精确布尔值；局部失败时 handler 返回普通 `true`，main 继续执行原整页渲染回退 | 否 |
+| 袋扫码异步完成时统一回写两个输入框，可能清除刚输入但尚未处理的任务码 | `点错风险`、`组件误用` | 裁床仓务操作员 | 字段扫描完成只同步当前字段和 live 派生区；主动清空 / 确认保留全量重建；真实浏览器连续 Enter 连跑 3 次 | 否 |
 
 ## 8. 最终结论
 
@@ -181,7 +185,7 @@
 - 任务 1 至任务 5 已通过角色、任务、Web / PDA 差异、信息负荷、文案、UI、防错、失败恢复、局部更新路径和真实浏览器交互性能复核。
 - 袋 / 菲票 / 库位状态防错、仓管导航、纯五入口、确认前车缝任务改扫、手动清空任务 / 袋以及确认成功后清空，均有聚焦自动检查覆盖；真实路由集成约 19–20 秒，留在 release 门禁而不进入日常 `check:cutting:all`。
 - `check:cutting:all` 仍被未改动的 `production-order-overview-view.ts: min-w >= 1600px` 既有基线阻断，不得写成全绿。
-- 任务 5 第二轮对抗发现的 346.7 ms 阻塞已修复；本轮新增七个成功 / 失败与焦点恢复场景，最终完整复跑为 100.4–141.3 ms，均满足 `< 200 ms`。
+- 任务 5 第二轮对抗发现的 346.7 ms 阻塞及快速连续扫码输入竞态均已修复；七个成功 / 失败与焦点恢复场景重复 3 轮共 21 项，最终为 97.1–139.8 ms，均满足 `< 200 ms`。
 - 当前按快速原型范围仅使用本地 Mock，不实现事件账、真实持久化、API 或跨模块一致性；这是明确实施边界，不构成产品设计例外。
 - 本轮代码质量清理不改变页面结构、文案、动作入口、扫码步骤或 Mock 业务结果，无新增设计例外。
 - 特殊工艺交出 / 回仓不是本轮焦点与局部刷新修复范围；保留原渲染路径。既有 `check:special-craft-pda-warehouse-actions` 当前被未注册的 `SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND` 阻断，失败早于本轮涉及的 PDA 聚合分发断言，因此不把它写成已通过或由本轮修复。

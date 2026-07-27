@@ -217,19 +217,31 @@ test('入仓库位错误时局部刷新并聚焦库位', async ({ page }) => {
   await expectNoPageErrors(errors)
 })
 
-test('确认交出成功后局部刷新并聚焦下一轮袋码', async ({ page }) => {
+test('袋码 Enter 后不等待即可立即扫描任务并确认交出', async ({ page }) => {
   const errors = collectPageErrors(page)
   await openPdaWorkflow(
     page,
     '/fcs/pda/cutting/handover/TASK-CUT-PDA-CUT-DONE-0307?action=transfer-bag-handover',
     '[data-pda-transfer-bag-handover-workflow]',
   )
-  await page.locator('[data-pda-cut-handover-field="bagCode"]').fill('TB-CUT-260727-001')
-  await page.locator('[data-pda-cut-handover-field="bagCode"]').press('Enter')
-  await page.locator('[data-pda-cut-handover-field="sewingTaskCode"]').fill('SEW-PO-202603-0102-01')
-  await page.locator('[data-pda-cut-handover-field="sewingTaskCode"]').press('Enter')
+  await page.evaluate(() => {
+    const bagInput = document.querySelector<HTMLInputElement>(
+      '[data-pda-cut-handover-field="bagCode"]',
+    )
+    const taskInput = document.querySelector<HTMLInputElement>(
+      '[data-pda-cut-handover-field="sewingTaskCode"]',
+    )
+    if (!bagInput || !taskInput) throw new Error('缺少整袋交出扫码输入框')
+    bagInput.value = 'TB-CUT-260727-001'
+    bagInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    taskInput.value = 'SEW-PO-202603-0102-01'
+    taskInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+  })
   await expect(page.locator('[data-pda-transfer-bag-handover-workflow]')).toContainText(
     'HiGood 印尼一厂',
+  )
+  await expect(page.locator('[data-pda-cut-handover-field="sewingTaskCode"]')).toHaveValue(
+    'SEW-PO-202603-0102-01',
   )
 
   const result = await confirmWithoutBrowserAutoScroll(page, {

@@ -242,6 +242,20 @@ export function completePdaTransferBagHandoverScan(
         },
       }
     }
+    if (
+      state.sewingTaskNo &&
+      state.productionOrderNo &&
+      bag.productionOrderNo !== state.productionOrderNo
+    ) {
+      return {
+        ok: false,
+        state: {
+          ...state,
+          scanFeedbackMessage: '中转袋与车缝任务生产单不一致，请重新扫描。',
+          resultMessage: '',
+        },
+      }
+    }
     if (state.sewingTaskNo && bag.boundSewingTaskNo && bag.boundSewingTaskNo !== state.sewingTaskNo) {
       return {
         ok: false,
@@ -1433,6 +1447,7 @@ function resolveTransferBagHandoverContainer(node: HTMLElement): HTMLElement | n
 function updateTransferBagHandoverLiveRegion(
   container: HTMLElement | null,
   state: PdaTransferBagHandoverFormState,
+  completedField?: 'bagCode' | 'sewingTaskCode',
 ): void {
   if (!container) return
   const bagInput = container.querySelector<HTMLInputElement>(
@@ -1441,8 +1456,12 @@ function updateTransferBagHandoverLiveRegion(
   const taskInput = container.querySelector<HTMLInputElement>(
     '[data-pda-cut-handover-field="sewingTaskCode"]',
   )
-  if (bagInput) bagInput.value = state.bagCode
-  if (taskInput) taskInput.value = state.sewingTaskCode
+  if (!completedField || completedField === 'bagCode') {
+    if (bagInput) bagInput.value = state.bagCode
+  }
+  if (!completedField || completedField === 'sewingTaskCode') {
+    if (taskInput) taskInput.value = state.sewingTaskCode
+  }
   const liveRegion = container.querySelector<HTMLElement>('[data-pda-transfer-bag-handover-live]')
   if (liveRegion) liveRegion.innerHTML = renderTransferBagHandoverLiveState(state)
 }
@@ -1462,7 +1481,11 @@ function completeTransferBagHandoverFieldScan(
     transferBagHandoverCandidates,
   )
   replaceTransferBagHandoverState(taskId, next.state, executionOrderId, executionOrderNo)
-  updateTransferBagHandoverLiveRegion(resolveTransferBagHandoverContainer(fieldNode), next.state)
+  updateTransferBagHandoverLiveRegion(
+    resolveTransferBagHandoverContainer(fieldNode),
+    next.state,
+    field,
+  )
 }
 
 export function handlePdaCuttingHandoverEvent(
