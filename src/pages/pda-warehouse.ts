@@ -5,6 +5,7 @@ import {
   getMobileWarehouseRuntimeContext,
   renderMobileWarehouseLoginRedirect,
 } from './pda-warehouse-shared'
+import { getPdaCuttingWaitHandoverActions } from './pda-cutting-wait-handover-actions.ts'
 import { renderPdaFrame } from './pda-shell'
 import { escapeHtml, toClassName } from '../utils'
 
@@ -44,12 +45,6 @@ function isCraftWarehouseRuntime(runtime: NonNullable<ReturnType<typeof getMobil
 
 function getWaitHandoverInboundShortcut(runtime: NonNullable<ReturnType<typeof getMobileWarehouseRuntimeContext>>): Pick<WarehouseShortcut, 'title' | 'subtitle'> {
   const factory = getFactoryMasterRecordById(runtime.factoryId)
-  if (isCuttingWarehouseRuntime(runtime)) {
-    return {
-      title: '菲票装袋 / 中转袋入仓',
-      subtitle: '扫中转袋和菲票装袋，再确认库区库位入仓。',
-    }
-  }
   if (isWoolWarehouseRuntime(runtime)) {
     return {
       title: '完工入仓',
@@ -210,29 +205,7 @@ function renderWaitHandoverActions(runtime: NonNullable<ReturnType<typeof getMob
   const inboundShortcut = getWaitHandoverInboundShortcut(runtime)
   let waitHandoverActions: WarehouseShortcut[]
   if (isCuttingWarehouseRuntime(runtime)) {
-    waitHandoverActions = [
-      {
-        title: inboundShortcut.title,
-        subtitle: inboundShortcut.subtitle,
-        route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-handover', runtime, { action: 'inbound' }),
-      },
-      {
-        title: '交出装袋确认',
-        subtitle: '扫中转袋和菲票，确认装袋并形成交出记录。',
-        route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-handover', runtime, { action: 'handover-bagging-confirm' }),
-        ...buildPendingTone(handoverCount),
-      },
-      {
-        title: '特殊工艺回仓',
-        subtitle: '有袋先扫中转袋，再扫菲票和库区库位。',
-        route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-handover', runtime, { action: 'special-craft-return' }),
-      },
-      {
-        title: '菲票打编号',
-        subtitle: '扫菲票查看编号范围，完成后才能入仓暂存和装袋。',
-        route: '/fcs/pda/cutting/fei-ticket-numbering',
-      },
-    ]
+    waitHandoverActions = getPdaCuttingWaitHandoverActions()
   } else if (isCraftWarehouseRuntime(runtime)) {
     waitHandoverActions = [
       {

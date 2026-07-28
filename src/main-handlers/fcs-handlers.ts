@@ -199,6 +199,7 @@ import {
   handleCraftCuttingWaitHandoverEvent,
   handleCraftCuttingWaitProcessEvent,
 } from '../pages/process-factory/cutting/warehouse-hub'
+import { handleCraftCuttingWaitHandoverWebActionsEvent } from '../pages/process-factory/cutting/wait-handover-web-actions'
 import { handleCraftCuttingPickupManagementEvent } from '../pages/process-factory/cutting/pickup-management'
 import { handleCraftCuttingHandoverOrdersEvent } from '../pages/process-factory/cutting/handover-orders'
 import { handleCraftCombinedDyeingEvent, handleCraftDyeingEvent } from '../pages/process-factory/dyeing/events'
@@ -444,6 +445,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     await handleCraftCuttingFeiTicketsEvent(target) ||
     await handleCraftCuttingFeiTicketNumberingEvent(target) ||
     await handleCraftCuttingWaitProcessEvent(target) ||
+    await handleCraftCuttingWaitHandoverWebActionsEvent(target) ||
     await handleCraftCuttingWaitHandoverEvent(target) ||
     await handleCraftCuttingPickupManagementEvent(target, event) ||
     await handleCraftCuttingHandoverOrdersEvent(target) ||

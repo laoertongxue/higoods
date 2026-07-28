@@ -56,6 +56,9 @@ const notifyDetailSource = read('src/pages/pda-notify-detail.ts')
 const warehouseSource = read('src/pages/pda-warehouse.ts')
 const waitProcessSource = read('src/pages/pda-warehouse-wait-process.ts')
 const waitHandoverSource = read('src/pages/pda-warehouse-wait-handover.ts')
+const cuttingWaitHandoverActionsPath = 'src/pages/pda-cutting-wait-handover-actions.ts'
+assert(fs.existsSync(path.join(ROOT, cuttingWaitHandoverActionsPath)), '缺少 PDA 裁床待交出仓统一动作配置')
+const cuttingWaitHandoverActionsSource = read(cuttingWaitHandoverActionsPath)
 const inboundSource = read('src/pages/pda-warehouse-inbound-records.ts')
 const outboundSource = read('src/pages/pda-warehouse-outbound-records.ts')
 const stocktakeSource = read('src/pages/pda-warehouse-stocktake.ts')
@@ -182,10 +185,28 @@ assertContains(routeSource, '/fcs/pda/settlement', '缺少结算路由')
 })
 
 assertContains(warehouseSource, '仓管', '缺少仓管首页')
-;['待加工仓', '待交出仓', '中转仓领料', '加工领料', '回收入仓', '菲票装袋', '交出装袋确认', '查库存', '扫码查询', '库存盘点'].forEach((token) => {
-  assertContains(warehouseSource + sharedWarehouseSource, token, `仓管首页缺少统一仓管入口：${token}`)
+;['待加工仓', '待交出仓', '中转仓领料', '加工领料', '回收入仓', '菲票装袋', '中转袋入仓', '中转袋交出', '特殊工艺回仓', '菲票打编号', '查库存', '扫码查询', '库存盘点'].forEach((token) => {
+  assertContains(warehouseSource + sharedWarehouseSource + cuttingWaitHandoverActionsSource, token, `仓管首页缺少统一仓管入口：${token}`)
 })
-;["title: '待领料'", "title: '扫码入仓'", "title: '领料入仓'", "title: '菲票入仓'", "title: '分拣装袋'", "title: '交出'", "title: '接收回写'"].forEach((token) => {
+assert.deepEqual(
+  [...cuttingWaitHandoverActionsSource.matchAll(/title:\s*'([^']+)'/g)].map((match) => match[1]),
+  ['菲票装袋', '中转袋入仓', '中转袋交出', '特殊工艺回仓', '菲票打编号'],
+  '裁床待交出仓必须正好按指定顺序提供 5 个动作',
+)
+;['desc:', 'subtitle:', 'pendingCount:'].forEach((token) => {
+  assertNotContains(cuttingWaitHandoverActionsSource, token, `裁床待交出仓动作配置不得包含 ${token}`)
+})
+;[
+  '`/fcs/pda/cutting/inbound/${firstTaskId}`',
+  '`/fcs/pda/cutting/inbound/${firstTaskId}?action=inbound-location`',
+  '`/fcs/pda/cutting/handover/${firstTaskId}?action=transfer-bag-handover`',
+].forEach((token) => {
+  assertContains(cuttingWaitHandoverActionsSource, token, `裁床待交出仓前三个动作未直达操作页：${token}`)
+})
+assertNotContains(warehouseSource + waitHandoverSource + cuttingWaitHandoverActionsSource, '菲票装袋 / 中转袋入仓', '裁床待交出仓不得保留合并动作标题')
+assertNotContains(warehouseSource + waitHandoverSource + cuttingWaitHandoverActionsSource, "title: '交出装袋确认'", '裁床待交出仓不得保留“交出装袋确认”入口标题')
+assertNotContains(waitHandoverSource, '待入仓菲票', 'PDA 裁床待交出仓不得展示菲票候选中间页')
+;["title: '待领料'", "title: '扫码入仓'", "title: '菲票入仓'", "title: '分拣装袋'", "title: '交出'", "title: '接收回写'"].forEach((token) => {
   assertNotContains(warehouseSource, token, `仓管首页不得继续展示旧入口：${token}`)
 })
 assert(warehouseCards.length === 6, '仓管视图概览卡片数据必须为 6')
