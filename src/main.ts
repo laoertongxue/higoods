@@ -3,6 +3,10 @@ import { hydrateRealQRCodes } from './components/real-qr'
 import { hydrateIcons, isStandalonePrintPath, renderAppShell, renderSidebar } from './components/shell'
 import { handleProductionObjectOverviewEvent } from './components/production-object-overview'
 import { appStore } from './state/store'
+import { resolvePdaCuttingScanKeydownTarget } from './main-handlers/pda-cutting-keydown-routing'
+import { isPdaPageHandledLocally } from './main-handlers/pda-local-action-result'
+import { handlePdaCuttingInboundEvent } from './pages/pda-cutting-inbound'
+import { handlePdaCuttingHandoverEvent } from './pages/pda-cutting-handover'
 
 type FcsHandlersModule = typeof import('./main-handlers/fcs-handlers')
 type PcsHandlersModule = typeof import('./main-handlers/pcs-handlers')
@@ -652,7 +656,7 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
     }
     if (handlerSystem === 'pda') {
       const pdaHandlers = await getPdaHandlersModule()
-      return pdaHandlers.dispatchPdaPageEvent(eventTarget)
+      return pdaHandlers.dispatchPdaPageEvent(eventTarget, event)
     }
 
     const [fcsHandlers, pcsHandlers, pdaHandlers] = await Promise.all([
@@ -669,7 +673,7 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
       return true
     }
 
-    return pdaHandlers.dispatchPdaPageEvent(eventTarget)
+    return pdaHandlers.dispatchPdaPageEvent(eventTarget, event)
   } catch (error) {
     if (reloadForDynamicModuleLoadError(error, '页面事件处理器')) return false
     console.error('页面事件处理器加载失败，已降级为不处理', error)
@@ -1766,8 +1770,9 @@ root.addEventListener('click', async (event) => {
   const pdaCutInboundActionNode = target.closest<HTMLElement>('[data-pda-cut-inbound-action]')
   if (pdaCutInboundActionNode) {
     event.preventDefault()
-    const pdaCuttingInboundPage = await import('./pages/pda-cutting-inbound')
-    if (pdaCuttingInboundPage.handlePdaCuttingInboundEvent(pdaCutInboundActionNode)) {
+    const inboundResult = handlePdaCuttingInboundEvent(pdaCutInboundActionNode)
+    if (inboundResult) {
+      if (isPdaPageHandledLocally(inboundResult)) return
       await renderWithFocusRestore(focusSnapshot)
       return
     }
@@ -1776,8 +1781,11 @@ root.addEventListener('click', async (event) => {
   const pdaCutHandoverActionNode = target.closest<HTMLElement>('[data-pda-cut-handover-action]')
   if (pdaCutHandoverActionNode) {
     event.preventDefault()
-    const pdaCuttingHandoverPage = await import('./pages/pda-cutting-handover')
-    if (pdaCuttingHandoverPage.handlePdaCuttingHandoverEvent(pdaCutHandoverActionNode)) {
+    const handoverResult = handlePdaCuttingHandoverEvent(
+      pdaCutHandoverActionNode,
+    )
+    if (handoverResult) {
+      if (isPdaPageHandledLocally(handoverResult)) return
       await renderWithFocusRestore(focusSnapshot)
       return
     }
@@ -1865,6 +1873,11 @@ root.addEventListener('input', async (event) => {
   if (productionObjectActionNode && handleProductionObjectOverviewEvent(productionObjectActionNode)) {
     return
   }
+
+  const pdaCuttingInputResult =
+    handlePdaCuttingInboundEvent(target, event) ||
+    handlePdaCuttingHandoverEvent(target, event)
+  if (pdaCuttingInputResult) return
 
   if (await dispatchPcsInputEvent(target)) {
     if (shouldSkipInputRerender(target)) return
@@ -1984,6 +1997,15 @@ root.addEventListener('submit', async (event) => {
 })
 
 document.addEventListener('keydown', async (event) => {
+  const target = resolveEventElementTarget(event.target)
+  const cuttingScanTarget = resolvePdaCuttingScanKeydownTarget<HTMLElement>(target, event.key)
+  if (cuttingScanTarget) {
+    const scanResult =
+      handlePdaCuttingInboundEvent(cuttingScanTarget, event) ||
+      handlePdaCuttingHandoverEvent(cuttingScanTarget, event)
+    if (scanResult) event.preventDefault()
+    return
+  }
   if (event.key !== 'Escape') return
 
   const shouldUseScopedRender = isTechPackPageMounted()
