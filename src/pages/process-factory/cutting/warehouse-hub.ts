@@ -2213,9 +2213,9 @@ function renderWaitHandoverTabs(activeTab: WaitHandoverTabKey): string {
 function renderWaitHandoverHeaderActions(firstTaskId: string): string {
   return `
     <div class="flex flex-nowrap items-center gap-2 overflow-x-auto">
-      <button type="button" class="h-10 shrink-0 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-wait-handover-action="open-bagging">菲票装袋</button>
-      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-inbound">中转袋入仓</button>
-      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-handover-bagging-confirm">交出装袋确认</button>
+      <button type="button" class="h-10 shrink-0 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-wait-handover-web-action="open-bagging">菲票装袋</button>
+      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-web-action="open-inbound">中转袋入仓</button>
+      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-web-action="open-handover">中转袋交出</button>
       <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-special-craft-return">特殊工艺回仓</button>
       <button type="button" class="h-10 shrink-0 rounded-md border border-blue-200 bg-blue-50 px-3 text-sm text-blue-700 hover:bg-blue-100" data-nav="/fcs/pda/cutting/handover/${escapeHtml(firstTaskId)}?action=special-craft-return">PDA 现场扫码</button>
     </div>

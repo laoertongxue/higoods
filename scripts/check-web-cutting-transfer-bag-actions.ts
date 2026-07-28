@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict'
-import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
@@ -9,23 +8,31 @@ const rendererSource = readFileSync(`${ROOT}/src/router/route-renderers-fcs.ts`,
 const routesSource = readFileSync(`${ROOT}/src/router/routes-fcs.ts`, 'utf8')
 const handlersSource = readFileSync(`${ROOT}/src/main-handlers/fcs-handlers.ts`, 'utf8')
 
-assert.equal(
-  createHash('sha256').update(warehouseSource).digest('hex'),
-  '46d59b0a5bb204b4cd1f5179c361a40d236e6bb2083729f16b4d354dff687602',
-  '历史仓库列表页必须与 00a3a036 基线完全一致',
-)
 assert(
-  rendererSource.includes("() => import('../pages/process-factory/cutting/wait-handover-web-actions')"),
-  '待交出仓路由必须改为独立 Web 操作页',
+  rendererSource.includes("() => import('../pages/process-factory/cutting/warehouse-hub')"),
+  '待交出仓路由必须保留原仓库工作台',
 )
 assert(
   routesSource.includes("'/fcs/craft/cutting/warehouse-management/wait-handover': () => renderCraftCuttingWarehouseManagementWaitHandoverPage()"),
-  '独立 Web 操作页必须保持既有菜单路由可达',
+  '待交出仓工作台必须保持既有菜单路由可达',
 )
 assert(
   handlersSource.includes('handleCraftCuttingWaitHandoverWebActionsEvent'),
-  '全局事件入口必须接入独立 Web 操作页处理器',
+  '全局事件入口必须接入 Web 弹窗处理器',
 )
+for (const text of ['库存明细', '特种工艺回收入仓', '库区库位']) {
+  assert(warehouseSource.includes(text), `待交出仓工作台不得丢失原功能：${text}`)
+}
+for (const [action, label] of [
+  ['bagging', '菲票装袋'],
+  ['inbound', '中转袋入仓'],
+  ['handover', '中转袋交出'],
+] as const) {
+  assert(
+    warehouseSource.includes(`data-wait-handover-web-action="open-${action}">${label}</button>`),
+    `${label}必须从待交出仓工作台打开弹窗`,
+  )
+}
 
 const pageModule = await import('../src/pages/process-factory/cutting/wait-handover-web-actions.ts')
 type Workflow = typeof pageModule
@@ -37,9 +44,9 @@ for (const exportName of [
   'resolveWaitHandoverWebHandoverContext',
   'submitWaitHandoverWebActionState',
   'handleWaitHandoverWebCommand',
-  'renderCraftCuttingWarehouseManagementWaitHandoverPage',
+  'renderWaitHandoverWebActionDialog',
 ]) {
-  assert.equal(typeof pageModule[exportName as keyof Workflow], 'function', `独立 Web 操作页必须导出 ${exportName}`)
+  assert.equal(typeof pageModule[exportName as keyof Workflow], 'function', `Web 弹窗模块必须导出 ${exportName}`)
 }
 
 const candidates: Parameters<typeof workflow.addWaitHandoverWebTicket>[2] = {
@@ -170,12 +177,31 @@ const duplicateHandover = workflow.handleWaitHandoverWebCommand(
 )
 assert.equal(duplicateHandover.ok, false, '已交出袋必须阻断重复交出')
 
-const pageHtml = workflow.renderCraftCuttingWarehouseManagementWaitHandoverPage()
-for (const text of ['菲票装袋', '中转袋入仓', '中转袋交出', '确认装袋']) {
-  assert(pageHtml.includes(text), `独立 Web 操作页缺少：${text}`)
+for (const [action, title, submitText, localActionNames] of [
+  ['bagging', '菲票装袋', '确认装袋', ['add-ticket', 'submit-bagging']],
+  ['inbound', '中转袋入仓', '确认入仓', ['submit-inbound']],
+  ['handover', '中转袋交出', '确认整袋交出', ['resolve-handover', 'submit-handover']],
+] as const) {
+  const dialogHtml = workflow.renderWaitHandoverWebActionDialog(action)
+  assert(dialogHtml.includes(`data-wait-handover-modal="${action}"`), `${title}必须渲染为弹窗`)
+  assert(dialogHtml.includes(title), `弹窗缺少标题：${title}`)
+  assert(dialogHtml.includes(submitText), `弹窗缺少主动作：${submitText}`)
+  const localRefreshButtonBlocks = Array.from(
+    dialogHtml.matchAll(
+      /<span class="contents" data-skip-page-rerender="true">([\s\S]*?)<\/span>/g,
+    ),
+    (match) => match[1],
+  )
+  for (const localActionName of localActionNames) {
+    assert(
+      localRefreshButtonBlocks.some((block) =>
+        block.includes(`data-wait-handover-web-action="${localActionName}"`),
+      ),
+      `${title}业务按钮 ${localActionName} 必须显式跳过整页重绘`,
+    )
+  }
+  assert(!dialogHtml.includes('data-wait-handover-web-selector'), `${title}弹窗不得包含独立页面操作切换器`)
+  assert(!dialogHtml.includes('<table'), `${title}弹窗不得伪装为列表页`)
 }
-assert(pageHtml.includes('data-skip-page-rerender="true"'), '高频输入必须跳过整页重绘')
-assert(!pageHtml.includes('confirmSelection='), '独立操作页不得接收历史列表选择值')
-assert(!pageHtml.includes('<table'), '独立操作页不得伪装为列表页')
 
-console.log('✅ Web 裁床中转袋独立操作页检查通过')
+console.log('✅ Web 裁床待交出仓工作台与中转袋弹窗检查通过')

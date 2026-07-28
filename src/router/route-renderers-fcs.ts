@@ -439,7 +439,7 @@ export const renderCraftCuttingWarehouseManagementWaitProcessPage = createAsyncR
   'renderCraftCuttingWarehouseManagementWaitProcessPage',
 )
 export const renderCraftCuttingWarehouseManagementWaitHandoverPage = createAsyncRenderer(
-  () => import('../pages/process-factory/cutting/wait-handover-web-actions'),
+  () => import('../pages/process-factory/cutting/warehouse-hub'),
   'renderCraftCuttingWarehouseManagementWaitHandoverPage',
 )
 export const renderCraftPrintingDashboardsPage = createAsyncRenderer(

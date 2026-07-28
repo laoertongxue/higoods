@@ -211,6 +211,7 @@
     "test:cutting:e2e:headed": "playwright test tests/cutting-*.spec.ts --headed",
     "test:cutting-marker-spreading-editor-actions:e2e": "playwright test tests/cutting-marker-spreading-editor-actions.spec.ts",
     "test:cutting-transfer-bag-confirm-local-refresh:e2e": "playwright test tests/cutting-transfer-bag-confirm-local-refresh.spec.ts",
+    "test:cutting-wait-handover-web-modal:e2e": "playwright test tests/cutting-wait-handover-web-modal.spec.ts",
     "test:pda-receive-mock-deadline-status:e2e": "playwright test tests/pda-receive-mock-deadline-status.spec.ts",
     "test:pda-task-receive-pending-accept:e2e": "playwright test tests/pda-task-receive-pending-accept.spec.ts",
     "test:pda-handover-pickup-list-and-detail:e2e": "playwright test tests/pda-handover-pickup-list-and-detail.spec.ts",

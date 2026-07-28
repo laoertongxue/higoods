@@ -1,7 +1,6 @@
 // @page-pattern: form
 import { renderButton } from '../../../components/ui/button.ts'
 import { escapeHtml } from '../../../utils.ts'
-import { getCanonicalCuttingMeta, renderCuttingPageHeader } from './meta.ts'
 
 export type WaitHandoverWebAction = 'bagging' | 'inbound' | 'handover'
 
@@ -122,6 +121,7 @@ function cloneCandidates(candidates: WaitHandoverWebCandidates): WaitHandoverWeb
 
 let runtimeCandidates = cloneCandidates(initialCandidates)
 let activeAction: WaitHandoverWebAction = 'bagging'
+const WAIT_HANDOVER_WEB_MODAL_ID = 'cutting-wait-handover-focused-action-modal'
 const runtimeStates: Record<WaitHandoverWebAction, WaitHandoverWebFormState> = {
   bagging: createWaitHandoverWebFormState(),
   inbound: createWaitHandoverWebFormState(),
@@ -352,11 +352,15 @@ function renderFeedback(state: WaitHandoverWebFormState): string {
 }
 
 function actionButton(label: string, action: string, variant: 'primary' | 'secondary' = 'secondary'): string {
-  return renderButton({
-    label,
-    variant,
-    action: { prefix: 'wait-handover-web', action },
-  })
+  return `
+    <span class="contents" data-skip-page-rerender="true">
+      ${renderButton({
+        label,
+        variant,
+        action: { prefix: 'wait-handover-web', action },
+      })}
+    </span>
+  `
 }
 
 export function renderWaitHandoverWebActionPanel(
@@ -367,9 +371,6 @@ export function renderWaitHandoverWebActionPanel(
   if (action === 'bagging') {
     return `
       <div class="space-y-5">
-        <div>
-          <h2 class="text-lg font-semibold text-slate-900">菲票装袋</h2>
-        </div>
         <div class="grid gap-4 lg:grid-cols-2">
           ${renderField('中转袋编号', 'bagCode', state.bagCode, '例如 WEB-BAG-001')}
           <div class="space-y-1.5">
@@ -400,7 +401,6 @@ export function renderWaitHandoverWebActionPanel(
   if (action === 'inbound') {
     return `
       <div class="space-y-5">
-        <h2 class="text-lg font-semibold text-slate-900">中转袋入仓</h2>
         <div class="grid gap-4 lg:grid-cols-2">
           ${renderField('中转袋编号', 'bagCode', state.bagCode, '例如 WEB-BAG-002')}
           ${renderField('库区库位', 'locationCode', state.locationCode, '例如 裁床仓 A-01')}
@@ -412,7 +412,6 @@ export function renderWaitHandoverWebActionPanel(
   }
   return `
     <div class="space-y-5">
-      <h2 class="text-lg font-semibold text-slate-900">中转袋交出</h2>
       <div class="grid gap-4 lg:grid-cols-2">
         ${renderField('中转袋编号', 'bagCode', state.bagCode, '例如 WEB-BAG-003')}
         <div class="space-y-1.5">
@@ -431,36 +430,56 @@ export function renderWaitHandoverWebActionPanel(
   `
 }
 
-function renderActionSelector(): string {
-  const actions: Array<{ key: WaitHandoverWebAction; label: string }> = [
-    { key: 'bagging', label: '菲票装袋' },
-    { key: 'inbound', label: '中转袋入仓' },
-    { key: 'handover', label: '中转袋交出' },
-  ]
-  return actions
-    .map((item) =>
-      renderButton({
-        label: item.label,
-        variant: item.key === activeAction ? 'primary' : 'secondary',
-        action: { prefix: 'wait-handover-web', action: `switch-${item.key}` },
-      }),
-    )
-    .join('')
-}
-
-export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string {
-  const meta = getCanonicalCuttingMeta('', 'warehouse-management-wait-handover')
+export function renderWaitHandoverWebActionDialog(
+  action: WaitHandoverWebAction,
+  state = runtimeStates[action],
+): string {
+  const title =
+    action === 'bagging' ? '菲票装袋' : action === 'inbound' ? '中转袋入仓' : '中转袋交出'
   return `
-    <div class="space-y-5">
-      ${renderCuttingPageHeader(meta)}
-      <section class="rounded-lg border bg-white p-4 shadow-sm">
-        <div class="flex flex-wrap gap-2" data-wait-handover-web-selector>${renderActionSelector()}</div>
-      </section>
-      <section class="rounded-lg border bg-white p-5 shadow-sm" data-wait-handover-web-workspace>
-        ${renderWaitHandoverWebActionPanel(activeAction)}
+    <div
+      id="${WAIT_HANDOVER_WEB_MODAL_ID}"
+      class="fixed inset-0 z-[130]"
+      data-wait-handover-modal="${action}"
+    >
+      <button
+        type="button"
+        class="absolute inset-0 bg-black/45"
+        aria-label="关闭"
+        data-skip-page-rerender="true"
+        data-wait-handover-web-action="close-dialog"
+      ></button>
+      <section class="absolute left-1/2 top-1/2 flex max-h-[88vh] w-[min(720px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border bg-white shadow-2xl">
+        <header class="flex items-center justify-between border-b px-5 py-4">
+          <h2 class="text-lg font-semibold text-slate-900">${escapeHtml(title)}</h2>
+          <button
+            type="button"
+            class="rounded-md border px-3 py-1.5 text-sm hover:bg-slate-50"
+            data-skip-page-rerender="true"
+            data-wait-handover-web-action="close-dialog"
+          >关闭</button>
+        </header>
+        <div class="overflow-y-auto p-5" data-wait-handover-web-workspace>
+          ${renderWaitHandoverWebActionPanel(action, state)}
+        </div>
       </section>
     </div>
   `
+}
+
+function removeWaitHandoverWebActionDialog(): void {
+  if (typeof document === 'undefined') return
+  document.getElementById(WAIT_HANDOVER_WEB_MODAL_ID)?.remove()
+}
+
+function openWaitHandoverWebActionDialog(action: WaitHandoverWebAction): void {
+  if (typeof document === 'undefined') return
+  activeAction = action
+  removeWaitHandoverWebActionDialog()
+  ;(document.getElementById('app') || document.body).insertAdjacentHTML(
+    'beforeend',
+    renderWaitHandoverWebActionDialog(action),
+  )
 }
 
 function readRuntimeState(action: WaitHandoverWebAction): WaitHandoverWebFormState {
@@ -478,9 +497,7 @@ function readRuntimeState(action: WaitHandoverWebAction): WaitHandoverWebFormSta
 }
 
 function refreshWebWorkspace(): void {
-  const selector = document.querySelector<HTMLElement>('[data-wait-handover-web-selector]')
   const workspace = document.querySelector<HTMLElement>('[data-wait-handover-web-workspace]')
-  if (selector) selector.innerHTML = renderActionSelector()
   if (workspace) workspace.innerHTML = renderWaitHandoverWebActionPanel(activeAction)
 }
 
@@ -489,9 +506,18 @@ export function handleCraftCuttingWaitHandoverWebActionsEvent(target: HTMLElemen
   const actionName = trigger?.dataset.waitHandoverWebAction
   if (!actionName) return false
 
-  if (actionName.startsWith('switch-')) {
-    activeAction = actionName.replace('switch-', '') as WaitHandoverWebAction
-    refreshWebWorkspace()
+  if (
+    actionName === 'open-bagging' ||
+    actionName === 'open-inbound' ||
+    actionName === 'open-handover'
+  ) {
+    openWaitHandoverWebActionDialog(
+      actionName.replace('open-', '') as WaitHandoverWebAction,
+    )
+    return true
+  }
+  if (actionName === 'close-dialog') {
+    removeWaitHandoverWebActionDialog()
     return true
   }
 
