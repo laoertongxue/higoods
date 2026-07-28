@@ -1798,7 +1798,11 @@ function filterWaitHandoverInboundTempBags(
   })
 }
 
-function renderWaitHandoverInboundTempUseTable(bags: InboundTempBag[], emptyText = '暂无菲票装袋记录。'): string {
+function renderWaitHandoverBagTicketDetailButton(bagCode: string): string {
+  return `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-bag-ticket-detail" data-wait-handover-selection="${escapeHtml(bagCode)}">查看详情</button>`
+}
+
+function renderWaitHandoverBaggingRecordTable(bags: InboundTempBag[], emptyText = '暂无菲票装袋记录。'): string {
   if (!bags.length) {
     return `<div class="rounded-lg border border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">${escapeHtml(emptyText)}</div>`
   }
@@ -1810,10 +1814,11 @@ function renderWaitHandoverInboundTempUseTable(bags: InboundTempBag[], emptyText
             <tr>
               <th class="px-4 py-3 text-left font-medium">中转袋</th>
               <th class="px-4 py-3 text-left font-medium">中转袋二维码</th>
-              <th class="px-4 py-3 text-left font-medium">入仓信息</th>
-              <th class="px-4 py-3 text-left font-medium">装入内容</th>
-              <th class="px-4 py-3 text-left font-medium">混装情况</th>
-              <th class="px-4 py-3 text-left font-medium">后续状态</th>
+              <th class="px-4 py-3 text-left font-medium">装袋时间</th>
+              <th class="px-4 py-3 text-left font-medium">装袋人</th>
+              <th class="px-4 py-3 text-left font-medium">菲票数量</th>
+              <th class="px-4 py-3 text-left font-medium">生产单 / 裁片单</th>
+              <th class="px-4 py-3 text-left font-medium">裁片数量</th>
               <th class="px-4 py-3 text-left font-medium">操作</th>
             </tr>
           </thead>
@@ -1831,30 +1836,68 @@ function renderWaitHandoverInboundTempUseTable(bags: InboundTempBag[], emptyText
                   </td>
                   <td class="px-4 py-3 align-top">${renderWaitHandoverTransferBagQrCell(bag.bagCode)}</td>
                   <td class="px-4 py-3 align-top text-xs text-muted-foreground">
-                    <div><span class="font-medium text-foreground">${escapeHtml(bag.inboundAt || '待入仓')}</span></div>
-                    <div class="mt-1">入仓人：${escapeHtml(bag.inboundBy || '裁床仓管')}</div>
-                    <div class="mt-1">${escapeHtml(`${bag.warehouseName || '裁床待交出仓'} / ${bag.warehouseArea || '待确认库区'} / ${bag.locationCode || '待确认库位'}`)}</div>
+                    <span class="font-medium text-foreground">${escapeHtml(bag.inboundAt || '待记录')}</span>
                   </td>
                   <td class="px-4 py-3 align-top text-xs text-muted-foreground">
-                    <div><span class="font-medium text-foreground">${escapeHtml(String(bag.containedFeiTickets.length))}</span> 张菲票</div>
-                    <div class="mt-1"><span class="font-medium text-foreground">${escapeHtml(formatPieceQty(bag.totalPieceQty))}</span></div>
-                    <div class="mt-1">${escapeHtml(`${productionOrderCount} 个生产单 / ${cutOrderCount} 张裁片单`)}</div>
+                    ${escapeHtml(bag.inboundBy || '裁床装袋员')}
                   </td>
-                  <td class="px-4 py-3 align-top">
-                    ${renderWaitHandoverPill(bag.mixedFlag ? '混装' : '单一来源', bag.mixedFlag ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-slate-100 text-slate-700 border border-slate-200')}
-                    <div class="mt-2 max-w-[220px] text-xs text-muted-foreground">${escapeHtml(bag.mixedSummary || '按袋内菲票明细追踪')}</div>
-                  </td>
-                  <td class="px-4 py-3 align-top text-xs text-muted-foreground">${escapeHtml(bag.nextSortingStatus || '暂存中，等待二次分拣或转出')}</td>
+                  <td class="px-4 py-3 align-top"><span class="font-medium text-foreground">${escapeHtml(String(bag.containedFeiTickets.length))}</span> 张</td>
+                  <td class="px-4 py-3 align-top text-xs text-muted-foreground">${escapeHtml(`${productionOrderCount} 个生产单 / ${cutOrderCount} 张裁片单`)}</td>
+                  <td class="px-4 py-3 align-top"><span class="font-medium text-foreground">${escapeHtml(formatPieceQty(bag.totalPieceQty))}</span></td>
                   <td class="px-4 py-3 align-top">
                     <div class="flex flex-wrap gap-2">
-                      <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(buildHubTabHref('warehouse-management-wait-handover', 'inventory'))}">查看菲票</button>
-                      <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(buildHubTabHref('warehouse-management-wait-handover', 'inventory'))}">查看库存流水</button>
+                      ${renderWaitHandoverBagTicketDetailButton(bag.bagCode)}
                       <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-inbound" data-wait-handover-selection="${escapeHtml(bag.bagCode)}">继续装袋</button>
                     </div>
                   </td>
                 </tr>
               `
             }).join('')}
+          </tbody>
+        </table>
+      `)}
+    </section>
+  `
+}
+
+function renderWaitHandoverInboundLocationTable(bags: InboundTempBag[], emptyText = '暂无中转袋入仓记录。'): string {
+  if (!bags.length) {
+    return `<div class="rounded-lg border border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">${escapeHtml(emptyText)}</div>`
+  }
+  return `
+    <section class="rounded-lg border bg-card">
+      ${renderStickyTableScroller(`
+        <table class="min-w-[1040px] w-full text-sm">
+          <thead class="sticky top-0 z-10 bg-muted/95 text-xs text-muted-foreground">
+            <tr>
+              <th class="px-4 py-3 text-left font-medium">中转袋</th>
+              <th class="px-4 py-3 text-left font-medium">中转袋二维码</th>
+              <th class="px-4 py-3 text-left font-medium">入仓时间</th>
+              <th class="px-4 py-3 text-left font-medium">入仓人</th>
+              <th class="px-4 py-3 text-left font-medium">待交出仓</th>
+              <th class="px-4 py-3 text-left font-medium">库区</th>
+              <th class="px-4 py-3 text-left font-medium">库位</th>
+              <th class="px-4 py-3 text-left font-medium">菲票 / 裁片</th>
+              <th class="px-4 py-3 text-left font-medium">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${bags.map((bag) => `
+              <tr class="border-b last:border-b-0">
+                <td class="px-4 py-3 align-top">
+                  <div class="font-medium text-blue-700">${escapeHtml(bag.bagCode)}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(bag.tempBagUseId)}</div>
+                </td>
+                <td class="px-4 py-3 align-top">${renderWaitHandoverTransferBagQrCell(bag.bagCode)}</td>
+                <td class="px-4 py-3 align-top text-xs text-muted-foreground"><span class="font-medium text-foreground">${escapeHtml(bag.inboundAt || '待记录')}</span></td>
+                <td class="px-4 py-3 align-top text-xs text-muted-foreground">${escapeHtml(bag.inboundBy || '裁床仓管')}</td>
+                <td class="px-4 py-3 align-top text-xs text-muted-foreground">${escapeHtml(bag.warehouseName || '裁床待交出仓')}</td>
+                <td class="px-4 py-3 align-top text-xs text-muted-foreground">${escapeHtml(bag.warehouseArea || '待确认库区')}</td>
+                <td class="px-4 py-3 align-top text-xs text-muted-foreground">${escapeHtml(bag.locationCode || '待确认库位')}</td>
+                <td class="px-4 py-3 align-top text-xs text-muted-foreground">${escapeHtml(`${bag.containedFeiTickets.length} 张 / ${formatPieceQty(bag.totalPieceQty)}`)}</td>
+                <td class="px-4 py-3 align-top"><div class="flex flex-wrap gap-2">${renderWaitHandoverBagTicketDetailButton(bag.bagCode)}</div></td>
+              </tr>
+            `).join('')}
           </tbody>
         </table>
       `)}
@@ -2245,12 +2288,18 @@ function readWaitHandoverWebField(dialog: ParentNode, field: string): string {
   return dialog.querySelector<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(`[data-wait-handover-field="${field}"]`)?.value.trim() || ''
 }
 
-function buildWaitHandoverWebInventoryRecords(): InboundTempBagInventoryRecord[] {
+function buildWaitHandoverWebInboundTempBags(): InboundTempBag[] {
   const generatedTickets = listSpreadingResultGeneratedFeiTickets()
   const runtimeEvents = listRuntimeWaitHandoverEvents()
   const runtimeInboundTempBags = buildRuntimeInboundTempBagsFromEvents(runtimeEvents, generatedTickets)
   const fallbackInboundTempBags = buildInboundTempBagsFromTransferBagViewModel(buildTransferBagsProjection().viewModel)
-  const inboundTempBags = runtimeInboundTempBags.length ? runtimeInboundTempBags : fallbackInboundTempBags
+  return runtimeInboundTempBags.length ? runtimeInboundTempBags : fallbackInboundTempBags
+}
+
+function buildWaitHandoverWebInventoryRecords(): InboundTempBagInventoryRecord[] {
+  const generatedTickets = listSpreadingResultGeneratedFeiTickets()
+  const runtimeEvents = listRuntimeWaitHandoverEvents()
+  const inboundTempBags = buildWaitHandoverWebInboundTempBags()
   const inboundInventoryRecords = buildInboundTempBagInventoryRecords(inboundTempBags)
   const specialCraftReturnRecords = buildRuntimeSpecialCraftReturnInventoryRecordsFromEvents(runtimeEvents, generatedTickets)
   return [...inboundInventoryRecords, ...specialCraftReturnRecords]
@@ -2793,6 +2842,61 @@ function openWaitHandoverWebActionDialog(action: WaitHandoverWebAction, selected
   ;(document.getElementById('app') || document.body).insertAdjacentHTML('beforeend', renderWaitHandoverWebActionDialog(action, selectedValue))
 }
 
+function renderWaitHandoverBagTicketDetailDialog(bagCode: string): string {
+  const bag = buildWaitHandoverWebInboundTempBags().find((item) => item.bagCode === bagCode)
+  const tickets = bag?.containedFeiTickets || []
+  return `
+    <div id="${WAIT_HANDOVER_WEB_MODAL_ID}" class="fixed inset-0 z-[130]" data-wait-handover-modal="bag-ticket-detail">
+      <button type="button" class="absolute inset-0 bg-black/45" data-skip-page-rerender="true" data-wait-handover-action="close-dialog" aria-label="关闭"></button>
+      <section class="absolute left-1/2 top-1/2 flex max-h-[88vh] w-[min(920px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border bg-background shadow-2xl">
+        <header class="flex items-center justify-between border-b px-5 py-4">
+          <div>
+            <h2 class="text-base font-semibold text-foreground">中转袋菲票详情</h2>
+            <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(bagCode)} · ${tickets.length} 张菲票 · ${escapeHtml(formatPieceQty(bag?.totalPieceQty || 0))}</p>
+          </div>
+          <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="close-dialog">关闭</button>
+        </header>
+        <div class="overflow-y-auto p-5">
+          ${!bag
+            ? '<div class="rounded-lg border border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">未找到该中转袋。</div>'
+            : renderStickyTableScroller(`
+              <table class="min-w-[980px] w-full text-sm">
+                <thead class="sticky top-0 z-10 bg-muted/95 text-xs text-muted-foreground">
+                  <tr>
+                    ${['菲票号', '生产单', '裁片单', '颜色', '尺码', '部位', '数量', '特殊工艺', '承接工厂']
+                      .map((header) => `<th class="px-3 py-2 text-left font-medium">${escapeHtml(header)}</th>`)
+                      .join('')}
+                  </tr>
+                </thead>
+                <tbody>
+                  ${tickets.map((ticket) => `
+                    <tr class="border-b last:border-b-0">
+                      <td class="px-3 py-2 align-top font-medium text-blue-700">${escapeHtml(ticket.feiTicketNo)}</td>
+                      <td class="px-3 py-2 align-top">${escapeHtml(ticket.productionOrderNo)}</td>
+                      <td class="px-3 py-2 align-top">${escapeHtml(ticket.cutOrderNo)}</td>
+                      <td class="px-3 py-2 align-top">${escapeHtml(ticket.color)}</td>
+                      <td class="px-3 py-2 align-top">${escapeHtml(ticket.size)}</td>
+                      <td class="px-3 py-2 align-top">${escapeHtml(ticket.partName)}</td>
+                      <td class="px-3 py-2 align-top">${escapeHtml(formatPieceQty(ticket.pieceQty))}</td>
+                      <td class="px-3 py-2 align-top">${escapeHtml(ticket.specialCraftDisplay || '无')}</td>
+                      <td class="px-3 py-2 align-top">${escapeHtml(ticket.receiverFactoryDisplay || '无')}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            `)}
+        </div>
+      </section>
+    </div>
+  `
+}
+
+function openWaitHandoverBagTicketDetailDialog(bagCode: string): void {
+  if (typeof document === 'undefined') return
+  removeWaitHandoverWebActionDialog()
+  ;(document.getElementById('app') || document.body).insertAdjacentHTML('beforeend', renderWaitHandoverBagTicketDetailDialog(bagCode))
+}
+
 function findWaitHandoverPickingSelection(value: string): {
   task: HandoverPickingTaskProjection['tasks'][number]
   item: HandoverPickingTaskProjection['tasks'][number]['allocatedInventoryItems'][number]
@@ -3073,6 +3177,10 @@ export function handleCraftCuttingWaitHandoverEvent(target: HTMLElement): boolea
   if (!action) return false
   if (action === 'close-dialog') {
     removeWaitHandoverWebActionDialog()
+    return true
+  }
+  if (action === 'open-bag-ticket-detail') {
+    openWaitHandoverBagTicketDetailDialog(actionNode?.dataset.waitHandoverSelection || '')
     return true
   }
   if (action === 'open-bagging' || action === 'open-inbound' || action === 'open-handover-bagging-confirm' || action === 'open-handover' || action === 'open-special-craft-return') {
@@ -5320,12 +5428,12 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
   const inboundBaggingContent = `<section class="space-y-4">
     ${renderWaitHandoverFilterPanel({ ...filterPanelOptions, tabKey: 'bagging' })}
     ${waitHandoverStats}
-    ${renderWaitHandoverInboundTempUseTable(inboundTempUseRows)}
+    ${renderWaitHandoverBaggingRecordTable(inboundTempUseRows)}
   </section>`
   const inboundContent = `<section class="space-y-4">
     ${renderWaitHandoverFilterPanel({ ...filterPanelOptions, tabKey: 'inbound' })}
     ${waitHandoverStats}
-    ${renderWaitHandoverInboundTempUseTable(inboundTempUseRows)}
+    ${renderWaitHandoverInboundLocationTable(inboundTempUseRows)}
   </section>`
   const handoverBaggingContent = `<section class="space-y-4">
     ${renderWaitHandoverFilterPanel({ ...filterPanelOptions, tabKey: 'handover-bagging' })}
@@ -5368,7 +5476,7 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
     activeTab === 'bagging'
       ? inboundBaggingContent
       : activeTab === 'inbound'
-        ? inboundBaggingContent
+        ? inboundContent
         : activeTab === 'handover-bagging'
           ? handoverBaggingContent
         : activeTab === 'special-craft-return'

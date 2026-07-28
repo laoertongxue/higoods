@@ -241,6 +241,13 @@ assertContains(hub, 'submitWaitHandoverBagging', 'WAREHOUSE_HUB 必须有独立�
 assertContains(hub, 'appendWaitHandoverBaggingEvent', 'WAREHOUSE_HUB 菲票装袋必须写入菲票装袋事件')
 assertMatch(hub, /function submitWaitHandoverBagging[\s\S]*appendWaitHandoverBaggingEvent/, 'WAREHOUSE_HUB 菲票装袋提交函数必须调用 appendWaitHandoverBaggingEvent')
 assertMatch(hub, /function submitWaitHandoverInbound[\s\S]*appendWaitHandoverInboundEvent/, 'WAREHOUSE_HUB 中转袋入仓提交函数必须调用 appendWaitHandoverInboundEvent')
+assertContains(hub, 'renderWaitHandoverBaggingRecordTable', 'WAREHOUSE_HUB 菲票装袋 tab 必须使用独立装袋记录表')
+assertContains(hub, 'renderWaitHandoverInboundLocationTable', 'WAREHOUSE_HUB 中转袋入仓 tab 必须使用独立入仓库位表')
+assertMatch(hub, /activeTab === 'inbound'[\s\S]*\? inboundContent/, 'WAREHOUSE_HUB 中转袋入仓 tab 不得继续复用菲票装袋内容')
+assertNotContains(hub, '混装情况', 'WAREHOUSE_HUB 菲票装袋/中转袋入仓列表不得展示混装情况')
+assertNotContains(hub, '后续状态', 'WAREHOUSE_HUB 菲票装袋/中转袋入仓列表不得展示后续状态')
+assertContains(hub, 'open-bag-ticket-detail', 'WAREHOUSE_HUB 两个 tab 必须提供中转袋菲票详情弹窗动作')
+assertContains(hub, 'renderWaitHandoverBagTicketDetailDialog', 'WAREHOUSE_HUB 必须有中转袋菲票明细弹窗')
 
 // 2.4 中转袋弹窗标题
 const tHandlers = read(T_BAGS_HANDLERS)
