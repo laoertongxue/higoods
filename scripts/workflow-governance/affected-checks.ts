@@ -81,12 +81,22 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
       continue
     }
 
+    if (path === 'package.json' || path === 'package-lock.json') {
+      add(fullChecks, 'npm run build')
+      escalationReasons.add('项目依赖或命令变化需要构建')
+      continue
+    }
+
     if (
       path.startsWith('docs/')
       || path === 'AGENTS.md'
-      || path === 'package.json'
-      || path === 'package-lock.json'
     ) {
+      continue
+    }
+
+    if (isPrototype) {
+      add(fullChecks, 'npm run build')
+      escalationReasons.add('原型变更未匹配专项检查，需要构建兜底')
       continue
     }
 

@@ -17,6 +17,7 @@ interface ParsedReviewRecord {
   path: string
   managedFiles: string[]
   verificationCommands: string[]
+  hasVerificationResults: boolean
   exceptions: string[]
   hasGuidelineReferences: boolean
   hasSelfCheck: boolean
@@ -55,10 +56,17 @@ function readTextList(section: string): string[] {
 
 function parseReviewRecord(record: ReviewRecordSource): ParsedReviewRecord {
   const verificationSection = readSubsection(record.source, '验证命令')
+  const verificationLines = verificationSection
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => /^-\s+`[^`]+`/.test(line))
   return {
     path: normalizePath(record.path),
     managedFiles: readCodeList(readSubsection(record.source, '受管文件')),
     verificationCommands: readCodeList(verificationSection),
+    hasVerificationResults:
+      verificationLines.length > 0
+      && verificationLines.every((line) => /[：:]\s*(?:通过|失败|未运行|不适用)/.test(line)),
     exceptions: readTextList(readSubsection(record.source, '例外')),
     hasGuidelineReferences:
       record.source.includes(DESIGN_GUIDELINES)
@@ -78,6 +86,7 @@ function assertCompleteRecord(record: ParsedReviewRecord): void {
   assert(record.hasFinalConclusion, `${record.path} 缺少最终结论`)
   assert(record.managedFiles.length > 0, `${record.path} 缺少受管文件`)
   assert(record.verificationCommands.length > 0, `${record.path} 缺少验证命令`)
+  assert(record.hasVerificationResults, `${record.path} 的验证命令缺少明确验证结果`)
   assert(record.exceptions.length > 0, `${record.path} 缺少例外说明；无例外时填写“- 无”`)
 }
 

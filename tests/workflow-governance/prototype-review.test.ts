@@ -80,6 +80,19 @@ test('关联记录缺少必填验证项时失败', () => {
   )
 })
 
+test('验证命令没有明确结果时失败', () => {
+  const record = reviewRecord(
+    'docs/prototype-review-records/example.md',
+    ['src/pages/example.ts'],
+  )
+  record.source = record.source.replace('`npm run check:example`：通过', '`npm run check:example`')
+
+  assert.throws(
+    () => validatePrototypeReviewCoverage(['src/pages/example.ts'], [record]),
+    /验证结果/,
+  )
+})
+
 test('完整记录明确覆盖受管文件时通过', () => {
   const result = validatePrototypeReviewCoverage(
     ['src/pages/example.ts'],

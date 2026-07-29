@@ -49,3 +49,18 @@ test('未知路径不会静默跳过而是升级完整检查', () => {
   assert(result.fullChecks.includes('npm run build'))
   assert(result.escalationReasons.some((reason) => reason.includes('未知路径')))
 })
+
+test('未命中专项规则的原型组件仍升级构建', () => {
+  const result = routeAffectedChecks(['src/components/ui/button.ts'])
+
+  assert(result.governanceChecks.includes('npm run check:prototype-design-governance -- --all'))
+  assert(result.fullChecks.includes('npm run build'))
+  assert(result.escalationReasons.some((reason) => reason.includes('未匹配专项检查')))
+})
+
+test('项目依赖清单单独变化仍升级构建', () => {
+  const result = routeAffectedChecks(['package.json'])
+
+  assert(result.fullChecks.includes('npm run build'))
+  assert(result.escalationReasons.some((reason) => reason.includes('项目依赖或命令')))
+})
