@@ -68,3 +68,26 @@
 说明：
 
 - 
+
+## 7. 变更覆盖与验证
+
+### 受管文件
+
+逐项填写本次变更涉及的 `src/pages/`、`src/components/`、`src/data/`、`src/router/`、`src/main-handlers/` 文件。
+
+- `src/pages/example.ts`
+
+### 页面路由
+
+- `/example`
+
+### 验证命令
+
+- `npm run check:example`：通过
+- `npm run check:prototype-design-governance -- --all`：通过
+
+### 例外
+
+无例外时必须明确填写“无”；存在例外时填写原因、影响范围和替代防错措施。
+
+- 无

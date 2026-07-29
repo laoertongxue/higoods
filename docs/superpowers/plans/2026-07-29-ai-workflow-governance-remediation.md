@@ -20,11 +20,11 @@
 - 修改：`docs/prototype-review-record-template.md`
 - 修改：`package.json`
 
-- [ ] 编写失败测试：覆盖受管页面无记录、只有无关记录、缺验证字段和完整关联记录。
-- [ ] 运行 `node --experimental-strip-types --test tests/workflow-governance/prototype-review.test.ts`，确认因缺少解析和校验函数失败。
-- [ ] 实现 Markdown 字段解析、文件覆盖匹配和必填项校验。
-- [ ] 将现有治理脚本切换到共享校验器，并保留原命令入口。
-- [ ] 运行专项测试及 `npm run check:prototype-design-governance -- --all`，确认通过。
+- [x] 编写失败测试：覆盖受管页面无记录、只有无关记录、缺验证字段和完整关联记录。
+- [x] 运行 `node --experimental-strip-types --test tests/workflow-governance/prototype-review.test.ts`，确认因缺少解析和校验函数失败。
+- [x] 实现 Markdown 字段解析、文件覆盖匹配和必填项校验。
+- [x] 将现有治理脚本切换到共享校验器，并保留原命令入口。
+- [x] 运行专项测试及 `npm run check:prototype-design-governance -- --all`，确认通过。
 
 ### 任务 2：受影响检查路由
 

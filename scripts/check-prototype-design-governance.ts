@@ -1,6 +1,10 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
+import {
+  validatePrototypeReviewCoverage,
+  type ReviewRecordSource,
+} from './workflow-governance/prototype-review.ts'
 
 const DESIGN_GUIDELINES = 'docs/higood-indonesia-factory-product-design-guidelines.md'
 const REVIEW_CHECKLIST = 'docs/higood-indonesia-factory-prototype-review-checklist.md'
@@ -102,18 +106,16 @@ function main(): void {
     return
   }
 
-  const hasReviewRecord = changedPaths.some(isReviewRecordPath)
-  assert(
-    hasReviewRecord,
-    [
-      `检测到原型相关改动，但未发现 ${REVIEW_RECORD_DIR} 下的审查记录。`,
-      '请复制 docs/prototype-review-record-template.md 填写审查记录后再提交。',
-      '涉及文件：',
-      ...prototypeChanges.map((path) => `- ${path}`),
-    ].join('\n'),
-  )
+  const recordSources = changedPaths
+    .filter(isReviewRecordPath)
+    .filter((path) => existsSync(path))
+    .map<ReviewRecordSource>((path) => ({ path, source: readFileSync(path, 'utf8') }))
+  const result = validatePrototypeReviewCoverage(prototypeChanges, recordSources)
 
-  console.log(`prototype design governance passed (${mode}): review record found`)
+  console.log(
+    `prototype design governance passed (${mode}): `
+    + `${result.coveredPaths.length} managed file(s), ${result.recordPaths.length} linked review record(s)`,
+  )
 }
 
 main()
