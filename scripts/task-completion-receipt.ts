@@ -4,7 +4,7 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { routeAffectedChecks } from './workflow-governance/affected-checks.ts'
-import { getWorkingTreeChangedPaths } from './workflow-governance/changed-paths.ts'
+import { getChangedPaths } from './workflow-governance/changed-paths.ts'
 import {
   assertReceiptCurrent,
   createTaskReceipt,
@@ -88,7 +88,8 @@ function readReceipt(path: string): TaskCompletionReceipt {
 
 function verify(args: string[]): void {
   const output = argument(args, '--output')
-  const paths = explicitPaths(args) ?? getWorkingTreeChangedPaths()
+  const base = argument(args, '--base', false)
+  const paths = explicitPaths(args) ?? getChangedPaths({ base: base || undefined })
   assert(paths.length > 0, '没有可验证的变更文件')
   const workspace = process.cwd()
   const route = routeAffectedChecks(paths)
