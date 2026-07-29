@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, realpathSync } from 'node:fs'
-import { basename, dirname, resolve } from 'node:path'
+import { basename, dirname, isAbsolute, relative, resolve } from 'node:path'
 
 export type WorkflowStage =
   | 'trigger'
@@ -59,6 +59,7 @@ interface StageValidationOptions {
   cwd?: string
   expectedRevision?: string
   providerSessionRoots?: string[]
+  skillSourceRoots?: string[]
 }
 
 function assertExistingFile(reference: string, cwd: string): string {
@@ -96,22 +97,55 @@ function readProviderEvent(reference: string): {
   record: {
     timestamp?: unknown
     type?: unknown
-    payload?: { type?: unknown; name?: unknown; input?: unknown }
+    payload?: {
+      type?: unknown
+      name?: unknown
+      arguments?: unknown
+      call_id?: unknown
+    }
+  }
+  result?: {
+    type?: unknown
+    call_id?: unknown
+    output?: unknown
   }
 } {
   const match = /^provider-event:(.+)#L([1-9]\d*)$/.exec(reference)
   assert(match, '技能调用必须引用 provider-event:<session.jsonl>#L<line>')
   const sessionPath = realpathSync(resolve(match[1]))
   assert(existsSync(sessionPath), `provider session 证据不存在：${sessionPath}`)
-  const line = readFileSync(sessionPath, 'utf8').split('\n')[Number(match[2]) - 1]
+  const lines = readFileSync(sessionPath, 'utf8').split('\n')
+  const line = lines[Number(match[2]) - 1]
   assert(line, `provider session 证据行不存在：${match[2]}`)
+  const record = JSON.parse(line) as {
+    timestamp?: unknown
+    type?: unknown
+    payload?: {
+      type?: unknown
+      name?: unknown
+      arguments?: unknown
+      call_id?: unknown
+    }
+  }
+  const callId = record.payload?.call_id
+  const result = typeof callId === 'string'
+    ? (() => {
+        for (const candidate of lines) {
+          if (!candidate.includes('"function_call_output"')) continue
+          const payload = (JSON.parse(candidate) as {
+            payload?: { type?: unknown; call_id?: unknown; output?: unknown }
+          }).payload
+          if (payload?.type === 'function_call_output' && payload.call_id === callId) {
+            return payload
+          }
+        }
+        return undefined
+      })()
+    : undefined
   return {
     sessionPath,
-    record: JSON.parse(line) as {
-      timestamp?: unknown
-      type?: unknown
-      payload?: { type?: unknown; name?: unknown; input?: unknown }
-    },
+    record,
+    result,
   }
 }
 
@@ -125,7 +159,7 @@ function assertProviderSkillInvocation(
   event: WorkflowStageEvent,
   options: StageValidationOptions,
 ): void {
-  const { sessionPath, record } = readProviderEvent(event.evidenceRef)
+  const { sessionPath, record, result } = readProviderEvent(event.evidenceRef)
   const roots = options.providerSessionRoots ?? [
     resolve(process.env.CODEX_HOME ?? `${process.env.HOME ?? ''}/.codex`, 'sessions'),
   ]
@@ -134,18 +168,73 @@ function assertProviderSkillInvocation(
     '技能调用证据不在受信任的 provider session 根目录',
   )
   assert.equal(record.type, 'response_item', 'provider 证据不是响应事件')
-  assert.equal(record.payload?.type, 'custom_tool_call', 'provider 证据不是工具调用')
-  assert.equal(record.payload?.name, 'exec', 'provider 证据不是可审计的文件读取调用')
+  assert.equal(record.payload?.type, 'function_call', 'provider 证据不是工具调用')
+  assert.equal(record.payload?.name, 'exec_command', 'provider 证据不是可审计的文件读取调用')
   assert.equal(record.timestamp, event.timestamp, '技能调用时间与 provider 事件不一致')
   const skillSource = event.skillSource?.trim() ?? ''
   assert(skillSource, '技能调用缺少 skillSource')
   assert(existsSync(skillSource), `技能源文件不存在：${skillSource}`)
-  assert(skillSource.endsWith('/SKILL.md'), '技能源文件必须指向 SKILL.md')
+  const resolvedSkillSource = realpathSync(resolve(skillSource))
+  assert(resolvedSkillSource.endsWith('/SKILL.md'), '技能源文件必须指向 SKILL.md')
+  const cwd = options.cwd ?? process.cwd()
+  const codexHome = process.env.CODEX_HOME ?? resolve(process.env.HOME ?? '', '.codex')
+  const skillRoots = options.skillSourceRoots ?? [
+    resolve(cwd, '.agents/skills'),
+    resolve(process.env.HOME ?? '', '.agents/skills'),
+    resolve(codexHome, 'skills'),
+    resolve(codexHome, 'superpowers-zh/skills'),
+    resolve(codexHome, 'plugins/cache'),
+  ]
+  const trustedRoots = skillRoots
+    .filter((root) => existsSync(root))
+    .map((root) => realpathSync(resolve(root)))
+  assert(
+    trustedRoots.some((root) => {
+      const pathFromRoot = relative(root, resolvedSkillSource)
+      return pathFromRoot !== '' && !pathFromRoot.startsWith('..') && !isAbsolute(pathFromRoot)
+    }),
+    '技能源文件不在受信任的技能源根目录',
+  )
   const expectedSkillName = event.skill?.trim().split(':').at(-1)
-  assert.equal(basename(dirname(skillSource)), expectedSkillName, '技能名称不匹配：技能源目录错误')
-  const input = typeof record.payload?.input === 'string' ? record.payload.input : ''
-  assert(input.includes(skillSource), 'provider 工具调用未读取声明的技能源文件')
-  assert(/(?:sed\s+-n|readFile|wc\s+-l)/.test(input), 'provider 工具调用不是技能文件读取')
+  assert.equal(basename(dirname(resolvedSkillSource)), expectedSkillName, '技能名称不匹配：技能源目录错误')
+  assert.equal(result?.type, 'function_call_output', 'provider 工具调用缺少结果事件')
+  assert.equal(result?.call_id, record.payload?.call_id, 'provider 工具结果 call_id 不匹配')
+  const resultOutput = typeof result?.output === 'string' ? result.output : ''
+  const resultHeader = resultOutput.split(/\n(?:Final output|Output):/i, 1)[0]
+  const exitCodes = [
+    ...resultHeader.matchAll(/^Process exited with code\s+(\d+)\s*$/gm),
+  ].map((match) => Number(match[1]))
+  const succeeded = exitCodes.length === 1 && exitCodes[0] === 0
+  let toolArguments: { cmd?: unknown; workdir?: unknown } = {}
+  try {
+    toolArguments = JSON.parse(
+      typeof record.payload?.arguments === 'string' ? record.payload.arguments : '',
+    ) as { cmd?: unknown; workdir?: unknown }
+  } catch {
+    throw new Error('provider 文件读取参数不是有效 JSON')
+  }
+  const input = typeof toolArguments.cmd === 'string' ? toolArguments.cmd : ''
+  const commandCwd = typeof toolArguments.workdir === 'string'
+    ? resolve(toolArguments.workdir)
+    : cwd
+  const readsDeclaredSource = [...new Set([
+    resolve(skillSource),
+    resolvedSkillSource,
+  ])].some((sourcePath) => {
+    const candidates = [
+      sourcePath,
+      relative(commandCwd, sourcePath),
+    ].filter((candidate) => candidate && !candidate.startsWith('..'))
+    return candidates.some((candidate) => {
+      const escapedSource = candidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const quotedSource = `(?:"${escapedSource}"|'${escapedSource}'|${escapedSource})`
+      return [
+        new RegExp(`^\\s*sed\\s+-n\\s+(?:"[^"]+"|'[^']+'|\\S+)\\s+${quotedSource}\\s*$`),
+        new RegExp(`^\\s*wc\\s+-l\\s+${quotedSource}\\s*$`),
+      ].some((pattern) => pattern.test(input))
+    })
+  })
+  assert(succeeded && readsDeclaredSource, 'provider 工具调用未读取声明的技能源文件')
 }
 
 function assertEvidence(
@@ -261,6 +350,7 @@ export function validateStageTrace(
   }
 
   if (required) {
+    if (!stages.includes('trigger')) blockers.push('缺少触发原因阶段')
     if (!stages.includes('artifact')) blockers.push('缺少技能阶段产物')
     if (!stages.includes('implementation')) blockers.push('缺少后续实现阶段')
     if (!stages.includes('final-validation')) blockers.push('缺少最终验证阶段')

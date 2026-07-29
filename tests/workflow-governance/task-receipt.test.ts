@@ -3,6 +3,7 @@ import test from 'node:test'
 import {
   assertReceiptCurrent,
   createTaskReceipt,
+  receiptValidationPaths,
   parseCodeGraphStatus,
   recordAcceptance,
   recordDelivery,
@@ -79,6 +80,19 @@ test('最终差异指纹变化会使验证收据失效', () => {
   assert.throws(
     () => assertReceiptCurrent(receipt, { ...revision, diffHash: 'diff-2' }),
     /最终改动已变化/,
+  )
+})
+
+test('新增变更路径会使验证收据失效并进入当前重算范围', () => {
+  const receipt = validReceipt()
+  const changedPaths = [...revision.changedPaths, 'scripts/new-file.ts']
+  assert.throws(
+    () => assertReceiptCurrent(receipt, { ...revision, changedPaths }),
+    /最终改动已变化/,
+  )
+  assert.deepEqual(
+    receiptValidationPaths(receipt, ['scripts/new-file.ts']),
+    ['scripts/example.ts', 'scripts/new-file.ts'],
   )
 })
 
@@ -285,4 +299,39 @@ test('目标分支未指向版本或非授权评论者不能升级状态', async
     }),
     /远端核验失败/,
   )
+})
+
+test('否定验收评论不能升级接受状态', async () => {
+  for (const body of [
+    '不同意 abc123',
+    '尚未正式验收通过 abc123',
+    'not approved abc123',
+    'not yet approved abc123',
+    'not currently accepted abc123',
+    "this isn't approved abc123",
+    "this shouldn't be accepted abc123",
+  ]) {
+    mockGitHubFetch([
+      { sha: 'abc123' },
+      { object: { sha: 'abc123' } },
+      {
+        body,
+        user: { login: 'review-owner' },
+        author_association: 'OWNER',
+      },
+    ])
+    const delivered = await recordDelivery(validReceipt(), {
+      provider: 'github',
+      target: 'owner/repository@main',
+      revision: 'abc123',
+      providerReceipt: 'https://github.com/owner/repository/commit/abc123',
+    })
+    await assert.rejects(
+      recordAcceptance(delivered, {
+        acceptanceRef: 'https://api.github.com/repos/owner/repository/issues/comments/42',
+        expectedActor: 'review-owner',
+      }),
+      /远端核验失败/,
+    )
+  }
 })

@@ -1,17 +1,18 @@
 import assert from 'node:assert/strict'
-import { createHash } from 'node:crypto'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { routeAffectedChecks } from './workflow-governance/affected-checks.ts'
 import { resolveVerificationPaths } from './workflow-governance/changed-paths.ts'
 import { verificationCheckEnvironment } from './workflow-governance/check-execution.ts'
+import { revisionForPaths } from './workflow-governance/git-revision.ts'
 import {
   assertReceiptCurrent,
   createTaskReceipt,
   parseCodeGraphStatus,
   recordAcceptance,
   recordDelivery,
+  receiptValidationPaths,
   type CheckReceipt,
   type CodeGraphStatusReceipt,
   type GitRevision,
@@ -35,15 +36,7 @@ function explicitPaths(args: string[]): string[] | null {
 }
 
 function gitRevision(paths: string[]): GitRevision {
-  const head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
-  const hash = createHash('sha256')
-  hash.update(head)
-  for (const path of [...paths].sort()) {
-    hash.update(`\0${path}\0`)
-    if (existsSync(path)) hash.update(readFileSync(path))
-    else hash.update('<deleted>')
-  }
-  return { head, diffHash: hash.digest('hex'), changedPaths: [...paths].sort() }
+  return revisionForPaths(paths)
 }
 
 function codegraphStatus(): CodeGraphStatusReceipt {
@@ -145,7 +138,8 @@ function verify(args: string[]): void {
 async function deliver(args: string[]): Promise<void> {
   const path = argument(args, '--receipt')
   const receipt = readReceipt(path)
-  assertReceiptCurrent(receipt, gitRevision(receipt.revision.changedPaths))
+  const currentPaths = receiptValidationPaths(receipt, resolveVerificationPaths())
+  assertReceiptCurrent(receipt, gitRevision(currentPaths))
   const updated = await recordDelivery(receipt, {
     provider: argument(args, '--provider'),
     target: argument(args, '--target'),
@@ -158,7 +152,8 @@ async function deliver(args: string[]): Promise<void> {
 async function accept(args: string[]): Promise<void> {
   const path = argument(args, '--receipt')
   const receipt = readReceipt(path)
-  assertReceiptCurrent(receipt, gitRevision(receipt.revision.changedPaths))
+  const currentPaths = receiptValidationPaths(receipt, resolveVerificationPaths())
+  assertReceiptCurrent(receipt, gitRevision(currentPaths))
   writeReceipt(path, await recordAcceptance(receipt, {
     acceptanceRef: argument(args, '--acceptance-ref'),
     expectedActor: argument(args, '--acceptance-actor'),

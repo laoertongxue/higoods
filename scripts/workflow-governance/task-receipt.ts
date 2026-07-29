@@ -90,7 +90,20 @@ function requiredCommands(route: AffectedCheckRoute): string[] {
 }
 
 function revisionsEqual(left: GitRevision, right: GitRevision): boolean {
-  return left.head === right.head && left.diffHash === right.diffHash
+  return left.head === right.head
+    && left.diffHash === right.diffHash
+    && left.changedPaths.length === right.changedPaths.length
+    && left.changedPaths.every((path, index) => path === right.changedPaths[index])
+}
+
+export function receiptValidationPaths(
+  receipt: TaskCompletionReceipt,
+  currentWorkingPaths: string[],
+): string[] {
+  return [...new Set([
+    ...receipt.revision.changedPaths,
+    ...currentWorkingPaths,
+  ])].sort()
 }
 
 function requiredCount(value: unknown, field: string): number {
@@ -223,7 +236,12 @@ async function defaultRemoteEvidenceProbe(input: {
     const association = typeof body.author_association === 'string'
       ? body.author_association
       : ''
-    const accepted = /(?:accepted|approved|同意|接受|验收通过)/i.test(comment)
+    const denied = /\b(?:not|never|cannot|can't|won't|\w+n['’]t)\b[^\n.!?]{0,64}\b(?:accepted|approved)\b/i.test(comment)
+      || /(?:不|未|尚未|并非|拒绝|不予|不能|无法)[^，。！？\n]{0,32}(?:同意|接受|验收通过)/.test(comment)
+    const explicitlyAccepted = /\b(?:accepted|approved)\b/i.test(comment)
+      || /(?:^|[\s，。,:：;；])(?:同意|接受|验收通过)(?=$|[\s，。,:：;；])/.test(comment)
+    const accepted = !denied
+      && explicitlyAccepted
       && comment.includes(input.revision)
       && author === input.expectedActor
       && ['OWNER', 'MEMBER', 'COLLABORATOR'].includes(association)
