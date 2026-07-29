@@ -51,13 +51,13 @@
 - 修改：`package.json`
 - 修改：`AGENTS.md`
 
-- [ ] 编写失败测试：覆盖指纹变化、失败检查、CodeGraph 待同步、缺 provider 回执和版本不一致。
-- [ ] 运行 `node --experimental-strip-types --test tests/workflow-governance/task-receipt.test.ts`，确认因收据状态机不存在失败。
-- [ ] 实现收据数据结构、版本指纹和四级状态机。
-- [ ] 实现 `verify`：按检查路由执行命令，采集 CodeGraph JSON 状态，在前后指纹一致时写入 `verified`。
-- [ ] 实现 `deliver` 与 `accept`：要求验证版本、provider 回执和明确接受引用。
-- [ ] 更新 `AGENTS.md`，要求完成声明使用收据，不改变现有原型边界。
-- [ ] 运行专项测试，并用临时输出文件完成一次真实 `verify`。
+- [x] 编写失败测试：覆盖指纹变化、失败检查、CodeGraph 待同步、缺 provider 回执和版本不一致。
+- [x] 运行 `node --experimental-strip-types --test tests/workflow-governance/task-receipt.test.ts`，确认因收据状态机不存在失败。
+- [x] 实现收据数据结构、版本指纹和四级状态机。
+- [x] 实现 `verify`：按检查路由执行命令，采集 CodeGraph JSON 状态，在前后指纹一致时写入 `verified`。
+- [x] 实现 `deliver` 与 `accept`：要求验证版本、provider 回执和明确接受引用。
+- [x] 更新 `AGENTS.md`，要求完成声明使用收据，不改变现有原型边界。
+- [x] 运行专项测试，并用临时输出文件完成一次真实 `verify`。
 
 ### 任务 4：Superpowers 最小阶段轨迹
 

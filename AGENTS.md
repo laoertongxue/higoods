@@ -401,6 +401,25 @@ PDA 页面是现场执行工具，不是管理后台。所有 PDA 页面默认�
    - `codegraph status`
 5. 最终回复中说明是否已同步 CodeGraph 索引。
 
+### 12.1 任务完成与交付收据
+
+涉及代码、治理脚本或项目配置的任务，在宣称完成前必须生成机器可读任务收据：
+
+```bash
+npm run workflow:verify -- --output <临时目录>/task-receipt.json
+```
+
+收据必须绑定当前 Git HEAD、工作区差异指纹、受影响检查路由、实际检查退出结果和 CodeGraph 同步前后状态。最后一次实质改动发生后，旧收据失效，必须重新验证。
+
+交付状态严格分级：
+
+- `implemented`：实现存在，但最终验证尚未闭环。
+- `verified`：最终改动、相关检查和 CodeGraph 状态已经闭环。
+- `delivered`：在 `verified` 基础上取得 GitHub、Vercel 等目标 provider 对当前版本的明确回执。
+- `accepted`：在 `delivered` 基础上取得用户明确接受引用。
+
+没有 provider 回执时不得把助手交接或本地验证表述为远端交付成功。远端交付和用户接受只在任务明确授权后记录。
+
 ---
 
 ## 13. 明确禁止事项
