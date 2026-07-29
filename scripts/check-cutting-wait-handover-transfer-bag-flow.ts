@@ -248,6 +248,9 @@ assertNotContains(hub, '混装情况', 'WAREHOUSE_HUB 菲票装袋/中转袋入�
 assertNotContains(hub, '后续状态', 'WAREHOUSE_HUB 菲票装袋/中转袋入仓列表不得展示后续状态')
 assertContains(hub, 'open-bag-ticket-detail', 'WAREHOUSE_HUB 两个 tab 必须提供中转袋菲票详情弹窗动作')
 assertContains(hub, 'renderWaitHandoverBagTicketDetailDialog', 'WAREHOUSE_HUB 必须有中转袋菲票明细弹窗')
+assertContains(hub, "{ key: 'handover-bagging', label: '中转袋交出' }", 'WAREHOUSE_HUB 第四个 tab 必须命名为中转袋交出')
+assertContains(hub, 'renderWaitHandoverHandoverRecordTable', 'WAREHOUSE_HUB 中转袋交出 tab 必须使用交出后记录表')
+assertMatch(hub, /activeTab === 'handover-bagging'[\s\S]*\? handoverRecordContent/, 'WAREHOUSE_HUB 中转袋交出 tab 必须承载交出后记录数据')
 
 // 2.4 中转袋弹窗标题
 const tHandlers = read(T_BAGS_HANDLERS)

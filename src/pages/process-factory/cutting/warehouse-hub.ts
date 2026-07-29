@@ -1965,6 +1965,24 @@ function renderWaitHandoverBaggingTable(rows: WaitHandoverBaggingTableRow[], emp
   `
 }
 
+function renderWaitHandoverHandoverRecordTable(rows: string[][], emptyText = '暂无中转袋交出记录。'): string {
+  if (!rows.length) {
+    return `<div class="rounded-lg border border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">${escapeHtml(emptyText)}</div>`
+  }
+  return renderHubTable([
+    '交出记录',
+    '交出单',
+    '中转袋',
+    '交出时间',
+    '交出人',
+    '接收对象',
+    '生产单',
+    '任务单号',
+    '本次交出',
+    '状态',
+  ], rows, emptyText)
+}
+
 function getWaitHandoverEventQty(event: CuttingRuntimeEvent): number {
   const payload = toRuntimeRecord(event.payload)
   if (event.inventoryEffect?.qty) return event.inventoryEffect.qty
@@ -2218,7 +2236,11 @@ function renderWaitHandoverFilterPanel(options: {
           renderWaitHandoverFilterSelect('特殊工艺', 'specialCraftStatus', options.filters.specialCraftStatus, specialCraftOptions),
           renderWaitHandoverFilterInput('接收对象', 'receiverName', options.filters.receiverName, '车缝厂 / 特殊工艺厂', 'w-52'),
         ]
-      : options.tabKey === 'bagging' || options.tabKey === 'inbound' || options.tabKey === 'handover-bagging'
+      : options.tabKey === 'handover-bagging'
+        ? [
+            renderWaitHandoverFilterInput('交出记录 / 中转袋', 'q', options.filters.keyword, '交出单、交出记录、中转袋、生产单'),
+          ]
+      : options.tabKey === 'bagging' || options.tabKey === 'inbound'
         ? [
             renderWaitHandoverFilterInput('菲票 / 任务 / 袋码', 'q', options.filters.keyword, '菲票号、交出任务、中转袋'),
           ]
@@ -2246,7 +2268,7 @@ function renderWaitHandoverTabs(activeTab: WaitHandoverTabKey): string {
     { key: 'inventory', label: '库存明细' },
     { key: 'bagging', label: '菲票装袋' },
     { key: 'inbound', label: '中转袋入仓' },
-    { key: 'handover-bagging', label: '交出装袋确认' },
+    { key: 'handover-bagging', label: '中转袋交出' },
     { key: 'special-craft-return', label: '特种工艺回收入仓' },
     { key: 'locations', label: '库区库位' },
   ]
@@ -4986,14 +5008,15 @@ function buildRuntimeHandoverTableProjection(
     orderGroups.set(orderNo, orderGroup)
 
     return [
-      orderNo,
-      productionOrderNos.join('、') || '按菲票追踪',
       recordNo,
-      formatPieceQty(previousQty),
-      formatPieceQty(currentQty),
-      formatPieceQty(cumulativeQty),
-      '交出后计算',
+      orderNo,
       transferBagCodes.join('、') || event.refs.transferBagCode || '按装袋事件追踪',
+      event.occurredAt,
+      event.operatorName || runtimeString(payload.submittedBy) || '裁片仓交出员',
+      `${receiverType || '接收对象'} / ${receiverName}`,
+      productionOrderNos.join('、') || '按菲票追踪',
+      runtimeString(payload.sewingTaskNo) || runtimeString(payload.pickingTaskNo) || event.refs.taskId || '按交出记录追踪',
+      formatPieceQty(currentQty),
       event.eventStatus === '同步失败' ? '同步失败' : '待接收回写',
     ]
   })
@@ -5009,14 +5032,38 @@ function buildRuntimeHandoverTableProjection(
       order.status,
     ])
 
+  const fallbackRecordRows = recordEvents.length
+    ? []
+    : listHandoverRecords()
+        .filter((record) => record.receiverType === '车缝厂')
+        .sort((left, right) => right.handedOverAt.localeCompare(left.handedOverAt, 'zh-CN'))
+        .map((record) => {
+          const transferBagCodes = uniqueStrings(record.transferBagUses.map((bag) => bag.bagCode).filter(Boolean))
+          const productionOrderNos = uniqueStrings(record.feiTicketItems.map((ticket) => ticket.productionOrderNo).filter(Boolean))
+          const currentQty = record.currentHandedOverSummary.reduce((sum, item) => sum + item.pieceQty, 0)
+            || record.feiTicketItems.reduce((sum, item) => sum + item.pieceQty, 0)
+          return [
+            record.handoverRecordNo,
+            record.handoverOrderNo,
+            transferBagCodes.join('、') || '按交出记录追踪',
+            record.handedOverAt,
+            record.handedOverBy,
+            `${record.receiverType} / ${record.receiverName}`,
+            productionOrderNos.join('、') || record.relatedProductionOrderIds.join('、') || '按菲票追踪',
+            record.relatedSewingTaskId || record.relatedPickingTaskId || '按交出记录追踪',
+            formatPieceQty(currentQty),
+            record.recordStatus,
+          ]
+        })
+
   return {
     orderRows,
-    recordRows: recordRows.slice().reverse(),
+    recordRows: recordRows.length ? recordRows.slice().reverse() : fallbackRecordRows,
     summary: {
       orderCount: orderRows.length,
-      recordCount: recordRows.length,
+      recordCount: recordRows.length || fallbackRecordRows.length,
       totalHandedOverQty: Array.from(orderGroups.values()).reduce((sum, order) => sum + order.totalQty, 0),
-      pendingWritebackCount: recordRows.length,
+      pendingWritebackCount: recordRows.length || fallbackRecordRows.length,
       discrepancyCount: recordEvents.filter((event) => event.eventStatus === '同步失败').length,
     },
   }
@@ -5435,10 +5482,10 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
     ${waitHandoverStats}
     ${renderWaitHandoverInboundLocationTable(inboundTempUseRows)}
   </section>`
-  const handoverBaggingContent = `<section class="space-y-4">
+  const handoverRecordContent = `<section class="space-y-4">
     ${renderWaitHandoverFilterPanel({ ...filterPanelOptions, tabKey: 'handover-bagging' })}
     ${waitHandoverStats}
-    ${renderWaitHandoverBaggingTable(sortingRows, '暂无交出装袋确认任务。')}
+    ${renderWaitHandoverHandoverRecordTable(handoverTableProjection.recordRows)}
   </section>`
   const specialCraftReturnContent = `<section class="space-y-4">
     <article class="rounded-lg border bg-card p-4">
@@ -5478,7 +5525,7 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
       : activeTab === 'inbound'
         ? inboundContent
         : activeTab === 'handover-bagging'
-          ? handoverBaggingContent
+          ? handoverRecordContent
         : activeTab === 'special-craft-return'
           ? specialCraftReturnContent
         : activeTab === 'locations'
