@@ -35,11 +35,11 @@
 - 创建：`tests/workflow-governance/affected-checks.test.ts`
 - 修改：`package.json`
 
-- [ ] 编写失败测试：输入补料页面、裁片数据、主处理器、列表组件和未知路径。
-- [ ] 运行 `node --experimental-strip-types --test tests/workflow-governance/affected-checks.test.ts`，确认因路由器不存在失败。
-- [ ] 实现路径规则、检查去重、治理检查和未知路径升级。
-- [ ] 增加 `check:affected` 命令，支持 Git 工作区路径和显式 `--paths`，默认输出 JSON。
-- [ ] 运行专项测试，并逐个验证 5 组输入的输出。
+- [x] 编写失败测试：输入补料页面、裁片数据、主处理器、列表组件和未知路径。
+- [x] 运行 `node --experimental-strip-types --test tests/workflow-governance/affected-checks.test.ts`，确认因路由器不存在失败。
+- [x] 实现路径规则、检查去重、治理检查和未知路径升级。
+- [x] 增加 `check:affected` 命令，支持 Git 工作区路径和显式 `--paths`，默认输出 JSON。
+- [x] 运行专项测试，并逐个验证 5 组输入的输出。
 
 ### 任务 3：统一任务完成与交付收据
 
