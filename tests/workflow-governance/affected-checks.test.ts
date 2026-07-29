@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { routeAffectedChecks } from '../../scripts/workflow-governance/affected-checks.ts'
+import { verificationCheckEnvironment } from '../../scripts/workflow-governance/check-execution.ts'
 
 test('补料页面路由到专项检查和原型治理', () => {
   const result = routeAffectedChecks([
@@ -63,4 +64,25 @@ test('项目依赖清单单独变化仍升级构建', () => {
 
   assert(result.fullChecks.includes('npm run build'))
   assert(result.escalationReasons.some((reason) => reason.includes('项目依赖或命令')))
+})
+
+test('领域关键词不会吞掉路由、主处理器和治理脚本的结构性检查', () => {
+  const result = routeAffectedChecks([
+    'src/router/cutting.ts',
+    'src/main-handlers/cutting-handlers.ts',
+    'scripts/workflow-governance/cutting-rule.ts',
+  ])
+
+  assert(result.fastChecks.includes('npm run check:cutting:all'))
+  assert(result.fastChecks.includes('npm run check:menu-routes'))
+  assert(result.fastChecks.includes('npm run check:fcs-end-to-end'))
+  assert(result.fastChecks.includes('npm run test:workflow-governance'))
+  assert(result.fullChecks.includes('npm run build'))
+})
+
+test('冻结基线通过环境传递给原型治理子检查', () => {
+  const environment = verificationCheckEnvironment('abc123', { EXISTING: 'yes' })
+
+  assert.equal(environment.GOVERNANCE_BASE_SHA, 'abc123')
+  assert.equal(environment.EXISTING, 'yes')
 })

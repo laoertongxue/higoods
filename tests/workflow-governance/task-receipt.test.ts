@@ -110,6 +110,24 @@ test('CodeGraph JSON 状态保留待同步数和工作树不匹配证据', () =>
   assert.equal(status.projectPath, '/workspace/main')
 })
 
+test('CodeGraph 状态缺少必要健康字段时失败关闭', () => {
+  assert.throws(
+    () => parseCodeGraphStatus(JSON.stringify({
+      initialized: true,
+      projectPath: '/workspace',
+    })),
+    /pendingChanges/,
+  )
+  assert.throws(
+    () => parseCodeGraphStatus(JSON.stringify({
+      initialized: true,
+      projectPath: '/workspace',
+      pendingChanges: { added: 0, modified: 0, removed: 0 },
+    })),
+    /worktreeMismatch/,
+  )
+})
+
 test('没有 provider 回执不能标记远端交付', () => {
   assert.throws(
     () => recordDelivery(validReceipt(), {
@@ -119,6 +137,29 @@ test('没有 provider 回执不能标记远端交付', () => {
       providerReceipt: '',
     }),
     /provider 回执/,
+  )
+})
+
+test('交付和接受必须使用可识别的结构化证据引用', () => {
+  assert.throws(
+    () => recordDelivery(validReceipt(), {
+      provider: ' ',
+      target: ' ',
+      revision: 'abc123',
+      providerReceipt: 'ok',
+    }),
+    /provider/,
+  )
+
+  const delivered = recordDelivery(validReceipt(), {
+    provider: 'github',
+    target: 'owner/repository@main',
+    revision: 'abc123',
+    providerReceipt: 'https://github.com/owner/repository/commit/abc123',
+  })
+  assert.throws(
+    () => recordAcceptance(delivered, { acceptanceRef: 'yes' }),
+    /接受引用/,
   )
 })
 
@@ -137,14 +178,14 @@ test('交付版本必须与验证版本一致', () => {
 test('验证、交付和接受按证据逐级升级', () => {
   const delivered = recordDelivery(validReceipt(), {
     provider: 'github',
-    target: 'main',
+    target: 'owner/repository@main',
     revision: 'abc123',
-    providerReceipt: 'https://example.test/receipt',
+    providerReceipt: 'https://github.com/owner/repository/commit/abc123',
   })
   assert.equal(delivered.state, 'delivered')
 
   const accepted = recordAcceptance(delivered, {
-    acceptanceRef: 'user-message:2026-07-29T11:00:00+07:00',
+    acceptanceRef: 'conversation:user-message:2026-07-29T11:00:00+07:00',
   })
   assert.equal(accepted.state, 'accepted')
 })

@@ -4,7 +4,8 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { routeAffectedChecks } from './workflow-governance/affected-checks.ts'
-import { getChangedPaths } from './workflow-governance/changed-paths.ts'
+import { resolveVerificationPaths } from './workflow-governance/changed-paths.ts'
+import { verificationCheckEnvironment } from './workflow-governance/check-execution.ts'
 import {
   assertReceiptCurrent,
   createTaskReceipt,
@@ -58,13 +59,14 @@ function codegraphStatus(): CodeGraphStatusReceipt {
   return parseCodeGraphStatus(result.stdout)
 }
 
-function runCheck(command: string): CheckReceipt {
+function runCheck(command: string, environment: NodeJS.ProcessEnv): CheckReceipt {
   const startedAt = new Date().toISOString()
   const result = spawnSync(command, {
     cwd: process.cwd(),
     encoding: 'utf8',
     shell: true,
     stdio: 'inherit',
+    env: environment,
   })
   return {
     command,
@@ -89,7 +91,10 @@ function readReceipt(path: string): TaskCompletionReceipt {
 function verify(args: string[]): void {
   const output = argument(args, '--output')
   const base = argument(args, '--base', false)
-  const paths = explicitPaths(args) ?? getChangedPaths({ base: base || undefined })
+  const paths = resolveVerificationPaths({
+    base: base || undefined,
+    explicitPaths: explicitPaths(args),
+  })
   assert(paths.length > 0, '没有可验证的变更文件')
   const workspace = process.cwd()
   const route = routeAffectedChecks(paths)
@@ -100,7 +105,8 @@ function verify(args: string[]): void {
     ...route.governanceChecks,
     ...route.fullChecks,
   ])]
-  const checks = commands.map(runCheck)
+  const environment = verificationCheckEnvironment(base || undefined)
+  const checks = commands.map((command) => runCheck(command, environment))
   const sync = spawnSync('codegraph', ['sync'], { cwd: workspace, encoding: 'utf8' })
   const after = codegraphStatus()
   const revisionAfter = gitRevision(paths)

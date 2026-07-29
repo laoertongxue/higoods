@@ -30,6 +30,7 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
   const escalationReasons = new Set<string>()
 
   for (const path of changedPaths) {
+    let handled = false
     const isPrototype = PROTOTYPE_PREFIXES.some((prefix) => path.startsWith(prefix))
     if (isPrototype) {
       add(governanceChecks, 'npm run check:prototype-design-governance -- --all')
@@ -41,33 +42,33 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
 
     if (/supplement|补料/i.test(path)) {
       add(fastChecks, 'npm run check:cutting-supplement-process-work-orders')
-      continue
+      handled = true
     }
 
     if (/cutting|cut-piece|transfer-bag|fei-ticket/i.test(path)) {
       add(fastChecks, 'npm run check:cutting:all')
-      continue
+      handled = true
     }
 
     if (path.startsWith('src/router/')) {
       add(fastChecks, 'npm run check:menu-routes')
       add(fullChecks, 'npm run build')
       escalationReasons.add('路由结构变化需要构建验证')
-      continue
+      handled = true
     }
 
     if (path.startsWith('src/main-handlers/')) {
       add(fastChecks, 'npm run check:fcs-end-to-end')
       add(fullChecks, 'npm run build')
       escalationReasons.add('主处理器变化需要端到端检查和构建')
-      continue
+      handled = true
     }
 
     if (/^src\/components\/ui\/list-(?:page|table|table-model)\.ts$/.test(path)) {
       add(governanceChecks, 'npm run check:list-page-governance')
       add(fullChecks, 'npm run build')
       escalationReasons.add('列表公共组件变化影响所有标准列表页')
-      continue
+      handled = true
     }
 
     if (
@@ -78,29 +79,29 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
       add(fastChecks, 'npm run test:workflow-governance')
       add(fullChecks, 'npm run build')
       escalationReasons.add('治理脚本变化需要治理测试和构建')
-      continue
+      handled = true
     }
 
     if (path === 'package.json' || path === 'package-lock.json') {
       add(fullChecks, 'npm run build')
       escalationReasons.add('项目依赖或命令变化需要构建')
-      continue
+      handled = true
     }
 
     if (
       path.startsWith('docs/')
       || path === 'AGENTS.md'
     ) {
-      continue
+      handled = true
     }
 
-    if (isPrototype) {
+    if (isPrototype && !handled) {
       add(fullChecks, 'npm run build')
       escalationReasons.add('原型变更未匹配专项检查，需要构建兜底')
-      continue
+      handled = true
     }
 
-    if (!isPrototype) {
+    if (!handled) {
       unknownPaths.push(path)
       add(fullChecks, 'npm run build')
       escalationReasons.add('未知路径需要升级到安全的完整检查')

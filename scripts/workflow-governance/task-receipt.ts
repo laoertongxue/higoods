@@ -87,22 +87,39 @@ function revisionsEqual(left: GitRevision, right: GitRevision): boolean {
   return left.head === right.head && left.diffHash === right.diffHash
 }
 
-function safeCount(value: unknown): number {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0
+function requiredCount(value: unknown, field: string): number {
+  assert(
+    typeof value === 'number' && Number.isInteger(value) && value >= 0,
+    `CodeGraph 状态 ${field} 必须是非负整数`,
+  )
+  return value
 }
 
 export function parseCodeGraphStatus(source: string): CodeGraphStatusReceipt {
   const parsed = JSON.parse(source) as RawCodeGraphStatus
   assert(parsed && typeof parsed === 'object', 'CodeGraph 状态必须是 JSON 对象')
+  assert(typeof parsed.initialized === 'boolean', 'CodeGraph 状态缺少 initialized')
   assert(typeof parsed.projectPath === 'string', 'CodeGraph 状态缺少项目路径')
-  const pending = parsed.pendingChanges ?? {}
+  assert(
+    parsed.pendingChanges && typeof parsed.pendingChanges === 'object',
+    'CodeGraph 状态缺少 pendingChanges',
+  )
+  assert(
+    Object.hasOwn(parsed, 'worktreeMismatch'),
+    'CodeGraph 状态缺少 worktreeMismatch',
+  )
+  assert(
+    parsed.worktreeMismatch === null || typeof parsed.worktreeMismatch === 'object',
+    'CodeGraph 状态 worktreeMismatch 格式无效',
+  )
+  const pending = parsed.pendingChanges
   return {
-    initialized: parsed.initialized === true,
+    initialized: parsed.initialized,
     projectPath: parsed.projectPath,
     pendingCount:
-      safeCount(pending.added)
-      + safeCount(pending.modified)
-      + safeCount(pending.removed),
+      requiredCount(pending.added, 'pendingChanges.added')
+      + requiredCount(pending.modified, 'pendingChanges.modified')
+      + requiredCount(pending.removed, 'pendingChanges.removed'),
     worktreeMismatch: Boolean(parsed.worktreeMismatch),
   }
 }
@@ -166,13 +183,41 @@ export function recordDelivery(
   assert.equal(receipt.state, 'verified', '只有验证完成的任务才能记录远端交付')
   assert(delivery.providerReceipt.trim(), '缺少 provider 回执，不能标记远端交付')
   assert.equal(delivery.revision, receipt.revision.head, '交付版本与验证版本不一致')
+  const provider = delivery.provider.trim().toLowerCase()
+  assert(
+    ['github', 'vercel', 'sites'].includes(provider),
+    'provider 必须是 github、vercel 或 sites',
+  )
+  const target = delivery.target.trim()
+  assert(target && !/\s/.test(target), '交付目标必须是无空白的明确引用')
+  let providerReceipt: URL
+  try {
+    providerReceipt = new URL(delivery.providerReceipt.trim())
+  } catch {
+    throw new Error('provider 回执必须是 HTTPS URL')
+  }
+  assert.equal(providerReceipt.protocol, 'https:', 'provider 回执必须是 HTTPS URL')
+  const allowedHosts: Record<string, RegExp> = {
+    github: /(^|\.)github\.com$/i,
+    vercel: /(^|\.)vercel\.(?:com|app)$/i,
+    sites: /(^|\.)openai\.com$/i,
+  }
+  assert(allowedHosts[provider].test(providerReceipt.hostname), 'provider 回执域名与 provider 不匹配')
+  if (provider === 'github') {
+    assert(
+      providerReceipt.pathname.includes(delivery.revision),
+      'GitHub provider 回执必须引用已验证版本',
+    )
+  }
 
   return {
     ...receipt,
     state: 'delivered',
     delivery: {
       ...delivery,
-      providerReceipt: delivery.providerReceipt.trim(),
+      provider,
+      target,
+      providerReceipt: providerReceipt.toString(),
       recordedAt: new Date().toISOString(),
     },
   }
@@ -183,7 +228,11 @@ export function recordAcceptance(
   input: { acceptanceRef: string },
 ): TaskCompletionReceipt {
   assert.equal(receipt.state, 'delivered', '只有已交付任务才能记录接受')
-  assert(input.acceptanceRef.trim(), '缺少明确接受引用')
+  const acceptanceRef = input.acceptanceRef.trim()
+  assert(
+    /^(?:conversation:user-message|provider:acceptance|ticket):\S{4,}$/.test(acceptanceRef),
+    '接受引用必须是 conversation:user-message、provider:acceptance 或 ticket 类型的结构化引用',
+  )
   assert(receipt.delivery, '缺少交付回执')
 
   return {
@@ -191,7 +240,7 @@ export function recordAcceptance(
     state: 'accepted',
     delivery: {
       ...receipt.delivery,
-      acceptanceRef: input.acceptanceRef.trim(),
+      acceptanceRef,
     },
   }
 }

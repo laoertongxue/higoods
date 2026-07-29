@@ -1,11 +1,13 @@
-import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 import {
   validatePrototypeReviewCoverage,
   type ReviewRecordSource,
 } from './workflow-governance/prototype-review.ts'
-import { getChangedPaths } from './workflow-governance/changed-paths.ts'
+import {
+  getChangedPaths,
+  getStagedChangedPaths,
+} from './workflow-governance/changed-paths.ts'
 
 const DESIGN_GUIDELINES = 'docs/higood-indonesia-factory-product-design-guidelines.md'
 const REVIEW_CHECKLIST = 'docs/higood-indonesia-factory-prototype-review-checklist.md'
@@ -48,12 +50,7 @@ function isReviewRecordPath(path: string): boolean {
 
 function getGovernanceChangedPaths(mode: 'staged' | 'all', base?: string): string[] {
   if (mode === 'all') return getChangedPaths({ base })
-  const output = execFileSync(
-    'git',
-    ['diff', '--cached', '--name-only', '--diff-filter=ACMRTUXB'],
-    { encoding: 'utf8' },
-  )
-  return output.split('\n').map(normalizePath).filter(Boolean)
+  return getStagedChangedPaths()
 }
 
 function assertFileExists(path: string): void {

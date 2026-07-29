@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 
 export function normalizeChangedPath(path: string): string {
@@ -7,6 +8,17 @@ export function normalizeChangedPath(path: string): string {
 
 export function getWorkingTreeChangedPaths(): string[] {
   return getChangedPaths()
+}
+
+export function getStagedChangedPaths(
+  options: { cwd?: string } = {},
+): string[] {
+  const output = execFileSync(
+    'git',
+    ['diff', '--cached', '--name-only', '--diff-filter=ACMRDTUXB'],
+    { cwd: options.cwd ?? process.cwd(), encoding: 'utf8' },
+  )
+  return [...new Set(output.split('\n').map(normalizeChangedPath).filter(Boolean))].sort()
 }
 
 export function getChangedPaths(
@@ -26,11 +38,30 @@ export function getChangedPaths(
   if (options.base) {
     const committedOutput = execFileSync(
       'git',
-      ['diff', '--name-only', '--diff-filter=ACMRTUXB', `${options.base}...HEAD`],
+      ['diff', '--name-only', '--diff-filter=ACMRDTUXB', `${options.base}...HEAD`],
       { cwd, encoding: 'utf8' },
     )
     paths.push(...committedOutput.split('\n').map(normalizeChangedPath).filter(Boolean))
   }
 
   return [...new Set(paths)].sort()
+}
+
+export function resolveVerificationPaths(options: {
+  cwd?: string
+  base?: string
+  explicitPaths?: string[] | null
+} = {}): string[] {
+  const actualPaths = getChangedPaths({ cwd: options.cwd, base: options.base })
+  if (!options.explicitPaths) return actualPaths
+
+  const explicitPaths = [...new Set(
+    options.explicitPaths.map(normalizeChangedPath).filter(Boolean),
+  )].sort()
+  assert.deepEqual(
+    explicitPaths,
+    actualPaths,
+    '--paths 必须完整覆盖实际变更，不能遗漏或额外声明文件',
+  )
+  return actualPaths
 }
