@@ -16,6 +16,10 @@ import {
   type GitRevision,
   type TaskCompletionReceipt,
 } from './workflow-governance/task-receipt.ts'
+import {
+  validateStageTrace,
+  type WorkflowStageEvent,
+} from './workflow-governance/stage-trace.ts'
 
 function argument(args: string[], name: string, required = true): string {
   const index = args.indexOf(name)
@@ -99,6 +103,19 @@ function verify(args: string[]): void {
   const sync = spawnSync('codegraph', ['sync'], { cwd: workspace, encoding: 'utf8' })
   const after = codegraphStatus()
   const revisionAfter = gitRevision(paths)
+  const stageTracePath = argument(args, '--stage-trace', false)
+  const requiredSkills = argument(args, '--required-skills', false)
+    .split(',')
+    .map((skill) => skill.trim())
+    .filter(Boolean)
+  const requireTwoStageReview = args.includes('--require-two-stage-review')
+  const stageEvents = stageTracePath && existsSync(stageTracePath)
+    ? JSON.parse(readFileSync(stageTracePath, 'utf8')) as WorkflowStageEvent[]
+    : []
+  const stageTrace = validateStageTrace(stageEvents, {
+    requiredSkills,
+    requireTwoStageReview,
+  })
   const receipt = createTaskReceipt({
     workspace,
     revisionBefore,
@@ -110,6 +127,7 @@ function verify(args: string[]): void {
       before,
       after,
     },
+    stageTrace,
   })
   writeReceipt(output, receipt)
   if (receipt.state !== 'verified') process.exitCode = 1

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import type { AffectedCheckRoute } from './affected-checks.ts'
+import type { StageTraceSummary } from './stage-trace.ts'
 
 export type TaskReceiptState = 'implemented' | 'verified' | 'delivered' | 'accepted'
 
@@ -49,6 +50,7 @@ export interface TaskCompletionReceipt {
   checks: CheckReceipt[]
   codegraph: CodeGraphReceipt
   blockers: string[]
+  stageTrace?: StageTraceSummary
   delivery?: DeliveryReceipt
 }
 
@@ -70,6 +72,7 @@ interface CreateTaskReceiptInput {
   route: AffectedCheckRoute
   checks: CheckReceipt[]
   codegraph: CodeGraphReceipt
+  stageTrace?: StageTraceSummary
 }
 
 function requiredCommands(route: AffectedCheckRoute): string[] {
@@ -131,6 +134,9 @@ export function createTaskReceipt(input: CreateTaskReceiptInput): TaskCompletion
   if (input.codegraph.after.projectPath !== input.workspace) {
     blockers.push('CodeGraph 项目路径与任务工作区不一致')
   }
+  if (input.stageTrace?.required && !input.stageTrace.valid) {
+    blockers.push(...input.stageTrace.blockers.map((blocker) => `Superpowers 阶段轨迹：${blocker}`))
+  }
 
   return {
     schemaVersion: 1,
@@ -142,6 +148,7 @@ export function createTaskReceipt(input: CreateTaskReceiptInput): TaskCompletion
     checks: input.checks,
     codegraph: input.codegraph,
     blockers,
+    ...(input.stageTrace ? { stageTrace: input.stageTrace } : {}),
   }
 }
 

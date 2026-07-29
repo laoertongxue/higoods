@@ -420,6 +420,19 @@ npm run workflow:verify -- --output <临时目录>/task-receipt.json
 
 没有 provider 回执时不得把助手交接或本地验证表述为远端交付成功。远端交付和用户接受只在任务明确授权后记录。
 
+### 12.2 Superpowers 最小阶段轨迹
+
+任务明确要求某项 Superpowers 技能、子代理驱动开发或两阶段审查时，必须保留最小结构化阶段轨迹：
+
+- 触发原因。
+- 实际技能调用。
+- 阶段产物。
+- 后续实现。
+- 规格审查与代码质量审查（任务要求两阶段审查时）。
+- 最终相关验证。
+
+使用 `npm run workflow:stage -- ...` 追加阶段事件，并在 `workflow:verify` 中通过 `--stage-trace`、`--required-skills` 和必要时的 `--require-two-stage-review` 校验。请求或规则文本中仅出现技能名称，不得计为实际调用。轨迹只保存摘要、产物路径和证据引用，不复制原始对话或隐藏推理。
+
 ---
 
 ## 13. 明确禁止事项

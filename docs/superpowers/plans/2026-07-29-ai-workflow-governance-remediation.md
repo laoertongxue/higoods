@@ -70,11 +70,11 @@
 - 修改：`AGENTS.md`
 - 修改：`package.json`
 
-- [ ] 编写失败测试：完整子代理实现与两阶段审查轨迹通过，只有技能名称的轨迹失败。
-- [ ] 运行 `node --experimental-strip-types --test tests/workflow-governance/stage-trace.test.ts`，确认正确失败。
-- [ ] 实现追加式阶段记录和适用阶段校验。
-- [ ] 让任务收据引用轨迹摘要，不复制原始对话。
-- [ ] 运行专项测试，确认请求文本不能冒充技能调用。
+- [x] 编写失败测试：完整子代理实现与两阶段审查轨迹通过，只有技能名称的轨迹失败。
+- [x] 运行 `node --experimental-strip-types --test tests/workflow-governance/stage-trace.test.ts`，确认正确失败。
+- [x] 实现追加式阶段记录和适用阶段校验。
+- [x] 让任务收据引用轨迹摘要，不复制原始对话。
+- [x] 运行专项测试，确认请求文本不能冒充技能调用。
 
 ### 任务 5：Better Harness 经验候选采集
 
