@@ -80,14 +80,14 @@
 
 **文件：**
 
-- 修改：`/Users/laoer/.codex/plugins/cache/better-harness/better-harness/0.3.0/scripts/session-analysis/platforms/codex.mjs`
-- 修改：`/Users/laoer/.codex/plugins/cache/better-harness/better-harness/0.3.0/test/session-analysis.test.mjs`
-- 更新：`/Users/laoer/.codex/plugins/cache/better-harness/better-harness/0.3.0/docs/specs/2026-07-29-codex-session-large-event-aggregation.md`
+- 修改：`/Users/laoer/.codex/plugins/cache/better-harness/better-harness/0.3.0/scripts/session-analysis/episode-facts.mjs`
+- 修改：`/Users/laoer/.codex/plugins/cache/better-harness/better-harness/0.3.0/test/session-analysis-core-facts.test.mjs`
+- 创建：`/Users/laoer/.codex/plugins/cache/better-harness/better-harness/0.3.0/docs/specs/2026-07-29-independent-repeat-context-portfolio.md`
 
-- [ ] 编写失败测试：两个独立任务上下文形成可比较候选，重复摘要噪音不构成独立流程。
-- [ ] 使用受支持 Node 运行目标测试，确认因候选组合缺少上下文边界失败。
-- [ ] 最小修改 Codex 候选选择，保留隐私安全的根请求组合、有序阶段和独立上下文计数。
-- [ ] 运行 Session Analysis 与 Evidence Bundle 相关测试。
+- [x] 编写失败测试：两个独立任务上下文形成可比较候选，同一上下文的重复摘要只计 occurrences。
+- [x] 使用受支持 Node 运行目标测试，确认因候选组合缺少上下文边界失败。
+- [x] 最小修改共享 Episode Facts 候选选择，保留独立上下文和有序工作轨迹，并为一组可比较候选预留 2 个有界槽位。
+- [x] 运行 Session Analysis 与 Evidence Bundle 相关测试。
 
 ### 任务 6：收口验证与后修复审计
 
