@@ -100,7 +100,7 @@
 - [x] 运行所有新增 Node 测试。
 - [x] 运行 `npm run check:prototype-design-governance -- --all`。
 - [x] 运行 `npm run build`。
-- [ ] 运行 `codegraph sync` 与 `codegraph status --json`，确认无待同步文件。
+- [x] 运行 `codegraph sync` 与 `codegraph status --json`，确认无待同步文件。
 - [x] 运行 Better Harness 相关测试。
 - [x] 请求独立代码审查，修复可由项目与采集器关闭的 Critical 和 Important 问题。
 - [ ] 重新采集同一冻结窗口并生成后修复审计，保留未能由当前窗口证明关闭的 Finding。
