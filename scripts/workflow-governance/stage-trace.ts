@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { existsSync, readFileSync, realpathSync } from 'node:fs'
+import { basename, dirname, resolve } from 'node:path'
 
 export type WorkflowStage =
   | 'trigger'
@@ -18,6 +18,7 @@ export interface WorkflowStageEvent {
   summary: string
   evidenceRef: string
   skill?: string
+  skillSource?: string
   artifact?: string
 }
 
@@ -54,45 +55,153 @@ const STAGE_ORDER: Record<WorkflowStage, number> = {
   'final-validation': 6,
 }
 
-function assertExistingFile(reference: string, cwd: string): void {
-  const path = reference.slice(reference.indexOf(':') + 1)
-  assert(path && existsSync(resolve(cwd, path)), `工作流证据不存在：${path}`)
+interface StageValidationOptions {
+  cwd?: string
+  expectedRevision?: string
+  providerSessionRoots?: string[]
 }
 
-function assertGitCommit(reference: string, cwd: string): void {
+function assertExistingFile(reference: string, cwd: string): string {
+  const path = reference.slice(reference.indexOf(':') + 1)
+  assert(path && existsSync(resolve(cwd, path)), `工作流证据不存在：${path}`)
+  return resolve(cwd, path)
+}
+
+function assertGitCommit(reference: string, cwd: string, expectedRevision?: string): void {
   const revision = reference.slice('git:'.length)
   assert(revision, 'Git 证据缺少版本')
+  let resolvedRevision = ''
   try {
-    execFileSync('git', ['cat-file', '-e', `${revision}^{commit}`], {
+    resolvedRevision = execFileSync('git', ['rev-parse', `${revision}^{commit}`], {
       cwd,
-      stdio: 'ignore',
-    })
+      encoding: 'utf8',
+    }).trim()
   } catch {
     throw new Error(`Git 证据不存在：${revision}`)
   }
+  if (expectedRevision) {
+    assert.equal(resolvedRevision, expectedRevision, '实现阶段 Git 证据不是当前验证版本')
+  }
 }
 
-function assertEvidence(event: WorkflowStageEvent, cwd: string): void {
+function readEvidenceReceipt(reference: string, cwd: string): Record<string, unknown> {
+  const path = assertExistingFile(reference, cwd)
+  const parsed = JSON.parse(readFileSync(path, 'utf8')) as unknown
+  assert(parsed && typeof parsed === 'object' && !Array.isArray(parsed), `证据收据格式无效：${path}`)
+  return parsed as Record<string, unknown>
+}
+
+function readProviderEvent(reference: string): {
+  sessionPath: string
+  record: {
+    timestamp?: unknown
+    type?: unknown
+    payload?: { type?: unknown; name?: unknown; input?: unknown }
+  }
+} {
+  const match = /^provider-event:(.+)#L([1-9]\d*)$/.exec(reference)
+  assert(match, '技能调用必须引用 provider-event:<session.jsonl>#L<line>')
+  const sessionPath = realpathSync(resolve(match[1]))
+  assert(existsSync(sessionPath), `provider session 证据不存在：${sessionPath}`)
+  const line = readFileSync(sessionPath, 'utf8').split('\n')[Number(match[2]) - 1]
+  assert(line, `provider session 证据行不存在：${match[2]}`)
+  return {
+    sessionPath,
+    record: JSON.parse(line) as {
+      timestamp?: unknown
+      type?: unknown
+      payload?: { type?: unknown; name?: unknown; input?: unknown }
+    },
+  }
+}
+
+export function providerEventTimestamp(reference: string): string {
+  const { record } = readProviderEvent(reference)
+  assert(typeof record.timestamp === 'string', 'provider 事件缺少时间')
+  return record.timestamp
+}
+
+function assertProviderSkillInvocation(
+  event: WorkflowStageEvent,
+  options: StageValidationOptions,
+): void {
+  const { sessionPath, record } = readProviderEvent(event.evidenceRef)
+  const roots = options.providerSessionRoots ?? [
+    resolve(process.env.CODEX_HOME ?? `${process.env.HOME ?? ''}/.codex`, 'sessions'),
+  ]
+  assert(
+    roots.some((root) => sessionPath.startsWith(`${realpathSync(resolve(root))}/`)),
+    '技能调用证据不在受信任的 provider session 根目录',
+  )
+  assert.equal(record.type, 'response_item', 'provider 证据不是响应事件')
+  assert.equal(record.payload?.type, 'custom_tool_call', 'provider 证据不是工具调用')
+  assert.equal(record.payload?.name, 'exec', 'provider 证据不是可审计的文件读取调用')
+  assert.equal(record.timestamp, event.timestamp, '技能调用时间与 provider 事件不一致')
+  const skillSource = event.skillSource?.trim() ?? ''
+  assert(skillSource, '技能调用缺少 skillSource')
+  assert(existsSync(skillSource), `技能源文件不存在：${skillSource}`)
+  assert(skillSource.endsWith('/SKILL.md'), '技能源文件必须指向 SKILL.md')
+  const expectedSkillName = event.skill?.trim().split(':').at(-1)
+  assert.equal(basename(dirname(skillSource)), expectedSkillName, '技能名称不匹配：技能源目录错误')
+  const input = typeof record.payload?.input === 'string' ? record.payload.input : ''
+  assert(input.includes(skillSource), 'provider 工具调用未读取声明的技能源文件')
+  assert(/(?:sed\s+-n|readFile|wc\s+-l)/.test(input), 'provider 工具调用不是技能文件读取')
+}
+
+function assertEvidence(
+  event: WorkflowStageEvent,
+  options: StageValidationOptions,
+): void {
+  const cwd = options.cwd ?? process.cwd()
   if (event.stage === 'trigger') {
     assert(/^conversation:\S+$/.test(event.evidenceRef), '触发阶段必须引用 conversation 证据')
     return
   }
   if (event.stage === 'skill-invocation') {
-    assert(event.evidenceRef.startsWith('skill-file:'), '技能调用必须引用 skill-file 证据')
-    assertExistingFile(event.evidenceRef, cwd)
-    assert(event.evidenceRef.endsWith('/SKILL.md'), '技能调用证据必须指向 SKILL.md')
+    assertProviderSkillInvocation(event, options)
     return
   }
   if (event.stage === 'implementation') {
     assert(event.evidenceRef.startsWith('git:'), '实现阶段必须引用 Git 版本证据')
-    assertGitCommit(event.evidenceRef, cwd)
+    assertGitCommit(event.evidenceRef, cwd, options.expectedRevision)
     return
   }
-  assert(event.evidenceRef.startsWith('file:'), `${event.stage} 阶段必须引用文件证据`)
-  assertExistingFile(event.evidenceRef, cwd)
+  if (event.stage === 'artifact') {
+    assert(event.evidenceRef.startsWith('file:'), 'artifact 阶段必须引用文件证据')
+    const evidencePath = assertExistingFile(event.evidenceRef, cwd)
+    assert.equal(
+      evidencePath,
+      resolve(cwd, event.artifact ?? ''),
+      '产物证据必须指向声明产物',
+    )
+    return
+  }
+  if (event.stage === 'spec-review' || event.stage === 'code-quality-review') {
+    assert(event.evidenceRef.startsWith('review-receipt:'), `${event.stage} 必须引用 review-receipt`)
+    const receipt = readEvidenceReceipt(event.evidenceRef, cwd)
+    assert.equal(receipt.kind, 'workflow-review', '审查证据类型无效')
+    assert.equal(receipt.stage, event.stage, '审查证据阶段不匹配')
+    assert.equal(receipt.verdict, 'pass', '审查证据未通过')
+    if (options.expectedRevision) assert.equal(receipt.revision, options.expectedRevision, '审查证据版本不匹配')
+    return
+  }
+  assert(
+    event.evidenceRef.startsWith('validation-receipt:'),
+    'final-validation 必须引用 validation-receipt',
+  )
+  const receipt = readEvidenceReceipt(event.evidenceRef, cwd)
+  assert.equal(receipt.kind, 'workflow-validation', '验证证据类型无效')
+  if (options.expectedRevision) assert.equal(receipt.revision, options.expectedRevision, '验证证据版本不匹配')
+  assert(Array.isArray(receipt.checks) && receipt.checks.length > 0, '验证证据缺少检查结果')
+  assert(
+    receipt.checks.every((check) =>
+      check && typeof check === 'object' && (check as { exitCode?: unknown }).exitCode === 0),
+    '验证证据包含失败检查',
+  )
 }
 
-function assertEvent(event: WorkflowStageEvent, cwd = process.cwd()): void {
+function assertEvent(event: WorkflowStageEvent, options: StageValidationOptions = {}): void {
+  const cwd = options.cwd ?? process.cwd()
   assert(STAGES.has(event.stage), `未知工作流阶段：${event.stage}`)
   assert(
     /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(event.timestamp)
@@ -106,24 +215,25 @@ function assertEvent(event: WorkflowStageEvent, cwd = process.cwd()): void {
     assert(event.artifact?.trim(), '阶段产物缺少路径或引用')
     assert(existsSync(resolve(cwd, event.artifact)), `阶段产物不存在：${event.artifact}`)
   }
-  assertEvidence(event, cwd)
+  assertEvidence(event, { ...options, cwd })
 }
 
 export function appendStageEvent(
   events: WorkflowStageEvent[],
   event: WorkflowStageEvent,
+  options: StageValidationOptions = {},
 ): WorkflowStageEvent[] {
-  assertEvent(event)
+  assertEvent(event, options)
   return [...events, { ...event }]
 }
 
 export function validateStageTrace(
   events: WorkflowStageEvent[],
   requirements: StageTraceRequirements,
-  options: { cwd?: string } = {},
+  options: StageValidationOptions = {},
 ): StageTraceSummary {
   const cwd = options.cwd ?? process.cwd()
-  for (const event of events) assertEvent(event, cwd)
+  for (const event of events) assertEvent(event, { ...options, cwd })
   for (let index = 1; index < events.length; index += 1) {
     const previous = events[index - 1]
     const current = events[index]

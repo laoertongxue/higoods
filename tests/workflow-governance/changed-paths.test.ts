@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
@@ -77,4 +77,20 @@ test('显式验证路径不能遗漏实际变更', () => {
     cwd: root,
     explicitPaths: ['two.ts', 'one.ts'],
   }), ['one.ts', 'two.ts'])
+})
+
+test('Git 开启路径转义时仍保留中文受管路径', () => {
+  const root = mkdtempSync(join(tmpdir(), 'higoods-unicode-paths-'))
+  git(root, 'init')
+  git(root, 'config', 'user.name', 'Workflow Test')
+  git(root, 'config', 'user.email', 'workflow-test@example.invalid')
+  git(root, 'config', 'core.quotePath', 'true')
+  writeFileSync(join(root, 'README.md'), '# baseline\n')
+  git(root, 'add', 'README.md')
+  git(root, 'commit', '-m', 'baseline')
+  const base = git(root, 'rev-parse', 'HEAD')
+  mkdirSync(join(root, 'src/pages'), { recursive: true })
+  writeFileSync(join(root, 'src/pages/中文页面.ts'), 'export const 页面 = true\n')
+
+  assert.deepEqual(getChangedPaths({ cwd: root, base }), ['src/pages/中文页面.ts'])
 })

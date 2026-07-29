@@ -122,6 +122,8 @@ function verify(args: string[]): void {
   const stageTrace = validateStageTrace(stageEvents, {
     requiredSkills,
     requireTwoStageReview,
+  }, {
+    expectedRevision: revisionBefore.head,
   })
   const receipt = createTaskReceipt({
     workspace,
@@ -140,11 +142,11 @@ function verify(args: string[]): void {
   if (receipt.state !== 'verified') process.exitCode = 1
 }
 
-function deliver(args: string[]): void {
+async function deliver(args: string[]): Promise<void> {
   const path = argument(args, '--receipt')
   const receipt = readReceipt(path)
   assertReceiptCurrent(receipt, gitRevision(receipt.revision.changedPaths))
-  const updated = recordDelivery(receipt, {
+  const updated = await recordDelivery(receipt, {
     provider: argument(args, '--provider'),
     target: argument(args, '--target'),
     revision: argument(args, '--revision'),
@@ -153,17 +155,18 @@ function deliver(args: string[]): void {
   writeReceipt(path, updated)
 }
 
-function accept(args: string[]): void {
+async function accept(args: string[]): Promise<void> {
   const path = argument(args, '--receipt')
   const receipt = readReceipt(path)
   assertReceiptCurrent(receipt, gitRevision(receipt.revision.changedPaths))
-  writeReceipt(path, recordAcceptance(receipt, {
+  writeReceipt(path, await recordAcceptance(receipt, {
     acceptanceRef: argument(args, '--acceptance-ref'),
+    expectedActor: argument(args, '--acceptance-actor'),
   }))
 }
 
 const [command, ...args] = process.argv.slice(2)
 if (command === 'verify') verify(args)
-else if (command === 'deliver') deliver(args)
-else if (command === 'accept') accept(args)
+else if (command === 'deliver') await deliver(args)
+else if (command === 'accept') await accept(args)
 else throw new Error('用法：task-completion-receipt.ts verify|deliver|accept [参数]')

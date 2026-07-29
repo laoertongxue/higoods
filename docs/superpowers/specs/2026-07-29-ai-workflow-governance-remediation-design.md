@@ -84,7 +84,7 @@ Better Harness 侧只修改 Codex Session Evidence 的经验候选选择及对�
 - Superpowers：触发原因、调用、阶段产物、执行、审查和最终验证。
 - 交付：`implemented`、`verified`、`delivered`、`accepted` 四级状态。
 
-最后一次实质改动后，差异指纹变化会使旧收据失效。没有远端 provider 回执不能进入 `delivered`；没有明确接受引用不能进入 `accepted`。
+最后一次实质改动后，差异指纹变化会使旧收据失效。`delivered` 当前只接受 GitHub API 同时核验提交与目标分支的结果；`accepted` 还要求指定 Owner、Member 或 Collaborator 的远端评论明确包含接受语义和验证版本。未接入可独立核验适配器的 provider 不得升级状态。
 
 ## 5. 错误处理
 
@@ -93,7 +93,7 @@ Better Harness 侧只修改 Codex Session Evidence 的经验候选选择及对�
 - 任一验证命令失败时仍写诊断收据，但状态不得超过 `implemented`。
 - CodeGraph 同步失败、状态不可解析或存在待同步文件时不得进入 `verified`。
 - 交付版本与验证版本不一致时拒绝升级状态。
-- Superpowers 轨迹只在任务声明需要时强制；请求中出现技能名称不构成执行证据。
+- Superpowers 轨迹只在任务声明需要时强制；请求中出现技能名称不构成执行证据，只有受信任 provider session 中实际读取对应 `SKILL.md` 的工具事件可以证明技能调用。
 
 ## 6. 测试策略
 
@@ -101,8 +101,8 @@ Better Harness 侧只修改 Codex Session Evidence 的经验候选选择及对�
 
 - 纯函数测试覆盖原型记录的成功与三个负例。
 - 路由测试覆盖补料页面、裁片数据、主处理器、列表组件和未知路径。
-- 收据测试覆盖验证后改动失效、CodeGraph 不健康阻断、无 provider 回执阻断交付。
-- 阶段轨迹测试覆盖完整两阶段审查和“只出现技能名称”的负例。
+- 收据测试覆盖验证后改动失效、CodeGraph 不健康阻断、提交或目标分支不匹配、非授权评论者以及无 provider 回执阻断交付。
+- 阶段轨迹测试覆盖完整两阶段审查、“只出现技能名称”、任意现存文件冒充证据和 provider session 未读取技能文件的负例。
 - Better Harness 测试使用两个独立上下文和重复摘要噪音，确认只生成可比较候选。
 
 最终运行项目专项测试、治理检查、构建、Better Harness 相关测试、CodeGraph 同步与状态检查。

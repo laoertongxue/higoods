@@ -40,6 +40,12 @@ export interface DeliveryReceipt {
   acceptanceRef?: string
 }
 
+interface RemoteEvidenceProbeResult {
+  ok: boolean
+  canonicalRef?: string
+  reason?: string
+}
+
 export interface TaskCompletionReceipt {
   schemaVersion: 1
   workspace: string
@@ -176,20 +182,74 @@ export function assertReceiptCurrent(
   assert(revisionsEqual(receipt.revision, revision), '最终改动已变化，验证收据已经过期')
 }
 
-export function recordDelivery(
+async function defaultRemoteEvidenceProbe(input: {
+  kind: 'delivery' | 'acceptance'
+  url: string
+  revision: string
+  targetUrl?: string
+  expectedActor?: string
+}): Promise<RemoteEvidenceProbeResult> {
+  try {
+    const headers: Record<string, string> = {
+      accept: 'application/vnd.github+json',
+      'user-agent': 'higoods-workflow-governance',
+    }
+    if (process.env.GITHUB_TOKEN) headers.authorization = `Bearer ${process.env.GITHUB_TOKEN}`
+    const response = await fetch(input.url, {
+      headers,
+      redirect: 'follow',
+    })
+    if (!response.ok) return { ok: false, reason: `HTTP ${response.status}` }
+    const body = await response.json() as Record<string, unknown>
+    if (input.kind === 'delivery') {
+      if (body.sha !== input.revision) return { ok: false, reason: '远端提交版本不匹配' }
+      assert(input.targetUrl, '缺少 GitHub 目标分支核验地址')
+      const targetResponse = await fetch(input.targetUrl, {
+        headers,
+        redirect: 'follow',
+      })
+      if (!targetResponse.ok) return { ok: false, reason: `目标分支 HTTP ${targetResponse.status}` }
+      const targetBody = await targetResponse.json() as {
+        object?: { sha?: unknown }
+      }
+      return targetBody.object?.sha === input.revision
+        ? { ok: true, canonicalRef: input.url }
+        : { ok: false, reason: '目标分支未指向已验证版本' }
+    }
+    const comment = typeof body.body === 'string' ? body.body : ''
+    const author = body.user && typeof body.user === 'object'
+      ? (body.user as { login?: unknown }).login
+      : undefined
+    const association = typeof body.author_association === 'string'
+      ? body.author_association
+      : ''
+    const accepted = /(?:accepted|approved|同意|接受|验收通过)/i.test(comment)
+      && comment.includes(input.revision)
+      && author === input.expectedActor
+      && ['OWNER', 'MEMBER', 'COLLABORATOR'].includes(association)
+    return accepted
+      ? { ok: true, canonicalRef: input.url }
+      : { ok: false, reason: '远端评论未明确接受已验证版本' }
+  } catch (error) {
+    return {
+      ok: false,
+      reason: error instanceof Error ? error.message : String(error),
+    }
+  }
+}
+
+export async function recordDelivery(
   receipt: TaskCompletionReceipt,
   delivery: Omit<DeliveryReceipt, 'recordedAt' | 'acceptanceRef'>,
-): TaskCompletionReceipt {
+): Promise<TaskCompletionReceipt> {
   assert.equal(receipt.state, 'verified', '只有验证完成的任务才能记录远端交付')
   assert(delivery.providerReceipt.trim(), '缺少 provider 回执，不能标记远端交付')
   assert.equal(delivery.revision, receipt.revision.head, '交付版本与验证版本不一致')
   const provider = delivery.provider.trim().toLowerCase()
-  assert(
-    ['github', 'vercel', 'sites'].includes(provider),
-    'provider 必须是 github、vercel 或 sites',
-  )
+  assert.equal(provider, 'github', '当前只支持可远端核验的 github provider')
   const target = delivery.target.trim()
-  assert(target && !/\s/.test(target), '交付目标必须是无空白的明确引用')
+  const targetMatch = /^([^/\s]+)\/([^@\s]+)@(\S+)$/.exec(target)
+  assert(targetMatch, 'GitHub 交付目标必须使用 owner/repository@ref')
   let providerReceipt: URL
   try {
     providerReceipt = new URL(delivery.providerReceipt.trim())
@@ -197,18 +257,23 @@ export function recordDelivery(
     throw new Error('provider 回执必须是 HTTPS URL')
   }
   assert.equal(providerReceipt.protocol, 'https:', 'provider 回执必须是 HTTPS URL')
-  const allowedHosts: Record<string, RegExp> = {
-    github: /(^|\.)github\.com$/i,
-    vercel: /(^|\.)vercel\.(?:com|app)$/i,
-    sites: /(^|\.)openai\.com$/i,
-  }
-  assert(allowedHosts[provider].test(providerReceipt.hostname), 'provider 回执域名与 provider 不匹配')
-  if (provider === 'github') {
-    assert(
-      providerReceipt.pathname.includes(delivery.revision),
-      'GitHub provider 回执必须引用已验证版本',
-    )
-  }
+  assert.equal(providerReceipt.hostname, 'github.com', 'GitHub provider 回执域名无效')
+  const [, owner, repository, targetRef] = targetMatch
+  assert.equal(
+    providerReceipt.pathname,
+    `/${owner}/${repository}/commit/${delivery.revision}`,
+    'GitHub provider 回执必须精确引用目标仓库的已验证版本',
+  )
+  const canonicalUrl = `https://api.github.com/repos/${owner}/${repository}/commits/${delivery.revision}`
+  const targetUrl = `https://api.github.com/repos/${owner}/${repository}/git/ref/heads/${encodeURIComponent(targetRef)}`
+  const verification = await defaultRemoteEvidenceProbe({
+    kind: 'delivery',
+    url: canonicalUrl,
+    revision: delivery.revision,
+    targetUrl,
+  })
+  assert(verification.ok, `远端核验失败：${verification.reason ?? '未知原因'}`)
+  assert.equal(verification.canonicalRef, canonicalUrl, '远端核验回执不是规范 GitHub 引用')
 
   return {
     ...receipt,
@@ -217,23 +282,36 @@ export function recordDelivery(
       ...delivery,
       provider,
       target,
-      providerReceipt: providerReceipt.toString(),
+      providerReceipt: canonicalUrl,
       recordedAt: new Date().toISOString(),
     },
   }
 }
 
-export function recordAcceptance(
+export async function recordAcceptance(
   receipt: TaskCompletionReceipt,
-  input: { acceptanceRef: string },
-): TaskCompletionReceipt {
+  input: { acceptanceRef: string; expectedActor: string },
+): Promise<TaskCompletionReceipt> {
   assert.equal(receipt.state, 'delivered', '只有已交付任务才能记录接受')
   const acceptanceRef = input.acceptanceRef.trim()
-  assert(
-    /^(?:conversation:user-message|provider:acceptance|ticket):\S{4,}$/.test(acceptanceRef),
-    '接受引用必须是 conversation:user-message、provider:acceptance 或 ticket 类型的结构化引用',
-  )
+  const expectedActor = input.expectedActor.trim()
+  assert(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/.test(expectedActor), '缺少明确的 GitHub 接受人')
   assert(receipt.delivery, '缺少交付回执')
+  const targetMatch = /^([^/\s]+)\/([^@\s]+)@(\S+)$/.exec(receipt.delivery.target)
+  assert(targetMatch, '交付目标格式无效')
+  const [, owner, repository] = targetMatch
+  assert(
+    acceptanceRef.startsWith(`https://api.github.com/repos/${owner}/${repository}/issues/comments/`),
+    '接受引用必须是目标仓库的 GitHub 评论 API URL',
+  )
+  const verification = await defaultRemoteEvidenceProbe({
+    kind: 'acceptance',
+    url: acceptanceRef,
+    revision: receipt.revision.head,
+    expectedActor,
+  })
+  assert(verification.ok, `远端核验失败：${verification.reason ?? '未知原因'}`)
+  assert.equal(verification.canonicalRef, acceptanceRef, '接受核验回执不是规范 GitHub 引用')
 
   return {
     ...receipt,

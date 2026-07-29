@@ -10,6 +10,23 @@ import {
 } from '../../scripts/workflow-governance/task-receipt.ts'
 import type { AffectedCheckRoute } from '../../scripts/workflow-governance/affected-checks.ts'
 
+const realFetch = globalThis.fetch
+
+function mockGitHubFetch(bodies: Array<Record<string, unknown>>): void {
+  globalThis.fetch = (async () => {
+    const body = bodies.shift()
+    return {
+      ok: Boolean(body),
+      status: body ? 200 : 404,
+      json: async () => body ?? {},
+    } as Response
+  }) as typeof fetch
+}
+
+test.afterEach(() => {
+  globalThis.fetch = realFetch
+})
+
 const revision: GitRevision = {
   head: 'abc123',
   diffHash: 'diff-1',
@@ -128,9 +145,9 @@ test('CodeGraph 状态缺少必要健康字段时失败关闭', () => {
   )
 })
 
-test('没有 provider 回执不能标记远端交付', () => {
-  assert.throws(
-    () => recordDelivery(validReceipt(), {
+test('没有 provider 回执不能标记远端交付', async () => {
+  await assert.rejects(
+    recordDelivery(validReceipt(), {
       provider: 'github',
       target: 'main',
       revision: 'abc123',
@@ -140,9 +157,9 @@ test('没有 provider 回执不能标记远端交付', () => {
   )
 })
 
-test('交付和接受必须使用可识别的结构化证据引用', () => {
-  assert.throws(
-    () => recordDelivery(validReceipt(), {
+test('交付和接受必须由远端证据确认', async () => {
+  await assert.rejects(
+    recordDelivery(validReceipt(), {
       provider: ' ',
       target: ' ',
       revision: 'abc123',
@@ -151,21 +168,39 @@ test('交付和接受必须使用可识别的结构化证据引用', () => {
     /provider/,
   )
 
-  const delivered = recordDelivery(validReceipt(), {
+  mockGitHubFetch([
+    { sha: 'abc123' },
+    { object: { sha: 'abc123' } },
+    {
+      body: 'accepted abc123',
+      user: { login: 'review-owner' },
+      author_association: 'OWNER',
+    },
+  ])
+  const delivered = await recordDelivery(validReceipt(), {
     provider: 'github',
     target: 'owner/repository@main',
     revision: 'abc123',
     providerReceipt: 'https://github.com/owner/repository/commit/abc123',
   })
-  assert.throws(
-    () => recordAcceptance(delivered, { acceptanceRef: 'yes' }),
+  await assert.rejects(
+    recordAcceptance(delivered, {
+      acceptanceRef: 'ticket:fake',
+      expectedActor: 'review-owner',
+    }),
     /接受引用/,
   )
+
+  const accepted = await recordAcceptance(delivered, {
+    acceptanceRef: 'https://api.github.com/repos/owner/repository/issues/comments/42',
+    expectedActor: 'review-owner',
+  })
+  assert.equal(accepted.state, 'accepted')
 })
 
-test('交付版本必须与验证版本一致', () => {
-  assert.throws(
-    () => recordDelivery(validReceipt(), {
+test('交付版本必须与验证版本一致', async () => {
+  await assert.rejects(
+    recordDelivery(validReceipt(), {
       provider: 'github',
       target: 'main',
       revision: 'other',
@@ -175,8 +210,17 @@ test('交付版本必须与验证版本一致', () => {
   )
 })
 
-test('验证、交付和接受按证据逐级升级', () => {
-  const delivered = recordDelivery(validReceipt(), {
+test('验证、交付和接受按证据逐级升级', async () => {
+  mockGitHubFetch([
+    { sha: 'abc123' },
+    { object: { sha: 'abc123' } },
+    {
+      body: '验收通过 abc123',
+      user: { login: 'review-owner' },
+      author_association: 'MEMBER',
+    },
+  ])
+  const delivered = await recordDelivery(validReceipt(), {
     provider: 'github',
     target: 'owner/repository@main',
     revision: 'abc123',
@@ -184,8 +228,61 @@ test('验证、交付和接受按证据逐级升级', () => {
   })
   assert.equal(delivered.state, 'delivered')
 
-  const accepted = recordAcceptance(delivered, {
-    acceptanceRef: 'conversation:user-message:2026-07-29T11:00:00+07:00',
+  const accepted = await recordAcceptance(delivered, {
+    acceptanceRef: 'https://api.github.com/repos/owner/repository/issues/comments/42',
+    expectedActor: 'review-owner',
   })
   assert.equal(accepted.state, 'accepted')
+})
+
+test('远端核验失败不能升级交付状态', async () => {
+  mockGitHubFetch([])
+  await assert.rejects(
+    recordDelivery(validReceipt(), {
+      provider: 'github',
+      target: 'owner/repository@main',
+      revision: 'abc123',
+      providerReceipt: 'https://github.com/owner/repository/commit/abc123',
+    }),
+    /远端核验失败/,
+  )
+})
+
+test('目标分支未指向版本或非授权评论者不能升级状态', async () => {
+  mockGitHubFetch([
+    { sha: 'abc123' },
+    { object: { sha: 'different' } },
+  ])
+  await assert.rejects(
+    recordDelivery(validReceipt(), {
+      provider: 'github',
+      target: 'owner/repository@main',
+      revision: 'abc123',
+      providerReceipt: 'https://github.com/owner/repository/commit/abc123',
+    }),
+    /目标分支/,
+  )
+
+  mockGitHubFetch([
+    { sha: 'abc123' },
+    { object: { sha: 'abc123' } },
+    {
+      body: 'accepted abc123',
+      user: { login: 'outsider' },
+      author_association: 'NONE',
+    },
+  ])
+  const delivered = await recordDelivery(validReceipt(), {
+    provider: 'github',
+    target: 'owner/repository@main',
+    revision: 'abc123',
+    providerReceipt: 'https://github.com/owner/repository/commit/abc123',
+  })
+  await assert.rejects(
+    recordAcceptance(delivered, {
+      acceptanceRef: 'https://api.github.com/repos/owner/repository/issues/comments/42',
+      expectedActor: 'review-owner',
+    }),
+    /远端核验失败/,
+  )
 })

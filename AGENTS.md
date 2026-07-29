@@ -415,8 +415,8 @@ npm run workflow:verify -- --output <临时目录>/task-receipt.json
 
 - `implemented`：实现存在，但最终验证尚未闭环。
 - `verified`：最终改动、相关检查和 CodeGraph 状态已经闭环。
-- `delivered`：在 `verified` 基础上取得 GitHub、Vercel 等目标 provider 对当前版本的明确回执。
-- `accepted`：在 `delivered` 基础上取得用户明确接受引用。
+- `delivered`：在 `verified` 基础上，由 GitHub API 同时确认提交存在且目标分支指向该验证版本。当前未接入可独立核验适配器的 provider 不得进入此状态。
+- `accepted`：在 `delivered` 基础上，由 GitHub API 确认指定接受人以仓库 Owner、Member 或 Collaborator 身份明确接受该验证版本。
 
 没有 provider 回执时不得把助手交接或本地验证表述为远端交付成功。远端交付和用户接受只在任务明确授权后记录。
 
@@ -431,7 +431,7 @@ npm run workflow:verify -- --output <临时目录>/task-receipt.json
 - 规格审查与代码质量审查（任务要求两阶段审查时）。
 - 最终相关验证。
 
-使用 `npm run workflow:stage -- ...` 追加阶段事件，并在 `workflow:verify` 中通过 `--stage-trace`、`--required-skills` 和必要时的 `--require-two-stage-review` 校验。请求或规则文本中仅出现技能名称，不得计为实际调用。轨迹只保存摘要、产物路径和证据引用，不复制原始对话或隐藏推理。
+使用 `npm run workflow:stage -- ...` 追加阶段事件，并在 `workflow:verify` 中通过 `--stage-trace`、`--required-skills` 和必要时的 `--require-two-stage-review` 校验。请求或规则文本中仅出现技能名称不得计为实际调用；技能调用必须引用受信任 Codex provider session 中实际读取对应 `SKILL.md` 的工具事件。产物、实现、审查和最终验证分别绑定声明文件、当前 Git 版本及专用结构化收据。轨迹只保存摘要、产物路径和证据引用，不复制原始对话或隐藏推理。
 
 ---
 

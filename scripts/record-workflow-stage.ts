@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import {
   appendStageEvent,
+  providerEventTimestamp,
   type WorkflowStage,
   type WorkflowStageEvent,
 } from './workflow-governance/stage-trace.ts'
@@ -26,10 +28,14 @@ const event: WorkflowStageEvent = {
   evidenceRef: argument(args, '--evidence-ref'),
 }
 const skill = argument(args, '--skill', false)
+const skillSource = argument(args, '--skill-source', false)
 const artifact = argument(args, '--artifact', false)
 if (skill) event.skill = skill
+if (skillSource) event.skillSource = skillSource
+if (skill) event.timestamp = providerEventTimestamp(event.evidenceRef)
 if (artifact) event.artifact = artifact
-const next = appendStageEvent(current, event)
+const expectedRevision = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
+const next = appendStageEvent(current, event, { expectedRevision })
 mkdirSync(dirname(path), { recursive: true })
 writeFileSync(path, `${JSON.stringify(next, null, 2)}\n`)
 console.log(JSON.stringify({ status: 'recorded', trace: path, eventCount: next.length }))

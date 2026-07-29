@@ -6,6 +6,22 @@ export function normalizeChangedPath(path: string): string {
   return renameTarget.replace(/\\/g, '/').replace(/^\.\//, '').trim()
 }
 
+function nullRecords(output: Buffer): string[] {
+  return output.toString('utf8').split('\0').filter(Boolean)
+}
+
+function porcelainPaths(output: Buffer): string[] {
+  const records = nullRecords(output)
+  const paths: string[] = []
+  for (let index = 0; index < records.length; index += 1) {
+    const record = records[index]
+    const status = record.slice(0, 2)
+    paths.push(normalizeChangedPath(record.slice(3)))
+    if (/[RC]/.test(status)) index += 1
+  }
+  return paths.filter(Boolean)
+}
+
 export function getWorkingTreeChangedPaths(): string[] {
   return getChangedPaths()
 }
@@ -15,33 +31,30 @@ export function getStagedChangedPaths(
 ): string[] {
   const output = execFileSync(
     'git',
-    ['diff', '--cached', '--name-only', '--diff-filter=ACMRDTUXB'],
-    { cwd: options.cwd ?? process.cwd(), encoding: 'utf8' },
+    ['diff', '--cached', '--name-only', '-z', '--diff-filter=ACMRDTUXB'],
+    { cwd: options.cwd ?? process.cwd() },
   )
-  return [...new Set(output.split('\n').map(normalizeChangedPath).filter(Boolean))].sort()
+  return [...new Set(nullRecords(output).map(normalizeChangedPath).filter(Boolean))].sort()
 }
 
 export function getChangedPaths(
   options: { cwd?: string; base?: string } = {},
 ): string[] {
   const cwd = options.cwd ?? process.cwd()
-  const statusOutput = execFileSync('git', ['status', '--porcelain'], {
-    cwd,
-    encoding: 'utf8',
-  })
-  const paths = statusOutput
-    .split('\n')
-    .filter(Boolean)
-    .map((line) => normalizeChangedPath(line.slice(3)))
-    .filter(Boolean)
+  const statusOutput = execFileSync(
+    'git',
+    ['status', '--porcelain=v1', '-z', '--untracked-files=all'],
+    { cwd },
+  )
+  const paths = porcelainPaths(statusOutput)
 
   if (options.base) {
     const committedOutput = execFileSync(
       'git',
-      ['diff', '--name-only', '--diff-filter=ACMRDTUXB', `${options.base}...HEAD`],
-      { cwd, encoding: 'utf8' },
+      ['diff', '--name-only', '-z', '--diff-filter=ACMRDTUXB', `${options.base}...HEAD`],
+      { cwd },
     )
-    paths.push(...committedOutput.split('\n').map(normalizeChangedPath).filter(Boolean))
+    paths.push(...nullRecords(committedOutput).map(normalizeChangedPath).filter(Boolean))
   }
 
   return [...new Set(paths)].sort()
