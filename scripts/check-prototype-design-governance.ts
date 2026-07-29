@@ -1,6 +1,13 @@
-import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
+import {
+  validatePrototypeReviewCoverage,
+  type ReviewRecordSource,
+} from './workflow-governance/prototype-review.ts'
+import {
+  getChangedPaths,
+  getStagedChangedPaths,
+} from './workflow-governance/changed-paths.ts'
 
 const DESIGN_GUIDELINES = 'docs/higood-indonesia-factory-product-design-guidelines.md'
 const REVIEW_CHECKLIST = 'docs/higood-indonesia-factory-prototype-review-checklist.md'
@@ -41,19 +48,9 @@ function isReviewRecordPath(path: string): boolean {
   return normalized.startsWith(REVIEW_RECORD_DIR) && normalized.endsWith('.md')
 }
 
-function getChangedPaths(mode: 'staged' | 'all'): string[] {
-  const args =
-    mode === 'staged'
-      ? ['diff', '--cached', '--name-only', '--diff-filter=ACMRTUXB']
-      : ['status', '--porcelain']
-  const output = execFileSync('git', args, { encoding: 'utf8' })
-  if (mode === 'staged') {
-    return output.split('\n').map(normalizePath).filter(Boolean)
-  }
-  return output
-    .split('\n')
-    .map((line) => normalizePath(line.slice(3)))
-    .filter(Boolean)
+function getGovernanceChangedPaths(mode: 'staged' | 'all', base?: string): string[] {
+  if (mode === 'all') return getChangedPaths({ base })
+  return getStagedChangedPaths()
 }
 
 function assertFileExists(path: string): void {
@@ -95,25 +92,25 @@ function main(): void {
   assertAgentsReferences()
 
   const mode = args.has('--all') ? 'all' : 'staged'
-  const changedPaths = getChangedPaths(mode)
+  const baseIndex = process.argv.indexOf('--base')
+  const base = baseIndex >= 0 ? process.argv[baseIndex + 1] : process.env.GOVERNANCE_BASE_SHA
+  const changedPaths = getGovernanceChangedPaths(mode, base)
   const prototypeChanges = changedPaths.filter(isPrototypePath)
   if (prototypeChanges.length === 0) {
     console.log(`prototype design governance passed (${mode}): no prototype changes`)
     return
   }
 
-  const hasReviewRecord = changedPaths.some(isReviewRecordPath)
-  assert(
-    hasReviewRecord,
-    [
-      `检测到原型相关改动，但未发现 ${REVIEW_RECORD_DIR} 下的审查记录。`,
-      '请复制 docs/prototype-review-record-template.md 填写审查记录后再提交。',
-      '涉及文件：',
-      ...prototypeChanges.map((path) => `- ${path}`),
-    ].join('\n'),
-  )
+  const recordSources = changedPaths
+    .filter(isReviewRecordPath)
+    .filter((path) => existsSync(path))
+    .map<ReviewRecordSource>((path) => ({ path, source: readFileSync(path, 'utf8') }))
+  const result = validatePrototypeReviewCoverage(prototypeChanges, recordSources)
 
-  console.log(`prototype design governance passed (${mode}): review record found`)
+  console.log(
+    `prototype design governance passed (${mode}): `
+    + `${result.coveredPaths.length} managed file(s), ${result.recordPaths.length} linked review record(s)`,
+  )
 }
 
 main()
