@@ -1162,6 +1162,8 @@ interface WoolCompletionSnapshot {
   waitProcessStockSummary: Array<{ yarnSkuCode: string; stockQty: number; qtyUnit: 'kg' }>
   waitHandoverStockSummary: Array<{ outputSkuCode: string; stockQty: number; qtyUnit: '件' | '片' }>
   releasedMachineIds: string[]
+  // 新完成记录同时冻结业务编号和名称；字段可选只用于读取升级前历史快照
+  releasedMachines?: Array<{ machineId: string; machineNo: string; machineName: string }>
 }
 
 interface WoolMachineAssociation {
@@ -1188,6 +1190,7 @@ interface WoolMachineAssociationLog {
 - 查询：列加工单、算加工后 SKU 齐料、算 Tab、算可填报容量、算库存、列设备关系、列仓库流水。
 - 命令：新增接收、修改接收数量、纱线领用、纱线退回、新增加工填报、修改加工填报数量、发起交出、修改交出数量、确认下游接收、完成加工单、保存整组设备关系、设备维修或停用、库存调整或转移。
 - 新增或修改加工事实与仓库流水必须由同一个领域命令完成，页面不得分别写两份状态。
+- 完成加工单时，快照必须同时保存解除设备 ID、设备编号和设备名称；详情优先显示冻结的业务字段，升级前历史快照仅以内部设备标识明确降级展示，禁止用当前设备档案反查覆盖历史。
 - 页面不得再通过循环调用多个旧动作来“推进到目标状态”。
 - 纱线领用累计量、退回累计量和当前库存都从记录与流水计算，不再从“横机开工用量”“缝盘损耗”或旧节点字段推导。
 - 默认库位的库存键必须包含加工单和对象 SKU；纱线库存还要包含批次，加工后库存还要包含对象类型。

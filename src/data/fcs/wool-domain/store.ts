@@ -48,7 +48,7 @@ function cloneStore(store: WoolDomainStore): WoolDomainStore {
 function getStorage(): WoolStorage | null {
   try {
     const candidate = (globalThis as { localStorage?: WoolStorage }).localStorage
-    return candidate?.getItem && candidate?.setItem ? candidate : null
+    return candidate ?? null
   } catch {
     return null
   }
@@ -629,10 +629,26 @@ export function validateWoolStore(store: WoolDomainStore): void {
   }
   for (const completion of store.completions) {
     requireOrder(completion.woolOrderId, '完成记录')
+    const releasedMachines = completion.confirmationSnapshot.releasedMachines
+    if (releasedMachines !== undefined && !Array.isArray(releasedMachines)) {
+      throw new Error('毛织存储校验失败：完成快照解除横机业务字段必须是数组')
+    }
+    if (releasedMachines) {
+      assertUniqueIds(releasedMachines, (item) => item.machineId, '完成快照解除横机业务字段')
+    }
     for (const machineId of completion.confirmationSnapshot.releasedMachineIds) {
       if (!store.machines.some((item) => item.machineId === machineId)) {
         throw new Error(`毛织存储校验失败：完成快照引用的设备 ${machineId} 不存在`)
       }
+      const frozen = releasedMachines?.find((item) => item.machineId === machineId)
+      if (releasedMachines && (!frozen?.machineNo.trim() || !frozen.machineName.trim())) {
+        throw new Error(`毛织存储校验失败：完成快照未冻结设备 ${machineId} 的业务编号和名称`)
+      }
+    }
+    if (releasedMachines?.some((item) =>
+      !completion.confirmationSnapshot.releasedMachineIds.includes(item.machineId),
+    )) {
+      throw new Error('毛织存储校验失败：完成快照解除设备 ID 与业务设备快照不一致')
     }
   }
   for (const association of store.machineAssociations) {

@@ -357,6 +357,15 @@ function completion(
           qtyUnit: line.qtyUnit,
         })),
       releasedMachineIds: [...releasedMachineIds],
+      releasedMachines: releasedMachineIds.map((machineId) => {
+        const machine = store.machines.find((item) => item.machineId === machineId)
+        if (!machine) throw new Error(`Mock 完成快照找不到横机设备 ${machineId}`)
+        return {
+          machineId,
+          machineNo: machine.machineNo,
+          machineName: machine.machineName,
+        }
+      }),
     },
   }
 }

@@ -1212,6 +1212,15 @@ function buildCompletionSnapshot(
       qtyUnit: line.qtyUnit,
     })),
     releasedMachineIds,
+    releasedMachines: releasedMachineIds.map((machineId) => {
+      const machine = store.machines.find((item) => item.machineId === machineId)
+      if (!machine) throw new Error(`找不到完成时解除的横机设备 ${machineId}`)
+      return {
+        machineId,
+        machineNo: machine.machineNo,
+        machineName: machine.machineName,
+      }
+    }),
   }
 }
 

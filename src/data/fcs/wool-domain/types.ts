@@ -240,6 +240,12 @@ export interface WoolCompletionSnapshot {
     qtyUnit: '件' | '片'
   }>
   releasedMachineIds: string[]
+  /** 新完成记录必填；仅兼容升级前未冻结设备业务字段的历史本地快照。 */
+  releasedMachines?: Array<{
+    machineId: string
+    machineNo: string
+    machineName: string
+  }>
 }
 
 export interface WoolCompletionRecord {

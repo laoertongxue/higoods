@@ -49,15 +49,6 @@ type WoolDetailTab =
   | 'machines'
   | 'operations'
 
-type PagedScope =
-  | 'receiptPage'
-  | 'reportPage'
-  | 'handoverPage'
-  | 'machinePage'
-  | 'operationPage'
-  | 'linePage'
-  | 'historyPage'
-
 type DetailOverlay =
   | {
       kind: 'record'
@@ -90,32 +81,16 @@ const DETAIL_TABS: Array<{ key: WoolDetailTab; label: string }> = [
 const state: {
   woolOrderId: string
   activeTab: WoolDetailTab
-  pages: Record<PagedScope, number>
-  pageSizes: Record<PagedScope, number>
+  pages: Record<string, number>
+  pageSizes: Record<string, number>
   overlay: DetailOverlay | null
   overlayError: string
   feedback: string
 } = {
   woolOrderId: '',
   activeTab: 'overview',
-  pages: {
-    receiptPage: 1,
-    reportPage: 1,
-    handoverPage: 1,
-    machinePage: 1,
-    operationPage: 1,
-    linePage: 1,
-    historyPage: 1,
-  },
-  pageSizes: {
-    receiptPage: 5,
-    reportPage: 5,
-    handoverPage: 5,
-    machinePage: 5,
-    operationPage: 10,
-    linePage: 5,
-    historyPage: 5,
-  },
+  pages: {},
+  pageSizes: {},
   overlay: null,
   overlayError: '',
   feedback: '',
@@ -125,7 +100,8 @@ function resetDetailState(woolOrderId: string): void {
   if (state.woolOrderId === woolOrderId) return
   state.woolOrderId = woolOrderId
   state.activeTab = 'overview'
-  for (const scope of Object.keys(state.pages) as PagedScope[]) state.pages[scope] = 1
+  state.pages = {}
+  state.pageSizes = {}
   state.overlay = null
   state.overlayError = ''
   state.feedback = ''
@@ -173,7 +149,12 @@ function renderTabs(): string {
   `
 }
 
-function pageItems<T>(items: T[], scope: PagedScope): {
+export function paginateWoolDetailItems<T>(
+  items: T[],
+  pages: Record<string, number>,
+  listKey: string,
+  pageSize: number,
+): {
   rows: T[]
   total: number
   currentPage: number
@@ -182,11 +163,10 @@ function pageItems<T>(items: T[], scope: PagedScope): {
   to: number
   pageSize: number
 } {
-  const pageSize = state.pageSizes[scope]
   const total = items.length
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
-  const currentPage = Math.min(Math.max(1, state.pages[scope]), totalPages)
-  state.pages[scope] = currentPage
+  const currentPage = Math.min(Math.max(1, pages[listKey] || 1), totalPages)
+  pages[listKey] = currentPage
   const fromIndex = (currentPage - 1) * pageSize
   return {
     rows: items.slice(fromIndex, fromIndex + pageSize),
@@ -199,8 +179,27 @@ function pageItems<T>(items: T[], scope: PagedScope): {
   }
 }
 
-function renderPaging<T>(items: T[], scope: PagedScope): { rows: T[]; footer: string } {
-  const paging = pageItems(items, scope)
+export function stepWoolDetailPage(
+  pages: Record<string, number>,
+  listKey: string,
+  delta: number,
+  total: number,
+  pageSize: number,
+): number {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const next = Math.min(Math.max(1, (pages[listKey] || 1) + delta), totalPages)
+  pages[listKey] = next
+  return next
+}
+
+function renderPaging<T>(
+  items: T[],
+  listKey: string,
+  surface: 'content' | 'overlay' = 'content',
+  defaultPageSize = 5,
+): { rows: T[]; footer: string } {
+  const pageSize = state.pageSizes[listKey] || defaultPageSize
+  const paging = paginateWoolDetailItems(items, state.pages, listKey, pageSize)
   const footer = renderTablePagination({
     total: paging.total,
     from: paging.from,
@@ -211,7 +210,10 @@ function renderPaging<T>(items: T[], scope: PagedScope): { rows: T[]; footer: st
     actionPrefix: 'wool-detail-record',
     fieldPrefix: 'wool-detail-record',
     pageSizeOptions: PAGE_SIZE_OPTIONS,
-  }).replace('<footer ', `<footer data-wool-detail-pagination="${scope}" `)
+  }).replace(
+    '<footer ',
+    `<footer data-wool-detail-list-key="${escapeHtml(listKey)}" data-wool-detail-page-surface="${surface}" data-wool-detail-total="${paging.total}" `,
+  )
   return { rows: paging.rows, footer }
 }
 
@@ -238,21 +240,23 @@ function recordFlows(
   recordType: WoolQtyChangeRecordType,
   recordId: string,
   recordLineId?: string,
-): WoolWarehouseFlow[] {
+): Array<WoolWarehouseFlow & { relationLabel: string }> {
   const changes = qtyChanges(recordType, recordId, recordLineId)
   const originalSourceId = recordType === 'YARN_RECEIPT' ? recordLineId : recordId
   return [
     ...listWoolWarehouseFlows({
       woolOrderId: state.woolOrderId,
       sourceRecordId: originalSourceId,
-    }),
+    }).map((flow) => ({ ...flow, relationLabel: '原始业务流水' })),
     ...changes.flatMap((change) =>
       listWoolWarehouseFlows({
         woolOrderId: state.woolOrderId,
         sourceRecordId: change.changeId,
-      }),
+      }).map((flow) => ({ ...flow, relationLabel: '数量修改差额流水' })),
     ),
-  ]
+  ].sort((left, right) =>
+    right.operatedAt.localeCompare(left.operatedAt) || right.flowId.localeCompare(left.flowId),
+  )
 }
 
 function renderProofFiles(proofFiles?: string[]): string {
@@ -329,6 +333,60 @@ function renderCompletionFacts(
       && record.downstreamReceipt?.status === 'CONFIRMED'
       && (record.downstreamReceipt.receivedAt || '') > completion.completedAt,
     )
+  const receiptFacts = [
+    ...snapshot.yarnReceiptSummary.map((item) =>
+      `纱线 ${item.yarnSkuCode}：${formatQty(item.receivedQty, item.qtyUnit)}`,
+    ),
+    ...snapshot.outputReadinessSummary.map((item) =>
+      `${item.outputSkuCode}：${item.missingYarnSkus.length ? `缺 ${item.missingYarnSkus.join('、')}` : '必需纱线已齐'}`,
+    ),
+  ]
+  const reportFacts = snapshot.processReportSummary.map((item) =>
+    `${item.outputSkuCode}：${formatQty(item.reportedQty, item.qtyUnit)}`,
+  )
+  const handoverFacts = snapshot.handoverSummary.map((item) => {
+    const downstream = item.downstreamReceivedAt
+      ? `完成时下游实收 ${formatQty(item.downstreamActualReceivedQty, item.qtyUnit)} / 差异 ${formatQty(item.downstreamDifferenceQty, item.qtyUnit)} / ${item.downstreamReceivedAt}`
+      : '完成时下游未确认'
+    return `${item.handoverId} / ${item.outputSkuCode}：交出 ${formatQty(item.handoverQty, item.qtyUnit)} / ${downstream}`
+  })
+  const frozenReleasedMachines = snapshot.releasedMachines
+  const releasedMachineFacts = frozenReleasedMachines?.length
+    ? frozenReleasedMachines.map((machine) =>
+      `自动解除横机：${machine.machineNo} / ${machine.machineName}`,
+    )
+    : snapshot.releasedMachineIds.map((machineId) =>
+      `设备标识 ${machineId}（旧快照未冻结设备编号）`,
+    )
+  const warehouseFacts = [
+    ...snapshot.waitProcessStockSummary.map((item) =>
+      `纱线 ${item.yarnSkuCode}：${formatQty(item.stockQty, item.qtyUnit)}`,
+    ),
+    ...snapshot.waitHandoverStockSummary.map((item) =>
+      `待交出 ${item.outputSkuCode}：${formatQty(item.stockQty, item.qtyUnit)}`,
+    ),
+    ...releasedMachineFacts,
+  ]
+  const receiptPaging = renderPaging(
+    receiptFacts,
+    `completion-receipts:${order.woolOrderId}:${completion.completionId}`,
+  )
+  const reportPaging = renderPaging(
+    reportFacts,
+    `completion-reports:${order.woolOrderId}:${completion.completionId}`,
+  )
+  const handoverPaging = renderPaging(
+    handoverFacts,
+    `completion-handovers:${order.woolOrderId}:${completion.completionId}`,
+  )
+  const warehousePaging = renderPaging(
+    warehouseFacts,
+    `completion-warehouse:${order.woolOrderId}:${completion.completionId}`,
+  )
+  const downstreamPaging = renderPaging(
+    laterConfirmed,
+    `downstream-after-completion:${order.woolOrderId}:${completion.completionId}`,
+  )
   return `
     ${renderSection('完成加工单确认', `
       <div class="grid gap-3 text-sm md:grid-cols-3">
@@ -342,35 +400,36 @@ function renderCompletionFacts(
         <article class="rounded-md border p-3">
           <h3 class="text-sm font-medium">1. 确认接收与款色齐料</h3>
           <div class="mt-2 space-y-2 text-xs">
-            ${snapshot.yarnReceiptSummary.map((item) => `<div>${escapeHtml(item.yarnSkuCode)}：${formatQty(item.receivedQty, item.qtyUnit)}</div>`).join('') || '<div class="text-muted-foreground">完成时无有效接收</div>'}
-            ${snapshot.outputReadinessSummary.map((item) => `<div>${escapeHtml(item.outputSkuCode)}：${item.missingYarnSkus.length ? `缺 ${escapeHtml(item.missingYarnSkus.join('、'))}` : '必需纱线已齐'}</div>`).join('')}
+            ${receiptPaging.rows.map((fact) => `<div>${escapeHtml(fact)}</div>`).join('') || '<div class="text-muted-foreground">完成时无有效接收</div>'}
           </div>
+          ${receiptPaging.footer}
         </article>
         <article class="rounded-md border p-3">
           <h3 class="text-sm font-medium">2. 加工填报</h3>
-          <div class="mt-2 space-y-2 text-xs">${snapshot.processReportSummary.map((item) =>
-            `<div>${escapeHtml(item.outputSkuCode)}：${formatQty(item.reportedQty, item.qtyUnit)}</div>`,
+          <div class="mt-2 space-y-2 text-xs">${reportPaging.rows.map((fact) =>
+            `<div>${escapeHtml(fact)}</div>`,
           ).join('') || '<div class="text-muted-foreground">完成时无有效加工填报</div>'}</div>
+          ${reportPaging.footer}
         </article>
         <article class="rounded-md border p-3">
           <h3 class="text-sm font-medium">3. 发起交出</h3>
-          <div class="mt-2 space-y-2 text-xs">${snapshot.handoverSummary.map((item) =>
-            `<div>${escapeHtml(item.handoverId)} / ${escapeHtml(item.outputSkuCode)}：${formatQty(item.handoverQty, item.qtyUnit)}</div>`,
+          <div class="mt-2 space-y-2 text-xs">${handoverPaging.rows.map((fact) =>
+            `<div>${escapeHtml(fact)}</div>`,
           ).join('') || '<div class="text-muted-foreground">完成时无有效交出</div>'}</div>
+          ${handoverPaging.footer}
         </article>
         <article class="rounded-md border p-3">
           <h3 class="text-sm font-medium">4. 完成时仓库与解除横机</h3>
           <div class="mt-2 space-y-2 text-xs">
-            ${snapshot.waitProcessStockSummary.map((item) => `<div>纱线 ${escapeHtml(item.yarnSkuCode)}：${formatQty(item.stockQty, item.qtyUnit)}</div>`).join('')}
-            ${snapshot.waitHandoverStockSummary.map((item) => `<div>待交出 ${escapeHtml(item.outputSkuCode)}：${formatQty(item.stockQty, item.qtyUnit)}</div>`).join('')}
-            <div>自动解除横机：${escapeHtml(snapshot.releasedMachineIds.join('、') || '无')}</div>
+            ${warehousePaging.rows.map((fact) => `<div>${escapeHtml(fact)}</div>`).join('') || '<div class="text-muted-foreground">完成时无仓库库存或解除横机</div>'}
           </div>
+          ${warehousePaging.footer}
         </article>
       </div>
     `)}
     ${renderSection('完成后的下游确认', `
       <div class="overflow-hidden rounded-md border">
-        ${laterConfirmed.map((record) => `
+        ${downstreamPaging.rows.map((record) => `
           <div class="grid gap-2 border-b px-3 py-2 text-sm last:border-b-0 md:grid-cols-5">
             <span>${escapeHtml(record.handoverId)}</span>
             <span>${escapeHtml(record.outputSkuCode)}</span>
@@ -380,6 +439,7 @@ function renderCompletionFacts(
           </div>
         `).join('') || '<div class="px-3 py-4 text-sm text-muted-foreground">完成后暂无下游确认回写</div>'}
       </div>
+      ${downstreamPaging.footer}
     `)}
   `
 }
@@ -393,7 +453,8 @@ function yarnReceiptFacts(woolOrderId: string, yarnSkuCode: string): string {
 }
 
 function renderReadiness(order: WoolWorkOrder): string {
-  const rows = order.outputPlanLines.map((line) => {
+  const paging = renderPaging(order.outputPlanLines, `readiness:${order.woolOrderId}`)
+  const rows = paging.rows.map((line) => {
     const readiness = getWoolOutputReadiness(order.woolOrderId, line.outputSkuCode)
     const reported = getWoolOutputReportedQty(order.woolOrderId, line.outputSkuCode)
     const handed = getWoolOutputHandedOverQty(order.woolOrderId, line.outputSkuCode)
@@ -414,11 +475,14 @@ function renderReadiness(order: WoolWorkOrder): string {
       </tr>
     `
   }).join('')
-  return renderSection('逐加工后 SKU 判断', renderTable(
-    ['对象', '加工后 SKU / 对应成衣', '计划', '必需纱线与有效确认接收事实', '缺少纱线', '加工填报门禁', '累计加工', '累计交出', '默认库位库存', '可交出余额'],
-    rows,
-    'min-w-[1580px]',
-  ))
+  return renderSection('逐加工后 SKU 判断', `
+    ${renderTable(
+      ['对象', '加工后 SKU / 对应成衣', '计划', '必需纱线与有效确认接收事实', '缺少纱线', '加工填报门禁', '累计加工', '累计交出', '默认库位库存', '可交出余额'],
+      rows,
+      'min-w-[1580px]',
+    )}
+    ${paging.footer}
+  `)
 }
 
 function canEditOrder(order: WoolWorkOrder): boolean {
@@ -465,7 +529,7 @@ function renderReceipts(order: WoolWorkOrder): string {
     woolOrderId: order.woolOrderId,
     recordType: 'YARN_RECEIPT',
   }).map((item) => item.record as WoolYarnReceiptRecord)
-  const paging = renderPaging(records, 'receiptPage')
+  const paging = renderPaging(records, `receipts:${order.woolOrderId}`)
   return renderSection('确认接收记录', `
     ${renderTable(
       ['接收单', '送货单 / 批次', '纱线明细', '操作人 / 时间', '凭证 / 备注', '操作'],
@@ -491,7 +555,7 @@ function renderReports(order: WoolWorkOrder): string {
     woolOrderId: order.woolOrderId,
     recordType: 'PROCESS_REPORT',
   }).map((item) => item.record as WoolProcessReportRecord)
-  const paging = renderPaging(records, 'reportPage')
+  const paging = renderPaging(records, `reports:${order.woolOrderId}`)
   return renderSection('加工填报记录', `
     ${renderTable(
       ['填报记录', '加工后 SKU', '当前有效数量', '操作人 / 时间', '入库流水', '凭证 / 备注', '操作'],
@@ -522,7 +586,7 @@ function renderHandovers(order: WoolWorkOrder): string {
     woolOrderId: order.woolOrderId,
     recordType: 'HANDOVER',
   }).map((item) => item.record as WoolHandoverRecord)
-  const paging = renderPaging(records, 'handoverPage')
+  const paging = renderPaging(records, `handovers:${order.woolOrderId}`)
   return renderSection('发起交出记录', `
     ${renderTable(
       ['交出记录', '加工后 SKU', '当前有效数量', '接收对象', '操作人 / 时间', '出库流水', '下游确认', '操作'],
@@ -567,7 +631,7 @@ function renderMachines(order: WoolWorkOrder): string {
       operatedBy: log.operatedBy,
       reason: log.reason,
     }))
-  const paging = renderPaging([...current, ...history], 'machinePage')
+  const paging = renderPaging([...current, ...history], `machines:${order.woolOrderId}`)
   return renderSection('横机关联', `
     ${renderTable(
       ['记录', '横机设备', '关系动作', '原因', '操作人', '时间'],
@@ -605,7 +669,7 @@ function renderOperations(order: WoolWorkOrder): string {
       } satisfies WoolOperationLog,
     }))
   const rows = [...facts, ...machineFacts].sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))
-  const paging = renderPaging(rows, 'operationPage')
+  const paging = renderPaging(rows, `operations:${order.woolOrderId}`, 'content', 10)
   const labels: Record<string, string> = {
     QTY_CHANGE: '修改数量',
     COMPLETION: '完成加工单',
@@ -660,7 +724,8 @@ function renderHistory(
   recordLineId?: string,
 ): string {
   const changes = qtyChanges(recordType, recordId, recordLineId)
-  const paging = renderPaging(changes, 'historyPage')
+  const listKey = `history:${recordType}:${recordId}:${recordLineId || '-'}`
+  const paging = renderPaging(changes, listKey, 'overlay')
   return `
     <h3 class="mt-5 text-sm font-semibold">完整数量修改历史</h3>
     <div class="mt-2 overflow-hidden rounded-md border">
@@ -683,18 +748,26 @@ function renderHistory(
   `
 }
 
-function renderFlowList(flows: WoolWarehouseFlow[]): string {
+function renderFlowList(
+  flows: Array<WoolWarehouseFlow & { relationLabel: string }>,
+  recordType: WoolQtyChangeRecordType,
+  recordId: string,
+  recordLineId?: string,
+): string {
+  const listKey = `flows:${recordType}:${recordId}:${recordLineId || '-'}`
+  const paging = renderPaging(flows, listKey, 'overlay')
   return `
     <h3 class="mt-5 text-sm font-semibold">关联仓库流水</h3>
     <div class="mt-2 space-y-2">
-      ${flows.map((flow) => `
+      ${paging.rows.map((flow) => `
         <div class="rounded-md border px-3 py-2 text-sm">
           <strong>${escapeHtml(flow.flowId)}</strong>
-          <span class="ml-2">${escapeHtml(flow.defaultLocationId)} / ${escapeHtml(flow.flowType)} / ${formatQty(flow.qty, flow.unit)}</span>
+          <span class="ml-2">${escapeHtml(flow.relationLabel)} / ${escapeHtml(flow.defaultLocationId)} / ${escapeHtml(flow.flowType)} / ${formatQty(flow.qty, flow.unit)}</span>
           <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(flow.operatedBy)} / ${escapeHtml(flow.operatedAt)} / ${escapeHtml(flow.reason || '无原因')}</div>
         </div>
       `).join('') || '<div class="text-sm text-muted-foreground">未找到关联仓库流水</div>'}
     </div>
+    ${paging.footer}
   `
 }
 
@@ -705,7 +778,7 @@ function renderRecordDialog(order: WoolWorkOrder): string {
   let body = ''
   if (item.recordType === 'YARN_RECEIPT') {
     const record = item.record as WoolYarnReceiptRecord
-    const linePaging = renderPaging(record.lines, 'linePage')
+    const linePaging = renderPaging(record.lines, `receipt-lines:${record.receiptId}`, 'overlay')
     title = `确认接收记录 ${record.receiptNo}`
     body = `
       <div class="grid gap-3 text-sm md:grid-cols-3">
@@ -726,7 +799,12 @@ function renderRecordDialog(order: WoolWorkOrder): string {
       ${linePaging.rows.map((line) => `
         <div class="mt-4 rounded-md bg-muted/20 p-3">
           <div class="text-sm font-medium">${escapeHtml(line.yarnSkuCode)}</div>
-          ${renderFlowList(recordFlows('YARN_RECEIPT', record.receiptId, line.lineId))}
+          ${renderFlowList(
+            recordFlows('YARN_RECEIPT', record.receiptId, line.lineId),
+            'YARN_RECEIPT',
+            record.receiptId,
+            line.lineId,
+          )}
           ${renderHistory('YARN_RECEIPT', record.receiptId, line.lineId)}
         </div>
       `).join('')}
@@ -744,7 +822,11 @@ function renderRecordDialog(order: WoolWorkOrder): string {
         ${renderField('备注', record.remark || '—')}
       </div>
       <h3 class="mt-5 text-sm font-semibold">凭证</h3><div class="mt-2 text-sm">${renderProofFiles(record.proofFiles)}</div>
-      ${renderFlowList(recordFlows('PROCESS_REPORT', record.reportId))}
+      ${renderFlowList(
+        recordFlows('PROCESS_REPORT', record.reportId),
+        'PROCESS_REPORT',
+        record.reportId,
+      )}
       ${renderHistory('PROCESS_REPORT', record.reportId)}
     `
   } else {
@@ -761,7 +843,7 @@ function renderRecordDialog(order: WoolWorkOrder): string {
         ${renderField('下游确认', record.downstreamReceipt?.status === 'CONFIRMED' ? `${record.downstreamReceipt.receivedBy || '—'} / ${record.downstreamReceipt.receivedAt || '—'} / 实收 ${formatQty(record.downstreamReceipt.actualReceivedQty, record.qtyUnit)} / 差异 ${formatQty(record.downstreamReceipt.differenceQty, record.qtyUnit)}` : '待确认')}
       </div>
       <h3 class="mt-5 text-sm font-semibold">凭证</h3><div class="mt-2 text-sm">${renderProofFiles(record.proofFiles)}</div>
-      ${renderFlowList(recordFlows('HANDOVER', record.handoverId))}
+      ${renderFlowList(recordFlows('HANDOVER', record.handoverId), 'HANDOVER', record.handoverId)}
       ${renderHistory('HANDOVER', record.handoverId)}
     `
   }
@@ -872,8 +954,6 @@ function openRecord(actionNode: HTMLElement): void {
     recordType: actionNode.dataset.recordType as DetailOverlay['recordType'],
     recordId: actionNode.dataset.recordId || '',
   }
-  state.pages.historyPage = 1
-  state.pages.linePage = 1
   state.overlayError = ''
 }
 
@@ -922,9 +1002,17 @@ function saveEdit(order: WoolWorkOrder): void {
   }
 }
 
-function pagingScope(node: HTMLElement): PagedScope | undefined {
-  return node.closest<HTMLElement>('[data-wool-detail-pagination]')?.dataset
-    .woolDetailPagination as PagedScope | undefined
+function pagingContext(node: HTMLElement): {
+  listKey: string
+  surface: 'content' | 'overlay'
+} | undefined {
+  const footer = node.closest<HTMLElement>('[data-wool-detail-list-key]')
+  const listKey = footer?.dataset.woolDetailListKey
+  if (!listKey) return undefined
+  return {
+    listKey,
+    surface: footer?.dataset.woolDetailPageSurface === 'overlay' ? 'overlay' : 'content',
+  }
 }
 
 export async function handleCraftWoolDetailEvent(target: HTMLElement): Promise<boolean> {
@@ -935,11 +1023,13 @@ export async function handleCraftWoolDetailEvent(target: HTMLElement): Promise<b
 
   const pageSizeField = target.closest<HTMLSelectElement>('[data-wool-detail-record-field="pageSize"]')
   if (pageSizeField) {
-    const scope = pagingScope(pageSizeField)
-    if (scope) {
-      state.pageSizes[scope] = Number(pageSizeField.value) || state.pageSizes[scope]
-      state.pages[scope] = 1
-      if (scope === 'historyPage' || scope === 'linePage') refreshOverlay(order)
+    const context = pagingContext(pageSizeField)
+    if (context) {
+      state.pageSizes[context.listKey] = Number(pageSizeField.value)
+        || state.pageSizes[context.listKey]
+        || 5
+      state.pages[context.listKey] = 1
+      if (context.surface === 'overlay') refreshOverlay(order)
       else refreshTabsAndContent(order)
     }
     return true
@@ -947,11 +1037,20 @@ export async function handleCraftWoolDetailEvent(target: HTMLElement): Promise<b
 
   const paginationAction = target.closest<HTMLElement>('[data-wool-detail-record-action]')
   if (paginationAction) {
-    const scope = pagingScope(paginationAction)
+    const context = pagingContext(paginationAction)
     const action = paginationAction.dataset.woolDetailRecordAction
-    if (scope && (action === 'prev-page' || action === 'next-page')) {
-      state.pages[scope] += action === 'prev-page' ? -1 : 1
-      if (scope === 'historyPage' || scope === 'linePage') refreshOverlay(order)
+    if (context && (action === 'prev-page' || action === 'next-page')) {
+      const pageSize = state.pageSizes[context.listKey] || 5
+      const footer = paginationAction.closest<HTMLElement>('[data-wool-detail-list-key]')
+      const total = Number(footer?.dataset.woolDetailTotal || 0)
+      stepWoolDetailPage(
+        state.pages,
+        context.listKey,
+        action === 'prev-page' ? -1 : 1,
+        total,
+        pageSize,
+      )
+      if (context.surface === 'overlay') refreshOverlay(order)
       else refreshTabsAndContent(order)
     }
     return true

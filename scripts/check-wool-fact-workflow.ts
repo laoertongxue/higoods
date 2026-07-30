@@ -43,7 +43,11 @@ import {
   getWoolWorkOrderTab,
 } from '../src/data/fcs/wool-domain/queries.ts'
 import { readWoolStore } from '../src/data/fcs/wool-domain/store.ts'
-import { renderCraftWoolWorkOrderDetailPage } from '../src/pages/process-factory/wool/work-order-detail.ts'
+import {
+  paginateWoolDetailItems,
+  renderCraftWoolWorkOrderDetailPage,
+  stepWoolDetailPage,
+} from '../src/pages/process-factory/wool/work-order-detail.ts'
 
 const handoverTypeFixture: WoolHandoverRecord = {
   handoverId: 'WH-TYPE-CHECK',
@@ -96,6 +100,7 @@ const completionTypeFixture: WoolCompletionRecord = {
     waitProcessStockSummary: [{ yarnSkuCode: 'YARN-A', stockQty: 0, qtyUnit: 'kg' }],
     waitHandoverStockSummary: [{ outputSkuCode: 'GARMENT-BLACK-M', stockQty: 0, qtyUnit: '件' }],
     releasedMachineIds: ['WM-001'],
+    releasedMachines: [{ machineId: 'WM-001', machineNo: '横机-001', machineName: '电脑横机 1 号' }],
   },
 }
 void completionTypeFixture
@@ -1504,6 +1509,32 @@ const releasedLogMachineIds = releasedStore.machineAssociationLogs
   .map((item) => item.machineId)
   .sort()
 assert.deepEqual([...releasedCompletion.confirmationSnapshot.releasedMachineIds].sort(), releasedLogMachineIds)
+assert.deepEqual(
+  releasedCompletion.confirmationSnapshot.releasedMachines?.map((item) => item.machineId).sort(),
+  releasedLogMachineIds,
+  '完成快照必须为每台自动解除横机冻结业务展示字段',
+)
+for (const frozenMachine of releasedCompletion.confirmationSnapshot.releasedMachines ?? []) {
+  const machine = releasedStore.machines.find((item) => item.machineId === frozenMachine.machineId)!
+  assert.equal(frozenMachine.machineNo, machine.machineNo)
+  assert.equal(frozenMachine.machineName, machine.machineName)
+}
+const legacyCompletionStore = structuredClone(releasedStore)
+delete legacyCompletionStore.completions
+  .find((item) => item.woolOrderId === releasedOrder.woolOrderId)!
+  .confirmationSnapshot.releasedMachines
+assert.doesNotThrow(
+  () => validateWoolStore(legacyCompletionStore),
+  '升级前未冻结设备业务字段的历史完成快照必须仍可读取',
+)
+const invalidFrozenMachineStore = structuredClone(releasedStore)
+invalidFrozenMachineStore.completions
+  .find((item) => item.woolOrderId === releasedOrder.woolOrderId)!
+  .confirmationSnapshot.releasedMachines![0].machineNo = ''
+assert.throws(
+  () => validateWoolStore(invalidFrozenMachineStore),
+  /未冻结设备 .* 的业务编号和名称/,
+)
 for (const machineId of releasedCompletion.confirmationSnapshot.releasedMachineIds) {
   const releaseLog = releasedStore.machineAssociationLogs.find((item) =>
     item.machineId === machineId
@@ -3387,6 +3418,13 @@ assert.deepEqual(
   new Set(associatedCompletion.confirmationSnapshot.releasedMachineIds),
   new Set(associatedMachineIds),
 )
+assert.deepEqual(
+  new Set(associatedCompletion.confirmationSnapshot.releasedMachines?.map((item) => item.machineId)),
+  new Set(associatedMachineIds),
+)
+assert(associatedCompletion.confirmationSnapshot.releasedMachines?.every((item) =>
+  item.machineNo.trim() && item.machineName.trim(),
+))
 assert.equal(listWoolMachineAssociations(associatedOrder.woolOrderId).length, 0)
 const associatedCompletionStore = readWoolStore()
 assert(associatedMachineIds.every((machineId) =>
@@ -4339,10 +4377,15 @@ for (const removed of [
 }
 for (const contract of [
   'renderTablePagination',
-  'receiptPage',
-  'reportPage',
-  'handoverPage',
-  'linePage',
+  'paginateWoolDetailItems',
+  'stepWoolDetailPage',
+  '`receipts:${order.woolOrderId}`',
+  '`reports:${order.woolOrderId}`',
+  '`handovers:${order.woolOrderId}`',
+  '`receipt-lines:${record.receiptId}`',
+  "`flows:${recordType}:${recordId}:${recordLineId || '-'}`",
+  "`history:${recordType}:${recordId}:${recordLineId || '-'}`",
+  '`readiness:${order.woolOrderId}`',
   'listWoolFactRecords',
   'getWoolOutputReadiness',
   'getWoolOutputStockQty',
@@ -4358,6 +4401,10 @@ for (const contract of [
   'data-wool-detail-root',
   'data-skip-page-rerender="true"',
   'handleCraftWoolDetailEvent',
+  'data-wool-detail-list-key',
+  'releasedMachines',
+  '完成时下游实收',
+  '旧快照未冻结设备编号',
 ]) {
   assert(woolWorkOrderDetailSource.includes(contract), `毛织加工单详情缺少任务 9 契约：${contract}`)
 }
@@ -4369,6 +4416,26 @@ assert(
   woolWorkOrderDetailSource.includes("getWoolProcessingStatus(order.woolOrderId) !== 'COMPLETED'"),
   '已完成加工单必须隐藏全部数量修改入口',
 )
+
+const independentPagingState: Record<string, number> = {}
+const longHistoryKey = 'history:YARN_RECEIPT:WR-LONG:LINE-1'
+const shortHistoryKey = 'history:YARN_RECEIPT:WR-LONG:LINE-2'
+stepWoolDetailPage(independentPagingState, longHistoryKey, 1, 12, 5)
+stepWoolDetailPage(independentPagingState, longHistoryKey, 1, 12, 5)
+const longHistoryPage = paginateWoolDetailItems(
+  Array.from({ length: 12 }, (_, index) => `L1-${String(12 - index).padStart(2, '0')}`),
+  independentPagingState,
+  longHistoryKey,
+  5,
+)
+assert.deepEqual(longHistoryPage.rows, ['L1-02', 'L1-01'], '12 条历史第 3 页必须展示最后两条')
+paginateWoolDetailItems(['L2-01'], independentPagingState, shortHistoryKey, 5)
+assert.equal(
+  independentPagingState[longHistoryKey],
+  3,
+  '短历史分页钳制不得重置另一纱线明细的长历史页码',
+)
+
 resetWoolFactWorkflowMock('CHECK_WOOL_TASK_9_DETAIL_RENDER')
 const completedDetailHtml = renderCraftWoolWorkOrderDetailPage('WOOL-MOCK-10')
 for (const label of [
@@ -4385,6 +4452,36 @@ for (const label of [
 assert(completedDetailHtml.includes('完成确认时冻结事实'))
 assert(completedDetailHtml.includes('完成后的下游确认'))
 assert(!completedDetailHtml.includes('data-wool-detail-action="open-edit"'), '已完成详情不得渲染修改入口')
+
+resetWoolFactWorkflowMock('CHECK_WOOL_TASK_9_COMPLETION_SPLIT')
+const splitCompletionOrder = listWoolWorkOrders()
+  .find((order) => order.mockScenarioCode === 'MULTIPLE_HANDOVERS_WITH_STOCK')!
+const splitHandovers = readWoolStore().handovers
+  .filter((record) => record.woolOrderId === splitCompletionOrder.woolOrderId)
+  .sort((left, right) => left.handoverId.localeCompare(right.handoverId))
+confirmWoolDownstreamReceipt(splitHandovers[0].handoverId, {
+  commandId: 'CMD-TASK9-BEFORE-COMPLETE',
+  actualReceivedQty: 29,
+  receivedAt: '2026-07-30 17:00:00',
+  receivedBy: '完成前下游收货员',
+})
+completeWoolWorkOrder(splitCompletionOrder.woolOrderId, {
+  commandId: 'CMD-TASK9-COMPLETE',
+  completedAt: '2026-07-30 18:00:00',
+  completedBy: '毛织主管',
+})
+confirmWoolDownstreamReceipt(splitHandovers[1].handoverId, {
+  commandId: 'CMD-TASK9-AFTER-COMPLETE',
+  actualReceivedQty: 19,
+  receivedAt: '2026-07-30 19:00:00',
+  receivedBy: '完成后下游收货员',
+})
+const splitCompletionHtml = renderCraftWoolWorkOrderDetailPage(splitCompletionOrder.woolOrderId)
+assert(splitCompletionHtml.includes('完成时下游实收 29 件'))
+assert(splitCompletionHtml.includes('完成时下游未确认'))
+assert(splitCompletionHtml.includes('完成后下游收货员'))
+assert(splitCompletionHtml.includes('实际接收 19 件'))
+assert(!splitCompletionHtml.includes('自动解除横机：WM-'), '内部 machineId 不得冒充横机业务编号')
 
 console.log('PASS task 5: global command receipts, atomic stock, downstream lock, and manual completion')
 console.log('PASS task 6: current machine associations and derived four-state availability')
