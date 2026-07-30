@@ -1087,33 +1087,44 @@ assert(
   '同生产单跨列表同时存在时，分组和物料行主键不得发生 DOM 冲突',
 )
 
-const insufficientEvidenceSession = {
-  ...historyReadySession,
-  pickupRecordIds: ['PICKUP-RECORD-NOT-EXIST'],
-}
-const conservativeHistory = buildHistoryScenarioGroups({
-  lines: [{ ...historyScenarioLineA }, { ...historyScenarioLineB }],
-  pickupSessions: [insufficientEvidenceSession],
+const fakeIncompleteSession = buildHistoryScenarioSession({
+  sessionId: 'SESSION-HISTORY-FAKE-INCOMPLETE',
+  nodeType: 'INCOMPLETE_PICKABLE',
+  pickedAt: '2026-03-18 11:30',
+  snapshotLine: historyScenarioLineA,
+})
+const mixedWithFakeHistory = buildHistoryScenarioGroups({
+  lines: [{ ...historyScenarioLineB }],
+  pickupSessions: [historyReadySession, fakeIncompleteSession],
   pickupRecords: [historyReadyRecord],
-  supplementRecords: [newSupplementRecord],
 })[0]
 assert(
-  conservativeHistory?.finalResult === 'NOT_ALL_PICKED',
-  '会话引用虚假 pickupRecordId 时不得误判补料重开',
+  mixedWithFakeHistory?.historyPath === 'READY_PICKUP'
+  && mixedWithFakeHistory.pickupSessionCount === 1
+  && mixedWithFakeHistory.latestPickedAt === historyReadySession.pickedAt,
+  '真实 READY 会话不得被引用虚假记录的 INCOMPLETE 会话污染路径、数量或最新时间',
+)
+const onlyFakeHistory = buildHistoryScenarioGroups({
+  lines: [{ ...historyScenarioLineA }],
+  pickupSessions: [fakeIncompleteSession],
+  pickupRecords: [],
+})
+assert(
+  onlyFakeHistory.length === 0,
+  '只有引用虚假 pickupRecordId 的会话时不得生成历史分组',
 )
 const wrongSessionRecord = {
   ...historyReadyRecord,
   pickupSessionId: 'SESSION-WRONG-OWNER',
 }
 const wrongOwnerHistory = buildHistoryScenarioGroups({
-  lines: [{ ...historyScenarioLineA }, { ...historyScenarioLineB }],
+  lines: [{ ...historyScenarioLineB }],
   pickupSessions: [historyReadySession],
   pickupRecords: [wrongSessionRecord],
-  supplementRecords: [newSupplementRecord],
-})[0]
+})
 assert(
-  wrongOwnerHistory?.finalResult === 'NOT_ALL_PICKED',
-  'pickupRecordId 虽存在但 session 归属不一致时不得误判补料重开',
+  wrongOwnerHistory.length === 0,
+  'pickupRecordId 虽存在但 session 归属不一致时必须排除该会话且不得生成历史分组',
 )
 
 console.log(JSON.stringify({
