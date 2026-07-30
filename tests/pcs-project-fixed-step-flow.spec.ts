@@ -43,6 +43,21 @@ const builtNodes = buildProjectNodes({
   createdAt: '2026-07-30 10:00',
 })
 assert.ok(builtNodes.length > 5, '固定五步应承接现有业务表单节点，而不是丢弃业务办理入口')
+const requiredDetailedNodeCodes = [
+  'SAMPLE_SHOOT_FIT',
+  'SAMPLE_CONFIRM',
+  'SAMPLE_COST_REVIEW',
+  'SAMPLE_PRICING',
+  'FEASIBILITY_REVIEW',
+  'CHANNEL_PRODUCT_LISTING',
+]
+assert.deepEqual(
+  requiredDetailedNodeCodes.filter(
+    (workItemTypeCode) => !builtNodes.some((node) => node.workItemTypeCode === workItemTypeCode),
+  ),
+  [],
+  '测款前准备必须保留现有关键业务表单入口',
+)
 assert.deepEqual(
   Array.from(new Set(builtNodes.map((node) => node.phaseName))),
   expectedSteps.map((step) => step.stepName),

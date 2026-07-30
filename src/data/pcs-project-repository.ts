@@ -1,5 +1,4 @@
 import {
-  getProjectTemplateById,
   listProjectTemplates,
   type ProjectTemplate,
 } from './pcs-templates.ts'
@@ -10,12 +9,11 @@ import {
   buildProjectNodes as buildFixedProjectNodes,
   buildProjectPhases as buildFixedProjectPhases,
 } from './pcs-project-node-factory.ts'
-import {
-  DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID,
-  WANLONG_REVISION_SAMPLE_TEMPLATE_ID,
-} from './pcs-project-domain-contract.ts'
 import { PCS_CHANNEL_OPTIONS, normalizePcsChannelCodes } from './pcs-channel-options.ts'
-import { createStyleArchiveShell } from './pcs-style-archive-repository.ts'
+import {
+  createStyleArchiveShell,
+  findStyleArchiveByProjectId,
+} from './pcs-style-archive-repository.ts'
 import {
   buildProjectWorkspaceCategoryOptions,
   findProjectWorkspaceOptionById,
@@ -312,21 +310,15 @@ function getNodeAlignmentScore(node: PcsProjectNodeRecord, expectedNodeId: strin
   return score
 }
 
-function alignProjectNodesWithTemplate(
+function alignProjectNodesWithFixedFlow(
   project: PcsProjectRecord,
   existingNodes: PcsProjectNodeRecord[],
 ): PcsProjectNodeRecord[] {
-  const template = getProjectTemplateById(project.templateId)
-  if (!template) {
-    return existingNodes.map(normalizeNode)
-  }
-
-  const generatedNodes = buildProjectNodeRecordsFromTemplate({
+  const generatedNodes = buildFixedProjectNodes({
     projectId: project.projectId,
     ownerId: project.ownerId,
     ownerName: project.ownerName,
     createdAt: project.createdAt,
-    template,
   })
 
   const candidatesByCode = new Map<string, PcsProjectNodeRecord[]>()
@@ -365,6 +357,33 @@ function alignProjectNodesWithTemplate(
       multiInstanceFlag: generatedNode.multiInstanceFlag,
       sourceTemplateNodeId: generatedNode.sourceTemplateNodeId,
       sourceTemplateVersion: generatedNode.sourceTemplateVersion,
+    })
+  })
+}
+
+function alignProjectPhasesWithFixedFlow(
+  project: PcsProjectRecord,
+  existingPhases: PcsProjectPhaseRecord[],
+): PcsProjectPhaseRecord[] {
+  const generatedPhases = buildFixedProjectPhases({
+    projectId: project.projectId,
+    ownerId: project.ownerId,
+    ownerName: project.ownerName,
+    createdAt: project.createdAt,
+  })
+
+  return generatedPhases.map((generatedPhase) => {
+    const matchedPhase =
+      existingPhases.find((phase) => phase.phaseCode === generatedPhase.phaseCode) ??
+      existingPhases.find((phase) => phase.phaseOrder === generatedPhase.phaseOrder)
+    if (!matchedPhase) return normalizePhase(generatedPhase)
+    return normalizePhase({
+      ...matchedPhase,
+      phaseCode: generatedPhase.phaseCode,
+      phaseName: generatedPhase.phaseName,
+      phaseOrder: generatedPhase.phaseOrder,
+      ownerId: matchedPhase.ownerId || generatedPhase.ownerId,
+      ownerName: matchedPhase.ownerName || generatedPhase.ownerName,
     })
   })
 }
@@ -487,56 +506,9 @@ function migrateSeededSampleCostAndListingNodeStates(
 function mergeMissingBootstrapData(snapshot: PcsProjectStoreSnapshot): PcsProjectStoreSnapshot {
   const bootstrap = seedSnapshot()
   const mergedProjects = snapshot.projects.map(migrateRevisionTemplateProject)
-  const mergedPhases = snapshot.phases.map(normalizePhase)
-  const templateNodeCodeMap = new Map<string, Set<string>>()
 
-  mergedProjects.forEach((project) => {
-    const template = getProjectTemplateById(project.templateId)
-    if (!template) return
-    templateNodeCodeMap.set(
-      project.projectId,
-      new Set(
-        buildProjectNodeRecordsFromTemplate({
-          projectId: project.projectId,
-          ownerId: project.ownerId,
-          ownerName: project.ownerName,
-          createdAt: project.createdAt,
-          template,
-        }).map((node) => node.workItemTypeCode),
-      ),
-    )
-  })
-
-  const projectMap = new Map(mergedProjects.map((project) => [project.projectId, project]))
-  let mergedNodes = snapshot.nodes
-    .map(normalizeNode)
-    .filter((node) => {
-      const allowedNodeCodes = templateNodeCodeMap.get(node.projectId)
-      if (!allowedNodeCodes) return true
-      return allowedNodeCodes.has(node.workItemTypeCode)
-    })
-    .map((node) => {
-      const project = projectMap.get(node.projectId)
-      if (
-        project?.templateId === 'TPL-003' &&
-        project.currentNodeCode === 'SAMPLE_CONFIRM' &&
-        node.workItemTypeCode === 'SAMPLE_CONFIRM'
-      ) {
-        return normalizeNode({
-          ...node,
-          currentStatus: node.currentStatus === '未开始' ? '待确认' : node.currentStatus,
-          pendingActionType: '待确认',
-          pendingActionText: '当前请处理：样衣确认',
-          updatedAt: project.updatedAt || node.updatedAt,
-        })
-      }
-      return node
-    })
-
-  const projectIds = new Set(mergedProjects.map((item) => item.projectId))
-  const phaseIds = new Set(mergedPhases.map((item) => item.projectPhaseId))
-  const nodeIds = new Set(mergedNodes.map((item) => item.projectNodeId))
-
+  const storedProjectIds = new Set(mergedProjects.map((item) => item.projectId))
+  const projectIds = new Set(storedProjectIds)
   bootstrap.projects.forEach((project) => {
     if (!projectIds.has(project.projectId)) {
       mergedProjects.push(cloneProject(project))
@@ -544,39 +516,26 @@ function mergeMissingBootstrapData(snapshot: PcsProjectStoreSnapshot): PcsProjec
     }
   })
 
-  bootstrap.phases.forEach((phase) => {
-    if (!phaseIds.has(phase.projectPhaseId)) {
-      mergedPhases.push(clonePhase(phase))
-      phaseIds.add(phase.projectPhaseId)
-    }
-  })
-
-  bootstrap.nodes.forEach((node) => {
-    if (!nodeIds.has(node.projectNodeId)) {
-      mergedNodes.push(cloneNode(node))
-      nodeIds.add(node.projectNodeId)
-    }
-  })
-
-  const templateProjectIds = new Set(
-    mergedProjects
-      .filter((project) => Boolean(getProjectTemplateById(project.templateId)))
-      .map((project) => project.projectId),
-  )
-
-  const alignedNodes = mergedProjects
-    .filter((project) => templateProjectIds.has(project.projectId))
-    .flatMap((project) =>
-      alignProjectNodesWithTemplate(
-        project,
-        mergedNodes.filter((node) => node.projectId === project.projectId),
-      ),
-    )
-
-  mergedNodes = [
-    ...mergedNodes.filter((node) => !templateProjectIds.has(node.projectId)),
-    ...alignedNodes,
+  const sourcePhases = [
+    ...snapshot.phases.map(normalizePhase),
+    ...bootstrap.phases.filter((phase) => !storedProjectIds.has(phase.projectId)).map(normalizePhase),
   ]
+  const sourceNodes = [
+    ...snapshot.nodes.map(normalizeNode),
+    ...bootstrap.nodes.filter((node) => !storedProjectIds.has(node.projectId)).map(normalizeNode),
+  ]
+  const mergedPhases = mergedProjects.flatMap((project) =>
+    alignProjectPhasesWithFixedFlow(
+      project,
+      sourcePhases.filter((phase) => phase.projectId === project.projectId),
+    ),
+  )
+  let mergedNodes = mergedProjects.flatMap((project) =>
+    alignProjectNodesWithFixedFlow(
+      project,
+      sourceNodes.filter((node) => node.projectId === project.projectId),
+    ),
+  )
   mergedNodes = migrateSeededSampleCostAndListingNodeStates(mergedNodes, bootstrap.nodes)
   mergedNodes = completeSampleCostReviewBeforeStartedListing(mergedNodes)
 
@@ -585,6 +544,96 @@ function mergeMissingBootstrapData(snapshot: PcsProjectStoreSnapshot): PcsProjec
     projects: mergedProjects,
     phases: mergedPhases,
     nodes: mergedNodes,
+  }
+}
+
+function ensureProjectStyleArchives(snapshot: PcsProjectStoreSnapshot): PcsProjectStoreSnapshot {
+  const projects = snapshot.projects.map((project) => {
+    const existingArchive = findStyleArchiveByProjectId(project.projectId)
+    if (existingArchive) {
+      return normalizeProject({
+        ...project,
+        linkedStyleId: existingArchive.styleId,
+        linkedStyleCode: existingArchive.styleCode,
+        linkedStyleName: existingArchive.styleName,
+        linkedStyleGeneratedAt: existingArchive.generatedAt,
+      })
+    }
+
+    const projectArchiveNode = snapshot.nodes.find(
+      (node) => node.projectId === project.projectId && node.workItemTypeCode === 'PROJECT_INIT',
+    )
+    if (!projectArchiveNode) {
+      throw new Error(`商品项目 ${project.projectCode} 缺少“项目与档案建立”节点，无法补齐商品／款式档案。`)
+    }
+
+    const timestamp = project.createdAt || project.updatedAt || nowText()
+    const archive = createStyleArchiveShell({
+      styleId: project.linkedStyleId || `style_${project.projectId}`,
+      styleCode: project.linkedStyleCode || `SPU-${project.projectCode}`,
+      styleName: project.linkedStyleName || project.projectName,
+      styleNameEn: '',
+      styleNumber: project.styleNumber || project.linkedStyleCode || project.projectCode,
+      productType: '成衣',
+      sourceProjectId: project.projectId,
+      sourceProjectCode: project.projectCode,
+      sourceProjectName: project.projectName,
+      sourceProjectNodeId: projectArchiveNode.projectNodeId,
+      categoryId: project.categoryId,
+      categoryName: project.categoryName,
+      subCategoryId: project.subCategoryId,
+      subCategoryName: project.subCategoryName,
+      brandId: project.brandId,
+      brandName: project.brandName,
+      yearTag: project.yearTag,
+      seasonTags: [...project.seasonTags],
+      styleTags: [...project.styleTags],
+      targetAudienceTags: [...project.targetAudienceTags],
+      targetChannelCodes: [...project.targetChannelCodes],
+      priceRangeLabel: project.priceRangeLabel || '待补齐',
+      archiveStatus: 'DRAFT',
+      baseInfoStatus: '商品测款',
+      specificationStatus: '未建立',
+      techPackStatus: '未建立',
+      costPricingStatus: '未建立',
+      specificationCount: 0,
+      techPackVersionCount: 0,
+      costVersionCount: 0,
+      channelProductCount: 0,
+      currentTechPackVersionId: '',
+      currentTechPackVersionCode: '',
+      currentTechPackVersionLabel: '',
+      currentTechPackVersionStatus: '',
+      currentTechPackVersionActivatedAt: '',
+      currentTechPackVersionActivatedBy: '',
+      mainImageId: '',
+      mainImageUrl: project.projectAlbumUrls[0] || '',
+      galleryImageIds: [],
+      galleryImageUrls: [...project.projectAlbumUrls],
+      imageSource: project.projectAlbumUrls.length > 0 ? '项目参考图' : '',
+      sellingPointText: '',
+      detailDescription: '',
+      packagingInfo: '',
+      remark: project.remark,
+      generatedAt: timestamp,
+      generatedBy: project.createdBy || '系统迁移',
+      updatedAt: project.updatedAt || timestamp,
+      updatedBy: project.updatedBy || '系统迁移',
+      legacyOriginProject: project.templateId || '',
+    })
+
+    return normalizeProject({
+      ...project,
+      linkedStyleId: archive.styleId,
+      linkedStyleCode: archive.styleCode,
+      linkedStyleName: archive.styleName,
+      linkedStyleGeneratedAt: archive.generatedAt,
+    })
+  })
+
+  return {
+    ...snapshot,
+    projects,
   }
 }
 
@@ -609,7 +658,9 @@ function hydrateSnapshot(snapshot: PcsProjectStoreSnapshot): PcsProjectStoreSnap
   const pricingMockMigrated =
     sourceVersion < PROJECT_STORE_VERSION ? migrateSampleCostReviewPricingProjectMocks(decisionMigrated) : decisionMigrated
 
-  return repairProjectNodeSequences(mergeMissingBootstrapData(pricingMockMigrated))
+  return ensureProjectStyleArchives(
+    repairProjectNodeSequences(mergeMissingBootstrapData(pricingMockMigrated)),
+  )
 }
 
 function loadSnapshot(): PcsProjectStoreSnapshot {
@@ -631,9 +682,7 @@ function loadSnapshot(): PcsProjectStoreSnapshot {
 
     const parsed = JSON.parse(raw) as Partial<PcsProjectStoreSnapshot>
     if (!Array.isArray(parsed.projects) || !Array.isArray(parsed.phases) || !Array.isArray(parsed.nodes)) {
-      memorySnapshot = hydrateSnapshot(seedSnapshot())
-      localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(memorySnapshot))
-      return cloneSnapshot(memorySnapshot)
+      throw new Error('商品项目本地快照结构无效，已保留原始数据。')
     }
 
     memorySnapshot = hydrateSnapshot({
@@ -645,13 +694,10 @@ function loadSnapshot(): PcsProjectStoreSnapshot {
     migrateProjectAlbumUrlsToProjectImages(memorySnapshot.projects)
     localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(memorySnapshot))
     return cloneSnapshot(memorySnapshot)
-  } catch {
-    memorySnapshot = hydrateSnapshot(seedSnapshot())
-    migrateProjectAlbumUrlsToProjectImages(memorySnapshot.projects)
-    if (canUseStorage()) {
-      localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(memorySnapshot))
-    }
-    return cloneSnapshot(memorySnapshot)
+  } catch (error) {
+    throw new Error('商品项目本地快照读取或迁移失败，已保留原始数据。', {
+      cause: error,
+    })
   }
 }
 
@@ -1379,65 +1425,6 @@ export function createProject(input: PcsProjectCreateInput, operatorName = '当�
     projectArchiveUpdatedAt: '',
     projectArchiveFinalizedAt: '',
   }
-
-  const projectArchiveNode = nodes.find((node) => node.workItemTypeCode === 'PROJECT_INIT')
-  if (!projectArchiveNode) {
-    throw new Error('固定五步业务流程缺少项目与档案建立节点。')
-  }
-
-  createStyleArchiveShell({
-    styleId: project.linkedStyleId || `style_${projectId}`,
-    styleCode: project.linkedStyleCode || `SPU-${dateKey}-${String(sequence).padStart(3, '0')}`,
-    styleName: project.projectName,
-    styleNameEn: '',
-    styleNumber: project.styleNumber || project.linkedStyleCode || project.projectCode,
-    productType: '成衣',
-    sourceProjectId: project.projectId,
-    sourceProjectCode: project.projectCode,
-    sourceProjectName: project.projectName,
-    sourceProjectNodeId: projectArchiveNode.projectNodeId,
-    categoryId: project.categoryId,
-    categoryName: project.categoryName,
-    subCategoryId: project.subCategoryId,
-    subCategoryName: project.subCategoryName,
-    brandId: project.brandId,
-    brandName: project.brandName,
-    yearTag: project.yearTag,
-    seasonTags: [...project.seasonTags],
-    styleTags: [...project.styleTags],
-    targetAudienceTags: [...project.targetAudienceTags],
-    targetChannelCodes: [...project.targetChannelCodes],
-    priceRangeLabel: project.priceRangeLabel || '待补齐',
-    archiveStatus: 'DRAFT',
-    baseInfoStatus: '商品测款',
-    specificationStatus: '未建立',
-    techPackStatus: '未建立',
-    costPricingStatus: '未建立',
-    specificationCount: 0,
-    techPackVersionCount: 0,
-    costVersionCount: 0,
-    channelProductCount: 0,
-    currentTechPackVersionId: '',
-    currentTechPackVersionCode: '',
-    currentTechPackVersionLabel: '',
-    currentTechPackVersionStatus: '',
-    currentTechPackVersionActivatedAt: '',
-    currentTechPackVersionActivatedBy: '',
-    mainImageId: '',
-    mainImageUrl: project.projectAlbumUrls[0] || '',
-    galleryImageIds: [],
-    galleryImageUrls: [...project.projectAlbumUrls],
-    imageSource: project.projectAlbumUrls.length > 0 ? '项目参考图' : '',
-    sellingPointText: '',
-    detailDescription: '',
-    packagingInfo: '',
-    remark: project.remark,
-    generatedAt: timestamp,
-    generatedBy: operatorName,
-    updatedAt: timestamp,
-    updatedBy: operatorName,
-    legacyOriginProject: '',
-  })
 
   persistSnapshot({
     version: PROJECT_STORE_VERSION,

@@ -12,7 +12,7 @@ import { validateProjectNodeCompletion } from './pcs-project-data-consistency.ts
 import type { PcsProjectNodeRecord, PcsProjectViewRecord, ProjectNodeStatus } from './pcs-project-types.ts'
 
 const DECISION_WORK_ITEM_CODES = ['FEASIBILITY_REVIEW', 'SAMPLE_CONFIRM', 'TEST_CONCLUSION'] as const
-const TEST_DECISION_RESULT_OPTIONS = ['通过', '不通过', '继续测试'] as const
+const TEST_DECISION_RESULT_OPTIONS = ['通过', '不通过', '暂保留'] as const
 const FEASIBILITY_DECISION_RESULT_OPTIONS = ['进入测款', '样衣退回', '重新改版出样衣'] as const
 const DECISION_RESULT_OPTIONS = [...TEST_DECISION_RESULT_OPTIONS, ...FEASIBILITY_DECISION_RESULT_OPTIONS] as const
 
@@ -127,7 +127,7 @@ export function isProjectDecisionWorkItemCode(workItemTypeCode: string): workIte
 
 function assertDecisionResult(result: string): asserts result is ProjectDecisionResult {
   if (!(DECISION_RESULT_OPTIONS as readonly string[]).includes(result)) {
-    throw new Error('决策结果只能是通过、不通过、继续测试、进入测款、样衣退回或重新改版出样衣')
+    throw new Error('决策结果只能是通过、不通过、暂保留、进入测款、样衣退回或重新改版出样衣')
   }
 }
 
@@ -312,7 +312,7 @@ export function advanceDecisionNodeEliminated(
   return routeProjectToSampleReturnHandle(projectId, projectNodeId, operatorName, note, timestamp, eliminatedResult)
 }
 
-export function routeProjectToAdditionalTesting(
+export function holdProjectDecisionForLater(
   projectId: string,
   decisionNodeId: string,
   operatorName = '当前用户',
@@ -321,72 +321,36 @@ export function routeProjectToAdditionalTesting(
 ): ProjectDecisionFlowResult {
   const decisionNode = getProjectNodeRecordById(projectId, decisionNodeId)
   if (!decisionNode) {
-    throw new Error('未找到对应决策节点，不能执行继续测试流转。')
-  }
-  const validation = validateProjectNodeCompletion(projectId, decisionNodeId)
-  if (!validation.ok) {
-    return {
-      ok: false,
-      message: validation.message,
-      project: validation.project,
-      node: validation.node,
-      nextNode: null,
-    }
+    throw new Error('未找到对应决策节点，不能暂保留当前判断。')
   }
 
-  const nodes = listProjectNodes(projectId)
-  const nextTestingNode =
-    nodes.find((item) => item.workItemTypeCode === 'LIVE_TEST') ||
-    nodes.find((item) => item.workItemTypeCode === 'VIDEO_TEST') ||
-    null
-  if (!nextTestingNode) {
-    throw new Error('当前项目缺少直播测款或短视频测款工作项，不能回到继续测试。')
-  }
-
-  const resultText = buildResultText(decisionNode.workItemTypeName, '继续测试', note)
+  const resultText = buildResultText(decisionNode.workItemTypeName, '暂保留', note)
   updateProjectNodeRecord(
     projectId,
     decisionNodeId,
     {
-      currentStatus: '已完成',
-      latestResultType: '继续测试',
+      currentStatus: '待确认',
+      latestResultType: '暂保留',
       latestResultText: resultText,
-      pendingActionType: '已完成',
-      pendingActionText: '当前决策已完成',
+      pendingActionType: '稍后再判断',
+      pendingActionText: '当前暂不下结论，请按约定日期再次判断。',
       updatedAt: timestamp,
-      lastEventType: '继续测试',
+      lastEventType: '暂保留',
       lastEventTime: timestamp,
     },
     operatorName,
   )
   syncProjectNodeInstanceRuntime(projectId, decisionNodeId, operatorName, timestamp)
 
-  updateProjectNodeRecord(
-    projectId,
-    nextTestingNode.projectNodeId,
-    {
-      currentStatus: '进行中',
-      latestResultType: '继续测试',
-      latestResultText: note.trim() || '测款结论为继续测试，需补充测款数据。',
-      pendingActionType: '继续测试',
-      pendingActionText: '请补充直播测款或短视频测款数据后重新汇总。',
-      updatedAt: timestamp,
-      lastEventType: '继续测试',
-      lastEventTime: timestamp,
-    },
-    operatorName,
-  )
-  syncProjectNodeInstanceRuntime(projectId, nextTestingNode.projectNodeId, operatorName, timestamp)
-
   syncProjectLifecycleAfterDecision(projectId, operatorName, timestamp)
   updateProjectRecord(projectId, { projectStatus: '进行中', updatedAt: timestamp }, operatorName)
 
   return {
     ok: true,
-    message: '当前工作项已完成，已回到测款执行补充数据。',
+    message: '已暂保留当前判断；不会创建或重启测款计划，请过些天再判断。',
     project: getProjectById(projectId),
     node: getProjectNodeRecordById(projectId, decisionNodeId),
-    nextNode: getProjectNodeRecordById(projectId, nextTestingNode.projectNodeId),
+    nextNode: null,
   }
 }
 
@@ -522,8 +486,8 @@ export function completeDecisionNodeWithResult(
   if (result === '通过') {
     return advanceDecisionNodePassed(projectId, projectNodeId, operatorName, note, timestamp)
   }
-  if (result === '继续测试') {
-    return routeProjectToAdditionalTesting(projectId, projectNodeId, operatorName, note, timestamp)
+  if (result === '暂保留') {
+    return holdProjectDecisionForLater(projectId, projectNodeId, operatorName, note, timestamp)
   }
   return advanceDecisionNodeEliminated(projectId, projectNodeId, operatorName, note, timestamp)
 }

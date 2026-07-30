@@ -421,13 +421,13 @@ assert.ok(
 const conclusionField = getProjectWorkItemContract('TEST_CONCLUSION').fieldDefinitions.find((field) => field.fieldKey === 'conclusion')
 assert.deepEqual(
   conclusionField?.options?.map((option) => option.value),
-  ['通过', '不通过', '继续测试'],
-  '测款结论必须为通过、不通过、继续测试',
+  ['通过', '不通过', '暂保留'],
+  '测款判断必须为通过、不通过、暂保留',
 )
 assertIncludesAll(
   fieldKeys('TEST_CONCLUSION'),
-  ['productPositioningConclusion', 'stockGrade', 'continueTestFlag', 'downShelfFlag', 'returnDestination', 'nextTestPlan'],
-  '测款结论字段未覆盖产品定位、备货等级、继续测试、下架和退回去向',
+  ['productPositioningConclusion', 'stockGrade', 'holdDecisionFlag', 'downShelfFlag', 'returnDestination', 'revisitDate'],
+  '测款判断字段未覆盖产品定位、备货等级、暂保留、下架、退回去向和再次判断日期',
 )
 
 const fixedStepFlow = listProjectStepContracts().flatMap((step) => step.workItemCodes)

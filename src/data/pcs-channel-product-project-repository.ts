@@ -86,7 +86,7 @@ export type ProjectChannelProductScenario =
   | 'STYLE_ACTIVE'
   | 'HISTORY_INVALIDATED'
 
-export type ProjectTestingConclusion = '' | '通过' | '不通过' | '继续测试'
+export type ProjectTestingConclusion = '' | '通过' | '不通过' | '暂保留'
 export type UpstreamSyncResult = '待执行' | '成功' | '失败'
 
 export interface ProjectChannelProductRecord extends PcsProjectChannelProductRecord {
@@ -247,10 +247,10 @@ export interface ProjectTestingConclusionPayload {
   note: string
   productPositioningConclusion?: string
   stockGrade?: string
-  continueTestFlag?: boolean
+  holdDecisionFlag?: boolean
   downShelfFlag?: boolean
   returnDestination?: string
-  nextTestPlan?: string
+  revisitDate?: string
 }
 
 export interface ProjectChannelProductWriteResult {
@@ -2259,7 +2259,7 @@ function buildTestingSummaryInlineRecord(
     workItemTypeCode: 'TEST_DATA_SUMMARY',
     workItemTypeName: '测款数据汇总',
     businessDate,
-    recordStatus: '已完成',
+    recordStatus: payload.conclusion === '暂保留' ? '待确认' : '已完成',
     ownerId: project.ownerId,
     ownerName: operatorName,
     payload: {
@@ -2385,10 +2385,10 @@ function buildTestingConclusionInlineRecord(
       nextActionType: branchDetail.nextActionType || '',
       productPositioningConclusion: payload.productPositioningConclusion || '',
       stockGrade: payload.stockGrade || '',
-      continueTestFlag: payload.continueTestFlag ?? payload.conclusion === '继续测试',
+      holdDecisionFlag: payload.holdDecisionFlag ?? payload.conclusion === '暂保留',
       downShelfFlag: payload.downShelfFlag ?? payload.conclusion === '不通过',
       returnDestination: payload.returnDestination || '',
-      nextTestPlan: payload.nextTestPlan || '',
+      revisitDate: payload.revisitDate || '',
     },
     detailSnapshot: {
       summaryRecordId: summaryRecord?.recordId || '',
@@ -2516,7 +2516,7 @@ function activateTestingConclusionDecisionNode(
       pendingActionType: '结论判定',
       pendingActionText: '当前待确认：测款结论判定',
       latestResultType: '待结论判定',
-      latestResultText: '请确认测款结论：通过、不通过或继续测试。',
+      latestResultText: '请确认测款判断：通过、不通过或暂保留。',
       updatedAt: timestamp,
     },
     operatorName,
@@ -3229,8 +3229,8 @@ export function submitProjectTestingConclusion(
   payload: ProjectTestingConclusionPayload,
   operatorName = '当前用户',
 ): ProjectChannelProductWriteResult {
-  if (!['通过', '不通过', '继续测试'].includes(payload.conclusion)) {
-    return { ok: false, message: '测款结论判定只允许选择通过、不通过或继续测试。', record: null }
+  if (!['通过', '不通过', '暂保留'].includes(payload.conclusion)) {
+    return { ok: false, message: '测款判断只允许选择通过、不通过或暂保留。', record: null }
   }
 
   const project = getProjectById(projectId)
@@ -3339,18 +3339,18 @@ export function submitProjectTestingConclusion(
     }
   }
 
-  if (payload.conclusion === '继续测试') {
+  if (payload.conclusion === '暂保留') {
     const nextRecords = targetRecords.map((record) => {
       const nextRecord: ProjectChannelProductRecord = {
         ...record,
         ...testingLinkPatch,
         scenario: 'MEASURING',
-        conclusion: '继续测试',
+        conclusion: '暂保留',
         invalidatedReason: '',
         channelProductStatus:
           record.channelProductStatus === '已生效' ? '已生效' : '已上架待测款',
         updatedAt: timestamp,
-        testingStatusText: '测款结论为继续测试，等待补充测款数据',
+        testingStatusText: '当前判断暂保留，等待约定日期再次判断',
         upstreamSyncNote: note,
         upstreamSyncLog: `${timestamp} ${note}`,
       }
@@ -3358,17 +3358,18 @@ export function submitProjectTestingConclusion(
       return nextRecord
     })
     const latestRecord = getCurrentChannelProduct(nextRecords) || nextRecords[0]
-    updateProjectCurrentPhase(projectId, 'PHASE_03', operatorName)
+    updateProjectCurrentPhase(projectId, 'PHASE_05', operatorName)
     updateProjectNodeRecord(
       projectId,
       conclusionNode.projectNodeId,
       {
         latestInstanceId: latestRecord.channelProductId,
         latestInstanceCode: latestRecord.channelProductCode,
-        latestResultType: '继续测试',
+        currentStatus: '待确认',
+        latestResultType: '暂保留',
         latestResultText: note,
-        pendingActionType: '继续测试',
-        pendingActionText: '请补充直播测款或短视频测款数据后重新汇总。',
+        pendingActionType: '稍后再判断',
+        pendingActionText: '当前暂不下结论，请按约定日期再次判断。',
         updatedAt: timestamp,
       },
       operatorName,
@@ -3380,14 +3381,14 @@ export function submitProjectTestingConclusion(
       nextRecords,
       summaryRecord,
       {
-        nextActionType: '继续测试',
+        nextActionType: '稍后再判断',
       },
       [],
       operatorName,
       timestamp,
     )
     try {
-      completeDecisionNodeWithResult(projectId, conclusionNode.projectNodeId, '继续测试', operatorName, note, timestamp)
+      completeDecisionNodeWithResult(projectId, conclusionNode.projectNodeId, '暂保留', operatorName, note, timestamp)
     } catch (error) {
       return {
         ok: false,
@@ -3397,7 +3398,7 @@ export function submitProjectTestingConclusion(
     }
     return {
       ok: true,
-      message: '已提交继续测试结论，当前渠道店铺商品保留，项目已回到测款执行补充数据。',
+      message: '已暂保留当前判断，渠道店铺商品和既有测款事实保持不变，等待稍后再判断。',
       record: latestRecord,
     }
   }

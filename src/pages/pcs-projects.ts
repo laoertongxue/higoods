@@ -2121,7 +2121,7 @@ function buildTechPackVersionDiffSummary(
 function getTestConclusionNextActionType(decision: string): string {
   if (decision === '通过') return '生成款式档案'
   if (decision === '不通过') return '样衣退回处理'
-  if (decision === '继续测试') return '继续测试'
+  if (decision === '暂保留') return '稍后再判断'
   return ''
 }
 

@@ -31,7 +31,7 @@
 | 文案 | 通过 | 页面使用中文业务名称，不展示步骤英文编码。 |
 | 数量与状态 | 通过 | 数量和状态仍沿用现有业务表单口径，档案初始状态明确为“商品测款”。 |
 | 扫码与识别 | 通过 | 本页面为管理端，不涉及现场扫码。 |
-| 防错 | 通过 | 创建项目不再允许选择或拼装模板；固定步骤缺失、档案节点缺失均阻断创建。 |
+| 防错 | 通过 | 创建项目不再允许选择或拼装模板；历史快照迁移失败时保留原始数据并明确报错，不再静默覆盖为演示数据。 |
 | UI 样式 | 通过 | 复用现有企业后台布局、卡片、步骤和表单样式。 |
 | 组件交互 | 通过 | 保留现有局部表单、弹窗和节点操作方式，未引入新框架。 |
 | 协作关系 | 通过 | 项目创建时同步关联商品／款式档案，项目与档案使用同一来源项目标识。 |
@@ -49,6 +49,9 @@
 | --- | --- | --- | --- | --- |
 | 模板选择会让同一测款业务产生不同节点组合 | `点错风险` | 商品企划、项目负责人 | 移除模板选择，统一由固定五步契约生成项目步骤和节点 | 否 |
 | 项目创建后才生成商品／款式档案，资料归属不完整 | `协作断裂` | 商品企划、商品运营 | 创建项目时同步建立“商品测款”状态档案并回写关联 | 否 |
+| 历史本地快照迁移异常会回退演示数据 | `协作断裂` | 商品企划、项目负责人 | 历史项目按固定五步幂等迁移并保留节点办理记录；读取或迁移失败保留原始快照并报错 | 否 |
+| “暂保留”被解释为继续测款 | `点错风险` | 商品运营、项目负责人 | 暂保留只保留既有测款事实与判断入口，不创建或重新激活直播、短视频测款节点 | 否 |
+| 测款前准备遗漏既有表单入口 | `协作断裂` | 商品企划、商品运营 | 在固定第三步恢复拍摄试穿、样衣确认、样衣核价、样衣定价及可行性、渠道准备入口 | 否 |
 
 ## 6. 最终结论
 
@@ -67,9 +70,14 @@
 - `src/data/pcs-project-domain-contract.ts`
 - `src/data/pcs-project-node-factory.ts`
 - `src/data/pcs-project-repository.ts`
+- `src/data/pcs-style-archive-repository.ts`
 - `src/data/pcs-project-bootstrap.ts`
 - `src/data/pcs-project-data-consistency.ts`
 - `src/data/pcs-style-archive-bootstrap.ts`
+- `src/data/pcs-project-decision-flow-service.ts`
+- `src/data/pcs-channel-product-project-repository.ts`
+- `src/data/pcs-project-inline-node-record-repository.ts`
+- `src/data/pcs-project-inline-node-record-types.ts`
 - `src/pages/pcs-projects.ts`
 
 ### 页面路由
@@ -82,9 +90,12 @@
 ### 验证命令
 
 - `npm test -- tests/pcs-project-fixed-step-flow.spec.ts`：通过
+- `npm test -- tests/pcs-project-historical-migration.spec.ts`：通过，TPL-001／TPL-003 历史项目、节点办理记录、固定五步阶段和商品测款档案均保留
+- `npm test -- tests/pcs-project-temporary-hold.spec.ts`：通过，暂保留不创建或重启直播、短视频测款
 - `npm run check:pcs-product-testing-v1`：通过
-- `node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-project-data-consistency.ts`：通过，共核对 26 个项目、286 个节点，未发现问题
-- `npm run check:prototype-design-governance -- --all`：通过，覆盖 7 个受管文件和 1 份审查记录
+- `node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-project-decision-flow.ts`：通过
+- `node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-project-data-consistency.ts`：通过，共核对 26 个项目、364 个节点，未发现问题
+- `npm run check:prototype-design-governance -- --all`：通过
 
 ### 例外
 

@@ -1,7 +1,6 @@
 import { createStyleArchiveBootstrapSnapshot } from './pcs-style-archive-bootstrap.ts'
 import { buildStyleFixture } from './pcs-product-archive-fixtures.ts'
 import { normalizeStyleTechPackStatusText } from './pcs-product-lifecycle-governance.ts'
-import { getProjectNodeRecordByWorkItemTypeCode } from './pcs-project-repository.ts'
 import type {
   StyleArchivePendingItem,
   StyleArchiveShellRecord,
@@ -63,10 +62,6 @@ function normalizeBaseInfoStatus(status: string): string {
 
 function normalizeRecord(record: StyleArchiveShellRecord): StyleArchiveShellRecord {
   const fixture = buildStyleFixture(record.styleCode || record.styleId, record.styleName || record.styleCode)
-  const inferredSourceProjectNodeId =
-    !record.sourceProjectNodeId && record.sourceProjectId
-      ? getProjectNodeRecordByWorkItemTypeCode(record.sourceProjectId, 'STYLE_ARCHIVE_CREATE')?.projectNodeId || ''
-      : record.sourceProjectNodeId || ''
   return {
     ...cloneRecord(record),
     archiveStatus: record.archiveStatus === 'ACTIVE' || record.archiveStatus === 'ARCHIVED' ? record.archiveStatus : 'DRAFT',
@@ -94,7 +89,7 @@ function normalizeRecord(record: StyleArchiveShellRecord): StyleArchiveShellReco
     detailDescription: record.detailDescription || fixture.detailDescription,
     packagingInfo: record.packagingInfo || fixture.packagingInfo,
     remark: record.remark || '',
-    sourceProjectNodeId: inferredSourceProjectNodeId,
+    sourceProjectNodeId: record.sourceProjectNodeId || '',
     generatedAt: record.generatedAt || record.updatedAt || '',
     generatedBy: record.generatedBy || '系统初始化',
     updatedAt: record.updatedAt || record.generatedAt || '',
@@ -250,7 +245,7 @@ export function createStyleArchiveShell(record: StyleArchiveShellRecord): StyleA
     !normalized.sourceProjectName ||
     !normalized.sourceProjectNodeId
   ) {
-    throw new Error('款式档案只能从商品项目 STYLE_ARCHIVE_CREATE 节点生成。')
+    throw new Error('商品／款式档案只能从商品项目“项目与档案建立”节点生成。')
   }
   if (normalized.sourceProjectId && snapshot.records.some((item) => item.sourceProjectId === normalized.sourceProjectId)) {
     throw new Error('当前商品项目已存在正式款式档案主关联。')
