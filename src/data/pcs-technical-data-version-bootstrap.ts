@@ -592,7 +592,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
     patternDesc: scenario === 'WHOLE_WOOL'
       ? '整件毛织技术包，生产单生成毛织加工单，完成后交后道工厂。'
       : scenario === 'PART_WOOL'
-        ? '部位毛织技术包，生产单生成部位毛织加工单和毛织菲票，完成后交裁床待交出仓。'
+        ? '部位毛织技术包，生产单按纸样部位生成部位毛织加工单，完成后交裁床待交出仓。'
         : scenario === 'GARMENT_HEAT_TRANSFER'
           ? '纯色 T-shirt 成衣烫画、直喷技术包，按成衣 BOM 适用 SKU 生成特殊工艺任务。'
           : '来源生产需求单当前生效技术包。',

@@ -3475,6 +3475,34 @@ const woolMachineSources = [
 assert(!woolMachineSources.includes('SCHEDULED'))
 assert(!woolMachineSources.includes('已排产'))
 
+const woolRuntimeGenerationSources = [
+  '../src/data/pcs-technical-data-version-bootstrap.ts',
+  '../src/data/fcs/production-tech-pack-snapshot-builder.ts',
+  '../src/data/fcs/production-artifact-generation.ts',
+  '../src/data/fcs/process-tasks.ts',
+  '../src/data/fcs/runtime-process-tasks.ts',
+  '../src/data/fcs/page-adapters/task-execution-adapter.ts',
+  '../src/data/fcs/process-craft-dict.ts',
+  '../src/data/fcs/milestone-configs.ts',
+  '../src/data/fcs/wool-domain/tech-pack-source.ts',
+].map((path) => readFileSync(new URL(path, import.meta.url), 'utf8')).join('\n')
+for (const removedWoolNodeText of [
+  '毛织菲票',
+  '横机首批',
+  '横机完成首批部位片',
+  '横机完成首批整件',
+  '缝盘',
+  '毛织厂包装',
+  '整件毛织完成后交后道工厂，熨烫为必有节点，包装按单据要求决定',
+  '部位毛织按毛织部位打印菲票',
+]) {
+  assert.equal(
+    woolRuntimeGenerationSources.includes(removedWoolNodeText),
+    false,
+    `毛织上游、生成与运行时来源不得恢复已删除节点：${removedWoolNodeText}`,
+  )
+}
+
 resetWoolFactWorkflowMock('CHECK_WOOL_RUNTIME_GENERATION')
 const realWoolRuntimeTasks = listRuntimeExecutionTasks().filter(
   (item) => item.processBusinessCode === 'WOOL' || item.processCode === 'WOOL',
