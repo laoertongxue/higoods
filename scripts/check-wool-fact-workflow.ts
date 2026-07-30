@@ -792,12 +792,14 @@ Object.defineProperty(globalThis, 'localStorage', {
     },
   },
 })
+const regularTestStorage = globalThis.localStorage
 
 const {
   WOOL_DOMAIN_STORE_KEY,
   clearWoolStoreMemoryCache,
   commitWoolStore,
   readWoolStore,
+  replaceWoolStore,
   validateWoolStore,
 } = await import('../src/data/fcs/wool-domain/store.ts')
 const {
@@ -2671,6 +2673,143 @@ const receiptRetry = addWoolYarnReceipt(reportOrder.woolOrderId, {
   commandId: 'CMD-RECEIPT-CHECK-001',
 })
 assert.deepEqual(receiptRetry, receipt)
+
+const storeBeforeLegacyV2MigrationCheck = readWoolStore()
+const legacyV2Source = structuredClone(storeBeforeLegacyV2MigrationCheck)
+const legacyV2OrderId = Object.keys(legacyV2Source.workOrders)[0]
+legacyV2Source.workOrders[legacyV2OrderId].styleName = '旧 v2 自定义款式事实'
+legacyV2Source.machines[2].machineModel = '业务已维护机型'
+legacyV2Source.machines[2].needleType = '业务已维护针型'
+legacyV2Source.machines.push({
+  machineId: 'WM-LEGACY-CUSTOM',
+  machineNo: '横机-旧档-自定义',
+  machineName: '旧档自定义横机',
+  machineModel: '迁移前待删除',
+  needleType: '迁移前待删除',
+  status: 'IDLE',
+  createdAt: '2026-07-30 09:35:00',
+  updatedAt: '2026-07-30 09:36:00',
+})
+for (const field of [
+  'yarnReceipts',
+  'yarnIssues',
+  'yarnReturns',
+  'processReports',
+  'handovers',
+  'qtyChangeLogs',
+  'warehouseFlows',
+  'completions',
+  'machineAssociations',
+  'machineAssociationLogs',
+] as const) {
+  assert(legacyV2Source[field].length > 0, `旧 v2 迁移样本缺少 ${field} 代表事实`)
+}
+assert(
+  legacyV2Source.operationLogs.some((log) =>
+    log.action === 'COMMAND_RECEIPT' && Boolean(log.afterValue),
+  ),
+  '旧 v2 迁移样本必须包含命令收据',
+)
+const legacyV2Snapshot = structuredClone(legacyV2Source) as unknown as {
+  machines: Array<Record<string, unknown>>
+}
+delete legacyV2Snapshot.machines[0].machineModel
+delete legacyV2Snapshot.machines[0].needleType
+legacyV2Snapshot.machines[1].machineModel = ''
+legacyV2Snapshot.machines[1].needleType = '   '
+delete legacyV2Snapshot.machines.at(-1)!.machineModel
+delete legacyV2Snapshot.machines.at(-1)!.needleType
+const persistedLegacyV2Snapshot = JSON.parse(
+  JSON.stringify(legacyV2Snapshot),
+) as typeof legacyV2Snapshot
+
+function withoutMachineSpecifications<T>(store: T): T {
+  const comparable = structuredClone(store) as T & {
+    machines?: Array<Record<string, unknown>>
+  }
+  for (const machine of comparable.machines ?? []) {
+    delete machine.machineModel
+    delete machine.needleType
+  }
+  return comparable
+}
+
+const migrationWrites: string[] = []
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: {
+    getItem(key: string) {
+      return storageValues.get(key) ?? null
+    },
+    setItem(key: string, value: string) {
+      migrationWrites.push(key)
+      storageValues.set(key, value)
+    },
+  },
+})
+storageValues.set(WOOL_DOMAIN_STORE_KEY, JSON.stringify(persistedLegacyV2Snapshot))
+clearWoolStoreMemoryCache()
+const migratedLegacyV2 = readWoolStore()
+assert.equal(
+  migratedLegacyV2.workOrders[legacyV2OrderId].styleName,
+  '旧 v2 自定义款式事实',
+  '合法旧 v2 不得因新增横机规格字段而回退 Mock',
+)
+assert.deepEqual(
+  withoutMachineSpecifications(migratedLegacyV2),
+  withoutMachineSpecifications(persistedLegacyV2Snapshot),
+  '旧 v2 迁移只能补机型和针型，必须深度保留全部其他事实',
+)
+assert.equal(migratedLegacyV2.machines[0].machineModel, '慈星 GE2-52C')
+assert.equal(migratedLegacyV2.machines[0].needleType, '12 针')
+assert.equal(migratedLegacyV2.machines[1].machineModel, '岛精 SES-SWG')
+assert.equal(migratedLegacyV2.machines[1].needleType, '14 针')
+assert.equal(migratedLegacyV2.machines[2].machineModel, '业务已维护机型')
+assert.equal(migratedLegacyV2.machines[2].needleType, '业务已维护针型')
+assert.equal(migratedLegacyV2.machines.at(-1)?.machineModel, '通用横机')
+assert.equal(migratedLegacyV2.machines.at(-1)?.needleType, '常规针型')
+assert.deepEqual(migrationWrites, [WOOL_DOMAIN_STORE_KEY])
+assert.doesNotThrow(() => validateWoolStore(
+  JSON.parse(storageValues.get(WOOL_DOMAIN_STORE_KEY)!) as typeof migratedLegacyV2,
+))
+const persistedAfterLegacyMigration = storageValues.get(WOOL_DOMAIN_STORE_KEY)
+clearWoolStoreMemoryCache()
+assert.deepEqual(readWoolStore(), migratedLegacyV2)
+assert.equal(storageValues.get(WOOL_DOMAIN_STORE_KEY), persistedAfterLegacyMigration)
+assert.deepEqual(
+  migrationWrites,
+  [WOOL_DOMAIN_STORE_KEY],
+  '迁移后第二次读取必须幂等且不得重复回写',
+)
+
+for (const malformed of [
+  JSON.stringify({ schemaVersion: 1, machines: [{ machineId: 'WRONG-SCHEMA' }] }),
+  JSON.stringify({
+    ...persistedLegacyV2Snapshot,
+    workOrders: [],
+  }),
+]) {
+  storageValues.set(WOOL_DOMAIN_STORE_KEY, malformed)
+  const writesBeforeMalformedRead = migrationWrites.length
+  clearWoolStoreMemoryCache()
+  assert.notEqual(
+    readWoolStore().workOrders[legacyV2OrderId]?.styleName,
+    '旧 v2 自定义款式事实',
+    '错误 schema 或畸形快照必须安全回退 Mock，不能继续返回旧快照事实',
+  )
+  assert.equal(
+    storageValues.get(WOOL_DOMAIN_STORE_KEY),
+    malformed,
+    '错误 schema 或畸形快照不得被伪迁移或覆盖',
+  )
+  assert.equal(migrationWrites.length, writesBeforeMalformedRead)
+}
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: regularTestStorage,
+})
+replaceWoolStore(storeBeforeLegacyV2MigrationCheck)
+
 assert.throws(
   () => addWoolYarnReceipt(reportOrder.woolOrderId, {
     commandId: 'CMD-RECEIPT-CHECK-001',

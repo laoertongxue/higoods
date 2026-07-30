@@ -41,6 +41,21 @@ type WoolStorage = Pick<Storage, 'getItem' | 'setItem'>
 
 let memoryStore: WoolDomainStore | undefined
 
+const WOOL_V2_ARRAY_FIELDS = [
+  'yarnReceipts',
+  'yarnIssues',
+  'yarnReturns',
+  'processReports',
+  'handovers',
+  'qtyChangeLogs',
+  'warehouseFlows',
+  'completions',
+  'machines',
+  'machineAssociations',
+  'machineAssociationLogs',
+  'operationLogs',
+] as const
+
 function cloneStore(store: WoolDomainStore): WoolDomainStore {
   return structuredClone(store)
 }
@@ -52,6 +67,47 @@ function getStorage(): WoolStorage | null {
   } catch {
     return null
   }
+}
+
+function isWoolV2StoreStructure(value: unknown): value is WoolDomainStore {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const candidate = value as Partial<Record<keyof WoolDomainStore, unknown>>
+  return Boolean(
+    candidate.workOrders
+    && typeof candidate.workOrders === 'object'
+    && !Array.isArray(candidate.workOrders)
+    && WOOL_V2_ARRAY_FIELDS.every((field) => Array.isArray(candidate[field])),
+  )
+}
+
+function migrateWoolV2MachineSpecifications(
+  value: unknown,
+): { store: unknown; migrated: boolean } {
+  if (!isWoolV2StoreStructure(value)) return { store: value, migrated: false }
+  const needsMigration = value.machines.some((machine) => {
+    if (!machine || typeof machine !== 'object' || Array.isArray(machine)) return false
+    const candidate = machine as Partial<WoolMachine>
+    return !candidate.machineModel?.trim() || !candidate.needleType?.trim()
+  })
+  if (!needsMigration) return { store: value, migrated: false }
+
+  const profiles = buildWoolFactWorkflowMockStore().machines
+  const profileById = new Map(profiles.map((machine) => [machine.machineId, machine]))
+  const profileByNo = new Map(profiles.map((machine) => [machine.machineNo, machine]))
+  const migrated = structuredClone(value)
+  for (const machine of migrated.machines) {
+    if (!machine || typeof machine !== 'object' || Array.isArray(machine)) continue
+    const candidate = machine as Partial<WoolMachine>
+    const profile = profileById.get(candidate.machineId ?? '')
+      ?? profileByNo.get(candidate.machineNo ?? '')
+    if (!candidate.machineModel?.trim()) {
+      candidate.machineModel = profile?.machineModel ?? '通用横机'
+    }
+    if (!candidate.needleType?.trim()) {
+      candidate.needleType = profile?.needleType ?? '常规针型'
+    }
+  }
+  return { store: migrated, migrated: true }
 }
 
 function validateRecordArray(store: WoolDomainStore, field: keyof WoolDomainStore): void {
@@ -183,20 +239,7 @@ export function validateWoolStore(store: WoolDomainStore): void {
     assertUniqueIds(order.outputPlanLines, (line) => line.outputSkuCode, `加工单 ${woolOrderId} 加工后 SKU`)
   }
   assertUniqueIds(Object.values(store.workOrders), (order) => order.taskId, '加工单任务')
-  for (const field of [
-    'yarnReceipts',
-    'yarnIssues',
-    'yarnReturns',
-    'processReports',
-    'handovers',
-    'qtyChangeLogs',
-    'warehouseFlows',
-    'completions',
-    'machines',
-    'machineAssociations',
-    'machineAssociationLogs',
-    'operationLogs',
-  ] as const) {
+  for (const field of WOOL_V2_ARRAY_FIELDS) {
     validateRecordArray(store, field)
   }
 
@@ -752,11 +795,20 @@ export function validateWoolStore(store: WoolDomainStore): void {
 
 function readPersistedStore(): WoolDomainStore | undefined {
   try {
-    const raw = getStorage()?.getItem(WOOL_DOMAIN_STORE_KEY)
+    const storage = getStorage()
+    const raw = storage?.getItem(WOOL_DOMAIN_STORE_KEY)
     if (!raw) return undefined
-    const parsed = JSON.parse(raw) as WoolDomainStore
-    validateWoolStore(parsed)
-    return parsed
+    const parsed = JSON.parse(raw) as unknown
+    const migration = migrateWoolV2MachineSpecifications(parsed)
+    validateWoolStore(migration.store as WoolDomainStore)
+    if (migration.migrated && storage) {
+      try {
+        storage.setItem(WOOL_DOMAIN_STORE_KEY, JSON.stringify(migration.store))
+      } catch {
+        // 读取到的合法旧 v2 事实仍可在当前会话使用；存储恢复后会再次尝试迁移回写。
+      }
+    }
+    return migration.store as WoolDomainStore
   } catch {
     return undefined
   }
