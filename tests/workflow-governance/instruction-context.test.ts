@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import {
+import fs, {
   chmodSync,
   existsSync,
   mkdtempSync,
@@ -11,8 +11,9 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
+import { syncBuiltinESMExports } from 'node:module'
 import { tmpdir } from 'node:os'
-import { delimiter, join } from 'node:path'
+import { delimiter, join, resolve } from 'node:path'
 import test from 'node:test'
 import {
   assertInstructionContextCurrent,
@@ -482,8 +483,108 @@ test('根 AGENTS 符号链接 realpath 逃逸工作区时拒绝采集', (t) => {
 
   assert.throws(
     () => captureInstructionContext({ workspace, taskBoundary: '执行任务 1' }),
-    /工作区/,
+    /根 AGENTS|符号链接|工作区/,
   )
+})
+
+test('根 AGENTS 即使指向工作区内文件也拒绝符号链接', (t) => {
+  const workspace = mkdtempSync(join(tmpdir(), 'instruction-context-inside-symlink-'))
+  t.after(() => rmSync(workspace, { recursive: true, force: true }))
+  writeFileSync(join(workspace, 'agents-source.md'), AGENTS_SOURCE)
+  symlinkSync(join(workspace, 'agents-source.md'), join(workspace, 'AGENTS.md'))
+
+  assert.throws(
+    () => captureInstructionContext({ workspace, taskBoundary: '执行任务 1' }),
+    /根 AGENTS|符号链接/,
+  )
+})
+
+test('根 AGENTS 缺失或不是常规文件时失败关闭', (t) => {
+  const missingWorkspace = mkdtempSync(join(tmpdir(), 'instruction-context-missing-'))
+  const directoryWorkspace = mkdtempSync(join(tmpdir(), 'instruction-context-directory-'))
+  t.after(() => {
+    rmSync(missingWorkspace, { recursive: true, force: true })
+    rmSync(directoryWorkspace, { recursive: true, force: true })
+  })
+  mkdirSync(join(directoryWorkspace, 'AGENTS.md'))
+
+  assert.throws(
+    () => captureInstructionContext({ workspace: missingWorkspace, taskBoundary: '执行任务 1' }),
+    /根 AGENTS/,
+  )
+  assert.throws(
+    () => captureInstructionContext({ workspace: directoryWorkspace, taskBoundary: '执行任务 1' }),
+    /根 AGENTS/,
+  )
+})
+
+test('根 AGENTS 在解析或安全打开后被替换时拒绝读取越界文件', (t) => {
+  const workspace = mkdtempSync(join(tmpdir(), 'instruction-context-race-workspace-'))
+  const outside = mkdtempSync(join(tmpdir(), 'instruction-context-race-outside-'))
+  const canonicalWorkspace = fs.realpathSync(workspace)
+  const agentsPath = join(canonicalWorkspace, 'AGENTS.md')
+  const originalAgentsPath = join(canonicalWorkspace, 'AGENTS.original.md')
+  const outsideAgentsPath = join(outside, 'AGENTS.md')
+  t.after(() => {
+    rmSync(workspace, { recursive: true, force: true })
+    rmSync(outside, { recursive: true, force: true })
+  })
+  writeFileSync(agentsPath, AGENTS_SOURCE)
+  writeFileSync(outsideAgentsPath, `${AGENTS_SOURCE}\n越界内容\n`)
+
+  const originalRealpathSync = fs.realpathSync
+  const originalOpenSync = fs.openSync
+  let replaced = false
+  const replaceWithOutsideSymlink = () => {
+    if (replaced) return
+    fs.renameSync(agentsPath, originalAgentsPath)
+    fs.symlinkSync(outsideAgentsPath, agentsPath)
+    replaced = true
+  }
+
+  Object.defineProperty(fs, 'realpathSync', {
+    configurable: true,
+    writable: true,
+    value: (...args: unknown[]) => {
+      const result = Reflect.apply(originalRealpathSync, fs, args)
+      if (typeof args[0] === 'string' && resolve(args[0]) === agentsPath) {
+        replaceWithOutsideSymlink()
+      }
+      return result
+    },
+  })
+  Object.defineProperty(fs, 'openSync', {
+    configurable: true,
+    writable: true,
+    value: (...args: unknown[]) => {
+      const descriptor = Reflect.apply(originalOpenSync, fs, args)
+      if (typeof args[0] === 'string' && resolve(args[0]) === agentsPath) {
+        replaceWithOutsideSymlink()
+      }
+      return descriptor
+    },
+  })
+  syncBuiltinESMExports()
+
+  try {
+    assert.throws(
+      () => captureInstructionContext({ workspace, taskBoundary: '执行任务 1' }),
+      /根 AGENTS/,
+    )
+    assert.equal(replaced, true, '竞争探针必须实际完成根 AGENTS 替换')
+  } finally {
+    Object.defineProperty(fs, 'realpathSync', {
+      configurable: true,
+      writable: true,
+      value: originalRealpathSync,
+    })
+    Object.defineProperty(fs, 'openSync', {
+      configurable: true,
+      writable: true,
+      value: originalOpenSync,
+    })
+    syncBuiltinESMExports()
+  }
 })
 
 test('parser 拒绝错误 algorithm、hash、未知及缺失规则绑定', (t) => {

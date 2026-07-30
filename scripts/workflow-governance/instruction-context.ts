@@ -1,7 +1,16 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { readFileSync, realpathSync } from 'node:fs'
-import { isAbsolute, relative, resolve } from 'node:path'
+import {
+  closeSync,
+  constants,
+  fstatSync,
+  lstatSync,
+  openSync,
+  readFileSync,
+  realpathSync,
+  type BigIntStats,
+} from 'node:fs'
+import { resolve } from 'node:path'
 
 export type InstructionReceiptField =
   | 'revision'
@@ -80,14 +89,85 @@ function assertExactHeading(source: string, ruleRef: string): void {
   )
 }
 
-function isPathInsideWorkspace(workspace: string, path: string): boolean {
-  const pathFromWorkspace = relative(workspace, path)
-  return (
-    pathFromWorkspace !== ''
-    && pathFromWorkspace !== '..'
-    && !pathFromWorkspace.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`)
-    && !isAbsolute(pathFromWorkspace)
+function openWithoutFollowingLinks(path: string, label: string): number {
+  try {
+    return openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW)
+  } catch (error) {
+    throw new Error(`${label} 必须存在且不能是符号链接`, { cause: error })
+  }
+}
+
+function currentPathIdentity(path: string, label: string): BigIntStats {
+  try {
+    return lstatSync(path, { bigint: true })
+  } catch (error) {
+    throw new Error(`${label} 路径身份无法确认`, { cause: error })
+  }
+}
+
+function assertSameDirectory(
+  opened: BigIntStats,
+  current: BigIntStats,
+  label: string,
+): void {
+  assert(opened.isDirectory(), `${label} 必须是目录`)
+  assert(current.isDirectory() && !current.isSymbolicLink(), `${label} 必须保持为真实目录`)
+  assert(
+    opened.dev === current.dev && opened.ino === current.ino,
+    `${label} 路径身份已变化`,
   )
+}
+
+function assertSameRegularFile(
+  opened: BigIntStats,
+  current: BigIntStats,
+  label: string,
+): void {
+  assert(opened.isFile(), `${label} 必须是常规文件`)
+  assert(current.isFile() && !current.isSymbolicLink(), `${label} 必须保持为常规文件`)
+  assert(
+    opened.dev === current.dev && opened.ino === current.ino,
+    `${label} 文件身份已变化`,
+  )
+}
+
+function readRootAgentsFile(workspace: string): Buffer {
+  const agentsPath = resolve(workspace, 'AGENTS.md')
+  let workspaceDescriptor: number | undefined
+  let agentsDescriptor: number | undefined
+  try {
+    workspaceDescriptor = openWithoutFollowingLinks(workspace, '工作区根目录')
+    const openedWorkspace = fstatSync(workspaceDescriptor, { bigint: true })
+    assertSameDirectory(
+      openedWorkspace,
+      currentPathIdentity(workspace, '工作区根目录'),
+      '工作区根目录',
+    )
+
+    agentsDescriptor = openWithoutFollowingLinks(agentsPath, '根 AGENTS.md')
+    const openedAgents = fstatSync(agentsDescriptor, { bigint: true })
+    assertSameRegularFile(
+      openedAgents,
+      currentPathIdentity(agentsPath, '根 AGENTS.md'),
+      '根 AGENTS.md',
+    )
+
+    const bytes = readFileSync(agentsDescriptor)
+    assertSameRegularFile(
+      openedAgents,
+      currentPathIdentity(agentsPath, '根 AGENTS.md'),
+      '根 AGENTS.md',
+    )
+    assertSameDirectory(
+      openedWorkspace,
+      currentPathIdentity(workspace, '工作区根目录'),
+      '工作区根目录',
+    )
+    return bytes
+  } finally {
+    if (agentsDescriptor !== undefined) closeSync(agentsDescriptor)
+    if (workspaceDescriptor !== undefined) closeSync(workspaceDescriptor)
+  }
 }
 
 function instructionContextJson(receipt: InstructionContextReceipt): string {
@@ -101,13 +181,7 @@ export function captureInstructionContext(
   assert(taskBoundary, '任务边界 trim 后不能为空')
 
   const workspace = realpathSync(resolve(options.workspace))
-  const agentsPath = realpathSync(resolve(workspace, 'AGENTS.md'))
-  assert(
-    isPathInsideWorkspace(workspace, agentsPath),
-    '根 AGENTS.md realpath 必须仍位于工作区内',
-  )
-
-  const bytes = readFileSync(agentsPath)
+  const bytes = readRootAgentsFile(workspace)
   const ruleBindings = requiredBindings(options.requireStageTrace === true)
   const source = bytes.toString('utf8')
   for (const binding of ruleBindings) assertExactHeading(source, binding.ruleRef)
