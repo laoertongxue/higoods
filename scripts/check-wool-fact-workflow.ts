@@ -665,6 +665,7 @@ const {
   getWoolOutputReadiness,
   getWoolOutputHandedOverQty,
   getWoolOutputReportedQty,
+  resolveWoolEffectiveQty,
   getWoolProcessingStatus,
   getWoolAllowedActions,
   getWoolWarehouseStock,
@@ -868,6 +869,26 @@ const qtyChangeFlows = listWoolFactRecords({
   && item.record.businessType === 'STOCK_ADJUSTMENT',
 )
 assert.equal(qtyChangeFlows.length, 2, '加工填报和交出修改都必须有差额仓库流水')
+assert.equal(
+  getWoolOutputReportedQty(qtyChangeOrder.woolOrderId, qtyChangeLine.outputSkuCode),
+  12,
+  '填报累计必须使用修改链的当前有效数量',
+)
+assert.equal(
+  getWoolOutputHandedOverQty(qtyChangeOrder.woolOrderId, qtyChangeLine.outputSkuCode),
+  5,
+  '交出累计必须使用修改链的当前有效数量',
+)
+assert.equal(
+  getWoolOutputReadiness(qtyChangeOrder.woolOrderId, qtyChangeLine.outputSkuCode).reportedQty,
+  12,
+)
+const qtyChangeCompletion = readWoolStore().completions.find((item) =>
+  item.woolOrderId === qtyChangeOrder.woolOrderId,
+)!
+assert(qtyChangeCompletion, '数量修改场景必须生成使用当前有效数量的完成快照')
+assert.equal(qtyChangeCompletion.confirmationSnapshot.processReportSummary[0].reportedQty, 12)
+assert.equal(qtyChangeCompletion.confirmationSnapshot.handoverSummary[0].handoverQty, 5)
 assert.equal(getWoolWarehouseStock({
   woolOrderId: qtyChangeOrder.woolOrderId,
   objectSkuCode: qtyChangeLine.outputSkuCode,
@@ -1186,6 +1207,125 @@ for (const report of reportReadinessStore.processReports) {
 }
 
 const validStore = readWoolStore()
+const invalidReportChainStore = structuredClone(validStore)
+const existingReportChange = invalidReportChainStore.qtyChangeLogs.find((item) =>
+  item.recordType === 'PROCESS_REPORT',
+)!
+const existingReportChangeFlow = invalidReportChainStore.warehouseFlows.find((item) =>
+  item.sourceRecordType === 'QTY_CHANGE' && item.sourceRecordId === existingReportChange.changeId,
+)!
+invalidReportChainStore.qtyChangeLogs.push({
+  ...structuredClone(existingReportChange),
+  changeId: 'WQC-Z-INVALID-REPORT-CHAIN',
+  beforeQty: 20,
+  afterQty: 21,
+})
+invalidReportChainStore.warehouseFlows.push({
+  ...structuredClone(existingReportChangeFlow),
+  flowId: 'WF-WQC-Z-INVALID-REPORT-CHAIN',
+  qty: 1,
+  sourceRecordId: 'WQC-Z-INVALID-REPORT-CHAIN',
+})
+assert.throws(
+  () => validateWoolStore(invalidReportChainStore),
+  /数量修改链.*不连续/,
+  '10→12 后追加 20→21 必须被拒绝',
+)
+
+const validReportChainStore = structuredClone(validStore)
+const validReportBaseChange = validReportChainStore.qtyChangeLogs.find((item) =>
+  item.recordType === 'PROCESS_REPORT',
+)!
+const validReportBaseFlow = validReportChainStore.warehouseFlows.find((item) =>
+  item.sourceRecordType === 'QTY_CHANGE' && item.sourceRecordId === validReportBaseChange.changeId,
+)!
+validReportChainStore.qtyChangeLogs.push({
+  ...structuredClone(validReportBaseChange),
+  changeId: 'WQC-Z-VALID-REPORT-CHAIN',
+  beforeQty: 12,
+  afterQty: 13,
+})
+validReportChainStore.warehouseFlows.push({
+  ...structuredClone(validReportBaseFlow),
+  flowId: 'WF-WQC-Z-VALID-REPORT-CHAIN',
+  qty: 1,
+  sourceRecordId: 'WQC-Z-VALID-REPORT-CHAIN',
+})
+assert.doesNotThrow(() => validateWoolStore(validReportChainStore))
+assert.equal(resolveWoolEffectiveQty(validReportChainStore.qtyChangeLogs, {
+  recordType: 'PROCESS_REPORT',
+  recordId: validReportBaseChange.recordId,
+  baseQty: 10,
+}), 13)
+
+const validHandoverChainStore = structuredClone(validStore)
+const validHandoverBaseChange = validHandoverChainStore.qtyChangeLogs.find((item) =>
+  item.recordType === 'HANDOVER',
+)!
+const validHandoverBaseFlow = validHandoverChainStore.warehouseFlows.find((item) =>
+  item.sourceRecordType === 'QTY_CHANGE' && item.sourceRecordId === validHandoverBaseChange.changeId,
+)!
+validHandoverChainStore.qtyChangeLogs.push({
+  ...structuredClone(validHandoverBaseChange),
+  changeId: 'WQC-Z-VALID-HANDOVER-CHAIN',
+  beforeQty: 5,
+  afterQty: 6,
+})
+validHandoverChainStore.warehouseFlows.push({
+  ...structuredClone(validHandoverBaseFlow),
+  flowId: 'WF-WQC-Z-VALID-HANDOVER-CHAIN',
+  qty: -1,
+  sourceRecordId: 'WQC-Z-VALID-HANDOVER-CHAIN',
+})
+assert.doesNotThrow(() => validateWoolStore(validHandoverChainStore))
+assert.equal(resolveWoolEffectiveQty(validHandoverChainStore.qtyChangeLogs, {
+  recordType: 'HANDOVER',
+  recordId: validHandoverBaseChange.recordId,
+  baseQty: 4,
+}), 6)
+
+const validReceiptChainStore = structuredClone(validStore)
+const chainReceipt = validReceiptChainStore.yarnReceipts.find((item) => item.lines.length > 0)!
+const chainReceiptLine = chainReceipt.lines[0]
+const chainReceiptBaseFlow = validReceiptChainStore.warehouseFlows.find((item) =>
+  item.flowId === chainReceiptLine.warehouseInboundFlowId,
+)!
+for (const [changeId, beforeQty, afterQty] of [
+  ['WQC-A-VALID-RECEIPT-CHAIN', 1, 2],
+  ['WQC-B-VALID-RECEIPT-CHAIN', 2, 3],
+] as const) {
+  validReceiptChainStore.qtyChangeLogs.push({
+    changeId,
+    recordType: 'YARN_RECEIPT',
+    recordId: chainReceipt.receiptId,
+    recordLineId: chainReceiptLine.lineId,
+    objectSkuCode: chainReceiptLine.yarnSkuCode,
+    beforeQty,
+    afterQty,
+    qtyUnit: chainReceiptLine.qtyUnit,
+    reason: '连续复核纱线接收数量',
+    changedAt: '2026-07-30 21:00:00',
+    changedBy: '毛织仓管',
+  })
+  validReceiptChainStore.warehouseFlows.push({
+    ...structuredClone(chainReceiptBaseFlow),
+    flowId: `WF-${changeId}`,
+    flowType: 'ADJUSTMENT',
+    businessType: 'STOCK_ADJUSTMENT',
+    qty: afterQty - beforeQty,
+    sourceRecordType: 'QTY_CHANGE',
+    sourceRecordId: changeId,
+    operatedAt: '2026-07-30 21:00:00',
+  })
+}
+assert.doesNotThrow(() => validateWoolStore(validReceiptChainStore))
+assert.equal(resolveWoolEffectiveQty(validReceiptChainStore.qtyChangeLogs, {
+  recordType: 'YARN_RECEIPT',
+  recordId: chainReceipt.receiptId,
+  recordLineId: chainReceiptLine.lineId,
+  baseQty: chainReceiptLine.receivedQty,
+}), 3)
+
 const factFlowMismatchCases = [
   {
     label: '接收明细数量',

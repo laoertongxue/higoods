@@ -9,6 +9,11 @@ import type {
   WoolWorkOrderKind,
   WoolYarnReceiptRecord,
 } from './types.ts'
+import {
+  getWoolHandoverEffectiveQty,
+  getWoolProcessReportEffectiveQty,
+  getWoolYarnReceiptLineEffectiveQty,
+} from './queries.ts'
 import { replaceWoolStore } from './store.ts'
 
 export const WOOL_MOCK_SCENARIO_CODES = [
@@ -272,17 +277,25 @@ function completion(
 ): WoolCompletionRecord {
   const receipts = store.yarnReceipts.filter((item) => item.woolOrderId === order.woolOrderId)
   const confirmedYarnSkus = new Set(
-    receipts.flatMap((item) => item.lines)
-      .filter((line) => line.receivedQty > 0)
-      .map((line) => line.yarnSkuCode),
+    receipts.flatMap((receiptRecord) =>
+      receiptRecord.lines
+        .filter((line) => getWoolYarnReceiptLineEffectiveQty(store, receiptRecord, line) > 0)
+        .map((line) => line.yarnSkuCode),
+    ),
   )
   const yarnReceiptQty = new Map<string, number>()
-  for (const line of receipts.flatMap((item) => item.lines)) {
-    yarnReceiptQty.set(line.yarnSkuCode, (yarnReceiptQty.get(line.yarnSkuCode) ?? 0) + line.receivedQty)
+  for (const receiptRecord of receipts) {
+    for (const line of receiptRecord.lines) {
+      const effectiveQty = getWoolYarnReceiptLineEffectiveQty(store, receiptRecord, line)
+      yarnReceiptQty.set(line.yarnSkuCode, (yarnReceiptQty.get(line.yarnSkuCode) ?? 0) + effectiveQty)
+    }
   }
   const reportQty = new Map<string, number>()
   for (const record of store.processReports.filter((item) => item.woolOrderId === order.woolOrderId)) {
-    reportQty.set(record.outputSkuCode, (reportQty.get(record.outputSkuCode) ?? 0) + record.reportedQty)
+    reportQty.set(
+      record.outputSkuCode,
+      (reportQty.get(record.outputSkuCode) ?? 0) + getWoolProcessReportEffectiveQty(store, record),
+    )
   }
   const orderHandovers = store.handovers.filter((item) => item.woolOrderId === order.woolOrderId)
   const stockQty = new Map<string, number>()
@@ -316,7 +329,7 @@ function completion(
       handoverSummary: orderHandovers.map((record) => ({
         handoverId: record.handoverId,
         outputSkuCode: record.outputSkuCode,
-        handoverQty: record.handoverQty,
+        handoverQty: getWoolHandoverEffectiveQty(store, record),
         qtyUnit: record.qtyUnit,
         downstreamActualReceivedQty: record.downstreamReceipt?.actualReceivedQty,
         downstreamDifferenceQty: record.downstreamReceipt?.differenceQty,
@@ -692,6 +705,7 @@ export function buildWoolFactWorkflowMockStore(_seed = 'DEFAULT'): WoolDomainSto
             reason: '交出数量由 4 修改为 5',
           },
         )
+        store.completions.push(completion(store, order))
         break
       }
       case 'DOWNSTREAM_CONFIRMED_LOCKED': {

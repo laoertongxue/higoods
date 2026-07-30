@@ -270,6 +270,33 @@ export function validateWoolStore(store: WoolDomainStore): void {
       throw new Error(`毛织存储校验失败：数量修改目标 ${change.recordId} 的对象 SKU 不一致`)
     }
   }
+  const qtyChangeChains = new Map<string, WoolQtyChangeLog[]>()
+  for (const change of store.qtyChangeLogs) {
+    const targetKey = `${change.recordType}\u0000${change.recordId}\u0000${change.recordLineId ?? ''}`
+    const chain = qtyChangeChains.get(targetKey) ?? []
+    chain.push(change)
+    qtyChangeChains.set(targetKey, chain)
+  }
+  for (const chain of qtyChangeChains.values()) {
+    const first = chain[0]
+    const baseQty = first.recordType === 'YARN_RECEIPT'
+      ? store.yarnReceipts
+          .find((item) => item.receiptId === first.recordId)
+          ?.lines.find((line) => line.lineId === first.recordLineId)
+          ?.receivedQty
+      : first.recordType === 'PROCESS_REPORT'
+        ? store.processReports.find((item) => item.reportId === first.recordId)?.reportedQty
+        : store.handovers.find((item) => item.handoverId === first.recordId)?.handoverQty
+    let currentQty = baseQty
+    for (const change of [...chain].sort((left, right) =>
+      left.changedAt.localeCompare(right.changedAt) || left.changeId.localeCompare(right.changeId),
+    )) {
+      if (currentQty === undefined || change.beforeQty !== currentQty) {
+        throw new Error(`毛织存储校验失败：数量修改链 ${change.recordId} 不连续`)
+      }
+      currentQty = change.afterQty
+    }
+  }
   for (const flow of store.warehouseFlows) {
     const order = requireOrder(flow.woolOrderId, `仓库流水 ${flow.flowId}`)
     const outputLine = order.outputPlanLines.find((line) => line.outputSkuCode === flow.objectSkuCode)

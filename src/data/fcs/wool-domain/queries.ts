@@ -1,4 +1,4 @@
-import { readWoolStore } from './store.ts'
+import { readWoolStore, type WoolDomainStore } from './store.ts'
 import type {
   WoolCompletionRecord,
   WoolHandoverRecord,
@@ -11,6 +11,7 @@ import type {
   WoolWorkOrder,
   WoolWorkOrderKind,
   WoolYarnIssueRecord,
+  WoolYarnReceiptLine,
   WoolYarnReceiptRecord,
   WoolYarnReturnRecord,
 } from './types.ts'
@@ -100,16 +101,76 @@ function requireOutputLine(order: WoolWorkOrder, outputSkuCode: string): WoolOut
   return line
 }
 
+export interface WoolEffectiveQtyTarget {
+  recordType: WoolQtyChangeLog['recordType']
+  recordId: string
+  recordLineId?: string
+  baseQty: number
+}
+
+export function resolveWoolEffectiveQty(
+  qtyChangeLogs: readonly WoolQtyChangeLog[],
+  target: WoolEffectiveQtyTarget,
+): number {
+  return qtyChangeLogs
+    .filter((change) =>
+      change.recordType === target.recordType
+      && change.recordId === target.recordId
+      && (target.recordType !== 'YARN_RECEIPT' || change.recordLineId === target.recordLineId),
+    )
+    .sort((left, right) =>
+      left.changedAt.localeCompare(right.changedAt) || left.changeId.localeCompare(right.changeId),
+    )
+    .reduce((_currentQty, change) => change.afterQty, target.baseQty)
+}
+
+export function getWoolYarnReceiptLineEffectiveQty(
+  store: WoolDomainStore,
+  receipt: WoolYarnReceiptRecord,
+  line: WoolYarnReceiptLine,
+): number {
+  return resolveWoolEffectiveQty(store.qtyChangeLogs, {
+    recordType: 'YARN_RECEIPT',
+    recordId: receipt.receiptId,
+    recordLineId: line.lineId,
+    baseQty: line.receivedQty,
+  })
+}
+
+export function getWoolProcessReportEffectiveQty(
+  store: WoolDomainStore,
+  record: WoolProcessReportRecord,
+): number {
+  return resolveWoolEffectiveQty(store.qtyChangeLogs, {
+    recordType: 'PROCESS_REPORT',
+    recordId: record.reportId,
+    baseQty: record.reportedQty,
+  })
+}
+
+export function getWoolHandoverEffectiveQty(
+  store: WoolDomainStore,
+  record: WoolHandoverRecord,
+): number {
+  return resolveWoolEffectiveQty(store.qtyChangeLogs, {
+    recordType: 'HANDOVER',
+    recordId: record.handoverId,
+    baseQty: record.handoverQty,
+  })
+}
+
 export function getWoolOutputReportedQty(woolOrderId: string, outputSkuCode: string): number {
-  return readWoolStore().processReports
+  const store = readWoolStore()
+  return store.processReports
     .filter((record) => record.woolOrderId === woolOrderId && record.outputSkuCode === outputSkuCode)
-    .reduce((sum, record) => sum + record.reportedQty, 0)
+    .reduce((sum, record) => sum + getWoolProcessReportEffectiveQty(store, record), 0)
 }
 
 export function getWoolOutputHandedOverQty(woolOrderId: string, outputSkuCode: string): number {
-  return readWoolStore().handovers
+  const store = readWoolStore()
+  return store.handovers
     .filter((record) => record.woolOrderId === woolOrderId && record.outputSkuCode === outputSkuCode)
-    .reduce((sum, record) => sum + record.handoverQty, 0)
+    .reduce((sum, record) => sum + getWoolHandoverEffectiveQty(store, record), 0)
 }
 
 export function getWoolOutputReadiness(
@@ -124,16 +185,18 @@ export function getWoolOutputReadiness(
   const confirmedSet = new Set(
     store.yarnReceipts
       .filter((record) => record.woolOrderId === woolOrderId)
-      .flatMap((record) => record.lines)
-      .filter((receiptLine) => receiptLine.receivedQty > 0)
-      .map((receiptLine) => receiptLine.yarnSkuCode),
+      .flatMap((record) => record.lines.map((line) => ({ record, line })))
+      .filter(({ record, line: receiptLine }) =>
+        getWoolYarnReceiptLineEffectiveQty(store, record, receiptLine) > 0,
+      )
+      .map(({ line: receiptLine }) => receiptLine.yarnSkuCode),
   )
   const confirmedYarnSkus = requiredYarnSkus.filter((sku) => confirmedSet.has(sku))
   const missingYarnSkus = requiredYarnSkus.filter((sku) => !confirmedSet.has(sku))
   const isReady = requiredYarnSkus.length > 0 && missingYarnSkus.length === 0
   const reportedQty = store.processReports
     .filter((record) => record.woolOrderId === woolOrderId && record.outputSkuCode === outputSkuCode)
-    .reduce((sum, record) => sum + record.reportedQty, 0)
+    .reduce((sum, record) => sum + getWoolProcessReportEffectiveQty(store, record), 0)
   const reportLimitQty = Math.floor(line.plannedQty * 1.5)
   const remainingReportQty = Math.max(reportLimitQty - reportedQty, 0)
   return {
@@ -155,8 +218,12 @@ export function getWoolProcessingStatus(woolOrderId: string): WoolProcessingStat
   if (!store.workOrders[woolOrderId]) throw new Error(`找不到毛织加工单 ${woolOrderId}`)
   if (store.completions.some((record) => record.woolOrderId === woolOrderId)) return 'COMPLETED'
   if (
-    store.processReports.some((record) => record.woolOrderId === woolOrderId)
-    || store.handovers.some((record) => record.woolOrderId === woolOrderId)
+    store.processReports.some((record) =>
+      record.woolOrderId === woolOrderId && getWoolProcessReportEffectiveQty(store, record) > 0,
+    )
+    || store.handovers.some((record) =>
+      record.woolOrderId === woolOrderId && getWoolHandoverEffectiveQty(store, record) > 0,
+    )
   ) {
     return 'PROCESSING'
   }
@@ -221,7 +288,11 @@ export function getWoolAllowedActions(woolOrderId: string): WoolAllowedAction[] 
   ) {
     actions.push('ASSOCIATE_MACHINE')
   }
-  if (store.handovers.some((record) => record.woolOrderId === woolOrderId)) actions.push('COMPLETE')
+  if (store.handovers.some((record) =>
+    record.woolOrderId === woolOrderId && getWoolHandoverEffectiveQty(store, record) > 0,
+  )) {
+    actions.push('COMPLETE')
+  }
   return actions
 }
 
