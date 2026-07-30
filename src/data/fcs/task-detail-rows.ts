@@ -230,9 +230,15 @@ function makeRowLabel(
   return '默认明细行'
 }
 
-function makeRowKey(taskId: string, orderedDimensions: DetailSplitDimension[], dimensions: Partial<Record<DetailSplitDimension, string>>): string {
+function makeRowKey(
+  taskId: string,
+  orderedDimensions: DetailSplitDimension[],
+  dimensions: Partial<Record<DetailSplitDimension, string>>,
+  stableIdentity?: string,
+): string {
   const segments = orderedDimensions.map((dimension) => `${dimension}_${normalizeToken(dimensions[dimension] ?? '-')}`)
-  return `ROW-${taskId}-${segments.join('__')}`
+  const identitySegment = stableIdentity ? `__IDENTITY_${normalizeToken(stableIdentity)}` : ''
+  return `ROW-${taskId}-${segments.join('__')}${identitySegment}`
 }
 
 function makeSortKey(orderedDimensions: DetailSplitDimension[], dimensions: Partial<Record<DetailSplitDimension, string>>): string {
@@ -252,7 +258,7 @@ function upsertRow(
   const stableQty = roundQty(qty)
   if (stableQty <= 0) return
 
-  const rowKey = makeRowKey(taskId, orderedDimensions, dimensions)
+  const rowKey = makeRowKey(taskId, orderedDimensions, dimensions, sourceRefs.outputSkuCode)
   const existing = rowMap.get(rowKey)
   if (existing) {
     existing.qty = roundQty(existing.qty + stableQty)

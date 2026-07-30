@@ -2,14 +2,18 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { alignWoolColorMaterialMappingsForDemand } from '../src/data/fcs/production-tech-pack-snapshot-builder.ts'
 import {
+  buildWoolPanelOutputSku,
   buildWoolOrderSourceSnapshot,
   buildWoolOrderSourceSnapshotFromRuntimeTask,
   type WoolOrderSourceBuildInput,
 } from '../src/data/fcs/wool-domain/tech-pack-source.ts'
 import {
+  generateTaskDetailRowsForArtifact,
   isWoolProcessCode,
   resolveTaskDetailMaterialCode,
 } from '../src/data/fcs/task-detail-rows.ts'
+import { generateTaskArtifactsForOrder } from '../src/data/fcs/production-artifact-generation.ts'
+import { productionOrders } from '../src/data/fcs/production-orders.ts'
 import type {
   WoolCompletionRecord,
   WoolHandoverRecord,
@@ -522,6 +526,61 @@ assert.equal(woolTypesSource.includes("'STOCK_TRANSFER'"), true)
 assert.equal(woolTypesSource.includes("'WOOL-WP-YARN-DEFAULT'"), true)
 assert.equal(woolTypesSource.includes("'WOOL-WH-CUT-DEFAULT'"), true)
 assert.equal(woolTypesSource.includes("'WOOL-WH-GARMENT-DEFAULT'"), true)
+
+const sameNamePartOrder = productionOrders.find((order) => order.productionOrderId === 'PO-202603-084')
+assert(sameNamePartOrder?.techPackSnapshot, '缺少同名毛织部位检查生产单快照')
+const sameNamePartArtifact = generateTaskArtifactsForOrder(sameNamePartOrder.productionOrderId)
+  .find((artifact) => artifact.woolTaskType === 'PART_PANEL')
+assert(sameNamePartArtifact, '缺少同名毛织部位检查加工任务')
+const sameNameBasePattern = sameNamePartOrder.techPackSnapshot.patternFiles
+  .find((pattern) => pattern.patternMaterialType === 'WOOL' && pattern.pieceRows?.length)
+assert(sameNameBasePattern?.pieceRows?.[0], '缺少同名毛织部位检查纸样')
+const sameNameBasePiece = sameNameBasePattern.pieceRows[0]
+const originalSameNamePatternFiles = sameNamePartOrder.techPackSnapshot.patternFiles
+try {
+  sameNamePartOrder.techPackSnapshot.patternFiles = [{
+    ...sameNameBasePattern,
+    pieceRows: [
+      {
+        ...sameNameBasePiece,
+        id: 'WOOL-SAME-NAME-PIECE-A',
+        partTemplateId: 'WOOL-SAME-NAME-PART-A',
+        name: '同名罗纹',
+        count: 1,
+        colorAllocations: [],
+      },
+      {
+        ...sameNameBasePiece,
+        id: 'WOOL-SAME-NAME-PIECE-B',
+        partTemplateId: 'WOOL-SAME-NAME-PART-B',
+        name: '同名罗纹',
+        count: 3,
+        colorAllocations: [],
+      },
+    ],
+  }]
+  const sameNameRows = generateTaskDetailRowsForArtifact({
+    taskId: 'TASK-WOOL-SAME-NAME-PARTS',
+    artifact: sameNamePartArtifact,
+  })
+  const checkedSku = sameNamePartOrder.demandSnapshot.skuLines[0]
+  const checkedRows = sameNameRows.filter((row) => row.sourceRefs.garmentSku === checkedSku.skuCode)
+  assert.equal(checkedRows.length, 2, '同名但身份不同的毛织部位必须生成两条独立明细')
+  assert.deepEqual(
+    checkedRows.map((row) => row.sourceRefs.outputSkuCode).sort(),
+    [
+      buildWoolPanelOutputSku('WOOL-SAME-NAME-PART-A', checkedSku.skuCode),
+      buildWoolPanelOutputSku('WOOL-SAME-NAME-PART-B', checkedSku.skuCode),
+    ].sort(),
+  )
+  assert.deepEqual(
+    checkedRows.map((row) => row.qty).sort((left, right) => left - right),
+    [checkedSku.qty, checkedSku.qty * 3],
+    '同名毛织部位数量不得互相合并或串写',
+  )
+} finally {
+  sameNamePartOrder.techPackSnapshot.patternFiles = originalSameNamePatternFiles
+}
 
 const splitRuntimeState = captureRuntimeDirectDispatchState()
 try {
