@@ -46,6 +46,7 @@ const SPECIAL_CRAFT_FLOW = 'src/data/fcs/cutting/special-craft-fei-ticket-flow.t
 const CUTTING_MAINLINE_LEDGER = 'src/data/fcs/cutting/cutting-mainline-event-ledger.ts'
 const SEWING_DISPATCH = 'src/data/fcs/cutting/sewing-dispatch.ts'
 const TRANSFER_BAG_RUNTIME = 'src/data/fcs/cutting/transfer-bag-runtime.ts'
+const TRANSFER_BAG_LIFECYCLE = 'src/data/fcs/cutting/transfer-bag-lifecycle.ts'
 
 const WAREHOUSE_HUB = 'src/pages/process-factory/cutting/warehouse-hub.ts'
 const T_BAGS = 'src/pages/process-factory/cutting/transfer-bags.ts'
@@ -67,6 +68,7 @@ const HANDOVER_ORDERS_PAGE = 'src/pages/process-factory/cutting/handover-orders.
 const PDA_INBOUND = 'src/pages/pda-cutting-inbound.ts'
 const PDA_HANDOVER = 'src/pages/pda-cutting-handover.ts'
 const PDA_WAIT_HANDOVER = 'src/pages/pda-warehouse-wait-handover.ts'
+const PDA_WAIT_HANDOVER_ACTIONS = 'src/pages/pda-cutting-wait-handover-actions.ts'
 const PDA_WAREHOUSE = 'src/pages/pda-warehouse.ts'
 const PDA_HANDOVER_LIST = 'src/pages/pda-handover.ts'
 const PDA_HANDOVER_DETAIL = 'src/pages/pda-handover-detail.ts'
@@ -119,7 +121,7 @@ const TEST_SPECIAL_CRAFT_E2E = 'tests/special-craft-web-mobile-action-dialog-and
 const ledger = read(EVENT_LEDGER)
 
 // 1.1 新事件类型必须存在
-for (const type of ["'菲票装袋'", "'中转袋入仓'", "'交出装袋确认'", "'新增交出记录'", "'特殊工艺交出'", "'特殊工艺回仓'"]) {
+for (const type of ["'菲票装袋'", "'中转袋入仓'", "'新增交出记录'", "'特殊工艺交出'", "'特殊工艺回仓'", "'中转袋回收'", "'中转袋报废'"]) {
   assertContains(ledger, type, `EVENT_LEDGER 缺少事件类型: ${type}`)
 }
 
@@ -146,21 +148,27 @@ for (const status of ['已发料', '已接收', '加工中', '已完成', '已�
   assertContains(specialCraft, status, `SPECIAL_CRAFT_FLOW 缺少特殊工艺前向状态: ${status}`)
 }
 
-// 1.6 中转袋状态
+// 1.6 中转袋主状态与使用中阶段
 const tModel = read(TRANSFER_BAGS_MODEL)
-for (const status of ['装袋中', '已装袋待入仓', '已入待交出仓', '已交出待回收', '已回收']) {
-  assertContains(tModel + runtime, status, `中转袋状态 ${status} 未在 model/runtime 中定义`)
+const lifecycle = read(TRANSFER_BAG_LIFECYCLE)
+for (const status of ['空闲', '使用中', '已报废']) {
+  assertContains(tModel + lifecycle, status, `中转袋主状态 ${status} 未在 model/lifecycle 中定义`)
+}
+for (const stage of ['菲票已装袋', '入仓暂存中', '已交出待回收']) {
+  assertContains(tModel + lifecycle, stage, `中转袋使用中阶段 ${stage} 未在 model/lifecycle 中定义`)
 }
 
 // 1.7 sewing-dispatch.ts 不再引用旧事件类型
 const sewingDispatch = read(SEWING_DISPATCH)
 assertNotContains(sewingDispatch, '菲票入仓暂存', 'SEWING_DISPATCH 不得引用旧菲票入仓暂存')
 
-// 1.8 transfer-bag-runtime.ts 状态名称更新
+// 1.8 transfer-bag-runtime.ts 旧物理袋状态不得重新成为主状态
 const tbRuntime = read(TRANSFER_BAG_RUNTIME)
 assertNotContains(tbRuntime, '入仓暂存袋', 'TRANSFER_BAG_RUNTIME 不得保留旧名称入仓暂存袋')
 assertNotContains(tbRuntime, '裁床待交出仓入仓暂存位', 'TRANSFER_BAG_RUNTIME 不得保留旧位置名称')
-assertContains(tbRuntime, '已装袋待入仓', 'TRANSFER_BAG_RUNTIME 必须有中转袋新状态')
+assertContains(lifecycle, "IDLE: { label: '空闲' }", 'LIFECYCLE 必须定义空闲主状态')
+assertContains(lifecycle, "IN_USE: { label: '使用中' }", 'LIFECYCLE 必须定义使用中主状态')
+assertContains(lifecycle, "DISABLED: { label: '已报废' }", 'LIFECYCLE 必须定义已报废主状态')
 
 // 1.9 cutting-mainline-event-ledger.ts 同步
 const mainlineLedger = read(CUTTING_MAINLINE_LEDGER)
@@ -174,7 +182,7 @@ assertContains(mainlineLedger, '特殊工艺回仓', 'CUTTING_MAINLINE_LEDGER �
 const hub = read(WAREHOUSE_HUB)
 
 // 2.1 四动作必须可见
-const fourActions = ['菲票装袋', '中转袋入仓', '交出装袋确认', '特种工艺回收入仓']
+const fourActions = ['菲票装袋', '中转袋入仓', '中转袋交出', '特种工艺回收入仓']
 for (const label of fourActions) {
   assertContains(hub, label, `WAREHOUSE_HUB 必须包含动作: ${label}`)
 }
@@ -303,8 +311,8 @@ for (const [name, path] of [
 // ============================================================================
 
 // 3.1 PDA 待交出仓首页四动作入口
-const pdaWaitHandover = read(PDA_WAIT_HANDOVER)
-for (const label of fourActions) {
+const pdaWaitHandover = `${read(PDA_WAIT_HANDOVER)}\n${read(PDA_WAIT_HANDOVER_ACTIONS)}`
+for (const label of ['菲票装袋', '中转袋入仓', '中转袋交出', '特殊工艺回仓']) {
   assertContains(pdaWaitHandover, label, `PDA_WAIT_HANDOVER 必须包含动作: ${label}`)
 }
 assertNotContains(pdaWaitHandover, OLD_MERGED, 'PDA_WAIT_HANDOVER 不得保留旧合并入口')
@@ -317,21 +325,22 @@ assertContains(pdaInbound, 'appendWaitHandoverBaggingEvent', 'PDA_INBOUND 必须
 assertMatch(pdaInbound, /appendWaitHandoverBaggingEvent\(/, 'PDA_INBOUND 确认菲票装袋必须真实调用 appendWaitHandoverBaggingEvent')
 assertNotContains(pdaInbound, OLD_MERGED, 'PDA_INBOUND 不得保留旧合并标题')
 
-// 3.3 PDA 交出页双阶段
+// 3.3 PDA 交出页只保留整袋交出新入口，旧深链迁移到整袋交出
 const pdaHandover = read(PDA_HANDOVER)
-assertContains(pdaHandover, '交出装袋确认', 'PDA_HANDOVER 必须保留交出装袋确认')
-assertContains(pdaHandover, '交出确认', 'PDA_HANDOVER 必须有交出确认阶段')
-assertContains(pdaHandover, 'appendWaitHandoverBaggingConfirmEvent', 'PDA_HANDOVER 必须调用装袋确认写入')
+assertContains(pdaHandover, "action === 'handover-bagging-confirm' ? 'transfer-bag-handover'", 'PDA_HANDOVER 旧交出装袋确认深链必须迁移到整袋交出')
+assertContains(pdaHandover, '中转袋交出', 'PDA_HANDOVER 必须有整袋交出入口')
+assertNotContains(pdaHandover, 'data-pda-cut-handover-action="confirm-picking"', 'PDA_HANDOVER 不得继续提供交出装袋确认写入口')
 
-// 3.4 PDA 交出页特殊工艺回仓二选一
-assertContains(pdaHandover, '整袋回仓', 'PDA_HANDOVER 必须有整袋回仓')
-assertContains(pdaHandover, '逐菲票回仓', 'PDA_HANDOVER 必须有逐菲票回仓')
+// 3.4 PDA 特殊工艺回仓按是否实际扫描物理袋写事实
+assertContains(pdaHandover, '回仓中转袋', 'PDA_HANDOVER 必须支持扫描实际回仓中转袋')
+assertContains(pdaHandover, '回仓菲票', 'PDA_HANDOVER 必须支持无袋时只扫回仓菲票')
+assertContains(pdaHandover, 'appendWaitHandoverSpecialCraftReturnEvent', 'PDA_HANDOVER 必须调用统一特殊工艺回仓事实写入')
 
 // 3.5 PDA 仓管首页
 const pdaWarehouse = read(PDA_WAREHOUSE)
 assertNotContains(pdaWarehouse, OLD_MERGED, 'PDA_WAREHOUSE 裁床入口不得保留旧合并入口')
-assertContains(pdaWarehouse, '菲票装袋', 'PDA_WAREHOUSE 裁床快捷入口必须有菲票装袋')
-assertContains(pdaWarehouse, '中转袋入仓', 'PDA_WAREHOUSE 裁床快捷入口必须有中转袋入仓')
+assertContains(pdaWaitHandover, '菲票装袋', 'PDA 裁床待交出仓快捷入口必须有菲票装袋')
+assertContains(pdaWaitHandover, '中转袋入仓', 'PDA 裁床待交出仓快捷入口必须有中转袋入仓')
 
 // 3.6 PDA 一页一动作——不得暴露管理统计/状态机
 assertNotContains(pdaWaitHandover, '管理统计', 'PDA_WAIT_HANDOVER 不得展示管理统计')
@@ -400,19 +409,18 @@ for (const [rule, msg] of Object.entries(preventions)) {
 // §6  状态图落点
 // ============================================================================
 
-// 6.1 中转袋状态（按代码中的实际状态值验证）
+// 6.1 中转袋只保留三个主状态和三个使用中阶段
 const bagStates = [
-  { product: '待使用', codes: ['IDLE'] },
-  { product: '装袋中', codes: ['PACKING', '装袋中'] },
-  { product: '已装袋待入仓', codes: ['已装袋待入仓', '入仓装袋中'] },
-  { product: '已入待交出仓', codes: ['已入待交出仓', '入仓暂存中'] },
-  { product: '已交出待回收', codes: ['WAITING_RETURN', '已交出待回收'] },
-  { product: '已回收', codes: ['REUSABLE', '已回收'] },
-  { product: '已报废', codes: ['SCRAP_CLOSED', 'DISABLED', '已报废'] },
+  { product: '空闲', codes: ['IDLE', '空闲'] },
+  { product: '使用中', codes: ['IN_USE', '使用中'] },
+  { product: '已报废', codes: ['DISABLED', '已报废'] },
+  { product: '菲票已装袋', codes: ['PACKED', '菲票已装袋'] },
+  { product: '入仓暂存中', codes: ['INBOUND_STORED', '入仓暂存中'] },
+  { product: '已交出待回收', codes: ['HANDED_OVER_WAITING_RETURN', '已交出待回收'] },
 ]
 for (const st of bagStates) {
-  const found = st.codes.some((code) => tModel.includes(code) || runtime.includes(code))
-  if (!found) failures.push(`MISSING: 中转袋状态 ${st.product} 未在数据层定义（代码值: ${st.codes.join('/')}）`)
+  const found = st.codes.some((code) => tModel.includes(code) || lifecycle.includes(code))
+  if (!found) failures.push(`MISSING: 中转袋主状态/阶段 ${st.product} 未在统一生命周期定义（代码值: ${st.codes.join('/')}）`)
   else passed++
 }
 

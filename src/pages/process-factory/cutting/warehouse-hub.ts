@@ -5437,7 +5437,7 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
 
   return renderHubShell({
     metaKey: 'warehouse-management-wait-handover',
-    description: '基于菲票、裁片和中转袋管理待交出仓库存、菲票装袋、中转袋入仓、交出装袋确认、特种工艺回收入仓和库区库位。',
+    description: '基于菲票、裁片和中转袋管理待交出仓库存、菲票装袋、中转袋入仓、整袋交出、特殊工艺回仓和库区库位。',
     kpis: '',
     tabs: renderWaitHandoverTabs(activeTab),
     content: activeContent,
