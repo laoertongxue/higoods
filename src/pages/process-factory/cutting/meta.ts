@@ -106,7 +106,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
   'pickup-ready': {
     key: 'pickup-ready',
     canonicalPath: '/fcs/craft/cutting/pickup-management/ready',
-    aliases: ['/fcs/craft/cutting/pickup-management'],
+    aliases: [],
     menuGroupTitle: '领料管理',
     pageTitle: '已配齐待领料',
     pageSubtitle: '',

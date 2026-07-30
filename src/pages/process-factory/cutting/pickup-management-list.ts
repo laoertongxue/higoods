@@ -45,7 +45,19 @@ interface PickupListState {
 }
 
 const states = new Map<PickupListKind, PickupListState>()
-let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
+const searchDebounceTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+export function pickupListFilterDebounceKey(kind: PickupListKind, field: string): string {
+  return `${kind}:${field}`
+}
+
+function cancelInactivePickupListDebounces(activeKind: PickupListKind): void {
+  for (const [key, timer] of searchDebounceTimers) {
+    if (key.startsWith(`${activeKind}:`)) continue
+    clearTimeout(timer)
+    searchDebounceTimers.delete(key)
+  }
+}
 
 function formatQty(value: number, unit: string): string {
   return `${Number(value || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 })} ${escapeHtml(unit)}`
@@ -355,6 +367,7 @@ function renderPaginationRegion(
 }
 
 function renderPickupList(kind: PickupListKind): string {
+  cancelInactivePickupListDebounces(kind)
   const state = getState(kind)
   state.currentPage = 1
   state.sort = null
@@ -429,13 +442,29 @@ export function handleCraftCuttingPickupListEvent(target: HTMLElement, event?: E
   const columns = columnsFor(kind)
   const filter = target.closest<HTMLInputElement>('[data-pickup-list-filter]')
   if (filter && event?.type === 'input') {
-    if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
-    searchDebounceTimer = setTimeout(() => {
-      if (filter.dataset.pickupListFilter === 'keyword') state.keyword = filter.value.trim()
-      if (filter.dataset.pickupListFilter === 'materialKeyword') state.materialKeyword = filter.value.trim()
+    const filterField = filter.dataset.pickupListFilter || ''
+    const debounceKey = pickupListFilterDebounceKey(kind, filterField)
+    const existingTimer = searchDebounceTimers.get(debounceKey)
+    if (existingTimer) clearTimeout(existingTimer)
+    const nextValue = filter.value.trim()
+    const applyFilter = (): void => {
+      searchDebounceTimers.delete(debounceKey)
+      if (filterField === 'keyword') state.keyword = nextValue
+      if (filterField === 'materialKeyword') state.materialKeyword = nextValue
       state.currentPage = 1
       refreshPickupListRegions(kind)
-    }, 180)
+    }
+    if (!nextValue) {
+      applyFilter()
+      return true
+    }
+    searchDebounceTimers.set(debounceKey, setTimeout(() => {
+      if (kindFromPathname() !== kind) {
+        searchDebounceTimers.delete(debounceKey)
+        return
+      }
+      applyFilter()
+    }, 180))
     return true
   }
 

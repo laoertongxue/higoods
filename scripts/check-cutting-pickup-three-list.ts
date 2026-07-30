@@ -33,6 +33,10 @@ import {
   type PickupOrderGroup,
 } from '../src/pages/process-factory/cutting/pickup-management-projection.ts'
 import { listSupplementRecords } from '../src/pages/process-factory/cutting/supplement-management.ts'
+import {
+  getCanonicalCuttingMeta,
+  isCuttingAliasPath,
+} from '../src/pages/process-factory/cutting/meta.ts'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -79,6 +83,16 @@ function assertThreeListRouteAndMenuContract(): void {
     routeSource.includes("'/fcs/craft/cutting/pickup-management': () =>")
       && routeSource.includes("renderRouteRedirect('/fcs/craft/cutting/pickup-management/ready'"),
     '旧领料管理路由必须重定向到规范的已配齐待领料路由',
+  )
+  const legacyPath = '/fcs/craft/cutting/pickup-management'
+  const legacyMeta = getCanonicalCuttingMeta(legacyPath)
+  assert(legacyMeta.key === 'pickup-management', '旧领料路径必须唯一归属兼容入口元数据')
+  assert(legacyMeta.canonicalPath === legacyPath, '旧领料路径必须保留唯一 canonical 语义')
+  assert(!isCuttingAliasPath(legacyPath), '旧领料路径不得同时被识别为新列表 alias')
+  assert(
+    (metaSource.match(/canonicalPath: '\/fcs\/craft\/cutting\/pickup-management'/g) ?? []).length === 1
+      && !metaSource.includes("aliases: ['/fcs/craft/cutting/pickup-management']"),
+    '旧领料路径不得存在重复 path ownership',
   )
   for (const deprecatedPath of [
     '/fcs/craft/cutting/pickup-ready',

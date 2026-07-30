@@ -626,13 +626,13 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
     const productionProgressPage = await import('./pages/process-factory/cutting/production-progress')
     return productionProgressPage.handleCraftCuttingProductionProgressEvent(eventTarget, event)
   }
+  if (pathname.startsWith('/fcs/craft/cutting/pickup-management')) {
+    const fcsHandlers = await getFcsHandlersModule()
+    return fcsHandlers.dispatchFcsPageEvent(eventTarget, event)
+  }
   if (pathname.startsWith('/fcs/craft/cutting/supplement-management')) {
     const supplementManagementPage = await import('./pages/process-factory/cutting/supplement-management')
     return supplementManagementPage.handleCraftCuttingSupplementManagementEvent(eventTarget, event)
-  }
-  if (pathname.startsWith('/fcs/craft/cutting/pickup-management')) {
-    const pickupManagementPage = await import('./pages/process-factory/cutting/pickup-management')
-    return pickupManagementPage.handleCraftCuttingPickupManagementEvent(eventTarget, event)
   }
   if (pathname.startsWith('/wls/fabric-demand-board')) {
     try {

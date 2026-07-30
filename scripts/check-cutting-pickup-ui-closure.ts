@@ -8,7 +8,29 @@ const pcSource = fs.readFileSync('src/pages/process-factory/cutting/pickup-manag
 const listPath = 'src/pages/process-factory/cutting/pickup-management-list.ts'
 const listSource = fs.existsSync(listPath) ? fs.readFileSync(listPath, 'utf8') : ''
 const handlerSource = fs.readFileSync('src/main-handlers/fcs-handlers.ts', 'utf8')
+const mainSource = fs.readFileSync('src/main.ts', 'utf8')
 const pdaSource = fs.readFileSync('src/pages/pda-warehouse-wait-process.ts', 'utf8')
+
+const mainPickupBranch = mainSource.match(
+  /if \(pathname\.startsWith\('\/fcs\/craft\/cutting\/pickup-management'\)\) \{[\s\S]*?\n  \}/,
+)?.[0] ?? ''
+assert(
+  mainPickupBranch.includes('getFcsHandlersModule()')
+    && mainPickupBranch.includes('dispatchFcsPageEvent(eventTarget, event)')
+    && !mainPickupBranch.includes("import('./pages/process-factory/cutting/pickup-management')"),
+  'main.ts 真实入口必须把三个列表和旧详情统一交给 FCS 精确分派，不得被旧页面处理器提前截获',
+)
+for (const eventType of ['click', 'input', 'change']) {
+  const listenerSource = mainSource.match(
+    new RegExp(`root\\.addEventListener\\('${eventType}'[\\s\\S]*?(?=root\\.addEventListener\\('|$)`),
+  )?.[0] ?? ''
+  assert(listenerSource.includes('dispatchPageEvent(target, event)'), `${eventType} 事件必须进入统一页面分派`)
+}
+assert(
+  mainSource.includes("root.addEventListener('dragstart', dispatchListColumnDragEvent)")
+    && mainSource.includes('void dispatchPageEvent(target, internalEvent)'),
+  '列拖拽事件必须进入统一页面分派',
+)
 
 assert(listSource.includes('listPickupOrderGroups(kind)'), '三个列表必须按当前列表类型读取生产单分组')
 assert(listSource.includes('/fcs/pda/warehouse/wait-process?scope=cutting&action=pickup&pickupNodeId='), 'PC 去领料必须跳转 PDA 并携带节点快照')
@@ -32,6 +54,12 @@ assert(listSource.includes("action === 'toggle-column-freeze'"), 'PC 标准列�
 assert(listSource.includes('data-skip-page-rerender'), 'PC 轻交互必须跳过整页重绘')
 assert(listSource.includes('refreshPickupListRegions'), 'PC 轻交互必须局部刷新列表区域')
 assert(listSource.includes('setTimeout'), 'PC 搜索输入必须 debounce')
+assert(listSource.includes('new Map<string, ReturnType<typeof setTimeout>>()'), '两个筛选必须使用独立 debounce timer Map')
+assert(
+  listSource.includes('pickupListFilterDebounceKey(kind, filterField)')
+    && listSource.includes('`${kind}:${field}`'),
+  '筛选 debounce 必须按列表类型和字段隔离',
+)
 assert(!listSource.includes('.slice(0,'), '物料明细不得只展示前几项')
 assert(!listSource.includes('type="checkbox"'), '领料列表不得提供物料复选')
 assert(!listSource.includes('type="number"'), '领料列表不得提供领取数量输入')
