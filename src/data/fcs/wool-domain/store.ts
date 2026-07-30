@@ -165,7 +165,7 @@ export function validateWoolStore(store: WoolDomainStore): void {
     throw new Error('毛织存储校验失败：workOrders 必须是对象')
   }
   for (const [woolOrderId, order] of Object.entries(store.workOrders)) {
-    if (!woolOrderId || order.woolOrderId !== woolOrderId || !order.woolOrderNo) {
+    if (!woolOrderId || order.woolOrderId !== woolOrderId || !order.woolOrderNo || !order.taskId) {
       throw new Error(`毛织存储校验失败：加工单 ${woolOrderId || '未知'} 身份无效`)
     }
     if (!Array.isArray(order.outputPlanLines) || order.outputPlanLines.length === 0) {
@@ -173,6 +173,7 @@ export function validateWoolStore(store: WoolDomainStore): void {
     }
     assertUniqueIds(order.outputPlanLines, (line) => line.outputSkuCode, `加工单 ${woolOrderId} 加工后 SKU`)
   }
+  assertUniqueIds(Object.values(store.workOrders), (order) => order.taskId, '加工单任务')
   for (const field of [
     'yarnReceipts',
     'yarnIssues',

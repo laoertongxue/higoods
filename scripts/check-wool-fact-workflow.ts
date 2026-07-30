@@ -6,6 +6,7 @@ import {
   buildWoolOrderFromRuntimeTask,
   buildWoolOrderSourceSnapshot,
   buildWoolOrderSourceSnapshotFromRuntimeTask,
+  setWoolRuntimeOrderCommitConflictForTest,
   type WoolOrderSourceBuildInput,
 } from '../src/data/fcs/wool-domain/tech-pack-source.ts'
 import {
@@ -236,7 +237,12 @@ const sourceBuildInput: WoolOrderSourceBuildInput = {
     plannedQty: 100,
   }],
   bomItems: [
-    { id: 'BOM-YARN-A', materialCode: 'YARN-A', usageProcessCodes: ['WOOL'] },
+    {
+      id: 'BOM-YARN-A',
+      materialCode: 'YARN-A',
+      usageProcessCodes: ['WOOL'],
+      applicableSkuCodes: ['GARMENT-BLACK-M'],
+    },
     { id: 'BOM-BAG', materialCode: 'BAG-01', usageProcessCodes: ['PACKAGING'] },
   ],
   colorMaterialMappings: [{
@@ -348,6 +354,27 @@ const nonWoolBomSnapshot = buildWoolOrderSourceSnapshot({
 })
 assert.deepEqual(nonWoolBomSnapshot.outputPlanLines[0].requiredYarnSkus, [])
 
+const emptyYarnSkuSnapshot = buildWoolOrderSourceSnapshot({
+  ...sourceBuildInput,
+  bomItems: [{
+    id: 'BOM-YARN-EMPTY',
+    materialCode: '   ',
+    usageProcessCodes: ['PROC_WOOL'],
+    applicableSkuCodes: ['GARMENT-BLACK-M'],
+  }],
+  colorMaterialMappings: [{
+    ...sourceBuildInput.colorMaterialMappings[0],
+    lines: [{
+      id: 'MAP-LINE-YARN-EMPTY',
+      bomItemId: 'BOM-YARN-EMPTY',
+      materialCode: '   ',
+      applicableSkuCodes: ['GARMENT-BLACK-M'],
+    }],
+  }],
+})
+assert.deepEqual(emptyYarnSkuSnapshot.outputPlanLines[0].requiredYarnSkus, [])
+assert.deepEqual(emptyYarnSkuSnapshot.outputPlanLines[0].sourceBomItemIds, [])
+
 const unmatchedSkuSnapshot = buildWoolOrderSourceSnapshot({
   ...sourceBuildInput,
   colorMaterialMappings: [{
@@ -362,6 +389,82 @@ const unmatchedSkuSnapshot = buildWoolOrderSourceSnapshot({
 })
 assert.deepEqual(unmatchedSkuSnapshot.outputPlanLines[0].requiredYarnSkus, [])
 assert.deepEqual(unmatchedSkuSnapshot.outputPlanLines[0].sourceColorMappingIds, ['MAP-BLACK'])
+
+const unmatchedBomSkuSnapshot = buildWoolOrderSourceSnapshot({
+  ...sourceBuildInput,
+  bomItems: sourceBuildInput.bomItems.map((item) =>
+    item.id === 'BOM-YARN-A'
+      ? { ...item, applicableSkuCodes: ['GARMENT-WHITE-M'] }
+      : item,
+  ),
+})
+assert.deepEqual(unmatchedBomSkuSnapshot.outputPlanLines[0].requiredYarnSkus, [])
+assert.deepEqual(unmatchedBomSkuSnapshot.outputPlanLines[0].sourceBomItemIds, [])
+assert.match(unmatchedBomSkuSnapshot.generationIssues.join('；'), /PROC_WOOL 纱线 BOM/)
+
+const perSkuBomIntersectionSnapshot = buildWoolOrderSourceSnapshot({
+  ...sourceBuildInput,
+  skuLines: [
+    sourceBuildInput.skuLines[0],
+    {
+      skuCode: 'GARMENT-BLACK-L',
+      colorCode: 'BLACK',
+      colorName: '黑色',
+      sizeCode: 'L',
+      plannedQty: 80,
+    },
+  ],
+  bomItems: [
+    {
+      id: 'BOM-YARN-M',
+      materialCode: 'YARN-M',
+      usageProcessCodes: ['PROC_WOOL'],
+      applicableSkuCodes: ['GARMENT-BLACK-M'],
+    },
+    {
+      id: 'BOM-YARN-L',
+      materialCode: 'YARN-L',
+      usageProcessCodes: ['PROC_WOOL'],
+      applicableSkuCodes: ['GARMENT-BLACK-L'],
+    },
+  ],
+  colorMaterialMappings: [{
+    ...sourceBuildInput.colorMaterialMappings[0],
+    lines: [
+      {
+        id: 'MAP-LINE-YARN-M',
+        bomItemId: 'BOM-YARN-M',
+        materialCode: 'YARN-M',
+        applicableSkuCodes: ['GARMENT-BLACK-M', 'GARMENT-BLACK-L'],
+      },
+      {
+        id: 'MAP-LINE-YARN-L',
+        bomItemId: 'BOM-YARN-L',
+        materialCode: 'YARN-L',
+        applicableSkuCodes: ['GARMENT-BLACK-L'],
+      },
+    ],
+  }],
+})
+assert.deepEqual(
+  perSkuBomIntersectionSnapshot.outputPlanLines.map((line) => ({
+    outputSkuCode: line.outputSkuCode,
+    requiredYarnSkus: line.requiredYarnSkus,
+    sourceBomItemIds: line.sourceBomItemIds,
+  })),
+  [
+    {
+      outputSkuCode: 'GARMENT-BLACK-M',
+      requiredYarnSkus: ['YARN-M'],
+      sourceBomItemIds: ['BOM-YARN-M'],
+    },
+    {
+      outputSkuCode: 'GARMENT-BLACK-L',
+      requiredYarnSkus: ['YARN-L'],
+      sourceBomItemIds: ['BOM-YARN-L'],
+    },
+  ],
+)
 
 const missingMappingSnapshot = buildWoolOrderSourceSnapshot({
   ...sourceBuildInput,
@@ -2003,6 +2106,30 @@ const duplicateIdStore = structuredClone(validStore)
 duplicateIdStore.processReports.push(structuredClone(duplicateIdStore.processReports[0]))
 assert.throws(() => validateWoolStore(duplicateIdStore), /重复/)
 
+const mismatchedWorkOrderKeyStore = structuredClone(validStore)
+const mismatchedWorkOrderKey = Object.keys(mismatchedWorkOrderKeyStore.workOrders)[0]
+const mismatchedWorkOrder = mismatchedWorkOrderKeyStore.workOrders[mismatchedWorkOrderKey]
+delete mismatchedWorkOrderKeyStore.workOrders[mismatchedWorkOrderKey]
+mismatchedWorkOrderKeyStore.workOrders['WOOL-ORDER-WRONG-KEY'] = mismatchedWorkOrder
+assert.throws(
+  () => validateWoolStore(mismatchedWorkOrderKeyStore),
+  /加工单.*身份无效/,
+  'workOrders key 必须等于加工单 woolOrderId',
+)
+
+const duplicateTaskIdentityStore = structuredClone(validStore)
+const duplicateTaskSourceOrder = Object.values(duplicateTaskIdentityStore.workOrders)[0]
+duplicateTaskIdentityStore.workOrders['WOOL-ORDER-DUPLICATE-TASK'] = {
+  ...structuredClone(duplicateTaskSourceOrder),
+  woolOrderId: 'WOOL-ORDER-DUPLICATE-TASK',
+  woolOrderNo: 'WMO-DUPLICATE-TASK',
+}
+assert.throws(
+  () => validateWoolStore(duplicateTaskIdentityStore),
+  /加工单任务.*重复/,
+  '同一 taskId 不得伪装成两张毛织加工单',
+)
+
 const orphanOrderStore = structuredClone(validStore)
 orphanOrderStore.processReports[0].woolOrderId = 'WOOL-ORDER-NOT-FOUND'
 assert.throws(() => validateWoolStore(orphanOrderStore), /加工单/)
@@ -3602,6 +3729,15 @@ try {
     },
     /PROC_WOOL 纱线 BOM/,
   )
+  assertRuntimeSourceFailureDoesNotStore(
+    (snapshot) => {
+      snapshot.bomItems = snapshot.bomItems.map((item) => ({
+        ...item,
+        applicableSkuCodes: ['SKU-NOT-IN-RUNTIME-TASK'],
+      }))
+    },
+    /PROC_WOOL 纱线 BOM/,
+  )
 } finally {
   completePartSourceOrder.techPackSnapshot = completePartSnapshot
 }
@@ -3720,6 +3856,72 @@ assert.deepEqual(
   getExecutionTaskFactById(runtimeGeneratedWoolOrder.taskId)?.woolAllowedActions,
   ['DETAIL'],
 )
+
+resetWoolFactWorkflowMock('CHECK_WOOL_RUNTIME_IDENTITY_CONFLICTS')
+const runtimeIdentityBaseOrder = Object.values(readWoolStore().workOrders)[0]
+commitWoolStore((draft) => {
+  draft.workOrders[woolRuntimeTask.taskId] = {
+    ...structuredClone(runtimeIdentityBaseOrder),
+    woolOrderId: woolRuntimeTask.taskId,
+    woolOrderNo: 'WMO-RUNTIME-KEY-OCCUPIED',
+    taskId: 'TASK-OTHER-RUNTIME-OWNER',
+    taskNo: 'TASK-OTHER-RUNTIME-OWNER',
+  }
+})
+const occupiedRuntimeIdentityStore = readWoolStore()
+const occupiedRuntimeIdentityWrites = storageWrites.length
+assert.throws(
+  () => buildWoolOrderFromRuntimeTask(woolRuntimeTask.taskId),
+  /加工单身份冲突/,
+  'taskId 对应 key 被其他任务占用时不得覆盖',
+)
+assert.deepEqual(readWoolStore(), occupiedRuntimeIdentityStore)
+assert.equal(storageWrites.length, occupiedRuntimeIdentityWrites)
+
+resetWoolFactWorkflowMock('CHECK_WOOL_RUNTIME_EXISTING_FACT_PROTECTION')
+const alternateRuntimeOrderId = 'WOOL-RUNTIME-ALTERNATE-ORDER'
+commitWoolStore((draft) => {
+  draft.workOrders[alternateRuntimeOrderId] = {
+    ...structuredClone(runtimeIdentityBaseOrder),
+    woolOrderId: alternateRuntimeOrderId,
+    woolOrderNo: 'WMO-RUNTIME-ALTERNATE',
+    taskId: woolRuntimeTask.taskId,
+    taskNo: woolRuntimeTask.taskNo || woolRuntimeTask.taskId,
+  }
+})
+addWoolYarnReceipt(alternateRuntimeOrderId, {
+  commandId: 'CMD-RUNTIME-ALTERNATE-FACT',
+  receivedAt: '2026-07-31 13:00:00',
+  receivedBy: '毛织仓管',
+  lines: [{
+    yarnSkuCode: readWoolStore().workOrders[alternateRuntimeOrderId].outputPlanLines[0].requiredYarnSkus[0],
+    receivedQty: 1,
+  }],
+})
+const alternateRuntimeStoreBeforeBuild = readWoolStore()
+const protectedAlternateRuntimeOrder = buildWoolOrderFromRuntimeTask(woolRuntimeTask.taskId)
+assert.equal(protectedAlternateRuntimeOrder.woolOrderId, alternateRuntimeOrderId)
+assert.deepEqual(readWoolStore(), alternateRuntimeStoreBeforeBuild, '同 taskId 既有加工事实不得被重新生成覆盖')
+
+resetWoolFactWorkflowMock('CHECK_WOOL_RUNTIME_COMMIT_CONFLICT')
+const runtimeCommitConflict = {
+  ...structuredClone(runtimeIdentityBaseOrder),
+  woolOrderId: woolRuntimeTask.taskId,
+  woolOrderNo: 'WMO-RUNTIME-CONCURRENT-CONFLICT',
+  taskId: 'TASK-CONCURRENT-OTHER',
+  taskNo: 'TASK-CONCURRENT-OTHER',
+}
+setWoolRuntimeOrderCommitConflictForTest(runtimeCommitConflict)
+const concurrentConflictStoreBefore = readWoolStore()
+const concurrentConflictWritesBefore = storageWrites.length
+assert.throws(
+  () => buildWoolOrderFromRuntimeTask(woolRuntimeTask.taskId),
+  /加工单身份冲突/,
+  '预检查后 draft 出现身份占用时必须在原子提交内再次拒绝',
+)
+assert.deepEqual(readWoolStore(), concurrentConflictStoreBefore)
+assert.equal(storageWrites.length, concurrentConflictWritesBefore)
+setWoolRuntimeOrderCommitConflictForTest(null)
 
 console.log('PASS task 5: global command receipts, atomic stock, downstream lock, and manual completion')
 console.log('PASS task 6: current machine associations and derived four-state availability')

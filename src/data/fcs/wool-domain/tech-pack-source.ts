@@ -1,7 +1,7 @@
 import { getProductionOrderTechPackSnapshot } from '../production-order-tech-pack-runtime.ts'
 import { productionOrders } from '../production-orders.ts'
 import { getRuntimeTaskById } from '../runtime-process-tasks.ts'
-import { commitWoolStore, readWoolStore } from './store.ts'
+import { commitWoolStore, readWoolStore, type WoolDomainStore } from './store.ts'
 import type {
   WoolOutputPlanLine,
   WoolWorkOrder,
@@ -20,6 +20,7 @@ export interface WoolSourceBomItemInput {
   id: string
   materialCode?: string
   usageProcessCodes?: string[]
+  applicableSkuCodes?: string[]
 }
 
 export interface WoolSourceColorMappingLineInput {
@@ -130,8 +131,11 @@ function resolveSourceForSku(
       const applicableSkuCodes = line.applicableSkuCodes ?? []
       if (applicableSkuCodes.length > 0 && !applicableSkuCodes.includes(sku.skuCode)) continue
       const bomItem = resolveMappedBomItem(line, input.bomItems)
-      if (!bomItem || !isWoolBomItem(bomItem) || !bomItem.materialCode) continue
-      acceptedBomItems.push(bomItem)
+      const materialCode = bomItem?.materialCode?.trim() ?? ''
+      if (!bomItem || !isWoolBomItem(bomItem) || !materialCode) continue
+      const bomApplicableSkuCodes = bomItem.applicableSkuCodes ?? []
+      if (bomApplicableSkuCodes.length > 0 && !bomApplicableSkuCodes.includes(sku.skuCode)) continue
+      acceptedBomItems.push({ ...bomItem, materialCode })
     }
   }
 
@@ -330,6 +334,7 @@ export function buildWoolOrderSourceSnapshotFromRuntimeTask(taskId: string): Woo
       id: item.id,
       materialCode: item.materialCode,
       usageProcessCodes: [...(item.usageProcessCodes ?? [])],
+      applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
     })),
     colorMaterialMappings: snapshot.colorMaterialMappings.map((mapping) => ({
       id: mapping.id,
@@ -353,9 +358,39 @@ export function buildWoolOrderSourceSnapshotFromRuntimeTask(taskId: string): Woo
   })
 }
 
+function resolveExistingRuntimeWoolOrder(
+  workOrders: WoolDomainStore['workOrders'],
+  taskId: string,
+): WoolWorkOrder | undefined {
+  const keyedOrder = workOrders[taskId]
+  if (keyedOrder) {
+    if (keyedOrder.woolOrderId !== taskId || keyedOrder.taskId !== taskId) {
+      throw new Error(`毛织加工单生成失败：任务 ${taskId} 的加工单身份冲突`)
+    }
+    return keyedOrder
+  }
+
+  const sameTaskEntries = Object.entries(workOrders)
+    .filter(([, order]) => order.taskId === taskId)
+  if (sameTaskEntries.length > 1) {
+    throw new Error(`毛织加工单生成失败：任务 ${taskId} 存在多个加工单身份冲突`)
+  }
+  if (sameTaskEntries.length === 0) return undefined
+  const [woolOrderId, order] = sameTaskEntries[0]
+  if (order.woolOrderId !== woolOrderId) {
+    throw new Error(`毛织加工单生成失败：任务 ${taskId} 的既有加工单身份冲突`)
+  }
+  return order
+}
+
+let runtimeOrderCommitConflictForTest: WoolWorkOrder | null = null
+
+export function setWoolRuntimeOrderCommitConflictForTest(order: WoolWorkOrder | null): void {
+  runtimeOrderCommitConflictForTest = order ? structuredClone(order) : null
+}
+
 export function buildWoolOrderFromRuntimeTask(taskId: string): WoolWorkOrder {
-  const existing = Object.values(readWoolStore().workOrders)
-    .find((order) => order.taskId === taskId)
+  const existing = resolveExistingRuntimeWoolOrder(readWoolStore().workOrders, taskId)
   if (existing) return existing
 
   const task = getRuntimeTaskById(taskId)
@@ -393,12 +428,22 @@ export function buildWoolOrderFromRuntimeTask(taskId: string): WoolWorkOrder {
     updatedAt: generatedAt,
     updatedBy: '生产任务生成',
   }
-  commitWoolStore((draft) => {
-    const generatedFromSameTask = Object.values(draft.workOrders)
-      .find((item) => item.taskId === taskId)
-    if (generatedFromSameTask) return
+  let committedOrder: WoolWorkOrder | undefined
+  const committedStore = commitWoolStore((draft) => {
+    const conflictForTest = runtimeOrderCommitConflictForTest
+    runtimeOrderCommitConflictForTest = null
+    if (conflictForTest) {
+      draft.workOrders[conflictForTest.woolOrderId] = structuredClone(conflictForTest)
+    }
+    const generatedFromSameTask = resolveExistingRuntimeWoolOrder(draft.workOrders, taskId)
+    if (generatedFromSameTask) {
+      committedOrder = generatedFromSameTask
+      return
+    }
     draft.workOrders[order.woolOrderId] = order
+    committedOrder = order
   })
-  return Object.values(readWoolStore().workOrders)
-    .find((item) => item.taskId === taskId) ?? order
+  return committedOrder
+    ?? resolveExistingRuntimeWoolOrder(committedStore.workOrders, taskId)
+    ?? order
 }
