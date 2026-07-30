@@ -263,6 +263,28 @@ function completion(order: WoolWorkOrder, releasedMachineIds: string[] = []): Wo
 
 export function buildWoolFactWorkflowMockStore(_seed = 'DEFAULT'): WoolDomainStore {
   const orders = WOOL_MOCK_SCENARIO_CODES.map((code, index) => workOrder(index + 1, code))
+  const mixedPanelOrder = orders.find((order) => order.mockScenarioCode === 'MIXED_ORDER_KINDS')!
+  const mixedWholeOrder: WoolWorkOrder = {
+    ...workOrder(27, 'NO_YARN_RECEIPT'),
+    woolOrderId: `${mixedPanelOrder.woolOrderId}-WHOLE`,
+    woolOrderNo: `${mixedPanelOrder.woolOrderNo}-整件`,
+    taskId: `${mixedPanelOrder.taskId}-WHOLE`,
+    taskNo: `${mixedPanelOrder.taskNo}-整件`,
+    productionOrderId: mixedPanelOrder.productionOrderId,
+    productionOrderNo: mixedPanelOrder.productionOrderNo,
+    kind: 'WHOLE_GARMENT',
+    outputPlanLines: [
+      outputLine(27, 'BLACK', 'WHOLE_GARMENT', ['YARN-A', 'YARN-B']),
+      outputLine(27, 'WHITE', 'WHOLE_GARMENT', ['YARN-A', 'YARN-C']),
+    ],
+    downstreamTarget: {
+      receiverType: 'DOWNSTREAM_FACTORY',
+      receiverId: 'DOWNSTREAM-MIXED-WHOLE',
+      receiverName: '后道加工厂',
+    },
+    mockScenarioCode: undefined,
+  }
+  orders.push(mixedWholeOrder)
   const store: WoolDomainStore = {
     workOrders: Object.fromEntries(orders.map((order) => [order.woolOrderId, order])),
     yarnReceipts: [],
@@ -353,24 +375,54 @@ export function buildWoolFactWorkflowMockStore(_seed = 'DEFAULT'): WoolDomainSto
         })
         break
       case 'MACHINE_STATUS_AUTO_RELEASE':
-        store.machineAssociationLogs.push({
-          logId: 'WMAL-AUTO-RELEASE',
-          machineId: 'WM-003',
-          fromWoolOrderId: order.woolOrderId,
-          action: 'UNASSOCIATE',
-          reason: 'MACHINE_REPAIR',
-          operatedAt: MOCK_AT,
-          operatedBy: '设备主管',
-        })
+        store.machines.find((machine) => machine.machineId === 'WM-006')!.status = 'REPAIR'
+        store.machines.find((machine) => machine.machineId === 'WM-007')!.status = 'DISABLED'
+        store.machineAssociationLogs.push(
+          {
+            logId: 'WMAL-AUTO-RELEASE-REPAIR',
+            machineId: 'WM-006',
+            fromWoolOrderId: order.woolOrderId,
+            action: 'UNASSOCIATE',
+            reason: 'MACHINE_REPAIR',
+            operatedAt: MOCK_AT,
+            operatedBy: '设备主管',
+          },
+          {
+            logId: 'WMAL-AUTO-RELEASE-DISABLED',
+            machineId: 'WM-007',
+            fromWoolOrderId: order.woolOrderId,
+            action: 'UNASSOCIATE',
+            reason: 'MACHINE_DISABLED',
+            operatedAt: MOCK_AT,
+            operatedBy: '设备主管',
+          },
+        )
         break
-      case 'MACHINE_ASSOCIATION_B':
+      case 'MACHINE_ASSOCIATION_B': {
+        const fromOrder = orders.find((item) => item.mockScenarioCode === 'MACHINE_ASSOCIATION_A')!
         store.machineAssociations.push({
           machineId: 'WM-002',
           woolOrderId: order.woolOrderId,
           associatedAt: MOCK_AT,
           associatedBy: '毛织主管',
+        }, {
+          machineId: 'WM-004',
+          woolOrderId: order.woolOrderId,
+          associatedAt: MOCK_AT,
+          associatedBy: '毛织主管',
+        })
+        store.machineAssociationLogs.push({
+          logId: 'WMAL-MOCK-TRANSFER',
+          machineId: 'WM-004',
+          fromWoolOrderId: fromOrder.woolOrderId,
+          toWoolOrderId: order.woolOrderId,
+          action: 'TRANSFER',
+          reason: 'MANUAL_SAVE',
+          operatedAt: MOCK_AT,
+          operatedBy: '毛织主管',
         })
         break
+      }
       case 'PART_PANEL_CAPACITY':
       case 'REPORT_DEFAULT_LOCATION':
         addReceipt(order, 'ABC', ['YARN-A', 'YARN-B', 'YARN-C'])
@@ -379,18 +431,65 @@ export function buildWoolFactWorkflowMockStore(_seed = 'DEFAULT'): WoolDomainSto
       case 'QTY_CHANGE_STOCK_SYNC': {
         addReport(order, 0, 'CHANGE', 12)
         const handed = addHandover(order, 0, 'CHANGE', 5)
-        store.qtyChangeLogs.push({
-          changeId: 'WQC-MOCK-STOCK-SYNC',
-          recordType: 'HANDOVER',
-          recordId: handed.handoverId,
-          objectSkuCode: handed.outputSkuCode,
-          beforeQty: 4,
-          afterQty: 5,
-          qtyUnit: handed.qtyUnit,
-          reason: '复核交出数量',
-          changedAt: MOCK_AT,
-          changedBy: '毛织主管',
-        })
+        const changedReport = store.processReports.find((item) =>
+          item.woolOrderId === order.woolOrderId && item.outputSkuCode === handed.outputSkuCode,
+        )!
+        const reportBaseFlow = store.warehouseFlows.find((flow) =>
+          flow.flowId === changedReport.warehouseInboundFlowId,
+        )!
+        const handoverBaseFlow = store.warehouseFlows.find((flow) =>
+          flow.flowId === handed.warehouseOutboundFlowId,
+        )!
+        reportBaseFlow.qty = 10
+        handoverBaseFlow.qty = 4
+        store.qtyChangeLogs.push(
+          {
+            changeId: 'WQC-MOCK-REPORT-STOCK-SYNC',
+            recordType: 'PROCESS_REPORT',
+            recordId: changedReport.reportId,
+            objectSkuCode: changedReport.outputSkuCode,
+            beforeQty: 10,
+            afterQty: 12,
+            qtyUnit: order.outputPlanLines[0].qtyUnit,
+            reason: '复核加工填报数量',
+            changedAt: MOCK_AT,
+            changedBy: '毛织主管',
+          },
+          {
+            changeId: 'WQC-MOCK-HANDOVER-STOCK-SYNC',
+            recordType: 'HANDOVER',
+            recordId: handed.handoverId,
+            objectSkuCode: handed.outputSkuCode,
+            beforeQty: 4,
+            afterQty: 5,
+            qtyUnit: handed.qtyUnit,
+            reason: '复核交出数量',
+            changedAt: MOCK_AT,
+            changedBy: '毛织主管',
+          },
+        )
+        store.warehouseFlows.push(
+          {
+            ...reportBaseFlow,
+            flowId: 'WF-WQC-MOCK-REPORT-STOCK-SYNC',
+            flowType: 'ADJUSTMENT',
+            businessType: 'STOCK_ADJUSTMENT',
+            qty: 2,
+            sourceRecordType: 'QTY_CHANGE',
+            sourceRecordId: 'WQC-MOCK-REPORT-STOCK-SYNC',
+            reason: '加工填报数量由 10 修改为 12',
+          },
+          {
+            ...handoverBaseFlow,
+            flowId: 'WF-WQC-MOCK-HANDOVER-STOCK-SYNC',
+            flowType: 'ADJUSTMENT',
+            businessType: 'STOCK_ADJUSTMENT',
+            qty: -1,
+            sourceRecordType: 'QTY_CHANGE',
+            sourceRecordId: 'WQC-MOCK-HANDOVER-STOCK-SYNC',
+            reason: '交出数量由 4 修改为 5',
+          },
+        )
         break
       }
       case 'DOWNSTREAM_CONFIRMED_LOCKED': {
@@ -413,30 +512,96 @@ export function buildWoolFactWorkflowMockStore(_seed = 'DEFAULT'): WoolDomainSto
         break
       case 'YARN_ISSUE_RETURN':
         addReceipt(order, 'AB', ['YARN-A', 'YARN-B'])
-        store.yarnIssues.push({
-          issueId: 'WI-MOCK-001',
-          issueNo: 'WI-MOCK-001',
-          woolOrderId: order.woolOrderId,
-          yarnSkuCode: 'YARN-A',
-          batchNo: 'BATCH-AB',
-          issuedQty: 0.5,
-          qtyUnit: 'kg',
-          warehouseOutboundFlowId: 'WF-WI-MOCK-001',
-          issuedAt: MOCK_AT,
-          issuedBy: '毛织仓管',
-        })
-        store.yarnReturns.push({
-          returnId: 'WRT-MOCK-001',
-          returnNo: 'WRT-MOCK-001',
-          woolOrderId: order.woolOrderId,
-          yarnSkuCode: 'YARN-A',
-          batchNo: 'BATCH-AB',
-          returnedQty: 0.2,
-          qtyUnit: 'kg',
-          warehouseInboundFlowId: 'WF-WRT-MOCK-001',
-          returnedAt: MOCK_AT,
-          returnedBy: '毛织仓管',
-        })
+        store.yarnIssues.push(
+          {
+            issueId: 'WI-MOCK-001',
+            issueNo: 'WI-MOCK-001',
+            woolOrderId: order.woolOrderId,
+            yarnSkuCode: 'YARN-A',
+            batchNo: 'BATCH-AB',
+            issuedQty: 0.5,
+            qtyUnit: 'kg',
+            warehouseOutboundFlowId: 'WF-WI-MOCK-001',
+            issuedAt: MOCK_AT,
+            issuedBy: '毛织仓管',
+          },
+          {
+            issueId: 'WI-MOCK-002',
+            issueNo: 'WI-MOCK-002',
+            woolOrderId: order.woolOrderId,
+            yarnSkuCode: 'YARN-A',
+            batchNo: 'BATCH-AB',
+            issuedQty: 0.3,
+            qtyUnit: 'kg',
+            warehouseOutboundFlowId: 'WF-WI-MOCK-002',
+            issuedAt: MOCK_AT,
+            issuedBy: '毛织仓管',
+          },
+        )
+        store.yarnReturns.push(
+          {
+            returnId: 'WRT-MOCK-001',
+            returnNo: 'WRT-MOCK-001',
+            woolOrderId: order.woolOrderId,
+            yarnSkuCode: 'YARN-A',
+            batchNo: 'BATCH-AB',
+            returnedQty: 0.2,
+            qtyUnit: 'kg',
+            warehouseInboundFlowId: 'WF-WRT-MOCK-001',
+            returnedAt: MOCK_AT,
+            returnedBy: '毛织仓管',
+          },
+          {
+            returnId: 'WRT-MOCK-002',
+            returnNo: 'WRT-MOCK-002',
+            woolOrderId: order.woolOrderId,
+            yarnSkuCode: 'YARN-A',
+            batchNo: 'BATCH-AB',
+            returnedQty: 0.1,
+            qtyUnit: 'kg',
+            warehouseInboundFlowId: 'WF-WRT-MOCK-002',
+            returnedAt: MOCK_AT,
+            returnedBy: '毛织仓管',
+          },
+        )
+        for (const issue of store.yarnIssues.filter((item) => item.woolOrderId === order.woolOrderId)) {
+          store.warehouseFlows.push({
+            flowId: issue.warehouseOutboundFlowId,
+            woolOrderId: order.woolOrderId,
+            flowType: 'OUTBOUND',
+            businessType: 'YARN_ISSUE',
+            warehouseMode: 'WAIT_PROCESS',
+            defaultLocationType: 'YARN',
+            defaultLocationId: 'WOOL-WP-YARN-DEFAULT',
+            objectSkuCode: issue.yarnSkuCode,
+            batchNo: issue.batchNo,
+            qty: issue.issuedQty,
+            unit: 'kg',
+            sourceRecordType: 'YARN_ISSUE',
+            sourceRecordId: issue.issueId,
+            operatedAt: issue.issuedAt,
+            operatedBy: issue.issuedBy,
+          })
+        }
+        for (const returned of store.yarnReturns.filter((item) => item.woolOrderId === order.woolOrderId)) {
+          store.warehouseFlows.push({
+            flowId: returned.warehouseInboundFlowId,
+            woolOrderId: order.woolOrderId,
+            flowType: 'INBOUND',
+            businessType: 'YARN_RETURN',
+            warehouseMode: 'WAIT_PROCESS',
+            defaultLocationType: 'YARN',
+            defaultLocationId: 'WOOL-WP-YARN-DEFAULT',
+            objectSkuCode: returned.yarnSkuCode,
+            batchNo: returned.batchNo,
+            qty: returned.returnedQty,
+            unit: 'kg',
+            sourceRecordType: 'YARN_RETURN',
+            sourceRecordId: returned.returnId,
+            operatedAt: returned.returnedAt,
+            operatedBy: returned.returnedBy,
+          })
+        }
         break
       default:
         break

@@ -180,8 +180,10 @@ export function getWoolWorkOrderBlockReason(woolOrderId: string): string {
     getWoolOutputReadiness(woolOrderId, line.outputSkuCode),
   )
   if (readiness.some((item) => item.canReport)) return ''
-  const readyLines = readiness.filter((item) => item.isReady)
-  if (readyLines.length > 0 && readyLines.every((item) => item.remainingReportQty === 0)) {
+  if (
+    readiness.length > 0
+    && readiness.every((item) => item.isReady && item.remainingReportQty === 0)
+  ) {
     return '全部加工后 SKU 已达到填报上限'
   }
   if (readiness.every((item) => item.requiredYarnSkus.length === 0)) {
@@ -319,6 +321,27 @@ function occurredAt(record: WoolFactRecord, fallback = ''): string {
   return fallback
 }
 
+function resolveFactWoolOrderId(
+  store: ReturnType<typeof readWoolStore>,
+  recordType: WoolFactRecordType,
+  record: WoolFactRecord,
+): string {
+  if (recordType !== 'QTY_CHANGE') {
+    return 'woolOrderId' in record ? record.woolOrderId : ''
+  }
+  const change = record as WoolQtyChangeLog
+  if (change.recordType === 'YARN_RECEIPT') {
+    return store.yarnReceipts.find((item) =>
+      item.receiptId === change.recordId
+      && (!change.recordLineId || item.lines.some((line) => line.lineId === change.recordLineId)),
+    )?.woolOrderId ?? ''
+  }
+  if (change.recordType === 'PROCESS_REPORT') {
+    return store.processReports.find((item) => item.reportId === change.recordId)?.woolOrderId ?? ''
+  }
+  return store.handovers.find((item) => item.handoverId === change.recordId)?.woolOrderId ?? ''
+}
+
 export function listWoolFactRecords(query: WoolFactRecordQuery = {}): WoolFactRecordItem[] {
   const store = readWoolStore()
   const groups: Array<[WoolFactRecordType, WoolFactRecord[]]> = [
@@ -339,7 +362,7 @@ export function listWoolFactRecords(query: WoolFactRecordQuery = {}): WoolFactRe
     .filter(([recordType]) => !allowedTypes || allowedTypes.has(recordType))
     .flatMap(([recordType, records]) => records.map((record) => ({
       recordType,
-      woolOrderId: record.woolOrderId,
+      woolOrderId: resolveFactWoolOrderId(store, recordType, record),
       occurredAt: occurredAt(record),
       record,
     })))
