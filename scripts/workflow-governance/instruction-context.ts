@@ -11,8 +11,8 @@ export type InstructionReceiptField =
   | 'stageTrace'
 
 export interface InstructionRuleBinding {
-  rule: string
-  receiptFields: InstructionReceiptField[]
+  ruleRef: string
+  evidenceFields: InstructionReceiptField[]
 }
 
 export interface InstructionContextReceipt {
@@ -41,27 +41,27 @@ const RECEIPT_RULE = 'AGENTS.md::### 12.1 任务完成与交付收据'
 const STAGE_TRACE_RULE = 'AGENTS.md::### 12.2 Superpowers 最小阶段轨迹'
 
 const CORE_RULE_BINDINGS: readonly InstructionRuleBinding[] = [
-  { rule: CODEGRAPH_RULE, receiptFields: ['codegraph'] },
+  { ruleRef: CODEGRAPH_RULE, evidenceFields: ['codegraph'] },
   {
-    rule: RECEIPT_RULE,
-    receiptFields: ['revision', 'route', 'checks', 'codegraph'],
+    ruleRef: RECEIPT_RULE,
+    evidenceFields: ['revision', 'route', 'checks', 'codegraph'],
   },
 ]
 
 const STAGE_TRACE_BINDING: InstructionRuleBinding = {
-  rule: STAGE_TRACE_RULE,
-  receiptFields: ['stageTrace'],
+  ruleRef: STAGE_TRACE_RULE,
+  evidenceFields: ['stageTrace'],
 }
 
 const KNOWN_RULE_BINDINGS = new Map(
   [...CORE_RULE_BINDINGS, STAGE_TRACE_BINDING]
-    .map((binding) => [binding.rule, binding] as const),
+    .map((binding) => [binding.ruleRef, binding] as const),
 )
 
 function cloneBinding(binding: InstructionRuleBinding): InstructionRuleBinding {
   return {
-    rule: binding.rule,
-    receiptFields: [...binding.receiptFields],
+    ruleRef: binding.ruleRef,
+    evidenceFields: [...binding.evidenceFields],
   }
 }
 
@@ -72,8 +72,8 @@ function requiredBindings(requireStageTrace: boolean): InstructionRuleBinding[] 
   ]
 }
 
-function assertExactHeading(source: string, rule: string): void {
-  const heading = rule.slice('AGENTS.md::'.length)
+function assertExactHeading(source: string, ruleRef: string): void {
+  const heading = ruleRef.slice('AGENTS.md::'.length)
   assert(
     source.split(/\r?\n/).includes(heading),
     `根 AGENTS.md 缺少精确标题：${heading}`,
@@ -110,7 +110,7 @@ export function captureInstructionContext(
   const bytes = readFileSync(agentsPath)
   const ruleBindings = requiredBindings(options.requireStageTrace === true)
   const source = bytes.toString('utf8')
-  for (const binding of ruleBindings) assertExactHeading(source, binding.rule)
+  for (const binding of ruleBindings) assertExactHeading(source, binding.ruleRef)
 
   return {
     taskBoundary,
@@ -134,25 +134,25 @@ function parseRuleBindings(value: unknown): InstructionRuleBinding[] {
 
   for (const rawBinding of value) {
     const binding = parseObject(rawBinding, '规则绑定')
-    assert(typeof binding.rule === 'string', '规则绑定 rule 必须是字符串')
-    const expected = KNOWN_RULE_BINDINGS.get(binding.rule)
-    assert(expected, `未知的规则绑定：${binding.rule}`)
-    assert(!parsed.has(binding.rule), `规则绑定重复：${binding.rule}`)
+    assert(typeof binding.ruleRef === 'string', '规则绑定 ruleRef 必须是字符串')
+    const expected = KNOWN_RULE_BINDINGS.get(binding.ruleRef)
+    assert(expected, `未知的规则绑定：${binding.ruleRef}`)
+    assert(!parsed.has(binding.ruleRef), `规则绑定重复：${binding.ruleRef}`)
     assert(
-      Array.isArray(binding.receiptFields)
-      && binding.receiptFields.every((field) => typeof field === 'string'),
-      `规则绑定 receiptFields 无效：${binding.rule}`,
+      Array.isArray(binding.evidenceFields)
+      && binding.evidenceFields.every((field) => typeof field === 'string'),
+      `规则绑定 evidenceFields 无效：${binding.ruleRef}`,
     )
     assert.deepEqual(
-      binding.receiptFields,
-      expected.receiptFields,
-      `规则绑定字段不匹配：${binding.rule}`,
+      binding.evidenceFields,
+      expected.evidenceFields,
+      `规则绑定字段不匹配：${binding.ruleRef}`,
     )
-    parsed.set(binding.rule, cloneBinding(expected))
+    parsed.set(binding.ruleRef, cloneBinding(expected))
   }
 
   for (const binding of CORE_RULE_BINDINGS) {
-    assert(parsed.has(binding.rule), `缺少规则绑定：${binding.rule}`)
+    assert(parsed.has(binding.ruleRef), `缺少规则绑定：${binding.ruleRef}`)
   }
 
   return requiredBindings(parsed.has(STAGE_TRACE_RULE))

@@ -67,10 +67,10 @@ test('采集不含阶段轨迹的根 AGENTS 指令上下文', (t) => {
     contentHash: createHash('sha256').update(readFileSync(join(workspace, 'AGENTS.md'))).digest('hex'),
   })
   assert.deepEqual(receipt.ruleBindings, [
-    { rule: CODEGRAPH_RULE, receiptFields: ['codegraph'] },
+    { ruleRef: CODEGRAPH_RULE, evidenceFields: ['codegraph'] },
     {
-      rule: RECEIPT_RULE,
-      receiptFields: ['revision', 'route', 'checks', 'codegraph'],
+      ruleRef: RECEIPT_RULE,
+      evidenceFields: ['revision', 'route', 'checks', 'codegraph'],
     },
   ])
   assert.deepEqual(parseInstructionContext(JSON.stringify(receipt)), receipt)
@@ -91,12 +91,12 @@ test('要求阶段轨迹时加入对应规则绑定且顺序稳定', (t) => {
   })
 
   assert.deepEqual(first.ruleBindings, [
-    { rule: CODEGRAPH_RULE, receiptFields: ['codegraph'] },
+    { ruleRef: CODEGRAPH_RULE, evidenceFields: ['codegraph'] },
     {
-      rule: RECEIPT_RULE,
-      receiptFields: ['revision', 'route', 'checks', 'codegraph'],
+      ruleRef: RECEIPT_RULE,
+      evidenceFields: ['revision', 'route', 'checks', 'codegraph'],
     },
-    { rule: STAGE_TRACE_RULE, receiptFields: ['stageTrace'] },
+    { ruleRef: STAGE_TRACE_RULE, evidenceFields: ['stageTrace'] },
   ])
   assert.deepEqual(first, second)
   assert.equal(instructionContextsEqual(first, second), true)
@@ -182,7 +182,7 @@ test('parser 拒绝错误 algorithm、hash、未知及缺失规则绑定', (t) =
       ...receipt,
       ruleBindings: [
         ...receipt.ruleBindings,
-        { rule: 'AGENTS.md::## 未知规则', receiptFields: ['checks'] },
+        { ruleRef: 'AGENTS.md::## 未知规则', evidenceFields: ['checks'] },
       ],
     }),
     /未知.*规则绑定/,
@@ -210,8 +210,8 @@ test('parser 拒绝错误 source path 和规则字段映射', (t) => {
     () => parseInstructionContext({
       ...receipt,
       ruleBindings: receipt.ruleBindings.map((binding) => (
-        binding.rule === RECEIPT_RULE
-          ? { ...binding, receiptFields: ['revision', 'checks'] }
+        binding.ruleRef === RECEIPT_RULE
+          ? { ...binding, evidenceFields: ['revision', 'checks'] }
           : binding
       )),
     }),
