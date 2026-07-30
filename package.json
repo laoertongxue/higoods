@@ -189,6 +189,8 @@
     "check:material-prep-detail-summary-cleanup": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-material-prep-detail-summary-cleanup.ts",
     "check:cutting-material-return": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-material-return.ts",
     "check:cutting-pickup-node-domain": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-pickup-node-domain.ts",
+    "check:cutting-pickup-three-list": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-pickup-three-list.ts",
+    "check:cutting-pickup-three-list-e2e": "playwright test tests/cutting-pickup-three-list.spec.ts",
     "check:cutting-pickup-data-closure": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-pickup-data-closure.ts",
     "check:material-prep-unit-summary-consumers": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-material-prep-unit-summary-consumers.ts",
     "check:cutting-pickup-important-regressions": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-pickup-important-regressions.ts",
