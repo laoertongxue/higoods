@@ -30,6 +30,15 @@ const transferBagRuntime = await import(
 const transferBagReturnModel = await import(
   '../src/pages/process-factory/cutting/transfer-bag-return-model.ts'
 )
+const cuttingQrCodes = await import(
+  '../src/data/fcs/cutting/qr-codes.ts'
+)
+const pdaTransferBagDetail = await import(
+  '../src/pages/pda-transfer-bag-detail.ts'
+)
+const labelPrintTemplate = await import(
+  '../src/pages/print/templates/label-print-template.ts'
+)
 
 assert.deepEqual(
   lifecycle.TRANSFER_BAG_MAIN_STATUS_META,
@@ -932,5 +941,125 @@ const explicitScrapClosure =
   })
 assert.equal(explicitScrapClosure.closureStatus, 'SCRAP_CLOSED')
 assert.equal(explicitScrapClosure.nextBagStatus, 'DISABLED')
+
+const stableCarrierQr = cuttingQrCodes.encodeCarrierQr({
+  carrierId: 'carrier:BAG-QR-001',
+  carrierCode: 'BAG-QR-001',
+  carrierType: 'bag',
+  issuedAt: '2026-07-30 18:00',
+  ownershipFactoryId: 'FACTORY-CUT-001',
+  ownershipFactoryName: '裁床一厂',
+})
+assert.deepEqual(
+  Object.keys(stableCarrierQr.payload).sort(),
+  [
+    'carrierCode',
+    'carrierId',
+    'carrierType',
+    'codeType',
+    'issuedAt',
+    'ownershipFactoryId',
+    'ownershipFactoryName',
+    'version',
+  ],
+  '中转袋二维码只能携带稳定身份、版本、发码时间和固定归属',
+)
+assert.equal(
+  cuttingQrCodes.summarizeTraceabilityPayload(stableCarrierQr.payload)
+    .relationSummary,
+  '中转袋档案',
+)
+const transferBagLabelDocument =
+  labelPrintTemplate.buildTransferBagLabelPrintDocument({
+    documentType: 'TRANSFER_BAG_LABEL',
+    sourceType: 'TRANSFER_BAG_RECORD',
+    sourceId: 'carrier-bag-005',
+  })
+const printedCarrierPayload = cuttingQrCodes.parseCuttingTraceQr(
+  transferBagLabelDocument.qrPayload,
+)
+assert.equal(
+  printedCarrierPayload?.codeType,
+  'CARRIER',
+  '中转袋物理标签必须打印可被统一扫码入口识别的稳定载具二维码',
+)
+assert.equal(
+  printedCarrierPayload?.codeType === 'CARRIER'
+    ? printedCarrierPayload.carrierCode
+    : '',
+  'BAG-A-005',
+)
+assert.deepEqual(
+  printedCarrierPayload ? Object.keys(printedCarrierPayload).sort() : [],
+  [
+    'carrierCode',
+    'carrierId',
+    'carrierType',
+    'codeType',
+    'issuedAt',
+    'ownershipFactoryId',
+    'ownershipFactoryName',
+    'version',
+  ],
+  '中转袋物理标签二维码不得携带状态、阶段、周期、库位或接收回写字段',
+)
+
+assert.deepEqual(
+  pdaTransferBagDetail.getPdaTransferBagVisibleActionLabels(
+    {
+      mainStatus: 'IN_USE',
+      flowStage: 'HANDED_OVER_WAITING_RETURN',
+      allowedActions: ['SPECIAL_CRAFT_RETURN', 'PHYSICAL_RETURN', 'SCRAP'],
+    },
+    '已交出',
+  ),
+  ['按袋确认', '按菲票确认'],
+  '已交出扫码详情只能展示下游接收确认，不得继续展示装袋或移除菲票',
+)
+assert.deepEqual(
+  pdaTransferBagDetail.getPdaTransferBagVisibleActionLabels(
+    {
+      mainStatus: 'DISABLED',
+      flowStage: null,
+      allowedActions: [],
+    },
+    '差异',
+  ),
+  [],
+  '已报废中转袋扫码详情必须只读',
+)
+
+const pdaTransferBagDetailSource = readFileSync(
+  fileURLToPath(new URL(
+    '../src/pages/pda-transfer-bag-detail.ts',
+    import.meta.url,
+  )),
+  'utf8',
+)
+assert(
+  pdaTransferBagDetailSource.includes('buildWaitHandoverLifecycleByBagCode'),
+  '扫码详情必须读取统一中转袋生命周期投影',
+)
+assert(
+  pdaTransferBagDetailSource.includes('物理袋状态'),
+  '扫码详情必须明确展示物理袋状态',
+)
+assert(
+  pdaTransferBagDetailSource.includes('流转阶段'),
+  '扫码详情必须明确展示流转阶段',
+)
+assert(
+  pdaTransferBagDetailSource.includes('接收回写状态'),
+  '扫码详情必须把下游状态明确标为接收回写状态',
+)
+assert.equal(
+  pdaTransferBagDetailSource.includes('action=new-master'),
+  false,
+  '现场扫码详情不得长期展示新建中转袋主档入口',
+)
+assert(
+  pdaTransferBagDetailSource.includes('data-nav='),
+  '扫码详情展示的记录动作必须跳转到可执行记录页面，不得形成死按钮',
+)
 
 console.log('check:transfer-bag-three-status passed')

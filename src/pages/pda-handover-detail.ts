@@ -84,6 +84,7 @@ import {
   getCuttingSewingDispatchByHandoverRecordId,
   getTransferBagContentDisplayItems,
 } from '../data/fcs/cutting/sewing-dispatch.ts'
+import { buildWaitHandoverLifecycleByBagCode } from './process-factory/cutting/wait-handover-runtime.ts'
 import {
   FULL_CAPABILITY_FACTORY_ID,
   confirmPostFinishingSewingSelfReturnWarehouseRecord,
@@ -593,7 +594,7 @@ function renderTransferBagMobilePanel(record: PdaHandoverRecord): string {
   return `
     <div class="rounded-md border border-blue-200 bg-blue-50 p-2 text-xs text-blue-800">
       <div class="mb-2 flex items-center justify-between gap-2">
-        <div class="font-medium">中转袋</div>
+        <div class="font-medium">中转袋交出与接收记录</div>
         <span class="rounded-full bg-white px-2 py-0.5">${escapeHtml(sewingDispatch.dispatchBatch.transferOrderNo)}</span>
       </div>
       <div class="mb-2 grid grid-cols-2 gap-1">
@@ -606,14 +607,17 @@ function renderTransferBagMobilePanel(record: PdaHandoverRecord): string {
         ${sewingDispatch.transferBags
           .map((bag) => {
             const contentItems = getTransferBagContentDisplayItems(bag.transferBagId)
+            const lifecycle = buildWaitHandoverLifecycleByBagCode(bag.transferBagNo)
             return `
               <article class="rounded-lg border bg-white p-2">
                 <div class="flex items-center justify-between gap-2">
                   <div class="font-medium">${escapeHtml(bag.transferBagNo)}</div>
-                  <span class="rounded-full border px-2 py-0.5">${escapeHtml(bag.packStatus)}</span>
+                  <span class="rounded-full border px-2 py-0.5">接收回写状态：${escapeHtml(bag.packStatus)}</span>
                 </div>
                 <div class="mt-1 grid grid-cols-2 gap-1 text-[11px] text-muted-foreground">
-                  <div>是否混装：${escapeHtml(bag.bagMode)}</div>
+                  <div>物理袋状态：${escapeHtml(lifecycle.mainStatusLabel)}</div>
+                  <div>流转阶段：${escapeHtml(lifecycle.flowStageLabel)}</div>
+                  <div>装袋口径：同一生产单</div>
                   <div>内容项数：${bag.contentItemCount}</div>
                   <div>菲票数：${bag.contentFeiTicketCount}</div>
                   <div>当前所在：${escapeHtml(bag.currentLocation)}</div>

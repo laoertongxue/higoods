@@ -1798,13 +1798,11 @@ export function buildSpreadingDrivenTransferBagTraceMatrix(
 export function parseCarrierQrValue(value: string): {
   carrierId: string
   carrierCode: string
-  cycleId?: string
 } | null {
   const payload = parseCuttingTraceQr(value)
   if (!payload || payload.codeType !== 'CARRIER') return null
   return {
     carrierId: payload.carrierId,
     carrierCode: payload.carrierCode,
-    cycleId: payload.cycleId,
   }
 }
