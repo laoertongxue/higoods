@@ -1126,7 +1126,13 @@ for (const flow of fixedLocationFlows.filter((item) =>
 const mixedBlockOrder = allOrders.find((item) => item.mockScenarioCode === 'REPORTS_AT_LIMIT')!
 commitWoolStore((draft) => {
   for (const receipt of draft.yarnReceipts.filter((item) => item.woolOrderId === mixedBlockOrder.woolOrderId)) {
+    const removedFlowIds = new Set(
+      receipt.lines
+        .filter((line) => line.yarnSkuCode === 'YARN-C')
+        .map((line) => line.warehouseInboundFlowId),
+    )
     receipt.lines = receipt.lines.filter((line) => line.yarnSkuCode !== 'YARN-C')
+    draft.warehouseFlows = draft.warehouseFlows.filter((flow) => !removedFlowIds.has(flow.flowId))
   }
 })
 assert.match(getWoolWorkOrderBlockReason(mixedBlockOrder.woolOrderId), /YARN-C/)
@@ -1191,6 +1197,62 @@ assert.throws(
   '数量修改流水必须与目标事实的库存方向和差额一致',
 )
 
+const invalidGarmentQtyChangeLocationStore = structuredClone(validStore)
+const garmentQtyChangeFlow = invalidGarmentQtyChangeLocationStore.warehouseFlows.find((item) =>
+  item.sourceRecordType === 'QTY_CHANGE'
+  && invalidGarmentQtyChangeLocationStore.qtyChangeLogs.find((change) =>
+    change.changeId === item.sourceRecordId
+    && change.recordType === 'PROCESS_REPORT',
+  ),
+)!
+garmentQtyChangeFlow.defaultLocationType = 'CUT_PIECE'
+garmentQtyChangeFlow.defaultLocationId = 'WOOL-WH-CUT-DEFAULT'
+assert.throws(
+  () => validateWoolStore(invalidGarmentQtyChangeLocationStore),
+  /数量修改.*原始仓库流水/,
+  '整件数量修改必须继承原加工填报的成衣默认库位',
+)
+
+const invalidYarnQtyChangeLocationStore = structuredClone(validStore)
+const yarnQtyReceipt = invalidYarnQtyChangeLocationStore.yarnReceipts
+  .find((item) => item.lines.length > 0)!
+const yarnQtyLine = yarnQtyReceipt.lines[0]
+invalidYarnQtyChangeLocationStore.qtyChangeLogs.push({
+  changeId: 'WQC-INVALID-YARN-LOCATION',
+  recordType: 'YARN_RECEIPT',
+  recordId: yarnQtyReceipt.receiptId,
+  recordLineId: yarnQtyLine.lineId,
+  objectSkuCode: yarnQtyLine.yarnSkuCode,
+  beforeQty: yarnQtyLine.receivedQty,
+  afterQty: yarnQtyLine.receivedQty + 1,
+  qtyUnit: yarnQtyLine.qtyUnit,
+  reason: '纱线接收复核',
+  changedAt: '2026-07-30 20:00:00',
+  changedBy: '毛织仓管',
+})
+invalidYarnQtyChangeLocationStore.warehouseFlows.push({
+  flowId: 'WF-WQC-INVALID-YARN-LOCATION',
+  woolOrderId: yarnQtyReceipt.woolOrderId,
+  flowType: 'ADJUSTMENT',
+  businessType: 'STOCK_ADJUSTMENT',
+  warehouseMode: 'WAIT_HANDOVER',
+  defaultLocationType: 'CUT_PIECE',
+  defaultLocationId: 'WOOL-WH-CUT-DEFAULT',
+  objectSkuCode: yarnQtyLine.yarnSkuCode,
+  batchNo: yarnQtyReceipt.batchNo,
+  qty: 1,
+  unit: yarnQtyLine.qtyUnit,
+  sourceRecordType: 'QTY_CHANGE',
+  sourceRecordId: 'WQC-INVALID-YARN-LOCATION',
+  operatedAt: '2026-07-30 20:00:00',
+  operatedBy: '毛织仓管',
+})
+assert.throws(
+  () => validateWoolStore(invalidYarnQtyChangeLocationStore),
+  /数量修改.*原始仓库流水/,
+  '纱线数量修改必须留在待加工纱线默认库位',
+)
+
 const reusedReceiptFlowStore = structuredClone(validStore)
 const reusedFlowReceipt = reusedReceiptFlowStore.yarnReceipts.find((item) => item.lines.length > 0)!
 reusedFlowReceipt.lines.push({
@@ -1247,6 +1309,34 @@ independentStockFactStore.warehouseFlows.push(
   },
 )
 assert.doesNotThrow(() => validateWoolStore(independentStockFactStore))
+
+const duplicateReceiptSourceStore = structuredClone(validStore)
+const receiptSourceFlow = duplicateReceiptSourceStore.warehouseFlows.find((item) =>
+  item.sourceRecordType === 'YARN_RECEIPT',
+)!
+duplicateReceiptSourceStore.warehouseFlows.push({
+  ...structuredClone(receiptSourceFlow),
+  flowId: `${receiptSourceFlow.flowId}-DUPLICATE-SOURCE`,
+})
+assert.throws(
+  () => validateWoolStore(duplicateReceiptSourceStore),
+  /仓库流水来源事实.*重复/,
+  '接收来源事实不得通过更换 flowId 重复计库',
+)
+
+const duplicateSelfDescribingSourceStore = structuredClone(independentStockFactStore)
+const selfDescribingFlow = duplicateSelfDescribingSourceStore.warehouseFlows.find((item) =>
+  item.flowId === 'WF-INDEPENDENT-STOCK-ADJUSTMENT',
+)!
+duplicateSelfDescribingSourceStore.warehouseFlows.push({
+  ...structuredClone(selfDescribingFlow),
+  flowId: `${selfDescribingFlow.flowId}-DUPLICATE-SOURCE`,
+})
+assert.throws(
+  () => validateWoolStore(duplicateSelfDescribingSourceStore),
+  /仓库流水来源事实.*重复/,
+  '自描述库存事实也不得复用来源 ID 重复计库',
+)
 
 const invalidTransferStore = structuredClone(independentStockFactStore)
 delete invalidTransferStore.warehouseFlows

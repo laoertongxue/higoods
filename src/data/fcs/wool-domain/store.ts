@@ -117,6 +117,11 @@ export function validateWoolStore(store: WoolDomainStore): void {
   assertUniqueIds(store.handovers, (item) => item.warehouseOutboundFlowId, '交出记录仓库流水一对一引用')
   assertUniqueIds(store.qtyChangeLogs, (item) => item.changeId, '数量修改记录')
   assertUniqueIds(store.warehouseFlows, (item) => item.flowId, '仓库流水')
+  assertUniqueIds(
+    store.warehouseFlows,
+    (item) => `${item.sourceRecordType}\u0000${item.sourceRecordId}`,
+    '仓库流水来源事实',
+  )
   assertUniqueIds(store.completions, (item) => item.woolOrderId, '完成记录')
   assertUniqueIds(store.machines, (item) => item.machineId, '横机设备')
   assertUniqueIds(store.machineAssociations, (item) => item.machineId, '当前横机关联')
@@ -150,7 +155,7 @@ export function validateWoolStore(store: WoolDomainStore): void {
       if (
         !flow
         || flow.businessType !== 'YARN_RECEIPT'
-        || flow.sourceRecordId !== receipt.receiptId
+        || flow.sourceRecordId !== line.lineId
         || flow.woolOrderId !== receipt.woolOrderId
         || flow.objectSkuCode !== line.yarnSkuCode
       ) {
@@ -328,7 +333,9 @@ export function validateWoolStore(store: WoolDomainStore): void {
     const sourceExists =
       isSelfDescribingStockFact
       || (flow.sourceRecordType === 'YARN_RECEIPT'
-        && store.yarnReceipts.some((item) => item.receiptId === flow.sourceRecordId))
+        && store.yarnReceipts.some((item) =>
+          item.lines.some((line) => line.lineId === flow.sourceRecordId),
+        ))
       || (flow.sourceRecordType === 'YARN_ISSUE'
         && store.yarnIssues.some((item) => item.issueId === flow.sourceRecordId))
       || (flow.sourceRecordType === 'YARN_RETURN'
@@ -349,6 +356,19 @@ export function validateWoolStore(store: WoolDomainStore): void {
         : change.recordType === 'PROCESS_REPORT'
           ? store.processReports.find((item) => item.reportId === change.recordId)
           : store.handovers.find((item) => item.handoverId === change.recordId)
+      const originalFlowId = change.recordType === 'YARN_RECEIPT'
+        ? store.yarnReceipts
+            .find((item) => item.receiptId === change.recordId)
+            ?.lines.find((line) => line.lineId === change.recordLineId)
+            ?.warehouseInboundFlowId
+        : change.recordType === 'PROCESS_REPORT'
+          ? store.processReports
+              .find((item) => item.reportId === change.recordId)
+              ?.warehouseInboundFlowId
+          : store.handovers
+              .find((item) => item.handoverId === change.recordId)
+              ?.warehouseOutboundFlowId
+      const originalFlow = store.warehouseFlows.find((item) => item.flowId === originalFlowId)
       const targetOrderId = target?.woolOrderId
       const stockDelta = (change.afterQty - change.beforeQty)
         * (change.recordType === 'HANDOVER' ? -1 : 1)
@@ -360,6 +380,16 @@ export function validateWoolStore(store: WoolDomainStore): void {
         || flow.qty !== stockDelta
       ) {
         throw new Error(`毛织存储校验失败：数量修改 ${change.changeId} 的库存差额不符合目标事实`)
+      }
+      if (
+        !originalFlow
+        || flow.warehouseMode !== originalFlow.warehouseMode
+        || flow.defaultLocationType !== originalFlow.defaultLocationType
+        || flow.defaultLocationId !== originalFlow.defaultLocationId
+        || flow.unit !== originalFlow.unit
+        || flow.batchNo !== originalFlow.batchNo
+      ) {
+        throw new Error(`毛织存储校验失败：数量修改 ${change.changeId} 未继承目标事实的原始仓库流水`)
       }
     }
   }

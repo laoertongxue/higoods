@@ -204,7 +204,7 @@ function flowForReceipt(order: WoolWorkOrder, record: WoolYarnReceiptRecord): Wo
     qty: line.receivedQty,
     unit: 'kg',
     sourceRecordType: 'YARN_RECEIPT',
-    sourceRecordId: record.receiptId,
+    sourceRecordId: line.lineId,
     operatedAt: record.receivedAt,
     operatedBy: record.receivedBy,
   }))
