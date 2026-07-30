@@ -2941,10 +2941,6 @@ export function createDownstreamTasksFromRevision(
         failureMessages.push('独立改版任务不默认创建制版下游任务。')
         return
       }
-      if (!getProjectNodeRecordByStepCode(revisionTask.projectId, 'PATTERN_TASK')) {
-        failureMessages.push('商品项目缺少制版任务节点，不能创建制版下游任务。')
-        return
-      }
       const existingPlateTask = listPlateMakingTasks().find(
         (item) => item.upstreamObjectId === revisionTask.revisionTaskId || item.upstreamObjectCode === revisionTask.revisionTaskCode,
       )
