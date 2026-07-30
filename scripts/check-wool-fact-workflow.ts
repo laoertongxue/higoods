@@ -1075,7 +1075,7 @@ assert.equal(
   getHandoverAvailableQty(reportsAtLimitOrder.woolOrderId, reportsAtLimitBlackLine.outputSkuCode),
   150,
 )
-addWoolHandover(reportsAtLimitOrder.woolOrderId, {
+const task8BlackHandover = addWoolHandover(reportsAtLimitOrder.woolOrderId, {
   commandId: 'CMD-TASK8-BLACK-HANDOVER-40',
   outputSkuCode: reportsAtLimitBlackLine.outputSkuCode,
   handoverQty: 40,
@@ -1086,6 +1086,73 @@ assert.equal(
   getHandoverAvailableQty(reportsAtLimitOrder.woolOrderId, reportsAtLimitBlackLine.outputSkuCode),
   110,
   '累计有效交出必须扣减该 SKU 的可交出余额',
+)
+adjustWoolWarehouseStock({
+  commandId: 'CMD-TASK8-BLACK-STOCK-500-FOR-QTY-CHANGE',
+  woolOrderId: reportsAtLimitOrder.woolOrderId,
+  objectSkuCode: reportsAtLimitBlackLine.outputSkuCode,
+  defaultLocationId: 'WOOL-WH-GARMENT-DEFAULT',
+  afterQty: 500,
+  reason: '对抗测试：独立调高库存不能把交出记录改到累计填报以上',
+  operatedAt: '2026-07-30 08:42:30',
+  operatedBy: '专项检查',
+})
+assert.equal(
+  getWoolOutputReportedQty(reportsAtLimitOrder.woolOrderId, reportsAtLimitBlackLine.outputSkuCode),
+  150,
+)
+assert.equal(
+  getWoolOutputHandedOverQty(reportsAtLimitOrder.woolOrderId, reportsAtLimitBlackLine.outputSkuCode),
+  40,
+)
+assert.equal(
+  getWoolOutputStockQty(reportsAtLimitOrder.woolOrderId, reportsAtLimitBlackLine.outputSkuCode),
+  500,
+)
+const beforeOverBalanceQtyChange = readWoolStore()
+const overBalanceQtyChangeWrites = storageWrites.length
+assert.throws(
+  () => changeWoolFactQty({
+    commandId: 'CMD-TASK8-HANDOVER-QTY-OVER-REPORT',
+    recordType: 'HANDOVER',
+    recordId: task8BlackHandover.handoverId,
+    afterQty: 200,
+    reason: '对抗测试：交出累计不得超过加工填报',
+    changedAt: '2026-07-30 08:42:40',
+    changedBy: '专项检查',
+  }),
+  /增加量不能超过修改前该 SKU 可交出余额 110件/,
+)
+assert.deepEqual(readWoolStore(), beforeOverBalanceQtyChange)
+assert.equal(storageWrites.length, overBalanceQtyChangeWrites)
+assert.equal(
+  getWoolOutputReportedQty(reportsAtLimitOrder.woolOrderId, reportsAtLimitBlackLine.outputSkuCode),
+  150,
+)
+assert.equal(
+  getWoolOutputHandedOverQty(reportsAtLimitOrder.woolOrderId, reportsAtLimitBlackLine.outputSkuCode),
+  40,
+)
+assert.equal(
+  getWoolOutputStockQty(reportsAtLimitOrder.woolOrderId, reportsAtLimitBlackLine.outputSkuCode),
+  500,
+)
+changeWoolFactQty({
+  commandId: 'CMD-TASK8-HANDOVER-QTY-WITHIN-BALANCE',
+  recordType: 'HANDOVER',
+  recordId: task8BlackHandover.handoverId,
+  afterQty: 100,
+  reason: '对抗测试：余额内合法增加',
+  changedAt: '2026-07-30 08:42:50',
+  changedBy: '专项检查',
+})
+assert.equal(
+  getWoolOutputHandedOverQty(reportsAtLimitOrder.woolOrderId, reportsAtLimitBlackLine.outputSkuCode),
+  100,
+)
+assert.equal(
+  getWoolOutputStockQty(reportsAtLimitOrder.woolOrderId, reportsAtLimitBlackLine.outputSkuCode),
+  440,
 )
 adjustWoolWarehouseStock({
   commandId: 'CMD-TASK8-BLACK-STOCK-MIN',
@@ -1106,7 +1173,7 @@ assert.match(reportDialogHtml, /累计有效加工填报 150件/)
 const handoverDialogHtml = renderWoolHandoverDialog(reportsAtLimitOrder)
 assert.match(handoverDialogHtml, new RegExp(reportsAtLimitBlackLine.outputSkuCode))
 assert.doesNotMatch(handoverDialogHtml, new RegExp(reportsAtLimitWhiteLine.outputSkuCode))
-assert.match(handoverDialogHtml, /累计有效交出 40件/)
+assert.match(handoverDialogHtml, /累计有效交出 100件/)
 assert.match(handoverDialogHtml, /可交出余额 20件/)
 const beforeOverAvailableHandover = readWoolStore()
 assert.throws(

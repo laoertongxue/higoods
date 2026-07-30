@@ -1088,13 +1088,18 @@ export function changeWoolFactQty(input: ChangeWoolFactQtyInput): WoolQtyChangeL
       qtyUnit = line.qtyUnit
       beforeQty = getWoolHandoverEffectiveQty(draft, handover)
       originalFlow = draft.warehouseFlows.find((flow) => flow.flowId === handover.warehouseOutboundFlowId)
-      const currentStock = stockQty(draft, {
-        woolOrderId,
-        objectSkuCode,
-        defaultLocationId: outputLocation(line).defaultLocationId,
-      })
-      if (input.afterQty - beforeQty > currentStock) {
-        throw new Error('交出增加量不能超过默认库位库存')
+      const increaseQty = input.afterQty - beforeQty
+      if (increaseQty > 0) {
+        const availableQtyBeforeChange = getWoolOutputHandoverAvailableQtyFromStore(
+          draft,
+          woolOrderId,
+          objectSkuCode,
+        )
+        if (increaseQty > availableQtyBeforeChange) {
+          throw new Error(
+            `交出增加量不能超过修改前该 SKU 可交出余额 ${availableQtyBeforeChange}${line.qtyUnit}`,
+          )
+        }
       }
     }
     if (!originalFlow) throw new Error('目标事实缺少原始仓库流水')

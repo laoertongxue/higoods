@@ -685,7 +685,8 @@ function resolveEditableFactMax(
     return Math.max(0, Math.floor(line.plannedQty * 1.5) - otherReportedQty)
   }
   if (overlay.recordType === 'HANDOVER') {
-    return overlay.currentQty + getWoolOutputStockQty(order.woolOrderId, overlay.objectSkuCode)
+    return overlay.currentQty
+      + getWoolOutputHandoverAvailableQty(order.woolOrderId, overlay.objectSkuCode)
   }
   return undefined
 }
