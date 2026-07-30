@@ -8,6 +8,8 @@ import {
 import {
   appendPickupSessionWithWarehouseFactsRuntime,
   bootstrapPickupManagementRuntimeMockData,
+  PICKUP_WAREHOUSE_TRANSACTION_STORAGE_KEY,
+  recoverPendingPickupWarehouseTransaction,
   listActivePickupNodesRuntime as listActivePickupNodes,
 } from '../src/runtime/fcs/cutting/pickup-management-runtime.ts'
 import { CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY } from '../src/data/fcs/cutting/cutting-runtime-event-ledger.ts'
@@ -86,6 +88,26 @@ assert(
   rollbackStorage.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY) === prepBefore
   && rollbackStorage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) === ledgerBefore,
   '任一待加工仓流水失败时，领料 Session/Detail 与流水必须共同回滚',
+)
+
+const crashRecoveryStorage = new MemoryStorage()
+const crashPrepBefore = serializeProductionMaterialPrepStore(createProductionMaterialPrepSeedStore())
+const crashLedgerBefore = '{"events":[]}'
+crashRecoveryStorage.setItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY, crashPrepBefore)
+crashRecoveryStorage.setItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, crashLedgerBefore)
+crashRecoveryStorage.setItem(PICKUP_WAREHOUSE_TRANSACTION_STORAGE_KEY, JSON.stringify({
+  status: 'PREPARING',
+  prepBefore: crashPrepBefore,
+  ledgerBefore: crashLedgerBefore,
+}))
+crashRecoveryStorage.setItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY, '{"pickupSessions":[{"partial":true}]}')
+crashRecoveryStorage.setItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, '{"events":[{"partial":true}]}')
+recoverPendingPickupWarehouseTransaction(crashRecoveryStorage)
+assert(
+  crashRecoveryStorage.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY) === crashPrepBefore
+  && crashRecoveryStorage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) === crashLedgerBefore
+  && crashRecoveryStorage.getItem(PICKUP_WAREHOUSE_TRANSACTION_STORAGE_KEY) === null,
+  '浏览器在跨键写入中断后，下一次读取必须按 PREPARING 日志恢复确认前快照',
 )
 
 console.log('check:pda-pickup-flow passed')

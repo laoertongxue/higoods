@@ -44,6 +44,7 @@ import {
 import {
   appendPickupSessionWithWarehouseFactsRuntime,
   listActivePickupNodesRuntime as listActivePickupNodes,
+  recoverPendingPickupWarehouseTransaction,
 } from '../runtime/fcs/cutting/pickup-management-runtime.ts'
 import {
   getBrowserLocalStorage,
@@ -2453,6 +2454,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     return true
   }
   if (action === 'confirm-cutting-wp-pickup') {
+    recoverPendingPickupWarehouseTransaction()
     const pickupNodeId = state.cuttingPickupNodeId
     if (!pickupNodeId) {
       window.alert('请先选择中转仓领料节点。')

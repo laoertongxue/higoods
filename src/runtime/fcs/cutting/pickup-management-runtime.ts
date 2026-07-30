@@ -31,6 +31,14 @@ import {
 } from '../../../data/fcs/cutting/supplement-records.ts'
 import { assertPickupNodeHasNoOpenDiscrepancy } from '../../../data/fcs/cutting/pickup-discrepancy.ts'
 
+export const PICKUP_WAREHOUSE_TRANSACTION_STORAGE_KEY = 'pickupWarehouseTransaction'
+
+interface PickupWarehouseTransactionJournal {
+  status: 'PREPARING' | 'COMMITTED'
+  prepBefore: string | null
+  ledgerBefore: string | null
+}
+
 export interface PickupRuntimeOverrides {
   supplementRecords?: SupplementRecord[]
   dyeResults?: PickupProcessResultFact[]
@@ -54,6 +62,7 @@ export function buildPickupRuntimeContext(
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
   overrides: PickupRuntimeOverrides = {},
 ): PickupRuntimeContext {
+  recoverPendingPickupWarehouseTransaction(storage)
   const projections = listMaterialPrepOrderProjections(storage)
   const supplementRecords = overrides.supplementRecords ?? listSupplementRecords()
   const dyeResults = overrides.dyeResults ?? listPlatformDyeResultViews()
@@ -107,6 +116,32 @@ function restoreStorageValue(
   else storage.setItem?.(key, value)
 }
 
+export function recoverPendingPickupWarehouseTransaction(
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): void {
+  const raw = storage?.getItem(PICKUP_WAREHOUSE_TRANSACTION_STORAGE_KEY)
+  if (!raw || !storage?.setItem || !storage.removeItem) return
+  let journal: PickupWarehouseTransactionJournal
+  try {
+    journal = JSON.parse(raw) as PickupWarehouseTransactionJournal
+  } catch {
+    throw new Error('领料原子事务日志损坏，请联系系统管理员处理。')
+  }
+  if (
+    (journal.status !== 'PREPARING' && journal.status !== 'COMMITTED')
+    || (journal.prepBefore !== null && typeof journal.prepBefore !== 'string')
+    || (journal.ledgerBefore !== null && typeof journal.ledgerBefore !== 'string')
+  ) {
+    throw new Error('领料原子事务日志格式无效，请联系系统管理员处理。')
+  }
+  if (journal.status === 'PREPARING') {
+    restoreStorageValue(storage, PRODUCTION_MATERIAL_PREP_STORAGE_KEY, journal.prepBefore)
+    restoreStorageValue(storage, CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, journal.ledgerBefore)
+    invalidateMaterialPrepProjectionCache()
+  }
+  storage.removeItem(PICKUP_WAREHOUSE_TRANSACTION_STORAGE_KEY)
+}
+
 /**
  * 原型内的跨事实原子边界：领料会话/明细与裁床待加工仓流水要么共同写入，
  * 要么恢复确认前的两份本地事实，不能留下“领料已保存、流水待重试”的中间态。
@@ -123,18 +158,31 @@ export function appendPickupSessionWithWarehouseFactsRuntime(
   if (!storage?.setItem || !storage.removeItem) {
     throw new Error('当前存储不支持原子领料确认，请刷新后重试。')
   }
+  recoverPendingPickupWarehouseTransaction(storage)
   const prepBefore = storage.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY)
   const ledgerBefore = storage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY)
+  const journal: PickupWarehouseTransactionJournal = {
+    status: 'PREPARING',
+    prepBefore,
+    ledgerBefore,
+  }
+  storage.setItem(PICKUP_WAREHOUSE_TRANSACTION_STORAGE_KEY, JSON.stringify(journal))
   try {
     const session = appendPickupSessionFromNodeRuntime({
       ...input,
       warehouseSyncDeferred: false,
     }, storage, overrides)
     writeWarehouseFacts(session, storage)
+    storage.setItem(PICKUP_WAREHOUSE_TRANSACTION_STORAGE_KEY, JSON.stringify({
+      ...journal,
+      status: 'COMMITTED',
+    }))
+    storage.removeItem(PICKUP_WAREHOUSE_TRANSACTION_STORAGE_KEY)
     return session
   } catch (error) {
     restoreStorageValue(storage, PRODUCTION_MATERIAL_PREP_STORAGE_KEY, prepBefore)
     restoreStorageValue(storage, CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, ledgerBefore)
+    storage.removeItem(PICKUP_WAREHOUSE_TRANSACTION_STORAGE_KEY)
     invalidateMaterialPrepProjectionCache()
     throw error
   }
