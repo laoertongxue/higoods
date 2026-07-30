@@ -9,7 +9,14 @@
     <main id="app"></main>
     <script type="module">
       import { appStore } from '/src/state/store.ts'
-      import { resetWoolFactWorkflowMock } from '/src/data/fcs/wool-task-domain.ts'
+      import {
+        addWoolYarnReceipt,
+        changeWoolFactQty,
+        listWoolWorkOrders,
+        readWoolStore,
+        resetWoolFactWorkflowMock,
+        WOOL_DOMAIN_STORE_KEY,
+      } from '/src/data/fcs/wool-task-domain.ts'
       import {
         handleCraftWoolWarehouseEvent,
         renderCraftWoolWaitHandoverWarehousePage,
@@ -20,6 +27,41 @@
         ? 'handover'
         : 'process'
       resetWoolFactWorkflowMock(`BROWSER_TASK_11_${mode}`)
+      if (mode === 'process') {
+        const traceOrder = listWoolWorkOrders()
+          .find((order) => order.mockScenarioCode === 'YARN_ISSUE_RETURN')
+        const traceReceipts = Array.from({ length: 12 }, (_, index) =>
+          addWoolYarnReceipt(traceOrder.woolOrderId, {
+            commandId: `BROWSER-T11-TRACE-RECEIPT-${index + 1}`,
+            deliveryNo: `BROWSER-DELIVERY-${String(index + 1).padStart(2, '0')}`,
+            batchNo: 'BATCH-TRACE',
+            receivedAt: `2026-07-31 14:${String(index).padStart(2, '0')}:00`,
+            receivedBy: index === 0 ? '浏览器仓管 <甲>' : `浏览器仓管 ${index + 1}`,
+            proofFiles: index === 0 ? ['凭证<' + 'script>alert(1)<' + '/script>.jpg'] : [],
+            remark: index === 0 ? '浏览器备注 <img src=x onerror=alert(1)>' : `浏览器备注 ${index + 1}`,
+            lines: [{
+              yarnSkuCode: 'YARN-A',
+              yarnName: '黑色纱线 <A>',
+              receivedQty: index + 1,
+              differenceNote: index === 0 ? '浏览器差异 <svg onload=alert(1)>' : `浏览器差异 ${index + 1}`,
+            }],
+          }),
+        )
+        let traceQty = traceReceipts[0].lines[0].receivedQty
+        for (let index = 0; index < 12; index += 1) {
+          traceQty += 0.1
+          changeWoolFactQty({
+            commandId: `BROWSER-T11-TRACE-CHANGE-${index + 1}`,
+            recordType: 'YARN_RECEIPT',
+            recordId: traceReceipts[0].receiptId,
+            recordLineId: traceReceipts[0].lines[0].lineId,
+            afterQty: traceQty,
+            reason: index === 0 ? '浏览器修改 <' + 'script>alert(1)<' + '/script>' : `浏览器数量复核 ${index + 1}`,
+            changedAt: `2026-07-31 15:${String(index).padStart(2, '0')}:00`,
+            changedBy: index === 0 ? '浏览器复核人 <乙>' : `浏览器复核人 ${index + 1}`,
+          })
+        }
+      }
       appStore.navigate(
         mode === 'handover'
           ? '/fcs/craft/wool/wait-handover-warehouse'
@@ -38,6 +80,8 @@
       }
       window.__woolWarehouseFixture = {
         root: document.querySelector('[data-wool-warehouse-root]'),
+        snapshot: () => JSON.stringify(readWoolStore()),
+        storageSnapshot: () => localStorage.getItem(WOOL_DOMAIN_STORE_KEY),
       }
     </script>
   </body>

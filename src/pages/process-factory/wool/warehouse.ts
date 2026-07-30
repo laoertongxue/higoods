@@ -24,12 +24,16 @@ import {
   adjustWoolWarehouseStock,
   getWoolProcessingStatus,
   issueWoolYarn,
+  listWoolYarnReceiptLineTraces,
   listWoolWarehouseFlows,
   listWoolWarehouseStocks,
   listWoolWorkOrders,
   readWoolStore,
   returnWoolYarn,
   transferWoolWarehouseStock,
+  WOOL_DEFAULT_WAREHOUSE_BY_LOCATION,
+  WOOL_WAIT_HANDOVER_WAREHOUSE_ID,
+  WOOL_WAIT_PROCESS_WAREHOUSE_ID,
   type WoolDefaultLocationId,
   type WoolWarehouseFlow,
   type WoolWarehouseStockRow,
@@ -81,12 +85,18 @@ interface WarehouseListRow {
 }
 
 type WarehouseOverlay =
-  | { kind: 'detail'; rowId: string; page: number }
-  | { kind: 'issue'; rowId: string }
-  | { kind: 'return'; rowId: string }
-  | { kind: 'adjust'; rowId: string }
-  | { kind: 'transfer-out'; rowId: string }
-  | { kind: 'transfer-back'; rowId: string }
+  | {
+      kind: 'detail'
+      rowId: string
+      receiptPage: number
+      flowPage: number
+      changePages: Record<string, number>
+    }
+  | {
+      kind: 'issue' | 'return' | 'adjust' | 'transfer-out' | 'transfer-back'
+      rowId: string
+      draft?: Record<string, string>
+    }
 
 interface WarehousePageState {
   activeTab: WarehouseTab
@@ -115,6 +125,10 @@ const LOCATION_LABELS: Record<WoolDefaultLocationId, string> = {
   'WOOL-WH-CUT-DEFAULT': '毛织待交出仓 / 裁片默认库位',
   'WOOL-WH-GARMENT-DEFAULT': '毛织待交出仓 / 成衣默认库位',
 }
+const WAREHOUSE_LABELS = {
+  [WOOL_WAIT_PROCESS_WAREHOUSE_ID]: '毛织待加工仓',
+  [WOOL_WAIT_HANDOVER_WAREHOUSE_ID]: '毛织待交出仓',
+} as const
 const TYPE_LABELS = {
   YARN: '纱线',
   CUT_PIECE: '裁片',
@@ -305,8 +319,10 @@ function issueReturnBalance(row: WarehouseListRow): number {
 }
 
 function externalTransferBalance(flow: WoolWarehouseFlow): number {
+  const defaultWarehouseId = WOOL_DEFAULT_WAREHOUSE_BY_LOCATION[flow.defaultLocationId]
   if (
     flow.flowType !== 'TRANSFER'
+    || flow.fromWarehouseId !== defaultWarehouseId
     || flow.fromLocationId !== flow.defaultLocationId
     || !flow.toWarehouseId
     || !flow.toLocationId
@@ -318,17 +334,28 @@ function externalTransferBalance(flow: WoolWarehouseFlow): number {
   })
     .filter((item) =>
       item.flowType === 'TRANSFER'
+      && item.defaultLocationType === flow.defaultLocationType
       && item.batchNo === flow.batchNo
       && (
-        (item.toWarehouseId === flow.toWarehouseId && item.toLocationId === flow.toLocationId)
+        (
+          item.fromWarehouseId === defaultWarehouseId
+          && item.fromLocationId === flow.defaultLocationId
+          && item.toWarehouseId === flow.toWarehouseId
+          && item.toLocationId === flow.toLocationId
+        )
         || (
           item.fromWarehouseId === flow.toWarehouseId
           && item.fromLocationId === flow.toLocationId
+          && item.toWarehouseId === defaultWarehouseId
+          && item.toLocationId === flow.defaultLocationId
         )
       ),
     )
     .reduce((sum, item) =>
-      item.toWarehouseId === flow.toWarehouseId && item.toLocationId === flow.toLocationId
+      item.fromWarehouseId === defaultWarehouseId
+        && item.fromLocationId === flow.defaultLocationId
+        && item.toWarehouseId === flow.toWarehouseId
+        && item.toLocationId === flow.toLocationId
         ? sum + Math.abs(item.qty)
         : sum - Math.abs(item.qty), 0)
 }
@@ -355,6 +382,60 @@ function renderRowActions(row: WarehouseListRow): string {
   }
   actions.push(`<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildWoolWorkOrderDetailLink(row.woolOrderId))}">查看加工单</button>`)
   return `<div class="flex max-w-[310px] flex-wrap justify-end gap-1.5">${actions.join('')}</div>`
+}
+
+function resolveEndpointLabel(warehouseId?: string, locationId?: string): {
+  warehouseName: string
+  warehouseId: string
+  locationName: string
+  locationId: string
+} {
+  const normalizedWarehouseId = warehouseId ?? ''
+  const normalizedLocationId = locationId ?? ''
+  if (normalizedWarehouseId in WAREHOUSE_LABELS) {
+    return {
+      warehouseName: WAREHOUSE_LABELS[normalizedWarehouseId as keyof typeof WAREHOUSE_LABELS],
+      warehouseId: normalizedWarehouseId,
+      locationName: LOCATION_LABELS[normalizedLocationId as WoolDefaultLocationId] ?? normalizedLocationId,
+      locationId: normalizedLocationId,
+    }
+  }
+  for (const warehouse of listFactoryInternalWarehouses()) {
+    if (warehouse.warehouseId !== normalizedWarehouseId) continue
+    for (const area of warehouse.areaList) {
+      for (const shelf of area.shelfList) {
+        const location = shelf.locationList.find((item) => item.locationId === normalizedLocationId)
+        if (!location) continue
+        return {
+          warehouseName: warehouse.warehouseName,
+          warehouseId: warehouse.warehouseId,
+          locationName: `${area.areaName} / ${shelf.shelfName} / ${location.locationName}`,
+          locationId: location.locationId,
+        }
+      }
+    }
+  }
+  return {
+    warehouseName: normalizedWarehouseId || '未记录仓库',
+    warehouseId: normalizedWarehouseId,
+    locationName: normalizedLocationId || '未记录库位',
+    locationId: normalizedLocationId,
+  }
+}
+
+function renderEndpoint(warehouseId?: string, locationId?: string): string {
+  const endpoint = resolveEndpointLabel(warehouseId, locationId)
+  return `<div><div>${escapeHtml(endpoint.warehouseName)} / ${escapeHtml(endpoint.locationName)}</div><div class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(endpoint.warehouseId)} / ${escapeHtml(endpoint.locationId)}</div></div>`
+}
+
+function renderRowLocation(row: WarehouseListRow): string {
+  if (row.flow?.flowType === 'TRANSFER') {
+    return `<div class="space-y-2"><div><span class="text-xs text-muted-foreground">从</span>${renderEndpoint(row.flow.fromWarehouseId, row.flow.fromLocationId)}</div><div><span class="text-xs text-muted-foreground">到</span>${renderEndpoint(row.flow.toWarehouseId, row.flow.toLocationId)}</div></div>`
+  }
+  return renderEndpoint(
+    WOOL_DEFAULT_WAREHOUSE_BY_LOCATION[row.locationId],
+    row.locationId,
+  )
 }
 
 const columns: StandardListColumn<WarehouseListRow>[] = [
@@ -384,9 +465,9 @@ const columns: StandardListColumn<WarehouseListRow>[] = [
     render: (row) => `<span class="font-medium tabular-nums">${escapeHtml(`${row.quantity} ${row.unit}`)}</span>`,
   },
   {
-    key: 'location', title: '固定默认库位', width: 285, required: true, sortable: true,
+    key: 'location', title: '仓库 / 库位', width: 360, required: true, sortable: true,
     sortValue: (row) => row.locationId,
-    render: (row) => `<div><div>${escapeHtml(LOCATION_LABELS[row.locationId])}</div><div class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(row.locationId)}</div></div>`,
+    render: renderRowLocation,
   },
   {
     key: 'operator', title: '操作事实', width: 190, sortable: true,
@@ -531,7 +612,7 @@ function renderFeedback(mode: WarehouseMode): string {
     : '<div data-wool-warehouse-feedback></div>'
 }
 
-function renderPublicLocationOptions(): string {
+function renderPublicLocationOptions(selectedValue = ''): string {
   return listFactoryInternalWarehouses()
     .filter((warehouse) => warehouse.isEnabled)
     .flatMap((warehouse) => warehouse.areaList.flatMap((area) =>
@@ -544,7 +625,7 @@ function renderPublicLocationOptions(): string {
           })),
       ),
     ))
-    .map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`)
+    .map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === selectedValue ? 'selected' : ''}>${escapeHtml(option.label)}</option>`)
     .join('')
 }
 
@@ -567,26 +648,73 @@ function dialogField(label: string, input: string, _compat = ''): string {
   return `<label class="block"><span class="mb-1 block text-sm font-medium">${escapeHtml(label)}</span>${input}</label>`
 }
 
+function renderDetailPager(
+  kind: 'receipts' | 'flows' | 'changes',
+  paging: ReturnType<typeof paginateStandardListRows<unknown>>,
+  traceKey = '',
+): string {
+  return `<div data-wool-warehouse-detail-kind="${kind}" data-trace-key="${escapeHtml(traceKey)}" data-current-page="${paging.currentPage}">${renderTablePagination({
+    total: paging.total,
+    from: paging.from,
+    to: paging.to,
+    currentPage: paging.currentPage,
+    totalPages: paging.totalPages,
+    pageSize: paging.pageSize,
+    actionPrefix: 'wool-warehouse-detail',
+    fieldPrefix: 'wool-warehouse-detail',
+    pageSizeOptions: [paging.pageSize],
+    skipPageRerender: true,
+  })}</div>`
+}
+
 function renderDetailDialog(mode: WarehouseMode, row: WarehouseListRow, overlay: Extract<WarehouseOverlay, { kind: 'detail' }>): string {
   const flows = listWoolWarehouseFlows({
     woolOrderId: row.woolOrderId,
     objectSkuCode: row.objectSkuCode,
     defaultLocationId: row.locationId,
   }).filter((flow) => flow.batchNo === row.batchNo)
-  const paging = paginateStandardListRows(flows, overlay.page, 10)
-  overlay.page = paging.currentPage
-  const receipts = readWoolStore().yarnReceipts
-    .filter((receipt) => receipt.woolOrderId === row.woolOrderId)
-    .flatMap((receipt) => receipt.lines
-      .filter((line) => line.yarnSkuCode === row.objectSkuCode && receipt.batchNo === row.batchNo)
-      .map((line) => `${receipt.receiptNo} / ${line.lineId} / 原始 ${line.receivedQty} ${line.qtyUnit}`))
-  const flowRows = paging.rows.map((flow) => `<tr class="border-b last:border-b-0"><td class="px-3 py-2">${escapeHtml(BUSINESS_LABELS[flow.businessType])}</td><td class="px-3 py-2 font-mono text-xs">${escapeHtml(flow.sourceRecordId)}</td><td class="px-3 py-2">${escapeHtml(`${flow.qty} ${flow.unit}`)}</td><td class="px-3 py-2">${escapeHtml(flow.operatedBy)}</td><td class="px-3 py-2">${escapeHtml(flow.operatedAt)}</td><td class="px-3 py-2">${escapeHtml(flow.reason || '—')}</td></tr>`).join('')
+  const flowPaging = paginateStandardListRows(flows, overlay.flowPage, 10)
+  overlay.flowPage = flowPaging.currentPage
+  const receiptTraces = row.objectType === 'YARN'
+    ? listWoolYarnReceiptLineTraces({
+        woolOrderId: row.woolOrderId,
+        objectSkuCode: row.objectSkuCode,
+        batchNo: row.batchNo,
+      })
+    : []
+  const receiptPaging = paginateStandardListRows(receiptTraces, overlay.receiptPage, 5)
+  overlay.receiptPage = receiptPaging.currentPage
+  const receiptCards = receiptPaging.rows.map((trace) => {
+    const changePaging = paginateStandardListRows(
+      trace.qtyChanges,
+      overlay.changePages[trace.traceKey] ?? 1,
+      5,
+    )
+    overlay.changePages[trace.traceKey] = changePaging.currentPage
+    const changeRows = changePaging.rows.map((change) => `<tr class="border-b last:border-b-0"><td class="px-2 py-1.5">${escapeHtml(`${change.beforeQty} → ${change.afterQty} ${change.qtyUnit}`)}</td><td class="px-2 py-1.5">${escapeHtml(`${change.afterQty - change.beforeQty} ${change.qtyUnit}`)}</td><td class="px-2 py-1.5">${escapeHtml(change.changedBy)}</td><td class="px-2 py-1.5">${escapeHtml(change.changedAt)}</td><td class="px-2 py-1.5">${escapeHtml(change.reason)}</td></tr>`).join('')
+    return `<article class="rounded-md border p-3" data-wool-warehouse-receipt-trace="${escapeHtml(trace.traceKey)}"><div class="flex flex-wrap items-start justify-between gap-2"><div><div class="font-medium">${escapeHtml(trace.receiptNo)} / ${escapeHtml(trace.lineId)}</div><div class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(trace.receiptId)} / ${escapeHtml(trace.traceKey)}</div></div><div class="text-right text-sm"><div>原始 ${escapeHtml(`${trace.originalQty} ${trace.qtyUnit}`)}</div><div class="font-medium text-blue-700">有效 ${escapeHtml(`${trace.effectiveQty} ${trace.qtyUnit}`)}</div></div></div><div class="mt-2 grid gap-1 text-xs md:grid-cols-2"><div>批次：${escapeHtml(trace.batchNo || '不分批次')}</div><div>送货单：${escapeHtml(trace.deliveryNo || '未填写')}</div><div>接收人：${escapeHtml(trace.receivedBy)}</div><div>接收时间：${escapeHtml(trace.receivedAt)}</div><div>凭证：${escapeHtml(trace.proofFiles.join('、') || '无')}</div><div>差异：${escapeHtml(trace.differenceNote || '无')}</div><div class="md:col-span-2">备注：${escapeHtml(trace.remark || '无')}</div></div><div class="mt-3 overflow-x-auto rounded-md border"><table class="min-w-[760px] w-full text-xs"><thead class="bg-muted/50"><tr><th class="px-2 py-1.5 text-left">修改前 → 修改后</th><th class="px-2 py-1.5 text-left">变化量</th><th class="px-2 py-1.5 text-left">修改人</th><th class="px-2 py-1.5 text-left">时间</th><th class="px-2 py-1.5 text-left">原因</th></tr></thead><tbody>${changeRows || '<tr><td colspan="5" class="px-2 py-3 text-center text-muted-foreground">暂无数量修改历史</td></tr>'}</tbody></table>${renderDetailPager('changes', changePaging, trace.traceKey)}</div></article>`
+  }).join('')
+  const flowRows = flowPaging.rows.map((flow) => `<tr class="border-b last:border-b-0"><td class="px-3 py-2">${escapeHtml(BUSINESS_LABELS[flow.businessType])}</td><td class="px-3 py-2 font-mono text-xs">${escapeHtml(flow.sourceRecordId)}</td><td class="px-3 py-2">${escapeHtml(`${flow.qty} ${flow.unit}`)}</td><td class="px-3 py-2">${flow.flowType === 'TRANSFER' ? `<div><span class="text-xs text-muted-foreground">从：</span>${renderEndpoint(flow.fromWarehouseId, flow.fromLocationId)}</div><div class="mt-1"><span class="text-xs text-muted-foreground">到：</span>${renderEndpoint(flow.toWarehouseId, flow.toLocationId)}</div>` : renderEndpoint(WOOL_DEFAULT_WAREHOUSE_BY_LOCATION[flow.defaultLocationId], flow.defaultLocationId)}</td><td class="px-3 py-2">${escapeHtml(flow.operatedBy)}</td><td class="px-3 py-2">${escapeHtml(flow.operatedAt)}</td><td class="px-3 py-2">${escapeHtml(flow.reason || '—')}</td></tr>`).join('')
   return renderDialog(
     '库存与流水明细',
-    `<div class="grid gap-3 md:grid-cols-2"><div class="rounded-md border p-3 text-sm"><div class="font-medium">${escapeHtml(row.objectSkuCode)} / ${escapeHtml(row.objectName)}</div><div class="mt-1">${escapeHtml(row.woolOrderNo)} / ${escapeHtml(row.productionOrderNo)}</div><div class="mt-1">${escapeHtml(LOCATION_LABELS[row.locationId])}</div><div class="mt-1 font-mono text-xs">${escapeHtml(row.locationId)}</div></div><div class="rounded-md border p-3 text-sm"><div class="font-medium">确认接收明细</div>${receipts.map((item) => `<div class="mt-1 text-xs">${escapeHtml(item)}</div>`).join('') || '<div class="mt-1 text-xs text-muted-foreground">当前对象没有确认接收明细</div>'}</div></div><div class="mt-4 overflow-x-auto rounded-md border"><table class="min-w-[850px] w-full text-sm"><thead class="bg-muted/50"><tr><th class="px-3 py-2 text-left">业务</th><th class="px-3 py-2 text-left">来源记录</th><th class="px-3 py-2 text-left">数量</th><th class="px-3 py-2 text-left">操作人</th><th class="px-3 py-2 text-left">时间</th><th class="px-3 py-2 text-left">原因</th></tr></thead><tbody>${flowRows || '<tr><td colspan="6" class="px-3 py-6 text-center text-muted-foreground">暂无流水</td></tr>'}</tbody></table>${renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: 'wool-warehouse-detail', fieldPrefix: 'wool-warehouse-detail', pageSizeOptions: [10], skipPageRerender: true })}</div>`,
+    `<div class="rounded-md border p-3 text-sm"><div class="font-medium">${escapeHtml(row.objectSkuCode)} / ${escapeHtml(row.objectName)}</div><div class="mt-1">${escapeHtml(row.woolOrderNo)} / ${escapeHtml(row.productionOrderNo)}</div><div class="mt-2">${renderEndpoint(WOOL_DEFAULT_WAREHOUSE_BY_LOCATION[row.locationId], row.locationId)}</div></div><section class="mt-4"><div class="mb-2 font-medium">确认接收明细</div><div class="space-y-3">${receiptCards || '<div class="rounded-md border border-dashed p-4 text-sm text-muted-foreground">当前对象没有确认接收明细</div>'}</div>${renderDetailPager('receipts', receiptPaging)}</section><section class="mt-4"><div class="mb-2 font-medium">仓库流水</div><div class="overflow-x-auto rounded-md border"><table class="min-w-[1100px] w-full text-sm"><thead class="bg-muted/50"><tr><th class="px-3 py-2 text-left">业务</th><th class="px-3 py-2 text-left">来源记录</th><th class="px-3 py-2 text-left">数量</th><th class="px-3 py-2 text-left">起止仓库 / 库位</th><th class="px-3 py-2 text-left">操作人</th><th class="px-3 py-2 text-left">时间</th><th class="px-3 py-2 text-left">原因</th></tr></thead><tbody>${flowRows || '<tr><td colspan="7" class="px-3 py-6 text-center text-muted-foreground">暂无流水</td></tr>'}</tbody></table>${renderDetailPager('flows', flowPaging)}</div></section>`,
     '<button type="button" class="rounded-md border px-3 py-2 text-sm" data-wool-warehouse-action="close-overlay" data-skip-page-rerender="true">关闭</button>',
     states[mode].overlayError,
   )
+}
+
+function operationDraft(
+  overlay: Exclude<WarehouseOverlay, { kind: 'detail' }>,
+  field: string,
+  fallback = '',
+): string {
+  return overlay.draft?.[field] ?? fallback
+}
+
+function renderQuantityFieldError(mode: WarehouseMode, message: string): string {
+  return states[mode].overlayError === message
+    ? `<div class="mt-1 text-xs text-red-700" data-wool-warehouse-field-error>${escapeHtml(message)}</div>`
+    : ''
 }
 
 function renderOperationDialog(mode: WarehouseMode, row: WarehouseListRow, overlay: Exclude<WarehouseOverlay, { kind: 'detail' }>): string {
@@ -595,9 +723,10 @@ function renderOperationDialog(mode: WarehouseMode, row: WarehouseListRow, overl
   if (overlay.kind === 'issue' || overlay.kind === 'return') {
     const maxQty = overlay.kind === 'issue' ? row.quantity : issueReturnBalance(row)
     const label = overlay.kind === 'issue' ? '纱线领用' : '纱线退回'
+    const emptyMessage = `${label}数量不能为空`
     return renderDialog(
       label,
-      `${common}<div class="grid gap-3 md:grid-cols-2">${dialogField('数量', `<input type="number" min="0.001" step="0.001" max="${maxQty}" class="${inputClass}" data-wool-warehouse-dialog-field="qty" data-skip-page-rerender="true">`, '')}${dialogField('操作人', `<input class="${inputClass}" value="毛织仓管" data-wool-warehouse-dialog-field="operator" data-skip-page-rerender="true">`, '')}</div><p class="mt-3 text-xs text-muted-foreground">最多 ${escapeHtml(`${maxQty} ${row.unit}`)}；该动作只形成库存与流水，不改变齐料和加工状态。</p>`,
+      `${common}<div class="grid gap-3 md:grid-cols-2">${dialogField('数量', `<input type="number" min="0.001" step="0.001" max="${maxQty}" class="${inputClass}" value="${escapeHtml(operationDraft(overlay, 'qty'))}" data-wool-warehouse-dialog-field="qty" data-skip-page-rerender="true">${renderQuantityFieldError(mode, emptyMessage)}`, '')}${dialogField('操作人', `<input class="${inputClass}" value="${escapeHtml(operationDraft(overlay, 'operator', '毛织仓管'))}" data-wool-warehouse-dialog-field="operator" data-skip-page-rerender="true">`, '')}</div><p class="mt-3 text-xs text-muted-foreground">最多 ${escapeHtml(`${maxQty} ${row.unit}`)}；该动作只形成库存与流水，不改变齐料和加工状态。</p>`,
       `<button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white" data-wool-warehouse-action="save-${overlay.kind}" data-skip-page-rerender="true">确认${escapeHtml(label)}</button>`,
       states[mode].overlayError,
     )
@@ -605,7 +734,7 @@ function renderOperationDialog(mode: WarehouseMode, row: WarehouseListRow, overl
   if (overlay.kind === 'adjust') {
     return renderDialog(
       '库存调整',
-      `${common}<div class="grid gap-3 md:grid-cols-2">${dialogField('调整后数量', `<input type="number" min="0" step="${row.unit === 'kg' ? '0.001' : '1'}" class="${inputClass}" value="${row.quantity}" data-wool-warehouse-dialog-field="afterQty" data-skip-page-rerender="true">`, '')}${dialogField('操作人', `<input class="${inputClass}" value="毛织仓管" data-wool-warehouse-dialog-field="operator" data-skip-page-rerender="true">`, '')}</div><div class="mt-3">${dialogField('调整原因', `<textarea class="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm" data-wool-warehouse-dialog-field="reason" data-skip-page-rerender="true"></textarea>`, '')}</div>`,
+      `${common}<div class="grid gap-3 md:grid-cols-2">${dialogField('调整后数量', `<input type="number" min="0" step="${row.unit === 'kg' ? '0.001' : '1'}" class="${inputClass}" value="${escapeHtml(operationDraft(overlay, 'afterQty', String(row.quantity)))}" data-wool-warehouse-dialog-field="afterQty" data-skip-page-rerender="true">${renderQuantityFieldError(mode, '调整后数量不能为空')}`, '')}${dialogField('操作人', `<input class="${inputClass}" value="${escapeHtml(operationDraft(overlay, 'operator', '毛织仓管'))}" data-wool-warehouse-dialog-field="operator" data-skip-page-rerender="true">`, '')}</div><div class="mt-3">${dialogField('调整原因', `<textarea class="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm" data-wool-warehouse-dialog-field="reason" data-skip-page-rerender="true">${escapeHtml(operationDraft(overlay, 'reason'))}</textarea>`, '')}</div>`,
       '<button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white" data-wool-warehouse-action="save-adjust" data-skip-page-rerender="true">确认库存调整</button>',
       states[mode].overlayError,
     )
@@ -613,7 +742,7 @@ function renderOperationDialog(mode: WarehouseMode, row: WarehouseListRow, overl
   if (overlay.kind === 'transfer-out') {
     return renderDialog(
       '库存转移',
-      `${common}<div class="space-y-3">${dialogField('目标公共库位', `<select class="${inputClass}" data-wool-warehouse-dialog-field="target" data-skip-page-rerender="true">${renderPublicLocationOptions()}</select>`, '')}<div class="grid gap-3 md:grid-cols-2">${dialogField('转移数量', `<input type="number" min="0.001" step="${row.unit === 'kg' ? '0.001' : '1'}" max="${row.quantity}" class="${inputClass}" data-wool-warehouse-dialog-field="qty" data-skip-page-rerender="true">`, '')}${dialogField('操作人', `<input class="${inputClass}" value="毛织仓管" data-wool-warehouse-dialog-field="operator" data-skip-page-rerender="true">`, '')}</div>${dialogField('转移原因', `<textarea class="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm" data-wool-warehouse-dialog-field="reason" data-skip-page-rerender="true"></textarea>`, '')}</div>`,
+      `${common}<div class="space-y-3">${dialogField('目标公共库位', `<select class="${inputClass}" data-wool-warehouse-dialog-field="target" data-skip-page-rerender="true">${renderPublicLocationOptions(operationDraft(overlay, 'target'))}</select>`, '')}<div class="grid gap-3 md:grid-cols-2">${dialogField('转移数量', `<input type="number" min="0.001" step="${row.unit === 'kg' ? '0.001' : '1'}" max="${row.quantity}" class="${inputClass}" value="${escapeHtml(operationDraft(overlay, 'qty'))}" data-wool-warehouse-dialog-field="qty" data-skip-page-rerender="true">${renderQuantityFieldError(mode, '转移数量不能为空')}`, '')}${dialogField('操作人', `<input class="${inputClass}" value="${escapeHtml(operationDraft(overlay, 'operator', '毛织仓管'))}" data-wool-warehouse-dialog-field="operator" data-skip-page-rerender="true">`, '')}</div>${dialogField('转移原因', `<textarea class="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm" data-wool-warehouse-dialog-field="reason" data-skip-page-rerender="true">${escapeHtml(operationDraft(overlay, 'reason'))}</textarea>`, '')}</div>`,
       '<button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white" data-wool-warehouse-action="save-transfer-out" data-skip-page-rerender="true">确认库存转移</button>',
       states[mode].overlayError,
     )
@@ -622,7 +751,7 @@ function renderOperationDialog(mode: WarehouseMode, row: WarehouseListRow, overl
   const returnable = externalTransferBalance(sourceFlow)
   return renderDialog(
     '转回默认库位',
-    `${common}<div class="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">从 ${escapeHtml(sourceFlow.toWarehouseId || '')} / ${escapeHtml(sourceFlow.toLocationId || '')} 转回 ${escapeHtml(row.locationId)}，最多 ${escapeHtml(`${returnable} ${row.unit}`)}。</div><div class="mt-3 grid gap-3 md:grid-cols-2">${dialogField('转回数量', `<input type="number" min="0.001" step="${row.unit === 'kg' ? '0.001' : '1'}" max="${returnable}" class="${inputClass}" data-wool-warehouse-dialog-field="qty" data-skip-page-rerender="true">`, '')}${dialogField('操作人', `<input class="${inputClass}" value="毛织仓管" data-wool-warehouse-dialog-field="operator" data-skip-page-rerender="true">`, '')}</div><div class="mt-3">${dialogField('转回原因', `<textarea class="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm" data-wool-warehouse-dialog-field="reason" data-skip-page-rerender="true"></textarea>`, '')}</div>`,
+    `${common}<div class="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">从 ${renderEndpoint(sourceFlow.toWarehouseId, sourceFlow.toLocationId)}<div class="mt-2">转回</div>${renderEndpoint(WOOL_DEFAULT_WAREHOUSE_BY_LOCATION[row.locationId], row.locationId)}<div class="mt-2">最多 ${escapeHtml(`${returnable} ${row.unit}`)}。</div></div><div class="mt-3 grid gap-3 md:grid-cols-2">${dialogField('转回数量', `<input type="number" min="0.001" step="${row.unit === 'kg' ? '0.001' : '1'}" max="${returnable}" class="${inputClass}" value="${escapeHtml(operationDraft(overlay, 'qty'))}" data-wool-warehouse-dialog-field="qty" data-skip-page-rerender="true">${renderQuantityFieldError(mode, '转回数量不能为空')}`, '')}${dialogField('操作人', `<input class="${inputClass}" value="${escapeHtml(operationDraft(overlay, 'operator', '毛织仓管'))}" data-wool-warehouse-dialog-field="operator" data-skip-page-rerender="true">`, '')}</div><div class="mt-3">${dialogField('转回原因', `<textarea class="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm" data-wool-warehouse-dialog-field="reason" data-skip-page-rerender="true">${escapeHtml(operationDraft(overlay, 'reason'))}</textarea>`, '')}</div>`,
     '<button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white" data-wool-warehouse-action="save-transfer-back" data-skip-page-rerender="true">确认转回默认库位</button>',
     states[mode].overlayError,
   )
@@ -737,11 +866,37 @@ function refresh(mode: WarehouseMode, options: {
   return true
 }
 
-function dialogValue(field: string): string {
+function dialogRawValue(field: string): string {
   if (typeof document === 'undefined') return ''
   return document.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
     `[data-wool-warehouse-dialog-field="${field}"]`,
-  )?.value.trim() ?? ''
+  )?.value ?? ''
+}
+
+function dialogValue(field: string): string {
+  return dialogRawValue(field).trim()
+}
+
+function requiredDialogNumber(
+  field: string,
+  label: string,
+  options: { allowZero?: boolean } = {},
+): number {
+  const raw = dialogRawValue(field)
+  if (!raw.trim()) throw new Error(`${label}不能为空`)
+  const value = Number(raw.trim())
+  if (!Number.isFinite(value)) throw new Error(`${label}必须是有效数字`)
+  if (options.allowZero ? value < 0 : value <= 0) {
+    throw new Error(`${label}${options.allowZero ? '不能小于 0' : '必须大于 0'}`)
+  }
+  return value
+}
+
+function captureOverlayDraft(
+  overlay: Exclude<WarehouseOverlay, { kind: 'detail' }>,
+): void {
+  const fields = ['qty', 'afterQty', 'reason', 'operator', 'target']
+  overlay.draft = Object.fromEntries(fields.map((field) => [field, dialogRawValue(field)]))
 }
 
 function saveOverlay(mode: WarehouseMode, action: string): void {
@@ -758,7 +913,7 @@ function saveOverlay(mode: WarehouseMode, action: string): void {
         commandId: nextCommandId('ISSUE', row.woolOrderId),
         yarnSkuCode: row.objectSkuCode,
         batchNo: row.batchNo,
-        issuedQty: Number(dialogValue('qty')),
+        issuedQty: requiredDialogNumber('qty', '纱线领用数量'),
         issuedAt: operatedAt,
         issuedBy: operator,
       })
@@ -768,7 +923,7 @@ function saveOverlay(mode: WarehouseMode, action: string): void {
         commandId: nextCommandId('RETURN', row.woolOrderId),
         yarnSkuCode: row.objectSkuCode,
         batchNo: row.batchNo,
-        returnedQty: Number(dialogValue('qty')),
+        returnedQty: requiredDialogNumber('qty', '纱线退回数量'),
         returnedAt: operatedAt,
         returnedBy: operator,
       })
@@ -780,7 +935,7 @@ function saveOverlay(mode: WarehouseMode, action: string): void {
         objectSkuCode: row.objectSkuCode,
         batchNo: row.batchNo,
         defaultLocationId: row.locationId,
-        afterQty: Number(dialogValue('afterQty')),
+        afterQty: requiredDialogNumber('afterQty', '调整后数量', { allowZero: true }),
         reason: dialogValue('reason'),
         operatedAt,
         operatedBy: operator,
@@ -794,9 +949,11 @@ function saveOverlay(mode: WarehouseMode, action: string): void {
         objectSkuCode: row.objectSkuCode,
         batchNo: row.batchNo,
         defaultLocationId: row.locationId,
+        fromWarehouseId: WOOL_DEFAULT_WAREHOUSE_BY_LOCATION[row.locationId],
+        fromLocationId: row.locationId,
         toWarehouseId,
         toLocationId,
-        qty: Number(dialogValue('qty')),
+        qty: requiredDialogNumber('qty', '转移数量'),
         reason: dialogValue('reason'),
         operatedAt,
         operatedBy: operator,
@@ -811,11 +968,9 @@ function saveOverlay(mode: WarehouseMode, action: string): void {
         defaultLocationId: row.locationId,
         fromWarehouseId: row.flow.toWarehouseId,
         fromLocationId: row.flow.toLocationId,
-        toWarehouseId: row.flow.warehouseMode === 'WAIT_PROCESS'
-          ? 'WOOL-WAIT-PROCESS'
-          : 'WOOL-WAIT-HANDOVER',
+        toWarehouseId: WOOL_DEFAULT_WAREHOUSE_BY_LOCATION[row.locationId],
         toLocationId: row.locationId,
-        qty: Number(dialogValue('qty')),
+        qty: requiredDialogNumber('qty', '转回数量'),
         reason: dialogValue('reason'),
         operatedAt,
         operatedBy: operator,
@@ -826,6 +981,7 @@ function saveOverlay(mode: WarehouseMode, action: string): void {
     state.overlayError = ''
     refresh(mode, { table: true, tabs: true, overlays: true, feedback: true })
   } catch (error) {
+    captureOverlayDraft(overlay)
     state.overlayError = error instanceof Error ? error.message : String(error)
     refresh(mode, { table: false, overlays: true })
   }
@@ -917,8 +1073,21 @@ export async function handleCraftWoolWarehouseEvent(
   }
   const detailAction = target.closest<HTMLElement>('[data-wool-warehouse-detail-action]')
   if (detailAction && state.overlay?.kind === 'detail') {
-    if (detailAction.dataset.woolWarehouseDetailAction === 'prev-page') state.overlay.page -= 1
-    if (detailAction.dataset.woolWarehouseDetailAction === 'next-page') state.overlay.page += 1
+    const pager = detailAction.closest<HTMLElement>('[data-wool-warehouse-detail-kind]')
+    const direction = detailAction.dataset.woolWarehouseDetailAction === 'prev-page' ? -1 : 1
+    if (pager?.dataset.woolWarehouseDetailKind === 'receipts') {
+      state.overlay.receiptPage = Math.max(1, state.overlay.receiptPage + direction)
+    }
+    if (pager?.dataset.woolWarehouseDetailKind === 'flows') {
+      state.overlay.flowPage = Math.max(1, state.overlay.flowPage + direction)
+    }
+    if (pager?.dataset.woolWarehouseDetailKind === 'changes') {
+      const traceKey = pager.dataset.traceKey || ''
+      state.overlay.changePages[traceKey] = Math.max(
+        1,
+        (state.overlay.changePages[traceKey] ?? 1) + direction,
+      )
+    }
     refresh(mode, { table: false, overlays: true })
     return true
   }
@@ -979,7 +1148,7 @@ export async function handleCraftWoolWarehouseEvent(
     refresh(mode, { table: true, overlays: true })
     return true
   }
-  if (action === 'restore-column-preferences') {
+  if (action === 'restore-column-settings' || action === 'restore-column-preferences') {
     if (typeof window !== 'undefined') {
       clearListColumnPreferences(window.localStorage, preferenceKey(mode, state.activeTab))
     }
@@ -1000,7 +1169,13 @@ export async function handleCraftWoolWarehouseEvent(
   if (overlayKinds[action]) {
     const kind = overlayKinds[action]
     state.overlay = kind === 'detail'
-      ? { kind, rowId: actionNode.dataset.rowId || '', page: 1 }
+      ? {
+          kind,
+          rowId: actionNode.dataset.rowId || '',
+          receiptPage: 1,
+          flowPage: 1,
+          changePages: {},
+        }
       : { kind, rowId: actionNode.dataset.rowId || '' } as WarehouseOverlay
     state.overlayError = ''
     refresh(mode, { table: false, overlays: true })

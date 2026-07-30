@@ -6,6 +6,7 @@ import {
 } from './queries.ts'
 import { commitWoolStore, readWoolStore, type WoolDomainStore } from './store.ts'
 import { resolveEnabledFactoryWarehouseLocation } from '../factory-internal-warehouse-locations.ts'
+import { WOOL_DEFAULT_WAREHOUSE_BY_LOCATION } from './types.ts'
 import type {
   WoolCommandReceiptValue,
   WoolCommandResultType,
@@ -459,6 +460,8 @@ function externalTransferredQty(
   input: {
     woolOrderId: string
     objectSkuCode: string
+    defaultLocationType: WoolWarehouseFlow['defaultLocationType']
+    defaultWarehouseId: string
     defaultLocationId: WoolDefaultLocationId
     batchNo?: string
     warehouseId: string
@@ -470,16 +473,24 @@ function externalTransferredQty(
       flow.flowType === 'TRANSFER'
       && flow.woolOrderId === input.woolOrderId
       && flow.objectSkuCode === input.objectSkuCode
+      && flow.defaultLocationType === input.defaultLocationType
       && flow.defaultLocationId === input.defaultLocationId
       && flow.batchNo === input.batchNo,
     )
     .reduce((sum, flow) => {
-      if (flow.toWarehouseId === input.warehouseId && flow.toLocationId === input.locationId) {
+      if (
+        flow.fromWarehouseId === input.defaultWarehouseId
+        && flow.fromLocationId === input.defaultLocationId
+        && flow.toWarehouseId === input.warehouseId
+        && flow.toLocationId === input.locationId
+      ) {
         return sum + Math.abs(flow.qty)
       }
       if (
         flow.fromWarehouseId === input.warehouseId
         && flow.fromLocationId === input.locationId
+        && flow.toWarehouseId === input.defaultWarehouseId
+        && flow.toLocationId === input.defaultLocationId
       ) return sum - Math.abs(flow.qty)
       return sum
     }, 0)
@@ -986,6 +997,7 @@ export function transferWoolWarehouseStock(
   const isReturningToDefault = input.toLocationId === input.defaultLocationId
   const fromWarehouseId = input.fromWarehouseId?.trim()
   const fromLocationId = input.fromLocationId?.trim()
+  const defaultWarehouseId = WOOL_DEFAULT_WAREHOUSE_BY_LOCATION[input.defaultLocationId]
   if (isReturningToDefault) {
     if (!fromWarehouseId || !fromLocationId) {
       throw new Error('转回默认库位必须指定原公共仓库和库位')
@@ -993,8 +1005,16 @@ export function transferWoolWarehouseStock(
     if (!isEnabledPublicWarehouseLocation(fromWarehouseId, fromLocationId)) {
       throw new Error('转回来源必须是公共仓库位置主数据中的启用位置')
     }
+    if (toWarehouseId !== defaultWarehouseId) {
+      throw new Error('目标默认仓库与默认库位不对应')
+    }
   } else if (!isEnabledPublicWarehouseLocation(toWarehouseId, input.toLocationId)) {
     throw new Error('库存只能转到公共仓库位置主数据中的启用位置')
+  } else if (
+    (fromWarehouseId && fromWarehouseId !== defaultWarehouseId)
+    || (fromLocationId && fromLocationId !== input.defaultLocationId)
+  ) {
+    throw new Error('来源默认仓库与默认库位不对应')
   }
   const committed = commitWoolStore((draft) => {
     const stockObject = requireStockObject(draft, input)
@@ -1002,6 +1022,8 @@ export function transferWoolWarehouseStock(
       ? externalTransferredQty(draft, {
           woolOrderId: input.woolOrderId,
           objectSkuCode: input.objectSkuCode,
+          defaultLocationType: stockObject.defaultLocationType,
+          defaultWarehouseId,
           defaultLocationId: input.defaultLocationId,
           batchNo: stockObject.batchNo,
           warehouseId: fromWarehouseId!,
@@ -1030,7 +1052,7 @@ export function transferWoolWarehouseStock(
       unit: stockObject.unit,
       sourceRecordType: 'STOCK_TRANSFER',
       sourceRecordId,
-      fromWarehouseId: isReturningToDefault ? fromWarehouseId : undefined,
+      fromWarehouseId: isReturningToDefault ? fromWarehouseId : defaultWarehouseId,
       fromLocationId: isReturningToDefault ? fromLocationId : input.defaultLocationId,
       toWarehouseId,
       toLocationId: input.toLocationId,

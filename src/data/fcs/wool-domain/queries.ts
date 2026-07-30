@@ -136,6 +136,33 @@ export interface WoolWarehouseStockRow {
   completed: boolean
 }
 
+export interface WoolYarnReceiptLineTrace {
+  traceKey: string
+  receiptId: string
+  receiptNo: string
+  lineId: string
+  woolOrderId: string
+  deliveryNo?: string
+  batchNo?: string
+  yarnSkuCode: string
+  yarnName: string
+  originalQty: number
+  effectiveQty: number
+  qtyUnit: 'kg'
+  proofFiles: string[]
+  remark?: string
+  differenceNote?: string
+  receivedAt: string
+  receivedBy: string
+  qtyChanges: WoolQtyChangeLog[]
+}
+
+export interface WoolYarnReceiptLineTraceQuery {
+  woolOrderId: string
+  objectSkuCode?: string
+  batchNo?: string
+}
+
 function requireOrder(woolOrderId: string): WoolWorkOrder {
   const order = readWoolStore().workOrders[woolOrderId]
   if (!order) throw new Error(`找不到毛织加工单 ${woolOrderId}`)
@@ -179,6 +206,60 @@ export function getWoolYarnReceiptLineEffectiveQty(
     recordLineId: line.lineId,
     baseQty: line.receivedQty,
   })
+}
+
+export function listWoolYarnReceiptLineTraces(
+  query: WoolYarnReceiptLineTraceQuery,
+): WoolYarnReceiptLineTrace[] {
+  const store = readWoolStore()
+  return store.yarnReceipts
+    .filter((receipt) => receipt.woolOrderId === query.woolOrderId)
+    .flatMap((receipt) => receipt.lines
+      .filter((line) => !query.objectSkuCode || line.yarnSkuCode === query.objectSkuCode)
+      .filter(() => query.batchNo === undefined || receipt.batchNo === query.batchNo)
+      .map((line): WoolYarnReceiptLineTrace => {
+        const qtyChanges = store.qtyChangeLogs
+          .filter((change) =>
+            change.recordType === 'YARN_RECEIPT'
+            && change.recordId === receipt.receiptId
+            && change.recordLineId === line.lineId,
+          )
+          .sort((left, right) =>
+            left.changedAt.localeCompare(right.changedAt)
+            || left.changeId.localeCompare(right.changeId),
+          )
+        return {
+          traceKey: `${receipt.receiptId}|${line.lineId}`,
+          receiptId: receipt.receiptId,
+          receiptNo: receipt.receiptNo,
+          lineId: line.lineId,
+          woolOrderId: receipt.woolOrderId,
+          deliveryNo: receipt.deliveryNo,
+          batchNo: receipt.batchNo,
+          yarnSkuCode: line.yarnSkuCode,
+          yarnName: line.yarnName,
+          originalQty: line.receivedQty,
+          effectiveQty: resolveWoolEffectiveQty(qtyChanges, {
+            recordType: 'YARN_RECEIPT',
+            recordId: receipt.receiptId,
+            recordLineId: line.lineId,
+            baseQty: line.receivedQty,
+          }),
+          qtyUnit: line.qtyUnit,
+          proofFiles: [...(receipt.proofFiles ?? [])],
+          remark: receipt.remark,
+          differenceNote: line.differenceNote,
+          receivedAt: receipt.receivedAt,
+          receivedBy: receipt.receivedBy,
+          qtyChanges,
+        }
+      }),
+    )
+    .sort((left, right) =>
+      left.receivedAt.localeCompare(right.receivedAt)
+      || left.receiptId.localeCompare(right.receiptId)
+      || left.lineId.localeCompare(right.lineId),
+    )
 }
 
 export function getWoolProcessReportEffectiveQty(

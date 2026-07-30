@@ -180,6 +180,20 @@ export type WoolDefaultLocationId =
   | 'WOOL-WP-YARN-DEFAULT'
   | 'WOOL-WH-CUT-DEFAULT'
   | 'WOOL-WH-GARMENT-DEFAULT'
+export type WoolDefaultWarehouseId =
+  | 'WOOL-WAIT-PROCESS'
+  | 'WOOL-WAIT-HANDOVER'
+
+export const WOOL_WAIT_PROCESS_WAREHOUSE_ID: WoolDefaultWarehouseId = 'WOOL-WAIT-PROCESS'
+export const WOOL_WAIT_HANDOVER_WAREHOUSE_ID: WoolDefaultWarehouseId = 'WOOL-WAIT-HANDOVER'
+export const WOOL_DEFAULT_WAREHOUSE_BY_LOCATION: Record<
+  WoolDefaultLocationId,
+  WoolDefaultWarehouseId
+> = {
+  'WOOL-WP-YARN-DEFAULT': WOOL_WAIT_PROCESS_WAREHOUSE_ID,
+  'WOOL-WH-CUT-DEFAULT': WOOL_WAIT_HANDOVER_WAREHOUSE_ID,
+  'WOOL-WH-GARMENT-DEFAULT': WOOL_WAIT_HANDOVER_WAREHOUSE_ID,
+}
 
 export interface WoolWarehouseFlow {
   flowId: string

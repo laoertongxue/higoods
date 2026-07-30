@@ -6,19 +6,28 @@ import {
   addWoolProcessReport,
   addWoolYarnReceipt,
   adjustWoolWarehouseStock,
+  changeWoolFactQty,
   completeWoolWorkOrder,
   getWoolOutputHandoverAvailableQty,
   getWoolOutputReadiness,
   getWoolProcessingStatus,
   getWoolWarehouseStock,
   issueWoolYarn,
+  listWoolYarnReceiptLineTraces,
   listWoolWarehouseFlows,
   listWoolWorkOrders,
   readWoolStore,
+  replaceWoolStore,
   resetWoolFactWorkflowMock,
   returnWoolYarn,
   transferWoolWarehouseStock,
+  WOOL_WAIT_HANDOVER_WAREHOUSE_ID,
+  WOOL_WAIT_PROCESS_WAREHOUSE_ID,
 } from '../src/data/fcs/wool-task-domain.ts'
+import {
+  listFactoryInternalWarehouses,
+  resolveEnabledFactoryWarehouseLocation,
+} from '../src/data/fcs/factory-internal-warehouse-locations.ts'
 import {
   renderCraftWoolWaitHandoverWarehousePage,
   renderCraftWoolWaitProcessWarehousePage,
@@ -191,37 +200,157 @@ const stockKey = {
   objectSkuCode: transferLine.outputSkuCode,
   defaultLocationId: 'WOOL-WH-GARMENT-DEFAULT' as const,
 }
+const publicWarehouses = listFactoryInternalWarehouses()
+  .filter((warehouse) => warehouse.isEnabled)
+const publicTarget = publicWarehouses
+  .flatMap((warehouse) => warehouse.areaList.flatMap((area) =>
+    area.shelfList.flatMap((shelf) =>
+      shelf.locationList.map((location) => ({ warehouse, location })),
+    ),
+  ))
+  .find(({ warehouse, location }) =>
+    resolveEnabledFactoryWarehouseLocation(warehouse.warehouseId, location.locationId),
+  )!
+const sameLocationOtherWarehouse = publicWarehouses.find((warehouse) =>
+  warehouse.warehouseId !== publicTarget.warehouse.warehouseId
+  && resolveEnabledFactoryWarehouseLocation(warehouse.warehouseId, publicTarget.location.locationId),
+)!
 const availableBeforeTransfer = getWoolOutputHandoverAvailableQty(
   wholeOrder.woolOrderId,
   transferLine.outputSkuCode,
 )
-transferWoolWarehouseStock({
+const transferOut = transferWoolWarehouseStock({
   commandId: 'CHECK-T11-TRANSFER-OUT',
   ...stockKey,
-  toWarehouseId: 'FIW-OWN_WOOL_FACTORY-WAIT_HANDOVER',
-  toLocationId: 'LOC-A-01-01',
+  fromWarehouseId: WOOL_WAIT_HANDOVER_WAREHOUSE_ID,
+  fromLocationId: 'WOOL-WH-GARMENT-DEFAULT',
+  toWarehouseId: publicTarget.warehouse.warehouseId,
+  toLocationId: publicTarget.location.locationId,
   qty: 2,
   reason: '调拨到公共仓库暂存',
   operatedAt: '2026-07-31 10:10:00',
   operatedBy: '毛织仓管',
 })
+assert.equal(transferOut.fromWarehouseId, WOOL_WAIT_HANDOVER_WAREHOUSE_ID)
+assert.equal(transferOut.fromLocationId, 'WOOL-WH-GARMENT-DEFAULT')
+assert.equal(transferOut.toWarehouseId, publicTarget.warehouse.warehouseId)
+assert.equal(transferOut.toLocationId, publicTarget.location.locationId)
 assert.equal(
   getWoolOutputHandoverAvailableQty(wholeOrder.woolOrderId, transferLine.outputSkuCode),
   availableBeforeTransfer - 2,
   '转出默认库位后必须减少逐 SKU 可交出余额',
 )
 transferWoolWarehouseStock({
+  commandId: 'CHECK-T11-TRANSFER-OUT-SAME-LOCATION-OTHER-WAREHOUSE',
+  ...stockKey,
+  fromWarehouseId: WOOL_WAIT_HANDOVER_WAREHOUSE_ID,
+  fromLocationId: 'WOOL-WH-GARMENT-DEFAULT',
+  toWarehouseId: sameLocationOtherWarehouse.warehouseId,
+  toLocationId: publicTarget.location.locationId,
+  qty: 1,
+  reason: '同库位编号转入另一公共仓库',
+  operatedAt: '2026-07-31 10:10:30',
+  operatedBy: '毛织仓管',
+})
+const transferBack = transferWoolWarehouseStock({
   commandId: 'CHECK-T11-TRANSFER-BACK',
   ...stockKey,
-  fromWarehouseId: 'FIW-OWN_WOOL_FACTORY-WAIT_HANDOVER',
-  fromLocationId: 'LOC-A-01-01',
-  toWarehouseId: 'WOOL-WAIT-HANDOVER',
+  fromWarehouseId: publicTarget.warehouse.warehouseId,
+  fromLocationId: publicTarget.location.locationId,
+  toWarehouseId: WOOL_WAIT_HANDOVER_WAREHOUSE_ID,
   toLocationId: 'WOOL-WH-GARMENT-DEFAULT',
   qty: 1,
   reason: '退回毛织默认库位',
   operatedAt: '2026-07-31 10:11:00',
   operatedBy: '毛织仓管',
 })
+assert.equal(transferBack.fromWarehouseId, publicTarget.warehouse.warehouseId)
+assert.equal(transferBack.fromLocationId, publicTarget.location.locationId)
+assert.equal(transferBack.toWarehouseId, WOOL_WAIT_HANDOVER_WAREHOUSE_ID)
+assert.equal(transferBack.toLocationId, 'WOOL-WH-GARMENT-DEFAULT')
+transferWoolWarehouseStock({
+  commandId: 'CHECK-T11-TRANSFER-BACK-FIRST-WAREHOUSE-REST',
+  ...stockKey,
+  fromWarehouseId: publicTarget.warehouse.warehouseId,
+  fromLocationId: publicTarget.location.locationId,
+  toWarehouseId: WOOL_WAIT_HANDOVER_WAREHOUSE_ID,
+  toLocationId: 'WOOL-WH-GARMENT-DEFAULT',
+  qty: 1,
+  reason: '转回第一公共仓剩余库存',
+  operatedAt: '2026-07-31 10:11:05',
+  operatedBy: '毛织仓管',
+})
+const beforeCrossWarehouseMix = JSON.stringify(readWoolStore())
+assert.throws(
+  () => transferWoolWarehouseStock({
+    commandId: 'CHECK-T11-TRANSFER-BACK-MUST-NOT-MIX-WAREHOUSE',
+    ...stockKey,
+    fromWarehouseId: publicTarget.warehouse.warehouseId,
+    fromLocationId: publicTarget.location.locationId,
+    toWarehouseId: WOOL_WAIT_HANDOVER_WAREHOUSE_ID,
+    toLocationId: 'WOOL-WH-GARMENT-DEFAULT',
+    qty: 0.001,
+    reason: '不得借用同库位编号另一仓余额',
+    operatedAt: '2026-07-31 10:11:06',
+    operatedBy: '毛织仓管',
+  }),
+  /可转回余额/,
+)
+assert.equal(JSON.stringify(readWoolStore()), beforeCrossWarehouseMix, '同 locationId 跨公共仓不得混算')
+const beforeWrongWarehouse = JSON.stringify(readWoolStore())
+assert.throws(
+  () => transferWoolWarehouseStock({
+    commandId: 'CHECK-T11-TRANSFER-BACK-WRONG-WAREHOUSE',
+    ...stockKey,
+    fromWarehouseId: publicTarget.warehouse.warehouseId,
+    fromLocationId: publicTarget.location.locationId,
+    toWarehouseId: 'ARBITRARY-WRONG-WAREHOUSE',
+    toLocationId: 'WOOL-WH-GARMENT-DEFAULT',
+    qty: 0.5,
+    reason: '错误目标仓库',
+    operatedAt: '2026-07-31 10:11:10',
+    operatedBy: '毛织仓管',
+  }),
+  /默认仓库|仓库.*库位.*对应/,
+)
+assert.equal(JSON.stringify(readWoolStore()), beforeWrongWarehouse, '错误默认仓库转回必须零写')
+assert.throws(
+  () => transferWoolWarehouseStock({
+    commandId: 'CHECK-T11-TRANSFER-BACK-WRONG-OBJECT-WAREHOUSE',
+    ...yarnStockKey,
+    fromWarehouseId: publicTarget.warehouse.warehouseId,
+    fromLocationId: publicTarget.location.locationId,
+    toWarehouseId: WOOL_WAIT_HANDOVER_WAREHOUSE_ID,
+    toLocationId: 'WOOL-WP-YARN-DEFAULT',
+    qty: 0.01,
+    reason: '纱线错误转回待交出仓',
+    operatedAt: '2026-07-31 10:11:20',
+    operatedBy: '毛织仓管',
+  }),
+  /默认仓库|仓库.*库位.*对应/,
+)
+assert.equal(JSON.stringify(readWoolStore()), beforeWrongWarehouse, '错对象默认仓转回必须零写')
+const invalidTransferStore = readWoolStore()
+const invalidTransfer = invalidTransferStore.warehouseFlows.find((flow) =>
+  flow.sourceRecordId === transferOut.sourceRecordId,
+)!
+invalidTransfer.fromWarehouseId = undefined
+assert.throws(
+  () => replaceWoolStore(invalidTransferStore),
+  /转移流水.*仓库|四端身份/,
+  'store 必须拒绝缺少默认仓库端身份的转移流水',
+)
+const invalidRegistryStore = readWoolStore()
+const invalidRegistryTransfer = invalidRegistryStore.warehouseFlows.find((flow) =>
+  flow.sourceRecordId === transferOut.sourceRecordId,
+)!
+invalidRegistryTransfer.toWarehouseId = sameLocationOtherWarehouse.warehouseId
+invalidRegistryTransfer.toLocationId = 'ARBITRARY-WRONG-LOCATION'
+assert.throws(
+  () => replaceWoolStore(invalidRegistryStore),
+  /公共仓库.*启用位置|registry|仓库.*库位/,
+  'store 必须按 warehouseId + locationId 校验公共仓库注册表',
+)
 assert.equal(
   getWoolOutputHandoverAvailableQty(wholeOrder.woolOrderId, transferLine.outputSkuCode),
   availableBeforeTransfer - 1,
@@ -275,6 +404,55 @@ assert.throws(
   /尚无有效加工填报|没有可交出余额/,
 )
 assert.equal(JSON.stringify(readWoolStore()), noReportSnapshot, '无填报交出失败必须零写')
+
+const traceReceipts = Array.from({ length: 12 }, (_, index) =>
+  addWoolYarnReceipt(issueOrder.woolOrderId, {
+    commandId: `CHECK-T11-TRACE-RECEIPT-${index + 1}`,
+    deliveryNo: `TRACE-DELIVERY-${String(index + 1).padStart(2, '0')}`,
+    batchNo: 'BATCH-TRACE',
+    receivedAt: `2026-07-31 11:${String(index).padStart(2, '0')}:00`,
+    receivedBy: index === 0 ? '仓管 <甲>' : `仓管 ${index + 1}`,
+    proofFiles: index === 0 ? ['凭证<script>alert(1)</script>.jpg'] : [],
+    remark: index === 0 ? '备注 <img src=x onerror=alert(1)>' : `追溯备注 ${index + 1}`,
+    lines: [{
+      yarnSkuCode: 'YARN-A',
+      yarnName: '黑色纱线 <A>',
+      receivedQty: index + 1,
+      differenceNote: index === 0 ? '差异 <svg onload=alert(1)>' : `差异 ${index + 1}`,
+    }],
+  }),
+)
+let traceQty = traceReceipts[0].lines[0].receivedQty
+for (let index = 0; index < 12; index += 1) {
+  traceQty += 0.1
+  changeWoolFactQty({
+    commandId: `CHECK-T11-TRACE-CHANGE-${index + 1}`,
+    recordType: 'YARN_RECEIPT',
+    recordId: traceReceipts[0].receiptId,
+    recordLineId: traceReceipts[0].lines[0].lineId,
+    afterQty: traceQty,
+    reason: index === 0 ? '修改 <script>alert(1)</script>' : `数量复核 ${index + 1}`,
+    changedAt: `2026-07-31 12:${String(index).padStart(2, '0')}:00`,
+    changedBy: index === 0 ? '复核人 <乙>' : `复核人 ${index + 1}`,
+  })
+}
+const receiptTraces = listWoolYarnReceiptLineTraces({
+  woolOrderId: issueOrder.woolOrderId,
+  objectSkuCode: 'YARN-A',
+  batchNo: 'BATCH-TRACE',
+})
+assert.equal(receiptTraces.length, 12, '确认接收详情必须保留 12 条独立接收明细')
+const longTrace = receiptTraces.find((item) =>
+  item.receiptId === traceReceipts[0].receiptId
+  && item.lineId === traceReceipts[0].lines[0].lineId,
+)!
+assert.equal(longTrace.originalQty, 1)
+assert.equal(longTrace.effectiveQty, traceQty)
+assert.equal(longTrace.qtyChanges.length, 12)
+assert.equal(longTrace.qtyChanges[0].beforeQty, 1)
+assert.equal(longTrace.qtyChanges.at(-1)?.afterQty, traceQty)
+assert.equal(longTrace.traceKey, `${longTrace.receiptId}|${longTrace.lineId}`)
+assert.equal(receiptTraces.find((item) => item.receiptId === traceReceipts[1].receiptId)?.qtyChanges.length, 0)
 
 const completeOrder = listWoolWorkOrders()
   .find((order) => order.mockScenarioCode === 'READY_TO_COMPLETE')!

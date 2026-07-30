@@ -79,6 +79,23 @@ const ONBOARDING_CUTTING_FACTORIES = [
 ] as const
 
 let warehouseLocationRegistry: FactoryInternalWarehouse[] | null = null
+const knownWarehouseLocationPairs = new Set<string>()
+
+function warehouseLocationPair(warehouseId: string, locationId: string): string {
+  return `${warehouseId}|${locationId}`
+}
+
+function rememberWarehouseLocations(warehouses: FactoryInternalWarehouse[]): void {
+  for (const warehouse of warehouses) {
+    for (const area of warehouse.areaList) {
+      for (const shelf of area.shelfList) {
+        for (const location of shelf.locationList) {
+          knownWarehouseLocationPairs.add(warehouseLocationPair(warehouse.warehouseId, location.locationId))
+        }
+      }
+    }
+  }
+}
 
 function cloneValue<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
@@ -225,6 +242,7 @@ function ensureWarehouseLocationRegistry(): FactoryInternalWarehouse[] {
       ...buildDefaultFactoryInternalWarehouses(),
       ...buildOnboardingCuttingInternalWarehouses(),
     ]
+    rememberWarehouseLocations(warehouseLocationRegistry)
   }
   return warehouseLocationRegistry
 }
@@ -260,6 +278,31 @@ export function resolveEnabledFactoryWarehouseLocation(
   return undefined
 }
 
+export function resolveFactoryWarehouseLocation(
+  warehouseId: string,
+  locationId: string,
+): ResolvedFactoryWarehouseLocation | undefined {
+  const warehouse = ensureWarehouseLocationRegistry().find((item) =>
+    item.warehouseId === warehouseId,
+  )
+  if (!warehouse) return undefined
+  for (const area of warehouse.areaList) {
+    for (const shelf of area.shelfList) {
+      const location = shelf.locationList.find((item) => item.locationId === locationId)
+      if (location) return cloneValue({ warehouse, area, shelf, location })
+    }
+  }
+  return undefined
+}
+
+export function isKnownFactoryWarehouseLocation(
+  warehouseId: string,
+  locationId: string,
+): boolean {
+  return Boolean(resolveFactoryWarehouseLocation(warehouseId, locationId))
+    || knownWarehouseLocationPairs.has(warehouseLocationPair(warehouseId, locationId))
+}
+
 export function createFactoryWarehouseLocationRegistrySnapshot(): FactoryWarehouseLocationRegistrySnapshot {
   return cloneValue(ensureWarehouseLocationRegistry())
 }
@@ -268,6 +311,8 @@ export function restoreFactoryWarehouseLocationRegistrySnapshot(
   snapshot: FactoryWarehouseLocationRegistrySnapshot,
 ): void {
   const registry = ensureWarehouseLocationRegistry()
+  rememberWarehouseLocations(registry)
+  rememberWarehouseLocations(snapshot)
   registry.splice(0, registry.length, ...cloneValue(snapshot))
 }
 
@@ -351,6 +396,7 @@ export function createFactoryWarehouseShelf(warehouseId: string, areaId?: string
     remark: '',
   }
   area.shelfList.push(shelf)
+  rememberWarehouseLocations([warehouse])
   warehouse.updatedAt = nowTimestamp()
   return cloneValue(shelf)
 }
@@ -375,6 +421,7 @@ export function createFactoryWarehouseLocation(
     remark: '',
   }
   shelf.locationList.push(location)
+  knownWarehouseLocationPairs.add(warehouseLocationPair(warehouse.warehouseId, location.locationId))
   warehouse.updatedAt = nowTimestamp()
   return cloneValue(location)
 }

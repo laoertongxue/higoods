@@ -1,4 +1,6 @@
 import { buildWoolFactWorkflowMockStore } from './mock-data.ts'
+import { isKnownFactoryWarehouseLocation } from '../factory-internal-warehouse-locations.ts'
+import { WOOL_DEFAULT_WAREHOUSE_BY_LOCATION } from './types.ts'
 import type {
   WoolCommandReceiptValue,
   WoolCommandResultType,
@@ -594,16 +596,25 @@ export function validateWoolStore(store: WoolDomainStore): void {
       throw new Error(`毛织存储校验失败：仓库流水 ${flow.flowId} 的来源类型和来源 ID 不能为空`)
     }
     if (flow.flowType === 'TRANSFER') {
-      if (
-        !flow.fromLocationId
-        || !flow.toLocationId
-        || flow.fromLocationId === flow.toLocationId
-        || (
-          flow.fromLocationId !== flow.defaultLocationId
-          && flow.toLocationId !== flow.defaultLocationId
-        )
-      ) {
-        throw new Error(`毛织存储校验失败：转移流水 ${flow.flowId} 的起止库位无效`)
+      const defaultWarehouseId = WOOL_DEFAULT_WAREHOUSE_BY_LOCATION[flow.defaultLocationId]
+      const hasFourEndpoints = Boolean(
+        flow.fromWarehouseId
+        && flow.fromLocationId
+        && flow.toWarehouseId
+        && flow.toLocationId,
+      )
+      const isTransferOut =
+        flow.fromWarehouseId === defaultWarehouseId
+        && flow.fromLocationId === flow.defaultLocationId
+        && Boolean(flow.toWarehouseId && flow.toLocationId)
+        && isKnownFactoryWarehouseLocation(flow.toWarehouseId!, flow.toLocationId!)
+      const isTransferIn =
+        flow.toWarehouseId === defaultWarehouseId
+        && flow.toLocationId === flow.defaultLocationId
+        && Boolean(flow.fromWarehouseId && flow.fromLocationId)
+        && isKnownFactoryWarehouseLocation(flow.fromWarehouseId!, flow.fromLocationId!)
+      if (!hasFourEndpoints || isTransferOut === isTransferIn || (!isTransferOut && !isTransferIn)) {
+        throw new Error(`毛织存储校验失败：转移流水 ${flow.flowId} 的起止仓库库位四端身份或公共仓库启用位置无效`)
       }
     }
     const isSelfDescribingStockFact =
