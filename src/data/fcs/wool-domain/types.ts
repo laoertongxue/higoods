@@ -229,6 +229,7 @@ export interface WoolCompletionSnapshot {
 }
 
 export interface WoolCompletionRecord {
+  completionId: string
   woolOrderId: string
   completedAt: string
   completedBy: string
@@ -295,6 +296,7 @@ export type WoolCommandType =
   | 'ADJUST_WOOL_WAREHOUSE_STOCK'
   | 'TRANSFER_WOOL_WAREHOUSE_STOCK'
   | 'CHANGE_WOOL_FACT_QTY'
+  | 'COMPLETE_WOOL_WORK_ORDER'
 
 export type WoolCommandResultType =
   | 'WOOL_YARN_RECEIPT'
@@ -304,6 +306,7 @@ export type WoolCommandResultType =
   | 'WOOL_YARN_RETURN'
   | 'WOOL_WAREHOUSE_FLOW'
   | 'WOOL_QTY_CHANGE'
+  | 'WOOL_COMPLETION'
 
 export interface WoolCommandReceiptValue {
   version: 1

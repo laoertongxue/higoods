@@ -80,6 +80,7 @@ const WOOL_COMMAND_RESULT_TYPES = new Set<WoolCommandResultType>([
   'WOOL_YARN_RETURN',
   'WOOL_WAREHOUSE_FLOW',
   'WOOL_QTY_CHANGE',
+  'WOOL_COMPLETION',
 ])
 
 const WOOL_COMMAND_RESULT_TYPE_BY_COMMAND: Record<WoolCommandType, WoolCommandResultType> = {
@@ -92,6 +93,7 @@ const WOOL_COMMAND_RESULT_TYPE_BY_COMMAND: Record<WoolCommandType, WoolCommandRe
   ADJUST_WOOL_WAREHOUSE_STOCK: 'WOOL_WAREHOUSE_FLOW',
   TRANSFER_WOOL_WAREHOUSE_STOCK: 'WOOL_WAREHOUSE_FLOW',
   CHANGE_WOOL_FACT_QTY: 'WOOL_QTY_CHANGE',
+  COMPLETE_WOOL_WORK_ORDER: 'WOOL_COMPLETION',
 }
 
 function expectedCommandResultId(value: WoolCommandReceiptValue): string {
@@ -108,6 +110,7 @@ function expectedCommandResultId(value: WoolCommandReceiptValue): string {
   if (value.commandType === 'TRANSFER_WOOL_WAREHOUSE_STOCK') {
     return `WF-STOCK-TRANSFER-${commandToken}`
   }
+  if (value.commandType === 'COMPLETE_WOOL_WORK_ORDER') return `WCOMP-${commandToken}`
   return `WQC-${commandToken}`
 }
 
@@ -210,6 +213,7 @@ export function validateWoolStore(store: WoolDomainStore): void {
     '仓库流水来源事实',
   )
   assertUniqueIds(store.completions, (item) => item.woolOrderId, '完成记录')
+  assertUniqueIds(store.completions, (item) => item.completionId, '完成记录 ID')
   assertUniqueIds(store.machines, (item) => item.machineId, '横机设备')
   assertUniqueIds(store.machineAssociations, (item) => item.machineId, '当前横机关联')
   assertUniqueIds(store.machineAssociationLogs, (item) => item.logId, '横机关联日志')
@@ -665,7 +669,7 @@ export function validateWoolStore(store: WoolDomainStore): void {
       }
       resultWoolOrderId = result.woolOrderId
       resultTargetId = result.woolOrderId
-    } else {
+    } else if (receipt.resultType === 'WOOL_QTY_CHANGE') {
       const result = store.qtyChangeLogs.find((item) => item.changeId === receipt.resultId)
       if (!result) throw new Error(`毛织存储校验失败：命令收据 ${log.operationLogId} 的结果不存在`)
       resultTargetId = result.recordId
@@ -676,6 +680,11 @@ export function validateWoolStore(store: WoolDomainStore): void {
       } else {
         resultWoolOrderId = store.handovers.find((item) => item.handoverId === result.recordId)?.woolOrderId ?? ''
       }
+    } else {
+      const result = store.completions.find((item) => item.completionId === receipt.resultId)
+      if (!result) throw new Error(`毛织存储校验失败：命令收据 ${log.operationLogId} 的结果不存在`)
+      resultWoolOrderId = result.woolOrderId
+      resultTargetId = result.woolOrderId
     }
     if (!resultWoolOrderId || resultWoolOrderId !== log.woolOrderId || resultTargetId !== receipt.targetId) {
       throw new Error(`毛织存储校验失败：命令收据 ${log.operationLogId} 的结果归属无效`)

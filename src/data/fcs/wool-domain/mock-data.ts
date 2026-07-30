@@ -303,6 +303,7 @@ function completion(
     stockQty.set(flow.objectSkuCode, (stockQty.get(flow.objectSkuCode) ?? 0) + signedFlowQty(flow))
   }
   return {
+    completionId: `WCOMP-MOCK-${encodeURIComponent(order.woolOrderId)}`,
     woolOrderId: order.woolOrderId,
     completedAt: '2026-07-30 18:00:00',
     completedBy: '毛织主管',

@@ -61,6 +61,7 @@ const handoverTypeFixture: WoolHandoverRecord = {
 void handoverTypeFixture
 
 const completionTypeFixture: WoolCompletionRecord = {
+  completionId: 'WCOMP-TYPE-CHECK',
   woolOrderId: 'WO-TYPE-CHECK',
   completedAt: '2026-07-30 18:00:00',
   completedBy: '毛织主管',
@@ -2620,12 +2621,61 @@ const completionStockBefore = completionOrder.outputPlanLines.reduce(
   (sum, item) => sum + getWoolOutputStockQty(completionOrder.woolOrderId, item.outputSkuCode),
   0,
 )
-const completion = completeWoolWorkOrder(completionOrder.woolOrderId, {
+assert.throws(
+  () => completeWoolWorkOrder(completionOrder.woolOrderId, {
+    commandId: 'CMD-RECEIPT-CHECK-001',
+    completedAt: '2026-07-30 12:59:00',
+    completedBy: '毛织主管',
+    remark: '验证先存在其他命令收据时完成命令冲突',
+  }),
+  /commandId 已被其他请求占用|幂等冲突/,
+)
+const completionInput = {
   commandId: 'CMD-COMPLETE-CHECK-001',
   completedAt: '2026-07-30 13:00:00',
   completedBy: '毛织主管',
   remark: '业务核对后确认完成',
+}
+const beforeFailedCompletionCommit = readWoolStore()
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: {
+    getItem(key: string) {
+      return storageValues.get(key) ?? null
+    },
+    setItem() {
+      throw new Error('模拟完成命令持久化失败')
+    },
+  },
 })
+assert.throws(
+  () => completeWoolWorkOrder(completionOrder.woolOrderId, completionInput),
+  /模拟完成命令持久化失败/,
+)
+assert.deepEqual(readWoolStore(), beforeFailedCompletionCommit)
+assert.equal(
+  readWoolStore().operationLogs.some((log) =>
+    log.operationLogId === 'WOOL-COMMAND-RECEIPT-CMD-COMPLETE-CHECK-001'
+    || log.operationLogId === 'WOOP-COMPLETE-CMD-COMPLETE-CHECK-001',
+  ),
+  false,
+)
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: {
+    getItem(key: string) {
+      return storageValues.get(key) ?? null
+    },
+    setItem(key: string, value: string) {
+      storageValues.set(key, value)
+    },
+  },
+})
+const completion = completeWoolWorkOrder(completionOrder.woolOrderId, completionInput)
+assert.equal(
+  (completion as WoolCompletionRecord & { completionId?: string }).completionId,
+  'WCOMP-CMD-COMPLETE-CHECK-001',
+)
 assert.equal(getWoolCompletion(completionOrder.woolOrderId)?.completedAt, completion.completedAt)
 assert.equal(listWoolMachineAssociations(completionOrder.woolOrderId).length, 0)
 assert.equal(
@@ -2635,23 +2685,59 @@ assert.equal(
   ),
   completionStockBefore,
 )
-assert.equal(
+assert.deepEqual(
   completeWoolWorkOrder(completionOrder.woolOrderId, {
+    commandId: 'CMD-COMPLETE-CHECK-001',
+    completedAt: '2026-07-30 13:00:00',
+    completedBy: '毛织主管',
+    remark: '业务核对后确认完成',
+  }),
+  completion,
+)
+assert.throws(
+  () => completeWoolWorkOrder(completionOrder.woolOrderId, {
     commandId: 'CMD-COMPLETE-CHECK-001',
     completedAt: '2026-07-30 13:01:00',
     completedBy: '另一个入口',
-  }).completedAt,
-  completion.completedAt,
+    remark: '不同业务载荷不得复用首次完成结果',
+  }),
+  /commandId 已被其他请求占用|幂等冲突/,
+)
+assert.throws(
+  () => addWoolYarnReceipt(reportOrder.woolOrderId, {
+    commandId: 'CMD-COMPLETE-CHECK-001',
+    receivedAt: '2026-07-30 13:02:00',
+    receivedBy: '毛织仓管',
+    lines: [{ yarnSkuCode: 'YARN-A', receivedQty: 1 }],
+  }),
+  /commandId 已被其他请求占用|幂等冲突/,
 )
 assert.equal(readWoolStore().operationLogs.filter((item) =>
   item.woolOrderId === completionOrder.woolOrderId && item.action === 'COMPLETE_WOOL_WORK_ORDER',
 ).length, 1)
+const completionBusinessLog = readWoolStore().operationLogs.find((item) =>
+  item.operationLogId === 'WOOP-COMPLETE-CMD-COMPLETE-CHECK-001'
+)!
+const completionCommandReceipt = readWoolStore().operationLogs.find((item) =>
+  item.operationLogId === 'WOOL-COMMAND-RECEIPT-CMD-COMPLETE-CHECK-001'
+)!
+assert.equal(completionBusinessLog.action, 'COMPLETE_WOOL_WORK_ORDER')
+assert.equal(completionCommandReceipt.action, 'COMMAND_RECEIPT')
+assert.notEqual(completionBusinessLog.operationLogId, completionCommandReceipt.operationLogId)
+assert.deepEqual(
+  (completionCommandReceipt.afterValue as WoolCommandReceiptValue).canonicalPayload,
+  {
+    completedAt: '2026-07-30 13:00:00',
+    completedBy: '毛织主管',
+    remark: '业务核对后确认完成',
+  },
+)
 
 const commandReceiptStore = readWoolStore()
 const commandReceiptLogs = commandReceiptStore.operationLogs.filter((item) =>
   item.action === 'COMMAND_RECEIPT',
 )
-assert(commandReceiptLogs.length >= 9)
+assert(commandReceiptLogs.length >= 10)
 assert(commandReceiptLogs.every((item) =>
   item.objectType === 'WOOL_COMMAND'
   && item.operationLogId.startsWith('WOOL-COMMAND-RECEIPT-'),
@@ -2670,6 +2756,7 @@ assert.deepEqual(
     'ADJUST_WOOL_WAREHOUSE_STOCK',
     'TRANSFER_WOOL_WAREHOUSE_STOCK',
     'CHANGE_WOOL_FACT_QTY',
+    'COMPLETE_WOOL_WORK_ORDER',
   ]),
 )
 function expectedCommandReceiptResultId(value: WoolCommandReceiptValue): string {
@@ -2686,6 +2773,7 @@ function expectedCommandReceiptResultId(value: WoolCommandReceiptValue): string 
   if (value.commandType === 'TRANSFER_WOOL_WAREHOUSE_STOCK') {
     return `WF-STOCK-TRANSFER-${commandToken}`
   }
+  if (value.commandType === 'COMPLETE_WOOL_WORK_ORDER') return `WCOMP-${commandToken}`
   return `WQC-${commandToken}`
 }
 for (const log of commandReceiptLogs) {
@@ -2732,6 +2820,33 @@ reboundReceiptA.afterValue = {
 }
 assert.throws(
   () => validateWoolStore(reboundCommandReceiptStore),
+  /命令收据/,
+)
+const reboundCompletionReceiptStore = structuredClone(commandReceiptStore)
+const reboundCompletionReceipt = reboundCompletionReceiptStore.operationLogs.find((item) =>
+  item.operationLogId === 'WOOL-COMMAND-RECEIPT-CMD-COMPLETE-CHECK-001',
+)!
+const anotherCompletion = reboundCompletionReceiptStore.completions.find((item) =>
+  item.woolOrderId !== completionOrder.woolOrderId
+)!
+reboundCompletionReceipt.afterValue = {
+  ...(reboundCompletionReceipt.afterValue as Record<string, unknown>),
+  resultId: (anotherCompletion as WoolCompletionRecord & { completionId?: string }).completionId,
+}
+assert.throws(
+  () => validateWoolStore(reboundCompletionReceiptStore),
+  /命令收据/,
+)
+const forgedCompletionReceiptStore = structuredClone(commandReceiptStore)
+const forgedCompletionReceipt = forgedCompletionReceiptStore.operationLogs.find((item) =>
+  item.operationLogId === 'WOOL-COMMAND-RECEIPT-CMD-COMPLETE-CHECK-001',
+)!
+forgedCompletionReceipt.afterValue = {
+  ...(forgedCompletionReceipt.afterValue as Record<string, unknown>),
+  resultId: 'WCOMP-CMD-FORGED',
+}
+assert.throws(
+  () => validateWoolStore(forgedCompletionReceiptStore),
   /命令收据/,
 )
 const malformedCommandReceiptStore = structuredClone(commandReceiptStore)
@@ -2795,11 +2910,44 @@ addWoolHandover(associatedOrder.woolOrderId, {
   handedOverAt: '2026-07-30 14:20:00',
   handedOverBy: '毛织主管',
 })
-const associatedCompletion = completeWoolWorkOrder(associatedOrder.woolOrderId, {
+const associatedCompletionInput = {
   commandId: 'CMD-ASSOCIATED-COMPLETE',
   completedAt: '2026-07-30 14:30:00',
   completedBy: '毛织主管',
+}
+const beforeFailedAssociatedCompletion = readWoolStore()
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: {
+    getItem(key: string) {
+      return storageValues.get(key) ?? null
+    },
+    setItem() {
+      throw new Error('模拟设备释放完成命令持久化失败')
+    },
+  },
 })
+assert.throws(
+  () => completeWoolWorkOrder(associatedOrder.woolOrderId, associatedCompletionInput),
+  /模拟设备释放完成命令持久化失败/,
+)
+assert.deepEqual(readWoolStore(), beforeFailedAssociatedCompletion)
+assert.equal(listWoolMachineAssociations(associatedOrder.woolOrderId).length, associatedMachineIds.length)
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: {
+    getItem(key: string) {
+      return storageValues.get(key) ?? null
+    },
+    setItem(key: string, value: string) {
+      storageValues.set(key, value)
+    },
+  },
+})
+const associatedCompletion = completeWoolWorkOrder(
+  associatedOrder.woolOrderId,
+  associatedCompletionInput,
+)
 assert.deepEqual(
   new Set(associatedCompletion.confirmationSnapshot.releasedMachineIds),
   new Set(associatedMachineIds),
@@ -2819,6 +2967,14 @@ assert(associatedMachineIds.every((machineId) =>
 assert(associatedCompletionStore.operationLogs.some((item) =>
   item.woolOrderId === associatedOrder.woolOrderId
   && item.action === 'RELEASE_WOOL_MACHINES_FOR_COMPLETION',
+))
+assert(associatedCompletionStore.operationLogs.some((item) =>
+  item.operationLogId === 'WOOP-COMPLETE-CMD-ASSOCIATED-COMPLETE'
+  && item.action === 'COMPLETE_WOOL_WORK_ORDER',
+))
+assert(associatedCompletionStore.operationLogs.some((item) =>
+  item.operationLogId === 'WOOL-COMMAND-RECEIPT-CMD-ASSOCIATED-COMPLETE'
+  && item.action === 'COMMAND_RECEIPT',
 ))
 
 console.log('PASS task 5: global command receipts, atomic stock, downstream lock, and manual completion')

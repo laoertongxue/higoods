@@ -196,6 +196,9 @@ function findCommandResult(
   if (resultType === 'WOOL_WAREHOUSE_FLOW') {
     return store.warehouseFlows.find((record) => record.flowId === resultId)
   }
+  if (resultType === 'WOOL_COMPLETION') {
+    return store.completions.find((record) => record.completionId === resultId)
+  }
   return store.qtyChangeLogs.find((record) => record.changeId === resultId)
 }
 
@@ -1208,13 +1211,11 @@ export function completeWoolWorkOrder(
   woolOrderId: string,
   input: CompleteWoolWorkOrderInput,
 ): WoolCompletionRecord {
-  const operationLogId = commandRecordId('WOOP-COMPLETE', input.commandId)
-  const current = readWoolStore()
-  const existing = current.completions.find((record) => record.woolOrderId === woolOrderId)
-  if (existing && current.operationLogs.some((log) => log.operationLogId === operationLogId)) {
-    return existing
-  }
-  if (existing) throw new Error('毛织加工单已完成')
+  const descriptor = describeCommand('COMPLETE_WOOL_WORK_ORDER', woolOrderId, input)
+  const retry = resolveCommandRetry<WoolCompletionRecord>(descriptor)
+  if (retry) return retry
+  const completionId = commandRecordId('WCOMP', descriptor.commandId)
+  const operationLogId = commandRecordId('WOOP-COMPLETE', descriptor.commandId)
   const completedBy = requireText(input.completedBy, '完成人')
   const committed = commitWoolStore((draft) => {
     const order = requireUncompleted(draft, woolOrderId)
@@ -1228,6 +1229,7 @@ export function completeWoolWorkOrder(
       completedBy,
     })
     const completion: WoolCompletionRecord = {
+      completionId,
       woolOrderId,
       completedAt: input.completedAt,
       completedBy,
@@ -1252,6 +1254,13 @@ export function completeWoolWorkOrder(
       operatedBy: completedBy,
       remark: completion.remark,
     })
+    appendCommandReceipt(draft, descriptor, {
+      woolOrderId,
+      resultType: 'WOOL_COMPLETION',
+      resultId: completionId,
+      operatedAt: input.completedAt,
+      operatedBy: completedBy,
+    })
   })
-  return committed.completions.find((record) => record.woolOrderId === woolOrderId)!
+  return committed.completions.find((record) => record.completionId === completionId)!
 }
