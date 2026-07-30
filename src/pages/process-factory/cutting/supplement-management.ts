@@ -114,6 +114,7 @@ interface SupplementCandidate {
 
 export type {
   SupplementDraft,
+  SupplementLine,
   SupplementMaterialDemand,
   SupplementProcessWorkOrderRef,
   SupplementRecord,

@@ -35,9 +35,12 @@ export const PICKUP_WAREHOUSE_TRANSACTION_STORAGE_KEY = 'pickupWarehouseTransact
 
 interface PickupWarehouseTransactionJournal {
   status: 'PREPARING' | 'COMMITTED'
+  createdAt: string
   prepBefore: string | null
   ledgerBefore: string | null
 }
+
+const PICKUP_WAREHOUSE_TRANSACTION_STALE_MS = 30_000
 
 export interface PickupRuntimeOverrides {
   supplementRecords?: SupplementRecord[]
@@ -129,12 +132,17 @@ export function recoverPendingPickupWarehouseTransaction(
   }
   if (
     (journal.status !== 'PREPARING' && journal.status !== 'COMMITTED')
+    || !journal.createdAt
+    || !Number.isFinite(Date.parse(journal.createdAt))
     || (journal.prepBefore !== null && typeof journal.prepBefore !== 'string')
     || (journal.ledgerBefore !== null && typeof journal.ledgerBefore !== 'string')
   ) {
     throw new Error('领料原子事务日志格式无效，请联系系统管理员处理。')
   }
   if (journal.status === 'PREPARING') {
+    if (Date.now() - Date.parse(journal.createdAt) < PICKUP_WAREHOUSE_TRANSACTION_STALE_MS) {
+      throw new Error('领料确认正在提交，请稍后重试。')
+    }
     restoreStorageValue(storage, PRODUCTION_MATERIAL_PREP_STORAGE_KEY, journal.prepBefore)
     restoreStorageValue(storage, CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, journal.ledgerBefore)
     invalidateMaterialPrepProjectionCache()
@@ -159,19 +167,22 @@ export function appendPickupSessionWithWarehouseFactsRuntime(
     throw new Error('当前存储不支持原子领料确认，请刷新后重试。')
   }
   recoverPendingPickupWarehouseTransaction(storage)
+  assertPickupNodeHasNoOpenDiscrepancy(input.pickupNodeId, input.pickupNodeVersion, storage)
+  const context = buildPickupRuntimeContext(storage, overrides)
   const prepBefore = storage.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY)
   const ledgerBefore = storage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY)
   const journal: PickupWarehouseTransactionJournal = {
     status: 'PREPARING',
+    createdAt: new Date().toISOString(),
     prepBefore,
     ledgerBefore,
   }
   storage.setItem(PICKUP_WAREHOUSE_TRANSACTION_STORAGE_KEY, JSON.stringify(journal))
   try {
-    const session = appendPickupSessionFromNodeRuntime({
+    const session = appendPickupSessionFromNode({
       ...input,
       warehouseSyncDeferred: false,
-    }, storage, overrides)
+    }, storage, context.demandFacts)
     writeWarehouseFacts(session, storage)
     storage.setItem(PICKUP_WAREHOUSE_TRANSACTION_STORAGE_KEY, JSON.stringify({
       ...journal,

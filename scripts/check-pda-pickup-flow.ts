@@ -50,6 +50,10 @@ const input = {
   idempotencyKey: `pda-check:${node.nodeId}:v${node.version}`,
 }
 const first = appendPickupSessionWithWarehouseFactsRuntime(input, (session, transactionStorage) => {
+  assert(
+    transactionStorage?.getItem(PICKUP_WAREHOUSE_TRANSACTION_STORAGE_KEY)?.includes('"PREPARING"'),
+    '真实原子入口写待加工仓事实期间必须持续保留 PREPARING 崩溃恢复日志',
+  )
   transactionStorage?.setItem?.(
     CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY,
     JSON.stringify({ events: [{ pickupSessionId: session.pickupSessionId }] }),
@@ -97,6 +101,7 @@ crashRecoveryStorage.setItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY, crashPrepBefo
 crashRecoveryStorage.setItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, crashLedgerBefore)
 crashRecoveryStorage.setItem(PICKUP_WAREHOUSE_TRANSACTION_STORAGE_KEY, JSON.stringify({
   status: 'PREPARING',
+  createdAt: '2026-07-30T00:00:00.000Z',
   prepBefore: crashPrepBefore,
   ledgerBefore: crashLedgerBefore,
 }))
@@ -108,6 +113,27 @@ assert(
   && crashRecoveryStorage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) === crashLedgerBefore
   && crashRecoveryStorage.getItem(PICKUP_WAREHOUSE_TRANSACTION_STORAGE_KEY) === null,
   '浏览器在跨键写入中断后，下一次读取必须按 PREPARING 日志恢复确认前快照',
+)
+
+const concurrentStorage = new MemoryStorage()
+concurrentStorage.setItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY, crashPrepBefore)
+concurrentStorage.setItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, crashLedgerBefore)
+concurrentStorage.setItem(PICKUP_WAREHOUSE_TRANSACTION_STORAGE_KEY, JSON.stringify({
+  status: 'PREPARING',
+  createdAt: new Date().toISOString(),
+  prepBefore: crashPrepBefore,
+  ledgerBefore: crashLedgerBefore,
+}))
+let concurrentReadBlocked = false
+try {
+  recoverPendingPickupWarehouseTransaction(concurrentStorage)
+} catch (error) {
+  concurrentReadBlocked = error instanceof Error && error.message.includes('正在提交')
+}
+assert(
+  concurrentReadBlocked
+  && concurrentStorage.getItem(PICKUP_WAREHOUSE_TRANSACTION_STORAGE_KEY)?.includes('"PREPARING"'),
+  '其他标签页遇到仍活跃的 PREPARING 必须阻断读取，不能误回滚正在提交的事务',
 )
 
 console.log('check:pda-pickup-flow passed')
