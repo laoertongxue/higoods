@@ -31,6 +31,11 @@ interface ReleaseWoolMachineAssociationsInput extends WoolMachineActor {
   appendOperationLog?: boolean
 }
 
+interface ReleaseWoolMachineAssociationInput extends WoolMachineActor {
+  reason: WoolMachineAssociationReason
+  associationLogIdPrefix?: string
+}
+
 function requireText(value: string | undefined, label: string): string {
   const normalized = value?.trim() ?? ''
   if (!normalized) throw new Error(`${label}不能为空`)
@@ -130,6 +135,37 @@ export function releaseWoolMachineAssociationsInDraft(
     })
   }
   return released
+}
+
+export function releaseWoolMachineAssociationInDraft(
+  draft: WoolDomainStore,
+  machineId: string,
+  input: ReleaseWoolMachineAssociationInput,
+) {
+  const association = draft.machineAssociations.find((item) => item.machineId === machineId)
+  if (!association) return undefined
+  const operatedBy = requireText(input.operatedBy, '操作人')
+  const operatedAt = requireText(input.operatedAt, '操作时间')
+  const machine = requireMachine(draft, machineId)
+  draft.machineAssociations = draft.machineAssociations.filter(
+    (item) => item.machineId !== machineId,
+  )
+  machine.updatedAt = operatedAt
+  draft.machineAssociationLogs.push({
+    logId: input.associationLogIdPrefix
+      ? `${input.associationLogIdPrefix}-${machineId}`
+      : nextRecordId(
+          draft.machineAssociationLogs.map((item) => item.logId),
+          `WMAL-${input.reason}-${machineId}`,
+        ),
+    machineId,
+    fromWoolOrderId: association.woolOrderId,
+    action: 'UNASSOCIATE',
+    reason: input.reason,
+    operatedAt,
+    operatedBy,
+  })
+  return association
 }
 
 export function replaceWoolMachineAssociations(
@@ -270,11 +306,10 @@ export function changeWoolMachineAvailability(
     const currentAssociation = draft.machineAssociations.find((item) => item.machineId === machineId)
     const beforeStatus = currentAssociation ? 'PRODUCING' : currentMachine.status
     if (currentAssociation) {
-      releaseWoolMachineAssociationsInDraft(draft, currentAssociation.woolOrderId, {
+      releaseWoolMachineAssociationInDraft(draft, machineId, {
         reason: nextStatus === 'REPAIR' ? 'MACHINE_REPAIR' : 'MACHINE_DISABLED',
         operatedAt,
         operatedBy,
-        appendOperationLog: false,
       })
     }
     currentMachine.status = nextStatus as WoolMachineAvailability
