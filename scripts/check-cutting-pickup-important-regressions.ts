@@ -5,11 +5,16 @@ import path from 'node:path'
 import process from 'node:process'
 
 import {
+  appendManualPrepRecord,
+  appendPickupSessionFromNode,
   appendPickupReturnRecord,
+  confirmMaterialPrepRecord,
   createProductionMaterialPrepSeedStore,
   getMaterialPrepOrderProjection,
   hydrateProductionMaterialPrepStore,
   listActivePickupNodes,
+  listMaterialPrepOrderProjections,
+  pickMaterialPrepRecord,
   PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
   serializeProductionMaterialPrepStore,
   stageMaterialPrepRecord,
@@ -18,6 +23,7 @@ import {
   type ProductionMaterialPrepWorkflowStore,
 } from '../src/data/fcs/cutting/production-material-prep.ts'
 import { renderFcsCuttingPrepPage } from '../src/pages/fcs/material-prep/cutting.ts'
+import { listPickupOrderGroups } from '../src/pages/process-factory/cutting/pickup-management-projection.ts'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -345,6 +351,65 @@ function verifySourceAccurateReturnRecovery(): void {
   assert(legacyReturn.returnQty === 10, '没有 sourceAllocations 的旧领料记录必须继续兼容原退回口径')
 }
 
+function verifyHistoryUsesCurrentActiveCarrier(): void {
+  const storage = createStorage(createProductionMaterialPrepSeedStore())
+  const incompleteNode = listActivePickupNodes(storage)
+    .find((node) => node.nodeType === 'INCOMPLETE_PICKABLE')
+  assert(incompleteNode, '混合历史测试必须存在未配齐活动节点')
+  const existingSessionCount = getMaterialPrepOrderProjection(incompleteNode.prepOrderId, storage)
+    ?.pickupSessions.length ?? 0
+
+  appendPickupSessionFromNode({
+    pickupNodeId: incompleteNode.nodeId,
+    pickupNodeVersion: incompleteNode.version,
+    receiverName: '裁床 历史混合测试员',
+    warehouseArea: '待加工仓测试区',
+    locationCode: 'CUT-HISTORY-MIXED-01',
+    waitProcessLedgerEventId: 'check-history-mixed-incomplete-pickup',
+    idempotencyKey: 'check-history-mixed-incomplete-pickup',
+  }, storage)
+
+  const projectionAfterFirstPickup = listMaterialPrepOrderProjections(storage)
+    .find((projection) => projection.order.prepOrderId === incompleteNode.prepOrderId)
+  assert(projectionAfterFirstPickup, '未配齐领取后必须保留配料单投影')
+  for (const [index, line] of projectionAfterFirstPickup.lines.entries()) {
+    if (line.remainingNeedQty <= 0) continue
+    const record = appendManualPrepRecord({
+      prepOrderId: projectionAfterFirstPickup.order.prepOrderId,
+      prepLineId: line.prepLineId,
+      preparedQty: line.remainingNeedQty,
+      rollCount: 1,
+      warehouseArea: '中转仓历史混合测试区',
+      locationCode: `TR-HISTORY-MIXED-${String(index + 1).padStart(3, '0')}`,
+      operatorName: '中转仓 历史混合测试员',
+    }, storage)
+    assert(pickMaterialPrepRecord(record.prepRecordId, '仓库 历史混合测试员', storage), '历史混合测试配料记录必须完成拣货')
+    assert(stageMaterialPrepRecord(record.prepRecordId, '中转仓历史混合测试区', '跟单 历史混合测试员', storage), '历史混合测试配料记录必须完成暂存')
+    assert(confirmMaterialPrepRecord(record.prepRecordId, '中转仓 历史混合测试员', storage), '历史混合测试配料记录必须完成确认')
+  }
+
+  const activeReadyNode = listActivePickupNodes(storage)
+    .find((node) => node.prepOrderId === incompleteNode.prepOrderId)
+  assert(activeReadyNode?.nodeType === 'READY_TO_PICKUP', '未配齐领取一轮后补齐必须形成当前 READY 节点')
+  const historyGroup = listPickupOrderGroups('HISTORY', storage as Storage)
+    .find((group) => group.prepOrderId === incompleteNode.prepOrderId)
+  assert(historyGroup, '未配齐领取一轮后必须保留历史分组')
+  assert(historyGroup.historyPath === 'INCOMPLETE_PICKUP', '历史路径必须继续保留首轮未配齐领取事实')
+  assert(
+    historyGroup.pickupSessionCount === existingSessionCount + 1,
+    '历史分组必须保留新增的未配齐领料会话',
+  )
+  assert(historyGroup.carrierType === activeReadyNode.carrierType, '历史分组当前承载必须与当前活动节点一致')
+  assert(historyGroup.carrierType === 'PALLET', '当前 READY 节点必须使历史分组当前承载显示为托盘')
+  assert(historyGroup.palletId === '', '当前 READY 托盘不得虚构托盘编号')
+  assert(historyGroup.palletDisplayLabel === '待领托盘（暂未编号）', '当前 READY 托盘必须显示未编号标签')
+  assert(historyGroup.readySource === activeReadyNode.readySource, '历史分组当前配齐来源必须与当前活动节点一致')
+  assert(
+    historyGroup.materialRows.every((row) => row.currentLocations.length === 0),
+    '历史分组存在当前 READY 节点时不得显示已释放的旧专属库位',
+  )
+}
+
 function verifyMixedUnitPrepRecords(): void {
   const store = createProductionMaterialPrepSeedStore()
   const mixedRecord = store.prepRecords.find((record) => record.prepRecordId === 'prep-rec-po-0101-mixed-002')
@@ -435,6 +500,7 @@ const failures: string[] = []
 for (const [name, verify] of [
   ['旧存储领料主记录迁移', verifyLegacyPickupSessionMigration],
   ['来源级退回恢复', verifySourceAccurateReturnRecovery],
+  ['历史分组当前承载事实', verifyHistoryUsesCurrentActiveCarrier],
   ['配料记录多单位汇总', verifyMixedUnitPrepRecords],
 ] as const) {
   try {

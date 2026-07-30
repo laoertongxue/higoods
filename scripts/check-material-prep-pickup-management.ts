@@ -14,6 +14,7 @@ import {
   getMaterialPrepOrderProjection,
   getMaterialPrepRecordContext,
   getMaterialPrepRecordItems,
+  hydrateProductionMaterialPrepStore,
   listActivePickupNodes,
   listMaterialPrepOrderProjections,
   materialPrepWorkbenchTabs,
@@ -227,6 +228,46 @@ assert(readyNodes.every((node) =>
 assert(activeNodes.some((node) =>
   node.items.some((item) => item.sourcePrepRecordIds.length >= 2)
 ), '多条已确认配料记录必须能归并到同一待领节点')
+
+const directReadyStorage = new MemoryStorage()
+directReadyStorage.setItem(
+  PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
+  serializeProductionMaterialPrepStore(createProductionMaterialPrepSeedStore()),
+)
+const directReadyNode = listActivePickupNodes(directReadyStorage)
+  .find((node) => node.nodeType === 'READY_TO_PICKUP')
+assert(directReadyNode?.readySource === 'DIRECT_READY', '首次直接配齐节点必须明确标记 DIRECT_READY')
+const serializedDirectReadyStore = directReadyStorage.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY)
+assert(serializedDirectReadyStore, '直接配齐节点快照必须持久化')
+const reloadedDirectReadyStorage = new MemoryStorage()
+reloadedDirectReadyStorage.setItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY, serializedDirectReadyStore)
+assert(
+  listActivePickupNodes(reloadedDirectReadyStorage)
+    .find((node) => node.nodeId === directReadyNode.nodeId)?.readySource === 'DIRECT_READY',
+  '直接配齐节点序列化重载后必须保持 DIRECT_READY',
+)
+const legacyDirectReadyStore = hydrateProductionMaterialPrepStore(reloadedDirectReadyStorage)
+const legacyDirectReadySnapshot = legacyDirectReadyStore.pickupNodeSnapshots
+  .find((snapshot) => snapshot.nodeId === directReadyNode.nodeId) as
+    | (typeof legacyDirectReadyStore.pickupNodeSnapshots[number] & {
+        nodeType?: typeof directReadyNode.nodeType
+        readySource?: typeof directReadyNode.readySource
+      })
+    | undefined
+assert(legacyDirectReadySnapshot, '旧快照兼容测试必须找到直接配齐节点快照')
+delete legacyDirectReadySnapshot.nodeType
+delete legacyDirectReadySnapshot.readySource
+const legacyDirectReadyStorage = new MemoryStorage()
+legacyDirectReadyStorage.setItem(
+  PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
+  serializeProductionMaterialPrepStore(legacyDirectReadyStore),
+)
+assert(
+  listActivePickupNodes(legacyDirectReadyStorage)
+    .find((node) => node.nodeId === directReadyNode.nodeId)?.readySource === 'DIRECT_READY',
+  '缺少新字段的旧直接配齐快照不得误标为 UPGRADED_FROM_INCOMPLETE',
+)
+
 const locationOwners = new Map<string, string>()
 for (const node of incompleteNodes) {
   for (const item of node.items) {

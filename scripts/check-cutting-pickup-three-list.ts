@@ -737,10 +737,16 @@ for (const group of historyGroups) {
   const activeNode = activeNodes.find((node) => node.productionOrderId === group.productionOrderId)
   if (activeNode) {
     assertCurrentAvailableFacts(group, activeNode)
+    assert(group.carrierType === activeNode.carrierType, `${group.productionOrderNo} 历史分组当前承载必须来自活动节点`)
+    assert(group.readySource === activeNode.readySource, `${group.productionOrderNo} 历史分组当前配齐来源必须来自活动节点`)
   } else {
     assert(
       group.materialRows.every((materialRow) => materialRow.currentAvailableQty === 0),
       `${group.productionOrderNo} 没有活动节点时历史物料当前可领数量必须为 0`,
+    )
+    assert(
+      group.materialRows.every((materialRow) => materialRow.currentLocations.length === 0),
+      `${group.productionOrderNo} 没有活动节点时历史物料不得冒充当前库位`,
     )
   }
   const allPicked = group.materialRows.every((materialRow) => materialRow.pickedQty >= materialRow.requiredQty)
