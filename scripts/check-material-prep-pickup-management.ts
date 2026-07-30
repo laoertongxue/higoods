@@ -217,9 +217,13 @@ assert(readyNodes.every((node) =>
   node.carrierType === 'PALLET' &&
   node.palletId === '' &&
   node.palletDisplayLabel === '待领托盘（暂未编号）' &&
-  (node.readySource === 'DIRECT_READY' || node.readySource === 'UPGRADED_FROM_INCOMPLETE') &&
-  node.items.every((item) => item.sourceLocations.length > 0)
+  (node.readySource === 'DIRECT_READY' || node.readySource === 'UPGRADED_FROM_INCOMPLETE')
 ), '已配齐节点必须由未编号托盘承载并记录配齐来源')
+assert(readyNodes.every((node) =>
+  node.items.every((item) =>
+    item.sourceLocations.every((location) => location.sourcePrepRecordIds.length > 0)
+  )
+), '已配齐节点若保留来源库位追溯快照，快照必须关联来源配料记录')
 assert(activeNodes.some((node) =>
   node.items.some((item) => item.sourcePrepRecordIds.length >= 2)
 ), '多条已确认配料记录必须能归并到同一待领节点')
@@ -279,8 +283,31 @@ const upgradedNode = listActivePickupNodes(upgradeStorage)
   .find((node) => node.prepOrderId === incompleteBeforeUpgrade.prepOrderId)
 assert(upgradedNode?.nodeId === incompleteBeforeUpgrade.nodeId, '未配齐升级后必须沿用原活动节点')
 assert(upgradedNode.nodeType === 'READY_TO_PICKUP', '逐项配齐后活动节点必须升级为已配齐')
-assert(upgradedNode.carrierType === 'PALLET', '未配齐升级后必须释放专属库位并改由托盘承载')
-assert(upgradedNode.readySource === 'UPGRADED_FROM_INCOMPLETE', '未配齐升级后必须记录升级来源')
+const upgradedReadyGroups = listPickupOrderGroups('READY', upgradeStorage as Storage)
+const upgradedReadyGroup = upgradedReadyGroups.find((group) =>
+  group.prepOrderId === incompleteBeforeUpgrade.prepOrderId
+)
+assert(upgradedReadyGroup, '未配齐升级后必须进入已配齐待领分组')
+assert(upgradedReadyGroup.carrierType === 'PALLET', '未配齐升级后必须释放专属库位并改由托盘承载')
+assert(upgradedReadyGroup.palletId === '', '未配齐升级后不得虚构托盘编号')
+assert(
+  upgradedReadyGroup.palletDisplayLabel === '待领托盘（暂未编号）',
+  '未配齐升级后必须展示未编号待领托盘',
+)
+assert(
+  upgradedReadyGroup.readySource === 'UPGRADED_FROM_INCOMPLETE',
+  '未配齐升级后必须记录升级来源',
+)
+assert(
+  upgradedReadyGroup.materialRows.every((row) => row.currentLocations.length === 0),
+  '未配齐升级为托盘承载后必须释放旧专属库位，不得继续输出当前位置',
+)
+assert(
+  upgradedNode.items.every((item) =>
+    item.sourceLocations.every((location) => location.sourcePrepRecordIds.length > 0)
+  ),
+  '升级后底层节点若保留来源库位，必须仅作为可追溯快照',
+)
 assert(
   listActivePickupNodes(upgradeStorage)
     .find((node) => node.nodeId === upgradedNode.nodeId)?.readySource === 'UPGRADED_FROM_INCOMPLETE',
