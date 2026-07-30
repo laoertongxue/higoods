@@ -26,6 +26,7 @@ import {
   listSupplementRecords,
   type SupplementRecord,
 } from '../../../data/fcs/cutting/supplement-records.ts'
+import { assertPickupNodeHasNoOpenDiscrepancy } from '../../../data/fcs/cutting/pickup-discrepancy.ts'
 
 export interface PickupRuntimeOverrides {
   supplementRecords?: SupplementRecord[]
@@ -89,6 +90,7 @@ export function appendPickupSessionFromNodeRuntime(
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
   overrides: PickupRuntimeOverrides = {},
 ): PickupSession {
+  assertPickupNodeHasNoOpenDiscrepancy(input.pickupNodeId, input.pickupNodeVersion, storage)
   const context = buildPickupRuntimeContext(storage, overrides)
   return appendPickupSessionFromNode(input, storage, context.demandFacts)
 }

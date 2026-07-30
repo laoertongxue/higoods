@@ -43,7 +43,11 @@ export type PickupDiscrepancyInput = Omit<
 
 export type PickupActiveNodeResolver = (
   pickupNodeId: string,
-) => { nodeId: string; version: number } | null
+) => {
+  nodeId: string
+  version: number
+  items: Array<{ prepLineId: string; materialSku: string; unit: string }>
+} | null
 
 const STORAGE_KEY = 'higood.fcs.cutting.pickup-discrepancies.v1'
 
@@ -99,8 +103,18 @@ export function reportPickupDiscrepancy(
   if (!resolveActiveNode) throw new Error('缺少当前待领节点解析器，不能上报差异。')
   const activeNode = resolveActiveNode(input.pickupNodeId)
   if (!activeNode) throw new Error('当前待领节点已失效，请重新进入领料任务。')
+  if (activeNode.nodeId !== input.pickupNodeId) {
+    throw new Error('当前待领节点身份不一致，请重新进入领料任务。')
+  }
   if (activeNode.version !== input.pickupNodeVersion) {
     throw new Error('当前待领节点版本已更新，请重新核对后再上报差异。')
+  }
+  if (!activeNode.items.some((item) =>
+    item.prepLineId === input.demandLineId
+    && item.materialSku === input.materialSku
+    && item.unit === input.unit
+  )) {
+    throw new Error('差异物料不属于当前待领节点，请重新选择。')
   }
   const records = readRecords(storage)
   const existing = records.find((record) =>

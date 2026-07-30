@@ -56,15 +56,48 @@ const discrepancy = reportPickupDiscrepancy({
   operatorName: '裁床仓管',
   note: '实物少 2 yard',
   photoName: '现场差异.jpg',
-}, storage, (nodeId) => nodeId === 'pickup-node:1' ? { nodeId, version: 3 } : null)
+}, storage, (nodeId) => nodeId === 'pickup-node:1' ? {
+  nodeId,
+  version: 3,
+  items: [{ prepLineId: 'LINE-1', materialSku: 'MAT-001', unit: 'yard' }],
+} : null)
 
 assert.throws(
   () => reportPickupDiscrepancy({
     ...discrepancy,
     pickupNodeVersion: 99,
-  }, storage, (nodeId) => ({ nodeId, version: 3 })),
+  }, storage, (nodeId) => ({
+    nodeId,
+    version: 3,
+    items: [{ prepLineId: 'LINE-1', materialSku: 'MAT-001', unit: 'yard' }],
+  })),
   /节点版本已更新/,
   '写入层必须拒绝伪造或过期节点版本',
+)
+assert.throws(
+  () => reportPickupDiscrepancy({
+    ...discrepancy,
+    discrepancyId: undefined,
+  }, storage, () => ({
+    nodeId: 'pickup-node:other',
+    version: 3,
+    items: [{ prepLineId: 'LINE-1', materialSku: 'MAT-001', unit: 'yard' }],
+  })),
+  /节点身份不一致/,
+  '解析器返回同版本的其他节点也必须拒绝',
+)
+assert.throws(
+  () => reportPickupDiscrepancy({
+    ...discrepancy,
+    demandLineId: 'FAKE-LINE',
+    materialSku: 'FAKE-SKU',
+  }, storage, (nodeId) => ({
+    nodeId,
+    version: 3,
+    items: [{ prepLineId: 'LINE-1', materialSku: 'MAT-001', unit: 'yard' }],
+  })),
+  /物料不属于当前待领节点/,
+  '伪造物料行必须在领域写入层被拒绝',
 )
 
 assert.equal(discrepancy.status, '待主管处理', '差异上报后必须进入待主管处理')
@@ -93,6 +126,11 @@ assert.doesNotThrow(
 )
 
 const pda = readFileSync(new URL('../src/pages/pda-warehouse-wait-process.ts', import.meta.url), 'utf8')
+const runtime = readFileSync(new URL('../src/runtime/fcs/cutting/pickup-management-runtime.ts', import.meta.url), 'utf8')
+assert(
+  runtime.includes('assertPickupNodeHasNoOpenDiscrepancy(input.pickupNodeId, input.pickupNodeVersion, storage)'),
+  '统一领料写入口必须阻断未处理差异，不能只依赖 PDA',
+)
 for (const text of [
   '上报领料差异',
   '叫主管处理',
