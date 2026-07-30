@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict'
-import type { AffectedCheckRoute } from './affected-checks.ts'
+import {
+  routeAffectedChecks,
+  type AffectedCheckRoute,
+} from './affected-checks.ts'
 import {
   instructionContextsEqual,
   parseInstructionContext,
@@ -299,6 +302,16 @@ export function assertTaskReceiptSemantics(receipt: TaskCompletionReceipt): void
   }
 
   assert.equal(receipt.blockers.length, 0, `${receipt.state} 状态的 blockers 必须为空`)
+  assert.deepEqual(
+    receipt.route.changedPaths,
+    receipt.revision.changedPaths,
+    'route.changedPaths 必须与 revision.changedPaths 完全一致',
+  )
+  assert.deepEqual(
+    receipt.route,
+    routeAffectedChecks(receipt.revision.changedPaths),
+    '检查路由必须与 revision.changedPaths 重算结果完全一致',
+  )
   for (const command of requiredCommands(receipt.route)) {
     const result = receipt.checks.find((check) => check.command === command)
     assert(result, `缺少相关检查结果：${command}`)
@@ -322,6 +335,17 @@ export function assertTaskReceiptSemantics(receipt: TaskCompletionReceipt): void
   )
   if (receipt.stageTrace?.required) {
     assert(receipt.stageTrace.valid, '必需阶段轨迹无效')
+    assert.equal(receipt.stageTrace.blockers.length, 0, '有效的必需阶段轨迹 blockers 必须为空')
+    for (const stage of ['trigger', 'artifact', 'implementation', 'final-validation'] as const) {
+      assert(receipt.stageTrace.stages.includes(stage), `必需阶段轨迹缺少 ${stage}`)
+    }
+    const hasSpecReview = receipt.stageTrace.stages.includes('spec-review')
+    const hasCodeQualityReview = receipt.stageTrace.stages.includes('code-quality-review')
+    assert.equal(
+      hasSpecReview,
+      hasCodeQualityReview,
+      '规格审查与代码质量审查必须成对出现',
+    )
   }
 
   if (receipt.state === 'verified') {

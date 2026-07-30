@@ -11,7 +11,10 @@ import {
   type GitRevision,
   type TaskCompletionReceipt,
 } from '../../scripts/workflow-governance/task-receipt.ts'
-import type { AffectedCheckRoute } from '../../scripts/workflow-governance/affected-checks.ts'
+import {
+  routeAffectedChecks,
+  type AffectedCheckRoute,
+} from '../../scripts/workflow-governance/affected-checks.ts'
 import type { InstructionContextReceipt } from '../../scripts/workflow-governance/instruction-context.ts'
 
 const realFetch = globalThis.fetch
@@ -37,14 +40,7 @@ const revision: GitRevision = {
   changedPaths: ['scripts/example.ts'],
 }
 
-const route: AffectedCheckRoute = {
-  changedPaths: revision.changedPaths,
-  fastChecks: ['npm run test:workflow-governance'],
-  governanceChecks: [],
-  fullChecks: [],
-  unknownPaths: [],
-  escalationReasons: [],
-}
+const route: AffectedCheckRoute = routeAffectedChecks(revision.changedPaths)
 
 function instructionContext(options: {
   contentHash?: string
@@ -85,13 +81,19 @@ function validReceipt() {
     instructionBefore: instruction,
     instructionAfter: instruction,
     route,
-    checks: [{
-      command: 'npm run test:workflow-governance',
+    checks: [
+      ...new Set([
+        ...route.fastChecks,
+        ...route.governanceChecks,
+        ...route.fullChecks,
+      ]),
+    ].map((command) => ({
+      command,
       exitCode: 0,
       startedAt: '2026-07-29T10:00:00.000Z',
       finishedAt: '2026-07-29T10:01:00.000Z',
-      invariant: '工作流治理专项测试',
-    }],
+      invariant: '受影响检查路由要求',
+    })),
     codegraph: {
       syncExitCode: 0,
       before: {
@@ -458,6 +460,95 @@ test('运行时解析拒绝结构合法但交付语义伪造的收据', () => {
       },
     })),
     /acceptanceRef/,
+  )
+})
+
+test('运行时解析拒绝协同清空 route 和 checks 的 verified 收据', () => {
+  const forged: TaskCompletionReceipt = {
+    ...validReceipt(),
+    route: {
+      changedPaths: [],
+      fastChecks: [],
+      governanceChecks: [],
+      fullChecks: [],
+      unknownPaths: [],
+      escalationReasons: [],
+    },
+    checks: [],
+  }
+
+  assert.throws(
+    () => parseTaskCompletionReceipt(JSON.stringify(forged)),
+    /检查路由|route/,
+  )
+})
+
+test('协同清空 route 和 checks 的 verified 收据在 fetch 前拒绝交付', async () => {
+  let fetchCalls = 0
+  globalThis.fetch = (async () => {
+    fetchCalls += 1
+    throw new Error('协同伪造收据不应发起远端请求')
+  }) as typeof fetch
+  const forged: TaskCompletionReceipt = {
+    ...validReceipt(),
+    route: {
+      changedPaths: [],
+      fastChecks: [],
+      governanceChecks: [],
+      fullChecks: [],
+      unknownPaths: [],
+      escalationReasons: [],
+    },
+    checks: [],
+  }
+
+  await assert.rejects(
+    recordDelivery(forged, {
+      provider: 'github',
+      target: 'owner/repository@main',
+      revision: 'abc123',
+      providerReceipt: 'https://github.com/owner/repository/commit/abc123',
+    }),
+    /检查路由|route/,
+  )
+  assert.equal(fetchCalls, 0)
+})
+
+test('必需阶段摘要必须包含最小阶段且两阶段审查必须成对出现', () => {
+  const receipt = validReceipt()
+  const instruction = instructionContext({ requireStageTrace: true })
+  const stageTrace = {
+    required: true,
+    valid: true,
+    stages: [],
+    skills: [],
+    blockers: [],
+  } as const
+  assert.throws(
+    () => parseTaskCompletionReceipt(JSON.stringify({
+      ...receipt,
+      instructionContext: instruction,
+      stageTrace,
+    })),
+    /阶段|trigger/,
+  )
+
+  assert.throws(
+    () => parseTaskCompletionReceipt(JSON.stringify({
+      ...receipt,
+      instructionContext: instruction,
+      stageTrace: {
+        ...stageTrace,
+        stages: [
+          'trigger',
+          'artifact',
+          'implementation',
+          'spec-review',
+          'final-validation',
+        ],
+      },
+    })),
+    /审查|成对/,
   )
 })
 
