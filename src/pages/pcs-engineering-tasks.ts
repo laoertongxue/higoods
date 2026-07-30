@@ -5527,7 +5527,7 @@ function submitFirstSampleCreate(): void {
   }
   state.firstSampleCreateOpen = false
   state.firstSampleCreateDraft = initialSampleCreateDraft()
-  pushRuntimeLog('firstSample', result.task.firstSampleTaskId, '新建任务', '已创建独立首版样衣打样任务，并保留商品项目与正式上游来源。')
+  pushRuntimeLog('firstSample', result.task.firstSampleTaskId, '新建任务', '已创建首版样衣打样任务并写入项目关系。')
   setNotice(result.message)
   appStore.navigate(`/pcs/samples/first-sample/${encodeURIComponent(result.task.firstSampleTaskId)}`)
 }
@@ -5692,7 +5692,7 @@ function submitFirstOrderCreate(): void {
   }
   state.firstOrderCreateOpen = false
   state.firstOrderCreateDraft = initialFirstOrderCreateDraft()
-  pushRuntimeLog('firstOrder', result.task.firstOrderSampleTaskId, '新建任务', '已创建独立首单样衣打样任务，并保留商品项目与正式首版样衣来源。')
+  pushRuntimeLog('firstOrder', result.task.firstOrderSampleTaskId, '新建任务', '已创建首单样衣打样任务并写入项目关系。')
   setNotice(result.message)
   appStore.navigate(`/pcs/samples/first-order/${encodeURIComponent(result.task.firstOrderSampleTaskId)}`)
 }
