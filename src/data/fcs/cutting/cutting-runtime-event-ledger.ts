@@ -44,6 +44,8 @@ export interface CuttingRuntimeRefs {
   handoverOrderId?: string
   handoverRecordId?: string
   specialCraftId?: string
+  usageCycleId?: string
+  handoverLegId?: string
 }
 
 export interface RuntimeMaterialSnapshot {
@@ -396,6 +398,7 @@ export type CuttingRuntimeEventPayload =
 export interface CuttingRuntimeEvent {
   eventId: string
   eventNo: string
+  idempotencyKey?: string
   eventType: CuttingRuntimeEventType
   eventSource: CuttingRuntimeEventSource
   eventStatus: CuttingRuntimeEventStatus
@@ -416,6 +419,7 @@ export interface CuttingRuntimeEventLedgerStore {
 }
 
 export interface AppendCuttingRuntimeEventInput {
+  idempotencyKey?: string
   eventType: CuttingRuntimeEventType
   eventSource?: CuttingRuntimeEventSource
   eventStatus?: CuttingRuntimeEventStatus
@@ -466,6 +470,8 @@ function normalizeRefs(raw: unknown): CuttingRuntimeRefs {
     handoverOrderId: toString(value.handoverOrderId),
     handoverRecordId: toString(value.handoverRecordId),
     specialCraftId: toString(value.specialCraftId),
+    usageCycleId: toString(value.usageCycleId),
+    handoverLegId: toString(value.handoverLegId),
   }
 }
 
@@ -558,6 +564,7 @@ function normalizeEvent(raw: unknown): CuttingRuntimeEvent | null {
   return {
     eventId,
     eventNo: toString(value.eventNo) || eventId,
+    idempotencyKey: toString(value.idempotencyKey) || undefined,
     eventType: eventTypeText,
     eventSource: eventSourceText === 'WEB' || eventSourceText === 'MOCK' || eventSourceText === 'WMS' ? eventSourceText : 'PDA',
     eventStatus:
@@ -669,6 +676,8 @@ export function buildCuttingRuntimeEventId(eventType: CuttingRuntimeEventType, r
     refs.cutOrderNo,
     refs.handoverRecordId,
     refs.transferBagCode,
+    refs.usageCycleId,
+    refs.handoverLegId,
     refs.feiTicketIds?.join('-'),
   ].filter(Boolean).join('-') || 'runtime'
   return `cutting-event:${eventTypeCode(eventType)}:${businessKey}:${compactDate(occurredAt)}`
@@ -684,6 +693,7 @@ export function appendCuttingRuntimeEvent(
   const event: CuttingRuntimeEvent = {
     eventId,
     eventNo: `${eventTypeCode(input.eventType)}-${compactDate(occurredAt)}`,
+    idempotencyKey: input.idempotencyKey,
     eventType: input.eventType,
     eventSource: input.eventSource || 'PDA',
     eventStatus: input.eventStatus || '已同步',
@@ -703,6 +713,29 @@ export function appendCuttingRuntimeEvent(
     events: sortEvents(uniqueByEventId([event, ...store.events.filter((item) => item.eventId !== event.eventId)])),
   }, storage)
   return event
+}
+
+export function appendCuttingRuntimeEventIdempotent(
+  input: AppendCuttingRuntimeEventInput & { idempotencyKey: string },
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): {
+  event: CuttingRuntimeEvent
+  appended: boolean
+} {
+  const store = hydrateCuttingRuntimeEventLedgerStore(storage)
+  const existing = store.events.find(
+    (event) => event.idempotencyKey === input.idempotencyKey,
+  )
+  if (existing) {
+    return {
+      event: existing,
+      appended: false,
+    }
+  }
+  return {
+    event: appendCuttingRuntimeEvent(input, storage),
+    appended: true,
+  }
 }
 
 export function listCuttingRuntimeEvents(

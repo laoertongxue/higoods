@@ -1,5 +1,6 @@
 import {
   appendCuttingRuntimeEvent,
+  appendCuttingRuntimeEventIdempotent,
   listCuttingRuntimeEvents,
   listCuttingRuntimeEventsByInventoryScope,
   listCuttingRuntimeEventsByType,
@@ -13,6 +14,13 @@ import {
   type SpecialCraftHandoverPayload,
   type SpecialCraftReturnPayload,
 } from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
+import type { BrowserStorageLike } from '../../../data/browser-storage.ts'
+import {
+  deriveTransferBagLifecycle,
+  type TransferBagLifecycleCycle,
+  type TransferBagLifecycleFact,
+  type TransferBagLifecycleView,
+} from '../../../data/fcs/cutting/transfer-bag-lifecycle.ts'
 import {
   listSpreadingResultGeneratedFeiTickets,
   type GeneratedFeiTicketSourceRecord,
@@ -72,6 +80,13 @@ function compactDate(value: string): string {
   return value.replace(/[^0-9]/g, '').slice(0, 14) || String(Date.now())
 }
 
+export function buildWaitHandoverUsageCycleId(
+  bagCode: string,
+  occurredAt: string,
+): string {
+  return `cycle:${bagCode}:${compactDate(occurredAt)}`
+}
+
 function runtimeRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' ? value as Record<string, unknown> : {}
 }
@@ -83,6 +98,157 @@ function runtimeString(value: unknown): string {
 function runtimeNumber(value: unknown): number {
   const numeric = Number(value)
   return Number.isFinite(numeric) ? numeric : 0
+}
+
+function getWaitHandoverEventUsageCycleId(
+  event: CuttingRuntimeEvent,
+): string {
+  return event.refs.usageCycleId
+    || runtimeString(runtimeRecord(event.payload).usageCycleId)
+}
+
+function isWaitHandoverBagEventForCode(
+  event: CuttingRuntimeEvent,
+  bagCode: string,
+): boolean {
+  if (event.eventStatus === '已取消') return false
+  return event.refs.transferBagCode === bagCode
+    || runtimeString(runtimeRecord(event.payload).bagCode) === bagCode
+    || runtimeString(runtimeRecord(event.payload).transferBagCode) === bagCode
+}
+
+function inferWaitHandoverEventCycleIds(
+  events: CuttingRuntimeEvent[],
+  bagCode: string,
+): Map<string, string> {
+  const result = new Map<string, string>()
+  let currentCycleId = ''
+  for (const event of [...events].sort((left, right) =>
+    left.occurredAt.localeCompare(right.occurredAt)
+    || left.eventId.localeCompare(right.eventId))) {
+    if (!isWaitHandoverBagEventForCode(event, bagCode)) continue
+    const declaredCycleId = getWaitHandoverEventUsageCycleId(event)
+    if (event.eventType === '菲票装袋') {
+      currentCycleId = declaredCycleId
+        || buildWaitHandoverUsageCycleId(bagCode, event.occurredAt)
+    } else if (declaredCycleId) {
+      currentCycleId = declaredCycleId
+    }
+    if (currentCycleId) result.set(event.eventId, currentCycleId)
+  }
+  return result
+}
+
+function toWaitHandoverLifecycleFact(
+  event: CuttingRuntimeEvent,
+  usageCycleId: string,
+): TransferBagLifecycleFact | null {
+  const factType =
+    event.eventType === '菲票装袋'
+      ? 'BAGGING_CONFIRMED'
+      : event.eventType === '中转袋入仓'
+        ? 'INBOUND_CONFIRMED'
+        : event.eventType === '新增交出记录'
+          || event.eventType === '特殊工艺交出'
+          ? 'HANDOVER_CONFIRMED'
+          : event.eventType === '特殊工艺回仓'
+            ? 'SPECIAL_CRAFT_BAG_RETURNED'
+            : null
+  if (!factType) return null
+  return {
+    factId: event.eventId,
+    factType,
+    usageCycleId,
+    handoverLegId: event.refs.handoverLegId,
+    occurredAt: event.occurredAt,
+  }
+}
+
+export function listWaitHandoverLifecycleFacts(
+  bagCode: string,
+  storage: BrowserStorageLike | null = null,
+): TransferBagLifecycleFact[] {
+  const events = listCuttingRuntimeEvents(storage)
+    .filter((event) => isWaitHandoverBagEventForCode(event, bagCode))
+  const inferredCycleIds = inferWaitHandoverEventCycleIds(events, bagCode)
+  return events
+    .map((event) => {
+      const usageCycleId =
+        getWaitHandoverEventUsageCycleId(event)
+        || inferredCycleIds.get(event.eventId)
+        || ''
+      return usageCycleId
+        ? toWaitHandoverLifecycleFact(event, usageCycleId)
+        : null
+    })
+    .filter((fact): fact is TransferBagLifecycleFact => Boolean(fact))
+    .sort((left, right) =>
+      left.occurredAt.localeCompare(right.occurredAt)
+      || left.factId.localeCompare(right.factId))
+}
+
+function listWaitHandoverLifecycleCycles(
+  bagCode: string,
+  facts: TransferBagLifecycleFact[],
+): TransferBagLifecycleCycle[] {
+  const baggingFacts = facts.filter(
+    (fact) => fact.factType === 'BAGGING_CONFIRMED',
+  )
+  return baggingFacts.map((fact) => ({
+    usageCycleId: fact.usageCycleId || '',
+    startedAt: fact.occurredAt,
+  })).filter((cycle) => cycle.usageCycleId)
+}
+
+function resolveWaitHandoverUsageCycleId(
+  bagCode: string,
+  occurredAt: string,
+  storage: BrowserStorageLike | null,
+): string {
+  const latestFact = listWaitHandoverLifecycleFacts(bagCode, storage).at(-1)
+  return latestFact?.usageCycleId
+    || buildWaitHandoverUsageCycleId(bagCode, occurredAt)
+}
+
+export function buildWaitHandoverLifecycleByBagCode(
+  bagCode: string,
+  storage: BrowserStorageLike | null = null,
+): TransferBagLifecycleView {
+  const facts = listWaitHandoverLifecycleFacts(bagCode, storage)
+  return deriveTransferBagLifecycle({
+    carrierId: bagCode,
+    bagCode,
+    cycles: listWaitHandoverLifecycleCycles(bagCode, facts),
+    facts,
+  })
+}
+
+export function buildNextWaitHandoverHandoverLeg(input: {
+  bagCode: string
+  usageCycleId: string
+  events: CuttingRuntimeEvent[]
+}): {
+  handoverLegId: string
+  handoverSequence: number
+} {
+  const handoverLegIds = new Set(
+    input.events
+      .filter((event) =>
+        isWaitHandoverBagEventForCode(event, input.bagCode)
+        && getWaitHandoverEventUsageCycleId(event) === input.usageCycleId
+        && (
+          event.eventType === '新增交出记录'
+          || event.eventType === '特殊工艺交出'
+        ))
+      .map((event) => event.refs.handoverLegId)
+      .filter(Boolean),
+  )
+  const handoverSequence = handoverLegIds.size + 1
+  return {
+    handoverLegId:
+      `${input.usageCycleId}:handover:${handoverSequence}`,
+    handoverSequence,
+  }
 }
 
 function getRuntimeTicketPrintStatus(ticket?: GeneratedFeiTicketSourceRecord): string {
@@ -305,8 +471,14 @@ export function appendWaitHandoverBaggingEvent(input: {
   bagCode: string
   tickets: WaitHandoverRuntimeTicketInput[]
   occurredAt?: string
+  usageCycleId?: string
+  idempotencyKey?: string
+  storage?: BrowserStorageLike | null
 }) {
   const occurredAt = input.occurredAt || new Date().toISOString().slice(0, 16).replace('T', ' ')
+  const usageCycleId =
+    input.usageCycleId
+    || buildWaitHandoverUsageCycleId(input.bagCode, occurredAt)
   const tickets = input.tickets
   const totalPieceQty = tickets.reduce((sum, ticket) => sum + Number(ticket.pieceQty || 0), 0)
   const first = tickets[0]
@@ -331,7 +503,10 @@ export function appendWaitHandoverBaggingEvent(input: {
     baggingBy: input.operator.operatorName,
     baggingAt: occurredAt,
   }
-  return appendCuttingRuntimeEvent({
+  return appendCuttingRuntimeEventIdempotent({
+    idempotencyKey:
+      input.idempotencyKey
+      || `${usageCycleId}:BAGGING_CONFIRMED`,
     eventType: '菲票装袋',
     eventSource: input.source,
     eventStatus: '已同步',
@@ -349,9 +524,10 @@ export function appendWaitHandoverBaggingEvent(input: {
       feiTicketIds: tickets.map((ticket) => ticket.feiTicketId).filter(Boolean),
       feiTicketNos: tickets.map((ticket) => ticket.feiTicketNo).filter(Boolean),
       transferBagCode: input.bagCode,
+      usageCycleId,
     },
     payload,
-  })
+  }, input.storage).event
 }
 
 export function appendWaitHandoverInboundEvent(input: {
@@ -362,8 +538,18 @@ export function appendWaitHandoverInboundEvent(input: {
   locationCode: string
   tickets: WaitHandoverRuntimeTicketInput[]
   occurredAt?: string
+  usageCycleId?: string
+  idempotencyKey?: string
+  storage?: BrowserStorageLike | null
 }) {
   const occurredAt = input.occurredAt || new Date().toISOString().slice(0, 16).replace('T', ' ')
+  const usageCycleId =
+    input.usageCycleId
+    || resolveWaitHandoverUsageCycleId(
+      input.bagCode,
+      occurredAt,
+      input.storage || null,
+    )
   const tickets = input.tickets
   const totalPieceQty = tickets.reduce((sum, ticket) => sum + Number(ticket.pieceQty || 0), 0)
   const first = tickets[0]
@@ -389,7 +575,10 @@ export function appendWaitHandoverInboundEvent(input: {
     totalPieceQty,
     mixedFlag: buildMixedFlag(tickets),
   }
-  return appendCuttingRuntimeEvent({
+  return appendCuttingRuntimeEventIdempotent({
+    idempotencyKey:
+      input.idempotencyKey
+      || `${usageCycleId}:INBOUND_CONFIRMED`,
     eventType: '中转袋入仓',
     eventSource: input.source,
     eventStatus: '已同步',
@@ -407,6 +596,7 @@ export function appendWaitHandoverInboundEvent(input: {
       feiTicketIds: tickets.map((ticket) => ticket.feiTicketId).filter(Boolean),
       feiTicketNos: tickets.map((ticket) => ticket.feiTicketNo).filter(Boolean),
       transferBagCode: input.bagCode,
+      usageCycleId,
     },
     inventoryEffect: {
       inventoryScope: '裁床待交出仓',
@@ -417,7 +607,7 @@ export function appendWaitHandoverInboundEvent(input: {
       toLocationCode: input.locationCode,
     },
     payload,
-  })
+  }, input.storage).event
 }
 
 export function appendWaitHandoverBaggingConfirmEvent(input: {
@@ -496,11 +686,33 @@ export function appendWaitHandoverHandoverRecordEvent(input: {
   fromWarehouseArea: string
   fromLocationCode: string
   occurredAt?: string
+  usageCycleId?: string
+  handoverLegId?: string
+  idempotencyKey?: string
+  storage?: BrowserStorageLike | null
 }) {
   const occurredAt = input.occurredAt || input.payload.submittedAt || new Date().toISOString()
+  const bagCode = input.payload.transferBagUses[0]?.bagCode || ''
+  const usageCycleId =
+    input.usageCycleId
+    || resolveWaitHandoverUsageCycleId(
+      bagCode,
+      occurredAt,
+      input.storage || null,
+    )
+  const handoverLegId =
+    input.handoverLegId
+    || buildNextWaitHandoverHandoverLeg({
+      bagCode,
+      usageCycleId,
+      events: listCuttingRuntimeEvents(input.storage || null),
+    }).handoverLegId
   const feiTicketIds = input.payload.feiTicketItems.map((item) => item.feiTicketId).filter(Boolean)
   const feiTicketNos = input.payload.feiTicketItems.map((item) => item.feiTicketNo).filter(Boolean)
-  return appendCuttingRuntimeEvent({
+  return appendCuttingRuntimeEventIdempotent({
+    idempotencyKey:
+      input.idempotencyKey
+      || `${usageCycleId}:HANDOVER_CONFIRMED:${input.payload.handoverRecordId}`,
     eventType: '新增交出记录',
     eventSource: input.source,
     eventStatus: '已同步',
@@ -513,7 +725,9 @@ export function appendWaitHandoverHandoverRecordEvent(input: {
       handoverRecordId: input.payload.handoverRecordId,
       feiTicketIds,
       feiTicketNos,
-      transferBagCode: input.payload.transferBagUses[0]?.bagCode || '',
+      transferBagCode: bagCode,
+      usageCycleId,
+      handoverLegId,
     },
     inventoryEffect: {
       inventoryScope: '裁床待交出仓',
@@ -524,7 +738,7 @@ export function appendWaitHandoverHandoverRecordEvent(input: {
       fromLocationCode: input.fromLocationCode,
     },
     payload: input.payload,
-  })
+  }, input.storage).event
 }
 
 export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
@@ -537,10 +751,31 @@ export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
   transferBagCode: string
   fromWarehouseArea: string
   occurredAt?: string
+  usageCycleId?: string
+  handoverLegId?: string
+  idempotencyKey?: string
+  storage?: BrowserStorageLike | null
 }) {
   const occurredAt = input.occurredAt || input.payload.handedOverAt || new Date().toISOString()
+  const usageCycleId =
+    input.usageCycleId
+    || resolveWaitHandoverUsageCycleId(
+      input.transferBagCode,
+      occurredAt,
+      input.storage || null,
+    )
+  const handoverLegId =
+    input.handoverLegId
+    || buildNextWaitHandoverHandoverLeg({
+      bagCode: input.transferBagCode,
+      usageCycleId,
+      events: listCuttingRuntimeEvents(input.storage || null),
+    }).handoverLegId
   const totalQty = input.payload.feiTicketItems.reduce((sum, item) => sum + Number(item.pieceQty || 0), 0)
-  return appendCuttingRuntimeEvent({
+  return appendCuttingRuntimeEventIdempotent({
+    idempotencyKey:
+      input.idempotencyKey
+      || `${usageCycleId}:HANDOVER_CONFIRMED:${input.handoverRecordId}`,
     eventType: '特殊工艺交出',
     eventSource: input.source,
     eventStatus: '已同步',
@@ -555,6 +790,8 @@ export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
       feiTicketIds: input.payload.feiTicketItems.map((item) => item.feiTicketId),
       feiTicketNos: input.payload.feiTicketItems.map((item) => item.feiTicketNo),
       transferBagCode: input.transferBagCode,
+      usageCycleId,
+      handoverLegId,
     },
     inventoryEffect: {
       inventoryScope: '裁床待交出仓',
@@ -565,7 +802,7 @@ export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
       fromLocationCode: input.transferBagCode,
     },
     payload: input.payload,
-  })
+  }, input.storage).event
 }
 
 export function appendWaitHandoverSpecialCraftReturnEvent(input: {
@@ -574,10 +811,40 @@ export function appendWaitHandoverSpecialCraftReturnEvent(input: {
   payload: SpecialCraftReturnPayload
   specialCraftId: string
   occurredAt?: string
+  usageCycleId?: string
+  handoverLegId?: string
+  idempotencyKey?: string
+  storage?: BrowserStorageLike | null
 }) {
   const occurredAt = input.occurredAt || input.payload.returnedAt || new Date().toISOString()
+  const bagCode = input.payload.transferBagCode || ''
+  const usageCycleId =
+    input.usageCycleId
+    || (
+      bagCode
+        ? resolveWaitHandoverUsageCycleId(
+          bagCode,
+          occurredAt,
+          input.storage || null,
+        )
+        : ''
+    )
+  const activeHandoverLegId =
+    input.handoverLegId
+    || (
+      bagCode
+        ? buildWaitHandoverLifecycleByBagCode(
+          bagCode,
+          input.storage || null,
+        ).activeHandoverLegId
+        : null
+    )
+    || undefined
   const returnedQty = input.payload.returnedFeiTicketItems.reduce((sum, item) => sum + Number(item.returnedQty || 0), 0)
-  return appendCuttingRuntimeEvent({
+  return appendCuttingRuntimeEventIdempotent({
+    idempotencyKey:
+      input.idempotencyKey
+      || `${usageCycleId || 'ticket-only'}:SPECIAL_CRAFT_RETURN:${input.payload.returnRecordId}`,
     eventType: '特殊工艺回仓',
     eventSource: input.source,
     eventStatus: '已同步',
@@ -591,7 +858,9 @@ export function appendWaitHandoverSpecialCraftReturnEvent(input: {
       specialCraftId: input.specialCraftId,
       feiTicketIds: input.payload.returnedFeiTicketItems.map((item) => item.feiTicketId),
       feiTicketNos: input.payload.returnedFeiTicketItems.map((item) => item.feiTicketNo),
-      transferBagCode: input.payload.transferBagCode,
+      transferBagCode: bagCode,
+      usageCycleId: usageCycleId || undefined,
+      handoverLegId: activeHandoverLegId,
     },
     inventoryEffect: {
       inventoryScope: '裁床待交出仓',
@@ -602,5 +871,5 @@ export function appendWaitHandoverSpecialCraftReturnEvent(input: {
       toLocationCode: input.payload.locationCode,
     },
     payload: input.payload,
-  })
+  }, input.storage).event
 }

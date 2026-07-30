@@ -18,6 +18,15 @@ assert(
 )
 
 const lifecycle = await import(lifecycleModuleUrl.href)
+const runtimeLedger = await import(
+  '../src/data/fcs/cutting/cutting-runtime-event-ledger.ts'
+)
+const waitHandoverRuntime = await import(
+  '../src/pages/process-factory/cutting/wait-handover-runtime.ts'
+)
+const transferBagRuntime = await import(
+  '../src/data/fcs/cutting/transfer-bag-runtime.ts'
+)
 
 assert.deepEqual(
   lifecycle.TRANSFER_BAG_MAIN_STATUS_META,
@@ -243,5 +252,523 @@ assert.equal(ambiguousLegacyCycle.mainStatus, 'IN_USE')
 assert.equal(ambiguousLegacyCycle.flowStage, null)
 assert(ambiguousLegacyCycle.compatibilityBlockedReason)
 assert.deepEqual(ambiguousLegacyCycle.allowedActions, ['SCRAP'])
+
+function createMemoryStorage() {
+  const records = new Map<string, string>()
+  return {
+    getItem(key: string) {
+      return records.get(key) ?? null
+    },
+    setItem(key: string, value: string) {
+      records.set(key, value)
+    },
+    removeItem(key: string) {
+      records.delete(key)
+    },
+  }
+}
+
+assert.equal(
+  typeof runtimeLedger.appendCuttingRuntimeEventIdempotent,
+  'function',
+  '运行时事实账必须提供返回 appended 结果的幂等追加入口',
+)
+assert.equal(
+  typeof waitHandoverRuntime.buildWaitHandoverUsageCycleId,
+  'function',
+  '装袋确认必须生成稳定的使用周期标识',
+)
+assert.equal(
+  typeof waitHandoverRuntime.buildNextWaitHandoverHandoverLeg,
+  'function',
+  '整袋交出必须生成周期内递增的交出流转段',
+)
+assert.equal(
+  typeof waitHandoverRuntime.listWaitHandoverLifecycleFacts,
+  'function',
+  '必须能按物理袋读取统一生命周期事实',
+)
+assert.equal(
+  typeof waitHandoverRuntime.buildWaitHandoverLifecycleByBagCode,
+  'function',
+  'Web、PDA 和主列表必须共用按袋生命周期查询入口',
+)
+assert.equal(
+  typeof transferBagRuntime.buildTransferBagLifecycleCycleFromRuntimeRecord,
+  'function',
+  '旧使用周期必须通过一个集中适配器进入三状态生命周期',
+)
+
+const storage = createMemoryStorage()
+const usageCycleId = waitHandoverRuntime.buildWaitHandoverUsageCycleId(
+  'BAG-TDD-001',
+  '2026-07-30 12:00',
+)
+assert.equal(
+  usageCycleId,
+  'cycle:BAG-TDD-001:202607301200',
+  '使用周期标识必须由袋号和确认装袋时间稳定生成',
+)
+
+const runtimeEventInput = {
+  eventType: '菲票装袋',
+  eventSource: 'WEB',
+  eventStatus: '已同步',
+  occurredAt: '2026-07-30 12:00',
+  operatorId: 'OP-001',
+  operatorName: '测试装袋员',
+  operatorRole: '裁片仓装袋员',
+  idempotencyKey: `${usageCycleId}:BAGGING_CONFIRMED`,
+  refs: {
+    productionOrderId: 'PO-ID-001',
+    productionOrderNo: 'PO-001',
+    cutOrderId: 'CUT-ID-001',
+    cutOrderNo: 'CUT-001',
+    feiTicketIds: ['FT-ID-001'],
+    feiTicketNos: ['FT-001'],
+    transferBagCode: 'BAG-TDD-001',
+    usageCycleId,
+  },
+  payload: {
+    baggingRecordId: 'bagging:BAG-TDD-001:001',
+    bagCode: 'BAG-TDD-001',
+    feiTicketItems: [],
+    totalPieceQty: 10,
+    mixedFlag: false,
+    baggingBy: '测试装袋员',
+    baggingAt: '2026-07-30 12:00',
+  },
+}
+const firstAppend = runtimeLedger.appendCuttingRuntimeEventIdempotent(
+  runtimeEventInput,
+  storage,
+)
+const duplicateAppend = runtimeLedger.appendCuttingRuntimeEventIdempotent(
+  runtimeEventInput,
+  storage,
+)
+assert.equal(firstAppend.appended, true)
+assert.equal(duplicateAppend.appended, false)
+assert.equal(firstAppend.event.eventId, duplicateAppend.event.eventId)
+assert.equal(
+  runtimeLedger.listCuttingRuntimeEvents(storage).length,
+  1,
+  '相同幂等键重复提交不得新增第二条事实',
+)
+assert.equal(firstAppend.event.refs.usageCycleId, usageCycleId)
+
+const firstLeg = waitHandoverRuntime.buildNextWaitHandoverHandoverLeg({
+  bagCode: 'BAG-TDD-001',
+  usageCycleId,
+  events: runtimeLedger.listCuttingRuntimeEvents(storage),
+})
+assert.deepEqual(firstLeg, {
+  handoverLegId: `${usageCycleId}:handover:1`,
+  handoverSequence: 1,
+})
+
+runtimeLedger.appendCuttingRuntimeEventIdempotent({
+  eventType: '新增交出记录',
+  eventSource: 'WEB',
+  eventStatus: '已同步',
+  occurredAt: '2026-07-30 12:30',
+  operatorName: '测试交出员',
+  idempotencyKey: `${usageCycleId}:HANDOVER_CONFIRMED:${firstLeg.handoverLegId}`,
+  refs: {
+    transferBagCode: 'BAG-TDD-001',
+    usageCycleId,
+    handoverLegId: firstLeg.handoverLegId,
+  },
+  payload: {
+    handoverRecordId: 'HANDOVER-001',
+    handoverRecordNo: 'HANDOVER-001',
+    handoverOrderId: 'ORDER-001',
+    handoverOrderNo: 'ORDER-001',
+    status: '待接收',
+    submitSource: 'WEB',
+    sourceWarehouseId: 'cutting-wait-handover',
+    sourceWarehouseName: '裁床待交出仓',
+    receiverType: 'SEWING_TASK',
+    receiverId: 'SEW-001',
+    receiverName: '车缝任务 001',
+    receiverFactoryId: 'FAC-001',
+    receiverFactoryName: '车缝一厂',
+    currentHandedOverQty: 10,
+    unit: '片',
+    bagCount: 1,
+    handoverMode: '整袋交出',
+    submittedAt: '2026-07-30 12:30',
+    submittedBy: '测试交出员',
+    feiTicketItems: [],
+    transferBagUses: [],
+  },
+}, storage)
+
+const secondLeg = waitHandoverRuntime.buildNextWaitHandoverHandoverLeg({
+  bagCode: 'BAG-TDD-001',
+  usageCycleId,
+  events: runtimeLedger.listCuttingRuntimeEvents(storage),
+})
+assert.deepEqual(secondLeg, {
+  handoverLegId: `${usageCycleId}:handover:2`,
+  handoverSequence: 2,
+})
+
+const lifecycleFacts = waitHandoverRuntime.listWaitHandoverLifecycleFacts(
+  'BAG-TDD-001',
+  storage,
+)
+assert.deepEqual(
+  lifecycleFacts.map((fact: { factType: string }) => fact.factType),
+  ['BAGGING_CONFIRMED', 'HANDOVER_CONFIRMED'],
+)
+const runtimeLifecycle =
+  waitHandoverRuntime.buildWaitHandoverLifecycleByBagCode(
+    'BAG-TDD-001',
+    storage,
+  )
+assert.equal(runtimeLifecycle.usageCycleId, usageCycleId)
+assert.equal(runtimeLifecycle.mainStatus, 'IN_USE')
+assert.equal(runtimeLifecycle.flowStage, 'HANDED_OVER_WAITING_RETURN')
+assert.equal(runtimeLifecycle.activeHandoverLegId, firstLeg.handoverLegId)
+
+const actionStorage = createMemoryStorage()
+const actionTicket = {
+  feiTicketId: 'FT-ID-ACTION-001',
+  feiTicketNo: 'FT-ACTION-001',
+  productionOrderId: 'PO-ID-ACTION-001',
+  productionOrderNo: 'PO-ACTION-001',
+  cutOrderId: 'CUT-ID-ACTION-001',
+  cutOrderNo: 'CUT-ACTION-001',
+  spreadingOrderId: 'SPREAD-ID-ACTION-001',
+  spreadingOrderNo: 'SPREAD-ACTION-001',
+  spuCode: 'SPU-ACTION-001',
+  color: '黑色',
+  size: 'M',
+  partCode: 'FRONT',
+  partName: '前幅',
+  pieceQty: 10,
+  pieceSequenceLabel: '1-10',
+  hasSpecialCraft: false,
+  specialCraftDisplay: '无',
+  receiverFactoryDisplay: '无',
+  printStatus: '已打印',
+  voidStatus: '有效',
+}
+const actionCycleId = waitHandoverRuntime.buildWaitHandoverUsageCycleId(
+  'BAG-ACTION-001',
+  '2026-07-30 13:00',
+)
+const actionInput = {
+  source: 'WEB',
+  operator: {
+    operatorId: 'OP-ACTION-001',
+    operatorName: '动作测试员',
+  },
+  bagCode: 'BAG-ACTION-001',
+  tickets: [actionTicket],
+  occurredAt: '2026-07-30 13:00',
+  usageCycleId: actionCycleId,
+  idempotencyKey: `${actionCycleId}:BAGGING_CONFIRMED`,
+  storage: actionStorage,
+}
+const firstBaggingAction =
+  waitHandoverRuntime.appendWaitHandoverBaggingEvent(actionInput)
+const duplicateBaggingAction =
+  waitHandoverRuntime.appendWaitHandoverBaggingEvent(actionInput)
+const actionEvents = runtimeLedger.listCuttingRuntimeEvents(actionStorage)
+assert.equal(actionEvents.length, 1, '装袋动作重复提交不得写入第二条事件')
+assert.equal(actionEvents[0].refs.usageCycleId, actionCycleId)
+assert.equal(
+  actionEvents[0].idempotencyKey,
+  `${actionCycleId}:BAGGING_CONFIRMED`,
+)
+assert.equal(firstBaggingAction.eventId, duplicateBaggingAction.eventId)
+assert.equal(
+  waitHandoverRuntime
+    .buildWaitHandoverLifecycleByBagCode('BAG-ACTION-001', actionStorage)
+    .flowStage,
+  'PACKED',
+)
+
+const inboundActionInput = {
+  source: 'WEB',
+  operator: {
+    operatorId: 'OP-ACTION-002',
+    operatorName: '入仓测试员',
+  },
+  bagCode: 'BAG-ACTION-001',
+  warehouseArea: 'A 区',
+  locationCode: 'A-01-01',
+  tickets: [actionTicket],
+  occurredAt: '2026-07-30 13:10',
+  usageCycleId: actionCycleId,
+  idempotencyKey: `${actionCycleId}:INBOUND_CONFIRMED`,
+  storage: actionStorage,
+}
+const firstInboundAction =
+  waitHandoverRuntime.appendWaitHandoverInboundEvent(inboundActionInput)
+const duplicateInboundAction =
+  waitHandoverRuntime.appendWaitHandoverInboundEvent(inboundActionInput)
+assert.equal(firstInboundAction.eventId, duplicateInboundAction.eventId)
+assert.equal(
+  runtimeLedger.listCuttingRuntimeEvents(actionStorage).length,
+  2,
+  '入仓动作重复提交不得写入第二条事件',
+)
+assert.equal(firstInboundAction.refs.usageCycleId, actionCycleId)
+assert.equal(
+  waitHandoverRuntime
+    .buildWaitHandoverLifecycleByBagCode('BAG-ACTION-001', actionStorage)
+    .flowStage,
+  'INBOUND_STORED',
+)
+
+const handoverPayload = {
+  handoverOrderId: 'HANDOVER-ORDER-ACTION-001',
+  handoverOrderNo: 'JCD-ACTION-001',
+  handoverRecordId: 'HANDOVER-RECORD-ACTION-001',
+  handoverRecordNo: 'JCJL-ACTION-001',
+  receiverType: '车缝厂',
+  receiverId: 'SEWING-FACTORY-ACTION-001',
+  receiverName: '测试车缝厂',
+  transferBagUses: [{
+    bagUseId: actionCycleId,
+    bagCode: 'BAG-ACTION-001',
+    containedFeiTicketIds: [actionTicket.feiTicketId],
+    totalPieceQty: 10,
+  }],
+  feiTicketItems: [{
+    feiTicketId: actionTicket.feiTicketId,
+    feiTicketNo: actionTicket.feiTicketNo,
+    pieceQty: 10,
+    unit: '片',
+  }],
+  currentHandedOverQty: 10,
+  submittedAt: '2026-07-30 13:20',
+  submittedBy: '交出测试员',
+}
+const handoverActionInput = {
+  source: 'WEB',
+  operator: {
+    operatorId: 'OP-ACTION-003',
+    operatorName: '交出测试员',
+  },
+  payload: handoverPayload,
+  fromWarehouseArea: 'A 区',
+  fromLocationCode: 'A-01-01',
+  occurredAt: '2026-07-30 13:20',
+  usageCycleId: actionCycleId,
+  idempotencyKey:
+    `${actionCycleId}:HANDOVER_CONFIRMED:${handoverPayload.handoverRecordId}`,
+  storage: actionStorage,
+}
+const firstHandoverAction =
+  waitHandoverRuntime.appendWaitHandoverHandoverRecordEvent(
+    handoverActionInput,
+  )
+const duplicateHandoverAction =
+  waitHandoverRuntime.appendWaitHandoverHandoverRecordEvent(
+    handoverActionInput,
+  )
+assert.equal(firstHandoverAction.eventId, duplicateHandoverAction.eventId)
+assert.equal(
+  runtimeLedger.listCuttingRuntimeEvents(actionStorage).length,
+  3,
+  '整袋交出动作重复提交不得写入第二条事件',
+)
+assert.equal(firstHandoverAction.refs.usageCycleId, actionCycleId)
+assert.equal(
+  firstHandoverAction.refs.handoverLegId,
+  `${actionCycleId}:handover:1`,
+)
+assert.equal(
+  waitHandoverRuntime
+    .buildWaitHandoverLifecycleByBagCode('BAG-ACTION-001', actionStorage)
+    .flowStage,
+  'HANDED_OVER_WAITING_RETURN',
+)
+
+const specialReturnPayload = {
+  returnRecordId: 'SPECIAL-RETURN-ACTION-001',
+  returnRecordNo: 'TH-ACTION-001',
+  sourceHandoverOrderId: handoverPayload.handoverOrderId,
+  sourceHandoverOrderNo: handoverPayload.handoverOrderNo,
+  sourceHandoverRecordId: handoverPayload.handoverRecordId,
+  sourceHandoverRecordNo: handoverPayload.handoverRecordNo,
+  receiverFactoryId: 'CRAFT-FACTORY-ACTION-001',
+  receiverFactoryName: '测试工艺厂',
+  transferBagCode: 'BAG-ACTION-001',
+  warehouseName: '裁床待交出仓',
+  craftType: '印花',
+  returnedFeiTicketItems: [{
+    feiTicketId: actionTicket.feiTicketId,
+    feiTicketNo: actionTicket.feiTicketNo,
+    specialCraftId: 'SPECIAL-CRAFT-ACTION-001',
+    craftType: '印花',
+    partName: '前幅',
+    size: 'M',
+    expectedQty: 10,
+    returnedQty: 10,
+    unit: '片',
+    returnStatus: '已回仓',
+  }],
+  warehouseArea: '特殊工艺回仓区',
+  locationCode: 'SC-01',
+  returnedAt: '2026-07-30 13:40',
+  returnedBy: '回仓测试员',
+}
+const specialReturnActionInput = {
+  source: 'WEB',
+  operator: {
+    operatorId: 'OP-ACTION-004',
+    operatorName: '回仓测试员',
+  },
+  payload: specialReturnPayload,
+  specialCraftId: 'SPECIAL-CRAFT-ACTION-001',
+  occurredAt: '2026-07-30 13:40',
+  usageCycleId: actionCycleId,
+  handoverLegId: `${actionCycleId}:handover:1`,
+  idempotencyKey:
+    `${actionCycleId}:SPECIAL_CRAFT_BAG_RETURNED:${specialReturnPayload.returnRecordId}`,
+  storage: actionStorage,
+}
+const firstSpecialReturnAction =
+  waitHandoverRuntime.appendWaitHandoverSpecialCraftReturnEvent(
+    specialReturnActionInput,
+  )
+const duplicateSpecialReturnAction =
+  waitHandoverRuntime.appendWaitHandoverSpecialCraftReturnEvent(
+    specialReturnActionInput,
+  )
+assert.equal(
+  firstSpecialReturnAction.eventId,
+  duplicateSpecialReturnAction.eventId,
+)
+assert.equal(
+  runtimeLedger.listCuttingRuntimeEvents(actionStorage).length,
+  4,
+  '有袋特殊工艺回仓重复提交不得写入第二条事件',
+)
+assert.equal(firstSpecialReturnAction.refs.usageCycleId, actionCycleId)
+assert.equal(
+  firstSpecialReturnAction.refs.handoverLegId,
+  `${actionCycleId}:handover:1`,
+)
+assert.equal(
+  waitHandoverRuntime
+    .buildWaitHandoverLifecycleByBagCode('BAG-ACTION-001', actionStorage)
+    .flowStage,
+  'INBOUND_STORED',
+)
+
+const specialHandoverPayload = {
+  handoverOrderId: 'SPECIAL-HANDOVER-ORDER-ACTION-002',
+  handoverRecordId: 'SPECIAL-HANDOVER-RECORD-ACTION-002',
+  craftCategory: '特种工艺',
+  craftType: '绣花',
+  receiverFactoryId: 'CRAFT-FACTORY-ACTION-002',
+  receiverFactoryName: '测试绣花厂',
+  feiTicketItems: [{
+    feiTicketId: actionTicket.feiTicketId,
+    feiTicketNo: actionTicket.feiTicketNo,
+    specialCraftId: 'SPECIAL-CRAFT-ACTION-002',
+    partName: '前幅',
+    size: 'M',
+    pieceQty: 10,
+  }],
+  handedOverAt: '2026-07-30 13:50',
+  handedOverBy: '工艺交出测试员',
+}
+const specialHandoverAction =
+  waitHandoverRuntime.appendWaitHandoverSpecialCraftHandoverEvent({
+    source: 'WEB',
+    operator: {
+      operatorId: 'OP-ACTION-005',
+      operatorName: '工艺交出测试员',
+    },
+    payload: specialHandoverPayload,
+    handoverOrderId: specialHandoverPayload.handoverOrderId,
+    handoverRecordId: specialHandoverPayload.handoverRecordId,
+    specialCraftId: 'SPECIAL-CRAFT-ACTION-002',
+    transferBagCode: 'BAG-ACTION-001',
+    fromWarehouseArea: '特殊工艺回仓区',
+    occurredAt: '2026-07-30 13:50',
+    usageCycleId: actionCycleId,
+    storage: actionStorage,
+  })
+assert.equal(specialHandoverAction.refs.usageCycleId, actionCycleId)
+assert.equal(
+  specialHandoverAction.refs.handoverLegId,
+  `${actionCycleId}:handover:2`,
+  '同一使用周期再次交出必须进入新的流转段',
+)
+assert.equal(
+  waitHandoverRuntime
+    .buildWaitHandoverLifecycleByBagCode('BAG-ACTION-001', actionStorage)
+    .flowStage,
+  'HANDED_OVER_WAITING_RETURN',
+)
+
+const runtimeCycleBase = {
+  cycleId: 'runtime-cycle-001',
+  cycleNo: 'CYCLE-001',
+  carrierId: 'carrier:BAG-RUNTIME-001',
+  carrierCode: 'BAG-RUNTIME-001',
+  carrierType: 'bag',
+  sewingTaskId: '',
+  sewingTaskNo: '',
+  sewingFactoryId: '',
+  sewingFactoryName: '',
+  styleCode: 'STYLE-001',
+  spuCode: 'SPU-001',
+  skuSummary: 'SKU-001',
+  colorSummary: '黑色',
+  sizeSummary: 'M',
+  cycleStatus: 'PACKING',
+  status: 'loaded',
+  packedTicketCount: 1,
+  packedCutOrderCount: 1,
+  startedAt: '2026-07-30 14:00',
+  dispatchAt: '',
+  dispatchBy: '',
+  signoffStatus: 'PENDING',
+  note: '',
+}
+assert.deepEqual(
+  transferBagRuntime.buildTransferBagLifecycleCycleFromRuntimeRecord(
+    runtimeCycleBase,
+  ),
+  {
+    usageCycleId: 'runtime-cycle-001',
+    startedAt: '2026-07-30 14:00',
+  },
+)
+assert.deepEqual(
+  transferBagRuntime.buildTransferBagLifecycleCycleFromRuntimeRecord({
+    ...runtimeCycleBase,
+    cycleStatus: 'CLOSED',
+    returnedAt: '2026-07-30 16:00',
+  }),
+  {
+    usageCycleId: 'runtime-cycle-001',
+    startedAt: '2026-07-30 14:00',
+    closedAt: '2026-07-30 16:00',
+    closeResult: 'REUSABLE',
+  },
+)
+assert.deepEqual(
+  transferBagRuntime.buildTransferBagLifecycleCycleFromRuntimeRecord({
+    ...runtimeCycleBase,
+    cycleStatus: 'SCRAP_CLOSED',
+    returnedAt: '2026-07-30 16:00',
+  }),
+  {
+    usageCycleId: 'runtime-cycle-001',
+    startedAt: '2026-07-30 14:00',
+    closedAt: '2026-07-30 16:00',
+    closeResult: 'DISABLED',
+  },
+)
 
 console.log('check:transfer-bag-three-status passed')

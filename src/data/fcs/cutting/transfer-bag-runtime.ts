@@ -8,6 +8,10 @@ import {
   normalizeTransferCarrierRecord,
   normalizeTransferCarrierSeedTicket,
 } from './transfer-carrier-normalizer.ts'
+import type {
+  TransferBagFlowStageKey,
+  TransferBagLifecycleCycle,
+} from './transfer-bag-lifecycle.ts'
 
 export const CUTTING_TRANSFER_BAG_LEDGER_STORAGE_KEY = 'cuttingTransferBagLedger'
 export const CUTTING_TRANSFER_BAG_SELECTED_TICKET_IDS_STORAGE_KEY = 'cuttingTransferBagSelectedTicketRecordIds'
@@ -135,9 +139,34 @@ export interface TransferCarrierCycleRecord {
   signoffStatus: 'PENDING' | 'WAITING' | 'SIGNED'
   signedAt?: string
   returnedAt?: string
+  flowStage?: TransferBagFlowStageKey
+  packedAt?: string
+  inboundAt?: string
+  handedOverAt?: string
+  activeHandoverLegId?: string
   usageStage?: TransferBagUsageStage
   usageStageLabel?: string
   note: string
+}
+
+export function buildTransferBagLifecycleCycleFromRuntimeRecord(
+  cycle: TransferCarrierCycleRecord,
+): TransferBagLifecycleCycle {
+  const closed = cycle.cycleStatus === 'CLOSED'
+    || cycle.cycleStatus === 'SCRAP_CLOSED'
+  return {
+    usageCycleId: cycle.cycleId,
+    startedAt: cycle.startedAt || cycle.finishedPackingAt || '',
+    ...(closed
+      ? {
+          closedAt: cycle.returnedAt || cycle.dispatchAt || cycle.startedAt || '',
+          closeResult:
+            cycle.cycleStatus === 'SCRAP_CLOSED'
+              ? 'DISABLED' as const
+              : 'REUSABLE' as const,
+        }
+      : {}),
+  }
 }
 
 function pickTransferBagSewingFactory(index: number): { factoryId: string; factoryName: string } {
