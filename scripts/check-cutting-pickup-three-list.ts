@@ -87,6 +87,7 @@ function stableLocationFacts(locations: PickupNodeSourceLocation[]): Array<{
   unit: string
   currentAvailableQty: number
   rollCount: number
+  sourcePrepRecordIds: string[]
 }> {
   return locations
     .map((location) => ({
@@ -98,6 +99,9 @@ function stableLocationFacts(locations: PickupNodeSourceLocation[]): Array<{
       unit: location.unit,
       currentAvailableQty: location.currentAvailableQty,
       rollCount: location.rollCount,
+      sourcePrepRecordIds: [...location.sourcePrepRecordIds].sort((left, right) =>
+        left.localeCompare(right, 'zh-CN')
+      ),
     }))
     .sort((left, right) => left.key.localeCompare(right.key, 'zh-CN') || left.unit.localeCompare(right.unit, 'zh-CN'))
 }
@@ -111,6 +115,43 @@ function assertCurrentAvailableFacts(group: PickupOrderGroup, node: PickupNodePr
     )
   }
 }
+
+const sourceLocationFact: PickupNodeSourceLocation = {
+  sourceWarehouseName: '中转仓',
+  sourceWarehouseArea: 'A 区',
+  sourceLocationCode: 'A-01',
+  currentAvailableQty: 120,
+  rollCount: 2,
+  unit: 'yard',
+  sourcePrepRecordIds: ['prep-record-b', 'prep-record-a'],
+}
+const reorderedSourceLocationFact: PickupNodeSourceLocation = {
+  ...sourceLocationFact,
+  sourcePrepRecordIds: ['prep-record-a', 'prep-record-b'],
+}
+const clearedSourceLocationFact: PickupNodeSourceLocation = {
+  ...sourceLocationFact,
+  sourcePrepRecordIds: [],
+}
+const replacedSourceLocationFact: PickupNodeSourceLocation = {
+  ...sourceLocationFact,
+  sourcePrepRecordIds: ['prep-record-a', 'prep-record-c'],
+}
+assert(
+  JSON.stringify(stableLocationFacts([sourceLocationFact]))
+    === JSON.stringify(stableLocationFacts([reorderedSourceLocationFact])),
+  '来源配料记录顺序变化不得改变稳定位置事实',
+)
+assert(
+  JSON.stringify(stableLocationFacts([sourceLocationFact]))
+    !== JSON.stringify(stableLocationFacts([clearedSourceLocationFact])),
+  '清空来源配料记录必须被稳定位置事实比较捕获',
+)
+assert(
+  JSON.stringify(stableLocationFacts([sourceLocationFact]))
+    !== JSON.stringify(stableLocationFacts([replacedSourceLocationFact])),
+  '串换来源配料记录必须被稳定位置事实比较捕获',
+)
 
 const storage = new MemoryStorage()
 storage.setItem(
