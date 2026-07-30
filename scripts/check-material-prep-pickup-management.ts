@@ -109,7 +109,10 @@ assert(pickupManagementSource.includes('listActivePickupNodes'), '领料管理�
 assert(pickupManagementSource.includes('renderCraftCuttingPickupManagementDetailPage'), '领料管理必须保留节点详情页')
 assert(fcsHandlersSource.includes('handleCraftCuttingPickupManagementEvent'), 'FCS handler 必须承接领料管理交互')
 assert(pdaWaitProcessSource.includes('listActivePickupNodes'), 'PDA 必须读取与 PC 同源的活动待领节点')
-assert(pdaWaitProcessSource.includes('appendPickupSessionFromNode'), 'PDA 确认必须调用统一节点领料入口')
+assert(
+  pdaWaitProcessSource.includes('appendPickupSessionWithWarehouseFactsRuntime'),
+  'PDA 确认必须调用统一原子领料入口',
+)
 assert(
   !dataSource.includes("pages/process-factory/cutting/supplement-management"),
   '纯数据层不得反向依赖补料管理页面',
