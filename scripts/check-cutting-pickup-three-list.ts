@@ -7,10 +7,12 @@ import {
   PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
   serializeProductionMaterialPrepStore,
   type MaterialPrepOrderProjection,
+  type PickupRecord,
 } from '../src/data/fcs/cutting/production-material-prep.ts'
 import type {
   PickupNodeProjection,
   PickupNodeSourceLocation,
+  PickupSession,
 } from '../src/data/fcs/cutting/pickup-node-domain.ts'
 import {
   listPlatformDyeResultViews,
@@ -791,28 +793,34 @@ const historyScenarioProductionOrderId = 'PO-ID-HISTORY-FINAL-RESULT'
 const historyScenarioProductionOrderNo = 'PO-HISTORY-FINAL-RESULT'
 const historyScenarioPrepOrderId = 'PREP-ID-HISTORY-FINAL-RESULT'
 const historyScenarioPrepOrderNo = 'PREP-HISTORY-FINAL-RESULT'
-const historyScenarioLine = {
+const historyScenarioLineA = {
   ...integrationLineSource,
-  prepLineId: 'PREP-LINE-HISTORY-FINAL-RESULT',
+  prepLineId: 'PREP-LINE-HISTORY-FINAL-RESULT-A',
   prepOrderId: historyScenarioPrepOrderId,
-  requiredQty: 10,
-  confirmedPrepQty: 10,
-  pickedQty: 10,
+  requiredQty: 5,
+  confirmedPrepQty: 5,
+  pickedQty: 5,
   returnedQty: 0,
   upstreamSourceType: '无上游' as const,
   upstreamDocumentNo: '',
   taskLinks: [],
 }
+const historyScenarioLineB = {
+  ...historyScenarioLineA,
+  prepLineId: 'PREP-LINE-HISTORY-FINAL-RESULT-B',
+  materialSku: `${historyScenarioLineA.materialSku}-B`,
+  requiredQty: 7,
+  confirmedPrepQty: 7,
+  pickedQty: 7,
+}
 function buildHistoryScenarioSession(input: {
   sessionId: string
   nodeType: 'READY_TO_PICKUP' | 'INCOMPLETE_PICKABLE'
   pickedAt: string
-  effectivePickedQty: number
-  currentAvailableQty: number
-}) {
+  snapshotLine: typeof historyScenarioLineA
+}): PickupSession {
   const nodeId = `PICKUP-NODE-${input.sessionId}`
   return {
-    ...integrationProjectionSource.pickupSessions[0],
     pickupSessionId: input.sessionId,
     pickupSessionNo: input.sessionId,
     pickupNodeId: nodeId,
@@ -821,7 +829,12 @@ function buildHistoryScenarioSession(input: {
     productionOrderId: historyScenarioProductionOrderId,
     nodeType: input.nodeType,
     pickupRecordIds: [`PICKUP-RECORD-${input.sessionId}`],
+    receiverName: '裁床 测试员',
     pickedAt: input.pickedAt,
+    toWarehouseArea: '待加工仓 A 区',
+    toLocationCode: 'FAB-A-TEST',
+    status: '本轮已领完',
+    warehouseSyncStatus: '已回写',
     pickupNodeSnapshot: {
       ...integrationNodeSource,
       nodeId,
@@ -834,32 +847,76 @@ function buildHistoryScenarioSession(input: {
       items: [{
         ...historyScenarioItemSource,
         nodeItemId: `NODE-ITEM-${input.sessionId}`,
-        prepLineId: historyScenarioLine.prepLineId,
-        unit: historyScenarioLine.unit,
-        requiredQty: historyScenarioLine.requiredQty,
-        effectivePickedQty: input.effectivePickedQty,
-        currentAvailableQty: input.currentAvailableQty,
+        prepLineId: input.snapshotLine.prepLineId,
+        unit: input.snapshotLine.unit,
+        requiredQty: input.snapshotLine.requiredQty,
+        effectivePickedQty: 0,
+        currentAvailableQty: input.snapshotLine.requiredQty,
       }],
     },
+  }
+}
+function buildHistoryScenarioRecord(
+  session: PickupSession,
+  line: typeof historyScenarioLineA,
+): PickupRecord {
+  const pickupRecordId = `PICKUP-RECORD-${session.pickupSessionId}`
+  return {
+    pickupRecordId,
+    prepRecordId: `PREP-RECORD-${session.pickupSessionId}`,
+    prepOrderId: session.prepOrderId,
+    prepLineId: line.prepLineId,
+    productionOrderId: session.productionOrderId,
+    pickedQty: line.requiredQty,
+    rollCount: 1,
+    receiverName: session.receiverName,
+    pickedAt: session.pickedAt,
+    warehouseArea: session.toWarehouseArea,
+    locationCode: session.toLocationCode,
+    waitProcessLedgerEventId: `LEDGER-${session.pickupSessionId}`,
+    differenceQty: 0,
+    differenceReason: '',
+    pickupStatus: '已领料',
+    remark: '',
+    pickupSessionId: session.pickupSessionId,
+    pickupNodeId: session.pickupNodeId,
+    sourcePrepRecordIds: [`PREP-RECORD-${session.pickupSessionId}`],
+    sourceAllocations: [{
+      prepRecordId: `PREP-RECORD-${session.pickupSessionId}`,
+      prepLineId: line.prepLineId,
+      pickedQty: line.requiredQty,
+      rollCount: 1,
+      unit: line.unit,
+      sourceWarehouseName: '中转仓',
+      sourceWarehouseArea: '中转仓测试区',
+      sourceLocationCode: 'TR-TEST-01',
+    }],
   }
 }
 const historyIncompleteSession = buildHistoryScenarioSession({
   sessionId: 'SESSION-HISTORY-INCOMPLETE',
   nodeType: 'INCOMPLETE_PICKABLE',
   pickedAt: '2026-03-18 09:00',
-  effectivePickedQty: 0,
-  currentAvailableQty: 4,
+  snapshotLine: historyScenarioLineA,
 })
 const historyReadySession = buildHistoryScenarioSession({
   sessionId: 'SESSION-HISTORY-READY',
   nodeType: 'READY_TO_PICKUP',
   pickedAt: '2026-03-18 10:00',
-  effectivePickedQty: 4,
-  currentAvailableQty: 6,
+  snapshotLine: historyScenarioLineB,
 })
+const historyIncompleteRecord = buildHistoryScenarioRecord(
+  historyIncompleteSession,
+  historyScenarioLineA,
+)
+const historyReadyRecord = buildHistoryScenarioRecord(
+  historyReadySession,
+  historyScenarioLineB,
+)
 function buildHistoryScenarioProjection(
-  pickedQty: number,
+  lines: MaterialPrepOrderProjection['lines'],
   pickupSessions: typeof integrationProjectionSource.pickupSessions,
+  pickupRecords: PickupRecord[],
 ) {
   return {
     ...integrationProjectionSource,
@@ -871,19 +928,25 @@ function buildHistoryScenarioProjection(
       prepOrderNo: historyScenarioPrepOrderNo,
       createdAt: '2026-03-18 08:00',
     },
-    lines: [{ ...historyScenarioLine, pickedQty }],
+    lines,
     pickupSessions,
+    pickupRecords,
   }
 }
 function buildHistoryScenarioGroups(input: {
-  pickedQty: number
+  lines: MaterialPrepOrderProjection['lines']
   pickupSessions: typeof integrationProjectionSource.pickupSessions
+  pickupRecords: PickupRecord[]
   activeNodes?: PickupNodeProjection[]
   supplementRecords?: typeof supplementRecords
 }) {
   return buildPickupOrderGroups({
     listKind: 'HISTORY',
-    projections: [buildHistoryScenarioProjection(input.pickedQty, input.pickupSessions)],
+    projections: [buildHistoryScenarioProjection(
+      input.lines,
+      input.pickupSessions,
+      input.pickupRecords,
+    )],
     activeNodes: input.activeNodes ?? [],
     supplementRecords: input.supplementRecords ?? [],
     processResults: { dyeResults: [], printResults: [] },
@@ -891,8 +954,9 @@ function buildHistoryScenarioGroups(input: {
 }
 
 const readyAllPicked = buildHistoryScenarioGroups({
-  pickedQty: 10,
+  lines: [{ ...historyScenarioLineB }],
   pickupSessions: [historyReadySession],
+  pickupRecords: [historyReadyRecord],
 })[0]
 assert(
   readyAllPicked?.historyPath === 'READY_PICKUP'
@@ -900,8 +964,9 @@ assert(
   'READY_PICKUP 历史必须能表达逐需求行 ALL_PICKED',
 )
 const incompleteAllPicked = buildHistoryScenarioGroups({
-  pickedQty: 10,
+  lines: [{ ...historyScenarioLineA }, { ...historyScenarioLineB }],
   pickupSessions: [historyIncompleteSession, historyReadySession],
+  pickupRecords: [historyIncompleteRecord, historyReadyRecord],
 })[0]
 assert(
   incompleteAllPicked?.historyPath === 'INCOMPLETE_PICKUP'
@@ -909,8 +974,12 @@ assert(
   '任一历史会话来自未配齐领取时，最终全部领完仍必须表达 INCOMPLETE_PICKUP + ALL_PICKED',
 )
 const incompleteNotAllPicked = buildHistoryScenarioGroups({
-  pickedQty: 4,
+  lines: [
+    { ...historyScenarioLineA },
+    { ...historyScenarioLineB, pickedQty: 0, confirmedPrepQty: 0 },
+  ],
   pickupSessions: [historyIncompleteSession],
+  pickupRecords: [historyIncompleteRecord],
 })[0]
 assert(
   incompleteNotAllPicked?.historyPath === 'INCOMPLETE_PICKUP'
@@ -919,13 +988,13 @@ assert(
 )
 
 const offsetProjection = buildHistoryScenarioProjection(
-  10,
+  [
+    { ...historyScenarioLineA, prepLineId: 'PREP-LINE-NO-OFFSET-YARD', unit: 'yard', requiredQty: 10, pickedQty: 9 },
+    { ...historyScenarioLineB, prepLineId: 'PREP-LINE-NO-OFFSET-PIECE', unit: '件', requiredQty: 1, pickedQty: 2 },
+  ],
   [historyReadySession],
+  [historyReadyRecord],
 )
-offsetProjection.lines = [
-  { ...historyScenarioLine, prepLineId: 'PREP-LINE-NO-OFFSET-YARD', unit: 'yard', requiredQty: 10, pickedQty: 9 },
-  { ...historyScenarioLine, prepLineId: 'PREP-LINE-NO-OFFSET-PIECE', unit: '件', requiredQty: 1, pickedQty: 2 },
-]
 const offsetHistory = buildPickupOrderGroups({
   listKind: 'HISTORY',
   projections: [offsetProjection],
@@ -952,7 +1021,7 @@ const newSupplementRecord = {
       materialPatternMappingId: 'MAPPING-HISTORY-REOPEN',
       materialSku: 'MAT-HISTORY-REOPEN',
       requiredQty: 2,
-      unit: historyScenarioLine.unit,
+      unit: historyScenarioLineA.unit,
       printRequired: false,
       dyeRequired: false,
     }],
@@ -973,13 +1042,17 @@ const reopenedNode = {
     nodeItemId: 'NODE-ITEM-HISTORY-REOPEN',
     prepLineId: `SUPPLEMENT:${newSupplementRecord.id}:MAPPING-HISTORY-REOPEN`,
     materialSku: 'MAT-HISTORY-REOPEN',
-    unit: historyScenarioLine.unit,
+    unit: historyScenarioLineA.unit,
     requiredQty: 2,
     effectivePickedQty: 0,
     currentAvailableQty: 1,
   }],
 }
-const reopenedProjection = buildHistoryScenarioProjection(10, [historyReadySession])
+const reopenedProjection = buildHistoryScenarioProjection(
+  [{ ...historyScenarioLineA }, { ...historyScenarioLineB }],
+  [historyIncompleteSession, historyReadySession],
+  [historyIncompleteRecord, historyReadyRecord],
+)
 const reopenedHistory = buildPickupOrderGroups({
   listKind: 'HISTORY',
   projections: [reopenedProjection],
@@ -996,7 +1069,11 @@ const reopenedCurrent = buildPickupOrderGroups({
 })[0]
 assert(
   reopenedHistory?.finalResult === 'NEW_SUPPLEMENT_WAIT_PICKUP',
-  '可靠全领完会话之后新增且未领完的补料需求必须把历史结果重开为 NEW_SUPPLEMENT_WAIT_PICKUP',
+  'A 前序记录领完、B 本轮记录领完且 READY 快照只含 B 时，后续补料必须重开为 NEW_SUPPLEMENT_WAIT_PICKUP',
+)
+assert(
+  reopenedHistory.historyPath === 'INCOMPLETE_PICKUP',
+  '累计真实记录证明全领完不应抹掉前序未配齐领取路径',
 )
 assert(
   reopenedHistory?.productionOrderId === reopenedCurrent?.productionOrderId,
@@ -1012,18 +1089,31 @@ assert(
 
 const insufficientEvidenceSession = {
   ...historyReadySession,
-  pickupSessionId: 'SESSION-HISTORY-NO-SNAPSHOT',
-  pickupSessionNo: 'SESSION-HISTORY-NO-SNAPSHOT',
-  pickupNodeSnapshot: undefined,
+  pickupRecordIds: ['PICKUP-RECORD-NOT-EXIST'],
 }
 const conservativeHistory = buildHistoryScenarioGroups({
-  pickedQty: 10,
+  lines: [{ ...historyScenarioLineA }, { ...historyScenarioLineB }],
   pickupSessions: [insufficientEvidenceSession],
+  pickupRecords: [historyReadyRecord],
   supplementRecords: [newSupplementRecord],
 })[0]
 assert(
   conservativeHistory?.finalResult === 'NOT_ALL_PICKED',
-  '旧会话缺少逐需求行节点快照时不得把任意最近会话当作全领完时间并误判补料重开',
+  '会话引用虚假 pickupRecordId 时不得误判补料重开',
+)
+const wrongSessionRecord = {
+  ...historyReadyRecord,
+  pickupSessionId: 'SESSION-WRONG-OWNER',
+}
+const wrongOwnerHistory = buildHistoryScenarioGroups({
+  lines: [{ ...historyScenarioLineA }, { ...historyScenarioLineB }],
+  pickupSessions: [historyReadySession],
+  pickupRecords: [wrongSessionRecord],
+  supplementRecords: [newSupplementRecord],
+})[0]
+assert(
+  wrongOwnerHistory?.finalResult === 'NOT_ALL_PICKED',
+  'pickupRecordId 虽存在但 session 归属不一致时不得误判补料重开',
 )
 
 console.log(JSON.stringify({

@@ -8,6 +8,7 @@ import {
   listMaterialPrepOrderProjections,
   type MaterialPrepOrderProjection,
   type MaterialPrepLine,
+  type PickupRecord,
 } from '../../../data/fcs/cutting/production-material-prep.ts'
 import {
   listPlatformDyeResultViews,
@@ -498,43 +499,130 @@ export function derivePickupHistoryPath(
     : 'READY_PICKUP'
 }
 
-function sessionHasReliableAllPickedEvidence(
+function sessionSnapshotIdentityMatches(
   session: PickupSession,
-  materialRows: PickupMaterialDemandRow[],
 ): boolean {
   const snapshot = session.pickupNodeSnapshot
-  if (
-    !snapshot
-    || snapshot.nodeId !== session.pickupNodeId
-    || snapshot.version !== session.pickupNodeVersion
-    || snapshot.nodeType !== session.nodeType
-    || snapshot.productionOrderId !== session.productionOrderId
-    || snapshot.prepOrderId !== session.prepOrderId
-    || snapshot.nodeType !== 'READY_TO_PICKUP'
-  ) return false
+  if (!snapshot) return false
+  return snapshot.nodeId === session.pickupNodeId
+    && snapshot.version === session.pickupNodeVersion
+    && snapshot.nodeType === session.nodeType
+    && snapshot.productionOrderId === session.productionOrderId
+    && snapshot.prepOrderId === session.prepOrderId
+}
 
+interface ClosedPickupRecordFact {
+  record: PickupRecord
+  unit: string
+}
+
+function closeSessionPickupRecords(
+  session: PickupSession,
+  pickupRecords: PickupRecord[],
+): ClosedPickupRecordFact[] | null {
+  if (!sessionSnapshotIdentityMatches(session)) return null
+  const recordIds = [...session.pickupRecordIds]
+  if (!recordIds.length || new Set(recordIds).size !== recordIds.length) return null
+  const recordsOwnedBySession = pickupRecords.filter((record) =>
+    record.pickupSessionId === session.pickupSessionId
+  )
+  if (
+    recordsOwnedBySession.length !== recordIds.length
+    || recordsOwnedBySession.some((record) => !recordIds.includes(record.pickupRecordId))
+  ) return null
+
+  const closedFacts: ClosedPickupRecordFact[] = []
+  for (const pickupRecordId of recordIds) {
+    const matches = pickupRecords.filter((record) => record.pickupRecordId === pickupRecordId)
+    if (matches.length !== 1) return null
+    const record = matches[0]
+    if (
+      record.pickupSessionId !== session.pickupSessionId
+      || record.pickupNodeId !== session.pickupNodeId
+      || record.productionOrderId !== session.productionOrderId
+      || record.prepOrderId !== session.prepOrderId
+      || record.pickedAt !== session.pickedAt
+      || !record.prepLineId
+      || !Number.isFinite(record.pickedQty)
+      || record.pickedQty < 0
+    ) return null
+    const allocations = record.sourceAllocations ?? []
+    const units = new Set(allocations.map((allocation) => allocation.unit).filter(Boolean))
+    if (
+      !allocations.length
+      || units.size !== 1
+      || allocations.some((allocation) =>
+        allocation.prepLineId !== record.prepLineId
+        || !Number.isFinite(allocation.pickedQty)
+        || allocation.pickedQty < 0
+      )
+      || roundQty(allocations.reduce((sum, allocation) => sum + allocation.pickedQty, 0))
+        !== roundQty(record.pickedQty)
+    ) return null
+    closedFacts.push({
+      record,
+      unit: Array.from(units)[0],
+    })
+  }
+  return closedFacts
+}
+
+function sessionHasReliableAllPickedEvidence(
+  candidateSession: PickupSession,
+  materialRows: PickupMaterialDemandRow[],
+  sessions: PickupSession[],
+  pickupRecords: PickupRecord[],
+): boolean {
+  if (
+    candidateSession.nodeType !== 'READY_TO_PICKUP'
+    || !closeSessionPickupRecords(candidateSession, pickupRecords)
+  ) return false
   const existingRows = materialRows.filter((row) =>
-    Boolean(row.demandCreatedAt) && row.demandCreatedAt <= session.pickedAt
+    Boolean(row.demandCreatedAt) && row.demandCreatedAt <= candidateSession.pickedAt
   )
   if (!existingRows.length) return false
-  return existingRows.every((row) => {
-    if (row.requiredQty <= 0) return true
-    const snapshotItem = snapshot.items.find((item) => item.prepLineId === row.demandLineId)
-    return Boolean(
-      snapshotItem
-      && snapshotItem.unit === row.unit
-      && roundQty(snapshotItem.effectivePickedQty + snapshotItem.currentAvailableQty)
-        >= row.requiredQty,
-    )
+
+  const cumulativePickedByLineAndUnit = new Map<string, number>()
+  sessions
+    .filter((session) => session.pickedAt <= candidateSession.pickedAt)
+    .flatMap((session) => closeSessionPickupRecords(session, pickupRecords) ?? [])
+    .forEach(({ record, unit }) => {
+      const key = `${record.prepLineId}\u0000${unit}`
+      cumulativePickedByLineAndUnit.set(
+        key,
+        roundQty((cumulativePickedByLineAndUnit.get(key) ?? 0) + record.pickedQty),
+      )
+    })
+  return existingRows.every((row) =>
+    row.requiredQty <= 0
+    || (cumulativePickedByLineAndUnit.get(`${row.demandLineId}\u0000${row.unit}`) ?? 0)
+      >= row.requiredQty
+  )
+}
+
+function uniquePickupRecords(
+  matchingProjections: MaterialPrepOrderProjection[],
+): PickupRecord[] {
+  const byRecordId = new Map<string, PickupRecord[]>()
+  matchingProjections.flatMap((projection) => projection.pickupRecords).forEach((record) => {
+    const records = byRecordId.get(record.pickupRecordId) ?? []
+    records.push(record)
+    byRecordId.set(record.pickupRecordId, records)
   })
+  return Array.from(byRecordId.values()).flatMap((records) =>
+    records.length === 1 ? records : [],
+  )
 }
 
 export function deriveLatestAllPickedAt(
   materialRows: PickupMaterialDemandRow[],
   sessions: PickupSession[],
+  pickupRecords: PickupRecord[],
 ): string {
   return sessions
-    .filter((session) => sessionHasReliableAllPickedEvidence(session, materialRows))
+    .filter((session) =>
+      sessionHasReliableAllPickedEvidence(session, materialRows, sessions, pickupRecords)
+    )
     .sort((left, right) =>
       right.pickedAt.localeCompare(left.pickedAt)
       || right.pickupSessionId.localeCompare(left.pickupSessionId)
@@ -544,8 +632,9 @@ export function deriveLatestAllPickedAt(
 export function derivePickupFinalResult(
   materialRows: PickupMaterialDemandRow[],
   sessions: PickupSession[],
+  pickupRecords: PickupRecord[],
 ): PickupFinalResult {
-  const latestAllPickedAt = deriveLatestAllPickedAt(materialRows, sessions)
+  const latestAllPickedAt = deriveLatestAllPickedAt(materialRows, sessions, pickupRecords)
   if (
     latestAllPickedAt
     && materialRows.some((row) =>
@@ -659,6 +748,7 @@ export function buildPickupOrderGroups(
   const historyGroups: PickupOrderGroup[] = []
   projectionsByProductionOrder.forEach((matchingProjections, productionOrderId) => {
     const sessions = listValidPickupSessions(matchingProjections, productionOrderId)
+    const pickupRecords = uniquePickupRecords(matchingProjections)
     if (!sessions.length) return
     const latest = latestSession(sessions)
     if (!latest) return
@@ -704,7 +794,7 @@ export function buildPickupOrderGroups(
         ? activeNode.readySource
         : latest.pickupNodeSnapshot?.readySource ?? null,
       historyPath: derivePickupHistoryPath(sessions.map((session) => session.nodeType)),
-      finalResult: derivePickupFinalResult(materialRows, sessions),
+      finalResult: derivePickupFinalResult(materialRows, sessions, pickupRecords),
       pickupSessionCount: sessions.length,
       latestPickedAt: latest.pickedAt,
       pickupNodeId: activeNode?.nodeId ?? '',
