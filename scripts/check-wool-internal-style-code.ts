@@ -1,9 +1,4 @@
 import { readFileSync } from 'node:fs'
-import {
-  getWoolWorkOrderSummary,
-  listWoolWorkOrders,
-} from '../src/data/fcs/wool-task-domain.ts'
-import { renderCraftWoolWorkOrdersPage } from '../src/pages/process-factory/wool/work-orders.ts'
 
 const techPacksSource = readFileSync('src/data/fcs/tech-packs.ts', 'utf8')
 const contextSource = readFileSync('src/pages/tech-pack/context.ts', 'utf8')
@@ -11,10 +6,9 @@ const eventsSource = readFileSync('src/pages/tech-pack/events.ts', 'utf8')
 const patternDomainSource = readFileSync('src/pages/tech-pack/pattern-domain.ts', 'utf8')
 const snapshotBuilderSource = readFileSync('src/data/fcs/production-tech-pack-snapshot-builder.ts', 'utf8')
 const snapshotTypesSource = readFileSync('src/data/fcs/production-tech-pack-snapshot-types.ts', 'utf8')
-const woolDomainSource = readFileSync('src/data/fcs/wool-task-domain.ts', 'utf8')
 const woolPageSource = readFileSync('src/pages/process-factory/wool/work-orders.ts', 'utf8')
 const reviewRecord = readFileSync(
-  'docs/prototype-review-records/2026-07-06-wool-internal-style-code.md',
+  'docs/prototype-review-records/2026-07-31-wool-work-order-standard-list.md',
   'utf8',
 )
 
@@ -146,35 +140,22 @@ assertContains(eventsSource, 'state.newPattern.internalStyleCode = value.trim()'
 assertContains(buildPatternItemFromFormBlock, "normalizedPatternMaterialType === 'WOOL'", 'buildPatternItemFromForm')
 assertContains(buildPatternItemFromFormBlock, 'state.newPattern.internalStyleCode.trim()', 'buildPatternItemFromForm')
 assertContains(buildPatternFormStateBlock, "internalStyleCode: item.internalStyleCode || state.techPack.internalStyleCode || ''", 'buildPatternFormStateFromItem')
-assertContains(woolDomainSource, 'internalStyleCode?: string', '毛织加工单类型必须包含内部货号')
-assertContains(
-  woolDomainSource,
-  'getWoolWorkOrderSummary(orders = listWoolWorkOrders())',
-  '毛织统计必须支持传入筛选结果',
-)
+assertTrue(woolPageSource.startsWith('// @page-pattern: list'), '毛织加工单必须声明标准列表页')
+assertContains(woolPageSource, 'renderStandardListPage', '毛织加工单必须使用标准列表页骨架')
+assertContains(woolPageSource, 'renderStandardListTable', '毛织加工单必须使用标准列表表格')
+assertContains(woolPageSource, 'renderTablePagination', '毛织加工单必须使用标准分页')
 assertContains(woolPageSource, '款式 / 内部货号', '毛织加工单筛选标签必须包含内部货号')
-assertContains(woolPageSource, 'order.internalStyleCode', '毛织加工单搜索和展示必须使用内部货号')
-assertContains(
-  woolPageSource,
-  'renderCompactSummaryTags(filteredOrders)',
-  '毛织加工单必须按筛选结果渲染紧凑统计',
-)
-
-const woolOrders = listWoolWorkOrders()
-const internalStyleCodeOrders = woolOrders.filter((order) => order.internalStyleCode === '2585')
-const fullSummary = getWoolWorkOrderSummary()
-const filteredSummary = getWoolWorkOrderSummary(internalStyleCodeOrders)
-const woolPageHtml = renderCraftWoolWorkOrdersPage()
-
-assertTrue(internalStyleCodeOrders.length > 0, '内部货号 2585 必须能筛出毛织加工单')
-assertTrue(
-  internalStyleCodeOrders.some((order) => order.woolOrderId.startsWith('WOOL-MOCK-')),
-  '毛织加工单 mock 必须包含 internalStyleCode 2585',
-)
-assertTrue(filteredSummary.total === internalStyleCodeOrders.length, '筛选统计 total 必须等于筛选结果数量')
-assertTrue(filteredSummary.total < fullSummary.total, '筛选统计 total 必须小于全量统计 total')
-assertContains(woolPageHtml, '内部货号：2585', '毛织加工单页面渲染结果必须展示内部货号 2585')
-assertContains(reviewRecord, '内部货号', '原型审查记录必须覆盖内部货号')
-assertContains(reviewRecord, '不做跨 SPU 唯一性校验', '原型审查记录必须说明例外')
+assertContains(woolPageSource, '可以开工', '毛织加工单必须展示可以开工 Tab')
+assertContains(woolPageSource, '不可以开工', '毛织加工单必须展示不可以开工 Tab')
+assertContains(woolPageSource, '已完成', '毛织加工单必须展示已完成 Tab')
+assertContains(woolPageSource, 'getWoolWorkOrderTabCounts', 'Tab 数量必须基于筛选后的领域结果')
+assertContains(woolPageSource, 'data-wool-work-orders-results', '筛选、Tab 与分页必须局部刷新结果区')
+assertContains(woolPageSource, 'setTimeout', '文本搜索必须防抖')
+assertContains(woolPageSource, 'data-skip-page-rerender="true"', '轻交互必须跳过页面级重绘')
+assertNotContains(woolPageSource, 'renderCompactSummaryTags', '毛织加工单不应保留统计标签')
+assertNotContains(woolPageSource, 'renderMetricCard', '毛织加工单不应保留统计卡片')
+assertNotContains(woolPageSource, 'advanceWoolOrderToWarehouseInbound', '毛织加工单不应保留旧完工入仓')
+assertContains(reviewRecord, '三个含数量 Tab', '原型审查记录必须覆盖筛选联动 Tab')
+assertContains(reviewRecord, '内部货号', '原型审查记录必须覆盖内部货号展示口径')
 
 console.log('毛织内部货号专项检查通过')

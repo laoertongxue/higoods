@@ -1,1525 +1,816 @@
-import { escapeHtml } from '../../../utils'
-import { appStore } from '../../../state/store.ts'
+// @page-pattern: list
+
+import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
+import { renderStandardListPage } from '../../../components/ui/list-page.ts'
+import type { StandardListColumn } from '../../../components/ui/list-table.ts'
 import {
-  WOOL_STATUS_LABEL,
-  acceptWoolWorkOrder,
-  completeWoolPickupHead,
-  confirmWoolHandoverReceipt,
-  confirmWoolWaitProcessScanReceipt,
-  confirmWoolPickupRecord,
-  deleteWoolWarehouseLocation,
-  getWoolWorkOrderSummary,
+  resetStandardListEntryTransientStateOnRouteEntry,
+  type StandardListColumnPreferences,
+  type StandardListSortState,
+} from '../../../components/ui/list-table-model.ts'
+import { createProcessOrderListController } from '../../../components/ui/process-order-list-controller.ts'
+import { renderTabs } from '../../../components/ui/tabs.ts'
+import {
+  addWoolHandover,
+  addWoolProcessReport,
+  addWoolYarnReceipt,
+  changeWoolFactQty,
+  completeWoolWorkOrder,
   getWoolAllowedActions,
-  getWoolYarnUsageSummary,
-  listWoolWarehouseAreas,
-  listWoolWarehouseInventory,
-  listWoolWarehouseLocations,
-  listWoolMobileProcessTasks,
-  listWoolWaitProcessScanReceipts,
+  getWoolOutputHandedOverQty,
+  getWoolOutputReadiness,
+  getWoolOutputReportedQty,
+  getWoolOutputStockQty,
+  getWoolProcessingStatus,
+  getWoolWorkOrderBlockReason,
+  getWoolWorkOrderTab,
+  getWoolWorkOrderTabCounts,
+  listWoolFactRecords,
+  listWoolMachineAssociations,
   listWoolWorkOrders,
-  lookupWoolWaitProcessScanReceipt,
-  markWoolFeiTicketsPrinted,
-  recordWoolYarnRecovery,
-  recoverWoolYarnToWaitProcessWarehouse,
-  scheduleWoolMachines,
-  submitWoolHandover,
-  upsertWoolWarehouseArea,
-  upsertWoolWarehouseLocation,
-  updateWoolWorkOrderNodeStatus,
-  type WoolNodeStatus,
-  type WoolWarehouseMode,
-  type WoolWaitProcessScanReceipt,
+  type WoolHandoverRecord,
+  type WoolProcessReportRecord,
+  type WoolQtyChangeLog,
+  type WoolQtyChangeRecordType,
   type WoolWorkOrder,
+  type WoolWorkOrderFilters,
+  type WoolWorkOrderTab,
+  type WoolYarnReceiptRecord,
 } from '../../../data/fcs/wool-task-domain.ts'
-import {
-  buildWoolWorkOrderDetailLink,
-} from '../../../data/fcs/fcs-route-links.ts'
-import { getTaskMilestoneState } from '../../../data/fcs/pda-exec-link.ts'
-import { getTaskStartDueInfo, getTaskStartRuleState } from '../../../data/fcs/pda-start-link.ts'
-import {
-  formatNumber,
-  formatQty,
-  paginateWoolItems,
-  renderBadge,
-  renderPaginationControls,
-  type BadgeTone,
-  renderKindBadge,
-  renderPageHeader,
-  renderSection,
-  renderStatusBadge,
-} from './shared'
+import { productionOrders } from '../../../data/fcs/production-orders.ts'
+import { getRuntimeTaskById } from '../../../data/fcs/runtime-process-tasks.ts'
+import { buildWoolWorkOrderDetailLink } from '../../../data/fcs/fcs-route-links.ts'
+import { escapeHtml } from '../../../utils.ts'
+import { formatNumber, formatQty, renderKindBadge, renderStatusBadge } from './shared.ts'
 
-function getOrderExecutionTask(order: WoolWorkOrder) {
-  return listWoolMobileProcessTasks().find((task) => task.taskId === order.taskNo)
-}
+// 标准列表契约的 renderStandardListTable、renderTablePagination 由共享控制器统一调用。
 
-function getStartStatus(order: WoolWorkOrder): { label: string; tone: BadgeTone; helper: string } {
-  const task = getOrderExecutionTask(order)
-  if (!task) return { label: '未同步', tone: 'muted', helper: '移动端任务未生成' }
+const EVENT_PREFIX = 'wool-work-orders'
+const PREFERENCE_KEY = '/fcs/craft/wool/work-orders:list-columns'
+const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
-  const rule = getTaskStartRuleState(task)
-  const due = getTaskStartDueInfo(task)
-  if (!rule.required) return { label: '不要求开工', tone: 'muted', helper: rule.proofRequirementLabel }
-  if (task.startedAt) return { label: '已开工', tone: 'success', helper: task.startedAt }
-
-  const tone: BadgeTone =
-    due.startRiskStatus === 'OVERDUE' ? 'danger' : due.startRiskStatus === 'DUE_SOON' ? 'warning' : 'info'
-  return {
-    label: task.acceptedAt ? '待开工' : '待领料',
-    tone,
-    helper: due.startDueAt ? `截至 ${due.startDueAt}` : rule.ruleLabel,
-  }
-}
-
-function getMilestoneStatus(order: WoolWorkOrder): { label: string; tone: BadgeTone; helper: string } {
-  const task = getOrderExecutionTask(order)
-  if (!task) return { label: '未同步', tone: 'muted', helper: '移动端任务未生成' }
-
-  const milestone = getTaskMilestoneState(task)
-  if (!milestone.required) return { label: '不要求节点', tone: 'muted', helper: milestone.proofRequirementLabel }
-  if (milestone.status === 'REPORTED') {
-    return {
-      label: '节点已上报',
-      tone: 'success',
-      helper: milestone.reportedAt || milestone.ruleLabel,
-    }
-  }
-
-  return {
-    label: '节点待上报',
-    tone: 'warning',
-    helper: milestone.ruleLabel,
-  }
-}
-
-function renderExecutionReportCell(order: WoolWorkOrder): string {
-  const task = getOrderExecutionTask(order)
-  const start = getStartStatus(order)
-  const milestone = getMilestoneStatus(order)
-  const startProof = task?.startProofFiles?.length ?? 0
-  const milestoneProof = task ? getTaskMilestoneState(task).proofFiles.length : 0
-
-  return `
-    <div class="space-y-2 text-sm">
-      <div>
-        ${renderBadge(start.label, start.tone)}
-        <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(start.helper)}</div>
-      </div>
-      <div>
-        ${renderBadge(milestone.label, milestone.tone)}
-        <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(milestone.helper)}</div>
-      </div>
-      <div class="text-xs text-muted-foreground">凭证：开工 ${startProof} 个 / 节点 ${milestoneProof} 个</div>
-    </div>
-  `
-}
-
-interface WoolOrderFilters {
-  productionOrder: string
-  woolOrder: string
-  style: string
-  kind: string
+interface WoolListFilters {
+  keyword: string
+  productionOrderNo: string
+  woolOrderNo: string
+  kind: '' | WoolWorkOrder['kind']
   factory: string
-  status: string
+  processingStatus: '' | 'UNPROCESSED' | 'PROCESSING' | 'COMPLETED'
+  yarnSku: string
+  plannedFrom: string
+  plannedTo: string
 }
 
-function getCurrentFilters(): WoolOrderFilters {
-  const [, queryString = ''] = (appStore.getState().pathname || '').split('?')
-  const params = new URLSearchParams(queryString)
+type BusinessOverlay =
+  | { kind: 'receipt'; woolOrderId: string }
+  | { kind: 'report'; woolOrderId: string }
+  | { kind: 'handover'; woolOrderId: string }
+  | { kind: 'complete'; woolOrderId: string }
+  | { kind: 'qty-list'; woolOrderId: string }
+  | {
+      kind: 'qty-edit'
+      woolOrderId: string
+      recordType: WoolQtyChangeRecordType
+      recordId: string
+      recordLineId?: string
+      currentQty: number
+      unit: string
+      objectSkuCode: string
+    }
+
+interface WoolListRow {
+  order: WoolWorkOrder
+  styleNo: string
+  styleName: string
+  internalStyleCode: string
+  factoryName: string
+  plannedCompletionAt: string
+  tab: WoolWorkOrderTab
+}
+
+const DEFAULT_FILTERS: WoolListFilters = {
+  keyword: '',
+  productionOrderNo: '',
+  woolOrderNo: '',
+  kind: '',
+  factory: '',
+  processingStatus: '',
+  yarnSku: '',
+  plannedFrom: '',
+  plannedTo: '',
+}
+
+const state: {
+  filters: WoolListFilters
+  activeTab: WoolWorkOrderTab
+  currentPage: number
+  sort: StandardListSortState | null
+  preferences: StandardListColumnPreferences
+  preferencesLoaded: boolean
+  showColumnSettings: boolean
+  overlay: BusinessOverlay | null
+  feedback: string
+} = {
+  filters: { ...DEFAULT_FILTERS },
+  activeTab: 'READY',
+  currentPage: 1,
+  sort: null,
+  preferences: { order: [], visibleKeys: [], frozenKeys: ['order'], pageSize: 10 },
+  preferencesLoaded: false,
+  showColumnSettings: false,
+  overlay: null,
+  feedback: '',
+}
+
+let filterDebounce: ReturnType<typeof setTimeout> | undefined
+let commandSequence = 0
+
+function nowText(): string {
+  return new Date().toISOString().replace('T', ' ').slice(0, 19)
+}
+
+function nextCommandId(action: string, woolOrderId: string): string {
+  commandSequence += 1
+  return `WEB-${action}-${woolOrderId}-${Date.now()}-${commandSequence}`
+}
+
+function resolveRow(order: WoolWorkOrder): WoolListRow {
+  const productionOrder = productionOrders.find((item) => item.productionOrderId === order.productionOrderId)
+  const runtimeTask = getRuntimeTaskById(order.taskId)
   return {
-    productionOrder: params.get('productionOrder') || '',
-    woolOrder: params.get('woolOrder') || '',
-    style: params.get('style') || '',
-    kind: params.get('kind') || '',
-    factory: params.get('factory') || '',
-    status: params.get('status') || '',
+    order,
+    styleNo: productionOrder?.techPackSnapshot?.styleCode
+      || productionOrder?.demandSnapshot.spuCode
+      || order.sourceTechPackVersionCode,
+    styleName: productionOrder?.techPackSnapshot?.styleName
+      || productionOrder?.demandSnapshot.spuName
+      || '毛织加工款',
+    internalStyleCode: productionOrder?.techPackSnapshot?.internalStyleCode || '',
+    factoryName: runtimeTask?.assignedFactoryName || '毛织承接工厂',
+    plannedCompletionAt: productionOrder?.demandSnapshot.requiredDeliveryDate || '—',
+    tab: getWoolWorkOrderTab(order.woolOrderId),
   }
 }
 
-function matchesKeyword(value: string, keyword: string): boolean {
-  return !keyword || value.toLowerCase().includes(keyword.toLowerCase())
+function includes(value: string, keyword: string): boolean {
+  return !keyword.trim() || value.toLocaleLowerCase().includes(keyword.trim().toLocaleLowerCase())
 }
 
-function listFilteredWoolWorkOrders(filters = getCurrentFilters()): WoolWorkOrder[] {
-  return listWoolWorkOrders().filter((order) => {
-    if (!matchesKeyword(order.productionOrderNo, filters.productionOrder.trim())) return false
-    if (!matchesKeyword(`${order.woolOrderNo} ${order.woolOrderId}`, filters.woolOrder.trim())) return false
-    if (!matchesKeyword(`${order.styleNo} ${order.styleName} ${order.internalStyleCode || ''}`, filters.style.trim())) return false
-    if (filters.kind && order.kind !== filters.kind) return false
-    if (filters.factory && order.factoryId !== filters.factory) return false
-    if (filters.status && order.status !== filters.status) return false
-    return true
+function currentDomainFilters(): WoolWorkOrderFilters {
+  return {
+    keyword: state.filters.keyword,
+    productionOrderNo: state.filters.productionOrderNo,
+    woolOrderNo: state.filters.woolOrderNo,
+    ...(state.filters.kind ? { kind: state.filters.kind } : {}),
+  }
+}
+
+function baseRows(): WoolListRow[] {
+  const domainFilters = currentDomainFilters()
+  // 先由领域过滤加工单身份，再补页面展示元数据筛选；Tab 数量随后基于同一结果计算。
+  return listWoolWorkOrders(domainFilters)
+    .map(resolveRow)
+    .filter((row) => includes(`${row.styleNo} ${row.styleName} ${row.internalStyleCode}`, state.filters.keyword))
+    .filter((row) => includes(row.factoryName, state.filters.factory))
+    .filter((row) => !state.filters.processingStatus || getWoolProcessingStatus(row.order.woolOrderId) === state.filters.processingStatus)
+    .filter((row) => !state.filters.yarnSku || row.order.outputPlanLines.some((line) =>
+      line.requiredYarnSkus.some((sku) => includes(sku, state.filters.yarnSku)),
+    ))
+    .filter((row) => state.filters.plannedFrom === '' || row.plannedCompletionAt >= state.filters.plannedFrom)
+    .filter((row) => state.filters.plannedTo === '' || row.plannedCompletionAt <= state.filters.plannedTo)
+}
+
+function rowsForActiveTab(): WoolListRow[] {
+  return baseRows().filter((row) => row.tab === state.activeTab)
+}
+
+function tabCounts(rows = baseRows()): Record<WoolWorkOrderTab, number> {
+  const hasPageOnlyFilter = Boolean(
+    state.filters.keyword
+    || state.filters.factory
+    || state.filters.processingStatus
+    || state.filters.yarnSku
+    || state.filters.plannedFrom
+    || state.filters.plannedTo,
+  )
+  if (!hasPageOnlyFilter) return getWoolWorkOrderTabCounts(currentDomainFilters())
+  return rows.reduce<Record<WoolWorkOrderTab, number>>((counts, row) => {
+    counts[row.tab] += 1
+    return counts
+  }, { READY: 0, NOT_READY: 0, COMPLETED: 0 })
+}
+
+function requiredYarnSummary(order: WoolWorkOrder): string {
+  const requirements = [...new Set(order.outputPlanLines.flatMap((line) => line.requiredYarnSkus))]
+  const confirmed = new Set(order.outputPlanLines.flatMap((line) =>
+    getWoolOutputReadiness(order.woolOrderId, line.outputSkuCode).confirmedYarnSkus,
+  ))
+  if (requirements.length === 0) return '技术包缺少必需纱线关系'
+  return `${confirmed.size}/${requirements.length} 种已确认：${requirements
+    .map((sku) => `${sku}${confirmed.has(sku) ? ' ✓' : '（未接收）'}`)
+    .join('、')}`
+}
+
+function reportableSummary(order: WoolWorkOrder): string {
+  const readiness = order.outputPlanLines.map((line) => getWoolOutputReadiness(order.woolOrderId, line.outputSkuCode))
+  const available = readiness.filter((item) => item.canReport)
+  if (available.length > 0) {
+    return `${available.length}/${readiness.length} 个可填报；${available
+      .map((item) => `${item.outputSkuCode} 还可 ${item.remainingReportQty}`)
+      .join('、')}`
+  }
+  return getWoolWorkOrderBlockReason(order.woolOrderId)
+}
+
+function renderActionButton(label: string, action: string, order: WoolWorkOrder, tone = ''): string {
+  return `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted ${tone}" data-wool-work-orders-action="${escapeHtml(action)}" data-wool-order-id="${escapeHtml(order.woolOrderId)}" data-skip-page-rerender="true">${escapeHtml(label)}</button>`
+}
+
+function renderActions(row: WoolListRow): string {
+  const { order } = row
+  const actions = getWoolAllowedActions(order.woolOrderId)
+  const factCount = listWoolFactRecords({
+    woolOrderId: order.woolOrderId,
+    recordType: ['YARN_RECEIPT', 'PROCESS_REPORT', 'HANDOVER'],
+  }).length
+  return `<div class="flex max-w-[360px] flex-wrap justify-end gap-1.5">
+    <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildWoolWorkOrderDetailLink(order.woolOrderId))}">查看详情</button>
+    ${actions.includes('RECEIVE_YARN') ? renderActionButton('确认接收', 'open-receipt', order) : ''}
+    ${actions.includes('REPORT_PROCESS') ? renderActionButton('加工填报', 'open-report', order, 'border-blue-200 text-blue-700') : ''}
+    ${actions.includes('HANDOVER') ? renderActionButton('发起交出', 'open-handover', order, 'border-emerald-200 text-emerald-700') : ''}
+    ${actions.includes('ASSOCIATE_MACHINE') ? `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="/fcs/craft/wool/machine-associations?woolOrderId=${encodeURIComponent(order.woolOrderId)}">关联横机设备</button>` : ''}
+    ${factCount > 0 && row.tab !== 'COMPLETED' ? renderActionButton('修改记录数量', 'open-qty-list', order) : ''}
+    ${actions.includes('COMPLETE') ? renderActionButton('完成加工单', 'open-complete', order, 'border-amber-200 text-amber-700') : ''}
+  </div>`
+}
+
+const columns: StandardListColumn<WoolListRow>[] = [
+  {
+    key: 'order', title: '毛织加工单号', width: 185, required: true, freezeable: true, sortable: true,
+    sortValue: (row) => row.order.woolOrderNo,
+    render: (row) => `<div><div class="font-mono text-xs font-medium text-blue-700">${escapeHtml(row.order.woolOrderNo)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.order.taskNo)}</div></div>`,
+  },
+  {
+    key: 'productionOrder', title: '生产单号', width: 155, sortable: true,
+    sortValue: (row) => row.order.productionOrderNo,
+    render: (row) => `<span class="font-mono text-xs">${escapeHtml(row.order.productionOrderNo)}</span>`,
+  },
+  {
+    key: 'style', title: '款式 / 内部货号', width: 210, required: true, freezeable: true, sortable: true,
+    sortValue: (row) => `${row.styleNo} ${row.internalStyleCode}`,
+    render: (row) => `<div><div class="font-medium">${escapeHtml(row.styleName)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.styleNo)}${row.internalStyleCode ? ` / 内部货号：${escapeHtml(row.internalStyleCode)}` : ''}</div></div>`,
+  },
+  { key: 'kind', title: '类型', width: 110, sortable: true, sortValue: (row) => row.order.kind, render: (row) => renderKindBadge(row.order.kind) },
+  {
+    key: 'outputCount', title: '加工后 SKU 数', width: 125, sortable: true, align: 'right',
+    sortValue: (row) => row.order.outputPlanLines.length,
+    render: (row) => `${row.order.outputPlanLines.length} 个`,
+  },
+  {
+    key: 'plan', title: '计划数量摘要', width: 200,
+    render: (row) => row.order.outputPlanLines.map((line) => `${escapeHtml(line.outputSkuCode)}：${formatQty(line.plannedQty, line.qtyUnit)}`).join('<br>'),
+  },
+  {
+    key: 'yarn', title: '纱线接收摘要', width: 300, required: true,
+    render: (row) => `<span class="text-xs">${escapeHtml(requiredYarnSummary(row.order))}</span>`,
+  },
+  {
+    key: 'reportable', title: '可填报 SKU 摘要', width: 300, required: true,
+    render: (row) => `<span class="text-xs">${escapeHtml(reportableSummary(row.order))}</span>`,
+  },
+  {
+    key: 'facts', title: '累计加工 / 累计交出', width: 210,
+    render: (row) => row.order.outputPlanLines.map((line) =>
+      `<div class="text-xs">${escapeHtml(line.outputSkuCode)}：${formatNumber(getWoolOutputReportedQty(row.order.woolOrderId, line.outputSkuCode))} / ${formatNumber(getWoolOutputHandedOverQty(row.order.woolOrderId, line.outputSkuCode))} ${escapeHtml(line.qtyUnit)}</div>`,
+    ).join(''),
+  },
+  {
+    key: 'machines', title: '当前关联横机', width: 150,
+    render: (row) => {
+      const machineIds = listWoolMachineAssociations(row.order.woolOrderId).map((item) => item.machineId)
+      return escapeHtml(machineIds.length > 0 ? machineIds.join('、') : '未关联')
+    },
+  },
+  {
+    key: 'status', title: '加工状态', width: 110, sortable: true,
+    sortValue: (row) => getWoolProcessingStatus(row.order.woolOrderId),
+    render: (row) => renderStatusBadge(getWoolProcessingStatus(row.order.woolOrderId)),
+  },
+  {
+    key: 'plannedCompletion', title: '计划完成时间', width: 145, sortable: true,
+    sortValue: (row) => row.plannedCompletionAt,
+    render: (row) => escapeHtml(row.plannedCompletionAt),
+  },
+  { key: 'actions', title: '操作', width: 380, required: true, actionColumn: true, render: renderActions },
+]
+
+const listController = createProcessOrderListController({
+  state,
+  columns,
+  preferenceKey: PREFERENCE_KEY,
+  pageSizeOptions: PAGE_SIZE_OPTIONS,
+  eventPrefix: EVENT_PREFIX,
+  rootSelector: '[data-wool-work-orders-root]',
+  tableSurfaceSelector: '[data-wool-work-orders-table-surface]',
+  paginationSurfaceSelector: '[data-wool-work-orders-pagination-surface]',
+  overlaysSurfaceSelector: '[data-wool-work-orders-column-overlays]',
+  defaultFrozenKeys: ['order'],
+  columnSettingsTitle: '毛织加工单列设置',
+  emptyText: '当前条件下暂无毛织加工单',
+  getRows: rowsForActiveTab,
+})
+
+function filterInput(label: string, field: keyof WoolListFilters, placeholder: string, type = 'text'): string {
+  return `<label class="min-w-[10rem] flex-1"><span class="mb-1 block text-xs text-muted-foreground">${escapeHtml(label)}</span><input type="${type}" class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.filters[field])}" placeholder="${escapeHtml(placeholder)}" data-wool-work-orders-field="${escapeHtml(field)}" data-skip-page-rerender="true"></label>`
+}
+
+function renderFilters(): string {
+  return `<div class="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-3">
+    ${filterInput('加工单号 / 任务号 / 款号 / 款名 / 内部货号', 'keyword', '输入关键字')}
+    ${filterInput('生产单号', 'productionOrderNo', '输入生产单号')}
+    ${filterInput('毛织加工单号', 'woolOrderNo', '输入毛织加工单号')}
+    ${filterInput('承接工厂', 'factory', '输入工厂名称')}
+    ${filterInput('必需纱线 SKU', 'yarnSku', '输入纱线 SKU')}
+    ${filterInput('计划日期从', 'plannedFrom', '', 'date')}
+    ${filterInput('计划日期至', 'plannedTo', '', 'date')}
+    <label class="min-w-[9rem]"><span class="mb-1 block text-xs text-muted-foreground">类型</span><select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-wool-work-orders-field="kind" data-skip-page-rerender="true"><option value="">全部类型</option><option value="WHOLE_GARMENT" ${state.filters.kind === 'WHOLE_GARMENT' ? 'selected' : ''}>整件毛织</option><option value="PART_PANEL" ${state.filters.kind === 'PART_PANEL' ? 'selected' : ''}>部位毛织</option></select></label>
+    <label class="min-w-[9rem]"><span class="mb-1 block text-xs text-muted-foreground">加工状态</span><select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-wool-work-orders-field="processingStatus" data-skip-page-rerender="true"><option value="">全部状态</option><option value="UNPROCESSED" ${state.filters.processingStatus === 'UNPROCESSED' ? 'selected' : ''}>未加工</option><option value="PROCESSING" ${state.filters.processingStatus === 'PROCESSING' ? 'selected' : ''}>加工中</option><option value="COMPLETED" ${state.filters.processingStatus === 'COMPLETED' ? 'selected' : ''}>已完成</option></select></label>
+    ${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filters' }, 'rotate-ccw')}
+  </div>`
+}
+
+function renderTabBar(): string {
+  const counts = tabCounts()
+  return renderTabs({
+    tabs: [
+      { key: 'READY', label: '可以开工', count: counts.READY },
+      { key: 'NOT_READY', label: '不可以开工', count: counts.NOT_READY },
+      { key: 'COMPLETED', label: '已完成', count: counts.COMPLETED },
+    ],
+    activeKey: state.activeTab,
+    variant: 'underline',
+    prefix: EVENT_PREFIX,
+    action: 'tab',
   })
 }
 
-function renderFilterBar(filters: WoolOrderFilters): string {
-  const statusOptions = Object.entries(WOOL_STATUS_LABEL)
-    .map(([value, label]) => `<option value="${escapeHtml(value)}" ${filters.status === value ? 'selected' : ''}>${escapeHtml(label)}</option>`)
-    .join('')
-  return renderSection(
-    '筛选',
-    `
-      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
-        <label class="text-sm">
-          <span class="text-xs text-muted-foreground">生产单</span>
-          <input class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(filters.productionOrder)}" placeholder="输入生产单号" data-wool-filter-field="productionOrder" />
-        </label>
-        <label class="text-sm">
-          <span class="text-xs text-muted-foreground">毛织单号</span>
-          <input class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(filters.woolOrder)}" placeholder="输入毛织单号" data-wool-filter-field="woolOrder" />
-        </label>
-        <label class="text-sm">
-          <span class="text-xs text-muted-foreground">款式 / 内部货号</span>
-          <input class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(filters.style)}" placeholder="款号 / 款名 / 内部货号" data-wool-filter-field="style" />
-        </label>
-        <label class="text-sm">
-          <span class="text-xs text-muted-foreground">任务类型</span>
-          <select class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" data-wool-filter-field="kind">
-            <option value="">全部类型</option>
-            <option value="WHOLE_GARMENT" ${filters.kind === 'WHOLE_GARMENT' ? 'selected' : ''}>整件毛织</option>
-            <option value="PART_PANEL" ${filters.kind === 'PART_PANEL' ? 'selected' : ''}>部位毛织</option>
-          </select>
-        </label>
-        <label class="text-sm">
-          <span class="text-xs text-muted-foreground">工厂</span>
-          <select class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" data-wool-filter-field="factory">
-            <option value="">全部工厂</option>
-            <option value="OWN_WOOL_FACTORY" ${filters.factory === 'OWN_WOOL_FACTORY' ? 'selected' : ''}>周哥毛织厂</option>
-          </select>
-        </label>
-        <label class="text-sm">
-          <span class="text-xs text-muted-foreground">状态</span>
-          <select class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" data-wool-filter-field="status">
-            <option value="">全部状态</option>
-            ${statusOptions}
-          </select>
-        </label>
-        <div class="flex items-end gap-2">
-          <button type="button" class="h-9 rounded-md bg-blue-600 px-3 text-sm font-medium text-white hover:bg-blue-700" data-wool-action="apply-work-order-filter">筛选</button>
-          <button type="button" class="h-9 rounded-md border px-3 text-sm hover:bg-muted" data-wool-action="reset-work-order-filter">重置</button>
-        </div>
-      </div>
-    `,
-  )
+function renderFeedback(): string {
+  return state.feedback
+    ? `<div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">${escapeHtml(state.feedback)}</div>`
+    : ''
 }
 
-function renderWorkflowActionButtons(order: WoolWorkOrder): string {
-  const actions = getWoolAllowedActions(order)
-  return actions
-    .map((action) => {
-      const toneClass =
-        action.tone === 'primary'
-          ? 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'
-          : action.tone === 'success'
-            ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-            : action.tone === 'warning'
-              ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
-              : 'hover:bg-muted'
-      return `
-        <button
-          type="button"
-          class="rounded-md border px-2 py-1 text-xs ${toneClass}"
-          data-wool-workflow-action="${escapeHtml(action.code)}"
-          data-wool-order-id="${escapeHtml(order.woolOrderId)}"
-          ${action.nodeName ? `data-node-name="${escapeHtml(action.nodeName)}"` : ''}
-        >${escapeHtml(action.label)}</button>
-      `
-    })
-    .join('')
-}
-
-function renderOrdersTable(filteredOrders: WoolWorkOrder[]): string {
-  const paging = paginateWoolItems(filteredOrders, 'workOrdersPage', 10)
-  const rows = paging.rows
-    .map((order) => {
-      const pickupDifferenceTone = order.yarnReceipt.differenceWeightKg === 0 ? 'text-emerald-700' : 'text-red-700'
-      const yarnUsage = getWoolYarnUsageSummary(order)
-      const styleMeta = order.internalStyleCode
-        ? `内部货号：${order.internalStyleCode} / ${order.productionOrderNo}`
-        : order.productionOrderNo
-      return `
-        <tr class="border-b align-top last:border-b-0">
-          <td class="px-3 py-3">
-            <div class="font-mono text-xs font-medium">${escapeHtml(order.woolOrderNo)}</div>
-            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.taskNo)}</div>
-          </td>
-          <td class="px-3 py-3">${renderKindBadge(order.kind)}</td>
-          <td class="px-3 py-3 text-sm">
-            <div class="font-medium">${escapeHtml(order.styleName)}</div>
-            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(`${order.styleNo} / ${styleMeta}`)}</div>
-          </td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(order.colorName)} / ${escapeHtml(order.sizeRange)}</td>
-          <td class="px-3 py-3 text-sm">${formatQty(order.plannedQty, order.qtyUnit)}</td>
-          <td class="px-3 py-3 text-sm">
-            <div>${escapeHtml(order.yarnReceipt.yarnSku)}</div>
-            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.yarnReceipt.yarnName)} / ${escapeHtml(order.yarnReceipt.colorName)}</div>
-          </td>
-          <td class="px-3 py-3 text-sm">
-            <div>计划 ${formatQty(order.yarnReceipt.plannedWeightKg, 'kg')}</div>
-            <div>实收 ${formatQty(order.yarnReceipt.receivedWeightKg, 'kg')}</div>
-            <div class="${pickupDifferenceTone}">差异 ${formatQty(order.yarnReceipt.differenceWeightKg, 'kg')}</div>
-          </td>
-          <td class="px-3 py-3 text-sm">
-            <div>开工领用 ${formatQty(yarnUsage.processingUsageWeightKg, 'kg')}</div>
-            <div>缝盘损耗 ${formatQty(yarnUsage.linkingLossWeightKg, 'kg')}</div>
-            <div>回收入仓 ${formatQty(yarnUsage.recoveredWeightKg, 'kg')}</div>
-            <div class="mt-1 text-xs text-muted-foreground">仓内结余 ${formatQty(yarnUsage.waitProcessStockWeightKg, 'kg')}</div>
-          </td>
-          <td class="px-3 py-3">${renderStatusBadge(order.status)}</td>
-          <td class="px-3 py-3">${renderExecutionReportCell(order)}</td>
-          <td class="px-3 py-3 text-sm">
-            <div>${order.plannedMachineCount} 台横机</div>
-            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.scheduledStartAt)} - ${escapeHtml(order.scheduledEndAt)}</div>
-          </td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(order.downstreamTarget)}</td>
-          <td class="px-3 py-3 text-sm">
-            <div>${formatQty(order.completedQty, order.qtyUnit)}</div>
-            <div class="mt-1 text-xs text-muted-foreground">${order.needsPackaging ? '需要包装' : '无需包装'}</div>
-          </td>
-          <td class="px-3 py-3">
-            <div class="flex flex-wrap gap-2">
-              ${renderWorkflowActionButtons(order)}
-              <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildWoolWorkOrderDetailLink(order.woolOrderId))}">查看详情</button>
-              ${
-                order.kind === 'PART_PANEL'
-                  ? `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildWoolWorkOrderDetailLink(order.woolOrderId, 'fei'))}">查看菲票</button>`
-                  : `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildWoolWorkOrderDetailLink(order.woolOrderId, 'whole'))}">查看整件节点</button>`
-              }
-            </div>
-          </td>
-        </tr>
-      `
-    })
-    .join('')
-
-  return renderSection(
-    '毛织加工单表格',
-    `
-      <div class="mb-3 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-        当前仅展示周哥毛织厂自有管理任务；三方外派毛织任务不进入本管理端。筛选结果 ${filteredOrders.length} 条。
-      </div>
-      <div class="overflow-x-auto">
-        <table class="min-w-[2060px] w-full text-left text-sm">
-          <thead class="bg-slate-50 text-xs text-muted-foreground">
-            <tr>
-              <th class="px-3 py-2 font-medium">毛织单号</th>
-              <th class="px-3 py-2 font-medium">任务类型</th>
-              <th class="px-3 py-2 font-medium">款式</th>
-              <th class="px-3 py-2 font-medium">颜色 / 尺码</th>
-              <th class="px-3 py-2 font-medium">计划数量</th>
-              <th class="px-3 py-2 font-medium">纱线</th>
-              <th class="px-3 py-2 font-medium">送料 / 领料</th>
-              <th class="px-3 py-2 font-medium">领用 / 损耗</th>
-              <th class="px-3 py-2 font-medium">当前状态</th>
-              <th class="px-3 py-2 font-medium">开工 / 节点</th>
-              <th class="px-3 py-2 font-medium">横机排产</th>
-              <th class="px-3 py-2 font-medium">交出对象</th>
-              <th class="px-3 py-2 font-medium">完成数量</th>
-              <th class="px-3 py-2 font-medium">操作</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-      ${renderPaginationControls(paging, '条加工单')}
-    `,
-  )
-}
-
-function renderCompactSummaryTags(orders: WoolWorkOrder[]): string {
-  const summary = getWoolWorkOrderSummary(orders)
-  const tags = [
-    ['加工单', `${summary.total}`],
-    ['未接单', `${summary.waitAcceptCount}`],
-    ['待领料', `${summary.waitPickupCount}`],
-    ['领料中', `${summary.pickupInProgressCount}`],
-    ['待排机', `${summary.waitMachineScheduleCount}`],
-    ['横机中', `${summary.flatWoolCount}`],
-    ['待打印菲票', `${summary.waitFeiTicketCount}`],
-    ['计划数量', `${formatNumber(summary.plannedQty)} 件/片`],
-    ['完成数量', `${formatNumber(summary.completedQty)} 件/片`],
-  ]
-
-  return `
-    <section class="rounded-lg border bg-card px-3 py-3">
-      <div class="flex flex-wrap gap-2">
-        ${tags.map(([label, value]) => `
-          <span class="inline-flex items-center rounded border bg-muted/40 px-3 py-1 text-xs text-slate-700">
-            <span class="font-medium">${escapeHtml(label)}：</span>
-            <span class="ml-1 font-semibold">${escapeHtml(value)}</span>
-          </span>
-        `).join('')}
-      </div>
-    </section>
-  `
+function renderWorkspace(): string {
+  listController.ensurePreferencesLoaded()
+  const view = listController.getView()
+  return renderStandardListPage({
+    title: '毛织加工单',
+    primaryActionsHtml: '',
+    feedbackHtml: `<div data-wool-work-orders-feedback>${renderFeedback()}</div>`,
+    filtersHtml: `<div data-wool-work-orders-filters>${renderFilters()}</div>`,
+    statsHtml: `<div data-wool-work-orders-tabs>${renderTabBar()}</div>`,
+    listTitle: '毛织加工单',
+    listActionsHtml: renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2'),
+    tableHtml: `<div data-wool-work-orders-table-surface>${view.tableHtml}</div>`,
+    paginationHtml: `<div data-wool-work-orders-pagination-surface>${view.paginationHtml}</div>`,
+    overlaysHtml: `<div data-wool-work-orders-column-overlays>${listController.renderColumnSettings()}</div><div data-wool-work-orders-business-overlay>${renderBusinessOverlay()}</div>`,
+  })
 }
 
 export function renderCraftWoolWorkOrdersPage(): string {
-  const filters = getCurrentFilters()
-  const filteredOrders = listFilteredWoolWorkOrders(filters)
-  return `
-    <div class="space-y-4 p-4">
-      ${renderPageHeader(
-        '毛织加工单',
-        '周哥毛织厂自有任务管理，区分整件毛织与部位毛织。',
-      )}
-      ${renderFilterBar(filters)}
-      ${renderCompactSummaryTags(filteredOrders)}
-      ${renderOrdersTable(filteredOrders)}
+  resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
+  listController.installColumnDragEvents()
+  return `<div data-wool-work-orders-root data-wool-work-orders-results data-skip-page-rerender="true">${renderWorkspace()}</div>`
+}
+
+function rootElement(): HTMLElement | null {
+  return typeof document === 'undefined' ? null : document.querySelector<HTMLElement>('[data-wool-work-orders-root]')
+}
+
+function refreshResults(): void {
+  const root = rootElement()
+  if (!root) return
+  const rows = rowsForActiveTab()
+  if (state.currentPage > Math.max(1, Math.ceil(rows.length / state.preferences.pageSize))) state.currentPage = 1
+  const view = listController.getView(rows)
+  const table = root.querySelector<HTMLElement>('[data-wool-work-orders-table-surface]')
+  const pagination = root.querySelector<HTMLElement>('[data-wool-work-orders-pagination-surface]')
+  const tabs = root.querySelector<HTMLElement>('[data-wool-work-orders-tabs]')
+  const feedback = root.querySelector<HTMLElement>('[data-wool-work-orders-feedback]')
+  if (table) table.innerHTML = view.tableHtml
+  if (pagination) pagination.innerHTML = view.paginationHtml
+  if (tabs) tabs.innerHTML = renderTabBar()
+  if (feedback) feedback.innerHTML = renderFeedback()
+  void import('../../../components/shell.ts').then(({ hydrateIcons }) => hydrateIcons(root)).catch(() => undefined)
+}
+
+function refreshColumnOverlay(): void {
+  const surface = rootElement()?.querySelector<HTMLElement>('[data-wool-work-orders-column-overlays]')
+  if (surface) surface.innerHTML = listController.renderColumnSettings()
+}
+
+function refreshBusinessOverlay(): void {
+  const surface = rootElement()?.querySelector<HTMLElement>('[data-wool-work-orders-business-overlay]')
+  if (surface) surface.innerHTML = renderBusinessOverlay()
+}
+
+function requireOverlayOrder(): WoolWorkOrder | undefined {
+  if (!state.overlay) return undefined
+  return listWoolWorkOrders().find((item) => item.woolOrderId === state.overlay?.woolOrderId)
+}
+
+function dialog(title: string, body: string, footer: string): string {
+  return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" data-wool-business-dialog><section class="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-lg border bg-background shadow-2xl"><header class="flex items-center justify-between border-b px-4 py-3"><h2 class="font-semibold">${escapeHtml(title)}</h2><button type="button" class="rounded-md border px-2 py-1 text-xs" data-wool-work-orders-action="close-overlay" data-skip-page-rerender="true">关闭</button></header><div class="max-h-[68vh] overflow-y-auto p-4">${body}</div><footer class="flex justify-end gap-2 border-t px-4 py-3">${footer}</footer></section></div>`
+}
+
+function dialogFooter(saveAction: string, saveLabel: string): string {
+  return `${renderSecondaryButton('取消', { prefix: EVENT_PREFIX, action: 'close-overlay' })}${renderPrimaryButton(saveLabel, { prefix: EVENT_PREFIX, action: saveAction })}`
+}
+
+function renderReceiptDialog(order: WoolWorkOrder): string {
+  const yarns = [...new Set(order.outputPlanLines.flatMap((line) => line.requiredYarnSkus))]
+  return dialog('确认接收纱线', `
+    <div class="grid gap-3 md:grid-cols-3"><label class="text-sm"><span class="mb-1 block text-xs text-muted-foreground">送货单号</span><input class="h-9 w-full rounded-md border px-3" data-wool-dialog-field="deliveryNo"></label><label class="text-sm"><span class="mb-1 block text-xs text-muted-foreground">批次号</span><input class="h-9 w-full rounded-md border px-3" data-wool-dialog-field="batchNo"></label><label class="text-sm"><span class="mb-1 block text-xs text-muted-foreground">接收人</span><input class="h-9 w-full rounded-md border px-3" value="Web 端毛织仓管" data-wool-dialog-field="operator"></label></div>
+    <div class="mt-4 overflow-hidden rounded-md border"><div class="grid grid-cols-[40px_1fr_180px] gap-3 border-b bg-muted/40 px-3 py-2 text-xs font-medium"><span>选择</span><span>本单必需纱线 SKU</span><span>实收数量（kg）</span></div>${yarns.map((sku) => `<label class="grid grid-cols-[40px_1fr_180px] items-center gap-3 border-b px-3 py-2 last:border-b-0"><input type="checkbox" data-wool-receipt-yarn="${escapeHtml(sku)}"><span>${escapeHtml(sku)}</span><input type="number" min="0.01" step="0.01" class="h-9 rounded-md border px-3" data-wool-receipt-qty="${escapeHtml(sku)}"></label>`).join('') || '<div class="p-4 text-sm text-red-700">技术包未配置本单必需纱线，不能确认接收。</div>'}</div>
+  `, yarns.length > 0 ? dialogFooter('save-receipt', '保存确认接收') : renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }))
+}
+
+function renderReportDialog(order: WoolWorkOrder): string {
+  const readiness = order.outputPlanLines.map((line) => ({ line, readiness: getWoolOutputReadiness(order.woolOrderId, line.outputSkuCode) }))
+  const available = readiness.filter((item) => item.readiness.canReport)
+  const unavailable = readiness.filter((item) => !item.readiness.canReport)
+  return dialog('加工填报', `
+    <label class="block text-sm"><span class="mb-1 block text-xs text-muted-foreground">可填报加工后 SKU</span><select class="h-9 w-full rounded-md border px-3" data-wool-dialog-field="outputSkuCode">${available.map(({ line, readiness: item }) => `<option value="${escapeHtml(line.outputSkuCode)}">${escapeHtml(line.outputSkuCode)}｜计划 ${line.plannedQty}${line.qtyUnit}｜上限 ${item.reportLimitQty}${line.qtyUnit}｜累计 ${item.reportedQty}${line.qtyUnit}｜本次最多 ${item.remainingReportQty}${line.qtyUnit}</option>`).join('')}</select></label>
+    <div class="mt-3 grid gap-3 md:grid-cols-2"><label class="text-sm"><span class="mb-1 block text-xs text-muted-foreground">本次填报数量</span><input type="number" min="1" step="1" class="h-9 w-full rounded-md border px-3" data-wool-dialog-field="qty"></label><label class="text-sm"><span class="mb-1 block text-xs text-muted-foreground">填报人</span><input class="h-9 w-full rounded-md border px-3" value="Web 端毛织主管" data-wool-dialog-field="operator"></label></div>
+    <section class="mt-4 rounded-md border"><h3 class="border-b px-3 py-2 text-sm font-medium">暂不可填报</h3><div class="space-y-2 p-3 text-xs">${unavailable.map(({ line, readiness: item }) => `<div><span class="font-medium">${escapeHtml(line.outputSkuCode)}</span>：${escapeHtml(item.missingYarnSkus.length ? `缺少 ${item.missingYarnSkus.join('、')}` : item.remainingReportQty === 0 ? '已达到计划数量的 150%' : '技术包缺少必需纱线关系')}</div>`).join('') || '<div class="text-muted-foreground">无</div>'}</div></section>
+  `, available.length > 0 ? dialogFooter('save-report', '保存加工填报') : renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }))
+}
+
+function renderHandoverDialog(order: WoolWorkOrder): string {
+  const available = order.outputPlanLines
+    .map((line) => ({ line, stock: getWoolOutputStockQty(order.woolOrderId, line.outputSkuCode) }))
+    .filter((item) => item.stock > 0)
+  const targetReady = Boolean(order.downstreamTarget.receiverId && order.downstreamTarget.receiverName)
+  return dialog('发起交出', `
+    <label class="block text-sm"><span class="mb-1 block text-xs text-muted-foreground">默认库位有库存的加工后 SKU</span><select class="h-9 w-full rounded-md border px-3" data-wool-dialog-field="outputSkuCode">${available.map(({ line, stock }) => `<option value="${escapeHtml(line.outputSkuCode)}">${escapeHtml(line.outputSkuCode)}｜可交出 ${stock}${line.qtyUnit}</option>`).join('')}</select></label>
+    <div class="mt-3 grid gap-3 md:grid-cols-2"><label class="text-sm"><span class="mb-1 block text-xs text-muted-foreground">本次交出数量</span><input type="number" min="1" step="1" class="h-9 w-full rounded-md border px-3" data-wool-dialog-field="qty"></label><label class="text-sm"><span class="mb-1 block text-xs text-muted-foreground">交出人</span><input class="h-9 w-full rounded-md border px-3" value="Web 端毛织仓管" data-wool-dialog-field="operator"></label></div>
+    <div class="mt-4 rounded-md border p-3 text-sm"><span class="text-muted-foreground">接收对象：</span><strong>${escapeHtml(targetReady ? order.downstreamTarget.receiverName : '交出去向未配置')}</strong><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.downstreamTarget.receiverId || '请先完善加工单的稳定接收方标识，不能自由填写接收对象。')}</div></div>
+  `, available.length > 0 && targetReady ? dialogFooter('save-handover', '保存发起交出') : renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }))
+}
+
+function renderCompleteDialog(order: WoolWorkOrder): string {
+  const receiptFacts = listWoolFactRecords({ woolOrderId: order.woolOrderId, recordType: 'YARN_RECEIPT' })
+  const reportFacts = listWoolFactRecords({ woolOrderId: order.woolOrderId, recordType: 'PROCESS_REPORT' })
+  const handoverFacts = listWoolFactRecords({ woolOrderId: order.woolOrderId, recordType: 'HANDOVER' })
+  const yarnSummary = [...new Set(order.outputPlanLines.flatMap((line) => line.requiredYarnSkus))].map((sku) => {
+    const matchedReceipts = receiptFacts
+      .map((item) => item.record as WoolYarnReceiptRecord)
+      .filter((record) => record.lines.some((line) => line.yarnSkuCode === sku))
+    const received = matchedReceipts.reduce((sum, record) => {
+      return sum + record.lines
+        .filter((line) => line.yarnSkuCode === sku)
+        .reduce((lineSum, line) => lineSum + effectiveReceiptQty(record, line.lineId), 0)
+    }, 0)
+    const batches = [...new Set(matchedReceipts.map((record) => record.batchNo).filter(Boolean))]
+    const latest = matchedReceipts.map((record) => record.receivedAt).sort().at(-1) || '—'
+    return `${sku}：${received > 0 ? '已确认' : '未接收'}，累计 ${formatNumber(received)} kg，批次 ${batches.join('、') || '—'}，最近 ${latest}`
+  })
+  const readinessSummary = order.outputPlanLines.map((line) => {
+    const readiness = getWoolOutputReadiness(order.woolOrderId, line.outputSkuCode)
+    return `${line.outputSkuCode}：${readiness.isReady ? '纱线已齐' : `缺少 ${readiness.missingYarnSkus.join('、') || '技术包必需纱线关系'}`}`
+  })
+  const factBlock = (title: string, body: string) => `<section class="rounded-md border"><h3 class="border-b px-3 py-2 text-sm font-medium">${escapeHtml(title)}</h3><div class="space-y-1 p-3 text-xs">${body}</div></section>`
+  return dialog('完成加工单二次确认', `
+    <div class="mb-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm font-medium text-amber-900">系统仅展示当前业务事实，不判断该加工单是否应该完成。请业务人员核对后确认。</div>
+    <div class="grid gap-3 md:grid-cols-2">
+      ${factBlock('确认接收情况', yarnSummary.length ? `${yarnSummary.map((text) => `<div>${escapeHtml(text)}</div>`).join('')}<div class="mt-2 border-t pt-2">${readinessSummary.map((text) => `<div>${escapeHtml(text)}</div>`).join('')}</div>` : '<div>暂无有效确认接收</div>')}
+      ${factBlock('加工填报情况', order.outputPlanLines.map((line) => {
+        const reported = getWoolOutputReportedQty(order.woolOrderId, line.outputSkuCode)
+        return `<div>${escapeHtml(line.outputSkuCode)}：计划 ${line.plannedQty}${line.qtyUnit} / 上限 ${Math.floor(line.plannedQty * 1.5)}${line.qtyUnit} / 累计 ${reported}${line.qtyUnit} / 与计划差异 ${reported - line.plannedQty}${line.qtyUnit}</div>`
+      }).join(''))}
+      ${factBlock('发起交出情况', order.outputPlanLines.map((line) => {
+        const reported = getWoolOutputReportedQty(order.woolOrderId, line.outputSkuCode)
+        const handedOver = getWoolOutputHandedOverQty(order.woolOrderId, line.outputSkuCode)
+        return `<div>${escapeHtml(line.outputSkuCode)}：累计加工 ${reported}${line.qtyUnit} / 累计交出 ${handedOver}${line.qtyUnit} / 尚未交出 ${Math.max(reported - handedOver, 0)}${line.qtyUnit}</div>`
+      }).join('') + `<div class="mt-2 border-t pt-2">${handoverFacts.map((item) => {
+        const record = item.record as WoolHandoverRecord
+        const downstream = record.downstreamReceipt?.status === 'CONFIRMED'
+          ? `下游已收 ${record.downstreamReceipt.actualReceivedQty ?? 0}${record.qtyUnit}，差异 ${record.downstreamReceipt.differenceQty ?? 0}${record.qtyUnit}`
+          : '下游待确认'
+        return `<div>${escapeHtml(record.handoverId)}：${effectiveHandoverQty(record)}${record.qtyUnit}，${escapeHtml(downstream)}</div>`
+      }).join('') || '<div>暂无交出记录</div>'}</div>`)}
+      ${factBlock('待交出仓情况', order.outputPlanLines.map((line) => `<div>${escapeHtml(line.outputSkuCode)}：默认库位现存 ${getWoolOutputStockQty(order.woolOrderId, line.outputSkuCode)}${line.qtyUnit}</div>`).join(''))}
     </div>
-  `
+    <label class="mt-4 block text-sm"><span class="mb-1 block text-xs text-muted-foreground">完成确认备注</span><textarea class="min-h-20 w-full rounded-md border p-3" data-wool-dialog-field="remark"></textarea></label>
+    <div class="mt-3 text-xs text-muted-foreground">当前共有 ${receiptFacts.length} 次接收、${reportFacts.length} 次加工填报、${handoverFacts.length} 次发起交出。确认后系统自动解除本加工单全部横机关联。</div>
+  `, dialogFooter('save-complete', '确认完成加工单'))
 }
 
-function readFilterField(field: keyof WoolOrderFilters): string {
-  const node = document.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-wool-filter-field="${field}"]`)
-  return node?.value.trim() || ''
+interface EditableFact {
+  recordType: WoolQtyChangeRecordType
+  recordId: string
+  recordLineId?: string
+  objectSkuCode: string
+  currentQty: number
+  unit: string
+  locked?: boolean
 }
 
-function navigateWorkOrderFilters(): void {
-  const params = new URLSearchParams()
-  const filters: WoolOrderFilters = {
-    productionOrder: readFilterField('productionOrder'),
-    woolOrder: readFilterField('woolOrder'),
-    style: readFilterField('style'),
-    kind: readFilterField('kind'),
-    factory: readFilterField('factory'),
-    status: readFilterField('status'),
-  }
-  Object.entries(filters).forEach(([key, value]) => {
-    if (value) params.set(key, value)
+function editableFacts(order: WoolWorkOrder): EditableFact[] {
+  const records = listWoolFactRecords({
+    woolOrderId: order.woolOrderId,
+    recordType: ['YARN_RECEIPT', 'PROCESS_REPORT', 'HANDOVER'],
   })
-  appStore.navigate(`/fcs/craft/wool/work-orders${params.toString() ? `?${params.toString()}` : ''}`)
-}
-
-function promptKgValue(label: string, currentValue = 0, allowZero = true): number | null {
-  const value = window.prompt(label, String(currentValue))?.trim()
-  if (value === undefined) return null
-  const qty = Number(value.replace(/kg|公斤/g, '').trim())
-  if (!Number.isFinite(qty) || qty < 0 || (!allowZero && qty <= 0)) {
-    window.alert(allowZero ? '请输入大于或等于 0 的重量。' : '请输入大于 0 的重量。')
-    return null
-  }
-  return Math.round(qty * 100) / 100
-}
-
-const WOOL_YARN_RECOVERY_MODAL_ID = 'wool-yarn-recovery-modal'
-const WOOL_YARN_RECEIPT_MODAL_ID = 'wool-yarn-receipt-modal'
-const WOOL_YARN_ISSUE_MODAL_ID = 'wool-yarn-issue-modal'
-const WOOL_FINISH_INBOUND_MODAL_ID = 'wool-finish-inbound-modal'
-const WOOL_HANDOVER_CONFIRM_MODAL_ID = 'wool-handover-confirm-modal'
-const WOOL_WAREHOUSE_FORM_MODAL_ID = 'wool-warehouse-form-modal'
-
-function removeWoolYarnRecoveryDialog(): void {
-  document.getElementById(WOOL_YARN_RECOVERY_MODAL_ID)?.remove()
-}
-
-function removeWoolYarnReceiptDialog(): void {
-  document.getElementById(WOOL_YARN_RECEIPT_MODAL_ID)?.remove()
-}
-
-function removeWoolYarnIssueDialog(): void {
-  document.getElementById(WOOL_YARN_ISSUE_MODAL_ID)?.remove()
-}
-
-function removeWoolFinishInboundDialog(): void {
-  document.getElementById(WOOL_FINISH_INBOUND_MODAL_ID)?.remove()
-}
-
-function removeWoolHandoverConfirmDialog(): void {
-  document.getElementById(WOOL_HANDOVER_CONFIRM_MODAL_ID)?.remove()
-}
-
-function removeWoolWarehouseFormDialog(): void {
-  document.getElementById(WOOL_WAREHOUSE_FORM_MODAL_ID)?.remove()
-}
-
-function refreshCurrentWoolPage(): void {
-  const currentPath = appStore.getState().pathname || '/fcs/craft/wool/wait-process-warehouse?tab=inventory'
-  const [path, query = ''] = currentPath.split('?')
-  const params = new URLSearchParams(query)
-  params.set('refreshAt', String(Date.now()))
-  appStore.navigate(`${path}?${params.toString()}`, { historyMode: 'replace' })
-}
-
-function renderWarehouseStatusOptions(currentStatus = '启用'): string {
-  return ['启用', '停用']
-    .map((status) => `<option value="${status}" ${status === currentStatus ? 'selected' : ''}>${status}</option>`)
-    .join('')
-}
-
-function readWarehouseFormField(modal: HTMLElement, field: string): string {
-  return modal.querySelector<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(`[data-warehouse-form-field="${field}"]`)?.value.trim() || ''
-}
-
-function openWoolWarehouseAreaDialog(input: {
-  warehouseMode: WoolWarehouseMode
-  areaId?: string
-  areaCode?: string
-  areaName?: string
-  managerName?: string
-  status?: '启用' | '停用'
-  remark?: string
-}): void {
-  removeWoolWarehouseFormDialog()
-  const isEdit = Boolean(input.areaId)
-  document.body.insertAdjacentHTML('beforeend', `
-    <div id="${WOOL_WAREHOUSE_FORM_MODAL_ID}" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <section class="w-full max-w-2xl rounded-lg border bg-background shadow-2xl">
-        <header class="flex items-center justify-between gap-3 border-b px-4 py-3">
-          <h2 class="text-base font-semibold">${isEdit ? '编辑库区' : '新增库区'}</h2>
-          <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-warehouse-form-action="close">关闭</button>
-        </header>
-        <div class="grid gap-3 p-4 md:grid-cols-2">
-          <label class="text-sm">
-            <span class="text-xs text-muted-foreground">库区编号 *</span>
-            <input class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(input.areaCode || '')}" placeholder="如 KWP-A" data-warehouse-form-field="areaCode" />
-          </label>
-          <label class="text-sm">
-            <span class="text-xs text-muted-foreground">库区名称 *</span>
-            <input class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(input.areaName || '')}" placeholder="如 待加工仓 A 区" data-warehouse-form-field="areaName" />
-          </label>
-          <label class="text-sm">
-            <span class="text-xs text-muted-foreground">负责人</span>
-            <input class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(input.managerName || '毛织仓管')}" data-warehouse-form-field="managerName" />
-          </label>
-          <label class="text-sm">
-            <span class="text-xs text-muted-foreground">状态</span>
-            <select class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" data-warehouse-form-field="status">
-              ${renderWarehouseStatusOptions(input.status || '启用')}
-            </select>
-          </label>
-          <label class="text-sm md:col-span-2">
-            <span class="text-xs text-muted-foreground">备注</span>
-            <textarea class="mt-1 min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm" data-warehouse-form-field="remark">${escapeHtml(input.remark || '')}</textarea>
-          </label>
-        </div>
-        <footer class="flex justify-end gap-2 border-t px-4 py-3">
-          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-warehouse-form-action="close">取消</button>
-          <button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-warehouse-form-action="submit-area">保存库区</button>
-        </footer>
-      </section>
-    </div>
-  `)
-
-  const modal = document.getElementById(WOOL_WAREHOUSE_FORM_MODAL_ID)
-  if (!modal) return
-  modal.addEventListener('click', (event) => {
-    const action = (event.target as HTMLElement).closest<HTMLElement>('[data-warehouse-form-action]')?.dataset.warehouseFormAction
-    if (!action) return
-    if (action === 'close') {
-      removeWoolWarehouseFormDialog()
-      return
-    }
-    if (action === 'submit-area') {
-      const areaCode = readWarehouseFormField(modal, 'areaCode')
-      const areaName = readWarehouseFormField(modal, 'areaName')
-      if (!areaCode || !areaName) {
-        window.alert('请填写库区编号和库区名称。')
-        return
-      }
-      upsertWoolWarehouseArea({
-        areaId: input.areaId,
-        warehouseMode: input.warehouseMode,
-        areaCode,
-        areaName,
-        managerName: readWarehouseFormField(modal, 'managerName') || '毛织仓管',
-        status: (readWarehouseFormField(modal, 'status') as '启用' | '停用') || '启用',
-        remark: readWarehouseFormField(modal, 'remark'),
-      })
-      removeWoolWarehouseFormDialog()
-      refreshCurrentWoolPage()
-    }
-  })
-}
-
-function openWoolWarehouseLocationDialog(input: {
-  warehouseMode: WoolWarehouseMode
-  locationId?: string
-  areaId?: string
-  areaName?: string
-  locationCode?: string
-  managerName?: string
-  status?: '启用' | '停用'
-  remark?: string
-}): void {
-  removeWoolWarehouseFormDialog()
-  const isEdit = Boolean(input.locationId)
-  const areas = listWoolWarehouseAreas(input.warehouseMode)
-  const selectedAreaId = input.areaId || areas.find((area) => area.areaName === input.areaName)?.areaId || areas[0]?.areaId || ''
-  const areaOptions = areas
-    .map((area) => `
-      <option value="${escapeHtml(area.areaId)}" ${area.areaId === selectedAreaId ? 'selected' : ''}>
-        ${escapeHtml(area.areaName)} / ${escapeHtml(area.areaCode)}
-      </option>
-    `)
-    .join('')
-
-  document.body.insertAdjacentHTML('beforeend', `
-    <div id="${WOOL_WAREHOUSE_FORM_MODAL_ID}" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <section class="w-full max-w-2xl rounded-lg border bg-background shadow-2xl">
-        <header class="flex items-center justify-between gap-3 border-b px-4 py-3">
-          <h2 class="text-base font-semibold">${isEdit ? '编辑库位' : '新增库位'}</h2>
-          <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-warehouse-form-action="close">关闭</button>
-        </header>
-        <div class="grid gap-3 p-4 md:grid-cols-2">
-          <label class="text-sm md:col-span-2">
-            <span class="text-xs text-muted-foreground">所属库区 *</span>
-            <select class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" data-warehouse-form-field="areaId">
-              ${areaOptions}
-            </select>
-          </label>
-          <label class="text-sm">
-            <span class="text-xs text-muted-foreground">库位编号 *</span>
-            <input class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(input.locationCode || '')}" placeholder="${input.warehouseMode === 'wait-process' ? 'KWP-A-03' : 'KWH-A-03'}" data-warehouse-form-field="locationCode" />
-          </label>
-          <label class="text-sm">
-            <span class="text-xs text-muted-foreground">负责人</span>
-            <input class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(input.managerName || '毛织仓管')}" data-warehouse-form-field="managerName" />
-          </label>
-          <label class="text-sm">
-            <span class="text-xs text-muted-foreground">状态</span>
-            <select class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" data-warehouse-form-field="status">
-              ${renderWarehouseStatusOptions(input.status || '启用')}
-            </select>
-          </label>
-          <label class="text-sm md:col-span-2">
-            <span class="text-xs text-muted-foreground">备注</span>
-            <textarea class="mt-1 min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm" data-warehouse-form-field="remark">${escapeHtml(input.remark || '')}</textarea>
-          </label>
-        </div>
-        <footer class="flex justify-end gap-2 border-t px-4 py-3">
-          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-warehouse-form-action="close">取消</button>
-          <button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-warehouse-form-action="submit-location">保存库位</button>
-        </footer>
-      </section>
-    </div>
-  `)
-
-  const modal = document.getElementById(WOOL_WAREHOUSE_FORM_MODAL_ID)
-  if (!modal) return
-  modal.addEventListener('click', (event) => {
-    const action = (event.target as HTMLElement).closest<HTMLElement>('[data-warehouse-form-action]')?.dataset.warehouseFormAction
-    if (!action) return
-    if (action === 'close') {
-      removeWoolWarehouseFormDialog()
-      return
-    }
-    if (action === 'submit-location') {
-      const areaId = readWarehouseFormField(modal, 'areaId')
-      const locationCode = readWarehouseFormField(modal, 'locationCode')
-      if (!areaId || !locationCode) {
-        window.alert('请选择所属库区并填写库位编号。')
-        return
-      }
-      upsertWoolWarehouseLocation({
-        locationId: input.locationId,
-        warehouseMode: input.warehouseMode,
-        areaId,
-        locationCode,
-        managerName: readWarehouseFormField(modal, 'managerName') || '毛织仓管',
-        status: (readWarehouseFormField(modal, 'status') as '启用' | '停用') || '启用',
-        remark: readWarehouseFormField(modal, 'remark'),
-      })
-      removeWoolWarehouseFormDialog()
-      refreshCurrentWoolPage()
-    }
-  })
-}
-
-function renderWoolReceiptAreaOptions(selectedAreaId = ''): string {
-  return listWoolWarehouseAreas('wait-process')
-    .map((area) => `<option value="${escapeHtml(area.areaId)}" ${area.areaId === selectedAreaId ? 'selected' : ''}>${escapeHtml(area.areaName)} / ${escapeHtml(area.areaCode)}</option>`)
-    .join('')
-}
-
-function renderWoolReceiptLocationOptions(areaId: string, selectedLocationId = ''): string {
-  const locations = listWoolWarehouseLocations('wait-process').filter((location) => location.areaId === areaId)
-  if (locations.length === 0) return '<option value="">仅库区</option>'
-  return [
-    '<option value="">仅库区</option>',
-    ...locations.map((location) => `<option value="${escapeHtml(location.locationId)}" ${location.locationId === selectedLocationId ? 'selected' : ''}>${escapeHtml(location.locationCode)}</option>`),
-  ].join('')
-}
-
-function renderWoolReceiptDetails(receipt: WoolWaitProcessScanReceipt | undefined): string {
-  if (!receipt) {
-    return `
-      <div class="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-        请输入毛织领料单、送料单、毛织加工单号，或扫码读取送料二维码。
-      </div>
-    `
-  }
-  const areas = listWoolWarehouseAreas('wait-process')
-  const defaultAreaId = areas[0]?.areaId || ''
-  const rows = receipt.lines.map((line) => `
-    <tr class="align-top" data-wool-receipt-line-id="${escapeHtml(line.receiptLineId)}">
-      <td class="px-3 py-3">
-        <div class="font-mono text-xs">${escapeHtml(line.yarnSku)}</div>
-        <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.yarnName)} / ${escapeHtml(line.colorName)}</div>
-      </td>
-      <td class="px-3 py-3">${renderKindBadge(line.kind)}</td>
-      <td class="px-3 py-3 text-sm">
-        <div class="font-medium">${escapeHtml(line.woolOrderNo)}</div>
-        <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.productionOrderNo)}</div>
-      </td>
-      <td class="px-3 py-3 text-sm">${formatQty(line.plannedWeightKg, line.unit)}</td>
-      <td class="px-3 py-3 text-sm">${line.currentReceivedWeightKg > 0 ? formatQty(line.currentReceivedWeightKg, line.unit) : '待确认'}</td>
-      <td class="px-3 py-3">
-        <input class="h-9 w-28 rounded-md border bg-background px-3 text-sm" type="number" min="0" step="0.01" value="${escapeHtml(String(line.currentReceivedWeightKg || line.plannedWeightKg))}" data-wool-receipt-field="actualWeightKg" />
-      </td>
-      <td class="px-3 py-3">
-        <select class="h-9 min-w-48 rounded-md border bg-background px-3 text-sm" data-wool-receipt-field="areaId">
-          ${renderWoolReceiptAreaOptions(defaultAreaId)}
-        </select>
-      </td>
-      <td class="px-3 py-3">
-        <select class="h-9 min-w-36 rounded-md border bg-background px-3 text-sm" data-wool-receipt-field="locationId">
-          ${renderWoolReceiptLocationOptions(defaultAreaId)}
-        </select>
-      </td>
-    </tr>
-  `).join('')
-  return `
-    <div class="space-y-3">
-      <div class="grid gap-3 rounded-lg border bg-slate-50 p-3 text-sm md:grid-cols-4">
-        <div><span class="text-xs text-muted-foreground">领料单</span><div class="mt-1 font-mono">${escapeHtml(receipt.receiptNo)}</div></div>
-        <div><span class="text-xs text-muted-foreground">送料单</span><div class="mt-1 font-mono">${escapeHtml(receipt.sourceDeliveryNo)}</div></div>
-        <div><span class="text-xs text-muted-foreground">来源</span><div class="mt-1">${escapeHtml(receipt.sourceName)}</div></div>
-        <div><span class="text-xs text-muted-foreground">生产单 / 款式</span><div class="mt-1">${escapeHtml(receipt.productionOrderNo)} / ${escapeHtml(receipt.styleName)}</div></div>
-      </div>
-      <div class="overflow-x-auto rounded-lg border">
-        <table class="min-w-[1220px] w-full text-left text-sm">
-          <thead class="bg-slate-50 text-xs text-muted-foreground">
-            <tr>
-              <th class="px-3 py-2 font-medium">纱线</th>
-              <th class="px-3 py-2 font-medium">类型</th>
-              <th class="px-3 py-2 font-medium">毛织加工单</th>
-              <th class="px-3 py-2 font-medium">计划重量</th>
-              <th class="px-3 py-2 font-medium">当前实收</th>
-              <th class="px-3 py-2 font-medium">本次实收</th>
-              <th class="px-3 py-2 font-medium">库区</th>
-              <th class="px-3 py-2 font-medium">库位</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    </div>
-  `
-}
-
-function loadWoolReceiptDetails(modal: HTMLElement): void {
-  const keyword = modal.querySelector<HTMLInputElement>('[data-wool-receipt-field="receiptNo"]')?.value.trim() || ''
-  const details = modal.querySelector<HTMLElement>('[data-wool-receipt-details]')
-  if (!details) return
-  const receipt = lookupWoolWaitProcessScanReceipt(keyword)
-  details.innerHTML = renderWoolReceiptDetails(receipt)
-  if (!receipt) window.alert('未找到该毛织领料单或送料二维码。')
-}
-
-function syncWoolReceiptLocationSelect(row: HTMLElement): void {
-  const areaId = row.querySelector<HTMLSelectElement>('[data-wool-receipt-field="areaId"]')?.value || ''
-  const locationSelect = row.querySelector<HTMLSelectElement>('[data-wool-receipt-field="locationId"]')
-  if (!locationSelect) return
-  locationSelect.innerHTML = renderWoolReceiptLocationOptions(areaId)
-}
-
-function getWoolReceiptEvidenceType(modal: HTMLElement): 'image' | 'video' {
-  const selected = modal.querySelector<HTMLInputElement>('[data-wool-receipt-field="evidenceType"]:checked')?.value
-  return selected === 'video' ? 'video' : 'image'
-}
-
-function syncWoolReceiptEvidenceFileName(modal: HTMLElement): void {
-  const evidenceType = getWoolReceiptEvidenceType(modal)
-  const fileInput = modal.querySelector<HTMLInputElement>(`[data-wool-receipt-field="${evidenceType === 'image' ? 'imageFile' : 'videoFile'}"]`)
-  const fileNameNode = modal.querySelector<HTMLElement>('[data-wool-receipt-evidence-name]')
-  if (!fileNameNode) return
-  const fileName = fileInput?.files?.[0]?.name || ''
-  fileNameNode.textContent = fileName
-    ? `${evidenceType === 'image' ? '已选择称重照片' : '已选择到货视频'}：${fileName}`
-    : `请选择${evidenceType === 'image' ? '称重照片' : '到货视频'}`
-}
-
-function syncWoolReceiptEvidencePanels(modal: HTMLElement): void {
-  const evidenceType = getWoolReceiptEvidenceType(modal)
-  modal.querySelectorAll<HTMLElement>('[data-wool-receipt-evidence-label]').forEach((label) => {
-    const active = label.dataset.woolReceiptEvidenceLabel === evidenceType
-    label.classList.toggle('border-blue-600', active)
-    label.classList.toggle('bg-blue-50', active)
-    label.classList.toggle('text-blue-700', active)
-  })
-  modal.querySelectorAll<HTMLElement>('[data-wool-receipt-evidence-panel]').forEach((panel) => {
-    panel.classList.toggle('hidden', panel.dataset.woolReceiptEvidencePanel !== evidenceType)
-  })
-  const inactiveInput = modal.querySelector<HTMLInputElement>(`[data-wool-receipt-field="${evidenceType === 'image' ? 'videoFile' : 'imageFile'}"]`)
-  if (inactiveInput) inactiveInput.value = ''
-  syncWoolReceiptEvidenceFileName(modal)
-}
-
-function readWoolReceiptEvidenceText(modal: HTMLElement): string | null {
-  const evidenceType = getWoolReceiptEvidenceType(modal)
-  const fileInput = modal.querySelector<HTMLInputElement>(`[data-wool-receipt-field="${evidenceType === 'image' ? 'imageFile' : 'videoFile'}"]`)
-  const file = fileInput?.files?.[0]
-  if (!file) return null
-  return evidenceType === 'image'
-    ? `称重照片：${file.name}`
-    : `到货视频：${file.name}`
-}
-
-function openWoolYarnReceiptDialog(): void {
-  removeWoolYarnReceiptDialog()
-  const receipts = listWoolWaitProcessScanReceipts()
-  const preferred = receipts.find((receipt) => receipt.lines.some((line) => line.currentReceivedWeightKg <= 0)) || receipts[0]
-  const examples = receipts.slice(0, 3).map((receipt) => `
-    <button type="button" class="rounded-full border px-2 py-1 text-xs hover:bg-muted" data-wool-receipt-action="fill-receipt" data-receipt-no="${escapeHtml(receipt.receiptNo)}">
-      ${escapeHtml(receipt.receiptNo)}
-    </button>
-  `).join('')
-
-  document.body.insertAdjacentHTML('beforeend', `
-    <div id="${WOOL_YARN_RECEIPT_MODAL_ID}" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <section class="flex max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border bg-background shadow-2xl">
-        <header class="flex items-start justify-between gap-3 border-b px-4 py-3">
-          <div>
-            <h2 class="text-base font-semibold">领料入仓</h2>
-            <p class="mt-1 text-xs text-muted-foreground">扫描毛织领料单或二维码，确认纱线重量并选择库区库位。</p>
-          </div>
-          <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-wool-receipt-action="close">关闭</button>
-        </header>
-        <div class="space-y-4 overflow-y-auto p-4">
-          <div class="grid gap-3 md:grid-cols-[1fr_auto]">
-            <label class="text-sm">
-              <span class="text-xs text-muted-foreground">毛织领料单 / 送料单 / 毛织加工单号 / 二维码 *</span>
-              <input class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" placeholder="例如 领料-毛织单-202603-0006-02 或 QR-领料-..." data-wool-receipt-field="receiptNo" />
-            </label>
-            <div class="flex items-end gap-2">
-              <button type="button" class="h-10 rounded-md border px-3 text-sm hover:bg-muted" data-wool-receipt-action="load">获取明细</button>
-              <button type="button" class="h-10 rounded-md border px-3 text-sm hover:bg-muted" data-wool-receipt-action="scan-demo">扫码识别</button>
-            </div>
-          </div>
-          <div class="flex flex-wrap gap-2">${examples}</div>
-          <div data-wool-receipt-details>${renderWoolReceiptDetails(undefined)}</div>
-          <section class="rounded-lg border p-3">
-            <div class="text-xs font-medium text-muted-foreground">称重照片 / 视频凭证 *</div>
-            <div class="mt-2 grid gap-2 md:grid-cols-2">
-              <label class="cursor-pointer rounded-md border px-3 py-2 text-sm" data-wool-receipt-evidence-label="image">
-                <input class="mr-2 align-middle" type="radio" name="wool-receipt-evidence-type" value="image" checked data-wool-receipt-field="evidenceType" />
-                称重照片
-              </label>
-              <label class="cursor-pointer rounded-md border px-3 py-2 text-sm" data-wool-receipt-evidence-label="video">
-                <input class="mr-2 align-middle" type="radio" name="wool-receipt-evidence-type" value="video" data-wool-receipt-field="evidenceType" />
-                到货视频
-              </label>
-            </div>
-            <div class="mt-3" data-wool-receipt-evidence-panel="image">
-              <input class="block h-10 w-full rounded-md border bg-background px-3 py-2 text-sm" type="file" accept="image/*" data-wool-receipt-field="imageFile" />
-            </div>
-            <div class="mt-3 hidden" data-wool-receipt-evidence-panel="video">
-              <input class="block h-10 w-full rounded-md border bg-background px-3 py-2 text-sm" type="file" accept="video/*" data-wool-receipt-field="videoFile" />
-            </div>
-            <div class="mt-2 text-xs text-muted-foreground" data-wool-receipt-evidence-name>请选择称重照片</div>
-          </section>
-        </div>
-        <footer class="flex justify-end gap-2 border-t px-4 py-3">
-          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-wool-receipt-action="close">取消</button>
-          <button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-wool-receipt-action="submit">确认领料入仓</button>
-        </footer>
-      </section>
-    </div>
-  `)
-
-  const modal = document.getElementById(WOOL_YARN_RECEIPT_MODAL_ID)
-  if (!modal) return
-  syncWoolReceiptEvidencePanels(modal)
-  modal.addEventListener('change', (event) => {
-    const field = (event.target as HTMLElement).closest<HTMLElement>('[data-wool-receipt-field]')?.dataset.woolReceiptField
-    if (field === 'evidenceType') {
-      syncWoolReceiptEvidencePanels(modal)
-      return
-    }
-    if (field === 'imageFile' || field === 'videoFile') {
-      syncWoolReceiptEvidenceFileName(modal)
-      return
-    }
-    if (field !== 'areaId') return
-    const row = (event.target as HTMLElement).closest<HTMLElement>('[data-wool-receipt-line-id]')
-    if (row) syncWoolReceiptLocationSelect(row)
-  })
-  modal.addEventListener('click', (event) => {
-    const actionNode = (event.target as HTMLElement).closest<HTMLElement>('[data-wool-receipt-action]')
-    const action = actionNode?.dataset.woolReceiptAction
-    if (!action) return
-    if (action === 'close') {
-      removeWoolYarnReceiptDialog()
-      return
-    }
-    if (action === 'fill-receipt') {
-      const input = modal.querySelector<HTMLInputElement>('[data-wool-receipt-field="receiptNo"]')
-      if (input) input.value = actionNode.dataset.receiptNo || ''
-      loadWoolReceiptDetails(modal)
-      return
-    }
-    if (action === 'scan-demo') {
-      const input = modal.querySelector<HTMLInputElement>('[data-wool-receipt-field="receiptNo"]')
-      if (input) input.value = preferred?.qrCode || ''
-      loadWoolReceiptDetails(modal)
-      return
-    }
-    if (action === 'load') {
-      loadWoolReceiptDetails(modal)
-      return
-    }
-    if (action === 'submit') {
-      const receiptNo = modal.querySelector<HTMLInputElement>('[data-wool-receipt-field="receiptNo"]')?.value.trim() || ''
-      const evidenceText = readWoolReceiptEvidenceText(modal)
-      if (!evidenceText) {
-        window.alert('请上传称重照片或到货视频，二选一。')
-        return
-      }
-      const rows = Array.from(modal.querySelectorAll<HTMLElement>('[data-wool-receipt-line-id]'))
-      const lines = rows.map((row) => ({
-        receiptLineId: row.dataset.woolReceiptLineId || '',
-        actualWeightKg: Number(row.querySelector<HTMLInputElement>('[data-wool-receipt-field="actualWeightKg"]')?.value || 0),
-        areaId: row.querySelector<HTMLSelectElement>('[data-wool-receipt-field="areaId"]')?.value || '',
-        locationId: row.querySelector<HTMLSelectElement>('[data-wool-receipt-field="locationId"]')?.value || '',
-        evidenceText,
-      }))
-      try {
-        const created = confirmWoolWaitProcessScanReceipt({
-          receiptNo,
-          receiverName: '毛织仓管',
-          lines,
-        })
-        removeWoolYarnReceiptDialog()
-        window.alert(`已生成 ${created.length} 条纱线领料入仓记录。`)
-        const currentPath = appStore.getState().pathname || '/fcs/craft/wool/wait-process-warehouse'
-        const [path, query = ''] = currentPath.split('?')
-        const params = new URLSearchParams(query)
-        params.set('tab', 'receipts')
-        params.set('waitProcessReceiptsPage', '1')
-        params.set('refreshAt', String(Date.now()))
-        appStore.navigate(`${path}?${params.toString()}`, { historyMode: 'replace' })
-      } catch (error) {
-        window.alert(error instanceof Error ? error.message : '收货确认失败。')
-      }
-    }
-  })
-}
-
-function getWoolOrderLabel(order: WoolWorkOrder): string {
-  return `${order.woolOrderNo} / ${WOOL_STATUS_LABEL[order.status]} / ${order.yarnReceipt.yarnSku} / ${formatQty(order.completedQty || order.plannedQty, order.qtyUnit)}`
-}
-
-function getSelectedWoolOrderFromModal(modal: HTMLElement, fieldName: string): WoolWorkOrder | undefined {
-  const orderId = modal.querySelector<HTMLSelectElement>(`[data-${fieldName}-field="woolOrderId"]`)?.value || ''
-  return listWoolWorkOrders().find((order) => order.woolOrderId === orderId)
-}
-
-function ensureWoolOrderScheduledForIssue(orderId: string, yarnUsageWeightKg: number): WoolWorkOrder | undefined {
-  let order = listWoolWorkOrders().find((item) => item.woolOrderId === orderId)
-  if (!order) return undefined
-  if (order.status === 'WAIT_ACCEPT') {
-    acceptWoolWorkOrder(orderId, 'Web端仓管')
-    order = listWoolWorkOrders().find((item) => item.woolOrderId === orderId)
-  }
-  if (order?.status === 'WAIT_PICKUP' || order?.status === 'PICKUP_IN_PROGRESS') {
-    completeWoolPickupHead(orderId, 'Web端仓管')
-    order = listWoolWorkOrders().find((item) => item.woolOrderId === orderId)
-  }
-  if (order?.status === 'WAIT_MACHINE_SCHEDULE') {
-    scheduleWoolMachines(orderId, 'Web端仓管')
-    order = listWoolWorkOrders().find((item) => item.woolOrderId === orderId)
-  }
-  if (order?.status === 'MACHINE_SCHEDULED') {
-    updateWoolWorkOrderNodeStatus(orderId, '横机成片', '进行中', 'Web端仓管', undefined, { yarnUsageWeightKg })
-  }
-  return listWoolWorkOrders().find((item) => item.woolOrderId === orderId)
-}
-
-function advanceWoolOrderToWarehouseInbound(orderId: string): WoolWorkOrder | undefined {
-  for (let index = 0; index < 12; index += 1) {
-    const order = listWoolWorkOrders().find((item) => item.woolOrderId === orderId)
-    if (!order) return undefined
-    if (['WAIT_FEI_TICKET', 'FEI_TICKET_PRINTED', 'WAIT_HANDOVER', 'HANDOVER_SUBMITTED', 'COMPLETED'].includes(order.status)) return order
-    if (order.status === 'WAIT_ACCEPT') {
-      acceptWoolWorkOrder(orderId, 'Web端仓管')
+  const result: EditableFact[] = []
+  for (const item of records) {
+    if (item.recordType === 'YARN_RECEIPT') {
+      const record = item.record as WoolYarnReceiptRecord
+      result.push(...record.lines.map((line) => ({
+        recordType: 'YARN_RECEIPT' as const,
+        recordId: record.receiptId,
+        recordLineId: line.lineId,
+        objectSkuCode: line.yarnSkuCode,
+        currentQty: effectiveReceiptQty(record, line.lineId),
+        unit: line.qtyUnit,
+      })))
       continue
     }
-    if (order.status === 'WAIT_PICKUP' || order.status === 'PICKUP_IN_PROGRESS') {
-      completeWoolPickupHead(orderId, 'Web端仓管')
-      continue
-    }
-    if (order.status === 'WAIT_MACHINE_SCHEDULE') {
-      scheduleWoolMachines(orderId, 'Web端仓管')
-      continue
-    }
-    if (order.status === 'MACHINE_SCHEDULED') {
-      const usage = getWoolYarnUsageSummary(order)
-      updateWoolWorkOrderNodeStatus(orderId, '横机成片', '进行中', 'Web端仓管', undefined, {
-        yarnUsageWeightKg: usage.processingUsageWeightKg || order.yarnReceipt.receivedWeightKg || order.yarnReceipt.plannedWeightKg,
+    if (item.recordType === 'PROCESS_REPORT') {
+      const record = item.record as WoolProcessReportRecord
+      result.push({
+        recordType: 'PROCESS_REPORT' as const,
+        recordId: record.reportId,
+        objectSkuCode: record.outputSkuCode,
+        currentQty: effectiveReportQty(record),
+        unit: order.outputPlanLines.find((line) => line.outputSkuCode === record.outputSkuCode)?.qtyUnit || '件',
       })
       continue
     }
-    if (order.status === 'FLAT_WOOL') {
-      updateWoolWorkOrderNodeStatus(orderId, '横机成片', '已完成', 'Web端仓管')
-      continue
-    }
-    if (order.status === 'WAIT_LINKING') {
-      updateWoolWorkOrderNodeStatus(orderId, '缝盘', '进行中', 'Web端仓管')
-      continue
-    }
-    if (order.status === 'LINKING') {
-      const usage = getWoolYarnUsageSummary(order)
-      updateWoolWorkOrderNodeStatus(orderId, '缝盘', '已完成', 'Web端仓管', undefined, {
-        yarnLossWeightKg: usage.linkingLossWeightKg || Math.max((usage.processingUsageWeightKg || order.yarnReceipt.plannedWeightKg) * 0.015, 0.1),
-      })
-      continue
-    }
-    if (order.status === 'WAIT_IRONING') {
-      updateWoolWorkOrderNodeStatus(orderId, '熨烫', '进行中', 'Web端仓管')
-      continue
-    }
-    if (order.status === 'IRONING') {
-      updateWoolWorkOrderNodeStatus(orderId, '熨烫', '已完成', 'Web端仓管')
-      continue
-    }
-    if (order.status === 'WAIT_PACKING') {
-      updateWoolWorkOrderNodeStatus(orderId, '包装', order.needsPackaging ? '进行中' : '已跳过', 'Web端仓管')
-      continue
-    }
-    if (order.status === 'PACKING') {
-      updateWoolWorkOrderNodeStatus(orderId, '包装', '已完成', 'Web端仓管')
-      continue
-    }
-    return order
-  }
-  return listWoolWorkOrders().find((item) => item.woolOrderId === orderId)
-}
-
-function openWoolYarnIssueDialog(): void {
-  removeWoolYarnIssueDialog()
-  const orders = listWoolWorkOrders()
-  const first = orders.find((order) => ['WAIT_MACHINE_SCHEDULE', 'MACHINE_SCHEDULED', 'FLAT_WOOL'].includes(order.status)) || orders[0]
-  const options = orders.slice(0, 36).map((order) => `<option value="${escapeHtml(order.woolOrderId)}">${escapeHtml(getWoolOrderLabel(order))}</option>`).join('')
-  const defaultQty = first ? getWoolYarnUsageSummary(first).processingUsageWeightKg || first.yarnReceipt.receivedWeightKg || first.yarnReceipt.plannedWeightKg : 0
-  document.body.insertAdjacentHTML('beforeend', `
-    <div id="${WOOL_YARN_ISSUE_MODAL_ID}" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <section class="max-h-[88vh] w-full max-w-3xl overflow-hidden rounded-lg border bg-background shadow-2xl">
-        <header class="flex items-center justify-between gap-3 border-b px-4 py-3">
-          <div>
-            <h2 class="text-base font-semibold">加工领料</h2>
-            <p class="mt-1 text-xs text-muted-foreground">从毛织待加工仓领出纱线给横机成片使用，单位为 kg。</p>
-          </div>
-          <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-wool-issue-action="close">关闭</button>
-        </header>
-        <div class="grid gap-3 p-4 md:grid-cols-2">
-          <label class="text-sm md:col-span-2">
-            <span class="text-xs text-muted-foreground">毛织加工单 / 纱线 *</span>
-            <select class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" data-wool-issue-field="woolOrderId">${options}</select>
-          </label>
-          <label class="text-sm">
-            <span class="text-xs text-muted-foreground">领料重量（kg）*</span>
-            <input class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" type="number" min="0" step="0.01" value="${escapeHtml(String(Math.round(defaultQty * 100) / 100))}" data-wool-issue-field="qty" />
-          </label>
-          <label class="text-sm">
-            <span class="text-xs text-muted-foreground">领料人</span>
-            <input class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" value="毛织仓管" data-wool-issue-field="operatorName" />
-          </label>
-          <label class="text-sm md:col-span-2">
-            <span class="text-xs text-muted-foreground">加工用途</span>
-            <input class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" value="横机成片领料" />
-          </label>
-        </div>
-        <footer class="flex justify-end gap-2 border-t px-4 py-3">
-          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-wool-issue-action="close">取消</button>
-          <button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-wool-issue-action="submit">确认加工领料</button>
-        </footer>
-      </section>
-    </div>
-  `)
-  const modal = document.getElementById(WOOL_YARN_ISSUE_MODAL_ID)
-  if (!modal) return
-  modal.addEventListener('click', (event) => {
-    const action = (event.target as HTMLElement).closest<HTMLElement>('[data-wool-issue-action]')?.dataset.woolIssueAction
-    if (!action) return
-    if (action === 'close') {
-      removeWoolYarnIssueDialog()
-      return
-    }
-    if (action === 'submit') {
-      const order = getSelectedWoolOrderFromModal(modal, 'wool-issue')
-      const qty = Number(modal.querySelector<HTMLInputElement>('[data-wool-issue-field="qty"]')?.value || 0)
-      if (!order) {
-        window.alert('请选择毛织加工单。')
-        return
-      }
-      if (!Number.isFinite(qty) || qty <= 0) {
-        window.alert('请输入大于 0 的领料重量。')
-        return
-      }
-      ensureWoolOrderScheduledForIssue(order.woolOrderId, Math.round(qty * 100) / 100)
-      removeWoolYarnIssueDialog()
-      window.alert('加工领料已记录。')
-      appStore.navigate('/fcs/craft/wool/wait-process-warehouse?tab=usage&refreshAt=' + Date.now(), { historyMode: 'replace' })
-    }
-  })
-}
-
-function openWoolFinishInboundDialog(): void {
-  removeWoolFinishInboundDialog()
-  const orders = listWoolWorkOrders()
-  const options = orders.slice(0, 36).map((order) => `<option value="${escapeHtml(order.woolOrderId)}">${escapeHtml(getWoolOrderLabel(order))}</option>`).join('')
-  document.body.insertAdjacentHTML('beforeend', `
-    <div id="${WOOL_FINISH_INBOUND_MODAL_ID}" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <section class="max-h-[88vh] w-full max-w-3xl overflow-hidden rounded-lg border bg-background shadow-2xl">
-        <header class="flex items-center justify-between gap-3 border-b px-4 py-3">
-          <div>
-            <h2 class="text-base font-semibold">完工入仓</h2>
-            <p class="mt-1 text-xs text-muted-foreground">整件毛织按件入仓；部位毛织片按片入仓，后续可按菲票交出。</p>
-          </div>
-          <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-wool-finish-action="close">关闭</button>
-        </header>
-        <div class="grid gap-3 p-4 md:grid-cols-2">
-          <label class="text-sm md:col-span-2">
-            <span class="text-xs text-muted-foreground">毛织加工单 *</span>
-            <select class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" data-wool-finish-field="woolOrderId">${options}</select>
-          </label>
-          <label class="text-sm">
-            <span class="text-xs text-muted-foreground">入仓库区</span>
-            <input class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" value="毛织待交出仓 A 区" />
-          </label>
-          <label class="text-sm">
-            <span class="text-xs text-muted-foreground">入仓库位</span>
-            <input class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" value="KWH-A-01" />
-          </label>
-        </div>
-        <footer class="flex justify-end gap-2 border-t px-4 py-3">
-          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-wool-finish-action="close">取消</button>
-          <button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-wool-finish-action="submit">确认完工入仓</button>
-        </footer>
-      </section>
-    </div>
-  `)
-  const modal = document.getElementById(WOOL_FINISH_INBOUND_MODAL_ID)
-  if (!modal) return
-  modal.addEventListener('click', (event) => {
-    const action = (event.target as HTMLElement).closest<HTMLElement>('[data-wool-finish-action]')?.dataset.woolFinishAction
-    if (!action) return
-    if (action === 'close') {
-      removeWoolFinishInboundDialog()
-      return
-    }
-    if (action === 'submit') {
-      const order = getSelectedWoolOrderFromModal(modal, 'wool-finish')
-      if (!order) {
-        window.alert('请选择毛织加工单。')
-        return
-      }
-      const next = advanceWoolOrderToWarehouseInbound(order.woolOrderId)
-      removeWoolFinishInboundDialog()
-      window.alert(next?.kind === 'PART_PANEL' ? '部位毛织片已完工入仓。' : '整件毛织已完工入仓。')
-      appStore.navigate('/fcs/craft/wool/wait-handover-warehouse?tab=inbounds&refreshAt=' + Date.now(), { historyMode: 'replace' })
-    }
-  })
-}
-
-function openWoolHandoverConfirmDialog(preferredOrderId = ''): void {
-  removeWoolHandoverConfirmDialog()
-  const inventory = listWoolWarehouseInventory('wait-handover')
-  const seen = new Set<string>()
-  const options = inventory
-    .filter((item) => {
-      if (seen.has(item.woolOrderId)) return false
-      seen.add(item.woolOrderId)
-      return true
-    })
-    .map((item) => `<option value="${escapeHtml(item.woolOrderId)}" ${item.woolOrderId === preferredOrderId ? 'selected' : ''}>${escapeHtml(`${item.woolOrderNo} / ${item.inventoryObjectType} / ${formatQty(item.currentQty, item.unit)} / ${item.locationText}`)}</option>`)
-    .join('')
-  document.body.insertAdjacentHTML('beforeend', `
-    <div id="${WOOL_HANDOVER_CONFIRM_MODAL_ID}" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <section class="max-h-[88vh] w-full max-w-3xl overflow-hidden rounded-lg border bg-background shadow-2xl">
-        <header class="flex items-center justify-between gap-3 border-b px-4 py-3">
-          <div>
-            <h2 class="text-base font-semibold">交出确认</h2>
-            <p class="mt-1 text-xs text-muted-foreground">确认待交出库存、接收对象和数量，形成毛织交出记录。</p>
-          </div>
-          <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-wool-handover-action="close">关闭</button>
-        </header>
-        <div class="grid gap-3 p-4 md:grid-cols-2">
-          <label class="text-sm md:col-span-2">
-            <span class="text-xs text-muted-foreground">待交出库存 *</span>
-            <select class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" data-wool-handover-field="woolOrderId">${options || '<option value="">暂无待交出库存</option>'}</select>
-          </label>
-          <label class="text-sm">
-            <span class="text-xs text-muted-foreground">接收对象</span>
-            <input class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" value="后道工厂 / 裁床待交出仓" data-wool-handover-field="receiver" />
-          </label>
-          <label class="text-sm">
-            <span class="text-xs text-muted-foreground">交出人</span>
-            <input class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" value="毛织仓管" />
-          </label>
-        </div>
-        <footer class="flex justify-end gap-2 border-t px-4 py-3">
-          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-wool-handover-action="close">取消</button>
-          <button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-wool-handover-action="submit">确认交出</button>
-        </footer>
-      </section>
-    </div>
-  `)
-  const modal = document.getElementById(WOOL_HANDOVER_CONFIRM_MODAL_ID)
-  if (!modal) return
-  modal.addEventListener('click', (event) => {
-    const action = (event.target as HTMLElement).closest<HTMLElement>('[data-wool-handover-action]')?.dataset.woolHandoverAction
-    if (!action) return
-    if (action === 'close') {
-      removeWoolHandoverConfirmDialog()
-      return
-    }
-    if (action === 'submit') {
-      const order = getSelectedWoolOrderFromModal(modal, 'wool-handover')
-      if (!order) {
-        window.alert('请选择待交出库存。')
-        return
-      }
-      const ready = advanceWoolOrderToWarehouseInbound(order.woolOrderId)
-      if (ready?.status === 'WAIT_FEI_TICKET') {
-        markWoolFeiTicketsPrinted(order.woolOrderId, 'Web端仓管')
-      }
-      submitWoolHandover(order.woolOrderId, 'Web端仓管')
-      removeWoolHandoverConfirmDialog()
-      window.alert('交出确认已生成毛织交出记录。')
-      appStore.navigate('/fcs/craft/wool/wait-handover-warehouse?tab=handouts&refreshAt=' + Date.now(), { historyMode: 'replace' })
-    }
-  })
-}
-
-function openWoolYarnRecoveryDialog(): void {
-  removeWoolYarnRecoveryDialog()
-  const inventory = listWoolWarehouseInventory('wait-process')
-  const orders = listWoolWorkOrders()
-  const firstYarnSku = inventory[0]?.yarnSku || orders[0]?.yarnReceipt.yarnSku || ''
-  const yarnOptions = inventory
-    .map((item) => `
-      <option value="${escapeHtml(item.yarnSku || '')}">
-        ${escapeHtml(item.yarnSku || '')} / ${escapeHtml(item.itemName)} / 当前 ${formatQty(item.currentQty, item.unit)}
-      </option>
-    `)
-    .join('')
-  const orderRows = orders
-    .map((order) => {
-      const usage = getWoolYarnUsageSummary(order)
-      const sameYarn = order.yarnReceipt.yarnSku === firstYarnSku
-      return `
-        <label
-          class="grid cursor-pointer grid-cols-[24px_1fr_160px_120px] items-center gap-3 border-b px-3 py-2 text-sm last:border-b-0 ${sameYarn ? '' : 'hidden'}"
-          data-recovery-order-row
-          data-yarn-sku="${escapeHtml(order.yarnReceipt.yarnSku)}"
-        >
-          <input type="checkbox" class="h-4 w-4 rounded border" value="${escapeHtml(order.woolOrderId)}" data-recovery-order-checkbox />
-          <span>
-            <span class="font-medium">${escapeHtml(order.woolOrderNo)}</span>
-            <span class="mt-0.5 block text-xs text-muted-foreground">${escapeHtml(order.styleName)} / ${escapeHtml(order.colorName)}</span>
-          </span>
-          <span class="text-xs text-muted-foreground">${escapeHtml(order.productionOrderNo)}</span>
-          <span class="text-xs font-medium">${formatQty(usage.linkingLossWeightKg, 'kg')}</span>
-        </label>
-      `
-    })
-    .join('')
-
-  document.body.insertAdjacentHTML('beforeend', `
-    <div id="${WOOL_YARN_RECOVERY_MODAL_ID}" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <section class="max-h-[88vh] w-full max-w-4xl overflow-hidden rounded-lg border bg-background shadow-2xl">
-        <header class="flex items-center justify-between gap-3 border-b px-4 py-3">
-          <div>
-            <h2 class="text-base font-semibold">回收入仓</h2>
-            <p class="mt-1 text-xs text-muted-foreground">回收损耗纱线入毛织待加工仓，关联毛织加工单为可选项。</p>
-          </div>
-          <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-recovery-modal-action="close">关闭</button>
-        </header>
-        <div class="max-h-[68vh] overflow-y-auto p-4">
-          <div class="grid gap-3 md:grid-cols-2">
-            <label class="text-sm">
-              <span class="text-xs text-muted-foreground">回收纱线 SKU *</span>
-              <select class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" data-recovery-field="yarnSku">
-                ${yarnOptions}
-              </select>
-            </label>
-            <label class="text-sm">
-              <span class="text-xs text-muted-foreground">回收入库数量（kg）*</span>
-              <input class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" type="number" min="0" step="0.01" placeholder="请输入回收入库数量" data-recovery-field="qty" />
-            </label>
-          </div>
-          <section class="mt-4 rounded-md border">
-            <div class="grid grid-cols-[24px_1fr_160px_120px] gap-3 border-b bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground">
-              <span></span>
-              <span>关联毛织加工单（可选，可多选）</span>
-              <span>生产单</span>
-              <span>损耗数量</span>
-            </div>
-            <div class="max-h-[320px] overflow-y-auto" data-recovery-order-list>
-              ${orderRows || '<div class="px-3 py-8 text-center text-sm text-muted-foreground">暂无可关联毛织加工单</div>'}
-            </div>
-          </section>
-        </div>
-        <footer class="flex justify-end gap-2 border-t px-4 py-3">
-          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-recovery-modal-action="close">取消</button>
-          <button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-recovery-modal-action="submit">确认回收入仓</button>
-        </footer>
-      </section>
-    </div>
-  `)
-
-  const modal = document.getElementById(WOOL_YARN_RECOVERY_MODAL_ID)
-  if (!modal) return
-  const yarnSelect = modal.querySelector<HTMLSelectElement>('[data-recovery-field="yarnSku"]')
-  const syncRows = (): void => {
-    const yarnSku = yarnSelect?.value || ''
-    modal.querySelectorAll<HTMLElement>('[data-recovery-order-row]').forEach((row) => {
-      const matched = row.dataset.yarnSku === yarnSku
-      row.classList.toggle('hidden', !matched)
-      if (!matched) {
-        const checkbox = row.querySelector<HTMLInputElement>('[data-recovery-order-checkbox]')
-        if (checkbox) checkbox.checked = false
-      }
+    const record = item.record as WoolHandoverRecord
+    result.push({
+      recordType: 'HANDOVER' as const,
+      recordId: record.handoverId,
+      objectSkuCode: record.outputSkuCode,
+      currentQty: effectiveHandoverQty(record),
+      unit: record.qtyUnit,
+      locked: record.downstreamReceipt?.status === 'CONFIRMED',
     })
   }
-  yarnSelect?.addEventListener('change', syncRows)
-  syncRows()
+  return result
+}
 
-  modal.addEventListener('click', (event) => {
-    const actionNode = (event.target as HTMLElement).closest<HTMLElement>('[data-recovery-modal-action]')
-    const action = actionNode?.dataset.recoveryModalAction
-    if (!action) return
-    if (action === 'close') {
-      removeWoolYarnRecoveryDialog()
-      return
-    }
-    if (action === 'submit') {
-      const yarnSku = yarnSelect?.value || ''
-      const qtyInput = modal.querySelector<HTMLInputElement>('[data-recovery-field="qty"]')
-      const qty = Number(qtyInput?.value || 0)
-      if (!yarnSku) {
-        window.alert('请选择回收纱线 SKU。')
-        return
-      }
-      if (!Number.isFinite(qty) || qty <= 0) {
-        window.alert('请输入大于 0 的回收入库数量。')
-        return
-      }
-      const associationOrderIds = Array.from(modal.querySelectorAll<HTMLInputElement>('[data-recovery-order-checkbox]:checked'))
-        .map((checkbox) => checkbox.value)
-      const saved = recordWoolYarnRecovery({
-        yarnSku,
-        recoveredWeightKg: Math.round(qty * 100) / 100,
-        associationOrderIds,
-        operatorName: 'Web端仓管',
-      })
-      if (!saved) {
-        window.alert('回收入仓失败，请确认纱线 SKU 和数量。')
-        return
-      }
-      removeWoolYarnRecoveryDialog()
-      refreshCurrentWoolPage()
-    }
+function effectiveReceiptQty(record: WoolYarnReceiptRecord, lineId: string): number {
+  const line = record.lines.find((item) => item.lineId === lineId)!
+  const changes = listWoolFactRecords({ woolOrderId: record.woolOrderId, recordType: 'QTY_CHANGE' })
+    .map((item) => item.record as WoolQtyChangeLog)
+    .filter((item) => item.recordType === 'YARN_RECEIPT' && item.recordId === record.receiptId && item.recordLineId === lineId)
+  return changes.reduce((_qty, change) => change.afterQty, line.receivedQty)
+}
+
+function effectiveReportQty(record: WoolProcessReportRecord): number {
+  const changes = listWoolFactRecords({ woolOrderId: record.woolOrderId, recordType: 'QTY_CHANGE' })
+    .map((item) => item.record as WoolQtyChangeLog)
+    .filter((item) => item.recordType === 'PROCESS_REPORT' && item.recordId === record.reportId)
+  return changes.reduce((_qty, change) => change.afterQty, record.reportedQty)
+}
+
+function effectiveHandoverQty(record: WoolHandoverRecord): number {
+  const changes = listWoolFactRecords({ woolOrderId: record.woolOrderId, recordType: 'QTY_CHANGE' })
+    .map((item) => item.record as WoolQtyChangeLog)
+    .filter((item) => item.recordType === 'HANDOVER' && item.recordId === record.handoverId)
+  return changes.reduce((_qty, change) => change.afterQty, record.handoverQty)
+}
+
+function renderQtyListDialog(order: WoolWorkOrder): string {
+  const rows = editableFacts(order)
+  const labels: Record<WoolQtyChangeRecordType, string> = { YARN_RECEIPT: '确认接收', PROCESS_REPORT: '加工填报', HANDOVER: '发起交出' }
+  return dialog('修改记录数量', `<div class="overflow-hidden rounded-md border">${rows.map((row) => `<div class="grid grid-cols-[110px_1fr_120px_90px] items-center gap-3 border-b px-3 py-2 text-sm last:border-b-0"><span>${labels[row.recordType]}</span><span>${escapeHtml(row.objectSkuCode)}<span class="ml-2 text-xs text-muted-foreground">${escapeHtml(row.recordId)}</span></span><span>${formatQty(row.currentQty, row.unit)}</span>${row.locked ? '<span class="text-xs text-muted-foreground">下游已确认</span>' : `<button type="button" class="rounded-md border px-2 py-1 text-xs" data-wool-work-orders-action="open-qty-edit" data-record-type="${row.recordType}" data-record-id="${escapeHtml(row.recordId)}" data-record-line-id="${escapeHtml(row.recordLineId || '')}" data-object-sku-code="${escapeHtml(row.objectSkuCode)}" data-current-qty="${row.currentQty}" data-unit="${escapeHtml(row.unit)}" data-skip-page-rerender="true">修改数量</button>`}</div>`).join('') || '<div class="p-4 text-sm text-muted-foreground">暂无可修改记录</div>'}</div>`, renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }))
+}
+
+function renderQtyEditDialog(overlay: Extract<BusinessOverlay, { kind: 'qty-edit' }>): string {
+  return dialog('修改数量', `<div class="rounded-md border p-3 text-sm"><div>对象 SKU：<strong>${escapeHtml(overlay.objectSkuCode)}</strong></div><div class="mt-1">当前数量：${formatQty(overlay.currentQty, overlay.unit)}</div></div><label class="mt-4 block text-sm"><span class="mb-1 block text-xs text-muted-foreground">修改后数量</span><input type="number" min="0.01" step="${overlay.unit === 'kg' ? '0.01' : '1'}" class="h-9 w-full rounded-md border px-3" value="${overlay.currentQty}" data-wool-dialog-field="qty"></label><label class="mt-3 block text-sm"><span class="mb-1 block text-xs text-muted-foreground">修改原因（必填）</span><textarea class="min-h-20 w-full rounded-md border p-3" data-wool-dialog-field="reason"></textarea></label>`, dialogFooter('save-qty', '保存数量修改'))
+}
+
+function renderBusinessOverlay(): string {
+  const order = requireOverlayOrder()
+  if (!state.overlay || !order) return ''
+  if (state.overlay.kind === 'receipt') return renderReceiptDialog(order)
+  if (state.overlay.kind === 'report') return renderReportDialog(order)
+  if (state.overlay.kind === 'handover') return renderHandoverDialog(order)
+  if (state.overlay.kind === 'complete') return renderCompleteDialog(order)
+  if (state.overlay.kind === 'qty-list') return renderQtyListDialog(order)
+  return renderQtyEditDialog(state.overlay)
+}
+
+function readDialogField(name: string): string {
+  return rootElement()?.querySelector<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(`[data-wool-dialog-field="${name}"]`)?.value.trim() || ''
+}
+
+function runCommand(action: () => void, successMessage: string): void {
+  try {
+    action()
+    state.feedback = successMessage
+    state.overlay = null
+    refreshBusinessOverlay()
+    refreshResults()
+  } catch (error) {
+    state.feedback = error instanceof Error ? error.message : '操作未保存，请检查填写内容后重试。'
+    const feedback = rootElement()?.querySelector<HTMLElement>('[data-wool-work-orders-feedback]')
+    if (feedback) feedback.innerHTML = renderFeedback()
+  }
+}
+
+function openOverlay(kind: BusinessOverlay['kind'], woolOrderId: string): void {
+  if (kind === 'qty-edit') return
+  state.overlay = { kind, woolOrderId } as BusinessOverlay
+  refreshBusinessOverlay()
+}
+
+function updateFilterField(field: keyof WoolListFilters, value: string): void {
+  state.filters = { ...state.filters, [field]: value }
+  state.currentPage = 1
+}
+
+function saveReceipt(order: WoolWorkOrder): void {
+  const root = rootElement()
+  const selected = Array.from(root?.querySelectorAll<HTMLInputElement>('[data-wool-receipt-yarn]:checked') ?? [])
+  const lines = selected.map((checkbox) => {
+    const yarnSkuCode = checkbox.dataset.woolReceiptYarn || ''
+    const qty = Number(root?.querySelector<HTMLInputElement>(`[data-wool-receipt-qty="${CSS.escape(yarnSkuCode)}"]`)?.value || 0)
+    return { yarnSkuCode, receivedQty: qty }
   })
+  runCommand(() => addWoolYarnReceipt(order.woolOrderId, {
+    commandId: nextCommandId('RECEIPT', order.woolOrderId),
+    deliveryNo: readDialogField('deliveryNo'),
+    batchNo: readDialogField('batchNo'),
+    receivedAt: nowText(),
+    receivedBy: readDialogField('operator'),
+    lines,
+  }), '确认接收已保存，纱线已进入默认库位。')
+}
+
+function saveReport(order: WoolWorkOrder): void {
+  const outputSkuCode = readDialogField('outputSkuCode')
+  const qty = Number(readDialogField('qty'))
+  const readiness = getWoolOutputReadiness(order.woolOrderId, outputSkuCode)
+  if (qty > readiness.remainingReportQty) {
+    state.feedback = `最多还可填报 ${readiness.remainingReportQty} 件/片，请将本次数量改为 ${readiness.remainingReportQty} 件/片以内。`
+    const feedback = rootElement()?.querySelector<HTMLElement>('[data-wool-work-orders-feedback]')
+    if (feedback) feedback.innerHTML = renderFeedback()
+    return
+  }
+  runCommand(() => addWoolProcessReport(order.woolOrderId, {
+    commandId: nextCommandId('REPORT', order.woolOrderId),
+    outputSkuCode,
+    reportedQty: qty,
+    reportedAt: nowText(),
+    reportedBy: readDialogField('operator'),
+  }), '加工填报已保存，产出已进入对应默认库位。')
+}
+
+function saveHandover(order: WoolWorkOrder): void {
+  runCommand(() => addWoolHandover(order.woolOrderId, {
+    commandId: nextCommandId('HANDOVER', order.woolOrderId),
+    outputSkuCode: readDialogField('outputSkuCode'),
+    handoverQty: Number(readDialogField('qty')),
+    handedOverAt: nowText(),
+    handedOverBy: readDialogField('operator'),
+  }), '发起交出已保存，库存已从对应默认库位扣减。')
+}
+
+function saveComplete(order: WoolWorkOrder): void {
+  runCommand(() => completeWoolWorkOrder(order.woolOrderId, {
+    commandId: nextCommandId('COMPLETE', order.woolOrderId),
+    completedAt: nowText(),
+    completedBy: 'Web 端毛织主管',
+    remark: readDialogField('remark'),
+  }), '加工单已完成，当前横机关联已自动解除。')
+}
+
+function saveQty(overlay: Extract<BusinessOverlay, { kind: 'qty-edit' }>): void {
+  runCommand(() => changeWoolFactQty({
+    commandId: nextCommandId('CHANGE-QTY', overlay.recordId),
+    recordType: overlay.recordType,
+    recordId: overlay.recordId,
+    recordLineId: overlay.recordLineId,
+    afterQty: Number(readDialogField('qty')),
+    reason: readDialogField('reason'),
+    changedAt: nowText(),
+    changedBy: 'Web 端毛织主管',
+  }), '记录数量已修改，库存已按新旧差额同步。')
 }
 
 export async function handleCraftWoolEvent(target: HTMLElement): Promise<boolean> {
-  const workflowNode = target.closest<HTMLElement>('[data-wool-workflow-action]')
-  if (workflowNode?.dataset.woolOrderId && workflowNode.dataset.woolWorkflowAction) {
-    const orderId = workflowNode.dataset.woolOrderId
-    const action = workflowNode.dataset.woolWorkflowAction
-    if (action === 'ACCEPT') acceptWoolWorkOrder(orderId, 'Web端操作员')
-    if (action === 'CONFIRM_PICKUP') confirmWoolPickupRecord(orderId, 'Web端操作员')
-    if (action === 'COMPLETE_PICKUP') completeWoolPickupHead(orderId, 'Web端操作员')
-    if (action === 'SCHEDULE_MACHINE') scheduleWoolMachines(orderId, 'Web端排产员')
-    if (action === 'START_FLAT') {
-      const order = listWoolWorkOrders().find((item) => item.woolOrderId === orderId)
-      const defaultQty = order ? getWoolYarnUsageSummary(order).processingUsageWeightKg || order.yarnReceipt.receivedWeightKg || order.yarnReceipt.plannedWeightKg : 0
-      const yarnUsageWeightKg = promptKgValue('请输入本次纱线加工领用数量（kg）', defaultQty, false)
-      if (yarnUsageWeightKg === null) return true
-      updateWoolWorkOrderNodeStatus(orderId, '横机成片', '进行中', 'Web端操作员', undefined, { yarnUsageWeightKg })
-    }
-    if (action === 'REPORT_FLAT_MILESTONE') updateWoolWorkOrderNodeStatus(orderId, '横机成片', '进行中', 'Web端操作员')
-    if (action === 'COMPLETE_FLAT') updateWoolWorkOrderNodeStatus(orderId, '横机成片', '已完成', 'Web端操作员')
-    if (action === 'START_LINKING') updateWoolWorkOrderNodeStatus(orderId, '缝盘', '进行中', 'Web端操作员')
-    if (action === 'COMPLETE_LINKING') {
-      const order = listWoolWorkOrders().find((item) => item.woolOrderId === orderId)
-      const defaultQty = order ? getWoolYarnUsageSummary(order).linkingLossWeightKg : 0
-      const yarnLossWeightKg = promptKgValue('请输入缝盘损耗纱线数量（kg）', defaultQty, true)
-      if (yarnLossWeightKg === null) return true
-      updateWoolWorkOrderNodeStatus(orderId, '缝盘', '已完成', 'Web端操作员', undefined, { yarnLossWeightKg })
-    }
-    if (action === 'START_IRONING') updateWoolWorkOrderNodeStatus(orderId, '熨烫', '进行中', 'Web端操作员')
-    if (action === 'COMPLETE_IRONING') updateWoolWorkOrderNodeStatus(orderId, '熨烫', '已完成', 'Web端操作员')
-    if (action === 'START_PACKING') updateWoolWorkOrderNodeStatus(orderId, '包装', '进行中', 'Web端操作员')
-    if (action === 'COMPLETE_PACKING') updateWoolWorkOrderNodeStatus(orderId, '包装', '已完成', 'Web端操作员')
-    if (action === 'SKIP_PACKING') updateWoolWorkOrderNodeStatus(orderId, '包装', '已跳过', 'Web端操作员')
-    if (action === 'PRINT_FEI_TICKET') markWoolFeiTicketsPrinted(orderId, 'Web端操作员')
-    if (action === 'SUBMIT_HANDOVER') submitWoolHandover(orderId, 'Web端操作员')
-    if (action === 'CONFIRM_HANDOVER_RECEIPT') confirmWoolHandoverReceipt(orderId, 'Web端仓库')
-    return true
-  }
+  const root = target.closest<HTMLElement>('[data-wool-work-orders-root]')
+  if (!root) return false
 
-  const actionNode = target.closest<HTMLElement>('[data-wool-action]')
-  if (!actionNode) return false
-  const action = actionNode.dataset.woolAction
-  if (!action) return false
-
-  if (action === 'apply-work-order-filter') {
-    navigateWorkOrderFilters()
-    return true
-  }
-
-  if (action === 'reset-work-order-filter') {
-    appStore.navigate('/fcs/craft/wool/work-orders')
-    return true
-  }
-
-  if (action === 'accept-order' && actionNode.dataset.woolOrderId) {
-    acceptWoolWorkOrder(actionNode.dataset.woolOrderId, 'Web端操作员')
-    return true
-  }
-
-  if ((action === 'node-start' || action === 'node-complete' || action === 'node-skip') && actionNode.dataset.woolOrderId && actionNode.dataset.nodeName) {
-    const nextStatus: WoolNodeStatus =
-      action === 'node-start' ? '进行中' : action === 'node-complete' ? '已完成' : '已跳过'
-    const order = listWoolWorkOrders().find((item) => item.woolOrderId === actionNode.dataset.woolOrderId)
-    if (nextStatus === '进行中' && actionNode.dataset.nodeName === '横机成片') {
-      const defaultQty = order ? getWoolYarnUsageSummary(order).processingUsageWeightKg || order.yarnReceipt.receivedWeightKg || order.yarnReceipt.plannedWeightKg : 0
-      const yarnUsageWeightKg = promptKgValue('请输入本次纱线加工领用数量（kg）', defaultQty, false)
-      if (yarnUsageWeightKg === null) return true
-      updateWoolWorkOrderNodeStatus(actionNode.dataset.woolOrderId, actionNode.dataset.nodeName, nextStatus, 'Web端操作员', undefined, { yarnUsageWeightKg })
+  const field = target.closest<HTMLInputElement | HTMLSelectElement>('[data-wool-work-orders-field]')
+  if (field?.dataset.woolWorkOrdersField) {
+    const name = field.dataset.woolWorkOrdersField as keyof WoolListFilters | 'pageSize'
+    if (name === 'pageSize') {
+      listController.setPageSize(Number(field.value))
+      listController.refresh()
       return true
     }
-    if (nextStatus === '已完成' && actionNode.dataset.nodeName === '缝盘') {
-      const defaultQty = order ? getWoolYarnUsageSummary(order).linkingLossWeightKg : 0
-      const yarnLossWeightKg = promptKgValue('请输入缝盘损耗纱线数量（kg）', defaultQty, true)
-      if (yarnLossWeightKg === null) return true
-      updateWoolWorkOrderNodeStatus(actionNode.dataset.woolOrderId, actionNode.dataset.nodeName, nextStatus, 'Web端操作员', undefined, { yarnLossWeightKg })
-      return true
-    }
-    updateWoolWorkOrderNodeStatus(actionNode.dataset.woolOrderId, actionNode.dataset.nodeName, nextStatus, 'Web端操作员')
-    return true
-  }
-
-  if (action === 'open-yarn-recovery-dialog') {
-    openWoolYarnRecoveryDialog()
-    return true
-  }
-
-  if (action === 'open-yarn-receipt-dialog') {
-    openWoolYarnReceiptDialog()
-    return true
-  }
-
-  if (action === 'open-yarn-issue-dialog') {
-    openWoolYarnIssueDialog()
-    return true
-  }
-
-  if (action === 'open-finish-inbound-dialog') {
-    openWoolFinishInboundDialog()
-    return true
-  }
-
-  if (action === 'open-handover-confirm-dialog') {
-    openWoolHandoverConfirmDialog(actionNode.dataset.woolOrderId || '')
-    return true
-  }
-
-  if (action === 'recover-yarn' && actionNode.dataset.woolOrderId) {
-    const orders = listWoolWorkOrders()
-    const relatedOrderNos = (actionNode.dataset.relatedOrderNos || '')
-      .split('|')
-      .map((item) => item.trim())
-      .filter(Boolean)
-    const selectedOrderNo = relatedOrderNos.length > 1
-      ? window.prompt('请输入回收来源毛织单号', relatedOrderNos[0])?.trim()
-      : relatedOrderNos[0]
-    if (selectedOrderNo === undefined) return true
-    const order = selectedOrderNo
-      ? orders.find((item) => item.woolOrderNo === selectedOrderNo || item.woolOrderId === selectedOrderNo)
-      : orders.find((item) => item.woolOrderId === actionNode.dataset.woolOrderId)
-    if (!order) {
-      window.alert('未找到该毛织加工单，请重新选择来源毛织单。')
-      return true
-    }
-    const usage = order ? getWoolYarnUsageSummary(order) : null
-    const defaultQty = usage ? Math.max(usage.linkingLossWeightKg - usage.recoveredWeightKg, 0) : 0
-    const recoveredWeightKg = promptKgValue('请输入回收入仓纱线重量（kg）', defaultQty, false)
-    if (recoveredWeightKg === null) return true
-    recoverWoolYarnToWaitProcessWarehouse(order.woolOrderId, recoveredWeightKg, 'Web端仓管')
-    return true
-  }
-
-  if (action === 'add-area') {
-    const warehouseMode = actionNode.dataset.warehouseMode as WoolWarehouseMode | undefined
-    if (!warehouseMode) return true
-    openWoolWarehouseAreaDialog({
-      warehouseMode,
-      areaCode: warehouseMode === 'wait-process' ? 'KWP-C' : 'KWH-C',
-      areaName: warehouseMode === 'wait-process' ? '待加工仓 C 区' : '待交出仓 C 区',
-      managerName: '毛织仓管',
-      status: '启用',
-      remark: 'Web新增库区',
-    })
-    return true
-  }
-
-  if (action === 'edit-area') {
-    const warehouseMode = actionNode.dataset.warehouseMode as WoolWarehouseMode | undefined
-    const areaId = actionNode.dataset.areaId
-    if (!warehouseMode || !areaId) return true
-    openWoolWarehouseAreaDialog({
-      areaId,
-      warehouseMode,
-      areaCode: actionNode.dataset.areaCode || '',
-      areaName: actionNode.dataset.areaName || '',
-      managerName: actionNode.dataset.managerName || '毛织仓管',
-      status: (actionNode.dataset.status as '启用' | '停用') || '启用',
-      remark: actionNode.dataset.remark || '',
-    })
-    return true
-  }
-
-  if (action === 'add-location') {
-    const warehouseMode = actionNode.dataset.warehouseMode as WoolWarehouseMode | undefined
-    if (!warehouseMode) return true
-    openWoolWarehouseLocationDialog({
-      warehouseMode,
-      locationCode: warehouseMode === 'wait-process' ? 'KWP-A-03' : 'KWH-A-03',
-      managerName: '毛织仓管',
-      status: '启用',
-      remark: 'Web新增库位',
-    })
-    return true
-  }
-
-  if (action === 'edit-location') {
-    const warehouseMode = actionNode.dataset.warehouseMode as WoolWarehouseMode | undefined
-    const locationId = actionNode.dataset.locationId
-    if (!warehouseMode || !locationId) return true
-    openWoolWarehouseLocationDialog({
-      locationId,
-      warehouseMode,
-      areaId: actionNode.dataset.areaId || '',
-      areaName: actionNode.dataset.areaName || '',
-      locationCode: actionNode.dataset.locationCode || '',
-      managerName: actionNode.dataset.managerName || '毛织仓管',
-      status: (actionNode.dataset.status as '启用' | '停用') || '启用',
-      remark: actionNode.dataset.remark || '',
-    })
-    return true
-  }
-
-  if (action === 'delete-location' && actionNode.dataset.locationId) {
-    if (window.confirm('确认删除该库区库位？')) {
-      deleteWoolWarehouseLocation(actionNode.dataset.locationId)
+    updateFilterField(name, field.value)
+    if (field instanceof HTMLInputElement && ['keyword', 'productionOrderNo', 'woolOrderNo', 'factory', 'yarnSku'].includes(name)) {
+      if (filterDebounce) clearTimeout(filterDebounce)
+      filterDebounce = setTimeout(refreshResults, 180)
+    } else {
+      refreshResults()
     }
     return true
   }
 
-  return false
+  const actionNode = target.closest<HTMLElement>('[data-wool-work-orders-action]')
+  const action = actionNode?.dataset.woolWorkOrdersAction
+  if (!actionNode || !action) return false
+  const woolOrderId = actionNode.dataset.woolOrderId || state.overlay?.woolOrderId || ''
+  const order = listWoolWorkOrders().find((item) => item.woolOrderId === woolOrderId)
+
+  if (action.startsWith('tab:')) {
+    state.activeTab = action.slice(4) as WoolWorkOrderTab
+    state.currentPage = 1
+    refreshResults()
+    return true
+  }
+  if (action === 'prev-page' || action === 'next-page') {
+    listController.stepPage(action === 'prev-page' ? -1 : 1)
+    listController.refresh()
+    return true
+  }
+  if (action === 'sort-column') {
+    listController.cycleSort(actionNode.dataset.columnKey || '')
+    listController.refresh()
+    return true
+  }
+  if (action === 'open-column-settings') {
+    state.showColumnSettings = true
+    refreshColumnOverlay()
+    return true
+  }
+  if (action === 'close-column-settings') {
+    state.showColumnSettings = false
+    refreshColumnOverlay()
+    return true
+  }
+  if (action === 'restore-column-settings') {
+    listController.restorePreferences()
+    refreshColumnOverlay()
+    listController.refresh()
+    return true
+  }
+  if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
+    const checkbox = actionNode.closest<HTMLInputElement>('input')
+    listController.updateColumnPreference(
+      action,
+      actionNode.dataset.woolWorkOrdersColumnKey
+        || actionNode.closest<HTMLElement>('[data-wool-work-orders-column-key]')?.dataset.woolWorkOrdersColumnKey
+        || '',
+      checkbox?.checked,
+    )
+    refreshColumnOverlay()
+    listController.refresh()
+    return true
+  }
+  if (action === 'reset-filters') {
+    state.filters = { ...DEFAULT_FILTERS }
+    state.currentPage = 1
+    const filters = root.querySelector<HTMLElement>('[data-wool-work-orders-filters]')
+    if (filters) filters.innerHTML = renderFilters()
+    refreshResults()
+    return true
+  }
+  if (action === 'open-receipt' && order) openOverlay('receipt', order.woolOrderId)
+  if (action === 'open-report' && order) openOverlay('report', order.woolOrderId)
+  if (action === 'open-handover' && order) openOverlay('handover', order.woolOrderId)
+  if (action === 'open-complete' && order) openOverlay('complete', order.woolOrderId)
+  if (action === 'open-qty-list' && order) openOverlay('qty-list', order.woolOrderId)
+  if (['open-receipt', 'open-report', 'open-handover', 'open-complete', 'open-qty-list'].includes(action)) return true
+  if (action === 'open-qty-edit' && state.overlay) {
+    state.overlay = {
+      kind: 'qty-edit',
+      woolOrderId: state.overlay.woolOrderId,
+      recordType: actionNode.dataset.recordType as WoolQtyChangeRecordType,
+      recordId: actionNode.dataset.recordId || '',
+      recordLineId: actionNode.dataset.recordLineId || undefined,
+      currentQty: Number(actionNode.dataset.currentQty || 0),
+      unit: actionNode.dataset.unit || '',
+      objectSkuCode: actionNode.dataset.objectSkuCode || '',
+    }
+    refreshBusinessOverlay()
+    return true
+  }
+  if (action === 'close-overlay') {
+    state.overlay = null
+    refreshBusinessOverlay()
+    return true
+  }
+  if (!order) return true
+  if (action === 'save-receipt') saveReceipt(order)
+  if (action === 'save-report') saveReport(order)
+  if (action === 'save-handover') saveHandover(order)
+  if (action === 'save-complete') saveComplete(order)
+  if (action === 'save-qty' && state.overlay?.kind === 'qty-edit') saveQty(state.overlay)
+  return true
 }

@@ -3923,6 +3923,64 @@ assert.deepEqual(readWoolStore(), concurrentConflictStoreBefore)
 assert.equal(storageWrites.length, concurrentConflictWritesBefore)
 setWoolRuntimeOrderCommitConflictForTest(null)
 
+const woolWorkOrderListSource = readFileSync(
+  new URL('../src/pages/process-factory/wool/work-orders.ts', import.meta.url),
+  'utf8',
+)
+const woolSharedPageSource = readFileSync(
+  new URL('../src/pages/process-factory/wool/shared.ts', import.meta.url),
+  'utf8',
+)
+assert(woolWorkOrderListSource.startsWith('// @page-pattern: list'))
+for (const contract of [
+  'renderStandardListPage',
+  'renderStandardListTable',
+  'renderTablePagination',
+  'createProcessOrderListController',
+  'getWoolWorkOrderTabCounts',
+  'data-wool-work-orders-results',
+  'data-skip-page-rerender="true"',
+  'addWoolYarnReceipt',
+  'addWoolProcessReport',
+  'addWoolHandover',
+  'completeWoolWorkOrder',
+  'changeWoolFactQty',
+]) {
+  assert(woolWorkOrderListSource.includes(contract), `毛织加工单列表缺少任务 8 契约：${contract}`)
+}
+for (const label of [
+  '可以开工',
+  '不可以开工',
+  '已完成',
+  '确认接收',
+  '加工填报',
+  '发起交出',
+  '完成加工单',
+  '系统仅展示当前业务事实，不判断该加工单是否应该完成',
+  '修改记录数量',
+]) {
+  assert(woolWorkOrderListSource.includes(label), `毛织加工单列表缺少任务 8 文案：${label}`)
+}
+for (const removed of [
+  'advanceWoolOrderToWarehouseInbound',
+  'acceptWoolWorkOrder',
+  'scheduleWoolMachines',
+  'markWoolFeiTicketsPrinted',
+  '横机成片',
+  '缝盘',
+  '熨烫',
+  '包装',
+  '毛织菲票',
+  '标准价',
+  '派工价',
+]) {
+  assert(!woolWorkOrderListSource.includes(removed), `毛织加工单列表不应保留旧逻辑或价格：${removed}`)
+}
+assert(!woolWorkOrderListSource.includes('renderCompactSummaryTags'))
+assert(!woolWorkOrderListSource.includes('renderMetricCard'))
+assert(!woolSharedPageSource.includes('getWoolWorkOrderStatusLabel'))
+
 console.log('PASS task 5: global command receipts, atomic stock, downstream lock, and manual completion')
 console.log('PASS task 6: current machine associations and derived four-state availability')
 console.log('PASS task 7: runtime generation freezes traceable yarn facts and exposes domain actions')
+console.log('PASS task 8: standard wool work-order list and fact command dialogs')
