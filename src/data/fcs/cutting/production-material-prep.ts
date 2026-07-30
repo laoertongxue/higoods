@@ -12,6 +12,7 @@ import {
   type PickupNodeSourceAllocation,
   type PickupNodeSourceLocation,
   type PickupSession,
+  type PickupStorageLocationRef,
 } from './pickup-node-domain.ts'
 import type { Factory, FactoryPostCapacityNodeCode, FactoryType } from '../factory-types.ts'
 import {
@@ -254,6 +255,8 @@ export interface PickupRecord {
   pickedAt: string
   warehouseArea: string
   locationCode: string
+  toLocationRefs?: PickupStorageLocationRef[]
+  storageFootprintId?: string
   waitProcessLedgerEventId: string
   differenceQty: number
   differenceReason: string
@@ -4297,6 +4300,7 @@ export function appendPickupSessionFromNode(
     waitProcessLedgerEventId: string
     idempotencyKey?: string
     warehouseSyncDeferred?: boolean
+    toLocationRefs?: PickupStorageLocationRef[]
   },
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): PickupSession {
@@ -4324,6 +4328,28 @@ export function appendPickupSessionFromNode(
   const occurredAt = nowText()
   const pickupSessionId = `pickup-session:${node.nodeId}`
   const sessionNo = `领料-${node.productionOrderNo}-${String(node.sequence).padStart(2, '0')}`
+  const toLocationRefs = Array.from(
+    new Map((input.toLocationRefs ?? []).map((location) => [location.locationId, cloneRecord(location)])).values(),
+  )
+  const firstTargetLocation = toLocationRefs[0]
+  const targetWarehouseArea = firstTargetLocation?.areaName || input.warehouseArea
+  const targetLocationCode = firstTargetLocation?.locationNo || input.locationCode
+  const unitSummaries = Array.from(
+    node.items.reduce((summaries, item) => {
+      const current = summaries.get(item.unit) ?? {
+        unit: item.unit,
+        totalQty: 0,
+        remainingQty: 0,
+        rollCount: 0,
+      }
+      current.totalQty = roundQty(current.totalQty + item.currentAvailableQty)
+      current.remainingQty = current.totalQty
+      current.rollCount += item.rollCount
+      summaries.set(item.unit, current)
+      return summaries
+    }, new Map<string, { unit: string; totalQty: number; remainingQty: number; rollCount: number }>())
+      .values(),
+  )
 
   const pickupRecordIds: string[] = []
   const newPickupRecords: PickupRecord[] = []
@@ -4341,8 +4367,10 @@ export function appendPickupSessionFromNode(
       rollCount: Math.max(item.rollCount, 1),
       receiverName: input.receiverName,
       pickedAt: occurredAt,
-      warehouseArea: input.warehouseArea,
-      locationCode: input.locationCode,
+      warehouseArea: targetWarehouseArea,
+      locationCode: targetLocationCode,
+      toLocationRefs: toLocationRefs.length ? cloneRecord(toLocationRefs) : undefined,
+      storageFootprintId: toLocationRefs.length ? pickupSessionId : undefined,
       waitProcessLedgerEventId: pickupRecordIds.length === 1 ? input.waitProcessLedgerEventId : `${input.waitProcessLedgerEventId}:${item.prepLineId}`,
       differenceQty: 0,
       differenceReason: '',
@@ -4375,8 +4403,20 @@ export function appendPickupSessionFromNode(
     pickupRecordIds,
     receiverName: input.receiverName,
     pickedAt: occurredAt,
-    toWarehouseArea: input.warehouseArea,
-    toLocationCode: input.locationCode,
+    toWarehouseArea: targetWarehouseArea,
+    toLocationCode: targetLocationCode,
+    toLocationRefs: toLocationRefs.length ? cloneRecord(toLocationRefs) : undefined,
+    storageFootprint: toLocationRefs.length
+      ? {
+          footprintId: pickupSessionId,
+          sourceType: 'PICKUP_SESSION',
+          sourceId: pickupSessionId,
+          locationIds: toLocationRefs.map((location) => location.locationId),
+          unitSummaries,
+          inboundAt: occurredAt,
+          inboundBy: input.receiverName,
+        }
+      : undefined,
     status: '本轮已领完',
     warehouseSyncStatus: input.warehouseSyncDeferred ? '回写异常待重试' : '已回写',
     warehouseSyncMessage: input.warehouseSyncDeferred ? '领料事实已保存，待写入裁床待加工仓流水。' : undefined,

@@ -9,8 +9,13 @@ import {
   saveWarehouseLayoutSnapshot,
 } from '../src/pages/process-factory/cutting/warehouse-location-layout-store.ts'
 import {
+  adjustWarehouseStorageFootprint,
+  buildWarehouseLocationMapProjection,
+  buildWarehouseStorageFootprint,
   listStableWarehouseLocationRefs,
   resolveStableWarehouseLocationRef,
+  toggleWarehouseLocationSelection,
+  validateWarehouseLocationSelection,
 } from '../src/pages/process-factory/cutting/warehouse-location-map-model.ts'
 
 const cuttingWarehouses = buildDefaultFactoryInternalWarehouses(mockFactories)
@@ -81,5 +86,76 @@ const otherWarehouse = {
   warehouseId: `${waitProcess.warehouseId}-SECOND`,
 }
 assert.equal(loadWarehouseLayoutSnapshot(otherWarehouse, storage).snapshot.layoutVersion, 0, '不同工厂布局不得互相污染')
+
+const selectionWarehouse = structuredClone(waitProcess)
+const selectionShelf = selectionWarehouse.areaList[0].shelfList[0]
+const selectionSeed = selectionShelf.locationList[0]
+selectionShelf.locationList = [1, 2, 3].map((index) => ({
+  ...selectionSeed,
+  locationId: `${selectionSeed.locationId}-SELECT-${index}`,
+  locationNo: `${selectionSeed.locationNo}-选${index}`,
+  locationName: `${selectionSeed.locationName}-选${index}`,
+}))
+const selectionSnapshot = buildInitialWarehouseLayoutSnapshot(selectionWarehouse, '选择测试')
+const shelfLocationIds = selectionShelf.locationList.map((location) => location.locationId)
+const emptyProjection = buildWarehouseLocationMapProjection(selectionWarehouse, selectionSnapshot, [])
+assert.equal(
+  validateWarehouseLocationSelection(emptyProjection, shelfLocationIds.slice(0, 2)).ok,
+  true,
+  '同货架连续空闲库位应允许选择',
+)
+assert.equal(
+  validateWarehouseLocationSelection(emptyProjection, [shelfLocationIds[0], shelfLocationIds[2]]).ok,
+  false,
+  '中间跨一个库位不得选择',
+)
+const occupiedProjection = buildWarehouseLocationMapProjection(selectionWarehouse, selectionSnapshot, [{
+  occupancyId: 'OCC-MIDDLE',
+  footprintId: 'FOOTPRINT-MIDDLE',
+  locationId: shelfLocationIds[1],
+  productionOrderNo: 'PO-TEST',
+  objectNo: 'MAT-TEST',
+  objectName: '测试面料',
+  qty: 100,
+  unit: 'yard',
+  inboundAt: '2026-07-30 08:00',
+  inboundBy: '测试仓管',
+}])
+assert.equal(
+  validateWarehouseLocationSelection(occupiedProjection, [shelfLocationIds[0], shelfLocationIds[1]]).message,
+  '所选库位已被占用，请重新选择。',
+)
+
+const selectedOne = toggleWarehouseLocationSelection(emptyProjection, [], shelfLocationIds[0])
+assert.deepEqual(selectedOne.selectedLocationIds, [shelfLocationIds[0]])
+const selectedTwo = toggleWarehouseLocationSelection(emptyProjection, selectedOne.selectedLocationIds, shelfLocationIds[1])
+assert.deepEqual(selectedTwo.selectedLocationIds, shelfLocationIds.slice(0, 2))
+const selectedThree = toggleWarehouseLocationSelection(emptyProjection, selectedTwo.selectedLocationIds, shelfLocationIds[2])
+assert.deepEqual(selectedThree.selectedLocationIds, shelfLocationIds.slice(0, 3))
+const middleRemoval = toggleWarehouseLocationSelection(emptyProjection, selectedThree.selectedLocationIds, shelfLocationIds[1])
+assert.equal(middleRemoval.ok, false)
+assert.equal(middleRemoval.message, '只能从已选范围两端取消库位。')
+const endRemoval = toggleWarehouseLocationSelection(emptyProjection, selectedThree.selectedLocationIds, shelfLocationIds[2])
+assert.deepEqual(endRemoval.selectedLocationIds, shelfLocationIds.slice(0, 2))
+
+const footprint = buildWarehouseStorageFootprint({
+  footprintId: 'pickup-session:TEST',
+  sourceType: 'PICKUP_SESSION',
+  sourceId: 'pickup-session:TEST',
+  locationIds: shelfLocationIds.slice(0, 3),
+  totalQty: 300,
+  unit: 'yard',
+  inboundAt: '2026-07-30 08:00',
+  inboundBy: '测试仓管',
+})
+assert.equal(footprint.totalQty, 300, '多库位总数量只能保存一次')
+assert.equal(footprint.locationIds.length, 3)
+const adjusted = adjustWarehouseStorageFootprint(footprint, shelfLocationIds.slice(0, 2), 120, emptyProjection)
+assert.equal(adjusted.ok, true)
+assert.deepEqual(adjusted.footprint?.locationIds, shelfLocationIds.slice(0, 2))
+assert.equal(adjusted.footprint?.remainingQty, 120)
+const released = adjustWarehouseStorageFootprint(footprint, [], 0, emptyProjection)
+assert.equal(released.ok, true)
+assert.deepEqual(released.footprint?.locationIds, [])
 
 console.log('check:cutting-warehouse-location-map passed')

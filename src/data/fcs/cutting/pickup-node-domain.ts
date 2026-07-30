@@ -86,12 +86,41 @@ export interface PickupSession {
   pickedAt: string
   toWarehouseArea: string
   toLocationCode: string
+  toLocationRefs?: PickupStorageLocationRef[]
+  storageFootprint?: PickupStorageFootprint
   status: '本轮已领完'
   warehouseSyncStatus: '已回写' | '回写异常待重试'
   warehouseSyncMessage?: string
   idempotencyKey?: string
   migrationEvidence?: '按累计领料逐行齐套推导' | '旧事实不足，保守按未配齐'
   pickupNodeSnapshot?: PickupNodeProjection
+}
+
+export interface PickupStorageLocationRef {
+  factoryId: string
+  warehouseId: string
+  warehouseKind: 'WAIT_PROCESS'
+  areaId: string
+  areaName: string
+  shelfId: string
+  shelfNo: string
+  locationId: string
+  locationNo: string
+}
+
+export interface PickupStorageFootprint {
+  footprintId: string
+  sourceType: 'PICKUP_SESSION'
+  sourceId: string
+  locationIds: string[]
+  unitSummaries: Array<{
+    unit: string
+    totalQty: number
+    remainingQty: number
+    rollCount: number
+  }>
+  inboundAt: string
+  inboundBy: string
 }
 
 export interface PickupNodeSnapshotState {
