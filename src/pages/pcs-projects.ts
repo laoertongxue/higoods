@@ -1,26 +1,6 @@
-// @page-pattern: list
+// @page-pattern: detail
 
 import { appStore } from '../state/store.ts'
-import { renderSecondaryButton } from '../components/ui/button.ts'
-import { renderStandardListPage } from '../components/ui/list-page.ts'
-import {
-  clearListColumnPreferences,
-  loadListColumnPreferences,
-  normalizeListColumnPreferences,
-  paginateStandardListRows,
-  resetStandardListEntryTransientStateOnRouteEntry,
-  saveListColumnPreferences,
-  sortStandardListRows,
-  type StandardListColumnPreferences,
-  type StandardListPageSlice,
-  type StandardListSortState,
-} from '../components/ui/list-table-model.ts'
-import {
-  renderStandardListColumnSettings,
-  renderStandardListTable,
-  type StandardListColumn,
-} from '../components/ui/list-table.ts'
-import { renderTablePagination } from '../components/ui/pagination.ts'
 import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
 import {
   createEmptyProjectDraft,
@@ -198,27 +178,9 @@ import {
   type SampleShootImageFieldKey,
 } from '../data/pcs-sample-shoot-image-service.ts'
 
-type ProjectListViewMode = 'list' | 'grid'
-type ProjectListSort = 'updatedAt' | 'pendingDecision' | 'risk' | 'progressLow'
-type ProjectDateRange = '全部时间' | '今天' | '最近一周' | '最近一月'
 type WorkItemTabKey = 'full-info' | 'records' | 'attachments' | 'audit'
 type DecisionDialogSource = 'detail' | 'work-item'
 type EngineeringTaskCreateType = '' | 'REVISION_TASK' | 'PATTERN_TASK' | 'PATTERN_ARTWORK_TASK' | 'FIRST_SAMPLE' | 'FIRST_ORDER_SAMPLE'
-
-interface ProjectListState {
-  search: string
-  status: string
-  owner: string
-  phase: string
-  riskStatus: string
-  dateRange: ProjectDateRange
-  pendingDecisionOnly: boolean
-  advancedOpen: boolean
-  viewMode: ProjectListViewMode
-  sortBy: ProjectListSort
-  currentPage: number
-  pageSize: number
-}
 
 interface ProjectCreateState {
   routeKey: string
@@ -401,7 +363,6 @@ interface LiveTestingCreateDraft {
 }
 
 interface ProjectPageState {
-  list: ProjectListState
   create: ProjectCreateState
   detail: ProjectDetailState
   workItem: ProjectWorkItemState
@@ -463,38 +424,6 @@ interface ProjectViewModel {
   logs: ProjectLogItem[]
 }
 
-interface ProjectListNodeViewModel {
-  node: PcsProjectNodeRecord
-  unlocked: boolean
-  displayStatus: ProjectNodeStatus | '未解锁'
-}
-
-interface ProjectListPhaseViewModel {
-  phase: PcsProjectPhaseRecord
-  derivedStatus: PcsProjectPhaseRecord['phaseStatus']
-  completedCount: number
-  totalCount: number
-  pendingDecision: boolean
-  current: boolean
-}
-
-interface ProjectListViewModel {
-  project: PcsProjectViewRecord
-  currentPhase: ProjectListPhaseViewModel | null
-  nextNode: ProjectListNodeViewModel | null
-  pendingDecisionNode: ProjectListNodeViewModel | null
-  progressDone: number
-  progressTotal: number
-  channelNames: string[]
-}
-
-const PROJECT_STATUS_OPTIONS = [
-  { value: '全部', label: '全部' },
-  { value: '已立项', label: '已立项' },
-  { value: '进行中', label: '进行中' },
-  { value: PROJECT_STATUS_TERMINATED, label: '已结束' },
-  { value: '已归档', label: '已归档' },
-] as const
 const PROJECT_NODE_FIELD_MODULE_EXCEPTIONS = new Set([
   'REVISION_TASK',
   'PATTERN_TASK',
@@ -513,8 +442,6 @@ const PROJECT_NODE_MANUAL_COMPLETE_BLOCKED_TYPES = new Set([
   'FIRST_SAMPLE',
   'FIRST_ORDER_SAMPLE',
 ])
-const RISK_STATUS_OPTIONS = ['全部', '正常', '延期']
-const DATE_RANGE_OPTIONS: ProjectDateRange[] = ['全部时间', '今天', '最近一周', '最近一月']
 const PROJECT_DEMO_SEED_IMPORT_THRESHOLD = 20
 const WORK_ITEM_TAB_OPTIONS: Array<{ key: WorkItemTabKey; label: string }> = [
   { key: 'full-info', label: '全量信息' },
@@ -532,59 +459,6 @@ const REVISION_SCOPE_OPTIONS = [
   { value: 'COLOR', label: '颜色' },
   { value: 'PACKAGE', label: '包装标识' },
 ] as const
-
-const initialListState: ProjectListState = {
-  search: '',
-  status: '全部',
-  owner: '全部负责人',
-  phase: '全部阶段',
-  riskStatus: '全部',
-  dateRange: '全部时间',
-  pendingDecisionOnly: false,
-  advancedOpen: false,
-  viewMode: 'list',
-  sortBy: 'updatedAt',
-  currentPage: 1,
-  pageSize: 8,
-}
-
-const PROJECT_LIST_STORAGE_KEY = 'higood:list-page:/pcs/projects'
-const PROJECT_LIST_PAGE_SIZES = [8, 20, 50]
-const PROJECT_LIST_MAX_FROZEN_WIDTH = 520
-const PROJECT_LIST_COLUMN_RULES = [
-  { key: 'project', required: true, freezeable: true },
-  { key: 'code', freezeable: true },
-  { key: 'category' },
-  { key: 'style' },
-  { key: 'phase', required: true, freezeable: true },
-  { key: 'progress' },
-  { key: 'risk', required: true, freezeable: true },
-  { key: 'owner', freezeable: true },
-  { key: 'updated', freezeable: true },
-  { key: 'actions', required: true, actionColumn: true },
-]
-const projectListUiState: {
-  sort: StandardListSortState | null
-  preferences: StandardListColumnPreferences
-  columnSettingsOpen: boolean
-  draggedColumnKey: string
-  preferencesLoaded: boolean
-} = {
-  sort: null,
-  preferences: normalizeListColumnPreferences(
-    PROJECT_LIST_COLUMN_RULES,
-    {
-      order: PROJECT_LIST_COLUMN_RULES.map((rule) => rule.key),
-      visibleKeys: PROJECT_LIST_COLUMN_RULES.map((rule) => rule.key),
-      frozenKeys: [],
-      pageSize: PROJECT_LIST_PAGE_SIZES[0]!,
-    },
-    PROJECT_LIST_PAGE_SIZES,
-  ),
-  columnSettingsOpen: false,
-  draggedColumnKey: '',
-  preferencesLoaded: false,
-}
 
 function createEmptyRecordDialogState(): RecordDialogState {
   return {
@@ -711,7 +585,6 @@ function createEmptyEngineeringTaskCreateDialogState(): EngineeringTaskCreateDia
 }
 
 const state: ProjectPageState = {
-  list: { ...initialListState },
   create: {
     routeKey: '',
     draft: createEmptyProjectDraft(),
@@ -6123,155 +5996,6 @@ function buildProjectViewModel(projectId: string): ProjectViewModel | null {
   }
 }
 
-function buildProjectListViewModel(projectId: string): ProjectListViewModel | null {
-  const project = getProjectById(projectId)
-  if (!project) return null
-
-  const phases = listProjectPhases(projectId)
-  const nodes = listProjectNodes(projectId)
-  const nodeViewModels: ProjectListNodeViewModel[] = nodes.map((node) => ({
-    node,
-    unlocked: isNodeUnlocked(project, nodes, node),
-    displayStatus: getNodeDisplayStatus(project, nodes, node),
-  }))
-
-  const currentNode =
-    nodeViewModels.find((item) => item.node.currentStatus === '进行中' || item.node.currentStatus === '待确认') ??
-    nodeViewModels.find((item) => !isClosedNodeStatus(item.node.currentStatus) && item.unlocked) ??
-    nodeViewModels[0] ??
-    null
-  const currentPhaseCode = currentNode?.node.phaseCode ?? project.currentPhaseCode
-  const phaseViewModels: ProjectListPhaseViewModel[] = phases.map((phase) => {
-    const phaseNodes = nodeViewModels.filter((item) => item.node.phaseCode === phase.phaseCode)
-    let derivedStatus: PcsProjectPhaseRecord['phaseStatus'] = '未开始'
-
-    if (project.projectStatus === PROJECT_STATUS_TERMINATED && phaseNodes.some((item) => !isClosedNodeStatus(item.node.currentStatus))) {
-      derivedStatus = PROJECT_STATUS_TERMINATED
-    } else if (phaseNodes.length > 0 && phaseNodes.every((item) => isClosedNodeStatus(item.node.currentStatus))) {
-      derivedStatus = '已完成'
-    } else if (
-      phase.phaseCode === currentPhaseCode ||
-      phaseNodes.some((item) => item.node.currentStatus === '进行中' || item.node.currentStatus === '待确认')
-    ) {
-      derivedStatus = '进行中'
-    }
-
-    return {
-      phase,
-      derivedStatus,
-      completedCount: phaseNodes.filter((item) => item.node.currentStatus === '已完成').length,
-      totalCount: phaseNodes.length,
-      pendingDecision: phaseNodes.some((item) => item.node.currentStatus === '待确认'),
-      current: phase.phaseCode === currentPhaseCode,
-    }
-  })
-
-  return {
-    project,
-    currentPhase: phaseViewModels.find((item) => item.phase.phaseCode === currentPhaseCode) ?? phaseViewModels[0] ?? null,
-    nextNode:
-      nodeViewModels.find((item) => !isClosedNodeStatus(item.node.currentStatus) && item.unlocked) ??
-      nodeViewModels.find((item) => !isClosedNodeStatus(item.node.currentStatus)) ??
-      null,
-    pendingDecisionNode: nodeViewModels.find((item) => item.node.currentStatus === '待确认') ?? null,
-    progressDone: nodeViewModels.filter((item) => item.node.currentStatus === '已完成').length,
-    progressTotal: nodeViewModels.length,
-    channelNames: getChannelNamesByCodes(project.targetChannelCodes),
-  }
-}
-
-function getFilteredProjectViewModels(): ProjectListViewModel[] {
-  ensureProjectDemoDataReadySync()
-  const keyword = state.list.search.trim().toLowerCase()
-  const owner = state.list.owner
-  const phase = state.list.phase
-  const now = Date.now()
-
-  const matchesDateRange = (project: PcsProjectRecord): boolean => {
-    if (state.list.dateRange === '全部时间') return true
-    const projectTime = parseDateValue(project.updatedAt)
-    if (!projectTime) return false
-    if (state.list.dateRange === '今天') {
-      return project.updatedAt.slice(0, 10) === todayText()
-    }
-    if (state.list.dateRange === '最近一周') {
-      return now - projectTime <= 7 * 24 * 60 * 60 * 1000
-    }
-    return now - projectTime <= 30 * 24 * 60 * 60 * 1000
-  }
-
-  const items = listProjects()
-    .map((project) => buildProjectListViewModel(project.projectId))
-    .filter((item): item is ProjectListViewModel => Boolean(item))
-    .filter((item) => {
-      const { project } = item
-      const matchesKeyword =
-        keyword.length === 0 ||
-        [
-          project.projectName,
-          project.projectCode,
-          project.categoryName,
-          project.subCategoryName,
-          project.ownerName,
-          project.currentPhaseName,
-          project.styleTagNames.join(' '),
-        ]
-          .join(' ')
-          .toLowerCase()
-          .includes(keyword)
-
-      const matchesStatus = state.list.status === '全部' || project.projectStatus === state.list.status
-      const matchesOwner = owner === '全部负责人' || project.ownerName === owner
-      const matchesPhase = phase === '全部阶段' || item.currentPhase?.phase.phaseName === phase
-      const riskLabel = project.riskStatus === '延期' ? '延期' : '正常'
-      const matchesRisk = state.list.riskStatus === '全部' || riskLabel === state.list.riskStatus
-      const matchesPendingDecision = !state.list.pendingDecisionOnly || Boolean(item.pendingDecisionNode)
-      return (
-        matchesKeyword &&
-        matchesStatus &&
-        matchesOwner &&
-        matchesPhase &&
-        matchesRisk &&
-        matchesPendingDecision &&
-        matchesDateRange(project)
-      )
-    })
-
-  return items.sort((left, right) => {
-    if (state.list.sortBy === 'pendingDecision') {
-      const decisionDiff = Number(Boolean(right.pendingDecisionNode)) - Number(Boolean(left.pendingDecisionNode))
-      if (decisionDiff !== 0) return decisionDiff
-    }
-    if (state.list.sortBy === 'risk') {
-      const riskDiff = Number(right.project.riskStatus === '延期') - Number(left.project.riskStatus === '延期')
-      if (riskDiff !== 0) return riskDiff
-    }
-    if (state.list.sortBy === 'progressLow') {
-      const leftProgress = left.progressTotal === 0 ? 1 : left.progressDone / left.progressTotal
-      const rightProgress = right.progressTotal === 0 ? 1 : right.progressDone / right.progressTotal
-      if (leftProgress !== rightProgress) return leftProgress - rightProgress
-    }
-    return right.project.updatedAt.localeCompare(left.project.updatedAt)
-  })
-}
-
-function getPagedProjects() {
-  const filtered = getFilteredProjectViewModels()
-  const totalPages = Math.max(1, Math.ceil(filtered.length / state.list.pageSize))
-  if (state.list.currentPage > totalPages) state.list.currentPage = totalPages
-  if (state.list.currentPage < 1) state.list.currentPage = 1
-  const startIndex = (state.list.currentPage - 1) * state.list.pageSize
-  return {
-    filtered,
-    totalPages,
-    paged: filtered.slice(startIndex, startIndex + state.list.pageSize),
-  }
-}
-
-function buildProjectPhaseOptions(projects: ProjectListViewModel[]): string[] {
-  return ['全部阶段', ...Array.from(new Set(projects.map((item) => item.currentPhase?.phase.phaseName || '-')))]
-}
-
 function ensureCreateState(): void {
   if (state.create.routeKey === 'create') return
   const catalog = getProjectCreateCatalog()
@@ -6411,498 +6135,6 @@ function getNodeStatusIcon(status: ProjectNodeStatus | '未解锁'): string {
   return 'clock-3'
 }
 
-function renderProjectProgress(project: ProjectListViewModel): string {
-  const percent = project.progressTotal === 0 ? 0 : Math.round((project.progressDone / project.progressTotal) * 100)
-  return `
-    <div class="space-y-1">
-      <div class="flex items-center gap-2">
-        <div class="h-2 w-24 rounded-full bg-slate-100">
-          <div class="h-2 rounded-full bg-blue-600" style="width:${percent}%"></div>
-        </div>
-        <span class="text-xs text-slate-500">${project.progressDone}/${project.progressTotal}</span>
-      </div>
-      ${
-        project.nextNode
-          ? `<p class="text-xs text-slate-500">下一步：${escapeHtml(project.nextNode.node.workItemTypeName)}（${escapeHtml(project.nextNode.displayStatus)}）</p>`
-          : '<p class="text-xs text-slate-500">已完成全部节点</p>'
-      }
-    </div>
-  `
-}
-
-function renderPagination(totalPages: number): string {
-  if (totalPages <= 1) return ''
-  const pages = new Set<number>([1, totalPages, state.list.currentPage, state.list.currentPage - 1, state.list.currentPage + 1])
-  const visiblePages = Array.from(pages).filter((item) => item >= 1 && item <= totalPages).sort((a, b) => a - b)
-  return `
-    <div class="flex items-center justify-between border-t bg-white px-4 py-3">
-      <p class="text-xs text-slate-500">第 ${state.list.currentPage} / ${totalPages} 页</p>
-      <div class="flex items-center gap-2">
-        <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50 ${state.list.currentPage === 1 ? 'cursor-not-allowed opacity-50' : ''}" data-pcs-project-action="set-page" data-page="${state.list.currentPage - 1}" ${state.list.currentPage === 1 ? 'disabled' : ''}>上一页</button>
-        ${visiblePages
-          .map(
-            (page) => `
-              <button type="button" class="${toClassName(
-                'inline-flex h-8 min-w-8 items-center justify-center rounded-md border px-2 text-xs',
-                page === state.list.currentPage
-                  ? 'border-blue-600 bg-blue-600 text-white'
-                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
-              )}" data-pcs-project-action="set-page" data-page="${page}">${page}</button>
-            `,
-          )
-          .join('')}
-        <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50 ${state.list.currentPage === totalPages ? 'cursor-not-allowed opacity-50' : ''}" data-pcs-project-action="set-page" data-page="${state.list.currentPage + 1}" ${state.list.currentPage === totalPages ? 'disabled' : ''}>下一页</button>
-      </div>
-    </div>
-  `
-}
-
-function renderListToolbar(filteredCount: number, phaseOptions: string[]): string {
-  const ownerOptions = ['全部负责人', ...getProjectCreateCatalog().owners.map((item) => item.name)]
-  return `
-    <section class="rounded-lg border bg-white p-4">
-      <div class="grid gap-3 xl:grid-cols-[minmax(240px,1.5fr)_160px_auto_auto]">
-        <label class="space-y-1">
-          <span class="text-xs text-slate-500">搜索项目</span>
-          <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="搜索项目名称、编码或关键词" value="${escapeHtml(state.list.search)}" data-pcs-project-field="list-search" />
-        </label>
-        <label class="space-y-1">
-          <span class="text-xs text-slate-500">排序方式</span>
-          <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-project-field="list-sort">
-            <option value="updatedAt" ${state.list.sortBy === 'updatedAt' ? 'selected' : ''}>最近更新</option>
-            <option value="pendingDecision" ${state.list.sortBy === 'pendingDecision' ? 'selected' : ''}>待决策优先</option>
-            <option value="risk" ${state.list.sortBy === 'risk' ? 'selected' : ''}>风险优先</option>
-            <option value="progressLow" ${state.list.sortBy === 'progressLow' ? 'selected' : ''}>进度最低优先</option>
-          </select>
-        </label>
-        <div class="flex items-end gap-2">
-          <button type="button" class="inline-flex h-10 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-project-action="query">查询</button>
-          <button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50" data-pcs-project-action="reset-list">重置筛选</button>
-        </div>
-        <div class="flex items-end justify-end gap-2">
-          <button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50" data-pcs-project-action="toggle-advanced">${state.list.advancedOpen ? '收起高级筛选' : '高级筛选'}</button>
-        </div>
-      </div>
-      <div class="mt-4 flex flex-wrap items-center gap-4">
-        <div class="flex flex-wrap items-center gap-2">
-          <span class="text-xs text-slate-500">状态</span>
-          ${PROJECT_STATUS_OPTIONS.map(
-            (option) => `
-              <button type="button" class="${toClassName(
-                'inline-flex h-8 items-center rounded-md px-3 text-xs',
-                state.list.status === option.value ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
-              )}" data-pcs-project-action="set-status-filter" data-value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</button>
-            `,
-          ).join('')}
-        </div>
-        <button type="button" class="${toClassName(
-          'inline-flex h-8 items-center rounded-md px-3 text-xs',
-          state.list.pendingDecisionOnly ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
-        )}" data-pcs-project-action="toggle-pending-decision">待决策</button>
-        <div class="flex flex-wrap items-center gap-2">
-          <span class="text-xs text-slate-500">风险</span>
-          ${RISK_STATUS_OPTIONS.map(
-            (option) => `
-              <button type="button" class="${toClassName(
-                'inline-flex h-8 items-center rounded-md px-3 text-xs',
-                state.list.riskStatus === option ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
-              )}" data-pcs-project-action="set-risk-filter" data-value="${escapeHtml(option)}">${escapeHtml(option)}</button>
-            `,
-          ).join('')}
-        </div>
-      </div>
-      ${
-        state.list.advancedOpen
-          ? `
-            <div class="mt-4 grid gap-3 border-t border-slate-200 pt-4 md:grid-cols-3">
-              <label class="space-y-1">
-                <span class="text-xs text-slate-500">负责人</span>
-                <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-project-field="list-owner">
-                  ${ownerOptions
-                    .map(
-                      (option) =>
-                        `<option value="${escapeHtml(option)}" ${state.list.owner === option ? 'selected' : ''}>${escapeHtml(option)}</option>`,
-                    )
-                    .join('')}
-                </select>
-              </label>
-              <label class="space-y-1">
-                <span class="text-xs text-slate-500">当前阶段</span>
-                <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-project-field="list-phase">
-                  ${phaseOptions
-                    .map(
-                      (option) =>
-                        `<option value="${escapeHtml(option)}" ${state.list.phase === option ? 'selected' : ''}>${escapeHtml(option)}</option>`,
-                    )
-                    .join('')}
-                </select>
-              </label>
-              <label class="space-y-1">
-                <span class="text-xs text-slate-500">最近更新范围</span>
-                <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-project-field="list-date-range">
-                  ${DATE_RANGE_OPTIONS.map(
-                    (option) =>
-                      `<option value="${escapeHtml(option)}" ${state.list.dateRange === option ? 'selected' : ''}>${escapeHtml(option)}</option>`,
-                  ).join('')}
-                </select>
-              </label>
-            </div>
-          `
-          : ''
-      }
-      <div class="mt-4 flex items-center justify-between gap-3 border-t border-slate-200 pt-4">
-        <p class="text-sm text-slate-500">共 ${filteredCount} 个项目</p>
-        <span class="text-xs text-slate-400">按列表查看项目事实与当前进度</span>
-      </div>
-    </section>
-  `
-}
-
-const PROJECT_LIST_COLUMNS: StandardListColumn<ProjectListViewModel>[] = [
-  {
-    key: 'project',
-    title: '项目名称',
-    width: 260,
-    required: true,
-    freezeable: true,
-    sortable: true,
-    render: (item) => `
-      <button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(item.project.projectId)}">${escapeHtml(item.project.projectName)}</button>
-      <div class="mt-1 flex flex-wrap items-center gap-2 text-xs">
-        <span class="inline-flex rounded-full px-2 py-0.5 ${getProjectStatusBadgeClass(item.project.projectStatus)}">${escapeHtml(getProjectStatusDisplayText(item.project.projectStatus))}</span>
-        ${item.pendingDecisionNode ? '<span class="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-amber-700">待决策</span>' : ''}
-      </div>
-    `,
-    sortValue: (item) => item.project.projectName,
-  },
-  { key: 'code', title: '项目编码', width: 150, freezeable: true, sortable: true, render: (item) => escapeHtml(item.project.projectCode), sortValue: (item) => item.project.projectCode },
-  {
-    key: 'category',
-    title: '分类',
-    width: 160,
-    render: (item) => `<p class="text-slate-700">${escapeHtml(item.project.categoryName)}</p><p class="mt-1 text-xs text-slate-400">${escapeHtml(item.project.subCategoryName || '-')}</p>`,
-  },
-  {
-    key: 'style',
-    title: '风格',
-    width: 180,
-    render: (item) => `<div class="flex flex-wrap gap-1">${item.project.styleTagNames.length > 0 ? item.project.styleTagNames.map((tag) => `<span class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">${escapeHtml(tag)}</span>`).join('') : '<span class="text-slate-400">-</span>'}</div>`,
-  },
-  {
-    key: 'phase',
-    title: '当前阶段',
-    width: 180,
-    required: true,
-    freezeable: true,
-    sortable: true,
-    render: (item) => `<p class="text-slate-700">${escapeHtml(item.currentPhase?.phase.phaseName || item.project.currentPhaseName || '-')}</p><p class="mt-1 text-xs text-slate-400">${escapeHtml(item.nextNode?.node.workItemTypeName || '无待执行节点')}</p>`,
-    sortValue: (item) => item.currentPhase?.phase.phaseName || item.project.currentPhaseName || '',
-  },
-  { key: 'progress', title: '项目进度', width: 190, render: (item) => renderProjectProgress(item) },
-  {
-    key: 'risk',
-    title: '风险',
-    width: 180,
-    required: true,
-    freezeable: true,
-    sortable: true,
-    render: (item) => `
-      <div class="inline-flex items-center gap-2 rounded-full px-2 py-1 text-xs ${item.project.riskStatus === '延期' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}">
-        <span class="h-1.5 w-1.5 rounded-full ${item.project.riskStatus === '延期' ? 'bg-amber-500' : 'bg-emerald-500'}"></span>
-        ${escapeHtml(getRiskText(item.project))}
-      </div>
-      ${item.project.riskStatus === '延期' && item.project.riskReason ? `<p class="mt-1 max-w-[180px] text-xs text-slate-500">${escapeHtml(item.project.riskReason)}</p>` : ''}
-    `,
-    sortValue: (item) => item.project.riskStatus === '延期' ? 1 : 0,
-  },
-  { key: 'owner', title: '负责人', width: 130, freezeable: true, sortable: true, render: (item) => escapeHtml(item.project.ownerName), sortValue: (item) => item.project.ownerName },
-  { key: 'updated', title: '最近更新', width: 170, freezeable: true, sortable: true, render: (item) => escapeHtml(formatDateTime(item.project.updatedAt)), sortValue: (item) => item.project.updatedAt },
-  {
-    key: 'actions',
-    title: '操作',
-    width: 220,
-    required: true,
-    actionColumn: true,
-    render: (item) => `
-      <div class="flex flex-wrap gap-2">
-        <button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/projects/${escapeHtml(item.project.projectId)}">查看</button>
-        <button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50" data-pcs-project-action="open-terminate" data-project-id="${escapeHtml(item.project.projectId)}">结束</button>
-        <button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50" data-pcs-project-action="archive-project" data-project-id="${escapeHtml(item.project.projectId)}">归档</button>
-      </div>
-    `,
-  },
-]
-
-function getProjectListStorage(): Storage | null {
-  try {
-    return typeof window === 'undefined' ? null : window.localStorage
-  } catch {
-    return null
-  }
-}
-
-function normalizeProjectListPreferences(
-  raw: Partial<StandardListColumnPreferences> | null | undefined,
-): StandardListColumnPreferences {
-  const normalized = normalizeListColumnPreferences(PROJECT_LIST_COLUMN_RULES, raw, PROJECT_LIST_PAGE_SIZES)
-  const columnsByKey = new Map(PROJECT_LIST_COLUMNS.map((column) => [column.key, column]))
-  const visibleKeys = new Set(normalized.visibleKeys)
-  const requestedFrozen = new Set(normalized.frozenKeys)
-  const frozen = normalized.order
-    .map((key) => columnsByKey.get(key))
-    .filter((column): column is StandardListColumn<ProjectListViewModel> => Boolean(
-      column && column.freezeable && !column.actionColumn && visibleKeys.has(column.key) && requestedFrozen.has(column.key),
-    ))
-  let width = frozen.reduce((sum, column) => sum + Math.max(column.width, column.minWidth ?? 0), 0)
-  while (width > PROJECT_LIST_MAX_FROZEN_WIDTH && frozen.length > 0) {
-    const removed = frozen.pop()
-    if (removed) width -= Math.max(removed.width, removed.minWidth ?? 0)
-  }
-  return { ...normalized, frozenKeys: frozen.map((column) => column.key) }
-}
-
-function ensureProjectListPreferences(): void {
-  if (projectListUiState.preferencesLoaded) return
-  projectListUiState.preferencesLoaded = true
-  const storage = getProjectListStorage()
-  projectListUiState.preferences = storage
-    ? loadListColumnPreferences(
-        storage,
-        PROJECT_LIST_STORAGE_KEY,
-        PROJECT_LIST_COLUMN_RULES,
-        projectListUiState.preferences,
-        PROJECT_LIST_PAGE_SIZES,
-      )
-    : projectListUiState.preferences
-  projectListUiState.preferences = normalizeProjectListPreferences(projectListUiState.preferences)
-  state.list.pageSize = projectListUiState.preferences.pageSize
-}
-
-function saveProjectListPreferences(): void {
-  const storage = getProjectListStorage()
-  if (storage) saveListColumnPreferences(storage, PROJECT_LIST_STORAGE_KEY, projectListUiState.preferences)
-}
-
-function withProjectListLocalInteractions(html: string): string {
-  return html
-    .replace(/data-pcs-project-action="([^"]+)"/g, (attribute, action: string) => {
-      const localActions = new Set([
-        'query',
-        'reset-list',
-        'toggle-advanced',
-        'set-status-filter',
-        'set-risk-filter',
-        'toggle-pending-decision',
-        'set-view-mode',
-        'sort-column',
-        'prev-page',
-        'next-page',
-        'open-column-settings',
-        'close-column-settings',
-        'restore-column-settings',
-        'toggle-column-visibility',
-        'toggle-column-freeze',
-      ])
-      return localActions.has(action)
-        ? `data-skip-page-rerender="true" data-pcs-project-list-root="true" ${attribute}`
-        : attribute
-    })
-    .replace(/data-pcs-project-field="([^"]+)"/g, (attribute, field: string) => (
-      field === 'pageSize' || field.startsWith('list-')
-        ? `data-skip-page-rerender="true" data-pcs-project-list-root="true" ${attribute}`
-        : attribute
-    ))
-}
-
-function getStandardProjectListView(): StandardListPageSlice<ProjectListViewModel> {
-  ensureProjectListPreferences()
-  const sorted = sortStandardListRows(
-    getFilteredProjectViewModels(),
-    projectListUiState.sort,
-    (item, key) => PROJECT_LIST_COLUMNS.find((column) => column.key === key)?.sortValue?.(item),
-  )
-  const paging = paginateStandardListRows(sorted, state.list.currentPage, projectListUiState.preferences.pageSize)
-  state.list.currentPage = paging.currentPage
-  state.list.pageSize = paging.pageSize
-  return paging
-}
-
-function renderStandardProjectListTable(paging: StandardListPageSlice<ProjectListViewModel>): string {
-  return withProjectListLocalInteractions(renderStandardListTable({
-    columns: PROJECT_LIST_COLUMNS,
-    rows: paging.rows,
-    preferences: projectListUiState.preferences,
-    sort: projectListUiState.sort,
-    eventPrefix: 'pcs-project',
-    emptyText: '暂无符合条件的商品项目',
-  }))
-}
-
-function renderStandardProjectListPagination(paging: StandardListPageSlice<ProjectListViewModel>): string {
-  return withProjectListLocalInteractions(renderTablePagination({
-    total: paging.total,
-    from: paging.from,
-    to: paging.to,
-    currentPage: paging.currentPage,
-    totalPages: paging.totalPages,
-    pageSize: paging.pageSize,
-    actionPrefix: 'pcs-project',
-    fieldPrefix: 'pcs-project',
-    pageSizeOptions: PROJECT_LIST_PAGE_SIZES,
-  }))
-}
-
-function renderProjectColumnSettings(): string {
-  if (!projectListUiState.columnSettingsOpen) return ''
-  return withProjectListLocalInteractions(renderStandardListColumnSettings({
-    title: '列设置',
-    columns: PROJECT_LIST_COLUMNS,
-    preferences: projectListUiState.preferences,
-    eventPrefix: 'pcs-project',
-    maxFrozenWidth: PROJECT_LIST_MAX_FROZEN_WIDTH,
-  }))
-}
-
-function renderLegacyProjectListTable(projects: ProjectListViewModel[], totalPages: number): string {
-  return `
-    <section class="overflow-hidden rounded-lg border bg-white">
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-sm">
-          <thead class="bg-slate-50">
-            <tr class="border-b border-slate-200 text-left text-slate-600">
-              <th class="px-4 py-3 font-medium">操作</th>
-              <th class="px-4 py-3 font-medium min-w-[260px]">项目名称</th>
-              <th class="px-4 py-3 font-medium">项目编码</th>
-              <th class="px-4 py-3 font-medium">分类</th>
-              <th class="px-4 py-3 font-medium">风格</th>
-              <th class="px-4 py-3 font-medium">当前阶段</th>
-              <th class="px-4 py-3 font-medium min-w-[180px]">项目进度</th>
-              <th class="px-4 py-3 font-medium">风险</th>
-              <th class="px-4 py-3 font-medium">负责人</th>
-              <th class="px-4 py-3 font-medium">最近更新</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-200">
-            ${
-              projects.length === 0
-                ? `
-                  <tr>
-                    <td colspan="10" class="px-4 py-16 text-center">
-                      <p class="text-sm font-medium text-slate-700">暂无符合条件的商品项目</p>
-                      <p class="mt-1 text-xs text-slate-500">可以修改筛选条件，或直接创建一个新的商品项目。</p>
-                      <button type="button" class="mt-4 inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-nav="/pcs/projects/create">新建商品项目</button>
-                    </td>
-                  </tr>
-                `
-                : projects
-                    .map(
-                      (item) => `
-                        <tr class="align-top hover:bg-slate-50">
-                          <td class="px-4 py-3">
-                            <div class="flex flex-wrap gap-2">
-                              <button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/projects/${escapeHtml(item.project.projectId)}">查看</button>
-                              <button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50" data-pcs-project-action="open-terminate" data-project-id="${escapeHtml(item.project.projectId)}">结束</button>
-                              <button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50" data-pcs-project-action="archive-project" data-project-id="${escapeHtml(item.project.projectId)}">归档</button>
-                            </div>
-                          </td>
-                          <td class="px-4 py-3">
-                            <button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(item.project.projectId)}">${escapeHtml(item.project.projectName)}</button>
-                            <div class="mt-1 flex flex-wrap items-center gap-2 text-xs">
-                              <span class="inline-flex rounded-full px-2 py-0.5 ${getProjectStatusBadgeClass(item.project.projectStatus)}">${escapeHtml(getProjectStatusDisplayText(item.project.projectStatus))}</span>
-                              ${item.pendingDecisionNode ? '<span class="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-amber-700">待决策</span>' : ''}
-                            </div>
-                          </td>
-                          <td class="px-4 py-3 text-slate-500">${escapeHtml(item.project.projectCode)}</td>
-                          <td class="px-4 py-3">
-                            <p class="text-slate-700">${escapeHtml(item.project.categoryName)}</p>
-                            <p class="mt-1 text-xs text-slate-400">${escapeHtml(item.project.subCategoryName || '-')}</p>
-                          </td>
-                          <td class="px-4 py-3">
-                            <div class="flex flex-wrap gap-1">
-                              ${item.project.styleTagNames.length > 0 ? item.project.styleTagNames.map((tag) => `<span class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">${escapeHtml(tag)}</span>`).join('') : '<span class="text-slate-400">-</span>'}
-                            </div>
-                          </td>
-                          <td class="px-4 py-3">
-                            <p class="text-slate-700">${escapeHtml(item.currentPhase?.phase.phaseName || item.project.currentPhaseName || '-')}</p>
-                            <p class="mt-1 text-xs text-slate-400">${escapeHtml(item.nextNode?.node.workItemTypeName || '无待执行节点')}</p>
-                          </td>
-                          <td class="px-4 py-3">${renderProjectProgress(item)}</td>
-                          <td class="px-4 py-3">
-                            <div class="inline-flex items-center gap-2 rounded-full px-2 py-1 text-xs ${item.project.riskStatus === '延期' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}">
-                              <span class="h-1.5 w-1.5 rounded-full ${item.project.riskStatus === '延期' ? 'bg-amber-500' : 'bg-emerald-500'}"></span>
-                              ${escapeHtml(getRiskText(item.project))}
-                            </div>
-                            ${
-                              item.project.riskStatus === '延期' && item.project.riskReason
-                                ? `<p class="mt-1 max-w-[180px] text-xs text-slate-500">${escapeHtml(item.project.riskReason)}</p>`
-                                : ''
-                            }
-                          </td>
-                          <td class="px-4 py-3 text-slate-700">${escapeHtml(item.project.ownerName)}</td>
-                          <td class="px-4 py-3 text-slate-500">${escapeHtml(formatDateTime(item.project.updatedAt))}</td>
-                        </tr>
-                      `,
-                    )
-                    .join('')
-            }
-          </tbody>
-        </table>
-      </div>
-      ${renderPagination(totalPages)}
-    </section>
-  `
-}
-
-function renderProjectGrid(projects: ProjectListViewModel[], totalPages: number): string {
-  return `
-    <section class="space-y-4">
-      ${
-        projects.length === 0
-          ? `
-            <div class="rounded-lg border bg-white p-16 text-center">
-              <p class="text-sm font-medium text-slate-700">暂无符合条件的商品项目</p>
-              <p class="mt-1 text-xs text-slate-500">可以修改筛选条件，或直接创建一个新的商品项目。</p>
-            </div>
-          `
-          : `
-            <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              ${projects
-                .map(
-                  (item) => `
-                    <article class="rounded-lg border bg-white p-4">
-                      <div class="flex items-start justify-between gap-3">
-                        <div>
-                          <button type="button" class="text-left text-base font-semibold text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(item.project.projectId)}">${escapeHtml(item.project.projectName)}</button>
-                          <p class="mt-1 text-xs text-slate-400">${escapeHtml(item.project.projectCode)}</p>
-                        </div>
-                        <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${getProjectStatusBadgeClass(item.project.projectStatus)}">${escapeHtml(getProjectStatusDisplayText(item.project.projectStatus))}</span>
-                      </div>
-                      <div class="mt-4 flex flex-wrap gap-2">
-                        <span class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">${escapeHtml(item.project.categoryName)}</span>
-                        ${item.pendingDecisionNode ? '<span class="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">待决策</span>' : ''}
-                      </div>
-                      <div class="mt-4 space-y-3 text-sm text-slate-600">
-                        <div class="flex items-center justify-between"><span>当前阶段</span><span class="font-medium text-slate-900">${escapeHtml(item.currentPhase?.phase.phaseName || '-')}</span></div>
-                        <div class="flex items-center justify-between"><span>负责人</span><span class="font-medium text-slate-900">${escapeHtml(item.project.ownerName)}</span></div>
-                        <div class="flex items-center justify-between"><span>风险状态</span><span class="font-medium ${item.project.riskStatus === '延期' ? 'text-amber-600' : 'text-emerald-600'}">${escapeHtml(getRiskText(item.project))}</span></div>
-                      </div>
-                      <div class="mt-4">${renderProjectProgress(item)}</div>
-                      <div class="mt-4 flex items-center justify-between border-t border-slate-200 pt-4">
-                        <span class="text-xs text-slate-400">${escapeHtml(formatDateTime(item.project.updatedAt))}</span>
-                        <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/projects/${escapeHtml(item.project.projectId)}">查看详情</button>
-                      </div>
-                    </article>
-                  `,
-                )
-                .join('')}
-            </div>
-          `
-      }
-      ${renderPagination(totalPages)}
-    </section>
-  `
-}
-
 function renderProjectTerminateDialog(): string {
   if (!state.terminateProjectId) return ''
   const project = getProjectById(state.terminateProjectId)
@@ -6921,20 +6153,6 @@ function renderProjectTerminateDialog(): string {
       <button type="button" class="inline-flex h-9 items-center rounded-md bg-rose-600 px-4 text-sm font-medium text-white hover:bg-rose-700 ${state.terminateReason.trim() ? '' : 'opacity-50'}" data-pcs-project-action="confirm-terminate" ${state.terminateReason.trim() ? '' : 'disabled'}>确认结束</button>
     `,
   )
-}
-
-function renderProjectListHeader(): string {
-  return `
-    <section class="flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <p class="text-xs text-slate-500">商品中心 / 商品项目</p>
-        <h1 class="mt-1 text-2xl font-semibold text-slate-900">商品项目列表</h1>
-      </div>
-      <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-nav="/pcs/projects/create">
-        <i data-lucide="plus" class="h-4 w-4"></i>新建商品项目
-      </button>
-    </section>
-  `
 }
 
 function renderFixedStepPreview(): string {
@@ -8774,44 +7992,6 @@ function renderProjectWorkItemDetailPage(projectId: string, projectNodeId: strin
   `
 }
 
-export async function renderPcsProjectListPage(): Promise<string> {
-  await ensureProjectDemoSeedServiceReady()
-  ensureProjectDemoDataReadySync()
-  ensureProjectListPreferences()
-  const transient = { currentPage: state.list.currentPage, sort: projectListUiState.sort }
-  const hasMountedRoot = typeof document !== 'undefined'
-    && Boolean(document.querySelector('[data-pcs-project-list-page]'))
-  resetStandardListEntryTransientStateOnRouteEntry(transient, hasMountedRoot)
-  state.list.currentPage = transient.currentPage
-  projectListUiState.sort = transient.sort
-  const filtered = getFilteredProjectViewModels()
-  const phaseOptions = buildProjectPhaseOptions(filtered)
-  const paging = getStandardProjectListView()
-  const columnSettingsButton = withProjectListLocalInteractions(
-    renderSecondaryButton('列设置', { prefix: 'pcs-project', action: 'open-column-settings' }, 'settings-2'),
-  )
-  const page = renderStandardListPage({
-    title: '商品项目列表',
-    primaryActionsHtml: `
-      <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-medium text-white hover:bg-blue-700" data-nav="/pcs/projects/create">
-        <i data-lucide="plus" class="h-4 w-4"></i>新建商品项目
-      </button>
-    `,
-    feedbackHtml: `<div data-pcs-project-list-region="feedback">${renderNotice()}</div>`,
-    filtersHtml: `<div data-pcs-project-list-region="filters">${withProjectListLocalInteractions(renderListToolbar(filtered.length, phaseOptions))}</div>`,
-    listTitle: '商品项目',
-    listActionsHtml: columnSettingsButton,
-    tableHtml: `<div data-pcs-project-list-region="table">${renderStandardProjectListTable(paging)}</div>`,
-    paginationHtml: `<div data-pcs-project-list-region="pagination">${renderStandardProjectListPagination(paging)}</div>`,
-    overlaysHtml: `
-      <div data-pcs-project-list-region="column-settings">${renderProjectColumnSettings()}</div>
-      <div data-pcs-project-list-region="terminate-dialog">${renderProjectTerminateDialog()}</div>
-    `,
-    className: 'min-w-0 max-w-full',
-  })
-  return `<div class="min-w-0 max-w-full" data-pcs-project-list-page>${page}</div>`
-}
-
 export async function renderPcsProjectCreatePage(): Promise<string> {
   return renderCreatePage()
 }
@@ -8826,32 +8006,6 @@ export async function renderPcsProjectWorkItemDetailPage(projectId: string, proj
   const loadingTasks: Array<Promise<unknown>> = [ensureProjectDetailSupportReady(), ensureProjectDemoSeedServiceReady()]
   await Promise.all(loadingTasks)
   return renderProjectWorkItemDetailPage(projectId, projectNodeId)
-}
-
-function refreshProjectListRegions(options: { filters?: boolean; feedback?: boolean; overlays?: boolean } = {}): void {
-  if (typeof document === 'undefined') return
-  const paging = getStandardProjectListView()
-  const tableHost = document.querySelector<HTMLElement>('[data-pcs-project-list-region="table"]')
-  const paginationHost = document.querySelector<HTMLElement>('[data-pcs-project-list-region="pagination"]')
-  if (tableHost) tableHost.innerHTML = renderStandardProjectListTable(paging)
-  if (paginationHost) paginationHost.innerHTML = renderStandardProjectListPagination(paging)
-  if (options.filters) {
-    const filtered = getFilteredProjectViewModels()
-    const filtersHost = document.querySelector<HTMLElement>('[data-pcs-project-list-region="filters"]')
-    if (filtersHost) filtersHost.innerHTML = withProjectListLocalInteractions(
-      renderListToolbar(filtered.length, buildProjectPhaseOptions(filtered)),
-    )
-  }
-  if (options.feedback) {
-    const feedbackHost = document.querySelector<HTMLElement>('[data-pcs-project-list-region="feedback"]')
-    if (feedbackHost) feedbackHost.innerHTML = renderNotice()
-  }
-  if (options.overlays) {
-    const settingsHost = document.querySelector<HTMLElement>('[data-pcs-project-list-region="column-settings"]')
-    const terminateHost = document.querySelector<HTMLElement>('[data-pcs-project-list-region="terminate-dialog"]')
-    if (settingsHost) settingsHost.innerHTML = renderProjectColumnSettings()
-    if (terminateHost) terminateHost.innerHTML = renderProjectTerminateDialog()
-  }
 }
 
 function closeAllDialogs(): void {
@@ -9204,48 +8358,6 @@ export function handlePcsProjectsInput(target: Element): boolean {
   const field = fieldNode.dataset.pcsProjectField
   if (!field) return false
 
-  if (field === 'pageSize' && fieldNode instanceof HTMLSelectElement) {
-    projectListUiState.preferences = normalizeProjectListPreferences({
-      ...projectListUiState.preferences,
-      pageSize: Number(fieldNode.value),
-    })
-    state.list.pageSize = projectListUiState.preferences.pageSize
-    state.list.currentPage = 1
-    saveProjectListPreferences()
-    refreshProjectListRegions()
-    return true
-  }
-
-  if (field === 'list-search' && fieldNode instanceof HTMLInputElement) {
-    state.list.search = fieldNode.value
-    state.list.currentPage = 1
-    refreshProjectListRegions()
-    return true
-  }
-  if (field === 'list-sort' && fieldNode instanceof HTMLSelectElement) {
-    state.list.sortBy = fieldNode.value as ProjectListSort
-    state.list.currentPage = 1
-    refreshProjectListRegions()
-    return true
-  }
-  if (field === 'list-owner' && fieldNode instanceof HTMLSelectElement) {
-    state.list.owner = fieldNode.value
-    state.list.currentPage = 1
-    refreshProjectListRegions()
-    return true
-  }
-  if (field === 'list-phase' && fieldNode instanceof HTMLSelectElement) {
-    state.list.phase = fieldNode.value
-    state.list.currentPage = 1
-    refreshProjectListRegions()
-    return true
-  }
-  if (field === 'list-date-range' && fieldNode instanceof HTMLSelectElement) {
-    state.list.dateRange = fieldNode.value as ProjectDateRange
-    state.list.currentPage = 1
-    refreshProjectListRegions()
-    return true
-  }
   if (field === 'create-project-name' && fieldNode instanceof HTMLInputElement) {
     state.create.draft.projectName = fieldNode.value
     state.create.error = null
@@ -10319,179 +9431,20 @@ function completeLiveTestingWorkItem(): void {
   state.notice = result.message
 }
 
-export function handlePcsProjectsEvent(target: HTMLElement, event?: Event): boolean {
-  const dragNode = target.closest<HTMLElement>('[data-standard-list-column-drag]')
-  if (dragNode && event && ['dragstart', 'dragover', 'drop', 'dragend'].includes(event.type)) {
-    const columnKey = dragNode.dataset.pcsProjectColumnKey || dragNode.dataset.dragSource || dragNode.dataset.dropTarget || ''
-    if (event.type === 'dragstart') {
-      projectListUiState.draggedColumnKey = columnKey
-      ;(event as DragEvent).dataTransfer?.setData('application/x-higood-list-column-key', columnKey)
-      return Boolean(columnKey)
-    }
-    if (event.type === 'dragend') {
-      projectListUiState.draggedColumnKey = ''
-      return true
-    }
-    const sourceKey = projectListUiState.draggedColumnKey
-    if (!sourceKey || !columnKey || sourceKey === columnKey) return false
-    if (event.type === 'dragover') {
-      event.preventDefault()
-      return true
-    }
-    event.preventDefault()
-    const order = projectListUiState.preferences.order.filter((key) => key !== sourceKey)
-    const targetIndex = order.indexOf(columnKey)
-    if (targetIndex < 0) return false
-    order.splice(targetIndex, 0, sourceKey)
-    projectListUiState.preferences = normalizeProjectListPreferences({ ...projectListUiState.preferences, order })
-    projectListUiState.draggedColumnKey = ''
-    saveProjectListPreferences()
-    refreshProjectListRegions({ overlays: true })
-    return true
-  }
-
+export function handlePcsProjectsEvent(target: HTMLElement): boolean {
   const actionNode = target.closest<HTMLElement>('[data-pcs-project-action]')
   if (!actionNode) return false
 
   const action = actionNode.dataset.pcsProjectAction
   if (!action) return false
 
-  if (action === 'sort-column') {
-    const columnKey = actionNode.dataset.columnKey || ''
-    const column = PROJECT_LIST_COLUMNS.find((item) => item.key === columnKey && item.sortable)
-    if (!column) return true
-    const currentSort = projectListUiState.sort
-    projectListUiState.sort = currentSort?.key !== columnKey
-      ? { key: columnKey, direction: 'asc' }
-      : currentSort.direction === 'asc'
-        ? { key: columnKey, direction: 'desc' }
-        : null
-    state.list.currentPage = 1
-    refreshProjectListRegions()
-    return true
-  }
-  if (action === 'prev-page' || action === 'next-page') {
-    const totalPages = Math.max(1, Math.ceil(
-      getFilteredProjectViewModels().length / projectListUiState.preferences.pageSize,
-    ))
-    state.list.currentPage = action === 'prev-page'
-      ? Math.max(1, state.list.currentPage - 1)
-      : Math.min(totalPages, state.list.currentPage + 1)
-    refreshProjectListRegions()
-    return true
-  }
-  if (action === 'open-column-settings') {
-    projectListUiState.columnSettingsOpen = true
-    refreshProjectListRegions({ overlays: true })
-    return true
-  }
-  if (action === 'close-column-settings') {
-    projectListUiState.columnSettingsOpen = false
-    refreshProjectListRegions({ overlays: true })
-    return true
-  }
-  if (action === 'restore-column-settings') {
-    projectListUiState.preferences = normalizeProjectListPreferences({
-      order: PROJECT_LIST_COLUMNS.map((column) => column.key),
-      visibleKeys: PROJECT_LIST_COLUMNS.map((column) => column.key),
-      frozenKeys: [],
-      pageSize: PROJECT_LIST_PAGE_SIZES[0],
-    })
-    projectListUiState.sort = null
-    state.list.currentPage = 1
-    state.list.pageSize = projectListUiState.preferences.pageSize
-    const storage = getProjectListStorage()
-    if (storage) clearListColumnPreferences(storage, PROJECT_LIST_STORAGE_KEY)
-    refreshProjectListRegions({ overlays: true })
-    return true
-  }
-  if (
-    (action === 'toggle-column-visibility' || action === 'toggle-column-freeze')
-    && (!event || event.type === 'change')
-  ) {
-    const columnKey = actionNode.dataset.pcsProjectColumnKey || actionNode.dataset.columnKey || ''
-    const column = PROJECT_LIST_COLUMNS.find((item) => item.key === columnKey)
-    if (!column || column.actionColumn) return true
-    const visibleKeys = new Set(projectListUiState.preferences.visibleKeys)
-    const frozenKeys = new Set(projectListUiState.preferences.frozenKeys)
-    if (action === 'toggle-column-visibility' && !column.required) {
-      if (visibleKeys.has(columnKey)) {
-        visibleKeys.delete(columnKey)
-        frozenKeys.delete(columnKey)
-      } else {
-        visibleKeys.add(columnKey)
-      }
-      if (!visibleKeys.has(columnKey) && projectListUiState.sort?.key === columnKey) projectListUiState.sort = null
-    }
-    if (action === 'toggle-column-freeze' && column.freezeable) {
-      if (frozenKeys.has(columnKey)) frozenKeys.delete(columnKey)
-      else frozenKeys.add(columnKey)
-    }
-    projectListUiState.preferences = normalizeProjectListPreferences({
-      ...projectListUiState.preferences,
-      visibleKeys: [...visibleKeys],
-      frozenKeys: [...frozenKeys],
-    })
-    saveProjectListPreferences()
-    refreshProjectListRegions({ overlays: true })
-    return true
-  }
-
   if (action === 'close-notice') {
     state.notice = null
-    return true
-  }
-  if (action === 'query') {
-    state.list.currentPage = 1
-    refreshProjectListRegions({ filters: true })
-    return true
-  }
-  if (action === 'reset-list') {
-    state.list = { ...initialListState }
-    state.list.pageSize = projectListUiState.preferences.pageSize
-    refreshProjectListRegions({ filters: true })
-    return true
-  }
-  if (action === 'toggle-advanced') {
-    state.list.advancedOpen = !state.list.advancedOpen
-    refreshProjectListRegions({ filters: true })
-    return true
-  }
-  if (action === 'set-status-filter') {
-    state.list.status = actionNode.dataset.value || '全部'
-    state.list.currentPage = 1
-    refreshProjectListRegions({ filters: true })
-    return true
-  }
-  if (action === 'set-risk-filter') {
-    state.list.riskStatus = actionNode.dataset.value || '全部'
-    state.list.currentPage = 1
-    refreshProjectListRegions({ filters: true })
-    return true
-  }
-  if (action === 'toggle-pending-decision') {
-    state.list.pendingDecisionOnly = !state.list.pendingDecisionOnly
-    state.list.currentPage = 1
-    refreshProjectListRegions({ filters: true })
-    return true
-  }
-  if (action === 'set-view-mode') {
-    state.list.viewMode = 'list'
-    refreshProjectListRegions({ filters: true })
-    return true
-  }
-  if (action === 'set-page') {
-    const page = Number.parseInt(actionNode.dataset.page ?? '', 10)
-    if (Number.isFinite(page) && page > 0) {
-      state.list.currentPage = page
-      refreshProjectListRegions()
-    }
     return true
   }
   if (action === 'open-terminate') {
     state.terminateProjectId = actionNode.dataset.projectId || null
     state.terminateReason = ''
-    refreshProjectListRegions({ overlays: true })
     return true
   }
   if (action === 'confirm-terminate') {
@@ -10500,7 +9453,6 @@ export function handlePcsProjectsEvent(target: HTMLElement, event?: Event): bool
       state.notice = result.message
     }
     closeAllDialogs()
-    refreshProjectListRegions({ feedback: true, overlays: true })
     return true
   }
   if (action === 'archive-project') {
@@ -10508,7 +9460,6 @@ export function handlePcsProjectsEvent(target: HTMLElement, event?: Event): bool
     if (!projectId) return true
     const result = archiveProject(projectId, '当前用户')
     state.notice = result.message
-    refreshProjectListRegions({ filters: true, feedback: true })
     return true
   }
   if (action === 'toggle-style-tag') {

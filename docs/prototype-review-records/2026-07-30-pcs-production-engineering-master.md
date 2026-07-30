@@ -114,6 +114,7 @@
 - `src/data/pcs-project-inline-node-record-repository.ts`
 - `src/data/pcs-project-inline-node-record-types.ts`
 - `src/pages/pcs-projects.ts`
+- `src/pages/pcs-projects-list.ts`
 - `src/pages/pcs-engineering-tasks.ts`
 - `src/main.ts`
 - `src/main-handlers/pcs-handlers.ts`
@@ -159,13 +160,14 @@
 - `npm test -- tests/pcs-project-decision-eliminate-to-sample-return.spec.ts tests/pcs-project-decision-options.spec.ts tests/pcs-project-data-consistency.spec.ts`：通过，当前决策枚举、暂保留边界、不通过后的样衣退回闭环、固定五步和专业任务仓储一致性均已真实执行
 - `npm run check:prototype-design-governance -- --all`：通过
 - `npm test -- tests/pcs-engineering-task-standard-list.spec.ts`：通过，五类专业任务列表均使用标准列表页、标准宽表和标准分页，改版专用五状态筛选未混入其他专业状态
-- `npm test -- tests/pcs-projects-standard-list.spec.ts`：通过，商品项目列表使用标准列表页、标准宽表和标准分页，详情固定五步、创建页与工作项页面保持原业务入口
+- `npm test -- tests/pcs-projects-standard-list.spec.ts`：通过，真实 `/pcs/projects` 路由渲染器与事件处理器共同使用 `pcs-projects-list.ts` 的标准列表实现；覆盖标准骨架、列设置、排序、分页、显示／冻结／拖拽、右侧固定操作和局部刷新，详情固定五步、创建页与工作项页面保持原业务入口，`pcs-projects.ts` 不再保留第二套列表实现
 - `npm run check:list-page-governance`：通过，列表页静态治理、标准列表页 Chromium 拖拽检查和原型设计治理均已闭环
 - `npm run build`：通过
 - Task1 PCS 最终相关规格回归：39 个规格文件全部通过
 - 五类专业任务列表已按 48px 单行统计、表格容器内横向滚动、右侧固定操作栏设计；筛选、排序、分页、列显示、列冻结、列顺序和每页条数均采用局部更新，不触发整页重绘
 - 商品项目列表采用表格容器内横向滚动和右侧固定操作栏；筛选、排序、分页、列显示、列冻结、列顺序和每页条数均采用局部更新，不触发整页重绘
 - Playwright 浏览器验收：改版、制版、花型、首版样衣和首单样衣五条真实路由均可达；改版列表在 1366×768 可局部打开／关闭列设置并切换任务编号排序，在 1280×720 仍保持标准表格、右侧固定操作和分页可用，首单样衣列表正常渲染，控制台无业务报错
+- Playwright 商品项目真实路由验收：`/pcs/projects` 在 1366×768 下可打开／关闭列设置、切换项目名称排序并进入第 2／4 页；在 1280×720 下仍保持标准宽表、右侧固定操作和分页可用；控制台 0 error、0 warning。截图：`output/playwright/pcs-projects-1366x768-page2.png`、`output/playwright/pcs-projects-1280x720.png`
 - 列显示、顺序、冻结和每页条数按五条列表路由分别保存；当前页和排序仅保留在当前进入期间，重新进入列表恢复默认
 
 ### 例外
