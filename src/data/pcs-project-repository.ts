@@ -109,22 +109,83 @@ function canUseStorage(): boolean {
   )
 }
 
+const PROJECT_RECORD_FIELD_KEYS = [
+  'projectId',
+  'projectCode',
+  'projectName',
+  'projectType',
+  'projectSourceType',
+  'projectStatus',
+  'currentPhaseCode',
+  'currentPhaseName',
+  'categoryId',
+  'categoryName',
+  'subCategoryId',
+  'subCategoryName',
+  'brandId',
+  'brandName',
+  'styleNumber',
+  'styleCodeId',
+  'styleCodeName',
+  'yearTag',
+  'seasonTags',
+  'styleTags',
+  'styleTagIds',
+  'styleTagNames',
+  'crowdPositioningIds',
+  'crowdPositioningNames',
+  'ageIds',
+  'ageNames',
+  'crowdIds',
+  'crowdNames',
+  'productPositioningIds',
+  'productPositioningNames',
+  'targetAudienceTags',
+  'priceRangeLabel',
+  'targetChannelCodes',
+  'projectAlbumUrls',
+  'sampleSourceType',
+  'sampleSupplierId',
+  'sampleSupplierName',
+  'sampleLink',
+  'sampleUnitPrice',
+  'ownerId',
+  'ownerName',
+  'teamId',
+  'teamName',
+  'collaboratorIds',
+  'collaboratorNames',
+  'priorityLevel',
+  'createdAt',
+  'createdBy',
+  'updatedAt',
+  'updatedBy',
+  'remark',
+  'linkedStyleId',
+  'linkedStyleCode',
+  'linkedStyleName',
+  'linkedStyleGeneratedAt',
+  'linkedTechPackVersionId',
+  'linkedTechPackVersionCode',
+  'linkedTechPackVersionLabel',
+  'linkedTechPackVersionStatus',
+  'linkedTechPackVersionPublishedAt',
+  'projectArchiveId',
+  'projectArchiveNo',
+  'projectArchiveStatus',
+  'projectArchiveDocumentCount',
+  'projectArchiveFileCount',
+  'projectArchiveMissingItemCount',
+  'projectArchiveUpdatedAt',
+  'projectArchiveFinalizedAt',
+] as const satisfies readonly (keyof PcsProjectRecord)[]
+
 function stripProjectRuntimeFields(project: PcsProjectRecord | PcsProjectViewRecord): PcsProjectRecord {
-  const {
-    progressDone: _progressDone,
-    progressTotal: _progressTotal,
-    nextStepName: _nextStepName,
-    nextStepStatus: _nextStepStatus,
-    pendingDecisionFlag: _pendingDecisionFlag,
-    blockedFlag: _blockedFlag,
-    blockedReason: _blockedReason,
-    riskStatus: _riskStatus,
-    riskReason: _riskReason,
-    riskStep: _riskStep,
-    riskDurationDays: _riskDurationDays,
-    ...rest
-  } = project as PcsProjectViewRecord
-  return rest as PcsProjectRecord
+  return Object.fromEntries(
+    PROJECT_RECORD_FIELD_KEYS
+      .filter((fieldKey) => Object.prototype.hasOwnProperty.call(project, fieldKey))
+      .map((fieldKey) => [fieldKey, project[fieldKey]]),
+  ) as unknown as PcsProjectRecord
 }
 
 function cloneProject(project: PcsProjectRecord): PcsProjectRecord {

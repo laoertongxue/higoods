@@ -82,6 +82,25 @@ const projectRuntimeFiles = scannedFiles.filter(
     /^src\/data\/pcs-project(?:-|\.ts)/.test(relativePath) ||
     /^src\/pages\/pcs-projects(?:-|\.ts)/.test(relativePath),
 )
+const domainContractSource = readFileSync(
+  resolve(repositoryRoot, 'src/data/pcs-project-domain-contract.ts'),
+  'utf8',
+)
+assert.doesNotMatch(
+  domainContractSource,
+  /PCS_PROJECT_PHASE_CONTRACTS|listProjectPhaseContracts|getProjectPhaseContract|PCS_PROJECT_STEP_LEGACY_MAPPINGS|resolveLegacyProjectStepCode/,
+  '公开领域契约只能保留 PROJECT_FLOW_STAGE_CONTRACTS，不得暴露冲突旧阶段或历史步骤映射',
+)
+
+const persistedProjectRuntimeSource = readFileSync(
+  resolve(repositoryRoot, 'src/data/pcs-project-repository.ts'),
+  'utf8',
+)
+assert.doesNotMatch(
+  persistedProjectRuntimeSource,
+  /\.\.\.rest/,
+  '项目仓储不得通过 rest 传播未知历史运行时字段',
+)
 const legacyRuntimeModelPattern =
   /\b(?:PcsProjectWorkItemCode|getProjectWorkItemContract|workItemTypeCode|workItemTypeName|templateId|templateName|templateVersion)\b/
 const legacyRuntimeModelFiles = projectRuntimeFiles

@@ -731,7 +731,10 @@ function normalizeChannelProductRecord(record: ProjectChannelProductRecord): Pro
 }
 
 function buildSeedRecord(seed: ChannelSeed): ProjectChannelProductRecord | null {
-  const project = findProjectByCode(seed.projectCode)
+  const seedProjectIndex = Number(seed.projectCode.split('-').at(-1) || 0) - 1
+  const project =
+    findProjectByCode(seed.projectCode) ||
+    (seedProjectIndex >= 0 ? listProjects()[seedProjectIndex] : null)
   const listingNode = project
     ? getProjectNodeRecordByStepCode(project.projectId, 'CHANNEL_PRODUCT_LISTING')
     : null

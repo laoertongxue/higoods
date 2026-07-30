@@ -95,6 +95,7 @@
 - `src/data/pcs-project-domain-contract.ts`
 - `src/data/pcs-project-instance-model.ts`
 - `src/data/pcs-project-node-factory.ts`
+- `src/data/pcs-project-phase-definitions.ts`
 - `src/data/pcs-project-repository.ts`
 - `src/data/pcs-project-style-archive-generation.ts`
 - `src/data/pcs-template-domain-view-model.ts`（删除）
@@ -112,6 +113,8 @@
 - `src/data/pcs-style-archive-repository.ts`
 - `src/data/pcs-project-sample-return-defaults.ts`
 - `src/data/pcs-project-bootstrap.ts`
+- `src/main-handlers/pcs-handlers.ts`
+- `src/pages/pcs-channel-products.ts`
 - `src/data/pcs-project-data-consistency.ts`
 - `src/data/pcs-style-archive-bootstrap.ts`
 - `src/data/pcs-project-decision-flow-service.ts`
@@ -123,6 +126,7 @@
 - `src/data/pcs-first-sample-repository.ts`
 - `src/data/pcs-first-order-sample-repository.ts`
 - `src/data/pcs-task-bootstrap.ts`
+- `src/data/pcs-task-source-normalizer.ts`
 - `src/data/pcs-first-sample-project-writeback.ts`
 - `src/data/pcs-first-order-sample-project-writeback.ts`
 - `src/data/pcs-tech-pack-task-generation.ts`
@@ -261,12 +265,83 @@
 - `npm run check:prototype-design-governance -- --all`：通过。
 - `npm run build`：通过。
 
+### 本轮追加受管文件
+
+- `src/data/pcs-project-phase-definitions.ts`
+- `src/data/pcs-task-source-normalizer.ts`
+
 ### 补充审查结论
 
 - 通过。
 - 无业务例外。
 
-## 9. 固定步骤运行时与关联档案图片补充审查
+## 9. 固定步骤来源语义与历史字段收口补充审查
+
+### 本次范围
+
+- 制版任务、花型任务由商品项目固定步骤产生时，来源统一显示并保存为“项目固定步骤”，来源模块为“商品项目”，来源对象为“项目步骤”。
+- 页面和演示数据不再使用项目模板、模板阶段或工作项节点表达；独立改款、设计、制版、花型任务仍可按既有独立来源创建。
+- 商品项目仓储改为业务字段白名单，旧模板字段、旧工作项字段、页面运行时字段及其他未知历史字段只在读取时被丢弃，不再进入运行时对象或重新写入本地存储。
+- 商品项目阶段只保留固定五步契约；删除冲突的旧阶段契约和公开历史步骤映射。
+
+### 规范自查
+
+| 检查项 | 结论 |
+| --- | --- |
+| 业务边界 | 通过。固定步骤仅表达项目内逐步办理，专业任务保持独立业务对象。 |
+| 来源可追溯 | 通过。专业任务保存商品项目、项目步骤及项目编码，不保存已删除的模板和工作项节点语义。 |
+| 历史数据防扩散 | 通过。仓储白名单保留项目业务字段，未知历史字段不会被透明传播或二次持久化。 |
+| 阶段一致性 | 通过。项目阶段定义、节点工厂和页面统一读取同一套固定五步。 |
+| 中文化 | 通过。页面只展示“项目固定步骤”“项目步骤”等当前业务语言。 |
+| 列表与分页 | 通过。本轮未新增或调整列表结构，既有标准列表页分页和固定操作列保持不变。 |
+
+### 补充验证
+
+- `node --import tsx tests/pcs-professional-task-fixed-step-source.spec.ts`：通过。
+- `node --import tsx tests/pcs-project-historical-migration.spec.ts`：通过。
+- `node --import tsx tests/pcs-work-item-module-removal.spec.ts`：通过。
+- `node --import tsx tests/pcs-project-fixed-step-flow.spec.ts`：通过。
+- `npm run build`：通过。
+
+### 补充审查结论
+
+- 通过。
+- 无业务例外。
+
+## 10. 渠道店铺商品标准列表页补充审查
+
+### 本次范围
+
+- 渠道店铺商品列表迁移到标准列表页组件，保留渠道、店铺、SPU 聚合口径和原详情路由。
+- 增加关键词、渠道、业务状态筛选，以及分页、三态排序、列显示、列顺序、冻结列和右侧固定操作列。
+- 列偏好与每页条数按路由保存；页码和排序不保存，重新进入列表恢复默认状态。
+- 搜索、筛选、排序、分页和列设置均局部刷新，不触发整页重绘。
+- 渠道商品详情中的来源字段统一显示为“来源项目步骤”。
+
+### 规范自查
+
+| 检查项 | 结论 |
+| --- | --- |
+| 信息结构 | 通过。列表保留商品、渠道店铺、规格库存、价格、状态、链路和更新时间等必要事实。 |
+| 列表治理 | 通过。使用标准列表页、标准表格、标准分页和列设置组件。 |
+| 防错 | 通过。SPU、业务状态与操作列为必需列，操作列固定在右侧。 |
+| 交互性能 | 通过。输入、筛选、排序、分页和列设置仅更新列表相关区域。 |
+| 中文化 | 通过。列名、状态、筛选和空态均使用中文业务文案。 |
+| 业务边界 | 通过。仅调整列表展示与交互，不改变渠道商品仓储和详情业务。 |
+
+### 补充验证
+
+- `npx tsx tests/pcs-channel-products-standard-list-route.spec.ts`：通过。
+- `npm run check:list-page-governance`：通过。
+- `npm run check:prototype-design-governance -- --all`：通过。
+- `npm run build`：通过。
+
+### 补充审查结论
+
+- 通过。
+- 无业务例外。
+
+## 11. 固定步骤运行时与关联档案图片补充审查
 
 ### 本次范围
 

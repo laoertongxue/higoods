@@ -159,18 +159,6 @@ export type PcsProjectConfigSourceKind =
   | '技术包版本'
   | '项目资料归档'
 
-export interface PcsProjectPhaseContract {
-  phaseCode: PcsProjectPhaseCode
-  phaseName: string
-  phaseOrder: number
-  description: string
-  defaultOpenFlag: boolean
-  businessScenario: string
-  whyExists: string
-  entryConditions: string[]
-  exitConditions: string[]
-}
-
 export interface ProjectFlowStageContract {
   stepCode: ProjectFlowStageCode
   stepName: string
@@ -1952,64 +1940,6 @@ const returnHandleFields = [
 	  }),
 	]
 
-export const PCS_PROJECT_PHASE_CONTRACTS: PcsProjectPhaseContract[] = [
-  {
-    phaseCode: 'PHASE_01',
-    phaseName: '立项与样衣获取',
-    phaseOrder: 1,
-    description: '完成商品项目立项并明确样衣来源。',
-    defaultOpenFlag: true,
-    businessScenario: '完成项目立项并确认样衣来源，为后续采购样衣核对或改版任务出样提供正式输入。',
-    whyExists: '项目必须先完成立项并明确样衣来源，后续改版任务、样衣核对和测款才有真实输入。',
-    entryConditions: ['创建商品项目并同步建立商品／款式档案。'],
-    exitConditions: ['样衣来源已登记；若是国内采购样衣，采购来源信息已记录；若是万隆改版样衣，来源已确认为改版任务出样。'],
-  },
-  {
-    phaseCode: 'PHASE_02',
-    phaseName: '样衣形成与商品准备',
-    phaseOrder: 2,
-    description: '承接采购样衣到样核对、改版任务出样和商品上架准备。',
-    defaultOpenFlag: true,
-    businessScenario: '两类项目都在本阶段完成样衣结果核对、初步可行性判断和商品上架准备；万隆改版样衣还需要先创建改版任务并产出样衣。',
-    whyExists: '测款前必须确认样衣真实存在，并通过初步可行性判断决定进入测款后，再完成渠道店铺商品准备。',
-    entryConditions: ['PHASE_01 已完成，样衣来源已确认。'],
-    exitConditions: ['样衣已完成结果核对；初步可行性判断已明确进入测款；渠道店铺商品已准备进入测款。'],
-  },
-  {
-    phaseCode: 'PHASE_03',
-    phaseName: '市场测款与结论',
-    phaseOrder: 3,
-    description: '执行直播测款和可选短视频测款，汇总数据并形成测款结论。',
-    defaultOpenFlag: true,
-    businessScenario: '结合直播测款和短视频测款事实形成订单、曝光、CTR、价格、测试标签等汇总，并产出通过、不通过或暂保留的正式判断。',
-    whyExists: '测款总归要有判断，否则无法决定能不能做大货、是否暂保留后再判断或是否下架处理。',
-    entryConditions: ['初步可行性判断已明确进入测款；渠道店铺商品已准备好或已上架。'],
-    exitConditions: ['测款数据已汇总；测款结论已产出。'],
-  },
-  {
-    phaseCode: 'PHASE_04',
-    phaseName: '款式档案与开发推进',
-    phaseOrder: 4,
-    description: '围绕款式档案、技术包、项目资料归档和开发任务推进。',
-    defaultOpenFlag: true,
-    businessScenario: '测款通过后生成款式档案壳，并继续推进技术包、归档、制版、花型和样衣开发。',
-    whyExists: '测款通过后必须生成款式档案，并围绕技术包、归档、制版、花型和样衣推进正式开发。',
-    entryConditions: ['PHASE_03 已给出通过的测款结论。'],
-    exitConditions: ['款式档案已建立；技术包与项目资料归档进入正式推进状态。'],
-  },
-  {
-    phaseCode: 'PHASE_05',
-    phaseName: '项目收尾',
-    phaseOrder: 5,
-    description: '完成样衣退回处理和项目收尾资料确认。',
-    defaultOpenFlag: false,
-    businessScenario: '对项目样衣和收尾资料做最终处理，明确退回或处置结果。',
-    whyExists: '项目结束时需要明确样衣去向和收尾结果，保证项目闭环。',
-    entryConditions: ['款式档案与开发推进阶段的正式任务已完成或已明确停止。'],
-    exitConditions: ['样衣退回处理已形成正式结论。'],
-  },
-]
-
 export const PROJECT_FLOW_STAGE_CONTRACTS: readonly ProjectFlowStageContract[] = [
   {
     stepCode: 'PROJECT_ARCHIVE',
@@ -2881,47 +2811,9 @@ export const PCS_PROJECT_RELATED_INSTANCE_TYPES: PcsProjectRelatedInstanceTypeDe
   { typeCode: 'PROJECT_ARCHIVE', typeName: '项目资料归档', moduleName: '项目资料归档', businessMeaning: '围绕商品项目沉淀的正式归档对象。' },
 ]
 
-export const PCS_PROJECT_STEP_LEGACY_MAPPINGS: Array<{
-  legacyName?: string
-  legacyCode?: string
-  stepCode: ProjectStepCode
-}> = [
-  { legacyName: '商品项目立项', stepCode: 'PROJECT_INIT' },
-  { legacyName: '样衣获取', stepCode: 'SAMPLE_ACQUIRE' },
-  { legacyName: '样衣获取（深圳前置打版）', stepCode: 'SAMPLE_ACQUIRE' },
-  { legacyName: '样衣结果核对', stepCode: 'SAMPLE_INBOUND_CHECK' },
-  { legacyName: '初步可行性判断', stepCode: 'FEASIBILITY_REVIEW' },
-  { legacyName: '样衣拍摄与试穿', stepCode: 'SAMPLE_SHOOT_FIT' },
-  { legacyName: '样衣确认', stepCode: 'SAMPLE_CONFIRM' },
-  { legacyName: '样衣核价', stepCode: 'SAMPLE_COST_REVIEW' },
-  { legacyName: '样衣定价', stepCode: 'SAMPLE_PRICING' },
-  { legacyName: '商品上架', legacyCode: 'CHANNEL_PRODUCT_PREP', stepCode: 'CHANNEL_PRODUCT_LISTING' },
-  { legacyName: '渠道商品准备', legacyCode: 'CHANNEL_PRODUCT_PREP', stepCode: 'CHANNEL_PRODUCT_LISTING' },
-  { legacyName: '短视频测款', stepCode: 'VIDEO_TEST' },
-  { legacyName: '直播测款', stepCode: 'LIVE_TEST' },
-  { legacyName: '测款数据汇总', stepCode: 'TEST_DATA_SUMMARY' },
-  { legacyName: '测款结论判定', stepCode: 'TEST_CONCLUSION' },
-  { legacyName: '改版任务', stepCode: 'REVISION_TASK' },
-  { legacyName: '制版准备·打版任务', stepCode: 'PATTERN_TASK' },
-  { legacyName: '制版任务', stepCode: 'PATTERN_TASK' },
-  { legacyName: '花型任务', stepCode: 'PATTERN_ARTWORK_TASK' },
-  { legacyName: '首版样衣打样', stepCode: 'FIRST_SAMPLE' },
-  { legacyName: '首单样衣打样', stepCode: 'FIRST_ORDER_SAMPLE' },
-  { legacyName: '样衣退货与处理', stepCode: 'SAMPLE_RETURN_HANDLE' },
-]
-
-const PHASE_MAP = new Map(PCS_PROJECT_PHASE_CONTRACTS.map((item) => [item.phaseCode, item]))
 const STEP_DEFINITION_MAP = new Map(PCS_PROJECT_STEP_DEFINITIONS.map((item) => [item.stepCode, item]))
 const STEP_DEFINITION_ID_MAP = new Map(PCS_PROJECT_STEP_DEFINITIONS.map((item) => [item.stepId, item]))
 const CONFIG_SOURCE_MAP = new Map(PCS_PROJECT_CONFIG_SOURCE_MAPPINGS.map((item) => [item.fieldKey, item]))
-
-export function listProjectPhaseContracts(): PcsProjectPhaseContract[] {
-  return PCS_PROJECT_PHASE_CONTRACTS.map((item) => ({
-    ...item,
-    entryConditions: [...item.entryConditions],
-    exitConditions: [...item.exitConditions],
-  }))
-}
 
 export function listProjectFlowStageContracts(): ProjectFlowStageContract[] {
   return PROJECT_FLOW_STAGE_CONTRACTS
@@ -2947,14 +2839,6 @@ export function getProjectFlowStageContractByPhaseCode(phaseCode: PcsProjectPhas
     throw new Error(`未找到商品项目步骤契约：${phaseCode}`)
   }
   return found
-}
-
-export function getProjectPhaseContract(phaseCode: PcsProjectPhaseCode): PcsProjectPhaseContract {
-  const found = PHASE_MAP.get(phaseCode)
-  if (!found) {
-    throw new Error(`未找到项目阶段契约：${phaseCode}`)
-  }
-  return { ...found }
 }
 
 export function listProjectStepDefinitions(): PcsProjectStepDefinition[] {
@@ -3044,14 +2928,4 @@ export function getProjectConfigSourceMapping(fieldKey: string): PcsProjectConfi
 
 export function listProjectRelatedInstanceTypes(): PcsProjectRelatedInstanceTypeDefinition[] {
   return PCS_PROJECT_RELATED_INSTANCE_TYPES.map((item) => ({ ...item }))
-}
-
-export function resolveLegacyProjectStepCode(
-  legacyNameOrCode: string,
-): ProjectStepCode | null {
-  const normalized = legacyNameOrCode.trim()
-  const matched = PCS_PROJECT_STEP_LEGACY_MAPPINGS.find(
-    (item) => item.legacyName === normalized || item.legacyCode === normalized,
-  )
-  return matched?.stepCode ?? null
 }

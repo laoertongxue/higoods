@@ -606,10 +606,10 @@ function blockCancelledNode(
   return makePendingItem(taskType, taskCode, projectCode, node.stepCode, `当前项目节点已取消，不能创建对应${taskType}。`)
 }
 
-function resolveUpstreamForProjectTemplate(project: NonNullable<ReturnType<typeof getProjectById>>) {
+function resolveUpstreamForProjectStep(project: NonNullable<ReturnType<typeof getProjectById>>) {
   return {
-    upstreamModule: '项目模板',
-    upstreamObjectType: '模板阶段',
+    upstreamModule: '商品项目',
+    upstreamObjectType: '项目步骤',
     upstreamObjectId: project.projectId,
     upstreamObjectCode: project.projectCode,
   }
@@ -625,7 +625,7 @@ function ensureFormalSource(
   if (sourceType === '人工创建' || sourceType === '人工改版需求') {
     return fallbackSourceField ? null : `${taskType}缺少参考对象或正式来源对象，当前不能正式创建。`
   }
-  if (sourceType === '项目模板阶段' || sourceType === '既有商品改款' || sourceType === '既有商品二次开发' || sourceType === '花型复用调色') {
+  if (sourceType === '项目固定步骤' || sourceType === '既有商品改款' || sourceType === '既有商品二次开发' || sourceType === '花型复用调色') {
     return null
   }
   if (upstreamObjectId || upstreamObjectCode || fallbackSourceField) {
@@ -742,7 +742,7 @@ function patternMatchesPlateSource(patternTask: PatternTaskRecord, plateTask: Pl
     patternTask.spuCode,
   ].filter(Boolean)
   if (patternKeys.some((key) => plateKeys.has(key))) return true
-  return plateTask.sourceType === '项目模板阶段' && patternTask.sourceType === '项目模板阶段'
+  return plateTask.sourceType === '项目固定步骤' && patternTask.sourceType === '项目固定步骤'
 }
 
 function listRelatedPatternTasksForPlate(plateTask: PlateMakingTaskRecord): PatternTaskRecord[] {
@@ -778,7 +778,7 @@ function resolvePlateRevisionTask(plateTask: PlateMakingTaskRecord): RevisionTas
 }
 
 function buildPlateFirstSampleReadinessText(blockingReasons: string[]): string {
-  if (blockingReasons.length === 0) return '制版已完成且项目模板、技术包、花型状态满足，可创建首版样衣打样。'
+  if (blockingReasons.length === 0) return '制版已完成且项目步骤、技术包、花型状态满足，可创建首版样衣打样。'
   return `样衣入口未开放：${blockingReasons.join('、')}。`
 }
 
@@ -1631,7 +1631,7 @@ function createPlateMakingTaskStandalone(
 }
 
 function resolvePlateUpstream(project: NonNullable<ReturnType<typeof getProjectById>>, input: PlateMakingTaskCreateInput) {
-  if (input.sourceType === '项目模板阶段') return resolveUpstreamForProjectTemplate(project)
+  if (input.sourceType === '项目固定步骤') return resolveUpstreamForProjectStep(project)
   if (input.sourceType === '既有商品二次开发') {
     return {
       upstreamModule: '既有商品',
@@ -1763,7 +1763,7 @@ export function createPlateMakingTask(
 }
 
 function resolvePatternUpstream(project: NonNullable<ReturnType<typeof getProjectById>>, input: PatternTaskCreateInput) {
-  if (input.sourceType === '项目模板阶段') return resolveUpstreamForProjectTemplate(project)
+  if (input.sourceType === '项目固定步骤') return resolveUpstreamForProjectStep(project)
   if (input.sourceType === '花型复用调色') {
     return {
       upstreamModule: '花型库',

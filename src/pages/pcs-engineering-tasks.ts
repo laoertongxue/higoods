@@ -564,7 +564,7 @@ const initialRevisionDetailDraft = (): RevisionDetailDraft => ({
 
 const initialPlateCreateDraft = (): PlateCreateDraft => ({
   bindingMode: 'project',
-  sourceType: '项目模板阶段',
+  sourceType: '项目固定步骤',
   projectId: '',
   styleId: '',
   title: '',
@@ -582,7 +582,7 @@ const initialPlateCreateDraft = (): PlateCreateDraft => ({
 
 const initialPatternCreateDraft = (): PatternCreateDraft => ({
   bindingMode: 'project',
-  sourceType: '项目模板阶段',
+  sourceType: '项目固定步骤',
   projectId: '',
   styleId: '',
   title: '',
@@ -2542,7 +2542,7 @@ function renderProjectContext(task: {
     renderKeyValueGrid(
       [
         { label: '商品项目', value: projectButton(task.projectId, task.projectCode, task.projectName) },
-        { label: '工作项节点', value: projectNodeButton(task.projectId, task.projectNodeId, task.stepName) },
+        { label: '项目步骤', value: projectNodeButton(task.projectId, task.projectNodeId, task.stepName) },
         { label: '来源类型', value: escapeHtml(task.sourceType) },
         { label: '款式档案', value: styleArchiveLink(style.styleId, style.styleCode, style.styleName, task.projectId) },
         { label: '款式编码', value: escapeHtml(style.styleCode || task.productStyleCode || task.spuCode || '-') },
@@ -3737,7 +3737,7 @@ function renderPlateDetailPage(plateTaskId: string): string {
                   <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
                     <div>
                       <p class="text-sm font-medium text-emerald-900">首版样衣入口已开放</p>
-                      <p class="mt-1 text-xs text-emerald-700">制版、技术包、项目模板和关联花型状态已满足。</p>
+                      <p class="mt-1 text-xs text-emerald-700">制版、技术包、项目步骤和关联花型状态已满足。</p>
                     </div>
                     <button type="button" class="inline-flex h-9 items-center rounded-md bg-emerald-600 px-3 text-sm font-medium text-white hover:bg-emerald-700" data-pcs-engineering-action="plate-create-first-sample" data-task-id="${escapeHtml(task.plateTaskId)}">创建首版样衣打样</button>
                   </div>
@@ -3936,7 +3936,7 @@ function renderPlateDetailPage(plateTaskId: string): string {
       ], 2))}
       ${renderSectionCard('正式对象核对', renderKeyValueGrid([
         { label: '商品项目', value: projectButton(task.projectId, task.projectCode, task.projectName) },
-        { label: '工作项节点', value: projectNodeButton(task.projectId, task.projectNodeId, task.stepName) },
+        { label: '项目步骤', value: projectNodeButton(task.projectId, task.projectNodeId, task.stepName) },
         { label: '上游对象', value: escapeHtml(task.upstreamObjectCode || task.upstreamObjectId || '-') },
         { label: '制版状态', value: renderStatusBadge(task.status) },
       ], 2))}
@@ -4488,7 +4488,7 @@ function renderPatternDetailPage(patternTaskId: string): string {
       ], 1))}
       ${renderSectionCard('正式对象核对', renderKeyValueGrid([
         { label: '商品项目', value: projectButton(task.projectId, task.projectCode, task.projectName) },
-        { label: '工作项节点', value: projectNodeButton(task.projectId, task.projectNodeId, task.stepName) },
+        { label: '项目步骤', value: projectNodeButton(task.projectId, task.projectNodeId, task.stepName) },
         { label: '技术包状态', value: escapeHtml(task.linkedTechPackVersionStatus || '未写回') },
         { label: '正式状态', value: renderStatusBadge(task.status) },
       ], 1))}
@@ -5126,7 +5126,7 @@ function renderFirstSampleDetailPage(firstSampleTaskId: string): string {
       ], 2))}
       ${renderSectionCard('正式对象核对', renderKeyValueGrid([
         { label: '商品项目', value: projectButton(task.projectId, task.projectCode, task.projectName) },
-        { label: '工作项节点', value: projectNodeButton(task.projectId, task.projectNodeId, task.stepName) },
+        { label: '项目步骤', value: projectNodeButton(task.projectId, task.projectNodeId, task.stepName) },
         { label: '正式状态', value: renderStatusBadge(task.status, true) },
       ], 2))}
     </div>
@@ -5455,7 +5455,7 @@ function renderFirstOrderDetailPage(firstOrderSampleTaskId: string): string {
       ], 2))}
       ${renderSectionCard('正式对象核对', renderKeyValueGrid([
         { label: '商品项目', value: projectButton(task.projectId, task.projectCode, task.projectName) },
-        { label: '工作项节点', value: projectNodeButton(task.projectId, task.projectNodeId, task.stepName) },
+        { label: '项目步骤', value: projectNodeButton(task.projectId, task.projectNodeId, task.stepName) },
         { label: '结果编号', value: escapeHtml(task.sampleCode || '-') },
         { label: '正式状态', value: renderStatusBadge(task.status, true) },
       ], 2))}
@@ -5735,8 +5735,8 @@ function submitPlateCreate(): void {
     projectId: projectMode ? draft.projectId : '',
     title: draft.title.trim() || '新建制版任务',
     sourceType: draft.sourceType,
-    upstreamModule: projectMode ? '项目模板' : '款式档案',
-    upstreamObjectType: projectMode ? '模板阶段' : '款式档案',
+    upstreamModule: projectMode ? '商品项目' : '款式档案',
+    upstreamObjectType: projectMode ? '项目步骤' : '款式档案',
     upstreamObjectId: projectMode ? (project?.templateId || '') : (selectedStyle?.styleId || ''),
     upstreamObjectCode: projectMode ? (project?.templateVersion || '') : (selectedStyle?.styleCode || ''),
     styleId: selectedStyle?.styleId || defaults.styleId,
@@ -5846,8 +5846,8 @@ function submitPatternCreate(): void {
     projectId: projectMode ? draft.projectId : '',
     title: draft.title.trim() || '新建花型任务',
     sourceType: draft.sourceType,
-    upstreamModule: projectMode ? '项目模板' : '款式档案',
-    upstreamObjectType: projectMode ? '模板阶段' : '款式档案',
+    upstreamModule: projectMode ? '商品项目' : '款式档案',
+    upstreamObjectType: projectMode ? '项目步骤' : '款式档案',
     upstreamObjectId: projectMode ? (project?.templateId || '') : (selectedStyle?.styleId || ''),
     upstreamObjectCode: projectMode ? (project?.templateVersion || '') : (selectedStyle?.styleCode || ''),
     styleId: selectedStyle?.styleId || defaults.styleId,
@@ -6628,7 +6628,7 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
         state.plateCreateDraft.projectId = ''
         state.plateCreateDraft.styleId = ''
         state.plateCreateDraft.productStyleCode = ''
-        state.plateCreateDraft.sourceType = value === 'project' ? '项目模板阶段' : '人工创建'
+        state.plateCreateDraft.sourceType = value === 'project' ? '项目固定步骤' : '人工创建'
         return true
       case 'plate-create-source-type':
         state.plateCreateDraft.sourceType = value as PlateMakingTaskSourceType
@@ -6671,7 +6671,7 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
         state.patternCreateDraft.projectId = ''
         state.patternCreateDraft.styleId = ''
         state.patternCreateDraft.productStyleCode = ''
-        state.patternCreateDraft.sourceType = value === 'project' ? '项目模板阶段' : '人工创建'
+        state.patternCreateDraft.sourceType = value === 'project' ? '项目固定步骤' : '人工创建'
         return true
       case 'pattern-create-source-type':
         state.patternCreateDraft.sourceType = value as PatternTaskSourceType

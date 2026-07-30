@@ -1,4 +1,4 @@
-import { listProjectPhaseContracts, type PcsProjectPhaseCode } from './pcs-project-domain-contract.ts'
+import { listProjectFlowStageContracts, type PcsProjectPhaseCode } from './pcs-project-domain-contract.ts'
 
 export interface PcsProjectPhaseDefinition {
   phaseCode: PcsProjectPhaseCode
@@ -8,12 +8,12 @@ export interface PcsProjectPhaseDefinition {
   defaultOpenFlag: boolean
 }
 
-const PHASE_DEFINITIONS = listProjectPhaseContracts().map((item) => ({
+const PHASE_DEFINITIONS = listProjectFlowStageContracts().map((item) => ({
   phaseCode: item.phaseCode,
-  phaseName: item.phaseName,
-  phaseOrder: item.phaseOrder,
+  phaseName: item.stepName,
+  phaseOrder: item.sequence,
   description: item.description,
-  defaultOpenFlag: item.defaultOpenFlag,
+  defaultOpenFlag: item.sequence < 5,
 }))
 
 const LEGACY_PHASE_NAME_MAP: Record<string, PcsProjectPhaseCode> = {
@@ -59,4 +59,3 @@ export function resolveProjectPhaseCodeFromLegacyName(name: string): PcsProjectP
 export function getProjectPhaseNameByCode(phaseCode: string): string {
   return getProjectPhaseDefinitionByCode(phaseCode)?.phaseName ?? phaseCode
 }
-

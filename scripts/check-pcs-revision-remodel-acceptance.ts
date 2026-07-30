@@ -338,7 +338,7 @@ const wanlongRevision = createRevisionTaskWithProjectRelation({
   revisionScopeCodes: ['PATTERN'],
   revisionScopeNames: ['版型结构'],
   issueSummary: '万隆项目需要按改版任务出样衣。',
-  evidenceSummary: '项目模板已锁定样衣来源为委托打样。',
+  evidenceSummary: '商品项目已锁定样衣来源为委托打样。',
   sampleQty: 0,
   operatorName: '验收脚本',
 })

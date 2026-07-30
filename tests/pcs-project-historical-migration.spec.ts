@@ -37,6 +37,10 @@ const historicalProjects = sourceProjects.map((sourceProject, index) => ({
   projectCode: `HISTORY-${index + 1}`,
   projectName: `历史真实项目${index + 1}`,
   templateId: index === 1 ? 'TPL-003' : 'TPL-001',
+  templateName: `旧项目模板${index + 1}`,
+  templateVersion: `v${index + 1}`,
+  workItemTypeCode: 'LEGACY_WORK_ITEM',
+  unknownLegacyRuntimeField: `legacy-runtime-${index + 1}`,
   linkedStyleId: '',
   linkedStyleCode: '',
   linkedStyleName: '',
@@ -130,6 +134,19 @@ historicalProjects.forEach((historicalProject) => {
   assert.ok(styleArchive, `${historicalProject.projectCode} 缺失的商品测款档案必须幂等补齐`)
   assert.equal(styleArchive?.baseInfoStatus, '商品测款')
   assert.equal(migratedProject?.linkedStyleId, styleArchive?.styleId)
+  ;[
+    'templateId',
+    'templateName',
+    'templateVersion',
+    'workItemTypeCode',
+    'unknownLegacyRuntimeField',
+  ].forEach((legacyKey) => {
+    assert.equal(
+      legacyKey in (migratedProject as unknown as Record<string, unknown>),
+      false,
+      `${historicalProject.projectCode} 运行态对象不得传播旧字段 ${legacyKey}`,
+    )
+  })
   const projectInitNode = projectRepository
     .listProjectNodes(historicalProject.projectId)
     .find((node) => node.stepCode === 'PROJECT_INIT')
@@ -146,11 +163,25 @@ const existingArchive = styleArchiveRepository.findStyleArchiveByProjectId(histo
 assert.equal(existingArchive?.styleId, 'historical_style_existing_1', '历史已有档案不得被新建档案替换')
 
 const persisted = JSON.parse(storage.getItem(PROJECT_STORAGE_KEY) || '{}') as {
-  projects?: Array<{ projectId: string }>
+  projects?: Array<{ projectId: string; projectName: string } & Record<string, unknown>>
 }
 assert.ok(
   historicalProjects.every((project) => persisted.projects?.some((item) => item.projectId === project.projectId)),
   '历史快照迁移后不得被 seed 静默覆盖',
 )
+persisted.projects
+  ?.filter((project) => historicalProjects.some((historicalProject) => historicalProject.projectId === project.projectId))
+  .forEach((project) => {
+  assert.equal(project.projectName.startsWith('历史真实项目'), true, '历史项目业务字段必须保留')
+  ;[
+    'templateId',
+    'templateName',
+    'templateVersion',
+    'workItemTypeCode',
+    'unknownLegacyRuntimeField',
+  ].forEach((legacyKey) => {
+    assert.equal(legacyKey in project, false, `写回 localStorage 不得保留旧字段 ${legacyKey}`)
+  })
+})
 
 console.log('pcs-project-historical-migration.spec.ts PASS')

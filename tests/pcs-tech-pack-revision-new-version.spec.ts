@@ -103,7 +103,7 @@ function createPlateTask(id: string, code: string, projectId: string, styleCode:
     projectNodeId: plateNode.projectNodeId,
     stepCode: 'PATTERN_TASK',
     stepName: '制版任务',
-    sourceType: '项目模板阶段',
+    sourceType: '项目固定步骤',
     upstreamModule: '商品项目',
     upstreamObjectType: '商品项目节点',
     upstreamObjectId: plateNode.projectNodeId,

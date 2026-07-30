@@ -128,6 +128,21 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
     closeActions: [{ datasetKey: 'pcsChannelStoreAction', value: 'close-dialogs' }],
   },
   {
+    cacheKey: 'pcs-channel-products',
+    matches: (pathname) =>
+      isAnyExactOrNestedPath(pathname, [
+        '/pcs/products/channel-products',
+        '/pcs/channels/products',
+      ]),
+    importModule: () => import('../pages/pcs-channel-products'),
+    eventExport: 'handlePcsChannelProductListEvent',
+    inputExport: 'handlePcsChannelProductListInput',
+    dialogExport: 'isPcsChannelProductListDialogOpen',
+    closeActions: [
+      { datasetKey: 'pcsChannelProductListAction', value: 'close-column-settings' },
+    ],
+  },
+  {
     cacheKey: 'pcs-product-archives',
     matches: (pathname) =>
       isAnyExactOrNestedPath(pathname, [

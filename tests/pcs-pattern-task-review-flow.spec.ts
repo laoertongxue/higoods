@@ -12,7 +12,7 @@ resetPatternTaskRepository()
 const task = savePatternTaskDraft({
   projectId: '',
   title: '买手审核花型',
-  sourceType: '项目模板阶段',
+  sourceType: '项目固定步骤',
   demandSourceType: '预售测款通过',
   processType: '数码印',
   requestQty: 1,

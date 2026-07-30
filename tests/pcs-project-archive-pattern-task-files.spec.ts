@@ -15,7 +15,7 @@ assert.ok(project, '必须存在商品项目演示数据')
 const task = savePatternTaskDraft({
   projectId: project.projectId,
   title: '花型任务归档图片采集',
-  sourceType: '项目模板阶段',
+  sourceType: '项目固定步骤',
   productStyleCode: 'SPU-PATTERN-ARCHIVE',
   demandSourceType: '预售测款通过',
   processType: '数码印',
