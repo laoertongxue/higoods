@@ -15,9 +15,12 @@ import {
 } from '../src/data/fcs/cutting/production-material-prep.ts'
 import {
   appendPickupSessionFromNodeRuntime as appendPickupSessionFromNode,
+  bootstrapPickupManagementRuntimeMockData,
   listActivePickupNodesRuntime as listActivePickupNodes,
   listPickupDemandFactsRuntime as listPickupDemandFacts,
 } from '../src/runtime/fcs/cutting/pickup-management-runtime.ts'
+
+bootstrapPickupManagementRuntimeMockData()
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)

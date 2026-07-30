@@ -15,6 +15,7 @@ import {
 } from '../src/data/fcs/cutting/production-material-prep.ts'
 import {
   appendPickupSessionFromNodeRuntime as appendPickupSessionFromNode,
+  bootstrapPickupManagementRuntimeMockData,
   listActivePickupNodesRuntime as listActivePickupNodes,
 } from '../src/runtime/fcs/cutting/pickup-management-runtime.ts'
 import type {
@@ -43,6 +44,7 @@ import {
 import {
   bootstrapSupplementManagementMockData,
   listSupplementRecords,
+  resetSupplementManagementMockDataForTest,
 } from '../src/pages/process-factory/cutting/supplement-management.ts'
 import {
   getCanonicalCuttingMeta,
@@ -394,7 +396,41 @@ assert(
   '串换来源配料记录必须被稳定位置事实比较捕获',
 )
 
+const authoritativePickupSupplementIds = [
+  'supplement-confirmed-000TDWG',
+  'supplement-confirmed-00ASZLF',
+  'supplement-confirmed-0JPEXI9',
+  'supplement-confirmed-0JFFBTA',
+].sort()
+const listPo0002SupplementIds = () => listSupplementRecords()
+  .filter((record) => record.draft.productionOrderId === 'PO-202603-0002')
+  .map((record) => record.id)
+  .sort()
+
+resetSupplementManagementMockDataForTest()
+const supplementCountBeforeRuntimeList = listSupplementRecords().length
+listActivePickupNodes(null)
+assert(
+  listSupplementRecords().length === supplementCountBeforeRuntimeList,
+  'runtime list* 必须保持纯读，不得隐式写入补料 Mock Store',
+)
 bootstrapSupplementManagementMockData()
+assert(
+  JSON.stringify(listPo0002SupplementIds()) === JSON.stringify(authoritativePickupSupplementIds),
+  '页面先 bootstrap 时必须先建立并保留 4 条权威 pickup supplement identity',
+)
+
+resetSupplementManagementMockDataForTest()
+bootstrapPickupManagementRuntimeMockData()
+assert(
+  JSON.stringify(listPo0002SupplementIds()) === JSON.stringify(authoritativePickupSupplementIds),
+  'runtime 先初始化时必须建立同一组 4 条权威 pickup supplement identity',
+)
+bootstrapSupplementManagementMockData()
+assert(
+  JSON.stringify(listPo0002SupplementIds()) === JSON.stringify(authoritativePickupSupplementIds),
+  'runtime 先初始化后页面 bootstrap 不得覆盖 4 条权威 pickup supplement identity',
+)
 const supplementRecords = listSupplementRecords().filter((record) => record.status === '已确认')
 const dyeResults = listPlatformDyeResultViews()
 const printResults = listPlatformPrintResultViews()

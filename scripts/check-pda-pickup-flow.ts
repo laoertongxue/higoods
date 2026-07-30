@@ -7,8 +7,11 @@ import {
 } from '../src/data/fcs/cutting/production-material-prep.ts'
 import {
   appendPickupSessionFromNodeRuntime as appendPickupSessionFromNode,
+  bootstrapPickupManagementRuntimeMockData,
   listActivePickupNodesRuntime as listActivePickupNodes,
 } from '../src/runtime/fcs/cutting/pickup-management-runtime.ts'
+
+bootstrapPickupManagementRuntimeMockData()
 
 class MemoryStorage {
   private values = new Map<string, string>()

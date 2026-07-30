@@ -41,8 +41,10 @@ import {
   type SupplementPartShortage,
 } from '../../../data/fcs/cut-piece-release-domain.ts'
 import {
+  ensureSupplementRecordPickupSeeds,
   listSupplementRecords as listSupplementRecordsFromStore,
   prependSupplementRecord,
+  resetSupplementRecordsForTest,
   type SupplementAbAnalysisRow,
   type SupplementDraft,
   type SupplementLine,
@@ -2848,8 +2850,15 @@ function ensureMockSupplementOrders(): void {
 }
 
 export function bootstrapSupplementManagementMockData(): SupplementRecord[] {
+  ensureSupplementRecordPickupSeeds()
   ensureMockSupplementOrders()
   return listSupplementRecordsFromStore()
+}
+
+export function resetSupplementManagementMockDataForTest(): void {
+  mockSupplementOrdersSeeded = false
+  state.records = []
+  resetSupplementRecordsForTest()
 }
 
 function setFiltersFromDom(): void {

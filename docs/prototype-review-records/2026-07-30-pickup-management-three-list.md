@@ -88,6 +88,7 @@
 - `src/pages/pda-warehouse-wait-process.ts`
 - `src/router/route-renderers-fcs.ts`
 - `src/router/routes-fcs.ts`
+- `src/router/routes-pda.ts`
 - `src/runtime/fcs/cutting/pickup-management-runtime.ts`
 
 ### 页面路由

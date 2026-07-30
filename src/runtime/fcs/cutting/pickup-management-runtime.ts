@@ -23,6 +23,7 @@ import {
 } from '../../../data/fcs/platform-process-result-view.ts'
 import {
   ensureSupplementRecordPickupSeeds,
+  listSupplementRecords,
   type SupplementRecord,
 } from '../../../data/fcs/cutting/supplement-records.ts'
 
@@ -41,12 +42,16 @@ export interface PickupRuntimeContext {
   activeNodes: PickupNodeProjection[]
 }
 
+export function bootstrapPickupManagementRuntimeMockData(): SupplementRecord[] {
+  return ensureSupplementRecordPickupSeeds()
+}
+
 export function buildPickupRuntimeContext(
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
   overrides: PickupRuntimeOverrides = {},
 ): PickupRuntimeContext {
   const projections = listMaterialPrepOrderProjections(storage)
-  const supplementRecords = overrides.supplementRecords ?? ensureSupplementRecordPickupSeeds()
+  const supplementRecords = overrides.supplementRecords ?? listSupplementRecords()
   const dyeResults = overrides.dyeResults ?? listPlatformDyeResultViews()
   const printResults = overrides.printResults ?? listPlatformPrintResultViews()
   const demandFacts = buildPickupDemandFactsFromProjections({

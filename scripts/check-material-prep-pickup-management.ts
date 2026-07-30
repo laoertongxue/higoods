@@ -57,6 +57,7 @@ class MemoryStorage {
 
 const appShellConfig = read('src/data/app-shell-config.ts')
 const routesFcs = read('src/router/routes-fcs.ts')
+const routesPda = read('src/router/routes-pda.ts')
 const routeRenderersFcs = read('src/router/route-renderers-fcs.ts')
 const pickupManagementSource = read('src/pages/process-factory/cutting/pickup-management.ts')
 const pickupManagementListSource = read('src/pages/process-factory/cutting/pickup-management-list.ts')
@@ -120,10 +121,11 @@ assert(
   '纯数据节点读取不得隐式读取加工结果，必须由 runtime 显式传入',
 )
 assert(
-  pickupManagementRuntimeSource.includes('ensureSupplementRecordPickupSeeds()')
+  pickupManagementRuntimeSource.includes('const supplementRecords = overrides.supplementRecords ?? listSupplementRecords()')
+  && pickupManagementRuntimeSource.includes('export function bootstrapPickupManagementRuntimeMockData()')
   && pickupManagementRuntimeSource.includes('listPlatformDyeResultViews()')
   && pickupManagementRuntimeSource.includes('listPlatformPrintResultViews()'),
-  '页面级 runtime 必须明确组装补料和加工结果事实',
+  '页面级 runtime list 必须纯读组装补料和加工结果事实，并提供显式 bootstrap',
 )
 assert(
   supplementRecordSource.includes(`export function listSupplementRecords(): SupplementRecord[] {
@@ -135,8 +137,14 @@ assert(
   supplementManagementSource.includes(`export function listSupplementRecords(): SupplementRecord[] {
   return listSupplementRecordsFromStore()
 }`)
-  && supplementManagementSource.includes('export function bootstrapSupplementManagementMockData()'),
+  && supplementManagementSource.includes(`export function bootstrapSupplementManagementMockData(): SupplementRecord[] {
+  ensureSupplementRecordPickupSeeds()`),
   '补料页面 list 查询必须保持纯读，Mock 初始化只能由显式 bootstrap/route-enter 触发',
+)
+assert(
+  routesFcs.includes('bootstrapPickupManagementRuntimeMockData()')
+  && routesPda.includes('bootstrapPickupManagementRuntimeMockData()'),
+  'Web 与 PDA 领料路由进入前必须显式 bootstrap 权威补料 Mock，不得由 runtime list 隐式写入',
 )
 assert(
   pickupManagementProjectionSource.includes('buildPickupRuntimeContext(storage)')

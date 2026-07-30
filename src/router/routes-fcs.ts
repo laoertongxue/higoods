@@ -8,6 +8,7 @@ import {
 } from '../data/fcs/special-craft-operations'
 import { buildDeductionEntryHrefByBasisId } from '../data/fcs/quality-chain-adapter'
 import { renderRouteRedirect } from './route-utils'
+import { bootstrapPickupManagementRuntimeMockData } from '../runtime/fcs/cutting/pickup-management-runtime.ts'
 import {
   renderTaskBreakdownPage,
   renderCapabilityPage,
@@ -284,10 +285,22 @@ export const routes: RouteRegistry = {
     '/fcs/craft/cutting/cut-order-close': () => renderCraftCuttingCutOrderClosePage(),
     '/fcs/craft/cutting/pickup-management': () =>
       renderRouteRedirect('/fcs/craft/cutting/pickup-management/ready', '正在跳转到已配齐待领料'),
-    '/fcs/craft/cutting/pickup-management/ready': () => renderCraftCuttingPickupReadyPage(),
-    '/fcs/craft/cutting/pickup-management/incomplete': () => renderCraftCuttingPickupIncompletePage(),
-    '/fcs/craft/cutting/pickup-management/history': () => renderCraftCuttingPickupHistoryPage(),
-    '/fcs/craft/cutting/pickup-management-detail': () => renderCraftCuttingPickupManagementDetailPage(),
+    '/fcs/craft/cutting/pickup-management/ready': () => {
+      bootstrapPickupManagementRuntimeMockData()
+      return renderCraftCuttingPickupReadyPage()
+    },
+    '/fcs/craft/cutting/pickup-management/incomplete': () => {
+      bootstrapPickupManagementRuntimeMockData()
+      return renderCraftCuttingPickupIncompletePage()
+    },
+    '/fcs/craft/cutting/pickup-management/history': () => {
+      bootstrapPickupManagementRuntimeMockData()
+      return renderCraftCuttingPickupHistoryPage()
+    },
+    '/fcs/craft/cutting/pickup-management-detail': () => {
+      bootstrapPickupManagementRuntimeMockData()
+      return renderCraftCuttingPickupManagementDetailPage()
+    },
     '/fcs/craft/cutting/marker-list': () => renderCraftCuttingMarkerListPage(),
     '/fcs/craft/cutting/marker-create': () => renderCraftCuttingMarkerCreatePage(),
     '/fcs/craft/cutting/spreading-list': () => renderCraftCuttingSpreadingListPage(),

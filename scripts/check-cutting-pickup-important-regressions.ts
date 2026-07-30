@@ -24,10 +24,13 @@ import {
 } from '../src/data/fcs/cutting/production-material-prep.ts'
 import {
   appendPickupSessionFromNodeRuntime as appendPickupSessionFromNode,
+  bootstrapPickupManagementRuntimeMockData,
   listActivePickupNodesRuntime as listActivePickupNodes,
 } from '../src/runtime/fcs/cutting/pickup-management-runtime.ts'
 import { renderFcsCuttingPrepPage } from '../src/pages/fcs/material-prep/cutting.ts'
 import { listPickupOrderGroups } from '../src/pages/process-factory/cutting/pickup-management-projection.ts'
+
+bootstrapPickupManagementRuntimeMockData()
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)

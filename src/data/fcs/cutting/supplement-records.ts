@@ -277,3 +277,7 @@ export function ensureSupplementRecordPickupSeeds(): SupplementRecord[] {
   }
   return listSupplementRecords()
 }
+
+export function resetSupplementRecordsForTest(): void {
+  supplementRecords = []
+}
