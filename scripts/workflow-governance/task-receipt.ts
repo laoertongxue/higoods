@@ -295,6 +295,14 @@ function instructionBindsStageTrace(instructionContext: InstructionContextReceip
 
 export function assertTaskReceiptSemantics(receipt: TaskCompletionReceipt): void {
   assert.equal(receipt.schemaVersion, 2, '只支持 schemaVersion 2 的任务收据')
+  if (receipt.stageTrace) {
+    assert(
+      receipt.stageTrace.skills.every(
+        (skill) => typeof skill === 'string' && skill.trim().length > 0,
+      ),
+      'stageTrace.skills 中的技能名必须是非空字符串',
+    )
+  }
 
   if (receipt.state === 'implemented') {
     assert(receipt.blockers.length > 0, 'implemented 状态必须包含 blockers')

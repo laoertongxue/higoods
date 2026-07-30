@@ -668,6 +668,59 @@ test('完整技能调用或完整双审摘要仍可生成 verified 收据', () =
   assert.equal(reviewReceipt.state, 'verified')
 })
 
+test('createTaskReceipt 拒绝空字符串技能名', () => {
+  const instruction = instructionContext({ requireStageTrace: true })
+  assert.throws(
+    () => createTaskReceipt({
+      workspace: '/workspace',
+      revisionBefore: revision,
+      revisionAfter: revision,
+      instructionBefore: instruction,
+      instructionAfter: instruction,
+      route,
+      checks: validReceipt().checks,
+      codegraph: validReceipt().codegraph,
+      stageTrace: {
+        required: true,
+        valid: true,
+        stages: [
+          'trigger',
+          'skill-invocation',
+          'artifact',
+          'implementation',
+          'final-validation',
+        ],
+        skills: [''],
+        blockers: [],
+      },
+    }),
+    /skills|技能名/,
+  )
+})
+
+test('parseTaskCompletionReceipt 拒绝纯空白技能名', () => {
+  assert.throws(
+    () => parseTaskCompletionReceipt(JSON.stringify({
+      ...validReceipt(),
+      instructionContext: instructionContext({ requireStageTrace: true }),
+      stageTrace: {
+        required: true,
+        valid: true,
+        stages: [
+          'trigger',
+          'skill-invocation',
+          'artifact',
+          'implementation',
+          'final-validation',
+        ],
+        skills: [' \t '],
+        blockers: [],
+      },
+    })),
+    /skills|技能名/,
+  )
+})
+
 test('CodeGraph 状态缺少必要健康字段时失败关闭', () => {
   assert.throws(
     () => parseCodeGraphStatus(JSON.stringify({
