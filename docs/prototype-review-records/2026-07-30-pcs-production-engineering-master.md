@@ -139,7 +139,7 @@
 - `npm test -- tests/pcs-professional-task-bootstrap-independent.spec.ts`：通过，五类专业任务种子均不绑定项目节点且不生成项目节点关系；有项目归属的任务只关联真实项目，独立改款／设计任务只允许关联可解析的正式款式／SPU和需求来源
 - `npm test -- tests/pcs-project-linked-style-archive-migration.spec.ts`：通过，真实 `localStorage` 中仅按 `linkedStyleId` 存在且来源项目字段缺失／错误的历史档案保持单一 ID，来源项目修复且备注、卖点、详情等业务字段不变；重复档案 ID 创建被明确拦截
 - `npm test -- tests/pcs-professional-task-node-migration.spec.ts`：通过，真实 `localStorage` 中五类历史专业任务均保留项目和来源对象、清空旧节点绑定，五类旧节点关系全部移除，项目固定节点快照不变且无专业悬空关系一致性问题
-- `npm test -- tests/pcs-style-archive-transactional-migration.spec.ts`：通过，重复档案 ID 显式阻断且原始字节不变；多旧主档冲突零写入；成功迁移只写一次并保持幂等
+- `npm test -- tests/pcs-style-archive-transactional-migration.spec.ts`：通过，重复档案 ID 显式阻断且原始字节不变；多旧主档冲突零写入；款式仓写入失败时项目／款式原始字节与内存快照均不变；款式写入成功而项目写入失败时两仓完整回滚且重读仍为原始数据；成功迁移两仓各写一次并保持幂等
 - `npm run check:pcs-plate-sample-readiness`：通过，制版完成后可直接创建独立首版样衣任务，保留制版和技术包来源，项目节点创建前后全量不变
 - `npm test -- tests/pcs-first-order-sample-independent-entry.spec.ts`：通过，首单真实入口保留商品项目和正式首版样衣来源，不生成专业节点关系且不改写项目固定节点
 - `node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-first-order-sample-node-writeback.ts`：通过，首单独立入口与详情保存均保持项目节点隔离

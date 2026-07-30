@@ -11,10 +11,15 @@ import {
 } from './pcs-project-node-factory.ts'
 import { PCS_CHANNEL_OPTIONS, normalizePcsChannelCodes } from './pcs-channel-options.ts'
 import {
-  getStyleArchiveStoreSnapshot,
-  replaceStyleArchiveStore,
+  captureStyleArchiveRepositoryState,
+  commitStyleArchiveStoreSnapshot,
+  prepareStyleArchiveRepositorySnapshot,
+  restoreStyleArchiveRepositoryState,
 } from './pcs-style-archive-repository.ts'
-import type { StyleArchiveShellRecord } from './pcs-style-archive-types.ts'
+import type {
+  StyleArchiveShellRecord,
+  StyleArchiveStoreSnapshot,
+} from './pcs-style-archive-types.ts'
 import {
   buildProjectWorkspaceCategoryOptions,
   findProjectWorkspaceOptionById,
@@ -552,8 +557,9 @@ function mergeMissingBootstrapData(snapshot: PcsProjectStoreSnapshot): PcsProjec
 
 function ensureProjectStyleArchives(
   snapshot: PcsProjectStoreSnapshot,
-): PcsProjectStoreSnapshot {
-  const styleSnapshot = getStyleArchiveStoreSnapshot()
+  styleSnapshot: StyleArchiveStoreSnapshot,
+  styleStoreMissing: boolean,
+): ProjectStyleArchiveMigrationPlan {
   const originalRecordsText = JSON.stringify(styleSnapshot.records)
   const plannedRecords = styleSnapshot.records.map((record) => ({
     ...record,
@@ -706,19 +712,30 @@ function ensureProjectStyleArchives(
     })
   })
 
-  if (JSON.stringify(plannedRecords) !== originalRecordsText) {
-    replaceStyleArchiveStore({
+  return {
+    projectSnapshot: {
+      ...snapshot,
+      projects,
+    },
+    styleSnapshot: {
       ...styleSnapshot,
       records: plannedRecords,
-    })
-  }
-  return {
-    ...snapshot,
-    projects,
+    },
+    styleWriteRequired: styleStoreMissing || JSON.stringify(plannedRecords) !== originalRecordsText,
   }
 }
 
-function hydrateSnapshot(snapshot: PcsProjectStoreSnapshot): PcsProjectStoreSnapshot {
+interface ProjectStyleArchiveMigrationPlan {
+  projectSnapshot: PcsProjectStoreSnapshot
+  styleSnapshot: StyleArchiveStoreSnapshot
+  styleWriteRequired: boolean
+}
+
+function hydrateSnapshot(
+  snapshot: PcsProjectStoreSnapshot,
+  styleSnapshot: StyleArchiveStoreSnapshot,
+  styleStoreMissing: boolean,
+): ProjectStyleArchiveMigrationPlan {
   const sourceVersion = typeof snapshot.version === 'number' && Number.isFinite(snapshot.version) ? snapshot.version : 0
   const normalized: PcsProjectStoreSnapshot = {
     version: PROJECT_STORE_VERSION,
@@ -733,60 +750,90 @@ function hydrateSnapshot(snapshot: PcsProjectStoreSnapshot): PcsProjectStoreSnap
     decisionMigrated.phases.length === 0 &&
     decisionMigrated.nodes.length === 0
   ) {
-    return seedSnapshot()
+    return ensureProjectStyleArchives(seedSnapshot(), styleSnapshot, styleStoreMissing)
   }
 
   const pricingMockMigrated =
     sourceVersion < PROJECT_STORE_VERSION ? migrateSampleCostReviewPricingProjectMocks(decisionMigrated) : decisionMigrated
 
-  return ensureProjectStyleArchives(repairProjectNodeSequences(mergeMissingBootstrapData(pricingMockMigrated)))
+  return ensureProjectStyleArchives(
+    repairProjectNodeSequences(mergeMissingBootstrapData(pricingMockMigrated)),
+    styleSnapshot,
+    styleStoreMissing,
+  )
+}
+
+function restoreProjectStorage(rawSnapshot: string | null): void {
+  if (!canUseStorage()) return
+  if (rawSnapshot === null) {
+    localStorage.removeItem(PROJECT_STORAGE_KEY)
+  } else {
+    localStorage.setItem(PROJECT_STORAGE_KEY, rawSnapshot)
+  }
+}
+
+function commitSnapshot(snapshot: PcsProjectStoreSnapshot): PcsProjectStoreSnapshot {
+  const previousMemorySnapshot = memorySnapshot ? cloneSnapshot(memorySnapshot) : null
+  const previousProjectRaw = canUseStorage() ? localStorage.getItem(PROJECT_STORAGE_KEY) : null
+  const previousStyleState = captureStyleArchiveRepositoryState()
+  let styleWriteAttempted = false
+  let projectWriteAttempted = false
+
+  try {
+    const stylePreparation = prepareStyleArchiveRepositorySnapshot(previousStyleState)
+    const plan = hydrateSnapshot(snapshot, stylePreparation.snapshot, stylePreparation.writeRequired)
+    migrateProjectAlbumUrlsToProjectImages(plan.projectSnapshot.projects)
+    if (plan.styleWriteRequired) {
+      styleWriteAttempted = true
+      commitStyleArchiveStoreSnapshot(plan.styleSnapshot)
+    }
+    if (canUseStorage()) {
+      projectWriteAttempted = true
+      localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(plan.projectSnapshot))
+    }
+    memorySnapshot = plan.projectSnapshot
+    return cloneSnapshot(plan.projectSnapshot)
+  } catch (error) {
+    if (projectWriteAttempted) {
+      try {
+        restoreProjectStorage(previousProjectRaw)
+      } catch {
+        // 回滚尽力执行；必须保留并继续抛出原始提交错误。
+      }
+    }
+    try {
+      restoreStyleArchiveRepositoryState(previousStyleState, styleWriteAttempted)
+    } catch {
+      // 回滚尽力执行；必须保留并继续抛出原始提交错误。
+    }
+    memorySnapshot = previousMemorySnapshot
+    throw error
+  }
 }
 
 function loadSnapshot(): PcsProjectStoreSnapshot {
   if (memorySnapshot) return cloneSnapshot(memorySnapshot)
 
-  if (!canUseStorage()) {
-    memorySnapshot = hydrateSnapshot(seedSnapshot())
-    return cloneSnapshot(memorySnapshot)
+  const raw = canUseStorage() ? localStorage.getItem(PROJECT_STORAGE_KEY) : null
+  if (!raw) {
+    return commitSnapshot(seedSnapshot())
   }
 
-  try {
-    const raw = localStorage.getItem(PROJECT_STORAGE_KEY)
-    if (!raw) {
-      memorySnapshot = hydrateSnapshot(seedSnapshot())
-      migrateProjectAlbumUrlsToProjectImages(memorySnapshot.projects)
-      localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(memorySnapshot))
-      return cloneSnapshot(memorySnapshot)
-    }
+  const parsed = JSON.parse(raw) as Partial<PcsProjectStoreSnapshot>
+  if (!Array.isArray(parsed.projects) || !Array.isArray(parsed.phases) || !Array.isArray(parsed.nodes)) {
+    throw new Error('商品项目本地快照结构无效，已保留原始数据。')
+  }
 
-    const parsed = JSON.parse(raw) as Partial<PcsProjectStoreSnapshot>
-    if (!Array.isArray(parsed.projects) || !Array.isArray(parsed.phases) || !Array.isArray(parsed.nodes)) {
-      throw new Error('商品项目本地快照结构无效，已保留原始数据。')
-    }
-
-    memorySnapshot = hydrateSnapshot({
+  return commitSnapshot({
       version: typeof parsed.version === 'number' ? parsed.version : 0,
       projects: parsed.projects as PcsProjectRecord[],
       phases: parsed.phases as PcsProjectPhaseRecord[],
       nodes: parsed.nodes as PcsProjectNodeRecord[],
-    })
-    migrateProjectAlbumUrlsToProjectImages(memorySnapshot.projects)
-    localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(memorySnapshot))
-    return cloneSnapshot(memorySnapshot)
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : '未知错误'
-    throw new Error(`商品项目本地快照读取或迁移失败，已保留原始数据：${detail}`, {
-      cause: error,
-    })
-  }
+  })
 }
 
 function persistSnapshot(snapshot: PcsProjectStoreSnapshot): void {
-  memorySnapshot = hydrateSnapshot(snapshot)
-  migrateProjectAlbumUrlsToProjectImages(memorySnapshot.projects)
-  if (canUseStorage()) {
-    localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(memorySnapshot))
-  }
+  commitSnapshot(snapshot)
 }
 
 function sortProjects<T extends { updatedAt: string }>(projects: T[]): T[] {

@@ -205,9 +205,83 @@ function loadSnapshot(): StyleArchiveStoreSnapshot {
 }
 
 function persistSnapshot(snapshot: StyleArchiveStoreSnapshot): void {
-  memorySnapshot = hydrateSnapshot(snapshot)
+  const nextSnapshot = hydrateSnapshot(snapshot)
   if (canUseStorage()) {
-    localStorage.setItem(STYLE_ARCHIVE_STORAGE_KEY, JSON.stringify(memorySnapshot))
+    localStorage.setItem(STYLE_ARCHIVE_STORAGE_KEY, JSON.stringify(nextSnapshot))
+  }
+  memorySnapshot = nextSnapshot
+}
+
+export interface StyleArchiveRepositoryState {
+  rawSnapshot: string | null
+  memorySnapshot: StyleArchiveStoreSnapshot | null
+}
+
+export interface PreparedStyleArchiveRepositorySnapshot {
+  snapshot: StyleArchiveStoreSnapshot
+  writeRequired: boolean
+}
+
+export function captureStyleArchiveRepositoryState(): StyleArchiveRepositoryState {
+  return {
+    rawSnapshot: canUseStorage() ? localStorage.getItem(STYLE_ARCHIVE_STORAGE_KEY) : null,
+    memorySnapshot: memorySnapshot ? cloneSnapshot(memorySnapshot) : null,
+  }
+}
+
+export function prepareStyleArchiveRepositorySnapshot(
+  state: StyleArchiveRepositoryState,
+): PreparedStyleArchiveRepositorySnapshot {
+  if (state.memorySnapshot) {
+    return {
+      snapshot: cloneSnapshot(state.memorySnapshot),
+      writeRequired: state.rawSnapshot === null,
+    }
+  }
+  if (state.rawSnapshot === null) {
+    return {
+      snapshot: seedSnapshot(),
+      writeRequired: true,
+    }
+  }
+
+  const parsed = JSON.parse(state.rawSnapshot) as Partial<StyleArchiveStoreSnapshot>
+  if (!Array.isArray(parsed.records) || !Array.isArray(parsed.pendingItems)) {
+    return {
+      snapshot: seedSnapshot(),
+      writeRequired: true,
+    }
+  }
+  return {
+    snapshot: mergeMissingSeedData(
+      hydrateSnapshot({
+        version: STYLE_ARCHIVE_STORE_VERSION,
+        records: parsed.records as StyleArchiveShellRecord[],
+        pendingItems: parsed.pendingItems as StyleArchivePendingItem[],
+      }),
+    ),
+    writeRequired: false,
+  }
+}
+
+export function commitStyleArchiveStoreSnapshot(snapshot: StyleArchiveStoreSnapshot): void {
+  persistSnapshot(snapshot)
+}
+
+export function restoreStyleArchiveRepositoryState(
+  state: StyleArchiveRepositoryState,
+  restoreRawSnapshot = true,
+): void {
+  try {
+    if (restoreRawSnapshot && canUseStorage()) {
+      if (state.rawSnapshot === null) {
+        localStorage.removeItem(STYLE_ARCHIVE_STORAGE_KEY)
+      } else {
+        localStorage.setItem(STYLE_ARCHIVE_STORAGE_KEY, state.rawSnapshot)
+      }
+    }
+  } finally {
+    memorySnapshot = state.memorySnapshot ? cloneSnapshot(state.memorySnapshot) : null
   }
 }
 
