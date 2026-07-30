@@ -120,7 +120,8 @@ function latestSession(sessions: PickupSession[]): PickupSession | null {
 
 export function derivePickupHistoryPath(
   nodeTypes: ReadonlyArray<PickupSession['nodeType']>,
-): PickupHistoryPath {
+): PickupHistoryPath | null {
+  if (!nodeTypes.length) return null
   return nodeTypes.some((nodeType) => nodeType === 'INCOMPLETE_PICKABLE')
     ? 'INCOMPLETE_PICKUP'
     : 'READY_PICKUP'
