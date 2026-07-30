@@ -754,7 +754,7 @@ assert.equal(
 
 - [ ] **步骤 5：实现结构化去向交出和下游确认**
 
-`addWoolHandover` 从加工单读取结构化 `receiverType/receiverId/receiverName`，不接受页面自由文本；校验默认库位库存后原子新增交出记录、出库流水和下游待接收投影。`confirmWoolDownstreamReceipt` 只追加实际接收、差异、接收人和时间，不恢复毛织库存、不修改来源交出数量。
+`addWoolHandover` 从加工单读取结构化 `receiverType/receiverId/receiverName`，不接受页面自由文本；按输入 `outputSkuCode` 计算“可交出余额 = min(该 SKU 默认库位有效库存, 该 SKU 累计有效加工填报 - 该 SKU 累计有效交出)”，本次数量不得超过该余额。无该 SKU 有效填报、余额为 0 或超量时零写失败；不同款色 SKU 的填报与库存不得拼接。校验通过后才原子新增交出记录、出库流水和下游待接收投影。`confirmWoolDownstreamReceipt` 只追加实际接收、差异、接收人和时间，不恢复毛织库存、不修改来源交出数量。
 
 - [ ] **步骤 6：实现纱线领用退回与独立库存调整/转移**
 
@@ -977,6 +977,8 @@ assert(workOrderSource.includes('不可以开工'))
 assert(workOrderSource.includes('已完成'))
 assert(!workOrderSource.includes('统计卡片'))
 assert(!workOrderSource.includes('advanceWoolOrderToWarehouseInbound'))
+assert(workOrderSource.includes('getWoolOutputHandoverAvailableQty'))
+assert(workOrderSource.includes('可交出余额'))
 ```
 
 - [ ] **步骤 2：运行检查并确认旧列表失败**
@@ -1002,10 +1004,12 @@ npm run check:list-page-governance
 
 - 确认接收：多纱线明细，只选本单必需纱线，保存后追加记录。
 - 加工填报：可选区只显示已齐料且未达 150% 的加工后 SKU；不可选区显示缺纱线或上限原因。
-- 发起交出：只显示默认库位有库存的 SKU，接收对象只读，缺稳定接收方阻断保存。
+- 发起交出：逐 `outputSkuCode` 计算“可交出余额 = min(该 SKU 默认库位有效库存, 该 SKU 累计有效加工填报 - 该 SKU 累计有效交出)”，只显示余额大于 0 的 SKU；接收对象只读，缺稳定接收方阻断保存。不同款色 SKU 的填报、交出和库存不得拼接，独立库存调整不能绕过同一 SKU 的填报余额，保存命令必须按同一口径再次校验并在失败时保持交出记录和库存零写。
 - 完成加工单：至少一次交出才显示；四块事实摘要和明确“系统不判断是否应该完成”提示，二次确认后调用单一完成命令。
 
 所有弹窗输入只维护草稿；保存成功后局部刷新列表和覆盖层。
+
+任务 8 的对抗检查至少覆盖：黑色 SKU 已填报、白色 SKU 填报为 0 时，单独调入白色库存后白色仍不进入交出候选且命令拒绝；有填报 SKU 多次交出后，可交出余额随累计有效交出减少；默认库位库存小于未交出填报余额时取库存值，反之取未交出填报余额；所有失败分支均不新增交出记录、不写库存流水。
 
 - [ ] **步骤 6：实现数量修改入口和错误提示**
 
