@@ -39,6 +39,20 @@ const pdaTransferBagDetail = await import(
 const labelPrintTemplate = await import(
   '../src/pages/print/templates/label-print-template.ts'
 )
+const transferBagsPageSource = readFileSync(
+  fileURLToPath(new URL(
+    '../src/pages/process-factory/cutting/transfer-bags.ts',
+    import.meta.url,
+  )),
+  'utf8',
+)
+const transferBagDetailSource = readFileSync(
+  fileURLToPath(new URL(
+    '../src/pages/process-factory/cutting/transfer-bags/detail.ts',
+    import.meta.url,
+  )),
+  'utf8',
+)
 
 assert.deepEqual(
   lifecycle.TRANSFER_BAG_MAIN_STATUS_META,
@@ -1060,6 +1074,42 @@ assert.equal(
 assert(
   pdaTransferBagDetailSource.includes('data-nav='),
   '扫码详情展示的记录动作必须跳转到可执行记录页面，不得形成死按钮',
+)
+
+const masterQuickFilterSource = transferBagsPageSource.slice(
+  transferBagsPageSource.indexOf('function renderMasterQuickFilterBar'),
+  transferBagsPageSource.indexOf('function renderUsageRecordQuickFilterBar'),
+)
+assert.equal(
+  masterQuickFilterSource.includes('usageSewingTaskId'),
+  false,
+  '中转袋主列表的流转阶段筛选不得混入车缝任务选项',
+)
+for (const legacyWriteAction of [
+  "if (action === 'open-inbound-pack')",
+  "if (action === 'open-handover-pack')",
+  "if (action === 'save-inbound-pack')",
+  "if (action === 'save-handover-pack')",
+  "if (action === 'complete-inbound-storage')",
+  "if (action === 'release-inbound-bag')",
+  "if (action === 'create-usage')",
+  "if (action === 'bind-ticket')",
+  "if (action === 'import-prefill')",
+  "if (action === 'remove-binding')",
+  "if (action === 'confirm-handover')",
+  "if (action === 'mark-ready')",
+  "if (action === 'mark-dispatched')",
+]) {
+  assert.equal(
+    transferBagsPageSource.includes(legacyWriteAction),
+    false,
+    `中转袋档案页不得保留旧写入口：${legacyWriteAction}`,
+  )
+}
+assert.equal(
+  transferBagDetailSource.includes("usageStageLabel || '交出装袋'"),
+  false,
+  '中转袋详情的可达历史视图必须统一展示三阶段口径',
 )
 
 console.log('check:transfer-bag-three-status passed')

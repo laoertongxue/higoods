@@ -901,6 +901,17 @@ export function renderTransferBagItemsTab(
   `
 }
 
+export function getTransferBagUsageFlowStageLabel(item: TransferBagUsageItem): '菲票已装袋' | '入仓暂存中' | '已交出待回收' {
+  if (
+    item.dispatchAt
+    || ['DISPATCHED', 'PENDING_SIGNOFF', 'WAITING_RETURN', 'RETURN_INSPECTING', 'CLOSED', 'SCRAP_CLOSED'].includes(item.usageStatus)
+  ) {
+    return '已交出待回收'
+  }
+  if (item.usageStage === 'INBOUND_TEMP') return '入仓暂存中'
+  return '菲票已装袋'
+}
+
 export function renderTransferBagHistoryTab(
   activeMaster: TransferBagMasterItem,
   focusedUsage: TransferBagUsageItem | null,
@@ -948,7 +959,7 @@ export function renderTransferBagHistoryTab(
                               }))}"
                             >${escapeHtml(item.usageNo)}</button>
                           </td>
-                          <td class="px-3 py-2">${escapeHtml(item.usageStageLabel || '交出装袋')}</td>
+                          <td class="px-3 py-2">${escapeHtml(getTransferBagUsageFlowStageLabel(item))}</td>
                           <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml([item.startedAt || '待开始', item.finishedPackingAt || '待装袋完成'].join(' / '))}</td>
                           <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(item.dispatchAt || '待交出')}</td>
                           <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml([item.returnedAt || '待回收', ['CLOSED', 'SCRAP_CLOSED'].includes(item.usageStatus) ? item.returnedAt || item.signedAt || '已关闭' : '待关闭'].join(' / '))}</td>
@@ -971,7 +982,7 @@ export function renderTransferBagHistoryTab(
                   <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4 text-sm">
                     <div><span class="text-muted-foreground">本次周转号：</span><span class="font-medium text-foreground">${escapeHtml(selectedUsage.usageNo)}</span></div>
                     <div><span class="text-muted-foreground">开始时间：</span><span class="font-medium text-foreground">${escapeHtml(selectedUsage.startedAt || '待补')}</span></div>
-                    <div><span class="text-muted-foreground">使用阶段：</span><span class="font-medium text-foreground">${escapeHtml(selectedUsage.usageStageLabel || '交出装袋')}</span></div>
+                    <div><span class="text-muted-foreground">使用阶段：</span><span class="font-medium text-foreground">${escapeHtml(getTransferBagUsageFlowStageLabel(selectedUsage))}</span></div>
                     <div><span class="text-muted-foreground">绑定对象：</span><span class="font-medium text-foreground">${escapeHtml(selectedUsage.boundObjectNo || '无')}</span></div>
                     <div><span class="text-muted-foreground">菲票数量：</span><span class="font-medium text-foreground">${escapeHtml(String(selectedUsage.summary.ticketCount))}</span></div>
                     <div><span class="text-muted-foreground">交出时间：</span><span class="font-medium text-foreground">${escapeHtml(selectedUsage.dispatchAt || '待交出')}</span></div>

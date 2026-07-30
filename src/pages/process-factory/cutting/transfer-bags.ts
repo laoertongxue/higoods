@@ -140,8 +140,6 @@ import {
   type PackDraftField,
 } from './transfer-bags/state.ts'
 import {
-  completeInboundStorage,
-  confirmHandoverPacking,
   ensureUsageAutoCreatedForTicket,
   getActiveMaster,
   getActiveUsage,
@@ -159,17 +157,14 @@ import {
   getSourceUsage,
   parseTicketInputs,
   refreshDerivedState,
-  releaseInboundBag,
   resetMasterDraft,
   resetMasterPagination,
-  resetPackDraft,
   resetReturnDraft,
   resolveCarrierScanInput,
   resolveLockedUsageContext,
   resolvePackBag,
   resolvePackTickets,
   saveMasterDraft,
-  savePackDraft,
   syncPrefilterFromQuery,
   syncReusableDecisionSuggestion,
 } from './transfer-bags/handlers.ts'
@@ -3152,20 +3147,6 @@ export function handleCraftCuttingTransferBagsEvent(target: Element): boolean {
   }
   if (action === 'save-scrap') return completeDirectScrap()
   if (action === 'save-master') return saveMasterDraft()
-  if (action === 'open-inbound-pack') {
-    resetPackDraft('INBOUND_TEMP', actionNode.dataset.bagId)
-    state.activeDialog = 'inbound-pack'
-    return true
-  }
-  if (action === 'open-handover-pack') {
-    resetPackDraft('HANDOVER_PACKING', actionNode.dataset.bagId)
-    state.activeDialog = 'handover-pack'
-    return true
-  }
-  if (action === 'save-inbound-pack') return savePackDraft('INBOUND_TEMP')
-  if (action === 'save-handover-pack') return savePackDraft('HANDOVER_PACKING')
-  if (action === 'complete-inbound-storage') return completeInboundStorage(actionNode.dataset.usageId || state.activeUsageId || undefined)
-  if (action === 'release-inbound-bag') return releaseInboundBag(actionNode.dataset.usageId || state.activeUsageId || undefined)
   if (action === 'open-return') {
     const usageId = actionNode.dataset.usageId || state.activeUsageId || ''
     if (usageId) syncUsageSelection(usageId)
@@ -3241,14 +3222,7 @@ export function handleCraftCuttingTransferBagsEvent(target: Element): boolean {
     syncUsageSelection(usageId)
     return true
   }
-  if (action === 'create-usage') return createUsage()
-  if (action === 'bind-ticket') return bindTicketByInput()
-  if (action === 'import-prefill') return importCandidateTickets()
-  if (action === 'remove-binding') return removeBinding(actionNode.dataset.bindingId)
   if (action === 'print-manifest') return printManifest(actionNode.dataset.usageId || state.activeUsageId || undefined)
-  if (action === 'confirm-handover') return confirmHandoverPacking(actionNode.dataset.usageId || state.activeUsageId || undefined)
-  if (action === 'mark-ready') return updateUsageStatus(actionNode.dataset.usageId || state.activeUsageId || undefined, 'READY_TO_DISPATCH')
-  if (action === 'mark-dispatched') return updateUsageStatus(actionNode.dataset.usageId || state.activeUsageId || undefined, 'DISPATCHED')
   if (action === 'complete-return-inspection') return completeReturnInspection(actionNode.dataset.usageId || state.activeUsageId || undefined)
 
   if (action === 'go-cut-piece-warehouse-index') {
