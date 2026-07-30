@@ -284,3 +284,32 @@ export interface WoolOperationLog {
   operatedAt: string
   remark?: string
 }
+
+export type WoolCommandType =
+  | 'ADD_WOOL_YARN_RECEIPT'
+  | 'ADD_WOOL_PROCESS_REPORT'
+  | 'ADD_WOOL_HANDOVER'
+  | 'CONFIRM_WOOL_DOWNSTREAM_RECEIPT'
+  | 'ISSUE_WOOL_YARN'
+  | 'RETURN_WOOL_YARN'
+  | 'ADJUST_WOOL_WAREHOUSE_STOCK'
+  | 'TRANSFER_WOOL_WAREHOUSE_STOCK'
+  | 'CHANGE_WOOL_FACT_QTY'
+
+export type WoolCommandResultType =
+  | 'WOOL_YARN_RECEIPT'
+  | 'WOOL_PROCESS_REPORT'
+  | 'WOOL_HANDOVER'
+  | 'WOOL_YARN_ISSUE'
+  | 'WOOL_YARN_RETURN'
+  | 'WOOL_WAREHOUSE_FLOW'
+  | 'WOOL_QTY_CHANGE'
+
+export interface WoolCommandReceiptValue {
+  version: 1
+  commandType: WoolCommandType
+  targetId: string
+  canonicalPayload: unknown
+  resultType: WoolCommandResultType
+  resultId: string
+}

@@ -1,5 +1,8 @@
 import { buildWoolFactWorkflowMockStore } from './mock-data.ts'
 import type {
+  WoolCommandReceiptValue,
+  WoolCommandResultType,
+  WoolCommandType,
   WoolCompletionRecord,
   WoolHandoverRecord,
   WoolMachine,
@@ -67,6 +70,68 @@ function assertUniqueIds<T>(
     if (seen.has(id)) throw new Error(`毛织存储校验失败：${label}存在重复 ID ${id}`)
     seen.add(id)
   }
+}
+
+const WOOL_COMMAND_RESULT_TYPES = new Set<WoolCommandResultType>([
+  'WOOL_YARN_RECEIPT',
+  'WOOL_PROCESS_REPORT',
+  'WOOL_HANDOVER',
+  'WOOL_YARN_ISSUE',
+  'WOOL_YARN_RETURN',
+  'WOOL_WAREHOUSE_FLOW',
+  'WOOL_QTY_CHANGE',
+])
+
+const WOOL_COMMAND_RESULT_TYPE_BY_COMMAND: Record<WoolCommandType, WoolCommandResultType> = {
+  ADD_WOOL_YARN_RECEIPT: 'WOOL_YARN_RECEIPT',
+  ADD_WOOL_PROCESS_REPORT: 'WOOL_PROCESS_REPORT',
+  ADD_WOOL_HANDOVER: 'WOOL_HANDOVER',
+  CONFIRM_WOOL_DOWNSTREAM_RECEIPT: 'WOOL_HANDOVER',
+  ISSUE_WOOL_YARN: 'WOOL_YARN_ISSUE',
+  RETURN_WOOL_YARN: 'WOOL_YARN_RETURN',
+  ADJUST_WOOL_WAREHOUSE_STOCK: 'WOOL_WAREHOUSE_FLOW',
+  TRANSFER_WOOL_WAREHOUSE_STOCK: 'WOOL_WAREHOUSE_FLOW',
+  CHANGE_WOOL_FACT_QTY: 'WOOL_QTY_CHANGE',
+}
+
+function canonicalizeCommandPayload(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map((item) => canonicalizeCommandPayload(item))
+  if (!value || typeof value !== 'object') return value
+  return Object.keys(value as Record<string, unknown>)
+    .filter((key) => (value as Record<string, unknown>)[key] !== undefined)
+    .sort()
+    .reduce<Record<string, unknown>>((result, key) => {
+      result[key] = canonicalizeCommandPayload((value as Record<string, unknown>)[key])
+      return result
+    }, {})
+}
+
+function validateCommandReceiptValue(
+  log: WoolOperationLog,
+): WoolCommandReceiptValue {
+  const value = log.afterValue as Partial<WoolCommandReceiptValue> | undefined
+  const commandType = value?.commandType as WoolCommandType | undefined
+  if (
+    log.objectType !== 'WOOL_COMMAND'
+    || !log.operationLogId.startsWith('WOOL-COMMAND-RECEIPT-')
+    || !value
+    || value.version !== 1
+    || !commandType
+    || !(commandType in WOOL_COMMAND_RESULT_TYPE_BY_COMMAND)
+    || typeof value.targetId !== 'string'
+    || !value.targetId
+    || value.targetId !== log.objectId
+    || !value.resultType
+    || !WOOL_COMMAND_RESULT_TYPES.has(value.resultType)
+    || value.resultType !== WOOL_COMMAND_RESULT_TYPE_BY_COMMAND[commandType]
+    || typeof value.resultId !== 'string'
+    || !value.resultId
+    || value.canonicalPayload === undefined
+    || JSON.stringify(value.canonicalPayload) !== JSON.stringify(canonicalizeCommandPayload(value.canonicalPayload))
+  ) {
+    throw new Error(`毛织存储校验失败：命令收据 ${log.operationLogId} 结构无效`)
+  }
+  return value as WoolCommandReceiptValue
 }
 
 export function validateWoolStore(store: WoolDomainStore): void {
@@ -528,7 +593,72 @@ export function validateWoolStore(store: WoolDomainStore): void {
     if (log.fromWoolOrderId) requireOrder(log.fromWoolOrderId, `横机关联日志 ${log.logId}`)
     if (log.toWoolOrderId) requireOrder(log.toWoolOrderId, `横机关联日志 ${log.logId}`)
   }
-  for (const log of store.operationLogs) requireOrder(log.woolOrderId, `操作日志 ${log.operationLogId}`)
+  for (const log of store.operationLogs) {
+    requireOrder(log.woolOrderId, `操作日志 ${log.operationLogId}`)
+    if (
+      log.operationLogId.startsWith('WOOL-COMMAND-RECEIPT-')
+      && log.action !== 'COMMAND_RECEIPT'
+    ) {
+      throw new Error(`毛织存储校验失败：命令收据 ${log.operationLogId} 的动作类型无效`)
+    }
+    if (log.action !== 'COMMAND_RECEIPT') continue
+    const receipt = validateCommandReceiptValue(log)
+    let resultWoolOrderId = ''
+    let resultTargetId = ''
+    if (receipt.resultType === 'WOOL_YARN_RECEIPT') {
+      const result = store.yarnReceipts.find((item) => item.receiptId === receipt.resultId)
+      if (!result) throw new Error(`毛织存储校验失败：命令收据 ${log.operationLogId} 的结果不存在`)
+      resultWoolOrderId = result.woolOrderId
+      resultTargetId = result.woolOrderId
+    } else if (receipt.resultType === 'WOOL_PROCESS_REPORT') {
+      const result = store.processReports.find((item) => item.reportId === receipt.resultId)
+      if (!result) throw new Error(`毛织存储校验失败：命令收据 ${log.operationLogId} 的结果不存在`)
+      resultWoolOrderId = result.woolOrderId
+      resultTargetId = result.woolOrderId
+    } else if (receipt.resultType === 'WOOL_HANDOVER') {
+      const result = store.handovers.find((item) => item.handoverId === receipt.resultId)
+      if (!result) throw new Error(`毛织存储校验失败：命令收据 ${log.operationLogId} 的结果不存在`)
+      resultWoolOrderId = result.woolOrderId
+      resultTargetId = receipt.commandType === 'CONFIRM_WOOL_DOWNSTREAM_RECEIPT'
+        ? result.handoverId
+        : result.woolOrderId
+    } else if (receipt.resultType === 'WOOL_YARN_ISSUE') {
+      const result = store.yarnIssues.find((item) => item.issueId === receipt.resultId)
+      if (!result) throw new Error(`毛织存储校验失败：命令收据 ${log.operationLogId} 的结果不存在`)
+      resultWoolOrderId = result.woolOrderId
+      resultTargetId = result.woolOrderId
+    } else if (receipt.resultType === 'WOOL_YARN_RETURN') {
+      const result = store.yarnReturns.find((item) => item.returnId === receipt.resultId)
+      if (!result) throw new Error(`毛织存储校验失败：命令收据 ${log.operationLogId} 的结果不存在`)
+      resultWoolOrderId = result.woolOrderId
+      resultTargetId = result.woolOrderId
+    } else if (receipt.resultType === 'WOOL_WAREHOUSE_FLOW') {
+      const result = store.warehouseFlows.find((item) => item.flowId === receipt.resultId)
+      if (!result) throw new Error(`毛织存储校验失败：命令收据 ${log.operationLogId} 的结果不存在`)
+      const expectedSourceType = receipt.commandType === 'ADJUST_WOOL_WAREHOUSE_STOCK'
+        ? 'STOCK_ADJUSTMENT'
+        : 'STOCK_TRANSFER'
+      if (result.sourceRecordType !== expectedSourceType) {
+        throw new Error(`毛织存储校验失败：命令收据 ${log.operationLogId} 的库存结果类型无效`)
+      }
+      resultWoolOrderId = result.woolOrderId
+      resultTargetId = result.woolOrderId
+    } else {
+      const result = store.qtyChangeLogs.find((item) => item.changeId === receipt.resultId)
+      if (!result) throw new Error(`毛织存储校验失败：命令收据 ${log.operationLogId} 的结果不存在`)
+      resultTargetId = result.recordId
+      if (result.recordType === 'YARN_RECEIPT') {
+        resultWoolOrderId = store.yarnReceipts.find((item) => item.receiptId === result.recordId)?.woolOrderId ?? ''
+      } else if (result.recordType === 'PROCESS_REPORT') {
+        resultWoolOrderId = store.processReports.find((item) => item.reportId === result.recordId)?.woolOrderId ?? ''
+      } else {
+        resultWoolOrderId = store.handovers.find((item) => item.handoverId === result.recordId)?.woolOrderId ?? ''
+      }
+    }
+    if (!resultWoolOrderId || resultWoolOrderId !== log.woolOrderId || resultTargetId !== receipt.targetId) {
+      throw new Error(`毛织存储校验失败：命令收据 ${log.operationLogId} 的结果归属无效`)
+    }
+  }
 }
 
 function readPersistedStore(): WoolDomainStore | undefined {

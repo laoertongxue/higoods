@@ -2139,6 +2139,53 @@ const reportLine = reportOrder.outputPlanLines.find(
   (item) => getWoolOutputReadiness(reportOrder.woolOrderId, item.outputSkuCode).isReady,
 )!
 
+const atomicCommandInput = {
+  commandId: 'CMD-RECEIPT-STORAGE-RETRY',
+  receivedAt: '2026-07-30 09:20:00',
+  receivedBy: '毛织仓管',
+  lines: [{ yarnSkuCode: 'YARN-A', receivedQty: 1 }],
+}
+const beforeFailedCommandCommit = readWoolStore()
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: {
+    getItem(key: string) {
+      return storageValues.get(key) ?? null
+    },
+    setItem() {
+      throw new Error('模拟命令收据持久化失败')
+    },
+  },
+})
+assert.throws(
+  () => addWoolYarnReceipt(reportOrder.woolOrderId, atomicCommandInput),
+  /模拟命令收据持久化失败/,
+)
+assert.deepEqual(readWoolStore(), beforeFailedCommandCommit)
+assert.equal(
+  readWoolStore().operationLogs.some((log) =>
+    log.operationLogId === 'WOOL-COMMAND-RECEIPT-CMD-RECEIPT-STORAGE-RETRY',
+  ),
+  false,
+)
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: {
+    getItem(key: string) {
+      return storageValues.get(key) ?? null
+    },
+    setItem(key: string, value: string) {
+      storageValues.set(key, value)
+    },
+  },
+})
+addWoolYarnReceipt(reportOrder.woolOrderId, atomicCommandInput)
+assert(
+  readWoolStore().operationLogs.some((log) =>
+    log.operationLogId === 'WOOL-COMMAND-RECEIPT-CMD-RECEIPT-STORAGE-RETRY',
+  ),
+)
+
 const receipt = addWoolYarnReceipt(reportOrder.woolOrderId, {
   commandId: 'CMD-RECEIPT-CHECK-001',
   deliveryNo: 'DN-CHECK-001',
@@ -2151,15 +2198,55 @@ const receipt = addWoolYarnReceipt(reportOrder.woolOrderId, {
   ],
 })
 const receiptRetry = addWoolYarnReceipt(reportOrder.woolOrderId, {
-  commandId: 'CMD-RECEIPT-CHECK-001',
-  deliveryNo: 'DN-RETRY-MUST-NOT-OVERWRITE',
+  lines: [
+    { receivedQty: 5, yarnName: 'A 纱线', yarnSkuCode: 'YARN-A' },
+    { receivedQty: 5, yarnName: 'B 纱线', yarnSkuCode: 'YARN-B' },
+  ],
+  receivedBy: '毛织仓管',
+  receivedAt: '2026-07-30 09:30:00',
   batchNo: 'BATCH-CHECK-001',
-  receivedAt: '2026-07-30 09:31:00',
-  receivedBy: '另一个入口',
-  lines: [{ yarnSkuCode: 'YARN-A', receivedQty: 99 }],
+  deliveryNo: 'DN-CHECK-001',
+  commandId: 'CMD-RECEIPT-CHECK-001',
 })
-assert.equal(receiptRetry.receiptId, receipt.receiptId)
-assert.equal(receiptRetry.deliveryNo, 'DN-CHECK-001')
+assert.deepEqual(receiptRetry, receipt)
+assert.throws(
+  () => addWoolYarnReceipt(reportOrder.woolOrderId, {
+    commandId: 'CMD-RECEIPT-CHECK-001',
+    deliveryNo: 'DN-RETRY-MUST-NOT-OVERWRITE',
+    batchNo: 'BATCH-CHECK-001',
+    receivedAt: '2026-07-30 09:31:00',
+    receivedBy: '另一个入口',
+    lines: [{ yarnSkuCode: 'YARN-A', receivedQty: 99 }],
+  }),
+  /commandId 已被其他请求占用|幂等冲突/,
+)
+const otherWoolOrder = listWoolWorkOrders().find((item) =>
+  item.woolOrderId !== reportOrder.woolOrderId,
+)!
+assert.throws(
+  () => addWoolYarnReceipt(otherWoolOrder.woolOrderId, {
+    commandId: 'CMD-RECEIPT-CHECK-001',
+    deliveryNo: 'DN-CHECK-001',
+    batchNo: 'BATCH-CHECK-001',
+    receivedAt: '2026-07-30 09:30:00',
+    receivedBy: '毛织仓管',
+    lines: [
+      { yarnSkuCode: 'YARN-A', yarnName: 'A 纱线', receivedQty: 5 },
+      { yarnSkuCode: 'YARN-B', yarnName: 'B 纱线', receivedQty: 5 },
+    ],
+  }),
+  /commandId 已被其他请求占用|幂等冲突/,
+)
+assert.throws(
+  () => addWoolProcessReport(reportOrder.woolOrderId, {
+    commandId: 'CMD-RECEIPT-CHECK-001',
+    outputSkuCode: reportLine.outputSkuCode,
+    reportedQty: 1,
+    reportedAt: '2026-07-30 09:35:00',
+    reportedBy: '毛织主管',
+  }),
+  /commandId 已被其他请求占用|幂等冲突/,
+)
 assert.equal(listWoolWarehouseFlows({ sourceRecordType: 'YARN_RECEIPT' })
   .filter((item) => receipt.lines.some((line) => line.lineId === item.sourceRecordId)).length, 2)
 assert(listWoolWarehouseFlows({ sourceRecordType: 'YARN_RECEIPT' })
@@ -2191,15 +2278,16 @@ const report = addWoolProcessReport(reportOrder.woolOrderId, {
   reportedAt: '2026-07-30 10:00:00',
   reportedBy: '毛织主管',
 })
-const reportRetry = addWoolProcessReport(reportOrder.woolOrderId, {
-  commandId: 'CMD-REPORT-CHECK-001',
-  outputSkuCode: reportLine.outputSkuCode,
-  reportedQty: 99,
-  reportedAt: '2026-07-30 10:01:00',
-  reportedBy: '另一个入口',
-})
-assert.equal(reportRetry.reportId, report.reportId)
-assert.equal(reportRetry.reportedQty, 10)
+assert.throws(
+  () => addWoolProcessReport(reportOrder.woolOrderId, {
+    commandId: 'CMD-REPORT-CHECK-001',
+    outputSkuCode: reportLine.outputSkuCode,
+    reportedQty: 99,
+    reportedAt: '2026-07-30 10:01:00',
+    reportedBy: '另一个入口',
+  }),
+  /commandId 已被其他请求占用|幂等冲突/,
+)
 assert.equal(listWoolWarehouseFlows({ sourceRecordId: report.reportId }).length, 1)
 assert.equal(
   listWoolWarehouseFlows({ sourceRecordId: report.reportId })[0].defaultLocationId,
@@ -2243,15 +2331,15 @@ assert.deepEqual(
 )
 assert.equal(handover.downstreamReceipt?.status, 'PENDING')
 assert.equal(getWoolOutputStockQty(reportOrder.woolOrderId, reportLine.outputSkuCode), 4)
-assert.equal(
-  addWoolHandover(reportOrder.woolOrderId, {
+assert.throws(
+  () => addWoolHandover(reportOrder.woolOrderId, {
     commandId: 'CMD-HANDOVER-CHECK-001',
     outputSkuCode: reportLine.outputSkuCode,
     handoverQty: 1,
     handedOverAt: '2026-07-30 11:01:00',
     handedOverBy: '另一个入口',
-  }).handoverId,
-  handover.handoverId,
+  }),
+  /commandId 已被其他请求占用|幂等冲突/,
 )
 
 changeWoolFactQty({
@@ -2275,6 +2363,18 @@ const secondReportChange = changeWoolFactQty({
 })
 assert.equal(secondReportChange.beforeQty, 12)
 assert.equal(listWoolWarehouseFlows({ sourceRecordId: secondReportChange.changeId })[0].qty, 2)
+assert.throws(
+  () => changeWoolFactQty({
+    commandId: 'CMD-CHANGE-REPORT-002',
+    recordType: 'PROCESS_REPORT',
+    recordId: report.reportId,
+    afterQty: 15,
+    reason: '同一命令尝试写入其他数量',
+    changedAt: '2026-07-30 11:21:00',
+    changedBy: '另一个入口',
+  }),
+  /commandId 已被其他请求占用|幂等冲突/,
+)
 
 confirmWoolDownstreamReceipt(handover.handoverId, {
   commandId: 'CMD-DOWNSTREAM-CONFIRM-001',
@@ -2283,14 +2383,26 @@ confirmWoolDownstreamReceipt(handover.handoverId, {
   receivedBy: '下游仓管',
 })
 assert.equal(getWoolOutputStockQty(reportOrder.woolOrderId, reportLine.outputSkuCode), 8)
-assert.equal(
-  confirmWoolDownstreamReceipt(handover.handoverId, {
+assert.throws(
+  () => confirmWoolDownstreamReceipt(handover.handoverId, {
     commandId: 'CMD-DOWNSTREAM-CONFIRM-001',
     actualReceivedQty: 99,
     receivedAt: '2026-07-30 12:01:00',
     receivedBy: '另一个入口',
-  }).downstreamReceipt?.actualReceivedQty,
-  5,
+  }),
+  /commandId 已被其他请求占用|幂等冲突/,
+)
+const anotherPendingHandover = readWoolStore().handovers.find((item) =>
+  item.handoverId !== handover.handoverId && item.downstreamReceipt?.status !== 'CONFIRMED',
+)!
+assert.throws(
+  () => confirmWoolDownstreamReceipt(anotherPendingHandover.handoverId, {
+    commandId: 'CMD-DOWNSTREAM-CONFIRM-001',
+    actualReceivedQty: 5,
+    receivedAt: '2026-07-30 12:00:00',
+    receivedBy: '下游仓管',
+  }),
+  /commandId 已被其他请求占用|幂等冲突/,
 )
 assert.throws(
   () => changeWoolFactQty({
@@ -2314,18 +2426,18 @@ const issue = issueWoolYarn(reportOrder.woolOrderId, {
   issuedAt: '2026-07-30 12:20:00',
   issuedBy: '毛织仓管',
 })
-assert.equal(
-  issueWoolYarn(reportOrder.woolOrderId, {
+assert.throws(
+  () => issueWoolYarn(reportOrder.woolOrderId, {
     commandId: 'CMD-YARN-ISSUE-CHECK-001',
     yarnSkuCode: yarnLine,
     batchNo: 'BATCH-CHECK-001',
     issuedQty: 4,
     issuedAt: '2026-07-30 12:21:00',
     issuedBy: '另一个入口',
-  }).issueId,
-  issue.issueId,
+  }),
+  /commandId 已被其他请求占用|幂等冲突/,
 )
-returnWoolYarn(reportOrder.woolOrderId, {
+const yarnReturn = returnWoolYarn(reportOrder.woolOrderId, {
   commandId: 'CMD-YARN-RETURN-CHECK-001',
   yarnSkuCode: yarnLine,
   batchNo: 'BATCH-CHECK-001',
@@ -2333,6 +2445,18 @@ returnWoolYarn(reportOrder.woolOrderId, {
   returnedAt: '2026-07-30 12:30:00',
   returnedBy: '毛织仓管',
 })
+assert.throws(
+  () => returnWoolYarn(reportOrder.woolOrderId, {
+    commandId: 'CMD-YARN-RETURN-CHECK-001',
+    yarnSkuCode: yarnLine,
+    batchNo: 'BATCH-CHECK-001',
+    returnedQty: 2,
+    returnedAt: '2026-07-30 12:31:00',
+    returnedBy: '另一个入口',
+  }),
+  /commandId 已被其他请求占用|幂等冲突/,
+)
+assert.equal(yarnReturn.returnedQty, 1)
 assert.throws(
   () => returnWoolYarn(reportOrder.woolOrderId, {
     commandId: 'CMD-YARN-RETURN-CHECK-OVER',
@@ -2358,6 +2482,19 @@ const adjustment = adjustWoolWarehouseStock({
 })
 assert.equal(adjustment.qty, 3)
 assert.equal(getWoolOutputStockQty(reportOrder.woolOrderId, reportLine.outputSkuCode), stockBeforeAdjustment + 3)
+assert.throws(
+  () => adjustWoolWarehouseStock({
+    commandId: 'CMD-STOCK-ADJUST-001',
+    woolOrderId: reportOrder.woolOrderId,
+    objectSkuCode: reportLine.outputSkuCode,
+    defaultLocationId: 'WOOL-WH-GARMENT-DEFAULT',
+    afterQty: stockBeforeAdjustment + 4,
+    reason: '同一命令尝试写入其他盘点数',
+    operatedAt: '2026-07-30 12:45:01',
+    operatedBy: '另一个入口',
+  }),
+  /commandId 已被其他请求占用|幂等冲突/,
+)
 const publicWarehouse = listFactoryInternalWarehouses().find((warehouse) =>
   warehouse.isEnabled
   && warehouse.areaList.some((area) =>
@@ -2403,6 +2540,21 @@ try {
     operatedAt: '2026-07-30 12:46:00',
     operatedBy: '毛织仓管',
   })
+  assert.throws(
+    () => transferWoolWarehouseStock({
+      commandId: 'CMD-STOCK-TRANSFER-PUBLIC-ENABLED',
+      woolOrderId: reportOrder.woolOrderId,
+      objectSkuCode: reportLine.outputSkuCode,
+      defaultLocationId: 'WOOL-WH-GARMENT-DEFAULT',
+      toWarehouseId: publicWarehouse.warehouseId,
+      toLocationId: publicEnabledLocation.locationId,
+      qty: 2,
+      reason: '同一命令尝试转移其他数量',
+      operatedAt: '2026-07-30 12:46:01',
+      operatedBy: '另一个入口',
+    }),
+    /commandId 已被其他请求占用|幂等冲突/,
+  )
   assert.equal(
     toggleFactoryWarehouseNodeStatus('LOCATION', {
       warehouseId: publicWarehouse.warehouseId,
@@ -2494,6 +2646,61 @@ assert.equal(readWoolStore().operationLogs.filter((item) =>
   item.woolOrderId === completionOrder.woolOrderId && item.action === 'COMPLETE_WOOL_WORK_ORDER',
 ).length, 1)
 
+const commandReceiptStore = readWoolStore()
+const commandReceiptLogs = commandReceiptStore.operationLogs.filter((item) =>
+  item.action === 'COMMAND_RECEIPT',
+)
+assert(commandReceiptLogs.length >= 9)
+assert(commandReceiptLogs.every((item) =>
+  item.objectType === 'WOOL_COMMAND'
+  && item.operationLogId.startsWith('WOOL-COMMAND-RECEIPT-'),
+))
+assert.deepEqual(
+  new Set(commandReceiptLogs.map((item) =>
+    (item.afterValue as { commandType: string }).commandType,
+  )),
+  new Set([
+    'ADD_WOOL_YARN_RECEIPT',
+    'ADD_WOOL_PROCESS_REPORT',
+    'ADD_WOOL_HANDOVER',
+    'CONFIRM_WOOL_DOWNSTREAM_RECEIPT',
+    'ISSUE_WOOL_YARN',
+    'RETURN_WOOL_YARN',
+    'ADJUST_WOOL_WAREHOUSE_STOCK',
+    'TRANSFER_WOOL_WAREHOUSE_STOCK',
+    'CHANGE_WOOL_FACT_QTY',
+  ]),
+)
+const malformedCommandReceiptStore = structuredClone(commandReceiptStore)
+malformedCommandReceiptStore.operationLogs.find((item) =>
+  item.action === 'COMMAND_RECEIPT',
+)!.afterValue = { version: 1 }
+assert.throws(
+  () => validateWoolStore(malformedCommandReceiptStore),
+  /命令收据/,
+)
+const disguisedCommandReceiptStore = structuredClone(commandReceiptStore)
+const disguisedCommandReceipt = disguisedCommandReceiptStore.operationLogs.find((item) =>
+  item.action === 'COMMAND_RECEIPT',
+)!
+disguisedCommandReceipt.action = 'STORE_CHECK'
+assert.throws(
+  () => validateWoolStore(disguisedCommandReceiptStore),
+  /命令收据/,
+)
+const orphanCommandReceiptStore = structuredClone(commandReceiptStore)
+const orphanCommandReceipt = orphanCommandReceiptStore.operationLogs.find((item) =>
+  item.action === 'COMMAND_RECEIPT',
+)!
+orphanCommandReceipt.afterValue = {
+  ...(orphanCommandReceipt.afterValue as Record<string, unknown>),
+  resultId: 'WOOL-COMMAND-RESULT-NOT-FOUND',
+}
+assert.throws(
+  () => validateWoolStore(orphanCommandReceiptStore),
+  /命令收据.*结果|结果.*不存在/,
+)
+
 resetWoolFactWorkflowMock('CHECK_WOOL_COMPLETION_MACHINE_RELEASE')
 const associatedOrder = listWoolWorkOrders()
   .find((item) => item.mockScenarioCode === 'MACHINE_ASSOCIATION_A')!
@@ -2551,4 +2758,4 @@ assert(associatedCompletionStore.operationLogs.some((item) =>
   && item.action === 'RELEASE_WOOL_MACHINES_FOR_COMPLETION',
 ))
 
-console.log('PASS task 5: repeatable wool facts, atomic stock, downstream lock, and manual completion')
+console.log('PASS task 5: global command receipts, atomic stock, downstream lock, and manual completion')

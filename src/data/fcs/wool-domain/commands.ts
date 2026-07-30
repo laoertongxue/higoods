@@ -6,6 +6,9 @@ import {
 import { commitWoolStore, readWoolStore, type WoolDomainStore } from './store.ts'
 import { resolveEnabledFactoryWarehouseLocation } from '../factory-internal-warehouse-locations.ts'
 import type {
+  WoolCommandReceiptValue,
+  WoolCommandResultType,
+  WoolCommandType,
   WoolCompletionRecord,
   WoolDefaultLocationId,
   WoolHandoverRecord,
@@ -127,6 +130,124 @@ function commandToken(commandId: string): string {
 
 function commandRecordId(prefix: string, commandId: string): string {
   return `${prefix}-${commandToken(commandId)}`
+}
+
+function commandReceiptId(commandId: string): string {
+  return commandRecordId('WOOL-COMMAND-RECEIPT', commandId)
+}
+
+function canonicalizeCommandPayload(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map((item) => canonicalizeCommandPayload(item))
+  if (!value || typeof value !== 'object') return value
+  return Object.keys(value as Record<string, unknown>)
+    .filter((key) => (value as Record<string, unknown>)[key] !== undefined)
+    .sort()
+    .reduce<Record<string, unknown>>((result, key) => {
+      result[key] = canonicalizeCommandPayload((value as Record<string, unknown>)[key])
+      return result
+    }, {})
+}
+
+function commandBusinessPayload(input: CommandInput): unknown {
+  const { commandId: _commandId, ...payload } = input as CommandInput & Record<string, unknown>
+  return canonicalizeCommandPayload(payload)
+}
+
+interface WoolCommandDescriptor {
+  commandId: string
+  commandType: WoolCommandType
+  targetId: string
+  canonicalPayload: unknown
+}
+
+function describeCommand(
+  commandType: WoolCommandType,
+  targetId: string,
+  input: CommandInput,
+): WoolCommandDescriptor {
+  return {
+    commandId: input.commandId,
+    commandType,
+    targetId,
+    canonicalPayload: commandBusinessPayload(input),
+  }
+}
+
+function findCommandResult(
+  store: WoolDomainStore,
+  resultType: WoolCommandResultType,
+  resultId: string,
+): unknown {
+  if (resultType === 'WOOL_YARN_RECEIPT') {
+    return store.yarnReceipts.find((record) => record.receiptId === resultId)
+  }
+  if (resultType === 'WOOL_PROCESS_REPORT') {
+    return store.processReports.find((record) => record.reportId === resultId)
+  }
+  if (resultType === 'WOOL_HANDOVER') {
+    return store.handovers.find((record) => record.handoverId === resultId)
+  }
+  if (resultType === 'WOOL_YARN_ISSUE') {
+    return store.yarnIssues.find((record) => record.issueId === resultId)
+  }
+  if (resultType === 'WOOL_YARN_RETURN') {
+    return store.yarnReturns.find((record) => record.returnId === resultId)
+  }
+  if (resultType === 'WOOL_WAREHOUSE_FLOW') {
+    return store.warehouseFlows.find((record) => record.flowId === resultId)
+  }
+  return store.qtyChangeLogs.find((record) => record.changeId === resultId)
+}
+
+function resolveCommandRetry<T>(descriptor: WoolCommandDescriptor): T | undefined {
+  const store = readWoolStore()
+  const receipt = store.operationLogs.find((log) =>
+    log.operationLogId === commandReceiptId(descriptor.commandId),
+  )
+  if (!receipt) return undefined
+  const value = receipt.afterValue as WoolCommandReceiptValue
+  const isSameRequest =
+    value.commandType === descriptor.commandType
+    && value.targetId === descriptor.targetId
+    && JSON.stringify(value.canonicalPayload) === JSON.stringify(descriptor.canonicalPayload)
+  if (!isSameRequest) {
+    throw new Error('commandId 已被其他请求占用，存在幂等冲突')
+  }
+  const result = findCommandResult(store, value.resultType, value.resultId)
+  if (!result) throw new Error('毛织存储不一致：commandId 收据引用的结果不存在')
+  return result as T
+}
+
+function appendCommandReceipt(
+  draft: WoolDomainStore,
+  descriptor: WoolCommandDescriptor,
+  input: {
+    woolOrderId: string
+    resultType: WoolCommandResultType
+    resultId: string
+    operatedAt: string
+    operatedBy: string
+  },
+): void {
+  const afterValue: WoolCommandReceiptValue = {
+    version: 1,
+    commandType: descriptor.commandType,
+    targetId: descriptor.targetId,
+    canonicalPayload: descriptor.canonicalPayload,
+    resultType: input.resultType,
+    resultId: input.resultId,
+  }
+  draft.operationLogs.push({
+    operationLogId: commandReceiptId(descriptor.commandId),
+    woolOrderId: input.woolOrderId,
+    action: 'COMMAND_RECEIPT',
+    objectType: 'WOOL_COMMAND',
+    objectId: descriptor.targetId,
+    afterValue,
+    operatedAt: input.operatedAt,
+    operatedBy: input.operatedBy,
+    remark: '毛织命令统一幂等收据',
+  })
 }
 
 function requireText(value: string | undefined, label: string): string {
@@ -312,8 +433,9 @@ export function addWoolYarnReceipt(
   woolOrderId: string,
   input: AddWoolYarnReceiptInput,
 ): WoolYarnReceiptRecord {
+  const descriptor = describeCommand('ADD_WOOL_YARN_RECEIPT', woolOrderId, input)
   const receiptId = commandRecordId('WR', input.commandId)
-  const existing = readWoolStore().yarnReceipts.find((record) => record.receiptId === receiptId)
+  const existing = resolveCommandRetry<WoolYarnReceiptRecord>(descriptor)
   if (existing) return existing
   if (!Array.isArray(input.lines) || input.lines.length === 0) {
     throw new Error('确认接收至少一条纱线明细')
@@ -368,6 +490,13 @@ export function addWoolYarnReceipt(
       operatedAt: input.receivedAt,
       operatedBy: receivedBy,
     })))
+    appendCommandReceipt(draft, descriptor, {
+      woolOrderId,
+      resultType: 'WOOL_YARN_RECEIPT',
+      resultId: receiptId,
+      operatedAt: input.receivedAt,
+      operatedBy: receivedBy,
+    })
   })
   return committed.yarnReceipts.find((record) => record.receiptId === receiptId)!
 }
@@ -376,8 +505,9 @@ export function addWoolProcessReport(
   woolOrderId: string,
   input: AddWoolProcessReportInput,
 ): WoolProcessReportRecord {
+  const descriptor = describeCommand('ADD_WOOL_PROCESS_REPORT', woolOrderId, input)
   const reportId = commandRecordId('WPR', input.commandId)
-  const existing = readWoolStore().processReports.find((record) => record.reportId === reportId)
+  const existing = resolveCommandRetry<WoolProcessReportRecord>(descriptor)
   if (existing) return existing
   requirePositiveInteger(input.reportedQty, '加工填报数量')
   const reportedBy = requireText(input.reportedBy, '填报人')
@@ -423,6 +553,13 @@ export function addWoolProcessReport(
       operatedAt: input.reportedAt,
       operatedBy: reportedBy,
     })
+    appendCommandReceipt(draft, descriptor, {
+      woolOrderId,
+      resultType: 'WOOL_PROCESS_REPORT',
+      resultId: reportId,
+      operatedAt: input.reportedAt,
+      operatedBy: reportedBy,
+    })
   })
   return committed.processReports.find((record) => record.reportId === reportId)!
 }
@@ -431,8 +568,9 @@ export function addWoolHandover(
   woolOrderId: string,
   input: AddWoolHandoverInput,
 ): WoolHandoverRecord {
+  const descriptor = describeCommand('ADD_WOOL_HANDOVER', woolOrderId, input)
   const handoverId = commandRecordId('WHO', input.commandId)
-  const existing = readWoolStore().handovers.find((record) => record.handoverId === handoverId)
+  const existing = resolveCommandRetry<WoolHandoverRecord>(descriptor)
   if (existing) return existing
   requirePositiveInteger(input.handoverQty, '交出数量')
   const handedOverBy = requireText(input.handedOverBy, '交出人')
@@ -482,6 +620,13 @@ export function addWoolHandover(
       operatedAt: input.handedOverAt,
       operatedBy: handedOverBy,
     })
+    appendCommandReceipt(draft, descriptor, {
+      woolOrderId,
+      resultType: 'WOOL_HANDOVER',
+      resultId: handoverId,
+      operatedAt: input.handedOverAt,
+      operatedBy: handedOverBy,
+    })
   })
   return committed.handovers.find((record) => record.handoverId === handoverId)!
 }
@@ -490,11 +635,13 @@ export function confirmWoolDownstreamReceipt(
   handoverId: string,
   input: ConfirmWoolDownstreamReceiptInput,
 ): WoolHandoverRecord {
+  const descriptor = describeCommand('CONFIRM_WOOL_DOWNSTREAM_RECEIPT', handoverId, input)
   const operationLogId = commandRecordId('WOOP-DOWNSTREAM', input.commandId)
+  const retried = resolveCommandRetry<WoolHandoverRecord>(descriptor)
+  if (retried) return retried
   const current = readWoolStore()
   const existing = current.handovers.find((record) => record.handoverId === handoverId)
   if (!existing) throw new Error(`找不到交出记录 ${handoverId}`)
-  if (current.operationLogs.some((log) => log.operationLogId === operationLogId)) return existing
   if (existing.downstreamReceipt?.status === 'CONFIRMED') throw new Error('下游已经确认接收')
   if (!Number.isInteger(input.actualReceivedQty) || input.actualReceivedQty < 0) {
     throw new Error('实际接收数量必须为非负整数')
@@ -522,6 +669,13 @@ export function confirmWoolDownstreamReceipt(
       operatedAt: input.receivedAt,
       operatedBy: receivedBy,
     })
+    appendCommandReceipt(draft, descriptor, {
+      woolOrderId: record.woolOrderId,
+      resultType: 'WOOL_HANDOVER',
+      resultId: handoverId,
+      operatedAt: input.receivedAt,
+      operatedBy: receivedBy,
+    })
   })
   return committed.handovers.find((record) => record.handoverId === handoverId)!
 }
@@ -530,8 +684,9 @@ export function issueWoolYarn(
   woolOrderId: string,
   input: IssueWoolYarnInput,
 ): WoolYarnIssueRecord {
+  const descriptor = describeCommand('ISSUE_WOOL_YARN', woolOrderId, input)
   const issueId = commandRecordId('WI', input.commandId)
-  const existing = readWoolStore().yarnIssues.find((record) => record.issueId === issueId)
+  const existing = resolveCommandRetry<WoolYarnIssueRecord>(descriptor)
   if (existing) return existing
   requirePositive(input.issuedQty, '领用数量')
   const issuedBy = requireText(input.issuedBy, '领用人')
@@ -583,6 +738,13 @@ export function issueWoolYarn(
       operatedAt: input.issuedAt,
       operatedBy: issuedBy,
     })
+    appendCommandReceipt(draft, descriptor, {
+      woolOrderId,
+      resultType: 'WOOL_YARN_ISSUE',
+      resultId: issueId,
+      operatedAt: input.issuedAt,
+      operatedBy: issuedBy,
+    })
   })
   return committed.yarnIssues.find((record) => record.issueId === issueId)!
 }
@@ -591,8 +753,9 @@ export function returnWoolYarn(
   woolOrderId: string,
   input: ReturnWoolYarnInput,
 ): WoolYarnReturnRecord {
+  const descriptor = describeCommand('RETURN_WOOL_YARN', woolOrderId, input)
   const returnId = commandRecordId('WRT', input.commandId)
-  const existing = readWoolStore().yarnReturns.find((record) => record.returnId === returnId)
+  const existing = resolveCommandRetry<WoolYarnReturnRecord>(descriptor)
   if (existing) return existing
   requirePositive(input.returnedQty, '退回数量')
   const returnedBy = requireText(input.returnedBy, '退回人')
@@ -654,6 +817,13 @@ export function returnWoolYarn(
       operatedAt: input.returnedAt,
       operatedBy: returnedBy,
     })
+    appendCommandReceipt(draft, descriptor, {
+      woolOrderId,
+      resultType: 'WOOL_YARN_RETURN',
+      resultId: returnId,
+      operatedAt: input.returnedAt,
+      operatedBy: returnedBy,
+    })
   })
   return committed.yarnReturns.find((record) => record.returnId === returnId)!
 }
@@ -661,10 +831,9 @@ export function returnWoolYarn(
 export function adjustWoolWarehouseStock(
   input: AdjustWoolWarehouseStockInput,
 ): WoolWarehouseFlow {
+  const descriptor = describeCommand('ADJUST_WOOL_WAREHOUSE_STOCK', input.woolOrderId, input)
   const sourceRecordId = commandRecordId('STOCK-ADJUSTMENT', input.commandId)
-  const existing = readWoolStore().warehouseFlows.find((flow) =>
-    flow.sourceRecordType === 'STOCK_ADJUSTMENT' && flow.sourceRecordId === sourceRecordId,
-  )
+  const existing = resolveCommandRetry<WoolWarehouseFlow>(descriptor)
   if (existing) return existing
   if (!Number.isFinite(input.afterQty) || input.afterQty < 0) {
     throw new Error('调整后数量不能小于 0')
@@ -709,6 +878,13 @@ export function adjustWoolWarehouseStock(
       operatedBy,
       remark: reason,
     })
+    appendCommandReceipt(draft, descriptor, {
+      woolOrderId: input.woolOrderId,
+      resultType: 'WOOL_WAREHOUSE_FLOW',
+      resultId: `WF-${sourceRecordId}`,
+      operatedAt: input.operatedAt,
+      operatedBy,
+    })
   })
   return committed.warehouseFlows.find((flow) => flow.sourceRecordId === sourceRecordId)!
 }
@@ -716,10 +892,9 @@ export function adjustWoolWarehouseStock(
 export function transferWoolWarehouseStock(
   input: TransferWoolWarehouseStockInput,
 ): WoolWarehouseFlow {
+  const descriptor = describeCommand('TRANSFER_WOOL_WAREHOUSE_STOCK', input.woolOrderId, input)
   const sourceRecordId = commandRecordId('STOCK-TRANSFER', input.commandId)
-  const existing = readWoolStore().warehouseFlows.find((flow) =>
-    flow.sourceRecordType === 'STOCK_TRANSFER' && flow.sourceRecordId === sourceRecordId,
-  )
+  const existing = resolveCommandRetry<WoolWarehouseFlow>(descriptor)
   if (existing) return existing
   requirePositive(input.qty, '转移数量')
   const reason = requireText(input.reason, '转移原因')
@@ -768,13 +943,21 @@ export function transferWoolWarehouseStock(
       operatedBy,
       remark: reason,
     })
+    appendCommandReceipt(draft, descriptor, {
+      woolOrderId: input.woolOrderId,
+      resultType: 'WOOL_WAREHOUSE_FLOW',
+      resultId: `WF-${sourceRecordId}`,
+      operatedAt: input.operatedAt,
+      operatedBy,
+    })
   })
   return committed.warehouseFlows.find((flow) => flow.sourceRecordId === sourceRecordId)!
 }
 
 export function changeWoolFactQty(input: ChangeWoolFactQtyInput): WoolQtyChangeLog {
+  const descriptor = describeCommand('CHANGE_WOOL_FACT_QTY', input.recordId, input)
   const changeId = commandRecordId('WQC', input.commandId)
-  const existing = readWoolStore().qtyChangeLogs.find((change) => change.changeId === changeId)
+  const existing = resolveCommandRetry<WoolQtyChangeLog>(descriptor)
   if (existing) return existing
   requirePositive(input.afterQty, '修改后数量')
   const reason = requireText(input.reason, '修改原因')
@@ -897,6 +1080,13 @@ export function changeWoolFactQty(input: ChangeWoolFactQtyInput): WoolQtyChangeL
       sourceRecordType: 'QTY_CHANGE',
       sourceRecordId: changeId,
       reason,
+      operatedAt: input.changedAt,
+      operatedBy: changedBy,
+    })
+    appendCommandReceipt(draft, descriptor, {
+      woolOrderId,
+      resultType: 'WOOL_QTY_CHANGE',
+      resultId: changeId,
       operatedAt: input.changedAt,
       operatedBy: changedBy,
     })
