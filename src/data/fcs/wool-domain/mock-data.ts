@@ -265,18 +265,24 @@ export function buildWoolFactWorkflowMockStore(_seed = 'DEFAULT'): WoolDomainSto
   const orders = WOOL_MOCK_SCENARIO_CODES.map((code, index) => workOrder(index + 1, code))
   const mixedPanelOrder = orders.find((order) => order.mockScenarioCode === 'MIXED_ORDER_KINDS')!
   const mixedWholeOrder: WoolWorkOrder = {
-    ...workOrder(27, 'NO_YARN_RECEIPT'),
+    ...mixedPanelOrder,
     woolOrderId: `${mixedPanelOrder.woolOrderId}-WHOLE`,
     woolOrderNo: `${mixedPanelOrder.woolOrderNo}-整件`,
     taskId: `${mixedPanelOrder.taskId}-WHOLE`,
     taskNo: `${mixedPanelOrder.taskNo}-整件`,
-    productionOrderId: mixedPanelOrder.productionOrderId,
-    productionOrderNo: mixedPanelOrder.productionOrderNo,
     kind: 'WHOLE_GARMENT',
-    outputPlanLines: [
-      outputLine(27, 'BLACK', 'WHOLE_GARMENT', ['YARN-A', 'YARN-B']),
-      outputLine(27, 'WHITE', 'WHOLE_GARMENT', ['YARN-A', 'YARN-C']),
-    ],
+    outputPlanLines: mixedPanelOrder.outputPlanLines.map((panelLine) => {
+      const wholeLine: WoolOutputPlanLine = {
+        ...panelLine,
+        outputSkuCode: panelLine.garmentSkuCode,
+        outputObjectType: 'GARMENT',
+        plannedQty: Math.floor(panelLine.plannedQty / 2),
+        qtyUnit: '件',
+      }
+      delete wholeLine.woolPartCode
+      delete wholeLine.woolPartName
+      return wholeLine
+    }),
     downstreamTarget: {
       receiverType: 'DOWNSTREAM_FACTORY',
       receiverId: 'DOWNSTREAM-MIXED-WHOLE',

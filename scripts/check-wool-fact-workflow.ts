@@ -774,6 +774,34 @@ assert.deepEqual(
   new Set(sameProductionOrders.map((item) => item.kind)),
   new Set(['WHOLE_GARMENT', 'PART_PANEL']),
 )
+const mixedWholeOrder = sameProductionOrders.find((item) => item.kind === 'WHOLE_GARMENT')!
+const mixedPanelOrder = sameProductionOrders.find((item) => item.kind === 'PART_PANEL')!
+assert.notEqual(mixedWholeOrder.woolOrderId, mixedPanelOrder.woolOrderId)
+assert.deepEqual(
+  [...new Set(mixedWholeOrder.outputPlanLines.map((item) => item.garmentSkuCode))].sort(),
+  [...new Set(mixedPanelOrder.outputPlanLines.map((item) => item.garmentSkuCode))].sort(),
+  '同生产单的整件与部位毛织单必须复用完全相同的成衣 SKU 范围',
+)
+assert.equal(mixedWholeOrder.sourceTechPackVersionId, mixedPanelOrder.sourceTechPackVersionId)
+assert.equal(mixedWholeOrder.sourceTechPackVersionCode, mixedPanelOrder.sourceTechPackVersionCode)
+assert.deepEqual(
+  new Set(mixedWholeOrder.outputPlanLines.map((item) => item.sourceTechPackVersionId)),
+  new Set([mixedPanelOrder.sourceTechPackVersionId]),
+)
+assert.deepEqual(
+  new Set(mixedWholeOrder.outputPlanLines.map((item) => item.sourceTechPackVersionCode)),
+  new Set([mixedPanelOrder.sourceTechPackVersionCode]),
+)
+assert.equal(mixedWholeOrder.outputPlanLines.every((item) => item.outputObjectType === 'GARMENT'), true)
+assert.equal(mixedPanelOrder.outputPlanLines.every((item) => item.outputObjectType === 'WOOL_PANEL'), true)
+assert.equal(
+  mixedWholeOrder.outputPlanLines.some((wholeLine) =>
+    mixedPanelOrder.outputPlanLines.some((panelLine) =>
+      panelLine.outputSkuCode === wholeLine.outputSkuCode,
+    ),
+  ),
+  false,
+)
 
 const issueReturnOrder = allOrders.find((item) => item.mockScenarioCode === 'YARN_ISSUE_RETURN')!
 const issueReturnStore = readWoolStore()
