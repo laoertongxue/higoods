@@ -237,9 +237,16 @@ export function buildWoolMachineScheduleLink(woolOrderId?: string): string {
   return woolOrderId ? `${base}?woolOrderId=${encodeSegment(woolOrderId)}` : base
 }
 
-export function buildWoolMachineAssociationsLink(woolOrderId?: string): string {
+export function buildWoolMachineAssociationsLink(
+  woolOrderId?: string,
+  machineId?: string,
+): string {
   const base = '/fcs/craft/wool/machine-associations'
-  return woolOrderId ? `${base}?woolOrderId=${encodeSegment(woolOrderId)}` : base
+  const params = new URLSearchParams()
+  if (woolOrderId) params.set('woolOrderId', woolOrderId)
+  if (machineId) params.set('machineId', machineId)
+  const query = params.toString()
+  return query ? `${base}?${query}` : base
 }
 
 export function buildWoolMachinesLink(machineNo?: string): string {

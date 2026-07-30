@@ -243,6 +243,12 @@ export function validateWoolStore(store: WoolDomainStore): void {
   assertUniqueIds(store.machineAssociationLogs, (item) => item.logId, '横机关联日志')
   assertUniqueIds(store.operationLogs, (item) => item.operationLogId, '操作日志')
   for (const machine of store.machines) {
+    if (!machine.machineModel?.trim()) {
+      throw new Error(`毛织存储校验失败：横机设备 ${machine.machineId} 机型不能为空`)
+    }
+    if (!machine.needleType?.trim()) {
+      throw new Error(`毛织存储校验失败：横机设备 ${machine.machineId} 针型不能为空`)
+    }
     if (!['IDLE', 'REPAIR', 'DISABLED'].includes(machine.status)) {
       throw new Error(`毛织存储校验失败：横机设备 ${machine.machineId} 档案状态无效`)
     }

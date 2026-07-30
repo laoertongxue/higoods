@@ -11,14 +11,17 @@ import {
 import { createProcessOrderListController } from '../../../components/ui/process-order-list-controller.ts'
 import {
   changeWoolMachineAvailability,
+  captureWoolMachineAvailabilitySnapshot,
   listWoolMachineAssociations,
   listWoolMachineViews,
   listWoolWorkOrders,
   type WoolMachineAvailability,
+  type WoolMachineAvailabilitySnapshot,
   type WoolMachineStatus,
   type WoolMachineView,
   type WoolWorkOrder,
 } from '../../../data/fcs/wool-task-domain.ts'
+import { buildWoolMachineAssociationsLink } from '../../../data/fcs/fcs-route-links.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
 
@@ -47,6 +50,7 @@ export interface WoolMachineAvailabilityImpact {
   styleNo: string
   styleName: string
   associatedAt: string
+  baseStatus: WoolMachineAvailability
 }
 
 export interface WoolMachinesRouteEntryState {
@@ -55,6 +59,8 @@ export interface WoolMachinesRouteEntryState {
   selectedNextStatus: WoolMachineAvailability | ''
   selectedReason: string
   impactConfirmed: boolean
+  confirmedImpactFingerprint?: string
+  confirmedAssociationSnapshot?: WoolMachineAvailabilitySnapshot
   overlayError: string
 }
 
@@ -71,6 +77,8 @@ const state: {
   selectedNextStatus: WoolMachineAvailability | ''
   selectedReason: string
   impactConfirmed: boolean
+  confirmedImpactFingerprint: string
+  confirmedAssociationSnapshot?: WoolMachineAvailabilitySnapshot
   overlayError: string
   feedback: string
 } = {
@@ -85,6 +93,7 @@ const state: {
   selectedNextStatus: '',
   selectedReason: '',
   impactConfirmed: false,
+  confirmedImpactFingerprint: '',
   overlayError: '',
   feedback: '',
 }
@@ -109,6 +118,8 @@ export function resolveWoolMachinesRouteEntry(
     selectedNextStatus: '',
     selectedReason: '',
     impactConfirmed: false,
+    confirmedImpactFingerprint: '',
+    confirmedAssociationSnapshot: undefined,
     overlayError: '',
   }
 }
@@ -157,7 +168,27 @@ export function buildWoolMachineAvailabilityImpact(
     styleNo: order.styleNo,
     styleName: order.styleName,
     associatedAt: association.associatedAt,
+    baseStatus: captureWoolMachineAvailabilitySnapshot(machineId).baseStatus,
   }
+}
+
+export function buildWoolMachineAvailabilityImpactFingerprint(
+  machineId: string,
+  nextStatus: WoolMachineAvailability,
+  snapshot: WoolMachineAvailabilitySnapshot,
+): string {
+  return JSON.stringify({
+    machineId,
+    nextStatus,
+    baseStatus: snapshot.baseStatus,
+    association: snapshot.association
+      ? {
+          machineId: snapshot.association.machineId,
+          woolOrderId: snapshot.association.woolOrderId,
+          associatedAt: snapshot.association.associatedAt,
+        }
+      : null,
+  })
 }
 
 function machineRows(): MachineArchiveRow[] {
@@ -199,7 +230,10 @@ function statusBadge(status: WoolMachineStatus): string {
 }
 
 function actions(row: MachineArchiveRow): string {
-  return `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-wool-machines-action="open-status" data-machine-id="${escapeHtml(row.machine.machineId)}" data-skip-page-rerender="true">修改状态</button>`
+  return `<div class="flex flex-col items-start gap-1">
+    <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildWoolMachineAssociationsLink(undefined, row.machine.machineId))}">查看当前生产关联</button>
+    <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-wool-machines-action="open-status" data-machine-id="${escapeHtml(row.machine.machineId)}" data-skip-page-rerender="true">修改状态</button>
+  </div>`
 }
 
 const columns: StandardListColumn<MachineArchiveRow>[] = [
@@ -221,6 +255,15 @@ const columns: StandardListColumn<MachineArchiveRow>[] = [
     sortable: true,
     sortValue: (row) => statusLabel(row.machine.status),
     render: (row) => statusBadge(row.machine.status),
+  },
+  {
+    key: 'specification',
+    title: '机型 / 针型',
+    width: 180,
+    required: true,
+    sortable: true,
+    sortValue: (row) => `${row.machine.machineModel} ${row.machine.needleType}`,
+    render: (row) => `<div><div class="font-medium">${escapeHtml(row.machine.machineModel)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.machine.needleType)}</div></div>`,
   },
   {
     key: 'currentOrder',
@@ -270,7 +313,7 @@ const columns: StandardListColumn<MachineArchiveRow>[] = [
   {
     key: 'actions',
     title: '操作',
-    width: 120,
+    width: 180,
     required: true,
     actionColumn: true,
     render: actions,
@@ -310,7 +353,7 @@ function filterBar(): string {
   return `<div class="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-3">
     <label class="min-w-[20rem] flex-1"><span class="mb-1 block text-xs text-muted-foreground">设备 / 加工单 / 生产单 / 款号</span><input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.filters.keyword)}" placeholder="输入关键字" data-wool-machines-field="keyword" data-skip-page-rerender="true"></label>
     <label class="min-w-[11rem]"><span class="mb-1 block text-xs text-muted-foreground">设备状态</span><select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-wool-machines-field="status" data-skip-page-rerender="true"><option value="">全部状态</option>${(['IDLE', 'PRODUCING', 'REPAIR', 'DISABLED'] as WoolMachineStatus[]).map((status) => `<option value="${status}" ${state.filters.status === status ? 'selected' : ''}>${statusLabel(status)}</option>`).join('')}</select></label>
-    ${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filters' }, 'rotate-ccw')}
+    ${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filters', skipPageRerender: true }, 'rotate-ccw')}
   </div>`
 }
 
@@ -339,11 +382,11 @@ function statusDialog(): string {
       <header class="flex items-center justify-between border-b px-4 py-3"><div><h2 class="font-semibold">修改横机状态</h2><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(machine.machineNo)}｜${escapeHtml(machine.machineName)}｜当前 ${escapeHtml(statusLabel(machine.status))}</p></div><button type="button" class="rounded-md border px-2 py-1 text-xs" data-wool-machines-action="close-status" data-skip-page-rerender="true">关闭</button></header>
       <div class="p-4">
         ${state.overlayError ? `<div class="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">${escapeHtml(state.overlayError)}</div>` : ''}
-        <label class="block text-sm"><span class="mb-1 block text-xs text-muted-foreground">修改为</span><select class="h-9 w-full rounded-md border px-3" data-wool-machines-dialog-field="nextStatus">${options.map((status) => `<option value="${status}" ${selectedStatus === status ? 'selected' : ''}>${statusLabel(status)}</option>`).join('')}</select></label>
-        <label class="mt-3 block text-sm"><span class="mb-1 block text-xs text-muted-foreground">变更原因（必填）</span><textarea class="min-h-20 w-full rounded-md border p-3" data-wool-machines-dialog-field="reason">${escapeHtml(state.selectedReason)}</textarea></label>
+        <label class="block text-sm"><span class="mb-1 block text-xs text-muted-foreground">修改为</span><select class="h-9 w-full rounded-md border px-3" data-wool-machines-dialog-field="nextStatus" data-skip-page-rerender="true">${options.map((status) => `<option value="${status}" ${selectedStatus === status ? 'selected' : ''}>${statusLabel(status)}</option>`).join('')}</select></label>
+        <label class="mt-3 block text-sm"><span class="mb-1 block text-xs text-muted-foreground">变更原因（必填）</span><textarea class="min-h-20 w-full rounded-md border p-3" data-wool-machines-dialog-field="reason" data-skip-page-rerender="true">${escapeHtml(state.selectedReason)}</textarea></label>
         ${impact ? `<section class="mt-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950"><h3 class="font-semibold">生产中设备影响确认</h3><div class="mt-2">当前加工单：${escapeHtml(impact.woolOrderNo)}（${escapeHtml(impact.woolOrderId)}）</div><div class="mt-1">生产单：${escapeHtml(impact.productionOrderNo)}｜款式：${escapeHtml(impact.styleNo)} ${escapeHtml(impact.styleName)}</div><div class="mt-1">关联时间：${escapeHtml(impact.associatedAt)}</div><div class="mt-2 text-xs">确认后系统将一次完成：解除该设备的当前关联、修改为${escapeHtml(statusLabel(selectedStatus as WoolMachineAvailability))}、写入关联日志和设备操作日志。</div>${state.impactConfirmed ? '<div class="mt-3 font-medium">请再次点击“确认影响并修改状态”。</div>' : ''}</section>` : ''}
       </div>
-      <footer class="flex justify-end gap-2 border-t px-4 py-3">${renderSecondaryButton('取消', { prefix: EVENT_PREFIX, action: 'close-status' })}${renderPrimaryButton(impact && state.impactConfirmed ? '确认影响并修改状态' : '保存状态', { prefix: EVENT_PREFIX, action: 'save-status' })}</footer>
+      <footer class="flex justify-end gap-2 border-t px-4 py-3">${renderSecondaryButton('取消', { prefix: EVENT_PREFIX, action: 'close-status', skipPageRerender: true })}${renderPrimaryButton(impact && state.impactConfirmed ? '确认影响并修改状态' : '保存状态', { prefix: EVENT_PREFIX, action: 'save-status', skipPageRerender: true })}</footer>
     </section>
   </div>`
 }
@@ -357,7 +400,7 @@ function renderWorkspace(): string {
     feedbackHtml: `<div data-wool-machines-feedback>${renderFeedback()}</div>`,
     filtersHtml: `<div data-wool-machines-filters>${filterBar()}</div>`,
     listTitle: '横机设备档案',
-    listActionsHtml: renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2'),
+    listActionsHtml: renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings', skipPageRerender: true }, 'settings-2'),
     tableHtml: `<div data-wool-machines-table-surface>${view.tableHtml}</div>`,
     paginationHtml: `<div data-wool-machines-pagination-surface>${view.paginationHtml}</div>`,
     overlaysHtml: `<div data-wool-machines-column-overlays>${listController.renderColumnSettings()}</div><div data-wool-machines-business-overlay>${statusDialog()}</div>`,
@@ -418,6 +461,23 @@ function saveStatus(): void {
   const nextStatus = dialogField('nextStatus') as WoolMachineAvailability
   const reason = dialogField('reason')
   const impact = buildWoolMachineAvailabilityImpact(machine.machineId)
+  const currentSnapshot = captureWoolMachineAvailabilitySnapshot(machine.machineId)
+  const currentFingerprint = buildWoolMachineAvailabilityImpactFingerprint(
+    machine.machineId,
+    nextStatus,
+    currentSnapshot,
+  )
+  if (
+    state.impactConfirmed
+    && state.confirmedImpactFingerprint !== currentFingerprint
+  ) {
+    state.impactConfirmed = false
+    state.confirmedImpactFingerprint = ''
+    state.confirmedAssociationSnapshot = undefined
+    state.overlayError = '关联已变化，请重新确认'
+    refreshDialog()
+    return
+  }
   if (impact && !state.impactConfirmed) {
     if (!reason) {
       state.overlayError = '请先填写维修或停用原因。'
@@ -427,6 +487,8 @@ function saveStatus(): void {
     state.selectedNextStatus = nextStatus
     state.selectedReason = reason
     state.impactConfirmed = true
+    state.confirmedImpactFingerprint = currentFingerprint
+    state.confirmedAssociationSnapshot = currentSnapshot
     state.overlayError = ''
     refreshDialog()
     return
@@ -438,6 +500,7 @@ function saveStatus(): void {
       operatedAt: new Date().toISOString().replace('T', ' ').slice(0, 19),
       operatedBy: 'Web 端设备主管',
       confirmedImpact: Boolean(impact),
+      expectedAssociationSnapshot: state.confirmedAssociationSnapshot ?? currentSnapshot,
     })
     state.feedback = impact
       ? `${machine.machineNo} 已解除当前关联并改为${statusLabel(nextStatus)}。`
@@ -446,11 +509,18 @@ function saveStatus(): void {
     state.selectedNextStatus = ''
     state.selectedReason = ''
     state.impactConfirmed = false
+    state.confirmedImpactFingerprint = ''
+    state.confirmedAssociationSnapshot = undefined
     state.overlayError = ''
     refreshDialog()
     refreshResults()
   } catch (error) {
     state.overlayError = error instanceof Error ? error.message : '设备状态未保存，请检查后重试。'
+    if (state.overlayError.includes('关联已变化')) {
+      state.impactConfirmed = false
+      state.confirmedImpactFingerprint = ''
+      state.confirmedAssociationSnapshot = undefined
+    }
     refreshDialog()
   }
 }
@@ -480,6 +550,8 @@ export async function handleCraftWoolMachinesEvent(target: HTMLElement): Promise
     state.selectedReason = dialogField('reason')
     state.selectedNextStatus = dialogStatus.value as WoolMachineAvailability
     state.impactConfirmed = false
+    state.confirmedImpactFingerprint = ''
+    state.confirmedAssociationSnapshot = undefined
     refreshDialog()
     return true
   }
@@ -534,6 +606,8 @@ export async function handleCraftWoolMachinesEvent(target: HTMLElement): Promise
     state.selectedNextStatus = ''
     state.selectedReason = ''
     state.impactConfirmed = false
+    state.confirmedImpactFingerprint = ''
+    state.confirmedAssociationSnapshot = undefined
     state.overlayError = ''
     refreshDialog()
     return true
@@ -543,6 +617,8 @@ export async function handleCraftWoolMachinesEvent(target: HTMLElement): Promise
     state.selectedNextStatus = ''
     state.selectedReason = ''
     state.impactConfirmed = false
+    state.confirmedImpactFingerprint = ''
+    state.confirmedAssociationSnapshot = undefined
     state.overlayError = ''
     refreshDialog()
     return true
@@ -553,5 +629,3 @@ export async function handleCraftWoolMachinesEvent(target: HTMLElement): Promise
   }
   return true
 }
-
-// 标准列表契约由共享控制器统一调用 renderStandardListTable 与 renderTablePagination。

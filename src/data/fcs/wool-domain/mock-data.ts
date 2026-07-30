@@ -438,6 +438,8 @@ export function buildWoolFactWorkflowMockStore(_seed = 'DEFAULT'): WoolDomainSto
       machineId: `WM-${String(index + 1).padStart(3, '0')}`,
       machineNo: `横机-${String(index + 1).padStart(3, '0')}`,
       machineName: `电脑横机 ${index + 1} 号`,
+      machineModel: ['慈星 GE2-52C', '岛精 SES-SWG', '慈星 HP2-52C'][index % 3],
+      needleType: ['12 针', '14 针', '16 针'][index % 3],
       status: index === 5 ? 'REPAIR' : index === 6 ? 'DISABLED' : 'IDLE',
       createdAt: MOCK_AT,
       updatedAt: MOCK_AT,

@@ -264,6 +264,8 @@ export interface WoolMachine {
   machineId: string
   machineNo: string
   machineName: string
+  machineModel: string
+  needleType: string
   status: WoolMachineAvailability
   createdAt: string
   updatedAt: string

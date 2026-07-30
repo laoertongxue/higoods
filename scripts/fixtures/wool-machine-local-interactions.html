@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>毛织横机局部交互检查</title>
+  </head>
+  <body>
+    <main id="app"></main>
+    <script type="module">
+      import { appStore } from '/src/state/store.ts'
+      import {
+        commitWoolStore,
+        resetWoolFactWorkflowMock,
+      } from '/src/data/fcs/wool-task-domain.ts'
+      import {
+        handleCraftWoolMachineAssociationsEvent,
+        renderCraftWoolMachineAssociationsPage,
+      } from '/src/pages/process-factory/wool/machine-associations.ts'
+      import {
+        handleCraftWoolMachinesEvent,
+        renderCraftWoolMachinesPage,
+      } from '/src/pages/process-factory/wool/machines.ts'
+
+      const fixturePage = new URLSearchParams(location.search).get('page') === 'machines'
+        ? 'machines'
+        : 'associations'
+      resetWoolFactWorkflowMock(`BROWSER_TASK_10_${fixturePage}`)
+      commitWoolStore((draft) => {
+        const template = draft.machines[0]
+        for (let index = draft.machines.length; index < 14; index += 1) {
+          draft.machines.push({
+            ...template,
+            machineId: `WM-BROWSER-${String(index + 1).padStart(2, '0')}`,
+            machineNo: `横机-浏览器-${String(index + 1).padStart(2, '0')}`,
+            machineName: `浏览器检查横机 ${index + 1} 号`,
+            updatedAt: `2026-07-31 10:${String(index).padStart(2, '0')}:00`,
+          })
+        }
+      })
+      appStore.navigate(
+        fixturePage === 'machines'
+          ? '/fcs/craft/wool/machines'
+          : '/fcs/craft/wool/machine-associations',
+      )
+      const app = document.querySelector('#app')
+      app.innerHTML = fixturePage === 'machines'
+        ? renderCraftWoolMachinesPage()
+        : renderCraftWoolMachineAssociationsPage()
+      const handler = fixturePage === 'machines'
+        ? handleCraftWoolMachinesEvent
+        : handleCraftWoolMachineAssociationsEvent
+      document.addEventListener('click', async (event) => {
+        const target = event.target instanceof Element ? event.target : null
+        if (!target || target.closest('[data-nav]')) return
+        if (await handler(target)) event.preventDefault()
+      })
+      document.addEventListener('change', async (event) => {
+        const target = event.target instanceof Element ? event.target : null
+        if (target) await handler(target)
+      })
+      window.__woolMachineFixture = {
+        page: fixturePage,
+        root: document.querySelector(
+          fixturePage === 'machines'
+            ? '[data-wool-machines-root]'
+            : '[data-wool-machine-associations-root]',
+        ),
+        changeAssociation(machineId) {
+          commitWoolStore((draft) => {
+            const association = draft.machineAssociations.find((item) => item.machineId === machineId)
+            if (!association) throw new Error(`找不到待变更关联 ${machineId}`)
+            association.associatedAt = `${association.associatedAt}-CHANGED`
+          })
+        },
+      }
+    </script>
+  </body>
+</html>

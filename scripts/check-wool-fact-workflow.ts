@@ -4786,10 +4786,24 @@ for (const [fileName, source] of [
 ] as const) {
   assert(source.startsWith('// @page-pattern: list'), `${fileName} 必须声明标准列表页`)
   assert(source.includes('renderStandardListPage'), `${fileName} 必须使用标准列表页骨架`)
-  assert(source.includes('renderStandardListTable'), `${fileName} 必须使用标准列表表格`)
-  assert(source.includes('renderTablePagination'), `${fileName} 必须使用标准列表分页`)
+  assert(
+    source.includes('createProcessOrderListController'),
+    `${fileName} 必须通过共享控制器使用标准表格和分页`,
+  )
   assert(!source.includes('已排产'), `${fileName} 不得保留已排产业务文案`)
 }
+const processOrderListControllerSource = readFileSync(
+  new URL('../src/components/ui/process-order-list-controller.ts', import.meta.url),
+  'utf8',
+)
+assert(
+  processOrderListControllerSource.includes('tableHtml: renderStandardListTable('),
+  '共享列表控制器必须实际渲染标准列表表格',
+)
+assert(
+  processOrderListControllerSource.includes('paginationHtml: renderTablePagination('),
+  '共享列表控制器必须实际渲染标准列表分页',
+)
 for (const requiredText of [
   '关联生产单',
   'woolOrderId',
@@ -4828,6 +4842,118 @@ const {
   resolveWoolMachinesRouteEntry,
   scheduleWoolMachinesFilterRefresh,
 } = await import('../src/pages/process-factory/wool/machines.ts')
+const {
+  buildWoolMachineAssociationsLink,
+} = await import('../src/data/fcs/fcs-route-links.ts')
+
+resetWoolFactWorkflowMock('CHECK_WOOL_TASK_10_MACHINE_SPECIFICATIONS')
+const specificationMachines = readWoolStore().machines
+assert(
+  specificationMachines.every((machine) => String(machine.machineModel ?? '').trim()),
+  '每台横机必须保存稳定机型',
+)
+assert(
+  specificationMachines.every((machine) => String(machine.needleType ?? '').trim()),
+  '每台横机必须保存稳定针型',
+)
+for (const field of ['machineModel', 'needleType'] as const) {
+  const invalidSpecificationStore = readWoolStore()
+  invalidSpecificationStore.machines[0][field] = ''
+  assert.throws(
+    () => validateWoolStore(invalidSpecificationStore),
+    new RegExp(field === 'machineModel' ? '机型' : '针型'),
+    `横机${field === 'machineModel' ? '机型' : '针型'}为空必须被存储校验拒绝`,
+  )
+}
+const directedMachineLink = buildWoolMachineAssociationsLink(undefined, 'WM-机型/001')
+assert.equal(
+  directedMachineLink,
+  '/fcs/craft/wool/machine-associations?machineId=WM-%E6%9C%BA%E5%9E%8B%2F001',
+  '设备档案必须用编码后的 machineId 进入唯一生产关联工作台',
+)
+
+resetWoolFactWorkflowMock('CHECK_WOOL_TASK_10_STALE_ASSOCIATION_GUARDS')
+const staleAssociationOrderA = listWoolWorkOrders()
+  .find((item) => item.mockScenarioCode === 'MACHINE_ASSOCIATION_A')!
+const staleAssociationOrderB = listWoolWorkOrders()
+  .find((item) => item.mockScenarioCode === 'MACHINE_ASSOCIATION_B')!
+const staleAssociationExpectation = {
+  woolOrderId: staleAssociationOrderA.woolOrderId,
+  selectedMachineIds: ['WM-002'],
+  targetAssociations: listWoolMachineAssociations(staleAssociationOrderA.woolOrderId)
+    .map(({ machineId, woolOrderId, associatedAt }) => ({ machineId, woolOrderId, associatedAt })),
+  selectedMachineAssociations: listWoolMachineAssociations()
+    .filter((item) => item.machineId === 'WM-002')
+    .map(({ machineId, woolOrderId, associatedAt }) => ({ machineId, woolOrderId, associatedAt })),
+}
+commitWoolStore((draft) => {
+  const association = draft.machineAssociations.find((item) => item.machineId === 'WM-002')!
+  association.woolOrderId = staleAssociationOrderA.woolOrderId
+  association.associatedAt = '2026-07-31 07:00:01'
+})
+const staleAssociationStoreBefore = readWoolStore()
+const staleAssociationWritesBefore = storageWrites.length
+assert.throws(
+  () => replaceWoolMachineAssociations(
+    staleAssociationOrderA.woolOrderId,
+    ['WM-002'],
+    {
+      operatedAt: '2026-07-31 07:10:00',
+      operatedBy: '毛织主管',
+      expectedAssociationSnapshot: staleAssociationExpectation,
+    },
+  ),
+  /关联已变化，请重新确认/,
+  '关联确认后设备被其他操作转移，领域命令必须拒绝陈旧确认',
+)
+assert.deepEqual(readWoolStore(), staleAssociationStoreBefore)
+assert.equal(
+  storageWrites.length,
+  staleAssociationWritesBefore,
+  '陈旧关联快照失败必须保持 store、日志和持久化零写入',
+)
+
+resetWoolFactWorkflowMock('CHECK_WOOL_TASK_10_STALE_MACHINE_GUARD')
+const staleMachineAssociation = listWoolMachineAssociations()
+  .find((item) => item.machineId === 'WM-002')!
+const staleMachineView = getWoolMachineById('WM-002')!
+const staleMachineExpectation = {
+  machineId: 'WM-002',
+  baseStatus: 'IDLE' as const,
+  association: {
+    machineId: staleMachineAssociation.machineId,
+    woolOrderId: staleMachineAssociation.woolOrderId,
+    associatedAt: staleMachineAssociation.associatedAt,
+  },
+}
+commitWoolStore((draft) => {
+  const association = draft.machineAssociations.find((item) => item.machineId === 'WM-002')!
+  association.woolOrderId = staleAssociationOrderB.woolOrderId === association.woolOrderId
+    ? staleAssociationOrderA.woolOrderId
+    : staleAssociationOrderB.woolOrderId
+  association.associatedAt = '2026-07-31 07:20:01'
+})
+const staleMachineStoreBefore = readWoolStore()
+const staleMachineWritesBefore = storageWrites.length
+assert.equal(staleMachineView.status, 'PRODUCING')
+assert.throws(
+  () => changeWoolMachineAvailability('WM-002', {
+    nextStatus: 'REPAIR',
+    reason: '机针故障',
+    operatedAt: '2026-07-31 07:30:00',
+    operatedBy: '设备主管',
+    confirmedImpact: true,
+    expectedAssociationSnapshot: staleMachineExpectation,
+  }),
+  /关联已变化，请重新确认/,
+  '设备状态确认后当前生产关联变化，领域命令必须拒绝陈旧确认',
+)
+assert.deepEqual(readWoolStore(), staleMachineStoreBefore)
+assert.equal(
+  storageWrites.length,
+  staleMachineWritesBefore,
+  '设备陈旧快照失败必须保持 store、日志和持久化零写入',
+)
 
 resetWoolFactWorkflowMock('CHECK_WOOL_TASK_10_STRICT_LOCK')
 const mixedLockTarget = listWoolWorkOrders()
@@ -4943,6 +5069,28 @@ assert.equal(genericRouteAfterLeave.selectedWoolOrderId, '')
 assert.deepEqual(genericRouteAfterLeave.selectedMachineIds, [])
 assert.equal(genericRouteAfterLeave.transferConfirmed, false)
 assert.equal(genericRouteAfterLeave.overlayError, '')
+const directedMachineRoute = resolveWoolMachineAssociationRouteEntry(genericRouteAfterLeave, {
+  routeKey: '/fcs/craft/wool/machine-associations?machineId=WM-007',
+  hasMountedRoot: true,
+  requestedWoolOrderId: '',
+  requestedMachineId: 'WM-007',
+})
+assert.equal(
+  directedMachineRoute.focusedMachineId,
+  'WM-007',
+  '从设备档案进入生产关联工作台必须精确定位该设备',
+)
+const genericAfterDirectedMachine = resolveWoolMachineAssociationRouteEntry(directedMachineRoute, {
+  routeKey: '/fcs/craft/wool/machine-associations',
+  hasMountedRoot: false,
+  requestedWoolOrderId: '',
+  requestedMachineId: '',
+})
+assert.equal(
+  genericAfterDirectedMachine.focusedMachineId,
+  '',
+  '离开后进入通用工作台必须清理定向设备过滤',
+)
 const directRouteB = resolveWoolMachineAssociationRouteEntry(sameRouteLocalRender, {
   routeKey: `/fcs/craft/wool/machine-associations?woolOrderId=${strictLimitOrder.woolOrderId}`,
   hasMountedRoot: true,
@@ -4989,6 +5137,72 @@ assert.equal(associationDebounceFired, false, '离开关联页必须取消未触
 assert.equal(machinesDebounceFired, false, '离开设备页必须取消未触发的搜索 debounce')
 
 resetWoolFactWorkflowMock('CHECK_WOOL_TASK_10_PAGES')
+let task10WorkbenchStoreReadCount = 0
+const task10WorkbenchStartedAt = performance.now()
+const task10SingleSnapshotWorkbench = buildWoolMachineAssociationWorkbenchModel(
+  {},
+  () => {
+    task10WorkbenchStoreReadCount += 1
+    return readWoolStore()
+  },
+)
+const task10WorkbenchElapsedMs = performance.now() - task10WorkbenchStartedAt
+assert.equal(
+  task10WorkbenchStoreReadCount,
+  1,
+  '横机关联工作台模型必须只读取并克隆一次毛织 store',
+)
+assert.equal(task10SingleSnapshotWorkbench.productionOrders.length > 0, true)
+assert(
+  task10WorkbenchElapsedMs < 180,
+  `26 场景横机关联工作台模型必须低于 180ms，实际 ${task10WorkbenchElapsedMs.toFixed(1)}ms`,
+)
+const task10ScaleStore = readWoolStore()
+const task10ScaleOrderTemplate = Object.values(task10ScaleStore.workOrders)[0]
+const task10ScaleMachineTemplate = task10ScaleStore.machines[0]
+assert(task10ScaleOrderTemplate && task10ScaleMachineTemplate)
+for (let index = 0; index < 600; index += 1) {
+  const suffix = String(index + 1).padStart(4, '0')
+  const woolOrderId = `WOOL-TASK10-SCALE-${suffix}`
+  const machineId = `WM-TASK10-SCALE-${suffix}`
+  task10ScaleStore.workOrders[woolOrderId] = {
+    ...task10ScaleOrderTemplate,
+    woolOrderId,
+    woolOrderNo: `MWO-TASK10-SCALE-${suffix}`,
+    productionOrderId: `PO-TASK10-SCALE-${suffix}`,
+    productionOrderNo: `PO-TASK10-SCALE-${suffix}`,
+    outputPlanLines: task10ScaleOrderTemplate.outputPlanLines.map((line) => ({
+      ...line,
+      outputSkuCode: `${line.outputSkuCode}-TASK10-${suffix}`,
+      requiredYarnSkus: [...line.requiredYarnSkus],
+    })),
+  }
+  task10ScaleStore.machines.push({
+    ...task10ScaleMachineTemplate,
+    machineId,
+    machineNo: `横机-规模-${suffix}`,
+    machineName: `规模检查横机 ${suffix}`,
+  })
+  task10ScaleStore.machineAssociations.push({
+    machineId,
+    woolOrderId,
+    associatedAt: '2026-07-31 08:00:00',
+    associatedBy: '性能检查',
+  })
+}
+let task10ScaleStoreReadCount = 0
+const task10ScaleStartedAt = performance.now()
+const task10ScaleWorkbench = buildWoolMachineAssociationWorkbenchModel({}, () => {
+  task10ScaleStoreReadCount += 1
+  return task10ScaleStore
+})
+const task10ScaleElapsedMs = performance.now() - task10ScaleStartedAt
+assert.equal(task10ScaleStoreReadCount, 1, '规模数据工作台仍必须只读取一次 store')
+assert(task10ScaleWorkbench.productionOrders.length >= 600)
+assert(
+  task10ScaleElapsedMs < 180,
+  `600 张加工单和 600 台关联横机的工作台投影必须低于 180ms，实际 ${task10ScaleElapsedMs.toFixed(1)}ms`,
+)
 const task10OrderA = listWoolWorkOrders()
   .find((item) => item.mockScenarioCode === 'MACHINE_ASSOCIATION_A')!
 const task10OrderB = listWoolWorkOrders()
@@ -5022,6 +5236,10 @@ assert.deepEqual(
   '跨单选择必须列出原具体加工单影响',
 )
 assert(transferImpacts[0]?.fromProductionOrderNo === task10OrderB.productionOrderNo)
+assert(
+  transferImpacts[0]?.associatedAt,
+  '跨单影响必须携带稳定关联时间，用于绑定二次确认指纹',
+)
 
 const mixedPanel = listWoolWorkOrders()
   .find((item) => item.mockScenarioCode === 'MIXED_ORDER_KINDS')!
@@ -5064,11 +5282,20 @@ assert(associationPageHtml.includes(task10OrderA.productionOrderNo))
 assert(associationPageHtml.includes(task10OrderA.internalStyleCode!))
 assert(associationPageHtml.includes('关联人'))
 assert(associationPageHtml.includes('关联时间'))
+assert(associationPageHtml.includes('机型 / 针型'))
 assert(associationPageHtml.includes('data-standard-list-scroll'))
 assert(
   associationRenderElapsedMs < 180,
   `横机生产关联列表首屏渲染必须低于 180ms，实际 ${associationRenderElapsedMs.toFixed(1)}ms`,
 )
+for (const control of associationPageHtml.match(
+  /<(?:button|input|select|textarea)\b[^>]*data-wool-machine-associations-(?:action|field)="[^"]+"[^>]*>/g,
+) ?? []) {
+  assert(
+    control.includes('data-skip-page-rerender="true"'),
+    `横机生产关联页已处理控件必须声明局部刷新：${control}`,
+  )
+}
 
 const availabilityImpact = buildWoolMachineAvailabilityImpact('WM-003')
 assert.equal(availabilityImpact?.woolOrderId, mixedPanel.woolOrderId)
@@ -5082,11 +5309,21 @@ assert(machinesPageHtml.includes('空闲'))
 assert(machinesPageHtml.includes('生产中'))
 assert(machinesPageHtml.includes('维修'))
 assert(machinesPageHtml.includes('停用'))
+assert(machinesPageHtml.includes('机型 / 针型'))
+assert(machinesPageHtml.includes('?machineId=WM-'))
 assert(machinesPageHtml.includes('data-standard-list-scroll'))
 assert(
   machineArchiveRenderElapsedMs < 180,
   `横机设备列表首屏渲染必须低于 180ms，实际 ${machineArchiveRenderElapsedMs.toFixed(1)}ms`,
 )
+for (const control of machinesPageHtml.match(
+  /<(?:button|input|select|textarea)\b[^>]*data-wool-machines-(?:action|field)="[^"]+"[^>]*>/g,
+) ?? []) {
+  assert(
+    control.includes('data-skip-page-rerender="true"'),
+    `横机设备页已处理控件必须声明局部刷新：${control}`,
+  )
+}
 assert(!getWoolAllowedActions(completedMachineOrder.woolOrderId).includes('ASSOCIATE_MACHINE'))
 
 const atLimitOrder = listWoolWorkOrders()
@@ -5151,4 +5388,4 @@ console.log('PASS task 6: current machine associations and derived four-state av
 console.log('PASS task 7: runtime generation freezes traceable yarn facts and exposes domain actions')
 console.log('PASS task 8: standard wool work-order list and fact command dialogs')
 console.log(`PASS task 9: seven-tab wool fact detail, paged records, immutable completion facts, and 300-row readiness in ${scaleRenderElapsedMs.toFixed(1)}ms`)
-console.log('PASS task 10: standard machine association and machine archive workbenches')
+console.log(`PASS task 10: standard machine workbenches; one snapshot ${task10WorkbenchElapsedMs.toFixed(1)}ms, 600-order/600-machine scale ${task10ScaleElapsedMs.toFixed(1)}ms`)

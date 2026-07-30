@@ -10,6 +10,7 @@ import type {
   WoolMachineAssociationReason,
   WoolMachineAvailability,
   WoolMachineView,
+  WoolWorkOrder,
 } from './types.ts'
 
 export interface WoolMachineActor {
@@ -17,10 +18,48 @@ export interface WoolMachineActor {
   operatedBy: string
 }
 
+export interface WoolMachineAssociationIdentity {
+  machineId: string
+  woolOrderId: string
+  associatedAt: string
+}
+
+export interface WoolReplaceMachineAssociationSnapshot {
+  woolOrderId: string
+  selectedMachineIds: string[]
+  targetAssociations: WoolMachineAssociationIdentity[]
+  selectedMachineAssociations: WoolMachineAssociationIdentity[]
+}
+
+export interface WoolMachineAvailabilitySnapshot {
+  machineId: string
+  baseStatus: WoolMachineAvailability
+  association?: WoolMachineAssociationIdentity
+}
+
+export interface WoolMachineWorkbenchOrderProjection {
+  order: WoolWorkOrder
+  completed: boolean
+  canReport: boolean
+  canMaintainAssociation: boolean
+  readinessSummary: string
+}
+
+export interface WoolMachineWorkbenchProjection {
+  orders: WoolMachineWorkbenchOrderProjection[]
+  machines: WoolMachineView[]
+  associations: WoolMachineAssociation[]
+}
+
+export interface ReplaceWoolMachineAssociationsInput extends WoolMachineActor {
+  expectedAssociationSnapshot?: WoolReplaceMachineAssociationSnapshot
+}
+
 export interface ChangeWoolMachineAvailabilityInput extends WoolMachineActor {
   nextStatus: WoolMachineAvailability
   reason: string
   confirmedImpact?: boolean
+  expectedAssociationSnapshot?: WoolMachineAvailabilitySnapshot
 }
 
 interface ReleaseWoolMachineAssociationsInput extends WoolMachineActor {
@@ -78,6 +117,86 @@ function machineStatus(
     : machine.status
 }
 
+export function buildWoolMachineWorkbenchProjectionFromStore(
+  store: WoolDomainStore,
+): WoolMachineWorkbenchProjection {
+  const changedQtyByTarget = new Map<string, number>()
+  for (const change of store.qtyChangeLogs) {
+    const lineId = change.recordType === 'YARN_RECEIPT' ? change.recordLineId || '' : ''
+    changedQtyByTarget.set(
+      `${change.recordType}\u0000${change.recordId}\u0000${lineId}`,
+      change.afterQty,
+    )
+  }
+  const receivedYarnsByOrder = new Map<string, Set<string>>()
+  for (const receipt of store.yarnReceipts) {
+    for (const line of receipt.lines) {
+      const effectiveQty = changedQtyByTarget.get(
+        `YARN_RECEIPT\u0000${receipt.receiptId}\u0000${line.lineId}`,
+      ) ?? line.receivedQty
+      if (effectiveQty <= 0) continue
+      const received = receivedYarnsByOrder.get(receipt.woolOrderId) ?? new Set<string>()
+      received.add(line.yarnSkuCode)
+      receivedYarnsByOrder.set(receipt.woolOrderId, received)
+    }
+  }
+  const reportedQtyByOutput = new Map<string, number>()
+  for (const report of store.processReports) {
+    const effectiveQty = changedQtyByTarget.get(
+      `PROCESS_REPORT\u0000${report.reportId}\u0000`,
+    ) ?? report.reportedQty
+    const key = `${report.woolOrderId}\u0000${report.outputSkuCode}`
+    reportedQtyByOutput.set(key, (reportedQtyByOutput.get(key) ?? 0) + effectiveQty)
+  }
+  const completedOrderIds = new Set(store.completions.map((item) => item.woolOrderId))
+  const associatedOrderIds = new Set(store.machineAssociations.map((item) => item.woolOrderId))
+  const associatedMachineIds = new Set(store.machineAssociations.map((item) => item.machineId))
+  const machineCountByOrder = new Map<string, number>()
+  for (const association of store.machineAssociations) {
+    machineCountByOrder.set(
+      association.woolOrderId,
+      (machineCountByOrder.get(association.woolOrderId) ?? 0) + 1,
+    )
+  }
+  const orders = Object.values(store.workOrders)
+    .map((order): WoolMachineWorkbenchOrderProjection => {
+      const receivedYarns = receivedYarnsByOrder.get(order.woolOrderId) ?? new Set<string>()
+      const canReport = order.outputPlanLines.some((line) => {
+        const requiredYarns = [...new Set(line.requiredYarnSkus.filter(Boolean))]
+        const yarnsReady = requiredYarns.length > 0
+          && requiredYarns.every((sku) => receivedYarns.has(sku))
+        const reportedQty = reportedQtyByOutput.get(
+          `${order.woolOrderId}\u0000${line.outputSkuCode}`,
+        ) ?? 0
+        return yarnsReady && reportedQty < Math.floor(line.plannedQty * 1.5)
+      })
+      const completed = completedOrderIds.has(order.woolOrderId)
+      const canMaintainAssociation = !completed
+        && (canReport || associatedOrderIds.has(order.woolOrderId))
+      const currentMachineCount = machineCountByOrder.get(order.woolOrderId) ?? 0
+      return {
+        order,
+        completed,
+        canReport,
+        canMaintainAssociation,
+        readinessSummary: `${canReport ? '存在可继续填报 SKU' : '仅维护现有关联'}；当前 ${currentMachineCount} 台横机`,
+      }
+    })
+    .sort((left, right) => left.order.woolOrderNo.localeCompare(right.order.woolOrderNo))
+  return {
+    orders,
+    machines: store.machines
+      .map((machine): WoolMachineView => ({
+        ...machine,
+        status: associatedMachineIds.has(machine.machineId) ? 'PRODUCING' : machine.status,
+      }))
+      .sort((left, right) => left.machineNo.localeCompare(right.machineNo, 'zh-CN')),
+    associations: store.machineAssociations
+      .map((association) => ({ ...association }))
+      .sort((left, right) => left.machineId.localeCompare(right.machineId)),
+  }
+}
+
 function cloneCurrentMachineAssociations(
   store: WoolDomainStore,
   woolOrderId: string,
@@ -86,6 +205,87 @@ function cloneCurrentMachineAssociations(
     .filter((item) => item.woolOrderId === woolOrderId)
     .map((association) => ({ ...association }))
     .sort((left, right) => left.machineId.localeCompare(right.machineId))
+}
+
+function associationIdentity(
+  association: WoolMachineAssociation,
+): WoolMachineAssociationIdentity {
+  return {
+    machineId: association.machineId,
+    woolOrderId: association.woolOrderId,
+    associatedAt: association.associatedAt,
+  }
+}
+
+function sortedAssociationIdentities(
+  associations: readonly WoolMachineAssociation[],
+): WoolMachineAssociationIdentity[] {
+  return associations
+    .map(associationIdentity)
+    .sort((left, right) =>
+      left.machineId.localeCompare(right.machineId)
+      || left.woolOrderId.localeCompare(right.woolOrderId)
+      || left.associatedAt.localeCompare(right.associatedAt),
+    )
+}
+
+export function captureWoolReplaceMachineAssociationSnapshotFromStore(
+  store: WoolDomainStore,
+  woolOrderId: string,
+  machineIds: string[],
+): WoolReplaceMachineAssociationSnapshot {
+  const selectedMachineIds = [...new Set(machineIds.map((item) => item.trim()).filter(Boolean))]
+    .sort()
+  const selected = new Set(selectedMachineIds)
+  return {
+    woolOrderId,
+    selectedMachineIds,
+    targetAssociations: sortedAssociationIdentities(
+      store.machineAssociations.filter((item) => item.woolOrderId === woolOrderId),
+    ),
+    selectedMachineAssociations: sortedAssociationIdentities(
+      store.machineAssociations.filter((item) => selected.has(item.machineId)),
+    ),
+  }
+}
+
+export function captureWoolReplaceMachineAssociationSnapshot(
+  woolOrderId: string,
+  machineIds: string[],
+): WoolReplaceMachineAssociationSnapshot {
+  return captureWoolReplaceMachineAssociationSnapshotFromStore(
+    readWoolStore(),
+    woolOrderId,
+    machineIds,
+  )
+}
+
+export function captureWoolMachineAvailabilitySnapshotFromStore(
+  store: WoolDomainStore,
+  machineId: string,
+): WoolMachineAvailabilitySnapshot {
+  const machine = requireMachine(store, machineId)
+  const association = store.machineAssociations.find((item) => item.machineId === machineId)
+  return {
+    machineId,
+    baseStatus: machine.status,
+    ...(association ? { association: associationIdentity(association) } : {}),
+  }
+}
+
+export function captureWoolMachineAvailabilitySnapshot(
+  machineId: string,
+): WoolMachineAvailabilitySnapshot {
+  return captureWoolMachineAvailabilitySnapshotFromStore(readWoolStore(), machineId)
+}
+
+function assertExpectedSnapshot(
+  expected: unknown,
+  actual: unknown,
+): void {
+  if (JSON.stringify(expected) !== JSON.stringify(actual)) {
+    throw new Error('关联已变化，请重新确认')
+  }
 }
 
 export function getWoolMachineById(machineId: string): WoolMachineView | undefined {
@@ -189,7 +389,7 @@ export function releaseWoolMachineAssociationInDraft(
 export function replaceWoolMachineAssociations(
   woolOrderId: string,
   machineIds: string[],
-  actor: WoolMachineActor,
+  actor: ReplaceWoolMachineAssociationsInput,
 ): WoolMachineAssociation[] {
   const operatedAt = requireText(actor.operatedAt, '操作时间')
   const operatedBy = requireText(actor.operatedBy, '操作人')
@@ -204,6 +404,16 @@ export function replaceWoolMachineAssociations(
 
   const selectedMachineIds = [...new Set(machineIds.map((item) => item.trim()).filter(Boolean))]
     .sort()
+  if (actor.expectedAssociationSnapshot) {
+    assertExpectedSnapshot(
+      actor.expectedAssociationSnapshot,
+      captureWoolReplaceMachineAssociationSnapshotFromStore(
+        store,
+        woolOrderId,
+        selectedMachineIds,
+      ),
+    )
+  }
   for (const machineId of selectedMachineIds) {
     const machine = requireMachine(store, machineId)
     if (machine.status === 'REPAIR' || machine.status === 'DISABLED') {
@@ -222,6 +432,16 @@ export function replaceWoolMachineAssociations(
   }
 
   const committed = commitWoolStore((draft) => {
+    if (actor.expectedAssociationSnapshot) {
+      assertExpectedSnapshot(
+        actor.expectedAssociationSnapshot,
+        captureWoolReplaceMachineAssociationSnapshotFromStore(
+          draft,
+          woolOrderId,
+          selectedMachineIds,
+        ),
+      )
+    }
     const currentForTarget = draft.machineAssociations
       .filter((item) => item.woolOrderId === woolOrderId)
     const selected = new Set(selectedMachineIds)
@@ -332,6 +552,12 @@ export function changeWoolMachineAvailability(
     throw new Error('生产中设备改为维修或停用前必须确认影响')
   }
   commitWoolStore((draft) => {
+    if (input.expectedAssociationSnapshot) {
+      assertExpectedSnapshot(
+        input.expectedAssociationSnapshot,
+        captureWoolMachineAvailabilitySnapshotFromStore(draft, machineId),
+      )
+    }
     const currentMachine = requireMachine(draft, machineId)
     const currentAssociation = draft.machineAssociations.find((item) => item.machineId === machineId)
     const beforeStatus = currentAssociation ? 'PRODUCING' : currentMachine.status

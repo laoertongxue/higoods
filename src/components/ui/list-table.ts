@@ -140,7 +140,11 @@ function renderSortHeader<T>(
   eventPrefix: string,
 ): string {
   const activeDirection = sort?.key === column.key ? sort.direction : null
-  const actionAttr = toActionAttr({ prefix: eventPrefix, action: 'sort-column' })
+  const actionAttr = toActionAttr({
+    prefix: eventPrefix,
+    action: 'sort-column',
+    skipPageRerender: true,
+  })
   const nextActionLabel = activeDirection === 'asc'
     ? `按${column.title}降序排列`
     : activeDirection === 'desc'
@@ -350,6 +354,7 @@ function renderSettingCheckbox(options: {
         ${options.checked ? 'checked' : ''}
         ${options.disabled ? 'disabled' : ''}
         ${toActionAttr({ prefix: options.eventPrefix, action: options.action })}
+        data-skip-page-rerender="true"
         data-${toDataPrefix(options.eventPrefix)}-column-key="${escapeHtml(options.columnKey)}"
       >
       <span>${options.label}</span>
@@ -419,14 +424,22 @@ export function renderStandardListColumnSettings<T>(
   return renderDrawer(
     {
       title: config.title,
-      closeAction: { prefix: config.eventPrefix, action: 'close-column-settings' },
+      closeAction: {
+        prefix: config.eventPrefix,
+        action: 'close-column-settings',
+        skipPageRerender: true,
+      },
       width: 'sm',
     },
     content,
     {
       extra: renderSecondaryButton(
         '恢复默认',
-        { prefix: config.eventPrefix, action: 'restore-column-settings' },
+        {
+          prefix: config.eventPrefix,
+          action: 'restore-column-settings',
+          skipPageRerender: true,
+        },
       ),
       cancel: {
         prefix: config.eventPrefix,

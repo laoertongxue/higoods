@@ -70,7 +70,7 @@
     "check:production-order-management-cleanup": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-production-order-management-cleanup.ts",
     "check:task-print-cards-foundation": "tsx scripts/check-task-print-cards-foundation.ts",
     "check:wool-internal-style-code": "tsx scripts/check-wool-internal-style-code.ts",
-    "check:wool-fact-workflow": "tsx scripts/check-wool-fact-workflow.ts",
+    "check:wool-fact-workflow": "tsx scripts/check-wool-fact-workflow.ts && tsx scripts/check-wool-machine-local-interactions.ts",
     "check:process-factory-warehouse-menu-consolidation": "tsx scripts/check-process-factory-warehouse-menu-consolidation.ts",
     "check:cutting-warehouse-management-switch": "tsx scripts/check-cutting-warehouse-management-switch.ts",
     "check:pda-cutting-wait-handover-entry-routing": "tsx scripts/check-pda-cutting-wait-handover-entry-routing.ts",
