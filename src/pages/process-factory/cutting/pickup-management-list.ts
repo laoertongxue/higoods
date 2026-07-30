@@ -17,7 +17,10 @@ import {
 } from '../../../components/ui/list-table-model.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
-import { listPickupDiscrepancies } from '../../../data/fcs/cutting/pickup-discrepancy.ts'
+import {
+  listPickupDiscrepancies,
+  resolvePickupDiscrepancy,
+} from '../../../data/fcs/cutting/pickup-discrepancy.ts'
 import { renderProductionOrderIdentityCell } from '../../../data/fcs/production-order-identity.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
@@ -217,7 +220,7 @@ function renderHistoryMaterials(group: PickupOrderGroup): string {
 
 const READY_COLUMNS: StandardListColumn<PickupOrderGroup>[] = [
   { key: 'productionOrder', title: '生产单', width: 230, required: true, freezeable: true, sortable: true, render: renderOrderCell, sortValue: (row) => row.productionOrderNo },
-  { key: 'style', title: '款式 / SPU', width: 220, freezeable: true, sortable: true, render: renderStyleCell, sortValue: (row) => `${row.styleNo}:${row.spu}` },
+  { key: 'readyStyle', title: '款式 / SPU', width: 220, freezeable: true, sortable: true, render: renderStyleCell, sortValue: (row) => `${row.styleNo}:${row.spu}` },
   { key: 'materials', title: '物料明细（全部需求）', width: 720, required: true, freezeable: true, render: renderAllMaterials },
   { key: 'readyCarrier', title: '配齐方式 / 待领托盘', width: 210, required: true, freezeable: true, sortable: true, render: renderReadyCarrier, sortValue: (row) => row.readySource },
   { key: 'nodeState', title: '当前节点状态', width: 220, freezeable: true, sortable: true, render: renderCurrentNodeCell, sortValue: (row) => row.currentNodeState },
@@ -226,7 +229,7 @@ const READY_COLUMNS: StandardListColumn<PickupOrderGroup>[] = [
 
 const INCOMPLETE_COLUMNS: StandardListColumn<PickupOrderGroup>[] = [
   { key: 'productionOrder', title: '生产单', width: 230, required: true, freezeable: true, sortable: true, render: renderOrderCell, sortValue: (row) => row.productionOrderNo },
-  { key: 'style', title: '款式 / SPU', width: 220, freezeable: true, sortable: true, render: renderStyleCell, sortValue: (row) => `${row.styleNo}:${row.spu}` },
+  { key: 'incompleteStyle', title: '款式 / SPU', width: 220, freezeable: true, sortable: true, render: renderStyleCell, sortValue: (row) => `${row.styleNo}:${row.spu}` },
   { key: 'materials', title: '物料明细（全部需求）', width: 720, required: true, freezeable: true, render: renderAllMaterials },
   { key: 'locations', title: '当前全部库位及数量', width: 360, required: true, freezeable: true, render: renderAllLocations },
   { key: 'nodeState', title: '当前节点状态', width: 220, freezeable: true, sortable: true, render: renderCurrentNodeCell, sortValue: (row) => row.currentNodeState },
@@ -235,7 +238,7 @@ const INCOMPLETE_COLUMNS: StandardListColumn<PickupOrderGroup>[] = [
 
 const HISTORY_COLUMNS: StandardListColumn<PickupOrderGroup>[] = [
   { key: 'productionOrder', title: '生产单', width: 230, required: true, freezeable: true, sortable: true, render: renderOrderCell, sortValue: (row) => row.productionOrderNo },
-  { key: 'style', title: '款式 / SPU', width: 220, freezeable: true, sortable: true, render: renderStyleCell, sortValue: (row) => `${row.styleNo}:${row.spu}` },
+  { key: 'historyStyle', title: '款式 / SPU', width: 220, freezeable: true, sortable: true, render: renderStyleCell, sortValue: (row) => `${row.styleNo}:${row.spu}` },
   { key: 'materials', title: '物料领料结果（全部需求）', width: 620, required: true, freezeable: true, render: renderHistoryMaterials },
   { key: 'result', title: '领取路径 / 最终结果', width: 190, required: true, freezeable: true, sortable: true, render: renderHistoryResult, sortValue: (row) => `${row.historyPath}:${row.finalResult}` },
   { key: 'sessions', title: '领取次数 / 最近领料人 / 时间', width: 230, freezeable: true, sortable: true, render: (row) => `<div class="text-sm"><div>${row.pickupSessionCount} 次</div><div class="text-xs text-muted-foreground">${escapeHtml(row.latestPickerName || '—')}</div><div class="text-xs text-muted-foreground">${escapeHtml(row.latestPickedAt || '—')}</div></div>`, sortValue: (row) => row.latestPickedAt },
@@ -385,6 +388,9 @@ function renderPickupRecordsDrawer(kind: PickupListKind): string {
   const group = (groupSnapshots.get(kind) ?? []).find((item) => item.groupKey === state.selectedRecordGroupKey)
   if (!group) return ''
   const discrepancies = listPickupDiscrepancies()
+  const groupDiscrepancies = discrepancies.filter((record) =>
+    record.productionOrderId === group.productionOrderId
+  )
   return `<div class="fixed inset-0 z-50 flex justify-end bg-black/30" data-skip-page-rerender="true">
     <section class="h-full w-full max-w-2xl overflow-y-auto bg-background shadow-xl">
       <div class="sticky top-0 z-10 flex items-start justify-between border-b bg-background px-5 py-4">
@@ -395,6 +401,17 @@ function renderPickupRecordsDrawer(kind: PickupListKind): string {
         <button type="button" class="rounded-md border px-3 py-2 text-sm" data-pickup-list-action="close-pickup-records">关闭</button>
       </div>
       <div class="space-y-3 p-5">
+        ${groupDiscrepancies.length ? `<section class="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <div class="text-sm font-semibold text-amber-800">领料差异与主管处理</div>
+          ${groupDiscrepancies.map((record) => `<div class="rounded-md bg-white p-3 text-xs">
+            <div class="font-medium">${escapeHtml(record.materialName)} · 差异 ${formatQty(record.differenceQty, record.unit)}</div>
+            <div class="mt-1 text-muted-foreground">${escapeHtml(record.carrierLabel)} · ${escapeHtml(record.operatorName)} ${escapeHtml(record.reportedAt)}</div>
+            <div class="mt-1">现场证据：${escapeHtml(record.photoName || '无照片')}；${escapeHtml(record.note || '无说明')}</div>
+            ${record.status === '待主管处理'
+              ? `<button type="button" class="mt-2 rounded-md bg-amber-600 px-3 py-2 font-medium text-white" data-pickup-list-action="resolve-pickup-discrepancy" data-discrepancy-id="${escapeHtml(record.discrepancyId)}">主管处理完成</button>`
+              : `<div class="mt-2 text-emerald-700">已处理：${escapeHtml(record.handledBy)} ${escapeHtml(record.handledAt)} · ${escapeHtml(record.resolution)}</div>`}
+          </div>`).join('')}
+        </section>` : ''}
         ${group.pickupSessions.length ? group.pickupSessions.map((session) => {
           const snapshot = session.pickupNodeSnapshot
           const evidence = discrepancies.filter((record) =>
@@ -629,6 +646,19 @@ export function handleCraftCuttingPickupListEvent(target: HTMLElement, event?: E
   const action = actionNode?.dataset.pickupListAction
   if (!actionNode || !action) return false
 
+  if (action === 'resolve-pickup-discrepancy') {
+    const discrepancyId = actionNode.dataset.discrepancyId || ''
+    const resolution = window.prompt('请填写主管处理结论 / 说明', '已现场复核并处理差异')
+    if (!resolution?.trim()) return true
+    resolvePickupDiscrepancy(discrepancyId, {
+      handledBy: '裁床主管 王芳',
+      resolution,
+    })
+    groupSnapshots.set(kind, listPickupOrderGroups(kind))
+    refreshPickupListRegions(kind)
+    refreshPickupListOverlay(kind)
+    return true
+  }
   if (action === 'open-pickup-records') {
     state.selectedRecordGroupKey = actionNode.dataset.groupKey || ''
     refreshPickupListOverlay(kind)

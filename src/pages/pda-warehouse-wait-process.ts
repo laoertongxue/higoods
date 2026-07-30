@@ -2429,7 +2429,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
         operatorName: '裁床仓管',
         note: state.cuttingPickupDifferenceNote.trim(),
         photoName: state.cuttingPickupDifferencePhotoName,
-      })
+      }, undefined, (nodeId) => listActivePickupNodes().find((candidate) => candidate.nodeId === nodeId) ?? null)
       state.cuttingPickupDifferenceOpen = false
       window.alert('领料差异已上报，已阻断本节点领料确认，请等待主管处理。')
     } catch (error) {

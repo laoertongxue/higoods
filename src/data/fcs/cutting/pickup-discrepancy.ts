@@ -24,6 +24,9 @@ export interface PickupDiscrepancyRecord {
   status: PickupDiscrepancyStatus
   supervisorRequestedBy: string
   supervisorRequestedAt: string
+  handledBy: string
+  handledAt: string
+  resolution: string
 }
 
 export type PickupDiscrepancyInput = Omit<
@@ -33,7 +36,14 @@ export type PickupDiscrepancyInput = Omit<
   | 'status'
   | 'supervisorRequestedBy'
   | 'supervisorRequestedAt'
+  | 'handledBy'
+  | 'handledAt'
+  | 'resolution'
 >
+
+export type PickupActiveNodeResolver = (
+  pickupNodeId: string,
+) => { nodeId: string; version: number } | null
 
 const STORAGE_KEY = 'higood.fcs.cutting.pickup-discrepancies.v1'
 
@@ -72,6 +82,7 @@ export function listPickupDiscrepancies(
 export function reportPickupDiscrepancy(
   input: PickupDiscrepancyInput,
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+  resolveActiveNode?: PickupActiveNodeResolver,
 ): PickupDiscrepancyRecord {
   if (!input.pickupNodeId || input.pickupNodeVersion <= 0) {
     throw new Error('当前待领节点或版本无效，请重新进入领料任务。')
@@ -84,6 +95,12 @@ export function reportPickupDiscrepancy(
   }
   if (!input.note.trim() && !input.photoName.trim()) {
     throw new Error('请上传现场照片或填写现场说明。')
+  }
+  if (!resolveActiveNode) throw new Error('缺少当前待领节点解析器，不能上报差异。')
+  const activeNode = resolveActiveNode(input.pickupNodeId)
+  if (!activeNode) throw new Error('当前待领节点已失效，请重新进入领料任务。')
+  if (activeNode.version !== input.pickupNodeVersion) {
+    throw new Error('当前待领节点版本已更新，请重新核对后再上报差异。')
   }
   const records = readRecords(storage)
   const existing = records.find((record) =>
@@ -101,8 +118,30 @@ export function reportPickupDiscrepancy(
     status: '待主管处理',
     supervisorRequestedBy: '',
     supervisorRequestedAt: '',
+    handledBy: '',
+    handledAt: '',
+    resolution: '',
   }
   writeRecords([record, ...records], storage)
+  return structuredClone(record)
+}
+
+export function resolvePickupDiscrepancy(
+  discrepancyId: string,
+  input: { handledBy: string; resolution: string },
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): PickupDiscrepancyRecord | null {
+  if (!input.handledBy.trim() || !input.resolution.trim()) {
+    throw new Error('主管处理人和处理结论不能为空。')
+  }
+  const records = readRecords(storage)
+  const record = records.find((item) => item.discrepancyId === discrepancyId)
+  if (!record) return null
+  record.status = '已处理'
+  record.handledBy = input.handledBy.trim()
+  record.handledAt = nowText()
+  record.resolution = input.resolution.trim()
+  writeRecords(records, storage)
   return structuredClone(record)
 }
 
