@@ -55,7 +55,7 @@
 | 测款前准备遗漏既有表单入口 | `协作断裂` | 商品企划、商品运营 | 在固定第三步恢复拍摄试穿、样衣确认、样衣核价、样衣定价及可行性、渠道准备入口 | 否 |
 | 样衣退回默认去向依赖历史模板编号 | `点错风险` | 商品运营、样衣管理员 | 按样衣来源类型推导；外采退回供应商、委托打样退回版房，来源不足时明确默认库存留样 | 否 |
 | 商品测款可行性判断自动进入改版任务 | `协作断裂` | 商品负责人、打样人员 | 测款项目内只保留进入测款、样衣退回；改款和重新打样由前期打样模块独立人工创建 | 否 |
-| 旧改版验收强制依赖商品项目 `REVISION_TASK` 节点，并把 `TEST_CONCLUSION` 测款结论误当成可写任务节点 | `协作断裂` | 商品负责人、版师、打样人员 | 改从独立改版任务创建入口建立验收任务，`TEST_CONCLUSION` 只作为来源项目和款式上下文，不绑定改版任务节点、不写项目关系和节点进度；委托打样按样衣来源事实推导首版样衣，改版列表独立使用五状态筛选，不改变制版、花型等并列模块 | 否 |
+| 旧改版验收强制依赖商品项目 `REVISION_TASK` 节点，并把 `TEST_CONCLUSION` 测款结论或历史花型／首版样衣节点误当成可写任务节点 | `协作断裂` | 商品负责人、版师、打样人员 | 改从独立改版任务创建入口建立验收任务，来源节点只由系统精确解析当前项目 `TEST_CONCLUSION`，忽略调用方旧节点参数且不再回退 `REVISION_TASK`；改版派生的花型和首版样衣始终只关联项目与来源任务，不绑定或写回任何项目节点 | 否 |
 
 ## 6. 最终结论
 
@@ -67,7 +67,7 @@
 - 现有业务表单继续由固定步骤内的业务节点承接，未扩大到工作项／模板模块删除。
 - “暂保留”仍作为当前测款判断，不新增下一轮测款流程。
 - 商品测款不承接商品开发或改版打样；需要改款时由前期打样模块独立人工创建任务。
-- 独立改版可以读取测款结论作为来源事实，但创建、下游生成、确认和完成均不得改写来源商品项目的测款节点。
+- 独立改版可以读取系统精确解析的测款结论作为来源事实，但创建、花型／首版样衣下游生成、确认和完成均不得改写来源商品项目任何节点。
 
 ## 7. 变更覆盖与验证
 
@@ -108,7 +108,7 @@
 - `npm run check:pcs-product-testing-v1`：通过
 - `node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-project-decision-flow.ts`：通过
 - `node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-project-data-consistency.ts`：通过，共核对 26 个项目、364 个节点，未发现问题
-- `node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-revision-remodel-acceptance.ts`：通过，独立改版任务创建、花型和首版样衣下游、确认、技术包前置、完成闭环及详情页验收全部实际执行，并用闭环前后全量节点快照确认来源商品项目节点未被改写
+- `node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-revision-remodel-acceptance.ts`：通过，恶意旧节点参数不能覆盖系统解析的 `TEST_CONCLUSION`，独立改版任务创建、花型和首版样衣下游、确认、技术包前置、完成闭环及详情页验收全部实际执行，并用闭环前后全量节点快照确认来源商品项目节点未被改写
 - `npm run check:prototype-design-governance -- --all`：通过
 
 ### 例外

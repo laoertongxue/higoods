@@ -120,7 +120,7 @@ if (firstSampleNodeCandidates.length > 0) {
     assert.ok(relation?.note.includes('fitConfirmationSummary'), '项目关系快照应包含验收字段')
   }
 } else {
-  const revisionProject = listProjects().find((item) => item.templateName.includes('万隆改版'))
+  const revisionProject = listProjects().find((item) => item.sampleSourceType === '委托打样')
   assert.ok(revisionProject, '缺少可验证改版产出样衣的万隆改版项目')
   const revision = createRevisionTaskWithProjectRelation({
     projectId: revisionProject.projectId,

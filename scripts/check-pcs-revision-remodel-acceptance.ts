@@ -2,7 +2,12 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 
 import { renderPcsRevisionTaskDetailPage } from '../src/pages/pcs-engineering-tasks.ts'
-import { listProjectNodes, listProjects, resetProjectRepository } from '../src/data/pcs-project-repository.ts'
+import {
+  getProjectNodeRecordByWorkItemTypeCode,
+  listProjectNodes,
+  listProjects,
+  resetProjectRepository,
+} from '../src/data/pcs-project-repository.ts'
 import { resetProjectRelationRepository } from '../src/data/pcs-project-relation-repository.ts'
 import { resetRevisionTaskRepository, getRevisionTaskById, updateRevisionTask } from '../src/data/pcs-revision-task-repository.ts'
 import { resetPatternTaskRepository, listPatternTasks } from '../src/data/pcs-pattern-task-repository.ts'
@@ -46,6 +51,7 @@ function assertIncludes(source: string, pattern: string, message: string): void 
 }
 
 resetAll()
+const writebackServiceSource = fs.readFileSync('src/data/pcs-task-project-relation-writeback.ts', 'utf8')
 
 assert.deepEqual(REVISION_TASK_SOURCE_TYPE_LIST, ['测款结论返改', '首版样衣返改', '既有商品改款', '人工改版需求'])
 assert.equal(normalizeRevisionTaskSourceType('测款触发'), '测款结论返改')
@@ -58,6 +64,8 @@ const style = listStyleArchives()[0]
 assert.ok(style, '应存在正式款式档案演示数据')
 const project = listProjects()[0]
 assert.ok(project, '应存在可作为测款结论来源的商品项目演示数据')
+const testConclusionNode = getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'TEST_CONCLUSION')
+assert.ok(testConclusionNode, '测款结论返改来源项目应存在 TEST_CONCLUSION 节点')
 
 const projectRequired = createRevisionTaskWithProjectRelation({
   projectId: '',
@@ -151,6 +159,25 @@ assert.equal(standaloneCompleted.ok, true)
 assert.equal(standaloneCompleted.ok && standaloneCompleted.task.status, '已完成')
 pass('独立改版任务按独立任务语义展示，可创建花型下游并完成闭环')
 
+const maliciousUpstreamRevision = createRevisionTaskWithProjectRelation({
+  projectId: project.projectId,
+  title: '拒绝调用方覆盖来源节点的验收改版任务',
+  sourceType: '测款结论返改',
+  upstreamModule: '旧改版任务',
+  upstreamObjectType: '项目工作项',
+  upstreamObjectId: 'legacy-revision-node',
+  upstreamObjectCode: 'legacy-revision-node',
+  ownerName: project.ownerName,
+  dueAt: '2026-06-30 18:00',
+  revisionScopeCodes: ['PATTERN'],
+  revisionScopeNames: ['版型结构'],
+  issueSummary: '调用方携带旧改版节点时仍须以当前项目测款结论作为来源。',
+  evidenceSummary: '验收脚本模拟历史调用参数污染。',
+  operatorName: '验收脚本',
+})
+assert.equal(maliciousUpstreamRevision.ok, true)
+if (!maliciousUpstreamRevision.ok) throw new Error(maliciousUpstreamRevision.message)
+
 const sourceProjectNodesBeforeRevision = listProjectNodes(project.projectId)
 const created = createRevisionTaskWithProjectRelation({
   projectId: project.projectId,
@@ -187,7 +214,6 @@ assert.equal(listPlateMakingTasks().filter((item) => item.upstreamObjectId === c
 const createdPatternDownstreams = listPatternTasks().filter((item) => item.upstreamObjectId === created.task.revisionTaskId)
 assert.equal(createdPatternDownstreams.length, 1)
 assert.equal(createdPatternDownstreams[0]?.projectId, project.projectId)
-assert.equal(createdPatternDownstreams[0]?.projectNodeId, '')
 const createdPatternDownstreamCode = createdPatternDownstreams[0]?.patternTaskCode || ''
 const createdFirstSampleDownstreams = listFirstSampleTasks().filter((item) => item.upstreamObjectId === created.task.revisionTaskId)
 assert.equal(createdFirstSampleDownstreams.length, 1)
@@ -257,8 +283,34 @@ const completed = completeRevisionTaskWithProjectRelationSync(created.task.revis
 assert.equal(completed.ok, true)
 assert.equal(completed.ok && completed.task.status, '已完成')
 assert.equal(getRevisionTaskById(created.task.revisionTaskId)?.status, '已完成')
+const sourceProjectNodesAfterRevision = listProjectNodes(project.projectId)
+const independentBoundaryViolations = [
+  maliciousUpstreamRevision.task.upstreamObjectId === testConclusionNode.projectNodeId
+    ? ''
+    : `调用方覆盖了测款结论来源：${maliciousUpstreamRevision.task.upstreamObjectId}`,
+  createdPatternDownstreams[0]?.projectNodeId ? `花型下游绑定了项目节点：${createdPatternDownstreams[0].projectNodeId}` : '',
+  createdFirstSampleDownstreams[0]?.projectNodeId ? `首版样衣下游绑定了项目节点：${createdFirstSampleDownstreams[0].projectNodeId}` : '',
+  writebackServiceSource.includes(
+    "const patternNode = getProjectNodeRecordByWorkItemTypeCode(revisionTask.projectId, 'PATTERN_ARTWORK_TASK')",
+  )
+    ? '花型下游仍按历史 PATTERN_ARTWORK_TASK 节点切换到可写回分支'
+    : '',
+  writebackServiceSource.includes(
+    "const firstSampleNode = getProjectNodeRecordByWorkItemTypeCode(revisionTask.projectId, 'FIRST_SAMPLE')",
+  )
+    ? '首版样衣下游仍按历史 FIRST_SAMPLE 节点切换到可写回分支'
+    : '',
+  JSON.stringify(sourceProjectNodesAfterRevision) === JSON.stringify(sourceProjectNodesBeforeRevision)
+    ? ''
+    : '独立改版下游或闭环改写了来源商品项目节点',
+].filter(Boolean)
+assert.deepEqual(independentBoundaryViolations, [], '独立改版边界存在越界写回')
+assert.equal(maliciousUpstreamRevision.task.upstreamObjectId, testConclusionNode.projectNodeId)
+assert.equal(maliciousUpstreamRevision.task.upstreamObjectCode, testConclusionNode.projectNodeId)
+assert.equal(createdPatternDownstreams[0]?.projectNodeId, '')
+assert.equal(createdFirstSampleDownstreams[0]?.projectNodeId, '')
 assert.deepEqual(
-  listProjectNodes(project.projectId),
+  sourceProjectNodesAfterRevision,
   sourceProjectNodesBeforeRevision,
   '独立改版任务完整闭环不得改写来源商品项目任何测款节点',
 )
