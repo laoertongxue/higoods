@@ -61,14 +61,14 @@ import {
   type StandardListColumn,
 } from '../../../components/ui/list-table.ts'
 
-type SupplementManualSourceType = 'production-order' | 'cut-order'
-type SupplementSourceType = SupplementManualSourceType | 'release-snapshot'
+export type SupplementManualSourceType = 'production-order' | 'cut-order'
+export type SupplementSourceType = SupplementManualSourceType | 'release-snapshot'
 type SupplementFilterSourceType = 'ALL' | SupplementSourceType
-type SupplementRecordStatus = '已确认'
+export type SupplementRecordStatus = '已确认'
 type SupplementProcessKind = '印花' | '染色'
-type SupplementMaterialRole = '面料A' | '面料B' | '面料C' | '里布' | '衬' | '罗纹' | '辅料' | '包材' | '未识别'
-type SupplementRoleSource = '物料-纸样关联别名' | '物料行继承别名' | '纸样辅助识别' | '顺序推断' | '未识别'
-type SupplementRoleConfirmStatus = '已确认' | '待确认'
+export type SupplementMaterialRole = '面料A' | '面料B' | '面料C' | '里布' | '衬' | '罗纹' | '辅料' | '包材' | '未识别'
+export type SupplementRoleSource = '物料-纸样关联别名' | '物料行继承别名' | '纸样辅助识别' | '顺序推断' | '未识别'
+export type SupplementRoleConfirmStatus = '已确认' | '待确认'
 
 interface SupplementFilters {
   sourceType: SupplementFilterSourceType
@@ -86,7 +86,7 @@ interface SupplementFeedback {
   message: string
 }
 
-interface SupplementSizeColorRow {
+export interface SupplementSizeColorRow {
   key: string
   skuCode: string
   color: string
@@ -102,7 +102,7 @@ interface SupplementSizeColorRow {
   relatedCutOrderNos: string[]
 }
 
-interface SupplementMaterialDemand {
+export interface SupplementMaterialDemand {
   key: string
   materialPatternMappingId: string
   sourceBomItemId: string
@@ -126,7 +126,7 @@ interface SupplementMaterialDemand {
   originalCutOrderNo: string
 }
 
-interface SupplementMaterialPatternRef {
+export interface SupplementMaterialPatternRef {
   materialPatternMappingId: string
   techPackVersionId: string
   materialSku: string
@@ -145,7 +145,7 @@ interface SupplementMaterialPatternRef {
   bomItem?: TechPackBomItemSnapshot
 }
 
-interface SupplementAbAnalysisRow {
+export interface SupplementAbAnalysisRow {
   key: string
   skuCode: string
   color: string
@@ -163,7 +163,7 @@ interface SupplementAbAnalysisRow {
   roleConfirmStatus: SupplementRoleConfirmStatus
 }
 
-interface SupplementLine extends SupplementSizeColorRow {
+export interface SupplementLine extends SupplementSizeColorRow {
   supplementQty: number
   basis: SupplementAbAnalysisRow
   isManualAdjusted: boolean

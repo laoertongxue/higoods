@@ -13,12 +13,20 @@ import type {
   PickupNodeSourceLocation,
 } from '../src/data/fcs/cutting/pickup-node-domain.ts'
 import {
+  listPlatformDyeResultViews,
+  listPlatformPrintResultViews,
+} from '../src/data/fcs/platform-process-result-view.ts'
+import {
+  buildSupplementMaterialRows,
+  derivePickupProcessRoute,
   derivePickupHistoryPath,
   listPickupOrderGroups,
+  resolvePickupRequiredQty,
   type PickupListKind,
   type PickupMaterialDemandRow,
   type PickupOrderGroup,
 } from '../src/pages/process-factory/cutting/pickup-management-projection.ts'
+import { listSupplementRecords } from '../src/pages/process-factory/cutting/supplement-management.ts'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -61,6 +69,90 @@ function roundQty(value: number): number {
   return Number(Number(value || 0).toFixed(2))
 }
 
+function assertRequiredQtyResolver(): void {
+  assert(derivePickupProcessRoute({ upstreamSourceType: '无上游' }) === 'NONE', '无加工正常需求必须映射 NONE')
+  assert(derivePickupProcessRoute({ upstreamSourceType: '染色' }) === 'DYE', '染色正常需求必须映射 DYE')
+  assert(derivePickupProcessRoute({ upstreamSourceType: '印花' }) === 'DYE_PRINT', '印花正常需求必须映射 DYE_PRINT')
+  assert(derivePickupProcessRoute({ dyeRequired: true }) === 'DYE', '补料染色需求必须映射 DYE')
+  assert(derivePickupProcessRoute({ dyeRequired: true, printRequired: true }) === 'DYE_PRINT', '补料印花需求必须映射 DYE_PRINT')
+
+  const none = resolvePickupRequiredQty({
+    plannedQty: 18,
+    unit: 'yard',
+    processRoute: 'NONE',
+  })
+  assert(none.qty === 18 && none.basisLabel === '按计划数量', 'NONE 必须取计划量并标记按计划数量')
+
+  const completedDye = resolvePickupRequiredQty({
+    plannedQty: 18,
+    unit: 'yard',
+    processRoute: 'DYE',
+    dyeResult: { completedObjectQty: 16.5, qtyUnit: 'yard' },
+  })
+  assert(completedDye.qty === 16.5, 'DYE 必须取染色最终完成量')
+  const waitingDye = resolvePickupRequiredQty({
+    plannedQty: 18,
+    unit: 'yard',
+    processRoute: 'DYE',
+    dyeResult: { completedObjectQty: 0, qtyUnit: 'yard' },
+  })
+  assert(waitingDye.qty === 0 && waitingDye.basisLabel.includes('等待染色一次性完成'), '染色完成量为 0 必须等待')
+  const mismatchedDye = resolvePickupRequiredQty({
+    plannedQty: 18,
+    unit: 'yard',
+    processRoute: 'DYE',
+    dyeResult: { completedObjectQty: 16.5, qtyUnit: '米' },
+  })
+  assert(mismatchedDye.qty === 0 && mismatchedDye.basisLabel.includes('加工完成单位不一致'), '染色完成单位不一致必须阻断')
+  const mismatchedWaitingDye = resolvePickupRequiredQty({
+    plannedQty: 18,
+    unit: 'yard',
+    processRoute: 'DYE',
+    dyeResult: { completedObjectQty: 0, qtyUnit: '米' },
+  })
+  assert(
+    mismatchedWaitingDye.qty === 0 && mismatchedWaitingDye.basisLabel.includes('加工完成单位不一致'),
+    '已有加工结果但单位不一致时必须优先提示单位不一致',
+  )
+
+  const completedPrint = resolvePickupRequiredQty({
+    plannedQty: 18,
+    unit: 'yard',
+    processRoute: 'DYE_PRINT',
+    dyeResult: { completedObjectQty: 17, qtyUnit: 'yard' },
+    printResult: { completedObjectQty: 15, qtyUnit: 'yard' },
+  })
+  assert(completedPrint.qty === 15, 'DYE_PRINT 必须取印花最终完成量')
+  const waitingPrint = resolvePickupRequiredQty({
+    plannedQty: 18,
+    unit: 'yard',
+    processRoute: 'DYE_PRINT',
+    dyeResult: { completedObjectQty: 17, qtyUnit: 'yard' },
+    printResult: { completedObjectQty: 0, qtyUnit: 'yard' },
+  })
+  assert(
+    waitingPrint.qty === 0 && waitingPrint.basisLabel.includes('等待印花一次性完成'),
+    '印花未完成时不得回退染色完成量',
+  )
+
+  const invalidQty = resolvePickupRequiredQty({
+    plannedQty: 18,
+    unit: 'yard',
+    processRoute: 'DYE',
+    dyeResult: { completedObjectQty: Number.NaN, qtyUnit: 'yard' },
+  })
+  assert(invalidQty.qty === 0 && invalidQty.basisLabel.includes('加工完成数量异常'), 'NaN 完成量必须阻断')
+  const negativeQty = resolvePickupRequiredQty({
+    plannedQty: 18,
+    unit: 'yard',
+    processRoute: 'DYE_PRINT',
+    printResult: { completedObjectQty: -1, qtyUnit: 'yard' },
+  })
+  assert(negativeQty.qty === 0 && negativeQty.basisLabel.includes('加工完成数量异常'), '负数完成量必须阻断')
+}
+
+assertRequiredQtyResolver()
+
 function assertMaterialRowFacts(
   group: PickupOrderGroup,
   projection: MaterialPrepOrderProjection,
@@ -68,8 +160,19 @@ function assertMaterialRowFacts(
 ): void {
   const projectionLine = projection.lines.find((line) => line.prepLineId === materialRow.demandLineId)
   assert(projectionLine, `${group.productionOrderNo} 正常需求行必须以 prepLineId 作为 demandLineId`)
-  assert(materialRow.demandSource === 'NORMAL', `${materialRow.demandLineId} 当前必须是正常需求`)
-  assert(materialRow.requiredQty === projectionLine.requiredQty, `${materialRow.demandLineId} 需求数量必须来自配料投影行`)
+  assert(materialRow.demandSource === 'NORMAL', `${materialRow.demandLineId} 必须是正常需求`)
+  const expectedRoute = derivePickupProcessRoute({ upstreamSourceType: projectionLine.upstreamSourceType })
+  assert(materialRow.processRoute === expectedRoute, `${materialRow.demandLineId} 必须按加工来源标记路线`)
+  if (expectedRoute === 'NONE') {
+    assert(materialRow.requiredQty === projectionLine.requiredQty, `${materialRow.demandLineId} 无加工时需求数量必须来自计划量`)
+    assert(materialRow.processBasisLabel === '按计划数量', `${materialRow.demandLineId} 无加工时必须标记按计划数量`)
+  } else {
+    assert(materialRow.requiredQty === 0, `${materialRow.demandLineId} 加工未形成一次性完成结果时应配数量必须为 0`)
+    assert(
+      materialRow.processBasisLabel.includes('等待') || materialRow.processBasisLabel.includes('加工完成单位不一致'),
+      `${materialRow.demandLineId} 加工未完成或单位不一致时必须说明阻断原因`,
+    )
+  }
   assert(
     materialRow.preparedQty === projectionLine.confirmedPrepQty,
     `${materialRow.demandLineId} 已配数量必须来自配料投影行确认数量`,
@@ -153,6 +256,111 @@ assert(
   '串换来源配料记录必须被稳定位置事实比较捕获',
 )
 
+const supplementRecords = listSupplementRecords().filter((record) => record.status === '已确认')
+const dyeResults = listPlatformDyeResultViews()
+const printResults = listPlatformPrintResultViews()
+const supplementRowsByProductionOrder = buildSupplementMaterialRows(supplementRecords, {
+  dyeResults,
+  printResults,
+})
+const supplementRows = Array.from(supplementRowsByProductionOrder.values()).flat()
+const expectedSupplementCount = supplementRecords.reduce(
+  (sum, record) => sum + record.draft.materialDemands.length,
+  0,
+)
+assert(supplementRows.length === expectedSupplementCount, '每条已确认补料物料需求必须独立投影')
+assert(
+  new Set(supplementRows.map((row) => row.demandLineId)).size === supplementRows.length,
+  '每条补料需求必须有稳定且唯一的 demandLineId',
+)
+for (const record of supplementRecords) {
+  const expectedRows = [...record.draft.materialDemands]
+    .sort((left, right) => left.materialPatternMappingId.localeCompare(right.materialPatternMappingId, 'zh-CN'))
+  expectedRows.forEach((demand) => {
+    const demandLineId = `SUPPLEMENT:${record.id}:${demand.materialPatternMappingId}`
+    const row = supplementRows.find((candidate) => candidate.demandLineId === demandLineId)
+    assert(row, `${record.recordNo} ${demand.materialSku} 必须生成独立补料需求行`)
+    assert(row.demandSource === 'SUPPLEMENT', `${demandLineId} 必须标记为 SUPPLEMENT`)
+    assert(row.demandSourceNo === record.recordNo, `${demandLineId} 必须保留补料单号`)
+    assert(row.supplementReason.includes(record.draft.reason), `${demandLineId} 必须保留补料原因`)
+    assert(row.unit === demand.unit && Boolean(row.unit), `${demandLineId} 必须保留需求单位`)
+    assert(row.color === '' && row.spec === '', `${demandLineId} 不得虚构颜色或规格`)
+    assert(
+      [row.requiredQty, row.preparedQty, row.pickedQty, row.remainingPickupQty, row.currentAvailableQty]
+        .every((qty) => Number.isFinite(qty) && qty >= 0),
+      `${demandLineId} 所有数量必须为非负有限数`,
+    )
+    assert(
+      row.preparedQty === 0
+      && row.pickedQty === 0
+      && row.currentAvailableQty === 0
+      && row.currentLocations.length === 0,
+      `${demandLineId} 不得借用相同 SKU 正常需求的配料、领料或库位事实`,
+    )
+  })
+}
+for (const [productionOrderId, rows] of supplementRowsByProductionOrder) {
+  const expectedIds = supplementRecords
+    .filter((record) => record.draft.productionOrderId === productionOrderId)
+    .sort((left, right) =>
+      left.createdAt.localeCompare(right.createdAt)
+      || left.recordNo.localeCompare(right.recordNo, 'zh-CN')
+    )
+    .flatMap((record) => [...record.draft.materialDemands]
+      .sort((left, right) => left.materialPatternMappingId.localeCompare(right.materialPatternMappingId, 'zh-CN'))
+      .map((demand) => `SUPPLEMENT:${record.id}:${demand.materialPatternMappingId}`))
+  assert(
+    JSON.stringify(rows.map((row) => row.demandLineId)) === JSON.stringify(expectedIds),
+    `${productionOrderId} 补料需求必须按创建时间、补料单号和物料关联稳定排序`,
+  )
+  assert(
+    rows.every((row, index) => row.demandSequence === index + 1),
+    `${productionOrderId} 补料 demandSequence 必须连续`,
+  )
+}
+const repeatedSkuRows = supplementRows.filter((row) =>
+  supplementRows.filter((candidate) => candidate.materialSku === row.materialSku).length > 1
+)
+assert(repeatedSkuRows.length > 1, '实际补料记录必须保留相同 SKU 的多次补料需求')
+assert(
+  new Set(repeatedSkuRows.map((row) => row.demandLineId)).size === repeatedSkuRows.length,
+  '相同 SKU 的多次补料 demandLineId 必须保持唯一',
+)
+
+const dyePrintRecord = supplementRecords.find((record) =>
+  record.draft.materialDemands.some((demand) => demand.printRequired)
+)
+assert(dyePrintRecord, '实际补料记录必须有染色后印花需求')
+const dyePrintDemand = dyePrintRecord.draft.materialDemands.find((demand) => demand.printRequired)
+assert(dyePrintDemand, `${dyePrintRecord.recordNo} 必须有印花物料需求`)
+const dyeRef = dyePrintRecord.processWorkOrderRefs.find((ref) =>
+  ref.processType === 'DYE' && ref.materialSku === dyePrintDemand.materialSku
+)
+const printRef = dyePrintRecord.processWorkOrderRefs.find((ref) =>
+  ref.processType === 'PRINT' && ref.materialSku === dyePrintDemand.materialSku
+)
+const dyeView = dyeResults.find((view) => view.sourceId === dyeRef?.workOrderId)
+const printView = printResults.find((view) => view.sourceId === printRef?.workOrderId)
+assert(dyeView && printView, `${dyePrintRecord.recordNo} 必须能按加工单引用找到染色与印花平台结果`)
+const unrelatedPrintView = printResults.find((view) =>
+  view.productionOrderNo === dyePrintRecord.draft.productionOrderNo
+  && view.sourceId !== printRef.workOrderId
+)
+assert(unrelatedPrintView, `${dyePrintRecord.recordNo} 必须有同生产单的无关印花结果以验证精确匹配`)
+const exactProcessRows = buildSupplementMaterialRows([dyePrintRecord], {
+  dyeResults: [{ ...dyeView, completedObjectQty: 11, qtyUnit: dyePrintDemand.unit as typeof dyeView.qtyUnit }],
+  printResults: [
+    { ...unrelatedPrintView, completedObjectQty: 99, qtyUnit: dyePrintDemand.unit as typeof unrelatedPrintView.qtyUnit },
+    { ...printView, completedObjectQty: 9, qtyUnit: dyePrintDemand.unit as typeof printView.qtyUnit },
+  ],
+}).get(dyePrintRecord.draft.productionOrderId) ?? []
+assert(
+  exactProcessRows.find((row) =>
+    row.demandLineId === `SUPPLEMENT:${dyePrintRecord.id}:${dyePrintDemand.materialPatternMappingId}`
+  )?.requiredQty === 9,
+  '同一补料的 DYE_PRINT 必须按 PRINT ref 精确取印花完成量，不得误用染色或同生产单其他结果',
+)
+
 const storage = new MemoryStorage()
 storage.setItem(
   PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
@@ -211,17 +419,38 @@ for (const groups of groupsByKind.values()) {
   for (const group of groups) {
     const projection = projections.find((candidate) => candidate.order.prepOrderId === group.prepOrderId)
     assert(projection, `${group.productionOrderNo} 必须能找到对应生产单配料投影`)
+    const normalRows = group.materialRows.filter((materialRow) => materialRow.demandSource === 'NORMAL')
+    const projectedSupplementRows = group.materialRows.filter((materialRow) => materialRow.demandSource === 'SUPPLEMENT')
     assert(
-      group.materialRows.length === projection.lines.length,
+      normalRows.length === projection.lines.length,
       `${group.productionOrderNo} 正常需求行不得按 SKU 或单位合并`,
     )
     assert(
-      new Set(group.materialRows.map((materialRow) => materialRow.demandLineId)).size === projection.lines.length,
+      new Set(normalRows.map((materialRow) => materialRow.demandLineId)).size === projection.lines.length,
       `${group.productionOrderNo} 每个 prepLineId 必须只输出一条需求行`,
     )
-    group.materialRows.forEach((materialRow) => assertMaterialRowFacts(group, projection, materialRow))
+    assert(
+      projectedSupplementRows.length === (supplementRowsByProductionOrder.get(group.productionOrderId)?.length ?? 0),
+      `${group.productionOrderNo} 必须追加该生产单全部有效补料需求`,
+    )
+    assert(
+      group.materialRows.every((row, index) => row.demandSequence === index + 1),
+      `${group.productionOrderNo} NORMAL 在前且全部 demandSequence 必须连续`,
+    )
+    normalRows.forEach((materialRow) => assertMaterialRowFacts(group, projection, materialRow))
   }
 }
+const allProjectedRows = Array.from(groupsByKind.values()).flat().flatMap((group) => group.materialRows)
+assert(
+  allProjectedRows.some((row) => row.demandSource === 'NORMAL' && row.processRoute === 'NONE'),
+  '实际三列表投影必须存在 NORMAL NONE',
+)
+assert(
+  allProjectedRows.some((row) =>
+    row.demandSource === 'NORMAL' && (row.processRoute === 'DYE' || row.processRoute === 'DYE_PRINT')
+  ),
+  '实际三列表投影必须存在 NORMAL DYE 或 DYE_PRINT',
+)
 
 const historyGroups = groupsByKind.get('HISTORY') ?? []
 assert(derivePickupHistoryPath([]) === null, '没有领料会话时不得派生历史路径')
