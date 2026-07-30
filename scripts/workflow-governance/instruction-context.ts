@@ -131,6 +131,7 @@ function parseObject(value: unknown, name: string): Record<string, unknown> {
 function parseRuleBindings(value: unknown): InstructionRuleBinding[] {
   assert(Array.isArray(value), 'ruleBindings 必须是数组')
   const parsed = new Map<string, InstructionRuleBinding>()
+  const inputRuleRefs: string[] = []
 
   for (const rawBinding of value) {
     const binding = parseObject(rawBinding, '规则绑定')
@@ -149,13 +150,24 @@ function parseRuleBindings(value: unknown): InstructionRuleBinding[] {
       `规则绑定字段不匹配：${binding.ruleRef}`,
     )
     parsed.set(binding.ruleRef, cloneBinding(expected))
+    inputRuleRefs.push(binding.ruleRef)
   }
 
   for (const binding of CORE_RULE_BINDINGS) {
     assert(parsed.has(binding.ruleRef), `缺少规则绑定：${binding.ruleRef}`)
   }
 
-  return requiredBindings(parsed.has(STAGE_TRACE_RULE))
+  const requireStageTrace = parsed.has(STAGE_TRACE_RULE)
+  const expectedRuleRefs = [
+    ...CORE_RULE_BINDINGS.map((binding) => binding.ruleRef),
+    ...(requireStageTrace ? [STAGE_TRACE_RULE] : []),
+  ]
+  assert.deepEqual(
+    inputRuleRefs,
+    expectedRuleRefs,
+    '规则绑定顺序必须与根 AGENTS.md 章节顺序一致',
+  )
+  return requiredBindings(requireStageTrace)
 }
 
 export function parseInstructionContext(value: unknown): InstructionContextReceipt {

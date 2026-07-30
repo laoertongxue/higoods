@@ -219,6 +219,18 @@ test('parser 拒绝错误 source path 和规则字段映射', (t) => {
   )
 })
 
+test('parser 拒绝乱序的核心规则绑定', (t) => {
+  const receipt = validReceipt(t)
+
+  assert.throws(
+    () => parseInstructionContext({
+      ...receipt,
+      ruleBindings: [...receipt.ruleBindings].reverse(),
+    }),
+    /规则绑定顺序/,
+  )
+})
+
 test('当前断言会重新采集并拒绝原始 AGENTS 字节变化', (t) => {
   const workspace = workspaceWithAgents(t)
   const receipt = captureInstructionContext({
