@@ -307,6 +307,7 @@ function resolveSupplementProcessResult(
 export function buildSupplementMaterialRows(
   records: SupplementRecord[],
   processResults: PickupProcessResults,
+  validatedSessionsByProductionOrder: ReadonlyMap<string, ValidatedPickupSession[]> = new Map(),
 ): Map<string, PickupMaterialDemandRow[]> {
   const rowsByProductionOrder = new Map<string, PickupMaterialDemandRow[]>()
   const confirmedRecords = records
@@ -319,6 +320,9 @@ export function buildSupplementMaterialRows(
 
   for (const record of confirmedRecords) {
     const rows = rowsByProductionOrder.get(record.draft.productionOrderId) ?? []
+    const pickedByLineAndUnit = sumValidatedPickedByLineAndUnit(
+      validatedSessionsByProductionOrder.get(record.draft.productionOrderId) ?? [],
+    )
     const demands = [...record.draft.materialDemands].sort((left, right) =>
       left.materialPatternMappingId.localeCompare(right.materialPatternMappingId, 'zh-CN')
     )
@@ -340,9 +344,11 @@ export function buildSupplementMaterialRows(
             dyeResult: dyeResolution.result,
             printResult: printResolution.result,
           })
+      const demandLineId = `SUPPLEMENT:${record.id}:${demand.materialPatternMappingId}`
+      const pickedQty = pickedByLineAndUnit.get(`${demandLineId}\u0000${demand.unit}`) ?? 0
       rows.push({
         rowKey: '',
-        demandLineId: `SUPPLEMENT:${record.id}:${demand.materialPatternMappingId}`,
+        demandLineId,
         demandSource: 'SUPPLEMENT',
         demandSourceNo: record.recordNo,
         demandSequence: rows.length + 1,
@@ -359,8 +365,8 @@ export function buildSupplementMaterialRows(
         processBasisLabel: resolved.basisLabel,
         requiredQty: resolved.qty,
         preparedQty: 0,
-        pickedQty: 0,
-        remainingPickupQty: resolved.qty,
+        pickedQty,
+        remainingPickupQty: roundQty(Math.max(resolved.qty - pickedQty, 0)),
         currentAvailableQty: 0,
         currentLocations: [],
       })
@@ -521,8 +527,25 @@ function closeSessionPickupRecords(
       || !Number.isFinite(record.pickedQty)
       || record.pickedQty < 0
     ) return null
+    if (
+      (record.returnQty !== undefined
+        && (!Number.isFinite(record.returnQty) || record.returnQty < 0 || record.returnQty > record.pickedQty))
+      || (record.waitProcessAvailableQty !== undefined
+        && (
+          !Number.isFinite(record.waitProcessAvailableQty)
+          || record.waitProcessAvailableQty < 0
+          || record.waitProcessAvailableQty > record.pickedQty
+        ))
+      || (
+        record.returnQty !== undefined
+        && record.waitProcessAvailableQty !== undefined
+        && roundQty(record.waitProcessAvailableQty)
+          !== roundQty(Math.max(record.pickedQty - record.returnQty, 0))
+      )
+    ) return null
     const allocations = record.sourceAllocations ?? []
     if (!allocations.length) {
+      if (!session.migrationEvidence) return null
       closedFacts.push({ record, unit: null })
       continue
     }
@@ -531,6 +554,7 @@ function closeSessionPickupRecords(
       units.size !== 1
       || allocations.some((allocation) =>
         allocation.prepLineId !== record.prepLineId
+        || !allocation.unit
         || !Number.isFinite(allocation.pickedQty)
         || allocation.pickedQty < 0
       )
@@ -580,6 +604,33 @@ function listValidatedPickupSessions(
   })
 }
 
+function effectivePickupRecordQty(record: PickupRecord): number {
+  if (Number.isFinite(record.waitProcessAvailableQty)) {
+    return roundQty(Math.max(record.waitProcessAvailableQty ?? 0, 0))
+  }
+  if (Number.isFinite(record.returnQty)) {
+    return roundQty(Math.max(record.pickedQty - (record.returnQty ?? 0), 0))
+  }
+  return roundQty(Math.max(record.pickedQty, 0))
+}
+
+function sumValidatedPickedByLineAndUnit(
+  validatedSessions: ValidatedPickupSession[],
+): Map<string, number> {
+  const pickedByLineAndUnit = new Map<string, number>()
+  const countedRecordIds = new Set<string>()
+  validatedSessions.flatMap(({ recordFacts }) => recordFacts).forEach(({ record, unit }) => {
+    if (!unit || countedRecordIds.has(record.pickupRecordId)) return
+    countedRecordIds.add(record.pickupRecordId)
+    const key = `${record.prepLineId}\u0000${unit}`
+    pickedByLineAndUnit.set(
+      key,
+      roundQty((pickedByLineAndUnit.get(key) ?? 0) + effectivePickupRecordQty(record)),
+    )
+  })
+  return pickedByLineAndUnit
+}
+
 function sessionHasReliableAllPickedEvidence(
   candidate: ValidatedPickupSession,
   materialRows: PickupMaterialDemandRow[],
@@ -592,7 +643,8 @@ function sessionHasReliableAllPickedEvidence(
     || candidate.recordFacts.some(({ unit }) => !unit)
   ) return false
   const existingRows = materialRows.filter((row) =>
-    Boolean(row.demandCreatedAt) && row.demandCreatedAt <= candidateSession.pickedAt
+    Boolean(row.demandCreatedAt)
+    && comparePickupDemandEventTime(row.demandCreatedAt, candidateSession.pickedAt) !== 'AFTER'
   )
   if (!existingRows.length) return false
 
@@ -605,7 +657,9 @@ function sessionHasReliableAllPickedEvidence(
       const key = `${record.prepLineId}\u0000${unit}`
       cumulativePickedByLineAndUnit.set(
         key,
-        roundQty((cumulativePickedByLineAndUnit.get(key) ?? 0) + record.pickedQty),
+        roundQty(
+          (cumulativePickedByLineAndUnit.get(key) ?? 0) + effectivePickupRecordQty(record),
+        ),
       )
     })
   return existingRows.every((row) =>
@@ -613,6 +667,53 @@ function sessionHasReliableAllPickedEvidence(
     || (cumulativePickedByLineAndUnit.get(`${row.demandLineId}\u0000${row.unit}`) ?? 0)
       >= row.requiredQty
   )
+}
+
+export type PickupDemandEventTimeOrder = 'BEFORE' | 'AFTER' | 'UNKNOWN'
+
+function parseBusinessEventTimeRange(value: string): { start: number; end: number } | null {
+  const match = value.match(
+    /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/,
+  )
+  if (!match) return null
+  const [, year, month, day, hour, minute, second] = match
+  const start = Date.UTC(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    Number(second ?? 0),
+  )
+  const date = new Date(start)
+  if (
+    date.getUTCFullYear() !== Number(year)
+    || date.getUTCMonth() !== Number(month) - 1
+    || date.getUTCDate() !== Number(day)
+    || date.getUTCHours() !== Number(hour)
+    || date.getUTCMinutes() !== Number(minute)
+    || date.getUTCSeconds() !== Number(second ?? 0)
+  ) return null
+  return {
+    start,
+    end: start + (second === undefined ? 59_999 : 999),
+  }
+}
+
+/**
+ * 补料与领料域没有共享的单调事件序列，且旧事实可能只有分钟精度。
+ * 因此只有两个时间区间完全分离时才能证明先后，重叠一律保守为 UNKNOWN。
+ */
+export function comparePickupDemandEventTime(
+  demandCreatedAt: string,
+  pickedAt: string,
+): PickupDemandEventTimeOrder {
+  const demandRange = parseBusinessEventTimeRange(demandCreatedAt)
+  const pickupRange = parseBusinessEventTimeRange(pickedAt)
+  if (!demandRange || !pickupRange) return 'UNKNOWN'
+  if (demandRange.end < pickupRange.start) return 'BEFORE'
+  if (demandRange.start > pickupRange.end) return 'AFTER'
+  return 'UNKNOWN'
 }
 
 export function deriveLatestAllPickedAt(
@@ -638,7 +739,7 @@ export function derivePickupFinalResult(
     latestAllPickedAt
     && materialRows.some((row) =>
       row.demandSource === 'SUPPLEMENT'
-      && row.demandCreatedAt > latestAllPickedAt
+      && comparePickupDemandEventTime(row.demandCreatedAt, latestAllPickedAt) === 'AFTER'
       && row.pickedQty < row.requiredQty
     )
   ) return 'NEW_SUPPLEMENT_WAIT_PICKUP'
@@ -685,7 +786,18 @@ export function buildPickupOrderGroups(
     processResults,
   } = input
   const projectionsByProductionOrder = groupProjectionsByProductionOrder(projections)
-  const supplementRowsByProductionOrder = buildSupplementMaterialRows(supplementRecords, processResults)
+  const validatedSessionsByProductionOrder = new Map<string, ValidatedPickupSession[]>()
+  projectionsByProductionOrder.forEach((matchingProjections, productionOrderId) => {
+    validatedSessionsByProductionOrder.set(
+      productionOrderId,
+      listValidatedPickupSessions(matchingProjections, productionOrderId),
+    )
+  })
+  const supplementRowsByProductionOrder = buildSupplementMaterialRows(
+    supplementRecords,
+    processResults,
+    validatedSessionsByProductionOrder,
+  )
 
   if (listKind !== 'HISTORY') {
     const expectedNodeType = listKind === 'READY' ? 'READY_TO_PICKUP' : 'INCOMPLETE_PICKABLE'
@@ -695,10 +807,7 @@ export function buildPickupOrderGroups(
         const matchingProjections = projectionsByProductionOrder.get(node.productionOrderId) ?? []
         const projection = matchingProjections.find((row) => row.order.prepOrderId === node.prepOrderId)
         if (!projection) return []
-        const validatedSessions = listValidatedPickupSessions(
-          matchingProjections,
-          node.productionOrderId,
-        )
+        const validatedSessions = validatedSessionsByProductionOrder.get(node.productionOrderId) ?? []
         const sessions = validatedSessions.map(({ session }) => session)
         const latest = latestSession(sessions)
         const processAssignments = buildNormalProcessAssignments(
@@ -750,7 +859,7 @@ export function buildPickupOrderGroups(
   )
   const historyGroups: PickupOrderGroup[] = []
   projectionsByProductionOrder.forEach((matchingProjections, productionOrderId) => {
-    const validatedSessions = listValidatedPickupSessions(matchingProjections, productionOrderId)
+    const validatedSessions = validatedSessionsByProductionOrder.get(productionOrderId) ?? []
     if (!validatedSessions.length) return
     const sessions = validatedSessions.map(({ session }) => session)
     const latest = latestSession(sessions)
