@@ -10,6 +10,7 @@ import {
   assertReceiptCurrent,
   createTaskReceipt,
   parseCodeGraphStatus,
+  parseTaskCompletionReceipt,
   recordAcceptance,
   recordDelivery,
   receiptValidationPaths,
@@ -18,6 +19,10 @@ import {
   type GitRevision,
   type TaskCompletionReceipt,
 } from './workflow-governance/task-receipt.ts'
+import {
+  assertInstructionContextCurrent,
+  captureInstructionContext,
+} from './workflow-governance/instruction-context.ts'
 import {
   validateStageTrace,
   type WorkflowStageEvent,
@@ -78,20 +83,42 @@ function writeReceipt(path: string, receipt: TaskCompletionReceipt): void {
 }
 
 function readReceipt(path: string): TaskCompletionReceipt {
-  return JSON.parse(readFileSync(resolve(path), 'utf8')) as TaskCompletionReceipt
+  return parseTaskCompletionReceipt(readFileSync(resolve(path), 'utf8'))
 }
 
 function verify(args: string[]): void {
   const output = argument(args, '--output')
+  const taskBoundary = argument(args, '--task-boundary')
+  const stageTracePath = argument(args, '--stage-trace', false)
+  const requiredSkills = argument(args, '--required-skills', false)
+    .split(',')
+    .map((skill) => skill.trim())
+    .filter(Boolean)
+  const requireTwoStageReview = args.includes('--require-two-stage-review')
+  const requireStageTrace = requiredSkills.length > 0 || requireTwoStageReview
+  const workspace = process.cwd()
+  const instructionBefore = captureInstructionContext({
+    workspace,
+    taskBoundary,
+    requireStageTrace,
+  })
   const base = argument(args, '--base', false)
   const paths = resolveVerificationPaths({
     base: base || undefined,
     explicitPaths: explicitPaths(args),
   })
   assert(paths.length > 0, '没有可验证的变更文件')
-  const workspace = process.cwd()
   const route = routeAffectedChecks(paths)
   const revisionBefore = gitRevision(paths)
+  const stageEvents = stageTracePath && existsSync(stageTracePath)
+    ? JSON.parse(readFileSync(stageTracePath, 'utf8')) as WorkflowStageEvent[]
+    : []
+  const stageTrace = validateStageTrace(stageEvents, {
+    requiredSkills,
+    requireTwoStageReview,
+  }, {
+    expectedRevision: revisionBefore.head,
+  })
   const before = codegraphStatus()
   const commands = [...new Set([
     ...route.fastChecks,
@@ -103,25 +130,17 @@ function verify(args: string[]): void {
   const sync = spawnSync('codegraph', ['sync'], { cwd: workspace, encoding: 'utf8' })
   const after = codegraphStatus()
   const revisionAfter = gitRevision(paths)
-  const stageTracePath = argument(args, '--stage-trace', false)
-  const requiredSkills = argument(args, '--required-skills', false)
-    .split(',')
-    .map((skill) => skill.trim())
-    .filter(Boolean)
-  const requireTwoStageReview = args.includes('--require-two-stage-review')
-  const stageEvents = stageTracePath && existsSync(stageTracePath)
-    ? JSON.parse(readFileSync(stageTracePath, 'utf8')) as WorkflowStageEvent[]
-    : []
-  const stageTrace = validateStageTrace(stageEvents, {
-    requiredSkills,
-    requireTwoStageReview,
-  }, {
-    expectedRevision: revisionBefore.head,
+  const instructionAfter = captureInstructionContext({
+    workspace,
+    taskBoundary,
+    requireStageTrace,
   })
   const receipt = createTaskReceipt({
     workspace,
     revisionBefore,
     revisionAfter,
+    instructionBefore,
+    instructionAfter,
     route,
     checks,
     codegraph: {
@@ -140,6 +159,10 @@ async function deliver(args: string[]): Promise<void> {
   const receipt = readReceipt(path)
   const currentPaths = receiptValidationPaths(receipt, resolveVerificationPaths())
   assertReceiptCurrent(receipt, gitRevision(currentPaths))
+  assertInstructionContextCurrent(receipt.instructionContext, {
+    workspace: receipt.workspace,
+    requireStageTrace: receipt.stageTrace?.required,
+  })
   const updated = await recordDelivery(receipt, {
     provider: argument(args, '--provider'),
     target: argument(args, '--target'),
@@ -154,6 +177,10 @@ async function accept(args: string[]): Promise<void> {
   const receipt = readReceipt(path)
   const currentPaths = receiptValidationPaths(receipt, resolveVerificationPaths())
   assertReceiptCurrent(receipt, gitRevision(currentPaths))
+  assertInstructionContextCurrent(receipt.instructionContext, {
+    workspace: receipt.workspace,
+    requireStageTrace: receipt.stageTrace?.required,
+  })
   writeReceipt(path, await recordAcceptance(receipt, {
     acceptanceRef: argument(args, '--acceptance-ref'),
     expectedActor: argument(args, '--acceptance-actor'),

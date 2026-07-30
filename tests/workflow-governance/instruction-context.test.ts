@@ -21,6 +21,12 @@ import {
 const CODEGRAPH_RULE = 'AGENTS.md::## 12. CodeGraph 使用规则'
 const RECEIPT_RULE = 'AGENTS.md::### 12.1 任务完成与交付收据'
 const STAGE_TRACE_RULE = 'AGENTS.md::### 12.2 Superpowers 最小阶段轨迹'
+const AUTHORITATIVE_VERIFY_COMMAND =
+  'npm run workflow:verify -- --output <临时目录>/task-receipt.json --task-boundary "<本次任务边界>"'
+const TASK_RECEIPT_CLI_SOURCE = readFileSync(
+  join(process.cwd(), 'scripts/task-completion-receipt.ts'),
+  'utf8',
+)
 
 const AGENTS_SOURCE = [
   '# AGENTS.md',
@@ -52,6 +58,106 @@ function validReceipt(t: test.TestContext): InstructionContextReceipt {
     taskBoundary: '  只修改任务指令上下文采集文件  ',
   })
 }
+
+function sourceBetween(start: string, end: string): string {
+  const startIndex = TASK_RECEIPT_CLI_SOURCE.indexOf(start)
+  const endIndex = TASK_RECEIPT_CLI_SOURCE.indexOf(end, startIndex + start.length)
+  assert.notEqual(startIndex, -1, `缺少源码片段：${start}`)
+  assert.notEqual(endIndex, -1, `缺少源码片段：${end}`)
+  return TASK_RECEIPT_CLI_SOURCE.slice(startIndex, endIndex)
+}
+
+function assertSourceOrder(source: string, fragments: string[]): void {
+  let previousIndex = -1
+  for (const fragment of fragments) {
+    const index = source.indexOf(fragment)
+    assert.notEqual(index, -1, `缺少源码片段：${fragment}`)
+    assert(index > previousIndex, `源码片段顺序错误：${fragment}`)
+    previousIndex = index
+  }
+}
+
+test('根 AGENTS 12.1 精确给出绑定任务边界的权威验证命令', () => {
+  const source = readFileSync(join(process.cwd(), 'AGENTS.md'), 'utf8')
+
+  assert.match(
+    source,
+    new RegExp(`\\n${AUTHORITATIVE_VERIFY_COMMAND.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n`),
+  )
+})
+
+test('verify 在任何检查前解析指令参数并采集前置指令上下文', () => {
+  const source = sourceBetween('function verify(args: string[]): void {', '\nasync function deliver')
+
+  assertSourceOrder(source, [
+    "const output = argument(args, '--output')",
+    "const taskBoundary = argument(args, '--task-boundary')",
+    "const stageTracePath = argument(args, '--stage-trace', false)",
+    "const requiredSkills = argument(args, '--required-skills', false)",
+    "const requireTwoStageReview = args.includes('--require-two-stage-review')",
+    'const requireStageTrace = requiredSkills.length > 0 || requireTwoStageReview',
+    'const instructionBefore = captureInstructionContext({',
+    'const paths = resolveVerificationPaths({',
+    'const route = routeAffectedChecks(paths)',
+    'const revisionBefore = gitRevision(paths)',
+    'const before = codegraphStatus()',
+    'const checks = commands.map((command) => runCheck(command, environment))',
+  ])
+  assert.match(source, /captureInstructionContext\(\{\s*workspace,\s*taskBoundary,\s*requireStageTrace,\s*\}\)/)
+})
+
+test('仅提供可选 stage-trace 路径不会把阶段轨迹变成必填', () => {
+  const source = sourceBetween('function verify(args: string[]): void {', '\nasync function deliver')
+
+  assert.match(
+    source,
+    /const requireStageTrace = requiredSkills\.length > 0 \|\| requireTwoStageReview/,
+  )
+  assert.doesNotMatch(source, /const requireStageTrace\s*=.*stageTracePath/)
+})
+
+test('verify 在检查和 CodeGraph 后再次采集指令上下文并写入收据', () => {
+  const source = sourceBetween('function verify(args: string[]): void {', '\nasync function deliver')
+
+  assertSourceOrder(source, [
+    'const checks = commands.map((command) => runCheck(command, environment))',
+    "const sync = spawnSync('codegraph', ['sync']",
+    'const after = codegraphStatus()',
+    'const revisionAfter = gitRevision(paths)',
+    'const instructionAfter = captureInstructionContext({',
+    'const receipt = createTaskReceipt({',
+    'instructionBefore,',
+    'instructionAfter,',
+  ])
+})
+
+test('readReceipt 通过任务收据 parser 校验外部 JSON', () => {
+  const source = sourceBetween(
+    'function readReceipt(path: string): TaskCompletionReceipt {',
+    '\nfunction verify',
+  )
+
+  assert.match(source, /return parseTaskCompletionReceipt\(readFileSync\(resolve\(path\), 'utf8'\)\)/)
+  assert.doesNotMatch(source, /JSON\.parse/)
+})
+
+test('deliver 和 accept 在远端操作前重新确认指令上下文', () => {
+  const deliverSource = sourceBetween('async function deliver', '\nasync function accept')
+  const acceptSource = sourceBetween('async function accept', '\nconst [command')
+
+  assertSourceOrder(deliverSource, [
+    'assertReceiptCurrent(receipt, gitRevision(currentPaths))',
+    'assertInstructionContextCurrent(receipt.instructionContext, {',
+    'workspace: receipt.workspace,',
+    'recordDelivery(receipt, {',
+  ])
+  assertSourceOrder(acceptSource, [
+    'assertReceiptCurrent(receipt, gitRevision(currentPaths))',
+    'assertInstructionContextCurrent(receipt.instructionContext, {',
+    'workspace: receipt.workspace,',
+    'recordAcceptance(receipt, {',
+  ])
+})
 
 test('采集不含阶段轨迹的根 AGENTS 指令上下文', (t) => {
   const workspace = workspaceWithAgents(t)
