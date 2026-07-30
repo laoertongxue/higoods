@@ -16,6 +16,7 @@ import {
   getMaterialPrepRecordItems,
   hydrateProductionMaterialPrepStore,
   listActivePickupNodes,
+  listPickupDemandFacts,
   listMaterialPrepOrderProjections,
   materialPrepWorkbenchTabs,
   pickMaterialPrepRecord,
@@ -321,7 +322,7 @@ upgradeStorage.setItem(
   serializeProductionMaterialPrepStore(createProductionMaterialPrepSeedStore()),
 )
 const incompleteBeforeUpgrade = listActivePickupNodes(upgradeStorage)
-  .find((node) => node.nodeType === 'INCOMPLETE_PICKABLE')
+  .find((node) => node.productionOrderId === 'PO-202603-0101')
 assert(incompleteBeforeUpgrade, '缺少可用于验证未配齐升级的活动节点')
 const upgradeProjection = getMaterialPrepOrderProjection(incompleteBeforeUpgrade.prepOrderId, upgradeStorage)
 assert(upgradeProjection, '未配齐升级测试缺少配料单投影')
@@ -343,25 +344,20 @@ for (const [index, line] of upgradeProjection.lines.entries()) {
 const upgradedNode = listActivePickupNodes(upgradeStorage)
   .find((node) => node.prepOrderId === incompleteBeforeUpgrade.prepOrderId)
 assert(upgradedNode?.nodeId === incompleteBeforeUpgrade.nodeId, '未配齐升级后必须沿用原活动节点')
-assert(upgradedNode.nodeType === 'READY_TO_PICKUP', '逐项配齐后活动节点必须升级为已配齐')
-const upgradedReadyGroups = listPickupOrderGroups('READY', upgradeStorage as Storage)
-const upgradedReadyGroup = upgradedReadyGroups.find((group) =>
-  group.prepOrderId === incompleteBeforeUpgrade.prepOrderId
-)
-assert(upgradedReadyGroup, '未配齐升级后必须进入已配齐待领分组')
-assert(upgradedReadyGroup.carrierType === 'PALLET', '未配齐升级后必须释放专属库位并改由托盘承载')
-assert(upgradedReadyGroup.palletId === '', '未配齐升级后不得虚构托盘编号')
 assert(
-  upgradedReadyGroup.palletDisplayLabel === '待领托盘（暂未编号）',
-  '未配齐升级后必须展示未编号待领托盘',
+  listPickupDemandFacts(upgradeStorage)
+    .filter((fact) => fact.prepOrderId === incompleteBeforeUpgrade.prepOrderId)
+    .some((fact) => !fact.processComplete),
+  '升级反例必须保留尚未最终完成的加工需求',
 )
 assert(
-  upgradedReadyGroup.readySource === 'UPGRADED_FROM_INCOMPLETE',
-  '未配齐升级后必须记录升级来源',
+  upgradedNode.nodeType === 'INCOMPLETE_PICKABLE',
+  '逐项配料齐全但必需加工未最终完成时仍必须保持未配齐',
 )
 assert(
-  upgradedReadyGroup.materialRows.every((row) => row.currentLocations.length === 0),
-  '未配齐升级为托盘承载后必须释放旧专属库位，不得继续输出当前位置',
+  !listPickupOrderGroups('READY', upgradeStorage as Storage)
+    .some((group) => group.prepOrderId === incompleteBeforeUpgrade.prepOrderId),
+  '必需加工未最终完成时不得进入已配齐待领分组',
 )
 assert(
   upgradedNode.items.every((item) =>
@@ -371,8 +367,8 @@ assert(
 )
 assert(
   listActivePickupNodes(upgradeStorage)
-    .find((node) => node.nodeId === upgradedNode.nodeId)?.readySource === 'UPGRADED_FROM_INCOMPLETE',
-  '升级来源必须在重复投影时保持稳定',
+    .find((node) => node.nodeId === upgradedNode.nodeId)?.readySource === null,
+  '加工阻断的未配齐节点在重复投影时不得误标为升级配齐',
 )
 
 const storage = new MemoryStorage()

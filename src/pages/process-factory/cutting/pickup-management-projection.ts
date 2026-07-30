@@ -4,6 +4,7 @@ import type {
   PickupSession,
 } from '../../../data/fcs/cutting/pickup-node-domain.ts'
 import {
+  buildPickupDemandFactsFromProjections,
   listActivePickupNodes,
   listMaterialPrepOrderProjections,
   type MaterialPrepOrderProjection,
@@ -11,19 +12,27 @@ import {
   type PickupRecord,
 } from '../../../data/fcs/cutting/production-material-prep.ts'
 import {
+  buildPickupDemandFacts,
+  derivePickupProcessRoute as deriveSharedPickupProcessRoute,
+  resolveNormalProcessResult as resolveSharedNormalProcessResult,
+  resolvePickupRequiredQty as resolveSharedPickupRequiredQty,
+  type PickupDemandFact,
+  type PickupDemandSource,
+  type PickupNormalDemandInput,
+  type PickupProcessRoute,
+} from '../../../data/fcs/cutting/pickup-demand-domain.ts'
+import {
   listPlatformDyeResultViews,
   listPlatformPrintResultViews,
   type PlatformProcessResultView,
 } from '../../../data/fcs/platform-process-result-view.ts'
 import {
   listSupplementRecords,
-  type SupplementMaterialDemand,
   type SupplementRecord,
 } from './supplement-management.ts'
 
 export type PickupListKind = 'READY' | 'INCOMPLETE' | 'HISTORY'
-export type PickupDemandSource = 'NORMAL' | 'SUPPLEMENT'
-export type PickupProcessRoute = 'NONE' | 'DYE' | 'DYE_PRINT'
+export type { PickupDemandSource, PickupProcessRoute }
 export type PickupCarrierType = 'WAREHOUSE_LOCATIONS' | 'PALLET'
 export type PickupReadySource = 'DIRECT_READY' | 'UPGRADED_FROM_INCOMPLETE'
 export type PickupHistoryPath = 'READY_PICKUP' | 'INCOMPLETE_PICKUP'
@@ -46,6 +55,7 @@ export interface PickupMaterialDemandRow {
   unit: string
   processRoute: PickupProcessRoute
   processBasisLabel: string
+  processComplete: boolean
   requiredQty: number
   preparedQty: number
   pickedQty: number
@@ -83,9 +93,7 @@ export function derivePickupProcessRoute(input: {
   printRequired?: boolean
   dyeRequired?: boolean
 }): PickupProcessRoute {
-  if (input.upstreamSourceType === '印花' || input.printRequired) return 'DYE_PRINT'
-  if (input.upstreamSourceType === '染色' || input.dyeRequired) return 'DYE'
-  return 'NONE'
+  return deriveSharedPickupProcessRoute(input)
 }
 
 export type ProcessResultCandidate = Pick<
@@ -105,67 +113,7 @@ export function resolvePickupRequiredQty(input: {
   dyeResult?: ProcessResultCandidate
   printResult?: ProcessResultCandidate
 }): { qty: number; basisLabel: string } {
-  if (input.processRoute === 'NONE') {
-    return {
-      qty: Number.isFinite(input.plannedQty) ? roundQty(Math.max(input.plannedQty, 0)) : 0,
-      basisLabel: '按计划数量',
-    }
-  }
-
-  const processName = input.processRoute === 'DYE' ? '染色' : '印花'
-  const result = input.processRoute === 'DYE' ? input.dyeResult : input.printResult
-  if (!result) {
-    return { qty: 0, basisLabel: `等待${processName}一次性完成` }
-  }
-  if (result.platformStatusCode !== 'COMPLETED') {
-    return { qty: 0, basisLabel: `等待${processName}一次性完成` }
-  }
-  if (!Number.isFinite(result.completedObjectQty) || result.completedObjectQty < 0) {
-    return { qty: 0, basisLabel: `${processName}加工完成数量异常` }
-  }
-  if (result.qtyUnit !== input.unit) {
-    return { qty: 0, basisLabel: `${processName}加工完成单位不一致` }
-  }
-  if (result.completedObjectQty === 0) {
-    return { qty: 0, basisLabel: `等待${processName}一次性完成` }
-  }
-  return {
-    qty: roundQty(result.completedObjectQty),
-    basisLabel: `按${processName}一次性完成数量`,
-  }
-}
-
-function mobileTaskLinkHasExactReference(mobileTaskLink: string, reference: string): boolean {
-  if (!mobileTaskLink || !reference) return false
-  try {
-    const url = new URL(mobileTaskLink, 'https://higood.local')
-    const pathSegments = url.pathname.split('/').filter(Boolean)
-    const encodedTaskId = pathSegments.at(-1) ?? ''
-    const taskId = decodeURIComponent(encodedTaskId)
-    return taskId === reference
-      || Array.from(url.searchParams.values()).some((value) => value === reference)
-  } catch {
-    return false
-  }
-}
-
-function includesReference(view: PlatformProcessResultView, reference: string): boolean {
-  if (!reference) return false
-  return view.sourceId === reference
-    || view.workOrderNo === reference
-    || mobileTaskLinkHasExactReference(view.mobileTaskLink, reference)
-}
-
-function scoreNormalProcessResult(
-  line: MaterialPrepLine,
-  view: PlatformProcessResultView,
-): number {
-  let score = includesReference(view, line.upstreamDocumentNo) ? 4 : 0
-  for (const taskLink of line.taskLinks) {
-    if (includesReference(view, taskLink.taskId)) score = Math.max(score, 3)
-    if (includesReference(view, taskLink.taskNo)) score = Math.max(score, 3)
-  }
-  return score
+  return resolveSharedPickupRequiredQty(input)
 }
 
 export function resolveNormalProcessResult(
@@ -174,134 +122,29 @@ export function resolveNormalProcessResult(
   processType: 'DYE' | 'PRINT',
   results: PlatformProcessResultView[],
 ): PlatformProcessResultView | undefined {
-  const candidates = results.filter((view) =>
-    view.processType === processType && view.productionOrderNo === productionOrderNo
-  )
-  if (!candidates.length) return undefined
-
-  const scored = candidates.map((view) => ({
-    view,
-    score: scoreNormalProcessResult(line, view),
-  }))
-  const bestScore = Math.max(...scored.map((candidate) => candidate.score))
-  if (bestScore <= 0) return undefined
-  const bestMatches = scored.filter((candidate) => candidate.score === bestScore)
-  return bestMatches.length === 1 ? bestMatches[0].view : undefined
-}
-
-interface NormalProcessAssignment {
-  result?: PlatformProcessResultView
-  ambiguous: boolean
-}
-
-type NormalProcessAssignments = Record<
-  'DYE' | 'PRINT',
-  Map<string, NormalProcessAssignment>
->
-
-function resolveNormalProcessAssignments(
-  lines: MaterialPrepLine[],
-  productionOrderNo: string,
-  processType: 'DYE' | 'PRINT',
-  results: PlatformProcessResultView[],
-): Map<string, NormalProcessAssignment> {
-  const relevantLines = lines.filter((line) => {
-    const route = derivePickupProcessRoute({ upstreamSourceType: line.upstreamSourceType })
-    return processType === 'DYE' ? route === 'DYE' : route === 'DYE_PRINT'
-  })
-  const candidates = results.filter((view) =>
-    view.processType === processType && view.productionOrderNo === productionOrderNo
-  )
-  const ambiguousLineIds = new Set<string>()
-  candidates.forEach((view) => {
-    const matchingLines = relevantLines.filter((line) => scoreNormalProcessResult(line, view) > 0)
-    if (matchingLines.length > 1) {
-      matchingLines.forEach((line) => ambiguousLineIds.add(line.prepLineId))
-    }
-  })
-
-  const assignments = new Map<string, NormalProcessAssignment>()
-  relevantLines.forEach((line) => {
-    if (ambiguousLineIds.has(line.prepLineId)) {
-      assignments.set(line.prepLineId, { ambiguous: true })
-      return
-    }
-    const scored = candidates
-      .map((view) => ({ view, score: scoreNormalProcessResult(line, view) }))
-      .filter((candidate) => candidate.score > 0)
-    if (!scored.length) {
-      assignments.set(line.prepLineId, { ambiguous: false })
-      return
-    }
-    const bestScore = Math.max(...scored.map((candidate) => candidate.score))
-    const bestMatches = scored.filter((candidate) => candidate.score === bestScore)
-    assignments.set(
-      line.prepLineId,
-      bestMatches.length === 1
-        ? { result: bestMatches[0].view, ambiguous: false }
-        : { ambiguous: true },
-    )
-  })
-  return assignments
-}
-
-function buildNormalProcessAssignments(
-  projections: MaterialPrepOrderProjection[],
-  productionOrderNo: string,
-  processResults: PickupProcessResults,
-): NormalProcessAssignments {
-  const lines = projections.flatMap((projection) => projection.lines)
-  return {
-    DYE: resolveNormalProcessAssignments(
-      lines,
-      productionOrderNo,
-      'DYE',
-      processResults.dyeResults,
-    ),
-    PRINT: resolveNormalProcessAssignments(
-      lines,
-      productionOrderNo,
-      'PRINT',
-      processResults.printResults,
-    ),
+  const demand: PickupNormalDemandInput = {
+    prepOrderId: line.prepOrderId,
+    productionOrderId: '',
+    productionOrderNo,
+    demandLineId: line.prepLineId,
+    demandSourceNo: line.cutOrderNo,
+    demandCreatedAt: '',
+    materialSku: line.materialSku,
+    materialName: line.materialName,
+    materialImageUrl: line.materialImageUrl,
+    materialType: line.materialType,
+    color: line.color,
+    spec: line.spec,
+    unit: line.unit,
+    plannedQty: line.requiredQty,
+    pickedQty: roundQty(Math.max(line.pickedQty - line.returnedQty, 0)),
+    upstreamSourceType: processType === 'DYE' ? '染色' : '印花',
+    upstreamDocumentNo: line.upstreamDocumentNo,
+    taskRefs: line.taskLinks.map((task) => ({ taskId: task.taskId, taskNo: task.taskNo })),
   }
-}
-
-interface ProcessResultResolution {
-  result?: PlatformProcessResultView
-  ambiguous: boolean
-}
-
-function resolveSupplementProcessResult(
-  record: SupplementRecord,
-  demand: SupplementMaterialDemand,
-  processType: 'DYE' | 'PRINT',
-  results: PlatformProcessResultView[],
-): ProcessResultResolution {
-  const relatedMappingIds = new Set(
-    record.draft.materialDemands
-      .filter((candidate) =>
-        candidate.materialSku === demand.materialSku
-        && (processType === 'DYE' ? candidate.dyeRequired : candidate.printRequired)
-      )
-      .map((candidate) => candidate.materialPatternMappingId),
-  )
-  const refs = record.processWorkOrderRefs.filter((ref) =>
-    ref.processType === processType && ref.materialSku === demand.materialSku
-  )
-  if (relatedMappingIds.size > 1 || refs.length > 1) {
-    return { ambiguous: true }
-  }
-  if (
-    relatedMappingIds.size !== 1
-    || !relatedMappingIds.has(demand.materialPatternMappingId)
-    || refs.length !== 1
-  ) {
-    return { ambiguous: false }
-  }
-  const matches = results.filter((view) => view.sourceId === refs[0].workOrderId)
-  if (matches.length > 1) return { ambiguous: true }
-  return { result: matches[0], ambiguous: false }
+  return resolveSharedNormalProcessResult(demand, processType, results).result as
+    | PlatformProcessResultView
+    | undefined
 }
 
 export function buildSupplementMaterialRows(
@@ -310,148 +153,78 @@ export function buildSupplementMaterialRows(
   validatedSessionsByProductionOrder: ReadonlyMap<string, ValidatedPickupSession[]> = new Map(),
 ): Map<string, PickupMaterialDemandRow[]> {
   const rowsByProductionOrder = new Map<string, PickupMaterialDemandRow[]>()
-  const confirmedRecords = records
-    .filter((record) => record.status === '已确认')
-    .sort((left, right) =>
-      left.draft.productionOrderId.localeCompare(right.draft.productionOrderId, 'zh-CN')
-      || left.createdAt.localeCompare(right.createdAt)
-      || left.recordNo.localeCompare(right.recordNo, 'zh-CN')
-    )
-
-  for (const record of confirmedRecords) {
-    const rows = rowsByProductionOrder.get(record.draft.productionOrderId) ?? []
-    const pickedByLineAndUnit = sumValidatedPickedByLineAndUnit(
-      validatedSessionsByProductionOrder.get(record.draft.productionOrderId) ?? [],
-    )
-    const demands = [...record.draft.materialDemands].sort((left, right) =>
-      left.materialPatternMappingId.localeCompare(right.materialPatternMappingId, 'zh-CN')
-    )
-    for (const demand of demands) {
-      const processRoute = derivePickupProcessRoute({
-        printRequired: demand.printRequired,
-        dyeRequired: demand.dyeRequired,
-      })
-      const dyeResolution = resolveSupplementProcessResult(record, demand, 'DYE', processResults.dyeResults)
-      const printResolution = resolveSupplementProcessResult(record, demand, 'PRINT', processResults.printResults)
-      const finalResolution = processRoute === 'DYE' ? dyeResolution : printResolution
-      const processName = processRoute === 'DYE' ? '染色' : '印花'
-      const resolved = finalResolution.ambiguous
-        ? { qty: 0, basisLabel: `${processName}加工结果归属不唯一` }
-        : resolvePickupRequiredQty({
-            plannedQty: demand.requiredQty,
-            unit: demand.unit,
-            processRoute,
-            dyeResult: dyeResolution.result,
-            printResult: printResolution.result,
-          })
-      const demandLineId = `SUPPLEMENT:${record.id}:${demand.materialPatternMappingId}`
-      const pickedQty = pickedByLineAndUnit.get(`${demandLineId}\u0000${demand.unit}`) ?? 0
-      rows.push({
-        rowKey: '',
-        demandLineId,
-        demandSource: 'SUPPLEMENT',
-        demandSourceNo: record.recordNo,
-        demandSequence: rows.length + 1,
-        demandCreatedAt: record.createdAt,
-        supplementReason: [record.draft.reason, record.draft.reasonDetail].filter(Boolean).join('：'),
-        materialSku: demand.materialSku,
-        materialName: demand.materialName,
-        materialImageUrl: demand.materialImageUrl,
-        materialType: demand.materialTypeLabel,
-        color: '',
-        spec: '',
-        unit: demand.unit,
-        processRoute,
-        processBasisLabel: resolved.basisLabel,
-        requiredQty: resolved.qty,
-        preparedQty: 0,
-        pickedQty,
-        remainingPickupQty: roundQty(Math.max(resolved.qty - pickedQty, 0)),
-        currentAvailableQty: 0,
-        currentLocations: [],
-      })
-    }
-    rowsByProductionOrder.set(record.draft.productionOrderId, rows)
+  const pickedFacts = Array.from(validatedSessionsByProductionOrder.entries()).flatMap(
+    ([, sessions]) => Array.from(sumValidatedPickedByLineAndUnit(sessions), ([key, effectivePickedQty]) => {
+      const [demandLineId, unit] = key.split('\u0000')
+      return { demandLineId, unit, effectivePickedQty }
+    }),
+  )
+  const facts = buildPickupDemandFacts({
+    normalDemands: [],
+    supplementDemands: records.map((record) => ({
+      id: record.id,
+      recordNo: record.recordNo,
+      status: record.status,
+      createdAt: record.createdAt,
+      productionOrderId: record.draft.productionOrderId,
+      productionOrderNo: record.draft.productionOrderNo,
+      reason: record.draft.reason,
+      reasonDetail: record.draft.reasonDetail,
+      processWorkOrderRefs: record.processWorkOrderRefs,
+      materialDemands: record.draft.materialDemands,
+    })),
+    pickedFacts,
+    dyeResults: processResults.dyeResults,
+    printResults: processResults.printResults,
+  })
+  for (const fact of facts) {
+    const rows = rowsByProductionOrder.get(fact.productionOrderId) ?? []
+    rows.push(buildPickupMaterialDemandRow(fact, null, null, false))
+    rowsByProductionOrder.set(fact.productionOrderId, rows)
   }
   return rowsByProductionOrder
 }
 
-function listMaterialRows(
-  projection: MaterialPrepOrderProjection,
+function buildPickupMaterialDemandRow(
+  fact: PickupDemandFact,
+  projection: MaterialPrepOrderProjection | null,
   activeNode: PickupNodeProjection | null,
-  processAssignments: NormalProcessAssignments,
   includeCurrentLocations = true,
-): PickupMaterialDemandRow[] {
-  return projection.lines.map((line, index) => {
-    const nodeItem = activeNode?.items.find((item) => item.prepLineId === line.prepLineId)
-    const pickedQty = roundQty(Math.max(line.pickedQty - line.returnedQty, 0))
-    const processRoute = derivePickupProcessRoute({ upstreamSourceType: line.upstreamSourceType })
-    const processType = processRoute === 'DYE'
-      ? 'DYE'
-      : processRoute === 'DYE_PRINT'
-        ? 'PRINT'
-        : null
-    const assignment = processType
-      ? processAssignments[processType].get(line.prepLineId)
-      : undefined
-    const processName = processType === 'DYE' ? '染色' : '印花'
-    const resolved = assignment?.ambiguous
-      ? { qty: 0, basisLabel: `${processName}加工结果归属不唯一` }
-      : resolvePickupRequiredQty({
-          plannedQty: line.requiredQty,
-          unit: line.unit,
-          processRoute,
-          dyeResult: processType === 'DYE' ? assignment?.result : undefined,
-          printResult: processType === 'PRINT' ? assignment?.result : undefined,
-        })
-    return {
-      rowKey: '',
-      demandLineId: line.prepLineId,
-      demandSource: 'NORMAL',
-      demandSourceNo: line.cutOrderNo,
-      demandSequence: index + 1,
-      demandCreatedAt: projection.order.createdAt,
-      supplementReason: '',
-      materialSku: line.materialSku,
-      materialName: line.materialName,
-      materialImageUrl: line.materialImageUrl,
-      materialType: line.materialType,
-      color: line.color,
-      spec: line.spec,
-      unit: line.unit,
-      processRoute,
-      processBasisLabel: resolved.basisLabel,
-      requiredQty: resolved.qty,
-      preparedQty: roundQty(Math.max(line.confirmedPrepQty, 0)),
-      pickedQty,
-      remainingPickupQty: roundQty(Math.max(resolved.qty - pickedQty, 0)),
-      currentAvailableQty: roundQty(Math.max(nodeItem?.currentAvailableQty ?? 0, 0)),
-      currentLocations: includeCurrentLocations
-        ? nodeItem?.sourceLocations.map((location) => ({
-            ...location,
-            sourcePrepRecordIds: [...location.sourcePrepRecordIds],
-          })) ?? []
-        : [],
-    }
-  })
-}
-
-function uniqueMaterialRows(rows: PickupMaterialDemandRow[]): PickupMaterialDemandRow[] {
-  const byDemandLineId = new Map<string, PickupMaterialDemandRow>()
-  rows.forEach((row) => {
-    if (!byDemandLineId.has(row.demandLineId)) byDemandLineId.set(row.demandLineId, row)
-  })
-  return Array.from(byDemandLineId.values())
-}
-
-function combineMaterialRows(
-  normalRows: PickupMaterialDemandRow[],
-  supplementRows: PickupMaterialDemandRow[],
-): PickupMaterialDemandRow[] {
-  return [...uniqueMaterialRows(normalRows), ...supplementRows].map((row, index) => ({
-    ...row,
-    demandSequence: index + 1,
-  }))
+): PickupMaterialDemandRow {
+  const line = projection?.lines.find((candidate) => candidate.prepLineId === fact.demandLineId)
+  const nodeItem = activeNode?.items.find((item) =>
+    item.prepLineId === fact.demandLineId && item.unit === fact.unit
+  )
+  return {
+    rowKey: '',
+    demandLineId: fact.demandLineId,
+    demandSource: fact.demandSource,
+    demandSourceNo: fact.demandSourceNo,
+    demandSequence: fact.demandSequence,
+    demandCreatedAt: fact.demandCreatedAt,
+    supplementReason: fact.supplementReason,
+    materialSku: fact.materialSku,
+    materialName: fact.materialName,
+    materialImageUrl: fact.materialImageUrl,
+    materialType: fact.materialType,
+    color: fact.color,
+    spec: fact.spec,
+    unit: fact.unit,
+    processRoute: fact.processRoute,
+    processBasisLabel: fact.processBasisLabel,
+    processComplete: fact.processComplete,
+    requiredQty: fact.requiredQty,
+    preparedQty: roundQty(Math.max(line?.confirmedPrepQty ?? nodeItem?.currentAvailableQty ?? 0, 0)),
+    pickedQty: fact.pickedQty,
+    remainingPickupQty: roundQty(Math.max(fact.requiredQty - fact.pickedQty, 0)),
+    currentAvailableQty: roundQty(Math.max(nodeItem?.currentAvailableQty ?? 0, 0)),
+    currentLocations: includeCurrentLocations
+      ? nodeItem?.sourceLocations.map((location) => ({
+          ...location,
+          sourcePrepRecordIds: [...location.sourcePrepRecordIds],
+        })) ?? []
+      : [],
+  }
 }
 
 function scopeMaterialRows(
@@ -663,8 +436,8 @@ function sessionHasReliableAllPickedEvidence(
       )
     })
   return existingRows.every((row) =>
-    row.requiredQty <= 0
-    || (cumulativePickedByLineAndUnit.get(`${row.demandLineId}\u0000${row.unit}`) ?? 0)
+    row.processComplete
+    && (cumulativePickedByLineAndUnit.get(`${row.demandLineId}\u0000${row.unit}`) ?? 0)
       >= row.requiredQty
   )
 }
@@ -743,7 +516,9 @@ export function derivePickupFinalResult(
       && row.pickedQty < row.requiredQty
     )
   ) return 'NEW_SUPPLEMENT_WAIT_PICKUP'
-  return materialRows.every((row) => row.pickedQty >= row.requiredQty)
+  return materialRows.every((row) =>
+    row.processComplete && row.pickedQty >= row.requiredQty
+  )
     ? 'ALL_PICKED'
     : 'NOT_ALL_PICKED'
 }
@@ -786,6 +561,12 @@ export function buildPickupOrderGroups(
     processResults,
   } = input
   const projectionsByProductionOrder = groupProjectionsByProductionOrder(projections)
+  const demandFacts = buildPickupDemandFactsFromProjections({
+    projections,
+    supplementRecords,
+    dyeResults: processResults.dyeResults,
+    printResults: processResults.printResults,
+  })
   const validatedSessionsByProductionOrder = new Map<string, ValidatedPickupSession[]>()
   projectionsByProductionOrder.forEach((matchingProjections, productionOrderId) => {
     validatedSessionsByProductionOrder.set(
@@ -793,12 +574,6 @@ export function buildPickupOrderGroups(
       listValidatedPickupSessions(matchingProjections, productionOrderId),
     )
   })
-  const supplementRowsByProductionOrder = buildSupplementMaterialRows(
-    supplementRecords,
-    processResults,
-    validatedSessionsByProductionOrder,
-  )
-
   if (listKind !== 'HISTORY') {
     const expectedNodeType = listKind === 'READY' ? 'READY_TO_PICKUP' : 'INCOMPLETE_PICKABLE'
     const groups = activeNodes
@@ -810,11 +585,6 @@ export function buildPickupOrderGroups(
         const validatedSessions = validatedSessionsByProductionOrder.get(node.productionOrderId) ?? []
         const sessions = validatedSessions.map(({ session }) => session)
         const latest = latestSession(sessions)
-        const processAssignments = buildNormalProcessAssignments(
-          matchingProjections,
-          node.productionOrderNo,
-          processResults,
-        )
         return [{
           groupKey: `${listKind}:${node.productionOrderId}`,
           productionOrderId: node.productionOrderId,
@@ -825,17 +595,14 @@ export function buildPickupOrderGroups(
           materialRows: scopeMaterialRows(
             listKind,
             node.productionOrderId,
-            combineMaterialRows(
-              matchingProjections.flatMap((row) =>
-                listMaterialRows(
-                  row,
-                  row.order.prepOrderId === node.prepOrderId ? node : null,
-                  processAssignments,
-                  node.carrierType === 'WAREHOUSE_LOCATIONS',
-                )
-              ),
-              supplementRowsByProductionOrder.get(node.productionOrderId) ?? [],
-            ),
+            demandFacts
+              .filter((fact) => fact.productionOrderId === node.productionOrderId)
+              .map((fact) => buildPickupMaterialDemandRow(
+                fact,
+                projection,
+                node,
+                node.carrierType === 'WAREHOUSE_LOCATIONS',
+              )),
           ),
           carrierType: node.carrierType,
           palletId: node.palletId,
@@ -869,25 +636,19 @@ export function buildPickupOrderGroups(
     const carrierType = activeNode?.carrierType
       ?? latest.pickupNodeSnapshot?.carrierType
       ?? (latest.nodeType === 'READY_TO_PICKUP' ? 'PALLET' : 'WAREHOUSE_LOCATIONS')
-    const processAssignments = buildNormalProcessAssignments(
-      matchingProjections,
-      firstProjection.order.productionOrderNo,
-      processResults,
-    )
     const materialRows = scopeMaterialRows(
       listKind,
       productionOrderId,
-      combineMaterialRows(
-        matchingProjections.flatMap((projection) =>
-          listMaterialRows(
-            projection,
-            activeNode?.prepOrderId === projection.order.prepOrderId ? activeNode : null,
-            processAssignments,
-            Boolean(activeNode && activeNode.carrierType === 'WAREHOUSE_LOCATIONS'),
-          )
-        ),
-        supplementRowsByProductionOrder.get(productionOrderId) ?? [],
-      ),
+      demandFacts
+        .filter((fact) => fact.productionOrderId === productionOrderId)
+        .map((fact) => buildPickupMaterialDemandRow(
+          fact,
+          matchingProjections.find((projection) =>
+            projection.order.prepOrderId === fact.prepOrderId
+          ) ?? firstProjection,
+          activeNode,
+          Boolean(activeNode && activeNode.carrierType === 'WAREHOUSE_LOCATIONS'),
+        )),
     )
     historyGroups.push({
       groupKey: `${listKind}:${productionOrderId}`,

@@ -8,6 +8,7 @@ export interface PickupCoverageLine {
   key: string
   unit: string
   requiredQty: number
+  processComplete: boolean
   lineEffectivePickedQty: number
   effectivePickedQty: number
   currentAvailableQty: number
@@ -113,7 +114,8 @@ export interface PickupNodeSnapshotState {
 
 export function derivePickupNodeType(lines: PickupCoverageLine[]): PickupNodeType {
   return lines.length > 0 && lines.every((line) =>
-    line.effectivePickedQty + line.currentAvailableQty >= line.requiredQty
+    line.processComplete
+    && line.effectivePickedQty + line.currentAvailableQty >= line.requiredQty
   ) ? 'READY_TO_PICKUP' : 'INCOMPLETE_PICKABLE'
 }
 

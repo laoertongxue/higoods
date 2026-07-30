@@ -2,6 +2,7 @@
 
 import fs from 'node:fs'
 import {
+  appendPickupSessionFromNode,
   createProductionMaterialPrepSeedStore,
   listActivePickupNodes,
   listMaterialPrepOrderProjections,
@@ -554,6 +555,104 @@ storage.setItem(
 const projections = listMaterialPrepOrderProjections(storage)
 const activeNodes = listActivePickupNodes(storage)
 const groupsByKind = new Map<PickupListKind, PickupOrderGroup[]>()
+
+const unifiedFactStorage = new MemoryStorage()
+unifiedFactStorage.setItem(
+  PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
+  serializeProductionMaterialPrepStore(createProductionMaterialPrepSeedStore()),
+)
+const po0002Node = listActivePickupNodes(unifiedFactStorage)
+  .find((node) => node.productionOrderId === 'PO-202603-0002')
+assert(po0002Node, 'PO-202603-0002 必须存在真实当前待领节点')
+const po0002SupplementItems = po0002Node.items.filter((item) =>
+  item.prepLineId.startsWith('SUPPLEMENT:')
+)
+assert(
+  po0002SupplementItems.length === 4,
+  'PO-202603-0002 当前真实节点必须包含 4 条独立 SUPPLEMENT 需求，不能继续挂在正常物料行',
+)
+const po0002CurrentGroup = listPickupOrderGroups(
+  po0002Node.nodeType === 'READY_TO_PICKUP' ? 'READY' : 'INCOMPLETE',
+  unifiedFactStorage,
+).find((group) => group.productionOrderId === po0002Node.productionOrderId)
+assert(po0002CurrentGroup, 'PO-202603-0002 当前节点必须进入对应 Web 列表')
+const po0002HistoryBeforePickup = listPickupOrderGroups('HISTORY', unifiedFactStorage)
+  .find((group) => group.productionOrderId === po0002Node.productionOrderId)
+assert(
+  po0002HistoryBeforePickup?.finalResult === 'NEW_SUPPLEMENT_WAIT_PICKUP',
+  'PO-202603-0002 原需求领完后四条真实补料必须重新打开历史最终结果',
+)
+assert(
+  po0002HistoryBeforePickup.groupKey !== po0002CurrentGroup.groupKey
+  && po0002HistoryBeforePickup.materialRows.every((historyRow) =>
+    po0002CurrentGroup.materialRows.every((currentRow) => historyRow.rowKey !== currentRow.rowKey)
+  ),
+  '真实补料重开后同一生产单跨列表的分组和物料行主键不得冲突',
+)
+for (const item of po0002Node.items) {
+  const row = po0002CurrentGroup.materialRows.find((candidate) =>
+    candidate.demandLineId === item.prepLineId && candidate.unit === item.unit
+  )
+  assert(row, `${item.prepLineId} ${item.unit} 必须由同一需求事实生成 Web 行`)
+  assert(
+    row.currentAvailableQty === item.currentAvailableQty,
+    `${item.prepLineId} ${item.unit} Web 当前可领必须与节点一致`,
+  )
+  assert(
+    item.sourceLocations.reduce((sum, location) => sum + location.currentAvailableQty, 0)
+      === item.currentAvailableQty,
+    `${item.prepLineId} ${item.unit} 节点来源库位合计必须等于当前可领`,
+  )
+  if (po0002Node.carrierType === 'WAREHOUSE_LOCATIONS') {
+    assert(
+      row.currentLocations.reduce((sum, location) => sum + location.currentAvailableQty, 0)
+        === row.currentAvailableQty,
+      `${item.prepLineId} ${item.unit} Web 库位合计必须等于当前可领`,
+    )
+  } else {
+    assert(row.currentLocations.length === 0, 'READY 托盘节点不得继续显示已释放库位')
+  }
+}
+const po0002Session = appendPickupSessionFromNode({
+  pickupNodeId: po0002Node.nodeId,
+  pickupNodeVersion: po0002Node.version,
+  receiverName: '统一需求事实校验员',
+  warehouseArea: '待加工仓统一事实区',
+  locationCode: 'FAB-UNIFIED-01',
+  waitProcessLedgerEventId: `unified-demand:${po0002Node.nodeId}`,
+  idempotencyKey: `unified-demand:${po0002Node.nodeId}:v${po0002Node.version}`,
+}, unifiedFactStorage)
+const po0002AfterProjection = listMaterialPrepOrderProjections(unifiedFactStorage)
+  .find((projection) => projection.order.productionOrderId === po0002Node.productionOrderId)
+assert(po0002AfterProjection, 'PO-202603-0002 领料后必须保留配料投影')
+const po0002SessionRecords = po0002AfterProjection.pickupRecords.filter((record) =>
+  record.pickupSessionId === po0002Session.pickupSessionId
+)
+assert(
+  po0002SupplementItems.every((item) =>
+    po0002SessionRecords.some((record) =>
+      record.prepLineId === item.prepLineId && record.pickedQty === item.currentAvailableQty
+    )
+  ),
+  'PDA 真实确认必须为节点内每条补料需求生成同 lineId 数量的 PickupRecord',
+)
+const po0002History = listPickupOrderGroups('HISTORY', unifiedFactStorage)
+  .find((group) => group.productionOrderId === po0002Node.productionOrderId)
+assert(
+  po0002History?.finalResult === 'ALL_PICKED',
+  'PO-202603-0002 四条补料整节点领取后历史必须由统一事实回到全部领完',
+)
+
+const processingNode = activeNodes.find((node) => node.productionOrderId === 'PO-202603-1103')
+assert(processingNode, 'PO-202603-1103 必须存在用于加工未完成反例的真实节点')
+assert(
+  !processingNode.items.some((item) => item.prepLineId === 'prep-line-po-1103-dye-main'),
+  '染色仍 PROCESSING 时即使存在正数配料，也不得进入真实待领节点或 READY 覆盖判断',
+)
+assert(
+  processingNode.nodeType === 'INCOMPLETE_PICKABLE',
+  '染色仍 PROCESSING 的必需需求必须阻断 READY，不能因 requiredQty=0 被视为已满足',
+)
 
 const ownershipLineSource = projections.flatMap((projection) => projection.lines)[0]
 const ownershipResultSource = printResults[0]
@@ -1182,26 +1281,6 @@ const newSupplementRecord = {
   },
   processWorkOrderRefs: [],
 }
-const reopenedNode = {
-  ...integrationNodeSource,
-  nodeId: 'PICKUP-NODE-HISTORY-REOPEN',
-  prepOrderId: historyScenarioPrepOrderId,
-  prepOrderNo: historyScenarioPrepOrderNo,
-  productionOrderId: historyScenarioProductionOrderId,
-  productionOrderNo: historyScenarioProductionOrderNo,
-  nodeType: 'INCOMPLETE_PICKABLE' as const,
-  carrierType: 'WAREHOUSE_LOCATIONS' as const,
-  items: [{
-    ...historyScenarioItemSource,
-    nodeItemId: 'NODE-ITEM-HISTORY-REOPEN',
-    prepLineId: `SUPPLEMENT:${newSupplementRecord.id}:MAPPING-HISTORY-REOPEN`,
-    materialSku: 'MAT-HISTORY-REOPEN',
-    unit: historyScenarioLineA.unit,
-    requiredQty: 2,
-    effectivePickedQty: 0,
-    currentAvailableQty: 1,
-  }],
-}
 const reopenedProjection = buildHistoryScenarioProjection(
   [{ ...historyScenarioLineA }, { ...historyScenarioLineB }],
   [historyIncompleteSession, historyReadySession],
@@ -1210,14 +1289,7 @@ const reopenedProjection = buildHistoryScenarioProjection(
 const reopenedHistory = buildPickupOrderGroups({
   listKind: 'HISTORY',
   projections: [reopenedProjection],
-  activeNodes: [reopenedNode],
-  supplementRecords: [newSupplementRecord],
-  processResults: { dyeResults: [], printResults: [] },
-})[0]
-const reopenedCurrent = buildPickupOrderGroups({
-  listKind: 'INCOMPLETE',
-  projections: [reopenedProjection],
-  activeNodes: [reopenedNode],
+  activeNodes: [],
   supplementRecords: [newSupplementRecord],
   processResults: { dyeResults: [], printResults: [] },
 })[0]
@@ -1229,18 +1301,6 @@ assert(
   reopenedHistory.historyPath === 'INCOMPLETE_PICKUP',
   '累计真实记录证明全领完不应抹掉前序未配齐领取路径',
 )
-assert(
-  reopenedHistory?.productionOrderId === reopenedCurrent?.productionOrderId,
-  '新增补料重开后同一生产单必须同时保留历史分组和当前待领分组',
-)
-assert(
-  reopenedHistory.groupKey !== reopenedCurrent.groupKey
-  && reopenedHistory.materialRows.every((historyRow) =>
-    reopenedCurrent.materialRows.every((currentRow) => historyRow.rowKey !== currentRow.rowKey)
-  ),
-  '同生产单跨列表同时存在时，分组和物料行主键不得发生 DOM 冲突',
-)
-
 const supplementDemandLineId = `SUPPLEMENT:${newSupplementRecord.id}:MAPPING-HISTORY-REOPEN`
 const supplementScenarioLine = {
   ...historyScenarioLineA,

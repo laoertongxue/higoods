@@ -120,10 +120,10 @@ function verifyPickupThreeListSceneStoreMigration(): void {
     node.prepOrderId === 'prep-order-po-202603-1103'
   )
   assert(
-    upgradedNode?.nodeType === 'READY_TO_PICKUP'
+    upgradedNode?.nodeType === 'INCOMPLETE_PICKABLE'
       && upgradedNode.version === 2
-      && upgradedNode.readySource === 'UPGRADED_FROM_INCOMPLETE',
-    '旧 Store 迁移后 PO1103 必须从升级前快照形成 V2 已配齐节点',
+      && upgradedNode.readySource === null,
+    '旧 Store 迁移后 PO1103 必须形成 V2 节点，并由未完成染色继续阻断配齐',
   )
   const po0002History = listPickupOrderGroups('HISTORY', storage as Storage).find((group) =>
     group.productionOrderNo === 'PO-202603-0002'
@@ -507,9 +507,9 @@ function verifyHistoryUsesCurrentActiveCarrier(): void {
     assert(confirmMaterialPrepRecord(record.prepRecordId, '中转仓 历史混合测试员', storage), '历史混合测试配料记录必须完成确认')
   }
 
-  const activeReadyNode = listActivePickupNodes(storage)
+  const activeCurrentNode = listActivePickupNodes(storage)
     .find((node) => node.prepOrderId === incompleteNode.prepOrderId)
-  assert(activeReadyNode?.nodeType === 'READY_TO_PICKUP', '未配齐领取一轮后补齐必须形成当前 READY 节点')
+  assert(activeCurrentNode?.nodeType === 'INCOMPLETE_PICKABLE', '必需加工未完成时，补齐正常配料后仍必须形成当前未配齐节点')
   const historyGroup = listPickupOrderGroups('HISTORY', storage as Storage)
     .find((group) => group.prepOrderId === incompleteNode.prepOrderId)
   assert(historyGroup, '未配齐领取一轮后必须保留历史分组')
@@ -518,14 +518,14 @@ function verifyHistoryUsesCurrentActiveCarrier(): void {
     historyGroup.pickupSessionCount === existingSessionCount + 1,
     '历史分组必须保留新增的未配齐领料会话',
   )
-  assert(historyGroup.carrierType === activeReadyNode.carrierType, '历史分组当前承载必须与当前活动节点一致')
-  assert(historyGroup.carrierType === 'PALLET', '当前 READY 节点必须使历史分组当前承载显示为托盘')
-  assert(historyGroup.palletId === '', '当前 READY 托盘不得虚构托盘编号')
-  assert(historyGroup.palletDisplayLabel === '待领托盘（暂未编号）', '当前 READY 托盘必须显示未编号标签')
-  assert(historyGroup.readySource === activeReadyNode.readySource, '历史分组当前配齐来源必须与当前活动节点一致')
+  assert(historyGroup.carrierType === activeCurrentNode.carrierType, '历史分组当前承载必须与当前活动节点一致')
+  assert(historyGroup.carrierType === 'WAREHOUSE_LOCATIONS', '加工阻断的当前节点必须继续显示生产单专属库位')
+  assert(historyGroup.palletId === '', '未配齐节点不得虚构托盘编号')
+  assert(historyGroup.palletDisplayLabel === '', '未配齐节点不得显示待领托盘')
+  assert(historyGroup.readySource === activeCurrentNode.readySource, '历史分组当前配齐来源必须与当前活动节点一致')
   assert(
-    historyGroup.materialRows.every((row) => row.currentLocations.length === 0),
-    '历史分组存在当前 READY 节点时不得显示已释放的旧专属库位',
+    historyGroup.materialRows.some((row) => row.currentLocations.length > 0),
+    '历史分组存在当前未配齐节点时必须显示当前专属库位',
   )
 }
 
