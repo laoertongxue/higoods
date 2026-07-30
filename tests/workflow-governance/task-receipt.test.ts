@@ -18,6 +18,9 @@ import {
 import type { InstructionContextReceipt } from '../../scripts/workflow-governance/instruction-context.ts'
 
 const realFetch = globalThis.fetch
+const ACCEPTANCE_REF = 'https://api.github.com/repos/owner/repository/issues/comments/42'
+const ISSUE_REF = 'https://api.github.com/repos/owner/repository/issues/7'
+const PULL_REQUEST_REF = 'https://api.github.com/repos/owner/repository/pulls/7'
 
 function mockGitHubFetch(bodies: Array<Record<string, unknown>>): void {
   globalThis.fetch = (async () => {
@@ -28,6 +31,45 @@ function mockGitHubFetch(bodies: Array<Record<string, unknown>>): void {
       json: async () => body ?? {},
     } as Response
   }) as typeof fetch
+}
+
+function acceptedComment(options: {
+  body?: string
+  login?: string
+  association?: string
+  issueUrl?: string
+} = {}): Record<string, unknown> {
+  return {
+    body: options.body ?? 'accepted abc123',
+    user: { login: options.login ?? 'review-owner' },
+    author_association: options.association ?? 'OWNER',
+    issue_url: options.issueUrl ?? ISSUE_REF,
+  }
+}
+
+function pullRequestIssue(): Record<string, unknown> {
+  return {
+    number: 7,
+    pull_request: { url: PULL_REQUEST_REF },
+  }
+}
+
+function pullRequest(options: {
+  headSha?: string
+  headRef?: string
+  baseRepository?: string
+} = {}): Record<string, unknown> {
+  return {
+    head: {
+      sha: options.headSha ?? 'abc123',
+      ref: options.headRef ?? 'main',
+    },
+    base: {
+      repo: {
+        full_name: options.baseRepository ?? 'owner/repository',
+      },
+    },
+  }
 }
 
 test.afterEach(() => {
@@ -552,6 +594,80 @@ test('必需阶段摘要必须包含最小阶段且两阶段审查必须成对�
   )
 })
 
+test('required 阶段摘要必须由技能调用或完整双审证明真实触发条件', () => {
+  const instruction = instructionContext({ requireStageTrace: true })
+  const stageTrace = {
+    required: true,
+    valid: true,
+    stages: ['trigger', 'artifact', 'implementation', 'final-validation'] as const,
+    skills: [],
+    blockers: [],
+  }
+
+  assert.throws(
+    () => createTaskReceipt({
+      workspace: '/workspace',
+      revisionBefore: revision,
+      revisionAfter: revision,
+      instructionBefore: instruction,
+      instructionAfter: instruction,
+      route,
+      checks: validReceipt().checks,
+      codegraph: validReceipt().codegraph,
+      stageTrace: {
+        ...stageTrace,
+        stages: [...stageTrace.stages],
+      },
+    }),
+    /技能|审查|触发/,
+  )
+
+  assert.throws(
+    () => parseTaskCompletionReceipt(JSON.stringify({
+      ...validReceipt(),
+      instructionContext: instruction,
+      stageTrace,
+    })),
+    /技能|审查|触发/,
+  )
+})
+
+test('完整技能调用或完整双审摘要仍可生成 verified 收据', () => {
+  const instruction = instructionContext({ requireStageTrace: true })
+  const baseStages = ['trigger', 'artifact', 'implementation', 'final-validation'] as const
+  const skillReceipt = createTaskReceipt({
+    workspace: '/workspace',
+    revisionBefore: revision,
+    revisionAfter: revision,
+    instructionBefore: instruction,
+    instructionAfter: instruction,
+    route,
+    checks: validReceipt().checks,
+    codegraph: validReceipt().codegraph,
+    stageTrace: {
+      required: true,
+      valid: true,
+      stages: [...baseStages, 'skill-invocation'],
+      skills: ['superpowers-zh:test-driven-development'],
+      blockers: [],
+    },
+  })
+  assert.equal(skillReceipt.state, 'verified')
+
+  const reviewReceipt = parseTaskCompletionReceipt(JSON.stringify({
+    ...validReceipt(),
+    instructionContext: instruction,
+    stageTrace: {
+      required: true,
+      valid: true,
+      stages: [...baseStages, 'spec-review', 'code-quality-review'],
+      skills: [],
+      blockers: [],
+    },
+  }))
+  assert.equal(reviewReceipt.state, 'verified')
+})
+
 test('CodeGraph 状态缺少必要健康字段时失败关闭', () => {
   assert.throws(
     () => parseCodeGraphStatus(JSON.stringify({
@@ -665,6 +781,80 @@ test('伪造 delivered 收据不能直接升级接受且不发起 fetch', async 
   assert.equal(fetchCalls, 0)
 })
 
+test('GitHub 评论引用必须是无 query、fragment 或额外路径的规范数字 URL', async () => {
+  for (const acceptanceRef of [
+    `${ACCEPTANCE_REF}?page=1`,
+    `${ACCEPTANCE_REF}#fragment`,
+    `${ACCEPTANCE_REF}/extra`,
+  ]) {
+    let fetchCalls = 0
+    globalThis.fetch = (async () => {
+      fetchCalls += 1
+      throw new Error('畸形评论 URL 不应发起远端请求')
+    }) as typeof fetch
+
+    await assert.rejects(
+      recordAcceptance(validDeliveredReceipt(), {
+        acceptanceRef,
+        expectedActor: 'review-owner',
+      }),
+      /评论 API URL|接受引用/,
+    )
+    assert.equal(fetchCalls, 0)
+  }
+})
+
+test('同仓库普通 issue 评论不能记录 accepted', async () => {
+  mockGitHubFetch([
+    acceptedComment(),
+    { number: 7 },
+  ])
+
+  await assert.rejects(
+    recordAcceptance(validDeliveredReceipt(), {
+      acceptanceRef: ACCEPTANCE_REF,
+      expectedActor: 'review-owner',
+    }),
+    /pull_request|PR|合并请求/,
+  )
+})
+
+test('评论必须包含独立且精确的已验证 SHA', async () => {
+  mockGitHubFetch([
+    acceptedComment({ body: 'accepted xabc123y' }),
+  ])
+
+  await assert.rejects(
+    recordAcceptance(validDeliveredReceipt(), {
+      acceptanceRef: ACCEPTANCE_REF,
+      expectedActor: 'review-owner',
+    }),
+    /远端评论/,
+  )
+})
+
+test('PR 必须绑定已验证版本、交付目标分支和目标仓库', async () => {
+  for (const pr of [
+    pullRequest({ headSha: 'other' }),
+    pullRequest({ headRef: 'feature/task' }),
+    pullRequest({ baseRepository: 'other/repository' }),
+  ]) {
+    mockGitHubFetch([
+      acceptedComment(),
+      pullRequestIssue(),
+      pr,
+    ])
+
+    await assert.rejects(
+      recordAcceptance(validDeliveredReceipt(), {
+        acceptanceRef: ACCEPTANCE_REF,
+        expectedActor: 'review-owner',
+      }),
+      /PR|版本|分支|仓库|目标/,
+    )
+  }
+})
+
 test('交付和接受必须由远端证据确认', async () => {
   await assert.rejects(
     recordDelivery(validReceipt(), {
@@ -679,11 +869,9 @@ test('交付和接受必须由远端证据确认', async () => {
   mockGitHubFetch([
     { sha: 'abc123' },
     { object: { sha: 'abc123' } },
-    {
-      body: 'accepted abc123',
-      user: { login: 'review-owner' },
-      author_association: 'OWNER',
-    },
+    acceptedComment(),
+    pullRequestIssue(),
+    pullRequest(),
   ])
   const delivered = await recordDelivery(validReceipt(), {
     provider: 'github',
@@ -700,7 +888,7 @@ test('交付和接受必须由远端证据确认', async () => {
   )
 
   const accepted = await recordAcceptance(delivered, {
-    acceptanceRef: 'https://api.github.com/repos/owner/repository/issues/comments/42',
+    acceptanceRef: ACCEPTANCE_REF,
     expectedActor: 'review-owner',
   })
   assert.equal(accepted.state, 'accepted')
@@ -722,11 +910,12 @@ test('验证、交付和接受按证据逐级升级', async () => {
   mockGitHubFetch([
     { sha: 'abc123' },
     { object: { sha: 'abc123' } },
-    {
+    acceptedComment({
       body: '验收通过 abc123',
-      user: { login: 'review-owner' },
-      author_association: 'MEMBER',
-    },
+      association: 'MEMBER',
+    }),
+    pullRequestIssue(),
+    pullRequest(),
   ])
   const delivered = await recordDelivery(validReceipt(), {
     provider: 'github',
@@ -737,7 +926,7 @@ test('验证、交付和接受按证据逐级升级', async () => {
   assert.equal(delivered.state, 'delivered')
 
   const accepted = await recordAcceptance(delivered, {
-    acceptanceRef: 'https://api.github.com/repos/owner/repository/issues/comments/42',
+    acceptanceRef: ACCEPTANCE_REF,
     expectedActor: 'review-owner',
   })
   assert.equal(accepted.state, 'accepted')
@@ -774,11 +963,12 @@ test('目标分支未指向版本或非授权评论者不能升级状态', async
   mockGitHubFetch([
     { sha: 'abc123' },
     { object: { sha: 'abc123' } },
-    {
-      body: 'accepted abc123',
-      user: { login: 'outsider' },
-      author_association: 'NONE',
-    },
+    acceptedComment({
+      login: 'outsider',
+      association: 'NONE',
+    }),
+    pullRequestIssue(),
+    pullRequest(),
   ])
   const delivered = await recordDelivery(validReceipt(), {
     provider: 'github',
@@ -808,11 +998,11 @@ test('否定验收评论不能升级接受状态', async () => {
     mockGitHubFetch([
       { sha: 'abc123' },
       { object: { sha: 'abc123' } },
-      {
+      acceptedComment({
         body,
-        user: { login: 'review-owner' },
-        author_association: 'OWNER',
-      },
+      }),
+      pullRequestIssue(),
+      pullRequest(),
     ])
     const delivered = await recordDelivery(validReceipt(), {
       provider: 'github',

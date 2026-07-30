@@ -346,6 +346,17 @@ export function assertTaskReceiptSemantics(receipt: TaskCompletionReceipt): void
       hasCodeQualityReview,
       '规格审查与代码质量审查必须成对出现',
     )
+    const hasSkills = receipt.stageTrace.skills.length > 0
+    const hasSkillInvocation = receipt.stageTrace.stages.includes('skill-invocation')
+    assert.equal(
+      hasSkills,
+      hasSkillInvocation,
+      '技能清单与 skill-invocation 阶段必须同时存在',
+    )
+    assert(
+      (hasSkills && hasSkillInvocation) || (hasSpecReview && hasCodeQualityReview),
+      '必需阶段轨迹必须由技能调用或完整双审证明真实触发条件',
+    )
   }
 
   if (receipt.state === 'verified') {
@@ -496,6 +507,11 @@ async function defaultRemoteEvidenceProbe(input: {
   revision: string
   targetUrl?: string
   expectedActor?: string
+  repository?: {
+    owner: string
+    name: string
+    targetRef: string
+  }
 }): Promise<RemoteEvidenceProbeResult> {
   try {
     const headers: Record<string, string> = {
@@ -537,12 +553,59 @@ async function defaultRemoteEvidenceProbe(input: {
       || /(?:^|[\s，。,:：;；])(?:同意|接受|验收通过)(?=$|[\s，。,:：;；])/.test(comment)
     const accepted = !denied
       && explicitlyAccepted
-      && comment.includes(input.revision)
+      && new RegExp(
+        `(?:^|[^A-Za-z0-9])${input.revision.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:$|[^A-Za-z0-9])`,
+      ).test(comment)
       && author === input.expectedActor
       && ['OWNER', 'MEMBER', 'COLLABORATOR'].includes(association)
-    return accepted
-      ? { ok: true, canonicalRef: input.url }
-      : { ok: false, reason: '远端评论未明确接受已验证版本' }
+    if (!accepted) return { ok: false, reason: '远端评论未明确接受已验证版本' }
+
+    assert(input.repository, '缺少 GitHub PR 仓库核验上下文')
+    const { owner, name, targetRef } = input.repository
+    const issueUrl = typeof body.issue_url === 'string' ? body.issue_url : ''
+    const issuePrefix = `https://api.github.com/repos/${owner}/${name}/issues/`
+    assert(
+      issueUrl.startsWith(issuePrefix)
+        && /^\d+$/.test(issueUrl.slice(issuePrefix.length)),
+      '评论 issue_url 必须精确引用目标仓库的数字 issue',
+    )
+    const issueNumber = issueUrl.slice(issuePrefix.length)
+    const issueResponse = await fetch(issueUrl, {
+      headers,
+      redirect: 'follow',
+    })
+    if (!issueResponse.ok) return { ok: false, reason: `issue HTTP ${issueResponse.status}` }
+    const issue = await issueResponse.json() as Record<string, unknown>
+    assert.equal(issue.number, Number(issueNumber), '评论关联的 issue 编号不匹配')
+    const pullRequest = issue.pull_request && typeof issue.pull_request === 'object'
+      ? issue.pull_request as Record<string, unknown>
+      : undefined
+    assert(pullRequest, '评论必须来自 GitHub PR，普通 issue 评论不能验收')
+    const pullRequestUrl = typeof pullRequest.url === 'string' ? pullRequest.url : ''
+    assert.equal(
+      pullRequestUrl,
+      `https://api.github.com/repos/${owner}/${name}/pulls/${issueNumber}`,
+      'issue.pull_request.url 必须精确引用目标仓库的 PR',
+    )
+    const pullRequestResponse = await fetch(pullRequestUrl, {
+      headers,
+      redirect: 'follow',
+    })
+    if (!pullRequestResponse.ok) {
+      return { ok: false, reason: `PR HTTP ${pullRequestResponse.status}` }
+    }
+    const pullRequestBody = await pullRequestResponse.json() as {
+      head?: { sha?: unknown; ref?: unknown }
+      base?: { repo?: { full_name?: unknown } }
+    }
+    assert.equal(pullRequestBody.head?.sha, input.revision, 'PR 版本与已验证版本不一致')
+    assert.equal(pullRequestBody.head?.ref, targetRef, 'PR 分支与交付目标分支不一致')
+    assert.equal(
+      pullRequestBody.base?.repo?.full_name,
+      `${owner}/${name}`,
+      'PR 目标仓库与交付仓库不一致',
+    )
+    return { ok: true, canonicalRef: input.url }
   } catch (error) {
     return {
       ok: false,
@@ -616,9 +679,12 @@ export async function recordAcceptance(
   assert(receipt.delivery, '缺少交付回执')
   const targetMatch = /^([^/\s]+)\/([^@\s]+)@(\S+)$/.exec(receipt.delivery.target)
   assert(targetMatch, '交付目标格式无效')
-  const [, owner, repository] = targetMatch
+  const [, owner, repository, targetRef] = targetMatch
+  const acceptancePrefix =
+    `https://api.github.com/repos/${owner}/${repository}/issues/comments/`
   assert(
-    acceptanceRef.startsWith(`https://api.github.com/repos/${owner}/${repository}/issues/comments/`),
+    acceptanceRef.startsWith(acceptancePrefix)
+      && /^\d+$/.test(acceptanceRef.slice(acceptancePrefix.length)),
     '接受引用必须是目标仓库的 GitHub 评论 API URL',
   )
   const verification = await defaultRemoteEvidenceProbe({
@@ -626,6 +692,11 @@ export async function recordAcceptance(
     url: acceptanceRef,
     revision: receipt.revision.head,
     expectedActor,
+    repository: {
+      owner,
+      name: repository,
+      targetRef,
+    },
   })
   assert(verification.ok, `远端核验失败：${verification.reason ?? '未知原因'}`)
   assert.equal(verification.canonicalRef, acceptanceRef, '接受核验回执不是规范 GitHub 引用')
