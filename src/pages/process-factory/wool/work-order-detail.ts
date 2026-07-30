@@ -8,9 +8,9 @@ import {
   getWoolOutputHandoverAvailableQty,
   getWoolOutputReadiness,
   getWoolOutputReportedQty,
-  getWoolOutputStockQty,
   getWoolProcessReportEffectiveQty,
   getWoolProcessingStatus,
+  getWoolWorkOrderReadinessProjection,
   getWoolYarnReceiptLineEffectiveQty,
   listWoolFactRecords,
   listWoolMachineAssociations,
@@ -338,11 +338,24 @@ function renderCompletionFacts(
 ): string {
   const snapshot = completion.confirmationSnapshot
   const laterConfirmed = readWoolStore().handovers
-    .filter((record) =>
-      record.woolOrderId === order.woolOrderId
-      && record.downstreamReceipt?.status === 'CONFIRMED'
-      && (record.downstreamReceipt.receivedAt || '') > completion.completedAt,
-    )
+    .filter((record) => {
+      if (
+        record.woolOrderId !== order.woolOrderId
+        || record.downstreamReceipt?.status !== 'CONFIRMED'
+      ) {
+        return false
+      }
+      const frozenHandover = snapshot.handoverSummary.find((item) =>
+        item.handoverId === record.handoverId
+        && item.outputSkuCode === record.outputSkuCode,
+      )
+      if (!frozenHandover) return false
+      return (
+        frozenHandover.downstreamReceivedAt === undefined
+        && frozenHandover.downstreamActualReceivedQty === undefined
+        && frozenHandover.downstreamDifferenceQty === undefined
+      )
+    })
   const receiptFacts = [
     ...snapshot.yarnReceiptSummary.map((item) =>
       `纱线 ${item.yarnSkuCode}：${formatQty(item.receivedQty, item.qtyUnit)}`,
@@ -454,34 +467,31 @@ function renderCompletionFacts(
   `
 }
 
-function yarnReceiptFacts(woolOrderId: string, yarnSkuCode: string): string {
-  const receipts = readWoolStore().yarnReceipts.filter((record) => record.woolOrderId === woolOrderId)
-  const facts = receipts.flatMap((record) => record.lines
-    .filter((line) => line.yarnSkuCode === yarnSkuCode && effectiveReceiptQty(record, line) > 0)
-    .map((line) => `${record.receiptNo} / ${record.batchNo || '无批次'} / ${formatQty(effectiveReceiptQty(record, line), line.qtyUnit)} / ${record.receivedAt}`))
-  return facts.join('；') || '未确认接收'
-}
-
 function renderReadiness(order: WoolWorkOrder): string {
+  const projection = getWoolWorkOrderReadinessProjection(order.woolOrderId)
   const paging = renderPaging(order.outputPlanLines, `readiness:${order.woolOrderId}`)
   const rows = paging.rows.map((line) => {
-    const readiness = getWoolOutputReadiness(order.woolOrderId, line.outputSkuCode)
-    const reported = getWoolOutputReportedQty(order.woolOrderId, line.outputSkuCode)
-    const handed = getWoolOutputHandedOverQty(order.woolOrderId, line.outputSkuCode)
-    const stock = getWoolOutputStockQty(order.woolOrderId, line.outputSkuCode)
-    const available = getWoolOutputHandoverAvailableQty(order.woolOrderId, line.outputSkuCode)
+    const outputProjection = projection.outputsBySku.get(line.outputSkuCode)
+    if (!outputProjection) return ''
+    const { readiness, handedOverQty, stockQty, handoverAvailableQty } = outputProjection
     return `
       <tr class="border-b align-top last:border-b-0">
         <td class="px-3 py-3">${escapeHtml(line.outputObjectType === 'GARMENT' ? '成衣' : '毛织部位')}<div class="text-xs text-muted-foreground">${escapeHtml(line.woolPartName || '整件')}</div></td>
         <td class="px-3 py-3 font-medium">${escapeHtml(line.outputSkuCode)}<div class="text-xs text-muted-foreground">${escapeHtml(line.garmentSkuCode)} / ${escapeHtml(line.colorName)} / ${escapeHtml(line.sizeCode)}</div></td>
         <td class="px-3 py-3">${formatQty(line.plannedQty, line.qtyUnit)}</td>
-        <td class="px-3 py-3">${line.requiredYarnSkus.map((sku) => `<div class="mb-2"><strong>${escapeHtml(sku)}</strong><div class="text-xs text-muted-foreground">${escapeHtml(yarnReceiptFacts(order.woolOrderId, sku))}</div></div>`).join('') || '<span class="text-red-600">技术包未配置必需纱线</span>'}</td>
+        <td class="px-3 py-3">${line.requiredYarnSkus.map((sku) => {
+          const aggregate = projection.yarnReceiptsBySku.get(sku)
+          const summary = aggregate?.isReceived
+            ? `${formatQty(aggregate.receivedQty, aggregate.qtyUnit)} / ${aggregate.effectiveRecordCount} 个有效接收记录 / ${aggregate.effectiveBatchCount} 个批次 / 最近接收 ${aggregate.latestReceivedAt || '—'}`
+            : '未确认接收'
+          return `<div class="mb-2"><strong>${escapeHtml(sku)}</strong><div class="text-xs text-muted-foreground">${escapeHtml(summary)}</div></div>`
+        }).join('') || '<span class="text-red-600">技术包未配置必需纱线</span>'}</td>
         <td class="px-3 py-3">${escapeHtml(readiness.missingYarnSkus.join('、') || '无')}</td>
         <td class="px-3 py-3">${renderBadge(readiness.canReport ? '可以加工填报' : '不可加工填报', readiness.canReport ? 'success' : 'warning')}<div class="mt-1 text-xs text-muted-foreground">剩余可填 ${formatQty(readiness.remainingReportQty, line.qtyUnit)}</div></td>
-        <td class="px-3 py-3">${formatQty(reported, line.qtyUnit)}</td>
-        <td class="px-3 py-3">${formatQty(handed, line.qtyUnit)}</td>
-        <td class="px-3 py-3">${formatQty(stock, line.qtyUnit)}</td>
-        <td class="px-3 py-3">${formatQty(available, line.qtyUnit)}</td>
+        <td class="px-3 py-3">${formatQty(readiness.reportedQty, line.qtyUnit)}</td>
+        <td class="px-3 py-3">${formatQty(handedOverQty, line.qtyUnit)}</td>
+        <td class="px-3 py-3">${formatQty(stockQty, line.qtyUnit)}</td>
+        <td class="px-3 py-3">${formatQty(handoverAvailableQty, line.qtyUnit)}</td>
       </tr>
     `
   }).join('')

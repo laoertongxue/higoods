@@ -811,6 +811,7 @@ const {
   getWoolAllowedActions,
   getWoolWarehouseStock,
   getWoolWorkOrderBlockReason,
+  getWoolWorkOrderReadinessProjection,
   getWoolWorkOrderTab,
   getWoolWorkOrderTabCounts,
   listWoolFactRecords,
@@ -4389,7 +4390,7 @@ for (const contract of [
   '`readiness:${order.woolOrderId}`',
   'listWoolFactRecords',
   'getWoolOutputReadiness',
-  'getWoolOutputStockQty',
+  'getWoolWorkOrderReadinessProjection',
   'getWoolOutputHandoverAvailableQty',
   'changeWoolFactQty',
   'proofFiles',
@@ -4409,6 +4410,10 @@ for (const contract of [
 ]) {
   assert(woolWorkOrderDetailSource.includes(contract), `毛织加工单详情缺少任务 9 契约：${contract}`)
 }
+assert(
+  !woolWorkOrderDetailSource.includes('> completion.completedAt'),
+  '完成后下游确认不得再用 receivedAt 与 completedAt 字符串比较',
+)
 assert(
   woolWorkOrderDetailSource.includes("downstreamReceipt?.status !== 'CONFIRMED'"),
   '下游已确认的交出记录必须隐藏修改数量入口',
@@ -4491,6 +4496,149 @@ assert(splitCompletionHtml.includes('完成时下游未确认'))
 assert(splitCompletionHtml.includes('完成后下游收货员'))
 assert(splitCompletionHtml.includes('实际接收 19 件'))
 assert(!splitCompletionHtml.includes('自动解除横机：WM-'), '内部 machineId 不得冒充横机业务编号')
+
+for (const boundaryCase of [
+  {
+    seed: 'CHECK_WOOL_TASK_9_SAME_SECOND_CONFIRM',
+    completedAt: '2026-07-30 18:00:00',
+    receivedAt: '2026-07-30 18:00:00',
+    receivedBy: '同秒完成后收货员',
+  },
+  {
+    seed: 'CHECK_WOOL_TASK_9_MIXED_TIME_CONFIRM',
+    completedAt: '2026-07-30T18:00:00',
+    receivedAt: '2026-07-30 19:00:00',
+    receivedBy: '混合格式完成后收货员',
+  },
+]) {
+  resetWoolFactWorkflowMock(boundaryCase.seed)
+  const boundaryOrder = listWoolWorkOrders()
+    .find((order) => order.mockScenarioCode === 'MULTIPLE_HANDOVERS_WITH_STOCK')!
+  const boundaryHandover = readWoolStore().handovers
+    .find((record) => record.woolOrderId === boundaryOrder.woolOrderId)!
+  completeWoolWorkOrder(boundaryOrder.woolOrderId, {
+    commandId: `CMD-${boundaryCase.seed}-COMPLETE`,
+    completedAt: boundaryCase.completedAt,
+    completedBy: '毛织主管',
+  })
+  confirmWoolDownstreamReceipt(boundaryHandover.handoverId, {
+    commandId: `CMD-${boundaryCase.seed}-CONFIRM`,
+    actualReceivedQty: boundaryHandover.handoverQty - 1,
+    receivedAt: boundaryCase.receivedAt,
+    receivedBy: boundaryCase.receivedBy,
+  })
+  const boundaryHtml = renderCraftWoolWorkOrderDetailPage(boundaryOrder.woolOrderId)
+  assert(
+    boundaryHtml.includes(boundaryCase.receivedBy),
+    `${boundaryCase.receivedBy} 必须按完成快照事实识别为完成后确认`,
+  )
+}
+
+resetWoolFactWorkflowMock('CHECK_WOOL_TASK_9_BEFORE_COMPLETE_CONFIRM')
+const beforeCompletionOrder = listWoolWorkOrders()
+  .find((order) => order.mockScenarioCode === 'MULTIPLE_HANDOVERS_WITH_STOCK')!
+const beforeCompletionHandover = readWoolStore().handovers
+  .find((record) => record.woolOrderId === beforeCompletionOrder.woolOrderId)!
+confirmWoolDownstreamReceipt(beforeCompletionHandover.handoverId, {
+  commandId: 'CMD-TASK9-BEFORE-ONLY-CONFIRM',
+  actualReceivedQty: beforeCompletionHandover.handoverQty - 1,
+  receivedAt: '2026-07-30T17:00:00',
+  receivedBy: '完成前冻结收货员',
+})
+completeWoolWorkOrder(beforeCompletionOrder.woolOrderId, {
+  commandId: 'CMD-TASK9-BEFORE-ONLY-COMPLETE',
+  completedAt: '2026-07-30 18:00:00',
+  completedBy: '毛织主管',
+})
+const beforeCompletionHtml = renderCraftWoolWorkOrderDetailPage(beforeCompletionOrder.woolOrderId)
+assert(beforeCompletionHtml.includes('完成时下游实收 29 件'))
+assert(
+  !beforeCompletionHtml.includes('完成前冻结收货员'),
+  '完成前已冻结的确认不得重复进入完成后确认区',
+)
+
+resetWoolFactWorkflowMock('CHECK_WOOL_TASK_9_READINESS_SCALE')
+const scaleOrder = listWoolWorkOrders()
+  .find((order) => order.mockScenarioCode === 'NO_YARN_RECEIPT')!
+const scaleYarnSku = scaleOrder.outputPlanLines[0].requiredYarnSkus[0]
+const scaleSeedReceipt = addWoolYarnReceipt(scaleOrder.woolOrderId, {
+  commandId: 'CMD-TASK9-SCALE-SEED',
+  batchNo: 'BATCH-SCALE-000',
+  receivedAt: '2026-07-30 08:00:00',
+  receivedBy: '规模测试仓管',
+  lines: [{ yarnSkuCode: scaleYarnSku, receivedQty: 1 }],
+})
+const scaleSeedFlow = readWoolStore().warehouseFlows
+  .find((flow) => flow.flowId === scaleSeedReceipt.lines[0].warehouseInboundFlowId)!
+commitWoolStore((draft) => {
+  for (let index = 1; index < 300; index += 1) {
+    const suffix = String(index).padStart(3, '0')
+    const receiptId = `WR-SCALE-${suffix}`
+    const lineId = `WRL-SCALE-${suffix}`
+    const flowId = `WF-SCALE-${suffix}`
+    const batchNo = `BATCH-SCALE-${suffix}`
+    draft.yarnReceipts.push({
+      ...scaleSeedReceipt,
+      receiptId,
+      receiptNo: `WRS-SCALE-${suffix}`,
+      batchNo,
+      receivedAt: `2026-07-30 08:${String(index % 60).padStart(2, '0')}:00`,
+      lines: [{
+        ...scaleSeedReceipt.lines[0],
+        lineId,
+        warehouseInboundFlowId: flowId,
+      }],
+    })
+    draft.warehouseFlows.push({
+      ...scaleSeedFlow,
+      flowId,
+      sourceRecordId: lineId,
+      batchNo,
+      operatedAt: `2026-07-30 08:${String(index % 60).padStart(2, '0')}:00`,
+    })
+  }
+})
+changeWoolFactQty({
+  commandId: 'CMD-TASK9-SCALE-EFFECTIVE-QTY',
+  recordType: 'YARN_RECEIPT',
+  recordId: scaleSeedReceipt.receiptId,
+  recordLineId: scaleSeedReceipt.lines[0].lineId,
+  afterQty: 2,
+  reason: '验证齐料聚合沿用数量修改链',
+  changedAt: '2026-07-30 09:01:00',
+  changedBy: '毛织主管',
+})
+const scaleProjection = getWoolWorkOrderReadinessProjection(scaleOrder.woolOrderId)
+assert.equal(scaleProjection.yarnReceiptsBySku.get(scaleYarnSku)?.receivedQty, 301)
+assert.equal(scaleProjection.yarnReceiptsBySku.get(scaleYarnSku)?.effectiveRecordCount, 300)
+renderCraftWoolWorkOrderDetailPage(scaleOrder.woolOrderId)
+const scaleRootNode = { dataset: { woolOrderId: scaleOrder.woolOrderId } } as unknown as HTMLElement
+const scaleTabAction = {
+  dataset: { woolDetailAction: 'switch-tab', tab: 'readiness' },
+} as unknown as HTMLElement
+const scaleTabTarget = {
+  closest(selector: string) {
+    if (selector === '[data-wool-detail-root]') return scaleRootNode
+    if (selector === '[data-wool-detail-action]') return scaleTabAction
+    return null
+  },
+} as unknown as HTMLElement
+assert.equal(await handleCraftWoolDetailEvent(scaleTabTarget), true)
+const writesBeforeScaleRender = storageWrites.length
+const scaleRenderStartedAt = performance.now()
+const scaleReadinessHtml = renderCraftWoolWorkOrderDetailPage(scaleOrder.woolOrderId)
+const scaleRenderElapsedMs = performance.now() - scaleRenderStartedAt
+assert(
+  (scaleReadinessHtml.match(/WRS-SCALE-/g) || []).length <= 2,
+  `300 条同纱线接收事实不得在两个款色单元格重复展开为近 600 条明细；旧投影耗时 ${scaleRenderElapsedMs.toFixed(1)}ms`,
+)
+assert(scaleReadinessHtml.includes('301 kg'))
+assert(scaleReadinessHtml.includes('300 个有效接收记录'))
+assert(
+  scaleRenderElapsedMs < 180,
+  `300 条接收、2 个款色的齐料投影必须低于 180ms，实际 ${scaleRenderElapsedMs.toFixed(1)}ms`,
+)
+assert.equal(storageWrites.length, writesBeforeScaleRender, '款色齐料渲染必须只读且零写入')
 
 resetWoolFactWorkflowMock('CHECK_WOOL_TASK_9_PROOF_PAGING')
 const proofOrder = listWoolWorkOrders()
@@ -4628,4 +4776,4 @@ console.log('PASS task 5: global command receipts, atomic stock, downstream lock
 console.log('PASS task 6: current machine associations and derived four-state availability')
 console.log('PASS task 7: runtime generation freezes traceable yarn facts and exposes domain actions')
 console.log('PASS task 8: standard wool work-order list and fact command dialogs')
-console.log('PASS task 9: seven-tab wool fact detail, paged records, and immutable completion facts')
+console.log(`PASS task 9: seven-tab wool fact detail, paged records, immutable completion facts, and 300-row readiness in ${scaleRenderElapsedMs.toFixed(1)}ms`)

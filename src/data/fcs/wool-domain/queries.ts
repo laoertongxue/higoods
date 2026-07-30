@@ -39,6 +39,28 @@ export interface WoolOutputReadiness {
   canReport: boolean
 }
 
+export interface WoolYarnReceiptAggregate {
+  yarnSkuCode: string
+  receivedQty: number
+  qtyUnit: 'kg'
+  effectiveRecordCount: number
+  effectiveBatchCount: number
+  latestReceivedAt?: string
+  isReceived: boolean
+}
+
+export interface WoolReadinessOutputProjection {
+  readiness: WoolOutputReadiness
+  handedOverQty: number
+  stockQty: number
+  handoverAvailableQty: number
+}
+
+export interface WoolWorkOrderReadinessProjection {
+  yarnReceiptsBySku: Map<string, WoolYarnReceiptAggregate>
+  outputsBySku: Map<string, WoolReadinessOutputProjection>
+}
+
 export interface WoolWorkOrderFilters {
   keyword?: string
   kind?: WoolWorkOrderKind
@@ -165,6 +187,124 @@ export function getWoolHandoverEffectiveQty(
   })
 }
 
+export function getWoolWorkOrderReadinessProjection(
+  woolOrderId: string,
+): WoolWorkOrderReadinessProjection {
+  const store = readWoolStore()
+  const order = store.workOrders[woolOrderId]
+  if (!order) throw new Error(`找不到毛织加工单 ${woolOrderId}`)
+
+  const changedQtyByTarget = new Map<string, number>()
+  for (const change of store.qtyChangeLogs) {
+    const lineId = change.recordType === 'YARN_RECEIPT' ? change.recordLineId || '' : ''
+    changedQtyByTarget.set(`${change.recordType}\u0000${change.recordId}\u0000${lineId}`, change.afterQty)
+  }
+  const yarnWorking = new Map<string, {
+    receivedQty: number
+    receiptIds: Set<string>
+    batchNos: Set<string>
+    latestReceivedAt?: string
+  }>()
+  for (const receipt of store.yarnReceipts) {
+    if (receipt.woolOrderId !== woolOrderId) continue
+    for (const line of receipt.lines) {
+      const effectiveQty = changedQtyByTarget.get(
+        `YARN_RECEIPT\u0000${receipt.receiptId}\u0000${line.lineId}`,
+      ) ?? line.receivedQty
+      if (effectiveQty <= 0) continue
+      const current = yarnWorking.get(line.yarnSkuCode) ?? {
+        receivedQty: 0,
+        receiptIds: new Set<string>(),
+        batchNos: new Set<string>(),
+      }
+      current.receivedQty += effectiveQty
+      current.receiptIds.add(receipt.receiptId)
+      if (receipt.batchNo) current.batchNos.add(receipt.batchNo)
+      if (
+        !current.latestReceivedAt
+        || receipt.receivedAt.replace('T', ' ') > current.latestReceivedAt.replace('T', ' ')
+      ) {
+        current.latestReceivedAt = receipt.receivedAt
+      }
+      yarnWorking.set(line.yarnSkuCode, current)
+    }
+  }
+  const yarnReceiptsBySku = new Map<string, WoolYarnReceiptAggregate>()
+  for (const [yarnSkuCode, aggregate] of yarnWorking) {
+    yarnReceiptsBySku.set(yarnSkuCode, {
+      yarnSkuCode,
+      receivedQty: aggregate.receivedQty,
+      qtyUnit: 'kg',
+      effectiveRecordCount: aggregate.receiptIds.size,
+      effectiveBatchCount: aggregate.batchNos.size,
+      latestReceivedAt: aggregate.latestReceivedAt,
+      isReceived: aggregate.receivedQty > 0,
+    })
+  }
+
+  const reportedBySku = new Map<string, number>()
+  for (const report of store.processReports) {
+    if (report.woolOrderId !== woolOrderId) continue
+    const effectiveQty = changedQtyByTarget.get(`PROCESS_REPORT\u0000${report.reportId}\u0000`)
+      ?? report.reportedQty
+    reportedBySku.set(
+      report.outputSkuCode,
+      (reportedBySku.get(report.outputSkuCode) ?? 0) + effectiveQty,
+    )
+  }
+  const handedOverBySku = new Map<string, number>()
+  for (const handover of store.handovers) {
+    if (handover.woolOrderId !== woolOrderId) continue
+    const effectiveQty = changedQtyByTarget.get(`HANDOVER\u0000${handover.handoverId}\u0000`)
+      ?? handover.handoverQty
+    handedOverBySku.set(
+      handover.outputSkuCode,
+      (handedOverBySku.get(handover.outputSkuCode) ?? 0) + effectiveQty,
+    )
+  }
+
+  const outputsBySku = new Map<string, WoolReadinessOutputProjection>()
+  for (const line of order.outputPlanLines) {
+    const requiredYarnSkus = [...new Set(line.requiredYarnSkus.filter(Boolean))]
+    const confirmedYarnSkus = requiredYarnSkus.filter((sku) =>
+      yarnReceiptsBySku.get(sku)?.isReceived,
+    )
+    const missingYarnSkus = requiredYarnSkus.filter((sku) =>
+      !yarnReceiptsBySku.get(sku)?.isReceived,
+    )
+    const reportedQty = reportedBySku.get(line.outputSkuCode) ?? 0
+    const handedOverQty = handedOverBySku.get(line.outputSkuCode) ?? 0
+    const reportLimitQty = Math.floor(line.plannedQty * 1.5)
+    const remainingReportQty = Math.max(reportLimitQty - reportedQty, 0)
+    const isReady = requiredYarnSkus.length > 0 && missingYarnSkus.length === 0
+    const stockQty = getWoolWarehouseStockFromStore(store, {
+      woolOrderId,
+      objectSkuCode: line.outputSkuCode,
+      defaultLocationId: line.outputObjectType === 'GARMENT'
+        ? 'WOOL-WH-GARMENT-DEFAULT'
+        : 'WOOL-WH-CUT-DEFAULT',
+    })
+    outputsBySku.set(line.outputSkuCode, {
+      readiness: {
+        outputSkuCode: line.outputSkuCode,
+        requiredYarnSkus,
+        confirmedYarnSkus,
+        missingYarnSkus,
+        isReady,
+        plannedQty: line.plannedQty,
+        reportLimitQty,
+        reportedQty,
+        remainingReportQty,
+        canReport: isReady && remainingReportQty > 0,
+      },
+      handedOverQty,
+      stockQty,
+      handoverAvailableQty: Math.max(0, Math.min(stockQty, reportedQty - handedOverQty)),
+    })
+  }
+  return { yarnReceiptsBySku, outputsBySku }
+}
+
 export function getWoolOutputReportedQty(woolOrderId: string, outputSkuCode: string): number {
   const store = readWoolStore()
   return store.processReports
@@ -183,40 +323,9 @@ export function getWoolOutputReadiness(
   woolOrderId: string,
   outputSkuCode: string,
 ): WoolOutputReadiness {
-  const store = readWoolStore()
-  const order = store.workOrders[woolOrderId]
-  if (!order) throw new Error(`找不到毛织加工单 ${woolOrderId}`)
-  const line = requireOutputLine(order, outputSkuCode)
-  const requiredYarnSkus = [...new Set(line.requiredYarnSkus.filter(Boolean))]
-  const confirmedSet = new Set(
-    store.yarnReceipts
-      .filter((record) => record.woolOrderId === woolOrderId)
-      .flatMap((record) => record.lines.map((line) => ({ record, line })))
-      .filter(({ record, line: receiptLine }) =>
-        getWoolYarnReceiptLineEffectiveQty(store, record, receiptLine) > 0,
-      )
-      .map(({ line: receiptLine }) => receiptLine.yarnSkuCode),
-  )
-  const confirmedYarnSkus = requiredYarnSkus.filter((sku) => confirmedSet.has(sku))
-  const missingYarnSkus = requiredYarnSkus.filter((sku) => !confirmedSet.has(sku))
-  const isReady = requiredYarnSkus.length > 0 && missingYarnSkus.length === 0
-  const reportedQty = store.processReports
-    .filter((record) => record.woolOrderId === woolOrderId && record.outputSkuCode === outputSkuCode)
-    .reduce((sum, record) => sum + getWoolProcessReportEffectiveQty(store, record), 0)
-  const reportLimitQty = Math.floor(line.plannedQty * 1.5)
-  const remainingReportQty = Math.max(reportLimitQty - reportedQty, 0)
-  return {
-    outputSkuCode,
-    requiredYarnSkus,
-    confirmedYarnSkus,
-    missingYarnSkus,
-    isReady,
-    plannedQty: line.plannedQty,
-    reportLimitQty,
-    reportedQty,
-    remainingReportQty,
-    canReport: isReady && remainingReportQty > 0,
-  }
+  const output = getWoolWorkOrderReadinessProjection(woolOrderId).outputsBySku.get(outputSkuCode)
+  if (!output) throw new Error(`毛织加工单 ${woolOrderId} 不包含加工后 SKU ${outputSkuCode}`)
+  return output.readiness
 }
 
 export function getWoolProcessingStatus(woolOrderId: string): WoolProcessingStatus {
