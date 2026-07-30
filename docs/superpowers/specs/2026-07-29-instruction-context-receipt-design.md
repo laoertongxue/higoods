@@ -17,7 +17,7 @@
 
 - 明确的任务边界。
 - 适用的项目级 `AGENTS.md` 来源。
-- 每个来源在验证时的内容哈希。
+- 该来源在验证时的内容哈希。
 - 根据最终改动计算出的受影响检查。
 - 指令上下文与最终 Git 版本是否仍然同时有效。
 
@@ -76,87 +76,126 @@
 ```text
 instructionContext
   taskBoundary
-  sources[]
+  source
     path
+    algorithm
     contentHash
-  triggeredChecks[]
+  triggeredChecks
+    derivation
+    commands[]
 ```
 
 字段含义：
 
 - `taskBoundary`：操作者提供的一句话任务范围，去除首尾空白后必须非空。
-- `sources[].path`：相对工作区的 POSIX 路径。首版只接受名称为 `AGENTS.md` 的项目内文件。
-- `sources[].contentHash`：对应文件内容的 SHA-256。
-- `triggeredChecks`：从最终 `route.fastChecks`、`route.governanceChecks` 和 `route.fullChecks` 合并、去重后得到的命令集合。
+- `source.path`：固定为仓库根目录的相对 POSIX 路径 `AGENTS.md`。
+- `source.algorithm`：固定为 `sha256`。
+- `source.contentHash`：对 `AGENTS.md` 原始文件字节计算的 SHA-256，不做换行或字符编码归一化。
+- `triggeredChecks.derivation`：固定为 `affected-check-route`，明确检查来自现有受影响检查路由，而不是对 AGENTS 正文做语义解析。
+- `triggeredChecks.commands`：从最终 `route.fastChecks`、`route.governanceChecks` 和 `route.fullChecks` 合并、去重后得到的命令集合。
 
-来源按路径排序，检查按现有路由输出顺序记录，保证结果稳定。
+检查按现有路由输出顺序记录，保证结果稳定。
 
 ## 命令接口
 
-`workflow:verify` 增加两个参数：
+`workflow:verify` 增加一个参数：
 
 ```text
 --task-boundary "<任务边界>"
---instruction-sources "AGENTS.md[,子目录/AGENTS.md]"
 ```
 
 规则：
 
 - `--task-boundary` 必填。
-- `--instruction-sources` 默认值为仓库根目录的 `AGENTS.md`。
-- 显式来源使用英文逗号分隔。
-- 每个来源必须存在、可读取、位于当前工作区内且文件名为 `AGENTS.md`。
-- 首版不自动向父目录递归发现指令，避免把未确认的文件错误纳入权威范围。
+- 指令来源固定为当前工作区根目录的 `AGENTS.md`，调用方不能替换或省略。
+- 来源必须存在、可读取，且 `realpath` 后仍位于当前工作区内；符号链接不得逃逸到工作区外。
+- 本仓库当前只有根级权威指令。嵌套 `AGENTS.md` 的自动发现不在首版范围内，未来出现实际需求时单独设计，不能依赖调用方手工列举。
+- 实施时同步更新 AGENTS 第 12.1 节中的权威示例为：
+
+```bash
+npm run workflow:verify -- --output <临时目录>/task-receipt.json --task-boundary "<本次任务边界>"
+```
 
 `workflow:deliver` 和 `workflow:accept` 不增加参数；它们在升级状态前重新验证收据中的指令来源和内容哈希。
+
+## 运行时解析
+
+新增统一的 `parseTaskCompletionReceipt` 运行时解析入口，`readReceipt`、`deliver` 和 `accept` 不再只依赖 TypeScript 类型断言。
+
+解析顺序：
+
+1. 确认输入是普通 JSON 对象。
+2. 确认 `schemaVersion` 精确等于 2。
+3. 确认 `instructionContext`、任务边界、根指令来源、哈希算法、哈希值和触发检查结构完整。
+4. 确认其余现有收据字段满足运行时所需的最小结构。
+5. 完成解析后才允许进行 Git revision、指令时效或远端 provider 核验。
+
+结构版本 1、缺字段或畸形收据必须在调用 GitHub API 前失败关闭。
 
 ## 验证流程
 
 `workflow:verify` 按以下顺序执行：
 
 1. 解析最终变更路径并生成受影响检查路由。
-2. 解析任务边界与指令来源。
-3. 读取指令文件并生成内容哈希。
+2. 解析任务边界并锁定根 `AGENTS.md`。
+3. 通过 `realpath` 校验来源边界，读取原始字节并生成内容哈希。
 4. 执行路由要求的检查。
 5. 同步并检查 CodeGraph。
 6. 重新计算最终 Git revision。
 7. 创建任务收据并校验：
    - 任务边界非空。
-   - 至少有一个有效的 `AGENTS.md` 来源。
-   - 来源仍位于工作区且当前哈希与记录一致。
-   - `triggeredChecks` 与路由要求的命令集合完全一致。
+   - 根 `AGENTS.md` 来源有效且没有通过符号链接逃逸。
+   - 来源当前原始字节哈希与记录一致。
+   - `triggeredChecks.derivation` 为 `affected-check-route`。
+   - `triggeredChecks.commands` 与路由要求的命令集合完全一致。
    - 最终 revision、检查、CodeGraph 和阶段轨迹满足现有规则。
 
 任一条件失败时，收据保持 `implemented` 并写入明确 blocker。
 
 `workflow:deliver` 和 `workflow:accept` 除现有 Git revision 校验外，再次检查指令上下文。指令文件内容发生变化时，即使业务差异未变化，也不能升级状态，必须重新执行 `workflow:verify`。
 
+## 隔离工作树的 CodeGraph 前置条件
+
+任务在 linked worktree 中执行时，最终收据不能复用主工作区的 CodeGraph 索引。实现计划必须在开始最终验证前执行：
+
+```bash
+codegraph init -i
+codegraph sync
+codegraph status
+```
+
+只有 `projectPath` 指向当前隔离工作树、`worktreeMismatch` 为 false 且待同步文件为 0 时，才能运行最终 `workflow:verify`。CLI 不自动初始化索引，避免在普通验证命令中隐式创建基础设施。
+
 ## 兼容边界
 
 - 新生成的收据一律使用结构版本 2。
-- `deliver` 和 `accept` 对结构版本 1 收据失败关闭，要求重新验证；不静默补造指令证据。
+- `deliver` 和 `accept` 通过统一运行时解析器对结构版本 1 收据失败关闭，要求重新验证；不静默补造指令证据。
 - 不修改 `check:affected` 的路径映射。
 - 不复制指令正文到收据。
-- 不处理用户级、插件级或工作区外的指令文件。
+- 不处理嵌套、用户级、插件级或工作区外的指令文件。
 - 不改变现有远端交付和接受证据规则。
 
 ## 测试设计
 
 先增加失败测试，再实现生产代码：
 
-1. 当前 `AGENTS.md`、非空任务边界和准确检查集合可以生成 `verified` 收据。
+1. 当前根 `AGENTS.md`、非空任务边界和准确检查集合可以生成 `verified` 收据。
 2. 空任务边界阻止进入 `verified`。
-3. 缺少来源、来源越界、非 `AGENTS.md` 来源或不存在来源均失败关闭。
-4. 指令内容哈希变化会使收据失效。
-5. `triggeredChecks` 缺失、多出或顺序之外的重复内容不能通过。
-6. 结构版本 1 收据不能升级为 `delivered` 或 `accepted`。
-7. 最终 Git revision 变化仍按现有规则使收据失效。
-8. CLI 验证结果包含任务边界、来源哈希和路由检查。
+3. 根来源不存在、不可读、路径前缀伪装或符号链接逃逸均失败关闭。
+4. 哈希算法不是 `sha256` 或指令原始字节哈希变化会使收据失效。
+5. `triggeredChecks.derivation` 不是 `affected-check-route` 时不能通过。
+6. `triggeredChecks.commands` 缺失、多出或重复时不能通过。
+7. 结构版本 1、缺字段和畸形收据不能升级为 `delivered` 或 `accepted`，且不能触发远端核验。
+8. 最终 Git revision 变化仍按现有规则使收据失效。
+9. CLI 验证结果包含任务边界、根来源、哈希算法、来源哈希和路由检查。
+10. AGENTS 权威命令示例包含必填的 `--task-boundary`。
+11. 工作树 CodeGraph 不匹配时仍按现有规则阻止进入 `verified`。
 
 回归验证继续运行：
 
 - `npm run test:workflow-governance`
 - `npm run build`
+- `codegraph init -i`（仅隔离工作树首次验证）
 - `codegraph sync`
 - `codegraph status`
 
@@ -166,8 +205,10 @@ instructionContext
 
 - 使用批准后的任务边界和根 `AGENTS.md` 运行 `workflow:verify`。
 - 收据必须达到 `verified`，并可恢复任务边界、指令来源、内容哈希、触发检查、CodeGraph 和阶段轨迹。
-- 创建 PR，经规格审查和代码质量审查后合并。
-- 远端目标引用精确指向验证版本后升级到 `delivered`。
-- 授权用户以包含精确 SHA 的评论明确验收后升级到 `accepted`。
+- 先完成实现、规格审查、代码质量审查及其修复，再执行最终验证；审查收据和最终验证必须绑定同一版本。
+- 推送最终验证版本并创建或更新 PR，等待远端必检状态通过。
+- GitHub 上的功能分支精确指向验证版本后升级到 `delivered`。
+- 授权用户在 PR 中以包含精确 SHA 的评论明确验收后升级到 `accepted`。
+- 只有收据达到 `accepted` 后才合并 PR；若合并前发生实质修改，必须从 `workflow:verify` 重新开始。
 
 完成后再执行前向 Better Harness 审计，比较冻结窗口与本次真实任务的证据差异。
