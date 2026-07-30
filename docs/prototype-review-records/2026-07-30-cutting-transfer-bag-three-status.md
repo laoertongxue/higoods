@@ -25,7 +25,16 @@
 - `docs/superpowers/specs/2026-07-30-cutting-transfer-bag-three-status-design.md`
 - `docs/superpowers/plans/2026-07-30-cutting-transfer-bag-three-status.md`
 
-## 3. 业务对象与边界复核
+## 3. 自查结论
+
+| 检查项 | 结论 | 说明 |
+| --- | --- | --- |
+| 业务边界 | 通过 | 物理袋、使用周期、流转段、袋内快照和接收回写已分账 |
+| 状态与阶段 | 通过 | 主状态仅保留空闲、使用中、已报废；使用中仅展示三个批准阶段 |
+| 上下游闭环 | 通过 | Web、PDA、特殊工艺、下游接收、物理回收、报废、扫码与标签口径均已覆盖 |
+| 现场可用性 | 有条件通过 | 业务和源码门禁通过；浏览器视觉验收仍受既有列表模板运行问题阻断 |
+
+## 3A. 业务对象与边界复核
 
 ### 3.1 物理袋身份、使用周期和流转段
 
@@ -119,7 +128,7 @@
 - 交互响应目标为 200ms 以内；源码级处理路径满足局部更新约束，但本轮未取得浏览器计时证据。
 - 1366×768 为标准验收分辨率、1280×720 为最低可用分辨率；静态样式和表格容器符合约束，视觉截图验收仍待本地 Playwright 基线问题解决后补测。
 
-## 9. 最终结论
+## 6. 最终结论
 
 结论：有条件通过
 
@@ -130,9 +139,9 @@
 - 条件只涉及浏览器视觉与交互计时证据未闭环，不涉及三状态业务规则缺失。
 - 在浏览器基线问题解决前，交付状态不得表述为“浏览器验收通过”或远端“已交付”。
 
-## 10. 变更覆盖与验证
+## 7. 变更覆盖与验证
 
-### 10.1 受管文件
+### 受管文件
 
 #### 数据与事实
 
@@ -155,7 +164,7 @@
 - `src/pages/process-factory/cutting/transfer-bags/state.ts`
 - `src/pages/process-factory/cutting/wait-handover-runtime.ts`
 - `src/pages/process-factory/cutting/warehouse-hub.ts`
-- 删除：`src/pages/process-factory/cutting/wait-handover-web-actions.ts`
+- `src/pages/process-factory/cutting/wait-handover-web-actions.ts`（删除）
 
 #### PDA、下游与打印
 
@@ -165,7 +174,7 @@
 - `src/pages/pda-transfer-bag-detail.ts`
 - `src/pages/print/templates/label-print-template.ts`
 
-### 10.2 页面路由
+### 页面路由
 
 - `/fcs/craft/cutting/transfer-bags`
 - `/fcs/craft/cutting/transfer-bag-detail`
@@ -176,29 +185,25 @@
 - `/fcs/pda/transfer-bag-detail?bagNo=:bagNo`
 - `/fcs/pda/handover/:handoverId`
 
-### 10.3 已通过验证
+### 验证命令
 
-- `npm run check:transfer-bag-three-status`
-- `npm run check:cutting-wait-handover-transfer-bag-flow`
-- `npm run check:web-cutting-transfer-bag-actions`
-- `npm run check:list-page-governance:static`
-- `npm run build`
+- `npm run check:transfer-bag-three-status`：通过
+- `npm run check:cutting-wait-handover-transfer-bag-flow`：通过
+- `npm run check:web-cutting-transfer-bag-actions`：通过
+- `npm run check:pda-cutting-inbound-workflow`：通过
+- `npm run check:pda-cutting-transfer-bag-handover`：通过
+- `npm run check:pda-cutting-wait-handover-entry-routing`：通过
+- `npm run check:transfer-bag-mobile-closed-loop`：通过
+- `npm run check:pda-handover-detail-source`：通过
+- `npm run check:cutting-sewing-dispatch`：通过
+- `npm run check:list-page-governance:static`：通过
+- `npm run check:prototype-design-governance -- --all`：未运行，模板结构修正后由最终收据重跑
+- `npm run build`：通过
+- `npm run workflow:verify`：未运行，由最终收据生成阶段执行
 
-### 10.4 待最终收据前重跑
+### 例外
 
-- `npm run check:pda-cutting-inbound-workflow`
-- `npm run check:pda-cutting-transfer-bag-handover`
-- `npm run check:pda-cutting-wait-handover-entry-routing`
-- `npm run check:transfer-bag-mobile-closed-loop`
-- `npm run check:pda-handover-detail-source`
-- `npm run check:cutting-sewing-dispatch`
-- `npm run check:prototype-design-governance -- --all`
-- CodeGraph 最终同步与状态检查
-- `npm run workflow:verify`
-
-## 11. 例外
-
-1. `npm run check:list-page-governance` 的静态阶段通过，但浏览器模板阶段在等待“列设置”按钮时持续无进展；手动终止后报 `Target page, context or browser has been closed`。相同浏览器空白 / 等待问题在本任务补漏前的基线提交也可复现，因此不归因于三状态改动。
-2. `npm run check:cutting:all` 已进入并通过本次新增中转袋门禁，随后在未改动的 `src/pages/process-factory/cutting/production-order-overview-view.ts` 命中既有 `min-w >= 1600px` 失败。本任务不扩大到该宽表页面。
-3. `check:handover-writeback-difference-unification` 在未改动的 `src/pages/process-factory/printing/work-order-detail.ts` 因缺少“交出面料米数”失败；该问题在任务基线已存在，不属于中转袋物理生命周期。
-4. 替代防错措施：三状态专项门禁、Web / PDA 流转专项门禁、静态列表治理、生产构建、CodeGraph 结构核查和机器可读任务收据必须全部执行；浏览器视觉验收状态保持未闭环。
+- `npm run check:list-page-governance` 的静态阶段通过，但浏览器模板阶段在等待“列设置”按钮时持续无进展；手动终止后报 `Target page, context or browser has been closed`。相同浏览器空白 / 等待问题在本任务补漏前的基线提交也可复现，因此不归因于三状态改动。
+- `npm run check:cutting:all` 已进入并通过本次新增中转袋门禁，随后在未改动的 `src/pages/process-factory/cutting/production-order-overview-view.ts` 命中既有 `min-w >= 1600px` 失败。本任务不扩大到该宽表页面。
+- `check:handover-writeback-difference-unification` 在未改动的 `src/pages/process-factory/printing/work-order-detail.ts` 因缺少“交出面料米数”失败；该问题在任务基线已存在，不属于中转袋物理生命周期。
+- 替代防错措施：三状态专项门禁、Web / PDA 流转专项门禁、静态列表治理、生产构建、CodeGraph 结构核查和机器可读任务收据必须全部执行；浏览器视觉验收状态保持未闭环。
