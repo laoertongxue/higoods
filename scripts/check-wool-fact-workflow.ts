@@ -5522,9 +5522,41 @@ assert(task10RenderersSource.includes('renderCraftWoolMachineAssociationsPage'))
 assert(task10HandlersSource.includes('handleCraftWoolMachineAssociationsEvent'))
 assert(task10MenuSource.includes('横机生产关联'))
 
+const task11WarehouseSource = readFileSync(
+  new URL('../src/pages/process-factory/wool/warehouse.ts', import.meta.url),
+  'utf8',
+)
+for (const requiredText of [
+  'WOOL-WP-YARN-DEFAULT',
+  'WOOL-WH-CUT-DEFAULT',
+  'WOOL-WH-GARMENT-DEFAULT',
+  'renderStandardListPage',
+  'renderStandardListTable',
+  'renderTablePagination',
+  '纱线领用',
+  '纱线退回',
+  '库存调整',
+  '库存转移',
+  'handleCraftWoolWarehouseEvent',
+]) {
+  assert(task11WarehouseSource.includes(requiredText), `任务 11 毛织仓库缺少：${requiredText}`)
+}
+for (const removedText of [
+  '库区管理',
+  '库位管理',
+  '完工入仓',
+  '损耗回收',
+  'listWoolWarehouseAreas',
+  'listWoolWarehouseLocations',
+  'recordWoolYarnRecovery',
+]) {
+  assert(!task11WarehouseSource.includes(removedText), `任务 11 毛织仓库不得保留：${removedText}`)
+}
+
 console.log('PASS task 5: global command receipts, atomic stock, downstream lock, and manual completion')
 console.log('PASS task 6: current machine associations and derived four-state availability')
 console.log('PASS task 7: runtime generation freezes traceable yarn facts and exposes domain actions')
 console.log('PASS task 8: standard wool work-order list and fact command dialogs')
 console.log(`PASS task 9: seven-tab wool fact detail, paged records, immutable completion facts, and 300-row readiness in ${scaleRenderElapsedMs.toFixed(1)}ms`)
 console.log(`PASS task 10: standard machine workbenches; one snapshot ${task10WorkbenchElapsedMs.toFixed(1)}ms, 600-order/600-machine scale ${task10ScaleElapsedMs.toFixed(1)}ms`)
+console.log('PASS task 11: fixed-location wool warehouse standard lists and local fact commands')

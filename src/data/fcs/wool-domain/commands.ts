@@ -101,6 +101,8 @@ export interface TransferWoolWarehouseStockInput extends CommandInput {
   objectSkuCode: string
   defaultLocationId: WoolDefaultLocationId
   batchNo?: string
+  fromWarehouseId?: string
+  fromLocationId?: string
   toWarehouseId: string
   toLocationId: string
   qty: number
@@ -450,6 +452,37 @@ function requireStockObject(
 function isEnabledPublicWarehouseLocation(warehouseId: string, locationId: string): boolean {
   if (WOOL_DEFAULT_LOCATION_IDS.has(locationId as WoolDefaultLocationId)) return false
   return Boolean(resolveEnabledFactoryWarehouseLocation(warehouseId, locationId))
+}
+
+function externalTransferredQty(
+  store: WoolDomainStore,
+  input: {
+    woolOrderId: string
+    objectSkuCode: string
+    defaultLocationId: WoolDefaultLocationId
+    batchNo?: string
+    warehouseId: string
+    locationId: string
+  },
+): number {
+  return store.warehouseFlows
+    .filter((flow) =>
+      flow.flowType === 'TRANSFER'
+      && flow.woolOrderId === input.woolOrderId
+      && flow.objectSkuCode === input.objectSkuCode
+      && flow.defaultLocationId === input.defaultLocationId
+      && flow.batchNo === input.batchNo,
+    )
+    .reduce((sum, flow) => {
+      if (flow.toWarehouseId === input.warehouseId && flow.toLocationId === input.locationId) {
+        return sum + Math.abs(flow.qty)
+      }
+      if (
+        flow.fromWarehouseId === input.warehouseId
+        && flow.fromLocationId === input.locationId
+      ) return sum - Math.abs(flow.qty)
+      return sum
+    }, 0)
 }
 
 export function addWoolYarnReceipt(
@@ -950,16 +983,39 @@ export function transferWoolWarehouseStock(
   const reason = requireText(input.reason, '转移原因')
   const operatedBy = requireText(input.operatedBy, '操作人')
   const toWarehouseId = requireText(input.toWarehouseId, '目标仓库')
-  if (!isEnabledPublicWarehouseLocation(toWarehouseId, input.toLocationId)) {
+  const isReturningToDefault = input.toLocationId === input.defaultLocationId
+  const fromWarehouseId = input.fromWarehouseId?.trim()
+  const fromLocationId = input.fromLocationId?.trim()
+  if (isReturningToDefault) {
+    if (!fromWarehouseId || !fromLocationId) {
+      throw new Error('转回默认库位必须指定原公共仓库和库位')
+    }
+    if (!isEnabledPublicWarehouseLocation(fromWarehouseId, fromLocationId)) {
+      throw new Error('转回来源必须是公共仓库位置主数据中的启用位置')
+    }
+  } else if (!isEnabledPublicWarehouseLocation(toWarehouseId, input.toLocationId)) {
     throw new Error('库存只能转到公共仓库位置主数据中的启用位置')
   }
   const committed = commitWoolStore((draft) => {
     const stockObject = requireStockObject(draft, input)
-    const currentQty = stockQty(draft, {
-      ...input,
-      batchNo: stockObject.batchNo,
-    })
-    if (input.qty > currentQty) throw new Error('转移数量不能超过默认库位当前库存')
+    const currentQty = isReturningToDefault
+      ? externalTransferredQty(draft, {
+          woolOrderId: input.woolOrderId,
+          objectSkuCode: input.objectSkuCode,
+          defaultLocationId: input.defaultLocationId,
+          batchNo: stockObject.batchNo,
+          warehouseId: fromWarehouseId!,
+          locationId: fromLocationId!,
+        })
+      : stockQty(draft, {
+          ...input,
+          batchNo: stockObject.batchNo,
+        })
+    if (input.qty > currentQty) {
+      throw new Error(isReturningToDefault
+        ? '转回数量不能超过该公共库位的可转回余额'
+        : '转移数量不能超过默认库位当前库存')
+    }
     draft.warehouseFlows.push({
       flowId: `WF-${sourceRecordId}`,
       woolOrderId: input.woolOrderId,
@@ -974,7 +1030,8 @@ export function transferWoolWarehouseStock(
       unit: stockObject.unit,
       sourceRecordType: 'STOCK_TRANSFER',
       sourceRecordId,
-      fromLocationId: input.defaultLocationId,
+      fromWarehouseId: isReturningToDefault ? fromWarehouseId : undefined,
+      fromLocationId: isReturningToDefault ? fromLocationId : input.defaultLocationId,
       toWarehouseId,
       toLocationId: input.toLocationId,
       reason,
@@ -987,7 +1044,11 @@ export function transferWoolWarehouseStock(
       action: 'TRANSFER_WOOL_WAREHOUSE_STOCK',
       objectType: 'WOOL_WAREHOUSE_STOCK',
       objectId: sourceRecordId,
-      beforeValue: { locationId: input.defaultLocationId, qty: currentQty },
+      beforeValue: {
+        warehouseId: isReturningToDefault ? fromWarehouseId : undefined,
+        locationId: isReturningToDefault ? fromLocationId : input.defaultLocationId,
+        qty: currentQty,
+      },
       afterValue: { warehouseId: toWarehouseId, locationId: input.toLocationId, qty: input.qty },
       operatedAt: input.operatedAt,
       operatedBy,

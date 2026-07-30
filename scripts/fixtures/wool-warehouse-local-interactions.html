@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>毛织仓库局部交互检查</title>
+  </head>
+  <body>
+    <main id="app"></main>
+    <script type="module">
+      import { appStore } from '/src/state/store.ts'
+      import { resetWoolFactWorkflowMock } from '/src/data/fcs/wool-task-domain.ts'
+      import {
+        handleCraftWoolWarehouseEvent,
+        renderCraftWoolWaitHandoverWarehousePage,
+        renderCraftWoolWaitProcessWarehousePage,
+      } from '/src/pages/process-factory/wool/warehouse.ts'
+
+      const mode = new URLSearchParams(location.search).get('mode') === 'handover'
+        ? 'handover'
+        : 'process'
+      resetWoolFactWorkflowMock(`BROWSER_TASK_11_${mode}`)
+      appStore.navigate(
+        mode === 'handover'
+          ? '/fcs/craft/wool/wait-handover-warehouse'
+          : '/fcs/craft/wool/wait-process-warehouse',
+      )
+      const app = document.querySelector('#app')
+      app.innerHTML = mode === 'handover'
+        ? renderCraftWoolWaitHandoverWarehousePage()
+        : renderCraftWoolWaitProcessWarehousePage()
+      for (const eventName of ['click', 'change', 'input', 'dragstart', 'dragover', 'drop']) {
+        document.addEventListener(eventName, async (event) => {
+          const target = event.target instanceof Element ? event.target : null
+          if (!target || target.closest('[data-nav]')) return
+          if (await handleCraftWoolWarehouseEvent(target, event)) event.preventDefault()
+        })
+      }
+      window.__woolWarehouseFixture = {
+        root: document.querySelector('[data-wool-warehouse-root]'),
+      }
+    </script>
+  </body>
+</html>

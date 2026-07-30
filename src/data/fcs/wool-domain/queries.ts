@@ -120,6 +120,22 @@ export interface WoolWarehouseFlowQuery {
   defaultLocationId?: WoolWarehouseFlow['defaultLocationId']
 }
 
+export interface WoolWarehouseStockRow {
+  stockKey: string
+  woolOrderId: string
+  woolOrderNo: string
+  productionOrderNo: string
+  kind: WoolWorkOrderKind
+  objectSkuCode: string
+  objectName: string
+  objectType: 'YARN' | 'CUT_PIECE' | 'GARMENT'
+  batchNo?: string
+  defaultLocationId: WoolWarehouseFlow['defaultLocationId']
+  currentQty: number
+  unit: WoolWarehouseFlow['unit']
+  completed: boolean
+}
+
 function requireOrder(woolOrderId: string): WoolWorkOrder {
   const order = readWoolStore().workOrders[woolOrderId]
   if (!order) throw new Error(`找不到毛织加工单 ${woolOrderId}`)
@@ -497,6 +513,71 @@ export function listWoolWarehouseFlows(query: WoolWarehouseFlowQuery = {}): Wool
     .filter((flow) => !query.defaultLocationId || flow.defaultLocationId === query.defaultLocationId)
     .sort((left, right) =>
       right.operatedAt.localeCompare(left.operatedAt) || right.flowId.localeCompare(left.flowId),
+    )
+}
+
+export function listWoolWarehouseStocks(
+  warehouseMode?: WoolWarehouseFlow['warehouseMode'],
+): WoolWarehouseStockRow[] {
+  const store = readWoolStore()
+  const candidates = new Map<string, WoolWarehouseFlow>()
+  for (const flow of store.warehouseFlows) {
+    if (warehouseMode && flow.warehouseMode !== warehouseMode) continue
+    const stockKey = [
+      flow.woolOrderId,
+      flow.objectSkuCode,
+      flow.batchNo ?? '',
+      flow.defaultLocationId,
+    ].join('|')
+    if (!candidates.has(stockKey)) candidates.set(stockKey, flow)
+  }
+  return [...candidates.entries()]
+    .flatMap(([stockKey, flow]): WoolWarehouseStockRow[] => {
+      const order = store.workOrders[flow.woolOrderId]
+      if (!order) return []
+      const outputLine = order.outputPlanLines.find((line) => line.outputSkuCode === flow.objectSkuCode)
+      const objectType = flow.defaultLocationType === 'YARN'
+        ? 'YARN'
+        : flow.defaultLocationType === 'CUT_PIECE'
+          ? 'CUT_PIECE'
+          : 'GARMENT'
+      const objectName = objectType === 'YARN'
+        ? store.yarnReceipts
+          .filter((receipt) => receipt.woolOrderId === flow.woolOrderId)
+          .flatMap((receipt) => receipt.lines)
+          .find((line) => line.yarnSkuCode === flow.objectSkuCode)?.yarnName ?? flow.objectSkuCode
+        : [
+            outputLine?.colorName,
+            outputLine?.sizeCode,
+            outputLine?.woolPartName,
+          ].filter(Boolean).join(' / ') || flow.objectSkuCode
+      return [{
+        stockKey,
+        woolOrderId: flow.woolOrderId,
+        woolOrderNo: order.woolOrderNo,
+        productionOrderNo: order.productionOrderNo,
+        kind: order.kind,
+        objectSkuCode: flow.objectSkuCode,
+        objectName,
+        objectType,
+        batchNo: flow.batchNo,
+        defaultLocationId: flow.defaultLocationId,
+        currentQty: getWoolWarehouseStockFromStore(store, {
+          woolOrderId: flow.woolOrderId,
+          objectSkuCode: flow.objectSkuCode,
+          batchNo: flow.batchNo,
+          defaultLocationId: flow.defaultLocationId,
+        }),
+        unit: flow.unit,
+        completed: store.completions.some((completion) =>
+          completion.woolOrderId === flow.woolOrderId,
+        ),
+      }]
+    })
+    .sort((left, right) =>
+      left.woolOrderNo.localeCompare(right.woolOrderNo)
+      || left.objectSkuCode.localeCompare(right.objectSkuCode)
+      || (left.batchNo ?? '').localeCompare(right.batchNo ?? ''),
     )
 }
 

@@ -195,6 +195,7 @@ export interface WoolWarehouseFlow {
   unit: WoolQtyUnit
   sourceRecordType: string
   sourceRecordId: string
+  fromWarehouseId?: string
   fromLocationId?: string
   toWarehouseId?: string
   toLocationId?: string

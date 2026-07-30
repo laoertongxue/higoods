@@ -214,6 +214,7 @@ import { handleCraftWoolEvent } from '../pages/process-factory/wool/work-orders'
 import { handleCraftWoolDetailEvent } from '../pages/process-factory/wool/work-order-detail'
 import { handleCraftWoolMachineAssociationsEvent } from '../pages/process-factory/wool/machine-associations'
 import { handleCraftWoolMachinesEvent } from '../pages/process-factory/wool/machines'
+import { handleCraftWoolWarehouseEvent } from '../pages/process-factory/wool/warehouse'
 import { handleSpecialCraftTaskOrdersEvent } from '../pages/process-factory/special-craft/task-orders'
 import { handleSpecialCraftTaskDetailEvent } from '../pages/process-factory/special-craft/task-detail'
 import { handleSpecialCraftWarehouseEvent } from '../pages/process-factory/special-craft/warehouse'
@@ -397,6 +398,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     await handleCraftWoolMachineAssociationsEvent(target) ||
     await handleCraftWoolDetailEvent(target) ||
     await handleCraftWoolEvent(target) ||
+    await handleCraftWoolWarehouseEvent(target, event) ||
     await handleCraftWoolMachinesEvent(target) ||
     await handlePostFinishingEvent(target) ||
     handleSpecialCraftTaskOrdersEvent(target, event) ||
