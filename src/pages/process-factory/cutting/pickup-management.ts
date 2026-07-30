@@ -3,7 +3,6 @@
 import { renderBadge } from '../../../components/ui/badge.ts'
 import type { BadgeVariant } from '../../../components/ui/types.ts'
 import {
-  listActivePickupNodes,
   listMaterialPrepOrderProjections,
   pickupStatusLabelMap,
   pickupWorkbenchTabs,
@@ -12,6 +11,9 @@ import {
   type MaterialPrepOrderProjection,
   type PickupOrderStatus,
 } from '../../../data/fcs/cutting/production-material-prep.ts'
+import {
+  listActivePickupNodesRuntime as listActivePickupNodes,
+} from '../../../runtime/fcs/cutting/pickup-management-runtime.ts'
 import type {
   PickupNodeProjection,
   PickupNodeItem,

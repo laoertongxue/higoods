@@ -5,8 +5,6 @@ import type {
 } from '../../../data/fcs/cutting/pickup-node-domain.ts'
 import {
   buildPickupDemandFactsFromProjections,
-  listActivePickupNodes,
-  listMaterialPrepOrderProjections,
   type MaterialPrepOrderProjection,
   type MaterialPrepLine,
   type PickupRecord,
@@ -21,15 +19,9 @@ import {
   type PickupNormalDemandInput,
   type PickupProcessRoute,
 } from '../../../data/fcs/cutting/pickup-demand-domain.ts'
-import {
-  listPlatformDyeResultViews,
-  listPlatformPrintResultViews,
-  type PlatformProcessResultView,
-} from '../../../data/fcs/platform-process-result-view.ts'
-import {
-  listSupplementRecords,
-  type SupplementRecord,
-} from './supplement-management.ts'
+import type { PlatformProcessResultView } from '../../../data/fcs/platform-process-result-view.ts'
+import type { SupplementRecord } from '../../../data/fcs/cutting/supplement-records.ts'
+import { buildPickupRuntimeContext } from '../../../runtime/fcs/cutting/pickup-management-runtime.ts'
 
 export type PickupListKind = 'READY' | 'INCOMPLETE' | 'HISTORY'
 export type { PickupDemandSource, PickupProcessRoute }
@@ -681,14 +673,15 @@ export function listPickupOrderGroups(
   listKind: PickupListKind,
   storage: Storage | null = typeof localStorage === 'undefined' ? null : localStorage,
 ): PickupOrderGroup[] {
+  const context = buildPickupRuntimeContext(storage)
   return buildPickupOrderGroups({
     listKind,
-    projections: listMaterialPrepOrderProjections(storage),
-    activeNodes: listActivePickupNodes(storage),
-    supplementRecords: listSupplementRecords(),
+    projections: context.projections,
+    activeNodes: context.activeNodes,
+    supplementRecords: context.supplementRecords,
     processResults: {
-      dyeResults: listPlatformDyeResultViews(),
-      printResults: listPlatformPrintResultViews(),
+      dyeResults: context.dyeResults,
+      printResults: context.printResults,
     },
   })
 }

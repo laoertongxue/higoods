@@ -2,15 +2,21 @@
 
 import fs from 'node:fs'
 import {
-  appendPickupSessionFromNode,
+  appendPickupReturnRecord,
+  appendPickupSessionFromNode as appendPickupSessionFromNodeWithFacts,
+  buildPickupDemandFactsFromProjections,
   createProductionMaterialPrepSeedStore,
-  listActivePickupNodes,
+  listActivePickupNodes as listActivePickupNodesWithFacts,
   listMaterialPrepOrderProjections,
   PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
   serializeProductionMaterialPrepStore,
   type MaterialPrepOrderProjection,
   type PickupRecord,
 } from '../src/data/fcs/cutting/production-material-prep.ts'
+import {
+  appendPickupSessionFromNodeRuntime as appendPickupSessionFromNode,
+  listActivePickupNodesRuntime as listActivePickupNodes,
+} from '../src/runtime/fcs/cutting/pickup-management-runtime.ts'
 import type {
   PickupNodeProjection,
   PickupNodeSourceLocation,
@@ -642,6 +648,139 @@ assert(
   po0002History?.finalResult === 'ALL_PICKED',
   'PO-202603-0002 四条补料整节点领取后历史必须由统一事实回到全部领完',
 )
+const [partialSupplementPickup, fullSupplementPickup] = po0002SessionRecords
+  .filter((record) => record.prepLineId.startsWith('SUPPLEMENT:'))
+assert(partialSupplementPickup && fullSupplementPickup, '补料退回回归必须有至少两条真实补料领料明细')
+const partialAllocation = partialSupplementPickup.sourceAllocations?.[0]
+const fullAllocation = fullSupplementPickup.sourceAllocations?.[0]
+assert(partialAllocation && fullAllocation, '补料领料明细必须保留精确来源分摊')
+const partialReturnQty = Number((partialAllocation.pickedQty / 2).toFixed(2))
+const partialReturn = appendPickupReturnRecord({
+  pickupRecordId: partialSupplementPickup.pickupRecordId,
+  prepRecordId: partialAllocation.prepRecordId,
+  prepLineId: partialAllocation.prepLineId,
+  returnQty: partialReturnQty,
+  rollCount: partialAllocation.rollCount,
+  reason: '数量不符',
+  remark: '补料部分退回真实链回归',
+  imageNames: [],
+  returnedBy: '统一需求事实校验员',
+}, unifiedFactStorage)
+const fullReturn = appendPickupReturnRecord({
+  pickupRecordId: fullSupplementPickup.pickupRecordId,
+  prepRecordId: fullAllocation.prepRecordId,
+  prepLineId: fullAllocation.prepLineId,
+  returnQty: fullAllocation.pickedQty,
+  rollCount: fullAllocation.rollCount,
+  reason: '数量不符',
+  remark: '补料全部退回真实链回归',
+  imageNames: [],
+  returnedBy: '统一需求事实校验员',
+}, unifiedFactStorage)
+assert(
+  partialReturn.unit === partialAllocation.unit
+  && fullReturn.unit === fullAllocation.unit
+  && partialReturn.prepRecordId === partialAllocation.prepRecordId
+  && fullReturn.prepRecordId === fullAllocation.prepRecordId,
+  '补料退回必须按来源分摊解析单位和配料来源，不得按 SKU 猜测',
+)
+assert(
+  partialReturn.sourceWarehouseName === partialAllocation.sourceWarehouseName
+  && partialReturn.sourceWarehouseArea === partialAllocation.sourceWarehouseArea
+  && partialReturn.sourceLocationCode === partialAllocation.sourceLocationCode
+  && fullReturn.sourceWarehouseName === fullAllocation.sourceWarehouseName
+  && fullReturn.sourceWarehouseArea === fullAllocation.sourceWarehouseArea
+  && fullReturn.sourceLocationCode === fullAllocation.sourceLocationCode,
+  '补料退回必须保留精确来源仓、库区和库位',
+)
+const po0002ReturnedNode = listActivePickupNodes(unifiedFactStorage)
+  .find((node) => node.productionOrderId === po0002Node.productionOrderId)
+assert(po0002ReturnedNode, '补料部分/全部退回后当前待领节点必须重新出现')
+const partialReturnedItem = po0002ReturnedNode.items.find((item) =>
+  item.prepLineId === partialAllocation.prepLineId
+)
+const fullReturnedItem = po0002ReturnedNode.items.find((item) =>
+  item.prepLineId === fullAllocation.prepLineId
+)
+assert(
+  partialReturnedItem?.currentAvailableQty === partialReturnQty
+  && fullReturnedItem?.currentAvailableQty === fullAllocation.pickedQty,
+  '补料退回数量必须精确回到对应来源的当前可领数量',
+)
+const po0002ReturnedProjection = listMaterialPrepOrderProjections(unifiedFactStorage)
+  .find((projection) => projection.order.productionOrderId === po0002Node.productionOrderId)
+assert(po0002ReturnedProjection, '补料退回后必须保留生产单投影')
+const partialEffectiveRecord = po0002ReturnedProjection.pickupRecords.find((record) =>
+  record.pickupRecordId === partialSupplementPickup.pickupRecordId
+)
+const fullEffectiveRecord = po0002ReturnedProjection.pickupRecords.find((record) =>
+  record.pickupRecordId === fullSupplementPickup.pickupRecordId
+)
+assert(
+  partialEffectiveRecord?.returnQty === partialReturnQty
+  && fullEffectiveRecord?.returnQty === fullAllocation.pickedQty,
+  '补料退回后 PickupRecord 有效已领必须分别反映部分退回与全部退回',
+)
+const po0002ReturnedHistory = listPickupOrderGroups('HISTORY', unifiedFactStorage)
+  .find((group) => group.productionOrderId === po0002Node.productionOrderId)
+assert(
+  po0002ReturnedHistory?.finalResult === 'NOT_ALL_PICKED'
+  || po0002ReturnedHistory?.finalResult === 'NEW_SUPPLEMENT_WAIT_PICKUP',
+  '补料领取后发生退回，历史最终结果必须回到未领完或新增补料待领，不能仍是全部领完',
+)
+
+const versionStorage = new MemoryStorage()
+versionStorage.setItem(
+  PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
+  serializeProductionMaterialPrepStore(createProductionMaterialPrepSeedStore()),
+)
+const versionProjections = listMaterialPrepOrderProjections(versionStorage)
+const versionFacts = buildPickupDemandFactsFromProjections({
+  projections: versionProjections,
+  supplementRecords,
+  dyeResults,
+  printResults,
+})
+const initialVersionNode = listActivePickupNodesWithFacts(versionStorage, versionFacts)
+  .find((node) => node.productionOrderId === 'PO-202603-0004')
+assert(initialVersionNode, '完整 coverage 指纹回归必须有未配齐活动节点')
+const addedUnpreparedDemand = {
+  ...versionFacts.find((fact) => fact.prepOrderId === initialVersionNode.prepOrderId)!,
+  demandLineId: 'SUPPLEMENT:VERSION-COVERAGE:UNPREPARED',
+  demandSource: 'SUPPLEMENT' as const,
+  demandSourceNo: 'SUP-VERSION-COVERAGE',
+  demandSequence: 999,
+  demandCreatedAt: '2026-03-30 09:00',
+  supplementReason: '版本指纹回归',
+  materialSku: 'version-coverage-material',
+  materialName: '尚未配料的新增补料',
+  processRoute: 'NONE' as const,
+  processBasisLabel: '按补料批准数量',
+  processComplete: true,
+  requiredQty: 12,
+  pickedQty: 0,
+}
+const versionFactsAfter = [...versionFacts, addedUnpreparedDemand]
+const changedCoverageNode = listActivePickupNodesWithFacts(versionStorage, versionFactsAfter)
+  .find((node) => node.nodeId === initialVersionNode.nodeId)
+assert(
+  changedCoverageNode?.version === initialVersionNode.version + 1,
+  '新增未配料补料即使节点类型和可领 items 暂未变化，也必须因完整 coverage 指纹递增版本',
+)
+let staleVersionBlocked = false
+try {
+  appendPickupSessionFromNodeWithFacts({
+    pickupNodeId: initialVersionNode.nodeId,
+    pickupNodeVersion: initialVersionNode.version,
+    receiverName: '旧版本校验员',
+    warehouseArea: '待加工仓版本校验区',
+    locationCode: 'FAB-VERSION-01',
+    waitProcessLedgerEventId: 'version-coverage:stale',
+  }, versionStorage, versionFactsAfter)
+} catch (error) {
+  staleVersionBlocked = error instanceof Error && error.message.includes('当前待领物料已更新')
+}
+assert(staleVersionBlocked, '完整 coverage 变化后旧版本确认必须被阻断')
 
 const processingNode = activeNodes.find((node) => node.productionOrderId === 'PO-202603-1103')
 assert(processingNode, 'PO-202603-1103 必须存在用于加工未完成反例的真实节点')

@@ -6,14 +6,12 @@ import process from 'node:process'
 
 import {
   appendManualPrepRecord,
-  appendPickupSessionFromNode,
   appendPickupReturnRecord,
   confirmMaterialPrepRecord,
   createProductionMaterialPrepSeedStore,
   deserializeProductionMaterialPrepStore,
   getMaterialPrepOrderProjection,
   hydrateProductionMaterialPrepStore,
-  listActivePickupNodes,
   listMaterialPrepOrderProjections,
   migrateProductionMaterialPrepStoreToPickupThreeListScenes,
   pickMaterialPrepRecord,
@@ -24,6 +22,10 @@ import {
   type PickupRecord,
   type ProductionMaterialPrepWorkflowStore,
 } from '../src/data/fcs/cutting/production-material-prep.ts'
+import {
+  appendPickupSessionFromNodeRuntime as appendPickupSessionFromNode,
+  listActivePickupNodesRuntime as listActivePickupNodes,
+} from '../src/runtime/fcs/cutting/pickup-management-runtime.ts'
 import { renderFcsCuttingPrepPage } from '../src/pages/fcs/material-prep/cutting.ts'
 import { listPickupOrderGroups } from '../src/pages/process-factory/cutting/pickup-management-projection.ts'
 

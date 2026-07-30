@@ -77,6 +77,7 @@
 - `src/data/fcs/cutting/pickup-demand-domain.ts`
 - `src/data/fcs/cutting/pickup-node-domain.ts`
 - `src/data/fcs/cutting/production-material-prep.ts`
+- `src/data/fcs/cutting/supplement-records.ts`
 - `src/main-handlers/fcs-handlers.ts`
 - `src/main.ts`
 - `src/pages/process-factory/cutting/meta.ts`
@@ -87,6 +88,7 @@
 - `src/pages/pda-warehouse-wait-process.ts`
 - `src/router/route-renderers-fcs.ts`
 - `src/router/routes-fcs.ts`
+- `src/runtime/fcs/cutting/pickup-management-runtime.ts`
 
 ### 页面路由
 
@@ -150,3 +152,11 @@
 - 本次统一事实修复未新增现场操作例外。
 - 既有扫码枪入口、弱网恢复、主管代处理和跨标签实时失效例外保持不变。
 - 列表字段和差异 UI 未在 Task7A 调整，按任务边界留待 Task7B。
+
+### 8.5 Task7A 质量修复复审
+
+- 补料领取后的退回按 `领料明细 + 配料记录 + 需求行` 精确定位来源分摊，保留来源仓、库区、库位和单位；部分退回与全部退回都会减少有效已领并重新形成当前待领节点。
+- 节点版本指纹覆盖排序后的全部需求行、加工完成状态、需求量、有效已领、当前可领和来源位置；尚未配料的新增补料也会使当前节点版本失效，PDA 旧版本确认被阻断。
+- 补料记录和加工结果只在页面级 runtime 适配层读取；纯数据层不再导入页面模块，也不会在读取节点时隐式初始化补料 Mock。
+- Web 三列表、旧详情入口与 PDA 待领列表、详情、确认均通过同一 runtime 适配层消费统一需求事实；自定义存储可完整贯穿事实构建、节点读取和确认。
+- 本次未调整现场页面布局与操作文案，无新增产品设计例外。

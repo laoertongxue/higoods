@@ -40,6 +40,22 @@ import {
   buildSupplementPartShortages,
   type SupplementPartShortage,
 } from '../../../data/fcs/cut-piece-release-domain.ts'
+import {
+  listSupplementRecords as listSupplementRecordsFromStore,
+  prependSupplementRecord,
+  replaceSupplementRecords,
+  type SupplementAbAnalysisRow,
+  type SupplementDraft,
+  type SupplementLine,
+  type SupplementManualSourceType,
+  type SupplementMaterialDemand,
+  type SupplementMaterialPatternRef,
+  type SupplementProcessWorkOrderRef,
+  type SupplementRecord,
+  type SupplementRoleConfirmStatus,
+  type SupplementSizeColorRow,
+  type SupplementSourceType,
+} from '../../../data/fcs/cutting/supplement-records.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderSecondaryButton } from '../../../components/ui/button.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
@@ -61,14 +77,8 @@ import {
   type StandardListColumn,
 } from '../../../components/ui/list-table.ts'
 
-type SupplementManualSourceType = 'production-order' | 'cut-order'
-type SupplementSourceType = SupplementManualSourceType | 'release-snapshot'
 type SupplementFilterSourceType = 'ALL' | SupplementSourceType
-type SupplementRecordStatus = '已确认'
 type SupplementProcessKind = '印花' | '染色'
-type SupplementMaterialRole = '面料A' | '面料B' | '面料C' | '里布' | '衬' | '罗纹' | '辅料' | '包材' | '未识别'
-type SupplementRoleSource = '物料-纸样关联别名' | '物料行继承别名' | '纸样辅助识别' | '顺序推断' | '未识别'
-type SupplementRoleConfirmStatus = '已确认' | '待确认'
 
 interface SupplementFilters {
   sourceType: SupplementFilterSourceType
@@ -86,92 +96,6 @@ interface SupplementFeedback {
   message: string
 }
 
-interface SupplementSizeColorRow {
-  key: string
-  skuCode: string
-  color: string
-  size: string
-  plannedQty: number
-  actualCutPieces: number
-  inboundPieces: number
-  completeSetQty: number
-  inboundSetQty: number
-  shortageQty: number
-  existingSupplementQty: number
-  suggestedSupplementQty: number
-  relatedCutOrderNos: string[]
-}
-
-export interface SupplementMaterialDemand {
-  key: string
-  materialPatternMappingId: string
-  sourceBomItemId: string
-  techPackVersionId: string
-  materialSku: string
-  materialName: string
-  materialTypeLabel: string
-  materialImageUrl: string
-  materialAlias: string
-  materialRole: SupplementMaterialRole
-  roleSource: SupplementRoleSource
-  roleConfirmStatus: SupplementRoleConfirmStatus
-  patternId: string
-  patternName: string
-  requiredQty: number
-  unit: string
-  printRequired: boolean
-  dyeRequired: boolean
-  processNote: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
-}
-
-interface SupplementMaterialPatternRef {
-  materialPatternMappingId: string
-  techPackVersionId: string
-  materialSku: string
-  materialName: string
-  materialImageUrl: string
-  materialTypeLabel: string
-  materialAlias: string
-  materialRole: SupplementMaterialRole
-  roleSource: SupplementRoleSource
-  roleConfirmStatus: SupplementRoleConfirmStatus
-  patternId: string
-  patternName: string
-  cutOrderNo: string
-  line: CuttingMaterialLine
-  mappingLine?: TechnicalColorMaterialMappingLine
-  bomItem?: TechPackBomItemSnapshot
-}
-
-interface SupplementAbAnalysisRow {
-  key: string
-  skuCode: string
-  color: string
-  size: string
-  plannedQty: number
-  benchmarkMaterial: SupplementMaterialPatternRef
-  shortageMaterial: SupplementMaterialPatternRef
-  benchmarkCutQty: number
-  currentRoleCutQty: number
-  differenceQty: number
-  shortageQty: number
-  existingSupplementQty: number
-  suggestedSupplementQty: number
-  relatedCutOrderNos: string[]
-  roleConfirmStatus: SupplementRoleConfirmStatus
-}
-
-interface SupplementLine extends SupplementSizeColorRow {
-  supplementQty: number
-  basis: SupplementAbAnalysisRow
-  isManualAdjusted: boolean
-  adjustReason: string
-  actualMissingPieceQty?: number
-  piecesPerGarment?: number
-}
-
 interface SupplementCandidate {
   id: string
   sourceType: SupplementManualSourceType
@@ -187,46 +111,12 @@ interface SupplementCandidate {
   blockedReason: string
 }
 
-export interface SupplementDraft {
-  candidateId: string
-  sourceType: SupplementSourceType
-  sourceNo: string
-  productionOrderId: string
-  productionOrderNo: string
-  styleName: string
-  spuCode: string
-  reason: string
-  reasonDetail: string
-  lines: SupplementLine[]
-  materialDemands: SupplementMaterialDemand[]
-  confirmationIdentity?: string
-  releaseSnapshotId?: string
-  releaseMatrixVersion?: number
-  releaseTargetConfirmedAt?: string
-}
-
-export interface SupplementProcessWorkOrderRef {
-  processType: 'PRINT' | 'DYE'
-  sourceType: 'CUT_PIECE_SUPPLEMENT'
-  workOrderId: string
-  workOrderNo: string
-  materialSku: string
-  materialName: string
-  plannedQty: number
-  unit: string
-}
-
-export interface SupplementRecord {
-  id: string
-  recordNo: string
-  confirmationKey: string
-  requestFingerprint: string
-  status: SupplementRecordStatus
-  createdAt: string
-  createdBy: string
-  draft: SupplementDraft
-  processWorkOrderRefs: SupplementProcessWorkOrderRef[]
-}
+export type {
+  SupplementDraft,
+  SupplementMaterialDemand,
+  SupplementProcessWorkOrderRef,
+  SupplementRecord,
+} from '../../../data/fcs/cutting/supplement-records.ts'
 
 interface SupplementProcessLink {
   kind: SupplementProcessKind
@@ -2574,7 +2464,7 @@ function saveConfirmedSupplementRecord(input: {
     processWorkOrderRefs: structuredClone(input.processWorkOrderRefs),
   }
   state.records = [record, ...state.records]
-  return structuredClone(record)
+  return prependSupplementRecord(record)
 }
 
 export function confirmSupplementAndGenerateProcessWorkOrders(
@@ -2811,7 +2701,7 @@ export function confirmSupplementAndGenerateProcessWorkOrders(
 
 export function listSupplementRecords(): SupplementRecord[] {
   ensureMockSupplementOrders()
-  return structuredClone(state.records)
+  return listSupplementRecordsFromStore()
 }
 
 function buildMockDraft(
@@ -2902,15 +2792,37 @@ function ensureMockSupplementOrders(): void {
       materialDemands,
       confirmationIdentity: `mock-supplement-${index + 1}`,
     }
-    const confirmed = confirmSupplementAndGenerateProcessWorkOrders(variedDraft, creators[index % creators.length])
-    if (!confirmed.ok) continue
+    const identity = buildSupplementRecordIdentity(variedDraft)
+    const processWorkOrderRefs = variedDraft.materialDemands.flatMap((demand, demandIndex) => {
+      const processTypes = [
+        demand.dyeRequired ? 'DYE' as const : null,
+        demand.printRequired ? 'PRINT' as const : null,
+      ].filter((processType): processType is 'DYE' | 'PRINT' => Boolean(processType))
+      return processTypes.map((processType) => ({
+        processType,
+        sourceType: 'CUT_PIECE_SUPPLEMENT' as const,
+        workOrderId: `mock-${processType.toLowerCase()}-${index + 1}-${demandIndex + 1}`,
+        workOrderNo: `${processType === 'DYE' ? 'DY' : 'PH'}-${String(index + 1).padStart(6, '0')}`,
+        materialSku: demand.materialSku,
+        materialName: demand.materialName,
+        plannedQty: demand.requiredQty,
+        unit: demand.unit,
+      }))
+    })
     records.push({
-      ...confirmed.record,
+      ...identity,
+      confirmationKey: variedDraft.confirmationIdentity!,
+      requestFingerprint: buildSupplementRequestFingerprint(variedDraft),
+      status: '已确认',
       createdAt: `2026-03-${String(25 - Math.floor(index / 4)).padStart(2, '0')} ${String(16 - (index % 4)).padStart(2, '0')}:${String((index * 7) % 60).padStart(2, '0')}`,
+      createdBy: creators[index % creators.length],
+      draft: structuredClone(variedDraft),
+      processWorkOrderRefs,
     })
   }
 
   state.records = records
+  replaceSupplementRecords(records)
 }
 
 function setFiltersFromDom(): void {

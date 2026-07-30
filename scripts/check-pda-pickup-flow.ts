@@ -1,12 +1,14 @@
 import fs from 'node:fs'
 import {
-  appendPickupSessionFromNode,
   createProductionMaterialPrepSeedStore,
   getPickupSessionByNodeId,
-  listActivePickupNodes,
   PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
   serializeProductionMaterialPrepStore,
 } from '../src/data/fcs/cutting/production-material-prep.ts'
+import {
+  appendPickupSessionFromNodeRuntime as appendPickupSessionFromNode,
+  listActivePickupNodesRuntime as listActivePickupNodes,
+} from '../src/runtime/fcs/cutting/pickup-management-runtime.ts'
 
 class MemoryStorage {
   private values = new Map<string, string>()

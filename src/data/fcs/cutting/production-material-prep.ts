@@ -19,14 +19,6 @@ import {
   type PickupProcessResultFact,
   type PickupSupplementDemandInput,
 } from './pickup-demand-domain.ts'
-import {
-  listPlatformDyeResultViews,
-  listPlatformPrintResultViews,
-} from '../platform-process-result-view.ts'
-import {
-  listSupplementRecords,
-  type SupplementRecord,
-} from '../../../pages/process-factory/cutting/supplement-management.ts'
 import type { Factory, FactoryPostCapacityNodeCode, FactoryType } from '../factory-types.ts'
 import {
   listRuntimeProcessTasks,
@@ -342,6 +334,9 @@ export interface MaterialPickupReturnRecord {
   returnedBy: string
   returnedAt: string
   returnStatus: MaterialPickupReturnStatus
+  sourceWarehouseName?: string
+  sourceWarehouseArea?: string
+  sourceLocationCode?: string
 }
 
 export interface PrepRejectRecord {
@@ -4258,9 +4253,24 @@ export function closeMaterialPrepOrder(
   persistProductionMaterialPrepStore(store, storage)
 }
 
+export interface PickupSupplementRecordFactInput {
+  id: string
+  recordNo: string
+  status: string
+  createdAt: string
+  draft: {
+    productionOrderId: string
+    productionOrderNo: string
+    reason: string
+    reasonDetail: string
+    materialDemands: PickupSupplementDemandInput['materialDemands']
+  }
+  processWorkOrderRefs: PickupSupplementDemandInput['processWorkOrderRefs']
+}
+
 export interface PickupDemandFactsInput {
   projections: MaterialPrepOrderProjection[]
-  supplementRecords: SupplementRecord[]
+  supplementRecords: PickupSupplementRecordFactInput[]
   dyeResults: PickupProcessResultFact[]
   printResults: PickupProcessResultFact[]
 }
@@ -4381,9 +4391,9 @@ export function listPickupDemandFacts(
 ): PickupDemandFact[] {
   return buildPickupDemandFactsFromProjections({
     projections: listMaterialPrepOrderProjections(storage),
-    supplementRecords: listSupplementRecords(),
-    dyeResults: listPlatformDyeResultViews(),
-    printResults: listPlatformPrintResultViews(),
+    supplementRecords: [],
+    dyeResults: [],
+    printResults: [],
   })
 }
 
@@ -4578,9 +4588,24 @@ function buildPickupNodeItems(
     .filter((item) => item.currentAvailableQty > 0)
 }
 
-function buildPickupNodeFingerprint(nodeType: PickupNodeProjection['nodeType'], items: PickupNodeItem[]): string {
+function buildPickupNodeFingerprint(
+  nodeType: PickupNodeProjection['nodeType'],
+  items: PickupNodeItem[],
+  coverageLines: PickupCoverageLine[],
+): string {
   return JSON.stringify({
     nodeType,
+    coverageLines: coverageLines.map((line) => ({
+      demandLineId: line.key,
+      unit: line.unit,
+      processComplete: line.processComplete,
+      requiredQty: line.requiredQty,
+      lineEffectivePickedQty: line.lineEffectivePickedQty,
+      effectivePickedQty: line.effectivePickedQty,
+      currentAvailableQty: line.currentAvailableQty,
+    })).sort((left, right) =>
+      `${left.demandLineId}|${left.unit}`.localeCompare(`${right.demandLineId}|${right.unit}`)
+    ),
     items: items.map((item) => ({
       prepLineId: item.prepLineId,
       unit: item.unit,
@@ -4596,8 +4621,14 @@ function buildPickupNodeFingerprint(nodeType: PickupNodeProjection['nodeType'], 
         `${left.sourceWarehouseName}|${left.sourceWarehouseArea}|${left.sourceLocationCode}`
           .localeCompare(`${right.sourceWarehouseName}|${right.sourceWarehouseArea}|${right.sourceLocationCode}`)
       ),
-      sourceAllocations: item.sourceAllocations.map((allocation) => ({ ...allocation })),
-    })),
+      sourceAllocations: item.sourceAllocations.map((allocation) => ({ ...allocation }))
+        .sort((left, right) =>
+          `${left.prepRecordId}|${left.prepLineId}|${left.sourceWarehouseName}|${left.sourceWarehouseArea}|${left.sourceLocationCode}`
+            .localeCompare(`${right.prepRecordId}|${right.prepLineId}|${right.sourceWarehouseName}|${right.sourceWarehouseArea}|${right.sourceLocationCode}`)
+        ),
+    })).sort((left, right) =>
+      `${left.prepLineId}|${left.unit}`.localeCompare(`${right.prepLineId}|${right.unit}`)
+    ),
   })
 }
 
@@ -4612,15 +4643,10 @@ function readPickupNodeTypeFromFingerprint(fingerprint: string): PickupNodeProje
 
 export function listActivePickupNodes(
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+  demandFacts: PickupDemandFact[] = listPickupDemandFacts(storage),
 ): PickupNodeProjection[] {
   const store = hydrateProductionMaterialPrepStore(storage)
   const projections = listMaterialPrepOrderProjections(storage)
-  const demandFacts = buildPickupDemandFactsFromProjections({
-    projections,
-    supplementRecords: listSupplementRecords(),
-    dyeResults: listPlatformDyeResultViews(),
-    printResults: listPlatformPrintResultViews(),
-  })
   const sessionsByPrepOrder: Map<string, PickupSession[]> = new Map()
   for (const session of store.pickupSessions) {
     const existing = sessionsByPrepOrder.get(session.prepOrderId)
@@ -4662,7 +4688,7 @@ export function listActivePickupNodes(
 
     const nodeType = derivePickupNodeType(coverageLines)
     const nodeId = `pickup-node:${projection.order.prepOrderId}:${sequence}`
-    const fingerprint = buildPickupNodeFingerprint(nodeType, items)
+    const fingerprint = buildPickupNodeFingerprint(nodeType, items, coverageLines)
     const sourcePrepRecordIds = new Set(items.flatMap((item) => item.sourcePrepRecordIds))
     const latestMaterialAt = projection.prepRecords
       .filter((record) =>
@@ -4711,8 +4737,9 @@ export function listActivePickupNodes(
       snapshotChanged = true
     }
 
-    const carrierType = nodeType === 'READY_TO_PICKUP' ? 'PALLET' : 'WAREHOUSE_LOCATIONS'
-    return [{
+    const carrierType: PickupNodeProjection['carrierType'] =
+      nodeType === 'READY_TO_PICKUP' ? 'PALLET' : 'WAREHOUSE_LOCATIONS'
+    const node: PickupNodeProjection = {
       nodeId,
       version: snapshot.version,
       nodeType,
@@ -4734,7 +4761,8 @@ export function listActivePickupNodes(
       readySource: carrierType === 'PALLET' ? snapshot.readySource : null,
       itemCount: items.length,
       items,
-    }]
+    }
+    return [node]
   })
   if (snapshotChanged) persistProductionMaterialPrepStore(store, storage)
   return nodes
@@ -4752,6 +4780,7 @@ export function appendPickupSessionFromNode(
     warehouseSyncDeferred?: boolean
   },
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+  demandFacts: PickupDemandFact[] = listPickupDemandFacts(storage),
 ): PickupSession {
   let store = hydrateProductionMaterialPrepStore(storage)
   const existing = store.pickupSessions.find((session) => session.pickupNodeId === input.pickupNodeId)
@@ -4763,7 +4792,7 @@ export function appendPickupSessionFromNode(
     throw new Error(`幂等键已用于其他待领节点：${idempotentSession.pickupNodeId}`)
   }
 
-  const nodes = listActivePickupNodes(storage)
+  const nodes = listActivePickupNodes(storage, demandFacts)
   const node = nodes.find((n) => n.nodeId === input.pickupNodeId)
   if (!node) throw new Error(`待领节点不存在：${input.pickupNodeId}`)
   if (node.status === 'CLOSED') throw new Error('当前待领节点已关闭，不可重复确认领料')
@@ -4888,20 +4917,49 @@ export function appendPickupReturnRecord(
   if (returnQty <= 0) {
     throw new Error('退回数量必须大于 0')
   }
-  const context = getMaterialPrepRecordContext(input.prepRecordId, input.prepLineId, storage)
-  if (!context) {
-    throw new Error(`配料记录不存在：${input.prepRecordId}`)
-  }
-  const pickupRecord = context.projection.pickupRecords.find((record) => record.pickupRecordId === input.pickupRecordId)
+  const store = hydrateProductionMaterialPrepStore(storage)
+  const pickupRecord = store.pickupRecords.find((record) => record.pickupRecordId === input.pickupRecordId)
   if (!pickupRecord) {
     throw new Error(`领料记录不存在：${input.pickupRecordId}`)
   }
+  const prepRecord = store.prepRecords.find((record) => record.prepRecordId === input.prepRecordId)
+  const prepRecordItem = prepRecord
+    ? getMaterialPrepRecordItems(prepRecord).find((item) => item.prepLineId === input.prepLineId)
+    : null
+  const sourceAllocations = (pickupRecord.sourceAllocations || []).filter((allocation) =>
+    allocation.prepRecordId === input.prepRecordId
+    && allocation.prepLineId === input.prepLineId
+  )
+  const normalContext = sourceAllocations.length
+    ? null
+    : getMaterialPrepRecordContext(input.prepRecordId, input.prepLineId, storage)
+  if (!prepRecord || !prepRecordItem || (!sourceAllocations.length && !normalContext)) {
+    throw new Error(`配料记录不存在：${input.prepRecordId}`)
+  }
+  const allocationUnits = new Set(sourceAllocations.map((allocation) => allocation.unit))
+  if (allocationUnits.size > 1) {
+    throw new Error('退回来源分摊单位不一致')
+  }
+  const unit = sourceAllocations.length
+    ? Array.from(allocationUnits)[0]
+    : normalContext!.line.unit
+  if (!unit) {
+    throw new Error('退回来源单位缺失')
+  }
+  const sourceAllocation = sourceAllocations[0]
+  const sourceWarehouseName = sourceAllocation?.sourceWarehouseName || prepRecordItem.stockWarehouseName || ''
+  const sourceWarehouseArea = sourceAllocation?.sourceWarehouseArea
+    || prepRecordItem.warehouseArea
+    || prepRecord.warehouseArea
+    || prepRecordItem.stockWarehouseArea
+    || ''
+  const sourceLocationCode = sourceAllocation?.sourceLocationCode
+    || prepRecordItem.locationCode
+    || prepRecord.locationCode
+    || prepRecordItem.stockLocationCode
+    || ''
   const normalizedRollCount = Math.max(Math.round(input.rollCount || 1), 1)
   if (pickupRecord.sourceAllocations?.length) {
-    const sourceAllocations = pickupRecord.sourceAllocations.filter((allocation) =>
-      allocation.prepRecordId === input.prepRecordId
-      && allocation.prepLineId === input.prepLineId
-    )
     if (!sourceAllocations.length) {
       throw new Error('退回物料行不属于该领料记录的来源分摊')
     }
@@ -4910,7 +4968,7 @@ export function appendPickupReturnRecord(
     )
     const sourcePickedRollCount = sourceAllocations
       .reduce((sum, allocation) => sum + Math.max(Math.round(Number(allocation.rollCount || 0)), 0), 0)
-    const sourceReturnRecords = context.projection.pickupReturnRecords.filter((record) =>
+    const sourceReturnRecords = store.pickupReturnRecords.filter((record) =>
       record.pickupRecordId === pickupRecord.pickupRecordId
       && record.prepRecordId === input.prepRecordId
       && record.prepLineId === input.prepLineId
@@ -4923,7 +4981,7 @@ export function appendPickupReturnRecord(
     const sourceAvailableQty = roundQty(Math.max(sourcePickedQty - sourceReturnedQty, 0))
     const sourceAvailableRollCount = Math.max(sourcePickedRollCount - sourceReturnedRollCount, 0)
     if (returnQty > sourceAvailableQty) {
-      throw new Error(`退回数量不能超过该来源可退数量 ${sourceAvailableQty} ${context.line.unit}`)
+      throw new Error(`退回数量不能超过该来源可退数量 ${sourceAvailableQty} ${unit}`)
     }
     if (normalizedRollCount > sourceAvailableRollCount) {
       throw new Error(`退回卷件数不能超过该来源可退卷件数 ${sourceAvailableRollCount}`)
@@ -4931,12 +4989,17 @@ export function appendPickupReturnRecord(
   } else if (pickupRecord.prepRecordId !== input.prepRecordId || pickupRecord.prepLineId !== input.prepLineId) {
     throw new Error('退回物料行与领料记录不一致')
   }
-  const waitProcessAvailableQty = roundQty(Number(pickupRecord.waitProcessAvailableQty ?? pickupRecord.pickedQty ?? 0))
+  const returnedFromPickupQty = roundQty(store.pickupReturnRecords
+    .filter((record) => record.pickupRecordId === pickupRecord.pickupRecordId)
+    .reduce((sum, record) => sum + Number(record.returnQty || 0), 0))
+  const waitProcessAvailableQty = roundQty(Math.max(
+    Number(pickupRecord.waitProcessAvailableQty ?? pickupRecord.pickedQty ?? 0) - returnedFromPickupQty,
+    0,
+  ))
   if (returnQty > waitProcessAvailableQty) {
     throw new Error('退回数量不能超过待加工仓可用数量')
   }
 
-  const store = hydrateProductionMaterialPrepStore(storage)
   const occurredAt = nowText()
   const returnRecord: MaterialPickupReturnRecord = {
     returnRecordId: `pickup-return:${input.pickupRecordId}:${occurredAt.replace(/[^0-9]/g, '')}:${store.pickupReturnRecords.length + 1}`,
@@ -4947,13 +5010,16 @@ export function appendPickupReturnRecord(
     productionOrderId: pickupRecord.productionOrderId,
     returnQty,
     rollCount: normalizedRollCount,
-    unit: context.line.unit,
+    unit,
     reason: input.reason,
     remark: input.remark,
     imageNames: [...input.imageNames],
     returnedBy: input.returnedBy,
     returnedAt: occurredAt,
     returnStatus: '已退回待中转仓处理',
+    sourceWarehouseName,
+    sourceWarehouseArea,
+    sourceLocationCode,
   }
   store.pickupReturnRecords = [returnRecord, ...store.pickupReturnRecords]
   persistProductionMaterialPrepStore(store, storage)

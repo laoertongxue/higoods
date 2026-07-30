@@ -46,8 +46,8 @@ for (const [label, path] of [
       version: Number(target.searchParams.get('version')),
     }
     const activeNode = await page.evaluate(async (orderNo) => {
-      const prep = await import('/src/data/fcs/cutting/production-material-prep.ts')
-      const node = prep.listActivePickupNodes().find((candidate) => candidate.productionOrderNo === orderNo)
+      const pickup = await import('/src/runtime/fcs/cutting/pickup-management-runtime.ts')
+      const node = pickup.listActivePickupNodesRuntime().find((candidate) => candidate.productionOrderNo === orderNo)
       return node ? { nodeId: node.nodeId, version: node.version } : null
     }, productionOrderNo)
     expect(linkedNode).toEqual(activeNode)
@@ -79,11 +79,12 @@ test('PDA 混合单位确认形成 1 Session + N Detail，重复 API 幂等', as
 
   const facts = await page.evaluate(async () => {
     const prep = await import('/src/data/fcs/cutting/production-material-prep.ts')
+    const pickup = await import('/src/runtime/fcs/cutting/pickup-management-runtime.ts')
     const runtime = await import('/src/data/fcs/cutting/cutting-runtime-event-ledger.ts')
     const projections = prep.listMaterialPrepOrderProjections()
     const session = projections.flatMap((item) => item.pickupSessions).find((item) => item.receiverName === '裁床仓管')!
     const details = projections.flatMap((item) => item.pickupRecords).filter((item) => item.pickupSessionId === session.pickupSessionId)
-    const duplicate = prep.appendPickupSessionFromNode({
+    const duplicate = pickup.appendPickupSessionFromNodeRuntime({
       pickupNodeId: session.pickupNodeId,
       pickupNodeVersion: 0,
       receiverName: '重复提交',
@@ -101,7 +102,7 @@ test('PDA 混合单位确认形成 1 Session + N Detail，重复 API 幂等', as
       detailCount: details.length,
       snapshotCount: session.pickupNodeSnapshot?.items.length,
       events: events.map((event) => ({ qty: event.inventoryEffect?.qty, unit: event.inventoryEffect?.unit })),
-      activeUnique: new Set(prep.listActivePickupNodes().map((node) => node.prepOrderId)).size === prep.listActivePickupNodes().length,
+      activeUnique: new Set(pickup.listActivePickupNodesRuntime().map((node) => node.prepOrderId)).size === pickup.listActivePickupNodesRuntime().length,
       nodeTypes: Array.from(new Set(projections.flatMap((item) => item.pickupSessions).map((item) => item.nodeType))),
     }
   })
@@ -116,9 +117,9 @@ test('PDA 混合单位确认形成 1 Session + N Detail，重复 API 幂等', as
 test('同步失败 Session 可从 PDA 补写且不重复主明细和流水', async ({ page }) => {
   await page.goto(incompletePath)
   const seeded = await page.evaluate(async () => {
-    const prep = await import('/src/data/fcs/cutting/production-material-prep.ts')
-    const node = prep.listActivePickupNodes()[0]
-    const session = prep.appendPickupSessionFromNode({
+    const pickup = await import('/src/runtime/fcs/cutting/pickup-management-runtime.ts')
+    const node = pickup.listActivePickupNodesRuntime()[0]
+    const session = pickup.appendPickupSessionFromNodeRuntime({
       pickupNodeId: node.nodeId,
       pickupNodeVersion: node.version,
       receiverName: '裁床仓管',

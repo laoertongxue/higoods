@@ -1,14 +1,16 @@
 #!/usr/bin/env node
 
 import {
-  appendPickupSessionFromNode,
   createProductionMaterialPrepSeedStore,
   getMaterialPrepOrderProjection,
-  listActivePickupNodes,
   listMaterialPrepOrderProjections,
   PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
   serializeProductionMaterialPrepStore,
 } from '../src/data/fcs/cutting/production-material-prep.ts'
+import {
+  appendPickupSessionFromNodeRuntime as appendPickupSessionFromNode,
+  listActivePickupNodesRuntime as listActivePickupNodes,
+} from '../src/runtime/fcs/cutting/pickup-management-runtime.ts'
 import { renderFcsCuttingPrepPage } from '../src/pages/fcs/material-prep/cutting.ts'
 import {
   renderCraftCuttingPickupManagementDetailPage,

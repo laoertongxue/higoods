@@ -15,8 +15,6 @@ import {
   getMaterialPrepRecordContext,
   getMaterialPrepRecordItems,
   hydrateProductionMaterialPrepStore,
-  listActivePickupNodes,
-  listPickupDemandFacts,
   listMaterialPrepOrderProjections,
   materialPrepWorkbenchTabs,
   pickMaterialPrepRecord,
@@ -27,6 +25,10 @@ import {
   stageMaterialPrepRecord,
   type PickupOrderStatus,
 } from '../src/data/fcs/cutting/production-material-prep.ts'
+import {
+  listActivePickupNodesRuntime as listActivePickupNodes,
+  listPickupDemandFactsRuntime as listPickupDemandFacts,
+} from '../src/runtime/fcs/cutting/pickup-management-runtime.ts'
 import {
   listPickupOrderGroups,
 } from '../src/pages/process-factory/cutting/pickup-management-projection.ts'
@@ -58,6 +60,9 @@ const routesFcs = read('src/router/routes-fcs.ts')
 const routeRenderersFcs = read('src/router/route-renderers-fcs.ts')
 const pickupManagementSource = read('src/pages/process-factory/cutting/pickup-management.ts')
 const pickupManagementListSource = read('src/pages/process-factory/cutting/pickup-management-list.ts')
+const pickupManagementProjectionSource = read('src/pages/process-factory/cutting/pickup-management-projection.ts')
+const pickupManagementRuntimeSource = read('src/runtime/fcs/cutting/pickup-management-runtime.ts')
+const supplementRecordSource = read('src/data/fcs/cutting/supplement-records.ts')
 const pdaWaitProcessSource = read('src/pages/pda-warehouse-wait-process.ts')
 const warehouseHubSource = read('src/pages/process-factory/cutting/warehouse-hub.ts')
 const fcsHandlersSource = read('src/main-handlers/fcs-handlers.ts')
@@ -100,6 +105,37 @@ assert(pickupManagementSource.includes('renderCraftCuttingPickupManagementDetail
 assert(fcsHandlersSource.includes('handleCraftCuttingPickupManagementEvent'), 'FCS handler 必须承接领料管理交互')
 assert(pdaWaitProcessSource.includes('listActivePickupNodes'), 'PDA 必须读取与 PC 同源的活动待领节点')
 assert(pdaWaitProcessSource.includes('appendPickupSessionFromNode'), 'PDA 确认必须调用统一节点领料入口')
+assert(
+  !dataSource.includes("pages/process-factory/cutting/supplement-management"),
+  '纯数据层不得反向依赖补料管理页面',
+)
+assert(
+  !dataSource.includes('listSupplementRecords()'),
+  '纯数据节点读取不得隐式触发补料页面 Mock 初始化',
+)
+assert(
+  !dataSource.includes('listPlatformDyeResultViews')
+  && !dataSource.includes('listPlatformPrintResultViews'),
+  '纯数据节点读取不得隐式读取加工结果，必须由 runtime 显式传入',
+)
+assert(
+  pickupManagementRuntimeSource.includes('ensureSupplementRecordPickupSeeds()')
+  && pickupManagementRuntimeSource.includes('listPlatformDyeResultViews()')
+  && pickupManagementRuntimeSource.includes('listPlatformPrintResultViews()'),
+  '页面级 runtime 必须明确组装补料和加工结果事实',
+)
+assert(
+  supplementRecordSource.includes(`export function listSupplementRecords(): SupplementRecord[] {
+  return structuredClone(supplementRecords)
+}`),
+  '补料记录纯查询不得隐式初始化 Mock 数据',
+)
+assert(
+  pickupManagementProjectionSource.includes('buildPickupRuntimeContext(storage)')
+  && pickupManagementSource.includes('pickup-management-runtime.ts')
+  && pdaWaitProcessSource.includes('pickup-management-runtime.ts'),
+  'Web 三列表、详情与 PDA 必须统一通过 runtime facade 读取节点事实',
+)
 assert(pdaWaitProcessSource.includes('确认全部领料'), 'PDA 必须明确一次领取节点全部物料')
 assert(pdaAccessSource.includes("!targetRoute.startsWith('/fcs/pda')"), 'PDA 登录守卫不得误拦截非 PDA 路由')
 assert(pdaRuntimeSource.includes("startsWith('/fcs/pda')"), 'PDA 登录重定向必须限定 PDA 路由')

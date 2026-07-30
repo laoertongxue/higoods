@@ -36,13 +36,15 @@ import {
   type MaterialLedgerProjection,
 } from '../data/fcs/cutting/material-ledger.ts'
 import {
-  appendPickupSessionFromNode,
   getPickupSessionByNodeId,
   getMaterialPrepRecordContext,
   listMaterialPrepOrderProjections,
-  listActivePickupNodes,
   recordPickupSessionWarehouseSyncResult,
 } from '../data/fcs/cutting/production-material-prep.ts'
+import {
+  appendPickupSessionFromNodeRuntime as appendPickupSessionFromNode,
+  listActivePickupNodesRuntime as listActivePickupNodes,
+} from '../runtime/fcs/cutting/pickup-management-runtime.ts'
 import type { PickupNodeProjection, PickupSession } from '../data/fcs/cutting/pickup-node-domain.ts'
 import { buildMarkerSpreadingProjection } from './process-factory/cutting/marker-spreading-projection.ts'
 import type { SpreadingOrder } from './process-factory/cutting/marker-spreading-model.ts'
