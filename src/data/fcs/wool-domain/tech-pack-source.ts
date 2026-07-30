@@ -401,6 +401,12 @@ export function buildWoolOrderFromRuntimeTask(taskId: string): WoolWorkOrder {
   if (!techPackSnapshot) {
     throw new Error(`毛织加工单生成失败：生产单 ${productionOrder.productionOrderNo} 没有冻结技术包快照`)
   }
+  const plannedCompletionAt = task.taskDeadline?.trim()
+    || productionOrder.demandSnapshot.requiredDeliveryDate?.trim()
+    || ''
+  if (!plannedCompletionAt) {
+    throw new Error('毛织加工单缺少计划完成时间')
+  }
   const source = buildWoolOrderSourceSnapshotFromRuntimeTask(taskId)
   if (source.generationIssues.length > 0) {
     throw new Error(`毛织加工单生成失败：${source.generationIssues.join('；')}`)
@@ -430,7 +436,7 @@ export function buildWoolOrderFromRuntimeTask(taskId: string): WoolWorkOrder {
     factoryId: task.assignedFactoryId || '',
     factoryName: task.assignedFactoryName || '',
     plannedStartAt: task.dispatchedAt || task.businessAssignedAt || undefined,
-    plannedCompletionAt: task.taskDeadline || productionOrder.demandSnapshot.requiredDeliveryDate,
+    plannedCompletionAt,
     kind: source.kind,
     outputPlanLines: source.outputPlanLines,
     downstreamTarget,

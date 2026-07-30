@@ -16,6 +16,7 @@ import {
 } from '../src/data/fcs/task-detail-rows.ts'
 import { generateTaskArtifactsForOrder } from '../src/data/fcs/production-artifact-generation.ts'
 import { productionOrders } from '../src/data/fcs/production-orders.ts'
+import { processTasks } from '../src/data/fcs/process-tasks.ts'
 import type {
   WoolCompletionRecord,
   WoolCommandReceiptValue,
@@ -3934,6 +3935,44 @@ const woolRuntimeTask = realWoolRuntimeTasks.find((item) => {
 })
 assert(woolRuntimeTask, '缺少可用于运行时生成检查的毛织任务')
 assert.equal(woolRuntimeTask.acceptanceStatus, 'ACCEPTED', '毛织运行时任务必须保留上游接单协作')
+
+const woolRuntimeBaseTask = processTasks.find((item) => item.taskId === woolRuntimeTask.baseTaskId)
+const woolRuntimeSourceOrder = productionOrders.find(
+  (item) => item.productionOrderId === woolRuntimeTask.productionOrderId,
+)
+assert(woolRuntimeBaseTask, '运行时毛织任务缺少基础任务夹具')
+assert(woolRuntimeSourceOrder, '运行时毛织任务缺少生产单夹具')
+const originalWoolTaskDeadline = woolRuntimeBaseTask.taskDeadline
+const originalWoolRequiredDeliveryDate = woolRuntimeSourceOrder.demandSnapshot.requiredDeliveryDate
+try {
+  resetWoolFactWorkflowMock('CHECK_WOOL_RUNTIME_TASK_DEADLINE')
+  woolRuntimeBaseTask.taskDeadline = '  2026-09-08 18:00:00  '
+  woolRuntimeSourceOrder.demandSnapshot.requiredDeliveryDate = '2026-09-30'
+  const taskDeadlineOrder = buildWoolOrderFromRuntimeTask(woolRuntimeTask.taskId)
+  assert.equal(taskDeadlineOrder.plannedCompletionAt, '2026-09-08 18:00:00')
+
+  resetWoolFactWorkflowMock('CHECK_WOOL_RUNTIME_REQUIRED_DELIVERY')
+  woolRuntimeBaseTask.taskDeadline = '   '
+  woolRuntimeSourceOrder.demandSnapshot.requiredDeliveryDate = '  2026-09-30  '
+  const requiredDeliveryOrder = buildWoolOrderFromRuntimeTask(woolRuntimeTask.taskId)
+  assert.equal(requiredDeliveryOrder.plannedCompletionAt, '2026-09-30')
+
+  resetWoolFactWorkflowMock('CHECK_WOOL_RUNTIME_MISSING_COMPLETION')
+  woolRuntimeBaseTask.taskDeadline = '   '
+  woolRuntimeSourceOrder.demandSnapshot.requiredDeliveryDate = null
+  const beforeMissingCompletionStore = readWoolStore()
+  const beforeMissingCompletionWrites = storageWrites.length
+  assert.throws(
+    () => buildWoolOrderFromRuntimeTask(woolRuntimeTask.taskId),
+    /毛织加工单缺少计划完成时间/,
+  )
+  assert.deepEqual(readWoolStore(), beforeMissingCompletionStore)
+  assert.equal(storageWrites.length, beforeMissingCompletionWrites)
+} finally {
+  woolRuntimeBaseTask.taskDeadline = originalWoolTaskDeadline
+  woolRuntimeSourceOrder.demandSnapshot.requiredDeliveryDate = originalWoolRequiredDeliveryDate
+  resetWoolFactWorkflowMock('CHECK_WOOL_RUNTIME_GENERATION_RESTORED')
+}
 
 const runtimeGeneratedWoolOrder = buildWoolOrderFromRuntimeTask(woolRuntimeTask.taskId)
 assert.equal(getWoolProcessingStatus(runtimeGeneratedWoolOrder.woolOrderId), 'UNPROCESSED')
