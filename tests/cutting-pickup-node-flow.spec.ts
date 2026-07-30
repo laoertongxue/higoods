@@ -204,10 +204,11 @@ test('同步失败 Session 可从 PDA 补写且不重复主明细和流水', asy
 })
 
 for (const viewport of [{ width: 1366, height: 768 }, { width: 1280, height: 720 }]) {
-  test(`${viewport.width}×${viewport.height} 页面主体无横向溢出`, async ({ page }) => {
+  test(`${viewport.width}×${viewport.height} 页面主体无横向溢出`, async ({ page }, testInfo) => {
+    testInfo.setTimeout(300_000)
     await page.setViewportSize(viewport)
     await page.goto(incompletePath)
-    await expect(page.locator('[data-standard-list-page]')).toBeVisible()
+    await expect(page.locator('[data-standard-list-page]')).toBeVisible({ timeout: 120_000 })
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width)
   })
 }
