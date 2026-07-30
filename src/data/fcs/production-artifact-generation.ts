@@ -589,8 +589,6 @@ function toTaskArtifact(context: ResolvedEntryContext): GeneratedTaskArtifact {
     selectedTargetObject: context.sourceEntry.selectedTargetObject,
     woolTaskType: context.sourceEntry.woolTaskType,
     downstreamTarget: context.sourceEntry.downstreamTarget,
-    requiresFeiTicket: context.sourceEntry.requiresFeiTicket,
-    packagingRequired: context.sourceEntry.packagingRequired,
     materialIssueMode: context.sourceEntry.materialIssueMode,
     linkedBomItemIds: context.sourceEntry.linkedBomItemIds ? [...context.sourceEntry.linkedBomItemIds] : undefined,
     linkedPatternIds: context.sourceEntry.linkedPatternIds ? [...context.sourceEntry.linkedPatternIds] : undefined,

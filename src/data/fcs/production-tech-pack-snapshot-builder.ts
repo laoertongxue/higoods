@@ -773,23 +773,26 @@ export function alignWoolColorMaterialMappingsForDemand(input: {
     }),
   ).values())
   const fallbackMapping = input.mappings[0]
+  const matchesColorIdentity = (
+    candidate: { colorCode: string; colorName: string },
+    expected: { colorCode: string; colorName: string },
+  ): boolean => {
+    const candidateCode = normalizeText(candidate.colorCode).toLowerCase()
+    const expectedCode = normalizeText(expected.colorCode).toLowerCase()
+    if (expectedCode) return candidateCode === expectedCode
+    if (candidateCode) return false
+    return normalizeText(candidate.colorName).toLowerCase() === normalizeText(expected.colorName).toLowerCase()
+  }
 
   return colors
     .map(({ colorCode, colorName }, colorIndex) => {
-      const normalizedColorCode = colorCode.toLowerCase()
-      const normalizedColorName = colorName.toLowerCase()
-      const existing = input.mappings.find((mapping) =>
-        normalizeText(mapping.colorCode).toLowerCase() === normalizedColorCode
-        || normalizeText(mapping.colorName).toLowerCase() === normalizedColorName,
-      )
+      const colorIdentity = { colorCode, colorName }
+      const existing = input.mappings.find((mapping) => matchesColorIdentity(mapping, colorIdentity))
       const template = existing ?? fallbackMapping
       if (!template) return null
       const skuCodesForColor = uniqueStrings(
         input.demandSkuLines
-          .filter((line) =>
-            normalizeText(line.colorCode).toLowerCase() === normalizedColorCode
-            || normalizeText(line.colorName).toLowerCase() === normalizedColorName,
-          )
+          .filter((line) => matchesColorIdentity(line, colorIdentity))
           .map((line) => line.skuCode),
       )
       const materialInfo = input.resolveMaterialInfo?.(colorCode, colorName, colorIndex)
@@ -806,9 +809,9 @@ export function alignWoolColorMaterialMappingsForDemand(input: {
         colorName,
         lines: template.lines.map((line, lineIndex) => ({
           ...line,
-          id: input.mappingIdPrefix
-            ? `${mappingId}-${normalizeText(line.pieceId) || lineIndex + 1}`
-            : line.id,
+          id: existing && !input.mappingIdPrefix
+            ? line.id
+            : `${mappingId}-${normalizeText(line.pieceId) || 'line'}-${lineIndex + 1}`,
           materialCode:
             materialInfo && normalizeText(line.bomItemId) === normalizeText(input.fallbackBomItemId)
               ? materialInfo.code

@@ -23,12 +23,57 @@ assert(mappingOrigins.includes('TECH_PACK'))
 assert(mappingOrigins.includes('DEMAND_FALLBACK'))
 assert.equal(mappingOrigins.filter((origin) => origin === 'DEMAND_FALLBACK').every((origin) => origin !== 'TECH_PACK'), true)
 
+const sameNameSourceMappings = [{
+  id: 'MAP-BLUE1',
+  mappingOrigin: 'TECH_PACK' as const,
+  spuCode: 'GARMENT',
+  colorCode: 'BLUE1',
+  colorName: '蓝色',
+  status: 'CONFIRMED' as const,
+  generatedMode: 'MANUAL' as const,
+  lines: [{
+    id: 'LINE-BLUE',
+    materialName: '蓝色纱线',
+    materialType: '面料' as const,
+    unit: 'kg',
+    applicableSkuCodes: ['SOURCE-SKU'],
+    sourceMode: 'MANUAL' as const,
+  }],
+}]
+const sameNameAlignedMappings = alignWoolColorMaterialMappingsForDemand({
+  mappings: sameNameSourceMappings,
+  demandSkuLines: [
+    { skuCode: 'GARMENT-BLUE1-M', colorCode: 'BLUE1', colorName: '蓝色' },
+    { skuCode: 'GARMENT-BLUE2-M', colorCode: 'BLUE2', colorName: '蓝色' },
+  ],
+})
+const blue1Mapping = sameNameAlignedMappings.find((item) => item.colorCode === 'BLUE1')!
+const blue2Mapping = sameNameAlignedMappings.find((item) => item.colorCode === 'BLUE2')!
+assert.equal(blue1Mapping.mappingOrigin, 'TECH_PACK')
+assert.equal(blue2Mapping.mappingOrigin, 'DEMAND_FALLBACK')
+assert.deepEqual(blue1Mapping.lines[0].applicableSkuCodes, ['GARMENT-BLUE1-M'])
+assert.deepEqual(blue2Mapping.lines[0].applicableSkuCodes, ['GARMENT-BLUE2-M'])
+assert.notEqual(blue1Mapping.lines[0].id, blue2Mapping.lines[0].id)
+assert.notStrictEqual(sameNameAlignedMappings, sameNameSourceMappings)
+assert.notStrictEqual(blue1Mapping.lines, sameNameSourceMappings[0].lines)
+assert.notStrictEqual(blue1Mapping.lines[0], sameNameSourceMappings[0].lines[0])
+assert.notStrictEqual(blue1Mapping.lines, blue2Mapping.lines)
+assert.notStrictEqual(blue1Mapping.lines[0], blue2Mapping.lines[0])
+assert.deepEqual(sameNameSourceMappings[0].lines[0].applicableSkuCodes, ['SOURCE-SKU'])
+
 const processDomainSource = readFileSync(
   new URL('../src/pages/tech-pack/process-domain.ts', import.meta.url),
   'utf8',
 )
 assert.equal(processDomainSource.includes('打印毛织菲票'), false)
 assert.equal(processDomainSource.includes('毛织厂包装'), false)
+
+const artifactGenerationSource = readFileSync(
+  new URL('../src/data/fcs/production-artifact-generation.ts', import.meta.url),
+  'utf8',
+)
+assert.equal(artifactGenerationSource.includes('context.sourceEntry.requiresFeiTicket'), false)
+assert.equal(artifactGenerationSource.includes('context.sourceEntry.packagingRequired'), false)
 
 const {
   addWoolProcessReport,
