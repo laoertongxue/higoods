@@ -75,7 +75,7 @@
 - 独立改版可以读取系统精确解析的测款结论作为来源事实，但创建、花型／首版样衣下游生成、确认和完成均不得改写来源商品项目任何节点。
 - 首版样衣返改必须保留其正式首版样衣来源；花型和首版样衣专业模块保留独立任务演示数据，不再依赖固定五步之外的项目节点。
 - 当前决策验收必须以真实业务状态流转为准；数据一致性修复结果不得被演示种子覆盖。
-- 制版、花型、首版样衣、首单样衣与改版均按独立专业任务保存；项目只作为业务归属，不再提供这些专业任务的固定节点写回。
+- 制版、花型、首版样衣、首单样衣与改版均按独立专业任务保存；有工程主单归属时只记录真实项目标识，项目节点留空。独立改款／设计任务可以暂不关联项目，但必须关联合法款式／SPU及正式需求来源；确定做大货后再创建工程主单。
 - 独立制版生成技术包只回写制版任务、技术包、商品项目与款式档案事实，不改写固定五步节点。
 
 ## 7. 变更覆盖与验证
@@ -122,7 +122,7 @@
 - `node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-project-decision-flow.ts`：通过
 - `node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-project-data-consistency.ts`：通过，共核对 26 个项目、364 个节点，未发现问题
 - `node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-revision-remodel-acceptance.ts`：通过，恶意旧节点参数不能覆盖系统解析的 `TEST_CONCLUSION`，独立改版任务创建、花型和首版样衣下游、确认、技术包前置、完成闭环及详情页验收全部实际执行，并用闭环前后全量节点快照确认来源商品项目节点未被改写
-- `npm test -- tests/pcs-professional-task-bootstrap-independent.spec.ts`：通过，制版、花型、首版样衣和首单样衣均保留多状态独立任务种子；五类专业任务只关联真实项目和真实来源，不绑定项目节点
+- `npm test -- tests/pcs-professional-task-bootstrap-independent.spec.ts`：通过，五类专业任务种子均不绑定项目节点且不生成项目节点关系；有项目归属的任务只关联真实项目，独立改款／设计任务只允许关联可解析的正式款式／SPU和需求来源
 - `npm test -- tests/pcs-project-data-consistency-repair-order.spec.ts`：通过，当前可执行的缺数据节点保持“数据待补齐”，仍受前序阻塞的后续节点保持“未开始／待前序完成”且清空旧结果
 - `npm test -- tests/pcs-plate-making-*.spec.ts tests/pcs-tech-pack-plate-primary-generation.spec.ts`：通过，独立制版任务可完成资料、档案和技术包联动且不改写项目节点
 - `npm test -- tests/pcs-first-order-sample-*.spec.ts`：通过，首单样衣多状态演示、独立详情保存、来源关系和旧节点入口边界均已验证
