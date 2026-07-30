@@ -2,6 +2,7 @@ import { readWoolStore, type WoolDomainStore } from './store.ts'
 import type {
   WoolCompletionRecord,
   WoolHandoverRecord,
+  WoolMachineAssociation,
   WoolOperationLog,
   WoolOutputPlanLine,
   WoolProcessReportRecord,
@@ -87,6 +88,14 @@ export interface WoolWarehouseStockKey {
   objectSkuCode: string
   defaultLocationId: WoolWarehouseFlow['defaultLocationId']
   batchNo?: string
+}
+
+export interface WoolWarehouseFlowQuery {
+  woolOrderId?: string
+  objectSkuCode?: string
+  sourceRecordType?: string
+  sourceRecordId?: string
+  defaultLocationId?: WoolWarehouseFlow['defaultLocationId']
 }
 
 function requireOrder(woolOrderId: string): WoolWorkOrder {
@@ -324,6 +333,42 @@ export function getWoolWarehouseStock(stockKey: WoolWarehouseStockKey | string):
       }
       return sum + flow.qty
     }, 0)
+}
+
+export function getWoolOutputStockQty(woolOrderId: string, outputSkuCode: string): number {
+  const order = requireOrder(woolOrderId)
+  const line = requireOutputLine(order, outputSkuCode)
+  return getWoolWarehouseStock({
+    woolOrderId,
+    objectSkuCode: outputSkuCode,
+    defaultLocationId: line.outputObjectType === 'GARMENT'
+      ? 'WOOL-WH-GARMENT-DEFAULT'
+      : 'WOOL-WH-CUT-DEFAULT',
+  })
+}
+
+export function listWoolWarehouseFlows(query: WoolWarehouseFlowQuery = {}): WoolWarehouseFlow[] {
+  return readWoolStore().warehouseFlows
+    .filter((flow) => !query.woolOrderId || flow.woolOrderId === query.woolOrderId)
+    .filter((flow) => !query.objectSkuCode || flow.objectSkuCode === query.objectSkuCode)
+    .filter((flow) => !query.sourceRecordType || flow.sourceRecordType === query.sourceRecordType)
+    .filter((flow) => !query.sourceRecordId || flow.sourceRecordId === query.sourceRecordId)
+    .filter((flow) => !query.defaultLocationId || flow.defaultLocationId === query.defaultLocationId)
+    .sort((left, right) =>
+      right.operatedAt.localeCompare(left.operatedAt) || right.flowId.localeCompare(left.flowId),
+    )
+}
+
+export function getWoolCompletion(woolOrderId: string): WoolCompletionRecord | undefined {
+  requireOrder(woolOrderId)
+  return readWoolStore().completions.find((record) => record.woolOrderId === woolOrderId)
+}
+
+export function listWoolMachineAssociations(woolOrderId?: string): WoolMachineAssociation[] {
+  if (woolOrderId) requireOrder(woolOrderId)
+  return readWoolStore().machineAssociations
+    .filter((association) => !woolOrderId || association.woolOrderId === woolOrderId)
+    .sort((left, right) => left.machineId.localeCompare(right.machineId))
 }
 
 function includesKeyword(order: WoolWorkOrder, keyword: string): boolean {

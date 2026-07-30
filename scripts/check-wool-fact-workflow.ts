@@ -662,9 +662,11 @@ const {
   validateWoolStore,
 } = await import('../src/data/fcs/wool-domain/store.ts')
 const {
+  getWoolCompletion,
   getWoolOutputReadiness,
   getWoolOutputHandedOverQty,
   getWoolOutputReportedQty,
+  getWoolOutputStockQty,
   resolveWoolEffectiveQty,
   getWoolProcessingStatus,
   getWoolAllowedActions,
@@ -673,8 +675,22 @@ const {
   getWoolWorkOrderTab,
   getWoolWorkOrderTabCounts,
   listWoolFactRecords,
+  listWoolMachineAssociations,
+  listWoolWarehouseFlows,
   listWoolWorkOrders,
 } = await import('../src/data/fcs/wool-domain/queries.ts')
+const {
+  addWoolHandover,
+  addWoolProcessReport,
+  addWoolYarnReceipt,
+  adjustWoolWarehouseStock,
+  changeWoolFactQty,
+  completeWoolWorkOrder,
+  confirmWoolDownstreamReceipt,
+  issueWoolYarn,
+  returnWoolYarn,
+  transferWoolWarehouseStock,
+} = await import('../src/data/fcs/wool-domain/commands.ts')
 const {
   WOOL_MOCK_SCENARIO_CODES,
   resetWoolFactWorkflowMock,
@@ -2089,4 +2105,346 @@ for (const explicitExport of [
 assert.equal(woolFacadeSource.includes('WAIT_MACHINE_SCHEDULE'), false)
 
 console.log('PASS task 4: v2 store, derived queries, 26 mock scenarios, and explicit facade')
-await import('../src/data/fcs/wool-domain/commands.ts')
+
+resetWoolFactWorkflowMock('CHECK_WOOL_FACT_COMMANDS')
+const reportOrder = listWoolWorkOrders().find((item) => item.mockScenarioCode === 'ONE_COLOR_READY')!
+const reportLine = reportOrder.outputPlanLines.find(
+  (item) => getWoolOutputReadiness(reportOrder.woolOrderId, item.outputSkuCode).isReady,
+)!
+
+const receipt = addWoolYarnReceipt(reportOrder.woolOrderId, {
+  commandId: 'CMD-RECEIPT-CHECK-001',
+  deliveryNo: 'DN-CHECK-001',
+  batchNo: 'BATCH-CHECK-001',
+  receivedAt: '2026-07-30 09:30:00',
+  receivedBy: '毛织仓管',
+  lines: [
+    { yarnSkuCode: 'YARN-A', yarnName: 'A 纱线', receivedQty: 5 },
+    { yarnSkuCode: 'YARN-B', yarnName: 'B 纱线', receivedQty: 5 },
+  ],
+})
+const receiptRetry = addWoolYarnReceipt(reportOrder.woolOrderId, {
+  commandId: 'CMD-RECEIPT-CHECK-001',
+  deliveryNo: 'DN-RETRY-MUST-NOT-OVERWRITE',
+  batchNo: 'BATCH-CHECK-001',
+  receivedAt: '2026-07-30 09:31:00',
+  receivedBy: '另一个入口',
+  lines: [{ yarnSkuCode: 'YARN-A', receivedQty: 99 }],
+})
+assert.equal(receiptRetry.receiptId, receipt.receiptId)
+assert.equal(receiptRetry.deliveryNo, 'DN-CHECK-001')
+assert.equal(listWoolWarehouseFlows({ sourceRecordType: 'YARN_RECEIPT' })
+  .filter((item) => receipt.lines.some((line) => line.lineId === item.sourceRecordId)).length, 2)
+assert(listWoolWarehouseFlows({ sourceRecordType: 'YARN_RECEIPT' })
+  .filter((item) => receipt.lines.some((line) => line.lineId === item.sourceRecordId))
+  .every((item) => item.defaultLocationId === 'WOOL-WP-YARN-DEFAULT'))
+assert.throws(
+  () => addWoolYarnReceipt(reportOrder.woolOrderId, {
+    commandId: 'CMD-RECEIPT-EMPTY',
+    receivedAt: '2026-07-30 09:32:00',
+    receivedBy: '毛织仓管',
+    lines: [],
+  }),
+  /至少一条纱线明细/,
+)
+assert.throws(
+  () => addWoolYarnReceipt(reportOrder.woolOrderId, {
+    commandId: 'CMD-RECEIPT-FOREIGN',
+    receivedAt: '2026-07-30 09:33:00',
+    receivedBy: '毛织仓管',
+    lines: [{ yarnSkuCode: 'YARN-OUTSIDE', receivedQty: 1 }],
+  }),
+  /不属于加工单冻结必需纱线/,
+)
+
+const report = addWoolProcessReport(reportOrder.woolOrderId, {
+  commandId: 'CMD-REPORT-CHECK-001',
+  outputSkuCode: reportLine.outputSkuCode,
+  reportedQty: 10,
+  reportedAt: '2026-07-30 10:00:00',
+  reportedBy: '毛织主管',
+})
+const reportRetry = addWoolProcessReport(reportOrder.woolOrderId, {
+  commandId: 'CMD-REPORT-CHECK-001',
+  outputSkuCode: reportLine.outputSkuCode,
+  reportedQty: 99,
+  reportedAt: '2026-07-30 10:01:00',
+  reportedBy: '另一个入口',
+})
+assert.equal(reportRetry.reportId, report.reportId)
+assert.equal(reportRetry.reportedQty, 10)
+assert.equal(listWoolWarehouseFlows({ sourceRecordId: report.reportId }).length, 1)
+assert.equal(
+  listWoolWarehouseFlows({ sourceRecordId: report.reportId })[0].defaultLocationId,
+  reportLine.outputObjectType === 'GARMENT' ? 'WOOL-WH-GARMENT-DEFAULT' : 'WOOL-WH-CUT-DEFAULT',
+)
+assert.throws(
+  () => addWoolProcessReport(reportOrder.woolOrderId, {
+    commandId: 'CMD-REPORT-DECIMAL',
+    outputSkuCode: reportLine.outputSkuCode,
+    reportedQty: 1.5,
+    reportedAt: '2026-07-30 10:02:00',
+    reportedBy: '毛织主管',
+  }),
+  /正整数/,
+)
+assert.throws(
+  () => addWoolProcessReport(reportOrder.woolOrderId, {
+    commandId: 'CMD-REPORT-OVER-LIMIT',
+    outputSkuCode: reportLine.outputSkuCode,
+    reportedQty: Math.floor(reportLine.plannedQty * 1.5),
+    reportedAt: '2026-07-30 10:03:00',
+    reportedBy: '毛织主管',
+  }),
+  /150%/,
+)
+
+const handover = addWoolHandover(reportOrder.woolOrderId, {
+  commandId: 'CMD-HANDOVER-CHECK-001',
+  outputSkuCode: reportLine.outputSkuCode,
+  handoverQty: 6,
+  handedOverAt: '2026-07-30 11:00:00',
+  handedOverBy: '毛织主管',
+})
+assert.deepEqual(
+  {
+    receiverType: handover.receiverType,
+    receiverId: handover.receiverId,
+    receiverName: handover.receiverName,
+  },
+  reportOrder.downstreamTarget,
+)
+assert.equal(handover.downstreamReceipt?.status, 'PENDING')
+assert.equal(getWoolOutputStockQty(reportOrder.woolOrderId, reportLine.outputSkuCode), 4)
+assert.equal(
+  addWoolHandover(reportOrder.woolOrderId, {
+    commandId: 'CMD-HANDOVER-CHECK-001',
+    outputSkuCode: reportLine.outputSkuCode,
+    handoverQty: 1,
+    handedOverAt: '2026-07-30 11:01:00',
+    handedOverBy: '另一个入口',
+  }).handoverId,
+  handover.handoverId,
+)
+
+changeWoolFactQty({
+  commandId: 'CMD-CHANGE-REPORT-001',
+  recordType: 'PROCESS_REPORT',
+  recordId: report.reportId,
+  afterQty: 12,
+  reason: '复核生产记录',
+  changedAt: '2026-07-30 11:10:00',
+  changedBy: '毛织主管',
+})
+assert.equal(getWoolOutputStockQty(reportOrder.woolOrderId, reportLine.outputSkuCode), 6)
+const secondReportChange = changeWoolFactQty({
+  commandId: 'CMD-CHANGE-REPORT-002',
+  recordType: 'PROCESS_REPORT',
+  recordId: report.reportId,
+  afterQty: 14,
+  reason: '再次复核生产记录',
+  changedAt: '2026-07-30 11:20:00',
+  changedBy: '毛织主管',
+})
+assert.equal(secondReportChange.beforeQty, 12)
+assert.equal(listWoolWarehouseFlows({ sourceRecordId: secondReportChange.changeId })[0].qty, 2)
+
+confirmWoolDownstreamReceipt(handover.handoverId, {
+  commandId: 'CMD-DOWNSTREAM-CONFIRM-001',
+  actualReceivedQty: 5,
+  receivedAt: '2026-07-30 12:00:00',
+  receivedBy: '下游仓管',
+})
+assert.equal(getWoolOutputStockQty(reportOrder.woolOrderId, reportLine.outputSkuCode), 8)
+assert.equal(
+  confirmWoolDownstreamReceipt(handover.handoverId, {
+    commandId: 'CMD-DOWNSTREAM-CONFIRM-001',
+    actualReceivedQty: 99,
+    receivedAt: '2026-07-30 12:01:00',
+    receivedBy: '另一个入口',
+  }).downstreamReceipt?.actualReceivedQty,
+  5,
+)
+assert.throws(
+  () => changeWoolFactQty({
+    commandId: 'CMD-CHANGE-HANDOVER-LOCKED',
+    recordType: 'HANDOVER',
+    recordId: handover.handoverId,
+    afterQty: 7,
+    reason: '下游已确认后尝试修改',
+    changedAt: '2026-07-30 12:10:00',
+    changedBy: '毛织主管',
+  }),
+  /下游已确认，交出数量不可修改/,
+)
+
+const yarnLine = reportOrder.outputPlanLines.flatMap((item) => item.requiredYarnSkus)[0]
+const issue = issueWoolYarn(reportOrder.woolOrderId, {
+  commandId: 'CMD-YARN-ISSUE-CHECK-001',
+  yarnSkuCode: yarnLine,
+  batchNo: 'BATCH-CHECK-001',
+  issuedQty: 2,
+  issuedAt: '2026-07-30 12:20:00',
+  issuedBy: '毛织仓管',
+})
+assert.equal(
+  issueWoolYarn(reportOrder.woolOrderId, {
+    commandId: 'CMD-YARN-ISSUE-CHECK-001',
+    yarnSkuCode: yarnLine,
+    batchNo: 'BATCH-CHECK-001',
+    issuedQty: 4,
+    issuedAt: '2026-07-30 12:21:00',
+    issuedBy: '另一个入口',
+  }).issueId,
+  issue.issueId,
+)
+returnWoolYarn(reportOrder.woolOrderId, {
+  commandId: 'CMD-YARN-RETURN-CHECK-001',
+  yarnSkuCode: yarnLine,
+  batchNo: 'BATCH-CHECK-001',
+  returnedQty: 1,
+  returnedAt: '2026-07-30 12:30:00',
+  returnedBy: '毛织仓管',
+})
+assert.throws(
+  () => returnWoolYarn(reportOrder.woolOrderId, {
+    commandId: 'CMD-YARN-RETURN-CHECK-OVER',
+    yarnSkuCode: yarnLine,
+    batchNo: 'BATCH-CHECK-001',
+    returnedQty: 2,
+    returnedAt: '2026-07-30 12:40:00',
+    returnedBy: '毛织仓管',
+  }),
+  /累计退回不能超过累计领用/,
+)
+
+const stockBeforeAdjustment = getWoolOutputStockQty(reportOrder.woolOrderId, reportLine.outputSkuCode)
+const adjustment = adjustWoolWarehouseStock({
+  commandId: 'CMD-STOCK-ADJUST-001',
+  woolOrderId: reportOrder.woolOrderId,
+  objectSkuCode: reportLine.outputSkuCode,
+  defaultLocationId: 'WOOL-WH-GARMENT-DEFAULT',
+  afterQty: stockBeforeAdjustment + 3,
+  reason: '盘点复核',
+  operatedAt: '2026-07-30 12:45:00',
+  operatedBy: '毛织仓管',
+})
+assert.equal(adjustment.qty, 3)
+assert.equal(getWoolOutputStockQty(reportOrder.woolOrderId, reportLine.outputSkuCode), stockBeforeAdjustment + 3)
+assert.throws(
+  () => transferWoolWarehouseStock({
+    commandId: 'CMD-STOCK-TRANSFER-DISABLED',
+    woolOrderId: reportOrder.woolOrderId,
+    objectSkuCode: reportLine.outputSkuCode,
+    defaultLocationId: 'WOOL-WH-GARMENT-DEFAULT',
+    toLocationId: 'WOOL-WH-DISABLED',
+    qty: 1,
+    reason: '测试停用库位',
+    operatedAt: '2026-07-30 12:46:00',
+    operatedBy: '毛织仓管',
+  }),
+  /启用位置/,
+)
+transferWoolWarehouseStock({
+  commandId: 'CMD-STOCK-TRANSFER-001',
+  woolOrderId: reportOrder.woolOrderId,
+  objectSkuCode: reportLine.outputSkuCode,
+  defaultLocationId: 'WOOL-WH-GARMENT-DEFAULT',
+  toLocationId: 'WOOL-WH-OVERFLOW-TEMP',
+  qty: 2,
+  reason: '转移至溢出暂存位',
+  operatedAt: '2026-07-30 12:47:00',
+  operatedBy: '毛织仓管',
+})
+assert.equal(getWoolOutputStockQty(reportOrder.woolOrderId, reportLine.outputSkuCode), stockBeforeAdjustment + 1)
+
+const completionOrder = listWoolWorkOrders().find((item) => item.mockScenarioCode === 'READY_TO_COMPLETE')!
+const completionStockBefore = completionOrder.outputPlanLines.reduce(
+  (sum, item) => sum + getWoolOutputStockQty(completionOrder.woolOrderId, item.outputSkuCode),
+  0,
+)
+const completion = completeWoolWorkOrder(completionOrder.woolOrderId, {
+  commandId: 'CMD-COMPLETE-CHECK-001',
+  completedAt: '2026-07-30 13:00:00',
+  completedBy: '毛织主管',
+  remark: '业务核对后确认完成',
+})
+assert.equal(getWoolCompletion(completionOrder.woolOrderId)?.completedAt, completion.completedAt)
+assert.equal(listWoolMachineAssociations(completionOrder.woolOrderId).length, 0)
+assert.equal(
+  completionOrder.outputPlanLines.reduce(
+    (sum, item) => sum + getWoolOutputStockQty(completionOrder.woolOrderId, item.outputSkuCode),
+    0,
+  ),
+  completionStockBefore,
+)
+assert.equal(
+  completeWoolWorkOrder(completionOrder.woolOrderId, {
+    commandId: 'CMD-COMPLETE-CHECK-001',
+    completedAt: '2026-07-30 13:01:00',
+    completedBy: '另一个入口',
+  }).completedAt,
+  completion.completedAt,
+)
+assert.equal(readWoolStore().operationLogs.filter((item) =>
+  item.woolOrderId === completionOrder.woolOrderId && item.action === 'COMPLETE_WOOL_WORK_ORDER',
+).length, 1)
+
+resetWoolFactWorkflowMock('CHECK_WOOL_COMPLETION_MACHINE_RELEASE')
+const associatedOrder = listWoolWorkOrders()
+  .find((item) => item.mockScenarioCode === 'MACHINE_ASSOCIATION_A')!
+const associatedLine = associatedOrder.outputPlanLines[0]
+const associatedMachineIds = listWoolMachineAssociations(associatedOrder.woolOrderId)
+  .map((item) => item.machineId)
+assert(associatedMachineIds.length > 0)
+addWoolYarnReceipt(associatedOrder.woolOrderId, {
+  commandId: 'CMD-ASSOCIATED-RECEIPT',
+  batchNo: 'BATCH-ASSOCIATED',
+  receivedAt: '2026-07-30 14:00:00',
+  receivedBy: '毛织仓管',
+  lines: [
+    { yarnSkuCode: 'YARN-A', receivedQty: 2 },
+    { yarnSkuCode: 'YARN-B', receivedQty: 2 },
+  ],
+})
+addWoolProcessReport(associatedOrder.woolOrderId, {
+  commandId: 'CMD-ASSOCIATED-REPORT',
+  outputSkuCode: associatedLine.outputSkuCode,
+  reportedQty: 10,
+  reportedAt: '2026-07-30 14:10:00',
+  reportedBy: '毛织主管',
+})
+addWoolHandover(associatedOrder.woolOrderId, {
+  commandId: 'CMD-ASSOCIATED-HANDOVER',
+  outputSkuCode: associatedLine.outputSkuCode,
+  handoverQty: 4,
+  handedOverAt: '2026-07-30 14:20:00',
+  handedOverBy: '毛织主管',
+})
+const associatedCompletion = completeWoolWorkOrder(associatedOrder.woolOrderId, {
+  commandId: 'CMD-ASSOCIATED-COMPLETE',
+  completedAt: '2026-07-30 14:30:00',
+  completedBy: '毛织主管',
+})
+assert.deepEqual(
+  new Set(associatedCompletion.confirmationSnapshot.releasedMachineIds),
+  new Set(associatedMachineIds),
+)
+assert.equal(listWoolMachineAssociations(associatedOrder.woolOrderId).length, 0)
+const associatedCompletionStore = readWoolStore()
+assert(associatedMachineIds.every((machineId) =>
+  associatedCompletionStore.machines.find((item) => item.machineId === machineId)?.status === 'FREE',
+))
+assert(associatedMachineIds.every((machineId) =>
+  associatedCompletionStore.machineAssociationLogs.some((item) =>
+    item.machineId === machineId
+    && item.fromWoolOrderId === associatedOrder.woolOrderId
+    && item.reason === 'ORDER_COMPLETED',
+  ),
+))
+assert(associatedCompletionStore.operationLogs.some((item) =>
+  item.woolOrderId === associatedOrder.woolOrderId
+  && item.action === 'RELEASE_WOOL_MACHINES_FOR_COMPLETION',
+))
+
+console.log('PASS task 5: repeatable wool facts, atomic stock, downstream lock, and manual completion')
