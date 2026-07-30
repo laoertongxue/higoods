@@ -1040,6 +1040,29 @@ const releasedLogMachineIds = releasedStore.machineAssociationLogs
   .map((item) => item.machineId)
   .sort()
 assert.deepEqual([...releasedCompletion.confirmationSnapshot.releasedMachineIds].sort(), releasedLogMachineIds)
+for (const machineId of releasedCompletion.confirmationSnapshot.releasedMachineIds) {
+  const releaseLog = releasedStore.machineAssociationLogs.find((item) =>
+    item.machineId === machineId
+    && item.fromWoolOrderId === releasedOrder.woolOrderId
+    && item.reason === 'ORDER_COMPLETED',
+  )!
+  assert.equal(releaseLog.operatedAt, releasedCompletion.completedAt)
+  const currentAssociation = releasedStore.machineAssociations.find((item) => item.machineId === machineId)
+  const machine = releasedStore.machines.find((item) => item.machineId === machineId)!
+  if (!currentAssociation) {
+    assert.equal(machine.status, 'FREE')
+    continue
+  }
+  assert(currentAssociation.associatedAt > releasedCompletion.completedAt)
+  assert.equal(machine.status, 'IN_PRODUCTION')
+  assert(releasedStore.machineAssociationLogs.some((item) =>
+    item.machineId === machineId
+    && item.action === 'ASSOCIATE'
+    && item.toWoolOrderId === currentAssociation.woolOrderId
+    && item.operatedAt === currentAssociation.associatedAt
+    && item.operatedAt > releasedCompletion.completedAt,
+  ))
+}
 assert(releasedCompletion.confirmationSnapshot.processReportSummary[0].reportedQty >= 1)
 assert(releasedCompletion.confirmationSnapshot.handoverSummary[0].handoverQty === 1)
 assert(releasedCompletion.confirmationSnapshot.waitHandoverStockSummary.every((item) => item.stockQty >= 0))
@@ -1098,6 +1121,77 @@ assert.equal(listWoolFactRecords({
 resetWoolFactWorkflowMock('CHECK_WOOL_FACT_WORKFLOW_AFTER_EXACT_SKU')
 
 const validStore = readWoolStore()
+const independentStockFactStore = structuredClone(validStore)
+const independentStockOrder = Object.values(independentStockFactStore.workOrders)
+  .find((item) => item.kind === 'WHOLE_GARMENT')!
+const independentStockLine = independentStockOrder.outputPlanLines
+  .find((item) => item.outputObjectType === 'GARMENT')!
+independentStockFactStore.warehouseFlows.push(
+  {
+    flowId: 'WF-INDEPENDENT-STOCK-ADJUSTMENT',
+    woolOrderId: independentStockOrder.woolOrderId,
+    flowType: 'ADJUSTMENT',
+    businessType: 'STOCK_ADJUSTMENT',
+    warehouseMode: 'WAIT_HANDOVER',
+    defaultLocationType: 'GARMENT',
+    defaultLocationId: 'WOOL-WH-GARMENT-DEFAULT',
+    objectSkuCode: independentStockLine.outputSkuCode,
+    qty: 2,
+    unit: independentStockLine.qtyUnit,
+    sourceRecordType: 'STOCK_ADJUSTMENT',
+    sourceRecordId: 'STOCK-ADJUSTMENT-INDEPENDENT-001',
+    reason: '完成后盘点调整',
+    operatedAt: '2026-07-30 19:30:00',
+    operatedBy: '毛织仓管',
+  },
+  {
+    flowId: 'WF-INDEPENDENT-STOCK-TRANSFER',
+    woolOrderId: independentStockOrder.woolOrderId,
+    flowType: 'TRANSFER',
+    businessType: 'STOCK_TRANSFER',
+    warehouseMode: 'WAIT_HANDOVER',
+    defaultLocationType: 'GARMENT',
+    defaultLocationId: 'WOOL-WH-GARMENT-DEFAULT',
+    objectSkuCode: independentStockLine.outputSkuCode,
+    qty: 1,
+    unit: independentStockLine.qtyUnit,
+    sourceRecordType: 'STOCK_TRANSFER',
+    sourceRecordId: 'STOCK-TRANSFER-INDEPENDENT-001',
+    fromLocationId: 'WOOL-WH-GARMENT-DEFAULT',
+    toLocationId: 'WOOL-WH-OVERFLOW-TEMP',
+    reason: '完成后库存转移',
+    operatedAt: '2026-07-30 19:40:00',
+    operatedBy: '毛织仓管',
+  },
+)
+assert.doesNotThrow(() => validateWoolStore(independentStockFactStore))
+
+const invalidTransferStore = structuredClone(independentStockFactStore)
+delete invalidTransferStore.warehouseFlows
+  .find((item) => item.flowId === 'WF-INDEPENDENT-STOCK-TRANSFER')!.toLocationId
+assert.throws(() => validateWoolStore(invalidTransferStore), /转移.*库位/)
+
+for (const sourceRecordType of [
+  'YARN_RECEIPT',
+  'YARN_ISSUE',
+  'YARN_RETURN',
+  'PROCESS_REPORT',
+  'HANDOVER',
+  'QTY_CHANGE',
+]) {
+  const danglingSourceStore = structuredClone(validStore)
+  const flow = danglingSourceStore.warehouseFlows.find((item) =>
+    item.sourceRecordType === sourceRecordType,
+  )!
+  assert(flow, `缺少 ${sourceRecordType} 强引用检查样本`)
+  flow.sourceRecordId = `DANGLING-${sourceRecordType}`
+  assert.throws(
+    () => validateWoolStore(danglingSourceStore),
+    /有效仓库流水|来源记录/,
+    `${sourceRecordType} 悬空来源必须被拒绝`,
+  )
+}
+
 const duplicateIdStore = structuredClone(validStore)
 duplicateIdStore.processReports.push(structuredClone(duplicateIdStore.processReports[0]))
 assert.throws(() => validateWoolStore(duplicateIdStore), /重复/)

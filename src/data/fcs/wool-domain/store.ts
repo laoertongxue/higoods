@@ -237,8 +237,53 @@ export function validateWoolStore(store: WoolDomainStore): void {
     if (!knownSku) {
       throw new Error(`毛织存储校验失败：仓库流水 ${flow.flowId} 的对象 SKU 不属于加工单`)
     }
+    const locationRule = {
+      YARN: {
+        warehouseMode: 'WAIT_PROCESS',
+        defaultLocationId: 'WOOL-WP-YARN-DEFAULT',
+      },
+      CUT_PIECE: {
+        warehouseMode: 'WAIT_HANDOVER',
+        defaultLocationId: 'WOOL-WH-CUT-DEFAULT',
+      },
+      GARMENT: {
+        warehouseMode: 'WAIT_HANDOVER',
+        defaultLocationId: 'WOOL-WH-GARMENT-DEFAULT',
+      },
+    }[flow.defaultLocationType]
+    if (
+      !locationRule
+      || flow.warehouseMode !== locationRule.warehouseMode
+      || flow.defaultLocationId !== locationRule.defaultLocationId
+    ) {
+      throw new Error(`毛织存储校验失败：仓库流水 ${flow.flowId} 的仓库模式或默认库位无效`)
+    }
+    if (!flow.sourceRecordType || !flow.sourceRecordId) {
+      throw new Error(`毛织存储校验失败：仓库流水 ${flow.flowId} 的来源类型和来源 ID 不能为空`)
+    }
+    if (flow.flowType === 'TRANSFER') {
+      if (
+        !flow.fromLocationId
+        || !flow.toLocationId
+        || flow.fromLocationId === flow.toLocationId
+        || (
+          flow.fromLocationId !== flow.defaultLocationId
+          && flow.toLocationId !== flow.defaultLocationId
+        )
+      ) {
+        throw new Error(`毛织存储校验失败：转移流水 ${flow.flowId} 的起止库位无效`)
+      }
+    }
+    const isSelfDescribingStockFact =
+      (flow.businessType === 'STOCK_ADJUSTMENT'
+        && flow.flowType === 'ADJUSTMENT'
+        && flow.sourceRecordType === 'STOCK_ADJUSTMENT')
+      || (flow.businessType === 'STOCK_TRANSFER'
+        && flow.flowType === 'TRANSFER'
+        && flow.sourceRecordType === 'STOCK_TRANSFER')
     const sourceExists =
-      (flow.sourceRecordType === 'YARN_RECEIPT'
+      isSelfDescribingStockFact
+      || (flow.sourceRecordType === 'YARN_RECEIPT'
         && store.yarnReceipts.some((item) => item.receiptId === flow.sourceRecordId))
       || (flow.sourceRecordType === 'YARN_ISSUE'
         && store.yarnIssues.some((item) => item.issueId === flow.sourceRecordId))

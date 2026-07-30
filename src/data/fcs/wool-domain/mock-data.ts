@@ -478,8 +478,17 @@ export function buildWoolFactWorkflowMockStore(_seed = 'DEFAULT'): WoolDomainSto
         store.machineAssociations.push({
           machineId: 'WM-001',
           woolOrderId: order.woolOrderId,
-          associatedAt: MOCK_AT,
+          associatedAt: '2026-07-30 19:00:00',
           associatedBy: '毛织主管',
+        })
+        store.machineAssociationLogs.push({
+          logId: 'WMAL-MOCK-REASSOCIATE-WM-001',
+          machineId: 'WM-001',
+          toWoolOrderId: order.woolOrderId,
+          action: 'ASSOCIATE',
+          reason: 'MANUAL_SAVE',
+          operatedAt: '2026-07-30 19:00:00',
+          operatedBy: '毛织主管',
         })
         break
       case 'MACHINE_STATUS_AUTO_RELEASE':
@@ -511,7 +520,7 @@ export function buildWoolFactWorkflowMockStore(_seed = 'DEFAULT'): WoolDomainSto
         store.machineAssociations.push({
           machineId: 'WM-002',
           woolOrderId: order.woolOrderId,
-          associatedAt: MOCK_AT,
+          associatedAt: '2026-07-30 19:10:00',
           associatedBy: '毛织主管',
         }, {
           machineId: 'WM-004',
@@ -520,6 +529,15 @@ export function buildWoolFactWorkflowMockStore(_seed = 'DEFAULT'): WoolDomainSto
           associatedBy: '毛织主管',
         })
         store.machineAssociationLogs.push(
+          {
+            logId: 'WMAL-MOCK-REASSOCIATE-WM-002',
+            machineId: 'WM-002',
+            toWoolOrderId: order.woolOrderId,
+            action: 'ASSOCIATE',
+            reason: 'MANUAL_SAVE',
+            operatedAt: '2026-07-30 19:10:00',
+            operatedBy: '毛织主管',
+          },
           {
             logId: 'WMAL-MOCK-ASSOCIATE-OLD',
             machineId: 'WM-004',
