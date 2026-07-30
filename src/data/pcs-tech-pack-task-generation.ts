@@ -641,7 +641,17 @@ export function writeProjectRelationFromTechPackVersion(
   operatorName = '当前用户',
   sourceTaskType: TechPackSourceTaskType = record.createdFromTaskType,
 ): void {
-  const nodeBinding = getProjectNodeBindingByTaskType(record.sourceProjectId, sourceTaskType)
+  const sourceBinding = getProjectNodeBindingByTaskType(record.sourceProjectId, sourceTaskType)
+  const projectInitNode = sourceBinding.projectNodeId
+    ? null
+    : getProjectNodeRecordByWorkItemTypeCode(record.sourceProjectId, 'PROJECT_INIT')
+  const nodeBinding = projectInitNode
+    ? {
+        projectNodeId: projectInitNode.projectNodeId,
+        workItemTypeCode: projectInitNode.workItemTypeCode,
+        workItemTypeName: projectInitNode.workItemTypeName,
+      }
+    : sourceBinding
   upsertProjectRelation({
     projectRelationId: buildProjectRelationId(record.technicalVersionId),
     projectId: record.sourceProjectId,
@@ -904,7 +914,6 @@ export function generateTechPackVersionFromPlateTask(
   if (!task) throw new Error('未找到制版任务。')
   ensurePlateTaskReady(task)
   ensureTaskProject(task, '当前制版任务未绑定正式商品项目，不能建立技术包版本。')
-  const sourceNode = ensureTaskNode(task.projectId, task.workItemTypeCode, task.workItemTypeName)
   const style = ensureStyleArchive(
     { styleId: '', styleCode: task.productStyleCode, projectId: task.projectId, spuCode: task.spuCode },
     '当前制版任务未绑定正式款式档案，不能建立技术包版本。',
@@ -918,7 +927,7 @@ export function generateTechPackVersionFromPlateTask(
     projectId: task.projectId,
     projectCode: task.projectCode,
     projectName: task.projectName,
-    projectNodeId: sourceNode.projectNodeId,
+    projectNodeId: '',
     createdFromTaskType: 'PLATE',
     createdFromTaskId: task.plateTaskId,
     createdFromTaskCode: task.plateTaskCode,
@@ -962,24 +971,6 @@ export function generateTechPackVersionFromPlateTask(
     updatedBy: operatorName,
   })
   const result = finalizeGeneration(createdRecord, 'CREATED', '制版生成技术包', operatorName, 'PLATE')
-  updateProjectNodeRecord(
-    task.projectId,
-    sourceNode.projectNodeId,
-    {
-      currentStatus: '已生成技术包',
-      latestInstanceId: task.plateTaskId,
-      latestInstanceCode: task.plateTaskCode,
-      latestResultType: '制版技术包已生成',
-      latestResultText: `已由制版任务生成技术包版本 ${createdRecord.technicalVersionCode}，待完成制版任务。`,
-      pendingActionType: '完成制版任务',
-      pendingActionText: '确认制版任务完成',
-      updatedAt: createdRecord.updatedAt,
-      lastEventType: '制版技术包已生成',
-      lastEventTime: createdRecord.updatedAt,
-    },
-    operatorName,
-  )
-  syncProjectNodeInstanceRuntime(task.projectId, sourceNode.projectNodeId, operatorName, createdRecord.updatedAt)
   return result
 }
 

@@ -1085,14 +1085,14 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
 
   seedItems.forEach((item) => {
     const project = pickProjectByCode(item.projectCode)
-    const node = project ? findProjectNodeByWorkItemTypeCode(project.projectId, 'PATTERN_TASK') : null
-    if (!project || !node) return
+    if (!project) return
     const style = findStyleArchiveByProjectId(project.projectId) ?? pickStyleByCode(item.productStyleCode)
     const styleCode = style?.styleCode || item.productStyleCode
     const linkedTechPackVersionId = item.linkedTechPackVersionId || ''
     const updatedAt = item.updatedAt
-    const upstreamObjectId = item.upstreamObjectId === 'PATTERN_TASK' ? node.projectNodeId : item.upstreamObjectId
-    const upstreamObjectCode = item.upstreamObjectCode === 'PATTERN_TASK' ? node.projectNodeId : item.upstreamObjectCode
+    const usesLegacyProjectNodeSource = item.upstreamObjectId === 'PATTERN_TASK'
+    const upstreamObjectId = usesLegacyProjectNodeSource ? project.projectId : item.upstreamObjectId
+    const upstreamObjectCode = usesLegacyProjectNodeSource ? project.projectCode : item.upstreamObjectCode
     const sampleConfirmedAt = item.sampleReviewStatus === '样板已通过' ? (item.sampleReviewAt || updatedAt) : ''
     const linkedTechPackUpdatedAt = linkedTechPackVersionId ? updatedAt : ''
 
@@ -1103,12 +1103,12 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
       projectId: project.projectId,
       projectCode: project.projectCode,
       projectName: project.projectName,
-      projectNodeId: node.projectNodeId,
+      projectNodeId: '',
       workItemTypeCode: 'PATTERN_TASK',
       workItemTypeName: '制版任务',
-      sourceType: item.sourceType,
-      upstreamModule: item.upstreamModule,
-      upstreamObjectType: item.upstreamObjectType,
+      sourceType: usesLegacyProjectNodeSource ? '人工创建' : item.sourceType,
+      upstreamModule: usesLegacyProjectNodeSource ? '商品项目' : item.upstreamModule,
+      upstreamObjectType: usesLegacyProjectNodeSource ? '商品项目' : item.upstreamObjectType,
       upstreamObjectId,
       upstreamObjectCode,
       styleId: style?.styleId || '',
@@ -1901,12 +1901,10 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
 
 function createFirstOrderSeeds(): { tasks: FirstOrderSampleTaskRecord[]; pendingItems: PcsTaskPendingItem[] } {
   const tasks: FirstOrderSampleTaskRecord[] = []
-  const projectA = pickProjectByCode('PRJ-20251216-010')
-  const projectB = pickProjectByCode('PRJ-20251216-003')
-  const nodeA = projectA ? findProjectNodeByWorkItemTypeCode(projectA.projectId, 'FIRST_ORDER_SAMPLE') : null
-  const nodeB = projectB ? findProjectNodeByWorkItemTypeCode(projectB.projectId, 'FIRST_ORDER_SAMPLE') : null
+  const projectA = pickProjectByCode('PRJ-202603-010')
+  const projectB = pickProjectByCode('PRJ-202603-003')
 
-  if (projectA && nodeA) {
+  if (projectA) {
     tasks.push({
       firstOrderSampleTaskId: 'PP-20260124-003',
       firstOrderSampleTaskCode: 'PP-20260124-003',
@@ -1914,7 +1912,7 @@ function createFirstOrderSeeds(): { tasks: FirstOrderSampleTaskRecord[]; pending
       projectId: projectA.projectId,
       projectCode: projectA.projectCode,
       projectName: projectA.projectName,
-      projectNodeId: nodeA.projectNodeId,
+      projectNodeId: '',
       workItemTypeCode: 'FIRST_ORDER_SAMPLE',
       workItemTypeName: '首单样衣打样',
       sourceType: '首版样衣打样',
@@ -1947,7 +1945,7 @@ function createFirstOrderSeeds(): { tasks: FirstOrderSampleTaskRecord[]; pending
     })
   }
 
-  if (projectB && nodeB) {
+  if (projectB) {
     tasks.push({
       firstOrderSampleTaskId: 'PP-20260121-001',
       firstOrderSampleTaskCode: 'PP-20260121-001',
@@ -1955,14 +1953,14 @@ function createFirstOrderSeeds(): { tasks: FirstOrderSampleTaskRecord[]; pending
       projectId: projectB.projectId,
       projectCode: projectB.projectCode,
       projectName: projectB.projectName,
-      projectNodeId: nodeB.projectNodeId,
+      projectNodeId: '',
       workItemTypeCode: 'FIRST_ORDER_SAMPLE',
       workItemTypeName: '首单样衣打样',
-      sourceType: '制版任务',
-      upstreamModule: '制版任务',
-      upstreamObjectType: '制版任务',
-      upstreamObjectId: 'PT-20260109-002',
-      upstreamObjectCode: 'PT-20260109-002',
+      sourceType: '首版样衣打样',
+      upstreamModule: '首版样衣打样',
+      upstreamObjectType: '首版样衣打样任务',
+      upstreamObjectId: 'FS-20260111-001',
+      upstreamObjectCode: 'FS-20260111-001',
       factoryId: 'factory-shenzhen-02',
       factoryName: '深圳工厂02',
       targetSite: '深圳',
@@ -1970,8 +1968,8 @@ function createFirstOrderSeeds(): { tasks: FirstOrderSampleTaskRecord[]; pending
       artworkVersion: '',
       sampleCode: 'SY-SZ-00052',
       ...firstOrderChainSeed({
-        upstreamObjectId: 'PT-20260109-002',
-        upstreamObjectCode: 'PT-20260109-002',
+        upstreamObjectId: 'FS-20260111-001',
+        upstreamObjectCode: 'FS-20260111-001',
       }),
       status: '打样中',
       ownerId: projectB.ownerId,
@@ -1983,13 +1981,13 @@ function createFirstOrderSeeds(): { tasks: FirstOrderSampleTaskRecord[]; pending
       updatedBy: '系统初始化',
       note: '',
       legacyProjectRef: projectB.projectCode,
-      legacyUpstreamRef: 'PT-20260109-002',
+      legacyUpstreamRef: 'FS-20260111-001',
     })
   }
 
   ;[
     {
-      projectCode: 'PRJ-20251216-005',
+      projectCode: 'PRJ-202603-005',
       firstOrderSampleTaskId: 'PP-20260405-005',
       firstOrderSampleTaskCode: 'PP-20260405-005',
       title: '首单样衣打样-法式优雅衬衫连衣裙',
@@ -2009,7 +2007,7 @@ function createFirstOrderSeeds(): { tasks: FirstOrderSampleTaskRecord[]; pending
       updatedAt: '2026-04-05 14:30:00',
     },
     {
-      projectCode: 'PRJ-20251216-013',
+      projectCode: 'PRJ-202603-013',
       firstOrderSampleTaskId: 'PP-20260406-013',
       firstOrderSampleTaskCode: 'PP-20260406-013',
       title: '首单样衣打样-设计款户外轻量夹克',
@@ -2029,7 +2027,7 @@ function createFirstOrderSeeds(): { tasks: FirstOrderSampleTaskRecord[]; pending
       updatedAt: '2026-04-06 12:40:00',
     },
     {
-      projectCode: 'PRJ-20251216-029',
+      projectCode: 'PRJ-202603-004',
       firstOrderSampleTaskId: 'FOS-20260425-002',
       firstOrderSampleTaskCode: 'FOS-20260425-002',
       title: '首单样衣打样-已建任务未补齐',
@@ -2059,7 +2057,7 @@ function createFirstOrderSeeds(): { tasks: FirstOrderSampleTaskRecord[]; pending
       updatedAt: '2026-04-25 11:00:00',
     },
     {
-      projectCode: 'PRJ-20251216-030',
+      projectCode: 'PRJ-202603-005',
       firstOrderSampleTaskId: 'FOS-20260425-003',
       firstOrderSampleTaskCode: 'FOS-20260425-003',
       title: '首单样衣打样-完成展示',
@@ -2090,8 +2088,7 @@ function createFirstOrderSeeds(): { tasks: FirstOrderSampleTaskRecord[]; pending
     },
   ].forEach((item) => {
     const project = pickProjectByCode(item.projectCode)
-    const node = project ? findProjectNodeByWorkItemTypeCode(project.projectId, 'FIRST_ORDER_SAMPLE') : null
-    if (!project || !node) return
+    if (!project) return
     tasks.push({
       firstOrderSampleTaskId: item.firstOrderSampleTaskId,
       firstOrderSampleTaskCode: item.firstOrderSampleTaskCode,
@@ -2099,10 +2096,10 @@ function createFirstOrderSeeds(): { tasks: FirstOrderSampleTaskRecord[]; pending
       projectId: project.projectId,
       projectCode: project.projectCode,
       projectName: project.projectName,
-      projectNodeId: node.projectNodeId,
+      projectNodeId: '',
       workItemTypeCode: 'FIRST_ORDER_SAMPLE',
       workItemTypeName: '首单样衣打样',
-      sourceType: '项目模板阶段',
+      sourceType: '首版样衣打样',
       upstreamModule: item.upstreamModule,
       upstreamObjectType: item.upstreamObjectType,
       upstreamObjectId: item.upstreamObjectId,
@@ -2117,7 +2114,7 @@ function createFirstOrderSeeds(): { tasks: FirstOrderSampleTaskRecord[]; pending
         upstreamObjectId: item.upstreamObjectId,
         upstreamObjectCode: item.upstreamObjectCode,
         sampleCode: 'sourceFirstSampleCode' in item ? item.sourceFirstSampleCode : '',
-        dualSample: item.projectCode === 'PRJ-20251216-013',
+        dualSample: item.projectCode === 'PRJ-202603-013',
         sourceTechPackVersionId: 'sourceTechPackVersionId' in item ? item.sourceTechPackVersionId : '',
         sourceTechPackVersionCode: 'sourceTechPackVersionCode' in item ? item.sourceTechPackVersionCode : '',
         sourceTechPackVersionLabel: 'sourceTechPackVersionLabel' in item ? item.sourceTechPackVersionLabel : '',
@@ -2133,7 +2130,7 @@ function createFirstOrderSeeds(): { tasks: FirstOrderSampleTaskRecord[]; pending
             upstreamObjectId: item.upstreamObjectId,
             upstreamObjectCode: item.upstreamObjectCode,
             sampleCode: 'sourceFirstSampleCode' in item ? item.sourceFirstSampleCode : '',
-            dualSample: item.projectCode === 'PRJ-20251216-013',
+            dualSample: item.projectCode === 'PRJ-202603-013',
           }).samplePlanLines,
       status: item.status,
       ownerId: project.ownerId,
@@ -2200,7 +2197,7 @@ export function createTaskRelationBootstrapSnapshot(): TaskRelationBootstrapSnap
             ownerName: task.ownerName,
           }),
         ),
-      ...snapshot.plateTasks.map((task) =>
+      ...snapshot.plateTasks.filter((task) => task.projectId && task.projectNodeId).map((task) =>
         taskRelationRecord({
           projectId: task.projectId,
           projectCode: task.projectCode,
@@ -2219,7 +2216,7 @@ export function createTaskRelationBootstrapSnapshot(): TaskRelationBootstrapSnap
           note: firstSampleRelationMeta(task),
         }),
       ),
-      ...snapshot.patternTasks.map((task) =>
+      ...snapshot.patternTasks.filter((task) => task.projectId && task.projectNodeId).map((task) =>
         taskRelationRecord({
           projectId: task.projectId,
           projectCode: task.projectCode,
@@ -2236,7 +2233,7 @@ export function createTaskRelationBootstrapSnapshot(): TaskRelationBootstrapSnap
           ownerName: task.ownerName,
         }),
       ),
-      ...snapshot.firstSampleTasks.map((task) =>
+      ...snapshot.firstSampleTasks.filter((task) => task.projectId && task.projectNodeId).map((task) =>
         taskRelationRecord({
           projectId: task.projectId,
           projectCode: task.projectCode,
@@ -2255,7 +2252,7 @@ export function createTaskRelationBootstrapSnapshot(): TaskRelationBootstrapSnap
           note: firstSampleRelationMeta(task),
         }),
       ),
-      ...snapshot.firstOrderSampleTasks.map((task) =>
+      ...snapshot.firstOrderSampleTasks.filter((task) => task.projectId && task.projectNodeId).map((task) =>
         taskRelationRecord({
           projectId: task.projectId,
           projectCode: task.projectCode,

@@ -58,6 +58,9 @@
 | 旧改版验收强制依赖商品项目 `REVISION_TASK` 节点，并把 `TEST_CONCLUSION` 测款结论或历史花型／首版样衣节点误当成可写任务节点 | `协作断裂` | 商品负责人、版师、打样人员 | 改从独立改版任务创建入口建立验收任务，来源节点只由系统精确解析当前项目 `TEST_CONCLUSION`，忽略调用方旧节点参数且不再回退 `REVISION_TASK`；改版派生的花型和首版样衣始终只关联项目与来源任务，不绑定或写回任何项目节点 | 否 |
 | 首版样衣返改来源被测款结论覆盖，专业任务演示数据又依赖已移除的项目节点 | `协作断裂` | 版师、花型人员、样衣人员 | 测款结论返改只解析 `TEST_CONCLUSION`；首版样衣返改精确校验并保留正式首版样衣任务。花型和首版样衣演示任务只关联来源项目，项目节点留空；独立首版样衣保存详情时只更新任务自身 | 否 |
 | 旧决策验收仍使用历史项目编号和“淘汰”语义，一致性修复后的待补数据节点又会被演示状态重新标为已完成 | `协作断裂` | 商品负责人、样衣管理员、数据治理人员 | 验收改用当前真实项目，按“不通过／样衣退回”实际完成样衣处置和项目归档；一致性修复标记为“数据待补齐”的节点在仓储补齐演示状态时保持进行中，直到正式记录补齐 | 否 |
+| 制版与首单样衣演示任务仍依赖已移除的专业项目节点，导致两个模块没有可演示数据 | `协作断裂` | 版师、样衣人员、商品负责人 | 制版与首单样衣种子改为只关联真实项目及真实来源任务，项目节点统一留空；五类专业任务均不再生成项目节点关系 | 否 |
+| 独立首单样衣保存和独立制版生成技术包仍尝试写回专业项目节点 | `协作断裂` | 版师、样衣人员、技术包维护人员 | 独立首单样衣详情只保存任务本身；独立制版可生成技术包但不改写项目节点，技术包产出关系统一归属商品项目建立节点 | 否 |
+| 一致性修复缺少“当前可执行”与“仍被前序阻塞”两类 hydrate 回归 | `点错风险` | 商品负责人、数据治理人员 | 新增两组正式数据缺失场景：当前可执行节点保持“数据待补齐”，被更早开放节点阻塞的后续节点保持“未开始／待前序完成”并清除旧结果 | 否 |
 
 ## 6. 最终结论
 
@@ -72,6 +75,8 @@
 - 独立改版可以读取系统精确解析的测款结论作为来源事实，但创建、花型／首版样衣下游生成、确认和完成均不得改写来源商品项目任何节点。
 - 首版样衣返改必须保留其正式首版样衣来源；花型和首版样衣专业模块保留独立任务演示数据，不再依赖固定五步之外的项目节点。
 - 当前决策验收必须以真实业务状态流转为准；数据一致性修复结果不得被演示种子覆盖。
+- 制版、花型、首版样衣、首单样衣与改版均按独立专业任务保存；项目只作为业务归属，不再提供这些专业任务的固定节点写回。
+- 独立制版生成技术包只回写制版任务、技术包、商品项目与款式档案事实，不改写固定五步节点。
 
 ## 7. 变更覆盖与验证
 
@@ -89,6 +94,8 @@
 - `src/data/pcs-task-project-relation-writeback.ts`
 - `src/data/pcs-task-bootstrap.ts`
 - `src/data/pcs-first-sample-project-writeback.ts`
+- `src/data/pcs-first-order-sample-project-writeback.ts`
+- `src/data/pcs-tech-pack-task-generation.ts`
 - `src/data/pcs-channel-product-project-repository.ts`
 - `src/data/pcs-project-inline-node-record-repository.ts`
 - `src/data/pcs-project-inline-node-record-types.ts`
@@ -115,7 +122,10 @@
 - `node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-project-decision-flow.ts`：通过
 - `node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-project-data-consistency.ts`：通过，共核对 26 个项目、364 个节点，未发现问题
 - `node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-revision-remodel-acceptance.ts`：通过，恶意旧节点参数不能覆盖系统解析的 `TEST_CONCLUSION`，独立改版任务创建、花型和首版样衣下游、确认、技术包前置、完成闭环及详情页验收全部实际执行，并用闭环前后全量节点快照确认来源商品项目节点未被改写
-- `npm test -- tests/pcs-professional-task-bootstrap-independent.spec.ts`：通过，花型和首版样衣保留多状态独立任务种子，全部只关联来源项目且项目节点为空
+- `npm test -- tests/pcs-professional-task-bootstrap-independent.spec.ts`：通过，制版、花型、首版样衣和首单样衣均保留多状态独立任务种子；五类专业任务只关联真实项目和真实来源，不绑定项目节点
+- `npm test -- tests/pcs-project-data-consistency-repair-order.spec.ts`：通过，当前可执行的缺数据节点保持“数据待补齐”，仍受前序阻塞的后续节点保持“未开始／待前序完成”且清空旧结果
+- `npm test -- tests/pcs-plate-making-*.spec.ts tests/pcs-tech-pack-plate-primary-generation.spec.ts`：通过，独立制版任务可完成资料、档案和技术包联动且不改写项目节点
+- `npm test -- tests/pcs-first-order-sample-*.spec.ts`：通过，首单样衣多状态演示、独立详情保存、来源关系和旧节点入口边界均已验证
 - `npm test -- tests/pcs-first-sample-*.spec.ts`：通过，首版样衣状态、独立详情保存、Mock 场景、节点边界和首版样衣返改来源均已验证
 - `npm test -- tests/pcs-project-decision-eliminate-to-sample-return.spec.ts tests/pcs-project-decision-options.spec.ts tests/pcs-project-data-consistency.spec.ts`：通过，当前决策枚举、暂保留边界、不通过后的样衣退回闭环、固定五步和专业任务仓储一致性均已真实执行
 - `npm run check:prototype-design-governance -- --all`：通过

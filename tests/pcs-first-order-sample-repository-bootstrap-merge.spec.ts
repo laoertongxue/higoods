@@ -29,10 +29,10 @@ const { listFirstOrderSampleTasks } = await import('../src/data/pcs-first-order-
 
 const tasks = listFirstOrderSampleTasks()
 assert.ok(
-  tasks.some((task) => task.projectCode === 'PRJ-20251216-030' && task.sampleCode === 'FOS-RESULT-25001'),
+  tasks.some((task) => task.projectCode === 'PRJ-202603-005' && task.sampleCode === 'FOS-RESULT-25001' && !task.projectNodeId),
   '首单样衣任务仓储读取旧缓存时，应合并 bootstrap 中新增的已完成首单样衣任务',
 )
 assert.ok(
-  tasks.some((task) => task.projectCode === 'PRJ-20251216-029' && task.firstOrderSampleTaskCode === 'FOS-20260425-002'),
+  tasks.some((task) => task.projectCode === 'PRJ-202603-004' && task.firstOrderSampleTaskCode === 'FOS-20260425-002' && !task.projectNodeId),
   '首单样衣任务仓储读取旧缓存时，应合并 bootstrap 中新增的已建未补齐任务',
 )

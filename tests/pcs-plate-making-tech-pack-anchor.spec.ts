@@ -5,7 +5,6 @@ import {
 } from '../src/data/pcs-project-relation-repository.ts'
 import {
   getProjectById,
-  getProjectNodeRecordByWorkItemTypeCode,
   resetProjectRepository,
   updateProjectRecord,
 } from '../src/data/pcs-project-repository.ts'
@@ -36,8 +35,6 @@ const style = listStyleArchives().find((item) => item.sourceProjectId) || findSt
 assert.ok(style, '必须存在款式档案演示数据')
 const project = getProjectById(style!.sourceProjectId)
 assert.ok(project, '款式档案必须有来源项目')
-const node = getProjectNodeRecordByWorkItemTypeCode(project!.projectId, 'PATTERN_TASK')
-assert.ok(node, '项目必须有制版任务节点')
 
 updateStyleArchive(style!.styleId, {
   techPackStatus: '未建立',
@@ -63,14 +60,14 @@ const task: PlateMakingTaskRecord = upsertPlateMakingTask({
   projectId: project!.projectId,
   projectCode: project!.projectCode,
   projectName: project!.projectName,
-  projectNodeId: node!.projectNodeId,
+  projectNodeId: '',
   workItemTypeCode: 'PATTERN_TASK',
   workItemTypeName: '制版任务',
-  sourceType: '项目模板阶段',
+  sourceType: '人工创建',
   upstreamModule: '商品项目',
-  upstreamObjectType: '商品项目节点',
-  upstreamObjectId: node!.projectNodeId,
-  upstreamObjectCode: node!.workItemTypeCode,
+  upstreamObjectType: '商品项目',
+  upstreamObjectId: project!.projectId,
+  upstreamObjectCode: project!.projectCode,
   productStyleCode: style!.styleCode,
   spuCode: style!.styleCode,
   productHistoryType: '未卖过',
