@@ -1,1170 +1,594 @@
-# 裁床仓库库位图实现计划
+# 裁床待加工仓与待交出仓库位图实现计划
 
-> **面向 AI 代理的工作者：** 必需子技能：使用 `superpowers-zh:subagent-driven-development`（推荐）或 `superpowers-zh:executing-plans` 逐任务实现此计划。步骤使用复选框（`- [ ]`）语法来跟踪进度。
+> 面向实现代理：本计划已经按 2026-07-30 代码现状完成第二轮审阅。实施时使用 `superpowers-zh:test-driven-development`，并按实际执行方式使用 `superpowers-zh:executing-plans` 或 `superpowers-zh:subagent-driven-development`。每个任务先补失败检查，再做最小实现。
 
-**目标：** 在现有裁床待加工仓和待交出仓中落地二维库位图，让主管完成一次性库位编排，让仓管查看空闲/占用分布，并在领料入仓时选择同一货架内连续相邻的多个空闲库位。
-
-**架构：** 继续使用现有“仓库—库区—货架—库位”主数据和现有两个仓库页面，不新增仓储路由或另一套库存账。主数据补充稳定显示顺序与未编排库位；一个共享投影把待加工物料和待交出中转袋事实归集为库位占用；一个字符串模板组件同时服务 PFOS 查看/编排和 PDA 选位。原有库区、货架、库位文本字段继续保留作兼容显示，新写入事实同时保存稳定库位 ID。
-
-**技术栈：** Vite、TypeScript、Tailwind CSS、Vanilla TypeScript 字符串模板、现有本地 Mock/运行时事件账、Node.js 断言检查、Playwright、CodeGraph。
+**目标：** 在现有裁床待加工仓和待交出仓页面内落地库位图、稳定编排、两态占用投影、待加工仓连续多选、待交出仓扫码/可视化单选，并保证 PFOS 与 PDA 基于同一物理事实。
 
 **设计依据：** `docs/superpowers/specs/2026-07-30-cutting-warehouse-location-map-design.md`
 
+**技术边界：** Vite、TypeScript、Tailwind CSS、Vanilla TypeScript 字符串模板、现有 Mock/运行时事件账；不新增后端、真实权限、React、状态管理、拖拽框架或通用 WMS 抽象。
+
 ---
 
-## 1. 文件范围与职责
+## 1. 代码审阅结论与实施约束
 
-### 新建文件
+### 1.1 已确认的代码事实
 
+| 代码事实 | 设计影响 | 实施动作 |
+| --- | --- | --- |
+| `FactoryInternalWarehouse` 已有仓库—库区—货架—库位层级及稳定节点 ID | 不新增“库位组”和第二套主数据 | 读取现有层级，只叠加裁床编排快照 |
+| 通用仓库 Store 是内存 Store | 直接改数组不能通过刷新后稳定验收 | 新增版本化本地编排存储 |
+| 通用仓库接口被多个工厂模块使用 | 强制增加 `displayOrder` 会扩大影响面 | 不给通用接口增加必填排序字段 |
+| 至少有两个裁床工厂 | 页面不能隐式混用第一套数据 | 所有读取以 `factoryId + warehouseKind` 定位 |
+| PDA 待加工仓硬编码 `FAB-*`，主数据默认是 `A-01-01` | 当前文本不能直接当稳定库位 | 先做编码迁移/唯一匹配，删除裁床硬编码选项 |
+| 待加工库存及运行时事件多为文本库位 | 修改编号后历史可能失联 | 新写入保存完整稳定路径，历史按固定优先级兼容 |
+| `菲票装袋` 和 `中转袋入仓` 已是两个动作 | 装袋不应占库位 | 占用只从入仓事实开始 |
+| 当前待交出投影从 `菲票装袋` 生成入仓袋 | 现有投影口径错误 | 先修正为读取 `中转袋入仓` |
+| PDA 中转袋入仓只更新本地 Mock 台账 | PFOS 和 PDA 不是同一事实 | 确认成功时幂等写入运行时入仓事件 |
+| 交出装袋确认会把临时袋换成目标中转袋 | 不能简单释放再新增导致闪烁或双算 | 在同一位置转移占用主体 |
+| 特殊工艺回仓在 Web 与 PDA 都可写库区、库位文本 | 回仓也必须进入稳定占用投影 | 两端统一解析并写稳定路径 |
+| 现有两个仓库页面用静态“库区库位”表格 | 无需新路由 | 原页签改名“库位图”并替换内容 |
+
+### 1.2 不能破坏的既有边界
+
+- 保留现有路由、侧栏、仓库页签结构和单页弹窗工作台。
+- `菲票装袋`、`中转袋入仓`、`交出装袋确认`、`中转袋交出`、`特殊工艺回仓`继续是不同业务动作。
+- 不改印花、染色、毛织、辅助工艺或其他工厂的仓库页面。
+- 不把库位图声明为标准列表页；只有详情和未定位清单需要分页。
+- 不允许手工切换“空闲/占用”。
+- 一线 PDA 不显示编排入口。
+
+---
+
+## 2. 文件范围
+
+### 2.1 新建文件
+
+- `src/pages/process-factory/cutting/warehouse-location-layout-store.ts`
+  - 定义并持久化裁床编排快照。
+  - 本地键必须包含版本、工厂 ID 和仓库类型。
+  - 提供读取、保存、校验版本、从当前主数据初始化和损坏回退能力。
 - `src/pages/process-factory/cutting/warehouse-location-map-model.ts`
-  - 定义库位图、占用明细、未定位库存和选位校验类型。
-  - 按稳定顺序生成库区卡片、货架行和库位格。
-  - 将待加工仓库存与待交出仓中转袋事实归集到稳定库位 ID。
-  - 判断多选库位是否同库区、同货架、连续且空闲。
+  - 解析稳定库位路径。
+  - 迁移历史库位文本。
+  - 构造待加工、待交出占用投影。
+  - 实现连续区间选择与剩余存放范围调整规则。
 - `src/components/ui/warehouse-location-map.ts`
-  - 渲染“空闲/占用”两态库位图、占用详情、选位反馈和编排按钮。
-  - 保证货架行内部横向滚动，页面主体不横向溢出。
-  - 只输出通用展示和 `data-*` 契约，不直接读业务 Store。
+  - 输出通用字符串模板、两态格子、选中效果、详情入口和编排控件。
+  - 不读取业务 Store。
 - `src/pages/process-factory/cutting/warehouse-location-map.ts`
-  - 组合主数据、库存事实和共享库位图组件。
-  - 提供 PFOS 查看模式、编排模式、占用详情与局部交互处理。
-  - 编排保存后只局部刷新库位图区，不触发整页重绘。
+  - 组合当前工厂、仓库、编排、占用和组件。
+  - 接管 PFOS 查看、选择、编排、详情及局部刷新。
 - `scripts/check-cutting-warehouse-location-map.ts`
-  - 校验稳定排序、两态投影、占用详情、相邻多选、编号变更和页面集成。
+  - 覆盖结构、迁移、布局、投影、生命周期、相邻选择、幂等和页面契约。
 - `tests/cutting-warehouse-location-map.spec.ts`
-  - 在浏览器中验证待加工/待交出库位图、占用详情、编排和 PDA 选位。
+  - 浏览器验收两张图、编排持久化、PDA 选位和异常防错。
 - `docs/prototype-review-records/2026-07-30-cutting-warehouse-location-map.md`
-  - 记录角色、任务、文案、状态、防错、协作和低分辨率自查结论。
+  - 按项目模板记录本次所有受管页面、组件、数据和交互改动。
 
-### 修改文件
+### 2.2 修改文件
 
 - `src/data/fcs/factory-internal-warehouse.ts`
-  - 为库区、货架、库位补充稳定 `displayOrder`。
-  - 为仓库补充 `unassignedLocationList`，只承接尚未归入货架的既有库位。
-  - 增加编排顺序、编号修改和未编排库位归入货架的最小变更函数。
-  - 库位 ID 保持不变，编号修改不改变占用和顺序。
+  - 只增加不扩大领域边界的稳定路径查找/节点读取 helper；如非必要不改接口。
+  - 不增加必填 `displayOrder`，不增加全局 `unassignedLocationList`。
 - `src/data/fcs/cutting/production-material-prep.ts`
-  - 领料会话和领料记录保存 `toLocationIds`。
-  - 保留 `toWarehouseArea`、`toLocationCode` 作为兼容摘要，取第一选中库位。
+  - 领料会话、领料记录和运行时事件写入存放范围及完整稳定路径。
+- `src/data/fcs/cutting/cutting-runtime-event-ledger.ts`
+  - 在兼容 payload 中允许稳定库位路径和幂等键。
 - `src/pages/process-factory/cutting/wait-handover-runtime.ts`
-  - 中转袋入仓事件保存稳定 `locationId`。
-  - 继续保存 `warehouseArea` 和 `locationCode`，兼容现有表格与历史记录。
+  - 修正装袋/入仓投影。
+  - 入仓、换袋、交出、特殊工艺交出/回仓形成可折叠的库位生命周期。
 - `src/pages/process-factory/cutting/warehouse-hub.ts`
-  - 将两个仓库页面“库区库位”页签中的静态库位行替换为共享库位图。
-  - 保留库存、领料、装袋、入仓、交出等既有页签和动作。
-- `src/main-handlers/fcs-handlers.ts`
-  - 接入库位图局部交互处理器。
+  - 两个 locations 页签接入库位图。
+  - PFOS 待加工动作、待交出入仓和特殊工艺回仓使用稳定选位。
+- `src/pages/process-factory/cutting/wait-handover-web-actions.ts`
+  - 如仍被当前入仓弹窗使用，同步稳定库位引用，避免保留另一条文本写入路径。
 - `src/pages/pda-warehouse-wait-process.ts`
-  - 在裁床“中转仓领料”确认页用库位图替代库区/库位下拉。
-  - 支持同一货架连续空闲库位多选，并把稳定 ID 写入领料会话。
+  - 删除裁床硬编码库位选项，接入待加工仓连续多选。
 - `src/pages/pda-cutting-inbound.ts`
-  - “中转袋入仓”继续保留扫码库位能力，同时提供可视化空闲库位选择。
-  - 单选占用库位时阻断；确认后写入同一待交出仓运行时事实。
+  - 扫码/可视化单选待交出库位，并幂等写入共同运行时事件。
+- `src/pages/pda-cutting-handover.ts`
+  - 特殊工艺回仓解析稳定库位并写入共同运行时事件。
 - `src/pages/pda-warehouse-shared.ts`
-  - 保留现有三级下拉兼容函数。
-  - 增加按稳定 ID 解析库位路径的共享 helper，不复制查找逻辑。
-- `scripts/check-factory-internal-warehouse-model.ts`
-  - 增加显示顺序、未编排库位和编号变更不改 ID 的断言。
-- `scripts/check-cutting-warehouse-management-switch.ts`
-  - 将“库区库位”页签的静态行检查更新为库位图契约。
+  - 增加稳定路径查询 helper；保留其他工艺现有三级选项能力。
+- `src/main-handlers/fcs-handlers.ts`
+  - 接入 PFOS 库位图局部事件。
+- 与上述流程对应的既有检查脚本。
 - `package.json`
-  - 增加库位图专项检查和浏览器验收命令。
+  - 增加专项检查和专项 Playwright 命令。
 
-### 明确不修改
+### 2.3 明确不修改
 
-- 不新增“库位组”。
-- 不新增仓储菜单、仓库路由或 PDA 一级入口。
-- 不改变库存、装袋、交出和盘点的既有业务动作。
-- 不让人员手工切换“空闲/占用”。
-- 不引入 React、拖拽框架、图表库、状态管理或后端接口。
-- 不把本功能扩展到印花、染色、毛织或特殊工艺仓库页面。
+- 不新增仓库路由、菜单或 PDA 一级入口。
+- 不改通用仓库层级。
+- 不批量迁移其他仓库模块。
+- 不修改标准列表页基线或治理脚本。
+- 不把 Prototype Store 改成真实数据库或接口层。
 
 ---
 
-## 2. 统一业务契约
+## 3. 统一数据契约
 
-实现前先固定以下类型，后续数据、页面和检查都使用同一命名：
+### 3.1 编排快照
 
 ```ts
-export type CuttingWarehouseMapKind = 'WAIT_PROCESS' | 'WAIT_HANDOVER'
-export type WarehouseLocationBusinessStatus = 'EMPTY' | 'OCCUPIED'
-export type WarehouseLocationMapMode = 'VIEW' | 'SELECT' | 'LAYOUT'
+export interface FactoryWarehouseLayoutSnapshot {
+  factoryId: string
+  warehouseKind: 'WAIT_PROCESS' | 'WAIT_HANDOVER'
+  warehouseId: string
+  layoutVersion: number
+  areaOrder: string[]
+  shelfOrderByAreaId: Record<string, string[]>
+  locationOrderByShelfId: Record<string, string[]>
+  unassignedLocationIds: string[]
+  locationLabelOverrides: Record<string, {
+    locationNo: string
+    locationName: string
+  }>
+  updatedAt: string
+  updatedBy: string
+}
+```
 
-export interface WarehouseLocationMapOccupancy {
-  occupancyId: string
+不变量：
+
+- 顺序数组保存 ID，不保存编号。
+- 没有快照时使用当前嵌套数组顺序。
+- 主数据新增节点自动追加到所属层级末尾。
+- 快照引用已删除节点时忽略该 ID、保留错误提示并回退。
+- `unassignedLocationIds` 只承接导入/历史适配产生的临时未编排项，不是新业务层级。
+- 保存时传入预期 `layoutVersion`；版本不一致则拒绝覆盖。
+
+### 3.2 稳定库位路径
+
+```ts
+export interface StableWarehouseLocationRef {
+  factoryId: string
+  warehouseId: string
+  warehouseKind: 'WAIT_PROCESS' | 'WAIT_HANDOVER'
+  areaId: string
+  areaName: string
+  shelfId: string
+  shelfNo: string
   locationId: string
-  warehouseKind: CuttingWarehouseMapKind
-  sourceKind: 'MATERIAL' | 'TRANSFER_BAG'
+  locationNo: string
+}
+```
+
+新事实保存全部字段。历史解析顺序固定为：
+
+1. `locationId`。
+2. 同工厂、同仓库的 `areaName + shelfNo + locationNo`。
+3. 同工厂、同仓库唯一的 `areaName + locationNo`。
+4. 否则进入未定位清单，不猜测。
+
+扫码同时接受稳定二维码和当前编号；编号匹配不唯一时阻断。
+
+### 3.3 占用和存放范围
+
+```ts
+export type WarehouseLocationBusinessStatus = 'EMPTY' | 'OCCUPIED'
+
+export interface WarehouseStorageFootprint {
+  footprintId: string
+  sourceType: 'PICKUP_SESSION' | 'TEMP_BAG' | 'TRANSFER_BAG' | 'SPECIAL_CRAFT_RETURN'
+  sourceId: string
+  locationIds: string[]
+  totalQty: number
+  unit: string
+  remainingQty: number
+  inboundAt: string
+  inboundBy: string
+}
+
+export interface WarehouseLocationOccupancy {
+  occupancyId: string
+  footprintId: string
+  locationId: string
   productionOrderNo: string
   objectNo: string
   objectName: string
-  colorOrSpec: string
   qty: number
   unit: string
-  inboundBy: string
   inboundAt: string
-}
-
-export interface WarehouseLocationMapCell {
-  locationId: string
-  locationNo: string
-  locationName: string
-  displayOrder: number
-  businessStatus: WarehouseLocationBusinessStatus
-  occupancies: WarehouseLocationMapOccupancy[]
-}
-
-export interface WarehouseLocationMapShelf {
-  shelfId: string
-  shelfNo: string
-  shelfName: string
-  displayOrder: number
-  locations: WarehouseLocationMapCell[]
-}
-
-export interface WarehouseLocationMapArea {
-  areaId: string
-  areaName: string
-  displayOrder: number
-  shelves: WarehouseLocationMapShelf[]
-}
-
-export interface CuttingWarehouseLocationMapProjection {
-  warehouseId: string
-  warehouseKind: CuttingWarehouseMapKind
-  warehouseName: string
-  totalLocationCount: number
-  emptyLocationCount: number
-  occupiedLocationCount: number
-  areas: WarehouseLocationMapArea[]
-  unassignedLocations: WarehouseLocationMapCell[]
-  unlocatedOccupancies: WarehouseLocationMapOccupancy[]
-}
-
-export interface WarehouseLocationSelectionResult {
-  ok: boolean
-  message: string
-  selectedLocationIds: string[]
+  inboundBy: string
 }
 ```
 
-强制不变量：
+规则：
 
-- 页面层级只能是仓库、库区、货架、库位。
-- `locationId` 是稳定身份；`locationNo` 和 `locationName` 可以修改。
-- 库区、货架、库位都按 `displayOrder` 排列，不根据编号实时重排。
-- 日常库位图只输出 `EMPTY` 和 `OCCUPIED` 两种业务状态。
-- `STOPPED` 库位以及所属库区或货架已停用的库位不进入日常图和统计。
-- “本次已选”只是一种 CSS 选中效果，不进入投影状态。
-- 待加工仓只有有效在库数量大于 0 的物料才形成占用。
-- 待交出仓只有已入仓且尚未交出的中转袋才形成占用。
-- 一个库位允许归集多条占用事实；只要仍有一条有效事实就显示占用。
-- 多选只能发生在待加工仓入仓场景。
-- 多选必须同仓、同库区、同货架，并且 `displayOrder` 连续。
-- 占用、停用、未编排库位不能进入本次选择。
-- Web、PDA 都调用同一个投影和同一个相邻校验函数。
+- 多库位物料总量只存在 `footprint` 一次；各格只引用范围，不重复汇总。
+- `remainingQty > 0` 时范围内库位均占用。
+- 部分领出默认保留原范围；仓管通过“调整剩余存放范围”缩小连续区间。
+- `remainingQty = 0` 时释放整个范围。
+- 业务状态只输出 `EMPTY`、`OCCUPIED`；选中是临时 UI 属性。
+- 主数据 `AVAILABLE/STOPPED` 与业务占用分开；停用节点不入图、不计数。
+
+### 3.4 待交出生命周期折叠
+
+按事件时间和稳定业务身份折叠：
+
+1. `菲票装袋`：建立袋内容，不占库位。
+2. `中转袋入仓`：以袋使用 ID + 稳定库位建立占用。
+3. `交出装袋确认`：从临时袋转为目标袋，默认继承原物理位置；不得重复计数。
+4. `新增交出记录`：目标袋离仓，移除对应占用。
+5. `特殊工艺交出`：按菲票、袋和实交数量减少占用。
+6. `特殊工艺回仓`：按回仓事件的新稳定库位和实回数量建立占用。
+
+`toLocationCode` 或 `fromLocationCode` 等于袋码时不得作为物理位置。关联优先使用袋使用 ID、事件引用、菲票 ID、稳定库位 ID。
+
+### 3.5 幂等与确认顺序
+
+- 领料存放幂等键：领料会话 ID + 节点版本。
+- 中转袋入仓幂等键：袋使用 ID + `INBOUND`。
+- 特殊工艺回仓幂等键：回仓记录 ID + 菲票 ID + 特殊工艺 ID。
+- 确认前重新读取最新投影并校验所有目标库位。
+- 任一库位冲突时整次失败，不部分写入。
+- 运行时事件写入成功后才更新 PDA 本地状态并清空表单。
+- 写入失败时保留表单和待处理状态。
 
 ---
 
-## 3. 实施任务
+## 4. 实施任务
 
-### 任务 1：先建立专项检查和稳定编排主数据
+### 任务 1：建立专项检查、编排快照和历史编码迁移
 
 **文件：**
 
-- 新建：`scripts/check-cutting-warehouse-location-map.ts`
-- 修改：`src/data/fcs/factory-internal-warehouse.ts`
-- 修改：`scripts/check-factory-internal-warehouse-model.ts`
-- 修改：`package.json`
+- 新建 `warehouse-location-layout-store.ts`
+- 新建 `warehouse-location-map-model.ts`
+- 新建 `scripts/check-cutting-warehouse-location-map.ts`
+- 修改 `factory-internal-warehouse.ts`
+- 修改 `package.json`
 
-- [ ] 1.1 在 `package.json` 增加专项命令：
+- [ ] 1.1 在 `package.json` 增加：
 
 ```json
-"check:cutting-warehouse-location-map": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-warehouse-location-map.ts",
+"check:cutting-warehouse-location-map": "tsx scripts/check-cutting-warehouse-location-map.ts",
 "check:cutting-warehouse-location-map-e2e": "playwright test tests/cutting-warehouse-location-map.spec.ts"
 ```
 
-- [ ] 1.2 先创建失败检查，导入尚不存在的编排能力：
+- [ ] 1.2 先写失败检查，覆盖：
+  - 两个裁床工厂各有待加工仓、待交出仓。
+  - 无快照时沿用当前数组顺序。
+  - 移动后保存、重读和刷新模拟仍保持顺序。
+  - 编号修改不改变 ID 和顺序。
+  - 旧版本保存被拒绝。
+  - 损坏快照回退且产生可见提示。
+  - 不同工厂、不同仓库类型互不污染。
+- [ ] 1.3 实现版本化本地键，例如：
 
-```ts
-import assert from 'node:assert/strict'
-import {
-  buildDefaultFactoryInternalWarehouses,
-  findFactoryInternalWarehouseByFactoryAndKind,
-  moveFactoryWarehouseArea,
-  moveFactoryWarehouseLocation,
-  moveFactoryWarehouseShelf,
-  renameFactoryWarehouseLocation,
-} from '../src/data/fcs/factory-internal-warehouse.ts'
-
-const warehouses = buildDefaultFactoryInternalWarehouses()
-const cuttingWaitProcess = warehouses.find(
-  (item) => item.factoryKind === 'CENTRAL_CUTTING' && item.warehouseKind === 'WAIT_PROCESS',
-)
-assert(cuttingWaitProcess, '缺少裁床待加工仓')
-assert(cuttingWaitProcess.areaList.every((area) => Number.isInteger(area.displayOrder)), '库区缺少稳定顺序')
-assert(
-  cuttingWaitProcess.areaList.every((area) =>
-    area.shelfList.every((shelf) =>
-      Number.isInteger(shelf.displayOrder)
-      && shelf.locationList.every((location) => Number.isInteger(location.displayOrder)),
-    ),
-  ),
-  '货架或库位缺少稳定顺序',
-)
-assert.deepEqual(cuttingWaitProcess.unassignedLocationList, [], '默认仓库未编排区必须可读取')
+```text
+higood:cutting-warehouse-layout:v1:{factoryId}:{warehouseKind}
 ```
 
-- [ ] 1.3 运行检查确认失败：
+- [ ] 1.4 实现 `buildInitialLayoutSnapshot`、`readLayoutSnapshot`、`saveLayoutSnapshot`、`applyLayoutSnapshot`。
+- [ ] 1.5 实现历史位置迁移报告：
+  - `MATCHED`：唯一匹配并补稳定路径。
+  - `NEEDS_CONFIRMATION`：存在多个候选。
+  - `UNRESOLVED`：没有候选。
+- [ ] 1.6 将 `FAB-*`、`CUT-*`、`SP-RETURN-*` 静态示例纳入检查，禁止静默生成第二套库位。
+- [ ] 1.7 运行：
 
 ```bash
 npm run check:cutting-warehouse-location-map
-```
-
-预期：TypeScript 报告 `displayOrder`、`unassignedLocationList` 或移动函数尚不存在。
-
-- [ ] 1.4 在仓库主数据类型中增加稳定顺序和未编排列表：
-
-```ts
-export interface FactoryWarehouseLocation {
-  locationId: string
-  locationNo: string
-  locationName: string
-  displayOrder: number
-  status: FactoryWarehouseLocationStatus
-  remark?: string
-}
-
-export interface FactoryWarehouseShelf {
-  shelfId: string
-  shelfNo: string
-  shelfName: string
-  displayOrder: number
-  locationList: FactoryWarehouseLocation[]
-  status: FactoryWarehouseLocationStatus
-  remark?: string
-}
-
-export interface FactoryWarehouseArea {
-  areaId: string
-  areaName: string
-  displayOrder: number
-  shelfList: FactoryWarehouseShelf[]
-  status: FactoryWarehouseLocationStatus
-  remark?: string
-}
-
-export interface FactoryInternalWarehouse {
-  // 保留现有字段
-  areaList: FactoryWarehouseArea[]
-  unassignedLocationList: FactoryWarehouseLocation[]
-}
-```
-
-- [ ] 1.5 让默认数据和新增节点都写入从 1 开始的顺序：
-
-```ts
-function normalizeDisplayOrders<T extends { displayOrder: number }>(items: T[]): void {
-  items
-    .sort((left, right) => left.displayOrder - right.displayOrder)
-    .forEach((item, index) => {
-      item.displayOrder = index + 1
-    })
-}
-```
-
-默认仓库生成时必须设置：
-
-```ts
-areaList: areaList.map((area, areaIndex) => ({
-  ...area,
-  displayOrder: areaIndex + 1,
-  shelfList: area.shelfList.map((shelf, shelfIndex) => ({
-    ...shelf,
-    displayOrder: shelfIndex + 1,
-    locationList: shelf.locationList.map((location, locationIndex) => ({
-      ...location,
-      displayOrder: locationIndex + 1,
-    })),
-  })),
-})),
-unassignedLocationList: [],
-```
-
-- [ ] 1.6 增加最小编排变更函数：
-
-```ts
-export function moveFactoryWarehouseArea(
-  warehouseId: string,
-  areaId: string,
-  direction: -1 | 1,
-): boolean
-
-export function moveFactoryWarehouseShelf(
-  warehouseId: string,
-  areaId: string,
-  shelfId: string,
-  direction: -1 | 1,
-): boolean
-
-export function moveFactoryWarehouseLocation(
-  warehouseId: string,
-  areaId: string,
-  shelfId: string,
-  locationId: string,
-  input: { direction?: -1 | 1; targetShelfId?: string },
-): boolean
-
-export function renameFactoryWarehouseLocation(
-  warehouseId: string,
-  areaId: string,
-  shelfId: string,
-  locationId: string,
-  input: { locationNo: string; locationName: string },
-): boolean
-```
-
-移动函数交换顺序后调用 `normalizeDisplayOrders`；重命名函数只能修改编号和名称，不得修改 `locationId`、所属货架或 `displayOrder`。
-
-- [ ] 1.7 补充检查：重命名前后 ID 和顺序不变；占用库位不能移入未编排区；未编排库位归入目标货架后获得新的末位顺序。
-
-- [ ] 1.8 运行主数据检查：
-
-```bash
 npm run check:factory-internal-warehouse-model
-npm run check:cutting-warehouse-location-map
 ```
 
-预期：两条命令均通过。
-
-- [ ] 1.9 只提交本任务文件：
-
-```bash
-git add package.json \
-  scripts/check-cutting-warehouse-location-map.ts \
-  scripts/check-factory-internal-warehouse-model.ts \
-  src/data/fcs/factory-internal-warehouse.ts
-git commit -m "feat(裁床仓库): 增加库位稳定编排顺序"
-```
-
-### 任务 2：建立空闲/占用投影和相邻选择规则
+### 任务 2：建立待加工仓占用投影和连续存放范围
 
 **文件：**
 
-- 新建：`src/pages/process-factory/cutting/warehouse-location-map-model.ts`
-- 修改：`scripts/check-cutting-warehouse-location-map.ts`
+- 修改 `warehouse-location-map-model.ts`
+- 修改 `production-material-prep.ts`
+- 修改 `cutting-runtime-event-ledger.ts`
+- 修改专项检查
 
-- [ ] 2.1 在专项检查中先写四组失败场景：
-
-```ts
-const waitProcessMap = buildCuttingWarehouseLocationMap({
-  warehouse: cuttingWaitProcess,
-  occupancies: waitProcessOccupancies,
-})
-assert.equal(waitProcessMap.emptyLocationCount + waitProcessMap.occupiedLocationCount, waitProcessMap.totalLocationCount)
-assert.equal(waitProcessMap.areas.flatMap((area) => area.shelves).flatMap((shelf) => shelf.locations)
-  .every((location) => ['EMPTY', 'OCCUPIED'].includes(location.businessStatus)), true)
-
-assert.deepEqual(
-  validateWarehouseLocationSelection(waitProcessMap, ['LOC-A-01-01', 'LOC-A-01-02']),
-  { ok: true, message: '', selectedLocationIds: ['LOC-A-01-01', 'LOC-A-01-02'] },
-)
-assert.equal(
-  validateWarehouseLocationSelection(waitProcessMap, ['LOC-A-01-01', 'LOC-B-01-01']).message,
-  '请选择同一货架内连续相邻的空闲库位。',
-)
-```
-
-另外覆盖：
-
-- 中间隔着占用库位时不能跨过去选择。
-- 编号不连续但显示顺序连续时允许选择。
-- 停用库位不进入图和统计。
-- 一个库位有两条物料时仍只计一个占用库位。
-- 待交出袋完成交出后不再进入占用。
-- 找不到稳定库位 ID 且无法用历史编号匹配的事实进入 `unlocatedOccupancies`。
-
-- [ ] 2.2 运行专项检查确认失败：
+- [ ] 2.1 先写失败检查：
+  - 有剩余量才占用。
+  - 一个库位多条物料只计一个占用格。
+  - 一批物料关联 3 个库位时总量只计算一次。
+  - 同货架连续允许；跨区、跨架、间隔或穿过占用格阻断。
+  - 编号不连续、布局顺序连续时允许。
+  - 点击两端可扩展/收缩；点击中间格阻断；清空可重选。
+  - 部分领出保守保持原范围。
+  - 调整剩余存放范围后释放被移除的端部库位。
+  - 剩余量为零后释放全部范围。
+- [ ] 2.2 为领料会话和运行时事件增加 `storageFootprint` 与稳定路径快照；保留原文本字段兼容既有表格。
+- [ ] 2.3 确认领料前重新读取投影，整组校验后一次写入。
+- [ ] 2.4 增加“调整剩余存放范围”领域函数；只允许当前范围的连续子区间或重新选择的连续空闲范围。
+- [ ] 2.5 运行：
 
 ```bash
 npm run check:cutting-warehouse-location-map
+npm run check:material-prep-pickup-management
+npm run check:cutting-pickup-ui-closure
+npm run check:cutting-warehouse-writeback-chain
 ```
 
-预期：报错找不到 `warehouse-location-map-model.ts`。
-
-- [ ] 2.3 实现稳定路径解析：
-
-```ts
-export interface FactoryWarehouseLocationPath {
-  warehouseId: string
-  areaId: string
-  areaName: string
-  shelfId: string
-  shelfNo: string
-  locationId: string
-  locationNo: string
-  displayOrder: number
-}
-
-export function findWarehouseLocationPath(
-  warehouse: FactoryInternalWarehouse,
-  input: { locationId?: string; areaName?: string; shelfNo?: string; locationNo?: string },
-): FactoryWarehouseLocationPath | null
-```
-
-匹配优先级固定为：
-
-1. `locationId`。
-2. 同仓库内 `areaName + shelfNo + locationNo`。
-3. 同仓库内唯一的 `areaName + locationNo`。
-4. 无法唯一匹配则返回 `null`，不得猜测库位。
-
-- [ ] 2.4 实现投影函数：
-
-```ts
-export function buildCuttingWarehouseLocationMap(input: {
-  warehouse: FactoryInternalWarehouse
-  occupancies: WarehouseLocationMapOccupancy[]
-}): CuttingWarehouseLocationMapProjection
-```
-
-实现顺序：
-
-1. 过滤停用库区、货架和库位。
-2. 按各层 `displayOrder` 排列。
-3. 将占用事实按 `locationId` 分组。
-4. 有有效占用的库位输出 `OCCUPIED`，否则输出 `EMPTY`。
-5. 未匹配事实进入 `unlocatedOccupancies`。
-6. 统计基于最终可见库位，不包含停用和未编排库位。
-
-- [ ] 2.5 实现相邻校验：
-
-```ts
-export function validateWarehouseLocationSelection(
-  projection: CuttingWarehouseLocationMapProjection,
-  selectedLocationIds: string[],
-): WarehouseLocationSelectionResult {
-  const uniqueIds = Array.from(new Set(selectedLocationIds))
-  if (!uniqueIds.length) {
-    return { ok: false, message: '请选择空闲库位。', selectedLocationIds: [] }
-  }
-  const cells = findSelectedCells(projection, uniqueIds)
-  const invalid = cells.length !== uniqueIds.length
-    || cells.some((cell) => cell.businessStatus !== 'EMPTY')
-    || !isSameShelf(cells)
-    || !hasConsecutiveDisplayOrders(cells)
-  return invalid
-    ? { ok: false, message: '请选择同一货架内连续相邻的空闲库位。', selectedLocationIds: uniqueIds }
-    : { ok: true, message: '', selectedLocationIds: uniqueIds }
-}
-```
-
-- [ ] 2.6 实现两类占用来源转换：
-
-```ts
-export function buildWaitProcessLocationOccupancies(
-  items: FactoryWaitProcessStockItem[],
-): WarehouseLocationMapOccupancy[]
-
-export function buildWaitHandoverLocationOccupancies(
-  projection: WaitHandoverRuntimeProjection,
-): WarehouseLocationMapOccupancy[]
-```
-
-待加工只保留 `availableQty ?? receivedQty - issuedQty > 0`；待交出只保留已入仓且尚未交出的中转袋。历史数据先用路径兼容字段匹配，新数据优先使用稳定 ID。
-
-- [ ] 2.7 运行专项检查：
-
-```bash
-npm run check:cutting-warehouse-location-map
-```
-
-预期：所有投影与相邻规则断言通过。
-
-- [ ] 2.8 提交投影：
-
-```bash
-git add scripts/check-cutting-warehouse-location-map.ts \
-  src/pages/process-factory/cutting/warehouse-location-map-model.ts
-git commit -m "feat(裁床仓库): 建立库位占用投影与相邻校验"
-```
-
-### 任务 3：实现共享库位图字符串组件
+### 任务 3：修正待交出仓事实投影和完整袋生命周期
 
 **文件：**
 
-- 新建：`src/components/ui/warehouse-location-map.ts`
-- 修改：`scripts/check-cutting-warehouse-location-map.ts`
+- 修改 `wait-handover-runtime.ts`
+- 修改 `cutting-runtime-event-ledger.ts`
+- 修改专项检查
 
-- [ ] 3.1 先在专项检查中断言组件契约：
-
-```ts
-const html = renderWarehouseLocationMap({
-  projection: waitProcessMap,
-  mode: 'VIEW',
-  selectedLocationIds: [],
-})
-assert(html.includes('待加工仓库位图'))
-assert(html.includes('空闲'))
-assert(html.includes('占用'))
-assert(!html.includes('部分占用'))
-assert(!html.includes('预留'))
-assert(html.includes('data-warehouse-map-area'))
-assert(html.includes('data-warehouse-map-shelf'))
-assert(html.includes('data-warehouse-map-location'))
-assert(html.includes('overflow-x-auto'))
-```
-
-- [ ] 3.2 运行专项检查确认组件尚不存在。
-
-- [ ] 3.3 实现组件输入：
-
-```ts
-export interface RenderWarehouseLocationMapOptions {
-  projection: CuttingWarehouseLocationMapProjection
-  mode: WarehouseLocationMapMode
-  selectedLocationIds: string[]
-  selectionMessage?: string
-}
-
-export function renderWarehouseLocationMap(
-  options: RenderWarehouseLocationMapOptions,
-): string
-```
-
-- [ ] 3.4 实现日常图：
-
-- 顶部标题按仓库类型显示“待加工仓库位图”或“待交出仓库位图”。
-- 只显示空闲、占用图例。
-- 摘要显示“共 N 个、空闲 N 个、占用 N 个”。
-- 库区按响应式卡片排列。
-- 每个货架一行，左侧固定货架名，右侧库位区使用 `overflow-x-auto`。
-- 空闲格只显示库位编号和“空闲”。
-- 占用格显示生产单号以及“面料”或“袋 BAG-xxx”摘要。
-- 多条占用显示“POxxx 等”和“2 种物料”或“2 袋”。
-
-- [ ] 3.5 实现三种模式的按钮契约：
-
-```html
-<!-- 查看模式 -->
-<button data-warehouse-map-action="open-occupancy" data-location-id="...">
-
-<!-- 选择模式 -->
-<button data-warehouse-map-action="toggle-location" data-location-id="...">
-
-<!-- 编排模式 -->
-<button data-warehouse-map-action="move-location" data-direction="-1" data-location-id="...">
-<button data-warehouse-map-action="move-location" data-direction="1" data-location-id="...">
-```
-
-占用库位在选择模式中必须带 `disabled`；停用库位不渲染；“本次已选”使用边框和勾选图标表达，但状态文字仍为“空闲”。
-
-- [ ] 3.6 实现占用详情和异常提示：
-
-- 待加工详情显示生产单、物料、颜色/规格、数量单位、入仓人和时间。
-- 待交出详情显示生产单、中转袋、裁片数量、入仓人和时间。
-- `unlocatedOccupancies` 非空时显示“存在 N 条未定位库存”，并提供“查看未定位库存”。
-- `unassignedLocations` 只在编排模式显示。
-
-- [ ] 3.7 运行专项检查：
+- [ ] 3.1 先建立回归检查，明确：
+  - 只有 `菲票装袋` 时占用数为 0。
+  - `中转袋入仓` 后对应库位占用。
+  - 投影函数不得从 `菲票装袋` 生成 `inboundTempBags`。
+  - 交出装袋确认后同一库位只保留目标袋一次。
+  - 新增交出记录后释放目标袋。
+  - 同库位还有其他袋时继续占用。
+  - 特殊工艺交出减少对应对象，特殊工艺回仓按新位置恢复。
+  - 部分回仓保留实回数量。
+  - 袋码不被解析成物理库位。
+- [ ] 3.2 将 `buildRuntimeInboundTempBagsFromWaitHandoverEvents` 改为以 `中转袋入仓` 为起点，并关联此前装袋内容。
+- [ ] 3.3 入仓、交出装袋确认、最终交出、特殊工艺交出/回仓事件补稳定路径和幂等键。
+- [ ] 3.4 实现按事件顺序折叠的当前占用投影，取消事件和已离仓历史不参与当前占用。
+- [ ] 3.5 保留现有 Web/PDA 业务动作边界，不合并弹窗，不新增页面。
+- [ ] 3.6 运行：
 
 ```bash
 npm run check:cutting-warehouse-location-map
+npm run check:pda-cutting-wait-handover-route-integration
+npm run check:pda-cutting-inbound-workflow
+npm run check:pda-cutting-transfer-bag-handover
+npm run check:web-cutting-transfer-bag-actions
+npm run check:cutting-special-craft-dispatch-return
 ```
 
-- [ ] 3.8 提交共享组件：
-
-```bash
-git add scripts/check-cutting-warehouse-location-map.ts \
-  src/components/ui/warehouse-location-map.ts
-git commit -m "feat(裁床仓库): 增加两态库位图组件"
-```
-
-### 任务 4：接入 PFOS 两个仓库页面和编排交互
+### 任务 4：实现共享库位图组件
 
 **文件：**
 
-- 新建：`src/pages/process-factory/cutting/warehouse-location-map.ts`
-- 修改：`src/pages/process-factory/cutting/warehouse-hub.ts`
-- 修改：`src/main-handlers/fcs-handlers.ts`
-- 修改：`scripts/check-cutting-warehouse-management-switch.ts`
-- 修改：`scripts/check-cutting-warehouse-location-map.ts`
+- 新建 `src/components/ui/warehouse-location-map.ts`
+- 修改专项检查
 
-- [ ] 4.1 先更新页面检查：
+- [ ] 4.1 先断言组件契约：
+  - 标题、当前工厂、当前仓库、总数、空闲数、占用数。
+  - 只有“空闲”“占用”两种业务状态文字。
+  - 每个格有 `data-location-id`、中文状态和可访问名称。
+  - 选中格仍标记业务状态“空闲”，另有勾选和边框。
+  - 库位按钮最小 44×44 像素。
+  - 占用详情和未定位清单具有分页。
+  - 只有货架行使用横向滚动。
+- [ ] 4.2 组件支持 `VIEW`、`SELECT`、`LAYOUT` 三种模式，输出 `data-*` 事件契约，不读 Store。
+- [ ] 4.3 状态使用文字、图标、边框和颜色共同表达；Web 支持 Enter/Space。
+- [ ] 4.4 1366×768、1280×720 使用多列或单列自适应；1024×768 强制单列库区卡片。
+- [ ] 4.5 禁止大段业务逻辑直接堆在页面模板内；业务详情由独立渲染函数输出。
 
-```ts
-appStore.syncFromBrowser('/fcs/craft/cutting/warehouse-management/wait-process?tab=locations')
-const waitProcessLocationHtml = renderCraftCuttingWarehouseManagementWaitProcessPage()
-assertIncludes(waitProcessLocationHtml, '待加工仓库位图', '待加工仓缺少库位图')
-assertIncludes(waitProcessLocationHtml, 'data-warehouse-map-root', '待加工仓未接入共享库位图')
-assertNotIncludes(waitProcessLocationHtml, '待裁面料', '不得继续渲染静态库位行')
+### 任务 5：接入 PFOS 两张库位图与编排
 
-appStore.syncFromBrowser('/fcs/craft/cutting/warehouse-management/wait-handover?tab=locations')
-const waitHandoverLocationHtml = renderCraftCuttingWarehouseManagementWaitHandoverPage()
-assertIncludes(waitHandoverLocationHtml, '待交出仓库位图', '待交出仓缺少库位图')
-assertIncludes(waitHandoverLocationHtml, '中转袋', '待交出仓占用摘要缺少中转袋')
-```
+**文件：**
 
-- [ ] 4.2 运行两个检查确认页面仍输出静态库位行：
+- 新建 `warehouse-location-map.ts`
+- 修改 `warehouse-hub.ts`
+- 修改 `fcs-handlers.ts`
+- 修改 `check-cutting-warehouse-management-switch.ts`
+- 修改专项检查
+
+- [ ] 5.1 把两个现有页签标签从“库区库位”改为“库位图”，路由保持不变。
+- [ ] 5.2 库位图顶部增加当前裁床工厂选择器，并把选择写入 `factoryId` 查询参数或既有页面状态。
+- [ ] 5.3 替换静态库位行，保留其他页签、筛选、列表、弹窗和工作台。
+- [ ] 5.4 编排模式支持：
+  - 库区前移/后移。
+  - 货架上移/下移。
+  - 库位左移/右移。
+  - 临时未编排项归入货架。
+  - 修改库位编号和名称显示覆盖。
+  - 保存前版本校验。
+- [ ] 5.5 待加工 PFOS 领料/回收入仓动作使用同一库位解析；需要多个库位时复用连续选择。
+- [ ] 5.6 待交出 PFOS“中转袋入仓”和“特殊工艺回仓”使用稳定库位选择；“菲票装袋”继续不展示库位输入。
+- [ ] 5.7 点击库位、切换详情、调整顺序仅刷新 `[data-warehouse-map-root]` 或详情容器；不得整页 `root.innerHTML`。
+- [ ] 5.8 局部插入后只 hydrate 新区域图标。
+- [ ] 5.9 运行：
 
 ```bash
 npm run check:cutting-warehouse-management-switch
+npm run check:web-cutting-transfer-bag-actions
 npm run check:cutting-warehouse-location-map
 ```
 
-- [ ] 4.3 在页面组合模块中提供两个入口：
-
-```ts
-export function renderCuttingWarehouseLocationMapSection(
-  warehouseKind: CuttingWarehouseMapKind,
-): string
-
-export function handleCuttingWarehouseLocationMapEvent(
-  target: HTMLElement,
-): boolean
-```
-
-组合模块负责：
-
-- 找到当前裁床工厂的待加工仓或待交出仓。
-- 读取共享占用事实。
-- 构造库位图投影。
-- 从 URL 的 `layout=1` 决定查看或编排模式。
-- 生成“进入编排/退出编排”按钮。
-
-- [ ] 4.4 替换 `warehouse-hub.ts` 中两个 `locationContent`：
-
-```ts
-const locationContent = renderCuttingWarehouseLocationMapSection('WAIT_PROCESS')
-```
-
-以及：
-
-```ts
-const locationContent = renderCuttingWarehouseLocationMapSection('WAIT_HANDOVER')
-```
-
-保留 `activeTab === 'locations'` 分支和现有页面外壳，不改其余库存页签。
-
-- [ ] 4.5 实现编排动作：
-
-- 库区：前移、后移。
-- 货架：上移、下移。
-- 库位：左移、右移。
-- 未编排库位：选择目标货架后“归入货架”。
-- 库位编号：短弹窗修改编号和名称。
-- 已占用库位：允许调整显示顺序和编号，不提供删除或停用动作。
-
-每次动作只更新 `[data-warehouse-map-root]`：
-
-```ts
-function refreshWarehouseLocationMapRoot(root: HTMLElement, warehouseKind: CuttingWarehouseMapKind): void {
-  root.outerHTML = renderCuttingWarehouseLocationMapSection(warehouseKind)
-}
-```
-
-按钮带 `data-skip-page-rerender="true"`，处理器返回 `true`，避免 `root.innerHTML` 级整页重绘。
-
-- [ ] 4.6 在 `fcs-handlers.ts` 的裁床处理链中接入：
-
-```ts
-await handleCuttingWarehouseLocationMapEvent(target) ||
-await handleCraftCuttingWaitProcessEvent(target) ||
-await handleCraftCuttingWaitHandoverWebActionsEvent(target) ||
-await handleCraftCuttingWaitHandoverEvent(target) ||
-```
-
-- [ ] 4.7 运行页面检查：
-
-```bash
-npm run check:cutting-warehouse-management-switch
-npm run check:cutting-warehouse-location-map
-```
-
-- [ ] 4.8 提交 PFOS 页面：
-
-```bash
-git add scripts/check-cutting-warehouse-management-switch.ts \
-  scripts/check-cutting-warehouse-location-map.ts \
-  src/main-handlers/fcs-handlers.ts \
-  src/pages/process-factory/cutting/warehouse-hub.ts \
-  src/pages/process-factory/cutting/warehouse-location-map.ts
-git commit -m "feat(裁床仓库): 接入待加工与待交出库位图"
-```
-
-### 任务 5：让 PDA 待加工仓支持连续相邻多选
+### 任务 6：接入 PDA 待加工仓连续多选
 
 **文件：**
 
-- 修改：`src/data/fcs/cutting/production-material-prep.ts`
-- 修改：`src/pages/pda-warehouse-shared.ts`
-- 修改：`src/pages/pda-warehouse-wait-process.ts`
-- 修改：`scripts/check-cutting-warehouse-location-map.ts`
+- 修改 `pda-warehouse-wait-process.ts`
+- 修改 `pda-warehouse-shared.ts`
+- 修改专项及现有领料检查
 
-- [ ] 5.1 先增加领料事实检查：
-
-```ts
-const session = appendPickupSessionFromNode({
-  pickupNodeId: node.nodeId,
-  pickupNodeVersion: node.version,
-  receiverName: '裁床仓管',
-  warehouseArea: 'A区',
-  locationCode: 'A-01-01',
-  toLocationIds: ['LOC-A-01-01', 'LOC-A-01-02'],
-  waitProcessLedgerEventId: 'check-location-map',
-})
-assert.deepEqual(session.toLocationIds, ['LOC-A-01-01', 'LOC-A-01-02'])
-assert(session.pickupNodeSnapshot, '领料会话仍需保留节点快照')
-```
-
-- [ ] 5.2 在 `PickupRecord`、`PickupSession` 和 `appendPickupSessionFromNode` 输入中增加：
-
-```ts
-toLocationIds: string[]
-```
-
-写入规则：
-
-- 至少一个稳定库位 ID。
-- 第一项解析为兼容字段 `warehouseArea` 和 `locationCode`。
-- 同一次领料产生的全部物料记录共享同一组 `toLocationIds`。
-- 运行时事件 payload 同时写入 `locationIds`，每个 ID 都能形成同一批物料的占用关联。
-
-- [ ] 5.3 在 `pda-warehouse-shared.ts` 增加：
-
-```ts
-export function getWarehouseLocationPathById(
-  warehouseId: string,
-  locationId: string,
-): FactoryWarehouseLocationPath | null
-```
-
-该 helper 只负责读取路径，不产生空闲/占用判断。
-
-- [ ] 5.4 将 `renderCuttingPickupDraftPage()` 中“入库库区/入库库位”两个下拉替换为：
-
-```ts
-renderWarehouseLocationMap({
-  projection: buildCurrentCuttingWaitProcessLocationMap(),
-  mode: 'SELECT',
-  selectedLocationIds: state.cuttingPickupLocationIds,
-  selectionMessage: state.cuttingPickupLocationMessage,
-})
-```
-
-首屏仍按现有顺序显示：
-
-1. 当前领料节点。
-2. 本次全部物料。
-3. 选择存放库位。
-4. “确认全部领料”唯一主按钮。
-
-- [ ] 5.5 处理 `toggle-location`：
-
-```ts
-const nextIds = toggleWarehouseLocationId(
-  state.cuttingPickupLocationIds,
-  actionNode.dataset.locationId || '',
-)
-const result = validateWarehouseLocationSelection(projection, nextIds)
-if (!result.ok) {
-  state.cuttingPickupLocationMessage = result.message
-  return updateCuttingPickupLocationMapLocally(container)
-}
-state.cuttingPickupLocationIds = result.selectedLocationIds
-state.cuttingPickupLocationMessage = ''
-return updateCuttingPickupLocationMapLocally(container)
-```
-
-选择第一个库位后，其他货架、其他库区、占用库位和不能形成连续区间的空闲库位进入不可选状态。
-
-- [ ] 5.6 确认领料前再次调用相邻校验，不信任 DOM 状态：
-
-```ts
-const selection = validateWarehouseLocationSelection(
-  buildCurrentCuttingWaitProcessLocationMap(),
-  state.cuttingPickupLocationIds,
-)
-if (!selection.ok) {
-  window.alert(selection.message)
-  return true
-}
-```
-
-- [ ] 5.7 运行检查：
+- [ ] 6.1 删除裁床专用 `CUTTING_RECEIVE_LOCATIONS` 硬编码来源，改为按当前 `factoryId` 读取待加工仓。
+- [ ] 6.2 保持 PDA 首屏顺序：
+  1. 当前领料节点。
+  2. 本次全部物料。
+  3. 选择存放库位。
+  4. 唯一主按钮“确认全部领料”。
+- [ ] 6.3 实现端点扩展/缩短、清空重选、不可选提示和已选范围摘要。
+- [ ] 6.4 确认前重新投影；冲突时列出具体库位并保留其他有效选择。
+- [ ] 6.5 新写入会话保存完整稳定路径和一次性存放范围，兼容文本取第一库位摘要。
+- [ ] 6.6 领料后提供“调整剩余存放范围”入口，只修改位置关联，不手工改业务状态。
+- [ ] 6.7 输入和库位点击只局部更新，目标响应不超过 200ms。
+- [ ] 6.8 运行：
 
 ```bash
 npm run check:cutting-warehouse-location-map
 npm run check:cutting-pickup-ui-closure
 npm run check:material-prep-pickup-management
+npm run check:cutting-pickup-important-regressions
 ```
 
-- [ ] 5.8 提交 PDA 待加工仓：
-
-```bash
-git add scripts/check-cutting-warehouse-location-map.ts \
-  src/data/fcs/cutting/production-material-prep.ts \
-  src/pages/pda-warehouse-shared.ts \
-  src/pages/pda-warehouse-wait-process.ts
-git commit -m "feat(裁床仓库): 支持相邻库位多选入仓"
-```
-
-### 任务 6：让 PDA 中转袋入仓接入待交出仓库位图
+### 任务 7：接入 PDA 中转袋入仓和特殊工艺回仓
 
 **文件：**
 
-- 修改：`src/pages/pda-cutting-inbound.ts`
-- 修改：`src/pages/process-factory/cutting/wait-handover-runtime.ts`
-- 修改：`scripts/check-cutting-warehouse-location-map.ts`
+- 修改 `pda-cutting-inbound.ts`
+- 修改 `pda-cutting-handover.ts`
+- 修改 `wait-handover-runtime.ts`
+- 修改专项及现有 PDA 检查
 
-- [ ] 6.1 先增加中转袋入仓事实检查：
+- [ ] 7.1 中转袋入仓表单增加 `selectedLocationId`、稳定路径和幂等键。
+- [ ] 7.2 扫码优先，库位图作为确认/兜底；只允许单选当前待交出仓空闲库位。
+- [ ] 7.3 扫码结果不存在、歧义、停用、未编排、非当前工厂或已占用时分别阻断。
+- [ ] 7.4 确认顺序固定为：
+  1. 校验袋为待入仓。
+  2. 校验最新库位投影。
+  3. 幂等写入 `中转袋入仓` 事件。
+  4. 成功后更新 PDA 本地袋状态。
+  5. 清空表单并局部刷新。
+- [ ] 7.5 写入失败时保留表单、袋状态和选择，显示可重试提示。
+- [ ] 7.6 特殊工艺回仓在现有 PDA handover 页面继续执行，扫描稳定库位并把 `locationId` 写入回仓事件。
+- [ ] 7.7 PFOS 与 PDA 对同一幂等键重复提交时只保留一条有效事实。
+- [ ] 7.8 运行：
 
-```ts
-const event = appendWaitHandoverInboundEvent({
-  source: 'PDA',
-  operator: { operatorName: '裁片仓入仓员' },
-  bagCode: 'BAG-MAP-001',
-  warehouseArea: 'B区',
-  locationCode: 'B-01-02',
-  locationId: 'LOC-B-01-02',
-  tickets: [ticket],
-})
-assert.equal(event.payload.locationId, 'LOC-B-01-02')
-assert.equal(event.inventoryEffect?.toLocationCode, 'B-01-02')
+```bash
+npm run check:pda-cutting-inbound-workflow
+npm run check:pda-cutting-wait-handover-route-integration
+npm run check:pda-cutting-transfer-bag-handover
+npm run check:special-craft-pda-warehouse-actions
+npm run check:cutting-special-craft-dispatch-return
+npm run check:cutting-warehouse-location-map
 ```
 
-- [ ] 6.2 扩展入仓事件输入：
+### 任务 8：浏览器验收和原型审查
 
-```ts
-export function appendWaitHandoverInboundEvent(input: {
-  source: CuttingRuntimeEventSource
-  operator: WaitHandoverRuntimeOperator
-  bagCode: string
-  warehouseArea: string
-  locationCode: string
-  locationId: string
-  tickets: WaitHandoverRuntimeTicketInput[]
-  occurredAt?: string
-})
-```
+**文件：**
 
-`payload.locationId` 是稳定身份；`warehouseArea`、`locationCode` 和 `inventoryEffect` 保持兼容。
+- 新建 `tests/cutting-warehouse-location-map.spec.ts`
+- 新建原型审查记录
+- 修改专项检查
 
-- [ ] 6.3 扩展 `InboundFormState`：
+- [ ] 8.1 PFOS 待加工仓验证：
+  - 正确工厂、仓库、统计和两态图例。
+  - 占用详情显示生产单、物料、数量、责任人、时间和存放范围。
+  - 多库位总量不重复。
+  - 未定位清单可分页。
+- [ ] 8.2 PFOS 待交出仓验证：
+  - 装袋不占用，入仓后占用。
+  - 换成目标袋后同格只显示目标袋一次。
+  - 最终交出释放，其他袋仍在时不释放。
+  - 特殊工艺回仓按新位置恢复。
+- [ ] 8.3 编排验证：
+  - 移动库位、修改编号、保存、切换路由、刷新浏览器。
+  - 顺序仍在、`data-location-id` 不变。
+  - 不同工厂和仓库互不影响。
+  - 旧版本保存被阻断。
+- [ ] 8.4 PDA 验证：
+  - 连续端点多选、跨架阻断、中间取消阻断、清空重选。
+  - 扫码唯一匹配、歧义、停用、占用和同步失败。
+  - 重试不重复入仓。
+- [ ] 8.5 分辨率验证：
+  - 1366×768 页面主体无横向溢出。
+  - 1280×720 可查看、编排和选位。
+  - 1024×768 库区单列，货架内部滚动。
+  - PDA 小屏主按钮和错误提示无需横向滚动。
+- [ ] 8.6 性能验证：
+  - 详情、选位、编排、分页不整页闪烁，不丢滚动位置。
+  - 单次按钮响应不超过 200ms。
+  - 输入不触发整页重绘。
+- [ ] 8.7 原型审查记录覆盖角色、设备、协作、页面模式、中文文案、状态、数量、防错、异常、性能及全部受管文件。
 
-```ts
-selectedLocationId: string
-```
+---
 
-保留 `locationLabel` 扫码输入。扫码成功时解析到稳定库位 ID；点击库位图时反向填充 `locationLabel`。
+## 5. 验证矩阵
 
-- [ ] 6.4 在“扫库区库位”步骤下方增加可视化兜底：
-
-```ts
-renderWarehouseLocationMap({
-  projection: buildCurrentCuttingWaitHandoverLocationMap(),
-  mode: 'SELECT',
-  selectedLocationIds: form.selectedLocationId ? [form.selectedLocationId] : [],
-})
-```
-
-该场景只允许单选。占用库位不可选；点击占用库位只能查看占用详情，不能覆盖原袋。
-
-- [ ] 6.5 `applyPdaCuttingInboundBusinessTransition()` 增加稳定 ID 校验：
-
-- 扫码或点击得到的库位必须存在于当前裁床待交出仓。
-- 库位必须启用、已编排且当前空闲。
-- 失败提示分别为“库位不存在，请重新扫描”“该库位已停用，请更换库位”“该库位已被占用，请选择空闲库位”。
-
-- [ ] 6.6 确认成功后从袋内菲票候选构造 `WaitHandoverRuntimeTicketInput[]`，调用 `appendWaitHandoverInboundEvent()`；再次打开待交出仓库位图时，所选格显示生产单和袋号。
-
-- [ ] 6.7 保证局部响应：
-
-- 扫码输入继续使用现有 debounce。
-- 点击库位只刷新当前库位图容器和选中摘要。
-- 确认入仓只刷新当前工作流卡片。
-- 不调用整页 `root.innerHTML`。
-
-- [ ] 6.8 运行检查：
+### 5.1 专项和直接回归
 
 ```bash
 npm run check:cutting-warehouse-location-map
+npm run check:factory-internal-warehouse-model
+npm run check:cutting-warehouse-management-switch
+npm run check:material-prep-pickup-management
+npm run check:cutting-pickup-ui-closure
+npm run check:cutting-pickup-important-regressions
+npm run check:cutting-warehouse-writeback-chain
 npm run check:pda-cutting-wait-handover-route-integration
-npm run check:cutting-wait-handover-transfer-bag-flow
+npm run check:pda-cutting-inbound-workflow
+npm run check:pda-cutting-transfer-bag-handover
+npm run check:web-cutting-transfer-bag-actions
+npm run check:special-craft-pda-warehouse-actions
+npm run check:cutting-special-craft-dispatch-return
 ```
 
-- [ ] 6.9 提交 PDA 待交出仓：
-
-```bash
-git add scripts/check-cutting-warehouse-location-map.ts \
-  src/pages/pda-cutting-inbound.ts \
-  src/pages/process-factory/cutting/wait-handover-runtime.ts
-git commit -m "feat(裁床仓库): 接入中转袋可视化选位"
-```
-
-### 任务 7：补齐浏览器验收与原型审查
-
-**文件：**
-
-- 新建：`tests/cutting-warehouse-location-map.spec.ts`
-- 新建：`docs/prototype-review-records/2026-07-30-cutting-warehouse-location-map.md`
-- 修改：`scripts/check-cutting-warehouse-location-map.ts`
-
-- [ ] 7.1 编写浏览器验收：
-
-```ts
-import { expect, test } from '@playwright/test'
-
-test('待加工仓库位图只展示空闲和占用并可查看物料', async ({ page }) => {
-  await page.goto('/fcs/craft/cutting/warehouse-management/wait-process?tab=locations')
-  await expect(page.getByText('待加工仓库位图')).toBeVisible()
-  await expect(page.getByText('空闲', { exact: true }).first()).toBeVisible()
-  await expect(page.getByText('占用', { exact: true }).first()).toBeVisible()
-  await page.locator('[data-warehouse-map-action="open-occupancy"]').first().click()
-  await expect(page.getByText('生产单号')).toBeVisible()
-  await expect(page.getByText('入仓时间')).toBeVisible()
-})
-
-test('待加工仓领料只能多选同货架连续空闲库位', async ({ page }) => {
-  await page.goto('/fcs/pda/warehouse/wait-process?scope=cutting&action=pickup')
-  await page.locator('[data-pda-warehouse-action="cutting-wp-pickup"]').first().click()
-  const first = page.locator('[data-warehouse-map-action="toggle-location"]:not([disabled])').first()
-  await first.click()
-  await expect(page.getByText(/已选 1 个库位/)).toBeVisible()
-  await page.locator('[data-warehouse-map-location][data-selection-blocked="true"]').first().click({ force: true })
-  await expect(page.getByText('请选择同一货架内连续相邻的空闲库位。')).toBeVisible()
-})
-
-test('待交出仓占用详情展示生产单和中转袋', async ({ page }) => {
-  await page.goto('/fcs/craft/cutting/warehouse-management/wait-handover?tab=locations')
-  await page.locator('[data-warehouse-map-action="open-occupancy"]').first().click()
-  await expect(page.getByText('中转袋号')).toBeVisible()
-  await expect(page.getByText('裁片数量')).toBeVisible()
-})
-```
-
-- [ ] 7.2 再增加编排验收：
-
-- 进入编排模式。
-- 将一个库位右移。
-- 修改该库位编号。
-- 退出并重新进入编排模式。
-- 断言位置保持移动后的顺序。
-- 断言库位 DOM 的 `data-location-id` 不变。
-- 断言页面中没有“库位组”。
-
-- [ ] 7.3 在 1366×768 和 1280×720 各执行一次：
-
-- 页面主体无水平滚动。
-- 库位较多时只有货架行产生内部水平滚动。
-- 占用详情可关闭。
-- 编排按钮可见。
-- PDA 主按钮无需横向滚动即可点击。
-
-- [ ] 7.4 填写原型审查记录，至少记录：
-
-| 检查项 | 结论 | 说明 |
-| --- | --- | --- |
-| 角色匹配 | 通过 | 主管编排，一线只看图和选位 |
-| 任务清晰度 | 通过 | 日常页只回答哪里空闲、哪里占用 |
-| 数量与状态 | 通过 | 只有空闲、占用，数量带单位 |
-| 扫码与识别 | 通过 | 中转袋入仓保留扫码，库位图作为可视化选择 |
-| 防错 | 通过 | 占用不可选，跨货架和不连续多选被阻断 |
-| 异常与追溯 | 通过 | 未编排和未定位单独展示，占用详情含人和时间 |
-| 现场设备可用性 | 通过 | 1280×720 和 PDA 小屏可完成主动作 |
-
-例外填写：
-
-```text
-无。本次保留既有扫码入口，并用库位图补充可视化选位；未引入新的现场手填字段。
-```
-
-- [ ] 7.5 运行专项浏览器验收：
+### 5.2 页面、治理和构建
 
 ```bash
 npm run check:cutting-warehouse-location-map-e2e
-```
-
-- [ ] 7.6 提交验收与审查记录：
-
-```bash
-git add docs/prototype-review-records/2026-07-30-cutting-warehouse-location-map.md \
-  scripts/check-cutting-warehouse-location-map.ts \
-  tests/cutting-warehouse-location-map.spec.ts
-git commit -m "test(裁床仓库): 补齐库位图浏览器验收"
-```
-
-### 任务 8：完成全量收口验证和任务收据
-
-**文件：**
-
-- 本任务只允许修正第 1 节列出的文件。
-
-- [ ] 8.1 运行专项和相关回归：
-
-```bash
-npm run check:cutting-warehouse-location-map
-npm run check:factory-internal-warehouse-model
-npm run check:cutting-warehouse-management-switch
-npm run check:cutting-pickup-ui-closure
-npm run check:material-prep-pickup-management
-npm run check:pda-cutting-wait-handover-route-integration
-npm run check:cutting-wait-handover-transfer-bag-flow
+npm run check:list-page-governance
 npm run check:prototype-design-governance
-```
-
-预期：全部退出码为 0。
-
-- [ ] 8.2 运行构建：
-
-```bash
 npm run build
 ```
 
-预期：Vite 构建成功，无 TypeScript 或治理错误。
+库位图不是列表页，不加 `// @page-pattern: list`；如果新增/修改的占用明细采用标准列表页骨架，则对应源文件必须遵守列表页门禁。
 
-- [ ] 8.3 运行浏览器验收：
+### 5.3 CodeGraph 和任务收据
 
-```bash
-npm run check:cutting-warehouse-location-map-e2e
-```
-
-- [ ] 8.4 检查工作区范围：
-
-```bash
-git status --short
-git diff --check
-git diff --name-only HEAD
-```
-
-不得加入或覆盖用户现有的以下改动：
-
-- `docs/product-design/裁片单补料管理产品需求文档.md`
-- `docs/superpowers/specs/2026-07-30-wool-management-fact-workflow-design.md`
-- `.codex/`
-- `docs/product-design/补料业务产品需求说明文档.md`
-
-- [ ] 8.5 同步 CodeGraph：
+最后一次实质改动后：
 
 ```bash
 codegraph sync
 codegraph status
-```
 
-预期：索引显示 `up to date`，无 `Pending sync`。
-
-- [ ] 8.6 按实际执行方式追加结构化阶段轨迹：
-
-- 触发原因：已确认的库位图规格进入实现。
-- `superpowers-zh:writing-plans` 实际调用。
-- `superpowers-zh:test-driven-development` 实际调用。
-- `superpowers-zh:subagent-driven-development` 或 `superpowers-zh:executing-plans` 实际调用。
-- 规格文档、实现计划、原型审查记录。
-- 每个实现提交。
-- 最终检查结果和 CodeGraph 状态。
-
-如果选择子代理驱动，按要求加入规格审查和代码质量审查，并在最终验证中使用 `--require-two-stage-review`。
-
-- [ ] 8.7 最后一次实质改动和提交后生成任务收据：
-
-```bash
 warehouse_map_receipt_dir=$(mktemp -d)
 npm run workflow:verify -- \
   --output "$warehouse_map_receipt_dir/task-receipt.json" \
-  --task-boundary "裁床待加工仓与待交出仓库位图、稳定编排、两态占用、PDA 相邻选位和中转袋单选入仓" \
+  --task-boundary "裁床待加工仓与待交出仓库位图、稳定编排、编码迁移、两态占用、完整袋生命周期、PDA相邻选位与幂等入仓" \
   --stage-trace /tmp/higoods-cutting-warehouse-location-map-stage-trace.json \
-  --required-skills superpowers-zh:writing-plans,superpowers-zh:test-driven-development
+  --required-skills superpowers-zh:test-driven-development,superpowers-zh:executing-plans
 ```
 
-若选择子代理驱动，将 `superpowers-zh:subagent-driven-development` 加入 `--required-skills` 并增加 `--require-two-stage-review`；若选择当前会话执行，将 `superpowers-zh:executing-plans` 加入 `--required-skills`。
+如果实际使用子代理驱动，将 `executing-plans` 替换为 `subagent-driven-development`，并按项目规则补两阶段审查和 `--require-two-stage-review`。
 
-只有收据状态为 `verified` 才能表述为验证闭环。没有 GitHub API 回执时，不表述为远端已交付。
-
-- [ ] 8.8 如果验证产生必要修正，只逐个暂存本计划文件并提交：
-
-```bash
-git commit -m "chore(裁床仓库): 收口库位图验证"
-```
-
-没有修正时不创建空提交；禁止使用 `git add .` 或 `git add -A`。
+只有收据状态为 `verified` 才能表述为本地验证闭环；没有 GitHub API 回执不得表述为远端已交付。
 
 ---
 
-## 4. 实现自查清单
+## 6. 提交边界与检查点
 
-### 层级与编排
+建议提交顺序：
 
-- [ ] 页面层级只有仓库、库区、货架、库位。
-- [ ] 页面文案没有“库位组”。
-- [ ] 现有库区、货架和库位自动生成初始图。
-- [ ] 库区、货架和库位均按稳定顺序显示。
-- [ ] 未编排库位单独展示并能归入货架。
-- [ ] 修改库位编号后，稳定 ID、位置和相邻关系不变。
+1. `feat(裁床仓库): 建立库位编排快照与编码迁移`
+2. `feat(裁床仓库): 建立待加工仓存放范围投影`
+3. `fix(裁床仓库): 统一待交出仓入仓占用事实`
+4. `feat(裁床仓库): 实现共享库位图组件`
+5. `feat(裁床仓库): 接入PFOS库位图与编排`
+6. `feat(裁床仓库): 接入PDA库位选位`
+7. `test(裁床仓库): 补齐库位图验收与审查`
+8. 必要时 `chore(裁床仓库): 收口库位图验证`
 
-### 空闲与占用
+每个检查点只暂存本任务文件，禁止 `git add .` 或 `git add -A`。
 
-- [ ] 日常图例和库位格只有空闲、占用。
-- [ ] 停用库位不显示也不计入统计。
-- [ ] 状态完全由有效库存事实投影，不存在手工切换按钮。
-- [ ] 一个库位有多条有效事实时只统计一个占用库位。
-- [ ] 最后一条有效事实离开后自动恢复空闲。
+关键停点：
 
-### 待加工仓
+- 任务 1 后确认没有给通用仓库接口增加强制排序字段。
+- 任务 2 后确认多库位数量不重复、部分领出有明确规则。
+- 任务 3 后确认装袋不占用、入仓才占用、换袋不双算。
+- 任务 5 后人工审查现有 PFOS 单页工作台没有被拆散。
+- 任务 7 后确认 PFOS/PDA 同事实、失败可重试且幂等。
+- 最后一次修改后必须重新执行完整验证，旧收据失效。
 
-- [ ] 占用摘要显示生产单和物料。
-- [ ] 占用详情显示数量单位、颜色/规格、入仓人和时间。
-- [ ] 一个领料会话可以选择多个库位。
-- [ ] 多选只能同库区、同货架且显示顺序连续。
-- [ ] 编号是否连续不影响相邻判断。
-
-### 待交出仓
-
-- [ ] 占用摘要显示生产单和中转袋号。
-- [ ] 占用详情显示袋内裁片数量、入仓人和时间。
-- [ ] 中转袋只能选择一个空闲库位入仓。
-- [ ] 完成交出后释放对应占用。
-- [ ] 特殊工艺回仓后可以按新库位恢复占用。
-
-### 现场端与性能
-
-- [ ] PDA 首屏只有一个主确认动作。
-- [ ] 扫码仍是中转袋和库位识别的优先入口。
-- [ ] 选错库位时阻断并告诉用户如何改。
-- [ ] 点击库位、打开详情、调整顺序不触发整页重绘。
-- [ ] 单次按钮交互目标响应时间不超过 200ms。
-- [ ] 1366×768 页面主体不水平溢出。
-- [ ] 1280×720 可以完成查看、编排和选位。
-- [ ] 货架库位过多时只在货架行内部横向滚动。
-
-### 验证与治理
-
-- [ ] 专项数据检查通过。
-- [ ] 现有仓储和裁床回归检查通过。
-- [ ] 浏览器验收通过。
-- [ ] 原型审查记录覆盖全部受管文件。
-- [ ] `npm run check:prototype-design-governance` 通过。
-- [ ] `npm run build` 通过。
-- [ ] CodeGraph 已同步。
-- [ ] 最终任务收据状态为 `verified`。
+实施时必须保留用户现有无关工作区改动，不覆盖、不暂存、不提交。
 
 ---
 
-## 5. 执行顺序与检查点
+## 7. 完成定义
 
-推荐严格按以下顺序实施：
+以下条件全部满足，才算本功能达到 `verified`：
 
-1. 稳定编排主数据。
-2. 空闲/占用投影与相邻规则。
-3. 共享库位图组件。
-4. PFOS 两个仓库页面。
-5. PDA 待加工仓连续多选。
-6. PDA 中转袋入仓单选。
-7. 浏览器验收和原型审查。
-8. 全量验证、CodeGraph 同步和任务收据。
-
-检查点：
-
-- 完成任务 2 后，先确认稳定 ID、占用投影和相邻规则正确，再开始页面。
-- 完成任务 4 后，先审查 PFOS 两张库位图的业务表达，再接入 PDA。
-- 完成任务 6 后，确认 Web 与 PDA 读取同一事实，再进入浏览器验收。
-- 最后一次实质改动后重新执行完整验证，旧收据不得复用。
+- [ ] 页面只使用仓库—库区—货架—库位，不出现“库位组”。
+- [ ] 编排快照刷新后稳定，编号变化不改变 ID、位置和相邻关系。
+- [ ] 多工厂、多仓库严格隔离。
+- [ ] 历史库位迁移有唯一匹配、待确认、无法匹配结果，不猜测。
+- [ ] 日常图只有空闲、占用，停用是独立主数据维度。
+- [ ] 待加工多库位数量不重复，部分领出和范围调整规则通过。
+- [ ] 装袋不占库位，入仓才占用，换袋不双算，交出正确释放。
+- [ ] 特殊工艺交出/回仓正确影响占用。
+- [ ] Web/PDA 使用同一事实和稳定库位路径。
+- [ ] 确认前重校验、写入幂等、失败保留现场输入。
+- [ ] 占用详情与未定位清单分页。
+- [ ] 1024×768 及以上 Web 可用，PDA 小屏可完成主动作。
+- [ ] 局部交互无整页重绘，目标响应不超过 200ms。
+- [ ] 专项检查、全部直接回归、浏览器验收、治理检查和构建通过。
+- [ ] 原型审查记录完整，无未说明例外。
+- [ ] CodeGraph 已同步且任务收据状态为 `verified`。
