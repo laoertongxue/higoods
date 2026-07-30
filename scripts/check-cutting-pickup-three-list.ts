@@ -834,10 +834,57 @@ assert(
   derivePickupHistoryPath(['READY_TO_PICKUP', 'READY_TO_PICKUP']) === 'READY_PICKUP',
   '只有全部领料会话均来自已配齐节点，历史路径才是已配齐领取',
 )
+function hasReliableNewSupplementEvidence(
+  group: PickupOrderGroup,
+  matchingProjections: MaterialPrepOrderProjection[],
+): boolean {
+  const pickupRecords = matchingProjections.flatMap((projection) => projection.pickupRecords)
+  const sessions = matchingProjections.flatMap((projection) => projection.pickupSessions)
+  return sessions.some((session) => {
+    const snapshot = session.pickupNodeSnapshot
+    if (
+      session.nodeType !== 'READY_TO_PICKUP'
+      || !snapshot
+      || snapshot.nodeId !== session.pickupNodeId
+      || snapshot.version !== session.pickupNodeVersion
+      || snapshot.nodeType !== session.nodeType
+      || snapshot.productionOrderId !== session.productionOrderId
+      || snapshot.prepOrderId !== session.prepOrderId
+    ) return false
+    const cumulativeByLineAndUnit = new Map<string, number>()
+    pickupRecords
+      .filter((record) => record.pickedAt <= session.pickedAt)
+      .forEach((record) => {
+        const units = new Set((record.sourceAllocations || []).map((allocation) => allocation.unit).filter(Boolean))
+        if (units.size !== 1) return
+        const unit = Array.from(units)[0]
+        const key = `${record.prepLineId}\u0000${unit}`
+        const effectiveQty = Number.isFinite(record.waitProcessAvailableQty)
+          ? Math.max(record.waitProcessAvailableQty || 0, 0)
+          : Math.max(record.pickedQty - (record.returnQty || 0), 0)
+        cumulativeByLineAndUnit.set(key, (cumulativeByLineAndUnit.get(key) || 0) + effectiveQty)
+      })
+    const existingDemandsAllPicked = group.materialRows
+      .filter((row) =>
+        row.demandCreatedAt
+          && comparePickupDemandEventTime(row.demandCreatedAt, session.pickedAt) !== 'AFTER'
+      )
+      .every((row) =>
+        row.requiredQty <= 0
+          || (cumulativeByLineAndUnit.get(`${row.demandLineId}\u0000${row.unit}`) || 0) >= row.requiredQty
+      )
+    const hasNewUnpickedSupplement = group.materialRows.some((row) =>
+      row.demandSource === 'SUPPLEMENT'
+        && comparePickupDemandEventTime(row.demandCreatedAt, session.pickedAt) === 'AFTER'
+        && row.pickedQty < row.requiredQty
+    )
+    return existingDemandsAllPicked && hasNewUnpickedSupplement
+  })
+}
 for (const group of historyGroups) {
-  const sessions = projections
+  const matchingProjections = projections
     .filter((projection) => projection.order.productionOrderId === group.productionOrderId)
-    .flatMap((projection) => projection.pickupSessions)
+  const sessions = matchingProjections.flatMap((projection) => projection.pickupSessions)
   assert(sessions.length > 0, `${group.productionOrderNo} HISTORY 分组必须有领料会话`)
   const activeNode = activeNodes.find((node) => node.productionOrderId === group.productionOrderId)
   if (activeNode) {
@@ -855,8 +902,15 @@ for (const group of historyGroups) {
     )
   }
   const allPicked = group.materialRows.every((materialRow) => materialRow.pickedQty >= materialRow.requiredQty)
+  const hasNewSupplement = hasReliableNewSupplementEvidence(group, matchingProjections)
   assert(
-    group.finalResult === (allPicked ? 'ALL_PICKED' : 'NOT_ALL_PICKED'),
+    group.finalResult === (
+      hasNewSupplement
+        ? 'NEW_SUPPLEMENT_WAIT_PICKUP'
+        : allPicked
+          ? 'ALL_PICKED'
+          : 'NOT_ALL_PICKED'
+    ),
     `${group.productionOrderNo} finalResult 必须按全部需求行基础判断`,
   )
 }

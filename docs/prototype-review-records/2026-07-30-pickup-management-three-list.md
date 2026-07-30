@@ -1,0 +1,111 @@
+# 裁床领料管理三列表原型审查记录
+
+## 1. 基本信息
+
+| 项目 | 内容 |
+| --- | --- |
+| 审查日期 | 2026-07-30 |
+| 相关需求 / 任务 | 裁床领料管理按“已配齐待领料、未配齐配料、已领料”拆分，并打通 PDA 全节点领料 |
+| 涉及系统 | PFOS、工厂 PDA |
+| 涉及页面路径 | `/fcs/craft/cutting/pickup-management/ready`、`/fcs/craft/cutting/pickup-management/incomplete`、`/fcs/craft/cutting/pickup-management/history`、`/fcs/pda/warehouse/wait-process?scope=cutting&action=pickup` |
+| 端类型 | 管理端、主管端、员工执行端 |
+| 主要角色 | 裁床仓管、裁床领料员、裁床主管 |
+| 主要任务 | 看清当前可领物料及位置，整节点领取；追溯已领结果、补料和印染加工依据 |
+
+## 2. 参考规范
+
+- `docs/higood-indonesia-factory-product-design-guidelines.md`
+- `docs/higood-indonesia-factory-prototype-review-checklist.md`
+- 标准列表页治理：按生产单分组、组内物料不拆页、操作列固定、列设置和分页按路由保存。
+- 现场任务与防错：Web 用于查任务和来源，PDA 用于执行；未配齐任务一次领取当前节点全部物料，不允许员工逐行漏领。
+- 仓储事实与追溯：无编号托盘是现场事实，不虚构托盘号；未配齐物料保留排他库位，同一物料允许由多个真实库位共同承载。
+
+## 3. 自查结论
+
+| 检查项 | 结论 | 说明 |
+| --- | --- | --- |
+| 角色匹配 | 通过 | 裁床仓管和主管在 Web 查看全部需求、位置和历史；领料员在 PDA 只确认当前节点。 |
+| 任务清晰度 | 通过 | 三个菜单分别回答“已配齐待领”“未配齐可先领”“已经领过什么”；当前列表均提供“去领料”。 |
+| 信息架构与导航 | 通过 | 领料管理是独立菜单并含三个规范子菜单；旧入口仅跳转到“已配齐待领料”。 |
+| 页面模式 | 通过 | Web 使用标准生产单分组列表；PDA 保持一个主动作“确认全部领料”。 |
+| 信息负荷 | 通过 | 生产单分页且组内物料不拆；物料图、名称、编码、应配、当前配料、累计领料直接可见。 |
+| 文案 | 通过 | 页面只显示中文业务状态；“直接配齐”“由未配齐升级”“未配齐先领”“新增补料待领”均表达现场事实。 |
+| 数量与状态 | 通过 | 应配、当前配料、累计领料、剩余和库位数量均带单位，不要求员工心算。 |
+| 扫码与识别 | 有条件通过 | 当前原型由 Web 深链进入同一节点 ID 和版本的 PDA；未来现场版补充扫码枪直接扫描任务或库位。 |
+| 防错 | 通过 | 未配齐领取按节点整批确认；节点版本变化会阻断旧页面确认，避免漏领新到物料。 |
+| UI 样式 | 通过 | 状态色克制，主操作固定在右侧；1366×768 和 1280×720 下主体不横向溢出。 |
+| 组件交互 | 通过 | 筛选、分页、排序、列显示、列顺序和冻结均局部更新，不替换整页根节点。 |
+| 协作关系 | 通过 | Web 与 PDA 读取同一待领节点；PDA 确认后生成一条领取主记录和多条物料明细。 |
+| 异常与追溯 | 通过 | 可追溯生产单、配料单、配料记录、库位、领料会话、补料单及染色/印花完成依据。 |
+| 现场设备可用性 | 有条件通过 | 低分辨率电脑的关键信息和主操作可见；扫码枪和弱网离线恢复留待现场版。 |
+
+## 4. 问题标签
+
+- `缺扫码识别`
+- `缺主管兜底`
+
+## 5. 主要问题与处理
+
+| 问题 | 标签 | 影响角色 | 处理方式 | 是否仍有风险 |
+| --- | --- | --- | --- | --- |
+| 未配齐物料可能分散在多个库位 | `选不对` | 裁床仓管、领料员 | 当前列表逐物料展示所有库位及数量；同一库位只承载一个当前未配齐节点，避免串单。 | 否 |
+| 未配齐任务逐行领取容易漏领 | `点错风险` | 领料员 | PDA 只提供“确认全部领料”，一次领取节点中全部可领物料；节点版本变化后旧链接失效。 | 否 |
+| 已配齐物料现场尚未生成托盘编号 | `状态抽象` | 裁床仓管 | 显示“待领托盘（暂未编号）”，不虚构 `TP` 编号；升级配齐后释放旧专属库位。 | 否 |
+| 补料会让已领完生产单重新出现当前任务 | `协作断裂` | 裁床主管、领料员 | 历史保留原需求已领完证据；新增补料独立显示补料单、需求和加工依据，并与当前待领节点共存。 | 否 |
+| 补料和领料目前没有共享单调事件序号 | `追溯不足` | 裁床主管 | 仅在创建时间与领完时间可证明先后时显示“新增补料待领”；同一分钟等无法证明的情况保守按 `UNKNOWN`，不宣称已领完后新增。 | 是 |
+| 现场尚未直接扫码进入节点 | `缺扫码识别` | 领料员 | 当前通过 Web 的节点 ID 与版本进入同一 PDA 任务；未来增加扫码任务号、物料和库位。 | 是 |
+
+## 6. 最终结论
+
+结论：有条件通过
+
+说明：
+
+- 三列表已按物理事实分开：已配齐由无编号托盘承载；未配齐由排他库位承载且支持同物料多库位；已领料保留领取路径和最终结果。
+- 直接配齐、未配齐升级、已配齐后全部领完、未配齐先领后全部领完、未配齐先领未完成且当前任务共存、同 SKU 多次补料、原需求领完后新增补料，以及无需加工/染色/染色后印花均有可演示数据。
+- Web、PDA、配料记录、领料会话、补料记录和加工结果保持同一生产单与物料归属。
+- 有条件限制仅为：补料和领料缺少共享事件序号时，同刻事实不能强判；现场扫码和弱网恢复作为后续现场版能力。
+
+## 7. 变更覆盖与验证
+
+### 受管文件
+
+- `src/data/app-shell-config.ts`
+- `src/data/fcs/cutting/pickup-node-domain.ts`
+- `src/data/fcs/cutting/production-material-prep.ts`
+- `src/main-handlers/fcs-handlers.ts`
+- `src/main.ts`
+- `src/pages/process-factory/cutting/meta.ts`
+- `src/pages/process-factory/cutting/pickup-management-list.ts`
+- `src/pages/process-factory/cutting/pickup-management-projection.ts`
+- `src/pages/process-factory/cutting/pickup-management.ts`
+- `src/pages/process-factory/cutting/supplement-management.ts`
+- `src/router/route-renderers-fcs.ts`
+- `src/router/routes-fcs.ts`
+
+### 页面路由
+
+- `/fcs/craft/cutting/pickup-management/ready`
+- `/fcs/craft/cutting/pickup-management/incomplete`
+- `/fcs/craft/cutting/pickup-management/history`
+- `/fcs/craft/cutting/pickup-management`：仅兼容跳转到已配齐待领料。
+- `/fcs/pda/warehouse/wait-process?scope=cutting&action=pickup&pickupNodeId=<节点>&version=<版本>`
+
+### 验证命令
+
+- `npm run check:cutting-pickup-three-list`：通过
+- `npm run check:cutting-pickup-three-list-e2e`：通过（11 条场景全部通过）
+- `npm run check:cutting-pickup-node-e2e`：通过（4 条总跑通过，唯一超时用例按 60 秒页面上限定向复跑通过）
+- `npm run check:material-prep-pickup-management`：通过
+- `npm run check:cutting-pickup-data-closure`：通过
+- `npm run check:cutting-pickup-ui-closure`：通过
+- `npm run check:cutting-pickup-important-regressions`：通过
+- `npm run check:prototype-design-governance`：通过
+- `npm run check:list-page-governance`：通过
+- `npm run check:cutting-supplement-process-work-orders`：失败（既有 PO14671 生产 SKU 仅 4 条，检查要求 12 条；不在本次领料三列表边界内）
+- `npm run build`：通过
+
+### 例外
+
+- 补料创建与领料完成尚无共享单调事件序号；两个事实发生在同一分钟或时间格式无法比较时，先后顺序按 `UNKNOWN` 处理，不展示“原需求领完后新增补料”结论。
+- 当前原型以 Web 深链进入 PDA 节点；未来现场实施需补扫码枪入口、弱网重试和主管代处理。

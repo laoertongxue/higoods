@@ -56,6 +56,7 @@ const appShellConfig = read('src/data/app-shell-config.ts')
 const routesFcs = read('src/router/routes-fcs.ts')
 const routeRenderersFcs = read('src/router/route-renderers-fcs.ts')
 const pickupManagementSource = read('src/pages/process-factory/cutting/pickup-management.ts')
+const pickupManagementListSource = read('src/pages/process-factory/cutting/pickup-management-list.ts')
 const pdaWaitProcessSource = read('src/pages/pda-warehouse-wait-process.ts')
 const warehouseHubSource = read('src/pages/process-factory/cutting/warehouse-hub.ts')
 const fcsHandlersSource = read('src/main-handlers/fcs-handlers.ts')
@@ -64,16 +65,35 @@ const pdaRuntimeSource = read('src/pages/pda-runtime.ts')
 const cuttingRuntimeLedgerSource = read('src/data/fcs/cutting/cutting-runtime-event-ledger.ts')
 const dataSource = read('src/data/fcs/cutting/production-material-prep.ts')
 
-assert(appShellConfig.includes("title: '领料管理'"), 'PFOS 裁前准备缺少领料管理菜单')
-assert(appShellConfig.includes("href: '/fcs/craft/cutting/pickup-management'"), 'PFOS 领料管理菜单路由错误')
-assert(routesFcs.includes('/fcs/craft/cutting/pickup-management'), 'PFOS 领料管理路由缺失')
+assert(appShellConfig.includes("title: '领料管理'"), 'PFOS 缺少独立领料管理菜单')
+for (const [title, href] of [
+  ['已配齐待领料', '/fcs/craft/cutting/pickup-management/ready'],
+  ['未配齐配料', '/fcs/craft/cutting/pickup-management/incomplete'],
+  ['已领料', '/fcs/craft/cutting/pickup-management/history'],
+] as const) {
+  assert(
+    appShellConfig.includes(`title: '${title}'`) && appShellConfig.includes(`href: '${href}'`),
+    `PFOS 领料管理缺少规范子菜单：${title}`,
+  )
+  assert(routesFcs.includes(`'${href}'`), `PFOS 领料管理规范路由缺失：${href}`)
+}
+assert(
+  routesFcs.includes("renderRouteRedirect('/fcs/craft/cutting/pickup-management/ready'"),
+  '旧领料管理路由必须只重定向到已配齐待领料',
+)
+assert(
+  !/title: '裁前准备'[\s\S]*?href: '\/fcs\/craft\/cutting\/pickup-management'/.test(appShellConfig),
+  '裁前准备不得保留旧领料管理菜单项',
+)
 assert(routesFcs.includes('/fcs/craft/cutting/pickup-management-detail'), 'PFOS 领料详情路由缺失')
-assert(routeRenderersFcs.includes('renderCraftCuttingPickupManagementPage'), 'PFOS 领料管理 renderer 缺失')
+assert(routeRenderersFcs.includes('renderCraftCuttingPickupReadyPage'), 'PFOS 已配齐待领料 renderer 缺失')
+assert(routeRenderersFcs.includes('renderCraftCuttingPickupIncompletePage'), 'PFOS 未配齐配料 renderer 缺失')
+assert(routeRenderersFcs.includes('renderCraftCuttingPickupHistoryPage'), 'PFOS 已领料 renderer 缺失')
 assert(routeRenderersFcs.includes('renderCraftCuttingPickupManagementDetailPage'), 'PFOS 领料详情 renderer 缺失')
-assert(pickupManagementSource.includes('// @page-pattern: list'), '领料管理必须声明标准列表页模式')
-assert(pickupManagementSource.includes('renderStandardListPage'), '领料管理必须使用标准列表页骨架')
-assert(pickupManagementSource.includes('renderStandardListTable'), '领料管理必须使用标准列表表格')
-assert(pickupManagementSource.includes('renderTablePagination'), '领料管理必须保留分页')
+assert(pickupManagementListSource.includes('// @page-pattern: list'), '领料管理三列表必须声明标准列表页模式')
+assert(pickupManagementListSource.includes('renderStandardListPage'), '领料管理三列表必须使用标准列表页骨架')
+assert(pickupManagementListSource.includes('renderStandardListTable'), '领料管理三列表必须使用标准列表表格')
+assert(pickupManagementListSource.includes('renderTablePagination'), '领料管理三列表必须保留分页')
 assert(pickupManagementSource.includes('listActivePickupNodes'), '领料管理必须以活动待领节点为当前待办对象')
 assert(pickupManagementSource.includes('renderCraftCuttingPickupManagementDetailPage'), '领料管理必须保留节点详情页')
 assert(fcsHandlersSource.includes('handleCraftCuttingPickupManagementEvent'), 'FCS handler 必须承接领料管理交互')

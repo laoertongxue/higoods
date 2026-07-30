@@ -1082,6 +1082,7 @@ const baseMaterialPrepSeedOrders: MaterialPrepSeedOrder[] = [
         cutOrderNo: 'CUT-260302-004-01',
         materialSku: 'tdv_demand_SPU_2024_010-bom-black-stretch-twill',
         materialName: 'Black 弹力斜纹主面料',
+        materialImageUrl: '/materials/fabric-main.jpg',
         color: 'Black',
         spec: '150cm / 主面料',
         unit: 'yard',
@@ -1592,7 +1593,12 @@ function buildRecordItemFromLine(
 }
 
 function buildAutoPrepRecordsForCompletedOrders(explicitRecords: MaterialPrepRecord[]): MaterialPrepRecord[] {
-  const completedPrepOrderIds = new Set(['prep-order-po-202603-0001', 'prep-order-po-202603-0007'])
+  const completedPrepOrderIds = new Set([
+    'prep-order-po-202603-0001',
+    'prep-order-po-202603-0002',
+    'prep-order-po-202603-0007',
+    'prep-order-po-202603-1103',
+  ])
   const explicitConfirmedLineIds = new Set(
     explicitRecords
       .filter((record) => completedPrepOrderIds.has(record.prepOrderId) && record.recordStatus === 'CONFIRMED')
@@ -1632,6 +1638,66 @@ function buildAutoPrepRecordsForCompletedOrders(explicitRecords: MaterialPrepRec
 }
 
 const explicitSeedPrepRecords: MaterialPrepRecord[] = [
+  {
+    prepRecordId: 'prep-rec-po-0002-original-complete-001',
+    prepOrderId: 'prep-order-po-202603-0002',
+    prepLineId: 'prep-line-po-0002-main',
+    batchNo: 'BATCH-GRY-260316-ORIGINAL',
+    preparedQty: 3150,
+    rollCount: 9,
+    warehouseArea: '中转仓 C 区',
+    locationCode: 'TR-C-007',
+    operatorName: '中转仓 周敏',
+    preparedAt: '2026-03-16 16:20',
+    recordStatus: 'CONFIRMED',
+    confirmedAt: '2026-03-16 16:25',
+    confirmedBy: '中转仓 周敏',
+    rejectedAt: '',
+    rejectedBy: '',
+    rejectReason: '',
+    sourceStockEventId: 'ledger:po-0002:original-complete:001',
+    remark: '打回批次复核后重新确认，原生产需求已配齐。',
+  },
+  {
+    prepRecordId: 'prep-rec-po-0002-new-supplement-001',
+    prepOrderId: 'prep-order-po-202603-0002',
+    prepLineId: 'prep-line-po-0002-main',
+    batchNo: 'BATCH-GRY-260324-SUP-01',
+    preparedQty: 300,
+    rollCount: 1,
+    warehouseArea: '中转仓补料暂存区',
+    locationCode: 'TR-SUP-002',
+    operatorName: '中转仓 周敏',
+    preparedAt: '2026-03-24 09:20',
+    recordStatus: 'CONFIRMED',
+    confirmedAt: '2026-03-24 09:25',
+    confirmedBy: '中转仓 周敏',
+    rejectedAt: '',
+    rejectedBy: '',
+    rejectReason: '',
+    sourceStockEventId: 'ledger:po-0002:new-supplement:001',
+    remark: '原需求领完后新增补料到仓，历史保留原领完事实，当前重新形成待领节点。',
+  },
+  {
+    prepRecordId: 'prep-rec-po-0004-supplement-demo-current-001',
+    prepOrderId: 'prep-order-po-202603-0004',
+    prepLineId: 'prep-line-po-0004-main',
+    batchNo: 'BATCH-BLK-260325-SUP',
+    preparedQty: 180,
+    rollCount: 1,
+    warehouseArea: '中转仓补料暂存区',
+    locationCode: 'TR-SUP-004',
+    operatorName: '中转仓 周敏',
+    preparedAt: '2026-03-25 15:20',
+    recordStatus: 'CONFIRMED',
+    confirmedAt: '2026-03-25 15:25',
+    confirmedBy: '中转仓 周敏',
+    rejectedAt: '',
+    rejectedBy: '',
+    rejectReason: '',
+    sourceStockEventId: 'ledger:po-0004:supplement-demo:current',
+    remark: '同一 SKU 多次补料仍按各补料需求独立展示；当前已确认部分进入未配齐待领。',
+  },
   {
     prepRecordId: 'prep-rec-po-0004-main-draft-001',
     prepOrderId: 'prep-order-po-202603-0004',
@@ -2191,7 +2257,10 @@ function buildAutoPickupRecordsForCompletedOrders(
   explicitPickupRecords: PickupRecord[],
   prepRecords: MaterialPrepRecord[],
 ): PickupRecord[] {
-  const pickupDonePrepOrderIds = new Set(['prep-order-po-202603-0001'])
+  const pickupDonePrepOrderIds = new Set([
+    'prep-order-po-202603-0001',
+    'prep-order-po-202603-0002',
+  ])
   const explicitPickedLineIds = new Set(
     explicitPickupRecords
       .filter((record) => pickupDonePrepOrderIds.has(record.prepOrderId))
@@ -2210,6 +2279,10 @@ function buildAutoPickupRecordsForCompletedOrders(
           )
           if (!prepRecord) return []
           const rollCount = buildLineRollCount(line)
+          const prepItem = getMaterialPrepRecordItems(prepRecord).find((item) => item.prepLineId === line.prepLineId)
+          const pickedAt = order.prepOrderId === 'prep-order-po-202603-0002'
+            ? '2026-03-17 09:00'
+            : '2026-03-15 16:25'
           return [{
             pickupRecordId: `pickup-rec-${order.productionOrderNo.toLowerCase()}-${line.materialType}-${index + 1}`,
             prepRecordId: prepRecord.prepRecordId,
@@ -2219,7 +2292,7 @@ function buildAutoPickupRecordsForCompletedOrders(
             pickedQty: line.requiredQty,
             rollCount,
             receiverName: '裁床 李明',
-            pickedAt: '2026-03-15 16:25',
+            pickedAt,
             warehouseArea: '待加工仓标准区',
             locationCode: `FAB-STD-${String(index + 1).padStart(2, '0')}`,
             waitProcessLedgerEventId: `ledger:${order.productionOrderNo}:${line.materialSku}:auto-pickup`,
@@ -2227,12 +2300,41 @@ function buildAutoPickupRecordsForCompletedOrders(
             differenceReason: '',
             pickupStatus: '已入待加工仓' as PickupRecord['pickupStatus'],
             remark: '标准 BOM 补齐物料已领入待加工仓。',
+            sourcePrepRecordIds: [prepRecord.prepRecordId],
+            sourceAllocations: [{
+              prepRecordId: prepRecord.prepRecordId,
+              prepLineId: line.prepLineId,
+              pickedQty: line.requiredQty,
+              rollCount,
+              unit: line.unit,
+              sourceWarehouseName: prepItem?.stockWarehouseName || line.stockWarehouseName || '中转仓',
+              sourceWarehouseArea: prepItem?.stockWarehouseArea || prepItem?.warehouseArea || prepRecord.warehouseArea,
+              sourceLocationCode: prepItem?.stockLocationCode || prepItem?.locationCode || prepRecord.locationCode,
+            }],
           }]
         }),
     )
 }
 
 const explicitSeedPickupRecords: PickupRecord[] = [
+  {
+    pickupRecordId: 'pickup-rec-po-1103-incomplete-first-001',
+    prepRecordId: 'prep-rec-po-202603-1103-auto-complete-001',
+    prepOrderId: 'prep-order-po-202603-1103',
+    prepLineId: 'prep-line-po-1103-dye-main',
+    productionOrderId: 'PO-202603-1103',
+    pickedQty: 100,
+    rollCount: 1,
+    receiverName: '裁床 李明',
+    pickedAt: '2026-03-17 15:20',
+    warehouseArea: '待加工仓升级验证区',
+    locationCode: 'FAB-UPGRADE-01',
+    waitProcessLedgerEventId: 'ledger:po-1103:incomplete:first-pickup',
+    differenceQty: 0,
+    differenceReason: '',
+    pickupStatus: '已入待加工仓',
+    remark: '首轮未配齐先领；后续配齐后旧专属库位释放，转为无编号托盘待领。',
+  },
   {
     pickupRecordId: 'pickup-rec-po-0004-main-preview-001',
     prepRecordId: 'prep-rec-po-0004-main-draft-002',
@@ -2473,6 +2575,19 @@ const seedClosedOrders: ProductionMaterialPrepWorkflowStore['closedOrders'] = [
   },
 ]
 
+const seedPickupNodeSnapshots: PickupNodeSnapshotState[] = [
+  {
+    nodeId: 'pickup-node:prep-order-po-202603-1103:2',
+    prepOrderId: 'prep-order-po-202603-1103',
+    sequence: 2,
+    version: 1,
+    fingerprint: 'INCOMPLETE_PICKABLE:seed-before-full-prep',
+    updatedAt: '2026-03-17 15:20',
+    nodeType: 'INCOMPLETE_PICKABLE',
+    readySource: null,
+  },
+]
+
 function cloneRecord<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
 }
@@ -2501,11 +2616,77 @@ export function createProductionMaterialPrepSeedStore(): ProductionMaterialPrepW
     [],
     cloneRecord(seedPickupReturnRecords),
   )
+  const reopenedOriginalReadySession = pickup.pickupSessions.find((session) =>
+    session.prepOrderId === 'prep-order-po-202603-0002'
+      && session.nodeType === 'READY_TO_PICKUP'
+  )
+  if (reopenedOriginalReadySession) {
+    const seedOrder = materialPrepSeedOrders.find((order) =>
+      order.prepOrderId === reopenedOriginalReadySession.prepOrderId
+    )!
+    const records = pickup.pickupRecords.filter((record) =>
+      reopenedOriginalReadySession.pickupRecordIds.includes(record.pickupRecordId)
+    )
+    const items: PickupNodeItem[] = records.map((record) => {
+      const line = seedOrder.lines.find((candidate) => candidate.prepLineId === record.prepLineId)!
+      const sourceAllocations = (record.sourceAllocations || []).map((allocation) => ({
+        prepRecordId: allocation.prepRecordId,
+        prepLineId: allocation.prepLineId,
+        currentAvailableQty: allocation.pickedQty,
+        rollCount: allocation.rollCount,
+        unit: allocation.unit,
+        sourceWarehouseName: allocation.sourceWarehouseName,
+        sourceWarehouseArea: allocation.sourceWarehouseArea,
+        sourceLocationCode: allocation.sourceLocationCode,
+      }))
+      return {
+        nodeItemId: `${reopenedOriginalReadySession.pickupNodeId}:${line.prepLineId}`,
+        prepLineId: line.prepLineId,
+        sourcePrepRecordIds: sourceAllocations.map((allocation) => allocation.prepRecordId),
+        materialSku: line.materialSku,
+        materialName: line.materialName,
+        materialType: line.materialType || inferMaterialType(line),
+        materialImageUrl: line.materialImageUrl || '',
+        color: line.color,
+        spec: line.spec,
+        unit: line.unit,
+        requiredQty: line.requiredQty,
+        effectivePickedQty: 0,
+        currentAvailableQty: record.pickedQty,
+        rollCount: record.rollCount,
+        sourceWarehouseName: sourceAllocations[0]?.sourceWarehouseName || '中转仓',
+        sourceWarehouseArea: sourceAllocations[0]?.sourceWarehouseArea || '',
+        sourceLocationCode: sourceAllocations[0]?.sourceLocationCode || '',
+        sourceLocations: [],
+        sourceAllocations,
+      }
+    })
+    const sequence = Number(reopenedOriginalReadySession.pickupNodeId.match(/:(\d+)$/)?.[1] || 1)
+    reopenedOriginalReadySession.pickupNodeSnapshot = {
+      nodeId: reopenedOriginalReadySession.pickupNodeId,
+      version: reopenedOriginalReadySession.pickupNodeVersion,
+      nodeType: 'READY_TO_PICKUP',
+      status: 'OPEN',
+      locationPolicy: 'DIRECT_READY_AREA',
+      prepOrderId: seedOrder.prepOrderId,
+      prepOrderNo: seedOrder.prepOrderNo,
+      productionOrderId: seedOrder.productionOrderId,
+      productionOrderNo: seedOrder.productionOrderNo,
+      sequence,
+      updatedAt: reopenedOriginalReadySession.pickedAt,
+      carrierType: 'PALLET',
+      palletId: '',
+      palletDisplayLabel: '待领托盘（暂未编号）',
+      readySource: 'DIRECT_READY',
+      itemCount: items.length,
+      items,
+    }
+  }
   return {
     prepRecords: cloneRecord(seedPrepRecords).map(normalizePrepRecordQuantities),
     pickupRecords: pickup.pickupRecords,
     pickupSessions: pickup.pickupSessions,
-    pickupNodeSnapshots: [],
+    pickupNodeSnapshots: cloneRecord(seedPickupNodeSnapshots),
     pickupReturnRecords: cloneRecord(seedPickupReturnRecords),
     rejectRecords: cloneRecord(seedRejectRecords),
     stagingRecords: [],

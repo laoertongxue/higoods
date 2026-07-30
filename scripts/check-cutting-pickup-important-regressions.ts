@@ -193,6 +193,23 @@ function verifySourceAccurateReturnRecovery(): void {
   const store = createProductionMaterialPrepSeedStore()
   const prepOrderId = 'prep-order-po-202603-0004'
   const prepLineId = 'prep-line-po-0004-main'
+  // This regression owns a synthetic PO0004 source set. Neutralize evolving
+  // demo seed facts first so hydration cannot merge them back into this fixture.
+  store.prepRecords = store.prepRecords.map((record) => record.prepOrderId === prepOrderId
+    ? {
+        ...record,
+        preparedQty: 0,
+        rollCount: 0,
+        recordStatus: 'REJECTED',
+        items: record.items?.map((item) => ({ ...item, preparedQty: 0, rollCount: 0 })),
+      }
+    : record)
+  store.pickupRecords = store.pickupRecords.map((record) => record.prepOrderId === prepOrderId
+    ? { ...record, pickedQty: 0, rollCount: 0, sourceAllocations: [] }
+    : record)
+  store.pickupReturnRecords = store.pickupReturnRecords.map((record) => record.prepOrderId === prepOrderId
+    ? { ...record, returnQty: 0, rollCount: 0 }
+    : record)
   const recordA: MaterialPrepRecord = {
     prepRecordId: 'check-source-record-a',
     prepOrderId,
