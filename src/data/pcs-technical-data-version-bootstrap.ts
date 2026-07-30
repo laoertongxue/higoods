@@ -193,10 +193,13 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
     : isWoolScenario
       ? '毛织用纱线'
       : '主面料'
+  const mainBomMaterialCode = isWoolScenario
+    ? `YARN-${demand.spuCode.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').toUpperCase()}-MAIN`
+    : undefined
   const mainUsageProcessCodes = scenario === 'GARMENT_HEAT_TRANSFER'
     ? ['SPECIAL_CRAFT']
     : isWoolScenario
-      ? ['WOOL']
+      ? ['PROC_WOOL']
       : ['CUT_PANEL', 'SEW']
   const isWaterSolubleDyeDemo = demand.spuCode === 'SPU-TSHIRT-081'
   const waterSolubleDyeBomItemId = `${seed.technicalVersionId}-bom-water-soluble-dye`
@@ -413,6 +416,12 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
     : []
 
   const resolveColorMaterialInfo = (color: string, index: number) => {
+    if (isWoolScenario) {
+      return {
+        code: mainBomMaterialCode!,
+        name: mainBomName,
+      }
+    }
     const colorKey = color.trim().toLowerCase()
     if (demand.spuCode === 'SPU-2024-010') {
       const joggerMaterialMap: Record<string, { code: string; name: string }> = {
@@ -606,6 +615,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
             ? `${colors.join(' / ') || '默认色'} 纱线，染厂/面料仓送料到厂`
             : `${colors.join(' / ') || '默认色'} 主面料`,
         colorLabel: colors.join(' / '),
+        materialCode: mainBomMaterialCode,
         unit: scenario === 'GARMENT_HEAT_TRANSFER' ? '件' : demand.spuCode === 'SPU-2024-010' ? '米' : undefined,
         ...(demand.spuCode === 'SPU-2024-010'
           ? { printRequirement: '数码印花', dyeRequirement: '匹染' }

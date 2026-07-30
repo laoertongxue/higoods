@@ -215,6 +215,9 @@ export function buildWoolOrderSourceSnapshot(input: WoolOrderSourceBuildInput): 
     if (line.sourceColorMappingIds.length === 0) {
       return [`${line.outputSkuCode} 缺少技术包颜色物料关系，不可填报加工数量`]
     }
+    if (line.sourceBomItemIds.length === 0) {
+      return [`${line.outputSkuCode} 的技术包颜色物料关系没有关联有效的 PROC_WOOL 纱线 BOM`]
+    }
     if (line.requiredYarnSkus.length === 0) {
       return [`${line.outputSkuCode} 没有可冻结的毛织必需纱线，不可填报加工数量`]
     }
@@ -358,6 +361,9 @@ export function buildWoolOrderFromRuntimeTask(taskId: string): WoolWorkOrder {
   const task = getRuntimeTaskById(taskId)
   if (!task) throw new Error(`毛织加工单生成失败：找不到运行时任务 ${taskId}`)
   const source = buildWoolOrderSourceSnapshotFromRuntimeTask(taskId)
+  if (source.generationIssues.length > 0) {
+    throw new Error(`毛织加工单生成失败：${source.generationIssues.join('；')}`)
+  }
   const generatedAt = task.createdAt || task.updatedAt || '2026-07-31 00:00:00'
   const downstreamTarget = source.kind === 'PART_PANEL'
     ? {

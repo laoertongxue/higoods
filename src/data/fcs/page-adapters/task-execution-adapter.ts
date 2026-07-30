@@ -6,8 +6,8 @@ import {
   type RuntimeProcessTask,
 } from '../runtime-process-tasks.ts'
 import { listAllSewingDeliverySlaSnapshots } from '../sewing-delivery-sla.ts'
-import { buildWoolOrderFromRuntimeTask } from '../wool-domain/tech-pack-source.ts'
-import { getWoolProcessingStatus } from '../wool-domain/queries.ts'
+import { getWoolAllowedActions, getWoolProcessingStatus } from '../wool-domain/queries.ts'
+import { readWoolStore } from '../wool-domain/store.ts'
 
 export interface ExecutionTaskFact extends ProcessTask {
   displayStageName: string
@@ -106,14 +106,21 @@ function cloneCoveredProcesses(task: RuntimeProcessTask): ProcessTask['coveredPr
 function syncWoolExecutionFact(task: ProcessTask, runtimeTask: RuntimeProcessTask): void {
   if (!isWoolRuntimeTask(runtimeTask)) return
 
+  delete task.woolAllowedActions
   try {
-    const order = buildWoolOrderFromRuntimeTask(runtimeTask.taskId)
+    const store = readWoolStore()
+    const order = Object.values(store.workOrders).find((item) =>
+      item.taskId === runtimeTask.taskId
+      || item.woolOrderId === runtimeTask.woolOrderId,
+    )
+    if (!order) throw new Error(`找不到运行时任务 ${runtimeTask.taskId} 对应的毛织加工单`)
     const processingStatus = getWoolProcessingStatus(order.woolOrderId)
     task.status = processingStatus === 'COMPLETED'
       ? 'DONE'
       : processingStatus === 'PROCESSING'
         ? 'IN_PROGRESS'
         : 'NOT_STARTED'
+    task.woolAllowedActions = [...getWoolAllowedActions(order.woolOrderId)]
   } catch {
     task.status = 'NOT_STARTED'
   }

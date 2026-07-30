@@ -40,6 +40,7 @@ import type {
   ProcessWorkOrderSourceSnapshot,
   ProcessWorkOrderSourceType,
 } from './process-work-order-domain.ts'
+import type { WoolAllowedAction } from './wool-domain/queries.ts'
 
 export type TaskAssignmentStatus = 'UNASSIGNED' | 'ASSIGNING' | 'ASSIGNED' | 'BIDDING' | 'AWARDED'
 export type TaskStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'DONE' | 'BLOCKED' | 'CANCELLED'
@@ -273,6 +274,7 @@ export interface ProcessTask {
   woolOrderId?: string
   woolOrderNo?: string
   woolDownstreamTarget?: '后道工厂' | '裁床待交出仓'
+  woolAllowedActions?: WoolAllowedAction[]
   yarnSku?: string
   yarnPlannedWeightKg?: number
   yarnReceivedWeightKg?: number

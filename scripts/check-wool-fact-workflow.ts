@@ -725,6 +725,10 @@ const {
   replaceWoolMachineAssociations,
 } = await import('../src/data/fcs/wool-domain/machine-associations.ts')
 const {
+  getExecutionTaskFactById,
+  listExecutionTaskFacts,
+} = await import('../src/data/fcs/page-adapters/task-execution-adapter.ts')
+const {
   WOOL_MOCK_SCENARIO_CODES,
   resetWoolFactWorkflowMock,
 } = await import('../src/data/fcs/wool-domain/mock-data.ts')
@@ -3472,9 +3476,17 @@ assert(!woolMachineSources.includes('SCHEDULED'))
 assert(!woolMachineSources.includes('已排产'))
 
 resetWoolFactWorkflowMock('CHECK_WOOL_RUNTIME_GENERATION')
-const woolRuntimeTask = listRuntimeExecutionTasks().find(
+const realWoolRuntimeTasks = listRuntimeExecutionTasks().filter(
   (item) => item.processBusinessCode === 'WOOL' || item.processCode === 'WOOL',
 )
+const woolRuntimeTask = realWoolRuntimeTasks.find((item) => {
+  if (item.woolTaskType !== 'WHOLE_GARMENT') return false
+  try {
+    return buildWoolOrderSourceSnapshotFromRuntimeTask(item.taskId).generationIssues.length === 0
+  } catch {
+    return false
+  }
+})
 assert(woolRuntimeTask, '缺少可用于运行时生成检查的毛织任务')
 assert.equal(woolRuntimeTask.acceptanceStatus, 'ACCEPTED', '毛织运行时任务必须保留上游接单协作')
 
@@ -3519,6 +3531,168 @@ assert.equal(
   1,
 )
 
+const completePartRuntimeTask = realWoolRuntimeTasks.find((task) => {
+  if (task.woolTaskType !== 'PART_PANEL') return false
+  try {
+    return buildWoolOrderSourceSnapshotFromRuntimeTask(task.taskId).generationIssues.length === 0
+  } catch {
+    return false
+  }
+})
+assert(completePartRuntimeTask, '缺少真实完整的部位毛织运行时任务用于来源缺失检查')
+const completePartSourceOrder = productionOrders.find(
+  (order) => order.productionOrderId === completePartRuntimeTask.productionOrderId,
+)
+assert(completePartSourceOrder?.techPackSnapshot, '部位毛织运行时任务缺少冻结技术包夹具')
+const completePartSnapshot = structuredClone(completePartSourceOrder.techPackSnapshot)
+const assertRuntimeSourceFailureDoesNotStore = (
+  mutate: (snapshot: NonNullable<typeof completePartSourceOrder.techPackSnapshot>) => void,
+  expected: RegExp,
+) => {
+  const storeBefore = readWoolStore()
+  completePartSourceOrder.techPackSnapshot = structuredClone(completePartSnapshot)
+  mutate(completePartSourceOrder.techPackSnapshot)
+  assert.throws(() => buildWoolOrderFromRuntimeTask(completePartRuntimeTask.taskId), expected)
+  assert.deepEqual(readWoolStore(), storeBefore, '来源不完整时毛织存储必须保持不变')
+}
+try {
+  assertRuntimeSourceFailureDoesNotStore(
+    (snapshot) => {
+      snapshot.patternFiles = []
+    },
+    /没有纸样部位/,
+  )
+  assertRuntimeSourceFailureDoesNotStore(
+    (snapshot) => {
+      snapshot.colorMaterialMappings = []
+    },
+    /缺少技术包颜色物料关系/,
+  )
+  assertRuntimeSourceFailureDoesNotStore(
+    (snapshot) => {
+      snapshot.bomItems = []
+    },
+    /PROC_WOOL 纱线 BOM/,
+  )
+} finally {
+  completePartSourceOrder.techPackSnapshot = completePartSnapshot
+}
+
+const successfullyGeneratedRealWoolOrders = realWoolRuntimeTasks.flatMap((task) => {
+  try {
+    return [buildWoolOrderFromRuntimeTask(task.taskId)]
+  } catch {
+    return []
+  }
+})
+assert(
+  successfullyGeneratedRealWoolOrders.some((order) => order.kind === 'WHOLE_GARMENT'),
+  '至少一张真实完整的整件毛织运行时任务必须成功生成加工单',
+)
+for (const order of successfullyGeneratedRealWoolOrders) {
+  const sourceSnapshot = buildWoolOrderSourceSnapshotFromRuntimeTask(order.taskId)
+  const frozenTechPack = productionOrders.find(
+    (item) => item.productionOrderId === order.productionOrderId,
+  )?.techPackSnapshot
+  assert(frozenTechPack, `${order.productionOrderNo} 缺少冻结技术包`)
+  const mappingsById = new Map(frozenTechPack.colorMaterialMappings.map((mapping) => [mapping.id, mapping]))
+  assert.equal(sourceSnapshot.generationIssues.length, 0)
+  for (const line of order.outputPlanLines) {
+    assert(line.requiredYarnSkus.length > 0, `${line.outputSkuCode} 必须冻结必需纱线`)
+    assert(line.sourceBomItemIds.length > 0, `${line.outputSkuCode} 必须冻结来源 BOM`)
+    assert.equal(
+      line.requiredYarnSkus.length,
+      line.sourceBomItemIds.length,
+      `${line.outputSkuCode} 的纱线与来源 BOM 必须一一对应`,
+    )
+    assert(line.sourceColorMappingIds.length > 0, `${line.outputSkuCode} 必须冻结技术包颜色物料关系`)
+    assert(
+      line.sourceColorMappingIds.every((mappingId) => {
+        const mapping = mappingsById.get(mappingId)
+        return mapping?.mappingOrigin === 'TECH_PACK' && mapping.status !== 'AUTO_DRAFT'
+      }),
+      `${line.outputSkuCode} 只能引用已确认的 TECH_PACK 颜色物料关系`,
+    )
+  }
+}
+
+const runtimeGenerationStoreBeforeIncompleteTasks = readWoolStore()
+for (const incompleteTask of realWoolRuntimeTasks.filter((task) =>
+  !successfullyGeneratedRealWoolOrders.some((order) => order.taskId === task.taskId),
+)) {
+  assert.throws(
+    () => buildWoolOrderFromRuntimeTask(incompleteTask.taskId),
+    /毛织加工单生成失败|毛织来源生成失败/,
+    `不完整运行时任务 ${incompleteTask.taskId} 必须明确失败`,
+  )
+}
+assert.deepEqual(
+  readWoolStore(),
+  runtimeGenerationStoreBeforeIncompleteTasks,
+  '来源缺少部位、技术包映射或毛织 BOM 时不得写入空纱线加工单',
+)
+
+const initialWoolExecutionFact = getExecutionTaskFactById(runtimeGeneratedWoolOrder.taskId)
+assert(initialWoolExecutionFact)
+assert.deepEqual(initialWoolExecutionFact.woolAllowedActions, ['DETAIL', 'RECEIVE_YARN'])
+assert(!initialWoolExecutionFact.woolAllowedActions.includes('REPORT_PROCESS'))
+assert(!initialWoolExecutionFact.woolAllowedActions.includes('HANDOVER'))
+assert(!initialWoolExecutionFact.woolAllowedActions.includes('COMPLETE'))
+initialWoolExecutionFact.woolAllowedActions.push('COMPLETE')
+assert.deepEqual(
+  getExecutionTaskFactById(runtimeGeneratedWoolOrder.taskId)?.woolAllowedActions,
+  ['DETAIL', 'RECEIVE_YARN'],
+  '适配器必须克隆毛织领域动作，调用方不能污染领域投影',
+)
+const nonWoolExecutionFact = listExecutionTaskFacts().find((task) =>
+  task.processBusinessCode !== 'WOOL' && task.processCode !== 'WOOL',
+)
+assert(nonWoolExecutionFact, '缺少非毛织运行时任务检查夹具')
+assert.equal(nonWoolExecutionFact.woolAllowedActions, undefined)
+
+const requiredRuntimeYarns = [...new Set(
+  runtimeGeneratedWoolOrder.outputPlanLines.flatMap((line) => line.requiredYarnSkus),
+)]
+addWoolYarnReceipt(runtimeGeneratedWoolOrder.woolOrderId, {
+  commandId: 'CMD-RUNTIME-ACTIONS-RECEIPT',
+  receivedAt: '2026-07-31 09:00:00',
+  receivedBy: '毛织仓管',
+  lines: requiredRuntimeYarns.map((yarnSkuCode) => ({
+    yarnSkuCode,
+    receivedQty: 10,
+  })),
+})
+assert(getExecutionTaskFactById(runtimeGeneratedWoolOrder.taskId)?.woolAllowedActions?.includes('REPORT_PROCESS'))
+
+const runtimeActionOutputLine = runtimeGeneratedWoolOrder.outputPlanLines[0]
+addWoolProcessReport(runtimeGeneratedWoolOrder.woolOrderId, {
+  commandId: 'CMD-RUNTIME-ACTIONS-REPORT',
+  outputSkuCode: runtimeActionOutputLine.outputSkuCode,
+  reportedQty: 1,
+  reportedAt: '2026-07-31 10:00:00',
+  reportedBy: '毛织操作员',
+})
+assert(getExecutionTaskFactById(runtimeGeneratedWoolOrder.taskId)?.woolAllowedActions?.includes('HANDOVER'))
+
+addWoolHandover(runtimeGeneratedWoolOrder.woolOrderId, {
+  commandId: 'CMD-RUNTIME-ACTIONS-HANDOVER',
+  outputSkuCode: runtimeActionOutputLine.outputSkuCode,
+  handoverQty: 1,
+  handedOverAt: '2026-07-31 11:00:00',
+  handedOverBy: '毛织仓管',
+})
+assert(getExecutionTaskFactById(runtimeGeneratedWoolOrder.taskId)?.woolAllowedActions?.includes('COMPLETE'))
+
+completeWoolWorkOrder(runtimeGeneratedWoolOrder.woolOrderId, {
+  commandId: 'CMD-RUNTIME-ACTIONS-COMPLETE',
+  completedAt: '2026-07-31 12:00:00',
+  completedBy: '毛织主管',
+})
+assert.deepEqual(
+  getExecutionTaskFactById(runtimeGeneratedWoolOrder.taskId)?.woolAllowedActions,
+  ['DETAIL'],
+)
+
 console.log('PASS task 5: global command receipts, atomic stock, downstream lock, and manual completion')
 console.log('PASS task 6: current machine associations and derived four-state availability')
-console.log('PASS task 7: runtime generation uses frozen wool facts and remains idempotent')
+console.log('PASS task 7: runtime generation freezes traceable yarn facts and exposes domain actions')
