@@ -43,6 +43,7 @@ import {
   getWoolWorkOrderTab,
 } from '../src/data/fcs/wool-domain/queries.ts'
 import { readWoolStore } from '../src/data/fcs/wool-domain/store.ts'
+import { renderCraftWoolWorkOrderDetailPage } from '../src/pages/process-factory/wool/work-order-detail.ts'
 
 const handoverTypeFixture: WoolHandoverRecord = {
   handoverId: 'WH-TYPE-CHECK',
@@ -4309,7 +4310,84 @@ assert(!woolWorkOrderListSource.includes('renderCompactSummaryTags'))
 assert(!woolWorkOrderListSource.includes('renderMetricCard'))
 assert(!woolSharedPageSource.includes('getWoolWorkOrderStatusLabel'))
 
+const woolWorkOrderDetailSource = readFileSync(
+  new URL('../src/pages/process-factory/wool/work-order-detail.ts', import.meta.url),
+  'utf8',
+)
+for (const label of [
+  '业务概览',
+  '款色用料与开工判断',
+  '确认接收记录',
+  '加工填报记录',
+  '发起交出记录',
+  '横机关联',
+  '操作记录',
+]) {
+  assert(woolWorkOrderDetailSource.includes(label), `毛织加工单详情缺少任务 9 页签：${label}`)
+}
+for (const removed of [
+  '横机成片',
+  '缝盘熨烫包装',
+  '毛织菲票',
+  '价格信息',
+  '异常证据',
+  'formatMoney',
+  'buildFeiTicketLabelPrintLink',
+  'getTaskMilestoneState',
+]) {
+  assert(!woolWorkOrderDetailSource.includes(removed), `毛织加工单详情不应保留旧节点或价格：${removed}`)
+}
+for (const contract of [
+  'renderTablePagination',
+  'receiptPage',
+  'reportPage',
+  'handoverPage',
+  'linePage',
+  'listWoolFactRecords',
+  'getWoolOutputReadiness',
+  'getWoolOutputStockQty',
+  'getWoolOutputHandoverAvailableQty',
+  'changeWoolFactQty',
+  'proofFiles',
+  'differenceNote',
+  'warehouseInboundFlowId',
+  'warehouseOutboundFlowId',
+  '完整数量修改历史',
+  '完成确认时冻结事实',
+  '完成后的下游确认',
+  'data-wool-detail-root',
+  'data-skip-page-rerender="true"',
+  'handleCraftWoolDetailEvent',
+]) {
+  assert(woolWorkOrderDetailSource.includes(contract), `毛织加工单详情缺少任务 9 契约：${contract}`)
+}
+assert(
+  woolWorkOrderDetailSource.includes("downstreamReceipt?.status !== 'CONFIRMED'"),
+  '下游已确认的交出记录必须隐藏修改数量入口',
+)
+assert(
+  woolWorkOrderDetailSource.includes("getWoolProcessingStatus(order.woolOrderId) !== 'COMPLETED'"),
+  '已完成加工单必须隐藏全部数量修改入口',
+)
+resetWoolFactWorkflowMock('CHECK_WOOL_TASK_9_DETAIL_RENDER')
+const completedDetailHtml = renderCraftWoolWorkOrderDetailPage('WOOL-MOCK-10')
+for (const label of [
+  '业务概览',
+  '款色用料与开工判断',
+  '确认接收记录',
+  '加工填报记录',
+  '发起交出记录',
+  '横机关联',
+  '操作记录',
+]) {
+  assert(completedDetailHtml.includes(label), `毛织加工单详情实际渲染缺少页签：${label}`)
+}
+assert(completedDetailHtml.includes('完成确认时冻结事实'))
+assert(completedDetailHtml.includes('完成后的下游确认'))
+assert(!completedDetailHtml.includes('data-wool-detail-action="open-edit"'), '已完成详情不得渲染修改入口')
+
 console.log('PASS task 5: global command receipts, atomic stock, downstream lock, and manual completion')
 console.log('PASS task 6: current machine associations and derived four-state availability')
 console.log('PASS task 7: runtime generation freezes traceable yarn facts and exposes domain actions')
 console.log('PASS task 8: standard wool work-order list and fact command dialogs')
+console.log('PASS task 9: seven-tab wool fact detail, paged records, and immutable completion facts')
