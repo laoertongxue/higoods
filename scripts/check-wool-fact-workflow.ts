@@ -867,7 +867,12 @@ assert(
   ),
   '每个毛织加工单都必须冻结款号、款名和加工厂展示元数据',
 )
-const { filterWoolWorkOrderRowsByKeyword } = await import(
+const {
+  filterWoolWorkOrderRowsByKeyword,
+  renderWoolReceiptDialog,
+  renderWoolReportDialog,
+  renderWoolHandoverDialog,
+} = await import(
   '../src/pages/process-factory/wool/work-orders.ts'
 )
 const metadataKeywordOrder = allOrders[0] as typeof allOrders[number] & {
@@ -931,7 +936,7 @@ assert.throws(
     handedOverAt: '2026-07-30 08:31:00',
     handedOverBy: '专项检查',
   }),
-  /至少有一次有效加工填报/,
+  /该 SKU 尚无有效加工填报/,
 )
 assert.deepEqual(readWoolStore(), beforeNoReportHandover)
 assert.equal(storageWrites.length, noReportHandoverWrites)
@@ -976,12 +981,26 @@ const splitBatchOrder = allOrders.find((item) => item.mockScenarioCode === 'SPLI
 const splitBatchReceipts = readWoolStore().yarnReceipts.filter((item) => item.woolOrderId === splitBatchOrder.woolOrderId)
 assert.equal(splitBatchReceipts.filter((item) => item.lines.some((line) => line.yarnSkuCode === 'YARN-A')).length, 2)
 assert.equal(new Set(splitBatchReceipts.map((item) => item.batchNo)).size, splitBatchReceipts.length)
+const receiptDialogHtml = renderWoolReceiptDialog(splitBatchOrder)
+assert.match(receiptDialogHtml, /累计有效接收/)
+assert.match(receiptDialogHtml, /BATCH-A1/)
+assert.match(receiptDialogHtml, /BATCH-A2/)
+assert.match(receiptDialogHtml, /最近接收时间/)
 
 const cappedOrder = allOrders.find((item) => item.mockScenarioCode === 'ALL_READY_SKUS_AT_LIMIT')!
 assert.equal(getWoolWorkOrderTab(cappedOrder.woolOrderId), 'NOT_READY')
 assert.match(getWoolWorkOrderBlockReason(cappedOrder.woolOrderId), /全部加工后 SKU 已达到填报上限/)
 
 const reportsAtLimitOrder = allOrders.find((item) => item.mockScenarioCode === 'REPORTS_AT_LIMIT')!
+const woolQueriesForTask8 = await import('../src/data/fcs/wool-domain/queries.ts')
+const handoverAvailableQuery = (
+  woolQueriesForTask8 as unknown as Record<string, unknown>
+).getWoolOutputHandoverAvailableQty
+assert.equal(
+  typeof handoverAvailableQuery,
+  'function',
+  '领域必须提供按加工后 SKU 计算可交出余额的统一查询',
+)
 assert.equal(
   getWoolOutputReportedQty(reportsAtLimitOrder.woolOrderId, reportsAtLimitOrder.outputPlanLines[0].outputSkuCode),
   Math.floor(reportsAtLimitOrder.outputPlanLines[0].plannedQty * 1.5),
@@ -993,6 +1012,114 @@ assert.equal(
   }).length,
   2,
 )
+const reportsAtLimitBlackLine = reportsAtLimitOrder.outputPlanLines[0]
+const reportsAtLimitWhiteLine = reportsAtLimitOrder.outputPlanLines[1]
+adjustWoolWarehouseStock({
+  commandId: 'CMD-TASK8-WHITE-STOCK-WITHOUT-REPORT',
+  woolOrderId: reportsAtLimitOrder.woolOrderId,
+  objectSkuCode: reportsAtLimitWhiteLine.outputSkuCode,
+  defaultLocationId: 'WOOL-WH-GARMENT-DEFAULT',
+  afterQty: 1,
+  reason: '对抗测试：白色无填报但独立调入库存',
+  operatedAt: '2026-07-30 08:40:00',
+  operatedBy: '专项检查',
+})
+const getHandoverAvailableQty = handoverAvailableQuery as (
+  woolOrderId: string,
+  outputSkuCode: string,
+) => number
+assert.equal(
+  getHandoverAvailableQty(reportsAtLimitOrder.woolOrderId, reportsAtLimitWhiteLine.outputSkuCode),
+  0,
+)
+adjustWoolWarehouseStock({
+  commandId: 'CMD-TASK8-BLACK-STOCK-ZERO-FOR-CROSS-SKU',
+  woolOrderId: reportsAtLimitOrder.woolOrderId,
+  objectSkuCode: reportsAtLimitBlackLine.outputSkuCode,
+  defaultLocationId: 'WOOL-WH-GARMENT-DEFAULT',
+  afterQty: 0,
+  reason: '对抗测试：有填报的黑色无库存，白色有库存但无填报',
+  operatedAt: '2026-07-30 08:40:30',
+  operatedBy: '专项检查',
+})
+assert.equal(
+  getWoolAllowedActions(reportsAtLimitOrder.woolOrderId).includes('HANDOVER'),
+  false,
+  '不能把黑色 SKU 的加工填报与白色 SKU 的库存拼成可交出门禁',
+)
+const beforeCrossSkuHandover = readWoolStore()
+const crossSkuHandoverWrites = storageWrites.length
+assert.throws(
+  () => addWoolHandover(reportsAtLimitOrder.woolOrderId, {
+    commandId: 'CMD-TASK8-WHITE-HANDOVER-WITHOUT-REPORT',
+    outputSkuCode: reportsAtLimitWhiteLine.outputSkuCode,
+    handoverQty: 1,
+    handedOverAt: '2026-07-30 08:41:00',
+    handedOverBy: '专项检查',
+  }),
+  /该 SKU 尚无有效加工填报|可交出余额为 0/,
+)
+assert.deepEqual(readWoolStore(), beforeCrossSkuHandover)
+assert.equal(storageWrites.length, crossSkuHandoverWrites)
+adjustWoolWarehouseStock({
+  commandId: 'CMD-TASK8-BLACK-STOCK-RESTORE',
+  woolOrderId: reportsAtLimitOrder.woolOrderId,
+  objectSkuCode: reportsAtLimitBlackLine.outputSkuCode,
+  defaultLocationId: 'WOOL-WH-GARMENT-DEFAULT',
+  afterQty: 150,
+  reason: '继续验证累计交出与库存较小值',
+  operatedAt: '2026-07-30 08:41:30',
+  operatedBy: '专项检查',
+})
+assert.equal(
+  getHandoverAvailableQty(reportsAtLimitOrder.woolOrderId, reportsAtLimitBlackLine.outputSkuCode),
+  150,
+)
+addWoolHandover(reportsAtLimitOrder.woolOrderId, {
+  commandId: 'CMD-TASK8-BLACK-HANDOVER-40',
+  outputSkuCode: reportsAtLimitBlackLine.outputSkuCode,
+  handoverQty: 40,
+  handedOverAt: '2026-07-30 08:42:00',
+  handedOverBy: '专项检查',
+})
+assert.equal(
+  getHandoverAvailableQty(reportsAtLimitOrder.woolOrderId, reportsAtLimitBlackLine.outputSkuCode),
+  110,
+  '累计有效交出必须扣减该 SKU 的可交出余额',
+)
+adjustWoolWarehouseStock({
+  commandId: 'CMD-TASK8-BLACK-STOCK-MIN',
+  woolOrderId: reportsAtLimitOrder.woolOrderId,
+  objectSkuCode: reportsAtLimitBlackLine.outputSkuCode,
+  defaultLocationId: 'WOOL-WH-GARMENT-DEFAULT',
+  afterQty: 20,
+  reason: '对抗测试：可交出余额取库存与未交出填报量的较小值',
+  operatedAt: '2026-07-30 08:43:00',
+  operatedBy: '专项检查',
+})
+assert.equal(
+  getHandoverAvailableQty(reportsAtLimitOrder.woolOrderId, reportsAtLimitBlackLine.outputSkuCode),
+  20,
+)
+const reportDialogHtml = renderWoolReportDialog(reportsAtLimitOrder)
+assert.match(reportDialogHtml, /累计有效加工填报 150件/)
+const handoverDialogHtml = renderWoolHandoverDialog(reportsAtLimitOrder)
+assert.match(handoverDialogHtml, new RegExp(reportsAtLimitBlackLine.outputSkuCode))
+assert.doesNotMatch(handoverDialogHtml, new RegExp(reportsAtLimitWhiteLine.outputSkuCode))
+assert.match(handoverDialogHtml, /累计有效交出 40件/)
+assert.match(handoverDialogHtml, /可交出余额 20件/)
+const beforeOverAvailableHandover = readWoolStore()
+assert.throws(
+  () => addWoolHandover(reportsAtLimitOrder.woolOrderId, {
+    commandId: 'CMD-TASK8-BLACK-HANDOVER-OVER-AVAILABLE',
+    outputSkuCode: reportsAtLimitBlackLine.outputSkuCode,
+    handoverQty: 21,
+    handedOverAt: '2026-07-30 08:44:00',
+    handedOverBy: '专项检查',
+  }),
+  /可交出余额 20件/,
+)
+assert.deepEqual(readWoolStore(), beforeOverAvailableHandover)
 
 const readyToCompleteOrder = allOrders.find((item) => item.mockScenarioCode === 'READY_TO_COMPLETE')!
 assert(getWoolAllowedActions(readyToCompleteOrder.woolOrderId).includes('COMPLETE'))

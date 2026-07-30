@@ -18,6 +18,7 @@ import {
   completeWoolWorkOrder,
   getWoolAllowedActions,
   getWoolOutputHandedOverQty,
+  getWoolOutputHandoverAvailableQty,
   getWoolOutputReadiness,
   getWoolOutputReportedQty,
   getWoolOutputStockQty,
@@ -478,39 +479,59 @@ function proofAndRemarkFields(): string {
   return `<div class="mt-3 grid gap-3 md:grid-cols-2"><label class="text-sm"><span class="mb-1 block text-xs text-muted-foreground">凭证</span><textarea class="min-h-20 w-full rounded-md border p-3" placeholder="每行填写一个凭证文件名或链接" data-wool-dialog-field="proofFiles"></textarea></label><label class="text-sm"><span class="mb-1 block text-xs text-muted-foreground">备注</span><textarea class="min-h-20 w-full rounded-md border p-3" data-wool-dialog-field="factRemark"></textarea></label></div>`
 }
 
-function renderReceiptDialog(order: WoolWorkOrder): string {
+export function renderWoolReceiptDialog(order: WoolWorkOrder): string {
   const yarns = [...new Set(order.outputPlanLines.flatMap((line) => line.requiredYarnSkus))]
+  const receiptRecords = listWoolFactRecords({
+    woolOrderId: order.woolOrderId,
+    recordType: 'YARN_RECEIPT',
+  }).map((item) => item.record as WoolYarnReceiptRecord)
   return dialog('确认接收纱线', `
     ${renderOrderContext(order)}
     <div class="grid gap-3 md:grid-cols-3"><label class="text-sm"><span class="mb-1 block text-xs text-muted-foreground">送货单号</span><input class="h-9 w-full rounded-md border px-3" data-wool-dialog-field="deliveryNo"></label><label class="text-sm"><span class="mb-1 block text-xs text-muted-foreground">批次号</span><input class="h-9 w-full rounded-md border px-3" data-wool-dialog-field="batchNo"></label><label class="text-sm"><span class="mb-1 block text-xs text-muted-foreground">接收人</span><input class="h-9 w-full rounded-md border px-3" value="Web 端毛织仓管" data-wool-dialog-field="operator"></label></div>
-    <div class="mt-4 overflow-hidden rounded-md border"><div class="grid grid-cols-[40px_1fr_140px_1fr] gap-3 border-b bg-muted/40 px-3 py-2 text-xs font-medium"><span>选择</span><span>本单必需纱线 SKU</span><span>实收数量（kg）</span><span>差异说明</span></div>${yarns.map((sku) => `<label class="grid grid-cols-[40px_1fr_140px_1fr] items-center gap-3 border-b px-3 py-2 last:border-b-0"><input type="checkbox" data-wool-receipt-yarn="${escapeHtml(sku)}"><span>${escapeHtml(sku)}</span><input type="number" min="0.01" step="0.01" class="h-9 rounded-md border px-3" data-wool-receipt-qty="${escapeHtml(sku)}"><input class="h-9 rounded-md border px-3" placeholder="选填" data-wool-receipt-difference="${escapeHtml(sku)}"></label>`).join('') || '<div class="p-4 text-sm text-red-700">技术包未配置本单必需纱线，不能确认接收。</div>'}</div>
+    <div class="mt-4 overflow-hidden rounded-md border"><div class="grid grid-cols-[40px_1.4fr_140px_1fr] gap-3 border-b bg-muted/40 px-3 py-2 text-xs font-medium"><span>选择</span><span>本单必需纱线 SKU / 接收事实</span><span>实收数量（kg）</span><span>差异说明</span></div>${yarns.map((sku) => {
+      const matched = receiptRecords
+        .flatMap((record) => record.lines
+          .filter((line) => line.yarnSkuCode === sku)
+          .map((line) => ({ record, line, qty: effectiveReceiptQty(record, line.lineId) })))
+        .filter((item) => item.qty > 0)
+      const receivedQty = matched.reduce((sum, item) => sum + item.qty, 0)
+      const batches = [...new Set(matched.map((item) => item.record.batchNo).filter(Boolean))]
+      const latestAt = matched.map((item) => item.record.receivedAt).sort().at(-1) || '—'
+      return `<label class="grid grid-cols-[40px_1.4fr_140px_1fr] items-center gap-3 border-b px-3 py-2 last:border-b-0"><input type="checkbox" data-wool-receipt-yarn="${escapeHtml(sku)}"><span><span class="font-medium">${escapeHtml(sku)}</span><span class="mt-1 block text-xs text-muted-foreground">累计有效接收 ${formatQty(receivedQty, 'kg')}｜批次 ${escapeHtml(batches.join('、') || '—')}｜最近接收时间 ${escapeHtml(latestAt)}</span></span><input type="number" min="0.01" step="0.01" class="h-9 rounded-md border px-3" data-wool-receipt-qty="${escapeHtml(sku)}"><input class="h-9 rounded-md border px-3" placeholder="选填" data-wool-receipt-difference="${escapeHtml(sku)}"></label>`
+    }).join('') || '<div class="p-4 text-sm text-red-700">技术包未配置本单必需纱线，不能确认接收。</div>'}</div>
     ${proofAndRemarkFields()}
     ${renderHistorySummary(order)}
   `, yarns.length > 0 ? dialogFooter('save-receipt', '保存确认接收') : renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }))
 }
 
-function renderReportDialog(order: WoolWorkOrder): string {
+export function renderWoolReportDialog(order: WoolWorkOrder): string {
   const readiness = order.outputPlanLines.map((line) => ({ line, readiness: getWoolOutputReadiness(order.woolOrderId, line.outputSkuCode) }))
   const available = readiness.filter((item) => item.readiness.canReport)
   const unavailable = readiness.filter((item) => !item.readiness.canReport)
   return dialog('加工填报', `
     ${renderOrderContext(order)}
-    <label class="block text-sm"><span class="mb-1 block text-xs text-muted-foreground">可填报加工后 SKU</span><select class="h-9 w-full rounded-md border px-3" data-wool-dialog-field="outputSkuCode">${available.map(({ line, readiness: item }) => `<option value="${escapeHtml(line.outputSkuCode)}">${escapeHtml(line.outputSkuCode)}｜计划 ${line.plannedQty}${line.qtyUnit}｜上限 ${item.reportLimitQty}${line.qtyUnit}｜累计 ${item.reportedQty}${line.qtyUnit}｜本次最多 ${item.remainingReportQty}${line.qtyUnit}</option>`).join('')}</select></label>
+    <label class="block text-sm"><span class="mb-1 block text-xs text-muted-foreground">可填报加工后 SKU</span><select class="h-9 w-full rounded-md border px-3" data-wool-dialog-field="outputSkuCode">${available.map(({ line, readiness: item }) => `<option value="${escapeHtml(line.outputSkuCode)}">${escapeHtml(line.outputSkuCode)}｜计划 ${line.plannedQty}${line.qtyUnit}｜上限 ${item.reportLimitQty}${line.qtyUnit}｜累计有效加工填报 ${item.reportedQty}${line.qtyUnit}｜本次最多 ${item.remainingReportQty}${line.qtyUnit}</option>`).join('')}</select></label>
     <div class="mt-3 grid gap-3 md:grid-cols-2"><label class="text-sm"><span class="mb-1 block text-xs text-muted-foreground">本次填报数量</span><input type="number" min="1" step="1" class="h-9 w-full rounded-md border px-3" data-wool-dialog-field="qty"></label><label class="text-sm"><span class="mb-1 block text-xs text-muted-foreground">填报人</span><input class="h-9 w-full rounded-md border px-3" value="Web 端毛织主管" data-wool-dialog-field="operator"></label></div>
-    <section class="mt-4 rounded-md border"><h3 class="border-b px-3 py-2 text-sm font-medium">暂不可填报</h3><div class="space-y-2 p-3 text-xs">${unavailable.map(({ line, readiness: item }) => `<div><span class="font-medium">${escapeHtml(line.outputSkuCode)}</span>：${escapeHtml(item.missingYarnSkus.length ? `缺少 ${item.missingYarnSkus.join('、')}` : item.remainingReportQty === 0 ? '已达到计划数量的 150%' : '技术包缺少必需纱线关系')}</div>`).join('') || '<div class="text-muted-foreground">无</div>'}</div></section>
+    <section class="mt-4 rounded-md border"><h3 class="border-b px-3 py-2 text-sm font-medium">暂不可填报</h3><div class="space-y-2 p-3 text-xs">${unavailable.map(({ line, readiness: item }) => `<div><span class="font-medium">${escapeHtml(line.outputSkuCode)}</span>：累计有效加工填报 ${item.reportedQty}${line.qtyUnit}；${escapeHtml(item.missingYarnSkus.length ? `缺少 ${item.missingYarnSkus.join('、')}` : item.remainingReportQty === 0 ? '已达到计划数量的 150%' : '技术包缺少必需纱线关系')}</div>`).join('') || '<div class="text-muted-foreground">无</div>'}</div></section>
     ${proofAndRemarkFields()}
     ${renderHistorySummary(order)}
   `, available.length > 0 ? dialogFooter('save-report', '保存加工填报') : renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }))
 }
 
-function renderHandoverDialog(order: WoolWorkOrder): string {
+export function renderWoolHandoverDialog(order: WoolWorkOrder): string {
   const available = order.outputPlanLines
-    .map((line) => ({ line, stock: getWoolOutputStockQty(order.woolOrderId, line.outputSkuCode) }))
-    .filter((item) => item.stock > 0)
+    .map((line) => ({
+      line,
+      stock: getWoolOutputStockQty(order.woolOrderId, line.outputSkuCode),
+      reported: getWoolOutputReportedQty(order.woolOrderId, line.outputSkuCode),
+      handedOver: getWoolOutputHandedOverQty(order.woolOrderId, line.outputSkuCode),
+      availableQty: getWoolOutputHandoverAvailableQty(order.woolOrderId, line.outputSkuCode),
+    }))
+    .filter((item) => item.availableQty > 0)
   const targetReady = Boolean(order.downstreamTarget.receiverId && order.downstreamTarget.receiverName)
   return dialog('发起交出', `
     ${renderOrderContext(order)}
-    <label class="block text-sm"><span class="mb-1 block text-xs text-muted-foreground">默认库位有库存的加工后 SKU</span><select class="h-9 w-full rounded-md border px-3" data-wool-dialog-field="outputSkuCode">${available.map(({ line, stock }) => `<option value="${escapeHtml(line.outputSkuCode)}">${escapeHtml(line.outputSkuCode)}｜可交出 ${stock}${line.qtyUnit}</option>`).join('')}</select></label>
+    <label class="block text-sm"><span class="mb-1 block text-xs text-muted-foreground">当前有可交出余额的加工后 SKU</span><select class="h-9 w-full rounded-md border px-3" data-wool-dialog-field="outputSkuCode">${available.map(({ line, stock, reported, handedOver, availableQty }) => `<option value="${escapeHtml(line.outputSkuCode)}">${escapeHtml(line.outputSkuCode)}｜累计有效加工填报 ${reported}${line.qtyUnit}｜累计有效交出 ${handedOver}${line.qtyUnit}｜默认库位库存 ${stock}${line.qtyUnit}｜可交出余额 ${availableQty}${line.qtyUnit}</option>`).join('')}</select></label>
     <div class="mt-3 grid gap-3 md:grid-cols-2"><label class="text-sm"><span class="mb-1 block text-xs text-muted-foreground">本次交出数量</span><input type="number" min="1" step="1" class="h-9 w-full rounded-md border px-3" data-wool-dialog-field="qty"></label><label class="text-sm"><span class="mb-1 block text-xs text-muted-foreground">交出人</span><input class="h-9 w-full rounded-md border px-3" value="Web 端毛织仓管" data-wool-dialog-field="operator"></label></div>
     <div class="mt-4 rounded-md border p-3 text-sm"><span class="text-muted-foreground">接收对象：</span><strong>${escapeHtml(targetReady ? order.downstreamTarget.receiverName : '交出去向未配置')}</strong><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.downstreamTarget.receiverId || '请先完善加工单的稳定接收方标识，不能自由填写接收对象。')}</div></div>
     ${proofAndRemarkFields()}
@@ -678,9 +699,9 @@ function renderQtyEditDialog(overlay: Extract<BusinessOverlay, { kind: 'qty-edit
 function renderBusinessOverlay(): string {
   const order = requireOverlayOrder()
   if (!state.overlay || !order) return ''
-  if (state.overlay.kind === 'receipt') return renderReceiptDialog(order)
-  if (state.overlay.kind === 'report') return renderReportDialog(order)
-  if (state.overlay.kind === 'handover') return renderHandoverDialog(order)
+  if (state.overlay.kind === 'receipt') return renderWoolReceiptDialog(order)
+  if (state.overlay.kind === 'report') return renderWoolReportDialog(order)
+  if (state.overlay.kind === 'handover') return renderWoolHandoverDialog(order)
   if (state.overlay.kind === 'complete') return renderCompleteDialog(order)
   if (state.overlay.kind === 'qty-list') return renderQtyListDialog(order)
   return renderQtyEditDialog(state.overlay)
@@ -773,10 +794,18 @@ function saveReport(order: WoolWorkOrder): void {
 }
 
 function saveHandover(order: WoolWorkOrder): void {
+  const outputSkuCode = readDialogField('outputSkuCode')
+  const handoverQty = Number(readDialogField('qty'))
+  const line = order.outputPlanLines.find((item) => item.outputSkuCode === outputSkuCode)
+  const availableQty = getWoolOutputHandoverAvailableQty(order.woolOrderId, outputSkuCode)
+  if (handoverQty > availableQty) {
+    showOverlayError(`最多可交出 ${availableQty}${line?.qtyUnit || '件'}，请调整本次交出数量。`)
+    return
+  }
   runCommand(() => addWoolHandover(order.woolOrderId, {
     commandId: nextCommandId('HANDOVER', order.woolOrderId),
-    outputSkuCode: readDialogField('outputSkuCode'),
-    handoverQty: Number(readDialogField('qty')),
+    outputSkuCode,
+    handoverQty,
     proofFiles: readProofFiles(),
     remark: readDialogField('factRemark'),
     handedOverAt: nowText(),

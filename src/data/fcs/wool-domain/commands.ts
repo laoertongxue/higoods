@@ -1,5 +1,6 @@
 import {
   getWoolHandoverEffectiveQty,
+  getWoolOutputHandoverAvailableQtyFromStore,
   getWoolProcessReportEffectiveQty,
   getWoolYarnReceiptLineEffectiveQty,
 } from './queries.ts'
@@ -604,12 +605,25 @@ export function addWoolHandover(
   const committed = commitWoolStore((draft) => {
     const order = requireUncompleted(draft, woolOrderId)
     const line = requireOutputLine(order, input.outputSkuCode)
-    const hasEffectiveProcessReport = draft.processReports.some((record) =>
-      record.woolOrderId === woolOrderId
-      && getWoolProcessReportEffectiveQty(draft, record) > 0,
+    const reportedQty = draft.processReports
+      .filter((record) =>
+        record.woolOrderId === woolOrderId
+        && record.outputSkuCode === input.outputSkuCode,
+      )
+      .reduce((sum, record) => sum + getWoolProcessReportEffectiveQty(draft, record), 0)
+    if (reportedQty <= 0) {
+      throw new Error('该 SKU 尚无有效加工填报，不能发起交出')
+    }
+    const availableQty = getWoolOutputHandoverAvailableQtyFromStore(
+      draft,
+      woolOrderId,
+      input.outputSkuCode,
     )
-    if (!hasEffectiveProcessReport) {
-      throw new Error('发起交出前至少有一次有效加工填报')
+    if (availableQty <= 0) {
+      throw new Error(`该 SKU 可交出余额为 0${line.qtyUnit}`)
+    }
+    if (input.handoverQty > availableQty) {
+      throw new Error(`交出数量不能超过该 SKU 可交出余额 ${availableQty}${line.qtyUnit}`)
     }
     if (!order.downstreamTarget.receiverId || !order.downstreamTarget.receiverName) {
       throw new Error('交出去向未配置')

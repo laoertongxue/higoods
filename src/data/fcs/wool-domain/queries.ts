@@ -277,21 +277,11 @@ export function getWoolAllowedActions(woolOrderId: string): WoolAllowedAction[] 
     getWoolOutputReadiness(woolOrderId, line.outputSkuCode),
   )
   if (readiness.some((item) => item.canReport)) actions.push('REPORT_PROCESS')
-  const hasStock = order.outputPlanLines.some((line) => {
-    const location = line.outputObjectType === 'GARMENT'
-      ? 'WOOL-WH-GARMENT-DEFAULT'
-      : 'WOOL-WH-CUT-DEFAULT'
-    return getWoolWarehouseStock({
-      woolOrderId,
-      objectSkuCode: line.outputSkuCode,
-      defaultLocationId: location,
-    }) > 0
-  })
-  const hasEffectiveProcessReport = store.processReports.some((record) =>
-    record.woolOrderId === woolOrderId
-    && getWoolProcessReportEffectiveQty(store, record) > 0,
-  )
-  if (hasEffectiveProcessReport && hasStock) actions.push('HANDOVER')
+  if (order.outputPlanLines.some((line) =>
+    getWoolOutputHandoverAvailableQtyFromStore(store, woolOrderId, line.outputSkuCode) > 0,
+  )) {
+    actions.push('HANDOVER')
+  }
   if (
     readiness.some((item) => item.canReport)
     || store.machineAssociations.some((association) => association.woolOrderId === woolOrderId)
@@ -321,7 +311,14 @@ function parseStockKey(stockKey: string): WoolWarehouseStockKey {
 
 export function getWoolWarehouseStock(stockKey: WoolWarehouseStockKey | string): number {
   const key = typeof stockKey === 'string' ? parseStockKey(stockKey) : stockKey
-  return readWoolStore().warehouseFlows
+  return getWoolWarehouseStockFromStore(readWoolStore(), key)
+}
+
+function getWoolWarehouseStockFromStore(
+  store: WoolDomainStore,
+  key: WoolWarehouseStockKey,
+): number {
+  return store.warehouseFlows
     .filter((flow) =>
       flow.woolOrderId === key.woolOrderId
       && flow.objectSkuCode === key.objectSkuCode
@@ -337,6 +334,37 @@ export function getWoolWarehouseStock(stockKey: WoolWarehouseStockKey | string):
       }
       return sum + flow.qty
     }, 0)
+}
+
+export function getWoolOutputHandoverAvailableQtyFromStore(
+  store: WoolDomainStore,
+  woolOrderId: string,
+  outputSkuCode: string,
+): number {
+  const order = store.workOrders[woolOrderId]
+  if (!order) throw new Error(`找不到毛织加工单 ${woolOrderId}`)
+  const line = requireOutputLine(order, outputSkuCode)
+  const reportedQty = store.processReports
+    .filter((record) => record.woolOrderId === woolOrderId && record.outputSkuCode === outputSkuCode)
+    .reduce((sum, record) => sum + getWoolProcessReportEffectiveQty(store, record), 0)
+  const handedOverQty = store.handovers
+    .filter((record) => record.woolOrderId === woolOrderId && record.outputSkuCode === outputSkuCode)
+    .reduce((sum, record) => sum + getWoolHandoverEffectiveQty(store, record), 0)
+  const stockQty = getWoolWarehouseStockFromStore(store, {
+    woolOrderId,
+    objectSkuCode: outputSkuCode,
+    defaultLocationId: line.outputObjectType === 'GARMENT'
+      ? 'WOOL-WH-GARMENT-DEFAULT'
+      : 'WOOL-WH-CUT-DEFAULT',
+  })
+  return Math.max(0, Math.min(stockQty, reportedQty - handedOverQty))
+}
+
+export function getWoolOutputHandoverAvailableQty(
+  woolOrderId: string,
+  outputSkuCode: string,
+): number {
+  return getWoolOutputHandoverAvailableQtyFromStore(readWoolStore(), woolOrderId, outputSkuCode)
 }
 
 export function getWoolOutputStockQty(woolOrderId: string, outputSkuCode: string): number {
