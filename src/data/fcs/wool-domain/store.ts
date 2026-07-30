@@ -218,6 +218,11 @@ export function validateWoolStore(store: WoolDomainStore): void {
   assertUniqueIds(store.machineAssociations, (item) => item.machineId, '当前横机关联')
   assertUniqueIds(store.machineAssociationLogs, (item) => item.logId, '横机关联日志')
   assertUniqueIds(store.operationLogs, (item) => item.operationLogId, '操作日志')
+  for (const machine of store.machines) {
+    if (!['IDLE', 'REPAIR', 'DISABLED'].includes(machine.status)) {
+      throw new Error(`毛织存储校验失败：横机设备 ${machine.machineId} 档案状态无效`)
+    }
+  }
 
   const requireOrder = (woolOrderId: string, label: string): WoolWorkOrder => {
     const order = store.workOrders[woolOrderId]
@@ -607,10 +612,17 @@ export function validateWoolStore(store: WoolDomainStore): void {
     }
   }
   for (const association of store.machineAssociations) {
-    if (!store.machines.some((item) => item.machineId === association.machineId)) {
+    const machine = store.machines.find((item) => item.machineId === association.machineId)
+    if (!machine) {
       throw new Error(`毛织存储校验失败：当前横机关联引用的设备 ${association.machineId} 不存在`)
     }
+    if (machine.status !== 'IDLE') {
+      throw new Error(`毛织存储校验失败：维修或停用设备 ${association.machineId} 不可存在当前关联`)
+    }
     requireOrder(association.woolOrderId, '当前横机关联')
+    if (store.completions.some((item) => item.woolOrderId === association.woolOrderId)) {
+      throw new Error(`毛织存储校验失败：已完成加工单不可存在当前横机关联 ${association.woolOrderId}`)
+    }
   }
   for (const log of store.machineAssociationLogs) {
     if (!store.machines.some((item) => item.machineId === log.machineId)) {
@@ -620,7 +632,7 @@ export function validateWoolStore(store: WoolDomainStore): void {
     if (log.toWoolOrderId) requireOrder(log.toWoolOrderId, `横机关联日志 ${log.logId}`)
   }
   for (const log of store.operationLogs) {
-    requireOrder(log.woolOrderId, `操作日志 ${log.operationLogId}`)
+    if (log.woolOrderId) requireOrder(log.woolOrderId, `操作日志 ${log.operationLogId}`)
     if (
       log.operationLogId.startsWith('WOOL-COMMAND-RECEIPT-')
       && log.action !== 'COMMAND_RECEIPT'

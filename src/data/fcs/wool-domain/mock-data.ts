@@ -422,7 +422,7 @@ export function buildWoolFactWorkflowMockStore(_seed = 'DEFAULT'): WoolDomainSto
       machineId: `WM-${String(index + 1).padStart(3, '0')}`,
       machineNo: `横机-${String(index + 1).padStart(3, '0')}`,
       machineName: `电脑横机 ${index + 1} 号`,
-      status: index === 5 ? 'REPAIR' : index === 6 ? 'DISABLED' : 'FREE',
+      status: index === 5 ? 'REPAIR' : index === 6 ? 'DISABLED' : 'IDLE',
       createdAt: MOCK_AT,
       updatedAt: MOCK_AT,
     })),
@@ -535,8 +535,6 @@ export function buildWoolFactWorkflowMockStore(_seed = 'DEFAULT'): WoolDomainSto
         })
         break
       case 'MACHINE_STATUS_AUTO_RELEASE':
-        store.machines.find((machine) => machine.machineId === 'WM-006')!.status = 'IN_PRODUCTION'
-        store.machines.find((machine) => machine.machineId === 'WM-007')!.status = 'IN_PRODUCTION'
         store.machineAssociations.push(
           {
             machineId: 'WM-006',
@@ -854,10 +852,6 @@ export function buildWoolFactWorkflowMockStore(_seed = 'DEFAULT'): WoolDomainSto
       default:
         break
     }
-  }
-  for (const association of store.machineAssociations) {
-    const machine = store.machines.find((item) => item.machineId === association.machineId)
-    if (machine) machine.status = 'IN_PRODUCTION'
   }
   return store
 }

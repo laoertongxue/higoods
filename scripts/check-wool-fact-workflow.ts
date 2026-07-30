@@ -713,6 +713,11 @@ const {
   transferWoolWarehouseStock,
 } = await import('../src/data/fcs/wool-domain/commands.ts')
 const {
+  changeWoolMachineAvailability,
+  getWoolMachineById,
+  replaceWoolMachineAssociations,
+} = await import('../src/data/fcs/wool-domain/machine-associations.ts')
+const {
   WOOL_MOCK_SCENARIO_CODES,
   resetWoolFactWorkflowMock,
 } = await import('../src/data/fcs/wool-domain/mock-data.ts')
@@ -1057,13 +1062,13 @@ assert.equal(
   true,
 )
 assert.equal(
-  transferStore.machines.find((item) => item.machineId === transferLog.machineId)?.status,
-  'IN_PRODUCTION',
+  getWoolMachineById(transferLog.machineId)?.status,
+  'PRODUCING',
 )
 for (const association of transferStore.machineAssociations) {
   assert.equal(
-    transferStore.machines.find((item) => item.machineId === association.machineId)?.status,
-    'IN_PRODUCTION',
+    getWoolMachineById(association.machineId)?.status,
+    'PRODUCING',
   )
 }
 
@@ -1132,13 +1137,13 @@ for (const machineId of releasedCompletion.confirmationSnapshot.releasedMachineI
   )!
   assert.equal(releaseLog.operatedAt, releasedCompletion.completedAt)
   const currentAssociation = releasedStore.machineAssociations.find((item) => item.machineId === machineId)
-  const machine = releasedStore.machines.find((item) => item.machineId === machineId)!
+  const machine = getWoolMachineById(machineId)!
   if (!currentAssociation) {
-    assert.equal(machine.status, 'FREE')
+    assert.equal(machine.status, 'IDLE')
     continue
   }
   assert(currentAssociation.associatedAt > releasedCompletion.completedAt)
-  assert.equal(machine.status, 'IN_PRODUCTION')
+  assert.equal(machine.status, 'PRODUCING')
   assert(releasedStore.machineAssociationLogs.some((item) =>
     item.machineId === machineId
     && item.action === 'ASSOCIATE'
@@ -2955,7 +2960,7 @@ assert.deepEqual(
 assert.equal(listWoolMachineAssociations(associatedOrder.woolOrderId).length, 0)
 const associatedCompletionStore = readWoolStore()
 assert(associatedMachineIds.every((machineId) =>
-  associatedCompletionStore.machines.find((item) => item.machineId === machineId)?.status === 'FREE',
+  associatedCompletionStore.machines.find((item) => item.machineId === machineId)?.status === 'IDLE',
 ))
 assert(associatedMachineIds.every((machineId) =>
   associatedCompletionStore.machineAssociationLogs.some((item) =>
@@ -2977,4 +2982,213 @@ assert(associatedCompletionStore.operationLogs.some((item) =>
   && item.action === 'COMMAND_RECEIPT',
 ))
 
+resetWoolFactWorkflowMock('CHECK_WOOL_MACHINE_ASSOCIATIONS')
+const machineOrderA = listWoolWorkOrders()
+  .find((item) => item.mockScenarioCode === 'MACHINE_ASSOCIATION_A')!
+const machineOrderB = listWoolWorkOrders()
+  .find((item) => item.mockScenarioCode === 'MACHINE_ASSOCIATION_B')!
+const machineActor = {
+  operatedAt: '2026-07-30 20:00:00',
+  operatedBy: '设备主管',
+}
+
+replaceWoolMachineAssociations(machineOrderA.woolOrderId, ['WM-001', 'WM-002'], machineActor)
+assert.equal(getWoolMachineById('WM-001')?.status, 'PRODUCING')
+assert.equal(getWoolMachineById('WM-002')?.status, 'PRODUCING')
+const unchangedAssociationLogCount = readWoolStore().machineAssociationLogs.length
+replaceWoolMachineAssociations(machineOrderA.woolOrderId, ['WM-002', 'WM-001', 'WM-001'], machineActor)
+assert.equal(
+  readWoolStore().machineAssociationLogs.length,
+  unchangedAssociationLogCount,
+  '重复保存同一整组最终真相不得重复写关联日志',
+)
+
+replaceWoolMachineAssociations(machineOrderA.woolOrderId, ['WM-002'], {
+  ...machineActor,
+  operatedAt: '2026-07-30 20:10:00',
+})
+assert.equal(getWoolMachineById('WM-001')?.status, 'IDLE')
+replaceWoolMachineAssociations(machineOrderB.woolOrderId, ['WM-002'], {
+  ...machineActor,
+  operatedAt: '2026-07-30 20:20:00',
+})
+assert.equal(listWoolMachineAssociations(machineOrderA.woolOrderId).length, 0)
+assert.deepEqual(
+  listWoolMachineAssociations(machineOrderB.woolOrderId).map((item) => item.machineId),
+  ['WM-002'],
+)
+assert(readWoolStore().machineAssociationLogs.some((item) =>
+  item.machineId === 'WM-002'
+  && item.action === 'TRANSFER'
+  && item.fromWoolOrderId === machineOrderA.woolOrderId
+  && item.toWoolOrderId === machineOrderB.woolOrderId,
+))
+
+assert.throws(
+  () => replaceWoolMachineAssociations(machineOrderB.woolOrderId, ['WM-006'], machineActor),
+  /维修或停用设备不可关联/,
+)
+const noAssociationOrder = listWoolWorkOrders()
+  .find((item) => item.mockScenarioCode === 'NO_YARN_RECEIPT')!
+assert.throws(
+  () => replaceWoolMachineAssociations(noAssociationOrder.woolOrderId, ['WM-001'], machineActor),
+  /暂不可关联横机/,
+)
+const completedMachineOrder = listWoolWorkOrders()
+  .find((item) => item.mockScenarioCode === 'COMPLETED_RELEASED_MACHINES')!
+const completedAssociationStore = structuredClone(readWoolStore())
+completedAssociationStore.machineAssociations.push({
+  machineId: 'WM-003',
+  woolOrderId: completedMachineOrder.woolOrderId,
+  associatedAt: machineActor.operatedAt,
+  associatedBy: machineActor.operatedBy,
+})
+assert.throws(
+  () => validateWoolStore(completedAssociationStore),
+  /已完成加工单不可存在当前横机关联/,
+)
+assert.throws(
+  () => replaceWoolMachineAssociations(completedMachineOrder.woolOrderId, [], machineActor),
+  /已完成/,
+)
+
+const beforeFailedMachineAvailability = readWoolStore()
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: {
+    getItem(key: string) {
+      return storageValues.get(key) ?? null
+    },
+    setItem() {
+      throw new Error('模拟设备可用性变更持久化失败')
+    },
+  },
+})
+assert.throws(
+  () => changeWoolMachineAvailability('WM-002', {
+    nextStatus: 'DISABLED',
+    reason: '设备停用复核',
+    operatedAt: '2026-07-30 20:25:00',
+    operatedBy: '设备主管',
+    confirmedImpact: true,
+  }),
+  /模拟设备可用性变更持久化失败/,
+)
+assert.deepEqual(
+  readWoolStore(),
+  beforeFailedMachineAvailability,
+  '设备状态、当前关联、关联日志和设备操作日志必须同一次提交回滚',
+)
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: {
+    getItem(key: string) {
+      return storageValues.get(key) ?? null
+    },
+    setItem(key: string, value: string) {
+      storageValues.set(key, value)
+    },
+  },
+})
+
+assert.throws(
+  () => changeWoolMachineAvailability('WM-002', {
+    nextStatus: 'REPAIR',
+    reason: '机针故障',
+    operatedAt: '2026-07-30 20:30:00',
+    operatedBy: '设备主管',
+    confirmedImpact: false,
+  }),
+  /确认影响/,
+)
+assert.equal(listWoolMachineAssociations(machineOrderB.woolOrderId).length, 1)
+changeWoolMachineAvailability('WM-002', {
+  nextStatus: 'REPAIR',
+  reason: '机针故障',
+  operatedAt: '2026-07-30 20:30:00',
+  operatedBy: '设备主管',
+  confirmedImpact: true,
+})
+assert.equal(listWoolMachineAssociations(machineOrderB.woolOrderId).length, 0)
+assert.equal(getWoolMachineById('WM-002')?.status, 'REPAIR')
+assert(readWoolStore().machineAssociationLogs.some((item) =>
+  item.machineId === 'WM-002'
+  && item.fromWoolOrderId === machineOrderB.woolOrderId
+  && item.action === 'UNASSOCIATE'
+  && item.reason === 'MACHINE_REPAIR',
+))
+const repairAvailabilityLog = readWoolStore().operationLogs.find((item) =>
+  item.woolOrderId === machineOrderB.woolOrderId
+  && item.objectType === 'WOOL_MACHINE'
+  && item.objectId === 'WM-002'
+  && item.action === 'CHANGE_WOOL_MACHINE_AVAILABILITY'
+)
+assert(repairAvailabilityLog)
+assert.deepEqual(repairAvailabilityLog.beforeValue, {
+  status: 'PRODUCING',
+  woolOrderId: machineOrderB.woolOrderId,
+})
+assert.deepEqual(repairAvailabilityLog.afterValue, { status: 'REPAIR' })
+
+changeWoolMachineAvailability('WM-002', {
+  nextStatus: 'IDLE',
+  reason: '维修完成',
+  operatedAt: '2026-07-30 21:00:00',
+  operatedBy: '设备主管',
+})
+assert.equal(getWoolMachineById('WM-002')?.status, 'IDLE')
+const restoredAvailabilityLog = readWoolStore().operationLogs.find((item) =>
+  item.objectType === 'WOOL_MACHINE'
+  && item.objectId === 'WM-002'
+  && item.action === 'CHANGE_WOOL_MACHINE_AVAILABILITY'
+  && item.remark === '维修完成'
+)
+assert(restoredAvailabilityLog)
+assert.deepEqual(restoredAvailabilityLog.beforeValue, { status: 'REPAIR' })
+assert.deepEqual(restoredAvailabilityLog.afterValue, { status: 'IDLE' })
+assert.equal(
+  readWoolStore().machineAssociations.some((item) => item.machineId === 'WM-002'),
+  false,
+  '维修恢复为空闲不得自动恢复旧关联',
+)
+assert.throws(
+  () => changeWoolMachineAvailability('WM-002', {
+    nextStatus: 'PRODUCING' as 'IDLE',
+    reason: '非法手工生产中',
+    operatedAt: '2026-07-30 21:10:00',
+    operatedBy: '设备主管',
+  }),
+  /只允许改为空闲、维修或停用/,
+)
+assert(readWoolStore().machines.every((machine) =>
+  machine.status === 'IDLE' || machine.status === 'REPAIR' || machine.status === 'DISABLED',
+), '设备档案不得持久化生产中')
+
+resetWoolFactWorkflowMock('CHECK_WOOL_MACHINE_DISABLED')
+const disabledMachineOrder = listWoolWorkOrders()
+  .find((item) => item.mockScenarioCode === 'MACHINE_ASSOCIATION_A')!
+changeWoolMachineAvailability('WM-001', {
+  nextStatus: 'DISABLED',
+  reason: '设备淘汰停用',
+  operatedAt: '2026-07-30 22:00:00',
+  operatedBy: '设备主管',
+  confirmedImpact: true,
+})
+assert.equal(getWoolMachineById('WM-001')?.status, 'DISABLED')
+assert.equal(listWoolMachineAssociations(disabledMachineOrder.woolOrderId).length, 0)
+assert(readWoolStore().machineAssociationLogs.some((item) =>
+  item.machineId === 'WM-001'
+  && item.fromWoolOrderId === disabledMachineOrder.woolOrderId
+  && item.reason === 'MACHINE_DISABLED',
+))
+
+const woolMachineSources = [
+  readFileSync(new URL('../src/data/fcs/wool-task-domain.ts', import.meta.url), 'utf8'),
+  readFileSync(new URL('../src/data/fcs/wool-domain/types.ts', import.meta.url), 'utf8'),
+  readFileSync(new URL('../src/data/fcs/wool-domain/machine-associations.ts', import.meta.url), 'utf8'),
+].join('\n')
+assert(!woolMachineSources.includes('SCHEDULED'))
+assert(!woolMachineSources.includes('已排产'))
+
 console.log('PASS task 5: global command receipts, atomic stock, downstream lock, and manual completion')
+console.log('PASS task 6: current machine associations and derived four-state availability')

@@ -237,15 +237,20 @@ export interface WoolCompletionRecord {
   remark?: string
 }
 
-export type WoolMachineStatus = 'FREE' | 'IN_PRODUCTION' | 'REPAIR' | 'DISABLED'
+export type WoolMachineAvailability = 'IDLE' | 'REPAIR' | 'DISABLED'
+export type WoolMachineStatus = WoolMachineAvailability | 'PRODUCING'
 
 export interface WoolMachine {
   machineId: string
   machineNo: string
   machineName: string
-  status: WoolMachineStatus
+  status: WoolMachineAvailability
   createdAt: string
   updatedAt: string
+}
+
+export type WoolMachineView = Omit<WoolMachine, 'status'> & {
+  status: WoolMachineStatus
 }
 
 export type WoolMachineAssociationAction = 'ASSOCIATE' | 'TRANSFER' | 'UNASSOCIATE'
@@ -275,7 +280,7 @@ export interface WoolMachineAssociationLog {
 
 export interface WoolOperationLog {
   operationLogId: string
-  woolOrderId: string
+  woolOrderId?: string
   action: string
   objectType: string
   objectId: string

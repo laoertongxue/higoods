@@ -440,7 +440,7 @@ function resolveFactWoolOrderId(
   record: WoolFactRecord,
 ): string {
   if (recordType !== 'QTY_CHANGE') {
-    return 'woolOrderId' in record ? record.woolOrderId : ''
+    return ('woolOrderId' in record ? record.woolOrderId : '') ?? ''
   }
   const change = record as WoolQtyChangeLog
   if (change.recordType === 'YARN_RECEIPT') {

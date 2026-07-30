@@ -23,6 +23,7 @@ import type {
   WoolYarnReceiptRecord,
   WoolYarnReturnRecord,
 } from './types.ts'
+import { releaseWoolMachineAssociationsInDraft } from './machine-associations.ts'
 
 interface CommandInput {
   commandId: string
@@ -1165,48 +1166,6 @@ function buildCompletionSnapshot(
   }
 }
 
-function releaseMachineAssociationsForCompletion(
-  draft: WoolDomainStore,
-  order: WoolWorkOrder,
-  input: CompleteWoolWorkOrderInput,
-): string[] {
-  const released = draft.machineAssociations
-    .filter((association) => association.woolOrderId === order.woolOrderId)
-    .map((association) => association.machineId)
-  draft.machineAssociations = draft.machineAssociations.filter(
-    (association) => association.woolOrderId !== order.woolOrderId,
-  )
-  for (const machineId of released) {
-    const machine = draft.machines.find((item) => item.machineId === machineId)!
-    machine.status = 'FREE'
-    machine.updatedAt = input.completedAt
-    draft.machineAssociationLogs.push({
-      logId: `${commandRecordId('WMAL-COMPLETE', input.commandId)}-${machineId}`,
-      machineId,
-      fromWoolOrderId: order.woolOrderId,
-      action: 'UNASSOCIATE',
-      reason: 'ORDER_COMPLETED',
-      operatedAt: input.completedAt,
-      operatedBy: input.completedBy,
-    })
-  }
-  if (released.length > 0) {
-    draft.operationLogs.push({
-      operationLogId: commandRecordId('WOOP-RELEASE-MACHINES', input.commandId),
-      woolOrderId: order.woolOrderId,
-      action: 'RELEASE_WOOL_MACHINES_FOR_COMPLETION',
-      objectType: 'WOOL_MACHINE_ASSOCIATIONS',
-      objectId: order.woolOrderId,
-      beforeValue: { machineIds: released },
-      afterValue: { machineIds: [] },
-      operatedAt: input.completedAt,
-      operatedBy: input.completedBy,
-      remark: '完成加工单，批量解除当前横机关联',
-    })
-  }
-  return released
-}
-
 export function completeWoolWorkOrder(
   woolOrderId: string,
   input: CompleteWoolWorkOrderInput,
@@ -1224,9 +1183,14 @@ export function completeWoolWorkOrder(
     )) {
       throw new Error('至少有一条交出记录后才能完成加工单')
     }
-    const releasedMachineIds = releaseMachineAssociationsForCompletion(draft, order, {
-      ...input,
-      completedBy,
+    const releasedMachineIds = releaseWoolMachineAssociationsInDraft(draft, order.woolOrderId, {
+      reason: 'ORDER_COMPLETED',
+      operatedAt: input.completedAt,
+      operatedBy: completedBy,
+      associationLogIdPrefix: commandRecordId('WMAL-COMPLETE', input.commandId),
+      operationLogId: commandRecordId('WOOP-RELEASE-MACHINES', input.commandId),
+      operationAction: 'RELEASE_WOOL_MACHINES_FOR_COMPLETION',
+      operationRemark: '完成加工单，批量解除当前横机关联',
     })
     const completion: WoolCompletionRecord = {
       completionId,
