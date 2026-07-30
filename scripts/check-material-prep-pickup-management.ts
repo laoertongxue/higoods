@@ -26,12 +26,15 @@ import {
   type PickupOrderStatus,
 } from '../src/data/fcs/cutting/production-material-prep.ts'
 import {
-  listActivePickupNodesRuntime as listActivePickupNodes,
+  bootstrapPickupManagementRuntimeMockData,
+  listActivePickupNodesRuntime,
   listPickupDemandFactsRuntime as listPickupDemandFacts,
 } from '../src/runtime/fcs/cutting/pickup-management-runtime.ts'
 import {
   listPickupOrderGroups,
 } from '../src/pages/process-factory/cutting/pickup-management-projection.ts'
+
+bootstrapPickupManagementRuntimeMockData()
 
 const repoRoot = process.cwd()
 
@@ -255,7 +258,7 @@ const multiUnitContext = getMaterialPrepRecordContext(multiUnitRecord.record.pre
 assert(multiUnitContext?.availableToPickupUnitSummaries.length! > 1, '多单位配料记录必须按单位输出可领汇总')
 assert(multiUnitContext?.totalAvailableToPickupQty === null, '多单位配料记录不得输出无量纲可领总数')
 
-const activeNodes = listActivePickupNodes(null)
+const activeNodes = listActivePickupNodesRuntime(null)
 const incompleteGroups = listPickupOrderGroups('INCOMPLETE', null)
 const readyGroups = listPickupOrderGroups('READY', null)
 assert(incompleteGroups.length > 0, 'Mock 缺少未配齐领料分组')
@@ -307,7 +310,7 @@ directReadyStorage.setItem(
   PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
   serializeProductionMaterialPrepStore(createProductionMaterialPrepSeedStore()),
 )
-const directReadyNode = listActivePickupNodes(directReadyStorage)
+const directReadyNode = listActivePickupNodesRuntime(directReadyStorage)
   .find((node) => node.nodeType === 'READY_TO_PICKUP')
 assert(directReadyNode?.readySource === 'DIRECT_READY', '首次直接配齐节点必须明确标记 DIRECT_READY')
 const serializedDirectReadyStore = directReadyStorage.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY)
@@ -315,7 +318,7 @@ assert(serializedDirectReadyStore, '直接配齐节点快照必须持久化')
 const reloadedDirectReadyStorage = new MemoryStorage()
 reloadedDirectReadyStorage.setItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY, serializedDirectReadyStore)
 assert(
-  listActivePickupNodes(reloadedDirectReadyStorage)
+  listActivePickupNodesRuntime(reloadedDirectReadyStorage)
     .find((node) => node.nodeId === directReadyNode.nodeId)?.readySource === 'DIRECT_READY',
   '直接配齐节点序列化重载后必须保持 DIRECT_READY',
 )
@@ -336,7 +339,7 @@ legacyDirectReadyStorage.setItem(
   serializeProductionMaterialPrepStore(legacyDirectReadyStore),
 )
 assert(
-  listActivePickupNodes(legacyDirectReadyStorage)
+  listActivePickupNodesRuntime(legacyDirectReadyStorage)
     .find((node) => node.nodeId === directReadyNode.nodeId)?.readySource === 'DIRECT_READY',
   '缺少新字段的旧直接配齐快照不得误标为 UPGRADED_FROM_INCOMPLETE',
 )
@@ -373,7 +376,7 @@ upgradeStorage.setItem(
   PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
   serializeProductionMaterialPrepStore(createProductionMaterialPrepSeedStore()),
 )
-const incompleteBeforeUpgrade = listActivePickupNodes(upgradeStorage)
+const incompleteBeforeUpgrade = listActivePickupNodesRuntime(upgradeStorage)
   .find((node) => node.productionOrderId === 'PO-202603-0101')
 assert(incompleteBeforeUpgrade, '缺少可用于验证未配齐升级的活动节点')
 const upgradeProjection = getMaterialPrepOrderProjection(incompleteBeforeUpgrade.prepOrderId, upgradeStorage)
@@ -393,7 +396,7 @@ for (const [index, line] of upgradeProjection.lines.entries()) {
   assert(stageMaterialPrepRecord(record.prepRecordId, '中转仓升级测试区', '跟单 升级测试员', upgradeStorage), '升级测试配料记录必须完成暂存')
   assert(confirmMaterialPrepRecord(record.prepRecordId, '中转仓 升级测试员', upgradeStorage), '升级测试配料记录必须完成确认')
 }
-const upgradedNode = listActivePickupNodes(upgradeStorage)
+const upgradedNode = listActivePickupNodesRuntime(upgradeStorage)
   .find((node) => node.prepOrderId === incompleteBeforeUpgrade.prepOrderId)
 assert(upgradedNode?.nodeId === incompleteBeforeUpgrade.nodeId, '未配齐升级后必须沿用原活动节点')
 assert(
@@ -418,7 +421,7 @@ assert(
   '升级后底层节点若保留来源库位，必须仅作为可追溯快照',
 )
 assert(
-  listActivePickupNodes(upgradeStorage)
+  listActivePickupNodesRuntime(upgradeStorage)
     .find((node) => node.nodeId === upgradedNode.nodeId)?.readySource === null,
   '加工阻断的未配齐节点在重复投影时不得误标为升级配齐',
 )
@@ -446,7 +449,7 @@ assert(confirmMaterialPrepRecord(draft.prepRecordId, '中转仓 测试员', stor
 assert(pickMaterialPrepRecord(draft.prepRecordId, '仓库 拣货员', storage)?.recordStatus === 'PICKED', 'DRAFT 必须先进入 PICKED')
 assert(stageMaterialPrepRecord(draft.prepRecordId, '中转仓测试区', '跟单 暂存员', storage)?.recordStatus === 'STAGED', 'PICKED 必须再进入 STAGED')
 assert(confirmMaterialPrepRecord(draft.prepRecordId, '中转仓 确认员', storage)?.recordStatus === 'CONFIRMED', 'STAGED 才能进入 CONFIRMED')
-assert(listActivePickupNodes(storage).some((node) =>
+assert(listActivePickupNodesRuntime(storage).some((node) =>
   node.items.some((item) => item.sourcePrepRecordIds.includes(draft.prepRecordId))
 ), '确认后的配料记录必须进入对应活动节点')
 
@@ -457,7 +460,7 @@ rejectMaterialPrepRecord(
   '裁床 测试员',
   storage,
 )
-assert(!listActivePickupNodes(storage).some((node) =>
+assert(!listActivePickupNodesRuntime(storage).some((node) =>
   node.items.some((item) => item.sourcePrepRecordIds.includes(draft.prepRecordId))
 ), '被打回配料记录不得继续出现在活动节点')
 
