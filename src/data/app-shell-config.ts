@@ -143,8 +143,6 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           icon: 'FolderKanban',
           children: [
             { key: 'pcs-project-list', title: '商品项目', icon: 'FolderKanban', href: '/pcs/projects' },
-            { key: 'pcs-template', title: '项目模板管理', icon: 'FileText', href: '/pcs/templates' },
-            { key: 'pcs-work-items', title: '工作项库', icon: 'CheckSquare', href: '/pcs/work-items' },
           ],
         },
         {

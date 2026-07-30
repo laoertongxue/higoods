@@ -14,7 +14,11 @@ import {
   getProjectNodeSequenceBlocker,
   updateProjectNodeRecord,
 } from './pcs-project-repository.ts'
-import { getProjectWorkItemContract, type PcsProjectWorkItemCode } from './pcs-project-domain-contract.ts'
+import {
+  getProjectTaskCarrierDefinition,
+  getProjectWorkItemContract,
+  type PcsProjectWorkItemCode,
+} from './pcs-project-domain-contract.ts'
 import {
   calculateSampleCostReview,
   SAMPLE_COST_RAW_FIXED_PROCESS_OVERRIDES_KEY,
@@ -23,7 +27,6 @@ import {
   type SampleCostMaterialLineInput,
   type SampleCostOptionalProcessInput,
 } from './pcs-sample-cost-review-pricing.ts'
-import { getPcsWorkItemRuntimeCarrierDefinition } from './pcs-work-item-runtime-carrier.ts'
 
 const INLINE_NODE_RECORD_STORAGE_KEY = 'higood-pcs-project-inline-node-records-v2'
 const INLINE_NODE_RECORD_STORE_VERSION = 2
@@ -733,21 +736,21 @@ export function saveProjectInlineNodeFieldEntry(
   if (blocker) {
     return {
       ok: false,
-      message: `请先填写并完成前序工作项：${blocker.workItemTypeName}。`,
+      message: `请先填写并完成前序任务：${blocker.workItemTypeName}。`,
       record: null,
     }
   }
 
   const workItemTypeCode = node.workItemTypeCode as PcsProjectInlineNodeRecordWorkItemTypeCode
   const contract = getProjectWorkItemContract(node.workItemTypeCode as PcsProjectWorkItemCode)
-  const carrier = getPcsWorkItemRuntimeCarrierDefinition(node.workItemTypeCode as PcsProjectWorkItemCode)
+  const carrier = getProjectTaskCarrierDefinition(node.workItemTypeCode as PcsProjectWorkItemCode)
   const existingRecords = listProjectInlineNodeRecordsByNode(projectNodeId).filter(
     (item) => item.workItemTypeCode === workItemTypeCode,
   )
   const latestRecord = existingRecords[0] || null
   const timestamp = nowText()
   const sequence = existingRecords.length + 1
-  const shouldCreateNewRecord = carrier.projectDisplayRequirementCode === 'PROJECT_INLINE_RECORDS' || !latestRecord
+  const shouldCreateNewRecord = carrier.allowsMultipleInlineRecords || !latestRecord
 
   const normalizedValues = Object.fromEntries(
     Object.entries(input.values || {}).map(([key, value]) => [key, normalizeFieldEntryValue(value)]),

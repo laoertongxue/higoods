@@ -79,7 +79,7 @@ const projectsPage = read('src/pages/pcs-projects.ts')
   '花型库',
   '归档状态摘要',
 ].forEach((field) => {
-  assertIncludes(domainContract, field, `工作项库字段定义缺少闭环展示：${field}`)
+  assertIncludes(domainContract, field, `任务契约字段定义缺少闭环展示：${field}`)
 })
 
 ;['技术包版本日志', '花型库', '归档状态', '当前技术包版本', '当前花型资产', '项目资料归档'].forEach((label) => {

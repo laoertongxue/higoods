@@ -6,7 +6,6 @@ import {
   createProject,
   getProjectCreateCatalog,
   getProjectNodeRecordByWorkItemTypeCode,
-  listActiveProjectTemplates,
   resetProjectRepository,
 } from '../src/data/pcs-project-repository.ts'
 import { resetProjectInlineNodeRecordRepository } from '../src/data/pcs-project-inline-node-record-repository.ts'
@@ -17,7 +16,6 @@ import { renderPcsProjectWorkItemDetailPage } from '../src/pages/pcs-projects.ts
 function buildProjectDraft() {
   const draft = createEmptyProjectDraft()
   const catalog = getProjectCreateCatalog()
-  const template = listActiveProjectTemplates().find((item) => item.styleType.includes('基础款')) || listActiveProjectTemplates()[0]
   const category = catalog.categories[0]
   const subCategory = category.children[0]
   const brand = catalog.brands[0]
@@ -27,7 +25,6 @@ function buildProjectDraft() {
 
   draft.projectName = '样衣拍摄图片上传测试项目'
   draft.projectSourceType = catalog.projectSourceTypes[0]
-  draft.templateId = template.id
   draft.categoryId = category.id
   draft.categoryName = category.name
   draft.subCategoryId = subCategory?.id || ''
@@ -37,7 +34,7 @@ function buildProjectDraft() {
   draft.styleCodeId = styleCode.id
   draft.styleCodeName = styleCode.name
   draft.styleNumber = styleCode.name
-  draft.styleType = template.styleType[0]
+  draft.styleType = '基础款'
   draft.yearTag = catalog.yearTags[0]
   draft.priceRangeLabel = catalog.priceRanges[0]
   draft.targetChannelCodes = ['tiktok']
@@ -72,14 +69,18 @@ function advanceToSampleShoot(projectId: string) {
     sampleUnitPrice: '99',
   })
   saveNode(projectId, 'SAMPLE_INBOUND_CHECK', {
-    sampleCode: 'SAMPLE-001',
-    arrivalTime: '2026-04-20 11:00',
+    sampleInboundLines: JSON.stringify([
+      { colorName: '黑色', sizeName: 'M', plannedQty: 1, receivedQty: 1 },
+    ]),
+    receivedQty: 1,
+    receivedAt: '2026-04-20 11:00',
+    qualityCheckResult: '到样完整',
     checkResult: '已完成核对',
   })
   const reviewNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'FEASIBILITY_REVIEW')
   if (reviewNode) {
     saveNode(projectId, 'FEASIBILITY_REVIEW', {
-      reviewConclusion: '通过',
+      reviewConclusion: '进入测款',
       reviewRisk: '可继续进入样衣拍摄与试穿。',
     })
   }

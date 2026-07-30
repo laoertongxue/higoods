@@ -66,7 +66,7 @@ const archiveCollector = read('src/data/pcs-project-archive-collector.ts')
   '工厂参照样',
   '最终参照样衣',
 ].forEach((label) => {
-  assertIncludes(domainContract, label, `工作项库字段定义缺少：${label}`)
+  assertIncludes(domainContract, label, `样衣任务契约字段定义缺少：${label}`)
 })
 
 assertIncludes(engineeringPage, '样衣计划', '页面缺少样衣计划')

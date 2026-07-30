@@ -20,7 +20,7 @@ const labels = contract.fieldDefinitions.map((field) => field.label)
   '花型库资产ID',
   '关联技术包版本ID',
 ].forEach((label) => {
-  assert.ok(labels.includes(label), `花型任务工作项库缺少字段：${label}`)
+  assert.ok(labels.includes(label), `花型任务契约缺少字段：${label}`)
 })
 
 console.log('pcs-pattern-task-work-item-contract-sync.spec.ts PASS')

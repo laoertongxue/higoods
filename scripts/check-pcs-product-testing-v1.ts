@@ -1,12 +1,9 @@
 import assert from 'node:assert/strict'
 
 import {
-  DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID,
-  WANLONG_REVISION_SAMPLE_TEMPLATE_ID,
   getProjectWorkItemMultiInstanceDefinition,
   getProjectWorkItemContract,
   listProjectStepContracts,
-  listProjectTemplateSchemas,
   listProjectWorkItemContracts,
   type PcsProjectWorkItemCode,
 } from '../src/data/pcs-project-domain-contract.ts'
@@ -15,14 +12,12 @@ import {
   createEmptyProjectDraft,
   createProject,
   getProjectCreateCatalog,
-  listActiveProjectTemplates,
   listProjectNodes,
   listProjectPhases,
   listProjects,
 } from '../src/data/pcs-project-repository.ts'
 import { createBootstrapProjectInlineNodeRecordSnapshot } from '../src/data/pcs-project-inline-node-record-bootstrap.ts'
 import { findStyleArchiveByProjectId } from '../src/data/pcs-style-archive-repository.ts'
-import { listProjectTemplates } from '../src/data/pcs-templates.ts'
 import { SAMPLE_COST_RAW_MATERIAL_ROWS_KEY, calculateSampleCostReview } from '../src/data/pcs-sample-cost-review-pricing.ts'
 import {
   listPcsSampleLedgerEvents,
@@ -30,40 +25,13 @@ import {
   listPcsSampleReturnCases,
 } from '../src/data/pcs-sample-management.ts'
 
-const domesticFlow: PcsProjectWorkItemCode[] = [
-  'PROJECT_INIT',
-  'SAMPLE_ACQUIRE',
-  'SAMPLE_INBOUND_CHECK',
-  'FEASIBILITY_REVIEW',
-  'SAMPLE_COST_REVIEW',
-  'CHANNEL_PRODUCT_LISTING',
-  'LIVE_TEST',
-  'VIDEO_TEST',
-  'TEST_DATA_SUMMARY',
-  'TEST_CONCLUSION',
-  'STYLE_ARCHIVE_CREATE',
-  'SAMPLE_RETURN_HANDLE',
-]
-
-const wanlongFlow: PcsProjectWorkItemCode[] = [
-  'PROJECT_INIT',
-  'SAMPLE_ACQUIRE',
-  'REVISION_TASK',
-  'PATTERN_TASK',
-  'PATTERN_ARTWORK_TASK',
-  'FIRST_SAMPLE',
-  'FIRST_ORDER_SAMPLE',
-  'SAMPLE_INBOUND_CHECK',
-  'FEASIBILITY_REVIEW',
-  'SAMPLE_COST_REVIEW',
-  'CHANNEL_PRODUCT_LISTING',
-  'LIVE_TEST',
-  'VIDEO_TEST',
-  'TEST_DATA_SUMMARY',
-  'TEST_CONCLUSION',
-  'STYLE_ARCHIVE_CREATE',
-  'SAMPLE_RETURN_HANDLE',
-]
+const expectedSteps = [
+  { stepCode: 'PROJECT_ARCHIVE', stepName: '项目与档案建立', sequence: 1 },
+  { stepCode: 'SAMPLE_PREPARATION', stepName: '样衣准备', sequence: 2 },
+  { stepCode: 'PRE_TEST_PREPARATION', stepName: '测款前准备', sequence: 3 },
+  { stepCode: 'MARKET_TESTING', stepName: '市场测款', sequence: 4 },
+  { stepCode: 'TEST_DECISION_CLOSURE', stepName: '测款判断与收尾', sequence: 5 },
+] as const
 
 function fieldKeys(workItemTypeCode: PcsProjectWorkItemCode): string[] {
   return getProjectWorkItemContract(workItemTypeCode).fieldDefinitions.map((field) => field.fieldKey)
@@ -79,20 +47,6 @@ function assertIncludesAll(actual: string[], expected: string[], message: string
   assert.deepEqual(missing, [], message)
 }
 
-function flattenSchemaNodeCodes(templateId: string): string[] {
-  const schema = listProjectTemplateSchemas().find((item) => item.templateId === templateId)
-  assert.ok(schema, `缺少模板矩阵：${templateId}`)
-  return schema.phaseSchemas.flatMap((phase) => phase.nodeCodes)
-}
-
-function findSchemaPhaseCode(templateId: string, workItemCode: PcsProjectWorkItemCode): string {
-  const schema = listProjectTemplateSchemas().find((item) => item.templateId === templateId)
-  assert.ok(schema, `缺少模板矩阵：${templateId}`)
-  const phase = schema.phaseSchemas.find((item) => item.nodeCodes.includes(workItemCode))
-  assert.ok(phase, `${templateId} 缺少工作项：${workItemCode}`)
-  return phase.phaseCode
-}
-
 function buildDraft(projectName: string, projectType: '商品开发' | '改版开发') {
   const catalog = getProjectCreateCatalog()
   const category = catalog.categories[0]
@@ -101,7 +55,7 @@ function buildDraft(projectName: string, projectType: '商品开发' | '改版�
   const owner = catalog.owners[0]
   const team = catalog.teams[0]
 
-  const { templateId: _removedTemplateId, ...draft } = createEmptyProjectDraft()
+  const draft = createEmptyProjectDraft()
   return {
     ...draft,
     projectName,
@@ -124,45 +78,32 @@ function buildDraft(projectName: string, projectType: '商品开发' | '改版�
   }
 }
 
-const templates = listProjectTemplates()
-const activeTemplates = listActiveProjectTemplates()
-const schemas = listProjectTemplateSchemas()
-
-assert.equal(templates.length, 2, '项目模板 mock 应收口为国内采购样衣测款和万隆改版出样衣测款两套模板')
-assert.equal(activeTemplates.length, 2, '两套正式业务模板都应启用')
 assert.deepEqual(
-  templates.map((item) => item.name).sort(),
-  ['万隆改版出样衣测款项目', '国内采购样衣测款项目'].sort(),
-  '模板名称应仅保留国内采购样衣测款和万隆改版出样衣测款两类',
+  listProjectStepContracts().map(({ stepCode, stepName, sequence }) => ({ stepCode, stepName, sequence })),
+  expectedSteps,
+  '商品项目必须严格按固定五步组织',
 )
-assert.equal(schemas.length, 2, '正式模板矩阵应仅保留两套')
-assert.ok(!templates.some((item) => /快时尚款 -|设计款 -|完整测款转档|直播快反|设计验证/.test(item.name)), '模板列表不应保留旧四模板名称')
-assert.ok(!templates.some((item) => /工程打样转测款/.test(item.name)), '模板列表不应保留第三类工程打样转测款项目')
 
 const projectCountBeforeDemoSeed = listProjects().length
 ensurePcsProjectDemoDataReady()
 assert.equal(listProjects().length, projectCountBeforeDemoSeed, '清洁状态下不应额外注入商品项目 mock')
 
-assert.deepEqual(flattenSchemaNodeCodes(DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID), domesticFlow, '国内采购样衣测款模板节点顺序不符合 v1.0')
-assert.deepEqual(flattenSchemaNodeCodes(WANLONG_REVISION_SAMPLE_TEMPLATE_ID), wanlongFlow, '万隆改版出样衣测款模板节点顺序不符合改版、制版、花型、首版和首单样衣链路')
+const fixedStepFlow = listProjectStepContracts().flatMap((step) => step.workItemCodes)
+assert.ok(fixedStepFlow.length > 5, '固定五步必须继续承载逐项办理的详细业务任务')
+assert.deepEqual(
+  fixedStepFlow.slice(-2),
+  ['TEST_CONCLUSION', 'SAMPLE_RETURN_HANDLE'],
+  '测款判断后必须以样衣退回处理完成业务收尾',
+)
+assert.ok(!fixedStepFlow.includes('STYLE_ARCHIVE_CREATE'), '商品／款式档案在项目创建时同步建立，不应成为后置任务')
 assert.equal(
   getProjectWorkItemContract('CHANNEL_PRODUCT_LISTING').phaseCode,
   'PHASE_02',
-  '商品上架工作项库默认阶段应统一为样衣形成与商品准备',
-)
-assert.equal(
-  findSchemaPhaseCode(DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID, 'CHANNEL_PRODUCT_LISTING'),
-  'PHASE_02',
-  '国内采购样衣测款模板中的商品上架应在样衣形成与商品准备阶段',
-)
-assert.equal(
-  findSchemaPhaseCode(WANLONG_REVISION_SAMPLE_TEMPLATE_ID, 'CHANNEL_PRODUCT_LISTING'),
-  'PHASE_02',
-  '万隆改版出样衣测款模板中的商品上架应在样衣形成与商品准备阶段',
+  '商品上架任务默认阶段应统一为样衣准备',
 )
 
 const workItemCodes = listProjectWorkItemContracts().map((item) => item.workItemTypeCode)
-assertIncludesAll(workItemCodes, Array.from(new Set([...domesticFlow, ...wanlongFlow])), '工作项库缺少正式模板所需工作项')
+assertIncludesAll(workItemCodes, Array.from(new Set(fixedStepFlow)), '固定五步缺少逐项办理所需的详细任务')
 
 const sampleAcquireFieldKeys = fieldKeys('SAMPLE_ACQUIRE')
 assertIncludesAll(
@@ -430,7 +371,6 @@ assertIncludesAll(
   '测款判断字段未覆盖产品定位、备货等级、暂保留、下架、退回去向和再次判断日期',
 )
 
-const fixedStepFlow = listProjectStepContracts().flatMap((step) => step.workItemCodes)
 const domesticProject = createProject(buildDraft('验收-固定五步商品测款项目', '商品开发'), '验收脚本').project
 assert.equal(domesticProject.projectType, '商品开发', '固定五步商品测款项目应保留创建时的项目类型')
 assert.ok(!(('style' + 'Type') in domesticProject), '商品项目主记录不应再包含旧属性字段')

@@ -62,14 +62,6 @@ export const renderPcsPatternLibraryConfigPage = createAsyncRenderer(
   () => import('../pages/pcs-pattern-library-config'),
   'renderPcsPatternLibraryConfigPage',
 )
-export const renderPcsWorkItemLibraryPage = createAsyncRenderer(
-  () => import('../pages/pcs-work-items'),
-  'renderPcsWorkItemLibraryPage',
-)
-export const renderPcsWorkItemDetailPage = createAsyncRenderer(
-  () => import('../pages/pcs-work-items'),
-  'renderPcsWorkItemDetailPage',
-)
 export const renderPcsLiveTestingListPage = createAsyncRenderer(
   () => import('../pages/pcs-live-testing'),
   'renderPcsLiveTestingListPage',
@@ -182,18 +174,6 @@ export const renderPcsChannelProductDetailPage = createAsyncRenderer(
   () => import('../pages/pcs-channel-products'),
   'renderPcsChannelProductDetailPage',
 )
-export const renderPcsTemplateListPage = createAsyncRenderer(
-  () => import('../pages/pcs-templates'),
-  'renderPcsTemplateListPage',
-)
-export const renderPcsTemplateDetailPage = createAsyncRenderer(
-  () => import('../pages/pcs-templates'),
-  'renderPcsTemplateDetailPage',
-)
-export const renderPcsTemplateEditorPage = createAsyncRenderer(
-  () => import('../pages/pcs-templates'),
-  'renderPcsTemplateEditorPage',
-)
 export const renderPcsConfigWorkspacePage = createAsyncRenderer(
   () => import('../pages/pcs-config-workspace'),
   'renderPcsConfigWorkspacePage',
@@ -209,10 +189,6 @@ export const renderPcsProjectCreatePage = createAsyncRenderer(
 export const renderPcsProjectDetailPage = createAsyncRenderer(
   () => import('../pages/pcs-projects'),
   'renderPcsProjectDetailPage',
-)
-export const renderPcsProjectWorkItemDetailPage = createAsyncRenderer(
-  () => import('../pages/pcs-projects'),
-  'renderPcsProjectWorkItemDetailPage',
 )
 export const renderPcsRevisionTaskPage = createAsyncRenderer(
   () => import('../pages/pcs-engineering-tasks'),

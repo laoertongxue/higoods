@@ -1,7 +1,3 @@
-import {
-  listProjectTemplates,
-  type ProjectTemplate,
-} from './pcs-templates.ts'
 import { migrateProjectDecisionSnapshot } from './pcs-project-decision-migration.ts'
 import { migrateProjectAlbumUrlsToProjectImages } from './pcs-project-image-migration.ts'
 import { createBootstrapProjectSnapshot } from './pcs-project-bootstrap.ts'
@@ -394,35 +390,6 @@ function alignProjectPhasesWithFixedFlow(
   })
 }
 
-function migrateRevisionTemplateProject(project: PcsProjectRecord): PcsProjectRecord {
-  if (project.templateId !== 'TPL-003') return normalizeProject(project)
-
-  const nextProject = { ...project }
-
-  if (nextProject.currentNodeCode === 'FEASIBILITY_REVIEW') {
-    nextProject.currentNodeCode = 'SAMPLE_CONFIRM'
-  }
-
-  if (nextProject.issueNodeCode === 'FEASIBILITY_REVIEW') {
-    nextProject.issueNodeCode = 'SAMPLE_CONFIRM'
-    if (nextProject.issueText.includes('初步可行性判断')) {
-      nextProject.issueText = '样衣确认待补充结论后才可继续。'
-    }
-  }
-
-  if (nextProject.latestNodeCode === 'FEASIBILITY_REVIEW') {
-    nextProject.latestNodeCode = 'SAMPLE_INBOUND_CHECK'
-    if (!nextProject.latestResultType || nextProject.latestResultType.includes('可行性')) {
-      nextProject.latestResultType = '样衣结果核对'
-    }
-    if (!nextProject.latestResultText || nextProject.latestResultText.includes('可行性')) {
-      nextProject.latestResultText = '样衣已完成结果核对。'
-    }
-  }
-
-  return normalizeProject(nextProject)
-}
-
 function completeSampleCostReviewBeforeStartedListing(
   nodes: PcsProjectNodeRecord[],
 ): PcsProjectNodeRecord[] {
@@ -513,7 +480,7 @@ function migrateSeededSampleCostAndListingNodeStates(
 
 function mergeMissingBootstrapData(snapshot: PcsProjectStoreSnapshot): PcsProjectStoreSnapshot {
   const bootstrap = seedSnapshot()
-  const mergedProjects = snapshot.projects.map(migrateRevisionTemplateProject)
+  const mergedProjects = snapshot.projects.map(normalizeProject)
 
   const storedProjectIds = new Set(mergedProjects.map((item) => item.projectId))
   const projectIds = new Set(storedProjectIds)
@@ -1807,10 +1774,6 @@ export function replaceProjectStore(snapshot: PcsProjectStoreSnapshot): void {
 
 export function getProjectCategoryChildren(categoryId: string): Array<{ id: string; name: string }> {
   return findCategoryNodeById(categoryId)?.children.map((item) => ({ ...item })) ?? []
-}
-
-export function listActiveProjectTemplates(): ProjectTemplate[] {
-  return listProjectTemplates().filter((template) => template.status === 'active')
 }
 
 export function getChannelNamesByCodes(codes: string[]): string[] {

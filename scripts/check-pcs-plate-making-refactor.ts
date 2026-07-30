@@ -68,7 +68,7 @@ const page = read('src/pages/pcs-engineering-tasks.ts')
   '部位模板关联',
   '关联技术包版本',
 ].forEach((label) => {
-  assertIncludes(domainContract, label, `工作项库制版字段定义缺少：${label}`)
+  assertIncludes(domainContract, label, `制版任务契约字段定义缺少：${label}`)
 })
 
 ;[
@@ -84,7 +84,7 @@ const page = read('src/pages/pcs-engineering-tasks.ts')
   '完成确认图片',
   '中国团队',
 ].forEach((label) => {
-  assertIncludes(domainContract, label, `工作项库花型字段定义缺少：${label}`)
+  assertIncludes(domainContract, label, `花型任务契约字段定义缺少：${label}`)
 })
 
 ;[

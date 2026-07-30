@@ -90,7 +90,7 @@ const projectPage = read('src/pages/pcs-projects.ts')
   '回直播验证',
   '关联技术包版本',
 ].forEach((label) => {
-  assertIncludes(domainContract, label, `工作项库改版字段定义缺少：${label}`)
+  assertIncludes(domainContract, label, `改版任务契约字段定义缺少：${label}`)
 })
 
 ;[

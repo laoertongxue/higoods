@@ -90,9 +90,25 @@
 
 ### 受管文件
 
+- `src/data/app-shell-config.ts`
+- `src/data/pcs-project-definition-normalizer.ts`（删除）
 - `src/data/pcs-project-domain-contract.ts`
+- `src/data/pcs-project-instance-model.ts`
 - `src/data/pcs-project-node-factory.ts`
 - `src/data/pcs-project-repository.ts`
+- `src/data/pcs-project-style-archive-generation.ts`
+- `src/data/pcs-template-domain-view-model.ts`（删除）
+- `src/data/pcs-templates.ts`（删除）
+- `src/data/pcs-work-item-configs.ts`（删除）
+- `src/data/pcs-work-item-configs/core.ts`（删除）
+- `src/data/pcs-work-item-configs/engineering-configs.ts`（删除）
+- `src/data/pcs-work-item-configs/mappings.ts`（删除）
+- `src/data/pcs-work-item-configs/market-configs.ts`（删除）
+- `src/data/pcs-work-item-configs/project-configs.ts`（删除）
+- `src/data/pcs-work-item-configs/sample-configs.ts`（删除）
+- `src/data/pcs-work-item-configs/types.ts`（删除）
+- `src/data/pcs-work-item-runtime-carrier.ts`（删除）
+- `src/data/pcs-work-items.ts`（删除）
 - `src/data/pcs-style-archive-repository.ts`
 - `src/data/pcs-project-sample-return-defaults.ts`
 - `src/data/pcs-project-bootstrap.ts`
@@ -116,8 +132,12 @@
 - `src/pages/pcs-projects.ts`
 - `src/pages/pcs-projects-list.ts`
 - `src/pages/pcs-engineering-tasks.ts`
+- `src/pages/pcs-templates.ts`（删除）
+- `src/pages/pcs-work-items.ts`（删除）
 - `src/main.ts`
 - `src/main-handlers/pcs-handlers.ts`
+- `src/router/route-renderers.ts`
+- `src/router/routes-pcs.ts`
 - `tests/pcs-engineering-task-standard-list.spec.ts`
 - `tests/pcs-projects-standard-list.spec.ts`
 
@@ -173,3 +193,45 @@
 ### 例外
 
 - 无
+
+## 8. 商品项目工作项与模板模块删除补充审查
+
+### 本次范围
+
+- 删除“工作项库”“项目模板管理”菜单、路由、页面渲染器和事件处理入口。
+- 删除工作项、项目模板、工作项配置、运行载体及模板视图模型代码。
+- 商品项目统一使用“项目与档案建立 → 样衣准备 → 测款前准备 → 市场测款 → 测款判断与收尾”固定五步。
+- 固定五步继续承载样衣获取、到样核对、拍摄试穿、样衣确认、核价、定价、商品上架、直播测款、短视频测款、测款判断和样衣退回等逐项任务。
+- 商品／款式档案在创建商品项目时同步建立；正式建档直接基于项目关联档案，不再依赖“生成款式档案”工作项。
+
+### 规范自查
+
+| 检查项 | 结论 |
+| --- | --- |
+| 业务边界 | 通过。删除的是可配置工作项／模板功能，不删除固定五步及其逐项办理任务。 |
+| 页面与菜单 | 通过。已删除两类入口，不保留兼容路由、重定向入口或隐藏菜单。 |
+| 中文业务口径 | 通过。页面继续使用步骤、任务、项目与档案等业务名称，不展示模板运行时概念。 |
+| 状态与防错 | 通过。固定步骤顺序、前序门禁、测款判断和样衣退回闭环保持不变。 |
+| 列表与分页 | 通过。本次删除列表页，没有新增不分页的数据列表；保留页面继续执行标准列表页治理。 |
+| 交互性能 | 通过。本次未新增整页重绘或高频输入交互。 |
+| Mock 数据 | 通过。删除仅服务旧模板／工作项页面的 Mock 和验收，保留固定步骤所需项目、档案和任务数据。 |
+
+### 补充验证
+
+- `npx tsx tests/pcs-work-item-module-removal.spec.ts`：通过，删除文件、入口、禁止引用、固定五步和详细任务同时闭环。
+- `npx tsx tests/pcs-project-fixed-step-flow.spec.ts`：通过。
+- `npm run check:pcs-product-testing-v1`：通过。
+- `npx tsx scripts/check-pcs-channel-listing-style-specs.ts`：通过。
+- `npx tsx scripts/check-pcs-page-slimming.ts`：通过。
+- 受模板模块删除影响并保留的 10 个项目、档案、图片和实例规格：全部通过。
+- 删除 `pcs-sample-chain-work-item-contract.spec.ts`：该测试只断言一个在起始版本固定任务契约及旧配置中均不存在的 `PRE_PRODUCTION_SAMPLE` 工作项编码，不能作为恢复可配置工作项体系的依据。产前样衣的复用、双样、工厂参照等业务规格测试继续保留，不纳入本次模块删除。
+- `pcs-plate-making-work-item-contract.spec.ts`、`pcs-pattern-task-work-item-contract-sync.spec.ts`：通过，制版任务和花型任务的真实固定任务契约仍完整保留。
+- `npm run check:menu-routes`：通过。
+- `npm run check:list-page-governance`：通过。
+- `npm run check:prototype-design-governance -- --all`：通过。
+- `npm run build`：通过。
+
+### 补充审查结论
+
+- 通过。
+- 无业务例外。

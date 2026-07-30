@@ -152,22 +152,6 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
     closeActions: [{ datasetKey: 'pcsMaterialArchiveAction', value: 'close-drawers' }],
   },
   {
-    cacheKey: 'pcs-templates',
-    matches: (pathname) => isExactOrNestedPath(pathname, '/pcs/templates'),
-    importModule: () => import('../pages/pcs-templates'),
-    eventExport: 'handlePcsTemplatesEvent',
-    inputExport: 'handlePcsTemplatesInput',
-    dialogExport: 'isPcsTemplatesDialogOpen',
-    closeActions: [{ datasetKey: 'pcsTemplateAction', value: 'close-dialogs' }],
-  },
-  {
-    cacheKey: 'pcs-work-items',
-    matches: (pathname) => isExactOrNestedPath(pathname, '/pcs/work-items'),
-    importModule: () => import('../pages/pcs-work-items'),
-    eventExport: 'handlePcsWorkItemsEvent',
-    inputExport: 'handlePcsWorkItemsInput',
-  },
-  {
     cacheKey: 'pcs-projects',
     matches: (pathname) => pathname.startsWith('/pcs/projects/'),
     importModule: () => import('../pages/pcs-projects'),

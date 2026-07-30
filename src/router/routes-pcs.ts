@@ -15,9 +15,6 @@ export const routes: RouteRegistry = {
     '/pcs/workspace/alerts': renderClearedPcsPage('商品中心预警'),
     '/pcs/projects': () => renderers.renderPcsProjectListPage(),
     '/pcs/projects/create': () => renderers.renderPcsProjectCreatePage(),
-    '/pcs/templates': () => renderers.renderPcsTemplateListPage(),
-    '/pcs/templates/new': () => renderers.renderPcsTemplateEditorPage(),
-    '/pcs/work-items': () => renderers.renderPcsWorkItemLibraryPage(),
     '/pcs/testing/live': () => renderers.renderPcsLiveTestingListPage(),
     '/pcs/testing/video': () => renderers.renderPcsVideoTestingListPage(),
     '/pcs/channels/products': () => renderers.renderPcsChannelProductListPage(),
@@ -70,10 +67,6 @@ export const routes: RouteRegistry = {
   },
   dynamicRoutes: [
     {
-      pattern: /^\/pcs\/projects\/([^/]+)\/work-items\/([^/]+)$/,
-      render: (match) => renderRouteRedirect(`/pcs/projects/${match[1]}`, '工作项已并入商品项目页内处理'),
-    },
-    {
       pattern: /^\/pcs\/projects\/([^/]+)$/,
       render: (match) => renderers.renderPcsProjectDetailPage(match[1]),
     },
@@ -96,18 +89,6 @@ export const routes: RouteRegistry = {
     {
       pattern: /^\/pcs\/channels\/stores\/([^/]+)$/,
       render: (match) => renderers.renderPcsChannelStoreDetailPage(match[1]),
-    },
-    {
-      pattern: /^\/pcs\/templates\/([^/]+)\/edit$/,
-      render: (match) => renderers.renderPcsTemplateEditorPage(match[1]),
-    },
-    {
-      pattern: /^\/pcs\/templates\/([^/]+)$/,
-      render: (match) => renderers.renderPcsTemplateDetailPage(match[1]),
-    },
-    {
-      pattern: /^\/pcs\/work-items\/([^/]+)$/,
-      render: (match) => renderers.renderPcsWorkItemDetailPage(match[1]),
     },
     {
       pattern: /^\/pcs\/patterns\/revision\/([^/]+)$/,

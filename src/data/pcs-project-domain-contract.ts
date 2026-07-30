@@ -1,7 +1,32 @@
-import type { FieldConfig, WorkItemTemplateConfig, WorkItemNature, WorkItemRuntimeType } from './pcs-work-item-configs/types.ts'
 import type { ChannelListingSpecLineRecord } from './pcs-channel-listing-spec-types.ts'
 import type { ChannelListingImageRecord } from './pcs-channel-listing-image-types.ts'
 import type { ProjectNodeStatus } from './pcs-project-types.ts'
+
+export type PcsProjectFieldType =
+  | 'text'
+  | 'textarea'
+  | 'number'
+  | 'select'
+  | 'multi-select'
+  | 'date'
+  | 'datetime'
+  | 'image'
+  | 'image-list'
+  | 'file'
+  | 'file-list'
+  | 'table'
+  | 'boolean'
+  | 'cascade-select'
+  | 'single-select'
+  | 'user-select'
+  | 'user-multi-select'
+  | 'team-select'
+  | 'url'
+  | 'reference'
+  | 'reference-multi'
+  | 'system'
+export type PcsProjectTaskNature = '执行类' | '决策类' | '里程碑类' | '事实类'
+export type PcsProjectTaskRuntimeType = 'execute' | 'decision' | 'milestone' | 'fact'
 
 export type PcsProjectPhaseCode = 'PHASE_01' | 'PHASE_02' | 'PHASE_03' | 'PHASE_04' | 'PHASE_05'
 export type ProjectStepCode =
@@ -10,9 +35,6 @@ export type ProjectStepCode =
   | 'PRE_TEST_PREPARATION'
   | 'MARKET_TESTING'
   | 'TEST_DECISION_CLOSURE'
-export type PcsProjectTemplateId = 'TPL-001' | 'TPL-003'
-export const DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID: PcsProjectTemplateId = 'TPL-001'
-export const WANLONG_REVISION_SAMPLE_TEMPLATE_ID: PcsProjectTemplateId = 'TPL-003'
 export type PcsProjectSourceType = '企划提案' | '渠道反馈' | '测款沉淀' | '历史复用' | '外部灵感'
 export type PcsSampleSourceType = '外采' | '委托打样'
 export type PcsProjectPriorityLevel = '高' | '中' | '低'
@@ -39,6 +61,80 @@ export type PcsProjectWorkItemCode =
   | 'FIRST_ORDER_SAMPLE'
   | 'SAMPLE_RETURN_HANDLE'
 
+export type PcsProjectTaskCarrierMode =
+  | 'PROJECT_RECORD'
+  | 'PROJECT_NODE'
+  | 'BUSINESS_MODULE'
+  | 'DOWNSTREAM_OBJECT'
+
+export interface PcsProjectTaskCarrierDefinition {
+  taskCode: PcsProjectWorkItemCode
+  carrierMode: PcsProjectTaskCarrierMode
+  carrierLabel: string
+  moduleName: string
+  allowsMultipleInlineRecords: boolean
+}
+
+const PROJECT_NODE_MULTI_RECORD_TASKS = new Set<PcsProjectWorkItemCode>([
+  'SAMPLE_ACQUIRE',
+  'SAMPLE_SHOOT_FIT',
+  'SAMPLE_RETURN_HANDLE',
+])
+
+const BUSINESS_MODULE_BY_TASK: Partial<Record<PcsProjectWorkItemCode, string>> = {
+  CHANNEL_PRODUCT_LISTING: '渠道店铺商品',
+  VIDEO_TEST: '短视频测款',
+  LIVE_TEST: '直播测款',
+  REVISION_TASK: '改版任务',
+  PATTERN_TASK: '制版任务',
+  PATTERN_ARTWORK_TASK: '花型任务',
+  FIRST_SAMPLE: '首版样衣打样',
+  FIRST_ORDER_SAMPLE: '首单样衣打样',
+}
+
+export function getProjectTaskCarrierDefinition(
+  taskCode: PcsProjectWorkItemCode,
+): PcsProjectTaskCarrierDefinition {
+  if (taskCode === 'PROJECT_INIT') {
+    return {
+      taskCode,
+      carrierMode: 'PROJECT_RECORD',
+      carrierLabel: '项目主记录承载',
+      moduleName: '商品项目',
+      allowsMultipleInlineRecords: false,
+    }
+  }
+
+  if (taskCode === 'STYLE_ARCHIVE_CREATE') {
+    return {
+      taskCode,
+      carrierMode: 'DOWNSTREAM_OBJECT',
+      carrierLabel: '下游正式对象承载',
+      moduleName: '款式档案',
+      allowsMultipleInlineRecords: false,
+    }
+  }
+
+  const businessModule = BUSINESS_MODULE_BY_TASK[taskCode]
+  if (businessModule) {
+    return {
+      taskCode,
+      carrierMode: 'BUSINESS_MODULE',
+      carrierLabel: '独立业务模块承载',
+      moduleName: businessModule,
+      allowsMultipleInlineRecords: false,
+    }
+  }
+
+  return {
+    taskCode,
+    carrierMode: 'PROJECT_NODE',
+    carrierLabel: '项目步骤承载',
+    moduleName: '商品项目',
+    allowsMultipleInlineRecords: PROJECT_NODE_MULTI_RECORD_TASKS.has(taskCode),
+  }
+}
+
 export type PcsProjectRelatedInstanceTypeCode =
   | 'LIVE_TESTING'
   | 'VIDEO_TESTING'
@@ -54,7 +150,6 @@ export type PcsProjectRelatedInstanceTypeCode =
 
 export type PcsProjectConfigSourceKind =
   | '配置工作台'
-  | '模板管理'
   | '渠道主数据'
   | '店铺主数据'
   | '样衣供应商主数据'
@@ -106,7 +201,7 @@ export interface PcsProjectCommonInstanceField {
 export interface PcsProjectNodeFieldDefinition {
   fieldKey: string
   label: string
-  type: FieldConfig['type']
+  type: PcsProjectFieldType
   sourceKind: PcsProjectConfigSourceKind
   sourceRef: string
   meaning: string
@@ -177,8 +272,8 @@ export interface PcsProjectWorkItemContract {
   workItemTypeCode: PcsProjectWorkItemCode
   workItemTypeName: string
   phaseCode: PcsProjectPhaseCode
-  workItemNature: WorkItemNature
-  runtimeType: WorkItemRuntimeType
+  workItemNature: PcsProjectTaskNature
+  runtimeType: PcsProjectTaskRuntimeType
   categoryName: string
   description: string
   scenario: string
@@ -199,24 +294,6 @@ export interface PcsProjectWorkItemContract {
   downstreamChanges: string[]
   businessRules: string[]
   systemConstraints: string[]
-}
-
-export interface PcsProjectTemplatePhaseSchema {
-  phaseCode: PcsProjectPhaseCode
-  whyExists: string
-  nodeCodes: PcsProjectWorkItemCode[]
-}
-
-export interface PcsProjectTemplateSchema {
-  templateId: PcsProjectTemplateId
-  templateName: string
-  creator: string
-  createdAt: string
-  updatedAt: string
-  status: 'active' | 'inactive'
-  scenario: string
-  description: string
-  phaseSchemas: PcsProjectTemplatePhaseSchema[]
 }
 
 export interface PcsProjectConfigSourceMapping {
@@ -292,7 +369,7 @@ export interface PcsProjectChannelProductRecord {
 interface ContractFieldSeed {
   key: string
   label: string
-  type: FieldConfig['type']
+  type: PcsProjectFieldType
   sourceKind: PcsProjectConfigSourceKind
   sourceRef: string
   meaning: string
@@ -547,77 +624,6 @@ function groupFields(group: ContractFieldGroupSeed): PcsProjectNodeFieldDefiniti
   }))
 }
 
-function buildStatusOptions(definition: PcsProjectWorkItemContract): NonNullable<WorkItemTemplateConfig['statusOptions']> {
-  return definition.statusDefinitions.map((status) => ({
-    value: status.statusName,
-    label: status.statusName,
-    description: status.businessMeaning,
-  }))
-}
-
-function buildFieldGroups(definition: PcsProjectWorkItemContract): WorkItemTemplateConfig['fieldGroups'] {
-  const groups = new Map<string, WorkItemTemplateConfig['fieldGroups'][number]>()
-  definition.fieldDefinitions.forEach((field) => {
-    if (!groups.has(field.groupId)) {
-      groups.set(field.groupId, {
-        id: field.groupId,
-        title: field.groupTitle,
-        description: field.groupDescription,
-        fields: [],
-      })
-    }
-    groups.get(field.groupId)?.fields.push({
-      id: field.fieldKey,
-      label: field.label,
-      type: field.type,
-      required: field.required,
-      readonly: field.readonly,
-      placeholder: field.placeholder,
-      options: field.options,
-      conditionalRequired: field.conditionalRequired,
-      description: `来源：${field.sourceKind} / ${field.sourceRef}；含义：${field.meaning}；业务逻辑：${field.businessLogic}`,
-    })
-  })
-  return Array.from(groups.values())
-}
-
-function createWorkItemConfig(definition: PcsProjectWorkItemContract): WorkItemTemplateConfig {
-  const phase = getProjectPhaseContract(definition.phaseCode)
-  return {
-    id: definition.workItemId,
-    workItemId: definition.workItemId,
-    code: definition.workItemTypeCode,
-    workItemTypeCode: definition.workItemTypeCode,
-    name: definition.workItemTypeName,
-    workItemTypeName: definition.workItemTypeName,
-    phaseCode: definition.phaseCode,
-    defaultPhaseName: phase.phaseName,
-    type: definition.runtimeType,
-    workItemNature: definition.workItemNature,
-    stage: phase.phaseName,
-    category: definition.categoryName,
-    categoryName: definition.categoryName,
-    role: definition.roleNames.join(' / '),
-    roleCodes: [...definition.roleNames],
-    roleNames: [...definition.roleNames],
-    description: definition.description,
-    isBuiltin: true,
-    isSelectable: true,
-    isSelectableForTemplate: true,
-    enabledFlag: true,
-    capabilities: { ...definition.capabilities },
-    fieldGroups: buildFieldGroups(definition),
-    businessRules: [...definition.businessRules],
-    systemConstraints: [...definition.systemConstraints],
-    attachments: [],
-    interactionNotes: definition.operationDefinitions.map((item) => item.actionName),
-    statusOptions: buildStatusOptions(definition),
-    rollbackRules: [],
-    createdAt: CONTRACT_TIMESTAMP,
-    updatedAt: CONTRACT_TIMESTAMP,
-  }
-}
-
 const projectInitFields = [
   ...groupFields({
     id: 'project-init-basic',
@@ -639,9 +645,9 @@ const projectInitFields = [
         label: '项目类型',
         type: 'select',
         sourceKind: '系统生成',
-        sourceRef: '项目模板 -> projectType 映射',
+        sourceRef: '固定商品测款流程',
         meaning: '项目开发类型快照',
-        logic: '项目类型由所选业务模板自动映射生成，保留到主记录和 PROJECT_INIT 合同中。',
+        logic: '项目类型由固定商品测款流程生成，保留到主记录和 PROJECT_INIT 合同中。',
         required: false,
         readonly: true,
         options: [
@@ -1095,7 +1101,7 @@ const sampleAcquireFields = [
         sourceKind: '固定枚举',
         sourceRef: '样衣来源方式',
         meaning: '本次样衣的来源方式',
-        logic: '样衣来源方式由业务模板锁定：国内采购样衣测款固定外采，万隆改版出样衣测款固定委托打样。',
+        logic: '样衣来源方式由项目实际业务选择：外采或委托打样。',
         options: [
           { value: '外采', label: '外采' },
           { value: '委托打样', label: '委托打样' },
@@ -2001,7 +2007,7 @@ export const PCS_PROJECT_PHASE_CONTRACTS: PcsProjectPhaseContract[] = [
     defaultOpenFlag: true,
     businessScenario: '完成项目立项并确认样衣来源，为后续采购样衣核对或改版任务出样提供正式输入。',
     whyExists: '项目必须先完成立项并明确样衣来源，后续改版任务、样衣核对和测款才有真实输入。',
-    entryConditions: ['创建商品项目并选定正式模板。'],
+    entryConditions: ['创建商品项目并同步建立商品／款式档案。'],
     exitConditions: ['样衣来源已登记；若是国内采购样衣，采购来源信息已记录；若是万隆改版样衣，来源已确认为改版任务出样。'],
   },
   {
@@ -2132,7 +2138,7 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     runtimeType: 'milestone',
     categoryName: '项目立项',
     description: '新建商品项目，完整承接创建草稿并生成正式项目主记录。',
-    scenario: '项目的唯一入口，承接模板、品类、品牌、风格、人群、渠道意图、样衣前置信息和组织协作字段。',
+    scenario: '项目的唯一入口，承接品类、品牌、风格、人群、渠道意图、样衣前置信息和组织协作字段。',
     keepReason: '商品项目必须从正式立项进入，不能从后续节点倒推生成。',
     roleNames: ['项目负责人', '商品负责人'],
     capabilities: { canReuse: false, canMultiInstance: false, canRollback: false, canParallel: false },
@@ -2141,9 +2147,9 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
       {
         actionKey: 'create-project',
         actionName: '创建项目',
-        preconditions: ['项目名称、模板、项目来源类型、品类、品牌、目标渠道、负责人、执行团队、优先级完整'],
+        preconditions: ['项目名称、项目来源类型、品类、品牌、目标渠道、负责人、执行团队、优先级完整'],
         effects: ['生成项目主记录', '生成阶段记录', '生成节点记录', '商品项目立项节点进入进行中'],
-        writebackRules: ['项目主记录写入模板版本', '项目阶段与项目节点全部基于正式模板矩阵生成'],
+        writebackRules: ['项目主记录写入固定流程版本', '项目步骤与详细任务全部基于固定五步契约生成'],
       },
       {
         actionKey: 'complete-project-init',
@@ -2169,7 +2175,7 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     ],
     upstreamChanges: ['无上游实例，项目立项是唯一入口。'],
     downstreamChanges: ['生成项目主记录', '完成商品项目立项后解锁样衣获取节点'],
-    businessRules: ['项目模板必须来自正式模板管理', '配置工作台字段统一从正式 adapter 读取', 'PROJECT_INIT 字段集合必须与项目创建草稿和项目主记录保持一致'],
+    businessRules: ['商品项目统一使用固定五步流程', '配置工作台字段统一从正式 adapter 读取', 'PROJECT_INIT 字段集合必须与项目创建草稿和项目主记录保持一致'],
     systemConstraints: ['不允许绕过项目立项直接创建后续节点实例'],
   },
   {
@@ -2204,7 +2210,7 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     upstreamChanges: ['继承商品项目主记录。'],
     downstreamChanges: ['为样衣结果核对提供来源上下文'],
     businessRules: ['国内采购样衣测款项目来源方式固定为外采；万隆改版出样衣测款项目来源方式固定为委托打样', '外采场景必须补齐外采链接或样衣单价之一'],
-    systemConstraints: ['来源方式由项目模板锁定，不允许在样衣获取节点自由切换来源类型'],
+    systemConstraints: ['样衣来源方式只允许选择外采或委托打样'],
   },
   {
     workItemId: 'WI-003',
@@ -2443,8 +2449,8 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
         actionKey: 'complete-listing',
         actionName: '标记商品上架完成',
         preconditions: ['当前批次已上传待确认', 'upstreamProductId 已回填', '每条规格明细都已回填 upstreamSkuId'],
-        effects: ['listingBatchStatus=已完成', 'channelProductStatus=已上架待测款', '商品上架节点 currentStatus=已完成', '项目进入模板中的下一个工作项'],
-        writebackRules: ['标记完成后才允许直播和短视频建立正式测款关系', '节点完成后必须按模板顺序推进，不得写死后续节点'],
+        effects: ['listingBatchStatus=已完成', 'channelProductStatus=已上架待测款', '商品上架节点 currentStatus=已完成', '项目进入固定流程中的下一项任务'],
+        writebackRules: ['标记完成后才允许直播和短视频建立正式测款关系', '节点完成后必须按固定流程顺序推进'],
       },
     ],
     statusDefinitions: CHANNEL_LISTING_NODE_STATUS_DEFINITIONS,
@@ -2626,8 +2632,8 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
       { statusName: '已取消', entryConditions: ['测款不通过或节点取消'], exitConditions: ['无'], businessMeaning: '不再生成款式档案。' },
     ],
     upstreamChanges: ['读取测款结论和商品上架实例。'],
-    downstreamChanges: ['回写款式档案主记录', '回写渠道店铺商品生效状态', '按模板顺序进入下一个工作项'],
-    businessRules: ['测款不通过不能创建款式档案', '创建成功后档案状态必须是技术包待完善', '正式建档完成后必须按模板顺序推进项目节点'],
+    downstreamChanges: ['回写款式档案主记录', '回写渠道店铺商品生效状态', '按固定流程顺序进入下一项任务'],
+    businessRules: ['测款不通过不能创建款式档案', '创建成功后档案状态必须是技术包待完善', '正式建档完成后必须按固定流程顺序推进项目节点'],
     systemConstraints: ['款式档案创建成功后必须把渠道店铺商品置为已生效'],
   },
   {
@@ -2859,47 +2865,9 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
   },
 ]
 
-export const PCS_PROJECT_TEMPLATE_SCHEMAS: PcsProjectTemplateSchema[] = [
-  {
-    templateId: DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID,
-    templateName: '国内采购样衣测款项目',
-    creator: '系统管理员',
-    createdAt: '2026-06-04 09:00',
-    updatedAt: CONTRACT_TIMESTAMP,
-    status: 'active',
-    scenario: '业务从商品列表手动创建国内采购样衣测款项目，记录采购样衣来源，到样核对后先做初步可行性判断，再完成样衣核价并准备商品上架，通过直播测款和可选短视频测款形成结论。',
-    description: '覆盖手动立项、国内采购样衣获取、样衣结果核对、初步可行性判断、样衣核价、商品上架准备、市场测款、测款结论、款式档案和样衣处理。',
-    phaseSchemas: [
-      { phaseCode: 'PHASE_01', whyExists: '先手动创建商品项目，并记录采购样衣的供应商、采购地址、运费、收件人和采购规格及数量。', nodeCodes: ['PROJECT_INIT', 'SAMPLE_ACQUIRE'] },
-      { phaseCode: 'PHASE_02', whyExists: '采购样衣到样后先完成实物核对和样衣编号生成，再做初步可行性判断；判断进入测款后先完成样衣核价，再用核价销售价格准备渠道店铺商品。', nodeCodes: ['SAMPLE_INBOUND_CHECK', 'FEASIBILITY_REVIEW', 'SAMPLE_COST_REVIEW', 'CHANNEL_PRODUCT_LISTING'] },
-      { phaseCode: 'PHASE_03', whyExists: '直播测款是当前主测款方式，短视频测款作为可选补充，最终必须形成测款结论。', nodeCodes: ['LIVE_TEST', 'VIDEO_TEST', 'TEST_DATA_SUMMARY', 'TEST_CONCLUSION'] },
-      { phaseCode: 'PHASE_04', whyExists: '测款通过后沉淀款式档案，作为大货或后续开发的承接对象。', nodeCodes: ['STYLE_ARCHIVE_CREATE'] },
-      { phaseCode: 'PHASE_05', whyExists: '项目结束时要明确样衣退回和处置结果。', nodeCodes: ['SAMPLE_RETURN_HANDLE'] },
-    ],
-  },
-  {
-    templateId: WANLONG_REVISION_SAMPLE_TEMPLATE_ID,
-    templateName: '万隆改版出样衣测款项目',
-    creator: '系统管理员',
-    createdAt: '2026-06-04 09:00',
-    updatedAt: CONTRACT_TIMESTAMP,
-    status: 'active',
-    scenario: '业务基于旧款或参考款手动创建万隆改版出样衣测款项目，先确认样衣由改版任务出样，再通过改版任务、制版任务、花型任务、首版样衣和首单样衣打样承接工程出样，样衣核对、初步可行性判断和样衣核价后进入测款。',
-    description: '覆盖手动立项、样衣来源确认、改版任务、制版任务、花型任务、首版样衣、首单样衣打样、样衣结果核对、初步可行性判断、样衣核价、商品上架、市场测款、测款结论、款式档案和样衣处理。',
-    phaseSchemas: [
-      { phaseCode: 'PHASE_01', whyExists: '先手动创建商品项目，并确认该项目样衣来源为万隆改版任务出样。', nodeCodes: ['PROJECT_INIT', 'SAMPLE_ACQUIRE'] },
-      { phaseCode: 'PHASE_02', whyExists: '改版出样衣需求由改版任务承接，工程开发与打样管理通过制版、花型、首版和首单样衣形成可测样衣后，先核对实物到样，再做初步可行性判断；判断进入测款后先完成样衣核价，再用核价销售价格准备渠道店铺商品。', nodeCodes: ['REVISION_TASK', 'PATTERN_TASK', 'PATTERN_ARTWORK_TASK', 'FIRST_SAMPLE', 'FIRST_ORDER_SAMPLE', 'SAMPLE_INBOUND_CHECK', 'FEASIBILITY_REVIEW', 'SAMPLE_COST_REVIEW', 'CHANNEL_PRODUCT_LISTING'] },
-      { phaseCode: 'PHASE_03', whyExists: '商品上架准备完成后，再执行直播测款和可选短视频测款，并形成统一结论。', nodeCodes: ['LIVE_TEST', 'VIDEO_TEST', 'TEST_DATA_SUMMARY', 'TEST_CONCLUSION'] },
-      { phaseCode: 'PHASE_04', whyExists: '测款通过后沉淀款式档案，进入大货或后续开发承接。', nodeCodes: ['STYLE_ARCHIVE_CREATE'] },
-      { phaseCode: 'PHASE_05', whyExists: '项目结束时同样需要明确样衣退回、入库留样、清仓、寄回或报废处理。', nodeCodes: ['SAMPLE_RETURN_HANDLE'] },
-    ],
-  },
-]
-
 export const PCS_PROJECT_CONFIG_SOURCE_MAPPINGS: PcsProjectConfigSourceMapping[] = [
   { fieldKey: 'projectName', fieldLabel: '项目名称', sourceKind: '本地主数据', sourceRef: '商品项目创建表单', reason: '项目名称由当前页面表单录入，属于本地主数据。' },
-  { fieldKey: 'projectType', fieldLabel: '项目类型', sourceKind: '系统生成', sourceRef: '业务模板 -> projectType 映射', reason: '项目类型由所选业务模板自动映射生成，属于正式主记录字段而不是临时页面变量。' },
-  { fieldKey: 'templateId', fieldLabel: '项目模板', sourceKind: '模板管理', sourceRef: '项目模板管理', reason: '项目模板来自模板管理，不属于配置工作台。' },
+  { fieldKey: 'projectType', fieldLabel: '项目类型', sourceKind: '系统生成', sourceRef: '固定商品测款流程', reason: '项目类型由固定商品测款流程生成，属于正式主记录字段而不是临时页面变量。' },
   { fieldKey: 'projectSourceType', fieldLabel: '项目来源类型', sourceKind: '固定枚举', sourceRef: '项目来源类型', reason: '项目来源类型沿用当前可解释的固定业务枚举。' },
   { fieldKey: 'categoryId', fieldLabel: '品类', sourceKind: '配置工作台', sourceRef: 'categories', reason: '项目品类统一来自配置工作台品类维度。' },
   { fieldKey: 'categoryName', fieldLabel: '品类名称快照', sourceKind: '配置工作台', sourceRef: 'categories', reason: '品类名称快照由配置工作台品类名称回写，供详情和导出直接使用。' },
@@ -3027,7 +2995,6 @@ export const PCS_PROJECT_WORK_ITEM_LEGACY_MAPPINGS: Array<{
 const PHASE_MAP = new Map(PCS_PROJECT_PHASE_CONTRACTS.map((item) => [item.phaseCode, item]))
 const WORK_ITEM_MAP = new Map(PCS_PROJECT_WORK_ITEM_CONTRACTS.map((item) => [item.workItemTypeCode, item]))
 const WORK_ITEM_ID_MAP = new Map(PCS_PROJECT_WORK_ITEM_CONTRACTS.map((item) => [item.workItemId, item]))
-const TEMPLATE_MAP = new Map(PCS_PROJECT_TEMPLATE_SCHEMAS.map((item) => [item.templateId, item]))
 const CONFIG_SOURCE_MAP = new Map(PCS_PROJECT_CONFIG_SOURCE_MAPPINGS.map((item) => [item.fieldKey, item]))
 
 export function listProjectPhaseContracts(): PcsProjectPhaseContract[] {
@@ -3148,21 +3115,6 @@ export function listProjectWorkItemFieldGroups(
   return Array.from(groups.values())
 }
 
-export function listProjectTemplateSchemas(): PcsProjectTemplateSchema[] {
-  return PCS_PROJECT_TEMPLATE_SCHEMAS.map((item) => ({
-    ...item,
-    phaseSchemas: item.phaseSchemas.map((phase) => ({ ...phase, nodeCodes: [...phase.nodeCodes] })),
-  }))
-}
-
-export function getProjectTemplateSchema(templateId: PcsProjectTemplateId): PcsProjectTemplateSchema {
-  const found = TEMPLATE_MAP.get(templateId)
-  if (!found) {
-    throw new Error(`未找到项目模板契约：${templateId}`)
-  }
-  return listProjectTemplateSchemas().find((item) => item.templateId === templateId) as PcsProjectTemplateSchema
-}
-
 export function listProjectConfigSourceMappings(): PcsProjectConfigSourceMapping[] {
   return PCS_PROJECT_CONFIG_SOURCE_MAPPINGS.map((item) => ({ ...item }))
 }
@@ -3174,98 +3126,6 @@ export function getProjectConfigSourceMapping(fieldKey: string): PcsProjectConfi
 
 export function listProjectRelatedInstanceTypes(): PcsProjectRelatedInstanceTypeDefinition[] {
   return PCS_PROJECT_RELATED_INSTANCE_TYPES.map((item) => ({ ...item }))
-}
-
-export function buildBuiltinProjectWorkItemConfigs(): WorkItemTemplateConfig[] {
-  return PCS_PROJECT_WORK_ITEM_CONTRACTS.map((item) => createWorkItemConfig(item))
-}
-
-function isOptionalProjectTemplateNode(workItemTypeCode: PcsProjectWorkItemCode): boolean {
-  return workItemTypeCode === 'VIDEO_TEST'
-}
-
-export function buildBuiltinProjectTemplateMatrix(): Array<{
-  templateId: PcsProjectTemplateId
-  templateName: string
-  creator: string
-  createdAt: string
-  updatedAt: string
-  status: 'active' | 'inactive'
-  description: string
-  scenario: string
-  stages: Array<{
-    templateStageId: string
-    phaseCode: PcsProjectPhaseCode
-    phaseName: string
-    phaseOrder: number
-    requiredFlag: boolean
-    description: string
-    whyExists: string
-  }>
-  nodes: Array<{
-    templateNodeId: string
-    templateStageId: string
-    phaseCode: PcsProjectPhaseCode
-    phaseName: string
-    workItemId: string
-    workItemTypeCode: PcsProjectWorkItemCode
-    workItemTypeName: string
-    sequenceNo: number
-    requiredFlag: boolean
-    multiInstanceFlag: boolean
-    note: string
-    sourceWorkItemUpdatedAt: string
-    upstreamChanges: string[]
-    downstreamChanges: string[]
-  }>
-}> {
-  return PCS_PROJECT_TEMPLATE_SCHEMAS.map((schema) => {
-    const stages = schema.phaseSchemas.map((phase) => {
-      const phaseContract = getProjectPhaseContract(phase.phaseCode)
-      return {
-        templateStageId: `${schema.templateId}-${phase.phaseCode}`,
-        phaseCode: phase.phaseCode,
-        phaseName: phaseContract.phaseName,
-        phaseOrder: phaseContract.phaseOrder,
-        requiredFlag: true,
-        description: phaseContract.description,
-        whyExists: phase.whyExists,
-      }
-    })
-    const nodes = schema.phaseSchemas.flatMap((phase) =>
-      phase.nodeCodes.map((code, index) => {
-        const workItem = getProjectWorkItemContract(code)
-        return {
-          templateNodeId: `${schema.templateId}-${phase.phaseCode}-NODE-${String(index + 1).padStart(2, '0')}`,
-          templateStageId: `${schema.templateId}-${phase.phaseCode}`,
-          phaseCode: phase.phaseCode,
-          phaseName: getProjectPhaseContract(phase.phaseCode).phaseName,
-          workItemId: workItem.workItemId,
-          workItemTypeCode: workItem.workItemTypeCode,
-          workItemTypeName: workItem.workItemTypeName,
-          sequenceNo: index + 1,
-          requiredFlag: !isOptionalProjectTemplateNode(workItem.workItemTypeCode),
-          multiInstanceFlag: workItem.capabilities.canMultiInstance,
-          note: workItem.scenario,
-          sourceWorkItemUpdatedAt: CONTRACT_TIMESTAMP,
-          upstreamChanges: [...workItem.upstreamChanges],
-          downstreamChanges: [...workItem.downstreamChanges],
-        }
-      }),
-    )
-    return {
-      templateId: schema.templateId,
-      templateName: schema.templateName,
-      creator: schema.creator,
-      createdAt: schema.createdAt,
-      updatedAt: schema.updatedAt,
-      status: schema.status,
-      description: schema.description,
-      scenario: schema.scenario,
-      stages,
-      nodes,
-    }
-  })
 }
 
 export function resolveLegacyProjectWorkItemCode(

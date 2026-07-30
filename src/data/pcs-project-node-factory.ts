@@ -2,7 +2,6 @@ import {
   getProjectWorkItemContract,
   listProjectStepContracts,
 } from './pcs-project-domain-contract.ts'
-import type { ProjectTemplate } from './pcs-templates.ts'
 import type { PcsProjectNodeRecord, PcsProjectPhaseRecord, ProjectNodeStatus } from './pcs-project-types.ts'
 
 const FIXED_STEP_FLOW_VERSION = 'fixed-step-v1'
@@ -83,26 +82,4 @@ export function buildProjectNodes(input: {
       }
     }),
   )
-}
-
-// 兼容旧模块调用入口；模板参数不再参与项目运行时节点生成。
-export function buildProjectPhaseRecordsFromTemplate(input: {
-  projectId: string
-  ownerId: string
-  ownerName: string
-  createdAt: string
-  template: ProjectTemplate
-}): PcsProjectPhaseRecord[] {
-  return buildProjectPhases(input)
-}
-
-// 兼容旧模块调用入口；模板参数不再参与项目运行时节点生成。
-export function buildProjectNodeRecordsFromTemplate(input: {
-  projectId: string
-  ownerId: string
-  ownerName: string
-  createdAt: string
-  template: ProjectTemplate
-}): PcsProjectNodeRecord[] {
-  return buildProjectNodes(input)
 }

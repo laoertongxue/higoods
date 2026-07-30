@@ -451,25 +451,6 @@ export function formalizeStyleArchive(styleId: string, operatorName = '当前用
     }
   }
 
-  const styleNode = getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'STYLE_ARCHIVE_CREATE')
-  if (!styleNode) {
-    return {
-      ok: false,
-      message: '当前项目未配置生成款式档案节点，不能正式建档。',
-      style,
-      missingFields: [],
-    }
-  }
-
-  if (styleNode.currentStatus === '已取消') {
-    return {
-      ok: false,
-      message: '当前项目节点已取消，不能正式建档。',
-      style,
-      missingFields: [],
-    }
-  }
-
   if (!check.ready) {
     return {
       ok: false,
@@ -493,21 +474,6 @@ export function formalizeStyleArchive(styleId: string, operatorName = '当前用
     },
     operatorName,
   )
-
-  const flowResult = markProjectNodeCompletedAndUnlockNext(project.projectId, styleNode.projectNodeId, {
-    operatorName,
-    timestamp,
-    resultType: '已完成正式建档',
-    resultText: '款式档案基础资料已补齐，已完成正式建档。',
-  })
-  if (!flowResult.ok) {
-    return {
-      ok: false,
-      message: flowResult.message,
-      style: nextStyle,
-      missingFields: [],
-    }
-  }
 
   return {
     ok: true,

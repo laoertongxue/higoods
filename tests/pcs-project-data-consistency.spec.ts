@@ -11,7 +11,6 @@ import {
   getProjectNodeRecordByWorkItemTypeCode,
   listProjectNodes,
   listProjects,
-  listActiveProjectTemplates,
   resetProjectRepository,
 } from '../src/data/pcs-project-repository.ts'
 import { listProjectStepContracts } from '../src/data/pcs-project-domain-contract.ts'
@@ -104,7 +103,6 @@ professionalTasks.forEach(({ moduleName, task }) => {
 })
 
 const catalog = getProjectCreateCatalog()
-const templateId = listActiveProjectTemplates()[0]?.id ?? '1'
 const category = catalog.categories[0]
 const subCategory = category?.children[0]
 const brand = catalog.brands[0]
@@ -118,7 +116,6 @@ const created = createProject(
     projectName: '商品项目数据核对测试项目',
     projectType: '商品开发',
     projectSourceType: '企划提案',
-    templateId,
     categoryId: category?.id || 'cat-top',
     categoryName: category?.name || '上衣',
     subCategoryId: subCategory?.id || '',

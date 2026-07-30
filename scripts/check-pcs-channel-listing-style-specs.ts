@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { listProjectTemplates } from '../src/data/pcs-templates.ts'
+import { listProjectStepContracts } from '../src/data/pcs-project-domain-contract.ts'
 
 const root = process.cwd()
 
@@ -40,28 +40,20 @@ assert(
 
 assert(!/请选择规格档案/.test(projectPageSource), '商品上架节点页面仍要求选择正式规格档案')
 assert(/规格明细/.test(projectPageSource), '商品上架节点页面缺少规格明细区')
-assert(/上传款式到渠道/.test(projectPageSource), '商品上架节点页面缺少上传动作')
-assert(/标记商品上架完成/.test(projectPageSource), '商品上架节点页面缺少标记完成动作')
+assert(/上传到渠道/.test(projectPageSource), '商品上架节点页面缺少上传动作')
+assert(/完成商品上架|标记商品上架完成/.test(projectPageSource), '商品上架节点页面缺少完成动作')
 
-assert(/渠道商品上架批次/.test(channelProductsPageSource), '渠道商品页面未切换到款式上架批次口径')
+assert(/商品上架批次/.test(channelProductsPageSource), '渠道商品页面未切换到款式上架批次口径')
 assert(/规格数量/.test(channelProductsPageSource), '渠道商品页面缺少规格数量展示')
 
-for (const templateName of [
-  '基础款 - 完整测款转档模板',
-  '快时尚款 - 直播快反模板',
-  '改版款 - 改版测款转档模板',
-  '设计款 - 设计验证模板',
-]) {
-  const template = listProjectTemplates().find((item) => item.name === templateName)
-  assert(template, `未找到模板：${templateName}`)
-  const sortedNodes = template!.nodes
-    .slice()
-    .sort((a, b) => (a.phaseCode === b.phaseCode ? a.sequenceNo - b.sequenceNo : a.phaseCode.localeCompare(b.phaseCode)))
-  const listingIndex = sortedNodes.findIndex((node) => node.workItemTypeCode === 'CHANNEL_PRODUCT_LISTING')
-  const styleArchiveIndex = sortedNodes.findIndex((node) => node.workItemTypeCode === 'STYLE_ARCHIVE_CREATE')
-  assert(listingIndex >= 0, `${templateName} 缺少商品上架节点`)
-  assert(styleArchiveIndex >= 0, `${templateName} 缺少生成款式档案节点`)
-  assert(listingIndex < styleArchiveIndex, `${templateName} 把生成款式档案提前到了商品上架之前`)
-}
+const fixedTaskCodes = listProjectStepContracts().flatMap((step) => step.workItemCodes)
+const listingIndex = fixedTaskCodes.indexOf('CHANNEL_PRODUCT_LISTING')
+const liveTestIndex = fixedTaskCodes.indexOf('LIVE_TEST')
+const videoTestIndex = fixedTaskCodes.indexOf('VIDEO_TEST')
+assert(listingIndex >= 0, '固定五步缺少商品上架任务')
+assert(liveTestIndex >= 0 && videoTestIndex >= 0, '固定五步缺少直播或短视频测款任务')
+assert(listingIndex < liveTestIndex, '商品上架必须早于直播测款')
+assert(listingIndex < videoTestIndex, '商品上架必须早于短视频测款')
+assert(!fixedTaskCodes.includes('STYLE_ARCHIVE_CREATE'), '商品／款式档案应在创建项目时同步建立')
 
 console.log('check-pcs-channel-listing-style-specs.ts PASS')

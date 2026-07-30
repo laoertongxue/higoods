@@ -15,7 +15,6 @@ import {
   getProjectById,
   getProjectNodeRecordByWorkItemTypeCode,
   listProjectNodes,
-  listActiveProjectTemplates,
   resetProjectRepository,
 } from '../src/data/pcs-project-repository.ts'
 import { resetProjectRelationRepository } from '../src/data/pcs-project-relation-repository.ts'
@@ -46,7 +45,6 @@ const brand = catalog.brands[0]
 const styleCode = catalog.styleCodes[0] || catalog.styles[0]
 const owner = catalog.owners[0]
 const team = catalog.teams[0]
-const templateId = listActiveProjectTemplates()[0]?.id ?? '1'
 
 const created = createProject(
   {
@@ -54,7 +52,6 @@ const created = createProject(
     projectName: '推进服务线性流转验证项目',
     projectType: '商品开发',
     projectSourceType: '企划提案',
-    templateId,
     categoryId: category?.id || 'cat-top',
     categoryName: category?.name || '上衣',
     subCategoryId: subCategory?.id || '',

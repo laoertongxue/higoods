@@ -16,10 +16,11 @@ import type { PcsProjectInlineNodeRecord } from './pcs-project-inline-node-recor
 import { listProjectRelationsByProject } from './pcs-project-relation-repository.ts'
 import type { ProjectRelationRecord } from './pcs-project-relation-types.ts'
 import {
-  getPcsWorkItemRuntimeCarrierDefinition,
-  type PcsWorkItemRuntimeCarrierMode,
-} from './pcs-work-item-runtime-carrier.ts'
-import { getProjectWorkItemContract, type PcsProjectWorkItemCode } from './pcs-project-domain-contract.ts'
+  getProjectTaskCarrierDefinition,
+  getProjectWorkItemContract,
+  type PcsProjectTaskCarrierMode,
+  type PcsProjectWorkItemCode,
+} from './pcs-project-domain-contract.ts'
 import { getProjectChannelProductById } from './pcs-channel-product-project-repository.ts'
 import { getRevisionTaskById } from './pcs-revision-task-repository.ts'
 import { getPlateMakingTaskById } from './pcs-plate-making-repository.ts'
@@ -52,7 +53,7 @@ export interface PcsProjectInstanceItem {
   workItemTypeName: string
   sourceKind: PcsProjectInstanceSourceKind
   sourceLayer: PcsProjectInstanceSourceLayer
-  carrierMode: PcsWorkItemRuntimeCarrierMode
+  carrierMode: PcsProjectTaskCarrierMode
   carrierLabel: string
   moduleName: string
   objectType: string
@@ -79,7 +80,7 @@ export interface PcsProjectNodeInstanceModel {
   projectNodeId: string
   workItemTypeCode: string
   workItemTypeName: string
-  carrierMode: PcsWorkItemRuntimeCarrierMode
+  carrierMode: PcsProjectTaskCarrierMode
   carrierLabel: string
   moduleName: string
   projectRecordCount: number
@@ -181,7 +182,7 @@ function parseRelationMeta(note: string | null | undefined): Record<string, unkn
 }
 
 function buildProjectRecordInstance(project: PcsProjectViewRecord, node: PcsProjectNodeRecord): PcsProjectInstanceItem {
-  const carrier = getPcsWorkItemRuntimeCarrierDefinition(node.workItemTypeCode as PcsProjectWorkItemCode)
+  const carrier = getProjectTaskCarrierDefinition(node.workItemTypeCode as PcsProjectWorkItemCode)
   const labelMap = buildFieldLabelMap('PROJECT_INIT')
   const fields: PcsProjectInstanceField[] = []
 
@@ -237,8 +238,8 @@ function buildProjectRecordInstance(project: PcsProjectViewRecord, node: PcsProj
     workItemTypeName: node.workItemTypeName,
     sourceKind: 'PROJECT_RECORD',
     sourceLayer: '项目主记录',
-    carrierMode: carrier.runtimeCarrierMode,
-    carrierLabel: carrier.runtimeCarrierLabel,
+    carrierMode: carrier.carrierMode,
+    carrierLabel: carrier.carrierLabel,
     moduleName: carrier.moduleName,
     objectType: '商品项目',
     relationRole: '项目主记录',
@@ -295,7 +296,7 @@ function buildInlineRecordFields(record: PcsProjectInlineNodeRecord): PcsProject
 }
 
 function buildInlineRecordInstance(record: PcsProjectInlineNodeRecord): PcsProjectInstanceItem {
-  const carrier = getPcsWorkItemRuntimeCarrierDefinition(record.workItemTypeCode as PcsProjectWorkItemCode)
+  const carrier = getProjectTaskCarrierDefinition(record.workItemTypeCode as PcsProjectWorkItemCode)
   const fields = buildInlineRecordFields(record)
   return {
     instanceKey: `inline-record:${record.recordId}`,
@@ -306,8 +307,8 @@ function buildInlineRecordInstance(record: PcsProjectInlineNodeRecord): PcsProje
     workItemTypeName: record.workItemTypeName,
     sourceKind: 'INLINE_RECORD',
     sourceLayer: '项目内正式记录',
-    carrierMode: carrier.runtimeCarrierMode,
-    carrierLabel: carrier.runtimeCarrierLabel,
+    carrierMode: carrier.carrierMode,
+    carrierLabel: carrier.carrierLabel,
     moduleName: carrier.moduleName,
     objectType: '项目内正式记录',
     relationRole: '执行记录',
@@ -774,7 +775,7 @@ function resolveRelationObjectSnapshot(relation: ProjectRelationRecord): Resolve
 }
 
 function buildRelationObjectInstance(relation: ProjectRelationRecord): PcsProjectInstanceItem {
-  const carrier = getPcsWorkItemRuntimeCarrierDefinition(relation.workItemTypeCode as PcsProjectWorkItemCode)
+  const carrier = getProjectTaskCarrierDefinition(relation.workItemTypeCode as PcsProjectWorkItemCode)
   const resolved = resolveRelationObjectSnapshot(relation)
   return {
     instanceKey: `relation-object:${relation.projectRelationId}`,
@@ -785,8 +786,8 @@ function buildRelationObjectInstance(relation: ProjectRelationRecord): PcsProjec
     workItemTypeName: relation.workItemTypeName,
     sourceKind: 'RELATION_OBJECT',
     sourceLayer: '正式业务对象',
-    carrierMode: carrier.runtimeCarrierMode,
-    carrierLabel: carrier.runtimeCarrierLabel,
+    carrierMode: carrier.carrierMode,
+    carrierLabel: carrier.carrierLabel,
     moduleName: relation.sourceModule,
     objectType: relation.sourceObjectType,
     relationRole: relation.relationRole,
@@ -808,15 +809,15 @@ function buildRelationObjectInstance(relation: ProjectRelationRecord): PcsProjec
 }
 
 function createEmptyNodeInstanceModel(project: PcsProjectViewRecord, node: PcsProjectNodeRecord): PcsProjectNodeInstanceModel {
-  const carrier = getPcsWorkItemRuntimeCarrierDefinition(node.workItemTypeCode as PcsProjectWorkItemCode)
+  const carrier = getProjectTaskCarrierDefinition(node.workItemTypeCode as PcsProjectWorkItemCode)
   return {
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectNodeId: node.projectNodeId,
     workItemTypeCode: node.workItemTypeCode,
     workItemTypeName: node.workItemTypeName,
-    carrierMode: carrier.runtimeCarrierMode,
-    carrierLabel: carrier.runtimeCarrierLabel,
+    carrierMode: carrier.carrierMode,
+    carrierLabel: carrier.carrierLabel,
     moduleName: carrier.moduleName,
     projectRecordCount: 0,
     inlineRecordCount: 0,

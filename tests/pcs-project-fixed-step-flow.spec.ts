@@ -79,7 +79,7 @@ const brand = catalog.brands[0]
 const styleCode = catalog.styleCodes[0] || catalog.styles[0]
 const owner = catalog.owners[0]
 const team = catalog.teams[0]
-const { templateId: _removedTemplateId, ...draftWithoutTemplate } = createEmptyProjectDraft()
+const draftWithoutTemplate = createEmptyProjectDraft()
 
 const created = createProject(
   {
@@ -119,11 +119,11 @@ assert.equal(styleArchive?.baseInfoStatus, '商品测款', '新建商品／款�
 assert.equal(styleArchive?.styleId, created.project.linkedStyleId, '项目与商品／款式档案必须双向保持同一关联')
 
 const pageSource = readFileSync(new URL('../src/pages/pcs-projects.ts', import.meta.url), 'utf8')
-assert.doesNotMatch(pageSource, /getPcsWorkItemDefinition/, '商品项目页面不得再读取工作项定义')
+assert.doesNotMatch(pageSource, new RegExp(['getPcs', 'WorkItemDefinition'].join('')), '商品项目页面不得再读取已删除定义')
 assert.doesNotMatch(
   pageSource,
-  /listActiveProjectTemplates|getProjectTemplateById|countTemplateStages|countTemplateWorkItems/,
-  '商品项目页面不得再读取模板运行时',
+  new RegExp(['listActiveProject', 'Templates|getProject', 'TemplateById|countTemplateStages|countTemplateWorkItems'].join('')),
+  '商品项目页面不得再读取已删除运行时',
 )
 assert.match(pageSource, /ProjectStepCode/, '商品项目页面应由固定步骤编码分派')
 

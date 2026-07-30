@@ -20,7 +20,7 @@ const labels = contract.fieldDefinitions.map((field) => field.label)
   '部位模板关联',
   '关联技术包版本',
 ].forEach((label) => {
-  assert.ok(labels.includes(label), `制版任务工作项库缺少字段：${label}`)
+  assert.ok(labels.includes(label), `制版任务契约缺少字段：${label}`)
 })
 
 console.log('pcs-plate-making-work-item-contract.spec.ts PASS')
