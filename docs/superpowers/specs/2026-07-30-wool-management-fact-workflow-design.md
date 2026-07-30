@@ -50,6 +50,7 @@
 | 开工判断 | 任一加工后 SKU 所需的全部必需纱线 SKU 均存在确认接收 |
 | 纱线数量 | 不参与可加工数量换算 |
 | 加工上限 | 单加工后 SKU 累计填报不超过自身计划量的 150% |
+| 列表 Tab | “可以开工”等于当前至少有一个加工后 SKU 可继续填报；已齐料但全部达到 150% 时进入“不可以开工”并显示上限原因 |
 | 默认库位 | 纱线、裁片、成衣各使用毛织工艺下唯一固定默认库位 |
 | 库存联动 | 加工填报自动入库；发起交出自动扣库存 |
 | 数量修改 | 完成前可直接修改数量并按差额调整库存；不提供撤销、作废或删除 |
@@ -80,6 +81,7 @@
 | 层级 | 文件与核查范围 | 当前代码事实 | 设计结论 |
 |---|---|---|---|
 | 毛织领域 | `src/data/fcs/wool-task-domain.ts` 全文 | 3,400 余行把单一纱线接收、固定节点、横机排产、菲票打印、仓库推导和 PDA 种子集中在一个文件 | 在毛织模块内重建事实模型；删除旧节点状态机及自动推进函数 |
+| 毛织页面公共代码 | `src/pages/process-factory/wool/shared.ts` 全文 | 公共方法仍硬编码旧状态、价格格式化、统计卡片和自定义列表分页 | 删除毛织价格、旧状态和统计卡片辅助方法；标准列表改用公共列表组件，详情内小型记录表只保留最小分页能力 |
 | 加工单列表 | `src/pages/process-factory/wool/work-orders.ts` 全文 | 1,500 余行同时承担列表、所有弹窗、仓库动作和旧节点自动推进 | 拆清列表、操作弹窗和事件处理；列表迁移至标准列表页组件 |
 | 加工单详情 | `src/pages/process-factory/wool/work-order-detail.ts` 全文 | 页签直接包含“横机成片”“缝盘熨烫包装”“毛织菲票” | 改为业务概览、款色用料、接收记录、加工填报、交出记录、横机关联和操作记录 |
 | 横机排产 | `src/pages/process-factory/wool/machine-schedule.ts` 全文 | 只展示“待横机排产”的加工单，要求机台数、起止日期和手输机号 | 整页改为“横机生产关联”，默认展示全部设备当前状态和当前加工单 |
@@ -97,10 +99,13 @@
 | PDA 交接事件 | `src/data/fcs/pda-handover-events.ts:1332-1363, 3746-3783` | 毛织领料和交出以静态种子并入通用交接头、明细 | 改为从多次接收记录和多次交出记录生成 |
 | 工厂仓库概览 | `src/data/fcs/factory-mobile-warehouse.ts:93-124` | 以单一纱线收货、旧完工入仓和交出记录计算毛织仓库概览 | 改为按接收行与交出行汇总，避免按加工单数冒充物料行数 |
 | 技术包类型 | `src/data/pcs-technical-data-version-types.ts:315-345` | 毛织工艺含 `requiresFeiTicket`、`packagingRequired` 等旧执行要求 | 删除毛织专属的菲票打印和包装节点配置；保留任务类型、交出对象等仍有效字段 |
+| 技术包快照构建 | `src/data/fcs/production-tech-pack-snapshot-builder.ts:739-807, 1018-1048` | `alignSnapshotWithDemandSkuLines()` 会把首条款色用料关系复制给没有明确关系的颜色，且改写适用 SKU | 保留快照对生产单 SKU 的对齐能力，但必须标记“技术包原始关系/需求兜底关系”；毛织齐料只认技术包原始关系，不认兜底复制 |
+| 技术包快照运行时 | `src/data/fcs/production-order-tech-pack-runtime.ts` 全文、`src/data/fcs/production-tech-pack-snapshot-types.ts` 全文 | 毛织领域实际从生产单冻结快照读取 BOM、款色用料和纸样，不直接读取技术包编辑态 | 加工单保存快照版本和来源行；已生成加工单不随技术包后续版本变化 |
 | 技术包页面 | `src/pages/tech-pack/process-domain.ts:94-210, 532-646` | 毛织规则卡展示菲票规则、包装节点开关、固定交出说明 | 删除旧节点文案和开关；款色用料关系成为开工判断的唯一技术依据 |
 | 技术包快照页 | `src/pages/fcs-production-tech-pack-snapshot.ts:430-465` | 执行要求列展示“打印毛织菲票”“毛织厂包装” | 删除两项毛织执行要求 |
 | 技术包样例 | `src/data/pcs-technical-data-version-bootstrap.ts:204-265` | 样例写死熨烫、包装和打印菲票 | 改为接收、加工填报、交出语义 |
 | 任务生成 | `src/data/fcs/process-tasks.ts:560-647, 903-1085` | 新毛织任务默认已接单、已开工、已上报横机里程碑，并只找第一条物料行 | 改为生成未加工的加工单，生成款色/SKU 计划行和全部必需纱线关系 |
+| 运行时任务 | `src/data/fcs/runtime-process-tasks.ts` 毛织任务合成与投影相关段落 | `wool-task-domain.ts` 实际消费 `listRuntimeExecutionTasks()`；通用接单、价格和里程碑字段会被带入毛织加工单 | 保留通用任务分配关系，但不得把通用接单、价格或里程碑投影成毛织加工单状态和操作门禁 |
 | 任务明细 | `src/data/fcs/task-detail-rows.ts:255-327` | 整件毛织按成衣 SKU 和件生成；部位毛织按纸样部位、成衣 SKU 和单件片数生成 | 明确加工后对象粒度；整件按成衣 SKU，部位按毛织部位 SKU，部位计划片数等于成衣计划件数乘单件部位片数 |
 | 生产工艺产物 | `src/data/fcs/production-artifact-generation.ts:307-321` | 自动写入菲票和包装要求 | 删除旧要求的产物字段 |
 | 里程碑配置 | `src/data/fcs/milestone-configs.ts:209-258` | 毛织配置明确要求“横机首批上报” | 删除毛织专属横机里程碑配置，避免 PDA 重新生成旧动作 |
@@ -163,6 +168,46 @@
 
 `src/data/fcs/task-detail-rows.ts` 当前生成物料候选时存在把 `item.id` 投影为 `materialCode` 的路径。毛织开工判断不得读取该通用明细字段推测纱线 SKU，必须直接使用生产单绑定的技术包快照和款色用料关系。
 
+#### 冲突十：生产单快照会补造缺失颜色的款色用料关系
+
+`alignSnapshotWithDemandSkuLines()` 当前对生产单中没有明确款色用料关系的颜色，复制技术包第一条关系并替换颜色和适用 SKU。该行为可用于通用原型数据对齐，但不能作为毛织开工证据，否则“技术包缺关系”会被误判为“纱线已配置”。
+
+毛织解析必须能区分：
+
+- 技术包原始、已确认的款色用料关系。
+- 为通用展示补齐的需求兜底关系。
+
+只有前者可以进入必需纱线集合。兜底关系不得让加工后 SKU 变成可填报。
+
+#### 冲突十一：固定默认库位与毛织自建库区库位维护并存
+
+当前毛织领域保存 `areas`、`locations`，Web 和 PDA 允许新增、编辑、删除库区库位并在每次操作时人工选位。目标规则是纱线、裁片、成衣分别使用唯一默认库位，两套规则同时保留会导致同一业务动作落入不同位置。
+
+毛织模块必须删除自建库区库位维护和自动选位逻辑。核心三类操作只写固定默认库位；仓库独立调整或转移如需选择其他位置，应读取公共仓库位置主数据，不能重新建立毛织专属位置体系。
+
+#### 冲突十二：“关联生产单”的页面名称与实际关联对象不一致
+
+横机关系的真实目标是毛织加工单，不是笼统生产单；但业务入口名称已确认为“关联生产单”。当同一生产单生成多张毛织加工单时，仅选择生产单无法确定设备到底服务哪张加工单。
+
+弹窗必须先选生产单，再定位具体毛织加工单：只有一张符合条件时自动选中；存在多张时必须再选具体加工单，然后才能选择设备。底层始终保存 `machineId + woolOrderId`。
+
+### 2.4 再次复核补漏闭环
+
+本次再次沿代码调用关系对正式文档做反向核查，新增闭环如下：
+
+| 补漏项 | 代码证据 | 文档落点 |
+|---|---|---|
+| 技术包缺色关系会被兜底复制 | `production-tech-pack-snapshot-builder.ts` 的 `alignSnapshotWithDemandSkuLines()` | 5.2、5.4：增加关系来源标记，毛织只认原始关系 |
+| 当前类型没有“纱线”枚举 | `TechnicalBomItemType`、`TechnicalColorMaterialMappingLine.materialType` | 5.2：只认明确关联且标记毛织用途的 BOM，不按名称推测 |
+| 既有加工单可能被新技术包版本影响 | 毛织运行时直接读取生产单技术包快照 | 5.4、12.1：生成时冻结版本和来源行 |
+| 固定默认库位与毛织位置 CRUD 冲突 | `WoolWarehouseArea/Location`、仓库 `locations` 页签和 Web/PDA 选位 | 11.1、14.2：删除毛织位置维护，核心操作不选位 |
+| 新纱线退回容易误复用旧损耗回收 | `WoolYarnRecoveryRecord`、`recordWoolYarnRecovery()`、缝盘损耗推导 | 11.1、13、14.2：独立领用/退回记录，删除旧回收模型 |
+| “关联生产单”不能唯一定位加工单 | 关系实际字段为 `woolOrderId` | 9.2：生产单后级联具体加工单 |
+| 交出弹窗自由输入接收方会破坏路由 | PDA 当前维护 `woolHandoverReceiver` 文本 | 7.3、12.2：结构化去向只读带出 |
+| 毛织公共代码仍携带旧状态和价格 | `wool/shared.ts` 的状态、金额、统计卡片、自定义表格方法 | 10、14：删除旧辅助代码并接入标准列表组件 |
+| 通用任务接单会继续推进毛织 | `pda-task-receive.ts` 调用 `acceptWoolWorkOrder()` | 6.3、11.3、12.1：保留上游协作但不作为毛织门禁 |
+| 完成弹窗块数表述错误 | 文档写“三块”但实际列出四块 | 8.2：明确为四块 |
+
 ## 3. 设计原则与边界
 
 ### 3.1 设计原则
@@ -174,7 +219,7 @@
 5. 数量分离：纱线接收数量不参与可加工件数换算。
 6. 多次操作：确认接收、加工填报和发起交出都允许多次。
 7. 仓库同源：加工填报与待交出仓入库一次保存，发起交出与库存扣减一次保存。
-8. 数量可改：加工单完成前允许直接修改记录数量，库存只按新旧差额调整，并保留修改历史。
+8. 数量可改：加工单完成前允许直接修改确认接收、加工填报和未被下游确认的交出数量，库存只按新旧差额调整，并保留修改历史。
 9. 人工收口：完成加工单不做数量充分性判断，由业务人员查看事实后二次确认。
 10. 完成冻结：加工单完成后，毛织侧接收、填报、交出和设备关系只读；完成动作不清除剩余库存，也不阻断下游确认接收。
 11. 设备独立：横机关联是当前生产关系，不是加工单状态。
@@ -194,6 +239,8 @@
 - 毛织价格结构、估价、标准价、派工价、差价原因、结算投影及页面文案。
 - 横机“已排产”状态、筛选、Mock 数据、状态转换和文案。
 - 独立“完工入仓”入口及其自动推进函数。
+- 毛织专属库区库位新增、编辑、删除和每次业务操作人工选位。
+- 缝盘损耗、可回收损耗、损耗纱线回收及其关联加工单推导。
 - 由上述节点派生的里程碑、PDA 按钮、证据文案和自动推进函数。
 
 以下内容不在删除范围：
@@ -316,7 +363,7 @@ erDiagram
 
 确认接收只能选择本加工单技术包款色用料关系中的纱线 SKU，不能录入技术包外纱线。保存后，每条纱线明细自动进入“毛织待加工仓 / 纱线默认库位”，业务人员不选择库区库位。
 
-记录不提供撤销、作废或删除。加工单完成前允许直接修改实收数量；系统保存修改前数量、修改后数量、修改人、修改时间和修改原因，并按差额调整纱线默认库位库存。修改后不得使当前纱线库存小于零。
+记录不提供撤销、作废或删除。有效确认接收明细是已成功保存且实收数量大于 0 的明细；草稿、保存失败的数据和仅存在于技术包中的计划行都不算“有过确认接收”。加工单完成前允许直接修改实收数量；系统保存修改前数量、修改后数量、修改人、修改时间和修改原因，并按差额调整纱线默认库位库存。修改后不得使当前纱线库存小于零。
 
 ### 4.5 加工填报记录
 
@@ -377,6 +424,7 @@ erDiagram
 - 一台横机当前最多关联一个加工单。
 - 同一设备和加工单不能存在重复当前关系。
 - 关联历史可作为操作记录保留，但当前页面只以当前关系为准。
+- 业务入口可以叫“关联生产单”，但当前关系必须落到具体 `woolOrderId`，不能只保存生产单号。
 
 横机只保留“空闲、生产中、维修、停用”四种状态。“生产中”由当前关联关系派生，不允许设备档案手工设置；“已排产”业务逻辑及相关代码全部删除。
 
@@ -401,9 +449,10 @@ erDiagram
 1. 取得生产单的成衣 SKU 计划行，并按整件或部位规则生成加工后 SKU 计划行。
 2. 按颜色匹配 `colorMaterialMappings`。
 3. 只保留属于毛织/纱线的物料行：
-   - 优先依据关联 BOM 的 `usageProcessCodes` 包含毛织。
-   - 其次依据明确的纱线物料类型。
-   - 不得把同色关系中的包装、辅料或其他非纱线物料当作开工必需纱线。
+   - 款色用料行必须能通过 `bomItemId`，或唯一的 `materialCode`，关联到 BOM 行。
+   - 关联 BOM 的 `usageProcessCodes` 必须明确包含 `WOOL` 或 `PROC_WOOL`。
+   - 当前 `TechnicalBomItemType` 和款色用料 `materialType` 都没有“纱线”枚举，因此不得靠“面料”类型、物料名称包含“纱”或第一条 BOM 进行推测。
+   - 不得把同色关系中的包装、辅料或其他非毛织用途物料当作开工必需纱线。
 4. 纱线身份必须使用款色用料关系明确指向的物料 SKU；不得使用整款 BOM 自动补齐或推测该颜色所需纱线。
 5. 按 `applicableSkuCodes` 投影到对应成衣 SKU，再映射到整件或部位加工后 SKU。
 6. 同一加工后 SKU 下按物料 SKU 去重。
@@ -412,6 +461,8 @@ erDiagram
 若某个加工后 SKU 没有解析出任何必需纱线，不能把空集合判定为“全部已接收”。该加工后 SKU 必须显示：
 
 > 技术包缺少该款色的必需纱线关系，暂不可加工填报。
+
+技术包发布前应校验：存在毛织工艺的款色，至少有一条已确认的款色用料行关联到标记为毛织用途的 BOM 物料。缺少 `materialCode`、找不到唯一 BOM、BOM 未标记毛织用途或关系仍为草稿时，均作为待完善项，不得由毛织模块自行猜测。
 
 ### 5.3 可加工判断
 
@@ -425,12 +476,14 @@ erDiagram
 1. `Y(outputSku)` 非空。
 2. `Y(outputSku)` 中每一种纱线都存在于 `R`。
 
-加工单可以开工，当且仅当至少一个加工后 SKU 已齐料。该判断不考虑该 SKU 是否已经达到 150% 填报上限。
+某加工后 SKU 当前可继续填报，当且仅当它已经齐料，且累计加工填报数量仍小于该 SKU 计划数量的 150%。
+
+加工单属于“可以开工”，当且仅当至少一个加工后 SKU 当前可继续填报。这样“可以开工”Tab 与“当前可以点击加工填报”保持一致。若纱线已经齐全，但所有加工后 SKU 都已达到 150% 上限，则加工单归入“不可以开工”，原因显示“全部加工后 SKU 已达到填报上限”，不能误显示成缺纱线。
 
 ```text
 加工后 SKU 已齐料 = 必需纱线集合非空 AND 必需纱线集合 ⊆ 已确认接收纱线集合
-加工单可以开工 = 存在至少一个加工后 SKU 已齐料
 加工后 SKU 可继续填报 = 已齐料 AND 累计填报数量 < 计划数量 × 150%
+加工单可以开工 = 存在至少一个加工后 SKU 可继续填报
 ```
 
 示例：
@@ -441,7 +494,18 @@ erDiagram
 | 白色 | A、C | A、C | 白色可填报 |
 | 红色 | B、D | A、C | 红色不可填报，缺 B、D |
 
-此时加工单进入“可以开工”Tab，因为白色满足要求。系统不根据已接收纱线数量计算白色最多可做多少件；加工填报仍受白色加工后 SKU 计划量 150% 的独立上限约束。
+此时加工单进入“可以开工”Tab，因为白色满足纱线要求且仍有填报容量。系统不根据已接收纱线数量计算白色最多可做多少件；加工填报只受白色加工后 SKU 计划量 150% 的独立上限约束。
+
+### 5.4 快照冻结与版本变化
+
+毛织加工单只读取生成当时绑定到生产单的 `ProductionOrderTechPackSnapshot`：
+
+- 加工后 SKU 计划、必需纱线、部位片数和来源引用在加工单生成时冻结。
+- 保存 `sourceTechPackVersionId`、`sourceTechPackVersionCode`、款色用料关系行 ID 和 BOM 行 ID。
+- 技术包后续发布新版本时，既有毛织加工单的齐料判断不静默变化。
+- 如业务确需采用新版本，必须通过明确的“重建未发生业务的加工单”或后续独立变更流程处理；已有接收、加工、交出或完成记录的加工单不得自动重建。
+
+生产单快照为通用展示生成的需求兜底关系必须带来源标记，例如 `mappingOrigin: 'TECH_PACK' | 'DEMAND_FALLBACK'`。毛织解析只接受 `TECH_PACK`。若不在公共类型中增加来源标记，则必须在毛织生成前保留并读取未经过兜底复制的原始技术包关系；两者必须选择其一，不能继续靠结果内容猜测来源。
 
 ## 6. 状态、分组与操作门禁
 
@@ -461,8 +525,8 @@ erDiagram
 
 列表只设三个互斥 Tab：
 
-1. 可以开工：未完成，且至少一个加工后 SKU 已齐料。
-2. 不可以开工：未完成，且没有任何加工后 SKU 已齐料。
+1. 可以开工：未完成，且至少一个加工后 SKU 当前可继续填报。
+2. 不可以开工：未完成，且没有任何加工后 SKU 当前可继续填报；原因可能是必需纱线未齐，也可能是所有已齐料 SKU 均达到 150% 上限。
 3. 已完成：已有完成记录。
 
 每个 Tab 标签直接显示当前筛选条件下的数量，例如“可以开工 8”。不再增加重复的统计卡片。
@@ -477,10 +541,12 @@ erDiagram
 | 确认接收 | 未完成 | 至少一条纱线明细；只能选择本单技术包必需纱线 |
 | 加工填报 | 未完成且至少一个加工后 SKU 可继续填报 | 只能选已齐料且尚有 150% 容量的加工后 SKU |
 | 发起交出 | 未完成且至少一个加工后 SKU 在对应默认库位有库存 | 本次交出不超过该加工后 SKU 当前库存 |
-| 关联横机设备 | 未完成，且至少一个加工后 SKU 已齐料或该单已有横机关联 | 维修、停用设备不可选择；即使全部 SKU 已达到上限，仍能进入弹窗解除现有关联 |
+| 关联横机设备 | 未完成，且至少一个加工后 SKU 当前可继续填报或该单已有横机关联 | 维修、停用设备不可选择；即使全部 SKU 已达到上限，仍能进入弹窗解除现有关联 |
 | 完成加工单 | 未完成且至少有一条交出记录 | 系统不判断是否足量，只要求二次确认 |
 
 完成加工单后，毛织侧新增接收、加工填报、发起交出、数量编辑和设备关联操作全部锁定，只保留详情、仓库库存查看，以及对已生成下游待接收记录的正常确认接收。
+
+通用生产任务中的工厂分配、接单或拒单属于上游任务协作事实，不是毛织加工单状态。毛织模块不得展示“确认接单”核心操作，也不得用通用 `acceptanceStatus` 阻止确认接收、加工填报或发起交出。
 
 ## 7. 三类可重复操作
 
@@ -533,7 +599,7 @@ erDiagram
 
 1. 用户点击“发起交出”。
 2. 弹窗只列出在对应默认库位存在库存的加工后 SKU。
-3. 用户选择加工后 SKU，填写本次交出数量、接收对象和凭证。
+3. 用户选择加工后 SKU，填写本次交出数量和凭证；接收对象按毛织类型和加工单既定去向自动带出，只读展示。
 4. 保存后新增交出记录，并从裁片或成衣默认库位扣减同一数量。
 5. 每次交出独立进入通用交接投影，等待下游确认接收。
 
@@ -545,6 +611,12 @@ erDiagram
 ```
 
 发起交出的前提自然包含“至少有一次加工填报”，因为没有加工填报时可交出余额为 0。
+
+接收对象不允许在弹窗中任意输入：
+
+- 部位毛织固定为裁床待交出仓。
+- 整件毛织固定为加工单上游已确定的后道工厂。
+- 若加工单缺少具体接收对象标识，弹窗显示“交出去向未配置”，禁止保存，不能让操作人用自由文本绕过来源关系。
 
 ### 7.4 数量修改
 
@@ -566,7 +638,7 @@ erDiagram
 
 ### 8.2 确认弹窗
 
-弹窗按三块展示：
+弹窗按四块展示：
 
 1. 确认接收情况：
    - 每种必需纱线是否接收。
@@ -619,7 +691,7 @@ erDiagram
 - 当前关联毛织加工单。
 - 生产单、款号、内部货号。
 - 关联时间、关联人。
-- 操作。
+- 操作：已关联设备可进入“编辑关联/解除关联”，空闲设备可从“关联生产单”统一维护；维修、停用设备只允许查看档案状态。
 
 筛选：
 
@@ -633,16 +705,20 @@ erDiagram
 
 入口一：毛织加工单列表。
 
-- 未完成且至少一个加工后 SKU 已齐料时显示“关联横机设备”。
+- 未完成且至少一个加工后 SKU 当前可继续填报时显示“关联横机设备”。
 - 若加工单已有横机关联，即使全部加工后 SKU 已达到 150% 上限，也保留入口用于解除现有关联。
 - 打开后当前加工单已关联设备默认选中。
 
 入口二：横机生产关联页。
 
-- 先选毛织加工单。
-- 只允许选择未完成且至少一个加工后 SKU 已齐料的加工单。
-- 加工单选项显示加工单号、生产单、款号、加工状态和齐料摘要。
-- 再多选横机设备。
+- 点击右上角“关联生产单”后，先选择生产单。
+- 生产单只展示至少有一张满足以下任一条件的未完成毛织加工单：存在可继续填报的加工后 SKU，或当前仍有关联横机需要维护。
+- 选定生产单后加载该生产单下符合条件的毛织加工单：
+  - 只有一张时自动选中并只读展示。
+  - 有多张时必须继续选择具体毛织加工单。
+- 加工单选项显示加工单号、类型、款号、加工状态、齐料摘要和当前关联横机。
+- 最后多选横机设备。
+- 保存时仍以具体毛织加工单为目标，生产单只是业务检索的第一层。
 
 两个入口调用同一套“保存整组关系”逻辑。
 
@@ -762,6 +838,8 @@ erDiagram
 
 该页不承担按加工单维护整组关联的主要职责，也不出现旧“横机排产节点”文案。
 
+“横机生产关联”和“横机设备”都是本次调整的数据列表页，必须声明 `// @page-pattern: list`，使用 `renderStandardListPage`、`renderStandardListTable` 和 `renderTablePagination`。设备编号、当前状态、当前关联加工单和右侧操作列属于不可隐藏列；横向宽表在表格容器内滚动，不能让页面主体横向溢出。
+
 ### 10.4 已删除页面
 
 “毛织统计”和“毛织菲票”页面不再属于毛织管理信息架构。对应菜单、路由、链接、渲染器、事件、Mock 数据和专项检查全部删除，不提供旧地址重定向。
@@ -786,8 +864,16 @@ erDiagram
 - 不自动创建加工填报。
 - 不改变加工单状态。
 - 支持同一加工单和纱线多次领用、退回。
-- 领用不能超过当前库存。
+- 领用必须关联未完成的毛织加工单和该加工单技术包中的纱线 SKU；从纱线默认库位扣减，不能超过该 SKU 当前库存。
+- 退回必须关联原毛织加工单和同一纱线 SKU，回到纱线默认库位；同一加工单和纱线的累计退回不得超过累计领用。
+- 加工单完成后不再新增纱线领用或退回；剩余纱线通过仓库独立调整或转移处理。
+- 纱线领用和退回属于仓库记录，不属于加工单三类核心操作，不出现在加工单操作栏，也不改变“可以开工”判断。
+- 领用、退回记录不使用核心业务记录的“直接修改数量”入口；仓库误差通过独立库存调整记录纠正，必须填写原因。
 - 删除缝盘损耗、自动用量、损耗回收和剩余重量推导。
+
+待加工仓库存唯一粒度为“加工单 + 纱线 SKU + 批次 + 纱线默认库位”。汇总行可合并展示同 SKU 数量，但详情和流水必须保留加工单、批次和来源接收明细，不能把不同加工单库存合成不可追溯的公共余额。
+
+毛织仓库页面删除“库区管理/库位管理”页签以及新增、编辑、删除位置入口；删除毛织本地存储中的 `areas`、`locations` 和对应 CRUD。三个默认库位由固定配置或公共仓库位置主数据提供，不允许在毛织页面临时维护。
 
 ### 11.2 毛织待交出仓
 
@@ -806,6 +892,8 @@ erDiagram
 
 加工填报保存后直接入对应默认库位，不再存在独立“完工入仓”操作。发起交出时直接从对应默认库位扣减库存，并生成一条独立的下游待接收记录。
 
+待交出仓库存唯一粒度为“加工单 + 加工后 SKU + 对象类型 + 对应默认库位”。不同加工单、不同部位或不同颜色尺码不能只因 SKU 名称相近而合并。自动入库和自动出库不显示库位选择器。
+
 待交出仓必须提供：
 
 - 按加工单、生产单、加工后 SKU、对象类型和状态筛选的库存列表。
@@ -813,6 +901,10 @@ erDiagram
 - 已完成加工单剩余库存的明确标识。
 - 独立库存调整和库存转移，必须填写原因并保存操作人、时间和前后数量。
 - 库存、入库流水、出库流水、调整流水和转移流水全部分页。
+
+独立库存转移可以从默认库位转到公共仓库位置主数据中的其他启用位置，但不改变后续核心操作仍以默认库位为自动来源/目的地的规则。若库存已被转走，发起交出只能使用默认库位中仍存在的余额；系统不得自动跨库位扣减。
+
+仓库内各库存和记录列表也必须使用标准列表组件契约；多页签仓库可以保留业务页签，但每个列表均需分页、列配置和右侧固定操作列，不再使用毛织 `shared.ts` 中的自定义整表渲染代替治理组件。
 
 下游确认接收回写实际接收数量和差异，但不自动完成毛织加工单、不恢复毛织库存，也不限制业务人员人工完成。下游确认后，来源交出数量锁定。
 
@@ -833,6 +925,8 @@ PDA 毛织详情与 Web 共用同一事实和门禁：
 - 毛织菲票打印。
 - 自动循环完成节点。
 
+通用任务接收页若仍服务工厂分配协作，可以保留上游任务的接收结果，但不得调用毛织领域的“接单并推进加工单”命令，也不得把该结果伪装为纱线确认接收。PDA 毛织执行入口以具体毛织加工单事实为准。
+
 PDA 首屏只展示加工单、可填报加工后 SKU、缺少纱线和当前主操作；完整记录放入详情。
 
 Web 与 PDA 必须调用同一组领域命令。相同记录编号只保存一次，不能因两个入口重复点击生成重复接收、重复入库、重复交出或重复扣库存。
@@ -847,10 +941,13 @@ Web 与 PDA 必须调用同一组领域命令。相同记录编号只保存一�
 2. 整件毛织从生产单成衣 SKU 计划行生成加工后 SKU，单位为件。
 3. 部位毛织从毛织纸样部位和成衣 SKU 生成稳定的毛织部位 SKU；计划片数为成衣计划件数乘单件部位片数。
 4. 从技术包款色用料关系生成每个加工后 SKU 的必需纱线集合。
-5. 初始没有接收、加工、交出和完成记录。
-6. 初始加工状态为未加工。
-7. 初始位于“不可以开工”，除非 Mock 场景明确带入历史接收记录。
-8. 不再自动写已接单、已开工、横机里程碑、菲票、包装或价格。
+5. 冻结生产单技术包快照版本、原始款色用料关系行和 BOM 行来源，不使用需求兜底复制关系。
+6. 初始没有接收、加工、交出和完成记录。
+7. 初始加工状态为未加工。
+8. 初始位于“不可以开工”，除非 Mock 场景明确带入历史接收记录。
+9. 不再自动写已接单、已开工、横机里程碑、菲票、包装或价格。
+
+通用运行时任务仍可以保存承接工厂、分配方式和任务协作状态，但生成毛织加工单时不得把 `acceptanceStatus`、`startedAt`、旧里程碑或通用价格字段复制为毛织加工事实。毛织状态只能由加工填报和人工完成记录派生。
 
 ### 12.2 下游交接
 
@@ -859,10 +956,12 @@ Web 与 PDA 必须调用同一组领域命令。相同记录编号只保存一�
 - 来源加工单和任务。
 - 加工后 SKU、对象类型、颜色、尺码和部位。
 - 本次交出数量。
-- 接收方。
+- 按加工单既定去向生成的接收方类型、稳定接收方 ID 和名称。
 - 来源待交出仓出库流水。
 
 部位毛织的接收方固定投影为裁床待交出仓，整件毛织的接收方固定投影为后道工厂。每次交出生成独立交接明细和下游确认记录。
+
+接收方投影必须来自加工单已有的结构化去向，不能使用发起交出弹窗的自由文本。若整件毛织只配置了“后道工厂”类别但没有具体接收方 ID，交出操作应提示先完善加工单去向，不生成无法路由的交接记录。
 
 同一加工单多次交出必须生成多个可区分的交接明细，不能继续用加工单级单一 `handoverOrderNo` 覆盖。
 
@@ -899,7 +998,10 @@ interface WoolOutputPlanLine {
   plannedQty: number
   qtyUnit: Exclude<WoolQtyUnit, 'kg'>
   requiredYarnSkus: string[]
-  sourceTechPackVersion: string
+  sourceTechPackVersionId: string
+  sourceTechPackVersionCode: string
+  sourceColorMappingIds: string[]
+  sourceBomItemIds: string[]
 }
 
 interface WoolYarnReceiptRecord {
@@ -924,6 +1026,32 @@ interface WoolYarnReceiptLine {
   warehouseInboundFlowId: string
 }
 
+interface WoolYarnIssueRecord {
+  issueId: string
+  issueNo: string
+  woolOrderId: string
+  yarnSkuCode: string
+  batchNo?: string
+  issuedQty: number
+  qtyUnit: 'kg'
+  warehouseOutboundFlowId: string
+  issuedAt: string
+  issuedBy: string
+}
+
+interface WoolYarnReturnRecord {
+  returnId: string
+  returnNo: string
+  woolOrderId: string
+  yarnSkuCode: string
+  batchNo?: string
+  returnedQty: number
+  qtyUnit: 'kg'
+  warehouseInboundFlowId: string
+  returnedAt: string
+  returnedBy: string
+}
+
 interface WoolProcessReportRecord {
   reportId: string
   woolOrderId: string
@@ -938,10 +1066,11 @@ interface WoolProcessReportRecord {
 
 interface WoolDownstreamReceipt {
   receiptConfirmationId: string
-  actualReceivedQty: number
-  differenceQty: number
-  receivedAt: string
-  receivedBy: string
+  status: 'PENDING' | 'CONFIRMED'
+  actualReceivedQty?: number
+  differenceQty?: number
+  receivedAt?: string
+  receivedBy?: string
 }
 
 interface WoolHandoverRecord {
@@ -949,6 +1078,7 @@ interface WoolHandoverRecord {
   woolOrderId: string
   outputSkuCode: string
   handoverQty: number
+  receiverType: 'CUTTING_WAIT_HANDOVER_WAREHOUSE' | 'DOWNSTREAM_FACTORY'
   receiverId: string
   receiverName: string
   handedOverAt: string
@@ -977,6 +1107,14 @@ interface WoolWarehouseFlow {
   flowId: string
   woolOrderId: string
   flowType: 'INBOUND' | 'OUTBOUND' | 'ADJUSTMENT' | 'TRANSFER'
+  businessType:
+    | 'YARN_RECEIPT'
+    | 'YARN_ISSUE'
+    | 'YARN_RETURN'
+    | 'PROCESS_REPORT'
+    | 'HANDOVER'
+    | 'STOCK_ADJUSTMENT'
+    | 'STOCK_TRANSFER'
   warehouseMode: 'WAIT_PROCESS' | 'WAIT_HANDOVER'
   defaultLocationType: 'YARN' | 'CUT_PIECE' | 'GARMENT'
   defaultLocationId: 'WOOL-WP-YARN-DEFAULT' | 'WOOL-WH-CUT-DEFAULT' | 'WOOL-WH-GARMENT-DEFAULT'
@@ -986,6 +1124,9 @@ interface WoolWarehouseFlow {
   unit: WoolQtyUnit
   sourceRecordType: string
   sourceRecordId: string
+  fromLocationId?: string
+  toLocationId?: string
+  reason?: string
   operatedAt: string
   operatedBy: string
 }
@@ -1046,6 +1187,8 @@ interface WoolMachineAssociationLog {
 - 命令：新增接收、修改接收数量、纱线领用、纱线退回、新增加工填报、修改加工填报数量、发起交出、修改交出数量、确认下游接收、完成加工单、保存整组设备关系、设备维修或停用、库存调整或转移。
 - 新增或修改加工事实与仓库流水必须由同一个领域命令完成，页面不得分别写两份状态。
 - 页面不得再通过循环调用多个旧动作来“推进到目标状态”。
+- 纱线领用累计量、退回累计量和当前库存都从记录与流水计算，不再从“横机开工用量”“缝盘损耗”或旧节点字段推导。
+- 默认库位的库存键必须包含加工单和对象 SKU；纱线库存还要包含批次，加工后库存还要包含对象类型。
 
 ## 14. 文件级实施方案
 
@@ -1057,6 +1200,7 @@ interface WoolMachineAssociationLog {
 - `src/pages/process-factory/wool/machine-associations.ts`：新建横机生产关联页，替代旧横机排产文件。
 - `src/pages/process-factory/wool/machines.ts`：按四种设备状态和维修/停用影响确认重写相关区域。
 - `src/pages/process-factory/wool/warehouse.ts`：按三个默认库位、领用退回、入出库和独立调整重写。
+- `src/pages/process-factory/wool/shared.ts`：删除价格、旧状态、统计卡片和自定义标准列表辅助方法，只保留毛织详情页确有必要的轻量公共方法。
 - `scripts/check-wool-warehouse-unified-model.ts`：重写验收口径。
 
 ### 14.2 删除
@@ -1071,18 +1215,21 @@ interface WoolMachineAssociationLog {
 - `WoolPriceInfo`、毛织估价、标准价、派工价、差价原因和结算价格投影。
 - 横机“已排产”状态、筛选、Mock 数据和状态转换。
 - `advanceWoolOrderToWarehouseInbound()`、完工入仓弹窗、按钮和事件。
+- `WoolWarehouseArea`、`WoolWarehouseLocation`、毛织本地 `areas/locations`、库区库位维护页签及 CRUD。
+- `WoolYarnRecoveryRecord`、`recordWoolYarnRecovery()`、缝盘损耗回收关联和可回收损耗推导；新“纱线退回”使用独立退回记录，不能复用这些旧结构。
 - 旧节点状态、动作、仓库自动推进函数和毛织专属节点文案。
 
 ### 14.3 同步调整
 
-- `src/data/pcs-technical-data-version-types.ts`、`src/data/fcs/tech-packs.ts`、`src/pages/tech-pack/context.ts`、`src/pages/tech-pack/events.ts`、技术包规则卡和快照页。
-- `src/data/fcs/production-artifact-generation.ts`、`src/data/fcs/task-detail-rows.ts`、`src/data/fcs/process-tasks.ts` 和生产任务适配。
-- `src/pages/pda-exec.ts`、`src/pages/pda-exec-detail.ts`、`src/pages/pda-task-receive.ts`、PDA 待加工仓、待交出仓和仓管首页。
-- `src/data/fcs/pda-cutting-execution-source.ts`、`src/data/fcs/page-adapters/task-execution-adapter.ts`、`src/data/fcs/process-mobile-task-binding.ts`、`src/data/fcs/mobile-execution-task-index.ts` 和通用交接事件。
+- `src/data/pcs-technical-data-version-types.ts`、`src/data/fcs/tech-packs.ts`、`src/data/fcs/production-tech-pack-snapshot-builder.ts`、`src/data/fcs/production-tech-pack-snapshot-types.ts`、`src/data/fcs/production-order-tech-pack-runtime.ts`、`src/pages/tech-pack/context.ts`、`src/pages/tech-pack/events.ts`、技术包规则卡和快照页。
+- `src/data/fcs/production-artifact-generation.ts`、`src/data/fcs/task-detail-rows.ts`、`src/data/fcs/process-tasks.ts`、`src/data/fcs/runtime-process-tasks.ts` 和生产任务适配。
+- `src/pages/pda-exec.ts`、`src/pages/pda-exec-detail.ts`、`src/pages/pda-task-receive.ts`、`src/pages/pda-warehouse-wait-process.ts`、`src/pages/pda-warehouse-wait-handover.ts`、`src/pages/pda-warehouse.ts`。
+- `src/data/fcs/pda-cutting-execution-source.ts`、`src/data/fcs/page-adapters/task-execution-adapter.ts`、`src/data/fcs/process-mobile-task-binding.ts`、`src/data/fcs/mobile-execution-task-index.ts`、`src/data/fcs/pda-handover-events.ts`。
 - `src/data/fcs/factory-mobile-todos.ts` 与移动端待办投影。
-- 工厂移动仓库概览。
+- `src/data/fcs/factory-mobile-warehouse.ts` 与工厂移动仓库概览。
+- `src/data/fcs/pda-task-scenario-matrix.ts`：删除接单、开工、横机关键节点的毛织场景说明，改为三类事实操作。
 - 毛织内部货号、列表 Tab、仓库、旧文案清理专项检查。
-- 主事件分发、路由、菜单和链接。
+- `src/main-handlers/fcs-handlers.ts`、`src/router/routes-fcs.ts`、`src/router/route-renderers-fcs.ts`、`src/data/app-shell-config.ts`、`src/data/fcs/fcs-route-links.ts`。
 - 原型审查记录。
 
 ### 14.4 保留
@@ -1116,7 +1263,7 @@ Mock 数据至少覆盖：
 4. 一次接收多种纱线。
 5. 同一纱线多次分批接收。
 6. 多次加工填报，恰好达到 150% 上限。
-7. 再填一件会超上限并被拒绝。
+7. 再填一件会超上限并被拒绝；若其他 SKU 也不可继续填报，该单进入“不可以开工”并显示达到上限。
 8. 多次交出，仍有可交出余额。
 9. 至少一次交出后人工完成，但计划仍有差异。
 10. 完成时自动解除多台横机。
@@ -1130,6 +1277,12 @@ Mock 数据至少覆盖：
 18. 修改加工填报和交出数量后，库存按差额同步。
 19. 下游确认后交出数量锁定并保留差异。
 20. 完成加工单时仍有库存，库存保留并标记来源加工单已完成。
+21. 技术包缺少某颜色原始款色用料关系，但快照存在需求兜底复制关系，该颜色仍明确不可填报。
+22. 款色用料行未关联 BOM、缺物料 SKU 或 BOM 未标记毛织用途时，不推测为纱线。
+23. 同一生产单存在整件和部位两张毛织加工单，“关联生产单”后必须落到具体加工单。
+24. 纱线多次领用和退回，累计退回不能超过累计领用，且不改变加工单开工判断。
+25. 毛织页面没有库区库位维护入口，核心操作也没有库位选择器。
+26. 部位和整件交出对象自动带出；缺具体接收方时禁止交出。
 
 ## 16. 验收标准
 
@@ -1137,7 +1290,8 @@ Mock 数据至少覆盖：
 
 - [ ] 一张确认接收记录可包含多种纱线。
 - [ ] 同一加工单可多次确认接收，历史不被覆盖。
-- [ ] 只要任一加工后 SKU 的全部必需纱线均有确认接收，加工单即属于“可以开工”。
+- [ ] 只要任一加工后 SKU 的全部必需纱线均有确认接收且仍有 150% 填报容量，加工单即属于“可以开工”。
+- [ ] 已齐料但全部加工后 SKU 均达到 150% 上限时属于“不可以开工”，并显示上限原因而非缺料原因。
 - [ ] 不按接收数量或单件用量计算可加工件数。
 - [ ] 缺少任一必需纱线的加工后 SKU 不可填报。
 - [ ] 整件毛织按成衣 SKU 和件，部位毛织按毛织部位 SKU 和片。
@@ -1151,6 +1305,10 @@ Mock 数据至少覆盖：
 - [ ] 下游确认后交出数量不可修改。
 - [ ] 加工单完成后毛织侧接收、填报、交出、数量修改和设备关联只读。
 - [ ] 加工单完成不阻断既有下游待接收记录确认；下游只能回写接收结果，不能修改来源交出数量。
+- [ ] 毛织齐料只认技术包原始款色用料关系，不认生产单快照的需求兜底复制关系。
+- [ ] 物料行缺少明确毛织用途或稳定物料 SKU 时，不按名称、类型或第一条 BOM 推测为纱线。
+- [ ] 已生成加工单使用冻结快照；技术包发布新版本不会静默改变既有加工单齐料结果。
+- [ ] 通用任务接单、开工时间、价格和里程碑不成为毛织加工单状态或操作门禁。
 
 ### 16.2 页面
 
@@ -1163,12 +1321,15 @@ Mock 数据至少覆盖：
 - [ ] 毛织页面和移动任务不展示任何价格。
 - [ ] 所有记录列表有分页。
 - [ ] 弹窗和 Tab 使用局部更新，操作响应不超过 200ms。
+- [ ] 毛织加工单、横机生产关联、横机设备及仓库数据列表符合标准列表页组件和固定操作列要求。
+- [ ] 毛织仓库不再提供库区库位新增、编辑或删除入口；核心操作不显示库位选择器。
 
 ### 16.3 横机
 
 - [ ] 横机排产改为横机生产关联。
 - [ ] 默认展示全部横机和当前状态。
 - [ ] 两个入口共用整组保存逻辑。
+- [ ] “关联生产单”先选生产单；一单多张毛织加工单时必须再选具体加工单。
 - [ ] 维修、停用设备不可关联。
 - [ ] 横机不存在“已排产”状态、筛选和文案。
 - [ ] 建立或转移后设备为生产中。
@@ -1181,6 +1342,8 @@ Mock 数据至少覆盖：
 
 - [ ] 确认接收自动进入毛织纱线默认库位。
 - [ ] 待加工仓保留纱线领用和退回，但不影响开工门禁和加工状态。
+- [ ] 纱线领用关联未完成加工单和技术包纱线，不能超过默认库位库存。
+- [ ] 纱线退回关联原加工单和同一纱线，累计退回不超过累计领用。
 - [ ] 加工填报与待交出仓入库一次保存。
 - [ ] 部位毛织进入裁片默认库位，整件毛织进入成衣默认库位。
 - [ ] 发起交出与对应默认库位扣减一次保存。
@@ -1188,6 +1351,8 @@ Mock 数据至少覆盖：
 - [ ] 下游确认接收保留实际数量和差异，但不恢复毛织库存。
 - [ ] 完成加工单不清除剩余库存。
 - [ ] 完成后的剩余库存只能通过仓库独立调整或转移处理。
+- [ ] 自动入库、自动出库只使用固定默认库位；库存转走后不会跨库位自动扣减。
+- [ ] 部位、整件交出对象按加工单结构化去向只读带出，不允许自由文本改接收方。
 
 ### 16.5 旧节点清理
 
@@ -1199,6 +1364,7 @@ Mock 数据至少覆盖：
 - [ ] 仓库动作不再自动推进加工单。
 - [ ] 毛织模块不再存在价格结构、估价和结算价格投影。
 - [ ] 毛织模块不再存在独立完工入仓入口和自动推进函数。
+- [ ] 毛织模块不再存在自建库区库位维护、旧缝盘损耗回收和可回收损耗推导。
 - [ ] 全局其他业务的熨烫、包装和菲票能力不受影响。
 
 ### 16.6 必跑检查
