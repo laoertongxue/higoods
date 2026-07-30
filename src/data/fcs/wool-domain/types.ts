@@ -50,70 +50,60 @@ export interface WoolYarnReceiptRecord {
   receiptId: string
   receiptNo: string
   woolOrderId: string
-  objectSku: string
-  receivedQty: number
-  qtyUnit: 'kg'
-  batchNo: string
   deliveryNo?: string
+  batchNo?: string
   receivedAt: string
   receivedBy: string
-  warehouseFlowId: string
   lines: WoolYarnReceiptLine[]
-  remark?: string
+  createdAt: string
+  updatedAt: string
 }
 
 export interface WoolYarnReceiptLine {
   lineId: string
-  receiptId: string
-  woolOrderId: string
-  objectSku: string
+  yarnSkuCode: string
+  yarnName: string
   receivedQty: number
   qtyUnit: 'kg'
-  batchNo: string
-  receivedAt: string
-  receivedBy: string
-  warehouseFlowId: string
+  warehouseInboundFlowId: string
 }
 
 export interface WoolYarnIssueRecord {
   issueId: string
   issueNo: string
   woolOrderId: string
-  objectSku: string
+  yarnSkuCode: string
+  batchNo?: string
   issuedQty: number
   qtyUnit: 'kg'
-  batchNo: string
+  warehouseOutboundFlowId: string
   issuedAt: string
   issuedBy: string
-  warehouseFlowId: string
-  remark?: string
 }
 
 export interface WoolYarnReturnRecord {
   returnId: string
   returnNo: string
   woolOrderId: string
-  objectSku: string
+  yarnSkuCode: string
+  batchNo?: string
   returnedQty: number
   qtyUnit: 'kg'
-  batchNo: string
+  warehouseInboundFlowId: string
   returnedAt: string
   returnedBy: string
-  warehouseFlowId: string
-  reason: string
 }
 
 export interface WoolProcessReportRecord {
   reportId: string
-  reportNo: string
   woolOrderId: string
-  objectSku: string
+  outputSkuCode: string
   reportedQty: number
-  qtyUnit: '件' | '片'
   reportedAt: string
   reportedBy: string
-  warehouseFlowId: string
-  remark?: string
+  warehouseInboundFlowId: string
+  createdAt: string
+  updatedAt: string
 }
 
 export interface WoolDownstreamReceipt {
@@ -144,59 +134,56 @@ export interface WoolHandoverRecord {
 
 export type WoolQtyChangeRecordType =
   | 'YARN_RECEIPT'
-  | 'YARN_ISSUE'
-  | 'YARN_RETURN'
   | 'PROCESS_REPORT'
   | 'HANDOVER'
-  | 'DOWNSTREAM_RECEIPT'
 
 export interface WoolQtyChangeLog {
-  changeLogId: string
-  woolOrderId: string
+  changeId: string
   recordType: WoolQtyChangeRecordType
   recordId: string
-  lineId?: string
-  objectSku: string
-  before: number
-  after: number
-  unit: WoolQtyUnit
+  recordLineId?: string
+  objectSkuCode: string
+  beforeQty: number
+  afterQty: number
+  qtyUnit: WoolQtyUnit
   reason: string
   changedAt: string
-  by: string
+  changedBy: string
 }
 
-export type WoolWarehouseFlowDirection = 'INBOUND' | 'OUTBOUND' | 'ADJUSTMENT' | 'TRANSFER'
+export type WoolWarehouseFlowType = 'INBOUND' | 'OUTBOUND' | 'ADJUSTMENT' | 'TRANSFER'
 export type WoolWarehouseBusinessType =
   | 'YARN_RECEIPT'
   | 'YARN_ISSUE'
   | 'YARN_RETURN'
   | 'PROCESS_REPORT'
   | 'HANDOVER'
-  | 'DOWNSTREAM_RECEIPT'
-  | 'QTY_ADJUSTMENT'
-export type WoolWarehouseStockArea = 'WAIT_PROCESS' | 'WAIT_HANDOVER'
+  | 'STOCK_ADJUSTMENT'
+  | 'STOCK_TRANSFER'
+export type WoolWarehouseMode = 'WAIT_PROCESS' | 'WAIT_HANDOVER'
+export type WoolDefaultLocationType = 'YARN' | 'CUT_PIECE' | 'GARMENT'
 export type WoolDefaultLocationId =
-  | 'WOOL-YARN-DEFAULT'
-  | 'WOOL-WAIT-PROCESS-DEFAULT'
-  | 'WOOL-WAIT-HANDOVER-DEFAULT'
+  | 'WOOL-WP-YARN-DEFAULT'
+  | 'WOOL-WH-CUT-DEFAULT'
+  | 'WOOL-WH-GARMENT-DEFAULT'
 
 export interface WoolWarehouseFlow {
-  warehouseFlowId: string
+  flowId: string
   woolOrderId: string
-  direction: WoolWarehouseFlowDirection
+  flowType: WoolWarehouseFlowType
   businessType: WoolWarehouseBusinessType
-  stockArea: WoolWarehouseStockArea
+  warehouseMode: WoolWarehouseMode
+  defaultLocationType: WoolDefaultLocationType
   defaultLocationId: WoolDefaultLocationId
-  objectSku: string
+  objectSkuCode: string
   batchNo?: string
   qty: number
   unit: WoolQtyUnit
-  sourceRecordType: WoolQtyChangeRecordType | 'QTY_ADJUSTMENT'
+  sourceRecordType: string
   sourceRecordId: string
-  sourceLineId?: string
   fromLocationId?: string
   toLocationId?: string
-  reason: string
+  reason?: string
   operatedAt: string
   operatedBy: string
 }
@@ -241,7 +228,6 @@ export interface WoolCompletionSnapshot {
 }
 
 export interface WoolCompletionRecord {
-  completionId: string
   woolOrderId: string
   completedAt: string
   completedBy: string
@@ -268,16 +254,14 @@ export type WoolMachineAssociationReason =
   | 'MACHINE_DISABLED'
 
 export interface WoolMachineAssociation {
-  associationId: string
-  woolOrderId: string
   machineId: string
+  woolOrderId: string
   associatedAt: string
   associatedBy: string
 }
 
 export interface WoolMachineAssociationLog {
   logId: string
-  woolOrderId: string
   machineId: string
   action: WoolMachineAssociationAction
   reason: WoolMachineAssociationReason

@@ -12,6 +12,14 @@ import {
 import type {
   WoolCompletionRecord,
   WoolHandoverRecord,
+  WoolMachineAssociation,
+  WoolMachineAssociationLog,
+  WoolProcessReportRecord,
+  WoolQtyChangeLog,
+  WoolWarehouseFlow,
+  WoolYarnIssueRecord,
+  WoolYarnReceiptRecord,
+  WoolYarnReturnRecord,
 } from '../src/data/fcs/wool-domain/types.ts'
 
 const handoverTypeFixture: WoolHandoverRecord = {
@@ -40,7 +48,6 @@ const handoverTypeFixture: WoolHandoverRecord = {
 void handoverTypeFixture
 
 const completionTypeFixture: WoolCompletionRecord = {
-  completionId: 'WC-TYPE-CHECK',
   woolOrderId: 'WO-TYPE-CHECK',
   completedAt: '2026-07-30 18:00:00',
   completedBy: '毛织主管',
@@ -68,6 +75,118 @@ const completionTypeFixture: WoolCompletionRecord = {
   },
 }
 void completionTypeFixture
+
+const yarnReceiptTypeFixture: WoolYarnReceiptRecord = {
+  receiptId: 'WR-TYPE-CHECK',
+  receiptNo: 'WR-NO-TYPE-CHECK',
+  woolOrderId: 'WO-TYPE-CHECK',
+  receivedAt: '2026-07-30 08:00:00',
+  receivedBy: '毛织仓管',
+  lines: [{
+    lineId: 'WRL-TYPE-CHECK',
+    yarnSkuCode: 'YARN-A',
+    yarnName: '黑色纱线 A',
+    receivedQty: 20,
+    qtyUnit: 'kg',
+    warehouseInboundFlowId: 'WF-IN-TYPE-CHECK',
+  }],
+  createdAt: '2026-07-30 08:00:00',
+  updatedAt: '2026-07-30 08:00:00',
+}
+void yarnReceiptTypeFixture
+
+const yarnIssueTypeFixture: WoolYarnIssueRecord = {
+  issueId: 'WI-TYPE-CHECK',
+  issueNo: 'WI-NO-TYPE-CHECK',
+  woolOrderId: 'WO-TYPE-CHECK',
+  yarnSkuCode: 'YARN-A',
+  issuedQty: 5,
+  qtyUnit: 'kg',
+  warehouseOutboundFlowId: 'WF-OUT-TYPE-CHECK',
+  issuedAt: '2026-07-30 09:00:00',
+  issuedBy: '毛织仓管',
+}
+void yarnIssueTypeFixture
+
+const yarnReturnTypeFixture: WoolYarnReturnRecord = {
+  returnId: 'WRT-TYPE-CHECK',
+  returnNo: 'WRT-NO-TYPE-CHECK',
+  woolOrderId: 'WO-TYPE-CHECK',
+  yarnSkuCode: 'YARN-A',
+  returnedQty: 1,
+  qtyUnit: 'kg',
+  warehouseInboundFlowId: 'WF-RETURN-TYPE-CHECK',
+  returnedAt: '2026-07-30 10:00:00',
+  returnedBy: '毛织仓管',
+}
+void yarnReturnTypeFixture
+
+const processReportTypeFixture: WoolProcessReportRecord = {
+  reportId: 'WPR-TYPE-CHECK',
+  woolOrderId: 'WO-TYPE-CHECK',
+  outputSkuCode: 'GARMENT-BLACK-M',
+  reportedQty: 100,
+  reportedAt: '2026-07-30 11:00:00',
+  reportedBy: '毛织主管',
+  warehouseInboundFlowId: 'WF-REPORT-TYPE-CHECK',
+  createdAt: '2026-07-30 11:00:00',
+  updatedAt: '2026-07-30 11:00:00',
+}
+void processReportTypeFixture
+
+const qtyChangeTypeFixture: WoolQtyChangeLog = {
+  changeId: 'WQC-TYPE-CHECK',
+  recordType: 'YARN_RECEIPT',
+  recordId: 'WR-TYPE-CHECK',
+  recordLineId: 'WRL-TYPE-CHECK',
+  objectSkuCode: 'YARN-A',
+  beforeQty: 20,
+  afterQty: 18,
+  qtyUnit: 'kg',
+  reason: '修正实收数量',
+  changedAt: '2026-07-30 12:00:00',
+  changedBy: '毛织仓管',
+}
+void qtyChangeTypeFixture
+
+const warehouseFlowTypeFixture: WoolWarehouseFlow = {
+  flowId: 'WF-TYPE-CHECK',
+  woolOrderId: 'WO-TYPE-CHECK',
+  flowType: 'ADJUSTMENT',
+  businessType: 'STOCK_ADJUSTMENT',
+  warehouseMode: 'WAIT_PROCESS',
+  defaultLocationType: 'YARN',
+  defaultLocationId: 'WOOL-WP-YARN-DEFAULT',
+  objectSkuCode: 'YARN-A',
+  qty: 2,
+  unit: 'kg',
+  sourceRecordType: 'STOCK_ADJUSTMENT',
+  sourceRecordId: 'SA-TYPE-CHECK',
+  reason: '盘点修正',
+  operatedAt: '2026-07-30 12:30:00',
+  operatedBy: '毛织仓管',
+}
+void warehouseFlowTypeFixture
+
+const machineAssociationTypeFixture: WoolMachineAssociation = {
+  machineId: 'WM-001',
+  woolOrderId: 'WO-TYPE-CHECK',
+  associatedAt: '2026-07-30 13:00:00',
+  associatedBy: '毛织主管',
+}
+void machineAssociationTypeFixture
+
+const machineAssociationLogTypeFixture: WoolMachineAssociationLog = {
+  logId: 'WMAL-TYPE-CHECK',
+  machineId: 'WM-001',
+  fromWoolOrderId: 'WO-OLD',
+  toWoolOrderId: 'WO-TYPE-CHECK',
+  action: 'TRANSFER',
+  reason: 'MANUAL_SAVE',
+  operatedAt: '2026-07-30 13:00:00',
+  operatedBy: '毛织主管',
+}
+void machineAssociationLogTypeFixture
 
 assert.equal(isWoolProcessCode('WOOL'), true)
 assert.equal(isWoolProcessCode('PROC_WOOL'), true)
@@ -304,6 +423,12 @@ const woolTypesSource = readFileSync(
   new URL('../src/data/fcs/wool-domain/types.ts', import.meta.url),
   'utf8',
 )
+function readWoolInterfaceSource(interfaceName: string): string {
+  const start = woolTypesSource.indexOf(`export interface ${interfaceName} {`)
+  assert.notEqual(start, -1, `缺少 ${interfaceName}`)
+  const next = woolTypesSource.indexOf('\nexport ', start + 1)
+  return woolTypesSource.slice(start, next === -1 ? undefined : next)
+}
 assert.equal(
   woolTypesSource.includes("receiverType: 'CUTTING_WAIT_HANDOVER_WAREHOUSE' | 'DOWNSTREAM_FACTORY'"),
   true,
@@ -322,6 +447,62 @@ assert.equal(woolTypesSource.includes('handoverQty: number'), true)
 assert.equal(woolTypesSource.includes('downstreamDifferenceQty?: number'), true)
 assert.equal(woolTypesSource.includes('downstreamReceivedAt?: string'), true)
 assert.equal(woolTypesSource.includes('stockQty: number'), true)
+
+const yarnReceiptSource = readWoolInterfaceSource('WoolYarnReceiptRecord')
+assert.equal(yarnReceiptSource.includes('createdAt: string'), true)
+assert.equal(yarnReceiptSource.includes('updatedAt: string'), true)
+assert.equal(yarnReceiptSource.includes('objectSku:'), false)
+assert.equal(yarnReceiptSource.includes('warehouseFlowId:'), false)
+assert.equal(yarnReceiptSource.includes('batchNo: string'), false)
+
+const yarnReceiptLineSource = readWoolInterfaceSource('WoolYarnReceiptLine')
+assert.equal(yarnReceiptLineSource.includes('yarnSkuCode: string'), true)
+assert.equal(yarnReceiptLineSource.includes('yarnName: string'), true)
+assert.equal(yarnReceiptLineSource.includes('warehouseInboundFlowId: string'), true)
+assert.equal(yarnReceiptLineSource.includes('objectSku:'), false)
+
+const yarnIssueSource = readWoolInterfaceSource('WoolYarnIssueRecord')
+assert.equal(yarnIssueSource.includes('yarnSkuCode: string'), true)
+assert.equal(yarnIssueSource.includes('warehouseOutboundFlowId: string'), true)
+
+const yarnReturnSource = readWoolInterfaceSource('WoolYarnReturnRecord')
+assert.equal(yarnReturnSource.includes('yarnSkuCode: string'), true)
+assert.equal(yarnReturnSource.includes('warehouseInboundFlowId: string'), true)
+
+const processReportSource = readWoolInterfaceSource('WoolProcessReportRecord')
+assert.equal(processReportSource.includes('outputSkuCode: string'), true)
+assert.equal(processReportSource.includes('warehouseInboundFlowId: string'), true)
+assert.equal(processReportSource.includes('createdAt: string'), true)
+assert.equal(processReportSource.includes('updatedAt: string'), true)
+
+const qtyChangeSource = readWoolInterfaceSource('WoolQtyChangeLog')
+for (const field of [
+  'changeId: string',
+  'recordLineId?: string',
+  'objectSkuCode: string',
+  'beforeQty: number',
+  'afterQty: number',
+  'qtyUnit: WoolQtyUnit',
+  'changedBy: string',
+]) {
+  assert.equal(qtyChangeSource.includes(field), true, `WoolQtyChangeLog 缺少 ${field}`)
+}
+
+const warehouseFlowSource = readWoolInterfaceSource('WoolWarehouseFlow')
+for (const field of [
+  'flowId: string',
+  'flowType: WoolWarehouseFlowType',
+  'warehouseMode: WoolWarehouseMode',
+  'defaultLocationType: WoolDefaultLocationType',
+  'objectSkuCode: string',
+]) {
+  assert.equal(warehouseFlowSource.includes(field), true, `WoolWarehouseFlow 缺少 ${field}`)
+}
+assert.equal(woolTypesSource.includes("'STOCK_ADJUSTMENT'"), true)
+assert.equal(woolTypesSource.includes("'STOCK_TRANSFER'"), true)
+assert.equal(woolTypesSource.includes("'WOOL-WP-YARN-DEFAULT'"), true)
+assert.equal(woolTypesSource.includes("'WOOL-WH-CUT-DEFAULT'"), true)
+assert.equal(woolTypesSource.includes("'WOOL-WH-GARMENT-DEFAULT'"), true)
 
 const {
   addWoolProcessReport,
