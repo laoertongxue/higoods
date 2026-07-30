@@ -27,6 +27,8 @@ import {
   deriveTransferBagMasterStatus,
   deriveTransferBagUsageStatus,
   type TransferBagBindingItem,
+  type TransferBagCarrierCurrentStatus,
+  type TransferBagCarrierUseStage,
   type TransferBagMaster,
   type TransferBagMasterItem,
   type TransferBagTicketCandidate,
@@ -99,9 +101,10 @@ export function renderListHeaderActions(): string {
 }
 
 export function renderMasterQuickFilterBar(): string {
-  const statusOptions: TransferBagCarrierCurrentStatus[] = ['可用', '入仓装袋中', '入仓暂存中', '交出装袋中', '待交出', '已交出待回收', '报废']
+  const statusOptions: TransferBagCarrierCurrentStatus[] = ['空闲', '使用中', '已报废']
+  const useStageOptions: TransferBagCarrierUseStage[] = ['菲票已装袋', '入仓暂存中', '已交出待回收']
   return renderStickyFilterShell(`
-    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.4fr,1fr,1fr]">
+    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.4fr,1fr,1fr,1fr]">
       <label class="space-y-2">
         <span class="text-sm font-medium text-foreground">袋码</span>
         <input
@@ -112,6 +115,15 @@ export function renderMasterQuickFilterBar(): string {
           data-fast-page-render="true"
           data-transfer-bags-master-field="keyword"
         />
+      </label>
+      <label class="space-y-2">
+        <span class="text-sm font-medium text-foreground">当前流转阶段</span>
+        <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-fast-page-render="true" data-transfer-bags-master-field="useStage">
+          <option value="ALL" ${state.masterUseStage === 'ALL' ? 'selected' : ''}>全部阶段</option>
+          ${useStageOptions
+            .map((stage) => `<option value="${escapeHtml(stage)}" ${state.masterUseStage === stage ? 'selected' : ''}>${escapeHtml(stage)}</option>`)
+            .join('')}
+        </select>
       </label>
       <label class="space-y-2">
         <span class="text-sm font-medium text-foreground">当前状态</span>
@@ -184,15 +196,15 @@ export function renderActiveListFilterBar(): string {
 export function renderActiveListStats(): string {
   const { filteredItems, carrierRecordsByBagCode } = getPagedMasters()
   const statusOf = (item: TransferBagMasterItem) => carrierRecordsByBagCode[item.bagCode]?.currentStatus || item.currentStatus
-  const inUseCount = filteredItems.filter((item) => statusOf(item) === 'IN_USE').length
-  const dispatchedCount = filteredItems.filter((item) => statusOf(item) === 'DISPATCHED').length
-  const disabledCount = filteredItems.filter((item) => statusOf(item) === 'DISABLED').length
+  const idleCount = filteredItems.filter((item) => statusOf(item) === '空闲').length
+  const inUseCount = filteredItems.filter((item) => statusOf(item) === '使用中').length
+  const disabledCount = filteredItems.filter((item) => statusOf(item) === '已报废').length
   const packedTicketCount = filteredItems.reduce((sum, item) => sum + (item.packedTicketCount || 0), 0)
 
   return renderCompactKpiGroup(`
     ${renderCompactKpiCard('中转袋', filteredItems.length, '当前筛选范围', 'text-slate-900')}
+    ${renderCompactKpiCard('空闲', idleCount, '可开始新的装袋周期', 'text-emerald-600')}
     ${renderCompactKpiCard('使用中', inUseCount, '当前绑定业务对象', 'text-blue-600')}
-    ${renderCompactKpiCard('已交出', dispatchedCount, '等待接收方回收', 'text-orange-600')}
     ${renderCompactKpiCard('已报废', disabledCount, '不可继续流转', 'text-slate-600')}
     ${renderCompactKpiCard('装载菲票', packedTicketCount, '当前筛选袋内菲票数', 'text-violet-600')}
   `)
@@ -578,7 +590,7 @@ export function renderCarrierScrapSection(): string {
                         </td>
                         <td class="px-4 py-3">
                           <div class="font-medium text-blue-700">${escapeHtml(item.bagCode)}</div>
-                          <div class="mt-1">${renderTag(carrierRecord?.currentStatus || '报废', getCarrierCurrentStatusClass(carrierRecord?.currentStatus || '报废'))}</div>
+                          <div class="mt-1">${renderTag(carrierRecord?.currentStatus || '已报废', getCarrierCurrentStatusClass(carrierRecord?.currentStatus || '已报废'))}</div>
                         </td>
                         <td class="px-4 py-3">${renderTransferBagQrCell(item.bagCode)}</td>
                         <td class="px-4 py-3 text-xs text-muted-foreground">
@@ -755,7 +767,7 @@ export function renderMasterSection(): string {
                           ${renderTag(currentStatus, getCarrierCurrentStatusClass(currentStatus))}
                         </td>
                         <td class="px-4 py-3">
-                          <div class="font-medium text-foreground">${escapeHtml(carrierRecord?.currentUseStage || '无')}</div>
+                          <div class="font-medium text-foreground">${escapeHtml(carrierRecord?.currentUseStage || '—')}</div>
                           <div class="mt-1 text-xs text-muted-foreground">${escapeHtml([carrierRecord?.currentBoundObjectType, carrierRecord?.currentBoundObjectNo].filter(Boolean).join('：') || '未绑定业务对象')}</div>
                         </td>
                         <td class="px-4 py-3">
@@ -1493,8 +1505,6 @@ export function renderReturnWorkbenchSection(): string {
                 <span class="text-sm font-medium text-foreground">回收结果</span>
                 <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-condition-field="reusableDecision">
                   <option value="REUSABLE" ${state.conditionDraft.reusableDecision === 'REUSABLE' ? 'selected' : ''}>可继续使用</option>
-                  <option value="WAITING_CLEANING" ${state.conditionDraft.reusableDecision === 'WAITING_CLEANING' ? 'selected' : ''}>可继续使用</option>
-                  <option value="WAITING_REPAIR" ${state.conditionDraft.reusableDecision === 'WAITING_REPAIR' ? 'selected' : ''}>可继续使用</option>
                   <option value="DISABLED" ${state.conditionDraft.reusableDecision === 'DISABLED' ? 'selected' : ''}>报废</option>
                 </select>
               </label>

@@ -28,6 +28,8 @@ export type CuttingRuntimeEventType =
   | '新增交出记录'
   | '特殊工艺交出'
   | '特殊工艺回仓'
+  | '中转袋回收'
+  | '中转袋报废'
 
 export interface CuttingRuntimeRefs {
   productionOrderId?: string
@@ -551,6 +553,8 @@ function isRuntimeEventType(value: string): value is CuttingRuntimeEventType {
     '新增交出记录',
     '特殊工艺交出',
     '特殊工艺回仓',
+    '中转袋回收',
+    '中转袋报废',
   ].includes(value)
 }
 
@@ -626,6 +630,8 @@ function eventTypeCode(eventType: CuttingRuntimeEventType): string {
     新增交出记录: 'HANDOVER',
     特殊工艺交出: 'CRAFT-OUT',
     特殊工艺回仓: 'CRAFT-IN',
+    中转袋回收: 'BAG-RETURN',
+    中转袋报废: 'BAG-SCRAP',
   }
   return map[eventType]
 }

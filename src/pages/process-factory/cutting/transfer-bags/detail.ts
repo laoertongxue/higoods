@@ -6,7 +6,14 @@ import {
   renderProductionOrderIdentityCell,
 } from '../../../../data/fcs/production-order-identity.ts'
 import { buildTransferBagLabelPrintLink } from '../../../../data/fcs/fcs-route-links.ts'
+import { encodeCarrierQr } from '../../../../data/fcs/cutting/qr-codes.ts'
 import { formatFactoryDisplayName } from '../../../../data/fcs/factory-mock-data.ts'
+import {
+  renderStickyTableScroller,
+  renderWorkbenchFilterChip,
+} from '../layout.helpers.ts'
+import { getCanonicalCuttingMeta } from '../meta.ts'
+import { getWarehouseSearchParams } from '../warehouse-shared.ts'
 import {
   buildCuttingDrillChipLabels,
   buildCuttingDrillSummary,
@@ -26,9 +33,14 @@ import {
   deriveTransferBagUsageStatus,
   validateTicketBindingEligibility,
   type TransferBagBindingItem,
+  type TransferBagConditionRecord,
+  type TransferBagConditionStatus,
+  type TransferBagDiscrepancyType,
   type TransferBagMaster,
   type TransferBagMasterItem,
   type TransferBagPrefilter,
+  type TransferBagReturnReceipt,
+  type TransferBagReusableDecision,
   type TransferBagTicketCandidate,
   type TransferBagUsage,
   type TransferBagUsageItem,
@@ -41,11 +53,6 @@ import {
   closeTransferBagUsageCycle,
   deriveBagConditionDecision,
   deriveReturnEligibility,
-  type TransferBagConditionRecord,
-  type TransferBagConditionStatus,
-  type TransferBagDiscrepancyType,
-  type TransferBagReusableDecision,
-  type TransferBagReturnReceipt,
 } from '../transfer-bag-return-model.ts'
 import {
   state,
@@ -65,6 +72,9 @@ import {
   type TransferBagLandingResolution,
   type TransferBagLandingBanner,
   type TransferBagBaggingStepView,
+  type TransferBagBaggingStepId,
+  type TransferBagBaggingStepState,
+  type TransferBagDetailTab,
 } from './state.ts'
 import {
   getActiveMaster,
@@ -82,7 +92,6 @@ import {
   parseTicketInputs,
   refreshDerivedState,
   resolveCarrierScanInput,
-  saveReturnDraft,
   syncPrefilterFromQuery,
 } from './handlers.ts'
 import {
@@ -93,6 +102,60 @@ import {
   buildTransferBagListRoute,
   getCurrentTransferBagPathname,
 } from './route.ts'
+
+function renderTag(label: string, className: string): string {
+  return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${className}">${escapeHtml(label)}</span>`
+}
+
+function getCarrierCurrentStatusClass(status: string): string {
+  if (status === '空闲') return 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+  if (status === '使用中') return 'bg-blue-100 text-blue-700 border border-blue-200'
+  if (status === '已报废') return 'bg-slate-200 text-slate-700 border border-slate-300'
+  return 'bg-slate-100 text-slate-700 border border-slate-200'
+}
+
+function renderDetailMetric(label: string, value: string, valueClassName = 'text-foreground'): string {
+  return `
+    <div class="rounded-lg border bg-muted/10 px-3 py-2">
+      <div class="text-xs text-muted-foreground">${escapeHtml(label)}</div>
+      <div class="mt-1 text-sm font-semibold ${valueClassName}">${escapeHtml(value)}</div>
+    </div>
+  `
+}
+
+function resolveFormalBagQrValue(item: TransferBagMasterItem | null): string {
+  if (!item) return ''
+  const source = getSourceMaster(item.bagId)
+  const carrierId = item.carrierId || item.bagId || source?.carrierId || source?.bagId || ''
+  const carrierCode = item.carrierCode || item.bagCode || source?.carrierCode || source?.bagCode || ''
+  if (!carrierId || !carrierCode) return ''
+  return encodeCarrierQr({
+    carrierId,
+    carrierCode,
+    carrierType:
+      item.carrierType === 'box'
+      || item.bagType === 'box'
+      || item.bagType === '周转箱'
+        ? 'box'
+        : 'bag',
+    issuedAt: item.createdAt || source?.createdAt || '2026-03-24 08:00',
+    ownershipFactoryId: item.ownershipFactoryId || source?.ownershipFactoryId || '',
+    ownershipFactoryName: item.ownershipFactoryName || source?.ownershipFactoryName || '',
+  }).qrValue
+}
+
+function isTransferBagScrapRecord(record: { scrapType?: string; description?: string }): boolean {
+  return [record.scrapType, record.description].filter(Boolean).join(' / ').includes('报废')
+}
+
+function renderFeedbackBar(): string {
+  if (!state.feedback) return ''
+  const toneClass =
+    state.feedback.tone === 'success'
+      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+      : 'border-amber-200 bg-amber-50 text-amber-700'
+  return `<section class="rounded-lg border px-3 py-2 text-sm ${toneClass}">${escapeHtml(state.feedback.message)}</section>`
+}
 
 export function isTransferBagDetailTab(value: string | null | undefined): value is TransferBagDetailTab {
   return value === 'basic' || value === 'current' || value === 'history' || value === 'items' || value === 'logs'
@@ -152,7 +215,7 @@ export function formatCleanlinessStatusLabel(status: 'CLEAN' | 'DIRTY' | null | 
 }
 
 export function formatReusableDecisionLabel(decision: TransferBagReusableDecision | null | undefined): string {
-  if (decision === 'REUSABLE' || decision === 'WAITING_CLEANING' || decision === 'WAITING_REPAIR') return '可继续使用'
+  if (decision === 'REUSABLE') return '可继续使用'
   if (decision === 'DISABLED') return '报废'
   return '待评估'
 }
@@ -196,8 +259,8 @@ export function renderTransferBagDetailHeader(
       valueHtml: `<span class="text-sm font-semibold text-foreground">${escapeHtml(carrierRecord?.currentLocation || activeMaster.currentLocation || '待命位')}</span>`,
     },
     {
-      label: '当前使用阶段',
-      valueHtml: `<span class="text-sm font-semibold text-foreground">${escapeHtml(carrierRecord?.currentUseStage || '无')}</span>`,
+      label: '当前流转阶段',
+      valueHtml: `<span class="text-sm font-semibold text-foreground">${escapeHtml(carrierRecord?.currentUseStage || '—')}</span>`,
     },
     {
       label: '绑定对象',
@@ -760,7 +823,7 @@ export function renderTransferBagCurrentTab(
   return `
     <section id="transfer-bag-tabpanel-current" role="tabpanel" aria-labelledby="transfer-bag-tab-current" class="space-y-3 rounded-xl border bg-card p-4">
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        ${renderDetailMetric('当前使用阶段', carrierRecord?.currentUseStage || '无')}
+        ${renderDetailMetric('当前流转阶段', carrierRecord?.currentUseStage || '—')}
         ${renderDetailMetric('当前使用记录', focusedUsage?.usageNo || '暂无')}
         ${renderDetailMetric('绑定对象类型', carrierRecord?.currentBoundObjectType || focusedUsage?.boundObjectType || '无')}
         ${renderDetailMetric('绑定对象单号', carrierRecord?.currentBoundObjectNo || focusedUsage?.boundObjectNo || '无')}

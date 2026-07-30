@@ -84,6 +84,7 @@ export type TransferBagDialog =
   | 'inbound-pack'
   | 'handover-pack'
   | 'return'
+  | 'scrap'
 export type TransferBagsProjection = ReturnType<typeof buildTransferBagsProjection>
 export type TransferBagCarrierManagementProjection = ReturnType<typeof buildTransferBagCarrierManagementProjection>
 export type TransferBagCarrierMasterRecord = TransferBagCarrierManagementProjection['masterRecords'][number]
@@ -105,6 +106,7 @@ export type ReturnDraftField =
   | 'discrepancyNote'
   | 'note'
 export type ConditionDraftField = 'conditionStatus' | 'cleanlinessStatus' | 'damageType' | 'repairNeeded' | 'reusableDecision' | 'note'
+export type ScrapDraftField = 'reason' | 'authorizedBy'
 export type MasterDraftField = 'bagCode' | 'carrierType' | 'capacity' | 'bagSpec' | 'bagMaterial' | 'ownershipFactoryId' | 'currentLocation' | 'note'
 export type PackDraftField =
   | 'bagId'
@@ -220,6 +222,11 @@ export interface TransferBagsPageState {
     repairNeeded: boolean
     reusableDecision: TransferBagReusableDecision
     note: string
+  }
+  scrapDraft: {
+    bagId: string
+    reason: string
+    authorizedBy: string
   }
   feedback: FeedbackState
 }
@@ -345,6 +352,11 @@ export const state: TransferBagsPageState = {
     repairNeeded: false,
     reusableDecision: 'REUSABLE',
     note: '',
+  },
+  scrapDraft: {
+    bagId: '',
+    reason: '',
+    authorizedBy: '',
   },
   feedback: null,
 }

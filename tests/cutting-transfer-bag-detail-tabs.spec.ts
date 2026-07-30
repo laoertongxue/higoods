@@ -9,12 +9,13 @@ test('中转袋详情页收敛为轻量页签，并保留真实二维码', async
 
   await expect(page.getByRole('heading', { name: '中转袋详情', exact: true })).toBeVisible()
 
-  const currentTab = page.getByRole('tab', { name: '本次装袋情况', exact: true })
+  const currentTab = page.getByRole('tab', { name: '基本信息', exact: true })
   await expect(currentTab).toBeVisible()
   await expect(currentTab).toHaveAttribute('aria-selected', 'true')
-  await expect(page.getByRole('tab', { name: '过往周转记录', exact: true })).toBeVisible()
-  await expect(page.getByRole('tab', { name: '中转袋回收', exact: true })).toBeVisible()
-  await expect(page.getByRole('tab', { name: '操作日志', exact: true })).toBeVisible()
+  await expect(page.getByRole('tab', { name: '当前使用', exact: true })).toBeVisible()
+  await expect(page.getByRole('tab', { name: '使用周期', exact: true })).toBeVisible()
+  await expect(page.getByRole('tab', { name: '装载明细', exact: true })).toBeVisible()
+  await expect(page.getByRole('tab', { name: '报废记录', exact: true })).toBeVisible()
 
   const body = page.locator('body')
   await expect(body).not.toContainText('步骤 1：选择口袋')
@@ -26,9 +27,9 @@ test('中转袋详情页收敛为轻量页签，并保留真实二维码', async
 
   await expect(page.locator('[data-real-qr] svg').first()).toBeVisible()
 
-  await page.getByRole('tab', { name: '操作日志', exact: true }).click()
+  await page.getByRole('tab', { name: '报废记录', exact: true }).click()
   await expect(page).toHaveURL(/detailTab=logs/)
-  await expect(page.getByRole('tab', { name: '操作日志', exact: true })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tab', { name: '报废记录', exact: true })).toHaveAttribute('aria-selected', 'true')
 
   await expectNoPageErrors(errors)
 })

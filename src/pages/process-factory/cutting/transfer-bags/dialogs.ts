@@ -271,7 +271,33 @@ export function renderReturnDialog(): string {
   )
 }
 
+export function renderScrapDialog(): string {
+  const bag = getViewModel().mastersById[state.scrapDraft.bagId]
+  return renderDialogShell(
+    `
+      <div class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+        ${escapeHtml(`报废后 ${bag?.bagCode || '该中转袋'} 将不能继续装袋；如存在未关闭周期，系统会保留原业务记录并显式终止该周期。`)}
+      </div>
+      <div class="grid gap-3 md:grid-cols-2">
+        <label class="space-y-2">
+          <span class="text-sm font-medium text-foreground">报废原因</span>
+          <input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-rose-500" value="${escapeHtml(state.scrapDraft.reason)}" placeholder="必填，请说明实物为何不可继续使用" data-transfer-bags-scrap-draft-field="reason" />
+        </label>
+        <label class="space-y-2">
+          <span class="text-sm font-medium text-foreground">授权主管</span>
+          <input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-rose-500" value="${escapeHtml(state.scrapDraft.authorizedBy)}" placeholder="必填，记录确认报废的主管" data-transfer-bags-scrap-draft-field="authorizedBy" />
+        </label>
+      </div>
+    `,
+    '<button type="button" class="rounded-md bg-rose-600 px-3 py-2 text-sm font-medium text-white hover:bg-rose-700" data-transfer-bags-action="save-scrap">确认报废</button>',
+  )
+}
+
 export function renderActiveDialog(): string {
   if (state.activeDialog === 'new-master') return renderNewMasterDialog()
+  if (state.activeDialog === 'inbound-pack') return renderPackDialog('INBOUND_TEMP')
+  if (state.activeDialog === 'handover-pack') return renderPackDialog('HANDOVER_PACKING')
+  if (state.activeDialog === 'return') return renderReturnDialog()
+  if (state.activeDialog === 'scrap') return renderScrapDialog()
   return ''
 }

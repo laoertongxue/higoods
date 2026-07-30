@@ -156,7 +156,7 @@ export type TransferBagSignoffStatus = 'PENDING' | 'WAITING' | 'SIGNED'
 export type TransferBagDiscrepancyType = 'NONE' | 'QTY_MISMATCH' | 'DAMAGED_BAG' | 'LATE_RETURN' | 'MISSING_RECORD'
 export type TransferBagConditionStatus = 'GOOD' | 'MINOR_DAMAGE' | 'SEVERE_DAMAGE'
 export type TransferBagCleanlinessStatus = 'CLEAN' | 'DIRTY'
-export type TransferBagReusableDecision = 'REUSABLE' | 'WAITING_CLEANING' | 'WAITING_REPAIR' | 'DISABLED'
+export type TransferBagReusableDecision = 'REUSABLE' | 'DISABLED'
 export type PocketCarrierStatusKey = 'IDLE' | 'PACKING' | 'READY_TO_DISPATCH' | 'DISPATCHED' | 'SIGNED' | 'RETURNED' | 'DISABLED'
 export type TransferBagVisibleStatusKey = 'IDLE' | 'IN_PROGRESS' | 'READY_HANDOVER' | 'HANDED_OVER' | 'ARCHIVED'
 
@@ -765,8 +765,8 @@ export interface TransferBagViewModel {
   sortingTasks: CutPieceSortingTask[]
 }
 
-export type TransferBagCarrierCurrentStatus = '可用' | '已装袋待入仓' | '入仓装袋中' | '已入待交出仓' | '入仓暂存中' | '交出装袋中' | '待交出' | '已交出待回收' | '报废'
-export type TransferBagCarrierUseStage = '无' | '入仓暂存' | '交出装袋' | '已交出待回收'
+export type TransferBagCarrierCurrentStatus = '空闲' | '使用中' | '已报废'
+export type TransferBagCarrierUseStage = '—' | '菲票已装袋' | '入仓暂存中' | '已交出待回收'
 
 export interface TransferBagMasterArchiveRecord {
   bagMasterId: string
@@ -2716,35 +2716,24 @@ export function buildTransferBagViewModel(options: {
 }
 
 function deriveCarrierManagementStatus(master: TransferBagMasterItem): TransferBagCarrierCurrentStatus {
-  if (master.currentStatus === 'DISABLED') return '报废'
+  if (master.currentStatus === 'DISABLED') return '已报废'
   const usage = master.currentUsage
-  if (!usage) return '可用'
-  if (usage.usageStage === 'INBOUND_TEMP') {
-    return usage.usageStatus === 'READY_TO_DISPATCH' ? '入仓暂存中' : '入仓装袋中'
+  if (!usage || ['CLOSED', 'SCRAP_CLOSED'].includes(usage.usageStatus)) {
+    return usage?.usageStatus === 'SCRAP_CLOSED' ? '已报废' : '空闲'
   }
-  if (usage.usageStatus === 'READY_TO_DISPATCH') return '待交出'
-  if (['DISPATCHED', 'PENDING_SIGNOFF', 'WAITING_RETURN', 'RETURN_INSPECTING'].includes(usage.usageStatus)) return '已交出待回收'
-  if (['CLOSED', 'SCRAP_CLOSED'].includes(usage.usageStatus)) return '可用'
-  return '交出装袋中'
+  return '使用中'
 }
 
 function deriveCarrierManagementStatusFromUsage(usage: TransferBagUsageItem): TransferBagCarrierCurrentStatus {
-  if (usage.bagMaster?.currentStatus === 'DISABLED') return '报废'
-  if (usage.usageStage === 'INBOUND_TEMP') {
-    if (usage.usageStatus === 'READY_TO_DISPATCH') return '入仓暂存中'
-    if (['CLOSED', 'SCRAP_CLOSED'].includes(usage.usageStatus)) return '可用'
-    return '入仓装袋中'
+  if (usage.bagMaster?.currentStatus === 'DISABLED' || usage.usageStatus === 'SCRAP_CLOSED') {
+    return '已报废'
   }
-  if (usage.usageStatus === 'READY_TO_DISPATCH') return '待交出'
-  if (['DISPATCHED', 'PENDING_SIGNOFF', 'WAITING_RETURN', 'RETURN_INSPECTING'].includes(usage.usageStatus)) return '已交出待回收'
-  if (['CLOSED', 'SCRAP_CLOSED'].includes(usage.usageStatus)) return usage.bagMaster?.currentStatus === 'DISABLED' ? '报废' : '可用'
-  return '交出装袋中'
+  if (usage.usageStatus === 'CLOSED') return '空闲'
+  return '使用中'
 }
 
 function deriveCarrierManagementCycleStatusLabel(usage: TransferBagUsageItem): string {
-  const status = deriveCarrierManagementStatusFromUsage(usage)
-  if (status === '可用') return ['CLOSED', 'SCRAP_CLOSED'].includes(usage.usageStatus) ? '已关闭' : '可用'
-  return status
+  return deriveCarrierManagementStatusFromUsage(usage)
 }
 
 function isHandoverWaitingReturnStatus(status: TransferBagUsageStatusKey): boolean {
@@ -2760,15 +2749,17 @@ function isBagMaterialText(value: string): string {
 }
 
 function deriveCurrentStatusForDisplay(status: TransferBagMasterStatusKey): TransferBagCarrierCurrentStatus {
-  if (status === 'DISABLED') return '报废'
-  return '可用'
+  if (status === 'DISABLED') return '已报废'
+  return status === 'IDLE' || status === 'REUSABLE' ? '空闲' : '使用中'
 }
 
 function deriveCarrierManagementUseStage(usage: TransferBagUsageItem | null | undefined): TransferBagCarrierUseStage {
-  if (!usage) return '无'
-  if (usage.usageStage === 'INBOUND_TEMP') return '入仓暂存'
+  if (!usage || isClosedUsageStatus(usage.usageStatus)) return '—'
   if (isHandoverWaitingReturnStatus(usage.usageStatus)) return '已交出待回收'
-  return '交出装袋'
+  if (usage.usageStage === 'INBOUND_TEMP' && usage.usageStatus === 'READY_TO_DISPATCH') {
+    return '入仓暂存中'
+  }
+  return '菲票已装袋'
 }
 
 function getCarrierUseMixedSummary(usage: TransferBagUsageItem): { mixedFlag: boolean; mixedSummary: string } {
@@ -2923,12 +2914,12 @@ export function buildTransferBagCarrierManagementProjection(
     const currentUseStage = deriveCarrierManagementUseStage(currentUsage)
     const currentBoundObjectType = !currentUsage
       ? ''
-      : currentUseStage === '入仓暂存'
+      : currentUseStage === '入仓暂存中'
         ? '入仓暂存记录'
         : currentUsage.boundObjectType || '车缝任务'
     const currentBoundObjectNo = !currentUsage
       ? ''
-      : currentUseStage === '入仓暂存'
+      : currentUseStage === '入仓暂存中'
         ? currentUsage.usageNo
         : currentUsage.boundObjectNo || currentUsage.sewingTaskNo || currentUsage.usageNo
     return {
@@ -2944,7 +2935,7 @@ export function buildTransferBagCarrierManagementProjection(
       currentUseStage,
       currentUseId: currentUsage?.usageId || '',
       currentBoundObjectType,
-      currentBoundObjectId: currentUseStage === '入仓暂存' ? currentUsage?.usageId || '' : currentUsage?.boundObjectId || currentUsage?.sewingTaskId || '',
+      currentBoundObjectId: currentUseStage === '入仓暂存中' ? currentUsage?.usageId || '' : currentUsage?.boundObjectId || currentUsage?.sewingTaskId || '',
       currentBoundObjectNo,
       currentFeiTicketCount: master.packedTicketCount,
       currentPieceQty: master.currentTotalPieceCount,
@@ -2961,7 +2952,7 @@ export function buildTransferBagCarrierManagementProjection(
 
   const useCycles = viewModel.usages.map((usage) => toTransferBagUseCycleView(usage, scrapRecords))
   const handoverPackingUses = useCycles.filter((cycle) => cycle.useStage === '交出装袋')
-  const signedAndReturnUses = useCycles.filter((cycle) => cycle.currentStatus === '已交出待回收' || Boolean(cycle.returnedAt) || cycle.currentStatus === '已关闭')
+  const signedAndReturnUses = useCycles.filter((cycle) => Boolean(cycle.handedOverAt) || Boolean(cycle.returnedAt))
   const taskBagGroups = Object.values(
     handoverPackingUses.reduce<Record<string, { sewingTaskNo: string; receiverFactoryName: string; bagCodes: string[]; useCount: number }>>((result, cycle) => {
       const key = cycle.targetObjectNo || '未绑定对象'

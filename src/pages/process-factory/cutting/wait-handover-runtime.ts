@@ -163,6 +163,10 @@ function toWaitHandoverLifecycleFact(
           ? 'HANDOVER_CONFIRMED'
           : event.eventType === '特殊工艺回仓'
             ? 'SPECIAL_CRAFT_BAG_RETURNED'
+            : event.eventType === '中转袋回收'
+              ? 'PHYSICAL_BAG_RETURNED'
+              : event.eventType === '中转袋报废'
+                ? 'BAG_SCRAPPED'
             : null
   if (!factType) return null
   return {
@@ -204,10 +208,108 @@ function listWaitHandoverLifecycleCycles(
   const baggingFacts = facts.filter(
     (fact) => fact.factType === 'BAGGING_CONFIRMED',
   )
-  return baggingFacts.map((fact) => ({
-    usageCycleId: fact.usageCycleId || '',
-    startedAt: fact.occurredAt,
-  })).filter((cycle) => cycle.usageCycleId)
+  return baggingFacts.map((fact) => {
+    const closeFact = facts
+      .filter((candidate) =>
+        candidate.usageCycleId === fact.usageCycleId
+        && (
+          candidate.factType === 'PHYSICAL_BAG_RETURNED'
+          || candidate.factType === 'BAG_SCRAPPED'
+        ))
+      .at(-1)
+    return {
+      usageCycleId: fact.usageCycleId || '',
+      startedAt: fact.occurredAt,
+      ...(closeFact
+        ? {
+            closedAt: closeFact.occurredAt,
+            closeResult:
+              closeFact.factType === 'BAG_SCRAPPED'
+                ? 'DISABLED' as const
+                : 'REUSABLE' as const,
+          }
+        : {}),
+    }
+  }).filter((cycle) => cycle.usageCycleId)
+}
+
+export function appendWaitHandoverPhysicalReturnEvent(input: {
+  source: CuttingRuntimeEventSource
+  operator: WaitHandoverRuntimeOperator
+  bagCode: string
+  usageCycleId: string
+  returnedAt?: string
+  returnWarehouseName: string
+  note?: string
+  storage?: BrowserStorageLike | null
+}) {
+  const occurredAt =
+    input.returnedAt
+    || new Date().toISOString().slice(0, 16).replace('T', ' ')
+  return appendCuttingRuntimeEventIdempotent({
+    idempotencyKey: `${input.usageCycleId}:PHYSICAL_BAG_RETURNED`,
+    eventType: '中转袋回收',
+    eventSource: input.source,
+    eventStatus: '已同步',
+    occurredAt,
+    operatorId: input.operator.operatorId,
+    operatorName: input.operator.operatorName,
+    operatorRole: input.operator.operatorRole || '中转袋回收员',
+    refs: {
+      transferBagCode: input.bagCode,
+      usageCycleId: input.usageCycleId,
+    },
+    payload: {
+      bagCode: input.bagCode,
+      usageCycleId: input.usageCycleId,
+      returnWarehouseName: input.returnWarehouseName,
+      returnedAt: occurredAt,
+      returnedBy: input.operator.operatorName,
+      note: input.note || '',
+    },
+  }, input.storage).event
+}
+
+export function appendWaitHandoverScrapEvent(input: {
+  source: CuttingRuntimeEventSource
+  operator: WaitHandoverRuntimeOperator
+  bagCode: string
+  usageCycleId?: string
+  scrappedAt?: string
+  reason: string
+  storage?: BrowserStorageLike | null
+}) {
+  const occurredAt =
+    input.scrappedAt
+    || new Date().toISOString().slice(0, 16).replace('T', ' ')
+  const usageCycleId =
+    input.usageCycleId
+    || resolveWaitHandoverUsageCycleId(
+      input.bagCode,
+      occurredAt,
+      input.storage ?? getBrowserLocalStorage(),
+    )
+  return appendCuttingRuntimeEventIdempotent({
+    idempotencyKey: `${input.bagCode}:BAG_SCRAPPED`,
+    eventType: '中转袋报废',
+    eventSource: input.source,
+    eventStatus: '已同步',
+    occurredAt,
+    operatorId: input.operator.operatorId,
+    operatorName: input.operator.operatorName,
+    operatorRole: input.operator.operatorRole || '中转袋主管',
+    refs: {
+      transferBagCode: input.bagCode,
+      usageCycleId,
+    },
+    payload: {
+      bagCode: input.bagCode,
+      usageCycleId,
+      scrappedAt: occurredAt,
+      scrappedBy: input.operator.operatorName,
+      reason: input.reason,
+    },
+  }, input.storage).event
 }
 
 function resolveWaitHandoverUsageCycleId(

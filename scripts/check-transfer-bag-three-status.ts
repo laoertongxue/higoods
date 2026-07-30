@@ -3,7 +3,7 @@
 // @ts-expect-error 本脚本由 Node + tsx 运行，仓库未安装 @types/node。
 import assert from 'node:assert/strict'
 // @ts-expect-error 本脚本由 Node + tsx 运行，仓库未安装 @types/node。
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 // @ts-expect-error 本脚本由 Node + tsx 运行，仓库未安装 @types/node。
 import { fileURLToPath } from 'node:url'
 
@@ -26,6 +26,9 @@ const waitHandoverRuntime = await import(
 )
 const transferBagRuntime = await import(
   '../src/data/fcs/cutting/transfer-bag-runtime.ts'
+)
+const transferBagReturnModel = await import(
+  '../src/pages/process-factory/cutting/transfer-bag-return-model.ts'
 )
 
 assert.deepEqual(
@@ -710,6 +713,77 @@ assert.equal(
   'HANDED_OVER_WAITING_RETURN',
 )
 
+const lifecycleBeforeTicketOnlyReturn =
+  waitHandoverRuntime.buildWaitHandoverLifecycleByBagCode(
+    'BAG-ACTION-001',
+    actionStorage,
+  )
+waitHandoverRuntime.appendWaitHandoverSpecialCraftReturnEvent({
+  source: 'WEB',
+  operator: {
+    operatorId: 'OP-ACTION-006',
+    operatorName: '无袋回仓测试员',
+  },
+  payload: {
+    ...specialReturnPayload,
+    returnRecordId: 'SPECIAL-RETURN-TICKET-ONLY-001',
+    returnRecordNo: 'TH-TICKET-ONLY-001',
+    transferBagCode: undefined,
+    returnedAt: '2026-07-30 14:00',
+    returnedBy: '无袋回仓测试员',
+  },
+  specialCraftId: 'SPECIAL-CRAFT-ACTION-002',
+  occurredAt: '2026-07-30 14:00',
+  storage: actionStorage,
+})
+assert.deepEqual(
+  waitHandoverRuntime.buildWaitHandoverLifecycleByBagCode(
+    'BAG-ACTION-001',
+    actionStorage,
+  ),
+  lifecycleBeforeTicketOnlyReturn,
+  '只回菲票、未带回实物袋时不得改变任何中转袋生命周期',
+)
+
+waitHandoverRuntime.appendWaitHandoverPhysicalReturnEvent({
+  source: 'WEB',
+  operator: {
+    operatorId: 'OP-ACTION-007',
+    operatorName: '回收测试员',
+  },
+  bagCode: 'BAG-ACTION-001',
+  usageCycleId: actionCycleId,
+  returnedAt: '2026-07-30 14:10',
+  returnWarehouseName: '裁片仓空袋区',
+  storage: actionStorage,
+})
+const physicallyReturnedLifecycle =
+  waitHandoverRuntime.buildWaitHandoverLifecycleByBagCode(
+    'BAG-ACTION-001',
+    actionStorage,
+  )
+assert.equal(physicallyReturnedLifecycle.mainStatus, 'IDLE')
+assert.equal(physicallyReturnedLifecycle.flowStage, null)
+
+waitHandoverRuntime.appendWaitHandoverScrapEvent({
+  source: 'WEB',
+  operator: {
+    operatorId: 'OP-ACTION-008',
+    operatorName: '报废主管',
+  },
+  bagCode: 'BAG-SCRAP-ACTION-001',
+  scrappedAt: '2026-07-30 14:20',
+  reason: '袋体破裂无法继续使用',
+  storage: actionStorage,
+})
+const directlyScrappedLifecycle =
+  waitHandoverRuntime.buildWaitHandoverLifecycleByBagCode(
+    'BAG-SCRAP-ACTION-001',
+    actionStorage,
+  )
+assert.equal(directlyScrappedLifecycle.mainStatus, 'DISABLED')
+assert.equal(directlyScrappedLifecycle.flowStage, null)
+
 const runtimeCycleBase = {
   cycleId: 'runtime-cycle-001',
   cycleNo: 'CYCLE-001',
@@ -770,5 +844,93 @@ assert.deepEqual(
     closeResult: 'DISABLED',
   },
 )
+
+const transferBagPageSource = readFileSync(
+  fileURLToPath(new URL(
+    '../src/pages/process-factory/cutting/transfer-bags.ts',
+    import.meta.url,
+  )),
+  'utf8',
+)
+const transferBagDialogSource = readFileSync(
+  fileURLToPath(new URL(
+    '../src/pages/process-factory/cutting/transfer-bags/dialogs.ts',
+    import.meta.url,
+  )),
+  'utf8',
+)
+assert(
+  transferBagPageSource.includes(
+    "const statusOptions: TransferBagCarrierCurrentStatus[] = ['空闲', '使用中', '已报废']",
+  ),
+  '中转袋主列表状态筛选必须且只能提供空闲、使用中、已报废',
+)
+assert(
+  transferBagPageSource.includes(
+    "const useStageOptions: TransferBagCarrierUseStage[] = ['菲票已装袋', '入仓暂存中', '已交出待回收']",
+  ),
+  '中转袋主列表必须单独提供三个流转阶段筛选',
+)
+assert.equal(
+  /WAITING_CLEANING|WAITING_REPAIR/.test(
+    `${transferBagPageSource}\n${transferBagDialogSource}`,
+  ),
+  false,
+  '回收页面不得继续提供待清洗或待维修结果',
+)
+
+const discrepancyClosure =
+  transferBagReturnModel.closeTransferBagUsageCycle({
+    usage: {
+      cycleId: 'cycle:discrepancy:001',
+      cycleNo: 'CYCLE-DIFFERENCE-001',
+    },
+    bag: {},
+    receipt: {
+      discrepancyType: 'QTY_MISMATCH',
+    },
+    condition: {
+      conditionStatus: 'GOOD',
+      cleanlinessStatus: 'CLEAN',
+      damageType: '',
+      repairNeeded: false,
+      reusableDecision: 'REUSABLE',
+    },
+    nowText: '2026-07-30 17:00',
+    closedBy: '回收主管',
+  })
+assert.equal(
+  discrepancyClosure.closureStatus,
+  'CLOSED',
+  '回收差异不得把可继续使用的中转袋关闭为报废',
+)
+assert.equal(discrepancyClosure.nextBagStatus, 'REUSABLE')
+assert.deepEqual(
+  discrepancyClosure.warningMessages,
+  ['本次回收存在差异，已生成回收差异记录。'],
+)
+
+const explicitScrapClosure =
+  transferBagReturnModel.closeTransferBagUsageCycle({
+    usage: {
+      cycleId: 'cycle:scrap:001',
+      cycleNo: 'CYCLE-SCRAP-001',
+    },
+    bag: {},
+    receipt: {
+      discrepancyType: 'NONE',
+    },
+    condition: {
+      conditionStatus: 'SEVERE_DAMAGE',
+      cleanlinessStatus: 'CLEAN',
+      damageType: '袋体破裂无法继续使用',
+      repairNeeded: false,
+      reusableDecision: 'DISABLED',
+    },
+    nowText: '2026-07-30 17:10',
+    closedBy: '回收主管',
+  })
+assert.equal(explicitScrapClosure.closureStatus, 'SCRAP_CLOSED')
+assert.equal(explicitScrapClosure.nextBagStatus, 'DISABLED')
 
 console.log('check:transfer-bag-three-status passed')

@@ -135,6 +135,7 @@ import {
   type ReturnFilterField,
   type ReturnDraftField,
   type ConditionDraftField,
+  type ScrapDraftField,
   type MasterDraftField,
   type PackDraftField,
 } from './transfer-bags/state.ts'
@@ -169,13 +170,16 @@ import {
   resolvePackTickets,
   saveMasterDraft,
   savePackDraft,
-  saveReturnDraft,
   syncPrefilterFromQuery,
   syncReusableDecisionSuggestion,
 } from './transfer-bags/handlers.ts'
 import {
   renderActiveDialog,
 } from './transfer-bags/dialogs.ts'
+import {
+  appendWaitHandoverPhysicalReturnEvent,
+  appendWaitHandoverScrapEvent,
+} from './wait-handover-runtime.ts'
 import {
   isTransferBagDetailTab,
   readTransferBagDetailTab,
@@ -191,12 +195,9 @@ function renderTag(label: string, className: string): string {
 }
 
 function getCarrierCurrentStatusClass(status: string): string {
-  if (status === '可用') return 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-  if (status === '入仓装袋中' || status === '交出装袋中') return 'bg-blue-100 text-blue-700 border border-blue-200'
-  if (status === '入仓暂存中') return 'bg-cyan-100 text-cyan-700 border border-cyan-200'
-  if (status === '待交出') return 'bg-violet-100 text-violet-700 border border-violet-200'
-  if (status === '已交出待回收') return 'bg-orange-100 text-orange-700 border border-orange-200'
-  if (status === '报废') return 'bg-slate-200 text-slate-700 border border-slate-300'
+  if (status === '空闲') return 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+  if (status === '使用中') return 'bg-blue-100 text-blue-700 border border-blue-200'
+  if (status === '已报废') return 'bg-slate-200 text-slate-700 border border-slate-300'
   return 'bg-slate-100 text-slate-700 border border-slate-200'
 }
 
@@ -346,12 +347,16 @@ function renderMasterStatusActions(options: {
   historyHref: string
 }): string {
   const { item, currentStatus, detailHref, historyHref } = options
-  void currentStatus
   const actionButtons: string[] = [
     `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(detailHref)}">查看详情</button>`,
     `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(historyHref)}">查看使用周期</button>`,
     `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(buildTransferBagLabelPrintLink(item.bagId))}">打印中转袋二维码</button>`,
   ]
+  if (currentStatus !== '已报废') {
+    actionButtons.push(
+      `<button type="button" class="rounded-md border border-rose-200 px-2.5 py-1.5 text-xs text-rose-700 hover:bg-rose-50" data-transfer-bags-action="open-scrap" data-bag-id="${escapeHtml(item.bagId)}">确认报废</button>`,
+    )
+  }
 
   return actionButtons.join('')
 }
@@ -551,9 +556,10 @@ function renderListHeaderActions(): string {
 }
 
 function renderMasterQuickFilterBar(): string {
-  const statusOptions: TransferBagCarrierCurrentStatus[] = ['可用', '入仓装袋中', '入仓暂存中', '交出装袋中', '待交出', '已交出待回收', '报废']
+  const statusOptions: TransferBagCarrierCurrentStatus[] = ['空闲', '使用中', '已报废']
+  const useStageOptions: TransferBagCarrierUseStage[] = ['菲票已装袋', '入仓暂存中', '已交出待回收']
   return renderStickyFilterShell(`
-    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.4fr,1fr,1fr]">
+    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.4fr,1fr,1fr,1fr]">
       <label class="space-y-2">
         <span class="text-sm font-medium text-foreground">袋码</span>
         <input
@@ -564,6 +570,15 @@ function renderMasterQuickFilterBar(): string {
           data-fast-page-render="true"
           data-transfer-bags-master-field="keyword"
         />
+      </label>
+      <label class="space-y-2">
+        <span class="text-sm font-medium text-foreground">当前流转阶段</span>
+        <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-fast-page-render="true" data-transfer-bags-master-field="useStage">
+          <option value="ALL" ${state.masterUseStage === 'ALL' ? 'selected' : ''}>全部阶段</option>
+          ${useStageOptions
+            .map((stage) => `<option value="${escapeHtml(stage)}" ${state.masterUseStage === stage ? 'selected' : ''}>${escapeHtml(stage)}</option>`)
+            .join('')}
+        </select>
       </label>
       <label class="space-y-2">
         <span class="text-sm font-medium text-foreground">当前状态</span>
@@ -636,15 +651,15 @@ function renderActiveListFilterBar(): string {
 function renderActiveListStats(): string {
   const { filteredItems, carrierRecordsByBagCode } = getPagedMasters()
   const statusOf = (item: TransferBagMasterItem) => carrierRecordsByBagCode[item.bagCode]?.currentStatus || item.currentStatus
-  const inUseCount = filteredItems.filter((item) => statusOf(item) === 'IN_USE').length
-  const dispatchedCount = filteredItems.filter((item) => statusOf(item) === 'DISPATCHED').length
-  const disabledCount = filteredItems.filter((item) => statusOf(item) === 'DISABLED').length
+  const idleCount = filteredItems.filter((item) => statusOf(item) === '空闲').length
+  const inUseCount = filteredItems.filter((item) => statusOf(item) === '使用中').length
+  const disabledCount = filteredItems.filter((item) => statusOf(item) === '已报废').length
   const packedTicketCount = filteredItems.reduce((sum, item) => sum + (item.packedTicketCount || 0), 0)
 
   return renderCompactKpiGroup(`
     ${renderCompactKpiCard('中转袋', filteredItems.length, '当前筛选范围', 'text-slate-900')}
+    ${renderCompactKpiCard('空闲', idleCount, '可开始新的装袋周期', 'text-emerald-600')}
     ${renderCompactKpiCard('使用中', inUseCount, '当前绑定业务对象', 'text-blue-600')}
-    ${renderCompactKpiCard('已交出', dispatchedCount, '等待接收方回收', 'text-orange-600')}
     ${renderCompactKpiCard('已报废', disabledCount, '不可继续流转', 'text-slate-600')}
     ${renderCompactKpiCard('装载菲票', packedTicketCount, '当前筛选袋内菲票数', 'text-violet-600')}
   `)
@@ -1030,7 +1045,7 @@ function renderCarrierScrapSection(): string {
                         </td>
                         <td class="px-4 py-3">
                           <div class="font-medium text-blue-700">${escapeHtml(item.bagCode)}</div>
-                          <div class="mt-1">${renderTag(carrierRecord?.currentStatus || '报废', getCarrierCurrentStatusClass(carrierRecord?.currentStatus || '报废'))}</div>
+                          <div class="mt-1">${renderTag(carrierRecord?.currentStatus || '已报废', getCarrierCurrentStatusClass(carrierRecord?.currentStatus || '已报废'))}</div>
                         </td>
                         <td class="px-4 py-3">${renderTransferBagQrCell(item.bagCode)}</td>
                         <td class="px-4 py-3 text-xs text-muted-foreground">
@@ -1207,7 +1222,7 @@ function renderMasterSection(): string {
                           ${renderTag(currentStatus, getCarrierCurrentStatusClass(currentStatus))}
                         </td>
                         <td class="px-4 py-3">
-                          <div class="font-medium text-foreground">${escapeHtml(carrierRecord?.currentUseStage || '无')}</div>
+                          <div class="font-medium text-foreground">${escapeHtml(carrierRecord?.currentUseStage || '—')}</div>
                           <div class="mt-1 text-xs text-muted-foreground">${escapeHtml([carrierRecord?.currentBoundObjectType, carrierRecord?.currentBoundObjectNo].filter(Boolean).join('：') || '未绑定业务对象')}</div>
                         </td>
                         <td class="px-4 py-3">
@@ -1945,8 +1960,6 @@ function renderReturnWorkbenchSection(): string {
                 <span class="text-sm font-medium text-foreground">回收结果</span>
                 <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-condition-field="reusableDecision">
                   <option value="REUSABLE" ${state.conditionDraft.reusableDecision === 'REUSABLE' ? 'selected' : ''}>可继续使用</option>
-                  <option value="WAITING_CLEANING" ${state.conditionDraft.reusableDecision === 'WAITING_CLEANING' ? 'selected' : ''}>可继续使用</option>
-                  <option value="WAITING_REPAIR" ${state.conditionDraft.reusableDecision === 'WAITING_REPAIR' ? 'selected' : ''}>可继续使用</option>
                   <option value="DISABLED" ${state.conditionDraft.reusableDecision === 'DISABLED' ? 'selected' : ''}>报废</option>
                 </select>
               </label>
@@ -2348,29 +2361,16 @@ function completeReturnInspection(targetUsageId?: string): boolean {
   }
 
   const receipt = buildReturnReceiptFromState(usage, bag)
+  const condition = buildConditionRecordFromState(usage, bag)
   const validation = validateReturnReceiptPayload({
     usage,
     bag,
     receipt,
+    condition,
   })
   if (!validation.ok) {
     setFeedback('warning', validation.reason)
     return true
-  }
-
-  const receiptIndex = state.store.returnReceipts.findIndex((item) => item.usageId === usage.usageId)
-  if (receiptIndex >= 0) {
-    state.store.returnReceipts[receiptIndex] = receipt
-  } else {
-    state.store.returnReceipts.push(receipt)
-  }
-
-  const condition = buildConditionRecordFromState(usage, bag)
-  const conditionIndex = state.store.conditionRecords.findIndex((item) => item.usageId === usage.usageId)
-  if (conditionIndex >= 0) {
-    state.store.conditionRecords[conditionIndex] = condition
-  } else {
-    state.store.conditionRecords.push(condition)
   }
 
   const closure = closeTransferBagUsageCycle({
@@ -2381,6 +2381,50 @@ function completeReturnInspection(targetUsageId?: string): boolean {
     nowText: receipt.returnAt,
     closedBy: receipt.receivedBy || '中转袋工作台',
   })
+  try {
+    if (closure.nextBagStatus === 'DISABLED') {
+      appendWaitHandoverScrapEvent({
+        source: 'WEB',
+        operator: {
+          operatorName: receipt.receivedBy,
+          operatorRole: '中转袋主管',
+        },
+        bagCode: bag.bagCode,
+        usageCycleId: usage.cycleId,
+        scrappedAt: receipt.returnAt,
+        reason: condition.damageType,
+      })
+    } else {
+      appendWaitHandoverPhysicalReturnEvent({
+        source: 'WEB',
+        operator: {
+          operatorName: receipt.receivedBy,
+          operatorRole: '中转袋回收员',
+        },
+        bagCode: bag.bagCode,
+        usageCycleId: usage.cycleId,
+        returnedAt: receipt.returnAt,
+        returnWarehouseName: receipt.returnWarehouseName,
+        note: receipt.note,
+      })
+    }
+  } catch (error) {
+    setFeedback('warning', error instanceof Error ? error.message : '中转袋回收事实写入失败，请重试。')
+    return true
+  }
+  const receiptIndex = state.store.returnReceipts.findIndex((item) => item.usageId === usage.usageId)
+  if (receiptIndex >= 0) {
+    state.store.returnReceipts[receiptIndex] = receipt
+  } else {
+    state.store.returnReceipts.push(receipt)
+  }
+
+  const conditionIndex = state.store.conditionRecords.findIndex((item) => item.usageId === usage.usageId)
+  if (conditionIndex >= 0) {
+    state.store.conditionRecords[conditionIndex] = condition
+  } else {
+    state.store.conditionRecords.push(condition)
+  }
   const closureIndex = state.store.closureResults.findIndex((item) => item.usageId === usage.usageId)
   if (closureIndex >= 0) {
     state.store.closureResults[closureIndex] = closure
@@ -2413,6 +2457,96 @@ function completeReturnInspection(targetUsageId?: string): boolean {
   persistStore()
   closeActiveDialog()
   setFeedback(closure.closureStatus === 'SCRAP_CLOSED' ? 'warning' : 'success', `${usage.usageNo} 已完成回收，${bag.bagCode} 当前状态：${deriveTransferBagMasterStatus(bag.currentStatus).label}。`)
+  return true
+}
+
+function completeDirectScrap(): boolean {
+  const reason = state.scrapDraft.reason.trim()
+  const authorizedBy = state.scrapDraft.authorizedBy.trim()
+  if (!reason) {
+    setFeedback('warning', '确认报废时必须填写报废原因。')
+    return true
+  }
+  if (!authorizedBy) {
+    setFeedback('warning', '确认报废时必须填写授权主管。')
+    return true
+  }
+  const bag = getSourceMaster(state.scrapDraft.bagId)
+  if (!bag) {
+    setFeedback('warning', '未找到待报废的中转袋，请返回列表重新选择。')
+    return true
+  }
+  if (bag.currentStatus === 'DISABLED') {
+    setFeedback('warning', `${bag.bagCode} 已报废，不能重复确认。`)
+    return true
+  }
+  const occurredAt = nowText()
+  const openUsage = state.store.usages
+    .filter((usage) =>
+      usage.bagId === bag.bagId
+      && !['CLOSED', 'SCRAP_CLOSED'].includes(usage.usageStatus))
+    .sort((left, right) => right.startedAt.localeCompare(left.startedAt, 'zh-CN'))[0]
+    || null
+  try {
+    appendWaitHandoverScrapEvent({
+      source: 'WEB',
+      operator: {
+        operatorName: authorizedBy,
+        operatorRole: '中转袋主管',
+      },
+      bagCode: bag.bagCode,
+      usageCycleId: openUsage?.cycleId,
+      scrappedAt: occurredAt,
+      reason,
+    })
+  } catch (error) {
+    setFeedback('warning', error instanceof Error ? error.message : '中转袋报废事实写入失败，请重试。')
+    return true
+  }
+
+  if (openUsage) {
+    openUsage.usageStatus = 'SCRAP_CLOSED'
+    openUsage.cycleStatus = 'SCRAP_CLOSED'
+    openUsage.returnedAt = occurredAt
+    openUsage.returnedBy = authorizedBy
+    openUsage.note = `主管直接报废：${reason}`
+    state.store.closureResults.push({
+      closureId: buildCuttingTraceabilityId('closure', occurredAt, openUsage.cycleId, 'direct-scrap'),
+      cycleId: openUsage.cycleId,
+      cycleNo: openUsage.cycleNo,
+      usageId: openUsage.usageId,
+      usageNo: openUsage.usageNo,
+      closedAt: occurredAt,
+      closedBy: authorizedBy,
+      closureStatus: 'SCRAP_CLOSED',
+      nextBagStatus: 'DISABLED',
+      reason,
+      warningMessages: ['主管已确认实物不可继续使用。'],
+    })
+  }
+  bag.currentStatus = 'DISABLED'
+  bag.currentLocation = '报废区'
+  bag.enabled = false
+  bag.note = [bag.note, `报废：${reason}`].filter(Boolean).join('；')
+  state.store.scrapRecords.push({
+    scrapRecordId: buildCuttingTraceabilityId('scrap', occurredAt, bag.bagId),
+    bagCode: bag.bagCode,
+    scrapType: '中转袋报废',
+    relatedUseId: openUsage?.usageId || '',
+    relatedObjectType: openUsage ? '使用周期' : '中转袋主档',
+    relatedObjectId: openUsage?.usageNo || bag.bagCode,
+    description: reason,
+    evidencePhotos: [],
+    reportedAt: occurredAt,
+    reportedBy: authorizedBy,
+    handlingStatus: '已关闭',
+    handledAt: occurredAt,
+    handledBy: authorizedBy,
+  })
+  refreshDerivedState()
+  persistStore()
+  closeActiveDialog()
+  setFeedback('success', `${bag.bagCode} 已由 ${authorizedBy} 确认报废。`)
   return true
 }
 
@@ -2932,6 +3066,18 @@ export function handleCraftCuttingTransferBagsEvent(target: Element): boolean {
     return true
   }
 
+  const scrapDraftFieldNode = target.closest<HTMLElement>('[data-transfer-bags-scrap-draft-field]')
+  if (scrapDraftFieldNode) {
+    const field = scrapDraftFieldNode.dataset.transferBagsScrapDraftField as ScrapDraftField | undefined
+    if (!field) return false
+    const input = scrapDraftFieldNode as HTMLInputElement
+    state.scrapDraft = {
+      ...state.scrapDraft,
+      [field]: input.value,
+    }
+    return true
+  }
+
   const conditionToggleNode = target.closest<HTMLElement>('[data-transfer-bags-condition-toggle]')
   if (conditionToggleNode) {
     const field = conditionToggleNode.dataset.transferBagsConditionToggle
@@ -2995,6 +3141,16 @@ export function handleCraftCuttingTransferBagsEvent(target: Element): boolean {
     state.activeDialog = 'new-master'
     return true
   }
+  if (action === 'open-scrap') {
+    state.scrapDraft = {
+      bagId: actionNode.dataset.bagId || '',
+      reason: '',
+      authorizedBy: '',
+    }
+    state.activeDialog = 'scrap'
+    return true
+  }
+  if (action === 'save-scrap') return completeDirectScrap()
   if (action === 'save-master') return saveMasterDraft()
   if (action === 'open-inbound-pack') {
     resetPackDraft('INBOUND_TEMP', actionNode.dataset.bagId)
@@ -3017,7 +3173,7 @@ export function handleCraftCuttingTransferBagsEvent(target: Element): boolean {
     state.activeDialog = 'return'
     return true
   }
-  if (action === 'save-return') return saveReturnDraft()
+  if (action === 'save-return') return completeReturnInspection(state.activeUsageId || undefined)
   if (action === 'prepare-return') {
     const usageId = actionNode.dataset.usageId || state.activeUsageId || ''
     if (usageId) syncUsageSelection(usageId)
