@@ -2,105 +2,168 @@
 
 > **面向 AI 代理的工作者：** 必需子技能：使用 superpowers:subagent-driven-development（推荐）或 superpowers:executing-plans 逐任务实现此计划。步骤使用复选框（`- [ ]`）语法来跟踪进度。
 
-**目标：** 将中转袋主状态统一为“空闲、使用中、已报废”，将“菲票已装袋、入仓暂存中、已交出待回收”作为独立流转阶段，并保证 Web、PDA、待交出仓、回收和二维码展示口径一致。
+> **实施要求：** 本计划必须在独立工作树中执行。每个任务先补充能失败的业务门禁，再做最小实现，再运行该任务相关检查。不得把临时 Mock 更新或页面成功提示当成业务事实写入成功。每项任务独立提交，提交前只暂存该任务列出的文件。
 
-**架构：** 在裁床数据层增加一个小型生命周期判定模块，以已完成的装袋、入仓、交出、回收和报废事实统一派生“主状态＋流转阶段”。现有使用周期内部状态继续承担操作校验和历史兼容，但不能直接作为中转袋主状态展示；所有页面和候选判断统一消费生命周期判定结果。
+**目标：** 中转袋主状态只保留“空闲、使用中、已报废”，使用中只展示“菲票已装袋、入仓暂存中、已交出待回收”三个流转阶段；Web、PDA、扫码详情、主列表和上下游页面对同一只物理袋使用同一生命周期事实。
 
-**技术栈：** Vite、TypeScript、Vanilla TypeScript 字符串模板、Tailwind CSS、本地 Mock/LocalStorage、现有标准列表页组件、Node/tsx 专项检查、Playwright 浏览器验收。
+**架构：** 新增一个纯生命周期投影模块，以物理袋、使用周期、交出流转段及装袋/入仓/整袋交出/带袋回仓/物理回收/报废事实派生“主状态＋流转阶段”。Web 和 PDA 的成功动作必须写入统一运行时事实账；页面临时候选只作为视图状态。下游接收与回写保留自己的记录状态，但不得覆盖物理袋生命周期。
+
+**技术栈：** Vite、TypeScript、Vanilla TypeScript 字符串模板、Tailwind CSS、本地 Mock/LocalStorage、现有标准列表页组件、Node/tsx 专项检查、Playwright。
 
 ---
 
-## 0. 已确认边界与既有基线
+## 0. 已确认边界和实施前基线
 
-- 设计规格：`docs/superpowers/specs/2026-07-30-cutting-transfer-bag-three-status-design.md`
+### 0.1 不得改变的业务边界
+
 - 中转袋主状态只有：`空闲`、`使用中`、`已报废`。
 - 使用中的流转阶段只有：`菲票已装袋`、`入仓暂存中`、`已交出待回收`。
-- 不增加其他中间状态或处理标签。
-- 菲票装袋建立袋内菲票事实。
-- 中转袋入仓只记录袋号、库区和库位，不再次扫描或绑定菲票。
-- 中转袋交出以完整中转袋为最小单位。
-- 特殊工艺回仓进入“使用中 / 入仓暂存中”，但保留特殊工艺来源事实。
-- 回收差异与报废结论分开；数量或记录差异不得把袋自动判为报废。
-- 当前 `npm run check:cutting:all` 存在本任务外基线失败：
-  `src/pages/process-factory/cutting/production-order-overview-view.ts` 使用
-  `min-w-[2280px]`，被 `check-cutting-clean-mainline` 报告为
-  `min-w >= 1600px`。本计划不修改该页面。
+- 不增加其他主状态、中间状态或处理标签。
+- 确认菲票装袋才创建使用周期；打开弹窗或扫码草稿不创建周期。
+- 一个袋的当前装袋内容只能属于一个生产单。
+- 中转袋入仓只输入袋号、库区、库位；袋内快照从已确认装袋事实读取。
+- 一次交出确认只处理一只完整中转袋，不按菲票局部交出。
+- 不再新增“交出装袋确认”业务记录；旧记录只允许历史兼容。
+- 特殊工艺带袋回仓才改变袋阶段；无袋回仓不改变任何袋。
+- 特殊工艺带袋回仓关闭当前交出流转段，不关闭整个使用周期。
+- 下游接收、差异、回写不改变物理袋生命周期。
+- 物理回收才关闭使用周期；回收后只进入空闲或已报废。
+- 差异不等于报废；直接报废必须是有权限人员的明确实物处置。
+- 物理标签只保存稳定身份，实时状态在扫码详情查询。
 
-## 1. 文件结构与职责
+### 0.2 已核查的当前代码问题
 
-### 创建
+实施者开始前应再次用 CodeGraph 确认下列实际调用关系未漂移：
+
+1. `src/main-handlers/fcs-handlers.ts` 中 Web 临时候选处理器先于真实运行时事件处理器执行。
+2. `warehouse-hub.ts` 的页头按钮使用临时候选动作属性，可能只更新模块内状态。
+3. `submitWaitHandoverInbound()` 和 `appendWaitHandoverInboundEvent()` 仍接收菲票输入。
+4. `transfer-bags/handlers.ts` 仍存在把装袋和入仓组合完成、直接写旧主状态的路径。
+5. Web 交出会过滤已交菲票并提交剩余菲票；通用 PDA 交出仍以单张菲票为输入。
+6. PDA 装袋、入仓和简化交出主要更新模块内 Mock 账，没有形成跨页面持久事实。
+7. 裁床运行时事件缺少统一 `usageCycleId`，交出缺少 `handoverLegId`。
+8. `pda-transfer-bag-detail.ts` 使用下游 `packStatus` 充当物理袋状态，并固定展示多种动作。
+9. `sewing-dispatch.ts` 的接收/差异/回写状态会被多个下游页面消费，但它们不是物理袋状态。
+10. 打印模板当前保持稳定身份是正确行为，移动闭环检查明确禁止打印易过期动态字段。
+11. `closeTransferBagUsageCycle()` 可能因为存在差异提示而生成报废关闭结果。
+12. 现有专项脚本仍把临时账、旧多状态或旧交出动作当成正确结果。
+
+### 0.3 既有无关阻塞
+
+当前 `npm run check:cutting:all` 存在本任务外基线失败：
+
+```text
+src/pages/process-factory/cutting/production-order-overview-view.ts: min-w >= 1600px
+```
+
+来源是该页面的 `min-w-[2280px]`。本计划不修改该无关页面。最终若只剩此失败，必须把任务状态报告为 `implemented`，不能宣称全量验证闭环。
+
+### 0.4 开始实施前命令
+
+```bash
+codegraph sync
+codegraph status
+git status --short
+```
+
+若任务使用 Superpowers 执行技能，按仓库治理要求先记录技能调用和规格产物的阶段轨迹。
+
+---
+
+## 1. 文件范围和职责
+
+### 1.1 创建
 
 - `src/data/fcs/cutting/transfer-bag-lifecycle.ts`
-  - 定义唯一的三主状态、三流转阶段、中文元数据和事实派生函数。
-  - 提供旧主状态与旧流转文案的兼容归一化，不保存第四种主状态。
+  - 三主状态、三阶段、事实类型、生命周期纯派生、旧值集中归一化。
 - `scripts/check-transfer-bag-three-status.ts`
-  - 锁定三主状态、三流转阶段、旧状态兼容、回收差异不报废及跨端文案。
+  - 锁定状态词汇、事实优先级、周期隔离、交出流转段、差异不报废和旧值只读兼容。
 - `docs/prototype-review-records/2026-07-30-cutting-transfer-bag-three-status.md`
-  - 记录 Web/PDA 角色、状态、防错、现场动作、分辨率、性能和例外自查。
+  - 记录角色、端类型、业务边界、防错、跨端一致、性能、分辨率和基线例外。
 
-### 修改
+### 1.2 生命周期、事实账和投影
 
-- `package.json`
-  - 注册 `check:transfer-bag-three-status`。
 - `src/data/fcs/cutting/transfer-bag-runtime.ts`
-  - 重点范围：现有运行时阶段与使用周期结构（当前约第 17～120 行）。
-  - 在运行时使用周期中保存当前流转阶段；序列化、合并和种子数据统一兼容。
+  - 使用周期字段、周期创建/关闭、序列化和旧数据迁移。
+- `src/data/fcs/cutting/cutting-runtime-event-ledger.ts`
+  - 统一事实的事件结构、幂等追加、按袋/周期读取。
+- `src/pages/process-factory/cutting/wait-handover-runtime.ts`
+  - Web/PDA 装袋、入仓、整袋交出、特殊工艺回仓事件写入。
 - `src/pages/process-factory/cutting/transfer-bags-model.ts`
-  - 重点范围：状态类型、元数据、读取归一化和管理投影（当前约第 134～205、768～877、1080～1270、2718～2965 行）。
-  - 把主档类型收口为三个值；投影统一输出 `mainStatus` 与 `flowStage`。
-  - 删除管理页面的多状态派生，保留旧值读取兼容。
+  - 主档和使用周期读取，删除多状态决策分支。
 - `src/pages/process-factory/cutting/transfer-bags-projection.ts`
-  - 确保 Web、PDA、二维码及待交出仓共用同一生命周期投影。
+  - 汇总运行时存储、事件账和历史兼容数据，输出统一生命周期视图。
 - `src/pages/process-factory/cutting/transfer-bag-return-model.ts`
-  - 重点范围：回收判定和周期关闭（当前约第 177～238 行）。
-  - 回收结果只产生空闲或已报废；差异不再生成报废关闭状态。
+  - 回收与报废结论分离，差异只保留为独立记录。
+
+### 1.3 Web 页面和处理器
+
 - `src/pages/process-factory/cutting/transfer-bags/state.ts`
-  - 重点范围：筛选与回收草稿（当前约第 75～223 行）。
-  - 列表筛选分成主状态与流转阶段；回收表单去掉多余处理字段。
 - `src/pages/process-factory/cutting/transfer-bags/handlers.ts`
-  - 重点范围：状态刷新、装袋、入仓、交出与回收动作（当前约第 830～1275、1394～1453 行）。
-  - 装袋、入仓、交出、回收分别写入正确事实；主状态由事实统一刷新。
 - `src/pages/process-factory/cutting/transfer-bags/list.ts`
-  - 重点范围：状态筛选、回收区和列表渲染（当前约第 99～130、1402～1510、1735 行）。
-  - 主列表分列展示主状态和流转阶段，筛选项分别只有三个。
 - `src/pages/process-factory/cutting/transfer-bags/detail.ts`
-  - 重点范围：详情摘要和当前周期展示（当前约第 145～177、725～1080 行）。
-  - 详情头部和当前使用页签分层展示状态、阶段和业务记录。
 - `src/pages/process-factory/cutting/transfer-bags/dialogs.ts`
-  - 回收确认只保留“可继续使用 / 已报废”结果及必要说明。
 - `src/pages/process-factory/cutting/warehouse-hub.ts`
-  - 待交出仓的装袋、入仓、交出、特殊工艺回仓记录映射到统一阶段。
 - `src/pages/process-factory/cutting/wait-handover-web-actions.ts`
-  - Web 工作台动作完成后写入对应流转事实，不产生额外主状态。
+- `src/main-handlers/fcs-handlers.ts`
+
+职责：
+
+- 主列表、详情、筛选、回收/报废弹窗消费统一生命周期投影。
+- 收口 Web 待交出仓为一个真实动作分发入口。
+- 成功动作写事实账后局部刷新。
+- 入仓不接收菲票，交出不做菲票选择或部分提交。
+
+### 1.4 PDA、扫码详情和上下游
+
 - `src/pages/pda-cutting-inbound.ts`
-  - 重点范围：PDA 袋状态、业务转换和入仓动作（当前约第 20～320 行）。
-  - PDA 装袋和入仓 Mock 账改为“主状态＋流转阶段”判断。
 - `src/pages/pda-cutting-handover.ts`
-  - 重点范围：候选结构、扫码校验和整袋交出（当前约第 70～390 行）。
-  - PDA 整袋交出候选只接受“使用中 / 入仓暂存中”。
+- `src/main-handlers/pda-handlers.ts`
 - `src/pages/pda-transfer-bag-detail.ts`
-  - 二维码详情分开显示主状态和当前流转阶段。
+- `src/pages/pda-handover-detail.ts`
+- `src/data/fcs/cutting/sewing-dispatch.ts`
+- `src/data/fcs/factory-mobile-warehouse.ts`
 - `src/pages/print/templates/label-print-template.ts`
-  - 标签/打印展示使用统一中文状态，不输出旧英文状态码。
-- `scripts/check-pda-cutting-inbound-workflow.ts`
-  - 更新装袋、入仓状态断言和重复操作防错。
-- `scripts/check-pda-cutting-transfer-bag-handover.ts`
-  - 更新整袋交出候选、成功结果和重复交出断言。
+
+职责：
+
+- PDA 动作写统一事实，不以模块内 Mock 账作为最终结果。
+- 扫码详情从统一生命周期投影取状态，内容详情可继续读取袋内快照。
+- 下游接收/回写字段保持记录状态，不覆盖物理袋状态。
+- 标签模板继续只打印稳定身份；除非发现泄漏动态字段，否则不改模板。
+
+### 1.5 检查和浏览器验收
+
+重点修改或新增：
+
 - `scripts/check-web-cutting-transfer-bag-actions.ts`
-  - 更新 Web 三动作完成事实与文案断言。
-- `scripts/check-transfer-bag-mobile-closed-loop.ts`
-  - 更新跨端闭环状态映射。
+- `scripts/check-pda-cutting-inbound-workflow.ts`
+- `scripts/check-pda-cutting-transfer-bag-handover.ts`
 - `scripts/check-cutting-wait-handover-transfer-bag-flow.ts`
-  - 删除旧多状态期望，断言三状态与三阶段完整闭环。
-- `scripts/check-cutting-clean-mainline.ts`
-  - 只更新中转袋旧状态禁用词；不得修改既有宽表治理规则。
+- `scripts/check-transfer-bag-mobile-closed-loop.ts`
+- `scripts/check-cutting-special-craft-dispatch-return.ts`
+- `scripts/check-cutting-sewing-dispatch.ts`
+- `scripts/check-handover-writeback-difference-unification.ts`
+- `tests/cutting-runtime-event-ledger-pda-web.spec.ts`
+- `tests/cutting-wait-handover-web-modal.spec.ts`
+- `tests/cutting-transfer-bag-confirm-local-refresh.spec.ts`
+- `tests/cutting-transfer-bag-simplified-statuses.spec.ts`
+- `tests/cutting-transfer-bag-detail-header.spec.ts`
+- `tests/cutting-transfer-bag-detail-tabs.spec.ts`
+
+只在真实业务门禁需要时修改检查，不得通过放宽断言、更新列表页历史基线或跳过失败绕过治理。
+
+---
 
 ## 2. 统一数据契约
 
-实现时采用以下唯一公开契约：
+### 2.1 生命周期视图
 
 ```ts
-export type TransferBagMainStatusKey = 'IDLE' | 'IN_USE' | 'DISABLED'
+export type TransferBagMainStatusKey =
+  | 'IDLE'
+  | 'IN_USE'
+  | 'DISABLED'
 
 export type TransferBagFlowStageKey =
   | 'PACKED'
@@ -108,32 +171,116 @@ export type TransferBagFlowStageKey =
   | 'HANDED_OVER_WAITING_RETURN'
 
 export interface TransferBagLifecycleView {
+  carrierId: string
+  bagCode: string
+  usageCycleId: string | null
+  activeHandoverLegId: string | null
   mainStatus: TransferBagMainStatusKey
   mainStatusLabel: '空闲' | '使用中' | '已报废'
   flowStage: TransferBagFlowStageKey | null
   flowStageLabel: '菲票已装袋' | '入仓暂存中' | '已交出待回收' | '—'
+  canStartBagging: boolean
+  allowedActions: Array<
+    | 'BAGGING'
+    | 'INBOUND'
+    | 'HANDOVER'
+    | 'SPECIAL_CRAFT_RETURN'
+    | 'PHYSICAL_RETURN'
+    | 'SCRAP'
+  >
+  sourceFactIds: string[]
+  compatibilityBlockedReason?: string
 }
 ```
 
-事实优先级固定为：
+### 2.2 使用周期
 
 ```ts
-已报废 > 已关闭且可复用 > 已交出 > 已入仓 > 已装袋 > 无打开周期
+export interface TransferBagUsageCycle {
+  usageCycleId: string
+  carrierId: string
+  bagCode: string
+  productionOrderNo: string
+  startedAt: string
+  startedBy: string
+  closedAt?: string
+  closeResult?: 'REUSABLE' | 'DISABLED'
+  terminatedByScrapFactId?: string
+}
 ```
 
-旧主状态只在读取边界兼容：
+装袋确认创建周期。`productionOrderNo` 由第一张菲票确定，后续菲票必须一致。
+
+### 2.3 袋级事实
 
 ```ts
-IDLE / REUSABLE                           -> IDLE
-IN_USE / DISPATCHED / WAITING_SIGNOFF
-/ WAITING_RETURN / RETURN_INSPECTING
-/ WAITING_CLEANING / WAITING_REPAIR       -> 按当前使用周期事实派生
-DISABLED                                  -> DISABLED
+interface TransferBagFactBase {
+  factId: string
+  idempotencyKey: string
+  carrierId: string
+  bagCode: string
+  usageCycleId: string
+  occurredAt: string
+  operatorId: string
+  operatorName: string
+}
 ```
 
-禁止把兼容值重新写回主档。
+业务事实至少包括：
 
-### 任务 1：建立三状态生命周期模块和红灯测试
+- `BAGGING_CONFIRMED`
+  - `productionOrderNo`
+  - 不可变 `ticketNos`
+- `INBOUND_CONFIRMED`
+  - `warehouseArea`
+  - `locationCode`
+  - 由装袋事实复制的只读快照引用
+- `HANDOVER_CONFIRMED`
+  - `handoverLegId`
+  - `handoverSequence`
+  - `receiverTaskId`
+  - `receiverFactoryId`
+  - 完整袋内快照
+- `SPECIAL_CRAFT_BAG_RETURNED`
+  - `handoverLegId`
+  - `sourceHandoverRecordId`
+  - `craftType`
+  - `sourceFactoryId`
+  - `warehouseArea`
+  - `locationCode`
+- `PHYSICAL_BAG_RETURNED`
+  - `reusableDecision`
+  - 独立差异引用
+- `BAG_SCRAPPED`
+  - `scrapReason`
+  - `authorizedBy`
+
+无物理袋的特殊工艺回仓不创建袋级事实。
+
+### 2.4 派生优先级
+
+```text
+明确报废事实
+> 周期已关闭且可复用
+> 未关闭周期最新整袋交出
+> 未关闭周期最新普通入仓或带袋特殊工艺回仓
+> 未关闭周期已确认装袋
+> 无未关闭周期
+```
+
+任何页面草稿、PDA 临时账、接收状态、接收差异或回写状态都不参与派生。
+
+### 2.5 历史兼容
+
+- 旧事实有明确袋号、时间和关闭边界时，允许归入推断周期。
+- 无法唯一归属时只显示历史，当前投影设置 `compatibilityBlockedReason` 并阻断新动作。
+- 旧主状态只在一个集中归一化函数中读取。
+- 新写入不得使用旧主状态或旧“交出装袋确认”事件。
+- 同一物理袋新周期不得读取上一周期的阶段事实。
+
+---
+
+## 3. 任务 1：建立生命周期纯函数和红灯门禁
 
 **文件：**
 
@@ -141,708 +288,635 @@ DISABLED                                  -> DISABLED
 - 创建：`scripts/check-transfer-bag-three-status.ts`
 - 修改：`package.json`
 
-- [ ] **步骤 1：注册专项检查命令**
+- [ ] **步骤 1：先写失败检查**
 
-在 `package.json` 的检查脚本区加入：
+覆盖：
 
-```json
-"check:transfer-bag-three-status": "tsx scripts/check-transfer-bag-three-status.ts"
-```
+1. 三个主状态和三个阶段的中文映射。
+2. 无周期、装袋、入仓、交出、带袋回仓、可复用回收和报废。
+3. 下游接收、回写、差异不改变状态。
+4. 同一袋两个周期时，只读取最新未关闭周期。
+5. 同一周期多次交出时，按最新未关闭交出流转段派生。
+6. 模糊旧事实被阻断，不生成第四种状态。
 
-- [ ] **步骤 2：编写失败的生命周期契约检查**
-
-`scripts/check-transfer-bag-three-status.ts` 先导入尚不存在的公开接口：
-
-```ts
-import assert from 'node:assert/strict'
-import {
-  TRANSFER_BAG_FLOW_STAGE_META,
-  TRANSFER_BAG_MAIN_STATUS_META,
-  deriveTransferBagLifecycle,
-  normalizeLegacyTransferBagMainStatus,
-} from '../src/data/fcs/cutting/transfer-bag-lifecycle.ts'
-
-assert.deepEqual(Object.keys(TRANSFER_BAG_MAIN_STATUS_META), ['IDLE', 'IN_USE', 'DISABLED'])
-assert.deepEqual(
-  Object.keys(TRANSFER_BAG_FLOW_STAGE_META),
-  ['PACKED', 'INBOUND_STORED', 'HANDED_OVER_WAITING_RETURN'],
-)
-assert.deepEqual(
-  deriveTransferBagLifecycle({ hasOpenCycle: false, disabled: false }),
-  { mainStatus: 'IDLE', flowStage: null },
-)
-assert.deepEqual(
-  deriveTransferBagLifecycle({ hasOpenCycle: true, disabled: false }),
-  { mainStatus: 'IN_USE', flowStage: null },
-)
-assert.deepEqual(
-  deriveTransferBagLifecycle({ hasOpenCycle: true, packedAt: '2026-07-30 09:00', disabled: false }),
-  { mainStatus: 'IN_USE', flowStage: 'PACKED' },
-)
-assert.deepEqual(
-  deriveTransferBagLifecycle({
-    hasOpenCycle: true,
-    packedAt: '2026-07-30 09:00',
-    inboundAt: '2026-07-30 09:30',
-    disabled: false,
-  }),
-  { mainStatus: 'IN_USE', flowStage: 'INBOUND_STORED' },
-)
-assert.deepEqual(
-  deriveTransferBagLifecycle({
-    hasOpenCycle: true,
-    packedAt: '2026-07-30 09:00',
-    inboundAt: '2026-07-30 09:30',
-    handedOverAt: '2026-07-30 10:00',
-    disabled: false,
-  }),
-  { mainStatus: 'IN_USE', flowStage: 'HANDED_OVER_WAITING_RETURN' },
-)
-assert.equal(normalizeLegacyTransferBagMainStatus('WAITING_REPAIR'), 'IN_USE')
-assert.equal(normalizeLegacyTransferBagMainStatus('DISABLED'), 'DISABLED')
-console.log('check:transfer-bag-three-status lifecycle contract passed')
-```
-
-- [ ] **步骤 3：运行检查并确认红灯**
-
-运行：
+- [ ] **步骤 2：确认红灯**
 
 ```bash
 npm run check:transfer-bag-three-status
 ```
 
-预期：FAIL，错误为找不到
-`src/data/fcs/cutting/transfer-bag-lifecycle.ts` 或缺少导出。
+预期：新模块尚不存在或旧状态断言失败。
 
-- [ ] **步骤 4：实现最小生命周期模块**
+- [ ] **步骤 3：实现纯派生模块**
 
-实现：
+要求：
 
-```ts
-export type TransferBagMainStatusKey = 'IDLE' | 'IN_USE' | 'DISABLED'
-export type TransferBagFlowStageKey =
-  | 'PACKED'
-  | 'INBOUND_STORED'
-  | 'HANDED_OVER_WAITING_RETURN'
+- 不读取 DOM。
+- 不修改运行时 store。
+- 不依赖 Web/PDA 页面模块。
+- 输入为事实集合，输出唯一生命周期视图。
+- 动作资格从视图计算，不由页面重复判断。
 
-export const TRANSFER_BAG_MAIN_STATUS_META = {
-  IDLE: { label: '空闲' },
-  IN_USE: { label: '使用中' },
-  DISABLED: { label: '已报废' },
-} as const
-
-export const TRANSFER_BAG_FLOW_STAGE_META = {
-  PACKED: { label: '菲票已装袋' },
-  INBOUND_STORED: { label: '入仓暂存中' },
-  HANDED_OVER_WAITING_RETURN: { label: '已交出待回收' },
-} as const
-
-export interface TransferBagLifecycleFacts {
-  hasOpenCycle: boolean
-  packedAt?: string
-  inboundAt?: string
-  handedOverAt?: string
-  disabled: boolean
-}
-
-export function deriveTransferBagLifecycle(
-  facts: TransferBagLifecycleFacts,
-): { mainStatus: TransferBagMainStatusKey; flowStage: TransferBagFlowStageKey | null } {
-  if (facts.disabled) return { mainStatus: 'DISABLED', flowStage: null }
-  if (!facts.hasOpenCycle) return { mainStatus: 'IDLE', flowStage: null }
-  if (facts.handedOverAt) return { mainStatus: 'IN_USE', flowStage: 'HANDED_OVER_WAITING_RETURN' }
-  if (facts.inboundAt) return { mainStatus: 'IN_USE', flowStage: 'INBOUND_STORED' }
-  if (facts.packedAt) return { mainStatus: 'IN_USE', flowStage: 'PACKED' }
-  return { mainStatus: 'IN_USE', flowStage: null }
-}
-
-export function normalizeLegacyTransferBagMainStatus(
-  status: string | undefined,
-): TransferBagMainStatusKey {
-  const normalized = String(status || 'IDLE').toUpperCase()
-  if (normalized === 'DISABLED') return 'DISABLED'
-  if (normalized === 'IDLE' || normalized === 'REUSABLE') return 'IDLE'
-  return 'IN_USE'
-}
-```
-
-- [ ] **步骤 5：运行专项检查验证绿灯**
-
-运行：
+- [ ] **步骤 4：运行绿灯**
 
 ```bash
 npm run check:transfer-bag-three-status
 ```
 
-预期：PASS，输出
-`check:transfer-bag-three-status lifecycle contract passed`。
+预期：PASS，三主状态、三阶段和事实派生用例全部通过。
 
-- [ ] **步骤 6：提交**
+- [ ] **步骤 5：提交生命周期模块**
 
 ```bash
-git add package.json scripts/check-transfer-bag-three-status.ts src/data/fcs/cutting/transfer-bag-lifecycle.ts
-git commit -m "test: lock transfer bag three-status contract"
+git add package.json src/data/fcs/cutting/transfer-bag-lifecycle.ts scripts/check-transfer-bag-three-status.ts
+git commit -m "feat: 建立中转袋三状态生命周期投影"
 ```
 
-### 任务 2：收口运行时主档并兼容旧数据
+---
+
+## 4. 任务 2：补齐使用周期、交出流转段、幂等和历史迁移
 
 **文件：**
 
 - 修改：`src/data/fcs/cutting/transfer-bag-runtime.ts`
+- 修改：`src/data/fcs/cutting/cutting-runtime-event-ledger.ts`
+- 修改：`src/pages/process-factory/cutting/wait-handover-runtime.ts`
 - 修改：`src/pages/process-factory/cutting/transfer-bags-model.ts`
+- 修改：`src/pages/process-factory/cutting/transfer-bags-projection.ts`
 - 修改：`scripts/check-transfer-bag-three-status.ts`
 
-- [ ] **步骤 1：补充旧状态迁移失败用例**
+- [ ] **步骤 1：增加失败用例**
 
-在专项检查中加入旧主档和旧使用周期样例，断言：
+断言：
+
+- 确认装袋创建 `usageCycleId`。
+- 草稿不创建周期。
+- 同一周期所有新事实都有同一个 `usageCycleId`。
+- 每次交出生成新的 `handoverLegId` 和递增顺序。
+- 当前交出流转段未关闭时不能再次交出。
+- 带袋特殊工艺回仓只关闭当前交出流转段。
+- 物理回收或直接报废才关闭周期。
+- 同一幂等键重复追加只返回已有事实。
+- 模糊旧事件不进入当前周期。
+
+- [ ] **步骤 2：扩展运行时类型和序列化**
+
+给新事实补齐周期与流转段字段。读取旧数据时集中迁移，不能在各页面各写一套推断。
+
+- [ ] **步骤 3：实现统一事实查询**
+
+提供按 `bagCode/carrierId` 读取：
+
+- 当前使用周期。
+- 当前交出流转段。
+- 当前周期全部袋级事实。
+- 历史周期。
+- 是否存在兼容阻断。
+
+查询入口固定为：
 
 ```ts
-assert.deepEqual(
-  deriveTransferBagLifecycle({
-    hasOpenCycle: true,
-    packedAt: '2026-07-30 09:00',
-    inboundAt: '2026-07-30 09:30',
-    handedOverAt: '2026-07-30 10:00',
-    disabled: false,
-  }),
-  { mainStatus: 'IN_USE', flowStage: 'HANDED_OVER_WAITING_RETURN' },
-)
+export function listTransferBagFacts(input: {
+  carrierId?: string
+  bagCode?: string
+  usageCycleId?: string
+}): TransferBagFact[]
+
+export function buildTransferBagLifecycleByCode(
+  bagCode: string,
+): TransferBagLifecycleView
 ```
 
-并扫描源文件，禁止公开主状态类型再次包含：
+- [ ] **步骤 4：实现幂等追加**
+
+幂等键建议：
+
+```text
+袋身份 + 使用周期 + 动作类型 + 交出流转段/顺序
+```
+
+事实已存在时返回已有记录。相互冲突的动作根据追加前最新投影阻断。
+
+追加入口固定为：
 
 ```ts
-for (const legacy of [
-  'DISPATCHED',
-  'WAITING_SIGNOFF',
-  'WAITING_RETURN',
-  'RETURN_INSPECTING',
-  'REUSABLE',
-  'WAITING_CLEANING',
-  'WAITING_REPAIR',
-]) {
-  assert(!masterStatusTypeSource.includes(`| '${legacy}'`))
+export function appendTransferBagFact(
+  fact: TransferBagFact,
+): {
+  fact: TransferBagFact
+  appended: boolean
 }
 ```
 
-- [ ] **步骤 2：运行检查确认失败**
+- [ ] **步骤 5：把投影改为唯一入口**
 
-运行：
+`buildTransferBagsProjection()` 和待交出仓运行时投影都调用统一生命周期模块。旧 `master.currentStatus` 如保留，仅作读取兼容或缓存，不再决定动作资格，也不在动作处理器中直接写成流程状态。
 
-```bash
-npm run check:transfer-bag-three-status
-```
-
-预期：FAIL，指出 `TransferBagMasterStatusKey` 仍包含旧值。
-
-- [ ] **步骤 3：扩展运行时使用周期字段**
-
-在 `TransferCarrierCycleRecord` 与创建、合并、序列化路径加入：
-
-```ts
-flowStage?: TransferBagFlowStageKey
-packedAt?: string
-inboundAt?: string
-handedOverAt?: string
-```
-
-读取旧数据时按事实补齐：
-
-```ts
-flowStage:
-  cycle.flowStage
-  ?? (cycle.dispatchAt
-    ? 'HANDED_OVER_WAITING_RETURN'
-    : cycle.warehouseArea && cycle.locationCode
-      ? 'INBOUND_STORED'
-      : cycle.finishedPackingAt
-        ? 'PACKED'
-        : undefined)
-```
-
-- [ ] **步骤 4：收口页面模型类型**
-
-将 `TransferBagMasterStatusKey` 改为数据层类型别名：
-
-```ts
-export type TransferBagMasterStatusKey = TransferBagMainStatusKey
-```
-
-将管理投影改为：
-
-```ts
-export type TransferBagCarrierCurrentStatus = '空闲' | '使用中' | '已报废'
-export type TransferBagCarrierUseStage = '无' | '菲票已装袋' | '入仓暂存中' | '已交出待回收'
-```
-
-`toPageMasterStatus()` 只能返回 `IDLE | IN_USE | DISABLED`；旧状态通过
-`normalizeLegacyTransferBagMainStatus()` 归一化。
-
-- [ ] **步骤 5：用统一事实替换管理投影多分支**
-
-删除 `deriveCarrierManagementStatus()`、
-`deriveCarrierManagementStatusFromUsage()` 和
-`deriveCurrentStatusForDisplay()` 中的旧文案分支，新增一个转换入口：
-
-```ts
-function buildLifecycleView(
-  master: TransferBagMasterItem,
-  usage: TransferBagUsageItem | null | undefined,
-): TransferBagLifecycleView {
-  const lifecycle = deriveTransferBagLifecycle({
-    hasOpenCycle: Boolean(usage && !['CLOSED', 'SCRAP_CLOSED'].includes(usage.usageStatus)),
-    packedAt: usage?.packedAt || usage?.finishedPackingAt,
-    inboundAt: usage?.inboundAt || (usage?.warehouseArea && usage?.locationCode ? usage.finishedPackingAt : ''),
-    handedOverAt: usage?.handedOverAt || usage?.dispatchAt,
-    disabled: master.currentStatus === 'DISABLED',
-  })
-  return toTransferBagLifecycleView(lifecycle)
-}
-```
-
-- [ ] **步骤 6：验证模型与旧数据兼容**
-
-运行：
+- [ ] **步骤 6：运行检查**
 
 ```bash
 npm run check:transfer-bag-three-status
 npm run check:transfer-bag-mobile-closed-loop
 ```
 
-预期：两个命令均 PASS；旧数据能读取，但新投影只输出三个主状态。
+预期：均 PASS；同袋多周期、幂等追加和历史模糊数据用例通过。
 
-- [ ] **步骤 7：提交**
+- [ ] **步骤 7：提交周期与事实账**
 
 ```bash
-git add src/data/fcs/cutting/transfer-bag-runtime.ts src/pages/process-factory/cutting/transfer-bags-model.ts scripts/check-transfer-bag-three-status.ts
-git commit -m "refactor: unify transfer bag lifecycle vocabulary"
+git add src/data/fcs/cutting/transfer-bag-runtime.ts src/data/fcs/cutting/cutting-runtime-event-ledger.ts src/pages/process-factory/cutting/wait-handover-runtime.ts src/pages/process-factory/cutting/transfer-bags-model.ts src/pages/process-factory/cutting/transfer-bags-projection.ts scripts/check-transfer-bag-three-status.ts
+git commit -m "refactor: 统一中转袋使用周期与事实账"
 ```
 
-### 任务 3：按业务事实拆开装袋、入仓、交出和回收
+---
+
+## 5. 任务 3：收口 Web 待交出仓为真实袋级事实路径
 
 **文件：**
 
-- 修改：`src/data/fcs/cutting/transfer-bag-runtime.ts`
-- 修改：`src/pages/process-factory/cutting/transfer-bags/handlers.ts`
-- 修改：`src/pages/process-factory/cutting/transfer-bag-return-model.ts`
-- 修改：`src/pages/process-factory/cutting/wait-handover-web-actions.ts`
 - 修改：`src/pages/process-factory/cutting/warehouse-hub.ts`
-- 修改：`scripts/check-transfer-bag-three-status.ts`
+- 修改：`src/pages/process-factory/cutting/wait-handover-web-actions.ts`
+- 修改：`src/pages/process-factory/cutting/wait-handover-runtime.ts`
+- 修改：`src/main-handlers/fcs-handlers.ts`
 - 修改：`scripts/check-web-cutting-transfer-bag-actions.ts`
+- 修改：`tests/cutting-wait-handover-web-modal.spec.ts`
+- 修改：`tests/cutting-runtime-event-ledger-pda-web.spec.ts`
 
-- [ ] **步骤 1：编写动作转换失败用例**
+- [ ] **步骤 1：把检查改成真实闭环红灯**
 
-专项检查至少覆盖：
+检查必须验证：
 
-```ts
-assert.equal(afterBagging.mainStatus, 'IN_USE')
-assert.equal(afterBagging.flowStage, 'PACKED')
-assert.equal(afterInbound.mainStatus, 'IN_USE')
-assert.equal(afterInbound.flowStage, 'INBOUND_STORED')
-assert.equal(afterHandover.mainStatus, 'IN_USE')
-assert.equal(afterHandover.flowStage, 'HANDED_OVER_WAITING_RETURN')
-assert.equal(afterReusableReturn.mainStatus, 'IDLE')
-assert.equal(afterReusableReturn.flowStage, null)
-assert.equal(afterScrap.mainStatus, 'DISABLED')
-assert.equal(afterScrap.flowStage, null)
-assert.equal(afterDiscrepancyOnly.mainStatus, 'IDLE')
-```
+- 点击页面实际按钮后，运行时事实数量增加。
+- 页面重新渲染后仍显示成功结果。
+- 主列表/详情投影同步变化。
+- 仅改变 `runtimeCandidates/runtimeStates` 不算通过。
+- 双击或回车加点击不新增第二条事实。
 
-- [ ] **步骤 2：运行检查确认失败**
-
-运行：
+- [ ] **步骤 2：确认现有双处理器问题会失败**
 
 ```bash
-npm run check:transfer-bag-three-status
 npm run check:web-cutting-transfer-bag-actions
+npx playwright test tests/cutting-wait-handover-web-modal.spec.ts
 ```
 
-预期：FAIL，现有处理仍把装袋、入仓或交出过程写成主状态，或把差异写成
-`SCRAP_CLOSED`。
+- [ ] **步骤 3：保留一个动作分发入口**
 
-- [ ] **步骤 3：装袋只写袋内事实**
+选择一个统一入口负责：
 
-在装袋确认成功路径写入：
+1. 解析页面动作。
+2. 校验最新生命周期。
+3. 追加事实。
+4. 根据事实返回成功结果。
+5. 局部刷新当前工作台。
+
+另一个处理器删除，或收口为不修改业务状态的纯校验/适配函数。主处理器注册顺序不得再改变写入结果。
+
+统一入口的返回契约固定为：
 
 ```ts
-usage.flowStage = 'PACKED'
-usage.packedAt = now
-usage.finishedPackingAt = now
-master.currentStatus = 'IN_USE'
-```
-
-不得在装袋动作写入库区、库位、接收任务或交出时间。
-
-- [ ] **步骤 4：入仓只写仓位事实**
-
-入仓动作必须复用已有打开周期，并要求：
-
-```ts
-usage.flowStage === 'PACKED'
-```
-
-成功后只写：
-
-```ts
-usage.flowStage = 'INBOUND_STORED'
-usage.inboundAt = now
-usage.warehouseArea = selectedArea
-usage.locationCode = selectedLocation
-```
-
-不得新建第二个袋内关系或重新扫描菲票。
-
-- [ ] **步骤 5：交出只处理完整中转袋**
-
-交出动作只接受：
-
-```ts
-usage.flowStage === 'INBOUND_STORED'
-```
-
-成功后写：
-
-```ts
-usage.flowStage = 'HANDED_OVER_WAITING_RETURN'
-usage.handedOverAt = now
-usage.dispatchAt = now
-usage.receiverId = task.sewingFactoryId
-usage.receiverName = task.sewingFactoryName
-```
-
-不得增加菲票选择、数量输入或部分交出路径。
-
-- [ ] **步骤 6：特殊工艺回仓恢复入仓阶段**
-
-特殊工艺回仓完成时：
-
-```ts
-usage.flowStage = 'INBOUND_STORED'
-usage.inboundAt = now
-usage.sourceType = 'SPECIAL_CRAFT_RETURN'
-usage.sourceHandoverRecordId = event.sourceHandoverRecordId
-```
-
-如果现有类型没有 `sourceType` 或 `sourceHandoverRecordId`，在运行时使用周期上增加可选字段，并在投影保留，不把来源类型作为主状态。
-
-- [ ] **步骤 7：修正回收与报废**
-
-`closeTransferBagUsageCycle()` 必须始终关闭使用周期：
-
-```ts
-closureStatus: 'CLOSED'
-```
-
-并把袋处理结果独立为：
-
-```ts
-nextBagStatus: decision.reusableDecision === 'DISABLED' ? 'DISABLED' : 'IDLE'
-```
-
-差异只加入 `warningMessages`，不得改变 `closureStatus` 或
-`nextBagStatus`。
-
-- [ ] **步骤 8：运行专项检查**
-
-运行：
-
-```bash
-npm run check:transfer-bag-three-status
-npm run check:web-cutting-transfer-bag-actions
-npx tsx scripts/check-cutting-wait-handover-transfer-bag-flow.ts
-```
-
-预期：三状态专项检查和 Web 检查 PASS；完整流转脚本不再出现旧状态口径失败。
-
-- [ ] **步骤 9：提交**
-
-```bash
-git add src/data/fcs/cutting/transfer-bag-runtime.ts src/pages/process-factory/cutting/transfer-bags/handlers.ts src/pages/process-factory/cutting/transfer-bag-return-model.ts src/pages/process-factory/cutting/wait-handover-web-actions.ts src/pages/process-factory/cutting/warehouse-hub.ts scripts/check-transfer-bag-three-status.ts scripts/check-web-cutting-transfer-bag-actions.ts
-git commit -m "fix: separate transfer bag flow facts from main status"
-```
-
-### 任务 4：调整中转袋 Web 列表、详情和回收确认
-
-**文件：**
-
-- 修改：`src/pages/process-factory/cutting/transfer-bags/state.ts`
-- 修改：`src/pages/process-factory/cutting/transfer-bags/list.ts`
-- 修改：`src/pages/process-factory/cutting/transfer-bags/detail.ts`
-- 修改：`src/pages/process-factory/cutting/transfer-bags/dialogs.ts`
-- 修改：`scripts/check-transfer-bag-three-status.ts`
-
-- [ ] **步骤 1：增加 Web 渲染红灯断言**
-
-专项脚本读取页面源文件并断言：
-
-```ts
-assert(source.includes(\"['空闲', '使用中', '已报废']\"))
-assert(source.includes(\"['菲票已装袋', '入仓暂存中', '已交出待回收']\"))
-assert(!source.includes(\"'交出装袋中'\"))
-```
-
-- [ ] **步骤 2：运行检查确认失败**
-
-运行：
-
-```bash
-npm run check:transfer-bag-three-status
-```
-
-预期：FAIL，现有列表仍展示七个“当前状态”选项。
-
-- [ ] **步骤 3：拆分列表筛选**
-
-`MasterStatusFilter` 只允许：
-
-```ts
-type MasterStatusFilter = 'ALL' | '空闲' | '使用中' | '已报废'
-```
-
-`MasterUseStageFilter` 只允许：
-
-```ts
-type MasterUseStageFilter =
-  | 'ALL'
-  | '菲票已装袋'
-  | '入仓暂存中'
-  | '已交出待回收'
-```
-
-筛选栏分别显示“中转袋状态”和“当前流转阶段”。
-
-- [ ] **步骤 4：拆分表格列与摘要**
-
-主列表保持 `renderStandardListPage`、
-`renderStandardListTable` 和 `renderTablePagination`，新增两个独立列：
-
-```ts
-{ key: 'mainStatus', label: '中转袋状态', required: true, sortable: true }
-{ key: 'flowStage', label: '当前流转阶段', required: true, sortable: true }
-```
-
-空闲和已报废的阶段统一显示 `—`。摘要卡只统计三个主状态，不把阶段重复计入袋总数。
-
-- [ ] **步骤 5：调整详情头部**
-
-详情头部固定显示：
-
-```text
-中转袋编号
-中转袋状态
-当前流转阶段
-当前库区库位 / 接收方
-```
-
-历史周期仍展示内部过程和业务记录，但不得用历史过程覆盖当前主状态。
-
-- [ ] **步骤 6：简化回收确认表单**
-
-`conditionDraft` 收口为：
-
-```ts
-{
-  reusableDecision: 'REUSABLE' | 'DISABLED'
-  damageType: string
-  note: string
+export interface WaitHandoverActionResult {
+  handled: boolean
+  success: boolean
+  factId?: string
+  message: string
+  refreshTargets: Array<'summary' | 'bagging' | 'inbound' | 'handover'>
 }
 ```
 
-界面只保留：
+- [ ] **步骤 4：拆开装袋和入仓**
 
-- 回收结果：可继续使用 / 已报废。
-- 报废说明：仅选择已报废时必填。
-- 备注。
+装袋：
 
-删除现有附加处理字段和其他中间结果。
+- 接收袋号和菲票。
+- 第一张菲票确定生产单。
+- 确认后创建周期并写 `BAGGING_CONFIRMED`。
 
-- [ ] **步骤 7：验证列表治理与局部交互**
+入仓：
 
-运行：
+- 只接收袋号、库区、库位。
+- 从当前装袋事实读取袋内快照。
+- `appendWaitHandoverInboundEvent()` 不再接受页面传入的菲票数组。
+- 删除入仓弹窗中的菲票扫描/选择输入。
+
+入仓命令只能是：
+
+```ts
+interface ConfirmTransferBagInboundCommand {
+  bagCode: string
+  warehouseArea: string
+  locationCode: string
+  operatorId: string
+  operatorName: string
+}
+```
+
+- [ ] **步骤 5：实现整袋交出**
+
+- 一次命令只接收一只袋和一个接收任务/工厂。
+- 系统读取完整装袋快照。
+- 任一袋内菲票已存在本次交出时，整次阻断。
+- 不过滤已交菲票后提交剩余菲票。
+- 一只袋生成一条袋级交出记录。
+- “中转袋交出”页签继续渲染已完成交出记录。
+- 删除新写“交出装袋确认”的入口和事件。
+
+交出命令只能是：
+
+```ts
+interface ConfirmWholeBagHandoverCommand {
+  bagCode: string
+  receiverTaskId: string
+  receiverFactoryId: string
+  operatorId: string
+  operatorName: string
+}
+```
+
+- [ ] **步骤 6：验证局部刷新和性能**
+
+打开/关闭弹窗、提交、切页签不触发 `root.innerHTML` 级整页重绘；成功后只更新相关列表、摘要和弹窗区域，响应目标不高于 200ms。
+
+- [ ] **步骤 7：运行检查**
 
 ```bash
-npm run check:transfer-bag-three-status
-npm run check:list-page-governance
 npm run check:web-cutting-transfer-bag-actions
+npx tsx scripts/check-cutting-wait-handover-transfer-bag-flow.ts
+npx playwright test tests/cutting-wait-handover-web-modal.spec.ts
+npx playwright test tests/cutting-runtime-event-ledger-pda-web.spec.ts
 ```
 
-预期：全部 PASS；筛选、详情和弹窗不触发不必要整页重绘。
+预期：全部 PASS；页面重载后仍能看到事实，重复确认不会增加事实数。
 
-- [ ] **步骤 8：提交**
+- [ ] **步骤 8：提交 Web 真实动作闭环**
 
 ```bash
-git add src/pages/process-factory/cutting/transfer-bags/state.ts src/pages/process-factory/cutting/transfer-bags/list.ts src/pages/process-factory/cutting/transfer-bags/detail.ts src/pages/process-factory/cutting/transfer-bags/dialogs.ts scripts/check-transfer-bag-three-status.ts
-git commit -m "feat: show transfer bag status and flow stage separately"
+git add src/pages/process-factory/cutting/warehouse-hub.ts src/pages/process-factory/cutting/wait-handover-web-actions.ts src/pages/process-factory/cutting/wait-handover-runtime.ts src/main-handlers/fcs-handlers.ts scripts/check-web-cutting-transfer-bag-actions.ts tests/cutting-wait-handover-web-modal.spec.ts tests/cutting-runtime-event-ledger-pda-web.spec.ts
+git commit -m "fix: 打通中转袋Web袋级事实闭环"
 ```
 
-### 任务 5：对齐 PDA、整袋交出和二维码展示
+---
+
+## 6. 任务 4：让 PDA 装袋、入仓、交出写同一事实账
 
 **文件：**
 
 - 修改：`src/pages/pda-cutting-inbound.ts`
 - 修改：`src/pages/pda-cutting-handover.ts`
-- 修改：`src/pages/pda-transfer-bag-detail.ts`
-- 修改：`src/pages/print/templates/label-print-template.ts`
-- 修改：`src/pages/process-factory/cutting/transfer-bags-projection.ts`
+- 修改：`src/main-handlers/pda-handlers.ts`
+- 修改：`src/pages/process-factory/cutting/wait-handover-runtime.ts`
 - 修改：`scripts/check-pda-cutting-inbound-workflow.ts`
 - 修改：`scripts/check-pda-cutting-transfer-bag-handover.ts`
-- 修改：`scripts/check-transfer-bag-mobile-closed-loop.ts`
+- 修改：`tests/cutting-runtime-event-ledger-pda-web.spec.ts`
 
-- [ ] **步骤 1：先改 PDA 检查为新契约**
+- [ ] **步骤 1：反转旧 Mock-only 检查**
 
-装袋/入仓 Mock 账袋结构改为：
+删除“不得写入运行时事件账”一类旧正向断言，改为：
+
+- PDA 成功后存在统一事实。
+- 重新创建页面状态仍能恢复结果。
+- Web 重新渲染可见 PDA 事实。
+- PDA 临时账只是由事实派生的展示缓存。
+
+- [ ] **步骤 2：确认红灯**
+
+```bash
+npm run check:pda-cutting-inbound-workflow
+npm run check:pda-cutting-transfer-bag-handover
+```
+
+- [ ] **步骤 3：PDA 装袋**
+
+- 只接受“空闲 / —”。
+- 逐张扫码但确认时一次写入完整袋内快照。
+- 同生产单校验与 Web 相同。
+- 事实写入成功后显示“菲票已装袋”。
+
+- [ ] **步骤 4：PDA 入仓**
+
+- 只接受“使用中 / 菲票已装袋”。
+- 输入只包含袋号、库区、库位。
+- 不要求菲票扫描。
+- 事实写入成功后显示“入仓成功”。
+
+- [ ] **步骤 5：PDA 整袋交出**
+
+- 只接受“使用中 / 入仓暂存中”。
+- 输入为袋号和接收任务/工厂。
+- 不扫描单张菲票，不复用旧通用单票交出写入路径。
+- 写入与 Web 相同的袋级 `HANDOVER_CONFIRMED`。
+- 成功后显示“整袋交出成功”。
+- 删除 PDA 新写“交出装袋确认”入口。
+
+PDA 必须复用与 Web 相同的命令：
 
 ```ts
-{
-  bagCode: string
-  mainStatus: TransferBagMainStatusKey
-  flowStage: TransferBagFlowStageKey | null
-  ticketNos: string[]
-  locationLabel: string
+const result = confirmWholeBagHandover({
+  bagCode,
+  receiverTaskId,
+  receiverFactoryId,
+  operatorId,
+  operatorName,
+})
+```
+
+- [ ] **步骤 6：跨端和幂等检查**
+
+```bash
+npm run check:pda-cutting-inbound-workflow
+npm run check:pda-cutting-transfer-bag-handover
+npx playwright test tests/cutting-runtime-event-ledger-pda-web.spec.ts
+```
+
+覆盖 PDA 重试、Web 重放和同袋冲突动作。
+
+- [ ] **步骤 7：提交 PDA 事实闭环**
+
+```bash
+git add src/pages/pda-cutting-inbound.ts src/pages/pda-cutting-handover.ts src/main-handlers/pda-handlers.ts src/pages/process-factory/cutting/wait-handover-runtime.ts scripts/check-pda-cutting-inbound-workflow.ts scripts/check-pda-cutting-transfer-bag-handover.ts tests/cutting-runtime-event-ledger-pda-web.spec.ts
+git commit -m "fix: 统一中转袋PDA与Web事实写入"
+```
+
+---
+
+## 7. 任务 5：调整中转袋主列表、详情、回收和直接报废
+
+**文件：**
+
+- 修改：`src/pages/process-factory/cutting/transfer-bags/state.ts`
+- 修改：`src/pages/process-factory/cutting/transfer-bags/handlers.ts`
+- 修改：`src/pages/process-factory/cutting/transfer-bags/list.ts`
+- 修改：`src/pages/process-factory/cutting/transfer-bags/detail.ts`
+- 修改：`src/pages/process-factory/cutting/transfer-bags/dialogs.ts`
+- 修改：`src/pages/process-factory/cutting/transfer-bag-return-model.ts`
+- 修改：`scripts/check-transfer-bag-three-status.ts`
+- 修改：相关中转袋 Playwright 用例
+
+- [ ] **步骤 1：增加渲染和动作红灯**
+
+断言：
+
+- 状态筛选只有三个主状态。
+- 阶段筛选只有三个阶段。
+- 两者分别渲染为必需列。
+- 空闲和已报废阶段显示“—”。
+- 回收差异不会输出报废。
+- 直接报废必须填写原因并保存授权人。
+- 动作处理器不直接把旧主状态写为流程状态。
+
+- [ ] **步骤 2：拆分筛选、摘要和列**
+
+继续使用：
+
+- `renderStandardListPage`
+- `renderStandardListTable`
+- `renderTablePagination`
+
+要求：
+
+- 摘要按空闲、使用中、已报废统计。
+- 状态列和阶段列均为必需列。
+- 支持排序、显示、顺序和冻结。
+- 操作列固定右侧。
+- 宽表内部滚动。
+
+- [ ] **步骤 3：详情分层**
+
+头部显示袋号、主状态、阶段、当前位置/接收方和当前周期。
+
+详情独立展示并分页：
+
+- 袋内菲票。
+- 入仓记录。
+- 袋级交出记录。
+- 特殊工艺回仓。
+- 接收/回写。
+- 回收。
+- 报废。
+- 差异。
+- 历史周期。
+
+- [ ] **步骤 4：回收结论与差异分离**
+
+`closeTransferBagUsageCycle()`：
+
+- 可复用 → 关闭周期并派生空闲。
+- 不可复用 → 写报废事实并派生已报废。
+- `warningMessages` 或差异记录不改变回收结论。
+
+关闭结果固定为：
+
+```ts
+interface CloseTransferBagCycleResult {
+  usageCycleId: string
+  closeResult: 'REUSABLE' | 'DISABLED'
+  discrepancyIds: string[]
+  lifecycle: TransferBagLifecycleView
 }
 ```
 
-检查断言：
+- [ ] **步骤 5：增加主管直接报废**
 
-```ts
-assert.equal(validBagging.ledger.bags[bagCode].mainStatus, 'IN_USE')
-assert.equal(validBagging.ledger.bags[bagCode].flowStage, 'PACKED')
-assert.equal(validInbound.ledger.bags[bagCode].flowStage, 'INBOUND_STORED')
-```
+入口只对允许角色和非已报废袋展示。确认必须包含报废原因、操作者和时间。使用中直接报废要显式终止当前周期，不能静默覆盖未完成事实。
 
-交出检查断言：
-
-```ts
-const handedOverBag = candidates.bags.find((bag) => bag.bagCode === bagCode)
-assert.equal(handedOverBag?.mainStatus, 'IN_USE')
-assert.equal(handedOverBag?.flowStage, 'HANDED_OVER_WAITING_RETURN')
-assert.equal(submitResult.resultMessage, '整袋交出成功')
-```
-
-- [ ] **步骤 2：运行 PDA 检查确认失败**
-
-运行：
+- [ ] **步骤 6：验证**
 
 ```bash
-npm run check:pda-cutting-inbound-workflow
-npm run check:pda-cutting-transfer-bag-handover
-```
-
-预期：FAIL，现有 PDA 仍使用
-`EMPTY_READY / BAGGED_WAIT_INBOUND / INBOUNDED / HANDED_OVER / VOIDED`
-或“待交出 / 已交出”作为单一状态。
-
-- [ ] **步骤 3：改装袋和入仓候选判断**
-
-装袋只接受：
-
-```ts
-bag.mainStatus === 'IDLE' && bag.flowStage === null
-```
-
-入仓只接受：
-
-```ts
-bag.mainStatus === 'IN_USE' && bag.flowStage === 'PACKED'
-```
-
-页面成功反馈保持动作化：
-
-```text
-菲票已装袋
-入仓成功
-```
-
-员工不选择主状态或流转阶段。
-
-- [ ] **步骤 4：改整袋交出候选判断**
-
-交出只接受：
-
-```ts
-bag.mainStatus === 'IN_USE' && bag.flowStage === 'INBOUND_STORED'
-```
-
-成功后写入 `HANDED_OVER_WAITING_RETURN`，反馈为“整袋交出成功”。保留生产单、车缝任务和接收工厂一致性校验。
-
-- [ ] **步骤 5：统一二维码和打印展示**
-
-二维码详情和标签模板必须分别展示：
-
-```text
-中转袋状态：使用中
-当前流转阶段：入仓暂存中
-```
-
-不得显示 `IN_USE`、`READY_TO_DISPATCH` 或其他英文过程码。
-
-- [ ] **步骤 6：验证跨端闭环**
-
-运行：
-
-```bash
-npm run check:pda-cutting-inbound-workflow
-npm run check:pda-cutting-transfer-bag-handover
-npm run check:transfer-bag-mobile-closed-loop
 npm run check:transfer-bag-three-status
+npm run check:list-page-governance
+npx playwright test tests/cutting-transfer-bag-simplified-statuses.spec.ts
+npx playwright test tests/cutting-transfer-bag-detail-header.spec.ts
+npx playwright test tests/cutting-transfer-bag-detail-tabs.spec.ts
+npx playwright test tests/cutting-transfer-bag-confirm-local-refresh.spec.ts
 ```
 
-预期：全部 PASS。
+预期：全部 PASS；列表治理没有新增基线，差异和报废用例分离。
 
-- [ ] **步骤 7：提交**
+- [ ] **步骤 7：提交主列表、详情和回收报废**
 
 ```bash
-git add src/pages/pda-cutting-inbound.ts src/pages/pda-cutting-handover.ts src/pages/pda-transfer-bag-detail.ts src/pages/print/templates/label-print-template.ts src/pages/process-factory/cutting/transfer-bags-projection.ts scripts/check-pda-cutting-inbound-workflow.ts scripts/check-pda-cutting-transfer-bag-handover.ts scripts/check-transfer-bag-mobile-closed-loop.ts
-git commit -m "feat: align transfer bag PDA and QR lifecycle"
+git add src/pages/process-factory/cutting/transfer-bags/state.ts src/pages/process-factory/cutting/transfer-bags/handlers.ts src/pages/process-factory/cutting/transfer-bags/list.ts src/pages/process-factory/cutting/transfer-bags/detail.ts src/pages/process-factory/cutting/transfer-bags/dialogs.ts src/pages/process-factory/cutting/transfer-bag-return-model.ts scripts/check-transfer-bag-three-status.ts tests/cutting-transfer-bag-simplified-statuses.spec.ts tests/cutting-transfer-bag-detail-header.spec.ts tests/cutting-transfer-bag-detail-tabs.spec.ts tests/cutting-transfer-bag-confirm-local-refresh.spec.ts
+git commit -m "feat: 分层展示中转袋状态与流转阶段"
 ```
 
-### 任务 6：收口旧状态治理与完整流转门禁
+---
+
+## 8. 任务 6：特殊工艺、有袋/无袋回仓和多次交出
+
+**文件：**
+
+- 修改：`src/pages/process-factory/cutting/warehouse-hub.ts`
+- 修改：`src/pages/process-factory/cutting/wait-handover-runtime.ts`
+- 修改：`src/data/fcs/cutting/cutting-runtime-event-ledger.ts`
+- 修改：`scripts/check-cutting-special-craft-dispatch-return.ts`
+- 修改：`scripts/check-transfer-bag-three-status.ts`
+
+- [ ] **步骤 1：先写两类回仓红灯**
+
+带袋回仓：
+
+- 必须有实际袋号和来源交出记录。
+- 关闭当前交出流转段。
+- 写袋级回仓事实。
+- 阶段回到“入仓暂存中”。
+
+无袋回仓：
+
+- 只写菲票/裁片/库存/特殊工艺记录。
+- 不生成袋级事实。
+- 不改变任何袋状态。
+
+- [ ] **步骤 2：实现当前交出流转段关闭**
+
+特殊工艺带袋回仓后使用周期保持打开。再次交出时生成新的 `handoverLegId` 和顺序号，不复用旧交出记录。
+
+带袋回仓命令固定为：
+
+```ts
+interface ConfirmSpecialCraftBagReturnCommand {
+  bagCode: string
+  sourceHandoverRecordId: string
+  warehouseArea: string
+  locationCode: string
+  operatorId: string
+  operatorName: string
+}
+```
+
+- [ ] **步骤 3：保留差异**
+
+内容差异独立保存。物理袋已回仓时，袋位置阶段可以回到入仓；如果内容归属不满足后续任务，则阻断再次交出并给出明确原因。
+
+- [ ] **步骤 4：验证**
+
+```bash
+npm run check:cutting-special-craft-dispatch-return
+npm run check:transfer-bag-three-status
+npx tsx scripts/check-cutting-wait-handover-transfer-bag-flow.ts
+```
+
+预期：全部 PASS；有袋与无袋回仓、再次整袋交出分别通过。
+
+- [ ] **步骤 5：提交特殊工艺回仓边界**
+
+```bash
+git add src/pages/process-factory/cutting/warehouse-hub.ts src/pages/process-factory/cutting/wait-handover-runtime.ts src/data/fcs/cutting/cutting-runtime-event-ledger.ts scripts/check-cutting-special-craft-dispatch-return.ts scripts/check-transfer-bag-three-status.ts
+git commit -m "fix: 区分特殊工艺有袋与无袋回仓"
+```
+
+---
+
+## 9. 任务 7：下游接收边界、扫码详情和稳定标签
+
+**文件：**
+
+- 修改：`src/data/fcs/cutting/sewing-dispatch.ts`
+- 修改：`src/data/fcs/factory-mobile-warehouse.ts`
+- 修改：`src/pages/pda-handover-detail.ts`
+- 修改：`src/pages/pda-transfer-bag-detail.ts`
+- 修改：`src/pages/print/templates/label-print-template.ts`（仅发现动态字段泄漏时）
+- 修改：`scripts/check-cutting-sewing-dispatch.ts`
+- 修改：`scripts/check-handover-writeback-difference-unification.ts`
+- 修改：`scripts/check-pda-handover-detail-source.ts`
+- 修改：`scripts/check-transfer-bag-mobile-closed-loop.ts`
+
+- [ ] **步骤 1：增加下游不变式红灯**
+
+对同一袋依次执行：
+
+- 已扫码接收。
+- 接收差异。
+- 已回写。
+
+每一步都断言物理袋仍为“使用中 / 已交出待回收”，直到物理回收事实发生。
+
+- [ ] **步骤 2：区分记录状态和物理袋状态**
+
+保留 `packStatus` 等历史字段承载交出/接收/回写记录状态，但：
+
+- 页面标题和列名明确其记录含义。
+- 中转袋状态从统一生命周期投影读取。
+- 下游写回函数不修改物理袋主状态或阶段。
+
+下游页面需要同时展示时，使用两个明确字段：
+
+```ts
+{
+  transferBagLifecycle: buildTransferBagLifecycleByCode(bagCode),
+  receiveWritebackStatus: dispatchBag.packStatus,
+}
+```
+
+- [ ] **步骤 3：改扫码详情**
+
+- 状态和阶段来自统一生命周期投影。
+- 袋内内容可从派工/装袋快照读取。
+- 操作按钮根据角色和当前阶段显示。
+- 已交出后不再长期显示装袋、移除菲票、按菲票确认等不允许动作。
+- Web/PDA 扫同一袋显示一致。
+
+- [ ] **步骤 4：守住稳定标签**
+
+检查打印模板和二维码数据：
+
+- 只含袋号、稳定身份和必要固定归属。
+- 不打印主状态、阶段、周期、库位、接收状态。
+- 扫码后再查询实时状态。
+
+- [ ] **步骤 5：验证**
+
+```bash
+npm run check:cutting-sewing-dispatch
+npm run check:handover-writeback-difference-unification
+npm run check:pda-handover-detail-source
+npm run check:transfer-bag-mobile-closed-loop
+```
+
+预期：全部 PASS；标签仍为稳定身份，下游处理不会改变袋生命周期。
+
+- [ ] **步骤 6：提交下游与扫码详情边界**
+
+```bash
+git add src/data/fcs/cutting/sewing-dispatch.ts src/data/fcs/factory-mobile-warehouse.ts src/pages/pda-handover-detail.ts src/pages/pda-transfer-bag-detail.ts src/pages/print/templates/label-print-template.ts scripts/check-cutting-sewing-dispatch.ts scripts/check-handover-writeback-difference-unification.ts scripts/check-pda-handover-detail-source.ts scripts/check-transfer-bag-mobile-closed-loop.ts
+git commit -m "fix: 分离中转袋生命周期与接收回写状态"
+```
+
+---
+
+## 10. 任务 8：清理旧写入口和重写完整流转门禁
 
 **文件：**
 
 - 修改：`scripts/check-cutting-wait-handover-transfer-bag-flow.ts`
-- 修改：`scripts/check-cutting-clean-mainline.ts`
-- 修改：`scripts/check-transfer-bag-three-status.ts`
 - 修改：`scripts/check-web-cutting-transfer-bag-actions.ts`
+- 修改：`scripts/check-pda-cutting-inbound-workflow.ts`
+- 修改：`scripts/check-pda-cutting-transfer-bag-handover.ts`
+- 修改：`scripts/check-transfer-bag-three-status.ts`
+- 修改：`scripts/check-cutting-clean-mainline.ts`（仅加入精确、可维护的新写入禁用规则）
 
-- [ ] **步骤 1：删除旧多状态正向期望**
+- [ ] **步骤 1：删除旧正向期望**
 
-完整流转脚本不再要求以下值作为主状态：
+删除对以下行为的正向断言：
 
-```text
-可用
-入仓装袋中
-交出装袋中
-待交出
-已交出待回收
-报废
-```
+- 多个流程值作为中转袋主状态。
+- Web 只修改临时候选即判成功。
+- PDA 不写运行时事实账。
+- 按菲票局部交出。
+- 新增“交出装袋确认”。
+- 标签打印动态生命周期字段。
 
-改为分别断言：
+- [ ] **步骤 2：增加精确禁用规则**
 
-```text
-主状态：空闲、使用中、已报废
-流转阶段：菲票已装袋、入仓暂存中、已交出待回收
-```
+仅对中转袋新写路径检查：
 
-- [ ] **步骤 2：增加旧口径禁用检查**
+- 旧主状态不得再写入。
+- 新增“交出装袋确认”不得出现。
+- 入仓命令不得接收菲票数组或菲票输入。
+- 交出命令不得接收单张菲票或部分数量。
+- 页面不得把接收/回写状态标为“中转袋状态”。
 
-`check-cutting-clean-mainline.ts` 对中转袋相关文件新增禁用项：
+历史兼容读取必须使用精确文件/函数白名单，不能全局放宽。
 
-```ts
-[
-  'WAITING_CLEANING',
-  'WAITING_REPAIR',
-  \"currentStatus: '待交出'\",
-  \"currentStatus: '交出装袋中'\",
-]
-```
-
-兼容读取函数允许出现旧英文值，但必须限制在明确的迁移映射代码块；检查脚本应按文件和上下文白名单，不得全局放宽。
-
-- [ ] **步骤 3：运行专项与完整流转检查**
-
-运行：
+- [ ] **步骤 3：运行专项检查矩阵**
 
 ```bash
 npm run check:transfer-bag-three-status
@@ -850,104 +924,105 @@ npm run check:web-cutting-transfer-bag-actions
 npm run check:pda-cutting-inbound-workflow
 npm run check:pda-cutting-transfer-bag-handover
 npm run check:transfer-bag-mobile-closed-loop
+npm run check:cutting-special-craft-dispatch-return
+npm run check:cutting-sewing-dispatch
+npm run check:handover-writeback-difference-unification
 npx tsx scripts/check-cutting-wait-handover-transfer-bag-flow.ts
 ```
 
-预期：全部 PASS，完整流转脚本为 0 个失败。
-
-- [ ] **步骤 4：运行裁床全量检查并区分既有失败**
-
-运行：
+- [ ] **步骤 4：运行裁床全量检查**
 
 ```bash
 npm run check:cutting:all
 ```
 
-预期：
+如果出现新失败，停止并修复。若只剩已知宽表基线失败，记录为本任务外阻塞。
 
-- 本任务涉及的中转袋、PDA、Web 检查全部通过。
-- 如果仍只剩
-  `production-order-overview-view.ts: min-w >= 1600px`，记录为既有基线阻塞。
-- 如果出现任何新的失败，停止并修复后重跑。
-
-- [ ] **步骤 5：提交**
+- [ ] **步骤 5：提交旧口径治理门禁**
 
 ```bash
-git add scripts/check-cutting-wait-handover-transfer-bag-flow.ts scripts/check-cutting-clean-mainline.ts scripts/check-transfer-bag-three-status.ts scripts/check-web-cutting-transfer-bag-actions.ts
-git commit -m "test: enforce transfer bag three-status flow"
+git add scripts/check-cutting-wait-handover-transfer-bag-flow.ts scripts/check-web-cutting-transfer-bag-actions.ts scripts/check-pda-cutting-inbound-workflow.ts scripts/check-pda-cutting-transfer-bag-handover.ts scripts/check-transfer-bag-three-status.ts scripts/check-cutting-clean-mainline.ts
+git commit -m "test: 锁定中转袋三状态完整流转"
 ```
 
-### 任务 7：原型治理、浏览器验收与任务收据
+---
+
+## 11. 任务 9：原型治理、浏览器验收和最终收据
 
 **文件：**
 
 - 创建：`docs/prototype-review-records/2026-07-30-cutting-transfer-bag-three-status.md`
-- 修改：仅在自查发现本需求内问题时修改任务 1～6 已列文件。
+- 修改：仅限前述任务在自查中发现的问题。
 
 - [ ] **步骤 1：填写原型审查记录**
 
 必须覆盖：
 
-```text
-角色匹配
-Web / PDA 端类型
-任务清晰度
-主状态与流转阶段分层
-装袋 / 入仓 / 整袋交出 / 特殊工艺回仓边界
-重复操作、防错和失败反馈
-1366×768 与 1280×720
-弹窗局部刷新和 200ms 响应
-既有 production-order-overview-view.ts 宽表基线例外
-```
+- Web/PDA/下游接收角色和端类型。
+- 三主状态与三阶段分层。
+- 使用周期和交出流转段。
+- 装袋、入仓、整袋交出、特殊工艺有袋/无袋回仓、回收和报废。
+- 下游接收/回写与物理袋状态边界。
+- 稳定标签与实时扫码详情。
+- 重复操作、幂等、失败反馈和历史模糊数据。
+- 1366×768 和 1280×720。
+- 分页、宽表内部滚动、弹窗局部刷新和 200ms 响应目标。
+- 已知无关宽表基线例外。
 
 - [ ] **步骤 2：运行治理检查**
-
-运行：
 
 ```bash
 npm run check:list-page-governance
 npm run check:prototype-design-governance
 ```
 
-预期：两个命令均 PASS。
-
-- [ ] **步骤 3：启动局域网开发服务**
-
-运行：
+- [ ] **步骤 3：启动局域网服务**
 
 ```bash
 npm run dev -- --host 0.0.0.0 --port 61011
 ```
 
-如果端口占用，换用一个明确的空闲端口，并在验收记录中写明。
+获取局域网 IP，并用该 IP 验证目标路由返回 200。
 
-- [ ] **步骤 4：执行浏览器验收**
+- [ ] **步骤 4：浏览器验收**
 
 在 1366×768 和 1280×720 验证：
 
-1. `/fcs/craft/cutting/transfer-bags`
-   - 状态筛选只有空闲、使用中、已报废。
-   - 阶段筛选只有三个阶段。
-   - 空闲和已报废阶段显示 `—`。
-   - 操作列固定，表格在容器内滚动。
+1. 中转袋主列表
+   - 状态和阶段分列、分筛选。
+   - 空闲/已报废阶段显示“—”。
+   - 分页、列设置、冻结和固定操作列可用。
 2. Web 待交出仓
-   - 菲票装袋后为“使用中 / 菲票已装袋”。
-   - 入仓只扫袋和库位，完成后为“使用中 / 入仓暂存中”。
-   - 交出只扫袋和任务，完成后为“使用中 / 已交出待回收”。
+   - 装袋后重载仍为“使用中 / 菲票已装袋”。
+   - 入仓弹窗没有菲票输入。
+   - 整袋交出后“中转袋交出”页签新增袋级完成记录。
+   - 双击不产生重复事实。
 3. PDA
    - 每页一个主动作。
-   - 成功反馈分别为“菲票已装袋”“入仓成功”“整袋交出成功”。
-4. 回收
-   - 可继续使用变为空闲。
-   - 不可继续使用变为已报废。
-   - 数量差异不会自动报废。
-5. 二维码详情
-   - 主状态和流转阶段分开显示。
-   - 无英文状态码。
+   - 装袋、入仓、整袋交出后 Web 可见同一结果。
+4. 特殊工艺
+   - 带袋回仓改变袋阶段。
+   - 无袋回仓不改变袋。
+   - 同周期可再次整袋交出。
+5. 下游接收
+   - 接收、差异、回写不关闭袋周期。
+6. 回收与报废
+   - 可复用回收变空闲。
+   - 明确不可复用或主管报废才变已报废。
+   - 内容差异不会自动报废。
+7. 扫码详情
+   - Web/PDA 状态一致。
+   - 标签为稳定身份，详情为实时状态。
+   - 动作随角色和阶段变化。
 
-- [ ] **步骤 5：运行构建和最终 CodeGraph 同步**
+- [ ] **步骤 5：提交原型审查记录**
 
-运行：
+```bash
+git add docs/prototype-review-records/2026-07-30-cutting-transfer-bag-three-status.md
+git commit -m "docs: 记录中转袋三状态原型审查"
+```
+
+- [ ] **步骤 6：构建和 CodeGraph 最终同步**
 
 ```bash
 npm run build
@@ -955,59 +1030,63 @@ codegraph sync
 codegraph status
 ```
 
-预期：构建成功；CodeGraph 无待同步文件且工作树匹配。
+最后一次实质改动后必须重新运行，CodeGraph 不得有待同步文件。
 
-- [ ] **步骤 6：提交审查记录**
+- [ ] **步骤 7：记录最终阶段轨迹**
 
-```bash
-git add docs/prototype-review-records/2026-07-30-cutting-transfer-bag-three-status.md
-git commit -m "docs: record transfer bag three-status review"
-```
+如果本次实现使用了 Superpowers 技能，记录：
 
-- [ ] **步骤 7：生成任务收据**
+- 触发原因。
+- 实际技能调用证据。
+- 规格和计划产物。
+- 各任务实现提交。
+- 规格审查结论。
+- 代码质量审查结论。
+- 最终验证结果。
 
-运行：
+- [ ] **步骤 8：生成机器可读收据**
 
 ```bash
 receipt_dir=$(mktemp -d /tmp/higoods-transfer-bag-three-status-XXXXXX)
 npm run workflow:verify -- \
   --output "$receipt_dir/task-receipt.json" \
-  --task-boundary "将中转袋主状态收口为空闲、使用中、已报废，并统一装袋、入仓、整袋交出、特殊工艺回仓、回收、Web、PDA和二维码流转阶段"
+  --task-boundary "统一中转袋三主状态与三流转阶段，打通Web、PDA、特殊工艺、下游接收、物理回收、二维码详情及历史周期事实"
 ```
 
-预期：
+收据必须绑定最终 Git HEAD、工作区差异指纹、相关检查结果和 CodeGraph 同步状态。最后一次实质改动后旧收据失效。
 
-- 如果既有 `min-w-[2280px]` 已由其他任务修复，收据状态为 `verified`。
-- 如果该既有基线仍拦截 `check:cutting:all`，如实报告状态为
-  `implemented`，附上唯一既有阻塞；不得宣称全部验证通过。
+---
 
-## 3. 规格覆盖自检矩阵
+## 12. 规格覆盖矩阵
 
 | 规格要求 | 实现任务 |
 | --- | --- |
-| 主状态只保留空闲、使用中、已报废 | 任务 1、2、4、6 |
-| 三个流转阶段独立表达 | 任务 1、2、3、4 |
-| 菲票装袋只建立袋内事实 | 任务 3、5 |
-| 入仓只记录袋号、库区和库位 | 任务 3、5 |
-| 整袋交出 | 任务 3、5 |
-| 特殊工艺回仓保留来源并回到入仓阶段 | 任务 3 |
-| 回收只进入空闲或已报废 | 任务 3、4 |
-| 差异不得导致自动报废 | 任务 3、6 |
-| Web 状态列与阶段列分离 | 任务 4 |
-| PDA 单动作、员工不选状态 | 任务 5、7 |
-| 二维码跨端一致 | 任务 5、7 |
-| 历史旧状态兼容但不再写回 | 任务 2、6 |
-| 标准列表、原型治理、分辨率、性能 | 任务 4、7 |
-| CodeGraph 与任务收据 | 任务 7 |
+| 主状态只保留空闲、使用中、已报废 | 任务 1、2、5、8 |
+| 三个阶段独立表达 | 任务 1、2、5 |
+| 状态由事实纯派生 | 任务 1、2 |
+| 同袋多使用周期隔离 | 任务 1、2 |
+| 特殊工艺周期内多次交出 | 任务 2、6 |
+| 装袋确认创建周期且同生产单 | 任务 2、3、4 |
+| 入仓只输入袋号、库区、库位 | 任务 3、4、8 |
+| 整袋交出且一次一袋 | 任务 3、4、8 |
+| 取消新增“交出装袋确认” | 任务 3、4、8 |
+| Web 真实事实写入和单分发入口 | 任务 3 |
+| PDA 真实事实写入和跨端一致 | 任务 4 |
+| 回收、差异、直接报废分离 | 任务 5 |
+| 特殊工艺有袋/无袋分离 | 任务 6 |
+| 下游接收/差异/回写不改变袋状态 | 任务 7 |
+| 稳定标签和实时扫码详情 | 任务 7 |
+| 幂等、双击和跨端重放 | 任务 2、3、4、8 |
+| 历史模糊事实阻断 | 任务 2、5 |
+| 列表分页和标准列表治理 | 任务 5、9 |
+| 浏览器、构建、CodeGraph 和收据 | 任务 9 |
 
-## 4. 计划自检结论
+## 13. 计划自检结论
 
-- 规格覆盖度：设计规格第 2～14 节均已映射到任务和验收步骤。
-- 占位符扫描：计划没有未完成占位项；所有代码任务均给出具体类型、字段、命令和预期结果。
-- 类型一致性：统一使用
-  `TransferBagMainStatusKey`、
-  `TransferBagFlowStageKey` 和
-  `TransferBagLifecycleView`。
-- 范围控制：不修改无关菜单、全局布局、技术栈、状态管理体系或
-  `production-order-overview-view.ts`。
-- 实施策略：先专项红灯，再最小实现，按模型、动作、Web、PDA、治理逐步提交。
+- 代码核查覆盖：已覆盖真实 Web 路由与处理器顺序、运行时事件账、主档/周期投影、PDA Mock 与主处理器、特殊工艺、下游接收回写、扫码详情、打印模板和相关检查。
+- 业务覆盖：已覆盖物理袋身份、使用周期、交出流转段、三主状态、三阶段、装袋、入仓、整袋交出、特殊工艺有袋/无袋回仓、回收、报废、差异、接收回写和历史兼容。
+- 实施可执行性：每个任务都列出文件、红灯、实现约束、验证命令和提交边界。
+- 防止假闭环：明确要求事实账写入、页面重新渲染和 Web/PDA 跨端验证，不接受只修改临时账或只检查成功文案。
+- 标签边界：保留稳定物理标签，不把实时状态打印到可复用标签。
+- 范围控制：不修改无关菜单、全局布局、技术栈、部署配置或已知无关宽表页面。
+- 已知例外：裁床全量检查的既有宽表失败必须单独报告，不得掩盖或扩大本次需求。
