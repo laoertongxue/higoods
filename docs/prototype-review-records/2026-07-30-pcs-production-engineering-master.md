@@ -63,6 +63,9 @@
 | 一致性修复缺少“当前可执行”与“仍被前序阻塞”两类 hydrate 回归 | `点错风险` | 商品负责人、数据治理人员 | 新增两组正式数据缺失场景：当前可执行节点保持“数据待补齐”，被更早开放节点阻塞的后续节点保持“未开始／待前序完成”并清除旧结果 | 否 |
 | 历史项目已保存 `linkedStyleId`，但档案来源项目字段缺失或错误时会重复建档 | `协作断裂` | 商品企划、商品运营、数据治理人员 | 水合时先按项目保存的款式档案 ID 查找，再按来源项目查找；修复档案来源项目编号、编码、名称但保留全部业务字段。若 seed 补回同项目旧主档，仅解除旧主档的项目来源关联；跨现存项目占用同一档案 ID 时明确拦截，仓储创建、更新和水合均保证档案 ID 唯一 | 否 |
 | 历史五类专业任务和项目关系仍指向已移除的专业节点 | `协作断裂` | 版师、花型人员、样衣人员、数据治理人员 | 改版、制版、花型、首版样衣、首单样衣仓储水合时清空旧 `projectNodeId`，保留项目归属与来源业务对象；关系仓储移除五类旧专业节点关系，一致性检查不再忽略残留专业关系，初始化、固定五步、技术包合法关系保持不变 | 否 |
+| 历史款式档案来源节点为空或指向任意失效节点时仍未归属当前项目建立节点 | `协作断裂` | 商品企划、商品运营、数据治理人员 | 不再只识别特定旧节点；档案只要归属当前项目，来源节点一律重绑该项目当前 `PROJECT_INIT`，并用空、旧、任意失效节点三类真实快照回归 | 否 |
+| 档案水合按更新时间静默选择重复 ID，项目迁移又会边改边校验 | `协作断裂` | 商品企划、商品运营、数据治理人员 | 重复档案 ID 显式报冲突并保留原始存储；项目迁移先在内存完成全量冲突校验和迁移计划，任一项目冲突零写入，全部成功后一次性替换档案快照，重复执行不再写入 | 否 |
+| 制版真实入口和首单创建入口仍要求已删除的专业项目节点 | `协作断裂` | 版师、样衣人员、商品负责人 | 制版到首版、首单创建统一使用独立专业任务路径，只保留商品项目、款式／SPU及上游制版／首版来源，项目节点留空且不生成专业节点关系；创建前后对固定项目节点做全量深比较 | 否 |
 
 ## 6. 最终结论
 
@@ -80,6 +83,8 @@
 - 制版、花型、首版样衣、首单样衣与改版均按独立专业任务保存；有工程主单归属时只记录真实项目标识，项目节点留空。独立改款／设计任务可以暂不关联项目，但必须关联合法款式／SPU及正式需求来源；确定做大货后再创建工程主单。
 - 独立制版生成技术包只回写制版任务、技术包、商品项目与款式档案事实，不改写固定五步节点。
 - 历史项目以 `linkedStyleId` 为主关联事实修复档案来源；历史专业任务只保留项目归属，不再恢复已删除的专业项目节点。
+- 款式档案迁移必须先完成全量内存规划再一次写入；重复 ID 或多个旧主档冲突时保留原始字节并明确阻断水合。
+- 制版到首版、首版到首单的真实创建入口均不得要求或改写固定五步之外的项目节点。
 
 ## 7. 变更覆盖与验证
 
@@ -134,7 +139,11 @@
 - `npm test -- tests/pcs-professional-task-bootstrap-independent.spec.ts`：通过，五类专业任务种子均不绑定项目节点且不生成项目节点关系；有项目归属的任务只关联真实项目，独立改款／设计任务只允许关联可解析的正式款式／SPU和需求来源
 - `npm test -- tests/pcs-project-linked-style-archive-migration.spec.ts`：通过，真实 `localStorage` 中仅按 `linkedStyleId` 存在且来源项目字段缺失／错误的历史档案保持单一 ID，来源项目修复且备注、卖点、详情等业务字段不变；重复档案 ID 创建被明确拦截
 - `npm test -- tests/pcs-professional-task-node-migration.spec.ts`：通过，真实 `localStorage` 中五类历史专业任务均保留项目和来源对象、清空旧节点绑定，五类旧节点关系全部移除，项目固定节点快照不变且无专业悬空关系一致性问题
-- `npm test -- tests/pcs-{revision,plate-making,pattern-task,first-sample,first-order-sample}*.spec.ts`：通过，五类专业模块共 31 个规格文件全量回归
+- `npm test -- tests/pcs-style-archive-transactional-migration.spec.ts`：通过，重复档案 ID 显式阻断且原始字节不变；多旧主档冲突零写入；成功迁移只写一次并保持幂等
+- `npm run check:pcs-plate-sample-readiness`：通过，制版完成后可直接创建独立首版样衣任务，保留制版和技术包来源，项目节点创建前后全量不变
+- `npm test -- tests/pcs-first-order-sample-independent-entry.spec.ts`：通过，首单真实入口保留商品项目和正式首版样衣来源，不生成专业节点关系且不改写项目固定节点
+- `node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-first-order-sample-node-writeback.ts`：通过，首单独立入口与详情保存均保持项目节点隔离
+- `npm test -- tests/pcs-{revision,plate-making,pattern-task,first-sample,first-order-sample}*.spec.ts`：通过，五类专业模块共 32 个规格文件全量回归
 - `npm test -- tests/pcs-project-data-consistency-repair-order.spec.ts`：通过，当前可执行的缺数据节点保持“数据待补齐”，仍受前序阻塞的后续节点保持“未开始／待前序完成”且清空旧结果
 - `npm test -- tests/pcs-plate-making-*.spec.ts tests/pcs-tech-pack-plate-primary-generation.spec.ts`：通过，独立制版任务可完成资料、档案和技术包联动且不改写项目节点
 - `npm test -- tests/pcs-first-order-sample-*.spec.ts`：通过，首单样衣多状态演示、独立详情保存、来源关系和旧节点入口边界均已验证

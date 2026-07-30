@@ -1,46 +1,46 @@
 import assert from 'node:assert/strict'
 
 import {
-  getProjectNodeRecordByWorkItemTypeCode,
+  getFirstOrderSampleTaskById,
+  resetFirstOrderSampleTaskRepository,
+} from '../src/data/pcs-first-order-sample-repository.ts'
+import {
+  listFirstSampleTasks,
+  resetFirstSampleTaskRepository,
+} from '../src/data/pcs-first-sample-repository.ts'
+import {
+  listProjectNodes,
   listProjects,
   resetProjectRepository,
 } from '../src/data/pcs-project-repository.ts'
 import { resetProjectRelationRepository } from '../src/data/pcs-project-relation-repository.ts'
-import { resetFirstSampleTaskRepository } from '../src/data/pcs-first-sample-repository.ts'
-import {
-  getFirstOrderSampleTaskById,
-  listFirstOrderSampleTasksByProjectNode,
-  resetFirstOrderSampleTaskRepository,
-} from '../src/data/pcs-first-order-sample-repository.ts'
-import {
-  createOrUpdateFirstOrderSampleTaskFromProjectNode,
-  listFirstOrderSourceFirstSampleOptions,
-  listFirstOrderTechPackVersionOptions,
-  updateFirstOrderSampleTaskDetailAndSync,
-} from '../src/data/pcs-first-order-sample-project-writeback.ts'
+import { updateFirstOrderSampleTaskDetailAndSync } from '../src/data/pcs-first-order-sample-project-writeback.ts'
+import { createFirstOrderSampleTaskWithProjectRelation } from '../src/data/pcs-task-project-relation-writeback.ts'
 
-// FIRST_ORDER_SAMPLE 的确认结果不能只依赖 firstOrderConclusionMap；这里直接检查正式仓储和项目节点回写。
 resetProjectRepository()
 resetFirstSampleTaskRepository()
 resetFirstOrderSampleTaskRepository()
 resetProjectRelationRepository()
 
-const projects = new Map(listProjects().map((project) => [project.projectCode, project]))
+const sourceFirstSample = listFirstSampleTasks().find((task) => task.projectId && task.sampleCode)
+assert.ok(sourceFirstSample, '缺少可作为首单来源的正式首版样衣')
+const project = listProjects().find((item) => item.projectId === sourceFirstSample.projectId)
+assert.ok(project, '首版样衣必须关联真实商品项目')
+const projectNodesBefore = listProjectNodes(project.projectId)
 
-const entryProject = projects.get('PRJ-20251216-028')
-assert.ok(entryProject, '缺少首单样衣节点进入场景项目')
-const entryNode = getProjectNodeRecordByWorkItemTypeCode(entryProject.projectId, 'FIRST_ORDER_SAMPLE')
-assert.ok(entryNode, '缺少 FIRST_ORDER_SAMPLE 节点')
-const sourceFirstSample = listFirstOrderSourceFirstSampleOptions(entryProject.projectId)[0]
-const sourceTechPack = listFirstOrderTechPackVersionOptions(entryProject)[0]
-assert.ok(sourceFirstSample, '缺少可选来源首版样衣')
-assert.ok(sourceTechPack?.sourceTechPackVersionId, '缺少 sourceTechPackVersionId 下拉选项')
-
-const created = createOrUpdateFirstOrderSampleTaskFromProjectNode({
-  projectId: entryProject.projectId,
-  projectNodeId: entryNode.projectNodeId,
+const created = createFirstOrderSampleTaskWithProjectRelation({
+  firstOrderSampleTaskId: 'FOS-INDEPENDENT-CHECK',
+  firstOrderSampleTaskCode: 'FOS-INDEPENDENT-CHECK',
+  projectId: project.projectId,
+  title: '首单样衣独立入口检查',
+  sourceType: '首版样衣打样',
+  upstreamModule: '首版样衣打样',
+  upstreamObjectType: '首版样衣打样任务',
+  upstreamObjectId: sourceFirstSample.firstSampleTaskId,
+  upstreamObjectCode: sourceFirstSample.firstSampleTaskCode,
   sourceFirstSampleTaskId: sourceFirstSample.firstSampleTaskId,
-  sourceTechPackVersionId: sourceTechPack.sourceTechPackVersionId,
+  sourceFirstSampleTaskCode: sourceFirstSample.firstSampleTaskCode,
+  sourceFirstSampleCode: sourceFirstSample.sampleCode,
   factoryId: 'factory-shenzhen-01',
   factoryName: '深圳工厂01',
   targetSite: '深圳',
@@ -49,20 +49,16 @@ const created = createOrUpdateFirstOrderSampleTaskFromProjectNode({
   productionReferenceRequiredFlag: false,
   chinaReviewRequiredFlag: false,
   correctFabricRequiredFlag: false,
-  ownerName: entryProject.ownerName,
+  samplePlanLines: [],
+  ownerName: project.ownerName,
   operatorName: '检查脚本',
 })
 assert.equal(created.ok, true, created.message)
-assert.ok(created.task, '必要信息创建后应生成正式首单样衣任务')
-assert.equal(created.projectNode?.latestInstanceId, created.task?.firstOrderSampleTaskId)
+assert.ok(created.task)
+assert.equal(created.task.projectNodeId, '')
+assert.equal(created.relation, null)
 
-const detailProject = projects.get('PRJ-20251216-029')
-assert.ok(detailProject, '缺少首单样衣详情回写场景项目')
-const detailNode = getProjectNodeRecordByWorkItemTypeCode(detailProject.projectId, 'FIRST_ORDER_SAMPLE')
-assert.ok(detailNode)
-const detailTask = listFirstOrderSampleTasksByProjectNode(detailProject.projectId, detailNode.projectNodeId)[0]
-assert.ok(detailTask)
-const detailSaved = updateFirstOrderSampleTaskDetailAndSync(detailTask.firstOrderSampleTaskId, {
+const detailSaved = updateFirstOrderSampleTaskDetailAndSync(created.task.firstOrderSampleTaskId, {
   status: '已通过',
   samplePlanLines: [
     {
@@ -85,23 +81,17 @@ const detailSaved = updateFirstOrderSampleTaskDetailAndSync(detailTask.firstOrde
   confirmedBy: '检查脚本',
 }, '检查脚本')
 assert.equal(detailSaved.ok, true, detailSaved.message)
-assert.equal(detailSaved.projectNode?.currentStatus, '已完成')
-const detailReloaded = getFirstOrderSampleTaskById(detailTask.firstOrderSampleTaskId)
-assert.equal(detailReloaded?.conclusionResult, '通过')
-assert.ok(
-  detailReloaded?.samplePlanLines.some((line) => line.linkedSampleCode === 'FOS-CHECK-001'),
-  '补齐后的样衣计划行必须写入正式首单样衣任务仓储',
+assert.equal(detailSaved.projectNode, null)
+
+const reloaded = getFirstOrderSampleTaskById(created.task.firstOrderSampleTaskId)
+assert.equal(reloaded?.projectNodeId, '')
+assert.equal(reloaded?.sourceFirstSampleTaskId, sourceFirstSample.firstSampleTaskId)
+assert.equal(reloaded?.conclusionResult, '通过')
+assert.ok(reloaded?.samplePlanLines.some((line) => line.linkedSampleCode === 'FOS-CHECK-001'))
+assert.deepEqual(
+  listProjectNodes(project.projectId),
+  projectNodesBefore,
+  '首单创建与详情保存不得改写商品项目固定节点',
 )
 
-const completedProject = projects.get('PRJ-20251216-030')
-assert.ok(completedProject, '缺少完成展示场景项目')
-const completedNode = getProjectNodeRecordByWorkItemTypeCode(completedProject.projectId, 'FIRST_ORDER_SAMPLE')
-assert.ok(completedNode)
-const completedTask = listFirstOrderSampleTasksByProjectNode(completedProject.projectId, completedNode.projectNodeId)[0]
-assert.ok(completedTask)
-assert.equal(completedTask.status, '已通过')
-assert.equal(completedTask.sourceTechPackVersionId, 'TDV-ID-0008')
-assert.equal(completedTask.samplePlanLines[0]?.sampleRole, '复用首版结论')
-assert.equal(completedTask.conclusionResult, '通过')
-
-console.log('FIRST_ORDER_SAMPLE 首单样衣节点创建、详情保存、正式仓储和项目回写检查通过。')
+console.log('首单样衣独立入口、详情保存和项目节点隔离检查通过。')

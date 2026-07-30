@@ -109,17 +109,20 @@ function normalizePendingItem(item: StyleArchivePendingItem): StyleArchivePendin
 }
 
 function hydrateSnapshot(snapshot: StyleArchiveStoreSnapshot): StyleArchiveStoreSnapshot {
-  const recordsByStyleId = new Map<string, StyleArchiveShellRecord>()
-  ;(Array.isArray(snapshot.records) ? snapshot.records : []).forEach((record) => {
-    const normalized = normalizeRecord(record)
-    const existing = recordsByStyleId.get(normalized.styleId)
-    if (!existing || normalized.updatedAt.localeCompare(existing.updatedAt) >= 0) {
-      recordsByStyleId.set(normalized.styleId, normalized)
-    }
+  const records = Array.isArray(snapshot.records) ? snapshot.records.map(normalizeRecord) : []
+  const styleIdCounts = new Map<string, number>()
+  records.forEach((record) => {
+    styleIdCounts.set(record.styleId, (styleIdCounts.get(record.styleId) || 0) + 1)
   })
+  const duplicateStyleIds = Array.from(styleIdCounts.entries())
+    .filter(([, count]) => count > 1)
+    .map(([styleId]) => styleId)
+  if (duplicateStyleIds.length > 0) {
+    throw new Error(`款式档案 ID 重复冲突：${duplicateStyleIds.join('、')}。请先处理重复档案，原始数据未改写。`)
+  }
   return {
     version: STYLE_ARCHIVE_STORE_VERSION,
-    records: Array.from(recordsByStyleId.values()),
+    records,
     pendingItems: Array.isArray(snapshot.pendingItems) ? snapshot.pendingItems.map(normalizePendingItem) : [],
   }
 }
@@ -194,14 +197,10 @@ function loadSnapshot(): StyleArchiveStoreSnapshot {
         pendingItems: parsed.pendingItems as StyleArchivePendingItem[],
       }),
     )
-    localStorage.setItem(STYLE_ARCHIVE_STORAGE_KEY, JSON.stringify(memorySnapshot))
     return cloneSnapshot(memorySnapshot)
-  } catch {
-    memorySnapshot = seedSnapshot()
-    if (canUseStorage()) {
-      localStorage.setItem(STYLE_ARCHIVE_STORAGE_KEY, JSON.stringify(memorySnapshot))
-    }
-    return cloneSnapshot(memorySnapshot)
+  } catch (error) {
+    memorySnapshot = null
+    throw error
   }
 }
 

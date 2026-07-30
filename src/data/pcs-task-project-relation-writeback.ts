@@ -44,10 +44,7 @@ import {
   getPlateTaskReviewMissingFields,
   getRevisionTaskCompletionMissingFields,
 } from './pcs-engineering-task-field-policy.ts'
-import {
-  buildFirstSampleProjectMeta,
-  syncFirstSampleTaskToProjectNode,
-} from './pcs-first-sample-project-writeback.ts'
+import { syncFirstSampleTaskToProjectNode } from './pcs-first-sample-project-writeback.ts'
 import {
   getPlateMakingTaskById,
   listPlateMakingTasks,
@@ -71,10 +68,7 @@ import {
   upsertFirstOrderSampleTaskPendingItem,
 } from './pcs-first-order-sample-repository.ts'
 import type { FirstOrderSampleTaskRecord } from './pcs-first-order-sample-types.ts'
-import {
-  buildFirstOrderProjectMeta,
-  syncFirstOrderSampleTaskToProjectNode,
-} from './pcs-first-order-sample-project-writeback.ts'
+import { syncFirstOrderSampleTaskToProjectNode } from './pcs-first-order-sample-project-writeback.ts'
 import {
   createDefaultSamplePlanLines,
   normalizeSamplePlanLines,
@@ -806,10 +800,6 @@ export function evaluatePlateFirstSampleReadiness(plateTaskId: string): PlateFir
   if (plateTask.status !== '已完成') blockingReasons.push('制版任务未完成')
   if (!isPlateTechPackReadyForSample(plateTask)) blockingReasons.push('技术包未生成或未生效')
   if (!plateTask.projectId) blockingReasons.push('未绑定商品项目')
-  if (plateTask.projectId && !getProjectNodeRecordByWorkItemTypeCode(plateTask.projectId, 'FIRST_SAMPLE')) {
-    blockingReasons.push('项目模板未配置首版样衣节点')
-  }
-
   const relatedPatternTasks = listRelatedPatternTasksForPlate(plateTask)
   const blockingPatternTasks = relatedPatternTasks.filter((task) => !isPatternTaskReadyForSample(task))
   if (blockingPatternTasks.length > 0) blockingReasons.push('关联花型任务未完成')
@@ -2667,18 +2657,6 @@ export function createFirstSampleTaskWithProjectRelation(
     return { ok: false, message: upstreamError, pendingItem }
   }
 
-  const { node, pendingItem: nodePending } = getNodeOrPending('首版样衣打样', project.projectId, project.projectCode, rawCode, 'FIRST_SAMPLE')
-  if (!node || nodePending) {
-    upsertFirstSampleTaskPendingItem(nodePending!)
-    return { ok: false, message: nodePending!.reason, pendingItem: nodePending! }
-  }
-
-  const cancelledPending = blockCancelledNode('首版样衣打样', rawCode, project.projectCode, node)
-  if (cancelledPending) {
-    upsertFirstSampleTaskPendingItem(cancelledPending)
-    return { ok: false, message: cancelledPending.reason, pendingItem: cancelledPending }
-  }
-
   const now = nowTaskText()
   const taskId = input.firstSampleTaskId || nextCode('FS', listFirstSampleTasks().length)
   const existing = getFirstSampleTaskById(taskId)
@@ -2689,7 +2667,7 @@ export function createFirstSampleTaskWithProjectRelation(
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectName: project.projectName,
-    projectNodeId: node.projectNodeId,
+    projectNodeId: '',
     workItemTypeCode: 'FIRST_SAMPLE',
     workItemTypeName: '首版样衣打样',
     sourceType: input.sourceType,
@@ -2715,41 +2693,13 @@ export function createFirstSampleTaskWithProjectRelation(
     legacyUpstreamRef: '',
   })
 
-  const relation = upsertProjectRelation({
-    ...relationPayload({
-      projectId: project.projectId,
-      projectCode: project.projectCode,
-      projectNodeId: node.projectNodeId,
-      workItemTypeCode: 'FIRST_SAMPLE',
-      workItemTypeName: '首版样衣打样',
-      sourceModule: '首版样衣打样',
-      sourceObjectType: '首版样衣打样任务',
-      sourceObjectId: task.firstSampleTaskId,
-      sourceObjectCode: task.firstSampleTaskCode,
-      sourceTitle: task.title,
-      sourceStatus: task.status,
-      businessDate: task.createdAt,
-      ownerName: task.ownerName,
-      operatorName: input.operatorName || '当前用户',
-    }),
-    relationRole: '执行记录',
-    note: JSON.stringify(buildFirstSampleProjectMeta(task)),
-  })
-
-  updateTaskNode(node, task, {
-    latestInstanceId: task.firstSampleTaskId,
-    latestInstanceCode: task.firstSampleTaskCode,
-    latestResultType: '已创建首版样衣打样任务',
-    latestResultText: '已创建首版样衣打样任务，待在详情中推进打样动作',
-    pendingActionType: '推进首版样衣打样',
-    pendingActionText: '请在首版样衣打样详情中开始打样、提交结果并填写结论',
-  }, Boolean(existing))
-  syncFirstSampleTaskToProjectNode({
-    firstSampleTaskId: task.firstSampleTaskId,
-    operatorName: input.operatorName || '当前用户',
-  })
   syncExistingProjectArchiveByProjectId(task.projectId, task.updatedBy)
-  return { ok: true, task, relation, message: '首版样衣打样任务已创建，已写项目关系，已更新项目节点。' }
+  return {
+    ok: true,
+    task,
+    relation: null,
+    message: '首版样衣打样任务已创建，并已保留商品项目与制版来源，不占用商品项目节点。',
+  }
 }
 
 export function createFirstSampleTaskFromPlate(
@@ -2926,18 +2876,6 @@ export function createFirstOrderSampleTaskWithProjectRelation(
     return { ok: false, message: upstreamError, pendingItem }
   }
 
-  const { node, pendingItem: nodePending } = getNodeOrPending('首单样衣打样', project.projectId, project.projectCode, rawCode, 'FIRST_ORDER_SAMPLE')
-  if (!node || nodePending) {
-    upsertFirstOrderSampleTaskPendingItem(nodePending!)
-    return { ok: false, message: nodePending!.reason, pendingItem: nodePending! }
-  }
-
-  const cancelledPending = blockCancelledNode('首单样衣打样', rawCode, project.projectCode, node)
-  if (cancelledPending) {
-    upsertFirstOrderSampleTaskPendingItem(cancelledPending)
-    return { ok: false, message: cancelledPending.reason, pendingItem: cancelledPending }
-  }
-
   const now = nowTaskText()
   const taskId = input.firstOrderSampleTaskId || nextCode('PP', listFirstOrderSampleTasks().length)
   const existing = getFirstOrderSampleTaskById(taskId)
@@ -2948,7 +2886,7 @@ export function createFirstOrderSampleTaskWithProjectRelation(
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectName: project.projectName,
-    projectNodeId: node.projectNodeId,
+    projectNodeId: '',
     workItemTypeCode: 'FIRST_ORDER_SAMPLE',
     workItemTypeName: '首单样衣打样',
     sourceType: input.sourceType,
@@ -2978,41 +2916,13 @@ export function createFirstOrderSampleTaskWithProjectRelation(
     legacyUpstreamRef: '',
   })
 
-  const relation = upsertProjectRelation({
-    ...relationPayload({
-      projectId: project.projectId,
-      projectCode: project.projectCode,
-      projectNodeId: node.projectNodeId,
-      workItemTypeCode: 'FIRST_ORDER_SAMPLE',
-      workItemTypeName: '首单样衣打样',
-      sourceModule: '首单样衣打样',
-      sourceObjectType: '首单样衣打样任务',
-      sourceObjectId: task.firstOrderSampleTaskId,
-      sourceObjectCode: task.firstOrderSampleTaskCode,
-      sourceTitle: task.title,
-      sourceStatus: task.status,
-      businessDate: task.createdAt,
-      ownerName: task.ownerName,
-      operatorName: input.operatorName || '当前用户',
-    }),
-    relationRole: '执行记录',
-    note: JSON.stringify(buildFirstOrderProjectMeta(task)),
-  })
-
-  updateTaskNode(node, task, {
-    latestInstanceId: task.firstOrderSampleTaskId,
-    latestInstanceCode: task.firstOrderSampleTaskCode,
-    latestResultType: '已创建首单样衣打样任务',
-    latestResultText: '已创建首单样衣打样任务，待在详情中推进首单动作',
-    pendingActionType: '推进首单样衣打样',
-    pendingActionText: '请在首单样衣打样详情中开始首单、提交结果并填写结论',
-  }, Boolean(existing))
-  syncFirstOrderSampleTaskToProjectNode({
-    firstOrderSampleTaskId: task.firstOrderSampleTaskId,
-    operatorName: input.operatorName || '当前用户',
-  })
   syncExistingProjectArchiveByProjectId(task.projectId, task.updatedBy)
-  return { ok: true, task, relation, message: '首单样衣打样任务已创建，已写项目关系，已更新项目节点。' }
+  return {
+    ok: true,
+    task,
+    relation: null,
+    message: '首单样衣打样任务已创建，并已保留商品项目与首版样衣来源，不占用商品项目节点。',
+  }
 }
 
 export function createDownstreamTasksFromRevision(

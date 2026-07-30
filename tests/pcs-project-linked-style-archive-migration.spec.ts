@@ -56,7 +56,7 @@ const historicalArchive = {
   sourceProjectId: '',
   sourceProjectCode: 'WRONG-CODE',
   sourceProjectName: '错误历史项目',
-  sourceProjectNodeId: '',
+  sourceProjectNodeId: 'arbitrary-removed-project-node',
   remark: '历史档案备注必须原样保留',
   sellingPointText: '历史档案卖点必须原样保留',
   detailDescription: '历史档案详情必须原样保留',
@@ -96,6 +96,11 @@ const projectInitNode = projectRepository
   .listProjectNodes(sourceProject.projectId)
   .find((node) => node.workItemTypeCode === 'PROJECT_INIT')
 assert.ok(projectInitNode)
+assert.equal(
+  migratedArchive.sourceProjectNodeId,
+  projectInitNode?.projectNodeId,
+  '任意非当前 PROJECT_INIT 的历史来源节点都必须重绑到当前项目建立节点',
+)
 assert.throws(
   () =>
     styleRepository.createStyleArchiveShell({

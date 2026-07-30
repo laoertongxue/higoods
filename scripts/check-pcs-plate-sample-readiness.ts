@@ -16,6 +16,7 @@ import {
   listPlateMakingTasks,
   replacePlateMakingTaskStore,
 } from '../src/data/pcs-plate-making-repository.ts'
+import { listProjectNodes } from '../src/data/pcs-project-repository.ts'
 
 const originalPlateTasks = listPlateMakingTasks()
 const originalPatternTasks = listPatternTasks()
@@ -98,12 +99,19 @@ try {
     task.upstreamObjectId !== 'PT-20260407-018' &&
     task.upstreamObjectCode !== 'PT-20260407-018'
   ))
+  const projectNodesBeforeCreate = listProjectNodes(plateWithExistingSample.projectId)
   const createdResult = createFirstSampleTaskFromPlate('PT-20260407-018', '验收脚本')
   assert.equal(createdResult.ok, true)
   assert.ok(createdResult.task, createdResult.message)
+  assert.equal(createdResult.task?.projectNodeId, '', '真实制版入口创建的首版样衣不得绑定已删除的专业项目节点')
   assert.equal(createdResult.task?.sourceType, '制版任务')
   assert.equal(createdResult.task?.upstreamObjectId, 'PT-20260407-018')
   assert.equal(createdResult.task?.sourceTechPackVersionId, 'tdv_seed_project_018_base')
+  assert.deepEqual(
+    listProjectNodes(plateWithExistingSample.projectId),
+    projectNodesBeforeCreate,
+    '真实制版入口创建首版样衣前后不得改写商品项目固定节点',
+  )
 
   const createdTask = listFirstSampleTasks().find((task) => task.upstreamObjectId === 'PT-20260407-018')
   assert.ok(createdTask, '制版完成后应创建首版样衣打样任务')

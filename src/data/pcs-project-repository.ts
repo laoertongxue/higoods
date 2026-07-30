@@ -11,11 +11,10 @@ import {
 } from './pcs-project-node-factory.ts'
 import { PCS_CHANNEL_OPTIONS, normalizePcsChannelCodes } from './pcs-channel-options.ts'
 import {
-  createStyleArchiveShell,
-  findStyleArchiveByProjectId,
-  getStyleArchiveById,
-  updateStyleArchive,
+  getStyleArchiveStoreSnapshot,
+  replaceStyleArchiveStore,
 } from './pcs-style-archive-repository.ts'
+import type { StyleArchiveShellRecord } from './pcs-style-archive-types.ts'
 import {
   buildProjectWorkspaceCategoryOptions,
   findProjectWorkspaceOptionById,
@@ -551,23 +550,20 @@ function mergeMissingBootstrapData(snapshot: PcsProjectStoreSnapshot): PcsProjec
   }
 }
 
-function collectRemovedStyleArchiveNodeIds(
-  snapshot: PcsProjectStoreSnapshot,
-): Map<string, Set<string>> {
-  const nodeIdsByProject = new Map<string, Set<string>>()
-  snapshot.nodes.forEach((node) => {
-    if (node.workItemTypeCode !== 'STYLE_ARCHIVE_CREATE') return
-    const nodeIds = nodeIdsByProject.get(node.projectId) || new Set<string>()
-    nodeIds.add(node.projectNodeId)
-    nodeIdsByProject.set(node.projectId, nodeIds)
-  })
-  return nodeIdsByProject
-}
-
 function ensureProjectStyleArchives(
   snapshot: PcsProjectStoreSnapshot,
-  removedStyleArchiveNodeIdsByProject: Map<string, Set<string>>,
 ): PcsProjectStoreSnapshot {
+  const styleSnapshot = getStyleArchiveStoreSnapshot()
+  const originalRecordsText = JSON.stringify(styleSnapshot.records)
+  const plannedRecords = styleSnapshot.records.map((record) => ({
+    ...record,
+    seasonTags: [...record.seasonTags],
+    styleTags: [...record.styleTags],
+    targetAudienceTags: [...record.targetAudienceTags],
+    targetChannelCodes: [...record.targetChannelCodes],
+    galleryImageIds: [...record.galleryImageIds],
+    galleryImageUrls: [...record.galleryImageUrls],
+  }))
   const currentProjectIds = new Set(snapshot.projects.map((project) => project.projectId))
   const projects = snapshot.projects.map((project) => {
     const projectArchiveNode = snapshot.nodes.find(
@@ -577,8 +573,24 @@ function ensureProjectStyleArchives(
       throw new Error(`商品项目 ${project.projectCode} 缺少“项目与档案建立”节点，无法补齐商品／款式档案。`)
     }
 
-    const linkedArchive = project.linkedStyleId ? getStyleArchiveById(project.linkedStyleId) : null
-    const archiveByProject = findStyleArchiveByProjectId(project.projectId)
+    const linkedArchiveIndex = project.linkedStyleId
+      ? plannedRecords.findIndex((record) => record.styleId === project.linkedStyleId)
+      : -1
+    const linkedArchive = linkedArchiveIndex >= 0 ? plannedRecords[linkedArchiveIndex]! : null
+    const archiveIndexesByProject = plannedRecords
+      .map((record, index) => ({ record, index }))
+      .filter(({ record }) => record.sourceProjectId === project.projectId)
+      .map(({ index }) => index)
+    const competingArchiveIndexes = linkedArchiveIndex >= 0
+      ? archiveIndexesByProject.filter((index) => index !== linkedArchiveIndex)
+      : archiveIndexesByProject
+    if (competingArchiveIndexes.length > 1) {
+      throw new Error(
+        `商品项目 ${project.projectCode} 存在多个历史款式主档：${competingArchiveIndexes.map((index) => plannedRecords[index]!.styleId).join('、')}。迁移已中止，原始档案未改写。`,
+      )
+    }
+    const archiveByProjectIndex = competingArchiveIndexes[0] ?? archiveIndexesByProject[0] ?? -1
+    const archiveByProject = archiveByProjectIndex >= 0 ? plannedRecords[archiveByProjectIndex]! : null
     if (
       linkedArchive &&
       linkedArchive.sourceProjectId &&
@@ -590,46 +602,33 @@ function ensureProjectStyleArchives(
       )
     }
     if (linkedArchive && archiveByProject && linkedArchive.styleId !== archiveByProject.styleId) {
-      const detachedArchive = updateStyleArchive(archiveByProject.styleId, {
+      plannedRecords[archiveByProjectIndex] = {
+        ...archiveByProject,
         sourceProjectId: '',
         sourceProjectCode: '',
         sourceProjectName: '',
         sourceProjectNodeId: '',
-      })
-      if (!detachedArchive) {
-        throw new Error(`商品项目 ${project.projectCode} 的历史重复主档关联解除失败。`)
       }
     }
-    const existingArchive = linkedArchive || archiveByProject
+    const existingArchiveIndex = linkedArchive ? linkedArchiveIndex : archiveByProjectIndex
+    const existingArchive = existingArchiveIndex >= 0 ? plannedRecords[existingArchiveIndex]! : null
     if (existingArchive) {
-      const removedStyleArchiveNodeIds =
-        removedStyleArchiveNodeIdsByProject.get(project.projectId) || new Set<string>()
-      const shouldRebindSourceNode =
-        existingArchive.sourceProjectNodeId === 'old-style-node' ||
-        removedStyleArchiveNodeIds.has(existingArchive.sourceProjectNodeId)
       const shouldRepairSourceProject =
         existingArchive.sourceProjectId !== project.projectId ||
         existingArchive.sourceProjectCode !== project.projectCode ||
         existingArchive.sourceProjectName !== project.projectName
-      const reboundArchive =
-        !shouldRepairSourceProject &&
-        (existingArchive.sourceProjectNodeId === projectArchiveNode.projectNodeId || !shouldRebindSourceNode)
-          ? existingArchive
-          : updateStyleArchive(existingArchive.styleId, {
-              ...(shouldRepairSourceProject
-                ? {
-                    sourceProjectId: project.projectId,
-                    sourceProjectCode: project.projectCode,
-                    sourceProjectName: project.projectName,
-                  }
-                : {}),
-              ...(shouldRebindSourceNode
-                ? { sourceProjectNodeId: projectArchiveNode.projectNodeId }
-                : {}),
-            })
-      if (!reboundArchive) {
-        throw new Error(`商品项目 ${project.projectCode} 的历史商品／款式档案来源节点改绑失败。`)
+      const reboundArchive: StyleArchiveShellRecord = {
+        ...existingArchive,
+        ...(shouldRepairSourceProject
+          ? {
+              sourceProjectId: project.projectId,
+              sourceProjectCode: project.projectCode,
+              sourceProjectName: project.projectName,
+            }
+          : {}),
+        sourceProjectNodeId: projectArchiveNode.projectNodeId,
       }
+      plannedRecords[existingArchiveIndex] = reboundArchive
       return normalizeProject({
         ...project,
         linkedStyleId: reboundArchive.styleId,
@@ -640,7 +639,7 @@ function ensureProjectStyleArchives(
     }
 
     const timestamp = project.createdAt || project.updatedAt || nowText()
-    const archive = createStyleArchiveShell({
+    const archive: StyleArchiveShellRecord = {
       styleId: project.linkedStyleId || `style_${project.projectId}`,
       styleCode: project.linkedStyleCode || `SPU-${project.projectCode}`,
       styleName: project.linkedStyleName || project.projectName,
@@ -692,7 +691,11 @@ function ensureProjectStyleArchives(
       updatedAt: project.updatedAt || timestamp,
       updatedBy: project.updatedBy || '系统迁移',
       legacyOriginProject: project.templateId || '',
-    })
+    }
+    if (plannedRecords.some((record) => record.styleId === archive.styleId)) {
+      throw new Error(`款式档案 ID ${archive.styleId} 已存在，无法为商品项目 ${project.projectCode} 新建主档。`)
+    }
+    plannedRecords.unshift(archive)
 
     return normalizeProject({
       ...project,
@@ -703,6 +706,12 @@ function ensureProjectStyleArchives(
     })
   })
 
+  if (JSON.stringify(plannedRecords) !== originalRecordsText) {
+    replaceStyleArchiveStore({
+      ...styleSnapshot,
+      records: plannedRecords,
+    })
+  }
   return {
     ...snapshot,
     projects,
@@ -710,7 +719,6 @@ function ensureProjectStyleArchives(
 }
 
 function hydrateSnapshot(snapshot: PcsProjectStoreSnapshot): PcsProjectStoreSnapshot {
-  const removedStyleArchiveNodeIdsByProject = collectRemovedStyleArchiveNodeIds(snapshot)
   const sourceVersion = typeof snapshot.version === 'number' && Number.isFinite(snapshot.version) ? snapshot.version : 0
   const normalized: PcsProjectStoreSnapshot = {
     version: PROJECT_STORE_VERSION,
@@ -731,10 +739,7 @@ function hydrateSnapshot(snapshot: PcsProjectStoreSnapshot): PcsProjectStoreSnap
   const pricingMockMigrated =
     sourceVersion < PROJECT_STORE_VERSION ? migrateSampleCostReviewPricingProjectMocks(decisionMigrated) : decisionMigrated
 
-  return ensureProjectStyleArchives(
-    repairProjectNodeSequences(mergeMissingBootstrapData(pricingMockMigrated)),
-    removedStyleArchiveNodeIdsByProject,
-  )
+  return ensureProjectStyleArchives(repairProjectNodeSequences(mergeMissingBootstrapData(pricingMockMigrated)))
 }
 
 function loadSnapshot(): PcsProjectStoreSnapshot {
@@ -769,7 +774,8 @@ function loadSnapshot(): PcsProjectStoreSnapshot {
     localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(memorySnapshot))
     return cloneSnapshot(memorySnapshot)
   } catch (error) {
-    throw new Error('商品项目本地快照读取或迁移失败，已保留原始数据。', {
+    const detail = error instanceof Error ? error.message : '未知错误'
+    throw new Error(`商品项目本地快照读取或迁移失败，已保留原始数据：${detail}`, {
       cause: error,
     })
   }

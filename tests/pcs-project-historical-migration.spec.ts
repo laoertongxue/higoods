@@ -134,9 +134,11 @@ historicalProjects.forEach((historicalProject) => {
     .listProjectNodes(historicalProject.projectId)
     .find((node) => node.workItemTypeCode === 'PROJECT_INIT')
   const projectIndex = historicalProjects.findIndex((project) => project.projectId === historicalProject.projectId)
-  const expectedSourceNodeId =
-    projectIndex === 0 ? projectInitNode?.projectNodeId : archiveSourceNodeIds[projectIndex]
-  assert.equal(styleArchive?.sourceProjectNodeId, expectedSourceNodeId)
+  assert.equal(
+    styleArchive?.sourceProjectNodeId,
+    projectInitNode?.projectNodeId,
+    `${historicalProject.projectCode} 的空、旧或任意失效来源节点都必须重绑到当前 PROJECT_INIT`,
+  )
   assert.equal(styleArchive?.remark, `历史档案业务备注必须保留-${projectIndex + 1}`)
   assert.equal(styleArchive?.sellingPointText, `历史档案卖点必须保留-${projectIndex + 1}`)
 })
