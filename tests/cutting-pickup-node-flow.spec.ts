@@ -10,6 +10,7 @@ async function resetStores(page: Page): Promise<void> {
   await page.evaluate(() => {
     localStorage.removeItem('productionMaterialPrepWorkflow')
     localStorage.removeItem('cuttingRuntimeEventLedger')
+    localStorage.removeItem('higood.fcs.cutting.pickup-discrepancies.v1')
     localStorage.removeItem('standard-list:/fcs/craft/cutting/pickup-management/ready')
     localStorage.removeItem('standard-list:/fcs/craft/cutting/pickup-management/incomplete')
     localStorage.setItem('fcs_pda_session', JSON.stringify({
@@ -26,6 +27,53 @@ async function resetStores(page: Page): Promise<void> {
 
 test.beforeEach(async ({ page }) => {
   await resetStores(page)
+})
+
+test('READY 只显示未编号托盘，INCOMPLETE 显示库位；现场差异阻断确认并留下主管证据', async ({ page }, testInfo) => {
+  testInfo.setTimeout(300_000)
+  await page.goto(readyPath)
+  const readyHref = await page.getByRole('row').filter({ hasText: '去领料' }).first()
+    .getByRole('link', { name: '去领料', exact: true }).getAttribute('href')
+  expect(readyHref).toBeTruthy()
+  await page.goto(readyHref!)
+  const readyTask = page.locator('[data-cutting-pickup-node-id]')
+  await expect(readyTask).toContainText('待领托盘（暂未编号）', { timeout: 60_000 })
+  await expect(readyTask).not.toContainText('来源库位：')
+
+  await page.goto(incompletePath)
+  const incompleteHref = await page.getByRole('row').filter({ hasText: '去领料' }).first()
+    .getByRole('link', { name: '去领料', exact: true }).getAttribute('href')
+  expect(incompleteHref).toBeTruthy()
+  await page.goto(`${incompleteHref!}&difference=1`)
+  const task = page.locator('[data-cutting-pickup-node-id]')
+  await expect(task).toContainText('来源库位：', { timeout: 60_000 })
+  await task.locator('[data-pda-warehouse-field="cutting-pickup-difference-qty"]').fill('2')
+  await task.locator('[data-pda-warehouse-field="cutting-pickup-difference-note"]').fill('实物少 2 yard')
+  await task.locator('[data-pda-warehouse-field="cutting-pickup-difference-photo"]').setInputFiles({
+    name: '现场差异.jpg',
+    mimeType: 'image/jpeg',
+    buffer: Buffer.from('prototype-photo'),
+  })
+  page.once('dialog', (dialog) => dialog.accept())
+  await task.locator('[data-pda-warehouse-action="report-cutting-pickup-difference"]').click()
+  await expect(task).toContainText('差异待主管处理，已阻断领料确认')
+  await expect(task.locator('[data-pda-warehouse-action="confirm-cutting-wp-pickup"]')).toBeDisabled()
+  page.once('dialog', (dialog) => dialog.accept())
+  await task.locator('[data-pda-warehouse-action="call-cutting-pickup-supervisor"]').click()
+  const evidence = await page.evaluate(() => {
+    const records = JSON.parse(localStorage.getItem('higood.fcs.cutting.pickup-discrepancies.v1') || '[]')
+    return records[0]
+  })
+  expect(evidence).toMatchObject({
+    differenceQty: 2,
+    operatorName: '裁床仓管',
+    photoName: '现场差异.jpg',
+    note: '实物少 2 yard',
+    status: '待主管处理',
+    supervisorRequestedBy: '裁床仓管',
+  })
+  expect(evidence.pickupNodeVersion).toBeGreaterThan(0)
+  expect(evidence.carrierLabel).toBeTruthy()
 })
 
 for (const [label, path] of [

@@ -17,6 +17,7 @@ import {
 } from '../../../components/ui/list-table-model.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
+import { listPickupDiscrepancies } from '../../../data/fcs/cutting/pickup-discrepancy.ts'
 import { renderProductionOrderIdentityCell } from '../../../data/fcs/production-order-identity.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
@@ -43,6 +44,7 @@ interface PickupListState {
   preferences: StandardListColumnPreferences
   columnSettingsOpen: boolean
   draggedColumnKey: string
+  selectedRecordGroupKey: string
 }
 
 const states = new Map<PickupListKind, PickupListState>()
@@ -95,6 +97,8 @@ function renderMaterialIdentity(row: PickupMaterialDemandRow): string {
         <div><span class="text-muted-foreground">应配</span><strong class="ml-1 tabular-nums">${formatQty(row.requiredQty, row.unit)}</strong></div>
         <div><span class="text-muted-foreground">当前配料</span><strong class="ml-1 tabular-nums">${formatQty(row.preparedQty, row.unit)}</strong></div>
         <div><span class="text-muted-foreground">累计领料</span><strong class="ml-1 tabular-nums">${formatQty(row.pickedQty, row.unit)}</strong></div>
+        <div><span class="text-muted-foreground">本轮可领</span><strong class="ml-1 tabular-nums">${formatQty(row.currentAvailableQty, row.unit)}</strong></div>
+        <div><span class="text-muted-foreground">领后仍缺</span><strong class="ml-1 tabular-nums">${formatQty(row.afterCurrentPickupRemainingQty, row.unit)}</strong></div>
       </div>
     </article>
   `
@@ -132,10 +136,28 @@ function renderOrderCell(group: PickupOrderGroup): string {
   </div>`
 }
 
+function renderStyleCell(group: PickupOrderGroup): string {
+  return `<div class="space-y-1 text-sm">
+    <div><span class="text-xs text-muted-foreground">款式</span><div class="font-medium">${escapeHtml(group.styleNo || '—')} ${escapeHtml(group.styleName || '')}</div></div>
+    <div><span class="text-xs text-muted-foreground">SPU</span><div class="break-all text-xs">${escapeHtml(group.spu || '—')}</div></div>
+  </div>`
+}
+
+function renderCurrentNodeCell(group: PickupOrderGroup): string {
+  return `<div class="space-y-1 text-sm">
+    <div class="font-medium">${escapeHtml(group.currentNodeState)}</div>
+    <div class="text-xs text-muted-foreground">最近领料人：${escapeHtml(group.latestPickerName || '暂无')}</div>
+    <div class="text-xs text-muted-foreground">最近领料时间：${escapeHtml(group.latestPickedAt || '暂无')}</div>
+  </div>`
+}
+
 function renderPickupAction(group: PickupOrderGroup): string {
   const href = `/fcs/pda/warehouse/wait-process?scope=cutting&action=pickup&pickupNodeId=${encodeURIComponent(group.pickupNodeId)}&version=${group.pickupNodeVersion}`
+  const differenceHref = `${href}&difference=1`
   return `<div class="space-y-1.5">
     <a href="${escapeHtml(href)}" class="inline-flex rounded-md bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700">去领料</a>
+    <button type="button" class="block text-left text-xs text-blue-700 hover:underline" data-pickup-list-action="open-pickup-records" data-group-key="${escapeHtml(group.groupKey)}">查看领料记录</button>
+    <a href="${escapeHtml(differenceHref)}" class="block text-xs text-amber-700 hover:underline">上报领料差异</a>
     <div class="max-w-[150px] text-xs leading-5 text-muted-foreground">一次领取本节点全部物料</div>
   </div>`
 }
@@ -195,24 +217,38 @@ function renderHistoryMaterials(group: PickupOrderGroup): string {
 
 const READY_COLUMNS: StandardListColumn<PickupOrderGroup>[] = [
   { key: 'productionOrder', title: '生产单', width: 230, required: true, freezeable: true, sortable: true, render: renderOrderCell, sortValue: (row) => row.productionOrderNo },
+  { key: 'style', title: '款式 / SPU', width: 220, freezeable: true, sortable: true, render: renderStyleCell, sortValue: (row) => `${row.styleNo}:${row.spu}` },
   { key: 'materials', title: '物料明细（全部需求）', width: 720, required: true, freezeable: true, render: renderAllMaterials },
   { key: 'readyCarrier', title: '配齐方式 / 待领托盘', width: 210, required: true, freezeable: true, sortable: true, render: renderReadyCarrier, sortValue: (row) => row.readySource },
-  { key: 'actions', title: '操作', width: 180, required: true, actionColumn: true, render: renderPickupAction },
+  { key: 'nodeState', title: '当前节点状态', width: 220, freezeable: true, sortable: true, render: renderCurrentNodeCell, sortValue: (row) => row.currentNodeState },
+  { key: 'actions', title: '操作', width: 170, required: true, actionColumn: true, render: renderPickupAction },
 ]
 
 const INCOMPLETE_COLUMNS: StandardListColumn<PickupOrderGroup>[] = [
   { key: 'productionOrder', title: '生产单', width: 230, required: true, freezeable: true, sortable: true, render: renderOrderCell, sortValue: (row) => row.productionOrderNo },
+  { key: 'style', title: '款式 / SPU', width: 220, freezeable: true, sortable: true, render: renderStyleCell, sortValue: (row) => `${row.styleNo}:${row.spu}` },
   { key: 'materials', title: '物料明细（全部需求）', width: 720, required: true, freezeable: true, render: renderAllMaterials },
   { key: 'locations', title: '当前全部库位及数量', width: 360, required: true, freezeable: true, render: renderAllLocations },
-  { key: 'actions', title: '操作', width: 180, required: true, actionColumn: true, render: renderPickupAction },
+  { key: 'nodeState', title: '当前节点状态', width: 220, freezeable: true, sortable: true, render: renderCurrentNodeCell, sortValue: (row) => row.currentNodeState },
+  { key: 'actions', title: '操作', width: 170, required: true, actionColumn: true, render: renderPickupAction },
 ]
 
 const HISTORY_COLUMNS: StandardListColumn<PickupOrderGroup>[] = [
   { key: 'productionOrder', title: '生产单', width: 230, required: true, freezeable: true, sortable: true, render: renderOrderCell, sortValue: (row) => row.productionOrderNo },
+  { key: 'style', title: '款式 / SPU', width: 220, freezeable: true, sortable: true, render: renderStyleCell, sortValue: (row) => `${row.styleNo}:${row.spu}` },
   { key: 'materials', title: '物料领料结果（全部需求）', width: 620, required: true, freezeable: true, render: renderHistoryMaterials },
   { key: 'result', title: '领取路径 / 最终结果', width: 190, required: true, freezeable: true, sortable: true, render: renderHistoryResult, sortValue: (row) => `${row.historyPath}:${row.finalResult}` },
-  { key: 'sessions', title: '领取次数 / 最近时间', width: 190, freezeable: true, sortable: true, render: (row) => `<div class="text-sm"><div>${row.pickupSessionCount} 次</div><div class="text-xs text-muted-foreground">${escapeHtml(row.latestPickedAt || '—')}</div></div>`, sortValue: (row) => row.latestPickedAt },
-  { key: 'actions', title: '操作', width: 150, required: true, actionColumn: true, render: (row) => `<a href="/fcs/production/order-detail?id=${encodeURIComponent(row.productionOrderId)}" class="inline-flex rounded-md border px-3 py-2 text-xs hover:bg-muted">查看生产单</a>` },
+  { key: 'sessions', title: '领取次数 / 最近领料人 / 时间', width: 230, freezeable: true, sortable: true, render: (row) => `<div class="text-sm"><div>${row.pickupSessionCount} 次</div><div class="text-xs text-muted-foreground">${escapeHtml(row.latestPickerName || '—')}</div><div class="text-xs text-muted-foreground">${escapeHtml(row.latestPickedAt || '—')}</div></div>`, sortValue: (row) => row.latestPickedAt },
+  { key: 'nodeState', title: '当前节点状态', width: 190, freezeable: true, sortable: true, render: renderCurrentNodeCell, sortValue: (row) => row.currentNodeState },
+  { key: 'actions', title: '操作', width: 170, required: true, actionColumn: true, render: (row) => {
+    const pendingHref = row.pickupNodeId
+      ? `/fcs/pda/warehouse/wait-process?scope=cutting&action=pickup&pickupNodeId=${encodeURIComponent(row.pickupNodeId)}&version=${row.pickupNodeVersion}`
+      : ''
+    return `<div class="space-y-1.5">
+      <button type="button" class="inline-flex rounded-md bg-blue-600 px-3 py-2 text-xs font-medium text-white" data-pickup-list-action="open-pickup-records" data-group-key="${escapeHtml(row.groupKey)}">领料记录</button>
+      ${pendingHref ? `<a href="${escapeHtml(pendingHref)}" class="block text-xs text-blue-700 hover:underline">去处理当前待领</a>` : ''}
+    </div>`
+  } },
 ]
 
 function columnsFor(kind: PickupListKind): StandardListColumn<PickupOrderGroup>[] {
@@ -252,6 +288,7 @@ function getState(kind: PickupListKind): PickupListState {
     preferences,
     columnSettingsOpen: false,
     draggedColumnKey: '',
+    selectedRecordGroupKey: '',
   }
   states.set(kind, created)
   return created
@@ -342,6 +379,66 @@ function renderColumnSettings(kind: PickupListKind): string {
   }))
 }
 
+function renderPickupRecordsDrawer(kind: PickupListKind): string {
+  const state = getState(kind)
+  if (!state.selectedRecordGroupKey) return ''
+  const group = (groupSnapshots.get(kind) ?? []).find((item) => item.groupKey === state.selectedRecordGroupKey)
+  if (!group) return ''
+  const discrepancies = listPickupDiscrepancies()
+  return `<div class="fixed inset-0 z-50 flex justify-end bg-black/30" data-skip-page-rerender="true">
+    <section class="h-full w-full max-w-2xl overflow-y-auto bg-background shadow-xl">
+      <div class="sticky top-0 z-10 flex items-start justify-between border-b bg-background px-5 py-4">
+        <div>
+          <div class="text-lg font-semibold">领料记录</div>
+          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(group.productionOrderNo)} · ${escapeHtml(group.prepOrderNo)}</div>
+        </div>
+        <button type="button" class="rounded-md border px-3 py-2 text-sm" data-pickup-list-action="close-pickup-records">关闭</button>
+      </div>
+      <div class="space-y-3 p-5">
+        ${group.pickupSessions.length ? group.pickupSessions.map((session) => {
+          const snapshot = session.pickupNodeSnapshot
+          const evidence = discrepancies.filter((record) =>
+            record.pickupNodeId === session.pickupNodeId
+            && record.pickupNodeVersion === session.pickupNodeVersion
+          )
+          const carrierLabel = snapshot?.carrierType === 'PALLET'
+            ? snapshot.palletDisplayLabel || snapshot.palletId || '待领托盘（暂未编号）'
+            : Array.from(new Set(snapshot?.items.flatMap((item) =>
+                item.sourceLocations.map((location) =>
+                  `${location.sourceWarehouseName} / ${location.sourceWarehouseArea} / ${location.sourceLocationCode}`
+                )
+              ) ?? [])).join('；') || '来源库位未记录'
+          return `<article class="rounded-lg border bg-card p-4 text-sm">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="font-medium">${escapeHtml(session.pickupSessionNo)}</div>
+              <div class="text-xs text-muted-foreground">节点 V${session.pickupNodeVersion}</div>
+            </div>
+            <div class="mt-2 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+              <div>领取人：<span class="text-foreground">${escapeHtml(session.receiverName)}</span></div>
+              <div>领取时间：<span class="text-foreground">${escapeHtml(session.pickedAt)}</span></div>
+              <div class="sm:col-span-2">来源库位或托盘：<span class="text-foreground">${escapeHtml(carrierLabel)}</span></div>
+              <div class="sm:col-span-2">接收位置：<span class="text-foreground">${escapeHtml(`${session.toWarehouseArea} / ${session.toLocationCode}`)}</span></div>
+            </div>
+            <div class="mt-3 space-y-1">
+              ${(snapshot?.items ?? []).map((item) => `<div class="rounded bg-muted/50 px-2 py-1.5 text-xs">${escapeHtml(item.materialName)} · ${escapeHtml(item.materialSku)} · ${formatQty(item.currentAvailableQty, item.unit)}</div>`).join('')}
+            </div>
+            <div class="mt-3 text-xs">
+              <span class="font-medium">异常证据：</span>
+              ${evidence.length
+                ? evidence.map((record) => `${record.photoName || '无照片'}；${record.note || '无说明'}；${record.supervisorRequestedBy || '待主管响应'}`).map(escapeHtml).join('<br>')
+                : '<span class="text-muted-foreground">无</span>'}
+            </div>
+          </article>`
+        }).join('') : '<div class="rounded-lg border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">当前生产单尚无领料记录。</div>'}
+      </div>
+    </section>
+  </div>`
+}
+
+function renderAllPickupOverlays(kind: PickupListKind): string {
+  return `${renderColumnSettings(kind)}${renderPickupRecordsDrawer(kind)}`
+}
+
 function renderTableRegion(
   kind: PickupListKind,
   view = getView(kind),
@@ -397,7 +494,7 @@ function renderPickupList(kind: PickupListKind): string {
       )),
       tableHtml: `<div data-pickup-list-region="table">${renderTableRegion(kind, view)}</div>`,
       paginationHtml: `<div data-pickup-list-region="pagination">${renderPaginationRegion(kind, view)}</div>`,
-      overlaysHtml: `<div data-pickup-list-region="overlay">${renderColumnSettings(kind)}</div>`,
+      overlaysHtml: `<div data-pickup-list-region="overlay">${renderAllPickupOverlays(kind)}</div>`,
     })}
   </div>`
 }
@@ -442,7 +539,7 @@ function refreshPickupListRegions(kind: PickupListKind): void {
 function refreshPickupListOverlay(kind: PickupListKind): void {
   const root = document.querySelector<HTMLElement>(`[data-pickup-list-root="${kind}"]`)
   const overlay = root?.querySelector<HTMLElement>('[data-pickup-list-region="overlay"]')
-  if (overlay) overlay.innerHTML = renderColumnSettings(kind)
+  if (overlay) overlay.innerHTML = renderAllPickupOverlays(kind)
 }
 
 export function handleCraftCuttingPickupListEvent(target: HTMLElement, event?: Event): boolean {
@@ -532,6 +629,16 @@ export function handleCraftCuttingPickupListEvent(target: HTMLElement, event?: E
   const action = actionNode?.dataset.pickupListAction
   if (!actionNode || !action) return false
 
+  if (action === 'open-pickup-records') {
+    state.selectedRecordGroupKey = actionNode.dataset.groupKey || ''
+    refreshPickupListOverlay(kind)
+    return true
+  }
+  if (action === 'close-pickup-records') {
+    state.selectedRecordGroupKey = ''
+    refreshPickupListOverlay(kind)
+    return true
+  }
   if (action === 'prev-page' || action === 'next-page') {
     const totalPages = getView(kind).paging.totalPages
     state.currentPage = action === 'prev-page'

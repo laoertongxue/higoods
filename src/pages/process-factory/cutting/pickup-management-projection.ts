@@ -53,6 +53,7 @@ export interface PickupMaterialDemandRow {
   pickedQty: number
   remainingPickupQty: number
   currentAvailableQty: number
+  afterCurrentPickupRemainingQty: number
   currentLocations: PickupNodeSourceLocation[]
 }
 
@@ -62,6 +63,9 @@ export interface PickupOrderGroup {
   productionOrderNo: string
   prepOrderId: string
   prepOrderNo: string
+  styleNo: string
+  styleName: string
+  spu: string
   listKind: PickupListKind
   materialRows: PickupMaterialDemandRow[]
   carrierType: PickupCarrierType
@@ -71,7 +75,10 @@ export interface PickupOrderGroup {
   historyPath: PickupHistoryPath | null
   finalResult: PickupFinalResult | null
   pickupSessionCount: number
+  pickupSessions: PickupSession[]
+  latestPickerName: string
   latestPickedAt: string
+  currentNodeState: string
   pickupNodeId: string
   pickupNodeVersion: number
 }
@@ -171,7 +178,11 @@ export function buildSupplementMaterialRows(
   })
   for (const fact of facts) {
     const rows = rowsByProductionOrder.get(fact.productionOrderId) ?? []
-    rows.push(buildPickupMaterialDemandRow(fact, null, null, false))
+    rows.push({
+      ...buildPickupMaterialDemandRow(fact, null, null, false),
+      color: fact.color,
+      spec: fact.spec,
+    })
     rowsByProductionOrder.set(fact.productionOrderId, rows)
   }
   return rowsByProductionOrder
@@ -199,8 +210,8 @@ function buildPickupMaterialDemandRow(
     materialName: fact.materialName,
     materialImageUrl: fact.materialImageUrl,
     materialType: fact.materialType,
-    color: fact.color,
-    spec: fact.spec,
+    color: fact.color || nodeItem?.color || '未标注颜色',
+    spec: fact.spec || nodeItem?.spec || '未标注规格',
     unit: fact.unit,
     processRoute: fact.processRoute,
     processBasisLabel: fact.processBasisLabel,
@@ -210,6 +221,10 @@ function buildPickupMaterialDemandRow(
     pickedQty: fact.pickedQty,
     remainingPickupQty: roundQty(Math.max(fact.requiredQty - fact.pickedQty, 0)),
     currentAvailableQty: roundQty(Math.max(nodeItem?.currentAvailableQty ?? 0, 0)),
+    afterCurrentPickupRemainingQty: roundQty(Math.max(
+      fact.requiredQty - fact.pickedQty - (nodeItem?.currentAvailableQty ?? 0),
+      0,
+    )),
     currentLocations: includeCurrentLocations
       ? nodeItem?.sourceLocations.map((location) => ({
           ...location,
@@ -583,6 +598,9 @@ export function buildPickupOrderGroups(
           productionOrderNo: node.productionOrderNo,
           prepOrderId: node.prepOrderId,
           prepOrderNo: node.prepOrderNo,
+          styleNo: projection.order.styleNo,
+          styleName: projection.order.styleName,
+          spu: projection.order.spu,
           listKind,
           materialRows: scopeMaterialRows(
             listKind,
@@ -603,7 +621,10 @@ export function buildPickupOrderGroups(
           historyPath: null,
           finalResult: null,
           pickupSessionCount: sessions.length,
+          pickupSessions: sessions,
+          latestPickerName: latest?.receiverName ?? '',
           latestPickedAt: latest?.pickedAt ?? '',
+          currentNodeState: node.nodeType === 'READY_TO_PICKUP' ? '已配齐待领' : '未配齐可领',
           pickupNodeId: node.nodeId,
           pickupNodeVersion: node.version,
         }]
@@ -648,6 +669,9 @@ export function buildPickupOrderGroups(
       productionOrderNo: firstProjection.order.productionOrderNo,
       prepOrderId: firstProjection.order.prepOrderId,
       prepOrderNo: firstProjection.order.prepOrderNo,
+      styleNo: firstProjection.order.styleNo,
+      styleName: firstProjection.order.styleName,
+      spu: firstProjection.order.spu,
       listKind,
       materialRows,
       carrierType,
@@ -661,7 +685,12 @@ export function buildPickupOrderGroups(
       historyPath: derivePickupHistoryPath(sessions.map((session) => session.nodeType)),
       finalResult: derivePickupFinalResult(materialRows, validatedSessions),
       pickupSessionCount: sessions.length,
+      pickupSessions: sessions,
+      latestPickerName: latest.receiverName,
       latestPickedAt: latest.pickedAt,
+      currentNodeState: activeNode
+        ? activeNode.nodeType === 'READY_TO_PICKUP' ? '当前已配齐待领' : '当前未配齐可领'
+        : '当前无待领节点',
       pickupNodeId: activeNode?.nodeId ?? '',
       pickupNodeVersion: activeNode?.version ?? 0,
     })
