@@ -197,9 +197,9 @@
 - `npm run check:pda-handover-detail-source`：通过
 - `npm run check:cutting-sewing-dispatch`：通过
 - `npm run check:list-page-governance:static`：通过
-- `npm run check:prototype-design-governance -- --all`：未运行，模板结构修正后由最终收据重跑
+- `npm run check:prototype-design-governance -- --all`：通过，覆盖 22 个受管文件和 1 份审查记录
 - `npm run build`：通过
-- `npm run workflow:verify`：未运行，由最终收据生成阶段执行
+- `npm run workflow:verify`：失败，任务收据状态为 `implemented`；仅命中下述两项既有门禁阻断
 
 ### 例外
 
