@@ -1,14 +1,18 @@
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import {
+  chmodSync,
+  existsSync,
   mkdtempSync,
+  mkdirSync,
   readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { delimiter, join } from 'node:path'
 import test from 'node:test'
 import {
   assertInstructionContextCurrent,
@@ -27,6 +31,8 @@ const TASK_RECEIPT_CLI_SOURCE = readFileSync(
   join(process.cwd(), 'scripts/task-completion-receipt.ts'),
   'utf8',
 )
+const TASK_RECEIPT_CLI_PATH = join(process.cwd(), 'scripts/task-completion-receipt.ts')
+const CLI_PROBE_PATH = 'src/pages/fcs/craft/cutting/supplement-management.ts'
 
 const AGENTS_SOURCE = [
   '# AGENTS.md',
@@ -75,6 +81,84 @@ function assertSourceOrder(source: string, fragments: string[]): void {
     assert(index > previousIndex, `源码片段顺序错误：${fragment}`)
     previousIndex = index
   }
+}
+
+function runVerifyArgumentProbe(
+  t: test.TestContext,
+  args: string[],
+): {
+  status: number | null
+  stdout: string
+  stderr: string
+  codegraphInvoked: boolean
+  checkInvoked: boolean
+} {
+  const probeDirectory = mkdtempSync(join(tmpdir(), 'workflow-verify-args-'))
+  const binDirectory = join(probeDirectory, 'bin')
+  const codegraphMarker = join(probeDirectory, 'codegraph-invoked')
+  const checkMarker = join(probeDirectory, 'check-invoked')
+  mkdirSync(binDirectory)
+  t.after(() => rmSync(probeDirectory, { recursive: true, force: true }))
+
+  const codegraphCommand = join(binDirectory, 'codegraph')
+  writeFileSync(codegraphCommand, [
+    '#!/bin/sh',
+    'printf invoked >> "$CODEGRAPH_MARKER"',
+    'if [ "$1" = "status" ]; then',
+    `  printf '%s\\n' '${JSON.stringify({
+      initialized: true,
+      projectPath: process.cwd(),
+      pendingChanges: { added: 0, modified: 0, removed: 0 },
+      worktreeMismatch: null,
+    })}'`,
+    'fi',
+    '',
+  ].join('\n'))
+  chmodSync(codegraphCommand, 0o755)
+
+  const npmCommand = join(binDirectory, 'npm')
+  writeFileSync(npmCommand, [
+    '#!/bin/sh',
+    'printf invoked >> "$CHECK_MARKER"',
+    '',
+  ].join('\n'))
+  chmodSync(npmCommand, 0o755)
+
+  const result = spawnSync(
+    process.execPath,
+    ['--experimental-strip-types', TASK_RECEIPT_CLI_PATH, 'verify', ...args],
+    {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        PATH: `${binDirectory}${delimiter}${process.env.PATH ?? ''}`,
+        CODEGRAPH_MARKER: codegraphMarker,
+        CHECK_MARKER: checkMarker,
+      },
+    },
+  )
+
+  return {
+    status: result.status,
+    stdout: result.stdout,
+    stderr: result.stderr,
+    codegraphInvoked: existsSync(codegraphMarker),
+    checkInvoked: existsSync(checkMarker),
+  }
+}
+
+function assertArgumentRejectedBeforeSideEffects(
+  result: ReturnType<typeof runVerifyArgumentProbe>,
+  message: RegExp,
+  receiptPaths: string[],
+): void {
+  assert.notEqual(result.status, 0)
+  assert.match(result.stderr, message)
+  assert.equal(result.stdout, '')
+  assert.equal(result.codegraphInvoked, false)
+  assert.equal(result.checkInvoked, false)
+  for (const path of receiptPaths) assert.equal(existsSync(path), false)
 }
 
 test('根 AGENTS 12.1 精确给出绑定任务边界的权威验证命令', () => {
@@ -157,6 +241,142 @@ test('deliver 和 accept 在远端操作前重新确认指令上下文', () => {
     'workspace: receipt.workspace,',
     'recordAcceptance(receipt, {',
   ])
+})
+
+test('verify 拒绝把下一个选项误当作 output 或 task-boundary 的值', (t) => {
+  const probeDirectory = mkdtempSync(join(tmpdir(), 'workflow-verify-next-option-'))
+  const receiptPath = join(probeDirectory, 'task-receipt.json')
+  const accidentalOutputPath = join(process.cwd(), '--task-boundary')
+  assert.equal(existsSync(accidentalOutputPath), false)
+  t.after(() => {
+    rmSync(probeDirectory, { recursive: true, force: true })
+    rmSync(accidentalOutputPath, { force: true })
+  })
+
+  const taskBoundaryResult = runVerifyArgumentProbe(t, [
+    '--output',
+    receiptPath,
+    '--task-boundary',
+    '--paths',
+    CLI_PROBE_PATH,
+  ])
+  assertArgumentRejectedBeforeSideEffects(
+    taskBoundaryResult,
+    /--task-boundary.*不能为空/,
+    [receiptPath],
+  )
+
+  const outputResult = runVerifyArgumentProbe(t, [
+    '--output',
+    '--task-boundary',
+    '只验证 CLI 参数',
+    '--paths',
+    CLI_PROBE_PATH,
+  ])
+  assertArgumentRejectedBeforeSideEffects(
+    outputResult,
+    /--output.*不能为空/,
+    [accidentalOutputPath],
+  )
+})
+
+test('verify 拒绝必填参数的全空白值', (t) => {
+  const probeDirectory = mkdtempSync(join(tmpdir(), 'workflow-verify-blank-value-'))
+  const receiptPath = join(probeDirectory, 'task-receipt.json')
+  const accidentalOutputPath = join(process.cwd(), ' \n\t ')
+  assert.equal(existsSync(accidentalOutputPath), false)
+  t.after(() => {
+    rmSync(probeDirectory, { recursive: true, force: true })
+    rmSync(accidentalOutputPath, { force: true })
+  })
+
+  const outputResult = runVerifyArgumentProbe(t, [
+    '--output',
+    ' \n\t ',
+    '--task-boundary',
+    '只验证 CLI 参数',
+    '--paths',
+    CLI_PROBE_PATH,
+  ])
+  assertArgumentRejectedBeforeSideEffects(
+    outputResult,
+    /--output.*不能为空/,
+    [accidentalOutputPath],
+  )
+
+  const taskBoundaryResult = runVerifyArgumentProbe(t, [
+    '--output',
+    receiptPath,
+    '--task-boundary',
+    ' \n\t ',
+    '--paths',
+    CLI_PROBE_PATH,
+  ])
+  assertArgumentRejectedBeforeSideEffects(
+    taskBoundaryResult,
+    /--task-boundary.*不能为空/,
+    [receiptPath],
+  )
+})
+
+test('verify 拒绝重复的 output、task-boundary 和通用值参数', (t) => {
+  const probeDirectory = mkdtempSync(join(tmpdir(), 'workflow-verify-duplicate-value-'))
+  const firstReceiptPath = join(probeDirectory, 'first-receipt.json')
+  const secondReceiptPath = join(probeDirectory, 'second-receipt.json')
+  t.after(() => rmSync(probeDirectory, { recursive: true, force: true }))
+
+  const cases = [
+    {
+      args: [
+        '--output',
+        firstReceiptPath,
+        '--output',
+        secondReceiptPath,
+        '--task-boundary',
+        '只验证 CLI 参数',
+        '--paths',
+        CLI_PROBE_PATH,
+      ],
+      message: /--output.*重复/,
+      receipts: [firstReceiptPath, secondReceiptPath],
+    },
+    {
+      args: [
+        '--output',
+        firstReceiptPath,
+        '--task-boundary',
+        '第一次',
+        '--task-boundary',
+        '第二次',
+        '--paths',
+        CLI_PROBE_PATH,
+      ],
+      message: /--task-boundary.*重复/,
+      receipts: [firstReceiptPath],
+    },
+    {
+      args: [
+        '--output',
+        firstReceiptPath,
+        '--task-boundary',
+        '只验证 CLI 参数',
+        '--paths',
+        CLI_PROBE_PATH,
+        '--paths',
+        CLI_PROBE_PATH,
+      ],
+      message: /--paths.*重复/,
+      receipts: [firstReceiptPath],
+    },
+  ]
+
+  for (const testCase of cases) {
+    assertArgumentRejectedBeforeSideEffects(
+      runVerifyArgumentProbe(t, testCase.args),
+      testCase.message,
+      testCase.receipts,
+    )
+  }
 })
 
 test('采集不含阶段轨迹的根 AGENTS 指令上下文', (t) => {

@@ -29,10 +29,20 @@ import {
 } from './workflow-governance/stage-trace.ts'
 
 function argument(args: string[], name: string, required = true): string {
-  const index = args.indexOf(name)
-  const value = index >= 0 ? args[index + 1] : ''
-  if (required) assert(value, `${name} 不能为空`)
-  return value
+  const indexes = args
+    .map((argument, index) => argument === name ? index : -1)
+    .filter((index) => index >= 0)
+  assert(indexes.length <= 1, `${name} 不能重复`)
+  if (indexes.length === 0) {
+    if (required) assert.fail(`${name} 不能为空`)
+    return ''
+  }
+
+  const value = args[indexes[0] + 1]
+  assert(value && !value.startsWith('--'), `${name} 不能为空`)
+  const normalized = value.trim()
+  assert(normalized, `${name} 不能为空`)
+  return normalized
 }
 
 function explicitPaths(args: string[]): string[] | null {
