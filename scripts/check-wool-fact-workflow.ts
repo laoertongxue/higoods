@@ -633,74 +633,173 @@ try {
   restoreRuntimeDirectDispatchState(splitRuntimeState)
 }
 
+const storageValues = new Map<string, string>()
+const storageWrites: string[] = []
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: {
+    getItem(key: string) {
+      return storageValues.get(key) ?? null
+    },
+    setItem(key: string, value: string) {
+      storageWrites.push(key)
+      storageValues.set(key, value)
+    },
+    removeItem(key: string) {
+      storageValues.delete(key)
+    },
+    clear() {
+      storageValues.clear()
+    },
+  },
+})
+
 const {
-  addWoolProcessReport,
-  addWoolYarnReceipt,
-  completeWoolWorkOrder,
+  WOOL_DOMAIN_STORE_KEY,
+  commitWoolStore,
+  readWoolStore,
+} = await import('../src/data/fcs/wool-domain/store.ts')
+const {
   getWoolOutputReadiness,
-  getWoolWorkOrderById,
-  listWoolMachineAssociations,
+  getWoolOutputHandedOverQty,
+  getWoolOutputReportedQty,
+  getWoolProcessingStatus,
+  getWoolAllowedActions,
+  getWoolWarehouseStock,
+  getWoolWorkOrderBlockReason,
+  getWoolWorkOrderTab,
+  getWoolWorkOrderTabCounts,
+  listWoolFactRecords,
   listWoolWorkOrders,
-  replaceWoolMachineAssociations,
+} = await import('../src/data/fcs/wool-domain/queries.ts')
+const {
+  WOOL_MOCK_SCENARIO_CODES,
   resetWoolFactWorkflowMock,
-} = await import('../src/data/fcs/wool-task-domain.ts')
+} = await import('../src/data/fcs/wool-domain/mock-data.ts')
 
 resetWoolFactWorkflowMock('CHECK_WOOL_FACT_WORKFLOW')
-const order = listWoolWorkOrders().find((item) => item.woolOrderNo === 'WMO-CHECK-READY')!
-const black = order.outputPlanLines.find((item) => item.colorCode === 'BLACK')!
+assert.equal(WOOL_DOMAIN_STORE_KEY, 'higood-fcs-wool-domain-store-v2')
+assert.equal(WOOL_MOCK_SCENARIO_CODES.length, 26)
+assert.equal(new Set(WOOL_MOCK_SCENARIO_CODES).size, 26)
 
-assert.deepEqual(black.requiredYarnSkus, ['YARN-A', 'YARN-B'])
-assert.deepEqual(getWoolOutputReadiness(order.woolOrderId, black.outputSkuCode).missingYarnSkus, ['YARN-A', 'YARN-B'])
+const allOrders = listWoolWorkOrders()
+assert.equal(allOrders.length, 26)
+for (const scenarioCode of WOOL_MOCK_SCENARIO_CODES) {
+  assert(allOrders.some((item) => item.mockScenarioCode === scenarioCode), `缺少 Mock 场景 ${scenarioCode}`)
+}
+assert(allOrders.some((item) => item.mockScenarioCode === 'NO_YARN_RECEIPT'))
+assert(allOrders.some((item) => item.mockScenarioCode === 'ONE_COLOR_READY'))
+assert(allOrders.some((item) => item.mockScenarioCode === 'ALL_READY_SKUS_AT_LIMIT'))
+assert(allOrders.some((item) => item.mockScenarioCode === 'COMPLETED_WITH_STOCK'))
+assert(allOrders.some((item) => item.mockScenarioCode === 'TECH_PACK_FALLBACK_REJECTED'))
+assert(allOrders.some((item) => item.kind === 'PART_PANEL'))
 
-addWoolYarnReceipt(order.woolOrderId, {
-  commandId: 'CMD-WR-CHECK-001',
-  receiptNo: 'WR-CHECK-001',
-  deliveryNo: 'DN-CHECK-001',
-  batchNo: 'BATCH-A',
-  receivedAt: '2026-07-30 08:00:00',
-  receivedBy: '毛织仓管',
-  lines: [{ yarnSkuCode: 'YARN-A', receivedQty: 20, qtyUnit: 'kg' }],
+const noReceiptOrder = allOrders.find((item) => item.mockScenarioCode === 'NO_YARN_RECEIPT')!
+const noReceiptLine = noReceiptOrder.outputPlanLines[0]
+assert.equal(getWoolOutputReadiness(noReceiptOrder.woolOrderId, noReceiptLine.outputSkuCode).isReady, false)
+
+const fallbackOrder = allOrders.find((item) => item.mockScenarioCode === 'TECH_PACK_FALLBACK_REJECTED')!
+const fallbackLine = fallbackOrder.outputPlanLines[0]
+assert.equal(fallbackLine.requiredYarnSkus.length, 0)
+assert.equal(getWoolOutputReadiness(fallbackOrder.woolOrderId, fallbackLine.outputSkuCode).isReady, false)
+
+const readyOrder = allOrders.find((item) => item.mockScenarioCode === 'ONE_COLOR_READY')!
+assert.equal(getWoolWorkOrderTab(readyOrder.woolOrderId), 'READY')
+assert.equal(getWoolProcessingStatus(readyOrder.woolOrderId), 'UNPROCESSED')
+
+const cappedOrder = allOrders.find((item) => item.mockScenarioCode === 'ALL_READY_SKUS_AT_LIMIT')!
+assert.equal(getWoolWorkOrderTab(cappedOrder.woolOrderId), 'NOT_READY')
+assert.match(getWoolWorkOrderBlockReason(cappedOrder.woolOrderId), /全部加工后 SKU 已达到填报上限/)
+
+const filteredOrders = listWoolWorkOrders({ keyword: readyOrder.productionOrderNo })
+assert.equal(filteredOrders.length, 1)
+assert.equal(filteredOrders.filter((item) => getWoolWorkOrderTab(item.woolOrderId) === 'READY').length, 1)
+assert.equal(filteredOrders.filter((item) => getWoolWorkOrderTab(item.woolOrderId) === 'NOT_READY').length, 0)
+assert.equal(filteredOrders.filter((item) => getWoolWorkOrderTab(item.woolOrderId) === 'COMPLETED').length, 0)
+assert(listWoolFactRecords({ woolOrderId: readyOrder.woolOrderId }).length > 0)
+assert.deepEqual(
+  getWoolWorkOrderTabCounts({ keyword: readyOrder.productionOrderNo }),
+  { READY: 1, NOT_READY: 0, COMPLETED: 0 },
+)
+assert(getWoolAllowedActions(readyOrder.woolOrderId).includes('REPORT_PROCESS'))
+
+const stockOrder = allOrders.find((item) => item.mockScenarioCode === 'MULTIPLE_HANDOVERS_WITH_STOCK')!
+const stockLine = stockOrder.outputPlanLines[0]
+assert.equal(getWoolOutputReportedQty(stockOrder.woolOrderId, stockLine.outputSkuCode), 100)
+assert.equal(getWoolOutputHandedOverQty(stockOrder.woolOrderId, stockLine.outputSkuCode), 50)
+assert.equal(getWoolWarehouseStock({
+  woolOrderId: stockOrder.woolOrderId,
+  objectSkuCode: stockLine.outputSkuCode,
+  defaultLocationId: 'WOOL-WH-GARMENT-DEFAULT',
+}), 50)
+assert(getWoolAllowedActions(stockOrder.woolOrderId).includes('HANDOVER'))
+assert(listWoolFactRecords({
+  woolOrderId: stockOrder.woolOrderId,
+  recordType: 'HANDOVER',
+}).length === 2)
+
+const successfulWritesBefore = storageWrites.length
+commitWoolStore((draft) => {
+  draft.operationLogs.push({
+    operationLogId: 'WOOL-STORE-ATOMIC-CHECK',
+    woolOrderId: readyOrder.woolOrderId,
+    action: 'STORE_CHECK',
+    objectType: 'WORK_ORDER',
+    objectId: readyOrder.woolOrderId,
+    operatedBy: '专项检查',
+    operatedAt: '2026-07-30 13:00:00',
+  })
 })
-assert.deepEqual(getWoolOutputReadiness(order.woolOrderId, black.outputSkuCode).missingYarnSkus, ['YARN-B'])
-
-addWoolYarnReceipt(order.woolOrderId, {
-  commandId: 'CMD-WR-CHECK-002',
-  receiptNo: 'WR-CHECK-002',
-  receivedAt: '2026-07-30 09:00:00',
-  receivedBy: '毛织仓管',
-  lines: [{ yarnSkuCode: 'YARN-B', receivedQty: 1, qtyUnit: 'kg' }],
-})
-assert.equal(getWoolOutputReadiness(order.woolOrderId, black.outputSkuCode).isReady, true)
-
-addWoolProcessReport(order.woolOrderId, {
-  commandId: 'CMD-REPORT-CHECK-LIMIT',
-  outputSkuCode: black.outputSkuCode,
-  reportedQty: Math.floor(black.plannedQty * 1.5),
-  reportedAt: '2026-07-30 10:00:00',
-  reportedBy: '毛织主管',
-})
-assert.throws(
-  () => addWoolProcessReport(order.woolOrderId, {
-    commandId: 'CMD-REPORT-CHECK-OVER-LIMIT',
-    outputSkuCode: black.outputSkuCode,
-    reportedQty: 1,
-    reportedAt: '2026-07-30 10:01:00',
-    reportedBy: '毛织主管',
-  }),
-  /累计加工填报不能超过计划数量的 150%/,
+assert.equal(storageWrites.length, successfulWritesBefore + 1)
+assert.equal(storageWrites.at(-1), WOOL_DOMAIN_STORE_KEY)
+assert.equal(
+  readWoolStore().operationLogs.some((item) => item.operationLogId === 'WOOL-STORE-ATOMIC-CHECK'),
+  true,
 )
 
-replaceWoolMachineAssociations(order.woolOrderId, ['WM-001', 'WM-002'], {
-  operatedAt: '2026-07-30 11:00:00',
-  operatedBy: '毛织主管',
-})
-assert.equal(listWoolMachineAssociations(order.woolOrderId).length, 2)
+const failedWritesBefore = storageWrites.length
 assert.throws(
-  () => completeWoolWorkOrder(order.woolOrderId, {
-    completedAt: '2026-07-30 12:00:00',
-    completedBy: '毛织主管',
-    remark: '没有交出记录不能完成',
+  () => commitWoolStore((draft) => {
+    draft.workOrders[readyOrder.woolOrderId].woolOrderNo = ''
+    throw new Error('模拟事务失败')
   }),
-  /至少有一次发起交出后才能完成加工单/,
+  /模拟事务失败/,
 )
-assert.equal(getWoolWorkOrderById(order.woolOrderId)?.processingStatus, 'UNPROCESSED')
+assert.equal(storageWrites.length, failedWritesBefore)
+assert.notEqual(readWoolStore().workOrders[readyOrder.woolOrderId].woolOrderNo, '')
+
+const validationFailedWritesBefore = storageWrites.length
+assert.throws(
+  () => commitWoolStore((draft) => {
+    draft.workOrders[readyOrder.woolOrderId].woolOrderNo = ''
+  }),
+  /身份无效/,
+)
+assert.equal(storageWrites.length, validationFailedWritesBefore)
+
+storageValues.set('higood-fcs-wool-domain-store-v1', 'KEEP-OLD-WOOL-STORE')
+storageValues.set('higood-other-domain-store', 'KEEP-OTHER-STORE')
+resetWoolFactWorkflowMock('CHECK_WOOL_RESET_SCOPE')
+assert.equal(storageValues.get('higood-fcs-wool-domain-store-v1'), 'KEEP-OLD-WOOL-STORE')
+assert.equal(storageValues.get('higood-other-domain-store'), 'KEEP-OTHER-STORE')
+assert(storageValues.has(WOOL_DOMAIN_STORE_KEY))
+
+const woolFacadeSource = readFileSync(
+  new URL('../src/data/fcs/wool-task-domain.ts', import.meta.url),
+  'utf8',
+)
+for (const explicitExport of [
+  "export * from './wool-domain/types.ts'",
+  "export * from './wool-domain/tech-pack-source.ts'",
+  "export * from './wool-domain/store.ts'",
+  "export * from './wool-domain/queries.ts'",
+  "export * from './wool-domain/commands.ts'",
+  "export * from './wool-domain/machine-associations.ts'",
+  "export * from './wool-domain/mock-data.ts'",
+]) {
+  assert.equal(woolFacadeSource.includes(explicitExport), true, `毛织门面缺少 ${explicitExport}`)
+}
+assert.equal(woolFacadeSource.includes('WAIT_MACHINE_SCHEDULE'), false)
+
+console.log('PASS task 4: v2 store, derived queries, 26 mock scenarios, and explicit facade')
+await import('../src/data/fcs/wool-domain/commands.ts')
