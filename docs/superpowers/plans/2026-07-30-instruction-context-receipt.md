@@ -579,9 +579,8 @@ const requiredSkills = argument(args, '--required-skills', false)
   .map((skill) => skill.trim())
   .filter(Boolean)
 const requireTwoStageReview = args.includes('--require-two-stage-review')
-const requireStageTrace = Boolean(
-  stageTracePath || requiredSkills.length > 0 || requireTwoStageReview,
-)
+// --stage-trace 只提供可选证据文件；只有技能或双审要求才把阶段轨迹升级为硬门禁。
+const requireStageTrace = requiredSkills.length > 0 || requireTwoStageReview
 const instructionBefore = captureInstructionContext({
   workspace,
   taskBoundary,
