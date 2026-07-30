@@ -275,20 +275,28 @@ function resolveSupplementProcessResult(
   processType: 'DYE' | 'PRINT',
   results: PlatformProcessResultView[],
 ): ProcessResultResolution {
+  const relatedMappingIds = new Set(
+    record.draft.materialDemands
+      .filter((candidate) =>
+        candidate.materialSku === demand.materialSku
+        && (processType === 'DYE' ? candidate.dyeRequired : candidate.printRequired)
+      )
+      .map((candidate) => candidate.materialPatternMappingId),
+  )
   const refs = record.processWorkOrderRefs.filter((ref) =>
     ref.processType === processType && ref.materialSku === demand.materialSku
   )
-  if (!refs.length) return { ambiguous: false }
-  const matchingRefs = refs.filter((ref) =>
-    ref.materialPatternMappingIds?.includes(demand.materialPatternMappingId)
-  )
-  if (
-    matchingRefs.length !== 1
-    || matchingRefs[0].materialPatternMappingIds.length !== 1
-  ) {
+  if (relatedMappingIds.size > 1 || refs.length > 1) {
     return { ambiguous: true }
   }
-  const matches = results.filter((view) => view.sourceId === matchingRefs[0].workOrderId)
+  if (
+    relatedMappingIds.size !== 1
+    || !relatedMappingIds.has(demand.materialPatternMappingId)
+    || refs.length !== 1
+  ) {
+    return { ambiguous: false }
+  }
+  const matches = results.filter((view) => view.sourceId === refs[0].workOrderId)
   if (matches.length > 1) return { ambiguous: true }
   return { result: matches[0], ambiguous: false }
 }

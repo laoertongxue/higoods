@@ -187,7 +187,7 @@ interface SupplementCandidate {
   blockedReason: string
 }
 
-interface SupplementDraft {
+export interface SupplementDraft {
   candidateId: string
   sourceType: SupplementSourceType
   sourceNo: string
@@ -205,12 +205,11 @@ interface SupplementDraft {
   releaseTargetConfirmedAt?: string
 }
 
-interface SupplementProcessWorkOrderRef {
+export interface SupplementProcessWorkOrderRef {
   processType: 'PRINT' | 'DYE'
   sourceType: 'CUT_PIECE_SUPPLEMENT'
   workOrderId: string
   workOrderNo: string
-  materialPatternMappingIds: string[]
   materialSku: string
   materialName: string
   plannedQty: number
@@ -2707,7 +2706,6 @@ export function confirmSupplementAndGenerateProcessWorkOrders(
   }
 
   const generationInputs: ProcessWorkOrderGenerationInput[] = []
-  const generationInputMappingIds: string[][] = []
   for (const group of processGroups.values()) {
     const bomUnit = group.bomItem.unit?.trim() || ''
     const representativeDemand = group.demands[0]
@@ -2758,9 +2756,6 @@ export function confirmSupplementAndGenerateProcessWorkOrders(
       requiredDeliveryDate: '',
       createdBy,
     })
-    generationInputMappingIds.push(
-      [...demandIds].sort((left, right) => left.localeCompare(right, 'zh-CN')),
-    )
   }
 
   let transaction: ReturnType<typeof prepareProcessWorkOrderBatch> | null = null
@@ -2782,7 +2777,6 @@ export function confirmSupplementAndGenerateProcessWorkOrders(
           sourceType: 'CUT_PIECE_SUPPLEMENT',
           workOrderId: workOrder.workOrderId,
           workOrderNo: workOrder.workOrderNo,
-          materialPatternMappingIds: [...generationInputMappingIds[inputIndex]],
           materialSku: workOrder.materialSku,
           materialName: workOrder.materialName,
           plannedQty: workOrder.plannedQty,

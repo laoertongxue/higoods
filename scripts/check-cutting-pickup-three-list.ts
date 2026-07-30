@@ -404,14 +404,7 @@ const sharedMappingRecord = {
     .filter((ref) =>
       ref.materialSku === dyePrintDemand.materialSku
       && (ref.processType === 'DYE' || ref.processType === 'PRINT')
-    )
-    .map((ref) => ({
-      ...ref,
-      materialPatternMappingIds: [
-        dyePrintDemand.materialPatternMappingId,
-        sharedMappingDemand.materialPatternMappingId,
-      ],
-    })),
+    ),
 }
 const sharedMappingRows = buildSupplementMaterialRows([sharedMappingRecord], {
   dyeResults: [{
