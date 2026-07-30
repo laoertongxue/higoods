@@ -49,6 +49,7 @@ function normalizeTask(task: FirstOrderSampleTaskRecord): FirstOrderSampleTaskRe
   const sourceFirstSampleCode = task.sourceFirstSampleCode || (sampleChainMode === '复用首版结论' ? task.sampleCode || '' : '')
   return {
     ...cloneTask(task),
+    projectNodeId: '',
     note: task.note || '',
     sourceTechPackVersionId: task.sourceTechPackVersionId || '',
     sourceTechPackVersionCode: task.sourceTechPackVersionCode || '',

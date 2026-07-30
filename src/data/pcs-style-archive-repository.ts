@@ -109,9 +109,17 @@ function normalizePendingItem(item: StyleArchivePendingItem): StyleArchivePendin
 }
 
 function hydrateSnapshot(snapshot: StyleArchiveStoreSnapshot): StyleArchiveStoreSnapshot {
+  const recordsByStyleId = new Map<string, StyleArchiveShellRecord>()
+  ;(Array.isArray(snapshot.records) ? snapshot.records : []).forEach((record) => {
+    const normalized = normalizeRecord(record)
+    const existing = recordsByStyleId.get(normalized.styleId)
+    if (!existing || normalized.updatedAt.localeCompare(existing.updatedAt) >= 0) {
+      recordsByStyleId.set(normalized.styleId, normalized)
+    }
+  })
   return {
     version: STYLE_ARCHIVE_STORE_VERSION,
-    records: Array.isArray(snapshot.records) ? snapshot.records.map(normalizeRecord) : [],
+    records: Array.from(recordsByStyleId.values()),
     pendingItems: Array.isArray(snapshot.pendingItems) ? snapshot.pendingItems.map(normalizePendingItem) : [],
   }
 }
@@ -247,6 +255,9 @@ export function createStyleArchiveShell(record: StyleArchiveShellRecord): StyleA
   ) {
     throw new Error('商品／款式档案只能从商品项目“项目与档案建立”节点生成。')
   }
+  if (snapshot.records.some((item) => item.styleId === normalized.styleId)) {
+    throw new Error(`款式档案 ID ${normalized.styleId} 已存在，不能重复创建或改绑到其他商品项目。`)
+  }
   if (normalized.sourceProjectId && snapshot.records.some((item) => item.sourceProjectId === normalized.sourceProjectId)) {
     throw new Error('当前商品项目已存在正式款式档案主关联。')
   }
@@ -266,6 +277,17 @@ export function updateStyleArchive(styleId: string, patch: Partial<StyleArchiveS
     ...snapshot.records[index],
     ...patch,
   })
+  if (snapshot.records.some((item, itemIndex) => itemIndex !== index && item.styleId === nextRecord.styleId)) {
+    throw new Error(`款式档案 ID ${nextRecord.styleId} 已存在，不能重复创建或改绑到其他商品项目。`)
+  }
+  if (
+    nextRecord.sourceProjectId &&
+    snapshot.records.some(
+      (item, itemIndex) => itemIndex !== index && item.sourceProjectId === nextRecord.sourceProjectId,
+    )
+  ) {
+    throw new Error('当前商品项目已存在正式款式档案主关联。')
+  }
   const nextRecords = [...snapshot.records]
   nextRecords.splice(index, 1, nextRecord)
   persistSnapshot({

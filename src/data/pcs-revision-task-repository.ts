@@ -60,6 +60,7 @@ function seedSnapshot(): RevisionTaskStoreSnapshot {
 function normalizeTask(task: RevisionTaskRecord): RevisionTaskRecord {
   return {
     ...cloneTask(task),
+    projectNodeId: '',
     sourceType: normalizeRevisionTaskSourceType(task.sourceType),
     styleId: task.styleId || '',
     styleCode: task.styleCode || task.productStyleCode || task.spuCode || '',

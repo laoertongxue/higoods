@@ -13,6 +13,7 @@ import { PCS_CHANNEL_OPTIONS, normalizePcsChannelCodes } from './pcs-channel-opt
 import {
   createStyleArchiveShell,
   findStyleArchiveByProjectId,
+  getStyleArchiveById,
   updateStyleArchive,
 } from './pcs-style-archive-repository.ts'
 import {
@@ -567,6 +568,7 @@ function ensureProjectStyleArchives(
   snapshot: PcsProjectStoreSnapshot,
   removedStyleArchiveNodeIdsByProject: Map<string, Set<string>>,
 ): PcsProjectStoreSnapshot {
+  const currentProjectIds = new Set(snapshot.projects.map((project) => project.projectId))
   const projects = snapshot.projects.map((project) => {
     const projectArchiveNode = snapshot.nodes.find(
       (node) => node.projectId === project.projectId && node.workItemTypeCode === 'PROJECT_INIT',
@@ -575,19 +577,55 @@ function ensureProjectStyleArchives(
       throw new Error(`商品项目 ${project.projectCode} 缺少“项目与档案建立”节点，无法补齐商品／款式档案。`)
     }
 
-    const existingArchive = findStyleArchiveByProjectId(project.projectId)
+    const linkedArchive = project.linkedStyleId ? getStyleArchiveById(project.linkedStyleId) : null
+    const archiveByProject = findStyleArchiveByProjectId(project.projectId)
+    if (
+      linkedArchive &&
+      linkedArchive.sourceProjectId &&
+      linkedArchive.sourceProjectId !== project.projectId &&
+      currentProjectIds.has(linkedArchive.sourceProjectId)
+    ) {
+      throw new Error(
+        `款式档案 ${linkedArchive.styleId} 已归属其他商品项目 ${linkedArchive.sourceProjectCode || linkedArchive.sourceProjectId}，不能改绑到 ${project.projectCode}。`,
+      )
+    }
+    if (linkedArchive && archiveByProject && linkedArchive.styleId !== archiveByProject.styleId) {
+      const detachedArchive = updateStyleArchive(archiveByProject.styleId, {
+        sourceProjectId: '',
+        sourceProjectCode: '',
+        sourceProjectName: '',
+        sourceProjectNodeId: '',
+      })
+      if (!detachedArchive) {
+        throw new Error(`商品项目 ${project.projectCode} 的历史重复主档关联解除失败。`)
+      }
+    }
+    const existingArchive = linkedArchive || archiveByProject
     if (existingArchive) {
       const removedStyleArchiveNodeIds =
         removedStyleArchiveNodeIdsByProject.get(project.projectId) || new Set<string>()
       const shouldRebindSourceNode =
         existingArchive.sourceProjectNodeId === 'old-style-node' ||
         removedStyleArchiveNodeIds.has(existingArchive.sourceProjectNodeId)
+      const shouldRepairSourceProject =
+        existingArchive.sourceProjectId !== project.projectId ||
+        existingArchive.sourceProjectCode !== project.projectCode ||
+        existingArchive.sourceProjectName !== project.projectName
       const reboundArchive =
-        existingArchive.sourceProjectNodeId === projectArchiveNode.projectNodeId ||
-        !shouldRebindSourceNode
+        !shouldRepairSourceProject &&
+        (existingArchive.sourceProjectNodeId === projectArchiveNode.projectNodeId || !shouldRebindSourceNode)
           ? existingArchive
           : updateStyleArchive(existingArchive.styleId, {
-              sourceProjectNodeId: projectArchiveNode.projectNodeId,
+              ...(shouldRepairSourceProject
+                ? {
+                    sourceProjectId: project.projectId,
+                    sourceProjectCode: project.projectCode,
+                    sourceProjectName: project.projectName,
+                  }
+                : {}),
+              ...(shouldRebindSourceNode
+                ? { sourceProjectNodeId: projectArchiveNode.projectNodeId }
+                : {}),
             })
       if (!reboundArchive) {
         throw new Error(`商品项目 ${project.projectCode} 的历史商品／款式档案来源节点改绑失败。`)

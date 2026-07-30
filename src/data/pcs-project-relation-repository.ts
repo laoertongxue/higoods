@@ -212,9 +212,31 @@ function dedupePendingItems(items: ProjectRelationPendingItem[]): ProjectRelatio
 }
 
 function cleanRemovedRetainReviewRelations(snapshot: ProjectRelationStoreSnapshot): ProjectRelationStoreSnapshot {
+  const removedProfessionalSourceModules = new Set([
+    '改版任务',
+    '制版任务',
+    '花型任务',
+    '首版样衣打样',
+    '首单样衣打样',
+  ])
+  const removedProfessionalWorkItemCodes = new Set([
+    'REVISION_TASK',
+    'PATTERN_TASK',
+    'PATTERN_ARTWORK_TASK',
+    'FIRST_SAMPLE',
+    'FIRST_ORDER_SAMPLE',
+  ])
+  const currentProjectNodeIds = new Set(getProjectStoreSnapshot().nodes.map((node) => node.projectNodeId))
   return {
     version: PROJECT_RELATION_STORE_VERSION,
-    relations: dedupeRelations(snapshot.relations),
+    relations: dedupeRelations(snapshot.relations).filter(
+      (relation) =>
+        !removedProfessionalSourceModules.has(relation.sourceModule) ||
+        (
+          !removedProfessionalWorkItemCodes.has(relation.workItemTypeCode) &&
+          (!relation.projectNodeId || currentProjectNodeIds.has(relation.projectNodeId))
+        ),
+    ),
     pendingItems: dedupePendingItems(snapshot.pendingItems),
   }
 }

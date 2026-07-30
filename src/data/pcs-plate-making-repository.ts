@@ -54,6 +54,7 @@ function seedSnapshot(): PlateMakingTaskStoreSnapshot {
 function normalizeTask(task: PlateMakingTaskRecord): PlateMakingTaskRecord {
   return {
     ...cloneTask(task),
+    projectNodeId: '',
     participantNames: [...(task.participantNames || [])],
     styleId: task.styleId || '',
     styleCode: task.styleCode || task.productStyleCode || task.spuCode || '',

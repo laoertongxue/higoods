@@ -517,8 +517,18 @@ function pushRecordBindingIssue(
 
 function pushRelationIssues(project: PcsProjectViewRecord, issues: PcsProjectDataConsistencyIssue[]): void {
   const fixedWorkItemCodes = new Set(listProjectStepContracts().flatMap((step) => step.workItemCodes))
+  const removedProfessionalSourceModules = new Set([
+    '改版任务',
+    '制版任务',
+    '花型任务',
+    '首版样衣打样',
+    '首单样衣打样',
+  ])
   listProjectRelationsByProject(project.projectId).forEach((relation: ProjectRelationRecord) => {
-    if (!fixedWorkItemCodes.has(relation.workItemTypeCode as PcsProjectWorkItemCode)) return
+    if (
+      !fixedWorkItemCodes.has(relation.workItemTypeCode as PcsProjectWorkItemCode) &&
+      !removedProfessionalSourceModules.has(relation.sourceModule)
+    ) return
     const node = relation.projectNodeId ? getProjectNodeRecordById(project.projectId, relation.projectNodeId) : null
     if (!node) {
       issues.push(

@@ -54,6 +54,7 @@ function normalizeFirstSampleStatus(status: string): FirstSampleTaskStatus {
 function normalizeTask(task: FirstSampleTaskRecord): FirstSampleTaskRecord {
   return {
     ...cloneTask(task),
+    projectNodeId: '',
     status: normalizeFirstSampleStatus(task.status),
     note: task.note || '',
     sourceType: task.sourceType || '人工创建',
