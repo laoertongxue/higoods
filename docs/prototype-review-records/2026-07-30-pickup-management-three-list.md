@@ -78,6 +78,7 @@
 - `src/data/fcs/cutting/pickup-node-domain.ts`
 - `src/data/fcs/cutting/production-material-prep.ts`
 - `src/data/fcs/cutting/supplement-records.ts`
+- `src/data/fcs/production-orders.ts`
 - `src/main-handlers/fcs-handlers.ts`
 - `src/main.ts`
 - `src/pages/process-factory/cutting/meta.ts`
@@ -217,3 +218,9 @@
 ### 10.3 审计结论
 
 逐行审计发现的三列表筛选、生产单口径摘要、组内业务摘要、历史颜色 / 规格、累计配料口径、超配异常、活动节点最终状态以及跨事实原子提交均已纳入当前实现与自动检查。最终是否可判定为“全部完成”，仍以本节之后针对当前最终 Git 版本重新执行的设计逐项复审、计划逐项复审、两阶段审查及机器可读验证收据为准。
+
+### 10.4 生产单身份回归
+
+- 实施计划要求保留的补料加工单回归曾因两个对象同时使用生产单号 `PO14671` 而读取到旧演示生产单，只得到 4 条 SKU。
+- 已取消旧生产单 `PO-202603-084` 对 `PO14671` 的遗留编号映射；正式补料生产单 `po-14671` 现在是该单号唯一对象，并完整承载 4 色 × 3 码的 12 条生产 SKU。
+- 自动检查新增生产单号唯一性断言，同时验证冻结技术包、全部 SKU、BOM、纸样、款色用料和加工单引用仍归属同一正式生产单。

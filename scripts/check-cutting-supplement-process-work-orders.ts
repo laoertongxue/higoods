@@ -358,7 +358,9 @@ assert.equal(listProcessWorkOrders().length, duplicateInputCounts.workOrders + 1
 duplicateTransaction.rollback()
 assertTransactionCounts(duplicateInputCounts, '公开事务主动回滚')
 
-const releaseOrder = productionOrders.find((order) => order.productionOrderNo === 'PO14671')
+const releaseOrders = productionOrders.filter((order) => order.productionOrderNo === 'PO14671')
+assert.equal(releaseOrders.length, 1, 'PO14671 生产单号必须唯一，不得由旧演示映射与正式补料生产单重复占用')
+const releaseOrder = releaseOrders[0]
 assert(releaseOrder?.techPackSnapshot, 'PO14671 必须有独立的冻结技术包快照')
 const releaseSnapshot = releaseOrder.techPackSnapshot
 const releaseSkuCodes = releaseOrder.demandSnapshot.skuLines.map((line) => line.skuCode).sort()
