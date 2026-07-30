@@ -77,6 +77,7 @@
     "check:pda-cutting-inbound-workflow": "tsx scripts/check-pda-cutting-inbound-workflow.ts",
     "check:pda-cutting-transfer-bag-handover": "tsx scripts/check-pda-cutting-transfer-bag-handover.ts",
     "check:web-cutting-transfer-bag-actions": "tsx scripts/check-web-cutting-transfer-bag-actions.ts",
+    "check:transfer-bag-three-status": "tsx scripts/check-transfer-bag-three-status.ts",
     "check:cut-piece-release-mock-records": "tsx scripts/check-cut-piece-release-mock-records.ts",
     "check:cut-piece-release-available-qty": "tsx scripts/check-cut-piece-release-available-qty.ts",
     "check:task-card-entry-and-route-closure": "tsx scripts/check-task-card-entry-and-route-closure.ts",
