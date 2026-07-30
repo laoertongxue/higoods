@@ -1,8 +1,10 @@
 import { getProductionOrderTechPackSnapshot } from '../production-order-tech-pack-runtime.ts'
 import { productionOrders } from '../production-orders.ts'
 import { getRuntimeTaskById } from '../runtime-process-tasks.ts'
+import { commitWoolStore, readWoolStore } from './store.ts'
 import type {
   WoolOutputPlanLine,
+  WoolWorkOrder,
   WoolWorkOrderKind,
 } from './types.ts'
 
@@ -346,4 +348,51 @@ export function buildWoolOrderSourceSnapshotFromRuntimeTask(taskId: string): Woo
       )
       : [],
   })
+}
+
+export function buildWoolOrderFromRuntimeTask(taskId: string): WoolWorkOrder {
+  const existing = Object.values(readWoolStore().workOrders)
+    .find((order) => order.taskId === taskId)
+  if (existing) return existing
+
+  const task = getRuntimeTaskById(taskId)
+  if (!task) throw new Error(`毛织加工单生成失败：找不到运行时任务 ${taskId}`)
+  const source = buildWoolOrderSourceSnapshotFromRuntimeTask(taskId)
+  const generatedAt = task.createdAt || task.updatedAt || '2026-07-31 00:00:00'
+  const downstreamTarget = source.kind === 'PART_PANEL'
+    ? {
+        receiverType: 'CUTTING_WAIT_HANDOVER_WAREHOUSE' as const,
+        receiverId: task.receiverId || 'WH-CUTTING-WAIT-HANDOVER',
+        receiverName: task.receiverName || '裁床待交出仓',
+      }
+    : {
+        receiverType: 'DOWNSTREAM_FACTORY' as const,
+        receiverId: task.receiverId || '',
+        receiverName: task.receiverName || '',
+      }
+  const order: WoolWorkOrder = {
+    woolOrderId: task.taskId,
+    woolOrderNo: task.woolOrderNo || `毛织单-${task.taskNo || task.taskId}`,
+    taskId: task.taskId,
+    taskNo: task.taskNo || task.taskId,
+    productionOrderId: source.productionOrderId,
+    productionOrderNo: source.productionOrderNo,
+    kind: source.kind,
+    outputPlanLines: source.outputPlanLines,
+    downstreamTarget,
+    sourceTechPackVersionId: source.sourceTechPackVersionId,
+    sourceTechPackVersionCode: source.sourceTechPackVersionCode,
+    createdAt: generatedAt,
+    createdBy: '生产任务生成',
+    updatedAt: generatedAt,
+    updatedBy: '生产任务生成',
+  }
+  commitWoolStore((draft) => {
+    const generatedFromSameTask = Object.values(draft.workOrders)
+      .find((item) => item.taskId === taskId)
+    if (generatedFromSameTask) return
+    draft.workOrders[order.woolOrderId] = order
+  })
+  return Object.values(readWoolStore().workOrders)
+    .find((item) => item.taskId === taskId) ?? order
 }

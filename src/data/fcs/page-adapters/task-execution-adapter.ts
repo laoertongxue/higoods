@@ -1,10 +1,13 @@
 import { processTasks, type ProcessTask } from '../process-tasks.ts'
 import {
+  isWoolRuntimeTask,
   listRuntimeExecutionTasks,
   listRuntimeProcessTasks,
   type RuntimeProcessTask,
 } from '../runtime-process-tasks.ts'
 import { listAllSewingDeliverySlaSnapshots } from '../sewing-delivery-sla.ts'
+import { buildWoolOrderFromRuntimeTask } from '../wool-domain/tech-pack-source.ts'
+import { getWoolProcessingStatus } from '../wool-domain/queries.ts'
 
 export interface ExecutionTaskFact extends ProcessTask {
   displayStageName: string
@@ -98,6 +101,56 @@ function cloneCoveredProcesses(task: RuntimeProcessTask): ProcessTask['coveredPr
     ...item,
     sourceArtifactIds: [...item.sourceArtifactIds],
   }))
+}
+
+function syncWoolExecutionFact(task: ProcessTask, runtimeTask: RuntimeProcessTask): void {
+  if (!isWoolRuntimeTask(runtimeTask)) return
+
+  try {
+    const order = buildWoolOrderFromRuntimeTask(runtimeTask.taskId)
+    const processingStatus = getWoolProcessingStatus(order.woolOrderId)
+    task.status = processingStatus === 'COMPLETED'
+      ? 'DONE'
+      : processingStatus === 'PROCESSING'
+        ? 'IN_PROGRESS'
+        : 'NOT_STARTED'
+  } catch {
+    task.status = 'NOT_STARTED'
+  }
+
+  delete task.standardPrice
+  delete task.standardPriceCurrency
+  delete task.standardPriceUnit
+  delete task.dispatchPrice
+  delete task.dispatchPriceCurrency
+  delete task.dispatchPriceUnit
+  delete task.priceDiffReason
+  delete task.startedAt
+  delete task.startHeadcount
+  delete task.startProofFiles
+  delete task.milestoneRuleType
+  delete task.milestoneRuleLabel
+  delete task.milestoneTargetQty
+  delete task.milestoneTargetUnit
+  delete task.milestoneRequired
+  delete task.milestoneStatus
+  delete task.milestoneReportedAt
+  delete task.milestoneReportedQty
+  delete task.milestoneProofFiles
+  delete task.milestoneProofRequirement
+  delete task.milestoneOverdueExceptionEnabled
+  delete task.milestoneOverdueHours
+  delete task.milestoneExceptionSeverity
+  delete task.milestoneOverdueExceptionId
+  delete task.yarnSku
+  delete task.yarnPlannedWeightKg
+  delete task.yarnReceivedWeightKg
+  delete task.requiresFeiTicket
+  delete task.packagingRequired
+  delete task.mockReceiveSummary
+  delete task.mockExecutionSummary
+  delete task.mockHandoverSummary
+  delete task.mockStartPrerequisiteMet
 }
 
 function createFallbackTask(runtimeTask: RuntimeProcessTask): ProcessTask {
@@ -294,7 +347,10 @@ function syncTaskFromRuntime(task: ProcessTask, runtimeTask: RuntimeProcessTask,
   task.mockHandoverSummary = runtimeTask.mockHandoverSummary
   task.mockStartPrerequisiteMet = runtimeTask.mockStartPrerequisiteMet
 
-  if (!runtimeWins) return
+  if (!runtimeWins) {
+    syncWoolExecutionFact(task, runtimeTask)
+    return
+  }
 
   task.assignmentMode = runtimeTask.assignmentMode
   task.assignmentStatus = runtimeTask.assignmentStatus
@@ -358,6 +414,7 @@ function syncTaskFromRuntime(task: ProcessTask, runtimeTask: RuntimeProcessTask,
   task.updatedAt = runtimeTask.updatedAt
   task.createdAt = runtimeTask.createdAt
   task.auditLogs = [...runtimeTask.auditLogs]
+  syncWoolExecutionFact(task, runtimeTask)
 }
 
 function resolveProcessName(task: ProcessTask): string {

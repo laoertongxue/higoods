@@ -2088,6 +2088,12 @@ export function isRuntimeTaskExecutionTask(task: RuntimeProcessTask): boolean {
   return task.executionEnabled !== false && task.isSplitSource !== true
 }
 
+export function isWoolRuntimeTask(
+  task: Pick<RuntimeProcessTask, 'processBusinessCode' | 'processCode'>,
+): boolean {
+  return task.processBusinessCode === 'WOOL' || task.processCode === 'WOOL'
+}
+
 export function listRuntimeExecutionTasks(): RuntimeProcessTask[] {
   return listRuntimeProcessTasks().filter((task) => isRuntimeTaskExecutionTask(task))
 }

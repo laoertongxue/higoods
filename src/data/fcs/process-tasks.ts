@@ -930,7 +930,6 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
       const woolKindLabel = woolTaskType === 'PART_PANEL' ? '部位毛织' : woolTaskType === 'WHOLE_GARMENT' ? '整件毛织' : undefined
       const woolDownstreamTarget = woolTaskType === 'PART_PANEL' ? '裁床待交出仓' : woolTaskType === 'WHOLE_GARMENT' ? '后道工厂' : undefined
       const woolOrderNo = isWool ? `毛织单-${orderId.replace('PO-', '')}-${String(seq).padStart(2, '0')}` : undefined
-      const yarnRow = isWool ? detailRows.find((row) => row.sourceRefs.bomItemId) : undefined
       const assignmentMode: AssignmentMode = unit && !unit.allowAutoDispatch
         ? 'DIRECT'
         : artifact.isSpecialCraft
@@ -964,7 +963,7 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
         outputValueDifficulty,
         outputValueSource: artifact.outputValueSource,
         attachments: [],
-        status: isWool ? 'IN_PROGRESS' : 'NOT_STARTED',
+        status: 'NOT_STARTED',
         acceptanceStatus: directFactoryAssigned ? 'PENDING' : isWool ? 'ACCEPTED' : undefined,
         acceptedAt: isWool ? '2026-05-09 08:20' : undefined,
         acceptedBy: isWool ? OWN_WOOL_FACTORY_NAME : undefined,
@@ -973,51 +972,13 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
         dispatchRemark: directFactoryAssigned
           ? `${unit?.taskName || processName}由任务生成规则指定${unit?.assignmentTargetFactoryName || '承接工厂'}接单；不进入独立任务自动分配。`
           : isWool
-            ? `${woolKindLabel}；染厂/面料仓送料到厂，毛织厂称重确认并上传照片/视频，完成后交${woolDownstreamTarget}`
+            ? `${woolKindLabel}已分配至毛织工厂；上游任务接单仅用于协作，执行进度以毛织加工单事实为准。`
             : undefined,
         dispatchedAt: directFactoryAssigned ? '2026-06-29 09:00' : isWool ? '2026-05-09 08:00' : undefined,
         dispatchedBy: directFactoryAssigned || isWool ? '系统' : undefined,
-        startedAt: isWool ? '2026-05-09 09:00' : undefined,
-        startHeadcount: isWool ? 8 : undefined,
-        startProofFiles: isWool
-          ? [
-              {
-                id: `start-${taskId}-1`,
-                type: 'IMAGE',
-                name: `${woolKindLabel}_开工现场.jpg`,
-                uploadedAt: '2026-05-09 09:00',
-              },
-            ]
-          : undefined,
-        milestoneRequired: isWool,
-        milestoneRuleType: isWool ? 'AFTER_FIRST_BATCH' : undefined,
-        milestoneRuleLabel: isWool
-          ? woolTaskType === 'PART_PANEL'
-            ? '横机完成首批部位片后上传照片或视频'
-            : '横机完成首批整件后上传照片或视频'
-          : undefined,
-        milestoneTargetQty: isWool ? (woolTaskType === 'PART_PANEL' ? 80 : 20) : undefined,
-        milestoneTargetUnit: isWool ? 'PIECE' : undefined,
-        milestoneStatus: isWool ? 'REPORTED' : undefined,
-        milestoneReportedAt: isWool ? '2026-05-09 11:30' : undefined,
-        milestoneReportedQty: isWool ? (woolTaskType === 'PART_PANEL' ? 86 : 24) : undefined,
-        milestoneProofFiles: isWool
-          ? [
-              {
-                id: `milestone-${taskId}-1`,
-                type: 'IMAGE',
-                name: `${woolKindLabel}_首批节点.jpg`,
-                uploadedAt: '2026-05-09 11:30',
-              },
-            ]
-          : undefined,
-        milestoneProofRequirement: isWool ? 'IMAGE_OR_VIDEO' : undefined,
-        milestoneOverdueExceptionEnabled: isWool,
-        milestoneOverdueHours: isWool ? 24 : undefined,
-        milestoneExceptionSeverity: isWool ? 'S2' : undefined,
         taskQrValue: buildTaskQrValue(taskId),
         taskQrStatus: 'ACTIVE',
-        handoverAutoCreatePolicy: 'CREATE_ON_START',
+        handoverAutoCreatePolicy: isWool ? undefined : 'CREATE_ON_START',
         handoverStatus: 'NOT_CREATED',
         dependsOnTaskIds: [],
         routeStepNo: artifact.routeStepNo,
@@ -1069,22 +1030,18 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
         woolOrderId: isWool ? taskId : undefined,
         woolOrderNo,
         woolDownstreamTarget,
-        requiresFeiTicket: isWool ? artifact.requiresFeiTicket || woolTaskType === 'PART_PANEL' : artifact.requiresFeiTicket,
-        packagingRequired: isWool ? Boolean(artifact.packagingRequired) : artifact.packagingRequired,
+        requiresFeiTicket: isWool ? undefined : artifact.requiresFeiTicket,
+        packagingRequired: isWool ? undefined : artifact.packagingRequired,
         materialIssueMode: artifact.materialIssueMode,
-        yarnSku: yarnRow?.sourceRefs.bomItemId,
-        yarnPlannedWeightKg: isWool ? Math.max(artifact.orderQty, 0) * (woolTaskType === 'PART_PANEL' ? 0.08 : 0.48) : undefined,
-        yarnReceivedWeightKg: isWool ? Math.max(artifact.orderQty, 0) * (woolTaskType === 'PART_PANEL' ? 0.08 : 0.48) : undefined,
-        mockReceiveSummary: isWool ? '染厂/面料仓送料到厂，毛织厂按 kg 称重确认，需上传照片和视频' : undefined,
+        yarnSku: undefined,
+        yarnPlannedWeightKg: undefined,
+        yarnReceivedWeightKg: undefined,
+        mockReceiveSummary: undefined,
         mockExecutionSummary: isMerged
           ? `按${coveredProcesses.map((item) => item.processName).join('、')}连续执行，PDA 使用领料、开工、关键节点上报、交出、完工 5 步。`
-          : isWool
-          ? woolTaskType === 'PART_PANEL'
-            ? '横机成片后打印部位毛织菲票，不进入缝盘、熨烫、包装'
-            : `横机成片后进入缝盘、熨烫${artifact.packagingRequired ? '、包装' : ''}`
           : undefined,
-        mockHandoverSummary: unit ? `完成后交${unit.handoverReceiverName}` : isWool ? `完成后交${woolDownstreamTarget}` : undefined,
-        mockStartPrerequisiteMet: isWool ? true : undefined,
+        mockHandoverSummary: isWool ? undefined : unit ? `完成后交${unit.handoverReceiverName}` : undefined,
+        mockStartPrerequisiteMet: undefined,
         ...receiver,
         createdAt: GENERATED_TASK_CREATED_AT,
         updatedAt: GENERATED_TASK_CREATED_AT,

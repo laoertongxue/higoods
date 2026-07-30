@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { alignWoolColorMaterialMappingsForDemand } from '../src/data/fcs/production-tech-pack-snapshot-builder.ts'
 import {
   buildWoolPanelOutputSku,
+  buildWoolOrderFromRuntimeTask,
   buildWoolOrderSourceSnapshot,
   buildWoolOrderSourceSnapshotFromRuntimeTask,
   type WoolOrderSourceBuildInput,
@@ -31,9 +32,15 @@ import {
   captureRuntimeDirectDispatchState,
   dispatchRuntimeTaskByDetailGroups,
   getRuntimeTaskById,
+  listRuntimeExecutionTasks,
   listRuntimeTaskAllocatableGroups,
   restoreRuntimeDirectDispatchState,
 } from '../src/data/fcs/runtime-process-tasks.ts'
+import {
+  getWoolProcessingStatus,
+  getWoolWorkOrderTab,
+} from '../src/data/fcs/wool-domain/queries.ts'
+import { readWoolStore } from '../src/data/fcs/wool-domain/store.ts'
 
 const handoverTypeFixture: WoolHandoverRecord = {
   handoverId: 'WH-TYPE-CHECK',
@@ -3464,5 +3471,54 @@ const woolMachineSources = [
 assert(!woolMachineSources.includes('SCHEDULED'))
 assert(!woolMachineSources.includes('已排产'))
 
+resetWoolFactWorkflowMock('CHECK_WOOL_RUNTIME_GENERATION')
+const woolRuntimeTask = listRuntimeExecutionTasks().find(
+  (item) => item.processBusinessCode === 'WOOL' || item.processCode === 'WOOL',
+)
+assert(woolRuntimeTask, '缺少可用于运行时生成检查的毛织任务')
+assert.equal(woolRuntimeTask.acceptanceStatus, 'ACCEPTED', '毛织运行时任务必须保留上游接单协作')
+
+const runtimeGeneratedWoolOrder = buildWoolOrderFromRuntimeTask(woolRuntimeTask.taskId)
+assert.equal(getWoolProcessingStatus(runtimeGeneratedWoolOrder.woolOrderId), 'UNPROCESSED')
+assert.equal(getWoolWorkOrderTab(runtimeGeneratedWoolOrder.woolOrderId), 'NOT_READY')
+assert.equal(runtimeGeneratedWoolOrder.outputPlanLines.length > 0, true)
+const runtimeGenerationStore = readWoolStore()
+assert.equal(
+  runtimeGenerationStore.yarnReceipts.filter((item) => item.woolOrderId === runtimeGeneratedWoolOrder.woolOrderId).length,
+  0,
+)
+assert.equal(
+  runtimeGenerationStore.processReports.filter((item) => item.woolOrderId === runtimeGeneratedWoolOrder.woolOrderId).length,
+  0,
+)
+assert.equal(
+  runtimeGenerationStore.handovers.filter((item) => item.woolOrderId === runtimeGeneratedWoolOrder.woolOrderId).length,
+  0,
+)
+assert.equal(
+  runtimeGenerationStore.completions.filter((item) => item.woolOrderId === runtimeGeneratedWoolOrder.woolOrderId).length,
+  0,
+)
+for (const forbiddenField of [
+  'acceptanceStatus',
+  'startedAt',
+  'priceInfo',
+  'standardPrice',
+  'dispatchPrice',
+  'nodes',
+  'milestones',
+]) {
+  assert.equal(forbiddenField in runtimeGeneratedWoolOrder, false)
+}
+const idempotentRuntimeGeneratedWoolOrder = buildWoolOrderFromRuntimeTask(woolRuntimeTask.taskId)
+assert.deepEqual(idempotentRuntimeGeneratedWoolOrder, runtimeGeneratedWoolOrder)
+assert.equal(
+  Object.values(readWoolStore().workOrders)
+    .filter((item) => item.taskId === woolRuntimeTask.taskId)
+    .length,
+  1,
+)
+
 console.log('PASS task 5: global command receipts, atomic stock, downstream lock, and manual completion')
 console.log('PASS task 6: current machine associations and derived four-state availability')
+console.log('PASS task 7: runtime generation uses frozen wool facts and remains idempotent')

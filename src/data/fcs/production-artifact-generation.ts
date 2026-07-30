@@ -316,8 +316,6 @@ function buildDictionaryCoverageBase(
           ? '裁床待交出仓'
           : '后道工厂'
         : undefined,
-    requiresFeiTicket: definition.processCode === 'WOOL' && definition.craftName === '部位毛织',
-    packagingRequired: definition.processCode === 'WOOL' && definition.craftName === '整件毛织' ? false : undefined,
     materialIssueMode: definition.processCode === 'WOOL' ? 'WAREHOUSE_DELIVERY' : undefined,
     linkedBomItemIds: linkedBomItem ? [linkedBomItem.id] : undefined,
     ...waterSolubleMaterialFields,
