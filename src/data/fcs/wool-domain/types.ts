@@ -203,41 +203,39 @@ export interface WoolWarehouseFlow {
 
 export interface WoolCompletionSnapshot {
   yarnReceiptSummary: Array<{
-    yarnSku: string
+    yarnSkuCode: string
     receivedQty: number
-    unit: 'kg'
+    qtyUnit: 'kg'
   }>
   outputReadinessSummary: Array<{
-    outputSku: string
+    outputSkuCode: string
     requiredYarnSkus: string[]
     confirmedYarnSkus: string[]
     missingYarnSkus: string[]
   }>
   processReportSummary: Array<{
-    outputSku: string
+    outputSkuCode: string
     reportedQty: number
-    unit: '件' | '片'
+    qtyUnit: '件' | '片'
   }>
   handoverSummary: Array<{
     handoverId: string
-    outputSku: string
-    qty: number
-    unit: '件' | '片'
+    outputSkuCode: string
+    handoverQty: number
+    qtyUnit: '件' | '片'
     downstreamActualReceivedQty?: number
-    difference?: number
-    receivedAt?: string
+    downstreamDifferenceQty?: number
+    downstreamReceivedAt?: string
   }>
   waitProcessStockSummary: Array<{
-    objectSku: string
-    batchNo?: string
-    qty: number
-    unit: WoolQtyUnit
+    yarnSkuCode: string
+    stockQty: number
+    qtyUnit: 'kg'
   }>
   waitHandoverStockSummary: Array<{
-    objectSku: string
-    batchNo?: string
-    qty: number
-    unit: '件' | '片'
+    outputSkuCode: string
+    stockQty: number
+    qtyUnit: '件' | '片'
   }>
   releasedMachineIds: string[]
 }

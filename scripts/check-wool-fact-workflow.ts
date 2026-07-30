@@ -45,25 +45,25 @@ const completionTypeFixture: WoolCompletionRecord = {
   completedAt: '2026-07-30 18:00:00',
   completedBy: '毛织主管',
   confirmationSnapshot: {
-    yarnReceiptSummary: [{ yarnSku: 'YARN-A', receivedQty: 20, unit: 'kg' }],
+    yarnReceiptSummary: [{ yarnSkuCode: 'YARN-A', receivedQty: 20, qtyUnit: 'kg' }],
     outputReadinessSummary: [{
-      outputSku: 'GARMENT-BLACK-M',
+      outputSkuCode: 'GARMENT-BLACK-M',
       requiredYarnSkus: ['YARN-A'],
       confirmedYarnSkus: ['YARN-A'],
       missingYarnSkus: [],
     }],
-    processReportSummary: [{ outputSku: 'GARMENT-BLACK-M', reportedQty: 100, unit: '件' }],
+    processReportSummary: [{ outputSkuCode: 'GARMENT-BLACK-M', reportedQty: 100, qtyUnit: '件' }],
     handoverSummary: [{
       handoverId: 'WH-TYPE-CHECK',
-      outputSku: 'GARMENT-BLACK-M',
-      qty: 100,
-      unit: '件',
+      outputSkuCode: 'GARMENT-BLACK-M',
+      handoverQty: 100,
+      qtyUnit: '件',
       downstreamActualReceivedQty: 100,
-      difference: 0,
-      receivedAt: '2026-07-30 17:00:00',
+      downstreamDifferenceQty: 0,
+      downstreamReceivedAt: '2026-07-30 17:00:00',
     }],
-    waitProcessStockSummary: [{ objectSku: 'YARN-A', batchNo: 'BATCH-A', qty: 0, unit: 'kg' }],
-    waitHandoverStockSummary: [{ objectSku: 'GARMENT-BLACK-M', batchNo: 'BATCH-G', qty: 0, unit: '件' }],
+    waitProcessStockSummary: [{ yarnSkuCode: 'YARN-A', stockQty: 0, qtyUnit: 'kg' }],
+    waitHandoverStockSummary: [{ outputSkuCode: 'GARMENT-BLACK-M', stockQty: 0, qtyUnit: '件' }],
     releasedMachineIds: ['WM-001'],
   },
 }
@@ -316,6 +316,12 @@ assert.equal(woolTypesSource.includes('processReportSummary:'), true)
 assert.equal(woolTypesSource.includes('handoverSummary:'), true)
 assert.equal(woolTypesSource.includes('waitProcessStockSummary:'), true)
 assert.equal(woolTypesSource.includes('waitHandoverStockSummary:'), true)
+assert.equal(woolTypesSource.includes('yarnSkuCode: string'), true)
+assert.equal(woolTypesSource.includes('outputSkuCode: string'), true)
+assert.equal(woolTypesSource.includes('handoverQty: number'), true)
+assert.equal(woolTypesSource.includes('downstreamDifferenceQty?: number'), true)
+assert.equal(woolTypesSource.includes('downstreamReceivedAt?: string'), true)
+assert.equal(woolTypesSource.includes('stockQty: number'), true)
 
 const {
   addWoolProcessReport,
