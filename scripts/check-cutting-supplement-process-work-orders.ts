@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import {
+  bootstrapSupplementManagementMockData,
   confirmSupplementAndGenerateProcessWorkOrders,
   listSupplementRecords,
   setSupplementRecordSaveFailureForTest,
@@ -19,6 +20,7 @@ import {
   type ProcessWorkOrderGenerationInput,
 } from '../src/data/fcs/process-work-order-generation-service.ts'
 
+bootstrapSupplementManagementMockData()
 const initialRecords = listSupplementRecords()
 assert(initialRecords.length > 0, '缺少补料检查数据')
 

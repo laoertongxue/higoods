@@ -26,6 +26,7 @@ import {
   listPlatformDyeResultViews,
   listPlatformPrintResultViews,
 } from '../src/data/fcs/platform-process-result-view.ts'
+import { getProcessWorkOrderById } from '../src/data/fcs/process-work-order-domain.ts'
 import {
   buildPickupOrderGroups,
   buildSupplementMaterialRows,
@@ -39,7 +40,10 @@ import {
   type PickupMaterialDemandRow,
   type PickupOrderGroup,
 } from '../src/pages/process-factory/cutting/pickup-management-projection.ts'
-import { listSupplementRecords } from '../src/pages/process-factory/cutting/supplement-management.ts'
+import {
+  bootstrapSupplementManagementMockData,
+  listSupplementRecords,
+} from '../src/pages/process-factory/cutting/supplement-management.ts'
 import {
   getCanonicalCuttingMeta,
   isCuttingAliasPath,
@@ -390,9 +394,21 @@ assert(
   '串换来源配料记录必须被稳定位置事实比较捕获',
 )
 
+bootstrapSupplementManagementMockData()
 const supplementRecords = listSupplementRecords().filter((record) => record.status === '已确认')
 const dyeResults = listPlatformDyeResultViews()
 const printResults = listPlatformPrintResultViews()
+assert(supplementRecords.length === 12, '补料页面与领料 runtime 必须共享单一的 12 条权威 Mock 初始化')
+supplementRecords.flatMap((record) => record.processWorkOrderRefs).forEach((ref) => {
+  assert(getProcessWorkOrderById(ref.workOrderId), `补料加工单引用必须可解析：${ref.workOrderId}`)
+  const processResults = ref.processType === 'DYE' ? dyeResults : printResults
+  assert(
+    processResults.some((result) =>
+      result.sourceId === ref.workOrderId && result.workOrderNo === ref.workOrderNo
+    ),
+    `补料加工单必须有可解析的平台结果引用：${ref.workOrderNo}`,
+  )
+})
 const supplementRowsByProductionOrder = buildSupplementMaterialRows(supplementRecords, {
   dyeResults,
   printResults,

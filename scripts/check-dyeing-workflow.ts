@@ -45,6 +45,7 @@ import {
   listDyeWorkOrderOnlineRows,
 } from '../src/data/fcs/dye-work-order-online-view.ts'
 import {
+  bootstrapSupplementManagementMockData,
   confirmSupplementAndGenerateProcessWorkOrders,
   listSupplementRecords,
 } from '../src/pages/process-factory/cutting/supplement-management.ts'
@@ -167,6 +168,7 @@ function main(): void {
       stockMaterialName: task.stockMaterialName,
     }))
   let orders = listDyeWorkOrders()
+  bootstrapSupplementManagementMockData()
   const supplementSeed = listSupplementRecords().find((record) =>
     record.draft.sourceType === 'cut-order'
     && record.draft.materialDemands.some((item) => item.printRequired && item.dyeRequired),

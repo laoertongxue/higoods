@@ -63,6 +63,7 @@ const pickupManagementListSource = read('src/pages/process-factory/cutting/picku
 const pickupManagementProjectionSource = read('src/pages/process-factory/cutting/pickup-management-projection.ts')
 const pickupManagementRuntimeSource = read('src/runtime/fcs/cutting/pickup-management-runtime.ts')
 const supplementRecordSource = read('src/data/fcs/cutting/supplement-records.ts')
+const supplementManagementSource = read('src/pages/process-factory/cutting/supplement-management.ts')
 const pdaWaitProcessSource = read('src/pages/pda-warehouse-wait-process.ts')
 const warehouseHubSource = read('src/pages/process-factory/cutting/warehouse-hub.ts')
 const fcsHandlersSource = read('src/main-handlers/fcs-handlers.ts')
@@ -129,6 +130,13 @@ assert(
   return structuredClone(supplementRecords)
 }`),
   '补料记录纯查询不得隐式初始化 Mock 数据',
+)
+assert(
+  supplementManagementSource.includes(`export function listSupplementRecords(): SupplementRecord[] {
+  return listSupplementRecordsFromStore()
+}`)
+  && supplementManagementSource.includes('export function bootstrapSupplementManagementMockData()'),
+  '补料页面 list 查询必须保持纯读，Mock 初始化只能由显式 bootstrap/route-enter 触发',
 )
 assert(
   pickupManagementProjectionSource.includes('buildPickupRuntimeContext(storage)')

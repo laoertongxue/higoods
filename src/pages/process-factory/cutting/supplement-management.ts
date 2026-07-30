@@ -43,7 +43,6 @@ import {
 import {
   listSupplementRecords as listSupplementRecordsFromStore,
   prependSupplementRecord,
-  replaceSupplementRecords,
   type SupplementAbAnalysisRow,
   type SupplementDraft,
   type SupplementLine,
@@ -2471,7 +2470,6 @@ export function confirmSupplementAndGenerateProcessWorkOrders(
   draft: SupplementDraft,
   createdBy: string,
 ): { ok: true; record: SupplementRecord } | { ok: false; message: string } {
-  ensureMockSupplementOrders()
   const confirmationKey = buildSupplementConfirmationIdentity(draft)
   const requestFingerprint = buildSupplementRequestFingerprint(draft)
   const identity = buildSupplementRecordIdentity(draft)
@@ -2700,7 +2698,6 @@ export function confirmSupplementAndGenerateProcessWorkOrders(
 }
 
 export function listSupplementRecords(): SupplementRecord[] {
-  ensureMockSupplementOrders()
   return listSupplementRecordsFromStore()
 }
 
@@ -2759,9 +2756,31 @@ function buildMockDraft(
 function ensureMockSupplementOrders(): void {
   if (mockSupplementOrdersSeeded) return
   mockSupplementOrdersSeeded = true
-  if (state.records.length) return
+  state.records = listSupplementRecordsFromStore()
 
-  const candidates = buildCandidates().filter((candidate) => candidate.canInitiate && candidate.abAnalysisRows.length > 0)
+  const seedSourceOrder = [
+    'CUT-260302-004-01',
+    'CUT-260306-101-03',
+    'CUT-260306-101-04',
+    'CUT-260306-101-05',
+    'CUT-260306-101-06',
+    'CUT-260303-002-01',
+    'CUT-260306-101-01',
+    'CUT-260306-101-02',
+    'CUT-260303-007-01',
+    'CUT-260301-003-01',
+    'CUT-260301-005-01',
+    'PO-202603-0008',
+  ]
+  const seedSourceSet = new Set(seedSourceOrder)
+  const candidates = cuttingOrderProgressRecords
+    .filter((record) => ['PO-202603-0002', 'PO-202603-0003', 'PO-202603-0004', 'PO-202603-0008'].includes(record.productionOrderId))
+    .flatMap((record) => [
+      ...(record.productionOrderId === 'PO-202603-0008' ? [buildProductionCandidate(record)] : []),
+      ...buildCutOrderCandidates(record).filter((candidate) => seedSourceSet.has(candidate.sourceNo)),
+    ])
+    .filter((candidate) => candidate.canInitiate && candidate.abAnalysisRows.length > 0)
+    .sort((left, right) => seedSourceOrder.indexOf(left.sourceNo) - seedSourceOrder.indexOf(right.sourceNo))
   if (!candidates.length) return
   const reasons = ['裁片损耗', '尺码齐套不足', '验片破损', '裁剪差异']
   const details = [
@@ -2771,9 +2790,8 @@ function ensureMockSupplementOrders(): void {
     '裁剪数量与计划存在差异，主管确认后发起补料。',
   ]
   const creators = ['裁床主管 周敏', '裁床组长 林洁', '验片主管 陈玲', '裁床主管 王海']
-  const records: SupplementRecord[] = []
-
-  for (let index = 0; index < candidates.length * 2 && records.length < 12; index += 1) {
+  let coveredSeedCount = 0
+  for (let index = 0; index < candidates.length * 2 && coveredSeedCount < 12; index += 1) {
     const candidate = candidates[index % candidates.length]
     const draft = buildMockDraft(
       candidate,
@@ -2792,37 +2810,46 @@ function ensureMockSupplementOrders(): void {
       materialDemands,
       confirmationIdentity: `mock-supplement-${index + 1}`,
     }
-    const identity = buildSupplementRecordIdentity(variedDraft)
-    const processWorkOrderRefs = variedDraft.materialDemands.flatMap((demand, demandIndex) => {
-      const processTypes = [
-        demand.dyeRequired ? 'DYE' as const : null,
-        demand.printRequired ? 'PRINT' as const : null,
-      ].filter((processType): processType is 'DYE' | 'PRINT' => Boolean(processType))
-      return processTypes.map((processType) => ({
-        processType,
-        sourceType: 'CUT_PIECE_SUPPLEMENT' as const,
-        workOrderId: `mock-${processType.toLowerCase()}-${index + 1}-${demandIndex + 1}`,
-        workOrderNo: `${processType === 'DYE' ? 'DY' : 'PH'}-${String(index + 1).padStart(6, '0')}`,
-        materialSku: demand.materialSku,
-        materialName: demand.materialName,
-        plannedQty: demand.requiredQty,
-        unit: demand.unit,
-      }))
-    })
-    records.push({
-      ...identity,
-      confirmationKey: variedDraft.confirmationIdentity!,
-      requestFingerprint: buildSupplementRequestFingerprint(variedDraft),
-      status: '已确认',
-      createdAt: `2026-03-${String(25 - Math.floor(index / 4)).padStart(2, '0')} ${String(16 - (index % 4)).padStart(2, '0')}:${String((index * 7) % 60).padStart(2, '0')}`,
-      createdBy: creators[index % creators.length],
-      draft: structuredClone(variedDraft),
-      processWorkOrderRefs,
-    })
+    const existingSeed = state.records.find((record) =>
+      record.draft.productionOrderId === variedDraft.productionOrderId
+      && record.draft.sourceNo === variedDraft.sourceNo
+      && record.draft.materialDemands.length === variedDraft.materialDemands.length
+      && record.draft.materialDemands.every((demand) =>
+        variedDraft.materialDemands.some((candidateDemand) =>
+          candidateDemand.materialPatternMappingId === demand.materialPatternMappingId
+          && candidateDemand.materialSku === demand.materialSku
+          && candidateDemand.unit === demand.unit
+        )
+      )
+    )
+    if (existingSeed) {
+      coveredSeedCount += 1
+      continue
+    }
+    const hasProcessDemand = variedDraft.materialDemands.some((demand) => demand.printRequired || demand.dyeRequired)
+    const confirmed = hasProcessDemand
+      ? confirmSupplementAndGenerateProcessWorkOrders(variedDraft, creators[index % creators.length])
+      : {
+          ok: true as const,
+          record: saveConfirmedSupplementRecord({
+            identity: buildSupplementRecordIdentity(variedDraft),
+            draft: variedDraft,
+            createdBy: creators[index % creators.length],
+            processWorkOrderRefs: [],
+            confirmationKey: buildSupplementConfirmationIdentity(variedDraft),
+            requestFingerprint: buildSupplementRequestFingerprint(variedDraft),
+          }),
+        }
+    if (!confirmed.ok) continue
+    coveredSeedCount += 1
   }
 
-  state.records = records
-  replaceSupplementRecords(records)
+  state.records = listSupplementRecordsFromStore()
+}
+
+export function bootstrapSupplementManagementMockData(): SupplementRecord[] {
+  ensureMockSupplementOrders()
+  return listSupplementRecordsFromStore()
 }
 
 function setFiltersFromDom(): void {
@@ -2857,6 +2884,7 @@ export function isCraftCuttingSupplementManagementDialogOpen(): boolean {
 }
 
 export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement, event?: Event): boolean {
+  bootstrapSupplementManagementMockData()
   const internalDragEvent = event as (DragEvent & {
     higoodStandardListColumnDrag?: true
     higoodStandardListColumnKey?: string
@@ -3271,7 +3299,7 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
 }
 
 export function renderCraftCuttingSupplementManagementPage(): string {
-  ensureMockSupplementOrders()
+  bootstrapSupplementManagementMockData()
   ensureSupplementListPreferences()
   if (isSupplementCreateMode()) {
     return renderCraftCuttingSupplementCreatePage()
@@ -3303,7 +3331,7 @@ export function renderCraftCuttingSupplementManagementPage(): string {
 }
 
 export function renderCraftCuttingSupplementCreatePage(): string {
-  ensureMockSupplementOrders()
+  bootstrapSupplementManagementMockData()
   prepareReleaseSnapshotCreateState()
   let activeCandidate = state.activeCandidateId ? getCandidateById(state.activeCandidateId) : undefined
   if (state.activeCandidateId && !activeCandidate) {

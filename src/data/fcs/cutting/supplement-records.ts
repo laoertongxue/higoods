@@ -142,11 +142,6 @@ export function listSupplementRecords(): SupplementRecord[] {
   return structuredClone(supplementRecords)
 }
 
-export function replaceSupplementRecords(records: SupplementRecord[]): SupplementRecord[] {
-  supplementRecords = structuredClone(records)
-  return listSupplementRecords()
-}
-
 export function prependSupplementRecord(record: SupplementRecord): SupplementRecord {
   supplementRecords = [structuredClone(record), ...supplementRecords]
   return structuredClone(record)

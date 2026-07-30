@@ -39,6 +39,7 @@ import {
   groupProcessWorkOrderPlannedQuantities,
 } from '../src/data/fcs/process-statistics-domain.ts'
 import {
+  bootstrapSupplementManagementMockData,
   confirmSupplementAndGenerateProcessWorkOrders,
   listSupplementRecords,
 } from '../src/pages/process-factory/cutting/supplement-management.ts'
@@ -194,6 +195,7 @@ assert(orders.length > 0, '未生成印花加工单数据')
 assert(orders.some((order) => getPrintWorkOrderStatusLabel(order.status) === '待送货'), '印花状态缺少待送货')
 assert(!hasDirectTransferToReviewTransition(), '仍存在转印完成直达审核的链路')
 
+bootstrapSupplementManagementMockData()
 const supplementSeed = listSupplementRecords().find((record) =>
   record.draft.sourceType === 'cut-order'
   && record.draft.materialDemands.some((item) => item.printRequired && item.dyeRequired),
