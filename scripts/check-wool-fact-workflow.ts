@@ -1166,6 +1166,10 @@ resetWoolFactWorkflowMock('CHECK_WOOL_FACT_WORKFLOW_AFTER_MIXED_BLOCK')
 commitWoolStore((draft) => {
   const receipt = draft.yarnReceipts.find((item) => item.woolOrderId === readyOrder.woolOrderId)!
   receipt.receivedBy = 'FAKE-SKU-IN-TEXT'
+  for (const line of receipt.lines) {
+    draft.warehouseFlows.find((flow) => flow.flowId === line.warehouseInboundFlowId)!.operatedBy =
+      receipt.receivedBy
+  }
   draft.operationLogs.push({
     operationLogId: 'WOOL-EXACT-SKU-CHECK',
     woolOrderId: readyOrder.woolOrderId,
@@ -1458,6 +1462,92 @@ for (const mismatchCase of factFlowMismatchCases) {
   )
 }
 
+const factFlowAuditCases = [
+  {
+    label: '纱线接收',
+    resolve(store: typeof validStore) {
+      const receipt = store.yarnReceipts.find((item) => item.lines.length > 0)!
+      const flow = store.warehouseFlows.find((item) =>
+        item.flowId === receipt.lines[0].warehouseInboundFlowId,
+      )!
+      return {
+        flow,
+        expectedAt: receipt.receivedAt,
+        expectedBy: receipt.receivedBy,
+      }
+    },
+  },
+  {
+    label: '纱线领用',
+    resolve(store: typeof validStore) {
+      const issue = store.yarnIssues[0]
+      const flow = store.warehouseFlows.find((item) => item.flowId === issue.warehouseOutboundFlowId)!
+      return {
+        flow,
+        expectedAt: issue.issuedAt,
+        expectedBy: issue.issuedBy,
+      }
+    },
+  },
+  {
+    label: '纱线退回',
+    resolve(store: typeof validStore) {
+      const returned = store.yarnReturns[0]
+      const flow = store.warehouseFlows.find((item) => item.flowId === returned.warehouseInboundFlowId)!
+      return {
+        flow,
+        expectedAt: returned.returnedAt,
+        expectedBy: returned.returnedBy,
+      }
+    },
+  },
+  {
+    label: '加工填报',
+    resolve(store: typeof validStore) {
+      const report = store.processReports[0]
+      const flow = store.warehouseFlows.find((item) => item.flowId === report.warehouseInboundFlowId)!
+      return {
+        flow,
+        expectedAt: report.reportedAt,
+        expectedBy: report.reportedBy,
+      }
+    },
+  },
+  {
+    label: '成品交出',
+    resolve(store: typeof validStore) {
+      const handover = store.handovers[0]
+      const flow = store.warehouseFlows.find((item) => item.flowId === handover.warehouseOutboundFlowId)!
+      return {
+        flow,
+        expectedAt: handover.handedOverAt,
+        expectedBy: handover.handedOverBy,
+      }
+    },
+  },
+]
+for (const auditCase of factFlowAuditCases) {
+  const fakeTimeStore = structuredClone(validStore)
+  const fakeTimeAudit = auditCase.resolve(fakeTimeStore)
+  assert.equal(fakeTimeAudit.flow.operatedAt, fakeTimeAudit.expectedAt)
+  fakeTimeAudit.flow.operatedAt = '1999-01-01 00:00:00'
+  assert.throws(
+    () => validateWoolStore(fakeTimeStore),
+    /事实与仓库流水.*操作时间.*不一致/,
+    `${auditCase.label}流水不得伪造 1999 操作时间`,
+  )
+
+  const fakeOperatorStore = structuredClone(validStore)
+  const fakeOperatorAudit = auditCase.resolve(fakeOperatorStore)
+  assert.equal(fakeOperatorAudit.flow.operatedBy, fakeOperatorAudit.expectedBy)
+  fakeOperatorAudit.flow.operatedBy = '伪造操作人'
+  assert.throws(
+    () => validateWoolStore(fakeOperatorStore),
+    /事实与仓库流水.*操作人.*不一致/,
+    `${auditCase.label}流水不得伪造操作人`,
+  )
+}
+
 const missingQtyChangeFlowStore = structuredClone(validStore)
 const missingFlowChange = missingQtyChangeFlowStore.qtyChangeLogs[0]
 missingQtyChangeFlowStore.warehouseFlows = missingQtyChangeFlowStore.warehouseFlows.filter((item) =>
@@ -1468,6 +1558,37 @@ assert.throws(
   /数量修改.*恰有一条.*仓库流水/,
   '每条数量修改必须反向拥有一条差额仓库流水',
 )
+
+const garmentQtyChangeUnitStore = structuredClone(validStore)
+const garmentQtyChange = garmentQtyChangeUnitStore.qtyChangeLogs.find((change) =>
+  change.recordType === 'PROCESS_REPORT'
+  && garmentQtyChangeUnitStore.workOrders[
+    garmentQtyChangeUnitStore.processReports.find((report) => report.reportId === change.recordId)!.woolOrderId
+  ]?.kind === 'WHOLE_GARMENT',
+)!
+garmentQtyChange.qtyUnit = 'kg'
+assert.throws(
+  () => validateWoolStore(garmentQtyChangeUnitStore),
+  /数量修改.*单位.*目标事实.*不一致/,
+  '成衣件数修改不得伪装为 kg',
+)
+
+for (const [label, mutate] of [
+  ['操作时间', (flow: WoolWarehouseFlow) => { flow.operatedAt = '1999-01-01 00:00:00' }],
+  ['操作人', (flow: WoolWarehouseFlow) => { flow.operatedBy = '伪造操作人' }],
+] as const) {
+  const fakeQtyChangeAuditStore = structuredClone(validStore)
+  const change = fakeQtyChangeAuditStore.qtyChangeLogs[0]
+  const flow = fakeQtyChangeAuditStore.warehouseFlows.find((item) =>
+    item.sourceRecordType === 'QTY_CHANGE' && item.sourceRecordId === change.changeId,
+  )!
+  mutate(flow)
+  assert.throws(
+    () => validateWoolStore(fakeQtyChangeAuditStore),
+    new RegExp(`数量修改.*流水${label}.*不一致`),
+    `数量修改差额流水不得伪造${label}`,
+  )
+}
 
 const missingReceiptChangeLineStore = structuredClone(validStore)
 const missingLineReceipt = missingReceiptChangeLineStore.yarnReceipts.find((item) => item.lines.length > 0)!

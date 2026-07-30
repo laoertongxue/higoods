@@ -143,6 +143,19 @@ export function validateWoolStore(store: WoolDomainStore): void {
   }
   const requiredYarns = (order: WoolWorkOrder): Set<string> =>
     new Set(order.outputPlanLines.flatMap((line) => line.requiredYarnSkus))
+  const validateFactFlowAudit = (
+    flow: WoolWarehouseFlow,
+    expectedAt: string,
+    expectedBy: string,
+    label: string,
+  ): void => {
+    if (flow.operatedAt !== expectedAt) {
+      throw new Error(`毛织存储校验失败：${label}事实与仓库流水的操作时间不一致`)
+    }
+    if (flow.operatedBy !== expectedBy) {
+      throw new Error(`毛织存储校验失败：${label}事实与仓库流水的操作人不一致`)
+    }
+  }
 
   for (const receipt of store.yarnReceipts) {
     const order = requireOrder(receipt.woolOrderId, `接收记录 ${receipt.receiptId}`)
@@ -164,6 +177,7 @@ export function validateWoolStore(store: WoolDomainStore): void {
       ) {
         throw new Error(`毛织存储校验失败：接收明细 ${line.lineId} 缺少有效仓库流水或事实与仓库流水内容不一致`)
       }
+      validateFactFlowAudit(flow, receipt.receivedAt, receipt.receivedBy, `接收明细 ${line.lineId}`)
     }
   }
   for (const issue of store.yarnIssues) {
@@ -184,6 +198,7 @@ export function validateWoolStore(store: WoolDomainStore): void {
     ) {
       throw new Error(`毛织存储校验失败：领用记录 ${issue.issueId} 缺少有效仓库流水或事实与仓库流水内容不一致`)
     }
+    validateFactFlowAudit(flow, issue.issuedAt, issue.issuedBy, `领用记录 ${issue.issueId}`)
   }
   for (const returned of store.yarnReturns) {
     const order = requireOrder(returned.woolOrderId, `退回记录 ${returned.returnId}`)
@@ -203,6 +218,7 @@ export function validateWoolStore(store: WoolDomainStore): void {
     ) {
       throw new Error(`毛织存储校验失败：退回记录 ${returned.returnId} 缺少有效仓库流水或事实与仓库流水内容不一致`)
     }
+    validateFactFlowAudit(flow, returned.returnedAt, returned.returnedBy, `退回记录 ${returned.returnId}`)
   }
   for (const report of store.processReports) {
     const outputLine = requireOutput(report.woolOrderId, report.outputSkuCode, `加工填报 ${report.reportId}`)
@@ -218,6 +234,7 @@ export function validateWoolStore(store: WoolDomainStore): void {
     ) {
       throw new Error(`毛织存储校验失败：加工填报 ${report.reportId} 缺少有效仓库流水或事实与仓库流水内容不一致`)
     }
+    validateFactFlowAudit(flow, report.reportedAt, report.reportedBy, `加工填报 ${report.reportId}`)
   }
   for (const handover of store.handovers) {
     const outputLine = requireOutput(handover.woolOrderId, handover.outputSkuCode, `交出记录 ${handover.handoverId}`)
@@ -234,6 +251,7 @@ export function validateWoolStore(store: WoolDomainStore): void {
     ) {
       throw new Error(`毛织存储校验失败：交出记录 ${handover.handoverId} 缺少有效仓库流水或事实与仓库流水内容不一致`)
     }
+    validateFactFlowAudit(flow, handover.handedOverAt, handover.handedOverBy, `交出记录 ${handover.handoverId}`)
   }
   for (const change of store.qtyChangeLogs) {
     if (change.recordType === 'YARN_RECEIPT' && !change.recordLineId) {
@@ -268,6 +286,31 @@ export function validateWoolStore(store: WoolDomainStore): void {
         : (target as WoolHandoverRecord).outputSkuCode
     if (targetSku !== change.objectSkuCode) {
       throw new Error(`毛织存储校验失败：数量修改目标 ${change.recordId} 的对象 SKU 不一致`)
+    }
+    const targetUnit = change.recordType === 'YARN_RECEIPT'
+      ? (target as WoolYarnReceiptRecord).lines.find((line) =>
+          line.lineId === change.recordLineId,
+        )?.qtyUnit
+      : change.recordType === 'PROCESS_REPORT'
+        ? requireOutput(
+            (target as WoolProcessReportRecord).woolOrderId,
+            (target as WoolProcessReportRecord).outputSkuCode,
+            `数量修改 ${change.changeId}`,
+          ).qtyUnit
+        : requireOutput(
+            (target as WoolHandoverRecord).woolOrderId,
+            (target as WoolHandoverRecord).outputSkuCode,
+            `数量修改 ${change.changeId}`,
+          ).qtyUnit
+    const changeFlow = changeFlows[0]
+    if (change.qtyUnit !== targetUnit || changeFlow.unit !== change.qtyUnit || changeFlow.unit !== targetUnit) {
+      throw new Error(`毛织存储校验失败：数量修改 ${change.changeId} 的单位与目标事实不一致`)
+    }
+    if (changeFlow.operatedAt !== change.changedAt) {
+      throw new Error(`毛织存储校验失败：数量修改 ${change.changeId} 的流水操作时间与修改记录不一致`)
+    }
+    if (changeFlow.operatedBy !== change.changedBy) {
+      throw new Error(`毛织存储校验失败：数量修改 ${change.changeId} 的流水操作人与修改记录不一致`)
     }
   }
   const qtyChangeChains = new Map<string, WoolQtyChangeLog[]>()
