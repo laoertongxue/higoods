@@ -17,6 +17,7 @@ import {
   listPlatformPrintResultViews,
 } from '../src/data/fcs/platform-process-result-view.ts'
 import {
+  buildPickupOrderGroups,
   buildSupplementMaterialRows,
   derivePickupProcessRoute,
   derivePickupHistoryPath,
@@ -387,6 +388,54 @@ assert(
   '同一补料的 DYE_PRINT 必须按 PRINT ref 精确取印花完成量，不得误用染色或同生产单其他结果',
 )
 
+const sharedMappingDemand = {
+  ...dyePrintDemand,
+  materialPatternMappingId: `${dyePrintDemand.materialPatternMappingId}-SHARED`,
+}
+const sharedMappingRecord = {
+  ...dyePrintRecord,
+  id: `${dyePrintRecord.id}-SHARED`,
+  recordNo: `${dyePrintRecord.recordNo}-SHARED`,
+  draft: {
+    ...dyePrintRecord.draft,
+    materialDemands: [dyePrintDemand, sharedMappingDemand],
+  },
+  processWorkOrderRefs: dyePrintRecord.processWorkOrderRefs
+    .filter((ref) =>
+      ref.materialSku === dyePrintDemand.materialSku
+      && (ref.processType === 'DYE' || ref.processType === 'PRINT')
+    )
+    .map((ref) => ({
+      ...ref,
+      materialPatternMappingIds: [
+        dyePrintDemand.materialPatternMappingId,
+        sharedMappingDemand.materialPatternMappingId,
+      ],
+    })),
+}
+const sharedMappingRows = buildSupplementMaterialRows([sharedMappingRecord], {
+  dyeResults: [{
+    ...dyeView,
+    completedObjectQty: 11,
+    qtyUnit: dyePrintDemand.unit as typeof dyeView.qtyUnit,
+    platformStatusCode: 'COMPLETED',
+  }],
+  printResults: [{
+    ...printView,
+    completedObjectQty: 9,
+    qtyUnit: dyePrintDemand.unit as typeof printView.qtyUnit,
+    platformStatusCode: 'COMPLETED',
+  }],
+}).get(dyePrintRecord.draft.productionOrderId) ?? []
+assert(
+  sharedMappingRows.length === 2
+  && sharedMappingRows.every((row) =>
+    row.requiredQty === 0
+    && row.processBasisLabel.includes('加工结果归属不唯一')
+  ),
+  '同一补料加工单覆盖同 SKU 多个花型映射时，所有关联需求必须阻断，不得重复使用整单完成量',
+)
+
 const storage = new MemoryStorage()
 storage.setItem(
   PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
@@ -470,6 +519,116 @@ assert(
     [exactTaskResult],
   ) === exactTaskResult,
   '实际 PDA 任务链接的路径段或查询参数等值时必须精确归属',
+)
+
+const integrationNodeSource = activeNodes.find((node) => node.nodeType === 'INCOMPLETE_PICKABLE')
+const integrationProjectionSource = projections.find((projection) =>
+  projection.order.prepOrderId === integrationNodeSource?.prepOrderId
+)
+const integrationLineSource = integrationProjectionSource?.lines[0]
+assert(
+  integrationNodeSource && integrationProjectionSource && integrationLineSource,
+  '最终分组注入验证必须有未配齐节点、配料投影和物料行基础数据',
+)
+const integrationProductionOrderId = 'PO-ID-INJECTED-PROCESS-RESULT'
+const integrationProductionOrderNo = 'PO-INJECTED-PROCESS-RESULT'
+const integrationPrepOrderId = 'PREP-ID-INJECTED-PROCESS-RESULT'
+const integrationPrepOrderNo = 'PREP-INJECTED-PROCESS-RESULT'
+const integrationLine = {
+  ...integrationLineSource,
+  prepLineId: 'PREP-LINE-INJECTED-PROCESS-RESULT',
+  upstreamSourceType: '印花' as const,
+  upstreamDocumentNo: 'PH-INJECTED-PROCESS-RESULT',
+  taskLinks: [],
+}
+const integrationProjection = {
+  ...integrationProjectionSource,
+  order: {
+    ...integrationProjectionSource.order,
+    productionOrderId: integrationProductionOrderId,
+    productionOrderNo: integrationProductionOrderNo,
+    prepOrderId: integrationPrepOrderId,
+    prepOrderNo: integrationPrepOrderNo,
+  },
+  lines: [integrationLine],
+}
+const integrationNode = {
+  ...integrationNodeSource,
+  nodeId: 'PICKUP-NODE-INJECTED-PROCESS-RESULT',
+  productionOrderId: integrationProductionOrderId,
+  productionOrderNo: integrationProductionOrderNo,
+  prepOrderId: integrationPrepOrderId,
+  prepOrderNo: integrationPrepOrderNo,
+  items: [],
+}
+const integrationResult = {
+  ...ownershipResultSource,
+  sourceId: 'PWO-INJECTED-PROCESS-RESULT',
+  workOrderNo: integrationLine.upstreamDocumentNo,
+  productionOrderNo: integrationProductionOrderNo,
+  mobileTaskLink: '/fcs/pda/exec/PWO-INJECTED-PROCESS-RESULT',
+  platformStatusCode: 'COMPLETED' as const,
+  completedObjectQty: 23,
+  qtyUnit: integrationLine.unit as typeof ownershipResultSource.qtyUnit,
+}
+const integrationUnrelatedResult = {
+  ...integrationResult,
+  sourceId: 'PWO-INJECTED-UNRELATED-RESULT',
+  workOrderNo: 'PH-INJECTED-UNRELATED-RESULT',
+  mobileTaskLink: '/fcs/pda/exec/PWO-INJECTED-UNRELATED-RESULT',
+  completedObjectQty: 99,
+}
+const integrationGroups = buildPickupOrderGroups({
+  listKind: 'INCOMPLETE',
+  projections: [integrationProjection],
+  activeNodes: [integrationNode],
+  supplementRecords: [],
+  processResults: {
+    dyeResults: [],
+    printResults: [integrationUnrelatedResult, integrationResult],
+  },
+})
+const integrationRow = integrationGroups[0]?.materialRows.find((row) =>
+  row.demandLineId === integrationLine.prepLineId
+)
+assert(
+  integrationRow?.requiredQty === 23
+  && integrationRow.unit === integrationLine.unit
+  && integrationRow.processBasisLabel === '按印花一次性完成数量',
+  '最终分组入口必须把精确完成的正常印花结果投影为应配数量、原单位和明确依据',
+)
+
+const sharedResultProjection = {
+  ...integrationProjection,
+  lines: [
+    {
+      ...integrationLine,
+      prepLineId: 'PREP-LINE-SHARED-PROCESS-RESULT-A',
+    },
+    {
+      ...integrationLine,
+      prepLineId: 'PREP-LINE-SHARED-PROCESS-RESULT-B',
+    },
+  ],
+}
+const sharedResultGroups = buildPickupOrderGroups({
+  listKind: 'INCOMPLETE',
+  projections: [sharedResultProjection],
+  activeNodes: [integrationNode],
+  supplementRecords: [],
+  processResults: {
+    dyeResults: [],
+    printResults: [integrationUnrelatedResult, integrationResult],
+  },
+})
+const sharedResultRows = sharedResultGroups[0]?.materialRows ?? []
+assert(
+  sharedResultRows.length === 2
+  && sharedResultRows.every((row) =>
+    row.requiredQty === 0
+    && row.processBasisLabel === '印花加工结果归属不唯一'
+  ),
+  '同一正常加工结果命中两条需求时，所有关联需求必须阻断，不得重复使用整单完成量',
 )
 
 for (const listKind of ['READY', 'INCOMPLETE', 'HISTORY'] as const) {

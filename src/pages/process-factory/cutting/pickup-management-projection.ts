@@ -153,6 +153,18 @@ function includesReference(view: PlatformProcessResultView, reference: string): 
     || mobileTaskLinkHasExactReference(view.mobileTaskLink, reference)
 }
 
+function scoreNormalProcessResult(
+  line: MaterialPrepLine,
+  view: PlatformProcessResultView,
+): number {
+  let score = includesReference(view, line.upstreamDocumentNo) ? 4 : 0
+  for (const taskLink of line.taskLinks) {
+    if (includesReference(view, taskLink.taskId)) score = Math.max(score, 3)
+    if (includesReference(view, taskLink.taskNo)) score = Math.max(score, 3)
+  }
+  return score
+}
+
 export function resolveNormalProcessResult(
   line: MaterialPrepLine,
   productionOrderNo: string,
@@ -164,18 +176,97 @@ export function resolveNormalProcessResult(
   )
   if (!candidates.length) return undefined
 
-  const scored = candidates.map((view) => {
-    let score = includesReference(view, line.upstreamDocumentNo) ? 4 : 0
-    for (const taskLink of line.taskLinks) {
-      if (includesReference(view, taskLink.taskId)) score = Math.max(score, 3)
-      if (includesReference(view, taskLink.taskNo)) score = Math.max(score, 3)
-    }
-    return { view, score }
-  })
+  const scored = candidates.map((view) => ({
+    view,
+    score: scoreNormalProcessResult(line, view),
+  }))
   const bestScore = Math.max(...scored.map((candidate) => candidate.score))
   if (bestScore <= 0) return undefined
   const bestMatches = scored.filter((candidate) => candidate.score === bestScore)
   return bestMatches.length === 1 ? bestMatches[0].view : undefined
+}
+
+interface NormalProcessAssignment {
+  result?: PlatformProcessResultView
+  ambiguous: boolean
+}
+
+type NormalProcessAssignments = Record<
+  'DYE' | 'PRINT',
+  Map<string, NormalProcessAssignment>
+>
+
+function resolveNormalProcessAssignments(
+  lines: MaterialPrepLine[],
+  productionOrderNo: string,
+  processType: 'DYE' | 'PRINT',
+  results: PlatformProcessResultView[],
+): Map<string, NormalProcessAssignment> {
+  const relevantLines = lines.filter((line) => {
+    const route = derivePickupProcessRoute({ upstreamSourceType: line.upstreamSourceType })
+    return processType === 'DYE' ? route === 'DYE' : route === 'DYE_PRINT'
+  })
+  const candidates = results.filter((view) =>
+    view.processType === processType && view.productionOrderNo === productionOrderNo
+  )
+  const ambiguousLineIds = new Set<string>()
+  candidates.forEach((view) => {
+    const matchingLines = relevantLines.filter((line) => scoreNormalProcessResult(line, view) > 0)
+    if (matchingLines.length > 1) {
+      matchingLines.forEach((line) => ambiguousLineIds.add(line.prepLineId))
+    }
+  })
+
+  const assignments = new Map<string, NormalProcessAssignment>()
+  relevantLines.forEach((line) => {
+    if (ambiguousLineIds.has(line.prepLineId)) {
+      assignments.set(line.prepLineId, { ambiguous: true })
+      return
+    }
+    const scored = candidates
+      .map((view) => ({ view, score: scoreNormalProcessResult(line, view) }))
+      .filter((candidate) => candidate.score > 0)
+    if (!scored.length) {
+      assignments.set(line.prepLineId, { ambiguous: false })
+      return
+    }
+    const bestScore = Math.max(...scored.map((candidate) => candidate.score))
+    const bestMatches = scored.filter((candidate) => candidate.score === bestScore)
+    assignments.set(
+      line.prepLineId,
+      bestMatches.length === 1
+        ? { result: bestMatches[0].view, ambiguous: false }
+        : { ambiguous: true },
+    )
+  })
+  return assignments
+}
+
+function buildNormalProcessAssignments(
+  projections: MaterialPrepOrderProjection[],
+  productionOrderNo: string,
+  processResults: PickupProcessResults,
+): NormalProcessAssignments {
+  const lines = projections.flatMap((projection) => projection.lines)
+  return {
+    DYE: resolveNormalProcessAssignments(
+      lines,
+      productionOrderNo,
+      'DYE',
+      processResults.dyeResults,
+    ),
+    PRINT: resolveNormalProcessAssignments(
+      lines,
+      productionOrderNo,
+      'PRINT',
+      processResults.printResults,
+    ),
+  }
+}
+
+interface ProcessResultResolution {
+  result?: PlatformProcessResultView
+  ambiguous: boolean
 }
 
 function resolveSupplementProcessResult(
@@ -183,13 +274,23 @@ function resolveSupplementProcessResult(
   demand: SupplementMaterialDemand,
   processType: 'DYE' | 'PRINT',
   results: PlatformProcessResultView[],
-): PlatformProcessResultView | undefined {
+): ProcessResultResolution {
   const refs = record.processWorkOrderRefs.filter((ref) =>
     ref.processType === processType && ref.materialSku === demand.materialSku
   )
-  if (refs.length !== 1) return undefined
-  const matches = results.filter((view) => view.sourceId === refs[0].workOrderId)
-  return matches.length === 1 ? matches[0] : undefined
+  if (!refs.length) return { ambiguous: false }
+  const matchingRefs = refs.filter((ref) =>
+    ref.materialPatternMappingIds?.includes(demand.materialPatternMappingId)
+  )
+  if (
+    matchingRefs.length !== 1
+    || matchingRefs[0].materialPatternMappingIds.length !== 1
+  ) {
+    return { ambiguous: true }
+  }
+  const matches = results.filter((view) => view.sourceId === matchingRefs[0].workOrderId)
+  if (matches.length > 1) return { ambiguous: true }
+  return { result: matches[0], ambiguous: false }
 }
 
 export function buildSupplementMaterialRows(
@@ -215,13 +316,19 @@ export function buildSupplementMaterialRows(
         printRequired: demand.printRequired,
         dyeRequired: demand.dyeRequired,
       })
-      const resolved = resolvePickupRequiredQty({
-        plannedQty: demand.requiredQty,
-        unit: demand.unit,
-        processRoute,
-        dyeResult: resolveSupplementProcessResult(record, demand, 'DYE', processResults.dyeResults),
-        printResult: resolveSupplementProcessResult(record, demand, 'PRINT', processResults.printResults),
-      })
+      const dyeResolution = resolveSupplementProcessResult(record, demand, 'DYE', processResults.dyeResults)
+      const printResolution = resolveSupplementProcessResult(record, demand, 'PRINT', processResults.printResults)
+      const finalResolution = processRoute === 'DYE' ? dyeResolution : printResolution
+      const processName = processRoute === 'DYE' ? '染色' : '印花'
+      const resolved = finalResolution.ambiguous
+        ? { qty: 0, basisLabel: `${processName}加工结果归属不唯一` }
+        : resolvePickupRequiredQty({
+            plannedQty: demand.requiredQty,
+            unit: demand.unit,
+            processRoute,
+            dyeResult: dyeResolution.result,
+            printResult: printResolution.result,
+          })
       rows.push({
         demandLineId: `SUPPLEMENT:${record.id}:${demand.materialPatternMappingId}`,
         demandSource: 'SUPPLEMENT',
@@ -254,30 +361,31 @@ export function buildSupplementMaterialRows(
 function listMaterialRows(
   projection: MaterialPrepOrderProjection,
   activeNode: PickupNodeProjection | null,
-  processResults: PickupProcessResults,
+  processAssignments: NormalProcessAssignments,
   includeCurrentLocations = true,
 ): PickupMaterialDemandRow[] {
   return projection.lines.map((line, index) => {
     const nodeItem = activeNode?.items.find((item) => item.prepLineId === line.prepLineId)
     const pickedQty = roundQty(Math.max(line.pickedQty - line.returnedQty, 0))
     const processRoute = derivePickupProcessRoute({ upstreamSourceType: line.upstreamSourceType })
-    const resolved = resolvePickupRequiredQty({
-      plannedQty: line.requiredQty,
-      unit: line.unit,
-      processRoute,
-      dyeResult: resolveNormalProcessResult(
-        line,
-        projection.order.productionOrderNo,
-        'DYE',
-        processResults.dyeResults,
-      ),
-      printResult: resolveNormalProcessResult(
-        line,
-        projection.order.productionOrderNo,
-        'PRINT',
-        processResults.printResults,
-      ),
-    })
+    const processType = processRoute === 'DYE'
+      ? 'DYE'
+      : processRoute === 'DYE_PRINT'
+        ? 'PRINT'
+        : null
+    const assignment = processType
+      ? processAssignments[processType].get(line.prepLineId)
+      : undefined
+    const processName = processType === 'DYE' ? '染色' : '印花'
+    const resolved = assignment?.ambiguous
+      ? { qty: 0, basisLabel: `${processName}加工结果归属不唯一` }
+      : resolvePickupRequiredQty({
+          plannedQty: line.requiredQty,
+          unit: line.unit,
+          processRoute,
+          dyeResult: processType === 'DYE' ? assignment?.result : undefined,
+          printResult: processType === 'PRINT' ? assignment?.result : undefined,
+        })
     return {
       demandLineId: line.prepLineId,
       demandSource: 'NORMAL',
@@ -362,18 +470,25 @@ function sortGroups(groups: PickupOrderGroup[]): PickupOrderGroup[] {
   )
 }
 
-export function listPickupOrderGroups(
-  listKind: PickupListKind,
-  storage: Storage | null = typeof localStorage === 'undefined' ? null : localStorage,
+export interface PickupOrderGroupProjectionInput {
+  listKind: PickupListKind
+  projections: MaterialPrepOrderProjection[]
+  activeNodes: PickupNodeProjection[]
+  supplementRecords: SupplementRecord[]
+  processResults: PickupProcessResults
+}
+
+export function buildPickupOrderGroups(
+  input: PickupOrderGroupProjectionInput,
 ): PickupOrderGroup[] {
-  const projections = listMaterialPrepOrderProjections(storage)
-  const activeNodes = listActivePickupNodes(storage)
+  const {
+    listKind,
+    projections,
+    activeNodes,
+    supplementRecords,
+    processResults,
+  } = input
   const projectionsByProductionOrder = groupProjectionsByProductionOrder(projections)
-  const supplementRecords = listSupplementRecords()
-  const processResults: PickupProcessResults = {
-    dyeResults: listPlatformDyeResultViews(),
-    printResults: listPlatformPrintResultViews(),
-  }
   const supplementRowsByProductionOrder = buildSupplementMaterialRows(supplementRecords, processResults)
 
   if (listKind !== 'HISTORY') {
@@ -386,6 +501,11 @@ export function listPickupOrderGroups(
         if (!projection) return []
         const sessions = matchingProjections.flatMap((row) => row.pickupSessions)
         const latest = latestSession(sessions)
+        const processAssignments = buildNormalProcessAssignments(
+          matchingProjections,
+          node.productionOrderNo,
+          processResults,
+        )
         return [{
           productionOrderId: node.productionOrderId,
           productionOrderNo: node.productionOrderNo,
@@ -397,7 +517,7 @@ export function listPickupOrderGroups(
               listMaterialRows(
                 row,
                 row.order.prepOrderId === node.prepOrderId ? node : null,
-                processResults,
+                processAssignments,
                 listKind === 'INCOMPLETE',
               )
             ),
@@ -431,12 +551,17 @@ export function listPickupOrderGroups(
     if (!latest) return
     const firstProjection = matchingProjections[0]
     const activeNode = activeNodeByProductionOrder.get(productionOrderId) ?? null
+    const processAssignments = buildNormalProcessAssignments(
+      matchingProjections,
+      firstProjection.order.productionOrderNo,
+      processResults,
+    )
     const materialRows = combineMaterialRows(
       matchingProjections.flatMap((projection) =>
         listMaterialRows(
           projection,
           activeNode?.prepOrderId === projection.order.prepOrderId ? activeNode : null,
-          processResults,
+          processAssignments,
         )
       ),
       supplementRowsByProductionOrder.get(productionOrderId) ?? [],
@@ -463,4 +588,20 @@ export function listPickupOrderGroups(
     })
   })
   return sortGroups(historyGroups)
+}
+
+export function listPickupOrderGroups(
+  listKind: PickupListKind,
+  storage: Storage | null = typeof localStorage === 'undefined' ? null : localStorage,
+): PickupOrderGroup[] {
+  return buildPickupOrderGroups({
+    listKind,
+    projections: listMaterialPrepOrderProjections(storage),
+    activeNodes: listActivePickupNodes(storage),
+    supplementRecords: listSupplementRecords(),
+    processResults: {
+      dyeResults: listPlatformDyeResultViews(),
+      printResults: listPlatformPrintResultViews(),
+    },
+  })
 }
