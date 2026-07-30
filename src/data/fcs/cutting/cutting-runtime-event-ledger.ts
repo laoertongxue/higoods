@@ -223,22 +223,35 @@ export interface FinishCuttingPayload {
   differenceTypes: Array<'实裁小于计划' | '实际用量异常' | '其他异常'>
 }
 
+export interface FeiTicketBagSnapshotItem {
+  feiTicketId: string
+  feiTicketNo: string
+  productionOrderId: string
+  productionOrderNo: string
+  spreadingOrderId: string
+  spreadingOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
+  spuCode: string
+  color: string
+  size: string
+  partCode: string
+  partName: string
+  pieceQty: number
+  unit: '片'
+  pieceSequenceLabel: string
+  hasSpecialCraft: boolean
+  specialCraftCategory: string
+  specialCraftDisplay: string
+  receiverFactoryDisplay: string
+  printStatus: string
+  voidStatus: string
+}
+
 export interface FeiTicketBaggingPayload {
   baggingRecordId: string
   bagCode: string
-  feiTicketItems: Array<{
-    feiTicketId: string
-    feiTicketNo: string
-    spreadingOrderId: string
-    spreadingOrderNo: string
-    cutOrderId: string
-    cutOrderNo: string
-    pieceQty: number
-    unit: '片'
-    pieceSequenceLabel: string
-    hasSpecialCraft: boolean
-    specialCraftCategory: string
-  }>
+  feiTicketItems: FeiTicketBagSnapshotItem[]
   totalPieceQty: number
   mixedFlag: boolean
   baggingBy: string
@@ -262,18 +275,7 @@ export interface FeiTicketInboundPayload {
   locationCode: string
   inboundBy: string
   inboundAt: string
-  feiTicketItems: Array<{
-    feiTicketId: string
-    feiTicketNo: string
-    spreadingOrderId: string
-    spreadingOrderNo: string
-    cutOrderId: string
-    cutOrderNo: string
-    pieceQty: number
-    unit: '片'
-    pieceSequenceLabel: string
-    hasSpecialCraft: boolean
-  }>
+  feiTicketItems: FeiTicketBagSnapshotItem[]
   totalPieceQty: number
   mixedFlag: boolean
 }

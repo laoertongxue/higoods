@@ -6,6 +6,7 @@ import {
   listCuttingRuntimeEventsByType,
   type CuttingRuntimeEvent,
   type CuttingRuntimeEventSource,
+  type FeiTicketBagSnapshotItem,
   type FeiTicketBaggingPayload,
   type FeiTicketInboundPayload,
   type TransferBagInboundPayload,
@@ -70,6 +71,12 @@ export interface WaitHandoverRuntimeProjection {
   ticketCandidates: GeneratedFeiTicketSourceRecord[]
   baggingConfirmEvents: CuttingRuntimeEvent[]
   handoverRecordEvents: CuttingRuntimeEvent[]
+}
+
+export interface WaitHandoverBaggingSnapshot {
+  usageCycleId: string
+  productionOrderNo: string
+  tickets: WaitHandoverRuntimeTicketInput[]
 }
 
 function uniqueStrings(values: Array<string | undefined>): string[] {
@@ -303,6 +310,123 @@ function buildMixedFlag(tickets: WaitHandoverRuntimeTicketInput[]): boolean {
   )
 }
 
+function buildWaitHandoverBagSnapshotItems(
+  tickets: WaitHandoverRuntimeTicketInput[],
+): FeiTicketBagSnapshotItem[] {
+  return tickets.map((ticket) => ({
+    feiTicketId: ticket.feiTicketId,
+    feiTicketNo: ticket.feiTicketNo,
+    productionOrderId: ticket.productionOrderId,
+    productionOrderNo: ticket.productionOrderNo,
+    spreadingOrderId: ticket.spreadingOrderId,
+    spreadingOrderNo: ticket.spreadingOrderNo,
+    cutOrderId: ticket.cutOrderId,
+    cutOrderNo: ticket.cutOrderNo,
+    spuCode: ticket.spuCode,
+    color: ticket.color,
+    size: ticket.size,
+    partCode: ticket.partCode,
+    partName: ticket.partName,
+    pieceQty: ticket.pieceQty,
+    unit: '片',
+    pieceSequenceLabel: ticket.pieceSequenceLabel,
+    hasSpecialCraft: ticket.hasSpecialCraft,
+    specialCraftCategory:
+      ticket.hasSpecialCraft ? ticket.specialCraftDisplay : '无',
+    specialCraftDisplay: ticket.specialCraftDisplay,
+    receiverFactoryDisplay: ticket.receiverFactoryDisplay,
+    printStatus: ticket.printStatus,
+    voidStatus: ticket.voidStatus,
+  }))
+}
+
+function buildWaitHandoverRuntimeTicketFromSnapshotItem(
+  item: Record<string, unknown>,
+  event: CuttingRuntimeEvent,
+): WaitHandoverRuntimeTicketInput {
+  const hasSpecialCraft = Boolean(item.hasSpecialCraft)
+  return {
+    feiTicketId: runtimeString(item.feiTicketId),
+    feiTicketNo: runtimeString(item.feiTicketNo),
+    productionOrderId:
+      runtimeString(item.productionOrderId)
+      || event.refs.productionOrderId
+      || '',
+    productionOrderNo:
+      runtimeString(item.productionOrderNo)
+      || event.refs.productionOrderNo
+      || '',
+    cutOrderId:
+      runtimeString(item.cutOrderId)
+      || event.refs.cutOrderId
+      || '',
+    cutOrderNo:
+      runtimeString(item.cutOrderNo)
+      || event.refs.cutOrderNo
+      || '',
+    spreadingOrderId:
+      runtimeString(item.spreadingOrderId)
+      || event.refs.spreadingOrderId
+      || '',
+    spreadingOrderNo:
+      runtimeString(item.spreadingOrderNo)
+      || event.refs.spreadingOrderNo
+      || '',
+    spuCode: runtimeString(item.spuCode),
+    color: runtimeString(item.color),
+    size: runtimeString(item.size),
+    partCode: runtimeString(item.partCode),
+    partName: runtimeString(item.partName),
+    pieceQty: runtimeNumber(item.pieceQty),
+    pieceSequenceLabel:
+      runtimeString(item.pieceSequenceLabel) || '按菲票追踪',
+    hasSpecialCraft,
+    specialCraftDisplay:
+      runtimeString(item.specialCraftDisplay)
+      || runtimeString(item.specialCraftCategory)
+      || (hasSpecialCraft ? '特殊工艺待维护' : '无'),
+    receiverFactoryDisplay:
+      runtimeString(item.receiverFactoryDisplay)
+      || (hasSpecialCraft ? '承接工厂待补充' : '无'),
+    printStatus: runtimeString(item.printStatus) || '已打印',
+    voidStatus: runtimeString(item.voidStatus) || '有效',
+  }
+}
+
+export function resolveWaitHandoverBaggingSnapshot(
+  bagCode: string,
+  storage: BrowserStorageLike | null = null,
+): WaitHandoverBaggingSnapshot | null {
+  const event = listCuttingRuntimeEvents(storage)
+    .filter((candidate) =>
+      candidate.eventType === '菲票装袋'
+      && isWaitHandoverBagEventForCode(candidate, bagCode))
+    .sort((left, right) =>
+      right.occurredAt.localeCompare(left.occurredAt)
+      || right.eventId.localeCompare(left.eventId))[0]
+  if (!event) return null
+  const payload = runtimeRecord(event.payload)
+  const tickets = (
+    Array.isArray(payload.feiTicketItems)
+      ? payload.feiTicketItems
+      : []
+  ).map((item) =>
+    buildWaitHandoverRuntimeTicketFromSnapshotItem(
+      runtimeRecord(item),
+      event,
+    ))
+  return {
+    usageCycleId:
+      getWaitHandoverEventUsageCycleId(event)
+      || buildWaitHandoverUsageCycleId(bagCode, event.occurredAt),
+    productionOrderNo:
+      uniqueStrings(tickets.map((ticket) => ticket.productionOrderNo))[0]
+      || event.refs.productionOrderNo
+      || '',
+    tickets,
+  }
+}
+
 export function buildWaitHandoverRuntimeTicketFromGeneratedTicket(ticket: GeneratedFeiTicketSourceRecord): WaitHandoverRuntimeTicketInput {
   return {
     feiTicketId: ticket.feiTicketId,
@@ -480,24 +604,18 @@ export function appendWaitHandoverBaggingEvent(input: {
     input.usageCycleId
     || buildWaitHandoverUsageCycleId(input.bagCode, occurredAt)
   const tickets = input.tickets
+  const productionOrderNos = uniqueStrings(
+    tickets.map((ticket) => ticket.productionOrderNo),
+  )
+  if (productionOrderNos.length !== 1) {
+    throw new Error('同一中转袋只能装入同一生产单的菲票')
+  }
   const totalPieceQty = tickets.reduce((sum, ticket) => sum + Number(ticket.pieceQty || 0), 0)
   const first = tickets[0]
   const payload: FeiTicketBaggingPayload = {
     baggingRecordId: `bagging:${input.bagCode}:${compactDate(occurredAt)}`,
     bagCode: input.bagCode,
-    feiTicketItems: tickets.map((ticket) => ({
-      feiTicketId: ticket.feiTicketId,
-      feiTicketNo: ticket.feiTicketNo,
-      spreadingOrderId: ticket.spreadingOrderId,
-      spreadingOrderNo: ticket.spreadingOrderNo,
-      cutOrderId: ticket.cutOrderId,
-      cutOrderNo: ticket.cutOrderNo,
-      pieceQty: ticket.pieceQty,
-      unit: '片',
-      pieceSequenceLabel: ticket.pieceSequenceLabel,
-      hasSpecialCraft: ticket.hasSpecialCraft,
-      specialCraftCategory: ticket.hasSpecialCraft ? ticket.specialCraftDisplay : '无',
-    })),
+    feiTicketItems: buildWaitHandoverBagSnapshotItems(tickets),
     totalPieceQty,
     mixedFlag: buildMixedFlag(tickets),
     baggingBy: input.operator.operatorName,
@@ -536,21 +654,29 @@ export function appendWaitHandoverInboundEvent(input: {
   bagCode: string
   warehouseArea: string
   locationCode: string
-  tickets: WaitHandoverRuntimeTicketInput[]
+  tickets?: WaitHandoverRuntimeTicketInput[]
   occurredAt?: string
   usageCycleId?: string
   idempotencyKey?: string
   storage?: BrowserStorageLike | null
 }) {
   const occurredAt = input.occurredAt || new Date().toISOString().slice(0, 16).replace('T', ' ')
+  const snapshot = resolveWaitHandoverBaggingSnapshot(
+    input.bagCode,
+    input.storage || null,
+  )
+  const tickets = snapshot?.tickets || input.tickets || []
+  if (!snapshot && !tickets.length) {
+    throw new Error('该中转袋尚未形成菲票装袋快照，不能入仓')
+  }
   const usageCycleId =
     input.usageCycleId
+    || snapshot?.usageCycleId
     || resolveWaitHandoverUsageCycleId(
       input.bagCode,
       occurredAt,
       input.storage || null,
     )
-  const tickets = input.tickets
   const totalPieceQty = tickets.reduce((sum, ticket) => sum + Number(ticket.pieceQty || 0), 0)
   const first = tickets[0]
   const payload: FeiTicketInboundPayload = {
@@ -560,18 +686,7 @@ export function appendWaitHandoverInboundEvent(input: {
     locationCode: input.locationCode,
     inboundBy: input.operator.operatorName,
     inboundAt: occurredAt,
-    feiTicketItems: tickets.map((ticket) => ({
-      feiTicketId: ticket.feiTicketId,
-      feiTicketNo: ticket.feiTicketNo,
-      spreadingOrderId: ticket.spreadingOrderId,
-      spreadingOrderNo: ticket.spreadingOrderNo,
-      cutOrderId: ticket.cutOrderId,
-      cutOrderNo: ticket.cutOrderNo,
-      pieceQty: ticket.pieceQty,
-      unit: '片',
-      pieceSequenceLabel: ticket.pieceSequenceLabel,
-      hasSpecialCraft: ticket.hasSpecialCraft,
-    })),
+    feiTicketItems: buildWaitHandoverBagSnapshotItems(tickets),
     totalPieceQty,
     mixedFlag: buildMixedFlag(tickets),
   }
