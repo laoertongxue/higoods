@@ -78,6 +78,7 @@ export interface PickupOrderGroup {
   pickupSessions: PickupSession[]
   latestPickerName: string
   latestPickedAt: string
+  currentNodeUpdatedAt: string
   currentNodeState: string
   pickupNodeId: string
   pickupNodeVersion: number
@@ -624,6 +625,7 @@ export function buildPickupOrderGroups(
           pickupSessions: sessions,
           latestPickerName: latest?.receiverName ?? '',
           latestPickedAt: latest?.pickedAt ?? '',
+          currentNodeUpdatedAt: node.updatedAt,
           currentNodeState: node.nodeType === 'READY_TO_PICKUP' ? '已配齐待领' : '未配齐可领',
           pickupNodeId: node.nodeId,
           pickupNodeVersion: node.version,
@@ -688,6 +690,7 @@ export function buildPickupOrderGroups(
       pickupSessions: sessions,
       latestPickerName: latest.receiverName,
       latestPickedAt: latest.pickedAt,
+      currentNodeUpdatedAt: activeNode?.updatedAt ?? '',
       currentNodeState: activeNode
         ? activeNode.nodeType === 'READY_TO_PICKUP' ? '当前已配齐待领' : '当前未配齐可领'
         : '当前无待领节点',

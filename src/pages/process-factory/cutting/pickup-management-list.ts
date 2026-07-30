@@ -42,6 +42,15 @@ const PREFERENCE_KEYS: Record<PickupListKind, string> = {
 interface PickupListState {
   keyword: string
   materialKeyword: string
+  demandSource: string
+  processRoute: string
+  readySource: string
+  palletNumbered: string
+  locationKeyword: string
+  shortageOnly: string
+  historyPath: string
+  finalResult: string
+  recentDate: string
   currentPage: number
   sort: StandardListSortState | null
   preferences: StandardListColumnPreferences
@@ -202,6 +211,7 @@ function renderHistoryMaterials(group: PickupOrderGroup): string {
           </div>
           <div>
             <div class="font-medium">${escapeHtml(row.materialName)} · ${escapeHtml(row.materialSku)}</div>
+            <div class="text-muted-foreground">颜色 / 规格：${escapeHtml(row.color || '—')} / ${escapeHtml(row.spec || '—')}</div>
             <div class="text-muted-foreground">${escapeHtml(source)}</div>
             <div class="text-blue-700">${escapeHtml(processRouteLabel(row))} · ${escapeHtml(row.processBasisLabel)}</div>
           </div>
@@ -218,11 +228,51 @@ function renderHistoryMaterials(group: PickupOrderGroup): string {
   </div>`
 }
 
+function summarizeQtyByUnit(
+  rows: PickupMaterialDemandRow[],
+  quantity: (row: PickupMaterialDemandRow) => number,
+): string {
+  const totals = new Map<string, number>()
+  rows.forEach((row) => totals.set(row.unit, (totals.get(row.unit) ?? 0) + quantity(row)))
+  return Array.from(totals)
+    .filter(([, value]) => value > 0)
+    .map(([unit, value]) => formatQty(value, unit))
+    .join('；') || '无'
+}
+
+function currentLocationKeys(group: PickupOrderGroup): string[] {
+  return Array.from(new Set(group.materialRows.flatMap((row) => row.currentLocations.map((location) =>
+    `${location.sourceWarehouseName}/${location.sourceWarehouseArea}/${location.sourceLocationCode}`
+  ))))
+}
+
+function renderReadySummary(group: PickupOrderGroup): string {
+  const availableRows = group.materialRows.filter((row) => row.currentAvailableQty > 0)
+  return `<div class="space-y-1 text-xs">
+    <div>可领物料种数：<strong>${availableRows.length} 种</strong></div>
+    <div>按单位可领：<strong>${summarizeQtyByUnit(availableRows, (row) => row.currentAvailableQty)}</strong></div>
+    <div class="text-muted-foreground">最近配齐时间：${escapeHtml(group.currentNodeUpdatedAt || '—')}</div>
+  </div>`
+}
+
+function renderIncompleteSummary(group: PickupOrderGroup): string {
+  const availableRows = group.materialRows.filter((row) => row.currentAvailableQty > 0)
+  const shortageRows = group.materialRows.filter((row) => row.afterCurrentPickupRemainingQty > 0)
+  return `<div class="space-y-1 text-xs">
+    <div>库位数：<strong>${currentLocationKeys(group).length} 个</strong></div>
+    <div>可领物料种数：<strong>${availableRows.length} 种</strong></div>
+    <div>仍缺物料种数：<strong>${shortageRows.length} 种</strong></div>
+    <div>领后仍缺摘要：<strong>${summarizeQtyByUnit(shortageRows, (row) => row.afterCurrentPickupRemainingQty)}</strong></div>
+    <div class="text-muted-foreground">最近配料时间：${escapeHtml(group.currentNodeUpdatedAt || '—')}</div>
+  </div>`
+}
+
 const READY_COLUMNS: StandardListColumn<PickupOrderGroup>[] = [
   { key: 'productionOrder', title: '生产单', width: 230, required: true, freezeable: true, sortable: true, render: renderOrderCell, sortValue: (row) => row.productionOrderNo },
   { key: 'readyStyle', title: '款式 / SPU', width: 220, freezeable: true, sortable: true, render: renderStyleCell, sortValue: (row) => `${row.styleNo}:${row.spu}` },
   { key: 'materials', title: '物料明细（全部需求）', width: 720, required: true, freezeable: true, render: renderAllMaterials },
   { key: 'readyCarrier', title: '配齐方式 / 待领托盘', width: 210, required: true, freezeable: true, sortable: true, render: renderReadyCarrier, sortValue: (row) => row.readySource },
+  { key: 'readySummary', title: '本次可领摘要', width: 260, required: true, freezeable: true, render: renderReadySummary },
   { key: 'nodeState', title: '当前节点状态', width: 220, freezeable: true, sortable: true, render: renderCurrentNodeCell, sortValue: (row) => row.currentNodeState },
   { key: 'actions', title: '操作', width: 170, required: true, actionColumn: true, render: renderPickupAction },
 ]
@@ -232,6 +282,7 @@ const INCOMPLETE_COLUMNS: StandardListColumn<PickupOrderGroup>[] = [
   { key: 'incompleteStyle', title: '款式 / SPU', width: 220, freezeable: true, sortable: true, render: renderStyleCell, sortValue: (row) => `${row.styleNo}:${row.spu}` },
   { key: 'materials', title: '物料明细（全部需求）', width: 720, required: true, freezeable: true, render: renderAllMaterials },
   { key: 'locations', title: '当前全部库位及数量', width: 360, required: true, freezeable: true, render: renderAllLocations },
+  { key: 'incompleteSummary', title: '配料 / 缺料摘要', width: 280, required: true, freezeable: true, render: renderIncompleteSummary },
   { key: 'nodeState', title: '当前节点状态', width: 220, freezeable: true, sortable: true, render: renderCurrentNodeCell, sortValue: (row) => row.currentNodeState },
   { key: 'actions', title: '操作', width: 170, required: true, actionColumn: true, render: renderPickupAction },
 ]
@@ -286,6 +337,15 @@ function getState(kind: PickupListKind): PickupListState {
   const created: PickupListState = {
     keyword: '',
     materialKeyword: '',
+    demandSource: 'ALL',
+    processRoute: 'ALL',
+    readySource: 'ALL',
+    palletNumbered: 'ALL',
+    locationKeyword: '',
+    shortageOnly: 'ALL',
+    historyPath: 'ALL',
+    finalResult: 'ALL',
+    recentDate: '',
     currentPage: 1,
     sort: null,
     preferences,
@@ -297,7 +357,7 @@ function getState(kind: PickupListKind): PickupListState {
   return created
 }
 
-function matchesFilters(group: PickupOrderGroup, state: PickupListState): boolean {
+function matchesFilters(kind: PickupListKind, group: PickupOrderGroup, state: PickupListState): boolean {
   const keyword = state.keyword.toLowerCase()
   const materialKeyword = state.materialKeyword.toLowerCase()
   if (keyword && !`${group.productionOrderNo} ${group.prepOrderNo}`.toLowerCase().includes(keyword)) return false
@@ -308,6 +368,28 @@ function matchesFilters(group: PickupOrderGroup, state: PickupListState): boolea
       .toLowerCase()
     if (!materialText.includes(materialKeyword)) return false
   }
+  if (state.demandSource !== 'ALL' && !group.materialRows.some((row) => row.demandSource === state.demandSource)) return false
+  if (state.processRoute !== 'ALL' && !group.materialRows.some((row) => row.processRoute === state.processRoute)) return false
+  if (kind === 'READY') {
+    if (state.readySource !== 'ALL' && group.readySource !== state.readySource) return false
+    if (state.palletNumbered === 'NUMBERED' && !group.palletId) return false
+    if (state.palletNumbered === 'UNNUMBERED' && group.palletId) return false
+  }
+  if (kind === 'INCOMPLETE') {
+    const locationText = group.materialRows
+      .flatMap((row) => row.currentLocations)
+      .map((location) => `${location.sourceWarehouseName} ${location.sourceWarehouseArea} ${location.sourceLocationCode}`)
+      .join(' ')
+      .toLowerCase()
+    if (state.locationKeyword && !locationText.includes(state.locationKeyword.toLowerCase())) return false
+    if (state.shortageOnly === 'SHORTAGE' && !group.materialRows.some((row) => row.afterCurrentPickupRemainingQty > 0)) return false
+  }
+  if (kind === 'HISTORY') {
+    if (state.historyPath !== 'ALL' && group.historyPath !== state.historyPath) return false
+    if (state.finalResult !== 'ALL' && group.finalResult !== state.finalResult) return false
+  }
+  const latestBusinessAt = kind === 'HISTORY' ? group.latestPickedAt : group.currentNodeUpdatedAt
+  if (state.recentDate && (!latestBusinessAt || latestBusinessAt.substring(0, 10) < state.recentDate)) return false
   return true
 }
 
@@ -325,7 +407,7 @@ function getView(kind: PickupListKind): {
 } {
   const state = getState(kind)
   const columns = columnsFor(kind)
-  const groups = getPickupGroupSnapshot(kind).filter((group) => matchesFilters(group, state))
+  const groups = getPickupGroupSnapshot(kind).filter((group) => matchesFilters(kind, group, state))
   const sorted = sortStandardListRows(groups, state.sort, (row, key) => {
     const column = columns.find((candidate) => candidate.key === key)
     return column?.sortValue?.(row)
@@ -337,15 +419,28 @@ function getView(kind: PickupListKind): {
 }
 
 function renderStats(kind: PickupListKind, groups: PickupOrderGroup[]): string {
-  const materialCount = groups.reduce((total, group) => total + group.materialRows.length, 0)
-  const supplementalCount = groups.reduce(
-    (total, group) => total + group.materialRows.filter((row) => row.demandSource === 'SUPPLEMENT').length,
-    0,
-  )
+  if (kind === 'READY') {
+    return renderStandardListStats([
+      { label: '待领生产单', value: `${groups.length} 个` },
+      { label: '一次直接配齐', value: `${groups.filter((group) => group.readySource === 'DIRECT_READY').length} 个生产单` },
+      { label: '从未配齐升级', value: `${groups.filter((group) => group.readySource === 'UPGRADED_FROM_INCOMPLETE').length} 个生产单` },
+      { label: '当前未编号托盘', value: `${groups.filter((group) => !group.palletId).length} 个生产单` },
+    ])
+  }
+  if (kind === 'INCOMPLETE') {
+    return renderStandardListStats([
+      { label: '未配齐生产单', value: `${groups.length} 个` },
+      { label: '当前占用库位', value: `${new Set(groups.flatMap(currentLocationKeys)).size} 个` },
+      { label: '可整批领料生产单', value: `${groups.filter((group) => group.materialRows.some((row) => row.currentAvailableQty > 0)).length} 个` },
+      { label: '含补料生产单', value: `${groups.filter((group) => group.materialRows.some((row) => row.demandSource === 'SUPPLEMENT')).length} 个` },
+    ])
+  }
   return renderStandardListStats([
-    { label: titleFor(kind), value: `${groups.length} 个生产单` },
-    { label: '物料需求', value: `${materialCount} 行` },
-    { label: '其中补料需求', value: `${supplementalCount} 行` },
+    { label: '有领料记录生产单', value: `${groups.length} 个` },
+    { label: '已配齐后领料', value: `${groups.filter((group) => group.historyPath === 'READY_PICKUP').length} 个` },
+    { label: '未配齐先领', value: `${groups.filter((group) => group.historyPath === 'INCOMPLETE_PICKUP').length} 个` },
+    { label: '尚未全部领完', value: `${groups.filter((group) => group.finalResult === 'NOT_ALL_PICKED').length} 个` },
+    { label: '新增补料待领', value: `${groups.filter((group) => group.finalResult === 'NEW_SUPPLEMENT_WAIT_PICKUP').length} 个` },
   ])
 }
 
@@ -355,9 +450,29 @@ function withSkipPageRerender(html: string): string {
     .replaceAll('data-pickup-list-field=', 'data-skip-page-rerender="true" data-pickup-list-field=')
 }
 
-function renderFilters(state: PickupListState): string {
+function renderSelect(label: string, field: string, value: string, options: Array<[string, string]>): string {
+  return `<label class="space-y-1 text-sm">
+    <span class="font-medium">${escapeHtml(label)}</span>
+    <select class="h-10 w-full rounded-md border bg-background px-3" data-pickup-list-field="${escapeHtml(field)}">
+      ${options.map(([optionValue, optionLabel]) => `<option value="${escapeHtml(optionValue)}"${value === optionValue ? ' selected' : ''}>${escapeHtml(optionLabel)}</option>`).join('')}
+    </select>
+  </label>`
+}
+
+function renderFilters(kind: PickupListKind, state: PickupListState): string {
+  const extraFilters = kind === 'READY'
+    ? `${renderSelect('配齐方式', 'readySource', state.readySource, [['ALL', '全部'], ['DIRECT_READY', '一次直接配齐'], ['UPGRADED_FROM_INCOMPLETE', '从未配齐升级']])}
+       ${renderSelect('托盘是否编号', 'palletNumbered', state.palletNumbered, [['ALL', '全部'], ['NUMBERED', '已编号'], ['UNNUMBERED', '未编号']])}
+       <label class="space-y-1 text-sm"><span class="font-medium">最近配齐时间</span><input type="date" class="h-10 w-full rounded-md border bg-background px-3" value="${escapeHtml(state.recentDate)}" data-skip-page-rerender="true" data-pickup-list-filter="recentDate"></label>`
+    : kind === 'INCOMPLETE'
+      ? `<label class="space-y-1 text-sm"><span class="font-medium">库区 / 库位</span><input class="h-10 w-full rounded-md border bg-background px-3" value="${escapeHtml(state.locationKeyword)}" placeholder="输入库区或库位" data-skip-page-rerender="true" data-pickup-list-filter="locationKeyword"></label>
+         ${renderSelect('仍缺物料', 'shortageOnly', state.shortageOnly, [['ALL', '全部'], ['SHORTAGE', '有缺料']])}
+         <label class="space-y-1 text-sm"><span class="font-medium">最近配料时间</span><input type="date" class="h-10 w-full rounded-md border bg-background px-3" value="${escapeHtml(state.recentDate)}" data-skip-page-rerender="true" data-pickup-list-filter="recentDate"></label>`
+      : `${renderSelect('领料路径', 'historyPath', state.historyPath, [['ALL', '全部'], ['READY_PICKUP', '已配齐后领料'], ['INCOMPLETE_PICKUP', '未配齐先领']])}
+         ${renderSelect('最终结果', 'finalResult', state.finalResult, [['ALL', '全部'], ['ALL_PICKED', '全部领完'], ['NOT_ALL_PICKED', '尚未全部领完'], ['NEW_SUPPLEMENT_WAIT_PICKUP', '新增补料待领']])}
+         <label class="space-y-1 text-sm"><span class="font-medium">最近领料时间</span><input type="date" class="h-10 w-full rounded-md border bg-background px-3" value="${escapeHtml(state.recentDate)}" data-skip-page-rerender="true" data-pickup-list-filter="recentDate"></label>`
   return `<section class="rounded-lg border bg-card p-3">
-    <div class="grid gap-3 md:grid-cols-2">
+    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
       <label class="space-y-1 text-sm">
         <span class="font-medium">生产单 / 配料单</span>
         <input class="h-10 w-full rounded-md border bg-background px-3" value="${escapeHtml(state.keyword)}" placeholder="输入编号搜索" data-skip-page-rerender="true" data-pickup-list-filter="keyword">
@@ -366,6 +481,9 @@ function renderFilters(state: PickupListState): string {
         <span class="font-medium">物料</span>
         <input class="h-10 w-full rounded-md border bg-background px-3" value="${escapeHtml(state.materialKeyword)}" placeholder="输入物料名称、编码或补料单号" data-skip-page-rerender="true" data-pickup-list-filter="materialKeyword">
       </label>
+      ${renderSelect('需求来源', 'demandSource', state.demandSource, [['ALL', '全部'], ['NORMAL', '计划需求'], ['SUPPLEMENT', '补料需求']])}
+      ${renderSelect('加工路线', 'processRoute', state.processRoute, [['ALL', '全部'], ['NONE', '无需染色 / 印花'], ['DYE', '染色'], ['DYE_PRINT', '染色 → 印花']])}
+      ${extraFilters}
     </div>
   </section>`
 }
@@ -497,11 +615,20 @@ function renderPickupList(kind: PickupListKind): string {
   state.sort = null
   state.keyword = ''
   state.materialKeyword = ''
+  state.demandSource = 'ALL'
+  state.processRoute = 'ALL'
+  state.readySource = 'ALL'
+  state.palletNumbered = 'ALL'
+  state.locationKeyword = ''
+  state.shortageOnly = 'ALL'
+  state.historyPath = 'ALL'
+  state.finalResult = 'ALL'
+  state.recentDate = ''
   const view = getView(kind)
   return `<div data-pickup-list-root="${kind}">
     ${renderStandardListPage({
       title: titleFor(kind),
-      filtersHtml: renderFilters(state),
+      filtersHtml: renderFilters(kind, state),
       statsHtml: `<div data-pickup-list-region="stats">${renderStats(kind, view.groups)}</div>`,
       listTitle: `${titleFor(kind)}生产单`,
       listActionsHtml: withSkipPageRerender(renderSecondaryButton(
@@ -575,6 +702,8 @@ export function handleCraftCuttingPickupListEvent(target: HTMLElement, event?: E
       searchDebounceTimers.delete(debounceKey)
       if (filterField === 'keyword') state.keyword = nextValue
       if (filterField === 'materialKeyword') state.materialKeyword = nextValue
+      if (filterField === 'locationKeyword') state.locationKeyword = nextValue
+      if (filterField === 'recentDate') state.recentDate = nextValue
       state.currentPage = 1
       refreshPickupListRegions(kind)
     }
@@ -593,6 +722,19 @@ export function handleCraftCuttingPickupListEvent(target: HTMLElement, event?: E
   }
 
   const field = target.closest<HTMLSelectElement>('[data-pickup-list-field]')
+  if (field && field.dataset.pickupListField !== 'pageSize' && event?.type === 'change') {
+    const filterField = field.dataset.pickupListField || ''
+    if (filterField === 'demandSource') state.demandSource = field.value
+    if (filterField === 'processRoute') state.processRoute = field.value
+    if (filterField === 'readySource') state.readySource = field.value
+    if (filterField === 'palletNumbered') state.palletNumbered = field.value
+    if (filterField === 'shortageOnly') state.shortageOnly = field.value
+    if (filterField === 'historyPath') state.historyPath = field.value
+    if (filterField === 'finalResult') state.finalResult = field.value
+    state.currentPage = 1
+    refreshPickupListRegions(kind)
+    return true
+  }
   if (field?.dataset.pickupListField === 'pageSize' && event?.type === 'change') {
     const pageSize = Number(field.value)
     if (PAGE_SIZES.includes(pageSize)) {
