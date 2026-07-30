@@ -13,7 +13,7 @@ import type { PcsProjectNodeRecord, PcsProjectViewRecord, ProjectNodeStatus } fr
 
 const DECISION_WORK_ITEM_CODES = ['FEASIBILITY_REVIEW', 'SAMPLE_CONFIRM', 'TEST_CONCLUSION'] as const
 const TEST_DECISION_RESULT_OPTIONS = ['通过', '不通过', '暂保留'] as const
-const FEASIBILITY_DECISION_RESULT_OPTIONS = ['进入测款', '样衣退回', '重新改版出样衣'] as const
+const FEASIBILITY_DECISION_RESULT_OPTIONS = ['进入测款', '样衣退回'] as const
 const DECISION_RESULT_OPTIONS = [...TEST_DECISION_RESULT_OPTIONS, ...FEASIBILITY_DECISION_RESULT_OPTIONS] as const
 
 export type ProjectDecisionWorkItemCode = (typeof DECISION_WORK_ITEM_CODES)[number]
@@ -127,7 +127,7 @@ export function isProjectDecisionWorkItemCode(workItemTypeCode: string): workIte
 
 function assertDecisionResult(result: string): asserts result is ProjectDecisionResult {
   if (!(DECISION_RESULT_OPTIONS as readonly string[]).includes(result)) {
-    throw new Error('决策结果只能是通过、不通过、暂保留、进入测款、样衣退回或重新改版出样衣')
+    throw new Error('决策结果只能是通过、不通过、暂保留、进入测款或样衣退回')
   }
 }
 
@@ -354,107 +354,6 @@ export function holdProjectDecisionForLater(
   }
 }
 
-export function routeProjectToRevisionTask(
-  projectId: string,
-  decisionNodeId: string,
-  operatorName = '当前用户',
-  note = '',
-  timestamp = nowText(),
-): ProjectDecisionFlowResult {
-  const decisionNode = getProjectNodeRecordById(projectId, decisionNodeId)
-  if (!decisionNode) {
-    throw new Error('未找到对应决策节点，不能执行重新改版出样衣流转。')
-  }
-  const validation = validateProjectNodeCompletion(projectId, decisionNodeId)
-  if (!validation.ok) {
-    return {
-      ok: false,
-      message: validation.message,
-      project: validation.project,
-      node: validation.node,
-      nextNode: null,
-    }
-  }
-
-  const nodes = listProjectNodes(projectId)
-  const revisionNode = nodes.find((item) => item.workItemTypeCode === 'REVISION_TASK')
-  if (!revisionNode) {
-    return {
-      ok: false,
-      message: '当前项目模板没有改版任务，不能选择重新改版出样衣。',
-      project: getProjectById(projectId),
-      node: decisionNode,
-      nextNode: null,
-    }
-  }
-  const sampleInboundNodes = nodes.filter((item) => item.workItemTypeCode === 'SAMPLE_INBOUND_CHECK')
-  const resultText = buildResultText(decisionNode.workItemTypeName, '重新改版出样衣', note)
-
-  updateProjectNodeRecord(
-    projectId,
-    decisionNodeId,
-    {
-      currentStatus: '未开始',
-      latestResultType: '重新改版出样衣',
-      latestResultText: resultText,
-      pendingActionType: '等待重新到样',
-      pendingActionText: '改版任务重新出样并完成样衣结果核对后，再次进行初步可行性判断。',
-      updatedAt: timestamp,
-      lastEventType: '重新改版出样衣',
-      lastEventTime: timestamp,
-    },
-    operatorName,
-  )
-  syncProjectNodeInstanceRuntime(projectId, decisionNodeId, operatorName, timestamp)
-
-  updateProjectNodeRecord(
-    projectId,
-    revisionNode.projectNodeId,
-    {
-      currentStatus: '进行中',
-      latestResultType: '重新改版出样衣',
-      latestResultText: note.trim() || '初步可行性判断要求重新改版出新的样衣。',
-      pendingActionType: '重新改版出样衣',
-      pendingActionText: '请在工程开发与打样管理中处理改版任务并重新出样。',
-      updatedAt: timestamp,
-      lastEventType: '重新改版出样衣',
-      lastEventTime: timestamp,
-    },
-    operatorName,
-  )
-  syncProjectNodeInstanceRuntime(projectId, revisionNode.projectNodeId, operatorName, timestamp)
-
-  sampleInboundNodes.forEach((sampleInboundNode) => {
-    updateProjectNodeRecord(
-      projectId,
-      sampleInboundNode.projectNodeId,
-      {
-        currentStatus: '未开始',
-        latestResultType: '等待重新到样',
-        latestResultText: '改版任务重新出样后，需要重新登记实际收到的样衣。',
-        pendingActionType: '等待重新到样',
-        pendingActionText: '等待改版任务完成后重新核对样衣。',
-        updatedAt: timestamp,
-        lastEventType: '重新改版出样衣',
-        lastEventTime: timestamp,
-      },
-      operatorName,
-    )
-    syncProjectNodeInstanceRuntime(projectId, sampleInboundNode.projectNodeId, operatorName, timestamp)
-  })
-
-  syncProjectLifecycleAfterDecision(projectId, operatorName, timestamp)
-  updateProjectRecord(projectId, { projectStatus: '进行中', updatedAt: timestamp }, operatorName)
-
-  return {
-    ok: true,
-    message: '已回到改版任务重新出样；重新到样后需要再次核对样衣并做初步可行性判断。',
-    project: getProjectById(projectId),
-    node: getProjectNodeRecordById(projectId, decisionNodeId),
-    nextNode: getProjectNodeRecordById(projectId, revisionNode.projectNodeId),
-  }
-}
-
 export function completeDecisionNodeWithResult(
   projectId: string,
   projectNodeId: string,
@@ -475,13 +374,10 @@ export function completeDecisionNodeWithResult(
     if (result === '进入测款') {
       return advanceDecisionNodePassed(projectId, projectNodeId, operatorName, note, timestamp, '进入测款')
     }
-    if (result === '重新改版出样衣') {
-      return routeProjectToRevisionTask(projectId, projectNodeId, operatorName, note, timestamp)
-    }
     if (result === '样衣退回') {
       return advanceDecisionNodeEliminated(projectId, projectNodeId, operatorName, note, timestamp, '样衣退回')
     }
-    throw new Error('初步可行性判断只能选择进入测款、样衣退回或重新改版出样衣。')
+    throw new Error('初步可行性判断只能选择进入测款或样衣退回。')
   }
   if (result === '通过') {
     return advanceDecisionNodePassed(projectId, projectNodeId, operatorName, note, timestamp)

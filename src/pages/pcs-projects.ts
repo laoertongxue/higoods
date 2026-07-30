@@ -41,6 +41,7 @@ import type {
   SampleSourceType,
 } from '../data/pcs-project-types.ts'
 import { buildProjectClosureViewModel } from '../data/pcs-project-closure-view-model.ts'
+import { resolveSampleReturnDestination } from '../data/pcs-project-sample-return-defaults.ts'
 import {
   getProjectStepContractByPhaseCode,
   getProjectWorkItemContract,
@@ -4380,13 +4381,10 @@ function buildSampleReturnHandleDraftDefaults(
       getNodeFieldValue(project, node, 'returnDestination') ||
       '',
   ).trim()
-  const fallbackDestination =
-    returnDestination ||
-    (project.templateId === DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID
-      ? '退回供应商'
-      : project.templateId === WANLONG_REVISION_SAMPLE_TEMPLATE_ID
-        ? '退回版房'
-        : '')
+  const fallbackDestination = resolveSampleReturnDestination(
+    returnDestination,
+    project.sampleSourceType,
+  )
   const handleType = mapReturnDestinationToHandleType(fallbackDestination)
   const needsLogistics = ['退样', '寄回'].includes(handleType)
   return {

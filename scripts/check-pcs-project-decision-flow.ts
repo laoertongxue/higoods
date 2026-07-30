@@ -34,7 +34,7 @@ for (const workItemCode of ['FEASIBILITY_REVIEW', 'SAMPLE_CONFIRM', 'TEST_CONCLU
     workItemCode === 'TEST_CONCLUSION'
       ? ['通过', '不通过', '暂保留']
       : workItemCode === 'FEASIBILITY_REVIEW'
-        ? ['进入测款', '样衣退回', '重新改版出样衣']
+        ? ['进入测款', '样衣退回']
         : ['通过', '不通过']
   assertCheck(
     JSON.stringify((decisionField?.options || []).map((item) => item.value)) === JSON.stringify(expectedOptions),
@@ -63,6 +63,8 @@ assertCheck(decisionFlowSource.includes('routeProjectToSampleReturnHandle'), '�
 assertCheck(decisionFlowSource.includes('SAMPLE_RETURN_HANDLE'), '不通过流转必须进入样衣退回处理')
 assertCheck(decisionFlowSource.includes('holdProjectDecisionForLater'), '暂保留必须保留当前事实并等待稍后再判断')
 assertCheck(!decisionFlowSource.includes('routeProjectToAdditionalTesting'), '暂保留不得回到测款执行或重启测试节点')
+assertCheck(!decisionFlowSource.includes('routeProjectToRevisionTask'), '商品测款可行性判断不得创建或查找改版任务')
+assertCheck(!decisionFlowSource.includes('重新改版出样衣'), '商品测款可行性判断不得包含重新改版出样衣分支')
 
 assertCheck(!/projectStatus:\s*'已终止'/.test(decisionFlowSource), '决策流转服务不应在不通过时直接把项目写为已终止')
 assertCheck(migrationSource.includes('LEGACY_DECISION_RESULTS'), '旧决策迁移函数必须存在')

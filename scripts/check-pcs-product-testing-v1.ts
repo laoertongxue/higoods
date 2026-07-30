@@ -212,8 +212,8 @@ const checkResultField = sampleInboundContract.fieldDefinitions.find((field) => 
 assert.equal(checkResultField?.required, true, '核对说明必须为完成节点时必填')
 assert.deepEqual(
   fieldOptions('FEASIBILITY_REVIEW', 'reviewConclusion'),
-  ['进入测款', '样衣退回', '重新改版出样衣'],
-  '初步可行性判断必须明确进入测款、样衣退回或重新改版出样衣',
+  ['进入测款', '样衣退回'],
+  '初步可行性判断只能明确进入测款或样衣退回',
 )
 assertIncludesAll(
   fieldKeys('FEASIBILITY_REVIEW'),

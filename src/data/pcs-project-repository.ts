@@ -13,6 +13,7 @@ import { PCS_CHANNEL_OPTIONS, normalizePcsChannelCodes } from './pcs-channel-opt
 import {
   createStyleArchiveShell,
   findStyleArchiveByProjectId,
+  updateStyleArchive,
 } from './pcs-style-archive-repository.ts'
 import {
   buildProjectWorkspaceCategoryOptions,
@@ -547,24 +548,44 @@ function mergeMissingBootstrapData(snapshot: PcsProjectStoreSnapshot): PcsProjec
   }
 }
 
+function isRemovedStyleArchiveSourceNode(sourceProjectNodeId: string): boolean {
+  const normalized = sourceProjectNodeId.trim().toUpperCase()
+  return (
+    normalized.includes('STYLE_ARCHIVE_CREATE') ||
+    normalized.includes('STYLE-ARCHIVE') ||
+    normalized.includes('STYLE_ARCHIVE') ||
+    normalized === 'OLD-STYLE-NODE'
+  )
+}
+
 function ensureProjectStyleArchives(snapshot: PcsProjectStoreSnapshot): PcsProjectStoreSnapshot {
   const projects = snapshot.projects.map((project) => {
-    const existingArchive = findStyleArchiveByProjectId(project.projectId)
-    if (existingArchive) {
-      return normalizeProject({
-        ...project,
-        linkedStyleId: existingArchive.styleId,
-        linkedStyleCode: existingArchive.styleCode,
-        linkedStyleName: existingArchive.styleName,
-        linkedStyleGeneratedAt: existingArchive.generatedAt,
-      })
-    }
-
     const projectArchiveNode = snapshot.nodes.find(
       (node) => node.projectId === project.projectId && node.workItemTypeCode === 'PROJECT_INIT',
     )
     if (!projectArchiveNode) {
       throw new Error(`商品项目 ${project.projectCode} 缺少“项目与档案建立”节点，无法补齐商品／款式档案。`)
+    }
+
+    const existingArchive = findStyleArchiveByProjectId(project.projectId)
+    if (existingArchive) {
+      const reboundArchive =
+        existingArchive.sourceProjectNodeId === projectArchiveNode.projectNodeId ||
+        !isRemovedStyleArchiveSourceNode(existingArchive.sourceProjectNodeId)
+          ? existingArchive
+          : updateStyleArchive(existingArchive.styleId, {
+              sourceProjectNodeId: projectArchiveNode.projectNodeId,
+            })
+      if (!reboundArchive) {
+        throw new Error(`商品项目 ${project.projectCode} 的历史商品／款式档案来源节点改绑失败。`)
+      }
+      return normalizeProject({
+        ...project,
+        linkedStyleId: reboundArchive.styleId,
+        linkedStyleCode: reboundArchive.styleCode,
+        linkedStyleName: reboundArchive.styleName,
+        linkedStyleGeneratedAt: reboundArchive.generatedAt,
+      })
     }
 
     const timestamp = project.createdAt || project.updatedAt || nowText()

@@ -50,8 +50,11 @@
 | 模板选择会让同一测款业务产生不同节点组合 | `点错风险` | 商品企划、项目负责人 | 移除模板选择，统一由固定五步契约生成项目步骤和节点 | 否 |
 | 项目创建后才生成商品／款式档案，资料归属不完整 | `协作断裂` | 商品企划、商品运营 | 创建项目时同步建立“商品测款”状态档案并回写关联 | 否 |
 | 历史本地快照迁移异常会回退演示数据 | `协作断裂` | 商品企划、项目负责人 | 历史项目按固定五步幂等迁移并保留节点办理记录；读取或迁移失败保留原始快照并报错 | 否 |
+| 历史已有档案仍指向已移除的旧档案节点 | `协作断裂` | 商品企划、商品运营 | 保留档案业务数据，仅将来源节点幂等改绑到固定流程“项目与档案建立”真实节点 | 否 |
 | “暂保留”被解释为继续测款 | `点错风险` | 商品运营、项目负责人 | 暂保留只保留既有测款事实与判断入口，不创建或重新激活直播、短视频测款节点 | 否 |
 | 测款前准备遗漏既有表单入口 | `协作断裂` | 商品企划、商品运营 | 在固定第三步恢复拍摄试穿、样衣确认、样衣核价、样衣定价及可行性、渠道准备入口 | 否 |
+| 样衣退回默认去向依赖历史模板编号 | `点错风险` | 商品运营、样衣管理员 | 按样衣来源类型推导；外采退回供应商、委托打样退回版房，来源不足时明确默认库存留样 | 否 |
+| 商品测款可行性判断自动进入改版任务 | `协作断裂` | 商品负责人、打样人员 | 测款项目内只保留进入测款、样衣退回；改款和重新打样由前期打样模块独立人工创建 | 否 |
 
 ## 6. 最终结论
 
@@ -62,6 +65,7 @@
 - 固定五步保留逐步办理，不把删除模板运行时误解为取消业务步骤。
 - 现有业务表单继续由固定步骤内的业务节点承接，未扩大到工作项／模板模块删除。
 - “暂保留”仍作为当前测款判断，不新增下一轮测款流程。
+- 商品测款不承接商品开发或改版打样；需要改款时由前期打样模块独立人工创建任务。
 
 ## 7. 变更覆盖与验证
 
@@ -71,6 +75,7 @@
 - `src/data/pcs-project-node-factory.ts`
 - `src/data/pcs-project-repository.ts`
 - `src/data/pcs-style-archive-repository.ts`
+- `src/data/pcs-project-sample-return-defaults.ts`
 - `src/data/pcs-project-bootstrap.ts`
 - `src/data/pcs-project-data-consistency.ts`
 - `src/data/pcs-style-archive-bootstrap.ts`
@@ -92,6 +97,8 @@
 - `npm test -- tests/pcs-project-fixed-step-flow.spec.ts`：通过
 - `npm test -- tests/pcs-project-historical-migration.spec.ts`：通过，TPL-001／TPL-003 历史项目、节点办理记录、固定五步阶段和商品测款档案均保留
 - `npm test -- tests/pcs-project-temporary-hold.spec.ts`：通过，暂保留不创建或重启直播、短视频测款
+- `npm test -- tests/pcs-project-sample-return-defaults.spec.ts`：通过，空退回去向按样衣来源事实推导且不依赖模板编号
+- `npm test -- tests/pcs-project-feasibility-boundary.spec.ts`：通过，商品测款可行性判断不包含改版打样分支
 - `npm run check:pcs-product-testing-v1`：通过
 - `node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-project-decision-flow.ts`：通过
 - `node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-project-data-consistency.ts`：通过，共核对 26 个项目、364 个节点，未发现问题

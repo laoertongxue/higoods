@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 
 import { createBootstrapProjectSnapshot } from '../src/data/pcs-project-bootstrap.ts'
+import { createStyleArchiveBootstrapSnapshot } from '../src/data/pcs-style-archive-bootstrap.ts'
 
 class MemoryStorage {
   private readonly values = new Map<string, string>()
@@ -79,7 +80,21 @@ storage.setItem(
   STYLE_ARCHIVE_STORAGE_KEY,
   JSON.stringify({
     version: 3,
-    records: [],
+    records: [
+      {
+        ...createStyleArchiveBootstrapSnapshot(3).records[0],
+        styleId: 'historical_style_existing',
+        styleCode: 'HISTORY-SPU-001',
+        styleName: '历史已有款式档案',
+        sourceProjectId: historicalProjects[0].projectId,
+        sourceProjectCode: historicalProjects[0].projectCode,
+        sourceProjectName: historicalProjects[0].projectName,
+        sourceProjectNodeId: 'old-style-node',
+        baseInfoStatus: '商品测款',
+        remark: '历史档案业务备注必须保留',
+        sellingPointText: '历史档案卖点必须保留',
+      },
+    ],
     pendingItems: [],
   }),
 )
@@ -106,7 +121,19 @@ historicalProjects.forEach((historicalProject) => {
   assert.ok(styleArchive, `${historicalProject.projectCode} 缺失的商品测款档案必须幂等补齐`)
   assert.equal(styleArchive?.baseInfoStatus, '商品测款')
   assert.equal(migratedProject?.linkedStyleId, styleArchive?.styleId)
+  const projectInitNode = projectRepository
+    .listProjectNodes(historicalProject.projectId)
+    .find((node) => node.workItemTypeCode === 'PROJECT_INIT')
+  assert.equal(
+    styleArchive?.sourceProjectNodeId,
+    projectInitNode?.projectNodeId,
+    `${historicalProject.projectCode} 已有档案必须改绑固定流程“项目与档案建立”真实节点`,
+  )
 })
+const existingArchive = styleArchiveRepository.findStyleArchiveByProjectId(historicalProjects[0].projectId)
+assert.equal(existingArchive?.styleId, 'historical_style_existing', '历史已有档案不得被新建档案替换')
+assert.equal(existingArchive?.remark, '历史档案业务备注必须保留')
+assert.equal(existingArchive?.sellingPointText, '历史档案卖点必须保留')
 
 const persisted = JSON.parse(storage.getItem(PROJECT_STORAGE_KEY) || '{}') as {
   projects?: Array<{ projectId: string }>
