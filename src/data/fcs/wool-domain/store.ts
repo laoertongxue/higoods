@@ -215,6 +215,20 @@ export function validateWoolStore(store: WoolDomainStore): void {
   assertUniqueIds(store.completions, (item) => item.woolOrderId, '完成记录')
   assertUniqueIds(store.completions, (item) => item.completionId, '完成记录 ID')
   assertUniqueIds(store.machines, (item) => item.machineId, '横机设备')
+  for (const association of store.machineAssociations) {
+    if (!association.machineId?.trim()) {
+      throw new Error('毛织存储校验失败：当前横机关联的设备 ID 不能为空')
+    }
+    if (!association.woolOrderId?.trim()) {
+      throw new Error('毛织存储校验失败：当前横机关联的加工单 ID 不能为空')
+    }
+    if (!association.associatedAt?.trim()) {
+      throw new Error('毛织存储校验失败：当前横机关联的关联时间不能为空')
+    }
+    if (!association.associatedBy?.trim()) {
+      throw new Error('毛织存储校验失败：当前横机关联的关联人不能为空')
+    }
+  }
   assertUniqueIds(store.machineAssociations, (item) => item.machineId, '当前横机关联')
   assertUniqueIds(store.machineAssociationLogs, (item) => item.logId, '横机关联日志')
   assertUniqueIds(store.operationLogs, (item) => item.operationLogId, '操作日志')

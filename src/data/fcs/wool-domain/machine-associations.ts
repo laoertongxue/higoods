@@ -192,6 +192,18 @@ export function replaceWoolMachineAssociations(
       throw new Error(`横机 ${machine.machineNo} 为维修或停用设备不可关联`)
     }
   }
+  const currentForTarget = store.machineAssociations
+    .filter((item) => item.woolOrderId === woolOrderId)
+  const selected = new Set(selectedMachineIds)
+  const hasRemoved = currentForTarget.some((item) => !selected.has(item.machineId))
+  const hasAddedOrTransferred = selectedMachineIds.some((machineId) =>
+    store.machineAssociations.find((item) => item.machineId === machineId)?.woolOrderId !== woolOrderId,
+  )
+  if (!hasRemoved && !hasAddedOrTransferred) {
+    return currentForTarget
+      .map((association) => ({ ...association }))
+      .sort((left, right) => left.machineId.localeCompare(right.machineId))
+  }
 
   return commitWoolStore((draft) => {
     const currentForTarget = draft.machineAssociations
@@ -287,6 +299,16 @@ export function changeWoolMachineAvailability(
   const store = readWoolStore()
   const machine = requireMachine(store, machineId)
   const association = store.machineAssociations.find((item) => item.machineId === machineId)
+  if (!association && machine.status === nextStatus) {
+    throw new Error('横机设备状态未变化')
+  }
+  if (
+    !association
+    && (machine.status === 'REPAIR' || machine.status === 'DISABLED')
+    && nextStatus !== 'IDLE'
+  ) {
+    throw new Error('维修或停用设备只能恢复为空闲')
+  }
   if (association && nextStatus === 'IDLE') {
     throw new Error('生产中设备不能直接改为空闲，请通过加工单解除当前关联')
   }
@@ -297,10 +319,6 @@ export function changeWoolMachineAvailability(
   ) {
     throw new Error('生产中设备改为维修或停用前必须确认影响')
   }
-  if (!association && machine.status === nextStatus) {
-    return { ...machine, status: machine.status }
-  }
-
   commitWoolStore((draft) => {
     const currentMachine = requireMachine(draft, machineId)
     const currentAssociation = draft.machineAssociations.find((item) => item.machineId === machineId)

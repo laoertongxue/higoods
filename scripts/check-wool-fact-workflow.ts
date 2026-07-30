@@ -3097,13 +3097,49 @@ const machineActor = {
 replaceWoolMachineAssociations(machineOrderA.woolOrderId, ['WM-001', 'WM-002'], machineActor)
 assert.equal(getWoolMachineById('WM-001')?.status, 'PRODUCING')
 assert.equal(getWoolMachineById('WM-002')?.status, 'PRODUCING')
-const unchangedAssociationLogCount = readWoolStore().machineAssociationLogs.length
-replaceWoolMachineAssociations(machineOrderA.woolOrderId, ['WM-002', 'WM-001', 'WM-001'], machineActor)
-assert.equal(
-  readWoolStore().machineAssociationLogs.length,
-  unchangedAssociationLogCount,
-  '重复保存同一整组最终真相不得重复写关联日志',
+const unchangedAssociationStore = readWoolStore()
+const unchangedAssociationResult = listWoolMachineAssociations(machineOrderA.woolOrderId)
+let unchangedAssociationStorageWrites = 0
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: {
+    getItem(key: string) {
+      return storageValues.get(key) ?? null
+    },
+    setItem() {
+      unchangedAssociationStorageWrites += 1
+      throw new Error('无变化整组保存不得进入持久化')
+    },
+  },
+})
+assert.deepEqual(
+  replaceWoolMachineAssociations(
+    machineOrderA.woolOrderId,
+    ['WM-002', 'WM-001', 'WM-001'],
+    {
+      operatedAt: '2026-07-30 20:05:00',
+      operatedBy: '另一位设备主管',
+    },
+  ),
+  unchangedAssociationResult,
 )
+assert.equal(unchangedAssociationStorageWrites, 0, '无变化整组保存不得调用 setItem')
+assert.deepEqual(
+  readWoolStore(),
+  unchangedAssociationStore,
+  'actor 不同但最终集合相同时，不得更新时间、日志或任何存储事实',
+)
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: {
+    getItem(key: string) {
+      return storageValues.get(key) ?? null
+    },
+    setItem(key: string, value: string) {
+      storageValues.set(key, value)
+    },
+  },
+})
 
 replaceWoolMachineAssociations(machineOrderA.woolOrderId, ['WM-002'], {
   ...machineActor,
@@ -3149,6 +3185,20 @@ assert.throws(
   () => validateWoolStore(completedAssociationStore),
   /已完成加工单不可存在当前横机关联/,
 )
+for (const [field, value, message] of [
+  ['associatedAt', '', /当前横机关联的关联时间不能为空/],
+  ['associatedBy', '   ', /当前横机关联的关联人不能为空/],
+  ['machineId', '', /当前横机关联的设备 ID 不能为空/],
+  ['woolOrderId', '   ', /当前横机关联的加工单 ID 不能为空/],
+] as const) {
+  const invalidAssociationStore = structuredClone(readWoolStore())
+  assert(invalidAssociationStore.machineAssociations.length > 0)
+  invalidAssociationStore.machineAssociations[0][field] = value
+  assert.throws(
+    () => validateWoolStore(invalidAssociationStore),
+    message,
+  )
+}
 assert.throws(
   () => replaceWoolMachineAssociations(completedMachineOrder.woolOrderId, [], machineActor),
   /已完成/,
@@ -3283,6 +3333,75 @@ assert(readWoolStore().machineAssociationLogs.some((item) =>
   && item.fromWoolOrderId === disabledMachineOrder.woolOrderId
   && item.reason === 'MACHINE_DISABLED',
 ))
+
+resetWoolFactWorkflowMock('CHECK_WOOL_MACHINE_AVAILABILITY_MATRIX')
+const availabilityActor = {
+  reason: '设备档案状态矩阵检查',
+  operatedAt: '2026-07-30 22:30:00',
+  operatedBy: '设备主管',
+}
+assert.throws(
+  () => changeWoolMachineAvailability('WM-003', {
+    ...availabilityActor,
+    nextStatus: 'IDLE',
+  }),
+  /状态未变化/,
+)
+changeWoolMachineAvailability('WM-003', {
+  ...availabilityActor,
+  nextStatus: 'REPAIR',
+})
+assert.equal(getWoolMachineById('WM-003')?.status, 'REPAIR')
+assert.throws(
+  () => changeWoolMachineAvailability('WM-003', {
+    ...availabilityActor,
+    nextStatus: 'REPAIR',
+  }),
+  /状态未变化/,
+)
+assert.throws(
+  () => changeWoolMachineAvailability('WM-003', {
+    ...availabilityActor,
+    nextStatus: 'DISABLED',
+  }),
+  /维修或停用设备只能恢复为空闲/,
+)
+changeWoolMachineAvailability('WM-003', {
+  ...availabilityActor,
+  nextStatus: 'IDLE',
+})
+changeWoolMachineAvailability('WM-003', {
+  ...availabilityActor,
+  nextStatus: 'DISABLED',
+})
+assert.equal(getWoolMachineById('WM-003')?.status, 'DISABLED')
+assert.throws(
+  () => changeWoolMachineAvailability('WM-003', {
+    ...availabilityActor,
+    nextStatus: 'DISABLED',
+  }),
+  /状态未变化/,
+)
+assert.throws(
+  () => changeWoolMachineAvailability('WM-003', {
+    ...availabilityActor,
+    nextStatus: 'REPAIR',
+  }),
+  /维修或停用设备只能恢复为空闲/,
+)
+changeWoolMachineAvailability('WM-003', {
+  ...availabilityActor,
+  nextStatus: 'IDLE',
+})
+assert.equal(getWoolMachineById('WM-003')?.status, 'IDLE')
+assert.throws(
+  () => changeWoolMachineAvailability('WM-003', {
+    ...availabilityActor,
+    reason: '   ',
+    nextStatus: 'REPAIR',
+  }),
+  /变更原因不能为空/,
+)
 
 const woolMachineSources = [
   readFileSync(new URL('../src/data/fcs/wool-task-domain.ts', import.meta.url), 'utf8'),
