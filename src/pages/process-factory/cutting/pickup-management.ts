@@ -773,7 +773,7 @@ export function renderCraftCuttingPickupManagementDetailPage(): string {
     return `
       <div class="space-y-5 p-6">
         ${renderCuttingPageHeader(getCanonicalCuttingMeta('pickup-management'), {
-          actionsHtml: `<button type="button" class="rounded-md border px-4 py-2 text-sm" data-nav="/fcs/craft/cutting/pickup-management">返回领料列表</button>`,
+          actionsHtml: `<button type="button" class="rounded-md border px-4 py-2 text-sm" data-nav="/fcs/craft/cutting/pickup-ready">返回已配待领</button>`,
         })}
         <section class="rounded-lg border bg-card px-4 py-10 text-center text-sm text-muted-foreground">未找到该领料节点，可能已被领取或不存在。</section>
       </div>
@@ -795,7 +795,7 @@ export function renderCraftCuttingPickupManagementDetailPage(): string {
           <p class="mt-2 text-sm text-muted-foreground">生产单 ${renderProductionOrderIdentityCell(productionOrderNo)} / 配料单 ${escapeHtml(prepOrderNo)}</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <button type="button" class="rounded-md border px-4 py-2 text-sm" data-nav="/fcs/craft/cutting/pickup-management">返回领料列表</button>
+          <button type="button" class="rounded-md border px-4 py-2 text-sm" data-nav="/fcs/craft/cutting/pickup-ready">返回已配待领</button>
         </div>
       </header>
       ${node ? renderNodeDetailContent(node) : `

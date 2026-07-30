@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import fs from 'node:fs'
 import {
   createProductionMaterialPrepSeedStore,
   listActivePickupNodes,
@@ -36,6 +37,64 @@ import { listSupplementRecords } from '../src/pages/process-factory/cutting/supp
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
+
+function readSource(path: string): string {
+  return fs.existsSync(path) ? fs.readFileSync(path, 'utf8') : ''
+}
+
+function assertThreeListRouteAndMenuContract(): void {
+  const listSource = readSource('src/pages/process-factory/cutting/pickup-management-list.ts')
+  const metaSource = readSource('src/pages/process-factory/cutting/meta.ts')
+  const menuSource = readSource('src/data/app-shell-config.ts')
+  const rendererSource = readSource('src/router/route-renderers-fcs.ts')
+  const routeSource = readSource('src/router/routes-fcs.ts')
+
+  assert(listSource.startsWith('// @page-pattern: list'), '三列表页面必须声明标准列表页模式')
+  for (const helper of [
+    'renderStandardListPage',
+    'renderStandardListStats',
+    'renderStandardListTable',
+    'renderTablePagination',
+    'renderStandardListColumnSettings',
+  ]) {
+    assert(listSource.includes(helper), `三列表页面必须复用 ${helper}`)
+  }
+  for (const renderer of [
+    'renderCraftCuttingPickupReadyPage',
+    'renderCraftCuttingPickupIncompletePage',
+    'renderCraftCuttingPickupHistoryPage',
+  ]) {
+    assert(listSource.includes(`export function ${renderer}`), `缺少薄页面渲染函数 ${renderer}`)
+    assert(rendererSource.includes(`'${renderer}'`), `路由渲染器必须导出 ${renderer}`)
+  }
+  for (const path of [
+    '/fcs/craft/cutting/pickup-ready',
+    '/fcs/craft/cutting/pickup-incomplete',
+    '/fcs/craft/cutting/pickup-history',
+  ]) {
+    assert(routeSource.includes(`'${path}'`), `缺少独立领料列表路由 ${path}`)
+    assert(menuSource.includes(`href: '${path}'`), `缺少独立领料子菜单 ${path}`)
+  }
+  assert(
+    routeSource.includes("'/fcs/craft/cutting/pickup-management': () =>")
+      && routeSource.includes("renderRouteRedirect('/fcs/craft/cutting/pickup-ready'"),
+    '旧领料管理路由必须重定向到已配待领',
+  )
+  assert(menuSource.includes("title: '领料管理'"), '领料管理必须作为独立一级菜单')
+  assert(
+    !/title: '裁前准备'[\s\S]*?href: '\/fcs\/craft\/cutting\/pickup-management'/.test(menuSource),
+    '裁前准备不得保留旧领料管理菜单',
+  )
+  for (const key of ['pickup-ready', 'pickup-incomplete', 'pickup-history']) {
+    assert(metaSource.includes(`'${key}'`), `页面元数据缺少 ${key}`)
+  }
+  assert(
+    (metaSource.match(/menuGroupTitle: '领料管理'/g) ?? []).length >= 3,
+    '三个新页面元数据必须归属领料管理',
+  )
+}
+
+assertThreeListRouteAndMenuContract()
 
 class MemoryStorage implements Storage {
   private readonly values = new Map<string, string>()

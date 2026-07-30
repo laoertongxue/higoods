@@ -321,6 +321,18 @@ export const renderCraftCuttingPickupManagementPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/pickup-management'),
   'renderCraftCuttingPickupManagementPage',
 )
+export const renderCraftCuttingPickupReadyPage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/pickup-management-list'),
+  'renderCraftCuttingPickupReadyPage',
+)
+export const renderCraftCuttingPickupIncompletePage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/pickup-management-list'),
+  'renderCraftCuttingPickupIncompletePage',
+)
+export const renderCraftCuttingPickupHistoryPage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/pickup-management-list'),
+  'renderCraftCuttingPickupHistoryPage',
+)
 export const renderCraftCuttingPickupManagementDetailPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/pickup-management'),
   'renderCraftCuttingPickupManagementDetailPage',
