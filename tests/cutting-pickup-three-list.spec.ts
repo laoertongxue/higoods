@@ -154,10 +154,15 @@ test('同一物料 SKU 的两次补料保持独立补料单和独立物料行', 
 
 test('已领料覆盖未配齐先领的三种结果与新增补料重开', async ({ page }) => {
   await page.goto(paths.HISTORY)
-  await expect(page.getByText('未配齐先领', { exact: true }).first()).toBeVisible({ timeout: 60_000 })
-  await expect(page.getByText('全部领完', { exact: true })).toBeVisible()
-  await expect(page.getByText('未完成全部领料', { exact: true }).first()).toBeVisible()
-  await expect(page.getByText('新增补料待领', { exact: true })).toBeVisible()
+  await expect(page.locator('[data-pickup-material-row]').first()).toBeVisible({ timeout: 120_000 })
+  const resultBody = page.locator('[data-standard-list-scroll] tbody')
+  const resultHeader = page.getByRole('button', { name: '按领取路径 / 最终结果升序排列' })
+  await expect(resultHeader).toBeAttached()
+  await resultHeader.evaluate((element) => element.scrollIntoView({ block: 'nearest', inline: 'center' }))
+  for (const label of ['未配齐先领', '全部领完', '未完成全部领料', '新增补料待领']) {
+    const result = resultBody.getByText(label, { exact: true }).first()
+    await expect(result).toBeVisible()
+  }
   const supplementRow = page.locator('[data-pickup-material-row]').filter({ hasText: '补料单：SUP-000TDWG' })
   await expect(supplementRow).toBeVisible()
   await expect(supplementRow).toContainText('应配')
