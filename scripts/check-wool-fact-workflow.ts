@@ -656,8 +656,10 @@ Object.defineProperty(globalThis, 'localStorage', {
 
 const {
   WOOL_DOMAIN_STORE_KEY,
+  clearWoolStoreMemoryCache,
   commitWoolStore,
   readWoolStore,
+  validateWoolStore,
 } = await import('../src/data/fcs/wool-domain/store.ts')
 const {
   getWoolOutputReadiness,
@@ -692,24 +694,124 @@ assert(allOrders.some((item) => item.mockScenarioCode === 'ONE_COLOR_READY'))
 assert(allOrders.some((item) => item.mockScenarioCode === 'ALL_READY_SKUS_AT_LIMIT'))
 assert(allOrders.some((item) => item.mockScenarioCode === 'COMPLETED_WITH_STOCK'))
 assert(allOrders.some((item) => item.mockScenarioCode === 'TECH_PACK_FALLBACK_REJECTED'))
+assert(allOrders.some((item) => item.mockScenarioCode === 'NO_TECH_PACK_MAPPING'))
+assert(allOrders.some((item) => item.mockScenarioCode === 'INVALID_MAPPING_REJECTED'))
 assert(allOrders.some((item) => item.kind === 'PART_PANEL'))
 
 const noReceiptOrder = allOrders.find((item) => item.mockScenarioCode === 'NO_YARN_RECEIPT')!
 const noReceiptLine = noReceiptOrder.outputPlanLines[0]
 assert.equal(getWoolOutputReadiness(noReceiptOrder.woolOrderId, noReceiptLine.outputSkuCode).isReady, false)
+assert.equal(
+  readWoolStore().yarnReceipts.some((item) => item.woolOrderId === noReceiptOrder.woolOrderId),
+  false,
+)
 
 const fallbackOrder = allOrders.find((item) => item.mockScenarioCode === 'TECH_PACK_FALLBACK_REJECTED')!
 const fallbackLine = fallbackOrder.outputPlanLines[0]
 assert.equal(fallbackLine.requiredYarnSkus.length, 0)
 assert.equal(getWoolOutputReadiness(fallbackOrder.woolOrderId, fallbackLine.outputSkuCode).isReady, false)
 
+const noMappingOrder = allOrders.find((item) => item.mockScenarioCode === 'NO_TECH_PACK_MAPPING')!
+const invalidMappingOrder = allOrders.find((item) => item.mockScenarioCode === 'INVALID_MAPPING_REJECTED')!
+assert.equal(noMappingOrder.outputPlanLines[0].sourceColorMappingIds.length, 0)
+assert.equal(fallbackOrder.outputPlanLines[0].sourceColorMappingIds.length, 0)
+assert(invalidMappingOrder.outputPlanLines[0].sourceColorMappingIds.length > 0)
+assert.equal(invalidMappingOrder.outputPlanLines[0].sourceBomItemIds.length, 0)
+assert.notEqual(noMappingOrder.sourceTechPackVersionCode, fallbackOrder.sourceTechPackVersionCode)
+assert.notEqual(fallbackOrder.sourceTechPackVersionCode, invalidMappingOrder.sourceTechPackVersionCode)
+
 const readyOrder = allOrders.find((item) => item.mockScenarioCode === 'ONE_COLOR_READY')!
 assert.equal(getWoolWorkOrderTab(readyOrder.woolOrderId), 'READY')
 assert.equal(getWoolProcessingStatus(readyOrder.woolOrderId), 'UNPROCESSED')
 
+const partialOrder = allOrders.find((item) => item.mockScenarioCode === 'PARTIAL_YARN_RECEIPT')!
+assert.deepEqual(
+  getWoolOutputReadiness(partialOrder.woolOrderId, partialOrder.outputPlanLines[0].outputSkuCode).missingYarnSkus,
+  ['YARN-B'],
+)
+assert.deepEqual(
+  getWoolOutputReadiness(partialOrder.woolOrderId, partialOrder.outputPlanLines[1].outputSkuCode).missingYarnSkus,
+  ['YARN-C'],
+)
+
+const multiYarnOrder = allOrders.find((item) => item.mockScenarioCode === 'MULTI_YARN_SINGLE_RECEIPT')!
+const multiYarnReceipts = readWoolStore().yarnReceipts.filter((item) => item.woolOrderId === multiYarnOrder.woolOrderId)
+assert.equal(multiYarnReceipts.length, 1)
+assert.deepEqual(
+  new Set(multiYarnReceipts[0].lines.map((item) => item.yarnSkuCode)),
+  new Set(['YARN-A', 'YARN-B', 'YARN-C']),
+)
+
+const splitBatchOrder = allOrders.find((item) => item.mockScenarioCode === 'SPLIT_BATCH_RECEIPTS')!
+const splitBatchReceipts = readWoolStore().yarnReceipts.filter((item) => item.woolOrderId === splitBatchOrder.woolOrderId)
+assert.equal(splitBatchReceipts.filter((item) => item.lines.some((line) => line.yarnSkuCode === 'YARN-A')).length, 2)
+assert.equal(new Set(splitBatchReceipts.map((item) => item.batchNo)).size, splitBatchReceipts.length)
+
 const cappedOrder = allOrders.find((item) => item.mockScenarioCode === 'ALL_READY_SKUS_AT_LIMIT')!
 assert.equal(getWoolWorkOrderTab(cappedOrder.woolOrderId), 'NOT_READY')
 assert.match(getWoolWorkOrderBlockReason(cappedOrder.woolOrderId), /全部加工后 SKU 已达到填报上限/)
+
+const reportsAtLimitOrder = allOrders.find((item) => item.mockScenarioCode === 'REPORTS_AT_LIMIT')!
+assert.equal(
+  getWoolOutputReportedQty(reportsAtLimitOrder.woolOrderId, reportsAtLimitOrder.outputPlanLines[0].outputSkuCode),
+  Math.floor(reportsAtLimitOrder.outputPlanLines[0].plannedQty * 1.5),
+)
+assert.equal(
+  listWoolFactRecords({
+    woolOrderId: reportsAtLimitOrder.woolOrderId,
+    recordType: 'PROCESS_REPORT',
+  }).length,
+  2,
+)
+
+const readyToCompleteOrder = allOrders.find((item) => item.mockScenarioCode === 'READY_TO_COMPLETE')!
+assert(getWoolAllowedActions(readyToCompleteOrder.woolOrderId).includes('COMPLETE'))
+assert.equal(getWoolProcessingStatus(readyToCompleteOrder.woolOrderId), 'PROCESSING')
+assert(
+  getWoolOutputHandedOverQty(
+    readyToCompleteOrder.woolOrderId,
+    readyToCompleteOrder.outputPlanLines[0].outputSkuCode,
+  ) < readyToCompleteOrder.outputPlanLines[0].plannedQty,
+)
+assert.equal(
+  readWoolStore().completions.some((item) => item.woolOrderId === readyToCompleteOrder.woolOrderId),
+  false,
+)
+
+const associationAOrder = allOrders.find((item) => item.mockScenarioCode === 'MACHINE_ASSOCIATION_A')!
+assert(readWoolStore().machineAssociations.some((item) => item.woolOrderId === associationAOrder.woolOrderId))
+
+const partCapacityOrder = allOrders.find((item) => item.mockScenarioCode === 'PART_PANEL_CAPACITY')!
+const partCapacityLine = partCapacityOrder.outputPlanLines[0]
+assert.equal(partCapacityOrder.kind, 'PART_PANEL')
+assert.equal(partCapacityLine.outputObjectType, 'WOOL_PANEL')
+assert.equal(partCapacityLine.qtyUnit, '片')
+assert.equal(
+  getWoolOutputReadiness(partCapacityOrder.woolOrderId, partCapacityLine.outputSkuCode).reportLimitQty,
+  Math.floor(partCapacityLine.plannedQty * 1.5),
+)
+
+const defaultLocationOrder = allOrders.find((item) => item.mockScenarioCode === 'REPORT_DEFAULT_LOCATION')!
+const defaultLocationReport = readWoolStore().processReports.find((item) =>
+  item.woolOrderId === defaultLocationOrder.woolOrderId,
+)!
+assert(readWoolStore().warehouseFlows.some((item) =>
+  item.flowId === defaultLocationReport.warehouseInboundFlowId
+  && item.defaultLocationId === 'WOOL-WH-GARMENT-DEFAULT',
+))
+
+const downstreamLockedOrder = allOrders.find((item) => item.mockScenarioCode === 'DOWNSTREAM_CONFIRMED_LOCKED')!
+const downstreamLockedHandover = readWoolStore().handovers.find((item) =>
+  item.woolOrderId === downstreamLockedOrder.woolOrderId,
+)!
+assert.equal(downstreamLockedHandover.downstreamReceipt?.status, 'CONFIRMED')
+assert.equal(downstreamLockedHandover.downstreamReceipt?.actualReceivedQty, 7)
+assert.equal(downstreamLockedHandover.downstreamReceipt?.differenceQty, -1)
+
+const missingTargetOrder = allOrders.find((item) => item.mockScenarioCode === 'MISSING_DOWNSTREAM_TARGET')!
+assert.equal(missingTargetOrder.downstreamTarget.receiverId, '')
+assert.equal(missingTargetOrder.downstreamTarget.receiverName, '')
+assert.equal(getWoolAllowedActions(missingTargetOrder.woolOrderId).includes('HANDOVER'), false)
 
 const filteredOrders = listWoolWorkOrders({ keyword: readyOrder.productionOrderNo })
 assert.equal(filteredOrders.length, 1)
@@ -737,6 +839,13 @@ assert(listWoolFactRecords({
   woolOrderId: stockOrder.woolOrderId,
   recordType: 'HANDOVER',
 }).length === 2)
+assert.deepEqual(
+  new Set(listWoolFactRecords({
+    woolOrderId: stockOrder.woolOrderId,
+    objectSkuCode: stockLine.outputSkuCode,
+  }).map((item) => item.recordType)),
+  new Set(['PROCESS_REPORT', 'HANDOVER', 'WAREHOUSE_FLOW']),
+)
 
 const qtyChangeOrder = allOrders.find((item) => item.mockScenarioCode === 'QTY_CHANGE_STOCK_SYNC')!
 const qtyChangeLine = qtyChangeOrder.outputPlanLines[0]
@@ -836,20 +945,25 @@ assert.equal(getWoolWarehouseStock({
 
 const autoReleaseOrder = allOrders.find((item) => item.mockScenarioCode === 'MACHINE_STATUS_AUTO_RELEASE')!
 const autoReleaseStore = readWoolStore()
-const autoReleaseLog = autoReleaseStore.machineAssociationLogs.find((item) =>
+const autoReleaseLogs = autoReleaseStore.machineAssociationLogs.filter((item) =>
   item.fromWoolOrderId === autoReleaseOrder.woolOrderId
   && item.action === 'UNASSOCIATE'
   && (item.reason === 'MACHINE_REPAIR' || item.reason === 'MACHINE_DISABLED'),
 )
-assert(autoReleaseLog)
-assert.equal(
-  autoReleaseStore.machines.find((item) => item.machineId === autoReleaseLog.machineId)?.status,
-  autoReleaseLog.reason === 'MACHINE_REPAIR' ? 'REPAIR' : 'DISABLED',
+assert.deepEqual(
+  new Set(autoReleaseLogs.map((item) => item.reason)),
+  new Set(['MACHINE_REPAIR', 'MACHINE_DISABLED']),
 )
-assert.equal(
-  autoReleaseStore.machineAssociations.some((item) => item.machineId === autoReleaseLog.machineId),
-  false,
-)
+for (const autoReleaseLog of autoReleaseLogs) {
+  assert.equal(
+    autoReleaseStore.machines.find((item) => item.machineId === autoReleaseLog.machineId)?.status,
+    autoReleaseLog.reason === 'MACHINE_REPAIR' ? 'REPAIR' : 'DISABLED',
+  )
+  assert.equal(
+    autoReleaseStore.machineAssociations.some((item) => item.machineId === autoReleaseLog.machineId),
+    false,
+  )
+}
 
 const transferTargetOrder = allOrders.find((item) => item.mockScenarioCode === 'MACHINE_ASSOCIATION_B')!
 const transferStore = readWoolStore()
@@ -858,6 +972,11 @@ const transferLog = transferStore.machineAssociationLogs.find((item) =>
   && item.toWoolOrderId === transferTargetOrder.woolOrderId,
 )
 assert(transferLog?.fromWoolOrderId)
+assert(transferStore.machineAssociationLogs.some((item) =>
+  item.machineId === transferLog.machineId
+  && item.action === 'ASSOCIATE'
+  && item.toWoolOrderId === transferLog.fromWoolOrderId,
+))
 assert.equal(
   transferStore.machineAssociations.some((item) =>
     item.machineId === transferLog.machineId
@@ -865,6 +984,85 @@ assert.equal(
   ),
   true,
 )
+assert.equal(
+  transferStore.machines.find((item) => item.machineId === transferLog.machineId)?.status,
+  'IN_PRODUCTION',
+)
+for (const association of transferStore.machineAssociations) {
+  assert.equal(
+    transferStore.machines.find((item) => item.machineId === association.machineId)?.status,
+    'IN_PRODUCTION',
+  )
+}
+
+const unavailableOrder = allOrders.find((item) => item.mockScenarioCode === 'MACHINE_UNAVAILABLE')!
+const unavailableStore = readWoolStore()
+const unavailableMachines = unavailableStore.machines.filter((item) =>
+  item.status === 'REPAIR' || item.status === 'DISABLED',
+)
+assert(unavailableMachines.some((item) => item.status === 'REPAIR'))
+assert(unavailableMachines.some((item) => item.status === 'DISABLED'))
+assert.equal(
+  unavailableStore.machineAssociations.some((association) =>
+    unavailableMachines.some((machine) => machine.machineId === association.machineId)
+    && association.woolOrderId === unavailableOrder.woolOrderId,
+  ),
+  false,
+)
+
+const completedWithStockOrder = allOrders.find((item) => item.mockScenarioCode === 'COMPLETED_WITH_STOCK')!
+const completedWithStockLine = completedWithStockOrder.outputPlanLines[0]
+const completedWithStockStore = readWoolStore()
+const completedWithStock = completedWithStockStore.completions.find((item) =>
+  item.woolOrderId === completedWithStockOrder.woolOrderId,
+)!
+assert.deepEqual(completedWithStock.confirmationSnapshot.processReportSummary, [{
+  outputSkuCode: completedWithStockLine.outputSkuCode,
+  reportedQty: 30,
+  qtyUnit: completedWithStockLine.qtyUnit,
+}])
+assert.equal(completedWithStock.confirmationSnapshot.handoverSummary[0].handoverQty, 10)
+assert.deepEqual(completedWithStock.confirmationSnapshot.waitHandoverStockSummary, [{
+  outputSkuCode: completedWithStockLine.outputSkuCode,
+  stockQty: 20,
+  qtyUnit: completedWithStockLine.qtyUnit,
+}])
+assert.deepEqual(
+  new Set(completedWithStock.confirmationSnapshot.yarnReceiptSummary.map((item) => item.yarnSkuCode)),
+  new Set(['YARN-A', 'YARN-B', 'YARN-C']),
+)
+
+const releasedOrder = allOrders.find((item) => item.mockScenarioCode === 'COMPLETED_RELEASED_MACHINES')!
+const releasedStore = readWoolStore()
+const releasedCompletion = releasedStore.completions.find((item) => item.woolOrderId === releasedOrder.woolOrderId)!
+const releasedLogMachineIds = releasedStore.machineAssociationLogs
+  .filter((item) => item.fromWoolOrderId === releasedOrder.woolOrderId && item.reason === 'ORDER_COMPLETED')
+  .map((item) => item.machineId)
+  .sort()
+assert.deepEqual([...releasedCompletion.confirmationSnapshot.releasedMachineIds].sort(), releasedLogMachineIds)
+assert(releasedCompletion.confirmationSnapshot.processReportSummary[0].reportedQty >= 1)
+assert(releasedCompletion.confirmationSnapshot.handoverSummary[0].handoverQty === 1)
+assert(releasedCompletion.confirmationSnapshot.waitHandoverStockSummary.every((item) => item.stockQty >= 0))
+assert.equal(
+  getWoolWarehouseStock({
+    woolOrderId: releasedOrder.woolOrderId,
+    objectSkuCode: releasedOrder.outputPlanLines[0].outputSkuCode,
+    defaultLocationId: 'WOOL-WH-GARMENT-DEFAULT',
+  }),
+  9,
+)
+
+const fixedLocationOrder = allOrders.find((item) => item.mockScenarioCode === 'FIXED_LOCATION_UI')!
+const fixedLocationStore = readWoolStore()
+const fixedLocationFlows = fixedLocationStore.warehouseFlows.filter((item) =>
+  item.sourceRecordId.includes('FIXED-LOCATION-'),
+)
+assert.deepEqual(
+  new Set(fixedLocationFlows.map((item) => item.defaultLocationId)),
+  new Set(['WOOL-WP-YARN-DEFAULT', 'WOOL-WH-CUT-DEFAULT', 'WOOL-WH-GARMENT-DEFAULT']),
+)
+assert(fixedLocationFlows.every((item) => item.qty > 0))
+assert(fixedLocationFlows.some((item) => item.woolOrderId === fixedLocationOrder.woolOrderId))
 
 const mixedBlockOrder = allOrders.find((item) => item.mockScenarioCode === 'REPORTS_AT_LIMIT')!
 commitWoolStore((draft) => {
@@ -878,6 +1076,53 @@ assert.doesNotMatch(
   /全部加工后 SKU 已达到填报上限/,
 )
 resetWoolFactWorkflowMock('CHECK_WOOL_FACT_WORKFLOW_AFTER_MIXED_BLOCK')
+
+commitWoolStore((draft) => {
+  const receipt = draft.yarnReceipts.find((item) => item.woolOrderId === readyOrder.woolOrderId)!
+  receipt.receivedBy = 'FAKE-SKU-IN-TEXT'
+  draft.operationLogs.push({
+    operationLogId: 'WOOL-EXACT-SKU-CHECK',
+    woolOrderId: readyOrder.woolOrderId,
+    action: 'EXACT_SKU_CHECK',
+    objectType: 'WORK_ORDER',
+    objectId: readyOrder.woolOrderId,
+    operatedBy: 'FAKE-SKU-IN-TEXT',
+    operatedAt: '2026-07-30 13:30:00',
+    remark: '备注提到 FAKE-SKU-IN-TEXT 但不是对象 SKU',
+  })
+})
+assert.equal(listWoolFactRecords({
+  woolOrderId: readyOrder.woolOrderId,
+  objectSkuCode: 'FAKE-SKU-IN-TEXT',
+}).length, 0)
+resetWoolFactWorkflowMock('CHECK_WOOL_FACT_WORKFLOW_AFTER_EXACT_SKU')
+
+const validStore = readWoolStore()
+const duplicateIdStore = structuredClone(validStore)
+duplicateIdStore.processReports.push(structuredClone(duplicateIdStore.processReports[0]))
+assert.throws(() => validateWoolStore(duplicateIdStore), /重复/)
+
+const orphanOrderStore = structuredClone(validStore)
+orphanOrderStore.processReports[0].woolOrderId = 'WOOL-ORDER-NOT-FOUND'
+assert.throws(() => validateWoolStore(orphanOrderStore), /加工单/)
+
+const invalidOutputStore = structuredClone(validStore)
+invalidOutputStore.processReports[0].outputSkuCode = 'OUTPUT-SKU-NOT-IN-ORDER'
+assert.throws(() => validateWoolStore(invalidOutputStore), /加工后 SKU/)
+
+const orphanFlowStore = structuredClone(validStore)
+orphanFlowStore.warehouseFlows.find((item) =>
+  item.sourceRecordType === 'QTY_CHANGE',
+)!.sourceRecordId = 'SOURCE-RECORD-NOT-FOUND'
+assert.throws(() => validateWoolStore(orphanFlowStore), /来源记录/)
+
+const orphanQtyChangeStore = structuredClone(validStore)
+orphanQtyChangeStore.qtyChangeLogs[0].recordId = 'QTY-TARGET-NOT-FOUND'
+assert.throws(() => validateWoolStore(orphanQtyChangeStore), /数量修改目标/)
+
+const orphanMachineStore = structuredClone(validStore)
+orphanMachineStore.machineAssociations[0].machineId = 'MACHINE-NOT-FOUND'
+assert.throws(() => validateWoolStore(orphanMachineStore), /设备/)
 
 const successfulWritesBefore = storageWrites.length
 commitWoolStore((draft) => {
@@ -924,6 +1169,67 @@ resetWoolFactWorkflowMock('CHECK_WOOL_RESET_SCOPE')
 assert.equal(storageValues.get('higood-fcs-wool-domain-store-v1'), 'KEEP-OLD-WOOL-STORE')
 assert.equal(storageValues.get('higood-other-domain-store'), 'KEEP-OTHER-STORE')
 assert(storageValues.has(WOOL_DOMAIN_STORE_KEY))
+
+const beforeFailedStorageCommit = readWoolStore()
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: {
+    getItem(key: string) {
+      return storageValues.get(key) ?? null
+    },
+    setItem() {
+      throw new Error('模拟 localStorage 写入失败')
+    },
+  },
+})
+assert.throws(() => commitWoolStore((draft) => {
+  draft.operationLogs.push({
+    operationLogId: 'SHOULD-NOT-COMMIT',
+    woolOrderId: readyOrder.woolOrderId,
+    action: 'STORAGE_FAILURE',
+    objectType: 'WORK_ORDER',
+    objectId: readyOrder.woolOrderId,
+    operatedBy: '专项检查',
+    operatedAt: '2026-07-30 14:00:00',
+  })
+}), /模拟 localStorage 写入失败/)
+assert.deepEqual(readWoolStore(), beforeFailedStorageCommit)
+
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  get() {
+    throw new Error('模拟 localStorage getter 失败')
+  },
+})
+clearWoolStoreMemoryCache()
+assert(listWoolWorkOrders().length >= 26)
+
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: {
+    getItem() {
+      throw new Error('模拟 localStorage getItem 失败')
+    },
+    setItem(key: string, value: string) {
+      storageValues.set(key, value)
+    },
+  },
+})
+clearWoolStoreMemoryCache()
+assert(listWoolWorkOrders().length >= 26)
+
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: {
+    getItem(key: string) {
+      return storageValues.get(key) ?? null
+    },
+    setItem(key: string, value: string) {
+      storageValues.set(key, value)
+    },
+  },
+})
+resetWoolFactWorkflowMock('CHECK_WOOL_STORAGE_RECOVERY')
 
 const woolFacadeSource = readFileSync(
   new URL('../src/data/fcs/wool-task-domain.ts', import.meta.url),

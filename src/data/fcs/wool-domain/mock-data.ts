@@ -26,14 +26,14 @@ export const WOOL_MOCK_SCENARIO_CODES = [
   'MACHINE_UNAVAILABLE',
   'MACHINE_STATUS_AUTO_RELEASE',
   'MACHINE_ASSOCIATION_B',
-  'TECH_PACK_MISSING_MAPPING',
+  'NO_TECH_PACK_MAPPING',
   'PART_PANEL_CAPACITY',
   'REPORT_DEFAULT_LOCATION',
   'QTY_CHANGE_STOCK_SYNC',
   'DOWNSTREAM_CONFIRMED_LOCKED',
   'COMPLETED_WITH_STOCK',
   'TECH_PACK_FALLBACK_REJECTED',
-  'INVALID_WOOL_MAPPING_REJECTED',
+  'INVALID_MAPPING_REJECTED',
   'MIXED_ORDER_KINDS',
   'YARN_ISSUE_RETURN',
   'FIXED_LOCATION_UI',
@@ -75,9 +75,9 @@ function workOrder(sequence: number, code: WoolMockScenarioCode): WoolWorkOrder 
     ? 'PART_PANEL'
     : 'WHOLE_GARMENT'
   const hasInvalidSource = [
-    'TECH_PACK_MISSING_MAPPING',
+    'NO_TECH_PACK_MAPPING',
     'TECH_PACK_FALLBACK_REJECTED',
-    'INVALID_WOOL_MAPPING_REJECTED',
+    'INVALID_MAPPING_REJECTED',
   ].includes(code)
   const outputPlanLines = hasInvalidSource
     ? [outputLine(sequence, 'BLACK', kind, [])]
@@ -85,6 +85,22 @@ function workOrder(sequence: number, code: WoolMockScenarioCode): WoolWorkOrder 
         outputLine(sequence, 'BLACK', kind, ['YARN-A', 'YARN-B']),
         outputLine(sequence, 'WHITE', kind, ['YARN-A', 'YARN-C']),
       ]
+  const sourceFactCode = code === 'NO_TECH_PACK_MAPPING'
+    ? 'NO-MAPPING'
+    : code === 'TECH_PACK_FALLBACK_REJECTED'
+      ? 'DEMAND-FALLBACK-REJECTED'
+      : code === 'INVALID_MAPPING_REJECTED'
+        ? 'INVALID-MAPPING-REJECTED'
+        : ''
+  if (sourceFactCode) {
+    for (const line of outputPlanLines) {
+      line.sourceTechPackVersionId = `TPV-WOOL-${String(sequence).padStart(2, '0')}-${sourceFactCode}`
+      line.sourceTechPackVersionCode = `WOOL-TP-${String(sequence).padStart(2, '0')}-${sourceFactCode}`
+      if (code === 'INVALID_MAPPING_REJECTED') {
+        line.sourceColorMappingIds = [`MAP-INVALID-${sequence}-${line.colorCode}`]
+      }
+    }
+  }
   return {
     woolOrderId: `WOOL-MOCK-${String(sequence).padStart(2, '0')}`,
     woolOrderNo: code === 'ONE_COLOR_READY'
@@ -238,25 +254,83 @@ function flowForHandover(order: WoolWorkOrder, record: WoolHandoverRecord): Wool
   }
 }
 
-function completion(order: WoolWorkOrder, releasedMachineIds: string[] = []): WoolCompletionRecord {
+function signedFlowQty(flow: WoolWarehouseFlow): number {
+  if (flow.flowType === 'INBOUND') return Math.abs(flow.qty)
+  if (flow.flowType === 'OUTBOUND') return -Math.abs(flow.qty)
+  return flow.qty
+}
+
+function completion(
+  store: WoolDomainStore,
+  order: WoolWorkOrder,
+  releasedMachineIds: string[] = [],
+): WoolCompletionRecord {
+  const receipts = store.yarnReceipts.filter((item) => item.woolOrderId === order.woolOrderId)
+  const confirmedYarnSkus = new Set(
+    receipts.flatMap((item) => item.lines)
+      .filter((line) => line.receivedQty > 0)
+      .map((line) => line.yarnSkuCode),
+  )
+  const yarnReceiptQty = new Map<string, number>()
+  for (const line of receipts.flatMap((item) => item.lines)) {
+    yarnReceiptQty.set(line.yarnSkuCode, (yarnReceiptQty.get(line.yarnSkuCode) ?? 0) + line.receivedQty)
+  }
+  const reportQty = new Map<string, number>()
+  for (const record of store.processReports.filter((item) => item.woolOrderId === order.woolOrderId)) {
+    reportQty.set(record.outputSkuCode, (reportQty.get(record.outputSkuCode) ?? 0) + record.reportedQty)
+  }
+  const orderHandovers = store.handovers.filter((item) => item.woolOrderId === order.woolOrderId)
+  const stockQty = new Map<string, number>()
+  for (const flow of store.warehouseFlows.filter((item) => item.woolOrderId === order.woolOrderId)) {
+    stockQty.set(flow.objectSkuCode, (stockQty.get(flow.objectSkuCode) ?? 0) + signedFlowQty(flow))
+  }
   return {
     woolOrderId: order.woolOrderId,
     completedAt: '2026-07-30 18:00:00',
     completedBy: '毛织主管',
     remark: '业务人员已核对当前事实并确认完成',
     confirmationSnapshot: {
-      yarnReceiptSummary: [],
+      yarnReceiptSummary: [...yarnReceiptQty].map(([yarnSkuCode, receivedQty]) => ({
+        yarnSkuCode,
+        receivedQty,
+        qtyUnit: 'kg',
+      })),
       outputReadinessSummary: order.outputPlanLines.map((line) => ({
         outputSkuCode: line.outputSkuCode,
         requiredYarnSkus: [...line.requiredYarnSkus],
-        confirmedYarnSkus: [],
-        missingYarnSkus: [...line.requiredYarnSkus],
+        confirmedYarnSkus: line.requiredYarnSkus.filter((sku) => confirmedYarnSkus.has(sku)),
+        missingYarnSkus: line.requiredYarnSkus.filter((sku) => !confirmedYarnSkus.has(sku)),
       })),
-      processReportSummary: [],
-      handoverSummary: [],
-      waitProcessStockSummary: [],
-      waitHandoverStockSummary: [],
-      releasedMachineIds,
+      processReportSummary: order.outputPlanLines
+        .filter((line) => (reportQty.get(line.outputSkuCode) ?? 0) > 0)
+        .map((line) => ({
+          outputSkuCode: line.outputSkuCode,
+          reportedQty: reportQty.get(line.outputSkuCode) ?? 0,
+          qtyUnit: line.qtyUnit,
+        })),
+      handoverSummary: orderHandovers.map((record) => ({
+        handoverId: record.handoverId,
+        outputSkuCode: record.outputSkuCode,
+        handoverQty: record.handoverQty,
+        qtyUnit: record.qtyUnit,
+        downstreamActualReceivedQty: record.downstreamReceipt?.actualReceivedQty,
+        downstreamDifferenceQty: record.downstreamReceipt?.differenceQty,
+        downstreamReceivedAt: record.downstreamReceipt?.receivedAt,
+      })),
+      waitProcessStockSummary: [...stockQty]
+        .filter(([objectSkuCode, qty]) =>
+          qty !== 0
+          && receipts.some((record) => record.lines.some((line) => line.yarnSkuCode === objectSkuCode)),
+        )
+        .map(([yarnSkuCode, stock]) => ({ yarnSkuCode, stockQty: stock, qtyUnit: 'kg' })),
+      waitHandoverStockSummary: order.outputPlanLines
+        .filter((line) => (stockQty.get(line.outputSkuCode) ?? 0) !== 0)
+        .map((line) => ({
+          outputSkuCode: line.outputSkuCode,
+          stockQty: stockQty.get(line.outputSkuCode) ?? 0,
+          qtyUnit: line.qtyUnit,
+        })),
+      releasedMachineIds: [...releasedMachineIds],
     },
   }
 }
@@ -369,8 +443,36 @@ export function buildWoolFactWorkflowMockStore(_seed = 'DEFAULT'): WoolDomainSto
         addHandover(order, 0, 'READY', 40)
         break
       case 'COMPLETED_RELEASED_MACHINES':
+        addReceipt(order, 'DONE-ABC', ['YARN-A', 'YARN-B', 'YARN-C'])
+        addReport(order, 0, 'DONE', 10)
         addHandover(order, 0, 'DONE', 1)
-        store.completions.push(completion(order, ['WM-001', 'WM-002']))
+        store.machineAssociations.push(
+          {
+            machineId: 'WM-001',
+            woolOrderId: order.woolOrderId,
+            associatedAt: MOCK_AT,
+            associatedBy: '毛织主管',
+          },
+          {
+            machineId: 'WM-002',
+            woolOrderId: order.woolOrderId,
+            associatedAt: MOCK_AT,
+            associatedBy: '毛织主管',
+          },
+        )
+        for (const machineId of ['WM-001', 'WM-002']) {
+          store.machineAssociationLogs.push({
+            logId: `WMAL-COMPLETED-${machineId}`,
+            machineId,
+            fromWoolOrderId: order.woolOrderId,
+            action: 'UNASSOCIATE',
+            reason: 'ORDER_COMPLETED',
+            operatedAt: '2026-07-30 18:00:00',
+            operatedBy: '毛织主管',
+          })
+        }
+        store.machineAssociations = store.machineAssociations.filter((item) => item.woolOrderId !== order.woolOrderId)
+        store.completions.push(completion(store, order, ['WM-001', 'WM-002']))
         break
       case 'MACHINE_ASSOCIATION_A':
         store.machineAssociations.push({
@@ -417,16 +519,27 @@ export function buildWoolFactWorkflowMockStore(_seed = 'DEFAULT'): WoolDomainSto
           associatedAt: MOCK_AT,
           associatedBy: '毛织主管',
         })
-        store.machineAssociationLogs.push({
-          logId: 'WMAL-MOCK-TRANSFER',
-          machineId: 'WM-004',
-          fromWoolOrderId: fromOrder.woolOrderId,
-          toWoolOrderId: order.woolOrderId,
-          action: 'TRANSFER',
-          reason: 'MANUAL_SAVE',
-          operatedAt: MOCK_AT,
-          operatedBy: '毛织主管',
-        })
+        store.machineAssociationLogs.push(
+          {
+            logId: 'WMAL-MOCK-ASSOCIATE-OLD',
+            machineId: 'WM-004',
+            toWoolOrderId: fromOrder.woolOrderId,
+            action: 'ASSOCIATE',
+            reason: 'MANUAL_SAVE',
+            operatedAt: '2026-07-30 07:30:00',
+            operatedBy: '毛织主管',
+          },
+          {
+            logId: 'WMAL-MOCK-TRANSFER',
+            machineId: 'WM-004',
+            fromWoolOrderId: fromOrder.woolOrderId,
+            toWoolOrderId: order.woolOrderId,
+            action: 'TRANSFER',
+            reason: 'MANUAL_SAVE',
+            operatedAt: MOCK_AT,
+            operatedBy: '毛织主管',
+          },
+        )
         break
       }
       case 'PART_PANEL_CAPACITY':
@@ -512,9 +625,10 @@ export function buildWoolFactWorkflowMockStore(_seed = 'DEFAULT'): WoolDomainSto
         break
       }
       case 'COMPLETED_WITH_STOCK':
+        addReceipt(order, 'DONE-STOCK-ABC', ['YARN-A', 'YARN-B', 'YARN-C'])
         addReport(order, 0, 'DONE-STOCK', 30)
         addHandover(order, 0, 'DONE-STOCK', 10)
-        store.completions.push(completion(order))
+        store.completions.push(completion(store, order))
         break
       case 'YARN_ISSUE_RETURN':
         addReceipt(order, 'AB', ['YARN-A', 'YARN-B'])
@@ -609,9 +723,20 @@ export function buildWoolFactWorkflowMockStore(_seed = 'DEFAULT'): WoolDomainSto
           })
         }
         break
+      case 'FIXED_LOCATION_UI': {
+        addReceipt(order, 'FIXED-LOCATION-YARN', ['YARN-A'], 'BATCH-FIXED-LOCATION')
+        addReport(order, 0, 'FIXED-LOCATION-GARMENT', 5)
+        const panelOrder = orders.find((item) => item.mockScenarioCode === 'PART_PANEL_CAPACITY')!
+        addReport(panelOrder, 0, 'FIXED-LOCATION-CUT', 5)
+        break
+      }
       default:
         break
     }
+  }
+  for (const association of store.machineAssociations) {
+    const machine = store.machines.find((item) => item.machineId === association.machineId)
+    if (machine) machine.status = 'IN_PRODUCTION'
   }
   return store
 }

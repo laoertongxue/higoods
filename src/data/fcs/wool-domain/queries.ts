@@ -342,6 +342,49 @@ function resolveFactWoolOrderId(
   return store.handovers.find((item) => item.handoverId === change.recordId)?.woolOrderId ?? ''
 }
 
+function factRecordMatchesObjectSku(
+  recordType: WoolFactRecordType,
+  record: WoolFactRecord,
+  objectSkuCode: string,
+): boolean {
+  if (recordType === 'YARN_RECEIPT') {
+    return (record as WoolYarnReceiptRecord).lines.some((line) => line.yarnSkuCode === objectSkuCode)
+  }
+  if (recordType === 'YARN_ISSUE') {
+    return (record as WoolYarnIssueRecord).yarnSkuCode === objectSkuCode
+  }
+  if (recordType === 'YARN_RETURN') {
+    return (record as WoolYarnReturnRecord).yarnSkuCode === objectSkuCode
+  }
+  if (recordType === 'PROCESS_REPORT') {
+    return (record as WoolProcessReportRecord).outputSkuCode === objectSkuCode
+  }
+  if (recordType === 'HANDOVER') {
+    return (record as WoolHandoverRecord).outputSkuCode === objectSkuCode
+  }
+  if (recordType === 'QTY_CHANGE') {
+    return (record as WoolQtyChangeLog).objectSkuCode === objectSkuCode
+  }
+  if (recordType === 'WAREHOUSE_FLOW') {
+    return (record as WoolWarehouseFlow).objectSkuCode === objectSkuCode
+  }
+  if (recordType === 'COMPLETION') {
+    const snapshot = (record as WoolCompletionRecord).confirmationSnapshot
+    return snapshot.yarnReceiptSummary.some((item) => item.yarnSkuCode === objectSkuCode)
+      || snapshot.outputReadinessSummary.some((item) =>
+        item.outputSkuCode === objectSkuCode
+        || item.requiredYarnSkus.includes(objectSkuCode)
+        || item.confirmedYarnSkus.includes(objectSkuCode)
+        || item.missingYarnSkus.includes(objectSkuCode),
+      )
+      || snapshot.processReportSummary.some((item) => item.outputSkuCode === objectSkuCode)
+      || snapshot.handoverSummary.some((item) => item.outputSkuCode === objectSkuCode)
+      || snapshot.waitProcessStockSummary.some((item) => item.yarnSkuCode === objectSkuCode)
+      || snapshot.waitHandoverStockSummary.some((item) => item.outputSkuCode === objectSkuCode)
+  }
+  return false
+}
+
 export function listWoolFactRecords(query: WoolFactRecordQuery = {}): WoolFactRecordItem[] {
   const store = readWoolStore()
   const groups: Array<[WoolFactRecordType, WoolFactRecord[]]> = [
@@ -369,7 +412,7 @@ export function listWoolFactRecords(query: WoolFactRecordQuery = {}): WoolFactRe
     .filter((item) => !query.woolOrderId || item.woolOrderId === query.woolOrderId)
     .filter((item) => {
       if (!query.objectSkuCode) return true
-      return JSON.stringify(item.record).includes(query.objectSkuCode)
+      return factRecordMatchesObjectSku(item.recordType, item.record, query.objectSkuCode)
     })
     .filter((item) => {
       if (!query.sourceRecordId) return true
