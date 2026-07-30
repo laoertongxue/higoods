@@ -3,15 +3,24 @@ import test from 'node:test'
 import {
   assertReceiptCurrent,
   createTaskReceipt,
-  receiptValidationPaths,
   parseCodeGraphStatus,
+  parseTaskCompletionReceipt,
+  receiptValidationPaths,
   recordAcceptance,
   recordDelivery,
   type GitRevision,
+  type TaskCompletionReceipt,
 } from '../../scripts/workflow-governance/task-receipt.ts'
-import type { AffectedCheckRoute } from '../../scripts/workflow-governance/affected-checks.ts'
+import {
+  routeAffectedChecks,
+  type AffectedCheckRoute,
+} from '../../scripts/workflow-governance/affected-checks.ts'
+import type { InstructionContextReceipt } from '../../scripts/workflow-governance/instruction-context.ts'
 
 const realFetch = globalThis.fetch
+const ACCEPTANCE_REF = 'https://api.github.com/repos/owner/repository/issues/comments/42'
+const ISSUE_REF = 'https://api.github.com/repos/owner/repository/issues/7'
+const PULL_REQUEST_REF = 'https://api.github.com/repos/owner/repository/pulls/7'
 
 function mockGitHubFetch(bodies: Array<Record<string, unknown>>): void {
   globalThis.fetch = (async () => {
@@ -24,6 +33,45 @@ function mockGitHubFetch(bodies: Array<Record<string, unknown>>): void {
   }) as typeof fetch
 }
 
+function acceptedComment(options: {
+  body?: string
+  login?: string
+  association?: string
+  issueUrl?: string
+} = {}): Record<string, unknown> {
+  return {
+    body: options.body ?? 'accepted abc123',
+    user: { login: options.login ?? 'review-owner' },
+    author_association: options.association ?? 'OWNER',
+    issue_url: options.issueUrl ?? ISSUE_REF,
+  }
+}
+
+function pullRequestIssue(): Record<string, unknown> {
+  return {
+    number: 7,
+    pull_request: { url: PULL_REQUEST_REF },
+  }
+}
+
+function pullRequest(options: {
+  headSha?: string
+  headRef?: string
+  baseRepository?: string
+} = {}): Record<string, unknown> {
+  return {
+    head: {
+      sha: options.headSha ?? 'abc123',
+      ref: options.headRef ?? 'main',
+    },
+    base: {
+      repo: {
+        full_name: options.baseRepository ?? 'owner/repository',
+      },
+    },
+  }
+}
+
 test.afterEach(() => {
   globalThis.fetch = realFetch
 })
@@ -34,28 +82,60 @@ const revision: GitRevision = {
   changedPaths: ['scripts/example.ts'],
 }
 
-const route: AffectedCheckRoute = {
-  changedPaths: revision.changedPaths,
-  fastChecks: ['npm run test:workflow-governance'],
-  governanceChecks: [],
-  fullChecks: [],
-  unknownPaths: [],
-  escalationReasons: [],
+const route: AffectedCheckRoute = routeAffectedChecks(revision.changedPaths)
+
+function instructionContext(options: {
+  contentHash?: string
+  requireStageTrace?: boolean
+} = {}): InstructionContextReceipt {
+  return {
+    taskBoundary: '只修改任务收据实现与测试',
+    source: {
+      path: 'AGENTS.md',
+      algorithm: 'sha256',
+      contentHash: options.contentHash ?? 'a'.repeat(64),
+    },
+    ruleBindings: [
+      {
+        ruleRef: 'AGENTS.md::## 12. CodeGraph 使用规则',
+        evidenceFields: ['codegraph'],
+      },
+      {
+        ruleRef: 'AGENTS.md::### 12.1 任务完成与交付收据',
+        evidenceFields: ['revision', 'route', 'checks', 'codegraph'],
+      },
+      ...(options.requireStageTrace
+        ? [{
+            ruleRef: 'AGENTS.md::### 12.2 Superpowers 最小阶段轨迹',
+            evidenceFields: ['stageTrace'] as const,
+          }]
+        : []),
+    ],
+  }
 }
 
 function validReceipt() {
+  const instruction = instructionContext()
   return createTaskReceipt({
     workspace: '/workspace',
     revisionBefore: revision,
     revisionAfter: revision,
+    instructionBefore: instruction,
+    instructionAfter: instruction,
     route,
-    checks: [{
-      command: 'npm run test:workflow-governance',
+    checks: [
+      ...new Set([
+        ...route.fastChecks,
+        ...route.governanceChecks,
+        ...route.fullChecks,
+      ]),
+    ].map((command) => ({
+      command,
       exitCode: 0,
       startedAt: '2026-07-29T10:00:00.000Z',
       finishedAt: '2026-07-29T10:01:00.000Z',
-      invariant: '工作流治理专项测试',
-    }],
+      invariant: '受影响检查路由要求',
+    })),
     codegraph: {
       syncExitCode: 0,
       before: {
@@ -72,6 +152,20 @@ function validReceipt() {
       },
     },
   })
+}
+
+function validDeliveredReceipt(): TaskCompletionReceipt {
+  return {
+    ...validReceipt(),
+    state: 'delivered',
+    delivery: {
+      provider: 'github',
+      target: 'owner/repository@main',
+      revision: revision.head,
+      providerReceipt: 'https://api.github.com/repos/owner/repository/commits/abc123',
+      recordedAt: '2026-07-29T10:02:00.000Z',
+    },
+  }
 }
 
 test('最终差异指纹变化会使验证收据失效', () => {
@@ -103,6 +197,8 @@ test('失败检查阻止收据进入验证完成', () => {
     workspace: receipt.workspace,
     revisionBefore: revision,
     revisionAfter: revision,
+    instructionBefore: receipt.instructionContext,
+    instructionAfter: receipt.instructionContext,
     route,
     checks: receipt.checks,
     codegraph: receipt.codegraph,
@@ -117,6 +213,8 @@ test('CodeGraph 待同步或工作树不匹配时阻止验证完成', () => {
     workspace: receipt.workspace,
     revisionBefore: revision,
     revisionAfter: revision,
+    instructionBefore: receipt.instructionContext,
+    instructionAfter: receipt.instructionContext,
     route,
     checks: receipt.checks,
     codegraph: receipt.codegraph,
@@ -139,6 +237,488 @@ test('CodeGraph JSON 状态保留待同步数和工作树不匹配证据', () =>
   assert.equal(status.pendingCount, 6)
   assert.equal(status.worktreeMismatch, true)
   assert.equal(status.projectPath, '/workspace/main')
+})
+
+test('执行期间 AGENTS 指令上下文变化时只能生成 implemented 收据并保存最终上下文', () => {
+  const before = instructionContext({ contentHash: 'a'.repeat(64) })
+  const after = instructionContext({ contentHash: 'b'.repeat(64) })
+  const receipt = createTaskReceipt({
+    workspace: '/workspace',
+    revisionBefore: revision,
+    revisionAfter: revision,
+    instructionBefore: before,
+    instructionAfter: after,
+    route,
+    checks: validReceipt().checks,
+    codegraph: validReceipt().codegraph,
+  })
+
+  assert.equal(receipt.state, 'implemented')
+  assert.deepEqual(receipt.instructionContext, after)
+  assert(receipt.blockers.some((blocker) => blocker.includes('AGENTS 指令上下文已变化')))
+})
+
+test('阶段轨迹绑定与 stageTrace.required 不一致时阻止验证完成', () => {
+  const withBinding = instructionContext({ requireStageTrace: true })
+  const withoutTrace = createTaskReceipt({
+    workspace: '/workspace',
+    revisionBefore: revision,
+    revisionAfter: revision,
+    instructionBefore: withBinding,
+    instructionAfter: withBinding,
+    route,
+    checks: validReceipt().checks,
+    codegraph: validReceipt().codegraph,
+  })
+  assert.equal(withoutTrace.state, 'implemented')
+  assert(withoutTrace.blockers.some((blocker) => blocker.includes('阶段轨迹绑定')))
+
+  const withoutBinding = instructionContext()
+  const withRequiredTrace = createTaskReceipt({
+    workspace: '/workspace',
+    revisionBefore: revision,
+    revisionAfter: revision,
+    instructionBefore: withoutBinding,
+    instructionAfter: withoutBinding,
+    route,
+    checks: validReceipt().checks,
+    codegraph: validReceipt().codegraph,
+    stageTrace: {
+      required: true,
+      valid: true,
+      stages: [],
+      skills: [],
+      blockers: [],
+    },
+  })
+  assert.equal(withRequiredTrace.state, 'implemented')
+  assert(withRequiredTrace.blockers.some((blocker) => blocker.includes('阶段轨迹绑定')))
+})
+
+test('必需阶段轨迹无效且没有细分 blocker 时仍生成 implemented 收据', () => {
+  const instruction = instructionContext({ requireStageTrace: true })
+  const receipt = createTaskReceipt({
+    workspace: '/workspace',
+    revisionBefore: revision,
+    revisionAfter: revision,
+    instructionBefore: instruction,
+    instructionAfter: instruction,
+    route,
+    checks: validReceipt().checks,
+    codegraph: validReceipt().codegraph,
+    stageTrace: {
+      required: true,
+      valid: false,
+      stages: [],
+      skills: [],
+      blockers: [],
+    },
+  })
+
+  assert.equal(receipt.state, 'implemented')
+  assert(receipt.blockers.some((blocker) => blocker.includes('阶段轨迹')))
+})
+
+test('运行时解析接受完整 v2 收据并拒绝旧版本和畸形嵌套字段', () => {
+  const receipt = validReceipt()
+  assert.deepEqual(parseTaskCompletionReceipt(JSON.stringify(receipt)), receipt)
+
+  assert.throws(
+    () => parseTaskCompletionReceipt(JSON.stringify({ ...receipt, schemaVersion: 1 })),
+    /schemaVersion/,
+  )
+  assert.throws(
+    () => parseTaskCompletionReceipt(JSON.stringify({
+      ...receipt,
+      instructionContext: {
+        ...receipt.instructionContext,
+        source: {
+          ...receipt.instructionContext.source,
+          contentHash: 'not-a-sha256',
+        },
+      },
+    })),
+    /contentHash/,
+  )
+  assert.throws(
+    () => parseTaskCompletionReceipt(JSON.stringify({
+      ...receipt,
+      checks: [{ ...receipt.checks[0], exitCode: '0' }],
+    })),
+    /checks/,
+  )
+})
+
+test('运行时解析拒绝结构合法但语义伪造的 verified 收据', () => {
+  const receipt = validReceipt()
+  const forgedReceipts: Array<{ receipt: TaskCompletionReceipt; message: RegExp }> = [
+    {
+      receipt: {
+        ...receipt,
+        checks: [{ ...receipt.checks[0], exitCode: 1 }],
+      },
+      message: /检查失败/,
+    },
+    {
+      receipt: {
+        ...receipt,
+        blockers: ['伪造的 blocker'],
+      },
+      message: /blockers 必须为空/,
+    },
+    {
+      receipt: {
+        ...receipt,
+        codegraph: { ...receipt.codegraph, syncExitCode: 1 },
+      },
+      message: /CodeGraph 同步失败/,
+    },
+    {
+      receipt: {
+        ...receipt,
+        codegraph: {
+          ...receipt.codegraph,
+          after: { ...receipt.codegraph.after, initialized: false },
+        },
+      },
+      message: /CodeGraph 索引未初始化/,
+    },
+    {
+      receipt: {
+        ...receipt,
+        codegraph: {
+          ...receipt.codegraph,
+          after: { ...receipt.codegraph.after, pendingCount: 1 },
+        },
+      },
+      message: /待同步文件/,
+    },
+    {
+      receipt: {
+        ...receipt,
+        codegraph: {
+          ...receipt.codegraph,
+          after: { ...receipt.codegraph.after, worktreeMismatch: true },
+        },
+      },
+      message: /工作树不匹配/,
+    },
+    {
+      receipt: {
+        ...receipt,
+        codegraph: {
+          ...receipt.codegraph,
+          after: { ...receipt.codegraph.after, projectPath: '/workspace/other' },
+        },
+      },
+      message: /项目路径/,
+    },
+    {
+      receipt: {
+        ...receipt,
+        instructionContext: instructionContext({ requireStageTrace: true }),
+      },
+      message: /阶段轨迹绑定/,
+    },
+    {
+      receipt: {
+        ...receipt,
+        instructionContext: instructionContext({ requireStageTrace: true }),
+        stageTrace: {
+          required: true,
+          valid: false,
+          stages: [],
+          skills: [],
+          blockers: ['缺少阶段'],
+        },
+      },
+      message: /阶段轨迹无效/,
+    },
+    {
+      receipt: {
+        ...receipt,
+        state: 'implemented',
+      },
+      message: /implemented.*blockers/,
+    },
+    {
+      receipt: {
+        ...receipt,
+        delivery: validDeliveredReceipt().delivery,
+      },
+      message: /verified.*delivery/,
+    },
+  ]
+
+  for (const forged of forgedReceipts) {
+    assert.throws(
+      () => parseTaskCompletionReceipt(JSON.stringify(forged.receipt)),
+      forged.message,
+    )
+  }
+})
+
+test('运行时解析拒绝结构合法但交付语义伪造的收据', () => {
+  const delivered = validDeliveredReceipt()
+  assert.deepEqual(parseTaskCompletionReceipt(JSON.stringify(delivered)), delivered)
+
+  for (const forged of [
+    {
+      ...delivered,
+      delivery: { ...delivered.delivery!, provider: 'gitlab' },
+    },
+    {
+      ...delivered,
+      delivery: { ...delivered.delivery!, revision: 'other' },
+    },
+    {
+      ...delivered,
+      delivery: {
+        ...delivered.delivery!,
+        providerReceipt: 'https://github.com/owner/repository/commit/abc123',
+      },
+    },
+    {
+      ...delivered,
+      delivery: {
+        ...delivered.delivery!,
+        acceptanceRef: 'https://api.github.com/repos/owner/repository/issues/comments/42',
+      },
+    },
+  ]) {
+    assert.throws(
+      () => parseTaskCompletionReceipt(JSON.stringify(forged)),
+      /交付|delivery|provider|版本|回执|acceptanceRef/,
+    )
+  }
+
+  assert.throws(
+    () => parseTaskCompletionReceipt(JSON.stringify({
+      ...delivered,
+      state: 'accepted',
+      delivery: {
+        ...delivered.delivery!,
+        acceptanceRef: 'ticket:42',
+      },
+    })),
+    /acceptanceRef/,
+  )
+})
+
+test('运行时解析拒绝协同清空 route 和 checks 的 verified 收据', () => {
+  const forged: TaskCompletionReceipt = {
+    ...validReceipt(),
+    route: {
+      changedPaths: [],
+      fastChecks: [],
+      governanceChecks: [],
+      fullChecks: [],
+      unknownPaths: [],
+      escalationReasons: [],
+    },
+    checks: [],
+  }
+
+  assert.throws(
+    () => parseTaskCompletionReceipt(JSON.stringify(forged)),
+    /检查路由|route/,
+  )
+})
+
+test('协同清空 route 和 checks 的 verified 收据在 fetch 前拒绝交付', async () => {
+  let fetchCalls = 0
+  globalThis.fetch = (async () => {
+    fetchCalls += 1
+    throw new Error('协同伪造收据不应发起远端请求')
+  }) as typeof fetch
+  const forged: TaskCompletionReceipt = {
+    ...validReceipt(),
+    route: {
+      changedPaths: [],
+      fastChecks: [],
+      governanceChecks: [],
+      fullChecks: [],
+      unknownPaths: [],
+      escalationReasons: [],
+    },
+    checks: [],
+  }
+
+  await assert.rejects(
+    recordDelivery(forged, {
+      provider: 'github',
+      target: 'owner/repository@main',
+      revision: 'abc123',
+      providerReceipt: 'https://github.com/owner/repository/commit/abc123',
+    }),
+    /检查路由|route/,
+  )
+  assert.equal(fetchCalls, 0)
+})
+
+test('必需阶段摘要必须包含最小阶段且两阶段审查必须成对出现', () => {
+  const receipt = validReceipt()
+  const instruction = instructionContext({ requireStageTrace: true })
+  const stageTrace = {
+    required: true,
+    valid: true,
+    stages: [],
+    skills: [],
+    blockers: [],
+  } as const
+  assert.throws(
+    () => parseTaskCompletionReceipt(JSON.stringify({
+      ...receipt,
+      instructionContext: instruction,
+      stageTrace,
+    })),
+    /阶段|trigger/,
+  )
+
+  assert.throws(
+    () => parseTaskCompletionReceipt(JSON.stringify({
+      ...receipt,
+      instructionContext: instruction,
+      stageTrace: {
+        ...stageTrace,
+        stages: [
+          'trigger',
+          'artifact',
+          'implementation',
+          'spec-review',
+          'final-validation',
+        ],
+      },
+    })),
+    /审查|成对/,
+  )
+})
+
+test('required 阶段摘要必须由技能调用或完整双审证明真实触发条件', () => {
+  const instruction = instructionContext({ requireStageTrace: true })
+  const stageTrace = {
+    required: true,
+    valid: true,
+    stages: ['trigger', 'artifact', 'implementation', 'final-validation'] as const,
+    skills: [],
+    blockers: [],
+  }
+
+  assert.throws(
+    () => createTaskReceipt({
+      workspace: '/workspace',
+      revisionBefore: revision,
+      revisionAfter: revision,
+      instructionBefore: instruction,
+      instructionAfter: instruction,
+      route,
+      checks: validReceipt().checks,
+      codegraph: validReceipt().codegraph,
+      stageTrace: {
+        ...stageTrace,
+        stages: [...stageTrace.stages],
+      },
+    }),
+    /技能|审查|触发/,
+  )
+
+  assert.throws(
+    () => parseTaskCompletionReceipt(JSON.stringify({
+      ...validReceipt(),
+      instructionContext: instruction,
+      stageTrace,
+    })),
+    /技能|审查|触发/,
+  )
+})
+
+test('完整技能调用或完整双审摘要仍可生成 verified 收据', () => {
+  const instruction = instructionContext({ requireStageTrace: true })
+  const baseStages = ['trigger', 'artifact', 'implementation', 'final-validation'] as const
+  const skillReceipt = createTaskReceipt({
+    workspace: '/workspace',
+    revisionBefore: revision,
+    revisionAfter: revision,
+    instructionBefore: instruction,
+    instructionAfter: instruction,
+    route,
+    checks: validReceipt().checks,
+    codegraph: validReceipt().codegraph,
+    stageTrace: {
+      required: true,
+      valid: true,
+      stages: [...baseStages, 'skill-invocation'],
+      skills: ['superpowers-zh:test-driven-development'],
+      blockers: [],
+    },
+  })
+  assert.equal(skillReceipt.state, 'verified')
+
+  const reviewReceipt = parseTaskCompletionReceipt(JSON.stringify({
+    ...validReceipt(),
+    instructionContext: instruction,
+    stageTrace: {
+      required: true,
+      valid: true,
+      stages: [...baseStages, 'spec-review', 'code-quality-review'],
+      skills: [],
+      blockers: [],
+    },
+  }))
+  assert.equal(reviewReceipt.state, 'verified')
+})
+
+test('createTaskReceipt 拒绝空字符串技能名', () => {
+  const instruction = instructionContext({ requireStageTrace: true })
+  assert.throws(
+    () => createTaskReceipt({
+      workspace: '/workspace',
+      revisionBefore: revision,
+      revisionAfter: revision,
+      instructionBefore: instruction,
+      instructionAfter: instruction,
+      route,
+      checks: validReceipt().checks,
+      codegraph: validReceipt().codegraph,
+      stageTrace: {
+        required: true,
+        valid: true,
+        stages: [
+          'trigger',
+          'skill-invocation',
+          'artifact',
+          'implementation',
+          'final-validation',
+        ],
+        skills: [''],
+        blockers: [],
+      },
+    }),
+    /skills|技能名/,
+  )
+})
+
+test('parseTaskCompletionReceipt 拒绝纯空白技能名', () => {
+  assert.throws(
+    () => parseTaskCompletionReceipt(JSON.stringify({
+      ...validReceipt(),
+      instructionContext: instructionContext({ requireStageTrace: true }),
+      stageTrace: {
+        required: true,
+        valid: true,
+        stages: [
+          'trigger',
+          'skill-invocation',
+          'artifact',
+          'implementation',
+          'final-validation',
+        ],
+        skills: [' \t '],
+        blockers: [],
+      },
+    })),
+    /skills|技能名/,
+  )
 })
 
 test('CodeGraph 状态缺少必要健康字段时失败关闭', () => {
@@ -171,6 +751,163 @@ test('没有 provider 回执不能标记远端交付', async () => {
   )
 })
 
+test('旧版收据直接记录交付或接受时在任何 fetch 前失败关闭', async () => {
+  let fetchCalls = 0
+  globalThis.fetch = (async () => {
+    fetchCalls += 1
+    throw new Error('旧版收据不应发起远端请求')
+  }) as typeof fetch
+
+  const legacyDelivery = {
+    ...validReceipt(),
+    schemaVersion: 1,
+  } as unknown as TaskCompletionReceipt
+  await assert.rejects(
+    recordDelivery(legacyDelivery, {
+      provider: 'github',
+      target: 'owner/repository@main',
+      revision: 'abc123',
+      providerReceipt: 'https://github.com/owner/repository/commit/abc123',
+    }),
+    /schemaVersion/,
+  )
+
+  const legacyAcceptance = {
+    ...validReceipt(),
+    schemaVersion: 1,
+    state: 'delivered',
+    delivery: {
+      provider: 'github',
+      target: 'owner/repository@main',
+      revision: 'abc123',
+      providerReceipt: 'https://api.github.com/repos/owner/repository/commits/abc123',
+      recordedAt: '2026-07-29T10:02:00.000Z',
+    },
+  } as unknown as TaskCompletionReceipt
+  await assert.rejects(
+    recordAcceptance(legacyAcceptance, {
+      acceptanceRef: 'https://api.github.com/repos/owner/repository/issues/comments/42',
+      expectedActor: 'review-owner',
+    }),
+    /schemaVersion/,
+  )
+  assert.equal(fetchCalls, 0)
+})
+
+test('伪造 verified 收据不能直接升级交付且不发起 fetch', async () => {
+  let fetchCalls = 0
+  globalThis.fetch = (async () => {
+    fetchCalls += 1
+    throw new Error('伪造收据不应发起远端请求')
+  }) as typeof fetch
+  const forged = validReceipt()
+  forged.checks[0].exitCode = 1
+
+  await assert.rejects(
+    recordDelivery(forged, {
+      provider: 'github',
+      target: 'owner/repository@main',
+      revision: 'abc123',
+      providerReceipt: 'https://github.com/owner/repository/commit/abc123',
+    }),
+    /检查失败/,
+  )
+  assert.equal(fetchCalls, 0)
+})
+
+test('伪造 delivered 收据不能直接升级接受且不发起 fetch', async () => {
+  let fetchCalls = 0
+  globalThis.fetch = (async () => {
+    fetchCalls += 1
+    throw new Error('伪造收据不应发起远端请求')
+  }) as typeof fetch
+  const forged = validDeliveredReceipt()
+  forged.delivery!.provider = 'gitlab'
+
+  await assert.rejects(
+    recordAcceptance(forged, {
+      acceptanceRef: 'https://api.github.com/repos/owner/repository/issues/comments/42',
+      expectedActor: 'review-owner',
+    }),
+    /github/,
+  )
+  assert.equal(fetchCalls, 0)
+})
+
+test('GitHub 评论引用必须是无 query、fragment 或额外路径的规范数字 URL', async () => {
+  for (const acceptanceRef of [
+    `${ACCEPTANCE_REF}?page=1`,
+    `${ACCEPTANCE_REF}#fragment`,
+    `${ACCEPTANCE_REF}/extra`,
+  ]) {
+    let fetchCalls = 0
+    globalThis.fetch = (async () => {
+      fetchCalls += 1
+      throw new Error('畸形评论 URL 不应发起远端请求')
+    }) as typeof fetch
+
+    await assert.rejects(
+      recordAcceptance(validDeliveredReceipt(), {
+        acceptanceRef,
+        expectedActor: 'review-owner',
+      }),
+      /评论 API URL|接受引用/,
+    )
+    assert.equal(fetchCalls, 0)
+  }
+})
+
+test('同仓库普通 issue 评论不能记录 accepted', async () => {
+  mockGitHubFetch([
+    acceptedComment(),
+    { number: 7 },
+  ])
+
+  await assert.rejects(
+    recordAcceptance(validDeliveredReceipt(), {
+      acceptanceRef: ACCEPTANCE_REF,
+      expectedActor: 'review-owner',
+    }),
+    /pull_request|PR|合并请求/,
+  )
+})
+
+test('评论必须包含独立且精确的已验证 SHA', async () => {
+  mockGitHubFetch([
+    acceptedComment({ body: 'accepted xabc123y' }),
+  ])
+
+  await assert.rejects(
+    recordAcceptance(validDeliveredReceipt(), {
+      acceptanceRef: ACCEPTANCE_REF,
+      expectedActor: 'review-owner',
+    }),
+    /远端评论/,
+  )
+})
+
+test('PR 必须绑定已验证版本、交付目标分支和目标仓库', async () => {
+  for (const pr of [
+    pullRequest({ headSha: 'other' }),
+    pullRequest({ headRef: 'feature/task' }),
+    pullRequest({ baseRepository: 'other/repository' }),
+  ]) {
+    mockGitHubFetch([
+      acceptedComment(),
+      pullRequestIssue(),
+      pr,
+    ])
+
+    await assert.rejects(
+      recordAcceptance(validDeliveredReceipt(), {
+        acceptanceRef: ACCEPTANCE_REF,
+        expectedActor: 'review-owner',
+      }),
+      /PR|版本|分支|仓库|目标/,
+    )
+  }
+})
+
 test('交付和接受必须由远端证据确认', async () => {
   await assert.rejects(
     recordDelivery(validReceipt(), {
@@ -185,11 +922,9 @@ test('交付和接受必须由远端证据确认', async () => {
   mockGitHubFetch([
     { sha: 'abc123' },
     { object: { sha: 'abc123' } },
-    {
-      body: 'accepted abc123',
-      user: { login: 'review-owner' },
-      author_association: 'OWNER',
-    },
+    acceptedComment(),
+    pullRequestIssue(),
+    pullRequest(),
   ])
   const delivered = await recordDelivery(validReceipt(), {
     provider: 'github',
@@ -206,7 +941,7 @@ test('交付和接受必须由远端证据确认', async () => {
   )
 
   const accepted = await recordAcceptance(delivered, {
-    acceptanceRef: 'https://api.github.com/repos/owner/repository/issues/comments/42',
+    acceptanceRef: ACCEPTANCE_REF,
     expectedActor: 'review-owner',
   })
   assert.equal(accepted.state, 'accepted')
@@ -228,11 +963,12 @@ test('验证、交付和接受按证据逐级升级', async () => {
   mockGitHubFetch([
     { sha: 'abc123' },
     { object: { sha: 'abc123' } },
-    {
+    acceptedComment({
       body: '验收通过 abc123',
-      user: { login: 'review-owner' },
-      author_association: 'MEMBER',
-    },
+      association: 'MEMBER',
+    }),
+    pullRequestIssue(),
+    pullRequest(),
   ])
   const delivered = await recordDelivery(validReceipt(), {
     provider: 'github',
@@ -243,7 +979,7 @@ test('验证、交付和接受按证据逐级升级', async () => {
   assert.equal(delivered.state, 'delivered')
 
   const accepted = await recordAcceptance(delivered, {
-    acceptanceRef: 'https://api.github.com/repos/owner/repository/issues/comments/42',
+    acceptanceRef: ACCEPTANCE_REF,
     expectedActor: 'review-owner',
   })
   assert.equal(accepted.state, 'accepted')
@@ -280,11 +1016,12 @@ test('目标分支未指向版本或非授权评论者不能升级状态', async
   mockGitHubFetch([
     { sha: 'abc123' },
     { object: { sha: 'abc123' } },
-    {
-      body: 'accepted abc123',
-      user: { login: 'outsider' },
-      author_association: 'NONE',
-    },
+    acceptedComment({
+      login: 'outsider',
+      association: 'NONE',
+    }),
+    pullRequestIssue(),
+    pullRequest(),
   ])
   const delivered = await recordDelivery(validReceipt(), {
     provider: 'github',
@@ -314,11 +1051,11 @@ test('否定验收评论不能升级接受状态', async () => {
     mockGitHubFetch([
       { sha: 'abc123' },
       { object: { sha: 'abc123' } },
-      {
+      acceptedComment({
         body,
-        user: { login: 'review-owner' },
-        author_association: 'OWNER',
-      },
+      }),
+      pullRequestIssue(),
+      pullRequest(),
     ])
     const delivered = await recordDelivery(validReceipt(), {
       provider: 'github',

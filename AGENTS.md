@@ -406,7 +406,7 @@ PDA 页面是现场执行工具，不是管理后台。所有 PDA 页面默认�
 涉及代码、治理脚本或项目配置的任务，在宣称完成前必须生成机器可读任务收据：
 
 ```bash
-npm run workflow:verify -- --output <临时目录>/task-receipt.json
+npm run workflow:verify -- --output <临时目录>/task-receipt.json --task-boundary "<本次任务边界>"
 ```
 
 收据必须绑定当前 Git HEAD、工作区差异指纹、受影响检查路由、实际检查退出结果和 CodeGraph 同步前后状态。最后一次实质改动发生后，旧收据失效，必须重新验证。
