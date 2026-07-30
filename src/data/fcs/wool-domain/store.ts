@@ -171,6 +171,15 @@ export function validateWoolStore(store: WoolDomainStore): void {
     if (!Array.isArray(order.outputPlanLines) || order.outputPlanLines.length === 0) {
       throw new Error(`毛织存储校验失败：加工单 ${woolOrderId} 缺少加工后 SKU`)
     }
+    if (
+      !order.styleNo
+      || !order.styleName
+      || !order.factoryId
+      || !order.factoryName
+      || !order.plannedCompletionAt
+    ) {
+      throw new Error(`毛织存储校验失败：加工单 ${woolOrderId} 缺少冻结展示元数据`)
+    }
     assertUniqueIds(order.outputPlanLines, (line) => line.outputSkuCode, `加工单 ${woolOrderId} 加工后 SKU`)
   }
   assertUniqueIds(Object.values(store.workOrders), (order) => order.taskId, '加工单任务')

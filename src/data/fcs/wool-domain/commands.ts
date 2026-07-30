@@ -34,10 +34,13 @@ export interface AddWoolYarnReceiptInput extends CommandInput {
   batchNo?: string
   receivedAt: string
   receivedBy: string
+  proofFiles?: string[]
+  remark?: string
   lines: Array<{
     yarnSkuCode: string
     yarnName?: string
     receivedQty: number
+    differenceNote?: string
   }>
 }
 
@@ -46,6 +49,8 @@ export interface AddWoolProcessReportInput extends CommandInput {
   reportedQty: number
   reportedAt: string
   reportedBy: string
+  proofFiles?: string[]
+  remark?: string
 }
 
 export interface AddWoolHandoverInput extends CommandInput {
@@ -53,6 +58,8 @@ export interface AddWoolHandoverInput extends CommandInput {
   handoverQty: number
   handedOverAt: string
   handedOverBy: string
+  proofFiles?: string[]
+  remark?: string
 }
 
 export interface ConfirmWoolDownstreamReceiptInput extends CommandInput {
@@ -152,6 +159,15 @@ function canonicalizeCommandPayload(value: unknown): unknown {
 function commandBusinessPayload(input: CommandInput): unknown {
   const { commandId: _commandId, ...payload } = input as CommandInput & Record<string, unknown>
   return canonicalizeCommandPayload(payload)
+}
+
+function normalizeOptionalText(value: string | undefined): string | undefined {
+  return value?.trim() || undefined
+}
+
+function normalizeProofFiles(values: string[] | undefined): string[] | undefined {
+  const normalized = [...new Set((values ?? []).map((value) => value.trim()).filter(Boolean))]
+  return normalized.length > 0 ? normalized : undefined
 }
 
 interface WoolCommandDescriptor {
@@ -464,6 +480,8 @@ export function addWoolYarnReceipt(
       batchNo: input.batchNo?.trim() || undefined,
       receivedAt: input.receivedAt,
       receivedBy,
+      proofFiles: normalizeProofFiles(input.proofFiles),
+      remark: normalizeOptionalText(input.remark),
       lines: input.lines.map((line, index): WoolYarnReceiptLine => {
         const lineId = `${receiptId}-LINE-${index + 1}`
         return {
@@ -472,6 +490,7 @@ export function addWoolYarnReceipt(
           yarnName: line.yarnName?.trim() || `${line.yarnSkuCode} 纱线`,
           receivedQty: line.receivedQty,
           qtyUnit: 'kg',
+          differenceNote: normalizeOptionalText(line.differenceNote),
           warehouseInboundFlowId: `WF-${lineId}`,
         }
       }),
@@ -540,6 +559,8 @@ export function addWoolProcessReport(
       reportedQty: input.reportedQty,
       reportedAt: input.reportedAt,
       reportedBy,
+      proofFiles: normalizeProofFiles(input.proofFiles),
+      remark: normalizeOptionalText(input.remark),
       warehouseInboundFlowId,
       createdAt: input.reportedAt,
       updatedAt: input.reportedAt,
@@ -583,6 +604,13 @@ export function addWoolHandover(
   const committed = commitWoolStore((draft) => {
     const order = requireUncompleted(draft, woolOrderId)
     const line = requireOutputLine(order, input.outputSkuCode)
+    const hasEffectiveProcessReport = draft.processReports.some((record) =>
+      record.woolOrderId === woolOrderId
+      && getWoolProcessReportEffectiveQty(draft, record) > 0,
+    )
+    if (!hasEffectiveProcessReport) {
+      throw new Error('发起交出前至少有一次有效加工填报')
+    }
     if (!order.downstreamTarget.receiverId || !order.downstreamTarget.receiverName) {
       throw new Error('交出去向未配置')
     }
@@ -603,6 +631,8 @@ export function addWoolHandover(
       ...order.downstreamTarget,
       handedOverAt: input.handedOverAt,
       handedOverBy,
+      proofFiles: normalizeProofFiles(input.proofFiles),
+      remark: normalizeOptionalText(input.remark),
       warehouseOutboundFlowId,
       downstreamReceipt: {
         receiptConfirmationId: `DRC-${handoverId}`,

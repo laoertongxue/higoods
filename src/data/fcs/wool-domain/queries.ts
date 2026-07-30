@@ -287,7 +287,11 @@ export function getWoolAllowedActions(woolOrderId: string): WoolAllowedAction[] 
       defaultLocationId: location,
     }) > 0
   })
-  if (hasStock) actions.push('HANDOVER')
+  const hasEffectiveProcessReport = store.processReports.some((record) =>
+    record.woolOrderId === woolOrderId
+    && getWoolProcessReportEffectiveQty(store, record) > 0,
+  )
+  if (hasEffectiveProcessReport && hasStock) actions.push('HANDOVER')
   if (
     readiness.some((item) => item.canReport)
     || store.machineAssociations.some((association) => association.woolOrderId === woolOrderId)

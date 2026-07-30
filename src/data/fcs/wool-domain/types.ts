@@ -34,6 +34,13 @@ export interface WoolWorkOrder {
   taskNo: string
   productionOrderId: string
   productionOrderNo: string
+  styleNo: string
+  styleName: string
+  internalStyleCode?: string
+  factoryId: string
+  factoryName: string
+  plannedStartAt?: string
+  plannedCompletionAt: string
   kind: WoolWorkOrderKind
   outputPlanLines: WoolOutputPlanLine[]
   downstreamTarget: WoolDownstreamTarget
@@ -54,6 +61,8 @@ export interface WoolYarnReceiptRecord {
   batchNo?: string
   receivedAt: string
   receivedBy: string
+  proofFiles?: string[]
+  remark?: string
   lines: WoolYarnReceiptLine[]
   createdAt: string
   updatedAt: string
@@ -65,6 +74,7 @@ export interface WoolYarnReceiptLine {
   yarnName: string
   receivedQty: number
   qtyUnit: 'kg'
+  differenceNote?: string
   warehouseInboundFlowId: string
 }
 
@@ -101,6 +111,8 @@ export interface WoolProcessReportRecord {
   reportedQty: number
   reportedAt: string
   reportedBy: string
+  proofFiles?: string[]
+  remark?: string
   warehouseInboundFlowId: string
   createdAt: string
   updatedAt: string
@@ -126,6 +138,8 @@ export interface WoolHandoverRecord {
   receiverName: string
   handedOverAt: string
   handedOverBy: string
+  proofFiles?: string[]
+  remark?: string
   warehouseOutboundFlowId: string
   downstreamReceipt?: WoolDownstreamReceipt
   createdAt: string

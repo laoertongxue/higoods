@@ -115,6 +115,13 @@ function workOrder(sequence: number, code: WoolMockScenarioCode): WoolWorkOrder 
     taskNo: `MT-WOOL-${String(sequence).padStart(3, '0')}`,
     productionOrderId: `PO-WOOL-MOCK-${String(sequence).padStart(2, '0')}`,
     productionOrderNo: `PO-WOOL-${String(sequence).padStart(3, '0')}`,
+    styleNo: `HG-WOOL-${String(sequence).padStart(3, '0')}`,
+    styleName: kind === 'PART_PANEL' ? '针织袖片款' : '针织圆领衫',
+    internalStyleCode: `W${String(sequence).padStart(3, '0')}`,
+    factoryId: 'OWN-WOOL-FACTORY',
+    factoryName: '周哥毛织厂',
+    plannedStartAt: `2026-08-${String((sequence % 9) + 1).padStart(2, '0')}`,
+    plannedCompletionAt: `2026-08-${String((sequence % 18) + 10).padStart(2, '0')}`,
     kind,
     outputPlanLines,
     downstreamTarget: kind === 'PART_PANEL'

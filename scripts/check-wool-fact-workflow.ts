@@ -851,6 +851,39 @@ assert.equal(new Set(WOOL_MOCK_SCENARIO_CODES).size, 26)
 
 const allOrders = listWoolWorkOrders()
 assert(allOrders.length >= 26)
+assert(
+  allOrders.every((item) =>
+    Boolean(
+      (item as typeof item & {
+        styleNo?: string
+        styleName?: string
+        factoryId?: string
+        factoryName?: string
+      }).styleNo
+      && (item as typeof item & { styleName?: string }).styleName
+      && (item as typeof item & { factoryId?: string }).factoryId
+      && (item as typeof item & { factoryName?: string }).factoryName,
+    ),
+  ),
+  '每个毛织加工单都必须冻结款号、款名和加工厂展示元数据',
+)
+const { filterWoolWorkOrderRowsByKeyword } = await import(
+  '../src/pages/process-factory/wool/work-orders.ts'
+)
+const metadataKeywordOrder = allOrders[0] as typeof allOrders[number] & {
+  styleNo: string
+  internalStyleCode?: string
+}
+assert(
+  filterWoolWorkOrderRowsByKeyword(allOrders, metadataKeywordOrder.styleNo)
+    .some((row) => row.order.woolOrderId === metadataKeywordOrder.woolOrderId),
+  '款号关键字必须命中冻结展示元数据',
+)
+assert(
+  filterWoolWorkOrderRowsByKeyword(allOrders, metadataKeywordOrder.internalStyleCode || '')
+    .some((row) => row.order.woolOrderId === metadataKeywordOrder.woolOrderId),
+  '内部货号关键字必须命中冻结展示元数据',
+)
 for (const scenarioCode of WOOL_MOCK_SCENARIO_CODES) {
   assert(allOrders.some((item) => item.mockScenarioCode === scenarioCode), `缺少 Mock 场景 ${scenarioCode}`)
 }
@@ -870,6 +903,38 @@ assert.equal(
   readWoolStore().yarnReceipts.some((item) => item.woolOrderId === noReceiptOrder.woolOrderId),
   false,
 )
+const noReportStockLine = noReceiptOrder.outputPlanLines[0]
+adjustWoolWarehouseStock({
+  commandId: 'CMD-TASK8-STOCK-WITHOUT-REPORT',
+  woolOrderId: noReceiptOrder.woolOrderId,
+  objectSkuCode: noReportStockLine.outputSkuCode,
+  defaultLocationId: noReportStockLine.outputObjectType === 'GARMENT'
+    ? 'WOOL-WH-GARMENT-DEFAULT'
+    : 'WOOL-WH-CUT-DEFAULT',
+  afterQty: 5,
+  reason: '对抗测试：独立库存调整不得绕过加工填报门禁',
+  operatedAt: '2026-07-30 08:30:00',
+  operatedBy: '专项检查',
+})
+assert.equal(
+  getWoolAllowedActions(noReceiptOrder.woolOrderId).includes('HANDOVER'),
+  false,
+  '只有库存、没有有效加工填报时不得显示发起交出',
+)
+const beforeNoReportHandover = readWoolStore()
+const noReportHandoverWrites = storageWrites.length
+assert.throws(
+  () => addWoolHandover(noReceiptOrder.woolOrderId, {
+    commandId: 'CMD-TASK8-HANDOVER-WITHOUT-REPORT',
+    outputSkuCode: noReportStockLine.outputSkuCode,
+    handoverQty: 1,
+    handedOverAt: '2026-07-30 08:31:00',
+    handedOverBy: '专项检查',
+  }),
+  /至少有一次有效加工填报/,
+)
+assert.deepEqual(readWoolStore(), beforeNoReportHandover)
+assert.equal(storageWrites.length, noReportHandoverWrites)
 
 const fallbackOrder = allOrders.find((item) => item.mockScenarioCode === 'TECH_PACK_FALLBACK_REJECTED')!
 const fallbackLine = fallbackOrder.outputPlanLines[0]
@@ -2335,22 +2400,45 @@ const receipt = addWoolYarnReceipt(reportOrder.woolOrderId, {
   commandId: 'CMD-RECEIPT-CHECK-001',
   deliveryNo: 'DN-CHECK-001',
   batchNo: 'BATCH-CHECK-001',
+  proofFiles: ['收纱凭证-1.jpg', ' 收纱凭证-2.pdf '],
+  remark: '  接收记录备注  ',
   receivedAt: '2026-07-30 09:30:00',
   receivedBy: '毛织仓管',
   lines: [
-    { yarnSkuCode: 'YARN-A', yarnName: 'A 纱线', receivedQty: 5 },
+    {
+      yarnSkuCode: 'YARN-A',
+      yarnName: 'A 纱线',
+      receivedQty: 5,
+      differenceNote: '  实收与送货单一致  ',
+    },
     { yarnSkuCode: 'YARN-B', yarnName: 'B 纱线', receivedQty: 5 },
   ],
-})
+} as Parameters<typeof addWoolYarnReceipt>[1])
+assert.deepEqual((receipt as typeof receipt & { proofFiles?: string[] }).proofFiles, [
+  '收纱凭证-1.jpg',
+  '收纱凭证-2.pdf',
+])
+assert.equal((receipt as typeof receipt & { remark?: string }).remark, '接收记录备注')
+assert.equal(
+  (receipt.lines[0] as typeof receipt.lines[0] & { differenceNote?: string }).differenceNote,
+  '实收与送货单一致',
+)
 const receiptRetry = addWoolYarnReceipt(reportOrder.woolOrderId, {
   lines: [
-    { receivedQty: 5, yarnName: 'A 纱线', yarnSkuCode: 'YARN-A' },
+    {
+      receivedQty: 5,
+      yarnName: 'A 纱线',
+      yarnSkuCode: 'YARN-A',
+      differenceNote: '  实收与送货单一致  ',
+    },
     { receivedQty: 5, yarnName: 'B 纱线', yarnSkuCode: 'YARN-B' },
   ],
   receivedBy: '毛织仓管',
   receivedAt: '2026-07-30 09:30:00',
   batchNo: 'BATCH-CHECK-001',
   deliveryNo: 'DN-CHECK-001',
+  proofFiles: ['收纱凭证-1.jpg', ' 收纱凭证-2.pdf '],
+  remark: '  接收记录备注  ',
   commandId: 'CMD-RECEIPT-CHECK-001',
 })
 assert.deepEqual(receiptRetry, receipt)
@@ -2420,9 +2508,13 @@ const report = addWoolProcessReport(reportOrder.woolOrderId, {
   commandId: 'CMD-REPORT-CHECK-001',
   outputSkuCode: reportLine.outputSkuCode,
   reportedQty: 10,
+  proofFiles: [' 加工凭证.jpg '],
+  remark: '  加工填报备注  ',
   reportedAt: '2026-07-30 10:00:00',
   reportedBy: '毛织主管',
-})
+} as Parameters<typeof addWoolProcessReport>[1])
+assert.deepEqual((report as typeof report & { proofFiles?: string[] }).proofFiles, ['加工凭证.jpg'])
+assert.equal((report as typeof report & { remark?: string }).remark, '加工填报备注')
 assert.throws(
   () => addWoolProcessReport(reportOrder.woolOrderId, {
     commandId: 'CMD-REPORT-CHECK-001',
@@ -2463,9 +2555,13 @@ const handover = addWoolHandover(reportOrder.woolOrderId, {
   commandId: 'CMD-HANDOVER-CHECK-001',
   outputSkuCode: reportLine.outputSkuCode,
   handoverQty: 6,
+  proofFiles: [' 交出凭证.jpg '],
+  remark: '  交出记录备注  ',
   handedOverAt: '2026-07-30 11:00:00',
   handedOverBy: '毛织主管',
-})
+} as Parameters<typeof addWoolHandover>[1])
+assert.deepEqual((handover as typeof handover & { proofFiles?: string[] }).proofFiles, ['交出凭证.jpg'])
+assert.equal((handover as typeof handover & { remark?: string }).remark, '交出记录备注')
 assert.deepEqual(
   {
     receiverType: handover.receiverType,
