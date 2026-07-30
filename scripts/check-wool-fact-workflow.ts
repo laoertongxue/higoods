@@ -1162,7 +1162,155 @@ assert.equal(listWoolFactRecords({
 }).length, 0)
 resetWoolFactWorkflowMock('CHECK_WOOL_FACT_WORKFLOW_AFTER_EXACT_SKU')
 
+const reportReadinessStore = readWoolStore()
+for (const report of reportReadinessStore.processReports) {
+  const order = reportReadinessStore.workOrders[report.woolOrderId]
+  const outputLine = order.outputPlanLines.find((item) => item.outputSkuCode === report.outputSkuCode)!
+  const requiredYarnSkus = [...new Set(outputLine.requiredYarnSkus)]
+  assert(requiredYarnSkus.length > 0, `加工填报 ${report.reportId} 的加工后对象必须有必需纱线`)
+  for (const yarnSkuCode of requiredYarnSkus) {
+    const receiptLines = reportReadinessStore.yarnReceipts
+      .filter((item) => item.woolOrderId === report.woolOrderId)
+      .flatMap((item) => item.lines)
+      .filter((line) => line.yarnSkuCode === yarnSkuCode && line.receivedQty > 0)
+    assert(receiptLines.length > 0, `加工填报 ${report.reportId} 前必须已接收 ${yarnSkuCode}`)
+    assert(receiptLines.some((line) =>
+      reportReadinessStore.warehouseFlows.some((flow) =>
+        flow.flowId === line.warehouseInboundFlowId
+        && flow.businessType === 'YARN_RECEIPT'
+        && flow.objectSkuCode === yarnSkuCode
+        && flow.qty > 0,
+      ),
+    ), `加工填报 ${report.reportId} 前 ${yarnSkuCode} 必须有正数接收入库流水`)
+  }
+}
+
 const validStore = readWoolStore()
+const factFlowMismatchCases = [
+  {
+    label: '接收明细数量',
+    mutate(store: typeof validStore) {
+      const receipt = store.yarnReceipts.find((item) => item.lines.length > 0)!
+      const line = receipt.lines[0]
+      store.warehouseFlows.find((item) => item.flowId === line.warehouseInboundFlowId)!.qty += 7
+    },
+  },
+  {
+    label: '接收批次',
+    mutate(store: typeof validStore) {
+      const receipt = store.yarnReceipts.find((item) => item.lines.length > 0)!
+      const line = receipt.lines[0]
+      store.warehouseFlows.find((item) => item.flowId === line.warehouseInboundFlowId)!.batchNo = 'BATCH-WRONG'
+    },
+  },
+  {
+    label: '领用数量与单位',
+    mutate(store: typeof validStore) {
+      const issue = store.yarnIssues[0]
+      const flow = store.warehouseFlows.find((item) => item.flowId === issue.warehouseOutboundFlowId)!
+      flow.qty += 7
+      flow.unit = '件'
+    },
+  },
+  {
+    label: '退回数量与批次',
+    mutate(store: typeof validStore) {
+      const returned = store.yarnReturns[0]
+      const flow = store.warehouseFlows.find((item) => item.flowId === returned.warehouseInboundFlowId)!
+      flow.qty += 7
+      flow.batchNo = 'BATCH-WRONG'
+    },
+  },
+  {
+    label: '加工填报数量',
+    mutate(store: typeof validStore) {
+      const report = store.processReports[0]
+      store.warehouseFlows.find((item) => item.flowId === report.warehouseInboundFlowId)!.qty += 7
+    },
+  },
+  {
+    label: '加工填报成衣单位',
+    mutate(store: typeof validStore) {
+      const report = store.processReports.find((item) =>
+        store.workOrders[item.woolOrderId]?.kind === 'WHOLE_GARMENT',
+      )!
+      store.warehouseFlows.find((item) => item.flowId === report.warehouseInboundFlowId)!.unit = 'kg'
+    },
+  },
+  {
+    label: '交出数量与单位',
+    mutate(store: typeof validStore) {
+      const handover = store.handovers[0]
+      const flow = store.warehouseFlows.find((item) => item.flowId === handover.warehouseOutboundFlowId)!
+      flow.qty += 7
+      flow.unit = 'kg'
+    },
+  },
+]
+for (const mismatchCase of factFlowMismatchCases) {
+  const mismatchStore = structuredClone(validStore)
+  mismatchCase.mutate(mismatchStore)
+  assert.throws(
+    () => validateWoolStore(mismatchStore),
+    /事实与仓库流水内容不一致/,
+    `${mismatchCase.label}不一致必须被拒绝`,
+  )
+}
+
+const missingQtyChangeFlowStore = structuredClone(validStore)
+const missingFlowChange = missingQtyChangeFlowStore.qtyChangeLogs[0]
+missingQtyChangeFlowStore.warehouseFlows = missingQtyChangeFlowStore.warehouseFlows.filter((item) =>
+  !(item.sourceRecordType === 'QTY_CHANGE' && item.sourceRecordId === missingFlowChange.changeId),
+)
+assert.throws(
+  () => validateWoolStore(missingQtyChangeFlowStore),
+  /数量修改.*恰有一条.*仓库流水/,
+  '每条数量修改必须反向拥有一条差额仓库流水',
+)
+
+const missingReceiptChangeLineStore = structuredClone(validStore)
+const missingLineReceipt = missingReceiptChangeLineStore.yarnReceipts.find((item) => item.lines.length > 0)!
+const missingLineReceiptFlow = missingReceiptChangeLineStore.warehouseFlows.find((item) =>
+  item.flowId === missingLineReceipt.lines[0].warehouseInboundFlowId,
+)!
+missingReceiptChangeLineStore.qtyChangeLogs.push({
+  changeId: 'WQC-MISSING-RECEIPT-LINE',
+  recordType: 'YARN_RECEIPT',
+  recordId: missingLineReceipt.receiptId,
+  objectSkuCode: missingLineReceipt.lines[0].yarnSkuCode,
+  beforeQty: 1,
+  afterQty: 2,
+  qtyUnit: 'kg',
+  reason: '缺少接收明细的错误修改',
+  changedAt: '2026-07-30 20:10:00',
+  changedBy: '毛织仓管',
+})
+missingReceiptChangeLineStore.warehouseFlows.push({
+  ...structuredClone(missingLineReceiptFlow),
+  flowId: 'WF-WQC-MISSING-RECEIPT-LINE',
+  flowType: 'ADJUSTMENT',
+  businessType: 'STOCK_ADJUSTMENT',
+  qty: 1,
+  sourceRecordType: 'QTY_CHANGE',
+  sourceRecordId: 'WQC-MISSING-RECEIPT-LINE',
+})
+assert.throws(
+  () => validateWoolStore(missingReceiptChangeLineStore),
+  /纱线接收数量修改.*接收明细/,
+  '纱线接收数量修改必须指向具体明细',
+)
+
+const invalidNonReceiptChangeLineStore = structuredClone(validStore)
+const nonReceiptChange = invalidNonReceiptChangeLineStore.qtyChangeLogs.find((item) =>
+  item.recordType === 'PROCESS_REPORT',
+)!
+nonReceiptChange.recordLineId = 'RECEIPT-LINE-NOT-ALLOWED'
+assert.throws(
+  () => validateWoolStore(invalidNonReceiptChangeLineStore),
+  /非纱线接收数量修改.*接收明细/,
+  '填报和交出数量修改不得携带接收明细 ID',
+)
+
 const invalidBusinessDirectionStore = structuredClone(validStore)
 invalidBusinessDirectionStore.warehouseFlows.find((item) =>
   item.businessType === 'YARN_RECEIPT',

@@ -632,8 +632,9 @@ export function buildWoolFactWorkflowMockStore(_seed = 'DEFAULT'): WoolDomainSto
         addReport(order, 0, 'DEFAULT', 10)
         break
       case 'QTY_CHANGE_STOCK_SYNC': {
-        addReport(order, 0, 'CHANGE', 12)
-        const handed = addHandover(order, 0, 'CHANGE', 5)
+        addReceipt(order, 'CHANGE-AB', ['YARN-A', 'YARN-B'])
+        addReport(order, 0, 'CHANGE', 10)
+        const handed = addHandover(order, 0, 'CHANGE', 4)
         const changedReport = store.processReports.find((item) =>
           item.woolOrderId === order.woolOrderId && item.outputSkuCode === handed.outputSkuCode,
         )!
@@ -643,8 +644,6 @@ export function buildWoolFactWorkflowMockStore(_seed = 'DEFAULT'): WoolDomainSto
         const handoverBaseFlow = store.warehouseFlows.find((flow) =>
           flow.flowId === handed.warehouseOutboundFlowId,
         )!
-        reportBaseFlow.qty = 10
-        handoverBaseFlow.qty = 4
         store.qtyChangeLogs.push(
           {
             changeId: 'WQC-MOCK-REPORT-STOCK-SYNC',
@@ -696,6 +695,7 @@ export function buildWoolFactWorkflowMockStore(_seed = 'DEFAULT'): WoolDomainSto
         break
       }
       case 'DOWNSTREAM_CONFIRMED_LOCKED': {
+        addReceipt(order, 'LOCKED-AB', ['YARN-A', 'YARN-B'])
         addReport(order, 0, 'LOCKED', 10)
         const handed = addHandover(order, 0, 'LOCKED', 8)
         handed.downstreamReceipt = {
@@ -828,9 +828,10 @@ export function buildWoolFactWorkflowMockStore(_seed = 'DEFAULT'): WoolDomainSto
         break
       case 'FIXED_LOCATION_UI': {
         if (order.kind === 'WHOLE_GARMENT') {
-          addReceipt(order, 'FIXED-LOCATION-YARN', ['YARN-A'], 'BATCH-FIXED-LOCATION')
+          addReceipt(order, 'FIXED-LOCATION-YARN', ['YARN-A', 'YARN-B'], 'BATCH-FIXED-LOCATION')
           addReport(order, 0, 'FIXED-LOCATION-GARMENT', 5)
         } else {
+          addReceipt(order, 'FIXED-LOCATION-PANEL-YARN', ['YARN-A', 'YARN-B'], 'BATCH-FIXED-LOCATION-PANEL')
           addReport(order, 0, 'FIXED-LOCATION-CUT', 5)
         }
         break

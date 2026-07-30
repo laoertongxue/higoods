@@ -158,8 +158,11 @@ export function validateWoolStore(store: WoolDomainStore): void {
         || flow.sourceRecordId !== line.lineId
         || flow.woolOrderId !== receipt.woolOrderId
         || flow.objectSkuCode !== line.yarnSkuCode
+        || flow.qty !== line.receivedQty
+        || flow.unit !== line.qtyUnit
+        || flow.batchNo !== receipt.batchNo
       ) {
-        throw new Error(`毛织存储校验失败：接收明细 ${line.lineId} 缺少有效仓库流水`)
+        throw new Error(`毛织存储校验失败：接收明细 ${line.lineId} 缺少有效仓库流水或事实与仓库流水内容不一致`)
       }
     }
   }
@@ -175,8 +178,11 @@ export function validateWoolStore(store: WoolDomainStore): void {
       || flow.sourceRecordId !== issue.issueId
       || flow.woolOrderId !== issue.woolOrderId
       || flow.objectSkuCode !== issue.yarnSkuCode
+      || flow.qty !== issue.issuedQty
+      || flow.unit !== issue.qtyUnit
+      || flow.batchNo !== issue.batchNo
     ) {
-      throw new Error(`毛织存储校验失败：领用记录 ${issue.issueId} 缺少有效仓库流水`)
+      throw new Error(`毛织存储校验失败：领用记录 ${issue.issueId} 缺少有效仓库流水或事实与仓库流水内容不一致`)
     }
   }
   for (const returned of store.yarnReturns) {
@@ -191,12 +197,15 @@ export function validateWoolStore(store: WoolDomainStore): void {
       || flow.sourceRecordId !== returned.returnId
       || flow.woolOrderId !== returned.woolOrderId
       || flow.objectSkuCode !== returned.yarnSkuCode
+      || flow.qty !== returned.returnedQty
+      || flow.unit !== returned.qtyUnit
+      || flow.batchNo !== returned.batchNo
     ) {
-      throw new Error(`毛织存储校验失败：退回记录 ${returned.returnId} 缺少有效仓库流水`)
+      throw new Error(`毛织存储校验失败：退回记录 ${returned.returnId} 缺少有效仓库流水或事实与仓库流水内容不一致`)
     }
   }
   for (const report of store.processReports) {
-    requireOutput(report.woolOrderId, report.outputSkuCode, `加工填报 ${report.reportId}`)
+    const outputLine = requireOutput(report.woolOrderId, report.outputSkuCode, `加工填报 ${report.reportId}`)
     const flow = store.warehouseFlows.find((item) => item.flowId === report.warehouseInboundFlowId)
     if (
       !flow
@@ -204,12 +213,14 @@ export function validateWoolStore(store: WoolDomainStore): void {
       || flow.sourceRecordId !== report.reportId
       || flow.woolOrderId !== report.woolOrderId
       || flow.objectSkuCode !== report.outputSkuCode
+      || flow.qty !== report.reportedQty
+      || flow.unit !== outputLine.qtyUnit
     ) {
-      throw new Error(`毛织存储校验失败：加工填报 ${report.reportId} 缺少有效仓库流水`)
+      throw new Error(`毛织存储校验失败：加工填报 ${report.reportId} 缺少有效仓库流水或事实与仓库流水内容不一致`)
     }
   }
   for (const handover of store.handovers) {
-    requireOutput(handover.woolOrderId, handover.outputSkuCode, `交出记录 ${handover.handoverId}`)
+    const outputLine = requireOutput(handover.woolOrderId, handover.outputSkuCode, `交出记录 ${handover.handoverId}`)
     const flow = store.warehouseFlows.find((item) => item.flowId === handover.warehouseOutboundFlowId)
     if (
       !flow
@@ -217,15 +228,30 @@ export function validateWoolStore(store: WoolDomainStore): void {
       || flow.sourceRecordId !== handover.handoverId
       || flow.woolOrderId !== handover.woolOrderId
       || flow.objectSkuCode !== handover.outputSkuCode
+      || flow.qty !== handover.handoverQty
+      || handover.qtyUnit !== outputLine.qtyUnit
+      || flow.unit !== handover.qtyUnit
     ) {
-      throw new Error(`毛织存储校验失败：交出记录 ${handover.handoverId} 缺少有效仓库流水`)
+      throw new Error(`毛织存储校验失败：交出记录 ${handover.handoverId} 缺少有效仓库流水或事实与仓库流水内容不一致`)
     }
   }
   for (const change of store.qtyChangeLogs) {
+    if (change.recordType === 'YARN_RECEIPT' && !change.recordLineId) {
+      throw new Error(`毛织存储校验失败：纱线接收数量修改 ${change.changeId} 必须指向具体接收明细`)
+    }
+    if (change.recordType !== 'YARN_RECEIPT' && change.recordLineId) {
+      throw new Error(`毛织存储校验失败：非纱线接收数量修改 ${change.changeId} 不得填写接收明细 ID`)
+    }
+    const changeFlows = store.warehouseFlows.filter((item) =>
+      item.sourceRecordType === 'QTY_CHANGE' && item.sourceRecordId === change.changeId,
+    )
+    if (changeFlows.length !== 1) {
+      throw new Error(`毛织存储校验失败：数量修改 ${change.changeId} 的来源记录必须恰有一条有效仓库流水表达差额`)
+    }
     const target = change.recordType === 'YARN_RECEIPT'
       ? store.yarnReceipts.find((item) =>
           item.receiptId === change.recordId
-          && (!change.recordLineId || item.lines.some((line) => line.lineId === change.recordLineId)),
+          && item.lines.some((line) => line.lineId === change.recordLineId),
         )
       : change.recordType === 'PROCESS_REPORT'
         ? store.processReports.find((item) => item.reportId === change.recordId)
@@ -235,7 +261,7 @@ export function validateWoolStore(store: WoolDomainStore): void {
     }
     const targetSku = change.recordType === 'YARN_RECEIPT'
       ? (target as WoolYarnReceiptRecord).lines.find((line) =>
-          !change.recordLineId || line.lineId === change.recordLineId,
+          line.lineId === change.recordLineId,
         )?.yarnSkuCode
       : change.recordType === 'PROCESS_REPORT'
         ? (target as WoolProcessReportRecord).outputSkuCode
