@@ -1,4 +1,27 @@
+// @page-pattern: list
+
 import { appStore } from '../state/store.ts'
+import { renderSecondaryButton } from '../components/ui/button.ts'
+import { renderStandardListPage } from '../components/ui/list-page.ts'
+import {
+  clearListColumnPreferences,
+  loadListColumnPreferences,
+  normalizeListColumnPreferences,
+  paginateStandardListRows,
+  resetStandardListEntryTransientStateOnRouteEntry,
+  saveListColumnPreferences,
+  sortStandardListRows,
+  type StandardListColumnPreferences,
+  type StandardListColumnRule,
+  type StandardListPageSlice,
+  type StandardListSortState,
+} from '../components/ui/list-table-model.ts'
+import {
+  renderStandardListColumnSettings,
+  renderStandardListTable,
+  type StandardListColumn,
+} from '../components/ui/list-table.ts'
+import { renderTablePagination } from '../components/ui/pagination.ts'
 import { createPatternAsset, getPatternAssetById, listPatternAssets } from '../data/pcs-pattern-library.ts'
 import type { PatternParsedFileResult } from '../data/pcs-pattern-library-types.ts'
 import { generateTechPackVersionFromPatternTask, generateTechPackVersionFromPlateTask, generateTechPackVersionFromRevisionTask } from '../data/pcs-project-technical-data-writeback.ts'
@@ -113,6 +136,111 @@ interface ListState {
 
 interface SampleListState extends ListState {
   site: string
+}
+
+interface EngineeringListRow {
+  cells: Record<string, string>
+  sortValues: Record<string, unknown>
+}
+
+interface EngineeringListUiState {
+  sort: StandardListSortState | null
+  columnPreferences: StandardListColumnPreferences
+  columnSettingsOpen: boolean
+  draggedColumnKey: string
+}
+
+const ENGINEERING_LIST_PAGE_SIZES = [8, 20, 50]
+const ENGINEERING_LIST_MAX_FROZEN_WIDTH = 520
+const ENGINEERING_LIST_STORAGE_KEYS: Record<ModuleKey, string> = {
+  revision: 'higood:list-page:/pcs/patterns/revision',
+  plate: 'higood:list-page:/pcs/patterns/plate-making',
+  pattern: 'higood:list-page:/pcs/patterns/colors',
+  firstSample: 'higood:list-page:/pcs/samples/first-sample',
+  firstOrder: 'higood:list-page:/pcs/samples/first-order',
+}
+const ENGINEERING_LIST_COLUMN_RULES: Record<ModuleKey, StandardListColumnRule[]> = {
+  revision: [
+    { key: 'image', required: true, freezeable: true },
+    { key: 'task', required: true, freezeable: true },
+    { key: 'project', freezeable: true },
+    { key: 'style' },
+    { key: 'scope' },
+    { key: 'retest' },
+    { key: 'techPack' },
+    { key: 'status', required: true, freezeable: true },
+    { key: 'updated', freezeable: true },
+    { key: 'actions', required: true, actionColumn: true },
+  ],
+  plate: [
+    { key: 'image', required: true, freezeable: true },
+    { key: 'task', required: true, freezeable: true },
+    { key: 'projectStyle', freezeable: true },
+    { key: 'maker' },
+    { key: 'stage' },
+    { key: 'next' },
+    { key: 'pattern' },
+    { key: 'sampleReview' },
+    { key: 'techPack' },
+    { key: 'updated', freezeable: true },
+    { key: 'actions', required: true, actionColumn: true },
+  ],
+  pattern: [
+    { key: 'task', required: true, freezeable: true },
+    { key: 'image', required: true, freezeable: true },
+    { key: 'source' },
+    { key: 'process' },
+    { key: 'fabric' },
+    { key: 'qty' },
+    { key: 'difficulty' },
+    { key: 'team' },
+    { key: 'member' },
+    { key: 'buyerReview', required: true, freezeable: true },
+    { key: 'library' },
+    { key: 'techPack' },
+    { key: 'actions', required: true, actionColumn: true },
+  ],
+  firstSample: [
+    { key: 'task', required: true, freezeable: true },
+    { key: 'project', freezeable: true },
+    { key: 'status', required: true, freezeable: true },
+    { key: 'revision' },
+    { key: 'site' },
+    { key: 'materialMode' },
+    { key: 'sampleCode' },
+    { key: 'firstOrderBasis' },
+    { key: 'actions', required: true, actionColumn: true },
+  ],
+  firstOrder: [
+    { key: 'task', required: true, freezeable: true },
+    { key: 'project', freezeable: true },
+    { key: 'status', required: true, freezeable: true },
+    { key: 'chainMode' },
+    { key: 'site' },
+    { key: 'patternVersion' },
+    { key: 'artworkVersion' },
+    { key: 'conclusion' },
+    { key: 'actions', required: true, actionColumn: true },
+  ],
+}
+
+function createEngineeringListUiState(module: ModuleKey): EngineeringListUiState {
+  const rules = ENGINEERING_LIST_COLUMN_RULES[module]
+  return {
+    sort: null,
+    columnPreferences: normalizeListColumnPreferences(
+      rules,
+      {
+        order: rules.map((rule) => rule.key),
+        visibleKeys: rules.map((rule) => rule.key),
+        frozenKeys: [],
+        pageSize: ENGINEERING_LIST_PAGE_SIZES[0]!,
+      },
+      ENGINEERING_LIST_PAGE_SIZES,
+    ),
+    columnSettingsOpen: false,
+    draggedColumnKey: '',
+  }
 }
 
 interface RevisionCreateDraft {
@@ -329,8 +457,6 @@ interface FirstOrderResultDraft {
   samplePlanLinesText: string
   resultNote: string
 }
-
-const PAGE_SIZE = 8
 
 const COMMON_STATUS_META: Record<string, { label: string; className: string }> = {
   草稿: { label: '草稿', className: 'bg-slate-100 text-slate-700' },
@@ -826,6 +952,21 @@ const state = {
   firstOrderConclusionConfirmedAt: nowText(),
 }
 
+const engineeringListUiState: Record<ModuleKey, EngineeringListUiState> = {
+  revision: createEngineeringListUiState('revision'),
+  plate: createEngineeringListUiState('plate'),
+  pattern: createEngineeringListUiState('pattern'),
+  firstSample: createEngineeringListUiState('firstSample'),
+  firstOrder: createEngineeringListUiState('firstOrder'),
+}
+const engineeringListPreferencesLoaded: Record<ModuleKey, boolean> = {
+  revision: false,
+  plate: false,
+  pattern: false,
+  firstSample: false,
+  firstOrder: false,
+}
+
 const runtimeLogs: Record<ModuleKey, Map<string, EngineeringLog[]>> = {
   revision: new Map(),
   plate: new Map(),
@@ -902,72 +1043,277 @@ function renderNotice(): string {
   `
 }
 
-function renderPageHeader(title: string, actionLabel: string, action: string): string {
-  const createAction = actionLabel && action
-    ? `
-        <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-engineering-action="${escapeHtml(action)}">
-          <i data-lucide="plus" class="h-4 w-4"></i>${escapeHtml(actionLabel)}
-        </button>
-      `
-    : ''
-  return `
-    <section class="rounded-xl border bg-white px-4 py-4 shadow-sm">
-      <div class="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p class="text-xs text-slate-500">商品中心 / 打版与样衣工程</p>
-          <h1 class="mt-1 text-2xl font-semibold text-slate-900">${escapeHtml(title)}</h1>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="refresh-page">
-            <i data-lucide="refresh-cw" class="h-4 w-4"></i>刷新
-          </button>
-          ${createAction}
-        </div>
-      </div>
-    </section>
-  `
-}
-
 function renderMetricButton(label: string, value: number, active: boolean, quickFilter: string, actionPrefix: string): string {
   return `
     <button
       type="button"
       class="${escapeHtml(
         toClassName(
-          'rounded-xl border px-4 py-4 text-left shadow-sm transition hover:border-blue-300 hover:shadow',
+          'flex h-12 min-w-[12rem] flex-[1_1_12rem] items-center justify-between gap-3 rounded-lg border px-3 text-left transition hover:border-blue-300',
           active ? 'border-blue-500 bg-blue-50' : 'border-slate-200 bg-white',
         ),
       )}"
       data-pcs-engineering-action="${escapeHtml(actionPrefix)}"
       data-quick-filter="${escapeHtml(quickFilter)}"
     >
-      <div class="flex items-center justify-between gap-3">
-        <div>
-          <p class="text-sm text-slate-500">${escapeHtml(label)}</p>
-          <p class="mt-2 text-2xl font-semibold text-slate-900">${escapeHtml(value)}</p>
-        </div>
-        <i data-lucide="bar-chart-3" class="h-5 w-5 ${active ? 'text-blue-600' : 'text-slate-300'}"></i>
-      </div>
+      <span class="whitespace-nowrap text-xs text-slate-500">${escapeHtml(label)}</span>
+      <strong class="whitespace-nowrap text-sm font-semibold tabular-nums text-slate-900">${escapeHtml(value)}</strong>
     </button>
   `
 }
 
-function renderPagination(currentPage: number, total: number, actionPrefix: string): string {
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+function createEngineeringListColumns(
+  specs: Array<Omit<StandardListColumn<EngineeringListRow>, 'render' | 'sortValue'>>,
+): StandardListColumn<EngineeringListRow>[] {
+  return specs.map((spec) => ({
+    ...spec,
+    render: (row) => row.cells[spec.key] || '<span class="text-slate-400">-</span>',
+    sortValue: spec.sortable ? (row) => row.sortValues[spec.key] : undefined,
+  }))
+}
+
+function getEngineeringListStorage(): Storage | null {
+  try {
+    return typeof window === 'undefined' ? null : window.localStorage
+  } catch {
+    return null
+  }
+}
+
+function normalizeEngineeringListPreferences(
+  module: ModuleKey,
+  columns: readonly StandardListColumn<EngineeringListRow>[],
+  raw: Partial<StandardListColumnPreferences> | null | undefined,
+): StandardListColumnPreferences {
+  const normalized = normalizeListColumnPreferences(
+    ENGINEERING_LIST_COLUMN_RULES[module],
+    raw,
+    ENGINEERING_LIST_PAGE_SIZES,
+  )
+  const columnsByKey = new Map(columns.map((column) => [column.key, column]))
+  const visibleKeys = new Set(normalized.visibleKeys)
+  const requestedFrozenKeys = new Set(normalized.frozenKeys)
+  const frozenColumns = normalized.order
+    .map((key) => columnsByKey.get(key))
+    .filter((column): column is StandardListColumn<EngineeringListRow> => Boolean(
+      column
+      && column.freezeable
+      && !column.actionColumn
+      && visibleKeys.has(column.key)
+      && requestedFrozenKeys.has(column.key),
+    ))
+  let frozenWidth = frozenColumns.reduce(
+    (sum, column) => sum + Math.max(column.width, column.minWidth ?? 0),
+    0,
+  )
+  while (frozenWidth > ENGINEERING_LIST_MAX_FROZEN_WIDTH && frozenColumns.length > 0) {
+    const removed = frozenColumns.pop()
+    if (removed) frozenWidth -= Math.max(removed.width, removed.minWidth ?? 0)
+  }
+  return {
+    ...normalized,
+    frozenKeys: frozenColumns.map((column) => column.key),
+  }
+}
+
+function ensureEngineeringListPreferences(
+  module: ModuleKey,
+  columns: readonly StandardListColumn<EngineeringListRow>[],
+): void {
+  if (engineeringListPreferencesLoaded[module]) return
+  engineeringListPreferencesLoaded[module] = true
+  const storage = getEngineeringListStorage()
+  const loaded = storage
+    ? loadListColumnPreferences(
+        storage,
+        ENGINEERING_LIST_STORAGE_KEYS[module],
+        ENGINEERING_LIST_COLUMN_RULES[module],
+        engineeringListUiState[module].columnPreferences,
+        ENGINEERING_LIST_PAGE_SIZES,
+      )
+    : engineeringListUiState[module].columnPreferences
+  engineeringListUiState[module].columnPreferences = normalizeEngineeringListPreferences(module, columns, loaded)
+}
+
+function saveEngineeringListPreferences(module: ModuleKey): void {
+  const storage = getEngineeringListStorage()
+  if (storage) {
+    saveListColumnPreferences(
+      storage,
+      ENGINEERING_LIST_STORAGE_KEYS[module],
+      engineeringListUiState[module].columnPreferences,
+    )
+  }
+}
+
+function withEngineeringListLocalInteractions(module: ModuleKey, html: string): string {
+  return html
+    .replace(/data-pcs-engineering-action="([^"]+)"/g, (attribute, action: string) => {
+      const localActions = new Set([
+        'sort-column',
+        'prev-page',
+        'next-page',
+        'open-column-settings',
+        'close-column-settings',
+        'restore-column-settings',
+        'toggle-column-visibility',
+        'toggle-column-freeze',
+      ])
+      if (!localActions.has(action) && !/^set-(revision|plate|pattern|first-sample|first-order)-quick-filter$/.test(action)) {
+        return attribute
+      }
+      return `data-skip-page-rerender="true" data-pcs-engineering-list-module="${module}" ${attribute}`
+    })
+    .replace(/data-pcs-engineering-field="([^"]+)"/g, (attribute, field: string) => {
+      if (field !== 'pageSize' && !/^(revision|plate|pattern|first-sample|first-order)-(search|status|owner|source|site)$/.test(field)) {
+        return attribute
+      }
+      return `data-skip-page-rerender="true" data-pcs-engineering-list-module="${module}" ${attribute}`
+    })
+}
+
+function renderEngineeringListPrimaryActions(actionLabel: string, action: string): string {
   return `
-    <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 text-sm text-slate-500">
-      <p>共 ${escapeHtml(total)} 条，当前第 ${escapeHtml(currentPage)} / ${escapeHtml(totalPages)} 页</p>
-      <div class="flex items-center gap-2">
-        <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50" data-pcs-engineering-action="${escapeHtml(actionPrefix)}" data-page-step="-1" ${currentPage <= 1 ? 'disabled' : ''}>上一页</button>
-        <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50" data-pcs-engineering-action="${escapeHtml(actionPrefix)}" data-page-step="1" ${currentPage >= totalPages ? 'disabled' : ''}>下一页</button>
-      </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="refresh-page">
+        <i data-lucide="refresh-cw" class="h-4 w-4"></i>刷新
+      </button>
+      <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-medium text-white hover:bg-blue-700" data-pcs-engineering-action="${escapeHtml(action)}">
+        <i data-lucide="plus" class="h-4 w-4"></i>${escapeHtml(actionLabel)}
+      </button>
     </div>
   `
 }
 
-function paginate<T>(items: T[], currentPage: number): T[] {
-  const start = (currentPage - 1) * PAGE_SIZE
-  return items.slice(start, start + PAGE_SIZE)
+interface EngineeringListView {
+  rows: EngineeringListRow[]
+  paging: StandardListPageSlice<EngineeringListRow>
+}
+
+function getEngineeringListView(
+  module: ModuleKey,
+  rows: EngineeringListRow[],
+  columns: readonly StandardListColumn<EngineeringListRow>[],
+  listState: ListState | SampleListState,
+): EngineeringListView {
+  ensureEngineeringListPreferences(module, columns)
+  const uiState = engineeringListUiState[module]
+  const sorted = sortStandardListRows(
+    rows,
+    uiState.sort,
+    (row, key) => row.sortValues[key],
+  )
+  const paging = paginateStandardListRows(
+    sorted,
+    listState.currentPage,
+    uiState.columnPreferences.pageSize,
+  )
+  listState.currentPage = paging.currentPage
+  return { rows: sorted, paging }
+}
+
+function renderEngineeringListTable(
+  module: ModuleKey,
+  columns: readonly StandardListColumn<EngineeringListRow>[],
+  paging: StandardListPageSlice<EngineeringListRow>,
+  emptyText: string,
+): string {
+  return withEngineeringListLocalInteractions(module, renderStandardListTable({
+    columns,
+    rows: paging.rows,
+    preferences: engineeringListUiState[module].columnPreferences,
+    sort: engineeringListUiState[module].sort,
+    eventPrefix: 'pcs-engineering',
+    emptyText,
+  }))
+}
+
+function renderEngineeringListPagination(
+  module: ModuleKey,
+  paging: StandardListPageSlice<EngineeringListRow>,
+): string {
+  return withEngineeringListLocalInteractions(module, renderTablePagination({
+    total: paging.total,
+    from: paging.from,
+    to: paging.to,
+    currentPage: paging.currentPage,
+    totalPages: paging.totalPages,
+    pageSize: paging.pageSize,
+    actionPrefix: 'pcs-engineering',
+    fieldPrefix: 'pcs-engineering',
+    pageSizeOptions: ENGINEERING_LIST_PAGE_SIZES,
+  }))
+}
+
+function renderEngineeringListColumnOverlay(
+  module: ModuleKey,
+  columns: readonly StandardListColumn<EngineeringListRow>[],
+): string {
+  if (!engineeringListUiState[module].columnSettingsOpen) return ''
+  return withEngineeringListLocalInteractions(module, renderStandardListColumnSettings({
+    title: '列设置',
+    columns,
+    preferences: engineeringListUiState[module].columnPreferences,
+    eventPrefix: 'pcs-engineering',
+    maxFrozenWidth: ENGINEERING_LIST_MAX_FROZEN_WIDTH,
+  }))
+}
+
+interface EngineeringStandardListPageConfig {
+  module: ModuleKey
+  title: string
+  createLabel: string
+  createAction: string
+  filtersHtml: string
+  statsHtml: string
+  rows: EngineeringListRow[]
+  columns: readonly StandardListColumn<EngineeringListRow>[]
+  listState: ListState | SampleListState
+  emptyText: string
+  overlaysHtml?: string
+}
+
+function renderEngineeringStandardListPage(config: EngineeringStandardListPageConfig): string {
+  ensureEngineeringListPreferences(config.module, config.columns)
+  const transient = {
+    currentPage: config.listState.currentPage,
+    sort: engineeringListUiState[config.module].sort,
+  }
+  const hasMountedRoot = typeof document !== 'undefined'
+    && Boolean(document.querySelector(`[data-pcs-engineering-list-module="${config.module}"]`))
+  resetStandardListEntryTransientStateOnRouteEntry(transient, hasMountedRoot)
+  config.listState.currentPage = transient.currentPage
+  engineeringListUiState[config.module].sort = transient.sort
+  const view = getEngineeringListView(config.module, config.rows, config.columns, config.listState)
+  const columnSettingsButton = withEngineeringListLocalInteractions(
+    config.module,
+    renderSecondaryButton(
+      '列设置',
+      { prefix: 'pcs-engineering', action: 'open-column-settings' },
+      'settings-2',
+    ),
+  )
+
+  return `
+    <div class="min-w-0 max-w-full" data-pcs-engineering-list-module="${config.module}">
+      ${renderStandardListPage({
+        title: config.title,
+        primaryActionsHtml: renderEngineeringListPrimaryActions(config.createLabel, config.createAction),
+        feedbackHtml: renderNotice(),
+        filtersHtml: withEngineeringListLocalInteractions(config.module, config.filtersHtml),
+        statsHtml: `<div data-pcs-engineering-list-region="${config.module}-stats">${withEngineeringListLocalInteractions(config.module, config.statsHtml)}</div>`,
+        listTitle: `${config.title}列表`,
+        listActionsHtml: columnSettingsButton,
+        tableHtml: `<div data-pcs-engineering-list-region="${config.module}-table">${renderEngineeringListTable(config.module, config.columns, view.paging, config.emptyText)}</div>`,
+        paginationHtml: `<div data-pcs-engineering-list-region="${config.module}-pagination">${renderEngineeringListPagination(config.module, view.paging)}</div>`,
+        overlaysHtml: `
+          <div data-pcs-engineering-list-region="${config.module}-column-overlay">${renderEngineeringListColumnOverlay(config.module, config.columns)}</div>
+          ${config.overlaysHtml || ''}
+        `,
+        className: 'min-w-0 max-w-full',
+      })}
+    </div>
+  `
 }
 
 function isOverdue(dateTime: string, done: boolean): boolean {
@@ -1063,11 +1409,11 @@ function renderListFilters(input: {
   statusField: string
   ownerField: string
   sourceField: string
-  statusOptions: string[]
-  ownerOptions: string[]
-  sourceOptions: string[]
+  statusOptions: readonly string[]
+  ownerOptions: readonly string[]
+  sourceOptions: readonly string[]
   siteField?: string
-  siteOptions?: string[]
+  siteOptions?: readonly string[]
 }): string {
   const listState = input.listState
   const isSample = 'site' in listState
@@ -2177,26 +2523,6 @@ function renderHeaderMeta(title: string, subtitle: string, badges: string, actio
   `
 }
 
-function renderDataTable(headers: string[], rows: string, emptyText: string, footer = ''): string {
-  return `
-    <section class="overflow-hidden rounded-xl border bg-white shadow-sm">
-      <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-slate-200 text-sm">
-          <thead class="bg-slate-50">
-            <tr>
-              ${headers.map((header) => `<th class="px-4 py-3 text-left font-medium text-slate-500">${escapeHtml(header)}</th>`).join('')}
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-200 bg-white">
-            ${rows || `<tr><td colspan="${headers.length}" class="px-4 py-10 text-center text-sm text-slate-500">${escapeHtml(emptyText)}</td></tr>`}
-          </tbody>
-        </table>
-      </div>
-      ${footer}
-    </section>
-  `
-}
-
 function renderProjectContext(task: {
   projectId: string
   projectCode: string
@@ -2281,55 +2607,89 @@ function getRevisionTasksFiltered() {
   })
 }
 
-function renderRevisionListPage(): string {
-  const tasks = listRevisionTasks()
-  const filtered = getRevisionTasksFiltered()
-  const owners = getOwners(tasks)
-  const sources = getSources(tasks)
-  const paged = paginate(filtered, state.revisionList.currentPage)
-  const rows = paged.map((task) => {
+const REVISION_LIST_COLUMNS = createEngineeringListColumns([
+  { key: 'image', title: '商品图', width: 90, required: true, freezeable: true },
+  { key: 'task', title: '任务编号', width: 190, required: true, freezeable: true, sortable: true },
+  { key: 'project', title: '所属项目', width: 180, freezeable: true, sortable: true },
+  { key: 'style', title: '款式编码', width: 210 },
+  { key: 'scope', title: '改版范围', width: 180 },
+  { key: 'retest', title: '回直播验证状态', width: 140 },
+  { key: 'techPack', title: '技术包状态', width: 170 },
+  { key: 'status', title: '当前状态', width: 120, required: true, freezeable: true, sortable: true },
+  { key: 'updated', title: '更新时间', width: 180, freezeable: true, sortable: true },
+  { key: 'actions', title: '操作', width: 220, required: true, actionColumn: true },
+])
+
+function getRevisionListRows(): EngineeringListRow[] {
+  return getRevisionTasksFiltered().map((task) => {
     const overdue = isOverdue(task.dueAt, task.status === '已完成' || task.status === '已取消')
     const style = getRevisionTaskStyle(task)
     const showTechPackAction = Boolean(task.projectId) && isTechPackGenerationAllowedStatus(task.status)
     const imageId = task.targetStyleImageIds[0] || task.mainImageIds[0] || task.evidenceImageUrls[0] || ''
-    return `
-      <tr class="hover:bg-slate-50/70">
-        <td class="px-4 py-4">${renderSmallImage(imageId)}</td>
-        <td class="px-4 py-4">
+    return {
+      cells: {
+        image: renderSmallImage(imageId),
+        task: `
           <div class="space-y-1">
             <button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/patterns/revision/${escapeHtml(task.revisionTaskId)}">${escapeHtml(task.revisionTaskCode)}</button>
             <p class="text-xs text-slate-500">${escapeHtml(task.title)}</p>
           </div>
-        </td>
-        <td class="px-4 py-4">${projectButton(task.projectId, task.projectCode, task.projectName)}</td>
-        <td class="px-4 py-4">
+        `,
+        project: projectButton(task.projectId, task.projectCode, task.projectName),
+        style: `
           <div class="space-y-1">
             <div>${styleArchiveButton(style.styleId, style.styleCode, style.styleName)}</div>
             <p class="text-xs text-slate-500">${escapeHtml(task.targetStyleCodeCandidate || task.targetStyleNameCandidate || '未补充新款候选')}</p>
           </div>
-        </td>
-        <td class="px-4 py-4">${escapeHtml(getRevisionScopeText(task.revisionScopeCodes, task.revisionScopeNames))}</td>
-        <td class="px-4 py-4">${escapeHtml(task.liveRetestStatus || '不需要')}</td>
-        <td class="px-4 py-4">${task.linkedTechPackVersionId ? `${techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || '查看关联技术包')}` : '<span class="text-slate-400">未生成</span>'}</td>
-        <td class="px-4 py-4">${renderStatusBadge(task.status)}</td>
-        <td class="px-4 py-4">${escapeHtml(formatDateTime(task.updatedAt || task.dueAt))}${overdue ? '<span class="ml-2 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] text-rose-700">超期</span>' : ''}</td>
-        <td class="px-4 py-4">
+        `,
+        scope: escapeHtml(getRevisionScopeText(task.revisionScopeCodes, task.revisionScopeNames)),
+        retest: escapeHtml(task.liveRetestStatus || '不需要'),
+        techPack: task.linkedTechPackVersionId
+          ? techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || '查看关联技术包')
+          : '<span class="text-slate-400">未生成</span>',
+        status: renderStatusBadge(task.status),
+        updated: `${escapeHtml(formatDateTime(task.updatedAt || task.dueAt))}${overdue ? '<span class="ml-2 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] text-rose-700">超期</span>' : ''}`,
+        actions: `
           <div class="flex flex-wrap gap-2">
             <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/patterns/revision/${escapeHtml(task.revisionTaskId)}">查看</button>
             ${showTechPackAction
               ? `<button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="revision-generate-tech-pack" data-task-id="${escapeHtml(task.revisionTaskId)}">${escapeHtml(getRevisionTechPackActionLabel())}</button>`
               : ''}
           </div>
-        </td>
-      </tr>
-    `
-  }).join('')
+        `,
+      },
+      sortValues: {
+        task: task.revisionTaskCode,
+        project: task.projectCode || task.projectName,
+        status: task.status,
+        updated: task.updatedAt || task.dueAt,
+      },
+    }
+  })
+}
 
+function renderRevisionListStats(): string {
+  const tasks = listRevisionTasks()
   return `
-    <div class="space-y-5 p-4">
-      ${renderNotice()}
-      ${renderPageHeader('改版任务', '新建改版任务', 'open-revision-create')}
-      ${renderListFilters({
+    <section class="flex flex-wrap gap-3">
+      ${renderMetricButton('全部任务', tasks.length, state.revisionList.quickFilter === 'all', 'all', 'set-revision-quick-filter')}
+      ${renderMetricButton('我的任务', tasks.filter((item) => item.ownerName === '李版师').length, state.revisionList.quickFilter === 'mine', 'mine', 'set-revision-quick-filter')}
+      ${renderMetricButton('待确认', tasks.filter((item) => item.status === '待确认').length, state.revisionList.quickFilter === 'pending-review', 'pending-review', 'set-revision-quick-filter')}
+      ${renderMetricButton('待生成技术包', tasks.filter((item) => item.projectId && item.status === '已确认' && !item.linkedTechPackVersionId).length, state.revisionList.quickFilter === 'confirmed-no-output', 'confirmed-no-output', 'set-revision-quick-filter')}
+      ${renderMetricButton('超期任务', tasks.filter((item) => isOverdue(item.dueAt, item.status === '已完成' || item.status === '已取消')).length, state.revisionList.quickFilter === 'overdue', 'overdue', 'set-revision-quick-filter')}
+    </section>
+  `
+}
+
+function renderRevisionListPage(): string {
+  const tasks = listRevisionTasks()
+  const owners = getOwners(tasks)
+  return renderEngineeringStandardListPage({
+    module: 'revision',
+    title: '改版任务',
+    createLabel: '新建改版任务',
+    createAction: 'open-revision-create',
+    filtersHtml: renderListFilters({
         searchPlaceholder: '搜索任务编号 / 商品项目 / 款式 / 负责人 / 参考对象',
         listState: state.revisionList,
         searchField: 'revision-search',
@@ -2339,19 +2699,14 @@ function renderRevisionListPage(): string {
         statusOptions: REVISION_FILTER_STATUS_OPTIONS,
         ownerOptions: owners,
         sourceOptions: REVISION_TASK_SOURCE_TYPE_LIST,
-      })}
-      <section class="grid gap-4 md:grid-cols-5">
-        ${renderMetricButton('全部任务', tasks.length, state.revisionList.quickFilter === 'all', 'all', 'set-revision-quick-filter')}
-        ${renderMetricButton('我的任务', tasks.filter((item) => item.ownerName === '李版师').length, state.revisionList.quickFilter === 'mine', 'mine', 'set-revision-quick-filter')}
-        ${renderMetricButton('待确认', tasks.filter((item) => item.status === '待确认').length, state.revisionList.quickFilter === 'pending-review', 'pending-review', 'set-revision-quick-filter')}
-        ${renderMetricButton('待生成技术包', tasks.filter((item) => item.projectId && item.status === '已确认' && !item.linkedTechPackVersionId).length, state.revisionList.quickFilter === 'confirmed-no-output', 'confirmed-no-output', 'set-revision-quick-filter')}
-        ${renderMetricButton('超期任务', tasks.filter((item) => isOverdue(item.dueAt, item.status === '已完成' || item.status === '已取消')).length, state.revisionList.quickFilter === 'overdue', 'overdue', 'set-revision-quick-filter')}
-      </section>
-      ${renderDataTable(['商品图', '任务编号', '所属项目', '款式编码', '改版范围', '回直播验证状态', '技术包状态', '当前状态', '更新时间', '操作'], rows, '暂无改版任务数据', renderPagination(state.revisionList.currentPage, filtered.length, 'change-revision-page'))}
-      ${renderRevisionCreateDialog()}
-      ${renderPreviewImageModal()}
-    </div>
-  `
+    }),
+    statsHtml: renderRevisionListStats(),
+    rows: getRevisionListRows(),
+    columns: REVISION_LIST_COLUMNS,
+    listState: state.revisionList,
+    emptyText: '暂无改版任务数据',
+    overlaysHtml: `${renderRevisionCreateDialog()}${renderPreviewImageModal()}`,
+  })
 }
 
 function renderRevisionIssues(task: ReturnType<typeof getRevisionTaskById>): string {
@@ -3205,59 +3560,53 @@ function renderPlateCurrentActionPanel(flow: PlateTaskFlowView, task: PlateTaskV
   `
 }
 
-function renderPlateListPage(): string {
-  const tasks = listPlateMakingTasks()
-  const filtered = getPlateTasksFiltered()
-  const owners = getOwners(tasks)
-  const sources = getSources(tasks)
-  const paged = paginate(filtered, state.plateList.currentPage)
-  const rows = paged.map((task) => {
+const PLATE_LIST_COLUMNS = createEngineeringListColumns([
+  { key: 'image', title: '商品图', width: 90, required: true, freezeable: true },
+  { key: 'task', title: '制版任务', width: 200, required: true, freezeable: true, sortable: true },
+  { key: 'project', title: '商品项目 / 款式', width: 190, freezeable: true, sortable: true },
+  { key: 'maker', title: '版师 / 打版区域', width: 170, sortable: true },
+  { key: 'stage', title: '当前阶段', width: 170, required: true, freezeable: true, sortable: true },
+  { key: 'missing', title: '缺失项 / 下一步', width: 220 },
+  { key: 'output', title: '纸样产出', width: 180 },
+  { key: 'review', title: '样板确认', width: 160 },
+  { key: 'techPack', title: '技术包', width: 170 },
+  { key: 'updated', title: '最近更新', width: 170, sortable: true },
+  { key: 'actions', title: '操作', width: 220, required: true, actionColumn: true },
+])
+
+function getPlateListRows(): EngineeringListRow[] {
+  return getPlateTasksFiltered().map((task) => {
     const flow = buildPlateTaskFlowView(task)
     const generateDisabledReason = flow.canGenerateTechPack ? '' : flow.techPackMissingFields.length > 0 ? `生成技术包前缺少：${flow.techPackMissingFields.join('、')}。` : task.linkedTechPackVersionId ? '技术包版本已生成。' : ''
-    return `
-      <tr class="hover:bg-slate-50/70">
-        <td class="px-4 py-4">${renderSmallImage((task.patternImageLineItems || [])[0]?.imageId || (task.flowerImageIds || [])[0] || '')}</td>
-        <td class="px-4 py-4">
-          <div class="space-y-1">
+    return {
+      cells: {
+        image: renderSmallImage((task.patternImageLineItems || [])[0]?.imageId || (task.flowerImageIds || [])[0] || ''),
+        task: `<div class="space-y-1">
             <button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/patterns/plate-making/${escapeHtml(task.plateTaskId)}">${escapeHtml(task.plateTaskCode)}</button>
             <p class="text-xs text-slate-500">${escapeHtml(task.title)}</p>
             <p class="text-xs text-slate-400">来源：${escapeHtml(task.upstreamObjectCode || task.upstreamObjectId || '-')}</p>
-          </div>
-        </td>
-        <td class="px-4 py-4">
-          <div class="space-y-1">
+          </div>`,
+        project: `<div class="space-y-1">
             ${projectButton(task.projectId, task.projectCode, task.projectName)}
             <p class="text-xs text-slate-500">${escapeHtml(task.productStyleCode || task.styleCode || '-')}</p>
-          </div>
-        </td>
-        <td class="px-4 py-4">
-          <div class="space-y-1 text-sm">
+          </div>`,
+        maker: `<div class="space-y-1 text-sm">
             <p class="font-medium text-slate-900">${escapeHtml(task.patternMakerName || task.ownerName || '-')}</p>
             <p class="text-xs text-slate-500">${escapeHtml(task.patternArea || '-')} · ${task.urgentFlag ? '紧急' : '普通'}</p>
-          </div>
-        </td>
-        <td class="px-4 py-4">
-          <div class="space-y-1">
+          </div>`,
+        stage: `<div class="space-y-1">
             ${renderStatusBadge(flow.stageLabel)}
             <p class="text-xs text-slate-500">${escapeHtml(flow.nextActionText)}</p>
-          </div>
-        </td>
-        <td class="px-4 py-4">
-          <div class="flex max-w-[220px] flex-wrap gap-1.5">${renderPlateMissingItems(flow.missingFields)}</div>
-        </td>
-        <td class="px-4 py-4">
-          <p class="text-sm text-slate-900">${escapeHtml(getPlateOutputSummary(task))}</p>
-        </td>
-        <td class="px-4 py-4">
-          <div class="space-y-1">
+          </div>`,
+        missing: `<div class="flex max-w-[220px] flex-wrap gap-1.5">${renderPlateMissingItems(flow.missingFields)}</div>`,
+        output: `<p class="text-sm text-slate-900">${escapeHtml(getPlateOutputSummary(task))}</p>`,
+        review: `<div class="space-y-1">
             ${renderStatusBadge(task.sampleReviewStatus)}
             <p class="text-xs text-slate-500">${escapeHtml(task.sampleReviewAt || task.sampleReviewSubmittedAt || '-')}</p>
-          </div>
-        </td>
-        <td class="px-4 py-4">${task.linkedTechPackVersionId ? `${techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || '查看技术包')}` : '<span class="text-slate-400">未生成</span>'}</td>
-        <td class="px-4 py-4">${escapeHtml(formatDateTime(task.updatedAt))}</td>
-        <td class="px-4 py-4">
-          <div class="flex flex-wrap gap-2">
+          </div>`,
+        techPack: task.linkedTechPackVersionId ? techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || '查看技术包') : '<span class="text-slate-400">未生成</span>',
+        updated: escapeHtml(formatDateTime(task.updatedAt)),
+        actions: `<div class="flex flex-wrap gap-2">
             <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/patterns/plate-making/${escapeHtml(task.plateTaskId)}">查看</button>
             <button
               type="button"
@@ -3266,17 +3615,38 @@ function renderPlateListPage(): string {
               data-task-id="${escapeHtml(task.plateTaskId)}"
               ${generateDisabledReason ? `disabled title="${escapeHtml(generateDisabledReason)}"` : ''}
             >生成技术包</button>
-          </div>
-        </td>
-      </tr>
-    `
-  }).join('')
+          </div>`,
+      },
+      sortValues: {
+        task: task.plateTaskCode,
+        project: task.projectCode || task.projectName,
+        maker: task.patternMakerName || task.ownerName,
+        stage: flow.stageLabel,
+        updated: task.updatedAt,
+      },
+    }
+  })
+}
 
-  return `
-    <div class="space-y-5 p-4">
-      ${renderNotice()}
-      ${renderPageHeader('制版任务', '新建制版任务', 'open-plate-create')}
-      ${renderListFilters({
+function renderPlateListStats(): string {
+  const tasks = listPlateMakingTasks()
+  return `<section class="flex flex-wrap gap-3">
+    ${renderMetricButton('全部任务', tasks.length, state.plateList.quickFilter === 'all', 'all', 'set-plate-quick-filter')}
+    ${renderMetricButton('我的任务', tasks.filter((item) => item.ownerName === '王版师').length, state.plateList.quickFilter === 'mine', 'mine', 'set-plate-quick-filter')}
+    ${renderMetricButton('待确认', tasks.filter((item) => item.status === '待确认').length, state.plateList.quickFilter === 'pending-review', 'pending-review', 'set-plate-quick-filter')}
+    ${renderMetricButton('已确认待写包', tasks.filter((item) => item.status === '已确认' && !item.linkedTechPackVersionId).length, state.plateList.quickFilter === 'confirmed-no-output', 'confirmed-no-output', 'set-plate-quick-filter')}
+    ${renderMetricButton('超期任务', tasks.filter((item) => isOverdue(item.dueAt, item.status === '已完成' || item.status === '已取消')).length, state.plateList.quickFilter === 'overdue', 'overdue', 'set-plate-quick-filter')}
+  </section>`
+}
+
+function renderPlateListPage(): string {
+  const tasks = listPlateMakingTasks()
+  return renderEngineeringStandardListPage({
+    module: 'plate',
+    title: '制版任务',
+    createLabel: '新建制版任务',
+    createAction: 'open-plate-create',
+    filtersHtml: renderListFilters({
         searchPlaceholder: '搜索任务编号 / 商品项目 / 款式 / 负责人',
         listState: state.plateList,
         searchField: 'plate-search',
@@ -3284,20 +3654,16 @@ function renderPlateListPage(): string {
         ownerField: 'plate-owner',
         sourceField: 'plate-source',
         statusOptions: ENGINEERING_COMMON_FILTER_STATUS_OPTIONS,
-        ownerOptions: owners,
-        sourceOptions: sources,
-      })}
-      <section class="grid gap-4 md:grid-cols-5">
-        ${renderMetricButton('全部任务', tasks.length, state.plateList.quickFilter === 'all', 'all', 'set-plate-quick-filter')}
-        ${renderMetricButton('我的任务', tasks.filter((item) => item.ownerName === '王版师').length, state.plateList.quickFilter === 'mine', 'mine', 'set-plate-quick-filter')}
-        ${renderMetricButton('待确认', tasks.filter((item) => item.status === '待确认').length, state.plateList.quickFilter === 'pending-review', 'pending-review', 'set-plate-quick-filter')}
-        ${renderMetricButton('已确认待写包', tasks.filter((item) => item.status === '已确认' && !item.linkedTechPackVersionId).length, state.plateList.quickFilter === 'confirmed-no-output', 'confirmed-no-output', 'set-plate-quick-filter')}
-        ${renderMetricButton('超期任务', tasks.filter((item) => isOverdue(item.dueAt, item.status === '已完成' || item.status === '已取消')).length, state.plateList.quickFilter === 'overdue', 'overdue', 'set-plate-quick-filter')}
-      </section>
-      ${renderDataTable(['商品图', '制版任务', '商品项目 / 款式', '版师 / 打版区域', '当前阶段', '缺失项 / 下一步', '纸样产出', '样板确认', '技术包', '最近更新', '操作'], rows, '暂无制版任务数据', renderPagination(state.plateList.currentPage, filtered.length, 'change-plate-page'))}
-      ${renderPlateCreateDialog()}
-    </div>
-  `
+        ownerOptions: getOwners(tasks),
+        sourceOptions: getSources(tasks),
+    }),
+    statsHtml: renderPlateListStats(),
+    rows: getPlateListRows(),
+    columns: PLATE_LIST_COLUMNS,
+    listState: state.plateList,
+    emptyText: '暂无制版任务数据',
+    overlaysHtml: renderPlateCreateDialog(),
+  })
 }
 
 function renderPlateCreateDialog(): string {
@@ -3611,36 +3977,44 @@ function getPatternTasksFiltered() {
   })
 }
 
-function renderPatternListPage(): string {
-  const tasks = listPatternTasks()
-  const filtered = getPatternTasksFiltered()
-  const owners = getOwners(tasks)
-  const sources = getSources(tasks)
-  const paged = paginate(filtered, state.patternList.currentPage)
-  const rows = paged.map((task) => {
+const PATTERN_LIST_COLUMNS = createEngineeringListColumns([
+  { key: 'task', title: '花型任务', width: 190, required: true, freezeable: true, sortable: true },
+  { key: 'image', title: '需求图', width: 90, required: true, freezeable: true },
+  { key: 'source', title: '来源', width: 130, sortable: true },
+  { key: 'process', title: '工艺', width: 120 },
+  { key: 'fabric', title: '面料', width: 150 },
+  { key: 'qty', title: '数量', width: 100 },
+  { key: 'difficulty', title: '难易程度', width: 110 },
+  { key: 'team', title: '团队', width: 130 },
+  { key: 'member', title: '花型师', width: 120, sortable: true },
+  { key: 'review', title: '买手确认状态', width: 140, required: true, freezeable: true, sortable: true },
+  { key: 'library', title: '花型库状态', width: 140 },
+  { key: 'techPack', title: '技术包状态', width: 150 },
+  { key: 'actions', title: '操作', width: 300, required: true, actionColumn: true },
+])
+
+function getPatternListRows(): EngineeringListRow[] {
+  return getPatternTasksFiltered().map((task) => {
     const asset = listPatternAssets().find((item) => item.source_task_id === task.patternTaskId)
     const techPackAction = getPatternTechPackActionMeta(task.patternTaskId)
-    return `
-      <tr class="hover:bg-slate-50/70">
-        <td class="px-4 py-4">
-          <div class="space-y-1">
+    return {
+      cells: {
+        task: `<div class="space-y-1">
             <button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/patterns/colors/${escapeHtml(task.patternTaskId)}">${escapeHtml(task.patternTaskCode)}</button>
             <p class="text-xs text-slate-500">${escapeHtml(task.title)}</p>
-          </div>
-        </td>
-        <td class="px-4 py-4">${renderSmallImage(task.demandImageIds[0] || '')}</td>
-        <td class="px-4 py-4">${escapeHtml(task.demandSourceType)}</td>
-        <td class="px-4 py-4">${escapeHtml(task.processType)}</td>
-        <td class="px-4 py-4">${escapeHtml(task.fabricSku || task.fabricName || '-')}</td>
-        <td class="px-4 py-4">${escapeHtml(task.requestQty || '-')}</td>
-        <td class="px-4 py-4">${escapeHtml(task.difficultyGrade || '-')}</td>
-        <td class="px-4 py-4">${escapeHtml(task.assignedTeamName || '-')}</td>
-        <td class="px-4 py-4">${escapeHtml(task.assignedMemberName || '-')}</td>
-        <td class="px-4 py-4">${renderStatusBadge(task.buyerReviewStatus)}</td>
-        <td class="px-4 py-4">${asset ? `<button type="button" class="font-medium text-blue-700 hover:underline" data-nav="/pcs/pattern-library/${escapeHtml(asset.id)}">${escapeHtml(asset.pattern_code)}</button>` : '<span class="text-slate-400">未沉淀</span>'}</td>
-        <td class="px-4 py-4">${task.linkedTechPackVersionId ? techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || '查看技术包') : '<span class="text-slate-400">未写入</span>'}</td>
-        <td class="px-4 py-4">
-          <div class="flex flex-wrap gap-2">
+          </div>`,
+        image: renderSmallImage(task.demandImageIds[0] || ''),
+        source: escapeHtml(task.demandSourceType),
+        process: escapeHtml(task.processType),
+        fabric: escapeHtml(task.fabricSku || task.fabricName || '-'),
+        qty: escapeHtml(task.requestQty || '-'),
+        difficulty: escapeHtml(task.difficultyGrade || '-'),
+        team: escapeHtml(task.assignedTeamName || '-'),
+        member: escapeHtml(task.assignedMemberName || '-'),
+        review: renderStatusBadge(task.buyerReviewStatus),
+        library: asset ? `<button type="button" class="font-medium text-blue-700 hover:underline" data-nav="/pcs/pattern-library/${escapeHtml(asset.id)}">${escapeHtml(asset.pattern_code)}</button>` : '<span class="text-slate-400">未沉淀</span>',
+        techPack: task.linkedTechPackVersionId ? techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || '查看技术包') : '<span class="text-slate-400">未写入</span>',
+        actions: `<div class="flex flex-wrap gap-2">
             <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/patterns/colors/${escapeHtml(task.patternTaskId)}">查看</button>
             <button
               type="button"
@@ -3650,17 +4024,37 @@ function renderPatternListPage(): string {
               ${techPackAction.disabled ? `disabled title="${escapeHtml(techPackAction.disabledReason)}"` : ''}
             >${escapeHtml(techPackAction.label)}</button>
             <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="pattern-publish-library" data-task-id="${escapeHtml(task.patternTaskId)}">${escapeHtml(asset ? '打开花型库' : '沉淀花型库')}</button>
-          </div>
-        </td>
-      </tr>
-    `
-  }).join('')
+          </div>`,
+      },
+      sortValues: {
+        task: task.patternTaskCode,
+        source: task.demandSourceType,
+        member: task.assignedMemberName || task.ownerName,
+        review: task.buyerReviewStatus,
+      },
+    }
+  })
+}
 
-  return `
-    <div class="space-y-5 p-4">
-      ${renderNotice()}
-      ${renderPageHeader('花型任务', '新建花型任务', 'open-pattern-create')}
-      ${renderListFilters({
+function renderPatternListStats(): string {
+  const tasks = listPatternTasks()
+  return `<section class="flex flex-wrap gap-3">
+    ${renderMetricButton('全部任务', tasks.length, state.patternList.quickFilter === 'all', 'all', 'set-pattern-quick-filter')}
+    ${renderMetricButton('我的任务', tasks.filter((item) => item.ownerName === '林小美').length, state.patternList.quickFilter === 'mine', 'mine', 'set-pattern-quick-filter')}
+    ${renderMetricButton('待买手确认', tasks.filter((item) => item.buyerReviewStatus === '待买手确认').length, state.patternList.quickFilter === 'pending-review', 'pending-review', 'set-pattern-quick-filter')}
+    ${renderMetricButton('已确认待沉淀', tasks.filter((item) => item.status === '已确认' && !listPatternAssets().find((asset) => asset.source_task_id === item.patternTaskId)).length, state.patternList.quickFilter === 'confirmed-no-output', 'confirmed-no-output', 'set-pattern-quick-filter')}
+    ${renderMetricButton('超期任务', tasks.filter((item) => isOverdue(item.dueAt, item.status === '已完成' || item.status === '已取消')).length, state.patternList.quickFilter === 'overdue', 'overdue', 'set-pattern-quick-filter')}
+  </section>`
+}
+
+function renderPatternListPage(): string {
+  const tasks = listPatternTasks()
+  return renderEngineeringStandardListPage({
+    module: 'pattern',
+    title: '花型任务',
+    createLabel: '新建花型任务',
+    createAction: 'open-pattern-create',
+    filtersHtml: renderListFilters({
         searchPlaceholder: '搜索任务编号 / 花型名称 / 商品项目 / 团队 / 花型师',
         listState: state.patternList,
         searchField: 'pattern-search',
@@ -3668,20 +4062,16 @@ function renderPatternListPage(): string {
         ownerField: 'pattern-owner',
         sourceField: 'pattern-source',
         statusOptions: ENGINEERING_COMMON_FILTER_STATUS_OPTIONS,
-        ownerOptions: owners,
-        sourceOptions: sources,
-      })}
-      <section class="grid gap-4 md:grid-cols-5">
-        ${renderMetricButton('全部任务', tasks.length, state.patternList.quickFilter === 'all', 'all', 'set-pattern-quick-filter')}
-        ${renderMetricButton('我的任务', tasks.filter((item) => item.ownerName === '林小美').length, state.patternList.quickFilter === 'mine', 'mine', 'set-pattern-quick-filter')}
-        ${renderMetricButton('待买手确认', tasks.filter((item) => item.buyerReviewStatus === '待买手确认').length, state.patternList.quickFilter === 'pending-review', 'pending-review', 'set-pattern-quick-filter')}
-        ${renderMetricButton('已确认待沉淀', tasks.filter((item) => item.status === '已确认' && !listPatternAssets().find((asset) => asset.source_task_id === item.patternTaskId)).length, state.patternList.quickFilter === 'confirmed-no-output', 'confirmed-no-output', 'set-pattern-quick-filter')}
-        ${renderMetricButton('超期任务', tasks.filter((item) => isOverdue(item.dueAt, item.status === '已完成' || item.status === '已取消')).length, state.patternList.quickFilter === 'overdue', 'overdue', 'set-pattern-quick-filter')}
-      </section>
-      ${renderDataTable(['花型任务', '需求图', '来源', '工艺', '面料', '数量', '难易程度', '团队', '花型师', '买手确认状态', '花型库状态', '技术包状态', '操作'], rows, '暂无花型任务数据', renderPagination(state.patternList.currentPage, filtered.length, 'change-pattern-page'))}
-      ${renderPatternCreateDialog()}
-    </div>
-  `
+        ownerOptions: getOwners(tasks),
+        sourceOptions: getSources(tasks),
+    }),
+    statsHtml: renderPatternListStats(),
+    rows: getPatternListRows(),
+    columns: PATTERN_LIST_COLUMNS,
+    listState: state.patternList,
+    emptyText: '暂无花型任务数据',
+    overlaysHtml: renderPatternCreateDialog(),
+  })
 }
 
 function renderPatternCreateDialog(): string {
@@ -4321,42 +4711,66 @@ function renderFirstSampleRevisionAction(task: FirstSampleTaskRecord): string {
   return `<button type="button" class="inline-flex h-8 items-center px-1 text-xs font-medium text-blue-700 hover:text-blue-800" data-pcs-engineering-action="create-revision-from-first-sample" data-task-id="${escapeHtml(task.firstSampleTaskId)}">去创建改版任务</button>`
 }
 
-function renderFirstSampleListPage(): string {
-  const tasks = listFirstSampleTasks()
-  const filtered = getFirstSampleTasksFiltered()
-  const owners = getOwners(tasks)
-  const sources = getSources(tasks)
-  const paged = paginate(filtered, state.firstSampleList.currentPage)
-  const rows = paged.map((task) => `
-      <tr class="hover:bg-slate-50/70">
-        <td class="px-4 py-4">
-          <div class="space-y-1">
+const FIRST_SAMPLE_LIST_COLUMNS = createEngineeringListColumns([
+  { key: 'task', title: '首版打样任务', width: 210, required: true, freezeable: true, sortable: true },
+  { key: 'project', title: '商品项目', width: 180, freezeable: true, sortable: true },
+  { key: 'status', title: '结论', width: 120, required: true, freezeable: true, sortable: true },
+  { key: 'revision', title: '改版处理', width: 170 },
+  { key: 'site', title: '打样区域', width: 130, sortable: true },
+  { key: 'material', title: '面料模式', width: 140 },
+  { key: 'sampleCode', title: '结果编号', width: 140, sortable: true },
+  { key: 'basis', title: '首单依据', width: 150 },
+  { key: 'actions', title: '操作', width: 300, required: true, actionColumn: true },
+])
+
+function getFirstSampleListRows(): EngineeringListRow[] {
+  return getFirstSampleTasksFiltered().map((task) => ({
+    cells: {
+      task: `<div class="space-y-1">
             <button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/samples/first-sample/${escapeHtml(task.firstSampleTaskId)}">${escapeHtml(task.firstSampleTaskCode)}</button>
             <p class="text-xs text-slate-500">${escapeHtml(task.title)}</p>
-          </div>
-        </td>
-        <td class="px-4 py-4">${projectButton(task.projectId, task.projectCode, task.projectName)}</td>
-        <td class="px-4 py-4">${renderStatusBadge(task.status, true)}</td>
-        <td class="px-4 py-4">${renderFirstSampleRevisionCell(task)}</td>
-        <td class="px-4 py-4">${escapeHtml(task.targetSite)}</td>
-        <td class="px-4 py-4">${escapeHtml(task.sampleMaterialMode)}</td>
-        <td class="px-4 py-4">${escapeHtml(task.sampleCode || '-')}</td>
-        <td class="px-4 py-4">${task.reuseAsFirstOrderBasisFlag ? '<span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs text-emerald-700">可做首单依据</span>' : '<span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">仅首版确认</span>'}</td>
-        <td class="px-4 py-4">
-          <div class="flex flex-wrap gap-2">
+          </div>`,
+      project: projectButton(task.projectId, task.projectCode, task.projectName),
+      status: renderStatusBadge(task.status, true),
+      revision: renderFirstSampleRevisionCell(task),
+      site: escapeHtml(task.targetSite),
+      material: escapeHtml(task.sampleMaterialMode),
+      sampleCode: escapeHtml(task.sampleCode || '-'),
+      basis: task.reuseAsFirstOrderBasisFlag ? '<span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs text-emerald-700">可做首单依据</span>' : '<span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">仅首版确认</span>',
+      actions: `<div class="flex flex-wrap gap-2">
             <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/samples/first-sample/${escapeHtml(task.firstSampleTaskId)}">查看</button>
             <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="first-sample-advance" data-task-id="${escapeHtml(task.firstSampleTaskId)}">${escapeHtml(getFirstSampleActionLabel(task.status))}</button>
             ${renderFirstSampleRevisionAction(task)}
-          </div>
-        </td>
-      </tr>
-    `).join('')
+          </div>`,
+    },
+    sortValues: {
+      task: task.firstSampleTaskCode,
+      project: task.projectCode || task.projectName,
+      status: task.status,
+      site: task.targetSite,
+      sampleCode: task.sampleCode,
+    },
+  }))
+}
 
-  return `
-    <div class="space-y-5 p-4">
-      ${renderNotice()}
-      ${renderPageHeader('首版样衣打样', '新建首版打样', 'open-first-sample-create')}
-      ${renderListFilters({
+function renderFirstSampleListStats(): string {
+  const tasks = listFirstSampleTasks()
+  return `<section class="flex flex-wrap gap-3">
+    ${renderMetricButton('打样中', tasks.filter((item) => item.status === '打样中').length, state.firstSampleList.quickFilter === 'sampling', 'sampling', 'set-first-sample-quick-filter')}
+    ${renderMetricButton('待确认', tasks.filter((item) => item.status === '待确认').length, state.firstSampleList.quickFilter === 'confirming', 'confirming', 'set-first-sample-quick-filter')}
+    ${renderMetricButton('需改版', tasks.filter((item) => item.status === '需改版').length, state.firstSampleList.quickFilter === 'rework', 'rework', 'set-first-sample-quick-filter')}
+    ${renderMetricButton('已通过', tasks.filter((item) => item.status === '已通过').length, state.firstSampleList.quickFilter === 'passed', 'passed', 'set-first-sample-quick-filter')}
+  </section>`
+}
+
+function renderFirstSampleListPage(): string {
+  const tasks = listFirstSampleTasks()
+  return renderEngineeringStandardListPage({
+    module: 'firstSample',
+    title: '首版样衣打样',
+    createLabel: '新建首版打样',
+    createAction: 'open-first-sample-create',
+    filtersHtml: renderListFilters({
         searchPlaceholder: '搜索任务编号 / 商品项目 / 打样工厂 / 结果编号',
         listState: state.firstSampleList,
         searchField: 'first-sample-search',
@@ -4366,23 +4780,16 @@ function renderFirstSampleListPage(): string {
         siteField: 'first-sample-site',
         siteOptions: SAMPLE_SITE_OPTIONS,
         statusOptions: ['待处理', '打样中', '待确认', '已通过', '需改版', '已取消'],
-        ownerOptions: owners,
-        sourceOptions: sources,
-      })}
-      <section class="grid gap-4 md:grid-cols-4">
-        ${renderMetricButton('打样中', tasks.filter((item) => item.status === '打样中').length, state.firstSampleList.quickFilter === 'sampling', 'sampling', 'set-first-sample-quick-filter')}
-        ${renderMetricButton('待确认', tasks.filter((item) => item.status === '待确认').length, state.firstSampleList.quickFilter === 'confirming', 'confirming', 'set-first-sample-quick-filter')}
-        ${renderMetricButton('需改版', tasks.filter((item) => item.status === '需改版').length, state.firstSampleList.quickFilter === 'rework', 'rework', 'set-first-sample-quick-filter')}
-        ${renderMetricButton('已通过', tasks.filter((item) => item.status === '已通过').length, state.firstSampleList.quickFilter === 'passed', 'passed', 'set-first-sample-quick-filter')}
-      </section>
-      ${renderDataTable(['首版打样任务', '商品项目', '结论', '改版处理', '打样区域', '面料模式', '结果编号', '首单依据', '操作'], rows, '暂无首版样衣打样数据', renderPagination(state.firstSampleList.currentPage, filtered.length, 'change-first-sample-page'))}
-      ${renderFirstSampleCreateDialog()}
-      ${renderFirstSampleStartDialog()}
-      ${renderFirstSampleResultDialog()}
-      ${renderFirstSampleAcceptanceDialog()}
-      ${renderRevisionCreateDialog()}
-    </div>
-  `
+        ownerOptions: getOwners(tasks),
+        sourceOptions: getSources(tasks),
+    }),
+    statsHtml: renderFirstSampleListStats(),
+    rows: getFirstSampleListRows(),
+    columns: FIRST_SAMPLE_LIST_COLUMNS,
+    listState: state.firstSampleList,
+    emptyText: '暂无首版样衣打样数据',
+    overlaysHtml: `${renderFirstSampleCreateDialog()}${renderFirstSampleStartDialog()}${renderFirstSampleResultDialog()}${renderFirstSampleAcceptanceDialog()}${renderRevisionCreateDialog()}`,
+  })
 }
 
 function renderFirstSampleCreateDialog(): string {
@@ -4762,46 +5169,71 @@ function getFirstOrderTasksFiltered() {
   })
 }
 
-function renderFirstOrderListPage(): string {
-  const tasks = listFirstOrderSampleTasks()
-  const filtered = getFirstOrderTasksFiltered()
-  const owners = getOwners(tasks)
-  const sources = getSources(tasks)
-  const paged = paginate(filtered, state.firstOrderList.currentPage)
-  const rows = paged.map((task) => {
+const FIRST_ORDER_LIST_COLUMNS = createEngineeringListColumns([
+  { key: 'task', title: '首单任务', width: 210, required: true, freezeable: true, sortable: true },
+  { key: 'project', title: '商品项目', width: 180, freezeable: true, sortable: true },
+  { key: 'status', title: '状态', width: 120, required: true, freezeable: true, sortable: true },
+  { key: 'mode', title: '确认方式', width: 150 },
+  { key: 'site', title: '打样区域', width: 130, sortable: true },
+  { key: 'patternVersion', title: '版次', width: 130, sortable: true },
+  { key: 'artworkVersion', title: '花型版次', width: 130 },
+  { key: 'conclusion', title: '首单结论', width: 150, sortable: true },
+  { key: 'actions', title: '操作', width: 230, required: true, actionColumn: true },
+])
+
+function getFirstOrderListRows(): EngineeringListRow[] {
+  return getFirstOrderTasksFiltered().map((task) => {
     const conclusion =
       firstOrderConclusionMap.get(task.firstOrderSampleTaskId) ||
       (task.conclusionResult ? { result: task.conclusionResult, note: task.conclusionNote, updatedAt: task.confirmedAt || task.updatedAt } : null)
-    return `
-      <tr class="hover:bg-slate-50/70">
-        <td class="px-4 py-4">
-          <div class="space-y-1">
+    return {
+      cells: {
+        task: `<div class="space-y-1">
             <button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/samples/first-order/${escapeHtml(task.firstOrderSampleTaskId)}">${escapeHtml(task.firstOrderSampleTaskCode)}</button>
             <p class="text-xs text-slate-500">${escapeHtml(task.title)}</p>
-          </div>
-        </td>
-        <td class="px-4 py-4">${projectButton(task.projectId, task.projectCode, task.projectName)}</td>
-        <td class="px-4 py-4">${renderStatusBadge(task.status, true)}</td>
-        <td class="px-4 py-4">${escapeHtml(task.sampleChainMode)}</td>
-        <td class="px-4 py-4">${escapeHtml(task.targetSite)}</td>
-        <td class="px-4 py-4">${escapeHtml(task.patternVersion || '-')}</td>
-        <td class="px-4 py-4">${escapeHtml(task.artworkVersion || '-')}</td>
-        <td class="px-4 py-4">${escapeHtml(conclusion?.result || '-')}</td>
-        <td class="px-4 py-4">
-          <div class="flex flex-wrap gap-2">
+          </div>`,
+        project: projectButton(task.projectId, task.projectCode, task.projectName),
+        status: renderStatusBadge(task.status, true),
+        mode: escapeHtml(task.sampleChainMode),
+        site: escapeHtml(task.targetSite),
+        patternVersion: escapeHtml(task.patternVersion || '-'),
+        artworkVersion: escapeHtml(task.artworkVersion || '-'),
+        conclusion: escapeHtml(conclusion?.result || '-'),
+        actions: `<div class="flex flex-wrap gap-2">
             <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/samples/first-order/${escapeHtml(task.firstOrderSampleTaskId)}">查看</button>
             <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="first-order-advance" data-task-id="${escapeHtml(task.firstOrderSampleTaskId)}">${escapeHtml(getFirstOrderActionLabel(task.status))}</button>
-          </div>
-        </td>
-      </tr>
-    `
-  }).join('')
+          </div>`,
+      },
+      sortValues: {
+        task: task.firstOrderSampleTaskCode,
+        project: task.projectCode || task.projectName,
+        status: task.status,
+        site: task.targetSite,
+        patternVersion: task.patternVersion,
+        conclusion: conclusion?.result || '',
+      },
+    }
+  })
+}
 
-  return `
-    <div class="space-y-5 p-4">
-      ${renderNotice()}
-      ${renderPageHeader('首单样衣打样', '新建首单打样', 'open-first-order-create')}
-      ${renderListFilters({
+function renderFirstOrderListStats(): string {
+  const tasks = listFirstOrderSampleTasks()
+  return `<section class="flex flex-wrap gap-3">
+    ${renderMetricButton('打样中', tasks.filter((item) => item.status === '打样中').length, state.firstOrderList.quickFilter === 'sampling', 'sampling', 'set-first-order-quick-filter')}
+    ${renderMetricButton('待确认', tasks.filter((item) => item.status === '待确认').length, state.firstOrderList.quickFilter === 'confirming', 'confirming', 'set-first-order-quick-filter')}
+    ${renderMetricButton('需改版', tasks.filter((item) => item.status === '需改版').length, state.firstOrderList.quickFilter === 'rework', 'rework', 'set-first-order-quick-filter')}
+    ${renderMetricButton('已通过', tasks.filter((item) => item.status === '已通过').length, state.firstOrderList.quickFilter === 'passed', 'passed', 'set-first-order-quick-filter')}
+  </section>`
+}
+
+function renderFirstOrderListPage(): string {
+  const tasks = listFirstOrderSampleTasks()
+  return renderEngineeringStandardListPage({
+    module: 'firstOrder',
+    title: '首单样衣打样',
+    createLabel: '新建首单打样',
+    createAction: 'open-first-order-create',
+    filtersHtml: renderListFilters({
         searchPlaceholder: '搜索任务编号 / 商品项目 / 打样工厂 / 结果编号',
         listState: state.firstOrderList,
         searchField: 'first-order-search',
@@ -4811,22 +5243,16 @@ function renderFirstOrderListPage(): string {
         siteField: 'first-order-site',
         siteOptions: SAMPLE_SITE_OPTIONS,
         statusOptions: ['待处理', '打样中', '待确认', '已通过', '需改版', '需补首单', '已取消'],
-        ownerOptions: owners,
-        sourceOptions: sources,
-      })}
-      <section class="grid gap-4 md:grid-cols-4">
-        ${renderMetricButton('打样中', tasks.filter((item) => item.status === '打样中').length, state.firstOrderList.quickFilter === 'sampling', 'sampling', 'set-first-order-quick-filter')}
-        ${renderMetricButton('待确认', tasks.filter((item) => item.status === '待确认').length, state.firstOrderList.quickFilter === 'confirming', 'confirming', 'set-first-order-quick-filter')}
-        ${renderMetricButton('需改版', tasks.filter((item) => item.status === '需改版').length, state.firstOrderList.quickFilter === 'rework', 'rework', 'set-first-order-quick-filter')}
-        ${renderMetricButton('已通过', tasks.filter((item) => item.status === '已通过').length, state.firstOrderList.quickFilter === 'passed', 'passed', 'set-first-order-quick-filter')}
-      </section>
-      ${renderDataTable(['首单任务', '商品项目', '状态', '确认方式', '打样区域', '版次', '花型版次', '首单结论', '操作'], rows, '暂无首单样衣打样数据', renderPagination(state.firstOrderList.currentPage, filtered.length, 'change-first-order-page'))}
-      ${renderFirstOrderCreateDialog()}
-      ${renderFirstOrderStartDialog()}
-      ${renderFirstOrderResultDialog()}
-      ${renderFirstOrderConclusionDialog()}
-    </div>
-  `
+        ownerOptions: getOwners(tasks),
+        sourceOptions: getSources(tasks),
+    }),
+    statsHtml: renderFirstOrderListStats(),
+    rows: getFirstOrderListRows(),
+    columns: FIRST_ORDER_LIST_COLUMNS,
+    listState: state.firstOrderList,
+    emptyText: '暂无首单样衣打样数据',
+    overlaysHtml: `${renderFirstOrderCreateDialog()}${renderFirstOrderStartDialog()}${renderFirstOrderResultDialog()}${renderFirstOrderConclusionDialog()}`,
+  })
 }
 
 function renderFirstOrderCreateDialog(): string {
@@ -5063,11 +5489,6 @@ function closeAllDialogs(): void {
   state.firstOrderStartOpen = false
   state.firstOrderResultOpen = false
   state.firstOrderConclusionOpen = false
-}
-
-function updateListPage(listState: ListState | SampleListState, step: number, total: number): void {
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  listState.currentPage = Math.min(totalPages, Math.max(1, listState.currentPage + step))
 }
 
 function findRevisionTaskByFirstSample(task: FirstSampleTaskRecord) {
@@ -5898,11 +6319,93 @@ export function renderPcsFirstOrderSampleTaskDetailPage(firstOrderSampleTaskId: 
   return renderFirstOrderDetailPage(firstOrderSampleTaskId)
 }
 
+function getEngineeringListColumns(module: ModuleKey): readonly StandardListColumn<EngineeringListRow>[] {
+  if (module === 'revision') return REVISION_LIST_COLUMNS
+  if (module === 'plate') return PLATE_LIST_COLUMNS
+  if (module === 'pattern') return PATTERN_LIST_COLUMNS
+  if (module === 'firstSample') return FIRST_SAMPLE_LIST_COLUMNS
+  return FIRST_ORDER_LIST_COLUMNS
+}
+
+function getEngineeringListRows(module: ModuleKey): EngineeringListRow[] {
+  if (module === 'revision') return getRevisionListRows()
+  if (module === 'plate') return getPlateListRows()
+  if (module === 'pattern') return getPatternListRows()
+  if (module === 'firstSample') return getFirstSampleListRows()
+  return getFirstOrderListRows()
+}
+
+function getEngineeringListState(module: ModuleKey): ListState | SampleListState {
+  if (module === 'revision') return state.revisionList
+  if (module === 'plate') return state.plateList
+  if (module === 'pattern') return state.patternList
+  if (module === 'firstSample') return state.firstSampleList
+  return state.firstOrderList
+}
+
+function getEngineeringListEmptyText(module: ModuleKey): string {
+  if (module === 'revision') return '暂无改版任务数据'
+  if (module === 'plate') return '暂无制版任务数据'
+  if (module === 'pattern') return '暂无花型任务数据'
+  if (module === 'firstSample') return '暂无首版样衣打样数据'
+  return '暂无首单样衣打样数据'
+}
+
+function renderEngineeringListStats(module: ModuleKey): string {
+  if (module === 'revision') return renderRevisionListStats()
+  if (module === 'plate') return renderPlateListStats()
+  if (module === 'pattern') return renderPatternListStats()
+  if (module === 'firstSample') return renderFirstSampleListStats()
+  return renderFirstOrderListStats()
+}
+
+function getEngineeringListModule(node: HTMLElement): ModuleKey | null {
+  const value = node.dataset.pcsEngineeringListModule
+    || node.closest<HTMLElement>('[data-pcs-engineering-list-module]')?.dataset.pcsEngineeringListModule
+  return value === 'revision' || value === 'plate' || value === 'pattern' || value === 'firstSample' || value === 'firstOrder'
+    ? value
+    : null
+}
+
+function refreshEngineeringList(module: ModuleKey, refreshStats = false): void {
+  if (typeof document === 'undefined') return
+  const columns = getEngineeringListColumns(module)
+  const listState = getEngineeringListState(module)
+  const view = getEngineeringListView(module, getEngineeringListRows(module), columns, listState)
+  const tableHost = document.querySelector<HTMLElement>(`[data-pcs-engineering-list-region="${module}-table"]`)
+  const paginationHost = document.querySelector<HTMLElement>(`[data-pcs-engineering-list-region="${module}-pagination"]`)
+  if (tableHost) tableHost.innerHTML = renderEngineeringListTable(module, columns, view.paging, getEngineeringListEmptyText(module))
+  if (paginationHost) paginationHost.innerHTML = renderEngineeringListPagination(module, view.paging)
+  if (refreshStats) {
+    const statsHost = document.querySelector<HTMLElement>(`[data-pcs-engineering-list-region="${module}-stats"]`)
+    if (statsHost) statsHost.innerHTML = withEngineeringListLocalInteractions(module, renderEngineeringListStats(module))
+  }
+}
+
+function refreshEngineeringColumnOverlay(module: ModuleKey): void {
+  if (typeof document === 'undefined') return
+  const host = document.querySelector<HTMLElement>(`[data-pcs-engineering-list-region="${module}-column-overlay"]`)
+  if (host) host.innerHTML = renderEngineeringListColumnOverlay(module, getEngineeringListColumns(module))
+}
+
 export function handlePcsEngineeringTaskInput(target: Element): boolean {
   const fieldNode = target.closest<HTMLElement>('[data-pcs-engineering-field]')
   if (!fieldNode) return false
   const field = fieldNode.dataset.pcsEngineeringField
   if (!field) return false
+
+  const listModule = getEngineeringListModule(fieldNode)
+  if (field === 'pageSize' && listModule && fieldNode instanceof HTMLSelectElement) {
+    const columns = getEngineeringListColumns(listModule)
+    engineeringListUiState[listModule].columnPreferences = normalizeEngineeringListPreferences(listModule, columns, {
+      ...engineeringListUiState[listModule].columnPreferences,
+      pageSize: Number(fieldNode.value),
+    })
+    getEngineeringListState(listModule).currentPage = 1
+    saveEngineeringListPreferences(listModule)
+    refreshEngineeringList(listModule)
+    return true
+  }
 
   if (fieldNode instanceof HTMLInputElement && fieldNode.type === 'file') {
     const files = Array.from(fieldNode.files || [])
@@ -6015,28 +6518,28 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
     }
   }
 
-  if (field === 'revision-search' && fieldNode instanceof HTMLInputElement) { state.revisionList.search = fieldNode.value; state.revisionList.currentPage = 1; return true }
-  if (field === 'revision-status' && fieldNode instanceof HTMLSelectElement) { state.revisionList.status = fieldNode.value; state.revisionList.currentPage = 1; return true }
-  if (field === 'revision-owner' && fieldNode instanceof HTMLSelectElement) { state.revisionList.owner = fieldNode.value; state.revisionList.currentPage = 1; return true }
-  if (field === 'revision-source' && fieldNode instanceof HTMLSelectElement) { state.revisionList.source = fieldNode.value; state.revisionList.currentPage = 1; return true }
-  if (field === 'plate-search' && fieldNode instanceof HTMLInputElement) { state.plateList.search = fieldNode.value; state.plateList.currentPage = 1; return true }
-  if (field === 'plate-status' && fieldNode instanceof HTMLSelectElement) { state.plateList.status = fieldNode.value; state.plateList.currentPage = 1; return true }
-  if (field === 'plate-owner' && fieldNode instanceof HTMLSelectElement) { state.plateList.owner = fieldNode.value; state.plateList.currentPage = 1; return true }
-  if (field === 'plate-source' && fieldNode instanceof HTMLSelectElement) { state.plateList.source = fieldNode.value; state.plateList.currentPage = 1; return true }
-  if (field === 'pattern-search' && fieldNode instanceof HTMLInputElement) { state.patternList.search = fieldNode.value; state.patternList.currentPage = 1; return true }
-  if (field === 'pattern-status' && fieldNode instanceof HTMLSelectElement) { state.patternList.status = fieldNode.value; state.patternList.currentPage = 1; return true }
-  if (field === 'pattern-owner' && fieldNode instanceof HTMLSelectElement) { state.patternList.owner = fieldNode.value; state.patternList.currentPage = 1; return true }
-  if (field === 'pattern-source' && fieldNode instanceof HTMLSelectElement) { state.patternList.source = fieldNode.value; state.patternList.currentPage = 1; return true }
-  if (field === 'first-sample-search' && fieldNode instanceof HTMLInputElement) { state.firstSampleList.search = fieldNode.value; state.firstSampleList.currentPage = 1; return true }
-  if (field === 'first-sample-status' && fieldNode instanceof HTMLSelectElement) { state.firstSampleList.status = fieldNode.value; state.firstSampleList.currentPage = 1; return true }
-  if (field === 'first-sample-owner' && fieldNode instanceof HTMLSelectElement) { state.firstSampleList.owner = fieldNode.value; state.firstSampleList.currentPage = 1; return true }
-  if (field === 'first-sample-source' && fieldNode instanceof HTMLSelectElement) { state.firstSampleList.source = fieldNode.value; state.firstSampleList.currentPage = 1; return true }
-  if (field === 'first-sample-site' && fieldNode instanceof HTMLSelectElement) { state.firstSampleList.site = fieldNode.value; state.firstSampleList.currentPage = 1; return true }
-  if (field === 'first-order-search' && fieldNode instanceof HTMLInputElement) { state.firstOrderList.search = fieldNode.value; state.firstOrderList.currentPage = 1; return true }
-  if (field === 'first-order-status' && fieldNode instanceof HTMLSelectElement) { state.firstOrderList.status = fieldNode.value; state.firstOrderList.currentPage = 1; return true }
-  if (field === 'first-order-owner' && fieldNode instanceof HTMLSelectElement) { state.firstOrderList.owner = fieldNode.value; state.firstOrderList.currentPage = 1; return true }
-  if (field === 'first-order-source' && fieldNode instanceof HTMLSelectElement) { state.firstOrderList.source = fieldNode.value; state.firstOrderList.currentPage = 1; return true }
-  if (field === 'first-order-site' && fieldNode instanceof HTMLSelectElement) { state.firstOrderList.site = fieldNode.value; state.firstOrderList.currentPage = 1; return true }
+  if (field === 'revision-search' && fieldNode instanceof HTMLInputElement) { state.revisionList.search = fieldNode.value; state.revisionList.currentPage = 1; refreshEngineeringList('revision'); return true }
+  if (field === 'revision-status' && fieldNode instanceof HTMLSelectElement) { state.revisionList.status = fieldNode.value; state.revisionList.currentPage = 1; refreshEngineeringList('revision'); return true }
+  if (field === 'revision-owner' && fieldNode instanceof HTMLSelectElement) { state.revisionList.owner = fieldNode.value; state.revisionList.currentPage = 1; refreshEngineeringList('revision'); return true }
+  if (field === 'revision-source' && fieldNode instanceof HTMLSelectElement) { state.revisionList.source = fieldNode.value; state.revisionList.currentPage = 1; refreshEngineeringList('revision'); return true }
+  if (field === 'plate-search' && fieldNode instanceof HTMLInputElement) { state.plateList.search = fieldNode.value; state.plateList.currentPage = 1; refreshEngineeringList('plate'); return true }
+  if (field === 'plate-status' && fieldNode instanceof HTMLSelectElement) { state.plateList.status = fieldNode.value; state.plateList.currentPage = 1; refreshEngineeringList('plate'); return true }
+  if (field === 'plate-owner' && fieldNode instanceof HTMLSelectElement) { state.plateList.owner = fieldNode.value; state.plateList.currentPage = 1; refreshEngineeringList('plate'); return true }
+  if (field === 'plate-source' && fieldNode instanceof HTMLSelectElement) { state.plateList.source = fieldNode.value; state.plateList.currentPage = 1; refreshEngineeringList('plate'); return true }
+  if (field === 'pattern-search' && fieldNode instanceof HTMLInputElement) { state.patternList.search = fieldNode.value; state.patternList.currentPage = 1; refreshEngineeringList('pattern'); return true }
+  if (field === 'pattern-status' && fieldNode instanceof HTMLSelectElement) { state.patternList.status = fieldNode.value; state.patternList.currentPage = 1; refreshEngineeringList('pattern'); return true }
+  if (field === 'pattern-owner' && fieldNode instanceof HTMLSelectElement) { state.patternList.owner = fieldNode.value; state.patternList.currentPage = 1; refreshEngineeringList('pattern'); return true }
+  if (field === 'pattern-source' && fieldNode instanceof HTMLSelectElement) { state.patternList.source = fieldNode.value; state.patternList.currentPage = 1; refreshEngineeringList('pattern'); return true }
+  if (field === 'first-sample-search' && fieldNode instanceof HTMLInputElement) { state.firstSampleList.search = fieldNode.value; state.firstSampleList.currentPage = 1; refreshEngineeringList('firstSample'); return true }
+  if (field === 'first-sample-status' && fieldNode instanceof HTMLSelectElement) { state.firstSampleList.status = fieldNode.value; state.firstSampleList.currentPage = 1; refreshEngineeringList('firstSample'); return true }
+  if (field === 'first-sample-owner' && fieldNode instanceof HTMLSelectElement) { state.firstSampleList.owner = fieldNode.value; state.firstSampleList.currentPage = 1; refreshEngineeringList('firstSample'); return true }
+  if (field === 'first-sample-source' && fieldNode instanceof HTMLSelectElement) { state.firstSampleList.source = fieldNode.value; state.firstSampleList.currentPage = 1; refreshEngineeringList('firstSample'); return true }
+  if (field === 'first-sample-site' && fieldNode instanceof HTMLSelectElement) { state.firstSampleList.site = fieldNode.value; state.firstSampleList.currentPage = 1; refreshEngineeringList('firstSample'); return true }
+  if (field === 'first-order-search' && fieldNode instanceof HTMLInputElement) { state.firstOrderList.search = fieldNode.value; state.firstOrderList.currentPage = 1; refreshEngineeringList('firstOrder'); return true }
+  if (field === 'first-order-status' && fieldNode instanceof HTMLSelectElement) { state.firstOrderList.status = fieldNode.value; state.firstOrderList.currentPage = 1; refreshEngineeringList('firstOrder'); return true }
+  if (field === 'first-order-owner' && fieldNode instanceof HTMLSelectElement) { state.firstOrderList.owner = fieldNode.value; state.firstOrderList.currentPage = 1; refreshEngineeringList('firstOrder'); return true }
+  if (field === 'first-order-source' && fieldNode instanceof HTMLSelectElement) { state.firstOrderList.source = fieldNode.value; state.firstOrderList.currentPage = 1; refreshEngineeringList('firstOrder'); return true }
+  if (field === 'first-order-site' && fieldNode instanceof HTMLSelectElement) { state.firstOrderList.site = fieldNode.value; state.firstOrderList.currentPage = 1; refreshEngineeringList('firstOrder'); return true }
 
   if (fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLTextAreaElement || fieldNode instanceof HTMLSelectElement) {
     const value = fieldNode.value
@@ -6315,11 +6818,135 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
   return false
 }
 
-export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
+export function handlePcsEngineeringTaskEvent(target: HTMLElement, event?: Event): boolean {
+  const listModule = getEngineeringListModule(target)
+  const dragNode = target.closest<HTMLElement>('[data-standard-list-column-drag]')
+  if (listModule && dragNode && event && ['dragstart', 'dragover', 'drop', 'dragend'].includes(event.type)) {
+    const uiState = engineeringListUiState[listModule]
+    const columnKey = dragNode.dataset.pcsEngineeringColumnKey || dragNode.dataset.dragSource || dragNode.dataset.dropTarget || ''
+    if (event.type === 'dragstart') {
+      uiState.draggedColumnKey = columnKey
+      ;(event as DragEvent).dataTransfer?.setData('application/x-higood-list-column-key', columnKey)
+      return Boolean(columnKey)
+    }
+    if (event.type === 'dragend') {
+      uiState.draggedColumnKey = ''
+      return true
+    }
+    const sourceKey = uiState.draggedColumnKey
+    if (!sourceKey || !columnKey || sourceKey === columnKey) return false
+    if (event.type === 'dragover') {
+      event.preventDefault()
+      return true
+    }
+    event.preventDefault()
+    const order = uiState.columnPreferences.order.filter((key) => key !== sourceKey)
+    const targetIndex = order.indexOf(columnKey)
+    if (targetIndex < 0) return false
+    order.splice(targetIndex, 0, sourceKey)
+    uiState.columnPreferences = normalizeEngineeringListPreferences(
+      listModule,
+      getEngineeringListColumns(listModule),
+      { ...uiState.columnPreferences, order },
+    )
+    uiState.draggedColumnKey = ''
+    saveEngineeringListPreferences(listModule)
+    refreshEngineeringList(listModule)
+    refreshEngineeringColumnOverlay(listModule)
+    return true
+  }
+
   const actionNode = target.closest<HTMLElement>('[data-pcs-engineering-action]')
   if (!actionNode) return false
   const action = actionNode.dataset.pcsEngineeringAction
   if (!action) return false
+
+  if (listModule && action === 'sort-column') {
+    const columnKey = actionNode.dataset.columnKey || ''
+    const column = getEngineeringListColumns(listModule).find((item) => item.key === columnKey && item.sortable)
+    if (!column) return true
+    const currentSort = engineeringListUiState[listModule].sort
+    engineeringListUiState[listModule].sort = currentSort?.key !== columnKey
+      ? { key: columnKey, direction: 'asc' }
+      : currentSort.direction === 'asc'
+        ? { key: columnKey, direction: 'desc' }
+        : null
+    getEngineeringListState(listModule).currentPage = 1
+    refreshEngineeringList(listModule)
+    return true
+  }
+  if (listModule && (action === 'prev-page' || action === 'next-page')) {
+    const listState = getEngineeringListState(listModule)
+    const totalPages = Math.max(1, Math.ceil(
+      getEngineeringListRows(listModule).length / engineeringListUiState[listModule].columnPreferences.pageSize,
+    ))
+    listState.currentPage = action === 'prev-page'
+      ? Math.max(1, listState.currentPage - 1)
+      : Math.min(totalPages, listState.currentPage + 1)
+    refreshEngineeringList(listModule)
+    return true
+  }
+  if (listModule && action === 'open-column-settings') {
+    engineeringListUiState[listModule].columnSettingsOpen = true
+    refreshEngineeringColumnOverlay(listModule)
+    return true
+  }
+  if (listModule && action === 'close-column-settings') {
+    engineeringListUiState[listModule].columnSettingsOpen = false
+    refreshEngineeringColumnOverlay(listModule)
+    return true
+  }
+  if (listModule && action === 'restore-column-settings') {
+    const columns = getEngineeringListColumns(listModule)
+    engineeringListUiState[listModule].columnPreferences = normalizeEngineeringListPreferences(listModule, columns, {
+      order: columns.map((column) => column.key),
+      visibleKeys: columns.map((column) => column.key),
+      frozenKeys: [],
+      pageSize: ENGINEERING_LIST_PAGE_SIZES[0],
+    })
+    engineeringListUiState[listModule].sort = null
+    getEngineeringListState(listModule).currentPage = 1
+    const storage = getEngineeringListStorage()
+    if (storage) clearListColumnPreferences(storage, ENGINEERING_LIST_STORAGE_KEYS[listModule])
+    refreshEngineeringList(listModule)
+    refreshEngineeringColumnOverlay(listModule)
+    return true
+  }
+  if (
+    listModule
+    && (action === 'toggle-column-visibility' || action === 'toggle-column-freeze')
+    && (!event || event.type === 'change')
+  ) {
+    const uiState = engineeringListUiState[listModule]
+    const columns = getEngineeringListColumns(listModule)
+    const columnKey = actionNode.dataset.pcsEngineeringColumnKey || actionNode.dataset.columnKey || ''
+    const column = columns.find((item) => item.key === columnKey)
+    if (!column || column.actionColumn) return true
+    const visibleKeys = new Set(uiState.columnPreferences.visibleKeys)
+    const frozenKeys = new Set(uiState.columnPreferences.frozenKeys)
+    if (action === 'toggle-column-visibility' && !column.required) {
+      if (visibleKeys.has(columnKey)) {
+        visibleKeys.delete(columnKey)
+        frozenKeys.delete(columnKey)
+      } else {
+        visibleKeys.add(columnKey)
+      }
+      if (!visibleKeys.has(columnKey) && uiState.sort?.key === columnKey) uiState.sort = null
+    }
+    if (action === 'toggle-column-freeze' && column.freezeable) {
+      if (frozenKeys.has(columnKey)) frozenKeys.delete(columnKey)
+      else frozenKeys.add(columnKey)
+    }
+    uiState.columnPreferences = normalizeEngineeringListPreferences(listModule, columns, {
+      ...uiState.columnPreferences,
+      visibleKeys: [...visibleKeys],
+      frozenKeys: [...frozenKeys],
+    })
+    saveEngineeringListPreferences(listModule)
+    refreshEngineeringList(listModule)
+    refreshEngineeringColumnOverlay(listModule)
+    return true
+  }
 
   if (action === 'close-notice') { clearNotice(); return true }
   if (action === 'refresh-page') { setNotice('已刷新当前任务页面。'); return true }
@@ -6371,17 +6998,11 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'set-revision-quick-filter') { state.revisionList.quickFilter = actionNode.dataset.quickFilter || 'all'; state.revisionList.currentPage = 1; return true }
-  if (action === 'set-plate-quick-filter') { state.plateList.quickFilter = actionNode.dataset.quickFilter || 'all'; state.plateList.currentPage = 1; return true }
-  if (action === 'set-pattern-quick-filter') { state.patternList.quickFilter = actionNode.dataset.quickFilter || 'all'; state.patternList.currentPage = 1; return true }
-  if (action === 'set-first-sample-quick-filter') { state.firstSampleList.quickFilter = actionNode.dataset.quickFilter || 'all'; state.firstSampleList.currentPage = 1; return true }
-  if (action === 'set-first-order-quick-filter') { state.firstOrderList.quickFilter = actionNode.dataset.quickFilter || 'all'; state.firstOrderList.currentPage = 1; return true }
-
-  if (action === 'change-revision-page') { updateListPage(state.revisionList, Number(actionNode.dataset.pageStep || '0'), getRevisionTasksFiltered().length); return true }
-  if (action === 'change-plate-page') { updateListPage(state.plateList, Number(actionNode.dataset.pageStep || '0'), getPlateTasksFiltered().length); return true }
-  if (action === 'change-pattern-page') { updateListPage(state.patternList, Number(actionNode.dataset.pageStep || '0'), getPatternTasksFiltered().length); return true }
-  if (action === 'change-first-sample-page') { updateListPage(state.firstSampleList, Number(actionNode.dataset.pageStep || '0'), getFirstSampleTasksFiltered().length); return true }
-  if (action === 'change-first-order-page') { updateListPage(state.firstOrderList, Number(actionNode.dataset.pageStep || '0'), getFirstOrderTasksFiltered().length); return true }
+  if (action === 'set-revision-quick-filter') { state.revisionList.quickFilter = actionNode.dataset.quickFilter || 'all'; state.revisionList.currentPage = 1; refreshEngineeringList('revision', true); return true }
+  if (action === 'set-plate-quick-filter') { state.plateList.quickFilter = actionNode.dataset.quickFilter || 'all'; state.plateList.currentPage = 1; refreshEngineeringList('plate', true); return true }
+  if (action === 'set-pattern-quick-filter') { state.patternList.quickFilter = actionNode.dataset.quickFilter || 'all'; state.patternList.currentPage = 1; refreshEngineeringList('pattern', true); return true }
+  if (action === 'set-first-sample-quick-filter') { state.firstSampleList.quickFilter = actionNode.dataset.quickFilter || 'all'; state.firstSampleList.currentPage = 1; refreshEngineeringList('firstSample', true); return true }
+  if (action === 'set-first-order-quick-filter') { state.firstOrderList.quickFilter = actionNode.dataset.quickFilter || 'all'; state.firstOrderList.currentPage = 1; refreshEngineeringList('firstOrder', true); return true }
 
   if (action === 'set-revision-tab') { state.revisionTab = (actionNode.dataset.tab as RevisionTab) || 'plan'; return true }
   if (action === 'set-plate-tab') { state.plateTab = (actionNode.dataset.tab as PlateTab) || 'demand'; return true }

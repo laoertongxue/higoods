@@ -648,7 +648,7 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
   try {
     if (handlerSystem === 'pcs') {
       const pcsHandlers = await getPcsHandlersModule()
-      return pcsHandlers.dispatchPcsPageEvent(eventTarget)
+      return pcsHandlers.dispatchPcsPageEvent(eventTarget, event)
     }
     if (handlerSystem === 'fcs') {
       const fcsHandlers = await getFcsHandlersModule()
@@ -669,7 +669,7 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
       return true
     }
 
-    if (await pcsHandlers.dispatchPcsPageEvent(eventTarget)) {
+    if (await pcsHandlers.dispatchPcsPageEvent(eventTarget, event)) {
       return true
     }
 

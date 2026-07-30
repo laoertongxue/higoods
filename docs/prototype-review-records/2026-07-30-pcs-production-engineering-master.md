@@ -115,6 +115,10 @@
 - `src/data/pcs-project-inline-node-record-types.ts`
 - `src/pages/pcs-projects.ts`
 - `src/pages/pcs-engineering-tasks.ts`
+- `src/main.ts`
+- `src/main-handlers/pcs-handlers.ts`
+- `tests/pcs-engineering-task-standard-list.spec.ts`
+- `tests/pcs-projects-standard-list.spec.ts`
 
 ### 页面路由
 
@@ -124,6 +128,10 @@
 - `/pcs/projects/:projectId/work-items/:projectNodeId`
 - `/pcs/patterns/revision`
 - `/pcs/patterns/revision/:revisionTaskId`
+- `/pcs/patterns/plate-making`
+- `/pcs/patterns/colors`
+- `/pcs/samples/first-sample`
+- `/pcs/samples/first-order`
 
 ### 验证命令
 
@@ -150,6 +158,15 @@
 - `npm test -- tests/pcs-first-sample-*.spec.ts`：通过，首版样衣状态、独立详情保存、Mock 场景、节点边界和首版样衣返改来源均已验证
 - `npm test -- tests/pcs-project-decision-eliminate-to-sample-return.spec.ts tests/pcs-project-decision-options.spec.ts tests/pcs-project-data-consistency.spec.ts`：通过，当前决策枚举、暂保留边界、不通过后的样衣退回闭环、固定五步和专业任务仓储一致性均已真实执行
 - `npm run check:prototype-design-governance -- --all`：通过
+- `npm test -- tests/pcs-engineering-task-standard-list.spec.ts`：通过，五类专业任务列表均使用标准列表页、标准宽表和标准分页，改版专用五状态筛选未混入其他专业状态
+- `npm test -- tests/pcs-projects-standard-list.spec.ts`：通过，商品项目列表使用标准列表页、标准宽表和标准分页，详情固定五步、创建页与工作项页面保持原业务入口
+- `npm run check:list-page-governance`：通过，列表页静态治理、标准列表页 Chromium 拖拽检查和原型设计治理均已闭环
+- `npm run build`：通过
+- Task1 PCS 最终相关规格回归：39 个规格文件全部通过
+- 五类专业任务列表已按 48px 单行统计、表格容器内横向滚动、右侧固定操作栏设计；筛选、排序、分页、列显示、列冻结、列顺序和每页条数均采用局部更新，不触发整页重绘
+- 商品项目列表采用表格容器内横向滚动和右侧固定操作栏；筛选、排序、分页、列显示、列冻结、列顺序和每页条数均采用局部更新，不触发整页重绘
+- Playwright 浏览器验收：改版、制版、花型、首版样衣和首单样衣五条真实路由均可达；改版列表在 1366×768 可局部打开／关闭列设置并切换任务编号排序，在 1280×720 仍保持标准表格、右侧固定操作和分页可用，首单样衣列表正常渲染，控制台无业务报错
+- 列显示、顺序、冻结和每页条数按五条列表路由分别保存；当前页和排序仅保留在当前进入期间，重新进入列表恢复默认
 
 ### 例外
 

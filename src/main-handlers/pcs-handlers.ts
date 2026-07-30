@@ -248,14 +248,18 @@ async function loadHandlerModule(spec: PcsHandlerSpec): Promise<HandlerModule> {
   return modulePromise
 }
 
-export async function dispatchPcsPageEvent(target: HTMLElement): Promise<boolean> {
+export async function dispatchPcsPageEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   const spec = getActiveHandlerSpec()
   if (!spec?.eventExport) {
     return false
   }
 
   const module = await loadHandlerModule(spec)
-  return invokeBooleanExport(module, spec.eventExport, target)
+  const handler = module[spec.eventExport]
+  if (typeof handler !== 'function') {
+    return false
+  }
+  return Boolean((handler as (target: HTMLElement, event?: Event) => unknown)(target, event))
 }
 
 export async function dispatchPcsInputEvent(target: Element): Promise<boolean> {
