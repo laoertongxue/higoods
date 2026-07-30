@@ -442,6 +442,7 @@ function completeSampleCostReviewBeforeStartedListing(
     if (
       node.workItemTypeCode !== 'SAMPLE_COST_REVIEW' ||
       !projectIdsWithStartedListing.has(node.projectId) ||
+      (node.currentIssueType === '数据待补齐' && node.pendingActionType === '补齐正式数据') ||
       node.currentStatus === '已完成' ||
       node.currentStatus === '已取消'
     ) {
@@ -481,6 +482,7 @@ function migrateSeededSampleCostAndListingNodeStates(
 
   return nodes.map((node) => {
     if (node.workItemTypeCode !== 'SAMPLE_COST_REVIEW' && node.workItemTypeCode !== 'CHANNEL_PRODUCT_LISTING') return node
+    if (node.currentIssueType === '数据待补齐' && node.pendingActionType === '补齐正式数据') return node
 
     const seededNode = bootstrapNodeByKey.get(`${node.projectId}:${node.workItemTypeCode}`)
     if (!seededNode || seededNode.currentStatus === '未开始' || seededNode.currentStatus === '已取消') return node
