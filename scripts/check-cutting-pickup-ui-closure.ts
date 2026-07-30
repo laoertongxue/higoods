@@ -20,9 +20,9 @@ assert(pcSource.includes('节点版本'), 'PC 详情必须展示节点版本')
 assert(listSource.includes('renderStandardListColumnSettings'), 'PC 标准列表必须提供列设置')
 assert(listSource.includes('saveListColumnPreferences'), 'PC 列显示、顺序、冻结和每页条数必须持久化')
 for (const key of [
-  'standard-list:/fcs/craft/cutting/pickup-ready',
-  'standard-list:/fcs/craft/cutting/pickup-incomplete',
-  'standard-list:/fcs/craft/cutting/pickup-history',
+  'standard-list:/fcs/craft/cutting/pickup-management/ready',
+  'standard-list:/fcs/craft/cutting/pickup-management/incomplete',
+  'standard-list:/fcs/craft/cutting/pickup-management/history',
 ]) {
   assert(listSource.includes(key), `三路由必须有独立偏好键 ${key}`)
 }
@@ -39,9 +39,39 @@ assert(listSource.includes('required: true') && listSource.includes('freezeable:
 assert(listSource.includes('actionColumn: true'), '操作列必须由标准表格固定右侧')
 assert(
   (handlerSource.match(/pathname\.startsWith\('\/fcs\/craft\/cutting\/pickup-management'/g) ?? []).length === 1
-    && !handlerSource.includes("pathname.startsWith('/fcs/craft/cutting/pickup-')"),
-  'FCS handler 只能保留一个旧领料路由 startsWith 前缀，新三路由必须精确匹配',
+    && handlerSource.includes('CUTTING_PICKUP_LIST_PATHS.has(pathname)')
+    && handlerSource.indexOf('CUTTING_PICKUP_LIST_PATHS.has(pathname)')
+      > handlerSource.indexOf("pathname.startsWith('/fcs/craft/cutting/pickup-management')"),
+  'FCS handler 必须在唯一 pickup-management startsWith 分支内精确分派三个列表',
 )
+const historyMaterialsSource = listSource.match(
+  /function renderHistoryMaterials[\s\S]*?\n}\n\nconst READY_COLUMNS/,
+)?.[0] ?? ''
+for (const field of [
+  'materialImageUrl',
+  'materialName',
+  'materialSku',
+  '需求/配料行：',
+  '补料单：',
+  'processRouteLabel',
+  'processBasisLabel',
+  '应配',
+  '当前配料',
+  '累计领料',
+  '剩余',
+  'row.unit',
+]) {
+  assert(historyMaterialsSource.includes(field), `HISTORY 物料行缺少 5.9 字段：${field}`)
+}
+for (const label of [
+  '未配齐先领',
+  '已配齐后领料',
+  '全部领完',
+  '未完成全部领料',
+  '新增补料待领',
+]) {
+  assert(listSource.includes(label), `HISTORY 必须使用严格文案：${label}`)
+}
 
 assert(pdaSource.includes('buildPickupUnitSummaries'), 'PDA 总览必须按单位分组')
 assert(!pdaSource.includes("formatCuttingWaitProcessQty(totalQty, 'yard')"), 'PDA 不得把混合单位相加并统一标 yard')

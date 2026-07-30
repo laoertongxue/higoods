@@ -432,9 +432,9 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           title: '领料管理',
           icon: 'PackageCheck',
           children: [
-            { key: 'pfos-cutting-pickup-ready', title: '已配待领', icon: 'PackageCheck', href: '/fcs/craft/cutting/pickup-ready' },
-            { key: 'pfos-cutting-pickup-incomplete', title: '未配齐', icon: 'MapPin', href: '/fcs/craft/cutting/pickup-incomplete' },
-            { key: 'pfos-cutting-pickup-history', title: '领料记录', icon: 'History', href: '/fcs/craft/cutting/pickup-history' },
+            { key: 'pfos-cutting-pickup-ready', title: '已配齐待领料', icon: 'PackageCheck', href: '/fcs/craft/cutting/pickup-management/ready' },
+            { key: 'pfos-cutting-pickup-incomplete', title: '未配齐配料', icon: 'MapPin', href: '/fcs/craft/cutting/pickup-management/incomplete' },
+            { key: 'pfos-cutting-pickup-history', title: '已领料', icon: 'History', href: '/fcs/craft/cutting/pickup-management/history' },
           ],
         },
         {

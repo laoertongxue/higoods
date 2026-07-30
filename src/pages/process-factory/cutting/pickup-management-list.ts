@@ -29,9 +29,9 @@ import {
 const PAGE_SIZES = [10, 20, 50]
 const EVENT_PREFIX = 'pickup-list'
 const PREFERENCE_KEYS: Record<PickupListKind, string> = {
-  READY: 'standard-list:/fcs/craft/cutting/pickup-ready',
-  INCOMPLETE: 'standard-list:/fcs/craft/cutting/pickup-incomplete',
-  HISTORY: 'standard-list:/fcs/craft/cutting/pickup-history',
+  READY: 'standard-list:/fcs/craft/cutting/pickup-management/ready',
+  INCOMPLETE: 'standard-list:/fcs/craft/cutting/pickup-management/incomplete',
+  HISTORY: 'standard-list:/fcs/craft/cutting/pickup-management/history',
 }
 
 interface PickupListState {
@@ -59,8 +59,8 @@ function processRouteLabel(row: PickupMaterialDemandRow): string {
 
 function renderMaterialIdentity(row: PickupMaterialDemandRow): string {
   const source = row.demandSource === 'SUPPLEMENT'
-    ? `补料需求：${row.demandSourceNo || '待生成补料单号'}`
-    : `原生产需求：${row.demandSourceNo || '生产单 BOM'}`
+    ? `补料单：${row.demandSourceNo || row.demandLineId}`
+    : `需求/配料行：${row.demandSourceNo || row.demandLineId}`
   return `
     <article class="grid min-w-[640px] grid-cols-[44px_minmax(160px,1.3fr)_minmax(150px,1fr)_minmax(210px,1.2fr)] gap-3 rounded-md border bg-background p-2" data-pickup-material-row="${escapeHtml(row.rowKey)}">
       <div class="h-11 w-11 overflow-hidden rounded border bg-muted">
@@ -136,12 +136,12 @@ function renderReadyCarrier(group: PickupOrderGroup): string {
 }
 
 function renderHistoryResult(group: PickupOrderGroup): string {
-  const pathLabel = group.historyPath === 'INCOMPLETE_PICKUP' ? '未配齐分批领取' : '已配齐后领取'
+  const pathLabel = group.historyPath === 'INCOMPLETE_PICKUP' ? '未配齐先领' : '已配齐后领料'
   const resultLabel = group.finalResult === 'ALL_PICKED'
     ? '全部领完'
     : group.finalResult === 'NEW_SUPPLEMENT_WAIT_PICKUP'
       ? '新增补料待领'
-      : '未全部领完'
+      : '未完成全部领料'
   return `<div class="space-y-1 text-sm">
     <div>${escapeHtml(pathLabel)}</div>
     <div class="${group.finalResult === 'ALL_PICKED' ? 'text-emerald-700' : 'text-amber-700'}">${escapeHtml(resultLabel)}</div>
@@ -150,7 +150,11 @@ function renderHistoryResult(group: PickupOrderGroup): string {
 
 function renderHistoryMaterials(group: PickupOrderGroup): string {
   return `<div class="space-y-2">
-    ${group.materialRows.map((row) => `
+    ${group.materialRows.map((row) => {
+      const source = row.demandSource === 'SUPPLEMENT'
+        ? `补料单：${row.demandSourceNo || row.demandLineId}`
+        : `需求/配料行：${row.demandSourceNo || row.demandLineId}`
+      return `
       <article class="rounded-md border bg-background p-2 text-xs" data-pickup-material-row="${escapeHtml(row.rowKey)}">
         <div class="flex items-center gap-2">
           <div class="h-9 w-9 shrink-0 overflow-hidden rounded border bg-muted">
@@ -160,16 +164,19 @@ function renderHistoryMaterials(group: PickupOrderGroup): string {
           </div>
           <div>
             <div class="font-medium">${escapeHtml(row.materialName)} · ${escapeHtml(row.materialSku)}</div>
-            <div class="text-muted-foreground">${row.demandSource === 'SUPPLEMENT' ? `补料：${escapeHtml(row.demandSourceNo)}` : '原生产需求'} · ${escapeHtml(processRouteLabel(row))}</div>
+            <div class="text-muted-foreground">${escapeHtml(source)}</div>
+            <div class="text-blue-700">${escapeHtml(processRouteLabel(row))} · ${escapeHtml(row.processBasisLabel)}</div>
           </div>
         </div>
-        <div class="mt-2 grid grid-cols-3 gap-2">
+        <div class="mt-2 grid grid-cols-4 gap-2">
           <div>应配 <strong>${formatQty(row.requiredQty, row.unit)}</strong></div>
-          <div>累计领 <strong>${formatQty(row.pickedQty, row.unit)}</strong></div>
+          <div>当前配料 <strong>${formatQty(row.preparedQty, row.unit)}</strong></div>
+          <div>累计领料 <strong>${formatQty(row.pickedQty, row.unit)}</strong></div>
           <div>剩余 <strong>${formatQty(row.remainingPickupQty, row.unit)}</strong></div>
         </div>
       </article>
-    `).join('')}
+    `
+    }).join('')}
   </div>`
 }
 
@@ -202,9 +209,9 @@ function columnsFor(kind: PickupListKind): StandardListColumn<PickupOrderGroup>[
 }
 
 function titleFor(kind: PickupListKind): string {
-  if (kind === 'READY') return '已配待领'
-  if (kind === 'INCOMPLETE') return '未配齐'
-  return '领料记录'
+  if (kind === 'READY') return '已配齐待领料'
+  if (kind === 'INCOMPLETE') return '未配齐配料'
+  return '已领料'
 }
 
 function getState(kind: PickupListKind): PickupListState {
@@ -386,9 +393,9 @@ export function renderCraftCuttingPickupHistoryPage(): string {
 
 function kindFromPathname(): PickupListKind | null {
   const pathname = typeof window === 'undefined' ? '' : window.location.pathname
-  if (pathname.endsWith('/pickup-ready')) return 'READY'
-  if (pathname.endsWith('/pickup-incomplete')) return 'INCOMPLETE'
-  if (pathname.endsWith('/pickup-history')) return 'HISTORY'
+  if (pathname === '/fcs/craft/cutting/pickup-management/ready') return 'READY'
+  if (pathname === '/fcs/craft/cutting/pickup-management/incomplete') return 'INCOMPLETE'
+  if (pathname === '/fcs/craft/cutting/pickup-management/history') return 'HISTORY'
   return null
 }
 

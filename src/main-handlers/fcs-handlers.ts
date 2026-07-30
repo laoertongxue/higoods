@@ -242,9 +242,9 @@ import {
 import { closeProductionObjectOverlays } from '../components/production-object-overview'
 
 const CUTTING_PICKUP_LIST_PATHS = new Set([
-  '/fcs/craft/cutting/pickup-ready',
-  '/fcs/craft/cutting/pickup-incomplete',
-  '/fcs/craft/cutting/pickup-history',
+  '/fcs/craft/cutting/pickup-management/ready',
+  '/fcs/craft/cutting/pickup-management/incomplete',
+  '/fcs/craft/cutting/pickup-management/history',
 ])
 
 export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): Promise<boolean> {
@@ -252,10 +252,12 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
   const isSupplementManagementRoute = pathname.startsWith('/fcs/craft/cutting/supplement-management')
   const isCutPieceReleaseRoute = pathname.startsWith('/fcs/craft/cutting/cut-piece-release')
   if (pathname.startsWith('/fcs/craft/cutting/pickup-management')) {
-    return handleCraftCuttingPickupManagementEvent(target, event)
-  }
-  if (CUTTING_PICKUP_LIST_PATHS.has(pathname)) {
-    return handleCraftCuttingPickupListEvent(target, event)
+    if (CUTTING_PICKUP_LIST_PATHS.has(pathname)) {
+      return handleCraftCuttingPickupListEvent(target, event)
+    }
+    return pathname === '/fcs/craft/cutting/pickup-management-detail'
+      ? handleCraftCuttingPickupManagementEvent(target, event)
+      : false
   }
   if (pathname.startsWith('/fcs/process/water-soluble-orders')) {
     return handleProcessWaterSolubleOrdersEvent(target)

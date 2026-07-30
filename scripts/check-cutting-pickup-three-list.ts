@@ -68,19 +68,33 @@ function assertThreeListRouteAndMenuContract(): void {
     assert(rendererSource.includes(`'${renderer}'`), `路由渲染器必须导出 ${renderer}`)
   }
   for (const path of [
-    '/fcs/craft/cutting/pickup-ready',
-    '/fcs/craft/cutting/pickup-incomplete',
-    '/fcs/craft/cutting/pickup-history',
+    '/fcs/craft/cutting/pickup-management/ready',
+    '/fcs/craft/cutting/pickup-management/incomplete',
+    '/fcs/craft/cutting/pickup-management/history',
   ]) {
     assert(routeSource.includes(`'${path}'`), `缺少独立领料列表路由 ${path}`)
     assert(menuSource.includes(`href: '${path}'`), `缺少独立领料子菜单 ${path}`)
   }
   assert(
     routeSource.includes("'/fcs/craft/cutting/pickup-management': () =>")
-      && routeSource.includes("renderRouteRedirect('/fcs/craft/cutting/pickup-ready'"),
-    '旧领料管理路由必须重定向到已配待领',
+      && routeSource.includes("renderRouteRedirect('/fcs/craft/cutting/pickup-management/ready'"),
+    '旧领料管理路由必须重定向到规范的已配齐待领料路由',
   )
+  for (const deprecatedPath of [
+    '/fcs/craft/cutting/pickup-ready',
+    '/fcs/craft/cutting/pickup-incomplete',
+    '/fcs/craft/cutting/pickup-history',
+  ]) {
+    assert(!routeSource.includes(`'${deprecatedPath}'`), `不得保留未发布的缩写路由 ${deprecatedPath}`)
+    assert(!menuSource.includes(`'${deprecatedPath}'`), `菜单不得使用缩写路由 ${deprecatedPath}`)
+    assert(!listSource.includes(deprecatedPath), `列表源码不得使用缩写路由 ${deprecatedPath}`)
+  }
   assert(menuSource.includes("title: '领料管理'"), '领料管理必须作为独立一级菜单')
+  for (const title of ['已配齐待领料', '未配齐配料', '已领料']) {
+    assert(menuSource.includes(`title: '${title}'`), `菜单必须使用完整文案：${title}`)
+    assert(metaSource.includes(`pageTitle: '${title}'`), `页面元数据必须使用完整文案：${title}`)
+    assert(listSource.includes(`return '${title}'`), `页面标题必须使用完整文案：${title}`)
+  }
   assert(
     !/title: '裁前准备'[\s\S]*?href: '\/fcs\/craft\/cutting\/pickup-management'/.test(menuSource),
     '裁前准备不得保留旧领料管理菜单',
