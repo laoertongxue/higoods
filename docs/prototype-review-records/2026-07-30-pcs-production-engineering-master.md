@@ -55,6 +55,7 @@
 | 测款前准备遗漏既有表单入口 | `协作断裂` | 商品企划、商品运营 | 在固定第三步恢复拍摄试穿、样衣确认、样衣核价、样衣定价及可行性、渠道准备入口 | 否 |
 | 样衣退回默认去向依赖历史模板编号 | `点错风险` | 商品运营、样衣管理员 | 按样衣来源类型推导；外采退回供应商、委托打样退回版房，来源不足时明确默认库存留样 | 否 |
 | 商品测款可行性判断自动进入改版任务 | `协作断裂` | 商品负责人、打样人员 | 测款项目内只保留进入测款、样衣退回；改款和重新打样由前期打样模块独立人工创建 | 否 |
+| 旧改版验收强制依赖商品项目 `REVISION_TASK` 节点 | `协作断裂` | 商品负责人、版师、打样人员 | 改从独立改版任务创建入口建立验收任务，状态按任务仓库核对；委托打样按样衣来源事实推导首版样衣，改版列表独立使用五状态筛选，不改变制版、花型等并列模块 | 否 |
 
 ## 6. 最终结论
 
@@ -80,10 +81,12 @@
 - `src/data/pcs-project-data-consistency.ts`
 - `src/data/pcs-style-archive-bootstrap.ts`
 - `src/data/pcs-project-decision-flow-service.ts`
+- `src/data/pcs-task-project-relation-writeback.ts`
 - `src/data/pcs-channel-product-project-repository.ts`
 - `src/data/pcs-project-inline-node-record-repository.ts`
 - `src/data/pcs-project-inline-node-record-types.ts`
 - `src/pages/pcs-projects.ts`
+- `src/pages/pcs-engineering-tasks.ts`
 
 ### 页面路由
 
@@ -91,6 +94,8 @@
 - `/pcs/projects/create`
 - `/pcs/projects/:projectId`
 - `/pcs/projects/:projectId/work-items/:projectNodeId`
+- `/pcs/patterns/revision`
+- `/pcs/patterns/revision/:revisionTaskId`
 
 ### 验证命令
 
@@ -102,6 +107,7 @@
 - `npm run check:pcs-product-testing-v1`：通过
 - `node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-project-decision-flow.ts`：通过
 - `node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-project-data-consistency.ts`：通过，共核对 26 个项目、364 个节点，未发现问题
+- `node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-revision-remodel-acceptance.ts`：通过，独立改版任务创建、花型和首版样衣下游、确认、技术包前置、完成闭环及详情页验收全部实际执行
 - `npm run check:prototype-design-governance -- --all`：通过
 
 ### 例外

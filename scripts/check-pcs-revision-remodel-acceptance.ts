@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 
 import { renderPcsRevisionTaskDetailPage } from '../src/pages/pcs-engineering-tasks.ts'
-import { getProjectNodeRecordByWorkItemTypeCode, listProjects, resetProjectRepository } from '../src/data/pcs-project-repository.ts'
+import { listProjects, resetProjectRepository } from '../src/data/pcs-project-repository.ts'
 import { resetProjectRelationRepository } from '../src/data/pcs-project-relation-repository.ts'
 import { resetRevisionTaskRepository, getRevisionTaskById, updateRevisionTask } from '../src/data/pcs-revision-task-repository.ts'
 import { resetPatternTaskRepository, listPatternTasks } from '../src/data/pcs-pattern-task-repository.ts'
@@ -56,10 +56,8 @@ pass('来源类型和新增状态使用中文业务口径')
 
 const style = listStyleArchives()[0]
 assert.ok(style, '应存在正式款式档案演示数据')
-const project = listProjects().find((item) =>
-  Boolean(getProjectNodeRecordByWorkItemTypeCode(item.projectId, 'REVISION_TASK')),
-)
-assert.ok(project, '应存在带改版任务节点的商品项目演示数据')
+const project = listProjects()[0]
+assert.ok(project, '应存在可作为测款结论来源的商品项目演示数据')
 
 const projectRequired = createRevisionTaskWithProjectRelation({
   projectId: '',
@@ -167,15 +165,11 @@ const created = createRevisionTaskWithProjectRelation({
   operatorName: '验收脚本',
 })
 assert.equal(created.ok, true)
-assert.ok(created.ok && created.relation, '项目型改版任务应写入正式项目关系')
 assert.equal(created.ok && created.task.status, '进行中')
 if (!created.ok) throw new Error(created.message)
-
-const nodeAfterCreate = getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'REVISION_TASK')
-assert.equal(nodeAfterCreate?.currentStatus, '进行中')
-assert.equal(nodeAfterCreate?.latestInstanceId, created.task.revisionTaskId)
-assert.equal(nodeAfterCreate?.latestInstanceCode, created.task.revisionTaskCode)
-pass('创建后改版任务和商品项目节点同步为进行中')
+assert.equal(created.task.projectId, project.projectId)
+assert.equal(getRevisionTaskById(created.task.revisionTaskId)?.status, '进行中')
+pass('独立改版任务创建入口可直接承接测款结论来源并进入进行中')
 
 const suggestedTypes = inferDownstreamTypesFromRevisionTask(created.task)
 assert.deepEqual(suggestedTypes, ['PRINT', 'FIRST_SAMPLE'])
@@ -202,7 +196,7 @@ const createdFirstSampleDownstreamCode = createdFirstSampleDownstreams[0]?.first
 assert.equal(listFirstOrderSampleTasks().filter((item) => item.upstreamObjectId === created.task.revisionTaskId).length, 0)
 pass('下游任务按改版范围推导，默认创建花型和产出样衣，不再默认创建制版任务')
 
-const wanlongProject = listProjects().find((item) => item.templateId === 'TPL-003' || item.templateName.includes('万隆改版'))
+const wanlongProject = listProjects().find((item) => item.sampleSourceType === '委托打样')
 assert.ok(wanlongProject, '应存在万隆改版出样衣测款项目演示数据')
 const wanlongRevision = createRevisionTaskWithProjectRelation({
   projectId: wanlongProject.projectId,
@@ -230,13 +224,13 @@ pass('万隆改版出样衣项目默认把改版任务产出样衣落到首版�
 const submitted = submitRevisionTaskForConfirmation(created.task.revisionTaskId, '验收脚本')
 assert.equal(submitted.ok, true)
 assert.equal(submitted.ok && submitted.task.status, '待确认')
-assert.equal(getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'REVISION_TASK')?.currentStatus, '待确认')
+assert.equal(getRevisionTaskById(created.task.revisionTaskId)?.status, '待确认')
 
 const confirmed = confirmRevisionTaskOutput(created.task.revisionTaskId, '验收脚本')
 assert.equal(confirmed.ok, true)
 assert.equal(confirmed.ok && confirmed.task.status, '已确认')
-assert.equal(getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'REVISION_TASK')?.pendingActionType, '生成改版技术包版本')
-pass('进行中到待确认到已确认的状态流转和项目节点写回正确')
+assert.equal(getRevisionTaskById(created.task.revisionTaskId)?.status, '已确认')
+pass('独立改版任务从进行中到待确认再到已确认')
 
 assert.equal(isTechPackGenerationAllowedStatus('进行中'), false)
 assert.equal(isTechPackGenerationAllowedStatus('待确认'), false)
@@ -261,8 +255,8 @@ assert.ok(generatedTask, '应能写入已生成技术包状态')
 const completed = completeRevisionTaskWithProjectRelationSync(created.task.revisionTaskId, '验收脚本')
 assert.equal(completed.ok, true)
 assert.equal(completed.ok && completed.task.status, '已完成')
-assert.equal(getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'REVISION_TASK')?.currentStatus, '已完成')
-pass('完成任务必须以已生成技术包为前置，完成后回写项目节点')
+assert.equal(getRevisionTaskById(created.task.revisionTaskId)?.status, '已完成')
+pass('完成独立改版任务必须以已生成技术包为前置')
 
 const detailTask = getRevisionTaskById(created.task.revisionTaskId)
 assert.ok(detailTask, '应能读取验收改版任务')
@@ -311,7 +305,8 @@ assertIncludes(pageSource, '创建建议下游', '下游页签缺少创建建议
 assertIncludes(pageSource, 'sourceOptions: REVISION_TASK_SOURCE_TYPE_LIST', '列表来源筛选必须固定展示标准改版来源')
 assertIncludes(pageSource, "已确认: { label: '待生成技术包'", '已确认状态必须按待生成技术包展示')
 assertIncludes(pageSource, "已生成技术包: { label: '待完成'", '已生成技术包状态必须按待完成展示')
-assertIncludes(pageSource, "ENGINEERING_COMMON_FILTER_STATUS_OPTIONS = ['进行中', '待确认', '已确认', '已生成技术包', '已完成']", '工程任务状态筛选必须收敛为 5 个业务状态')
+assertIncludes(pageSource, "REVISION_FILTER_STATUS_OPTIONS = ['进行中', '待确认', '已确认', '已生成技术包', '已完成']", '改版任务状态筛选必须收敛为 5 个业务状态')
+assertIncludes(pageSource, 'statusOptions: REVISION_FILTER_STATUS_OPTIONS', '改版任务列表必须使用专用五状态筛选')
 assertIncludes(pageSource, "label: '产出样衣'", '改版详情页样衣页签必须表达为产出样衣')
 assertIncludes(pageSource, '当前改版任务暂未产出样衣', '产出样衣空状态必须按当前改版任务语义表达')
 assertIncludes(pageSource, "task.projectCode || '独立改版任务'", '独立改版任务标题信息不得继续显示未关联商品项目')
@@ -320,7 +315,12 @@ assert.ok(!pageSource.includes("if (!task.projectId) return '先补齐正式商�
 assert.ok(!pageSource.includes("missing.push('关联商品项目')"), '独立改版任务缺失项不得提示关联商品项目')
 assert.ok(!pageSource.includes("label: '关联样衣'"), '改版详情页不得继续使用关联样衣页签')
 assert.ok(!pageSource.includes("statusOptions: ['未开始', '进行中'"), '工程任务状态筛选不得继续展示未开始')
-assert.ok(!pageSource.includes("'异常待处理', '已取消']"), '工程任务状态筛选不得继续展示阻塞和已取消')
+const revisionFilterSource = pageSource.slice(
+  pageSource.indexOf('const REVISION_FILTER_STATUS_OPTIONS'),
+  pageSource.indexOf('const SAMPLE_STATUS_META'),
+)
+assert.ok(!revisionFilterSource.includes('异常待处理'), '改版任务状态筛选不得继续展示阻塞状态')
+assert.ok(!revisionFilterSource.includes('已取消'), '改版任务状态筛选不得继续展示已取消')
 assert.ok(!pageSource.includes('py-6 text-center text-sm text-slate-500'), '上传空状态不应继续占用大块纵向空间')
 assert.ok((pageSource.match(/'面辅料变化'/g) || []).length >= 1, '仍需保留面辅料变化业务模块')
 assert.ok(pageSource.includes('明细编辑'), '面辅料编辑区应与面辅料变化汇总区区分命名')

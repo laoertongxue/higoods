@@ -3,7 +3,6 @@ import {
   getProjectNodeRecordByWorkItemTypeCode,
   updateProjectNodeRecord,
 } from './pcs-project-repository.ts'
-import { WANLONG_REVISION_SAMPLE_TEMPLATE_ID } from './pcs-project-domain-contract.ts'
 import { markProjectNodeCompletedAndUnlockNext } from './pcs-project-flow-service.ts'
 import { upsertProjectRelation } from './pcs-project-relation-repository.ts'
 import { syncExistingProjectArchiveByProjectId } from './pcs-project-archive-sync.ts'
@@ -696,10 +695,7 @@ function hasRevisionPlateScope(input: Pick<RevisionTaskCreateInput, 'revisionSco
 
 function isWanlongRevisionSampleProject(projectId?: string): boolean {
   const project = projectId ? getProjectById(projectId) : null
-  return Boolean(
-    project &&
-    (project.templateId === WANLONG_REVISION_SAMPLE_TEMPLATE_ID || project.templateName.includes('万隆改版')),
-  )
+  return project?.sampleSourceType === '委托打样'
 }
 
 export function inferDownstreamTypesFromRevisionTask(

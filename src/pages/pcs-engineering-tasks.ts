@@ -353,6 +353,7 @@ const COMMON_STATUS_META: Record<string, { label: string; className: string }> =
 }
 
 const ENGINEERING_COMMON_FILTER_STATUS_OPTIONS = ['进行中', '待确认', '已确认', '已生成技术包', '已完成', '异常待处理', '已取消']
+const REVISION_FILTER_STATUS_OPTIONS = ['进行中', '待确认', '已确认', '已生成技术包', '已完成']
 
 const SAMPLE_STATUS_META: Record<string, { label: string; className: string }> = {
   草稿: { label: '草稿', className: 'bg-slate-100 text-slate-700' },
@@ -2335,7 +2336,7 @@ function renderRevisionListPage(): string {
         statusField: 'revision-status',
         ownerField: 'revision-owner',
         sourceField: 'revision-source',
-        statusOptions: ENGINEERING_COMMON_FILTER_STATUS_OPTIONS,
+        statusOptions: REVISION_FILTER_STATUS_OPTIONS,
         ownerOptions: owners,
         sourceOptions: REVISION_TASK_SOURCE_TYPE_LIST,
       })}
