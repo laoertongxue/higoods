@@ -1,6 +1,8 @@
 export type PickupNodeType = 'INCOMPLETE_PICKABLE' | 'READY_TO_PICKUP'
 export type PickupNodeStatus = 'OPEN' | 'CLOSED'
 export type PickupNodeLocationPolicy = 'KEEP_CURRENT_LOCATION' | 'ASSIGN_INCOMPLETE_LOCATION' | 'DIRECT_READY_AREA'
+export type PickupNodeCarrierType = 'WAREHOUSE_LOCATIONS' | 'PALLET'
+export type PickupNodeReadySource = 'DIRECT_READY' | 'UPGRADED_FROM_INCOMPLETE'
 
 export interface PickupCoverageLine {
   key: string
@@ -69,6 +71,10 @@ export interface PickupNodeProjection extends PickupNodeIdentity {
   productionOrderNo: string
   sequence: number
   updatedAt: string
+  carrierType: PickupNodeCarrierType
+  palletId: string
+  palletDisplayLabel: string
+  readySource: PickupNodeReadySource | null
   itemCount: number
   items: PickupNodeItem[]
 }
@@ -101,6 +107,8 @@ export interface PickupNodeSnapshotState {
   version: number
   fingerprint: string
   updatedAt: string
+  nodeType: PickupNodeType
+  readySource: PickupNodeReadySource | null
 }
 
 export function derivePickupNodeType(lines: PickupCoverageLine[]): PickupNodeType {

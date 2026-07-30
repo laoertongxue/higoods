@@ -632,6 +632,12 @@ for (const listKind of ['READY', 'INCOMPLETE', 'HISTORY'] as const) {
     `${listKind} 列表内 productionOrderId 必须唯一`,
   )
   groups.forEach((group) => assertGroupContract(group, listKind))
+  assert(
+    groups
+      .filter((group) => group.carrierType === 'PALLET')
+      .every((group) => group.materialRows.every((row) => row.currentLocations.length === 0)),
+    `${listKind} 列表中只有库位承载分组可以输出当前位置`,
+  )
   groupsByKind.set(listKind, groups)
 }
 
@@ -641,7 +647,15 @@ for (const group of readyGroups) {
   assert(node?.nodeType === 'READY_TO_PICKUP', `${group.productionOrderNo} READY 分组必须来自已配齐活动节点`)
   assertCurrentAvailableFacts(group, node)
   assert(group.carrierType === 'PALLET', `${group.productionOrderNo} READY 分组必须使用托盘载体`)
-  assert(group.readySource === null, `${group.productionOrderNo} 没有明确前一节点类型时不得推测 READY 来源`)
+  assert(group.palletId === '', `${group.productionOrderNo} READY 分组不得虚构托盘编号`)
+  assert(
+    group.palletDisplayLabel === '待领托盘（暂未编号）',
+    `${group.productionOrderNo} READY 分组必须明确展示未编号待领托盘`,
+  )
+  assert(
+    group.readySource === 'DIRECT_READY' || group.readySource === 'UPGRADED_FROM_INCOMPLETE',
+    `${group.productionOrderNo} READY 分组必须记录直接配齐或未配齐升级来源`,
+  )
   assert(
     group.materialRows.every((materialRow) => materialRow.currentLocations.length === 0),
     `${group.productionOrderNo} READY 托盘分组不得同时输出当前库位`,
@@ -746,7 +760,7 @@ assert(
 )
 
 console.log(JSON.stringify({
-  READY: '节点分类、托盘载体、空库位与未知 readySource 已覆盖',
+  READY: '节点分类、未编号托盘、空库位与配齐来源已覆盖',
   INCOMPLETE: '节点分类、库位载体与完整来源位置事实已覆盖',
   MATERIAL_ROWS: 'prepLineId、需求/已配/有效已领/待领/当前可领数量已覆盖',
   HISTORY: '空输入、全会话路径、活动节点数量与逐需求行最终结果已覆盖',

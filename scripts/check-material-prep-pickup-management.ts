@@ -25,6 +25,9 @@ import {
   stageMaterialPrepRecord,
   type PickupOrderStatus,
 } from '../src/data/fcs/cutting/production-material-prep.ts'
+import {
+  listPickupOrderGroups,
+} from '../src/pages/process-factory/cutting/pickup-management-projection.ts'
 
 const repoRoot = process.cwd()
 
@@ -179,20 +182,110 @@ assert(multiUnitContext?.availableToPickupUnitSummaries.length! > 1, '多单位�
 assert(multiUnitContext?.totalAvailableToPickupQty === null, '多单位配料记录不得输出无量纲可领总数')
 
 const activeNodes = listActivePickupNodes(null)
+const incompleteGroups = listPickupOrderGroups('INCOMPLETE', null)
+const readyGroups = listPickupOrderGroups('READY', null)
+assert(incompleteGroups.length > 0, 'Mock 缺少未配齐领料分组')
+assert(incompleteGroups.every((group) =>
+  group.carrierType === 'WAREHOUSE_LOCATIONS' &&
+  group.materialRows.some((row) => row.currentLocations.length > 0)
+), '未配齐分组必须由专属库位承载，且至少一项物料展示当前位置')
+assert(readyGroups.length > 0, 'Mock 缺少已配齐待领分组')
+assert(readyGroups.every((group) =>
+  group.carrierType === 'PALLET' &&
+  group.palletId === '' &&
+  group.palletDisplayLabel === '待领托盘（暂未编号）' &&
+  group.materialRows.every((row) => row.currentLocations.length === 0)
+), '已配齐分组必须由未编号待领托盘承载')
 assert(activeNodes.length > 0, '已确认且尚未领取的物料必须形成活动待领节点')
 assert(new Set(activeNodes.map((node) => node.prepOrderId)).size === activeNodes.length, '同一配料单同一时刻最多一个活动节点')
 assert(activeNodes.every((node) => node.items.length > 0), '活动节点必须包含当前全部可领物料')
-assert(activeNodes.some((node) => node.nodeType === 'INCOMPLETE_PICKABLE'), 'Mock 缺少未配齐可领节点')
-assert(activeNodes.some((node) => node.nodeType === 'READY_TO_PICKUP'), 'Mock 缺少已配齐待领节点')
-assert(activeNodes.some((node) =>
-  node.items.some((item) => item.sourcePrepRecordIds.length >= 2)
-), '多条已确认配料记录必须能归并到同一待领节点')
-assert(activeNodes.every((node) =>
+const incompleteNodes = activeNodes.filter((node) => node.nodeType === 'INCOMPLETE_PICKABLE')
+const readyNodes = activeNodes.filter((node) => node.nodeType === 'READY_TO_PICKUP')
+assert(incompleteNodes.length > 0, 'Mock 缺少未配齐可领节点')
+assert(readyNodes.length > 0, 'Mock 缺少已配齐待领节点')
+assert(incompleteNodes.every((node) =>
+  node.carrierType === 'WAREHOUSE_LOCATIONS' &&
+  node.palletId === '' &&
+  node.palletDisplayLabel === '' &&
+  node.readySource === null &&
   node.items.every((item) =>
     item.sourceLocations.length > 0 &&
     item.sourceLocations.every((location) => location.unit === item.unit)
   )
-), '节点物料必须保留按本行单位记录的当前来源货位事实')
+), '未配齐节点每项物料必须保留来源库位，并由库位承载')
+assert(readyNodes.every((node) =>
+  node.carrierType === 'PALLET' &&
+  node.palletId === '' &&
+  node.palletDisplayLabel === '待领托盘（暂未编号）' &&
+  (node.readySource === 'DIRECT_READY' || node.readySource === 'UPGRADED_FROM_INCOMPLETE') &&
+  node.items.every((item) => item.sourceLocations.length > 0)
+), '已配齐节点必须由未编号托盘承载并记录配齐来源')
+assert(activeNodes.some((node) =>
+  node.items.some((item) => item.sourcePrepRecordIds.length >= 2)
+), '多条已确认配料记录必须能归并到同一待领节点')
+const locationOwners = new Map<string, string>()
+for (const node of incompleteNodes) {
+  for (const item of node.items) {
+    for (const location of item.sourceLocations) {
+      const locationKey = [
+        location.sourceWarehouseName,
+        location.sourceWarehouseArea,
+        location.sourceLocationCode,
+      ].join('|')
+      const existingOwner = locationOwners.get(locationKey)
+      assert(
+        !existingOwner || existingOwner === node.productionOrderId,
+        `专属库位 ${locationKey} 不得同时属于生产单 ${existingOwner} 与 ${node.productionOrderId}`,
+      )
+      locationOwners.set(locationKey, node.productionOrderId)
+    }
+  }
+}
+assert(incompleteNodes.some((node) =>
+  new Set(node.items.flatMap((item) => item.sourceLocations.map((location) =>
+    `${location.sourceWarehouseName}|${location.sourceWarehouseArea}|${location.sourceLocationCode}`
+  ))).size > 1
+), 'Mock 必须覆盖同一生产单使用多个专属库位')
+assert(incompleteNodes.some((node) =>
+  node.items.some((item) => item.sourceLocations.length > 1)
+), 'Mock 必须覆盖同一物料使用多个专属库位')
+
+const upgradeStorage = new MemoryStorage()
+upgradeStorage.setItem(
+  PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
+  serializeProductionMaterialPrepStore(createProductionMaterialPrepSeedStore()),
+)
+const incompleteBeforeUpgrade = listActivePickupNodes(upgradeStorage)
+  .find((node) => node.nodeType === 'INCOMPLETE_PICKABLE')
+assert(incompleteBeforeUpgrade, '缺少可用于验证未配齐升级的活动节点')
+const upgradeProjection = getMaterialPrepOrderProjection(incompleteBeforeUpgrade.prepOrderId, upgradeStorage)
+assert(upgradeProjection, '未配齐升级测试缺少配料单投影')
+for (const [index, line] of upgradeProjection.lines.entries()) {
+  if (line.remainingNeedQty <= 0) continue
+  const record = appendManualPrepRecord({
+    prepOrderId: upgradeProjection.order.prepOrderId,
+    prepLineId: line.prepLineId,
+    preparedQty: line.remainingNeedQty,
+    rollCount: 1,
+    warehouseArea: '中转仓升级测试区',
+    locationCode: `TR-UPGRADE-${String(index + 1).padStart(3, '0')}`,
+    operatorName: '中转仓 升级测试员',
+  }, upgradeStorage)
+  assert(pickMaterialPrepRecord(record.prepRecordId, '仓库 升级测试员', upgradeStorage), '升级测试配料记录必须完成拣货')
+  assert(stageMaterialPrepRecord(record.prepRecordId, '中转仓升级测试区', '跟单 升级测试员', upgradeStorage), '升级测试配料记录必须完成暂存')
+  assert(confirmMaterialPrepRecord(record.prepRecordId, '中转仓 升级测试员', upgradeStorage), '升级测试配料记录必须完成确认')
+}
+const upgradedNode = listActivePickupNodes(upgradeStorage)
+  .find((node) => node.prepOrderId === incompleteBeforeUpgrade.prepOrderId)
+assert(upgradedNode?.nodeId === incompleteBeforeUpgrade.nodeId, '未配齐升级后必须沿用原活动节点')
+assert(upgradedNode.nodeType === 'READY_TO_PICKUP', '逐项配齐后活动节点必须升级为已配齐')
+assert(upgradedNode.carrierType === 'PALLET', '未配齐升级后必须释放专属库位并改由托盘承载')
+assert(upgradedNode.readySource === 'UPGRADED_FROM_INCOMPLETE', '未配齐升级后必须记录升级来源')
+assert(
+  listActivePickupNodes(upgradeStorage)
+    .find((node) => node.nodeId === upgradedNode.nodeId)?.readySource === 'UPGRADED_FROM_INCOMPLETE',
+  '升级来源必须在重复投影时保持稳定',
+)
 
 const storage = new MemoryStorage()
 storage.setItem(

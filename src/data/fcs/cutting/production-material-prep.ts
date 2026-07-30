@@ -4185,6 +4185,15 @@ function buildPickupNodeFingerprint(nodeType: PickupNodeProjection['nodeType'], 
   })
 }
 
+function readPickupNodeTypeFromFingerprint(fingerprint: string): PickupNodeProjection['nodeType'] | null {
+  try {
+    const nodeType = (JSON.parse(fingerprint) as { nodeType?: unknown }).nodeType
+    return nodeType === 'INCOMPLETE_PICKABLE' || nodeType === 'READY_TO_PICKUP' ? nodeType : null
+  } catch {
+    return null
+  }
+}
+
 export function listActivePickupNodes(
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): PickupNodeProjection[] {
@@ -4253,16 +4262,30 @@ export function listActivePickupNodes(
         version: 1,
         fingerprint,
         updatedAt: businessUpdatedAt,
+        nodeType,
+        readySource: nodeType === 'READY_TO_PICKUP' ? 'DIRECT_READY' : null,
       }
       store.pickupNodeSnapshots.push(snapshot)
       snapshotChanged = true
     } else if (snapshot.fingerprint !== fingerprint) {
+      const previousNodeType = snapshot.nodeType || readPickupNodeTypeFromFingerprint(snapshot.fingerprint)
       snapshot.version += 1
       snapshot.fingerprint = fingerprint
       snapshot.updatedAt = businessUpdatedAt
+      snapshot.nodeType = nodeType
+      snapshot.readySource = nodeType === 'READY_TO_PICKUP'
+        ? previousNodeType === 'INCOMPLETE_PICKABLE' || snapshot.readySource === 'UPGRADED_FROM_INCOMPLETE'
+          ? 'UPGRADED_FROM_INCOMPLETE'
+          : 'DIRECT_READY'
+        : null
+      snapshotChanged = true
+    } else if (!snapshot.nodeType || (nodeType === 'READY_TO_PICKUP' && !snapshot.readySource)) {
+      snapshot.nodeType = nodeType
+      snapshot.readySource = nodeType === 'READY_TO_PICKUP' ? 'DIRECT_READY' : null
       snapshotChanged = true
     }
 
+    const carrierType = nodeType === 'READY_TO_PICKUP' ? 'PALLET' : 'WAREHOUSE_LOCATIONS'
     return [{
       nodeId,
       version: snapshot.version,
@@ -4279,6 +4302,10 @@ export function listActivePickupNodes(
       productionOrderNo: projection.order.productionOrderNo,
       sequence,
       updatedAt: snapshot.updatedAt,
+      carrierType,
+      palletId: '',
+      palletDisplayLabel: carrierType === 'PALLET' ? '待领托盘（暂未编号）' : '',
+      readySource: carrierType === 'PALLET' ? snapshot.readySource : null,
       itemCount: items.length,
       items,
     }]

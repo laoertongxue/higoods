@@ -526,15 +526,15 @@ export function buildPickupOrderGroups(
                 row,
                 row.order.prepOrderId === node.prepOrderId ? node : null,
                 processAssignments,
-                listKind === 'INCOMPLETE',
+                node.carrierType === 'WAREHOUSE_LOCATIONS',
               )
             ),
             supplementRowsByProductionOrder.get(node.productionOrderId) ?? [],
           ),
-          carrierType: listKind === 'READY' ? 'PALLET' : 'WAREHOUSE_LOCATIONS',
-          palletId: '',
-          palletDisplayLabel: '',
-          readySource: null,
+          carrierType: node.carrierType,
+          palletId: node.palletId,
+          palletDisplayLabel: node.palletDisplayLabel,
+          readySource: node.readySource,
           historyPath: null,
           finalResult: null,
           pickupSessionCount: sessions.length,
@@ -559,6 +559,8 @@ export function buildPickupOrderGroups(
     if (!latest) return
     const firstProjection = matchingProjections[0]
     const activeNode = activeNodeByProductionOrder.get(productionOrderId) ?? null
+    const carrierType = latest.pickupNodeSnapshot?.carrierType
+      ?? (latest.nodeType === 'READY_TO_PICKUP' ? 'PALLET' : 'WAREHOUSE_LOCATIONS')
     const processAssignments = buildNormalProcessAssignments(
       matchingProjections,
       firstProjection.order.productionOrderNo,
@@ -570,6 +572,7 @@ export function buildPickupOrderGroups(
           projection,
           activeNode?.prepOrderId === projection.order.prepOrderId ? activeNode : null,
           processAssignments,
+          carrierType === 'WAREHOUSE_LOCATIONS',
         )
       ),
       supplementRowsByProductionOrder.get(productionOrderId) ?? [],
@@ -581,10 +584,11 @@ export function buildPickupOrderGroups(
       prepOrderNo: firstProjection.order.prepOrderNo,
       listKind,
       materialRows,
-      carrierType: latest.nodeType === 'READY_TO_PICKUP' ? 'PALLET' : 'WAREHOUSE_LOCATIONS',
-      palletId: '',
-      palletDisplayLabel: '',
-      readySource: null,
+      carrierType,
+      palletId: latest.pickupNodeSnapshot?.palletId ?? '',
+      palletDisplayLabel: latest.pickupNodeSnapshot?.palletDisplayLabel
+        ?? (latest.nodeType === 'READY_TO_PICKUP' ? '待领托盘（暂未编号）' : ''),
+      readySource: latest.pickupNodeSnapshot?.readySource ?? null,
       historyPath: derivePickupHistoryPath(sessions.map((session) => session.nodeType)),
       finalResult: materialRows.every((row) => row.pickedQty >= row.requiredQty)
         ? 'ALL_PICKED'
