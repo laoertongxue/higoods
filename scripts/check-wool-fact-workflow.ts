@@ -3094,7 +3094,44 @@ const machineActor = {
   operatedBy: '设备主管',
 }
 
-replaceWoolMachineAssociations(machineOrderA.woolOrderId, ['WM-001', 'WM-002'], machineActor)
+function assertMachineAssociationResult(
+  result: unknown,
+  woolOrderId: string,
+  expectedMachineIds: string[],
+  pathLabel: string,
+): void {
+  assert(Array.isArray(result), `${pathLabel}必须返回当前关联数组`)
+  const associations = result as WoolMachineAssociation[]
+  assert(
+    associations.every((item) => item.woolOrderId === woolOrderId),
+    `${pathLabel}只能返回目标加工单的当前关联`,
+  )
+  assert.deepEqual(
+    associations.map((item) => item.machineId),
+    expectedMachineIds,
+    `${pathLabel}必须按设备 ID 稳定排序返回目标设备集合`,
+  )
+  const storeBeforeReturnMutation = readWoolStore()
+  associations[0]!.associatedBy = `${pathLabel}返回值篡改`
+  associations.reverse()
+  assert.deepEqual(
+    readWoolStore(),
+    storeBeforeReturnMutation,
+    `${pathLabel}返回对象和数组都不得暴露内部 store 引用`,
+  )
+}
+
+const addedAssociationResult = replaceWoolMachineAssociations(
+  machineOrderA.woolOrderId,
+  ['WM-001', 'WM-002'],
+  machineActor,
+)
+assertMachineAssociationResult(
+  addedAssociationResult,
+  machineOrderA.woolOrderId,
+  ['WM-001', 'WM-002'],
+  '新增路径',
+)
 assert.equal(getWoolMachineById('WM-001')?.status, 'PRODUCING')
 assert.equal(getWoolMachineById('WM-002')?.status, 'PRODUCING')
 const unchangedAssociationStore = readWoolStore()
@@ -3112,16 +3149,20 @@ Object.defineProperty(globalThis, 'localStorage', {
     },
   },
 })
-assert.deepEqual(
-  replaceWoolMachineAssociations(
-    machineOrderA.woolOrderId,
-    ['WM-002', 'WM-001', 'WM-001'],
-    {
-      operatedAt: '2026-07-30 20:05:00',
-      operatedBy: '另一位设备主管',
-    },
-  ),
-  unchangedAssociationResult,
+const noChangeAssociationResult = replaceWoolMachineAssociations(
+  machineOrderA.woolOrderId,
+  ['WM-002', 'WM-001', 'WM-001'],
+  {
+    operatedAt: '2026-07-30 20:05:00',
+    operatedBy: '另一位设备主管',
+  },
+)
+assert.deepEqual(noChangeAssociationResult, unchangedAssociationResult)
+assertMachineAssociationResult(
+  noChangeAssociationResult,
+  machineOrderA.woolOrderId,
+  ['WM-001', 'WM-002'],
+  '无变化路径',
 )
 assert.equal(unchangedAssociationStorageWrites, 0, '无变化整组保存不得调用 setItem')
 assert.deepEqual(
@@ -3141,15 +3182,27 @@ Object.defineProperty(globalThis, 'localStorage', {
   },
 })
 
-replaceWoolMachineAssociations(machineOrderA.woolOrderId, ['WM-002'], {
+const removedAssociationResult = replaceWoolMachineAssociations(machineOrderA.woolOrderId, ['WM-002'], {
   ...machineActor,
   operatedAt: '2026-07-30 20:10:00',
 })
+assertMachineAssociationResult(
+  removedAssociationResult,
+  machineOrderA.woolOrderId,
+  ['WM-002'],
+  '移除路径',
+)
 assert.equal(getWoolMachineById('WM-001')?.status, 'IDLE')
-replaceWoolMachineAssociations(machineOrderB.woolOrderId, ['WM-002'], {
+const transferredAssociationResult = replaceWoolMachineAssociations(machineOrderB.woolOrderId, ['WM-002'], {
   ...machineActor,
   operatedAt: '2026-07-30 20:20:00',
 })
+assertMachineAssociationResult(
+  transferredAssociationResult,
+  machineOrderB.woolOrderId,
+  ['WM-002'],
+  '跨单转移路径',
+)
 assert.equal(listWoolMachineAssociations(machineOrderA.woolOrderId).length, 0)
 assert.deepEqual(
   listWoolMachineAssociations(machineOrderB.woolOrderId).map((item) => item.machineId),

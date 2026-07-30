@@ -6,6 +6,7 @@ import {
 } from './store.ts'
 import type {
   WoolMachine,
+  WoolMachineAssociation,
   WoolMachineAssociationReason,
   WoolMachineAvailability,
   WoolMachineView,
@@ -75,6 +76,16 @@ function machineStatus(
   return store.machineAssociations.some((item) => item.machineId === machine.machineId)
     ? 'PRODUCING'
     : machine.status
+}
+
+function cloneCurrentMachineAssociations(
+  store: WoolDomainStore,
+  woolOrderId: string,
+): WoolMachineAssociation[] {
+  return store.machineAssociations
+    .filter((item) => item.woolOrderId === woolOrderId)
+    .map((association) => ({ ...association }))
+    .sort((left, right) => left.machineId.localeCompare(right.machineId))
 }
 
 export function getWoolMachineById(machineId: string): WoolMachineView | undefined {
@@ -172,7 +183,7 @@ export function replaceWoolMachineAssociations(
   woolOrderId: string,
   machineIds: string[],
   actor: WoolMachineActor,
-) {
+): WoolMachineAssociation[] {
   const operatedAt = requireText(actor.operatedAt, '操作时间')
   const operatedBy = requireText(actor.operatedBy, '操作人')
   const store = readWoolStore()
@@ -200,12 +211,10 @@ export function replaceWoolMachineAssociations(
     store.machineAssociations.find((item) => item.machineId === machineId)?.woolOrderId !== woolOrderId,
   )
   if (!hasRemoved && !hasAddedOrTransferred) {
-    return currentForTarget
-      .map((association) => ({ ...association }))
-      .sort((left, right) => left.machineId.localeCompare(right.machineId))
+    return cloneCurrentMachineAssociations(store, woolOrderId)
   }
 
-  return commitWoolStore((draft) => {
+  const committed = commitWoolStore((draft) => {
     const currentForTarget = draft.machineAssociations
       .filter((item) => item.woolOrderId === woolOrderId)
     const selected = new Set(selectedMachineIds)
@@ -218,9 +227,7 @@ export function replaceWoolMachineAssociations(
       .filter(({ current }) => current?.woolOrderId !== woolOrderId)
 
     if (removed.length === 0 && addedOrTransferred.length === 0) {
-      return draft.machineAssociations
-        .filter((item) => item.woolOrderId === woolOrderId)
-        .sort((left, right) => left.machineId.localeCompare(right.machineId))
+      return
     }
 
     draft.machineAssociations = draft.machineAssociations.filter((association) =>
@@ -279,10 +286,8 @@ export function replaceWoolMachineAssociations(
       operatedBy,
       remark: '保存横机当前关联整组最终真相',
     })
-    return draft.machineAssociations
-      .filter((item) => item.woolOrderId === woolOrderId)
-      .sort((left, right) => left.machineId.localeCompare(right.machineId))
   })
+  return cloneCurrentMachineAssociations(committed, woolOrderId)
 }
 
 export function changeWoolMachineAvailability(
