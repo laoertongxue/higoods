@@ -2810,7 +2810,7 @@ function ensureMockSupplementOrders(): void {
       ...draft,
       lines,
       materialDemands,
-      confirmationIdentity: `mock-supplement-${index + 1}`,
+      confirmationIdentity: `supplement-page-seed-${index + 1}`,
     }
     const existingSeed = state.records.find((record) =>
       record.draft.productionOrderId === variedDraft.productionOrderId

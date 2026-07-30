@@ -132,14 +132,20 @@ test('同一物料 SKU 的两次补料保持独立补料单和独立物料行', 
   const orderRow = page.getByRole('row').filter({ hasText: 'PO-202603-0004' })
   await expect(orderRow).toBeVisible({ timeout: 60_000 })
   const sku = 'tdv_demand_SPU_2024_010-bom-black-stretch-twill'
-  const firstSupplement = orderRow.locator('[data-pickup-material-row]').filter({ hasText: '补料单：SUP-032P0J5' })
-  const secondSupplement = orderRow.locator('[data-pickup-material-row]').filter({ hasText: '补料单：SUP-02SPEU6' })
-  await expect(firstSupplement).toHaveCount(1)
-  await expect(secondSupplement).toHaveCount(1)
+  const matchingSupplements = orderRow
+    .locator('[data-pickup-material-row]')
+    .filter({ hasText: sku })
+    .filter({ hasText: '补料单：' })
+  expect(await matchingSupplements.count()).toBeGreaterThanOrEqual(2)
+  const firstSupplement = matchingSupplements.nth(0)
+  const secondSupplement = matchingSupplements.nth(1)
   await expect(firstSupplement).toContainText(sku)
   await expect(secondSupplement).toContainText(sku)
-  await expect(firstSupplement).not.toContainText('SUP-02SPEU6')
-  await expect(secondSupplement).not.toContainText('SUP-032P0J5')
+  const firstSupplementNo = (await firstSupplement.textContent())?.match(/补料单：(SUP-[A-Z0-9]+)/)?.[1]
+  const secondSupplementNo = (await secondSupplement.textContent())?.match(/补料单：(SUP-[A-Z0-9]+)/)?.[1]
+  expect(firstSupplementNo).toBeTruthy()
+  expect(secondSupplementNo).toBeTruthy()
+  expect(firstSupplementNo).not.toBe(secondSupplementNo)
   expect(await firstSupplement.getAttribute('data-pickup-material-row')).not.toBe(
     await secondSupplement.getAttribute('data-pickup-material-row'),
   )

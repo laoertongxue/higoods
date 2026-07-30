@@ -435,6 +435,18 @@ const supplementRecords = listSupplementRecords().filter((record) => record.stat
 const dyeResults = listPlatformDyeResultViews()
 const printResults = listPlatformPrintResultViews()
 assert(supplementRecords.length === 12, '补料页面与领料 runtime 必须共享单一的 12 条权威 Mock 初始化')
+assert(
+  new Set(supplementRecords.map((record) => record.id)).size === supplementRecords.length,
+  '全部补料记录 id 必须唯一，不得跨生产单复用身份',
+)
+assert(
+  new Set(supplementRecords.map((record) => record.recordNo)).size === supplementRecords.length,
+  '全部补料单号必须唯一，不得跨生产单复用单号',
+)
+assert(
+  new Set(supplementRecords.map((record) => record.confirmationKey)).size === supplementRecords.length,
+  '全部补料确认键必须唯一，不得跨生产单复用确认身份',
+)
 supplementRecords.flatMap((record) => record.processWorkOrderRefs).forEach((ref) => {
   assert(getProcessWorkOrderById(ref.workOrderId), `补料加工单引用必须可解析：${ref.workOrderId}`)
   const processResults = ref.processType === 'DYE' ? dyeResults : printResults
