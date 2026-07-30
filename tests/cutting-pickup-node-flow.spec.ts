@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test'
 const readyPath = '/fcs/craft/cutting/pickup-management/ready'
 const incompletePath = '/fcs/craft/cutting/pickup-management/incomplete'
 
-test.setTimeout(180_000)
+test.setTimeout(120_000)
 
 async function resetStores(page: Page): Promise<void> {
   await page.goto('/')
@@ -28,11 +28,16 @@ test.beforeEach(async ({ page }) => {
   await resetStores(page)
 })
 
-test('已配齐与未配齐列表都把同一节点 ID 和版本带到 PDA，并明确确认全部领料', async ({ page }) => {
-  for (const path of [readyPath, incompletePath]) {
+for (const [label, path] of [
+  ['已配齐', readyPath],
+  ['未配齐', incompletePath],
+] as const) {
+  test(`${label}列表与 PDA 实际消费同一节点 ID 和版本，并明确确认全部领料`, async ({ page }) => {
     await page.goto(path)
     const row = page.getByRole('row').filter({ hasText: '去领料' }).first()
+    await expect(row).toBeVisible({ timeout: 60_000 })
     const productionOrderNo = (await row.textContent())?.match(/PO-\d{6}-\d{4}/)?.[0]
+    expect(productionOrderNo).toBeTruthy()
     const href = await row.getByRole('link', { name: '去领料', exact: true }).getAttribute('href')
     expect(href).toBeTruthy()
     const target = new URL(href!, 'http://127.0.0.1')
@@ -48,12 +53,16 @@ test('已配齐与未配齐列表都把同一节点 ID 和版本带到 PDA，并
     expect(linkedNode).toEqual(activeNode)
 
     await page.goto(href!)
-    await expect(page.locator('button[data-pda-warehouse-action="confirm-cutting-wp-pickup"]')).toContainText(
+    const pdaTask = page.locator('[data-cutting-pickup-node-id]')
+    await expect(pdaTask).toBeVisible({ timeout: 60_000 })
+    await expect(pdaTask).toHaveAttribute('data-cutting-pickup-node-id', linkedNode.nodeId!)
+    await expect(pdaTask).toHaveAttribute('data-cutting-pickup-node-version', String(linkedNode.version))
+    await expect(pdaTask).toContainText(`节点版本：V${linkedNode.version}`)
+    await expect(pdaTask.locator('button[data-pda-warehouse-action="confirm-cutting-wp-pickup"]')).toContainText(
       '确认全部领料',
-      { timeout: 60_000 },
     )
-  }
-})
+  })
+}
 
 test('PDA 混合单位确认形成 1 Session + N Detail，重复 API 幂等', async ({ page }) => {
   await page.goto(incompletePath)

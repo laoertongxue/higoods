@@ -46,6 +46,7 @@ interface PickupListState {
 
 const states = new Map<PickupListKind, PickupListState>()
 const searchDebounceTimers = new Map<string, ReturnType<typeof setTimeout>>()
+const groupSnapshots = new Map<PickupListKind, PickupOrderGroup[]>()
 
 export function pickupListFilterDebounceKey(kind: PickupListKind, field: string): string {
   return `${kind}:${field}`
@@ -270,13 +271,21 @@ function matchesFilters(group: PickupOrderGroup, state: PickupListState): boolea
   return true
 }
 
+function getPickupGroupSnapshot(kind: PickupListKind): PickupOrderGroup[] {
+  const existing = groupSnapshots.get(kind)
+  if (existing) return existing
+  const created = listPickupOrderGroups(kind)
+  groupSnapshots.set(kind, created)
+  return created
+}
+
 function getView(kind: PickupListKind): {
   groups: PickupOrderGroup[]
   paging: ReturnType<typeof paginateStandardListRows<PickupOrderGroup>>
 } {
   const state = getState(kind)
   const columns = columnsFor(kind)
-  const groups = listPickupOrderGroups(kind).filter((group) => matchesFilters(group, state))
+  const groups = getPickupGroupSnapshot(kind).filter((group) => matchesFilters(group, state))
   const sorted = sortStandardListRows(groups, state.sort, (row, key) => {
     const column = columns.find((candidate) => candidate.key === key)
     return column?.sortValue?.(row)
@@ -368,6 +377,7 @@ function renderPaginationRegion(
 
 function renderPickupList(kind: PickupListKind): string {
   cancelInactivePickupListDebounces(kind)
+  groupSnapshots.set(kind, listPickupOrderGroups(kind))
   const state = getState(kind)
   state.currentPage = 1
   state.sort = null

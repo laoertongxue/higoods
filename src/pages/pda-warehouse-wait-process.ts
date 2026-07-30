@@ -965,7 +965,11 @@ function renderCuttingPickupDraftPage(): string {
   const options = getCuttingPickupLocationOptions()
   const unitSummaries = buildPickupUnitSummaries(node)
   return `
-    <section class="space-y-4">
+    <section
+      class="space-y-4"
+      data-cutting-pickup-node-id="${escapeAttr(node.nodeId)}"
+      data-cutting-pickup-node-version="${escapeAttr(String(node.version))}"
+    >
       <div class="rounded-2xl border bg-card px-4 py-4 text-sm shadow-sm">
         <div class="flex items-center gap-2">
           <span class="rounded-full px-2 py-0.5 text-xs font-medium ${node.nodeType === 'READY_TO_PICKUP' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">${escapeHtml(node.nodeType === 'READY_TO_PICKUP' ? '已配齐待领' : '未配齐清单')}</span>
