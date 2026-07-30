@@ -695,6 +695,11 @@ const {
   WOOL_MOCK_SCENARIO_CODES,
   resetWoolFactWorkflowMock,
 } = await import('../src/data/fcs/wool-domain/mock-data.ts')
+const {
+  createFactoryWarehouseLocation,
+  listFactoryInternalWarehouses,
+  toggleFactoryWarehouseNodeStatus,
+} = await import('../src/data/fcs/factory-internal-warehouse.ts')
 
 resetWoolFactWorkflowMock('CHECK_WOOL_FACT_WORKFLOW')
 assert.equal(WOOL_DOMAIN_STORE_KEY, 'higood-fcs-wool-domain-store-v2')
@@ -2331,29 +2336,81 @@ const adjustment = adjustWoolWarehouseStock({
 })
 assert.equal(adjustment.qty, 3)
 assert.equal(getWoolOutputStockQty(reportOrder.woolOrderId, reportLine.outputSkuCode), stockBeforeAdjustment + 3)
+const publicWarehouse = listFactoryInternalWarehouses().find((warehouse) =>
+  warehouse.isEnabled
+  && warehouse.areaList.some((area) =>
+    area.status === 'AVAILABLE'
+    && area.shelfList.some((shelf) =>
+      shelf.status === 'AVAILABLE'
+      && shelf.locationList.some((location) => location.status === 'AVAILABLE'),
+    ),
+  ),
+)!
+const publicArea = publicWarehouse.areaList.find((area) =>
+  area.status === 'AVAILABLE'
+  && area.shelfList.some((shelf) =>
+    shelf.status === 'AVAILABLE'
+    && shelf.locationList.some((location) => location.status === 'AVAILABLE'),
+  ),
+)!
+const publicShelf = publicArea.shelfList.find((shelf) =>
+  shelf.status === 'AVAILABLE'
+  && shelf.locationList.some((location) => location.status === 'AVAILABLE'),
+)!
+const publicEnabledLocation = publicShelf.locationList.find((location) =>
+  location.status === 'AVAILABLE',
+)!
+transferWoolWarehouseStock({
+  commandId: 'CMD-STOCK-TRANSFER-PUBLIC-ENABLED',
+  woolOrderId: reportOrder.woolOrderId,
+  objectSkuCode: reportLine.outputSkuCode,
+  defaultLocationId: 'WOOL-WH-GARMENT-DEFAULT',
+  toWarehouseId: publicWarehouse.warehouseId,
+  toLocationId: publicEnabledLocation.locationId,
+  qty: 1,
+  reason: '转移至公共仓库启用位置',
+  operatedAt: '2026-07-30 12:46:00',
+  operatedBy: '毛织仓管',
+})
+assert.equal(
+  toggleFactoryWarehouseNodeStatus('LOCATION', {
+    warehouseId: publicWarehouse.warehouseId,
+    areaId: publicArea.areaId,
+    shelfId: publicShelf.shelfId,
+    locationId: publicEnabledLocation.locationId,
+  }),
+  true,
+)
 assert.throws(
   () => transferWoolWarehouseStock({
-    commandId: 'CMD-STOCK-TRANSFER-DISABLED',
+    commandId: 'CMD-STOCK-TRANSFER-STOPPED',
     woolOrderId: reportOrder.woolOrderId,
     objectSkuCode: reportLine.outputSkuCode,
     defaultLocationId: 'WOOL-WH-GARMENT-DEFAULT',
-    toLocationId: 'WOOL-WH-DISABLED',
+    toWarehouseId: publicWarehouse.warehouseId,
+    toLocationId: publicEnabledLocation.locationId,
     qty: 1,
-    reason: '测试停用库位',
-    operatedAt: '2026-07-30 12:46:00',
+    reason: '测试停用位置',
+    operatedAt: '2026-07-30 12:47:00',
     operatedBy: '毛织仓管',
   }),
   /启用位置/,
 )
+const dynamicallyAddedLocation = createFactoryWarehouseLocation(
+  publicWarehouse.warehouseId,
+  publicArea.areaId,
+  publicShelf.shelfId,
+)!
 transferWoolWarehouseStock({
-  commandId: 'CMD-STOCK-TRANSFER-001',
+  commandId: 'CMD-STOCK-TRANSFER-DYNAMIC-ENABLED',
   woolOrderId: reportOrder.woolOrderId,
   objectSkuCode: reportLine.outputSkuCode,
   defaultLocationId: 'WOOL-WH-GARMENT-DEFAULT',
-  toLocationId: 'WOOL-WH-OVERFLOW-TEMP',
-  qty: 2,
-  reason: '转移至溢出暂存位',
-  operatedAt: '2026-07-30 12:47:00',
+  toWarehouseId: publicWarehouse.warehouseId,
+  toLocationId: dynamicallyAddedLocation.locationId,
+  qty: 1,
+  reason: '转移至运行时新增的公共仓库启用位置',
+  operatedAt: '2026-07-30 12:48:00',
   operatedBy: '毛织仓管',
 })
 assert.equal(getWoolOutputStockQty(reportOrder.woolOrderId, reportLine.outputSkuCode), stockBeforeAdjustment + 1)

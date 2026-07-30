@@ -4,6 +4,7 @@ import {
   getWoolYarnReceiptLineEffectiveQty,
 } from './queries.ts'
 import { commitWoolStore, readWoolStore, type WoolDomainStore } from './store.ts'
+import { listFactoryInternalWarehouses } from '../factory-internal-warehouse.ts'
 import type {
   WoolCompletionRecord,
   WoolDefaultLocationId,
@@ -88,6 +89,7 @@ export interface TransferWoolWarehouseStockInput extends CommandInput {
   objectSkuCode: string
   defaultLocationId: WoolDefaultLocationId
   batchNo?: string
+  toWarehouseId: string
   toLocationId: string
   qty: number
   reason: string
@@ -111,9 +113,10 @@ export interface CompleteWoolWorkOrderInput extends CommandInput {
   remark?: string
 }
 
-const ENABLED_PUBLIC_WAREHOUSE_LOCATION_IDS = new Set([
-  'WOOL-WH-OVERFLOW-TEMP',
-  'WOOL-WH-QUALITY-HOLD',
+const WOOL_DEFAULT_LOCATION_IDS = new Set<WoolDefaultLocationId>([
+  'WOOL-WP-YARN-DEFAULT',
+  'WOOL-WH-CUT-DEFAULT',
+  'WOOL-WH-GARMENT-DEFAULT',
 ])
 
 function commandToken(commandId: string): string {
@@ -298,6 +301,23 @@ function requireStockObject(
     throw new Error('加工后对象与默认库位不一致')
   }
   return { order, unit: line.qtyUnit, ...location, batchNo: undefined }
+}
+
+function isEnabledPublicWarehouseLocation(warehouseId: string, locationId: string): boolean {
+  if (WOOL_DEFAULT_LOCATION_IDS.has(locationId as WoolDefaultLocationId)) return false
+  const warehouse = listFactoryInternalWarehouses().find((item) => item.warehouseId === warehouseId)
+  return Boolean(
+    warehouse?.isEnabled
+    && warehouse.areaList.some((area) =>
+      area.status === 'AVAILABLE'
+      && area.shelfList.some((shelf) =>
+        shelf.status === 'AVAILABLE'
+        && shelf.locationList.some((location) =>
+          location.locationId === locationId && location.status === 'AVAILABLE',
+        ),
+      ),
+    ),
+  )
 }
 
 export function addWoolYarnReceipt(
@@ -716,7 +736,8 @@ export function transferWoolWarehouseStock(
   requirePositive(input.qty, '转移数量')
   const reason = requireText(input.reason, '转移原因')
   const operatedBy = requireText(input.operatedBy, '操作人')
-  if (!ENABLED_PUBLIC_WAREHOUSE_LOCATION_IDS.has(input.toLocationId)) {
+  const toWarehouseId = requireText(input.toWarehouseId, '目标仓库')
+  if (!isEnabledPublicWarehouseLocation(toWarehouseId, input.toLocationId)) {
     throw new Error('库存只能转到公共仓库位置主数据中的启用位置')
   }
   const committed = commitWoolStore((draft) => {
@@ -741,6 +762,7 @@ export function transferWoolWarehouseStock(
       sourceRecordType: 'STOCK_TRANSFER',
       sourceRecordId,
       fromLocationId: input.defaultLocationId,
+      toWarehouseId,
       toLocationId: input.toLocationId,
       reason,
       operatedAt: input.operatedAt,
@@ -753,7 +775,7 @@ export function transferWoolWarehouseStock(
       objectType: 'WOOL_WAREHOUSE_STOCK',
       objectId: sourceRecordId,
       beforeValue: { locationId: input.defaultLocationId, qty: currentQty },
-      afterValue: { locationId: input.toLocationId, qty: input.qty },
+      afterValue: { warehouseId: toWarehouseId, locationId: input.toLocationId, qty: input.qty },
       operatedAt: input.operatedAt,
       operatedBy,
       remark: reason,

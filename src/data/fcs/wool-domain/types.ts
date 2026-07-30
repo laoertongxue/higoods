@@ -182,6 +182,7 @@ export interface WoolWarehouseFlow {
   sourceRecordType: string
   sourceRecordId: string
   fromLocationId?: string
+  toWarehouseId?: string
   toLocationId?: string
   reason?: string
   operatedAt: string
