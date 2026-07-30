@@ -12,6 +12,10 @@ import {
   type TechnicalBomItem,
   type TechnicalPatternFile,
 } from '../pcs-technical-data-version-types.ts'
+import {
+  buildStableWoolPartCode,
+  buildWoolPanelOutputSku,
+} from './wool-domain/tech-pack-source.ts'
 
 export type TaskDetailRowType = 'COMPOSITE'
 
@@ -147,7 +151,7 @@ function resolveMaterialCandidates(
 
     return {
       bomItemId: item.id,
-      materialCode: item.id,
+      materialCode: item.materialCode ?? (processCode === 'WOOL' ? '' : item.id),
       materialName: item.name,
       consumptionFactor: consumptionFactor > 0 ? consumptionFactor : 1,
       applicableSkuCodes,
@@ -301,15 +305,16 @@ function buildWoolRows(input: {
         const allocation = allocations.find((item) =>
           item.skuCodes?.includes(line.skuCode) || item.colorName === line.color,
         )
-        const pieceCount = Number(allocation?.pieceCount ?? piece.count ?? 1)
+        const pieceCount = Number(allocation?.pieceCount ?? piece.count)
         if (!Number.isFinite(pieceCount) || pieceCount <= 0) continue
+        const woolPartCode = buildStableWoolPartCode(piece.partTemplateId || piece.id)
         upsertRow(
           rowMap,
           taskId,
           dimensions,
           {
             PATTERN: pieceName,
-            GARMENT_SKU: line.skuCode,
+            GARMENT_SKU: buildWoolPanelOutputSku(woolPartCode, line.skuCode),
           },
           line.qty * pieceCount,
           {

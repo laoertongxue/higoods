@@ -1,6 +1,150 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { alignWoolColorMaterialMappingsForDemand } from '../src/data/fcs/production-tech-pack-snapshot-builder.ts'
+import {
+  buildWoolOrderSourceSnapshot,
+  type WoolOrderSourceBuildInput,
+} from '../src/data/fcs/wool-domain/tech-pack-source.ts'
+
+const sourceBuildInput: WoolOrderSourceBuildInput = {
+  taskId: 'TASK-WOOL-SOURCE-CHECK',
+  productionOrderId: 'PO-WOOL-SOURCE-CHECK',
+  productionOrderNo: 'PO-WOOL-SOURCE-CHECK',
+  kind: 'WHOLE_GARMENT',
+  sourceTechPackVersionId: 'TPV-WOOL-SOURCE-CHECK',
+  sourceTechPackVersionCode: 'TP-WOOL-V1',
+  skuLines: [{
+    skuCode: 'GARMENT-BLACK-M',
+    colorCode: 'BLACK',
+    colorName: '黑色',
+    sizeCode: 'M',
+    plannedQty: 100,
+  }],
+  bomItems: [
+    { id: 'BOM-YARN-A', materialCode: 'YARN-A', usageProcessCodes: ['WOOL'] },
+    { id: 'BOM-BAG', materialCode: 'BAG-01', usageProcessCodes: ['PACKAGING'] },
+  ],
+  colorMaterialMappings: [{
+    id: 'MAP-BLACK',
+    mappingOrigin: 'TECH_PACK',
+    colorCode: 'BLACK',
+    lines: [
+      { id: 'MAP-LINE-YARN', bomItemId: 'BOM-YARN-A', materialCode: 'YARN-A', applicableSkuCodes: [] },
+      { id: 'MAP-LINE-BAG', bomItemId: 'BOM-BAG', materialCode: 'BAG-01', applicableSkuCodes: [] },
+    ],
+  }],
+  woolParts: [{
+    woolPartCode: 'SLEEVE',
+    woolPartName: '袖片',
+    pieceCountPerGarment: 2,
+    applicableSkuCodes: [],
+  }],
+}
+
+const wholeSourceSnapshot = buildWoolOrderSourceSnapshot(sourceBuildInput)
+assert.deepEqual(wholeSourceSnapshot.outputPlanLines, [{
+  outputSkuCode: 'GARMENT-BLACK-M',
+  outputObjectType: 'GARMENT',
+  garmentSkuCode: 'GARMENT-BLACK-M',
+  colorCode: 'BLACK',
+  colorName: '黑色',
+  sizeCode: 'M',
+  plannedQty: 100,
+  qtyUnit: '件',
+  requiredYarnSkus: ['YARN-A'],
+  sourceTechPackVersionId: 'TPV-WOOL-SOURCE-CHECK',
+  sourceTechPackVersionCode: 'TP-WOOL-V1',
+  sourceColorMappingIds: ['MAP-BLACK'],
+  sourceBomItemIds: ['BOM-YARN-A'],
+}])
+
+const partSourceSnapshot = buildWoolOrderSourceSnapshot({
+  ...sourceBuildInput,
+  kind: 'PART_PANEL',
+})
+assert.deepEqual(partSourceSnapshot.outputPlanLines, [{
+  outputSkuCode: 'WP-SLEEVE-GARMENT-BLACK-M',
+  outputObjectType: 'WOOL_PANEL',
+  garmentSkuCode: 'GARMENT-BLACK-M',
+  woolPartCode: 'SLEEVE',
+  woolPartName: '袖片',
+  colorCode: 'BLACK',
+  colorName: '黑色',
+  sizeCode: 'M',
+  plannedQty: 200,
+  qtyUnit: '片',
+  requiredYarnSkus: ['YARN-A'],
+  sourceTechPackVersionId: 'TPV-WOOL-SOURCE-CHECK',
+  sourceTechPackVersionCode: 'TP-WOOL-V1',
+  sourceColorMappingIds: ['MAP-BLACK'],
+  sourceBomItemIds: ['BOM-YARN-A'],
+}])
+
+const fallbackSourceSnapshot = buildWoolOrderSourceSnapshot({
+  ...sourceBuildInput,
+  colorMaterialMappings: sourceBuildInput.colorMaterialMappings.map((mapping) => ({
+    ...mapping,
+    mappingOrigin: 'DEMAND_FALLBACK',
+  })),
+})
+assert.deepEqual(fallbackSourceSnapshot.outputPlanLines[0].requiredYarnSkus, [])
+assert.deepEqual(fallbackSourceSnapshot.outputPlanLines[0].sourceColorMappingIds, [])
+
+const materialCodeOnlySnapshot = buildWoolOrderSourceSnapshot({
+  ...sourceBuildInput,
+  colorMaterialMappings: [{
+    ...sourceBuildInput.colorMaterialMappings[0],
+    lines: [{ id: 'MAP-LINE-CODE-ONLY', materialCode: 'YARN-A', applicableSkuCodes: [] }],
+  }],
+})
+assert.deepEqual(materialCodeOnlySnapshot.outputPlanLines[0].requiredYarnSkus, ['YARN-A'])
+assert.deepEqual(materialCodeOnlySnapshot.outputPlanLines[0].sourceBomItemIds, ['BOM-YARN-A'])
+
+const ambiguousMaterialSnapshot = buildWoolOrderSourceSnapshot({
+  ...sourceBuildInput,
+  bomItems: [
+    ...sourceBuildInput.bomItems,
+    { id: 'BOM-YARN-A-DUPLICATE', materialCode: 'YARN-A', usageProcessCodes: ['PROC_WOOL'] },
+  ],
+  colorMaterialMappings: [{
+    ...sourceBuildInput.colorMaterialMappings[0],
+    lines: [{ id: 'MAP-LINE-AMBIGUOUS', materialCode: 'YARN-A', applicableSkuCodes: [] }],
+  }],
+})
+assert.deepEqual(ambiguousMaterialSnapshot.outputPlanLines[0].requiredYarnSkus, [])
+
+const nonWoolBomSnapshot = buildWoolOrderSourceSnapshot({
+  ...sourceBuildInput,
+  colorMaterialMappings: [{
+    ...sourceBuildInput.colorMaterialMappings[0],
+    lines: [{ id: 'MAP-LINE-BAG', bomItemId: 'BOM-BAG', materialCode: 'BAG-01', applicableSkuCodes: [] }],
+  }],
+})
+assert.deepEqual(nonWoolBomSnapshot.outputPlanLines[0].requiredYarnSkus, [])
+
+const unmatchedSkuSnapshot = buildWoolOrderSourceSnapshot({
+  ...sourceBuildInput,
+  colorMaterialMappings: [{
+    ...sourceBuildInput.colorMaterialMappings[0],
+    lines: [{
+      id: 'MAP-LINE-OTHER-SKU',
+      bomItemId: 'BOM-YARN-A',
+      materialCode: 'YARN-A',
+      applicableSkuCodes: ['GARMENT-WHITE-M'],
+    }],
+  }],
+})
+assert.deepEqual(unmatchedSkuSnapshot.outputPlanLines[0].requiredYarnSkus, [])
+assert.deepEqual(unmatchedSkuSnapshot.outputPlanLines[0].sourceColorMappingIds, ['MAP-BLACK'])
+
+const missingMappingSnapshot = buildWoolOrderSourceSnapshot({
+  ...sourceBuildInput,
+  colorMaterialMappings: [],
+})
+assert.equal(missingMappingSnapshot.outputPlanLines.length, 1)
+assert.equal(missingMappingSnapshot.outputPlanLines[0].plannedQty, 100)
+assert.deepEqual(missingMappingSnapshot.outputPlanLines[0].requiredYarnSkus, [])
+assert.deepEqual(missingMappingSnapshot.outputPlanLines[0].sourceColorMappingIds, [])
 
 const alignedMappings = alignWoolColorMaterialMappingsForDemand({
   mappings: [{
@@ -74,6 +218,13 @@ const artifactGenerationSource = readFileSync(
 )
 assert.equal(artifactGenerationSource.includes('context.sourceEntry.requiresFeiTicket'), false)
 assert.equal(artifactGenerationSource.includes('context.sourceEntry.packagingRequired'), false)
+
+const taskDetailRowsSource = readFileSync(
+  new URL('../src/data/fcs/task-detail-rows.ts', import.meta.url),
+  'utf8',
+)
+assert.equal(taskDetailRowsSource.includes("materialCode: item.id"), false)
+assert.equal(taskDetailRowsSource.includes('buildWoolPanelOutputSku(woolPartCode, line.skuCode)'), true)
 
 const {
   addWoolProcessReport,
