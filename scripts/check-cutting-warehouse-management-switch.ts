@@ -229,8 +229,11 @@ assertNotIncludes(pdaWarehouseSource + pdaCuttingWaitHandoverActionsSource, "tit
 )
 
 const pdaWaitProcessSource = read('src/pages/pda-warehouse-wait-process.ts')
-;["title: '中转仓领料'", "'处理中转仓领料、加工领料和回收入仓。'", 'data-pda-warehouse-field="cutting-pickup-area"', 'data-pda-warehouse-field="cutting-pickup-location"'].forEach((item) =>
+;["title: '中转仓领料'", "'处理中转仓领料、加工领料和回收入仓。'", 'data-pda-cutting-pickup-location-map', "mode: 'SELECT'", 'toLocationRefs: selectedRefs.map'].forEach((item) =>
   assertIncludes(pdaWaitProcessSource, item, `PDA 裁床待加工仓缺少统一仓管文案：${item}`),
+)
+;['data-pda-warehouse-field="cutting-pickup-area"', 'data-pda-warehouse-field="cutting-pickup-location"'].forEach((item) =>
+  assertNotIncludes(pdaWaitProcessSource, item, `PDA 中转仓领料不得继续使用固定库区库位下拉：${item}`),
 )
 assertNotIncludes(pdaWaitProcessSource, "title: '扫码入仓'", 'PDA 裁床待加工仓不得继续展示“扫码入仓”入口')
 

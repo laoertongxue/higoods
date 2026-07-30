@@ -16,6 +16,16 @@ import {
   PDA_PAGE_HANDLED_LOCALLY,
   type PdaPageEventResult,
 } from '../main-handlers/pda-local-action-result'
+import { getCurrentFactoryWarehouseByKind } from './pda-warehouse-shared'
+import { loadWarehouseLayoutSnapshot } from './process-factory/cutting/warehouse-location-layout-store.ts'
+import {
+  listStableWarehouseLocationRefs,
+  type StableWarehouseLocationRef,
+} from './process-factory/cutting/warehouse-location-map-model.ts'
+import {
+  appendWaitHandoverInboundEvent,
+  type WaitHandoverRuntimeTicketInput,
+} from './process-factory/cutting/wait-handover-runtime.ts'
 
 export type PdaCuttingInboundMode = 'bagging' | 'inbound-location'
 export type PdaCuttingInboundTicketScanStatus = 'idle' | 'valid' | 'invalid'
@@ -609,6 +619,66 @@ function listInboundTicketCandidates(): TransferBagTicketCandidate[] {
   return buildTransferBagsProjection().viewModel.ticketCandidates
 }
 
+function listCurrentWaitHandoverLocationRefs(): StableWarehouseLocationRef[] {
+  const warehouse = getCurrentFactoryWarehouseByKind('WAIT_HANDOVER')
+  if (!warehouse) return []
+  const { snapshot } = loadWarehouseLayoutSnapshot(warehouse)
+  return listStableWarehouseLocationRefs(warehouse, snapshot)
+}
+
+function resolveCurrentWaitHandoverLocationRef(locationLabel: string): StableWarehouseLocationRef | null {
+  const normalized = normalizeInboundCode(locationLabel)
+  const matches = listCurrentWaitHandoverLocationRefs().filter((location) =>
+    normalizeInboundCode(location.locationNo) === normalized,
+  )
+  return matches.length === 1 ? matches[0] : null
+}
+
+function mergeCurrentWaitHandoverLocations(
+  ledger: PdaCuttingInboundMockLedger,
+): PdaCuttingInboundMockLedger {
+  const next = clonePdaCuttingInboundMockLedger(ledger)
+  listCurrentWaitHandoverLocationRefs().forEach((location) => {
+    next.locations[normalizeInboundCode(location.locationNo)] = {
+      locationLabel: location.locationNo,
+      enabled: location.status === 'AVAILABLE',
+      warehouseType: 'CUTTING',
+    }
+  })
+  return next
+}
+
+function buildInboundRuntimeTickets(
+  bag: PdaCuttingInboundMockLedger['bags'][string],
+): WaitHandoverRuntimeTicketInput[] {
+  const candidates = listInboundTicketCandidates()
+  return bag.ticketNos.map((ticketNo) => {
+    const candidate = candidates.find((item) => normalizeInboundCode(item.ticketNo) === normalizeInboundCode(ticketNo))
+    return {
+      feiTicketId: candidate?.feiTicketId || ticketNo,
+      feiTicketNo: ticketNo,
+      productionOrderId: candidate?.productionOrderId || '',
+      productionOrderNo: candidate?.productionOrderNo || bag.productionOrderNo,
+      cutOrderId: candidate?.cutOrderId || '',
+      cutOrderNo: candidate?.cutOrderNo || '',
+      spreadingOrderId: candidate?.sourceSpreadingSessionId || '',
+      spreadingOrderNo: candidate?.sourceSpreadingSessionNo || '',
+      spuCode: candidate?.spuCode || candidate?.styleCode || '',
+      color: candidate?.color || candidate?.fabricColor || '',
+      size: candidate?.size || '',
+      partCode: candidate?.partCode || '',
+      partName: candidate?.partName || '',
+      pieceQty: Number(candidate?.actualCutPieceQty || candidate?.qty || 0),
+      pieceSequenceLabel: candidate?.pieceSequenceLabel || '',
+      hasSpecialCraft: Boolean(candidate?.hasSpecialCraft),
+      specialCraftDisplay: candidate?.specialCraftDisplayLabel || '无',
+      receiverFactoryDisplay: candidate?.receiverFactoryDisplay || '待分配',
+      printStatus: candidate?.printStatus || 'PRINTED',
+      voidStatus: candidate?.ticketStatus === 'VOIDED' ? 'VOIDED' : 'VALID',
+    }
+  })
+}
+
 export function resolvePdaCuttingInboundScanTrigger(
   event: { type: string; key?: string },
 ): 'immediate' | 'debounced' | 'none' {
@@ -991,10 +1061,62 @@ export function handlePdaCuttingInboundEvent(
   if (mode === 'bagging' && ticketScanTimerController.flush(stateKey)) {
     eventState = resolveInboundEventState(taskId, mode, actionNode)
   }
+  if (mode === 'inbound-location' && !resolveCurrentWaitHandoverLocationRef(eventState.form.locationLabel)) {
+    const failedForm = completePdaCuttingInboundRound(eventState.form, mode, {
+      ok: false,
+      message: '库位不存在、已停用或编号不唯一，请重新扫描。',
+    })
+    replaceState(
+      taskId,
+      mode,
+      failedForm,
+      eventState.selectedExecutionOrderId,
+      eventState.selectedExecutionOrderNo,
+    )
+    return updatePdaCuttingInboundWorkflow(
+      workflowContainer,
+      mode,
+      failedForm,
+      taskId,
+      'locationLabel',
+    ) ? PDA_PAGE_HANDLED_LOCALLY : true
+  }
 
-  const currentLedger = getPdaCuttingInboundMockLedger()
+  const currentLedger = mode === 'inbound-location'
+    ? mergeCurrentWaitHandoverLocations(getPdaCuttingInboundMockLedger())
+    : getPdaCuttingInboundMockLedger()
   const confirmation = confirmPdaCuttingInboundRound(eventState.form, mode, currentLedger)
   if (confirmation.result.ok) {
+    if (mode === 'inbound-location') {
+      const bagCode = normalizeInboundCode(eventState.form.carrierCode)
+      const bag = currentLedger.bags[bagCode]
+      const locationRef = resolveCurrentWaitHandoverLocationRef(eventState.form.locationLabel)
+      if (bag && locationRef) {
+        appendWaitHandoverInboundEvent({
+          source: 'PDA',
+          operator: {
+            operatorName: eventState.form.operatorName,
+            operatorRole: '裁片仓入仓员',
+          },
+          bagCode,
+          warehouseArea: locationRef.areaName,
+          locationCode: locationRef.locationNo,
+          locationRef: {
+            factoryId: locationRef.factoryId,
+            warehouseId: locationRef.warehouseId,
+            warehouseKind: 'WAIT_HANDOVER',
+            areaId: locationRef.areaId,
+            areaName: locationRef.areaName,
+            shelfId: locationRef.shelfId,
+            shelfNo: locationRef.shelfNo,
+            locationId: locationRef.locationId,
+            locationNo: locationRef.locationNo,
+          },
+          idempotencyKey: `temp-bag:${bagCode}:INBOUND`,
+          tickets: buildInboundRuntimeTickets(bag),
+        })
+      }
+    }
     ticketScanTimerController.cancel(stateKey)
     replacePdaCuttingInboundMockLedger(confirmation.ledger)
   }

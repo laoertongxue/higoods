@@ -796,7 +796,10 @@ for (const forbidden of ['菲票', '加入菲票', '待入仓', '生产单', '�
 }
 
 assert(!source.includes('appendWaitHandoverBaggingEvent'), '快速原型不得写入菲票装袋事件账')
-assert(!source.includes('appendWaitHandoverInboundEvent'), '快速原型不得写入中转袋入仓事件账')
+assert(source.includes('appendWaitHandoverInboundEvent'), '中转袋入仓必须写入待交出仓统一事件账')
+assert(source.includes('resolveCurrentWaitHandoverLocationRef'), '中转袋入仓必须按当前工厂解析稳定库位')
+assert(source.includes('locationRef: {'), '中转袋入仓事件必须保存稳定库位引用')
+assert(source.includes('idempotencyKey: `temp-bag:${bagCode}:INBOUND`'), '中转袋入仓必须使用袋码幂等键')
 assert(!source.includes('renderPdaCuttingOrderSelectionPrompt'), '不得保留待入仓菲票或裁片单中间选择页')
 
 const inboundMainBranchStart = mainSource.indexOf(
