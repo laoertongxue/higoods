@@ -548,17 +548,23 @@ function mergeMissingBootstrapData(snapshot: PcsProjectStoreSnapshot): PcsProjec
   }
 }
 
-function isRemovedStyleArchiveSourceNode(sourceProjectNodeId: string): boolean {
-  const normalized = sourceProjectNodeId.trim().toUpperCase()
-  return (
-    normalized.includes('STYLE_ARCHIVE_CREATE') ||
-    normalized.includes('STYLE-ARCHIVE') ||
-    normalized.includes('STYLE_ARCHIVE') ||
-    normalized === 'OLD-STYLE-NODE'
-  )
+function collectRemovedStyleArchiveNodeIds(
+  snapshot: PcsProjectStoreSnapshot,
+): Map<string, Set<string>> {
+  const nodeIdsByProject = new Map<string, Set<string>>()
+  snapshot.nodes.forEach((node) => {
+    if (node.workItemTypeCode !== 'STYLE_ARCHIVE_CREATE') return
+    const nodeIds = nodeIdsByProject.get(node.projectId) || new Set<string>()
+    nodeIds.add(node.projectNodeId)
+    nodeIdsByProject.set(node.projectId, nodeIds)
+  })
+  return nodeIdsByProject
 }
 
-function ensureProjectStyleArchives(snapshot: PcsProjectStoreSnapshot): PcsProjectStoreSnapshot {
+function ensureProjectStyleArchives(
+  snapshot: PcsProjectStoreSnapshot,
+  removedStyleArchiveNodeIdsByProject: Map<string, Set<string>>,
+): PcsProjectStoreSnapshot {
   const projects = snapshot.projects.map((project) => {
     const projectArchiveNode = snapshot.nodes.find(
       (node) => node.projectId === project.projectId && node.workItemTypeCode === 'PROJECT_INIT',
@@ -569,9 +575,14 @@ function ensureProjectStyleArchives(snapshot: PcsProjectStoreSnapshot): PcsProje
 
     const existingArchive = findStyleArchiveByProjectId(project.projectId)
     if (existingArchive) {
+      const removedStyleArchiveNodeIds =
+        removedStyleArchiveNodeIdsByProject.get(project.projectId) || new Set<string>()
+      const shouldRebindSourceNode =
+        existingArchive.sourceProjectNodeId === 'old-style-node' ||
+        removedStyleArchiveNodeIds.has(existingArchive.sourceProjectNodeId)
       const reboundArchive =
         existingArchive.sourceProjectNodeId === projectArchiveNode.projectNodeId ||
-        !isRemovedStyleArchiveSourceNode(existingArchive.sourceProjectNodeId)
+        !shouldRebindSourceNode
           ? existingArchive
           : updateStyleArchive(existingArchive.styleId, {
               sourceProjectNodeId: projectArchiveNode.projectNodeId,
@@ -659,6 +670,7 @@ function ensureProjectStyleArchives(snapshot: PcsProjectStoreSnapshot): PcsProje
 }
 
 function hydrateSnapshot(snapshot: PcsProjectStoreSnapshot): PcsProjectStoreSnapshot {
+  const removedStyleArchiveNodeIdsByProject = collectRemovedStyleArchiveNodeIds(snapshot)
   const sourceVersion = typeof snapshot.version === 'number' && Number.isFinite(snapshot.version) ? snapshot.version : 0
   const normalized: PcsProjectStoreSnapshot = {
     version: PROJECT_STORE_VERSION,
@@ -681,6 +693,7 @@ function hydrateSnapshot(snapshot: PcsProjectStoreSnapshot): PcsProjectStoreSnap
 
   return ensureProjectStyleArchives(
     repairProjectNodeSequences(mergeMissingBootstrapData(pricingMockMigrated)),
+    removedStyleArchiveNodeIdsByProject,
   )
 }
 

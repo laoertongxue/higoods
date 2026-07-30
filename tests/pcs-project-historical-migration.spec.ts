@@ -28,15 +28,15 @@ Object.defineProperty(globalThis, 'localStorage', {
 })
 
 const bootstrap = createBootstrapProjectSnapshot(4)
-const sourceProjects = bootstrap.projects.slice(0, 2)
-assert.equal(sourceProjects.length, 2, '测试数据必须包含两个可迁移的历史项目')
+const sourceProjects = bootstrap.projects.slice(0, 3)
+assert.equal(sourceProjects.length, 3, '测试数据必须包含三个可迁移的历史项目')
 
 const historicalProjects = sourceProjects.map((sourceProject, index) => ({
   ...sourceProject,
   projectId: `historical_project_${index + 1}`,
   projectCode: `HISTORY-${index + 1}`,
   projectName: `历史真实项目${index + 1}`,
-  templateId: index === 0 ? 'TPL-001' : 'TPL-003',
+  templateId: index === 1 ? 'TPL-003' : 'TPL-001',
   linkedStyleId: '',
   linkedStyleCode: '',
   linkedStyleName: '',
@@ -61,11 +61,22 @@ const historicalNodes = historicalProjects.flatMap((project, projectIndex) => {
       ...node,
       projectNodeId: `${project.projectId}-legacy-node-${nodeIndex + 1}`,
       projectId: project.projectId,
+      workItemTypeCode:
+        projectIndex === 0 && nodeIndex === 0 ? 'STYLE_ARCHIVE_CREATE' : node.workItemTypeCode,
+      workItemTypeName:
+        projectIndex === 0 && nodeIndex === 0 ? '旧商品／款式档案建立' : node.workItemTypeName,
       phaseName: `旧模板阶段-${Number(node.phaseCode.slice(-2))}`,
       latestResultText:
-        nodeIndex === 0 ? `历史业务记录-${project.projectCode}` : node.latestResultText,
+        nodeIndex === 1 ? `历史业务记录-${project.projectCode}` : node.latestResultText,
     }))
 })
+
+const styleArchiveSeed = createStyleArchiveBootstrapSnapshot(3).records[0]
+const archiveSourceNodeIds = [
+  'historical_project_1-legacy-node-1',
+  '',
+  'historical_project_3-technical-package-node',
+]
 
 storage.setItem(
   PROJECT_STORAGE_KEY,
@@ -80,21 +91,19 @@ storage.setItem(
   STYLE_ARCHIVE_STORAGE_KEY,
   JSON.stringify({
     version: 3,
-    records: [
-      {
-        ...createStyleArchiveBootstrapSnapshot(3).records[0],
-        styleId: 'historical_style_existing',
-        styleCode: 'HISTORY-SPU-001',
-        styleName: '历史已有款式档案',
-        sourceProjectId: historicalProjects[0].projectId,
-        sourceProjectCode: historicalProjects[0].projectCode,
-        sourceProjectName: historicalProjects[0].projectName,
-        sourceProjectNodeId: 'old-style-node',
+    records: historicalProjects.map((project, index) => ({
+        ...styleArchiveSeed,
+        styleId: `historical_style_existing_${index + 1}`,
+        styleCode: `HISTORY-SPU-00${index + 1}`,
+        styleName: `历史已有款式档案${index + 1}`,
+        sourceProjectId: project.projectId,
+        sourceProjectCode: project.projectCode,
+        sourceProjectName: project.projectName,
+        sourceProjectNodeId: archiveSourceNodeIds[index]!,
         baseInfoStatus: '商品测款',
-        remark: '历史档案业务备注必须保留',
-        sellingPointText: '历史档案卖点必须保留',
-      },
-    ],
+        remark: `历史档案业务备注必须保留-${index + 1}`,
+        sellingPointText: `历史档案卖点必须保留-${index + 1}`,
+      })),
     pendingItems: [],
   }),
 )
@@ -124,16 +133,15 @@ historicalProjects.forEach((historicalProject) => {
   const projectInitNode = projectRepository
     .listProjectNodes(historicalProject.projectId)
     .find((node) => node.workItemTypeCode === 'PROJECT_INIT')
-  assert.equal(
-    styleArchive?.sourceProjectNodeId,
-    projectInitNode?.projectNodeId,
-    `${historicalProject.projectCode} 已有档案必须改绑固定流程“项目与档案建立”真实节点`,
-  )
+  const projectIndex = historicalProjects.findIndex((project) => project.projectId === historicalProject.projectId)
+  const expectedSourceNodeId =
+    projectIndex === 0 ? projectInitNode?.projectNodeId : archiveSourceNodeIds[projectIndex]
+  assert.equal(styleArchive?.sourceProjectNodeId, expectedSourceNodeId)
+  assert.equal(styleArchive?.remark, `历史档案业务备注必须保留-${projectIndex + 1}`)
+  assert.equal(styleArchive?.sellingPointText, `历史档案卖点必须保留-${projectIndex + 1}`)
 })
 const existingArchive = styleArchiveRepository.findStyleArchiveByProjectId(historicalProjects[0].projectId)
-assert.equal(existingArchive?.styleId, 'historical_style_existing', '历史已有档案不得被新建档案替换')
-assert.equal(existingArchive?.remark, '历史档案业务备注必须保留')
-assert.equal(existingArchive?.sellingPointText, '历史档案卖点必须保留')
+assert.equal(existingArchive?.styleId, 'historical_style_existing_1', '历史已有档案不得被新建档案替换')
 
 const persisted = JSON.parse(storage.getItem(PROJECT_STORAGE_KEY) || '{}') as {
   projects?: Array<{ projectId: string }>

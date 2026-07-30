@@ -4631,10 +4631,6 @@ function getProjectSampleAcquireSourceType(project: PcsProjectRecord, node: Proj
   return value === '外采' || value === '委托打样' ? value : ''
 }
 
-function projectHasRevisionTask(project: PcsProjectRecord): boolean {
-  return listProjectNodes(project.projectId).some((item) => item.workItemTypeCode === 'REVISION_TASK')
-}
-
 function isProjectFixedFlowFieldVisible(
   project: PcsProjectRecord,
   node: ProjectNodeViewModel,
@@ -4651,17 +4647,6 @@ function applyProjectFixedFlowFieldPolicy(
   node: ProjectNodeViewModel,
   field: ProjectNodeFormalField,
 ): ProjectNodeFormalField {
-  if (node.node.workItemTypeCode === 'FEASIBILITY_REVIEW' && field.fieldKey === 'reviewConclusion') {
-    const hasRevisionTask = projectHasRevisionTask(project)
-    return {
-      ...field,
-      options: (field.options || []).filter((option) => hasRevisionTask || option.value !== '重新改版出样衣'),
-      businessLogic: hasRevisionTask
-        ? '当前项目存在改版任务，可选择进入测款、样衣退回或重新改版出样衣。'
-        : '当前项目没有改版任务，只能选择进入测款或样衣退回。',
-    }
-  }
-
   if (node.node.workItemTypeCode !== 'SAMPLE_ACQUIRE') return field
   const lockedSourceType = getProjectLockedSampleSourceType(project)
 
@@ -7748,7 +7733,7 @@ function renderProjectOverviewCard(viewModel: ProjectViewModel): string {
 
 function renderDetailDecisionDialog(viewModel: ProjectViewModel, selectedNode: ProjectNodeViewModel | null): string {
   if (!state.decisionDialog.open || state.decisionDialog.source !== 'detail' || !selectedNode) return ''
-  const options = getDecisionOptions(viewModel.project, selectedNode)
+  const options = getDecisionOptions(selectedNode)
 
   return renderModalShell(
     selectedNode.node.workItemTypeCode === 'TEST_CONCLUSION' ? '测款结论判定' : '节点决策',
@@ -8310,19 +8295,13 @@ function renderWorkItemAudit(viewModel: ProjectViewModel, node: ProjectNodeViewM
   `
 }
 
-function getDecisionOptions(project: PcsProjectRecord, node: ProjectNodeViewModel): string[] {
+function getDecisionOptions(node: ProjectNodeViewModel): string[] {
   const meta = getDecisionFieldMeta(node.node.workItemTypeCode)
   if (!meta) return ['通过', '不通过']
   const groups = listProjectWorkItemFieldGroups(node.node.workItemTypeCode as PcsProjectWorkItemCode)
   const valueField = groups.flatMap((group) => group.fields).find((field) => field.fieldKey === meta.valueFieldKey)
   if (valueField?.options?.length) {
-    return valueField.options
-      .map((item) => item.value)
-      .filter((option) =>
-        node.node.workItemTypeCode !== 'FEASIBILITY_REVIEW' ||
-        option !== '重新改版出样衣' ||
-        projectHasRevisionTask(project),
-      )
+    return valueField.options.map((item) => item.value)
   }
   return ['通过', '不通过']
 }
@@ -8353,7 +8332,7 @@ function getManualCompleteBlockedNotice(node: ProjectNodeViewModel): string {
 }
 
 function renderDecisionNodeSection(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
-  const decisionOptionsText = getDecisionOptions(project, node).join('、')
+  const decisionOptionsText = getDecisionOptions(node).join('、')
   return `
     <section class="space-y-4">
       <article class="rounded-lg border border-amber-200 bg-amber-50 p-4">
@@ -8367,7 +8346,7 @@ function renderDecisionNodeSection(project: PcsProjectRecord, node: ProjectNodeV
 
 function renderWorkItemDecisionDialog(project: PcsProjectRecord, node: ProjectNodeViewModel | null): string {
   if (!state.decisionDialog.open || state.decisionDialog.source !== 'work-item' || !node) return ''
-  const options = getDecisionOptions(project, node)
+  const options = getDecisionOptions(node)
   return renderModalShell(
     node.node.workItemTypeCode === 'TEST_CONCLUSION' ? '测款结论判定' : '节点决策',
     `请确认「${node.node.workItemTypeName}」的处理结果。`,
@@ -9834,7 +9813,7 @@ function openDecisionDialog(source: DecisionDialogSource): void {
     return
   }
   const draft = getNodeRecordDraft(context.project, context.node)
-  const options = getDecisionOptions(context.project, context.node)
+  const options = getDecisionOptions(context.node)
   const decisionFieldMeta = getDecisionFieldMeta(context.node.node.workItemTypeCode)
   const savedValue = String(
     (decisionFieldMeta ? context.node.latestRecord?.payload?.[decisionFieldMeta.valueFieldKey] : '') ||
@@ -9876,7 +9855,7 @@ function confirmDecision(): void {
     closeAllDialogs()
     return
   }
-  const options = getDecisionOptions(context.project, context.node)
+  const options = getDecisionOptions(context.node)
   if (!options.includes(dialog.value)) {
     state.notice = '当前项目模板不支持该决策结果，请重新选择。'
     closeAllDialogs()
