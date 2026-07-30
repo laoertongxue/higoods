@@ -72,6 +72,7 @@ import {
   runtimeEventHasWaitHandoverTicket,
 } from './wait-handover-runtime.ts'
 import { buildBindingProcessOrders } from './binding-strip-orders.ts'
+import { renderCuttingWarehouseLocationMapSection } from './warehouse-location-map.ts'
 
 type WaitProcessTabKey = 'inventory' | 'claimRecords' | 'usage' | 'returns' | 'locations'
 type WaitProcessWarehouseAction = 'claim' | 'process-issue' | 'return'
@@ -1126,7 +1127,7 @@ function renderWaitProcessTabs(activeTab: WaitProcessTabKey): string {
     { key: 'claimRecords', label: '中转仓领料' },
     { key: 'usage', label: '加工领料' },
     { key: 'returns', label: '回收入仓' },
-    { key: 'locations', label: '库区库位' },
+    { key: 'locations', label: '库位图' },
   ]
 
   return `
@@ -2270,7 +2271,7 @@ function renderWaitHandoverTabs(activeTab: WaitHandoverTabKey): string {
     { key: 'inbound', label: '中转袋入仓' },
     { key: 'handover-bagging', label: '中转袋交出' },
     { key: 'special-craft-return', label: '特种工艺回收入仓' },
-    { key: 'locations', label: '库区库位' },
+    { key: 'locations', label: '库位图' },
   ]
   return renderHubTabs('warehouse-management-wait-handover', activeTab, tabs)
 }
@@ -5246,13 +5247,7 @@ export function renderCraftCuttingWarehouseManagementWaitProcessPage(): string {
     ${renderWaitProcessEventStats(returnEvents, '回收入仓记录')}
     ${renderWaitProcessEventTable(returnEvents, '暂无符合筛选条件的回收入仓记录。', inventoryItems)}
   </section>`
-  const locationContent = `<section class="space-y-4">
-    <div class="flex justify-end rounded-lg border bg-card p-4">${renderWarehouseLocationToolbar('裁床待加工仓')}</div>
-    ${renderLocationRows('裁床待加工仓', [
-      ['裁床待加工仓', '面料 A 区', 'FAB-A-01', '待裁面料'],
-      ['裁床待加工仓', '面料 B 区', 'FAB-B-02', '余料'],
-    ])}
-  </section>`
+  const locationContent = renderCuttingWarehouseLocationMapSection('WAIT_PROCESS')
   const activeContent =
     activeTab === 'claimRecords'
       ? claimRecordContent
@@ -5509,16 +5504,7 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
     </article>
     ${renderHubTable(['回仓记录', '来源交出记录', '承接工厂', '工艺', '应回 / 实回', '回仓库位', '状态', '差异'], specialCraftReturnRows, '暂无特殊工艺回仓记录。')}
   </section>`
-  const locationContent = `<section class="rounded-lg border bg-card">
-    <div class="border-b px-4 py-3">${renderWarehouseLocationToolbar('裁床待交出仓')}</div>
-    ${renderLocationRows('裁床待交出仓', [
-      ['裁床待交出仓', '待入仓确认区', 'CUT-IN-01', '已打印未入仓菲票'],
-      ['裁床待交出仓', '裁片 A 区', 'CUT-A-01', '在库待分配裁片'],
-      ['裁床待交出仓', '中转袋暂存区', 'BAG-A-01', '已装袋待交出中转袋'],
-      ['裁床待交出仓', '特殊工艺回仓区', 'SP-RETURN-01', '特殊工艺回仓裁片'],
-      ['裁床待交出仓', '差异暂存区', 'DIFF-01', '回写差异或数量异常裁片'],
-    ])}
-  </section>`
+  const locationContent = renderCuttingWarehouseLocationMapSection('WAIT_HANDOVER')
   const activeContent =
     activeTab === 'bagging'
       ? inboundBaggingContent

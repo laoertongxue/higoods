@@ -24,6 +24,7 @@ import {
   buildWaitHandoverLocationOccupancyStates,
   type WaitHandoverRuntimeTicketInput,
 } from '../src/pages/process-factory/cutting/wait-handover-runtime.ts'
+import { renderWarehouseLocationMap } from '../src/components/ui/warehouse-location-map.ts'
 
 const cuttingWarehouses = buildDefaultFactoryInternalWarehouses(mockFactories)
   .filter((warehouse) => warehouse.factoryKind === 'CENTRAL_CUTTING')
@@ -128,6 +129,19 @@ const occupiedProjection = buildWarehouseLocationMapProjection(selectionWarehous
   inboundAt: '2026-07-30 08:00',
   inboundBy: '测试仓管',
 }])
+const mapHtml = renderWarehouseLocationMap({
+  projection: occupiedProjection,
+  mode: 'VIEW',
+  factoryName: '中央裁床',
+})
+assert.match(mapHtml, /data-warehouse-map-root/)
+assert.match(mapHtml, /data-location-id=/)
+assert.match(mapHtml, /空闲/)
+assert.match(mapHtml, /占用/)
+assert.match(mapHtml, /min-h-11/)
+assert.match(mapHtml, /min-w-11/)
+assert.match(mapHtml, /overflow-x-auto/)
+assert.doesNotMatch(mapHtml, /部分占用|预留/)
 assert.equal(
   validateWarehouseLocationSelection(occupiedProjection, [shelfLocationIds[0], shelfLocationIds[1]]).message,
   '所选库位已被占用，请重新选择。',
