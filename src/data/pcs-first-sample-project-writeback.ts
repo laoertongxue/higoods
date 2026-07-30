@@ -188,7 +188,7 @@ function assertFirstSampleProjectNode(projectId: string, projectNodeId: string):
   if (!node) {
     return { project, node: null, error: '未找到首版样衣打样节点，不能创建任务。' }
   }
-  if (node.workItemTypeCode !== 'FIRST_SAMPLE') {
+  if (node.stepCode !== 'FIRST_SAMPLE') {
     return { project, node, error: '当前节点不是首版样衣打样，不能创建首版样衣任务。' }
   }
   return { project, node, error: '' }
@@ -208,8 +208,8 @@ function buildFirstSampleRelation(
     projectId: task.projectId,
     projectCode: task.projectCode,
     projectNodeId: task.projectNodeId,
-    workItemTypeCode: 'FIRST_SAMPLE',
-    workItemTypeName: '首版样衣打样',
+    stepCode: 'FIRST_SAMPLE',
+    stepName: '首版样衣打样',
     relationRole: '执行记录',
     sourceModule: '首版样衣打样',
     sourceObjectType: '首版样衣打样任务',
@@ -287,7 +287,7 @@ function unlockNextProjectNode(projectId: string, currentNode: PcsProjectNodeRec
     {
       currentStatus: '进行中',
       pendingActionType: '待执行',
-      pendingActionText: `当前请处理：${nextNode.workItemTypeName}`,
+      pendingActionText: `当前请处理：${nextNode.stepName}`,
       updatedAt: timestamp,
     },
     operatorName,
@@ -409,8 +409,8 @@ export function createOrUpdateFirstSampleTaskFromProjectNode(
       projectCode: project.projectCode,
       projectName: project.projectName,
       projectNodeId: node.projectNodeId,
-      workItemTypeCode: 'FIRST_SAMPLE',
-      workItemTypeName: '首版样衣打样',
+      stepCode: 'FIRST_SAMPLE',
+      stepName: '首版样衣打样',
       sampleCode: '',
       sampleImageIds: [],
       reuseAsFirstOrderBasisFlag: false,
@@ -440,8 +440,8 @@ export function createOrUpdateFirstSampleTaskFromProjectNode(
     projectCode: project.projectCode,
     projectName: project.projectName,
     projectNodeId: node.projectNodeId,
-    workItemTypeCode: 'FIRST_SAMPLE',
-    workItemTypeName: '首版样衣打样',
+    stepCode: 'FIRST_SAMPLE',
+    stepName: '首版样衣打样',
     sourceType,
     upstreamModule: sourceTaskType || '商品项目',
     upstreamObjectType: sourceTaskType || '商品项目',

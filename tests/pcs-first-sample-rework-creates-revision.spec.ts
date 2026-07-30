@@ -40,7 +40,7 @@ const {
 const { updateFirstSampleTaskDetailAndSync } = await import('../src/data/pcs-first-sample-project-writeback.ts')
 const { listRevisionTasks } = await import('../src/data/pcs-revision-task-repository.ts')
 const {
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   listProjectNodes,
   resetProjectRepository,
 } = await import('../src/data/pcs-project-repository.ts')
@@ -141,7 +141,7 @@ assert.match(detailAfterCreate, new RegExp(revision.revisionTaskCode))
 assert.match(detailAfterCreate, /target="_blank"/)
 assert.match(renderPcsFirstSampleTaskPage(), new RegExp(revision.revisionTaskCode))
 
-assert.equal(getProjectNodeRecordByWorkItemTypeCode(task.projectId, 'FIRST_SAMPLE'), null)
+assert.equal(getProjectNodeRecordByStepCode(task.projectId, 'FIRST_SAMPLE'), null)
 assert.deepEqual(listProjectNodes(task.projectId), sourceProjectNodesBefore)
 
 handlePcsEngineeringTaskEvent(makeActionTarget('first-sample-advance', { taskId: task.firstSampleTaskId }))

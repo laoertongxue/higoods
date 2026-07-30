@@ -219,7 +219,7 @@ function assertFirstOrderSampleProjectNode(projectId: string, projectNodeId: str
   if (!project) return { project: null, node: null, error: '未找到商品项目，不能创建首单样衣打样任务。' }
   const node = getProjectNodeRecordById(projectId, projectNodeId)
   if (!node) return { project, node: null, error: '未找到首单样衣打样节点，不能创建任务。' }
-  if (node.workItemTypeCode !== 'FIRST_ORDER_SAMPLE') {
+  if (node.stepCode !== 'FIRST_ORDER_SAMPLE') {
     return { project, node, error: '当前节点不是首单样衣打样，不能创建首单样衣任务。' }
   }
   return { project, node, error: '' }
@@ -274,8 +274,8 @@ function buildFirstOrderSampleRelation(
     projectId: task.projectId,
     projectCode: task.projectCode,
     projectNodeId: task.projectNodeId,
-    workItemTypeCode: 'FIRST_ORDER_SAMPLE',
-    workItemTypeName: '首单样衣打样',
+    stepCode: 'FIRST_ORDER_SAMPLE',
+    stepName: '首单样衣打样',
     relationRole: '执行记录',
     sourceModule: '首单样衣打样',
     sourceObjectType: '首单样衣打样任务',
@@ -317,7 +317,7 @@ function unlockNextProjectNode(projectId: string, currentNode: PcsProjectNodeRec
   updateProjectNodeRecord(projectId, nextNode.projectNodeId, {
     currentStatus: '进行中',
     pendingActionType: '待执行',
-    pendingActionText: `当前请处理：${nextNode.workItemTypeName}`,
+    pendingActionText: `当前请处理：${nextNode.stepName}`,
     updatedAt: timestamp,
   }, operatorName)
 }
@@ -424,8 +424,8 @@ export function createOrUpdateFirstOrderSampleTaskFromProjectNode(
       projectCode: project.projectCode,
       projectName: project.projectName,
       projectNodeId: node.projectNodeId,
-      workItemTypeCode: 'FIRST_ORDER_SAMPLE',
-      workItemTypeName: '首单样衣打样',
+      stepCode: 'FIRST_ORDER_SAMPLE',
+      stepName: '首单样衣打样',
       patternVersion: '',
       artworkVersion: '',
       sampleCode: '',
@@ -453,8 +453,8 @@ export function createOrUpdateFirstOrderSampleTaskFromProjectNode(
     projectCode: project.projectCode,
     projectName: project.projectName,
     projectNodeId: node.projectNodeId,
-    workItemTypeCode: 'FIRST_ORDER_SAMPLE',
-    workItemTypeName: '首单样衣打样',
+    stepCode: 'FIRST_ORDER_SAMPLE',
+    stepName: '首单样衣打样',
     sourceType: '首版样衣打样',
     upstreamModule: '首版样衣打样',
     upstreamObjectType: '首版样衣打样任务',

@@ -18,8 +18,8 @@ export interface PatternTaskRecord {
   projectCode: string
   projectName: string
   projectNodeId: string
-  workItemTypeCode: 'PATTERN_ARTWORK_TASK'
-  workItemTypeName: '花型任务'
+  stepCode: 'PATTERN_ARTWORK_TASK'
+  stepName: '花型任务'
   sourceType: PatternTaskSourceType
   upstreamModule: string
   upstreamObjectType: string

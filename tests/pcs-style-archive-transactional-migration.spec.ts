@@ -52,7 +52,7 @@ Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: s
 const projects = createBootstrapProjectSnapshot(4)
 const styleSeed = createStyleArchiveBootstrapSnapshot(3)
 const project = projects.projects[0]
-const projectInitNode = projects.nodes.find((node) => node.projectId === project.projectId && node.workItemTypeCode === 'PROJECT_INIT')
+const projectInitNode = projects.nodes.find((node) => node.projectId === project.projectId && node.stepCode === 'PROJECT_INIT')
 `
 
 runScenario('duplicate-id-preserved', `${common}

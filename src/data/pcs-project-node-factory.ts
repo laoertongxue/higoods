@@ -1,21 +1,20 @@
 import {
-  getProjectWorkItemContract,
-  listProjectStepContracts,
+  getProjectStepDefinition,
+  listProjectFlowStageContracts,
 } from './pcs-project-domain-contract.ts'
 import type { PcsProjectNodeRecord, PcsProjectPhaseRecord, ProjectNodeStatus } from './pcs-project-types.ts'
 
-const FIXED_STEP_FLOW_VERSION = 'fixed-step-v1'
 
-function buildPendingActionText(status: ProjectNodeStatus, workItemName: string): string {
+function buildPendingActionText(status: ProjectNodeStatus, stepDefinitionName: string): string {
   if (status === '已完成') return '节点已完成'
-  if (status === '进行中') return `当前请处理：${workItemName}`
-  if (status === '待确认') return `当前待确认：${workItemName}`
+  if (status === '进行中') return `当前请处理：${stepDefinitionName}`
+  if (status === '待确认') return `当前待确认：${stepDefinitionName}`
   if (status === '已取消') return '节点已取消'
   return '待开始执行'
 }
 
-function buildInitialNodeStatus(sequenceIndex: number, workItemTypeCode: string): ProjectNodeStatus {
-  if (sequenceIndex === 0 && workItemTypeCode === 'PROJECT_INIT') return '进行中'
+function buildInitialNodeStatus(sequenceIndex: number, stepCode: string): ProjectNodeStatus {
+  if (sequenceIndex === 0 && stepCode === 'PROJECT_INIT') return '进行中'
   return '未开始'
 }
 
@@ -25,7 +24,7 @@ export function buildProjectPhases(input: {
   ownerName: string
   createdAt: string
 }): PcsProjectPhaseRecord[] {
-  return listProjectStepContracts().map((step, index) => ({
+  return listProjectFlowStageContracts().map((step, index) => ({
     projectPhaseId: `${input.projectId}-phase-${String(step.sequence).padStart(2, '0')}`,
     projectId: input.projectId,
     phaseCode: step.phaseCode,
@@ -47,11 +46,11 @@ export function buildProjectNodes(input: {
 }): PcsProjectNodeRecord[] {
   let globalSequenceIndex = 0
 
-  return listProjectStepContracts().flatMap((step) =>
-    step.workItemCodes.map((workItemTypeCode, stepIndex) => {
-      const workItem = getProjectWorkItemContract(workItemTypeCode)
-      const currentStatus = buildInitialNodeStatus(globalSequenceIndex, workItemTypeCode)
-      const isProjectInit = workItemTypeCode === 'PROJECT_INIT'
+  return listProjectFlowStageContracts().flatMap((step) =>
+    step.stepCodes.map((stepCode, stepIndex) => {
+      const stepDefinition = getProjectStepDefinition(stepCode)
+      const currentStatus = buildInitialNodeStatus(globalSequenceIndex, stepCode)
+      const isProjectInit = stepCode === 'PROJECT_INIT'
       globalSequenceIndex += 1
 
       return {
@@ -59,12 +58,12 @@ export function buildProjectNodes(input: {
         projectId: input.projectId,
         phaseCode: step.phaseCode,
         phaseName: step.stepName,
-        workItemId: workItem.workItemId,
-        workItemTypeCode: workItem.workItemTypeCode,
-        workItemTypeName: workItem.workItemTypeName,
+        stepId: stepDefinition.stepId,
+        stepCode: stepDefinition.stepCode,
+        stepName: stepDefinition.stepName,
         sequenceNo: stepIndex + 1,
-        requiredFlag: workItemTypeCode !== 'VIDEO_TEST',
-        multiInstanceFlag: workItem.capabilities.canMultiInstance,
+        requiredFlag: stepCode !== 'VIDEO_TEST',
+        multiInstanceFlag: stepDefinition.capabilities.canMultiInstance,
         currentStatus,
         currentOwnerId: input.ownerId,
         currentOwnerName: input.ownerName,
@@ -76,9 +75,7 @@ export function buildProjectNodes(input: {
         currentIssueType: '',
         currentIssueText: '',
         pendingActionType: '待执行',
-        pendingActionText: buildPendingActionText(currentStatus, workItem.workItemTypeName),
-        sourceTemplateNodeId: `${step.stepCode}-${String(stepIndex + 1).padStart(2, '0')}`,
-        sourceTemplateVersion: FIXED_STEP_FLOW_VERSION,
+        pendingActionText: buildPendingActionText(currentStatus, stepDefinition.stepName),
       }
     }),
   )

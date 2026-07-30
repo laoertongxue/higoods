@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { saveProjectNodeFormalRecord } from '../src/data/pcs-project-flow-service.ts'
 import {
   getProjectById,
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   listProjectNodes,
   listProjects,
   resetProjectRepository,
@@ -22,18 +22,18 @@ function resetAll(): void {
   resetProjectChannelProductRepository()
 }
 
-function findCurrentProjectWithNode(workItemTypeCode: TestedDecisionCode) {
+function findCurrentProjectWithNode(stepCode: TestedDecisionCode) {
   const project = listProjects().find((item) =>
-    Boolean(getProjectNodeRecordByWorkItemTypeCode(item.projectId, workItemTypeCode)),
+    Boolean(getProjectNodeRecordByStepCode(item.projectId, stepCode)),
   )
-  assert.ok(project, `当前演示数据应存在包含 ${workItemTypeCode} 的项目`)
+  assert.ok(project, `当前演示数据应存在包含 ${stepCode} 的项目`)
   return project
 }
 
-function prepareDecisionNode(projectId: string, workItemTypeCode: TestedDecisionCode): void {
+function prepareDecisionNode(projectId: string, stepCode: TestedDecisionCode): void {
   const nodes = listProjectNodes(projectId)
-  const decisionNode = nodes.find((node) => node.workItemTypeCode === workItemTypeCode)
-  assert.ok(decisionNode, `项目应存在 ${workItemTypeCode} 节点`)
+  const decisionNode = nodes.find((node) => node.stepCode === stepCode)
+  assert.ok(decisionNode, `项目应存在 ${stepCode} 节点`)
   const decisionIndex = nodes.findIndex((node) => node.projectNodeId === decisionNode.projectNodeId)
 
   nodes.slice(0, decisionIndex).forEach((node) => {
@@ -62,13 +62,13 @@ function prepareDecisionNode(projectId: string, workItemTypeCode: TestedDecision
   )
 }
 
-function submitNotPassedAndCompleteReturn(workItemTypeCode: TestedDecisionCode) {
+function submitNotPassedAndCompleteReturn(stepCode: TestedDecisionCode) {
   resetAll()
-  const project = findCurrentProjectWithNode(workItemTypeCode)
-  prepareDecisionNode(project.projectId, workItemTypeCode)
-  const decisionNode = getProjectNodeRecordByWorkItemTypeCode(project.projectId, workItemTypeCode)!
-  const payloadKey = workItemTypeCode === 'SAMPLE_CONFIRM' ? 'confirmResult' : 'conclusion'
-  const noteKey = workItemTypeCode === 'SAMPLE_CONFIRM' ? 'confirmNote' : 'conclusionNote'
+  const project = findCurrentProjectWithNode(stepCode)
+  prepareDecisionNode(project.projectId, stepCode)
+  const decisionNode = getProjectNodeRecordByStepCode(project.projectId, stepCode)!
+  const payloadKey = stepCode === 'SAMPLE_CONFIRM' ? 'confirmResult' : 'conclusion'
+  const noteKey = stepCode === 'SAMPLE_CONFIRM' ? 'confirmNote' : 'conclusionNote'
 
   const decisionResult = saveProjectNodeFormalRecord({
     projectId: project.projectId,
@@ -83,17 +83,17 @@ function submitNotPassedAndCompleteReturn(workItemTypeCode: TestedDecisionCode) 
     completeAfterSave: true,
     operatorName: '规格审查测试',
   })
-  assert.equal(decisionResult.ok, true, `${workItemTypeCode} 应允许提交不通过：${decisionResult.message}`)
+  assert.equal(decisionResult.ok, true, `${stepCode} 应允许提交不通过：${decisionResult.message}`)
 
-  const routedDecisionNode = getProjectNodeRecordByWorkItemTypeCode(project.projectId, workItemTypeCode)!
-  const sampleReturnNode = getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'SAMPLE_RETURN_HANDLE')
+  const routedDecisionNode = getProjectNodeRecordByStepCode(project.projectId, stepCode)!
+  const sampleReturnNode = getProjectNodeRecordByStepCode(project.projectId, 'SAMPLE_RETURN_HANDLE')
   assert.equal(routedDecisionNode.currentStatus, '已完成')
   assert.equal(routedDecisionNode.latestResultType, '不通过')
   assert.equal(sampleReturnNode?.currentStatus, '进行中')
   assert.equal(decisionResult.nextNode?.projectNodeId, sampleReturnNode?.projectNodeId)
   assert.equal(getProjectById(project.projectId)?.projectStatus, '进行中')
   assert.equal(
-    listProjectNodes(project.projectId).find((node) => node.currentStatus === '进行中')?.workItemTypeCode,
+    listProjectNodes(project.projectId).find((node) => node.currentStatus === '进行中')?.stepCode,
     'SAMPLE_RETURN_HANDLE',
   )
 
@@ -108,8 +108,8 @@ function submitNotPassedAndCompleteReturn(workItemTypeCode: TestedDecisionCode) 
         handledBy: '样衣管理员',
         handledAt: '2026-07-31 11:00',
         returnResult: '样衣已完成报废登记，实物和单据均已收尾。',
-        sampleCode: `SAMPLE-${workItemTypeCode}`,
-        returnDocCode: `RETURN-${workItemTypeCode}`,
+        sampleCode: `SAMPLE-${stepCode}`,
+        returnDocCode: `RETURN-${stepCode}`,
       },
     },
     completeAfterSave: true,
@@ -117,7 +117,7 @@ function submitNotPassedAndCompleteReturn(workItemTypeCode: TestedDecisionCode) 
   })
   assert.equal(returnResult.ok, true, `样衣退回处理应允许完成：${returnResult.message}`)
 
-  const completedReturnNode = getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'SAMPLE_RETURN_HANDLE')!
+  const completedReturnNode = getProjectNodeRecordByStepCode(project.projectId, 'SAMPLE_RETURN_HANDLE')!
   const completedProject = getProjectById(project.projectId)!
   const completedNodes = listProjectNodes(project.projectId)
   assert.equal(completedReturnNode.currentStatus, '已完成')

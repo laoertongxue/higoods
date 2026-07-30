@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { getProjectWorkItemContract } from '../src/data/pcs-project-domain-contract.ts'
+import { getProjectStepDefinition } from '../src/data/pcs-project-domain-contract.ts'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 
@@ -23,24 +23,24 @@ const decisionFlowSource = read('src/data/pcs-project-decision-flow-service.ts')
 const migrationSource = read('src/data/pcs-project-decision-migration.ts')
 const flowServiceSource = read('src/data/pcs-project-flow-service.ts')
 
-for (const workItemCode of ['FEASIBILITY_REVIEW', 'SAMPLE_CONFIRM', 'TEST_CONCLUSION']) {
-  const contract = getProjectWorkItemContract(workItemCode)
-  assertCheck(Boolean(contract), `工作项定义仍需包含 ${workItemCode}`)
+for (const stepDefinitionCode of ['FEASIBILITY_REVIEW', 'SAMPLE_CONFIRM', 'TEST_CONCLUSION']) {
+  const contract = getProjectStepDefinition(stepDefinitionCode)
+  assertCheck(Boolean(contract), `工作项定义仍需包含 ${stepDefinitionCode}`)
   const decisionField = contract.fieldDefinitions.find((field) =>
     ['reviewConclusion', 'confirmResult', 'conclusion'].includes(field.fieldKey),
   )
-  assertCheck(Boolean(decisionField), `${workItemCode} 必须存在决策字段`)
+  assertCheck(Boolean(decisionField), `${stepDefinitionCode} 必须存在决策字段`)
   const expectedOptions =
-    workItemCode === 'TEST_CONCLUSION'
+    stepDefinitionCode === 'TEST_CONCLUSION'
       ? ['通过', '不通过', '暂保留']
-      : workItemCode === 'FEASIBILITY_REVIEW'
+      : stepDefinitionCode === 'FEASIBILITY_REVIEW'
         ? ['进入测款', '样衣退回']
         : ['通过', '不通过']
   assertCheck(
     JSON.stringify((decisionField?.options || []).map((item) => item.value)) === JSON.stringify(expectedOptions),
-    `${workItemCode} 决策结果应为 ${expectedOptions.join(' / ')}`,
+    `${stepDefinitionCode} 决策结果应为 ${expectedOptions.join(' / ')}`,
   )
-  assertCheck(decisionField?.required === true, `${workItemCode} 决策字段必须必填`)
+  assertCheck(decisionField?.required === true, `${stepDefinitionCode} 决策字段必须必填`)
 }
 
 for (const legacyOption of ['>调整<', '>暂缓<', '>继续调整<', '>改版后重测<', '>继续开发<', '>终止<']) {
@@ -52,7 +52,7 @@ for (const legacyBranchFn of ['activateTestingAdjustBranchNodes', 'applyTestConc
 }
 
 assertCheck(!/测款结论.*改版任务/.test(channelRepoSource), '测款结论不应再自动触发改版任务文案或逻辑')
-const conclusionContract = getProjectWorkItemContract('TEST_CONCLUSION')
+const conclusionContract = getProjectStepDefinition('TEST_CONCLUSION')
 assertCheck(
   !conclusionContract.fieldDefinitions.some((field) => ['revisionTaskId', 'revisionTaskCode', 'projectTerminated', 'projectTerminatedAt'].includes(field.fieldKey)),
   '测款结论字段定义不应再包含旧分支字段',

@@ -153,7 +153,7 @@ function getFilteredProjects(): ProjectListViewModel[] {
         project.brandName,
         project.ownerName,
         project.currentPhaseName,
-        project.nextWorkItemName,
+        project.nextStepName,
         ...project.styleTagNames,
         ...item.channelNames,
       ].join('|').toLowerCase().includes(keyword)
@@ -180,8 +180,8 @@ function renderProjectProgress(item: ProjectListViewModel): string {
         </div>
         <span class="text-xs text-slate-500">${project.progressDone}/${project.progressTotal}</span>
       </div>
-      ${project.nextWorkItemName && project.nextWorkItemName !== '-'
-        ? `<p class="text-xs text-slate-500">下一步：${escapeHtml(project.nextWorkItemName)}${project.nextWorkItemStatus !== '-' ? `（${escapeHtml(project.nextWorkItemStatus)}）` : ''}</p>`
+      ${project.nextStepName && project.nextStepName !== '-'
+        ? `<p class="text-xs text-slate-500">下一步：${escapeHtml(project.nextStepName)}${project.nextStepStatus !== '-' ? `（${escapeHtml(project.nextStepStatus)}）` : ''}</p>`
         : '<p class="text-xs text-slate-500">已完成全部节点</p>'}
     </div>
   `
@@ -235,7 +235,7 @@ const PROJECT_LIST_COLUMNS: StandardListColumn<ProjectListViewModel>[] = [
     required: true,
     freezeable: true,
     sortable: true,
-    render: (item) => `<p>${escapeHtml(item.project.currentPhaseName || '-')}</p><p class="mt-1 text-xs text-slate-400">${escapeHtml(item.project.nextWorkItemName || '无待执行节点')}</p>`,
+    render: (item) => `<p>${escapeHtml(item.project.currentPhaseName || '-')}</p><p class="mt-1 text-xs text-slate-400">${escapeHtml(item.project.nextStepName || '无待执行节点')}</p>`,
     sortValue: (item) => item.project.currentPhaseName || '',
   },
   { key: 'progress', title: '项目进度', width: 190, render: (item) => renderProjectProgress(item) },

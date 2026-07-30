@@ -108,8 +108,8 @@ function normalizeDocument(record: ProjectArchiveDocumentRecord): ProjectArchive
   return {
     ...cloneDocument(record),
     projectNodeId: record.projectNodeId || '',
-    workItemTypeCode: record.workItemTypeCode || '',
-    workItemTypeName: record.workItemTypeName || '',
+    stepCode: record.stepCode || '',
+    stepName: record.stepName || '',
     sourceVersionId: record.sourceVersionId || '',
     sourceVersionCode: record.sourceVersionCode || '',
     sourceVersionLabel: record.sourceVersionLabel || '',
@@ -146,8 +146,8 @@ function normalizeMissingItem(record: ProjectArchiveMissingItemRecord): ProjectA
   return {
     ...cloneMissingItem(record),
     projectNodeId: record.projectNodeId || '',
-    workItemTypeCode: record.workItemTypeCode || '',
-    workItemTypeName: record.workItemTypeName || '',
+    stepCode: record.stepCode || '',
+    stepName: record.stepName || '',
     status: record.status || '待补齐',
     createdAt: record.createdAt || '',
     updatedAt: record.updatedAt || record.createdAt || '',

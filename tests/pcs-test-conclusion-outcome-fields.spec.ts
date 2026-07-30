@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 
 import { submitProjectTestingConclusion, resetProjectChannelProductRepository } from '../src/data/pcs-channel-product-project-repository.ts'
-import { getProjectWorkItemContract } from '../src/data/pcs-project-domain-contract.ts'
+import { getProjectStepDefinition } from '../src/data/pcs-project-domain-contract.ts'
 import {
   getLatestProjectInlineNodeRecord,
   resetProjectInlineNodeRecordRepository,
@@ -9,12 +9,12 @@ import {
 import { resetProjectRelationRepository } from '../src/data/pcs-project-relation-repository.ts'
 import {
   getProjectById,
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   listProjectNodes,
   listProjects,
   resetProjectRepository,
 } from '../src/data/pcs-project-repository.ts'
-import { renderPcsProjectWorkItemDetailPage } from '../src/pages/pcs-projects.ts'
+import { renderPcsProjectStepDetailPage } from '../src/pages/pcs-projects.ts'
 
 function resetAllRepositories(): void {
   resetProjectRepository()
@@ -33,7 +33,7 @@ function submitConclusionForProject(projectCode: string, conclusion: '通过' | 
   resetAllRepositories()
 
   const project = getProjectByCode(projectCode)
-  const conclusionNode = getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'TEST_CONCLUSION')
+  const conclusionNode = getProjectNodeRecordByStepCode(project.projectId, 'TEST_CONCLUSION')
   assert.ok(conclusionNode, `${projectCode} 应存在测款结论节点`)
 
   const result = submitProjectTestingConclusion(
@@ -46,7 +46,7 @@ function submitConclusionForProject(projectCode: string, conclusion: '通过' | 
   )
   assert.equal(result.ok, true, `${projectCode} 应允许提交 ${conclusion} 结论`)
 
-  const latestNode = getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'TEST_CONCLUSION')
+  const latestNode = getProjectNodeRecordByStepCode(project.projectId, 'TEST_CONCLUSION')
   assert.ok(latestNode)
   const latestRecord = getLatestProjectInlineNodeRecord(latestNode!.projectNodeId)
   assert.ok(latestRecord)
@@ -54,14 +54,14 @@ function submitConclusionForProject(projectCode: string, conclusion: '通过' | 
   return {
     project: getProjectById(project.projectId)!,
     node: latestNode!,
-    sampleReturnNode: getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'SAMPLE_RETURN_HANDLE')!,
+    sampleReturnNode: getProjectNodeRecordByStepCode(project.projectId, 'SAMPLE_RETURN_HANDLE')!,
     payload: (latestRecord!.payload || {}) as Record<string, unknown>,
-    htmlPromise: renderPcsProjectWorkItemDetailPage(project.projectId, latestNode!.projectNodeId),
+    htmlPromise: renderPcsProjectStepDetailPage(project.projectId, latestNode!.projectNodeId),
     allNodes: listProjectNodes(project.projectId),
   }
 }
 
-const contract = getProjectWorkItemContract('TEST_CONCLUSION')
+const contract = getProjectStepDefinition('TEST_CONCLUSION')
 const fieldKeys = contract.fieldDefinitions.map((field) => field.fieldKey)
 
 assert.ok(fieldKeys.includes('linkedStyleId'))
@@ -90,12 +90,12 @@ assert.equal(eliminatedCase.payload.nextActionType, '样衣退回处理')
 assert.equal(eliminatedCase.project.projectStatus, '进行中')
 assert.equal(eliminatedCase.sampleReturnNode.currentStatus, '进行中')
 assert.equal(
-  eliminatedCase.allNodes.find((node) => node.currentStatus === '进行中')?.workItemTypeCode,
+  eliminatedCase.allNodes.find((node) => node.currentStatus === '进行中')?.stepCode,
   'SAMPLE_RETURN_HANDLE',
 )
 assert.ok(
   eliminatedCase.allNodes
-    .filter((node) => node.workItemTypeCode !== 'TEST_CONCLUSION' && node.workItemTypeCode !== 'SAMPLE_RETURN_HANDLE')
+    .filter((node) => node.stepCode !== 'TEST_CONCLUSION' && node.stepCode !== 'SAMPLE_RETURN_HANDLE')
     .some((node) => node.currentStatus === '已取消'),
   '淘汰后应取消中间未完成节点',
 )

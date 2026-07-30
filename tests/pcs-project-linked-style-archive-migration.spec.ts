@@ -94,7 +94,7 @@ assert.equal(migratedArchive.detailDescription, historicalArchive.detailDescript
 
 const projectInitNode = projectRepository
   .listProjectNodes(sourceProject.projectId)
-  .find((node) => node.workItemTypeCode === 'PROJECT_INIT')
+  .find((node) => node.stepCode === 'PROJECT_INIT')
 assert.ok(projectInitNode)
 assert.equal(
   migratedArchive.sourceProjectNodeId,

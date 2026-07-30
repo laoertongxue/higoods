@@ -14,7 +14,7 @@ import {
 } from '../src/data/pcs-project-image-repository.ts'
 import {
   getProjectById,
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   resetProjectRepository,
 } from '../src/data/pcs-project-repository.ts'
 
@@ -80,7 +80,7 @@ assert.equal(
   '上传成功后每条规格都应回填上游规格编号',
 )
 
-const listingNodeAfterUpload = getProjectNodeRecordByWorkItemTypeCode(project!.projectId, 'CHANNEL_PRODUCT_LISTING')
+const listingNodeAfterUpload = getProjectNodeRecordByStepCode(project!.projectId, 'CHANNEL_PRODUCT_LISTING')
 assert.equal(listingNodeAfterUpload?.currentStatus, '进行中', '上传成功后商品上架节点仍应保持进行中')
 
 const uploadedRecord = getProjectChannelProductById(createResult.record!.channelProductId)
@@ -93,10 +93,10 @@ const completedRecord = getProjectChannelProductById(createResult.record!.channe
 assert.equal(completedRecord?.listingBatchStatus, '已完成', '标记完成后批次状态应为已完成')
 assert.equal(completedRecord?.channelProductStatus, '已上架待测款', '标记完成后应进入已上架待测款状态')
 
-const listingNodeAfterComplete = getProjectNodeRecordByWorkItemTypeCode(project!.projectId, 'CHANNEL_PRODUCT_LISTING')
+const listingNodeAfterComplete = getProjectNodeRecordByStepCode(project!.projectId, 'CHANNEL_PRODUCT_LISTING')
 assert.equal(listingNodeAfterComplete?.currentStatus, '已完成', '标记完成后商品上架节点应写为已完成')
 
 const projectAfterComplete = getProjectById(project!.projectId)
-assert.equal(projectAfterComplete?.nextWorkItemName, '改版任务', '商品上架完成后应按模板顺序进入下一个工作项')
+assert.equal(projectAfterComplete?.nextStepName, '改版任务', '商品上架完成后应按模板顺序进入下一个工作项')
 
 console.log('pcs-channel-listing-upload-complete.spec.ts PASS')

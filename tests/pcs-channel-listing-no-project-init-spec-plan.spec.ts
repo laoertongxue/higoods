@@ -5,14 +5,14 @@ import {
   resetProjectRepository,
 } from '../src/data/pcs-project-repository.ts'
 import {
-  listProjectWorkItemFieldDefinitions,
+  listProjectStepFieldDefinitions,
 } from '../src/data/pcs-project-domain-contract.ts'
 import { renderPcsProjectCreatePage } from '../src/pages/pcs-projects.ts'
 
 resetProjectRepository()
 
 const draftFieldKeys = Object.keys(createEmptyProjectDraft()).sort()
-const projectInitFieldKeys = listProjectWorkItemFieldDefinitions('PROJECT_INIT')
+const projectInitFieldKeys = listProjectStepFieldDefinitions('PROJECT_INIT')
   .map((field) => field.fieldKey)
   .sort()
 

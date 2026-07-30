@@ -1,6 +1,6 @@
 import {
   getProjectById,
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   updateProjectRecord,
 } from './pcs-project-repository.ts'
 import { upsertProjectRelation } from './pcs-project-relation-repository.ts'
@@ -76,14 +76,14 @@ function buildPendingItem(projectCode: string, sourceCode: string, reason: strin
 }
 
 function buildRelation(archive: ProjectArchiveRecord, operatorName: string): ProjectRelationRecord {
-  const styleNode = getProjectNodeRecordByWorkItemTypeCode(archive.projectId, 'STYLE_ARCHIVE_CREATE')
+  const styleNode = getProjectNodeRecordByStepCode(archive.projectId, 'PROJECT_INIT')
   return {
     projectRelationId: `rel_archive_${archive.projectArchiveId}`,
     projectId: archive.projectId,
     projectCode: archive.projectCode,
     projectNodeId: styleNode?.projectNodeId || null,
-    workItemTypeCode: styleNode ? 'STYLE_ARCHIVE_CREATE' : '',
-    workItemTypeName: styleNode?.workItemTypeName || '',
+    stepCode: styleNode ? 'PROJECT_INIT' : '',
+    stepName: styleNode?.stepName || '',
     relationRole: '产出对象',
     sourceModule: '项目资料归档',
     sourceObjectType: '项目资料归档',
@@ -150,7 +150,7 @@ function computeArchiveSnapshot(archive: ProjectArchiveRecord): {
   const dedupedManual = dedupeManualDocuments(existingManualDocuments, existingManualFiles)
   const nextDocuments = [...collected.documents, ...dedupedManual.documents]
   const nextFiles = [...collected.files, ...dedupedManual.files]
-  const styleNodeId = getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'STYLE_ARCHIVE_CREATE')?.projectNodeId || ''
+  const styleNodeId = getProjectNodeRecordByStepCode(project.projectId, 'PROJECT_INIT')?.projectNodeId || ''
   const missingItems = computeProjectArchiveMissingItems({
     archive,
     documents: nextDocuments,
@@ -425,9 +425,9 @@ export function uploadProjectArchiveManualDocument(
       projectArchiveId,
       projectId: archive.projectId,
       projectCode: archive.projectCode,
-      projectNodeId: getProjectNodeRecordByWorkItemTypeCode(archive.projectId, 'STYLE_ARCHIVE_CREATE')?.projectNodeId || '',
-      workItemTypeCode: 'STYLE_ARCHIVE_CREATE',
-      workItemTypeName: '生成款式档案',
+      projectNodeId: getProjectNodeRecordByStepCode(archive.projectId, 'PROJECT_INIT')?.projectNodeId || '',
+      stepCode: 'PROJECT_INIT',
+      stepName: '生成款式档案',
       sourceModule: '项目资料归档',
       sourceObjectType: groupLabelMap[input.documentGroup],
       sourceObjectId: projectArchiveId,

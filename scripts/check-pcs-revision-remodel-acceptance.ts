@@ -3,7 +3,7 @@ import fs from 'node:fs'
 
 import { renderPcsRevisionTaskDetailPage } from '../src/pages/pcs-engineering-tasks.ts'
 import {
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   listProjectNodes,
   listProjects,
   resetProjectRepository,
@@ -68,7 +68,7 @@ const style = listStyleArchives()[0]
 assert.ok(style, '应存在正式款式档案演示数据')
 const project = listProjects()[0]
 assert.ok(project, '应存在可作为测款结论来源的商品项目演示数据')
-const testConclusionNode = getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'TEST_CONCLUSION')
+const testConclusionNode = getProjectNodeRecordByStepCode(project.projectId, 'TEST_CONCLUSION')
 assert.ok(testConclusionNode, '测款结论返改来源项目应存在 TEST_CONCLUSION 节点')
 const directFirstSampleTask = upsertFirstSampleTask({
   firstSampleTaskId: 'FS-DIRECT-001',
@@ -78,8 +78,8 @@ const directFirstSampleTask = upsertFirstSampleTask({
   projectCode: project.projectCode,
   projectName: project.projectName,
   projectNodeId: '',
-  workItemTypeCode: 'FIRST_SAMPLE',
-  workItemTypeName: '首版样衣打样',
+  stepCode: 'FIRST_SAMPLE',
+  stepName: '首版样衣打样',
   sourceType: '人工创建',
   upstreamModule: '制版任务',
   upstreamObjectType: '制版任务',
@@ -395,12 +395,12 @@ const independentBoundaryViolations = [
   createdPatternDownstreams[0]?.projectNodeId ? `花型下游绑定了项目节点：${createdPatternDownstreams[0].projectNodeId}` : '',
   createdFirstSampleDownstreams[0]?.projectNodeId ? `首版样衣下游绑定了项目节点：${createdFirstSampleDownstreams[0].projectNodeId}` : '',
   writebackServiceSource.includes(
-    "const patternNode = getProjectNodeRecordByWorkItemTypeCode(revisionTask.projectId, 'PATTERN_ARTWORK_TASK')",
+    "const patternNode = getProjectNodeRecordByStepCode(revisionTask.projectId, 'PATTERN_ARTWORK_TASK')",
   )
     ? '花型下游仍按历史 PATTERN_ARTWORK_TASK 节点切换到可写回分支'
     : '',
   writebackServiceSource.includes(
-    "const firstSampleNode = getProjectNodeRecordByWorkItemTypeCode(revisionTask.projectId, 'FIRST_SAMPLE')",
+    "const firstSampleNode = getProjectNodeRecordByStepCode(revisionTask.projectId, 'FIRST_SAMPLE')",
   )
     ? '首版样衣下游仍按历史 FIRST_SAMPLE 节点切换到可写回分支'
     : '',

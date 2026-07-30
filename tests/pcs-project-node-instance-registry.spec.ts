@@ -9,7 +9,7 @@ import {
   createEmptyProjectDraft,
   createProject,
   getProjectCreateCatalog,
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   listProjectNodes,
   listProjects,
   resetProjectRepository,
@@ -92,12 +92,12 @@ upsertProjectImageAssets([listingImage])
 const demoApproveResult = approveProjectInitAndSync(demoProject.projectId, '测试用户')
 assert.equal(demoApproveResult.ok, true, '渠道商品实例验证项目应完成项目立项')
 
-const sampleConfirmNode = getProjectNodeRecordByWorkItemTypeCode(demoProject.projectId, 'SAMPLE_CONFIRM')
+const sampleConfirmNode = getProjectNodeRecordByStepCode(demoProject.projectId, 'SAMPLE_CONFIRM')
 assert.ok(sampleConfirmNode, '验证项目应存在样衣确认节点')
-const sampleCostNode = getProjectNodeRecordByWorkItemTypeCode(demoProject.projectId, 'SAMPLE_COST_REVIEW')
+const sampleCostNode = getProjectNodeRecordByStepCode(demoProject.projectId, 'SAMPLE_COST_REVIEW')
 assert.ok(sampleCostNode, '验证项目应存在样衣核价节点')
 listProjectNodes(demoProject.projectId)
-  .filter((node) => node.sequenceNo < sampleCostNode!.sequenceNo && node.workItemTypeCode !== 'PROJECT_INIT')
+  .filter((node) => node.sequenceNo < sampleCostNode!.sequenceNo && node.stepCode !== 'PROJECT_INIT')
   .forEach((node) => {
     updateProjectNodeRecord(
       demoProject.projectId,
@@ -141,7 +141,7 @@ const sampleCostResult = saveProjectNodeFormalRecord({
 })
 assert.equal(sampleCostResult.ok, true, `验证项目应形成样衣核价销售价格：${sampleCostResult.message}`)
 
-const listingNode = getProjectNodeRecordByWorkItemTypeCode(demoProject.projectId, 'CHANNEL_PRODUCT_LISTING')
+const listingNode = getProjectNodeRecordByStepCode(demoProject.projectId, 'CHANNEL_PRODUCT_LISTING')
 assert.ok(listingNode, '验证项目应存在渠道商品上架节点')
 listProjectNodes(demoProject.projectId)
   .filter((node) => node.sequenceNo < listingNode!.sequenceNo && node.currentStatus !== '已完成')
@@ -184,7 +184,7 @@ const completeListingResult = markProjectChannelProductListingCompleted(
 assert.equal(completeListingResult.ok, true, `上传后应能标记商品上架完成：${completeListingResult.message}`)
 
 const listingSnapshot = getProjectNodeInstanceRuntimeSnapshot(demoProject.projectId, listingNode!.projectNodeId)
-const listingNodeAfterWrite = getProjectNodeRecordByWorkItemTypeCode(demoProject.projectId, 'CHANNEL_PRODUCT_LISTING')
+const listingNodeAfterWrite = getProjectNodeRecordByStepCode(demoProject.projectId, 'CHANNEL_PRODUCT_LISTING')
 assert.ok(listingSnapshot, '渠道商品上架节点应生成统一实例快照')
 assert.equal(
   listingNodeAfterWrite?.validInstanceCount,
@@ -233,7 +233,7 @@ assert.ok(created.project, '应能创建统一实例注册中心验证项目')
 const approveResult = approveProjectInitAndSync(created.project!.projectId, '测试用户')
 assert.equal(approveResult.ok, true, '应能完成项目立项审核')
 
-const projectInitNode = getProjectNodeRecordByWorkItemTypeCode(created.project!.projectId, 'PROJECT_INIT')
+const projectInitNode = getProjectNodeRecordByStepCode(created.project!.projectId, 'PROJECT_INIT')
 assert.ok(projectInitNode, '新项目应存在项目立项节点')
 const projectInitSnapshot = getProjectNodeInstanceRuntimeSnapshot(created.project!.projectId, projectInitNode!.projectNodeId)
 assert.equal(projectInitNode?.latestInstanceId, projectInitSnapshot?.latestInstanceId, 'PROJECT_INIT 应回写项目主记录实例 ID')
@@ -243,7 +243,7 @@ assert.equal(
   'PROJECT_INIT 应回写项目主记录实例编码',
 )
 
-const sampleAcquireNode = getProjectNodeRecordByWorkItemTypeCode(created.project!.projectId, 'SAMPLE_ACQUIRE')
+const sampleAcquireNode = getProjectNodeRecordByStepCode(created.project!.projectId, 'SAMPLE_ACQUIRE')
 assert.ok(sampleAcquireNode, '新项目应存在样衣获取节点')
 
 const saveResult = saveProjectNodeFormalRecord({
@@ -265,7 +265,7 @@ const saveResult = saveProjectNodeFormalRecord({
 assert.equal(saveResult.ok, true, '应能保存样衣获取正式记录')
 
 const sampleAcquireSnapshot = getProjectNodeInstanceRuntimeSnapshot(created.project!.projectId, sampleAcquireNode!.projectNodeId)
-const sampleAcquireNodeAfterSave = getProjectNodeRecordByWorkItemTypeCode(created.project!.projectId, 'SAMPLE_ACQUIRE')
+const sampleAcquireNodeAfterSave = getProjectNodeRecordByStepCode(created.project!.projectId, 'SAMPLE_ACQUIRE')
 assert.equal(
   sampleAcquireNodeAfterSave?.validInstanceCount,
   sampleAcquireSnapshot?.validInstanceCount,

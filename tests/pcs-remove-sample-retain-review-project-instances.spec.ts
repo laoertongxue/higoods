@@ -23,21 +23,21 @@ assert.ok(projects.length > 0, '应存在演示商品项目')
 for (const project of projects) {
   const nodes = listProjectNodes(project.projectId)
   assert.ok(
-    !nodes.some((node) => node.workItemTypeCode === 'SAMPLE_RETAIN_REVIEW' || node.workItemTypeName === '样衣留存评估'),
+    !nodes.some((node) => node.stepCode === 'SAMPLE_RETAIN_REVIEW' || node.stepName === '样衣留存评估'),
     `${project.projectCode} 不应再存在样衣留存评估节点`,
   )
   assert.ok(
-    nodes.some((node) => node.workItemTypeCode === 'SAMPLE_RETURN_HANDLE' && node.phaseCode === 'PHASE_05'),
+    nodes.some((node) => node.stepCode === 'SAMPLE_RETURN_HANDLE' && node.phaseCode === 'PHASE_05'),
     `${project.projectCode} 应存在项目收尾阶段的样衣退回处理节点`,
   )
 }
 
 assert.ok(
-  !listProjectInlineNodeRecords().some((record) => record.workItemTypeCode === 'SAMPLE_RETAIN_REVIEW'),
+  !listProjectInlineNodeRecords().some((record) => record.stepCode === 'SAMPLE_RETAIN_REVIEW'),
   '项目内正式记录中不应再存在 SAMPLE_RETAIN_REVIEW',
 )
 assert.ok(
-  !listProjectRelations().some((relation) => relation.workItemTypeCode === 'SAMPLE_RETAIN_REVIEW'),
+  !listProjectRelations().some((relation) => relation.stepCode === 'SAMPLE_RETAIN_REVIEW'),
   '项目关系中不应再存在 SAMPLE_RETAIN_REVIEW',
 )
 
@@ -48,14 +48,14 @@ const legacySnapshot: PcsProjectStoreSnapshot = {
   phases: projectSnapshot.phases.filter((item) => item.projectId === sampleProject.projectId).map((item) => ({ ...item })),
   nodes: [
     ...projectSnapshot.nodes
-      .filter((item) => item.projectId === sampleProject.projectId && item.workItemTypeCode !== 'SAMPLE_RETURN_HANDLE')
+      .filter((item) => item.projectId === sampleProject.projectId && item.stepCode !== 'SAMPLE_RETURN_HANDLE')
       .map((item) => ({ ...item })),
     {
-      ...projectSnapshot.nodes.find((item) => item.projectId === sampleProject.projectId && item.workItemTypeCode === 'SAMPLE_RETURN_HANDLE')!,
+      ...projectSnapshot.nodes.find((item) => item.projectId === sampleProject.projectId && item.stepCode === 'SAMPLE_RETURN_HANDLE')!,
       projectNodeId: `${sampleProject.projectId}-legacy-retain-node`,
-      workItemId: 'WI-020',
-      workItemTypeCode: 'SAMPLE_RETAIN_REVIEW' as never,
-      workItemTypeName: '样衣留存评估',
+      stepId: 'WI-020',
+      stepCode: 'SAMPLE_RETAIN_REVIEW' as never,
+      stepName: '样衣留存评估',
       currentStatus: '进行中',
       sequenceNo: 99,
     },
@@ -64,19 +64,19 @@ const legacySnapshot: PcsProjectStoreSnapshot = {
 
 const migratedSnapshot = removeSampleRetainReviewFromProjectSnapshot(legacySnapshot)
 const migratedNodes = migratedSnapshot.nodes.filter((item) => item.projectId === sampleProject.projectId)
-assert.ok(!migratedNodes.some((item) => item.workItemTypeCode === 'SAMPLE_RETAIN_REVIEW'), '清理后旧节点应被移除')
+assert.ok(!migratedNodes.some((item) => item.stepCode === 'SAMPLE_RETAIN_REVIEW'), '清理后旧节点应被移除')
 assert.equal(
-  migratedNodes.filter((item) => item.workItemTypeCode === 'SAMPLE_RETURN_HANDLE').length,
+  migratedNodes.filter((item) => item.stepCode === 'SAMPLE_RETURN_HANDLE').length,
   1,
   '清理后应只保留一个样衣退回处理节点',
 )
 assert.equal(
-  ensureSampleReturnHandleNode(sampleProject, migratedNodes).nodes.filter((item) => item.workItemTypeCode === 'SAMPLE_RETURN_HANDLE').length,
+  ensureSampleReturnHandleNode(sampleProject, migratedNodes).nodes.filter((item) => item.stepCode === 'SAMPLE_RETURN_HANDLE').length,
   1,
   '清理函数重复执行不得重复新增样衣退回处理节点',
 )
 
-const returnNode = migratedNodes.find((item) => item.workItemTypeCode === 'SAMPLE_RETURN_HANDLE')!
+const returnNode = migratedNodes.find((item) => item.stepCode === 'SAMPLE_RETURN_HANDLE')!
 const legacyRelationSnapshot: ProjectRelationStoreSnapshot = {
   version: 1,
   relations: [
@@ -85,8 +85,8 @@ const legacyRelationSnapshot: ProjectRelationStoreSnapshot = {
       projectId: sampleProject.projectId,
       projectCode: sampleProject.projectCode,
       projectNodeId: 'missing-retain-node',
-      workItemTypeCode: 'SAMPLE_RETAIN_REVIEW',
-      workItemTypeName: '样衣留存评估',
+      stepCode: 'SAMPLE_RETAIN_REVIEW',
+      stepName: '样衣留存评估',
       relationRole: '执行记录',
       sourceModule: '样衣台账',
       sourceObjectType: '样衣台账事件',
@@ -111,8 +111,8 @@ const legacyRelationSnapshot: ProjectRelationStoreSnapshot = {
       projectId: sampleProject.projectId,
       projectCode: sampleProject.projectCode,
       projectNodeId: 'missing-retain-node',
-      workItemTypeCode: 'SAMPLE_RETAIN_REVIEW',
-      workItemTypeName: '样衣留存评估',
+      stepCode: 'SAMPLE_RETAIN_REVIEW',
+      stepName: '样衣留存评估',
       relationRole: '执行记录',
       sourceModule: '技术资料',
       sourceObjectType: '技术包版本',
@@ -139,7 +139,7 @@ const legacyRelationSnapshot: ProjectRelationStoreSnapshot = {
 const migratedRelations = removeSampleRetainReviewFromRelations(legacyRelationSnapshot, migratedSnapshot)
 assert.ok(
   migratedRelations.relations.some(
-    (item) => item.sourceObjectId === 'ledger-001' && item.projectNodeId === returnNode.projectNodeId && item.workItemTypeCode === 'SAMPLE_RETURN_HANDLE',
+    (item) => item.sourceObjectId === 'ledger-001' && item.projectNodeId === returnNode.projectNodeId && item.stepCode === 'SAMPLE_RETURN_HANDLE',
   ),
   '样衣相关旧关系应转移到样衣退回处理节点',
 )

@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 import {
-  PROJECT_STEP_CONTRACTS,
-  listProjectStepContracts,
+  PROJECT_FLOW_STAGE_CONTRACTS,
+  listProjectFlowStageContracts,
 } from '../src/data/pcs-project-domain-contract.ts'
 import { buildProjectNodes } from '../src/data/pcs-project-node-factory.ts'
 import {
@@ -26,12 +26,12 @@ const expectedSteps = [
 ]
 
 assert.deepEqual(
-  listProjectStepContracts().map(({ stepCode, stepName, sequence }) => ({ stepCode, stepName, sequence })),
+  listProjectFlowStageContracts().map(({ stepCode, stepName, sequence }) => ({ stepCode, stepName, sequence })),
   expectedSteps,
   '商品项目必须按固定五步业务契约依次推进',
 )
 assert.deepEqual(
-  PROJECT_STEP_CONTRACTS.map(({ stepCode, stepName, sequence }) => ({ stepCode, stepName, sequence })),
+  PROJECT_FLOW_STAGE_CONTRACTS.map(({ stepCode, stepName, sequence }) => ({ stepCode, stepName, sequence })),
   expectedSteps,
   '导出的固定五步契约必须与查询结果一致',
 )
@@ -53,7 +53,7 @@ const requiredDetailedNodeCodes = [
 ]
 assert.deepEqual(
   requiredDetailedNodeCodes.filter(
-    (workItemTypeCode) => !builtNodes.some((node) => node.workItemTypeCode === workItemTypeCode),
+    (stepCode) => !builtNodes.some((node) => node.stepCode === stepCode),
   ),
   [],
   '测款前准备必须保留现有关键业务表单入口',
@@ -64,9 +64,9 @@ assert.deepEqual(
   '节点工厂只能按固定五步契约组织业务节点',
 )
 assert.equal(
-  builtNodes.some((node) => node.workItemTypeCode === 'STYLE_ARCHIVE_CREATE'),
-  false,
-  '款式档案应在创建项目时同步建立，不再保留事后生成档案节点',
+  builtNodes.filter((node) => node.stepCode === 'PROJECT_INIT').length,
+  1,
+  '项目与档案建立必须由唯一固定步骤承接，并在创建项目时同步建档',
 )
 
 resetProjectRepository()
@@ -119,12 +119,12 @@ assert.equal(styleArchive?.baseInfoStatus, '商品测款', '新建商品／款�
 assert.equal(styleArchive?.styleId, created.project.linkedStyleId, '项目与商品／款式档案必须双向保持同一关联')
 
 const pageSource = readFileSync(new URL('../src/pages/pcs-projects.ts', import.meta.url), 'utf8')
-assert.doesNotMatch(pageSource, new RegExp(['getPcs', 'WorkItemDefinition'].join('')), '商品项目页面不得再读取已删除定义')
+assert.doesNotMatch(pageSource, new RegExp(['getPcs', 'StepDefinition'].join('')), '商品项目页面不得再读取已删除定义')
 assert.doesNotMatch(
   pageSource,
-  new RegExp(['listActiveProject', 'Templates|getProject', 'TemplateById|countTemplateStages|countTemplateWorkItems'].join('')),
+  new RegExp(['listActiveProject', 'Templates|getProject', 'TemplateById|countTemplateStages|countTemplateSteps'].join('')),
   '商品项目页面不得再读取已删除运行时',
 )
-assert.match(pageSource, /ProjectStepCode/, '商品项目页面应由固定步骤编码分派')
+assert.match(pageSource, /ProjectFlowStageCode/, '商品项目页面应由固定步骤编码分派')
 
 console.log('pcs-project-fixed-step-flow.spec.ts PASS')

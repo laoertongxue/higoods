@@ -1,10 +1,10 @@
-import { findProjectByCode, findProjectNodeByWorkItemTypeCode, getProjectById } from './pcs-project-repository.ts'
+import { findProjectByCode, findProjectNodeByStepCode, getProjectById } from './pcs-project-repository.ts'
 import { buildProjectChannelProductChainSummary } from './pcs-channel-product-project-repository.ts'
 import type { ProjectRelationPendingItem, ProjectRelationRecord } from './pcs-project-relation-types.ts'
 import type { LiveProductLine, LiveSessionRecord } from './pcs-live-testing-types.ts'
 import type { VideoTestRecord } from './pcs-video-testing-types.ts'
 
-type TestingWorkItemTypeCode = 'LIVE_TEST' | 'VIDEO_TEST'
+type TestingStepTypeCode = 'LIVE_TEST' | 'VIDEO_TEST'
 
 interface RelationBuildOptions {
   operatorName?: string
@@ -70,7 +70,7 @@ function buildTestingGateFailure(input: {
   sourceModule: string
   sourceObjectCode: string
   sourceTitle: string
-  workItemLabel: string
+  stepDefinitionLabel: string
   businessDate: string
   legacyRefType: string
   legacyRefValue: string
@@ -98,7 +98,7 @@ function validateTestingGate(input: {
   sourceModule: '直播' | '短视频'
   sourceObjectCode: string
   sourceTitle: string
-  workItemLabel: string
+  stepDefinitionLabel: string
   businessDate: string
   legacyRefType: string
   legacyRefValue: string
@@ -117,7 +117,7 @@ function validateTestingGate(input: {
   if (!chain || !chain.currentChannelProductId) {
     return buildTestingGateFailure({
       ...input,
-      reason: `当前项目未完成商品上架，不能建立正式${input.workItemLabel}关系。`,
+      reason: `当前项目未完成商品上架，不能建立正式${input.stepDefinitionLabel}关系。`,
     })
   }
 
@@ -129,12 +129,12 @@ function validateTestingGate(input: {
   if (channelProductStatus !== '已上架待测款') {
     const reason =
       channelProductStatus === '待上传' || channelProductStatus === '已上传待确认'
-        ? `当前项目未完成商品上架，不能建立正式${input.workItemLabel}关系。`
+        ? `当前项目未完成商品上架，不能建立正式${input.stepDefinitionLabel}关系。`
         : channelProductStatus === '已作废'
-          ? `当前渠道店铺商品已作废，不能建立正式${input.workItemLabel}关系。`
+          ? `当前渠道店铺商品已作废，不能建立正式${input.stepDefinitionLabel}关系。`
           : channelProductStatus === '已生效'
-            ? `当前渠道店铺商品已完成款式档案关联，不能再进入正式${input.workItemLabel}。`
-            : `当前渠道店铺商品状态为${channelProductStatus || '未知状态'}，只有“已上架待测款”的项目才允许建立正式${input.workItemLabel}关系。`
+            ? `当前渠道店铺商品已完成款式档案关联，不能再进入正式${input.stepDefinitionLabel}。`
+            : `当前渠道店铺商品状态为${channelProductStatus || '未知状态'}，只有“已上架待测款”的项目才允许建立正式${input.stepDefinitionLabel}关系。`
     return buildTestingGateFailure({
       ...input,
       reason,
@@ -144,7 +144,7 @@ function validateTestingGate(input: {
   if (!chain.currentUpstreamChannelProductCode) {
     return buildTestingGateFailure({
       ...input,
-      reason: `当前渠道店铺商品尚未取得上游渠道商品编码，不能进入正式${input.workItemLabel}。`,
+      reason: `当前渠道店铺商品尚未取得上游渠道商品编码，不能进入正式${input.stepDefinitionLabel}。`,
     })
   }
 
@@ -163,8 +163,8 @@ function buildTestingRelationRecord(input: {
   sourceStatus: string
   businessDate: string
   ownerName: string
-  workItemTypeCode: TestingWorkItemTypeCode
-  workItemTypeNameHint: string
+  stepCode: TestingStepTypeCode
+  stepNameHint: string
   operatorName: string
   note: string
   legacyRefType: string
@@ -190,7 +190,7 @@ function buildTestingRelationRecord(input: {
     }
   }
 
-  const node = findProjectNodeByWorkItemTypeCode(project.projectId, input.workItemTypeCode)
+  const node = findProjectNodeByStepCode(project.projectId, input.stepCode)
   if (!node && !input.allowMissingProjectNode) {
     return {
       relation: null,
@@ -214,7 +214,7 @@ function buildTestingRelationRecord(input: {
       sourceModule: input.sourceModule,
       sourceObjectCode: input.sourceLineCode || input.sourceObjectCode,
       sourceTitle: input.sourceTitle,
-      workItemLabel: input.workItemTypeNameHint,
+      stepDefinitionLabel: input.stepNameHint,
       businessDate: input.businessDate,
       legacyRefType: input.legacyRefType,
       legacyRefValue: input.legacyRefValue,
@@ -225,13 +225,13 @@ function buildTestingRelationRecord(input: {
   const timestamp = input.businessDate || nowText()
   return {
     relation: {
-      projectRelationId: `rel_${project.projectId}_${node?.projectNodeId || input.workItemTypeCode}_${input.sourceLineCode || input.sourceObjectCode}`
+      projectRelationId: `rel_${project.projectId}_${node?.projectNodeId || input.stepCode}_${input.sourceLineCode || input.sourceObjectCode}`
         .replace(/[^a-zA-Z0-9]/g, '_'),
       projectId: project.projectId,
       projectCode: project.projectCode,
       projectNodeId: node?.projectNodeId || null,
-      workItemTypeCode: input.workItemTypeCode,
-      workItemTypeName: node?.workItemTypeName || input.workItemTypeNameHint,
+      stepCode: input.stepCode,
+      stepName: node?.stepName || input.stepNameHint,
       relationRole: '执行记录',
       sourceModule: input.sourceModule,
       sourceObjectType: input.sourceObjectType,
@@ -273,8 +273,8 @@ export function buildLiveProductLineProjectRelation(
     sourceStatus: line.sessionStatus,
     businessDate: line.businessDate,
     ownerName: line.ownerName,
-    workItemTypeCode: 'LIVE_TEST',
-    workItemTypeNameHint: '直播测款',
+    stepCode: 'LIVE_TEST',
+    stepNameHint: '直播测款',
     operatorName: options.operatorName || '系统初始化',
     note: options.note || '',
     legacyRefType: options.legacyRefType || '',
@@ -301,8 +301,8 @@ export function buildVideoRecordProjectRelation(
     sourceStatus: record.recordStatus,
     businessDate: record.businessDate,
     ownerName: record.ownerName,
-    workItemTypeCode: 'VIDEO_TEST',
-    workItemTypeNameHint: '短视频测款',
+    stepCode: 'VIDEO_TEST',
+    stepNameHint: '短视频测款',
     operatorName: options.operatorName || '系统初始化',
     note: options.note || '',
     legacyRefType: options.legacyRefType || '',

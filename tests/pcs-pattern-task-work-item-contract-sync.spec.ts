@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 
-import { getProjectWorkItemContract } from '../src/data/pcs-project-domain-contract.ts'
+import { getProjectStepDefinition } from '../src/data/pcs-project-domain-contract.ts'
 
-const contract = getProjectWorkItemContract('PATTERN_ARTWORK_TASK')
+const contract = getProjectStepDefinition('PATTERN_ARTWORK_TASK')
 const labels = contract.fieldDefinitions.map((field) => field.label)
 
 ;[

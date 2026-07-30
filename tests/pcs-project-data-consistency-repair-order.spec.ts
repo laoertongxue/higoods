@@ -19,11 +19,11 @@ function prepareScenario(input: {
   const project = listProjects()[0]
   assert.ok(project, '应存在固定五步演示项目')
   const nodes = listProjectNodes(project.projectId)
-  const target = nodes.find((node) => node.workItemTypeCode === input.targetCode)
+  const target = nodes.find((node) => node.stepCode === input.targetCode)
   assert.ok(target, `应存在 ${input.targetCode} 节点`)
   const targetIndex = nodes.findIndex((node) => node.projectNodeId === target.projectNodeId)
   const earlierOpenIndex = input.earlierOpenCode
-    ? nodes.findIndex((node) => node.workItemTypeCode === input.earlierOpenCode)
+    ? nodes.findIndex((node) => node.stepCode === input.earlierOpenCode)
     : -1
   assert.ok(!input.earlierOpenCode || (earlierOpenIndex >= 0 && earlierOpenIndex < targetIndex), '更早开放节点必须位于目标节点之前')
 
@@ -43,7 +43,7 @@ function prepareScenario(input: {
             currentIssueType: '',
             currentIssueText: '',
             pendingActionType: '待执行',
-            pendingActionText: `当前请处理：${node.workItemTypeName}`,
+            pendingActionText: `当前请处理：${node.stepName}`,
           }
         }
         return {

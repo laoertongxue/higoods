@@ -140,6 +140,36 @@
 - `src/router/routes-pcs.ts`
 - `tests/pcs-engineering-task-standard-list.spec.ts`
 - `tests/pcs-projects-standard-list.spec.ts`
+- `src/data/pcs-engineering-task-field-policy.ts`
+- `src/data/pcs-first-order-sample-types.ts`
+- `src/data/pcs-first-sample-types.ts`
+- `src/data/pcs-pattern-task-types.ts`
+- `src/data/pcs-plate-making-types.ts`
+- `src/data/pcs-project-archive-bootstrap.ts`
+- `src/data/pcs-project-archive-collector.ts`
+- `src/data/pcs-project-archive-repository.ts`
+- `src/data/pcs-project-archive-sync.ts`
+- `src/data/pcs-project-archive-types.ts`
+- `src/data/pcs-project-decision-migration.ts`
+- `src/data/pcs-project-demo-seed-service.ts`
+- `src/data/pcs-project-flow-service.ts`
+- `src/data/pcs-project-image-view-model.ts`
+- `src/data/pcs-project-inline-node-record-bootstrap.ts`
+- `src/data/pcs-project-instance-model.ts`
+- `src/data/pcs-project-list-store.ts`
+- `src/data/pcs-project-node-factory.ts`
+- `src/data/pcs-project-node-instance-registry.ts`
+- `src/data/pcs-project-relation-bootstrap.ts`
+- `src/data/pcs-project-relation-types.ts`
+- `src/data/pcs-project-types.ts`
+- `src/data/pcs-revision-task-types.ts`
+- `src/data/pcs-sample-management.ts`
+- `src/data/pcs-style-archive-image-selection.ts`
+- `src/data/pcs-tech-pack-version-activation.ts`
+- `src/data/pcs-testing-relation-normalizer.ts`
+- `src/pages/pcs-live-testing.ts`
+- `src/pages/pcs-sample-management.ts`
+- `src/pages/pcs-video-testing.ts`
 
 ### 页面路由
 
@@ -230,6 +260,97 @@
 - `npm run check:list-page-governance`：通过。
 - `npm run check:prototype-design-governance -- --all`：通过。
 - `npm run build`：通过。
+
+### 补充审查结论
+
+- 通过。
+- 无业务例外。
+
+## 9. 固定步骤运行时与关联档案图片补充审查
+
+### 本次范围
+
+- 商品项目运行时只保留固定阶段与固定步骤；项目、步骤实例和页面不再保存或展示项目模板、工作项类型及其版本。
+- 旧快照中的模板和工作项字段只在读取迁移边界识别，迁移后的运行时记录统一写入步骤编码与步骤名称。
+- 删除项目内“生成款式档案”节点、操作区、事件和生成接口；项目创建时已关联的商品／款式档案继续作为唯一档案事实。
+- 保留项目关联档案的图片正式化：主图按“渠道上架图 → 样衣拍摄图 → 项目参考图”选择，主图同时进入图集；明确选择参考图时回写图片状态、用途、图集及来源。
+
+### 规范自查
+
+| 检查项 | 结论 |
+| --- | --- |
+| 业务边界 | 通过。删除可配置工作项运行时和重复建档动作，不删除固定步骤中的逐步办理。 |
+| 信息结构 | 通过。页面统一使用“阶段与步骤”“步骤字段”等必要中文业务表达。 |
+| 档案唯一性 | 通过。只更新项目创建时已关联的档案，不提供绕过项目另建档案的入口。 |
+| 图片防错 | 通过。自动主图遵循固定来源优先级，明确人工选择优先；主图与图集、状态和用途同步写回。 |
+| 交互性能 | 通过。删除旧图片工作台及整套生成交互，没有新增整页重绘或高频输入。 |
+| 列表与分页 | 通过。本次没有新增列表；既有商品项目列表继续复用标准列表页实现。 |
+| 中文化 | 通过。项目运行时不展示英文状态码、模板或工作项配置概念。 |
+
+### 补充验证
+
+- `npx tsx tests/pcs-work-item-module-removal.spec.ts`：通过。
+- `npx tsx tests/pcs-project-fixed-step-flow.spec.ts`：通过。
+- `npx tsx tests/pcs-project-historical-migration.spec.ts`：通过。
+- `npx tsx tests/pcs-projects.spec.ts`：通过。
+- `npx tsx tests/pcs-project-archive-style-images.spec.ts`：通过。
+- `npx tsx tests/pcs-project-linked-style-archive-migration.spec.ts`：通过。
+- `npx tsx tests/pcs-style-archive-linked-image-priority.spec.ts`：通过。
+- `npx tsx tests/pcs-style-archive-linked-image-writeback.spec.ts`：通过。
+- `npm run check:pcs-product-testing-v1`：通过。
+- `npm run check:pcs-closure-unification`：通过。
+
+### 本轮追加受管文件
+
+- `src/data/pcs-channel-product-project-repository.ts`
+- `src/data/pcs-engineering-task-field-policy.ts`
+- `src/data/pcs-first-order-sample-project-writeback.ts`
+- `src/data/pcs-first-order-sample-types.ts`
+- `src/data/pcs-first-sample-project-writeback.ts`
+- `src/data/pcs-first-sample-types.ts`
+- `src/data/pcs-pattern-task-types.ts`
+- `src/data/pcs-plate-making-types.ts`
+- `src/data/pcs-project-archive-bootstrap.ts`
+- `src/data/pcs-project-archive-collector.ts`
+- `src/data/pcs-project-archive-repository.ts`
+- `src/data/pcs-project-archive-sync.ts`
+- `src/data/pcs-project-archive-types.ts`
+- `src/data/pcs-project-bootstrap.ts`
+- `src/data/pcs-project-data-consistency.ts`
+- `src/data/pcs-project-decision-flow-service.ts`
+- `src/data/pcs-project-decision-migration.ts`
+- `src/data/pcs-project-demo-seed-service.ts`
+- `src/data/pcs-project-domain-contract.ts`
+- `src/data/pcs-project-flow-service.ts`
+- `src/data/pcs-project-image-view-model.ts`
+- `src/data/pcs-project-inline-node-record-bootstrap.ts`
+- `src/data/pcs-project-inline-node-record-repository.ts`
+- `src/data/pcs-project-inline-node-record-types.ts`
+- `src/data/pcs-project-instance-model.ts`
+- `src/data/pcs-project-list-store.ts`
+- `src/data/pcs-project-node-factory.ts`
+- `src/data/pcs-project-node-instance-registry.ts`
+- `src/data/pcs-project-relation-bootstrap.ts`
+- `src/data/pcs-project-relation-repository.ts`
+- `src/data/pcs-project-relation-types.ts`
+- `src/data/pcs-project-repository.ts`
+- `src/data/pcs-project-style-archive-generation.ts`
+- `src/data/pcs-project-types.ts`
+- `src/data/pcs-revision-task-types.ts`
+- `src/data/pcs-sample-management.ts`
+- `src/data/pcs-style-archive-bootstrap.ts`
+- `src/data/pcs-style-archive-image-selection.ts`
+- `src/data/pcs-task-bootstrap.ts`
+- `src/data/pcs-task-project-relation-writeback.ts`
+- `src/data/pcs-tech-pack-task-generation.ts`
+- `src/data/pcs-tech-pack-version-activation.ts`
+- `src/data/pcs-testing-relation-normalizer.ts`
+- `src/pages/pcs-engineering-tasks.ts`
+- `src/pages/pcs-live-testing.ts`
+- `src/pages/pcs-projects-list.ts`
+- `src/pages/pcs-projects.ts`
+- `src/pages/pcs-sample-management.ts`
+- `src/pages/pcs-video-testing.ts`
 
 ### 补充审查结论
 

@@ -4,7 +4,7 @@ import { listPatternTasks, resetPatternTaskRepository } from '../src/data/pcs-pa
 import { listPlateMakingTasks, resetPlateMakingTaskRepository } from '../src/data/pcs-plate-making-repository.ts'
 import { resetProjectRelationRepository } from '../src/data/pcs-project-relation-repository.ts'
 import {
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   listProjectNodes,
   listProjects,
   resetProjectRepository,
@@ -116,7 +116,7 @@ if (manualWithReference.ok) {
 }
 
 const project = listProjects().find((item) =>
-  Boolean(getProjectNodeRecordByWorkItemTypeCode(item.projectId, 'TEST_CONCLUSION')),
+  Boolean(getProjectNodeRecordByStepCode(item.projectId, 'TEST_CONCLUSION')),
 )
 assert.ok(project, '应存在测款结论返改的商品项目演示数据')
 const projectNodesBeforeRevision = listProjectNodes(project!.projectId)

@@ -11,12 +11,12 @@ import { syncProjectNodeInstanceRuntime } from './pcs-project-node-instance-regi
 import { validateProjectNodeCompletion } from './pcs-project-data-consistency.ts'
 import type { PcsProjectNodeRecord, PcsProjectViewRecord, ProjectNodeStatus } from './pcs-project-types.ts'
 
-const DECISION_WORK_ITEM_CODES = ['FEASIBILITY_REVIEW', 'SAMPLE_CONFIRM', 'TEST_CONCLUSION'] as const
+const DECISION_STEP_CODES = ['FEASIBILITY_REVIEW', 'SAMPLE_CONFIRM', 'TEST_CONCLUSION'] as const
 const TEST_DECISION_RESULT_OPTIONS = ['通过', '不通过', '暂保留'] as const
 const FEASIBILITY_DECISION_RESULT_OPTIONS = ['进入测款', '样衣退回'] as const
 const DECISION_RESULT_OPTIONS = [...TEST_DECISION_RESULT_OPTIONS, ...FEASIBILITY_DECISION_RESULT_OPTIONS] as const
 
-export type ProjectDecisionWorkItemCode = (typeof DECISION_WORK_ITEM_CODES)[number]
+export type ProjectDecisionStepCode = (typeof DECISION_STEP_CODES)[number]
 export type ProjectDecisionResult = (typeof DECISION_RESULT_OPTIONS)[number]
 
 export interface ProjectDecisionFlowResult {
@@ -63,7 +63,7 @@ function syncProjectLifecycleAfterDecision(
   const currentPhaseCode = nextNode?.phaseCode ?? phases[phases.length - 1]?.phaseCode ?? project.currentPhaseCode
   const currentPhase = phases.find((item) => item.phaseCode === currentPhaseCode) ?? phases[0]
   const completedNonInitCount = nodes.filter(
-    (node) => node.workItemTypeCode !== 'PROJECT_INIT' && node.currentStatus === '已完成',
+    (node) => node.stepCode !== 'PROJECT_INIT' && node.currentStatus === '已完成',
   ).length
   const allClosed = nodes.every((node) => isClosedProjectNodeStatus(node.currentStatus))
 
@@ -121,8 +121,8 @@ function syncProjectLifecycleAfterDecision(
   }
 }
 
-export function isProjectDecisionWorkItemCode(workItemTypeCode: string): workItemTypeCode is ProjectDecisionWorkItemCode {
-  return (DECISION_WORK_ITEM_CODES as readonly string[]).includes(workItemTypeCode)
+export function isProjectDecisionStepCode(stepCode: string): stepCode is ProjectDecisionStepCode {
+  return (DECISION_STEP_CODES as readonly string[]).includes(stepCode)
 }
 
 function assertDecisionResult(result: string): asserts result is ProjectDecisionResult {
@@ -157,7 +157,7 @@ export function advanceDecisionNodePassed(
   const nodes = listProjectNodes(projectId)
   const currentIndex = nodes.findIndex((item) => item.projectNodeId === projectNodeId)
   const nextNode = nodes.slice(currentIndex + 1).find((item) => item.currentStatus === '未开始') ?? null
-  const resultText = buildResultText(node.workItemTypeName, passedResult, note)
+  const resultText = buildResultText(node.stepName, passedResult, note)
 
   updateProjectNodeRecord(
     projectId,
@@ -183,7 +183,7 @@ export function advanceDecisionNodePassed(
       {
         currentStatus: '进行中',
         pendingActionType: '待执行',
-        pendingActionText: `当前请处理：${nextNode.workItemTypeName}`,
+        pendingActionText: `当前请处理：${nextNode.stepName}`,
         updatedAt: timestamp,
       },
       operatorName,
@@ -194,7 +194,7 @@ export function advanceDecisionNodePassed(
 
   return {
     ok: true,
-    message: '当前工作项已完成，已进入下一工作项',
+    message: '当前步骤已完成，已进入下一步骤',
     project: getProjectById(projectId),
     node: getProjectNodeRecordById(projectId, projectNodeId),
     nextNode: nextNode ? getProjectNodeRecordById(projectId, nextNode.projectNodeId) : null,
@@ -225,12 +225,12 @@ export function routeProjectToSampleReturnHandle(
   }
 
   const nodes = listProjectNodes(projectId)
-  const sampleReturnNodes = nodes.filter((item) => item.workItemTypeCode === 'SAMPLE_RETURN_HANDLE')
+  const sampleReturnNodes = nodes.filter((item) => item.stepCode === 'SAMPLE_RETURN_HANDLE')
   if (sampleReturnNodes.length !== 1) {
-    throw new Error('当前项目缺少样衣退回处理工作项，请先修复项目模板或项目节点')
+    throw new Error('当前项目缺少样衣退回处理步骤，请先修复固定流程或项目步骤')
   }
   const sampleReturnNode = sampleReturnNodes[0]
-  const resultText = buildResultText(decisionNode.workItemTypeName, eliminatedResult, note)
+  const resultText = buildResultText(decisionNode.stepName, eliminatedResult, note)
 
   updateProjectNodeRecord(
     projectId,
@@ -294,7 +294,7 @@ export function routeProjectToSampleReturnHandle(
 
   return {
     ok: true,
-    message: '当前工作项已完成，已进入样衣退回处理',
+    message: '当前步骤已完成，已进入样衣退回处理',
     project: getProjectById(projectId),
     node: getProjectNodeRecordById(projectId, decisionNodeId),
     nextNode: getProjectNodeRecordById(projectId, sampleReturnNode.projectNodeId),
@@ -324,7 +324,7 @@ export function holdProjectDecisionForLater(
     throw new Error('未找到对应决策节点，不能暂保留当前判断。')
   }
 
-  const resultText = buildResultText(decisionNode.workItemTypeName, '暂保留', note)
+  const resultText = buildResultText(decisionNode.stepName, '暂保留', note)
   updateProjectNodeRecord(
     projectId,
     decisionNodeId,
@@ -367,10 +367,10 @@ export function completeDecisionNodeWithResult(
   if (!node) {
     throw new Error('未找到对应决策节点，不能完成当前决策。')
   }
-  if (!isProjectDecisionWorkItemCode(node.workItemTypeCode)) {
-    throw new Error('当前节点不是决策工作项，不能使用决策流转服务。')
+  if (!isProjectDecisionStepCode(node.stepCode)) {
+    throw new Error('当前节点不是决策步骤，不能使用决策流转服务。')
   }
-  if (node.workItemTypeCode === 'FEASIBILITY_REVIEW') {
+  if (node.stepCode === 'FEASIBILITY_REVIEW') {
     if (result === '进入测款') {
       return advanceDecisionNodePassed(projectId, projectNodeId, operatorName, note, timestamp, '进入测款')
     }

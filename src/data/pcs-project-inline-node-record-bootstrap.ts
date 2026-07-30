@@ -1,13 +1,13 @@
 import { createBootstrapProjectSnapshot } from './pcs-project-bootstrap.ts'
 import type { PcsProjectNodeRecord, PcsProjectRecord } from './pcs-project-types.ts'
 import {
-  PCS_PROJECT_INLINE_NODE_RECORD_WORK_ITEM_TYPES,
+  PCS_PROJECT_INLINE_STEP_RECORD_CODES,
 } from './pcs-project-inline-node-record-types.ts'
 import type {
   PcsProjectInlineNodeRecord,
   PcsProjectInlineNodeRef,
   PcsProjectInlineNodeRecordStoreSnapshot,
-  PcsProjectInlineNodeRecordWorkItemTypeCode,
+  PcsProjectInlineStepRecordCode,
 } from './pcs-project-inline-node-record-types.ts'
 import {
   SAMPLE_COST_RAW_FIXED_PROCESS_OVERRIDES_KEY,
@@ -74,7 +74,7 @@ interface EarlyPhaseProjectScenario {
 
 type EarlyPhaseRecordSeed = {
   projectCode: string
-  workItemTypeCode: PcsProjectInlineNodeRecordWorkItemTypeCode
+  stepCode: PcsProjectInlineStepRecordCode
   sourceDocType: string
   sourceModule: string
   sourceDocCode: string
@@ -121,7 +121,7 @@ function getTestingConclusionNextActionType(conclusion: TestingBranchRecordSeed[
   return ''
 }
 
-const PROJECT_RECORD_PLAN: Record<string, PcsProjectInlineNodeRecordWorkItemTypeCode[]> = {
+const PROJECT_RECORD_PLAN: Record<string, PcsProjectInlineStepRecordCode[]> = {
   'PRJ-20251216-001': [
     'SAMPLE_ACQUIRE',
     'SAMPLE_INBOUND_CHECK',
@@ -625,7 +625,7 @@ const TESTING_BRANCH_RECORDS: TestingBranchRecordSeed[] = [
   },
 ]
 
-const NODE_TIME_PLAN: Partial<Record<PcsProjectInlineNodeRecordWorkItemTypeCode, { offsetDays: number; time: string }>> = {
+const NODE_TIME_PLAN: Partial<Record<PcsProjectInlineStepRecordCode, { offsetDays: number; time: string }>> = {
   SAMPLE_ACQUIRE: { offsetDays: 0, time: '09:20:00' },
   SAMPLE_INBOUND_CHECK: { offsetDays: 1, time: '15:30:00' },
   FEASIBILITY_REVIEW: { offsetDays: 2, time: '10:00:00' },
@@ -644,7 +644,7 @@ function addDays(baseDateText: string, offsetDays: number, timeText: string): st
   return `${yyyy}-${mm}-${dd} ${timeText}`
 }
 
-function getRecordCode(projectCode: string, workItemTypeCode: string): string {
+function getRecordCode(projectCode: string, stepCode: string): string {
   const tail = projectCode.slice(-3)
   const suffixMap: Record<string, string> = {
     SAMPLE_ACQUIRE: 'ACQ',
@@ -657,7 +657,7 @@ function getRecordCode(projectCode: string, workItemTypeCode: string): string {
     TEST_DATA_SUMMARY: 'SUM',
     TEST_CONCLUSION: 'CON',
   }
-  return `INR-${tail}-${suffixMap[workItemTypeCode] || 'REC'}-001`
+  return `INR-${tail}-${suffixMap[stepCode] || 'REC'}-001`
 }
 
 function buildScenarioSampleCodes(baseSampleCode: string, quantity: number): string[] {
@@ -773,19 +773,19 @@ function buildSampleCostReviewSeed(input: {
   }
 }
 
-function buildSeedForNode(projectCode: string, workItemTypeCode: PcsProjectInlineNodeRecordWorkItemTypeCode): EarlyPhaseRecordSeed {
+function buildSeedForNode(projectCode: string, stepCode: PcsProjectInlineStepRecordCode): EarlyPhaseRecordSeed {
   const scenario = PROJECT_SCENARIOS[projectCode]
-  const timePlan = NODE_TIME_PLAN[workItemTypeCode]
+  const timePlan = NODE_TIME_PLAN[stepCode]
   if (!scenario || !timePlan) {
-    throw new Error(`缺少 early inline 节点 demo 配置：${projectCode} / ${workItemTypeCode}`)
+    throw new Error(`缺少 early inline 节点 demo 配置：${projectCode} / ${stepCode}`)
   }
   const businessDate = addDays(scenario.baseDate, timePlan.offsetDays, timePlan.time)
-  const recordCode = getRecordCode(projectCode, workItemTypeCode)
+  const recordCode = getRecordCode(projectCode, stepCode)
 
-  if (workItemTypeCode === 'SAMPLE_ACQUIRE') {
+  if (stepCode === 'SAMPLE_ACQUIRE') {
     return {
       projectCode,
-      workItemTypeCode,
+      stepCode,
       sourceModule: '商品项目',
       sourceDocType: '样衣获取记录',
       sourceDocCode: `ACQ-${projectCode.slice(-3)}-001`,
@@ -810,11 +810,11 @@ function buildSeedForNode(projectCode: string, workItemTypeCode: PcsProjectInlin
     }
   }
 
-  if (workItemTypeCode === 'SAMPLE_INBOUND_CHECK') {
+  if (stepCode === 'SAMPLE_INBOUND_CHECK') {
     const sampleCodes = buildScenarioSampleCodes(scenario.sampleCode, scenario.sampleQuantity)
     return {
       projectCode,
-      workItemTypeCode,
+      stepCode,
       sourceModule: '商品项目',
       sourceDocType: '样衣结果核对记录',
       sourceDocCode: `SRC-${projectCode.slice(-3)}-001`,
@@ -848,10 +848,10 @@ function buildSeedForNode(projectCode: string, workItemTypeCode: PcsProjectInlin
     }
   }
 
-  if (workItemTypeCode === 'FEASIBILITY_REVIEW') {
+  if (stepCode === 'FEASIBILITY_REVIEW') {
     return {
       projectCode,
-      workItemTypeCode,
+      stepCode,
       sourceModule: '商品项目',
       sourceDocType: '可行性评估记录',
       sourceDocCode: `REV-${projectCode.slice(-3)}-001`,
@@ -868,10 +868,10 @@ function buildSeedForNode(projectCode: string, workItemTypeCode: PcsProjectInlin
     }
   }
 
-  if (workItemTypeCode === 'SAMPLE_SHOOT_FIT') {
+  if (stepCode === 'SAMPLE_SHOOT_FIT') {
     return {
       projectCode,
-      workItemTypeCode,
+      stepCode,
       sourceModule: '内容拍摄',
       sourceDocType: '拍摄试穿反馈单',
       sourceDocCode: `FIT-${projectCode.slice(-3)}-001`,
@@ -897,10 +897,10 @@ function buildSeedForNode(projectCode: string, workItemTypeCode: PcsProjectInlin
     }
   }
 
-  if (workItemTypeCode === 'SAMPLE_CONFIRM') {
+  if (stepCode === 'SAMPLE_CONFIRM') {
     return {
       projectCode,
-      workItemTypeCode,
+      stepCode,
       sourceModule: '商品项目',
       sourceDocType: '样衣确认单',
       sourceDocCode: `CFM-${projectCode.slice(-3)}-001`,
@@ -918,7 +918,7 @@ function buildSeedForNode(projectCode: string, workItemTypeCode: PcsProjectInlin
     }
   }
 
-  if (workItemTypeCode === 'SAMPLE_COST_REVIEW') {
+  if (stepCode === 'SAMPLE_COST_REVIEW') {
     const costReviewSeed = buildSampleCostReviewSeed({
       projectCode,
       projectName: scenario.sampleName,
@@ -934,7 +934,7 @@ function buildSeedForNode(projectCode: string, workItemTypeCode: PcsProjectInlin
     })
     return {
       projectCode,
-      workItemTypeCode,
+      stepCode,
       sourceModule: '成本核价',
       sourceDocType: '样衣核价单',
       sourceDocCode: `CST-${projectCode.slice(-3)}-001`,
@@ -944,10 +944,10 @@ function buildSeedForNode(projectCode: string, workItemTypeCode: PcsProjectInlin
     }
   }
 
-  if (workItemTypeCode === 'SAMPLE_PRICING') {
+  if (stepCode === 'SAMPLE_PRICING') {
     return {
       projectCode,
-      workItemTypeCode,
+      stepCode,
       sourceModule: '商品定价',
       sourceDocType: '样衣定价单',
       sourceDocCode: `PRC-${projectCode.slice(-3)}-001`,
@@ -965,7 +965,7 @@ function buildSeedForNode(projectCode: string, workItemTypeCode: PcsProjectInlin
     }
   }
 
-  throw new Error(`未覆盖的 early inline 节点类型：${workItemTypeCode}`)
+  throw new Error(`未覆盖的 early inline 节点类型：${stepCode}`)
 }
 
 function buildProjectNodeLookup() {
@@ -973,7 +973,7 @@ function buildProjectNodeLookup() {
   const projectMap = new Map(snapshot.projects.map((project) => [project.projectCode, project]))
   const projectIdMap = new Map(snapshot.projects.map((project) => [project.projectId, project]))
   const nodeMap = new Map(
-    snapshot.nodes.map((node) => [`${node.projectId}::${node.workItemTypeCode}`, node]),
+    snapshot.nodes.map((node) => [`${node.projectId}::${node.stepCode}`, node]),
   )
   return { snapshot, projectMap, projectIdMap, nodeMap }
 }
@@ -1086,8 +1086,8 @@ function buildTestingBranchBootstrapRecords(
       projectCode: project.projectCode,
       projectName: project.projectName,
       projectNodeId: summaryNode.projectNodeId,
-      workItemTypeCode: 'TEST_DATA_SUMMARY',
-      workItemTypeName: summaryNode.workItemTypeName,
+      stepCode: 'TEST_DATA_SUMMARY',
+      stepName: summaryNode.stepName,
       businessDate: seed.summaryBusinessDate,
       recordStatus: '已完成',
       ownerId: project.ownerId,
@@ -1121,7 +1121,6 @@ function buildTestingBranchBootstrapRecords(
       updatedAt: seed.summaryBusinessDate,
       updatedBy: seed.summaryOwner,
       legacyProjectRef: project.projectCode,
-      legacyWorkItemInstanceId: null,
     } as PcsProjectInlineNodeRecord)
 
     const downstreamRefs: PcsProjectInlineNodeRef[] = []
@@ -1153,8 +1152,8 @@ function buildTestingBranchBootstrapRecords(
         projectCode: project.projectCode,
         projectName: project.projectName,
         projectNodeId: conclusionNode.projectNodeId,
-        workItemTypeCode: 'TEST_CONCLUSION',
-        workItemTypeName: conclusionNode.workItemTypeName,
+        stepCode: 'TEST_CONCLUSION',
+        stepName: conclusionNode.stepName,
         businessDate: seed.conclusionBusinessDate,
         recordStatus: '已完成',
         ownerId: project.ownerId,
@@ -1200,7 +1199,6 @@ function buildTestingBranchBootstrapRecords(
         updatedAt: seed.conclusionBusinessDate,
         updatedBy: project.ownerName,
         legacyProjectRef: project.projectCode,
-        legacyWorkItemInstanceId: null,
       } as PcsProjectInlineNodeRecord)
     }
   })
@@ -1237,10 +1235,10 @@ function buildGenericInlineSeed(
   const businessDate = buildGenericInlineBusinessDate(project, node)
   const sampleCode = buildFallbackSampleCode(projectCode)
 
-  if (node.workItemTypeCode === 'SAMPLE_ACQUIRE') {
+  if (node.stepCode === 'SAMPLE_ACQUIRE') {
     return {
       projectCode,
-      workItemTypeCode: 'SAMPLE_ACQUIRE',
+      stepCode: 'SAMPLE_ACQUIRE',
       sourceModule: '商品项目',
       sourceDocType: '样衣获取记录',
       sourceDocCode: `ACQ-${projectCode.slice(-3)}-GEN`,
@@ -1261,11 +1259,11 @@ function buildGenericInlineSeed(
     }
   }
 
-  if (node.workItemTypeCode === 'SAMPLE_INBOUND_CHECK') {
+  if (node.stepCode === 'SAMPLE_INBOUND_CHECK') {
     const sampleCodes = buildScenarioSampleCodes(sampleCode, 1)
     return {
       projectCode,
-      workItemTypeCode: 'SAMPLE_INBOUND_CHECK',
+      stepCode: 'SAMPLE_INBOUND_CHECK',
       sourceModule: '商品项目',
       sourceDocType: '样衣结果核对记录',
       sourceDocCode: `SRC-${projectCode.slice(-3)}-GEN`,
@@ -1299,10 +1297,10 @@ function buildGenericInlineSeed(
     }
   }
 
-  if (node.workItemTypeCode === 'FEASIBILITY_REVIEW') {
+  if (node.stepCode === 'FEASIBILITY_REVIEW') {
     return {
       projectCode,
-      workItemTypeCode: 'FEASIBILITY_REVIEW',
+      stepCode: 'FEASIBILITY_REVIEW',
       sourceModule: '商品项目',
       sourceDocType: '可行性评估记录',
       sourceDocCode: `REV-${projectCode.slice(-3)}-GEN`,
@@ -1319,10 +1317,10 @@ function buildGenericInlineSeed(
     }
   }
 
-  if (node.workItemTypeCode === 'SAMPLE_SHOOT_FIT') {
+  if (node.stepCode === 'SAMPLE_SHOOT_FIT') {
     return {
       projectCode,
-      workItemTypeCode: 'SAMPLE_SHOOT_FIT',
+      stepCode: 'SAMPLE_SHOOT_FIT',
       sourceModule: '内容拍摄',
       sourceDocType: '拍摄试穿反馈单',
       sourceDocCode: `FIT-${projectCode.slice(-3)}-GEN`,
@@ -1347,10 +1345,10 @@ function buildGenericInlineSeed(
     }
   }
 
-  if (node.workItemTypeCode === 'SAMPLE_CONFIRM') {
+  if (node.stepCode === 'SAMPLE_CONFIRM') {
     return {
       projectCode,
-      workItemTypeCode: 'SAMPLE_CONFIRM',
+      stepCode: 'SAMPLE_CONFIRM',
       sourceModule: '商品项目',
       sourceDocType: '样衣确认单',
       sourceDocCode: `CFM-${projectCode.slice(-3)}-GEN`,
@@ -1368,7 +1366,7 @@ function buildGenericInlineSeed(
     }
   }
 
-  if (node.workItemTypeCode === 'SAMPLE_COST_REVIEW') {
+  if (node.stepCode === 'SAMPLE_COST_REVIEW') {
     const sourceDocCode = `CST-${projectCode.slice(-3)}-GEN`
     const costReviewSeed = buildSampleCostReviewSeed({
       projectCode,
@@ -1384,7 +1382,7 @@ function buildGenericInlineSeed(
     })
     return {
       projectCode,
-      workItemTypeCode: 'SAMPLE_COST_REVIEW',
+      stepCode: 'SAMPLE_COST_REVIEW',
       sourceModule: '成本核价',
       sourceDocType: '样衣核价单',
       sourceDocCode,
@@ -1394,10 +1392,10 @@ function buildGenericInlineSeed(
     }
   }
 
-  if (node.workItemTypeCode === 'SAMPLE_PRICING') {
+  if (node.stepCode === 'SAMPLE_PRICING') {
     return {
       projectCode,
-      workItemTypeCode: 'SAMPLE_PRICING',
+      stepCode: 'SAMPLE_PRICING',
       sourceModule: '商品定价',
       sourceDocType: '样衣定价单',
       sourceDocCode: `PRC-${projectCode.slice(-3)}-GEN`,
@@ -1415,10 +1413,10 @@ function buildGenericInlineSeed(
     }
   }
 
-  if (node.workItemTypeCode === 'TEST_DATA_SUMMARY') {
+  if (node.stepCode === 'TEST_DATA_SUMMARY') {
     return {
       projectCode,
-      workItemTypeCode: 'TEST_DATA_SUMMARY',
+      stepCode: 'TEST_DATA_SUMMARY',
       sourceModule: '商品项目',
       sourceDocType: '测款汇总记录',
       sourceDocCode: `SUM-${projectCode.slice(-3)}-GEN`,
@@ -1437,11 +1435,11 @@ function buildGenericInlineSeed(
     }
   }
 
-  if (node.workItemTypeCode === 'TEST_CONCLUSION') {
+  if (node.stepCode === 'TEST_CONCLUSION') {
     const conclusion = project.projectStatus === '已终止' ? '淘汰' : project.linkedStyleId ? '通过' : ''
     return {
       projectCode,
-      workItemTypeCode: 'TEST_CONCLUSION',
+      stepCode: 'TEST_CONCLUSION',
       sourceModule: '商品项目',
       sourceDocType: '测款结论记录',
       sourceDocCode: `CON-${projectCode.slice(-3)}-GEN`,
@@ -1462,7 +1460,7 @@ function buildGenericInlineSeed(
     }
   }
 
-  if (node.workItemTypeCode === 'SAMPLE_RETURN_HANDLE') {
+  if (node.stepCode === 'SAMPLE_RETURN_HANDLE') {
     const returnDate = businessDate.slice(0, 10)
     const returnDocCode = `RTN-${projectCode.slice(-3)}-GEN`
     const expressCompany = '顺丰速运'
@@ -1470,7 +1468,7 @@ function buildGenericInlineSeed(
     const logisticsEvidence = `快递面单 ${trackingNumber}，物流签收截图已归档到 ${returnDocCode}。`
     return {
       projectCode,
-      workItemTypeCode: 'SAMPLE_RETURN_HANDLE',
+      stepCode: 'SAMPLE_RETURN_HANDLE',
       sourceModule: '样衣退货与处理',
       sourceDocType: '样衣退回单',
       sourceDocCode: returnDocCode,
@@ -1527,7 +1525,7 @@ function buildMissingCompletedInlineNodeRecords(
     .filter(
       (node) =>
         node.currentStatus === '已完成' &&
-        (PCS_PROJECT_INLINE_NODE_RECORD_WORK_ITEM_TYPES as readonly string[]).includes(node.workItemTypeCode),
+        (PCS_PROJECT_INLINE_STEP_RECORD_CODES as readonly string[]).includes(node.stepCode),
     )
     .forEach((node) => {
       if (existingNodeIds.has(node.projectNodeId)) return
@@ -1537,19 +1535,19 @@ function buildMissingCompletedInlineNodeRecords(
       if (!seed) return
 
       const recordCode =
-        node.workItemTypeCode === 'SAMPLE_RETURN_HANDLE'
+        node.stepCode === 'SAMPLE_RETURN_HANDLE'
           ? buildSampleCloseoutRecordCode(project.projectCode)
-          : getRecordCode(project.projectCode, node.workItemTypeCode)
+          : getRecordCode(project.projectCode, node.stepCode)
 
       nextRecords.push({
-        recordId: `inline_backfill_${project.projectCode.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_${node.workItemTypeCode.toLowerCase()}`,
+        recordId: `inline_backfill_${project.projectCode.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_${node.stepCode.toLowerCase()}`,
         recordCode,
         projectId: project.projectId,
         projectCode: project.projectCode,
         projectName: project.projectName,
         projectNodeId: node.projectNodeId,
-        workItemTypeCode: node.workItemTypeCode,
-        workItemTypeName: node.workItemTypeName,
+        stepCode: node.stepCode,
+        stepName: node.stepName,
         businessDate: seed.businessDate,
         recordStatus: '已完成',
         ownerId: project.ownerId,
@@ -1567,7 +1565,6 @@ function buildMissingCompletedInlineNodeRecords(
         updatedAt: seed.businessDate,
         updatedBy: project.ownerName,
         legacyProjectRef: project.projectCode,
-        legacyWorkItemInstanceId: null,
       } as PcsProjectInlineNodeRecord)
     })
 
@@ -1586,24 +1583,24 @@ export function createBootstrapProjectInlineNodeRecordSnapshot(
   }
   const records: PcsProjectInlineNodeRecord[] = []
 
-  Object.entries(PROJECT_RECORD_PLAN).forEach(([projectCode, workItemCodes]) => {
+  Object.entries(PROJECT_RECORD_PLAN).forEach(([projectCode, stepCodes]) => {
     const project = projectMap.get(projectCode)
     if (!project) return
 
-    workItemCodes.forEach((workItemTypeCode) => {
-      const node = nodeMap.get(`${project.projectId}::${workItemTypeCode}`)
+    stepCodes.forEach((stepCode) => {
+      const node = nodeMap.get(`${project.projectId}::${stepCode}`)
       if (!node) return
 
-      const seed = buildSeedForNode(projectCode, workItemTypeCode)
+      const seed = buildSeedForNode(projectCode, stepCode)
       records.push({
-        recordId: `inline_bootstrap_${project.projectCode.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_${workItemTypeCode.toLowerCase()}`,
-        recordCode: getRecordCode(project.projectCode, workItemTypeCode),
+        recordId: `inline_bootstrap_${project.projectCode.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_${stepCode.toLowerCase()}`,
+        recordCode: getRecordCode(project.projectCode, stepCode),
         projectId: project.projectId,
         projectCode: project.projectCode,
         projectName: project.projectName,
         projectNodeId: node.projectNodeId,
-        workItemTypeCode,
-        workItemTypeName: node.workItemTypeName,
+        stepCode,
+        stepName: node.stepName,
         businessDate: seed.businessDate,
         recordStatus: '已完成',
         ownerId: project.ownerId,
@@ -1621,7 +1618,6 @@ export function createBootstrapProjectInlineNodeRecordSnapshot(
         updatedAt: seed.businessDate,
         updatedBy: project.ownerName,
         legacyProjectRef: null,
-        legacyWorkItemInstanceId: null,
       } as PcsProjectInlineNodeRecord)
     })
   })

@@ -10,7 +10,7 @@ import {
 import { resetProjectImageAssets } from '../src/data/pcs-project-image-repository.ts'
 import {
   renderPcsProjectCreatePage,
-  renderPcsProjectWorkItemDetailPage,
+  renderPcsProjectStepDetailPage,
 } from '../src/pages/pcs-projects.ts'
 
 function buildProjectDraft() {
@@ -55,11 +55,11 @@ assert.match(createHtml, /暂未上传参考图片/, '创建页应显示空状�
 const draft = buildProjectDraft()
 draft.projectAlbumUrls = ['data:image/png;base64,ccc']
 const created = createProject(draft, '测试用户')
-const projectInitNode = listProjectNodes(created.project.projectId).find((item) => item.workItemTypeCode === 'PROJECT_INIT')
+const projectInitNode = listProjectNodes(created.project.projectId).find((item) => item.stepCode === 'PROJECT_INIT')
 
 assert.ok(projectInitNode, '应存在商品项目立项节点')
 
-const detailHtml = await renderPcsProjectWorkItemDetailPage(created.project.projectId, projectInitNode!.projectNodeId)
+const detailHtml = await renderPcsProjectStepDetailPage(created.project.projectId, projectInitNode!.projectNodeId)
 assert.match(detailHtml, /参考图片/, '项目立项详情应显示参考图片区域')
 assert.match(detailHtml, /open-image-preview/, '项目立项详情应支持图片预览')
 

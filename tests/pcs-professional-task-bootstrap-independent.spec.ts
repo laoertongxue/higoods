@@ -29,14 +29,14 @@ assert.ok(snapshot.firstOrderSampleTasks.every((task) => task.projectId && !task
 professionalTasks.forEach((task) => {
   if (task.projectId) {
     const project = projects.get(task.projectId)
-    assert.ok(project, `${task.workItemTypeName} ${task.title} 的 projectId 必须指向真实项目`)
+    assert.ok(project, `${task.stepName} ${task.title} 的 projectId 必须指向真实项目`)
     assert.equal(task.projectCode, project.projectCode)
     assert.equal(task.projectName, project.projectName)
-    assert.equal(task.projectNodeId, '', `${task.workItemTypeName} ${task.title} 不能绑定项目节点`)
+    assert.equal(task.projectNodeId, '', `${task.stepName} ${task.title} 不能绑定项目节点`)
     return
   }
 
-  assert.equal(task.workItemTypeCode, 'REVISION_TASK', '只有独立改版／设计任务可以不关联工程主单项目')
+  assert.equal(task.stepCode, 'REVISION_TASK', '只有独立改版／设计任务可以不关联工程主单项目')
   assert.ok(
     task.sourceType === '既有商品改款' || task.sourceType === '人工改版需求',
     '无项目改版任务只能来源于既有商品改款或人工设计需求',

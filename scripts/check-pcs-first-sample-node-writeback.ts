@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import {
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   listProjects,
   resetProjectRepository,
 } from '../src/data/pcs-project-repository.ts'
@@ -55,7 +55,7 @@ resetProjectRelationRepository()
 const firstSampleNodeCandidates = listProjects()
   .map((project) => ({
     project,
-    node: getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'FIRST_SAMPLE'),
+    node: getProjectNodeRecordByStepCode(project.projectId, 'FIRST_SAMPLE'),
   }))
   .filter((item): item is { project: NonNullable<typeof item.project>; node: NonNullable<typeof item.node> } => Boolean(item.node))
 

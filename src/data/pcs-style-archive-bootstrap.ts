@@ -229,7 +229,7 @@ function listProjectTestingStyleArchives(): StyleArchiveShellRecord[] {
   return snapshot.projects.map((project) => {
     const fixture = buildStyleFixture(project.linkedStyleCode || project.projectCode, project.projectName)
     const projectNode = snapshot.nodes.find(
-      (node) => node.projectId === project.projectId && node.workItemTypeCode === 'PROJECT_INIT',
+      (node) => node.projectId === project.projectId && node.stepCode === 'PROJECT_INIT',
     )
     return {
       styleId: project.linkedStyleId || `style_${project.projectId}`,

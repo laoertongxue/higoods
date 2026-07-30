@@ -69,7 +69,7 @@ const projectsPage = read('src/pages/pcs-projects.ts')
 })
 
 ;[
-  'STYLE_ARCHIVE_CREATE',
+  'PROJECT_INIT',
   'REVISION_TASK',
   'PATTERN_TASK',
   'PATTERN_ARTWORK_TASK',

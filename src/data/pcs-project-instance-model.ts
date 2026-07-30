@@ -17,9 +17,9 @@ import { listProjectRelationsByProject } from './pcs-project-relation-repository
 import type { ProjectRelationRecord } from './pcs-project-relation-types.ts'
 import {
   getProjectTaskCarrierDefinition,
-  getProjectWorkItemContract,
+  getProjectStepDefinition,
   type PcsProjectTaskCarrierMode,
-  type PcsProjectWorkItemCode,
+  type ProjectStepCode,
 } from './pcs-project-domain-contract.ts'
 import { getProjectChannelProductById } from './pcs-channel-product-project-repository.ts'
 import { getRevisionTaskById } from './pcs-revision-task-repository.ts'
@@ -49,8 +49,8 @@ export interface PcsProjectInstanceItem {
   projectId: string
   projectCode: string
   projectNodeId: string | null
-  workItemTypeCode: string
-  workItemTypeName: string
+  stepCode: string
+  stepName: string
   sourceKind: PcsProjectInstanceSourceKind
   sourceLayer: PcsProjectInstanceSourceLayer
   carrierMode: PcsProjectTaskCarrierMode
@@ -78,8 +78,8 @@ export interface PcsProjectNodeInstanceModel {
   projectId: string
   projectCode: string
   projectNodeId: string
-  workItemTypeCode: string
-  workItemTypeName: string
+  stepCode: string
+  stepName: string
   carrierMode: PcsProjectTaskCarrierMode
   carrierLabel: string
   moduleName: string
@@ -161,8 +161,8 @@ function compareInstances(left: PcsProjectInstanceItem, right: PcsProjectInstanc
   return right.instanceCode.localeCompare(left.instanceCode)
 }
 
-function buildFieldLabelMap(workItemTypeCode: string): Map<string, string> {
-  const contract = getProjectWorkItemContract(workItemTypeCode as PcsProjectWorkItemCode)
+function buildFieldLabelMap(stepCode: string): Map<string, string> {
+  const contract = getProjectStepDefinition(stepCode as ProjectStepCode)
   return new Map(contract.fieldDefinitions.map((field) => [field.fieldKey, field.label]))
 }
 
@@ -182,14 +182,13 @@ function parseRelationMeta(note: string | null | undefined): Record<string, unkn
 }
 
 function buildProjectRecordInstance(project: PcsProjectViewRecord, node: PcsProjectNodeRecord): PcsProjectInstanceItem {
-  const carrier = getProjectTaskCarrierDefinition(node.workItemTypeCode as PcsProjectWorkItemCode)
+  const carrier = getProjectTaskCarrierDefinition(node.stepCode as ProjectStepCode)
   const labelMap = buildFieldLabelMap('PROJECT_INIT')
   const fields: PcsProjectInstanceField[] = []
 
   addField(fields, labelMap.get('projectName') || '项目名称', project.projectName, 'projectName')
   addField(fields, labelMap.get('projectType') || '项目类型', project.projectType, 'projectType')
   addField(fields, labelMap.get('projectSourceType') || '项目来源类型', project.projectSourceType, 'projectSourceType')
-  addField(fields, labelMap.get('templateId') || '项目模板', `${project.templateName} / ${project.templateVersion}`, 'templateId')
   addField(fields, labelMap.get('categoryId') || '品类', project.categoryName, 'categoryId')
   addField(fields, labelMap.get('categoryName') || '品类名称快照', project.categoryName, 'categoryName')
   addField(fields, labelMap.get('subCategoryId') || '二级品类', project.subCategoryName || project.subCategoryId, 'subCategoryId')
@@ -234,8 +233,8 @@ function buildProjectRecordInstance(project: PcsProjectViewRecord, node: PcsProj
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectNodeId: node.projectNodeId,
-    workItemTypeCode: node.workItemTypeCode,
-    workItemTypeName: node.workItemTypeName,
+    stepCode: node.stepCode,
+    stepName: node.stepName,
     sourceKind: 'PROJECT_RECORD',
     sourceLayer: '项目主记录',
     carrierMode: carrier.carrierMode,
@@ -261,7 +260,7 @@ function buildProjectRecordInstance(project: PcsProjectViewRecord, node: PcsProj
 }
 
 function buildInlineRecordFields(record: PcsProjectInlineNodeRecord): PcsProjectInstanceField[] {
-  const labelMap = buildFieldLabelMap(record.workItemTypeCode)
+  const labelMap = buildFieldLabelMap(record.stepCode)
   const merged = {
     ...(record.payload && typeof record.payload === 'object' ? (record.payload as Record<string, unknown>) : {}),
     ...(record.detailSnapshot && typeof record.detailSnapshot === 'object'
@@ -271,10 +270,10 @@ function buildInlineRecordFields(record: PcsProjectInlineNodeRecord): PcsProject
 
   const fields: PcsProjectInstanceField[] = []
   const sampleShootImageMap =
-    record.workItemTypeCode === 'SAMPLE_SHOOT_FIT'
+    record.stepCode === 'SAMPLE_SHOOT_FIT'
       ? new Map(listProjectSampleShootImageViewModels(record.projectId).map((item) => [item.imageId, item.imageName]))
       : null
-  getProjectWorkItemContract(record.workItemTypeCode as PcsProjectWorkItemCode).fieldDefinitions.forEach((field) => {
+  getProjectStepDefinition(record.stepCode as ProjectStepCode).fieldDefinitions.forEach((field) => {
     let value = merged[field.fieldKey]
     if (
       sampleShootImageMap &&
@@ -296,15 +295,15 @@ function buildInlineRecordFields(record: PcsProjectInlineNodeRecord): PcsProject
 }
 
 function buildInlineRecordInstance(record: PcsProjectInlineNodeRecord): PcsProjectInstanceItem {
-  const carrier = getProjectTaskCarrierDefinition(record.workItemTypeCode as PcsProjectWorkItemCode)
+  const carrier = getProjectTaskCarrierDefinition(record.stepCode as ProjectStepCode)
   const fields = buildInlineRecordFields(record)
   return {
     instanceKey: `inline-record:${record.recordId}`,
     projectId: record.projectId,
     projectCode: record.projectCode,
     projectNodeId: record.projectNodeId,
-    workItemTypeCode: record.workItemTypeCode,
-    workItemTypeName: record.workItemTypeName,
+    stepCode: record.stepCode,
+    stepName: record.stepName,
     sourceKind: 'INLINE_RECORD',
     sourceLayer: '项目内正式记录',
     carrierMode: carrier.carrierMode,
@@ -318,7 +317,7 @@ function buildInlineRecordInstance(record: PcsProjectInlineNodeRecord): PcsProje
     sourceLineCode: '',
     instanceId: record.recordId,
     instanceCode: record.recordCode,
-    title: record.workItemTypeName,
+    title: record.stepName,
     status: record.recordStatus,
     ownerName: record.ownerName,
     businessDate: record.businessDate,
@@ -775,15 +774,15 @@ function resolveRelationObjectSnapshot(relation: ProjectRelationRecord): Resolve
 }
 
 function buildRelationObjectInstance(relation: ProjectRelationRecord): PcsProjectInstanceItem {
-  const carrier = getProjectTaskCarrierDefinition(relation.workItemTypeCode as PcsProjectWorkItemCode)
+  const carrier = getProjectTaskCarrierDefinition(relation.stepCode as ProjectStepCode)
   const resolved = resolveRelationObjectSnapshot(relation)
   return {
     instanceKey: `relation-object:${relation.projectRelationId}`,
     projectId: relation.projectId,
     projectCode: relation.projectCode,
     projectNodeId: relation.projectNodeId,
-    workItemTypeCode: relation.workItemTypeCode,
-    workItemTypeName: relation.workItemTypeName,
+    stepCode: relation.stepCode,
+    stepName: relation.stepName,
     sourceKind: 'RELATION_OBJECT',
     sourceLayer: '正式业务对象',
     carrierMode: carrier.carrierMode,
@@ -809,13 +808,13 @@ function buildRelationObjectInstance(relation: ProjectRelationRecord): PcsProjec
 }
 
 function createEmptyNodeInstanceModel(project: PcsProjectViewRecord, node: PcsProjectNodeRecord): PcsProjectNodeInstanceModel {
-  const carrier = getProjectTaskCarrierDefinition(node.workItemTypeCode as PcsProjectWorkItemCode)
+  const carrier = getProjectTaskCarrierDefinition(node.stepCode as ProjectStepCode)
   return {
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectNodeId: node.projectNodeId,
-    workItemTypeCode: node.workItemTypeCode,
-    workItemTypeName: node.workItemTypeName,
+    stepCode: node.stepCode,
+    stepName: node.stepName,
     carrierMode: carrier.carrierMode,
     carrierLabel: carrier.carrierLabel,
     moduleName: carrier.moduleName,
@@ -838,7 +837,7 @@ export function getProjectInstanceModel(projectId: string): PcsProjectInstanceMo
   const relations = listProjectRelationsByProject(projectId)
   const instances: PcsProjectInstanceItem[] = []
 
-  const initNode = nodes.find((node) => node.workItemTypeCode === 'PROJECT_INIT')
+  const initNode = nodes.find((node) => node.stepCode === 'PROJECT_INIT')
   if (initNode) {
     instances.push(buildProjectRecordInstance(project, initNode))
   }

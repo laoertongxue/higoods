@@ -6,17 +6,17 @@ import {
   resetProjectRepository,
   updateProjectNodeRecord,
 } from '../src/data/pcs-project-repository.ts'
-import { renderPcsProjectWorkItemDetailPage } from '../src/pages/pcs-projects.ts'
+import { renderPcsProjectStepDetailPage } from '../src/pages/pcs-projects.ts'
 
 resetProjectRepository()
 
 const decisionProject = listProjects().find((item) =>
-  listProjectNodes(item.projectId).some((node) => node.workItemTypeCode === 'TEST_CONCLUSION'),
+  listProjectNodes(item.projectId).some((node) => node.stepCode === 'TEST_CONCLUSION'),
 )
 assert.ok(decisionProject, '当前演示数据应存在测款判断项目')
 
 const decisionNode = listProjectNodes(decisionProject!.projectId).find(
-  (node) => node.workItemTypeCode === 'TEST_CONCLUSION',
+  (node) => node.stepCode === 'TEST_CONCLUSION',
 )
 assert.ok(decisionNode)
 const decisionNodes = listProjectNodes(decisionProject!.projectId)
@@ -45,7 +45,7 @@ updateProjectNodeRecord(
   '规格审查测试',
 )
 
-const html = await renderPcsProjectWorkItemDetailPage(decisionProject!.projectId, decisionNode!.projectNodeId)
+const html = await renderPcsProjectStepDetailPage(decisionProject!.projectId, decisionNode!.projectNodeId)
 assert.match(html, /通过/)
 assert.match(html, /不通过/)
 assert.match(html, /暂保留/)

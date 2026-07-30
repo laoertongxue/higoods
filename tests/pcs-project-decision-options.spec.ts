@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 
 import { completeDecisionNodeWithResult } from '../src/data/pcs-project-decision-flow-service.ts'
-import { getProjectWorkItemContract } from '../src/data/pcs-project-domain-contract.ts'
+import { getProjectStepDefinition } from '../src/data/pcs-project-domain-contract.ts'
 import {
   listProjectNodes,
   listProjects,
@@ -16,7 +16,7 @@ const expectedOptions = {
 } as const
 
 for (const code of Object.keys(expectedOptions) as Array<keyof typeof expectedOptions>) {
-  const contract = getProjectWorkItemContract(code)
+  const contract = getProjectStepDefinition(code)
   const decisionField = contract.fieldDefinitions.find((field) =>
     ['reviewConclusion', 'confirmResult', 'conclusion'].includes(field.fieldKey),
   )
@@ -31,11 +31,11 @@ for (const code of Object.keys(expectedOptions) as Array<keyof typeof expectedOp
 
 resetProjectRepository()
 const project = listProjects().find((item) =>
-  listProjectNodes(item.projectId).some((node) => node.workItemTypeCode === 'TEST_CONCLUSION'),
+  listProjectNodes(item.projectId).some((node) => node.stepCode === 'TEST_CONCLUSION'),
 )
 assert.ok(project, '当前演示数据应存在测款判断项目')
 const nodesBeforeHold = listProjectNodes(project.projectId)
-const conclusionNode = nodesBeforeHold.find((node) => node.workItemTypeCode === 'TEST_CONCLUSION')
+const conclusionNode = nodesBeforeHold.find((node) => node.stepCode === 'TEST_CONCLUSION')
 assert.ok(conclusionNode, '固定五步必须包含测款判断节点')
 const conclusionIndex = nodesBeforeHold.findIndex((node) => node.projectNodeId === conclusionNode.projectNodeId)
 
@@ -63,7 +63,7 @@ updateProjectNodeRecord(
   '规格审查测试',
 )
 const testingStatusesBeforeHold = listProjectNodes(project.projectId)
-  .filter((node) => node.workItemTypeCode === 'LIVE_TEST' || node.workItemTypeCode === 'VIDEO_TEST')
+  .filter((node) => node.stepCode === 'LIVE_TEST' || node.stepCode === 'VIDEO_TEST')
   .map((node) => ({ projectNodeId: node.projectNodeId, currentStatus: node.currentStatus }))
 
 const holdResult = completeDecisionNodeWithResult(
@@ -79,7 +79,7 @@ assert.equal(holdResult.nextNode, null, '暂保留不得启动下一轮工作项
 const nodesAfterHold = listProjectNodes(project.projectId)
 assert.deepEqual(
   nodesAfterHold
-    .filter((node) => node.workItemTypeCode === 'LIVE_TEST' || node.workItemTypeCode === 'VIDEO_TEST')
+    .filter((node) => node.stepCode === 'LIVE_TEST' || node.stepCode === 'VIDEO_TEST')
     .map((node) => ({ projectNodeId: node.projectNodeId, currentStatus: node.currentStatus })),
   testingStatusesBeforeHold,
   '暂保留不得创建或重新激活直播、短视频测款节点',

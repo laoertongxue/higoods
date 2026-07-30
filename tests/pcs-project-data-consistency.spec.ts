@@ -8,12 +8,12 @@ import {
   createEmptyProjectDraft,
   createProject,
   getProjectCreateCatalog,
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   listProjectNodes,
   listProjects,
   resetProjectRepository,
 } from '../src/data/pcs-project-repository.ts'
-import { listProjectStepContracts } from '../src/data/pcs-project-domain-contract.ts'
+import { listProjectFlowStageContracts } from '../src/data/pcs-project-domain-contract.ts'
 import { resetProjectRelationRepository } from '../src/data/pcs-project-relation-repository.ts'
 import { resetProjectInlineNodeRecordRepository } from '../src/data/pcs-project-inline-node-record-repository.ts'
 import { resetProjectChannelProductRepository } from '../src/data/pcs-channel-product-project-repository.ts'
@@ -55,7 +55,7 @@ repairPcsProjectDataConsistency('测试修复')
 const report = auditPcsProjectDataConsistency()
 assert.equal(report.issueCount, 0, formatPcsProjectDataConsistencyReport(report))
 
-const expectedSteps = listProjectStepContracts().map((step) => ({
+const expectedSteps = listProjectFlowStageContracts().map((step) => ({
   phaseCode: step.phaseCode,
   phaseName: step.stepName,
 }))
@@ -96,8 +96,8 @@ professionalTasks.forEach(({ moduleName, task }) => {
   const projectNode = listProjectNodes(task.projectId).find((node) => node.projectNodeId === task.projectNodeId)
   assert.ok(projectNode, `${moduleName} ${task.projectId} 如绑定项目节点，该节点必须真实存在`)
   assert.equal(
-    projectNode?.workItemTypeCode,
-    task.workItemTypeCode,
+    projectNode?.stepCode,
+    task.stepCode,
     `${moduleName} 如绑定项目节点，任务类型必须与节点类型一致`,
   )
 })
@@ -140,7 +140,7 @@ const projectId = created.project!.projectId
 const approveResult = approveProjectInitAndSync(projectId, '测试用户')
 assert.ok(approveResult.ok, '应允许通过立项审核')
 
-const sampleAcquireNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'SAMPLE_ACQUIRE')
+const sampleAcquireNode = getProjectNodeRecordByStepCode(projectId, 'SAMPLE_ACQUIRE')
 assert.ok(sampleAcquireNode, '应存在样衣获取节点')
 
 const validation = validateProjectNodeCompletion(projectId, sampleAcquireNode!.projectNodeId)

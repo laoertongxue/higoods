@@ -48,7 +48,7 @@ assert.match(listHtml, /FOS-20260425-002/)
 assert.match(listHtml, /FOS-20260425-003/)
 assert.ok(
   [incomplete, completed].every((task) =>
-    listProjectNodes(task.projectId).every((node) => node.workItemTypeCode !== 'FIRST_ORDER_SAMPLE'),
+    listProjectNodes(task.projectId).every((node) => node.stepCode !== 'FIRST_ORDER_SAMPLE'),
   ),
   '两类首单样衣场景均不得恢复固定流程节点',
 )

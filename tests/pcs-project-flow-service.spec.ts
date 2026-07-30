@@ -13,7 +13,7 @@ import {
   createProject,
   getProjectCreateCatalog,
   getProjectById,
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   listProjectNodes,
   resetProjectRepository,
 } from '../src/data/pcs-project-repository.ts'
@@ -77,7 +77,7 @@ const approveResult = approveProjectInitAndSync(created.project!.projectId, '测
 assert.ok(approveResult.ok, '应能完成立项审核')
 
 const projectId = created.project!.projectId
-const sampleAcquireNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'SAMPLE_ACQUIRE')
+const sampleAcquireNode = getProjectNodeRecordByStepCode(projectId, 'SAMPLE_ACQUIRE')
 assert.ok(sampleAcquireNode, '应存在样衣获取节点')
 
 const saveResult = saveProjectNodeFormalRecord({
@@ -98,8 +98,8 @@ const saveResult = saveProjectNodeFormalRecord({
 })
 
 assert.ok(saveResult.ok, '执行类节点应能保存并线性流转')
-assert.equal(getProjectNodeRecordByWorkItemTypeCode(projectId, 'SAMPLE_ACQUIRE')?.currentStatus, '已完成')
-assert.equal(getProjectNodeRecordByWorkItemTypeCode(projectId, 'SAMPLE_INBOUND_CHECK')?.currentStatus, '进行中')
+assert.equal(getProjectNodeRecordByStepCode(projectId, 'SAMPLE_ACQUIRE')?.currentStatus, '已完成')
+assert.equal(getProjectNodeRecordByStepCode(projectId, 'SAMPLE_INBOUND_CHECK')?.currentStatus, '进行中')
 assert.equal(getProjectById(projectId)?.projectStatus, '进行中')
 assert.ok(listProjectNodes(projectId).some((node) => node.currentStatus === '进行中'))
 

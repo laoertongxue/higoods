@@ -19,7 +19,7 @@ interface BootstrapRelationSeed {
   businessDate: string
   ownerName: string
   projectCode: string
-  defaultWorkItemTypeCode: string
+  defaultStepCode: string
   legacyRefType: string
   legacyRefValue: string
 }
@@ -36,7 +36,7 @@ const FORMAL_RELATION_SEEDS: BootstrapRelationSeed[] = [
     businessDate: '2026-04-05 09:20',
     ownerName: '系统初始化',
     projectCode: 'PRJ-20251216-002',
-    defaultWorkItemTypeCode: 'STYLE_ARCHIVE_CREATE',
+    defaultStepCode: 'PROJECT_INIT',
     legacyRefType: 'bootstrap.projectArchive',
     legacyRefValue: 'PRJ-20251216-002',
   },
@@ -51,7 +51,7 @@ const FORMAL_RELATION_SEEDS: BootstrapRelationSeed[] = [
     businessDate: '2026-04-01 10:40',
     ownerName: '系统初始化',
     projectCode: 'PRJ-20251216-006',
-    defaultWorkItemTypeCode: 'STYLE_ARCHIVE_CREATE',
+    defaultStepCode: 'PROJECT_INIT',
     legacyRefType: 'bootstrap.projectArchive',
     legacyRefValue: 'PRJ-20251216-006',
   },
@@ -66,7 +66,7 @@ const FORMAL_RELATION_SEEDS: BootstrapRelationSeed[] = [
     businessDate: '2026-04-06 16:30',
     ownerName: '系统初始化',
     projectCode: 'PRJ-20251216-007',
-    defaultWorkItemTypeCode: 'STYLE_ARCHIVE_CREATE',
+    defaultStepCode: 'PROJECT_INIT',
     legacyRefType: 'bootstrap.projectArchive',
     legacyRefValue: 'PRJ-20251216-007',
   },
@@ -81,7 +81,7 @@ const FORMAL_RELATION_SEEDS: BootstrapRelationSeed[] = [
     businessDate: '2026-04-03 15:20',
     ownerName: '系统初始化',
     projectCode: 'PRJ-20251216-011',
-    defaultWorkItemTypeCode: 'STYLE_ARCHIVE_CREATE',
+    defaultStepCode: 'PROJECT_INIT',
     legacyRefType: 'bootstrap.projectArchive',
     legacyRefValue: 'PRJ-20251216-011',
   },
@@ -96,7 +96,7 @@ const FORMAL_RELATION_SEEDS: BootstrapRelationSeed[] = [
     businessDate: '2026-04-02 11:00',
     ownerName: '系统初始化',
     projectCode: 'PRJ-20251216-012',
-    defaultWorkItemTypeCode: 'STYLE_ARCHIVE_CREATE',
+    defaultStepCode: 'PROJECT_INIT',
     legacyRefType: 'bootstrap.projectArchive',
     legacyRefValue: 'PRJ-20251216-012',
   },
@@ -111,7 +111,7 @@ const FORMAL_RELATION_SEEDS: BootstrapRelationSeed[] = [
     businessDate: '2026-04-04 16:10',
     ownerName: '系统初始化',
     projectCode: 'PRJ-20251216-013',
-    defaultWorkItemTypeCode: 'STYLE_ARCHIVE_CREATE',
+    defaultStepCode: 'PROJECT_INIT',
     legacyRefType: 'bootstrap.projectArchive',
     legacyRefValue: 'PRJ-20251216-013',
   },
@@ -126,7 +126,7 @@ const FORMAL_RELATION_SEEDS: BootstrapRelationSeed[] = [
     businessDate: '2026-04-05 10:50',
     ownerName: '系统初始化',
     projectCode: 'PRJ-20251216-014',
-    defaultWorkItemTypeCode: 'STYLE_ARCHIVE_CREATE',
+    defaultStepCode: 'PROJECT_INIT',
     legacyRefType: 'bootstrap.projectArchive',
     legacyRefValue: 'PRJ-20251216-014',
   },
@@ -141,7 +141,7 @@ const FORMAL_RELATION_SEEDS: BootstrapRelationSeed[] = [
     businessDate: '2026-04-06 14:40',
     ownerName: '系统初始化',
     projectCode: 'PRJ-20251216-015',
-    defaultWorkItemTypeCode: 'STYLE_ARCHIVE_CREATE',
+    defaultStepCode: 'PROJECT_INIT',
     legacyRefType: 'bootstrap.projectArchive',
     legacyRefValue: 'PRJ-20251216-015',
   },
@@ -159,7 +159,7 @@ const PENDING_RELATION_SEEDS: BootstrapRelationSeed[] = [
     businessDate: '2026-01-09 14:30',
     ownerName: '李版师',
     projectCode: 'PRJ-20260105-001',
-    defaultWorkItemTypeCode: 'TEST_CONCLUSION',
+    defaultStepCode: 'TEST_CONCLUSION',
     legacyRefType: 'projectId',
     legacyRefValue: 'PRJ-20260105-001',
   },
@@ -174,7 +174,7 @@ const PENDING_RELATION_SEEDS: BootstrapRelationSeed[] = [
     businessDate: '2026-01-12 17:05',
     ownerName: '王版师',
     projectCode: 'PRJ-20260105-001',
-    defaultWorkItemTypeCode: 'FIRST_SAMPLE',
+    defaultStepCode: 'FIRST_SAMPLE',
     legacyRefType: 'project.code',
     legacyRefValue: 'PRJ-20260105-001',
   },
@@ -189,7 +189,7 @@ const PENDING_RELATION_SEEDS: BootstrapRelationSeed[] = [
     businessDate: '2026-01-18 16:30',
     ownerName: '王版师',
     projectCode: 'PRJ-20260105-001',
-    defaultWorkItemTypeCode: 'FIRST_ORDER_SAMPLE',
+    defaultStepCode: 'FIRST_ORDER_SAMPLE',
     legacyRefType: 'projectRef',
     legacyRefValue: 'PRJ-20260105-001',
   },
@@ -204,7 +204,7 @@ function clonePendingItem(item: ProjectRelationPendingItem): ProjectRelationPend
 }
 
 function buildRelationId(seed: BootstrapRelationSeed): string {
-  return `rel_${seed.sourceObjectCode.replace(/[^a-zA-Z0-9]/g, '_')}_${seed.defaultWorkItemTypeCode.toLowerCase()}`
+  return `rel_${seed.sourceObjectCode.replace(/[^a-zA-Z0-9]/g, '_')}_${seed.defaultStepCode.toLowerCase()}`
 }
 
 function buildPendingId(seed: BootstrapRelationSeed): string {
@@ -215,14 +215,14 @@ function findProjectByCode(projects: PcsProjectRecord[], projectCode: string): P
   return projects.find((project) => project.projectCode === projectCode) ?? null
 }
 
-function findNodeByWorkItemTypeCode(
+function findNodeByStepTypeCode(
   nodes: PcsProjectNodeRecord[],
   projectId: string,
-  workItemTypeCode: string,
+  stepCode: string,
 ): PcsProjectNodeRecord | null {
   return (
     nodes
-      .filter((node) => node.projectId === projectId && node.workItemTypeCode === workItemTypeCode)
+      .filter((node) => node.projectId === projectId && node.stepCode === stepCode)
       .sort((a, b) => a.sequenceNo - b.sequenceNo)[0] ?? null
   )
 }
@@ -237,8 +237,8 @@ function buildRelationRecord(
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectNodeId: node?.projectNodeId ?? null,
-    workItemTypeCode: seed.defaultWorkItemTypeCode,
-    workItemTypeName: node?.workItemTypeName ?? '',
+    stepCode: seed.defaultStepCode,
+    stepName: node?.stepName ?? '',
     relationRole: seed.relationRole,
     sourceModule: seed.sourceModule,
     sourceObjectType: seed.sourceObjectType,
@@ -254,7 +254,7 @@ function buildRelationRecord(
     createdBy: '系统初始化',
     updatedAt: seed.businessDate,
     updatedBy: '系统初始化',
-    note: node ? '' : '已识别项目，但当前未找到对应项目工作项节点，暂仅挂到项目。',
+    note: node ? '' : '已识别项目，但当前未找到对应项目步骤节点，暂仅挂到项目。',
     legacyRefType: seed.legacyRefType,
     legacyRefValue: seed.legacyRefValue,
   }
@@ -289,10 +289,10 @@ export function createBootstrapProjectRelationSnapshot(input: {
       return
     }
 
-    const node = findNodeByWorkItemTypeCode(input.nodes, project.projectId, seed.defaultWorkItemTypeCode)
+    const node = findNodeByStepTypeCode(input.nodes, project.projectId, seed.defaultStepCode)
     relations.push(buildRelationRecord(seed, project, node))
     if (!node) {
-      pendingItems.push(buildPendingItem(seed, '已识别商品项目，但当前未能挂到明确的项目工作项节点。'))
+      pendingItems.push(buildPendingItem(seed, '已识别商品项目，但当前未能挂到明确的项目步骤节点。'))
     }
   }
 

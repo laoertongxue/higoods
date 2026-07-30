@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 
-import { getProjectWorkItemContract } from '../src/data/pcs-project-domain-contract.ts'
+import { getProjectStepDefinition } from '../src/data/pcs-project-domain-contract.ts'
 import {
   createProjectChannelProductFromListingNode,
   resetProjectChannelProductRepository,
@@ -18,7 +18,7 @@ resetProjectRepository()
 resetProjectChannelProductRepository()
 resetProjectImageAssets()
 
-const listingContract = getProjectWorkItemContract('CHANNEL_PRODUCT_LISTING')
+const listingContract = getProjectStepDefinition('CHANNEL_PRODUCT_LISTING')
 const listingFieldKeys = listingContract.fieldDefinitions.map((field) => field.fieldKey)
 
 assert.ok(listingFieldKeys.includes('listingMainImageId'), '商品上架字段应包含上架主图')

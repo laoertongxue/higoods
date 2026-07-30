@@ -883,7 +883,7 @@ function buildFirstOrderResultDraft(task: FirstOrderSampleTaskRecord): FirstOrde
 function getFirstOrderSourceFirstSampleLabel(projectId: string): string {
   const matched = listFirstSampleTasks()
     .filter((task) => task.projectId === projectId)
-    .find((task) => task.workItemTypeCode === 'FIRST_SAMPLE')
+    .find((task) => task.stepCode === 'FIRST_SAMPLE')
   if (!matched) return '未找到同商品项目的首版样衣结果'
   return `${matched.firstSampleTaskCode}${matched.sampleCode ? ` · ${matched.sampleCode}` : ''}`
 }
@@ -2438,7 +2438,7 @@ function createPatternAssetFromTask(taskId: string): { ok: boolean; message: str
     sourceType: '自研',
     sourceNote: `由花型任务 ${task.patternTaskCode} 沉淀`,
     sourceTaskCode: task.patternTaskCode,
-    sourceTaskType: task.workItemTypeCode,
+    sourceTaskType: task.stepCode,
     sourceTaskName: task.title,
     sourceTechPackVersionId: task.linkedTechPackVersionId,
     sourceTechPackVersionCode: task.linkedTechPackVersionCode,
@@ -2528,7 +2528,7 @@ function renderProjectContext(task: {
   projectCode: string
   projectName: string
   projectNodeId: string
-  workItemTypeName: string
+  stepName: string
   sourceType: string
   productStyleCode?: string
   spuCode?: string
@@ -2542,7 +2542,7 @@ function renderProjectContext(task: {
     renderKeyValueGrid(
       [
         { label: '商品项目', value: projectButton(task.projectId, task.projectCode, task.projectName) },
-        { label: '工作项节点', value: projectNodeButton(task.projectId, task.projectNodeId, task.workItemTypeName) },
+        { label: '工作项节点', value: projectNodeButton(task.projectId, task.projectNodeId, task.stepName) },
         { label: '来源类型', value: escapeHtml(task.sourceType) },
         { label: '款式档案', value: styleArchiveLink(style.styleId, style.styleCode, style.styleName, task.projectId) },
         { label: '款式编码', value: escapeHtml(style.styleCode || task.productStyleCode || task.spuCode || '-') },
@@ -2564,7 +2564,7 @@ function renderRevisionContext(task: ReturnType<typeof getRevisionTaskById>): st
       [
         { label: '来源类型', value: escapeHtml(task.sourceType) },
         { label: '关联商品项目', value: projectButton(task.projectId, task.projectCode, task.projectName) },
-        { label: '关联项目节点', value: projectNodeButton(task.projectId, task.projectNodeId, task.workItemTypeName) },
+        { label: '关联项目节点', value: projectNodeButton(task.projectId, task.projectNodeId, task.stepName) },
         { label: '关联款式档案', value: styleArchiveButton(style.styleId, style.styleCode, style.styleName) },
         { label: '款式编码', value: escapeHtml(style.styleCode || '-') },
         { label: '来源对象', value: escapeHtml(task.upstreamObjectCode || task.upstreamObjectId || '—') },
@@ -3936,7 +3936,7 @@ function renderPlateDetailPage(plateTaskId: string): string {
       ], 2))}
       ${renderSectionCard('正式对象核对', renderKeyValueGrid([
         { label: '商品项目', value: projectButton(task.projectId, task.projectCode, task.projectName) },
-        { label: '工作项节点', value: projectNodeButton(task.projectId, task.projectNodeId, task.workItemTypeName) },
+        { label: '工作项节点', value: projectNodeButton(task.projectId, task.projectNodeId, task.stepName) },
         { label: '上游对象', value: escapeHtml(task.upstreamObjectCode || task.upstreamObjectId || '-') },
         { label: '制版状态', value: renderStatusBadge(task.status) },
       ], 2))}
@@ -4488,7 +4488,7 @@ function renderPatternDetailPage(patternTaskId: string): string {
       ], 1))}
       ${renderSectionCard('正式对象核对', renderKeyValueGrid([
         { label: '商品项目', value: projectButton(task.projectId, task.projectCode, task.projectName) },
-        { label: '工作项节点', value: projectNodeButton(task.projectId, task.projectNodeId, task.workItemTypeName) },
+        { label: '工作项节点', value: projectNodeButton(task.projectId, task.projectNodeId, task.stepName) },
         { label: '技术包状态', value: escapeHtml(task.linkedTechPackVersionStatus || '未写回') },
         { label: '正式状态', value: renderStatusBadge(task.status) },
       ], 1))}
@@ -5126,7 +5126,7 @@ function renderFirstSampleDetailPage(firstSampleTaskId: string): string {
       ], 2))}
       ${renderSectionCard('正式对象核对', renderKeyValueGrid([
         { label: '商品项目', value: projectButton(task.projectId, task.projectCode, task.projectName) },
-        { label: '工作项节点', value: projectNodeButton(task.projectId, task.projectNodeId, task.workItemTypeName) },
+        { label: '工作项节点', value: projectNodeButton(task.projectId, task.projectNodeId, task.stepName) },
         { label: '正式状态', value: renderStatusBadge(task.status, true) },
       ], 2))}
     </div>
@@ -5455,7 +5455,7 @@ function renderFirstOrderDetailPage(firstOrderSampleTaskId: string): string {
       ], 2))}
       ${renderSectionCard('正式对象核对', renderKeyValueGrid([
         { label: '商品项目', value: projectButton(task.projectId, task.projectCode, task.projectName) },
-        { label: '工作项节点', value: projectNodeButton(task.projectId, task.projectNodeId, task.workItemTypeName) },
+        { label: '工作项节点', value: projectNodeButton(task.projectId, task.projectNodeId, task.stepName) },
         { label: '结果编号', value: escapeHtml(task.sampleCode || '-') },
         { label: '正式状态', value: renderStatusBadge(task.status, true) },
       ], 2))}

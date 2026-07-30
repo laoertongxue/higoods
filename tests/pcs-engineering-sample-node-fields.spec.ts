@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 
-import { getProjectWorkItemContract } from '../src/data/pcs-project-domain-contract.ts'
+import { getProjectStepDefinition } from '../src/data/pcs-project-domain-contract.ts'
 import { resetProjectArchiveRepository } from '../src/data/pcs-project-archive-repository.ts'
 import { resetProjectChannelProductRepository } from '../src/data/pcs-channel-product-project-repository.ts'
 import { resetFirstSampleTaskRepository, updateFirstSampleTask } from '../src/data/pcs-first-sample-repository.ts'
@@ -10,14 +10,14 @@ import { resetPatternTaskRepository, updatePatternTask } from '../src/data/pcs-p
 import { resetPlateMakingTaskRepository, updatePlateMakingTask } from '../src/data/pcs-plate-making-repository.ts'
 import { resetProjectRelationRepository } from '../src/data/pcs-project-relation-repository.ts'
 import {
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   listProjects,
   resetProjectRepository,
   updateProjectNodeRecord,
 } from '../src/data/pcs-project-repository.ts'
 import { resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
 import { getTechnicalDataVersionById, resetTechnicalDataVersionRepository } from '../src/data/pcs-technical-data-version-repository.ts'
-import { renderPcsProjectWorkItemDetailPage } from '../src/pages/pcs-projects.ts'
+import { renderPcsProjectStepDetailPage } from '../src/pages/pcs-projects.ts'
 
 function resetAllRepositories(): void {
   resetProjectRepository()
@@ -33,11 +33,11 @@ function resetAllRepositories(): void {
   resetFirstOrderSampleTaskRepository()
 }
 
-function assertContractHasFields(workItemTypeCode: string, expectedKeys: string[]): void {
-  const contract = getProjectWorkItemContract(workItemTypeCode)
+function assertContractHasFields(stepCode: string, expectedKeys: string[]): void {
+  const contract = getProjectStepDefinition(stepCode)
   const fieldKeys = contract.fieldDefinitions.map((field) => field.fieldKey)
   expectedKeys.forEach((key) => {
-    assert.ok(fieldKeys.includes(key), `${workItemTypeCode} 应定义正式字段 ${key}`)
+    assert.ok(fieldKeys.includes(key), `${stepCode} 应定义正式字段 ${key}`)
   })
 }
 
@@ -120,10 +120,10 @@ updatePatternTask('AT-20260404-013', {
   updatedBy: '测试用户',
 })
 
-const firstSampleNode = getProjectNodeRecordByWorkItemTypeCode(project013!.projectId, 'FIRST_SAMPLE')
-const firstOrderNode = getProjectNodeRecordByWorkItemTypeCode(project013!.projectId, 'FIRST_ORDER_SAMPLE')
-const plateNode = getProjectNodeRecordByWorkItemTypeCode(project014!.projectId, 'PATTERN_TASK')
-const artworkNode = getProjectNodeRecordByWorkItemTypeCode(project013!.projectId, 'PATTERN_ARTWORK_TASK')
+const firstSampleNode = getProjectNodeRecordByStepCode(project013!.projectId, 'FIRST_SAMPLE')
+const firstOrderNode = getProjectNodeRecordByStepCode(project013!.projectId, 'FIRST_ORDER_SAMPLE')
+const plateNode = getProjectNodeRecordByStepCode(project014!.projectId, 'PATTERN_TASK')
+const artworkNode = getProjectNodeRecordByStepCode(project013!.projectId, 'PATTERN_ARTWORK_TASK')
 
 assert.ok(firstSampleNode, 'PRJ-202604-013 应存在首版样衣节点')
 assert.ok(firstOrderNode, 'PRJ-202604-013 应存在首单样衣节点')
@@ -151,14 +151,14 @@ updateFirstOrderSampleTask('PP-20260406-013', {
   updatedBy: '测试用户',
 })
 
-const plateHtml = await renderPcsProjectWorkItemDetailPage(project014!.projectId, plateNode!.projectNodeId)
+const plateHtml = await renderPcsProjectStepDetailPage(project014!.projectId, plateNode!.projectNodeId)
 assert.match(plateHtml, /制版任务/, '制版任务节点详情应展示任务模块')
 assert.match(plateHtml, /查看制版任务/, '制版任务节点详情应展示正式任务入口')
 assert.match(plateHtml, /PT-20260407-018/, '制版任务节点详情应展示正式任务编码')
 assert.match(plateHtml, /制版-设计款印花阔腿连体裤/, '制版任务节点详情应展示任务标题')
 assert.match(plateHtml, /林版师/, '制版任务节点详情应展示版师')
 
-const artworkHtml = await renderPcsProjectWorkItemDetailPage(project013!.projectId, artworkNode!.projectNodeId)
+const artworkHtml = await renderPcsProjectStepDetailPage(project013!.projectId, artworkNode!.projectNodeId)
 assert.match(artworkHtml, /花型任务/, '花型任务节点详情应展示任务模块')
 assert.match(artworkHtml, /查看花型任务/, '花型任务节点详情应展示正式任务入口')
 assert.match(artworkHtml, /AT-20260404-013/, '花型任务节点详情应展示正式任务编码')
@@ -168,12 +168,12 @@ assert.match(artworkHtml, /改版任务/, '花型任务节点详情应展示改�
 assert.match(artworkHtml, /烫画/, '花型任务节点详情应展示工艺')
 assert.match(artworkHtml, /bing bing/, '花型任务节点详情应展示花型师')
 
-const firstSampleHtml = await renderPcsProjectWorkItemDetailPage(project013!.projectId, firstSampleNode!.projectNodeId)
+const firstSampleHtml = await renderPcsProjectStepDetailPage(project013!.projectId, firstSampleNode!.projectNodeId)
 assert.match(firstSampleHtml, /首版样衣打样/, '首版样衣节点详情应展示任务模块')
 assert.match(firstSampleHtml, /请先填写首版样衣必要信息并创建任务/, '首版样衣节点详情应展示创建前置提示')
 assert.match(firstSampleHtml, /创建首版任务/, '首版样衣节点详情应展示创建任务入口')
 
-const firstOrderHtml = await renderPcsProjectWorkItemDetailPage(project013!.projectId, firstOrderNode!.projectNodeId)
+const firstOrderHtml = await renderPcsProjectStepDetailPage(project013!.projectId, firstOrderNode!.projectNodeId)
 assert.match(firstOrderHtml, /首单样衣打样/, '首单样衣节点详情应展示任务模块')
 assert.match(firstOrderHtml, /请先填写首单样衣必要信息并创建任务/, '首单样衣节点详情应展示创建前置提示')
 assert.match(firstOrderHtml, /创建首单任务/, '首单样衣节点详情应展示创建任务入口')

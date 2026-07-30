@@ -1,8 +1,8 @@
 import {
-  PCS_PROJECT_INLINE_NODE_RECORD_WORK_ITEM_TYPES,
+  PCS_PROJECT_INLINE_STEP_RECORD_CODES,
   type PcsProjectInlineNodeRecord,
   type PcsProjectInlineNodeRecordStoreSnapshot,
-  type PcsProjectInlineNodeRecordWorkItemTypeCode,
+  type PcsProjectInlineStepRecordCode,
   type PcsProjectInlineNodeRef,
 } from './pcs-project-inline-node-record-types.ts'
 import { createBootstrapProjectInlineNodeRecordSnapshot } from './pcs-project-inline-node-record-bootstrap.ts'
@@ -10,14 +10,14 @@ import { migrateProjectDecisionInlineRecords } from './pcs-project-decision-migr
 import {
   getProjectById,
   getProjectNodeRecordById,
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   getProjectNodeSequenceBlocker,
   updateProjectNodeRecord,
 } from './pcs-project-repository.ts'
 import {
   getProjectTaskCarrierDefinition,
-  getProjectWorkItemContract,
-  type PcsProjectWorkItemCode,
+  getProjectStepDefinition,
+  type ProjectStepCode,
 } from './pcs-project-domain-contract.ts'
 import {
   calculateSampleCostReview,
@@ -93,7 +93,7 @@ const SAMPLE_COST_REVIEW_DETAIL_KEYS = [
   'decisionRationale',
 ]
 
-const ALLOWED_PAYLOAD_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTypeCode, string[]> = {
+const ALLOWED_PAYLOAD_KEYS: Record<PcsProjectInlineStepRecordCode, string[]> = {
   SAMPLE_ACQUIRE: [
     'sampleSourceType',
     'sampleSupplierId',
@@ -178,7 +178,7 @@ const ALLOWED_PAYLOAD_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTypeCode, s
   ],
 }
 
-const ALLOWED_DETAIL_SNAPSHOT_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTypeCode, string[]> = {
+const ALLOWED_DETAIL_SNAPSHOT_KEYS: Record<PcsProjectInlineStepRecordCode, string[]> = {
   SAMPLE_ACQUIRE: [
     'acquireMethod',
     'acquirePurpose',
@@ -324,8 +324,8 @@ function buildSeedSnapshot(): PcsProjectInlineNodeRecordStoreSnapshot {
   return hydrateSnapshot(createBootstrapProjectInlineNodeRecordSnapshot(INLINE_NODE_RECORD_STORE_VERSION))
 }
 
-function isSupportedWorkItemTypeCode(value: string): value is PcsProjectInlineNodeRecordWorkItemTypeCode {
-  return (PCS_PROJECT_INLINE_NODE_RECORD_WORK_ITEM_TYPES as readonly string[]).includes(value)
+function isSupportedStepTypeCode(value: string): value is PcsProjectInlineStepRecordCode {
+  return (PCS_PROJECT_INLINE_STEP_RECORD_CODES as readonly string[]).includes(value)
 }
 
 function cloneArray<T>(value: T[]): T[] {
@@ -383,13 +383,13 @@ function cloneRecord<T extends PcsProjectInlineNodeRecord>(record: T): T {
 }
 
 function normalizeRecord<T extends PcsProjectInlineNodeRecord>(record: T): T {
-  if (!isSupportedWorkItemTypeCode(record.workItemTypeCode)) {
-    throw new Error(`不支持的 inline 节点正式记录类型：${record.workItemTypeCode}`)
+  if (!isSupportedStepTypeCode(record.stepCode)) {
+    throw new Error(`不支持的 inline 节点正式记录类型：${record.stepCode}`)
   }
 
-  const payload = sanitizeObject(record.payload, ALLOWED_PAYLOAD_KEYS[record.workItemTypeCode])
+  const payload = sanitizeObject(record.payload, ALLOWED_PAYLOAD_KEYS[record.stepCode])
 
-  if (record.workItemTypeCode === 'SAMPLE_SHOOT_FIT') {
+  if (record.stepCode === 'SAMPLE_SHOOT_FIT') {
     payload.sampleFlatImageIds = Array.isArray(payload.sampleFlatImageIds) ? payload.sampleFlatImageIds : []
     payload.sampleTryOnImageIds = Array.isArray(payload.sampleTryOnImageIds) ? payload.sampleTryOnImageIds : []
     payload.sampleDetailImageIds = Array.isArray(payload.sampleDetailImageIds) ? payload.sampleDetailImageIds : []
@@ -409,14 +409,14 @@ function normalizeRecord<T extends PcsProjectInlineNodeRecord>(record: T): T {
     projectCode: record.projectCode || '',
     projectName: record.projectName || '',
     projectNodeId: record.projectNodeId || '',
-    workItemTypeCode: record.workItemTypeCode,
-    workItemTypeName: record.workItemTypeName || '',
+    stepCode: record.stepCode,
+    stepName: record.stepName || '',
     businessDate: record.businessDate || '',
     recordStatus: record.recordStatus || '',
     ownerId: record.ownerId || '',
     ownerName: record.ownerName || '',
     payload,
-    detailSnapshot: sanitizeObject(record.detailSnapshot, ALLOWED_DETAIL_SNAPSHOT_KEYS[record.workItemTypeCode]),
+    detailSnapshot: sanitizeObject(record.detailSnapshot, ALLOWED_DETAIL_SNAPSHOT_KEYS[record.stepCode]),
     sourceModule: record.sourceModule || '',
     sourceDocType: record.sourceDocType || '',
     sourceDocId: record.sourceDocId || '',
@@ -428,7 +428,6 @@ function normalizeRecord<T extends PcsProjectInlineNodeRecord>(record: T): T {
     updatedAt: record.updatedAt || record.createdAt || '',
     updatedBy: record.updatedBy || record.createdBy || '',
     legacyProjectRef: record.legacyProjectRef ?? null,
-    legacyWorkItemInstanceId: record.legacyWorkItemInstanceId ?? null,
   } as T
 }
 
@@ -441,20 +440,20 @@ function cloneSnapshot(snapshot: PcsProjectInlineNodeRecordStoreSnapshot): PcsPr
 
 function buildRecordId(
   projectCode: string,
-  workItemTypeCode: PcsProjectInlineNodeRecordWorkItemTypeCode,
+  stepCode: PcsProjectInlineStepRecordCode,
   sequence: number,
 ): string {
   const normalizedProjectCode = projectCode.replace(/[^A-Za-z0-9]/g, '')
-  return `INR-${normalizedProjectCode}-${workItemTypeCode}-${String(sequence).padStart(2, '0')}`
+  return `INR-${normalizedProjectCode}-${stepCode}-${String(sequence).padStart(2, '0')}`
 }
 
 function buildRecordCode(
   projectCode: string,
-  workItemTypeCode: PcsProjectInlineNodeRecordWorkItemTypeCode,
+  stepCode: PcsProjectInlineStepRecordCode,
   sequence: number,
 ): string {
   const shortProjectCode = projectCode.split('-').slice(-2).join('-') || projectCode
-  return `${workItemTypeCode}-${shortProjectCode}-${String(sequence).padStart(2, '0')}`
+  return `${stepCode}-${shortProjectCode}-${String(sequence).padStart(2, '0')}`
 }
 
 function normalizeFieldEntryValue(value: unknown): unknown {
@@ -505,7 +504,7 @@ function roundMigrationAmount(value: number): number {
 }
 
 function isGeneratedSampleCostReviewRecord(record: PcsProjectInlineNodeRecord): boolean {
-  if (record.workItemTypeCode !== 'SAMPLE_COST_REVIEW') return false
+  if (record.stepCode !== 'SAMPLE_COST_REVIEW') return false
   return record.recordId.startsWith('inline_bootstrap_') || record.recordId.startsWith('inline_backfill_')
 }
 
@@ -582,7 +581,7 @@ function hydrateSnapshot(
   const sourceVersion = toMigrationNumber(snapshot?.version)
   const shouldRefreshSampleCostPricing = sourceVersion < INLINE_NODE_RECORD_STORE_VERSION
   const cleanedRecords = Array.isArray(snapshot?.records)
-    ? migrateProjectDecisionInlineRecords(snapshot.records as Array<PcsProjectInlineNodeRecord & { workItemTypeCode?: string | null; projectNodeId?: string | null }>)
+    ? migrateProjectDecisionInlineRecords(snapshot.records as Array<PcsProjectInlineNodeRecord & { stepCode?: string | null; projectNodeId?: string | null }>)
     : []
 
   return {
@@ -654,10 +653,10 @@ export function listProjectInlineNodeRecordsByNode(projectNodeId: string): PcsPr
   return listProjectInlineNodeRecords().filter((record) => record.projectNodeId === projectNodeId)
 }
 
-export function listProjectInlineNodeRecordsByWorkItemType(
-  workItemTypeCode: PcsProjectInlineNodeRecordWorkItemTypeCode,
+export function listProjectInlineNodeRecordsByStepType(
+  stepCode: PcsProjectInlineStepRecordCode,
 ): PcsProjectInlineNodeRecord[] {
-  return listProjectInlineNodeRecords().filter((record) => record.workItemTypeCode === workItemTypeCode)
+  return listProjectInlineNodeRecords().filter((record) => record.stepCode === stepCode)
 }
 
 export function getLatestProjectInlineNodeRecord(projectNodeId: string): PcsProjectInlineNodeRecord | null {
@@ -678,10 +677,10 @@ export function getLatestSampleCostReviewSalesPrice(projectId: string): {
   salesCurrency: string
   record: PcsProjectInlineNodeRecord
 } | null {
-  const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'SAMPLE_COST_REVIEW')
+  const node = getProjectNodeRecordByStepCode(projectId, 'SAMPLE_COST_REVIEW')
   if (!node) return null
   const record = getLatestProjectInlineNodeRecord(node.projectNodeId)
-  if (!record || record.workItemTypeCode !== 'SAMPLE_COST_REVIEW') return null
+  if (!record || record.stepCode !== 'SAMPLE_COST_REVIEW') return null
 
   const payload = (record.payload || {}) as Record<string, unknown>
   const detailSnapshot = (record.detailSnapshot || {}) as Record<string, unknown>
@@ -728,7 +727,7 @@ export function saveProjectInlineNodeFieldEntry(
     return { ok: false, message: '未找到对应项目节点，不能保存节点字段。', record: null }
   }
 
-  if (!isSupportedWorkItemTypeCode(node.workItemTypeCode)) {
+  if (!isSupportedStepTypeCode(node.stepCode)) {
     return { ok: false, message: '当前节点不通过项目内正式记录承载字段，不能直接在此保存。', record: null }
   }
 
@@ -736,16 +735,16 @@ export function saveProjectInlineNodeFieldEntry(
   if (blocker) {
     return {
       ok: false,
-      message: `请先填写并完成前序任务：${blocker.workItemTypeName}。`,
+      message: `请先填写并完成前序任务：${blocker.stepName}。`,
       record: null,
     }
   }
 
-  const workItemTypeCode = node.workItemTypeCode as PcsProjectInlineNodeRecordWorkItemTypeCode
-  const contract = getProjectWorkItemContract(node.workItemTypeCode as PcsProjectWorkItemCode)
-  const carrier = getProjectTaskCarrierDefinition(node.workItemTypeCode as PcsProjectWorkItemCode)
+  const stepCode = node.stepCode as PcsProjectInlineStepRecordCode
+  const contract = getProjectStepDefinition(node.stepCode as ProjectStepCode)
+  const carrier = getProjectTaskCarrierDefinition(node.stepCode as ProjectStepCode)
   const existingRecords = listProjectInlineNodeRecordsByNode(projectNodeId).filter(
-    (item) => item.workItemTypeCode === workItemTypeCode,
+    (item) => item.stepCode === stepCode,
   )
   const latestRecord = existingRecords[0] || null
   const timestamp = nowText()
@@ -770,16 +769,16 @@ export function saveProjectInlineNodeFieldEntry(
     })
 
   const nextRecord = upsertProjectInlineNodeRecord({
-    recordId: shouldCreateNewRecord ? buildRecordId(project.projectCode, workItemTypeCode, sequence) : latestRecord!.recordId,
+    recordId: shouldCreateNewRecord ? buildRecordId(project.projectCode, stepCode, sequence) : latestRecord!.recordId,
     recordCode: shouldCreateNewRecord
-      ? buildRecordCode(project.projectCode, workItemTypeCode, sequence)
+      ? buildRecordCode(project.projectCode, stepCode, sequence)
       : latestRecord!.recordCode,
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectName: project.projectName,
     projectNodeId,
-    workItemTypeCode,
-    workItemTypeName: node.workItemTypeName,
+    stepCode,
+    stepName: node.stepName,
     businessDate,
     recordStatus:
       input.recordStatus ||
@@ -806,7 +805,6 @@ export function saveProjectInlineNodeFieldEntry(
     updatedAt: timestamp,
     updatedBy: operatorName,
     legacyProjectRef: latestRecord?.legacyProjectRef ?? null,
-    legacyWorkItemInstanceId: latestRecord?.legacyWorkItemInstanceId ?? null,
   } as PcsProjectInlineNodeRecord)
 
   const nodePatch: Parameters<typeof updateProjectNodeRecord>[2] = {
@@ -816,21 +814,21 @@ export function saveProjectInlineNodeFieldEntry(
   if (node.currentStatus === '未开始') {
     nodePatch.currentStatus = '进行中'
     nodePatch.latestResultType = '已开始填写节点字段'
-    nodePatch.latestResultText = `已开始填写${node.workItemTypeName}字段。`
+    nodePatch.latestResultText = `已开始填写${node.stepName}字段。`
     nodePatch.pendingActionType = missingRequiredFields.length === 0 ? node.pendingActionType : '继续填写节点字段'
     nodePatch.pendingActionText =
       missingRequiredFields.length === 0
         ? node.pendingActionText
-        : `请继续补齐${node.workItemTypeName}字段。`
+        : `请继续补齐${node.stepName}字段。`
   } else if (node.currentStatus !== '已完成' && node.currentStatus !== '已取消') {
     nodePatch.latestResultType = '已保存节点字段'
     nodePatch.latestResultText =
       missingRequiredFields.length === 0
-        ? `已保存${node.workItemTypeName}字段。`
-        : `已保存${node.workItemTypeName}字段，仍有待补齐项。`
+        ? `已保存${node.stepName}字段。`
+        : `已保存${node.stepName}字段，仍有待补齐项。`
     if (missingRequiredFields.length > 0) {
       nodePatch.pendingActionType = '继续填写节点字段'
-      nodePatch.pendingActionText = `请继续补齐${node.workItemTypeName}字段。`
+      nodePatch.pendingActionText = `请继续补齐${node.stepName}字段。`
     }
   }
 
@@ -840,8 +838,8 @@ export function saveProjectInlineNodeFieldEntry(
     ok: true,
     message:
       missingRequiredFields.length === 0
-        ? `已保存${node.workItemTypeName}字段。`
-        : `已保存${node.workItemTypeName}字段，仍需补齐：${missingRequiredFields.map((field) => field.label).join('、')}。`,
+        ? `已保存${node.stepName}字段。`
+        : `已保存${node.stepName}字段，仍需补齐：${missingRequiredFields.map((field) => field.label).join('、')}。`,
     record: nextRecord,
   }
 }

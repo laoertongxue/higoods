@@ -1,7 +1,7 @@
 import { syncExistingProjectArchiveByProjectId } from './pcs-project-archive-sync.ts'
 import {
   getProjectById,
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   updateProjectNodeRecord,
   updateProjectRecord,
 } from './pcs-project-repository.ts'
@@ -64,8 +64,8 @@ export interface TechPackGenerationResult {
 
 interface TechPackProjectNodeBinding {
   projectNodeId: string | null
-  workItemTypeCode: string
-  workItemTypeName: string
+  stepCode: string
+  stepName: string
 }
 
 function nowText(): string {
@@ -425,10 +425,10 @@ function ensureTaskProject(task: { projectId: string; projectCode: string; proje
   return project
 }
 
-function ensureTaskNode(projectId: string, workItemTypeCode: string, workItemTypeName: string) {
-  const node = getProjectNodeRecordByWorkItemTypeCode(projectId, workItemTypeCode)
+function ensureTaskNode(projectId: string, stepCode: string, stepName: string) {
+  const node = getProjectNodeRecordByStepCode(projectId, stepCode)
   if (!node) {
-    throw new Error(`当前项目缺少${workItemTypeName}节点，不能写入技术包版本。`)
+    throw new Error(`当前项目缺少${stepName}节点，不能写入技术包版本。`)
   }
   return node
 }
@@ -438,37 +438,37 @@ function getProjectNodeBindingByTaskType(
   taskType: TechPackSourceTaskType,
 ): TechPackProjectNodeBinding {
   if (taskType === 'MANUAL') {
-    const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'STYLE_ARCHIVE_CREATE')
+    const node = getProjectNodeRecordByStepCode(projectId, 'PROJECT_INIT')
     return {
       projectNodeId: node?.projectNodeId || null,
-      workItemTypeCode: 'STYLE_ARCHIVE_CREATE',
-      workItemTypeName: node?.workItemTypeName || '款式档案',
+      stepCode: 'PROJECT_INIT',
+      stepName: node?.stepName || '款式档案',
     }
   }
 
   if (taskType === 'PLATE') {
-    const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PATTERN_TASK')
+    const node = getProjectNodeRecordByStepCode(projectId, 'PATTERN_TASK')
     return {
       projectNodeId: node?.projectNodeId || null,
-      workItemTypeCode: 'PATTERN_TASK',
-      workItemTypeName: node?.workItemTypeName || '制版任务',
+      stepCode: 'PATTERN_TASK',
+      stepName: node?.stepName || '制版任务',
     }
   }
 
   if (taskType === 'ARTWORK') {
-    const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PATTERN_ARTWORK_TASK')
+    const node = getProjectNodeRecordByStepCode(projectId, 'PATTERN_ARTWORK_TASK')
     return {
       projectNodeId: node?.projectNodeId || null,
-      workItemTypeCode: 'PATTERN_ARTWORK_TASK',
-      workItemTypeName: node?.workItemTypeName || '花型任务',
+      stepCode: 'PATTERN_ARTWORK_TASK',
+      stepName: node?.stepName || '花型任务',
     }
   }
 
-  const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'REVISION_TASK')
+  const node = getProjectNodeRecordByStepCode(projectId, 'REVISION_TASK')
   return {
     projectNodeId: node?.projectNodeId || null,
-    workItemTypeCode: 'REVISION_TASK',
-    workItemTypeName: node?.workItemTypeName || '改版任务',
+    stepCode: 'REVISION_TASK',
+    stepName: node?.stepName || '改版任务',
   }
 }
 
@@ -644,12 +644,12 @@ export function writeProjectRelationFromTechPackVersion(
   const sourceBinding = getProjectNodeBindingByTaskType(record.sourceProjectId, sourceTaskType)
   const projectInitNode = sourceBinding.projectNodeId
     ? null
-    : getProjectNodeRecordByWorkItemTypeCode(record.sourceProjectId, 'PROJECT_INIT')
+    : getProjectNodeRecordByStepCode(record.sourceProjectId, 'PROJECT_INIT')
   const nodeBinding = projectInitNode
     ? {
         projectNodeId: projectInitNode.projectNodeId,
-        workItemTypeCode: projectInitNode.workItemTypeCode,
-        workItemTypeName: projectInitNode.workItemTypeName,
+        stepCode: projectInitNode.stepCode,
+        stepName: projectInitNode.stepName,
       }
     : sourceBinding
   upsertProjectRelation({
@@ -657,8 +657,8 @@ export function writeProjectRelationFromTechPackVersion(
     projectId: record.sourceProjectId,
     projectCode: record.sourceProjectCode,
     projectNodeId: nodeBinding.projectNodeId ?? (record.sourceProjectNodeId || null),
-    workItemTypeCode: nodeBinding.workItemTypeCode,
-    workItemTypeName: nodeBinding.workItemTypeName,
+    stepCode: nodeBinding.stepCode,
+    stepName: nodeBinding.stepName,
     relationRole: '产出对象',
     sourceModule: '技术包',
     sourceObjectType: '技术包版本',
@@ -717,7 +717,7 @@ export function syncProjectSourceNodeFromTechPackVersion(
   if (!record.sourceProjectId) return
   const nodeBinding = getProjectNodeBindingByTaskType(record.sourceProjectId, sourceTaskType)
   if (!nodeBinding.projectNodeId) return
-  const node = getProjectNodeRecordByWorkItemTypeCode(record.sourceProjectId, nodeBinding.workItemTypeCode)
+  const node = getProjectNodeRecordByStepCode(record.sourceProjectId, nodeBinding.stepCode)
   if (!node) return
   const isManualVersion = sourceTaskType === 'MANUAL'
   updateProjectNodeRecord(
@@ -892,7 +892,7 @@ function syncPatternAssetTechPackLineage(
   if (!asset) return
   updatePatternAsset(asset.id, {
     source_task_code: task.patternTaskCode,
-    source_task_type: task.workItemTypeCode,
+    source_task_type: task.stepCode,
     source_task_name: task.title,
     source_tech_pack_version_id: record.technicalVersionId,
     source_tech_pack_version_code: record.technicalVersionCode,
@@ -982,7 +982,7 @@ export function generateTechPackVersionFromPatternTask(
   if (!task) throw new Error('未找到花型任务。')
   ensurePatternTaskReady(task)
   ensureTaskProject(task, '当前花型任务未绑定正式商品项目，不能写入技术包。')
-  ensureTaskNode(task.projectId, task.workItemTypeCode, task.workItemTypeName)
+  ensureTaskNode(task.projectId, task.stepCode, task.stepName)
   const style = ensureStyleArchive(
     { styleId: '', styleCode: task.productStyleCode, projectId: task.projectId, spuCode: task.spuCode },
     '当前花型任务未绑定正式款式档案，不能写入技术包。',
@@ -1110,7 +1110,7 @@ export function generateTechPackVersionFromRevisionTask(
   if (!task) throw new Error('未找到改版任务。')
   ensureRevisionTaskReady(task)
   ensureTaskProject(task, '当前改版任务未绑定正式商品项目，不能建立技术包版本。')
-  const sourceNode = ensureTaskNode(task.projectId, task.workItemTypeCode, task.workItemTypeName)
+  const sourceNode = ensureTaskNode(task.projectId, task.stepCode, task.stepName)
   const style = ensureStyleArchive(
     { styleId: task.styleId, styleCode: task.styleCode || task.productStyleCode, projectId: task.projectId, spuCode: task.spuCode },
     '当前改版任务未绑定正式款式档案，不能建立技术包版本。',

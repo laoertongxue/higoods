@@ -6,7 +6,7 @@ import { findLatestNodeInstance } from '../src/data/pcs-project-instance-model.t
 import { resetProjectInlineNodeRecordRepository } from '../src/data/pcs-project-inline-node-record-repository.ts'
 import { resetProjectRelationRepository } from '../src/data/pcs-project-relation-repository.ts'
 import { listProjectNodes, listProjects, resetProjectRepository } from '../src/data/pcs-project-repository.ts'
-import { renderPcsProjectWorkItemDetailPage } from '../src/pages/pcs-projects.ts'
+import { renderPcsProjectStepDetailPage } from '../src/pages/pcs-projects.ts'
 
 resetProjectRepository()
 resetProjectRelationRepository()
@@ -22,21 +22,21 @@ assert.doesNotMatch(
 
 const cases = [
   {
-    workItemTypeCode: 'REVISION_TASK',
+    stepCode: 'REVISION_TASK',
     moduleName: '改版任务',
     objectType: '改版任务',
     viewLabel: '查看改版任务',
     fieldLabel: '改版范围',
   },
   {
-    workItemTypeCode: 'PATTERN_TASK',
+    stepCode: 'PATTERN_TASK',
     moduleName: '制版任务',
     objectType: '制版任务',
     viewLabel: '查看制版任务',
     fieldLabel: '版型类型',
   },
   {
-    workItemTypeCode: 'PATTERN_ARTWORK_TASK',
+    stepCode: 'PATTERN_ARTWORK_TASK',
     moduleName: '花型任务',
     objectType: '花型任务',
     viewLabel: '查看花型任务',
@@ -49,7 +49,7 @@ for (const item of cases) {
     listProjects()
       .flatMap((project) =>
         listProjectNodes(project.projectId)
-          .filter((node) => node.workItemTypeCode === item.workItemTypeCode)
+          .filter((node) => node.stepCode === item.stepCode)
           .map((node) => ({
             project,
             node,
@@ -66,16 +66,16 @@ for (const item of cases) {
       )
       .find((candidate) => candidate.instance) || null
 
-  assert.ok(matched, `${item.workItemTypeCode} 应存在可查看详情的已创建任务节点`)
+  assert.ok(matched, `${item.stepCode} 应存在可查看详情的已创建任务节点`)
 
-  const html = await renderPcsProjectWorkItemDetailPage(matched.project.projectId, matched.node.projectNodeId)
+  const html = await renderPcsProjectStepDetailPage(matched.project.projectId, matched.node.projectNodeId)
 
-  assert.match(html, new RegExp(item.viewLabel), `${item.workItemTypeCode} 节点应提供查看任务入口`)
-  assert.match(html, new RegExp(item.fieldLabel), `${item.workItemTypeCode} 节点应展示创建时必填的基础字段`)
+  assert.match(html, new RegExp(item.viewLabel), `${item.stepCode} 节点应提供查看任务入口`)
+  assert.match(html, new RegExp(item.fieldLabel), `${item.stepCode} 节点应展示创建时必填的基础字段`)
   assert.doesNotMatch(
     html,
     /任务补齐完成度|实例详情补齐|完成前校验|保存正式字段|填写字段|暂无正式记录/,
-    `${item.workItemTypeCode} 节点不应再显示补齐壳或内嵌编辑入口`,
+    `${item.stepCode} 节点不应再显示补齐壳或内嵌编辑入口`,
   )
 }
 

@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict'
 
 import {
-  getProjectWorkItemMultiInstanceDefinition,
-  getProjectWorkItemContract,
-  listProjectStepContracts,
-  listProjectWorkItemContracts,
-  type PcsProjectWorkItemCode,
+  getProjectStepMultiInstanceDefinition,
+  getProjectStepDefinition,
+  listProjectFlowStageContracts,
+  listProjectStepDefinitions,
+  type ProjectStepCode,
 } from '../src/data/pcs-project-domain-contract.ts'
 import { ensurePcsProjectDemoDataReady } from '../src/data/pcs-project-demo-seed-service.ts'
 import {
@@ -33,12 +33,12 @@ const expectedSteps = [
   { stepCode: 'TEST_DECISION_CLOSURE', stepName: '测款判断与收尾', sequence: 5 },
 ] as const
 
-function fieldKeys(workItemTypeCode: PcsProjectWorkItemCode): string[] {
-  return getProjectWorkItemContract(workItemTypeCode).fieldDefinitions.map((field) => field.fieldKey)
+function fieldKeys(stepCode: ProjectStepCode): string[] {
+  return getProjectStepDefinition(stepCode).fieldDefinitions.map((field) => field.fieldKey)
 }
 
-function fieldOptions(workItemTypeCode: PcsProjectWorkItemCode, fieldKey: string): string[] {
-  const field = getProjectWorkItemContract(workItemTypeCode).fieldDefinitions.find((item) => item.fieldKey === fieldKey)
+function fieldOptions(stepCode: ProjectStepCode, fieldKey: string): string[] {
+  const field = getProjectStepDefinition(stepCode).fieldDefinitions.find((item) => item.fieldKey === fieldKey)
   return field?.options?.map((option) => option.value) ?? []
 }
 
@@ -79,7 +79,7 @@ function buildDraft(projectName: string, projectType: '商品开发' | '改版�
 }
 
 assert.deepEqual(
-  listProjectStepContracts().map(({ stepCode, stepName, sequence }) => ({ stepCode, stepName, sequence })),
+  listProjectFlowStageContracts().map(({ stepCode, stepName, sequence }) => ({ stepCode, stepName, sequence })),
   expectedSteps,
   '商品项目必须严格按固定五步组织',
 )
@@ -88,22 +88,22 @@ const projectCountBeforeDemoSeed = listProjects().length
 ensurePcsProjectDemoDataReady()
 assert.equal(listProjects().length, projectCountBeforeDemoSeed, '清洁状态下不应额外注入商品项目 mock')
 
-const fixedStepFlow = listProjectStepContracts().flatMap((step) => step.workItemCodes)
+const fixedStepFlow = listProjectFlowStageContracts().flatMap((step) => step.stepCodes)
 assert.ok(fixedStepFlow.length > 5, '固定五步必须继续承载逐项办理的详细业务任务')
 assert.deepEqual(
   fixedStepFlow.slice(-2),
   ['TEST_CONCLUSION', 'SAMPLE_RETURN_HANDLE'],
   '测款判断后必须以样衣退回处理完成业务收尾',
 )
-assert.ok(!fixedStepFlow.includes('STYLE_ARCHIVE_CREATE'), '商品／款式档案在项目创建时同步建立，不应成为后置任务')
+assert.ok(fixedStepFlow.includes('PROJECT_INIT'), '固定流程必须以项目与档案建立步骤承接同步建档')
 assert.equal(
-  getProjectWorkItemContract('CHANNEL_PRODUCT_LISTING').phaseCode,
+  getProjectStepDefinition('CHANNEL_PRODUCT_LISTING').phaseCode,
   'PHASE_02',
   '商品上架任务默认阶段应统一为样衣准备',
 )
 
-const workItemCodes = listProjectWorkItemContracts().map((item) => item.workItemTypeCode)
-assertIncludesAll(workItemCodes, Array.from(new Set(fixedStepFlow)), '固定五步缺少逐项办理所需的详细任务')
+const stepCodes = listProjectStepDefinitions().map((item) => item.stepCode)
+assertIncludesAll(stepCodes, Array.from(new Set(fixedStepFlow)), '固定五步缺少逐项办理所需的详细任务')
 
 const sampleAcquireFieldKeys = fieldKeys('SAMPLE_ACQUIRE')
 assertIncludesAll(
@@ -113,7 +113,7 @@ assertIncludesAll(
 )
 assert.ok(!sampleAcquireFieldKeys.includes('saleType'), '样衣获取不应保留售卖类型字段')
 assert.ok(!sampleAcquireFieldKeys.includes('targetRegionCodes'), '样衣获取不应保留区域字段')
-const samplePurchaseSpecQtyField = getProjectWorkItemContract('SAMPLE_ACQUIRE').fieldDefinitions.find(
+const samplePurchaseSpecQtyField = getProjectStepDefinition('SAMPLE_ACQUIRE').fieldDefinitions.find(
   (field) => field.fieldKey === 'samplePurchaseSpecQty',
 )
 assert.equal(samplePurchaseSpecQtyField?.type, 'table', '采购规格及数量必须作为结构化表格字段维护')
@@ -137,7 +137,7 @@ assertIncludesAll(
   ['sampleInboundLines', 'receivedQty', 'generatedSampleCodes', 'receivedAt', 'sampleImageIds', 'qualityCheckResult', 'checkResult'],
   '样衣结果核对字段未覆盖到样登记、样衣编号和实物核对',
 )
-const sampleInboundContract = getProjectWorkItemContract('SAMPLE_INBOUND_CHECK')
+const sampleInboundContract = getProjectStepDefinition('SAMPLE_INBOUND_CHECK')
 assert.equal(sampleInboundContract.phaseCode, 'PHASE_02', '样衣结果核对必须归属样衣形成与商品准备阶段')
 const sampleInboundLinesField = sampleInboundContract.fieldDefinitions.find((field) => field.fieldKey === 'sampleInboundLines')
 assert.equal(sampleInboundLinesField?.type, 'table', '样衣结果核对应按颜色、尺码、计划数、实收数结构化登记')
@@ -189,9 +189,9 @@ assertIncludesAll(
   ],
   '样衣核价字段未完整承接商品核价功能',
 )
-const sampleCostReviewContract = getProjectWorkItemContract('SAMPLE_COST_REVIEW')
+const sampleCostReviewContract = getProjectStepDefinition('SAMPLE_COST_REVIEW')
 assert.equal(sampleCostReviewContract.capabilities.canMultiInstance, false, '样衣核价必须是单实例工作项')
-assert.equal(getProjectWorkItemMultiInstanceDefinition('SAMPLE_COST_REVIEW'), null, '样衣核价不应存在多实例语义定义')
+assert.equal(getProjectStepMultiInstanceDefinition('SAMPLE_COST_REVIEW'), null, '样衣核价不应存在多实例语义定义')
 const sampleCostPricing = calculateSampleCostReview({
   spuCode: 'SPU-CHECK-SAMPLE-COST',
   productName: '样衣核价规则校验',
@@ -236,7 +236,7 @@ assert.equal(sampleCostNonAsayaDoublePrint.materialLines[0]?.dyeingCost.amount, 
 assert.match(sampleCostAsayaDoublePrint.materialLines[0]?.dyeingRuleText || '', /双面印 ASAYA ¥2\.40\/米/, 'ASAYA 双面印规则文案不正确')
 assert.match(sampleCostNonAsayaDoublePrint.materialLines[0]?.dyeingRuleText || '', /双面印 非ASAYA ¥3\.60\/米/, '非 ASAYA 双面印规则文案不正确')
 const sampleCostReviewMockRecords = createBootstrapProjectInlineNodeRecordSnapshot(2).records.filter(
-  (record) => record.workItemTypeCode === 'SAMPLE_COST_REVIEW',
+  (record) => record.stepCode === 'SAMPLE_COST_REVIEW',
 )
 assert.ok(
   sampleCostReviewMockRecords.some(
@@ -270,7 +270,7 @@ const sampleCostDefaultPricing = calculateSampleCostReview({
 })
 assert.equal(sampleCostDefaultPricing.fixedProcessLines.find((item) => item.code === 'cutting')?.cost.amount, 1000, '裁剪费空覆盖应保留默认金额')
 assert.equal(sampleCostDefaultPricing.fixedProcessLines.find((item) => item.code === 'postFinishing')?.cost.amount, 3000, '后道空覆盖应保留默认金额')
-const listingDefaultPriceField = getProjectWorkItemContract('CHANNEL_PRODUCT_LISTING').fieldDefinitions.find(
+const listingDefaultPriceField = getProjectStepDefinition('CHANNEL_PRODUCT_LISTING').fieldDefinitions.find(
   (field) => field.fieldKey === 'defaultPriceAmount',
 )
 assert.equal(listingDefaultPriceField?.sourceRef, '样衣核价.销售价格', '商品上架默认售价必须来自样衣核价销售价格')
@@ -295,12 +295,12 @@ assertIncludesAll(
   ],
   '样衣退回处理字段未覆盖退样、入库、清仓、寄回、单据和样衣编号信息',
 )
-const sampleReturnFields = getProjectWorkItemContract('SAMPLE_RETURN_HANDLE').fieldDefinitions
+const sampleReturnFields = getProjectStepDefinition('SAMPLE_RETURN_HANDLE').fieldDefinitions
 assert.equal(sampleReturnFields.find((field) => field.fieldKey === 'handleType')?.required, true, '样衣退回处理方式必须必填')
 assert.equal(sampleReturnFields.find((field) => field.fieldKey === 'sampleCode')?.required, true, '样衣退回处理必须绑定样衣编号')
 assert.equal(sampleReturnFields.find((field) => field.fieldKey === 'returnResult')?.required, true, '样衣退回处理结果说明必须必填')
 const sampleReturnMockRecords = createBootstrapProjectInlineNodeRecordSnapshot(2).records.filter(
-  (record) => record.workItemTypeCode === 'SAMPLE_RETURN_HANDLE',
+  (record) => record.stepCode === 'SAMPLE_RETURN_HANDLE',
 )
 assert.ok(sampleReturnMockRecords.length > 0, '必须存在样衣退回处理 mock 正式记录')
 sampleReturnMockRecords.forEach((record) => {
@@ -359,7 +359,7 @@ assert.ok(
   '静态样衣库存不应保留没有商品项目节点上游的退回/处置状态',
 )
 
-const conclusionField = getProjectWorkItemContract('TEST_CONCLUSION').fieldDefinitions.find((field) => field.fieldKey === 'conclusion')
+const conclusionField = getProjectStepDefinition('TEST_CONCLUSION').fieldDefinitions.find((field) => field.fieldKey === 'conclusion')
 assert.deepEqual(
   conclusionField?.options?.map((option) => option.value),
   ['通过', '不通过', '暂保留'],
@@ -375,7 +375,7 @@ const domesticProject = createProject(buildDraft('验收-固定五步商品测�
 assert.equal(domesticProject.projectType, '商品开发', '固定五步商品测款项目应保留创建时的项目类型')
 assert.ok(!(('style' + 'Type') in domesticProject), '商品项目主记录不应再包含旧属性字段')
 assert.deepEqual(
-  listProjectNodes(domesticProject.projectId).map((node) => node.workItemTypeCode),
+  listProjectNodes(domesticProject.projectId).map((node) => node.stepCode),
   fixedStepFlow,
   '固定五步商品测款项目创建后的节点顺序不正确',
 )
@@ -383,7 +383,7 @@ const domesticStyle = findStyleArchiveByProjectId(domesticProject.projectId)
 assert.ok(domesticStyle, '创建固定五步商品项目时应同步创建商品／款式档案')
 assert.equal(domesticStyle?.baseInfoStatus, '商品测款', '新建商品／款式档案初始状态应为商品测款')
 assert.equal(domesticStyle?.styleId, domesticProject.linkedStyleId, '商品项目应同步关联新建商品／款式档案')
-const domesticSampleCostNode = listProjectNodes(domesticProject.projectId).find((node) => node.workItemTypeCode === 'SAMPLE_COST_REVIEW')
+const domesticSampleCostNode = listProjectNodes(domesticProject.projectId).find((node) => node.stepCode === 'SAMPLE_COST_REVIEW')
 assert.equal(domesticSampleCostNode?.multiInstanceFlag, false, '固定五步商品测款项目中的样衣核价节点必须为单实例')
 assert.deepEqual(
   listProjectPhases(domesticProject.projectId).map((phase) => phase.phaseCode),
@@ -392,7 +392,7 @@ assert.deepEqual(
 )
 assert.deepEqual(
   listProjectPhases(domesticProject.projectId).map((phase) => phase.phaseName),
-  listProjectStepContracts().map((step) => step.stepName),
+  listProjectFlowStageContracts().map((step) => step.stepName),
   '固定五步商品测款项目的步骤名称不正确',
 )
 
@@ -400,11 +400,11 @@ const wanlongProject = createProject(buildDraft('验收-固定五步改版测款
 assert.equal(wanlongProject.projectType, '改版开发', '固定五步流程应保留改版开发项目类型')
 assert.ok(!(('style' + 'Type') in wanlongProject), '万隆改版项目主记录不应再包含旧属性字段')
 assert.deepEqual(
-  listProjectNodes(wanlongProject.projectId).map((node) => node.workItemTypeCode),
+  listProjectNodes(wanlongProject.projectId).map((node) => node.stepCode),
   fixedStepFlow,
   '改版开发项目也必须使用同一固定五步节点顺序',
 )
-const wanlongSampleCostNode = listProjectNodes(wanlongProject.projectId).find((node) => node.workItemTypeCode === 'SAMPLE_COST_REVIEW')
+const wanlongSampleCostNode = listProjectNodes(wanlongProject.projectId).find((node) => node.stepCode === 'SAMPLE_COST_REVIEW')
 assert.equal(wanlongSampleCostNode?.multiInstanceFlag, false, '万隆改版项目中的样衣核价节点必须为单实例')
 
 console.log('check-pcs-product-testing-v1 passed')

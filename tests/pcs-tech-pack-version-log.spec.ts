@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { clearProjectRelationStore } from '../src/data/pcs-project-relation-repository.ts'
 import {
   getProjectById,
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   resetProjectRepository,
   updateProjectRecord,
 } from '../src/data/pcs-project-repository.ts'
@@ -98,7 +98,7 @@ function prepareProjectAndStyle() {
 
 function createPlateTask(projectId: string, styleCode: string) {
   const project = getProjectById(projectId)!
-  const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PATTERN_TASK')!
+  const node = getProjectNodeRecordByStepCode(projectId, 'PATTERN_TASK')!
   return upsertPlateMakingTask({
     plateTaskId: 'plate_task_log_test',
     plateTaskCode: 'PT-TEST-LOG-001',
@@ -107,13 +107,13 @@ function createPlateTask(projectId: string, styleCode: string) {
     projectCode: project.projectCode,
     projectName: project.projectName,
     projectNodeId: node.projectNodeId,
-    workItemTypeCode: 'PATTERN_TASK',
-    workItemTypeName: '制版任务',
+    stepCode: 'PATTERN_TASK',
+    stepName: '制版任务',
     sourceType: '项目模板阶段',
     upstreamModule: '商品项目',
     upstreamObjectType: '商品项目节点',
     upstreamObjectId: node.projectNodeId,
-    upstreamObjectCode: node.workItemTypeCode,
+    upstreamObjectCode: node.stepCode,
     productStyleCode: styleCode,
     spuCode: styleCode,
     patternType: '常规制版',
@@ -144,7 +144,7 @@ function createPlateTask(projectId: string, styleCode: string) {
 
 function createPatternTask(id: string, code: string, projectId: string, styleCode: string, artworkVersion: string) {
   const project = getProjectById(projectId)!
-  const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PATTERN_ARTWORK_TASK')!
+  const node = getProjectNodeRecordByStepCode(projectId, 'PATTERN_ARTWORK_TASK')!
   return upsertPatternTask({
     patternTaskId: id,
     patternTaskCode: code,
@@ -153,13 +153,13 @@ function createPatternTask(id: string, code: string, projectId: string, styleCod
     projectCode: project.projectCode,
     projectName: project.projectName,
     projectNodeId: node.projectNodeId,
-    workItemTypeCode: 'PATTERN_ARTWORK_TASK',
-    workItemTypeName: '花型任务',
+    stepCode: 'PATTERN_ARTWORK_TASK',
+    stepName: '花型任务',
     sourceType: '项目模板阶段',
     upstreamModule: '商品项目',
     upstreamObjectType: '商品项目节点',
     upstreamObjectId: node.projectNodeId,
-    upstreamObjectCode: node.workItemTypeCode,
+    upstreamObjectCode: node.stepCode,
     productStyleCode: styleCode,
     spuCode: styleCode,
     artworkType: '印花',
@@ -193,7 +193,7 @@ function createPatternTask(id: string, code: string, projectId: string, styleCod
 
 function createRevisionTask(projectId: string, styleId: string, styleCode: string, styleName: string) {
   const project = getProjectById(projectId)!
-  const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'TEST_CONCLUSION')!
+  const node = getProjectNodeRecordByStepCode(projectId, 'TEST_CONCLUSION')!
   return upsertRevisionTask({
     revisionTaskId: 'revision_task_log_test',
     revisionTaskCode: 'RT-TEST-LOG-001',
@@ -202,13 +202,13 @@ function createRevisionTask(projectId: string, styleId: string, styleCode: strin
     projectCode: project.projectCode,
     projectName: project.projectName,
     projectNodeId: node.projectNodeId,
-    workItemTypeCode: 'REVISION_TASK',
-    workItemTypeName: '改版任务',
+    stepCode: 'REVISION_TASK',
+    stepName: '改版任务',
     sourceType: '人工创建',
     upstreamModule: '商品项目',
     upstreamObjectType: '商品项目节点',
     upstreamObjectId: node.projectNodeId,
-    upstreamObjectCode: node.workItemTypeCode,
+    upstreamObjectCode: node.stepCode,
     styleId,
     styleCode,
     styleName,

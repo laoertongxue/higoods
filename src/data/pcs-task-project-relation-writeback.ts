@@ -1,6 +1,6 @@
 import {
   getProjectById,
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   updateProjectNodeRecord,
 } from './pcs-project-repository.ts'
 import { markProjectNodeCompletedAndUnlockNext } from './pcs-project-flow-service.ts'
@@ -485,8 +485,8 @@ function syncTaskCompletionToProjectNode(
   input: {
     projectId: string
     projectNodeId: string
-    workItemTypeCode: string
-    workItemTypeName: string
+    stepCode: string
+    stepName: string
     sourceModule: string
     sourceObjectType: string
     sourceObjectId: string
@@ -504,7 +504,7 @@ function syncTaskCompletionToProjectNode(
   if (!project || !input.projectNodeId) return
 
   const node =
-    getProjectNodeRecordByWorkItemTypeCode(project.projectId, input.workItemTypeCode) ||
+    getProjectNodeRecordByStepCode(project.projectId, input.stepCode) ||
     null
   if (!node || node.projectNodeId !== input.projectNodeId) return
 
@@ -513,8 +513,8 @@ function syncTaskCompletionToProjectNode(
       projectId: input.projectId,
       projectCode: project.projectCode,
       projectNodeId: input.projectNodeId,
-      workItemTypeCode: input.workItemTypeCode,
-      workItemTypeName: input.workItemTypeName,
+      stepCode: input.stepCode,
+      stepName: input.stepName,
       sourceModule: input.sourceModule as ProjectRelationRecord['sourceModule'],
       sourceObjectType: input.sourceObjectType as ProjectRelationRecord['sourceObjectType'],
       sourceObjectId: input.sourceObjectId,
@@ -586,13 +586,13 @@ function getNodeOrPending(
   projectId: string,
   projectCode: string,
   taskCode: string,
-  workItemTypeCode: string,
+  stepCode: string,
 ): { node: PcsProjectNodeRecord | null; pendingItem: PcsTaskPendingItem | null } {
-  const node = getProjectNodeRecordByWorkItemTypeCode(projectId, workItemTypeCode)
+  const node = getProjectNodeRecordByStepCode(projectId, stepCode)
   if (node) return { node, pendingItem: null }
   return {
     node: null,
-    pendingItem: makePendingItem(taskType, taskCode, projectCode, workItemTypeCode, '当前项目未配置对应项目节点，不能正式创建任务。'),
+    pendingItem: makePendingItem(taskType, taskCode, projectCode, stepCode, '当前项目未配置对应项目节点，不能正式创建任务。'),
   }
 }
 
@@ -603,15 +603,15 @@ function blockCancelledNode(
   node: PcsProjectNodeRecord,
 ): PcsTaskPendingItem | null {
   if (node.currentStatus !== '已取消') return null
-  return makePendingItem(taskType, taskCode, projectCode, node.workItemTypeCode, `当前项目节点已取消，不能创建对应${taskType}。`)
+  return makePendingItem(taskType, taskCode, projectCode, node.stepCode, `当前项目节点已取消，不能创建对应${taskType}。`)
 }
 
 function resolveUpstreamForProjectTemplate(project: NonNullable<ReturnType<typeof getProjectById>>) {
   return {
     upstreamModule: '项目模板',
     upstreamObjectType: '模板阶段',
-    upstreamObjectId: project.templateId,
-    upstreamObjectCode: project.templateVersion,
+    upstreamObjectId: project.projectId,
+    upstreamObjectCode: project.projectCode,
   }
 }
 
@@ -933,8 +933,8 @@ function relationPayload(input: {
   projectId: string
   projectCode: string
   projectNodeId: string
-  workItemTypeCode: string
-  workItemTypeName: string
+  stepCode: string
+  stepName: string
   sourceModule: ProjectRelationRecord['sourceModule']
   sourceObjectType: ProjectRelationRecord['sourceObjectType']
   sourceObjectId: string
@@ -950,8 +950,8 @@ function relationPayload(input: {
     projectId: input.projectId,
     projectCode: input.projectCode,
     projectNodeId: input.projectNodeId,
-    workItemTypeCode: input.workItemTypeCode,
-    workItemTypeName: input.workItemTypeName,
+    stepCode: input.stepCode,
+    stepName: input.stepName,
     relationRole: '产出对象',
     sourceModule: input.sourceModule,
     sourceObjectType: input.sourceObjectType,
@@ -1022,8 +1022,8 @@ export function saveRevisionTaskDraft(input: RevisionTaskCreateInput): RevisionT
     projectCode: '',
     projectName: '',
     projectNodeId: '',
-    workItemTypeCode: 'REVISION_TASK',
-    workItemTypeName: '改版任务',
+    stepCode: 'REVISION_TASK',
+    stepName: '改版任务',
     sourceType,
     upstreamModule: input.upstreamModule || '',
     upstreamObjectType: input.upstreamObjectType || '',
@@ -1078,8 +1078,8 @@ export function savePlateMakingTaskDraft(input: PlateMakingTaskCreateInput): Pla
     projectCode: '',
     projectName: '',
     projectNodeId: '',
-    workItemTypeCode: 'PATTERN_TASK',
-    workItemTypeName: '制版任务',
+    stepCode: 'PATTERN_TASK',
+    stepName: '制版任务',
     sourceType: input.sourceType,
     upstreamModule: input.upstreamModule || '',
     upstreamObjectType: input.upstreamObjectType || '',
@@ -1131,8 +1131,8 @@ export function savePatternTaskDraft(input: PatternTaskCreateInput): PatternTask
     projectCode: '',
     projectName: '',
     projectNodeId: '',
-    workItemTypeCode: 'PATTERN_ARTWORK_TASK',
-    workItemTypeName: '花型任务',
+    stepCode: 'PATTERN_ARTWORK_TASK',
+    stepName: '花型任务',
     sourceType: input.sourceType,
     upstreamModule: input.upstreamModule || '',
     upstreamObjectType: input.upstreamObjectType || '',
@@ -1255,7 +1255,7 @@ function resolveSourceFirstSample(
       (task) =>
         task.firstSampleTaskId === input.upstreamObjectId ||
         task.firstSampleTaskCode === input.upstreamObjectCode ||
-        task.workItemTypeCode === 'FIRST_SAMPLE',
+        task.stepCode === 'FIRST_SAMPLE',
     )
   return {
     sourceFirstSampleTaskId: matched?.firstSampleTaskId || (input.upstreamObjectType?.includes('首版') ? input.upstreamObjectId || '' : ''),
@@ -1309,8 +1309,8 @@ export function saveFirstSampleTaskDraft(input: FirstSampleTaskCreateInput): Fir
     projectCode: '',
     projectName: '',
     projectNodeId: '',
-    workItemTypeCode: 'FIRST_SAMPLE',
-    workItemTypeName: '首版样衣打样',
+    stepCode: 'FIRST_SAMPLE',
+    stepName: '首版样衣打样',
     sourceType: input.sourceType,
     upstreamModule: input.upstreamModule || '',
     upstreamObjectType: input.upstreamObjectType || '',
@@ -1348,8 +1348,8 @@ export function saveFirstOrderSampleTaskDraft(input: FirstOrderSampleTaskCreateI
     projectCode: '',
     projectName: '',
     projectNodeId: '',
-    workItemTypeCode: 'FIRST_ORDER_SAMPLE',
-    workItemTypeName: '首单样衣打样',
+    stepCode: 'FIRST_ORDER_SAMPLE',
+    stepName: '首单样衣打样',
     sourceType: input.sourceType,
     upstreamModule: input.upstreamModule || '',
     upstreamObjectType: input.upstreamObjectType || '',
@@ -1410,7 +1410,7 @@ export function createRevisionTaskWithProjectRelation(input: RevisionTaskCreateI
     }
     project = matchedProject
     if (sourceType === '测款结论返改') {
-      const testConclusionNode = getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'TEST_CONCLUSION')
+      const testConclusionNode = getProjectNodeRecordByStepCode(project.projectId, 'TEST_CONCLUSION')
       if (!testConclusionNode) {
         const pendingItem = makePendingItem('改版任务', rawCode, project.projectCode, '', '当前商品项目缺少测款结论节点，不能创建测款结论返改任务。')
         upsertRevisionTaskPendingItem(pendingItem)
@@ -1482,8 +1482,8 @@ export function createRevisionTaskWithProjectRelation(input: RevisionTaskCreateI
     projectCode: project?.projectCode || '',
     projectName: project?.projectName || '',
     projectNodeId: '',
-    workItemTypeCode: 'REVISION_TASK',
-    workItemTypeName: '改版任务',
+    stepCode: 'REVISION_TASK',
+    stepName: '改版任务',
     sourceType,
     upstreamModule:
       sourceType === '既有商品改款'
@@ -1589,8 +1589,8 @@ function createPlateMakingTaskStandalone(
     projectCode: '',
     projectName: '',
     projectNodeId: '',
-    workItemTypeCode: 'PATTERN_TASK',
-    workItemTypeName: '制版任务',
+    stepCode: 'PATTERN_TASK',
+    stepName: '制版任务',
     sourceType: input.sourceType,
     upstreamModule: input.upstreamModule || '款式档案',
     upstreamObjectType: input.upstreamObjectType || '款式档案',
@@ -1689,8 +1689,8 @@ export function createPlateMakingTaskWithProjectRelation(
     projectCode: project.projectCode,
     projectName: project.projectName,
     projectNodeId: node.projectNodeId,
-    workItemTypeCode: 'PATTERN_TASK',
-    workItemTypeName: '制版任务',
+    stepCode: 'PATTERN_TASK',
+    stepName: '制版任务',
     sourceType: input.sourceType,
     ...upstream,
     styleId: input.styleId || '',
@@ -1729,8 +1729,8 @@ export function createPlateMakingTaskWithProjectRelation(
       projectId: project.projectId,
       projectCode: project.projectCode,
       projectNodeId: node.projectNodeId,
-      workItemTypeCode: 'PATTERN_TASK',
-      workItemTypeName: '制版任务',
+      stepCode: 'PATTERN_TASK',
+      stepName: '制版任务',
       sourceModule: '制版任务',
       sourceObjectType: '制版任务',
       sourceObjectId: task.plateTaskId,
@@ -1821,8 +1821,8 @@ export function createPatternTaskWithProjectRelation(input: PatternTaskCreateInp
     projectCode: project.projectCode,
     projectName: project.projectName,
     projectNodeId: node.projectNodeId,
-    workItemTypeCode: 'PATTERN_ARTWORK_TASK',
-    workItemTypeName: '花型任务',
+    stepCode: 'PATTERN_ARTWORK_TASK',
+    stepName: '花型任务',
     sourceType: input.sourceType,
     ...upstream,
     styleId: input.styleId || '',
@@ -1896,8 +1896,8 @@ export function createPatternTaskWithProjectRelation(input: PatternTaskCreateInp
       projectId: project.projectId,
       projectCode: project.projectCode,
       projectNodeId: node.projectNodeId,
-      workItemTypeCode: 'PATTERN_ARTWORK_TASK',
-      workItemTypeName: '花型任务',
+      stepCode: 'PATTERN_ARTWORK_TASK',
+      stepName: '花型任务',
       sourceModule: '花型任务',
       sourceObjectType: '花型任务',
       sourceObjectId: task.patternTaskId,
@@ -1950,8 +1950,8 @@ function createPatternTaskStandalone(input: PatternTaskCreateInput): TaskWriteba
     projectCode: '',
     projectName: '',
     projectNodeId: '',
-    workItemTypeCode: 'PATTERN_ARTWORK_TASK',
-    workItemTypeName: '花型任务',
+    stepCode: 'PATTERN_ARTWORK_TASK',
+    stepName: '花型任务',
     sourceType: input.sourceType,
     upstreamModule: input.upstreamModule || '款式档案',
     upstreamObjectType: input.upstreamObjectType || '款式档案',
@@ -2067,8 +2067,8 @@ function createRevisionPatternTaskWithoutProjectNode(
     projectCode: project.projectCode,
     projectName: project.projectName,
     projectNodeId: '',
-    workItemTypeCode: 'PATTERN_ARTWORK_TASK',
-    workItemTypeName: '花型任务',
+    stepCode: 'PATTERN_ARTWORK_TASK',
+    stepName: '花型任务',
     sourceType: '改版任务',
     upstreamModule: '改版任务',
     upstreamObjectType: '改版任务',
@@ -2530,8 +2530,8 @@ export function completePatternTaskWithProjectRelationSync(
   syncTaskCompletionToProjectNode({
     projectId: nextTask.projectId,
     projectNodeId: nextTask.projectNodeId,
-    workItemTypeCode: 'PATTERN_ARTWORK_TASK',
-    workItemTypeName: '花型任务',
+    stepCode: 'PATTERN_ARTWORK_TASK',
+    stepName: '花型任务',
     sourceModule: '花型任务',
     sourceObjectType: '花型任务',
     sourceObjectId: nextTask.patternTaskId,
@@ -2574,8 +2574,8 @@ export function syncExistingProjectEngineeringTaskNodes(operatorName = '系统�
       syncTaskCompletionToProjectNode({
         projectId: task.projectId,
         projectNodeId: task.projectNodeId,
-        workItemTypeCode: 'REVISION_TASK',
-        workItemTypeName: '改版任务',
+        stepCode: 'REVISION_TASK',
+        stepName: '改版任务',
         sourceModule: '改版任务',
         sourceObjectType: '改版任务',
         sourceObjectId: task.revisionTaskId,
@@ -2600,8 +2600,8 @@ export function syncExistingProjectEngineeringTaskNodes(operatorName = '系统�
       syncTaskCompletionToProjectNode({
         projectId: task.projectId,
         projectNodeId: task.projectNodeId,
-        workItemTypeCode: 'PATTERN_ARTWORK_TASK',
-        workItemTypeName: '花型任务',
+        stepCode: 'PATTERN_ARTWORK_TASK',
+        stepName: '花型任务',
         sourceModule: '花型任务',
         sourceObjectType: '花型任务',
         sourceObjectId: task.patternTaskId,
@@ -2668,8 +2668,8 @@ export function createFirstSampleTaskWithProjectRelation(
     projectCode: project.projectCode,
     projectName: project.projectName,
     projectNodeId: '',
-    workItemTypeCode: 'FIRST_SAMPLE',
-    workItemTypeName: '首版样衣打样',
+    stepCode: 'FIRST_SAMPLE',
+    stepName: '首版样衣打样',
     sourceType: input.sourceType,
     upstreamModule: input.upstreamModule || (manualProjectSource ? '商品项目' : ''),
     upstreamObjectType: input.upstreamObjectType || (manualProjectSource ? '商品项目' : ''),
@@ -2818,8 +2818,8 @@ function createRevisionFirstSampleTaskWithoutProjectNode(
     projectCode: project.projectCode,
     projectName: project.projectName,
     projectNodeId: '',
-    workItemTypeCode: 'FIRST_SAMPLE',
-    workItemTypeName: '首版样衣打样',
+    stepCode: 'FIRST_SAMPLE',
+    stepName: '首版样衣打样',
     sourceType: input.sourceType,
     upstreamModule: input.upstreamModule || '改版任务',
     upstreamObjectType: input.upstreamObjectType || '改版任务',
@@ -2887,8 +2887,8 @@ export function createFirstOrderSampleTaskWithProjectRelation(
     projectCode: project.projectCode,
     projectName: project.projectName,
     projectNodeId: '',
-    workItemTypeCode: 'FIRST_ORDER_SAMPLE',
-    workItemTypeName: '首单样衣打样',
+    stepCode: 'FIRST_ORDER_SAMPLE',
+    stepName: '首单样衣打样',
     sourceType: input.sourceType,
     upstreamModule: input.upstreamModule || (manualProjectSource ? '商品项目' : ''),
     upstreamObjectType: input.upstreamObjectType || (manualProjectSource ? '商品项目' : ''),
@@ -2981,7 +2981,7 @@ export function createDownstreamTasksFromRevision(
         failureMessages.push('独立改版任务不默认创建制版下游任务。')
         return
       }
-      if (!getProjectNodeRecordByWorkItemTypeCode(revisionTask.projectId, 'PATTERN_TASK')) {
+      if (!getProjectNodeRecordByStepCode(revisionTask.projectId, 'PATTERN_TASK')) {
         failureMessages.push('商品项目缺少制版任务节点，不能创建制版下游任务。')
         return
       }
@@ -3053,7 +3053,7 @@ export function createDownstreamTasksFromRevision(
         failureMessages.push('独立改版任务不创建首单样衣下游任务。')
         return
       }
-      if (!getProjectNodeRecordByWorkItemTypeCode(revisionTask.projectId, 'FIRST_ORDER_SAMPLE')) {
+      if (!getProjectNodeRecordByStepCode(revisionTask.projectId, 'FIRST_ORDER_SAMPLE')) {
         failureMessages.push('商品项目缺少首单样衣节点，不能创建首单样衣下游任务。')
         return
       }

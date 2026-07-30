@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 
 import {
   getProjectById,
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   resetProjectRepository,
 } from '../src/data/pcs-project-repository.ts'
 import {
@@ -19,7 +19,7 @@ assert.ok(task, '缺少独立首版样衣任务')
 assert.equal(task.projectNodeId, '')
 const project = getProjectById(task.projectId)
 assert.ok(project, '独立首版样衣任务应保留来源项目关联')
-assert.equal(getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'FIRST_SAMPLE'), null)
+assert.equal(getProjectNodeRecordByStepCode(project.projectId, 'FIRST_SAMPLE'), null)
 
 const nodeEntry = createOrUpdateFirstSampleTaskFromProjectNode({
   projectId: project.projectId,

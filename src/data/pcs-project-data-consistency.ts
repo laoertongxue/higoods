@@ -9,15 +9,15 @@ import {
   type PcsProjectViewRecord,
 } from './pcs-project-repository.ts'
 import {
-  getProjectWorkItemContract,
-  listProjectStepContracts,
-  type PcsProjectWorkItemCode,
+  getProjectStepDefinition,
+  listProjectFlowStageContracts,
+  type ProjectStepCode,
 } from './pcs-project-domain-contract.ts'
 import {
   getLatestProjectInlineNodeRecord,
 } from './pcs-project-inline-node-record-repository.ts'
 import {
-  PCS_PROJECT_INLINE_NODE_RECORD_WORK_ITEM_TYPES,
+  PCS_PROJECT_INLINE_STEP_RECORD_CODES,
   type PcsProjectInlineNodeRecord,
 } from './pcs-project-inline-node-record-types.ts'
 import {
@@ -77,7 +77,7 @@ import {
 import { getProjectArchiveById, getProjectArchiveByProjectId } from './pcs-project-archive-repository.ts'
 import { syncExistingProjectEngineeringTaskNodes } from './pcs-task-project-relation-writeback.ts'
 
-const INLINE_NODE_CODE_SET = new Set<string>(PCS_PROJECT_INLINE_NODE_RECORD_WORK_ITEM_TYPES as readonly string[])
+const INLINE_NODE_CODE_SET = new Set<string>(PCS_PROJECT_INLINE_STEP_RECORD_CODES as readonly string[])
 
 type CompletedEngineeringTask =
   | RevisionTaskRecord
@@ -105,7 +105,7 @@ export interface PcsProjectDataConsistencyIssue {
   projectCode: string
   projectName: string
   projectNodeId: string
-  workItemTypeCode: string
+  stepCode: string
   moduleName: string
   sourceObjectId: string
   sourceObjectCode: string
@@ -158,7 +158,7 @@ function buildIssue(
     projectCode: project.projectCode,
     projectName: project.projectName,
     projectNodeId: node?.projectNodeId || '',
-    workItemTypeCode: node?.workItemTypeCode || '',
+    stepCode: node?.stepCode || '',
     moduleName,
     sourceObjectId,
     sourceObjectCode,
@@ -167,14 +167,14 @@ function buildIssue(
   }
 }
 
-function getRequiredEditableFields(workItemTypeCode: string) {
-  return getProjectWorkItemContract(workItemTypeCode as PcsProjectWorkItemCode).fieldDefinitions.filter(
+function getRequiredEditableFields(stepCode: string) {
+  return getProjectStepDefinition(stepCode as ProjectStepCode).fieldDefinitions.filter(
     (field) => field.required && !field.readonly,
   )
 }
 
-function getMissingLabelsFromMap(workItemTypeCode: string, values: Record<string, unknown>): string[] {
-  return getRequiredEditableFields(workItemTypeCode)
+function getMissingLabelsFromMap(stepCode: string, values: Record<string, unknown>): string[] {
+  return getRequiredEditableFields(stepCode)
     .filter((field) => !hasValue(values[field.fieldKey]))
     .map((field) => field.label)
 }
@@ -199,11 +199,11 @@ function pickLatestTask<T extends { updatedAt: string }>(tasks: T[]): T | null {
   return [...tasks].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0] || null
 }
 
-function pickPrimaryNodeInstance(projectId: string, projectNodeId: string, workItemTypeCode: string): PcsProjectInstanceItem | null {
+function pickPrimaryNodeInstance(projectId: string, projectNodeId: string, stepCode: string): PcsProjectInstanceItem | null {
   const nodeModel = getProjectNodeInstanceModel(projectId, projectNodeId)
   if (!nodeModel) return null
 
-  const contract = getProjectWorkItemContract(workItemTypeCode as PcsProjectWorkItemCode)
+  const contract = getProjectStepDefinition(stepCode as ProjectStepCode)
   const definition = contract.multiInstanceDefinition
   let candidates = [...nodeModel.instances]
 
@@ -220,60 +220,60 @@ function pickPrimaryNodeInstance(projectId: string, projectNodeId: string, workI
   return candidates[0] || nodeModel.latestInstance || null
 }
 
-function buildMissingTaskLabels(task: CompletedEngineeringTask, workItemTypeCode: string): string[] {
-  if (workItemTypeCode === 'REVISION_TASK') {
+function buildMissingTaskLabels(task: CompletedEngineeringTask, stepCode: string): string[] {
+  if (stepCode === 'REVISION_TASK') {
     return getRevisionTaskCompletionMissingFields(task as RevisionTaskRecord)
   }
-  if (workItemTypeCode === 'PATTERN_TASK') {
+  if (stepCode === 'PATTERN_TASK') {
     return getPlateTaskCompletionMissingFields(task as PlateMakingTaskRecord)
   }
-  if (workItemTypeCode === 'PATTERN_ARTWORK_TASK') {
+  if (stepCode === 'PATTERN_ARTWORK_TASK') {
     return getPatternTaskCompletionMissingFields(task as PatternTaskRecord)
   }
-  if (workItemTypeCode === 'FIRST_SAMPLE') {
+  if (stepCode === 'FIRST_SAMPLE') {
     return getFirstSampleCompletionMissingFields(task as FirstSampleTaskRecord)
   }
-  if (workItemTypeCode === 'FIRST_ORDER_SAMPLE') {
+  if (stepCode === 'FIRST_ORDER_SAMPLE') {
     return getFirstOrderSampleCompletionMissingFields(task as FirstOrderSampleTaskRecord)
   }
   return []
 }
 
-function getLatestTaskForNode(projectId: string, projectNodeId: string, workItemTypeCode: string): CompletedEngineeringTask | null {
-  if (workItemTypeCode === 'REVISION_TASK') {
+function getLatestTaskForNode(projectId: string, projectNodeId: string, stepCode: string): CompletedEngineeringTask | null {
+  if (stepCode === 'REVISION_TASK') {
     return pickLatestTask(listRevisionTasksByProjectNode(projectId, projectNodeId))
   }
-  if (workItemTypeCode === 'PATTERN_TASK') {
+  if (stepCode === 'PATTERN_TASK') {
     return pickLatestTask(listPlateMakingTasksByProjectNode(projectId, projectNodeId))
   }
-  if (workItemTypeCode === 'PATTERN_ARTWORK_TASK') {
+  if (stepCode === 'PATTERN_ARTWORK_TASK') {
     return pickLatestTask(listPatternTasksByProjectNode(projectId, projectNodeId))
   }
-  if (workItemTypeCode === 'FIRST_SAMPLE') {
+  if (stepCode === 'FIRST_SAMPLE') {
     return pickLatestTask(listFirstSampleTasksByProjectNode(projectId, projectNodeId))
   }
-  if (workItemTypeCode === 'FIRST_ORDER_SAMPLE') {
+  if (stepCode === 'FIRST_ORDER_SAMPLE') {
     return pickLatestTask(listFirstOrderSampleTasksByProjectNode(projectId, projectNodeId))
   }
   return null
 }
 
 function validateNodeByTask(project: PcsProjectViewRecord, node: PcsProjectNodeRecord): ProjectNodeCompletionValidationResult {
-  const task = getLatestTaskForNode(project.projectId, node.projectNodeId, node.workItemTypeCode)
+  const task = getLatestTaskForNode(project.projectId, node.projectNodeId, node.stepCode)
   if (!task) {
     return {
       ok: false,
       project,
       node,
-      message: `当前节点缺少正式${node.workItemTypeName}实例。`,
+      message: `当前节点缺少正式${node.stepName}实例。`,
       missingFieldLabels: ['正式实例'],
     }
   }
 
   const completed =
-    node.workItemTypeCode === 'FIRST_SAMPLE'
+    node.stepCode === 'FIRST_SAMPLE'
       ? isFirstSampleCompletedStatus(task.status)
-      : node.workItemTypeCode === 'FIRST_ORDER_SAMPLE'
+      : node.stepCode === 'FIRST_ORDER_SAMPLE'
         ? isFirstOrderSamplePassedStatus(task.status)
         : task.status === '已完成'
   if (!completed) {
@@ -281,18 +281,18 @@ function validateNodeByTask(project: PcsProjectViewRecord, node: PcsProjectNodeR
       ok: false,
       project,
       node,
-      message: `当前节点对应的${node.workItemTypeName}实例尚未完成。`,
+      message: `当前节点对应的${node.stepName}实例尚未完成。`,
       missingFieldLabels: ['实例完成'],
     }
   }
 
-  const missingFieldLabels = buildMissingTaskLabels(task, node.workItemTypeCode)
+  const missingFieldLabels = buildMissingTaskLabels(task, node.stepCode)
   if (missingFieldLabels.length > 0) {
     return {
       ok: false,
       project,
       node,
-      message: `当前节点对应的${node.workItemTypeName}实例仍缺少字段：${missingFieldLabels.join('、')}。`,
+      message: `当前节点对应的${node.stepName}实例仍缺少字段：${missingFieldLabels.join('、')}。`,
       missingFieldLabels,
     }
   }
@@ -392,8 +392,8 @@ export function validateProjectNodeCompletion(
     }
   }
 
-  if (node.workItemTypeCode === 'PROJECT_INIT') {
-    const missingFieldLabels = getMissingLabelsFromMap(node.workItemTypeCode, project as unknown as Record<string, unknown>)
+  if (node.stepCode === 'PROJECT_INIT') {
+    const missingFieldLabels = getMissingLabelsFromMap(node.stepCode, project as unknown as Record<string, unknown>)
     return {
       ok: missingFieldLabels.length === 0,
       project,
@@ -406,7 +406,7 @@ export function validateProjectNodeCompletion(
     }
   }
 
-  if (INLINE_NODE_CODE_SET.has(node.workItemTypeCode)) {
+  if (INLINE_NODE_CODE_SET.has(node.stepCode)) {
     const latestRecord = getLatestProjectInlineNodeRecord(projectNodeId)
     if (!latestRecord) {
       return {
@@ -417,7 +417,7 @@ export function validateProjectNodeCompletion(
         missingFieldLabels: ['正式记录'],
       }
     }
-    const missingFieldLabels = getMissingLabelsFromMap(node.workItemTypeCode, buildInlineRecordValueMap(latestRecord))
+    const missingFieldLabels = getMissingLabelsFromMap(node.stepCode, buildInlineRecordValueMap(latestRecord))
     return {
       ok: missingFieldLabels.length === 0,
       project,
@@ -431,24 +431,24 @@ export function validateProjectNodeCompletion(
   }
 
   if (
-    node.workItemTypeCode === 'REVISION_TASK' ||
-    node.workItemTypeCode === 'PATTERN_TASK' ||
-    node.workItemTypeCode === 'PATTERN_ARTWORK_TASK' ||
-    node.workItemTypeCode === 'FIRST_SAMPLE' ||
-    node.workItemTypeCode === 'FIRST_ORDER_SAMPLE'
+    node.stepCode === 'REVISION_TASK' ||
+    node.stepCode === 'PATTERN_TASK' ||
+    node.stepCode === 'PATTERN_ARTWORK_TASK' ||
+    node.stepCode === 'FIRST_SAMPLE' ||
+    node.stepCode === 'FIRST_ORDER_SAMPLE'
   ) {
     return validateNodeByTask(project, node)
   }
 
-  if (node.workItemTypeCode === 'STYLE_ARCHIVE_CREATE') {
+  if (node.stepCode === 'PROJECT_INIT') {
     return validateStyleArchiveNode(project, node)
   }
 
-  if (node.workItemTypeCode === 'CHANNEL_PRODUCT_LISTING') {
+  if (node.stepCode === 'CHANNEL_PRODUCT_LISTING') {
     return validateChannelListingNode(project, node)
   }
 
-  const instance = pickPrimaryNodeInstance(projectId, projectNodeId, node.workItemTypeCode)
+  const instance = pickPrimaryNodeInstance(projectId, projectNodeId, node.stepCode)
   if (!instance) {
     return {
       ok: false,
@@ -459,7 +459,7 @@ export function validateProjectNodeCompletion(
     }
   }
 
-  const missingFieldLabels = getMissingLabelsFromMap(node.workItemTypeCode, buildInstanceFieldMap(instance))
+  const missingFieldLabels = getMissingLabelsFromMap(node.stepCode, buildInstanceFieldMap(instance))
   return {
     ok: missingFieldLabels.length === 0,
     project,
@@ -480,10 +480,10 @@ function pushRecordBindingIssue(
     sourceObjectId: string
     sourceObjectCode: string
     projectNodeId: string
-    expectedWorkItemTypeCode: string
+    expectedStepCode: string
   },
 ): void {
-  if (!input.projectNodeId || !input.expectedWorkItemTypeCode) return
+  if (!input.projectNodeId || !input.expectedStepCode) return
   const node = input.projectNodeId ? getProjectNodeRecordById(input.project.projectId, input.projectNodeId) : null
   if (!node) {
     issues.push(
@@ -500,7 +500,7 @@ function pushRecordBindingIssue(
     return
   }
 
-  if (node.workItemTypeCode !== input.expectedWorkItemTypeCode) {
+  if (node.stepCode !== input.expectedStepCode) {
     issues.push(
       buildIssue(
         '模块记录节点类型不一致',
@@ -509,14 +509,14 @@ function pushRecordBindingIssue(
         input.moduleName,
         input.sourceObjectId,
         input.sourceObjectCode,
-        `${input.moduleName}记录绑定的节点类型为 ${node.workItemTypeCode}，应为 ${input.expectedWorkItemTypeCode}。`,
+        `${input.moduleName}记录绑定的节点类型为 ${node.stepCode}，应为 ${input.expectedStepCode}。`,
       ),
     )
   }
 }
 
 function pushRelationIssues(project: PcsProjectViewRecord, issues: PcsProjectDataConsistencyIssue[]): void {
-  const fixedWorkItemCodes = new Set(listProjectStepContracts().flatMap((step) => step.workItemCodes))
+  const fixedStepCodes = new Set(listProjectFlowStageContracts().flatMap((step) => step.stepCodes))
   const removedProfessionalSourceModules = new Set([
     '改版任务',
     '制版任务',
@@ -526,7 +526,7 @@ function pushRelationIssues(project: PcsProjectViewRecord, issues: PcsProjectDat
   ])
   listProjectRelationsByProject(project.projectId).forEach((relation: ProjectRelationRecord) => {
     if (
-      !fixedWorkItemCodes.has(relation.workItemTypeCode as PcsProjectWorkItemCode) &&
+      !fixedStepCodes.has(relation.stepCode as ProjectStepCode) &&
       !removedProfessionalSourceModules.has(relation.sourceModule)
     ) return
     const node = relation.projectNodeId ? getProjectNodeRecordById(project.projectId, relation.projectNodeId) : null
@@ -545,7 +545,7 @@ function pushRelationIssues(project: PcsProjectViewRecord, issues: PcsProjectDat
       return
     }
 
-    if (node.workItemTypeCode !== relation.workItemTypeCode) {
+    if (node.stepCode !== relation.stepCode) {
       issues.push(
         buildIssue(
           '项目关系节点类型不一致',
@@ -554,7 +554,7 @@ function pushRelationIssues(project: PcsProjectViewRecord, issues: PcsProjectDat
           relation.sourceModule,
           relation.sourceObjectId,
           relation.sourceObjectCode,
-          `${relation.sourceModule}关系记录的 workItemTypeCode 为 ${relation.workItemTypeCode}，但节点实际类型为 ${node.workItemTypeCode}。`,
+          `${relation.sourceModule}关系记录的 stepCode 为 ${relation.stepCode}，但节点实际类型为 ${node.stepCode}。`,
         ),
       )
     }
@@ -613,19 +613,19 @@ function pushModuleRecordIssues(project: PcsProjectViewRecord, issues: PcsProjec
       sourceObjectId: record.channelProductId,
       sourceObjectCode: record.channelProductCode,
       projectNodeId: record.projectNodeId,
-      expectedWorkItemTypeCode: 'CHANNEL_PRODUCT_LISTING',
+      expectedStepCode: 'CHANNEL_PRODUCT_LISTING',
     })
   })
 
   listRevisionTasksByProject(project.projectId).forEach((task) => {
-    if (!listProjectNodes(project.projectId).some((node) => node.workItemTypeCode === 'REVISION_TASK')) return
+    if (!listProjectNodes(project.projectId).some((node) => node.stepCode === 'REVISION_TASK')) return
     pushRecordBindingIssue(issues, {
       project,
       moduleName: '改版任务',
       sourceObjectId: task.revisionTaskId,
       sourceObjectCode: task.revisionTaskCode,
       projectNodeId: task.projectNodeId,
-      expectedWorkItemTypeCode: 'REVISION_TASK',
+      expectedStepCode: 'REVISION_TASK',
     })
     if (task.status === '已完成') {
       const node = getProjectNodeRecordById(project.projectId, task.projectNodeId)
@@ -646,14 +646,14 @@ function pushModuleRecordIssues(project: PcsProjectViewRecord, issues: PcsProjec
   })
 
   listPlateMakingTasksByProject(project.projectId).forEach((task) => {
-    if (!listProjectNodes(project.projectId).some((node) => node.workItemTypeCode === 'PATTERN_TASK')) return
+    if (!listProjectNodes(project.projectId).some((node) => node.stepCode === 'PATTERN_TASK')) return
     pushRecordBindingIssue(issues, {
       project,
       moduleName: '制版任务',
       sourceObjectId: task.plateTaskId,
       sourceObjectCode: task.plateTaskCode,
       projectNodeId: task.projectNodeId,
-      expectedWorkItemTypeCode: 'PATTERN_TASK',
+      expectedStepCode: 'PATTERN_TASK',
     })
     if (task.status === '已完成') {
       const node = getProjectNodeRecordById(project.projectId, task.projectNodeId)
@@ -674,14 +674,14 @@ function pushModuleRecordIssues(project: PcsProjectViewRecord, issues: PcsProjec
   })
 
   listPatternTasksByProject(project.projectId).forEach((task) => {
-    if (!listProjectNodes(project.projectId).some((node) => node.workItemTypeCode === 'PATTERN_ARTWORK_TASK')) return
+    if (!listProjectNodes(project.projectId).some((node) => node.stepCode === 'PATTERN_ARTWORK_TASK')) return
     pushRecordBindingIssue(issues, {
       project,
       moduleName: '花型任务',
       sourceObjectId: task.patternTaskId,
       sourceObjectCode: task.patternTaskCode,
       projectNodeId: task.projectNodeId,
-      expectedWorkItemTypeCode: 'PATTERN_ARTWORK_TASK',
+      expectedStepCode: 'PATTERN_ARTWORK_TASK',
     })
     if (task.status === '已完成') {
       const node = getProjectNodeRecordById(project.projectId, task.projectNodeId)
@@ -702,14 +702,14 @@ function pushModuleRecordIssues(project: PcsProjectViewRecord, issues: PcsProjec
   })
 
   listFirstSampleTasksByProject(project.projectId).forEach((task) => {
-    if (!listProjectNodes(project.projectId).some((node) => node.workItemTypeCode === 'FIRST_SAMPLE')) return
+    if (!listProjectNodes(project.projectId).some((node) => node.stepCode === 'FIRST_SAMPLE')) return
     pushRecordBindingIssue(issues, {
       project,
       moduleName: '首版样衣打样',
       sourceObjectId: task.firstSampleTaskId,
       sourceObjectCode: task.firstSampleTaskCode,
       projectNodeId: task.projectNodeId,
-      expectedWorkItemTypeCode: 'FIRST_SAMPLE',
+      expectedStepCode: 'FIRST_SAMPLE',
     })
     if (task.status === '已完成') {
       const node = getProjectNodeRecordById(project.projectId, task.projectNodeId)
@@ -730,14 +730,14 @@ function pushModuleRecordIssues(project: PcsProjectViewRecord, issues: PcsProjec
   })
 
   listFirstOrderSampleTasksByProject(project.projectId).forEach((task) => {
-    if (!listProjectNodes(project.projectId).some((node) => node.workItemTypeCode === 'FIRST_ORDER_SAMPLE')) return
+    if (!listProjectNodes(project.projectId).some((node) => node.stepCode === 'FIRST_ORDER_SAMPLE')) return
     pushRecordBindingIssue(issues, {
       project,
       moduleName: '首单样衣打样',
       sourceObjectId: task.firstOrderSampleTaskId,
       sourceObjectCode: task.firstOrderSampleTaskCode,
       projectNodeId: task.projectNodeId,
-      expectedWorkItemTypeCode: 'FIRST_ORDER_SAMPLE',
+      expectedStepCode: 'FIRST_ORDER_SAMPLE',
     })
     if (isFirstOrderSamplePassedStatus(task.status)) {
       const node = getProjectNodeRecordById(project.projectId, task.projectNodeId)
@@ -765,12 +765,12 @@ function pushModuleRecordIssues(project: PcsProjectViewRecord, issues: PcsProjec
       sourceObjectId: style.styleId,
       sourceObjectCode: style.styleCode,
       projectNodeId: style.sourceProjectNodeId,
-      expectedWorkItemTypeCode: 'PROJECT_INIT',
+      expectedStepCode: 'PROJECT_INIT',
     })
   }
 
   listTechnicalDataVersionsByProjectId(project.projectId).forEach((record) => {
-    const expectedWorkItemTypeCode =
+    const expectedStepCode =
       record.createdFromTaskType === 'MANUAL'
         ? 'PROJECT_INIT'
         : record.createdFromTaskType === 'PLATE'
@@ -784,13 +784,13 @@ function pushModuleRecordIssues(project: PcsProjectViewRecord, issues: PcsProjec
       sourceObjectId: record.technicalVersionId,
       sourceObjectCode: record.technicalVersionCode,
       projectNodeId: record.sourceProjectNodeId,
-      expectedWorkItemTypeCode,
+      expectedStepCode,
     })
   })
 
   const archive = getProjectArchiveByProjectId(project.projectId)
   if (archive) {
-    const node = listProjectNodes(project.projectId).find((item) => item.workItemTypeCode === 'PROJECT_INIT') || null
+    const node = listProjectNodes(project.projectId).find((item) => item.stepCode === 'PROJECT_INIT') || null
     if (!node) {
       issues.push(
         buildIssue(
@@ -827,7 +827,7 @@ function pushCompletedNodeIssues(project: PcsProjectViewRecord, issues: PcsProje
           issueType,
           project,
           node,
-          node.workItemTypeName,
+          node.stepName,
           node.latestInstanceId,
           node.latestInstanceCode,
           validation.message,
@@ -838,9 +838,9 @@ function pushCompletedNodeIssues(project: PcsProjectViewRecord, issues: PcsProje
 }
 
 function pushFixedStepAlignmentIssues(project: PcsProjectViewRecord, issues: PcsProjectDataConsistencyIssue[]): void {
-  const templateCodes = listProjectStepContracts().flatMap((step) => step.workItemCodes)
+  const templateCodes = listProjectFlowStageContracts().flatMap((step) => step.stepCodes)
   const projectNodes = listProjectNodes(project.projectId)
-  const projectCodes = projectNodes.map((node) => node.workItemTypeCode)
+  const projectCodes = projectNodes.map((node) => node.stepCode)
 
   if (templateCodes.join('|') === projectCodes.join('|')) return
 
@@ -889,15 +889,15 @@ export function repairPcsProjectDataConsistency(
   syncExistingProjectEngineeringTaskNodes(operatorName)
 
   const relationSnapshot = getProjectRelationStoreSnapshot()
-  const fixedWorkItemCodes = new Set(listProjectStepContracts().flatMap((step) => step.workItemCodes))
+  const fixedStepCodes = new Set(listProjectFlowStageContracts().flatMap((step) => step.stepCodes))
   let fixedStepRelationRepairCount = 0
   const fixedStepRelations = relationSnapshot.relations.map((relation) => {
     if (relation.sourceModule !== '款式档案' && relation.sourceModule !== '项目资料归档') return relation
-    const projectInitNode = listProjectNodes(relation.projectId).find((node) => node.workItemTypeCode === 'PROJECT_INIT')
+    const projectInitNode = listProjectNodes(relation.projectId).find((node) => node.stepCode === 'PROJECT_INIT')
     if (!projectInitNode) return relation
     if (
       relation.projectNodeId === projectInitNode.projectNodeId &&
-      relation.workItemTypeCode === projectInitNode.workItemTypeCode
+      relation.stepCode === projectInitNode.stepCode
     ) {
       return relation
     }
@@ -905,8 +905,8 @@ export function repairPcsProjectDataConsistency(
     return {
       ...relation,
       projectNodeId: projectInitNode.projectNodeId,
-      workItemTypeCode: projectInitNode.workItemTypeCode,
-      workItemTypeName: projectInitNode.workItemTypeName,
+      stepCode: projectInitNode.stepCode,
+      stepName: projectInitNode.stepName,
       updatedAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
       updatedBy: operatorName,
     }
@@ -914,7 +914,7 @@ export function repairPcsProjectDataConsistency(
   const migratedPendingItems = fixedStepRelations
     .filter(
       (relation) =>
-        !fixedWorkItemCodes.has(relation.workItemTypeCode as PcsProjectWorkItemCode) ||
+        !fixedStepCodes.has(relation.stepCode as ProjectStepCode) ||
         (
           (relation.sourceModule === '直播' || relation.sourceModule === '短视频') &&
           (!relation.projectNodeId || !getProjectNodeRecordById(relation.projectId, relation.projectNodeId))
@@ -935,7 +935,7 @@ export function repairPcsProjectDataConsistency(
   const nextRelations = fixedStepRelations.filter(
     (relation) =>
       !(
-        !fixedWorkItemCodes.has(relation.workItemTypeCode as PcsProjectWorkItemCode) ||
+        !fixedStepCodes.has(relation.stepCode as ProjectStepCode) ||
         (
           (relation.sourceModule === '直播' || relation.sourceModule === '短视频') &&
           (!relation.projectNodeId || !getProjectNodeRecordById(relation.projectId, relation.projectNodeId))
@@ -965,7 +965,7 @@ export function repairPcsProjectDataConsistency(
       ...node,
       currentStatus: '进行中',
       latestResultType: '待补齐正式数据',
-      latestResultText: `${node.workItemTypeName}当前仍缺少正式数据，已回退为进行中。`,
+      latestResultText: `${node.stepName}当前仍缺少正式数据，已回退为进行中。`,
       currentIssueType: '数据待补齐',
       currentIssueText: `缺少：${missingText}`,
       pendingActionType: '补齐正式数据',
@@ -996,7 +996,7 @@ export function formatPcsProjectDataConsistencyReport(report: PcsProjectDataCons
   const lines = [
     `商品项目一致性检查发现 ${report.issueCount} 条问题：`,
     ...report.issues.map((issue, index) => {
-      const nodeLabel = issue.workItemTypeCode ? ` / 节点 ${issue.workItemTypeCode}` : ''
+      const nodeLabel = issue.stepCode ? ` / 节点 ${issue.stepCode}` : ''
       const objectLabel = issue.sourceObjectCode ? ` / 对象 ${issue.sourceObjectCode}` : ''
       const missingLabel =
         issue.missingFieldLabels.length > 0 ? ` / 缺失：${issue.missingFieldLabels.join('、')}` : ''

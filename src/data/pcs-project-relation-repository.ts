@@ -145,8 +145,8 @@ function normalizeRelation(record: ProjectRelationRecord): ProjectRelationRecord
   return {
     ...cloneRelation(record),
     projectNodeId: record.projectNodeId || null,
-    workItemTypeCode: record.workItemTypeCode || '',
-    workItemTypeName: record.workItemTypeName || '',
+    stepCode: record.stepCode || '',
+    stepName: record.stepName || '',
     relationRole: normalizeRole(record.relationRole),
     sourceModule: normalizeSourceModule(record.sourceModule),
     sourceObjectType: normalizeSourceObjectType(record.sourceObjectType),
@@ -219,7 +219,7 @@ function cleanRemovedRetainReviewRelations(snapshot: ProjectRelationStoreSnapsho
     '首版样衣打样',
     '首单样衣打样',
   ])
-  const removedProfessionalWorkItemCodes = new Set([
+  const removedProfessionalStepCodes = new Set([
     'REVISION_TASK',
     'PATTERN_TASK',
     'PATTERN_ARTWORK_TASK',
@@ -233,7 +233,7 @@ function cleanRemovedRetainReviewRelations(snapshot: ProjectRelationStoreSnapsho
       (relation) =>
         !removedProfessionalSourceModules.has(relation.sourceModule) ||
         (
-          !removedProfessionalWorkItemCodes.has(relation.workItemTypeCode) &&
+          !removedProfessionalStepCodes.has(relation.stepCode) &&
           (!relation.projectNodeId || currentProjectNodeIds.has(relation.projectNodeId))
         ),
     ),

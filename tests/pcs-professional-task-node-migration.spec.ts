@@ -91,21 +91,21 @@ const legacyRelations = taskCases.map(({ task, module, code }, index) => ({
   ...relationTemplate,
   projectRelationId: `legacy_professional_relation_${index + 1}`,
   projectNodeId: task.projectNodeId,
-  workItemTypeCode: code,
-  workItemTypeName: module,
+  stepCode: code,
+  stepName: module,
   sourceModule: module,
   sourceObjectType: module === '首版样衣打样' || module === '首单样衣打样' ? `${module}任务` : module,
   sourceObjectId: `legacy_professional_task_${index + 1}`,
   sourceObjectCode: `LEGACY-${index + 1}`,
   sourceTitle: `历史${module}`,
 }))
-const projectInitNode = projectNodesBefore.find((node) => node.workItemTypeCode === 'PROJECT_INIT')!
+const projectInitNode = projectNodesBefore.find((node) => node.stepCode === 'PROJECT_INIT')!
 const legalFixedRelation = {
   ...legacyRelations[0]!,
   projectRelationId: 'legal_fixed_step_relation',
   projectNodeId: projectInitNode.projectNodeId,
-  workItemTypeCode: projectInitNode.workItemTypeCode,
-  workItemTypeName: projectInitNode.workItemTypeName,
+  stepCode: projectInitNode.stepCode,
+  stepName: projectInitNode.stepName,
   sourceObjectId: 'legal_fixed_step_source',
   sourceObjectCode: 'LEGAL-FIXED-001',
   sourceTitle: '合法固定步骤来源关系',

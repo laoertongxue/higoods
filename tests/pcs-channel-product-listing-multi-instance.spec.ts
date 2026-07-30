@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 
-import { getProjectWorkItemContract } from '../src/data/pcs-project-domain-contract.ts'
+import { getProjectStepDefinition } from '../src/data/pcs-project-domain-contract.ts'
 import {
   buildProjectChannelProductChainSummary,
   createProjectChannelProductFromListingNode,
@@ -24,7 +24,7 @@ const baseSpecLines = [
   { colorName: '黑色', sizeName: 'L', priceAmount: 279, currencyCode: 'IDR', stockQty: 10 },
 ]
 
-const contract = getProjectWorkItemContract('CHANNEL_PRODUCT_LISTING')
+const contract = getProjectStepDefinition('CHANNEL_PRODUCT_LISTING')
 assert.equal(contract.capabilities.canMultiInstance, true, '商品上架节点应支持多实例')
 assert.equal(contract.capabilities.canParallel, true, '商品上架节点应支持并行执行')
 assert.ok(

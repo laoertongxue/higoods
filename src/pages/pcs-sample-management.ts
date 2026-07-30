@@ -266,7 +266,7 @@ function getFilteredSamples(): PcsSampleRecord[] {
         sample.name,
         sample.projectCode,
         sample.projectName,
-        sample.relatedWorkItemName,
+        sample.relatedStepName,
         sample.currentLocation,
         sample.transit?.trackingNo,
       ],
@@ -301,7 +301,7 @@ function renderSampleTable(samples: PcsSampleRecord[]): string {
         <div>
           <button type="button" class="font-medium text-slate-900 hover:text-blue-700" data-nav="/pcs/projects/${escapeHtml(sample.projectId)}">${escapeHtml(sample.projectCode)}</button>
           <p class="mt-1 text-sm text-slate-500">${escapeHtml(sample.projectName)}</p>
-          <p class="mt-1 text-xs text-slate-400">${escapeHtml(sample.relatedWorkItemName)}</p>
+          <p class="mt-1 text-xs text-slate-400">${escapeHtml(sample.relatedStepName)}</p>
         </div>
       `,
     },
@@ -406,7 +406,7 @@ function renderSampleDetailDrawer(): string {
               ${renderInfoItem('责任站点', sample.responsibleSite)}
               ${renderInfoItem('当前位置', `${sample.currentLocation} · ${sample.locationDetail}`)}
               ${renderInfoItem('关联项目', `${sample.projectCode} · ${sample.projectName}`)}
-              ${renderInfoItem('工作项实例', sample.relatedWorkItemName)}
+              ${renderInfoItem('工作项实例', sample.relatedStepName)}
               ${renderInfoItem('占用信息', sample.occupancyType === '无' ? '无占用' : `${sample.occupiedBy} · ${sample.occupiedFor} · 至 ${sample.occupiedUntil}`)}
               ${renderInfoItem('最近更新', `${sample.updatedAt} · ${sample.updatedBy}`)}
             </div>
@@ -502,7 +502,7 @@ function renderRequestTable(requests: PcsSampleUseRequest[]): string {
     { key: 'responsibleSite', title: '责任站点', width: '120px' },
     { key: 'sampleIds', title: '样衣数量', width: '90px', render: (request) => `<span class="font-medium">${escapeHtml(request.sampleIds.length)}</span>` },
     { key: 'expectedReturnAt', title: '预计归还', width: '150px' },
-    { key: 'projectName', title: '项目/工作项', minWidth: '220px', render: (request) => `<div><div class="font-medium text-slate-900">${escapeHtml(request.projectCode)}</div><div class="mt-1 text-sm text-slate-500">${escapeHtml(request.workItemName)}</div></div>` },
+    { key: 'projectName', title: '项目/工作项', minWidth: '220px', render: (request) => `<div><div class="font-medium text-slate-900">${escapeHtml(request.projectCode)}</div><div class="mt-1 text-sm text-slate-500">${escapeHtml(request.stepDefinitionName)}</div></div>` },
     { key: 'applicant', title: '申请人', width: '100px' },
     { key: 'keeper', title: '审批/仓管', width: '120px', render: (request) => `${escapeHtml(request.approver || '-')} / ${escapeHtml(request.keeper || '-')}` },
     { key: 'updatedAt', title: '更新时间', width: '150px' },
@@ -532,7 +532,7 @@ function renderRequestDrawer(): string {
         <div class="space-y-4 px-5 py-5">
           <section class="grid gap-3 sm:grid-cols-2">
             ${renderInfoItem('项目', `${request.projectCode} · ${request.projectName}`)}
-            ${renderInfoItem('工作项', request.workItemName)}
+            ${renderInfoItem('工作项', request.stepDefinitionName)}
             ${renderInfoItem('申请人', request.applicant)}
             ${renderInfoItem('审批人/仓管', `${request.approver || '-'} / ${request.keeper || '-'}`)}
             ${renderInfoItem('预计归还', request.expectedReturnAt)}
@@ -588,7 +588,7 @@ function renderCreateRequestDrawer(): string {
 export function renderPcsSampleApplicationPage(): string {
   const requests = listPcsSampleRequests().filter((request) => {
     if (state.filters.requestStatus !== '全部' && request.status !== state.filters.requestStatus) return false
-    return matchesKeyword([request.requestCode, request.projectCode, request.projectName, request.workItemName, request.applicant], state.filters.search)
+    return matchesKeyword([request.requestCode, request.projectCode, request.projectName, request.stepDefinitionName, request.applicant], state.filters.search)
   })
   const stats = {
     total: listPcsSampleRequests().length,
@@ -780,7 +780,7 @@ function renderLedgerTable(events: PcsSampleLedgerEvent[]): string {
     { key: 'fromLocation', title: '位置/去向', minWidth: '220px', render: (event) => `${escapeHtml(event.fromLocation)}<span class="px-2 text-slate-400">→</span>${escapeHtml(event.toLocation)}` },
     { key: 'holder', title: '持有人/目的方', width: '140px' },
     { key: 'sourceDoc', title: '来源单据', width: '140px' },
-    { key: 'projectCode', title: '项目/工作项', minWidth: '180px', render: (event) => `<div class="font-medium text-slate-900">${escapeHtml(event.projectCode)}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(event.workItemName)}</div>` },
+    { key: 'projectCode', title: '项目/工作项', minWidth: '180px', render: (event) => `<div class="font-medium text-slate-900">${escapeHtml(event.projectCode)}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(event.stepDefinitionName)}</div>` },
     { key: 'operator', title: '操作人', width: '90px' },
   ]
   return renderTable(columns, events, { emptyText: '暂无样衣台账事件', hoverable: true })
@@ -800,7 +800,7 @@ function renderLedgerDrawer(): string {
       ['位置变化', `${event.fromLocation} → ${event.toLocation}`],
       ['持有人/目的方', event.holder],
       ['来源单据', event.sourceDoc],
-      ['项目/工作项', `${event.projectCode} · ${event.workItemName}`],
+      ['项目/工作项', `${event.projectCode} · ${event.stepDefinitionName}`],
       ['操作人', event.operator],
       ['备注', event.remark],
     ],
@@ -811,7 +811,7 @@ function renderLedgerDrawer(): string {
 export function renderPcsSampleLedgerPage(): string {
   const events = listPcsSampleLedgerEvents().filter((event) => {
     if (state.filters.ledgerType !== '全部' && event.eventType !== state.filters.ledgerType) return false
-    return matchesKeyword([event.sampleCode, event.sampleName, event.summary, event.sourceDoc, event.projectCode, event.workItemName, event.operator], state.filters.search)
+    return matchesKeyword([event.sampleCode, event.sampleName, event.summary, event.sourceDoc, event.projectCode, event.stepDefinitionName, event.operator], state.filters.search)
   })
   const body = `
     ${renderMetricCards([
@@ -919,7 +919,7 @@ function renderSampleCards(samples: PcsSampleRecord[]): string {
             <div class="flex flex-wrap gap-2">${renderStatusBadge(sample.status)}${renderAvailabilityBadge(sample.availability)}${sample.anomaly ? renderRiskBadge(sample.anomaly.type) : ''}</div>
             <div class="space-y-1 text-sm text-slate-500">
               <p>${escapeHtml(sample.responsibleSite)} · ${escapeHtml(sample.currentLocation)}</p>
-              <p>${escapeHtml(sample.projectCode)} · ${escapeHtml(sample.relatedWorkItemName)}</p>
+              <p>${escapeHtml(sample.projectCode)} · ${escapeHtml(sample.relatedStepName)}</p>
               <p>${sample.occupiedUntil ? `预计归还：${escapeHtml(sample.occupiedUntil)}` : sample.transit ? `ETA：${escapeHtml(sample.transit.eta)}` : '无待归还/在途节点'}</p>
             </div>
           </div>
@@ -1003,7 +1003,7 @@ export function renderPcsSampleDetailPage(sampleId: string): string {
             ${renderInfoItem('责任站点', sample.responsibleSite)}
             ${renderInfoItem('当前位置', `${sample.currentLocation} · ${sample.locationDetail}`)}
             ${renderInfoItem('关联项目', `${sample.projectCode} · ${sample.projectName}`)}
-            ${renderInfoItem('工作项实例', sample.relatedWorkItemName)}
+            ${renderInfoItem('工作项实例', sample.relatedStepName)}
             ${renderInfoItem('占用/预占', sample.occupancyType === '无' ? '无占用' : `${sample.occupiedBy} · ${sample.occupiedFor} · 至 ${sample.occupiedUntil}`)}
             ${renderInfoItem('最近更新', `${sample.updatedAt} · ${sample.updatedBy}`)}
           </div>

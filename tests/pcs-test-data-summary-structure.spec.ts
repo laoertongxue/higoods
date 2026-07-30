@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 
-import { getProjectWorkItemContract } from '../src/data/pcs-project-domain-contract.ts'
+import { getProjectStepDefinition } from '../src/data/pcs-project-domain-contract.ts'
 import {
   createProjectChannelProductFromListingNode,
   launchProjectChannelProductListing,
@@ -15,7 +15,7 @@ import {
   resetProjectInlineNodeRecordRepository,
 } from '../src/data/pcs-project-inline-node-record-repository.ts'
 import {
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   listProjects,
   resetProjectRepository,
   updateProjectNodeRecord,
@@ -24,7 +24,7 @@ import { upsertProjectRelation } from '../src/data/pcs-project-relation-reposito
 import { resetProjectRelationRepository } from '../src/data/pcs-project-relation-repository.ts'
 import { getLiveProductLineById } from '../src/data/pcs-live-testing-repository.ts'
 import { getVideoTestRecordById } from '../src/data/pcs-video-testing-repository.ts'
-import { renderPcsProjectWorkItemDetailPage } from '../src/pages/pcs-projects.ts'
+import { renderPcsProjectStepDetailPage } from '../src/pages/pcs-projects.ts'
 
 resetProjectRepository()
 resetProjectRelationRepository()
@@ -40,7 +40,7 @@ assert.ok(
   '测款汇总仓储不应再通过 ProjectRelationRecord.note 承载结构化实例字段',
 )
 
-const contract = getProjectWorkItemContract('TEST_DATA_SUMMARY')
+const contract = getProjectStepDefinition('TEST_DATA_SUMMARY')
 const summaryFieldKeys = contract.fieldDefinitions.map((field) => field.fieldKey)
 
 assert.ok(summaryFieldKeys.includes('channelBreakdownLines'), '测款汇总应定义渠道拆分字段')
@@ -82,10 +82,10 @@ assert.ok(launchResult.record?.upstreamProductId, '上传成功后应回填上�
 const completeResult = markProjectChannelProductListingCompleted(tiktokResult.record!.channelProductId, '测试用户')
 assert.equal(completeResult.ok, true, '上传成功后应允许标记商品上架完成')
 
-const videoNode = getProjectNodeRecordByWorkItemTypeCode(project!.projectId, 'VIDEO_TEST')
-const liveNode = getProjectNodeRecordByWorkItemTypeCode(project!.projectId, 'LIVE_TEST')
-const summaryNode = getProjectNodeRecordByWorkItemTypeCode(project!.projectId, 'TEST_DATA_SUMMARY')
-const initialConclusionNode = getProjectNodeRecordByWorkItemTypeCode(project!.projectId, 'TEST_CONCLUSION')
+const videoNode = getProjectNodeRecordByStepCode(project!.projectId, 'VIDEO_TEST')
+const liveNode = getProjectNodeRecordByStepCode(project!.projectId, 'LIVE_TEST')
+const summaryNode = getProjectNodeRecordByStepCode(project!.projectId, 'TEST_DATA_SUMMARY')
+const initialConclusionNode = getProjectNodeRecordByStepCode(project!.projectId, 'TEST_CONCLUSION')
 assert.ok(videoNode, '应存在短视频测款节点')
 assert.ok(liveNode, '应存在直播测款节点')
 assert.ok(summaryNode, '应存在测款汇总节点')
@@ -115,8 +115,8 @@ upsertProjectRelation({
   projectId: project!.projectId,
   projectCode: project!.projectCode,
   projectNodeId: videoNode!.projectNodeId,
-  workItemTypeCode: 'VIDEO_TEST',
-  workItemTypeName: '短视频测款',
+  stepCode: 'VIDEO_TEST',
+  stepName: '短视频测款',
   relationRole: '执行记录',
   sourceModule: '短视频',
   sourceObjectType: '短视频记录',
@@ -142,8 +142,8 @@ upsertProjectRelation({
   projectId: project!.projectId,
   projectCode: project!.projectCode,
   projectNodeId: liveNode!.projectNodeId,
-  workItemTypeCode: 'LIVE_TEST',
-  workItemTypeName: '直播测款',
+  stepCode: 'LIVE_TEST',
+  stepName: '直播测款',
   relationRole: '执行记录',
   sourceModule: '直播',
   sourceObjectType: '直播商品明细',
@@ -171,7 +171,7 @@ const summaryResult = submitProjectTestingSummary(
 )
 assert.equal(summaryResult.ok, true, '应允许提交结构化测款汇总')
 
-const conclusionNode = getProjectNodeRecordByWorkItemTypeCode(project!.projectId, 'TEST_CONCLUSION')
+const conclusionNode = getProjectNodeRecordByStepCode(project!.projectId, 'TEST_CONCLUSION')
 assert.ok(conclusionNode, '提交测款汇总后应仍可读取测款结论节点')
 assert.equal(conclusionNode!.currentStatus, '待确认', '测款汇总提交后应由正式仓储解锁测款结论节点')
 
@@ -207,13 +207,13 @@ assert.ok(Array.isArray(detailSnapshot.channelBreakdowns), 'detailSnapshot 中�
 assert.ok(Array.isArray(detailSnapshot.storeBreakdowns), 'detailSnapshot 中应保留店铺结构对象')
 assert.ok(Array.isArray(detailSnapshot.currencyBreakdowns), 'detailSnapshot 中应保留币种结构对象')
 
-const workItemHtml = await renderPcsProjectWorkItemDetailPage(project!.projectId, summaryNode!.projectNodeId)
-assert.match(workItemHtml, /渠道拆分/, '工作项详情页应展示渠道拆分字段')
-assert.match(workItemHtml, /店铺拆分/, '工作项详情页应展示店铺拆分字段')
-assert.match(workItemHtml, /渠道店铺商品拆分/, '工作项详情页应展示渠道店铺商品拆分字段')
-assert.match(workItemHtml, /测款来源拆分/, '工作项详情页应展示测款来源拆分字段')
-assert.match(workItemHtml, /币种拆分/, '工作项详情页应展示币种拆分字段')
-assert.match(workItemHtml, /TikTok \/ TikTok 越南店/, '工作项详情页应展示 TikTok 第二店铺拆分结果')
-assert.match(workItemHtml, /虾皮 \/ 虾皮马来西亚店/, '工作项详情页应展示 虾皮 店铺拆分结果')
+const stepDefinitionHtml = await renderPcsProjectStepDetailPage(project!.projectId, summaryNode!.projectNodeId)
+assert.match(stepDefinitionHtml, /渠道拆分/, '工作项详情页应展示渠道拆分字段')
+assert.match(stepDefinitionHtml, /店铺拆分/, '工作项详情页应展示店铺拆分字段')
+assert.match(stepDefinitionHtml, /渠道店铺商品拆分/, '工作项详情页应展示渠道店铺商品拆分字段')
+assert.match(stepDefinitionHtml, /测款来源拆分/, '工作项详情页应展示测款来源拆分字段')
+assert.match(stepDefinitionHtml, /币种拆分/, '工作项详情页应展示币种拆分字段')
+assert.match(stepDefinitionHtml, /TikTok \/ TikTok 越南店/, '工作项详情页应展示 TikTok 第二店铺拆分结果')
+assert.match(stepDefinitionHtml, /虾皮 \/ 虾皮马来西亚店/, '工作项详情页应展示 虾皮 店铺拆分结果')
 
 console.log('pcs-test-data-summary-structure.spec.ts PASS')

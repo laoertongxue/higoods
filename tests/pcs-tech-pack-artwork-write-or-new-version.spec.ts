@@ -5,7 +5,7 @@ import {
 } from '../src/data/pcs-project-relation-repository.ts'
 import {
   getProjectById,
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   resetProjectRepository,
   updateProjectRecord,
 } from '../src/data/pcs-project-repository.ts'
@@ -98,7 +98,7 @@ function prepareProjectAndStyle() {
 
 function createPlateTask(projectId: string, styleCode: string): PlateMakingTaskRecord {
   const project = getProjectById(projectId)!
-  const plateNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PATTERN_TASK')!
+  const plateNode = getProjectNodeRecordByStepCode(projectId, 'PATTERN_TASK')!
   return upsertPlateMakingTask({
     plateTaskId: 'plate_task_artwork_test',
     plateTaskCode: 'PT-TEST-ART-001',
@@ -107,13 +107,13 @@ function createPlateTask(projectId: string, styleCode: string): PlateMakingTaskR
     projectCode: project.projectCode,
     projectName: project.projectName,
     projectNodeId: plateNode.projectNodeId,
-    workItemTypeCode: 'PATTERN_TASK',
-    workItemTypeName: '制版任务',
+    stepCode: 'PATTERN_TASK',
+    stepName: '制版任务',
     sourceType: '项目模板阶段',
     upstreamModule: '商品项目',
     upstreamObjectType: '商品项目节点',
     upstreamObjectId: plateNode.projectNodeId,
-    upstreamObjectCode: plateNode.workItemTypeCode,
+    upstreamObjectCode: plateNode.stepCode,
     productStyleCode: styleCode,
     spuCode: styleCode,
     patternType: '常规制版',
@@ -144,7 +144,7 @@ function createPlateTask(projectId: string, styleCode: string): PlateMakingTaskR
 
 function createPatternTask(id: string, code: string, projectId: string, styleCode: string, artworkVersion: string): PatternTaskRecord {
   const project = getProjectById(projectId)!
-  const patternNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PATTERN_ARTWORK_TASK')!
+  const patternNode = getProjectNodeRecordByStepCode(projectId, 'PATTERN_ARTWORK_TASK')!
   return upsertPatternTask({
     patternTaskId: id,
     patternTaskCode: code,
@@ -153,13 +153,13 @@ function createPatternTask(id: string, code: string, projectId: string, styleCod
     projectCode: project.projectCode,
     projectName: project.projectName,
     projectNodeId: patternNode.projectNodeId,
-    workItemTypeCode: 'PATTERN_ARTWORK_TASK',
-    workItemTypeName: '花型任务',
+    stepCode: 'PATTERN_ARTWORK_TASK',
+    stepName: '花型任务',
     sourceType: '项目模板阶段',
     upstreamModule: '商品项目',
     upstreamObjectType: '商品项目节点',
     upstreamObjectId: patternNode.projectNodeId,
-    upstreamObjectCode: patternNode.workItemTypeCode,
+    upstreamObjectCode: patternNode.stepCode,
     productStyleCode: styleCode,
     spuCode: styleCode,
     artworkType: '印花',

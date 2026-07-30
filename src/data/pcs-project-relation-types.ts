@@ -52,8 +52,8 @@ export interface ProjectRelationRecord {
   projectId: string
   projectCode: string
   projectNodeId: string | null
-  workItemTypeCode: string
-  workItemTypeName: string
+  stepCode: string
+  stepName: string
   relationRole: ProjectRelationRole
   sourceModule: ProjectRelationSourceModule
   sourceObjectType: ProjectRelationSourceObjectType

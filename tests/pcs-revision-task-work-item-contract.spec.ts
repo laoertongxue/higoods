@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 
-import { PCS_PROJECT_WORK_ITEM_CONTRACTS } from '../src/data/pcs-project-domain-contract.ts'
+import { PCS_PROJECT_STEP_DEFINITIONS } from '../src/data/pcs-project-domain-contract.ts'
 
-const revisionContract = PCS_PROJECT_WORK_ITEM_CONTRACTS.find((item) => item.workItemTypeCode === 'REVISION_TASK')
+const revisionContract = PCS_PROJECT_STEP_DEFINITIONS.find((item) => item.stepCode === 'REVISION_TASK')
 assert.ok(revisionContract, '必须存在 REVISION_TASK 工作项定义')
 
 const labels = revisionContract!.fieldDefinitions.map((item) => item.label)

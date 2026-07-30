@@ -1,6 +1,6 @@
 import {
   findProjectByCode,
-  findProjectNodeByWorkItemTypeCode,
+  findProjectNodeByStepCode,
 } from './pcs-project-repository.ts'
 import { findStyleArchiveByProjectId, findStyleArchiveByCode, listStyleArchives } from './pcs-style-archive-repository.ts'
 import type {
@@ -92,8 +92,8 @@ function taskRelationRecord(input: {
   projectId: string
   projectCode: string
   projectNodeId: string
-  workItemTypeCode: string
-  workItemTypeName: string
+  stepCode: string
+  stepName: string
   sourceModule: ProjectRelationSourceModule
   sourceObjectType: ProjectRelationSourceObjectType
   sourceObjectId: string
@@ -110,8 +110,8 @@ function taskRelationRecord(input: {
     projectId: input.projectId,
     projectCode: input.projectCode,
     projectNodeId: input.projectNodeId,
-    workItemTypeCode: input.workItemTypeCode,
-    workItemTypeName: input.workItemTypeName,
+    stepCode: input.stepCode,
+    stepName: input.stepName,
     relationRole: input.relationRole || '产出对象',
     sourceModule: input.sourceModule,
     sourceObjectType: input.sourceObjectType,
@@ -279,10 +279,10 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
   const projectA = pickProjectByCode('PRJ-20251216-001')
   const projectB = pickProjectByCode('PRJ-20251216-010')
   const nodeA = projectA
-    ? findProjectNodeByWorkItemTypeCode(projectA.projectId, 'TEST_CONCLUSION')
+    ? findProjectNodeByStepCode(projectA.projectId, 'TEST_CONCLUSION')
     : null
   const nodeB = projectB
-    ? findProjectNodeByWorkItemTypeCode(projectB.projectId, 'TEST_CONCLUSION')
+    ? findProjectNodeByStepCode(projectB.projectId, 'TEST_CONCLUSION')
     : null
 
   if (projectA && nodeA) {
@@ -295,8 +295,8 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       projectCode: projectA.projectCode,
       projectName: projectA.projectName,
       projectNodeId: '',
-      workItemTypeCode: 'REVISION_TASK',
-      workItemTypeName: '改版任务',
+      stepCode: 'REVISION_TASK',
+      stepName: '改版任务',
       sourceType: '测款结论返改',
       upstreamModule: '测款结论',
       upstreamObjectType: '项目工作项',
@@ -350,8 +350,8 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       projectCode: '',
       projectName: '',
       projectNodeId: '',
-      workItemTypeCode: 'REVISION_TASK',
-      workItemTypeName: '改版任务',
+      stepCode: 'REVISION_TASK',
+      stepName: '改版任务',
       sourceType: '既有商品改款',
       upstreamModule: '款式档案',
       upstreamObjectType: '款式档案',
@@ -455,7 +455,7 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
   ].forEach((item) => {
     const project = pickProjectByCode(item.projectCode)
     const node = project
-      ? findProjectNodeByWorkItemTypeCode(project.projectId, 'TEST_CONCLUSION')
+      ? findProjectNodeByStepCode(project.projectId, 'TEST_CONCLUSION')
       : null
     const style = project ? findStyleArchiveByProjectId(project.projectId) : null
     if (!project || !node) return
@@ -467,8 +467,8 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       projectCode: project.projectCode,
       projectName: project.projectName,
       projectNodeId: '',
-      workItemTypeCode: 'REVISION_TASK',
-      workItemTypeName: '改版任务',
+      stepCode: 'REVISION_TASK',
+      stepName: '改版任务',
       sourceType: '测款结论返改',
       upstreamModule: '测款结论',
       upstreamObjectType: '项目工作项',
@@ -527,8 +527,8 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       projectCode: '',
       projectName: '',
       projectNodeId: '',
-      workItemTypeCode: 'REVISION_TASK',
-      workItemTypeName: '改版任务',
+      stepCode: 'REVISION_TASK',
+      stepName: '改版任务',
       sourceType: '人工改版需求',
       upstreamModule: '人工参考',
       upstreamObjectType: '设计评审纪要',
@@ -1104,8 +1104,8 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
       projectCode: project.projectCode,
       projectName: project.projectName,
       projectNodeId: '',
-      workItemTypeCode: 'PATTERN_TASK',
-      workItemTypeName: '制版任务',
+      stepCode: 'PATTERN_TASK',
+      stepName: '制版任务',
       sourceType: usesLegacyProjectNodeSource ? '人工创建' : item.sourceType,
       upstreamModule: usesLegacyProjectNodeSource ? '商品项目' : item.upstreamModule,
       upstreamObjectType: usesLegacyProjectNodeSource ? '商品项目' : item.upstreamObjectType,
@@ -1233,8 +1233,8 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       projectCode: projectA.projectCode,
       projectName: projectA.projectName,
       projectNodeId: '',
-      workItemTypeCode: 'PATTERN_ARTWORK_TASK',
-      workItemTypeName: '花型任务',
+      stepCode: 'PATTERN_ARTWORK_TASK',
+      stepName: '花型任务',
       sourceType: '改版任务',
       upstreamModule: '改版任务',
       upstreamObjectType: '改版任务',
@@ -1276,8 +1276,8 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       projectCode: projectB.projectCode,
       projectName: projectB.projectName,
       projectNodeId: '',
-      workItemTypeCode: 'PATTERN_ARTWORK_TASK',
-      workItemTypeName: '花型任务',
+      stepCode: 'PATTERN_ARTWORK_TASK',
+      stepName: '花型任务',
       sourceType: '改版任务',
       upstreamModule: '改版任务',
       upstreamObjectType: '改版任务',
@@ -1363,13 +1363,13 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       projectCode: project.projectCode,
       projectName: project.projectName,
       projectNodeId: '',
-      workItemTypeCode: 'PATTERN_ARTWORK_TASK',
-      workItemTypeName: '花型任务',
+      stepCode: 'PATTERN_ARTWORK_TASK',
+      stepName: '花型任务',
       sourceType: upstreamRevisionCode ? '改版任务' : '项目模板阶段',
       upstreamModule: upstreamRevisionCode ? '改版任务' : '项目模板',
       upstreamObjectType: upstreamRevisionCode ? '改版任务' : '模板阶段',
-      upstreamObjectId: upstreamRevisionCode || project.templateId,
-      upstreamObjectCode: upstreamRevisionCode || project.templateVersion,
+      upstreamObjectId: upstreamRevisionCode || project.projectId,
+      upstreamObjectCode: upstreamRevisionCode || project.projectCode,
       productStyleCode: item.productStyleCode,
       spuCode: item.spuCode,
       ...executionFields({ sourceType: upstreamRevisionCode ? '改版任务' : '设计师款', sourceCode: upstreamRevisionCode || project.projectCode, processType: item.artworkType === '贴章' ? '烫画' : '数码印', completed: item.status === '已完成' || item.status === '已确认' }),
@@ -1393,7 +1393,7 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       updatedBy: '系统初始化',
       note: '补充的演示花型任务。',
       legacyProjectRef: project.projectCode,
-      legacyUpstreamRef: upstreamRevisionCode || project.templateVersion,
+      legacyUpstreamRef: upstreamRevisionCode || project.projectCode,
     })
   })
 
@@ -1557,8 +1557,8 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
       projectCode: projectA.projectCode,
       projectName: projectA.projectName,
       projectNodeId: '',
-      workItemTypeCode: 'FIRST_SAMPLE',
-      workItemTypeName: '首版样衣打样',
+      stepCode: 'FIRST_SAMPLE',
+      stepName: '首版样衣打样',
       sourceType: '改版任务',
       upstreamModule: '改版任务',
       upstreamObjectType: '改版任务',
@@ -1596,8 +1596,8 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
       projectCode: projectB.projectCode,
       projectName: projectB.projectName,
       projectNodeId: '',
-      workItemTypeCode: 'FIRST_SAMPLE',
-      workItemTypeName: '首版样衣打样',
+      stepCode: 'FIRST_SAMPLE',
+      stepName: '首版样衣打样',
       sourceType: '制版任务',
       upstreamModule: '制版任务',
       upstreamObjectType: '制版任务',
@@ -1848,8 +1848,8 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
       projectCode: project.projectCode,
       projectName: project.projectName,
       projectNodeId: '',
-      workItemTypeCode: 'FIRST_SAMPLE',
-      workItemTypeName: '首版样衣打样',
+      stepCode: 'FIRST_SAMPLE',
+      stepName: '首版样衣打样',
       sourceType: '项目模板阶段',
       upstreamModule: item.upstreamModule,
       upstreamObjectType: item.upstreamObjectType,
@@ -1913,8 +1913,8 @@ function createFirstOrderSeeds(): { tasks: FirstOrderSampleTaskRecord[]; pending
       projectCode: projectA.projectCode,
       projectName: projectA.projectName,
       projectNodeId: '',
-      workItemTypeCode: 'FIRST_ORDER_SAMPLE',
-      workItemTypeName: '首单样衣打样',
+      stepCode: 'FIRST_ORDER_SAMPLE',
+      stepName: '首单样衣打样',
       sourceType: '首版样衣打样',
       upstreamModule: '首版样衣打样',
       upstreamObjectType: '首版样衣打样任务',
@@ -1954,8 +1954,8 @@ function createFirstOrderSeeds(): { tasks: FirstOrderSampleTaskRecord[]; pending
       projectCode: projectB.projectCode,
       projectName: projectB.projectName,
       projectNodeId: '',
-      workItemTypeCode: 'FIRST_ORDER_SAMPLE',
-      workItemTypeName: '首单样衣打样',
+      stepCode: 'FIRST_ORDER_SAMPLE',
+      stepName: '首单样衣打样',
       sourceType: '首版样衣打样',
       upstreamModule: '首版样衣打样',
       upstreamObjectType: '首版样衣打样任务',
@@ -2097,8 +2097,8 @@ function createFirstOrderSeeds(): { tasks: FirstOrderSampleTaskRecord[]; pending
       projectCode: project.projectCode,
       projectName: project.projectName,
       projectNodeId: '',
-      workItemTypeCode: 'FIRST_ORDER_SAMPLE',
-      workItemTypeName: '首单样衣打样',
+      stepCode: 'FIRST_ORDER_SAMPLE',
+      stepName: '首单样衣打样',
       sourceType: '首版样衣打样',
       upstreamModule: item.upstreamModule,
       upstreamObjectType: item.upstreamObjectType,
@@ -2185,8 +2185,8 @@ export function createTaskRelationBootstrapSnapshot(): TaskRelationBootstrapSnap
             projectId: task.projectId,
             projectCode: task.projectCode,
             projectNodeId: task.projectNodeId,
-            workItemTypeCode: task.workItemTypeCode,
-            workItemTypeName: task.workItemTypeName,
+            stepCode: task.stepCode,
+            stepName: task.stepName,
             sourceModule: '改版任务',
             sourceObjectType: '改版任务',
             sourceObjectId: task.revisionTaskId,
@@ -2202,8 +2202,8 @@ export function createTaskRelationBootstrapSnapshot(): TaskRelationBootstrapSnap
           projectId: task.projectId,
           projectCode: task.projectCode,
           projectNodeId: task.projectNodeId,
-          workItemTypeCode: task.workItemTypeCode,
-          workItemTypeName: task.workItemTypeName,
+          stepCode: task.stepCode,
+          stepName: task.stepName,
           sourceModule: '制版任务',
           sourceObjectType: '制版任务',
           sourceObjectId: task.plateTaskId,
@@ -2221,8 +2221,8 @@ export function createTaskRelationBootstrapSnapshot(): TaskRelationBootstrapSnap
           projectId: task.projectId,
           projectCode: task.projectCode,
           projectNodeId: task.projectNodeId,
-          workItemTypeCode: task.workItemTypeCode,
-          workItemTypeName: task.workItemTypeName,
+          stepCode: task.stepCode,
+          stepName: task.stepName,
           sourceModule: '花型任务',
           sourceObjectType: '花型任务',
           sourceObjectId: task.patternTaskId,
@@ -2238,8 +2238,8 @@ export function createTaskRelationBootstrapSnapshot(): TaskRelationBootstrapSnap
           projectId: task.projectId,
           projectCode: task.projectCode,
           projectNodeId: task.projectNodeId,
-          workItemTypeCode: task.workItemTypeCode,
-          workItemTypeName: task.workItemTypeName,
+          stepCode: task.stepCode,
+          stepName: task.stepName,
           sourceModule: '首版样衣打样',
           sourceObjectType: '首版样衣打样任务',
           sourceObjectId: task.firstSampleTaskId,
@@ -2257,8 +2257,8 @@ export function createTaskRelationBootstrapSnapshot(): TaskRelationBootstrapSnap
           projectId: task.projectId,
           projectCode: task.projectCode,
           projectNodeId: task.projectNodeId,
-          workItemTypeCode: task.workItemTypeCode,
-          workItemTypeName: task.workItemTypeName,
+          stepCode: task.stepCode,
+          stepName: task.stepName,
           sourceModule: '首单样衣打样',
           sourceObjectType: '首单样衣打样任务',
           sourceObjectId: task.firstOrderSampleTaskId,

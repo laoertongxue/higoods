@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 
 import {
-  getProjectWorkItemContract,
-  listProjectWorkItemFieldDefinitions,
+  getProjectStepDefinition,
+  listProjectStepFieldDefinitions,
 } from '../src/data/pcs-project-domain-contract.ts'
 import {
   createProjectChannelProductFromListingNode,
@@ -22,7 +22,7 @@ resetProjectChannelProductRepository()
 resetSkuArchiveRepository()
 resetProjectImageAssets()
 
-const projectInitFieldKeys = listProjectWorkItemFieldDefinitions('PROJECT_INIT')
+const projectInitFieldKeys = listProjectStepFieldDefinitions('PROJECT_INIT')
   .map((field) => field.fieldKey)
   .join('|')
 const forbiddenSpecPlanPattern = new RegExp(['规格计划', '预期颜色', '预期尺码', '预期花型'].join('|'))
@@ -32,7 +32,7 @@ assert.doesNotMatch(projectInitFieldKeys, /plannedColor|plannedSize|plannedPrint
 const createHtml = await renderPcsProjectCreatePage()
 assert.doesNotMatch(createHtml, forbiddenSpecPlanPattern, '商品项目创建页不应出现规格计划相关字段')
 
-const listingContract = getProjectWorkItemContract('CHANNEL_PRODUCT_LISTING')
+const listingContract = getProjectStepDefinition('CHANNEL_PRODUCT_LISTING')
 const listingFieldKeys = listingContract.fieldDefinitions.map((field) => field.fieldKey)
 
 assert.ok(listingFieldKeys.includes('listingBatchCode'), '商品上架应定义上架批次编码')

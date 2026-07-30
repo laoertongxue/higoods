@@ -9,15 +9,15 @@ import type {
 } from './pcs-project-types.ts'
 
 const LEGACY_DECISION_RESULTS = ['调整', '暂缓', '继续调整', '改版后重测', '继续开发', '终止'] as const
-const DECISION_WORK_ITEM_CODES = ['FEASIBILITY_REVIEW', 'SAMPLE_CONFIRM', 'TEST_CONCLUSION'] as const
-const DECISION_FIELD_KEY_MAP: Record<(typeof DECISION_WORK_ITEM_CODES)[number], string> = {
+const DECISION_STEP_CODES = ['FEASIBILITY_REVIEW', 'SAMPLE_CONFIRM', 'TEST_CONCLUSION'] as const
+const DECISION_FIELD_KEY_MAP: Record<(typeof DECISION_STEP_CODES)[number], string> = {
   FEASIBILITY_REVIEW: 'reviewConclusion',
   SAMPLE_CONFIRM: 'confirmResult',
   TEST_CONCLUSION: 'conclusion',
 }
 
-function isDecisionWorkItemCode(workItemTypeCode: string): workItemTypeCode is (typeof DECISION_WORK_ITEM_CODES)[number] {
-  return (DECISION_WORK_ITEM_CODES as readonly string[]).includes(workItemTypeCode)
+function isDecisionStepCode(stepCode: string): stepCode is (typeof DECISION_STEP_CODES)[number] {
+  return (DECISION_STEP_CODES as readonly string[]).includes(stepCode)
 }
 
 function isLegacyDecisionResult(value: unknown): value is (typeof LEGACY_DECISION_RESULTS)[number] {
@@ -44,8 +44,8 @@ export function migrateProjectDecisionInlineRecords(
   records: Array<PcsProjectInlineNodeRecord & { payload?: Record<string, unknown>; detailSnapshot?: Record<string, unknown> }>,
 ): PcsProjectInlineNodeRecord[] {
   return records.map((record) => {
-    if (!isDecisionWorkItemCode(record.workItemTypeCode)) {
-      if (record.workItemTypeCode === 'TEST_CONCLUSION') {
+    if (!isDecisionStepCode(record.stepCode)) {
+      if (record.stepCode === 'TEST_CONCLUSION') {
         return {
           ...record,
           payload: stripLegacyTestConclusionFields((record.payload as Record<string, unknown>) || {}),
@@ -55,13 +55,13 @@ export function migrateProjectDecisionInlineRecords(
       return record
     }
 
-    const decisionFieldKey = DECISION_FIELD_KEY_MAP[record.workItemTypeCode]
+    const decisionFieldKey = DECISION_FIELD_KEY_MAP[record.stepCode]
     const payload = { ...((record.payload as Record<string, unknown>) || {}) }
     const detailSnapshot = { ...((record.detailSnapshot as Record<string, unknown>) || {}) }
     const legacyDecision = payload[decisionFieldKey]
 
     if (!isLegacyDecisionResult(legacyDecision)) {
-      if (record.workItemTypeCode === 'TEST_CONCLUSION') {
+      if (record.stepCode === 'TEST_CONCLUSION') {
         return {
           ...record,
           payload: stripLegacyTestConclusionFields(payload),
@@ -75,7 +75,7 @@ export function migrateProjectDecisionInlineRecords(
     payload[decisionFieldKey] = ''
     payload.migrationNote = `旧决策结果“${legacyDecision}”已失效，请重新选择通过或淘汰。`
 
-    if (record.workItemTypeCode === 'TEST_CONCLUSION') {
+    if (record.stepCode === 'TEST_CONCLUSION') {
       return {
         ...record,
         recordStatus: '待确认',
@@ -97,7 +97,7 @@ export function migrateProjectDecisionInlineRecords(
 
 export function migrateProjectDecisionSnapshot(snapshot: PcsProjectStoreSnapshot): PcsProjectStoreSnapshot {
   const migratedNodes = snapshot.nodes.map((node) => {
-    if (!isDecisionWorkItemCode(node.workItemTypeCode)) return { ...node }
+    if (!isDecisionStepCode(node.stepCode)) return { ...node }
     const hasLegacyDecision = isLegacyDecisionResult(node.latestResultType)
     if (!hasLegacyDecision) return { ...node }
     return {
@@ -114,7 +114,7 @@ export function migrateProjectDecisionSnapshot(snapshot: PcsProjectStoreSnapshot
   })
   const projectIdsWithLegacyDecision = new Set(
     migratedNodes
-      .filter((node) => node.currentStatus === '待确认' && isDecisionWorkItemCode(node.workItemTypeCode))
+      .filter((node) => node.currentStatus === '待确认' && isDecisionStepCode(node.stepCode))
       .map((node) => node.projectId),
   )
 

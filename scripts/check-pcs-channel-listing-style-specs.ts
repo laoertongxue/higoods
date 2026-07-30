@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { listProjectStepContracts } from '../src/data/pcs-project-domain-contract.ts'
+import { listProjectFlowStageContracts } from '../src/data/pcs-project-domain-contract.ts'
 
 const root = process.cwd()
 
@@ -46,7 +46,7 @@ assert(/完成商品上架|标记商品上架完成/.test(projectPageSource), '�
 assert(/商品上架批次/.test(channelProductsPageSource), '渠道商品页面未切换到款式上架批次口径')
 assert(/规格数量/.test(channelProductsPageSource), '渠道商品页面缺少规格数量展示')
 
-const fixedTaskCodes = listProjectStepContracts().flatMap((step) => step.workItemCodes)
+const fixedTaskCodes = listProjectFlowStageContracts().flatMap((step) => step.stepCodes)
 const listingIndex = fixedTaskCodes.indexOf('CHANNEL_PRODUCT_LISTING')
 const liveTestIndex = fixedTaskCodes.indexOf('LIVE_TEST')
 const videoTestIndex = fixedTaskCodes.indexOf('VIDEO_TEST')
@@ -54,6 +54,6 @@ assert(listingIndex >= 0, '固定五步缺少商品上架任务')
 assert(liveTestIndex >= 0 && videoTestIndex >= 0, '固定五步缺少直播或短视频测款任务')
 assert(listingIndex < liveTestIndex, '商品上架必须早于直播测款')
 assert(listingIndex < videoTestIndex, '商品上架必须早于短视频测款')
-assert(!fixedTaskCodes.includes('STYLE_ARCHIVE_CREATE'), '商品／款式档案应在创建项目时同步建立')
+assert(fixedTaskCodes.includes('PROJECT_INIT'), '商品／款式档案应由项目与档案建立步骤同步建立')
 
 console.log('check-pcs-channel-listing-style-specs.ts PASS')

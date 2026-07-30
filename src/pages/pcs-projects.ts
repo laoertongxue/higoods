@@ -27,8 +27,7 @@ import {
   createProjectImageAssetRecordsFromFiles,
   listProjectReferenceImages,
   markProjectImageAssetUsableForListing,
-  markProjectImageAssetUsableForStyleArchive,
-  removeProjectImageAsset,
+    removeProjectImageAsset,
   upsertProjectImageAssets,
 } from '../data/pcs-project-image-repository.ts'
 import { PROJECT_STATUS_TERMINATED } from '../data/pcs-project-types.ts'
@@ -45,14 +44,14 @@ import type {
 import { buildProjectClosureViewModel } from '../data/pcs-project-closure-view-model.ts'
 import { resolveSampleReturnDestination } from '../data/pcs-project-sample-return-defaults.ts'
 import {
-  getProjectStepContractByPhaseCode,
-  getProjectWorkItemContract,
-  listProjectStepContracts,
-  listProjectWorkItemFieldGroups,
-  type ProjectStepCode,
-  type ProjectStepContract,
+  getProjectFlowStageContractByPhaseCode,
+  getProjectStepDefinition,
+  listProjectFlowStageContracts,
+  listProjectStepFieldGroups,
+  type ProjectFlowStageCode,
+  type ProjectFlowStageContract,
   type PcsProjectNodeFieldGroupDefinition,
-  type PcsProjectWorkItemCode,
+  type ProjectStepCode,
 } from '../data/pcs-project-domain-contract.ts'
 import {
   SAMPLE_COST_DEFAULT_EXCHANGE_RATE,
@@ -93,9 +92,9 @@ import {
   listProjectInlineNodeRecordsByProject,
 } from '../data/pcs-project-inline-node-record-repository.ts'
 import {
-  PCS_PROJECT_INLINE_NODE_RECORD_WORK_ITEM_TYPES,
+  PCS_PROJECT_INLINE_STEP_RECORD_CODES,
   type PcsProjectInlineNodeRecord,
-  type PcsProjectInlineNodeRecordWorkItemTypeCode,
+  type PcsProjectInlineStepRecordCode,
 } from '../data/pcs-project-inline-node-record-types.ts'
 import type { ProjectRelationRecord } from '../data/pcs-project-relation-types.ts'
 import {
@@ -128,14 +127,6 @@ import {
   syncProjectLifecycle,
   terminateProject,
 } from '../data/pcs-project-flow-service.ts'
-import {
-  generateStyleArchiveFromProjectNode,
-  getStyleArchiveGenerationStatus,
-} from '../data/pcs-project-style-archive-generation.ts'
-import {
-  listStyleArchiveImageCandidates,
-  type StyleArchiveImageCandidate,
-} from '../data/pcs-style-archive-image-selection.ts'
 import {
   createPatternTaskWithProjectRelation,
   createPlateMakingTaskWithProjectRelation,
@@ -178,8 +169,10 @@ import {
   type SampleShootImageFieldKey,
 } from '../data/pcs-sample-shoot-image-service.ts'
 
-type WorkItemTabKey = 'full-info' | 'records' | 'attachments' | 'audit'
-type DecisionDialogSource = 'detail' | 'work-item'
+export { renderPcsProjectListPage } from './pcs-projects-list.ts'
+
+type StepTabKey = 'full-info' | 'records' | 'attachments' | 'audit'
+type DecisionDialogSource = 'detail' | 'step'
 type EngineeringTaskCreateType = '' | 'REVISION_TASK' | 'PATTERN_TASK' | 'PATTERN_ARTWORK_TASK' | 'FIRST_SAMPLE' | 'FIRST_ORDER_SAMPLE'
 
 interface ProjectCreateState {
@@ -201,11 +194,11 @@ interface ProjectDetailState {
   expandedPhases: Record<string, boolean>
 }
 
-interface ProjectWorkItemState {
+interface ProjectStepState {
   routeKey: string
   projectId: string | null
   projectNodeId: string | null
-  activeTab: WorkItemTabKey
+  activeTab: StepTabKey
 }
 
 interface DecisionDialogState {
@@ -300,7 +293,7 @@ interface EngineeringTaskCreateDialogState {
   open: boolean
   projectId: string
   projectNodeId: string
-  workItemTypeCode: EngineeringTaskCreateType
+  stepCode: EngineeringTaskCreateType
   revisionDraft: RevisionTaskCreateDraft
   plateDraft: PlateTaskCreateDraft
   patternDraft: PatternTaskCreateDraft
@@ -340,11 +333,6 @@ interface ChannelListingDraft {
   specLines: ChannelListingSpecDraft[]
 }
 
-interface StyleArchiveImageDraft {
-  styleMainImageId: string
-  styleGalleryImageIds: string[]
-}
-
 interface LiveTestingCreateDraft {
   open: boolean
   projectId: string
@@ -365,7 +353,7 @@ interface LiveTestingCreateDraft {
 interface ProjectPageState {
   create: ProjectCreateState
   detail: ProjectDetailState
-  workItem: ProjectWorkItemState
+  stepDefinition: ProjectStepState
   notice: string | null
   terminateProjectId: string | null
   terminateReason: string
@@ -375,16 +363,15 @@ interface ProjectPageState {
   engineeringCreateDialog: EngineeringTaskCreateDialogState
   imagePreview: ProjectImagePreviewState
   channelListingDrafts: Record<string, ChannelListingDraft>
-  styleArchiveImageDrafts: Record<string, StyleArchiveImageDraft>
   liveTestingCreateDraft: LiveTestingCreateDraft
   liveTestingSelectedLineIds: Record<string, string>
 }
 
 interface ProjectNodeViewModel {
   node: PcsProjectNodeRecord
-  contract: ReturnType<typeof getProjectWorkItemContract>
-  step: ProjectStepContract
-  stepCode: ProjectStepCode
+  contract: ReturnType<typeof getProjectStepDefinition>
+  step: ProjectFlowStageContract
+  stepCode: ProjectFlowStageCode
   records: PcsProjectInlineNodeRecord[]
   latestRecord: PcsProjectInlineNodeRecord | null
   instanceModel: PcsProjectNodeInstanceModel
@@ -438,12 +425,12 @@ const PROJECT_NODE_MANUAL_COMPLETE_BLOCKED_TYPES = new Set([
   'PATTERN_ARTWORK_TASK',
   'LIVE_TEST',
   'VIDEO_TEST',
-  'STYLE_ARCHIVE_CREATE',
+  'PROJECT_INIT',
   'FIRST_SAMPLE',
   'FIRST_ORDER_SAMPLE',
 ])
 const PROJECT_DEMO_SEED_IMPORT_THRESHOLD = 20
-const WORK_ITEM_TAB_OPTIONS: Array<{ key: WorkItemTabKey; label: string }> = [
+const STEP_TAB_OPTIONS: Array<{ key: StepTabKey; label: string }> = [
   { key: 'full-info', label: '全量信息' },
   { key: 'records', label: '记录' },
   { key: 'attachments', label: '附件与引用' },
@@ -575,7 +562,7 @@ function createEmptyEngineeringTaskCreateDialogState(): EngineeringTaskCreateDia
     open: false,
     projectId: '',
     projectNodeId: '',
-    workItemTypeCode: '',
+    stepCode: '',
     revisionDraft: createEmptyRevisionTaskCreateDraft(),
     plateDraft: createEmptyPlateTaskCreateDraft(),
     patternDraft: createEmptyPatternTaskCreateDraft(),
@@ -597,7 +584,7 @@ const state: ProjectPageState = {
     selectedNodeId: null,
     expandedPhases: {},
   },
-  workItem: {
+  stepDefinition: {
     routeKey: '',
     projectId: null,
     projectNodeId: null,
@@ -623,7 +610,6 @@ const state: ProjectPageState = {
     title: '',
   },
   channelListingDrafts: {},
-  styleArchiveImageDrafts: {},
   liveTestingCreateDraft: createEmptyLiveTestingCreateDraft(),
   liveTestingSelectedLineIds: {},
 }
@@ -1134,8 +1120,8 @@ function isClosedNodeStatus(status: ProjectNodeStatus): boolean {
   return isClosedProjectNodeStatus(status)
 }
 
-function canUseInlineRecords(workItemTypeCode: string): workItemTypeCode is PcsProjectInlineNodeRecordWorkItemTypeCode {
-  return (PCS_PROJECT_INLINE_NODE_RECORD_WORK_ITEM_TYPES as readonly string[]).includes(workItemTypeCode)
+function canUseInlineRecords(stepCode: string): stepCode is PcsProjectInlineStepRecordCode {
+  return (PCS_PROJECT_INLINE_STEP_RECORD_CODES as readonly string[]).includes(stepCode)
 }
 
 function getTestingCreateMeta(
@@ -1150,10 +1136,10 @@ function getTestingCreateMeta(
   }
 
   const projectRef = encodeURIComponent(project.projectCode)
-  if (node.node.workItemTypeCode === 'LIVE_TEST') {
+  if (node.node.stepCode === 'LIVE_TEST') {
     return { route: `/pcs/testing/live?openCreate=1&projectRef=${projectRef}`, label: '新增直播测款' }
   }
-  if (node.node.workItemTypeCode === 'VIDEO_TEST') {
+  if (node.node.stepCode === 'VIDEO_TEST') {
     return { route: `/pcs/testing/video?openCreate=1&projectRef=${projectRef}`, label: '新增短视频测款' }
   }
   return null
@@ -1172,34 +1158,11 @@ function renderTestingCreateAction(
       ? 'inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700'
       : 'inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50'
 
-  if (node.node.workItemTypeCode === 'LIVE_TEST') {
+  if (node.node.stepCode === 'LIVE_TEST') {
     return `<button type="button" class="${className}" data-pcs-project-action="open-live-testing-create">${escapeHtml(meta.label)}</button>`
   }
 
   return `<button type="button" class="${className}" data-nav="${escapeHtml(meta.route)}">${escapeHtml(meta.label)}</button>`
-}
-
-function renderStyleArchiveNodeAction(
-  project: PcsProjectRecord,
-  node: Pick<ProjectNodeViewModel, 'node' | 'displayStatus'>,
-  tone: 'primary' | 'secondary' = 'primary',
-): string {
-  if (node.node.workItemTypeCode !== 'STYLE_ARCHIVE_CREATE') return ''
-  if (node.displayStatus === '未解锁' || node.node.currentStatus === '已取消') return ''
-
-  const status = getStyleArchiveGenerationStatus(project.projectId)
-  const className =
-    tone === 'primary'
-      ? 'inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700'
-      : 'inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50'
-
-  if (status.style) {
-    return `<button type="button" class="${className}" data-nav="/pcs/products/styles/${escapeHtml(status.style.styleId)}">查看款式档案</button>`
-  }
-
-  if (!status.allowed) return ''
-
-  return `<button type="button" class="${className}" data-pcs-project-action="generate-style-archive" data-project-id="${escapeHtml(project.projectId)}">生成款式档案</button>`
 }
 
 function getEngineeringTaskNodeMeta(
@@ -1207,16 +1170,16 @@ function getEngineeringTaskNodeMeta(
 ): { sourceModule: string; sourceObjectType: string; createLabel: string; viewLabel: string } | null {
   if (node.displayStatus === '未解锁' || node.node.currentStatus === '已取消') return null
 
-  if (node.node.workItemTypeCode === 'REVISION_TASK') {
+  if (node.node.stepCode === 'REVISION_TASK') {
     return { sourceModule: '改版任务', sourceObjectType: '改版任务', createLabel: '创建改版任务', viewLabel: '查看改版任务' }
   }
-  if (node.node.workItemTypeCode === 'PATTERN_TASK') {
+  if (node.node.stepCode === 'PATTERN_TASK') {
     return { sourceModule: '制版任务', sourceObjectType: '制版任务', createLabel: '创建制版任务', viewLabel: '查看制版任务' }
   }
-  if (node.node.workItemTypeCode === 'PATTERN_ARTWORK_TASK') {
+  if (node.node.stepCode === 'PATTERN_ARTWORK_TASK') {
     return { sourceModule: '花型任务', sourceObjectType: '花型任务', createLabel: '创建花型任务', viewLabel: '查看花型任务' }
   }
-  if (node.node.workItemTypeCode === 'FIRST_SAMPLE') {
+  if (node.node.stepCode === 'FIRST_SAMPLE') {
     return {
       sourceModule: '首版样衣打样',
       sourceObjectType: '首版样衣打样任务',
@@ -1224,7 +1187,7 @@ function getEngineeringTaskNodeMeta(
       viewLabel: '查看首版样衣详情',
     }
   }
-  if (node.node.workItemTypeCode === 'FIRST_ORDER_SAMPLE') {
+  if (node.node.stepCode === 'FIRST_ORDER_SAMPLE') {
     return {
       sourceModule: '首单样衣打样',
       sourceObjectType: '首单样衣打样任务',
@@ -1245,7 +1208,7 @@ function renderEngineeringTaskNodeAction(
 
   const relation =
     findLatestNodeRelation(project.projectId, node.node.projectNodeId, meta.sourceModule, meta.sourceObjectType) ||
-    (node.node.workItemTypeCode === 'REVISION_TASK'
+    (node.node.stepCode === 'REVISION_TASK'
       ? findLatestProjectRelation(project.projectId, meta.sourceModule, meta.sourceObjectType)
       : null)
 
@@ -1268,18 +1231,18 @@ function openEngineeringTaskCreateDialog(
   const firstSampleDefaults = resolveFirstSampleProjectNodeDefaults(project.projectId)
   const firstOrderDefaults = resolveFirstOrderSampleProjectNodeDefaults(project.projectId)
   const existingFirstSampleTask =
-    node.workItemTypeCode === 'FIRST_SAMPLE'
+    node.stepCode === 'FIRST_SAMPLE'
       ? getFirstSampleTaskForProjectNode(project.projectId, node.projectNodeId)
       : null
   const existingFirstOrderTask =
-    node.workItemTypeCode === 'FIRST_ORDER_SAMPLE'
+    node.stepCode === 'FIRST_ORDER_SAMPLE'
       ? getFirstOrderSampleTaskForProjectNode(project.projectId, node.projectNodeId)
       : null
   state.engineeringCreateDialog = {
     open: true,
     projectId: project.projectId,
     projectNodeId: node.projectNodeId,
-    workItemTypeCode: node.workItemTypeCode as EngineeringTaskCreateType,
+    stepCode: node.stepCode as EngineeringTaskCreateType,
     revisionDraft: {
       ...createEmptyRevisionTaskCreateDraft(),
       title: `${project.projectName}改版任务`,
@@ -1346,7 +1309,7 @@ function submitEngineeringTaskCreateDialog(): { ok: boolean; message: string; ro
   const ownerId = node.currentOwnerId || project.ownerId
   const notePrefix = '由商品项目节点推进自动创建。'
 
-  if (dialog.workItemTypeCode === 'REVISION_TASK') {
+  if (dialog.stepCode === 'REVISION_TASK') {
     const draft = dialog.revisionDraft
     if (!draft.title.trim()) return { ok: false, message: '请填写改版任务标题。' }
     if (!draft.ownerName.trim()) return { ok: false, message: '请选择负责人。' }
@@ -1388,7 +1351,7 @@ function submitEngineeringTaskCreateDialog(): { ok: boolean; message: string; ro
     return { ok: true, message: result.message, route: `/pcs/patterns/revision/${encodeURIComponent(result.task.revisionTaskId)}` }
   }
 
-  if (dialog.workItemTypeCode === 'PATTERN_TASK') {
+  if (dialog.stepCode === 'PATTERN_TASK') {
     const draft = dialog.plateDraft
     if (!draft.title.trim()) return { ok: false, message: '请填写制版任务标题。' }
     if (!draft.ownerName.trim()) return { ok: false, message: '请选择负责人。' }
@@ -1402,7 +1365,7 @@ function submitEngineeringTaskCreateDialog(): { ok: boolean; message: string; ro
       ownerId,
       ownerName: draft.ownerName.trim(),
       note: `${notePrefix}${draft.note.trim() ? ` ${draft.note.trim()}` : ''}`,
-      sourceType: '项目模板阶段',
+      sourceType: '固定流程阶段',
       dueAt: draft.dueAt.trim(),
       productStyleCode,
       spuCode: productStyleCode,
@@ -1413,7 +1376,7 @@ function submitEngineeringTaskCreateDialog(): { ok: boolean; message: string; ro
     return { ok: true, message: result.message, route: `/pcs/patterns/plate-making/${encodeURIComponent(result.task.plateTaskId)}` }
   }
 
-  if (dialog.workItemTypeCode === 'PATTERN_ARTWORK_TASK') {
+  if (dialog.stepCode === 'PATTERN_ARTWORK_TASK') {
     const draft = dialog.patternDraft
     if (!draft.title.trim()) return { ok: false, message: '请填写花型任务标题。' }
     if (!draft.ownerName.trim()) return { ok: false, message: '请选择负责人。' }
@@ -1428,7 +1391,7 @@ function submitEngineeringTaskCreateDialog(): { ok: boolean; message: string; ro
       ownerId,
       ownerName: draft.ownerName.trim(),
       note: `${notePrefix}${draft.note.trim() ? ` ${draft.note.trim()}` : ''}`,
-      sourceType: '项目模板阶段',
+      sourceType: '固定流程阶段',
       dueAt: draft.dueAt.trim(),
       productStyleCode,
       spuCode: productStyleCode,
@@ -1440,7 +1403,7 @@ function submitEngineeringTaskCreateDialog(): { ok: boolean; message: string; ro
     return { ok: true, message: result.message, route: `/pcs/patterns/colors/${encodeURIComponent(result.task.patternTaskId)}` }
   }
 
-  if (dialog.workItemTypeCode === 'FIRST_SAMPLE') {
+  if (dialog.stepCode === 'FIRST_SAMPLE') {
     const draft = dialog.firstSampleDraft
     if (!draft.sourceTechPackVersionId.trim()) return { ok: false, message: '请选择来源技术包版本。' }
     if (!draft.factoryId.trim()) return { ok: false, message: '请选择打样工厂。' }
@@ -1473,7 +1436,7 @@ function submitEngineeringTaskCreateDialog(): { ok: boolean; message: string; ro
     }
   }
 
-  if (dialog.workItemTypeCode === 'FIRST_ORDER_SAMPLE') {
+  if (dialog.stepCode === 'FIRST_ORDER_SAMPLE') {
     const draft = dialog.firstOrderSampleDraft
     if (!draft.sourceFirstSampleTaskId.trim()) return { ok: false, message: '请选择来源首版样衣任务。' }
     if (!draft.sourceTechPackVersionId.trim()) return { ok: false, message: '请选择来源技术包版本。' }
@@ -1513,7 +1476,7 @@ function submitEngineeringTaskCreateDialog(): { ok: boolean; message: string; ro
 
 function renderEngineeringTaskCreateDialog(): string {
   const dialog = state.engineeringCreateDialog
-  if (!dialog.open || !dialog.projectId || !dialog.projectNodeId || !dialog.workItemTypeCode) return ''
+  if (!dialog.open || !dialog.projectId || !dialog.projectNodeId || !dialog.stepCode) return ''
 
   const project = getProjectById(dialog.projectId)
   const node = project ? listProjectNodes(project.projectId).find((item) => item.projectNodeId === dialog.projectNodeId) || null : null
@@ -1529,17 +1492,17 @@ function renderEngineeringTaskCreateDialog(): string {
     <section class="rounded-lg border border-slate-200 bg-slate-50 p-4">
       <div class="grid gap-3 md:grid-cols-3">
         <div><p class="text-xs text-slate-500">商品项目</p><p class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(project.projectCode)} · ${escapeHtml(project.projectName)}</p></div>
-        <div><p class="text-xs text-slate-500">项目节点</p><p class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(node.workItemTypeName)}</p></div>
+        <div><p class="text-xs text-slate-500">项目节点</p><p class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(node.stepName)}</p></div>
         <div><p class="text-xs text-slate-500">关联款式</p><p class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(styleCode)}</p></div>
       </div>
     </section>
   `
 
   let title = '创建工程任务'
-  let description = `${project.projectCode} · ${node.workItemTypeName}`
+  let description = `${project.projectCode} · ${node.stepName}`
   let body = ''
 
-  if (dialog.workItemTypeCode === 'REVISION_TASK') {
+  if (dialog.stepCode === 'REVISION_TASK') {
     const draft = dialog.revisionDraft
     title = '创建改版任务'
     body += `
@@ -1592,7 +1555,7 @@ function renderEngineeringTaskCreateDialog(): string {
         ${renderProjectTextarea('说明', 'engineering-revision-note', draft.note, '补充本次改版方案、边界说明和执行要求')}
       </section>
     `
-  } else if (dialog.workItemTypeCode === 'PATTERN_TASK') {
+  } else if (dialog.stepCode === 'PATTERN_TASK') {
     const draft = dialog.plateDraft
     title = '创建制版任务'
     body += `
@@ -1608,7 +1571,7 @@ function renderEngineeringTaskCreateDialog(): string {
         ${renderProjectTextarea('说明', 'engineering-plate-note', draft.note, '补充本次制版输入要求与纸样输出要求')}
       </section>
     `
-  } else if (dialog.workItemTypeCode === 'PATTERN_ARTWORK_TASK') {
+  } else if (dialog.stepCode === 'PATTERN_ARTWORK_TASK') {
     const draft = dialog.patternDraft
     title = '创建花型任务'
     body += `
@@ -1634,7 +1597,7 @@ function renderEngineeringTaskCreateDialog(): string {
         ${renderProjectTextarea('说明', 'engineering-pattern-note', draft.note, '补充本次花型输出说明与生产文件要求')}
       </section>
     `
-  } else if (dialog.workItemTypeCode === 'FIRST_SAMPLE') {
+  } else if (dialog.stepCode === 'FIRST_SAMPLE') {
     const draft = dialog.firstSampleDraft
     title = '首版样衣必要信息'
     description = `${project.projectCode} · 先填写必要信息，再创建正式首版样衣任务`
@@ -1669,7 +1632,7 @@ function renderEngineeringTaskCreateDialog(): string {
         ${renderProjectTextarea('节点进入说明', 'engineering-first-sample-note', draft.note, '补充创建首版样衣任务的执行说明')}
       </section>
     `
-  } else if (dialog.workItemTypeCode === 'FIRST_ORDER_SAMPLE') {
+  } else if (dialog.stepCode === 'FIRST_ORDER_SAMPLE') {
     const draft = dialog.firstOrderSampleDraft
     title = '首单样衣必要信息'
     description = `${project.projectCode} · 先填写必要信息，再创建正式首单样衣任务`
@@ -1755,24 +1718,24 @@ function renderEngineeringTaskCreateDialog(): string {
 }
 
 function getDecisionFieldMeta(
-  workItemTypeCode: string,
+  stepCode: string,
 ): {
   valueFieldKey: string
   noteFieldKey: string
 } | null {
-  if (workItemTypeCode === 'FEASIBILITY_REVIEW') {
+  if (stepCode === 'FEASIBILITY_REVIEW') {
     return { valueFieldKey: 'reviewConclusion', noteFieldKey: 'reviewRisk' }
   }
-  if (workItemTypeCode === 'SAMPLE_CONFIRM') {
+  if (stepCode === 'SAMPLE_CONFIRM') {
     return { valueFieldKey: 'confirmResult', noteFieldKey: 'confirmNote' }
   }
-  if (workItemTypeCode === 'TEST_CONCLUSION') {
+  if (stepCode === 'TEST_CONCLUSION') {
     return { valueFieldKey: 'conclusion', noteFieldKey: 'conclusionNote' }
   }
   return null
 }
 
-const INLINE_NODE_PAYLOAD_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTypeCode, string[]> = {
+const INLINE_NODE_PAYLOAD_KEYS: Record<PcsProjectInlineStepRecordCode, string[]> = {
   SAMPLE_ACQUIRE: [
     'sampleSourceType',
     'sampleSupplierId',
@@ -1872,9 +1835,9 @@ const INLINE_NODE_PAYLOAD_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTypeCod
   ],
 }
 
-function getInlineEditableFieldKeys(workItemTypeCode: string): Set<string> {
-  if (!canUseInlineRecords(workItemTypeCode)) return new Set()
-  return new Set(INLINE_NODE_PAYLOAD_KEYS[workItemTypeCode])
+function getInlineEditableFieldKeys(stepCode: string): Set<string> {
+  if (!canUseInlineRecords(stepCode)) return new Set()
+  return new Set(INLINE_NODE_PAYLOAD_KEYS[stepCode])
 }
 
 const SAMPLE_SHOOT_IMAGE_GROUPS: Array<{
@@ -2101,7 +2064,7 @@ function getCurrentChannelProductRelation(projectId: string): PcsProjectInstance
 }
 
 function isChannelListingNode(node: ProjectNodeViewModel): boolean {
-  return node.node.workItemTypeCode === 'CHANNEL_PRODUCT_LISTING'
+  return node.node.stepCode === 'CHANNEL_PRODUCT_LISTING'
 }
 
 function getChannelListingStatusBadgeClass(status: string): string {
@@ -2225,7 +2188,7 @@ function resolveChannelListingRecordImage(record: ProjectChannelProductRecord): 
   }
 }
 
-function isChannelListingRecordReadyForWorkItemComplete(record: ProjectChannelProductRecord): boolean {
+function isChannelListingRecordReadyForStepComplete(record: ProjectChannelProductRecord): boolean {
   if (record.channelProductStatus === '已作废') return false
   return (
     record.listingBatchStatus === '已上传待确认' ||
@@ -2239,20 +2202,20 @@ function listChannelListingActiveRecords(projectId: string): ProjectChannelProdu
   return listProjectChannelProductsByProjectIdSafe(projectId).filter((item) => item.channelProductStatus !== '已作废')
 }
 
-function canCompleteChannelListingWorkItem(
+function canCompleteChannelListingStep(
   project: PcsProjectRecord,
   node: ProjectNodeViewModel,
 ): boolean {
   if (!node.unlocked || node.node.currentStatus === '已完成' || node.node.currentStatus === '已取消') return false
-  return listChannelListingActiveRecords(project.projectId).some(isChannelListingRecordReadyForWorkItemComplete)
+  return listChannelListingActiveRecords(project.projectId).some(isChannelListingRecordReadyForStepComplete)
 }
 
-function getChannelListingWorkItemCompleteNotice(project: PcsProjectRecord): string {
+function getChannelListingStepCompleteNotice(project: PcsProjectRecord): string {
   const activeRecords = listChannelListingActiveRecords(project.projectId)
   if (activeRecords.length === 0) {
-    return '请先创建渠道店铺商品，并上传到渠道后再完成商品上架工作项。'
+    return '请先创建渠道店铺商品，并上传到渠道后再完成商品上架步骤。'
   }
-  if (!activeRecords.some(isChannelListingRecordReadyForWorkItemComplete)) {
+  if (!activeRecords.some(isChannelListingRecordReadyForStepComplete)) {
     return '当前已有渠道店铺商品，但还未上传到渠道；请先点击“上传到渠道”。'
   }
   return ''
@@ -2263,12 +2226,12 @@ function renderChannelListingCompleteAction(
   node: ProjectNodeViewModel,
   variant: 'primary' | 'soft' = 'primary',
 ): string {
-  if (!canCompleteChannelListingWorkItem(project, node)) return ''
+  if (!canCompleteChannelListingStep(project, node)) return ''
   const className =
     variant === 'soft'
       ? 'inline-flex h-9 items-center rounded-md border border-emerald-200 bg-emerald-50 px-4 text-sm font-medium text-emerald-700 hover:bg-emerald-100'
       : 'inline-flex h-9 items-center rounded-md bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700'
-  return `<button type="button" class="${className}" data-pcs-project-action="complete-channel-listing-work-item">完成本工作项</button>`
+  return `<button type="button" class="${className}" data-pcs-project-action="complete-channel-listing-step">完成本步骤</button>`
 }
 
 function renderChannelListingSpecImageCell(
@@ -2659,51 +2622,6 @@ function updateChannelListingDraft(
   }
 }
 
-function buildStyleArchiveImageDraftKey(projectId: string, projectNodeId: string): string {
-  return `${projectId}::${projectNodeId}::style-images`
-}
-
-function getStyleArchiveImageDraft(project: PcsProjectRecord, node: ProjectNodeViewModel): StyleArchiveImageDraft {
-  const key = buildStyleArchiveImageDraftKey(project.projectId, node.node.projectNodeId)
-  const existing = state.styleArchiveImageDrafts[key]
-  if (existing) return existing
-
-  const style = findStyleArchiveByProjectId(project.projectId)
-  const draft: StyleArchiveImageDraft = {
-    styleMainImageId: style?.mainImageId || '',
-    styleGalleryImageIds: Array.isArray(style?.galleryImageIds) ? [...style!.galleryImageIds] : [],
-  }
-  state.styleArchiveImageDrafts[key] = draft
-  return draft
-}
-
-function updateStyleArchiveImageDraft(
-  project: PcsProjectRecord,
-  node: ProjectNodeViewModel,
-  patch: Partial<StyleArchiveImageDraft>,
-): void {
-  const current = getStyleArchiveImageDraft(project, node)
-  state.styleArchiveImageDrafts[buildStyleArchiveImageDraftKey(project.projectId, node.node.projectNodeId)] = {
-    ...current,
-    ...patch,
-    styleGalleryImageIds: patch.styleGalleryImageIds ? [...patch.styleGalleryImageIds] : [...current.styleGalleryImageIds],
-  }
-}
-
-function resolveStyleArchiveDraftImages(
-  projectId: string,
-  draft: StyleArchiveImageDraft,
-): PcsProjectImageAssetViewModel[] {
-  return draft.styleGalleryImageIds
-    .map((imageId) => findProjectImageViewModelById(projectId, imageId))
-    .filter((item): item is PcsProjectImageAssetViewModel => Boolean(item))
-}
-
-function resolveStyleArchiveCandidateImages(projectId: string, draft: StyleArchiveImageDraft): StyleArchiveImageCandidate[] {
-  const selectedIds = new Set(draft.styleGalleryImageIds)
-  return listStyleArchiveImageCandidates(projectId).filter((item) => !selectedIds.has(item.imageId))
-}
-
 function renderChannelListingNodeWorkspace(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
   const draft = getChannelListingDraft(project, node)
   const records: ProjectChannelProductRecord[] = listProjectChannelProductsByProjectIdSafe(project.projectId)
@@ -2800,7 +2718,7 @@ function listProjectLiveTestingLines(project: PcsProjectRecord): Array<{
   const relationInstances =
     instanceModel?.instances.filter(
       (instance) =>
-        instance.workItemTypeCode === 'LIVE_TEST' &&
+        instance.stepCode === 'LIVE_TEST' &&
         instance.moduleName === '直播' &&
         instance.objectType === '直播商品明细',
     ) || []
@@ -2965,7 +2883,7 @@ function renderLiveTestingNodeWorkspace(project: PcsProjectRecord, node: Project
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h3 class="text-base font-semibold text-slate-900">尚未新增直播测款记录</h3>
-            <p class="mt-1 text-sm text-slate-500">新增并保留至少 1 条直播测款记录后，才可以完成本工作项。</p>
+            <p class="mt-1 text-sm text-slate-500">新增并保留至少 1 条直播测款记录后，才可以完成本步骤。</p>
           </div>
           ${renderTestingCreateAction(project, node)}
         </div>
@@ -2978,10 +2896,10 @@ function renderLiveTestingNodeWorkspace(project: PcsProjectRecord, node: Project
       ${renderLiveTestingRecordList(project, node, rows)}
       ${
         completed
-          ? '<section class="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-700">直播测款工作项已完成。</section>'
+          ? '<section class="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-700">直播测款步骤已完成。</section>'
           : `
             <section class="flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 pt-4">
-              <button type="button" class="inline-flex h-9 items-center rounded-md bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700" data-pcs-project-action="complete-live-testing-work-item">完成本工作项</button>
+              <button type="button" class="inline-flex h-9 items-center rounded-md bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700" data-pcs-project-action="complete-live-testing-step">完成本步骤</button>
             </section>
           `
       }
@@ -3194,7 +3112,6 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
     projectCode: project.projectCode,
     projectRef: project.projectCode,
     projectType: project.projectType,
-    templateId: [project.templateName, project.templateVersion].filter(Boolean).join(' / '),
     projectSourceType: project.projectSourceType,
     categoryId: project.categoryName,
     categoryName: project.categoryName,
@@ -3495,7 +3412,7 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
       detailSnapshot.reuseAsFirstOrderBasisNote ||
       '',
   }
-  if (node.node.workItemTypeCode === 'LIVE_TEST' || node.node.workItemTypeCode === 'VIDEO_TEST') {
+  if (node.node.stepCode === 'LIVE_TEST' || node.node.stepCode === 'VIDEO_TEST') {
     const relationValue = nodeRelationMeta[fieldKey]
     if (hasNodeFieldValue(relationValue)) return relationValue
     const payloadValue = payload[fieldKey]
@@ -3505,7 +3422,7 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
     const projectValue = projectValues[fieldKey]
     if (hasNodeFieldValue(projectValue)) return projectValue
   }
-  if (node.node.workItemTypeCode === 'FIRST_SAMPLE') {
+  if (node.node.stepCode === 'FIRST_SAMPLE') {
     const formalValue = projectValues[fieldKey]
     if (hasNodeFieldValue(formalValue)) return formalValue
     const relationValue = nodeRelationMeta[fieldKey]
@@ -3515,7 +3432,7 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
     const payloadValue = payload[fieldKey]
     if (hasNodeFieldValue(payloadValue)) return payloadValue
   }
-  if (node.node.workItemTypeCode === 'FIRST_ORDER_SAMPLE') {
+  if (node.node.stepCode === 'FIRST_ORDER_SAMPLE') {
     const formalValue = projectValues[fieldKey]
     if (hasNodeFieldValue(formalValue)) return formalValue
     const relationValue = nodeRelationMeta[fieldKey]
@@ -3525,7 +3442,7 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
     const payloadValue = payload[fieldKey]
     if (hasNodeFieldValue(payloadValue)) return payloadValue
   }
-  if (node.node.workItemTypeCode === 'TEST_CONCLUSION') {
+  if (node.node.stepCode === 'TEST_CONCLUSION') {
     const recordValue = payload[fieldKey]
     if (recordValue !== undefined && recordValue !== null && recordValue !== '') return recordValue
     const snapshotValue = detailSnapshot[fieldKey]
@@ -3842,7 +3759,7 @@ function renderSampleCostReviewWorkspace(project: PcsProjectRecord, node: Projec
   const optionalRows = normalizeSampleCostOptionalProcessRows(input.optionalProcessLines)
   const disabled = !canEditProjectNodeFields(node)
   const saveDraftButton =
-    node.contract.runtimeType === 'execute' && node.contract.workItemNature === '执行类' && node.node.multiInstanceFlag
+    node.contract.runtimeType === 'execute' && node.contract.stepNature === '执行类' && node.node.multiInstanceFlag
       ? ''
       : '<button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-project-action="save-formal-fields">保存正式字段</button>'
 
@@ -4247,7 +4164,7 @@ function normalizeSampleInboundLineValue(value: unknown): string[] {
 }
 
 function buildSampleInboundPlanRows(project: PcsProjectRecord): SampleInboundLineRow[] {
-  const acquireNode = listProjectNodes(project.projectId).find((item) => item.workItemTypeCode === 'SAMPLE_ACQUIRE')
+  const acquireNode = listProjectNodes(project.projectId).find((item) => item.stepCode === 'SAMPLE_ACQUIRE')
   const acquireRecord = acquireNode ? getLatestProjectInlineNodeRecord(acquireNode.projectNodeId) : null
   const purchaseRows = parseSamplePurchaseSpecQtyRows(
     acquireRecord?.payload?.samplePurchaseSpecQty ?? acquireRecord?.detailSnapshot?.samplePurchaseSpecQty ?? '',
@@ -4264,11 +4181,11 @@ function buildSampleInboundPlanRows(project: PcsProjectRecord): SampleInboundLin
   )
 }
 
-function getLatestProjectInlineRecordByWorkItem(
+function getLatestProjectInlineRecordByStep(
   projectId: string,
-  workItemTypeCode: PcsProjectInlineNodeRecordWorkItemTypeCode,
+  stepCode: PcsProjectInlineStepRecordCode,
 ): PcsProjectInlineNodeRecord | null {
-  const targetNode = listProjectNodes(projectId).find((item) => item.workItemTypeCode === workItemTypeCode)
+  const targetNode = listProjectNodes(projectId).find((item) => item.stepCode === stepCode)
   return targetNode ? getLatestProjectInlineNodeRecord(targetNode.projectNodeId) : null
 }
 
@@ -4282,7 +4199,7 @@ function mapReturnDestinationToHandleType(returnDestination: string): string {
 }
 
 function getFirstGeneratedSampleCode(projectId: string): string {
-  const inboundRecord = getLatestProjectInlineRecordByWorkItem(projectId, 'SAMPLE_INBOUND_CHECK')
+  const inboundRecord = getLatestProjectInlineRecordByStep(projectId, 'SAMPLE_INBOUND_CHECK')
   if (!inboundRecord) return ''
   const payload = inboundRecord.payload as Record<string, unknown>
   const detailSnapshot = inboundRecord.detailSnapshot as Record<string, unknown>
@@ -4305,7 +4222,7 @@ function buildSampleReturnHandleDraftDefaults(
   node: ProjectNodeViewModel,
   businessDate: string,
 ): Record<string, unknown> {
-  const conclusionRecord = getLatestProjectInlineRecordByWorkItem(project.projectId, 'TEST_CONCLUSION')
+  const conclusionRecord = getLatestProjectInlineRecordByStep(project.projectId, 'TEST_CONCLUSION')
   const conclusionPayload = (conclusionRecord?.payload || {}) as Record<string, unknown>
   const conclusionSnapshot = (conclusionRecord?.detailSnapshot || {}) as Record<string, unknown>
   const returnDestination = String(
@@ -4384,7 +4301,7 @@ function normalizeDraftFieldValue(
   return trimmed
 }
 
-function deriveRecordSummaryNote(workItemTypeCode: string, values: Record<string, unknown>): string {
+function deriveRecordSummaryNote(stepCode: string, values: Record<string, unknown>): string {
   const pickFirst = (...keys: string[]): string => {
     for (const key of keys) {
       const value = values[key]
@@ -4400,7 +4317,7 @@ function deriveRecordSummaryNote(workItemTypeCode: string, values: Record<string
     return ''
   }
 
-  switch (workItemTypeCode) {
+  switch (stepCode) {
     case 'SAMPLE_ACQUIRE':
       return pickFirst('sampleSupplierId', 'sampleLink', 'sampleSourceType') || '已登记样衣来源。'
     case 'SAMPLE_INBOUND_CHECK':
@@ -4436,8 +4353,8 @@ function buildQuickRecordPayload(
 
 function buildRecordDraftDefaults(project: PcsProjectRecord, node: ProjectNodeViewModel): Omit<RecordDialogState, 'open'> {
   const businessDate = (node.latestRecord?.businessDate || '').slice(0, 10) || todayText()
-  const editableKeys = getInlineEditableFieldKeys(node.node.workItemTypeCode)
-  const groups = listProjectWorkItemFieldGroups(node.node.workItemTypeCode as PcsProjectWorkItemCode)
+  const editableKeys = getInlineEditableFieldKeys(node.node.stepCode)
+  const groups = listProjectStepFieldGroups(node.node.stepCode as ProjectStepCode)
   const values = Object.fromEntries(
     groups
       .flatMap((group) => group.fields)
@@ -4446,7 +4363,7 @@ function buildRecordDraftDefaults(project: PcsProjectRecord, node: ProjectNodeVi
       .map((field) => {
         let rawValue = node.latestRecord?.payload?.[field.fieldKey] ?? getNodeFieldValue(project, node, field.fieldKey) ?? ''
         if (
-          node.node.workItemTypeCode === 'SAMPLE_INBOUND_CHECK' &&
+          node.node.stepCode === 'SAMPLE_INBOUND_CHECK' &&
           field.fieldKey === 'sampleInboundLines' &&
           !hasNodeFieldValue(rawValue)
         ) {
@@ -4455,17 +4372,17 @@ function buildRecordDraftDefaults(project: PcsProjectRecord, node: ProjectNodeVi
         }
         return [
           field.fieldKey,
-          shouldKeepDraftArrayValue(node.node.workItemTypeCode, field.fieldKey, field.type)
+          shouldKeepDraftArrayValue(node.node.stepCode, field.fieldKey, field.type)
             ? cloneDraftValue(rawValue)
             : formatDraftFieldValue(field.type, rawValue),
         ]
       }),
   )
   const lockedSampleSourceType = getProjectLockedSampleSourceType(project)
-  if (node.node.workItemTypeCode === 'SAMPLE_ACQUIRE' && lockedSampleSourceType) {
+  if (node.node.stepCode === 'SAMPLE_ACQUIRE' && lockedSampleSourceType) {
     values.sampleSourceType = lockedSampleSourceType
   }
-  if (node.node.workItemTypeCode === 'SAMPLE_RETURN_HANDLE') {
+  if (node.node.stepCode === 'SAMPLE_RETURN_HANDLE') {
     const returnDefaults = buildSampleReturnHandleDraftDefaults(project, node, businessDate)
     Object.entries(returnDefaults).forEach(([fieldKey, value]) => {
       if (!hasNodeFieldValue(values[fieldKey]) && hasNodeFieldValue(value)) {
@@ -4479,7 +4396,7 @@ function buildRecordDraftDefaults(project: PcsProjectRecord, node: ProjectNodeVi
     projectNodeId: node.node.projectNodeId,
     businessDate,
     note: deriveRecordSummaryNote(
-      node.node.workItemTypeCode,
+      node.node.stepCode,
       ((node.latestRecord?.payload || values) as Record<string, unknown>),
     ),
     values,
@@ -4525,7 +4442,7 @@ function getMissingRequiredFieldLabels(
     ...(latestRecord?.payload || {}),
     ...normalizedValues,
   } as Record<string, unknown>
-  const contract = getProjectWorkItemContract(node.workItemTypeCode as PcsProjectWorkItemCode)
+  const contract = getProjectStepDefinition(node.stepCode as ProjectStepCode)
   return contract.fieldDefinitions
     .filter((field) => !field.readonly && field.required)
     .filter((field) => {
@@ -4569,7 +4486,7 @@ function isProjectFixedFlowFieldVisible(
   node: ProjectNodeViewModel,
   field: ProjectNodeFormalField,
 ): boolean {
-  if (node.node.workItemTypeCode !== 'SAMPLE_ACQUIRE') return true
+  if (node.node.stepCode !== 'SAMPLE_ACQUIRE') return true
   const sampleSourceType = getProjectSampleAcquireSourceType(project, node)
   if (sampleSourceType !== '委托打样') return true
   return DELEGATED_SAMPLE_ACQUIRE_FIELD_KEYS.has(field.fieldKey)
@@ -4580,7 +4497,7 @@ function applyProjectFixedFlowFieldPolicy(
   node: ProjectNodeViewModel,
   field: ProjectNodeFormalField,
 ): ProjectNodeFormalField {
-  if (node.node.workItemTypeCode !== 'SAMPLE_ACQUIRE') return field
+  if (node.node.stepCode !== 'SAMPLE_ACQUIRE') return field
   const lockedSourceType = getProjectLockedSampleSourceType(project)
 
   if (field.fieldKey === 'sampleSupplierId' && lockedSourceType === '委托打样') {
@@ -4597,7 +4514,7 @@ function applyProjectFixedFlowFieldPolicy(
     return {
       ...field,
       options: field.options || [],
-      businessLogic: '样衣来源方式按业务模板约束；当前仅允许国内采购外采或万隆委托打样。',
+      businessLogic: '样衣来源方式按固定业务规则约束；当前仅允许国内采购外采或万隆委托打样。',
     }
   }
 
@@ -4618,7 +4535,7 @@ function getFixedFlowLockedFieldValue(
   field: ProjectNodeFormalField,
   value: unknown,
 ): unknown {
-  if (node.node.workItemTypeCode === 'SAMPLE_ACQUIRE' && field.fieldKey === 'sampleSourceType') {
+  if (node.node.stepCode === 'SAMPLE_ACQUIRE' && field.fieldKey === 'sampleSourceType') {
     return getProjectLockedSampleSourceType(project) || value
   }
   return value
@@ -4637,11 +4554,11 @@ function buildNodeCompletionValues(project: PcsProjectRecord, node: ProjectNodeV
 
 function canCompleteProjectNode(project: PcsProjectRecord, node: ProjectNodeViewModel): boolean {
   if (!node.unlocked) return false
-  if (node.node.workItemTypeCode === 'LIVE_TEST') {
+  if (node.node.stepCode === 'LIVE_TEST') {
     return hasProjectLiveTestingRecord(project)
   }
   const values = buildNodeCompletionValues(project, node)
-  const shouldValidateRequiredFields = !PROJECT_NODE_FIELD_MODULE_EXCEPTIONS.has(node.node.workItemTypeCode)
+  const shouldValidateRequiredFields = !PROJECT_NODE_FIELD_MODULE_EXCEPTIONS.has(node.node.stepCode)
   const hasMissingRequiredField =
     shouldValidateRequiredFields &&
     node.contract.fieldDefinitions
@@ -4660,7 +4577,7 @@ function getBusinessRuleValidationErrors(
 ): string[] {
   const errors: string[] = []
 
-  if (node.node.workItemTypeCode === 'SAMPLE_ACQUIRE') {
+  if (node.node.stepCode === 'SAMPLE_ACQUIRE') {
     const lockedSourceType = getProjectLockedSampleSourceType(project)
     const sampleSourceType = String(values.sampleSourceType || '').trim()
     const sampleLink = String(values.sampleLink || '').trim()
@@ -4670,14 +4587,14 @@ function getBusinessRuleValidationErrors(
         ? Number.isFinite(sampleUnitPrice)
         : String(sampleUnitPrice || '').trim() !== ''
     if (lockedSourceType && sampleSourceType !== lockedSourceType) {
-      errors.push(`当前项目模板的样衣来源方式固定为${lockedSourceType}，不能选择${sampleSourceType || '其他来源'}。`)
+      errors.push(`当前固定流程的样衣来源方式固定为${lockedSourceType}，不能选择${sampleSourceType || '其他来源'}。`)
     }
     if (sampleSourceType === '外采' && !sampleLink && !hasUnitPrice) {
       errors.push('样衣来源方式为外采时，外采链接和样衣单价至少填写一项。')
     }
   }
 
-  if (node.node.workItemTypeCode === 'SAMPLE_INBOUND_CHECK') {
+  if (node.node.stepCode === 'SAMPLE_INBOUND_CHECK') {
     const receivedQty = Number(values.receivedQty || 0)
     const sampleInboundLines = parseSampleInboundLineRows(values.sampleInboundLines)
     if (sampleInboundLines.length === 0 || !(receivedQty > 0)) {
@@ -4685,7 +4602,7 @@ function getBusinessRuleValidationErrors(
     }
   }
 
-  if (node.node.workItemTypeCode === 'LIVE_TEST') {
+  if (node.node.stepCode === 'LIVE_TEST') {
     const exposure = Number(values.exposure || 0)
     const click = Number(values.click || 0)
     const cart = Number(values.cart || 0)
@@ -4707,7 +4624,7 @@ function getBusinessRuleValidationErrors(
     }
   }
 
-  if (node.node.workItemTypeCode === 'VIDEO_TEST') {
+  if (node.node.stepCode === 'VIDEO_TEST') {
     const views = Number(values.views || 0)
     const clicks = Number(values.clicks || 0)
     const likes = Number(values.likes || 0)
@@ -4720,14 +4637,14 @@ function getBusinessRuleValidationErrors(
     if (!(gmv > 0)) errors.push('短视频测款 GMV 必须大于 0。')
   }
 
-  if (node.node.workItemTypeCode === 'TEST_DATA_SUMMARY') {
+  if (node.node.stepCode === 'TEST_DATA_SUMMARY') {
     const aggregate = getProjectTestingAggregate(project.projectId)
     if (aggregate.liveRelationIds.length + aggregate.videoRelationIds.length === 0) {
       errors.push('至少关联 1 条正式直播或短视频测款事实后，才能提交测款汇总。')
     }
   }
 
-  if (node.node.workItemTypeCode === 'SAMPLE_SHOOT_FIT') {
+  if (node.node.stepCode === 'SAMPLE_SHOOT_FIT') {
     const listingCandidateImageIds = getDraftStringArray(values.listingCandidateImageIds)
     const styleArchiveCandidateImageIds = getDraftStringArray(values.styleArchiveCandidateImageIds)
     const sampleShootImages = listSampleShootImageAssets(project.projectId)
@@ -4741,7 +4658,7 @@ function getBusinessRuleValidationErrors(
     }
   }
 
-  if (node.node.workItemTypeCode === 'SAMPLE_RETURN_HANDLE') {
+  if (node.node.stepCode === 'SAMPLE_RETURN_HANDLE') {
     const handleType = String(values.handleType || '').trim()
     const destination = String(values.destination || '').trim()
     const handledQtyText = String(values.handledQty || '').trim()
@@ -5398,214 +5315,8 @@ async function appendChannelListingSupplementImages(
   window.dispatchEvent(new Event('higood:request-render'))
 }
 
-async function appendStyleArchiveSupplementImages(
-  project: PcsProjectRecord,
-  node: ProjectNodeViewModel,
-  files: File[],
-): Promise<void> {
-  if (!files.length) return
-  const draft = getStyleArchiveImageDraft(project, node)
-  const timestamp = new Date().toISOString()
-  const created = await createProjectImageAssetRecordsFromFiles(
-    project,
-    files,
-    (file, index) => ({
-      imageName: files[index]?.name || `档案补充图 ${index + 1}`,
-      imageType: '款式档案图',
-      sourceNodeCode: 'STYLE_ARCHIVE_CREATE',
-      sourceRecordId: buildStyleArchiveImageDraftKey(project.projectId, node.node.projectNodeId),
-      sourceType: '生成款式档案',
-      usageScopes: ['款式档案', '项目资料归档'],
-      imageStatus: '可用于款式档案',
-      mainFlag: false,
-      sortNo: draft.styleGalleryImageIds.length + index + 1,
-    }),
-    '当前用户',
-    timestamp,
-  )
-  upsertProjectImageAssets(created)
-  const nextImageIds = [...draft.styleGalleryImageIds, ...created.map((item) => item.imageId)]
-  updateStyleArchiveImageDraft(project, node, {
-    styleGalleryImageIds: nextImageIds,
-    styleMainImageId: draft.styleMainImageId || created[0]?.imageId || '',
-  })
-  state.notice = '档案补充图片已加入当前款式档案选择。'
-  window.dispatchEvent(new Event('higood:request-render'))
-}
-
-function renderStyleArchiveSelectedImages(
-  project: PcsProjectRecord,
-  draft: StyleArchiveImageDraft,
-  editable: boolean,
-): string {
-  const images = resolveStyleArchiveDraftImages(project.projectId, draft)
-  if (images.length === 0) {
-    return `
-      <div class="rounded-md border border-dashed border-slate-200 px-3 py-6 text-center text-xs text-slate-400">
-        暂未选择档案图片
-      </div>
-    `
-  }
-
-  return `
-    <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-4">
-      ${images
-        .map((image, index) => {
-          const isMain = image.imageId === draft.styleMainImageId
-          return `
-            <article class="rounded-lg border border-slate-200 bg-white p-3">
-              <button type="button" class="block h-40 w-full overflow-hidden rounded-md bg-slate-100" data-pcs-project-action="open-image-preview" data-url="${escapeHtml(image.imageUrl)}" data-title="${escapeHtml(image.previewTitle)}" aria-label="${escapeHtml(`查看${image.imageName}`)}">
-                <img src="${escapeHtml(image.imageUrl)}" alt="${escapeHtml(image.imageName)}" class="h-full w-full object-cover" />
-              </button>
-              <div class="mt-3 space-y-2">
-                <div>
-                  <p class="text-sm font-medium text-slate-900">${escapeHtml(image.imageName)}</p>
-                  <p class="mt-1 text-xs text-slate-500">${escapeHtml(image.imageType)} · ${escapeHtml(image.imageStatus || '-')}</p>
-                </div>
-                <div class="flex flex-wrap gap-1">
-                  ${image.usageScopes.map((scope) => `<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">${escapeHtml(scope)}</span>`).join('')}
-                </div>
-                ${
-                  editable
-                    ? `<div class="flex flex-wrap gap-2">
-                        <button type="button" class="inline-flex h-7 items-center rounded-md border px-2 text-[11px] ${isMain ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}" data-pcs-project-action="set-style-archive-main-image" data-image-id="${escapeHtml(image.imageId)}">${isMain ? '当前主图' : '设为主图'}</button>
-                        <button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2 text-[11px] text-slate-600 hover:bg-slate-50" data-pcs-project-action="move-style-archive-image-up" data-image-id="${escapeHtml(image.imageId)}" ${index === 0 ? 'disabled' : ''}>上移</button>
-                        <button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2 text-[11px] text-slate-600 hover:bg-slate-50" data-pcs-project-action="move-style-archive-image-down" data-image-id="${escapeHtml(image.imageId)}" ${index === images.length - 1 ? 'disabled' : ''}>下移</button>
-                        <button type="button" class="inline-flex h-7 items-center rounded-md border border-rose-200 bg-white px-2 text-[11px] text-rose-600 hover:bg-rose-50" data-pcs-project-action="remove-style-archive-image" data-image-id="${escapeHtml(image.imageId)}">移除</button>
-                      </div>`
-                    : isMain
-                      ? '<span class="inline-flex rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] text-blue-700">档案主图</span>'
-                      : ''
-                }
-              </div>
-            </article>
-          `
-        })
-        .join('')}
-    </div>
-  `
-}
-
-function renderStyleArchiveCandidateImagePicker(
-  project: PcsProjectRecord,
-  draft: StyleArchiveImageDraft,
-  editable: boolean,
-): string {
-  const candidates = resolveStyleArchiveCandidateImages(project.projectId, draft)
-  return `
-    <div class="rounded-lg border border-slate-200">
-      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
-        <div>
-          <h4 class="text-sm font-semibold text-slate-900">档案主图与图册</h4>
-          <p class="mt-1 text-xs text-slate-500">优先选择商品上架图片，其次选择可用于款式档案的样衣拍摄图片。项目参考图需确认后使用。</p>
-        </div>
-        ${
-          editable
-            ? `<label class="inline-flex h-8 cursor-pointer items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50">
-                上传档案补充图
-                <input type="file" accept="image/*" multiple class="hidden" data-pcs-project-field="style-archive-supplement-images" />
-              </label>`
-            : ''
-        }
-      </div>
-      <div class="space-y-4 p-4">
-        <div>
-          <div class="mb-2 text-xs font-medium text-slate-500">已选档案图册</div>
-          ${renderStyleArchiveSelectedImages(project, draft, editable)}
-        </div>
-        <div>
-          <div class="mb-2 text-xs font-medium text-slate-500">候选图片</div>
-          ${
-            candidates.length === 0
-              ? '<div class="rounded-md border border-dashed border-slate-200 px-3 py-6 text-center text-xs text-slate-400">暂无可选图片，请先选择或上传图片。</div>'
-              : `
-                <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-4">
-                  ${candidates
-                    .map((image) => {
-                      const action = image.requiresConfirmation ? 'confirm-add-style-archive-image' : 'add-style-archive-image'
-                      const buttonText = image.requiresConfirmation ? '确认可用于款式档案并加入' : '加入档案图册'
-                      return `
-                        <article class="rounded-lg border border-slate-200 bg-white p-3">
-                          <button type="button" class="block h-32 w-full overflow-hidden rounded-md bg-slate-100" data-pcs-project-action="open-image-preview" data-url="${escapeHtml(image.imageUrl)}" data-title="${escapeHtml(image.imageName)}" aria-label="${escapeHtml(`查看${image.imageName}`)}">
-                            <img src="${escapeHtml(image.imageUrl)}" alt="${escapeHtml(image.imageName)}" class="h-full w-full object-cover" />
-                          </button>
-                          <div class="mt-3 space-y-2">
-                            <div class="flex items-start justify-between gap-2">
-                              <div>
-                                <p class="text-sm font-medium text-slate-900">${escapeHtml(image.imageName)}</p>
-                                <p class="mt-1 text-xs text-slate-500">${escapeHtml(image.sourceLabel)} · ${escapeHtml(image.imageStatus)}</p>
-                              </div>
-                              ${image.requiresConfirmation ? '<span class="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700">需确认后使用</span>' : ''}
-                            </div>
-                            <div class="flex flex-wrap gap-1">
-                              ${image.usageScopes.map((scope) => `<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">${escapeHtml(scope)}</span>`).join('')}
-                            </div>
-                            ${
-                              editable
-                                ? `<div class="flex flex-wrap gap-2">
-                                    <button type="button" class="inline-flex h-8 items-center rounded-md border ${image.requiresConfirmation ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100' : 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'} px-3 text-xs font-medium" data-pcs-project-action="${action}" data-image-id="${escapeHtml(image.imageId)}">${escapeHtml(buttonText)}</button>
-                                    <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-project-action="${action}" data-image-id="${escapeHtml(image.imageId)}" data-set-main="true">设为主图并加入</button>
-                                  </div>`
-                                : ''
-                            }
-                          </div>
-                        </article>
-                      `
-                    })
-                    .join('')}
-                </div>
-              `
-          }
-        </div>
-      </div>
-    </div>
-  `
-}
-
-function renderStyleArchiveCreateWorkspace(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
-  const draft = getStyleArchiveImageDraft(project, node)
-  const style = findStyleArchiveByProjectId(project.projectId)
-  const editable =
-    node.displayStatus !== '未解锁' &&
-    node.node.currentStatus !== '已取消' &&
-    !style
-
-  return `
-    <div class="space-y-4">
-      <section class="rounded-lg border bg-white p-4">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 class="text-base font-semibold text-slate-900">款式档案图片确认</h3>
-            <p class="mt-1 text-xs text-slate-500">${style ? `当前已生成款式档案 ${style.styleCode}。` : '先确认档案主图和图册，再生成款式档案。'}</p>
-          </div>
-          ${style ? `<button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/products/styles/${escapeHtml(style.styleId)}">查看款式档案</button>` : ''}
-        </div>
-        ${
-          style
-            ? `<div class="mt-4 grid gap-3 md:grid-cols-3">
-                <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-xs text-slate-500">档案主图</p>
-                  <p class="mt-2 text-sm font-medium text-slate-900">${escapeHtml(style.mainImageId || '未记录')}</p>
-                </article>
-                <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-xs text-slate-500">图册数量</p>
-                  <p class="mt-2 text-sm font-medium text-slate-900">${escapeHtml(String(style.galleryImageIds?.length || style.galleryImageUrls?.length || 0))}</p>
-                </article>
-                <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-xs text-slate-500">图片来源</p>
-                  <p class="mt-2 text-sm font-medium text-slate-900">${escapeHtml(style.imageSource || '未记录')}</p>
-                </article>
-              </div>`
-            : ''
-        }
-      </section>
-      ${renderStyleArchiveCandidateImagePicker(project, draft, editable)}
-    </div>
-  `
-}
-
 function isSampleShootFitNode(node: ProjectNodeViewModel): boolean {
-  return node.node.workItemTypeCode === 'SAMPLE_SHOOT_FIT'
+  return node.node.stepCode === 'SAMPLE_SHOOT_FIT'
 }
 
 function canEditSampleShootFitNode(node: ProjectNodeViewModel): boolean {
@@ -5613,12 +5324,12 @@ function canEditSampleShootFitNode(node: ProjectNodeViewModel): boolean {
 }
 
 function shouldKeepDraftArrayValue(
-  workItemTypeCode: string,
+  stepCode: string,
   fieldKey: string,
   fieldType: PcsProjectNodeFieldGroupDefinition['fields'][number]['type'],
 ): boolean {
   if (fieldType === 'image-list') return true
-  if (workItemTypeCode !== 'SAMPLE_SHOOT_FIT') return false
+  if (stepCode !== 'SAMPLE_SHOOT_FIT') return false
   return (
     fieldKey === 'sampleVideoUrls' ||
     fieldKey === 'listingCandidateImageIds' ||
@@ -5908,8 +5619,8 @@ function buildProjectLogs(project: PcsProjectViewRecord): ProjectLogItem[] {
     if (!(node.lastEventTime || node.updatedAt)) return
     logs.push({
       time: node.lastEventTime || node.updatedAt || project.updatedAt,
-      title: `${node.workItemTypeName}已完成`,
-      detail: node.latestResultText || `${node.workItemTypeName}已完成。`,
+      title: `${node.stepName}已完成`,
+      detail: node.latestResultText || `${node.stepName}已完成。`,
       tone: 'emerald',
     })
   })
@@ -5930,10 +5641,10 @@ function buildProjectViewModel(projectId: string): ProjectViewModel | null {
   const nodeInstanceMap = new Map(instanceModel.nodes.map((item) => [item.projectNodeId, item]))
   const nodeViewModels = nodes.map((node) => ({
     node,
-    contract: getProjectWorkItemContract(node.workItemTypeCode as PcsProjectWorkItemCode),
-    step: getProjectStepContractByPhaseCode(node.phaseCode as Parameters<typeof getProjectStepContractByPhaseCode>[0]),
-    stepCode: getProjectStepContractByPhaseCode(
-      node.phaseCode as Parameters<typeof getProjectStepContractByPhaseCode>[0],
+    contract: getProjectStepDefinition(node.stepCode as ProjectStepCode),
+    step: getProjectFlowStageContractByPhaseCode(node.phaseCode as Parameters<typeof getProjectFlowStageContractByPhaseCode>[0]),
+    stepCode: getProjectFlowStageContractByPhaseCode(
+      node.phaseCode as Parameters<typeof getProjectFlowStageContractByPhaseCode>[0],
     ).stepCode,
     records: listProjectInlineNodeRecordsByNode(node.projectNodeId),
     latestRecord: getLatestProjectInlineNodeRecord(node.projectNodeId),
@@ -5950,8 +5661,8 @@ function buildProjectViewModel(projectId: string): ProjectViewModel | null {
   const currentPhaseCode = currentNode?.node.phaseCode ?? project.currentPhaseCode
 
   const phaseViewModels = phases.map((phase) => {
-    const stepCode = getProjectStepContractByPhaseCode(
-      phase.phaseCode as Parameters<typeof getProjectStepContractByPhaseCode>[0],
+    const stepCode = getProjectFlowStageContractByPhaseCode(
+      phase.phaseCode as Parameters<typeof getProjectFlowStageContractByPhaseCode>[0],
     ).stepCode
     const phaseNodes = nodeViewModels.filter((item) => item.stepCode === stepCode)
     let derivedStatus: PcsProjectPhaseRecord['phaseStatus'] = '未开始'
@@ -6066,19 +5777,19 @@ function ensureDetailState(projectId: string): void {
   }
 }
 
-function normalizeWorkItemTab(value: string | null): WorkItemTabKey {
-  return WORK_ITEM_TAB_OPTIONS.find((item) => item.key === value)?.key ?? 'full-info'
+function normalizeStepTab(value: string | null): StepTabKey {
+  return STEP_TAB_OPTIONS.find((item) => item.key === value)?.key ?? 'full-info'
 }
 
-function ensureWorkItemState(projectId: string, projectNodeId: string): void {
+function ensureStepState(projectId: string, projectNodeId: string): void {
   const queryParams = getCurrentQueryParams()
-  const routeKey = `work-item:${projectId}:${projectNodeId}:${queryParams.toString()}`
-  if (state.workItem.routeKey === routeKey) return
-  state.workItem = {
+  const routeKey = `step:${projectId}:${projectNodeId}:${queryParams.toString()}`
+  if (state.stepDefinition.routeKey === routeKey) return
+  state.stepDefinition = {
     routeKey,
     projectId,
     projectNodeId,
-    activeTab: normalizeWorkItemTab(queryParams.get('tab')),
+    activeTab: normalizeStepTab(queryParams.get('tab')),
   }
 }
 
@@ -6156,7 +5867,7 @@ function renderProjectTerminateDialog(): string {
 }
 
 function renderFixedStepPreview(): string {
-  const steps = listProjectStepContracts()
+  const steps = listProjectFlowStageContracts()
   return `
     <div class="space-y-4">
       <div class="rounded-lg border border-blue-200 bg-blue-50 p-4">
@@ -6173,14 +5884,14 @@ function renderFixedStepPreview(): string {
                     <h3 class="text-sm font-semibold text-slate-900">${step.sequence}. ${escapeHtml(step.stepName)}</h3>
                     <p class="mt-1 text-xs text-slate-500">${escapeHtml(step.description)}</p>
                   </div>
-                  <span class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">${step.workItemCodes.length} 个业务办理项</span>
+                  <span class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">${step.stepCodes.length} 个业务办理项</span>
                 </div>
                 <div class="mt-3 flex flex-wrap gap-2">
-                  ${step.workItemCodes
-                    .map((workItemTypeCode) => getProjectWorkItemContract(workItemTypeCode))
-                    .map((workItem) => `
+                  ${step.stepCodes
+                    .map((stepCode) => getProjectStepDefinition(stepCode))
+                    .map((stepDefinition) => `
                         <span class="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">
-                          ${escapeHtml(workItem.workItemTypeName)}
+                          ${escapeHtml(stepDefinition.stepName)}
                         </span>
                       `)
                     .join('')}
@@ -6580,7 +6291,7 @@ function renderPhaseNavigator(viewModel: ProjectViewModel): string {
   const selectedNodeId = state.detail.selectedNodeId
   return `
     <section class="rounded-lg border bg-white p-4">
-      <h2 class="mb-4 text-base font-semibold text-slate-900">阶段与工作项</h2>
+      <h2 class="mb-4 text-base font-semibold text-slate-900">阶段与步骤</h2>
       <div class="space-y-3">
         ${viewModel.phases
           .map((phase, index) => {
@@ -6621,7 +6332,7 @@ function renderPhaseNavigator(viewModel: ProjectViewModel): string {
                                 <i data-lucide="${getNodeStatusIcon(item.displayStatus)}" class="mt-0.5 h-4 w-4 ${item.displayStatus === '已完成' ? 'text-emerald-500' : item.displayStatus === '进行中' ? 'text-blue-500' : item.displayStatus === '待确认' ? 'text-amber-500' : item.displayStatus === '已取消' ? 'text-rose-500' : 'text-slate-400'}"></i>
                                 <div class="min-w-0 flex-1">
                                   <div class="flex flex-wrap items-center gap-2">
-                                    <p class="text-sm font-medium text-slate-900">${escapeHtml(item.node.workItemTypeName)}</p>
+                                    <p class="text-sm font-medium text-slate-900">${escapeHtml(item.node.stepName)}</p>
                                     <span class="inline-flex rounded-full px-2 py-0.5 text-[11px] ${getNodeStatusBadgeClass(item.displayStatus)}">${escapeHtml(item.displayStatus)}</span>
                                   </div>
                                   <p class="mt-1 text-xs text-slate-500">${escapeHtml(item.node.currentOwnerName || viewModel.project.ownerName)}</p>
@@ -6795,11 +6506,11 @@ function resolveEngineeringTaskBasicSnapshot(
   project: PcsProjectRecord,
   node: ProjectNodeViewModel,
 ): EngineeringTaskBasicSnapshot | null {
-  if (!isEngineeringTaskPolicyCode(node.node.workItemTypeCode)) {
+  if (!isEngineeringTaskPolicyCode(node.node.stepCode)) {
     return null
   }
 
-  const policy = getEngineeringTaskFieldPolicy(node.node.workItemTypeCode)
+  const policy = getEngineeringTaskFieldPolicy(node.node.stepCode)
   const buildSnapshot = (
     task: Record<string, unknown> | null,
     taskCode: string,
@@ -6811,13 +6522,13 @@ function resolveEngineeringTaskBasicSnapshot(
     taskStatus,
     updatedAt,
     taskExists: Boolean(task),
-    fields: getEngineeringTaskSnapshotFields(node.node.workItemTypeCode, policy).map((field) => ({
+    fields: getEngineeringTaskSnapshotFields(node.node.stepCode, policy).map((field) => ({
       label: field.label,
       value: formatEngineeringTaskBasicFieldValue(task, field.fieldKey),
     })),
   })
 
-  if (node.node.workItemTypeCode === 'REVISION_TASK') {
+  if (node.node.stepCode === 'REVISION_TASK') {
     const relation =
       findLatestNodeRelation(project.projectId, node.node.projectNodeId, '改版任务', '改版任务') ||
       findLatestProjectRelation(project.projectId, '改版任务', '改版任务')
@@ -6826,7 +6537,7 @@ function resolveEngineeringTaskBasicSnapshot(
     return buildSnapshot(task, task?.revisionTaskCode || '', task?.status || '未创建', task?.updatedAt || node.node.updatedAt || '')
   }
 
-  if (node.node.workItemTypeCode === 'PATTERN_TASK') {
+  if (node.node.stepCode === 'PATTERN_TASK') {
     const relation =
       findLatestNodeRelation(project.projectId, node.node.projectNodeId, '制版任务', '制版任务') ||
       findLatestProjectRelation(project.projectId, '制版任务', '制版任务')
@@ -7010,7 +6721,7 @@ function renderFirstOrderSampleProjectNodeWorkspace(project: PcsProjectRecord, n
 }
 
 function renderProjectInitSnapshot(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
-  const groups = listProjectWorkItemFieldGroups('PROJECT_INIT')
+  const groups = listProjectStepFieldGroups('PROJECT_INIT')
   const referenceImages = listProjectReferenceImageViewModels(project.projectId)
   const editable = node.displayStatus !== '未解锁' && (node.node.currentStatus === '进行中' || node.node.currentStatus === '待确认')
 
@@ -7087,7 +6798,7 @@ function renderProjectInitSnapshot(project: PcsProjectRecord, node: ProjectNodeV
 }
 
 function isProjectNodeKeyInfoOnly(node: ProjectNodeViewModel): boolean {
-  return isEngineeringTaskPolicyCode(node.node.workItemTypeCode)
+  return isEngineeringTaskPolicyCode(node.node.stepCode)
 }
 
 function canEditProjectNodeFields(node: ProjectNodeViewModel): boolean {
@@ -7095,7 +6806,7 @@ function canEditProjectNodeFields(node: ProjectNodeViewModel): boolean {
 }
 
 function renderReadonlyFieldSection(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
-  const groups = listProjectWorkItemFieldGroups(node.node.workItemTypeCode as PcsProjectWorkItemCode)
+  const groups = listProjectStepFieldGroups(node.node.stepCode as ProjectStepCode)
   if (groups.length === 0) {
     return `
       <article class="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4">
@@ -7108,15 +6819,15 @@ function renderReadonlyFieldSection(project: PcsProjectRecord, node: ProjectNode
 }
 
 function renderProjectNodeInlineContent(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
-  if (node.node.workItemTypeCode === 'PROJECT_INIT') {
+  if (node.node.stepCode === 'PROJECT_INIT') {
     return renderProjectInitSnapshot(project, node)
   }
 
-  if (node.node.workItemTypeCode === 'FIRST_SAMPLE') {
+  if (node.node.stepCode === 'FIRST_SAMPLE') {
     return renderFirstSampleProjectNodeWorkspace(project, node)
   }
 
-  if (node.node.workItemTypeCode === 'FIRST_ORDER_SAMPLE') {
+  if (node.node.stepCode === 'FIRST_ORDER_SAMPLE') {
     return renderFirstOrderSampleProjectNodeWorkspace(project, node)
   }
 
@@ -7124,7 +6835,7 @@ function renderProjectNodeInlineContent(project: PcsProjectRecord, node: Project
     return renderSampleShootFitWorkspace(project, node)
   }
 
-  if (node.node.workItemTypeCode === 'SAMPLE_COST_REVIEW') {
+  if (node.node.stepCode === 'SAMPLE_COST_REVIEW') {
     return renderSampleCostReviewWorkspace(project, node)
   }
 
@@ -7132,12 +6843,8 @@ function renderProjectNodeInlineContent(project: PcsProjectRecord, node: Project
     return renderChannelListingNodeWorkspace(project, node)
   }
 
-  if (node.node.workItemTypeCode === 'LIVE_TEST') {
+  if (node.node.stepCode === 'LIVE_TEST') {
     return renderLiveTestingNodeWorkspace(project, node)
-  }
-
-  if (node.node.workItemTypeCode === 'STYLE_ARCHIVE_CREATE') {
-    return renderStyleArchiveCreateWorkspace(project, node)
   }
 
   if (isDecisionNode(node)) {
@@ -7148,7 +6855,7 @@ function renderProjectNodeInlineContent(project: PcsProjectRecord, node: Project
     return renderEngineeringTaskBasicSection(project, node)
   }
 
-  if (canUseInlineRecords(node.node.workItemTypeCode) && canEditProjectNodeFields(node)) {
+  if (canUseInlineRecords(node.node.stepCode) && canEditProjectNodeFields(node)) {
     return renderFormalFieldEntrySection(project, node)
   }
 
@@ -7189,9 +6896,9 @@ function renderProjectOverviewCard(viewModel: ProjectViewModel): string {
     <article class="rounded-lg border bg-white p-4">
       <h2 class="text-base font-semibold text-slate-900">项目概览</h2>
       <div class="mt-4 space-y-3 text-sm text-slate-600">
-        <div class="flex items-center justify-between gap-3"><span>模板</span><span class="text-right font-medium text-slate-900">${escapeHtml(viewModel.project.templateName)}</span></div>
+        <div class="flex items-center justify-between gap-3"><span>流程</span><span class="text-right font-medium text-slate-900">固定五步商品测款流程</span></div>
         <div class="flex items-center justify-between gap-3"><span>阶段进度</span><span class="text-right font-medium text-slate-900">${viewModel.progressDone}/${viewModel.progressTotal}</span></div>
-        <div class="flex items-center justify-between gap-3"><span>当前待办</span><span class="text-right font-medium text-slate-900">${escapeHtml(viewModel.nextNode?.node.workItemTypeName || '无')}</span></div>
+        <div class="flex items-center justify-between gap-3"><span>当前待办</span><span class="text-right font-medium text-slate-900">${escapeHtml(viewModel.nextNode?.node.stepName || '无')}</span></div>
         <div class="flex items-center justify-between gap-3"><span>风险状态</span><span class="text-right font-medium ${viewModel.project.riskStatus === '延期' ? 'text-amber-600' : 'text-emerald-600'}">${escapeHtml(getRiskText(viewModel.project))}</span></div>
         <div class="flex items-center justify-between gap-3"><span>测款渠道</span><span class="text-right font-medium text-slate-900">${escapeHtml(viewModel.channelNames.join('、') || '-')}</span></div>
         ${closure ? `
@@ -7216,8 +6923,8 @@ function renderDetailDecisionDialog(viewModel: ProjectViewModel, selectedNode: P
   const options = getDecisionOptions(selectedNode)
 
   return renderModalShell(
-    selectedNode.node.workItemTypeCode === 'TEST_CONCLUSION' ? '测款结论判定' : '节点决策',
-    `请确认「${selectedNode.node.workItemTypeName}」的处理结果。`,
+    selectedNode.node.stepCode === 'TEST_CONCLUSION' ? '测款结论判定' : '节点决策',
+    `请确认「${selectedNode.node.stepName}」的处理结果。`,
     `
       <div class="space-y-2">
         <p class="text-xs text-slate-500">决策结果</p>
@@ -7265,7 +6972,7 @@ function renderProjectDetailPage(projectId: string): string {
   }
 
   const selectedNode = getSelectedDetailNode(viewModel)
-  const selectedNature = selectedNode?.contract.workItemNature || '执行类'
+  const selectedNature = selectedNode?.contract.stepNature || '执行类'
   const locked = selectedNode ? selectedNode.displayStatus === '未解锁' : false
 
   return `
@@ -7282,7 +6989,7 @@ function renderProjectDetailPage(projectId: string): string {
                   <div class="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <div class="flex flex-wrap items-center gap-2">
-                        <h2 class="text-xl font-semibold text-slate-900">${escapeHtml(selectedNode.node.workItemTypeName)}</h2>
+                        <h2 class="text-xl font-semibold text-slate-900">${escapeHtml(selectedNode.node.stepName)}</h2>
                         <span class="inline-flex rounded-full border px-2 py-0.5 text-xs ${getNatureBadgeClass(selectedNature)}">${escapeHtml(selectedNature)}</span>
                         <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${getNodeStatusBadgeClass(selectedNode.displayStatus)}">${escapeHtml(selectedNode.displayStatus)}</span>
                       </div>
@@ -7303,7 +7010,6 @@ function renderProjectDetailPage(projectId: string): string {
                             }`
                           : `
                               ${renderEngineeringTaskNodeAction(viewModel.project, selectedNode)}
-                              ${renderStyleArchiveNodeAction(viewModel.project, selectedNode)}
                               ${renderTestingCreateAction(viewModel.project, selectedNode)}
                               ${!locked && canRenderManualCompleteAction(selectedNode)
                                 ? '<button type="button" class="inline-flex h-9 items-center rounded-md border border-emerald-200 bg-emerald-50 px-4 text-sm font-medium text-emerald-700 hover:bg-emerald-100" data-pcs-project-action="mark-node-complete">标记完成</button>'
@@ -7313,7 +7019,7 @@ function renderProjectDetailPage(projectId: string): string {
                     </div>
                   </div>
                 </section>
-                ${locked ? `<section class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">当前节点尚未解锁，请先完成前序工作项后再继续处理。</section>` : ''}
+                ${locked ? `<section class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">当前节点尚未解锁，请先完成前序步骤后再继续处理。</section>` : ''}
                 ${renderProjectNodeInlineContent(viewModel.project, selectedNode)}
               `
               : ''
@@ -7369,8 +7075,8 @@ function renderEditableFieldGroups(
   draft: RecordDialogState,
   compact = false,
 ): string {
-  const groups = listProjectWorkItemFieldGroups(node.node.workItemTypeCode as PcsProjectWorkItemCode)
-  const editableKeys = getInlineEditableFieldKeys(node.node.workItemTypeCode)
+  const groups = listProjectStepFieldGroups(node.node.stepCode as ProjectStepCode)
+  const editableKeys = getInlineEditableFieldKeys(node.node.stepCode)
   const disabled = !canEditProjectNodeFields(node)
   const showHeader = groups.length > 1
 
@@ -7431,15 +7137,15 @@ function renderFormalFieldEntrySection(project: PcsProjectRecord, node: ProjectN
     return renderDecisionNodeSection(project, node)
   }
 
-  if (!canUseInlineRecords(node.node.workItemTypeCode)) {
-    if (node.node.workItemTypeCode === 'PROJECT_INIT') {
+  if (!canUseInlineRecords(node.node.stepCode)) {
+    if (node.node.stepCode === 'PROJECT_INIT') {
       return `
         <section class="rounded-lg border bg-white p-4">
-          <h3 class="text-base font-semibold text-slate-900">工作项字段</h3>
+          <h3 class="text-base font-semibold text-slate-900">步骤字段</h3>
         </section>
       `
     }
-    if (!PROJECT_NODE_FIELD_MODULE_EXCEPTIONS.has(node.node.workItemTypeCode)) {
+    if (!PROJECT_NODE_FIELD_MODULE_EXCEPTIONS.has(node.node.stepCode)) {
       const testingAction = renderTestingCreateAction(project, node)
       return `
         <section class="rounded-lg border bg-white p-4">
@@ -7462,7 +7168,7 @@ function renderFormalFieldEntrySection(project: PcsProjectRecord, node: ProjectN
   }
 
   const draft = getNodeRecordDraft(project, node)
-  const recordMode = node.contract.runtimeType === 'execute' && node.contract.workItemNature === '执行类' && node.node.multiInstanceFlag
+  const recordMode = node.contract.runtimeType === 'execute' && node.contract.stepNature === '执行类' && node.node.multiInstanceFlag
   const saveDraftButton = recordMode
     ? ''
     : '<button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-project-action="save-formal-fields">保存正式字段</button>'
@@ -7490,7 +7196,7 @@ function renderFormalFieldEntrySection(project: PcsProjectRecord, node: ProjectN
   `
 }
 
-function renderWorkItemTabs(viewModel: ProjectViewModel, node: ProjectNodeViewModel): string {
+function renderStepTabs(viewModel: ProjectViewModel, node: ProjectNodeViewModel): string {
   const recordCount = node.records.length
   const attachmentCount =
     node.instanceModel.relatedObjectCount +
@@ -7500,13 +7206,13 @@ function renderWorkItemTabs(viewModel: ProjectViewModel, node: ProjectNodeViewMo
 
   return `
     <div class="inline-flex items-center rounded-md bg-slate-100 p-1">
-      ${WORK_ITEM_TAB_OPTIONS.map((item) => {
+      ${STEP_TAB_OPTIONS.map((item) => {
         const badgeText = item.key === 'records' ? String(recordCount) : item.key === 'attachments' ? String(attachmentCount) : item.key === 'audit' ? String(auditCount) : ''
         return `
           <button type="button" class="${toClassName(
             'inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm transition',
-            state.workItem.activeTab === item.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900',
-          )}" data-pcs-project-action="switch-work-item-tab" data-tab="${item.key}">
+            state.stepDefinition.activeTab === item.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900',
+          )}" data-pcs-project-action="switch-step-tab" data-tab="${item.key}">
             ${escapeHtml(item.label)}
             ${badgeText ? `<span class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">${badgeText}</span>` : ''}
           </button>
@@ -7516,42 +7222,42 @@ function renderWorkItemTabs(viewModel: ProjectViewModel, node: ProjectNodeViewMo
   `
 }
 
-function renderWorkItemFullInfo(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
+function renderStepFullInfo(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
   if (isChannelListingNode(node)) {
     return renderChannelListingNodeWorkspace(project, node)
   }
 
-  if (node.node.workItemTypeCode === 'LIVE_TEST') {
+  if (node.node.stepCode === 'LIVE_TEST') {
     return renderLiveTestingNodeWorkspace(project, node)
   }
 
-  if (node.node.workItemTypeCode === 'FIRST_SAMPLE') {
+  if (node.node.stepCode === 'FIRST_SAMPLE') {
     return renderFirstSampleProjectNodeWorkspace(project, node)
   }
 
-  if (node.node.workItemTypeCode === 'FIRST_ORDER_SAMPLE') {
+  if (node.node.stepCode === 'FIRST_ORDER_SAMPLE') {
     return renderFirstOrderSampleProjectNodeWorkspace(project, node)
   }
 
-  if (isEngineeringTaskPolicyCode(node.node.workItemTypeCode)) {
+  if (isEngineeringTaskPolicyCode(node.node.stepCode)) {
     return renderEngineeringTaskBasicSection(project, node)
   }
 
-  const groups = listProjectWorkItemFieldGroups(node.node.workItemTypeCode as PcsProjectWorkItemCode)
+  const groups = listProjectStepFieldGroups(node.node.stepCode as ProjectStepCode)
   if (node.displayStatus === '未解锁') {
-    return `<section class="rounded-lg border bg-white p-4 text-sm text-slate-600">当前节点尚未解锁，请先完成前序工作项。</section>`
+    return `<section class="rounded-lg border bg-white p-4 text-sm text-slate-600">当前节点尚未解锁，请先完成前序步骤。</section>`
   }
 
   const bodyContent =
-    node.node.workItemTypeCode === 'PROJECT_INIT'
+    node.node.stepCode === 'PROJECT_INIT'
       ? renderProjectInitSnapshot(project, node)
-      : node.node.workItemTypeCode === 'FIRST_SAMPLE'
+      : node.node.stepCode === 'FIRST_SAMPLE'
         ? renderFirstSampleProjectNodeWorkspace(project, node)
-      : node.node.workItemTypeCode === 'FIRST_ORDER_SAMPLE'
+      : node.node.stepCode === 'FIRST_ORDER_SAMPLE'
         ? renderFirstOrderSampleProjectNodeWorkspace(project, node)
-      : node.node.workItemTypeCode === 'SAMPLE_SHOOT_FIT'
+      : node.node.stepCode === 'SAMPLE_SHOOT_FIT'
         ? renderSampleShootFitWorkspace(project, node)
-      : node.node.workItemTypeCode === 'SAMPLE_COST_REVIEW'
+      : node.node.stepCode === 'SAMPLE_COST_REVIEW'
         ? renderSampleCostReviewWorkspace(project, node)
       : `
         ${renderFormalFieldEntrySection(project, node)}
@@ -7573,10 +7279,10 @@ function renderWorkItemFullInfo(project: PcsProjectRecord, node: ProjectNodeView
   `
 }
 
-function renderWorkItemRecords(node: ProjectNodeViewModel): string {
+function renderStepRecords(node: ProjectNodeViewModel): string {
   const context = getCurrentProjectNodeContext()
   const testingAction = context ? renderTestingCreateAction(context.project, node) : ''
-  const canInlineRecord = canUseInlineRecords(node.node.workItemTypeCode) && node.displayStatus !== '未解锁' && node.node.currentStatus !== '已取消'
+  const canInlineRecord = canUseInlineRecords(node.node.stepCode) && node.displayStatus !== '未解锁' && node.node.currentStatus !== '已取消'
   const recordAction = testingAction || (canInlineRecord ? '<button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-project-action="open-record-dialog">新增记录</button>' : '')
 
   if (node.records.length === 0) {
@@ -7635,7 +7341,7 @@ function renderWorkItemRecords(node: ProjectNodeViewModel): string {
   `
 }
 
-function renderWorkItemAttachments(node: ProjectNodeViewModel): string {
+function renderStepAttachments(node: ProjectNodeViewModel): string {
   const refs = [...(node.latestRecord?.upstreamRefs || []), ...(node.latestRecord?.downstreamRefs || [])]
   if (node.instanceModel.totalCount === 0 && refs.length === 0) {
     return `
@@ -7743,11 +7449,11 @@ function renderWorkItemAttachments(node: ProjectNodeViewModel): string {
   `
 }
 
-function renderWorkItemAudit(viewModel: ProjectViewModel, node: ProjectNodeViewModel): string {
+function renderStepAudit(viewModel: ProjectViewModel, node: ProjectNodeViewModel): string {
   const nodeLogs = viewModel.logs.filter(
     (item) =>
-      item.title.includes(node.node.workItemTypeName) ||
-      item.detail.includes(node.node.workItemTypeName) ||
+      item.title.includes(node.node.stepName) ||
+      item.detail.includes(node.node.stepName) ||
       item.detail.includes(node.node.projectNodeId),
   )
   return `
@@ -7776,9 +7482,9 @@ function renderWorkItemAudit(viewModel: ProjectViewModel, node: ProjectNodeViewM
 }
 
 function getDecisionOptions(node: ProjectNodeViewModel): string[] {
-  const meta = getDecisionFieldMeta(node.node.workItemTypeCode)
+  const meta = getDecisionFieldMeta(node.node.stepCode)
   if (!meta) return ['通过', '不通过']
-  const groups = listProjectWorkItemFieldGroups(node.node.workItemTypeCode as PcsProjectWorkItemCode)
+  const groups = listProjectStepFieldGroups(node.node.stepCode as ProjectStepCode)
   const valueField = groups.flatMap((group) => group.fields).find((field) => field.fieldKey === meta.valueFieldKey)
   if (valueField?.options?.length) {
     return valueField.options.map((item) => item.value)
@@ -7787,7 +7493,7 @@ function getDecisionOptions(node: ProjectNodeViewModel): string[] {
 }
 
 function isDecisionNode(node: ProjectNodeViewModel): boolean {
-  return Boolean(getDecisionFieldMeta(node.node.workItemTypeCode))
+  return Boolean(getDecisionFieldMeta(node.node.stepCode))
 }
 
 function canOpenDecisionAction(node: ProjectNodeViewModel): boolean {
@@ -7798,14 +7504,14 @@ function canRenderManualCompleteAction(node: ProjectNodeViewModel): boolean {
   if (isDecisionNode(node)) return false
   if (node.displayStatus === '未解锁') return false
   if (node.node.currentStatus === '已完成' || node.node.currentStatus === '已取消') return false
-  return !PROJECT_NODE_MANUAL_COMPLETE_BLOCKED_TYPES.has(node.node.workItemTypeCode)
+  return !PROJECT_NODE_MANUAL_COMPLETE_BLOCKED_TYPES.has(node.node.stepCode)
 }
 
 function getManualCompleteBlockedNotice(node: ProjectNodeViewModel): string {
   if (isDecisionNode(node)) {
     return '决策类节点请通过“做出决策”完成流转。'
   }
-  if (PROJECT_NODE_MANUAL_COMPLETE_BLOCKED_TYPES.has(node.node.workItemTypeCode)) {
+  if (PROJECT_NODE_MANUAL_COMPLETE_BLOCKED_TYPES.has(node.node.stepCode)) {
     return '当前节点需通过正式业务对象推进，不能手动标记完成。'
   }
   return '当前节点不支持手动标记完成。'
@@ -7824,12 +7530,12 @@ function renderDecisionNodeSection(project: PcsProjectRecord, node: ProjectNodeV
   `
 }
 
-function renderWorkItemDecisionDialog(project: PcsProjectRecord, node: ProjectNodeViewModel | null): string {
-  if (!state.decisionDialog.open || state.decisionDialog.source !== 'work-item' || !node) return ''
+function renderStepDecisionDialog(project: PcsProjectRecord, node: ProjectNodeViewModel | null): string {
+  if (!state.decisionDialog.open || state.decisionDialog.source !== 'step' || !node) return ''
   const options = getDecisionOptions(node)
   return renderModalShell(
-    node.node.workItemTypeCode === 'TEST_CONCLUSION' ? '测款结论判定' : '节点决策',
-    `请确认「${node.node.workItemTypeName}」的处理结果。`,
+    node.node.stepCode === 'TEST_CONCLUSION' ? '测款结论判定' : '节点决策',
+    `请确认「${node.node.stepName}」的处理结果。`,
     `
       <div class="grid gap-2 md:grid-cols-${options.length > 3 ? '4' : '3'}">
         ${options
@@ -7857,12 +7563,12 @@ function renderWorkItemDecisionDialog(project: PcsProjectRecord, node: ProjectNo
   )
 }
 
-function renderWorkItemRecordDialog(project: PcsProjectRecord, node: ProjectNodeViewModel | null): string {
+function renderStepRecordDialog(project: PcsProjectRecord, node: ProjectNodeViewModel | null): string {
   if (!state.recordDialog.open || !node) return ''
   const draft = getNodeRecordDraft(project, node)
   return renderModalShell(
     '补充正式记录',
-    `为「${node.node.workItemTypeName}」补充一条项目内正式记录。`,
+    `为「${node.node.stepName}」补充一条项目内正式记录。`,
     `
       <label class="space-y-1">
         <span class="text-xs text-slate-500">业务日期</span>
@@ -7878,9 +7584,9 @@ function renderWorkItemRecordDialog(project: PcsProjectRecord, node: ProjectNode
   )
 }
 
-function renderProjectWorkItemDetailPage(projectId: string, projectNodeId: string): string {
+function renderProjectStepDetailPage(projectId: string, projectNodeId: string): string {
   ensureProjectDemoDataReadySync()
-  ensureWorkItemState(projectId, projectNodeId)
+  ensureStepState(projectId, projectNodeId)
   const viewModel = buildProjectViewModel(projectId)
   if (!viewModel) {
     return `
@@ -7898,26 +7604,21 @@ function renderProjectWorkItemDetailPage(projectId: string, projectNodeId: strin
     return `
       <div class="space-y-4 p-4">
         <section class="rounded-lg border bg-white p-8 text-center">
-          <h1 class="text-xl font-semibold text-slate-900">工作项未找到</h1>
-          <p class="mt-2 text-sm text-slate-500">当前项目下没有找到对应的工作项节点。</p>
+          <h1 class="text-xl font-semibold text-slate-900">步骤未找到</h1>
+          <p class="mt-2 text-sm text-slate-500">当前项目下没有找到对应的步骤节点。</p>
           <button type="button" class="mt-4 inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/projects/${escapeHtml(projectId)}">返回项目详情</button>
         </section>
       </div>
     `
   }
 
-  const nature = node.contract.workItemNature || '执行类'
+  const nature = node.contract.stepNature || '执行类'
   const canRecord =
-    canUseInlineRecords(node.node.workItemTypeCode) &&
+    canUseInlineRecords(node.node.stepCode) &&
     !isDecisionNode(node) &&
     node.displayStatus !== '未解锁' &&
     node.node.currentStatus !== '已取消'
   const testingAction = renderTestingCreateAction(viewModel.project, node, canRecord ? 'secondary' : 'primary')
-  const styleArchiveAction = renderStyleArchiveNodeAction(
-    viewModel.project,
-    node,
-    canRecord ? 'secondary' : 'primary',
-  )
 
   return `
     <div class="space-y-5 p-4">
@@ -7936,7 +7637,7 @@ function renderProjectWorkItemDetailPage(projectId: string, projectNodeId: strin
                 <span>${escapeHtml(viewModel.project.projectName)}</span>
               </div>
               <div class="mt-2 flex flex-wrap items-center gap-2">
-                <h1 class="text-2xl font-semibold text-slate-900">${escapeHtml(node.node.workItemTypeName)}</h1>
+                <h1 class="text-2xl font-semibold text-slate-900">${escapeHtml(node.node.stepName)}</h1>
                 <span class="inline-flex rounded-full border px-2 py-0.5 text-xs ${getNatureBadgeClass(nature)}">${escapeHtml(nature)}</span>
                 <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${getNodeStatusBadgeClass(node.displayStatus)}">${escapeHtml(node.displayStatus)}</span>
               </div>
@@ -7953,12 +7654,11 @@ function renderProjectWorkItemDetailPage(projectId: string, projectNodeId: strin
                 : isDecisionNode(node)
                 ? `${
                     canOpenDecisionAction(node)
-                      ? '<button type="button" class="inline-flex h-9 items-center rounded-md bg-amber-500 px-4 text-sm font-medium text-white hover:bg-amber-600" data-pcs-project-action="open-decision" data-source="work-item">做出决策</button>'
+                      ? '<button type="button" class="inline-flex h-9 items-center rounded-md bg-amber-500 px-4 text-sm font-medium text-white hover:bg-amber-600" data-pcs-project-action="open-decision" data-source="step">做出决策</button>'
                       : ''
                   }`
                 : `
                     ${renderEngineeringTaskNodeAction(viewModel.project, node, canRecord ? 'secondary' : 'primary')}
-                    ${styleArchiveAction}
                     ${testingAction}
                     ${canRecord ? '<button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-project-action="open-record-dialog">新增记录</button>' : ''}
                     ${canRenderManualCompleteAction(node)
@@ -7970,20 +7670,20 @@ function renderProjectWorkItemDetailPage(projectId: string, projectNodeId: strin
         </div>
       </section>
 
-      ${renderWorkItemTabs(viewModel, node)}
+      ${renderStepTabs(viewModel, node)}
 
       ${
-        state.workItem.activeTab === 'full-info'
-          ? renderWorkItemFullInfo(viewModel.project, node)
-          : state.workItem.activeTab === 'records'
-            ? renderWorkItemRecords(node)
-            : state.workItem.activeTab === 'attachments'
-              ? renderWorkItemAttachments(node)
-              : renderWorkItemAudit(viewModel, node)
+        state.stepDefinition.activeTab === 'full-info'
+          ? renderStepFullInfo(viewModel.project, node)
+          : state.stepDefinition.activeTab === 'records'
+            ? renderStepRecords(node)
+            : state.stepDefinition.activeTab === 'attachments'
+              ? renderStepAttachments(node)
+              : renderStepAudit(viewModel, node)
       }
 
-      ${renderWorkItemDecisionDialog(viewModel.project, node)}
-      ${renderWorkItemRecordDialog(viewModel.project, node)}
+      ${renderStepDecisionDialog(viewModel.project, node)}
+      ${renderStepRecordDialog(viewModel.project, node)}
       ${renderProjectTerminateDialog()}
       ${renderEngineeringTaskCreateDialog()}
       ${renderLiveTestingCreateDrawer()}
@@ -8002,10 +7702,10 @@ export async function renderPcsProjectDetailPage(projectId: string): Promise<str
   return renderProjectDetailPage(projectId)
 }
 
-export async function renderPcsProjectWorkItemDetailPage(projectId: string, projectNodeId: string): Promise<string> {
+export async function renderPcsProjectStepDetailPage(projectId: string, projectNodeId: string): Promise<string> {
   const loadingTasks: Array<Promise<unknown>> = [ensureProjectDetailSupportReady(), ensureProjectDemoSeedServiceReady()]
   await Promise.all(loadingTasks)
-  return renderProjectWorkItemDetailPage(projectId, projectNodeId)
+  return renderProjectStepDetailPage(projectId, projectNodeId)
 }
 
 function closeAllDialogs(): void {
@@ -8038,8 +7738,8 @@ function getProjectNodeContext(projectId: string, projectNodeId: string): { proj
 }
 
 function getCurrentProjectNodeContext(): { project: PcsProjectRecord; node: ProjectNodeViewModel } | null {
-  const projectId = state.workItem.projectId || state.detail.projectId || ''
-  const projectNodeId = state.workItem.projectNodeId || state.detail.selectedNodeId || ''
+  const projectId = state.stepDefinition.projectId || state.detail.projectId || ''
+  const projectNodeId = state.stepDefinition.projectNodeId || state.detail.selectedNodeId || ''
   if (!projectId || !projectNodeId) return null
   return getProjectNodeContext(projectId, projectNodeId)
 }
@@ -8440,7 +8140,7 @@ export function handlePcsProjectsInput(target: Element): boolean {
     const files = Array.from(fieldNode.files || [])
     if (!files.length) return true
     const context = getCurrentProjectNodeContext()
-    if (!context || context.node.node.workItemTypeCode !== 'PROJECT_INIT') {
+    if (!context || context.node.node.stepCode !== 'PROJECT_INIT') {
       state.notice = '当前节点不是商品项目立项。'
       return true
     }
@@ -8456,7 +8156,7 @@ export function handlePcsProjectsInput(target: Element): boolean {
     fieldNode.value = ''
     if (!files.length) return true
     const context = getCurrentProjectNodeContext()
-    if (!context || context.node.node.workItemTypeCode !== 'SAMPLE_INBOUND_CHECK' || !canEditProjectNodeFields(context.node)) {
+    if (!context || context.node.node.stepCode !== 'SAMPLE_INBOUND_CHECK' || !canEditProjectNodeFields(context.node)) {
       state.notice = '当前节点暂不可上传样衣图片。'
       return true
     }
@@ -8476,20 +8176,6 @@ export function handlePcsProjectsInput(target: Element): boolean {
     }
     void appendChannelListingSupplementImages(context.project, context.node, files).catch((error) => {
       state.notice = error instanceof Error ? error.message : '上传上架补图失败。'
-      window.dispatchEvent(new Event('higood:request-render'))
-    })
-    return true
-  }
-  if (field === 'style-archive-supplement-images' && fieldNode instanceof HTMLInputElement) {
-    const context = getCurrentProjectNodeContext()
-    const files = Array.from(fieldNode.files || [])
-    fieldNode.value = ''
-    if (!context || context.node.node.workItemTypeCode !== 'STYLE_ARCHIVE_CREATE') {
-      state.notice = '当前节点不是生成款式档案。'
-      return true
-    }
-    void appendStyleArchiveSupplementImages(context.project, context.node, files).catch((error) => {
-      state.notice = error instanceof Error ? error.message : '上传档案补充图失败。'
       window.dispatchEvent(new Event('higood:request-render'))
     })
     return true
@@ -8648,7 +8334,7 @@ export function handlePcsProjectsInput(target: Element): boolean {
         [fieldKey]: value,
       },
     })
-    if (context.node.node.workItemTypeCode === 'SAMPLE_COST_REVIEW') {
+    if (context.node.node.stepCode === 'SAMPLE_COST_REVIEW') {
       refreshSampleCostReviewPreviewFromDom(context.project, context.node)
       if (fieldKey === 'garmentCategory') {
         window.dispatchEvent(new Event('higood:request-render'))
@@ -8658,7 +8344,7 @@ export function handlePcsProjectsInput(target: Element): boolean {
   }
   if (field.startsWith('sample-cost-')) {
     const context = getCurrentProjectNodeContext()
-    if (!context || context.node.node.workItemTypeCode !== 'SAMPLE_COST_REVIEW') return true
+    if (!context || context.node.node.stepCode !== 'SAMPLE_COST_REVIEW') return true
     refreshSampleCostReviewPreviewFromDom(context.project, context.node)
     if (field === 'sample-cost-material-sku') {
       window.dispatchEvent(new Event('higood:request-render'))
@@ -9043,8 +8729,8 @@ function buildFormalSaveInput(project: PcsProjectRecord, node: ProjectNodeViewMo
   businessRuleErrors: string[]
   summaryNote: string
 } {
-  const groups = listProjectWorkItemFieldGroups(node.node.workItemTypeCode as PcsProjectWorkItemCode)
-  const editableKeys = getInlineEditableFieldKeys(node.node.workItemTypeCode)
+  const groups = listProjectStepFieldGroups(node.node.stepCode as ProjectStepCode)
+  const editableKeys = getInlineEditableFieldKeys(node.node.stepCode)
   const readonlyPayloadKeys = new Set(
     groups
       .flatMap((group) => group.fields)
@@ -9060,10 +8746,10 @@ function buildFormalSaveInput(project: PcsProjectRecord, node: ProjectNodeViewMo
       .map((field) => [field.fieldKey, normalizeDraftFieldValue(field, draft.values[field.fieldKey] ?? '')]),
   )
   const lockedSampleSourceType = getProjectLockedSampleSourceType(project)
-  if (node.node.workItemTypeCode === 'SAMPLE_ACQUIRE' && lockedSampleSourceType) {
+  if (node.node.stepCode === 'SAMPLE_ACQUIRE' && lockedSampleSourceType) {
     normalizedEditableValues.sampleSourceType = lockedSampleSourceType
   }
-  const summaryNote = draft.note.trim() || deriveRecordSummaryNote(node.node.workItemTypeCode, normalizedEditableValues)
+  const summaryNote = draft.note.trim() || deriveRecordSummaryNote(node.node.stepCode, normalizedEditableValues)
   const quickPayload = buildQuickRecordPayload(project, node.node, {
     businessDate: draft.businessDate || todayText(),
     note: summaryNote,
@@ -9078,7 +8764,7 @@ function buildFormalSaveInput(project: PcsProjectRecord, node: ProjectNodeViewMo
   }
   const derivedDetailSnapshot: Record<string, unknown> = {}
 
-  if (node.node.workItemTypeCode === 'TEST_DATA_SUMMARY') {
+  if (node.node.stepCode === 'TEST_DATA_SUMMARY') {
     const aggregate = getProjectTestingAggregate(project.projectId)
     values.totalExposureQty = aggregate.totalExposureQty
     values.totalClickQty = aggregate.totalClickQty
@@ -9091,7 +8777,7 @@ function buildFormalSaveInput(project: PcsProjectRecord, node: ProjectNodeViewMo
     values.currencyBreakdownLines = aggregate.currencyBreakdownLines
   }
 
-  if (node.node.workItemTypeCode === 'SAMPLE_INBOUND_CHECK') {
+  if (node.node.stepCode === 'SAMPLE_INBOUND_CHECK') {
     const inbound = buildSampleInboundDerivedValues(project, values)
     values.sampleInboundLines = inbound.sampleInboundLines
     values.receivedQty = inbound.receivedQty
@@ -9103,7 +8789,7 @@ function buildFormalSaveInput(project: PcsProjectRecord, node: ProjectNodeViewMo
     })
   }
 
-  if (node.node.workItemTypeCode === 'SAMPLE_COST_REVIEW') {
+  if (node.node.stepCode === 'SAMPLE_COST_REVIEW') {
     const sampleCostInput = getSampleCostReviewInput(project, node, draft)
     const sampleCostPricing = calculateSampleCostReview(sampleCostInput)
     const materialRows = normalizeSampleCostMaterialRows(sampleCostInput.materialLines, sampleCostPricing.garmentCategory)
@@ -9128,12 +8814,12 @@ function buildFormalSaveInput(project: PcsProjectRecord, node: ProjectNodeViewMo
     })
   }
 
-  if (node.node.workItemTypeCode === 'TEST_CONCLUSION') {
+  if (node.node.stepCode === 'TEST_CONCLUSION') {
     const conclusion = String(values.conclusion || '').trim()
     Object.assign(values, buildTestConclusionOutcomeValues(project, node, conclusion, draft.businessDate || todayText()))
   }
 
-  if (node.node.workItemTypeCode === 'SAMPLE_RETURN_HANDLE') {
+  if (node.node.stepCode === 'SAMPLE_RETURN_HANDLE') {
     Object.assign(derivedDetailSnapshot, {
       returnRecipient: values.returnRecipient || '',
       returnDepartment: values.returnDepartment || '',
@@ -9170,8 +8856,8 @@ function buildFormalSaveInput(project: PcsProjectRecord, node: ProjectNodeViewMo
 }
 
 function saveFormalRecord(input: { completeAfterSave?: boolean; closeAfterSave?: boolean } = {}): void {
-  const activeProjectId = state.workItem.projectId || state.detail.projectId || ''
-  const activeProjectNodeId = state.workItem.projectNodeId || state.detail.selectedNodeId || ''
+  const activeProjectId = state.stepDefinition.projectId || state.detail.projectId || ''
+  const activeProjectNodeId = state.stepDefinition.projectNodeId || state.detail.selectedNodeId || ''
   const projectId = state.recordDialog.open
     ? state.recordDialog.projectId || activeProjectId
     : activeProjectId || state.recordDialog.projectId
@@ -9184,7 +8870,7 @@ function saveFormalRecord(input: { completeAfterSave?: boolean; closeAfterSave?:
   }
 
   const context = getProjectNodeContext(projectId, projectNodeId)
-  if (!context || !canUseInlineRecords(context.node.node.workItemTypeCode)) {
+  if (!context || !canUseInlineRecords(context.node.node.stepCode)) {
     closeAllDialogs()
     return
   }
@@ -9240,11 +8926,11 @@ function openDecisionDialog(source: DecisionDialogSource): void {
   const projectId =
     source === 'detail'
       ? state.detail.projectId || ''
-      : state.workItem.projectId || ''
+      : state.stepDefinition.projectId || ''
   const projectNodeId =
     source === 'detail'
       ? state.detail.selectedNodeId || ''
-      : state.workItem.projectNodeId || ''
+      : state.stepDefinition.projectNodeId || ''
   const context = projectId && projectNodeId ? getProjectNodeContext(projectId, projectNodeId) : null
   if (!context) return
   if (!canOpenDecisionAction(context.node)) {
@@ -9253,7 +8939,7 @@ function openDecisionDialog(source: DecisionDialogSource): void {
   }
   const draft = getNodeRecordDraft(context.project, context.node)
   const options = getDecisionOptions(context.node)
-  const decisionFieldMeta = getDecisionFieldMeta(context.node.node.workItemTypeCode)
+  const decisionFieldMeta = getDecisionFieldMeta(context.node.node.stepCode)
   const savedValue = String(
     (decisionFieldMeta ? context.node.latestRecord?.payload?.[decisionFieldMeta.valueFieldKey] : '') ||
       (decisionFieldMeta ? draft.values[decisionFieldMeta.valueFieldKey] : '') ||
@@ -9288,15 +8974,15 @@ function confirmDecision(): void {
     return
   }
 
-  const note = dialog.note.trim() || `${context.node.node.workItemTypeName}已判定为${dialog.value}。`
-  const decisionFieldMeta = getDecisionFieldMeta(context.node.node.workItemTypeCode)
+  const note = dialog.note.trim() || `${context.node.node.stepName}已判定为${dialog.value}。`
+  const decisionFieldMeta = getDecisionFieldMeta(context.node.node.stepCode)
   if (!decisionFieldMeta) {
     closeAllDialogs()
     return
   }
   const options = getDecisionOptions(context.node)
   if (!options.includes(dialog.value)) {
-    state.notice = '当前项目模板不支持该决策结果，请重新选择。'
+    state.notice = '当前固定流程不支持该决策结果，请重新选择。'
     closeAllDialogs()
     return
   }
@@ -9355,7 +9041,7 @@ function validateLiveTestingCreateDraft(draft: LiveTestingCreateDraft): string |
 
 function openLiveTestingCreateDrawer(): void {
   const context = getCurrentProjectNodeContext()
-  if (!context || context.node.node.workItemTypeCode !== 'LIVE_TEST') {
+  if (!context || context.node.node.stepCode !== 'LIVE_TEST') {
     state.notice = '当前节点不是直播测款。'
     return
   }
@@ -9369,7 +9055,7 @@ function openLiveTestingCreateDrawer(): void {
 function saveProjectLiveTestingRecord(): void {
   const draft = state.liveTestingCreateDraft
   const context = getProjectNodeContext(draft.projectId, draft.projectNodeId)
-  if (!draft.open || !context || context.node.node.workItemTypeCode !== 'LIVE_TEST') {
+  if (!draft.open || !context || context.node.node.stepCode !== 'LIVE_TEST') {
     state.notice = '未找到当前直播测款节点。'
     return
   }
@@ -9408,15 +9094,15 @@ function saveProjectLiveTestingRecord(): void {
   state.liveTestingCreateDraft = createEmptyLiveTestingCreateDraft()
 }
 
-function completeLiveTestingWorkItem(): void {
+function completeLiveTestingStep(): void {
   const context = getCurrentProjectNodeContext()
-  if (!context || context.node.node.workItemTypeCode !== 'LIVE_TEST') {
+  if (!context || context.node.node.stepCode !== 'LIVE_TEST') {
     state.notice = '当前节点不是直播测款。'
     return
   }
   const blocker = getProjectNodeSequenceBlocker(context.project.projectId, context.node.node.projectNodeId)
   if (blocker) {
-    state.notice = `请先填写并完成前序工作项：${blocker.workItemTypeName}`
+    state.notice = `请先填写并完成前序步骤：${blocker.stepName}`
     return
   }
   if (!canCompleteProjectNode(context.project, context.node)) {
@@ -9557,9 +9243,8 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
   if (action === 'create-project') {
     void (async () => {
       try {
-        const { templateId: _removedTemplateId, ...fixedStepDraft } = state.create.draft
         const draft = {
-          ...fixedStepDraft,
+          ...state.create.draft,
           projectAlbumUrls: [],
         }
         const created = createProject(draft, '当前用户')
@@ -9625,8 +9310,8 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
     }
     return true
   }
-  if (action === 'complete-live-testing-work-item') {
-    completeLiveTestingWorkItem()
+  if (action === 'complete-live-testing-step') {
+    completeLiveTestingStep()
     return true
   }
   if (action === 'add-channel-listing-spec-line') {
@@ -9692,91 +9377,6 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
       listingMainImageId: draft.listingMainImageId || imageId,
     })
     state.notice = action === 'add-channel-listing-image' ? '图片已加入当前上架批次。' : '图片已确认可用于上架并加入当前批次。'
-    return true
-  }
-  if (action === 'add-style-archive-image' || action === 'confirm-add-style-archive-image') {
-    const context = getCurrentProjectNodeContext()
-    const imageId = actionNode.dataset.imageId || ''
-    const setMain = actionNode.dataset.setMain === 'true'
-    if (!context || context.node.node.workItemTypeCode !== 'STYLE_ARCHIVE_CREATE' || !imageId) {
-      state.notice = '未找到待加入的档案图片。'
-      return true
-    }
-    if (action === 'confirm-add-style-archive-image') {
-      const updated = markProjectImageAssetUsableForStyleArchive(imageId, '当前用户')
-      if (!updated) {
-        state.notice = '未找到待确认的图片资产。'
-        return true
-      }
-    }
-    const draft = getStyleArchiveImageDraft(context.project, context.node)
-    if (draft.styleGalleryImageIds.includes(imageId)) {
-      state.notice = '该图片已在当前档案图册中。'
-      return true
-    }
-    updateStyleArchiveImageDraft(context.project, context.node, {
-      styleGalleryImageIds: [...draft.styleGalleryImageIds, imageId],
-      styleMainImageId: setMain ? imageId : draft.styleMainImageId || imageId,
-    })
-    state.notice =
-      action === 'confirm-add-style-archive-image'
-        ? '图片已确认可用于款式档案并加入当前图册。'
-        : '图片已加入当前档案图册。'
-    return true
-  }
-  if (action === 'remove-style-archive-image') {
-    const context = getCurrentProjectNodeContext()
-    const imageId = actionNode.dataset.imageId || ''
-    if (!context || context.node.node.workItemTypeCode !== 'STYLE_ARCHIVE_CREATE' || !imageId) {
-      state.notice = '未找到待移除的档案图片。'
-      return true
-    }
-    const draft = getStyleArchiveImageDraft(context.project, context.node)
-    const nextImageIds = draft.styleGalleryImageIds.filter((item) => item !== imageId)
-    updateStyleArchiveImageDraft(context.project, context.node, {
-      styleGalleryImageIds: nextImageIds,
-      styleMainImageId:
-        draft.styleMainImageId === imageId
-          ? nextImageIds[0] || ''
-          : draft.styleMainImageId,
-    })
-    return true
-  }
-  if (action === 'set-style-archive-main-image') {
-    const context = getCurrentProjectNodeContext()
-    const imageId = actionNode.dataset.imageId || ''
-    if (!context || context.node.node.workItemTypeCode !== 'STYLE_ARCHIVE_CREATE' || !imageId) {
-      state.notice = '未找到待设置的档案主图。'
-      return true
-    }
-    const draft = getStyleArchiveImageDraft(context.project, context.node)
-    if (!draft.styleGalleryImageIds.includes(imageId)) {
-      state.notice = '当前图片不在档案图册中。'
-      return true
-    }
-    updateStyleArchiveImageDraft(context.project, context.node, { styleMainImageId: imageId })
-    return true
-  }
-  if (action === 'move-style-archive-image-up' || action === 'move-style-archive-image-down') {
-    const context = getCurrentProjectNodeContext()
-    const imageId = actionNode.dataset.imageId || ''
-    if (!context || context.node.node.workItemTypeCode !== 'STYLE_ARCHIVE_CREATE' || !imageId) {
-      state.notice = '未找到待调整顺序的档案图片。'
-      return true
-    }
-    const draft = getStyleArchiveImageDraft(context.project, context.node)
-    const currentIndex = draft.styleGalleryImageIds.findIndex((item) => item === imageId)
-    if (currentIndex < 0) {
-      state.notice = '当前图片不在档案图册中。'
-      return true
-    }
-    const nextIndex = action === 'move-style-archive-image-up' ? currentIndex - 1 : currentIndex + 1
-    if (nextIndex < 0 || nextIndex >= draft.styleGalleryImageIds.length) {
-      return true
-    }
-    const nextImageIds = [...draft.styleGalleryImageIds]
-    ;[nextImageIds[currentIndex], nextImageIds[nextIndex]] = [nextImageIds[nextIndex], nextImageIds[currentIndex]]
-    updateStyleArchiveImageDraft(context.project, context.node, { styleGalleryImageIds: nextImageIds })
     return true
   }
   if (action === 'remove-channel-listing-image') {
@@ -9953,7 +9553,7 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
     state.notice = result.message
     return true
   }
-  if (action === 'complete-channel-listing-work-item') {
+  if (action === 'complete-channel-listing-step') {
     const context = getCurrentProjectNodeContext()
     if (!context || !isChannelListingNode(context.node)) {
       state.notice = '当前节点不是商品上架。'
@@ -9961,11 +9561,11 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
     }
     const blocker = getProjectNodeSequenceBlocker(context.project.projectId, context.node.node.projectNodeId)
     if (blocker) {
-      state.notice = `请先填写并完成前序工作项：${blocker.workItemTypeName}`
+      state.notice = `请先填写并完成前序步骤：${blocker.stepName}`
       return true
     }
-    if (!canCompleteChannelListingWorkItem(context.project, context.node)) {
-      state.notice = getChannelListingWorkItemCompleteNotice(context.project) || '当前商品上架工作项暂不能完成。'
+    if (!canCompleteChannelListingStep(context.project, context.node)) {
+      state.notice = getChannelListingStepCompleteNotice(context.project) || '当前商品上架步骤暂不能完成。'
       return true
     }
     const result = completeProjectChannelListingNodeSafe(context.project.projectId, '当前用户')
@@ -9981,11 +9581,11 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
     }
     const blocker = getProjectNodeSequenceBlocker(context.project.projectId, context.node.node.projectNodeId)
     if (blocker) {
-      state.notice = `请先填写并完成前序工作项：${blocker.workItemTypeName}`
+      state.notice = `请先填写并完成前序步骤：${blocker.stepName}`
       return true
     }
     if (!canCompleteProjectNode(context.project, context.node)) {
-      state.notice = '请填写该工作项要求的信息'
+      state.notice = '请填写该步骤要求的信息'
       return true
     }
     const result = markProjectNodeCompletedAndUnlockNext(context.project.projectId, context.node.node.projectNodeId, {
@@ -9996,33 +9596,9 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
     state.notice = result.message
     return true
   }
-  if (action === 'generate-style-archive') {
-    const projectId = actionNode.dataset.projectId || state.detail.projectId || state.workItem.projectId || ''
-    if (!projectId) {
-      state.notice = '未找到对应商品项目。'
-      return true
-    }
-    const context = getCurrentProjectNodeContext()
-    const draft =
-      context && context.project.projectId === projectId && context.node.node.workItemTypeCode === 'STYLE_ARCHIVE_CREATE'
-        ? getStyleArchiveImageDraft(context.project, context.node)
-        : { styleMainImageId: '', styleGalleryImageIds: [] }
-    const result = generateStyleArchiveFromProjectNode(projectId, '当前用户', {
-      styleMainImageId: draft.styleMainImageId,
-      styleGalleryImageIds: draft.styleGalleryImageIds,
-    })
-    state.notice = result.message
-    if (result.ok && result.style) {
-      if (context && context.project.projectId === projectId && context.node.node.workItemTypeCode === 'STYLE_ARCHIVE_CREATE') {
-        delete state.styleArchiveImageDrafts[buildStyleArchiveImageDraftKey(context.project.projectId, context.node.node.projectNodeId)]
-      }
-      appStore.navigate(`/pcs/products/styles/${result.style.styleId}`)
-    }
-    return true
-  }
   if (action === 'create-engineering-task-from-node') {
-    const projectId = actionNode.dataset.projectId || state.detail.projectId || state.workItem.projectId || ''
-    const projectNodeId = actionNode.dataset.projectNodeId || state.detail.selectedNodeId || state.workItem.projectNodeId || ''
+    const projectId = actionNode.dataset.projectId || state.detail.projectId || state.stepDefinition.projectId || ''
+    const projectNodeId = actionNode.dataset.projectNodeId || state.detail.selectedNodeId || state.stepDefinition.projectNodeId || ''
     if (!projectId || !projectNodeId) {
       state.notice = '未找到对应项目节点。'
       return true
@@ -10101,7 +9677,7 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
   if (action === 'remove-project-reference-image') {
     const imageId = actionNode.dataset.imageId || ''
     const context = getCurrentProjectNodeContext()
-    if (!imageId || !context || context.node.node.workItemTypeCode !== 'PROJECT_INIT') {
+    if (!imageId || !context || context.node.node.stepCode !== 'PROJECT_INIT') {
       state.notice = '未找到待删除的参考图片。'
       return true
     }
@@ -10114,7 +9690,7 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
   if (action === 'remove-sample-inbound-image') {
     const imageId = actionNode.dataset.imageId || ''
     const context = getCurrentProjectNodeContext()
-    if (!imageId || !context || context.node.node.workItemTypeCode !== 'SAMPLE_INBOUND_CHECK' || !canEditProjectNodeFields(context.node)) {
+    if (!imageId || !context || context.node.node.stepCode !== 'SAMPLE_INBOUND_CHECK' || !canEditProjectNodeFields(context.node)) {
       state.notice = '当前节点暂不可移除样衣图片。'
       return true
     }
@@ -10201,13 +9777,13 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
     confirmDecision()
     return true
   }
-  if (action === 'switch-work-item-tab') {
-    state.workItem.activeTab = normalizeWorkItemTab(actionNode.dataset.tab ?? null)
+  if (action === 'switch-step-tab') {
+    state.stepDefinition.activeTab = normalizeStepTab(actionNode.dataset.tab ?? null)
     return true
   }
   if (action === 'add-sample-cost-material-row') {
     const context = getCurrentProjectNodeContext()
-    if (!context || context.node.node.workItemTypeCode !== 'SAMPLE_COST_REVIEW' || !canEditProjectNodeFields(context.node)) return true
+    if (!context || context.node.node.stepCode !== 'SAMPLE_COST_REVIEW' || !canEditProjectNodeFields(context.node)) return true
     const draft = syncSampleCostReviewDraftFromDom(context.project, context.node) || getNodeRecordDraft(context.project, context.node)
     const input = getSampleCostReviewInput(context.project, context.node, draft)
     const category = normalizeSampleCostGarmentCategory(input.garmentCategory)
@@ -10226,7 +9802,7 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
   if (action === 'remove-sample-cost-material-row') {
     const context = getCurrentProjectNodeContext()
     const rowIndex = Number.parseInt(actionNode.dataset.rowIndex ?? '', 10)
-    if (!context || context.node.node.workItemTypeCode !== 'SAMPLE_COST_REVIEW' || !canEditProjectNodeFields(context.node)) return true
+    if (!context || context.node.node.stepCode !== 'SAMPLE_COST_REVIEW' || !canEditProjectNodeFields(context.node)) return true
     const draft = syncSampleCostReviewDraftFromDom(context.project, context.node) || getNodeRecordDraft(context.project, context.node)
     const input = getSampleCostReviewInput(context.project, context.node, draft)
     const category = normalizeSampleCostGarmentCategory(input.garmentCategory)
@@ -10242,7 +9818,7 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
   }
   if (action === 'add-sample-cost-optional-process-row') {
     const context = getCurrentProjectNodeContext()
-    if (!context || context.node.node.workItemTypeCode !== 'SAMPLE_COST_REVIEW' || !canEditProjectNodeFields(context.node)) return true
+    if (!context || context.node.node.stepCode !== 'SAMPLE_COST_REVIEW' || !canEditProjectNodeFields(context.node)) return true
     const draft = syncSampleCostReviewDraftFromDom(context.project, context.node) || getNodeRecordDraft(context.project, context.node)
     const input = getSampleCostReviewInput(context.project, context.node, draft)
     const rows = normalizeSampleCostOptionalProcessRows(input.optionalProcessLines)
@@ -10260,7 +9836,7 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
   if (action === 'remove-sample-cost-optional-process-row') {
     const context = getCurrentProjectNodeContext()
     const rowIndex = Number.parseInt(actionNode.dataset.rowIndex ?? '', 10)
-    if (!context || context.node.node.workItemTypeCode !== 'SAMPLE_COST_REVIEW' || !canEditProjectNodeFields(context.node)) return true
+    if (!context || context.node.node.stepCode !== 'SAMPLE_COST_REVIEW' || !canEditProjectNodeFields(context.node)) return true
     const draft = syncSampleCostReviewDraftFromDom(context.project, context.node) || getNodeRecordDraft(context.project, context.node)
     const input = getSampleCostReviewInput(context.project, context.node, draft)
     const rows = normalizeSampleCostOptionalProcessRows(input.optionalProcessLines)

@@ -29,7 +29,7 @@ export type PcsProjectTaskNature = '执行类' | '决策类' | '里程碑类' | 
 export type PcsProjectTaskRuntimeType = 'execute' | 'decision' | 'milestone' | 'fact'
 
 export type PcsProjectPhaseCode = 'PHASE_01' | 'PHASE_02' | 'PHASE_03' | 'PHASE_04' | 'PHASE_05'
-export type ProjectStepCode =
+export type ProjectFlowStageCode =
   | 'PROJECT_ARCHIVE'
   | 'SAMPLE_PREPARATION'
   | 'PRE_TEST_PREPARATION'
@@ -39,7 +39,7 @@ export type PcsProjectSourceType = '企划提案' | '渠道反馈' | '测款沉�
 export type PcsSampleSourceType = '外采' | '委托打样'
 export type PcsProjectPriorityLevel = '高' | '中' | '低'
 
-export type PcsProjectWorkItemCode =
+export type ProjectStepCode =
   | 'PROJECT_INIT'
   | 'SAMPLE_ACQUIRE'
   | 'SAMPLE_INBOUND_CHECK'
@@ -53,7 +53,6 @@ export type PcsProjectWorkItemCode =
   | 'LIVE_TEST'
   | 'TEST_DATA_SUMMARY'
   | 'TEST_CONCLUSION'
-  | 'STYLE_ARCHIVE_CREATE'
   | 'REVISION_TASK'
   | 'PATTERN_TASK'
   | 'PATTERN_ARTWORK_TASK'
@@ -68,20 +67,20 @@ export type PcsProjectTaskCarrierMode =
   | 'DOWNSTREAM_OBJECT'
 
 export interface PcsProjectTaskCarrierDefinition {
-  taskCode: PcsProjectWorkItemCode
+  taskCode: ProjectStepCode
   carrierMode: PcsProjectTaskCarrierMode
   carrierLabel: string
   moduleName: string
   allowsMultipleInlineRecords: boolean
 }
 
-const PROJECT_NODE_MULTI_RECORD_TASKS = new Set<PcsProjectWorkItemCode>([
+const PROJECT_NODE_MULTI_RECORD_TASKS = new Set<ProjectStepCode>([
   'SAMPLE_ACQUIRE',
   'SAMPLE_SHOOT_FIT',
   'SAMPLE_RETURN_HANDLE',
 ])
 
-const BUSINESS_MODULE_BY_TASK: Partial<Record<PcsProjectWorkItemCode, string>> = {
+const BUSINESS_MODULE_BY_TASK: Partial<Record<ProjectStepCode, string>> = {
   CHANNEL_PRODUCT_LISTING: '渠道店铺商品',
   VIDEO_TEST: '短视频测款',
   LIVE_TEST: '直播测款',
@@ -93,7 +92,7 @@ const BUSINESS_MODULE_BY_TASK: Partial<Record<PcsProjectWorkItemCode, string>> =
 }
 
 export function getProjectTaskCarrierDefinition(
-  taskCode: PcsProjectWorkItemCode,
+  taskCode: ProjectStepCode,
 ): PcsProjectTaskCarrierDefinition {
   if (taskCode === 'PROJECT_INIT') {
     return {
@@ -101,16 +100,6 @@ export function getProjectTaskCarrierDefinition(
       carrierMode: 'PROJECT_RECORD',
       carrierLabel: '项目主记录承载',
       moduleName: '商品项目',
-      allowsMultipleInlineRecords: false,
-    }
-  }
-
-  if (taskCode === 'STYLE_ARCHIVE_CREATE') {
-    return {
-      taskCode,
-      carrierMode: 'DOWNSTREAM_OBJECT',
-      carrierLabel: '下游正式对象承载',
-      moduleName: '款式档案',
       allowsMultipleInlineRecords: false,
     }
   }
@@ -182,13 +171,13 @@ export interface PcsProjectPhaseContract {
   exitConditions: string[]
 }
 
-export interface ProjectStepContract {
-  stepCode: ProjectStepCode
+export interface ProjectFlowStageContract {
+  stepCode: ProjectFlowStageCode
   stepName: string
   sequence: number
   phaseCode: PcsProjectPhaseCode
   description: string
-  workItemCodes: readonly PcsProjectWorkItemCode[]
+  stepCodes: readonly ProjectStepCode[]
 }
 
 export interface PcsProjectCommonInstanceField {
@@ -267,12 +256,12 @@ export interface PcsProjectMultiInstanceDefinition {
   projectDisplayRule: string
 }
 
-export interface PcsProjectWorkItemContract {
-  workItemId: string
-  workItemTypeCode: PcsProjectWorkItemCode
-  workItemTypeName: string
+export interface PcsProjectStepDefinition {
+  stepId: string
+  stepCode: ProjectStepCode
+  stepName: string
   phaseCode: PcsProjectPhaseCode
-  workItemNature: PcsProjectTaskNature
+  stepNature: PcsProjectTaskNature
   runtimeType: PcsProjectTaskRuntimeType
   categoryName: string
   description: string
@@ -417,7 +406,7 @@ function createMultiInstanceDefinition(
 }
 
 const PCS_PROJECT_MULTI_INSTANCE_DEFINITION_MAP: Partial<
-  Record<PcsProjectWorkItemCode, PcsProjectMultiInstanceDefinition>
+  Record<ProjectStepCode, PcsProjectMultiInstanceDefinition>
 > = {
   SAMPLE_ACQUIRE: createMultiInstanceDefinition({
     semanticKind: 'PROJECT_INLINE_RECORDS',
@@ -577,13 +566,13 @@ const PCS_PROJECT_MULTI_INSTANCE_DEFINITION_MAP: Partial<
   }),
 }
 
-function resolveProjectWorkItemMultiInstanceDefinition(
-  contract: Pick<PcsProjectWorkItemContract, 'workItemTypeCode' | 'capabilities'>,
+function resolveProjectStepMultiInstanceDefinition(
+  contract: Pick<PcsProjectStepDefinition, 'stepCode' | 'capabilities'>,
 ): PcsProjectMultiInstanceDefinition | null {
-  const found = PCS_PROJECT_MULTI_INSTANCE_DEFINITION_MAP[contract.workItemTypeCode]
+  const found = PCS_PROJECT_MULTI_INSTANCE_DEFINITION_MAP[contract.stepCode]
   if (!contract.capabilities.canMultiInstance) return null
   if (!found) {
-    throw new Error(`多实例工作项缺少统一实例语义定义：${contract.workItemTypeCode}`)
+    throw new Error(`多实例步骤缺少统一实例语义定义：${contract.stepCode}`)
   }
   return createMultiInstanceDefinition(found)
 }
@@ -673,17 +662,6 @@ const projectInitFields = [
           { value: '外部灵感', label: '外部灵感' },
         ],
       },
-      {
-        key: 'templateId',
-        label: '办理流程',
-        type: 'reference',
-        sourceKind: '固定枚举',
-        sourceRef: '固定五步商品测款流程',
-        meaning: '商品项目统一采用的五步办理流程',
-        logic: '系统固定生成，不允许在创建项目时选择或拼装。',
-        readonly: true,
-        placeholder: '固定五步商品测款流程',
-      },
     ],
   }),
   ...groupFields({
@@ -751,7 +729,7 @@ const projectInitFields = [
         sourceKind: '配置工作台',
         sourceRef: 'brands',
         meaning: '立项时的品牌名称快照',
-        logic: '根据所选品牌自动回写名称，供项目主记录和工作项详情共用。',
+        logic: '根据所选品牌自动回写名称，供项目主记录和步骤详情共用。',
         required: false,
         readonly: true,
       },
@@ -843,7 +821,7 @@ const projectInitFields = [
         sourceKind: '配置工作台',
         sourceRef: 'styles',
         meaning: '风格标签中文名称集合',
-        logic: '风格标签名称用于工作项详情、导出和审计的可读展示。',
+        logic: '风格标签名称用于步骤详情、导出和审计的可读展示。',
         required: false,
         readonly: true,
       },
@@ -1525,36 +1503,12 @@ const conclusionFields = [
   ...groupFields({
     id: 'test-conclusion-effects',
     title: '结论后果',
-    description: '正式承接测款结论对渠道店铺商品、款式档案和下一工作项的影响。',
+    description: '正式承接测款结论对渠道店铺商品、款式档案和下一步骤的影响。',
     fields: [
       { key: 'linkedStyleId', label: '关联款式档案ID', type: 'text', sourceKind: '上游实例回写', sourceRef: '款式档案关联回写', meaning: '测款通过后关联的款式档案ID', logic: '通过分支如已建立款式档案关系则回写 styleId，只读。', readonly: true, required: false },
       { key: 'linkedStyleCode', label: '关联款式档案编码', type: 'text', sourceKind: '上游实例回写', sourceRef: '款式档案关联回写', meaning: '测款通过后关联的款式档案编码', logic: '通过分支如已建立款式档案关系则回写 styleCode，只读。', readonly: true, required: false },
       { key: 'invalidatedChannelProductId', label: '作废渠道店铺商品ID', type: 'text', sourceKind: '上游实例回写', sourceRef: '渠道店铺商品作废回写', meaning: '本次测款结论直接作废的渠道店铺商品ID', logic: '当结论不是通过时，系统回写本次主作废渠道店铺商品ID，只读。', readonly: true, required: false },
       { key: 'nextActionType', label: '后续动作类型', type: 'text', sourceKind: '系统生成', sourceRef: '测款结论分支流转', meaning: '本次测款结论后的下一步主动作', logic: '系统按结论自动计算，例如生成款式档案、返回测款执行或样衣退回处理，只读。', readonly: true },
-    ],
-  }),
-]
-
-const styleArchiveFields = [
-  ...groupFields({
-    id: 'style-archive-main',
-    title: '款式档案生成',
-    description: '测款通过后生成技术包待完善的款式档案壳，并确认档案主图和图册。',
-    fields: [
-      { key: 'styleId', label: '款式档案 ID', type: 'text', sourceKind: '系统生成', sourceRef: '款式档案仓储', meaning: '生成的款式档案主键', logic: '生成款式档案成功后系统回写。', readonly: true },
-      { key: 'styleCode', label: '款式档案编码', type: 'text', sourceKind: '系统生成', sourceRef: '款式档案仓储', meaning: '生成的款式档案编码', logic: '生成款式档案成功后系统回写。', readonly: true },
-      { key: 'styleName', label: '款式档案名称', type: 'text', sourceKind: '系统生成', sourceRef: '款式档案仓储', meaning: '生成的款式档案名称', logic: '默认继承项目名称，可由款式档案主记录维护。', readonly: true },
-      { key: 'archiveStatus', label: '档案状态', type: 'text', sourceKind: '系统生成', sourceRef: '款式档案仓储', meaning: '款式档案状态', logic: '创建成功后为技术包待完善，不会直接变为可生产。', readonly: true },
-      { key: 'styleMainImageId', label: '档案主图', type: 'image-list', sourceKind: '项目图片结果池', sourceRef: '商品上架图片 / 样衣拍摄图片 / 项目参考图 / 档案补充图', meaning: '本次生成款式档案确认的主图图片结果 ID', logic: '生成款式档案前必须先选择主图，主图来自项目图片结果池或当前节点补充上传图片。', required: true },
-      { key: 'styleGalleryImageIds', label: '档案图册', type: 'image-list', sourceKind: '项目图片结果池', sourceRef: '商品上架图片 / 样衣拍摄图片 / 项目参考图 / 档案补充图', meaning: '本次生成款式档案确认的图册图片结果 ID 集合', logic: '图册可为空；如果只选择主图，图册默认包含主图。', required: false },
-      { key: 'styleImageSource', label: '图片来源', type: 'text', sourceKind: '系统汇总', sourceRef: '项目图片结果池', meaning: '本次款式档案图片来源汇总', logic: '由系统根据所选图片来源自动生成，并在生成款式档案后回写。', required: true, readonly: true },
-      { key: 'styleImageConfirmedAt', label: '图片确认时间', type: 'datetime', sourceKind: '系统生成', sourceRef: '项目图片结果池 / 款式档案仓储', meaning: '档案图片确认时间', logic: '生成款式档案时由系统回写。', required: false, readonly: true },
-      { key: 'styleImageConfirmedBy', label: '图片确认人', type: 'text', sourceKind: '系统生成', sourceRef: '项目图片结果池 / 款式档案仓储', meaning: '档案图片确认人', logic: '生成款式档案时由系统回写。', required: false, readonly: true },
-      { key: 'linkedChannelProductCode', label: '来源渠道店铺商品编码', type: 'text', sourceKind: '项目来源', sourceRef: '商品上架实例', meaning: '来源渠道店铺商品编码', logic: '测款通过的渠道店铺商品编码，只读回带。', readonly: true },
-      { key: 'upstreamChannelProductCode', label: '来源上游渠道商品编码', type: 'text', sourceKind: '项目来源', sourceRef: '商品上架实例', meaning: '来源上游渠道商品编码', logic: '测款通过的上游渠道商品编码，只读回带。', readonly: true },
-      { key: 'currentTechnicalVersionId', label: '当前技术包版本', type: 'text', sourceKind: '技术包版本', sourceRef: '技术包版本.currentTechnicalVersionId', meaning: '款式档案当前生效技术包版本', logic: '由技术包启用链路回写，用于项目资料归档收口。', readonly: true, required: false },
-      { key: 'linkedPatternAssetIds', label: '关联花型库结果', type: 'reference-multi', sourceKind: '花型库', sourceRef: '技术包版本.linkedPatternAssetIds', meaning: '当前技术包引用的花型库结果', logic: '由花型任务写入技术包或花型库沉淀链路回写。', readonly: true, required: false },
-      { key: 'projectArchiveStatus', label: '项目资料归档状态', type: 'text', sourceKind: '项目资料归档', sourceRef: '项目资料归档正式对象.archiveStatus', meaning: '当前项目资料归档收口状态', logic: '由项目资料归档同步器采集技术包、花型库、样衣链路后回写。', readonly: true, required: false },
     ],
   }),
 ]
@@ -2056,14 +2010,14 @@ export const PCS_PROJECT_PHASE_CONTRACTS: PcsProjectPhaseContract[] = [
   },
 ]
 
-export const PROJECT_STEP_CONTRACTS: readonly ProjectStepContract[] = [
+export const PROJECT_FLOW_STAGE_CONTRACTS: readonly ProjectFlowStageContract[] = [
   {
     stepCode: 'PROJECT_ARCHIVE',
     stepName: '项目与档案建立',
     sequence: 1,
     phaseCode: 'PHASE_01',
     description: '建立商品项目及处于商品测款状态的商品／款式档案。',
-    workItemCodes: ['PROJECT_INIT'],
+    stepCodes: ['PROJECT_INIT'],
   },
   {
     stepCode: 'SAMPLE_PREPARATION',
@@ -2071,7 +2025,7 @@ export const PROJECT_STEP_CONTRACTS: readonly ProjectStepContract[] = [
     sequence: 2,
     phaseCode: 'PHASE_02',
     description: '完成样衣来源、工程出样、到样核对等样衣准备工作。',
-    workItemCodes: ['SAMPLE_ACQUIRE', 'SAMPLE_INBOUND_CHECK'],
+    stepCodes: ['SAMPLE_ACQUIRE', 'SAMPLE_INBOUND_CHECK'],
   },
   {
     stepCode: 'PRE_TEST_PREPARATION',
@@ -2079,7 +2033,7 @@ export const PROJECT_STEP_CONTRACTS: readonly ProjectStepContract[] = [
     sequence: 3,
     phaseCode: 'PHASE_03',
     description: '完成可行性、拍摄试穿、样衣确认、核价定价和渠道商品准备。',
-    workItemCodes: [
+    stepCodes: [
       'FEASIBILITY_REVIEW',
       'SAMPLE_SHOOT_FIT',
       'SAMPLE_CONFIRM',
@@ -2094,7 +2048,7 @@ export const PROJECT_STEP_CONTRACTS: readonly ProjectStepContract[] = [
     sequence: 4,
     phaseCode: 'PHASE_04',
     description: '执行直播或短视频测款，并汇总测款事实。',
-    workItemCodes: ['LIVE_TEST', 'VIDEO_TEST', 'TEST_DATA_SUMMARY'],
+    stepCodes: ['LIVE_TEST', 'VIDEO_TEST', 'TEST_DATA_SUMMARY'],
   },
   {
     stepCode: 'TEST_DECISION_CLOSURE',
@@ -2102,7 +2056,7 @@ export const PROJECT_STEP_CONTRACTS: readonly ProjectStepContract[] = [
     sequence: 5,
     phaseCode: 'PHASE_05',
     description: '形成测款判断，完成样衣退回或处置后结束项目。',
-    workItemCodes: ['TEST_CONCLUSION', 'SAMPLE_RETURN_HANDLE'],
+    stepCodes: ['TEST_CONCLUSION', 'SAMPLE_RETURN_HANDLE'],
   },
 ]
 
@@ -2113,8 +2067,8 @@ export const PCS_PROJECT_COMMON_INSTANCE_FIELDS: PcsProjectCommonInstanceField[]
   { fieldKey: 'projectCode', label: '商品项目编码', source: '来源项目', meaning: '所属商品项目编码' },
   { fieldKey: 'projectName', label: '商品项目名称', source: '来源项目', meaning: '所属商品项目名称' },
   { fieldKey: 'projectNodeId', label: '所属项目节点 ID', source: '来源项目节点', meaning: '所属项目节点 ID' },
-  { fieldKey: 'workItemTypeCode', label: '工作项类型编码', source: '来源节点定义', meaning: '节点定义编码' },
-  { fieldKey: 'workItemTypeName', label: '工作项名称', source: '来源节点定义', meaning: '节点定义名称' },
+  { fieldKey: 'stepCode', label: '步骤编码', source: '来源节点定义', meaning: '节点定义编码' },
+  { fieldKey: 'stepName', label: '步骤名称', source: '来源节点定义', meaning: '节点定义名称' },
   { fieldKey: 'ownerId', label: '责任人 ID', source: '节点创建操作或来源对象', meaning: '实例责任人 ID' },
   { fieldKey: 'ownerName', label: '责任人', source: '节点创建操作或来源对象', meaning: '实例责任人名称' },
   { fieldKey: 'status', label: '实例状态', source: '实例状态机', meaning: '实例当前状态' },
@@ -2128,13 +2082,13 @@ export const PCS_PROJECT_COMMON_INSTANCE_FIELDS: PcsProjectCommonInstanceField[]
   { fieldKey: 'note', label: '备注', source: '用户录入', meaning: '实例备注' },
 ]
 
-export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
+export const PCS_PROJECT_STEP_DEFINITIONS: PcsProjectStepDefinition[] = [
   {
-    workItemId: 'WI-001',
-    workItemTypeCode: 'PROJECT_INIT',
-    workItemTypeName: '商品项目立项',
+    stepId: 'WI-001',
+    stepCode: 'PROJECT_INIT',
+    stepName: '商品项目立项',
     phaseCode: 'PHASE_01',
-    workItemNature: '里程碑类',
+    stepNature: '里程碑类',
     runtimeType: 'milestone',
     categoryName: '项目立项',
     description: '新建商品项目，完整承接创建草稿并生成正式项目主记录。',
@@ -2179,11 +2133,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     systemConstraints: ['不允许绕过项目立项直接创建后续节点实例'],
   },
   {
-    workItemId: 'WI-002',
-    workItemTypeCode: 'SAMPLE_ACQUIRE',
-    workItemTypeName: '样衣获取',
+    stepId: 'WI-002',
+    stepCode: 'SAMPLE_ACQUIRE',
+    stepName: '样衣获取',
     phaseCode: 'PHASE_01',
-    workItemNature: '执行类',
+    stepNature: '执行类',
     runtimeType: 'execute',
     categoryName: '样衣准备',
     description: '为样衣评估阶段准备样衣来源。',
@@ -2213,11 +2167,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     systemConstraints: ['样衣来源方式只允许选择外采或委托打样'],
   },
   {
-    workItemId: 'WI-003',
-    workItemTypeCode: 'SAMPLE_INBOUND_CHECK',
-    workItemTypeName: '样衣结果核对',
+    stepId: 'WI-003',
+    stepCode: 'SAMPLE_INBOUND_CHECK',
+    stepName: '样衣结果核对',
     phaseCode: 'PHASE_02',
-    workItemNature: '执行类',
+    stepNature: '执行类',
     runtimeType: 'execute',
     categoryName: '样衣准备',
     description: '样衣真正到位后登记实收明细，并生成样衣管理可追踪的样衣编号。',
@@ -2247,11 +2201,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     systemConstraints: ['样衣未到位前不能进入初步可行性判断'],
   },
   {
-    workItemId: 'WI-004',
-    workItemTypeCode: 'FEASIBILITY_REVIEW',
-    workItemTypeName: '初步可行性判断',
+    stepId: 'WI-004',
+    stepCode: 'FEASIBILITY_REVIEW',
+    stepName: '初步可行性判断',
     phaseCode: 'PHASE_02',
-    workItemNature: '决策类',
+    stepNature: '决策类',
     runtimeType: 'decision',
     categoryName: '样衣评估',
     description: '样衣已到位后，判断是进入测款还是样衣退回。',
@@ -2281,11 +2235,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     systemConstraints: ['样衣未到位不能提交可行性结论'],
   },
   {
-    workItemId: 'WI-005',
-    workItemTypeCode: 'SAMPLE_SHOOT_FIT',
-    workItemTypeName: '样衣拍摄与试穿',
+    stepId: 'WI-005',
+    stepCode: 'SAMPLE_SHOOT_FIT',
+    stepName: '样衣拍摄与试穿',
     phaseCode: 'PHASE_02',
-    workItemNature: '执行类',
+    stepNature: '执行类',
     runtimeType: 'execute',
     categoryName: '样衣评估',
     description: '为样衣确认和内容测款准备上身、拍摄素材。',
@@ -2315,11 +2269,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     systemConstraints: ['允许多次执行，用于补拍或二次试穿'],
   },
   {
-    workItemId: 'WI-006',
-    workItemTypeCode: 'SAMPLE_CONFIRM',
-    workItemTypeName: '样衣确认',
+    stepId: 'WI-006',
+    stepCode: 'SAMPLE_CONFIRM',
+    stepName: '样衣确认',
     phaseCode: 'PHASE_02',
-    workItemNature: '决策类',
+    stepNature: '决策类',
     runtimeType: 'decision',
     categoryName: '样衣评估',
     description: '正式确认样衣是否可进入市场测款。',
@@ -2349,11 +2303,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     systemConstraints: ['样衣未确认通过，不允许进入商品上架和测款'],
   },
   {
-    workItemId: 'WI-007',
-    workItemTypeCode: 'SAMPLE_COST_REVIEW',
-    workItemTypeName: '样衣核价',
+    stepId: 'WI-007',
+    stepCode: 'SAMPLE_COST_REVIEW',
+    stepName: '样衣核价',
     phaseCode: 'PHASE_02',
-    workItemNature: '执行类',
+    stepNature: '执行类',
     runtimeType: 'execute',
     categoryName: '样衣评估',
     description: '承接商品核价功能，记录样衣成本明细、总成本、销售价格和毛利率。',
@@ -2383,11 +2337,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     systemConstraints: ['核价未完成或缺少 salesPrice 时不允许创建渠道店铺商品'],
   },
   {
-    workItemId: 'WI-008',
-    workItemTypeCode: 'SAMPLE_PRICING',
-    workItemTypeName: '样衣定价',
+    stepId: 'WI-008',
+    stepCode: 'SAMPLE_PRICING',
+    stepName: '样衣定价',
     phaseCode: 'PHASE_02',
-    workItemNature: '决策类',
+    stepNature: '决策类',
     runtimeType: 'decision',
     categoryName: '样衣评估',
     description: '给测款渠道提供初始售价。',
@@ -2417,11 +2371,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     systemConstraints: ['定价未完成时不允许发起商品上架'],
   },
   {
-    workItemId: 'WI-009',
-    workItemTypeCode: 'CHANNEL_PRODUCT_LISTING',
-    workItemTypeName: '商品上架',
+    stepId: 'WI-009',
+    stepCode: 'CHANNEL_PRODUCT_LISTING',
+    stepName: '商品上架',
     phaseCode: 'PHASE_02',
-    workItemNature: '执行类',
+    stepNature: '执行类',
     runtimeType: 'execute',
     categoryName: '商品准备',
     description: '在测款前按渠道 / 店铺 / 款式批次 / 规格明细粒度生成多个款式上架批次，并完成上游渠道款式上传。',
@@ -2467,11 +2421,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     systemConstraints: ['不允许再使用 CHANNEL_PRODUCT_PREP 旧编码', '不允许保留旧的渠道商品准备语义', '单批次只允许对应一个渠道、一个店铺和一组规格明细'],
   },
   {
-    workItemId: 'WI-010',
-    workItemTypeCode: 'VIDEO_TEST',
-    workItemTypeName: '短视频测款',
+    stepId: 'WI-010',
+    stepCode: 'VIDEO_TEST',
+    stepName: '短视频测款',
     phaseCode: 'PHASE_03',
-    workItemNature: '事实类',
+    stepNature: '事实类',
     runtimeType: 'fact',
     categoryName: '市场测款',
     description: '通过短视频内容验证是否有流量和转化潜力。',
@@ -2501,11 +2455,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     systemConstraints: ['不允许存在未绑定项目的短视频测款记录', '同一条短视频测款记录只允许回写一个商品项目', '列表不展示发布时间缺失或核心指标为 0 的异常演示数据'],
   },
   {
-    workItemId: 'WI-011',
-    workItemTypeCode: 'LIVE_TEST',
-    workItemTypeName: '直播测款',
+    stepId: 'WI-011',
+    stepCode: 'LIVE_TEST',
+    stepName: '直播测款',
     phaseCode: 'PHASE_03',
-    workItemNature: '事实类',
+    stepNature: '事实类',
     runtimeType: 'fact',
     categoryName: '市场测款',
     description: '通过直播测款记录真实成交。',
@@ -2535,11 +2489,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     systemConstraints: ['不允许存在未绑定项目的直播测款记录', '同一条直播测款记录只允许回写一个商品项目', '列表不展示下播时间缺失或核心指标为 0 的异常演示数据'],
   },
   {
-    workItemId: 'WI-012',
-    workItemTypeCode: 'TEST_DATA_SUMMARY',
-    workItemTypeName: '测款数据汇总',
+    stepId: 'WI-012',
+    stepCode: 'TEST_DATA_SUMMARY',
+    stepName: '测款数据汇总',
     phaseCode: 'PHASE_03',
-    workItemNature: '事实类',
+    stepNature: '事实类',
     runtimeType: 'fact',
     categoryName: '市场测款',
     description: '将直播、短视频事实汇总为正式分析口径。',
@@ -2569,11 +2523,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     systemConstraints: ['聚合指标只读，不允许手工改写', '渠道、店铺、渠道店铺商品、测款来源和币种拆分全部由系统自动生成'],
   },
   {
-    workItemId: 'WI-013',
-    workItemTypeCode: 'TEST_CONCLUSION',
-    workItemTypeName: '测款结论判定',
+    stepId: 'WI-013',
+    stepCode: 'TEST_CONCLUSION',
+    stepName: '测款结论判定',
     phaseCode: 'PHASE_03',
-    workItemNature: '决策类',
+    stepNature: '决策类',
     runtimeType: 'decision',
     categoryName: '市场测款',
     description: '决定项目是否继续推进，或转入样衣退回处理。',
@@ -2603,45 +2557,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     systemConstraints: ['判断不通过时，当前渠道店铺商品必须作废或下架', '判断为暂保留时不得创建或重新激活直播、短视频测款节点', 'nextActionType 以及各类后果字段均由系统按分支自动生成，不允许手工篡改'],
   },
   {
-    workItemId: 'WI-014',
-    workItemTypeCode: 'STYLE_ARCHIVE_CREATE',
-    workItemTypeName: '生成款式档案',
+    stepId: 'WI-015A',
+    stepCode: 'REVISION_TASK',
+    stepName: '改版任务',
     phaseCode: 'PHASE_04',
-    workItemNature: '里程碑类',
-    runtimeType: 'milestone',
-    categoryName: '款式档案与转档',
-    description: '只有测款通过后，才有资格创建款式档案。',
-    scenario: '测款通过后生成技术包待完善的款式档案壳，并把渠道店铺商品正式生效。',
-    keepReason: '款式档案是技术包、项目资料归档和后续开发的唯一正式承接对象。',
-    roleNames: ['档案管理员', '商品负责人'],
-    capabilities: { canReuse: false, canMultiInstance: false, canRollback: false, canParallel: false },
-    fieldDefinitions: styleArchiveFields,
-    operationDefinitions: [
-      {
-        actionKey: 'generate-style-archive',
-        actionName: '生成款式档案',
-        preconditions: ['测款结论=通过'],
-        effects: ['生成 styleId、styleCode、styleName', 'archiveStatus=技术包待完善', '把渠道店铺商品置为已生效'],
-        writebackRules: ['测款不通过不能创建款式档案', '创建成功后必须形成 styleCode + channelProductCode + upstreamChannelProductCode 三码关联'],
-      },
-    ],
-    statusDefinitions: [
-      { statusName: '未开始', entryConditions: ['测款结论未通过前'], exitConditions: ['开始生成款式档案'], businessMeaning: '尚未开始创建款式档案。' },
-      { statusName: '进行中', entryConditions: ['开始生成款式档案'], exitConditions: ['生成完成或取消'], businessMeaning: '正在生成款式档案壳。' },
-      { statusName: '已完成', entryConditions: ['款式档案生成完成'], exitConditions: ['无'], businessMeaning: '款式档案壳已生成。' },
-      { statusName: '已取消', entryConditions: ['测款不通过或节点取消'], exitConditions: ['无'], businessMeaning: '不再生成款式档案。' },
-    ],
-    upstreamChanges: ['读取测款结论和商品上架实例。'],
-    downstreamChanges: ['回写款式档案主记录', '回写渠道店铺商品生效状态', '按固定流程顺序进入下一项任务'],
-    businessRules: ['测款不通过不能创建款式档案', '创建成功后档案状态必须是技术包待完善', '正式建档完成后必须按固定流程顺序推进项目节点'],
-    systemConstraints: ['款式档案创建成功后必须把渠道店铺商品置为已生效'],
-  },
-  {
-    workItemId: 'WI-015A',
-    workItemTypeCode: 'REVISION_TASK',
-    workItemTypeName: '改版任务',
-    phaseCode: 'PHASE_04',
-    workItemNature: '执行类',
+    stepNature: '执行类',
     runtimeType: 'execute',
     categoryName: '开发推进',
     description: '改版触发后创建的正式改版推进任务，可用于测款结论返改、首版样衣返改、既有商品二次开发和人工改版需求。',
@@ -2677,11 +2597,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     systemConstraints: ['改版任务不能脱离正式项目链路存在', '来源对象、任务状态和技术包版本关联只能由正式任务对象回写'],
   },
   {
-    workItemId: 'WI-016',
-    workItemTypeCode: 'PATTERN_TASK',
-    workItemTypeName: '制版任务',
+    stepId: 'WI-016',
+    stepCode: 'PATTERN_TASK',
+    stepName: '制版任务',
     phaseCode: 'PHASE_04',
-    workItemNature: '执行类',
+    stepNature: '执行类',
     runtimeType: 'execute',
     categoryName: '开发推进',
     description: '测款通过后的制版推进。',
@@ -2715,11 +2635,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     systemConstraints: ['制版任务不能脱离款式档案独立存在', '来源对象、任务状态、受理时间、确认时间和技术包版本关联只能由正式任务对象回写'],
   },
   {
-    workItemId: 'WI-017',
-    workItemTypeCode: 'PATTERN_ARTWORK_TASK',
-    workItemTypeName: '花型任务',
+    stepId: 'WI-017',
+    stepCode: 'PATTERN_ARTWORK_TASK',
+    stepName: '花型任务',
     phaseCode: 'PHASE_04',
-    workItemNature: '执行类',
+    stepNature: '执行类',
     runtimeType: 'execute',
     categoryName: '开发推进',
     description: '设计款或印花类项目推进花型版本。',
@@ -2753,11 +2673,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     systemConstraints: ['花型任务不能脱离正式项目链路存在', '来源对象、任务状态、受理时间、确认时间和技术包版本关联只能由正式任务对象回写'],
   },
   {
-    workItemId: 'WI-018',
-    workItemTypeCode: 'FIRST_SAMPLE',
-    workItemTypeName: '首版样衣打样',
+    stepId: 'WI-018',
+    stepCode: 'FIRST_SAMPLE',
+    stepName: '首版样衣打样',
     phaseCode: 'PHASE_04',
-    workItemNature: '执行类',
+    stepNature: '执行类',
     runtimeType: 'execute',
     categoryName: '开发推进',
     description: '制版、花型、改版后的首版样衣验证。',
@@ -2791,11 +2711,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     systemConstraints: ['首版样衣任务允许多次执行用于多轮验证', '来源对象、任务状态、确认时间和结果编号只能由正式首版样衣任务回写'],
   },
   {
-    workItemId: 'WI-019',
-    workItemTypeCode: 'FIRST_ORDER_SAMPLE',
-    workItemTypeName: '首单样衣打样',
+    stepId: 'WI-019',
+    stepCode: 'FIRST_ORDER_SAMPLE',
+    stepName: '首单样衣打样',
     phaseCode: 'PHASE_04',
-    workItemNature: '执行类',
+    stepNature: '执行类',
     runtimeType: 'execute',
     categoryName: '开发推进',
     description: '首单最终样确认。',
@@ -2830,11 +2750,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     systemConstraints: ['首单样任务允许多次执行用于多轮确认', '来源对象、任务状态、首单确认时间和结果编号只能由正式首单样衣打样任务回写'],
   },
   {
-    workItemId: 'WI-021',
-    workItemTypeCode: 'SAMPLE_RETURN_HANDLE',
-    workItemTypeName: '样衣退回处理',
+    stepId: 'WI-021',
+    stepCode: 'SAMPLE_RETURN_HANDLE',
+    stepName: '样衣退回处理',
     phaseCode: 'PHASE_05',
-    workItemNature: '执行类',
+    stepNature: '执行类',
     runtimeType: 'execute',
     categoryName: '项目收尾',
     description: '记录样衣退回、报废或处置结果。',
@@ -2961,40 +2881,38 @@ export const PCS_PROJECT_RELATED_INSTANCE_TYPES: PcsProjectRelatedInstanceTypeDe
   { typeCode: 'PROJECT_ARCHIVE', typeName: '项目资料归档', moduleName: '项目资料归档', businessMeaning: '围绕商品项目沉淀的正式归档对象。' },
 ]
 
-export const PCS_PROJECT_WORK_ITEM_LEGACY_MAPPINGS: Array<{
+export const PCS_PROJECT_STEP_LEGACY_MAPPINGS: Array<{
   legacyName?: string
   legacyCode?: string
-  workItemTypeCode: PcsProjectWorkItemCode
+  stepCode: ProjectStepCode
 }> = [
-  { legacyName: '商品项目立项', workItemTypeCode: 'PROJECT_INIT' },
-  { legacyName: '样衣获取', workItemTypeCode: 'SAMPLE_ACQUIRE' },
-  { legacyName: '样衣获取（深圳前置打版）', workItemTypeCode: 'SAMPLE_ACQUIRE' },
-  { legacyName: '样衣结果核对', workItemTypeCode: 'SAMPLE_INBOUND_CHECK' },
-  { legacyName: '初步可行性判断', workItemTypeCode: 'FEASIBILITY_REVIEW' },
-  { legacyName: '样衣拍摄与试穿', workItemTypeCode: 'SAMPLE_SHOOT_FIT' },
-  { legacyName: '样衣确认', workItemTypeCode: 'SAMPLE_CONFIRM' },
-  { legacyName: '样衣核价', workItemTypeCode: 'SAMPLE_COST_REVIEW' },
-  { legacyName: '样衣定价', workItemTypeCode: 'SAMPLE_PRICING' },
-  { legacyName: '商品上架', legacyCode: 'CHANNEL_PRODUCT_PREP', workItemTypeCode: 'CHANNEL_PRODUCT_LISTING' },
-  { legacyName: '渠道商品准备', legacyCode: 'CHANNEL_PRODUCT_PREP', workItemTypeCode: 'CHANNEL_PRODUCT_LISTING' },
-  { legacyName: '短视频测款', workItemTypeCode: 'VIDEO_TEST' },
-  { legacyName: '直播测款', workItemTypeCode: 'LIVE_TEST' },
-  { legacyName: '测款数据汇总', workItemTypeCode: 'TEST_DATA_SUMMARY' },
-  { legacyName: '测款结论判定', workItemTypeCode: 'TEST_CONCLUSION' },
-  { legacyName: '生成商品档案', workItemTypeCode: 'STYLE_ARCHIVE_CREATE' },
-  { legacyName: '生成款式档案', workItemTypeCode: 'STYLE_ARCHIVE_CREATE' },
-  { legacyName: '改版任务', workItemTypeCode: 'REVISION_TASK' },
-  { legacyName: '制版准备·打版任务', workItemTypeCode: 'PATTERN_TASK' },
-  { legacyName: '制版任务', workItemTypeCode: 'PATTERN_TASK' },
-  { legacyName: '花型任务', workItemTypeCode: 'PATTERN_ARTWORK_TASK' },
-  { legacyName: '首版样衣打样', workItemTypeCode: 'FIRST_SAMPLE' },
-  { legacyName: '首单样衣打样', workItemTypeCode: 'FIRST_ORDER_SAMPLE' },
-  { legacyName: '样衣退货与处理', workItemTypeCode: 'SAMPLE_RETURN_HANDLE' },
+  { legacyName: '商品项目立项', stepCode: 'PROJECT_INIT' },
+  { legacyName: '样衣获取', stepCode: 'SAMPLE_ACQUIRE' },
+  { legacyName: '样衣获取（深圳前置打版）', stepCode: 'SAMPLE_ACQUIRE' },
+  { legacyName: '样衣结果核对', stepCode: 'SAMPLE_INBOUND_CHECK' },
+  { legacyName: '初步可行性判断', stepCode: 'FEASIBILITY_REVIEW' },
+  { legacyName: '样衣拍摄与试穿', stepCode: 'SAMPLE_SHOOT_FIT' },
+  { legacyName: '样衣确认', stepCode: 'SAMPLE_CONFIRM' },
+  { legacyName: '样衣核价', stepCode: 'SAMPLE_COST_REVIEW' },
+  { legacyName: '样衣定价', stepCode: 'SAMPLE_PRICING' },
+  { legacyName: '商品上架', legacyCode: 'CHANNEL_PRODUCT_PREP', stepCode: 'CHANNEL_PRODUCT_LISTING' },
+  { legacyName: '渠道商品准备', legacyCode: 'CHANNEL_PRODUCT_PREP', stepCode: 'CHANNEL_PRODUCT_LISTING' },
+  { legacyName: '短视频测款', stepCode: 'VIDEO_TEST' },
+  { legacyName: '直播测款', stepCode: 'LIVE_TEST' },
+  { legacyName: '测款数据汇总', stepCode: 'TEST_DATA_SUMMARY' },
+  { legacyName: '测款结论判定', stepCode: 'TEST_CONCLUSION' },
+  { legacyName: '改版任务', stepCode: 'REVISION_TASK' },
+  { legacyName: '制版准备·打版任务', stepCode: 'PATTERN_TASK' },
+  { legacyName: '制版任务', stepCode: 'PATTERN_TASK' },
+  { legacyName: '花型任务', stepCode: 'PATTERN_ARTWORK_TASK' },
+  { legacyName: '首版样衣打样', stepCode: 'FIRST_SAMPLE' },
+  { legacyName: '首单样衣打样', stepCode: 'FIRST_ORDER_SAMPLE' },
+  { legacyName: '样衣退货与处理', stepCode: 'SAMPLE_RETURN_HANDLE' },
 ]
 
 const PHASE_MAP = new Map(PCS_PROJECT_PHASE_CONTRACTS.map((item) => [item.phaseCode, item]))
-const WORK_ITEM_MAP = new Map(PCS_PROJECT_WORK_ITEM_CONTRACTS.map((item) => [item.workItemTypeCode, item]))
-const WORK_ITEM_ID_MAP = new Map(PCS_PROJECT_WORK_ITEM_CONTRACTS.map((item) => [item.workItemId, item]))
+const STEP_DEFINITION_MAP = new Map(PCS_PROJECT_STEP_DEFINITIONS.map((item) => [item.stepCode, item]))
+const STEP_DEFINITION_ID_MAP = new Map(PCS_PROJECT_STEP_DEFINITIONS.map((item) => [item.stepId, item]))
 const CONFIG_SOURCE_MAP = new Map(PCS_PROJECT_CONFIG_SOURCE_MAPPINGS.map((item) => [item.fieldKey, item]))
 
 export function listProjectPhaseContracts(): PcsProjectPhaseContract[] {
@@ -3005,26 +2923,26 @@ export function listProjectPhaseContracts(): PcsProjectPhaseContract[] {
   }))
 }
 
-export function listProjectStepContracts(): ProjectStepContract[] {
-  return PROJECT_STEP_CONTRACTS
+export function listProjectFlowStageContracts(): ProjectFlowStageContract[] {
+  return PROJECT_FLOW_STAGE_CONTRACTS
     .slice()
     .sort((left, right) => left.sequence - right.sequence)
     .map((item) => ({
       ...item,
-      workItemCodes: [...item.workItemCodes],
+      stepCodes: [...item.stepCodes],
     }))
 }
 
-export function getProjectStepContract(stepCode: ProjectStepCode): ProjectStepContract {
-  const found = listProjectStepContracts().find((item) => item.stepCode === stepCode)
+export function getProjectFlowStageContract(stepCode: ProjectFlowStageCode): ProjectFlowStageContract {
+  const found = listProjectFlowStageContracts().find((item) => item.stepCode === stepCode)
   if (!found) {
     throw new Error(`未找到商品项目步骤契约：${stepCode}`)
   }
   return found
 }
 
-export function getProjectStepContractByPhaseCode(phaseCode: PcsProjectPhaseCode): ProjectStepContract {
-  const found = listProjectStepContracts().find((item) => item.phaseCode === phaseCode)
+export function getProjectFlowStageContractByPhaseCode(phaseCode: PcsProjectPhaseCode): ProjectFlowStageContract {
+  const found = listProjectFlowStageContracts().find((item) => item.phaseCode === phaseCode)
   if (!found) {
     throw new Error(`未找到商品项目步骤契约：${phaseCode}`)
   }
@@ -3039,10 +2957,10 @@ export function getProjectPhaseContract(phaseCode: PcsProjectPhaseCode): PcsProj
   return { ...found }
 }
 
-export function listProjectWorkItemContracts(): PcsProjectWorkItemContract[] {
-  return PCS_PROJECT_WORK_ITEM_CONTRACTS.map((item) => ({
+export function listProjectStepDefinitions(): PcsProjectStepDefinition[] {
+  return PCS_PROJECT_STEP_DEFINITIONS.map((item) => ({
     ...item,
-    multiInstanceDefinition: resolveProjectWorkItemMultiInstanceDefinition(item),
+    multiInstanceDefinition: resolveProjectStepMultiInstanceDefinition(item),
     roleNames: [...item.roleNames],
     fieldDefinitions: item.fieldDefinitions.map((field) => ({ ...field, options: field.options ? [...field.options] : undefined })),
     operationDefinitions: item.operationDefinitions.map((operation) => ({
@@ -3068,40 +2986,40 @@ export function listProjectWorkItemContracts(): PcsProjectWorkItemContract[] {
   }))
 }
 
-export function getProjectWorkItemContract(workItemTypeCode: PcsProjectWorkItemCode): PcsProjectWorkItemContract {
-  const found = WORK_ITEM_MAP.get(workItemTypeCode)
+export function getProjectStepDefinition(stepCode: ProjectStepCode): PcsProjectStepDefinition {
+  const found = STEP_DEFINITION_MAP.get(stepCode)
   if (!found) {
-    throw new Error(`未找到项目工作项契约：${workItemTypeCode}`)
+    throw new Error(`未找到项目固定步骤定义：${stepCode}`)
   }
-  return listProjectWorkItemContracts().find((item) => item.workItemTypeCode === workItemTypeCode) as PcsProjectWorkItemContract
+  return listProjectStepDefinitions().find((item) => item.stepCode === stepCode) as PcsProjectStepDefinition
 }
 
-export function getProjectWorkItemMultiInstanceDefinition(
-  workItemTypeCode: PcsProjectWorkItemCode,
+export function getProjectStepMultiInstanceDefinition(
+  stepCode: ProjectStepCode,
 ): PcsProjectMultiInstanceDefinition | null {
-  return getProjectWorkItemContract(workItemTypeCode).multiInstanceDefinition ?? null
+  return getProjectStepDefinition(stepCode).multiInstanceDefinition ?? null
 }
 
-export function getProjectWorkItemContractById(workItemId: string): PcsProjectWorkItemContract | null {
-  const found = WORK_ITEM_ID_MAP.get(workItemId)
+export function getProjectStepDefinitionById(stepId: string): PcsProjectStepDefinition | null {
+  const found = STEP_DEFINITION_ID_MAP.get(stepId)
   if (!found) return null
-  return getProjectWorkItemContract(found.workItemTypeCode)
+  return getProjectStepDefinition(found.stepCode)
 }
 
-export function listProjectWorkItemFieldDefinitions(
-  workItemTypeCode: PcsProjectWorkItemCode,
+export function listProjectStepFieldDefinitions(
+  stepCode: ProjectStepCode,
 ): PcsProjectNodeFieldDefinition[] {
-  return getProjectWorkItemContract(workItemTypeCode).fieldDefinitions.map((field) => ({
+  return getProjectStepDefinition(stepCode).fieldDefinitions.map((field) => ({
     ...field,
     options: field.options ? [...field.options] : undefined,
   }))
 }
 
-export function listProjectWorkItemFieldGroups(
-  workItemTypeCode: PcsProjectWorkItemCode,
+export function listProjectStepFieldGroups(
+  stepCode: ProjectStepCode,
 ): PcsProjectNodeFieldGroupDefinition[] {
   const groups = new Map<string, PcsProjectNodeFieldGroupDefinition>()
-  listProjectWorkItemFieldDefinitions(workItemTypeCode).forEach((field) => {
+  listProjectStepFieldDefinitions(stepCode).forEach((field) => {
     if (!groups.has(field.groupId)) {
       groups.set(field.groupId, {
         groupId: field.groupId,
@@ -3128,12 +3046,12 @@ export function listProjectRelatedInstanceTypes(): PcsProjectRelatedInstanceType
   return PCS_PROJECT_RELATED_INSTANCE_TYPES.map((item) => ({ ...item }))
 }
 
-export function resolveLegacyProjectWorkItemCode(
+export function resolveLegacyProjectStepCode(
   legacyNameOrCode: string,
-): PcsProjectWorkItemCode | null {
+): ProjectStepCode | null {
   const normalized = legacyNameOrCode.trim()
-  const matched = PCS_PROJECT_WORK_ITEM_LEGACY_MAPPINGS.find(
+  const matched = PCS_PROJECT_STEP_LEGACY_MAPPINGS.find(
     (item) => item.legacyName === normalized || item.legacyCode === normalized,
   )
-  return matched?.workItemTypeCode ?? null
+  return matched?.stepCode ?? null
 }

@@ -13,8 +13,8 @@ export interface RevisionTaskRecord {
   projectCode: string
   projectName: string
   projectNodeId: string
-  workItemTypeCode: 'REVISION_TASK'
-  workItemTypeName: '改版任务'
+  stepCode: 'REVISION_TASK'
+  stepName: '改版任务'
   sourceType: RevisionTaskSourceType
   upstreamModule: string
   upstreamObjectType: string

@@ -16,7 +16,7 @@ const project = listProjects().find((item) => item.projectCode === 'PRJ-202603-0
 assert.ok(project, '缺少首单样衣来源演示项目')
 assert.ok(listFirstOrderSourceFirstSampleOptions(project.projectId).length > 0)
 assert.ok(
-  listProjectNodes(project.projectId).every((node) => node.workItemTypeCode !== 'FIRST_ORDER_SAMPLE'),
+  listProjectNodes(project.projectId).every((node) => node.stepCode !== 'FIRST_ORDER_SAMPLE'),
   '固定五步项目不得再提供首单样衣节点入口',
 )
 

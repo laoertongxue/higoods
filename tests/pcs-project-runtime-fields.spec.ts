@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 
 import {
   getProjectById,
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   getProjectStoreSnapshot,
   listProjectNodes,
   listProjects,
@@ -55,19 +55,19 @@ const derivedProject = getProjectById(liveProject!.projectId)
 assert.equal(derivedProject?.pendingDecisionFlag, true, '节点改为待确认后应立即派生待确认标记')
 assert.equal(derivedProject?.blockedFlag, true, '节点写入阻塞问题后应立即派生项目阻塞状态')
 assert.equal(derivedProject?.blockedReason, '节点真相阻塞，等待复盘。', '阻塞原因应直接来自节点真相')
-assert.equal(derivedProject?.nextWorkItemName, currentNode?.workItemTypeName, '下一工作项应来自当前未关闭节点')
-assert.equal(derivedProject?.nextWorkItemStatus, '待确认', '下一工作项状态应来自当前节点真相')
+assert.equal(derivedProject?.nextStepName, currentNode?.stepName, '下一工作项应来自当前未关闭节点')
+assert.equal(derivedProject?.nextStepStatus, '待确认', '下一工作项状态应来自当前节点真相')
 assert.equal(derivedProject?.riskStatus, '延期', '阻塞节点停留超过阈值时应立即派生延期风险')
 
 const updatedRawProject = getProjectStoreSnapshot().projects.find((item) => item.projectId === liveProject!.projectId)
 assert.ok(updatedRawProject, '应仍可读取项目原始记录')
 assert.equal(
-  Object.prototype.hasOwnProperty.call(updatedRawProject, 'nextWorkItemName'),
+  Object.prototype.hasOwnProperty.call(updatedRawProject, 'nextStepName'),
   false,
   '节点变更后也不应把下一工作项写回项目主记录',
 )
 
-const conclusionNode = getProjectNodeRecordByWorkItemTypeCode(liveProject!.projectId, 'TEST_CONCLUSION')
+const conclusionNode = getProjectNodeRecordByStepCode(liveProject!.projectId, 'TEST_CONCLUSION')
 assert.ok(conclusionNode, '项目应存在测款结论节点用于对照')
 
 console.log('pcs-project-runtime-fields.spec.ts PASS')

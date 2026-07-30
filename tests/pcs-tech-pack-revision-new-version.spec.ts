@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { clearProjectRelationStore } from '../src/data/pcs-project-relation-repository.ts'
 import {
   getProjectById,
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   resetProjectRepository,
   updateProjectRecord,
 } from '../src/data/pcs-project-repository.ts'
@@ -92,7 +92,7 @@ function prepareProjectAndStyle() {
 
 function createPlateTask(id: string, code: string, projectId: string, styleCode: string, patternVersion: string): PlateMakingTaskRecord {
   const project = getProjectById(projectId)!
-  const plateNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PATTERN_TASK')!
+  const plateNode = getProjectNodeRecordByStepCode(projectId, 'PATTERN_TASK')!
   return upsertPlateMakingTask({
     plateTaskId: id,
     plateTaskCode: code,
@@ -101,13 +101,13 @@ function createPlateTask(id: string, code: string, projectId: string, styleCode:
     projectCode: project.projectCode,
     projectName: project.projectName,
     projectNodeId: plateNode.projectNodeId,
-    workItemTypeCode: 'PATTERN_TASK',
-    workItemTypeName: '制版任务',
+    stepCode: 'PATTERN_TASK',
+    stepName: '制版任务',
     sourceType: '项目模板阶段',
     upstreamModule: '商品项目',
     upstreamObjectType: '商品项目节点',
     upstreamObjectId: plateNode.projectNodeId,
-    upstreamObjectCode: plateNode.workItemTypeCode,
+    upstreamObjectCode: plateNode.stepCode,
     productStyleCode: styleCode,
     spuCode: styleCode,
     patternType: '常规制版',
@@ -138,7 +138,7 @@ function createPlateTask(id: string, code: string, projectId: string, styleCode:
 
 function createRevisionTask(projectId: string, styleId: string, styleCode: string, styleName: string): RevisionTaskRecord {
   const project = getProjectById(projectId)!
-  const upstreamNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'TEST_CONCLUSION')
+  const upstreamNode = getProjectNodeRecordByStepCode(projectId, 'TEST_CONCLUSION')
   assert.ok(upstreamNode, '项目中必须存在可挂接改版任务的节点')
 
   return upsertRevisionTask({
@@ -149,13 +149,13 @@ function createRevisionTask(projectId: string, styleId: string, styleCode: strin
     projectCode: project.projectCode,
     projectName: project.projectName,
     projectNodeId: upstreamNode!.projectNodeId,
-    workItemTypeCode: 'REVISION_TASK',
-    workItemTypeName: '改版任务',
+    stepCode: 'REVISION_TASK',
+    stepName: '改版任务',
     sourceType: '人工创建',
     upstreamModule: '商品项目',
     upstreamObjectType: '商品项目节点',
     upstreamObjectId: upstreamNode!.projectNodeId,
-    upstreamObjectCode: upstreamNode!.workItemTypeCode,
+    upstreamObjectCode: upstreamNode!.stepCode,
     styleId,
     styleCode,
     styleName,

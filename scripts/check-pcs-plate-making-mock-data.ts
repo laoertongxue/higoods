@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 
 import {
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   resetProjectRepository,
 } from '../src/data/pcs-project-repository.ts'
 import {
@@ -54,7 +54,7 @@ for (const task of tasks) {
   assert.ok(task.styleCode || task.productStyleCode || task.spuCode, `${task.plateTaskCode} 必须带款式/SPU 信息`)
   assert.ok((task.materialRequirementLines || []).length > 0, `${task.plateTaskCode} 必须带制版面辅料输入`)
 
-  const node = getProjectNodeRecordByWorkItemTypeCode(task.projectId, 'PATTERN_TASK')
+  const node = getProjectNodeRecordByStepCode(task.projectId, 'PATTERN_TASK')
   assert.equal(node?.projectNodeId, task.projectNodeId, `${task.plateTaskCode} 的项目节点必须是 PATTERN_TASK`)
 
   if (task.status === '待确认') {

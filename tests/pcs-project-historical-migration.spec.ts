@@ -61,10 +61,10 @@ const historicalNodes = historicalProjects.flatMap((project, projectIndex) => {
       ...node,
       projectNodeId: `${project.projectId}-legacy-node-${nodeIndex + 1}`,
       projectId: project.projectId,
-      workItemTypeCode:
-        projectIndex === 0 && nodeIndex === 0 ? 'STYLE_ARCHIVE_CREATE' : node.workItemTypeCode,
-      workItemTypeName:
-        projectIndex === 0 && nodeIndex === 0 ? '旧商品／款式档案建立' : node.workItemTypeName,
+      stepCode:
+        projectIndex === 0 && nodeIndex === 0 ? 'PROJECT_INIT' : node.stepCode,
+      stepName:
+        projectIndex === 0 && nodeIndex === 0 ? '旧商品／款式档案建立' : node.stepName,
       phaseName: `旧模板阶段-${Number(node.phaseCode.slice(-2))}`,
       latestResultText:
         nodeIndex === 1 ? `历史业务记录-${project.projectCode}` : node.latestResultText,
@@ -132,7 +132,7 @@ historicalProjects.forEach((historicalProject) => {
   assert.equal(migratedProject?.linkedStyleId, styleArchive?.styleId)
   const projectInitNode = projectRepository
     .listProjectNodes(historicalProject.projectId)
-    .find((node) => node.workItemTypeCode === 'PROJECT_INIT')
+    .find((node) => node.stepCode === 'PROJECT_INIT')
   const projectIndex = historicalProjects.findIndex((project) => project.projectId === historicalProject.projectId)
   assert.equal(
     styleArchive?.sourceProjectNodeId,

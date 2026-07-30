@@ -7,7 +7,7 @@ import {
 import { listProjectInlineNodeRecordsByProject } from './pcs-project-inline-node-record-repository.ts'
 import { listProjectRelationsByProject } from './pcs-project-relation-repository.ts'
 import {
-  getProjectWorkItemMultiInstanceDefinition,
+  getProjectStepMultiInstanceDefinition,
   type PcsProjectMultiInstanceDefinition,
 } from './pcs-project-domain-contract.ts'
 import type { PcsProjectInlineNodeRecord } from './pcs-project-inline-node-record-types.ts'
@@ -20,8 +20,8 @@ export interface ProjectNodeInstanceRecord {
   projectId: string
   projectCode: string
   projectNodeId: string
-  workItemTypeCode: string
-  workItemTypeName: string
+  stepCode: string
+  stepName: string
   sourceKind: ProjectNodeInstanceSourceKind
   sourceLayer: ProjectNodeInstanceSourceLayer
   sourceModule: string
@@ -42,8 +42,8 @@ export interface ProjectNodeInstanceRuntimeSnapshot {
   projectId: string
   projectCode: string
   projectNodeId: string
-  workItemTypeCode: string
-  workItemTypeName: string
+  stepCode: string
+  stepName: string
   multiInstanceDefinition: PcsProjectMultiInstanceDefinition | null
   primaryInstanceCount: number
   validInstanceCount: number
@@ -109,8 +109,8 @@ function filterSupportingInstances(
 }
 
 function buildInlineRecordTitle(record: PcsProjectInlineNodeRecord): string {
-  if (record.workItemTypeCode !== 'SAMPLE_SHOOT_FIT') {
-    return record.workItemTypeName
+  if (record.stepCode !== 'SAMPLE_SHOOT_FIT') {
+    return record.stepName
   }
   const payload = (record.payload && typeof record.payload === 'object' ? record.payload : {}) as Record<string, unknown>
   const imageCount =
@@ -118,16 +118,16 @@ function buildInlineRecordTitle(record: PcsProjectInlineNodeRecord): string {
       const value = payload[key]
       return count + (Array.isArray(value) ? value.length : 0)
     }, 0)
-  return imageCount > 0 ? `${record.workItemTypeName} / ${imageCount} 张图片` : record.workItemTypeName
+  return imageCount > 0 ? `${record.stepName} / ${imageCount} 张图片` : record.stepName
 }
 
 function buildRelationObjectTitle(relation: ReturnType<typeof listProjectRelationsByProject>[number]): string {
   if (relation.sourceTitle) return relation.sourceTitle
   if (relation.sourceModule === '首版样衣打样' && relation.sourceObjectType === '首版样衣打样任务') {
-    return `${relation.workItemTypeName || '首版样衣打样'} / ${relation.sourceObjectCode || relation.sourceObjectId}`
+    return `${relation.stepName || '首版样衣打样'} / ${relation.sourceObjectCode || relation.sourceObjectId}`
   }
   if (relation.sourceModule === '首单样衣打样' && relation.sourceObjectType === '首单样衣打样任务') {
-    return `${relation.workItemTypeName || '首单样衣打样'} / ${relation.sourceObjectCode || relation.sourceObjectId}`
+    return `${relation.stepName || '首单样衣打样'} / ${relation.sourceObjectCode || relation.sourceObjectId}`
   }
   return relation.sourceObjectCode || relation.sourceObjectId || relation.sourceObjectType
 }
@@ -141,15 +141,15 @@ export function listProjectNodeInstances(
 
   const nodes = listProjectNodes(projectId)
   const instances: ProjectNodeInstanceRecord[] = []
-  const initNode = nodes.find((node) => node.workItemTypeCode === 'PROJECT_INIT')
+  const initNode = nodes.find((node) => node.stepCode === 'PROJECT_INIT')
   if (initNode) {
     instances.push({
       projectNodeInstanceId: `project-record:${project.projectId}:${initNode.projectNodeId}`,
       projectId: project.projectId,
       projectCode: project.projectCode,
       projectNodeId: initNode.projectNodeId,
-      workItemTypeCode: initNode.workItemTypeCode,
-      workItemTypeName: initNode.workItemTypeName,
+      stepCode: initNode.stepCode,
+      stepName: initNode.stepName,
       sourceKind: 'PROJECT_RECORD',
       sourceLayer: '项目主记录',
       sourceModule: '商品项目',
@@ -173,8 +173,8 @@ export function listProjectNodeInstances(
       projectId: record.projectId,
       projectCode: record.projectCode,
       projectNodeId: record.projectNodeId,
-      workItemTypeCode: record.workItemTypeCode,
-      workItemTypeName: record.workItemTypeName,
+      stepCode: record.stepCode,
+      stepName: record.stepName,
       sourceKind: 'INLINE_RECORD',
       sourceLayer: '项目内正式记录',
       sourceModule: record.sourceModule || '商品项目',
@@ -200,8 +200,8 @@ export function listProjectNodeInstances(
       projectId: relation.projectId,
       projectCode: relation.projectCode,
       projectNodeId: relation.projectNodeId,
-      workItemTypeCode: relation.workItemTypeCode,
-      workItemTypeName: relation.workItemTypeName,
+      stepCode: relation.stepCode,
+      stepName: relation.stepName,
       sourceKind: 'RELATION_OBJECT',
       sourceLayer: '正式业务对象',
       sourceModule: relation.sourceModule,
@@ -232,7 +232,7 @@ export function getProjectNodeInstanceRuntimeSnapshot(
   if (!project || !node) return null
 
   const instances = listProjectNodeInstances(projectId, projectNodeId)
-  const multiInstanceDefinition = getProjectWorkItemMultiInstanceDefinition(node.workItemTypeCode)
+  const multiInstanceDefinition = getProjectStepMultiInstanceDefinition(node.stepCode)
   const primaryInstances = filterPrimaryInstances(instances, multiInstanceDefinition)
   const supportingInstances = filterSupportingInstances(instances, multiInstanceDefinition, primaryInstances)
   const latestInstance = (primaryInstances[0] || instances[0]) || null
@@ -243,8 +243,8 @@ export function getProjectNodeInstanceRuntimeSnapshot(
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectNodeId: node.projectNodeId,
-    workItemTypeCode: node.workItemTypeCode,
-    workItemTypeName: node.workItemTypeName,
+    stepCode: node.stepCode,
+    stepName: node.stepName,
     multiInstanceDefinition,
     primaryInstanceCount: primaryInstances.length,
     validInstanceCount,

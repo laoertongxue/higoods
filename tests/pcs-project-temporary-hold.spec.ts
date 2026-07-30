@@ -10,7 +10,7 @@ import {
 const project = listProjects()[0]
 assert.ok(project, '测试数据必须包含商品项目')
 const nodes = listProjectNodes(project.projectId)
-const conclusionNode = nodes.find((node) => node.workItemTypeCode === 'TEST_CONCLUSION')
+const conclusionNode = nodes.find((node) => node.stepCode === 'TEST_CONCLUSION')
 assert.ok(conclusionNode, '固定五步必须包含测款判断节点')
 
 const conclusionIndex = nodes.findIndex((node) => node.projectNodeId === conclusionNode.projectNodeId)
@@ -52,11 +52,11 @@ assert.equal(result.nextNode, null, '暂保留不得创建或重启下一轮测�
 const migratedNodes = listProjectNodes(project.projectId)
 assert.ok(
   migratedNodes
-    .filter((node) => node.workItemTypeCode === 'LIVE_TEST' || node.workItemTypeCode === 'VIDEO_TEST')
+    .filter((node) => node.stepCode === 'LIVE_TEST' || node.stepCode === 'VIDEO_TEST')
     .every((node) => node.currentStatus === '已完成'),
   '暂保留不得重新激活直播或短视频测款节点',
 )
-const heldConclusionNode = migratedNodes.find((node) => node.workItemTypeCode === 'TEST_CONCLUSION')
+const heldConclusionNode = migratedNodes.find((node) => node.stepCode === 'TEST_CONCLUSION')
 assert.equal(heldConclusionNode?.currentStatus, '待确认', '暂保留应保留判断入口，过些天再判断')
 assert.equal(heldConclusionNode?.latestResultType, '暂保留')
 assert.equal(heldConclusionNode?.pendingActionType, '稍后再判断')

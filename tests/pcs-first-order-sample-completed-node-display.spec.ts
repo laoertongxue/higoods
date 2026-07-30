@@ -28,7 +28,7 @@ assert.equal(task.conclusionResult, '通过')
 assert.equal(task.confirmedAt, '2026-04-25 11:20')
 assert.equal(task.confirmedBy, '张娜')
 assert.ok(
-  listProjectNodes(task.projectId).every((node) => node.workItemTypeCode !== 'FIRST_ORDER_SAMPLE'),
+  listProjectNodes(task.projectId).every((node) => node.stepCode !== 'FIRST_ORDER_SAMPLE'),
   '完成态首单样衣只在专业任务模块展示，不得恢复固定流程节点',
 )
 

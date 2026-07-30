@@ -3,7 +3,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { listProjectStepContracts } from '../src/data/pcs-project-domain-contract.ts'
+import { listProjectFlowStageContracts } from '../src/data/pcs-project-domain-contract.ts'
 import { buildProjectNodes } from '../src/data/pcs-project-node-factory.ts'
 
 const repositoryRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
@@ -38,7 +38,7 @@ for (const relativePath of productionEntryFiles) {
   const source = readFileSync(resolve(repositoryRoot, relativePath), 'utf8')
   assert.doesNotMatch(
     source,
-    /\/pcs\/(?:work-items|templates)|pcs-(?:work-items|templates)|Pcs(?:WorkItem|Template)/,
+    /\/pcs\/(?:work-items|templates)|pcs-(?:work-items|templates)|Pcs(?:Step|Template)/,
     `${relativePath} 不得残留工作项或模板入口`,
   )
 }
@@ -53,7 +53,7 @@ function listFilesRecursively(relativeDirectory: string): string[] {
 }
 
 const bannedModuleReferences =
-  /pcs-work-items|pcs-templates|getPcsWorkItemDefinition|pcs-work-item-configs|pcs-work-item-runtime-carrier/
+  /pcs-work-items|pcs-templates|getPcsStepDefinition|pcs-work-item-configs|pcs-work-item-runtime-carrier/
 const scannedFiles = ['src', 'scripts', 'tests']
   .flatMap(listFilesRecursively)
   .filter((relativePath) => /\.(?:ts|json)$/.test(relativePath))
@@ -68,6 +68,37 @@ assert.deepEqual(
   `不得通过兼容入口或改名继续保留已删除模块：${remainingBannedReferences.join('、')}`,
 )
 
+const oldStyleArchiveStepFiles = scannedFiles.filter((relativePath) =>
+  /STYLE_ARCHIVE_CREATE/.test(readFileSync(resolve(repositoryRoot, relativePath), 'utf8')),
+)
+assert.deepEqual(
+  oldStyleArchiveStepFiles,
+  [],
+  `不得保留“生成款式档案”旧步骤、按钮或关系：${oldStyleArchiveStepFiles.join('、')}`,
+)
+
+const projectRuntimeFiles = scannedFiles.filter(
+  (relativePath) =>
+    /^src\/data\/pcs-project(?:-|\.ts)/.test(relativePath) ||
+    /^src\/pages\/pcs-projects(?:-|\.ts)/.test(relativePath),
+)
+const legacyRuntimeModelPattern =
+  /\b(?:PcsProjectWorkItemCode|getProjectWorkItemContract|workItemTypeCode|workItemTypeName|templateId|templateName|templateVersion)\b/
+const legacyRuntimeModelFiles = projectRuntimeFiles
+  .filter(
+    (relativePath) =>
+      relativePath !== 'src/data/pcs-project-repository.ts' &&
+      relativePath !== 'src/data/pcs-project-inline-node-record-repository.ts',
+  )
+  .filter((relativePath) =>
+    legacyRuntimeModelPattern.test(readFileSync(resolve(repositoryRoot, relativePath), 'utf8')),
+  )
+assert.deepEqual(
+  legacyRuntimeModelFiles,
+  [],
+  `商品项目运行时必须只使用固定 stepCode/stepName，不得把工作项或模板模型内聚改名保留：${legacyRuntimeModelFiles.join('、')}`,
+)
+
 const expectedSteps = [
   ['PROJECT_ARCHIVE', '项目与档案建立'],
   ['SAMPLE_PREPARATION', '样衣准备'],
@@ -77,7 +108,7 @@ const expectedSteps = [
 ]
 
 assert.deepEqual(
-  listProjectStepContracts().map((step) => [step.stepCode, step.stepName]),
+  listProjectFlowStageContracts().map((step) => [step.stepCode, step.stepName]),
   expectedSteps,
   '删除配置模块后仍必须保留固定五步业务契约',
 )
@@ -105,7 +136,7 @@ const requiredDetailedTaskCodes = [
 assert.ok(nodes.length > expectedSteps.length, '固定五步必须继续承载逐项业务办理，不得改成一锅烩')
 assert.deepEqual(
   requiredDetailedTaskCodes.filter(
-    (taskCode) => !nodes.some((node) => node.workItemTypeCode === taskCode),
+    (taskCode) => !nodes.some((node) => (node as unknown as { stepCode?: string }).stepCode === taskCode),
   ),
   [],
   '删除工作项模块不得删除固定流程下的详细业务表单节点',

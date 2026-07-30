@@ -5,13 +5,13 @@ import {
   createEmptyProjectDraft,
   createProject,
   getProjectCreateCatalog,
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   resetProjectRepository,
 } from '../src/data/pcs-project-repository.ts'
 import { resetProjectInlineNodeRecordRepository } from '../src/data/pcs-project-inline-node-record-repository.ts'
 import { resetProjectImageAssets } from '../src/data/pcs-project-image-repository.ts'
 import { appendSampleShootImages, listSampleShootImageAssets } from '../src/data/pcs-sample-shoot-image-service.ts'
-import { renderPcsProjectWorkItemDetailPage } from '../src/pages/pcs-projects.ts'
+import { renderPcsProjectStepDetailPage } from '../src/pages/pcs-projects.ts'
 
 function buildProjectDraft() {
   const draft = createEmptyProjectDraft()
@@ -45,9 +45,9 @@ function buildProjectDraft() {
   return draft
 }
 
-function saveNode(projectId: string, workItemTypeCode: string, values: Record<string, unknown>) {
-  const node = getProjectNodeRecordByWorkItemTypeCode(projectId, workItemTypeCode)
-  assert.ok(node, `应存在节点 ${workItemTypeCode}`)
+function saveNode(projectId: string, stepCode: string, values: Record<string, unknown>) {
+  const node = getProjectNodeRecordByStepCode(projectId, stepCode)
+  assert.ok(node, `应存在节点 ${stepCode}`)
   const result = saveProjectNodeFormalRecord({
     projectId,
     projectNodeId: node!.projectNodeId,
@@ -58,7 +58,7 @@ function saveNode(projectId: string, workItemTypeCode: string, values: Record<st
     completeAfterSave: true,
     operatorName: '测试用户',
   })
-  assert.ok(result.ok, `${workItemTypeCode} 应可完成`)
+  assert.ok(result.ok, `${stepCode} 应可完成`)
 }
 
 function advanceToSampleShoot(projectId: string) {
@@ -77,7 +77,7 @@ function advanceToSampleShoot(projectId: string) {
     qualityCheckResult: '到样完整',
     checkResult: '已完成核对',
   })
-  const reviewNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'FEASIBILITY_REVIEW')
+  const reviewNode = getProjectNodeRecordByStepCode(projectId, 'FEASIBILITY_REVIEW')
   if (reviewNode) {
     saveNode(projectId, 'FEASIBILITY_REVIEW', {
       reviewConclusion: '进入测款',
@@ -108,7 +108,7 @@ assert.deepEqual(
   '样衣拍摄图片类型应按分组写入',
 )
 
-const sampleShootNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'SAMPLE_SHOOT_FIT')
+const sampleShootNode = getProjectNodeRecordByStepCode(projectId, 'SAMPLE_SHOOT_FIT')
 assert.ok(sampleShootNode, '应存在样衣拍摄与试穿节点')
 
 const saveResult = saveProjectNodeFormalRecord({
@@ -134,7 +134,7 @@ const saveResult = saveProjectNodeFormalRecord({
 
 assert.ok(saveResult.ok, '样衣拍摄与试穿应可保存并完成')
 
-const html = await renderPcsProjectWorkItemDetailPage(projectId, sampleShootNode!.projectNodeId)
+const html = await renderPcsProjectStepDetailPage(projectId, sampleShootNode!.projectNodeId)
 assert.match(html, /样衣平铺图/, '已完成工作项应展示样衣平铺图分组')
 assert.match(html, /试穿图/, '已完成工作项应展示试穿图分组')
 assert.match(html, /细节图/, '已完成工作项应展示细节图分组')

@@ -1,6 +1,6 @@
 import {
   getProjectById,
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   updateProjectNodeRecord,
   updateProjectRecord,
 } from './pcs-project-repository.ts'
@@ -20,37 +20,37 @@ function nowText(): string {
 
 function getProjectNodeBindingByTaskType(projectId: string, taskType: TechPackSourceTaskType) {
   if (taskType === 'MANUAL') {
-    const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'STYLE_ARCHIVE_CREATE')
+    const node = getProjectNodeRecordByStepCode(projectId, 'PROJECT_INIT')
     return {
       projectNodeId: node?.projectNodeId || null,
-      workItemTypeCode: 'STYLE_ARCHIVE_CREATE',
-      workItemTypeName: node?.workItemTypeName || '款式档案',
+      stepCode: 'PROJECT_INIT',
+      stepName: node?.stepName || '款式档案',
     }
   }
 
   if (taskType === 'PLATE') {
-    const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PATTERN_TASK')
+    const node = getProjectNodeRecordByStepCode(projectId, 'PATTERN_TASK')
     return {
       projectNodeId: node?.projectNodeId || null,
-      workItemTypeCode: 'PATTERN_TASK',
-      workItemTypeName: node?.workItemTypeName || '制版任务',
+      stepCode: 'PATTERN_TASK',
+      stepName: node?.stepName || '制版任务',
     }
   }
 
   if (taskType === 'ARTWORK') {
-    const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PATTERN_ARTWORK_TASK')
+    const node = getProjectNodeRecordByStepCode(projectId, 'PATTERN_ARTWORK_TASK')
     return {
       projectNodeId: node?.projectNodeId || null,
-      workItemTypeCode: 'PATTERN_ARTWORK_TASK',
-      workItemTypeName: node?.workItemTypeName || '花型任务',
+      stepCode: 'PATTERN_ARTWORK_TASK',
+      stepName: node?.stepName || '花型任务',
     }
   }
 
-  const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'REVISION_TASK')
+  const node = getProjectNodeRecordByStepCode(projectId, 'REVISION_TASK')
   return {
     projectNodeId: node?.projectNodeId || null,
-    workItemTypeCode: 'REVISION_TASK',
-    workItemTypeName: node?.workItemTypeName || '改版任务',
+    stepCode: 'REVISION_TASK',
+    stepName: node?.stepName || '改版任务',
   }
 }
 
@@ -126,8 +126,8 @@ export function activateTechPackVersionForStyle(
       projectId: record.sourceProjectId,
       projectCode: record.sourceProjectCode,
       projectNodeId: sourceNode.projectNodeId ?? (record.sourceProjectNodeId || null),
-      workItemTypeCode: sourceNode.workItemTypeCode,
-      workItemTypeName: sourceNode.workItemTypeName,
+      stepCode: sourceNode.stepCode,
+      stepName: sourceNode.stepName,
       relationRole: '产出对象',
       sourceModule: '技术包',
       sourceObjectType: '技术包版本',
