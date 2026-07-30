@@ -1258,6 +1258,67 @@ assert.equal(resolveWoolEffectiveQty(validReportChainStore.qtyChangeLogs, {
   baseQty: 10,
 }), 13)
 
+const sameTimeAppendOrderStore = structuredClone(validStore)
+const sameTimeBaseChange = sameTimeAppendOrderStore.qtyChangeLogs.find((item) =>
+  item.recordType === 'PROCESS_REPORT',
+)!
+const sameTimeBaseFlow = sameTimeAppendOrderStore.warehouseFlows.find((item) =>
+  item.sourceRecordType === 'QTY_CHANGE' && item.sourceRecordId === sameTimeBaseChange.changeId,
+)!
+for (const [changeId, beforeQty, afterQty] of [
+  ['WQC-Z-SAME-TIME-APPEND', 12, 13],
+  ['WQC-A-SAME-TIME-APPEND', 13, 14],
+] as const) {
+  sameTimeAppendOrderStore.qtyChangeLogs.push({
+    ...structuredClone(sameTimeBaseChange),
+    changeId,
+    beforeQty,
+    afterQty,
+  })
+  sameTimeAppendOrderStore.warehouseFlows.push({
+    ...structuredClone(sameTimeBaseFlow),
+    flowId: `WF-${changeId}`,
+    qty: 1,
+    sourceRecordId: changeId,
+  })
+}
+assert.doesNotThrow(
+  () => validateWoolStore(sameTimeAppendOrderStore),
+  '同一时间必须保留 Z 后 A 的事实追加顺序',
+)
+assert.equal(resolveWoolEffectiveQty(sameTimeAppendOrderStore.qtyChangeLogs, {
+  recordType: 'PROCESS_REPORT',
+  recordId: sameTimeBaseChange.recordId,
+  baseQty: 10,
+}), 14)
+
+const backwardChangedAtStore = structuredClone(validStore)
+const backwardBaseChange = backwardChangedAtStore.qtyChangeLogs.find((item) =>
+  item.recordType === 'PROCESS_REPORT',
+)!
+const backwardBaseFlow = backwardChangedAtStore.warehouseFlows.find((item) =>
+  item.sourceRecordType === 'QTY_CHANGE' && item.sourceRecordId === backwardBaseChange.changeId,
+)!
+backwardChangedAtStore.qtyChangeLogs.push({
+  ...structuredClone(backwardBaseChange),
+  changeId: 'WQC-BACKWARD-CHANGED-AT',
+  beforeQty: 12,
+  afterQty: 13,
+  changedAt: '2026-07-30 07:59:59',
+})
+backwardChangedAtStore.warehouseFlows.push({
+  ...structuredClone(backwardBaseFlow),
+  flowId: 'WF-WQC-BACKWARD-CHANGED-AT',
+  qty: 1,
+  sourceRecordId: 'WQC-BACKWARD-CHANGED-AT',
+  operatedAt: '2026-07-30 07:59:59',
+})
+assert.throws(
+  () => validateWoolStore(backwardChangedAtStore),
+  /数量修改链.*追加时间倒退/,
+  '数组尾部不得追加更早的 changedAt',
+)
+
 const validHandoverChainStore = structuredClone(validStore)
 const validHandoverBaseChange = validHandoverChainStore.qtyChangeLogs.find((item) =>
   item.recordType === 'HANDOVER',

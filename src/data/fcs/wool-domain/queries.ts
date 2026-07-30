@@ -118,9 +118,6 @@ export function resolveWoolEffectiveQty(
       && change.recordId === target.recordId
       && (target.recordType !== 'YARN_RECEIPT' || change.recordLineId === target.recordLineId),
     )
-    .sort((left, right) =>
-      left.changedAt.localeCompare(right.changedAt) || left.changeId.localeCompare(right.changeId),
-    )
     .reduce((_currentQty, change) => change.afterQty, target.baseQty)
 }
 

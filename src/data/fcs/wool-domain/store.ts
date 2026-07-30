@@ -288,13 +288,16 @@ export function validateWoolStore(store: WoolDomainStore): void {
         ? store.processReports.find((item) => item.reportId === first.recordId)?.reportedQty
         : store.handovers.find((item) => item.handoverId === first.recordId)?.handoverQty
     let currentQty = baseQty
-    for (const change of [...chain].sort((left, right) =>
-      left.changedAt.localeCompare(right.changedAt) || left.changeId.localeCompare(right.changeId),
-    )) {
+    let previousChangedAt = ''
+    for (const change of chain) {
+      if (previousChangedAt && change.changedAt < previousChangedAt) {
+        throw new Error(`毛织存储校验失败：数量修改链 ${change.recordId} 的追加时间倒退`)
+      }
       if (currentQty === undefined || change.beforeQty !== currentQty) {
         throw new Error(`毛织存储校验失败：数量修改链 ${change.recordId} 不连续`)
       }
       currentQty = change.afterQty
+      previousChangedAt = change.changedAt
     }
   }
   for (const flow of store.warehouseFlows) {
