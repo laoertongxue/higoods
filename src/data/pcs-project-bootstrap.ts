@@ -1,9 +1,9 @@
 import type { PcsProjectStoreSnapshot } from './pcs-project-types.ts'
-import { listProjectTemplates, type ProjectTemplate } from './pcs-templates.ts'
 import {
-  buildProjectPhaseRecordsFromTemplate,
-  buildProjectNodeRecordsFromTemplate,
+  buildProjectPhases,
+  buildProjectNodes,
 } from './pcs-project-node-factory.ts'
+import { listProjectStepContracts } from './pcs-project-domain-contract.ts'
 
 const DEMO_PROJECTS = [
   {
@@ -289,23 +289,19 @@ function dateTimeText(year: number, month: number, day: number, hour = 9, minute
 }
 
 export function createBootstrapProjectSnapshot(version: number): PcsProjectStoreSnapshot {
-  const templates = listProjectTemplates()
-  const templateMap = new Map(templates.map((t) => [t.id, t]))
+  const projectSteps = listProjectStepContracts()
 
   const projects: any[] = []
   const phases: any[] = []
   const nodes: any[] = []
 
   DEMO_PROJECTS.forEach((cfg, index) => {
-    const template = templateMap.get(cfg.templateId)
-    if (!template) return
-
     const projectId = `PRJ-${String(index + 1).padStart(3, '0')}`
     const createdYear = parseInt(cfg.projectCode.split('-')[1]) || 2026
     const createdMonth = parseInt(cfg.projectCode.split('-')[2]) || 3
     const dayBase = (index % 28) + 1
     const createdAt = dateTimeText(createdYear, createdMonth, dayBase)
-    const updatedAt = dateTimeText(2026, 6, (dayBase + template.stages.length * 3) % 28 + 1, 17, 30)
+    const updatedAt = dateTimeText(2026, 6, (dayBase + projectSteps.length * 3) % 28 + 1, 17, 30)
 
     const ownerId = USER_IDS[cfg.ownerName] || `user-${cfg.ownerName}`
     const teamId = TEAM_IDS[cfg.teamName] || `team-${cfg.teamName}`
@@ -321,12 +317,12 @@ export function createBootstrapProjectSnapshot(version: number): PcsProjectStore
       projectName: cfg.projectName,
       projectType: cfg.projectType,
       projectSourceType: cfg.projectSourceType,
-      templateId: cfg.templateId,
-      templateName: template.name,
-      templateVersion: template.updatedAt,
+      templateId: '',
+      templateName: '固定五步业务流程',
+      templateVersion: 'fixed-step-v1',
       projectStatus,
       currentPhaseCode: `PHASE_0${['PHASE_01', 'PHASE_02', 'PHASE_03', 'PHASE_04', 'PHASE_05'].indexOf(cfg.progressLevel) + 1}`,
-      currentPhaseName: ['立项与样衣获取', '样衣形成与商品准备', '市场测款与结论', '款式档案与开发推进', '项目收尾'][
+      currentPhaseName: projectSteps.map((step) => step.stepName)[
         ['PHASE_01', 'PHASE_02', 'PHASE_03', 'PHASE_04', 'PHASE_05'].indexOf(cfg.progressLevel)
       ],
       categoryId: `cat-${cfg.categoryName}`,
@@ -372,39 +368,37 @@ export function createBootstrapProjectSnapshot(version: number): PcsProjectStore
       updatedAt,
       updatedBy: cfg.ownerName,
       remark: '',
-      linkedStyleId: cfg.progressLevel === 'PHASE_04' || cfg.progressLevel === 'PHASE_05' ? `style_demand_${cfg.projectCode.replace(/-/g, '_')}` : '',
-      linkedStyleCode: cfg.progressLevel === 'PHASE_04' || cfg.progressLevel === 'PHASE_05' ? `STYLE-${cfg.projectCode}` : '',
-      linkedStyleName: cfg.progressLevel === 'PHASE_04' || cfg.progressLevel === 'PHASE_05' ? cfg.projectName : '',
-      linkedStyleGeneratedAt: cfg.progressLevel === 'PHASE_04' || cfg.progressLevel === 'PHASE_05' ? updatedAt : '',
-      linkedTechPackVersionId: cfg.progressLevel === 'PHASE_04' || cfg.progressLevel === 'PHASE_05' ? `tdv_demand_${cfg.projectCode.replace(/-/g, '_')}` : '',
-      linkedTechPackVersionCode: cfg.progressLevel === 'PHASE_04' || cfg.progressLevel === 'PHASE_05' ? `TDV-${cfg.projectCode}` : '',
-      linkedTechPackVersionLabel: cfg.progressLevel === 'PHASE_04' || cfg.progressLevel === 'PHASE_05' ? 'v1.0' : '',
-      linkedTechPackVersionStatus: cfg.progressLevel === 'PHASE_04' || cfg.progressLevel === 'PHASE_05' ? 'PUBLISHED' : '',
-      linkedTechPackVersionPublishedAt: cfg.progressLevel === 'PHASE_04' || cfg.progressLevel === 'PHASE_05' ? updatedAt : '',
-      projectArchiveId: cfg.progressLevel === 'PHASE_05' ? `archive-${projectId}` : '',
-      projectArchiveNo: cfg.progressLevel === 'PHASE_05' ? `ARC-${cfg.projectCode}` : '',
-      projectArchiveStatus: cfg.progressLevel === 'PHASE_05' ? 'FINALIZED' : '',
-      projectArchiveDocumentCount: cfg.progressLevel === 'PHASE_05' ? 8 : 0,
-      projectArchiveFileCount: cfg.progressLevel === 'PHASE_05' ? 12 : 0,
-      projectArchiveMissingItemCount: cfg.progressLevel === 'PHASE_05' ? 0 : 0,
-      projectArchiveUpdatedAt: cfg.progressLevel === 'PHASE_05' ? updatedAt : '',
-      projectArchiveFinalizedAt: cfg.progressLevel === 'PHASE_05' ? updatedAt : '',
+      linkedStyleId: `style_demand_${cfg.projectCode.replace(/-/g, '_')}`,
+      linkedStyleCode: `STYLE-${cfg.projectCode}`,
+      linkedStyleName: cfg.projectName,
+      linkedStyleGeneratedAt: createdAt,
+      linkedTechPackVersionId: '',
+      linkedTechPackVersionCode: '',
+      linkedTechPackVersionLabel: '',
+      linkedTechPackVersionStatus: '',
+      linkedTechPackVersionPublishedAt: '',
+      projectArchiveId: '',
+      projectArchiveNo: '',
+      projectArchiveStatus: '',
+      projectArchiveDocumentCount: 0,
+      projectArchiveFileCount: 0,
+      projectArchiveMissingItemCount: 0,
+      projectArchiveUpdatedAt: '',
+      projectArchiveFinalizedAt: '',
     })
 
-    const rawPhases = buildProjectPhaseRecordsFromTemplate({
+    const rawPhases = buildProjectPhases({
       projectId,
       ownerId,
       ownerName: cfg.ownerName,
       createdAt,
-      template,
     })
 
-    const rawNodes = buildProjectNodeRecordsFromTemplate({
+    const rawNodes = buildProjectNodes({
       projectId,
       ownerId,
       ownerName: cfg.ownerName,
       createdAt,
-      template,
     })
 
     const phaseOrderMax = ['PHASE_01', 'PHASE_02', 'PHASE_03', 'PHASE_04', 'PHASE_05'].indexOf(cfg.progressLevel) + 1
@@ -442,6 +436,9 @@ export function createBootstrapProjectSnapshot(version: number): PcsProjectStore
         else nodeStatus = '未开始'
       }
 
+      if (node.workItemTypeCode === 'CHANNEL_PRODUCT_LISTING' && nodeStatus === '已完成') {
+        nodeStatus = '进行中'
+      }
       const completed = nodeStatus === '已完成'
       return {
         ...node,

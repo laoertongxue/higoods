@@ -1,4 +1,5 @@
 import { buildStyleFixture } from './pcs-product-archive-fixtures.ts'
+import { createBootstrapProjectSnapshot } from './pcs-project-bootstrap.ts'
 import { listProductionDemandTechPackSeeds, type ProductionDemandTechPackSeed } from './pcs-production-demand-tech-pack-seeds.ts'
 import {
   listProjectWorkspaceCategories,
@@ -223,10 +224,79 @@ const EXTRA_STYLE_ARCHIVE_RECORDS: StyleArchiveShellRecord[] = [
   },
 ]
 
+function listProjectTestingStyleArchives(): StyleArchiveShellRecord[] {
+  const snapshot = createBootstrapProjectSnapshot()
+  return snapshot.projects.map((project) => {
+    const fixture = buildStyleFixture(project.linkedStyleCode || project.projectCode, project.projectName)
+    const projectNode = snapshot.nodes.find(
+      (node) => node.projectId === project.projectId && node.workItemTypeCode === 'PROJECT_INIT',
+    )
+    return {
+      styleId: project.linkedStyleId || `style_${project.projectId}`,
+      styleCode: project.linkedStyleCode || `STYLE-${project.projectCode}`,
+      styleName: project.projectName,
+      styleNameEn: fixture.styleNameEn,
+      styleNumber: project.styleNumber || project.projectCode,
+      productType: '成衣',
+      sourceProjectId: project.projectId,
+      sourceProjectCode: project.projectCode,
+      sourceProjectName: project.projectName,
+      sourceProjectNodeId: projectNode?.projectNodeId || '',
+      categoryId: project.categoryId,
+      categoryName: project.categoryName,
+      subCategoryId: project.subCategoryId,
+      subCategoryName: project.subCategoryName,
+      brandId: project.brandId,
+      brandName: project.brandName,
+      yearTag: project.yearTag,
+      seasonTags: [...project.seasonTags],
+      styleTags: [...project.styleTags],
+      targetAudienceTags: [...project.targetAudienceTags],
+      targetChannelCodes: [...project.targetChannelCodes],
+      priceRangeLabel: project.priceRangeLabel,
+      archiveStatus: 'DRAFT',
+      baseInfoStatus: '商品测款',
+      specificationStatus: '未建立',
+      techPackStatus: project.linkedTechPackVersionId ? '已发布待启用' : '未建立',
+      costPricingStatus: '未建立',
+      specificationCount: 0,
+      techPackVersionCount: project.linkedTechPackVersionId ? 1 : 0,
+      costVersionCount: 0,
+      channelProductCount: 0,
+      currentTechPackVersionId: project.linkedTechPackVersionId || '',
+      currentTechPackVersionCode: project.linkedTechPackVersionCode || '',
+      currentTechPackVersionLabel: project.linkedTechPackVersionLabel || '',
+      currentTechPackVersionStatus: project.linkedTechPackVersionStatus || '',
+      currentTechPackVersionActivatedAt: project.linkedTechPackVersionPublishedAt || '',
+      currentTechPackVersionActivatedBy: project.linkedTechPackVersionId ? '商品项目初始化' : '',
+      mainImageId: '',
+      mainImageUrl: fixture.mainImageUrl,
+      galleryImageIds: [],
+      galleryImageUrls: fixture.galleryImageUrls,
+      imageSource: '商品项目初始化',
+      sellingPointText: '',
+      detailDescription: '',
+      packagingInfo: '',
+      remark: project.remark,
+      generatedAt: project.linkedStyleGeneratedAt || project.createdAt,
+      generatedBy: project.createdBy,
+      updatedAt: project.updatedAt,
+      updatedBy: project.updatedBy,
+      legacyOriginProject: '',
+    }
+  })
+}
+
 export function createStyleArchiveBootstrapSnapshot(version: number): StyleArchiveStoreSnapshot {
+  const records = [
+    ...listProductionDemandTechPackSeeds().map(buildRecord),
+    ...EXTRA_STYLE_ARCHIVE_RECORDS,
+    ...listProjectTestingStyleArchives(),
+  ]
+  const recordById = new Map(records.map((record) => [record.styleId, record]))
   return {
     version,
-    records: [...listProductionDemandTechPackSeeds().map(buildRecord), ...EXTRA_STYLE_ARCHIVE_RECORDS],
+    records: Array.from(recordById.values()),
     pendingItems: [],
   }
 }

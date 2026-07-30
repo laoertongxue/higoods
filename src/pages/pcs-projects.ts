@@ -8,7 +8,6 @@ import {
   getProjectCategoryChildren,
   getProjectCreateCatalog,
   getProjectNodeSequenceBlocker,
-  listActiveProjectTemplates,
   listProjectNodes,
   listProjectPhases,
   listProjects,
@@ -41,21 +40,14 @@ import type {
   ProjectSimpleOption,
   SampleSourceType,
 } from '../data/pcs-project-types.ts'
-import {
-  countTemplateStages,
-  countTemplateWorkItems,
-  getProjectTemplateById,
-  type ProjectTemplate,
-} from '../data/pcs-templates.ts'
-import { getPcsWorkItemDefinition } from '../data/pcs-work-items.ts'
 import { buildProjectClosureViewModel } from '../data/pcs-project-closure-view-model.ts'
 import {
-  DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID,
-  WANLONG_REVISION_SAMPLE_TEMPLATE_ID,
+  getProjectStepContractByPhaseCode,
   getProjectWorkItemContract,
-  getProjectWorkItemContractById,
-  getProjectPhaseContract,
+  listProjectStepContracts,
   listProjectWorkItemFieldGroups,
+  type ProjectStepCode,
+  type ProjectStepContract,
   type PcsProjectNodeFieldGroupDefinition,
   type PcsProjectWorkItemCode,
 } from '../data/pcs-project-domain-contract.ts'
@@ -407,7 +399,8 @@ interface ProjectPageState {
 interface ProjectNodeViewModel {
   node: PcsProjectNodeRecord
   contract: ReturnType<typeof getProjectWorkItemContract>
-  definition: ReturnType<typeof getPcsWorkItemDefinition>
+  step: ProjectStepContract
+  stepCode: ProjectStepCode
   records: PcsProjectInlineNodeRecord[]
   latestRecord: PcsProjectInlineNodeRecord | null
   instanceModel: PcsProjectNodeInstanceModel
@@ -3915,7 +3908,7 @@ function renderSampleCostReviewWorkspace(project: PcsProjectRecord, node: Projec
   const optionalRows = normalizeSampleCostOptionalProcessRows(input.optionalProcessLines)
   const disabled = !canEditProjectNodeFields(node)
   const saveDraftButton =
-    node.contract.runtimeType === 'execute' && node.definition?.workItemNature === '执行类' && node.node.multiInstanceFlag
+    node.contract.runtimeType === 'execute' && node.contract.workItemNature === '执行类' && node.node.multiInstanceFlag
       ? ''
       : '<button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-project-action="save-formal-fields">保存正式字段</button>'
 
@@ -4517,7 +4510,7 @@ function buildRecordDraftDefaults(project: PcsProjectRecord, node: ProjectNodeVi
   const values = Object.fromEntries(
     groups
       .flatMap((group) => group.fields)
-      .filter((field) => isProjectTemplateFieldVisible(project, node, field))
+      .filter((field) => isProjectFixedFlowFieldVisible(project, node, field))
       .filter((field) => !field.readonly && editableKeys.has(field.fieldKey))
       .map((field) => {
         let rawValue = node.latestRecord?.payload?.[field.fieldKey] ?? getNodeFieldValue(project, node, field.fieldKey) ?? ''
@@ -4537,7 +4530,7 @@ function buildRecordDraftDefaults(project: PcsProjectRecord, node: ProjectNodeVi
         ]
       }),
   )
-  const lockedSampleSourceType = getTemplateLockedSampleSourceType(project)
+  const lockedSampleSourceType = getProjectLockedSampleSourceType(project)
   if (node.node.workItemTypeCode === 'SAMPLE_ACQUIRE' && lockedSampleSourceType) {
     values.sampleSourceType = lockedSampleSourceType
   }
@@ -4627,22 +4620,14 @@ type ProjectNodeFormalField = PcsProjectNodeFieldGroupDefinition['fields'][numbe
 
 const DELEGATED_SAMPLE_ACQUIRE_FIELD_KEYS = new Set(['sampleSourceType', 'sampleSupplierId'])
 
-function getTemplateLockedSampleSourceTypeByTemplate(templateId: string, templateName: string): SampleSourceType | '' {
-  if (templateId === DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID || templateName.includes('国内采购样衣测款')) {
-    return '外采'
-  }
-  if (templateId === WANLONG_REVISION_SAMPLE_TEMPLATE_ID || templateName.includes('万隆改版')) {
-    return '委托打样'
-  }
-  return ''
-}
-
-function getTemplateLockedSampleSourceType(project: PcsProjectRecord): SampleSourceType | '' {
-  return getTemplateLockedSampleSourceTypeByTemplate(project.templateId, project.templateName)
+function getProjectLockedSampleSourceType(project: PcsProjectRecord): SampleSourceType | '' {
+  return project.sampleSourceType === '外采' || project.sampleSourceType === '委托打样'
+    ? project.sampleSourceType
+    : ''
 }
 
 function getProjectSampleAcquireSourceType(project: PcsProjectRecord, node: ProjectNodeViewModel): SampleSourceType | '' {
-  const lockedSourceType = getTemplateLockedSampleSourceType(project)
+  const lockedSourceType = getProjectLockedSampleSourceType(project)
   if (lockedSourceType) return lockedSourceType
   const value = String(getNodeFieldValue(project, node, 'sampleSourceType') || '').trim()
   return value === '外采' || value === '委托打样' ? value : ''
@@ -4652,7 +4637,7 @@ function projectHasRevisionTask(project: PcsProjectRecord): boolean {
   return listProjectNodes(project.projectId).some((item) => item.workItemTypeCode === 'REVISION_TASK')
 }
 
-function isProjectTemplateFieldVisible(
+function isProjectFixedFlowFieldVisible(
   project: PcsProjectRecord,
   node: ProjectNodeViewModel,
   field: ProjectNodeFormalField,
@@ -4663,7 +4648,7 @@ function isProjectTemplateFieldVisible(
   return DELEGATED_SAMPLE_ACQUIRE_FIELD_KEYS.has(field.fieldKey)
 }
 
-function applyProjectTemplateFieldPolicy(
+function applyProjectFixedFlowFieldPolicy(
   project: PcsProjectRecord,
   node: ProjectNodeViewModel,
   field: ProjectNodeFormalField,
@@ -4680,7 +4665,7 @@ function applyProjectTemplateFieldPolicy(
   }
 
   if (node.node.workItemTypeCode !== 'SAMPLE_ACQUIRE') return field
-  const lockedSourceType = getTemplateLockedSampleSourceType(project)
+  const lockedSourceType = getProjectLockedSampleSourceType(project)
 
   if (field.fieldKey === 'sampleSupplierId' && lockedSourceType === '委托打样') {
     return {
@@ -4711,14 +4696,14 @@ function applyProjectTemplateFieldPolicy(
   }
 }
 
-function getTemplateLockedFieldValue(
+function getFixedFlowLockedFieldValue(
   project: PcsProjectRecord,
   node: ProjectNodeViewModel,
   field: ProjectNodeFormalField,
   value: unknown,
 ): unknown {
   if (node.node.workItemTypeCode === 'SAMPLE_ACQUIRE' && field.fieldKey === 'sampleSourceType') {
-    return getTemplateLockedSampleSourceType(project) || value
+    return getProjectLockedSampleSourceType(project) || value
   }
   return value
 }
@@ -4726,10 +4711,10 @@ function getTemplateLockedFieldValue(
 function buildNodeCompletionValues(project: PcsProjectRecord, node: ProjectNodeViewModel): Record<string, unknown> {
   return Object.fromEntries(
     node.contract.fieldDefinitions
-      .filter((field) => isProjectTemplateFieldVisible(project, node, field))
+      .filter((field) => isProjectFixedFlowFieldVisible(project, node, field))
       .map((field) => [
         field.fieldKey,
-        getTemplateLockedFieldValue(project, node, field, getNodeFieldValue(project, node, field.fieldKey)),
+        getFixedFlowLockedFieldValue(project, node, field, getNodeFieldValue(project, node, field.fieldKey)),
       ]),
   )
 }
@@ -4744,7 +4729,7 @@ function canCompleteProjectNode(project: PcsProjectRecord, node: ProjectNodeView
   const hasMissingRequiredField =
     shouldValidateRequiredFields &&
     node.contract.fieldDefinitions
-      .filter((field) => isProjectTemplateFieldVisible(project, node, field))
+      .filter((field) => isProjectFixedFlowFieldVisible(project, node, field))
       .filter((field) => !field.readonly && field.required)
       .some((field) => !hasNodeFieldValue(values[field.fieldKey]))
 
@@ -4760,7 +4745,7 @@ function getBusinessRuleValidationErrors(
   const errors: string[] = []
 
   if (node.node.workItemTypeCode === 'SAMPLE_ACQUIRE') {
-    const lockedSourceType = getTemplateLockedSampleSourceType(project)
+    const lockedSourceType = getProjectLockedSampleSourceType(project)
     const sampleSourceType = String(values.sampleSourceType || '').trim()
     const sampleLink = String(values.sampleLink || '').trim()
     const sampleUnitPrice = values.sampleUnitPrice
@@ -5177,16 +5162,6 @@ function renderFormalFieldControl(
   }
 
   return `<input type="text" class="h-10 ${baseClass}" value="${escapeHtml(value)}" placeholder="${escapeHtml(field.placeholder || `请输入${field.label}`)}" ${commonAttrs} />`
-}
-
-function getProjectTypeLabelByTemplate(template: ProjectTemplate | null): PcsProjectCreateDraft['projectType'] {
-  if (template?.id === WANLONG_REVISION_SAMPLE_TEMPLATE_ID || template?.name.includes('万隆改版')) {
-    return '改版开发'
-  }
-  if (template?.name.includes('国内采购样衣测款')) {
-    return '商品开发'
-  }
-  return '商品开发'
 }
 
 function toggleStringSelection(values: string[], value: string): string[] {
@@ -6040,7 +6015,10 @@ function buildProjectViewModel(projectId: string): ProjectViewModel | null {
   const nodeViewModels = nodes.map((node) => ({
     node,
     contract: getProjectWorkItemContract(node.workItemTypeCode as PcsProjectWorkItemCode),
-    definition: getPcsWorkItemDefinition(node.workItemId),
+    step: getProjectStepContractByPhaseCode(node.phaseCode as Parameters<typeof getProjectStepContractByPhaseCode>[0]),
+    stepCode: getProjectStepContractByPhaseCode(
+      node.phaseCode as Parameters<typeof getProjectStepContractByPhaseCode>[0],
+    ).stepCode,
     records: listProjectInlineNodeRecordsByNode(node.projectNodeId),
     latestRecord: getLatestProjectInlineNodeRecord(node.projectNodeId),
     instanceModel: nodeInstanceMap.get(node.projectNodeId)!,
@@ -6056,7 +6034,10 @@ function buildProjectViewModel(projectId: string): ProjectViewModel | null {
   const currentPhaseCode = currentNode?.node.phaseCode ?? project.currentPhaseCode
 
   const phaseViewModels = phases.map((phase) => {
-    const phaseNodes = nodeViewModels.filter((item) => item.node.phaseCode === phase.phaseCode)
+    const stepCode = getProjectStepContractByPhaseCode(
+      phase.phaseCode as Parameters<typeof getProjectStepContractByPhaseCode>[0],
+    ).stepCode
+    const phaseNodes = nodeViewModels.filter((item) => item.stepCode === stepCode)
     let derivedStatus: PcsProjectPhaseRecord['phaseStatus'] = '未开始'
     if (project.projectStatus === PROJECT_STATUS_TERMINATED && phaseNodes.some((item) => !isClosedNodeStatus(item.node.currentStatus))) {
       derivedStatus = PROJECT_STATUS_TERMINATED
@@ -6251,7 +6232,6 @@ function buildProjectPhaseOptions(projects: ProjectListViewModel[]): string[] {
 function ensureCreateState(): void {
   if (state.create.routeKey === 'create') return
   const catalog = getProjectCreateCatalog()
-  const template = listActiveProjectTemplates()[0] ?? null
   const category = catalog.categories[0]
   const child = category?.children[0]
   const owner = catalog.owners[0]
@@ -6265,9 +6245,8 @@ function ensureCreateState(): void {
     referenceImages: [],
     draft: {
       ...createEmptyProjectDraft(),
-      projectType: getProjectTypeLabelByTemplate(template),
+      projectType: '商品开发',
       projectSourceType: catalog.projectSourceTypes[0] ?? '',
-      templateId: template?.id ?? '',
       categoryId: category?.id ?? '',
       categoryName: category?.name ?? '',
       subCategoryId: child?.id ?? '',
@@ -6713,57 +6692,34 @@ function renderProjectListHeader(): string {
   `
 }
 
-function renderTemplatePreview(template: ProjectTemplate | null): string {
-  if (!template) {
-    return `
-      <div class="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
-        当前没有可用业务模板，请先到模板管理中启用国内采购样衣测款或万隆改版出样衣测款项目模板。
-      </div>
-    `
-  }
-
+function renderFixedStepPreview(): string {
+  const steps = listProjectStepContracts()
   return `
     <div class="space-y-4">
-      <div class="grid gap-3 md:grid-cols-4">
-        <article class="rounded-lg border bg-slate-50 p-4">
-          <p class="text-xs text-slate-500">已选模板</p>
-          <p class="mt-2 text-sm font-semibold text-slate-900">${escapeHtml(template.name)}</p>
-        </article>
-        <article class="rounded-lg border bg-slate-50 p-4">
-          <p class="text-xs text-slate-500">阶段数</p>
-          <p class="mt-2 text-2xl font-semibold text-slate-900">${countTemplateStages(template)}</p>
-        </article>
-        <article class="rounded-lg border bg-slate-50 p-4">
-          <p class="text-xs text-slate-500">工作项数</p>
-          <p class="mt-2 text-2xl font-semibold text-slate-900">${countTemplateWorkItems(template)}</p>
-        </article>
-        <article class="rounded-lg border bg-slate-50 p-4">
-          <p class="text-xs text-slate-500">模板状态</p>
-          <p class="mt-2 text-sm font-semibold text-slate-900">${escapeHtml(template.status === 'active' ? '启用' : '停用')}</p>
-        </article>
+      <div class="rounded-lg border border-blue-200 bg-blue-50 p-4">
+        <p class="text-sm font-semibold text-blue-900">固定五步商品测款流程</p>
+        <p class="mt-1 text-xs text-blue-700">创建项目时同步建立商品／款式档案，后续资料可在五个步骤中逐步完善。</p>
       </div>
       <div class="space-y-3">
-        ${template.stages
-          .map((stage) => {
-            const stageNodes = template.nodes.filter((node) => node.phaseCode === stage.phaseCode)
+        ${steps
+          .map((step) => {
             return `
               <article class="rounded-lg border p-4">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h3 class="text-sm font-semibold text-slate-900">${escapeHtml(stage.phaseName)}</h3>
-                    <p class="mt-1 text-xs text-slate-500">${escapeHtml(stage.description)}</p>
+                    <h3 class="text-sm font-semibold text-slate-900">${step.sequence}. ${escapeHtml(step.stepName)}</h3>
+                    <p class="mt-1 text-xs text-slate-500">${escapeHtml(step.description)}</p>
                   </div>
-                  <span class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">${stageNodes.length} 个工作项</span>
+                  <span class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">${step.workItemCodes.length} 个业务办理项</span>
                 </div>
                 <div class="mt-3 flex flex-wrap gap-2">
-                  ${stageNodes
-                    .map(
-                      (node) => `
+                  ${step.workItemCodes
+                    .map((workItemTypeCode) => getProjectWorkItemContract(workItemTypeCode))
+                    .map((workItem) => `
                         <span class="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">
-                          ${escapeHtml(node.workItemTypeName)}
+                          ${escapeHtml(workItem.workItemTypeName)}
                         </span>
-                      `,
-                    )
+                      `)
                     .join('')}
                 </div>
               </article>
@@ -6780,12 +6736,7 @@ function renderCreatePage(): string {
   const catalog = getProjectCreateCatalog()
   const draft = state.create.draft
   const categoryChildren = getProjectCategoryChildren(draft.categoryId)
-  const templateOptions = listActiveProjectTemplates()
-  const selectedTemplate = templateOptions.find((template) => template.id === draft.templateId) ?? templateOptions[0] ?? null
-  if (selectedTemplate && draft.templateId !== selectedTemplate.id) {
-    draft.templateId = selectedTemplate.id
-    draft.projectType = getProjectTypeLabelByTemplate(selectedTemplate)
-  }
+  draft.projectType = '商品开发'
   const audienceTags = getCreateDraftAudienceTags(draft)
   const errorCard = state.create.error
     ? `<section class="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">${escapeHtml(state.create.error)}</section>`
@@ -6821,7 +6772,7 @@ function renderCreatePage(): string {
           <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <label class="space-y-1">
               <span class="text-xs text-slate-500">项目类型</span>
-              <input class="h-10 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-600 outline-none" value="${escapeHtml(draft.projectType || getProjectTypeLabelByTemplate(selectedTemplate))}" readonly />
+              <input class="h-10 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-600 outline-none" value="${escapeHtml(draft.projectType || '商品开发')}" readonly />
             </label>
             <label class="space-y-1">
               <span class="text-xs text-slate-500">项目来源 <span class="text-rose-500">*</span></span>
@@ -6852,17 +6803,6 @@ function renderCreatePage(): string {
                   .map(
                     (option) =>
                       `<option value="${escapeHtml(option.id)}" ${draft.subCategoryId === option.id ? 'selected' : ''}>${escapeHtml(option.name)}</option>`,
-                  )
-                  .join('')}
-              </select>
-            </label>
-            <label class="space-y-1">
-              <span class="text-xs text-slate-500">业务模板 <span class="text-rose-500">*</span></span>
-              <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-project-field="create-template">
-                ${templateOptions
-                  .map(
-                    (template) =>
-                      `<option value="${escapeHtml(template.id)}" ${draft.templateId === template.id ? 'selected' : ''}>${escapeHtml(template.name)}</option>`,
                   )
                   .join('')}
               </select>
@@ -7097,16 +7037,14 @@ function renderCreatePage(): string {
 
       <section class="rounded-lg border bg-white p-4">
         <div class="mb-6">
-          <h2 class="text-lg font-semibold text-slate-900">模板预览</h2>
+          <h2 class="text-lg font-semibold text-slate-900">办理步骤</h2>
         </div>
-        ${renderTemplatePreview(selectedTemplate)}
+        ${renderFixedStepPreview()}
       </section>
 
       <div class="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur">
         <div class="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-6 py-4">
-          <div class="text-sm text-slate-500">
-            当前模板：<span class="font-medium text-slate-900">${escapeHtml(selectedTemplate?.name || '未选择')}</span>
-          </div>
+          <div class="text-sm text-slate-500">固定流程：<span class="font-medium text-slate-900">五步商品测款</span></div>
           <div class="flex items-center gap-2">
             <button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50" data-pcs-project-action="open-create-cancel">取消</button>
             <button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50" data-pcs-project-action="save-draft">保存草稿</button>
@@ -7864,7 +7802,7 @@ function renderProjectDetailPage(projectId: string): string {
   }
 
   const selectedNode = getSelectedDetailNode(viewModel)
-  const selectedNature = selectedNode?.contract.workItemNature || selectedNode?.definition?.workItemNature || '执行类'
+  const selectedNature = selectedNode?.contract.workItemNature || '执行类'
   const locked = selectedNode ? selectedNode.displayStatus === '未解锁' : false
 
   return `
@@ -7939,8 +7877,8 @@ function renderFieldGroupValues(
   showHeader = true,
 ): string {
   const fields = group.fields
-    .filter((field) => isProjectTemplateFieldVisible(project, node, field))
-    .map((field) => applyProjectTemplateFieldPolicy(project, node, field))
+    .filter((field) => isProjectFixedFlowFieldVisible(project, node, field))
+    .map((field) => applyProjectFixedFlowFieldPolicy(project, node, field))
   if (fields.length === 0) return ''
 
   return `
@@ -7976,12 +7914,12 @@ function renderEditableFieldGroups(
   return groups
     .map((group) => {
       const items = group.fields
-        .filter((rawField) => isProjectTemplateFieldVisible(project, node, rawField))
+        .filter((rawField) => isProjectFixedFlowFieldVisible(project, node, rawField))
         .map((rawField) => {
-          const field = applyProjectTemplateFieldPolicy(project, node, rawField)
+          const field = applyProjectFixedFlowFieldPolicy(project, node, rawField)
           const editable = !field.readonly && editableKeys.has(field.fieldKey)
-          const savedValue = getTemplateLockedFieldValue(project, node, field, getNodeFieldValue(project, node, field.fieldKey))
-          const draftValue = getTemplateLockedFieldValue(project, node, field, draft.values[field.fieldKey])
+          const savedValue = getFixedFlowLockedFieldValue(project, node, field, getNodeFieldValue(project, node, field.fieldKey))
+          const draftValue = getFixedFlowLockedFieldValue(project, node, field, draft.values[field.fieldKey])
           const effectiveDraftValue = hasNodeFieldValue(draftValue) ? draftValue : savedValue
           const value = editable
             ? formatDraftFieldValue(field.type, effectiveDraftValue ?? '')
@@ -8061,7 +7999,7 @@ function renderFormalFieldEntrySection(project: PcsProjectRecord, node: ProjectN
   }
 
   const draft = getNodeRecordDraft(project, node)
-  const recordMode = node.contract.runtimeType === 'execute' && node.definition?.workItemNature === '执行类' && node.node.multiInstanceFlag
+  const recordMode = node.contract.runtimeType === 'execute' && node.contract.workItemNature === '执行类' && node.node.multiInstanceFlag
   const saveDraftButton = recordMode
     ? ''
     : '<button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-project-action="save-formal-fields">保存正式字段</button>'
@@ -8511,7 +8449,7 @@ function renderProjectWorkItemDetailPage(projectId: string, projectNodeId: strin
     `
   }
 
-  const nature = node.contract.workItemNature || node.definition?.workItemNature || '执行类'
+  const nature = node.contract.workItemNature || '执行类'
   const canRecord =
     canUseInlineRecords(node.node.workItemTypeCode) &&
     !isDecisionNode(node) &&
@@ -9026,13 +8964,6 @@ export function handlePcsProjectsInput(target: Element): boolean {
     const option = getProjectCategoryChildren(state.create.draft.categoryId).find((item) => item.id === fieldNode.value)
     state.create.draft.subCategoryId = fieldNode.value
     state.create.draft.subCategoryName = option?.name ?? ''
-    return true
-  }
-  if (field === 'create-template' && fieldNode instanceof HTMLSelectElement) {
-    const template = getProjectTemplateById(fieldNode.value)
-    state.create.draft.templateId = fieldNode.value
-    state.create.draft.projectType = getProjectTypeLabelByTemplate(template)
-    state.create.draft.sampleSourceType = getTemplateLockedSampleSourceTypeByTemplate(fieldNode.value, template?.name || '')
     return true
   }
   if (field === 'create-brand' && fieldNode instanceof HTMLSelectElement) {
@@ -9701,18 +9632,18 @@ function buildFormalSaveInput(project: PcsProjectRecord, node: ProjectNodeViewMo
   const readonlyPayloadKeys = new Set(
     groups
       .flatMap((group) => group.fields)
-      .filter((field) => isProjectTemplateFieldVisible(project, node, field))
+      .filter((field) => isProjectFixedFlowFieldVisible(project, node, field))
       .filter((field) => field.readonly && editableKeys.has(field.fieldKey))
       .map((field) => field.fieldKey),
   )
   const normalizedEditableValues = Object.fromEntries(
     groups
       .flatMap((group) => group.fields)
-      .filter((field) => isProjectTemplateFieldVisible(project, node, field))
+      .filter((field) => isProjectFixedFlowFieldVisible(project, node, field))
       .filter((field) => !field.readonly && editableKeys.has(field.fieldKey))
       .map((field) => [field.fieldKey, normalizeDraftFieldValue(field, draft.values[field.fieldKey] ?? '')]),
   )
-  const lockedSampleSourceType = getTemplateLockedSampleSourceType(project)
+  const lockedSampleSourceType = getProjectLockedSampleSourceType(project)
   if (node.node.workItemTypeCode === 'SAMPLE_ACQUIRE' && lockedSampleSourceType) {
     normalizedEditableValues.sampleSourceType = lockedSampleSourceType
   }
@@ -10248,8 +10179,9 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
   if (action === 'create-project') {
     void (async () => {
       try {
+        const { templateId: _removedTemplateId, ...fixedStepDraft } = state.create.draft
         const draft = {
-          ...state.create.draft,
+          ...fixedStepDraft,
           projectAlbumUrls: [],
         }
         const created = createProject(draft, '当前用户')

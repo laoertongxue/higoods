@@ -4,6 +4,12 @@ import type { ChannelListingImageRecord } from './pcs-channel-listing-image-type
 import type { ProjectNodeStatus } from './pcs-project-types.ts'
 
 export type PcsProjectPhaseCode = 'PHASE_01' | 'PHASE_02' | 'PHASE_03' | 'PHASE_04' | 'PHASE_05'
+export type ProjectStepCode =
+  | 'PROJECT_ARCHIVE'
+  | 'SAMPLE_PREPARATION'
+  | 'PRE_TEST_PREPARATION'
+  | 'MARKET_TESTING'
+  | 'TEST_DECISION_CLOSURE'
 export type PcsProjectTemplateId = 'TPL-001' | 'TPL-003'
 export const DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID: PcsProjectTemplateId = 'TPL-001'
 export const WANLONG_REVISION_SAMPLE_TEMPLATE_ID: PcsProjectTemplateId = 'TPL-003'
@@ -79,6 +85,15 @@ export interface PcsProjectPhaseContract {
   whyExists: string
   entryConditions: string[]
   exitConditions: string[]
+}
+
+export interface ProjectStepContract {
+  stepCode: ProjectStepCode
+  stepName: string
+  sequence: number
+  phaseCode: PcsProjectPhaseCode
+  description: string
+  workItemCodes: readonly PcsProjectWorkItemCode[]
 }
 
 export interface PcsProjectCommonInstanceField {
@@ -654,13 +669,14 @@ const projectInitFields = [
       },
       {
         key: 'templateId',
-        label: '项目模板',
+        label: '办理流程',
         type: 'reference',
-        sourceKind: '模板管理',
-        sourceRef: '项目模板管理',
-        meaning: '决定项目阶段和节点矩阵的模板',
-        logic: '只能选择正式模板，不允许脱离模板自由拼装。',
-        placeholder: '请选择项目模板',
+        sourceKind: '固定枚举',
+        sourceRef: '固定五步商品测款流程',
+        meaning: '商品项目统一采用的五步办理流程',
+        logic: '系统固定生成，不允许在创建项目时选择或拼装。',
+        readonly: true,
+        placeholder: '固定五步商品测款流程',
       },
     ],
   }),
@@ -2035,6 +2051,49 @@ export const PCS_PROJECT_PHASE_CONTRACTS: PcsProjectPhaseContract[] = [
   },
 ]
 
+export const PROJECT_STEP_CONTRACTS: readonly ProjectStepContract[] = [
+  {
+    stepCode: 'PROJECT_ARCHIVE',
+    stepName: '项目与档案建立',
+    sequence: 1,
+    phaseCode: 'PHASE_01',
+    description: '建立商品项目及处于商品测款状态的商品／款式档案。',
+    workItemCodes: ['PROJECT_INIT'],
+  },
+  {
+    stepCode: 'SAMPLE_PREPARATION',
+    stepName: '样衣准备',
+    sequence: 2,
+    phaseCode: 'PHASE_02',
+    description: '完成样衣来源、工程出样、到样核对等样衣准备工作。',
+    workItemCodes: ['SAMPLE_ACQUIRE', 'SAMPLE_INBOUND_CHECK'],
+  },
+  {
+    stepCode: 'PRE_TEST_PREPARATION',
+    stepName: '测款前准备',
+    sequence: 3,
+    phaseCode: 'PHASE_03',
+    description: '完成可行性、拍摄试穿、样衣确认、核价定价和渠道商品准备。',
+    workItemCodes: ['FEASIBILITY_REVIEW', 'SAMPLE_COST_REVIEW', 'CHANNEL_PRODUCT_LISTING'],
+  },
+  {
+    stepCode: 'MARKET_TESTING',
+    stepName: '市场测款',
+    sequence: 4,
+    phaseCode: 'PHASE_04',
+    description: '执行直播或短视频测款，并汇总测款事实。',
+    workItemCodes: ['LIVE_TEST', 'VIDEO_TEST', 'TEST_DATA_SUMMARY'],
+  },
+  {
+    stepCode: 'TEST_DECISION_CLOSURE',
+    stepName: '测款判断与收尾',
+    sequence: 5,
+    phaseCode: 'PHASE_05',
+    description: '形成测款判断，完成样衣退回或处置后结束项目。',
+    workItemCodes: ['TEST_CONCLUSION', 'SAMPLE_RETURN_HANDLE'],
+  },
+]
+
 export const PCS_PROJECT_COMMON_INSTANCE_FIELDS: PcsProjectCommonInstanceField[] = [
   { fieldKey: 'instanceId', label: '实例主键', source: '系统生成', meaning: '节点实例唯一主键' },
   { fieldKey: 'instanceCode', label: '实例编码', source: '系统生成', meaning: '节点实例唯一编码' },
@@ -2971,6 +3030,32 @@ export function listProjectPhaseContracts(): PcsProjectPhaseContract[] {
     entryConditions: [...item.entryConditions],
     exitConditions: [...item.exitConditions],
   }))
+}
+
+export function listProjectStepContracts(): ProjectStepContract[] {
+  return PROJECT_STEP_CONTRACTS
+    .slice()
+    .sort((left, right) => left.sequence - right.sequence)
+    .map((item) => ({
+      ...item,
+      workItemCodes: [...item.workItemCodes],
+    }))
+}
+
+export function getProjectStepContract(stepCode: ProjectStepCode): ProjectStepContract {
+  const found = listProjectStepContracts().find((item) => item.stepCode === stepCode)
+  if (!found) {
+    throw new Error(`未找到商品项目步骤契约：${stepCode}`)
+  }
+  return found
+}
+
+export function getProjectStepContractByPhaseCode(phaseCode: PcsProjectPhaseCode): ProjectStepContract {
+  const found = listProjectStepContracts().find((item) => item.phaseCode === phaseCode)
+  if (!found) {
+    throw new Error(`未找到商品项目步骤契约：${phaseCode}`)
+  }
+  return found
 }
 
 export function getProjectPhaseContract(phaseCode: PcsProjectPhaseCode): PcsProjectPhaseContract {

@@ -5,6 +5,7 @@ import {
   WANLONG_REVISION_SAMPLE_TEMPLATE_ID,
   getProjectWorkItemMultiInstanceDefinition,
   getProjectWorkItemContract,
+  listProjectStepContracts,
   listProjectTemplateSchemas,
   listProjectWorkItemContracts,
   type PcsProjectWorkItemCode,
@@ -20,6 +21,7 @@ import {
   listProjects,
 } from '../src/data/pcs-project-repository.ts'
 import { createBootstrapProjectInlineNodeRecordSnapshot } from '../src/data/pcs-project-inline-node-record-bootstrap.ts'
+import { findStyleArchiveByProjectId } from '../src/data/pcs-style-archive-repository.ts'
 import { listProjectTemplates } from '../src/data/pcs-templates.ts'
 import { SAMPLE_COST_RAW_MATERIAL_ROWS_KEY, calculateSampleCostReview } from '../src/data/pcs-sample-cost-review-pricing.ts'
 import {
@@ -91,7 +93,7 @@ function findSchemaPhaseCode(templateId: string, workItemCode: PcsProjectWorkIte
   return phase.phaseCode
 }
 
-function buildDraft(templateId: string) {
+function buildDraft(projectName: string, projectType: '商品开发' | '改版开发') {
   const catalog = getProjectCreateCatalog()
   const category = catalog.categories[0]
   const child = category.children[0]
@@ -99,11 +101,12 @@ function buildDraft(templateId: string) {
   const owner = catalog.owners[0]
   const team = catalog.teams[0]
 
+  const { templateId: _removedTemplateId, ...draft } = createEmptyProjectDraft()
   return {
-    ...createEmptyProjectDraft(),
-    projectName: templateId === WANLONG_REVISION_SAMPLE_TEMPLATE_ID ? '验收-万隆改版出样衣测款项目' : '验收-国内采购样衣测款项目',
+    ...draft,
+    projectName,
+    projectType,
     projectSourceType: catalog.projectSourceTypes[0],
-    templateId,
     categoryId: category.id,
     categoryName: category.name,
     subCategoryId: child?.id ?? '',
@@ -427,29 +430,39 @@ assertIncludesAll(
   '测款结论字段未覆盖产品定位、备货等级、继续测试、下架和退回去向',
 )
 
-const domesticProject = createProject(buildDraft(DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID), '验收脚本').project
-assert.equal(domesticProject.projectType, '商品开发', '国内采购样衣测款项目应生成商品开发项目类型')
+const fixedStepFlow = listProjectStepContracts().flatMap((step) => step.workItemCodes)
+const domesticProject = createProject(buildDraft('验收-固定五步商品测款项目', '商品开发'), '验收脚本').project
+assert.equal(domesticProject.projectType, '商品开发', '固定五步商品测款项目应保留创建时的项目类型')
 assert.ok(!(('style' + 'Type') in domesticProject), '商品项目主记录不应再包含旧属性字段')
 assert.deepEqual(
   listProjectNodes(domesticProject.projectId).map((node) => node.workItemTypeCode),
-  domesticFlow,
-  '国内采购样衣测款项目创建后的节点顺序不正确',
+  fixedStepFlow,
+  '固定五步商品测款项目创建后的节点顺序不正确',
 )
+const domesticStyle = findStyleArchiveByProjectId(domesticProject.projectId)
+assert.ok(domesticStyle, '创建固定五步商品项目时应同步创建商品／款式档案')
+assert.equal(domesticStyle?.baseInfoStatus, '商品测款', '新建商品／款式档案初始状态应为商品测款')
+assert.equal(domesticStyle?.styleId, domesticProject.linkedStyleId, '商品项目应同步关联新建商品／款式档案')
 const domesticSampleCostNode = listProjectNodes(domesticProject.projectId).find((node) => node.workItemTypeCode === 'SAMPLE_COST_REVIEW')
-assert.equal(domesticSampleCostNode?.multiInstanceFlag, false, '国内采购样衣测款项目中的样衣核价节点必须为单实例')
+assert.equal(domesticSampleCostNode?.multiInstanceFlag, false, '固定五步商品测款项目中的样衣核价节点必须为单实例')
 assert.deepEqual(
   listProjectPhases(domesticProject.projectId).map((phase) => phase.phaseCode),
   ['PHASE_01', 'PHASE_02', 'PHASE_03', 'PHASE_04', 'PHASE_05'],
-  '国内采购样衣测款项目应生成五个阶段',
+  '固定五步商品测款项目应生成五个阶段',
+)
+assert.deepEqual(
+  listProjectPhases(domesticProject.projectId).map((phase) => phase.phaseName),
+  listProjectStepContracts().map((step) => step.stepName),
+  '固定五步商品测款项目的步骤名称不正确',
 )
 
-const wanlongProject = createProject(buildDraft(WANLONG_REVISION_SAMPLE_TEMPLATE_ID), '验收脚本').project
-assert.equal(wanlongProject.projectType, '改版开发', '万隆改版出样衣测款项目应生成改版开发项目类型')
+const wanlongProject = createProject(buildDraft('验收-固定五步改版测款项目', '改版开发'), '验收脚本').project
+assert.equal(wanlongProject.projectType, '改版开发', '固定五步流程应保留改版开发项目类型')
 assert.ok(!(('style' + 'Type') in wanlongProject), '万隆改版项目主记录不应再包含旧属性字段')
 assert.deepEqual(
   listProjectNodes(wanlongProject.projectId).map((node) => node.workItemTypeCode),
-  wanlongFlow,
-  '万隆改版出样衣测款项目创建后的节点顺序不正确',
+  fixedStepFlow,
+  '改版开发项目也必须使用同一固定五步节点顺序',
 )
 const wanlongSampleCostNode = listProjectNodes(wanlongProject.projectId).find((node) => node.workItemTypeCode === 'SAMPLE_COST_REVIEW')
 assert.equal(wanlongSampleCostNode?.multiInstanceFlag, false, '万隆改版项目中的样衣核价节点必须为单实例')

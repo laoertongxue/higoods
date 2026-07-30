@@ -1,23 +1,21 @@
 import {
   getProjectTemplateById,
-  getProjectTemplateVersion,
-  hasTemplatePendingNodes,
   listProjectTemplates,
   type ProjectTemplate,
 } from './pcs-templates.ts'
-import { buildTemplateBusinessSummary } from './pcs-template-domain-view-model.ts'
 import { migrateProjectDecisionSnapshot } from './pcs-project-decision-migration.ts'
 import { migrateProjectAlbumUrlsToProjectImages } from './pcs-project-image-migration.ts'
 import { createBootstrapProjectSnapshot } from './pcs-project-bootstrap.ts'
 import {
-  buildProjectNodeRecordsFromTemplate,
-  buildProjectPhaseRecordsFromTemplate,
+  buildProjectNodes as buildFixedProjectNodes,
+  buildProjectPhases as buildFixedProjectPhases,
 } from './pcs-project-node-factory.ts'
 import {
   DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID,
   WANLONG_REVISION_SAMPLE_TEMPLATE_ID,
 } from './pcs-project-domain-contract.ts'
 import { PCS_CHANNEL_OPTIONS, normalizePcsChannelCodes } from './pcs-channel-options.ts'
+import { createStyleArchiveShell } from './pcs-style-archive-repository.ts'
 import {
   buildProjectWorkspaceCategoryOptions,
   findProjectWorkspaceOptionById,
@@ -688,7 +686,7 @@ function getOrderedProjectNodes(snapshot: PcsProjectStoreSnapshot, projectId: st
     .filter((item) => item.projectId === projectId)
     .sort((a, b) => {
       if (a.phaseCode === b.phaseCode) return a.sequenceNo - b.sequenceNo
-      return a.projectNodeId.localeCompare(b.projectNodeId)
+      return a.phaseCode.localeCompare(b.phaseCode)
     })
 }
 
@@ -1016,26 +1014,6 @@ function findChannelNames(codes: string[]): string[] {
     .filter(Boolean)
 }
 
-function deriveProjectTypeFromTemplate(template: ProjectTemplate): typeof PROJECT_TYPES[number] {
-  if (template.id === WANLONG_REVISION_SAMPLE_TEMPLATE_ID || template.name.includes('万隆改版')) {
-    return '改版开发'
-  }
-  if (template.name.includes('国内采购样衣测款')) {
-    return '商品开发'
-  }
-  return '商品开发'
-}
-
-function deriveSampleSourceTypeFromTemplate(template: ProjectTemplate): SampleSourceType | '' {
-  if (template.id === DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID || template.name.includes('国内采购样衣测款')) {
-    return '外采'
-  }
-  if (template.id === WANLONG_REVISION_SAMPLE_TEMPLATE_ID || template.name.includes('万隆改版')) {
-    return '委托打样'
-  }
-  return ''
-}
-
 function getProjectSequenceDateKey(project: PcsProjectRecord): string {
   const codeMatched = project.projectCode.match(/^PRJ-(\d{8})-/)
   if (codeMatched) return codeMatched[1]
@@ -1062,14 +1040,12 @@ function buildProjectPhases(
   ownerId: string,
   ownerName: string,
   createdAt: string,
-  template: ProjectTemplate,
 ): PcsProjectPhaseRecord[] {
-  return buildProjectPhaseRecordsFromTemplate({
+  return buildFixedProjectPhases({
     projectId,
     ownerId,
     ownerName,
     createdAt,
-    template,
   })
 }
 
@@ -1078,14 +1054,12 @@ function buildProjectNodes(
   createdAt: string,
   ownerId: string,
   ownerName: string,
-  template: ProjectTemplate,
 ): PcsProjectNodeRecord[] {
-  return buildProjectNodeRecordsFromTemplate({
+  return buildFixedProjectNodes({
     projectId,
     ownerId,
     ownerName,
     createdAt,
-    template,
   })
 }
 
@@ -1141,13 +1115,14 @@ export function createEmptyProjectDraft(): PcsProjectCreateDraft {
   }
 }
 
-export function validateProjectCreateDraft(draft: PcsProjectCreateDraft): string[] {
+export type PcsProjectCreateInput = Omit<PcsProjectCreateDraft, 'templateId'>
+
+export function validateProjectCreateDraft(draft: PcsProjectCreateInput): string[] {
   const errors: string[] = []
   const catalog = getProjectCreateCatalogInternal()
 
   if (!draft.projectName.trim()) errors.push('请填写项目名称。')
   if (!draft.projectSourceType) errors.push('请选择项目来源类型。')
-  if (!draft.templateId) errors.push('请选择业务模板。')
   if (!draft.categoryId) errors.push('请选择一级分类。')
   if (!draft.brandId) errors.push('请选择品牌。')
   if (!draft.yearTag.trim()) errors.push('请选择年份。')
@@ -1155,19 +1130,6 @@ export function validateProjectCreateDraft(draft: PcsProjectCreateDraft): string
   if (normalizePcsChannelCodes(draft.targetChannelCodes).length === 0) errors.push('请选择目标测款渠道。')
   if (!draft.ownerId) errors.push('请选择负责人。')
   if (catalog.teams.length > 0 && !draft.teamId) errors.push('请选择执行团队。')
-  if (draft.templateId) {
-    const template = getProjectTemplateById(draft.templateId)
-    if (!template) {
-      errors.push('未找到所选项目模板。')
-    } else if (hasTemplatePendingNodes(template)) {
-      errors.push('当前模板存在未完成标准化的节点，请先处理模板中的待补充标准工作项。')
-    } else {
-      const summary = buildTemplateBusinessSummary(template)
-      if (summary.closureStatus === '配置异常') {
-        errors.push('当前项目模板配置异常，不能创建商品项目。')
-      }
-    }
-  }
   return errors
 }
 
@@ -1220,7 +1182,7 @@ export function listProjectNodes(projectId: string): PcsProjectNodeRecord[] {
     .filter((item) => item.projectId === projectId)
     .sort((a, b) => {
       if (a.phaseCode === b.phaseCode) return a.sequenceNo - b.sequenceNo
-      return a.projectNodeId.localeCompare(b.projectNodeId)
+      return a.phaseCode.localeCompare(b.phaseCode)
     })
     .map(cloneNode)
 }
@@ -1312,36 +1274,24 @@ export function getProjectNodeRecordByWorkItemTypeCode(
   return node ? cloneNode(node) : null
 }
 
-export function createProject(input: PcsProjectCreateDraft, operatorName = '当前用户'): ProjectCreateResult {
+export function createProject(input: PcsProjectCreateInput, operatorName = '当前用户'): ProjectCreateResult {
   const errors = validateProjectCreateDraft(input)
   if (errors.length > 0) {
     throw new Error(errors[0])
   }
 
   const snapshot = readSnapshot()
-  const template = getProjectTemplateById(input.templateId)
-  if (!template) {
-    throw new Error('未找到所选项目模板。')
-  }
-  if (hasTemplatePendingNodes(template)) {
-    throw new Error('当前模板存在未完成标准化的节点，请先处理模板中的待补充标准工作项。')
-  }
-  const templateSummary = buildTemplateBusinessSummary(template)
-  if (templateSummary.closureStatus === '配置异常') {
-    throw new Error('当前项目模板配置异常，不能创建商品项目。')
-  }
-
   const timestamp = nowText()
   const dateKey = formatDateKey(timestamp)
   const sequence = nextProjectSequence(snapshot, dateKey)
   const projectId = buildProjectId(dateKey, sequence)
   const projectCode = buildProjectCode(dateKey, sequence)
-  const phases = buildProjectPhases(projectId, input.ownerId, input.ownerName, timestamp, template)
-  const nodes = buildProjectNodes(projectId, timestamp, input.ownerId, input.ownerName, template)
+  const phases = buildProjectPhases(projectId, input.ownerId, input.ownerName, timestamp)
+  const nodes = buildProjectNodes(projectId, timestamp, input.ownerId, input.ownerName)
   const firstPhase = phases[0]
 
   if (!firstPhase) {
-    throw new Error('所选模板未配置阶段，无法创建项目。')
+    throw new Error('固定五步业务流程缺少项目建立步骤，无法创建项目。')
   }
 
   const styleTagNames = input.styleTagNames.length > 0 ? [...input.styleTagNames] : [...input.styleTags]
@@ -1353,8 +1303,8 @@ export function createProject(input: PcsProjectCreateDraft, operatorName = '当�
       ...input.targetAudienceTags,
     ]),
   )
-  const derivedProjectType = deriveProjectTypeFromTemplate(template)
-  const derivedSampleSourceType = deriveSampleSourceTypeFromTemplate(template) || input.sampleSourceType
+  const derivedProjectType = input.projectType || '商品开发'
+  const derivedSampleSourceType = input.sampleSourceType
 
   const project: PcsProjectRecord = {
     projectId,
@@ -1362,9 +1312,9 @@ export function createProject(input: PcsProjectCreateDraft, operatorName = '当�
     projectName: input.projectName.trim(),
     projectType: derivedProjectType,
     projectSourceType: input.projectSourceType,
-    templateId: template.id,
-    templateName: template.name,
-    templateVersion: getProjectTemplateVersion(template),
+    templateId: '',
+    templateName: '固定五步业务流程',
+    templateVersion: 'fixed-step-v1',
     projectStatus: '已立项',
     currentPhaseCode: firstPhase.phaseCode,
     currentPhaseName: firstPhase.phaseName,
@@ -1411,10 +1361,10 @@ export function createProject(input: PcsProjectCreateDraft, operatorName = '当�
     updatedAt: timestamp,
     updatedBy: operatorName,
     remark: input.remark.trim(),
-    linkedStyleId: '',
-    linkedStyleCode: '',
-    linkedStyleName: '',
-    linkedStyleGeneratedAt: '',
+    linkedStyleId: `style_${projectId}`,
+    linkedStyleCode: `SPU-${dateKey}-${String(sequence).padStart(3, '0')}`,
+    linkedStyleName: input.projectName.trim(),
+    linkedStyleGeneratedAt: timestamp,
     linkedTechPackVersionId: '',
     linkedTechPackVersionCode: '',
     linkedTechPackVersionLabel: '',
@@ -1429,6 +1379,65 @@ export function createProject(input: PcsProjectCreateDraft, operatorName = '当�
     projectArchiveUpdatedAt: '',
     projectArchiveFinalizedAt: '',
   }
+
+  const projectArchiveNode = nodes.find((node) => node.workItemTypeCode === 'PROJECT_INIT')
+  if (!projectArchiveNode) {
+    throw new Error('固定五步业务流程缺少项目与档案建立节点。')
+  }
+
+  createStyleArchiveShell({
+    styleId: project.linkedStyleId || `style_${projectId}`,
+    styleCode: project.linkedStyleCode || `SPU-${dateKey}-${String(sequence).padStart(3, '0')}`,
+    styleName: project.projectName,
+    styleNameEn: '',
+    styleNumber: project.styleNumber || project.linkedStyleCode || project.projectCode,
+    productType: '成衣',
+    sourceProjectId: project.projectId,
+    sourceProjectCode: project.projectCode,
+    sourceProjectName: project.projectName,
+    sourceProjectNodeId: projectArchiveNode.projectNodeId,
+    categoryId: project.categoryId,
+    categoryName: project.categoryName,
+    subCategoryId: project.subCategoryId,
+    subCategoryName: project.subCategoryName,
+    brandId: project.brandId,
+    brandName: project.brandName,
+    yearTag: project.yearTag,
+    seasonTags: [...project.seasonTags],
+    styleTags: [...project.styleTags],
+    targetAudienceTags: [...project.targetAudienceTags],
+    targetChannelCodes: [...project.targetChannelCodes],
+    priceRangeLabel: project.priceRangeLabel || '待补齐',
+    archiveStatus: 'DRAFT',
+    baseInfoStatus: '商品测款',
+    specificationStatus: '未建立',
+    techPackStatus: '未建立',
+    costPricingStatus: '未建立',
+    specificationCount: 0,
+    techPackVersionCount: 0,
+    costVersionCount: 0,
+    channelProductCount: 0,
+    currentTechPackVersionId: '',
+    currentTechPackVersionCode: '',
+    currentTechPackVersionLabel: '',
+    currentTechPackVersionStatus: '',
+    currentTechPackVersionActivatedAt: '',
+    currentTechPackVersionActivatedBy: '',
+    mainImageId: '',
+    mainImageUrl: project.projectAlbumUrls[0] || '',
+    galleryImageIds: [],
+    galleryImageUrls: [...project.projectAlbumUrls],
+    imageSource: project.projectAlbumUrls.length > 0 ? '项目参考图' : '',
+    sellingPointText: '',
+    detailDescription: '',
+    packagingInfo: '',
+    remark: project.remark,
+    generatedAt: timestamp,
+    generatedBy: operatorName,
+    updatedAt: timestamp,
+    updatedBy: operatorName,
+    legacyOriginProject: '',
+  })
 
   persistSnapshot({
     version: PROJECT_STORE_VERSION,
