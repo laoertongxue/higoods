@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 
 import { renderPcsRevisionTaskDetailPage } from '../src/pages/pcs-engineering-tasks.ts'
-import { listProjects, resetProjectRepository } from '../src/data/pcs-project-repository.ts'
+import { listProjectNodes, listProjects, resetProjectRepository } from '../src/data/pcs-project-repository.ts'
 import { resetProjectRelationRepository } from '../src/data/pcs-project-relation-repository.ts'
 import { resetRevisionTaskRepository, getRevisionTaskById, updateRevisionTask } from '../src/data/pcs-revision-task-repository.ts'
 import { resetPatternTaskRepository, listPatternTasks } from '../src/data/pcs-pattern-task-repository.ts'
@@ -151,6 +151,7 @@ assert.equal(standaloneCompleted.ok, true)
 assert.equal(standaloneCompleted.ok && standaloneCompleted.task.status, '已完成')
 pass('独立改版任务按独立任务语义展示，可创建花型下游并完成闭环')
 
+const sourceProjectNodesBeforeRevision = listProjectNodes(project.projectId)
 const created = createRevisionTaskWithProjectRelation({
   projectId: project.projectId,
   title: '验收改版任务',
@@ -256,6 +257,12 @@ const completed = completeRevisionTaskWithProjectRelationSync(created.task.revis
 assert.equal(completed.ok, true)
 assert.equal(completed.ok && completed.task.status, '已完成')
 assert.equal(getRevisionTaskById(created.task.revisionTaskId)?.status, '已完成')
+assert.deepEqual(
+  listProjectNodes(project.projectId),
+  sourceProjectNodesBeforeRevision,
+  '独立改版任务完整闭环不得改写来源商品项目任何测款节点',
+)
+assert.equal(getRevisionTaskById(created.task.revisionTaskId)?.projectNodeId, '')
 pass('完成独立改版任务必须以已生成技术包为前置')
 
 const detailTask = getRevisionTaskById(created.task.revisionTaskId)

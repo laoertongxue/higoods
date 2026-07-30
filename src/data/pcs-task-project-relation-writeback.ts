@@ -983,22 +983,6 @@ function relationPayload(input: {
   }
 }
 
-function updateRevisionNode(node: PcsProjectNodeRecord, task: RevisionTaskRecord, alreadyExists: boolean): void {
-  if (!alreadyExists) {
-    updateProjectNodeRecord(task.projectId, node.projectNodeId, {
-      currentStatus: '进行中',
-      latestInstanceId: task.revisionTaskId,
-      latestInstanceCode: task.revisionTaskCode,
-      latestResultType: '已创建改版任务',
-      latestResultText: '已创建改版任务',
-      pendingActionType: '查看改版任务',
-      pendingActionText: '查看改版任务',
-      updatedAt: task.createdAt,
-    }, task.ownerName || '当前用户')
-  }
-  syncProjectNodeInstanceRuntime(task.projectId, node.projectNodeId, task.ownerName || '当前用户', task.createdAt)
-}
-
 function updateTaskNode(
   node: PcsProjectNodeRecord,
   task: PlateMakingTaskRecord | PatternTaskRecord | FirstSampleTaskRecord | FirstOrderSampleTaskRecord,
@@ -1023,40 +1007,6 @@ function updateTaskNode(
     }, task.ownerName || '当前用户')
   }
   syncProjectNodeInstanceRuntime(task.projectId, node.projectNodeId, task.ownerName || '当前用户', task.createdAt)
-}
-
-function syncRevisionTaskProgressToProjectNode(
-  task: RevisionTaskRecord,
-  input: {
-    currentStatus: '进行中' | '待确认' | '已完成'
-    resultType: string
-    resultText: string
-    pendingActionType: string
-    pendingActionText: string
-    operatorName: string
-    timestamp: string
-  },
-): void {
-  if (!task.projectId || !task.projectNodeId) return
-  updateProjectNodeRecord(
-    task.projectId,
-    task.projectNodeId,
-    {
-      currentStatus: input.currentStatus,
-      latestInstanceId: task.revisionTaskId,
-      latestInstanceCode: task.revisionTaskCode,
-      latestResultType: input.resultType,
-      latestResultText: input.resultText,
-      pendingActionType: input.pendingActionType,
-      pendingActionText: input.pendingActionText,
-      updatedAt: input.timestamp,
-      lastEventType: input.resultType,
-      lastEventTime: input.timestamp,
-    },
-    input.operatorName,
-  )
-  syncProjectNodeInstanceRuntime(task.projectId, task.projectNodeId, input.operatorName, input.timestamp)
-  syncExistingProjectArchiveByProjectId(task.projectId, input.operatorName)
 }
 
 function getRevisionTaskConfirmationMissingFields(task: RevisionTaskRecord): string[] {
@@ -1461,7 +1411,6 @@ export function createRevisionTaskWithProjectRelation(input: RevisionTaskCreateI
   }
 
   let project: NonNullable<ReturnType<typeof getProjectById>> | null = null
-  let node: PcsProjectNodeRecord | null = null
 
   if (requiresProject) {
     const { project: matchedProject, pendingItem: projectPending } = getProjectOrPending('改版任务', input.projectId, rawCode, input.upstreamObjectCode || input.upstreamObjectId || '')
@@ -1485,21 +1434,6 @@ export function createRevisionTaskWithProjectRelation(input: RevisionTaskCreateI
       return { ok: false, message: upstreamError, pendingItem }
     }
 
-    let nodeResult = getNodeOrPending('改版任务', project.projectId, project.projectCode, rawCode, 'REVISION_TASK')
-    if (!nodeResult.node) {
-      nodeResult = getNodeOrPending('改版任务', project.projectId, project.projectCode, rawCode, 'TEST_CONCLUSION')
-    }
-    if (!nodeResult.node || nodeResult.pendingItem) {
-      upsertRevisionTaskPendingItem(nodeResult.pendingItem!)
-      return { ok: false, message: nodeResult.pendingItem!.reason, pendingItem: nodeResult.pendingItem! }
-    }
-    node = nodeResult.node
-
-    const cancelledPending = blockCancelledNode('改版任务', rawCode, project.projectCode, node)
-    if (cancelledPending) {
-      upsertRevisionTaskPendingItem(cancelledPending)
-      return { ok: false, message: cancelledPending.reason, pendingItem: cancelledPending }
-    }
   } else {
     if (!style) {
       const pendingItem = makePendingItem('改版任务', rawCode, '', input.styleCode || input.productStyleCode || input.spuCode || '', '请选择正式款式档案。')
@@ -1533,7 +1467,7 @@ export function createRevisionTaskWithProjectRelation(input: RevisionTaskCreateI
     projectId: project?.projectId || '',
     projectCode: project?.projectCode || '',
     projectName: project?.projectName || '',
-    projectNodeId: node?.projectNodeId || '',
+    projectNodeId: '',
     workItemTypeCode: 'REVISION_TASK',
     workItemTypeName: '改版任务',
     sourceType,
@@ -1605,35 +1539,11 @@ export function createRevisionTaskWithProjectRelation(input: RevisionTaskCreateI
     legacyUpstreamRef: input.upstreamObjectCode || input.referenceObjectCode || sourceStyleCode || '',
   })
 
-  let relation: ProjectRelationRecord | null = null
-  if (project && node) {
-    relation = upsertProjectRelation(
-      relationPayload({
-        projectId: project.projectId,
-        projectCode: project.projectCode,
-        projectNodeId: node.projectNodeId,
-        workItemTypeCode: 'REVISION_TASK',
-        workItemTypeName: '改版任务',
-        sourceModule: '改版任务',
-        sourceObjectType: '改版任务',
-        sourceObjectId: task.revisionTaskId,
-        sourceObjectCode: task.revisionTaskCode,
-        sourceTitle: task.title,
-        sourceStatus: task.status,
-        businessDate: task.createdAt,
-        ownerName: task.ownerName,
-        operatorName: input.operatorName || '当前用户',
-      }),
-    )
-    updateRevisionNode(node, task, Boolean(existing))
-    syncExistingProjectArchiveByProjectId(task.projectId, task.updatedBy)
-  }
-
   return {
     ok: true,
     task,
-    relation,
-    message: relation ? '改版任务已创建，已写项目关系，已更新项目节点。' : '改版任务已创建。',
+    relation: null,
+    message: '改版任务已创建。',
   }
 }
 
@@ -2276,7 +2186,6 @@ export function submitRevisionTaskForConfirmation(
 ): TaskCompletionResult<RevisionTaskRecord> {
   const task = getRevisionTaskById(revisionTaskId)
   if (!task) return { ok: false, task: null, message: '未找到改版任务。' }
-  if (task.projectId && !task.projectNodeId) return { ok: false, task, message: '当前改版任务未关联正式商品项目节点，不能提交确认。' }
   if (task.status === '已取消') return { ok: false, task, message: '当前改版任务已取消，不能提交确认。' }
   if (task.status === '已完成') return { ok: false, task, message: '当前改版任务已完成，不能重复提交确认。' }
   if (task.status === '已生成技术包') return { ok: false, task, message: '当前改版任务已生成技术包，请直接完成任务。' }
@@ -2290,17 +2199,6 @@ export function submitRevisionTaskForConfirmation(
     updatedBy: operatorName,
   })
   if (!nextTask) return { ok: false, task, message: '改版任务提交确认失败。' }
-  if (nextTask.projectId && nextTask.projectNodeId) {
-    syncRevisionTaskProgressToProjectNode(nextTask, {
-      currentStatus: '待确认',
-      resultType: '改版任务待确认',
-      resultText: '改版任务已提交产出确认，等待确认后生成技术包版本。',
-      pendingActionType: '确认改版产出',
-      pendingActionText: '请确认改版范围、修改建议、样衣和资料是否满足后续技术包生成。',
-      operatorName,
-      timestamp: now,
-    })
-  }
   return { ok: true, task: nextTask, message: '改版任务已提交确认。' }
 }
 
@@ -2310,7 +2208,6 @@ export function confirmRevisionTaskOutput(
 ): TaskCompletionResult<RevisionTaskRecord> {
   const task = getRevisionTaskById(revisionTaskId)
   if (!task) return { ok: false, task: null, message: '未找到改版任务。' }
-  if (task.projectId && !task.projectNodeId) return { ok: false, task, message: '当前改版任务未关联正式商品项目节点，不能确认产出。' }
   if (task.status === '已取消') return { ok: false, task, message: '当前改版任务已取消，不能确认产出。' }
   if (task.status !== '待确认') return { ok: false, task, message: '只有待确认的改版任务才能确认产出。' }
   const now = nowTaskText()
@@ -2320,17 +2217,6 @@ export function confirmRevisionTaskOutput(
     updatedBy: operatorName,
   })
   if (!nextTask) return { ok: false, task, message: '改版任务确认产出失败。' }
-  if (nextTask.projectId && nextTask.projectNodeId) {
-    syncRevisionTaskProgressToProjectNode(nextTask, {
-      currentStatus: '进行中',
-      resultType: '改版产出已确认',
-      resultText: '改版任务产出已确认，可生成改版技术包版本。',
-      pendingActionType: '生成改版技术包版本',
-      pendingActionText: '请基于已确认的改版产出生成新的技术包版本。',
-      operatorName,
-      timestamp: now,
-    })
-  }
   return { ok: true, task: nextTask, message: '改版任务产出已确认。' }
 }
 
@@ -2340,8 +2226,8 @@ export function completeRevisionTaskWithProjectRelationSync(
 ): TaskCompletionResult<RevisionTaskRecord> {
   const task = getRevisionTaskById(revisionTaskId)
   if (!task) return { ok: false, task: null, message: '未找到改版任务。' }
-  if (!task.projectId || !task.projectNodeId) {
-    return { ok: false, task, message: '当前改版任务未关联正式商品项目节点。' }
+  if (!task.projectId) {
+    return { ok: false, task, message: '当前改版任务未关联正式商品项目。' }
   }
   if (task.status === '已取消') return { ok: false, task, message: '当前改版任务已取消，不能完成。' }
   if (task.status !== '已生成技术包' && !task.linkedTechPackVersionId && !task.generatedNewTechPackVersionFlag) {
@@ -2360,35 +2246,7 @@ export function completeRevisionTaskWithProjectRelationSync(
     note: task.note || '改版任务已完成。',
   })
   if (!nextTask) return { ok: false, task, message: '改版任务更新失败。' }
-  syncRevisionTaskProgressToProjectNode(nextTask, {
-    currentStatus: '已完成',
-    resultType: '改版任务已完成',
-    resultText: '改版任务已完成，商品项目节点同步完成。',
-    pendingActionType: '',
-    pendingActionText: '',
-    operatorName,
-    timestamp: now,
-  })
-
-  syncTaskCompletionToProjectNode({
-    projectId: nextTask.projectId,
-    projectNodeId: nextTask.projectNodeId,
-    workItemTypeCode: 'REVISION_TASK',
-    workItemTypeName: '改版任务',
-    sourceModule: '改版任务',
-    sourceObjectType: '改版任务',
-    sourceObjectId: nextTask.revisionTaskId,
-    sourceObjectCode: nextTask.revisionTaskCode,
-    sourceTitle: nextTask.title,
-    sourceStatus: nextTask.status,
-    businessDate: nextTask.updatedAt,
-    ownerName: nextTask.ownerName,
-    resultType: '改版任务已完成',
-    resultText: '改版任务已完成，商品项目节点同步完成。',
-    operatorName,
-  })
-
-  return { ok: true, task: nextTask, message: '改版任务已完成，已同步商品项目节点。' }
+  return { ok: true, task: nextTask, message: '改版任务已完成。' }
 }
 
 export function completeRevisionTask(
@@ -2397,7 +2255,7 @@ export function completeRevisionTask(
 ): TaskCompletionResult<RevisionTaskRecord> {
   const task = getRevisionTaskById(revisionTaskId)
   if (!task) return { ok: false, task: null, message: '未找到改版任务。' }
-  if (task.projectId && task.projectNodeId) return completeRevisionTaskWithProjectRelationSync(revisionTaskId, operatorName)
+  if (task.projectId) return completeRevisionTaskWithProjectRelationSync(revisionTaskId, operatorName)
   if (task.status === '已取消') return { ok: false, task, message: '当前改版任务已取消，不能完成。' }
   const missing = getRevisionTaskCompletionMissingFields(task).filter((item) => item !== '新技术包版本')
   if (missing.length > 0) return { ok: false, task, message: `缺少字段：${missing.join('、')}。` }
