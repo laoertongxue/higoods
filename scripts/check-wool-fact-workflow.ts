@@ -4814,13 +4814,179 @@ assert(
 
 const {
   buildWoolMachineAssociationWorkbenchModel,
+  cancelWoolMachineAssociationFilterRefresh,
   getWoolMachineTransferImpacts,
   renderCraftWoolMachineAssociationsPage,
+  resolveWoolMachineAssociationRouteEntry,
+  saveWoolMachineAssociationSelection,
+  scheduleWoolMachineAssociationFilterRefresh,
 } = await import('../src/pages/process-factory/wool/machine-associations.ts')
 const {
   buildWoolMachineAvailabilityImpact,
+  cancelWoolMachinesFilterRefresh,
   renderCraftWoolMachinesPage,
+  resolveWoolMachinesRouteEntry,
+  scheduleWoolMachinesFilterRefresh,
 } = await import('../src/pages/process-factory/wool/machines.ts')
+
+resetWoolFactWorkflowMock('CHECK_WOOL_TASK_10_STRICT_LOCK')
+const mixedLockTarget = listWoolWorkOrders()
+  .find((item) => item.woolOrderId === 'WOOL-MOCK-23')!
+const mixedLockSibling = listWoolWorkOrders()
+  .find((item) =>
+    item.productionOrderId === mixedLockTarget.productionOrderId
+    && item.woolOrderId !== mixedLockTarget.woolOrderId,
+  )!
+commitWoolStore((draft) => {
+  draft.machineAssociations.push({
+    machineId: 'WM-005',
+    woolOrderId: mixedLockSibling.woolOrderId,
+    associatedAt: '2026-07-31 07:30:00',
+    associatedBy: '毛织主管',
+  })
+})
+const strictMixedLock = buildWoolMachineAssociationWorkbenchModel({
+  woolOrderId: mixedLockTarget.woolOrderId,
+})
+assert.equal(strictMixedLock.lockedWoolOrderId, mixedLockTarget.woolOrderId)
+assert.notEqual(
+  strictMixedLock.selectedWoolOrderId,
+  mixedLockSibling.woolOrderId,
+  '锁定不可维护目标时绝不能回退同生产单唯一可维护兄弟单',
+)
+assert.equal(strictMixedLock.canSave, false)
+assert.match(strictMixedLock.lockError, /不可维护|暂不可关联/)
+
+const strictCompletedOrder = listWoolWorkOrders()
+  .find((item) => item.mockScenarioCode === 'COMPLETED_RELEASED_MACHINES')!
+const strictCompletedLock = buildWoolMachineAssociationWorkbenchModel({
+  woolOrderId: strictCompletedOrder.woolOrderId,
+})
+assert.equal(strictCompletedLock.lockedWoolOrderId, strictCompletedOrder.woolOrderId)
+assert.equal(strictCompletedLock.canSave, false)
+assert.match(strictCompletedLock.lockError, /已完成/)
+
+const strictUnknownLock = buildWoolMachineAssociationWorkbenchModel({
+  woolOrderId: 'WOOL-UNKNOWN-LOCK',
+})
+assert.equal(strictUnknownLock.lockedWoolOrderId, 'WOOL-UNKNOWN-LOCK')
+assert.equal(strictUnknownLock.selectedWoolOrderId, '')
+assert.equal(strictUnknownLock.canSave, false)
+assert.match(strictUnknownLock.lockError, /找不到/)
+
+const strictLimitOrder = listWoolWorkOrders()
+  .find((item) => item.mockScenarioCode === 'ALL_READY_SKUS_AT_LIMIT')!
+commitWoolStore((draft) => {
+  draft.machineAssociations.push({
+    machineId: 'WM-008',
+    woolOrderId: strictLimitOrder.woolOrderId,
+    associatedAt: '2026-07-31 07:40:00',
+    associatedBy: '毛织主管',
+  })
+})
+const strictLimitLock = buildWoolMachineAssociationWorkbenchModel({
+  woolOrderId: strictLimitOrder.woolOrderId,
+})
+assert.equal(strictLimitLock.selectedWoolOrderId, strictLimitOrder.woolOrderId)
+assert.equal(strictLimitLock.canSave, true)
+assert(
+  strictLimitLock.machines.some((item) => item.machineId === 'WM-008' && item.selected),
+  '达到 150% 但仍有关联时必须锁定原目标并允许保留或解除',
+)
+
+for (const invalidModel of [strictMixedLock, strictCompletedLock, strictUnknownLock]) {
+  const storeBeforeBlockedLockSave = readWoolStore()
+  const writesBeforeBlockedLockSave = storageWrites.length
+  assert.throws(
+    () => saveWoolMachineAssociationSelection(invalidModel, [], {
+      operatedAt: '2026-07-31 07:50:00',
+      operatedBy: '毛织主管',
+    }),
+    /不可保存|不可维护|已完成|找不到/,
+  )
+  assert.deepEqual(readWoolStore(), storeBeforeBlockedLockSave)
+  assert.equal(
+    storageWrites.length,
+    writesBeforeBlockedLockSave,
+    '锁定失败、已完成或未知目标保存必须零写入',
+  )
+}
+
+const lockedRouteA = resolveWoolMachineAssociationRouteEntry(undefined, {
+  routeKey: '/fcs/craft/wool/machine-associations?woolOrderId=WOOL-MOCK-23',
+  hasMountedRoot: false,
+  requestedWoolOrderId: mixedLockTarget.woolOrderId,
+})
+assert.equal(lockedRouteA.lockedWoolOrderId, mixedLockTarget.woolOrderId)
+const sameRouteLocalRender = resolveWoolMachineAssociationRouteEntry({
+  ...lockedRouteA,
+  transferConfirmed: true,
+  selectedMachineIds: ['WM-005'],
+  overlayError: '保留中的局部错误',
+}, {
+  routeKey: '/fcs/craft/wool/machine-associations?woolOrderId=WOOL-MOCK-23',
+  hasMountedRoot: true,
+  requestedWoolOrderId: mixedLockTarget.woolOrderId,
+})
+assert.equal(sameRouteLocalRender.transferConfirmed, true)
+assert.deepEqual(sameRouteLocalRender.selectedMachineIds, ['WM-005'])
+assert.equal(sameRouteLocalRender.overlayError, '保留中的局部错误')
+const genericRouteAfterLeave = resolveWoolMachineAssociationRouteEntry(sameRouteLocalRender, {
+  routeKey: '/fcs/craft/wool/machine-associations',
+  hasMountedRoot: false,
+  requestedWoolOrderId: '',
+})
+assert.equal(genericRouteAfterLeave.overlayOpen, false)
+assert.equal(genericRouteAfterLeave.lockedWoolOrderId, '')
+assert.equal(genericRouteAfterLeave.selectedProductionOrderId, '')
+assert.equal(genericRouteAfterLeave.selectedWoolOrderId, '')
+assert.deepEqual(genericRouteAfterLeave.selectedMachineIds, [])
+assert.equal(genericRouteAfterLeave.transferConfirmed, false)
+assert.equal(genericRouteAfterLeave.overlayError, '')
+const directRouteB = resolveWoolMachineAssociationRouteEntry(sameRouteLocalRender, {
+  routeKey: `/fcs/craft/wool/machine-associations?woolOrderId=${strictLimitOrder.woolOrderId}`,
+  hasMountedRoot: true,
+  requestedWoolOrderId: strictLimitOrder.woolOrderId,
+})
+assert.equal(directRouteB.lockedWoolOrderId, strictLimitOrder.woolOrderId)
+assert.equal(directRouteB.selectedWoolOrderId, strictLimitOrder.woolOrderId)
+assert.equal(directRouteB.transferConfirmed, false)
+
+const machinesConfirmedRoute = resolveWoolMachinesRouteEntry({
+  routeKey: '/fcs/craft/wool/machines',
+  overlayMachineId: 'WM-005',
+  selectedNextStatus: 'REPAIR',
+  selectedReason: '机针故障',
+  impactConfirmed: true,
+  overlayError: '保留中的设备错误',
+}, {
+  routeKey: '/fcs/craft/wool/machines',
+  hasMountedRoot: true,
+})
+assert.equal(machinesConfirmedRoute.impactConfirmed, true)
+const machinesAfterLeave = resolveWoolMachinesRouteEntry(machinesConfirmedRoute, {
+  routeKey: '/fcs/craft/wool/machines',
+  hasMountedRoot: false,
+})
+assert.equal(machinesAfterLeave.overlayMachineId, '')
+assert.equal(machinesAfterLeave.selectedNextStatus, '')
+assert.equal(machinesAfterLeave.selectedReason, '')
+assert.equal(machinesAfterLeave.impactConfirmed, false)
+assert.equal(machinesAfterLeave.overlayError, '')
+
+let associationDebounceFired = false
+scheduleWoolMachineAssociationFilterRefresh(() => {
+  associationDebounceFired = true
+}, 5)
+cancelWoolMachineAssociationFilterRefresh()
+let machinesDebounceFired = false
+scheduleWoolMachinesFilterRefresh(() => {
+  machinesDebounceFired = true
+}, 5)
+cancelWoolMachinesFilterRefresh()
+await new Promise((resolve) => setTimeout(resolve, 15))
+assert.equal(associationDebounceFired, false, '离开关联页必须取消未触发的搜索 debounce')
+assert.equal(machinesDebounceFired, false, '离开设备页必须取消未触发的搜索 debounce')
 
 resetWoolFactWorkflowMock('CHECK_WOOL_TASK_10_PAGES')
 const task10OrderA = listWoolWorkOrders()

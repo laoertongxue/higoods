@@ -19,6 +19,7 @@ import {
   type WoolMachineView,
   type WoolWorkOrder,
 } from '../../../data/fcs/wool-task-domain.ts'
+import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
 
 const EVENT_PREFIX = 'wool-machines'
@@ -48,8 +49,18 @@ export interface WoolMachineAvailabilityImpact {
   associatedAt: string
 }
 
+export interface WoolMachinesRouteEntryState {
+  routeKey: string
+  overlayMachineId: string
+  selectedNextStatus: WoolMachineAvailability | ''
+  selectedReason: string
+  impactConfirmed: boolean
+  overlayError: string
+}
+
 const DEFAULT_FILTERS: MachineFilters = { keyword: '', status: '' }
 const state: {
+  routeKey: string
   filters: MachineFilters
   currentPage: number
   sort: StandardListSortState | null
@@ -63,6 +74,7 @@ const state: {
   overlayError: string
   feedback: string
 } = {
+  routeKey: '',
   filters: { ...DEFAULT_FILTERS },
   currentPage: 1,
   sort: null,
@@ -78,6 +90,44 @@ const state: {
 }
 
 let filterDebounce: ReturnType<typeof setTimeout> | undefined
+
+function currentRouteKey(): string {
+  const storePath = appStore.getState().pathname || ''
+  if (storePath.startsWith('/fcs/craft/wool/machines')) return storePath
+  if (typeof window !== 'undefined') return `${window.location.pathname}${window.location.search}`
+  return '/fcs/craft/wool/machines'
+}
+
+export function resolveWoolMachinesRouteEntry(
+  previous: WoolMachinesRouteEntryState | undefined,
+  input: { routeKey: string; hasMountedRoot: boolean },
+): WoolMachinesRouteEntryState {
+  if (input.hasMountedRoot && previous?.routeKey === input.routeKey) return { ...previous }
+  return {
+    routeKey: input.routeKey,
+    overlayMachineId: '',
+    selectedNextStatus: '',
+    selectedReason: '',
+    impactConfirmed: false,
+    overlayError: '',
+  }
+}
+
+export function cancelWoolMachinesFilterRefresh(): void {
+  if (filterDebounce) clearTimeout(filterDebounce)
+  filterDebounce = undefined
+}
+
+export function scheduleWoolMachinesFilterRefresh(
+  callback: () => void = refreshResults,
+  delay = 180,
+): void {
+  cancelWoolMachinesFilterRefresh()
+  filterDebounce = setTimeout(() => {
+    filterDebounce = undefined
+    callback()
+  }, delay)
+}
 
 function statusLabel(status: WoolMachineStatus): string {
   return status === 'IDLE'
@@ -315,10 +365,21 @@ function renderWorkspace(): string {
 }
 
 export function renderCraftWoolMachinesPage(): string {
+  const hasMountedRoot = typeof document !== 'undefined' && Boolean(rootElement())
+  const routeKey = currentRouteKey()
+  const isNewEntry = !hasMountedRoot || state.routeKey !== routeKey
+  const routeState = resolveWoolMachinesRouteEntry(state, { routeKey, hasMountedRoot })
   resetStandardListEntryTransientStateOnRouteEntry(
     state,
-    typeof document !== 'undefined' && Boolean(rootElement()),
+    !isNewEntry,
   )
+  if (isNewEntry) {
+    cancelWoolMachinesFilterRefresh()
+    state.filters = { ...DEFAULT_FILTERS }
+    state.showColumnSettings = false
+    state.feedback = ''
+  }
+  Object.assign(state, routeState)
   listController.installColumnDragEvents()
   return `<div data-wool-machines-root>${renderWorkspace()}</div>`
 }
@@ -408,8 +469,7 @@ export async function handleCraftWoolMachinesEvent(target: HTMLElement): Promise
     state.filters = { ...state.filters, [name]: field.value }
     state.currentPage = 1
     if (name === 'keyword') {
-      if (filterDebounce) clearTimeout(filterDebounce)
-      filterDebounce = setTimeout(refreshResults, 180)
+      scheduleWoolMachinesFilterRefresh()
     } else {
       refreshResults()
     }

@@ -11,6 +11,7 @@ import {
 import { createProcessOrderListController } from '../../../components/ui/process-order-list-controller.ts'
 import {
   getWoolAllowedActions,
+  getWoolProcessingStatus,
   listWoolMachineAssociations,
   listWoolMachineViews,
   listWoolWorkOrders,
@@ -67,6 +68,8 @@ export interface WoolMachineWorkbenchMachine {
 
 export interface WoolMachineAssociationWorkbenchModel {
   lockedWoolOrderId: string
+  canSave: boolean
+  lockError: string
   selectedProductionOrderId: string
   selectedWoolOrderId: string
   productionOrders: Array<{
@@ -81,8 +84,20 @@ export interface WoolMachineAssociationWorkbenchModel {
   machines: WoolMachineWorkbenchMachine[]
 }
 
+export interface WoolMachineAssociationRouteEntryState {
+  routeKey: string
+  overlayOpen: boolean
+  lockedWoolOrderId: string
+  selectedProductionOrderId: string
+  selectedWoolOrderId: string
+  selectedMachineIds: string[]
+  transferConfirmed: boolean
+  overlayError: string
+}
+
 const DEFAULT_FILTERS: AssociationFilters = { keyword: '', status: '', linked: '' }
 const state: {
+  routeKey: string
   filters: AssociationFilters
   currentPage: number
   sort: StandardListSortState | null
@@ -98,6 +113,7 @@ const state: {
   overlayError: string
   feedback: string
 } = {
+  routeKey: '',
   filters: { ...DEFAULT_FILTERS },
   currentPage: 1,
   sort: null,
@@ -137,6 +153,24 @@ function queryParams(): URLSearchParams {
   return new URLSearchParams(window.location.search)
 }
 
+function currentRouteKey(requestedWoolOrderId: string): string {
+  const storePath = appStore.getState().pathname || ''
+  const browserPath = typeof window !== 'undefined'
+    ? `${window.location.pathname}${window.location.search}`
+    : ''
+  const currentPath = storePath.startsWith('/fcs/craft/wool/machine-associations')
+    ? storePath
+    : browserPath.startsWith('/fcs/craft/wool/machine-associations')
+      ? browserPath
+      : '/fcs/craft/wool/machine-associations'
+  const [pathname, query = ''] = currentPath.split('?')
+  const params = new URLSearchParams(query)
+  if (requestedWoolOrderId) params.set('woolOrderId', requestedWoolOrderId)
+  else params.delete('woolOrderId')
+  const normalizedQuery = params.toString()
+  return normalizedQuery ? `${pathname}?${normalizedQuery}` : pathname
+}
+
 function uniqueProductionOrders(orders: WoolWorkOrder[]) {
   const groups = new Map<string, WoolWorkOrder[]>()
   orders.forEach((order) => groups.set(order.productionOrderId, [
@@ -160,21 +194,41 @@ export function buildWoolMachineAssociationWorkbenchModel(input: {
   selectedWoolOrderId?: string
 } = {}): WoolMachineAssociationWorkbenchModel {
   const allOrders = listWoolWorkOrders()
-  const lockedOrder = input.woolOrderId
-    ? allOrders.find((order) => order.woolOrderId === input.woolOrderId)
+  const lockedWoolOrderId = input.woolOrderId?.trim() || ''
+  const lockedOrder = lockedWoolOrderId
+    ? allOrders.find((order) => order.woolOrderId === lockedWoolOrderId)
     : undefined
   const maintainableOrders = allOrders.filter(isMaintainableOrder)
-  const selectedProductionOrderId = lockedOrder?.productionOrderId
-    || input.productionOrderId
-    || ''
-  const orderOptions = selectedProductionOrderId
-    ? maintainableOrders.filter((order) => order.productionOrderId === selectedProductionOrderId)
-    : []
-  const requestedOrderId = input.woolOrderId || input.selectedWoolOrderId || ''
-  const requestedOrder = requestedOrderId
-    ? orderOptions.find((order) => order.woolOrderId === requestedOrderId)
-    : undefined
-  const selectedOrder = requestedOrder || (orderOptions.length === 1 ? orderOptions[0] : undefined)
+  let selectedProductionOrderId = ''
+  let orderOptions: WoolWorkOrder[] = []
+  let selectedOrder: WoolWorkOrder | undefined
+  let lockError = ''
+  let canSave = false
+  if (lockedWoolOrderId) {
+    if (!lockedOrder) {
+      lockError = `找不到毛织加工单 ${lockedWoolOrderId}，不可保存横机关联。`
+    } else {
+      selectedProductionOrderId = lockedOrder.productionOrderId
+      orderOptions = [lockedOrder]
+      selectedOrder = lockedOrder
+      canSave = isMaintainableOrder(lockedOrder)
+      if (!canSave) {
+        lockError = getWoolProcessingStatus(lockedOrder.woolOrderId) === 'COMPLETED'
+          ? `毛织加工单 ${lockedOrder.woolOrderNo} 已完成，不可维护横机关联。`
+          : `毛织加工单 ${lockedOrder.woolOrderNo} 当前不可维护横机关联。`
+      }
+    }
+  } else {
+    selectedProductionOrderId = input.productionOrderId || ''
+    orderOptions = selectedProductionOrderId
+      ? maintainableOrders.filter((order) => order.productionOrderId === selectedProductionOrderId)
+      : []
+    const requestedOrder = input.selectedWoolOrderId
+      ? orderOptions.find((order) => order.woolOrderId === input.selectedWoolOrderId)
+      : undefined
+    selectedOrder = requestedOrder || (orderOptions.length === 1 ? orderOptions[0] : undefined)
+    canSave = Boolean(selectedOrder)
+  }
   const associations = listWoolMachineAssociations()
   const associationsByMachine = new Map(associations.map((item) => [item.machineId, item]))
   const currentForTarget = new Set(
@@ -184,7 +238,9 @@ export function buildWoolMachineAssociationWorkbenchModel(input: {
   )
   const ordersById = new Map(allOrders.map((order) => [order.woolOrderId, order]))
   return {
-    lockedWoolOrderId: lockedOrder?.woolOrderId || '',
+    lockedWoolOrderId,
+    canSave,
+    lockError,
     selectedProductionOrderId,
     selectedWoolOrderId: selectedOrder?.woolOrderId || '',
     productionOrders: uniqueProductionOrders(maintainableOrders),
@@ -210,6 +266,73 @@ export function buildWoolMachineAssociationWorkbenchModel(input: {
       }
     }),
   }
+}
+
+export function saveWoolMachineAssociationSelection(
+  model: WoolMachineAssociationWorkbenchModel,
+  machineIds: string[],
+  actor: { operatedAt: string; operatedBy: string },
+) {
+  if (!model.canSave || !model.selectedWoolOrderId) {
+    throw new Error(
+      model.lockError || '当前未选择可维护的毛织加工单，不可保存横机关联。',
+    )
+  }
+  return replaceWoolMachineAssociations(model.selectedWoolOrderId, machineIds, actor)
+}
+
+export function resolveWoolMachineAssociationRouteEntry(
+  previous: WoolMachineAssociationRouteEntryState | undefined,
+  input: {
+    routeKey: string
+    hasMountedRoot: boolean
+    requestedWoolOrderId: string
+  },
+): WoolMachineAssociationRouteEntryState {
+  const isNewEntry = !input.hasMountedRoot || previous?.routeKey !== input.routeKey
+  if (!isNewEntry && previous) return { ...previous }
+  const clean: WoolMachineAssociationRouteEntryState = {
+    routeKey: input.routeKey,
+    overlayOpen: false,
+    lockedWoolOrderId: '',
+    selectedProductionOrderId: '',
+    selectedWoolOrderId: '',
+    selectedMachineIds: [],
+    transferConfirmed: false,
+    overlayError: '',
+  }
+  const requestedWoolOrderId = input.requestedWoolOrderId.trim()
+  if (!requestedWoolOrderId) return clean
+  const model = buildWoolMachineAssociationWorkbenchModel({
+    woolOrderId: requestedWoolOrderId,
+  })
+  return {
+    ...clean,
+    overlayOpen: true,
+    lockedWoolOrderId: model.lockedWoolOrderId,
+    selectedProductionOrderId: model.selectedProductionOrderId,
+    selectedWoolOrderId: model.selectedWoolOrderId,
+    selectedMachineIds: model.machines
+      .filter((item) => item.selected)
+      .map((item) => item.machineId),
+    overlayError: model.lockError,
+  }
+}
+
+export function cancelWoolMachineAssociationFilterRefresh(): void {
+  if (filterDebounce) clearTimeout(filterDebounce)
+  filterDebounce = undefined
+}
+
+export function scheduleWoolMachineAssociationFilterRefresh(
+  callback: () => void = refreshResults,
+  delay = 180,
+): void {
+  cancelWoolMachineAssociationFilterRefresh()
+  filterDebounce = setTimeout(() => {
+    filterDebounce = undefined
+    callback()
+  }, delay)
 }
 
 export function getWoolMachineTransferImpacts(
@@ -441,6 +564,7 @@ function associationDialog(): string {
       <header class="flex items-center justify-between border-b px-4 py-3"><div><h2 class="font-semibold">关联生产单</h2><p class="mt-1 text-xs text-muted-foreground">关系最终保存到具体毛织加工单 woolOrderId；所选横机是保存后的整组真相。</p></div><button type="button" class="rounded-md border px-2 py-1 text-xs" data-wool-machine-associations-action="close-association" data-skip-page-rerender="true">关闭</button></header>
       <div class="max-h-[70vh] overflow-y-auto p-4">
         ${state.overlayError ? `<div class="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">${escapeHtml(state.overlayError)}</div>` : ''}
+        ${model.lockError && model.lockError !== state.overlayError ? `<div class="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">${escapeHtml(model.lockError)}</div>` : ''}
         <div class="grid gap-3 md:grid-cols-2">
           <label class="text-sm"><span class="mb-1 block text-xs text-muted-foreground">生产单</span><select class="h-9 w-full rounded-md border px-3" data-wool-machine-associations-dialog-field="productionOrderId" ${model.lockedWoolOrderId ? 'disabled' : ''}><option value="">请选择生产单</option>${model.productionOrders.map((item) => `<option value="${escapeHtml(item.productionOrderId)}" ${model.selectedProductionOrderId === item.productionOrderId ? 'selected' : ''}>${escapeHtml(`${item.productionOrderNo}｜${item.styleNo} ${item.styleName}｜${item.orderCount} 张可维护加工单`)}</option>`).join('')}</select></label>
           <label class="text-sm"><span class="mb-1 block text-xs text-muted-foreground">具体毛织加工单</span><select class="h-9 w-full rounded-md border px-3" data-wool-machine-associations-dialog-field="woolOrderId" ${model.lockedWoolOrderId || model.orderOptions.length === 1 ? 'disabled' : ''}><option value="">${model.orderOptions.length > 1 ? '请选择具体加工单' : '请先选择生产单'}</option>${orderOptions}</select></label>
@@ -449,7 +573,7 @@ function associationDialog(): string {
         <section class="mt-4"><div class="mb-2 flex items-center justify-between"><h3 class="text-sm font-semibold">选择横机设备</h3><span class="text-xs text-muted-foreground">可选空闲、生产中；维修、停用可见但禁用。取消全部选择即解除本单全部关联。</span></div><div class="grid gap-2 md:grid-cols-2">${model.machines.map((machine) => `<label class="flex items-start gap-3 rounded-md border p-3 ${machine.selectable ? '' : 'bg-muted/40 text-muted-foreground'}"><input type="checkbox" class="mt-1" data-wool-machine-associations-machine-id="${escapeHtml(machine.machineId)}" ${selectedIds.has(machine.machineId) ? 'checked' : ''} ${machine.selectable ? '' : 'disabled'}><span><span class="font-medium">${escapeHtml(machine.machineNo)}｜${escapeHtml(machine.machineName)}</span><span class="mt-1 block text-xs">${escapeHtml(statusLabel(machine.status))}${machine.currentWoolOrderNo ? `｜当前：${escapeHtml(machine.currentWoolOrderNo)} / ${escapeHtml(machine.currentProductionOrderNo || '—')}` : '｜当前未关联'}</span></span></label>`).join('')}</div></section>
         ${transferImpacts.length ? `<section class="mt-4 rounded-md border border-amber-300 bg-amber-50 p-3"><h3 class="text-sm font-semibold text-amber-900">跨单转移影响</h3>${transferImpacts.map((impact) => `<div class="mt-2 text-xs text-amber-900">${escapeHtml(impact.machineNo)} 将从 ${escapeHtml(impact.fromWoolOrderNo)}（生产单 ${escapeHtml(impact.fromProductionOrderNo)}，款号 ${escapeHtml(impact.fromStyleNo)}）转移到当前加工单。</div>`).join('')}${state.transferConfirmed ? '<div class="mt-3 font-medium text-amber-900">请再次点击“确认跨单转移并保存”。</div>' : ''}</section>` : ''}
       </div>
-      <footer class="flex justify-end gap-2 border-t px-4 py-3">${renderSecondaryButton('取消', { prefix: EVENT_PREFIX, action: 'close-association' })}${renderPrimaryButton(transferImpacts.length && state.transferConfirmed ? '确认跨单转移并保存' : '保存整组关联', { prefix: EVENT_PREFIX, action: 'save-association' })}</footer>
+      <footer class="flex justify-end gap-2 border-t px-4 py-3">${renderSecondaryButton('取消', { prefix: EVENT_PREFIX, action: 'close-association' })}${model.canSave ? renderPrimaryButton(transferImpacts.length && state.transferConfirmed ? '确认跨单转移并保存' : '保存整组关联', { prefix: EVENT_PREFIX, action: 'save-association' }) : '<button type="button" class="h-9 rounded-md border bg-muted px-4 text-sm text-muted-foreground" disabled>不可保存</button>'}</footer>
     </section>
   </div>`
 }
@@ -473,20 +597,25 @@ function renderWorkspace(): string {
 export function renderCraftWoolMachineAssociationsPage(): string {
   const params = queryParams()
   const requestedOrderId = params.get('woolOrderId') || ''
+  const hasMountedRoot = typeof document !== 'undefined' && Boolean(rootElement())
+  const routeKey = currentRouteKey(requestedOrderId)
+  const isNewEntry = !hasMountedRoot || state.routeKey !== routeKey
+  const routeState = resolveWoolMachineAssociationRouteEntry(state, {
+    routeKey,
+    hasMountedRoot,
+    requestedWoolOrderId: requestedOrderId,
+  })
   resetStandardListEntryTransientStateOnRouteEntry(
     state,
-    typeof document !== 'undefined' && Boolean(rootElement()),
+    !isNewEntry,
   )
-  if (requestedOrderId && state.lockedWoolOrderId !== requestedOrderId) {
-    const model = buildWoolMachineAssociationWorkbenchModel({ woolOrderId: requestedOrderId })
-    state.overlayOpen = true
-    state.lockedWoolOrderId = model.lockedWoolOrderId
-    state.selectedProductionOrderId = model.selectedProductionOrderId
-    state.selectedWoolOrderId = model.selectedWoolOrderId
-    state.selectedMachineIds = model.machines.filter((item) => item.selected).map((item) => item.machineId)
-    state.transferConfirmed = false
-    state.overlayError = ''
+  if (isNewEntry) {
+    cancelWoolMachineAssociationFilterRefresh()
+    state.filters = { ...DEFAULT_FILTERS }
+    state.showColumnSettings = false
+    state.feedback = ''
   }
+  Object.assign(state, routeState)
   listController.installColumnDragEvents()
   return `<div data-wool-machine-associations-root>${renderWorkspace()}</div>`
 }
@@ -516,12 +645,12 @@ function refreshOverlay(): void {
 function openAssociation(woolOrderId = ''): void {
   const model = buildWoolMachineAssociationWorkbenchModel({ woolOrderId })
   state.overlayOpen = true
-  state.lockedWoolOrderId = woolOrderId ? model.lockedWoolOrderId : ''
+  state.lockedWoolOrderId = woolOrderId
   state.selectedProductionOrderId = model.selectedProductionOrderId
   state.selectedWoolOrderId = model.selectedWoolOrderId
   state.selectedMachineIds = model.machines.filter((item) => item.selected).map((item) => item.machineId)
   state.transferConfirmed = false
-  state.overlayError = ''
+  state.overlayError = model.lockError
   refreshOverlay()
 }
 
@@ -533,12 +662,19 @@ function readCheckedMachineIds(): string[] {
 }
 
 function saveAssociation(): void {
-  const woolOrderId = state.selectedWoolOrderId
-  if (!woolOrderId) {
-    state.overlayError = '同一生产单存在多张可维护加工单时，请先选择具体毛织加工单。'
+  const model = buildWoolMachineAssociationWorkbenchModel({
+    productionOrderId: state.selectedProductionOrderId,
+    ...(state.lockedWoolOrderId
+      ? { woolOrderId: state.lockedWoolOrderId }
+      : { selectedWoolOrderId: state.selectedWoolOrderId }),
+  })
+  if (!model.canSave || !model.selectedWoolOrderId) {
+    state.overlayError = model.lockError
+      || '同一生产单存在多张可维护加工单时，请先选择具体毛织加工单。'
     refreshOverlay()
     return
   }
+  const woolOrderId = model.selectedWoolOrderId
   const machineIds = readCheckedMachineIds()
   const impacts = getWoolMachineTransferImpacts(woolOrderId, machineIds)
   if (impacts.length && !state.transferConfirmed) {
@@ -549,7 +685,7 @@ function saveAssociation(): void {
     return
   }
   try {
-    replaceWoolMachineAssociations(woolOrderId, machineIds, {
+    saveWoolMachineAssociationSelection(model, machineIds, {
       operatedAt: new Date().toISOString().replace('T', ' ').slice(0, 19),
       operatedBy: 'Web 端毛织主管',
     })
@@ -584,8 +720,7 @@ export async function handleCraftWoolMachineAssociationsEvent(target: HTMLElemen
     state.filters = { ...state.filters, [name]: field.value }
     state.currentPage = 1
     if (name === 'keyword') {
-      if (filterDebounce) clearTimeout(filterDebounce)
-      filterDebounce = setTimeout(refreshResults, 180)
+      scheduleWoolMachineAssociationFilterRefresh()
     } else {
       refreshResults()
     }
