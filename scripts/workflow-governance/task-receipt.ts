@@ -285,6 +285,79 @@ function parseDelivery(value: unknown): DeliveryReceipt {
   }
 }
 
+function instructionBindsStageTrace(instructionContext: InstructionContextReceipt): boolean {
+  return instructionContext.ruleBindings
+    .some((binding) => binding.evidenceFields.includes('stageTrace'))
+}
+
+export function assertTaskReceiptSemantics(receipt: TaskCompletionReceipt): void {
+  assert.equal(receipt.schemaVersion, 2, '只支持 schemaVersion 2 的任务收据')
+
+  if (receipt.state === 'implemented') {
+    assert(receipt.blockers.length > 0, 'implemented 状态必须包含 blockers')
+    return
+  }
+
+  assert.equal(receipt.blockers.length, 0, `${receipt.state} 状态的 blockers 必须为空`)
+  for (const command of requiredCommands(receipt.route)) {
+    const result = receipt.checks.find((check) => check.command === command)
+    assert(result, `缺少相关检查结果：${command}`)
+    assert.equal(result.exitCode, 0, `相关检查失败：${command}`)
+  }
+  assert.equal(receipt.codegraph.syncExitCode, 0, 'CodeGraph 同步失败')
+  assert(receipt.codegraph.after.initialized, 'CodeGraph 索引未初始化')
+  assert.equal(receipt.codegraph.after.pendingCount, 0, 'CodeGraph 仍有待同步文件')
+  assert(!receipt.codegraph.after.worktreeMismatch, 'CodeGraph 索引与当前工作树不匹配')
+  assert.equal(
+    receipt.codegraph.after.projectPath,
+    receipt.workspace,
+    'CodeGraph 项目路径与任务工作区不一致',
+  )
+
+  const bindsStageTrace = instructionBindsStageTrace(receipt.instructionContext)
+  assert.equal(
+    bindsStageTrace,
+    Boolean(receipt.stageTrace?.required),
+    'AGENTS 阶段轨迹绑定与 stageTrace.required 不一致',
+  )
+  if (receipt.stageTrace?.required) {
+    assert(receipt.stageTrace.valid, '必需阶段轨迹无效')
+  }
+
+  if (receipt.state === 'verified') {
+    assert(!receipt.delivery, 'verified 状态不得包含 delivery')
+    return
+  }
+
+  const delivery = receipt.delivery
+  assert(delivery, `${receipt.state} 状态缺少 delivery`)
+  assert.equal(delivery.provider, 'github', 'delivery.provider 必须是 github')
+  const targetMatch = /^([^/\s]+)\/([^@\s]+)@(\S+)$/.exec(delivery.target)
+  assert(targetMatch, 'delivery.target 必须使用 owner/repository@ref')
+  assert.equal(delivery.revision, receipt.revision.head, '交付版本与验证版本不一致')
+  const [, owner, repository] = targetMatch
+  const canonicalProviderReceipt =
+    `https://api.github.com/repos/${owner}/${repository}/commits/${delivery.revision}`
+  assert.equal(
+    delivery.providerReceipt,
+    canonicalProviderReceipt,
+    'delivery.providerReceipt 必须是规范 GitHub API 回执',
+  )
+
+  if (receipt.state === 'delivered') {
+    assert.equal(delivery.acceptanceRef, undefined, 'delivered 状态不得提前包含 acceptanceRef')
+    return
+  }
+
+  const acceptancePrefix =
+    `https://api.github.com/repos/${owner}/${repository}/issues/comments/`
+  assert(
+    delivery.acceptanceRef?.startsWith(acceptancePrefix)
+      && /^\d+$/.test(delivery.acceptanceRef.slice(acceptancePrefix.length)),
+    'accepted 状态必须包含合法 acceptanceRef',
+  )
+}
+
 export function parseTaskCompletionReceipt(source: string): TaskCompletionReceipt {
   const receipt = parseObject(JSON.parse(source) as unknown, '任务收据')
   assert.equal(receipt.schemaVersion, 2, '任务收据 schemaVersion 必须是 2')
@@ -308,13 +381,7 @@ export function parseTaskCompletionReceipt(source: string): TaskCompletionReceip
   const delivery = receipt.delivery === undefined
     ? undefined
     : parseDelivery(receipt.delivery)
-  assert(
-    !['delivered', 'accepted'].includes(state) || delivery,
-    `${state} 状态缺少 delivery`,
-  )
-  assert(state !== 'accepted' || delivery?.acceptanceRef, 'accepted 状态缺少 acceptanceRef')
-
-  return {
+  const parsedReceipt: TaskCompletionReceipt = {
     schemaVersion: 2,
     workspace,
     createdAt,
@@ -328,6 +395,8 @@ export function parseTaskCompletionReceipt(source: string): TaskCompletionReceip
     ...(stageTrace ? { stageTrace } : {}),
     ...(delivery ? { delivery } : {}),
   }
+  assertTaskReceiptSemantics(parsedReceipt)
+  return parsedReceipt
 }
 
 export function createTaskReceipt(input: CreateTaskReceiptInput): TaskCompletionReceipt {
@@ -362,15 +431,18 @@ export function createTaskReceipt(input: CreateTaskReceiptInput): TaskCompletion
     blockers.push('CodeGraph 项目路径与任务工作区不一致')
   }
   if (input.stageTrace?.required && !input.stageTrace.valid) {
-    blockers.push(...input.stageTrace.blockers.map((blocker) => `Superpowers 阶段轨迹：${blocker}`))
+    const stageTraceBlockers = input.stageTrace.blockers
+      .map((blocker) => `Superpowers 阶段轨迹：${blocker}`)
+    blockers.push(...(stageTraceBlockers.length > 0
+      ? stageTraceBlockers
+      : ['Superpowers 阶段轨迹：必需阶段轨迹无效']))
   }
-  const bindsStageTrace = instructionContext.ruleBindings
-    .some((binding) => binding.evidenceFields.includes('stageTrace'))
+  const bindsStageTrace = instructionBindsStageTrace(instructionContext)
   if (bindsStageTrace !== Boolean(input.stageTrace?.required)) {
     blockers.push('AGENTS 阶段轨迹绑定与 stageTrace.required 不一致')
   }
 
-  return {
+  const receipt: TaskCompletionReceipt = {
     schemaVersion: 2,
     workspace: input.workspace,
     createdAt: new Date().toISOString(),
@@ -383,6 +455,8 @@ export function createTaskReceipt(input: CreateTaskReceiptInput): TaskCompletion
     blockers,
     ...(input.stageTrace ? { stageTrace: input.stageTrace } : {}),
   }
+  assertTaskReceiptSemantics(receipt)
+  return receipt
 }
 
 export function assertReceiptCurrent(
@@ -457,7 +531,7 @@ export async function recordDelivery(
   receipt: TaskCompletionReceipt,
   delivery: Omit<DeliveryReceipt, 'recordedAt' | 'acceptanceRef'>,
 ): Promise<TaskCompletionReceipt> {
-  assert.equal(receipt.schemaVersion, 2, '只支持 schemaVersion 2 的任务收据')
+  assertTaskReceiptSemantics(receipt)
   assert.equal(receipt.state, 'verified', '只有验证完成的任务才能记录远端交付')
   assert(delivery.providerReceipt.trim(), '缺少 provider 回执，不能标记远端交付')
   assert.equal(delivery.revision, receipt.revision.head, '交付版本与验证版本不一致')
@@ -491,7 +565,7 @@ export async function recordDelivery(
   assert(verification.ok, `远端核验失败：${verification.reason ?? '未知原因'}`)
   assert.equal(verification.canonicalRef, canonicalUrl, '远端核验回执不是规范 GitHub 引用')
 
-  return {
+  const deliveredReceipt: TaskCompletionReceipt = {
     ...receipt,
     state: 'delivered',
     delivery: {
@@ -502,13 +576,15 @@ export async function recordDelivery(
       recordedAt: new Date().toISOString(),
     },
   }
+  assertTaskReceiptSemantics(deliveredReceipt)
+  return deliveredReceipt
 }
 
 export async function recordAcceptance(
   receipt: TaskCompletionReceipt,
   input: { acceptanceRef: string; expectedActor: string },
 ): Promise<TaskCompletionReceipt> {
-  assert.equal(receipt.schemaVersion, 2, '只支持 schemaVersion 2 的任务收据')
+  assertTaskReceiptSemantics(receipt)
   assert.equal(receipt.state, 'delivered', '只有已交付任务才能记录接受')
   const acceptanceRef = input.acceptanceRef.trim()
   const expectedActor = input.expectedActor.trim()
@@ -530,7 +606,7 @@ export async function recordAcceptance(
   assert(verification.ok, `远端核验失败：${verification.reason ?? '未知原因'}`)
   assert.equal(verification.canonicalRef, acceptanceRef, '接受核验回执不是规范 GitHub 引用')
 
-  return {
+  const acceptedReceipt: TaskCompletionReceipt = {
     ...receipt,
     state: 'accepted',
     delivery: {
@@ -538,4 +614,6 @@ export async function recordAcceptance(
       acceptanceRef,
     },
   }
+  assertTaskReceiptSemantics(acceptedReceipt)
+  return acceptedReceipt
 }

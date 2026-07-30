@@ -110,6 +110,20 @@ function validReceipt() {
   })
 }
 
+function validDeliveredReceipt(): TaskCompletionReceipt {
+  return {
+    ...validReceipt(),
+    state: 'delivered',
+    delivery: {
+      provider: 'github',
+      target: 'owner/repository@main',
+      revision: revision.head,
+      providerReceipt: 'https://api.github.com/repos/owner/repository/commits/abc123',
+      recordedAt: '2026-07-29T10:02:00.000Z',
+    },
+  }
+}
+
 test('最终差异指纹变化会使验证收据失效', () => {
   const receipt = validReceipt()
   assert.equal(receipt.state, 'verified')
@@ -237,6 +251,30 @@ test('阶段轨迹绑定与 stageTrace.required 不一致时阻止验证完成',
   assert(withRequiredTrace.blockers.some((blocker) => blocker.includes('阶段轨迹绑定')))
 })
 
+test('必需阶段轨迹无效且没有细分 blocker 时仍生成 implemented 收据', () => {
+  const instruction = instructionContext({ requireStageTrace: true })
+  const receipt = createTaskReceipt({
+    workspace: '/workspace',
+    revisionBefore: revision,
+    revisionAfter: revision,
+    instructionBefore: instruction,
+    instructionAfter: instruction,
+    route,
+    checks: validReceipt().checks,
+    codegraph: validReceipt().codegraph,
+    stageTrace: {
+      required: true,
+      valid: false,
+      stages: [],
+      skills: [],
+      blockers: [],
+    },
+  })
+
+  assert.equal(receipt.state, 'implemented')
+  assert(receipt.blockers.some((blocker) => blocker.includes('阶段轨迹')))
+})
+
 test('运行时解析接受完整 v2 收据并拒绝旧版本和畸形嵌套字段', () => {
   const receipt = validReceipt()
   assert.deepEqual(parseTaskCompletionReceipt(JSON.stringify(receipt)), receipt)
@@ -264,6 +302,162 @@ test('运行时解析接受完整 v2 收据并拒绝旧版本和畸形嵌套字�
       checks: [{ ...receipt.checks[0], exitCode: '0' }],
     })),
     /checks/,
+  )
+})
+
+test('运行时解析拒绝结构合法但语义伪造的 verified 收据', () => {
+  const receipt = validReceipt()
+  const forgedReceipts: Array<{ receipt: TaskCompletionReceipt; message: RegExp }> = [
+    {
+      receipt: {
+        ...receipt,
+        checks: [{ ...receipt.checks[0], exitCode: 1 }],
+      },
+      message: /检查失败/,
+    },
+    {
+      receipt: {
+        ...receipt,
+        blockers: ['伪造的 blocker'],
+      },
+      message: /blockers 必须为空/,
+    },
+    {
+      receipt: {
+        ...receipt,
+        codegraph: { ...receipt.codegraph, syncExitCode: 1 },
+      },
+      message: /CodeGraph 同步失败/,
+    },
+    {
+      receipt: {
+        ...receipt,
+        codegraph: {
+          ...receipt.codegraph,
+          after: { ...receipt.codegraph.after, initialized: false },
+        },
+      },
+      message: /CodeGraph 索引未初始化/,
+    },
+    {
+      receipt: {
+        ...receipt,
+        codegraph: {
+          ...receipt.codegraph,
+          after: { ...receipt.codegraph.after, pendingCount: 1 },
+        },
+      },
+      message: /待同步文件/,
+    },
+    {
+      receipt: {
+        ...receipt,
+        codegraph: {
+          ...receipt.codegraph,
+          after: { ...receipt.codegraph.after, worktreeMismatch: true },
+        },
+      },
+      message: /工作树不匹配/,
+    },
+    {
+      receipt: {
+        ...receipt,
+        codegraph: {
+          ...receipt.codegraph,
+          after: { ...receipt.codegraph.after, projectPath: '/workspace/other' },
+        },
+      },
+      message: /项目路径/,
+    },
+    {
+      receipt: {
+        ...receipt,
+        instructionContext: instructionContext({ requireStageTrace: true }),
+      },
+      message: /阶段轨迹绑定/,
+    },
+    {
+      receipt: {
+        ...receipt,
+        instructionContext: instructionContext({ requireStageTrace: true }),
+        stageTrace: {
+          required: true,
+          valid: false,
+          stages: [],
+          skills: [],
+          blockers: ['缺少阶段'],
+        },
+      },
+      message: /阶段轨迹无效/,
+    },
+    {
+      receipt: {
+        ...receipt,
+        state: 'implemented',
+      },
+      message: /implemented.*blockers/,
+    },
+    {
+      receipt: {
+        ...receipt,
+        delivery: validDeliveredReceipt().delivery,
+      },
+      message: /verified.*delivery/,
+    },
+  ]
+
+  for (const forged of forgedReceipts) {
+    assert.throws(
+      () => parseTaskCompletionReceipt(JSON.stringify(forged.receipt)),
+      forged.message,
+    )
+  }
+})
+
+test('运行时解析拒绝结构合法但交付语义伪造的收据', () => {
+  const delivered = validDeliveredReceipt()
+  assert.deepEqual(parseTaskCompletionReceipt(JSON.stringify(delivered)), delivered)
+
+  for (const forged of [
+    {
+      ...delivered,
+      delivery: { ...delivered.delivery!, provider: 'gitlab' },
+    },
+    {
+      ...delivered,
+      delivery: { ...delivered.delivery!, revision: 'other' },
+    },
+    {
+      ...delivered,
+      delivery: {
+        ...delivered.delivery!,
+        providerReceipt: 'https://github.com/owner/repository/commit/abc123',
+      },
+    },
+    {
+      ...delivered,
+      delivery: {
+        ...delivered.delivery!,
+        acceptanceRef: 'https://api.github.com/repos/owner/repository/issues/comments/42',
+      },
+    },
+  ]) {
+    assert.throws(
+      () => parseTaskCompletionReceipt(JSON.stringify(forged)),
+      /交付|delivery|provider|版本|回执|acceptanceRef/,
+    )
+  }
+
+  assert.throws(
+    () => parseTaskCompletionReceipt(JSON.stringify({
+      ...delivered,
+      state: 'accepted',
+      delivery: {
+        ...delivered.delivery!,
+        acceptanceRef: 'ticket:42',
+      },
+    })),
+    /acceptanceRef/,
   )
 })
 
@@ -336,6 +530,46 @@ test('旧版收据直接记录交付或接受时在任何 fetch 前失败关闭'
       expectedActor: 'review-owner',
     }),
     /schemaVersion/,
+  )
+  assert.equal(fetchCalls, 0)
+})
+
+test('伪造 verified 收据不能直接升级交付且不发起 fetch', async () => {
+  let fetchCalls = 0
+  globalThis.fetch = (async () => {
+    fetchCalls += 1
+    throw new Error('伪造收据不应发起远端请求')
+  }) as typeof fetch
+  const forged = validReceipt()
+  forged.checks[0].exitCode = 1
+
+  await assert.rejects(
+    recordDelivery(forged, {
+      provider: 'github',
+      target: 'owner/repository@main',
+      revision: 'abc123',
+      providerReceipt: 'https://github.com/owner/repository/commit/abc123',
+    }),
+    /检查失败/,
+  )
+  assert.equal(fetchCalls, 0)
+})
+
+test('伪造 delivered 收据不能直接升级接受且不发起 fetch', async () => {
+  let fetchCalls = 0
+  globalThis.fetch = (async () => {
+    fetchCalls += 1
+    throw new Error('伪造收据不应发起远端请求')
+  }) as typeof fetch
+  const forged = validDeliveredReceipt()
+  forged.delivery!.provider = 'gitlab'
+
+  await assert.rejects(
+    recordAcceptance(forged, {
+      acceptanceRef: 'https://api.github.com/repos/owner/repository/issues/comments/42',
+      expectedActor: 'review-owner',
+    }),
+    /github/,
   )
   assert.equal(fetchCalls, 0)
 })
