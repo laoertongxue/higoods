@@ -259,11 +259,21 @@ function recordFlows(
   )
 }
 
-function renderProofFiles(proofFiles?: string[]): string {
-  if (!proofFiles?.length) return '<span class="text-muted-foreground">未上传凭证</span>'
-  return `<ul class="space-y-1">${proofFiles.map((file) =>
-    `<li class="rounded border bg-muted/20 px-2 py-1">${escapeHtml(file)}</li>`,
-  ).join('')}</ul>`
+function renderProofFiles(
+  proofFiles: string[] | undefined,
+  recordType: WoolQtyChangeRecordType,
+  recordId: string,
+): string {
+  const listKey = `proofs:${recordType}:${encodeURIComponent(recordId)}`
+  const paging = renderPaging(proofFiles ?? [], listKey, 'overlay')
+  return `
+    <ul class="space-y-1">
+      ${paging.rows.map((file) =>
+        `<li class="rounded border bg-muted/20 px-2 py-1">${escapeHtml(file)}</li>`,
+      ).join('') || '<li class="text-muted-foreground">未上传凭证</li>'}
+    </ul>
+    ${paging.footer}
+  `
 }
 
 function renderOverview(order: WoolWorkOrder): string {
@@ -795,7 +805,7 @@ function renderRecordDialog(order: WoolWorkOrder): string {
         </div>
       `).join('')}</div>
       ${linePaging.footer}
-      <h3 class="mt-5 text-sm font-semibold">凭证</h3><div class="mt-2 text-sm">${renderProofFiles(record.proofFiles)}</div>
+      <h3 class="mt-5 text-sm font-semibold">凭证</h3><div class="mt-2 text-sm">${renderProofFiles(record.proofFiles, 'YARN_RECEIPT', record.receiptId)}</div>
       ${linePaging.rows.map((line) => `
         <div class="mt-4 rounded-md bg-muted/20 p-3">
           <div class="text-sm font-medium">${escapeHtml(line.yarnSkuCode)}</div>
@@ -821,7 +831,7 @@ function renderRecordDialog(order: WoolWorkOrder): string {
         ${renderField('入库流水', record.warehouseInboundFlowId)}
         ${renderField('备注', record.remark || '—')}
       </div>
-      <h3 class="mt-5 text-sm font-semibold">凭证</h3><div class="mt-2 text-sm">${renderProofFiles(record.proofFiles)}</div>
+      <h3 class="mt-5 text-sm font-semibold">凭证</h3><div class="mt-2 text-sm">${renderProofFiles(record.proofFiles, 'PROCESS_REPORT', record.reportId)}</div>
       ${renderFlowList(
         recordFlows('PROCESS_REPORT', record.reportId),
         'PROCESS_REPORT',
@@ -842,7 +852,7 @@ function renderRecordDialog(order: WoolWorkOrder): string {
         ${renderField('备注', record.remark || '—')}
         ${renderField('下游确认', record.downstreamReceipt?.status === 'CONFIRMED' ? `${record.downstreamReceipt.receivedBy || '—'} / ${record.downstreamReceipt.receivedAt || '—'} / 实收 ${formatQty(record.downstreamReceipt.actualReceivedQty, record.qtyUnit)} / 差异 ${formatQty(record.downstreamReceipt.differenceQty, record.qtyUnit)}` : '待确认')}
       </div>
-      <h3 class="mt-5 text-sm font-semibold">凭证</h3><div class="mt-2 text-sm">${renderProofFiles(record.proofFiles)}</div>
+      <h3 class="mt-5 text-sm font-semibold">凭证</h3><div class="mt-2 text-sm">${renderProofFiles(record.proofFiles, 'HANDOVER', record.handoverId)}</div>
       ${renderFlowList(recordFlows('HANDOVER', record.handoverId), 'HANDOVER', record.handoverId)}
       ${renderHistory('HANDOVER', record.handoverId)}
     `

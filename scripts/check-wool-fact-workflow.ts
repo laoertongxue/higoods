@@ -44,6 +44,7 @@ import {
 } from '../src/data/fcs/wool-domain/queries.ts'
 import { readWoolStore } from '../src/data/fcs/wool-domain/store.ts'
 import {
+  handleCraftWoolDetailEvent,
   paginateWoolDetailItems,
   renderCraftWoolWorkOrderDetailPage,
   stepWoolDetailPage,
@@ -4435,6 +4436,14 @@ assert.equal(
   3,
   '短历史分页钳制不得重置另一纱线明细的长历史页码',
 )
+independentPagingState['flows:YARN_RECEIPT:WR-LONG:LINE-1'] = 2
+stepWoolDetailPage(independentPagingState, 'proofs:YARN_RECEIPT:WR-LONG', 1, 12, 5)
+assert.equal(independentPagingState[longHistoryKey], 3, '凭证翻页不得重置修改历史页码')
+assert.equal(
+  independentPagingState['flows:YARN_RECEIPT:WR-LONG:LINE-1'],
+  2,
+  '凭证翻页不得重置仓库流水页码',
+)
 
 resetWoolFactWorkflowMock('CHECK_WOOL_TASK_9_DETAIL_RENDER')
 const completedDetailHtml = renderCraftWoolWorkOrderDetailPage('WOOL-MOCK-10')
@@ -4482,6 +4491,138 @@ assert(splitCompletionHtml.includes('完成时下游未确认'))
 assert(splitCompletionHtml.includes('完成后下游收货员'))
 assert(splitCompletionHtml.includes('实际接收 19 件'))
 assert(!splitCompletionHtml.includes('自动解除横机：WM-'), '内部 machineId 不得冒充横机业务编号')
+
+resetWoolFactWorkflowMock('CHECK_WOOL_TASK_9_PROOF_PAGING')
+const proofOrder = listWoolWorkOrders()
+  .find((order) => order.mockScenarioCode === 'NO_YARN_RECEIPT')!
+const proofFiles = [
+  '凭证-01.jpg',
+  '动态<&"凭证>.pdf',
+  ...Array.from({ length: 10 }, (_, index) => `凭证-${String(index + 3).padStart(2, '0')}.jpg`),
+]
+const proofReceipt = addWoolYarnReceipt(proofOrder.woolOrderId, {
+  commandId: 'CMD-TASK9-PROOFS-<动态&记录>',
+  receivedAt: '2026-07-30 20:00:00',
+  receivedBy: '毛织仓管',
+  lines: proofOrder.outputPlanLines[0].requiredYarnSkus.map((yarnSkuCode) => ({
+    yarnSkuCode,
+    receivedQty: 1,
+  })),
+  proofFiles,
+})
+const emptyProofReceipt = addWoolYarnReceipt(proofOrder.woolOrderId, {
+  commandId: 'CMD-TASK9-PROOFS-EMPTY',
+  receivedAt: '2026-07-30 20:01:00',
+  receivedBy: '毛织仓管',
+  lines: [{ yarnSkuCode: proofOrder.outputPlanLines[0].requiredYarnSkus[0], receivedQty: 1 }],
+})
+const reportProofFiles = Array.from(
+  { length: 12 },
+  (_, index) => `加工凭证-${String(index + 1).padStart(2, '0')}.jpg`,
+)
+const proofReport = addWoolProcessReport(proofOrder.woolOrderId, {
+  commandId: 'CMD-TASK9-REPORT-PROOFS',
+  outputSkuCode: proofOrder.outputPlanLines[0].outputSkuCode,
+  reportedQty: 10,
+  reportedAt: '2026-07-30 20:02:00',
+  reportedBy: '毛织主管',
+  proofFiles: reportProofFiles,
+})
+const handoverProofFiles = Array.from(
+  { length: 12 },
+  (_, index) => `交出凭证-${String(index + 1).padStart(2, '0')}.jpg`,
+)
+const proofHandover = addWoolHandover(proofOrder.woolOrderId, {
+  commandId: 'CMD-TASK9-HANDOVER-PROOFS',
+  outputSkuCode: proofOrder.outputPlanLines[0].outputSkuCode,
+  handoverQty: 5,
+  handedOverAt: '2026-07-30 20:03:00',
+  handedOverBy: '毛织主管',
+  proofFiles: handoverProofFiles,
+})
+renderCraftWoolWorkOrderDetailPage(proofOrder.woolOrderId)
+const proofRootNode = { dataset: { woolOrderId: proofOrder.woolOrderId } } as unknown as HTMLElement
+const openProofRecord = async (
+  recordType: 'YARN_RECEIPT' | 'PROCESS_REPORT' | 'HANDOVER',
+  recordId: string,
+) => {
+  const actionNode = {
+    dataset: {
+      woolDetailAction: 'open-record',
+      recordType,
+      recordId,
+    },
+  } as unknown as HTMLElement
+  const target = {
+    closest(selector: string) {
+      if (selector === '[data-wool-detail-root]') return proofRootNode
+      if (selector === '[data-wool-detail-action]') return actionNode
+      return null
+    },
+  } as unknown as HTMLElement
+  assert.equal(await handleCraftWoolDetailEvent(target), true)
+}
+await openProofRecord('YARN_RECEIPT', proofReceipt.receiptId)
+const proofListKey = `proofs:YARN_RECEIPT:${encodeURIComponent(proofReceipt.receiptId)}`
+const proofPage1Html = renderCraftWoolWorkOrderDetailPage(proofOrder.woolOrderId)
+assert(proofPage1Html.includes(`data-wool-detail-list-key="${proofListKey}"`))
+assert(proofPage1Html.includes('凭证-05.jpg'))
+assert(!proofPage1Html.includes('凭证-06.jpg'), '12 个凭证首屏只能渲染当前 5 条')
+assert(proofPage1Html.includes('动态&lt;&amp;&quot;凭证&gt;.pdf'))
+assert(!proofPage1Html.includes('动态<&"凭证>.pdf'), '动态凭证名称必须经过 HTML 转义')
+
+const proofFooterNode = {
+  dataset: {
+    woolDetailListKey: proofListKey,
+    woolDetailPageSurface: 'overlay',
+    woolDetailTotal: '12',
+  },
+} as unknown as HTMLElement
+const nextProofAction = {
+  dataset: { woolDetailRecordAction: 'next-page' },
+  closest(selector: string) {
+    return selector === '[data-wool-detail-list-key]' ? proofFooterNode : null
+  },
+} as unknown as HTMLElement
+const nextProofTarget = {
+  closest(selector: string) {
+    if (selector === '[data-wool-detail-root]') return proofRootNode
+    if (selector === '[data-wool-detail-record-field="pageSize"]') return null
+    if (selector === '[data-wool-detail-record-action]') return nextProofAction
+    return null
+  },
+} as unknown as HTMLElement
+assert.equal(await handleCraftWoolDetailEvent(nextProofTarget), true)
+const proofPage2Html = renderCraftWoolWorkOrderDetailPage(proofOrder.woolOrderId)
+assert(proofPage2Html.includes('凭证-06.jpg'))
+assert(proofPage2Html.includes('凭证-10.jpg'))
+assert(!proofPage2Html.includes('凭证-05.jpg'))
+assert(!proofPage2Html.includes('凭证-11.jpg'))
+
+await openProofRecord('YARN_RECEIPT', emptyProofReceipt.receiptId)
+const emptyProofHtml = renderCraftWoolWorkOrderDetailPage(proofOrder.woolOrderId)
+assert(emptyProofHtml.includes('未上传凭证'))
+assert(emptyProofHtml.includes(
+  `data-wool-detail-list-key="proofs:YARN_RECEIPT:${encodeURIComponent(emptyProofReceipt.receiptId)}"`,
+))
+await openProofRecord('YARN_RECEIPT', proofReceipt.receiptId)
+const proofPage2AfterOtherRecordHtml = renderCraftWoolWorkOrderDetailPage(proofOrder.woolOrderId)
+assert(proofPage2AfterOtherRecordHtml.includes('凭证-06.jpg'))
+assert(!proofPage2AfterOtherRecordHtml.includes('凭证-05.jpg'), '不同记录凭证页码不得互相重置')
+await openProofRecord('PROCESS_REPORT', proofReport.reportId)
+const reportProofHtml = renderCraftWoolWorkOrderDetailPage(proofOrder.woolOrderId)
+assert(reportProofHtml.includes(
+  `data-wool-detail-list-key="proofs:PROCESS_REPORT:${encodeURIComponent(proofReport.reportId)}"`,
+))
+assert(reportProofHtml.includes('加工凭证-05.jpg'))
+assert(!reportProofHtml.includes('加工凭证-06.jpg'))
+await openProofRecord('HANDOVER', proofHandover.handoverId)
+const handoverProofHtml = renderCraftWoolWorkOrderDetailPage(proofOrder.woolOrderId)
+assert(handoverProofHtml.includes(
+  `data-wool-detail-list-key="proofs:HANDOVER:${encodeURIComponent(proofHandover.handoverId)}"`,
+))
+assert(handoverProofHtml.includes('交出凭证-05.jpg'))
+assert(!handoverProofHtml.includes('交出凭证-06.jpg'))
 
 console.log('PASS task 5: global command receipts, atomic stock, downstream lock, and manual completion')
 console.log('PASS task 6: current machine associations and derived four-state availability')
