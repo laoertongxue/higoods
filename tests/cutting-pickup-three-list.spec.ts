@@ -6,7 +6,8 @@ const paths = {
   HISTORY: '/fcs/craft/cutting/pickup-management/history',
 } as const
 
-test.setTimeout(120_000)
+// 冷启动会初始化完整补料、加工结果与领料节点；交互性能仍由 measureDomAction 单独按 200ms 门禁校验。
+test.setTimeout(300_000)
 
 type MeasuredDomAction = {
   type: 'click' | 'input' | 'change' | 'drag'
