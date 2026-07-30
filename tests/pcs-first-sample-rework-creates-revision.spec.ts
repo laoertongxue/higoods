@@ -41,6 +41,7 @@ const { updateFirstSampleTaskDetailAndSync } = await import('../src/data/pcs-fir
 const { listRevisionTasks } = await import('../src/data/pcs-revision-task-repository.ts')
 const {
   getProjectNodeRecordByWorkItemTypeCode,
+  listProjectNodes,
   resetProjectRepository,
 } = await import('../src/data/pcs-project-repository.ts')
 const { resetProjectRelationRepository } = await import('../src/data/pcs-project-relation-repository.ts')
@@ -70,6 +71,8 @@ resetPcsEngineeringTaskState()
 
 const task = listFirstSampleTasks().find((item) => item.firstSampleTaskCode === 'FS-20260425-002')
 assert.ok(task, '缺少可用于首版需改版验收的首版样衣任务')
+assert.equal(task.projectNodeId, '')
+const sourceProjectNodesBefore = listProjectNodes(task.projectId)
 const prepared = updateFirstSampleTaskDetailAndSync(task.firstSampleTaskId, {
   status: '待确认',
   sampleCode: 'FS-RESULT-REWORK-001',
@@ -138,8 +141,8 @@ assert.match(detailAfterCreate, new RegExp(revision.revisionTaskCode))
 assert.match(detailAfterCreate, /target="_blank"/)
 assert.match(renderPcsFirstSampleTaskPage(), new RegExp(revision.revisionTaskCode))
 
-const node = getProjectNodeRecordByWorkItemTypeCode(task.projectId, 'FIRST_SAMPLE')
-assert.equal(node?.pendingActionType, '跟进改版任务')
+assert.equal(getProjectNodeRecordByWorkItemTypeCode(task.projectId, 'FIRST_SAMPLE'), null)
+assert.deepEqual(listProjectNodes(task.projectId), sourceProjectNodesBefore)
 
 handlePcsEngineeringTaskEvent(makeActionTarget('first-sample-advance', { taskId: task.firstSampleTaskId }))
 assert.match(appStore.getState().pathname, /\/pcs\/patterns\/revision\//)

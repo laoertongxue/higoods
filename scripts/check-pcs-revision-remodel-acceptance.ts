@@ -12,7 +12,11 @@ import { resetProjectRelationRepository } from '../src/data/pcs-project-relation
 import { resetRevisionTaskRepository, getRevisionTaskById, updateRevisionTask } from '../src/data/pcs-revision-task-repository.ts'
 import { resetPatternTaskRepository, listPatternTasks } from '../src/data/pcs-pattern-task-repository.ts'
 import { resetPlateMakingTaskRepository, listPlateMakingTasks } from '../src/data/pcs-plate-making-repository.ts'
-import { resetFirstSampleTaskRepository, listFirstSampleTasks } from '../src/data/pcs-first-sample-repository.ts'
+import {
+  resetFirstSampleTaskRepository,
+  listFirstSampleTasks,
+  upsertFirstSampleTask,
+} from '../src/data/pcs-first-sample-repository.ts'
 import { resetFirstOrderSampleTaskRepository, listFirstOrderSampleTasks } from '../src/data/pcs-first-order-sample-repository.ts'
 import { listStyleArchives, resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
 import {
@@ -66,6 +70,106 @@ const project = listProjects()[0]
 assert.ok(project, '应存在可作为测款结论来源的商品项目演示数据')
 const testConclusionNode = getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'TEST_CONCLUSION')
 assert.ok(testConclusionNode, '测款结论返改来源项目应存在 TEST_CONCLUSION 节点')
+const directFirstSampleTask = upsertFirstSampleTask({
+  firstSampleTaskId: 'FS-DIRECT-001',
+  firstSampleTaskCode: 'FS-DIRECT-001',
+  title: '首版样衣返改正式来源',
+  projectId: project.projectId,
+  projectCode: project.projectCode,
+  projectName: project.projectName,
+  projectNodeId: '',
+  workItemTypeCode: 'FIRST_SAMPLE',
+  workItemTypeName: '首版样衣打样',
+  sourceType: '人工创建',
+  upstreamModule: '制版任务',
+  upstreamObjectType: '制版任务',
+  upstreamObjectId: 'PT-DIRECT-001',
+  upstreamObjectCode: 'PT-DIRECT-001',
+  sourceTechPackVersionId: 'TDV-DIRECT-001',
+  sourceTechPackVersionCode: 'TDV-DIRECT-001',
+  sourceTechPackVersionLabel: '首版样衣执行版',
+  sourceTaskType: '制版任务',
+  sourceTaskId: 'PT-DIRECT-001',
+  sourceTaskCode: 'PT-DIRECT-001',
+  factoryId: 'factory-direct-001',
+  factoryName: '深圳样衣间',
+  targetSite: '深圳',
+  sampleMaterialMode: '正确布',
+  samplePurpose: '首版确认',
+  sampleCode: 'SY-DIRECT-001',
+  sampleImageIds: ['mock://sample-result/direct-001'],
+  reuseAsFirstOrderBasisFlag: false,
+  reuseAsFirstOrderBasisConfirmedAt: '',
+  reuseAsFirstOrderBasisConfirmedBy: '',
+  reuseAsFirstOrderBasisNote: '',
+  fitConfirmationSummary: '肩宽偏窄，需要改版。',
+  artworkConfirmationSummary: '',
+  productionReadinessNote: '需改版后重新确认。',
+  confirmedAt: '2026-06-20 10:00',
+  status: '需改版',
+  ownerId: project.ownerId,
+  ownerName: project.ownerName,
+  priorityLevel: '中',
+  createdAt: '2026-06-20 09:00',
+  createdBy: '验收脚本',
+  updatedAt: '2026-06-20 10:00',
+  updatedBy: '验收脚本',
+  note: '',
+  legacyProjectRef: project.projectCode,
+  legacyUpstreamRef: 'PT-DIRECT-001',
+})
+const nodesBeforeFirstSampleRevision = listProjectNodes(project.projectId)
+const firstSampleRevision = createRevisionTaskWithProjectRelation({
+  projectId: project.projectId,
+  title: '首版样衣来源返改验收',
+  sourceType: '首版样衣返改',
+  upstreamModule: '首版样衣打样',
+  upstreamObjectType: '首版样衣打样任务',
+  upstreamObjectId: directFirstSampleTask.firstSampleTaskId,
+  upstreamObjectCode: directFirstSampleTask.firstSampleTaskCode,
+  ownerName: project.ownerName,
+  dueAt: '2026-06-30 18:00',
+  revisionScopeCodes: ['PATTERN'],
+  revisionScopeNames: ['版型结构'],
+  issueSummary: '首版样衣确认肩宽偏窄，需要返改。',
+  evidenceSummary: '正式首版样衣任务已记录需改版结论。',
+  operatorName: '验收脚本',
+})
+const missingFirstSampleRevision = createRevisionTaskWithProjectRelation({
+  projectId: project.projectId,
+  title: '不存在首版样衣来源的返改验收',
+  sourceType: '首版样衣返改',
+  upstreamModule: '首版样衣打样',
+  upstreamObjectType: '首版样衣打样任务',
+  upstreamObjectId: 'FS-NOT-EXISTS',
+  upstreamObjectCode: 'FS-NOT-EXISTS',
+  ownerName: project.ownerName,
+  dueAt: '2026-06-30 18:00',
+  revisionScopeCodes: ['PATTERN'],
+  revisionScopeNames: ['版型结构'],
+  issueSummary: '不存在的首版样衣任务不能成为返改来源。',
+  evidenceSummary: '验收脚本验证正式来源边界。',
+  operatorName: '验收脚本',
+})
+assert.deepEqual(
+  {
+    created: firstSampleRevision.ok,
+    upstreamObjectId: firstSampleRevision.ok ? firstSampleRevision.task.upstreamObjectId : '',
+    upstreamObjectCode: firstSampleRevision.ok ? firstSampleRevision.task.upstreamObjectCode : '',
+    projectNodeId: firstSampleRevision.ok ? firstSampleRevision.task.projectNodeId : '创建失败',
+    missingSourceAccepted: missingFirstSampleRevision.ok,
+    projectNodesChanged: JSON.stringify(listProjectNodes(project.projectId)) !== JSON.stringify(nodesBeforeFirstSampleRevision),
+  },
+  {
+    created: true,
+    upstreamObjectId: 'FS-DIRECT-001',
+    upstreamObjectCode: 'FS-DIRECT-001',
+    projectNodeId: '',
+    missingSourceAccepted: false,
+    projectNodesChanged: false,
+  },
+  '首版样衣返改必须保留并校验正式首版样衣来源，且不得写项目节点',
+)
 
 const projectRequired = createRevisionTaskWithProjectRelation({
   projectId: '',

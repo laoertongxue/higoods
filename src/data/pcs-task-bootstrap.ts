@@ -279,10 +279,10 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
   const projectA = pickProjectByCode('PRJ-20251216-001')
   const projectB = pickProjectByCode('PRJ-20251216-010')
   const nodeA = projectA
-    ? findProjectNodeByWorkItemTypeCode(projectA.projectId, 'REVISION_TASK') ?? findProjectNodeByWorkItemTypeCode(projectA.projectId, 'TEST_CONCLUSION')
+    ? findProjectNodeByWorkItemTypeCode(projectA.projectId, 'TEST_CONCLUSION')
     : null
   const nodeB = projectB
-    ? findProjectNodeByWorkItemTypeCode(projectB.projectId, 'REVISION_TASK') ?? findProjectNodeByWorkItemTypeCode(projectB.projectId, 'TEST_CONCLUSION')
+    ? findProjectNodeByWorkItemTypeCode(projectB.projectId, 'TEST_CONCLUSION')
     : null
 
   if (projectA && nodeA) {
@@ -294,7 +294,7 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       projectId: projectA.projectId,
       projectCode: projectA.projectCode,
       projectName: projectA.projectName,
-      projectNodeId: nodeA.projectNodeId,
+      projectNodeId: '',
       workItemTypeCode: 'REVISION_TASK',
       workItemTypeName: '改版任务',
       sourceType: '测款结论返改',
@@ -455,7 +455,7 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
   ].forEach((item) => {
     const project = pickProjectByCode(item.projectCode)
     const node = project
-      ? findProjectNodeByWorkItemTypeCode(project.projectId, 'REVISION_TASK') ?? findProjectNodeByWorkItemTypeCode(project.projectId, 'TEST_CONCLUSION')
+      ? findProjectNodeByWorkItemTypeCode(project.projectId, 'TEST_CONCLUSION')
       : null
     const style = project ? findStyleArchiveByProjectId(project.projectId) : null
     if (!project || !node) return
@@ -466,7 +466,7 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       projectId: project.projectId,
       projectCode: project.projectCode,
       projectName: project.projectName,
-      projectNodeId: node.projectNodeId,
+      projectNodeId: '',
       workItemTypeCode: 'REVISION_TASK',
       workItemTypeName: '改版任务',
       sourceType: '测款结论返改',
@@ -1170,8 +1170,6 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
   const tasks: PatternTaskRecord[] = []
   const projectA = pickProjectByCode('PRJ-202604-014')
   const projectB = pickProjectByCode('PRJ-202604-013')
-  const nodeA = projectA ? findProjectNodeByWorkItemTypeCode(projectA.projectId, 'PATTERN_ARTWORK_TASK') : null
-  const nodeB = projectB ? findProjectNodeByWorkItemTypeCode(projectB.projectId, 'PATTERN_ARTWORK_TASK') : null
   const executionFields = (input: {
     sourceType: PatternTaskRecord['demandSourceType']
     sourceCode: string
@@ -1226,7 +1224,7 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
     colorConfirmNote: '直播图、图片图、实物图取中间值。',
   })
 
-  if (projectA && nodeA) {
+  if (projectA) {
     tasks.push({
       patternTaskId: 'AT-20260109-001',
       patternTaskCode: 'AT-20260109-001',
@@ -1234,7 +1232,7 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       projectId: projectA.projectId,
       projectCode: projectA.projectCode,
       projectName: projectA.projectName,
-      projectNodeId: nodeA.projectNodeId,
+      projectNodeId: '',
       workItemTypeCode: 'PATTERN_ARTWORK_TASK',
       workItemTypeName: '花型任务',
       sourceType: '改版任务',
@@ -1269,7 +1267,7 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
     })
   }
 
-  if (projectB && nodeB) {
+  if (projectB) {
     tasks.push({
       patternTaskId: 'AT-20260108-003',
       patternTaskCode: 'AT-20260108-003',
@@ -1277,7 +1275,7 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       projectId: projectB.projectId,
       projectCode: projectB.projectCode,
       projectName: projectB.projectName,
-      projectNodeId: nodeB.projectNodeId,
+      projectNodeId: '',
       workItemTypeCode: 'PATTERN_ARTWORK_TASK',
       workItemTypeName: '花型任务',
       sourceType: '改版任务',
@@ -1351,8 +1349,7 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
     },
   ].forEach((item) => {
     const project = pickProjectByCode(item.projectCode)
-    const node = project ? findProjectNodeByWorkItemTypeCode(project.projectId, 'PATTERN_ARTWORK_TASK') : null
-    if (!project || !node) return
+    if (!project) return
     const upstreamRevisionCode = item.projectCode === 'PRJ-202604-014'
       ? 'RT-20260402-018'
       : item.projectCode === 'PRJ-202604-013'
@@ -1365,7 +1362,7 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       projectId: project.projectId,
       projectCode: project.projectCode,
       projectName: project.projectName,
-      projectNodeId: node.projectNodeId,
+      projectNodeId: '',
       workItemTypeCode: 'PATTERN_ARTWORK_TASK',
       workItemTypeName: '花型任务',
       sourceType: upstreamRevisionCode ? '改版任务' : '项目模板阶段',
@@ -1548,12 +1545,10 @@ function firstOrderChainSeed(input: {
 
 function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItems: PcsTaskPendingItem[] } {
   const tasks: FirstSampleTaskRecord[] = []
-  const projectA = pickProjectByCode('PRJ-20251216-010')
-  const projectB = pickProjectByCode('PRJ-20251216-003')
-  const nodeA = projectA ? findProjectNodeByWorkItemTypeCode(projectA.projectId, 'FIRST_SAMPLE') : null
-  const nodeB = projectB ? findProjectNodeByWorkItemTypeCode(projectB.projectId, 'FIRST_SAMPLE') : null
+  const projectA = pickProjectByCode('PRJ-202603-010')
+  const projectB = pickProjectByCode('PRJ-202603-003')
 
-  if (projectA && nodeA) {
+  if (projectA) {
     tasks.push({
       firstSampleTaskId: 'FS-20260119-003',
       firstSampleTaskCode: 'FS-20260119-003',
@@ -1561,7 +1556,7 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
       projectId: projectA.projectId,
       projectCode: projectA.projectCode,
       projectName: projectA.projectName,
-      projectNodeId: nodeA.projectNodeId,
+      projectNodeId: '',
       workItemTypeCode: 'FIRST_SAMPLE',
       workItemTypeName: '首版样衣打样',
       sourceType: '改版任务',
@@ -1592,7 +1587,7 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
     })
   }
 
-  if (projectB && nodeB) {
+  if (projectB) {
     tasks.push({
       firstSampleTaskId: 'FS-20260111-001',
       firstSampleTaskCode: 'FS-20260111-001',
@@ -1600,7 +1595,7 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
       projectId: projectB.projectId,
       projectCode: projectB.projectCode,
       projectName: projectB.projectName,
-      projectNodeId: nodeB.projectNodeId,
+      projectNodeId: '',
       workItemTypeCode: 'FIRST_SAMPLE',
       workItemTypeName: '首版样衣打样',
       sourceType: '制版任务',
@@ -1633,7 +1628,7 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
 
   ;[
     {
-      projectCode: 'PRJ-20251216-005',
+      projectCode: 'PRJ-202603-005',
       firstSampleTaskId: 'FS-20260403-005',
       firstSampleTaskCode: 'FS-20260403-005',
       title: '首版样衣打样-法式优雅衬衫连衣裙',
@@ -1663,7 +1658,7 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
       confirmedAt: '',
     },
     {
-      projectCode: 'PRJ-20251216-013',
+      projectCode: 'PRJ-202603-013',
       firstSampleTaskId: 'FS-20260404-013',
       firstSampleTaskCode: 'FS-20260404-013',
       title: '首版样衣打样-设计款户外轻量夹克',
@@ -1693,7 +1688,7 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
       confirmedAt: '',
     },
     {
-      projectCode: 'PRJ-20251216-026',
+      projectCode: 'PRJ-202604-014',
       firstSampleTaskId: 'FS-20260425-002',
       firstSampleTaskCode: 'FS-20260425-002',
       title: '首版样衣打样-已建任务未补齐',
@@ -1723,7 +1718,7 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
       confirmedAt: '',
     },
     {
-      projectCode: 'PRJ-20251216-027',
+      projectCode: 'PRJ-202603-002',
       firstSampleTaskId: 'FS-20260425-008',
       firstSampleTaskCode: 'FS-20260425-008',
       title: '首版样衣打样-完成展示',
@@ -1753,7 +1748,7 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
       confirmedAt: '2026-04-25 10:30',
     },
     {
-      projectCode: 'PRJ-20251216-028',
+      projectCode: 'PRJ-202603-003',
       firstSampleTaskId: 'FSD-20260425-001',
       firstSampleTaskCode: 'FSD-20260425-001',
       title: '首版样衣打样-首单未建任务来源',
@@ -1783,7 +1778,7 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
       confirmedAt: '2026-04-25 10:40',
     },
     {
-      projectCode: 'PRJ-20251216-029',
+      projectCode: 'PRJ-202603-004',
       firstSampleTaskId: 'FSD-20260425-002',
       firstSampleTaskCode: 'FSD-20260425-002',
       title: '首版样衣打样-首单已建未补齐来源',
@@ -1813,7 +1808,7 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
       confirmedAt: '2026-04-25 10:45',
     },
     {
-      projectCode: 'PRJ-20251216-030',
+      projectCode: 'PRJ-202603-005',
       firstSampleTaskId: 'FSD-20260425-003',
       firstSampleTaskCode: 'FSD-20260425-003',
       title: '首版样衣打样-首单完成展示来源',
@@ -1844,8 +1839,7 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
     },
   ].forEach((item) => {
     const project = pickProjectByCode(item.projectCode)
-    const node = project ? findProjectNodeByWorkItemTypeCode(project.projectId, 'FIRST_SAMPLE') : null
-    if (!project || !node) return
+    if (!project) return
     tasks.push({
       firstSampleTaskId: item.firstSampleTaskId,
       firstSampleTaskCode: item.firstSampleTaskCode,
@@ -1853,7 +1847,7 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
       projectId: project.projectId,
       projectCode: project.projectCode,
       projectName: project.projectName,
-      projectNodeId: node.projectNodeId,
+      projectNodeId: '',
       workItemTypeCode: 'FIRST_SAMPLE',
       workItemTypeName: '首版样衣打样',
       sourceType: '项目模板阶段',

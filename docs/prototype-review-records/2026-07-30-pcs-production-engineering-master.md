@@ -56,6 +56,7 @@
 | 样衣退回默认去向依赖历史模板编号 | `点错风险` | 商品运营、样衣管理员 | 按样衣来源类型推导；外采退回供应商、委托打样退回版房，来源不足时明确默认库存留样 | 否 |
 | 商品测款可行性判断自动进入改版任务 | `协作断裂` | 商品负责人、打样人员 | 测款项目内只保留进入测款、样衣退回；改款和重新打样由前期打样模块独立人工创建 | 否 |
 | 旧改版验收强制依赖商品项目 `REVISION_TASK` 节点，并把 `TEST_CONCLUSION` 测款结论或历史花型／首版样衣节点误当成可写任务节点 | `协作断裂` | 商品负责人、版师、打样人员 | 改从独立改版任务创建入口建立验收任务，来源节点只由系统精确解析当前项目 `TEST_CONCLUSION`，忽略调用方旧节点参数且不再回退 `REVISION_TASK`；改版派生的花型和首版样衣始终只关联项目与来源任务，不绑定或写回任何项目节点 | 否 |
+| 首版样衣返改来源被测款结论覆盖，专业任务演示数据又依赖已移除的项目节点 | `协作断裂` | 版师、花型人员、样衣人员 | 测款结论返改只解析 `TEST_CONCLUSION`；首版样衣返改精确校验并保留正式首版样衣任务。花型和首版样衣演示任务只关联来源项目，项目节点留空；独立首版样衣保存详情时只更新任务自身 | 否 |
 
 ## 6. 最终结论
 
@@ -68,6 +69,7 @@
 - “暂保留”仍作为当前测款判断，不新增下一轮测款流程。
 - 商品测款不承接商品开发或改版打样；需要改款时由前期打样模块独立人工创建任务。
 - 独立改版可以读取系统精确解析的测款结论作为来源事实，但创建、花型／首版样衣下游生成、确认和完成均不得改写来源商品项目任何节点。
+- 首版样衣返改必须保留其正式首版样衣来源；花型和首版样衣专业模块保留独立任务演示数据，不再依赖固定五步之外的项目节点。
 
 ## 7. 变更覆盖与验证
 
@@ -83,6 +85,8 @@
 - `src/data/pcs-style-archive-bootstrap.ts`
 - `src/data/pcs-project-decision-flow-service.ts`
 - `src/data/pcs-task-project-relation-writeback.ts`
+- `src/data/pcs-task-bootstrap.ts`
+- `src/data/pcs-first-sample-project-writeback.ts`
 - `src/data/pcs-channel-product-project-repository.ts`
 - `src/data/pcs-project-inline-node-record-repository.ts`
 - `src/data/pcs-project-inline-node-record-types.ts`
@@ -109,6 +113,8 @@
 - `node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-project-decision-flow.ts`：通过
 - `node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-project-data-consistency.ts`：通过，共核对 26 个项目、364 个节点，未发现问题
 - `node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-revision-remodel-acceptance.ts`：通过，恶意旧节点参数不能覆盖系统解析的 `TEST_CONCLUSION`，独立改版任务创建、花型和首版样衣下游、确认、技术包前置、完成闭环及详情页验收全部实际执行，并用闭环前后全量节点快照确认来源商品项目节点未被改写
+- `npm test -- tests/pcs-professional-task-bootstrap-independent.spec.ts`：通过，花型和首版样衣保留多状态独立任务种子，全部只关联来源项目且项目节点为空
+- `npm test -- tests/pcs-first-sample-*.spec.ts`：通过，首版样衣状态、独立详情保存、Mock 场景、节点边界和首版样衣返改来源均已验证
 - `npm run check:prototype-design-governance -- --all`：通过
 
 ### 例外

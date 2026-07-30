@@ -493,6 +493,14 @@ export function syncFirstSampleTaskToProjectNode(input: {
   if (!task) {
     return { ok: false, message: '未找到首版样衣打样任务，不能同步商品项目节点。', task: null, projectNode: null }
   }
+  if (!task.projectNodeId) {
+    return {
+      ok: true,
+      message: '首版样衣打样任务已保存，当前为独立任务，不占用商品项目节点。',
+      task,
+      projectNode: null,
+    }
+  }
   const { project, node, error } = assertFirstSampleProjectNode(task.projectId, task.projectNodeId)
   if (!project || !node) return { ok: false, message: error, task, projectNode: node }
 

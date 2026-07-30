@@ -1419,16 +1419,37 @@ export function createRevisionTaskWithProjectRelation(input: RevisionTaskCreateI
       return { ok: false, message: projectPending!.reason, pendingItem: projectPending! }
     }
     project = matchedProject
-    const testConclusionNode = getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'TEST_CONCLUSION')
-    if (!testConclusionNode) {
-      const pendingItem = makePendingItem('改版任务', rawCode, project.projectCode, '', '当前商品项目缺少测款结论节点，不能创建测款结论返改任务。')
-      upsertRevisionTaskPendingItem(pendingItem)
-      return { ok: false, message: pendingItem.reason, pendingItem }
+    if (sourceType === '测款结论返改') {
+      const testConclusionNode = getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'TEST_CONCLUSION')
+      if (!testConclusionNode) {
+        const pendingItem = makePendingItem('改版任务', rawCode, project.projectCode, '', '当前商品项目缺少测款结论节点，不能创建测款结论返改任务。')
+        upsertRevisionTaskPendingItem(pendingItem)
+        return { ok: false, message: pendingItem.reason, pendingItem }
+      }
+      resolvedMeasureUpstreamModule = '测款结论'
+      resolvedMeasureUpstreamObjectType = '项目工作项'
+      resolvedMeasureUpstreamObjectId = testConclusionNode.projectNodeId
+      resolvedMeasureUpstreamObjectCode = testConclusionNode.projectNodeId
+    } else {
+      const firstSampleTask = input.upstreamObjectId
+        ? getFirstSampleTaskById(input.upstreamObjectId)
+        : listFirstSampleTasks().find((item) => item.firstSampleTaskCode === input.upstreamObjectCode) || null
+      if (!firstSampleTask || firstSampleTask.projectId !== project.projectId) {
+        const pendingItem = makePendingItem(
+          '改版任务',
+          rawCode,
+          project.projectCode,
+          input.upstreamObjectCode || input.upstreamObjectId || '',
+          '请选择当前商品项目下的正式首版样衣任务作为返改来源。',
+        )
+        upsertRevisionTaskPendingItem(pendingItem)
+        return { ok: false, message: pendingItem.reason, pendingItem }
+      }
+      resolvedMeasureUpstreamModule = '首版样衣打样'
+      resolvedMeasureUpstreamObjectType = '首版样衣打样任务'
+      resolvedMeasureUpstreamObjectId = firstSampleTask.firstSampleTaskId
+      resolvedMeasureUpstreamObjectCode = firstSampleTask.firstSampleTaskCode
     }
-    resolvedMeasureUpstreamModule = '测款结论'
-    resolvedMeasureUpstreamObjectType = '项目工作项'
-    resolvedMeasureUpstreamObjectId = testConclusionNode.projectNodeId
-    resolvedMeasureUpstreamObjectCode = testConclusionNode.projectNodeId
 
     const upstreamError = ensureFormalSource('改版任务', sourceType, resolvedMeasureUpstreamObjectId, resolvedMeasureUpstreamObjectCode, '')
     if (upstreamError) {
