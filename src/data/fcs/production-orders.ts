@@ -1486,11 +1486,18 @@ function buildReleaseTargetSupplementProductionOrder(base: ProductionOrder): Pro
     ['C', '面料 C · 兰色条', '面料', 'collar', '领片'],
     ['D', '面料 D · 灰色条', '辅料', 'cuff', '袖口'],
   ] as const
+  const materialImageByCode: Record<(typeof bomDefinitions)[number][0], string> = {
+    A: '/materials/fabric-main.jpg',
+    B: '/materials/fabric-contrast.jpg',
+    C: '/materials/fabric-lining.jpg',
+    D: '/materials/yarn-stitching.jpg',
+  }
   const bomItems = bomDefinitions.map(([materialCode, name, type]) => ({
     id: `${versionId}-bom-${materialCode}`,
     type,
     name,
     materialCode: `RELEASE-${materialCode}`,
+    materialImageUrl: materialImageByCode[materialCode],
     spec: `${name} / 放行目标补料`,
     colorLabel: colors.join(' / '),
     unit: '件',
@@ -1613,7 +1620,7 @@ function buildReleaseTargetSupplementProductionOrder(base: ProductionOrder): Pro
       manualConfirmRequired: false,
     })),
     imageSnapshot: {
-      productImages: [], styleImages: [], sampleImages: [], materialImages: [],
+      productImages: [], styleImages: [], sampleImages: [], materialImages: Object.values(materialImageByCode),
       accessoryImages: [], patternImages: [], markerImages: [], artworkImages: [],
     },
     patternDesigns: [],

@@ -371,6 +371,8 @@ const releaseBomIds = new Set(releaseSnapshot.bomItems.map((item) => item.id))
 const releasePatternIds = new Set(releaseSnapshot.patternFiles.map((item) => item.patternFileId))
 for (const bomItem of releaseSnapshot.bomItems) {
   assert.deepEqual([...bomItem.applicableSkuCodes].sort(), releaseSkuCodes, `BOM ${bomItem.id} 必须适用当前生产单全部 SKU`)
+  assert(bomItem.materialImageUrl, `BOM ${bomItem.id} 必须保留冻结物料图片`)
+  assert(releaseSnapshot.imageSnapshot.materialImages.includes(bomItem.materialImageUrl), `BOM ${bomItem.id} 的物料图片必须进入冻结图片快照`)
   assert(bomItem.linkedPatternIds.every((id) => releasePatternIds.has(id)), `BOM ${bomItem.id} 不得引用外部纸样`)
 }
 for (const mapping of releaseSnapshot.colorMaterialMappings) {
