@@ -30,6 +30,7 @@ export interface TaskDetailRowSourceRefs {
   pieceIds?: string[]
   garmentSku?: string
   garmentColor?: string
+  outputSkuCode?: string
 }
 
 export interface TaskDetailRow {
@@ -325,19 +326,21 @@ function buildWoolRows(input: {
         const pieceCount = Number(allocation?.pieceCount ?? piece.count)
         if (!Number.isFinite(pieceCount) || pieceCount <= 0) continue
         const woolPartCode = buildStableWoolPartCode(piece.partTemplateId || piece.id)
+        const outputSkuCode = buildWoolPanelOutputSku(woolPartCode, line.skuCode)
         upsertRow(
           rowMap,
           taskId,
           dimensions,
           {
             PATTERN: pieceName,
-            GARMENT_SKU: buildWoolPanelOutputSku(woolPartCode, line.skuCode),
+            GARMENT_SKU: line.skuCode,
           },
           line.qty * pieceCount,
           {
             ...baseRefs,
             garmentSku: line.skuCode,
             garmentColor: line.color,
+            outputSkuCode,
             patternId: pattern.id,
             pieceIds: [piece.id],
           },

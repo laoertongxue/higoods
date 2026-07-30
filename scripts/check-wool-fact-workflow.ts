@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { alignWoolColorMaterialMappingsForDemand } from '../src/data/fcs/production-tech-pack-snapshot-builder.ts'
 import {
   buildWoolOrderSourceSnapshot,
+  buildWoolOrderSourceSnapshotFromRuntimeTask,
   type WoolOrderSourceBuildInput,
 } from '../src/data/fcs/wool-domain/tech-pack-source.ts'
 import {
@@ -21,6 +22,13 @@ import type {
   WoolYarnReceiptRecord,
   WoolYarnReturnRecord,
 } from '../src/data/fcs/wool-domain/types.ts'
+import {
+  captureRuntimeDirectDispatchState,
+  dispatchRuntimeTaskByDetailGroups,
+  getRuntimeTaskById,
+  listRuntimeTaskAllocatableGroups,
+  restoreRuntimeDirectDispatchState,
+} from '../src/data/fcs/runtime-process-tasks.ts'
 
 const handoverTypeFixture: WoolHandoverRecord = {
   handoverId: 'WH-TYPE-CHECK',
@@ -221,6 +229,7 @@ const sourceBuildInput: WoolOrderSourceBuildInput = {
   colorMaterialMappings: [{
     id: 'MAP-BLACK',
     mappingOrigin: 'TECH_PACK',
+    status: 'CONFIRMED',
     colorCode: 'BLACK',
     lines: [
       { id: 'MAP-LINE-YARN', bomItemId: 'BOM-YARN-A', materialCode: 'YARN-A', applicableSkuCodes: [] },
@@ -283,6 +292,16 @@ const fallbackSourceSnapshot = buildWoolOrderSourceSnapshot({
 })
 assert.deepEqual(fallbackSourceSnapshot.outputPlanLines[0].requiredYarnSkus, [])
 assert.deepEqual(fallbackSourceSnapshot.outputPlanLines[0].sourceColorMappingIds, [])
+
+const draftMappingSourceSnapshot = buildWoolOrderSourceSnapshot({
+  ...sourceBuildInput,
+  colorMaterialMappings: sourceBuildInput.colorMaterialMappings.map((mapping) => ({
+    ...mapping,
+    status: 'AUTO_DRAFT',
+  })),
+})
+assert.deepEqual(draftMappingSourceSnapshot.outputPlanLines[0].requiredYarnSkus, [])
+assert.deepEqual(draftMappingSourceSnapshot.outputPlanLines[0].sourceColorMappingIds, [])
 
 const materialCodeOnlySnapshot = buildWoolOrderSourceSnapshot({
   ...sourceBuildInput,
@@ -503,6 +522,57 @@ assert.equal(woolTypesSource.includes("'STOCK_TRANSFER'"), true)
 assert.equal(woolTypesSource.includes("'WOOL-WP-YARN-DEFAULT'"), true)
 assert.equal(woolTypesSource.includes("'WOOL-WH-CUT-DEFAULT'"), true)
 assert.equal(woolTypesSource.includes("'WOOL-WH-GARMENT-DEFAULT'"), true)
+
+const splitRuntimeState = captureRuntimeDirectDispatchState()
+try {
+  const sourcePartTaskId = 'TASKGEN-202603-084-002__ORDER'
+  const sourcePartTask = getRuntimeTaskById(sourcePartTaskId)
+  assert(sourcePartTask, '缺少部位毛织多工厂拆分检查任务')
+  const allocatableGroups = listRuntimeTaskAllocatableGroups(sourcePartTaskId)
+  assert(allocatableGroups.length > 1, '部位毛织检查任务必须有多个可分配明细')
+
+  const dispatchResult = dispatchRuntimeTaskByDetailGroups({
+    taskId: sourcePartTaskId,
+    assignments: allocatableGroups.map((group, index) => ({
+      groupKey: group.groupKey,
+      factoryId: index === 0 ? 'WOOL-FACTORY-A' : 'WOOL-FACTORY-B',
+      factoryName: index === 0 ? '毛织工厂 A' : '毛织工厂 B',
+    })),
+    by: '毛织拆分检查',
+  })
+  assert.equal(dispatchResult.ok, true)
+  assert.equal(dispatchResult.mode, 'MULTI_FACTORY')
+  assert.equal(dispatchResult.createdTaskIds?.length, 2)
+
+  for (const splitTaskId of dispatchResult.createdTaskIds ?? []) {
+    const splitTask = getRuntimeTaskById(splitTaskId)
+    assert(splitTask, `缺少拆分结果任务 ${splitTaskId}`)
+    assert(splitTask.scopeDetailRows.length > 0, `${splitTaskId} 缺少自己的部位明细`)
+    assert(splitTask.scopeSkuLines.length > 0, `${splitTaskId} 不得以空 SKU 范围回退整单`)
+    assert.equal(
+      splitTask.scopeDetailRows.every((row) =>
+        row.dimensions.GARMENT_SKU === row.sourceRefs.garmentSku
+        && Boolean(row.sourceRefs.outputSkuCode),
+      ),
+      true,
+      `${splitTaskId} 必须同时保留成衣 SKU 语义与部位输出 SKU`,
+    )
+
+    const expectedOutputSkuCodes = [...new Set(
+      splitTask.scopeDetailRows
+        .map((row) => row.sourceRefs.outputSkuCode)
+        .filter((value): value is string => Boolean(value)),
+    )].sort()
+    const splitSourceSnapshot = buildWoolOrderSourceSnapshotFromRuntimeTask(splitTaskId)
+    assert.deepEqual(
+      splitSourceSnapshot.outputPlanLines.map((line) => line.outputSkuCode).sort(),
+      expectedOutputSkuCodes,
+      `${splitTaskId} 只能生成分给自己的 SKU/部位`,
+    )
+  }
+} finally {
+  restoreRuntimeDirectDispatchState(splitRuntimeState)
+}
 
 const {
   addWoolProcessReport,

@@ -30,6 +30,7 @@ export interface WoolSourceColorMappingLineInput {
 export interface WoolSourceColorMappingInput {
   id: string
   mappingOrigin: 'TECH_PACK' | 'DEMAND_FALLBACK'
+  status: 'AUTO_CONFIRMED' | 'AUTO_DRAFT' | 'CONFIRMED' | 'MANUAL_ADJUSTED'
   colorCode: string
   lines: WoolSourceColorMappingLineInput[]
 }
@@ -116,7 +117,9 @@ function resolveSourceForSku(
   sku: WoolSourceSkuLineInput,
 ): Pick<WoolOutputPlanLine, 'requiredYarnSkus' | 'sourceColorMappingIds' | 'sourceBomItemIds'> {
   const mappings = input.colorMaterialMappings.filter((mapping) =>
-    mapping.mappingOrigin === 'TECH_PACK' && mapping.colorCode === sku.colorCode,
+    mapping.mappingOrigin === 'TECH_PACK'
+    && mapping.status !== 'AUTO_DRAFT'
+    && mapping.colorCode === sku.colorCode,
   )
   const acceptedBomItems: WoolSourceBomItemInput[] = []
 
@@ -231,8 +234,9 @@ export function buildWoolOrderSourceSnapshot(input: WoolOrderSourceBuildInput): 
 function resolveRuntimeWoolParts(
   taskSkuLines: WoolSourceSkuLineInput[],
   patternFiles: NonNullable<ReturnType<typeof getProductionOrderTechPackSnapshot>>['patternFiles'],
+  allowedOutputSkuCodes?: Set<string>,
 ): WoolSourcePartInput[] {
-  const woolParts: WoolSourcePartInput[] = []
+  const woolPartsByKey = new Map<string, WoolSourcePartInput>()
   for (const pattern of patternFiles.filter((item) => item.patternMaterialType === 'WOOL')) {
     for (const piece of pattern.pieceRows ?? []) {
       const sourcePartCode = piece.partTemplateId || piece.id
@@ -248,16 +252,30 @@ function resolveRuntimeWoolParts(
           || (item.colorCode ? item.colorCode === sku.colorCode : item.colorName === sku.colorName),
         )
         const pieceCountPerGarment = allocation?.pieceCount ?? piece.count
-        woolParts.push({
+        const outputSkuCode = buildWoolPanelOutputSku(woolPartCode, sku.skuCode)
+        if (allowedOutputSkuCodes?.size && !allowedOutputSkuCodes.has(outputSkuCode)) continue
+        const woolPart: WoolSourcePartInput = {
           woolPartCode,
           woolPartName,
           pieceCountPerGarment,
           applicableSkuCodes: [sku.skuCode],
-        })
+        }
+        const woolPartKey = `${woolPartCode}::${sku.skuCode}`
+        const existing = woolPartsByKey.get(woolPartKey)
+        if (existing) {
+          if (
+            existing.woolPartName !== woolPart.woolPartName
+            || existing.pieceCountPerGarment !== woolPart.pieceCountPerGarment
+          ) {
+            throw new Error(`毛织来源生成失败：部位 ${woolPartCode} 在 SKU ${sku.skuCode} 下存在冲突定义`)
+          }
+          continue
+        }
+        woolPartsByKey.set(woolPartKey, woolPart)
       }
     }
   }
-  return woolParts
+  return [...woolPartsByKey.values()]
 }
 
 export function buildWoolOrderSourceSnapshotFromRuntimeTask(taskId: string): WoolOrderSourceSnapshot {
@@ -272,6 +290,9 @@ export function buildWoolOrderSourceSnapshotFromRuntimeTask(taskId: string): Woo
   const snapshot = getProductionOrderTechPackSnapshot(order.productionOrderId)
   if (!snapshot) throw new Error(`毛织来源生成失败：生产单 ${order.productionOrderNo} 没有冻结技术包快照`)
 
+  if (task.isSplitResult && task.scopeSkuLines.length === 0) {
+    throw new Error(`毛织来源生成失败：拆分任务 ${taskId} 没有明确 SKU 范围，禁止回退整张生产单`)
+  }
   const runtimeSkuLines = task.scopeSkuLines.length > 0
     ? task.scopeSkuLines
     : order.demandSnapshot.skuLines
@@ -283,6 +304,14 @@ export function buildWoolOrderSourceSnapshotFromRuntimeTask(taskId: string): Woo
     plannedQty: line.qty,
   }))
   const kind = task.woolTaskType === 'PART_PANEL' ? 'PART_PANEL' : 'WHOLE_GARMENT'
+  const scopedOutputSkuCodes = new Set(
+    task.scopeDetailRows
+      .map((row) => row.sourceRefs.outputSkuCode)
+      .filter((value): value is string => Boolean(value)),
+  )
+  if (task.isSplitResult && kind === 'PART_PANEL' && scopedOutputSkuCodes.size === 0) {
+    throw new Error(`毛织来源生成失败：拆分任务 ${taskId} 没有明确部位输出 SKU，禁止回退全部部位`)
+  }
 
   return buildWoolOrderSourceSnapshot({
     taskId: task.taskId,
@@ -300,6 +329,7 @@ export function buildWoolOrderSourceSnapshotFromRuntimeTask(taskId: string): Woo
     colorMaterialMappings: snapshot.colorMaterialMappings.map((mapping) => ({
       id: mapping.id,
       mappingOrigin: mapping.mappingOrigin,
+      status: mapping.status,
       colorCode: mapping.colorCode,
       lines: mapping.lines.map((line) => ({
         id: line.id,
@@ -309,7 +339,11 @@ export function buildWoolOrderSourceSnapshotFromRuntimeTask(taskId: string): Woo
       })),
     })),
     woolParts: kind === 'PART_PANEL'
-      ? resolveRuntimeWoolParts(skuLines, snapshot.patternFiles)
+      ? resolveRuntimeWoolParts(
+        skuLines,
+        snapshot.patternFiles,
+        scopedOutputSkuCodes.size > 0 ? scopedOutputSkuCodes : undefined,
+      )
       : [],
   })
 }
