@@ -274,6 +274,20 @@ export interface FeiTicketInboundPayload {
   }>
   totalPieceQty: number
   mixedFlag: boolean
+  locationRef?: RuntimeWarehouseLocationRef
+  idempotencyKey?: string
+}
+
+export interface RuntimeWarehouseLocationRef {
+  factoryId: string
+  warehouseId: string
+  warehouseKind: 'WAIT_PROCESS' | 'WAIT_HANDOVER'
+  areaId: string
+  areaName: string
+  shelfId: string
+  shelfNo: string
+  locationId: string
+  locationNo: string
 }
 
 export interface HandoverBaggingConfirmPayload {

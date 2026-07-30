@@ -17,6 +17,13 @@ import {
   toggleWarehouseLocationSelection,
   validateWarehouseLocationSelection,
 } from '../src/pages/process-factory/cutting/warehouse-location-map-model.ts'
+import {
+  appendWaitHandoverBaggingEvent,
+  appendWaitHandoverInboundEvent,
+  buildRuntimeInboundTempBagsFromWaitHandoverEvents,
+  buildWaitHandoverLocationOccupancyStates,
+  type WaitHandoverRuntimeTicketInput,
+} from '../src/pages/process-factory/cutting/wait-handover-runtime.ts'
 
 const cuttingWarehouses = buildDefaultFactoryInternalWarehouses(mockFactories)
   .filter((warehouse) => warehouse.factoryKind === 'CENTRAL_CUTTING')
@@ -157,5 +164,106 @@ assert.equal(adjusted.footprint?.remainingQty, 120)
 const released = adjustWarehouseStorageFootprint(footprint, [], 0, emptyProjection)
 assert.equal(released.ok, true)
 assert.deepEqual(released.footprint?.locationIds, [])
+
+const runtimeTicket: WaitHandoverRuntimeTicketInput = {
+  feiTicketId: 'FT-MAP-001',
+  feiTicketNo: 'FT-MAP-001',
+  productionOrderId: 'PO-MAP',
+  productionOrderNo: 'PO-MAP',
+  cutOrderId: 'CUT-MAP',
+  cutOrderNo: 'CUT-MAP',
+  spreadingOrderId: 'SPR-MAP',
+  spreadingOrderNo: 'SPR-MAP',
+  spuCode: 'SPU-MAP',
+  color: '黑色',
+  size: 'M',
+  partCode: 'FRONT',
+  partName: '前幅',
+  pieceQty: 20,
+  pieceSequenceLabel: '1-20',
+  hasSpecialCraft: false,
+  specialCraftDisplay: '无',
+  receiverFactoryDisplay: '待分配',
+  printStatus: '已打印',
+  voidStatus: '有效',
+}
+const baggingEvent = appendWaitHandoverBaggingEvent({
+  source: 'WEB',
+  operator: { operatorName: '装袋员' },
+  bagCode: 'BAG-MAP-001',
+  tickets: [runtimeTicket],
+  occurredAt: '2026-07-30 09:00',
+})
+assert.equal(
+  buildRuntimeInboundTempBagsFromWaitHandoverEvents([baggingEvent], []).length,
+  0,
+  '菲票装袋不得形成库位占用',
+)
+const inboundEvent = appendWaitHandoverInboundEvent({
+  source: 'PDA',
+  operator: { operatorName: '入仓员' },
+  bagCode: 'BAG-MAP-001',
+  warehouseArea: 'A区',
+  locationCode: 'A-01-01',
+  locationRef: {
+    factoryId: waitProcess.factoryId,
+    warehouseId: waitProcess.warehouseId.replace('WAIT_PROCESS', 'WAIT_HANDOVER'),
+    warehouseKind: 'WAIT_HANDOVER',
+    areaId: firstArea.areaId,
+    areaName: firstArea.areaName,
+    shelfId: firstShelf.shelfId,
+    shelfNo: firstShelf.shelfNo,
+    locationId: firstLocation.locationId,
+    locationNo: firstLocation.locationNo,
+  },
+  idempotencyKey: 'temp-bag:BAG-MAP-001:INBOUND',
+  tickets: [runtimeTicket],
+  occurredAt: '2026-07-30 09:05',
+})
+const inboundBags = buildRuntimeInboundTempBagsFromWaitHandoverEvents([baggingEvent, inboundEvent], [])
+assert.equal(inboundBags.length, 1, '中转袋入仓后应形成一个在仓袋')
+assert.equal(inboundBags[0].bagCode, 'BAG-MAP-001')
+assert.equal((inboundEvent.payload as Record<string, unknown>).idempotencyKey, 'temp-bag:BAG-MAP-001:INBOUND')
+assert.equal(
+  ((inboundEvent.payload as Record<string, unknown>).locationRef as { locationId?: string })?.locationId,
+  firstLocation.locationId,
+)
+const baggingConfirmEvent = {
+  ...structuredClone(inboundEvent),
+  eventId: 'EVENT-BAGGING-CONFIRM',
+  eventType: '交出装袋确认' as const,
+  occurredAt: '2026-07-30 09:10',
+  refs: { ...inboundEvent.refs, transferBagCode: 'BAG-MAP-TARGET' },
+  payload: {
+    sourceTempBagCode: 'BAG-MAP-001',
+    targetTransferBagCode: 'BAG-MAP-TARGET',
+  },
+}
+const transferredStates = buildWaitHandoverLocationOccupancyStates([
+  baggingEvent,
+  inboundEvent,
+  baggingConfirmEvent,
+])
+assert.equal(transferredStates.length, 1, '换袋后同一物理库位只能保留一个占用主体')
+assert.equal(transferredStates[0].bagCode, 'BAG-MAP-TARGET', '换袋后占用主体应变为目标中转袋')
+assert.equal(transferredStates[0].locationRef.locationId, firstLocation.locationId, '换袋应继承原物理库位')
+const handoverEvent = {
+  ...structuredClone(inboundEvent),
+  eventId: 'EVENT-HANDOVER',
+  eventType: '新增交出记录' as const,
+  occurredAt: '2026-07-30 09:20',
+  refs: { ...inboundEvent.refs, transferBagCode: 'BAG-MAP-TARGET' },
+  payload: {},
+}
+assert.equal(
+  buildWaitHandoverLocationOccupancyStates([
+    baggingEvent,
+    inboundEvent,
+    baggingConfirmEvent,
+    handoverEvent,
+  ]).length,
+  0,
+  '中转袋最终交出后应释放库位',
+)
 
 console.log('check:cutting-warehouse-location-map passed')
