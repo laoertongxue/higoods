@@ -42,10 +42,15 @@ productionFiles.forEach((relativePath) => {
   const source = readFileSync(resolve(repositoryRoot, relativePath), 'utf8')
   assert.doesNotMatch(
     source,
-    /项目模板阶段|项目模板节点|项目模板|模板阶段|工作项节点/,
+    /项目模板阶段|项目模板节点|项目模板|模板阶段|项目工作项|工作项节点|工作项状态/,
     `${relativePath} 不得展示或保存旧项目模板／工作项来源语义`,
   )
 })
+
+const engineeringPageSource = readFileSync(resolve(repositoryRoot, 'src/pages/pcs-engineering-tasks.ts'), 'utf8')
+assert.doesNotMatch(engineeringPageSource, /project\?\.templateId|project\?\.templateVersion/, '项目任务来源不得读取已删除的模板字段')
+assert.match(engineeringPageSource, /sourceType: projectMode \? '项目固定步骤' : '人工创建'/, '提交时必须按创建方式锁定来源类型')
+assert.match(engineeringPageSource, /bindingMode === 'project' \? '项目固定步骤' : '人工创建'/, '交互时必须按创建方式锁定来源类型')
 
 const independentRevisionTasks = snapshot.revisionTasks.filter((task) => !task.projectId)
 assert.ok(independentRevisionTasks.length > 0, '必须保留独立改款／设计任务')

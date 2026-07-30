@@ -606,7 +606,7 @@ export function renderPcsChannelProductListPage(): string {
     statsHtml: renderStandardListStats([
       { label: '渠道商品', value: allRows.length },
       { label: '已上架待测款', value: allRows.filter((row) => getViewLabel(row.currentRecord) === '已上架待测款').length },
-      { label: '已生效', value: allRows.filter((row) => getViewLabel(row.currentRecord) === '已生效').length },
+      { label: '已生效', value: allRows.filter((row) => getViewLabel(row.currentRecord).startsWith('已生效')).length },
       { label: '已作废', value: allRows.filter((row) => getViewLabel(row.currentRecord) === '已作废').length },
     ]),
     listTitle: '商品列表',

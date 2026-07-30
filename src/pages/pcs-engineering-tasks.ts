@@ -3678,7 +3678,9 @@ function renderPlateCreateDialog(): string {
         { value: 'project', label: '关联商品项目' },
         { value: 'style', label: '独立任务' },
       ])}
-      ${renderSelectInput('来源类型', 'plate-create-source-type', draft.sourceType, PLATE_TASK_SOURCE_TYPE_LIST.map((item) => ({ value: item, label: item })))}
+      ${renderSelectInput('来源类型', 'plate-create-source-type', showProjectField ? '项目固定步骤' : '人工创建', [
+        { value: showProjectField ? '项目固定步骤' : '人工创建', label: showProjectField ? '项目固定步骤' : '人工创建' },
+      ])}
       ${showProjectField ? renderSelectInput('商品项目', 'plate-create-project', draft.projectId, buildProjectOptions()) : renderSelectInput('款式档案', 'plate-create-style-id', draft.styleId, buildStyleArchiveOptions())}
       ${renderTextInput('负责人', 'plate-create-owner', draft.ownerName, '')}
       ${renderTextInput('版师', 'plate-create-pattern-maker', draft.patternMakerName, '')}
@@ -4087,7 +4089,9 @@ function renderPatternCreateDialog(): string {
         { value: 'project', label: '关联商品项目' },
         { value: 'style', label: '独立任务' },
       ])}
-      ${renderSelectInput('来源类型', 'pattern-create-source-type', draft.sourceType, PATTERN_TASK_SOURCE_TYPE_LIST.map((item) => ({ value: item, label: item })))}
+      ${renderSelectInput('来源类型', 'pattern-create-source-type', showProjectField ? '项目固定步骤' : '人工创建', [
+        { value: showProjectField ? '项目固定步骤' : '人工创建', label: showProjectField ? '项目固定步骤' : '人工创建' },
+      ])}
       ${showProjectField ? renderSelectInput('商品项目', 'pattern-create-project', draft.projectId, buildProjectOptions()) : renderSelectInput('款式档案', 'pattern-create-style-id', draft.styleId, buildStyleArchiveOptions())}
       ${renderTextInput('负责人', 'pattern-create-owner', draft.ownerName, '')}
       ${renderTextInput('任务标题', 'pattern-create-title', draft.title, '')}
@@ -5087,7 +5091,7 @@ function renderFirstSampleDetailPage(firstSampleTaskId: string): string {
           </div>
           <div class="rounded-lg border border-slate-200 p-4">
             <p class="text-xs text-slate-500">正式对象核对</p>
-            <p class="mt-2 text-sm text-slate-900">工作项状态：${escapeHtml(task.status)}</p>
+            <p class="mt-2 text-sm text-slate-900">任务状态：${escapeHtml(task.status)}</p>
             <p class="mt-2 text-xs text-slate-500">结果编号：${escapeHtml(task.sampleCode || '-')}</p>
           </div>
         </div>
@@ -5734,11 +5738,11 @@ function submitPlateCreate(): void {
   const result = createPlateMakingTask({
     projectId: projectMode ? draft.projectId : '',
     title: draft.title.trim() || '新建制版任务',
-    sourceType: draft.sourceType,
+    sourceType: projectMode ? '项目固定步骤' : '人工创建',
     upstreamModule: projectMode ? '商品项目' : '款式档案',
     upstreamObjectType: projectMode ? '项目步骤' : '款式档案',
-    upstreamObjectId: projectMode ? (project?.templateId || '') : (selectedStyle?.styleId || ''),
-    upstreamObjectCode: projectMode ? (project?.templateVersion || '') : (selectedStyle?.styleCode || ''),
+    upstreamObjectId: projectMode ? (project?.projectId || '') : (selectedStyle?.styleId || ''),
+    upstreamObjectCode: projectMode ? (project?.projectCode || '') : (selectedStyle?.styleCode || ''),
     styleId: selectedStyle?.styleId || defaults.styleId,
     styleCode: selectedStyle?.styleCode || defaults.styleCode,
     styleName: selectedStyle?.styleName || defaults.styleName,
@@ -5845,11 +5849,11 @@ function submitPatternCreate(): void {
   const result = createPatternTask({
     projectId: projectMode ? draft.projectId : '',
     title: draft.title.trim() || '新建花型任务',
-    sourceType: draft.sourceType,
+    sourceType: projectMode ? '项目固定步骤' : '人工创建',
     upstreamModule: projectMode ? '商品项目' : '款式档案',
     upstreamObjectType: projectMode ? '项目步骤' : '款式档案',
-    upstreamObjectId: projectMode ? (project?.templateId || '') : (selectedStyle?.styleId || ''),
-    upstreamObjectCode: projectMode ? (project?.templateVersion || '') : (selectedStyle?.styleCode || ''),
+    upstreamObjectId: projectMode ? (project?.projectId || '') : (selectedStyle?.styleId || ''),
+    upstreamObjectCode: projectMode ? (project?.projectCode || '') : (selectedStyle?.styleCode || ''),
     styleId: selectedStyle?.styleId || defaults.styleId,
     styleCode: selectedStyle?.styleCode || defaults.styleCode,
     styleName: selectedStyle?.styleName || defaults.styleName,
@@ -6631,7 +6635,7 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
         state.plateCreateDraft.sourceType = value === 'project' ? '项目固定步骤' : '人工创建'
         return true
       case 'plate-create-source-type':
-        state.plateCreateDraft.sourceType = value as PlateMakingTaskSourceType
+        state.plateCreateDraft.sourceType = state.plateCreateDraft.bindingMode === 'project' ? '项目固定步骤' : '人工创建'
         return true
       case 'plate-create-project': {
         state.plateCreateDraft.projectId = value
@@ -6674,7 +6678,7 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
         state.patternCreateDraft.sourceType = value === 'project' ? '项目固定步骤' : '人工创建'
         return true
       case 'pattern-create-source-type':
-        state.patternCreateDraft.sourceType = value as PatternTaskSourceType
+        state.patternCreateDraft.sourceType = state.patternCreateDraft.bindingMode === 'project' ? '项目固定步骤' : '人工创建'
         return true
       case 'pattern-create-project': {
         state.patternCreateDraft.projectId = value

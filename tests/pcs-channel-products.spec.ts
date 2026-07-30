@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 
 import { resetProjectChannelProductRepository, listProjectChannelProducts } from '../src/data/pcs-channel-product-project-repository.ts'
-import { resetProjectRepository } from '../src/data/pcs-project-repository.ts'
+import { findProjectByCode, resetProjectRepository } from '../src/data/pcs-project-repository.ts'
 import { resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
 import {
   renderPcsChannelProductDetailPage,
@@ -40,5 +40,22 @@ assert.match(detailHtml, /查看来源项目/, '详情页应提供查看来源�
 assert.match(detailHtml, /查看款式档案/, '详情页应提供查看款式档案按钮')
 assert.doesNotMatch(detailHtml, /规格档案编码|规格档案名称/, '详情页不应再展示正式规格档案口径')
 assert.match(detailHtml, /已生效已更新|已生效待更新|已上架待测款|待上传|已上传待确认|已作废/, '详情页应展示统一业务状态标签')
+
+const channelRecords = listProjectChannelProducts()
+const activeRecords = channelRecords.filter((record) => record.channelProductStatus === '已生效')
+assert.ok(activeRecords.length > 0, '应存在已生效渠道商品')
+assert.match(
+  listHtml,
+  new RegExp(`已生效[\\s\\S]{0,500}>${activeRecords.length}<`),
+  '已生效摘要必须同时统计“已生效待更新”和“已生效已更新”',
+)
+channelRecords.forEach((record) => {
+  assert.match(record.listingTitle, new RegExp(record.projectName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), '渠道商品标题必须对应来源项目')
+  if (record.styleCode) {
+    assert.equal(record.styleCode, findProjectByCode(record.projectCode)?.linkedStyleCode, '正式 SPU 必须对应来源项目')
+  }
+  assert.ok(record.channelProductCode.includes(record.projectCode.slice(-7).replaceAll('-', '')), '渠道商品编号必须使用真实来源项目编码')
+  assert.ok(record.channelProductId.includes(record.projectCode.replaceAll('-', '_').toLowerCase()), '渠道商品 ID 必须使用真实来源项目编码')
+})
 
 console.log('pcs-channel-products.spec.ts PASS')

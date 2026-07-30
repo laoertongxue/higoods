@@ -730,22 +730,57 @@ function normalizeChannelProductRecord(record: ProjectChannelProductRecord): Pro
   }
 }
 
+const CHANNEL_SEED_PROJECT_CODE_MAP: Readonly<Record<string, string>> = {
+  'PRJ-20251216-001': 'PRJ-202603-001',
+  'PRJ-20251216-002': 'PRJ-202603-002',
+  'PRJ-20251216-005': 'PRJ-202603-005',
+  'PRJ-20251216-006': 'PRJ-202603-006',
+  'PRJ-20251216-007': 'PRJ-202603-007',
+  'PRJ-20251216-008': 'PRJ-202603-008',
+  'PRJ-20251216-011': 'PRJ-202603-011',
+  'PRJ-20251216-012': 'PRJ-202603-012',
+  'PRJ-20251216-013': 'PRJ-202603-013',
+  'PRJ-20251216-014': 'PRJ-202604-001',
+  'PRJ-20251216-015': 'PRJ-202604-002',
+  'PRJ-20251216-016': 'PRJ-202604-003',
+  'PRJ-20251216-017': 'PRJ-202604-004',
+  'PRJ-20251216-018': 'PRJ-202604-005',
+  'PRJ-20251216-019': 'PRJ-202604-006',
+  'PRJ-20251216-020': 'PRJ-202604-007',
+  'PRJ-20251216-021': 'PRJ-202604-008',
+  'PRJ-20251216-022': 'PRJ-202604-009',
+  'PRJ-20251216-023': 'PRJ-202604-011',
+  'PRJ-20251216-024': 'PRJ-202604-012',
+  'PRJ-20251216-025': 'PRJ-202604-013',
+}
+
+function buildSeedListingTitle(projectName: string, scenario: ProjectChannelProductScenario): string {
+  const suffixByScenario: Record<ProjectChannelProductScenario, string> = {
+    MEASURING: '测款款',
+    FAILED_ADJUST: '第一轮测款款',
+    FAILED_PAUSED: '暂保留款',
+    FAILED_ELIMINATED: '淘汰款',
+    HISTORY_INVALIDATED: '历史重测款',
+    STYLE_PENDING_TECH: '正式候选款',
+    STYLE_ACTIVE: '正式款',
+  }
+  return `${projectName}${suffixByScenario[scenario]}`
+}
+
 function buildSeedRecord(seed: ChannelSeed): ProjectChannelProductRecord | null {
-  const seedProjectIndex = Number(seed.projectCode.split('-').at(-1) || 0) - 1
-  const project =
-    findProjectByCode(seed.projectCode) ||
-    (seedProjectIndex >= 0 ? listProjects()[seedProjectIndex] : null)
+  const mappedProjectCode = CHANNEL_SEED_PROJECT_CODE_MAP[seed.projectCode] || seed.projectCode
+  const project = findProjectByCode(mappedProjectCode)
   const listingNode = project
     ? getProjectNodeRecordByStepCode(project.projectId, 'CHANNEL_PRODUCT_LISTING')
     : null
   if (!project || !listingNode) return null
   const channelMeta = getChannelMeta(seed.channelCode, seed.storeId)
-  const channelProductId = buildChannelProductId(seed.projectCode, seed.sequence)
-  const channelProductCode = buildChannelProductCode(seed.projectCode, seed.sequence)
+  const channelProductId = buildChannelProductId(project.projectCode, seed.sequence)
+  const channelProductCode = buildChannelProductCode(project.projectCode, seed.sequence)
   const upstreamProductId =
     seed.channelProductStatus === '待上传'
       ? ''
-      : buildUpstreamCode(seed.projectCode, seed.sequence)
+      : buildUpstreamCode(project.projectCode, seed.sequence)
   const sampleCostReviewPrice = getLatestSampleCostReviewSalesPrice(project.projectId)
   const listingPrice = sampleCostReviewPrice?.salesPrice ?? seed.listingPrice
   const currencyCode = sampleCostReviewPrice?.salesCurrency || resolvePcsStoreCurrency(seed.storeId, seed.channelCode) || seed.currency
@@ -797,8 +832,8 @@ function buildSeedRecord(seed: ChannelSeed): ProjectChannelProductRecord | null 
     channelName: channelMeta.channelName,
     storeId: seed.storeId,
     storeName: channelMeta.storeName,
-    styleListingTitle: seed.listingTitle,
-    listingTitle: seed.listingTitle,
+    styleListingTitle: buildSeedListingTitle(project.projectName, seed.scenario),
+    listingTitle: buildSeedListingTitle(project.projectName, seed.scenario),
     listingDescription: '',
     listingPrice,
     defaultPriceAmount: listingPrice,
@@ -826,9 +861,9 @@ function buildSeedRecord(seed: ChannelSeed): ProjectChannelProductRecord | null 
     skuId: primarySpec?.specLineId || '',
     skuCode: primarySpec?.sellerSku || '',
     skuName: [primarySpec?.colorName, primarySpec?.sizeName].filter(Boolean).join(' / '),
-    styleId: seed.styleId || '',
-    styleCode: seed.styleCode || '',
-    styleName: seed.styleName || '',
+    styleId: seed.styleId ? (project.linkedStyleId || '') : '',
+    styleCode: seed.styleId ? (project.linkedStyleCode || '') : '',
+    styleName: seed.styleId ? project.projectName : '',
     invalidatedReason: seed.invalidatedReason || '',
     createdAt: seed.createdAt,
     updatedAt: seed.updatedAt,
@@ -838,7 +873,7 @@ function buildSeedRecord(seed: ChannelSeed): ProjectChannelProductRecord | null 
     scenario: seed.scenario,
     conclusion: seed.conclusion || '',
     testingStatusText: buildTestingStatusText(seed),
-    listingInstanceCode: `LIST-${seed.projectCode.slice(-7).replace(/-/g, '')}-${seed.sequence}`,
+    listingInstanceCode: `LIST-${project.projectCode.slice(-10).replace(/-/g, '')}-${seed.sequence}`,
     linkedRevisionTaskId: seed.linkedRevisionTaskId || '',
     linkedRevisionTaskCode: seed.linkedRevisionTaskCode || '',
     linkedLiveLineId: seed.linkedLiveLineId || '',

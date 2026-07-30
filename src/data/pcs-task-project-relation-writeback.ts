@@ -1417,7 +1417,7 @@ export function createRevisionTaskWithProjectRelation(input: RevisionTaskCreateI
         return { ok: false, message: pendingItem.reason, pendingItem }
       }
       resolvedMeasureUpstreamModule = '测款结论'
-      resolvedMeasureUpstreamObjectType = '项目工作项'
+      resolvedMeasureUpstreamObjectType = '项目步骤'
       resolvedMeasureUpstreamObjectId = testConclusionNode.projectNodeId
       resolvedMeasureUpstreamObjectCode = testConclusionNode.projectNodeId
     } else {
@@ -1666,18 +1666,6 @@ export function createPlateMakingTaskWithProjectRelation(
     return { ok: false, message: upstreamError, pendingItem }
   }
 
-  const { node, pendingItem: nodePending } = getNodeOrPending('制版任务', project.projectId, project.projectCode, rawCode, 'PATTERN_TASK')
-  if (!node || nodePending) {
-    upsertPlateMakingTaskPendingItem(nodePending!)
-    return { ok: false, message: nodePending!.reason, pendingItem: nodePending! }
-  }
-
-  const cancelledPending = blockCancelledNode('制版任务', rawCode, project.projectCode, node)
-  if (cancelledPending) {
-    upsertPlateMakingTaskPendingItem(cancelledPending)
-    return { ok: false, message: cancelledPending.reason, pendingItem: cancelledPending }
-  }
-
   const now = nowTaskText()
   const taskId = input.plateTaskId || nextCode('PT', listPlateMakingTasks().length)
   const existing = getPlateMakingTaskById(taskId)
@@ -1688,7 +1676,7 @@ export function createPlateMakingTaskWithProjectRelation(
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectName: project.projectName,
-    projectNodeId: node.projectNodeId,
+    projectNodeId: '',
     stepCode: 'PATTERN_TASK',
     stepName: '制版任务',
     sourceType: input.sourceType,
@@ -1728,7 +1716,7 @@ export function createPlateMakingTaskWithProjectRelation(
     relationPayload({
       projectId: project.projectId,
       projectCode: project.projectCode,
-      projectNodeId: node.projectNodeId,
+      projectNodeId: '',
       stepCode: 'PATTERN_TASK',
       stepName: '制版任务',
       sourceModule: '制版任务',
@@ -1743,16 +1731,8 @@ export function createPlateMakingTaskWithProjectRelation(
     }),
   )
 
-  updateTaskNode(node, task, {
-    latestInstanceId: task.plateTaskId,
-    latestInstanceCode: task.plateTaskCode,
-    latestResultType: '已创建制版任务',
-    latestResultText: '已创建制版任务',
-    pendingActionType: '查看制版任务',
-    pendingActionText: '查看制版任务',
-  }, Boolean(existing))
   syncExistingProjectArchiveByProjectId(task.projectId, task.updatedBy)
-  return { ok: true, task, relation, message: '制版任务已创建，已写项目关系，已更新项目节点。' }
+  return { ok: true, task, relation, message: '制版任务已创建，已关联商品项目固定步骤。' }
 }
 
 export function createPlateMakingTask(
@@ -1796,18 +1776,6 @@ export function createPatternTaskWithProjectRelation(input: PatternTaskCreateInp
     return { ok: false, message: upstreamError, pendingItem }
   }
 
-  const { node, pendingItem: nodePending } = getNodeOrPending('花型任务', project.projectId, project.projectCode, rawCode, 'PATTERN_ARTWORK_TASK')
-  if (!node || nodePending) {
-    upsertPatternTaskPendingItem(nodePending!)
-    return { ok: false, message: nodePending!.reason, pendingItem: nodePending! }
-  }
-
-  const cancelledPending = blockCancelledNode('花型任务', rawCode, project.projectCode, node)
-  if (cancelledPending) {
-    upsertPatternTaskPendingItem(cancelledPending)
-    return { ok: false, message: cancelledPending.reason, pendingItem: cancelledPending }
-  }
-
   const now = nowTaskText()
   const taskId = input.patternTaskId || nextCode('AT', listPatternTasks().length)
   const existing = getPatternTaskById(taskId)
@@ -1820,7 +1788,7 @@ export function createPatternTaskWithProjectRelation(input: PatternTaskCreateInp
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectName: project.projectName,
-    projectNodeId: node.projectNodeId,
+    projectNodeId: '',
     stepCode: 'PATTERN_ARTWORK_TASK',
     stepName: '花型任务',
     sourceType: input.sourceType,
@@ -1895,7 +1863,7 @@ export function createPatternTaskWithProjectRelation(input: PatternTaskCreateInp
     relationPayload({
       projectId: project.projectId,
       projectCode: project.projectCode,
-      projectNodeId: node.projectNodeId,
+      projectNodeId: '',
       stepCode: 'PATTERN_ARTWORK_TASK',
       stepName: '花型任务',
       sourceModule: '花型任务',
@@ -1910,16 +1878,8 @@ export function createPatternTaskWithProjectRelation(input: PatternTaskCreateInp
     }),
   )
 
-  updateTaskNode(node, task, {
-    latestInstanceId: task.patternTaskId,
-    latestInstanceCode: task.patternTaskCode,
-    latestResultType: '已创建花型任务',
-    latestResultText: '已创建花型任务',
-    pendingActionType: '查看花型任务',
-    pendingActionText: '查看花型任务',
-  }, Boolean(existing))
   syncExistingProjectArchiveByProjectId(task.projectId, task.updatedBy)
-  return { ok: true, task, relation, message: '花型任务已创建，已写项目关系，已更新项目节点。' }
+  return { ok: true, task, relation, message: '花型任务已创建，已关联商品项目固定步骤。' }
 }
 
 function createPatternTaskStandalone(input: PatternTaskCreateInput): TaskWritebackResult<PatternTaskRecord> {
