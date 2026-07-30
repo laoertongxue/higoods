@@ -453,8 +453,6 @@ function renderProcessTab(rows: TechnicalProcessEntry[]): string {
                 <td class="px-3 py-2">${renderTextValue(row.downstreamTarget)}</td>
                 <td class="px-3 py-2 text-xs text-muted-foreground">${[
                   row.materialIssueMode === 'WAREHOUSE_DELIVERY' ? '染厂/面料仓送料到厂' : '',
-                  row.requiresFeiTicket ? '打印毛织菲票' : '',
-                  row.packagingRequired ? '毛织厂包装' : '',
                 ].filter(Boolean).map((item) => escapeHtml(item)).join(' / ') || '—'}</td>
                 <td class="px-3 py-2">${row.outputValuePerUnit ? `${escapeHtml(String(row.outputValuePerUnit))} ${escapeHtml(row.outputValueUnit || '产值/件')}` : '暂无数据'}</td>
               </tr>

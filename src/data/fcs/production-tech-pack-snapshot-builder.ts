@@ -11,6 +11,7 @@ import {
   patternMaterialFileTypeLabels,
   type PatternMaterialType,
   type ProductionOrderTechPackSnapshot,
+  type ProductionTechPackColorMaterialMapping,
   type TechPackBomItemSnapshot,
   type TechPackCutPiecePartSnapshot,
   type TechPackImageSnapshot,
@@ -277,9 +278,23 @@ function cloneBomItems(items: TechPackBomItemSnapshot[]): TechPackBomItemSnapsho
   }))
 }
 
-function cloneColorMappings(items: TechnicalColorMaterialMapping[]): TechnicalColorMaterialMapping[] {
+function cloneColorMappings(items: TechnicalColorMaterialMapping[]): ProductionTechPackColorMaterialMapping[] {
   return items.map((item) => ({
     ...item,
+    mappingOrigin: 'TECH_PACK',
+    lines: item.lines.map((line) => ({
+      ...line,
+      applicableSkuCodes: [...(line.applicableSkuCodes ?? [])],
+    })),
+  }))
+}
+
+function cloneSnapshotColorMappings(
+  items: ProductionTechPackColorMaterialMapping[],
+): ProductionTechPackColorMaterialMapping[] {
+  return items.map((item) => ({
+    ...item,
+    mappingOrigin: item.mappingOrigin,
     lines: item.lines.map((line) => ({
       ...line,
       applicableSkuCodes: [...(line.applicableSkuCodes ?? [])],
@@ -606,7 +621,7 @@ export function cloneProductionOrderTechPackSnapshot(
     processEntries: cloneProcessEntries(snapshot.processEntries),
     sizeTable: cloneSizeTable(snapshot.sizeTable),
     sizeMeasurements: cloneSizeMeasurements(snapshot.sizeMeasurements),
-    colorMaterialMappings: cloneColorMappings(snapshot.colorMaterialMappings),
+    colorMaterialMappings: cloneSnapshotColorMappings(snapshot.colorMaterialMappings),
     cutPieceParts: cloneCutPieceParts(snapshot.cutPieceParts),
     imageSnapshot: cloneImageSnapshot(snapshot.imageSnapshot),
     patternDesigns: clonePatternDesigns(snapshot.patternDesigns),
@@ -731,6 +746,84 @@ function resolveDemandColorMaterialInfo(input: {
   }
 }
 
+export function alignWoolColorMaterialMappingsForDemand(input: {
+  mappings: ProductionTechPackColorMaterialMapping[]
+  demandSkuLines: Array<{
+    skuCode: string
+    colorCode: string
+    colorName: string
+  }>
+  mappingIdPrefix?: string
+  spuCode?: string
+  fallbackBomItemId?: string
+  resolveMaterialInfo?: (colorCode: string, colorName: string, colorIndex: number) => {
+    code: string
+    name: string
+  }
+}): ProductionTechPackColorMaterialMapping[] {
+  if (!input.demandSkuLines.length || !input.mappings.length) {
+    return cloneSnapshotColorMappings(input.mappings)
+  }
+
+  const colors = Array.from(new Map(
+    input.demandSkuLines.map((line) => {
+      const colorCode = normalizeText(line.colorCode)
+      const colorName = normalizeText(line.colorName) || colorCode
+      return [(colorCode || colorName).toLowerCase(), { colorCode, colorName }]
+    }),
+  ).values())
+  const fallbackMapping = input.mappings[0]
+
+  return colors
+    .map(({ colorCode, colorName }, colorIndex) => {
+      const normalizedColorCode = colorCode.toLowerCase()
+      const normalizedColorName = colorName.toLowerCase()
+      const existing = input.mappings.find((mapping) =>
+        normalizeText(mapping.colorCode).toLowerCase() === normalizedColorCode
+        || normalizeText(mapping.colorName).toLowerCase() === normalizedColorName,
+      )
+      const template = existing ?? fallbackMapping
+      if (!template) return null
+      const skuCodesForColor = uniqueStrings(
+        input.demandSkuLines
+          .filter((line) =>
+            normalizeText(line.colorCode).toLowerCase() === normalizedColorCode
+            || normalizeText(line.colorName).toLowerCase() === normalizedColorName,
+          )
+          .map((line) => line.skuCode),
+      )
+      const materialInfo = input.resolveMaterialInfo?.(colorCode, colorName, colorIndex)
+      const mappingId = input.mappingIdPrefix
+        ? `${input.mappingIdPrefix}-${colorIndex + 1}`
+        : existing?.id ?? `${template.id}-fallback-${colorIndex + 1}`
+
+      return {
+        ...template,
+        id: mappingId,
+        mappingOrigin: existing ? existing.mappingOrigin : 'DEMAND_FALLBACK',
+        spuCode: input.spuCode || template.spuCode,
+        colorCode,
+        colorName,
+        lines: template.lines.map((line, lineIndex) => ({
+          ...line,
+          id: input.mappingIdPrefix
+            ? `${mappingId}-${normalizeText(line.pieceId) || lineIndex + 1}`
+            : line.id,
+          materialCode:
+            materialInfo && normalizeText(line.bomItemId) === normalizeText(input.fallbackBomItemId)
+              ? materialInfo.code
+              : line.materialCode,
+          materialName:
+            materialInfo && normalizeText(line.bomItemId) === normalizeText(input.fallbackBomItemId)
+              ? materialInfo.name
+              : line.materialName,
+          applicableSkuCodes: skuCodesForColor,
+        })),
+      } satisfies ProductionTechPackColorMaterialMapping
+    })
+    .filter((item): item is ProductionTechPackColorMaterialMapping => Boolean(item))
+}
+
 function alignSnapshotWithDemandSkuLines(
   snapshot: ProductionOrderTechPackSnapshot,
   demand: Pick<ProductionDemand, 'spuCode'> & Partial<Pick<ProductionDemand, 'skuLines'>>,
@@ -746,47 +839,24 @@ function alignSnapshotWithDemandSkuLines(
   const fallbackMaterialName = normalizeText(fallbackBomItem?.name) || normalizeText(fallbackMapping?.lines?.[0]?.materialName) || '主面料'
   const fallbackBomItemId = normalizeText(fallbackBomItem?.id) || normalizeText(fallbackMapping?.lines?.[0]?.bomItemId)
 
-  const colorMaterialMappings = colors
-    .map((color, colorIndex) => {
-      const existing = snapshot.colorMaterialMappings.find(
-        (mapping) =>
-          normalizeText(mapping.colorName).toLowerCase() === color.toLowerCase()
-          || normalizeText(mapping.colorCode).toLowerCase() === color.toLowerCase(),
-      )
-      const template = existing ?? fallbackMapping
-      if (!template) return null
-      const skuCodesForColor = uniqueStrings(
-        skuLines
-          .filter((line) => normalizeText(line.color).toLowerCase() === color.toLowerCase())
-          .map((line) => line.skuCode),
-      )
-      const materialInfo = resolveDemandColorMaterialInfo({
-        demand,
-        color,
-        colorIndex,
-        fallbackBomItemId,
-        fallbackMaterialName,
-      })
-      return {
-        ...template,
-        id: `${snapshot.snapshotId}-mapping-${colorIndex + 1}`,
-        spuCode: demand.spuCode,
-        colorCode: color,
-        colorName: color,
-        lines: template.lines.map((line, lineIndex) => ({
-          ...line,
-          id: `${snapshot.snapshotId}-mapping-${colorIndex + 1}-${normalizeText(line.pieceId) || lineIndex + 1}`,
-          materialCode: normalizeText(line.bomItemId) === fallbackBomItemId
-            ? materialInfo.code
-            : line.materialCode,
-          materialName: normalizeText(line.bomItemId) === fallbackBomItemId
-            ? materialInfo.name
-            : line.materialName,
-          applicableSkuCodes: skuCodesForColor,
-        })),
-      } satisfies TechnicalColorMaterialMapping
-    })
-    .filter((item): item is TechnicalColorMaterialMapping => Boolean(item))
+  const colorMaterialMappings = alignWoolColorMaterialMappingsForDemand({
+    mappings: snapshot.colorMaterialMappings,
+    demandSkuLines: skuLines.map((line) => ({
+      skuCode: line.skuCode,
+      colorCode: line.color,
+      colorName: line.color,
+    })),
+    mappingIdPrefix: `${snapshot.snapshotId}-mapping`,
+    spuCode: demand.spuCode,
+    fallbackBomItemId,
+    resolveMaterialInfo: (colorCode, _colorName, colorIndex) => resolveDemandColorMaterialInfo({
+      demand,
+      color: colorCode,
+      colorIndex,
+      fallbackBomItemId,
+      fallbackMaterialName,
+    }),
+  })
 
   return {
     ...snapshot,

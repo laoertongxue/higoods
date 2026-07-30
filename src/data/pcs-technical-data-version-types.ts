@@ -335,8 +335,6 @@ export interface TechnicalProcessEntry {
   supportedTargetObjectLabels?: Array<'已裁部位' | '完整面料' | '成衣'>
   woolTaskType?: 'WHOLE_GARMENT' | 'PART_PANEL'
   downstreamTarget?: '后道工厂' | '裁床待交出仓'
-  requiresFeiTicket?: boolean
-  packagingRequired?: boolean
   materialIssueMode?: 'WAREHOUSE_DELIVERY'
   linkedBomItemIds?: string[]
   linkedPatternIds?: string[]

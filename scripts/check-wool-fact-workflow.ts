@@ -1,5 +1,36 @@
 import assert from 'node:assert/strict'
-import {
+import { readFileSync } from 'node:fs'
+import { alignWoolColorMaterialMappingsForDemand } from '../src/data/fcs/production-tech-pack-snapshot-builder.ts'
+
+const alignedMappings = alignWoolColorMaterialMappingsForDemand({
+  mappings: [{
+    id: 'MAP-BLACK',
+    mappingOrigin: 'TECH_PACK',
+    spuCode: 'GARMENT',
+    colorCode: 'BLACK',
+    colorName: '黑色',
+    status: 'CONFIRMED',
+    generatedMode: 'MANUAL',
+    lines: [],
+  }],
+  demandSkuLines: [
+    { skuCode: 'GARMENT-BLACK-M', colorCode: 'BLACK', colorName: '黑色' },
+    { skuCode: 'GARMENT-WHITE-M', colorCode: 'WHITE', colorName: '白色' },
+  ],
+})
+const mappingOrigins = alignedMappings.map((item) => item.mappingOrigin)
+assert(mappingOrigins.includes('TECH_PACK'))
+assert(mappingOrigins.includes('DEMAND_FALLBACK'))
+assert.equal(mappingOrigins.filter((origin) => origin === 'DEMAND_FALLBACK').every((origin) => origin !== 'TECH_PACK'), true)
+
+const processDomainSource = readFileSync(
+  new URL('../src/pages/tech-pack/process-domain.ts', import.meta.url),
+  'utf8',
+)
+assert.equal(processDomainSource.includes('打印毛织菲票'), false)
+assert.equal(processDomainSource.includes('毛织厂包装'), false)
+
+const {
   addWoolProcessReport,
   addWoolYarnReceipt,
   completeWoolWorkOrder,
@@ -9,7 +40,7 @@ import {
   listWoolWorkOrders,
   replaceWoolMachineAssociations,
   resetWoolFactWorkflowMock,
-} from '../src/data/fcs/wool-task-domain.ts'
+} = await import('../src/data/fcs/wool-task-domain.ts')
 
 resetWoolFactWorkflowMock('CHECK_WOOL_FACT_WORKFLOW')
 const order = listWoolWorkOrders().find((item) => item.woolOrderNo === 'WMO-CHECK-READY')!

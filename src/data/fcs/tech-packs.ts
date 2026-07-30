@@ -291,8 +291,6 @@ export interface TechPackProcessEntry {
   supportedTargetObjectLabels?: SpecialCraftTargetObjectLabel[]
   woolTaskType?: TechPackWoolTaskType
   downstreamTarget?: TechPackWoolDownstreamTarget
-  requiresFeiTicket?: boolean
-  packagingRequired?: boolean
   materialIssueMode?: 'WAREHOUSE_DELIVERY'
   linkedBomItemIds?: string[]
   linkedPatternIds?: string[]

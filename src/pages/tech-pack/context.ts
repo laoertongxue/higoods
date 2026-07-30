@@ -143,8 +143,6 @@ type TechniqueItem = {
   supportedTargetObjectLabels?: SpecialCraftTargetObjectLabel[]
   woolTaskType?: 'WHOLE_GARMENT' | 'PART_PANEL'
   downstreamTarget?: '后道工厂' | '裁床待交出仓'
-  requiresFeiTicket?: boolean
-  packagingRequired?: boolean
   materialIssueMode?: 'WAREHOUSE_DELIVERY'
   linkedBomItemIds?: string[]
   linkedPatternIds?: string[]
@@ -1975,7 +1973,6 @@ interface TechPackPageState {
     craftCode: string
     selectedTargetObject: TechPackSpecialCraftTargetObject | ''
     linkedBomItemIds: string[]
-    packagingRequired: boolean
     ruleSource: TechPackRuleSource
     assignmentGranularity: TechPackAssignmentGranularity
     detailSplitMode: TechPackDetailSplitMode
@@ -2086,7 +2083,6 @@ const state: TechPackPageState = {
     craftCode: '',
     selectedTargetObject: '',
     linkedBomItemIds: [],
-    packagingRequired: false,
     ruleSource: 'INHERIT_PROCESS',
     assignmentGranularity: 'ORDER',
     detailSplitMode: 'COMPOSITE',
@@ -2481,14 +2477,12 @@ function getSelectedTargetObjectForCraft(craft: Pick<CraftOption, 'isSpecialCraf
 
 function getWoolEntryMeta(craftName: string): Pick<
   TechniqueItem,
-  'woolTaskType' | 'downstreamTarget' | 'requiresFeiTicket' | 'packagingRequired' | 'materialIssueMode'
+  'woolTaskType' | 'downstreamTarget' | 'materialIssueMode'
 > {
   if (craftName === '部位毛织') {
     return {
       woolTaskType: 'PART_PANEL',
       downstreamTarget: '裁床待交出仓',
-      requiresFeiTicket: true,
-      packagingRequired: false,
       materialIssueMode: 'WAREHOUSE_DELIVERY',
     }
   }
@@ -2496,8 +2490,6 @@ function getWoolEntryMeta(craftName: string): Pick<
     return {
       woolTaskType: 'WHOLE_GARMENT',
       downstreamTarget: '后道工厂',
-      requiresFeiTicket: false,
-      packagingRequired: state.newTechnique.packagingRequired,
       materialIssueMode: 'WAREHOUSE_DELIVERY',
     }
   }
@@ -4478,8 +4470,6 @@ function toTechniqueItemFromEntry(entry: TechPackProcessEntry, fallbackIndex: nu
       : normalizedEntry.targetObjectName,
     woolTaskType: normalizedEntry.woolTaskType,
     downstreamTarget: normalizedEntry.downstreamTarget,
-    requiresFeiTicket: normalizedEntry.requiresFeiTicket,
-    packagingRequired: normalizedEntry.packagingRequired,
     materialIssueMode: normalizedEntry.materialIssueMode,
     linkedBomItemIds: normalizedEntry.linkedBomItemIds ? [...normalizedEntry.linkedBomItemIds] : undefined,
     linkedPatternIds: normalizedEntry.linkedPatternIds ? [...normalizedEntry.linkedPatternIds] : undefined,
@@ -5047,8 +5037,6 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
       targetObjectName: item.targetObjectName,
       woolTaskType: item.woolTaskType,
       downstreamTarget: item.downstreamTarget,
-      requiresFeiTicket: item.requiresFeiTicket,
-      packagingRequired: item.packagingRequired,
       materialIssueMode: item.materialIssueMode,
       linkedBomItemIds: item.linkedBomItemIds ? [...item.linkedBomItemIds] : undefined,
       linkedPatternIds: item.linkedPatternIds ? [...item.linkedPatternIds] : undefined,
@@ -5351,7 +5339,6 @@ function resetTechniqueForm(): void {
     craftCode: '',
     selectedTargetObject: '',
     linkedBomItemIds: [],
-    packagingRequired: false,
     ruleSource: 'INHERIT_PROCESS',
     assignmentGranularity: 'ORDER',
     detailSplitMode: 'COMPOSITE',

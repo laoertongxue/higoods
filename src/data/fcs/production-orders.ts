@@ -1541,6 +1541,7 @@ function buildReleaseTargetSupplementProductionOrder(base: ProductionOrder): Pro
   }]
   const colorMaterialMappings = colors.map((color, colorIndex) => ({
     id: `${versionId}-mapping-${colorIndex + 1}`,
+    mappingOrigin: 'TECH_PACK' as const,
     spuCode: 'ASYSA26060310',
     colorCode: color,
     colorName: color,
