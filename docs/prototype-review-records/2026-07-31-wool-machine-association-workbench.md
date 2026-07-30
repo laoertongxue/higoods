@@ -1,0 +1,116 @@
+# 毛织横机生产关联与设备档案原型审查记录
+
+## 1. 基本信息
+
+| 项目 | 内容 |
+| --- | --- |
+| 审查日期 | 2026-07-31 |
+| 相关需求 / 任务 | 毛织事实工作流任务 10：横机生产关联工作台与设备档案 |
+| 涉及系统 | PFOS |
+| 涉及页面路径 | `/fcs/craft/wool/machine-associations`、`/fcs/craft/wool/machines`、`/fcs/craft/wool/work-orders` |
+| 端类型 | 管理端 / 主管端 |
+| 主要角色 | 毛织主管、设备主管、生产跟单 |
+| 主要任务 | 按具体毛织加工单维护横机整组当前关系；登记设备维修、停用和恢复空闲 |
+| 上游来源 | 毛织加工单、横机设备主数据、当前横机关联 |
+| 下游去向 | 毛织加工执行、设备可用性、加工单完成自动释放 |
+| 是否涉及扫码 | 否 |
+| 是否涉及数量 | 否 |
+| 是否涉及交接或责任转移 | 是 |
+| 是否涉及异常或差异 | 是 |
+
+## 2. 参考规范
+
+- `docs/higood-indonesia-factory-product-design-guidelines.md`
+- `docs/higood-indonesia-factory-prototype-review-checklist.md`
+- `docs/superpowers/specs/2026-07-30-wool-management-fact-workflow-design.md`
+
+## 3. 自查结论
+
+| 检查项 | 结论 | 说明 |
+| --- | --- | --- |
+| 角色匹配 | 通过 | 毛织主管维护生产关系，设备主管维护设备可用性；两类职责在两个页面分开 |
+| 任务清晰度 | 通过 | 生产关联页以每台设备当前服务哪张加工单为主；设备页以设备是否可用为主 |
+| 信息架构与导航 | 通过 | 加工单列表和生产关联页共用同一工作台；旧横机排产不再有菜单或路由入口 |
+| 页面模式 | 通过 | 两页均为管理端标准列表，使用统一筛选、分页、列设置和固定操作列 |
+| 信息负荷 | 通过 | 不设置重复统计卡片；加工单与设备的关键关系直接在列表中展示 |
+| 文案 | 通过 | 使用“横机生产关联、关联生产单、解除关联、维修、停用、空闲、生产中”等业务词 |
+| 数量与状态 | 通过 | 设备只展示空闲、生产中、维修、停用；生产中由关系派生，不提供手工选项 |
+| 扫码与识别 | 不适用 | 本任务是管理端关系维护，不涉及现场扫码 |
+| 防错 | 通过 | 一单多加工单必须继续选择具体单；维修停用禁选；跨单转移和生产中改状态均二次确认 |
+| UI 样式 | 通过 | 危险影响使用克制的警示区，操作列固定右侧，宽表只在表格容器内滚动 |
+| 组件交互 | 通过 | 搜索使用 180ms debounce；筛选、分页、弹窗和表格均局部更新，不触发整页重绘 |
+| 协作关系 | 通过 | 保存整组最终真相；跨单转移明确原加工单、生产单和款号 |
+| 异常与追溯 | 通过 | 展示关联人、关联时间；设备状态变更由单一原子命令写关联日志和操作日志 |
+| 现场设备可用性 | 通过 | 标准列表支持 1366×768 与 1280×720，操作列保持可见；弹窗限制高度并可滚动 |
+
+## 4. 问题标签
+
+- `选不对`
+- `点错风险`
+- `状态抽象`
+- `协作断裂`
+- `追溯不足`
+- `组件误用`
+
+## 5. 主要问题与处理
+
+| 问题 | 标签 | 影响角色 | 处理方式 | 是否仍有风险 |
+| --- | --- | --- | --- | --- |
+| 旧横机排产把设备当作加工节点和排期 | `状态抽象` | 毛织主管 | 新页面只表达设备当前服务的具体加工单，删除当前菜单和路由中的排产入口 | 否 |
+| 只选生产单会混淆同单下整件和部位加工单 | `选不对` | 毛织主管 | 先选生产单；只有一张可维护加工单时自动选择，多张时强制选择具体 `woolOrderId` | 否 |
+| 多选只追加会残留已取消设备 | `协作断裂` | 毛织主管 | 弹窗选择集合是保存后的整组真相；0 选择用于解除全部关联 | 否 |
+| 生产中设备从别单转移可能静默影响原单 | `点错风险` | 毛织主管、跟单 | 保存前列出设备、原加工单、生产单和款号，要求再次确认 |
+| 维修、停用设备仍被误选 | `选不对` | 毛织主管 | 设备可见但选择框禁用；领域命令再次阻断 |
+| 在设备档案手工选择生产中会制造伪状态 | `状态抽象` | 设备主管 | 状态表单只提供空闲、维修、停用；生产中只读派生 |
+| 生产中设备直接改维修或停用会静默断产 | `点错风险` | 设备主管、毛织主管 | 影响确认展示当前加工单、生产单、款号和关联时间；再次确认后调用单一原子命令 |
+| 动态业务文本可能污染页面结构 | `组件误用` | 所有使用者 | 设备、加工单、生产单、款式、操作人、时间和错误信息全部转义后输出 | 否 |
+
+## 6. 最终结论
+
+结论：通过。
+
+说明：
+
+- 横机生产关联页默认每台横机一行，关系始终落到具体毛织加工单。
+- 加工单列表通过 `woolOrderId` 锁定同一关联工作台，不复制第二套弹窗逻辑。
+- 达到 150% 但仍有关联的未完成加工单继续保留入口以便解除；已完成加工单由领域操作门禁隐藏入口。
+- 设备档案不存在“已排产”或可手工设置的“生产中”；关联建立、转移、解除及设备维修停用共享领域事实。
+- 页面交互均在当前列表或弹窗局部刷新，搜索输入使用 debounce，图标只 hydrate 新区域。
+
+## 7. 变更覆盖与验证
+
+### 受管文件
+
+- `src/pages/process-factory/wool/machine-associations.ts`
+- `src/pages/process-factory/wool/machines.ts`
+- `src/pages/process-factory/wool/work-orders.ts`
+- `src/pages/process-factory/wool/work-order-detail.ts`
+- `src/data/fcs/wool-domain/machine-associations.ts`
+- `src/data/fcs/fcs-route-links.ts`
+- `src/data/app-shell-config.ts`
+- `src/router/routes-fcs.ts`
+- `src/router/route-renderers-fcs.ts`
+- `src/main-handlers/fcs-handlers.ts`
+
+### 页面路由
+
+- `/fcs/craft/wool/machine-associations`
+- `/fcs/craft/wool/machine-associations?woolOrderId=<具体加工单 ID>`
+- `/fcs/craft/wool/machines`
+- `/fcs/craft/wool/work-orders`
+
+### 验证命令
+
+- `npm run check:wool-fact-workflow`：通过。
+- `npm run check:list-page-governance:static`：通过。
+- `npm run check:prototype-design-governance -- --all`：通过。
+- `npm run check:wool-internal-style-code`：通过。
+- 任务 10 页面聚焦 strict TypeScript 诊断：任务 10 受管页面和横机领域文件无诊断；全仓仍有既存诊断。
+- `git diff --check`：通过。
+- `codegraph sync && codegraph status`：通过，索引已同步且最新。
+
+### 例外
+
+- 阶段例外：旧 `machine-schedule.ts` 文件、旧菲票/统计页面和其余兼容代码按正式计划任务 14 统一删除；本任务已经移除旧横机排产的菜单、路由、渲染器和事件入口，不形成重复可达业务入口。
+- 阶段例外：完整 `npm run check:list-page-governance` 和 `npm run build` 均在计划任务 13 尚未迁移的 `pda-handover-events.ts` 旧毛织导入处阻断，缺少 `getWoolHandoutRecordSeedsByHeadId`、`listWoolHandoverHeadSeeds` 等已删除导出；本任务不恢复旧兼容接口。
+- `work-order-detail.ts` 仅补充 `@page-pattern: detail` 治理声明，修正任务 9 页面分类遗漏，不改变页面行为。

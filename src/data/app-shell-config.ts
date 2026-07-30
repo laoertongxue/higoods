@@ -520,7 +520,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           icon: 'Shirt',
           children: [
             { key: 'pfos-wool-work-orders', title: '毛织加工单', icon: 'ClipboardList', href: '/fcs/craft/wool/work-orders' },
-            { key: 'pfos-wool-machine-schedule', title: '横机排产', icon: 'CalendarClock', href: '/fcs/craft/wool/machine-schedule' },
+            { key: 'pfos-wool-machine-associations', title: '横机生产关联', icon: 'Link2', href: '/fcs/craft/wool/machine-associations' },
             { key: 'pfos-wool-machines', title: '横机设备', icon: 'Settings2', href: '/fcs/craft/wool/machines' },
             { key: 'pfos-wool-wait-process-warehouse', title: '毛织待加工仓', icon: 'Warehouse', href: '/fcs/craft/wool/wait-process-warehouse' },
             { key: 'pfos-wool-wait-handover-warehouse', title: '毛织待交出仓', icon: 'PackageCheck', href: '/fcs/craft/wool/wait-handover-warehouse' },

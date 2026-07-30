@@ -1109,3 +1109,4 @@ export async function handleCraftWoolDetailEvent(target: HTMLElement): Promise<b
   }
   return false
 }
+// @page-pattern: detail

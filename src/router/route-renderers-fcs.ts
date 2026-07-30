@@ -522,9 +522,9 @@ export const renderCraftWoolFeiTicketsPage = createAsyncRenderer(
   () => import('../pages/process-factory/wool/fei-tickets'),
   'renderCraftWoolFeiTicketsPage',
 )
-export const renderCraftWoolMachineSchedulePage = createAsyncRenderer(
-  () => import('../pages/process-factory/wool/machine-schedule'),
-  'renderCraftWoolMachineSchedulePage',
+export const renderCraftWoolMachineAssociationsPage = createAsyncRenderer(
+  () => import('../pages/process-factory/wool/machine-associations'),
+  'renderCraftWoolMachineAssociationsPage',
 )
 export const renderCraftWoolMachinesPage = createAsyncRenderer(
   () => import('../pages/process-factory/wool/machines'),

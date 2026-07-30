@@ -94,6 +94,13 @@ export function getWoolMachineById(machineId: string): WoolMachineView | undefin
   return machine ? { ...machine, status: machineStatus(store, machine) } : undefined
 }
 
+export function listWoolMachineViews(): WoolMachineView[] {
+  const store = readWoolStore()
+  return store.machines
+    .map((machine) => ({ ...machine, status: machineStatus(store, machine) }))
+    .sort((left, right) => left.machineNo.localeCompare(right.machineNo, 'zh-CN'))
+}
+
 export function releaseWoolMachineAssociationsInDraft(
   draft: WoolDomainStore,
   woolOrderId: string,
