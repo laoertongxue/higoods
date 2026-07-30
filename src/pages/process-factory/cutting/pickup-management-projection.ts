@@ -132,11 +132,25 @@ export function resolvePickupRequiredQty(input: {
   }
 }
 
+function mobileTaskLinkHasExactReference(mobileTaskLink: string, reference: string): boolean {
+  if (!mobileTaskLink || !reference) return false
+  try {
+    const url = new URL(mobileTaskLink, 'https://higood.local')
+    const pathSegments = url.pathname.split('/').filter(Boolean)
+    const encodedTaskId = pathSegments.at(-1) ?? ''
+    const taskId = decodeURIComponent(encodedTaskId)
+    return taskId === reference
+      || Array.from(url.searchParams.values()).some((value) => value === reference)
+  } catch {
+    return false
+  }
+}
+
 function includesReference(view: PlatformProcessResultView, reference: string): boolean {
   if (!reference) return false
   return view.sourceId === reference
     || view.workOrderNo === reference
-    || view.mobileTaskLink.includes(reference)
+    || mobileTaskLinkHasExactReference(view.mobileTaskLink, reference)
 }
 
 export function resolveNormalProcessResult(

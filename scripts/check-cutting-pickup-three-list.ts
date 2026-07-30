@@ -434,6 +434,43 @@ assert(
   ) === undefined,
   '同生产单同工艺只有另一物料行有结果时，当前行不得因候选唯一而借用',
 )
+const prefixCollisionLine = {
+  ...ownershipLine,
+  upstreamDocumentNo: 'PH-CURRENT-PREFIX-LINE',
+  taskLinks: [{
+    ...ownershipLine.taskLinks[0],
+    taskId: 'TASK-1',
+    taskNo: 'TASK-NO-1',
+  }],
+}
+const prefixCollisionResult = {
+  ...otherLineResult,
+  sourceId: 'PWO-PREFIX-OTHER',
+  workOrderNo: 'PH-PREFIX-OTHER',
+  mobileTaskLink: '/fcs/pda/exec/TASK-10?sourceType=PRINT&sourceId=PWO-PREFIX-OTHER&keyword=TASK-NO-10',
+}
+assert(
+  resolveNormalProcessResult(
+    prefixCollisionLine,
+    'PO-SAME-PROCESS-TWO-LINES',
+    'PRINT',
+    [prefixCollisionResult],
+  ) === undefined,
+  'TASK-1 不得通过模糊包含错误命中 TASK-10',
+)
+const exactTaskResult = {
+  ...prefixCollisionResult,
+  mobileTaskLink: '/fcs/pda/exec/TASK-1?sourceType=PRINT&sourceId=PWO-PREFIX-OTHER&keyword=TASK-NO-1',
+}
+assert(
+  resolveNormalProcessResult(
+    prefixCollisionLine,
+    'PO-SAME-PROCESS-TWO-LINES',
+    'PRINT',
+    [exactTaskResult],
+  ) === exactTaskResult,
+  '实际 PDA 任务链接的路径段或查询参数等值时必须精确归属',
+)
 
 for (const listKind of ['READY', 'INCOMPLETE', 'HISTORY'] as const) {
   const groups = listPickupOrderGroups(listKind, storage)
