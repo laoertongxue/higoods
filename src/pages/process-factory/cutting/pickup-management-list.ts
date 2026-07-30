@@ -28,6 +28,7 @@ import {
 
 const PAGE_SIZES = [10, 20, 50]
 const EVENT_PREFIX = 'pickup-list'
+export const PICKUP_LIST_FILTER_DEBOUNCE_MS = 120
 const PREFERENCE_KEYS: Record<PickupListKind, string> = {
   READY: 'standard-list:/fcs/craft/cutting/pickup-management/ready',
   INCOMPLETE: 'standard-list:/fcs/craft/cutting/pickup-management/incomplete',
@@ -52,9 +53,8 @@ export function pickupListFilterDebounceKey(kind: PickupListKind, field: string)
   return `${kind}:${field}`
 }
 
-function cancelInactivePickupListDebounces(activeKind: PickupListKind): void {
+function cancelPickupListDebouncesBeforeRender(): void {
   for (const [key, timer] of searchDebounceTimers) {
-    if (key.startsWith(`${activeKind}:`)) continue
     clearTimeout(timer)
     searchDebounceTimers.delete(key)
   }
@@ -376,7 +376,7 @@ function renderPaginationRegion(
 }
 
 function renderPickupList(kind: PickupListKind): string {
-  cancelInactivePickupListDebounces(kind)
+  cancelPickupListDebouncesBeforeRender()
   groupSnapshots.set(kind, listPickupOrderGroups(kind))
   const state = getState(kind)
   state.currentPage = 1
@@ -474,7 +474,7 @@ export function handleCraftCuttingPickupListEvent(target: HTMLElement, event?: E
         return
       }
       applyFilter()
-    }, 180))
+    }, PICKUP_LIST_FILTER_DEBOUNCE_MS))
     return true
   }
 

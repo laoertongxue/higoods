@@ -176,12 +176,17 @@ test('筛选、分页、排序三态与列偏好均在 200ms 内局部更新并�
   const menu = page.getByText('领料管理', { exact: true }).first()
   await expect(menu).toBeVisible()
 
-  await measureDomAction(page, {
+  const keywordFilterElapsed = await measureDomAction(page, {
     type: 'input',
     triggerSelector: '[data-pickup-list-filter="keyword"]',
     observeSelector: '[data-pickup-list-region="table"]',
     value: 'PO-202603-0001',
   })
+  expect(
+    keywordFilterElapsed,
+    '筛选输入到 DOM 总耗时必须在 200ms 门槛内保留至少 30ms 余量',
+  ).toBeLessThan(170)
+  console.log(`领料列表筛选输入到 DOM 总耗时：${keywordFilterElapsed.toFixed(1)}ms`)
   await expect(page.getByRole('row').filter({ hasText: 'PO-202603-0001' })).toBeVisible()
   await measureDomAction(page, {
     type: 'input',

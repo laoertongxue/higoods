@@ -54,6 +54,17 @@ function assertThreeListRouteAndMenuContract(): void {
   const routeSource = readSource('src/router/routes-fcs.ts')
 
   assert(listSource.startsWith('// @page-pattern: list'), '三列表页面必须声明标准列表页模式')
+  assert(
+    listSource.includes('export const PICKUP_LIST_FILTER_DEBOUNCE_MS = 120')
+      && listSource.includes('}, PICKUP_LIST_FILTER_DEBOUNCE_MS))'),
+    '筛选 debounce 必须固定为 120ms，给输入到 DOM 的 200ms 总门槛保留余量',
+  )
+  const fullRenderSource = listSource.match(/function renderPickupList[\s\S]*?\n}\n/)?.[0] || ''
+  assert(
+    fullRenderSource.includes('cancelPickupListDebouncesBeforeRender()')
+      && fullRenderSource.indexOf('cancelPickupListDebouncesBeforeRender()') < fullRenderSource.indexOf('groupSnapshots.set('),
+    '完整 render 必须先取消全部 pending debounce，再刷新当前 kind 快照与状态',
+  )
   for (const helper of [
     'renderStandardListPage',
     'renderStandardListStats',

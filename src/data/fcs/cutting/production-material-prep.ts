@@ -2611,87 +2611,16 @@ function nowText(date = new Date()): string {
 }
 
 export function createProductionMaterialPrepSeedStore(): ProductionMaterialPrepWorkflowStore {
-  const pickup = migratePickupSessions(
-    cloneRecord(seedPickupRecords),
-    [],
-    cloneRecord(seedPickupReturnRecords),
-  )
-  const reopenedOriginalReadySession = pickup.pickupSessions.find((session) =>
-    session.prepOrderId === 'prep-order-po-202603-0002'
-      && session.nodeType === 'READY_TO_PICKUP'
-  )
-  if (reopenedOriginalReadySession) {
-    const seedOrder = materialPrepSeedOrders.find((order) =>
-      order.prepOrderId === reopenedOriginalReadySession.prepOrderId
-    )!
-    const records = pickup.pickupRecords.filter((record) =>
-      reopenedOriginalReadySession.pickupRecordIds.includes(record.pickupRecordId)
-    )
-    const items: PickupNodeItem[] = records.map((record) => {
-      const line = seedOrder.lines.find((candidate) => candidate.prepLineId === record.prepLineId)!
-      const sourceAllocations = (record.sourceAllocations || []).map((allocation) => ({
-        prepRecordId: allocation.prepRecordId,
-        prepLineId: allocation.prepLineId,
-        currentAvailableQty: allocation.pickedQty,
-        rollCount: allocation.rollCount,
-        unit: allocation.unit,
-        sourceWarehouseName: allocation.sourceWarehouseName,
-        sourceWarehouseArea: allocation.sourceWarehouseArea,
-        sourceLocationCode: allocation.sourceLocationCode,
-      }))
-      return {
-        nodeItemId: `${reopenedOriginalReadySession.pickupNodeId}:${line.prepLineId}`,
-        prepLineId: line.prepLineId,
-        sourcePrepRecordIds: sourceAllocations.map((allocation) => allocation.prepRecordId),
-        materialSku: line.materialSku,
-        materialName: line.materialName,
-        materialType: line.materialType || inferMaterialType(line),
-        materialImageUrl: line.materialImageUrl || '',
-        color: line.color,
-        spec: line.spec,
-        unit: line.unit,
-        requiredQty: line.requiredQty,
-        effectivePickedQty: 0,
-        currentAvailableQty: record.pickedQty,
-        rollCount: record.rollCount,
-        sourceWarehouseName: sourceAllocations[0]?.sourceWarehouseName || '中转仓',
-        sourceWarehouseArea: sourceAllocations[0]?.sourceWarehouseArea || '',
-        sourceLocationCode: sourceAllocations[0]?.sourceLocationCode || '',
-        sourceLocations: [],
-        sourceAllocations,
-      }
-    })
-    const sequence = Number(reopenedOriginalReadySession.pickupNodeId.match(/:(\d+)$/)?.[1] || 1)
-    reopenedOriginalReadySession.pickupNodeSnapshot = {
-      nodeId: reopenedOriginalReadySession.pickupNodeId,
-      version: reopenedOriginalReadySession.pickupNodeVersion,
-      nodeType: 'READY_TO_PICKUP',
-      status: 'OPEN',
-      locationPolicy: 'DIRECT_READY_AREA',
-      prepOrderId: seedOrder.prepOrderId,
-      prepOrderNo: seedOrder.prepOrderNo,
-      productionOrderId: seedOrder.productionOrderId,
-      productionOrderNo: seedOrder.productionOrderNo,
-      sequence,
-      updatedAt: reopenedOriginalReadySession.pickedAt,
-      carrierType: 'PALLET',
-      palletId: '',
-      palletDisplayLabel: '待领托盘（暂未编号）',
-      readySource: 'DIRECT_READY',
-      itemCount: items.length,
-      items,
-    }
-  }
-  return {
-    prepRecords: cloneRecord(seedPrepRecords).map(normalizePrepRecordQuantities),
-    pickupRecords: pickup.pickupRecords,
-    pickupSessions: pickup.pickupSessions,
-    pickupNodeSnapshots: cloneRecord(seedPickupNodeSnapshots),
-    pickupReturnRecords: cloneRecord(seedPickupReturnRecords),
-    rejectRecords: cloneRecord(seedRejectRecords),
+  return migrateProductionMaterialPrepStoreToPickupThreeListScenes({
+    prepRecords: [],
+    pickupRecords: [],
+    pickupSessions: [],
+    pickupNodeSnapshots: [],
+    pickupReturnRecords: [],
+    rejectRecords: [],
     stagingRecords: [],
-    closedOrders: cloneRecord(seedClosedOrders),
-  }
+    closedOrders: [],
+  })
 }
 
 export function serializeProductionMaterialPrepStore(store: ProductionMaterialPrepWorkflowStore): string {
@@ -2885,52 +2814,152 @@ function migratePickupSessions(
   }
 }
 
+function attachSeedOriginalReadyNodeSnapshot(
+  pickupRecords: PickupRecord[],
+  pickupSessions: PickupSession[],
+): void {
+  const seedPickupRecordId = 'pickup-rec-po-202603-0002-包材-8'
+  const session = pickupSessions.find((candidate) =>
+    candidate.pickupRecordIds.includes(seedPickupRecordId)
+  )
+  if (!session) return
+  const seedOrder = materialPrepSeedOrders.find((order) =>
+    order.prepOrderId === 'prep-order-po-202603-0002'
+  )
+  if (!seedOrder) return
+  const records = pickupRecords.filter((record) =>
+    session.pickupRecordIds.includes(record.pickupRecordId)
+  )
+  const items: PickupNodeItem[] = records.flatMap((record) => {
+    const line = seedOrder.lines.find((candidate) => candidate.prepLineId === record.prepLineId)
+    if (!line) return []
+    const sourceAllocations = (record.sourceAllocations || []).map((allocation) => ({
+      prepRecordId: allocation.prepRecordId,
+      prepLineId: allocation.prepLineId,
+      currentAvailableQty: allocation.pickedQty,
+      rollCount: allocation.rollCount,
+      unit: allocation.unit,
+      sourceWarehouseName: allocation.sourceWarehouseName,
+      sourceWarehouseArea: allocation.sourceWarehouseArea,
+      sourceLocationCode: allocation.sourceLocationCode,
+    }))
+    return [{
+      nodeItemId: `${session.pickupNodeId}:${line.prepLineId}`,
+      prepLineId: line.prepLineId,
+      sourcePrepRecordIds: sourceAllocations.map((allocation) => allocation.prepRecordId),
+      materialSku: line.materialSku,
+      materialName: line.materialName,
+      materialType: line.materialType || inferMaterialType(line),
+      materialImageUrl: line.materialImageUrl || '',
+      color: line.color,
+      spec: line.spec,
+      unit: line.unit,
+      requiredQty: line.requiredQty,
+      effectivePickedQty: 0,
+      currentAvailableQty: record.pickedQty,
+      rollCount: record.rollCount,
+      sourceWarehouseName: sourceAllocations[0]?.sourceWarehouseName || '中转仓',
+      sourceWarehouseArea: sourceAllocations[0]?.sourceWarehouseArea || '',
+      sourceLocationCode: sourceAllocations[0]?.sourceLocationCode || '',
+      sourceLocations: [],
+      sourceAllocations,
+    }]
+  })
+  const sequence = Number(session.pickupNodeId.match(/:(\d+)$/)?.[1] || 1)
+  session.nodeType = 'READY_TO_PICKUP'
+  session.pickupNodeVersion = 1
+  session.pickupNodeSnapshot = {
+    nodeId: session.pickupNodeId,
+    version: session.pickupNodeVersion,
+    nodeType: 'READY_TO_PICKUP',
+    status: 'OPEN',
+    locationPolicy: 'DIRECT_READY_AREA',
+    prepOrderId: seedOrder.prepOrderId,
+    prepOrderNo: seedOrder.prepOrderNo,
+    productionOrderId: seedOrder.productionOrderId,
+    productionOrderNo: seedOrder.productionOrderNo,
+    sequence,
+    updatedAt: session.pickedAt,
+    carrierType: 'PALLET',
+    palletId: '',
+    palletDisplayLabel: '待领托盘（暂未编号）',
+    readySource: 'DIRECT_READY',
+    itemCount: items.length,
+    items,
+  }
+}
+
+export function migrateProductionMaterialPrepStoreToPickupThreeListScenes(
+  store: ProductionMaterialPrepWorkflowStore,
+): ProductionMaterialPrepWorkflowStore {
+  const prepRecords = mergeMissingSeedRecords(
+    Array.isArray(store.prepRecords) ? store.prepRecords : [],
+    seedPrepRecords,
+    (record) => record.prepRecordId,
+  ).map(normalizePrepRecordQuantities)
+  const pickupRecords = mergeMissingSeedRecords(
+    Array.isArray(store.pickupRecords) ? store.pickupRecords : [],
+    seedPickupRecords,
+    (record) => record.pickupRecordId,
+  )
+  const pickupReturnRecords = mergeMissingSeedRecords(
+    Array.isArray(store.pickupReturnRecords) ? store.pickupReturnRecords : [],
+    seedPickupReturnRecords,
+    (record) => record.returnRecordId,
+  )
+  const migratedPickup = migratePickupSessions(
+    pickupRecords,
+    Array.isArray(store.pickupSessions) ? cloneRecord(store.pickupSessions) : [],
+    pickupReturnRecords,
+  )
+  attachSeedOriginalReadyNodeSnapshot(migratedPickup.pickupRecords, migratedPickup.pickupSessions)
+  return {
+    prepRecords,
+    pickupRecords: migratedPickup.pickupRecords,
+    pickupSessions: migratedPickup.pickupSessions,
+    pickupNodeSnapshots: mergeMissingSeedRecords(
+      Array.isArray(store.pickupNodeSnapshots) ? store.pickupNodeSnapshots : [],
+      seedPickupNodeSnapshots,
+      (snapshot) => snapshot.nodeId,
+    ),
+    pickupReturnRecords,
+    rejectRecords: mergeMissingSeedRecords(
+      Array.isArray(store.rejectRecords) ? store.rejectRecords : [],
+      seedRejectRecords,
+      (record) => record.rejectId,
+    ),
+    stagingRecords: (Array.isArray(store.stagingRecords) ? cloneRecord(store.stagingRecords) : [])
+      .map((stagingRecord) => {
+        const prepRecord = prepRecords.find((record) => record.prepRecordId === stagingRecord.prepRecordId)
+        const unitSummaries = prepRecord ? getMaterialPrepRecordUnitSummaries(prepRecord) : (stagingRecord.unitSummaries || [])
+        return {
+          ...stagingRecord,
+          totalPreparedQty: unitSummaries.length === 1 ? unitSummaries[0].preparedQty : null,
+          unitSummaries,
+        }
+      }),
+    closedOrders: mergeMissingSeedRecords(
+      Array.isArray(store.closedOrders) ? store.closedOrders : [],
+      seedClosedOrders,
+      (record) => record.prepOrderId,
+    ),
+  }
+}
+
 export function deserializeProductionMaterialPrepStore(raw: string | null): ProductionMaterialPrepWorkflowStore {
   if (!raw) return createProductionMaterialPrepSeedStore()
   try {
     const parsed = JSON.parse(raw) as Partial<ProductionMaterialPrepWorkflowStore>
-    const prepRecords = (
-      Array.isArray(parsed.prepRecords)
-        ? mergeMissingSeedRecords(parsed.prepRecords, seedPrepRecords, (record) => record.prepRecordId)
-        : cloneRecord(seedPrepRecords)
-    ).map(normalizePrepRecordQuantities)
-    const pickupRecords = Array.isArray(parsed.pickupRecords)
-      ? mergeMissingSeedRecords(parsed.pickupRecords, seedPickupRecords, (record) => record.pickupRecordId)
-      : cloneRecord(seedPickupRecords)
-    const pickupReturnRecords = Array.isArray(parsed.pickupReturnRecords)
-      ? mergeMissingSeedRecords(parsed.pickupReturnRecords, seedPickupReturnRecords, (record) => record.returnRecordId)
-      : cloneRecord(seedPickupReturnRecords)
-    const migratedPickup = migratePickupSessions(
-      pickupRecords,
-      Array.isArray(parsed.pickupSessions) ? cloneRecord(parsed.pickupSessions) : [],
-      pickupReturnRecords,
-    )
-    return {
-      prepRecords,
-      pickupRecords: migratedPickup.pickupRecords,
-      pickupReturnRecords,
-      rejectRecords: Array.isArray(parsed.rejectRecords)
-        ? mergeMissingSeedRecords(parsed.rejectRecords, seedRejectRecords, (record) => record.rejectId)
-        : cloneRecord(seedRejectRecords),
-      stagingRecords: Array.isArray(parsed.stagingRecords)
-        ? cloneRecord(parsed.stagingRecords).map((stagingRecord) => {
-            const prepRecord = prepRecords.find((record) => record.prepRecordId === stagingRecord.prepRecordId)
-            const unitSummaries = prepRecord ? getMaterialPrepRecordUnitSummaries(prepRecord) : (stagingRecord.unitSummaries || [])
-            return {
-              ...stagingRecord,
-              totalPreparedQty: unitSummaries.length === 1 ? unitSummaries[0].preparedQty : null,
-              unitSummaries,
-            }
-          })
-        : [],
-      closedOrders: Array.isArray(parsed.closedOrders)
-        ? mergeMissingSeedRecords(parsed.closedOrders, seedClosedOrders, (record) => record.prepOrderId)
-        : cloneRecord(seedClosedOrders),
-      pickupSessions: migratedPickup.pickupSessions,
-      pickupNodeSnapshots: Array.isArray(parsed.pickupNodeSnapshots)
-        ? cloneRecord(parsed.pickupNodeSnapshots)
-        : [],
-    }
+    return migrateProductionMaterialPrepStoreToPickupThreeListScenes({
+      prepRecords: Array.isArray(parsed.prepRecords) ? parsed.prepRecords : [],
+      pickupRecords: Array.isArray(parsed.pickupRecords) ? parsed.pickupRecords : [],
+      pickupReturnRecords: Array.isArray(parsed.pickupReturnRecords) ? parsed.pickupReturnRecords : [],
+      rejectRecords: Array.isArray(parsed.rejectRecords) ? parsed.rejectRecords : [],
+      stagingRecords: Array.isArray(parsed.stagingRecords) ? parsed.stagingRecords : [],
+      closedOrders: Array.isArray(parsed.closedOrders) ? parsed.closedOrders : [],
+      pickupSessions: Array.isArray(parsed.pickupSessions) ? parsed.pickupSessions : [],
+      pickupNodeSnapshots: Array.isArray(parsed.pickupNodeSnapshots) ? parsed.pickupNodeSnapshots : [],
+    })
   } catch {
     return createProductionMaterialPrepSeedStore()
   }

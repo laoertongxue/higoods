@@ -10,10 +10,12 @@ import {
   appendPickupReturnRecord,
   confirmMaterialPrepRecord,
   createProductionMaterialPrepSeedStore,
+  deserializeProductionMaterialPrepStore,
   getMaterialPrepOrderProjection,
   hydrateProductionMaterialPrepStore,
   listActivePickupNodes,
   listMaterialPrepOrderProjections,
+  migrateProductionMaterialPrepStoreToPickupThreeListScenes,
   pickMaterialPrepRecord,
   PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
   serializeProductionMaterialPrepStore,
@@ -45,6 +47,106 @@ function createStorage(store: ProductionMaterialPrepWorkflowStore): MemoryStorag
   const storage = new MemoryStorage()
   storage.setItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY, serializeProductionMaterialPrepStore(store))
   return storage
+}
+
+function verifyPickupThreeListSceneStoreMigration(): void {
+  const legacyStore = createProductionMaterialPrepSeedStore()
+  const removedPrepRecordIds = new Set([
+    'prep-rec-po-0002-original-complete-001',
+    'prep-rec-po-0002-new-supplement-001',
+    'prep-rec-po-0004-supplement-demo-current-001',
+    'prep-rec-po-202603-1103-auto-complete-001',
+  ])
+  legacyStore.prepRecords = legacyStore.prepRecords.filter((record) =>
+    !removedPrepRecordIds.has(record.prepRecordId)
+  )
+  legacyStore.pickupRecords = legacyStore.pickupRecords.filter((record) =>
+    record.prepOrderId !== 'prep-order-po-202603-0002'
+      && record.prepOrderId !== 'prep-order-po-202603-1103'
+  )
+  legacyStore.pickupSessions = legacyStore.pickupSessions.filter((session) =>
+    session.prepOrderId !== 'prep-order-po-202603-0002'
+      && session.prepOrderId !== 'prep-order-po-202603-1103'
+  )
+  legacyStore.pickupNodeSnapshots = []
+  legacyStore.pickupReturnRecords = []
+  const customPrepRecord = {
+    ...legacyStore.prepRecords[0],
+    prepRecordId: 'custom-prep-record-must-survive-three-list-migration',
+    remark: '用户自行维护的非 seed 配料事实',
+  }
+  legacyStore.prepRecords.push(customPrepRecord)
+
+  const migrated = deserializeProductionMaterialPrepStore(serializeProductionMaterialPrepStore(legacyStore))
+  assert(
+    migrated.prepRecords.some((record) => record.prepRecordId === customPrepRecord.prepRecordId && record.remark === customPrepRecord.remark),
+    '三列表场景迁移不得覆盖或丢失用户自行维护的非 seed 配料事实',
+  )
+  for (const prepRecordId of removedPrepRecordIds) {
+    assert(migrated.prepRecords.some((record) => record.prepRecordId === prepRecordId), `旧 Store 必须补齐配料场景：${prepRecordId}`)
+  }
+  assert(
+    migrated.pickupRecords.some((record) => record.prepOrderId === 'prep-order-po-202603-0002')
+      && migrated.pickupRecords.some((record) => record.prepOrderId === 'prep-order-po-202603-1103'),
+    '旧 Store 必须补齐 PO0002 与 PO1103 的 seed 领料事实',
+  )
+  assert(
+    migrated.pickupSessions.some((session) =>
+      session.prepOrderId === 'prep-order-po-202603-0002'
+        && session.nodeType === 'READY_TO_PICKUP'
+        && session.pickupNodeSnapshot?.nodeType === 'READY_TO_PICKUP'
+    ),
+    '旧 Store 必须补齐 PO0002 原需求已领完的 READY 会话与节点快照',
+  )
+  assert(
+    migrated.pickupNodeSnapshots.some((snapshot) =>
+      snapshot.nodeId === 'pickup-node:prep-order-po-202603-1103:2'
+        && snapshot.nodeType === 'INCOMPLETE_PICKABLE'
+        && snapshot.version === 1
+    ),
+    '旧 Store 必须补齐 PO1103 升级前 INCOMPLETE 快照',
+  )
+  assert(
+    new Set(migrated.prepRecords.map((record) => record.prepRecordId)).size === migrated.prepRecords.length
+      && new Set(migrated.pickupRecords.map((record) => record.pickupRecordId)).size === migrated.pickupRecords.length
+      && new Set(migrated.pickupSessions.map((session) => session.pickupSessionId)).size === migrated.pickupSessions.length
+      && new Set(migrated.pickupReturnRecords.map((record) => record.returnRecordId)).size === migrated.pickupReturnRecords.length
+      && new Set(migrated.pickupNodeSnapshots.map((snapshot) => snapshot.nodeId)).size === migrated.pickupNodeSnapshots.length,
+    '三列表场景迁移按稳定 ID 幂等合并，不得重复记录',
+  )
+
+  const storage = createStorage(migrated)
+  const upgradedNode = listActivePickupNodes(storage).find((node) =>
+    node.prepOrderId === 'prep-order-po-202603-1103'
+  )
+  assert(
+    upgradedNode?.nodeType === 'READY_TO_PICKUP'
+      && upgradedNode.version === 2
+      && upgradedNode.readySource === 'UPGRADED_FROM_INCOMPLETE',
+    '旧 Store 迁移后 PO1103 必须从升级前快照形成 V2 已配齐节点',
+  )
+  const po0002History = listPickupOrderGroups('HISTORY', storage as Storage).find((group) =>
+    group.productionOrderNo === 'PO-202603-0002'
+  )
+  const po0002Current = listPickupOrderGroups('READY', storage as Storage).find((group) =>
+    group.productionOrderNo === 'PO-202603-0002'
+  )
+  assert(po0002History?.finalResult === 'NEW_SUPPLEMENT_WAIT_PICKUP', '旧 Store 迁移后 PO0002 历史必须标记新增补料待领')
+  assert(po0002Current?.pickupNodeId === 'pickup-node:prep-order-po-202603-0002:9', '旧 Store 迁移后 PO0002 当前待领节点必须正确')
+
+  const migratedOnce = hydrateProductionMaterialPrepStore(storage)
+  const migratedTwice = deserializeProductionMaterialPrepStore(serializeProductionMaterialPrepStore(migratedOnce))
+  const migratedThrice = deserializeProductionMaterialPrepStore(serializeProductionMaterialPrepStore(migratedTwice))
+  assert(
+    serializeProductionMaterialPrepStore(migratedTwice) === serializeProductionMaterialPrepStore(migratedThrice),
+    '三列表场景迁移二次执行结果必须完全不变',
+  )
+  const directlyMigratedOnce = migrateProductionMaterialPrepStoreToPickupThreeListScenes(migratedTwice)
+  const directlyMigratedTwice = migrateProductionMaterialPrepStoreToPickupThreeListScenes(directlyMigratedOnce)
+  assert(
+    serializeProductionMaterialPrepStore(directlyMigratedOnce) === serializeProductionMaterialPrepStore(directlyMigratedTwice),
+    '三列表场景迁移函数直接二次执行结果必须完全不变',
+  )
 }
 
 function verifyLegacyPickupSessionMigration(): void {
@@ -515,6 +617,7 @@ function verifyMixedUnitPrepRecords(): void {
 
 const failures: string[] = []
 for (const [name, verify] of [
+  ['三列表旧 Store 场景迁移', verifyPickupThreeListSceneStoreMigration],
   ['旧存储领料主记录迁移', verifyLegacyPickupSessionMigration],
   ['来源级退回恢复', verifySourceAccurateReturnRecovery],
   ['历史分组当前承载事实', verifyHistoryUsesCurrentActiveCarrier],
