@@ -72,7 +72,10 @@ import {
   runtimeEventHasWaitHandoverTicket,
 } from './wait-handover-runtime.ts'
 import { buildBindingProcessOrders } from './binding-strip-orders.ts'
-import { renderCuttingWarehouseLocationMapSection } from './warehouse-location-map.ts'
+import {
+  renderCuttingWarehouseLocationMapSection,
+  resolveCurrentCuttingWarehouseLocationRef,
+} from './warehouse-location-map.ts'
 
 type WaitProcessTabKey = 'inventory' | 'claimRecords' | 'usage' | 'returns' | 'locations'
 type WaitProcessWarehouseAction = 'claim' | 'process-issue' | 'return'
@@ -2729,7 +2732,7 @@ function renderWaitHandoverWebActionDialog(action: WaitHandoverWebAction, select
         `)}
         ${renderWaitHandoverWebStep(3, '选择库区库位', false, false, `
           <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <label class="space-y-2"><span class="text-sm font-medium text-foreground">库区</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="warehouseArea" value="裁片暂存区" /></label>
+            <label class="space-y-2"><span class="text-sm font-medium text-foreground">库区</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="warehouseArea" value="A区" /></label>
             <label class="space-y-2"><span class="text-sm font-medium text-foreground">库位</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="locationCode" value="A-01-01" /></label>
             <label class="space-y-2"><span class="text-sm font-medium text-foreground">操作人</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="operatorName" value="裁床仓管" /></label>
             <label class="space-y-2"><span class="text-sm font-medium text-foreground">备注</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="remark" /></label>
@@ -2786,8 +2789,8 @@ function renderWaitHandoverWebActionDialog(action: WaitHandoverWebAction, select
             `)}
             ${renderWaitHandoverWebStep(3, '确认库区库位并入仓', false, false, `
               <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <label class="space-y-2"><span class="text-sm font-medium text-foreground">回仓库区</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="warehouseArea" value="特殊工艺回仓区" /></label>
-                <label class="space-y-2"><span class="text-sm font-medium text-foreground">回仓库位</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="locationCode" value="SP-RETURN-01" /></label>
+                <label class="space-y-2"><span class="text-sm font-medium text-foreground">回仓库区</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="warehouseArea" value="A区" /></label>
+                <label class="space-y-2"><span class="text-sm font-medium text-foreground">回仓库位</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="locationCode" value="A-01-01" /></label>
                 <label class="space-y-2"><span class="text-sm font-medium text-foreground">实回数量</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="returnQty" value="${escapeHtml(String(selectedSpecialCraftReturn?.pieceQty || ''))}" /></label>
                 <label class="space-y-2"><span class="text-sm font-medium text-foreground">操作人</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="operatorName" value="特殊工艺回仓员" /></label>
               </div>
@@ -2998,12 +3001,31 @@ function submitWaitHandoverInbound(dialog: HTMLElement): boolean {
     return true
   }
   const bagCode = readWaitHandoverWebField(dialog, 'bagCode') || 'WEB-TEMP-BAG-001'
+  const warehouseArea = readWaitHandoverWebField(dialog, 'warehouseArea') || 'A区'
+  const locationCode = readWaitHandoverWebField(dialog, 'locationCode') || 'A-01-01'
+  const locationRef = resolveCurrentCuttingWarehouseLocationRef('WAIT_HANDOVER', warehouseArea, locationCode)
+  if (!locationRef) {
+    window.alert('入仓库位不存在、已停用或编号不唯一，请重新确认。')
+    return true
+  }
   appendWaitHandoverInboundEvent({
     source: 'WEB',
     operator: getWaitHandoverWebOperator(dialog),
     bagCode,
-    warehouseArea: readWaitHandoverWebField(dialog, 'warehouseArea') || 'B 区',
-    locationCode: readWaitHandoverWebField(dialog, 'locationCode') || 'B-02 临时位',
+    warehouseArea,
+    locationCode,
+    locationRef: {
+      factoryId: locationRef.factoryId,
+      warehouseId: locationRef.warehouseId,
+      warehouseKind: 'WAIT_HANDOVER',
+      areaId: locationRef.areaId,
+      areaName: locationRef.areaName,
+      shelfId: locationRef.shelfId,
+      shelfNo: locationRef.shelfNo,
+      locationId: locationRef.locationId,
+      locationNo: locationRef.locationNo,
+    },
+    idempotencyKey: `temp-bag:${bagCode}:INBOUND`,
     tickets: tickets.map((ticket) => buildWaitHandoverRuntimeTicketFromGeneratedTicket(ticket)),
   })
   return false
@@ -3154,6 +3176,11 @@ function submitWaitHandoverSpecialCraftReturn(dialog: HTMLElement): boolean {
     return true
   }
   const now = new Date().toISOString()
+  const locationRef = resolveCurrentCuttingWarehouseLocationRef('WAIT_HANDOVER', warehouseArea, locationCode)
+  if (!locationRef) {
+    window.alert('回仓库位不存在、已停用或编号不唯一，请重新确认。')
+    return true
+  }
   const returnStatus = returnedQty === selection.pieceQty ? '已回仓' : returnedQty < selection.pieceQty ? '部分回仓' : '回仓差异'
   const returnRecordId = `WEB-SCR-${selection.sourceHandoverRecordId}-${Date.now()}`
   appendWaitHandoverSpecialCraftReturnEvent({
@@ -3185,6 +3212,17 @@ function submitWaitHandoverSpecialCraftReturn(dialog: HTMLElement): boolean {
       }],
       warehouseArea,
       locationCode,
+      locationRef: {
+        factoryId: locationRef.factoryId,
+        warehouseId: locationRef.warehouseId,
+        warehouseKind: 'WAIT_HANDOVER',
+        areaId: locationRef.areaId,
+        areaName: locationRef.areaName,
+        shelfId: locationRef.shelfId,
+        shelfNo: locationRef.shelfNo,
+        locationId: locationRef.locationId,
+        locationNo: locationRef.locationNo,
+      },
       returnedAt: now,
       returnedBy: getWaitHandoverWebOperator(dialog).operatorName,
     },

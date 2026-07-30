@@ -136,9 +136,14 @@ export function saveWarehouseLayoutSnapshot(
 ): { ok: boolean; message: string; snapshot?: FactoryWarehouseLayoutSnapshot } {
   const key = getWarehouseLayoutStorageKey(snapshot.factoryId, snapshot.warehouseKind)
   const raw = storage.getItem(key)
-  const currentVersion = raw
-    ? Number((JSON.parse(raw) as Partial<FactoryWarehouseLayoutSnapshot>).layoutVersion ?? -1)
-    : 0
+  let currentVersion = 0
+  if (raw) {
+    try {
+      currentVersion = Number((JSON.parse(raw) as Partial<FactoryWarehouseLayoutSnapshot>).layoutVersion ?? -1)
+    } catch {
+      return { ok: false, message: '部分编排无法恢复，请重新检查。' }
+    }
+  }
   if (currentVersion !== expectedVersion) {
     return { ok: false, message: '库位图已被更新，请刷新后重试。' }
   }

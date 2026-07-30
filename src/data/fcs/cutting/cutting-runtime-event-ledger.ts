@@ -385,6 +385,7 @@ export interface SpecialCraftReturnPayload {
   }>
   warehouseArea: string
   locationCode: string
+  locationRef?: RuntimeWarehouseLocationRef
   returnedAt: string
   returnedBy: string
 }

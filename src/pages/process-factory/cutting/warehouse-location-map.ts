@@ -43,6 +43,17 @@ function getCurrentWarehouse(kind: CuttingWarehouseMapKind): FactoryInternalWare
   return warehouses.find((warehouse) => warehouse.factoryId === factoryId) ?? warehouses[0] ?? null
 }
 
+export function resolveCurrentCuttingWarehouseLocationRef(
+  kind: CuttingWarehouseMapKind,
+  areaName: string,
+  locationNo: string,
+) {
+  const warehouse = getCurrentWarehouse(kind)
+  if (!warehouse) return null
+  const { snapshot } = loadWarehouseLayoutSnapshot(warehouse)
+  return resolveStableWarehouseLocationRef(warehouse, { areaName, locationNo }, snapshot)
+}
+
 function buildWaitProcessOccupancies(
   warehouse: FactoryInternalWarehouse,
   snapshot: FactoryWarehouseLayoutSnapshot,
@@ -83,8 +94,8 @@ function buildWaitHandoverOccupancies(warehouse: FactoryInternalWarehouse): Ware
       footprintId: `bag:${state.bagCode}`,
       locationId: state.locationRef.locationId,
       productionOrderNo: state.productionOrderNo,
-      objectNo: state.bagCode,
-      objectName: `中转袋 ${state.bagCode}`,
+      objectNo: state.objectNo || state.bagCode,
+      objectName: state.objectName || `中转袋 ${state.bagCode}`,
       qty: state.totalPieceQty,
       unit: '片',
       inboundAt: state.inboundAt,
@@ -225,6 +236,21 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
     }))
     return true
   }
+  if (action === 'move-shelf-up' || action === 'move-shelf-down') {
+    const areaId = node.dataset.areaId || ''
+    persistSnapshot(kind, (snapshot) => ({
+      ...snapshot,
+      shelfOrderByAreaId: {
+        ...snapshot.shelfOrderByAreaId,
+        [areaId]: moveId(
+          snapshot.shelfOrderByAreaId[areaId] ?? [],
+          node.dataset.shelfId || '',
+          action.endsWith('up') ? -1 : 1,
+        ),
+      },
+    }))
+    return true
+  }
   if (action === 'move-location-left' || action === 'move-location-right') {
     const shelfId = node.dataset.shelfId || ''
     persistSnapshot(kind, (snapshot) => ({
@@ -257,5 +283,5 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
     }))
     return true
   }
-  return Boolean(event)
+  return false
 }

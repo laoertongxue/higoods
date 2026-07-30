@@ -74,6 +74,8 @@ export interface WaitHandoverLocationOccupancyState {
   inboundAt: string
   inboundBy: string
   locationRef: RuntimeWarehouseLocationRef
+  objectNo?: string
+  objectName?: string
 }
 
 function uniqueStrings(values: Array<string | undefined>): string[] {
@@ -350,9 +352,10 @@ export function buildWaitHandoverLocationOccupancyStates(
       continue
     }
     if (event.eventType === '特殊工艺回仓') {
-      const bagCode = runtimeString(payload.transferBagCode) || event.refs.transferBagCode || ''
+      const returnRecordId = runtimeString(payload.returnRecordId) || event.eventId
+      const bagCode = runtimeString(payload.transferBagCode) || event.refs.transferBagCode || `return:${returnRecordId}`
       const locationRef = runtimeLocationRef(payload.locationRef)
-      if (!bagCode || !locationRef) continue
+      if (!locationRef) continue
       states.set(bagCode, {
         sourceEventId: event.eventId,
         bagCode,
@@ -362,6 +365,10 @@ export function buildWaitHandoverLocationOccupancyStates(
         inboundAt: runtimeString(payload.returnedAt) || event.occurredAt,
         inboundBy: runtimeString(payload.returnedBy) || event.operatorName,
         locationRef,
+        objectNo: runtimeString(payload.transferBagCode) || runtimeString(payload.returnRecordNo) || returnRecordId,
+        objectName: runtimeString(payload.transferBagCode)
+          ? `中转袋 ${runtimeString(payload.transferBagCode)}`
+          : `特殊工艺回仓 ${runtimeString(payload.returnRecordNo) || returnRecordId}`,
       })
     }
   }

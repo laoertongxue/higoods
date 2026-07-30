@@ -123,6 +123,12 @@ const warehouseHubSource = read('src/pages/process-factory/cutting/warehouse-hub
 assertIncludes(warehouseHubSource, "renderCuttingWarehouseLocationMapSection('WAIT_PROCESS')", '待加工仓未接入共享库位图')
 assertIncludes(warehouseHubSource, "renderCuttingWarehouseLocationMapSection('WAIT_HANDOVER')", '待交出仓未接入共享库位图')
 assertIncludes(warehouseHubSource, "{ key: 'locations', label: '库位图' }", '裁床仓库页签未统一命名为库位图')
+const fcsHandlersSource = read('src/main-handlers/fcs-handlers.ts')
+assertIncludes(
+  fcsHandlersSource,
+  "pathname.startsWith('/fcs/craft/cutting/warehouse-management/')",
+  '库位图交互处理器必须匹配真实 warehouse-management/ 路由',
+)
 
 const routesSource = read('src/router/routes-fcs.ts')
 assertIncludes(routesSource, "renderRouteRedirect('/fcs/craft/cutting/sample-warehouse', '正在跳转到裁床样衣仓')", '样衣仓兼容路由必须跳转裁床样衣仓')

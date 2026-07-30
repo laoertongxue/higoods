@@ -5,6 +5,7 @@ import {
   applyWarehouseLayoutSnapshot,
   buildInitialWarehouseLayoutSnapshot,
   createMemoryWarehouseLayoutStorage,
+  getWarehouseLayoutStorageKey,
   loadWarehouseLayoutSnapshot,
   saveWarehouseLayoutSnapshot,
 } from '../src/pages/process-factory/cutting/warehouse-location-layout-store.ts'
@@ -76,6 +77,22 @@ const staleSave = saveWarehouseLayoutSnapshot(moved, 0, storage)
 assert.equal(staleSave.ok, false)
 assert.equal(staleSave.message, '库位图已被更新，请刷新后重试。')
 
+const damagedStorage = createMemoryWarehouseLayoutStorage()
+damagedStorage.setItem(
+  getWarehouseLayoutStorageKey(waitProcess.factoryId, waitProcess.warehouseKind),
+  '{damaged',
+)
+assert.doesNotThrow(() => {
+  const damagedLoad = loadWarehouseLayoutSnapshot(waitProcess, damagedStorage)
+  assert.match(damagedLoad.warningMessage, /无法恢复/)
+  const damagedSave = saveWarehouseLayoutSnapshot(
+    damagedLoad.snapshot,
+    damagedLoad.snapshot.layoutVersion,
+    damagedStorage,
+  )
+  assert.equal(damagedSave.ok, false, '损坏的历史编排不得导致保存抛异常')
+})
+
 const refs = listStableWarehouseLocationRefs(waitProcess, reloaded.snapshot)
 assert.equal(refs.length, waitProcess.areaList.flatMap((area) => area.shelfList.flatMap((shelf) => shelf.locationList)).length)
 const stableResolved = resolveStableWarehouseLocationRef(waitProcess, { locationId: firstLocation.locationId }, reloaded.snapshot)
@@ -141,7 +158,15 @@ assert.match(mapHtml, /占用/)
 assert.match(mapHtml, /min-h-11/)
 assert.match(mapHtml, /min-w-11/)
 assert.match(mapHtml, /overflow-x-auto/)
+assert.match(mapHtml, /库位组：/)
 assert.doesNotMatch(mapHtml, /部分占用|预留/)
+const layoutMapHtml = renderWarehouseLocationMap({
+  projection: occupiedProjection,
+  mode: 'LAYOUT',
+  factoryName: '中央裁床',
+})
+assert.match(layoutMapHtml, /move-shelf-up/)
+assert.match(layoutMapHtml, /move-shelf-down/)
 assert.equal(
   validateWarehouseLocationSelection(occupiedProjection, [shelfLocationIds[0], shelfLocationIds[1]]).message,
   '所选库位已被占用，请重新选择。',
@@ -279,5 +304,26 @@ assert.equal(
   0,
   '中转袋最终交出后应释放库位',
 )
+const looseSpecialCraftReturnEvent = {
+  ...structuredClone(inboundEvent),
+  eventId: 'EVENT-SPECIAL-RETURN-LOOSE',
+  eventType: '特殊工艺回仓' as const,
+  refs: {
+    ...inboundEvent.refs,
+    transferBagCode: undefined,
+    feiTicketIds: ['FT-MAP-001'],
+  },
+  payload: {
+    returnRecordId: 'RETURN-LOOSE-001',
+    returnRecordNo: 'SCR-LOOSE-001',
+    returnedAt: '2026-07-30 10:00',
+    returnedBy: '回仓员',
+    locationRef: (inboundEvent.payload as { locationRef: unknown }).locationRef,
+  },
+}
+const looseReturnStates = buildWaitHandoverLocationOccupancyStates([looseSpecialCraftReturnEvent])
+assert.equal(looseReturnStates.length, 1, '无中转袋的特殊工艺回仓也必须占用库位')
+assert.equal(looseReturnStates[0].objectNo, 'SCR-LOOSE-001')
+assert.match(looseReturnStates[0].objectName || '', /特殊工艺回仓/)
 
 console.log('check:cutting-warehouse-location-map passed')

@@ -118,7 +118,7 @@ export function renderWarehouseLocationMap(options: WarehouseLocationMapOptions)
       ${projection.areas.map((area) => `
         <article class="rounded-lg border bg-card">
           <header class="flex items-center justify-between border-b px-4 py-3">
-            <h3 class="font-semibold">${escapeHtml(area.areaName)}</h3>
+            <h3 class="font-semibold">库位组：${escapeHtml(area.areaName)}</h3>
             ${mode === 'LAYOUT' ? `
               <div class="flex gap-1">
                 <button type="button" class="min-h-11 rounded-md border px-3 text-sm" data-skip-page-rerender="true" data-warehouse-map-action="move-area-left" data-area-id="${escapeHtml(area.areaId)}">左移库位组</button>
@@ -132,6 +132,12 @@ export function renderWarehouseLocationMap(options: WarehouseLocationMapOptions)
                 <div>
                   <div class="text-sm font-medium">${escapeHtml(shelf.shelfNo)}</div>
                   <div class="mt-1 text-xs text-muted-foreground">${shelf.locations.length} 个库位</div>
+                  ${mode === 'LAYOUT' ? `
+                    <div class="mt-2 flex gap-1">
+                      <button type="button" class="min-h-11 min-w-11 rounded border text-xs" aria-label="${escapeHtml(shelf.shelfNo)} 上移" data-skip-page-rerender="true" data-warehouse-map-action="move-shelf-up" data-area-id="${escapeHtml(area.areaId)}" data-shelf-id="${escapeHtml(shelf.shelfId)}">↑</button>
+                      <button type="button" class="min-h-11 min-w-11 rounded border text-xs" aria-label="${escapeHtml(shelf.shelfNo)} 下移" data-skip-page-rerender="true" data-warehouse-map-action="move-shelf-down" data-area-id="${escapeHtml(area.areaId)}" data-shelf-id="${escapeHtml(shelf.shelfId)}">↓</button>
+                    </div>
+                  ` : ''}
                 </div>
                 <div class="overflow-x-auto pb-1">
                   <div class="flex min-w-max gap-2">
