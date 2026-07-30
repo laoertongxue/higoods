@@ -166,7 +166,7 @@ function describeCommand(
   input: CommandInput,
 ): WoolCommandDescriptor {
   return {
-    commandId: input.commandId,
+    commandId: input.commandId.trim(),
     commandType,
     targetId,
     canonicalPayload: commandBusinessPayload(input),
@@ -207,7 +207,8 @@ function resolveCommandRetry<T>(descriptor: WoolCommandDescriptor): T | undefine
   if (!receipt) return undefined
   const value = receipt.afterValue as WoolCommandReceiptValue
   const isSameRequest =
-    value.commandType === descriptor.commandType
+    value.commandId === descriptor.commandId
+    && value.commandType === descriptor.commandType
     && value.targetId === descriptor.targetId
     && JSON.stringify(value.canonicalPayload) === JSON.stringify(descriptor.canonicalPayload)
   if (!isSameRequest) {
@@ -231,6 +232,7 @@ function appendCommandReceipt(
 ): void {
   const afterValue: WoolCommandReceiptValue = {
     version: 1,
+    commandId: descriptor.commandId,
     commandType: descriptor.commandType,
     targetId: descriptor.targetId,
     canonicalPayload: descriptor.canonicalPayload,

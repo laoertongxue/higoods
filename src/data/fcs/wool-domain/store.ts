@@ -94,6 +94,23 @@ const WOOL_COMMAND_RESULT_TYPE_BY_COMMAND: Record<WoolCommandType, WoolCommandRe
   CHANGE_WOOL_FACT_QTY: 'WOOL_QTY_CHANGE',
 }
 
+function expectedCommandResultId(value: WoolCommandReceiptValue): string {
+  const commandToken = encodeURIComponent(value.commandId)
+  if (value.commandType === 'ADD_WOOL_YARN_RECEIPT') return `WR-${commandToken}`
+  if (value.commandType === 'ADD_WOOL_PROCESS_REPORT') return `WPR-${commandToken}`
+  if (value.commandType === 'ADD_WOOL_HANDOVER') return `WHO-${commandToken}`
+  if (value.commandType === 'CONFIRM_WOOL_DOWNSTREAM_RECEIPT') return value.targetId
+  if (value.commandType === 'ISSUE_WOOL_YARN') return `WI-${commandToken}`
+  if (value.commandType === 'RETURN_WOOL_YARN') return `WRT-${commandToken}`
+  if (value.commandType === 'ADJUST_WOOL_WAREHOUSE_STOCK') {
+    return `WF-STOCK-ADJUSTMENT-${commandToken}`
+  }
+  if (value.commandType === 'TRANSFER_WOOL_WAREHOUSE_STOCK') {
+    return `WF-STOCK-TRANSFER-${commandToken}`
+  }
+  return `WQC-${commandToken}`
+}
+
 function canonicalizeCommandPayload(value: unknown): unknown {
   if (Array.isArray(value)) return value.map((item) => canonicalizeCommandPayload(item))
   if (!value || typeof value !== 'object') return value
@@ -116,6 +133,10 @@ function validateCommandReceiptValue(
     || !log.operationLogId.startsWith('WOOL-COMMAND-RECEIPT-')
     || !value
     || value.version !== 1
+    || typeof value.commandId !== 'string'
+    || !value.commandId
+    || value.commandId !== value.commandId.trim()
+    || log.operationLogId !== `WOOL-COMMAND-RECEIPT-${encodeURIComponent(value.commandId)}`
     || !commandType
     || !(commandType in WOOL_COMMAND_RESULT_TYPE_BY_COMMAND)
     || typeof value.targetId !== 'string'
@@ -126,6 +147,7 @@ function validateCommandReceiptValue(
     || value.resultType !== WOOL_COMMAND_RESULT_TYPE_BY_COMMAND[commandType]
     || typeof value.resultId !== 'string'
     || !value.resultId
+    || value.resultId !== expectedCommandResultId(value as WoolCommandReceiptValue)
     || value.canonicalPayload === undefined
     || JSON.stringify(value.canonicalPayload) !== JSON.stringify(canonicalizeCommandPayload(value.canonicalPayload))
   ) {

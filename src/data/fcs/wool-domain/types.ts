@@ -307,6 +307,7 @@ export type WoolCommandResultType =
 
 export interface WoolCommandReceiptValue {
   version: 1
+  commandId: string
   commandType: WoolCommandType
   targetId: string
   canonicalPayload: unknown

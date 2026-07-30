@@ -16,6 +16,7 @@ import { generateTaskArtifactsForOrder } from '../src/data/fcs/production-artifa
 import { productionOrders } from '../src/data/fcs/production-orders.ts'
 import type {
   WoolCompletionRecord,
+  WoolCommandReceiptValue,
   WoolHandoverRecord,
   WoolMachineAssociation,
   WoolMachineAssociationLog,
@@ -2671,6 +2672,68 @@ assert.deepEqual(
     'CHANGE_WOOL_FACT_QTY',
   ]),
 )
+function expectedCommandReceiptResultId(value: WoolCommandReceiptValue): string {
+  const commandToken = encodeURIComponent(value.commandId)
+  if (value.commandType === 'ADD_WOOL_YARN_RECEIPT') return `WR-${commandToken}`
+  if (value.commandType === 'ADD_WOOL_PROCESS_REPORT') return `WPR-${commandToken}`
+  if (value.commandType === 'ADD_WOOL_HANDOVER') return `WHO-${commandToken}`
+  if (value.commandType === 'CONFIRM_WOOL_DOWNSTREAM_RECEIPT') return value.targetId
+  if (value.commandType === 'ISSUE_WOOL_YARN') return `WI-${commandToken}`
+  if (value.commandType === 'RETURN_WOOL_YARN') return `WRT-${commandToken}`
+  if (value.commandType === 'ADJUST_WOOL_WAREHOUSE_STOCK') {
+    return `WF-STOCK-ADJUSTMENT-${commandToken}`
+  }
+  if (value.commandType === 'TRANSFER_WOOL_WAREHOUSE_STOCK') {
+    return `WF-STOCK-TRANSFER-${commandToken}`
+  }
+  return `WQC-${commandToken}`
+}
+for (const log of commandReceiptLogs) {
+  const value = log.afterValue as WoolCommandReceiptValue
+  assert.equal(typeof value.commandId, 'string')
+  assert(value.commandId.length > 0)
+  assert.equal(
+    log.operationLogId,
+    `WOOL-COMMAND-RECEIPT-${encodeURIComponent(value.commandId)}`,
+  )
+  assert.equal(value.resultId, expectedCommandReceiptResultId(value))
+}
+const fakeCommandIdReceiptStore = structuredClone(commandReceiptStore)
+const fakeCommandIdReceipt = fakeCommandIdReceiptStore.operationLogs.find((item) =>
+  item.action === 'COMMAND_RECEIPT',
+)!
+fakeCommandIdReceipt.afterValue = {
+  ...(fakeCommandIdReceipt.afterValue as Record<string, unknown>),
+  commandId: 'CMD-FAKE-REBOUND',
+}
+assert.throws(
+  () => validateWoolStore(fakeCommandIdReceiptStore),
+  /命令收据/,
+)
+const fakeOperationLogIdReceiptStore = structuredClone(commandReceiptStore)
+const fakeOperationLogIdReceipt = fakeOperationLogIdReceiptStore.operationLogs.find((item) =>
+  item.action === 'COMMAND_RECEIPT',
+)!
+fakeOperationLogIdReceipt.operationLogId = 'WOOL-COMMAND-RECEIPT-CMD-FAKE-REBOUND'
+assert.throws(
+  () => validateWoolStore(fakeOperationLogIdReceiptStore),
+  /命令收据/,
+)
+const reboundCommandReceiptStore = structuredClone(commandReceiptStore)
+const reboundReceiptA = reboundCommandReceiptStore.operationLogs.find((item) =>
+  item.operationLogId === 'WOOL-COMMAND-RECEIPT-CMD-RECEIPT-STORAGE-RETRY',
+)!
+const reboundReceiptB = reboundCommandReceiptStore.operationLogs.find((item) =>
+  item.operationLogId === 'WOOL-COMMAND-RECEIPT-CMD-RECEIPT-CHECK-001',
+)!
+reboundReceiptA.afterValue = {
+  ...(reboundReceiptA.afterValue as Record<string, unknown>),
+  resultId: (reboundReceiptB.afterValue as WoolCommandReceiptValue).resultId,
+}
+assert.throws(
+  () => validateWoolStore(reboundCommandReceiptStore),
+  /命令收据/,
+)
 const malformedCommandReceiptStore = structuredClone(commandReceiptStore)
 malformedCommandReceiptStore.operationLogs.find((item) =>
   item.action === 'COMMAND_RECEIPT',
@@ -2698,7 +2761,7 @@ orphanCommandReceipt.afterValue = {
 }
 assert.throws(
   () => validateWoolStore(orphanCommandReceiptStore),
-  /命令收据.*结果|结果.*不存在/,
+  /命令收据/,
 )
 
 resetWoolFactWorkflowMock('CHECK_WOOL_COMPLETION_MACHINE_RELEASE')
