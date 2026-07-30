@@ -64,7 +64,17 @@ class MemoryStorage implements Storage {
 
 function assertGroupContract(group: PickupOrderGroup, listKind: PickupListKind): void {
   assert(group.listKind === listKind, `${group.productionOrderNo} 列表类型必须与查询类型一致`)
+  assert(
+    group.groupKey === `${listKind}:${group.productionOrderId}`,
+    `${group.productionOrderNo} 分组主键必须带列表类型前缀`,
+  )
   assert(group.materialRows.length > 0, `${group.productionOrderNo} 必须直接携带物料需求行`)
+  assert(
+    group.materialRows.every((row) =>
+      row.rowKey === `${listKind}:${group.productionOrderId}:${row.demandLineId}`
+    ),
+    `${group.productionOrderNo} 物料行主键必须带列表类型和生产单前缀`,
+  )
 }
 
 function roundQty(value: number): number {
@@ -173,6 +183,10 @@ function assertMaterialRowFacts(
   const projectionLine = projection.lines.find((line) => line.prepLineId === materialRow.demandLineId)
   assert(projectionLine, `${group.productionOrderNo} 正常需求行必须以 prepLineId 作为 demandLineId`)
   assert(materialRow.demandSource === 'NORMAL', `${materialRow.demandLineId} 必须是正常需求`)
+  assert(
+    materialRow.demandCreatedAt === projection.order.createdAt,
+    `${materialRow.demandLineId} 正常需求时间必须来自生产单需求创建时间`,
+  )
   const expectedRoute = derivePickupProcessRoute({ upstreamSourceType: projectionLine.upstreamSourceType })
   assert(materialRow.processRoute === expectedRoute, `${materialRow.demandLineId} 必须按加工来源标记路线`)
   if (expectedRoute === 'NONE') {
@@ -294,6 +308,7 @@ for (const record of supplementRecords) {
     assert(row, `${record.recordNo} ${demand.materialSku} 必须生成独立补料需求行`)
     assert(row.demandSource === 'SUPPLEMENT', `${demandLineId} 必须标记为 SUPPLEMENT`)
     assert(row.demandSourceNo === record.recordNo, `${demandLineId} 必须保留补料单号`)
+    assert(row.demandCreatedAt === record.createdAt, `${demandLineId} 需求时间必须来自补料记录创建时间`)
     assert(row.supplementReason.includes(record.draft.reason), `${demandLineId} 必须保留补料原因`)
     assert(row.unit === demand.unit && Boolean(row.unit), `${demandLineId} 必须保留需求单位`)
     assert(row.color === '' && row.spec === '', `${demandLineId} 不得虚构颜色或规格`)
@@ -765,9 +780,255 @@ assert(
   `${mixedSessionProjection.order.productionOrderNo} 混合会话历史路径必须是未配齐领取`,
 )
 
+const historyScenarioItemSource = integrationNodeSource.items[0]
+const supplementRecordSource = supplementRecords[0]
+const supplementDemandSource = supplementRecordSource?.draft.materialDemands[0]
+assert(
+  historyScenarioItemSource && supplementRecordSource && supplementDemandSource,
+  '历史结果注入验证必须有节点物料、补料记录和补料需求基础结构',
+)
+const historyScenarioProductionOrderId = 'PO-ID-HISTORY-FINAL-RESULT'
+const historyScenarioProductionOrderNo = 'PO-HISTORY-FINAL-RESULT'
+const historyScenarioPrepOrderId = 'PREP-ID-HISTORY-FINAL-RESULT'
+const historyScenarioPrepOrderNo = 'PREP-HISTORY-FINAL-RESULT'
+const historyScenarioLine = {
+  ...integrationLineSource,
+  prepLineId: 'PREP-LINE-HISTORY-FINAL-RESULT',
+  prepOrderId: historyScenarioPrepOrderId,
+  requiredQty: 10,
+  confirmedPrepQty: 10,
+  pickedQty: 10,
+  returnedQty: 0,
+  upstreamSourceType: '无上游' as const,
+  upstreamDocumentNo: '',
+  taskLinks: [],
+}
+function buildHistoryScenarioSession(input: {
+  sessionId: string
+  nodeType: 'READY_TO_PICKUP' | 'INCOMPLETE_PICKABLE'
+  pickedAt: string
+  effectivePickedQty: number
+  currentAvailableQty: number
+}) {
+  const nodeId = `PICKUP-NODE-${input.sessionId}`
+  return {
+    ...integrationProjectionSource.pickupSessions[0],
+    pickupSessionId: input.sessionId,
+    pickupSessionNo: input.sessionId,
+    pickupNodeId: nodeId,
+    pickupNodeVersion: 1,
+    prepOrderId: historyScenarioPrepOrderId,
+    productionOrderId: historyScenarioProductionOrderId,
+    nodeType: input.nodeType,
+    pickupRecordIds: [`PICKUP-RECORD-${input.sessionId}`],
+    pickedAt: input.pickedAt,
+    pickupNodeSnapshot: {
+      ...integrationNodeSource,
+      nodeId,
+      version: 1,
+      nodeType: input.nodeType,
+      prepOrderId: historyScenarioPrepOrderId,
+      prepOrderNo: historyScenarioPrepOrderNo,
+      productionOrderId: historyScenarioProductionOrderId,
+      productionOrderNo: historyScenarioProductionOrderNo,
+      items: [{
+        ...historyScenarioItemSource,
+        nodeItemId: `NODE-ITEM-${input.sessionId}`,
+        prepLineId: historyScenarioLine.prepLineId,
+        unit: historyScenarioLine.unit,
+        requiredQty: historyScenarioLine.requiredQty,
+        effectivePickedQty: input.effectivePickedQty,
+        currentAvailableQty: input.currentAvailableQty,
+      }],
+    },
+  }
+}
+const historyIncompleteSession = buildHistoryScenarioSession({
+  sessionId: 'SESSION-HISTORY-INCOMPLETE',
+  nodeType: 'INCOMPLETE_PICKABLE',
+  pickedAt: '2026-03-18 09:00',
+  effectivePickedQty: 0,
+  currentAvailableQty: 4,
+})
+const historyReadySession = buildHistoryScenarioSession({
+  sessionId: 'SESSION-HISTORY-READY',
+  nodeType: 'READY_TO_PICKUP',
+  pickedAt: '2026-03-18 10:00',
+  effectivePickedQty: 4,
+  currentAvailableQty: 6,
+})
+function buildHistoryScenarioProjection(
+  pickedQty: number,
+  pickupSessions: typeof integrationProjectionSource.pickupSessions,
+) {
+  return {
+    ...integrationProjectionSource,
+    order: {
+      ...integrationProjectionSource.order,
+      productionOrderId: historyScenarioProductionOrderId,
+      productionOrderNo: historyScenarioProductionOrderNo,
+      prepOrderId: historyScenarioPrepOrderId,
+      prepOrderNo: historyScenarioPrepOrderNo,
+      createdAt: '2026-03-18 08:00',
+    },
+    lines: [{ ...historyScenarioLine, pickedQty }],
+    pickupSessions,
+  }
+}
+function buildHistoryScenarioGroups(input: {
+  pickedQty: number
+  pickupSessions: typeof integrationProjectionSource.pickupSessions
+  activeNodes?: PickupNodeProjection[]
+  supplementRecords?: typeof supplementRecords
+}) {
+  return buildPickupOrderGroups({
+    listKind: 'HISTORY',
+    projections: [buildHistoryScenarioProjection(input.pickedQty, input.pickupSessions)],
+    activeNodes: input.activeNodes ?? [],
+    supplementRecords: input.supplementRecords ?? [],
+    processResults: { dyeResults: [], printResults: [] },
+  })
+}
+
+const readyAllPicked = buildHistoryScenarioGroups({
+  pickedQty: 10,
+  pickupSessions: [historyReadySession],
+})[0]
+assert(
+  readyAllPicked?.historyPath === 'READY_PICKUP'
+  && readyAllPicked.finalResult === 'ALL_PICKED',
+  'READY_PICKUP 历史必须能表达逐需求行 ALL_PICKED',
+)
+const incompleteAllPicked = buildHistoryScenarioGroups({
+  pickedQty: 10,
+  pickupSessions: [historyIncompleteSession, historyReadySession],
+})[0]
+assert(
+  incompleteAllPicked?.historyPath === 'INCOMPLETE_PICKUP'
+  && incompleteAllPicked.finalResult === 'ALL_PICKED',
+  '任一历史会话来自未配齐领取时，最终全部领完仍必须表达 INCOMPLETE_PICKUP + ALL_PICKED',
+)
+const incompleteNotAllPicked = buildHistoryScenarioGroups({
+  pickedQty: 4,
+  pickupSessions: [historyIncompleteSession],
+})[0]
+assert(
+  incompleteNotAllPicked?.historyPath === 'INCOMPLETE_PICKUP'
+  && incompleteNotAllPicked.finalResult === 'NOT_ALL_PICKED',
+  '未配齐领取后仍有逐行缺口必须表达 INCOMPLETE_PICKUP + NOT_ALL_PICKED',
+)
+
+const offsetProjection = buildHistoryScenarioProjection(
+  10,
+  [historyReadySession],
+)
+offsetProjection.lines = [
+  { ...historyScenarioLine, prepLineId: 'PREP-LINE-NO-OFFSET-YARD', unit: 'yard', requiredQty: 10, pickedQty: 9 },
+  { ...historyScenarioLine, prepLineId: 'PREP-LINE-NO-OFFSET-PIECE', unit: '件', requiredQty: 1, pickedQty: 2 },
+]
+const offsetHistory = buildPickupOrderGroups({
+  listKind: 'HISTORY',
+  projections: [offsetProjection],
+  activeNodes: [],
+  supplementRecords: [],
+  processResults: { dyeResults: [], printResults: [] },
+})[0]
+assert(
+  offsetHistory?.finalResult === 'NOT_ALL_PICKED',
+  'ALL_PICKED 必须逐需求行、逐单位判断，超领数量不得抵消其他物料缺口',
+)
+
+const newSupplementRecord = {
+  ...supplementRecordSource,
+  id: 'SUPPLEMENT-HISTORY-REOPEN',
+  recordNo: 'BL-HISTORY-REOPEN',
+  createdAt: '2026-03-18 11:00',
+  draft: {
+    ...supplementRecordSource.draft,
+    productionOrderId: historyScenarioProductionOrderId,
+    productionOrderNo: historyScenarioProductionOrderNo,
+    materialDemands: [{
+      ...supplementDemandSource,
+      materialPatternMappingId: 'MAPPING-HISTORY-REOPEN',
+      materialSku: 'MAT-HISTORY-REOPEN',
+      requiredQty: 2,
+      unit: historyScenarioLine.unit,
+      printRequired: false,
+      dyeRequired: false,
+    }],
+  },
+  processWorkOrderRefs: [],
+}
+const reopenedNode = {
+  ...integrationNodeSource,
+  nodeId: 'PICKUP-NODE-HISTORY-REOPEN',
+  prepOrderId: historyScenarioPrepOrderId,
+  prepOrderNo: historyScenarioPrepOrderNo,
+  productionOrderId: historyScenarioProductionOrderId,
+  productionOrderNo: historyScenarioProductionOrderNo,
+  nodeType: 'INCOMPLETE_PICKABLE' as const,
+  carrierType: 'WAREHOUSE_LOCATIONS' as const,
+  items: [{
+    ...historyScenarioItemSource,
+    nodeItemId: 'NODE-ITEM-HISTORY-REOPEN',
+    prepLineId: `SUPPLEMENT:${newSupplementRecord.id}:MAPPING-HISTORY-REOPEN`,
+    materialSku: 'MAT-HISTORY-REOPEN',
+    unit: historyScenarioLine.unit,
+    requiredQty: 2,
+    effectivePickedQty: 0,
+    currentAvailableQty: 1,
+  }],
+}
+const reopenedProjection = buildHistoryScenarioProjection(10, [historyReadySession])
+const reopenedHistory = buildPickupOrderGroups({
+  listKind: 'HISTORY',
+  projections: [reopenedProjection],
+  activeNodes: [reopenedNode],
+  supplementRecords: [newSupplementRecord],
+  processResults: { dyeResults: [], printResults: [] },
+})[0]
+const reopenedCurrent = buildPickupOrderGroups({
+  listKind: 'INCOMPLETE',
+  projections: [reopenedProjection],
+  activeNodes: [reopenedNode],
+  supplementRecords: [newSupplementRecord],
+  processResults: { dyeResults: [], printResults: [] },
+})[0]
+assert(
+  reopenedHistory?.finalResult === 'NEW_SUPPLEMENT_WAIT_PICKUP',
+  '可靠全领完会话之后新增且未领完的补料需求必须把历史结果重开为 NEW_SUPPLEMENT_WAIT_PICKUP',
+)
+assert(
+  reopenedHistory?.productionOrderId === reopenedCurrent?.productionOrderId,
+  '新增补料重开后同一生产单必须同时保留历史分组和当前待领分组',
+)
+assert(
+  reopenedHistory.groupKey !== reopenedCurrent.groupKey
+  && reopenedHistory.materialRows.every((historyRow) =>
+    reopenedCurrent.materialRows.every((currentRow) => historyRow.rowKey !== currentRow.rowKey)
+  ),
+  '同生产单跨列表同时存在时，分组和物料行主键不得发生 DOM 冲突',
+)
+
+const insufficientEvidenceSession = {
+  ...historyReadySession,
+  pickupSessionId: 'SESSION-HISTORY-NO-SNAPSHOT',
+  pickupSessionNo: 'SESSION-HISTORY-NO-SNAPSHOT',
+  pickupNodeSnapshot: undefined,
+}
+const conservativeHistory = buildHistoryScenarioGroups({
+  pickedQty: 10,
+  pickupSessions: [insufficientEvidenceSession],
+  supplementRecords: [newSupplementRecord],
+})[0]
+assert(
+  conservativeHistory?.finalResult === 'NOT_ALL_PICKED',
+  '旧会话缺少逐需求行节点快照时不得把任意最近会话当作全领完时间并误判补料重开',
+)
+
 console.log(JSON.stringify({
   READY: '节点分类、未编号托盘、空库位与配齐来源已覆盖',
   INCOMPLETE: '节点分类、库位载体与完整来源位置事实已覆盖',
   MATERIAL_ROWS: 'prepLineId、需求/已配/有效已领/待领/当前可领数量已覆盖',
-  HISTORY: '空输入、全会话路径、活动节点数量与逐需求行最终结果已覆盖',
+  HISTORY: '全会话路径、可靠全领完时间、逐行最终结果、补料重开与跨列表主键已覆盖',
 }, null, 2))

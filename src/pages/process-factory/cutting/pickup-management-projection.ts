@@ -29,6 +29,7 @@ export type PickupHistoryPath = 'READY_PICKUP' | 'INCOMPLETE_PICKUP'
 export type PickupFinalResult = 'ALL_PICKED' | 'NOT_ALL_PICKED' | 'NEW_SUPPLEMENT_WAIT_PICKUP'
 
 export interface PickupMaterialDemandRow {
+  rowKey: string
   demandLineId: string
   demandSource: PickupDemandSource
   demandSourceNo: string
@@ -53,6 +54,7 @@ export interface PickupMaterialDemandRow {
 }
 
 export interface PickupOrderGroup {
+  groupKey: string
   productionOrderId: string
   productionOrderNo: string
   prepOrderId: string
@@ -338,6 +340,7 @@ export function buildSupplementMaterialRows(
             printResult: printResolution.result,
           })
       rows.push({
+        rowKey: '',
         demandLineId: `SUPPLEMENT:${record.id}:${demand.materialPatternMappingId}`,
         demandSource: 'SUPPLEMENT',
         demandSourceNo: record.recordNo,
@@ -395,6 +398,7 @@ function listMaterialRows(
           printResult: processType === 'PRINT' ? assignment?.result : undefined,
         })
     return {
+      rowKey: '',
       demandLineId: line.prepLineId,
       demandSource: 'NORMAL',
       demandSourceNo: line.cutOrderNo,
@@ -443,11 +447,46 @@ function combineMaterialRows(
   }))
 }
 
+function scopeMaterialRows(
+  listKind: PickupListKind,
+  productionOrderId: string,
+  rows: PickupMaterialDemandRow[],
+): PickupMaterialDemandRow[] {
+  return rows.map((row) => ({
+    ...row,
+    rowKey: `${listKind}:${productionOrderId}:${row.demandLineId}`,
+  }))
+}
+
 function latestSession(sessions: PickupSession[]): PickupSession | null {
   return [...sessions].sort((left, right) =>
     right.pickedAt.localeCompare(left.pickedAt)
     || right.pickupSessionId.localeCompare(left.pickupSessionId)
   )[0] ?? null
+}
+
+function listValidPickupSessions(
+  matchingProjections: MaterialPrepOrderProjection[],
+  productionOrderId: string,
+): PickupSession[] {
+  const prepOrderIds = new Set(
+    matchingProjections.map((projection) => projection.order.prepOrderId),
+  )
+  const bySessionId = new Map<string, PickupSession>()
+  matchingProjections
+    .flatMap((projection) => projection.pickupSessions)
+    .forEach((session) => {
+      if (
+        !session.pickupSessionId
+        || !session.pickupNodeId
+        || !session.pickedAt
+        || !session.pickupRecordIds.length
+        || session.productionOrderId !== productionOrderId
+        || !prepOrderIds.has(session.prepOrderId)
+      ) return
+      bySessionId.set(session.pickupSessionId, session)
+    })
+  return Array.from(bySessionId.values())
 }
 
 export function derivePickupHistoryPath(
@@ -457,6 +496,67 @@ export function derivePickupHistoryPath(
   return nodeTypes.some((nodeType) => nodeType === 'INCOMPLETE_PICKABLE')
     ? 'INCOMPLETE_PICKUP'
     : 'READY_PICKUP'
+}
+
+function sessionHasReliableAllPickedEvidence(
+  session: PickupSession,
+  materialRows: PickupMaterialDemandRow[],
+): boolean {
+  const snapshot = session.pickupNodeSnapshot
+  if (
+    !snapshot
+    || snapshot.nodeId !== session.pickupNodeId
+    || snapshot.version !== session.pickupNodeVersion
+    || snapshot.nodeType !== session.nodeType
+    || snapshot.productionOrderId !== session.productionOrderId
+    || snapshot.prepOrderId !== session.prepOrderId
+    || snapshot.nodeType !== 'READY_TO_PICKUP'
+  ) return false
+
+  const existingRows = materialRows.filter((row) =>
+    Boolean(row.demandCreatedAt) && row.demandCreatedAt <= session.pickedAt
+  )
+  if (!existingRows.length) return false
+  return existingRows.every((row) => {
+    if (row.requiredQty <= 0) return true
+    const snapshotItem = snapshot.items.find((item) => item.prepLineId === row.demandLineId)
+    return Boolean(
+      snapshotItem
+      && snapshotItem.unit === row.unit
+      && roundQty(snapshotItem.effectivePickedQty + snapshotItem.currentAvailableQty)
+        >= row.requiredQty,
+    )
+  })
+}
+
+export function deriveLatestAllPickedAt(
+  materialRows: PickupMaterialDemandRow[],
+  sessions: PickupSession[],
+): string {
+  return sessions
+    .filter((session) => sessionHasReliableAllPickedEvidence(session, materialRows))
+    .sort((left, right) =>
+      right.pickedAt.localeCompare(left.pickedAt)
+      || right.pickupSessionId.localeCompare(left.pickupSessionId)
+    )[0]?.pickedAt ?? ''
+}
+
+export function derivePickupFinalResult(
+  materialRows: PickupMaterialDemandRow[],
+  sessions: PickupSession[],
+): PickupFinalResult {
+  const latestAllPickedAt = deriveLatestAllPickedAt(materialRows, sessions)
+  if (
+    latestAllPickedAt
+    && materialRows.some((row) =>
+      row.demandSource === 'SUPPLEMENT'
+      && row.demandCreatedAt > latestAllPickedAt
+      && row.pickedQty < row.requiredQty
+    )
+  ) return 'NEW_SUPPLEMENT_WAIT_PICKUP'
+  return materialRows.every((row) => row.pickedQty >= row.requiredQty)
+    ? 'ALL_PICKED'
+    : 'NOT_ALL_PICKED'
 }
 
 function groupProjectionsByProductionOrder(
@@ -507,7 +607,7 @@ export function buildPickupOrderGroups(
         const matchingProjections = projectionsByProductionOrder.get(node.productionOrderId) ?? []
         const projection = matchingProjections.find((row) => row.order.prepOrderId === node.prepOrderId)
         if (!projection) return []
-        const sessions = matchingProjections.flatMap((row) => row.pickupSessions)
+        const sessions = listValidPickupSessions(matchingProjections, node.productionOrderId)
         const latest = latestSession(sessions)
         const processAssignments = buildNormalProcessAssignments(
           matchingProjections,
@@ -515,21 +615,26 @@ export function buildPickupOrderGroups(
           processResults,
         )
         return [{
+          groupKey: `${listKind}:${node.productionOrderId}`,
           productionOrderId: node.productionOrderId,
           productionOrderNo: node.productionOrderNo,
           prepOrderId: node.prepOrderId,
           prepOrderNo: node.prepOrderNo,
           listKind,
-          materialRows: combineMaterialRows(
-            matchingProjections.flatMap((row) =>
-              listMaterialRows(
-                row,
-                row.order.prepOrderId === node.prepOrderId ? node : null,
-                processAssignments,
-                node.carrierType === 'WAREHOUSE_LOCATIONS',
-              )
+          materialRows: scopeMaterialRows(
+            listKind,
+            node.productionOrderId,
+            combineMaterialRows(
+              matchingProjections.flatMap((row) =>
+                listMaterialRows(
+                  row,
+                  row.order.prepOrderId === node.prepOrderId ? node : null,
+                  processAssignments,
+                  node.carrierType === 'WAREHOUSE_LOCATIONS',
+                )
+              ),
+              supplementRowsByProductionOrder.get(node.productionOrderId) ?? [],
             ),
-            supplementRowsByProductionOrder.get(node.productionOrderId) ?? [],
           ),
           carrierType: node.carrierType,
           palletId: node.palletId,
@@ -553,7 +658,7 @@ export function buildPickupOrderGroups(
   )
   const historyGroups: PickupOrderGroup[] = []
   projectionsByProductionOrder.forEach((matchingProjections, productionOrderId) => {
-    const sessions = matchingProjections.flatMap((projection) => projection.pickupSessions)
+    const sessions = listValidPickupSessions(matchingProjections, productionOrderId)
     if (!sessions.length) return
     const latest = latestSession(sessions)
     if (!latest) return
@@ -567,18 +672,23 @@ export function buildPickupOrderGroups(
       firstProjection.order.productionOrderNo,
       processResults,
     )
-    const materialRows = combineMaterialRows(
-      matchingProjections.flatMap((projection) =>
-        listMaterialRows(
-          projection,
-          activeNode?.prepOrderId === projection.order.prepOrderId ? activeNode : null,
-          processAssignments,
-          Boolean(activeNode && activeNode.carrierType === 'WAREHOUSE_LOCATIONS'),
-        )
+    const materialRows = scopeMaterialRows(
+      listKind,
+      productionOrderId,
+      combineMaterialRows(
+        matchingProjections.flatMap((projection) =>
+          listMaterialRows(
+            projection,
+            activeNode?.prepOrderId === projection.order.prepOrderId ? activeNode : null,
+            processAssignments,
+            Boolean(activeNode && activeNode.carrierType === 'WAREHOUSE_LOCATIONS'),
+          )
+        ),
+        supplementRowsByProductionOrder.get(productionOrderId) ?? [],
       ),
-      supplementRowsByProductionOrder.get(productionOrderId) ?? [],
     )
     historyGroups.push({
+      groupKey: `${listKind}:${productionOrderId}`,
       productionOrderId,
       productionOrderNo: firstProjection.order.productionOrderNo,
       prepOrderId: firstProjection.order.prepOrderId,
@@ -594,9 +704,7 @@ export function buildPickupOrderGroups(
         ? activeNode.readySource
         : latest.pickupNodeSnapshot?.readySource ?? null,
       historyPath: derivePickupHistoryPath(sessions.map((session) => session.nodeType)),
-      finalResult: materialRows.every((row) => row.pickedQty >= row.requiredQty)
-        ? 'ALL_PICKED'
-        : 'NOT_ALL_PICKED',
+      finalResult: derivePickupFinalResult(materialRows, sessions),
       pickupSessionCount: sessions.length,
       latestPickedAt: latest.pickedAt,
       pickupNodeId: activeNode?.nodeId ?? '',
