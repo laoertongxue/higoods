@@ -1462,6 +1462,110 @@ for (const mismatchCase of factFlowMismatchCases) {
   )
 }
 
+const factFlowSourceTypeCases = [
+  {
+    label: '纱线接收',
+    expectedType: 'YARN_RECEIPT',
+    wrongType: 'PROCESS_REPORT',
+    resolveFlow(store: typeof validStore) {
+      const receipt = store.yarnReceipts.find((item) => item.lines.length > 0)!
+      return store.warehouseFlows.find((item) =>
+        item.flowId === receipt.lines[0].warehouseInboundFlowId,
+      )!
+    },
+  },
+  {
+    label: '纱线领用',
+    expectedType: 'YARN_ISSUE',
+    wrongType: 'YARN_RETURN',
+    resolveFlow(store: typeof validStore) {
+      return store.warehouseFlows.find((item) =>
+        item.flowId === store.yarnIssues[0].warehouseOutboundFlowId,
+      )!
+    },
+  },
+  {
+    label: '纱线退回',
+    expectedType: 'YARN_RETURN',
+    wrongType: 'YARN_ISSUE',
+    resolveFlow(store: typeof validStore) {
+      return store.warehouseFlows.find((item) =>
+        item.flowId === store.yarnReturns[0].warehouseInboundFlowId,
+      )!
+    },
+  },
+  {
+    label: '加工填报',
+    expectedType: 'PROCESS_REPORT',
+    wrongType: 'HANDOVER',
+    resolveFlow(store: typeof validStore) {
+      return store.warehouseFlows.find((item) =>
+        item.flowId === store.processReports[0].warehouseInboundFlowId,
+      )!
+    },
+  },
+  {
+    label: '成品交出',
+    expectedType: 'HANDOVER',
+    wrongType: 'PROCESS_REPORT',
+    resolveFlow(store: typeof validStore) {
+      return store.warehouseFlows.find((item) =>
+        item.flowId === store.handovers[0].warehouseOutboundFlowId,
+      )!
+    },
+  },
+] as const
+for (const sourceTypeCase of factFlowSourceTypeCases) {
+  const wrongSourceTypeStore = structuredClone(validStore)
+  const flow = sourceTypeCase.resolveFlow(wrongSourceTypeStore)
+  assert.equal(flow.sourceRecordType, sourceTypeCase.expectedType)
+  flow.sourceRecordType = sourceTypeCase.wrongType
+  assert.throws(
+    () => validateWoolStore(wrongSourceTypeStore),
+    /事实与仓库流水.*来源类型.*不一致/,
+    `${sourceTypeCase.label}流水必须精确镜像 ${sourceTypeCase.expectedType}`,
+  )
+}
+
+const crossTypeSameIdStore = structuredClone(validStore)
+const crossTypeReceipt = crossTypeSameIdStore.yarnReceipts.find((item) => item.lines.length > 0)!
+const crossTypeReceiptLine = crossTypeReceipt.lines[0]
+const crossTypeReceiptFlow = crossTypeSameIdStore.warehouseFlows.find((item) =>
+  item.flowId === crossTypeReceiptLine.warehouseInboundFlowId,
+)!
+const crossTypeReport = crossTypeSameIdStore.processReports.find((report) =>
+  !crossTypeSameIdStore.qtyChangeLogs.some((change) =>
+    change.recordType === 'PROCESS_REPORT' && change.recordId === report.reportId,
+  ),
+)!
+const crossTypeReportFlow = crossTypeSameIdStore.warehouseFlows.find((item) =>
+  item.flowId === crossTypeReport.warehouseInboundFlowId,
+)!
+const crossTypeSharedId = 'WOOL-CROSS-TYPE-SAME-ID'
+crossTypeReceiptLine.lineId = crossTypeSharedId
+crossTypeReceiptFlow.sourceRecordId = crossTypeSharedId
+crossTypeReport.reportId = crossTypeSharedId
+crossTypeReportFlow.sourceRecordId = crossTypeSharedId
+crossTypeReceiptFlow.sourceRecordType = 'PROCESS_REPORT'
+crossTypeReportFlow.sourceRecordType = 'YARN_RECEIPT'
+assert.throws(
+  () => validateWoolStore(crossTypeSameIdStore),
+  /事实与仓库流水.*来源类型.*不一致/,
+  '接收与填报使用相同来源 ID 时，交换 sourceRecordType 仍必须被拒绝',
+)
+
+const woolStoreSource = readFileSync(
+  new URL('../src/data/fcs/wool-domain/store.ts', import.meta.url),
+  'utf8',
+)
+for (const sourceTypeCase of factFlowSourceTypeCases) {
+  assert.equal(
+    woolStoreSource.includes(`flow.sourceRecordType !== '${sourceTypeCase.expectedType}'`),
+    true,
+    `${sourceTypeCase.label}缺少 sourceRecordType 源码镜像校验`,
+  )
+}
+
 const factFlowAuditCases = [
   {
     label: '纱线接收',

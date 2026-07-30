@@ -165,6 +165,9 @@ export function validateWoolStore(store: WoolDomainStore): void {
         throw new Error(`毛织存储校验失败：接收明细 ${line.lineId} 的纱线 SKU 不属于加工单`)
       }
       const flow = store.warehouseFlows.find((item) => item.flowId === line.warehouseInboundFlowId)
+      if (flow && flow.sourceRecordType !== 'YARN_RECEIPT') {
+        throw new Error(`毛织存储校验失败：接收明细 ${line.lineId} 事实与仓库流水的来源类型不一致`)
+      }
       if (
         !flow
         || flow.businessType !== 'YARN_RECEIPT'
@@ -186,6 +189,9 @@ export function validateWoolStore(store: WoolDomainStore): void {
       throw new Error(`毛织存储校验失败：领用记录 ${issue.issueId} 的纱线 SKU 不属于加工单`)
     }
     const flow = store.warehouseFlows.find((item) => item.flowId === issue.warehouseOutboundFlowId)
+    if (flow && flow.sourceRecordType !== 'YARN_ISSUE') {
+      throw new Error(`毛织存储校验失败：领用记录 ${issue.issueId} 事实与仓库流水的来源类型不一致`)
+    }
     if (
       !flow
       || flow.businessType !== 'YARN_ISSUE'
@@ -206,6 +212,9 @@ export function validateWoolStore(store: WoolDomainStore): void {
       throw new Error(`毛织存储校验失败：退回记录 ${returned.returnId} 的纱线 SKU 不属于加工单`)
     }
     const flow = store.warehouseFlows.find((item) => item.flowId === returned.warehouseInboundFlowId)
+    if (flow && flow.sourceRecordType !== 'YARN_RETURN') {
+      throw new Error(`毛织存储校验失败：退回记录 ${returned.returnId} 事实与仓库流水的来源类型不一致`)
+    }
     if (
       !flow
       || flow.businessType !== 'YARN_RETURN'
@@ -223,6 +232,9 @@ export function validateWoolStore(store: WoolDomainStore): void {
   for (const report of store.processReports) {
     const outputLine = requireOutput(report.woolOrderId, report.outputSkuCode, `加工填报 ${report.reportId}`)
     const flow = store.warehouseFlows.find((item) => item.flowId === report.warehouseInboundFlowId)
+    if (flow && flow.sourceRecordType !== 'PROCESS_REPORT') {
+      throw new Error(`毛织存储校验失败：加工填报 ${report.reportId} 事实与仓库流水的来源类型不一致`)
+    }
     if (
       !flow
       || flow.businessType !== 'PROCESS_REPORT'
@@ -239,6 +251,9 @@ export function validateWoolStore(store: WoolDomainStore): void {
   for (const handover of store.handovers) {
     const outputLine = requireOutput(handover.woolOrderId, handover.outputSkuCode, `交出记录 ${handover.handoverId}`)
     const flow = store.warehouseFlows.find((item) => item.flowId === handover.warehouseOutboundFlowId)
+    if (flow && flow.sourceRecordType !== 'HANDOVER') {
+      throw new Error(`毛织存储校验失败：交出记录 ${handover.handoverId} 事实与仓库流水的来源类型不一致`)
+    }
     if (
       !flow
       || flow.businessType !== 'HANDOVER'
