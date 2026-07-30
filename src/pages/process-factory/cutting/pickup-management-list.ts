@@ -111,6 +111,7 @@ function renderMaterialIdentity(row: PickupMaterialDemandRow): string {
         <div><span class="text-muted-foreground">累计领料</span><strong class="ml-1 tabular-nums">${formatQty(row.pickedQty, row.unit)}</strong></div>
         <div><span class="text-muted-foreground">本轮可领</span><strong class="ml-1 tabular-nums">${formatQty(row.currentAvailableQty, row.unit)}</strong></div>
         <div><span class="text-muted-foreground">领后仍缺</span><strong class="ml-1 tabular-nums">${formatQty(row.afterCurrentPickupRemainingQty, row.unit)}</strong></div>
+        ${row.overageQty > 0 ? `<div class="col-span-3 text-amber-700">超配异常：${formatQty(row.overageQty, row.unit)}</div>` : ''}
       </div>
     </article>
   `
@@ -222,6 +223,7 @@ function renderHistoryMaterials(group: PickupOrderGroup): string {
           <div>累计领料 <strong>${formatQty(row.pickedQty, row.unit)}</strong></div>
           <div>剩余 <strong>${formatQty(row.remainingPickupQty, row.unit)}</strong></div>
         </div>
+        ${row.overageQty > 0 ? `<div class="mt-1 text-amber-700">超配异常：${formatQty(row.overageQty, row.unit)}</div>` : ''}
       </article>
     `
     }).join('')}

@@ -42,9 +42,13 @@ import {
   recordPickupSessionWarehouseSyncResult,
 } from '../data/fcs/cutting/production-material-prep.ts'
 import {
-  appendPickupSessionFromNodeRuntime as appendPickupSessionFromNode,
+  appendPickupSessionWithWarehouseFactsRuntime,
   listActivePickupNodesRuntime as listActivePickupNodes,
 } from '../runtime/fcs/cutting/pickup-management-runtime.ts'
+import {
+  getBrowserLocalStorage,
+  type BrowserStorageLike,
+} from '../data/browser-storage.ts'
 import type { PickupNodeProjection, PickupSession } from '../data/fcs/cutting/pickup-node-domain.ts'
 import {
   assertPickupNodeHasNoOpenDiscrepancy,
@@ -925,7 +929,10 @@ function buildPickupUnitSummaries(node: PickupNodeProjection): Array<{ unit: str
   return Array.from(summaries.values())
 }
 
-function syncCuttingPickupSessionRuntimeFacts(session: PickupSession): void {
+function syncCuttingPickupSessionRuntimeFacts(
+  session: PickupSession,
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): void {
   const nodeSnapshot = session.pickupNodeSnapshot
   if (!nodeSnapshot) throw new Error('领料节点快照缺失，无法补写待加工仓流水。')
   let pickupRecordIndex = 0
@@ -981,7 +988,7 @@ function syncCuttingPickupSessionRuntimeFacts(session: PickupSession): void {
         pickupAt: session.pickedAt,
         warehouseSyncStatus: '已回写',
       },
-    })
+    }, storage)
   }
 }
 
@@ -2472,7 +2479,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
         const nodeSnapshot = structuredClone(node)
         cuttingPickupNodeSnapshot = nodeSnapshot
         const idempotencyKey = `pda-pickup:${pickupNodeId}:v${pickupNodeVersion}`
-        session = appendPickupSessionFromNode({
+        session = appendPickupSessionWithWarehouseFactsRuntime({
           pickupNodeId,
           pickupNodeVersion,
           receiverName: '裁床仓管',
@@ -2480,20 +2487,15 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
           locationCode,
           waitProcessLedgerEventId: idempotencyKey,
           idempotencyKey,
-          warehouseSyncDeferred: true,
-        })
+        }, syncCuttingPickupSessionRuntimeFacts)
+      } else if (session.warehouseSyncStatus !== '已回写') {
+        // 仅兼容改造前已经保存的异常记录；新确认不会再产生此中间态。
+        syncCuttingPickupSessionRuntimeFacts(session)
+        recordPickupSessionWarehouseSyncResult(session.pickupSessionId, { status: '已回写' })
       }
-      syncCuttingPickupSessionRuntimeFacts(session)
-      recordPickupSessionWarehouseSyncResult(session.pickupSessionId, { status: '已回写' })
       window.history.replaceState({}, '', '/fcs/pda/warehouse/wait-process?scope=cutting&action=pickup')
     } catch (e) {
-      if (session) {
-        recordPickupSessionWarehouseSyncResult(session.pickupSessionId, {
-          status: '回写异常待重试',
-          message: e instanceof Error ? e.message : '待加工仓流水写入失败',
-        })
-      }
-      window.alert(e instanceof Error ? `领料已保存，待加工仓流水写入失败：${e.message}` : '领料已保存，待加工仓流水写入失败')
+      window.alert(e instanceof Error ? `领料确认失败，未保存领料及入仓事实：${e.message}` : '领料确认失败，未保存领料及入仓事实')
       window.history.replaceState({}, '', '/fcs/pda/warehouse/wait-process?scope=cutting&action=pickup')
       clearCuttingPickupDraft()
       return true

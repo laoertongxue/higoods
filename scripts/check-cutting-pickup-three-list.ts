@@ -15,9 +15,11 @@ import {
 } from '../src/data/fcs/cutting/production-material-prep.ts'
 import {
   appendPickupSessionFromNodeRuntime as appendPickupSessionFromNode,
+  appendPickupSessionWithWarehouseFactsRuntime,
   bootstrapPickupManagementRuntimeMockData,
   listActivePickupNodesRuntime as listActivePickupNodes,
 } from '../src/runtime/fcs/cutting/pickup-management-runtime.ts'
+import { CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY } from '../src/data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import type {
   PickupNodeProjection,
   PickupNodeSourceLocation,
@@ -313,12 +315,19 @@ function assertMaterialRowFacts(
       `${materialRow.demandLineId} 加工未完成或单位不一致时必须说明阻断原因`,
     )
   }
-  assert(
-    materialRow.preparedQty === projectionLine.confirmedPrepQty,
-    `${materialRow.demandLineId} 已配数量必须来自配料投影行确认数量`,
-  )
   const effectivePickedQty = roundQty(Math.max(projectionLine.pickedQty - projectionLine.returnedQty, 0))
   assert(materialRow.pickedQty === effectivePickedQty, `${materialRow.demandLineId} 已领数量必须扣除退回数量`)
+  assert(
+    materialRow.preparedQty === roundQty(materialRow.pickedQty + materialRow.currentAvailableQty),
+    `${materialRow.demandLineId} 累计有效配料必须等于历史有效领料加当前节点可领量`,
+  )
+  assert(
+    materialRow.overageQty === roundQty(Math.max(
+      materialRow.pickedQty + materialRow.currentAvailableQty - materialRow.requiredQty,
+      0,
+    )),
+    `${materialRow.demandLineId} 超配必须保留结构化异常数量，不能被零缺口吞掉`,
+  )
   assert(
     materialRow.remainingPickupQty === roundQty(Math.max(materialRow.requiredQty - materialRow.pickedQty, 0)),
     `${materialRow.demandLineId} 待领数量必须按逐需求行计算`,
@@ -620,6 +629,68 @@ const storage = new MemoryStorage()
 storage.setItem(
   PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
   serializeProductionMaterialPrepStore(createProductionMaterialPrepSeedStore()),
+)
+
+const atomicRollbackStorage = new MemoryStorage()
+atomicRollbackStorage.setItem(
+  PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
+  serializeProductionMaterialPrepStore(createProductionMaterialPrepSeedStore()),
+)
+atomicRollbackStorage.setItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, '{"events":[]}')
+const atomicRollbackNode = listActivePickupNodes(atomicRollbackStorage)[0]
+assert(atomicRollbackNode, '原子领料回滚测试必须存在活动节点')
+const prepBeforeAtomicFailure = atomicRollbackStorage.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY)
+const ledgerBeforeAtomicFailure = atomicRollbackStorage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY)
+let atomicFailureBlocked = false
+try {
+  appendPickupSessionWithWarehouseFactsRuntime({
+    pickupNodeId: atomicRollbackNode.nodeId,
+    pickupNodeVersion: atomicRollbackNode.version,
+    receiverName: '原子回滚校验员',
+    warehouseArea: '待加工仓原子区',
+    locationCode: 'ATOMIC-01',
+    waitProcessLedgerEventId: 'atomic:rollback',
+    idempotencyKey: `atomic:${atomicRollbackNode.nodeId}:v${atomicRollbackNode.version}`,
+  }, (_session, transactionStorage) => {
+    transactionStorage?.setItem?.(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, '{"events":[{"partial":true}]}')
+    throw new Error('模拟待加工仓流水写入失败')
+  }, atomicRollbackStorage)
+} catch (error) {
+  atomicFailureBlocked = error instanceof Error && error.message.includes('模拟待加工仓流水写入失败')
+}
+assert(atomicFailureBlocked, '待加工仓流水写入失败必须将整次领料确认为失败')
+assert(
+  atomicRollbackStorage.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY) === prepBeforeAtomicFailure
+  && atomicRollbackStorage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) === ledgerBeforeAtomicFailure,
+  '领料会话、领料明细和待加工仓流水必须一起回滚，不得留下中间状态',
+)
+
+const atomicSuccessStorage = new MemoryStorage()
+atomicSuccessStorage.setItem(
+  PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
+  serializeProductionMaterialPrepStore(createProductionMaterialPrepSeedStore()),
+)
+atomicSuccessStorage.setItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, '{"events":[]}')
+const atomicSuccessNode = listActivePickupNodes(atomicSuccessStorage)[0]
+assert(atomicSuccessNode, '原子领料成功测试必须存在活动节点')
+const atomicSession = appendPickupSessionWithWarehouseFactsRuntime({
+  pickupNodeId: atomicSuccessNode.nodeId,
+  pickupNodeVersion: atomicSuccessNode.version,
+  receiverName: '原子成功校验员',
+  warehouseArea: '待加工仓原子区',
+  locationCode: 'ATOMIC-02',
+  waitProcessLedgerEventId: 'atomic:success',
+  idempotencyKey: `atomic:${atomicSuccessNode.nodeId}:v${atomicSuccessNode.version}`,
+}, (session, transactionStorage) => {
+  transactionStorage?.setItem?.(
+    CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY,
+    JSON.stringify({ events: [{ pickupSessionId: session.pickupSessionId }] }),
+  )
+}, atomicSuccessStorage)
+assert(
+  atomicSuccessStorage.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY)?.includes(atomicSession.pickupSessionId)
+  && atomicSuccessStorage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY)?.includes(atomicSession.pickupSessionId),
+  '领料会话、领料明细和待加工仓流水必须在同一次确认中共同形成',
 )
 
 const projections = listMaterialPrepOrderProjections(storage)
@@ -1418,6 +1489,22 @@ assert(
   readyAllPicked?.historyPath === 'READY_PICKUP'
   && readyAllPicked.finalResult === 'ALL_PICKED',
   'READY_PICKUP 历史必须能表达逐需求行 ALL_PICKED',
+)
+const activeNodeAfterAllPicked = {
+  ...historyReadySession.pickupNodeSnapshot!,
+  nodeId: `${historyReadySession.pickupNodeId}:active`,
+  version: historyReadySession.pickupNodeVersion + 1,
+  status: 'OPEN' as const,
+}
+const activeAfterAllPickedHistory = buildHistoryScenarioGroups({
+  lines: [{ ...historyScenarioLineB }],
+  pickupSessions: [historyReadySession],
+  pickupRecords: [historyReadyRecord],
+  activeNodes: [activeNodeAfterAllPicked],
+})[0]
+assert(
+  activeAfterAllPickedHistory?.finalResult === 'NOT_ALL_PICKED',
+  '存在当前有效待领节点时，即使历史累计数量已覆盖应配，也不得判为 ALL_PICKED',
 )
 const incompleteAllPicked = buildHistoryScenarioGroups({
   lines: [{ ...historyScenarioLineA }, { ...historyScenarioLineB }],

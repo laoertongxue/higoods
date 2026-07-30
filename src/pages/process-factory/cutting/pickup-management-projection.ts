@@ -54,6 +54,7 @@ export interface PickupMaterialDemandRow {
   remainingPickupQty: number
   currentAvailableQty: number
   afterCurrentPickupRemainingQty: number
+  overageQty: number
   currentLocations: PickupNodeSourceLocation[]
 }
 
@@ -191,11 +192,10 @@ export function buildSupplementMaterialRows(
 
 function buildPickupMaterialDemandRow(
   fact: PickupDemandFact,
-  projection: MaterialPrepOrderProjection | null,
+  _projection: MaterialPrepOrderProjection | null,
   activeNode: PickupNodeProjection | null,
   includeCurrentLocations = true,
 ): PickupMaterialDemandRow {
-  const line = projection?.lines.find((candidate) => candidate.prepLineId === fact.demandLineId)
   const nodeItem = activeNode?.items.find((item) =>
     item.prepLineId === fact.demandLineId && item.unit === fact.unit
   )
@@ -218,12 +218,16 @@ function buildPickupMaterialDemandRow(
     processBasisLabel: fact.processBasisLabel,
     processComplete: fact.processComplete,
     requiredQty: fact.requiredQty,
-    preparedQty: roundQty(Math.max(line?.confirmedPrepQty ?? nodeItem?.currentAvailableQty ?? 0, 0)),
+    preparedQty: roundQty(Math.max(fact.pickedQty + (nodeItem?.currentAvailableQty ?? 0), 0)),
     pickedQty: fact.pickedQty,
     remainingPickupQty: roundQty(Math.max(fact.requiredQty - fact.pickedQty, 0)),
     currentAvailableQty: roundQty(Math.max(nodeItem?.currentAvailableQty ?? 0, 0)),
     afterCurrentPickupRemainingQty: roundQty(Math.max(
       fact.requiredQty - fact.pickedQty - (nodeItem?.currentAvailableQty ?? 0),
+      0,
+    )),
+    overageQty: roundQty(Math.max(
+      fact.pickedQty + (nodeItem?.currentAvailableQty ?? 0) - fact.requiredQty,
       0,
     )),
     currentLocations: includeCurrentLocations
@@ -514,6 +518,7 @@ export function deriveLatestAllPickedAt(
 export function derivePickupFinalResult(
   materialRows: PickupMaterialDemandRow[],
   validatedSessions: ValidatedPickupSession[],
+  hasActiveNode: boolean,
 ): PickupFinalResult {
   const latestAllPickedAt = deriveLatestAllPickedAt(materialRows, validatedSessions)
   if (
@@ -524,6 +529,7 @@ export function derivePickupFinalResult(
       && row.pickedQty < row.requiredQty
     )
   ) return 'NEW_SUPPLEMENT_WAIT_PICKUP'
+  if (hasActiveNode) return 'NOT_ALL_PICKED'
   return materialRows.every((row) =>
     row.processComplete && row.pickedQty >= row.requiredQty
   )
@@ -685,7 +691,7 @@ export function buildPickupOrderGroups(
         ? activeNode.readySource
         : latest.pickupNodeSnapshot?.readySource ?? null,
       historyPath: derivePickupHistoryPath(sessions.map((session) => session.nodeType)),
-      finalResult: derivePickupFinalResult(materialRows, validatedSessions),
+      finalResult: derivePickupFinalResult(materialRows, validatedSessions, Boolean(activeNode)),
       pickupSessionCount: sessions.length,
       pickupSessions: sessions,
       latestPickerName: latest.receiverName,
