@@ -955,6 +955,12 @@ assert.deepEqual(
   new Set(['MACHINE_REPAIR', 'MACHINE_DISABLED']),
 )
 for (const autoReleaseLog of autoReleaseLogs) {
+  assert(autoReleaseStore.machineAssociationLogs.some((item) =>
+    item.machineId === autoReleaseLog.machineId
+    && item.action === 'ASSOCIATE'
+    && item.toWoolOrderId === autoReleaseOrder.woolOrderId
+    && item.operatedAt < autoReleaseLog.operatedAt,
+  ), `${autoReleaseLog.machineId} 自动解除前必须存在更早的生产关联事实`)
   assert.equal(
     autoReleaseStore.machines.find((item) => item.machineId === autoReleaseLog.machineId)?.status,
     autoReleaseLog.reason === 'MACHINE_REPAIR' ? 'REPAIR' : 'DISABLED',
@@ -1016,6 +1022,13 @@ const completedWithStockStore = readWoolStore()
 const completedWithStock = completedWithStockStore.completions.find((item) =>
   item.woolOrderId === completedWithStockOrder.woolOrderId,
 )!
+const completedStockTransfer = completedWithStockStore.warehouseFlows.find((item) =>
+  item.woolOrderId === completedWithStockOrder.woolOrderId
+  && item.businessType === 'STOCK_TRANSFER',
+)!
+assert(completedStockTransfer, '完成快照场景必须包含转出 5 件的库存事实')
+assert.equal(completedStockTransfer.qty, 5)
+assert.equal(completedStockTransfer.fromLocationId, 'WOOL-WH-GARMENT-DEFAULT')
 assert.deepEqual(completedWithStock.confirmationSnapshot.processReportSummary, [{
   outputSkuCode: completedWithStockLine.outputSkuCode,
   reportedQty: 30,
@@ -1024,9 +1037,14 @@ assert.deepEqual(completedWithStock.confirmationSnapshot.processReportSummary, [
 assert.equal(completedWithStock.confirmationSnapshot.handoverSummary[0].handoverQty, 10)
 assert.deepEqual(completedWithStock.confirmationSnapshot.waitHandoverStockSummary, [{
   outputSkuCode: completedWithStockLine.outputSkuCode,
-  stockQty: 20,
+  stockQty: 15,
   qtyUnit: completedWithStockLine.qtyUnit,
 }])
+assert.equal(getWoolWarehouseStock({
+  woolOrderId: completedWithStockOrder.woolOrderId,
+  objectSkuCode: completedWithStockLine.outputSkuCode,
+  defaultLocationId: 'WOOL-WH-GARMENT-DEFAULT',
+}), 15)
 assert.deepEqual(
   new Set(completedWithStock.confirmationSnapshot.yarnReceiptSummary.map((item) => item.yarnSkuCode)),
   new Set(['YARN-A', 'YARN-B', 'YARN-C']),
@@ -1075,17 +1093,35 @@ assert.equal(
   9,
 )
 
-const fixedLocationOrder = allOrders.find((item) => item.mockScenarioCode === 'FIXED_LOCATION_UI')!
 const fixedLocationStore = readWoolStore()
+const fixedLocationOrders = allOrders.filter((item) => item.mockScenarioCode === 'FIXED_LOCATION_UI')
+assert.deepEqual(
+  new Set(fixedLocationOrders.map((item) => item.kind)),
+  new Set(['WHOLE_GARMENT', 'PART_PANEL']),
+  '固定库位场景必须用整件单和部位单分别承载两类加工后对象',
+)
+const fixedLocationOrderIds = new Set(fixedLocationOrders.map((item) => item.woolOrderId))
 const fixedLocationFlows = fixedLocationStore.warehouseFlows.filter((item) =>
-  item.sourceRecordId.includes('FIXED-LOCATION-'),
+  fixedLocationOrderIds.has(item.woolOrderId),
 )
 assert.deepEqual(
   new Set(fixedLocationFlows.map((item) => item.defaultLocationId)),
   new Set(['WOOL-WP-YARN-DEFAULT', 'WOOL-WH-CUT-DEFAULT', 'WOOL-WH-GARMENT-DEFAULT']),
 )
 assert(fixedLocationFlows.every((item) => item.qty > 0))
-assert(fixedLocationFlows.some((item) => item.woolOrderId === fixedLocationOrder.woolOrderId))
+assert(fixedLocationFlows.every((item) => fixedLocationOrderIds.has(item.woolOrderId)))
+assert(fixedLocationStore.warehouseFlows
+  .filter((item) => item.sourceRecordId.includes('FIXED-LOCATION-'))
+  .every((item) => fixedLocationOrderIds.has(item.woolOrderId)))
+for (const flow of fixedLocationFlows.filter((item) =>
+  item.businessType === 'PROCESS_REPORT',
+)) {
+  const owner = fixedLocationStore.workOrders[flow.woolOrderId]
+  assert.equal(
+    flow.defaultLocationType,
+    owner.kind === 'WHOLE_GARMENT' ? 'GARMENT' : 'CUT_PIECE',
+  )
+}
 
 const mixedBlockOrder = allOrders.find((item) => item.mockScenarioCode === 'REPORTS_AT_LIMIT')!
 commitWoolStore((draft) => {
@@ -1121,6 +1157,52 @@ assert.equal(listWoolFactRecords({
 resetWoolFactWorkflowMock('CHECK_WOOL_FACT_WORKFLOW_AFTER_EXACT_SKU')
 
 const validStore = readWoolStore()
+const invalidBusinessDirectionStore = structuredClone(validStore)
+invalidBusinessDirectionStore.warehouseFlows.find((item) =>
+  item.businessType === 'YARN_RECEIPT',
+)!.flowType = 'OUTBOUND'
+assert.throws(
+  () => validateWoolStore(invalidBusinessDirectionStore),
+  /业务类型.*流水方向/,
+  '纱线接收不得伪装成出库流水',
+)
+
+const invalidOutputLocationStore = structuredClone(validStore)
+const garmentReportFlow = invalidOutputLocationStore.warehouseFlows.find((item) =>
+  item.businessType === 'PROCESS_REPORT'
+  && invalidOutputLocationStore.workOrders[item.woolOrderId]?.kind === 'WHOLE_GARMENT',
+)!
+garmentReportFlow.defaultLocationType = 'CUT_PIECE'
+garmentReportFlow.defaultLocationId = 'WOOL-WH-CUT-DEFAULT'
+assert.throws(
+  () => validateWoolStore(invalidOutputLocationStore),
+  /加工后对象.*默认库位/,
+  '整件加工填报不得进入裁片默认库位',
+)
+
+const invalidQtyChangeDirectionStore = structuredClone(validStore)
+const qtyChangeFlow = invalidQtyChangeDirectionStore.warehouseFlows.find((item) =>
+  item.sourceRecordType === 'QTY_CHANGE',
+)!
+qtyChangeFlow.qty = -qtyChangeFlow.qty
+assert.throws(
+  () => validateWoolStore(invalidQtyChangeDirectionStore),
+  /数量修改.*库存差额/,
+  '数量修改流水必须与目标事实的库存方向和差额一致',
+)
+
+const reusedReceiptFlowStore = structuredClone(validStore)
+const reusedFlowReceipt = reusedReceiptFlowStore.yarnReceipts.find((item) => item.lines.length > 0)!
+reusedFlowReceipt.lines.push({
+  ...structuredClone(reusedFlowReceipt.lines[0]),
+  lineId: `${reusedFlowReceipt.lines[0].lineId}-DUPLICATED-REFERENCE`,
+})
+assert.throws(
+  () => validateWoolStore(reusedReceiptFlowStore),
+  /接收明细.*仓库流水.*一对一/,
+  '两个接收明细不得复用同一仓库流水',
+)
+
 const independentStockFactStore = structuredClone(validStore)
 const independentStockOrder = Object.values(independentStockFactStore.workOrders)
   .find((item) => item.kind === 'WHOLE_GARMENT')!

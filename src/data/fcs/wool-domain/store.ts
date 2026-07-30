@@ -102,10 +102,19 @@ export function validateWoolStore(store: WoolDomainStore): void {
 
   assertUniqueIds(store.yarnReceipts, (item) => item.receiptId, '纱线接收记录')
   assertUniqueIds(store.yarnReceipts.flatMap((item) => item.lines), (item) => item.lineId, '纱线接收明细')
+  assertUniqueIds(
+    store.yarnReceipts.flatMap((item) => item.lines),
+    (item) => item.warehouseInboundFlowId,
+    '接收明细仓库流水一对一引用',
+  )
   assertUniqueIds(store.yarnIssues, (item) => item.issueId, '纱线领用记录')
+  assertUniqueIds(store.yarnIssues, (item) => item.warehouseOutboundFlowId, '领用记录仓库流水一对一引用')
   assertUniqueIds(store.yarnReturns, (item) => item.returnId, '纱线退回记录')
+  assertUniqueIds(store.yarnReturns, (item) => item.warehouseInboundFlowId, '退回记录仓库流水一对一引用')
   assertUniqueIds(store.processReports, (item) => item.reportId, '加工填报记录')
+  assertUniqueIds(store.processReports, (item) => item.warehouseInboundFlowId, '加工填报仓库流水一对一引用')
   assertUniqueIds(store.handovers, (item) => item.handoverId, '交出记录')
+  assertUniqueIds(store.handovers, (item) => item.warehouseOutboundFlowId, '交出记录仓库流水一对一引用')
   assertUniqueIds(store.qtyChangeLogs, (item) => item.changeId, '数量修改记录')
   assertUniqueIds(store.warehouseFlows, (item) => item.flowId, '仓库流水')
   assertUniqueIds(store.completions, (item) => item.woolOrderId, '完成记录')
@@ -232,10 +241,45 @@ export function validateWoolStore(store: WoolDomainStore): void {
   }
   for (const flow of store.warehouseFlows) {
     const order = requireOrder(flow.woolOrderId, `仓库流水 ${flow.flowId}`)
-    const knownSku = order.outputPlanLines.some((line) => line.outputSkuCode === flow.objectSkuCode)
-      || requiredYarns(order).has(flow.objectSkuCode)
+    const outputLine = order.outputPlanLines.find((line) => line.outputSkuCode === flow.objectSkuCode)
+    const knownSku = Boolean(outputLine) || requiredYarns(order).has(flow.objectSkuCode)
     if (!knownSku) {
       throw new Error(`毛织存储校验失败：仓库流水 ${flow.flowId} 的对象 SKU 不属于加工单`)
+    }
+    const requiredFlowType = {
+      YARN_RECEIPT: 'INBOUND',
+      YARN_ISSUE: 'OUTBOUND',
+      YARN_RETURN: 'INBOUND',
+      PROCESS_REPORT: 'INBOUND',
+      HANDOVER: 'OUTBOUND',
+      STOCK_ADJUSTMENT: 'ADJUSTMENT',
+      STOCK_TRANSFER: 'TRANSFER',
+    }[flow.businessType]
+    if (!requiredFlowType || flow.flowType !== requiredFlowType) {
+      throw new Error(`毛织存储校验失败：仓库流水 ${flow.flowId} 的业务类型与流水方向不一致`)
+    }
+    if (['YARN_RECEIPT', 'YARN_ISSUE', 'YARN_RETURN'].includes(flow.businessType)) {
+      if (
+        flow.warehouseMode !== 'WAIT_PROCESS'
+        || flow.defaultLocationType !== 'YARN'
+        || flow.defaultLocationId !== 'WOOL-WP-YARN-DEFAULT'
+      ) {
+        throw new Error(`毛织存储校验失败：纱线流水 ${flow.flowId} 的待加工仓或默认库位无效`)
+      }
+    }
+    if (flow.businessType === 'PROCESS_REPORT' || flow.businessType === 'HANDOVER') {
+      const expectedLocationType = order.kind === 'WHOLE_GARMENT' ? 'GARMENT' : 'CUT_PIECE'
+      const expectedLocationId = order.kind === 'WHOLE_GARMENT'
+        ? 'WOOL-WH-GARMENT-DEFAULT'
+        : 'WOOL-WH-CUT-DEFAULT'
+      if (
+        !outputLine
+        || flow.warehouseMode !== 'WAIT_HANDOVER'
+        || flow.defaultLocationType !== expectedLocationType
+        || flow.defaultLocationId !== expectedLocationId
+      ) {
+        throw new Error(`毛织存储校验失败：仓库流水 ${flow.flowId} 的加工后对象与默认库位不一致`)
+      }
     }
     const locationRule = {
       YARN: {
@@ -297,6 +341,26 @@ export function validateWoolStore(store: WoolDomainStore): void {
         && store.qtyChangeLogs.some((item) => item.changeId === flow.sourceRecordId))
     if (!sourceExists) {
       throw new Error(`毛织存储校验失败：仓库流水 ${flow.flowId} 的来源记录 ${flow.sourceRecordId} 不存在`)
+    }
+    if (flow.sourceRecordType === 'QTY_CHANGE') {
+      const change = store.qtyChangeLogs.find((item) => item.changeId === flow.sourceRecordId)!
+      const target = change.recordType === 'YARN_RECEIPT'
+        ? store.yarnReceipts.find((item) => item.receiptId === change.recordId)
+        : change.recordType === 'PROCESS_REPORT'
+          ? store.processReports.find((item) => item.reportId === change.recordId)
+          : store.handovers.find((item) => item.handoverId === change.recordId)
+      const targetOrderId = target?.woolOrderId
+      const stockDelta = (change.afterQty - change.beforeQty)
+        * (change.recordType === 'HANDOVER' ? -1 : 1)
+      if (
+        flow.businessType !== 'STOCK_ADJUSTMENT'
+        || flow.flowType !== 'ADJUSTMENT'
+        || flow.woolOrderId !== targetOrderId
+        || flow.objectSkuCode !== change.objectSkuCode
+        || flow.qty !== stockDelta
+      ) {
+        throw new Error(`毛织存储校验失败：数量修改 ${change.changeId} 的库存差额不符合目标事实`)
+      }
     }
   }
   for (const completion of store.completions) {
