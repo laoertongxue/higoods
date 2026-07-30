@@ -254,6 +254,7 @@ export interface TablePaginationConfig {
   actionPrefix: string
   fieldPrefix?: string
   pageSizeOptions?: readonly number[]
+  skipPageRerender?: boolean
 }
 
 export function renderTablePagination(config: TablePaginationConfig): string {
@@ -274,12 +275,15 @@ export function renderTablePagination(config: TablePaginationConfig): string {
   const rangeText = total > 0 ? `，当前 ${from}-${to}` : ''
   const actionDataPrefix = toDataPrefix(actionPrefix)
   const fieldDataPrefix = toDataPrefix(fieldPrefix)
+  const skipPageRerender = config.skipPageRerender
+    ? ' data-skip-page-rerender="true"'
+    : ''
 
   return `
     <footer class="flex flex-wrap items-center justify-between gap-2 border-t px-3 py-3">
       <p class="text-xs text-muted-foreground">共 ${total} 条${rangeText}</p>
       <div class="flex flex-wrap items-center gap-2">
-        <select class="h-8 rounded-md border bg-background px-2 text-xs" data-${fieldDataPrefix}-field="pageSize" data-skip-page-rerender="true">
+        <select class="h-8 rounded-md border bg-background px-2 text-xs" data-${fieldDataPrefix}-field="pageSize"${skipPageRerender}>
           ${pageSizeOptions
             .map((size) => `<option value="${size}" ${size === pageSize ? 'selected' : ''}>${size} 条/页</option>`)
             .join('')}
@@ -287,7 +291,7 @@ export function renderTablePagination(config: TablePaginationConfig): string {
         <button
           class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted ${prevDisabled ? 'cursor-not-allowed opacity-60' : ''}"
           data-${actionDataPrefix}-action="prev-page"
-          data-skip-page-rerender="true"
+          ${skipPageRerender}
           ${prevDisabled ? 'disabled' : ''}>
           上一页
         </button>
@@ -295,7 +299,7 @@ export function renderTablePagination(config: TablePaginationConfig): string {
         <button
           class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted ${nextDisabled ? 'cursor-not-allowed opacity-60' : ''}"
           data-${actionDataPrefix}-action="next-page"
-          data-skip-page-rerender="true"
+          ${skipPageRerender}
           ${nextDisabled ? 'disabled' : ''}>
           下一页
         </button>

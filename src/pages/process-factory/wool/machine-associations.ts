@@ -567,6 +567,7 @@ const listController = createProcessOrderListController({
   columnSettingsTitle: '横机生产关联列设置',
   emptyText: '当前条件下暂无横机设备',
   getRows: associationRows,
+  locallyManagedEvents: true,
 })
 
 function rootElement(): HTMLElement | null {

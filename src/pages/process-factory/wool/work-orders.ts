@@ -330,6 +330,7 @@ const listController = createProcessOrderListController({
   columnSettingsTitle: '毛织加工单列设置',
   emptyText: '当前条件下暂无毛织加工单',
   getRows: rowsForActiveTab,
+  locallyManagedEvents: true,
 })
 
 function filterInput(label: string, field: keyof WoolListFilters, placeholder: string, type = 'text'): string {

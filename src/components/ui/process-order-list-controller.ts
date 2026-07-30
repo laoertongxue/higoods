@@ -34,6 +34,7 @@ interface ProcessOrderListControllerOptions<Row> {
   emptyText: string
   getRows: () => Row[]
   maxFrozenWidth?: number
+  locallyManagedEvents?: boolean
 }
 
 export function createProcessOrderListController<Row>(options: ProcessOrderListControllerOptions<Row>) {
@@ -70,14 +71,14 @@ export function createProcessOrderListController<Row>(options: ProcessOrderListC
     const paging = paginateStandardListRows(sorted, state.currentPage, state.preferences.pageSize)
     state.currentPage = paging.currentPage
     return {
-      tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: options.eventPrefix, emptyText: options.emptyText }),
-      paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: options.eventPrefix, fieldPrefix: options.eventPrefix, pageSizeOptions: options.pageSizeOptions }),
+      tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: options.eventPrefix, emptyText: options.emptyText, skipPageRerender: options.locallyManagedEvents }),
+      paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: options.eventPrefix, fieldPrefix: options.eventPrefix, pageSizeOptions: options.pageSizeOptions, skipPageRerender: options.locallyManagedEvents }),
     }
   }
 
   function renderColumnSettings(): string {
     return state.showColumnSettings
-      ? renderStandardListColumnSettings({ title: options.columnSettingsTitle, columns, preferences: state.preferences, eventPrefix: options.eventPrefix, maxFrozenWidth: options.maxFrozenWidth ?? 520 })
+      ? renderStandardListColumnSettings({ title: options.columnSettingsTitle, columns, preferences: state.preferences, eventPrefix: options.eventPrefix, maxFrozenWidth: options.maxFrozenWidth ?? 520, skipPageRerender: options.locallyManagedEvents })
       : ''
   }
 

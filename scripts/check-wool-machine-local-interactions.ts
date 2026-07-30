@@ -57,10 +57,28 @@ async function assertAssociationPage(localUrl: string): Promise<void> {
     assert(await rootIsStable(page), '分页后不得替换横机生产关联页根节点')
     await expectText(page, '[data-wool-machine-associations-pagination-surface]', '2 / 2')
     await page.locator('[data-wool-machine-associations-action="prev-page"]').click()
+    const associationPageSize = page.locator(
+      '[data-wool-machine-associations-field="pageSize"]',
+    )
+    await associationPageSize.selectOption('20')
+    await expectText(page, '[data-wool-machine-associations-pagination-surface]', '1 / 1')
+    await associationPageSize.selectOption('10')
+    await expectText(page, '[data-wool-machine-associations-pagination-surface]', '1 / 2')
+    assert(await rootIsStable(page), '每页条数变化不得替换横机生产关联页根节点')
 
     await page.getByRole('button', { name: '列设置' }).click()
     await expectText(page, '[data-wool-machine-associations-column-overlays]', '列设置')
     assert(await rootIsStable(page), '打开列设置不得替换横机生产关联页根节点')
+    await page.locator(
+      '[data-wool-machine-associations-action="toggle-column-visibility"]:not(:disabled)',
+    ).first().uncheck()
+    assert(await rootIsStable(page), '切换列显示不得替换横机生产关联页根节点')
+    await page.locator(
+      '[data-standard-list-column-key="status"]',
+    ).dragTo(page.locator('[data-standard-list-column-key="specification"]'))
+    assert(await rootIsStable(page), '拖拽列顺序不得替换横机生产关联页根节点')
+    await page.getByRole('button', { name: '恢复默认', exact: true }).click()
+    assert(await rootIsStable(page), '恢复列设置不得替换横机生产关联页根节点')
     await page.getByRole('button', { name: '关闭', exact: true }).click()
     assert.equal(
       await page.locator('[data-wool-machine-associations-column-overlays]').innerHTML(),
@@ -162,6 +180,26 @@ async function assertMachinesPage(localUrl: string): Promise<void> {
     await expectText(page, '[data-wool-machines-pagination-surface]', '2 / 2')
     assert(await rootIsStable(page), '设备排序和分页不得替换页面根节点')
     await page.locator('[data-wool-machines-action="prev-page"]').click()
+    const machinePageSize = page.locator('[data-wool-machines-field="pageSize"]')
+    await machinePageSize.selectOption('20')
+    await expectText(page, '[data-wool-machines-pagination-surface]', '1 / 1')
+    await machinePageSize.selectOption('10')
+    await expectText(page, '[data-wool-machines-pagination-surface]', '1 / 2')
+    assert(await rootIsStable(page), '设备每页条数变化不得替换页面根节点')
+
+    await page.getByRole('button', { name: '列设置' }).click()
+    await expectText(page, '[data-wool-machines-column-overlays]', '横机设备列设置')
+    await page.locator(
+      '[data-wool-machines-action="toggle-column-freeze"]:not(:disabled)',
+    ).first().check()
+    assert(await rootIsStable(page), '设备列冻结不得替换页面根节点')
+    await page.locator(
+      '[data-standard-list-column-key="status"]',
+    ).dragTo(page.locator('[data-standard-list-column-key="specification"]'))
+    assert(await rootIsStable(page), '设备拖拽列顺序不得替换页面根节点')
+    await page.getByRole('button', { name: '恢复默认', exact: true }).click()
+    await page.getByRole('button', { name: '关闭', exact: true }).click()
+    assert(await rootIsStable(page), '设备列设置开关与恢复不得替换页面根节点')
 
     await page.locator(
       '[data-wool-machines-action="open-status"][data-machine-id="WM-002"]',

@@ -334,6 +334,7 @@ const listController = createProcessOrderListController({
   columnSettingsTitle: '横机设备列设置',
   emptyText: '当前条件下暂无横机设备',
   getRows: machineRows,
+  locallyManagedEvents: true,
 })
 
 function rootElement(): HTMLElement | null {
