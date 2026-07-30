@@ -13,6 +13,16 @@ import {
 import { buildTransferBagsProjection } from './process-factory/cutting/transfer-bags-projection.ts'
 import type { TransferBagTicketCandidate } from './process-factory/cutting/transfer-bags-model.ts'
 import {
+  getBrowserLocalStorage,
+  type BrowserStorageLike,
+} from '../data/browser-storage.ts'
+import {
+  appendWaitHandoverBaggingEvent,
+  appendWaitHandoverInboundEvent,
+  buildWaitHandoverRuntimeTicketFromTransferCandidate,
+  resolveWaitHandoverBaggingSnapshot,
+} from './process-factory/cutting/wait-handover-runtime.ts'
+import {
   PDA_PAGE_HANDLED_LOCALLY,
   type PdaPageEventResult,
 } from '../main-handlers/pda-local-action-result'
@@ -515,6 +525,54 @@ export function confirmPdaCuttingInboundRound(
   }
 }
 
+export function appendPdaCuttingInboundRuntimeEvent(
+  state: InboundFormState,
+  mode: PdaCuttingInboundMode,
+  candidates: TransferBagTicketCandidate[] = listInboundTicketCandidates(),
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): void {
+  const bagCode = normalizeInboundCode(state.carrierCode)
+  if (!bagCode) throw new Error('请扫描中转袋。')
+  if (mode === 'bagging') {
+    const ticketNos = state.scannedTicketNos.map(normalizeInboundCode)
+    const tickets = ticketNos.map((ticketNo) =>
+      candidates.find((candidate) =>
+        normalizeInboundCode(candidate.ticketNo) === ticketNo))
+    if (tickets.some((ticket) => !ticket)) {
+      throw new Error('存在无法写入事实账的菲票，请重新扫描。')
+    }
+    appendWaitHandoverBaggingEvent({
+      source: 'PDA',
+      operator: {
+        operatorName: state.operatorName.trim() || '仓务操作员',
+        operatorRole: '裁片仓装袋员',
+      },
+      bagCode,
+      tickets: tickets.map((ticket) =>
+        buildWaitHandoverRuntimeTicketFromTransferCandidate(ticket!)),
+      storage,
+    })
+    return
+  }
+
+  const snapshot = resolveWaitHandoverBaggingSnapshot(bagCode, storage)
+  if (!snapshot) {
+    throw new Error('该中转袋尚未完成菲票装袋，不能入仓。')
+  }
+  appendWaitHandoverInboundEvent({
+    source: 'PDA',
+    operator: {
+      operatorName: state.operatorName.trim() || '仓务操作员',
+      operatorRole: '裁片仓入仓员',
+    },
+    bagCode,
+    warehouseArea: '裁床待交出仓',
+    locationCode: normalizeInboundCode(state.locationLabel),
+    usageCycleId: snapshot.usageCycleId,
+    storage,
+  })
+}
+
 function getInboundStateStore(): Map<string, InboundFormState> {
   if (typeof window === 'undefined') return fallbackInboundState
   if (!window.__higoodPdaCuttingInboundState) {
@@ -993,10 +1051,25 @@ export function handlePdaCuttingInboundEvent(
   }
 
   const currentLedger = getPdaCuttingInboundMockLedger()
-  const confirmation = confirmPdaCuttingInboundRound(eventState.form, mode, currentLedger)
+  let confirmation = confirmPdaCuttingInboundRound(eventState.form, mode, currentLedger)
   if (confirmation.result.ok) {
-    ticketScanTimerController.cancel(stateKey)
-    replacePdaCuttingInboundMockLedger(confirmation.ledger)
+    try {
+      appendPdaCuttingInboundRuntimeEvent(eventState.form, mode)
+      ticketScanTimerController.cancel(stateKey)
+      replacePdaCuttingInboundMockLedger(confirmation.ledger)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '事实账写入失败，请重试。'
+      const result = { ok: false, message }
+      confirmation = {
+        result,
+        nextForm: completePdaCuttingInboundRound(
+          eventState.form,
+          mode,
+          result,
+        ),
+        ledger: currentLedger,
+      }
+    }
   }
   replaceState(
     taskId,

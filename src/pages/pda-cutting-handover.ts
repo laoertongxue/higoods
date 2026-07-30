@@ -27,10 +27,16 @@ import {
   type SpecialCraftReturnPayload,
 } from '../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import {
+  getBrowserLocalStorage,
+  type BrowserStorageLike,
+} from '../data/browser-storage.ts'
+import {
   appendWaitHandoverHandoverRecordEvent,
-  appendWaitHandoverBaggingConfirmEvent,
   appendWaitHandoverSpecialCraftHandoverEvent,
   appendWaitHandoverSpecialCraftReturnEvent,
+  buildWaitHandoverLifecycleByBagCode,
+  buildWaitHandoverRuntimeProjection,
+  resolveWaitHandoverBaggingSnapshot,
   runtimeEventHasWaitHandoverTicket,
 } from './process-factory/cutting/wait-handover-runtime.ts'
 import {
@@ -92,7 +98,7 @@ export interface PdaTransferBagHandoverFormState {
   resultMessage: string
 }
 
-interface PdaTransferBagHandoverBagCandidate {
+export interface PdaTransferBagHandoverBagCandidate {
   bagCode: string
   ticketCount: number
   productionOrderNo: string
@@ -100,14 +106,16 @@ interface PdaTransferBagHandoverBagCandidate {
   boundSewingTaskNo?: string
 }
 
-interface PdaTransferBagHandoverSewingTaskCandidate {
+export interface PdaTransferBagHandoverSewingTaskCandidate {
   sewingTaskNo: string
+  sewingTaskId?: string
   productionOrderNo: string
+  receiverFactoryId?: string
   receiverFactoryName: string
   receivableStatus: '可接收' | '不可接收'
 }
 
-interface PdaTransferBagHandoverCandidates {
+export interface PdaTransferBagHandoverCandidates {
   bags: PdaTransferBagHandoverBagCandidate[]
   sewingTasks: PdaTransferBagHandoverSewingTaskCandidate[]
 }
@@ -164,6 +172,79 @@ const transferBagHandoverCandidates: PdaTransferBagHandoverCandidates = {
 }
 
 const transferBagHandoverState = new Map<string, PdaTransferBagHandoverFormState>()
+
+export function buildPdaTransferBagHandoverCandidates(): PdaTransferBagHandoverCandidates {
+  const runtimeProjection = buildWaitHandoverRuntimeProjection()
+  const pickingProjection = buildPdaHandoverPickingProjection()
+  const runtimeBags = Array.from(
+    new Set(
+      runtimeProjection.inboundInventoryRecords
+        .map((record) => record.tempBagCode)
+        .filter(Boolean),
+    ),
+  ).map((bagCode) => {
+    const records = runtimeProjection.inboundInventoryRecords
+      .filter((record) => record.tempBagCode === bagCode)
+    const lifecycle = buildWaitHandoverLifecycleByBagCode(bagCode)
+    const tasksWithBagItems = pickingProjection.tasks.filter((task) =>
+      task.allocatedInventoryItems.some((item) =>
+        item.tempBagCode === bagCode))
+    const fullTask = tasksWithBagItems.length === 1
+      && records.every((record) =>
+        tasksWithBagItems[0].allocatedInventoryItems.some((item) =>
+          item.tempBagCode === bagCode
+          && item.feiTicketId === record.feiTicketId))
+      ? tasksWithBagItems[0]
+      : undefined
+    const status: PdaTransferBagHandoverBagCandidate['status'] =
+      lifecycle.mainStatus === 'DISABLED'
+        ? '已作废'
+        : lifecycle.flowStage === 'HANDED_OVER_WAITING_RETURN'
+          ? '已交出'
+          : lifecycle.flowStage === 'INBOUND_STORED'
+            ? '待交出'
+            : '空袋'
+    return {
+      bagCode,
+      ticketCount: records.length,
+      productionOrderNo: records[0]?.productionOrderNo || '',
+      status,
+      boundSewingTaskNo: fullTask?.sewingTaskNo,
+    }
+  })
+  const runtimeTasks = pickingProjection.tasks.map((task) => {
+    const sourceBagCode = task.tempBagSources[0]?.tempBagCode || ''
+    const snapshot = sourceBagCode
+      ? resolveWaitHandoverBaggingSnapshot(sourceBagCode)
+      : null
+    return {
+      sewingTaskNo: task.sewingTaskNo,
+      sewingTaskId: task.sewingTaskId,
+      productionOrderNo: snapshot?.productionOrderNo || '',
+      receiverFactoryId: task.receiverFactoryId,
+      receiverFactoryName: task.receiverFactoryName,
+      receivableStatus: '可接收' as const,
+    }
+  })
+  const bagCodes = new Set(runtimeBags.map((bag) => bag.bagCode))
+  const sewingTaskNos = new Set(
+    runtimeTasks.map((task) => task.sewingTaskNo),
+  )
+  return {
+    bags: [
+      ...runtimeBags,
+      ...transferBagHandoverCandidates.bags.filter(
+        (bag) => !bagCodes.has(bag.bagCode),
+      ),
+    ],
+    sewingTasks: [
+      ...runtimeTasks,
+      ...transferBagHandoverCandidates.sewingTasks.filter(
+        (task) => !sewingTaskNos.has(task.sewingTaskNo),
+      ),
+    ],
+  }
+}
 
 export function createPdaTransferBagHandoverFormState(): PdaTransferBagHandoverFormState {
   return {
@@ -389,6 +470,91 @@ export function submitPdaTransferBagHandoverRound(
   return completePdaTransferBagHandoverRound(state, { ok: true })
 }
 
+export function appendPdaTransferBagHandoverRuntimeEvent(
+  state: PdaTransferBagHandoverFormState,
+  candidates: PdaTransferBagHandoverCandidates,
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): void {
+  const bag = candidates.bags.find(
+    (candidate) => candidate.bagCode === state.bagCode,
+  )
+  const task = candidates.sewingTasks.find(
+    (candidate) => candidate.sewingTaskNo === state.sewingTaskNo,
+  )
+  if (!bag) throw new Error('请扫描中转袋。')
+  if (!task) throw new Error('请扫描车缝任务。')
+  const lifecycle = buildWaitHandoverLifecycleByBagCode(
+    bag.bagCode,
+    storage,
+  )
+  if (lifecycle.flowStage !== 'INBOUND_STORED') {
+    throw new Error(`这个中转袋当前为${lifecycle.flowStageLabel}，不能交出。`)
+  }
+  const snapshot = resolveWaitHandoverBaggingSnapshot(
+    bag.bagCode,
+    storage,
+  )
+  if (!snapshot?.tickets.length) {
+    throw new Error('该中转袋没有可交出的袋内菲票快照。')
+  }
+  if (snapshot.productionOrderNo !== task.productionOrderNo) {
+    throw new Error('中转袋与车缝任务生产单不一致，请重新扫描。')
+  }
+  if (
+    bag.boundSewingTaskNo
+    && bag.boundSewingTaskNo !== task.sewingTaskNo
+  ) {
+    throw new Error('这个中转袋已绑定其他车缝任务，请换一个袋。')
+  }
+  const usageCycleId = lifecycle.usageCycleId || snapshot.usageCycleId
+  const recordId =
+    `PDA-HR-${usageCycleId.replace(/[^A-Za-z0-9]/g, '-')}-${task.sewingTaskNo}`
+  const currentHandedOverQty = snapshot.tickets.reduce(
+    (sum, ticket) => sum + ticket.pieceQty,
+    0,
+  )
+  const payload: HandoverRecordSubmitPayload = {
+    handoverOrderId: `PDA-HO-${task.sewingTaskId || task.sewingTaskNo}`,
+    handoverOrderNo: `${task.sewingTaskNo}-交出`,
+    handoverRecordId: recordId,
+    handoverRecordNo: `${task.sewingTaskNo}-PDA-整袋`,
+    receiverType: '车缝厂',
+    receiverId: task.receiverFactoryId || task.sewingTaskId || task.sewingTaskNo,
+    receiverName: task.receiverFactoryName,
+    transferBagUses: [{
+      bagUseId: usageCycleId,
+      bagCode: bag.bagCode,
+      containedFeiTicketIds: snapshot.tickets.map(
+        (ticket) => ticket.feiTicketId,
+      ),
+      totalPieceQty: currentHandedOverQty,
+    }],
+    feiTicketItems: snapshot.tickets.map((ticket) => ({
+      feiTicketId: ticket.feiTicketId,
+      feiTicketNo: ticket.feiTicketNo,
+      pieceQty: ticket.pieceQty,
+      unit: '片',
+    })),
+    currentHandedOverQty,
+    submittedAt: new Date().toISOString(),
+    submittedBy: 'PDA 裁片仓交出员',
+  }
+  appendWaitHandoverHandoverRecordEvent({
+    source: 'PDA',
+    operator: {
+      operatorName: payload.submittedBy,
+      operatorRole: '裁片仓交出员',
+    },
+    payload,
+    fromWarehouseArea: '裁床待交出仓',
+    fromLocationCode: bag.bagCode,
+    usageCycleId,
+    idempotencyKey:
+      `${usageCycleId}:HANDOVER_CONFIRMED:${task.sewingTaskNo}`,
+    storage,
+  })
+}
+
 export interface PdaTransferBagHandoverScanTimerController {
   schedule: (stateKey: string, callback: () => void) => void
   flush: (stateKey: string) => boolean
@@ -529,7 +695,11 @@ function renderHandoverStatus(detail: NonNullable<ReturnType<typeof getHandoverD
 function buildPdaHandoverPickingProjection(): HandoverPickingTaskProjection {
   const transferBagViewModel = buildTransferBagsProjection().viewModel
   const inboundTempBags = buildInboundTempBagsFromTransferBagViewModel(transferBagViewModel)
-  const inboundInventoryRecords = buildInboundTempBagInventoryRecords(inboundTempBags)
+  const runtimeInventoryRecords =
+    buildWaitHandoverRuntimeProjection().inboundInventoryRecords
+  const inboundInventoryRecords = runtimeInventoryRecords.length
+    ? runtimeInventoryRecords
+    : buildInboundTempBagInventoryRecords(inboundTempBags)
   const allocationProjection = buildSewingTaskAllocationProjectionFromInventory(inboundInventoryRecords)
   return buildHandoverPickingTaskProjectionFromAllocationProjection(allocationProjection)
 }
@@ -707,40 +877,6 @@ function renderPdaPickingFlow(projection: HandoverPickingTaskProjection, taskId:
       </button>
     </div>
   `
-}
-
-function appendRuntimeBaggingConfirmEvent(
-  projection: HandoverPickingTaskProjection,
-  task: HandoverPickingTaskProjection['tasks'][number],
-  form: HandoverFormState,
-  operatorName: string,
-): string {
-  const validation = validatePickingScans(projection, task, form)
-  if (!validation.ok) return validation.message
-
-  const now = new Date().toISOString()
-  const pickedQty = validation.item.pieceQty
-  appendWaitHandoverBaggingConfirmEvent({
-    source: 'PDA',
-    operator: {
-      operatorName,
-      operatorRole: '裁片仓装袋确认员',
-    },
-    pickingTaskId: task.pickingTaskId,
-    pickingTaskNo: task.pickingTaskNo,
-    sewingTaskId: task.sewingTaskId,
-    sewingTaskNo: task.sewingTaskNo,
-    sourceTempBagCode: validation.sourceTempBagCode,
-    targetTransferBagCode: validation.targetTransferBagCode,
-    tickets: [{
-      feiTicketId: validation.item.feiTicketId,
-      feiTicketNo: validation.item.feiTicketNo,
-      pieceQty: pickedQty,
-    }],
-    occurredAt: now,
-  })
-
-  return `已同步交出装袋确认：${validation.item.feiTicketNo}，目标袋 ${validation.targetTransferBagCode}。`
 }
 
 function findHandoverRecordForDraft(draft: PdaHandoverRecordDraftProjection): HandoverRecord | undefined {
@@ -1514,7 +1650,7 @@ function completeTransferBagHandoverFieldScan(
     current,
     field,
     fieldNode.value,
-    transferBagHandoverCandidates,
+    buildPdaTransferBagHandoverCandidates(),
   )
   replaceTransferBagHandoverState(taskId, next.state, executionOrderId, executionOrderNo)
   updateTransferBagHandoverLiveRegion(
@@ -1615,12 +1751,7 @@ export function handlePdaCuttingHandoverEvent(
   const action = actionNode.dataset.pdaCutHandoverAction
   const taskId = actionNode.dataset.taskId
   if (!action || !taskId) return false
-  if (
-    action === 'confirm-picking' &&
-    readPdaCuttingHandoverActionFromLocation() === 'transfer-bag-handover'
-  ) {
-    return false
-  }
+  if (action === 'confirm-picking') return false
 
   if (action === 'confirm-transfer-bag-handover') {
     const transferContext = resolveTransferBagHandoverExecutionContext(taskId, actionNode)
@@ -1635,12 +1766,24 @@ export function handlePdaCuttingHandoverEvent(
       transferContext.executionOrderId,
       transferContext.executionOrderNo,
     )
-    const nextState = submitPdaTransferBagHandoverRound(
+    const candidates = buildPdaTransferBagHandoverCandidates()
+    let nextState = submitPdaTransferBagHandoverRound(
       state,
-      transferBagHandoverCandidates,
+      candidates,
     )
     if (nextState.resultMessage === '交出成功') {
-      transferBagScanTimerController.cancel(stateKey)
+      try {
+        appendPdaTransferBagHandoverRuntimeEvent(state, candidates)
+        transferBagScanTimerController.cancel(stateKey)
+      } catch (error) {
+        nextState = completePdaTransferBagHandoverRound(state, {
+          ok: false,
+          message:
+            error instanceof Error
+              ? error.message
+              : '事实账写入失败，请重试。',
+        })
+      }
     }
     replaceTransferBagHandoverState(
       taskId,
@@ -1695,19 +1838,6 @@ export function handlePdaCuttingHandoverEvent(
       context.navContext,
       'handover',
     )
-    return true
-  }
-
-  if (action === 'confirm-picking') {
-    const form = getState(taskId, resolvedExecutionOrderId, resolvedExecutionOrderNo)
-    syncHandoverFormFromControls(form)
-    const projection = buildPdaHandoverPickingProjection()
-    const task = findPdaPickingTaskForCurrentRoute(projection)
-    if (!task) {
-      form.feedbackMessage = '当前没有待交出仓交出装袋确认任务。'
-      return true
-    }
-    form.feedbackMessage = appendRuntimeBaggingConfirmEvent(projection, task, form, form.operatorName.trim() || '裁片仓装袋确认员')
     return true
   }
 

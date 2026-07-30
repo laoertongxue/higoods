@@ -15,7 +15,10 @@ import {
   type SpecialCraftHandoverPayload,
   type SpecialCraftReturnPayload,
 } from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
-import type { BrowserStorageLike } from '../../../data/browser-storage.ts'
+import {
+  getBrowserLocalStorage,
+  type BrowserStorageLike,
+} from '../../../data/browser-storage.ts'
 import {
   deriveTransferBagLifecycle,
   type TransferBagLifecycleCycle,
@@ -173,7 +176,7 @@ function toWaitHandoverLifecycleFact(
 
 export function listWaitHandoverLifecycleFacts(
   bagCode: string,
-  storage: BrowserStorageLike | null = null,
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): TransferBagLifecycleFact[] {
   const events = listCuttingRuntimeEvents(storage)
     .filter((event) => isWaitHandoverBagEventForCode(event, bagCode))
@@ -219,7 +222,7 @@ function resolveWaitHandoverUsageCycleId(
 
 export function buildWaitHandoverLifecycleByBagCode(
   bagCode: string,
-  storage: BrowserStorageLike | null = null,
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): TransferBagLifecycleView {
   const facts = listWaitHandoverLifecycleFacts(bagCode, storage)
   return deriveTransferBagLifecycle({
@@ -395,7 +398,7 @@ function buildWaitHandoverRuntimeTicketFromSnapshotItem(
 
 export function resolveWaitHandoverBaggingSnapshot(
   bagCode: string,
-  storage: BrowserStorageLike | null = null,
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): WaitHandoverBaggingSnapshot | null {
   const event = listCuttingRuntimeEvents(storage)
     .filter((candidate) =>
@@ -663,7 +666,7 @@ export function appendWaitHandoverInboundEvent(input: {
   const occurredAt = input.occurredAt || new Date().toISOString().slice(0, 16).replace('T', ' ')
   const snapshot = resolveWaitHandoverBaggingSnapshot(
     input.bagCode,
-    input.storage || null,
+    input.storage ?? getBrowserLocalStorage(),
   )
   const tickets = snapshot?.tickets || input.tickets || []
   if (!snapshot && !tickets.length) {
@@ -675,7 +678,7 @@ export function appendWaitHandoverInboundEvent(input: {
     || resolveWaitHandoverUsageCycleId(
       input.bagCode,
       occurredAt,
-      input.storage || null,
+      input.storage ?? getBrowserLocalStorage(),
     )
   const totalPieceQty = tickets.reduce((sum, ticket) => sum + Number(ticket.pieceQty || 0), 0)
   const first = tickets[0]
@@ -813,14 +816,16 @@ export function appendWaitHandoverHandoverRecordEvent(input: {
     || resolveWaitHandoverUsageCycleId(
       bagCode,
       occurredAt,
-      input.storage || null,
+      input.storage ?? getBrowserLocalStorage(),
     )
   const handoverLegId =
     input.handoverLegId
     || buildNextWaitHandoverHandoverLeg({
       bagCode,
       usageCycleId,
-      events: listCuttingRuntimeEvents(input.storage || null),
+      events: listCuttingRuntimeEvents(
+        input.storage ?? getBrowserLocalStorage(),
+      ),
     }).handoverLegId
   const feiTicketIds = input.payload.feiTicketItems.map((item) => item.feiTicketId).filter(Boolean)
   const feiTicketNos = input.payload.feiTicketItems.map((item) => item.feiTicketNo).filter(Boolean)
@@ -877,14 +882,16 @@ export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
     || resolveWaitHandoverUsageCycleId(
       input.transferBagCode,
       occurredAt,
-      input.storage || null,
+      input.storage ?? getBrowserLocalStorage(),
     )
   const handoverLegId =
     input.handoverLegId
     || buildNextWaitHandoverHandoverLeg({
       bagCode: input.transferBagCode,
       usageCycleId,
-      events: listCuttingRuntimeEvents(input.storage || null),
+      events: listCuttingRuntimeEvents(
+        input.storage ?? getBrowserLocalStorage(),
+      ),
     }).handoverLegId
   const totalQty = input.payload.feiTicketItems.reduce((sum, item) => sum + Number(item.pieceQty || 0), 0)
   return appendCuttingRuntimeEventIdempotent({
@@ -940,7 +947,7 @@ export function appendWaitHandoverSpecialCraftReturnEvent(input: {
         ? resolveWaitHandoverUsageCycleId(
           bagCode,
           occurredAt,
-          input.storage || null,
+          input.storage ?? getBrowserLocalStorage(),
         )
         : ''
     )
@@ -950,7 +957,7 @@ export function appendWaitHandoverSpecialCraftReturnEvent(input: {
       bagCode
         ? buildWaitHandoverLifecycleByBagCode(
           bagCode,
-          input.storage || null,
+          input.storage ?? getBrowserLocalStorage(),
         ).activeHandoverLegId
         : null
     )

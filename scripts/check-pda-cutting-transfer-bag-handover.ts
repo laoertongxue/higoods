@@ -2,6 +2,14 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import type { PdaPageEventResult } from '../src/main-handlers/pda-local-action-result.ts'
+import {
+  listCuttingRuntimeEvents,
+} from '../src/data/fcs/cutting/cutting-runtime-event-ledger.ts'
+import {
+  appendWaitHandoverBaggingEvent,
+  appendWaitHandoverInboundEvent,
+  buildWaitHandoverLifecycleByBagCode,
+} from '../src/pages/process-factory/cutting/wait-handover-runtime.ts'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const pageSource = readFileSync(`${ROOT}/src/pages/pda-cutting-handover.ts`, 'utf8')
@@ -66,6 +74,18 @@ type WorkflowModule = {
       sewingTasks: SewingTaskCandidate[]
     },
   ) => TransferBagState
+  appendPdaTransferBagHandoverRuntimeEvent: (
+    state: TransferBagState,
+    candidates: {
+      bags: TransferBagCandidate[]
+      sewingTasks: SewingTaskCandidate[]
+    },
+    storage: {
+      getItem: (key: string) => string | null
+      setItem: (key: string, value: string) => void
+      removeItem: (key: string) => void
+    },
+  ) => void
   normalizePdaCuttingHandoverAction: (action: string) => string
   renderPdaTransferBagHandoverWorkflow: (state: TransferBagState, taskId?: string) => string
   createPdaTransferBagHandoverScanTimerController: (
@@ -86,6 +106,7 @@ for (const exportName of [
   'completePdaTransferBagHandoverScan',
   'completePdaTransferBagHandoverRound',
   'submitPdaTransferBagHandoverRound',
+  'appendPdaTransferBagHandoverRuntimeEvent',
   'normalizePdaCuttingHandoverAction',
   'renderPdaTransferBagHandoverWorkflow',
   'updatePdaTransferBagHandoverWorkflow',
@@ -320,6 +341,110 @@ assert.equal(duplicateConfirm.bagCode, 'TB-CUT-001', '重复确认失败必须�
 assert.equal(duplicateConfirm.sewingTaskNo, 'SEW-001-ALT', '重复确认失败必须保留最终任务')
 assert(duplicateConfirm.resultMessage.includes('已交出'), '重复确认必须明确提示已交出')
 
+function createRuntimeMemoryStorage() {
+  const records = new Map<string, string>()
+  return {
+    getItem(key: string) {
+      return records.get(key) ?? null
+    },
+    setItem(key: string, value: string) {
+      records.set(key, value)
+    },
+    removeItem(key: string) {
+      records.delete(key)
+    },
+  }
+}
+
+const runtimeStorage = createRuntimeMemoryStorage()
+const runtimeBagCode = 'PDA-HANDOVER-RUNTIME-BAG-001'
+const runtimeTicket = {
+  feiTicketId: 'PDA-HANDOVER-FEI-ID-001',
+  feiTicketNo: 'PDA-HANDOVER-FEI-001',
+  productionOrderId: 'PDA-HANDOVER-PO-ID-001',
+  productionOrderNo: 'PDA-HANDOVER-PO-001',
+  cutOrderId: 'PDA-HANDOVER-CUT-ID-001',
+  cutOrderNo: 'PDA-HANDOVER-CUT-001',
+  spreadingOrderId: 'PDA-HANDOVER-SPREAD-ID-001',
+  spreadingOrderNo: 'PDA-HANDOVER-SPREAD-001',
+  spuCode: 'PDA-HANDOVER-SPU-001',
+  color: '黑色',
+  size: 'M',
+  partCode: 'FRONT',
+  partName: '前幅',
+  pieceQty: 10,
+  pieceSequenceLabel: '1-10',
+  hasSpecialCraft: false,
+  specialCraftDisplay: '无',
+  receiverFactoryDisplay: '无',
+  printStatus: '已打印',
+  voidStatus: '有效',
+}
+appendWaitHandoverBaggingEvent({
+  source: 'PDA',
+  operator: { operatorName: 'PDA 装袋员' },
+  bagCode: runtimeBagCode,
+  tickets: [runtimeTicket],
+  occurredAt: '2026-07-30 17:00',
+  storage: runtimeStorage,
+})
+appendWaitHandoverInboundEvent({
+  source: 'PDA',
+  operator: { operatorName: 'PDA 入仓员' },
+  bagCode: runtimeBagCode,
+  warehouseArea: '裁床待交出仓',
+  locationCode: 'CUT-A-01',
+  occurredAt: '2026-07-30 17:10',
+  storage: runtimeStorage,
+})
+const runtimeHandoverCandidates = {
+  bags: [{
+    bagCode: runtimeBagCode,
+    ticketCount: 1,
+    productionOrderNo: runtimeTicket.productionOrderNo,
+    status: '待交出' as const,
+    boundSewingTaskNo: 'PDA-SEWING-TASK-001',
+  }],
+  sewingTasks: [{
+    sewingTaskNo: 'PDA-SEWING-TASK-001',
+    productionOrderNo: runtimeTicket.productionOrderNo,
+    receiverFactoryName: 'HiGood 印尼一厂',
+    receivableStatus: '可接收' as const,
+  }],
+}
+workflow.appendPdaTransferBagHandoverRuntimeEvent(
+  {
+    ...workflow.createPdaTransferBagHandoverFormState(),
+    bagCode: runtimeBagCode,
+    sewingTaskCode: 'PDA-SEWING-TASK-001',
+    sewingTaskNo: 'PDA-SEWING-TASK-001',
+    productionOrderNo: runtimeTicket.productionOrderNo,
+    receiverFactoryName: 'HiGood 印尼一厂',
+    ticketCount: 1,
+  },
+  runtimeHandoverCandidates,
+  runtimeStorage,
+)
+const runtimeHandoverEvents = listCuttingRuntimeEvents(runtimeStorage)
+  .filter((event) => event.eventType === '新增交出记录')
+assert.equal(runtimeHandoverEvents.length, 1, 'PDA 整袋交出必须写入一条统一交出事实')
+assert.deepEqual(
+  runtimeHandoverEvents[0].refs.feiTicketIds,
+  [runtimeTicket.feiTicketId],
+  'PDA 整袋交出必须一次写入袋内完整菲票快照',
+)
+assert.equal(
+  buildWaitHandoverLifecycleByBagCode(
+    runtimeBagCode,
+    runtimeStorage,
+  ).flowStage,
+  'HANDED_OVER_WAITING_RETURN',
+)
+assert(
+  !pageSource.includes('appendWaitHandoverBaggingConfirmEvent'),
+  'PDA 不得继续写入“交出装袋确认”第二次装袋事实',
+)
+
 const html = workflow.renderPdaTransferBagHandoverWorkflow(taskScan.state, 'CUT-001')
 assert.equal((html.match(/<button\b/g) || []).length, 1, '页面只能有一个主要按钮')
 assert(html.includes('1 扫中转袋'), '第一步必须是扫中转袋')
@@ -367,6 +492,10 @@ assert.deepEqual(effects, ['latest'], '成功 reset 后旧 timer 不得污染新
 const transferModeStart = pageSource.indexOf("if (isTransferBagHandoverAction)")
 assert(transferModeStart >= 0, '新 action 必须使用隔离的 transfer-bag-handover 渲染分支')
 const originalWindow = (globalThis as typeof globalThis & { window?: Window }).window
+const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
+  globalThis,
+  'localStorage',
+)
 const originalHtmlInputElement = (
   globalThis as typeof globalThis & { HTMLInputElement?: typeof HTMLInputElement }
 ).HTMLInputElement
@@ -389,11 +518,18 @@ class FakeHandoverInputElement {
 }
 const legacyRouteWindow = new EventTarget() as EventTarget & {
   location: { pathname: string; search: string }
+  localStorage: ReturnType<typeof createRuntimeMemoryStorage>
 }
+const handlerRuntimeStorage = createRuntimeMemoryStorage()
 legacyRouteWindow.location = {
   pathname: '/fcs/pda/cutting/handover/TASK-CUT-PDA-CUT-DONE-0307',
   search: '?action=handover-bagging-confirm',
 }
+legacyRouteWindow.localStorage = handlerRuntimeStorage
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: handlerRuntimeStorage,
+})
 ;(globalThis as typeof globalThis & { window: Window }).window = legacyRouteWindow as unknown as Window
 ;(globalThis as typeof globalThis & { HTMLInputElement: typeof HTMLInputElement }).HTMLInputElement =
   FakeHandoverInputElement as unknown as typeof HTMLInputElement
@@ -583,16 +719,70 @@ const bagClearConfirmHtml = (
 assert(bagClearConfirmHtml.includes('请扫描中转袋。'), '清空袋后确认必须阻断并提示扫描中转袋')
 assert(eventContainer.innerHTML.includes('请扫描中转袋。'), '清空袋确认失败必须立即局部显示具体原因')
 
-bagInput.value = 'TB-CUT-260727-001'
+const handlerBagCode = 'PDA-HANDLER-BAG-001'
+appendWaitHandoverBaggingEvent({
+  source: 'PDA',
+  operator: { operatorName: 'PDA 装袋员' },
+  bagCode: handlerBagCode,
+  tickets: [{
+    ...runtimeTicket,
+    feiTicketId: 'PDA-HANDLER-FEI-ID-001',
+    feiTicketNo: 'PDA-HANDLER-FEI-001',
+    productionOrderId: 'PDA-HANDLER-PO-ID-001',
+    productionOrderNo: 'PDA-HANDLER-PO-001',
+  }],
+  occurredAt: '2026-07-30 18:00',
+  storage: handlerRuntimeStorage,
+})
+appendWaitHandoverInboundEvent({
+  source: 'PDA',
+  operator: { operatorName: 'PDA 入仓员' },
+  bagCode: handlerBagCode,
+  warehouseArea: '裁床待交出仓',
+  locationCode: 'CUT-A-01',
+  occurredAt: '2026-07-30 18:10',
+  storage: handlerRuntimeStorage,
+})
+const handlerCandidates = (
+  pageModule.buildPdaTransferBagHandoverCandidates as () => {
+    bags: TransferBagCandidate[]
+    sewingTasks: SewingTaskCandidate[]
+  }
+)()
+const handlerBag = handlerCandidates.bags.find(
+  (candidate) => candidate.bagCode === handlerBagCode,
+)
+assert(handlerBag?.boundSewingTaskNo, '运行时候选必须为完整归属任务的已入仓整袋')
+assert.equal(handlerBag.status, '待交出', '运行时候选必须处于可整袋交出阶段')
+const handlerTask = handlerCandidates.sewingTasks.find(
+  (candidate) =>
+    candidate.sewingTaskNo === handlerBag.boundSewingTaskNo,
+)
+assert(handlerTask, '运行时整袋必须能解析接收车缝任务')
+assert.equal(
+  workflow.completePdaTransferBagHandoverScan(
+    workflow.createPdaTransferBagHandoverFormState(),
+    'bagCode',
+    handlerBagCode,
+    handlerCandidates,
+  ).ok,
+  true,
+  '运行时整袋必须可被 PDA 纯扫码规则识别',
+)
+
+bagInput.value = handlerBagCode
 dispatchTransferInput(bagInput, 'keydown', 'Enter')
-taskInput.value = 'SEW-PO-202603-0102-01'
+taskInput.value = handlerTask.sewingTaskNo
 dispatchTransferInput(taskInput, 'keydown', 'Enter')
 assert.equal(
   handleTransferEvent(confirmTransferTarget as unknown as HTMLElement),
   'handled-locally',
   '确认交出成功局部更新时必须返回精确结果',
 )
-assert(eventContainer.innerHTML.includes('交出成功'), '确认交出成功后必须立即在当前工作区显示结果')
+assert(
+  eventContainer.innerHTML.includes('交出成功'),
+  `确认交出成功后必须立即在当前工作区显示结果：${eventContainer.innerHTML}`,
+)
 assert.match(
   eventContainer.innerHTML,
   /data-pda-cut-handover-field="bagCode"[\s\S]*?value=""/,
@@ -645,6 +835,15 @@ if (originalWindow) {
   ;(globalThis as typeof globalThis & { window: Window }).window = originalWindow
 } else {
   delete (globalThis as typeof globalThis & { window?: Window }).window
+}
+if (originalLocalStorageDescriptor) {
+  Object.defineProperty(
+    globalThis,
+    'localStorage',
+    originalLocalStorageDescriptor,
+  )
+} else {
+  delete (globalThis as typeof globalThis & { localStorage?: Storage }).localStorage
 }
 if (originalHtmlInputElement) {
   ;(globalThis as typeof globalThis & { HTMLInputElement: typeof HTMLInputElement }).HTMLInputElement =
