@@ -3,13 +3,16 @@ import test from 'node:test'
 import {
   assertReceiptCurrent,
   createTaskReceipt,
-  receiptValidationPaths,
   parseCodeGraphStatus,
+  parseTaskCompletionReceipt,
+  receiptValidationPaths,
   recordAcceptance,
   recordDelivery,
   type GitRevision,
+  type TaskCompletionReceipt,
 } from '../../scripts/workflow-governance/task-receipt.ts'
 import type { AffectedCheckRoute } from '../../scripts/workflow-governance/affected-checks.ts'
+import type { InstructionContextReceipt } from '../../scripts/workflow-governance/instruction-context.ts'
 
 const realFetch = globalThis.fetch
 
@@ -43,11 +46,44 @@ const route: AffectedCheckRoute = {
   escalationReasons: [],
 }
 
+function instructionContext(options: {
+  contentHash?: string
+  requireStageTrace?: boolean
+} = {}): InstructionContextReceipt {
+  return {
+    taskBoundary: '只修改任务收据实现与测试',
+    source: {
+      path: 'AGENTS.md',
+      algorithm: 'sha256',
+      contentHash: options.contentHash ?? 'a'.repeat(64),
+    },
+    ruleBindings: [
+      {
+        ruleRef: 'AGENTS.md::## 12. CodeGraph 使用规则',
+        evidenceFields: ['codegraph'],
+      },
+      {
+        ruleRef: 'AGENTS.md::### 12.1 任务完成与交付收据',
+        evidenceFields: ['revision', 'route', 'checks', 'codegraph'],
+      },
+      ...(options.requireStageTrace
+        ? [{
+            ruleRef: 'AGENTS.md::### 12.2 Superpowers 最小阶段轨迹',
+            evidenceFields: ['stageTrace'] as const,
+          }]
+        : []),
+    ],
+  }
+}
+
 function validReceipt() {
+  const instruction = instructionContext()
   return createTaskReceipt({
     workspace: '/workspace',
     revisionBefore: revision,
     revisionAfter: revision,
+    instructionBefore: instruction,
+    instructionAfter: instruction,
     route,
     checks: [{
       command: 'npm run test:workflow-governance',
@@ -103,6 +139,8 @@ test('失败检查阻止收据进入验证完成', () => {
     workspace: receipt.workspace,
     revisionBefore: revision,
     revisionAfter: revision,
+    instructionBefore: receipt.instructionContext,
+    instructionAfter: receipt.instructionContext,
     route,
     checks: receipt.checks,
     codegraph: receipt.codegraph,
@@ -117,6 +155,8 @@ test('CodeGraph 待同步或工作树不匹配时阻止验证完成', () => {
     workspace: receipt.workspace,
     revisionBefore: revision,
     revisionAfter: revision,
+    instructionBefore: receipt.instructionContext,
+    instructionAfter: receipt.instructionContext,
     route,
     checks: receipt.checks,
     codegraph: receipt.codegraph,
@@ -139,6 +179,92 @@ test('CodeGraph JSON 状态保留待同步数和工作树不匹配证据', () =>
   assert.equal(status.pendingCount, 6)
   assert.equal(status.worktreeMismatch, true)
   assert.equal(status.projectPath, '/workspace/main')
+})
+
+test('执行期间 AGENTS 指令上下文变化时只能生成 implemented 收据并保存最终上下文', () => {
+  const before = instructionContext({ contentHash: 'a'.repeat(64) })
+  const after = instructionContext({ contentHash: 'b'.repeat(64) })
+  const receipt = createTaskReceipt({
+    workspace: '/workspace',
+    revisionBefore: revision,
+    revisionAfter: revision,
+    instructionBefore: before,
+    instructionAfter: after,
+    route,
+    checks: validReceipt().checks,
+    codegraph: validReceipt().codegraph,
+  })
+
+  assert.equal(receipt.state, 'implemented')
+  assert.deepEqual(receipt.instructionContext, after)
+  assert(receipt.blockers.some((blocker) => blocker.includes('AGENTS 指令上下文已变化')))
+})
+
+test('阶段轨迹绑定与 stageTrace.required 不一致时阻止验证完成', () => {
+  const withBinding = instructionContext({ requireStageTrace: true })
+  const withoutTrace = createTaskReceipt({
+    workspace: '/workspace',
+    revisionBefore: revision,
+    revisionAfter: revision,
+    instructionBefore: withBinding,
+    instructionAfter: withBinding,
+    route,
+    checks: validReceipt().checks,
+    codegraph: validReceipt().codegraph,
+  })
+  assert.equal(withoutTrace.state, 'implemented')
+  assert(withoutTrace.blockers.some((blocker) => blocker.includes('阶段轨迹绑定')))
+
+  const withoutBinding = instructionContext()
+  const withRequiredTrace = createTaskReceipt({
+    workspace: '/workspace',
+    revisionBefore: revision,
+    revisionAfter: revision,
+    instructionBefore: withoutBinding,
+    instructionAfter: withoutBinding,
+    route,
+    checks: validReceipt().checks,
+    codegraph: validReceipt().codegraph,
+    stageTrace: {
+      required: true,
+      valid: true,
+      stages: [],
+      skills: [],
+      blockers: [],
+    },
+  })
+  assert.equal(withRequiredTrace.state, 'implemented')
+  assert(withRequiredTrace.blockers.some((blocker) => blocker.includes('阶段轨迹绑定')))
+})
+
+test('运行时解析接受完整 v2 收据并拒绝旧版本和畸形嵌套字段', () => {
+  const receipt = validReceipt()
+  assert.deepEqual(parseTaskCompletionReceipt(JSON.stringify(receipt)), receipt)
+
+  assert.throws(
+    () => parseTaskCompletionReceipt(JSON.stringify({ ...receipt, schemaVersion: 1 })),
+    /schemaVersion/,
+  )
+  assert.throws(
+    () => parseTaskCompletionReceipt(JSON.stringify({
+      ...receipt,
+      instructionContext: {
+        ...receipt.instructionContext,
+        source: {
+          ...receipt.instructionContext.source,
+          contentHash: 'not-a-sha256',
+        },
+      },
+    })),
+    /contentHash/,
+  )
+  assert.throws(
+    () => parseTaskCompletionReceipt(JSON.stringify({
+      ...receipt,
+      checks: [{ ...receipt.checks[0], exitCode: '0' }],
+    })),
+    /checks/,
+  )
 })
 
 test('CodeGraph 状态缺少必要健康字段时失败关闭', () => {
@@ -169,6 +295,49 @@ test('没有 provider 回执不能标记远端交付', async () => {
     }),
     /provider 回执/,
   )
+})
+
+test('旧版收据直接记录交付或接受时在任何 fetch 前失败关闭', async () => {
+  let fetchCalls = 0
+  globalThis.fetch = (async () => {
+    fetchCalls += 1
+    throw new Error('旧版收据不应发起远端请求')
+  }) as typeof fetch
+
+  const legacyDelivery = {
+    ...validReceipt(),
+    schemaVersion: 1,
+  } as unknown as TaskCompletionReceipt
+  await assert.rejects(
+    recordDelivery(legacyDelivery, {
+      provider: 'github',
+      target: 'owner/repository@main',
+      revision: 'abc123',
+      providerReceipt: 'https://github.com/owner/repository/commit/abc123',
+    }),
+    /schemaVersion/,
+  )
+
+  const legacyAcceptance = {
+    ...validReceipt(),
+    schemaVersion: 1,
+    state: 'delivered',
+    delivery: {
+      provider: 'github',
+      target: 'owner/repository@main',
+      revision: 'abc123',
+      providerReceipt: 'https://api.github.com/repos/owner/repository/commits/abc123',
+      recordedAt: '2026-07-29T10:02:00.000Z',
+    },
+  } as unknown as TaskCompletionReceipt
+  await assert.rejects(
+    recordAcceptance(legacyAcceptance, {
+      acceptanceRef: 'https://api.github.com/repos/owner/repository/issues/comments/42',
+      expectedActor: 'review-owner',
+    }),
+    /schemaVersion/,
+  )
+  assert.equal(fetchCalls, 0)
 })
 
 test('交付和接受必须由远端证据确认', async () => {

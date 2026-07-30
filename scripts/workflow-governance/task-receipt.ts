@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict'
 import type { AffectedCheckRoute } from './affected-checks.ts'
+import {
+  instructionContextsEqual,
+  parseInstructionContext,
+  type InstructionContextReceipt,
+} from './instruction-context.ts'
 import type { StageTraceSummary } from './stage-trace.ts'
 
 export type TaskReceiptState = 'implemented' | 'verified' | 'delivered' | 'accepted'
@@ -47,10 +52,11 @@ interface RemoteEvidenceProbeResult {
 }
 
 export interface TaskCompletionReceipt {
-  schemaVersion: 1
+  schemaVersion: 2
   workspace: string
   createdAt: string
   state: TaskReceiptState
+  instructionContext: InstructionContextReceipt
   revision: GitRevision
   route: AffectedCheckRoute
   checks: CheckReceipt[]
@@ -75,6 +81,8 @@ interface CreateTaskReceiptInput {
   workspace: string
   revisionBefore: GitRevision
   revisionAfter: GitRevision
+  instructionBefore: InstructionContextReceipt
+  instructionAfter: InstructionContextReceipt
   route: AffectedCheckRoute
   checks: CheckReceipt[]
   codegraph: CodeGraphReceipt
@@ -143,8 +151,191 @@ export function parseCodeGraphStatus(source: string): CodeGraphStatusReceipt {
   }
 }
 
+function parseObject(value: unknown, field: string): Record<string, unknown> {
+  assert(value && typeof value === 'object' && !Array.isArray(value), `${field} 必须是对象`)
+  return value as Record<string, unknown>
+}
+
+function parseRequiredString(value: unknown, field: string): string {
+  assert(typeof value === 'string' && value.trim(), `${field} 必须是非空字符串`)
+  return value
+}
+
+function parseTimestamp(value: unknown, field: string): string {
+  const timestamp = parseRequiredString(value, field)
+  assert(!Number.isNaN(Date.parse(timestamp)), `${field} 必须是有效时间`)
+  return timestamp
+}
+
+function parseStringArray(value: unknown, field: string): string[] {
+  assert(
+    Array.isArray(value) && value.every((item) => typeof item === 'string'),
+    `${field} 必须是字符串数组`,
+  )
+  return [...value]
+}
+
+function parseRevision(value: unknown): GitRevision {
+  const revision = parseObject(value, 'revision')
+  return {
+    head: parseRequiredString(revision.head, 'revision.head'),
+    diffHash: parseRequiredString(revision.diffHash, 'revision.diffHash'),
+    changedPaths: parseStringArray(revision.changedPaths, 'revision.changedPaths'),
+  }
+}
+
+function parseRoute(value: unknown): AffectedCheckRoute {
+  const route = parseObject(value, 'route')
+  return {
+    changedPaths: parseStringArray(route.changedPaths, 'route.changedPaths'),
+    fastChecks: parseStringArray(route.fastChecks, 'route.fastChecks'),
+    governanceChecks: parseStringArray(route.governanceChecks, 'route.governanceChecks'),
+    fullChecks: parseStringArray(route.fullChecks, 'route.fullChecks'),
+    unknownPaths: parseStringArray(route.unknownPaths, 'route.unknownPaths'),
+    escalationReasons: parseStringArray(route.escalationReasons, 'route.escalationReasons'),
+  }
+}
+
+function parseChecks(value: unknown): CheckReceipt[] {
+  assert(Array.isArray(value), 'checks 必须是数组')
+  return value.map((item, index) => {
+    const check = parseObject(item, `checks[${index}]`)
+    assert(
+      typeof check.exitCode === 'number' && Number.isInteger(check.exitCode),
+      `checks[${index}].exitCode 必须是整数`,
+    )
+    return {
+      command: parseRequiredString(check.command, `checks[${index}].command`),
+      exitCode: check.exitCode,
+      startedAt: parseTimestamp(check.startedAt, `checks[${index}].startedAt`),
+      finishedAt: parseTimestamp(check.finishedAt, `checks[${index}].finishedAt`),
+      invariant: parseRequiredString(check.invariant, `checks[${index}].invariant`),
+    }
+  })
+}
+
+function parseCodeGraphStatusReceipt(value: unknown, field: string): CodeGraphStatusReceipt {
+  const status = parseObject(value, field)
+  assert(typeof status.initialized === 'boolean', `${field}.initialized 必须是布尔值`)
+  assert(
+    typeof status.pendingCount === 'number'
+      && Number.isInteger(status.pendingCount)
+      && status.pendingCount >= 0,
+    `${field}.pendingCount 必须是非负整数`,
+  )
+  assert(typeof status.worktreeMismatch === 'boolean', `${field}.worktreeMismatch 必须是布尔值`)
+  return {
+    initialized: status.initialized,
+    projectPath: parseRequiredString(status.projectPath, `${field}.projectPath`),
+    pendingCount: status.pendingCount,
+    worktreeMismatch: status.worktreeMismatch,
+  }
+}
+
+function parseCodeGraphReceipt(value: unknown): CodeGraphReceipt {
+  const codegraph = parseObject(value, 'codegraph')
+  assert(
+    typeof codegraph.syncExitCode === 'number' && Number.isInteger(codegraph.syncExitCode),
+    'codegraph.syncExitCode 必须是整数',
+  )
+  return {
+    syncExitCode: codegraph.syncExitCode,
+    before: parseCodeGraphStatusReceipt(codegraph.before, 'codegraph.before'),
+    after: parseCodeGraphStatusReceipt(codegraph.after, 'codegraph.after'),
+  }
+}
+
+const WORKFLOW_STAGES = new Set([
+  'trigger',
+  'skill-invocation',
+  'artifact',
+  'implementation',
+  'spec-review',
+  'code-quality-review',
+  'final-validation',
+])
+
+function parseStageTrace(value: unknown): StageTraceSummary {
+  const trace = parseObject(value, 'stageTrace')
+  assert(typeof trace.required === 'boolean', 'stageTrace.required 必须是布尔值')
+  assert(typeof trace.valid === 'boolean', 'stageTrace.valid 必须是布尔值')
+  const stages = parseStringArray(trace.stages, 'stageTrace.stages')
+  assert(stages.every((stage) => WORKFLOW_STAGES.has(stage)), 'stageTrace.stages 包含未知阶段')
+  return {
+    required: trace.required,
+    valid: trace.valid,
+    stages: stages as StageTraceSummary['stages'],
+    skills: parseStringArray(trace.skills, 'stageTrace.skills'),
+    blockers: parseStringArray(trace.blockers, 'stageTrace.blockers'),
+  }
+}
+
+function parseDelivery(value: unknown): DeliveryReceipt {
+  const delivery = parseObject(value, 'delivery')
+  const acceptanceRef = delivery.acceptanceRef === undefined
+    ? undefined
+    : parseRequiredString(delivery.acceptanceRef, 'delivery.acceptanceRef')
+  return {
+    provider: parseRequiredString(delivery.provider, 'delivery.provider'),
+    target: parseRequiredString(delivery.target, 'delivery.target'),
+    revision: parseRequiredString(delivery.revision, 'delivery.revision'),
+    providerReceipt: parseRequiredString(delivery.providerReceipt, 'delivery.providerReceipt'),
+    recordedAt: parseTimestamp(delivery.recordedAt, 'delivery.recordedAt'),
+    ...(acceptanceRef ? { acceptanceRef } : {}),
+  }
+}
+
+export function parseTaskCompletionReceipt(source: string): TaskCompletionReceipt {
+  const receipt = parseObject(JSON.parse(source) as unknown, '任务收据')
+  assert.equal(receipt.schemaVersion, 2, '任务收据 schemaVersion 必须是 2')
+  const workspace = parseRequiredString(receipt.workspace, 'workspace')
+  const createdAt = parseTimestamp(receipt.createdAt, 'createdAt')
+  assert(
+    typeof receipt.state === 'string'
+      && ['implemented', 'verified', 'delivered', 'accepted'].includes(receipt.state),
+    'state 必须是有效任务状态',
+  )
+  const state = receipt.state as TaskReceiptState
+  const instructionContext = parseInstructionContext(receipt.instructionContext)
+  const revision = parseRevision(receipt.revision)
+  const route = parseRoute(receipt.route)
+  const checks = parseChecks(receipt.checks)
+  const codegraph = parseCodeGraphReceipt(receipt.codegraph)
+  const blockers = parseStringArray(receipt.blockers, 'blockers')
+  const stageTrace = receipt.stageTrace === undefined
+    ? undefined
+    : parseStageTrace(receipt.stageTrace)
+  const delivery = receipt.delivery === undefined
+    ? undefined
+    : parseDelivery(receipt.delivery)
+  assert(
+    !['delivered', 'accepted'].includes(state) || delivery,
+    `${state} 状态缺少 delivery`,
+  )
+  assert(state !== 'accepted' || delivery?.acceptanceRef, 'accepted 状态缺少 acceptanceRef')
+
+  return {
+    schemaVersion: 2,
+    workspace,
+    createdAt,
+    state,
+    instructionContext,
+    revision,
+    route,
+    checks,
+    codegraph,
+    blockers,
+    ...(stageTrace ? { stageTrace } : {}),
+    ...(delivery ? { delivery } : {}),
+  }
+}
+
 export function createTaskReceipt(input: CreateTaskReceiptInput): TaskCompletionReceipt {
   const blockers: string[] = []
+  const instructionContext = parseInstructionContext(input.instructionAfter)
+  if (!instructionContextsEqual(input.instructionBefore, instructionContext)) {
+    blockers.push('AGENTS 指令上下文已变化，必须重新执行并验证任务')
+  }
   if (!revisionsEqual(input.revisionBefore, input.revisionAfter)) {
     blockers.push('最终改动已变化，必须重新运行相关检查')
   }
@@ -173,12 +364,18 @@ export function createTaskReceipt(input: CreateTaskReceiptInput): TaskCompletion
   if (input.stageTrace?.required && !input.stageTrace.valid) {
     blockers.push(...input.stageTrace.blockers.map((blocker) => `Superpowers 阶段轨迹：${blocker}`))
   }
+  const bindsStageTrace = instructionContext.ruleBindings
+    .some((binding) => binding.evidenceFields.includes('stageTrace'))
+  if (bindsStageTrace !== Boolean(input.stageTrace?.required)) {
+    blockers.push('AGENTS 阶段轨迹绑定与 stageTrace.required 不一致')
+  }
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     workspace: input.workspace,
     createdAt: new Date().toISOString(),
     state: blockers.length === 0 ? 'verified' : 'implemented',
+    instructionContext,
     revision: input.revisionAfter,
     route: input.route,
     checks: input.checks,
@@ -260,6 +457,7 @@ export async function recordDelivery(
   receipt: TaskCompletionReceipt,
   delivery: Omit<DeliveryReceipt, 'recordedAt' | 'acceptanceRef'>,
 ): Promise<TaskCompletionReceipt> {
+  assert.equal(receipt.schemaVersion, 2, '只支持 schemaVersion 2 的任务收据')
   assert.equal(receipt.state, 'verified', '只有验证完成的任务才能记录远端交付')
   assert(delivery.providerReceipt.trim(), '缺少 provider 回执，不能标记远端交付')
   assert.equal(delivery.revision, receipt.revision.head, '交付版本与验证版本不一致')
@@ -310,6 +508,7 @@ export async function recordAcceptance(
   receipt: TaskCompletionReceipt,
   input: { acceptanceRef: string; expectedActor: string },
 ): Promise<TaskCompletionReceipt> {
+  assert.equal(receipt.schemaVersion, 2, '只支持 schemaVersion 2 的任务收据')
   assert.equal(receipt.state, 'delivered', '只有已交付任务才能记录接受')
   const acceptanceRef = input.acceptanceRef.trim()
   const expectedActor = input.expectedActor.trim()
