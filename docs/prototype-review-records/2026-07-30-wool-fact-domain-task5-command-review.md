@@ -53,6 +53,7 @@
 | 数量可越过计划、库存或已确认事实边界 | `算不准` | 毛织主管、毛织仓管 | 增加加工 150% 上限、库存余额、累计退回和下游确认锁定校验 | 否 |
 | 毛织模块自建目标库位白名单会遗漏公共仓库新增库位 | `选不对` | 毛织仓管 | 每次转移实时读取公共仓库位置主数据，不维护毛织专属白名单 | 否 |
 | 不同仓库复用相同库位编号可能误判停用状态 | `点错风险` | 毛织仓管 | 转移命令同时接收目标仓库 ID 与库位 ID，并逐级检查仓库、区域、货架和库位启用状态 | 否 |
+| 毛织命令读取胖仓库模块会经 PDA 交接反向加载毛织兼容层 | `协作断裂` | 毛织主管、毛织仓管 | 将仓库位置拓扑、启停状态和增改注册迁入无 PDA 依赖的叶子模块，胖仓库模块委托同一注册状态 | 否 |
 | 库存调整、转移和数量修改缺少审计上下文 | `追溯不足` | 毛织仓管、毛织主管 | 强制填写原因并记录前后数量、目标位置、操作人和时间 | 否 |
 
 ## 6. 最终结论
@@ -63,7 +64,9 @@
 
 - `commands.ts` 已覆盖可重试事实命令、数量防错、原子库存、下游锁定和人工完成。
 - `queries.ts` 统一按数量修改链计算接收、填报、交出和库存有效数量。
-- `scripts/check-wool-fact-workflow.ts` 覆盖重复命令、边界数量、原子写入、停用公共库位拒绝及运行时新增启用库位可用。
+- `factory-internal-warehouse-locations.ts` 权威持有仓库、库区、货架和库位拓扑；胖仓库模块的既有查询与增改入口复用同一注册状态，没有复制第二份位置数组。
+- `commands.ts` 只读取叶子模块的启用库位解析接口，不再加载仓库库存、PDA 交接或毛织兼容层。
+- `scripts/check-wool-fact-workflow.ts` 在任务 6 文件尚不存在的真实工作树中直接导入命令并通过，同时覆盖停用拒绝、动态新增启用库位、跨仓同名库位隔离和测试后状态恢复。
 - 本次未修改页面、UI、组件、文案展示或路由，不存在页面治理例外。
 
 ## 7. 变更覆盖与验证
@@ -73,6 +76,8 @@
 - `src/data/fcs/wool-domain/commands.ts`
 - `src/data/fcs/wool-domain/queries.ts`
 - `src/data/fcs/wool-domain/types.ts`
+- `src/data/fcs/factory-internal-warehouse-locations.ts`
+- `src/data/fcs/factory-internal-warehouse.ts`
 
 ### 检查脚本
 
@@ -84,7 +89,7 @@
 
 ### 验证命令
 
-- `npm run check:wool-fact-workflow`：通过。
+- `npm run check:wool-fact-workflow`：通过（任务 4、任务 5 均通过；未使用任务 6 占位文件）。
 - `npm run check:prototype-design-governance`：通过。
 - `npm run check:prototype-design-governance -- --all`：通过。
 - `git diff --check`：通过。
@@ -92,4 +97,4 @@
 
 ### 例外
 
-- 无。
+- 阶段例外：任务 6 的 `src/data/fcs/wool-domain/machine-associations.ts` 尚未实现，因此全量 `npm run build` 仍会在毛织兼容层入口报缺少该模块；该缺失不再影响任务 5 专项检查和毛织命令的直接导入。

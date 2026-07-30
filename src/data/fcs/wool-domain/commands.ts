@@ -4,7 +4,7 @@ import {
   getWoolYarnReceiptLineEffectiveQty,
 } from './queries.ts'
 import { commitWoolStore, readWoolStore, type WoolDomainStore } from './store.ts'
-import { listFactoryInternalWarehouses } from '../factory-internal-warehouse.ts'
+import { resolveEnabledFactoryWarehouseLocation } from '../factory-internal-warehouse-locations.ts'
 import type {
   WoolCompletionRecord,
   WoolDefaultLocationId,
@@ -305,19 +305,7 @@ function requireStockObject(
 
 function isEnabledPublicWarehouseLocation(warehouseId: string, locationId: string): boolean {
   if (WOOL_DEFAULT_LOCATION_IDS.has(locationId as WoolDefaultLocationId)) return false
-  const warehouse = listFactoryInternalWarehouses().find((item) => item.warehouseId === warehouseId)
-  return Boolean(
-    warehouse?.isEnabled
-    && warehouse.areaList.some((area) =>
-      area.status === 'AVAILABLE'
-      && area.shelfList.some((shelf) =>
-        shelf.status === 'AVAILABLE'
-        && shelf.locationList.some((location) =>
-          location.locationId === locationId && location.status === 'AVAILABLE',
-        ),
-      ),
-    ),
-  )
+  return Boolean(resolveEnabledFactoryWarehouseLocation(warehouseId, locationId))
 }
 
 export function addWoolYarnReceipt(
