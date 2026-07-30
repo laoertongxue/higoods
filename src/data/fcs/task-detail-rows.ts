@@ -98,6 +98,19 @@ function roundQty(value: number): number {
   return Math.round(value * 1000) / 1000
 }
 
+export function isWoolProcessCode(processCode: string): boolean {
+  return processCode === 'WOOL' || processCode === 'PROC_WOOL'
+}
+
+export function resolveTaskDetailMaterialCode(input: {
+  id: string
+  materialCode?: string
+  processCode: string
+}): string {
+  if (input.materialCode) return input.materialCode
+  return isWoolProcessCode(input.processCode) ? '' : input.id
+}
+
 function formatQty(value: number): string {
   const rounded = roundQty(value)
   if (Number.isInteger(rounded)) return `${rounded}`
@@ -151,7 +164,11 @@ function resolveMaterialCandidates(
 
     return {
       bomItemId: item.id,
-      materialCode: item.materialCode ?? (processCode === 'WOOL' ? '' : item.id),
+      materialCode: resolveTaskDetailMaterialCode({
+        id: item.id,
+        materialCode: item.materialCode,
+        processCode,
+      }),
       materialName: item.name,
       consumptionFactor: consumptionFactor > 0 ? consumptionFactor : 1,
       applicableSkuCodes,
@@ -256,12 +273,12 @@ function upsertRow(
 }
 
 function isPartWoolArtifact(artifact: GeneratedTaskArtifact): boolean {
-  return artifact.processCode === 'WOOL'
+  return isWoolProcessCode(artifact.processCode)
     && (artifact.woolTaskType === 'PART_PANEL' || artifact.craftName === '部位毛织' || artifact.taskTypeLabel === '部位毛织')
 }
 
 function isWholeWoolArtifact(artifact: GeneratedTaskArtifact): boolean {
-  return artifact.processCode === 'WOOL' && !isPartWoolArtifact(artifact)
+  return isWoolProcessCode(artifact.processCode) && !isPartWoolArtifact(artifact)
 }
 
 function buildWoolRows(input: {
@@ -531,7 +548,7 @@ export function generateTaskDetailRowsForArtifact(input: {
   const hasPattern = dimensions.includes('PATTERN')
   const hasMaterial = dimensions.includes('MATERIAL_SKU')
 
-  if (artifact.processCode === 'WOOL') {
+  if (isWoolProcessCode(artifact.processCode)) {
     buildWoolRows({
       rowMap,
       taskId,

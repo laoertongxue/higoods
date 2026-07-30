@@ -22,7 +22,7 @@ export interface WoolOutputPlanLine {
 }
 
 export interface WoolDownstreamTarget {
-  receiverType: 'FACTORY' | 'WAREHOUSE'
+  receiverType: 'CUTTING_WAIT_HANDOVER_WAREHOUSE' | 'DOWNSTREAM_FACTORY'
   receiverId: string
   receiverName: string
 }
@@ -117,36 +117,29 @@ export interface WoolProcessReportRecord {
 }
 
 export interface WoolDownstreamReceipt {
-  downstreamReceiptId: string
-  woolOrderId: string
-  handoverId: string
-  objectSku: string
-  receivedQty: number
-  qtyUnit: '件' | '片'
-  receiverType: 'FACTORY' | 'WAREHOUSE'
-  receiverId: string
-  receiverName: string
-  receivedAt: string
-  receivedBy: string
-  warehouseFlowId: string
-  remark?: string
+  receiptConfirmationId: string
+  status: 'PENDING' | 'CONFIRMED'
+  actualReceivedQty?: number
+  differenceQty?: number
+  receivedAt?: string
+  receivedBy?: string
 }
 
 export interface WoolHandoverRecord {
   handoverId: string
-  handoverNo: string
   woolOrderId: string
-  objectSku: string
+  outputSkuCode: string
   handoverQty: number
   qtyUnit: '件' | '片'
-  receiverType: 'FACTORY' | 'WAREHOUSE'
+  receiverType: 'CUTTING_WAIT_HANDOVER_WAREHOUSE' | 'DOWNSTREAM_FACTORY'
   receiverId: string
   receiverName: string
   handedOverAt: string
   handedOverBy: string
-  warehouseFlowId: string
+  warehouseOutboundFlowId: string
   downstreamReceipt?: WoolDownstreamReceipt
-  remark?: string
+  createdAt: string
+  updatedAt: string
 }
 
 export type WoolQtyChangeRecordType =
@@ -209,12 +202,43 @@ export interface WoolWarehouseFlow {
 }
 
 export interface WoolCompletionSnapshot {
-  receivedQtyByObjectSku: Record<string, number>
-  yarnReadinessByOutputSku: Record<string, boolean>
-  processedQtyByOutputSku: Record<string, number>
-  handedOverQtyByOutputSku: Record<string, number>
-  waitProcessStockByObjectSku: Record<string, number>
-  waitHandoverStockByObjectSku: Record<string, number>
+  yarnReceiptSummary: Array<{
+    yarnSku: string
+    receivedQty: number
+    unit: 'kg'
+  }>
+  outputReadinessSummary: Array<{
+    outputSku: string
+    requiredYarnSkus: string[]
+    confirmedYarnSkus: string[]
+    missingYarnSkus: string[]
+  }>
+  processReportSummary: Array<{
+    outputSku: string
+    reportedQty: number
+    unit: '件' | '片'
+  }>
+  handoverSummary: Array<{
+    handoverId: string
+    outputSku: string
+    qty: number
+    unit: '件' | '片'
+    downstreamActualReceivedQty?: number
+    difference?: number
+    receivedAt?: string
+  }>
+  waitProcessStockSummary: Array<{
+    objectSku: string
+    batchNo?: string
+    qty: number
+    unit: WoolQtyUnit
+  }>
+  waitHandoverStockSummary: Array<{
+    objectSku: string
+    batchNo?: string
+    qty: number
+    unit: '件' | '片'
+  }>
   releasedMachineIds: string[]
 }
 
@@ -223,7 +247,7 @@ export interface WoolCompletionRecord {
   woolOrderId: string
   completedAt: string
   completedBy: string
-  snapshot: WoolCompletionSnapshot
+  confirmationSnapshot: WoolCompletionSnapshot
   remark?: string
 }
 

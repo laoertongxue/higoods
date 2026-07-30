@@ -5,6 +5,81 @@ import {
   buildWoolOrderSourceSnapshot,
   type WoolOrderSourceBuildInput,
 } from '../src/data/fcs/wool-domain/tech-pack-source.ts'
+import {
+  isWoolProcessCode,
+  resolveTaskDetailMaterialCode,
+} from '../src/data/fcs/task-detail-rows.ts'
+import type {
+  WoolCompletionRecord,
+  WoolHandoverRecord,
+} from '../src/data/fcs/wool-domain/types.ts'
+
+const handoverTypeFixture: WoolHandoverRecord = {
+  handoverId: 'WH-TYPE-CHECK',
+  woolOrderId: 'WO-TYPE-CHECK',
+  outputSkuCode: 'GARMENT-BLACK-M',
+  handoverQty: 10,
+  qtyUnit: '件',
+  receiverType: 'DOWNSTREAM_FACTORY',
+  receiverId: 'FACTORY-DOWNSTREAM',
+  receiverName: '后道工厂',
+  handedOverAt: '2026-07-30 12:00:00',
+  handedOverBy: '毛织仓管',
+  warehouseOutboundFlowId: 'WF-TYPE-CHECK',
+  downstreamReceipt: {
+    receiptConfirmationId: 'DRC-TYPE-CHECK',
+    status: 'CONFIRMED',
+    actualReceivedQty: 9,
+    differenceQty: -1,
+    receivedAt: '2026-07-30 13:00:00',
+    receivedBy: '后道收货员',
+  },
+  createdAt: '2026-07-30 12:00:00',
+  updatedAt: '2026-07-30 13:00:00',
+}
+void handoverTypeFixture
+
+const completionTypeFixture: WoolCompletionRecord = {
+  completionId: 'WC-TYPE-CHECK',
+  woolOrderId: 'WO-TYPE-CHECK',
+  completedAt: '2026-07-30 18:00:00',
+  completedBy: '毛织主管',
+  confirmationSnapshot: {
+    yarnReceiptSummary: [{ yarnSku: 'YARN-A', receivedQty: 20, unit: 'kg' }],
+    outputReadinessSummary: [{
+      outputSku: 'GARMENT-BLACK-M',
+      requiredYarnSkus: ['YARN-A'],
+      confirmedYarnSkus: ['YARN-A'],
+      missingYarnSkus: [],
+    }],
+    processReportSummary: [{ outputSku: 'GARMENT-BLACK-M', reportedQty: 100, unit: '件' }],
+    handoverSummary: [{
+      handoverId: 'WH-TYPE-CHECK',
+      outputSku: 'GARMENT-BLACK-M',
+      qty: 100,
+      unit: '件',
+      downstreamActualReceivedQty: 100,
+      difference: 0,
+      receivedAt: '2026-07-30 17:00:00',
+    }],
+    waitProcessStockSummary: [{ objectSku: 'YARN-A', batchNo: 'BATCH-A', qty: 0, unit: 'kg' }],
+    waitHandoverStockSummary: [{ objectSku: 'GARMENT-BLACK-M', batchNo: 'BATCH-G', qty: 0, unit: '件' }],
+    releasedMachineIds: ['WM-001'],
+  },
+}
+void completionTypeFixture
+
+assert.equal(isWoolProcessCode('WOOL'), true)
+assert.equal(isWoolProcessCode('PROC_WOOL'), true)
+assert.equal(isWoolProcessCode('CUT'), false)
+assert.equal(resolveTaskDetailMaterialCode({ id: 'BOM-YARN', processCode: 'WOOL' }), '')
+assert.equal(resolveTaskDetailMaterialCode({ id: 'BOM-YARN', processCode: 'PROC_WOOL' }), '')
+assert.equal(resolveTaskDetailMaterialCode({ id: 'BOM-FABRIC', processCode: 'CUT' }), 'BOM-FABRIC')
+assert.equal(resolveTaskDetailMaterialCode({
+  id: 'BOM-YARN',
+  materialCode: 'YARN-A',
+  processCode: 'PROC_WOOL',
+}), 'YARN-A')
 
 const sourceBuildInput: WoolOrderSourceBuildInput = {
   taskId: 'TASK-WOOL-SOURCE-CHECK',
@@ -223,8 +298,24 @@ const taskDetailRowsSource = readFileSync(
   new URL('../src/data/fcs/task-detail-rows.ts', import.meta.url),
   'utf8',
 )
-assert.equal(taskDetailRowsSource.includes("materialCode: item.id"), false)
 assert.equal(taskDetailRowsSource.includes('buildWoolPanelOutputSku(woolPartCode, line.skuCode)'), true)
+
+const woolTypesSource = readFileSync(
+  new URL('../src/data/fcs/wool-domain/types.ts', import.meta.url),
+  'utf8',
+)
+assert.equal(
+  woolTypesSource.includes("receiverType: 'CUTTING_WAIT_HANDOVER_WAREHOUSE' | 'DOWNSTREAM_FACTORY'"),
+  true,
+)
+assert.equal(woolTypesSource.includes('warehouseOutboundFlowId: string'), true)
+assert.equal(woolTypesSource.includes('confirmationSnapshot: WoolCompletionSnapshot'), true)
+assert.equal(woolTypesSource.includes('yarnReceiptSummary:'), true)
+assert.equal(woolTypesSource.includes('outputReadinessSummary:'), true)
+assert.equal(woolTypesSource.includes('processReportSummary:'), true)
+assert.equal(woolTypesSource.includes('handoverSummary:'), true)
+assert.equal(woolTypesSource.includes('waitProcessStockSummary:'), true)
+assert.equal(woolTypesSource.includes('waitHandoverStockSummary:'), true)
 
 const {
   addWoolProcessReport,
