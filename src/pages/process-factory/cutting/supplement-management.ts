@@ -61,14 +61,14 @@ import {
   type StandardListColumn,
 } from '../../../components/ui/list-table.ts'
 
-export type SupplementManualSourceType = 'production-order' | 'cut-order'
-export type SupplementSourceType = SupplementManualSourceType | 'release-snapshot'
+type SupplementManualSourceType = 'production-order' | 'cut-order'
+type SupplementSourceType = SupplementManualSourceType | 'release-snapshot'
 type SupplementFilterSourceType = 'ALL' | SupplementSourceType
-export type SupplementRecordStatus = '已确认'
+type SupplementRecordStatus = '已确认'
 type SupplementProcessKind = '印花' | '染色'
-export type SupplementMaterialRole = '面料A' | '面料B' | '面料C' | '里布' | '衬' | '罗纹' | '辅料' | '包材' | '未识别'
-export type SupplementRoleSource = '物料-纸样关联别名' | '物料行继承别名' | '纸样辅助识别' | '顺序推断' | '未识别'
-export type SupplementRoleConfirmStatus = '已确认' | '待确认'
+type SupplementMaterialRole = '面料A' | '面料B' | '面料C' | '里布' | '衬' | '罗纹' | '辅料' | '包材' | '未识别'
+type SupplementRoleSource = '物料-纸样关联别名' | '物料行继承别名' | '纸样辅助识别' | '顺序推断' | '未识别'
+type SupplementRoleConfirmStatus = '已确认' | '待确认'
 
 interface SupplementFilters {
   sourceType: SupplementFilterSourceType
@@ -86,7 +86,7 @@ interface SupplementFeedback {
   message: string
 }
 
-export interface SupplementSizeColorRow {
+interface SupplementSizeColorRow {
   key: string
   skuCode: string
   color: string
@@ -126,7 +126,7 @@ export interface SupplementMaterialDemand {
   originalCutOrderNo: string
 }
 
-export interface SupplementMaterialPatternRef {
+interface SupplementMaterialPatternRef {
   materialPatternMappingId: string
   techPackVersionId: string
   materialSku: string
@@ -145,7 +145,7 @@ export interface SupplementMaterialPatternRef {
   bomItem?: TechPackBomItemSnapshot
 }
 
-export interface SupplementAbAnalysisRow {
+interface SupplementAbAnalysisRow {
   key: string
   skuCode: string
   color: string
@@ -163,7 +163,7 @@ export interface SupplementAbAnalysisRow {
   roleConfirmStatus: SupplementRoleConfirmStatus
 }
 
-export interface SupplementLine extends SupplementSizeColorRow {
+interface SupplementLine extends SupplementSizeColorRow {
   supplementQty: number
   basis: SupplementAbAnalysisRow
   isManualAdjusted: boolean
@@ -187,7 +187,7 @@ interface SupplementCandidate {
   blockedReason: string
 }
 
-export interface SupplementDraft {
+interface SupplementDraft {
   candidateId: string
   sourceType: SupplementSourceType
   sourceNo: string
@@ -205,7 +205,7 @@ export interface SupplementDraft {
   releaseTargetConfirmedAt?: string
 }
 
-export interface SupplementProcessWorkOrderRef {
+interface SupplementProcessWorkOrderRef {
   processType: 'PRINT' | 'DYE'
   sourceType: 'CUT_PIECE_SUPPLEMENT'
   workOrderId: string

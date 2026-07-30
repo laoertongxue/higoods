@@ -85,7 +85,10 @@ export function derivePickupProcessRoute(input: {
   return 'NONE'
 }
 
-export type PickupProcessResultQuantity = Pick<PlatformProcessResultView, 'completedObjectQty' | 'qtyUnit'>
+export type ProcessResultCandidate = Pick<
+  PlatformProcessResultView,
+  'completedObjectQty' | 'qtyUnit' | 'platformStatusCode'
+>
 
 export interface PickupProcessResults {
   dyeResults: PlatformProcessResultView[]
@@ -96,8 +99,8 @@ export function resolvePickupRequiredQty(input: {
   plannedQty: number
   unit: string
   processRoute: PickupProcessRoute
-  dyeResult?: PickupProcessResultQuantity
-  printResult?: PickupProcessResultQuantity
+  dyeResult?: ProcessResultCandidate
+  printResult?: ProcessResultCandidate
 }): { qty: number; basisLabel: string } {
   if (input.processRoute === 'NONE') {
     return {
@@ -109,6 +112,9 @@ export function resolvePickupRequiredQty(input: {
   const processName = input.processRoute === 'DYE' ? '染色' : '印花'
   const result = input.processRoute === 'DYE' ? input.dyeResult : input.printResult
   if (!result) {
+    return { qty: 0, basisLabel: `等待${processName}一次性完成` }
+  }
+  if (result.platformStatusCode !== 'COMPLETED') {
     return { qty: 0, basisLabel: `等待${processName}一次性完成` }
   }
   if (!Number.isFinite(result.completedObjectQty) || result.completedObjectQty < 0) {
@@ -133,7 +139,7 @@ function includesReference(view: PlatformProcessResultView, reference: string): 
     || view.mobileTaskLink.includes(reference)
 }
 
-function resolveNormalProcessResult(
+export function resolveNormalProcessResult(
   line: MaterialPrepLine,
   productionOrderNo: string,
   processType: 'DYE' | 'PRINT',
@@ -142,7 +148,6 @@ function resolveNormalProcessResult(
   const candidates = results.filter((view) =>
     view.processType === processType && view.productionOrderNo === productionOrderNo
   )
-  if (candidates.length === 1) return candidates[0]
   if (!candidates.length) return undefined
 
   const scored = candidates.map((view) => {

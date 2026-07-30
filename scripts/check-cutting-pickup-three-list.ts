@@ -21,6 +21,7 @@ import {
   derivePickupProcessRoute,
   derivePickupHistoryPath,
   listPickupOrderGroups,
+  resolveNormalProcessResult,
   resolvePickupRequiredQty,
   type PickupListKind,
   type PickupMaterialDemandRow,
@@ -87,28 +88,38 @@ function assertRequiredQtyResolver(): void {
     plannedQty: 18,
     unit: 'yard',
     processRoute: 'DYE',
-    dyeResult: { completedObjectQty: 16.5, qtyUnit: 'yard' },
+    dyeResult: { completedObjectQty: 16.5, qtyUnit: 'yard', platformStatusCode: 'COMPLETED' },
   })
   assert(completedDye.qty === 16.5, 'DYE 必须取染色最终完成量')
+  const processingDye = resolvePickupRequiredQty({
+    plannedQty: 18,
+    unit: 'yard',
+    processRoute: 'DYE',
+    dyeResult: { completedObjectQty: 8, qtyUnit: 'yard', platformStatusCode: 'PROCESSING' },
+  })
+  assert(
+    processingDye.qty === 0 && processingDye.basisLabel.includes('等待染色一次性完成'),
+    '加工中累计完成量不得作为应配量，必须等待平台最终完成',
+  )
   const waitingDye = resolvePickupRequiredQty({
     plannedQty: 18,
     unit: 'yard',
     processRoute: 'DYE',
-    dyeResult: { completedObjectQty: 0, qtyUnit: 'yard' },
+    dyeResult: { completedObjectQty: 0, qtyUnit: 'yard', platformStatusCode: 'PROCESSING' },
   })
   assert(waitingDye.qty === 0 && waitingDye.basisLabel.includes('等待染色一次性完成'), '染色完成量为 0 必须等待')
   const mismatchedDye = resolvePickupRequiredQty({
     plannedQty: 18,
     unit: 'yard',
     processRoute: 'DYE',
-    dyeResult: { completedObjectQty: 16.5, qtyUnit: '米' },
+    dyeResult: { completedObjectQty: 16.5, qtyUnit: '米', platformStatusCode: 'COMPLETED' },
   })
   assert(mismatchedDye.qty === 0 && mismatchedDye.basisLabel.includes('加工完成单位不一致'), '染色完成单位不一致必须阻断')
   const mismatchedWaitingDye = resolvePickupRequiredQty({
     plannedQty: 18,
     unit: 'yard',
     processRoute: 'DYE',
-    dyeResult: { completedObjectQty: 0, qtyUnit: '米' },
+    dyeResult: { completedObjectQty: 0, qtyUnit: '米', platformStatusCode: 'COMPLETED' },
   })
   assert(
     mismatchedWaitingDye.qty === 0 && mismatchedWaitingDye.basisLabel.includes('加工完成单位不一致'),
@@ -119,16 +130,16 @@ function assertRequiredQtyResolver(): void {
     plannedQty: 18,
     unit: 'yard',
     processRoute: 'DYE_PRINT',
-    dyeResult: { completedObjectQty: 17, qtyUnit: 'yard' },
-    printResult: { completedObjectQty: 15, qtyUnit: 'yard' },
+    dyeResult: { completedObjectQty: 17, qtyUnit: 'yard', platformStatusCode: 'COMPLETED' },
+    printResult: { completedObjectQty: 15, qtyUnit: 'yard', platformStatusCode: 'COMPLETED' },
   })
   assert(completedPrint.qty === 15, 'DYE_PRINT 必须取印花最终完成量')
   const waitingPrint = resolvePickupRequiredQty({
     plannedQty: 18,
     unit: 'yard',
     processRoute: 'DYE_PRINT',
-    dyeResult: { completedObjectQty: 17, qtyUnit: 'yard' },
-    printResult: { completedObjectQty: 0, qtyUnit: 'yard' },
+    dyeResult: { completedObjectQty: 17, qtyUnit: 'yard', platformStatusCode: 'COMPLETED' },
+    printResult: { completedObjectQty: 0, qtyUnit: 'yard', platformStatusCode: 'PROCESSING' },
   })
   assert(
     waitingPrint.qty === 0 && waitingPrint.basisLabel.includes('等待印花一次性完成'),
@@ -139,14 +150,14 @@ function assertRequiredQtyResolver(): void {
     plannedQty: 18,
     unit: 'yard',
     processRoute: 'DYE',
-    dyeResult: { completedObjectQty: Number.NaN, qtyUnit: 'yard' },
+    dyeResult: { completedObjectQty: Number.NaN, qtyUnit: 'yard', platformStatusCode: 'COMPLETED' },
   })
   assert(invalidQty.qty === 0 && invalidQty.basisLabel.includes('加工完成数量异常'), 'NaN 完成量必须阻断')
   const negativeQty = resolvePickupRequiredQty({
     plannedQty: 18,
     unit: 'yard',
     processRoute: 'DYE_PRINT',
-    printResult: { completedObjectQty: -1, qtyUnit: 'yard' },
+    printResult: { completedObjectQty: -1, qtyUnit: 'yard', platformStatusCode: 'COMPLETED' },
   })
   assert(negativeQty.qty === 0 && negativeQty.basisLabel.includes('加工完成数量异常'), '负数完成量必须阻断')
 }
@@ -348,10 +359,25 @@ const unrelatedPrintView = printResults.find((view) =>
 )
 assert(unrelatedPrintView, `${dyePrintRecord.recordNo} 必须有同生产单的无关印花结果以验证精确匹配`)
 const exactProcessRows = buildSupplementMaterialRows([dyePrintRecord], {
-  dyeResults: [{ ...dyeView, completedObjectQty: 11, qtyUnit: dyePrintDemand.unit as typeof dyeView.qtyUnit }],
+  dyeResults: [{
+    ...dyeView,
+    completedObjectQty: 11,
+    qtyUnit: dyePrintDemand.unit as typeof dyeView.qtyUnit,
+    platformStatusCode: 'COMPLETED',
+  }],
   printResults: [
-    { ...unrelatedPrintView, completedObjectQty: 99, qtyUnit: dyePrintDemand.unit as typeof unrelatedPrintView.qtyUnit },
-    { ...printView, completedObjectQty: 9, qtyUnit: dyePrintDemand.unit as typeof printView.qtyUnit },
+    {
+      ...unrelatedPrintView,
+      completedObjectQty: 99,
+      qtyUnit: dyePrintDemand.unit as typeof unrelatedPrintView.qtyUnit,
+      platformStatusCode: 'COMPLETED',
+    },
+    {
+      ...printView,
+      completedObjectQty: 9,
+      qtyUnit: dyePrintDemand.unit as typeof printView.qtyUnit,
+      platformStatusCode: 'COMPLETED',
+    },
   ],
 }).get(dyePrintRecord.draft.productionOrderId) ?? []
 assert(
@@ -370,6 +396,44 @@ storage.setItem(
 const projections = listMaterialPrepOrderProjections(storage)
 const activeNodes = listActivePickupNodes(storage)
 const groupsByKind = new Map<PickupListKind, PickupOrderGroup[]>()
+
+const ownershipLineSource = projections.flatMap((projection) => projection.lines)[0]
+const ownershipResultSource = printResults[0]
+assert(ownershipLineSource && ownershipResultSource, '归属匹配反例必须有物料行和平台加工结果基础数据')
+const ownershipLine = {
+  ...ownershipLineSource,
+  upstreamDocumentNo: 'PH-CURRENT-LINE',
+  taskLinks: [{
+    taskId: 'TASK-CURRENT-LINE',
+    taskNo: 'TASK-CURRENT-LINE',
+    taskName: '当前物料印花任务',
+    taskType: '印花任务' as const,
+    factoryId: 'F-CURRENT',
+    factoryCode: 'F-CURRENT',
+    factoryName: '当前工厂',
+    assignedAt: '2026-03-01 09:00',
+    allocationStatus: '已分配' as const,
+  }],
+}
+const otherLineResult = {
+  ...ownershipResultSource,
+  sourceId: 'PWO-OTHER-LINE',
+  workOrderNo: 'PH-OTHER-LINE',
+  productionOrderNo: 'PO-SAME-PROCESS-TWO-LINES',
+  mobileTaskLink: '/fcs/pda/exec/TASK-OTHER-LINE',
+  platformStatusCode: 'COMPLETED' as const,
+  completedObjectQty: 12,
+  qtyUnit: ownershipLine.unit as typeof ownershipResultSource.qtyUnit,
+}
+assert(
+  resolveNormalProcessResult(
+    ownershipLine,
+    'PO-SAME-PROCESS-TWO-LINES',
+    'PRINT',
+    [otherLineResult],
+  ) === undefined,
+  '同生产单同工艺只有另一物料行有结果时，当前行不得因候选唯一而借用',
+)
 
 for (const listKind of ['READY', 'INCOMPLETE', 'HISTORY'] as const) {
   const groups = listPickupOrderGroups(listKind, storage)
