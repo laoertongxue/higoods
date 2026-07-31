@@ -5570,6 +5570,10 @@ const task12PdaListSource = readFileSync(
   new URL('../src/pages/pda-exec.ts', import.meta.url),
   'utf8',
 )
+const task12PdaPaginationSource = readFileSync(
+  new URL('../src/pages/pda-exec-pagination.ts', import.meta.url),
+  'utf8',
+)
 const task12PdaReceiveSource = readFileSync(
   new URL('../src/pages/pda-task-receive.ts', import.meta.url),
   'utf8',
@@ -5656,7 +5660,35 @@ assert(!task12PdaListSource.includes('buildWoolMobileTaskProjection'), '毛织�
 assert(task12TodoSource.includes("executionProcessType?: 'WOOL'"), '毛织待交出必须有明确来源标识')
 assert(task12TodoRouteSource.includes("`/fcs/pda/exec/${todo.relatedTaskId}`"), '毛织待交出必须精确进入执行详情')
 assert(task12StoreNavigationSource.includes('notifyPdaWoolRouteLeave'), '离开执行详情必须清理毛织草稿')
-assert(task12PdaListSource.includes('data-pda-exec-pagination'), 'PDA 执行卡片列表必须有界分页')
+assert(
+  task12PdaListSource.includes('renderPdaExecPaginationControls')
+  && task12PdaPaginationSource.includes('data-pda-exec-pagination'),
+  'PDA 执行卡片列表必须有界分页',
+)
+const task12PdaCardListSource = task12PdaListSource.match(
+  /function renderPdaExecCardList[\s\S]*?\n}\n\nexport function renderWaterSolubleCard/,
+)?.[0] || ''
+assert(
+  !/if \(filteredTasks\.length === 0\)[\s\S]*?return/.test(task12PdaCardListSource),
+  '搜索无结果或空 Tab 仍必须与统一分页共同渲染',
+)
+const {
+  buildPdaExecPageSlice,
+  renderPdaExecPaginationControls,
+} = await import('../src/pages/pda-exec-pagination.ts')
+for (const emptyScenario of ['搜索无结果', '空 Tab']) {
+  const emptyPage = buildPdaExecPageSlice([], 9, 10)
+  const emptyPagination = renderPdaExecPaginationControls(emptyPage)
+  assert.equal(emptyPage.currentPage, 1, `${emptyScenario}必须回落到第 1 页`)
+  assert.equal(emptyPage.totalPages, 1, `${emptyScenario}必须显示 1 个稳定页码`)
+  assert(emptyPagination.includes('第 1 / 1 页'), `${emptyScenario}必须显示第 1 / 1 页`)
+  assert(emptyPagination.includes('每页 10 条'), `${emptyScenario}必须显示每页 10 条`)
+  assert(emptyPagination.includes('共 0 条'), `${emptyScenario}必须显示共 0 条`)
+  assert(
+    emptyPagination.includes('data-skip-page-rerender="true"'),
+    `${emptyScenario}分页必须保持局部刷新契约`,
+  )
+}
 assert(
   task12MobileBindingSource.includes(
     'invokeWoolMobileTaskBinding(params, validateWoolWorkOrderMobileTaskBinding)',

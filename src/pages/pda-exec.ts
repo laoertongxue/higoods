@@ -57,6 +57,10 @@ import {
 } from '../data/fcs/pda-exec-link'
 import { renderPdaFrame } from './pda-shell'
 import {
+  buildPdaExecPageSlice,
+  renderPdaExecPaginationControls,
+} from './pda-exec-pagination.ts'
+import {
   ensurePdaSessionForAction,
   getPdaRuntimeContext,
   renderPdaLoginRedirect,
@@ -634,30 +638,20 @@ function renderWoolFactCard(task: ProcessTask): string {
 }
 
 function renderPdaExecCardList(filteredTasks: ProcessTask[], emptyStateText: string): string {
-  if (filteredTasks.length === 0) {
-    return `<div class="py-10 text-center text-sm text-muted-foreground">${escapeHtml(emptyStateText)}</div>`
-  }
-
-  const total = filteredTasks.length
-  const totalPages = Math.max(1, Math.ceil(total / PDA_EXEC_PAGE_SIZE))
-  state.page = Math.min(Math.max(state.page, 1), totalPages)
-  const pageTasks = filteredTasks.slice((state.page - 1) * PDA_EXEC_PAGE_SIZE, state.page * PDA_EXEC_PAGE_SIZE)
-  const cards = pageTasks
-    .map((task) => {
+  const page = buildPdaExecPageSlice(filteredTasks, state.page, PDA_EXEC_PAGE_SIZE)
+  state.page = page.currentPage
+  const cards = page.rows.length
+    ? page.rows.map((task) => {
       if (getMobileTaskProcessType(task) === 'WOOL') return renderWoolFactCard(task)
       if (getMobileTaskProcessType(task) === 'WATER_SOLUBLE') return renderWaterSolubleCard(task)
       if (state.activeTab === 'NOT_STARTED') return renderNotStartedCard(task)
       if (state.activeTab === 'IN_PROGRESS') return renderInProgressCard(task)
       if (state.activeTab === 'BLOCKED') return renderBlockedCard(task)
       return renderDoneCard(task)
-    })
-    .join('')
+    }).join('')
+    : `<div class="py-10 text-center text-sm text-muted-foreground">${escapeHtml(emptyStateText)}</div>`
   return `${cards}
-    <div class="flex items-center justify-between rounded-lg border bg-card px-3 py-2 text-xs" data-pda-exec-pagination>
-      <button type="button" class="rounded border px-3 py-1 disabled:opacity-50" data-pda-exec-action="page" data-page="${state.page - 1}" data-skip-page-rerender="true" ${state.page <= 1 ? 'disabled' : ''}>上一页</button>
-      <span>第 ${state.page} / ${totalPages} 页，每页 ${PDA_EXEC_PAGE_SIZE} 条，共 ${total} 条</span>
-      <button type="button" class="rounded border px-3 py-1 disabled:opacity-50" data-pda-exec-action="page" data-page="${state.page + 1}" data-skip-page-rerender="true" ${state.page >= totalPages ? 'disabled' : ''}>下一页</button>
-    </div>`
+    ${renderPdaExecPaginationControls(page)}`
 }
 
 export function renderWaterSolubleCard(
