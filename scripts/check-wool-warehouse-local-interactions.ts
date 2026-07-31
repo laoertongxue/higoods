@@ -101,6 +101,20 @@ async function assertMode(localUrl: string, mode: 'process' | 'handover'): Promi
     await clickWithinBudget(page, '[data-wool-warehouse-action="tab:inventory"]', '返回库存 Tab')
 
     const objectFilter = page.locator('[data-wool-warehouse-filter="objectSkuCode"]')
+    if (mode === 'process') {
+      await page.locator('[data-wool-warehouse-filter="woolOrderNo"]').fill('WMO-024')
+      await objectFilter.fill('YARN-A')
+      await page.waitForTimeout(220)
+      assert.equal(
+        await page.locator('[data-wool-warehouse-filter="woolOrderNo"]').inputValue(),
+        'WMO-024',
+      )
+      assert.equal(await objectFilter.inputValue(), 'YARN-A')
+      const combinedFilterTableText = await page.locator('[data-wool-warehouse-table-surface]').innerText()
+      assert(combinedFilterTableText.includes('WMO-024'), '快速跨字段输入必须同时保留加工单条件')
+      assert(!combinedFilterTableText.includes('WMO-023'), '快速跨字段输入不得丢失先输入的加工单条件')
+      await clickWithinBudget(page, '[data-wool-warehouse-action="reset-filters"]', '重置跨字段筛选')
+    }
     const filterStartedAt = await page.evaluate(() => performance.now())
     await objectFilter.fill(mode === 'process' ? 'YARN-A' : 'HG-WOOL')
     const filterDispatchElapsed = await page.evaluate((startedAt) => performance.now() - startedAt, filterStartedAt)
@@ -257,7 +271,10 @@ async function assertMode(localUrl: string, mode: 'process' | 'handover'): Promi
       assert.equal(await fixtureSnapshot(page), beforeEmptyIssue, '空数量领用不得写 store')
       await page.locator('[data-wool-warehouse-dialog-field="qty"]').fill('0.001')
       await clickWithinBudget(page, '[data-wool-warehouse-action="save-issue"]', '保存纱线领用')
-      await page.getByText('已为', { exact: false }).first().waitFor()
+      await page.waitForTimeout(100)
+      const issueError = await page.locator('[data-wool-warehouse-overlay-error]').textContent().catch(() => '')
+      assert(!issueError, `保存纱线领用失败：${issueError}`)
+      await page.getByText('已为', { exact: false }).first().waitFor({ timeout: 5_000 })
       await assertRootStable(page, '纱线领用成功')
 
       await clickWithinBudget(page, traceRowAction('open-return'), '打开纱线退回')
@@ -330,6 +347,10 @@ async function assertMode(localUrl: string, mode: 'process' | 'handover'): Promi
     assert.match(transferDetailText, /LOC-[A-Z0-9_-]+/)
     await clickWithinBudget(page, '[data-wool-warehouse-action="close-overlay"]', '关闭转移详情')
     await assertRootStable(page, '全部仓库关键交互')
+    await page.locator('[data-wool-warehouse-filter="productionOrderNo"]').fill('LEAVE-PAGE-DEBOUNCE')
+    await root.evaluate((node) => node.remove())
+    await page.waitForTimeout(220)
+    assert.equal(await page.locator('[data-wool-warehouse-root]').count(), 0, '离页后筛选防抖不得重新插入页面')
     assert.deepEqual(pageErrors, [], `毛织仓库真实 DOM 不得抛错：${pageErrors.join('；')}`)
   } finally {
     await browser.close()

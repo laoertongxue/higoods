@@ -8,9 +8,11 @@ import {
   adjustWoolWarehouseStock,
   changeWoolFactQty,
   completeWoolWorkOrder,
+  clearWoolStoreMemoryCache,
   getWoolOutputHandoverAvailableQty,
   getWoolOutputReadiness,
   getWoolProcessingStatus,
+  getWoolStoreReadCountForDiagnostics,
   getWoolWarehouseStock,
   issueWoolYarn,
   listWoolYarnReceiptLineTraces,
@@ -18,11 +20,13 @@ import {
   listWoolWorkOrders,
   readWoolStore,
   replaceWoolStore,
+  resetWoolStoreReadCountForDiagnostics,
   resetWoolFactWorkflowMock,
   returnWoolYarn,
   transferWoolWarehouseStock,
   WOOL_WAIT_HANDOVER_WAREHOUSE_ID,
   WOOL_WAIT_PROCESS_WAREHOUSE_ID,
+  WOOL_DOMAIN_STORE_KEY,
 } from '../src/data/fcs/wool-task-domain.ts'
 import {
   listFactoryInternalWarehouses,
@@ -87,6 +91,62 @@ assert(handlersSource.includes('handleCraftWoolWarehouseEvent'), 'FCS 事件分�
 resetWoolFactWorkflowMock('CHECK_TASK_11_WAREHOUSE')
 const issueOrder = listWoolWorkOrders()
   .find((order) => order.mockScenarioCode === 'YARN_ISSUE_RETURN')!
+const batchIsolationOrder = listWoolWorkOrders()
+  .find((order) => order.mockScenarioCode === 'NO_YARN_RECEIPT')!
+const batchIsolationYarnSku = batchIsolationOrder.outputPlanLines[0].requiredYarnSkus[0]
+addWoolYarnReceipt(batchIsolationOrder.woolOrderId, {
+  commandId: 'CHECK-T11-BATCH-EXACT-NO-BATCH',
+  batchNo: '   ',
+  receivedAt: '2026-07-31 09:50:00',
+  receivedBy: '精确批次仓管',
+  lines: [{
+    yarnSkuCode: batchIsolationYarnSku,
+    yarnName: '精确批次测试纱线',
+    receivedQty: 1,
+  }],
+})
+addWoolYarnReceipt(batchIsolationOrder.woolOrderId, {
+  commandId: 'CHECK-T11-BATCH-EXACT-X',
+  batchNo: ' BATCH-X ',
+  receivedAt: '2026-07-31 09:51:00',
+  receivedBy: '精确批次仓管',
+  lines: [{
+    yarnSkuCode: batchIsolationYarnSku,
+    yarnName: '精确批次测试纱线',
+    receivedQty: 10,
+  }],
+})
+const noBatchStockKey = {
+  woolOrderId: batchIsolationOrder.woolOrderId,
+  objectSkuCode: batchIsolationYarnSku,
+  batchNo: undefined,
+  defaultLocationId: 'WOOL-WP-YARN-DEFAULT' as const,
+}
+assert.equal(getWoolWarehouseStock(noBatchStockKey), 1, '无批次库存不得汇总 BATCH-X')
+assert.equal(getWoolWarehouseStock({ ...noBatchStockKey, batchNo: ' BATCH-X ' }), 10)
+const beforeExactBatchOverIssue = JSON.stringify(readWoolStore())
+assert.throws(
+  () => issueWoolYarn(batchIsolationOrder.woolOrderId, {
+    commandId: 'CHECK-T11-BATCH-EXACT-OVER-ISSUE',
+    yarnSkuCode: batchIsolationYarnSku,
+    batchNo: undefined,
+    issuedQty: 5,
+    issuedAt: '2026-07-31 09:52:00',
+    issuedBy: '精确批次仓管',
+  }),
+  /领用数量不能超过当前库存/,
+)
+assert.equal(JSON.stringify(readWoolStore()), beforeExactBatchOverIssue, '无批次超领必须零写')
+issueWoolYarn(batchIsolationOrder.woolOrderId, {
+  commandId: 'CHECK-T11-BATCH-EXACT-FRACTIONAL-YARN',
+  yarnSkuCode: batchIsolationYarnSku,
+  batchNo: undefined,
+  issuedQty: 0.5,
+  issuedAt: '2026-07-31 09:53:00',
+  issuedBy: '精确批次仓管',
+})
+assert.equal(getWoolWarehouseStock(noBatchStockKey), 0.5, 'kg 纱线允许小数且仍按无批次精确扣减')
+assert.equal(getWoolWarehouseStock({ ...noBatchStockKey, batchNo: 'BATCH-X' }), 10)
 const yarnStockKey = {
   woolOrderId: issueOrder.woolOrderId,
   objectSkuCode: 'YARN-A',
@@ -179,6 +239,21 @@ const wholeOrder = listWoolWorkOrders()
   .find((order) => order.mockScenarioCode === 'FIXED_LOCATION_UI' && order.kind === 'WHOLE_GARMENT')!
 const panelOrder = listWoolWorkOrders()
   .find((order) => order.mockScenarioCode === 'FIXED_LOCATION_UI' && order.kind === 'PART_PANEL')!
+const beforeFractionalAdjustment = JSON.stringify(readWoolStore())
+assert.throws(
+  () => adjustWoolWarehouseStock({
+    commandId: 'CHECK-T11-FRACTIONAL-GARMENT-ADJUST',
+    woolOrderId: wholeOrder.woolOrderId,
+    objectSkuCode: wholeOrder.outputPlanLines[0].outputSkuCode,
+    defaultLocationId: 'WOOL-WH-GARMENT-DEFAULT',
+    afterQty: 1.5,
+    reason: '件数不得为小数',
+    operatedAt: '2026-07-31 10:08:00',
+    operatedBy: '毛织仓管',
+  }),
+  /件.*整数|整数/,
+)
+assert.equal(JSON.stringify(readWoolStore()), beforeFractionalAdjustment, '1.5 件调整必须零写')
 assert(
   listWoolWarehouseFlows({
     woolOrderId: wholeOrder.woolOrderId,
@@ -219,6 +294,23 @@ const availableBeforeTransfer = getWoolOutputHandoverAvailableQty(
   wholeOrder.woolOrderId,
   transferLine.outputSkuCode,
 )
+const beforeFractionalTransfer = JSON.stringify(readWoolStore())
+assert.throws(
+  () => transferWoolWarehouseStock({
+    commandId: 'CHECK-T11-FRACTIONAL-GARMENT-TRANSFER',
+    ...stockKey,
+    fromWarehouseId: WOOL_WAIT_HANDOVER_WAREHOUSE_ID,
+    fromLocationId: 'WOOL-WH-GARMENT-DEFAULT',
+    toWarehouseId: publicTarget.warehouse.warehouseId,
+    toLocationId: publicTarget.location.locationId,
+    qty: 0.5,
+    reason: '件数不得为小数',
+    operatedAt: '2026-07-31 10:09:00',
+    operatedBy: '毛织仓管',
+  }),
+  /件.*整数|整数/,
+)
+assert.equal(JSON.stringify(readWoolStore()), beforeFractionalTransfer, '0.5 件转出必须零写')
 const transferOut = transferWoolWarehouseStock({
   commandId: 'CHECK-T11-TRANSFER-OUT',
   ...stockKey,
@@ -235,6 +327,23 @@ assert.equal(transferOut.fromWarehouseId, WOOL_WAIT_HANDOVER_WAREHOUSE_ID)
 assert.equal(transferOut.fromLocationId, 'WOOL-WH-GARMENT-DEFAULT')
 assert.equal(transferOut.toWarehouseId, publicTarget.warehouse.warehouseId)
 assert.equal(transferOut.toLocationId, publicTarget.location.locationId)
+const beforeFractionalTransferBack = JSON.stringify(readWoolStore())
+assert.throws(
+  () => transferWoolWarehouseStock({
+    commandId: 'CHECK-T11-FRACTIONAL-GARMENT-TRANSFER-BACK',
+    ...stockKey,
+    fromWarehouseId: publicTarget.warehouse.warehouseId,
+    fromLocationId: publicTarget.location.locationId,
+    toWarehouseId: WOOL_WAIT_HANDOVER_WAREHOUSE_ID,
+    toLocationId: 'WOOL-WH-GARMENT-DEFAULT',
+    qty: 0.5,
+    reason: '件数不得为小数',
+    operatedAt: '2026-07-31 10:10:01',
+    operatedBy: '毛织仓管',
+  }),
+  /件.*整数|整数/,
+)
+assert.equal(JSON.stringify(readWoolStore()), beforeFractionalTransferBack, '0.5 件转回必须零写')
 assert.equal(
   getWoolOutputHandoverAvailableQty(wholeOrder.woolOrderId, transferLine.outputSkuCode),
   availableBeforeTransfer - 2,
@@ -289,7 +398,7 @@ assert.throws(
     fromLocationId: publicTarget.location.locationId,
     toWarehouseId: WOOL_WAIT_HANDOVER_WAREHOUSE_ID,
     toLocationId: 'WOOL-WH-GARMENT-DEFAULT',
-    qty: 0.001,
+    qty: 1,
     reason: '不得借用同库位编号另一仓余额',
     operatedAt: '2026-07-31 10:11:06',
     operatedBy: '毛织仓管',
@@ -351,6 +460,162 @@ assert.throws(
   /公共仓库.*启用位置|registry|仓库.*库位/,
   'store 必须按 warehouseId + locationId 校验公共仓库注册表',
 )
+const legalStoreBeforeReplayAttacks = readWoolStore()
+const legalStoreBeforeReplayAttacksJson = JSON.stringify(legalStoreBeforeReplayAttacks)
+const negativeAdjustmentStore = structuredClone(legalStoreBeforeReplayAttacks)
+negativeAdjustmentStore.warehouseFlows.push({
+  flowId: 'WF-FORGED-NEGATIVE-ADJUSTMENT',
+  woolOrderId: batchIsolationOrder.woolOrderId,
+  flowType: 'ADJUSTMENT',
+  businessType: 'STOCK_ADJUSTMENT',
+  warehouseMode: 'WAIT_PROCESS',
+  defaultLocationType: 'YARN',
+  defaultLocationId: 'WOOL-WP-YARN-DEFAULT',
+  objectSkuCode: batchIsolationYarnSku,
+  batchNo: undefined,
+  qty: -99,
+  unit: 'kg',
+  sourceRecordType: 'STOCK_ADJUSTMENT',
+  sourceRecordId: 'FORGED-NEGATIVE-ADJUSTMENT',
+  reason: '伪造负库存',
+  operatedAt: '2026-07-31 10:11:30',
+  operatedBy: '攻击者',
+})
+assert.throws(
+  () => replaceWoolStore(negativeAdjustmentStore),
+  /负库存|账本/,
+  'store 重放必须拒绝任一步形成负库存的伪造调整',
+)
+assert.equal(JSON.stringify(readWoolStore()), legalStoreBeforeReplayAttacksJson, '失败重放不得覆盖合法内存缓存')
+
+const nonFiniteFlowStore = structuredClone(legalStoreBeforeReplayAttacks)
+nonFiniteFlowStore.warehouseFlows.find((flow) => flow.flowId === transferOut.flowId)!.qty = Number.NaN
+assert.throws(
+  () => replaceWoolStore(nonFiniteFlowStore),
+  /有限数字|账本/,
+  'store 重放必须拒绝 NaN 仓库流水',
+)
+assert.equal(JSON.stringify(readWoolStore()), legalStoreBeforeReplayAttacksJson, 'NaN 校验失败必须零写')
+const infiniteFlowStore = structuredClone(legalStoreBeforeReplayAttacks)
+infiniteFlowStore.warehouseFlows.find((flow) => flow.flowId === transferOut.flowId)!.qty = Number.POSITIVE_INFINITY
+assert.throws(
+  () => replaceWoolStore(infiniteFlowStore),
+  /有限数字|账本/,
+  'store 重放必须拒绝 Infinity 仓库流水',
+)
+assert.equal(JSON.stringify(readWoolStore()), legalStoreBeforeReplayAttacksJson, 'Infinity 校验失败必须零写')
+
+const fractionalHistoricalStore = structuredClone(legalStoreBeforeReplayAttacks)
+fractionalHistoricalStore.warehouseFlows.find((flow) => flow.flowId === transferOut.flowId)!.qty = 0.5
+assert.throws(
+  () => replaceWoolStore(fractionalHistoricalStore),
+  /件.*整数|整数/,
+  'store 重放必须拒绝历史件数小数',
+)
+assert.equal(JSON.stringify(readWoolStore()), legalStoreBeforeReplayAttacksJson, '历史小数校验失败必须零写')
+
+const overReturnStore = structuredClone(legalStoreBeforeReplayAttacks)
+const forgedReturn = {
+  ...overReturnStore.yarnReturns[0],
+  returnId: 'WRT-FORGED-OVER-RETURN',
+  returnNo: 'WRT-NO-FORGED-OVER-RETURN',
+  woolOrderId: issueOrder.woolOrderId,
+  yarnSkuCode: 'YARN-A',
+  batchNo: ' BATCH-AB ',
+  returnedQty: 999,
+  warehouseInboundFlowId: 'WF-WRT-FORGED-OVER-RETURN',
+  returnedAt: '2026-07-31 10:11:31',
+  returnedBy: '攻击者',
+}
+overReturnStore.yarnReturns.push(forgedReturn)
+overReturnStore.warehouseFlows.push({
+  ...overReturnStore.warehouseFlows.find((flow) => flow.flowId === returned.warehouseInboundFlowId)!,
+  flowId: forgedReturn.warehouseInboundFlowId,
+  sourceRecordId: forgedReturn.returnId,
+  batchNo: forgedReturn.batchNo,
+  qty: forgedReturn.returnedQty,
+  operatedAt: forgedReturn.returnedAt,
+  operatedBy: forgedReturn.returnedBy,
+})
+assert.throws(
+  () => replaceWoolStore(overReturnStore),
+  /累计退回.*累计领用|账本/,
+  'store 重放必须拒绝同单 SKU 批次超退回',
+)
+assert.equal(JSON.stringify(readWoolStore()), legalStoreBeforeReplayAttacksJson, '超退回重放失败必须零写')
+
+const overIssueStore = structuredClone(legalStoreBeforeReplayAttacks)
+const issueTemplate = overIssueStore.yarnIssues.find((item) => item.issueId === issue.issueId)!
+const issueFlowTemplate = overIssueStore.warehouseFlows.find((item) =>
+  item.flowId === issueTemplate.warehouseOutboundFlowId,
+)!
+overIssueStore.yarnIssues.push({
+  ...issueTemplate,
+  issueId: 'WI-FORGED-OVER-ISSUE',
+  issueNo: 'WI-NO-FORGED-OVER-ISSUE',
+  issuedQty: 999,
+  warehouseOutboundFlowId: 'WF-WI-FORGED-OVER-ISSUE',
+  issuedAt: '2026-07-31 10:11:32',
+  issuedBy: '攻击者',
+})
+overIssueStore.warehouseFlows.push({
+  ...issueFlowTemplate,
+  flowId: 'WF-WI-FORGED-OVER-ISSUE',
+  sourceRecordId: 'WI-FORGED-OVER-ISSUE',
+  qty: 999,
+  operatedAt: '2026-07-31 10:11:32',
+  operatedBy: '攻击者',
+})
+assert.throws(
+  () => replaceWoolStore(overIssueStore),
+  /负库存|账本/,
+  'store 重放必须拒绝超领',
+)
+assert.equal(JSON.stringify(readWoolStore()), legalStoreBeforeReplayAttacksJson, '超领重放失败必须零写')
+
+const overTransferBackStore = structuredClone(legalStoreBeforeReplayAttacks)
+overTransferBackStore.warehouseFlows.push({
+  ...transferOut,
+  flowId: 'WF-FORGED-OVER-TRANSFER-BACK',
+  sourceRecordId: 'FORGED-OVER-TRANSFER-BACK',
+  fromWarehouseId: transferOut.toWarehouseId,
+  fromLocationId: transferOut.toLocationId,
+  toWarehouseId: transferOut.fromWarehouseId,
+  toLocationId: transferOut.fromLocationId,
+  qty: 999,
+  operatedAt: '2026-07-31 10:11:33',
+  operatedBy: '攻击者',
+})
+assert.throws(
+  () => replaceWoolStore(overTransferBackStore),
+  /可转回余额|账本/,
+  'store 重放必须拒绝公共仓超转回',
+)
+assert.equal(JSON.stringify(readWoolStore()), legalStoreBeforeReplayAttacksJson, '超转回重放失败必须零写')
+const wrongObjectLocationStore = structuredClone(legalStoreBeforeReplayAttacks)
+wrongObjectLocationStore.warehouseFlows.push({
+  flowId: 'WF-FORGED-WRONG-OBJECT-LOCATION',
+  woolOrderId: wholeOrder.woolOrderId,
+  flowType: 'ADJUSTMENT',
+  businessType: 'STOCK_ADJUSTMENT',
+  warehouseMode: 'WAIT_PROCESS',
+  defaultLocationType: 'YARN',
+  defaultLocationId: 'WOOL-WP-YARN-DEFAULT',
+  objectSkuCode: transferLine.outputSkuCode,
+  qty: 1,
+  unit: 'kg',
+  sourceRecordType: 'STOCK_ADJUSTMENT',
+  sourceRecordId: 'FORGED-WRONG-OBJECT-LOCATION',
+  reason: '伪造对象默认位',
+  operatedAt: '2026-07-31 10:11:34',
+  operatedBy: '攻击者',
+})
+assert.throws(
+  () => replaceWoolStore(wrongObjectLocationStore),
+  /对象.*默认库位|对象类型|单位/,
+  'store 重放必须拒绝加工后对象写入纱线默认库位',
+)
+assert.equal(JSON.stringify(readWoolStore()), legalStoreBeforeReplayAttacksJson, '错对象默认位失败必须零写')
 assert.equal(
   getWoolOutputHandoverAvailableQty(wholeOrder.woolOrderId, transferLine.outputSkuCode),
   availableBeforeTransfer - 1,
@@ -591,6 +856,108 @@ for (const html of [waitProcessHtml, waitHandoverHtml]) {
   assert(!html.includes('交出确认'))
   assert(!html.includes('库区管理'))
   assert(!html.includes('库位管理'))
+}
+
+const performanceBaseStore = readWoolStore()
+const performanceTemplateOrder = performanceBaseStore.workOrders[wholeOrder.woolOrderId]
+const performanceResults: Array<{ scale: number; medianMs: number; readCount: number; htmlLength: number }> = []
+for (const scale of [25, 50, 100, 250]) {
+  const scaleStore = structuredClone(performanceBaseStore)
+  for (let index = 0; index < scale; index += 1) {
+    const woolOrderId = `WOOL-T11-PERF-${scale}-${index}`
+    const outputSkuCode = `WOOL-T11-PERF-SKU-${scale}-${index}`
+    scaleStore.workOrders[woolOrderId] = {
+      ...structuredClone(performanceTemplateOrder),
+      woolOrderId,
+      woolOrderNo: `WMO-T11-PERF-${scale}-${String(index).padStart(3, '0')}`,
+      taskId: `TASK-T11-PERF-${scale}-${index}`,
+      taskNo: `WT-T11-PERF-${scale}-${index}`,
+      outputPlanLines: [{
+        ...structuredClone(performanceTemplateOrder.outputPlanLines[0]),
+        outputSkuCode,
+        garmentSkuCode: outputSkuCode,
+      }],
+    }
+    scaleStore.warehouseFlows.push({
+      flowId: `WF-T11-PERF-${scale}-${index}`,
+      woolOrderId,
+      flowType: 'ADJUSTMENT',
+      businessType: 'STOCK_ADJUSTMENT',
+      warehouseMode: 'WAIT_HANDOVER',
+      defaultLocationType: 'GARMENT',
+      defaultLocationId: 'WOOL-WH-GARMENT-DEFAULT',
+      objectSkuCode: outputSkuCode,
+      qty: 1,
+      unit: '件',
+      sourceRecordType: 'STOCK_ADJUSTMENT',
+      sourceRecordId: `T11-PERF-${scale}-${index}`,
+      reason: '性能规模事实',
+      operatedAt: `2026-07-31 14:${String(index % 60).padStart(2, '0')}:00`,
+      operatedBy: '性能测试',
+    })
+  }
+  replaceWoolStore(scaleStore)
+  const durations: number[] = []
+  let scaledHtml = ''
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    resetWoolStoreReadCountForDiagnostics()
+    const startedAt = performance.now()
+    scaledHtml = renderCraftWoolWaitHandoverWarehousePage()
+    durations.push(performance.now() - startedAt)
+    assert.equal(getWoolStoreReadCountForDiagnostics(), 1, `${scale} 行渲染只能读取一次毛织 store`)
+  }
+  durations.sort((left, right) => left - right)
+  assert(durations[1] < 180, `${scale} 行渲染中位耗时必须低于 180ms，实际 ${durations[1].toFixed(1)}ms`)
+  assert((scaledHtml.match(/<tr/g) ?? []).length <= 12, `${scale} 行渲染只能输出当前页`)
+  assert(scaledHtml.length < 300_000, `${scale} 行渲染 HTML 必须有界`)
+  performanceResults.push({
+    scale,
+    medianMs: Number(durations[1].toFixed(1)),
+    readCount: getWoolStoreReadCountForDiagnostics(),
+    htmlLength: scaledHtml.length,
+  })
+}
+replaceWoolStore(performanceBaseStore)
+console.log(`Task 11 warehouse performance: ${JSON.stringify(performanceResults)}`)
+
+const localStorageDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+const persistedValues = new Map<string, string>()
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: {
+    getItem: (key: string) => persistedValues.get(key) ?? null,
+    setItem: (key: string, value: string) => { persistedValues.set(key, value) },
+    removeItem: (key: string) => { persistedValues.delete(key) },
+  },
+})
+replaceWoolStore(performanceBaseStore)
+const legalPersistedStore = persistedValues.get(WOOL_DOMAIN_STORE_KEY)
+assert(legalPersistedStore)
+assert.throws(() => replaceWoolStore(negativeAdjustmentStore), /负库存|账本/)
+assert.equal(
+  persistedValues.get(WOOL_DOMAIN_STORE_KEY),
+  legalPersistedStore,
+  '非法 replace 必须在持久化前失败并保留合法持久化快照',
+)
+const invalidPersistedStore = JSON.stringify(negativeAdjustmentStore)
+persistedValues.set(WOOL_DOMAIN_STORE_KEY, invalidPersistedStore)
+clearWoolStoreMemoryCache()
+const reloadedAfterInvalidPersistence = readWoolStore()
+assert(
+  !reloadedAfterInvalidPersistence.warehouseFlows.some((flow) =>
+    flow.flowId === 'WF-FORGED-NEGATIVE-ADJUSTMENT',
+  ),
+  '持久化重载必须拒绝非法账本并使用合法初始化事实',
+)
+assert.equal(
+  persistedValues.get(WOOL_DOMAIN_STORE_KEY),
+  invalidPersistedStore,
+  '非法持久化重载不得静默覆盖原始证据',
+)
+if (localStorageDescriptor) {
+  Object.defineProperty(globalThis, 'localStorage', localStorageDescriptor)
+} else {
+  Reflect.deleteProperty(globalThis, 'localStorage')
 }
 
 console.log('PASS task 11: wool Web warehouses use fixed locations and atomic fact flows')

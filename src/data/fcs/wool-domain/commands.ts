@@ -26,6 +26,12 @@ import type {
   WoolYarnReturnRecord,
 } from './types.ts'
 import { releaseWoolMachineAssociationsInDraft } from './machine-associations.ts'
+import {
+  getWoolWarehouseLedgerBalance,
+  normalizeWoolBatchNo,
+  requireWoolWarehouseQuantityUnit,
+  woolBatchMatches,
+} from './warehouse-ledger.ts'
 
 interface CommandInput {
   commandId: string
@@ -331,17 +337,6 @@ function outputLocation(line: WoolOutputPlanLine): Pick<
       }
 }
 
-function signedFlowQty(flow: WoolWarehouseFlow): number {
-  if (flow.flowType === 'INBOUND') return Math.abs(flow.qty)
-  if (flow.flowType === 'OUTBOUND') return -Math.abs(flow.qty)
-  if (flow.flowType === 'TRANSFER') {
-    if (flow.fromLocationId === flow.defaultLocationId) return -Math.abs(flow.qty)
-    if (flow.toLocationId === flow.defaultLocationId) return Math.abs(flow.qty)
-    return 0
-  }
-  return flow.qty
-}
-
 function stockQty(
   store: WoolDomainStore,
   input: {
@@ -351,14 +346,10 @@ function stockQty(
     batchNo?: string
   },
 ): number {
-  return store.warehouseFlows
-    .filter((flow) =>
-      flow.woolOrderId === input.woolOrderId
-      && flow.objectSkuCode === input.objectSkuCode
-      && flow.defaultLocationId === input.defaultLocationId
-      && (input.batchNo === undefined || flow.batchNo === input.batchNo),
-    )
-    .reduce((sum, flow) => sum + signedFlowQty(flow), 0)
+  return getWoolWarehouseLedgerBalance(store.warehouseFlows, {
+    ...input,
+    batchNo: normalizeWoolBatchNo(input.batchNo),
+  }, 'EXACT')
 }
 
 function confirmedYarnSkus(store: WoolDomainStore, woolOrderId: string): Set<string> {
@@ -369,45 +360,6 @@ function confirmedYarnSkus(store: WoolDomainStore, woolOrderId: string): Set<str
       .filter(({ record, line }) => getWoolYarnReceiptLineEffectiveQty(store, record, line) > 0)
       .map(({ line }) => line.yarnSkuCode),
   )
-}
-
-function resolveYarnBatch(
-  store: WoolDomainStore,
-  input: {
-    woolOrderId: string
-    yarnSkuCode: string
-    batchNo?: string
-    requiredStockQty?: number
-    issuedOnly?: boolean
-  },
-): string | undefined {
-  if (input.batchNo) return input.batchNo
-  const candidates = input.issuedOnly
-    ? store.yarnIssues
-        .filter((record) =>
-          record.woolOrderId === input.woolOrderId && record.yarnSkuCode === input.yarnSkuCode,
-        )
-        .map((record) => record.batchNo)
-    : store.warehouseFlows
-        .filter((flow) =>
-          flow.woolOrderId === input.woolOrderId
-          && flow.objectSkuCode === input.yarnSkuCode
-          && flow.defaultLocationId === 'WOOL-WP-YARN-DEFAULT',
-        )
-        .map((flow) => flow.batchNo)
-  const distinct = [...new Set(candidates)]
-  if (input.requiredStockQty !== undefined) {
-    return distinct.find((batchNo) =>
-      stockQty(store, {
-        woolOrderId: input.woolOrderId,
-        objectSkuCode: input.yarnSkuCode,
-        batchNo,
-        defaultLocationId: 'WOOL-WP-YARN-DEFAULT',
-      }) >= input.requiredStockQty!,
-    )
-  }
-  if (distinct.length > 1) throw new Error('存在多个纱线批次，请选择对应批次')
-  return distinct[0]
 }
 
 function requireStockObject(
@@ -430,10 +382,7 @@ function requireStockObject(
     if (input.defaultLocationId !== 'WOOL-WP-YARN-DEFAULT') {
       throw new Error('纱线库存只能使用纱线默认库位')
     }
-    const batchNo = input.batchNo ?? resolveYarnBatch(store, {
-      woolOrderId: input.woolOrderId,
-      yarnSkuCode: input.objectSkuCode,
-    })
+    const batchNo = normalizeWoolBatchNo(input.batchNo)
     return {
       order,
       unit: 'kg',
@@ -475,7 +424,7 @@ function externalTransferredQty(
       && flow.objectSkuCode === input.objectSkuCode
       && flow.defaultLocationType === input.defaultLocationType
       && flow.defaultLocationId === input.defaultLocationId
-      && flow.batchNo === input.batchNo,
+      && woolBatchMatches(flow.batchNo, input.batchNo, 'EXACT'),
     )
     .reduce((sum, flow) => {
       if (
@@ -789,12 +738,7 @@ export function issueWoolYarn(
     if (!requiredYarnSkus(order).has(input.yarnSkuCode)) {
       throw new Error(`纱线 SKU ${input.yarnSkuCode} 不属于加工单冻结必需纱线`)
     }
-    const batchNo = resolveYarnBatch(draft, {
-      woolOrderId,
-      yarnSkuCode: input.yarnSkuCode,
-      batchNo: input.batchNo,
-      requiredStockQty: input.issuedQty,
-    })
+    const batchNo = normalizeWoolBatchNo(input.batchNo)
     const currentStock = stockQty(draft, {
       woolOrderId,
       objectSkuCode: input.yarnSkuCode,
@@ -858,24 +802,19 @@ export function returnWoolYarn(
     if (!requiredYarnSkus(order).has(input.yarnSkuCode)) {
       throw new Error(`纱线 SKU ${input.yarnSkuCode} 不属于加工单冻结必需纱线`)
     }
-    const batchNo = resolveYarnBatch(draft, {
-      woolOrderId,
-      yarnSkuCode: input.yarnSkuCode,
-      batchNo: input.batchNo,
-      issuedOnly: true,
-    })
+    const batchNo = normalizeWoolBatchNo(input.batchNo)
     const issuedQty = draft.yarnIssues
       .filter((record) =>
         record.woolOrderId === woolOrderId
         && record.yarnSkuCode === input.yarnSkuCode
-        && record.batchNo === batchNo,
+        && woolBatchMatches(record.batchNo, batchNo, 'EXACT'),
       )
       .reduce((sum, record) => sum + record.issuedQty, 0)
     const returnedQty = draft.yarnReturns
       .filter((record) =>
         record.woolOrderId === woolOrderId
         && record.yarnSkuCode === input.yarnSkuCode
-        && record.batchNo === batchNo,
+        && woolBatchMatches(record.batchNo, batchNo, 'EXACT'),
       )
       .reduce((sum, record) => sum + record.returnedQty, 0)
     if (returnedQty + input.returnedQty > issuedQty) {
@@ -936,6 +875,7 @@ export function adjustWoolWarehouseStock(
   const operatedBy = requireText(input.operatedBy, '操作人')
   const committed = commitWoolStore((draft) => {
     const stockObject = requireStockObject(draft, input)
+    requireWoolWarehouseQuantityUnit(input.afterQty, stockObject.unit, '调整后数量')
     const currentQty = stockQty(draft, {
       ...input,
       batchNo: stockObject.batchNo,
@@ -1018,6 +958,7 @@ export function transferWoolWarehouseStock(
   }
   const committed = commitWoolStore((draft) => {
     const stockObject = requireStockObject(draft, input)
+    requireWoolWarehouseQuantityUnit(input.qty, stockObject.unit, '转移数量')
     const currentQty = isReturningToDefault
       ? externalTransferredQty(draft, {
           woolOrderId: input.woolOrderId,

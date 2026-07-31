@@ -22,12 +22,9 @@ import { renderTabs } from '../../../components/ui/tabs.ts'
 import { listFactoryInternalWarehouses } from '../../../data/fcs/factory-internal-warehouse-locations.ts'
 import {
   adjustWoolWarehouseStock,
-  getWoolProcessingStatus,
   issueWoolYarn,
-  listWoolYarnReceiptLineTraces,
-  listWoolWarehouseFlows,
-  listWoolWarehouseStocks,
-  listWoolWorkOrders,
+  listWoolYarnReceiptLineTracesFromStore,
+  listWoolWarehouseStocksFromStore,
   normalizeWoolBatchNo,
   readWoolStore,
   returnWoolYarn,
@@ -38,6 +35,7 @@ import {
   type WoolDefaultLocationId,
   type WoolWarehouseFlow,
   type WoolWarehouseStockRow,
+  type WoolDomainStore,
 } from '../../../data/fcs/wool-task-domain.ts'
 import { buildWoolWorkOrderDetailLink } from '../../../data/fcs/fcs-route-links.ts'
 import { appStore } from '../../../state/store.ts'
@@ -172,6 +170,35 @@ const states: Record<WarehouseMode, WarehousePageState> = {
 let filterDebounce: ReturnType<typeof setTimeout> | undefined
 let commandSequence = 0
 let draggedColumnKey = ''
+let warehouseRuntime: {
+  mode: WarehouseMode
+  store: WoolDomainStore
+  completedOrderIds: Set<string>
+} | undefined
+
+function withWarehouseRuntime<T>(mode: WarehouseMode, callback: () => T): T {
+  if (warehouseRuntime) return callback()
+  const store = readWoolStore()
+  warehouseRuntime = {
+    mode,
+    store,
+    completedOrderIds: new Set(store.completions.map((item) => item.woolOrderId)),
+  }
+  try {
+    return callback()
+  } finally {
+    warehouseRuntime = undefined
+  }
+}
+
+function runtimeStore(): WoolDomainStore {
+  return warehouseRuntime?.store ?? readWoolStore()
+}
+
+function isOrderCompleted(woolOrderId: string): boolean {
+  return warehouseRuntime?.completedOrderIds.has(woolOrderId)
+    ?? runtimeStore().completions.some((item) => item.woolOrderId === woolOrderId)
+}
 
 function currentMode(): WarehouseMode {
   return appStore.getState().pathname.includes('wait-handover') ? 'WAIT_HANDOVER' : 'WAIT_PROCESS'
@@ -234,7 +261,7 @@ function stockToRow(stock: WoolWarehouseStockRow): WarehouseListRow {
 }
 
 function flowToRow(flow: WoolWarehouseFlow): WarehouseListRow | undefined {
-  const order = readWoolStore().workOrders[flow.woolOrderId]
+  const order = runtimeStore().workOrders[flow.woolOrderId]
   if (!order) return undefined
   const outputLine = order.outputPlanLines.find((line) => line.outputSkuCode === flow.objectSkuCode)
   const objectType = flow.defaultLocationType === 'YARN'
@@ -262,18 +289,18 @@ function flowToRow(flow: WoolWarehouseFlow): WarehouseListRow | undefined {
     operatedAt: flow.operatedAt,
     operatedBy: flow.operatedBy,
     reason: flow.reason ?? '',
-    completed: getWoolProcessingStatus(flow.woolOrderId) === 'COMPLETED',
+    completed: isOrderCompleted(flow.woolOrderId),
     flow,
   }
 }
 
 function rowsForTab(mode: WarehouseMode, tab: WarehouseTab): WarehouseListRow[] {
   if (tab === 'inventory') {
-    return listWoolWarehouseStocks(mode)
+    return listWoolWarehouseStocksFromStore(runtimeStore(), mode)
       .filter((stock) => stock.currentQty !== 0)
       .map(stockToRow)
   }
-  return listWoolWarehouseFlows()
+  return runtimeStore().warehouseFlows
     .filter((flow) => flow.warehouseMode === mode)
     .filter((flow) => {
       if (tab === 'receipts') return flow.businessType === 'YARN_RECEIPT'
@@ -300,8 +327,37 @@ function filteredRows(mode: WarehouseMode, tab: WarehouseTab): WarehouseListRow[
       || (filters.completion === 'COMPLETED' ? row.completed : !row.completed))
 }
 
+function flowBelongsToTab(flow: WoolWarehouseFlow, tab: WarehouseTab): boolean {
+  if (tab === 'receipts') return flow.businessType === 'YARN_RECEIPT'
+  if (tab === 'issues') return flow.businessType === 'YARN_ISSUE'
+  if (tab === 'returns') return flow.businessType === 'YARN_RETURN'
+  if (tab === 'inbounds') return flow.businessType === 'PROCESS_REPORT'
+  if (tab === 'outbounds') return flow.businessType === 'HANDOVER'
+  if (tab === 'adjustments') return flow.flowType === 'ADJUSTMENT'
+  return flow.flowType === 'TRANSFER'
+}
+
+function countFilteredRows(mode: WarehouseMode, tab: WarehouseTab): number {
+  if (tab === 'inventory') return filteredRows(mode, tab).length
+  const filters = states[mode].filters
+  const store = runtimeStore()
+  return store.warehouseFlows.filter((flow) => {
+    if (flow.warehouseMode !== mode || !flowBelongsToTab(flow, tab)) return false
+    const order = store.workOrders[flow.woolOrderId]
+    if (!order) return false
+    const completed = isOrderCompleted(flow.woolOrderId)
+    return matches(order.woolOrderNo, filters.woolOrderNo)
+      && matches(order.productionOrderNo, filters.productionOrderNo)
+      && matches(flow.objectSkuCode, filters.objectSkuCode)
+      && matches(normalizeWoolBatchNo(flow.batchNo), filters.batchNo)
+      && (!filters.objectType || flow.defaultLocationType === filters.objectType)
+      && (!filters.completion
+        || (filters.completion === 'COMPLETED' ? completed : !completed))
+  }).length
+}
+
 function issueReturnBalance(row: WarehouseListRow): number {
-  const store = readWoolStore()
+  const store = runtimeStore()
   const issued = store.yarnIssues
     .filter((record) =>
       record.woolOrderId === row.woolOrderId
@@ -328,13 +384,12 @@ function externalTransferBalance(flow: WoolWarehouseFlow): number {
     || !flow.toWarehouseId
     || !flow.toLocationId
   ) return 0
-  return listWoolWarehouseFlows({
-    woolOrderId: flow.woolOrderId,
-    objectSkuCode: flow.objectSkuCode,
-    defaultLocationId: flow.defaultLocationId,
-  })
+  return runtimeStore().warehouseFlows
     .filter((item) =>
-      item.flowType === 'TRANSFER'
+      item.woolOrderId === flow.woolOrderId
+      && item.objectSkuCode === flow.objectSkuCode
+      && item.defaultLocationId === flow.defaultLocationId
+      && item.flowType === 'TRANSFER'
       && item.defaultLocationType === flow.defaultLocationType
       && normalizeWoolBatchNo(item.batchNo) === normalizeWoolBatchNo(flow.batchNo)
       && (
@@ -366,7 +421,7 @@ function actionButton(label: string, action: string, rowId: string, tone = ''): 
 }
 
 function renderRowActions(row: WarehouseListRow): string {
-  const state = getWoolProcessingStatus(row.woolOrderId)
+  const state = isOrderCompleted(row.woolOrderId) ? 'COMPLETED' : 'PROCESSING'
   const actions = [actionButton('查看明细', 'open-detail', row.rowId)]
   if (row.stock) {
     if (row.objectType === 'YARN' && state !== 'COMPLETED' && row.quantity > 0) {
@@ -594,7 +649,7 @@ function renderFilters(mode: WarehouseMode): string {
 function renderTabBar(mode: WarehouseMode): string {
   const tabs = tabsForMode(mode).map((tab) => ({
     ...tab,
-    count: filteredRows(mode, tab.key).length,
+    count: countFilteredRows(mode, tab.key),
   }))
   return renderTabs({
     tabs,
@@ -631,9 +686,16 @@ function renderPublicLocationOptions(selectedValue = ''): string {
 }
 
 function findRow(mode: WarehouseMode, rowId: string): WarehouseListRow | undefined {
-  return tabsForMode(mode)
-    .flatMap((tab) => rowsForTab(mode, tab.key))
-    .find((row) => row.rowId === rowId)
+  if (rowId.startsWith('stock:')) {
+    const stock = listWoolWarehouseStocksFromStore(runtimeStore(), mode)
+      .find((item) => `stock:${item.stockKey}` === rowId)
+    return stock ? stockToRow(stock) : undefined
+  }
+  if (rowId.startsWith('flow:')) {
+    const flow = runtimeStore().warehouseFlows.find((item) => `flow:${item.flowId}` === rowId)
+    return flow ? flowToRow(flow) : undefined
+  }
+  return undefined
 }
 
 function renderDialog(
@@ -669,17 +731,18 @@ function renderDetailPager(
 }
 
 function renderDetailDialog(mode: WarehouseMode, row: WarehouseListRow, overlay: Extract<WarehouseOverlay, { kind: 'detail' }>): string {
-  const flows = listWoolWarehouseFlows({
-    woolOrderId: row.woolOrderId,
-    objectSkuCode: row.objectSkuCode,
-    defaultLocationId: row.locationId,
-  }).filter((flow) =>
+  const store = runtimeStore()
+  const flows = store.warehouseFlows.filter((flow) =>
+    flow.woolOrderId === row.woolOrderId
+    && flow.objectSkuCode === row.objectSkuCode
+    && flow.defaultLocationId === row.locationId
+    &&
     normalizeWoolBatchNo(flow.batchNo) === normalizeWoolBatchNo(row.batchNo),
   )
   const flowPaging = paginateStandardListRows(flows, overlay.flowPage, 10)
   overlay.flowPage = flowPaging.currentPage
   const receiptTraces = row.objectType === 'YARN'
-    ? listWoolYarnReceiptLineTraces({
+    ? listWoolYarnReceiptLineTracesFromStore(store, {
         woolOrderId: row.woolOrderId,
         objectSkuCode: row.objectSkuCode,
         batchMatch: 'EXACT',
@@ -785,6 +848,10 @@ function renderColumnOverlay(mode: WarehouseMode): string {
 }
 
 function renderPage(mode: WarehouseMode): string {
+  return withWarehouseRuntime(mode, () => renderPageFromRuntime(mode))
+}
+
+function renderPageFromRuntime(mode: WarehouseMode): string {
   const state = states[mode]
   const view = currentView(mode)
   const title = mode === 'WAIT_PROCESS' ? '毛织待加工仓' : '毛织待交出仓'
@@ -820,6 +887,15 @@ function hydrate(root: ParentNode): void {
 }
 
 function refresh(mode: WarehouseMode, options: {
+  table?: boolean
+  tabs?: boolean
+  overlays?: boolean
+  feedback?: boolean
+} = {}): boolean {
+  return withWarehouseRuntime(mode, () => refreshFromRuntime(mode, options))
+}
+
+function refreshFromRuntime(mode: WarehouseMode, options: {
   table?: boolean
   tabs?: boolean
   overlays?: boolean
@@ -907,7 +983,7 @@ function saveOverlay(mode: WarehouseMode, action: string): void {
   const state = states[mode]
   const overlay = state.overlay
   if (!overlay || overlay.kind === 'detail') return
-  const row = findRow(mode, overlay.rowId)
+  const row = withWarehouseRuntime(mode, () => findRow(mode, overlay.rowId))
   if (!row) return
   try {
     const operatedAt = nowText()
@@ -1024,8 +1100,10 @@ export async function handleCraftWoolWarehouseEvent(
   const filter = target.closest<HTMLInputElement | HTMLSelectElement>('[data-wool-warehouse-filter]')
   if (filter) {
     const field = filter.dataset.woolWarehouseFilter as keyof WarehouseFilters
+    state.filters[field] = filter.value as never
     const apply = () => {
-      state.filters[field] = filter.value as never
+      filterDebounce = undefined
+      if (!root.isConnected) return
       state.currentPage = 1
       refresh(mode, { table: true, tabs: true })
     }

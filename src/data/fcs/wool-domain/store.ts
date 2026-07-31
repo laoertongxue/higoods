@@ -1,6 +1,7 @@
 import { buildWoolFactWorkflowMockStore } from './mock-data.ts'
 import { isKnownFactoryWarehouseLocation } from '../factory-internal-warehouse-locations.ts'
 import { WOOL_DEFAULT_WAREHOUSE_BY_LOCATION } from './types.ts'
+import { normalizeWoolBatchNo, validateWoolWarehouseLedger } from './warehouse-ledger.ts'
 import type {
   WoolCommandReceiptValue,
   WoolCommandResultType,
@@ -42,6 +43,7 @@ export interface WoolDomainStore {
 type WoolStorage = Pick<Storage, 'getItem' | 'setItem'>
 
 let memoryStore: WoolDomainStore | undefined
+let woolStoreReadCount = 0
 
 const WOOL_V2_ARRAY_FIELDS = [
   'yarnReceipts',
@@ -532,9 +534,34 @@ export function validateWoolStore(store: WoolDomainStore): void {
   for (const flow of store.warehouseFlows) {
     const order = requireOrder(flow.woolOrderId, `仓库流水 ${flow.flowId}`)
     const outputLine = order.outputPlanLines.find((line) => line.outputSkuCode === flow.objectSkuCode)
-    const knownSku = Boolean(outputLine) || requiredYarns(order).has(flow.objectSkuCode)
+    const isRequiredYarn = requiredYarns(order).has(flow.objectSkuCode)
+    const knownSku = Boolean(outputLine) || isRequiredYarn
     if (!knownSku) {
       throw new Error(`毛织存储校验失败：仓库流水 ${flow.flowId} 的对象 SKU 不属于加工单`)
+    }
+    const expectedObjectType = isRequiredYarn
+      ? 'YARN'
+      : outputLine!.outputObjectType === 'GARMENT'
+        ? 'GARMENT'
+        : 'CUT_PIECE'
+    const expectedLocationId = expectedObjectType === 'YARN'
+      ? 'WOOL-WP-YARN-DEFAULT'
+      : expectedObjectType === 'GARMENT'
+        ? 'WOOL-WH-GARMENT-DEFAULT'
+        : 'WOOL-WH-CUT-DEFAULT'
+    const expectedUnit = isRequiredYarn ? 'kg' : outputLine!.qtyUnit
+    if (
+      flow.sourceRecordType !== 'QTY_CHANGE'
+      && (
+        flow.defaultLocationType !== expectedObjectType
+        || flow.defaultLocationId !== expectedLocationId
+        || flow.unit !== expectedUnit
+        || (!isRequiredYarn && normalizeWoolBatchNo(flow.batchNo) !== undefined)
+      )
+    ) {
+      throw new Error(isRequiredYarn
+        ? `毛织存储校验失败：仓库流水 ${flow.flowId} 的纱线对象类型、单位或默认库位不一致`
+        : `毛织存储校验失败：仓库流水 ${flow.flowId} 的加工后对象与默认库位或单位不一致`)
     }
     const requiredFlowType = {
       YARN_RECEIPT: 'INBOUND',
@@ -687,6 +714,7 @@ export function validateWoolStore(store: WoolDomainStore): void {
       }
     }
   }
+  validateWoolWarehouseLedger(store)
   for (const completion of store.completions) {
     requireOrder(completion.woolOrderId, '完成记录')
     const releasedMachines = completion.confirmationSnapshot.releasedMachines
@@ -826,11 +854,20 @@ function readPersistedStore(): WoolDomainStore | undefined {
 }
 
 export function readWoolStore(): WoolDomainStore {
+  woolStoreReadCount += 1
   if (!memoryStore) {
     memoryStore = readPersistedStore() ?? buildWoolFactWorkflowMockStore()
     validateWoolStore(memoryStore)
   }
   return cloneStore(memoryStore)
+}
+
+export function resetWoolStoreReadCountForDiagnostics(): void {
+  woolStoreReadCount = 0
+}
+
+export function getWoolStoreReadCountForDiagnostics(): number {
+  return woolStoreReadCount
 }
 
 export function clearWoolStoreMemoryCache(): void {

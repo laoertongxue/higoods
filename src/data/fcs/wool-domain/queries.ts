@@ -1,4 +1,9 @@
 import { readWoolStore, type WoolDomainStore } from './store.ts'
+import {
+  getWoolWarehouseLedgerBalance,
+  normalizeWoolBatchNo,
+  woolBatchMatches,
+} from './warehouse-ledger.ts'
 import type {
   WoolCompletionRecord,
   WoolHandoverRecord,
@@ -164,11 +169,6 @@ export interface WoolYarnReceiptLineTraceQuery {
   batchNo?: string
 }
 
-export function normalizeWoolBatchNo(batchNo?: string): string | undefined {
-  const normalized = batchNo?.trim()
-  return normalized || undefined
-}
-
 function requireOrder(woolOrderId: string): WoolWorkOrder {
   const order = readWoolStore().workOrders[woolOrderId]
   if (!order) throw new Error(`找不到毛织加工单 ${woolOrderId}`)
@@ -217,15 +217,20 @@ export function getWoolYarnReceiptLineEffectiveQty(
 export function listWoolYarnReceiptLineTraces(
   query: WoolYarnReceiptLineTraceQuery,
 ): WoolYarnReceiptLineTrace[] {
-  const store = readWoolStore()
+  return listWoolYarnReceiptLineTracesFromStore(readWoolStore(), query)
+}
+
+export function listWoolYarnReceiptLineTracesFromStore(
+  store: WoolDomainStore,
+  query: WoolYarnReceiptLineTraceQuery,
+): WoolYarnReceiptLineTrace[] {
   const expectedBatchNo = normalizeWoolBatchNo(query.batchNo)
   return store.yarnReceipts
     .filter((receipt) => receipt.woolOrderId === query.woolOrderId)
     .flatMap((receipt) => receipt.lines
       .filter((line) => !query.objectSkuCode || line.yarnSkuCode === query.objectSkuCode)
       .filter(() =>
-        query.batchMatch === 'ANY'
-        || normalizeWoolBatchNo(receipt.batchNo) === expectedBatchNo,
+        woolBatchMatches(receipt.batchNo, expectedBatchNo, query.batchMatch),
       )
       .map((line): WoolYarnReceiptLineTrace => {
         const qtyChanges = store.qtyChangeLogs
@@ -534,22 +539,10 @@ function getWoolWarehouseStockFromStore(
   store: WoolDomainStore,
   key: WoolWarehouseStockKey,
 ): number {
-  return store.warehouseFlows
-    .filter((flow) =>
-      flow.woolOrderId === key.woolOrderId
-      && flow.objectSkuCode === key.objectSkuCode
-      && flow.defaultLocationId === key.defaultLocationId
-      && (key.batchNo === undefined || flow.batchNo === key.batchNo),
-    )
-    .reduce((sum, flow) => {
-      if (flow.flowType === 'INBOUND') return sum + Math.abs(flow.qty)
-      if (flow.flowType === 'OUTBOUND') return sum - Math.abs(flow.qty)
-      if (flow.flowType === 'TRANSFER') {
-        if (flow.fromLocationId === key.defaultLocationId) return sum - Math.abs(flow.qty)
-        if (flow.toLocationId === key.defaultLocationId) return sum + Math.abs(flow.qty)
-      }
-      return sum + flow.qty
-    }, 0)
+  return getWoolWarehouseLedgerBalance(store.warehouseFlows, {
+    ...key,
+    batchNo: normalizeWoolBatchNo(key.batchNo),
+  }, 'EXACT')
 }
 
 export function getWoolOutputHandoverAvailableQtyFromStore(
@@ -610,14 +603,20 @@ export function listWoolWarehouseFlows(query: WoolWarehouseFlowQuery = {}): Wool
 export function listWoolWarehouseStocks(
   warehouseMode?: WoolWarehouseFlow['warehouseMode'],
 ): WoolWarehouseStockRow[] {
-  const store = readWoolStore()
+  return listWoolWarehouseStocksFromStore(readWoolStore(), warehouseMode)
+}
+
+export function listWoolWarehouseStocksFromStore(
+  store: WoolDomainStore,
+  warehouseMode?: WoolWarehouseFlow['warehouseMode'],
+): WoolWarehouseStockRow[] {
   const candidates = new Map<string, WoolWarehouseFlow>()
   for (const flow of store.warehouseFlows) {
     if (warehouseMode && flow.warehouseMode !== warehouseMode) continue
     const stockKey = [
       flow.woolOrderId,
       flow.objectSkuCode,
-      flow.batchNo ?? '',
+      normalizeWoolBatchNo(flow.batchNo) ?? '',
       flow.defaultLocationId,
     ].join('|')
     if (!candidates.has(stockKey)) candidates.set(stockKey, flow)
@@ -651,7 +650,7 @@ export function listWoolWarehouseStocks(
         objectSkuCode: flow.objectSkuCode,
         objectName,
         objectType,
-        batchNo: flow.batchNo,
+        batchNo: normalizeWoolBatchNo(flow.batchNo),
         defaultLocationId: flow.defaultLocationId,
         currentQty: getWoolWarehouseStockFromStore(store, {
           woolOrderId: flow.woolOrderId,
