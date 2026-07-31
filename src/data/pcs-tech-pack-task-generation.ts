@@ -786,7 +786,7 @@ function syncPatternAssetTechPackLineage(
   if (!asset) return
   updatePatternAsset(asset.id, {
     source_task_code: task.patternTaskCode,
-    source_task_type: task.stepCode,
+    source_task_type: 'PATTERN_ARTWORK_TASK',
     source_task_name: task.title,
     source_tech_pack_version_id: record.technicalVersionId,
     source_tech_pack_version_code: record.technicalVersionCode,

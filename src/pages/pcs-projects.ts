@@ -126,12 +126,6 @@ import {
   syncProjectLifecycle,
   terminateProject,
 } from '../data/pcs-project-flow-service.ts'
-import {
-  getLatestFirstSampleTaskForProject,
-} from '../data/pcs-first-sample-project-writeback.ts'
-import {
-  getLatestFirstOrderSampleTaskForProject,
-} from '../data/pcs-first-order-sample-project-writeback.ts'
 import { findStyleArchiveByProjectId } from '../data/pcs-style-archive-repository.ts'
 import {
   createLiveTestingRecord,
@@ -310,23 +304,11 @@ interface ProjectViewModel {
   logs: ProjectLogItem[]
 }
 
-const PROJECT_NODE_FIELD_MODULE_EXCEPTIONS = new Set([
-  'REVISION_TASK',
-  'PATTERN_TASK',
-  'PATTERN_ARTWORK_TASK',
-  'FIRST_SAMPLE',
-  'FIRST_ORDER_SAMPLE',
-])
 const PROJECT_NODE_MANUAL_COMPLETE_BLOCKED_TYPES = new Set([
   'CHANNEL_PRODUCT_LISTING',
-  'REVISION_TASK',
-  'PATTERN_TASK',
-  'PATTERN_ARTWORK_TASK',
   'LIVE_TEST',
   'VIDEO_TEST',
   'PROJECT_INIT',
-  'FIRST_SAMPLE',
-  'FIRST_ORDER_SAMPLE',
 ])
 const PROJECT_DEMO_SEED_IMPORT_THRESHOLD = 20
 const STEP_TAB_OPTIONS: Array<{ key: StepTabKey; label: string }> = [
@@ -765,22 +747,6 @@ function getPatternTaskByIdSafe(patternTaskId: string) {
   }
 
   return projectDetailSupportModule.getPatternTaskById(patternTaskId)
-}
-
-function getFirstSampleTaskByIdSafe(firstSampleTaskId: string) {
-  if (!projectDetailSupportModule) {
-    return null
-  }
-
-  return projectDetailSupportModule.getFirstSampleTaskById(firstSampleTaskId)
-}
-
-function getFirstOrderSampleTaskByIdSafe(firstOrderSampleTaskId: string) {
-  if (!projectDetailSupportModule) {
-    return null
-  }
-
-  return projectDetailSupportModule.getFirstOrderSampleTaskById(firstOrderSampleTaskId)
 }
 
 function nowText(): string {
@@ -2246,28 +2212,6 @@ function renderLiveTestingCreateDrawer(): string {
   `
 }
 
-function formatFirstOrderSamplePlanLinesForDisplay(value: unknown): string {
-  if (!Array.isArray(value)) return String(value || '').trim()
-  return value
-    .map((line) => {
-      if (!line || typeof line !== 'object') return ''
-      const record = line as Record<string, unknown>
-      return [
-        record.sampleRole,
-        record.materialMode,
-        record.quantity ? `${record.quantity}件` : '',
-        record.targetFactoryName,
-        record.linkedSampleCode,
-        record.status,
-      ]
-        .map((item) => String(item || '').trim())
-        .filter(Boolean)
-        .join(' / ')
-    })
-    .filter(Boolean)
-    .join('；')
-}
-
 function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel, fieldKey: string): unknown {
   const payload = (node.latestRecord?.payload || {}) as Record<string, unknown>
   const detailSnapshot = (node.latestRecord?.detailSnapshot || {}) as Record<string, unknown>
@@ -2288,16 +2232,7 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
   const plateTask = plateRelation ? getPlateMakingTaskByIdSafe(plateRelation.sourceObjectId || plateRelation.instanceId) : null
   const artworkRelation = findLatestProjectRelation(project.projectId, '花型任务', '花型任务')
   const artworkTask = artworkRelation ? getPatternTaskByIdSafe(artworkRelation.sourceObjectId || artworkRelation.instanceId) : null
-  const firstSampleRelation = findLatestProjectRelation(project.projectId, '首版样衣打样', '首版样衣打样任务')
-  const firstSampleTask = firstSampleRelation
-    ? getFirstSampleTaskByIdSafe(firstSampleRelation.sourceObjectId || firstSampleRelation.instanceId)
-    : null
-  const firstOrderRelation = findLatestProjectRelation(project.projectId, '首单样衣打样', '首单样衣打样任务')
-  const firstOrderTask = firstOrderRelation
-    ? getFirstOrderSampleTaskByIdSafe(firstOrderRelation.sourceObjectId || firstOrderRelation.instanceId)
-    : null
-  const currentEngineeringTask =
-    plateTask || artworkTask || firstSampleTask || firstOrderTask || null
+  const currentEngineeringTask = plateTask || artworkTask || null
   const testingAggregate = getProjectTestingAggregate(project.projectId)
   const defaultChannelCode = getFirstTargetChannelCode(project)
   const defaultChannelName = getChannelDisplayName(defaultChannelCode)
@@ -2353,9 +2288,8 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
     String(currentProjectArchive?.archiveStatus || project.projectArchiveStatus || '') === 'FINALIZED' ||
     project.projectArchiveStatus === '已归档' ||
     Boolean(currentProjectArchive?.finalizedAt || project.projectArchiveFinalizedAt)
-  const currentSampleTask = firstSampleTask || firstOrderTask || null
   const currentTaskStatus = String(currentEngineeringTask?.status || '')
-  const currentTaskConfirmedAt = String(currentSampleTask?.confirmedAt || currentEngineeringTask?.confirmedAt || '')
+  const currentTaskConfirmedAt = String(currentEngineeringTask?.confirmedAt || '')
   const activeListingCount = listProjectChannelProductsByProjectIdSafe(project.projectId).filter(
     (item) => item.channelProductStatus !== '已作废',
   ).length
@@ -2535,134 +2469,11 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
       node.node.latestResultText,
     productStyleCode: plateTask?.productStyleCode || artworkTask?.productStyleCode || nodeRelationMeta.productStyleCode || currentStyleCode,
     sizeRange: plateTask?.sizeRange || nodeRelationMeta.sizeRange || '',
-    patternVersion: plateTask?.patternVersion || firstOrderTask?.patternVersion || nodeRelationMeta.patternVersion || '',
+    patternVersion: plateTask?.patternVersion || nodeRelationMeta.patternVersion || '',
     artworkType: artworkTask?.artworkType || nodeRelationMeta.artworkType || '',
     patternMode: artworkTask?.patternMode || nodeRelationMeta.patternMode || '',
     artworkName: artworkTask?.artworkName || nodeRelationMeta.artworkName || '',
-    artworkVersion: artworkTask?.artworkVersion || firstOrderTask?.artworkVersion || nodeRelationMeta.artworkVersion || '',
-    factoryId: currentSampleTask?.factoryName || currentSampleTask?.factoryId || nodeRelationMeta.factoryName || nodeRelationMeta.factoryId || '',
-    factoryName: currentSampleTask?.factoryName || nodeRelationMeta.factoryName || '',
-    targetSite: currentSampleTask?.targetSite || nodeRelationMeta.targetSite || '',
-    sourceTaskType: firstSampleTask?.sourceTaskType || firstOrderTask?.sourceType || nodeRelationMeta.sourceTaskType || '',
-    sourceTaskId: firstSampleTask?.sourceTaskId || nodeRelationMeta.sourceTaskId || '',
-    sourceTaskCode: firstSampleTask?.sourceTaskCode || nodeRelationMeta.sourceTaskCode || '',
-    sourceTechPackVersionId:
-      firstSampleTask?.sourceTechPackVersionId ||
-      firstOrderTask?.sourceTechPackVersionId ||
-      nodeRelationMeta.sourceTechPackVersionId ||
-      project.linkedTechPackVersionId ||
-      '',
-    sourceTechPackVersionCode:
-      firstSampleTask?.sourceTechPackVersionCode ||
-      firstOrderTask?.sourceTechPackVersionCode ||
-      nodeRelationMeta.sourceTechPackVersionCode ||
-      project.linkedTechPackVersionCode ||
-      '',
-    sourceTechPackVersionLabel:
-      firstSampleTask?.sourceTechPackVersionLabel ||
-      firstOrderTask?.sourceTechPackVersionLabel ||
-      nodeRelationMeta.sourceTechPackVersionLabel ||
-      project.linkedTechPackVersionLabel ||
-      '',
-    sourceFirstSampleTaskId:
-      firstOrderTask?.sourceFirstSampleTaskId ||
-      nodeRelationMeta.sourceFirstSampleTaskId ||
-      '',
-    sourceFirstSampleTaskCode:
-      firstOrderTask?.sourceFirstSampleTaskCode ||
-      nodeRelationMeta.sourceFirstSampleTaskCode ||
-      '',
-    sourceFirstSampleCode:
-      firstOrderTask?.sourceFirstSampleCode ||
-      nodeRelationMeta.sourceFirstSampleCode ||
-      '',
-    sampleChainMode:
-      firstOrderTask?.sampleChainMode ||
-      nodeRelationMeta.sampleChainMode ||
-      '',
-    specialSceneReasonCodes:
-      firstOrderTask?.specialSceneReasonText ||
-      firstOrderTask?.specialSceneReasonCodes ||
-      nodeRelationMeta.specialSceneReasonText ||
-      nodeRelationMeta.specialSceneReasonCodes ||
-      '',
-    specialSceneReasonText:
-      firstOrderTask?.specialSceneReasonText ||
-      nodeRelationMeta.specialSceneReasonText ||
-      '',
-    productionReferenceRequiredFlag:
-      firstOrderTask?.productionReferenceRequiredFlag ??
-      nodeRelationMeta.productionReferenceRequiredFlag ??
-      false,
-    chinaReviewRequiredFlag:
-      firstOrderTask?.chinaReviewRequiredFlag ??
-      nodeRelationMeta.chinaReviewRequiredFlag ??
-      false,
-    correctFabricRequiredFlag:
-      firstOrderTask?.correctFabricRequiredFlag ??
-      nodeRelationMeta.correctFabricRequiredFlag ??
-      false,
-    samplePlanLines:
-      formatFirstOrderSamplePlanLinesForDisplay(firstOrderTask?.samplePlanLines || nodeRelationMeta.samplePlanLines || ''),
-    finalReferenceNote:
-      firstOrderTask?.finalReferenceNote ||
-      nodeRelationMeta.finalReferenceNote ||
-      '',
-    conclusionResult:
-      firstOrderTask?.conclusionResult ||
-      nodeRelationMeta.conclusionResult ||
-      '',
-    conclusionNote:
-      firstOrderTask?.conclusionNote ||
-      nodeRelationMeta.conclusionNote ||
-      '',
-    confirmedBy:
-      firstOrderTask?.confirmedBy ||
-      nodeRelationMeta.confirmedBy ||
-      '',
-    sampleMaterialMode: firstSampleTask?.sampleMaterialMode || nodeRelationMeta.sampleMaterialMode || '',
-    samplePurpose: firstSampleTask?.samplePurpose || nodeRelationMeta.samplePurpose || '',
-    sampleCode:
-      currentSampleTask?.sampleCode ||
-      nodeRelationMeta.sampleCode ||
-      detailSnapshot.sampleCode ||
-      '',
-    sampleImageIds: currentSampleTask?.sampleImageIds || nodeRelationMeta.sampleImageIds || detailSnapshot.sampleImageIds || [],
-    fitConfirmationSummary:
-      firstSampleTask?.fitConfirmationSummary ||
-      nodeRelationMeta.fitConfirmationSummary ||
-      detailSnapshot.fitConfirmationSummary ||
-      '',
-    artworkConfirmationSummary:
-      firstSampleTask?.artworkConfirmationSummary ||
-      nodeRelationMeta.artworkConfirmationSummary ||
-      detailSnapshot.artworkConfirmationSummary ||
-      '',
-    productionReadinessNote:
-      firstSampleTask?.productionReadinessNote ||
-      nodeRelationMeta.productionReadinessNote ||
-      detailSnapshot.productionReadinessNote ||
-      '',
-    reuseAsFirstOrderBasisFlag:
-      firstSampleTask?.reuseAsFirstOrderBasisFlag ??
-      nodeRelationMeta.reuseAsFirstOrderBasisFlag ??
-      detailSnapshot.reuseAsFirstOrderBasisFlag ??
-      false,
-    reuseAsFirstOrderBasisConfirmedAt:
-      firstSampleTask?.reuseAsFirstOrderBasisConfirmedAt ||
-      nodeRelationMeta.reuseAsFirstOrderBasisConfirmedAt ||
-      detailSnapshot.reuseAsFirstOrderBasisConfirmedAt ||
-      '',
-    reuseAsFirstOrderBasisConfirmedBy:
-      firstSampleTask?.reuseAsFirstOrderBasisConfirmedBy ||
-      nodeRelationMeta.reuseAsFirstOrderBasisConfirmedBy ||
-      detailSnapshot.reuseAsFirstOrderBasisConfirmedBy ||
-      '',
-    reuseAsFirstOrderBasisNote:
-      firstSampleTask?.reuseAsFirstOrderBasisNote ||
-      nodeRelationMeta.reuseAsFirstOrderBasisNote ||
-      detailSnapshot.reuseAsFirstOrderBasisNote ||
-      '',
+    artworkVersion: artworkTask?.artworkVersion || nodeRelationMeta.artworkVersion || '',
   }
   if (node.node.stepCode === 'LIVE_TEST' || node.node.stepCode === 'VIDEO_TEST') {
     const relationValue = nodeRelationMeta[fieldKey]
@@ -2673,26 +2484,6 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
     if (hasNodeFieldValue(snapshotValue)) return snapshotValue
     const projectValue = projectValues[fieldKey]
     if (hasNodeFieldValue(projectValue)) return projectValue
-  }
-  if (node.node.stepCode === 'FIRST_SAMPLE') {
-    const formalValue = projectValues[fieldKey]
-    if (hasNodeFieldValue(formalValue)) return formalValue
-    const relationValue = nodeRelationMeta[fieldKey]
-    if (hasNodeFieldValue(relationValue)) return relationValue
-    const snapshotValue = detailSnapshot[fieldKey]
-    if (hasNodeFieldValue(snapshotValue)) return snapshotValue
-    const payloadValue = payload[fieldKey]
-    if (hasNodeFieldValue(payloadValue)) return payloadValue
-  }
-  if (node.node.stepCode === 'FIRST_ORDER_SAMPLE') {
-    const formalValue = projectValues[fieldKey]
-    if (hasNodeFieldValue(formalValue)) return formalValue
-    const relationValue = nodeRelationMeta[fieldKey]
-    if (hasNodeFieldValue(relationValue)) return relationValue
-    const snapshotValue = detailSnapshot[fieldKey]
-    if (hasNodeFieldValue(snapshotValue)) return snapshotValue
-    const payloadValue = payload[fieldKey]
-    if (hasNodeFieldValue(payloadValue)) return payloadValue
   }
   if (node.node.stepCode === 'TEST_CONCLUSION') {
     const recordValue = payload[fieldKey]
@@ -3810,9 +3601,7 @@ function canCompleteProjectNode(project: PcsProjectRecord, node: ProjectNodeView
     return hasProjectLiveTestingRecord(project)
   }
   const values = buildNodeCompletionValues(project, node)
-  const shouldValidateRequiredFields = !PROJECT_NODE_FIELD_MODULE_EXCEPTIONS.has(node.node.stepCode)
   const hasMissingRequiredField =
-    shouldValidateRequiredFields &&
     node.contract.fieldDefinitions
       .filter((field) => isProjectFixedFlowFieldVisible(project, node, field))
       .filter((field) => !field.readonly && field.required)
@@ -5609,138 +5398,6 @@ function renderPhaseNavigator(viewModel: ProjectViewModel): string {
   `
 }
 
-function renderFirstSampleSummaryField(label: string, value: unknown): string {
-  return `
-    <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-      <p class="text-xs text-slate-500">${escapeHtml(label)}</p>
-      <div class="mt-2 text-sm font-medium leading-6 text-slate-900">${renderReadonlyValue(value)}</div>
-    </article>
-  `
-}
-
-function renderFirstSampleProjectNodeWorkspace(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
-  const task = getLatestFirstSampleTaskForProject(project.projectId)
-  const actionButton = renderProjectProfessionalTaskEntry(project)
-  if (!task) {
-    return `
-      <section class="space-y-4">
-        <article class="rounded-lg border border-dashed border-blue-200 bg-blue-50 p-5">
-          <div class="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h3 class="text-base font-semibold text-blue-950">请先填写首版样衣必要信息并创建任务</h3>
-              <p class="mt-2 text-sm leading-6 text-blue-800">当前节点还没有正式首版样衣打样任务。先补来源技术包、打样工厂、打样区域、样衣材质模式和样衣用途，再进入首版样衣详情开始打样、提交结果和填写结论。</p>
-            </div>
-            ${node.displayStatus === '未解锁' || node.node.currentStatus === '已取消' ? '' : actionButton}
-          </div>
-        </article>
-      </section>
-    `
-  }
-
-  const imageCount = Array.isArray(task.sampleImageIds) ? task.sampleImageIds.length : 0
-  const completed = task.status === '已通过'
-  const summaryFields = [
-    renderFirstSampleSummaryField('来源任务类型', task.sourceTaskType),
-    renderFirstSampleSummaryField('来源任务编码', task.sourceTaskCode),
-    renderFirstSampleSummaryField('技术包编码', task.sourceTechPackVersionCode),
-    renderFirstSampleSummaryField('打样工厂', task.factoryName || task.factoryId),
-    renderFirstSampleSummaryField('打样区域', task.targetSite),
-    renderFirstSampleSummaryField('样衣材质模式', task.sampleMaterialMode),
-    renderFirstSampleSummaryField('样衣用途', task.samplePurpose),
-    renderFirstSampleSummaryField('任务编号', task.firstSampleTaskCode),
-    renderFirstSampleSummaryField('任务状态', task.status),
-    renderFirstSampleSummaryField('当前结果编号', task.sampleCode),
-    renderFirstSampleSummaryField('当前样衣图片数量', imageCount > 0 ? `${imageCount} 张` : ''),
-  ]
-
-  return `
-    <section class="space-y-4">
-      <article class="rounded-lg border bg-white p-4">
-        <div class="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h3 class="text-base font-semibold text-slate-900">首版样衣打样任务</h3>
-            <p class="mt-1 text-xs text-slate-500">${escapeHtml(task.firstSampleTaskCode)} · ${escapeHtml(task.status)} · ${escapeHtml(formatDateTime(task.updatedAt))}</p>
-          </div>
-          <button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-nav="/pcs/samples/first-sample/${escapeHtml(task.firstSampleTaskId)}">
-            ${completed ? '查看首版样衣详情' : '去首版样衣打样详情推进'}
-          </button>
-        </div>
-        <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          ${summaryFields.join('')}
-        </div>
-      </article>
-      <article class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
-        ${escapeHtml(completed
-          ? '首版样衣任务已通过。样衣图片、验收结论和首单复用记录请进入首版样衣详情查看。'
-          : '首版样衣任务已创建。请进入首版样衣详情开始打样、提交结果和填写结论。')}
-      </article>
-    </section>
-  `
-}
-
-function renderFirstOrderSampleProjectNodeWorkspace(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
-  const task = getLatestFirstOrderSampleTaskForProject(project.projectId)
-  const actionButton = renderProjectProfessionalTaskEntry(project)
-  if (!task) {
-    return `
-      <section class="space-y-4">
-        <article class="rounded-lg border border-dashed border-blue-200 bg-blue-50 p-5">
-          <div class="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h3 class="text-base font-semibold text-blue-950">请先填写首单样衣必要信息并创建任务</h3>
-              <p class="mt-2 text-sm leading-6 text-blue-800">当前节点还没有正式首单样衣打样任务。先选择来源首版样衣、来源技术包版本、打样工厂、打样区域和首单确认方式，再进入首单样衣详情按动作维护样衣计划和确认结果。</p>
-            </div>
-            ${node.displayStatus === '未解锁' || node.node.currentStatus === '已取消' ? '' : actionButton}
-          </div>
-        </article>
-      </section>
-    `
-  }
-
-  const completed = task.status === '已通过'
-  const samplePlanSummary = formatFirstOrderSamplePlanLinesForDisplay(task.samplePlanLines)
-  const summaryFields = [
-    renderFirstSampleSummaryField('来源首版样衣', task.sourceFirstSampleTaskCode || task.sourceFirstSampleTaskId),
-    renderFirstSampleSummaryField('首版结果', task.sourceFirstSampleCode),
-    renderFirstSampleSummaryField('来源技术包版本', task.sourceTechPackVersionLabel || task.sourceTechPackVersionCode || task.sourceTechPackVersionId),
-    renderFirstSampleSummaryField('打样工厂', task.factoryName || task.factoryId),
-    renderFirstSampleSummaryField('打样区域', task.targetSite),
-    renderFirstSampleSummaryField('首单确认方式', task.sampleChainMode),
-    renderFirstSampleSummaryField('特殊场景原因', task.specialSceneReasonText || task.specialSceneReasonCodes),
-    renderFirstSampleSummaryField('任务编号', task.firstOrderSampleTaskCode),
-    renderFirstSampleSummaryField('任务状态', task.status),
-    renderFirstSampleSummaryField('当前结果编号', task.sampleCode),
-    renderFirstSampleSummaryField('样衣计划行', samplePlanSummary),
-    renderFirstSampleSummaryField('确认结果', task.conclusionResult),
-    renderFirstSampleSummaryField('确认说明', task.conclusionNote),
-    renderFirstSampleSummaryField('确认时间', task.confirmedAt),
-    renderFirstSampleSummaryField('确认人', task.confirmedBy),
-  ]
-  const followupText = completed
-    ? '首单样衣任务已通过。样衣计划、最终参照和完整确认记录请进入首单样衣详情查看。'
-    : '首单样衣任务已创建。请进入首单样衣详情开始首单、提交结果和填写结论。'
-
-  return `
-    <section class="space-y-4">
-      <article class="rounded-lg border bg-white p-4">
-        <div class="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h3 class="text-base font-semibold text-slate-900">首单样衣打样任务</h3>
-            <p class="mt-1 text-xs text-slate-500">${escapeHtml(task.firstOrderSampleTaskCode)} · ${escapeHtml(task.status)} · ${escapeHtml(formatDateTime(task.updatedAt))}</p>
-          </div>
-          <button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-nav="/pcs/samples/first-order/${escapeHtml(task.firstOrderSampleTaskId)}">
-            ${completed ? '查看首单样衣详情' : '去首单样衣打样详情推进'}
-          </button>
-        </div>
-        <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          ${summaryFields.join('')}
-        </div>
-      </article>
-      <article class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">${escapeHtml(followupText)}</article>
-    </section>
-  `
-}
-
 function renderProjectInitSnapshot(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
   const groups = listProjectStepFieldGroups('PROJECT_INIT')
   const referenceImages = listProjectReferenceImageViewModels(project.projectId)
@@ -5838,14 +5495,6 @@ function renderReadonlyFieldSection(project: PcsProjectRecord, node: ProjectNode
 function renderProjectNodeInlineContent(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
   if (node.node.stepCode === 'PROJECT_INIT') {
     return renderProjectInitSnapshot(project, node)
-  }
-
-  if (node.node.stepCode === 'FIRST_SAMPLE') {
-    return renderFirstSampleProjectNodeWorkspace(project, node)
-  }
-
-  if (node.node.stepCode === 'FIRST_ORDER_SAMPLE') {
-    return renderFirstOrderSampleProjectNodeWorkspace(project, node)
   }
 
   if (isSampleShootFitNode(node)) {
@@ -6158,21 +5807,10 @@ function renderFormalFieldEntrySection(project: PcsProjectRecord, node: ProjectN
         </section>
       `
     }
-    if (!PROJECT_NODE_FIELD_MODULE_EXCEPTIONS.has(node.node.stepCode)) {
-      const testingAction = renderTestingCreateAction(project, node)
-      return `
-        <section class="rounded-lg border bg-white p-4">
-          <h3 class="text-base font-semibold text-slate-900">关联字段</h3>
-          <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
-            ${testingAction}
-          </div>
-        </section>
-      `
-    }
     const testingAction = renderTestingCreateAction(project, node)
     return `
       <section class="rounded-lg border bg-white p-4">
-        <h3 class="text-base font-semibold text-slate-900">填写字段</h3>
+        <h3 class="text-base font-semibold text-slate-900">关联字段</h3>
         <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
           ${testingAction}
         </div>
@@ -6244,14 +5882,6 @@ function renderStepFullInfo(project: PcsProjectRecord, node: ProjectNodeViewMode
     return renderLiveTestingNodeWorkspace(project, node)
   }
 
-  if (node.node.stepCode === 'FIRST_SAMPLE') {
-    return renderFirstSampleProjectNodeWorkspace(project, node)
-  }
-
-  if (node.node.stepCode === 'FIRST_ORDER_SAMPLE') {
-    return renderFirstOrderSampleProjectNodeWorkspace(project, node)
-  }
-
   const groups = listProjectStepFieldGroups(node.node.stepCode as ProjectStepCode)
   if (node.displayStatus === '未解锁') {
     return `<section class="rounded-lg border bg-white p-4 text-sm text-slate-600">当前节点尚未解锁，请先完成前序步骤。</section>`
@@ -6260,10 +5890,6 @@ function renderStepFullInfo(project: PcsProjectRecord, node: ProjectNodeViewMode
   const bodyContent =
     node.node.stepCode === 'PROJECT_INIT'
       ? renderProjectInitSnapshot(project, node)
-      : node.node.stepCode === 'FIRST_SAMPLE'
-        ? renderFirstSampleProjectNodeWorkspace(project, node)
-      : node.node.stepCode === 'FIRST_ORDER_SAMPLE'
-        ? renderFirstOrderSampleProjectNodeWorkspace(project, node)
       : node.node.stepCode === 'SAMPLE_SHOOT_FIT'
         ? renderSampleShootFitWorkspace(project, node)
       : node.node.stepCode === 'SAMPLE_COST_REVIEW'

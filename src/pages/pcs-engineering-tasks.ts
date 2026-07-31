@@ -66,6 +66,7 @@ import {
 } from '../data/pcs-first-sample-project-writeback.ts'
 import {
   FIRST_ORDER_SAMPLE_FACTORY_OPTIONS,
+  listFirstOrderSourceFirstSampleOptions,
   updateFirstOrderSampleTaskDetailAndSync,
 } from '../data/pcs-first-order-sample-project-writeback.ts'
 import {
@@ -882,11 +883,9 @@ function buildFirstOrderResultDraft(task: FirstOrderSampleTaskRecord): FirstOrde
 }
 
 function getFirstOrderSourceFirstSampleLabel(projectId: string): string {
-  const matched = listFirstSampleTasks()
-    .filter((task) => task.projectId === projectId)
-    .find((task) => task.stepCode === 'FIRST_SAMPLE')
+  const matched = listFirstOrderSourceFirstSampleOptions(projectId)[0]
   if (!matched) return '未找到同商品项目的首版样衣结果'
-  return `${matched.firstSampleTaskCode}${matched.sampleCode ? ` · ${matched.sampleCode}` : ''}`
+  return `${matched.taskCode}${matched.sampleCode ? ` · ${matched.sampleCode}` : ''}`
 }
 
 const state = {
@@ -2446,7 +2445,7 @@ function createPatternAssetFromTask(taskId: string): { ok: boolean; message: str
     sourceType: '自研',
     sourceNote: `由花型任务 ${task.patternTaskCode} 沉淀`,
     sourceTaskCode: task.patternTaskCode,
-    sourceTaskType: task.stepCode,
+    sourceTaskType: 'PATTERN_ARTWORK_TASK',
     sourceTaskName: task.title,
     sourceTechPackVersionId: task.linkedTechPackVersionId,
     sourceTechPackVersionCode: task.linkedTechPackVersionCode,
@@ -2535,8 +2534,6 @@ function renderProjectContext(task: {
   projectId: string
   projectCode: string
   projectName: string
-  projectNodeId: string
-  stepName: string
   sourceType: string
   productStyleCode?: string
   spuCode?: string

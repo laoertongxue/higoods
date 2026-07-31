@@ -15,6 +15,7 @@ import type { PatternTaskRecord } from './pcs-pattern-task-types.ts'
 import type { PlateMakingTaskRecord } from './pcs-plate-making-types.ts'
 import type { FirstOrderSampleTaskRecord } from './pcs-first-order-sample-types.ts'
 import type { RevisionTaskRecord } from './pcs-revision-task-types.ts'
+import { normalizeFirstSampleTaskSourceType } from './pcs-task-source-normalizer.ts'
 
 export interface TaskBootstrapSnapshot {
   revisionTasks: RevisionTaskRecord[]
@@ -1745,7 +1746,7 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
       projectId: project.projectId,
       projectCode: project.projectCode,
       projectName: project.projectName,
-      sourceType: '商品项目',
+      sourceType: normalizeFirstSampleTaskSourceType(item.upstreamObjectType || item.upstreamModule),
       upstreamModule: item.upstreamModule,
       upstreamObjectType: item.upstreamObjectType,
       upstreamObjectId: item.upstreamObjectId,

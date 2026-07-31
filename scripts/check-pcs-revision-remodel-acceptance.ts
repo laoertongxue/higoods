@@ -77,9 +77,6 @@ const directFirstSampleTask = upsertFirstSampleTask({
   projectId: project.projectId,
   projectCode: project.projectCode,
   projectName: project.projectName,
-  projectNodeId: '',
-  stepCode: 'FIRST_SAMPLE',
-  stepName: '首版样衣打样',
   sourceType: '人工创建',
   upstreamModule: '制版任务',
   upstreamObjectType: '制版任务',
@@ -156,7 +153,7 @@ assert.deepEqual(
     created: firstSampleRevision.ok,
     upstreamObjectId: firstSampleRevision.ok ? firstSampleRevision.task.upstreamObjectId : '',
     upstreamObjectCode: firstSampleRevision.ok ? firstSampleRevision.task.upstreamObjectCode : '',
-    projectNodeId: firstSampleRevision.ok ? firstSampleRevision.task.projectNodeId : '创建失败',
+    hasProjectNodeId: firstSampleRevision.ok ? 'projectNodeId' in firstSampleRevision.task : true,
     missingSourceAccepted: missingFirstSampleRevision.ok,
     projectNodesChanged: JSON.stringify(listProjectNodes(project.projectId)) !== JSON.stringify(nodesBeforeFirstSampleRevision),
   },
@@ -164,7 +161,7 @@ assert.deepEqual(
     created: true,
     upstreamObjectId: 'FS-DIRECT-001',
     upstreamObjectCode: 'FS-DIRECT-001',
-    projectNodeId: '',
+    hasProjectNodeId: false,
     missingSourceAccepted: false,
     projectNodesChanged: false,
   },
@@ -336,9 +333,9 @@ assert.equal(createdPatternRelations.length, 1)
 assert.equal(createdFirstSampleRelations.length, 1)
 ;[createdPatternRelations[0], createdFirstSampleRelations[0]].forEach((relation) => {
   assert.equal(relation?.projectId, project.projectId)
-  assert.equal(relation?.projectNodeId || '', '')
-  assert.equal(relation?.stepCode, '')
-  assert.equal(relation?.stepName, '')
+  assert.equal(relation ? 'projectNodeId' in relation : true, false)
+  assert.equal(relation ? 'stepCode' in relation : true, false)
+  assert.equal(relation ? 'stepName' in relation : true, false)
 })
 assert.equal(listFirstOrderSampleTasks().filter((item) => item.upstreamObjectId === created.task.revisionTaskId).length, 0)
 pass('下游任务按改版范围推导，默认创建花型和产出样衣，不再默认创建制版任务')
