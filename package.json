@@ -92,7 +92,7 @@
     "check:fcs-handover-domain": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-fcs-handover-domain.ts",
     "check:pda-exec-task-detail": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pda-exec-task-detail.ts",
     "check:pda-cutting-task-spreading-orders": "tsx scripts/check-pda-cutting-task-spreading-orders.ts",
-    "check:pda-handover-pages": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pda-handover-pages.ts",
+    "check:pda-handover-pages": "tsx scripts/check-pda-handover-pages.ts",
     "check:pda-handover-detail-source": "tsx scripts/check-pda-handover-detail-source.ts",
     "check:stock-process-work-order-creation": "tsx scripts/check-stock-process-work-order-creation.ts",
     "check:post-route-qc-recheck": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-post-route-qc-recheck.ts",

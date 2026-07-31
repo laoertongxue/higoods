@@ -2117,7 +2117,9 @@ function renderHandoutRecordItem(
 
 function renderHandoutHeadDetail(head: PdaHandoverHead): string {
   const waterAccess = isWaterSolubleHandoverHead(head) ? getWaterHandoverAccess(head) : null
-  const canCreateRecord = waterAccess ? waterAccess.ok : canCreateHandoverRecord(resolveFcsDemoRole('FACTORY'))
+  const isWoolHandover = head.processBusinessCode === 'WOOL'
+  const canCreateRecord = !isWoolHandover
+    && (waterAccess ? waterAccess.ok : canCreateHandoverRecord(resolveFcsDemoRole('FACTORY')))
   const isCompleted = head.completionStatus === 'COMPLETED'
   const completionCheck = canCompletePdaHandoutHead(head.handoverId)
   const records = getPdaHandoverRecordsByHead(head.handoverId)
@@ -2214,7 +2216,7 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
       <div class="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/20 px-2.5 py-2 text-xs">
         <span>${escapeHtml(isCompleted ? '交出单已完成；接收方收货确认和异议仍可继续' : completionCheck.message)}</span>
         ${
-          isCompleted || (waterAccess !== null && !waterAccess.ok)
+          isWoolHandover || isCompleted || (waterAccess !== null && !waterAccess.ok)
             ? ''
             : `<button type="button" class="inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90" data-pda-handoverd-action="complete-handout-head" data-handover-id="${escapeHtml(head.handoverId)}">完成交出单</button>`
         }
@@ -2222,13 +2224,13 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
       <div class="flex flex-wrap items-center justify-between gap-2 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs text-blue-700">
         <span>交出记录</span>
         ${
-          waterAccess !== null && !waterAccess.ok
+          isWoolHandover || (waterAccess !== null && !waterAccess.ok)
             ? ''
             : `<button class="inline-flex h-7 items-center rounded-md border border-blue-200 bg-white px-2.5 text-xs text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50" data-pda-handoverd-action="open-new-handout-record" data-handover-id="${escapeHtml(head.handoverId)}" ${canCreateRecord && !isCompleted ? '' : `title="${isCompleted ? '交出单已完成，不允许新增交出记录' : ACTION_PERMISSION_DENIED_TEXT}" disabled`}>新增交出记录</button>`
         }
       </div>
       ${waterAccess && !waterAccess.ok ? `<div data-testid="water-handover-access-denied" class="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs text-amber-700">${escapeHtml(waterAccess.message)}</div>` : ''}
-      ${renderNewHandoutRecordForm(head)}
+      ${isWoolHandover ? '' : renderNewHandoutRecordForm(head)}
     `,
     )}
 
@@ -2294,6 +2296,7 @@ export function renderPdaHandoverDetailPage(eventId: string): string {
   const pathname = appStore.getState().pathname || ''
   const handoutStateKey = `head:${head.handoverId}|${pathname}`
   const shouldAutoOpenNewRecord = head.headType === 'HANDOUT'
+    && head.processBusinessCode !== 'WOOL'
     && !isWaterSolubleHandoverHead(head)
     && detailState.initializedKey !== handoutStateKey
     && getCurrentDetailQueryAction() === 'new-record'
@@ -2474,6 +2477,10 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     const handoverId = actionNode.dataset.handoverId
     if (!handoverId) return true
     const head = findPdaHandoverHead(handoverId)
+    if (head?.processBusinessCode === 'WOOL') {
+      showPdaHandoverDetailToast('毛织交出由加工单事实管理，不支持完成通用交出单')
+      return true
+    }
     if (isWaterSolubleHandoverHead(head)) {
       const access = getWaterHandoverAccess(head)
       if (!access.ok) {
@@ -2533,6 +2540,10 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
       showPdaHandoverDetailToast('未找到交出单')
       return true
     }
+    if (head.processBusinessCode === 'WOOL') {
+      showPdaHandoverDetailToast('毛织交出记录由加工单发起交出事实生成，不允许新增')
+      return true
+    }
     if (head.completionStatus === 'COMPLETED') {
       showPdaHandoverDetailToast('交出单已完成，不允许新增交出记录')
       return true
@@ -2579,6 +2590,10 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     const head = handoverId ? findPdaHandoverHead(handoverId) : undefined
     if (!head || head.headType !== 'HANDOUT') {
       showPdaHandoverDetailToast('未找到交出单')
+      return true
+    }
+    if (head.processBusinessCode === 'WOOL') {
+      showPdaHandoverDetailToast('毛织交出记录由加工单发起交出事实生成，不允许新增')
       return true
     }
     if (head.completionStatus === 'COMPLETED') {
