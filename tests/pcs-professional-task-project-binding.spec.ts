@@ -65,7 +65,11 @@ const plateResult = createPlateMakingTask({
   operatorName: '测试用户',
 })
 assert.equal(plateResult.ok, true, plateResult.message)
-assert.equal(plateResult.task?.projectNodeId, '', '制版任务不得依赖已删除的专业项目节点')
+assert.equal('projectNodeId' in plateResult.task!, false, '制版任务模型不得包含已删除的专业项目节点')
+assert.equal('stepCode' in plateResult.task!, false, '制版任务模型不得伪装成商品项目步骤')
+assert.equal('stepName' in plateResult.task!, false, '制版任务模型不得保存商品项目步骤名称')
+assert.equal('legacyProjectRef' in plateResult.task!, false, '制版任务模型不得保留老任务项目引用')
+assert.equal('legacyUpstreamRef' in plateResult.task!, false, '制版任务模型不得保留老任务上游引用')
 assert.equal(plateResult.task?.upstreamModule, '商品项目')
 assert.equal(plateResult.task?.upstreamObjectType, '商品项目', '制版任务页面来源不得伪造成具体测款步骤')
 assert.equal(plateResult.task?.upstreamObjectId, project.projectId)
@@ -88,7 +92,11 @@ const patternResult = createPatternTask({
   operatorName: '测试用户',
 })
 assert.equal(patternResult.ok, true, patternResult.message)
-assert.equal(patternResult.task?.projectNodeId, '', '花型任务不得依赖已删除的专业项目节点')
+assert.equal('projectNodeId' in patternResult.task!, false, '花型任务模型不得包含已删除的专业项目节点')
+assert.equal('stepCode' in patternResult.task!, false, '花型任务模型不得伪装成商品项目步骤')
+assert.equal('stepName' in patternResult.task!, false, '花型任务模型不得保存商品项目步骤名称')
+assert.equal('legacyProjectRef' in patternResult.task!, false, '花型任务模型不得保留老任务项目引用')
+assert.equal('legacyUpstreamRef' in patternResult.task!, false, '花型任务模型不得保留老任务上游引用')
 assert.equal(patternResult.task?.upstreamModule, '商品项目')
 assert.equal(patternResult.task?.upstreamObjectType, '商品项目', '花型任务页面来源不得伪造成具体测款步骤')
 assert.equal(patternResult.task?.upstreamObjectId, project.projectId)
@@ -129,7 +137,11 @@ const firstSampleResult = createFirstSampleTaskWithProjectRelation({
   operatorName: '测试用户',
 })
 assert.equal(firstSampleResult.ok, true, firstSampleResult.message)
-assert.equal(firstSampleResult.task?.projectNodeId, '')
+assert.equal('projectNodeId' in firstSampleResult.task!, false)
+assert.equal('stepCode' in firstSampleResult.task!, false)
+assert.equal('stepName' in firstSampleResult.task!, false)
+assert.equal('legacyProjectRef' in firstSampleResult.task!, false)
+assert.equal('legacyUpstreamRef' in firstSampleResult.task!, false)
 const firstSampleRelation = listProjectRelationsByProject(project.projectId).find(
   (item) => item.sourceObjectId === firstSampleResult.task?.firstSampleTaskId,
 )
@@ -172,7 +184,11 @@ const firstOrderResult = createFirstOrderSampleTaskWithProjectRelation({
   operatorName: '测试用户',
 })
 assert.equal(firstOrderResult.ok, true, firstOrderResult.message)
-assert.equal(firstOrderResult.task?.projectNodeId, '')
+assert.equal('projectNodeId' in firstOrderResult.task!, false)
+assert.equal('stepCode' in firstOrderResult.task!, false)
+assert.equal('stepName' in firstOrderResult.task!, false)
+assert.equal('legacyProjectRef' in firstOrderResult.task!, false)
+assert.equal('legacyUpstreamRef' in firstOrderResult.task!, false)
 const firstOrderRelation = listProjectRelationsByProject(project.projectId).find(
   (item) => item.sourceObjectId === firstOrderResult.task?.firstOrderSampleTaskId,
 )
@@ -227,6 +243,11 @@ const revisionResult = createRevisionTaskWithProjectRelation({
 })
 assert.equal(revisionResult.ok, true, revisionResult.message)
 if (revisionResult.ok) {
+  assert.equal('projectNodeId' in revisionResult.task, false)
+  assert.equal('stepCode' in revisionResult.task, false)
+  assert.equal('stepName' in revisionResult.task, false)
+  assert.equal('legacyProjectRef' in revisionResult.task, false)
+  assert.equal('legacyUpstreamRef' in revisionResult.task, false)
   const downstream = createDownstreamTasksFromRevision(
     revisionResult.task.revisionTaskId,
     ['PLATE', 'PRINT', 'FIRST_SAMPLE', 'FIRST_ORDER_SAMPLE'],
@@ -241,7 +262,7 @@ if (revisionResult.ok) {
   )
   assert.ok(downstreamPlate, '应能按改版任务上游关系查到制版下游任务')
   assert.equal(downstreamPlate?.projectId, revisionProject.projectId)
-  assert.equal(downstreamPlate?.projectNodeId, '', '改版下游制版任务只绑定商品项目，不绑定专业节点')
+  assert.equal('projectNodeId' in downstreamPlate!, false, '改版下游制版任务只绑定商品项目，不保存专业节点字段')
   const downstreamRelation = listProjectRelationsByProject(revisionProject.projectId).find(
     (item) => item.sourceObjectId === downstreamPlate?.plateTaskId,
   )
@@ -266,6 +287,13 @@ if (revisionResult.ok) {
   assert.ok(downstreamPattern, '应能按改版任务上游关系查到花型下游任务')
   assert.ok(downstreamFirstSample, '应能按改版任务上游关系查到首版样衣下游任务')
   assert.ok(downstreamFirstOrder, '应能在不存在 FIRST_ORDER_SAMPLE 项目节点时创建首单样衣下游任务')
+  for (const task of [downstreamPattern, downstreamFirstSample, downstreamFirstOrder]) {
+    assert.equal('projectNodeId' in task!, false)
+    assert.equal('stepCode' in task!, false)
+    assert.equal('stepName' in task!, false)
+    assert.equal('legacyProjectRef' in task!, false)
+    assert.equal('legacyUpstreamRef' in task!, false)
+  }
 
   for (const task of [
     {

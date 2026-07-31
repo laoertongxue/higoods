@@ -16,10 +16,8 @@ const fixedStepSourceType = '商品项目'
 
 assert.ok(PLATE_TASK_SOURCE_TYPE_LIST.includes(fixedStepSourceType), '制版来源类型必须公开“商品项目”')
 assert.ok(PATTERN_TASK_SOURCE_TYPE_LIST.includes(fixedStepSourceType), '花型来源类型必须公开“商品项目”')
-assert.equal(PLATE_TASK_SOURCE_TYPE_LIST.includes('项目模板阶段' as never), false)
-assert.equal(PATTERN_TASK_SOURCE_TYPE_LIST.includes('项目模板阶段' as never), false)
-assert.equal(normalizePlateTaskSourceType('项目模板阶段'), fixedStepSourceType, '读取旧制版来源时必须迁移为新语义')
-assert.equal(normalizePatternTaskSourceType('项目模板阶段'), fixedStepSourceType, '读取旧花型来源时必须迁移为新语义')
+assert.equal(normalizePlateTaskSourceType('商品项目'), fixedStepSourceType)
+assert.equal(normalizePatternTaskSourceType('商品项目'), fixedStepSourceType)
 
 const snapshot = createTaskBootstrapSnapshot()
 const fixedStepTasks = [...snapshot.plateTasks, ...snapshot.patternTasks].filter(
@@ -30,7 +28,7 @@ fixedStepTasks.forEach((task) => {
   assert.equal(task.upstreamModule, '商品项目')
   assert.equal(task.upstreamObjectType, '商品项目')
   assert.ok(task.projectId, '商品项目来源必须关联商品项目')
-  assert.equal(task.projectNodeId, '', '专业任务不重新绑定已删除的旧节点')
+  assert.equal('projectNodeId' in task, false, '专业任务不保存商品项目节点字段')
 })
 
 const productionFiles = [
@@ -66,7 +64,7 @@ const independentRevisionTasks = snapshot.revisionTasks.filter((task) => !task.p
 assert.ok(independentRevisionTasks.length > 0, '必须保留独立改款／设计任务')
 independentRevisionTasks.forEach((task) => {
   assert.ok(task.sourceType === '既有商品改款' || task.sourceType === '人工改版需求')
-  assert.equal(task.projectNodeId, '')
+  assert.equal('projectNodeId' in task, false)
 })
 
 console.log('pcs-professional-task-fixed-step-source.spec.ts PASS')

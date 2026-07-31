@@ -409,10 +409,6 @@ const state: ProjectPageState = {
   liveTestingSelectedLineIds: {},
 }
 
-type ProjectRelationRepositoryModule = Pick<
-  typeof import('../data/pcs-project-relation-repository.ts'),
-  'listProjectRelationsByProjectNode'
->
 type ProjectDemoSeedServiceModule = Pick<
   typeof import('../data/pcs-project-demo-seed-service.ts'),
   'ensurePcsProjectDemoDataReady'
@@ -450,8 +446,6 @@ type ProjectInstanceModelModule = Pick<
 type ProjectArchiveRecordMaybe = ReturnType<ProjectDetailSupportModule['getProjectArchiveById']>
 type TechnicalDataVersionMaybe = ReturnType<ProjectDetailSupportModule['getTechnicalDataVersionById']>
 
-let projectRelationRepositoryModule: ProjectRelationRepositoryModule | null = null
-let projectRelationRepositoryPromise: Promise<ProjectRelationRepositoryModule> | null = null
 let projectDemoSeedServiceModule: ProjectDemoSeedServiceModule | null = null
 let projectDemoSeedPromise: Promise<ProjectDemoSeedServiceModule> | null = null
 let projectTechPackTaskGenerationModule: ProjectTechPackTaskGenerationModule | null = null
@@ -462,26 +456,6 @@ let projectDetailSupportModule: ProjectDetailSupportModule | null = null
 let projectDetailSupportPromise: Promise<ProjectDetailSupportModule> | null = null
 let projectInstanceModelModule: ProjectInstanceModelModule | null = null
 let projectInstanceModelPromise: Promise<ProjectInstanceModelModule> | null = null
-
-async function ensureProjectRelationRepositoryReady(): Promise<ProjectRelationRepositoryModule> {
-  if (projectRelationRepositoryModule) {
-    return projectRelationRepositoryModule
-  }
-
-  if (!projectRelationRepositoryPromise) {
-    projectRelationRepositoryPromise = import('../data/pcs-project-relation-repository.ts')
-      .then((module) => {
-        projectRelationRepositoryModule = module
-        return module
-      })
-      .catch((error) => {
-        projectRelationRepositoryPromise = null
-        throw error
-      })
-  }
-
-  return projectRelationRepositoryPromise
-}
 
 async function ensureProjectDemoSeedServiceReady(): Promise<ProjectDemoSeedServiceModule> {
   if (projectDemoSeedServiceModule) {
@@ -585,7 +559,6 @@ async function ensureProjectInstanceModelReady(): Promise<ProjectInstanceModelMo
 
 async function ensureProjectDetailSupportReady(): Promise<void> {
   await Promise.all([
-    ensureProjectRelationRepositoryReady(),
     ensureProjectTechPackTaskGenerationReady(),
     ensureProjectChannelProductProjectRepositoryReady(),
     ensureProjectDetailSupportModuleReady(),
@@ -596,10 +569,6 @@ async function ensureProjectDetailSupportReady(): Promise<void> {
 function ensureProjectDemoDataReadySync(): void {
   projectDemoSeedServiceModule?.ensurePcsProjectDemoDataReady()
   repairChannelListingNodeInstanceConsistency('系统同步')
-}
-
-function listProjectRelationsByProjectNodeSafe(projectId: string, projectNodeId: string): ProjectRelationRecord[] {
-  return projectRelationRepositoryModule?.listProjectRelationsByProjectNode(projectId, projectNodeId) ?? []
 }
 
 function buildTechPackVersionSourceTaskSummarySafe(
@@ -1105,16 +1074,6 @@ function buildInstanceFieldMap(instance: PcsProjectInstanceItem | null | undefin
   }, {})
 }
 
-function parseProjectRelationNoteMeta(note: string | null | undefined): Record<string, unknown> {
-  if (!note) return {}
-  try {
-    const parsed = JSON.parse(note) as Record<string, unknown>
-    return parsed && typeof parsed === 'object' ? parsed : {}
-  } catch {
-    return {}
-  }
-}
-
 function getFirstTargetChannelCode(project: PcsProjectRecord): string {
   return normalizePcsChannelCode(project.targetChannelCodes[0]) || DEFAULT_PCS_CHANNEL_CODE
 }
@@ -1176,22 +1135,6 @@ function findLatestProjectRelation(
 ): PcsProjectInstanceItem | null {
   return findLatestProjectInstanceSafe(
     projectId,
-    (instance) =>
-      instance.sourceLayer === '正式业务对象' &&
-      instance.moduleName === sourceModule &&
-      (sourceObjectType ? instance.objectType === sourceObjectType : true),
-  )
-}
-
-function findLatestNodeRelation(
-  projectId: string,
-  projectNodeId: string,
-  sourceModule: ProjectRelationRecord['sourceModule'],
-  sourceObjectType?: ProjectRelationRecord['sourceObjectType'],
-): PcsProjectInstanceItem | null {
-  return findLatestNodeInstanceSafe(
-    projectId,
-    projectNodeId,
     (instance) =>
       instance.sourceLayer === '正式业务对象' &&
       instance.moduleName === sourceModule &&
@@ -2263,11 +2206,9 @@ function formatFirstOrderSamplePlanLinesForDisplay(value: unknown): string {
 function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel, fieldKey: string): unknown {
   const payload = (node.latestRecord?.payload || {}) as Record<string, unknown>
   const detailSnapshot = (node.latestRecord?.detailSnapshot || {}) as Record<string, unknown>
-  const latestFormalRelationRecord = listProjectRelationsByProjectNodeSafe(project.projectId, node.node.projectNodeId)[0] || null
   const latestFormalNodeInstance =
     node.instanceModel.instances.find((item) => item.sourceLayer === '正式业务对象') || null
   const nodeRelationMeta = {
-    ...parseProjectRelationNoteMeta(latestFormalRelationRecord?.note),
     ...buildInstanceFieldMap(latestFormalNodeInstance),
   }
   const currentChannelProduct = getCurrentChannelProductRelation(project.projectId)
@@ -2278,15 +2219,15 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
   const revisionMeta = buildInstanceFieldMap(revisionRelation)
   const projectArchiveRelation = findLatestProjectRelation(project.projectId, '项目资料归档', '项目资料归档')
   const projectArchiveMeta = buildInstanceFieldMap(projectArchiveRelation)
-  const plateRelation = findLatestNodeRelation(project.projectId, node.node.projectNodeId, '制版任务', '制版任务')
+  const plateRelation = findLatestProjectRelation(project.projectId, '制版任务', '制版任务')
   const plateTask = plateRelation ? getPlateMakingTaskByIdSafe(plateRelation.sourceObjectId || plateRelation.instanceId) : null
-  const artworkRelation = findLatestNodeRelation(project.projectId, node.node.projectNodeId, '花型任务', '花型任务')
+  const artworkRelation = findLatestProjectRelation(project.projectId, '花型任务', '花型任务')
   const artworkTask = artworkRelation ? getPatternTaskByIdSafe(artworkRelation.sourceObjectId || artworkRelation.instanceId) : null
-  const firstSampleRelation = findLatestNodeRelation(project.projectId, node.node.projectNodeId, '首版样衣打样', '首版样衣打样任务')
+  const firstSampleRelation = findLatestProjectRelation(project.projectId, '首版样衣打样', '首版样衣打样任务')
   const firstSampleTask = firstSampleRelation
     ? getFirstSampleTaskByIdSafe(firstSampleRelation.sourceObjectId || firstSampleRelation.instanceId)
     : null
-  const firstOrderRelation = findLatestNodeRelation(project.projectId, node.node.projectNodeId, '首单样衣打样', '首单样衣打样任务')
+  const firstOrderRelation = findLatestProjectRelation(project.projectId, '首单样衣打样', '首单样衣打样任务')
   const firstOrderTask = firstOrderRelation
     ? getFirstOrderSampleTaskByIdSafe(firstOrderRelation.sourceObjectId || firstOrderRelation.instanceId)
     : null
@@ -5778,26 +5719,20 @@ function resolveEngineeringTaskBasicSnapshot(
   })
 
   if (node.node.stepCode === 'REVISION_TASK') {
-    const relation =
-      findLatestNodeRelation(project.projectId, node.node.projectNodeId, '改版任务', '改版任务') ||
-      findLatestProjectRelation(project.projectId, '改版任务', '改版任务')
+    const relation = findLatestProjectRelation(project.projectId, '改版任务', '改版任务')
     const taskId = relation?.sourceObjectId || relation?.instanceId || node.node.latestInstanceId || ''
     const task = taskId ? getRevisionTaskByIdSafe(taskId) : null
     return buildSnapshot(task, task?.revisionTaskCode || '', task?.status || '未创建', task?.updatedAt || node.node.updatedAt || '')
   }
 
   if (node.node.stepCode === 'PATTERN_TASK') {
-    const relation =
-      findLatestNodeRelation(project.projectId, node.node.projectNodeId, '制版任务', '制版任务') ||
-      findLatestProjectRelation(project.projectId, '制版任务', '制版任务')
+    const relation = findLatestProjectRelation(project.projectId, '制版任务', '制版任务')
     const taskId = relation?.sourceObjectId || relation?.instanceId || node.node.latestInstanceId || ''
     const task = taskId ? getPlateMakingTaskByIdSafe(taskId) : null
     return buildSnapshot(task, task?.plateTaskCode || '', task?.status || '未创建', task?.updatedAt || node.node.updatedAt || '')
   }
 
-  const relation =
-    findLatestNodeRelation(project.projectId, node.node.projectNodeId, '花型任务', '花型任务') ||
-    findLatestProjectRelation(project.projectId, '花型任务', '花型任务')
+  const relation = findLatestProjectRelation(project.projectId, '花型任务', '花型任务')
   const taskId = relation?.sourceObjectId || relation?.instanceId || node.node.latestInstanceId || ''
   const task = taskId ? getPatternTaskByIdSafe(taskId) : null
   return buildSnapshot(task, task?.patternTaskCode || '', task?.status || '未创建', task?.updatedAt || node.node.updatedAt || '')

@@ -830,7 +830,7 @@ function buildRevisionDocuments(
         createdBy: archive.createdBy,
         updatedAt: task.updatedAt,
         updatedBy: task.updatedBy,
-        legacySourceRef: task.legacyUpstreamRef,
+        legacySourceRef: task.upstreamObjectCode || task.upstreamObjectId,
       }),
       archiveFiles,
     )
@@ -940,7 +940,7 @@ function buildPatternTaskDocuments(
         createdBy: archive.createdBy,
         updatedAt: task.updatedAt,
         updatedBy: task.updatedBy,
-        legacySourceRef: task.legacyUpstreamRef,
+        legacySourceRef: task.upstreamObjectCode || task.upstreamObjectId,
       }),
       plateFiles,
     )
@@ -1036,7 +1036,7 @@ function buildPatternTaskDocuments(
         createdBy: archive.createdBy,
         updatedAt: task.updatedAt,
         updatedBy: task.updatedBy,
-        legacySourceRef: task.legacyUpstreamRef,
+        legacySourceRef: task.upstreamObjectCode || task.upstreamObjectId,
       }),
       patternTaskFiles,
     )
@@ -1155,7 +1155,7 @@ function buildSampleDocuments(
         createdBy: archive.createdBy,
         updatedAt: task.updatedAt,
         updatedBy: task.updatedBy,
-        legacySourceRef: task.legacyUpstreamRef,
+        legacySourceRef: task.upstreamObjectCode || task.upstreamObjectId,
       }),
     )
   })
@@ -1196,7 +1196,7 @@ function buildSampleDocuments(
         createdBy: archive.createdBy,
         updatedAt: task.updatedAt,
         updatedBy: task.updatedBy,
-        legacySourceRef: task.legacyUpstreamRef,
+        legacySourceRef: task.upstreamObjectCode || task.upstreamObjectId,
       }),
     )
   })

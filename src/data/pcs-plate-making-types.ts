@@ -18,9 +18,6 @@ export interface PlateMakingTaskRecord {
   projectId: string
   projectCode: string
   projectName: string
-  projectNodeId: string
-  stepCode?: 'PATTERN_TASK'
-  stepName?: '制版任务'
   sourceType: PlateMakingTaskSourceType
   upstreamModule: string
   upstreamObjectType: string
@@ -80,8 +77,6 @@ export interface PlateMakingTaskRecord {
   updatedAt: string
   updatedBy: string
   note: string
-  legacyProjectRef: string
-  legacyUpstreamRef: string
 }
 
 export interface PlateMakingTaskStoreSnapshot {

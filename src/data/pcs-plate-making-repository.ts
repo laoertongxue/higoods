@@ -54,7 +54,6 @@ function seedSnapshot(): PlateMakingTaskStoreSnapshot {
 function normalizeTask(task: PlateMakingTaskRecord): PlateMakingTaskRecord {
   return {
     ...cloneTask(task),
-    projectNodeId: '',
     participantNames: [...(task.participantNames || [])],
     styleId: task.styleId || '',
     styleCode: task.styleCode || task.productStyleCode || task.spuCode || '',
@@ -116,8 +115,6 @@ function normalizeTask(task: PlateMakingTaskRecord): PlateMakingTaskRecord {
     acceptedAt: task.acceptedAt || '',
     confirmedAt: task.confirmedAt || '',
     note: task.note || '',
-    legacyProjectRef: task.legacyProjectRef || '',
-    legacyUpstreamRef: task.legacyUpstreamRef || '',
   }
 }
 

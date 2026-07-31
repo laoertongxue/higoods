@@ -333,15 +333,6 @@ export function listProjectRelationsByProject(projectId: string): ProjectRelatio
     .map(cloneRelation)
 }
 
-export function listProjectRelationsByProjectNode(projectId: string, projectNodeId: string): ProjectRelationRecord[] {
-  ensurePcsProjectFormalRelationSeedReady()
-  return loadSnapshot()
-    .relations
-    .filter((record) => record.projectId === projectId && record.projectNodeId === projectNodeId)
-    .sort((a, b) => b.businessDate.localeCompare(a.businessDate))
-    .map(cloneRelation)
-}
-
 export function listProjectRelationsBySourceObject(input: {
   sourceModule: string
   sourceObjectType: string

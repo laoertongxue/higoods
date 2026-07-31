@@ -23,20 +23,22 @@ assert.ok(snapshot.plateTasks.length >= 8, '制版模块应保留足够的真实
 assert.ok(snapshot.patternTasks.length >= 4, '花型模块应保留足够的真实业务种子')
 assert.ok(snapshot.firstSampleTasks.length >= 8, '首版样衣模块应保留足够的真实业务种子')
 assert.ok(snapshot.firstOrderSampleTasks.length >= 4, '首单样衣模块应保留足够的真实业务种子')
-assert.ok(snapshot.plateTasks.every((task) => task.projectId && !task.projectNodeId), '制版种子只能关联来源项目，不能依赖项目节点')
-assert.ok(snapshot.patternTasks.every((task) => task.projectId && !task.projectNodeId), '花型种子只能关联来源项目，不能依赖项目节点')
-assert.ok(snapshot.firstSampleTasks.every((task) => task.projectId && !task.projectNodeId), '首版样衣种子只能关联来源项目，不能依赖项目节点')
-assert.ok(snapshot.firstOrderSampleTasks.every((task) => task.projectId && !task.projectNodeId), '首单样衣种子只能关联来源项目，不能依赖项目节点')
+assert.ok(snapshot.plateTasks.every((task) => task.projectId && !('projectNodeId' in task)), '制版种子只能关联来源项目，不能依赖项目节点')
+assert.ok(snapshot.patternTasks.every((task) => task.projectId && !('projectNodeId' in task)), '花型种子只能关联来源项目，不能依赖项目节点')
+assert.ok(snapshot.firstSampleTasks.every((task) => task.projectId && !('projectNodeId' in task)), '首版样衣种子只能关联来源项目，不能依赖项目节点')
+assert.ok(snapshot.firstOrderSampleTasks.every((task) => task.projectId && !('projectNodeId' in task)), '首单样衣种子只能关联来源项目，不能依赖项目节点')
 professionalTasks.forEach((task) => {
   if (task.projectId) {
     const project = projects.get(task.projectId)
-    assert.ok(project, `${task.stepName} ${task.title} 的 projectId 必须指向真实项目`)
+    assert.ok(project, `${task.title} 的 projectId 必须指向真实项目`)
     assert.equal(task.projectCode, project.projectCode)
     assert.equal(task.projectName, project.projectName)
-    assert.equal(task.projectNodeId, '', `${task.stepName} ${task.title} 不能绑定项目节点`)
-    assert.notEqual(task.upstreamObjectType, '项目步骤', `${task.stepName} ${task.title} 不能把来源伪装为项目步骤`)
-    assert.doesNotMatch(task.upstreamObjectCode, /^WI-/, `${task.stepName} ${task.title} 不能保留 WI-* 旧编码`)
-    assert.doesNotMatch(task.legacyUpstreamRef, /^WI-/, `${task.stepName} ${task.title} 不能保留 WI-* 旧来源引用`)
+    assert.equal('projectNodeId' in task, false, `${task.title} 不能绑定项目节点`)
+    assert.equal('stepCode' in task, false, `${task.title} 不能保存商品项目步骤`)
+    assert.equal('stepName' in task, false, `${task.title} 不能保存商品项目步骤名称`)
+    assert.equal('legacyUpstreamRef' in task, false, `${task.title} 不能保存旧来源引用`)
+    assert.notEqual(task.upstreamObjectType, '项目步骤', `${task.title} 不能把来源伪装为项目步骤`)
+    assert.doesNotMatch(task.upstreamObjectCode, /^WI-/, `${task.title} 不能保留 WI-* 旧编码`)
     return
   }
 
@@ -58,7 +60,9 @@ professionalTasks.forEach((task) => {
   assert.ok(task.upstreamModule && task.upstreamObjectType && task.upstreamObjectId && task.upstreamObjectCode)
   assert.ok(task.issueSummary && task.evidenceSummary, '独立改版任务必须保留正式需求与来源依据')
   assert.ok(task.revisionScopeCodes.length > 0 && task.revisionScopeNames.length > 0, '独立改版任务必须明确改版范围')
-  assert.equal(task.projectNodeId, '')
+  assert.equal('projectNodeId' in task, false)
+  assert.equal('legacyProjectRef' in task, false)
+  assert.equal('legacyUpstreamRef' in task, false)
 })
 
 const relationSnapshot = createTaskRelationBootstrapSnapshot()

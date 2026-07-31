@@ -12,9 +12,6 @@ export interface FirstOrderSampleTaskRecord {
   projectId: string
   projectCode: string
   projectName: string
-  projectNodeId: string
-  stepCode?: 'FIRST_ORDER_SAMPLE'
-  stepName?: '首单样衣打样'
   sourceType: FirstOrderSampleTaskSourceType
   upstreamModule: string
   upstreamObjectType: string
@@ -53,8 +50,6 @@ export interface FirstOrderSampleTaskRecord {
   updatedAt: string
   updatedBy: string
   note: string
-  legacyProjectRef: string
-  legacyUpstreamRef: string
 }
 
 export interface FirstOrderSampleProjectNodeMeta {

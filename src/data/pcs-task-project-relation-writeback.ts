@@ -475,8 +475,8 @@ function makePendingItem(
   }
 }
 
-function makeRelationId(projectId: string, projectNodeId: string, sourceModule: string, sourceObjectId: string): string {
-  return `rel_${projectId}_${projectNodeId}_${sourceModule}_${sourceObjectId}`.replace(/[^a-zA-Z0-9]/g, '_')
+function makeRelationId(projectId: string, sourceModule: string, sourceObjectId: string): string {
+  return `rel_${projectId}_${sourceModule}_${sourceObjectId}`.replace(/[^a-zA-Z0-9]/g, '_')
 }
 
 function getProjectOrPending(
@@ -611,7 +611,6 @@ function collectPlateSourceKeys(task: PlateMakingTaskRecord): Set<string> {
   return new Set([
     task.upstreamObjectId,
     task.upstreamObjectCode,
-    task.legacyUpstreamRef,
     task.newPatternSpuCode,
   ].filter(Boolean))
 }
@@ -624,7 +623,6 @@ function patternMatchesPlateSource(patternTask: PatternTaskRecord, plateTask: Pl
     patternTask.upstreamObjectCode,
     patternTask.demandSourceRefId,
     patternTask.demandSourceRefCode,
-    patternTask.legacyUpstreamRef,
     patternTask.patternSpuCode,
     patternTask.spuCode,
   ].filter(Boolean)
@@ -709,9 +707,6 @@ function updatePlateNoteWithFirstSample(plateTask: PlateMakingTaskRecord, firstS
 function relationPayload(input: {
   projectId: string
   projectCode: string
-  projectNodeId: string
-  stepCode: string
-  stepName: string
   sourceModule: ProjectRelationRecord['sourceModule']
   sourceObjectType: ProjectRelationRecord['sourceObjectType']
   sourceObjectId: string
@@ -723,12 +718,12 @@ function relationPayload(input: {
   operatorName: string
 }): ProjectRelationRecord {
   return {
-    projectRelationId: makeRelationId(input.projectId, input.projectNodeId, input.sourceModule, input.sourceObjectId),
+    projectRelationId: makeRelationId(input.projectId, input.sourceModule, input.sourceObjectId),
     projectId: input.projectId,
     projectCode: input.projectCode,
-    projectNodeId: input.projectNodeId,
-    stepCode: input.stepCode,
-    stepName: input.stepName,
+    projectNodeId: null,
+    stepCode: '',
+    stepName: '',
     relationRole: '产出对象',
     sourceModule: input.sourceModule,
     sourceObjectType: input.sourceObjectType,
@@ -766,9 +761,6 @@ function syncCompletedTaskRelation(input: {
   upsertProjectRelation(
     relationPayload({
       ...input,
-      projectNodeId: '',
-      stepCode: '',
-      stepName: '',
       sourceStatus: '已完成',
     }),
   )
@@ -797,9 +789,6 @@ export function saveRevisionTaskDraft(input: RevisionTaskCreateInput): RevisionT
     projectId: input.projectId || '',
     projectCode: '',
     projectName: '',
-    projectNodeId: '',
-    stepCode: 'REVISION_TASK',
-    stepName: '改版任务',
     sourceType,
     upstreamModule: input.upstreamModule || '',
     upstreamObjectType: input.upstreamObjectType || '',
@@ -837,8 +826,6 @@ export function saveRevisionTaskDraft(input: RevisionTaskCreateInput): RevisionT
     updatedAt: now,
     updatedBy: input.operatorName || '当前用户',
     note: input.note || '',
-    legacyProjectRef: '',
-    legacyUpstreamRef: '',
   })
 }
 
@@ -853,9 +840,6 @@ export function savePlateMakingTaskDraft(input: PlateMakingTaskCreateInput): Pla
     projectId: input.projectId || '',
     projectCode: '',
     projectName: '',
-    projectNodeId: '',
-    stepCode: 'PATTERN_TASK',
-    stepName: '制版任务',
     sourceType: input.sourceType,
     upstreamModule: input.upstreamModule || '',
     upstreamObjectType: input.upstreamObjectType || '',
@@ -888,8 +872,6 @@ export function savePlateMakingTaskDraft(input: PlateMakingTaskCreateInput): Pla
     updatedAt: now,
     updatedBy: input.operatorName || '当前用户',
     note: input.note || '',
-    legacyProjectRef: '',
-    legacyUpstreamRef: '',
   })
 }
 
@@ -906,9 +888,6 @@ export function savePatternTaskDraft(input: PatternTaskCreateInput): PatternTask
     projectId: input.projectId || '',
     projectCode: '',
     projectName: '',
-    projectNodeId: '',
-    stepCode: 'PATTERN_ARTWORK_TASK',
-    stepName: '花型任务',
     sourceType: input.sourceType,
     upstreamModule: input.upstreamModule || '',
     upstreamObjectType: input.upstreamObjectType || '',
@@ -974,8 +953,6 @@ export function savePatternTaskDraft(input: PatternTaskCreateInput): PatternTask
     updatedAt: now,
     updatedBy: input.operatorName || '当前用户',
     note: input.note || '',
-    legacyProjectRef: '',
-    legacyUpstreamRef: '',
   })
 }
 
@@ -1030,8 +1007,7 @@ function resolveSourceFirstSample(
     .find(
       (task) =>
         task.firstSampleTaskId === input.upstreamObjectId ||
-        task.firstSampleTaskCode === input.upstreamObjectCode ||
-        task.stepCode === 'FIRST_SAMPLE',
+        task.firstSampleTaskCode === input.upstreamObjectCode,
     )
   return {
     sourceFirstSampleTaskId: matched?.firstSampleTaskId || (input.upstreamObjectType?.includes('首版') ? input.upstreamObjectId || '' : ''),
@@ -1084,9 +1060,6 @@ export function saveFirstSampleTaskDraft(input: FirstSampleTaskCreateInput): Fir
     projectId: input.projectId || '',
     projectCode: '',
     projectName: '',
-    projectNodeId: '',
-    stepCode: 'FIRST_SAMPLE',
-    stepName: '首版样衣打样',
     sourceType: input.sourceType,
     upstreamModule: input.upstreamModule || '',
     upstreamObjectType: input.upstreamObjectType || '',
@@ -1108,8 +1081,6 @@ export function saveFirstSampleTaskDraft(input: FirstSampleTaskCreateInput): Fir
     updatedAt: now,
     updatedBy: input.operatorName || '当前用户',
     note: input.note || '',
-    legacyProjectRef: '',
-    legacyUpstreamRef: '',
   })
 }
 
@@ -1123,9 +1094,6 @@ export function saveFirstOrderSampleTaskDraft(input: FirstOrderSampleTaskCreateI
     projectId: input.projectId || '',
     projectCode: '',
     projectName: '',
-    projectNodeId: '',
-    stepCode: 'FIRST_ORDER_SAMPLE',
-    stepName: '首单样衣打样',
     sourceType: input.sourceType,
     upstreamModule: input.upstreamModule || '',
     upstreamObjectType: input.upstreamObjectType || '',
@@ -1149,8 +1117,6 @@ export function saveFirstOrderSampleTaskDraft(input: FirstOrderSampleTaskCreateI
     updatedAt: now,
     updatedBy: input.operatorName || '当前用户',
     note: input.note || '',
-    legacyProjectRef: '',
-    legacyUpstreamRef: '',
   })
 }
 
@@ -1257,9 +1223,6 @@ export function createRevisionTaskWithProjectRelation(input: RevisionTaskCreateI
     projectId: project?.projectId || '',
     projectCode: project?.projectCode || '',
     projectName: project?.projectName || '',
-    projectNodeId: '',
-    stepCode: 'REVISION_TASK',
-    stepName: '改版任务',
     sourceType,
     upstreamModule:
       sourceType === '既有商品改款'
@@ -1325,8 +1288,6 @@ export function createRevisionTaskWithProjectRelation(input: RevisionTaskCreateI
     updatedAt: now,
     updatedBy: input.operatorName || '当前用户',
     note: input.note || '',
-    legacyProjectRef: project?.projectCode || '',
-    legacyUpstreamRef: input.upstreamObjectCode || input.referenceObjectCode || sourceStyleCode || '',
   })
 
   const relation = project
@@ -1334,9 +1295,6 @@ export function createRevisionTaskWithProjectRelation(input: RevisionTaskCreateI
         relationPayload({
           projectId: project.projectId,
           projectCode: project.projectCode,
-          projectNodeId: '',
-          stepCode: '',
-          stepName: '',
           sourceModule: '改版任务',
           sourceObjectType: '改版任务',
           sourceObjectId: task.revisionTaskId,
@@ -1385,9 +1343,6 @@ function createPlateMakingTaskStandalone(
     projectId: '',
     projectCode: '',
     projectName: '',
-    projectNodeId: '',
-    stepCode: 'PATTERN_TASK',
-    stepName: '制版任务',
     sourceType: input.sourceType,
     upstreamModule: input.upstreamModule || '款式档案',
     upstreamObjectType: input.upstreamObjectType || '款式档案',
@@ -1420,8 +1375,6 @@ function createPlateMakingTaskStandalone(
     updatedAt: now,
     updatedBy: input.operatorName || '当前用户',
     note: input.note || '',
-    legacyProjectRef: '',
-    legacyUpstreamRef: style.styleCode,
   })
 
   return { ok: true, task, message: '制版任务已创建。' }
@@ -1473,9 +1426,6 @@ export function createPlateMakingTaskWithProjectRelation(
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectName: project.projectName,
-    projectNodeId: '',
-    stepCode: 'PATTERN_TASK',
-    stepName: '制版任务',
     sourceType: input.sourceType,
     ...upstream,
     styleId: input.styleId || '',
@@ -1505,17 +1455,12 @@ export function createPlateMakingTaskWithProjectRelation(
     updatedAt: now,
     updatedBy: input.operatorName || '当前用户',
     note: input.note || '',
-    legacyProjectRef: '',
-    legacyUpstreamRef: '',
   })
 
   const relation = upsertProjectRelation(
     relationPayload({
       projectId: project.projectId,
       projectCode: project.projectCode,
-      projectNodeId: '',
-      stepCode: '',
-      stepName: '',
       sourceModule: '制版任务',
       sourceObjectType: '制版任务',
       sourceObjectId: task.plateTaskId,
@@ -1585,9 +1530,6 @@ export function createPatternTaskWithProjectRelation(input: PatternTaskCreateInp
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectName: project.projectName,
-    projectNodeId: '',
-    stepCode: 'PATTERN_ARTWORK_TASK',
-    stepName: '花型任务',
     sourceType: input.sourceType,
     ...upstream,
     styleId: input.styleId || '',
@@ -1652,17 +1594,12 @@ export function createPatternTaskWithProjectRelation(input: PatternTaskCreateInp
     updatedAt: now,
     updatedBy: input.operatorName || '当前用户',
     note: input.note || '',
-    legacyProjectRef: '',
-    legacyUpstreamRef: '',
   })
 
   const relation = upsertProjectRelation(
     relationPayload({
       projectId: project.projectId,
       projectCode: project.projectCode,
-      projectNodeId: '',
-      stepCode: '',
-      stepName: '',
       sourceModule: '花型任务',
       sourceObjectType: '花型任务',
       sourceObjectId: task.patternTaskId,
@@ -1706,9 +1643,6 @@ function createPatternTaskStandalone(input: PatternTaskCreateInput): TaskWriteba
     projectId: '',
     projectCode: '',
     projectName: '',
-    projectNodeId: '',
-    stepCode: 'PATTERN_ARTWORK_TASK',
-    stepName: '花型任务',
     sourceType: input.sourceType,
     upstreamModule: input.upstreamModule || '款式档案',
     upstreamObjectType: input.upstreamObjectType || '款式档案',
@@ -1776,8 +1710,6 @@ function createPatternTaskStandalone(input: PatternTaskCreateInput): TaskWriteba
     updatedAt: now,
     updatedBy: input.operatorName || '当前用户',
     note: input.note || '',
-    legacyProjectRef: '',
-    legacyUpstreamRef: style.styleCode,
   })
 
   return { ok: true, task, message: '花型任务已创建。' }
@@ -1823,9 +1755,6 @@ function createRevisionPatternTaskWithProjectRelation(
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectName: project.projectName,
-    projectNodeId: '',
-    stepCode: 'PATTERN_ARTWORK_TASK',
-    stepName: '花型任务',
     sourceType: '改版任务',
     upstreamModule: '改版任务',
     upstreamObjectType: '改版任务',
@@ -1892,18 +1821,13 @@ function createRevisionPatternTaskWithProjectRelation(
     createdBy: revisionTask.updatedBy || revisionTask.createdBy || '当前用户',
     updatedAt: now,
     updatedBy: revisionTask.updatedBy || revisionTask.createdBy || '当前用户',
-    note: `由改版任务 ${revisionTask.revisionTaskCode} 自动创建。当前项目未配置花型任务节点，已作为改版下游任务挂接。`,
-    legacyProjectRef: project.projectCode,
-    legacyUpstreamRef: revisionTask.revisionTaskCode,
+    note: `由改版任务 ${revisionTask.revisionTaskCode} 自动创建。`,
   })
 
   const relation = upsertProjectRelation(
     relationPayload({
       projectId: project.projectId,
       projectCode: project.projectCode,
-      projectNodeId: '',
-      stepCode: '',
-      stepName: '',
       sourceModule: '花型任务',
       sourceObjectType: '花型任务',
       sourceObjectId: task.patternTaskId,
@@ -2264,9 +2188,6 @@ export function createFirstSampleTaskWithProjectRelation(
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectName: project.projectName,
-    projectNodeId: '',
-    stepCode: 'FIRST_SAMPLE',
-    stepName: '首版样衣打样',
     sourceType: input.sourceType,
     upstreamModule: input.upstreamModule || (manualProjectSource ? '商品项目' : ''),
     upstreamObjectType: input.upstreamObjectType || (manualProjectSource ? '商品项目' : ''),
@@ -2286,17 +2207,12 @@ export function createFirstSampleTaskWithProjectRelation(
     updatedAt: now,
     updatedBy: input.operatorName || '当前用户',
     note: input.note || '',
-    legacyProjectRef: '',
-    legacyUpstreamRef: '',
   })
 
   const relation = upsertProjectRelation(
     relationPayload({
       projectId: project.projectId,
       projectCode: project.projectCode,
-      projectNodeId: '',
-      stepCode: '',
-      stepName: '',
       sourceModule: '首版样衣打样',
       sourceObjectType: '首版样衣打样任务',
       sourceObjectId: task.firstSampleTaskId,
@@ -2464,9 +2380,6 @@ function createRevisionFirstSampleTaskWithProjectRelation(
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectName: project.projectName,
-    projectNodeId: '',
-    stepCode: 'FIRST_SAMPLE',
-    stepName: '首版样衣打样',
     sourceType: input.sourceType,
     upstreamModule: input.upstreamModule || '改版任务',
     upstreamObjectType: input.upstreamObjectType || '改版任务',
@@ -2485,18 +2398,13 @@ function createRevisionFirstSampleTaskWithProjectRelation(
     createdBy: existing?.createdBy || input.operatorName || revisionTask.updatedBy || '当前用户',
     updatedAt: now,
     updatedBy: input.operatorName || revisionTask.updatedBy || '当前用户',
-    note: `${input.note || ''} 已作为独立改版任务的产出样衣挂接，不占用商品项目首版样衣节点。`.trim(),
-    legacyProjectRef: project.projectCode,
-    legacyUpstreamRef: revisionTask.revisionTaskCode,
+    note: `${input.note || ''} 已作为改版任务的产出样衣关联到商品项目。`.trim(),
   })
 
   const relation = upsertProjectRelation(
     relationPayload({
       projectId: project.projectId,
       projectCode: project.projectCode,
-      projectNodeId: '',
-      stepCode: '',
-      stepName: '',
       sourceModule: '首版样衣打样',
       sourceObjectType: '首版样衣打样任务',
       sourceObjectId: task.firstSampleTaskId,
@@ -2551,9 +2459,6 @@ export function createFirstOrderSampleTaskWithProjectRelation(
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectName: project.projectName,
-    projectNodeId: '',
-    stepCode: 'FIRST_ORDER_SAMPLE',
-    stepName: '首单样衣打样',
     sourceType: input.sourceType,
     upstreamModule: input.upstreamModule || (manualProjectSource ? '商品项目' : ''),
     upstreamObjectType: input.upstreamObjectType || (manualProjectSource ? '商品项目' : ''),
@@ -2577,17 +2482,12 @@ export function createFirstOrderSampleTaskWithProjectRelation(
     updatedAt: now,
     updatedBy: input.operatorName || '当前用户',
     note: input.note || '',
-    legacyProjectRef: '',
-    legacyUpstreamRef: '',
   })
 
   const relation = upsertProjectRelation(
     relationPayload({
       projectId: project.projectId,
       projectCode: project.projectCode,
-      projectNodeId: '',
-      stepCode: '',
-      stepName: '',
       sourceModule: '首单样衣打样',
       sourceObjectType: '首单样衣打样任务',
       sourceObjectId: task.firstOrderSampleTaskId,

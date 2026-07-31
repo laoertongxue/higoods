@@ -17,9 +17,6 @@ export interface PatternTaskRecord {
   projectId: string
   projectCode: string
   projectName: string
-  projectNodeId: string
-  stepCode?: 'PATTERN_ARTWORK_TASK'
-  stepName?: '花型任务'
   sourceType: PatternTaskSourceType
   upstreamModule: string
   upstreamObjectType: string
@@ -90,8 +87,6 @@ export interface PatternTaskRecord {
   updatedAt: string
   updatedBy: string
   note: string
-  legacyProjectRef: string
-  legacyUpstreamRef: string
 }
 
 export interface PatternTaskStoreSnapshot {

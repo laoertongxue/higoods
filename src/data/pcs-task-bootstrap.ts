@@ -254,7 +254,6 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       projectId: projectA.projectId,
       projectCode: projectA.projectCode,
       projectName: projectA.projectName,
-      projectNodeId: '',
       sourceType: '测款结论返改',
       upstreamModule: '商品项目',
       upstreamObjectType: '商品项目',
@@ -293,8 +292,6 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       updatedAt: '2026-01-09 14:30:00',
       updatedBy: '系统初始化',
       note: '商品项目改版任务演示数据。',
-      legacyProjectRef: projectA.projectCode,
-      legacyUpstreamRef: '',
     })
   }
 
@@ -307,7 +304,6 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       projectId: '',
       projectCode: '',
       projectName: '',
-      projectNodeId: '',
       sourceType: '既有商品改款',
       upstreamModule: '款式档案',
       upstreamObjectType: '款式档案',
@@ -351,8 +347,6 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       updatedAt: '2026-01-09 11:00:00',
       updatedBy: '系统初始化',
       note: '既有商品改款任务演示数据。',
-      legacyProjectRef: '',
-      legacyUpstreamRef: styleB.styleCode,
     })
   }
 
@@ -422,7 +416,6 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       projectId: project.projectId,
       projectCode: project.projectCode,
       projectName: project.projectName,
-      projectNodeId: '',
       sourceType: '测款结论返改',
       upstreamModule: '商品项目',
       upstreamObjectType: '商品项目',
@@ -466,8 +459,6 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       updatedAt: item.updatedAt,
       updatedBy: '系统初始化',
       note: '补充的演示改版任务。',
-      legacyProjectRef: project.projectCode,
-      legacyUpstreamRef: '',
     })
   })
 
@@ -480,7 +471,6 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       projectId: '',
       projectCode: '',
       projectName: '',
-      projectNodeId: '',
       sourceType: '人工改版需求',
       upstreamModule: '人工参考',
       upstreamObjectType: '设计评审纪要',
@@ -524,8 +514,6 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       updatedAt: '2026-04-06 16:00:00',
       updatedBy: '系统初始化',
       note: '人工创建的改版任务样例。',
-      legacyProjectRef: '',
-      legacyUpstreamRef: 'REF-20260406-001',
     })
   }
 
@@ -1053,7 +1041,6 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
       projectId: project.projectId,
       projectCode: project.projectCode,
       projectName: project.projectName,
-      projectNodeId: '',
       sourceType: item.sourceType,
       upstreamModule: usesProjectSource ? '商品项目' : item.upstreamModule,
       upstreamObjectType: usesProjectSource ? '商品项目' : item.upstreamObjectType,
@@ -1103,8 +1090,6 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
       updatedAt,
       updatedBy: '系统初始化',
       note: item.note,
-      legacyProjectRef: project.projectCode,
-      legacyUpstreamRef: upstreamObjectCode,
     })
   })
 
@@ -1180,7 +1165,6 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       projectId: projectA.projectId,
       projectCode: projectA.projectCode,
       projectName: projectA.projectName,
-      projectNodeId: '',
       sourceType: '改版任务',
       upstreamModule: '改版任务',
       upstreamObjectType: '改版任务',
@@ -1208,8 +1192,6 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       updatedAt: '2026-01-09 14:30:00',
       updatedBy: '系统初始化',
       note: '商品项目花型任务演示数据。',
-      legacyProjectRef: projectA.projectCode,
-      legacyUpstreamRef: 'RT-20260402-018',
     })
   }
 
@@ -1221,7 +1203,6 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       projectId: projectB.projectId,
       projectCode: projectB.projectCode,
       projectName: projectB.projectName,
-      projectNodeId: '',
       sourceType: '改版任务',
       upstreamModule: '改版任务',
       upstreamObjectType: '改版任务',
@@ -1249,8 +1230,6 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       updatedAt: '2026-01-08 16:45:00',
       updatedBy: '系统初始化',
       note: '',
-      legacyProjectRef: projectB.projectCode,
-      legacyUpstreamRef: '',
     })
   }
 
@@ -1306,7 +1285,6 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       projectId: project.projectId,
       projectCode: project.projectCode,
       projectName: project.projectName,
-      projectNodeId: '',
       sourceType: upstreamRevisionCode ? '改版任务' : '商品项目',
       upstreamModule: upstreamRevisionCode ? '改版任务' : '商品项目',
       upstreamObjectType: upstreamRevisionCode ? '改版任务' : '商品项目',
@@ -1334,8 +1312,6 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       updatedAt: item.updatedAt,
       updatedBy: '系统初始化',
       note: '补充的演示花型任务。',
-      legacyProjectRef: project.projectCode,
-      legacyUpstreamRef: upstreamRevisionCode || project.projectCode,
     })
   })
 
@@ -1496,7 +1472,6 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
       projectId: projectA.projectId,
       projectCode: projectA.projectCode,
       projectName: projectA.projectName,
-      projectNodeId: '',
       sourceType: '改版任务',
       upstreamModule: '改版任务',
       upstreamObjectType: '改版任务',
@@ -1520,8 +1495,6 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
       updatedAt: '2026-01-19 10:00:00',
       updatedBy: '系统初始化',
       note: '',
-      legacyProjectRef: projectA.projectCode,
-      legacyUpstreamRef: 'RT-20260108-002',
     })
   }
 
@@ -1533,7 +1506,6 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
       projectId: projectB.projectId,
       projectCode: projectB.projectCode,
       projectName: projectB.projectName,
-      projectNodeId: '',
       sourceType: '制版任务',
       upstreamModule: '制版任务',
       upstreamObjectType: '制版任务',
@@ -1557,8 +1529,6 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
       updatedAt: '2026-01-11 11:00:00',
       updatedBy: '系统初始化',
       note: '',
-      legacyProjectRef: projectB.projectCode,
-      legacyUpstreamRef: 'PT-20260109-002',
     })
   }
 
@@ -1783,7 +1753,6 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
       projectId: project.projectId,
       projectCode: project.projectCode,
       projectName: project.projectName,
-      projectNodeId: '',
       sourceType: '商品项目',
       upstreamModule: item.upstreamModule,
       upstreamObjectType: item.upstreamObjectType,
@@ -1820,8 +1789,6 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
       updatedAt: item.updatedAt,
       updatedBy: '系统初始化',
       note: '补充的演示首版样衣打样任务。',
-      legacyProjectRef: project.projectCode,
-      legacyUpstreamRef: item.upstreamObjectCode,
     })
   })
 
@@ -1844,7 +1811,6 @@ function createFirstOrderSeeds(): { tasks: FirstOrderSampleTaskRecord[]; pending
       projectId: projectA.projectId,
       projectCode: projectA.projectCode,
       projectName: projectA.projectName,
-      projectNodeId: '',
       sourceType: '首版样衣打样',
       upstreamModule: '首版样衣打样',
       upstreamObjectType: '首版样衣打样任务',
@@ -1870,8 +1836,6 @@ function createFirstOrderSeeds(): { tasks: FirstOrderSampleTaskRecord[]; pending
       updatedAt: '2026-01-24 10:00:00',
       updatedBy: '系统初始化',
       note: '',
-      legacyProjectRef: projectA.projectCode,
-      legacyUpstreamRef: 'FS-20260119-003',
     })
   }
 
@@ -1883,7 +1847,6 @@ function createFirstOrderSeeds(): { tasks: FirstOrderSampleTaskRecord[]; pending
       projectId: projectB.projectId,
       projectCode: projectB.projectCode,
       projectName: projectB.projectName,
-      projectNodeId: '',
       sourceType: '首版样衣打样',
       upstreamModule: '首版样衣打样',
       upstreamObjectType: '首版样衣打样任务',
@@ -1908,8 +1871,6 @@ function createFirstOrderSeeds(): { tasks: FirstOrderSampleTaskRecord[]; pending
       updatedAt: '2026-01-21 11:00:00',
       updatedBy: '系统初始化',
       note: '',
-      legacyProjectRef: projectB.projectCode,
-      legacyUpstreamRef: 'FS-20260111-001',
     })
   }
 
@@ -2024,7 +1985,6 @@ function createFirstOrderSeeds(): { tasks: FirstOrderSampleTaskRecord[]; pending
       projectId: project.projectId,
       projectCode: project.projectCode,
       projectName: project.projectName,
-      projectNodeId: '',
       sourceType: '首版样衣打样',
       upstreamModule: item.upstreamModule,
       upstreamObjectType: item.upstreamObjectType,
@@ -2067,8 +2027,6 @@ function createFirstOrderSeeds(): { tasks: FirstOrderSampleTaskRecord[]; pending
       updatedAt: item.updatedAt,
       updatedBy: '系统初始化',
       note: '补充的演示首单样衣打样任务。',
-      legacyProjectRef: project.projectCode,
-      legacyUpstreamRef: item.upstreamObjectCode,
     })
   })
 

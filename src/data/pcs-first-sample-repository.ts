@@ -53,7 +53,6 @@ function normalizeFirstSampleStatus(status: string): FirstSampleTaskStatus {
 function normalizeTask(task: FirstSampleTaskRecord): FirstSampleTaskRecord {
   return {
     ...cloneTask(task),
-    projectNodeId: '',
     status: normalizeFirstSampleStatus(task.status),
     note: task.note || '',
     sourceType: task.sourceType || '人工创建',
@@ -82,8 +81,6 @@ function normalizeTask(task: FirstSampleTaskRecord): FirstSampleTaskRecord {
     artworkConfirmationSummary: task.artworkConfirmationSummary || '',
     productionReadinessNote: task.productionReadinessNote || '',
     confirmedAt: task.confirmedAt || '',
-    legacyProjectRef: task.legacyProjectRef || '',
-    legacyUpstreamRef: task.legacyUpstreamRef || '',
   }
 }
 

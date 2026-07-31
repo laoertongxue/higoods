@@ -5,9 +5,9 @@
 | 项目 | 内容 |
 | --- | --- |
 | 审查日期 | 2026-07-30 |
-| 相关需求 / 任务 | 商品项目从模板／工作项运行时改为固定五步业务流程 |
+| 相关需求 / 任务 | 商品项目固定五步业务流程与生产工程专业任务收口 |
 | 涉及系统 | PCS |
-| 涉及页面路径 | `/pcs/projects`、`/pcs/projects/create`、`/pcs/projects/:projectId`、`/pcs/projects/:projectId/work-items/:projectNodeId` |
+| 涉及页面路径 | `/pcs/projects`、`/pcs/projects/create`、`/pcs/projects/:projectId` |
 | 端类型 | 管理端 |
 | 主要角色 | 商品企划、商品运营、项目负责人 |
 | 主要任务 | 创建商品项目与商品／款式档案，并按五个固定步骤逐步完成测款业务 |
@@ -31,7 +31,7 @@
 | 文案 | 通过 | 页面使用中文业务名称，不展示步骤英文编码。 |
 | 数量与状态 | 通过 | 数量和状态仍沿用现有业务表单口径，档案初始状态明确为“商品测款”。 |
 | 扫码与识别 | 通过 | 本页面为管理端，不涉及现场扫码。 |
-| 防错 | 通过 | 创建项目不再允许选择或拼装模板；历史快照迁移失败时保留原始数据并明确报错，不再静默覆盖为演示数据。 |
+| 防错 | 通过 | 创建项目不允许选择或拼装模板；固定步骤、专业任务和商品项目关系均有明确边界。 |
 | UI 样式 | 通过 | 复用现有企业后台布局、卡片、步骤和表单样式。 |
 | 组件交互 | 通过 | 保留现有局部表单、弹窗和节点操作方式，未引入新框架。 |
 | 协作关系 | 通过 | 项目创建时同步关联商品／款式档案，项目与档案使用同一来源项目标识。 |
@@ -55,14 +55,12 @@
 | 测款前准备遗漏既有表单入口 | `协作断裂` | 商品企划、商品运营 | 在固定第三步恢复拍摄试穿、样衣确认、样衣核价、样衣定价及可行性、渠道准备入口 | 否 |
 | 样衣退回默认去向依赖历史模板编号 | `点错风险` | 商品运营、样衣管理员 | 按样衣来源类型推导；外采退回供应商、委托打样退回版房，来源不足时明确默认库存留样 | 否 |
 | 商品测款可行性判断自动进入改版任务 | `协作断裂` | 商品负责人、打样人员 | 测款项目内只保留进入测款、样衣退回；改款和重新打样由前期打样模块独立人工创建 | 否 |
-| 旧改版验收强制依赖商品项目 `REVISION_TASK` 节点，并把 `TEST_CONCLUSION` 测款结论或历史花型／首版样衣节点误当成可写任务节点 | `协作断裂` | 商品负责人、版师、打样人员 | 改从独立改版任务创建入口建立验收任务，来源节点只由系统精确解析当前项目 `TEST_CONCLUSION`，忽略调用方旧节点参数且不再回退 `REVISION_TASK`；改版派生的花型和首版样衣始终只关联项目与来源任务，不绑定或写回任何项目节点 | 否 |
 | 首版样衣返改来源被测款结论覆盖，专业任务演示数据又依赖已移除的项目节点 | `协作断裂` | 版师、花型人员、样衣人员 | 测款结论返改只解析 `TEST_CONCLUSION`；首版样衣返改精确校验并保留正式首版样衣任务。花型和首版样衣演示任务只关联来源项目，项目节点留空；独立首版样衣保存详情时只更新任务自身 | 否 |
 | 旧决策验收仍使用历史项目编号和“淘汰”语义，一致性修复后的待补数据节点又会被演示状态重新标为已完成 | `协作断裂` | 商品负责人、样衣管理员、数据治理人员 | 验收改用当前真实项目，按“不通过／样衣退回”实际完成样衣处置和项目归档；一致性修复标记为“数据待补齐”的节点在仓储补齐演示状态时保持进行中，直到正式记录补齐 | 否 |
 | 制版与首单样衣演示任务仍依赖已移除的专业项目节点，导致两个模块没有可演示数据 | `协作断裂` | 版师、样衣人员、商品负责人 | 制版与首单样衣种子改为只关联真实项目及真实来源任务，项目节点统一留空；五类专业任务均不再生成项目节点关系 | 否 |
 | 独立首单样衣保存和独立制版生成技术包仍尝试写回专业项目节点 | `协作断裂` | 版师、样衣人员、技术包维护人员 | 独立首单样衣详情只保存任务本身；独立制版可生成技术包但不改写项目节点，技术包产出关系统一归属商品项目建立节点 | 否 |
 | 一致性修复缺少“当前可执行”与“仍被前序阻塞”两类 hydrate 回归 | `点错风险` | 商品负责人、数据治理人员 | 新增两组正式数据缺失场景：当前可执行节点保持“数据待补齐”，被更早开放节点阻塞的后续节点保持“未开始／待前序完成”并清除旧结果 | 否 |
 | 历史项目已保存 `linkedStyleId`，但档案来源项目字段缺失或错误时会重复建档 | `协作断裂` | 商品企划、商品运营、数据治理人员 | 水合时先按项目保存的款式档案 ID 查找，再按来源项目查找；修复档案来源项目编号、编码、名称但保留全部业务字段。若 seed 补回同项目旧主档，仅解除旧主档的项目来源关联；跨现存项目占用同一档案 ID 时明确拦截，仓储创建、更新和水合均保证档案 ID 唯一 | 否 |
-| 历史五类专业任务和项目关系仍指向已移除的专业节点 | `协作断裂` | 版师、花型人员、样衣人员、数据治理人员 | 改版、制版、花型、首版样衣、首单样衣仓储水合时清空旧 `projectNodeId`，保留项目归属与来源业务对象；关系仓储移除五类旧专业节点关系，一致性检查不再忽略残留专业关系，初始化、固定五步、技术包合法关系保持不变 | 否 |
 | 历史款式档案来源节点为空或指向任意失效节点时仍未归属当前项目建立节点 | `协作断裂` | 商品企划、商品运营、数据治理人员 | 不再只识别特定旧节点；档案只要归属当前项目，来源节点一律重绑该项目当前 `PROJECT_INIT`，并用空、旧、任意失效节点三类真实快照回归 | 否 |
 | 档案水合按更新时间静默选择重复 ID，项目迁移又会边改边校验 | `协作断裂` | 商品企划、商品运营、数据治理人员 | 重复档案 ID 显式报冲突并保留原始存储；项目迁移先在内存完成全量冲突校验和迁移计划，任一项目冲突零写入，全部成功后一次性替换档案快照，重复执行不再写入 | 否 |
 | 制版真实入口和首单创建入口仍要求已删除的专业项目节点 | `协作断裂` | 版师、样衣人员、商品负责人 | 制版到首版、首单创建统一使用独立专业任务路径，只保留商品项目、款式／SPU及上游制版／首版来源，项目节点留空且不生成专业节点关系；创建前后对固定项目节点做全量深比较 | 否 |
@@ -82,7 +80,6 @@
 - 当前决策验收必须以真实业务状态流转为准；数据一致性修复结果不得被演示种子覆盖。
 - 制版、花型、首版样衣、首单样衣与改版均按独立专业任务保存；有工程主单归属时只记录真实项目标识，项目节点留空。独立改款／设计任务可以暂不关联项目，但必须关联合法款式／SPU及正式需求来源；确定做大货后再创建工程主单。
 - 独立制版生成技术包只回写制版任务、技术包、商品项目与款式档案事实，不改写固定五步节点。
-- 历史项目以 `linkedStyleId` 为主关联事实修复档案来源；历史专业任务只保留项目归属，不再恢复已删除的专业项目节点。
 - 款式档案迁移必须先完成全量内存规划再一次写入；重复 ID 或多个旧主档冲突时保留原始字节并明确阻断水合。
 - 制版到首版、首版到首单的真实创建入口均不得要求或改写固定五步之外的项目节点。
 
@@ -185,7 +182,6 @@
 - `/pcs/projects`
 - `/pcs/projects/create`
 - `/pcs/projects/:projectId`
-- `/pcs/projects/:projectId/work-items/:projectNodeId`
 - `/pcs/patterns/revision`
 - `/pcs/patterns/revision/:revisionTaskId`
 - `/pcs/patterns/plate-making`
@@ -196,7 +192,6 @@
 ### 验证命令
 
 - `npm test -- tests/pcs-project-fixed-step-flow.spec.ts`：通过
-- `npm test -- tests/pcs-project-historical-migration.spec.ts`：通过，真实旧档案节点精确改绑，空来源和技术包来源保持原值，三组历史档案业务字段均保留
 - `npm test -- tests/pcs-project-temporary-hold.spec.ts`：通过，暂保留不创建或重启直播、短视频测款
 - `npm test -- tests/pcs-project-sample-return-defaults.spec.ts`：通过，空退回去向按样衣来源事实推导且不依赖模板编号
 - `npm test -- tests/pcs-project-feasibility-boundary.spec.ts`：通过，商品测款页面源码与实际可行性节点页面均不包含改版打样选项或按 `REVISION_TASK` 改写选项的条件
@@ -206,7 +201,6 @@
 - `node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-revision-remodel-acceptance.ts`：通过，恶意旧节点参数不能覆盖系统解析的 `TEST_CONCLUSION`，独立改版任务创建、花型和首版样衣下游、确认、技术包前置、完成闭环及详情页验收全部实际执行，并用闭环前后全量节点快照确认来源商品项目节点未被改写
 - `npm test -- tests/pcs-professional-task-bootstrap-independent.spec.ts`：通过，五类专业任务种子均不绑定项目节点且不生成项目节点关系；有项目归属的任务只关联真实项目，独立改款／设计任务只允许关联可解析的正式款式／SPU和需求来源
 - `npm test -- tests/pcs-project-linked-style-archive-migration.spec.ts`：通过，真实 `localStorage` 中仅按 `linkedStyleId` 存在且来源项目字段缺失／错误的历史档案保持单一 ID，来源项目修复且备注、卖点、详情等业务字段不变；重复档案 ID 创建被明确拦截
-- `npm test -- tests/pcs-professional-task-node-migration.spec.ts`：通过，真实 `localStorage` 中五类历史专业任务均保留项目和来源对象、清空旧节点绑定，五类旧节点关系全部移除，项目固定节点快照不变且无专业悬空关系一致性问题
 - `npm test -- tests/pcs-style-archive-transactional-migration.spec.ts`：通过，重复档案 ID 显式阻断且原始字节不变；多旧主档冲突零写入；款式仓写入失败时项目／款式原始字节与内存快照均不变；款式写入成功而项目写入失败时两仓完整回滚且重读仍为原始数据；成功迁移两仓各写一次并保持幂等
 - `npm run check:pcs-plate-sample-readiness`：通过，制版完成后可直接创建独立首版样衣任务，保留制版和技术包来源，项目节点创建前后全量不变
 - `npm test -- tests/pcs-first-order-sample-independent-entry.spec.ts`：通过，首单真实入口保留商品项目和正式首版样衣来源，不生成专业节点关系且不改写项目固定节点
@@ -280,13 +274,66 @@
 - 通过。
 - 无业务例外。
 
+## 16. 专业任务项目级关系模型收口
+
+### 本次范围
+
+- 改版、制版、花型、首版样衣和首单样衣五类专业任务只保存商品项目归属、真实来源对象和下游回写事实。
+- 五类专业任务模型及仓储不保存商品项目节点、项目步骤编码、项目步骤名称或兼容引用字段。
+- 商品项目详情按项目级正式业务对象读取专业任务，不提供按商品项目节点查询专业任务关系的接口。
+- 直播测款和短视频测款页面保留内部数据编码，但所有用户可见内容统一显示为“带货”“测款”“复测”和“测款明细／测款条目”。
+- 现行专业任务来源只接受当前业务来源，不包含任务迁移或兼容处理入口。
+
+### 规范自查
+
+| 检查项 | 结论 |
+| --- | --- |
+| 业务边界 | 通过。商品项目固定步骤与工程专业任务分离；专业任务只在项目级关联。 |
+| 来源可追溯 | 通过。每张专业任务保留真实商品项目、款式／SPU及上游业务对象。 |
+| 信息结构 | 通过。页面继续按固定五步办理测款业务，工程专业任务由独立模块承接。 |
+| 中文化 | 通过。直播与短视频测款页面不展示内部英文用途编码。 |
+| 交互性能 | 通过。本次只调整事实读取与显示文案，未新增整页重绘或高频输入。 |
+| 列表与分页 | 通过。既有标准列表页、分页、列设置和右侧固定操作保持不变。 |
+| 例外 | 无。 |
+
+### 本轮追加受管文件
+
+- `src/data/pcs-first-order-sample-repository.ts`
+- `src/data/pcs-first-order-sample-types.ts`
+- `src/data/pcs-first-sample-repository.ts`
+- `src/data/pcs-first-sample-types.ts`
+- `src/data/pcs-pattern-task-repository.ts`
+- `src/data/pcs-pattern-task-types.ts`
+- `src/data/pcs-plate-making-repository.ts`
+- `src/data/pcs-plate-making-types.ts`
+- `src/data/pcs-project-archive-collector.ts`
+- `src/data/pcs-project-relation-repository.ts`
+- `src/data/pcs-revision-task-repository.ts`
+- `src/data/pcs-revision-task-types.ts`
+- `src/data/pcs-task-bootstrap.ts`
+- `src/data/pcs-task-project-relation-writeback.ts`
+- `src/data/pcs-task-source-normalizer.ts`
+- `src/pages/pcs-live-testing.ts`
+- `src/pages/pcs-projects.ts`
+- `src/pages/pcs-video-testing.ts`
+- `tests/pcs-professional-task-bootstrap-independent.spec.ts`
+- `tests/pcs-professional-task-fixed-step-source.spec.ts`
+- `tests/pcs-professional-task-model-semantic-closure.spec.ts`
+- `tests/pcs-professional-task-project-binding.spec.ts`
+- `tests/pcs-remove-sample-retain-review-project-instances.spec.ts`
+
+### 补充审查结论
+
+- 通过。
+- 无业务例外。
+
 ## 15. 测款详情真实路由与专业任务当前数据收口
 
 ### 本次范围
 
 - 直播测款、短视频测款动态详情路由直接调用各自详情渲染器，详情页头、页签和当前测款记录均可通过真实路由访问。
-- 专业任务初始化数据只保留当前商品项目与当前任务演示，不再生成缺失项目的旧任务迁移待处理记录，也不再携带旧工作项编号。
-- 首版样衣仓储只按当前状态字典归一化任务状态，不处理旧任务状态迁移。
+- 专业任务初始化数据只保留当前商品项目与当前任务演示，并使用真实商品项目或真实上游任务作为来源。
+- 首版样衣仓储只按当前状态字典归一化任务状态。
 - 工程任务验收统一使用“技术包与下游”“技术包写入”和当前版次等现行业务口径。
 
 ### 规范自查
@@ -296,7 +343,7 @@
 | 角色匹配 | 通过。页面仍为 PCS 管理端，服务买手、跟单和工程协作人员。 |
 | 信息架构与导航 | 通过。列表详情入口与动态详情路由一致，不再把用户送回列表占位页。 |
 | 页面模式 | 通过。详情保留页头和必要页签，未新增说明性文案或重复入口。 |
-| 文案 | 通过。详情与测试口径统一为当前业务对象和动作，不展示旧工作项、旧任务迁移或兼容术语。 |
+| 文案 | 通过。详情与测试口径统一为当前业务对象和动作。 |
 | 协作关系 | 通过。专业任务只表达当前商品项目及真实专业任务关系。 |
 | 交互性能 | 通过。仅修正路由渲染目标，未新增整页交互或高频输入。 |
 | 列表与分页 | 通过。本轮未调整列表结构，既有标准列表、分页和列设置保持不变。 |
@@ -585,7 +632,6 @@
 ### 补充验证
 
 - `node --import tsx tests/pcs-professional-task-fixed-step-source.spec.ts`：通过。
-- `node --import tsx tests/pcs-project-historical-migration.spec.ts`：通过。
 - `node --import tsx tests/pcs-work-item-module-removal.spec.ts`：通过。
 - `node --import tsx tests/pcs-project-fixed-step-flow.spec.ts`：通过。
 - `npm run build`：通过。
@@ -633,7 +679,7 @@
 ### 本次范围
 
 - 商品项目运行时只保留固定阶段与固定步骤；项目、步骤实例和页面不再保存或展示项目模板、工作项类型及其版本。
-- 旧快照中的模板和工作项字段只在读取迁移边界识别，迁移后的运行时记录统一写入步骤编码与步骤名称。
+- 项目运行时记录统一使用当前步骤编码与步骤名称。
 - 删除项目内“完善商品档案”节点、操作区、事件和生成接口；项目创建时已关联的商品／款式档案继续作为唯一档案事实。
 - 保留项目关联档案的图片正式化：主图按“渠道上架图 → 样衣拍摄图 → 项目参考图”选择，主图同时进入图集；明确选择参考图时回写图片状态、用途、图集及来源。
 
@@ -653,7 +699,6 @@
 
 - `npx tsx tests/pcs-work-item-module-removal.spec.ts`：通过。
 - `npx tsx tests/pcs-project-fixed-step-flow.spec.ts`：通过。
-- `npx tsx tests/pcs-project-historical-migration.spec.ts`：通过。
 - `npx tsx tests/pcs-projects.spec.ts`：通过。
 - `npx tsx tests/pcs-project-archive-style-images.spec.ts`：通过。
 - `npx tsx tests/pcs-project-linked-style-archive-migration.spec.ts`：通过。

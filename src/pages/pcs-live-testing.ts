@@ -1471,7 +1471,7 @@ function renderSessionDetailHeader(
           ? `
             <div class="flex items-center gap-2 border-t border-amber-200 bg-amber-50 px-6 py-3 text-sm text-amber-800">
               <i data-lucide="alert-triangle" class="h-4 w-4"></i>
-              <span>存在 TEST 行待入账，请尽快完成测款核对并回写项目执行流转。</span>
+              <span>存在测款明细待入账，请尽快完成测款核对并回写项目执行流转。</span>
             </div>
           `
           : ''
@@ -1498,7 +1498,7 @@ function renderOverviewTab(session: SessionViewModel, testItems: SessionItemView
   const checks = [
     { ok: Boolean(session.endAt), label: '下播时间已填写' },
     { ok: session.items.length > 0, label: `明细行数 >= 1（当前 ${session.items.length}）` },
-    { ok: testItems.every((item) => Boolean(item.projectRef)), label: '所有 TEST 行已绑定商品项目' },
+    { ok: testItems.every((item) => Boolean(item.projectRef)), label: '所有测款明细已绑定商品项目' },
   ]
   const cards = [
     { label: 'GMV', value: session.gmvTotal == null ? '-' : `¥${formatCurrency(session.gmvTotal)}` },
@@ -1548,7 +1548,7 @@ function renderItemsTab(session: SessionViewModel): string {
   return `
     <div class="space-y-4">
       <div class="flex items-center justify-between">
-        <p class="text-sm text-slate-500">共 ${session.items.length} 条明细，其中 TEST 行 ${session.items.filter((item) => item.intent === 'TEST').length} 条。</p>
+        <p class="text-sm text-slate-500">共 ${session.items.length} 条明细，其中测款明细 ${session.items.filter((item) => item.intent === 'TEST').length} 条。</p>
         <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-live-testing-action="open-edit-item" data-session-id="${escapeHtml(session.id)}" data-item-id="${escapeHtml(session.items[0]?.id || '')}" ${session.items[0] ? '' : 'disabled'}>
           <i data-lucide="plus" class="h-4 w-4"></i>补录首条明细
         </button>
@@ -1681,8 +1681,8 @@ function renderAccountingTab(session: SessionViewModel, testItems: SessionItemVi
       <section class="rounded-lg border bg-white">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-4">
           <div>
-            <h2 class="text-lg font-semibold text-slate-900">TEST 行清单</h2>
-            <p class="mt-1 text-sm text-slate-500">对需要入账的 TEST 行统一核查项目绑定、商品引用和结果建议。</p>
+            <h2 class="text-lg font-semibold text-slate-900">测款明细清单</h2>
+            <p class="mt-1 text-sm text-slate-500">对需要入账的测款明细统一核查项目绑定、商品引用和结果建议。</p>
           </div>
           ${
             session.testAccountingStatus === 'PENDING'
@@ -1705,7 +1705,7 @@ function renderAccountingTab(session: SessionViewModel, testItems: SessionItemVi
             <tbody class="divide-y divide-slate-100">
               ${
                 testItems.length === 0
-                  ? '<tr><td colspan="6" class="px-4 py-10 text-center text-sm text-slate-500">当前直播测款没有 TEST 行，无需入账。</td></tr>'
+                  ? '<tr><td colspan="6" class="px-4 py-10 text-center text-sm text-slate-500">当前直播测款没有测款明细，无需入账。</td></tr>'
                   : testItems
                       .map(
                         (item) => `
@@ -1924,7 +1924,7 @@ function renderCloseDialog(): string {
   const checks = [
     { ok: Boolean(session.endAt), label: '下播时间已填写' },
     { ok: session.items.length > 0, label: '明细行数 >= 1' },
-    { ok: testItems.every((item) => Boolean(item.projectRef)), label: 'TEST 行已绑定商品项目' },
+    { ok: testItems.every((item) => Boolean(item.projectRef)), label: '测款明细已绑定商品项目' },
   ]
   return renderModalShell(
     '完成直播测款（关账）',
@@ -1973,16 +1973,16 @@ function renderAccountingDialog(): string {
   if (!session) return ''
   const testItems = session.items.filter((item) => item.intent === 'TEST')
   const checks = [
-    { ok: testItems.length > 0, label: `至少存在 1 条 TEST 行（当前 ${testItems.length}）` },
-    { ok: testItems.every((item) => Boolean(item.projectRef)), label: '每条 TEST 行已绑定商品项目' },
-    { ok: testItems.every((item) => item.pay || item.order || item.gmv), label: '每条 TEST 行已有最小指标数据' },
+    { ok: testItems.length > 0, label: `至少存在 1 条测款明细（当前 ${testItems.length}）` },
+    { ok: testItems.every((item) => Boolean(item.projectRef)), label: '每条测款明细已绑定商品项目' },
+    { ok: testItems.every((item) => item.pay || item.order || item.gmv), label: '每条测款明细已有最小指标数据' },
   ]
   return renderModalShell(
     '完成测款核对（入账）',
-    `确认对「${session.title}」的 TEST 行完成核对并回写入账结果。`,
+    `确认对「${session.title}」的测款明细完成核对并回写入账结果。`,
     `
       <section class="space-y-3">
-        <h4 class="text-sm font-semibold text-slate-900">Step1 TEST 行校验</h4>
+        <h4 class="text-sm font-semibold text-slate-900">步骤一：测款明细校验</h4>
         <div class="space-y-2">
           ${checks
             .map(
@@ -2519,7 +2519,7 @@ export function handlePcsLiveTestingEvent(target: HTMLElement, event?: Event): b
           time: nowText(),
           action: '完成测款入账',
           user: '当前用户',
-          detail: state.accountingDialog.note.trim() || '已完成 TEST 行核对并回写入账结论。',
+          detail: state.accountingDialog.note.trim() || '已完成测款明细核对并回写入账结论。',
         },
       ),
     )

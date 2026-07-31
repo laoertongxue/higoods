@@ -12,9 +12,6 @@ export interface FirstSampleTaskRecord {
   projectId: string
   projectCode: string
   projectName: string
-  projectNodeId: string
-  stepCode?: 'FIRST_SAMPLE'
-  stepName?: '首版样衣打样'
   sourceType: FirstSampleTaskSourceType
   upstreamModule: string
   upstreamObjectType: string
@@ -50,8 +47,6 @@ export interface FirstSampleTaskRecord {
   updatedAt: string
   updatedBy: string
   note: string
-  legacyProjectRef: string
-  legacyUpstreamRef: string
 }
 
 export interface FirstSampleProjectNodeMeta {

@@ -756,7 +756,7 @@ function buildRecordViewModel(recordId: string): VideoRecordViewModel | null {
     completionNote: (baseRecord?.status === 'COMPLETED' || getStatusCodeByLabel(repoRecord?.recordStatus || '') === 'COMPLETED') ? '数据核对完成，已完成关账。' : '',
     accountedBy: (baseRecord?.testAccountingStatus === 'ACCOUNTED' || accounted) ? '系统演示' : null,
     accountedAt: (baseRecord?.testAccountingStatus === 'ACCOUNTED' || accounted) ? (baseRecord?.updatedAt ?? repoRecord?.publishedAt ?? nowText()) : null,
-    accountedNote: (baseRecord?.testAccountingStatus === 'ACCOUNTED' || accounted) ? 'TEST 条目已完成入账，已同步决策实例。' : '',
+    accountedNote: (baseRecord?.testAccountingStatus === 'ACCOUNTED' || accounted) ? '测款条目已完成入账，已同步决策实例。' : '',
     items,
     evidence: baseRecord ? getVideoEvidence(recordId) : [],
     samples: baseRecord ? getVideoSamples(recordId) : [],
@@ -1564,11 +1564,11 @@ function renderAccountingDialog(): string {
   const testItems = record.items.filter((item) => item.evaluationIntent === 'TEST')
   return renderModalShell(
     '完成测款核对（入账）',
-    `确认对「${record.title}」的 TEST 条目完成核对并写入测款结论。`,
+    `确认对「${record.title}」的测款条目完成核对并写入测款结论。`,
     `
       <div class="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">
         <p><span class="font-medium text-slate-900">记录编号：</span>${escapeHtml(record.id)}</p>
-        <p class="mt-1"><span class="font-medium text-slate-900">TEST 条目数：</span>${testItems.length}</p>
+        <p class="mt-1"><span class="font-medium text-slate-900">测款条目数：</span>${testItems.length}</p>
       </div>
       <section class="space-y-2">
         <p class="text-sm font-medium text-slate-900">入账预览</p>
@@ -1588,7 +1588,7 @@ function renderAccountingDialog(): string {
         'inline-flex h-9 items-center rounded-md border px-3 text-sm',
         state.accountingDialog.confirmed ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
       )}" data-pcs-video-testing-action="toggle-accounting-confirmed">
-        <i data-lucide="${state.accountingDialog.confirmed ? 'check-circle-2' : 'circle'}" class="mr-2 h-4 w-4"></i>我已确认 TEST 条目绑定正确，数据完整
+        <i data-lucide="${state.accountingDialog.confirmed ? 'check-circle-2' : 'circle'}" class="mr-2 h-4 w-4"></i>我已确认测款条目绑定正确，数据完整
       </button>
     `,
     `
@@ -1661,7 +1661,7 @@ function renderEditDrawer(): string {
               ? `
                 <label class="space-y-1">
                   <span class="text-xs text-slate-500">无数据原因</span>
-                  <textarea class="min-h-[100px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="TEST 条目指标全空时说明原因" data-pcs-video-testing-field="edit-no-data-reason">${escapeHtml(draft.noDataReason)}</textarea>
+                  <textarea class="min-h-[100px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="测款条目指标全空时说明原因" data-pcs-video-testing-field="edit-no-data-reason">${escapeHtml(draft.noDataReason)}</textarea>
                 </label>
               `
               : ''
@@ -1867,7 +1867,7 @@ function renderReconcileTab(record: VideoRecordViewModel): string {
   const checks = [
     { ok: Boolean(record.publishedAt), label: '发布时间已填写' },
     { ok: record.items.length > 0, label: '条目数据完整' },
-    { ok: record.items.filter((item) => item.evaluationIntent === 'TEST').every((item) => Boolean(item.projectRef)), label: 'TEST 条目已绑定商品项目' },
+    { ok: record.items.filter((item) => item.evaluationIntent === 'TEST').every((item) => Boolean(item.projectRef)), label: '测款条目已绑定商品项目' },
   ]
   return `
     <div class="space-y-4">
@@ -1940,12 +1940,12 @@ function renderAccountingTab(record: VideoRecordViewModel, testItems: VideoItemV
     <div class="space-y-4">
       <section class="rounded-lg border bg-white">
         <div class="border-b border-slate-200 px-6 py-4">
-          <h2 class="text-lg font-semibold text-slate-900">TEST 条目聚合（${testItems.length}条）</h2>
+          <h2 class="text-lg font-semibold text-slate-900">测款条目聚合（${testItems.length}条）</h2>
         </div>
         <div class="overflow-x-auto">
           ${
             testItems.length === 0
-              ? '<div class="px-6 py-10 text-center text-sm text-slate-500">暂无 TEST 条目，无需测款入账。</div>'
+              ? '<div class="px-6 py-10 text-center text-sm text-slate-500">暂无测款条目，无需测款入账。</div>'
               : `
                 <table class="min-w-full divide-y divide-slate-200 text-sm">
                   <thead class="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
@@ -2636,13 +2636,13 @@ export function handlePcsVideoTestingEvent(target: HTMLElement, event?: Event): 
           testAccountingStatus: 'ACCOUNTED',
           accountedBy: '当前用户',
           accountedAt: nowText(),
-          accountedNote: state.accountingDialog.accountedNote.trim() || 'TEST 条目已入账。',
+          accountedNote: state.accountingDialog.accountedNote.trim() || '测款条目已入账。',
         },
         {
           time: nowText(),
           action: '完成测款入账',
           user: '当前用户',
-          detail: state.accountingDialog.accountedNote.trim() || 'TEST 条目已完成入账，生成决策实例。',
+          detail: state.accountingDialog.accountedNote.trim() || '测款条目已完成入账，生成决策实例。',
         },
       ),
     )
@@ -2750,7 +2750,7 @@ export function handlePcsVideoTestingEvent(target: HTMLElement, event?: Event): 
           ? '短视频条目已保存，并已同步清空当前短视频测款的正式项目关联。'
           : blockedReasons.length > 0 || relationResult.errors.length > 0
             ? `短视频条目已保存；短视频测款正式关联未回写：${[...blockedReasons, ...relationResult.errors].join('；')}`
-            : '短视频条目已保存，并已将当前短视频测款全部 TEST 条目回写到同一商品项目。'
+            : '短视频条目已保存，并已将当前短视频测款全部测款条目回写到同一商品项目。'
       return appendLog(
         {
           ...record,
