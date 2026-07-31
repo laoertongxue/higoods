@@ -5576,6 +5576,25 @@ const task12MobileBindingSource = readFileSync(
   new URL('../src/data/fcs/process-mobile-task-binding.ts', import.meta.url),
   'utf8',
 )
+const task12MobileProjectionSource = readFileSync(
+  new URL('../src/data/fcs/wool-domain/mobile.ts', import.meta.url),
+  'utf8',
+)
+const task12ReviewMissingCapabilities = [
+  !task12PdaFactSource.includes('validateWoolPdaTaskAccess') && 'P1-1 页面与保存双重访问门禁',
+  !task12MobileBindingSource.includes('expectedTaskId') && 'P1-1 exact taskId / woolOrderId 访问校验',
+  !task12MobileProjectionSource.includes('completionFacts') && 'P1-2 完成确认五块事实投影',
+  (!task12MobileProjectionSource.includes('QTY_CHANGE')
+    || !task12MobileProjectionSource.includes('effectiveQty')
+    || !task12MobileProjectionSource.includes('qtyChanges')) && 'P1-3 有效事实与完整修改链投影',
+  (!task12PdaFactSource.includes('draftsByAction')
+    || !task12PdaFactSource.includes('sync-draft')) && 'P2 四类弹窗草稿状态',
+].filter(Boolean)
+assert.deepEqual(
+  task12ReviewMissingCapabilities,
+  [],
+  `任务 12 复审能力缺失：${task12ReviewMissingCapabilities.join('；')}`,
+)
 for (const requiredText of [
   '确认接收',
   '加工填报',
@@ -5635,6 +5654,75 @@ assert.equal(
   JSON.stringify(readWoolStore()),
   task12StoreBeforeGenericAccept,
   '通用 PDA 接单探针不得写入毛织事实仓',
+)
+
+const {
+  buildWoolMobileTaskProjection,
+} = await import('../src/data/fcs/wool-domain/mobile.ts')
+const {
+  validateWoolPdaTaskAccess,
+} = await import('../src/data/fcs/wool-pda-task-access.ts')
+
+resetWoolFactWorkflowMock('CHECK_WOOL_TASK_12_REVIEW_GATES')
+const task12AccessOrders = listWoolWorkOrders()
+const task12AccessOrderA = task12AccessOrders[0]
+const task12AccessOrderB = task12AccessOrders[1]
+assert.equal(validateWoolPdaTaskAccess({
+  taskId: task12AccessOrderA.taskId,
+  woolOrderId: task12AccessOrderA.woolOrderId,
+  currentFactoryId: task12AccessOrderA.factoryId,
+}).canAccess, true, '同工厂、精确任务、唯一加工单必须允许访问')
+assert.equal(validateWoolPdaTaskAccess({
+  taskId: task12AccessOrderA.taskId,
+  woolOrderId: task12AccessOrderA.woolOrderId,
+  currentFactoryId: 'F090',
+}).canAccess, false, '跨工厂直达 URL 必须被阻断')
+assert.equal(validateWoolPdaTaskAccess({
+  taskId: 'TASK-WOOL-NOT-EXISTS',
+  currentFactoryId: task12AccessOrderA.factoryId,
+}).canAccess, false, '未知任务必须被阻断')
+commitWoolStore((draft) => {
+  draft.workOrders[task12AccessOrderB.woolOrderId].productionOrderId = task12AccessOrderA.productionOrderId
+  draft.workOrders[task12AccessOrderB.woolOrderId].productionOrderNo = task12AccessOrderA.productionOrderNo
+})
+assert.equal(validateWoolPdaTaskAccess({
+  taskId: task12AccessOrderA.taskId,
+  woolOrderId: task12AccessOrderA.woolOrderId,
+  currentFactoryId: task12AccessOrderA.factoryId,
+}).order?.woolOrderId, task12AccessOrderA.woolOrderId, '同生产单多加工单时必须精确命中第一张单')
+assert.equal(validateWoolPdaTaskAccess({
+  taskId: task12AccessOrderB.taskId,
+  woolOrderId: task12AccessOrderB.woolOrderId,
+  currentFactoryId: task12AccessOrderB.factoryId,
+}).order?.woolOrderId, task12AccessOrderB.woolOrderId, '同生产单多加工单时不得串到另一张单')
+
+const task12ProjectionWithChange = listWoolWorkOrders()
+  .map((order) => buildWoolMobileTaskProjection(order.woolOrderId))
+  .find((projection) => projection.factRecords.some((record) => record.recordType === 'QTY_CHANGE'))
+assert(task12ProjectionWithChange, '移动事实投影必须覆盖数量修改事实')
+const task12ChangedSourceFact = task12ProjectionWithChange.factRecords.find((record) =>
+  record.recordType !== 'QTY_CHANGE'
+  && record.qtyChanges.length > 0
+  && record.originalQty !== record.effectiveQty,
+)
+assert(task12ChangedSourceFact, '被修改记录必须同时投影原始数量、有效数量和完整修改链')
+assert(
+  task12ProjectionWithChange.factRecords.some((record) => record.recordType === 'WAREHOUSE_FLOW'),
+  '移动事实投影必须覆盖库存流水关系',
+)
+
+const task12CompletedProjection = listWoolWorkOrders()
+  .map((order) => buildWoolMobileTaskProjection(order.woolOrderId))
+  .find((projection) => projection.processingStatus === 'COMPLETED')
+assert(task12CompletedProjection, '任务 12 场景必须包含已完成加工单')
+assert(Array.isArray(task12CompletedProjection.completionFacts.yarnReceipts))
+assert(Array.isArray(task12CompletedProjection.completionFacts.processReports))
+assert(Array.isArray(task12CompletedProjection.completionFacts.handovers))
+assert(Array.isArray(task12CompletedProjection.completionFacts.waitHandoverStocks))
+assert(Array.isArray(task12CompletedProjection.completionFacts.currentMachines))
+assert(
+  task12CompletedProjection.completionFacts.completionSnapshot,
+  '完成后移动投影必须继续展示命令提交时冻结的确认快照',
 )
 
 console.log('PASS task 5: global command receipts, atomic stock, downstream lock, and manual completion')

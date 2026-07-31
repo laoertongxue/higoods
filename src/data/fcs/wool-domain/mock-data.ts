@@ -119,7 +119,7 @@ function workOrder(sequence: number, code: WoolMockScenarioCode): WoolWorkOrder 
     styleName: kind === 'PART_PANEL' ? '针织袖片款' : '针织圆领衫',
     styleImageUrl: `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240"><rect width="240" height="240" fill="#eff6ff"/><path d="M75 55 45 85l25 28 15-13v90h70v-90l15 13 25-28-30-30-28 14h-34z" fill="#93c5fd" stroke="#2563eb" stroke-width="4"/></svg>`)}`,
     internalStyleCode: `W${String(sequence).padStart(3, '0')}`,
-    factoryId: 'OWN-WOOL-FACTORY',
+    factoryId: 'OWN_WOOL_FACTORY',
     factoryName: '周哥毛织厂',
     plannedStartAt: `2026-08-${String((sequence % 9) + 1).padStart(2, '0')}`,
     plannedCompletionAt: `2026-08-${String((sequence % 18) + 10).padStart(2, '0')}`,

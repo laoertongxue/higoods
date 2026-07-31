@@ -45,6 +45,10 @@ import {
   listWaterSolubleMobileTasks,
   listWaterSolubleWorkOrders,
 } from './water-soluble-task-domain.ts'
+export {
+  validateWoolPdaTaskAccess,
+  type WoolPdaTaskAccessResult,
+} from './wool-pda-task-access.ts'
 
 function uniqueStrings(values: Array<string | undefined | null>): string[] {
   return Array.from(new Set(values.map((value) => String(value || '').trim()).filter(Boolean)))
@@ -838,7 +842,11 @@ export function validateWaterSolubleWorkOrderMobileTaskBinding(
   })
 }
 
-export function validateWoolWorkOrderMobileTaskBinding(woolOrderId: string): ProcessMobileTaskBindingResult {
+export function validateWoolWorkOrderMobileTaskBinding(
+  woolOrderId: string,
+  currentFactoryId?: string,
+  expectedTaskId?: string,
+): ProcessMobileTaskBindingResult {
   const order = getWoolWorkOrderById(woolOrderId) ?? getWoolWorkOrderByTaskId(woolOrderId)
   return validateBinding({
     workOrderId: order?.woolOrderId || woolOrderId,
@@ -850,12 +858,15 @@ export function validateWoolWorkOrderMobileTaskBinding(woolOrderId: string): Pro
     expectedTaskNo: order?.taskNo,
     expectedFactoryId: order?.factoryId,
     sourceExists: Boolean(order),
-    actualTask: order ? getWoolTask(order) : null,
-    currentFactoryId: order?.factoryId || TEST_FACTORY_ID,
+    actualTask: order
+      ? getPdaMobileExecutionTaskById(expectedTaskId || order.taskId)
+      : null,
+    currentFactoryId: currentFactoryId || order?.factoryId || TEST_FACTORY_ID,
     requireExactTaskId: true,
     skipAcceptanceGate: true,
   })
 }
+
 
 export function validateCuttingOrderMobileTaskBinding(cuttingOrderId: string): ProcessMobileTaskBindingResult {
   const snapshot = buildFcsCuttingDomainSnapshot()

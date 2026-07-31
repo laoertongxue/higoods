@@ -155,6 +155,7 @@ import {
   getMobileTaskProcessType,
   getMobileTaskAccessResult,
   listPdaMobileExecutionTasks,
+  validateWoolPdaTaskAccess,
 } from '../data/fcs/process-mobile-task-binding.ts'
 import { canFactoryAccessSpecialCraftPdaTask } from '../data/fcs/special-craft-pda-scope.ts'
 import { findFactoryPdaRoleById, getPdaSession } from '../data/fcs/store-domain-pda.ts'
@@ -3288,10 +3289,14 @@ export function renderPdaExecDetailPage(taskId: string): string {
   syncMilestoneOverdueExceptions()
 
   const task = getTaskFactById(taskId)
-  const exactWoolOrder = task ? getWoolWorkOrderByTaskId(task.taskId) : undefined
-  if (task && exactWoolOrder) {
+  if (task && getMobileTaskProcessType(task) === 'WOOL') {
+    const session = getPdaSession()
+    const woolAccess = validateWoolPdaTaskAccess({
+      taskId: task.taskId,
+      currentFactoryId: session?.factoryId,
+    })
     return renderPdaFrame(
-      renderPdaWoolExecutionContent(task.taskId),
+      renderPdaWoolExecutionContent(task.taskId, woolAccess),
       'exec',
       { disableTodoAutoOpen: true },
     )
