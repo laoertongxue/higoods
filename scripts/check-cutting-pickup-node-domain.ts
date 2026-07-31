@@ -9,8 +9,8 @@ function assert(condition: unknown, message: string): asserts condition {
 }
 
 const stillShort: PickupCoverageLine[] = [
-  { key: 'FABRIC-BLACK-150', unit: 'yard', requiredQty: 1000, effectivePickedQty: 700, currentAvailableQty: 200 },
-  { key: 'ZIP-BLACK', unit: '条', requiredQty: 2400, effectivePickedQty: 1400, currentAvailableQty: 1000 },
+  { key: 'FABRIC-BLACK-150', unit: 'yard', requiredQty: 1000, processComplete: true, lineEffectivePickedQty: 700, effectivePickedQty: 700, currentAvailableQty: 200 },
+  { key: 'ZIP-BLACK', unit: '条', requiredQty: 2400, processComplete: true, lineEffectivePickedQty: 1400, effectivePickedQty: 1400, currentAvailableQty: 1000 },
 ]
 const nowComplete = stillShort.map((line) =>
   line.key === 'FABRIC-BLACK-150' ? { ...line, currentAvailableQty: 300 } : line,
@@ -18,6 +18,13 @@ const nowComplete = stillShort.map((line) =>
 
 assert(derivePickupNodeType(stillShort) === 'INCOMPLETE_PICKABLE', '任一物料未满足时必须是未配齐可领')
 assert(derivePickupNodeType(nowComplete) === 'READY_TO_PICKUP', '全部物料满足时必须是已配齐待领')
+assert(
+  derivePickupNodeType([
+    ...nowComplete,
+    { key: 'DYE-PROCESSING', unit: 'yard', requiredQty: 0, processComplete: false, lineEffectivePickedQty: 0, effectivePickedQty: 0, currentAvailableQty: 0 },
+  ]) === 'INCOMPLETE_PICKABLE',
+  '加工未最终完成时 requiredQty=0 也不得被视为已满足',
+)
 
 const first = resolvePickupNodeUpdate({
   prepOrderId: 'prep-order-po-001',

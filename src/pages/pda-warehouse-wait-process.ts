@@ -36,14 +36,27 @@ import {
   type MaterialLedgerProjection,
 } from '../data/fcs/cutting/material-ledger.ts'
 import {
-  appendPickupSessionFromNode,
   getPickupSessionByNodeId,
   getMaterialPrepRecordContext,
   listMaterialPrepOrderProjections,
-  listActivePickupNodes,
   recordPickupSessionWarehouseSyncResult,
 } from '../data/fcs/cutting/production-material-prep.ts'
+import {
+  appendPickupSessionWithWarehouseFactsRuntime,
+  listActivePickupNodesRuntime as listActivePickupNodes,
+  recoverPendingPickupWarehouseTransaction,
+} from '../runtime/fcs/cutting/pickup-management-runtime.ts'
+import {
+  getBrowserLocalStorage,
+  type BrowserStorageLike,
+} from '../data/browser-storage.ts'
 import type { PickupNodeProjection, PickupSession } from '../data/fcs/cutting/pickup-node-domain.ts'
+import {
+  assertPickupNodeHasNoOpenDiscrepancy,
+  listPickupDiscrepancies,
+  reportPickupDiscrepancy,
+  requestPickupDiscrepancySupervisor,
+} from '../data/fcs/cutting/pickup-discrepancy.ts'
 import { buildMarkerSpreadingProjection } from './process-factory/cutting/marker-spreading-projection.ts'
 import type { SpreadingOrder } from './process-factory/cutting/marker-spreading-model.ts'
 import {
@@ -96,6 +109,11 @@ interface WaitProcessState {
   cuttingPickupNodeVersion: string
   cuttingPickupWarehouseArea: string
   cuttingPickupLocationCode: string
+  cuttingPickupDifferenceOpen: boolean
+  cuttingPickupDifferenceDemandLineId: string
+  cuttingPickupDifferenceQty: string
+  cuttingPickupDifferenceNote: string
+  cuttingPickupDifferencePhotoName: string
   cuttingIssueSourceNo: string
   cuttingIssueWarehouseArea: string
   cuttingIssueLocationCode: string
@@ -150,6 +168,11 @@ const state: WaitProcessState = {
   cuttingPickupNodeVersion: '',
   cuttingPickupWarehouseArea: '',
   cuttingPickupLocationCode: '',
+  cuttingPickupDifferenceOpen: false,
+  cuttingPickupDifferenceDemandLineId: '',
+  cuttingPickupDifferenceQty: '',
+  cuttingPickupDifferenceNote: '',
+  cuttingPickupDifferencePhotoName: '',
   cuttingIssueSourceNo: '',
   cuttingIssueWarehouseArea: '',
   cuttingIssueLocationCode: '',
@@ -769,11 +792,13 @@ function renderCuttingPendingPickupList(rows: MaterialLedgerProjection[]): strin
                   <span class="text-xs text-muted-foreground">第 ${node.sequence} 轮</span>
                 </div>
                 <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(node.productionOrderNo)} / ${escapeHtml(node.prepOrderNo)}</div>
-                <div class="mt-1 text-xs text-muted-foreground">物料：${node.itemCount} 项，来源仓库：${Array.from(new Set(node.items.map((item: { sourceWarehouseName: string }) => item.sourceWarehouseName))).join('、')}</div>
+                <div class="mt-1 text-xs text-muted-foreground">物料：${node.itemCount} 项，当前位置：${escapeHtml(node.carrierType === 'PALLET'
+                  ? node.palletDisplayLabel || node.palletId || '待领托盘（暂未编号）'
+                  : Array.from(new Set(node.items.flatMap((item) => item.sourceLocations.map((location) => location.sourceLocationCode)))).join('、'))}</div>
                 <div class="mt-2 space-y-1">
                   ${node.items.slice(0, 3).map((item) => `
                     <div class="rounded-lg bg-muted/50 px-2 py-1 text-xs text-muted-foreground">
-                      ${escapeHtml(item.materialName)} / ${formatCuttingWaitProcessQty(item.currentAvailableQty, item.unit)} / ${escapeHtml(item.sourceWarehouseName)}
+                      ${escapeHtml(item.materialName)} / ${formatCuttingWaitProcessQty(item.currentAvailableQty, item.unit)}
                     </div>
                   `).join('')}
                   ${node.items.length > 3 ? `<div class="text-xs text-muted-foreground">还有 ${node.items.length - 3} 项...</div>` : ''}
@@ -864,6 +889,10 @@ function openCuttingPickupDraft(pickupNodeId: string, pickupNodeVersion: string)
   state.cuttingPickupSourceNo = node.productionOrderNo
   state.cuttingPickupWarehouseArea = receiveLocation?.area || '面料 A 区'
   state.cuttingPickupLocationCode = receiveLocation?.locations[0] || 'FAB-A-01'
+  state.cuttingPickupDifferenceDemandLineId = node.items[0]?.prepLineId || ''
+  state.cuttingPickupDifferenceQty = ''
+  state.cuttingPickupDifferenceNote = ''
+  state.cuttingPickupDifferencePhotoName = ''
   cuttingPickupNodeSnapshot = structuredClone(node)
 }
 
@@ -873,6 +902,11 @@ function clearCuttingPickupDraft(): void {
   state.cuttingPickupNodeVersion = ''
   state.cuttingPickupWarehouseArea = ''
   state.cuttingPickupLocationCode = ''
+  state.cuttingPickupDifferenceOpen = false
+  state.cuttingPickupDifferenceDemandLineId = ''
+  state.cuttingPickupDifferenceQty = ''
+  state.cuttingPickupDifferenceNote = ''
+  state.cuttingPickupDifferencePhotoName = ''
   cuttingPickupNodeSnapshot = null
 }
 
@@ -896,7 +930,10 @@ function buildPickupUnitSummaries(node: PickupNodeProjection): Array<{ unit: str
   return Array.from(summaries.values())
 }
 
-function syncCuttingPickupSessionRuntimeFacts(session: PickupSession): void {
+function syncCuttingPickupSessionRuntimeFacts(
+  session: PickupSession,
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): void {
   const nodeSnapshot = session.pickupNodeSnapshot
   if (!nodeSnapshot) throw new Error('领料节点快照缺失，无法补写待加工仓流水。')
   let pickupRecordIndex = 0
@@ -952,8 +989,73 @@ function syncCuttingPickupSessionRuntimeFacts(session: PickupSession): void {
         pickupAt: session.pickedAt,
         warehouseSyncStatus: '已回写',
       },
-    })
+    }, storage)
   }
+}
+
+function getPickupCarrierLabel(node: PickupNodeProjection): string {
+  if (node.carrierType === 'PALLET') {
+    return node.palletDisplayLabel || node.palletId || '待领托盘（暂未编号）'
+  }
+  return Array.from(new Set(node.items.flatMap((item) =>
+    item.sourceLocations.map((location) =>
+      `${location.sourceWarehouseName} / ${location.sourceWarehouseArea} / ${location.sourceLocationCode}`
+    )
+  ))).join('；')
+}
+
+function renderCuttingPickupDifference(node: PickupNodeProjection): string {
+  const discrepancies = listPickupDiscrepancies().filter((record) =>
+    record.pickupNodeId === node.nodeId
+    && record.pickupNodeVersion === node.version
+    && record.status === '待主管处理'
+  )
+  const latest = discrepancies[0]
+  return `
+    ${discrepancies.length ? `
+      <section class="space-y-2 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-4 text-sm">
+        <div class="font-semibold text-amber-800">差异待主管处理，已阻断领料确认</div>
+        ${discrepancies.map((record) => `
+          <div class="rounded-xl bg-white/70 px-3 py-2 text-xs text-amber-900">
+            <div>${escapeHtml(record.materialName)}：差异 ${formatCuttingWaitProcessQty(record.differenceQty, record.unit)}</div>
+            <div class="mt-1">位置：${escapeHtml(record.carrierLabel)}</div>
+            <div class="mt-1">现场照片：${escapeHtml(record.photoName || '未上传')}；现场说明：${escapeHtml(record.note || '未填写')}</div>
+            <div class="mt-1">上报：${escapeHtml(record.operatorName)} ${escapeHtml(record.reportedAt)}</div>
+          </div>
+        `).join('')}
+        <button type="button" class="w-full rounded-xl border border-amber-400 bg-white px-4 py-3 text-sm font-semibold text-amber-800" data-pda-warehouse-action="call-cutting-pickup-supervisor" data-discrepancy-id="${escapeAttr(latest?.discrepancyId || '')}">
+          ${latest?.supervisorRequestedAt ? '已叫主管处理' : '叫主管处理'}
+        </button>
+      </section>
+    ` : ''}
+    <section class="space-y-3 rounded-2xl border px-4 py-4">
+      <button type="button" class="w-full rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800" data-pda-warehouse-action="toggle-cutting-pickup-difference">上报领料差异</button>
+      ${state.cuttingPickupDifferenceOpen ? `
+        <div class="space-y-3">
+          <label class="block space-y-1.5">
+            <span class="text-xs font-medium text-muted-foreground">差异物料</span>
+            <select class="h-11 w-full rounded-xl border bg-background px-3 text-sm" data-pda-warehouse-field="cutting-pickup-difference-line">
+              ${node.items.map((item) => `<option value="${escapeAttr(item.prepLineId)}" ${item.prepLineId === state.cuttingPickupDifferenceDemandLineId ? 'selected' : ''}>${escapeHtml(`${item.materialName} / ${item.materialSku} / ${item.currentAvailableQty} ${item.unit}`)}</option>`).join('')}
+            </select>
+          </label>
+          <label class="block space-y-1.5">
+            <span class="text-xs font-medium text-muted-foreground">差异数量（只记录差异，不修改系统可领数量）</span>
+            <input class="h-11 w-full rounded-xl border bg-background px-3 text-sm" inputmode="decimal" value="${escapeAttr(state.cuttingPickupDifferenceQty)}" data-pda-warehouse-field="cutting-pickup-difference-qty">
+          </label>
+          <label class="block space-y-1.5">
+            <span class="text-xs font-medium text-muted-foreground">现场照片</span>
+            <input class="block w-full text-sm" type="file" accept="image/*" capture="environment" data-pda-warehouse-field="cutting-pickup-difference-photo">
+            ${state.cuttingPickupDifferencePhotoName ? `<span class="text-xs text-muted-foreground">已选择：${escapeHtml(state.cuttingPickupDifferencePhotoName)}</span>` : ''}
+          </label>
+          <label class="block space-y-1.5">
+            <span class="text-xs font-medium text-muted-foreground">现场说明</span>
+            <textarea class="min-h-20 w-full rounded-xl border bg-background px-3 py-2 text-sm" placeholder="例如：实物少 2 yard，已留在原库位复核" data-pda-warehouse-field="cutting-pickup-difference-note">${escapeHtml(state.cuttingPickupDifferenceNote)}</textarea>
+          </label>
+          <button type="button" class="w-full rounded-xl bg-amber-600 px-4 py-3 text-sm font-semibold text-white" data-pda-warehouse-action="report-cutting-pickup-difference">提交差异并叫主管</button>
+        </div>
+      ` : ''}
+    </section>
+  `
 }
 
 function renderCuttingPickupDraftPage(): string {
@@ -965,7 +1067,11 @@ function renderCuttingPickupDraftPage(): string {
   const options = getCuttingPickupLocationOptions()
   const unitSummaries = buildPickupUnitSummaries(node)
   return `
-    <section class="space-y-4">
+    <section
+      class="space-y-4"
+      data-cutting-pickup-node-id="${escapeAttr(node.nodeId)}"
+      data-cutting-pickup-node-version="${escapeAttr(String(node.version))}"
+    >
       <div class="rounded-2xl border bg-card px-4 py-4 text-sm shadow-sm">
         <div class="flex items-center gap-2">
           <span class="rounded-full px-2 py-0.5 text-xs font-medium ${node.nodeType === 'READY_TO_PICKUP' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">${escapeHtml(node.nodeType === 'READY_TO_PICKUP' ? '已配齐待领' : '未配齐清单')}</span>
@@ -977,6 +1083,7 @@ function renderCuttingPickupDraftPage(): string {
           <div>物料：${node.itemCount} 项</div>
           <div>节点版本：V${node.version}</div>
           <div class="col-span-2">本次可领：${unitSummaries.map((summary) => `${formatCuttingWaitProcessQty(summary.qty, summary.unit)} / ${summary.rollCount} 卷件`).join('；')}</div>
+          <div class="col-span-2">当前位置：<span class="font-medium text-foreground">${escapeHtml(getPickupCarrierLabel(node))}</span></div>
         </div>
       </div>
 
@@ -990,13 +1097,17 @@ function renderCuttingPickupDraftPage(): string {
               <div>规格：${escapeHtml(item.spec)}</div>
               <div>需求：${formatCuttingWaitProcessQty(item.requiredQty, item.unit)}</div>
               <div>本次可领：<span class="font-medium text-foreground">${formatCuttingWaitProcessQty(item.currentAvailableQty, item.unit)}</span></div>
-              <div class="col-span-2 space-y-1">来源：${item.sourceLocations.map((location) => `
-                <div>${escapeHtml(location.sourceWarehouseName)} / ${escapeHtml(location.sourceWarehouseArea)} / ${escapeHtml(location.sourceLocationCode)} / ${formatCuttingWaitProcessQty(location.currentAvailableQty, location.unit)} / ${location.rollCount} 卷件</div>
-              `).join('')}</div>
+              ${node.carrierType === 'WAREHOUSE_LOCATIONS' ? `
+                <div class="col-span-2 space-y-1">来源库位：${item.sourceLocations.map((location) => `
+                  <div>${escapeHtml(location.sourceWarehouseName)} / ${escapeHtml(location.sourceWarehouseArea)} / ${escapeHtml(location.sourceLocationCode)} / ${formatCuttingWaitProcessQty(location.currentAvailableQty, location.unit)} / ${location.rollCount} 卷件</div>
+                `).join('')}</div>
+              ` : `<div class="col-span-2">待领位置：${escapeHtml(node.palletDisplayLabel || node.palletId || '待领托盘（暂未编号）')}</div>`}
             </div>
           </div>
         `).join('')}
       </div>
+
+      ${renderCuttingPickupDifference(node)}
 
       <div class="space-y-3 px-1">
         <div>
@@ -1017,7 +1128,7 @@ function renderCuttingPickupDraftPage(): string {
         </label>
         <div class="grid grid-cols-2 gap-2 pt-1">
           <button type="button" class="rounded-xl border bg-background px-4 py-3 text-sm font-medium text-foreground" data-pda-warehouse-action="cancel-cutting-wp-pickup">重新选择</button>
-          <button type="button" class="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground" data-pda-warehouse-action="confirm-cutting-wp-pickup">确认全部领料</button>
+          <button type="button" class="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50" data-pda-warehouse-action="confirm-cutting-wp-pickup" ${listPickupDiscrepancies().some((record) => record.pickupNodeId === node.nodeId && record.pickupNodeVersion === node.version && record.status === '待主管处理') ? 'disabled' : ''}>确认全部领料</button>
         </div>
       </div>
     </section>
@@ -1481,6 +1592,7 @@ function renderCuttingWaitProcessPage(): string {
     && state.cuttingPickupNodeId !== deepLinkedPickupNodeId
   ) {
     openCuttingPickupDraft(deepLinkedPickupNodeId, deepLinkedPickupNodeVersion)
+    state.cuttingPickupDifferenceOpen = params.get('difference') === '1'
   }
   if (activeView === 'pickup' || activeAction === 'pickup') {
     return renderPdaFrame(renderCuttingPickupTaskPage(rows), 'warehouse', { headerTitle: '中转仓领料', disableTodoAutoOpen: true })
@@ -2292,7 +2404,57 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     clearCuttingPickupDraft()
     return true
   }
+  if (action === 'toggle-cutting-pickup-difference') {
+    state.cuttingPickupDifferenceOpen = !state.cuttingPickupDifferenceOpen
+    return true
+  }
+  if (action === 'report-cutting-pickup-difference') {
+    const node = listActivePickupNodes().find((item) => item.nodeId === state.cuttingPickupNodeId)
+    if (!node || node.version !== Number(state.cuttingPickupNodeVersion)) {
+      window.alert('当前待领物料已更新，请重新核对后再上报差异。')
+      clearCuttingPickupDraft()
+      return true
+    }
+    const item = node.items.find((candidate) => candidate.prepLineId === state.cuttingPickupDifferenceDemandLineId)
+    if (!item) {
+      window.alert('请选择存在差异的物料。')
+      return true
+    }
+    try {
+      reportPickupDiscrepancy({
+        productionOrderId: node.productionOrderId,
+        productionOrderNo: node.productionOrderNo,
+        pickupNodeId: node.nodeId,
+        pickupNodeVersion: node.version,
+        demandLineId: item.prepLineId,
+        materialSku: item.materialSku,
+        materialName: item.materialName,
+        differenceQty: Number(state.cuttingPickupDifferenceQty),
+        unit: item.unit,
+        carrierType: node.carrierType,
+        carrierLabel: getPickupCarrierLabel(node),
+        palletUnnumbered: node.carrierType === 'PALLET' && !node.palletId,
+        operatorName: '裁床仓管',
+        note: state.cuttingPickupDifferenceNote.trim(),
+        photoName: state.cuttingPickupDifferencePhotoName,
+      }, undefined, (nodeId) => listActivePickupNodes().find((candidate) => candidate.nodeId === nodeId) ?? null)
+      state.cuttingPickupDifferenceOpen = false
+      window.alert('领料差异已上报，已阻断本节点领料确认，请等待主管处理。')
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '领料差异上报失败。')
+    }
+    return true
+  }
+  if (action === 'call-cutting-pickup-supervisor') {
+    const discrepancyId = actionNode?.dataset.discrepancyId || ''
+    if (discrepancyId) {
+      requestPickupDiscrepancySupervisor(discrepancyId, '裁床仓管')
+      window.alert('已通知裁床主管处理，并记录通知人和时间。')
+    }
+    return true
+  }
   if (action === 'confirm-cutting-wp-pickup') {
+    recoverPendingPickupWarehouseTransaction()
     const pickupNodeId = state.cuttingPickupNodeId
     if (!pickupNodeId) {
       window.alert('请先选择中转仓领料节点。')
@@ -2301,6 +2463,12 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     const pickupNodeVersion = Number(state.cuttingPickupNodeVersion)
     const warehouseArea = state.cuttingPickupWarehouseArea || '面料 A 区'
     const locationCode = state.cuttingPickupLocationCode || 'FAB-A-01'
+    try {
+      assertPickupNodeHasNoOpenDiscrepancy(pickupNodeId, pickupNodeVersion)
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '当前节点存在领料差异，不可确认领料。')
+      return true
+    }
     let session = getPickupSessionByNodeId(pickupNodeId)
     try {
       if (!session) {
@@ -2313,7 +2481,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
         const nodeSnapshot = structuredClone(node)
         cuttingPickupNodeSnapshot = nodeSnapshot
         const idempotencyKey = `pda-pickup:${pickupNodeId}:v${pickupNodeVersion}`
-        session = appendPickupSessionFromNode({
+        session = appendPickupSessionWithWarehouseFactsRuntime({
           pickupNodeId,
           pickupNodeVersion,
           receiverName: '裁床仓管',
@@ -2321,20 +2489,15 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
           locationCode,
           waitProcessLedgerEventId: idempotencyKey,
           idempotencyKey,
-          warehouseSyncDeferred: true,
-        })
+        }, syncCuttingPickupSessionRuntimeFacts)
+      } else if (session.warehouseSyncStatus !== '已回写') {
+        // 仅兼容改造前已经保存的异常记录；新确认不会再产生此中间态。
+        syncCuttingPickupSessionRuntimeFacts(session)
+        recordPickupSessionWarehouseSyncResult(session.pickupSessionId, { status: '已回写' })
       }
-      syncCuttingPickupSessionRuntimeFacts(session)
-      recordPickupSessionWarehouseSyncResult(session.pickupSessionId, { status: '已回写' })
       window.history.replaceState({}, '', '/fcs/pda/warehouse/wait-process?scope=cutting&action=pickup')
     } catch (e) {
-      if (session) {
-        recordPickupSessionWarehouseSyncResult(session.pickupSessionId, {
-          status: '回写异常待重试',
-          message: e instanceof Error ? e.message : '待加工仓流水写入失败',
-        })
-      }
-      window.alert(e instanceof Error ? `领料已保存，待加工仓流水写入失败：${e.message}` : '领料已保存，待加工仓流水写入失败')
+      window.alert(e instanceof Error ? `领料确认失败，未保存领料及入仓事实：${e.message}` : '领料确认失败，未保存领料及入仓事实')
       window.history.replaceState({}, '', '/fcs/pda/warehouse/wait-process?scope=cutting&action=pickup')
       clearCuttingPickupDraft()
       return true
@@ -2729,6 +2892,24 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
   }
   if (field === 'cutting-pickup-location') {
     state.cuttingPickupLocationCode = value
+    return true
+  }
+  if (field === 'cutting-pickup-difference-line') {
+    state.cuttingPickupDifferenceDemandLineId = value
+    return true
+  }
+  if (field === 'cutting-pickup-difference-qty') {
+    state.cuttingPickupDifferenceQty = value
+    return true
+  }
+  if (field === 'cutting-pickup-difference-note') {
+    state.cuttingPickupDifferenceNote = value
+    return true
+  }
+  if (field === 'cutting-pickup-difference-photo') {
+    state.cuttingPickupDifferencePhotoName = fieldNode instanceof HTMLInputElement
+      ? fieldNode.files?.[0]?.name || ''
+      : ''
     return true
   }
   if (field === 'cutting-issue-area') {

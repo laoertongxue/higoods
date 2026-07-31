@@ -3,7 +3,6 @@
 import { renderBadge } from '../../../components/ui/badge.ts'
 import type { BadgeVariant } from '../../../components/ui/types.ts'
 import {
-  listActivePickupNodes,
   listMaterialPrepOrderProjections,
   pickupStatusLabelMap,
   pickupWorkbenchTabs,
@@ -12,6 +11,9 @@ import {
   type MaterialPrepOrderProjection,
   type PickupOrderStatus,
 } from '../../../data/fcs/cutting/production-material-prep.ts'
+import {
+  listActivePickupNodesRuntime as listActivePickupNodes,
+} from '../../../runtime/fcs/cutting/pickup-management-runtime.ts'
 import type {
   PickupNodeProjection,
   PickupNodeItem,
@@ -773,7 +775,7 @@ export function renderCraftCuttingPickupManagementDetailPage(): string {
     return `
       <div class="space-y-5 p-6">
         ${renderCuttingPageHeader(getCanonicalCuttingMeta('pickup-management'), {
-          actionsHtml: `<button type="button" class="rounded-md border px-4 py-2 text-sm" data-nav="/fcs/craft/cutting/pickup-management">返回领料列表</button>`,
+          actionsHtml: `<button type="button" class="rounded-md border px-4 py-2 text-sm" data-nav="/fcs/craft/cutting/pickup-management/ready">返回已配齐待领料</button>`,
         })}
         <section class="rounded-lg border bg-card px-4 py-10 text-center text-sm text-muted-foreground">未找到该领料节点，可能已被领取或不存在。</section>
       </div>
@@ -795,7 +797,7 @@ export function renderCraftCuttingPickupManagementDetailPage(): string {
           <p class="mt-2 text-sm text-muted-foreground">生产单 ${renderProductionOrderIdentityCell(productionOrderNo)} / 配料单 ${escapeHtml(prepOrderNo)}</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <button type="button" class="rounded-md border px-4 py-2 text-sm" data-nav="/fcs/craft/cutting/pickup-management">返回领料列表</button>
+          <button type="button" class="rounded-md border px-4 py-2 text-sm" data-nav="/fcs/craft/cutting/pickup-management/ready">返回已配齐待领料</button>
         </div>
       </header>
       ${node ? renderNodeDetailContent(node) : `

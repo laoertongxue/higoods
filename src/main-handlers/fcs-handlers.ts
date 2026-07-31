@@ -201,6 +201,7 @@ import {
 } from '../pages/process-factory/cutting/warehouse-hub'
 import { handleCraftCuttingWaitHandoverWebActionsEvent } from '../pages/process-factory/cutting/wait-handover-web-actions'
 import { handleCraftCuttingPickupManagementEvent } from '../pages/process-factory/cutting/pickup-management'
+import { handleCraftCuttingPickupListEvent } from '../pages/process-factory/cutting/pickup-management-list'
 import { handleCraftCuttingHandoverOrdersEvent } from '../pages/process-factory/cutting/handover-orders'
 import { handleCraftCombinedDyeingEvent, handleCraftDyeingEvent } from '../pages/process-factory/dyeing/events'
 import {
@@ -240,12 +241,23 @@ import {
 } from '../pages/process-factory/shared/warehouse-standard'
 import { closeProductionObjectOverlays } from '../components/production-object-overview'
 
+const CUTTING_PICKUP_LIST_PATHS = new Set([
+  '/fcs/craft/cutting/pickup-management/ready',
+  '/fcs/craft/cutting/pickup-management/incomplete',
+  '/fcs/craft/cutting/pickup-management/history',
+])
+
 export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
   const isSupplementManagementRoute = pathname.startsWith('/fcs/craft/cutting/supplement-management')
   const isCutPieceReleaseRoute = pathname.startsWith('/fcs/craft/cutting/cut-piece-release')
   if (pathname.startsWith('/fcs/craft/cutting/pickup-management')) {
-    return handleCraftCuttingPickupManagementEvent(target, event)
+    if (CUTTING_PICKUP_LIST_PATHS.has(pathname)) {
+      return handleCraftCuttingPickupListEvent(target, event)
+    }
+    return pathname === '/fcs/craft/cutting/pickup-management-detail'
+      ? handleCraftCuttingPickupManagementEvent(target, event)
+      : false
   }
   if (pathname.startsWith('/fcs/process/water-soluble-orders')) {
     return handleProcessWaterSolubleOrdersEvent(target)
@@ -261,9 +273,6 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
   }
   if (pathname.startsWith('/fcs/craft/dyeing/combined-dyeing')) {
     return handleCraftCombinedDyeingEvent(target, event)
-  }
-  if (pathname.startsWith('/fcs/craft/cutting/pickup-management')) {
-    return handleCraftCuttingPickupManagementEvent(target, event)
   }
   if (pathname.startsWith('/fcs/dispatch/acceptance-sla')) {
     return handleDispatchAcceptanceSlaEvent(target)

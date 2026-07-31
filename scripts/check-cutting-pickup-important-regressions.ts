@@ -5,11 +5,16 @@ import path from 'node:path'
 import process from 'node:process'
 
 import {
+  appendManualPrepRecord,
   appendPickupReturnRecord,
+  confirmMaterialPrepRecord,
   createProductionMaterialPrepSeedStore,
+  deserializeProductionMaterialPrepStore,
   getMaterialPrepOrderProjection,
   hydrateProductionMaterialPrepStore,
-  listActivePickupNodes,
+  listMaterialPrepOrderProjections,
+  migrateProductionMaterialPrepStoreToPickupThreeListScenes,
+  pickMaterialPrepRecord,
   PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
   serializeProductionMaterialPrepStore,
   stageMaterialPrepRecord,
@@ -17,7 +22,15 @@ import {
   type PickupRecord,
   type ProductionMaterialPrepWorkflowStore,
 } from '../src/data/fcs/cutting/production-material-prep.ts'
+import {
+  appendPickupSessionFromNodeRuntime as appendPickupSessionFromNode,
+  bootstrapPickupManagementRuntimeMockData,
+  listActivePickupNodesRuntime as listActivePickupNodes,
+} from '../src/runtime/fcs/cutting/pickup-management-runtime.ts'
 import { renderFcsCuttingPrepPage } from '../src/pages/fcs/material-prep/cutting.ts'
+import { listPickupOrderGroups } from '../src/pages/process-factory/cutting/pickup-management-projection.ts'
+
+bootstrapPickupManagementRuntimeMockData()
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -39,6 +52,106 @@ function createStorage(store: ProductionMaterialPrepWorkflowStore): MemoryStorag
   const storage = new MemoryStorage()
   storage.setItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY, serializeProductionMaterialPrepStore(store))
   return storage
+}
+
+function verifyPickupThreeListSceneStoreMigration(): void {
+  const legacyStore = createProductionMaterialPrepSeedStore()
+  const removedPrepRecordIds = new Set([
+    'prep-rec-po-0002-original-complete-001',
+    'prep-rec-po-0002-new-supplement-001',
+    'prep-rec-po-0004-supplement-demo-current-001',
+    'prep-rec-po-202603-1103-auto-complete-001',
+  ])
+  legacyStore.prepRecords = legacyStore.prepRecords.filter((record) =>
+    !removedPrepRecordIds.has(record.prepRecordId)
+  )
+  legacyStore.pickupRecords = legacyStore.pickupRecords.filter((record) =>
+    record.prepOrderId !== 'prep-order-po-202603-0002'
+      && record.prepOrderId !== 'prep-order-po-202603-1103'
+  )
+  legacyStore.pickupSessions = legacyStore.pickupSessions.filter((session) =>
+    session.prepOrderId !== 'prep-order-po-202603-0002'
+      && session.prepOrderId !== 'prep-order-po-202603-1103'
+  )
+  legacyStore.pickupNodeSnapshots = []
+  legacyStore.pickupReturnRecords = []
+  const customPrepRecord = {
+    ...legacyStore.prepRecords[0],
+    prepRecordId: 'custom-prep-record-must-survive-three-list-migration',
+    remark: '用户自行维护的非 seed 配料事实',
+  }
+  legacyStore.prepRecords.push(customPrepRecord)
+
+  const migrated = deserializeProductionMaterialPrepStore(serializeProductionMaterialPrepStore(legacyStore))
+  assert(
+    migrated.prepRecords.some((record) => record.prepRecordId === customPrepRecord.prepRecordId && record.remark === customPrepRecord.remark),
+    '三列表场景迁移不得覆盖或丢失用户自行维护的非 seed 配料事实',
+  )
+  for (const prepRecordId of removedPrepRecordIds) {
+    assert(migrated.prepRecords.some((record) => record.prepRecordId === prepRecordId), `旧 Store 必须补齐配料场景：${prepRecordId}`)
+  }
+  assert(
+    migrated.pickupRecords.some((record) => record.prepOrderId === 'prep-order-po-202603-0002')
+      && migrated.pickupRecords.some((record) => record.prepOrderId === 'prep-order-po-202603-1103'),
+    '旧 Store 必须补齐 PO0002 与 PO1103 的 seed 领料事实',
+  )
+  assert(
+    migrated.pickupSessions.some((session) =>
+      session.prepOrderId === 'prep-order-po-202603-0002'
+        && session.nodeType === 'READY_TO_PICKUP'
+        && session.pickupNodeSnapshot?.nodeType === 'READY_TO_PICKUP'
+    ),
+    '旧 Store 必须补齐 PO0002 原需求已领完的 READY 会话与节点快照',
+  )
+  assert(
+    migrated.pickupNodeSnapshots.some((snapshot) =>
+      snapshot.nodeId === 'pickup-node:prep-order-po-202603-1103:2'
+        && snapshot.nodeType === 'INCOMPLETE_PICKABLE'
+        && snapshot.version === 1
+    ),
+    '旧 Store 必须补齐 PO1103 升级前 INCOMPLETE 快照',
+  )
+  assert(
+    new Set(migrated.prepRecords.map((record) => record.prepRecordId)).size === migrated.prepRecords.length
+      && new Set(migrated.pickupRecords.map((record) => record.pickupRecordId)).size === migrated.pickupRecords.length
+      && new Set(migrated.pickupSessions.map((session) => session.pickupSessionId)).size === migrated.pickupSessions.length
+      && new Set(migrated.pickupReturnRecords.map((record) => record.returnRecordId)).size === migrated.pickupReturnRecords.length
+      && new Set(migrated.pickupNodeSnapshots.map((snapshot) => snapshot.nodeId)).size === migrated.pickupNodeSnapshots.length,
+    '三列表场景迁移按稳定 ID 幂等合并，不得重复记录',
+  )
+
+  const storage = createStorage(migrated)
+  const upgradedNode = listActivePickupNodes(storage).find((node) =>
+    node.prepOrderId === 'prep-order-po-202603-1103'
+  )
+  assert(
+    upgradedNode?.nodeType === 'INCOMPLETE_PICKABLE'
+      && upgradedNode.version === 2
+      && upgradedNode.readySource === null,
+    '旧 Store 迁移后 PO1103 必须形成 V2 节点，并由未完成染色继续阻断配齐',
+  )
+  const po0002History = listPickupOrderGroups('HISTORY', storage as Storage).find((group) =>
+    group.productionOrderNo === 'PO-202603-0002'
+  )
+  const po0002Current = listPickupOrderGroups('READY', storage as Storage).find((group) =>
+    group.productionOrderNo === 'PO-202603-0002'
+  )
+  assert(po0002History?.finalResult === 'NEW_SUPPLEMENT_WAIT_PICKUP', '旧 Store 迁移后 PO0002 历史必须标记新增补料待领')
+  assert(po0002Current?.pickupNodeId === 'pickup-node:prep-order-po-202603-0002:9', '旧 Store 迁移后 PO0002 当前待领节点必须正确')
+
+  const migratedOnce = hydrateProductionMaterialPrepStore(storage)
+  const migratedTwice = deserializeProductionMaterialPrepStore(serializeProductionMaterialPrepStore(migratedOnce))
+  const migratedThrice = deserializeProductionMaterialPrepStore(serializeProductionMaterialPrepStore(migratedTwice))
+  assert(
+    serializeProductionMaterialPrepStore(migratedTwice) === serializeProductionMaterialPrepStore(migratedThrice),
+    '三列表场景迁移二次执行结果必须完全不变',
+  )
+  const directlyMigratedOnce = migrateProductionMaterialPrepStoreToPickupThreeListScenes(migratedTwice)
+  const directlyMigratedTwice = migrateProductionMaterialPrepStoreToPickupThreeListScenes(directlyMigratedOnce)
+  assert(
+    serializeProductionMaterialPrepStore(directlyMigratedOnce) === serializeProductionMaterialPrepStore(directlyMigratedTwice),
+    '三列表场景迁移函数直接二次执行结果必须完全不变',
+  )
 }
 
 function verifyLegacyPickupSessionMigration(): void {
@@ -187,6 +300,23 @@ function verifySourceAccurateReturnRecovery(): void {
   const store = createProductionMaterialPrepSeedStore()
   const prepOrderId = 'prep-order-po-202603-0004'
   const prepLineId = 'prep-line-po-0004-main'
+  // This regression owns a synthetic PO0004 source set. Neutralize evolving
+  // demo seed facts first so hydration cannot merge them back into this fixture.
+  store.prepRecords = store.prepRecords.map((record) => record.prepOrderId === prepOrderId
+    ? {
+        ...record,
+        preparedQty: 0,
+        rollCount: 0,
+        recordStatus: 'REJECTED',
+        items: record.items?.map((item) => ({ ...item, preparedQty: 0, rollCount: 0 })),
+      }
+    : record)
+  store.pickupRecords = store.pickupRecords.map((record) => record.prepOrderId === prepOrderId
+    ? { ...record, pickedQty: 0, rollCount: 0, sourceAllocations: [] }
+    : record)
+  store.pickupReturnRecords = store.pickupReturnRecords.map((record) => record.prepOrderId === prepOrderId
+    ? { ...record, returnQty: 0, rollCount: 0 }
+    : record)
   const recordA: MaterialPrepRecord = {
     prepRecordId: 'check-source-record-a',
     prepOrderId,
@@ -345,6 +475,65 @@ function verifySourceAccurateReturnRecovery(): void {
   assert(legacyReturn.returnQty === 10, '没有 sourceAllocations 的旧领料记录必须继续兼容原退回口径')
 }
 
+function verifyHistoryUsesCurrentActiveCarrier(): void {
+  const storage = createStorage(createProductionMaterialPrepSeedStore())
+  const incompleteNode = listActivePickupNodes(storage)
+    .find((node) => node.nodeType === 'INCOMPLETE_PICKABLE')
+  assert(incompleteNode, '混合历史测试必须存在未配齐活动节点')
+  const existingSessionCount = getMaterialPrepOrderProjection(incompleteNode.prepOrderId, storage)
+    ?.pickupSessions.length ?? 0
+
+  appendPickupSessionFromNode({
+    pickupNodeId: incompleteNode.nodeId,
+    pickupNodeVersion: incompleteNode.version,
+    receiverName: '裁床 历史混合测试员',
+    warehouseArea: '待加工仓测试区',
+    locationCode: 'CUT-HISTORY-MIXED-01',
+    waitProcessLedgerEventId: 'check-history-mixed-incomplete-pickup',
+    idempotencyKey: 'check-history-mixed-incomplete-pickup',
+  }, storage)
+
+  const projectionAfterFirstPickup = listMaterialPrepOrderProjections(storage)
+    .find((projection) => projection.order.prepOrderId === incompleteNode.prepOrderId)
+  assert(projectionAfterFirstPickup, '未配齐领取后必须保留配料单投影')
+  for (const [index, line] of projectionAfterFirstPickup.lines.entries()) {
+    if (line.remainingNeedQty <= 0) continue
+    const record = appendManualPrepRecord({
+      prepOrderId: projectionAfterFirstPickup.order.prepOrderId,
+      prepLineId: line.prepLineId,
+      preparedQty: line.remainingNeedQty,
+      rollCount: 1,
+      warehouseArea: '中转仓历史混合测试区',
+      locationCode: `TR-HISTORY-MIXED-${String(index + 1).padStart(3, '0')}`,
+      operatorName: '中转仓 历史混合测试员',
+    }, storage)
+    assert(pickMaterialPrepRecord(record.prepRecordId, '仓库 历史混合测试员', storage), '历史混合测试配料记录必须完成拣货')
+    assert(stageMaterialPrepRecord(record.prepRecordId, '中转仓历史混合测试区', '跟单 历史混合测试员', storage), '历史混合测试配料记录必须完成暂存')
+    assert(confirmMaterialPrepRecord(record.prepRecordId, '中转仓 历史混合测试员', storage), '历史混合测试配料记录必须完成确认')
+  }
+
+  const activeCurrentNode = listActivePickupNodes(storage)
+    .find((node) => node.prepOrderId === incompleteNode.prepOrderId)
+  assert(activeCurrentNode?.nodeType === 'INCOMPLETE_PICKABLE', '必需加工未完成时，补齐正常配料后仍必须形成当前未配齐节点')
+  const historyGroup = listPickupOrderGroups('HISTORY', storage as Storage)
+    .find((group) => group.prepOrderId === incompleteNode.prepOrderId)
+  assert(historyGroup, '未配齐领取一轮后必须保留历史分组')
+  assert(historyGroup.historyPath === 'INCOMPLETE_PICKUP', '历史路径必须继续保留首轮未配齐领取事实')
+  assert(
+    historyGroup.pickupSessionCount === existingSessionCount + 1,
+    '历史分组必须保留新增的未配齐领料会话',
+  )
+  assert(historyGroup.carrierType === activeCurrentNode.carrierType, '历史分组当前承载必须与当前活动节点一致')
+  assert(historyGroup.carrierType === 'WAREHOUSE_LOCATIONS', '加工阻断的当前节点必须继续显示生产单专属库位')
+  assert(historyGroup.palletId === '', '未配齐节点不得虚构托盘编号')
+  assert(historyGroup.palletDisplayLabel === '', '未配齐节点不得显示待领托盘')
+  assert(historyGroup.readySource === activeCurrentNode.readySource, '历史分组当前配齐来源必须与当前活动节点一致')
+  assert(
+    historyGroup.materialRows.some((row) => row.currentLocations.length > 0),
+    '历史分组存在当前未配齐节点时必须显示当前专属库位',
+  )
+}
+
 function verifyMixedUnitPrepRecords(): void {
   const store = createProductionMaterialPrepSeedStore()
   const mixedRecord = store.prepRecords.find((record) => record.prepRecordId === 'prep-rec-po-0101-mixed-002')
@@ -433,8 +622,10 @@ function verifyMixedUnitPrepRecords(): void {
 
 const failures: string[] = []
 for (const [name, verify] of [
+  ['三列表旧 Store 场景迁移', verifyPickupThreeListSceneStoreMigration],
   ['旧存储领料主记录迁移', verifyLegacyPickupSessionMigration],
   ['来源级退回恢复', verifySourceAccurateReturnRecovery],
+  ['历史分组当前承载事实', verifyHistoryUsesCurrentActiveCarrier],
   ['配料记录多单位汇总', verifyMixedUnitPrepRecords],
 ] as const) {
   try {

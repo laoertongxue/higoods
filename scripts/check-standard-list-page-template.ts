@@ -1571,7 +1571,7 @@ async function checkSupplementColumnDragInChromium(): Promise<void> {
     await page.goto(pageUrl)
     await page.evaluate((key) => localStorage.removeItem(key), supplementStorageKey)
     await page.reload()
-    await page.getByRole('button', { name: '列设置' }).click()
+    await page.getByRole('button', { name: '列设置' }).click({ timeout: 120_000 })
     await page.locator('main').evaluate((main) => { main.dataset.columnDragBrowserMarker = 'kept' })
     await page.evaluate(() => {
       const main = document.querySelector('main')

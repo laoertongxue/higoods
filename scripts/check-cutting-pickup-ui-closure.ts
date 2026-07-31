@@ -5,22 +5,101 @@ function assert(condition: unknown, message: string): asserts condition {
 }
 
 const pcSource = fs.readFileSync('src/pages/process-factory/cutting/pickup-management.ts', 'utf8')
+const listPath = 'src/pages/process-factory/cutting/pickup-management-list.ts'
+const listSource = fs.existsSync(listPath) ? fs.readFileSync(listPath, 'utf8') : ''
+const handlerSource = fs.readFileSync('src/main-handlers/fcs-handlers.ts', 'utf8')
+const mainSource = fs.readFileSync('src/main.ts', 'utf8')
 const pdaSource = fs.readFileSync('src/pages/pda-warehouse-wait-process.ts', 'utf8')
 
-assert(pcSource.includes('buildPickupWorkbenchRows'), 'PC 四个页签必须从各自业务事实构建列表行')
-assert(pcSource.includes('data-pickup-row-kind'), 'PC 列表必须区分活动节点、领料主记录和订单状态')
-assert(pcSource.includes('/fcs/pda/warehouse/wait-process?scope=cutting&action=pickup&pickupNodeId='), 'PC 办理领料必须跳转 PDA 并携带节点快照')
+const mainPickupBranch = mainSource.match(
+  /if \(pathname\.startsWith\('\/fcs\/craft\/cutting\/pickup-management'\)\) \{[\s\S]*?\n  \}/,
+)?.[0] ?? ''
+assert(
+  mainPickupBranch.includes('getFcsHandlersModule()')
+    && mainPickupBranch.includes('dispatchFcsPageEvent(eventTarget, event)')
+    && !mainPickupBranch.includes("import('./pages/process-factory/cutting/pickup-management')"),
+  'main.ts 真实入口必须把三个列表和旧详情统一交给 FCS 精确分派，不得被旧页面处理器提前截获',
+)
+for (const eventType of ['click', 'input', 'change']) {
+  const listenerSource = mainSource.match(
+    new RegExp(`root\\.addEventListener\\('${eventType}'[\\s\\S]*?(?=root\\.addEventListener\\('|$)`),
+  )?.[0] ?? ''
+  assert(listenerSource.includes('dispatchPageEvent(target, event)'), `${eventType} 事件必须进入统一页面分派`)
+}
+assert(
+  mainSource.includes("root.addEventListener('dragstart', dispatchListColumnDragEvent)")
+    && mainSource.includes('void dispatchPageEvent(target, internalEvent)'),
+  '列拖拽事件必须进入统一页面分派',
+)
+
+assert(listSource.includes('listPickupOrderGroups(kind)'), '三个列表必须按当前列表类型读取生产单分组')
+assert(listSource.includes('/fcs/pda/warehouse/wait-process?scope=cutting&action=pickup&pickupNodeId='), 'PC 去领料必须跳转 PDA 并携带节点快照')
+assert(listSource.includes('一次领取本节点全部物料'), 'PC 去领料入口必须明确一次领取本节点全部物料')
 assert(!pcSource.includes("receiverName: '裁床 李明'"), 'PC 不得硬编码收货人直接确认领料')
 assert(!pcSource.includes('本轮全部领取</button>'), 'PC 详情不得直接确认领取')
-assert(pcSource.includes('sourceLocations.map'), 'PC 详情必须逐个展示全部来源货位')
+assert(listSource.includes('currentLocations.map'), '未配齐列表必须逐个展示每项物料全部来源库位')
 assert(pcSource.includes('节点版本'), 'PC 详情必须展示节点版本')
-assert(pcSource.includes('renderStandardListColumnSettings'), 'PC 标准列表必须提供列设置')
-assert(pcSource.includes('saveListColumnPreferences'), 'PC 列显示、顺序、冻结和每页条数必须持久化')
-assert(pcSource.includes("action === 'sort-column'"), 'PC 标准列表必须支持三态排序')
-assert(pcSource.includes("action === 'toggle-column-visibility'"), 'PC 标准列表必须支持列显隐')
-assert(pcSource.includes("action === 'toggle-column-freeze'"), 'PC 标准列表必须支持普通列冻结')
-assert(pcSource.includes('data-skip-page-rerender'), 'PC 轻交互必须跳过整页重绘')
-assert(pcSource.includes('refreshPickupRegions'), 'PC 轻交互必须局部刷新列表区域')
+assert(listSource.includes('renderStandardListColumnSettings'), 'PC 标准列表必须提供列设置')
+assert(listSource.includes('saveListColumnPreferences'), 'PC 列显示、顺序、冻结和每页条数必须持久化')
+for (const key of [
+  'standard-list:/fcs/craft/cutting/pickup-management/ready',
+  'standard-list:/fcs/craft/cutting/pickup-management/incomplete',
+  'standard-list:/fcs/craft/cutting/pickup-management/history',
+]) {
+  assert(listSource.includes(key), `三路由必须有独立偏好键 ${key}`)
+}
+assert(listSource.includes("action === 'sort-column'"), 'PC 标准列表必须支持三态排序')
+assert(listSource.includes("action === 'toggle-column-visibility'"), 'PC 标准列表必须支持列显隐')
+assert(listSource.includes("action === 'toggle-column-freeze'"), 'PC 标准列表必须支持普通列冻结')
+assert(listSource.includes('data-skip-page-rerender'), 'PC 轻交互必须跳过整页重绘')
+assert(listSource.includes('refreshPickupListRegions'), 'PC 轻交互必须局部刷新列表区域')
+assert(listSource.includes('setTimeout'), 'PC 搜索输入必须 debounce')
+assert(listSource.includes('new Map<string, ReturnType<typeof setTimeout>>()'), '两个筛选必须使用独立 debounce timer Map')
+assert(
+  listSource.includes('pickupListFilterDebounceKey(kind, filterField)')
+    && listSource.includes('`${kind}:${field}`'),
+  '筛选 debounce 必须按列表类型和字段隔离',
+)
+assert(!listSource.includes('.slice(0,'), '物料明细不得只展示前几项')
+assert(!listSource.includes('type="checkbox"'), '领料列表不得提供物料复选')
+assert(!listSource.includes('type="number"'), '领料列表不得提供领取数量输入')
+assert(listSource.includes('required: true') && listSource.includes('freezeable: true'), '生产单和物料明细必须为必需且可冻结列')
+assert(listSource.includes('actionColumn: true'), '操作列必须由标准表格固定右侧')
+assert(
+  (handlerSource.match(/pathname\.startsWith\('\/fcs\/craft\/cutting\/pickup-management'/g) ?? []).length === 1
+    && handlerSource.includes('CUTTING_PICKUP_LIST_PATHS.has(pathname)')
+    && handlerSource.indexOf('CUTTING_PICKUP_LIST_PATHS.has(pathname)')
+      > handlerSource.indexOf("pathname.startsWith('/fcs/craft/cutting/pickup-management')"),
+  'FCS handler 必须在唯一 pickup-management startsWith 分支内精确分派三个列表',
+)
+const historyMaterialsSource = listSource.match(
+  /function renderHistoryMaterials[\s\S]*?\n}\n\nconst READY_COLUMNS/,
+)?.[0] ?? ''
+for (const field of [
+  'materialImageUrl',
+  'materialName',
+  'materialSku',
+  '需求/配料行：',
+  '补料单：',
+  'processRouteLabel',
+  'processBasisLabel',
+  '应配',
+  '当前配料',
+  '累计领料',
+  '剩余',
+  'row.unit',
+]) {
+  assert(historyMaterialsSource.includes(field), `HISTORY 物料行缺少 5.9 字段：${field}`)
+}
+for (const label of [
+  '未配齐先领',
+  '已配齐后领料',
+  '全部领完',
+  '未完成全部领料',
+  '新增补料待领',
+]) {
+  assert(listSource.includes(label), `HISTORY 必须使用严格文案：${label}`)
+}
 
 assert(pdaSource.includes('buildPickupUnitSummaries'), 'PDA 总览必须按单位分组')
 assert(!pdaSource.includes("formatCuttingWaitProcessQty(totalQty, 'yard')"), 'PDA 不得把混合单位相加并统一标 yard')

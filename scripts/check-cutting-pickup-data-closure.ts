@@ -2,19 +2,25 @@
 
 import {
   appendManualPrepRecord,
-  appendPickupSessionFromNode,
   confirmMaterialPrepRecord,
   createProductionMaterialPrepSeedStore,
   getMaterialPrepOrderProjection,
   getMaterialPrepRecordContext,
   hydrateProductionMaterialPrepStore,
-  listActivePickupNodes,
   pickMaterialPrepRecord,
   PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
   recordPickupSessionWarehouseSyncResult,
   serializeProductionMaterialPrepStore,
   stageMaterialPrepRecord,
 } from '../src/data/fcs/cutting/production-material-prep.ts'
+import {
+  appendPickupSessionFromNodeRuntime as appendPickupSessionFromNode,
+  bootstrapPickupManagementRuntimeMockData,
+  listActivePickupNodesRuntime as listActivePickupNodes,
+  listPickupDemandFactsRuntime as listPickupDemandFacts,
+} from '../src/runtime/fcs/cutting/pickup-management-runtime.ts'
+
+bootstrapPickupManagementRuntimeMockData()
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -196,7 +202,13 @@ assert(afterSyncRetryStore.pickupSessions.find((item) => item.pickupSessionId ==
 
 const afterFirstPickup = getMaterialPrepOrderProjection(initialNode.prepOrderId, storage)
 assert(afterFirstPickup, '领料后配料单必须持续有效')
+const completedProcessLineIds = new Set(
+  listPickupDemandFacts(storage)
+    .filter((fact) => fact.prepOrderId === initialNode.prepOrderId && fact.processComplete)
+    .map((fact) => fact.demandLineId),
+)
 const stillMissingLine = afterFirstPickup.lines.find((line) =>
+  completedProcessLineIds.has(line.prepLineId) &&
   line.returnedQty === 0 &&
   Math.max(line.requiredQty - Math.max(line.pickedQty - line.returnedQty, 0), 0) > 1
 )
@@ -262,8 +274,8 @@ for (const line of beforeClosingNode.lines) {
 }
 const closingNode = listActivePickupNodes(storage).find((node) => node.prepOrderId === initialNode.prepOrderId)
 assert(closingNode?.sequence === initialNode.sequence + 2, '收尾到货必须创建下一序号节点')
-assert(closingNode.nodeType === 'READY_TO_PICKUP', '历史有效已领加当前可领逐行齐套时必须直接生成已配齐待领节点')
-assert(closingNode.locationPolicy === 'DIRECT_READY_AREA', '收尾齐套节点不得进入未配齐货架')
+assert(closingNode.nodeType === 'INCOMPLETE_PICKABLE', '历史已领与当前配料齐全但必需加工未完成时仍必须保持未配齐')
+assert(closingNode.locationPolicy === 'ASSIGN_INCOMPLETE_LOCATION', '加工未完成的后续节点仍必须进入生产单专属库位')
 
 const prepOrderIds = new Set(
   listActivePickupNodes(storage).map((node) => node.prepOrderId),
