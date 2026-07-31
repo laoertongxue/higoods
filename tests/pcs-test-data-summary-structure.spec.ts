@@ -13,6 +13,7 @@ import {
 import {
   getLatestProjectInlineNodeRecord,
   resetProjectInlineNodeRecordRepository,
+  upsertProjectInlineNodeRecord,
 } from '../src/data/pcs-project-inline-node-record-repository.ts'
 import {
   getProjectNodeRecordByStepCode,
@@ -24,6 +25,10 @@ import { upsertProjectRelation } from '../src/data/pcs-project-relation-reposito
 import { resetProjectRelationRepository } from '../src/data/pcs-project-relation-repository.ts'
 import { getLiveProductLineById } from '../src/data/pcs-live-testing-repository.ts'
 import { getVideoTestRecordById } from '../src/data/pcs-video-testing-repository.ts'
+import {
+  createProjectImageAssetRecords,
+  upsertProjectImageAssets,
+} from '../src/data/pcs-project-image-repository.ts'
 import { renderPcsProjectStepDetailPage } from '../src/pages/pcs-projects.ts'
 
 resetProjectRepository()
@@ -49,13 +54,69 @@ assert.ok(summaryFieldKeys.includes('channelProductBreakdownLines'), '测款汇�
 assert.ok(summaryFieldKeys.includes('testingSourceBreakdownLines'), '测款汇总应定义测款来源拆分字段')
 assert.ok(summaryFieldKeys.includes('currencyBreakdownLines'), '测款汇总应定义币种拆分字段')
 
-const project = listProjects().find((item) => item.projectCode === 'PRJ-20251216-015')
-assert.ok(project, '应存在 PRJ-20251216-015 演示项目')
+const project = listProjects().find((item) => item.projectCode === 'PRJ-202603-005')
+assert.ok(project, '应存在 PRJ-202603-005 演示项目')
 
-const existingShpRecord = listProjectChannelProductsByProjectId(project!.projectId).find(
-  (item) => item.channelCode === 'shopee' && item.channelProductStatus !== '已作废' && item.upstreamChannelProductCode,
+const existingTiktokRecord = listProjectChannelProductsByProjectId(project!.projectId).find(
+  (item) => item.channelCode === 'tiktok' && item.channelProductStatus !== '已作废' && item.upstreamChannelProductCode,
 )
-assert.ok(existingShpRecord, '演示项目应存在已完成上架的 虾皮 渠道商品')
+assert.ok(existingTiktokRecord, '演示项目应存在已完成上架的 TikTok 印尼主店渠道商品')
+
+for (const prerequisiteCode of ['SAMPLE_CONFIRM', 'SAMPLE_COST_REVIEW']) {
+  const prerequisiteNode = getProjectNodeRecordByStepCode(project!.projectId, prerequisiteCode)
+  assert.ok(prerequisiteNode, `应存在 ${prerequisiteCode} 前置节点`)
+  updateProjectNodeRecord(
+    project!.projectId,
+    prerequisiteNode!.projectNodeId,
+    { currentStatus: '已完成', updatedAt: '2026-04-10 08:00' },
+    '测试用户',
+  )
+}
+const costReviewNode = getProjectNodeRecordByStepCode(project!.projectId, 'SAMPLE_COST_REVIEW')
+upsertProjectInlineNodeRecord({
+  recordId: `inline_${project!.projectId}_summary_test_cost`,
+  recordCode: `INR-${project!.projectCode}-COST`,
+  projectId: project!.projectId,
+  projectCode: project!.projectCode,
+  projectName: project!.projectName,
+  projectNodeId: costReviewNode!.projectNodeId,
+  stepCode: 'SAMPLE_COST_REVIEW',
+  stepName: '样衣核价',
+  businessDate: '2026-04-10',
+  recordStatus: '已完成',
+  ownerId: project!.ownerId,
+  ownerName: '测试用户',
+  payload: { salesPrice: 299, salesCurrency: 'CNY' },
+  detailSnapshot: {},
+  sourceModule: '成本核价',
+  sourceDocType: '样衣核价单',
+  sourceDocId: `cost_${project!.projectId}`,
+  sourceDocCode: `COST-${project!.projectCode}`,
+  upstreamRefs: [],
+  downstreamRefs: [],
+  createdAt: '2026-04-10 08:00',
+  createdBy: '测试用户',
+  updatedAt: '2026-04-10 08:00',
+  updatedBy: '测试用户',
+  legacyProjectRef: null,
+})
+const [listingImage] = createProjectImageAssetRecords(
+  project!,
+  [{
+    imageUrl: 'mock://listing-image/summary-second-store',
+    imageName: '第二店铺测款主图',
+    imageType: '上架图',
+    sourceNodeCode: 'CHANNEL_PRODUCT_LISTING',
+    sourceRecordId: 'summary-second-store',
+    sourceType: '商品上架',
+    usageScopes: ['商品上架'],
+    imageStatus: '可用于上架',
+    mainFlag: true,
+    sortNo: 1,
+  }],
+  '测试用户',
+)
+upsertProjectImageAssets([listingImage])
 
 const tiktokResult = createProjectChannelProductFromListingNode(
   project!.projectId,
@@ -65,14 +126,16 @@ const tiktokResult = createProjectChannelProductFromListingNode(
     listingTitle: '设计款中式结饰上衣 TikTok 第二店铺正式测款款',
     defaultPriceAmount: 319,
     currencyCode: 'VND',
+    listingMainImageId: listingImage.imageId,
+    listingImageIds: [listingImage.imageId],
     specLines: [
-      { colorName: '米白', sizeName: 'M', priceAmount: 319, currencyCode: 'VND', stockQty: 9 },
-      { colorName: '米白', sizeName: 'L', priceAmount: 319, currencyCode: 'VND', stockQty: 7 },
+      { colorName: '米白', sizeName: 'M', priceAmount: 319, currencyCode: 'VND', stockQty: 9, productImageId: listingImage.imageId, productImageUrl: listingImage.imageUrl },
+      { colorName: '米白', sizeName: 'L', priceAmount: 319, currencyCode: 'VND', stockQty: 7, productImageId: listingImage.imageId, productImageUrl: listingImage.imageUrl },
     ],
   },
   '测试用户',
 )
-assert.equal(tiktokResult.ok, true, '应允许补充第二渠道第二店铺上架实例')
+assert.equal(tiktokResult.ok, true, tiktokResult.message || '应允许补充第二渠道第二店铺上架实例')
 assert.ok(tiktokResult.record, '应返回新建的 TikTok 渠道商品实例')
 
 const launchResult = launchProjectChannelProductListing(tiktokResult.record!.channelProductId, '测试用户')
@@ -106,7 +169,7 @@ updateProjectNodeRecord(
 )
 
 const videoRecord = getVideoTestRecordById('SV-PJT-012')
-const liveLine = getLiveProductLineById('LS-20260331-017__item-001')
+const liveLine = getLiveProductLineById('LS-20260122-001__item-003')
 assert.ok(videoRecord, '应存在可引用的短视频正式记录')
 assert.ok(liveLine, '应存在可引用的直播正式记录')
 
@@ -132,7 +195,7 @@ upsertProjectRelation({
   createdBy: '测试用户',
   updatedAt: `${videoRecord!.businessDate} 10:00`,
   updatedBy: '测试用户',
-  note: 'TikTok 第二店铺短视频测款转化稳定。',
+  note: '该短视频记录没有显式绑定渠道店铺商品，不应进入汇总。',
   legacyRefType: '',
   legacyRefValue: '',
 })
@@ -159,7 +222,7 @@ upsertProjectRelation({
   createdBy: '测试用户',
   updatedAt: `${liveLine!.businessDate} 19:00`,
   updatedBy: '测试用户',
-  note: '虾皮 店铺直播测款成交集中在主推颜色。',
+  note: '该直播记录已显式绑定 TikTok 印尼主店渠道商品。',
   legacyRefType: '',
   legacyRefValue: '',
 })
@@ -191,29 +254,41 @@ const channelProductBreakdownLines = payload.channelProductBreakdownLines as str
 const testingSourceBreakdownLines = payload.testingSourceBreakdownLines as string[]
 const currencyBreakdownLines = payload.currencyBreakdownLines as string[]
 
-assert.ok(channelBreakdownLines.some((line) => line.includes('TikTok')), '渠道拆分应包含TikTok')
-assert.ok(channelBreakdownLines.some((line) => line.includes('虾皮')), '渠道拆分应包含虾皮')
-assert.ok(storeBreakdownLines.some((line) => line.includes('TikTok 越南店')), '店铺拆分应包含 TikTok 第二店铺')
-assert.ok(storeBreakdownLines.some((line) => line.includes('虾皮马来西亚店')), '店铺拆分应包含 虾皮 店铺')
-assert.ok(channelProductBreakdownLines.some((line) => line.includes(existingShpRecord!.channelProductCode)), '渠道商品拆分应包含原 虾皮 渠道商品')
-assert.ok(channelProductBreakdownLines.some((line) => line.includes(tiktokResult.record!.channelProductCode)), '渠道商品拆分应包含新增 TikTok 渠道商品')
-assert.ok(testingSourceBreakdownLines.some((line) => line.includes('直播')), '测款来源拆分应包含直播')
-assert.ok(testingSourceBreakdownLines.some((line) => line.includes('短视频')), '测款来源拆分应包含短视频')
-assert.ok(currencyBreakdownLines.some((line) => line.includes('USD')), '币种拆分应包含 USD')
-assert.ok(currencyBreakdownLines.some((line) => line.includes('VND')), '币种拆分应包含 VND')
+assert.ok(channelBreakdownLines.some((line) => line.includes('TikTok')), '渠道拆分应包含 TikTok')
+assert.ok(storeBreakdownLines.some((line) => line.includes('TikTok 印尼主店')), '店铺拆分应包含显式绑定的 TikTok 印尼主店')
+assert.ok(channelProductBreakdownLines.some((line) => line.includes(existingTiktokRecord!.channelProductCode)), '渠道商品拆分应包含显式绑定的 TikTok 印尼主店商品')
+assert.ok(
+  !channelProductBreakdownLines.some((line) => line.includes(tiktokResult.record!.channelProductCode)),
+  '同渠道第二店铺商品未被显式绑定时不得串入汇总',
+)
+assert.ok(testingSourceBreakdownLines.some((line) => line.includes('直播')), '测款来源拆分应包含显式映射的直播')
+assert.ok(testingSourceBreakdownLines.some((line) => line.includes('短视频')), '测款来源拆分应保留项目中已有显式映射的短视频')
+assert.ok(currencyBreakdownLines.length > 0, '币种拆分应保留显式绑定主店的币种')
+assert.ok(!currencyBreakdownLines.some((line) => line.includes('VND')), '未显式映射的店铺币种不得串入汇总')
 
 const detailSnapshot = (summaryRecord!.detailSnapshot || {}) as Record<string, unknown>
 assert.ok(Array.isArray(detailSnapshot.channelBreakdowns), 'detailSnapshot 中应保留渠道结构对象')
 assert.ok(Array.isArray(detailSnapshot.storeBreakdowns), 'detailSnapshot 中应保留店铺结构对象')
 assert.ok(Array.isArray(detailSnapshot.currencyBreakdowns), 'detailSnapshot 中应保留币种结构对象')
+assert.ok(
+  !(detailSnapshot.videoRelationIds as string[]).includes('relation-test-summary-video-015'),
+  `没有显式渠道店铺商品映射的短视频关系不得进入汇总关系集合：${JSON.stringify({
+    videoRelationIds: detailSnapshot.videoRelationIds,
+    channelProducts: listProjectChannelProductsByProjectId(project!.projectId).map((item) => ({
+      code: item.channelProductCode,
+      linkedVideoRecordId: item.linkedVideoRecordId,
+      linkedVideoRecordCode: item.linkedVideoRecordCode,
+    })),
+  })}`,
+)
 
 const stepDefinitionHtml = await renderPcsProjectStepDetailPage(project!.projectId, summaryNode!.projectNodeId)
-assert.match(stepDefinitionHtml, /渠道拆分/, '工作项详情页应展示渠道拆分字段')
-assert.match(stepDefinitionHtml, /店铺拆分/, '工作项详情页应展示店铺拆分字段')
-assert.match(stepDefinitionHtml, /渠道店铺商品拆分/, '工作项详情页应展示渠道店铺商品拆分字段')
-assert.match(stepDefinitionHtml, /测款来源拆分/, '工作项详情页应展示测款来源拆分字段')
-assert.match(stepDefinitionHtml, /币种拆分/, '工作项详情页应展示币种拆分字段')
-assert.match(stepDefinitionHtml, /TikTok \/ TikTok 越南店/, '工作项详情页应展示 TikTok 第二店铺拆分结果')
-assert.match(stepDefinitionHtml, /虾皮 \/ 虾皮马来西亚店/, '工作项详情页应展示 虾皮 店铺拆分结果')
+assert.match(stepDefinitionHtml, /渠道拆分/, '项目步骤详情页应展示渠道拆分字段')
+assert.match(stepDefinitionHtml, /店铺拆分/, '项目步骤详情页应展示店铺拆分字段')
+assert.match(stepDefinitionHtml, /渠道店铺商品拆分/, '项目步骤详情页应展示渠道店铺商品拆分字段')
+assert.match(stepDefinitionHtml, /测款来源拆分/, '项目步骤详情页应展示测款来源拆分字段')
+assert.match(stepDefinitionHtml, /币种拆分/, '项目步骤详情页应展示币种拆分字段')
+assert.doesNotMatch(stepDefinitionHtml, /TikTok \/ TikTok 越南店/, '项目步骤详情页不得展示未显式映射的 TikTok 越南店')
+assert.match(stepDefinitionHtml, /TikTok \/ TikTok 印尼主店/, '项目步骤详情页应展示显式绑定的 TikTok 印尼主店拆分结果')
 
 console.log('pcs-test-data-summary-structure.spec.ts PASS')

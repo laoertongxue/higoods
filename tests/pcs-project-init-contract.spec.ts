@@ -28,7 +28,7 @@ assert.ok(project, '应存在商品项目演示数据')
 const projectInitNode = listProjectNodes(project.projectId).find((node) => node.stepCode === 'PROJECT_INIT')
 assert.ok(projectInitNode, '演示项目应包含 PROJECT_INIT 节点')
 
-const detailHtml = renderPcsProjectStepDetailPage(project.projectId, projectInitNode.projectNodeId)
+const detailHtml = await renderPcsProjectStepDetailPage(project.projectId, projectInitNode.projectNodeId)
 assert.match(detailHtml, /项目类型/, 'PROJECT_INIT 详情应展示项目类型')
 assert.match(detailHtml, /年份/, 'PROJECT_INIT 详情应展示年份')
 assert.match(detailHtml, /季节标签/, 'PROJECT_INIT 详情应展示季节标签')

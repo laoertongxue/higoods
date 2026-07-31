@@ -280,6 +280,43 @@
 - 通过。
 - 无业务例外。
 
+## 8.1 项目级归档、唯一商品测款档案与渠道显式映射收口审查
+
+### 本次范围
+
+- 专业任务、技术包版本、花型资产和项目资料归档统一作为项目级成果归档，不再用已删除的专业步骤或 `PROJECT_INIT` 兜底。
+- `PROJECT_INIT` 仅承接真实商品项目立项，并完整覆盖项目创建草稿；创建项目时同步建立唯一商品测款档案。
+- 项目级专业任务来源改为真实商品项目或真实上游任务，不再保存项目步骤、`WI-*` 工作项编码或旧工作项引用。
+- 测款汇总只接受渠道店铺商品上已经保存的直播明细或短视频记录显式映射；不按同渠道、同店铺或首条记录猜测归属。
+
+### 规范自查
+
+| 检查项 | 结论 |
+| --- | --- |
+| 业务边界 | 通过。专业任务保持独立执行对象，项目档案只汇总其项目级成果。 |
+| 档案唯一性 | 通过。商品项目创建即建立唯一商品测款档案，测款通过不再重复建档。 |
+| 来源可追溯 | 通过。专业任务使用真实商品项目或真实上游任务，不保留工作项兼容来源。 |
+| 渠道防串 | 通过。直播与短视频事实必须显式绑定渠道店铺商品；多店铺场景不会按渠道或首条记录串数据。 |
+| 信息结构 | 通过。本次未增加页面说明文案，仅修正项目步骤、归档和汇总事实。 |
+| 列表与分页 | 不适用。本次未新增或调整数据列表。 |
+| 中文化 | 通过。业务状态和档案口径均使用中文表达。 |
+
+### 补充验证
+
+- `tests/pcs-project-init-contract.spec.ts`：通过。
+- `tests/pcs-project-domain-unique-style-archive-fact.spec.ts`：通过。
+- `tests/pcs-project-archive-pattern-task-files.spec.ts`：通过。
+- `tests/pcs-tech-pack-plate-primary-generation.spec.ts`：通过。
+- `tests/pcs-professional-task-bootstrap-independent.spec.ts`：通过。
+- `tests/pcs-project-relation-bootstrap-project-level.spec.ts`：通过。
+- `tests/pcs-task2-dead-project-node-compatibility.spec.ts`：通过。
+- `tests/pcs-test-data-summary-structure.spec.ts`：通过。
+
+### 补充审查结论
+
+- 通过。
+- 无业务例外。
+
 ## 12. 最终对抗审查整改补充记录
 
 ### 整改范围

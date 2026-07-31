@@ -298,10 +298,10 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       stepCode: 'REVISION_TASK',
       stepName: '改版任务',
       sourceType: '测款结论返改',
-      upstreamModule: '测款结论',
-      upstreamObjectType: '项目步骤',
-      upstreamObjectId: nodeA.projectNodeId,
-      upstreamObjectCode: 'WI-20260108-011',
+      upstreamModule: '商品项目',
+      upstreamObjectType: '商品项目',
+      upstreamObjectId: projectA.projectId,
+      upstreamObjectCode: projectA.projectCode,
       styleId: styleA?.styleId || '',
       styleCode: styleA?.styleCode || 'SPU-LY-2401',
       styleName: styleA?.styleName || projectA.projectName,
@@ -336,7 +336,7 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       updatedBy: '系统初始化',
       note: '历史改版任务已迁移到正式仓储。',
       legacyProjectRef: projectA.projectCode,
-      legacyUpstreamRef: 'WI-20260108-011',
+      legacyUpstreamRef: '',
     })
   }
 
@@ -470,10 +470,10 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       stepCode: 'REVISION_TASK',
       stepName: '改版任务',
       sourceType: '测款结论返改',
-      upstreamModule: '测款结论',
-      upstreamObjectType: '项目步骤',
-      upstreamObjectId: node.projectNodeId,
-      upstreamObjectCode: node.projectNodeId,
+      upstreamModule: '商品项目',
+      upstreamObjectType: '商品项目',
+      upstreamObjectId: project.projectId,
+      upstreamObjectCode: project.projectCode,
       styleId: style?.styleId || '',
       styleCode: style?.styleCode || item.productStyleCode,
       styleName: style?.styleName || project.projectName,
@@ -513,7 +513,7 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       updatedBy: '系统初始化',
       note: '补充的演示改版任务。',
       legacyProjectRef: project.projectCode,
-      legacyUpstreamRef: node.projectNodeId,
+      legacyUpstreamRef: '',
     })
   })
 

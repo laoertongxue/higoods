@@ -33,6 +33,9 @@ professionalTasks.forEach((task) => {
     assert.equal(task.projectCode, project.projectCode)
     assert.equal(task.projectName, project.projectName)
     assert.equal(task.projectNodeId, '', `${task.stepName} ${task.title} 不能绑定项目节点`)
+    assert.notEqual(task.upstreamObjectType, '项目步骤', `${task.stepName} ${task.title} 不能把来源伪装为项目步骤`)
+    assert.doesNotMatch(task.upstreamObjectCode, /^WI-/, `${task.stepName} ${task.title} 不能保留 WI-* 工作项编码`)
+    assert.doesNotMatch(task.legacyUpstreamRef, /^WI-/, `${task.stepName} ${task.title} 不能保留 WI-* 旧来源引用`)
     return
   }
 

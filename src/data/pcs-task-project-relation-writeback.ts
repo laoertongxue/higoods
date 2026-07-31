@@ -7,7 +7,7 @@ import { markProjectNodeCompletedAndUnlockNext } from './pcs-project-flow-servic
 import { upsertProjectRelation } from './pcs-project-relation-repository.ts'
 import { syncExistingProjectArchiveByProjectId } from './pcs-project-archive-sync.ts'
 import type { ProjectRelationRecord } from './pcs-project-relation-types.ts'
-import type { PcsProjectNodeRecord, PcsTaskPendingItem } from './pcs-project-types.ts'
+import type { PcsTaskPendingItem } from './pcs-project-types.ts'
 import {
   getFirstSampleTaskById,
   listFirstSampleTasks,
@@ -654,18 +654,6 @@ function listExistingFirstSampleTasksForPlate(plateTask: PlateMakingTaskRecord):
     .sort((a, b) => a.firstSampleTaskCode.localeCompare(b.firstSampleTaskCode))
 }
 
-function resolvePlateRevisionTask(plateTask: PlateMakingTaskRecord): RevisionTaskRecord | null {
-  if (plateTask.sourceType !== '改版任务') return null
-  return (
-    getRevisionTaskById(plateTask.upstreamObjectId) ||
-    listRevisionTasks().find((task) =>
-      task.revisionTaskId === plateTask.upstreamObjectId ||
-      task.revisionTaskCode === plateTask.upstreamObjectCode,
-    ) ||
-    null
-  )
-}
-
 function buildPlateFirstSampleReadinessText(blockingReasons: string[]): string {
   if (blockingReasons.length === 0) return '制版已完成且技术包、花型状态满足，可创建首版样衣打样。'
   return `样衣入口未开放：${blockingReasons.join('、')}。`
@@ -718,44 +706,6 @@ function updatePlateNoteWithFirstSample(plateTask: PlateMakingTaskRecord, firstS
     updatedAt: firstSampleTask.updatedAt || nowTaskText(),
     updatedBy: operatorName,
   })
-}
-
-function syncPlateResultToRevisionProjection(
-  plateTask: PlateMakingTaskRecord,
-  readiness: PlateFirstSampleReadiness,
-  operatorName: string,
-  timestamp: string,
-  firstSampleTask?: FirstSampleTaskRecord,
-): void {
-  const revisionTask = resolvePlateRevisionTask(plateTask)
-  if (!revisionTask || !revisionTask.projectId || !revisionTask.projectNodeId) return
-  const latestResultText = firstSampleTask
-    ? `制版任务 ${plateTask.plateTaskCode} 已完成，并已开放首版样衣打样 ${firstSampleTask.firstSampleTaskCode}。`
-    : `制版任务 ${plateTask.plateTaskCode} 已完成。${readiness.recommendedActionText}`
-  updateProjectNodeRecord(
-    revisionTask.projectId,
-    revisionTask.projectNodeId,
-    {
-      currentStatus: firstSampleTask || readiness.canCreateFirstSample || revisionTask.status === '已完成' ? '已完成' : '进行中',
-      latestInstanceId: revisionTask.revisionTaskId,
-      latestInstanceCode: revisionTask.revisionTaskCode,
-      latestResultType: '制版结果已回写',
-      latestResultText,
-      pendingActionType: firstSampleTask
-        ? '跟进首版样衣打样'
-        : readiness.canCreateFirstSample
-          ? '创建首版样衣打样'
-          : '补齐样衣前置条件',
-      pendingActionText: firstSampleTask
-        ? `已创建首版样衣打样 ${firstSampleTask.firstSampleTaskCode}，请跟进打样。`
-        : readiness.recommendedActionText,
-      updatedAt: timestamp,
-      lastEventType: '制版结果已回写',
-      lastEventTime: timestamp,
-    },
-    operatorName,
-  )
-  syncProjectNodeInstanceRuntime(revisionTask.projectId, revisionTask.projectNodeId, operatorName, timestamp)
 }
 
 function relationPayload(input: {
@@ -825,32 +775,6 @@ function syncCompletedTaskRelation(input: {
     }),
   )
   syncExistingProjectArchiveByProjectId(input.projectId, input.operatorName)
-}
-
-function updateTaskNode(
-  node: PcsProjectNodeRecord,
-  task: PlateMakingTaskRecord | PatternTaskRecord | FirstSampleTaskRecord | FirstOrderSampleTaskRecord,
-  input: {
-    latestInstanceId: string
-    latestInstanceCode: string
-    latestResultType: string
-    latestResultText: string
-    pendingActionType: string
-    pendingActionText: string
-  },
-  alreadyExists: boolean,
-): void {
-  if (!alreadyExists) {
-    updateProjectNodeRecord(task.projectId, node.projectNodeId, {
-      currentStatus: '进行中',
-      latestResultType: input.latestResultType,
-      latestResultText: input.latestResultText,
-      pendingActionType: input.pendingActionType,
-      pendingActionText: input.pendingActionText,
-      updatedAt: task.createdAt,
-    }, task.ownerName || '当前用户')
-  }
-  syncProjectNodeInstanceRuntime(task.projectId, node.projectNodeId, task.ownerName || '当前用户', task.createdAt)
 }
 
 function getRevisionTaskConfirmationMissingFields(task: RevisionTaskRecord): string[] {

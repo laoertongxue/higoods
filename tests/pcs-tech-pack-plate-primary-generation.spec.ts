@@ -163,7 +163,10 @@ assert.ok(content!.sizeTable.length > 0, '制版生成的技术包必须带入�
 
 const relationList = listProjectRelationsByTechnicalVersion(result.record.technicalVersionId)
 assert.ok(relationList.length > 0, '制版生成技术包后必须写入项目关系')
-assert.equal(relationList[0]?.stepCode, 'PROJECT_INIT', '技术包产出关系应归属商品项目，不得恢复制版节点')
+assert.equal(relationList[0]?.projectId, project.projectId, '技术包产出关系应归属商品项目')
+assert.equal(relationList[0]?.projectNodeId, null, '技术包产出关系不能绑定商品项目步骤节点')
+assert.equal(relationList[0]?.stepCode, '', '技术包产出关系不能把立项步骤作为专业成果兜底')
+assert.equal(relationList[0]?.stepName, '', '技术包产出关系不能持久化商品项目步骤名称')
 
 const plateTaskAfter = getPlateMakingTaskById(plateTask.plateTaskId)
 assert.equal(plateTaskAfter?.linkedTechPackVersionId, result.record.technicalVersionId, '制版任务必须回写关联技术包版本')

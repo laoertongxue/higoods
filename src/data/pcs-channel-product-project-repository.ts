@@ -1531,14 +1531,13 @@ function buildUpstreamSyncRelation(
   operatorName: string,
 ): ProjectRelationRecord | null {
   if (!record.upstreamChannelProductCode || record.upstreamSyncStatus !== '已更新') return null
-  const styleNode = getProjectNodeRecordByStepCode(record.projectId, 'PROJECT_INIT')
   return {
     projectRelationId: `rel_upstream_sync_${record.channelProductId}`,
     projectId: record.projectId,
     projectCode: record.projectCode,
-    projectNodeId: styleNode?.projectNodeId || null,
-    stepCode: styleNode ? 'PROJECT_INIT' : '',
-    stepName: styleNode?.stepName || '',
+    projectNodeId: null,
+    stepCode: '',
+    stepName: '',
     relationRole: '执行记录',
     sourceModule: '上游渠道商品同步',
     sourceObjectType: '上游渠道商品同步',
@@ -1810,21 +1809,9 @@ function getFormalTestingRelations(projectId: string): ProjectRelationRecord[] {
     .sort((a, b) => b.businessDate.localeCompare(a.businessDate))
 }
 
-function buildTestingLinkPatch(
-  relations: ProjectRelationRecord[],
-): Pick<ProjectChannelProductRecord, 'linkedLiveLineId' | 'linkedLiveLineCode' | 'linkedVideoRecordId' | 'linkedVideoRecordCode'> {
-  const latestLive = relations.find((item) => item.sourceObjectType === '直播商品明细')
-  const latestVideo = relations.find((item) => item.sourceObjectType === '短视频记录')
-  return {
-    linkedLiveLineId: latestLive?.sourceLineId || '',
-    linkedLiveLineCode: latestLive?.sourceLineCode || '',
-    linkedVideoRecordId: latestVideo?.sourceObjectId || '',
-    linkedVideoRecordCode: latestVideo?.sourceObjectCode || '',
-  }
-}
-
 interface TestingSummaryFactItem {
   relationId: string
+  relationCode: string
   sourceType: '直播' | '短视频'
   sourceCode: string
   channelCode: string
@@ -1965,16 +1952,12 @@ function buildTestingSummaryFacts(
               '',
           ),
         )
-        const relatedChannelProduct =
-          (liveLineId
-            ? findProjectChannelProductByLiveLine(projectId, liveLineId) ||
-              activeChannelProducts.find((item) => item.linkedLiveLineCode === relation.sourceLineCode)
-            : null) ||
-          (sourceChannel.channelCode
-            ? activeChannelProducts.find((item) => item.channelCode === sourceChannel.channelCode)
-            : null) ||
-          activeChannelProducts[0] ||
-          null
+        const relatedChannelProduct = liveLineId
+          ? findProjectChannelProductByLiveLine(projectId, liveLineId) ||
+            activeChannelProducts.find((item) => item.linkedLiveLineCode === relation.sourceLineCode) ||
+            null
+          : null
+        if (!relatedChannelProduct) return null
         const channelCode = relatedChannelProduct?.channelCode || sourceChannel.channelCode || String(meta.channelCode || '')
         const storeId = relatedChannelProduct?.storeId || String(meta.storeId || '')
         const channelName =
@@ -1998,6 +1981,7 @@ function buildTestingSummaryFacts(
           '未识别渠道店铺商品'
         return {
           relationId: relation.projectRelationId,
+          relationCode: relation.sourceLineCode || relation.sourceObjectCode,
           sourceType: '直播' as const,
           sourceCode:
             liveRecord?.liveLineCode ||
@@ -2029,16 +2013,12 @@ function buildTestingSummaryFacts(
             '',
         ),
       )
-      const relatedChannelProduct =
-        (videoRecordId
-          ? findProjectChannelProductByVideoRecord(projectId, videoRecordId) ||
-            activeChannelProducts.find((item) => item.linkedVideoRecordCode === relation.sourceObjectCode)
-          : null) ||
-        (sourceChannel.channelCode
-          ? activeChannelProducts.find((item) => item.channelCode === sourceChannel.channelCode)
-          : null) ||
-        activeChannelProducts[0] ||
-        null
+      const relatedChannelProduct = videoRecordId
+        ? findProjectChannelProductByVideoRecord(projectId, videoRecordId) ||
+          activeChannelProducts.find((item) => item.linkedVideoRecordCode === relation.sourceObjectCode) ||
+          null
+        : null
+      if (!relatedChannelProduct) return null
       const channelCode = relatedChannelProduct?.channelCode || sourceChannel.channelCode || String(meta.channelCode || '')
       const storeId = relatedChannelProduct?.storeId || String(meta.storeId || '')
       const channelName =
@@ -2062,6 +2042,7 @@ function buildTestingSummaryFacts(
         '未识别渠道店铺商品'
       return {
         relationId: relation.projectRelationId,
+        relationCode: relation.sourceObjectCode,
         sourceType: '短视频' as const,
         sourceCode:
           videoRecord?.videoRecordCode ||
@@ -2080,23 +2061,14 @@ function buildTestingSummaryFacts(
         gmvAmount: videoRecord?.gmvAmount ?? toMetricNumber(meta.gmv ?? meta.gmvAmount),
       }
     })
+    .filter((item): item is TestingSummaryFactItem => Boolean(item))
     .filter((item) => item.exposureQty > 0 || item.clickQty > 0 || item.orderQty > 0 || item.gmvAmount > 0 || item.sourceCode)
 
   return {
-    liveRelationIds: relations
-      .filter((relation) => relation.sourceObjectType === '直播商品明细')
-      .map((relation) => relation.projectRelationId),
-    liveRelationCodes: relations
-      .filter((relation) => relation.sourceObjectType === '直播商品明细')
-      .map((relation) => relation.sourceLineCode || relation.sourceObjectCode)
-      .filter(Boolean) as string[],
-    videoRelationIds: relations
-      .filter((relation) => relation.sourceObjectType === '短视频记录')
-      .map((relation) => relation.projectRelationId),
-    videoRelationCodes: relations
-      .filter((relation) => relation.sourceObjectType === '短视频记录')
-      .map((relation) => relation.sourceObjectCode)
-      .filter(Boolean) as string[],
+    liveRelationIds: facts.filter((item) => item.sourceType === '直播').map((item) => item.relationId),
+    liveRelationCodes: facts.filter((item) => item.sourceType === '直播').map((item) => item.relationCode).filter(Boolean),
+    videoRelationIds: facts.filter((item) => item.sourceType === '短视频').map((item) => item.relationId),
+    videoRelationCodes: facts.filter((item) => item.sourceType === '短视频').map((item) => item.relationCode).filter(Boolean),
     facts,
   }
 }
@@ -2188,9 +2160,14 @@ function buildTestingSummaryInlineRecord(
 ): void {
   const primaryChannelProduct = getCurrentChannelProduct(channelProducts) || channelProducts[0]
   if (!primaryChannelProduct) return
-  const liveRelations = relations.filter((item) => item.sourceObjectType === '直播商品明细')
-  const videoRelations = relations.filter((item) => item.sourceObjectType === '短视频记录')
   const aggregate = buildProjectTestingSummaryAggregate(project.projectId, relations, channelProducts)
+  const aggregatedRelationIds = new Set([...aggregate.liveRelationIds, ...aggregate.videoRelationIds])
+  const liveRelations = relations.filter(
+    (item) => item.sourceObjectType === '直播商品明细' && aggregatedRelationIds.has(item.projectRelationId),
+  )
+  const videoRelations = relations.filter(
+    (item) => item.sourceObjectType === '短视频记录' && aggregatedRelationIds.has(item.projectRelationId),
+  )
   const sourceDocCode = buildInlineRecordCode(project.projectCode, 'TEST-SUMMARY')
 
   upsertProjectInlineNodeRecord({
@@ -2203,7 +2180,7 @@ function buildTestingSummaryInlineRecord(
     stepCode: 'TEST_DATA_SUMMARY',
     stepName: '测款数据汇总',
     businessDate,
-    recordStatus: payload.conclusion === '暂保留' ? '待确认' : '已完成',
+    recordStatus: '已完成',
     ownerId: project.ownerId,
     ownerName: operatorName,
     payload: {
@@ -3105,11 +3082,9 @@ export function submitProjectTestingSummary(
     payload.summaryText?.trim() ||
     `已汇总 ${relations.length} 条正式测款记录，其中直播 ${liveCount} 条，短视频 ${videoCount} 条，覆盖 ${aggregate.channelBreakdowns.length} 个渠道、${aggregate.storeBreakdowns.length} 个店铺、${targetRecords.length} 个渠道店铺商品实例。`
   const timestamp = nowText()
-  const testingLinkPatch = buildTestingLinkPatch(relations)
   const nextRecords = targetRecords.map((record) => {
     const nextRecord: ProjectChannelProductRecord = {
       ...record,
-      ...testingLinkPatch,
       updatedAt: timestamp,
       testingStatusText: '已提交测款汇总，等待确认最终结论',
       upstreamSyncNote: summaryText,
@@ -3184,7 +3159,6 @@ export function submitProjectTestingConclusion(
   }
 
   const note = payload.note.trim() || `测款结论为${payload.conclusion}。`
-  const testingLinkPatch = buildTestingLinkPatch(relations)
   const timestamp = nowText()
   const summaryNode = getProjectNodeRecordByStepCode(projectId, 'TEST_DATA_SUMMARY')
   const summaryRecord = summaryNode ? getLatestProjectInlineNodeRecord(summaryNode.projectNodeId) : null
@@ -3208,7 +3182,6 @@ export function submitProjectTestingConclusion(
     const nextRecords = targetRecords.map((record) => {
       const nextRecord: ProjectChannelProductRecord = {
         ...record,
-        ...testingLinkPatch,
         scenario: 'MEASURING',
         conclusion: '通过',
         styleId: linkedStyle.styleId,
@@ -3279,7 +3252,6 @@ export function submitProjectTestingConclusion(
     const nextRecords = targetRecords.map((record) => {
       const nextRecord: ProjectChannelProductRecord = {
         ...record,
-        ...testingLinkPatch,
         scenario: 'MEASURING',
         conclusion: '暂保留',
         invalidatedReason: '',
@@ -3341,7 +3313,7 @@ export function submitProjectTestingConclusion(
 
   const nextRecords = targetRecords.map((record) =>
     invalidateChannelProductRecord(
-      { ...record, ...testingLinkPatch },
+      record,
       {
         scenario: 'FAILED_ELIMINATED',
         conclusion: '不通过',
