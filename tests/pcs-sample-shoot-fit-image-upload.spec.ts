@@ -135,9 +135,9 @@ const saveResult = saveProjectNodeFormalRecord({
 assert.ok(saveResult.ok, '样衣拍摄与试穿应可保存并完成')
 
 const html = await renderPcsProjectStepDetailPage(projectId, sampleShootNode!.projectNodeId)
-assert.match(html, /样衣平铺图/, '已完成工作项应展示样衣平铺图分组')
-assert.match(html, /试穿图/, '已完成工作项应展示试穿图分组')
-assert.match(html, /细节图/, '已完成工作项应展示细节图分组')
-assert.match(html, /open-image-preview/, '已完成工作项应支持图片预览')
+assert.match(html, /样衣平铺图/, '已完成项目步骤应展示样衣平铺图分组')
+assert.match(html, /试穿图/, '已完成项目步骤应展示试穿图分组')
+assert.match(html, /细节图/, '已完成项目步骤应展示细节图分组')
+assert.match(html, /open-image-preview/, '已完成项目步骤应支持图片预览')
 
 console.log('pcs-sample-shoot-fit-image-upload.spec.ts PASS')

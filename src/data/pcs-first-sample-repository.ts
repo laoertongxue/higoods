@@ -45,7 +45,6 @@ function seedSnapshot(): FirstSampleTaskStoreSnapshot {
 }
 
 function normalizeFirstSampleStatus(status: string): FirstSampleTaskStatus {
-  if (status === '需补样' || status === '需补测') return '需改版'
   return FIRST_SAMPLE_TASK_STATUS_LIST.includes(status as FirstSampleTaskStatus)
     ? (status as FirstSampleTaskStatus)
     : '待处理'

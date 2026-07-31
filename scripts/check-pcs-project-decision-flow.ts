@@ -25,7 +25,7 @@ const flowServiceSource = read('src/data/pcs-project-flow-service.ts')
 
 for (const stepDefinitionCode of ['FEASIBILITY_REVIEW', 'SAMPLE_CONFIRM', 'TEST_CONCLUSION']) {
   const contract = getProjectStepDefinition(stepDefinitionCode)
-  assertCheck(Boolean(contract), `工作项定义仍需包含 ${stepDefinitionCode}`)
+  assertCheck(Boolean(contract), `项目步骤定义仍需包含 ${stepDefinitionCode}`)
   const decisionField = contract.fieldDefinitions.find((field) =>
     ['reviewConclusion', 'confirmResult', 'conclusion'].includes(field.fieldKey),
   )

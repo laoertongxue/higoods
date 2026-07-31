@@ -34,25 +34,6 @@ export interface TaskRelationBootstrapSnapshot {
   pendingItems: ProjectRelationPendingItem[]
 }
 
-function pendingItem(
-  taskType: string,
-  rawTaskCode: string,
-  rawProjectField: string,
-  rawSourceField: string,
-  reason: string,
-  discoveredAt: string,
-): PcsTaskPendingItem {
-  return {
-    pendingId: `${taskType}_${rawTaskCode}`.replace(/[^a-zA-Z0-9]/g, '_'),
-    taskType,
-    rawTaskCode,
-    rawProjectField,
-    rawSourceField,
-    reason,
-    discoveredAt,
-  }
-}
-
 function pickProjectByCode(projectCode: string) {
   return findProjectByCode(projectCode) ?? null
 }
@@ -65,27 +46,6 @@ function pickStyleByProjectCode(projectCode: string) {
 
 function pickStyleByCode(styleCode: string) {
   return findStyleArchiveByCode(styleCode) ?? listStyleArchives().find((item) => item.styleCode === styleCode) ?? null
-}
-
-function relationPendingItem(
-  sourceModule: string,
-  sourceObjectCode: string,
-  rawProjectCode: string,
-  reason: string,
-  discoveredAt: string,
-  legacyRefValue: string,
-): ProjectRelationPendingItem {
-  return {
-    pendingRelationId: `${sourceModule}_${sourceObjectCode}`.replace(/[^a-zA-Z0-9]/g, '_'),
-    sourceModule,
-    sourceObjectCode,
-    rawProjectCode,
-    reason,
-    discoveredAt,
-    sourceTitle: '',
-    legacyRefType: '任务迁移',
-    legacyRefValue,
-  }
 }
 
 function taskRelationRecord(input: {
@@ -127,9 +87,9 @@ function taskRelationRecord(input: {
     createdBy: '系统初始化',
     updatedAt: input.businessDate,
     updatedBy: '系统初始化',
-    note: input.note || '历史任务已迁移为正式项目关系。',
-    legacyRefType: '任务迁移',
-    legacyRefValue: input.sourceObjectCode,
+    note: input.note || '专业任务与商品项目已建立关系。',
+    legacyRefType: '',
+    legacyRefValue: '',
   }
 }
 
@@ -332,7 +292,7 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       createdBy: '系统初始化',
       updatedAt: '2026-01-09 14:30:00',
       updatedBy: '系统初始化',
-      note: '历史改版任务已迁移到正式仓储。',
+      note: '商品项目改版任务演示数据。',
       legacyProjectRef: projectA.projectCode,
       legacyUpstreamRef: '',
     })
@@ -390,7 +350,7 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       createdBy: '系统初始化',
       updatedAt: '2026-01-09 11:00:00',
       updatedBy: '系统初始化',
-      note: '历史既有商品改款任务已迁移。',
+      note: '既有商品改款任务演示数据。',
       legacyProjectRef: '',
       legacyUpstreamRef: styleB.styleCode,
     })
@@ -571,9 +531,7 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
 
   return {
     tasks,
-    pendingItems: [
-      pendingItem('改版任务', 'RT-LEGACY-404', 'PRJ-404-NOT-FOUND', 'WI-LEGACY-001', '历史改版任务引用的商品项目不存在。', '2026-01-09 14:30:00'),
-    ],
+    pendingItems: [],
   }
 }
 
@@ -1249,7 +1207,7 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       createdBy: '系统初始化',
       updatedAt: '2026-01-09 14:30:00',
       updatedBy: '系统初始化',
-      note: '历史花型任务已迁移到正式仓储。',
+      note: '商品项目花型任务演示数据。',
       legacyProjectRef: projectA.projectCode,
       legacyUpstreamRef: 'RT-20260402-018',
     })
@@ -1383,9 +1341,7 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
 
   return {
     tasks,
-    pendingItems: [
-      pendingItem('花型任务', 'AT-LEGACY-404', 'PRJ-LOST-001', 'RT-LOST-001', '历史花型任务引用的项目不存在，当前未迁移。', '2026-01-08 16:45:00'),
-    ],
+    pendingItems: [],
   }
 }
 
@@ -1871,9 +1827,7 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
 
   return {
     tasks,
-    pendingItems: [
-      pendingItem('首版样衣打样', 'FS-LEGACY-404', 'PRJ-NOT-EXISTS', 'pattern', '历史首版样衣打样记录未找到正式项目。', '2026-01-12 17:05:00'),
-    ],
+    pendingItems: [],
   }
 }
 
@@ -2120,9 +2074,7 @@ function createFirstOrderSeeds(): { tasks: FirstOrderSampleTaskRecord[]; pending
 
   return {
     tasks,
-    pendingItems: [
-      pendingItem('首单样衣打样', 'PP-LEGACY-404', 'PRJ-UNKNOWN-PP', '首单', '历史首单样衣打样记录未找到正式项目或节点。', '2026-01-18 16:30:00'),
-    ],
+    pendingItems: [],
   }
 }
 
@@ -2244,22 +2196,6 @@ export function createTaskRelationBootstrapSnapshot(): TaskRelationBootstrapSnap
         }),
       ),
     ],
-    pendingItems: [
-      ...snapshot.revisionPendingItems.map((item) =>
-        relationPendingItem('改版任务', item.rawTaskCode, item.rawProjectField, item.reason, item.discoveredAt, item.rawSourceField),
-      ),
-      ...snapshot.platePendingItems.map((item) =>
-        relationPendingItem('制版任务', item.rawTaskCode, item.rawProjectField, item.reason, item.discoveredAt, item.rawSourceField),
-      ),
-      ...snapshot.patternPendingItems.map((item) =>
-        relationPendingItem('花型任务', item.rawTaskCode, item.rawProjectField, item.reason, item.discoveredAt, item.rawSourceField),
-      ),
-      ...snapshot.firstSamplePendingItems.map((item) =>
-        relationPendingItem('首版样衣打样', item.rawTaskCode, item.rawProjectField, item.reason, item.discoveredAt, item.rawSourceField),
-      ),
-      ...snapshot.firstOrderSamplePendingItems.map((item) =>
-        relationPendingItem('首单样衣打样', item.rawTaskCode, item.rawProjectField, item.reason, item.discoveredAt, item.rawSourceField),
-      ),
-    ],
+    pendingItems: [],
   }
 }

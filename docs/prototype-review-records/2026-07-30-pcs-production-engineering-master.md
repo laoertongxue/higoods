@@ -280,6 +280,53 @@
 - 通过。
 - 无业务例外。
 
+## 15. 测款详情真实路由与专业任务当前数据收口
+
+### 本次范围
+
+- 直播测款、短视频测款动态详情路由直接调用各自详情渲染器，详情页头、页签和当前测款记录均可通过真实路由访问。
+- 专业任务初始化数据只保留当前商品项目与当前任务演示，不再生成缺失项目的旧任务迁移待处理记录，也不再携带旧工作项编号。
+- 首版样衣仓储只按当前状态字典归一化任务状态，不处理旧任务状态迁移。
+- 工程任务验收统一使用“技术包与下游”“技术包写入”和当前版次等现行业务口径。
+
+### 规范自查
+
+| 检查项 | 结论 |
+| --- | --- |
+| 角色匹配 | 通过。页面仍为 PCS 管理端，服务买手、跟单和工程协作人员。 |
+| 信息架构与导航 | 通过。列表详情入口与动态详情路由一致，不再把用户送回列表占位页。 |
+| 页面模式 | 通过。详情保留页头和必要页签，未新增说明性文案或重复入口。 |
+| 文案 | 通过。详情与测试口径统一为当前业务对象和动作，不展示旧工作项、旧任务迁移或兼容术语。 |
+| 协作关系 | 通过。专业任务只表达当前商品项目及真实专业任务关系。 |
+| 交互性能 | 通过。仅修正路由渲染目标，未新增整页交互或高频输入。 |
+| 列表与分页 | 通过。本轮未调整列表结构，既有标准列表、分页和列设置保持不变。 |
+
+### 受管文件
+
+- `src/router/routes-pcs.ts`
+- `src/data/pcs-task-bootstrap.ts`
+- `src/data/pcs-first-sample-repository.ts`
+
+### 页面路由
+
+- `/pcs/testing/live/:liveSessionId`
+- `/pcs/testing/video/:videoRecordId`
+
+### 验证命令
+
+- `npm test -- tests/pcs-task2-final-detail-and-semantic-closure.spec.ts`
+- `npm test -- tests/pcs-engineering-tasks.spec.ts`
+- `npm test -- tests/pcs-work-item-module-removal.spec.ts`
+- `npm test -- tests/pcs-task2-dead-project-node-compatibility.spec.ts`
+- `npm test -- tests/pcs-first-sample-acceptance-status.spec.ts`
+- `npm run check:list-page-governance`
+- `npm run check:prototype-design-governance`
+- `npm run build`
+
+### 例外
+
+- 无。
+
 ## 12. 测款详情与项目步骤语义最终收口
 
 ### 本次范围

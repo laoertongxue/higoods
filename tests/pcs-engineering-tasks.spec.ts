@@ -83,7 +83,7 @@ assert.doesNotMatch(revisionIssueHtml, /创建下游/, '改版任务详情不应
 handlePcsEngineeringTaskEvent(makeActionTarget('set-revision-tab', { tab: 'outputs' }))
 const revisionOutputHtml = renderPcsRevisionTaskDetailPage((revisionTask || revisionDemoTask).revisionTaskId)
 if (revisionTask) {
-  assert.match(revisionOutputHtml, /技术包写回|\/technical-data\//, '改版任务详情应显示技术包关联')
+  assert.match(revisionOutputHtml, /技术包(?:与下游|写入|产出)|\/technical-data\//, '改版任务详情应显示技术包关联')
 } else {
   assert.match(revisionOutputHtml, /技术包产出|尚未建立技术包版本/, '改版任务详情应显示技术包产出状态')
 }
@@ -103,8 +103,8 @@ if (plateTask) {
   const plateAfter = getPlateMakingTaskById(plateTask.plateTaskId)
   assert.ok(plateAfter?.linkedTechPackVersionId, '制版任务应写入正式技术包版本')
   const plateDetailHtml = renderPcsPlateMakingTaskDetailPage(plateTask.plateTaskId)
-  assert.match(plateDetailHtml, /技术包写回/, '制版任务详情应渲染技术包写回页签')
-  assert.match(plateDetailHtml, /制版版次/, '制版任务详情应渲染制版版次信息')
+  assert.match(plateDetailHtml, /技术包与下游/, '制版任务详情应渲染技术包与下游页签')
+  assert.match(plateDetailHtml, /版次\s+P\d+/, '制版任务详情应渲染当前版次信息')
 }
 
 const patternListHtml = renderPcsPatternTaskPage()
@@ -180,7 +180,8 @@ if (firstSampleDemoTask) {
   const firstSampleTask = renderPcsFirstSampleTaskPage().match(/\/pcs\/samples\/first-sample\/([^"]+)/)?.[1]
   assert.ok(firstSampleTask, '应存在首版样衣详情入口')
   const firstSampleDetailHtml = renderPcsFirstSampleTaskDetailPage(firstSampleTask)
-  assert.match(firstSampleDetailHtml, /物流与到样/, '首版样衣详情应渲染物流页签')
+  assert.match(firstSampleDetailHtml, /输入包/, '首版样衣详情应渲染输入资料页签')
+  assert.match(firstSampleDetailHtml, /打样结果/, '首版样衣详情应渲染打样结果页签')
   assert.match(firstSampleDetailHtml, /验收与结论/, '首版样衣详情应渲染验收页签')
 } else {
   assert.match(firstSampleListHtml, /暂无首版样衣打样数据|暂无数据/, '没有首版样衣任务时应渲染空态')

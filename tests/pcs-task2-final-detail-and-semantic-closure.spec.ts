@@ -11,6 +11,7 @@ import { renderPcsSampleInventoryPage } from '../src/pages/pcs-sample-management
 import { renderPcsPatternTaskPage } from '../src/pages/pcs-engineering-tasks.ts'
 import { listLiveSessionRecords } from '../src/data/pcs-live-testing-repository.ts'
 import { listVideoTestRecords } from '../src/data/pcs-video-testing-repository.ts'
+import { resolvePage } from '../src/router/routes.ts'
 
 const readSource = (relativePath: string) =>
   readFileSync(new URL(`../${relativePath}`, import.meta.url), 'utf8')
@@ -21,6 +22,9 @@ const liveDetailHtml = renderPcsLiveTestingDetailPage(liveId)
 assert.match(liveDetailHtml, /返回列表/, '直播测款详情必须渲染详情页头')
 assert.match(liveDetailHtml, /data-pcs-live-testing-action="set-detail-tab"/, '直播测款详情必须渲染详情页签')
 assert.doesNotMatch(liveDetailHtml, /data-pcs-live-testing-list-page/, '直播测款详情路由不得返回列表')
+const liveRouteHtml = await resolvePage(`/pcs/testing/live/${liveId}`)
+assert.match(liveRouteHtml, /data-pcs-live-testing-action="set-detail-tab"/, '直播测款动态路由必须调用真实详情渲染器')
+assert.doesNotMatch(liveRouteHtml, /data-route-redirect/, '直播测款动态路由不得重定向回列表')
 
 const videoId = listVideoTestRecords()[0]?.videoRecordId
 assert.ok(videoId, '短视频测款列表必须提供详情路由')
@@ -28,6 +32,9 @@ const videoDetailHtml = renderPcsVideoTestingDetailPage(videoId)
 assert.match(videoDetailHtml, /返回列表/, '短视频测款详情必须渲染详情页头')
 assert.match(videoDetailHtml, /data-pcs-video-testing-action="set-detail-tab"/, '短视频测款详情必须渲染详情页签')
 assert.doesNotMatch(videoDetailHtml, /data-pcs-video-testing-list-page/, '短视频测款详情路由不得返回列表')
+const videoRouteHtml = await resolvePage(`/pcs/testing/video/${videoId}`)
+assert.match(videoRouteHtml, /data-pcs-video-testing-action="set-detail-tab"/, '短视频测款动态路由必须调用真实详情渲染器')
+assert.doesNotMatch(videoRouteHtml, /data-route-redirect/, '短视频测款动态路由不得重定向回列表')
 
 for (const relativePath of [
   'src/pages/pcs-live-testing.ts',
@@ -91,5 +98,12 @@ for (const relativePath of [
     `${relativePath} 必须统一为商品档案资料完善或已有档案口径`,
   )
 }
+
+const taskBootstrapSource = readSource('src/data/pcs-task-bootstrap.ts')
+assert.doesNotMatch(
+  taskBootstrapSource,
+  /WI-LEGACY|(?:RT|AT|FS|PP)-LEGACY|历史(?:改版|既有商品改款|花型|首版样衣打样|首单样衣打样)任务|任务已迁移|任务迁移/,
+  '专业任务 bootstrap 只提供当前项目级演示数据，不得包含老任务迁移 Mock、工作项引用或迁移文案',
+)
 
 console.log('pcs-task2-final-detail-and-semantic-closure.spec.ts PASS')

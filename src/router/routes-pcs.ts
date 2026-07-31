@@ -72,11 +72,11 @@ export const routes: RouteRegistry = {
     },
     {
       pattern: /^\/pcs\/testing\/live\/([^/]+)$/,
-      render: () => renderRouteRedirect('/pcs/testing/live', '直播测款已改为列表内查看'),
+      render: (match) => renderers.renderPcsLiveTestingDetailPage(match[1]),
     },
     {
       pattern: /^\/pcs\/testing\/video\/([^/]+)$/,
-      render: () => renderRouteRedirect('/pcs/testing/video', '短视频测款已改为列表内查看'),
+      render: (match) => renderers.renderPcsVideoTestingDetailPage(match[1]),
     },
     {
       pattern: /^\/pcs\/channels\/products\/([^/]+)$/,
