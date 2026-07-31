@@ -304,7 +304,7 @@ function buildStyleArchiveDocument(
       projectCode: project.projectCode,
       projectNodeId: style.sourceProjectNodeId || '',
       stepCode: 'PROJECT_INIT',
-      stepName: '生成款式档案',
+      stepName: '完善商品档案',
       sourceModule: '款式档案',
       sourceObjectType: '款式档案',
       sourceObjectId: style.styleId,
@@ -1336,7 +1336,7 @@ function buildMissingItem(
     requiredFlag: true,
     projectNodeId: transferNodeId,
     stepCode: 'PROJECT_INIT',
-    stepName: '生成款式档案',
+    stepName: '完善商品档案',
     reasonType: '资料缺失',
     reasonText,
     status: '待补齐',
@@ -1361,7 +1361,7 @@ export function computeProjectArchiveMissingItems(input: {
     missingItems.push(buildMissingItem(archive, transferNodeId, 'PROJECT_BASE', '缺少项目基础资料，请补齐项目基础资料与参考附件。'))
   }
   if (!hasGroup('STYLE_ARCHIVE')) {
-    missingItems.push(buildMissingItem(archive, transferNodeId, 'STYLE_ARCHIVE', '缺少正式款式档案，请先生成款式档案壳。'))
+    missingItems.push(buildMissingItem(archive, transferNodeId, 'STYLE_ARCHIVE', '缺少正式款式档案，请先完善商品档案壳。'))
   }
   if (!currentTechnicalVersion || currentTechnicalVersion.versionStatus !== 'PUBLISHED') {
     missingItems.push(

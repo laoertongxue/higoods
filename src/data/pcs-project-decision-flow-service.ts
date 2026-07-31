@@ -249,12 +249,9 @@ export function routeProjectToSampleReturnHandle(
   )
   syncProjectNodeInstanceRuntime(projectId, decisionNodeId, operatorName, timestamp)
 
-  const decisionIndex = nodes.findIndex((item) => item.projectNodeId === decisionNodeId)
-  const sampleReturnIndex = nodes.findIndex((item) => item.projectNodeId === sampleReturnNode.projectNodeId)
-  nodes.forEach((node, index) => {
+  nodes.forEach((node) => {
     if (node.projectNodeId === decisionNodeId || node.projectNodeId === sampleReturnNode.projectNodeId) return
-    if (index <= decisionIndex) return
-    if (sampleReturnIndex >= 0 && index >= sampleReturnIndex) return
+    if (node.stepCode === 'PROJECT_INIT') return
     if (isClosedProjectNodeStatus(node.currentStatus)) return
     updateProjectNodeRecord(
       projectId,

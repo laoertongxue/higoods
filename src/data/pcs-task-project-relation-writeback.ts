@@ -481,92 +481,6 @@ function makeRelationId(projectId: string, projectNodeId: string, sourceModule: 
   return `rel_${projectId}_${projectNodeId}_${sourceModule}_${sourceObjectId}`.replace(/[^a-zA-Z0-9]/g, '_')
 }
 
-function syncTaskCompletionToProjectNode(
-  input: {
-    projectId: string
-    projectNodeId: string
-    stepCode: string
-    stepName: string
-    sourceModule: string
-    sourceObjectType: string
-    sourceObjectId: string
-    sourceObjectCode: string
-    sourceTitle: string
-    sourceStatus: string
-    businessDate: string
-    ownerName: string
-    resultType: string
-    resultText: string
-    operatorName: string
-  },
-): void {
-  const project = getProjectById(input.projectId)
-  if (!project || !input.projectNodeId) return
-
-  const node =
-    getProjectNodeRecordByStepCode(project.projectId, input.stepCode) ||
-    null
-  if (!node || node.projectNodeId !== input.projectNodeId) return
-
-  upsertProjectRelation(
-    relationPayload({
-      projectId: input.projectId,
-      projectCode: project.projectCode,
-      projectNodeId: input.projectNodeId,
-      stepCode: input.stepCode,
-      stepName: input.stepName,
-      sourceModule: input.sourceModule as ProjectRelationRecord['sourceModule'],
-      sourceObjectType: input.sourceObjectType as ProjectRelationRecord['sourceObjectType'],
-      sourceObjectId: input.sourceObjectId,
-      sourceObjectCode: input.sourceObjectCode,
-      sourceTitle: input.sourceTitle,
-      sourceStatus: input.sourceStatus,
-      businessDate: input.businessDate,
-      ownerName: input.ownerName,
-      operatorName: input.operatorName,
-    }),
-  )
-
-  updateProjectNodeRecord(project.projectId, input.projectNodeId, {
-    latestInstanceId: input.sourceObjectId,
-    latestInstanceCode: input.sourceObjectCode,
-    latestResultType: input.resultType,
-    latestResultText: input.resultText,
-    updatedAt: input.businessDate,
-  }, input.operatorName)
-
-  if (node.currentStatus !== '已完成' && node.currentStatus !== '已取消') {
-    const completionResult = markProjectNodeCompletedAndUnlockNext(project.projectId, input.projectNodeId, {
-      operatorName: input.operatorName,
-      timestamp: input.businessDate,
-      resultType: input.resultType,
-      resultText: input.resultText,
-    })
-    if (!completionResult.ok) {
-      updateProjectNodeRecord(
-        project.projectId,
-        input.projectNodeId,
-        {
-          currentStatus: '已完成',
-          pendingActionType: '',
-          pendingActionText: '',
-          currentIssueType: '',
-          currentIssueText: '',
-          updatedAt: input.businessDate,
-          lastEventType: input.resultType,
-          lastEventTime: input.businessDate,
-        },
-        input.operatorName,
-      )
-      syncProjectNodeInstanceRuntime(project.projectId, input.projectNodeId, input.operatorName, input.businessDate)
-    }
-  } else {
-    syncProjectNodeInstanceRuntime(project.projectId, input.projectNodeId, input.operatorName, input.businessDate)
-  }
-
-  syncExistingProjectArchiveByProjectId(project.projectId, input.operatorName)
-}
-
 function getProjectOrPending(
   taskType: string,
   projectId: string,
@@ -581,32 +495,7 @@ function getProjectOrPending(
   }
 }
 
-function getNodeOrPending(
-  taskType: string,
-  projectId: string,
-  projectCode: string,
-  taskCode: string,
-  stepCode: string,
-): { node: PcsProjectNodeRecord | null; pendingItem: PcsTaskPendingItem | null } {
-  const node = getProjectNodeRecordByStepCode(projectId, stepCode)
-  if (node) return { node, pendingItem: null }
-  return {
-    node: null,
-    pendingItem: makePendingItem(taskType, taskCode, projectCode, stepCode, '当前项目未配置对应项目节点，不能正式创建任务。'),
-  }
-}
-
-function blockCancelledNode(
-  taskType: string,
-  taskCode: string,
-  projectCode: string,
-  node: PcsProjectNodeRecord,
-): PcsTaskPendingItem | null {
-  if (node.currentStatus !== '已取消') return null
-  return makePendingItem(taskType, taskCode, projectCode, node.stepCode, `当前项目节点已取消，不能创建对应${taskType}。`)
-}
-
-function resolveUpstreamForProjectStep(project: NonNullable<ReturnType<typeof getProjectById>>) {
+function resolveUpstreamForProject(project: NonNullable<ReturnType<typeof getProjectById>>) {
   return {
     upstreamModule: '商品项目',
     upstreamObjectType: '商品项目',
@@ -625,7 +514,7 @@ function ensureFormalSource(
   if (sourceType === '人工创建' || sourceType === '人工改版需求') {
     return fallbackSourceField ? null : `${taskType}缺少参考对象或正式来源对象，当前不能正式创建。`
   }
-  if (sourceType === '项目固定步骤' || sourceType === '既有商品改款' || sourceType === '既有商品二次开发' || sourceType === '花型复用调色') {
+  if (sourceType === '商品项目' || sourceType === '既有商品改款' || sourceType === '既有商品二次开发' || sourceType === '花型复用调色') {
     return null
   }
   if (upstreamObjectId || upstreamObjectCode || fallbackSourceField) {
@@ -742,7 +631,7 @@ function patternMatchesPlateSource(patternTask: PatternTaskRecord, plateTask: Pl
     patternTask.spuCode,
   ].filter(Boolean)
   if (patternKeys.some((key) => plateKeys.has(key))) return true
-  return plateTask.sourceType === '项目固定步骤' && patternTask.sourceType === '项目固定步骤'
+  return plateTask.sourceType === '商品项目' && patternTask.sourceType === '商品项目'
 }
 
 function listRelatedPatternTasksForPlate(plateTask: PlateMakingTaskRecord): PatternTaskRecord[] {
@@ -778,7 +667,7 @@ function resolvePlateRevisionTask(plateTask: PlateMakingTaskRecord): RevisionTas
 }
 
 function buildPlateFirstSampleReadinessText(blockingReasons: string[]): string {
-  if (blockingReasons.length === 0) return '制版已完成且项目步骤、技术包、花型状态满足，可创建首版样衣打样。'
+  if (blockingReasons.length === 0) return '制版已完成且技术包、花型状态满足，可创建首版样衣打样。'
   return `样衣入口未开放：${blockingReasons.join('、')}。`
 }
 
@@ -869,66 +758,6 @@ function syncPlateResultToRevisionProjection(
   syncProjectNodeInstanceRuntime(revisionTask.projectId, revisionTask.projectNodeId, operatorName, timestamp)
 }
 
-function syncPlateCompletionAggregateProjection(
-  plateTask: PlateMakingTaskRecord,
-  operatorName: string,
-  timestamp = nowTaskText(),
-  firstSampleTask?: FirstSampleTaskRecord,
-): void {
-  const readiness = evaluatePlateFirstSampleReadiness(plateTask.plateTaskId)
-  const existingCodes = readiness.existingFirstSampleTaskCodes
-  const sampleCreated = firstSampleTask || listExistingFirstSampleTasksForPlate(plateTask)[0]
-  const latestResultType = firstSampleTask
-    ? '已开放首版样衣打样'
-    : existingCodes.length > 0
-      ? '制版完成已建样衣'
-      : readiness.canCreateFirstSample
-        ? '制版完成可创建样衣'
-        : '制版完成待补齐下游条件'
-  const latestResultText = firstSampleTask
-    ? `制版任务已完成，已创建首版样衣打样 ${firstSampleTask.firstSampleTaskCode}。`
-    : existingCodes.length > 0
-      ? `制版任务已完成，已存在首版样衣打样：${existingCodes.join('、')}。`
-      : readiness.recommendedActionText
-  const pendingActionType = sampleCreated
-    ? '跟进首版样衣打样'
-    : readiness.canCreateFirstSample
-      ? '创建首版样衣打样'
-      : '补齐样衣前置条件'
-  const pendingActionText = sampleCreated
-    ? `查看或推进首版样衣打样 ${sampleCreated.firstSampleTaskCode}。`
-    : readiness.recommendedActionText
-
-  updateProjectNodeRecord(
-    plateTask.projectId,
-    plateTask.projectNodeId,
-    {
-      currentStatus: '已完成',
-      latestInstanceId: plateTask.plateTaskId,
-      latestInstanceCode: plateTask.plateTaskCode,
-      latestResultType,
-      latestResultText,
-      pendingActionType,
-      pendingActionText,
-      currentIssueType: readiness.canCreateFirstSample || sampleCreated ? '' : '样衣前置未满足',
-      currentIssueText: readiness.canCreateFirstSample || sampleCreated ? '' : readiness.recommendedActionText,
-      updatedAt: timestamp,
-      lastEventType: latestResultType,
-      lastEventTime: timestamp,
-    },
-    operatorName,
-  )
-  syncProjectNodeInstanceRuntime(plateTask.projectId, plateTask.projectNodeId, operatorName, timestamp)
-  syncPlateResultToRevisionProjection(plateTask, readiness, operatorName, timestamp, sampleCreated)
-  if (sampleCreated) {
-    syncFirstSampleTaskToProjectNode({
-      firstSampleTaskId: sampleCreated.firstSampleTaskId,
-      operatorName,
-    })
-  }
-  syncExistingProjectArchiveByProjectId(plateTask.projectId, operatorName)
-}
-
 function relationPayload(input: {
   projectId: string
   projectCode: string
@@ -971,6 +800,31 @@ function relationPayload(input: {
     legacyRefType: '',
     legacyRefValue: '',
   }
+}
+
+function syncCompletedTaskRelation(input: {
+  projectId: string
+  projectCode: string
+  sourceModule: '改版任务' | '制版任务' | '花型任务'
+  sourceObjectType: '改版任务' | '制版任务' | '花型任务'
+  sourceObjectId: string
+  sourceObjectCode: string
+  sourceTitle: string
+  businessDate: string
+  ownerName: string
+  operatorName: string
+}): void {
+  if (!input.projectId) return
+  upsertProjectRelation(
+    relationPayload({
+      ...input,
+      projectNodeId: '',
+      stepCode: '',
+      stepName: '',
+      sourceStatus: '已完成',
+    }),
+  )
+  syncExistingProjectArchiveByProjectId(input.projectId, input.operatorName)
 }
 
 function updateTaskNode(
@@ -1631,7 +1485,7 @@ function createPlateMakingTaskStandalone(
 }
 
 function resolvePlateUpstream(project: NonNullable<ReturnType<typeof getProjectById>>, input: PlateMakingTaskCreateInput) {
-  if (input.sourceType === '项目固定步骤') return resolveUpstreamForProjectStep(project)
+  if (input.sourceType === '商品项目') return resolveUpstreamForProject(project)
   if (input.sourceType === '既有商品二次开发') {
     return {
       upstreamModule: '既有商品',
@@ -1732,7 +1586,7 @@ export function createPlateMakingTaskWithProjectRelation(
   )
 
   syncExistingProjectArchiveByProjectId(task.projectId, task.updatedBy)
-  return { ok: true, task, relation, message: '制版任务已创建，已关联商品项目固定步骤。' }
+  return { ok: true, task, relation, message: '制版任务已创建，已关联商品项目。' }
 }
 
 export function createPlateMakingTask(
@@ -1743,7 +1597,7 @@ export function createPlateMakingTask(
 }
 
 function resolvePatternUpstream(project: NonNullable<ReturnType<typeof getProjectById>>, input: PatternTaskCreateInput) {
-  if (input.sourceType === '项目固定步骤') return resolveUpstreamForProjectStep(project)
+  if (input.sourceType === '商品项目') return resolveUpstreamForProject(project)
   if (input.sourceType === '花型复用调色') {
     return {
       upstreamModule: '花型库',
@@ -1879,7 +1733,7 @@ export function createPatternTaskWithProjectRelation(input: PatternTaskCreateInp
   )
 
   syncExistingProjectArchiveByProjectId(task.projectId, task.updatedBy)
-  return { ok: true, task, relation, message: '花型任务已创建，已关联商品项目固定步骤。' }
+  return { ok: true, task, relation, message: '花型任务已创建，已关联商品项目。' }
 }
 
 function createPatternTaskStandalone(input: PatternTaskCreateInput): TaskWritebackResult<PatternTaskRecord> {
@@ -2194,20 +2048,19 @@ export function confirmRevisionTaskOutput(
   return { ok: true, task: nextTask, message: '改版任务产出已确认。' }
 }
 
-export function completeRevisionTaskWithProjectRelationSync(
+export function completeRevisionTask(
   revisionTaskId: string,
   operatorName = '当前用户',
 ): TaskCompletionResult<RevisionTaskRecord> {
   const task = getRevisionTaskById(revisionTaskId)
   if (!task) return { ok: false, task: null, message: '未找到改版任务。' }
-  if (!task.projectId) {
-    return { ok: false, task, message: '当前改版任务未关联正式商品项目。' }
-  }
   if (task.status === '已取消') return { ok: false, task, message: '当前改版任务已取消，不能完成。' }
-  if (task.status !== '已生成技术包' && !task.linkedTechPackVersionId && !task.generatedNewTechPackVersionFlag) {
+  if (task.projectId && task.status !== '已生成技术包' && !task.linkedTechPackVersionId && !task.generatedNewTechPackVersionFlag) {
     return { ok: false, task, message: '请先生成改版技术包版本，再完成任务。' }
   }
-  const missingFields = getRevisionTaskCompletionMissingFields(task)
+  const missingFields = task.projectId
+    ? getRevisionTaskCompletionMissingFields(task)
+    : getRevisionTaskCompletionMissingFields(task).filter((item) => item !== '新技术包版本')
   if (missingFields.length > 0) {
     return { ok: false, task, message: `缺少字段：${missingFields.join('、')}。` }
   }
@@ -2220,37 +2073,27 @@ export function completeRevisionTaskWithProjectRelationSync(
     note: task.note || '改版任务已完成。',
   })
   if (!nextTask) return { ok: false, task, message: '改版任务更新失败。' }
+  syncCompletedTaskRelation({
+    projectId: nextTask.projectId,
+    projectCode: nextTask.projectCode,
+    sourceModule: '改版任务',
+    sourceObjectType: '改版任务',
+    sourceObjectId: nextTask.revisionTaskId,
+    sourceObjectCode: nextTask.revisionTaskCode,
+    sourceTitle: nextTask.title,
+    businessDate: nextTask.updatedAt,
+    ownerName: nextTask.ownerName,
+    operatorName,
+  })
   return { ok: true, task: nextTask, message: '改版任务已完成。' }
 }
 
-export function completeRevisionTask(
-  revisionTaskId: string,
-  operatorName = '当前用户',
-): TaskCompletionResult<RevisionTaskRecord> {
-  const task = getRevisionTaskById(revisionTaskId)
-  if (!task) return { ok: false, task: null, message: '未找到改版任务。' }
-  if (task.projectId) return completeRevisionTaskWithProjectRelationSync(revisionTaskId, operatorName)
-  if (task.status === '已取消') return { ok: false, task, message: '当前改版任务已取消，不能完成。' }
-  const missing = getRevisionTaskCompletionMissingFields(task).filter((item) => item !== '新技术包版本')
-  if (missing.length > 0) return { ok: false, task, message: `缺少字段：${missing.join('、')}。` }
-  const nextTask = updateRevisionTask(revisionTaskId, {
-    status: '已完成',
-    confirmedAt: nowTaskText(),
-    updatedAt: nowTaskText(),
-    updatedBy: operatorName,
-  })
-  return nextTask ? { ok: true, task: nextTask, message: '改版任务已完成。' } : { ok: false, task, message: '改版任务完成失败。' }
-}
-
-export function completePlateMakingTaskWithProjectRelationSync(
+export function completePlateMakingTask(
   plateTaskId: string,
   operatorName = '当前用户',
 ): TaskCompletionResult<PlateMakingTaskRecord> {
   const task = getPlateMakingTaskById(plateTaskId)
   if (!task) return { ok: false, task: null, message: '未找到制版任务。' }
-  if (!task.projectId || !task.projectNodeId) {
-    return { ok: false, task, message: '当前制版任务未关联正式商品项目节点。' }
-  }
   if (task.status === '已取消') return { ok: false, task, message: '当前制版任务已取消，不能完成。' }
   const missingFields = getPlateTaskCompletionMissingFields(task)
   if (missingFields.length > 0) {
@@ -2267,15 +2110,26 @@ export function completePlateMakingTaskWithProjectRelationSync(
   })
   if (!nextTask) return { ok: false, task, message: '制版任务更新失败。' }
 
-  syncPlateCompletionAggregateProjection(nextTask, operatorName, nextTask.updatedAt)
+  syncCompletedTaskRelation({
+    projectId: nextTask.projectId,
+    projectCode: nextTask.projectCode,
+    sourceModule: '制版任务',
+    sourceObjectType: '制版任务',
+    sourceObjectId: nextTask.plateTaskId,
+    sourceObjectCode: nextTask.plateTaskCode,
+    sourceTitle: nextTask.title,
+    businessDate: nextTask.updatedAt,
+    ownerName: nextTask.ownerName,
+    operatorName,
+  })
 
   const readiness = evaluatePlateFirstSampleReadiness(nextTask.plateTaskId)
   return {
     ok: true,
     task: nextTask,
     message: readiness.canCreateFirstSample
-      ? '制版任务已完成，样衣打样入口已开放，已同步商品项目节点。'
-      : `制版任务已完成，已同步商品项目节点。${readiness.blockingReasons.length > 0 ? ` 样衣入口暂未开放：${readiness.blockingReasons.join('、')}。` : ''}`,
+      ? '制版任务已完成，样衣打样入口已开放。'
+      : `制版任务已完成。${readiness.blockingReasons.length > 0 ? ` 样衣入口暂未开放：${readiness.blockingReasons.join('、')}。` : ''}`,
   }
 }
 
@@ -2392,25 +2246,6 @@ export function reviewPlateTaskSample(
   return { ok: true, task: nextTask, message: approved ? '制版样板已通过。' : '制版样板已驳回，已退回版师调整。' }
 }
 
-export function completePlateMakingTask(
-  plateTaskId: string,
-  operatorName = '当前用户',
-): TaskCompletionResult<PlateMakingTaskRecord> {
-  const task = getPlateMakingTaskById(plateTaskId)
-  if (!task) return { ok: false, task: null, message: '未找到制版任务。' }
-  if (task.projectId && task.projectNodeId) return completePlateMakingTaskWithProjectRelationSync(plateTaskId, operatorName)
-  if (task.status === '已取消') return { ok: false, task, message: '当前制版任务已取消，不能完成。' }
-  const missing = getPlateTaskCompletionMissingFields(task)
-  if (missing.length > 0) return { ok: false, task, message: `缺少字段：${missing.join('、')}。` }
-  const nextTask = updatePlateMakingTask(plateTaskId, {
-    status: '已完成',
-    confirmedAt: nowTaskText(),
-    updatedAt: nowTaskText(),
-    updatedBy: operatorName,
-  })
-  return nextTask ? { ok: true, task: nextTask, message: '制版任务已完成。' } : { ok: false, task, message: '制版任务完成失败。' }
-}
-
 export function submitPatternTaskForBuyerReview(
   patternTaskId: string,
   operatorName = '当前用户',
@@ -2462,15 +2297,12 @@ export function submitPatternTaskForBuyerReview(
   return { ok: true, task: nextTask, message: '花型任务已提交买手确认。' }
 }
 
-export function completePatternTaskWithProjectRelationSync(
+export function completePatternTask(
   patternTaskId: string,
   operatorName = '当前用户',
 ): TaskCompletionResult<PatternTaskRecord> {
   const task = getPatternTaskById(patternTaskId)
   if (!task) return { ok: false, task: null, message: '未找到花型任务。' }
-  if (!task.projectId || !task.projectNodeId) {
-    return { ok: false, task, message: '当前花型任务未关联正式商品项目节点。' }
-  }
   if (task.status === '已取消') return { ok: false, task, message: '当前花型任务已取消，不能完成。' }
   const missingFields = getPatternTaskCompletionMissingFields(task)
   if (missingFields.length > 0) {
@@ -2487,110 +2319,20 @@ export function completePatternTaskWithProjectRelationSync(
   })
   if (!nextTask) return { ok: false, task, message: '花型任务更新失败。' }
 
-  syncTaskCompletionToProjectNode({
+  syncCompletedTaskRelation({
     projectId: nextTask.projectId,
-    projectNodeId: nextTask.projectNodeId,
-    stepCode: 'PATTERN_ARTWORK_TASK',
-    stepName: '花型任务',
+    projectCode: nextTask.projectCode,
     sourceModule: '花型任务',
     sourceObjectType: '花型任务',
     sourceObjectId: nextTask.patternTaskId,
     sourceObjectCode: nextTask.patternTaskCode,
     sourceTitle: nextTask.title,
-    sourceStatus: nextTask.status,
     businessDate: nextTask.updatedAt,
     ownerName: nextTask.ownerName,
-    resultType: '花型任务已完成',
-    resultText: '花型任务已完成，商品项目节点同步完成。',
     operatorName,
   })
 
-  return { ok: true, task: nextTask, message: '花型任务已完成，已同步商品项目节点。' }
-}
-
-export function completePatternTask(
-  patternTaskId: string,
-  operatorName = '当前用户',
-): TaskCompletionResult<PatternTaskRecord> {
-  const task = getPatternTaskById(patternTaskId)
-  if (!task) return { ok: false, task: null, message: '未找到花型任务。' }
-  if (task.projectId && task.projectNodeId) return completePatternTaskWithProjectRelationSync(patternTaskId, operatorName)
-  if (task.status === '已取消') return { ok: false, task, message: '当前花型任务已取消，不能完成。' }
-  const missing = getPatternTaskCompletionMissingFields(task)
-  if (missing.length > 0) return { ok: false, task, message: `缺少字段：${missing.join('、')}。` }
-  const nextTask = updatePatternTask(patternTaskId, {
-    status: '已完成',
-    confirmedAt: nowTaskText(),
-    updatedAt: nowTaskText(),
-    updatedBy: operatorName,
-  })
-  return nextTask ? { ok: true, task: nextTask, message: '花型任务已完成。' } : { ok: false, task, message: '花型任务完成失败。' }
-}
-
-export function syncExistingProjectEngineeringTaskNodes(operatorName = '系统同步'): void {
-  listRevisionTasks()
-    .filter((task) => task.projectId && task.projectNodeId && task.status === '已完成')
-    .forEach((task) => {
-      syncTaskCompletionToProjectNode({
-        projectId: task.projectId,
-        projectNodeId: task.projectNodeId,
-        stepCode: 'REVISION_TASK',
-        stepName: '改版任务',
-        sourceModule: '改版任务',
-        sourceObjectType: '改版任务',
-        sourceObjectId: task.revisionTaskId,
-        sourceObjectCode: task.revisionTaskCode,
-        sourceTitle: task.title,
-        sourceStatus: task.status,
-        businessDate: task.updatedAt || task.createdAt,
-        ownerName: task.ownerName,
-        resultType: '改版任务已完成',
-        resultText: '改版任务已完成，商品项目节点同步完成。',
-        operatorName,
-      })
-    })
-  listPlateMakingTasks()
-    .filter((task) => task.projectId && task.projectNodeId && task.status === '已完成')
-    .forEach((task) => {
-      syncPlateCompletionAggregateProjection(task, operatorName, task.updatedAt || task.createdAt)
-    })
-  listPatternTasks()
-    .filter((task) => task.projectId && task.projectNodeId && task.status === '已完成')
-    .forEach((task) => {
-      syncTaskCompletionToProjectNode({
-        projectId: task.projectId,
-        projectNodeId: task.projectNodeId,
-        stepCode: 'PATTERN_ARTWORK_TASK',
-        stepName: '花型任务',
-        sourceModule: '花型任务',
-        sourceObjectType: '花型任务',
-        sourceObjectId: task.patternTaskId,
-        sourceObjectCode: task.patternTaskCode,
-        sourceTitle: task.title,
-        sourceStatus: task.status,
-        businessDate: task.updatedAt || task.createdAt,
-        ownerName: task.ownerName,
-        resultType: '花型任务已完成',
-        resultText: '花型任务已完成，商品项目节点同步完成。',
-        operatorName,
-      })
-    })
-  listFirstSampleTasks()
-    .filter((task) => task.projectId && task.projectNodeId && task.status === '已通过')
-    .forEach((task) => {
-      syncFirstSampleTaskToProjectNode({
-        firstSampleTaskId: task.firstSampleTaskId,
-        operatorName,
-      })
-    })
-  listFirstOrderSampleTasks()
-    .filter((task) => task.projectId && task.projectNodeId && task.status === '已通过')
-    .forEach((task) => {
-      syncFirstOrderSampleTaskToProjectNode({
-        firstOrderSampleTaskId: task.firstOrderSampleTaskId,
-        operatorName,
-      })
-    })
+  return { ok: true, task: nextTask, message: '花型任务已完成。' }
 }
 
 export function createFirstSampleTaskWithProjectRelation(
@@ -2713,11 +2455,10 @@ export function createFirstSampleTaskFromPlate(
 
   if (!result.ok || !result.task) return result
 
-  const updatedPlateTask = updatePlateNoteWithFirstSample(plateTask, result.task, operatorName) || plateTask
-  syncPlateCompletionAggregateProjection(updatedPlateTask, operatorName, result.task.updatedAt || nowTaskText(), result.task)
+  updatePlateNoteWithFirstSample(plateTask, result.task, operatorName)
   return {
     ...result,
-    message: `首版样衣打样 ${result.task.firstSampleTaskCode} 已创建，制版结果已回写到商品项目${plateTask.sourceType === '改版任务' ? '和改版任务' : ''}聚合视图。`,
+    message: `首版样衣打样 ${result.task.firstSampleTaskCode} 已创建，并保留制版任务来源。`,
   }
 }
 

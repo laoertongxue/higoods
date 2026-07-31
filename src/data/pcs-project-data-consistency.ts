@@ -75,7 +75,6 @@ import {
   listTechnicalDataVersionsByProjectId,
 } from './pcs-technical-data-version-repository.ts'
 import { getProjectArchiveById, getProjectArchiveByProjectId } from './pcs-project-archive-repository.ts'
-import { syncExistingProjectEngineeringTaskNodes } from './pcs-task-project-relation-writeback.ts'
 
 const INLINE_NODE_CODE_SET = new Set<string>(PCS_PROJECT_INLINE_STEP_RECORD_CODES as readonly string[])
 
@@ -886,8 +885,6 @@ function buildConsistencyPendingReason(relation: ProjectRelationRecord): string 
 export function repairPcsProjectDataConsistency(
   operatorName = '系统修复',
 ): PcsProjectDataConsistencyRepairResult {
-  syncExistingProjectEngineeringTaskNodes(operatorName)
-
   const relationSnapshot = getProjectRelationStoreSnapshot()
   const fixedStepCodes = new Set(listProjectFlowStageContracts().flatMap((step) => step.stepCodes))
   let fixedStepRelationRepairCount = 0

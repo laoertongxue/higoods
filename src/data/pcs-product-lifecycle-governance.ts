@@ -32,7 +32,7 @@ export const STYLE_ARCHIVE_STATUS_RULES: Record<StyleArchiveBusinessStatusKey, L
     key: 'WAITING_BASE_INFO',
     label: '待完善',
     className: 'border-amber-200 bg-amber-50 text-amber-700',
-    scene: '已从商品项目生成款式档案草稿，但基础资料尚未补齐，不能进入正式建档。',
+    scene: '已从商品项目完善商品档案草稿，但基础资料尚未补齐，不能进入正式建档。',
     operations: ['完善款式资料', '查看来源项目', '查看渠道店铺商品'],
   },
   WAITING_TECH_PACK: {

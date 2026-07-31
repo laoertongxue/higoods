@@ -34,7 +34,6 @@ import {
   repairPcsProjectDataConsistency,
   validateProjectNodeCompletion,
 } from '../src/data/pcs-project-data-consistency.ts'
-import { syncExistingProjectEngineeringTaskNodes } from '../src/data/pcs-task-project-relation-writeback.ts'
 
 resetProjectRepository()
 resetProjectRelationRepository()
@@ -49,7 +48,6 @@ resetStyleArchiveRepository()
 resetTechnicalDataVersionRepository()
 resetProjectArchiveRepository()
 
-syncExistingProjectEngineeringTaskNodes('测试同步')
 repairPcsProjectDataConsistency('测试修复')
 
 const report = auditPcsProjectDataConsistency()

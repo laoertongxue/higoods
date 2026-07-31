@@ -70,7 +70,7 @@ snapshot.plateTasks.forEach((task) => {
     assert.equal(upstream.projectId, task.projectId, `制版任务 ${task.plateTaskCode} 与改版来源必须属于同一项目`)
     return
   }
-  assert.equal(task.sourceType, '项目固定步骤')
+  assert.equal(task.sourceType, '商品项目')
   assert.equal(task.upstreamModule, '商品项目')
   assert.equal(task.upstreamObjectType, '商品项目')
   assert.equal(task.upstreamObjectId, task.projectId)

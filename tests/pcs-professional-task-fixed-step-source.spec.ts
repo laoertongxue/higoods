@@ -12,10 +12,10 @@ import {
 } from '../src/data/pcs-task-source-normalizer.ts'
 
 const repositoryRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
-const fixedStepSourceType = '项目固定步骤'
+const fixedStepSourceType = '商品项目'
 
-assert.ok(PLATE_TASK_SOURCE_TYPE_LIST.includes(fixedStepSourceType), '制版来源类型必须公开“项目固定步骤”')
-assert.ok(PATTERN_TASK_SOURCE_TYPE_LIST.includes(fixedStepSourceType), '花型来源类型必须公开“项目固定步骤”')
+assert.ok(PLATE_TASK_SOURCE_TYPE_LIST.includes(fixedStepSourceType), '制版来源类型必须公开“商品项目”')
+assert.ok(PATTERN_TASK_SOURCE_TYPE_LIST.includes(fixedStepSourceType), '花型来源类型必须公开“商品项目”')
 assert.equal(PLATE_TASK_SOURCE_TYPE_LIST.includes('项目模板阶段' as never), false)
 assert.equal(PATTERN_TASK_SOURCE_TYPE_LIST.includes('项目模板阶段' as never), false)
 assert.equal(normalizePlateTaskSourceType('项目模板阶段'), fixedStepSourceType, '读取旧制版来源时必须迁移为新语义')
@@ -25,11 +25,11 @@ const snapshot = createTaskBootstrapSnapshot()
 const fixedStepTasks = [...snapshot.plateTasks, ...snapshot.patternTasks].filter(
   (task) => task.sourceType === fixedStepSourceType,
 )
-assert.ok(fixedStepTasks.length > 0, '专业任务演示数据必须包含项目固定步骤来源')
+assert.ok(fixedStepTasks.length > 0, '专业任务演示数据必须包含商品项目来源')
 fixedStepTasks.forEach((task) => {
   assert.equal(task.upstreamModule, '商品项目')
   assert.equal(task.upstreamObjectType, '商品项目')
-  assert.ok(task.projectId, '项目固定步骤来源必须关联商品项目')
+  assert.ok(task.projectId, '商品项目来源必须关联商品项目')
   assert.equal(task.projectNodeId, '', '专业任务不重新绑定已删除的项目工作项节点')
 })
 
@@ -49,8 +49,8 @@ productionFiles.forEach((relativePath) => {
 
 const engineeringPageSource = readFileSync(resolve(repositoryRoot, 'src/pages/pcs-engineering-tasks.ts'), 'utf8')
 assert.doesNotMatch(engineeringPageSource, /project\?\.templateId|project\?\.templateVersion/, '项目任务来源不得读取已删除的模板字段')
-assert.match(engineeringPageSource, /sourceType: projectMode \? '项目固定步骤' : '人工创建'/, '提交时必须按创建方式锁定来源类型')
-assert.match(engineeringPageSource, /bindingMode === 'project' \? '项目固定步骤' : '人工创建'/, '交互时必须按创建方式锁定来源类型')
+assert.match(engineeringPageSource, /sourceType: projectMode \? '商品项目' : '人工创建'/, '提交时必须按创建方式锁定来源类型')
+assert.match(engineeringPageSource, /bindingMode === 'project' \? '商品项目' : '人工创建'/, '交互时必须按创建方式锁定来源类型')
 assert.doesNotMatch(
   engineeringPageSource,
   /upstreamObjectType: projectMode \? '项目步骤' : '款式档案'/,

@@ -131,7 +131,6 @@ import {
   createPatternTaskWithProjectRelation,
   createPlateMakingTaskWithProjectRelation,
   createRevisionTaskWithProjectRelation,
-  syncExistingProjectEngineeringTaskNodes,
 } from '../data/pcs-task-project-relation-writeback.ts'
 import {
   FIRST_SAMPLE_FACTORY_OPTIONS,
@@ -800,7 +799,6 @@ async function ensureProjectDetailSupportReady(): Promise<void> {
 
 function ensureProjectDemoDataReadySync(): void {
   projectDemoSeedServiceModule?.ensurePcsProjectDemoDataReady()
-  syncExistingProjectEngineeringTaskNodes('系统同步')
   repairChannelListingNodeInstanceConsistency('系统同步')
 }
 
@@ -2016,7 +2014,7 @@ function buildTechPackVersionDiffSummary(
 }
 
 function getTestConclusionNextActionType(decision: string): string {
-  if (decision === '通过') return '生成款式档案'
+  if (decision === '通过') return '完善商品档案'
   if (decision === '不通过') return '样衣退回处理'
   if (decision === '暂保留') return '稍后再判断'
   return ''

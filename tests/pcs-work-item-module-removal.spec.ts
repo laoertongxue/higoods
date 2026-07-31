@@ -3,7 +3,10 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { listProjectFlowStageContracts } from '../src/data/pcs-project-domain-contract.ts'
+import {
+  listProjectFlowStageContracts,
+  listProjectStepDefinitions,
+} from '../src/data/pcs-project-domain-contract.ts'
 import { buildProjectNodes } from '../src/data/pcs-project-node-factory.ts'
 
 const repositoryRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
@@ -69,7 +72,9 @@ assert.deepEqual(
 )
 
 const oldStyleArchiveStepFiles = scannedFiles.filter((relativePath) =>
-  /STYLE_ARCHIVE_CREATE/.test(readFileSync(resolve(repositoryRoot, relativePath), 'utf8')),
+  /STYLE_ARCHIVE_CREATE|生成款式档案|显式生成款式档案|已生成款式档案/.test(
+    readFileSync(resolve(repositoryRoot, relativePath), 'utf8'),
+  ),
 )
 assert.deepEqual(
   oldStyleArchiveStepFiles,
@@ -91,6 +96,51 @@ assert.doesNotMatch(
   /PCS_PROJECT_PHASE_CONTRACTS|listProjectPhaseContracts|getProjectPhaseContract|PCS_PROJECT_STEP_LEGACY_MAPPINGS|resolveLegacyProjectStepCode/,
   '公开领域契约只能保留 PROJECT_FLOW_STAGE_CONTRACTS，不得暴露冲突旧阶段或历史步骤映射',
 )
+const removedProfessionalStepCodes = [
+  'REVISION_TASK',
+  'PATTERN_TASK',
+  'PATTERN_ARTWORK_TASK',
+  'FIRST_SAMPLE',
+  'FIRST_ORDER_SAMPLE',
+]
+const publicProjectStepDefinitions = listProjectStepDefinitions()
+assert.deepEqual(
+  publicProjectStepDefinitions
+    .filter((step) => removedProfessionalStepCodes.includes(step.stepCode))
+    .map((step) => step.stepCode),
+  [],
+  '公共项目步骤定义不得继续包含独立专业任务',
+)
+assert.deepEqual(
+  publicProjectStepDefinitions.filter((step) => /^WI-/.test(step.stepId)).map((step) => step.stepId),
+  [],
+  '固定项目步骤不得继续使用已删除工作项模块的 WI-* 身份语义',
+)
+
+const techPackGenerationSource = readFileSync(
+  resolve(repositoryRoot, 'src/data/pcs-tech-pack-task-generation.ts'),
+  'utf8',
+)
+assert.doesNotMatch(
+  techPackGenerationSource,
+  /getProjectNodeBindingByTaskType|syncProjectSourceNodeFromTechPackVersion|getProjectNodeRecordByStepCode|sourceProjectNodeId:\s*nodeBinding/,
+  '专业任务产出的技术包只能形成项目级关系，不得再绑定或同步项目步骤',
+)
+
+const professionalTaskSources = [
+  'src/data/pcs-task-source-normalizer.ts',
+  'src/data/pcs-task-bootstrap.ts',
+  'src/data/pcs-task-project-relation-writeback.ts',
+  'src/pages/pcs-engineering-tasks.ts',
+]
+for (const relativePath of professionalTaskSources) {
+  const source = readFileSync(resolve(repositoryRoot, relativePath), 'utf8')
+  assert.doesNotMatch(
+    source,
+    /项目固定步骤|同步商品项目节点|项目节点已同步|商品项目节点已同步/,
+    `${relativePath} 的专业任务来源与完成反馈必须使用真实“商品项目”口径`,
+  )
+}
 
 const persistedProjectRuntimeSource = readFileSync(
   resolve(repositoryRoot, 'src/data/pcs-project-repository.ts'),

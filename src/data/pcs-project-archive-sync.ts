@@ -427,7 +427,7 @@ export function uploadProjectArchiveManualDocument(
       projectCode: archive.projectCode,
       projectNodeId: getProjectNodeRecordByStepCode(archive.projectId, 'PROJECT_INIT')?.projectNodeId || '',
       stepCode: 'PROJECT_INIT',
-      stepName: '生成款式档案',
+      stepName: '完善商品档案',
       sourceModule: '项目资料归档',
       sourceObjectType: groupLabelMap[input.documentGroup],
       sourceObjectId: projectArchiveId,

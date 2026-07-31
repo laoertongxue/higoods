@@ -87,7 +87,6 @@ import {
   submitPlateTaskForSampleReview,
   submitPatternTaskForBuyerReview,
   submitRevisionTaskForConfirmation,
-  syncExistingProjectEngineeringTaskNodes,
 } from '../data/pcs-task-project-relation-writeback.ts'
 import { findStyleArchiveByProjectId, getStyleArchiveById, listStyleArchives } from '../data/pcs-style-archive-repository.ts'
 import { getProjectById, listProjects } from '../data/pcs-project-repository.ts'
@@ -564,7 +563,7 @@ const initialRevisionDetailDraft = (): RevisionDetailDraft => ({
 
 const initialPlateCreateDraft = (): PlateCreateDraft => ({
   bindingMode: 'project',
-  sourceType: '项目固定步骤',
+  sourceType: '商品项目',
   projectId: '',
   styleId: '',
   title: '',
@@ -582,7 +581,7 @@ const initialPlateCreateDraft = (): PlateCreateDraft => ({
 
 const initialPatternCreateDraft = (): PatternCreateDraft => ({
   bindingMode: 'project',
-  sourceType: '项目固定步骤',
+  sourceType: '商品项目',
   projectId: '',
   styleId: '',
   title: '',
@@ -2900,7 +2899,6 @@ function renderRevisionMissingItems(items: string[]): string {
 }
 
 function renderRevisionDetailPage(revisionTaskId: string): string {
-  syncExistingProjectEngineeringTaskNodes('系统同步')
   const task = getRevisionTaskById(revisionTaskId)
   if (!task) return renderEmptyDetail('改版任务', '/pcs/patterns/revision')
   const detailDraft = ensureRevisionDetailDraft(task)
@@ -3420,7 +3418,7 @@ function buildPlateTaskFlowView(task: PlateTaskViewRecord): PlateTaskFlowView {
   if (completed) {
     activeKey = 'done'
     stageLabel = '已完成'
-    nextActionText = '制版任务已完成，商品项目节点已同步。'
+    nextActionText = '制版任务已完成，商品项目关系已同步。'
     missingFields = []
   } else if (task.status === '已取消') {
     activeKey = 'done'
@@ -3455,7 +3453,7 @@ function buildPlateTaskFlowView(task: PlateTaskViewRecord): PlateTaskFlowView {
   } else {
     activeKey = 'closure'
     stageLabel = '待完成任务'
-    nextActionText = '技术包版本已生成，可以完成制版任务并同步商品项目节点。'
+    nextActionText = '技术包版本已生成，可以完成制版任务并同步商品项目关系。'
     missingFields = completionMissingFields.filter((item) => item !== '技术包版本')
   }
 
@@ -3465,7 +3463,7 @@ function buildPlateTaskFlowView(task: PlateTaskViewRecord): PlateTaskFlowView {
     { key: 'review', label: '样板确认', done: approved, active: activeKey === 'review', desc: approved ? '样板已通过' : task.sampleReviewStatus },
     { key: 'outputs', label: '纸样文件', done: hasExecutionOutput, active: activeKey === 'outputs', desc: getPlateOutputSummary(task) },
     { key: 'closure', label: '技术包写入', done: techPackWritten, active: activeKey === 'closure', desc: techPackWritten ? '技术包已生成' : '待生成技术包' },
-    { key: 'done', label: '任务完成', done: completed, active: activeKey === 'done', desc: completed ? '项目节点已同步' : '待收口' },
+    { key: 'done', label: '任务完成', done: completed, active: activeKey === 'done', desc: completed ? '项目关系已同步' : '待收口' },
   ]
 
   return {
@@ -3676,8 +3674,8 @@ function renderPlateCreateDialog(): string {
         { value: 'project', label: '关联商品项目' },
         { value: 'style', label: '独立任务' },
       ])}
-      ${renderSelectInput('来源类型', 'plate-create-source-type', showProjectField ? '项目固定步骤' : '人工创建', [
-        { value: showProjectField ? '项目固定步骤' : '人工创建', label: showProjectField ? '项目固定步骤' : '人工创建' },
+      ${renderSelectInput('来源类型', 'plate-create-source-type', showProjectField ? '商品项目' : '人工创建', [
+        { value: showProjectField ? '商品项目' : '人工创建', label: showProjectField ? '商品项目' : '人工创建' },
       ])}
       ${showProjectField ? renderSelectInput('商品项目', 'plate-create-project', draft.projectId, buildProjectOptions()) : renderSelectInput('款式档案', 'plate-create-style-id', draft.styleId, buildStyleArchiveOptions())}
       ${renderTextInput('负责人', 'plate-create-owner', draft.ownerName, '')}
@@ -3704,7 +3702,6 @@ function renderPlateCreateDialog(): string {
 }
 
 function renderPlateDetailPage(plateTaskId: string): string {
-  syncExistingProjectEngineeringTaskNodes('系统同步')
   const task = getPlateMakingTaskById(plateTaskId)
   if (!task) return renderEmptyDetail('制版任务', '/pcs/patterns')
   const detailDraft = ensurePlateDetailDraft(task)
@@ -4086,8 +4083,8 @@ function renderPatternCreateDialog(): string {
         { value: 'project', label: '关联商品项目' },
         { value: 'style', label: '独立任务' },
       ])}
-      ${renderSelectInput('来源类型', 'pattern-create-source-type', showProjectField ? '项目固定步骤' : '人工创建', [
-        { value: showProjectField ? '项目固定步骤' : '人工创建', label: showProjectField ? '项目固定步骤' : '人工创建' },
+      ${renderSelectInput('来源类型', 'pattern-create-source-type', showProjectField ? '商品项目' : '人工创建', [
+        { value: showProjectField ? '商品项目' : '人工创建', label: showProjectField ? '商品项目' : '人工创建' },
       ])}
       ${showProjectField ? renderSelectInput('商品项目', 'pattern-create-project', draft.projectId, buildProjectOptions()) : renderSelectInput('款式档案', 'pattern-create-style-id', draft.styleId, buildStyleArchiveOptions())}
       ${renderTextInput('负责人', 'pattern-create-owner', draft.ownerName, '')}
@@ -4200,7 +4197,7 @@ function buildPatternTaskFlowView(task: PatternTaskRecord, hasPatternAsset: bool
     { key: 'execution', label: '花型执行', done: submittedForReview || buyerPassed || completed, active: activeKey === 'execution', desc: submittedForReview || buyerPassed || completed ? '已提交买手确认' : hasOutput ? '资料已齐待提交' : '补齐版次/完成图/文件' },
     { key: 'review', label: '买手确认', done: buyerPassed, active: activeKey === 'review', desc: buyerPassed ? '买手已通过' : task.buyerReviewStatus },
     { key: 'closure', label: '产出闭环', done: closureReady, active: activeKey === 'closure', desc: closureReady ? '技术包和花型库已闭环' : '待写包/沉淀' },
-    { key: 'done', label: '任务完成', done: completed, active: activeKey === 'done', desc: completed ? '项目节点已同步' : '待收口' },
+    { key: 'done', label: '任务完成', done: completed, active: activeKey === 'done', desc: completed ? '项目关系已同步' : '待收口' },
   ]
 
   return {
@@ -4279,7 +4276,6 @@ function renderPatternCurrentActionPanel(
 }
 
 function renderPatternDetailPage(patternTaskId: string): string {
-  syncExistingProjectEngineeringTaskNodes('系统同步')
   const task = getPatternTaskById(patternTaskId)
   if (!task) return renderEmptyDetail('花型任务', '/pcs/patterns/colors')
   const techPackAction = getPatternTechPackActionMeta(task.patternTaskId)
@@ -4915,8 +4911,8 @@ function saveFirstSampleDetail(taskId: string): void {
   }
   state.firstSampleDetailDraftTaskId = result.task.firstSampleTaskId
   state.firstSampleDetailDraft = buildFirstSampleDetailDraft(result.task)
-  pushRuntimeLog('firstSample', result.task.firstSampleTaskId, '保存详情', '已保存首版样衣详情字段并同步商品项目节点。')
-  setNotice('首版样衣打样详情已保存，并同步商品项目节点。')
+  pushRuntimeLog('firstSample', result.task.firstSampleTaskId, '保存详情', '已保存首版样衣详情字段并同步商品项目关系。')
+  setNotice('首版样衣打样详情已保存，并同步商品项目关系。')
 }
 
 function getFirstOrderDetailDraft(task: FirstOrderSampleTaskRecord): FirstOrderDetailDraft {
@@ -4967,8 +4963,8 @@ function saveFirstOrderDetail(taskId: string): void {
       updatedAt: result.task.confirmedAt || result.task.updatedAt,
     })
   }
-  pushRuntimeLog('firstOrder', result.task.firstOrderSampleTaskId, '保存详情', '已保存首单样衣详情字段并同步商品项目节点。')
-  setNotice('首单样衣打样详情已保存，并同步商品项目节点。')
+  pushRuntimeLog('firstOrder', result.task.firstOrderSampleTaskId, '保存详情', '已保存首单样衣详情字段并同步商品项目关系。')
+  setNotice('首单样衣打样详情已保存，并同步商品项目关系。')
 }
 
 function renderFirstSampleReworkCard(task: FirstSampleTaskRecord): string {
@@ -5732,7 +5728,7 @@ function submitPlateCreate(): void {
   const result = createPlateMakingTask({
     projectId: projectMode ? draft.projectId : '',
     title: draft.title.trim() || '新建制版任务',
-    sourceType: projectMode ? '项目固定步骤' : '人工创建',
+    sourceType: projectMode ? '商品项目' : '人工创建',
     upstreamModule: projectMode ? '商品项目' : '款式档案',
     upstreamObjectType: projectMode ? '商品项目' : '款式档案',
     upstreamObjectId: projectMode ? (project?.projectId || '') : (selectedStyle?.styleId || ''),
@@ -5843,7 +5839,7 @@ function submitPatternCreate(): void {
   const result = createPatternTask({
     projectId: projectMode ? draft.projectId : '',
     title: draft.title.trim() || '新建花型任务',
-    sourceType: projectMode ? '项目固定步骤' : '人工创建',
+    sourceType: projectMode ? '商品项目' : '人工创建',
     upstreamModule: projectMode ? '商品项目' : '款式档案',
     upstreamObjectType: projectMode ? '商品项目' : '款式档案',
     upstreamObjectId: projectMode ? (project?.projectId || '') : (selectedStyle?.styleId || ''),
@@ -6275,7 +6271,6 @@ function generatePatternTechPack(taskId: string): void {
 }
 
 export function renderPcsRevisionTaskPage(): string {
-  syncExistingProjectEngineeringTaskNodes('系统同步')
   return renderRevisionListPage()
 }
 
@@ -6284,7 +6279,6 @@ export function renderPcsRevisionTaskDetailPage(revisionTaskId: string): string 
 }
 
 export function renderPcsPlateMakingTaskPage(): string {
-  syncExistingProjectEngineeringTaskNodes('系统同步')
   return renderPlateListPage()
 }
 
@@ -6293,7 +6287,6 @@ export function renderPcsPlateMakingTaskDetailPage(plateTaskId: string): string 
 }
 
 export function renderPcsPatternTaskPage(): string {
-  syncExistingProjectEngineeringTaskNodes('系统同步')
   return renderPatternListPage()
 }
 
@@ -6626,10 +6619,10 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
         state.plateCreateDraft.projectId = ''
         state.plateCreateDraft.styleId = ''
         state.plateCreateDraft.productStyleCode = ''
-        state.plateCreateDraft.sourceType = value === 'project' ? '项目固定步骤' : '人工创建'
+        state.plateCreateDraft.sourceType = value === 'project' ? '商品项目' : '人工创建'
         return true
       case 'plate-create-source-type':
-        state.plateCreateDraft.sourceType = state.plateCreateDraft.bindingMode === 'project' ? '项目固定步骤' : '人工创建'
+        state.plateCreateDraft.sourceType = state.plateCreateDraft.bindingMode === 'project' ? '商品项目' : '人工创建'
         return true
       case 'plate-create-project': {
         state.plateCreateDraft.projectId = value
@@ -6669,10 +6662,10 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
         state.patternCreateDraft.projectId = ''
         state.patternCreateDraft.styleId = ''
         state.patternCreateDraft.productStyleCode = ''
-        state.patternCreateDraft.sourceType = value === 'project' ? '项目固定步骤' : '人工创建'
+        state.patternCreateDraft.sourceType = value === 'project' ? '商品项目' : '人工创建'
         return true
       case 'pattern-create-source-type':
-        state.patternCreateDraft.sourceType = state.patternCreateDraft.bindingMode === 'project' ? '项目固定步骤' : '人工创建'
+        state.patternCreateDraft.sourceType = state.patternCreateDraft.bindingMode === 'project' ? '商品项目' : '人工创建'
         return true
       case 'pattern-create-project': {
         state.patternCreateDraft.projectId = value
@@ -7365,7 +7358,7 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement, event?: Event
         return true
       }
       const synced = Boolean(result.task.projectId && result.task.projectNodeId)
-      pushRuntimeLog('revision', taskId, '完成任务', synced ? '已完成改版任务并同步商品项目节点。' : '已完成改版任务。')
+      pushRuntimeLog('revision', taskId, '完成任务', synced ? '已完成改版任务并同步商品项目关系。' : '已完成改版任务。')
       setNotice(`改版任务 ${result.task.revisionTaskCode} 已完成${synced ? '，并同步更新商品项目节点' : ''}。`)
     } catch (error) {
       setNotice(error instanceof Error ? error.message : '改版任务完成失败。')
@@ -7381,7 +7374,7 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement, event?: Event
         return true
       }
       const synced = Boolean(result.task.projectId && result.task.projectNodeId)
-      pushRuntimeLog('plate', taskId, '完成任务', synced ? '已完成制版任务并同步商品项目节点。' : '已完成制版任务。')
+      pushRuntimeLog('plate', taskId, '完成任务', synced ? '已完成制版任务并同步商品项目关系。' : '已完成制版任务。')
       setNotice(`制版任务 ${result.task.plateTaskCode} 已完成${synced ? '，并同步更新商品项目节点' : ''}。`)
     } catch (error) {
       setNotice(error instanceof Error ? error.message : '制版任务完成失败。')
@@ -7397,7 +7390,7 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement, event?: Event
         return true
       }
       const synced = Boolean(result.task.projectId && result.task.projectNodeId)
-      pushRuntimeLog('pattern', taskId, '完成任务', synced ? '已完成花型任务并同步商品项目节点。' : '已完成花型任务。')
+      pushRuntimeLog('pattern', taskId, '完成任务', synced ? '已完成花型任务并同步商品项目关系。' : '已完成花型任务。')
       setNotice(`花型任务 ${result.task.patternTaskCode} 已完成${synced ? '，并同步更新商品项目节点' : ''}。`)
     } catch (error) {
       setNotice(error instanceof Error ? error.message : '花型任务完成失败。')
@@ -7470,7 +7463,7 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement, event?: Event
     state.firstSampleAcceptanceOpen = false
     state.firstSampleTab = 'acceptance'
     setNotice(result.ok
-      ? `首版样衣任务 ${task.firstSampleTaskCode} 已提交验收结论并同步商品项目节点。${passed ? '' : '请在改版处理入口创建或跟进改版任务。'}`
+      ? `首版样衣任务 ${task.firstSampleTaskCode} 已提交验收结论并同步商品项目关系。${passed ? '' : '请在改版处理入口创建或跟进改版任务。'}`
       : result.message)
     return true
   }
@@ -7512,7 +7505,7 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement, event?: Event
     }
     pushRuntimeLog('firstOrder', task.firstOrderSampleTaskId, '首单结论', `确认人：${state.firstOrderConclusionConfirmedBy.trim()}；确认时间：${timestamp}；结论：${conclusionResult}。${state.firstOrderConclusionNote.trim() || '已记录首单结论。'}`)
     state.firstOrderConclusionOpen = false
-    setNotice(result.ok ? `首单样衣打样任务 ${task.firstOrderSampleTaskCode} 已提交首单结论并同步商品项目节点。` : result.message)
+    setNotice(result.ok ? `首单样衣打样任务 ${task.firstOrderSampleTaskCode} 已提交首单结论并同步商品项目关系。` : result.message)
     return true
   }
 

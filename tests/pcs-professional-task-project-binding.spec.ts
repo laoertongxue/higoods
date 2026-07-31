@@ -4,7 +4,7 @@ import {
   listPlateMakingTasks,
   resetPlateMakingTaskRepository,
 } from '../src/data/pcs-plate-making-repository.ts'
-import { resetPatternTaskRepository } from '../src/data/pcs-pattern-task-repository.ts'
+import { listPatternTasks, resetPatternTaskRepository } from '../src/data/pcs-pattern-task-repository.ts'
 import {
   listProjectRelationsByProject,
   resetProjectRelationRepository,
@@ -14,8 +14,15 @@ import {
   listProjects,
   resetProjectRepository,
 } from '../src/data/pcs-project-repository.ts'
-import { resetRevisionTaskRepository } from '../src/data/pcs-revision-task-repository.ts'
 import {
+  getRevisionTaskById,
+  resetRevisionTaskRepository,
+  updateRevisionTask,
+} from '../src/data/pcs-revision-task-repository.ts'
+import {
+  completePatternTask,
+  completePlateMakingTask,
+  completeRevisionTask,
   createDownstreamTasksFromRevision,
   createPatternTask,
   createPlateMakingTask,
@@ -33,8 +40,8 @@ assert.ok(project, '必须存在商品项目演示数据')
 
 const plateResult = createPlateMakingTask({
   projectId: project.projectId,
-  title: '项目固定步骤制版回归',
-  sourceType: '项目固定步骤',
+  title: '商品项目制版回归',
+  sourceType: '商品项目',
   productStyleCode: project.linkedStyleCode || project.styleNumber,
   spuCode: project.linkedStyleCode || project.styleNumber,
   patternMakerName: '王版师',
@@ -50,8 +57,8 @@ assert.equal(plateResult.task?.upstreamObjectCode, project.projectCode)
 
 const patternResult = createPatternTask({
   projectId: project.projectId,
-  title: '项目固定步骤花型回归',
-  sourceType: '项目固定步骤',
+  title: '商品项目花型回归',
+  sourceType: '商品项目',
   productStyleCode: project.linkedStyleCode || project.styleNumber,
   spuCode: project.linkedStyleCode || project.styleNumber,
   demandSourceType: '预售测款通过',
@@ -143,5 +150,48 @@ if (revisionResult.ok) {
     '重复创建被阻止后只能保留一张制版下游任务',
   )
 }
+
+const completablePlate = listPlateMakingTasks().find((item) => item.plateTaskId === 'PT-20260425-008')
+assert.ok(completablePlate, '必须存在可完成的制版任务演示数据')
+const completedPlate = completePlateMakingTask(completablePlate!.plateTaskId, '测试用户')
+assert.equal(completedPlate.ok, true, completedPlate.message)
+assert.equal(
+  listProjectRelationsByProject(completablePlate!.projectId).find(
+    (item) => item.sourceObjectId === completablePlate!.plateTaskId,
+  )?.sourceStatus,
+  '已完成',
+  '制版任务完成后必须回写项目关系完成态',
+)
+
+const completablePattern = listPatternTasks().find((item) => item.patternTaskId === 'AT-20260405-015')
+assert.ok(completablePattern, '必须存在可完成的花型任务演示数据')
+const completedPattern = completePatternTask(completablePattern!.patternTaskId, '测试用户')
+assert.equal(completedPattern.ok, true, completedPattern.message)
+assert.equal(
+  listProjectRelationsByProject(completablePattern!.projectId).find(
+    (item) => item.sourceObjectId === completablePattern!.patternTaskId,
+  )?.sourceStatus,
+  '已完成',
+  '花型任务完成后必须回写项目关系完成态',
+)
+
+const completableRevision = getRevisionTaskById('RT-20260402-018')
+assert.ok(completableRevision, '必须存在可完成的改版任务演示数据')
+updateRevisionTask(completableRevision!.revisionTaskId, {
+  status: '已生成技术包',
+  linkedTechPackVersionId: 'tpv-project-relation-completion-test',
+  linkedTechPackVersionCode: 'TPV-RELATION-COMPLETION-TEST',
+  generatedNewTechPackVersionFlag: true,
+  liveRetestRequired: false,
+})
+const completedRevision = completeRevisionTask(completableRevision!.revisionTaskId, '测试用户')
+assert.equal(completedRevision.ok, true, completedRevision.message)
+assert.equal(
+  listProjectRelationsByProject(completableRevision!.projectId).find(
+    (item) => item.sourceObjectId === completableRevision!.revisionTaskId,
+  )?.sourceStatus,
+  '已完成',
+  '改版任务完成后必须回写项目关系完成态',
+)
 
 console.log('pcs-professional-task-project-binding.spec.ts PASS')

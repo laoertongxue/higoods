@@ -114,7 +114,7 @@ assert.match(patternListHtml, /花型库/, '花型任务列表应出现花型库
 const incompletePatternTask = savePatternTaskDraft({
   projectId: '',
   title: '花型库沉淀缺资料拦截',
-  sourceType: '项目固定步骤',
+  sourceType: '商品项目',
   productStyleCode: 'SPU-PATTERN-INCOMPLETE',
   demandSourceType: '预售测款通过',
   processType: '数码印',
@@ -133,7 +133,7 @@ assert.ok(!listPatternAssets().some((asset) => asset.source_task_id === incomple
 const patternTask = savePatternTaskDraft({
   projectId: '',
   title: '花型库沉淀验收',
-  sourceType: '项目固定步骤',
+  sourceType: '商品项目',
   productStyleCode: 'SPU-PATTERN-PUBLISH',
   demandSourceType: '预售测款通过',
   processType: '数码印',

@@ -1,57 +1,17 @@
 import {
   getProjectById,
-  getProjectNodeRecordByStepCode,
-  updateProjectNodeRecord,
   updateProjectRecord,
 } from './pcs-project-repository.ts'
 import { syncExistingProjectArchiveByProjectId } from './pcs-project-archive-sync.ts'
 import { upsertProjectRelation } from './pcs-project-relation-repository.ts'
-import { syncProjectNodeInstanceRuntime } from './pcs-project-node-instance-registry.ts'
 import { appendTechPackVersionLog } from './pcs-tech-pack-version-log-repository.ts'
 import { getStyleArchiveById, updateStyleArchive } from './pcs-style-archive-repository.ts'
 import { getTechnicalDataVersionById } from './pcs-technical-data-version-repository.ts'
-import type { TechPackSourceTaskType } from './pcs-technical-data-version-types.ts'
 
 function nowText(): string {
   const now = new Date()
   const pad = (value: number) => String(value).padStart(2, '0')
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`
-}
-
-function getProjectNodeBindingByTaskType(projectId: string, taskType: TechPackSourceTaskType) {
-  if (taskType === 'MANUAL') {
-    const node = getProjectNodeRecordByStepCode(projectId, 'PROJECT_INIT')
-    return {
-      projectNodeId: node?.projectNodeId || null,
-      stepCode: 'PROJECT_INIT',
-      stepName: node?.stepName || '款式档案',
-    }
-  }
-
-  if (taskType === 'PLATE') {
-    const node = getProjectNodeRecordByStepCode(projectId, 'PATTERN_TASK')
-    return {
-      projectNodeId: node?.projectNodeId || null,
-      stepCode: 'PATTERN_TASK',
-      stepName: node?.stepName || '制版任务',
-    }
-  }
-
-  if (taskType === 'ARTWORK') {
-    const node = getProjectNodeRecordByStepCode(projectId, 'PATTERN_ARTWORK_TASK')
-    return {
-      projectNodeId: node?.projectNodeId || null,
-      stepCode: 'PATTERN_ARTWORK_TASK',
-      stepName: node?.stepName || '花型任务',
-    }
-  }
-
-  const node = getProjectNodeRecordByStepCode(projectId, 'REVISION_TASK')
-  return {
-    projectNodeId: node?.projectNodeId || null,
-    stepCode: 'REVISION_TASK',
-    stepName: node?.stepName || '改版任务',
-  }
 }
 
 export function activateTechPackVersionForStyle(
@@ -101,33 +61,13 @@ export function activateTechPackVersionForStyle(
       operatorName,
     )
 
-    const sourceNode = getProjectNodeBindingByTaskType(record.sourceProjectId, record.createdFromTaskType)
-    if (sourceNode.projectNodeId) {
-      updateProjectNodeRecord(
-        record.sourceProjectId,
-        sourceNode.projectNodeId,
-        {
-          currentStatus: '进行中',
-          latestInstanceId: record.technicalVersionId,
-          latestInstanceCode: record.technicalVersionCode,
-          latestResultType: '已启用当前生效版本',
-          latestResultText: '已启用当前生效技术包版本，可供下游正式消费。',
-          pendingActionType: '等待生产消费',
-          pendingActionText: '后续生产需求转生产单时将消费当前生效技术包版本。',
-          updatedAt: activatedAt,
-        },
-        operatorName,
-      )
-      syncProjectNodeInstanceRuntime(record.sourceProjectId, sourceNode.projectNodeId, operatorName, activatedAt)
-    }
-
     upsertProjectRelation({
       projectRelationId: `rel_tech_pack_${record.technicalVersionId}`,
       projectId: record.sourceProjectId,
       projectCode: record.sourceProjectCode,
-      projectNodeId: sourceNode.projectNodeId ?? (record.sourceProjectNodeId || null),
-      stepCode: sourceNode.stepCode,
-      stepName: sourceNode.stepName,
+      projectNodeId: null,
+      stepCode: '',
+      stepName: '',
       relationRole: '产出对象',
       sourceModule: '技术包',
       sourceObjectType: '技术包版本',

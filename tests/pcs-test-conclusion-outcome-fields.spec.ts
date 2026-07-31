@@ -29,7 +29,7 @@ function getProjectByCode(projectCode: string) {
   return project!
 }
 
-function submitConclusionForProject(projectCode: string, conclusion: '通过' | '淘汰') {
+function submitConclusionForProject(projectCode: string, conclusion: '通过' | '不通过') {
   resetAllRepositories()
 
   const project = getProjectByCode(projectCode)
@@ -73,17 +73,17 @@ assert.ok(!fieldKeys.includes('revisionTaskCode'))
 assert.ok(!fieldKeys.includes('projectTerminated'))
 assert.ok(!fieldKeys.includes('projectTerminatedAt'))
 
-const throughCase = submitConclusionForProject('PRJ-20251216-013', '通过')
+const throughCase = submitConclusionForProject('PRJ-202603-005', '通过')
 const throughHtml = await throughCase.htmlPromise
 assert.ok(throughCase.payload.linkedStyleId)
 assert.ok(throughCase.payload.linkedStyleCode)
-assert.equal(throughCase.payload.nextActionType, '生成款式档案')
+assert.equal(throughCase.payload.nextActionType, '完善商品档案')
 assert.equal(throughCase.project.projectStatus, '进行中')
 assert.equal(throughCase.sampleReturnNode.currentStatus, '未开始')
 assert.match(throughHtml, /关联款式档案编码/)
-assert.match(throughHtml, /生成款式档案/)
+assert.match(throughHtml, /完善商品档案/)
 
-const eliminatedCase = submitConclusionForProject('PRJ-20251216-020', '淘汰')
+const eliminatedCase = submitConclusionForProject('PRJ-202604-007', '不通过')
 const eliminatedHtml = await eliminatedCase.htmlPromise
 assert.ok(eliminatedCase.payload.invalidatedChannelProductId)
 assert.equal(eliminatedCase.payload.nextActionType, '样衣退回处理')
@@ -97,7 +97,7 @@ assert.ok(
   eliminatedCase.allNodes
     .filter((node) => node.stepCode !== 'TEST_CONCLUSION' && node.stepCode !== 'SAMPLE_RETURN_HANDLE')
     .some((node) => node.currentStatus === '已取消'),
-  '淘汰后应取消中间未完成节点',
+  '不通过后应取消中间未完成节点',
 )
 assert.match(eliminatedHtml, /样衣退回处理/)
 assert.doesNotMatch(eliminatedHtml, /项目终止时间/)

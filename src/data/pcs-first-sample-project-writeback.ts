@@ -478,8 +478,8 @@ export function createOrUpdateFirstSampleTaskFromProjectNode(
   return {
     ok: true,
     message: existing
-      ? '已更新首版样衣必要信息，并同步商品项目节点。'
-      : '已创建首版样衣打样任务，并同步商品项目节点。',
+      ? '已更新首版样衣必要信息，并同步商品项目关系。'
+      : '已创建首版样衣打样任务，并同步商品项目关系。',
     task: savedTask,
     projectNode,
   }
@@ -491,7 +491,7 @@ export function syncFirstSampleTaskToProjectNode(input: {
 }): FirstSampleProjectWritebackResult {
   const task = getFirstSampleTaskById(input.firstSampleTaskId)
   if (!task) {
-    return { ok: false, message: '未找到首版样衣打样任务，不能同步商品项目节点。', task: null, projectNode: null }
+    return { ok: false, message: '未找到首版样衣打样任务，不能同步商品项目关系。', task: null, projectNode: null }
   }
   if (!task.projectNodeId) {
     return {

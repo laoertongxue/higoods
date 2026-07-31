@@ -116,7 +116,7 @@ interface TestingBranchRecordSeed {
 }
 
 function getTestingConclusionNextActionType(conclusion: TestingBranchRecordSeed['conclusion']): string {
-  if (conclusion === '通过') return '生成款式档案'
+  if (conclusion === '通过') return '完善商品档案'
   if (conclusion === '淘汰') return '样衣退回处理'
   return ''
 }
@@ -1451,7 +1451,7 @@ function buildGenericInlineSeed(
         invalidationPlanned: conclusion !== '通过',
         linkedStyleId: project.linkedStyleId || '',
         linkedStyleCode: project.linkedStyleCode || '',
-        nextActionType: conclusion === '通过' ? '生成款式档案' : conclusion === '淘汰' ? '样衣退回处理' : '',
+        nextActionType: conclusion === '通过' ? '完善商品档案' : conclusion === '淘汰' ? '样衣退回处理' : '',
       },
       detailSnapshot: {
         linkedStyleId: project.linkedStyleId || '',

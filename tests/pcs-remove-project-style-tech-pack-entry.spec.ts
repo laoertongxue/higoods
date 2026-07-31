@@ -38,7 +38,7 @@ assert.ok(!projectHtml.includes(legacyCreateLabel), '商品项目详情不应再
 assert.ok(!projectHtml.includes(legacyCopyLabel), '商品项目详情不应再显示旧复制入口')
 
 const styleNode = getProjectNodeRecordByStepCode(project!.projectId, 'PROJECT_INIT')
-assert.ok(styleNode, '应存在生成款式档案节点')
+assert.ok(styleNode, '应存在完善商品档案节点')
 
 const projectStepHtml = await renderPcsProjectStepDetailPage(
   project!.projectId,

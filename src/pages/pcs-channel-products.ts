@@ -181,7 +181,7 @@ function getLinkageDescription(record: ProjectChannelProductRecord): string {
     return '测款通过，已关联款式档案并完成上游最终更新'
   }
   if (record.styleCode && record.upstreamSyncStatus === '待更新') {
-    return '测款通过，已生成款式档案，待启用技术包'
+    return '测款通过，已关联商品档案，待启用技术包'
   }
   if (record.channelProductStatus === '已上架待测款') {
     return '已完成上架，等待直播或短视频正式测款'

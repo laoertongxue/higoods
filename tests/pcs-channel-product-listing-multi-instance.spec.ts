@@ -32,12 +32,12 @@ assert.ok(
   '商品上架节点应展示项目目标渠道池',
 )
 assert.ok(
-  contract.fieldDefinitions.some((field) => field.fieldKey === 'listingScopeRule'),
-  '商品上架节点应展示实例粒度说明',
+  !contract.fieldDefinitions.some((field) => field.fieldKey === 'listingScopeRule'),
+  '商品上架节点不得保留旧的实例粒度说明字段',
 )
 
-const project = listProjects().find((item) => item.projectCode === 'PRJ-20251216-015')
-assert.ok(project, '应存在 PRJ-20251216-015 演示项目')
+const project = listProjects().find((item) => item.projectCode === 'PRJ-202603-006')
+assert.ok(project, '应存在 PRJ-202603-006 演示项目')
 
 const createdImages = createProjectImageAssetRecords(
   project!,
@@ -87,7 +87,7 @@ const tiktokMainStoreResult = createProjectChannelProductFromListingNode(
     currencyCode: 'IDR',
     listingMainImageId: createdImages[0].imageId,
     listingImageIds: [createdImages[0].imageId],
-    specLines: baseSpecLines,
+    specLines: baseSpecLines.map((line) => ({ ...line, productImageId: createdImages[0].imageId })),
   },
   '测试用户',
 )
@@ -104,8 +104,8 @@ const tiktokSecondStoreResult = createProjectChannelProductFromListingNode(
     listingMainImageId: createdImages[1].imageId,
     listingImageIds: [createdImages[1].imageId],
     specLines: [
-      { colorName: '白色', sizeName: 'M', priceAmount: 289, currencyCode: 'VND', stockQty: 8 },
-      { colorName: '白色', sizeName: 'L', priceAmount: 289, currencyCode: 'VND', stockQty: 8 },
+      { productImageId: createdImages[1].imageId, colorName: '白色', sizeName: 'M', priceAmount: 289, currencyCode: 'VND', stockQty: 8 },
+      { productImageId: createdImages[1].imageId, colorName: '白色', sizeName: 'L', priceAmount: 289, currencyCode: 'VND', stockQty: 8 },
     ],
   },
   '测试用户',
@@ -115,19 +115,19 @@ assert.equal(tiktokSecondStoreResult.ok, true, '应允许同一渠道在第二�
 const duplicateStoreResult = createProjectChannelProductFromListingNode(
   project.projectId,
   {
-    targetChannelCode: 'shopee',
-    targetStoreId: 'store-shopee-01',
-    listingTitle: '印尼风格碎花连衣裙 虾皮 重复店铺测款款',
+    targetChannelCode: 'tiktok',
+    targetStoreId: 'store-tiktok-01',
+    listingTitle: '印尼风格碎花连衣裙 TikTok 重复店铺测款款',
     defaultPriceAmount: 299,
     currencyCode: 'MYR',
     listingMainImageId: createdImages[0].imageId,
     listingImageIds: [createdImages[0].imageId],
-    specLines: [{ colorName: '卡其', sizeName: 'M', priceAmount: 299, currencyCode: 'MYR', stockQty: 6 }],
+    specLines: [{ productImageId: createdImages[0].imageId, colorName: '卡其', sizeName: 'M', priceAmount: 299, currencyCode: 'MYR', stockQty: 6 }],
   },
   '测试用户',
 )
 assert.equal(duplicateStoreResult.ok, false, '同一渠道同一店铺不应重复创建有效实例')
-assert.match(duplicateStoreResult.message, /同一渠道同一店铺/, '重复创建时应提示同店铺冲突')
+assert.match(duplicateStoreResult.message, /同一渠道、同一店铺/, '重复创建时应提示同店铺冲突')
 
 const invalidChannelStoreResult = createProjectChannelProductFromListingNode(
   project.projectId,
@@ -139,12 +139,12 @@ const invalidChannelStoreResult = createProjectChannelProductFromListingNode(
     currencyCode: 'VND',
     listingMainImageId: createdImages[0].imageId,
     listingImageIds: [createdImages[0].imageId],
-    specLines: [{ colorName: '灰色', sizeName: 'M', priceAmount: 309, currencyCode: 'VND', stockQty: 6 }],
+    specLines: [{ productImageId: createdImages[0].imageId, colorName: '灰色', sizeName: 'M', priceAmount: 309, currencyCode: 'VND', stockQty: 6 }],
   },
   '测试用户',
 )
 assert.equal(invalidChannelStoreResult.ok, false, '错误的渠道店铺组合不应允许创建')
-assert.match(invalidChannelStoreResult.message, /不属于渠道/, '应明确提示渠道店铺归属错误')
+assert.match(invalidChannelStoreResult.message, /目标测款渠道/, '应明确提示渠道不在项目范围')
 
 assert.ok(tiktokMainStoreResult.record, '创建成功后应返回新实例')
 assert.ok(tiktokSecondStoreResult.record, '创建成功后应返回新实例')
@@ -188,6 +188,6 @@ assert.ok(
 
 const chainSummary = buildProjectChannelProductChainSummary(project.projectId)
 assert.ok(chainSummary, '应能生成项目渠道商品链路摘要')
-assert.match(chainSummary!.summaryText, /3 个有效渠道商品实例/, '链路摘要应体现多渠道多店铺并行实例数量')
+assert.match(chainSummary!.summaryText, /3 个有效渠道店铺商品实例/, '链路摘要应体现多渠道多店铺并行实例数量')
 
 console.log('pcs-channel-product-listing-multi-instance.spec.ts PASS')

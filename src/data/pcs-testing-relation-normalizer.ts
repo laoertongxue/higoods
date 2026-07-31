@@ -198,13 +198,13 @@ function buildTestingRelationRecord(input: {
         sourceModule: input.sourceModule,
         sourceObjectCode: input.sourceLineCode || input.sourceObjectCode,
         rawProjectCode: project.projectCode,
-        reason: '当前项目未配置对应测款步骤，请先检查项目固定步骤。',
+        reason: '当前项目未配置对应测款步骤，请先检查商品项目。',
         discoveredAt: input.businessDate || nowText(),
         sourceTitle: input.sourceTitle,
         legacyRefType: input.legacyRefType,
         legacyRefValue: input.legacyRefValue,
       }),
-      errorMessage: '当前项目未配置对应测款步骤，请先检查项目固定步骤。',
+      errorMessage: '当前项目未配置对应测款步骤，请先检查商品项目。',
     }
   }
 

@@ -130,45 +130,8 @@ export interface ProjectChannelProductChainSummary {
   currentConclusion: ProjectTestingConclusion
   invalidatedReason: string
   linkedRevisionTaskCode: string
-  canGenerateStyleArchive: boolean
   summaryText: string
   channelProducts: ProjectChannelProductRecord[]
-}
-
-function getTechPackSourceNodeBinding(projectId: string, createdFromTaskType: string) {
-  if (createdFromTaskType === 'MANUAL') {
-    const node = getProjectNodeRecordByStepCode(projectId, 'PROJECT_INIT')
-    return {
-      projectNodeId: node?.projectNodeId || null,
-      stepCode: 'PROJECT_INIT',
-      stepName: node?.stepName || '款式档案',
-    }
-  }
-
-  if (createdFromTaskType === 'PLATE') {
-    const node = getProjectNodeRecordByStepCode(projectId, 'PATTERN_TASK')
-    return {
-      projectNodeId: node?.projectNodeId || null,
-      stepCode: 'PATTERN_TASK',
-      stepName: node?.stepName || '制版任务',
-    }
-  }
-
-  if (createdFromTaskType === 'ARTWORK') {
-    const node = getProjectNodeRecordByStepCode(projectId, 'PATTERN_ARTWORK_TASK')
-    return {
-      projectNodeId: node?.projectNodeId || null,
-      stepCode: 'PATTERN_ARTWORK_TASK',
-      stepName: node?.stepName || '花型任务',
-    }
-  }
-
-  const node = getProjectNodeRecordByStepCode(projectId, 'REVISION_TASK')
-  return {
-    projectNodeId: node?.projectNodeId || null,
-    stepCode: 'REVISION_TASK',
-    stepName: node?.stepName || '改版任务',
-  }
 }
 
 export interface ProjectChannelProductListingPayload {
@@ -425,7 +388,7 @@ function buildTestingStatusText(seed: ChannelSeed): string {
   if (seed.scenario === 'FAILED_ADJUST') return '历史测款结论待重新确认，当前渠道店铺商品已作废'
   if (seed.scenario === 'FAILED_PAUSED') return '历史测款结论待重新确认，当前渠道店铺商品已作废'
   if (seed.scenario === 'FAILED_ELIMINATED') return '测款结论为不通过，当前渠道店铺商品已作废'
-  if (seed.scenario === 'STYLE_PENDING_TECH') return '测款通过，已生成款式档案，待启用技术包'
+  if (seed.scenario === 'STYLE_PENDING_TECH') return '测款通过，关联商品档案待完善技术包'
   if (seed.scenario === 'STYLE_ACTIVE') return '测款通过，已关联款式档案并完成上游最终更新'
   return '历史测款渠道店铺商品，已失效'
 }
@@ -1463,15 +1426,14 @@ function buildStyleRelation(
 ): ProjectRelationRecord | null {
   const project = getProjectById(projectId)
   const style = getStyleArchiveById(styleId)
-  const node = getProjectNodeRecordByStepCode(projectId, 'PROJECT_INIT')
-  if (!project || !style || !node) return null
+  if (!project || !style) return null
   return {
     projectRelationId: `rel_style_${style.styleId}`,
     projectId: project.projectId,
     projectCode: project.projectCode,
-    projectNodeId: node.projectNodeId,
-    stepCode: 'PROJECT_INIT',
-    stepName: '生成款式档案',
+    projectNodeId: null,
+    stepCode: '',
+    stepName: '',
     relationRole: '产出对象',
     sourceModule: '款式档案',
     sourceObjectType: '款式档案',
@@ -1487,7 +1449,7 @@ function buildStyleRelation(
     createdBy: operatorName,
     updatedAt: style.updatedAt,
     updatedBy: operatorName,
-    note: '已建立款式档案与渠道店铺商品三码关联。',
+    note: '商品项目创建时已建立关联款式档案，并与渠道店铺商品保持三码关联。',
     legacyRefType: '',
     legacyRefValue: '',
   }
@@ -1501,14 +1463,13 @@ function buildTechnicalVersionRelation(
   const project = getProjectById(projectId)
   const record = getTechnicalDataVersionById(technicalVersionId)
   if (!project || !record) return null
-  const node = getTechPackSourceNodeBinding(projectId, record.createdFromTaskType)
   return {
     projectRelationId: `rel_technical_version_${record.technicalVersionId}`,
     projectId: project.projectId,
     projectCode: project.projectCode,
-    projectNodeId: node.projectNodeId,
-    stepCode: node.stepCode,
-    stepName: node.stepName,
+    projectNodeId: null,
+    stepCode: '',
+    stepName: '',
     relationRole: '产出对象',
     sourceModule: '技术包',
     sourceObjectType: '技术包版本',
@@ -1619,12 +1580,6 @@ function applyScenarioStyleLinks(): void {
     const style = getStyleArchiveById(record.styleId)
     const technicalVersionId = toTechnicalVersionId(record.styleId)
     const technicalVersion = technicalVersionId ? getTechnicalDataVersionById(technicalVersionId) : null
-    const styleNode = project
-      ? getProjectNodeRecordByStepCode(project.projectId, 'PROJECT_INIT')
-      : null
-    const techPackNode = project && technicalVersion
-      ? getTechPackSourceNodeBinding(project.projectId, technicalVersion.createdFromTaskType)
-      : null
     if (!project || !style || !technicalVersion) return
 
     const activated = record.scenario === 'STYLE_ACTIVE'
@@ -1632,7 +1587,7 @@ function applyScenarioStyleLinks(): void {
       sourceProjectId: project.projectId,
       sourceProjectCode: project.projectCode,
       sourceProjectName: project.projectName,
-      sourceProjectNodeId: styleNode?.projectNodeId || '',
+      sourceProjectNodeId: '',
       archiveStatus: activated ? 'ACTIVE' : 'DRAFT',
       techPackStatus: activated ? '已启用' : '已发布待启用',
       channelProductCount: listProjectChannelProductsByProjectId(project.projectId).filter(
@@ -1652,7 +1607,7 @@ function applyScenarioStyleLinks(): void {
       sourceProjectId: project.projectId,
       sourceProjectCode: project.projectCode,
       sourceProjectName: project.projectName,
-      sourceProjectNodeId: techPackNode?.projectNodeId || '',
+      sourceProjectNodeId: '',
     })
 
     updateProjectRecord(
@@ -1671,55 +1626,6 @@ function applyScenarioStyleLinks(): void {
       },
       DEMO_OPERATOR,
     )
-
-    if (styleNode) {
-      updateProjectNodeRecord(
-        project.projectId,
-        styleNode.projectNodeId,
-        {
-          currentStatus: '已完成',
-          latestInstanceId: style.styleId,
-          latestInstanceCode: style.styleCode,
-          latestResultType: '已生成款式档案',
-          latestResultText: activated
-            ? '测款通过后已生成正式款式档案，并建立三码关联。'
-            : '测款通过后已生成款式档案，当前状态为技术包待完善。',
-          pendingActionType: '启用技术包版本',
-          pendingActionText: activated ? '请保持当前生效技术包版本并等待生产消费。' : '请启用已发布技术包版本后同步上游商品。',
-          updatedAt: style.updatedAt,
-        },
-        DEMO_OPERATOR,
-      )
-      syncProjectNodeInstanceRuntime(project.projectId, styleNode.projectNodeId, DEMO_OPERATOR, style.updatedAt)
-    }
-
-    if (techPackNode?.projectNodeId) {
-      updateProjectNodeRecord(
-        project.projectId,
-        techPackNode.projectNodeId,
-        {
-          currentStatus: '进行中',
-          latestInstanceId: technicalVersion.technicalVersionId,
-          latestInstanceCode: technicalVersion.technicalVersionCode,
-          latestResultType: activated ? '已启用当前生效技术包' : '已建立技术包版本',
-          latestResultText: activated
-            ? '款式档案已可生产，上游商品已完成最终更新。'
-            : '款式档案已建立，状态为技术包待完善，上游商品待最终更新。',
-          pendingActionType: activated ? '等待生产消费' : '启用技术包版本',
-          pendingActionText: activated
-            ? '后续生产需求转生产单时将消费当前生效技术包版本。'
-            : '请启用当前已发布版本并完成上游最终更新。',
-          updatedAt: (activated ? technicalVersion.publishedAt : technicalVersion.updatedAt) || project.updatedAt,
-        },
-        DEMO_OPERATOR,
-      )
-      syncProjectNodeInstanceRuntime(
-        project.projectId,
-        techPackNode.projectNodeId,
-        DEMO_OPERATOR,
-        (activated ? technicalVersion.publishedAt : technicalVersion.updatedAt) || project.updatedAt,
-      )
-    }
   })
 }
 
@@ -1779,7 +1685,7 @@ function buildSummaryText(
   if (!currentRecord) return '当前项目尚未创建渠道店铺商品。'
   const multiInstancePrefix = activeCount > 1 ? `当前共有 ${activeCount} 个有效渠道店铺商品实例；` : ''
   if (currentRecord.conclusion === '通过' && !currentRecord.styleCode) {
-    return `${multiInstancePrefix}测款通过，待显式生成款式档案；当前最新用于测款的渠道店铺商品为 ${currentRecord.channelProductCode}`
+    return `${multiInstancePrefix}测款通过，关联商品档案待完善；当前最新用于测款的渠道店铺商品为 ${currentRecord.channelProductCode}`
   }
   if (!currentRecord.conclusion && currentRecord.channelProductStatus === '已作废') {
     return `${multiInstancePrefix}当前渠道店铺商品已作废，历史测款结论待重新确认。`
@@ -2507,13 +2413,6 @@ function replaceRecord(nextRecord: ProjectChannelProductRecord, operatorName = D
   if (upstreamRelation) upsertProjectRelation(upstreamRelation)
 }
 
-function updateStyleArchiveCreateNode(projectId: string, patch: Partial<Parameters<typeof updateProjectNodeRecord>[2]>) {
-  const node = getProjectNodeRecordByStepCode(projectId, 'PROJECT_INIT')
-  if (!node) return
-  updateProjectNodeRecord(projectId, node.projectNodeId, patch, DEMO_OPERATOR)
-  syncProjectNodeInstanceRuntime(projectId, node.projectNodeId, DEMO_OPERATOR, String(patch.updatedAt || nowText()))
-}
-
 function isClosedProjectNodeStatus(status: string): boolean {
   return status === '已完成' || status === '已取消'
 }
@@ -2698,11 +2597,6 @@ export function buildProjectChannelProductChainSummary(projectId: string): Proje
     currentConclusion: currentRecord?.conclusion || '',
     invalidatedReason: currentRecord?.invalidatedReason || '',
     linkedRevisionTaskCode: currentRecord?.linkedRevisionTaskCode || '',
-    canGenerateStyleArchive: Boolean(
-      currentRecord &&
-        currentRecord.channelProductStatus !== '已作废' &&
-        currentRecord.conclusion === '通过',
-    ),
     summaryText: buildSummaryText(currentRecord, styleStatus, activeRecords.length),
     channelProducts: records,
   }
@@ -3296,15 +3190,33 @@ export function submitProjectTestingConclusion(
   const summaryRecord = summaryNode ? getLatestProjectInlineNodeRecord(summaryNode.projectNodeId) : null
 
   if (payload.conclusion === '通过') {
+    const linkedStyle = project.linkedStyleId
+      ? getStyleArchiveById(project.linkedStyleId)
+      : null
+    if (!linkedStyle) {
+      return {
+        ok: false,
+        message: '当前商品项目缺少创建时关联的商品测款档案，不能提交通过结论。',
+        record: primaryRecord,
+      }
+    }
+    updateStyleArchive(linkedStyle.styleId, {
+      archiveStatus: 'DRAFT',
+      updatedAt: timestamp,
+      updatedBy: operatorName,
+    })
     const nextRecords = targetRecords.map((record) => {
       const nextRecord: ProjectChannelProductRecord = {
         ...record,
         ...testingLinkPatch,
         scenario: 'MEASURING',
         conclusion: '通过',
+        styleId: linkedStyle.styleId,
+        styleCode: linkedStyle.styleCode,
+        styleName: linkedStyle.styleName,
         invalidatedReason: '',
         updatedAt: timestamp,
-        testingStatusText: '测款通过，等待显式生成款式档案',
+        testingStatusText: '测款通过，关联商品测款档案待完善',
         upstreamSyncNote: note,
         upstreamSyncLog: `${timestamp} ${note}`,
       }
@@ -3321,26 +3233,14 @@ export function submitProjectTestingConclusion(
         latestInstanceCode: latestRecord.channelProductCode,
         latestResultType: '测款通过',
         latestResultText: note,
-        pendingActionType: '生成款式档案',
-        pendingActionText:
-          nextRecords.length > 1
-            ? `请显式执行生成款式档案操作，并为当前 ${nextRecords.length} 个渠道店铺商品实例建立三码关联。`
-            : '请显式执行生成款式档案操作，并建立三码关联。',
+        pendingActionType: '完善商品档案',
+        pendingActionText: '请继续完善项目创建时关联的商品测款档案和技术资料。',
         updatedAt: timestamp,
       },
       operatorName,
     )
-    updateStyleArchiveCreateNode(projectId, {
-      currentStatus: '进行中',
-      latestResultType: '等待生成款式档案',
-      latestResultText: '测款通过，已解锁款式档案生成。',
-      pendingActionType: '生成款式档案',
-      pendingActionText:
-        nextRecords.length > 1
-          ? `请确认后生成款式档案壳，并保留当前 ${nextRecords.length} 个渠道店铺商品实例链路。`
-          : '请确认后生成款式档案壳，并保留当前渠道店铺商品链路。',
-      updatedAt: timestamp,
-    })
+    const styleRelation = buildStyleRelation(projectId, linkedStyle.styleId, operatorName)
+    if (styleRelation) upsertProjectRelation(styleRelation)
     buildTestingConclusionInlineRecord(
       project,
       conclusionNode.projectNodeId,
@@ -3348,9 +3248,9 @@ export function submitProjectTestingConclusion(
       nextRecords,
       summaryRecord,
       {
-        linkedStyleId: latestRecord.styleId || project.linkedStyleId || '',
-        linkedStyleCode: latestRecord.styleCode || project.linkedStyleCode || '',
-        nextActionType: '生成款式档案',
+        linkedStyleId: linkedStyle.styleId,
+        linkedStyleCode: linkedStyle.styleCode,
+        nextActionType: '完善商品档案',
       },
       [],
       operatorName,
@@ -3369,8 +3269,8 @@ export function submitProjectTestingConclusion(
       ok: true,
       message:
         nextRecords.length > 1
-          ? `已提交测款通过结论，当前 ${nextRecords.length} 个渠道店铺商品实例可关联同一款式档案。`
-          : '已提交测款通过结论，当前可生成款式档案。',
+          ? `已提交测款通过结论，当前 ${nextRecords.length} 个渠道店铺商品实例已关联同一商品测款档案。`
+          : '已提交测款通过结论，已更新项目关联商品测款档案。',
       record: latestRecord,
     }
   }
@@ -3490,6 +3390,23 @@ export function submitProjectTestingConclusion(
   )
   try {
     completeDecisionNodeWithResult(projectId, conclusionNode.projectNodeId, '不通过', operatorName, note, timestamp)
+    const returnHandleNode = getProjectNodeRecordByStepCode(projectId, 'SAMPLE_RETURN_HANDLE')
+    if (returnHandleNode) {
+      updateProjectNodeRecord(
+        projectId,
+        returnHandleNode.projectNodeId,
+        {
+          currentStatus: '进行中',
+          startedAt: returnHandleNode.startedAt || timestamp,
+          latestResultType: '待退回',
+          latestResultText: '测款不通过，等待完成样衣退回。',
+          pendingActionType: '样衣退回处理',
+          pendingActionText: '请登记样衣退回结果。',
+          updatedAt: timestamp,
+        },
+        operatorName,
+      )
+    }
   } catch (error) {
     return {
       ok: false,
@@ -3553,42 +3470,6 @@ export function invalidateProjectChannelProduct(
     syncProjectNodeInstanceRuntime(record.projectId, listingNode.projectNodeId, operatorName, nextRecord.updatedAt)
   }
   return { ok: true, message: `已作废渠道店铺商品 ${nextRecord.channelProductCode}。`, record: nextRecord }
-}
-
-export function bindStyleArchiveToProjectChannelProduct(
-  projectId: string,
-  input: {
-    styleId: string
-    styleCode: string
-    styleName: string
-  },
-  operatorName = '当前用户',
-): ProjectChannelProductRecord | null {
-  const targetRecords = listValidChannelProducts(listProjectChannelProductsByProjectId(projectId))
-  if (targetRecords.length === 0) return null
-  const timestamp = nowText()
-  const nextRecords = targetRecords.map((currentRecord) => {
-    const nextRecord: ProjectChannelProductRecord = {
-      ...currentRecord,
-      scenario: 'STYLE_PENDING_TECH',
-      conclusion: currentRecord.conclusion || '通过',
-      styleId: input.styleId,
-      styleCode: input.styleCode,
-      styleName: input.styleName,
-      channelProductStatus: '已生效',
-      upstreamSyncStatus: '待更新',
-      effectiveAt: timestamp,
-      updatedAt: timestamp,
-      testingStatusText: '测款通过，已生成款式档案，待启用技术包',
-      upstreamSyncNote: '款式档案已建立，待技术包启用后更新上游商品。',
-      upstreamSyncLog: '款式档案已建立，待技术包启用后更新上游商品。',
-    }
-    replaceRecord(nextRecord, operatorName)
-    return nextRecord
-  })
-  const styleRelation = buildStyleRelation(projectId, input.styleId, operatorName)
-  if (styleRelation) upsertProjectRelation(styleRelation)
-  return getCurrentChannelProduct(nextRecords) || nextRecords[0]
 }
 
 export function markProjectChannelProductConclusion(

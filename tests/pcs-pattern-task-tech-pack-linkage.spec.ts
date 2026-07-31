@@ -9,7 +9,7 @@ resetPatternTaskRepository()
 const task = savePatternTaskDraft({
   projectId: '',
   title: '花型技术包串联',
-  sourceType: '项目固定步骤',
+  sourceType: '商品项目',
   productStyleCode: 'SPU-2026-018',
   demandSourceType: '预售测款通过',
   processType: '数码印',
@@ -32,7 +32,7 @@ assert.match(action.label, /技术包|花型/, '花型任务仍保留技术包�
 const incompleteTask = savePatternTaskDraft({
   projectId: '',
   title: '花型技术包缺产出拦截',
-  sourceType: '项目固定步骤',
+  sourceType: '商品项目',
   productStyleCode: 'SPU-2026-019',
   demandSourceType: '预售测款通过',
   processType: '数码印',
