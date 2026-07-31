@@ -8,7 +8,10 @@ import {
   listProjects,
   resetProjectRepository,
 } from '../src/data/pcs-project-repository.ts'
-import { resetProjectRelationRepository } from '../src/data/pcs-project-relation-repository.ts'
+import {
+  listProjectRelationsByTaskSource,
+  resetProjectRelationRepository,
+} from '../src/data/pcs-project-relation-repository.ts'
 import { resetRevisionTaskRepository, getRevisionTaskById, updateRevisionTask } from '../src/data/pcs-revision-task-repository.ts'
 import { resetPatternTaskRepository, listPatternTasks } from '../src/data/pcs-pattern-task-repository.ts'
 import { resetPlateMakingTaskRepository, listPlateMakingTasks } from '../src/data/pcs-plate-making-repository.ts'
@@ -54,8 +57,6 @@ function assertIncludes(source: string, pattern: string, message: string): void 
 }
 
 resetAll()
-const writebackServiceSource = fs.readFileSync('src/data/pcs-task-project-relation-writeback.ts', 'utf8')
-
 assert.deepEqual(REVISION_TASK_SOURCE_TYPE_LIST, ['测款结论返改', '首版样衣返改', '既有商品改款', '人工改版需求'])
 assert.equal(normalizeRevisionTaskSourceType('测款触发'), '测款结论返改')
 assert.equal(normalizeRevisionTaskSourceType('人工创建'), '人工改版需求')
@@ -323,6 +324,22 @@ assert.equal(createdFirstSampleDownstreams.length, 1)
 assert.equal(createdFirstSampleDownstreams[0]?.projectId, project.projectId)
 assert.equal(createdFirstSampleDownstreams[0]?.sourceTaskId, created.task.revisionTaskId)
 const createdFirstSampleDownstreamCode = createdFirstSampleDownstreams[0]?.firstSampleTaskCode || ''
+const createdPatternRelations = listProjectRelationsByTaskSource(
+  '花型任务',
+  createdPatternDownstreams[0]?.patternTaskId || '',
+)
+const createdFirstSampleRelations = listProjectRelationsByTaskSource(
+  '首版样衣打样',
+  createdFirstSampleDownstreams[0]?.firstSampleTaskId || '',
+)
+assert.equal(createdPatternRelations.length, 1)
+assert.equal(createdFirstSampleRelations.length, 1)
+;[createdPatternRelations[0], createdFirstSampleRelations[0]].forEach((relation) => {
+  assert.equal(relation?.projectId, project.projectId)
+  assert.equal(relation?.projectNodeId || '', '')
+  assert.equal(relation?.stepCode, '')
+  assert.equal(relation?.stepName, '')
+})
 assert.equal(listFirstOrderSampleTasks().filter((item) => item.upstreamObjectId === created.task.revisionTaskId).length, 0)
 pass('下游任务按改版范围推导，默认创建花型和产出样衣，不再默认创建制版任务')
 
@@ -393,16 +410,6 @@ const independentBoundaryViolations = [
     : `调用方覆盖了测款结论来源：${maliciousUpstreamRevision.task.upstreamObjectId}`,
   createdPatternDownstreams[0]?.projectNodeId ? `花型下游绑定了项目节点：${createdPatternDownstreams[0].projectNodeId}` : '',
   createdFirstSampleDownstreams[0]?.projectNodeId ? `首版样衣下游绑定了项目节点：${createdFirstSampleDownstreams[0].projectNodeId}` : '',
-  writebackServiceSource.includes(
-    "const patternNode = getProjectNodeRecordByStepCode(revisionTask.projectId, 'PATTERN_ARTWORK_TASK')",
-  )
-    ? '花型下游仍按历史 PATTERN_ARTWORK_TASK 节点切换到可写回分支'
-    : '',
-  writebackServiceSource.includes(
-    "const firstSampleNode = getProjectNodeRecordByStepCode(revisionTask.projectId, 'FIRST_SAMPLE')",
-  )
-    ? '首版样衣下游仍按历史 FIRST_SAMPLE 节点切换到可写回分支'
-    : '',
   JSON.stringify(sourceProjectNodesAfterRevision) === JSON.stringify(sourceProjectNodesBeforeRevision)
     ? ''
     : '独立改版下游或闭环改写了来源商品项目节点',

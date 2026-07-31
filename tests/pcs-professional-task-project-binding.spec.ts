@@ -33,10 +33,12 @@ import {
   createRevisionTaskWithProjectRelation,
 } from '../src/data/pcs-task-project-relation-writeback.ts'
 import {
+  listFirstSampleTasks,
   resetFirstSampleTaskRepository,
   updateFirstSampleTask,
 } from '../src/data/pcs-first-sample-repository.ts'
 import {
+  listFirstOrderSampleTasks,
   resetFirstOrderSampleTaskRepository,
   updateFirstOrderSampleTask,
 } from '../src/data/pcs-first-order-sample-repository.ts'
@@ -216,19 +218,23 @@ const revisionResult = createRevisionTaskWithProjectRelation({
   sourceType: '测款结论返改',
   ownerName: revisionProject.ownerName,
   patternMakerName: '王版师',
-  revisionScopeCodes: ['PATTERN'],
-  revisionScopeNames: ['版型结构'],
+  revisionScopeCodes: ['PATTERN', 'PRINT'],
+  revisionScopeNames: ['版型结构', '花型颜色'],
+  sampleQty: 1,
   issueSummary: '测款结论要求调整版型。',
   evidenceSummary: '试穿反馈确认版型需要修改。',
   operatorName: '测试用户',
 })
 assert.equal(revisionResult.ok, true, revisionResult.message)
 if (revisionResult.ok) {
-  const downstream = createDownstreamTasksFromRevision(revisionResult.task.revisionTaskId, ['PLATE'])
-  assert.equal(downstream.successCount, 1, '改版任务创建制版下游不得依赖已删除的专业项目节点')
+  const downstream = createDownstreamTasksFromRevision(
+    revisionResult.task.revisionTaskId,
+    ['PLATE', 'PRINT', 'FIRST_SAMPLE', 'FIRST_ORDER_SAMPLE'],
+  )
+  assert.equal(downstream.successCount, 4, '改版任务四类下游均不得依赖已删除的专业项目节点')
   assert.ok(
-    !downstream.failureMessages.some((message) => message.includes('制版任务节点')),
-    '缺少制版任务节点不得阻断改版下游制版任务',
+    !downstream.failureMessages.some((message) => message.includes('节点')),
+    '缺少任何专业项目节点不得阻断改版下游任务',
   )
   const downstreamPlate = listPlateMakingTasks().find(
     (item) => item.upstreamObjectId === revisionResult.task.revisionTaskId,
@@ -248,7 +254,53 @@ if (revisionResult.ok) {
   assert.equal(downstreamRelation.sourceObjectCode, downstreamPlate?.plateTaskCode)
   assert.equal(downstreamRelation.stepCode, '', '改版下游制版关系不得保存已删除的专业步骤编码')
 
-  const repeated = createDownstreamTasksFromRevision(revisionResult.task.revisionTaskId, ['PLATE'])
+  const downstreamPattern = listPatternTasks().find(
+    (item) => item.upstreamObjectId === revisionResult.task.revisionTaskId,
+  )
+  const downstreamFirstSample = listFirstSampleTasks().find(
+    (item) => item.upstreamObjectId === revisionResult.task.revisionTaskId,
+  )
+  const downstreamFirstOrder = listFirstOrderSampleTasks().find(
+    (item) => item.upstreamObjectId === revisionResult.task.revisionTaskId,
+  )
+  assert.ok(downstreamPattern, '应能按改版任务上游关系查到花型下游任务')
+  assert.ok(downstreamFirstSample, '应能按改版任务上游关系查到首版样衣下游任务')
+  assert.ok(downstreamFirstOrder, '应能在不存在 FIRST_ORDER_SAMPLE 项目节点时创建首单样衣下游任务')
+
+  for (const task of [
+    {
+      id: downstreamPattern?.patternTaskId,
+      module: '花型任务',
+      type: '花型任务',
+    },
+    {
+      id: downstreamFirstSample?.firstSampleTaskId,
+      module: '首版样衣打样',
+      type: '首版样衣打样任务',
+    },
+    {
+      id: downstreamFirstOrder?.firstOrderSampleTaskId,
+      module: '首单样衣打样',
+      type: '首单样衣打样任务',
+    },
+  ]) {
+    const relation = listProjectRelationsByProject(revisionProject.projectId).find(
+      (item) => item.sourceObjectId === task.id,
+    )
+    assert.ok(relation, `${task.module}必须持久化商品项目关系`)
+    assert.equal(relation.projectId, revisionProject.projectId)
+    assert.equal(relation.projectCode, revisionProject.projectCode)
+    assert.equal(relation.sourceModule, task.module)
+    assert.equal(relation.sourceObjectType, task.type)
+    assert.equal(relation.projectNodeId || '', '')
+    assert.equal(relation.stepCode, '')
+    assert.equal(relation.stepName, '')
+  }
+
+  const repeated = createDownstreamTasksFromRevision(
+    revisionResult.task.revisionTaskId,
+    ['PLATE', 'PRINT', 'FIRST_SAMPLE', 'FIRST_ORDER_SAMPLE'],
+  )
   assert.equal(repeated.successCount, 0, '同一改版任务不得重复创建制版下游任务')
   assert.equal(
     listPlateMakingTasks().filter((item) => item.upstreamObjectId === revisionResult.task.revisionTaskId).length,

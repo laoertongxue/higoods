@@ -1,3 +1,25 @@
+// @page-pattern: list
+
+import { renderSecondaryButton } from '../components/ui/button.ts'
+import { renderStandardListPage } from '../components/ui/list-page.ts'
+import {
+  clearListColumnPreferences,
+  loadListColumnPreferences,
+  normalizeListColumnPreferences,
+  paginateStandardListRows,
+  resetStandardListEntryTransientStateOnRouteEntry,
+  saveListColumnPreferences,
+  sortStandardListRows,
+  type StandardListColumnPreferences,
+  type StandardListPageSlice,
+  type StandardListSortState,
+} from '../components/ui/list-table-model.ts'
+import {
+  renderStandardListColumnSettings,
+  renderStandardListTable,
+  type StandardListColumn,
+} from '../components/ui/list-table.ts'
+import { renderTablePagination } from '../components/ui/pagination.ts'
 import { appStore } from '../state/store.ts'
 import {
   ACCOUNTING_STATUS_META,
@@ -37,7 +59,6 @@ import {
 import { ensurePcsProjectDemoDataReady } from '../data/pcs-project-demo-seed-service.ts'
 import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
 
-type QuickFilterKey = 'all' | 'reconciling' | 'readyToClose' | 'pendingAccounting' | 'accounted' | 'abnormal'
 type DetailTabKey = 'overview' | 'items' | 'reconcile' | 'evidence' | 'accounting' | 'samples' | 'logs'
 type ItemIntent = 'SELL' | 'TEST' | 'REVIEW'
 
@@ -158,10 +179,6 @@ interface LiveTestingPageState {
   notice: string | null
   list: {
     search: string
-    status: string
-    purpose: string
-    accounting: string
-    quickFilter: QuickFilterKey
     currentPage: number
     pageSize: number
   }
@@ -186,9 +203,6 @@ const DETAIL_TAB_OPTIONS: Array<{ key: DetailTabKey; label: string }> = [
   { key: 'accounting', label: '测款入账' },
   { key: 'logs', label: '日志审计' },
 ]
-
-const STATUS_OPTIONS = ['all', 'DRAFT', 'RECONCILING', 'COMPLETED', 'CANCELLED'] as const
-const ACCOUNTING_OPTIONS = ['all', 'NONE', 'PENDING', 'ACCOUNTED'] as const
 
 const ITEM_INTENT_META: Record<ItemIntent, { label: string; className: string }> = {
   SELL: { label: '带货', className: 'bg-blue-100 text-blue-700' },
@@ -216,10 +230,6 @@ const state: LiveTestingPageState = {
   notice: null,
   list: {
     search: '',
-    status: 'all',
-    purpose: 'all',
-    accounting: 'all',
-    quickFilter: 'all',
     currentPage: 1,
     pageSize: 8,
   },
@@ -262,6 +272,47 @@ const state: LiveTestingPageState = {
       recommendationReason: '',
     },
   },
+}
+
+const LIVE_TESTING_LIST_STORAGE_KEY = 'higood:list-page:/pcs/testing/live'
+const LIVE_TESTING_LIST_PAGE_SIZES = [8, 20, 50]
+const LIVE_TESTING_LIST_MAX_FROZEN_WIDTH = 520
+const LIVE_TESTING_LIST_COLUMN_RULES = [
+  { key: 'project', required: true, freezeable: true },
+  { key: 'session', required: true, freezeable: true },
+  { key: 'account', freezeable: true },
+  { key: 'schedule' },
+  { key: 'exposure' },
+  { key: 'click' },
+  { key: 'clickRate' },
+  { key: 'cart' },
+  { key: 'order' },
+  { key: 'gmv' },
+  { key: 'updated', freezeable: true },
+  { key: 'actions', required: true, actionColumn: true },
+]
+
+const liveTestingListUiState: {
+  sort: StandardListSortState | null
+  preferences: StandardListColumnPreferences
+  columnSettingsOpen: boolean
+  draggedColumnKey: string
+  preferencesLoaded: boolean
+} = {
+  sort: null,
+  preferences: normalizeListColumnPreferences(
+    LIVE_TESTING_LIST_COLUMN_RULES,
+    {
+      order: LIVE_TESTING_LIST_COLUMN_RULES.map((item) => item.key),
+      visibleKeys: LIVE_TESTING_LIST_COLUMN_RULES.map((item) => item.key),
+      frozenKeys: [],
+      pageSize: state.list.pageSize,
+    },
+    LIVE_TESTING_LIST_PAGE_SIZES,
+  ),
+  columnSettingsOpen: false,
+  draggedColumnKey: '',
+  preferencesLoaded: false,
 }
 
 const sessionStore = new Map<string, SessionViewModel>()
@@ -419,7 +470,7 @@ function getLiveWorkItemSnapshot(session: SessionViewModel): {
     actionItem,
     mainImageUrl,
     rows: [
-      { label: '工作项状态', value: getWorkItemStatusLabel(session.status) },
+      { label: '测款状态', value: getWorkItemStatusLabel(session.status) },
       { label: '正式操作', value: '关联直播测款记录' },
       { label: '渠道店铺商品', value: linkedChannelProduct?.channelProductId || actionItem?.productRef || '-' },
       { label: '渠道店铺商品编码', value: linkedChannelProduct?.channelProductCode || actionItem?.productRef || '-' },
@@ -770,6 +821,7 @@ function validateCreateDraft(draft: CreateDraftState): string | null {
 
 function closeAllDialogs(): void {
   state.createDrawerOpen = false
+  liveTestingListUiState.columnSettingsOpen = false
   state.closeDialog = { open: false, sessionId: '', completionType: 'normal', note: '' }
   state.accountingDialog = { open: false, sessionId: '', note: '' }
   state.editDrawer = {
@@ -808,6 +860,92 @@ function syncDetailState(sessionId: string): void {
   state.detail.activeTab = normalizeDetailTab(getCurrentQueryParams().get('tab'))
 }
 
+function getLiveTestingListStorage(): Storage | null {
+  try {
+    return typeof window === 'undefined' ? null : window.localStorage
+  } catch {
+    return null
+  }
+}
+
+function normalizeLiveTestingListPreferences(
+  raw: Partial<StandardListColumnPreferences> | null | undefined,
+): StandardListColumnPreferences {
+  const normalized = normalizeListColumnPreferences(
+    LIVE_TESTING_LIST_COLUMN_RULES,
+    raw,
+    LIVE_TESTING_LIST_PAGE_SIZES,
+  )
+  const columnsByKey = new Map(LIVE_TESTING_LIST_COLUMNS.map((column) => [column.key, column]))
+  const visibleKeys = new Set(normalized.visibleKeys)
+  const requestedFrozen = new Set(normalized.frozenKeys)
+  const frozen = normalized.order
+    .map((key) => columnsByKey.get(key))
+    .filter((column): column is StandardListColumn<SessionViewModel> => Boolean(
+      column &&
+      column.freezeable &&
+      !column.actionColumn &&
+      visibleKeys.has(column.key) &&
+      requestedFrozen.has(column.key),
+    ))
+  let frozenWidth = frozen.reduce(
+    (sum, column) => sum + Math.max(column.width, column.minWidth ?? 0),
+    0,
+  )
+  while (frozenWidth > LIVE_TESTING_LIST_MAX_FROZEN_WIDTH && frozen.length > 0) {
+    const removed = frozen.pop()
+    if (removed) frozenWidth -= Math.max(removed.width, removed.minWidth ?? 0)
+  }
+  return {
+    ...normalized,
+    frozenKeys: frozen.map((column) => column.key),
+  }
+}
+
+function ensureLiveTestingListPreferences(): void {
+  if (liveTestingListUiState.preferencesLoaded) return
+  liveTestingListUiState.preferencesLoaded = true
+  const storage = getLiveTestingListStorage()
+  liveTestingListUiState.preferences = storage
+    ? loadListColumnPreferences(
+        storage,
+        LIVE_TESTING_LIST_STORAGE_KEY,
+        LIVE_TESTING_LIST_COLUMN_RULES,
+        liveTestingListUiState.preferences,
+        LIVE_TESTING_LIST_PAGE_SIZES,
+      )
+    : liveTestingListUiState.preferences
+  liveTestingListUiState.preferences = normalizeLiveTestingListPreferences(
+    liveTestingListUiState.preferences,
+  )
+  state.list.pageSize = liveTestingListUiState.preferences.pageSize
+}
+
+function saveLiveTestingListPreferences(): void {
+  const storage = getLiveTestingListStorage()
+  if (storage) {
+    saveListColumnPreferences(
+      storage,
+      LIVE_TESTING_LIST_STORAGE_KEY,
+      liveTestingListUiState.preferences,
+    )
+  }
+}
+
+function withLiveTestingLocalInteractions(html: string): string {
+  return html
+    .replace(/data-pcs-live-testing-action="([^"]+)"/g, (attribute) =>
+      `data-skip-page-rerender="true" data-pcs-live-testing-list-control="true" ${attribute}`)
+    .replace(/data-pcs-live-testing-field="([^"]+)"/g, (attribute) =>
+      `data-skip-page-rerender="true" data-pcs-live-testing-list-control="true" ${attribute}`)
+}
+
+function hydrateLiveTestingRegion(region: ParentNode): void {
+  void import('../components/shell.ts')
+    .then(({ hydrateIcons }) => hydrateIcons(region))
+    .catch(() => undefined)
+}
+
 function getFilteredSessions(): SessionViewModel[] {
   const keyword = state.list.search.trim().toLowerCase()
   return getSessions().filter((session) => {
@@ -826,44 +964,25 @@ function getFilteredSessions(): SessionViewModel[] {
         .includes(keyword)
 
     if (!matchesKeyword) return false
-    if (state.list.status !== 'all' && session.status !== state.list.status) return false
-    if (state.list.purpose !== 'all' && !session.purposes.includes(state.list.purpose)) return false
-    if (state.list.accounting !== 'all' && session.testAccountingStatus !== state.list.accounting) return false
-    if (state.list.quickFilter === 'reconciling' && session.status !== 'RECONCILING') return false
-    if (state.list.quickFilter === 'readyToClose' && !(session.status === 'RECONCILING' && session.endAt)) return false
-    if (state.list.quickFilter === 'pendingAccounting' && session.testAccountingStatus !== 'PENDING') return false
-    if (state.list.quickFilter === 'accounted' && session.testAccountingStatus !== 'ACCOUNTED') return false
-    if (state.list.quickFilter === 'abnormal' && !(!session.endAt && session.status !== 'DRAFT' && session.status !== 'CANCELLED')) return false
     return true
   })
 }
 
-function getPagedSessions(): {
-  items: SessionViewModel[]
-  total: number
-  totalPages: number
-} {
-  const filtered = getFilteredSessions()
-  const totalPages = Math.max(1, Math.ceil(filtered.length / state.list.pageSize))
-  if (state.list.currentPage > totalPages) state.list.currentPage = totalPages
-  if (state.list.currentPage < 1) state.list.currentPage = 1
-  const start = (state.list.currentPage - 1) * state.list.pageSize
-  return {
-    items: filtered.slice(start, start + state.list.pageSize),
-    total: filtered.length,
-    totalPages,
-  }
-}
-
-function getKpis() {
-  const sessions = getSessions()
-  return {
-    reconciling: sessions.filter((item) => item.status === 'RECONCILING').length,
-    readyToClose: sessions.filter((item) => item.status === 'RECONCILING' && item.endAt).length,
-    pendingAccounting: sessions.filter((item) => item.testAccountingStatus === 'PENDING').length,
-    accounted: sessions.filter((item) => item.testAccountingStatus === 'ACCOUNTED').length,
-    abnormal: sessions.filter((item) => !item.endAt && item.status !== 'DRAFT' && item.status !== 'CANCELLED').length,
-  }
+function getPagedSessions(): StandardListPageSlice<SessionViewModel> {
+  ensureLiveTestingListPreferences()
+  const sorted = sortStandardListRows(
+    getFilteredSessions(),
+    liveTestingListUiState.sort,
+    (session, key) => LIVE_TESTING_LIST_COLUMNS.find((column) => column.key === key)?.sortValue?.(session),
+  )
+  const paging = paginateStandardListRows(
+    sorted,
+    state.list.currentPage,
+    liveTestingListUiState.preferences.pageSize,
+  )
+  state.list.currentPage = paging.currentPage
+  state.list.pageSize = paging.pageSize
+  return paging
 }
 
 function renderNotice(): string {
@@ -995,42 +1114,6 @@ function isDisplayableSession(session: SessionViewModel): boolean {
   )
 }
 
-function renderPager(totalPages: number): string {
-  const pages = new Set<number>([1, totalPages, state.list.currentPage, state.list.currentPage - 1, state.list.currentPage + 1])
-  const visiblePages = Array.from(pages).filter((page) => page >= 1 && page <= totalPages).sort((a, b) => a - b)
-  return `
-    <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 text-xs text-slate-500">
-      <p>第 ${state.list.currentPage} / ${totalPages} 页</p>
-      <div class="flex items-center gap-1">
-        <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50 ${state.list.currentPage === 1 ? 'cursor-not-allowed opacity-50' : ''}" data-pcs-live-testing-action="set-page" data-page="${state.list.currentPage - 1}" ${state.list.currentPage === 1 ? 'disabled' : ''}>上一页</button>
-        ${visiblePages
-          .map(
-            (page) => `<button type="button" class="${toClassName(
-              'inline-flex h-8 min-w-8 items-center justify-center rounded-md border px-2 text-xs',
-              page === state.list.currentPage ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
-            )}" data-pcs-live-testing-action="set-page" data-page="${page}">${page}</button>`,
-          )
-          .join('')}
-        <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50 ${state.list.currentPage === totalPages ? 'cursor-not-allowed opacity-50' : ''}" data-pcs-live-testing-action="set-page" data-page="${state.list.currentPage + 1}" ${state.list.currentPage === totalPages ? 'disabled' : ''}>下一页</button>
-      </div>
-    </div>
-  `
-}
-
-function renderListHeader(): string {
-  return `
-    <section class="flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <p class="text-xs text-slate-500">商品中心 / 测款与渠道管理</p>
-        <h1 class="mt-1 text-2xl font-semibold text-slate-900">直播测款</h1>
-      </div>
-      <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-live-testing-action="open-create-drawer">
-        <i data-lucide="plus" class="h-4 w-4"></i>新增直播测款
-      </button>
-    </section>
-  `
-}
-
 function renderListFilters(): string {
   return `
     <section class="rounded-lg border bg-white p-4">
@@ -1050,129 +1133,212 @@ function renderListFilters(): string {
   `
 }
 
-function renderKpis(): string {
-  const kpis = getKpis()
-  const cards: Array<{ key: QuickFilterKey; label: string; value: number; helper: string; tone: string }> = [
-    { key: 'reconciling', label: '核对中', value: kpis.reconciling, helper: '待补录或复核的直播测款', tone: 'border-blue-200 bg-blue-50 text-blue-700' },
-    { key: 'readyToClose', label: '待关账', value: kpis.readyToClose, helper: '已下播可直接关账', tone: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
-    { key: 'pendingAccounting', label: '待入账', value: kpis.pendingAccounting, helper: 'TEST 行尚未完成入账', tone: 'border-amber-200 bg-amber-50 text-amber-700' },
-    { key: 'accounted', label: '已入账', value: kpis.accounted, helper: '测款结论已回写', tone: 'border-violet-200 bg-violet-50 text-violet-700' },
-    { key: 'abnormal', label: '异常测款', value: kpis.abnormal, helper: '未填写下播时间或状态异常', tone: 'border-rose-200 bg-rose-50 text-rose-700' },
-  ]
-  return `
-    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-      ${cards
-        .map(
-          (card) => `
-            <button type="button" class="${toClassName(
-              'rounded-lg border p-4 text-left transition hover:shadow-sm',
-              card.tone,
-              state.list.quickFilter === card.key ? 'ring-2 ring-blue-500' : '',
-            )}" data-pcs-live-testing-action="set-quick-filter" data-value="${card.key}">
-              <p class="text-xs">${escapeHtml(card.label)}</p>
-              <p class="mt-2 text-2xl font-semibold">${card.value}</p>
-              <p class="mt-2 text-xs opacity-80">${escapeHtml(card.helper)}</p>
-            </button>
-          `,
-        )
-        .join('')}
-    </section>
-  `
-}
-
 function renderSessionActions(session: SessionViewModel): string {
   const project = getPrimaryProject(session)
   if (!project) return '<span class="text-xs text-slate-400">-</span>'
   return `<button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/projects/${escapeHtml(project.projectId)}">查看项目</button>`
 }
 
-function renderListTable(): string {
-  const { items, totalPages } = getPagedSessions()
-  return `
-    <section class="rounded-lg border bg-white">
-      <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-        <div>
-          <p class="text-sm font-medium text-slate-900">直播测款列表</p>
-        </div>
+const LIVE_TESTING_LIST_COLUMNS: StandardListColumn<SessionViewModel>[] = [
+  {
+    key: 'project',
+    title: '商品项目',
+    width: 220,
+    required: true,
+    freezeable: true,
+    sortable: true,
+    render: (session) => {
+      const project = getPrimaryProject(session)
+      return project
+        ? `
+            <button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(project.projectId)}">${escapeHtml(project.label)}</button>
+            <p class="mt-1 text-xs text-slate-500">${escapeHtml(project.projectId)}</p>
+          `
+        : '<span class="text-sm text-slate-500">-</span>'
+    },
+    sortValue: (session) => getPrimaryProject(session)?.label || '',
+  },
+  {
+    key: 'session',
+    title: '直播测款',
+    width: 240,
+    required: true,
+    freezeable: true,
+    sortable: true,
+    render: (session) => `
+      <div class="space-y-1">
+        <p class="font-medium text-slate-900">${escapeHtml(session.title)}</p>
+        <p class="text-xs text-slate-500">${escapeHtml(session.id)}</p>
       </div>
-      <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-slate-200 text-sm">
-          <thead class="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-            <tr>
-              <th class="px-4 py-3">商品项目</th>
-              <th class="px-4 py-3">直播测款</th>
-              <th class="px-4 py-3">账号 / 主播</th>
-              <th class="px-4 py-3">开播 - 下播</th>
-              <th class="px-4 py-3 text-right">曝光</th>
-              <th class="px-4 py-3 text-right">点击</th>
-              <th class="px-4 py-3 text-right">点击率</th>
-              <th class="px-4 py-3 text-right">加购</th>
-              <th class="px-4 py-3 text-right">订单</th>
-              <th class="px-4 py-3 text-right">GMV</th>
-              <th class="px-4 py-3">最近更新</th>
-              <th class="px-4 py-3 text-center">操作</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
-            ${
-              items.length === 0
-                ? `
-                  <tr>
-                    <td colspan="12" class="px-4 py-10 text-center text-sm text-slate-500">暂无匹配的直播测款，请调整筛选条件后重试。</td>
-                  </tr>
-                `
-                : items
-                    .map(
-                      (session) => {
-                        const project = getPrimaryProject(session)
-                        return `
-                        <tr class="hover:bg-slate-50/80">
-                          <td class="px-4 py-3 align-top">
-                            ${
-                              project
-                                ? `
-                                  <button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(project.projectId)}">${escapeHtml(project.label)}</button>
-                                  <p class="mt-1 text-xs text-slate-500">${escapeHtml(project.projectId)}</p>
-                                `
-                                : '<span class="text-sm text-slate-500">-</span>'
-                            }
-                          </td>
-                          <td class="px-4 py-3 align-top">
-                            <div class="space-y-1">
-                              <p class="font-medium text-slate-900">${escapeHtml(session.title)}</p>
-                              <p class="text-xs text-slate-500">${escapeHtml(session.id)}</p>
-                            </div>
-                          </td>
-                          <td class="px-4 py-3 align-top">
-                            <p class="font-medium text-slate-900">${escapeHtml(session.liveAccount)}</p>
-                            <p class="mt-1 text-xs text-slate-500">${escapeHtml(session.anchor)}</p>
-                          </td>
-                          <td class="px-4 py-3 align-top text-xs text-slate-600">
-                            <p>${escapeHtml(formatDateTime(session.startAt))}</p>
-                            <p class="mt-1">${escapeHtml(session.endAt ? formatDateTime(session.endAt) : '-')}</p>
-                          </td>
-                          <td class="px-4 py-3 align-top text-right text-slate-700">${formatInteger(session.exposureTotal)}</td>
-                          <td class="px-4 py-3 align-top text-right text-slate-700">${formatInteger(session.clickTotal)}</td>
-                          <td class="px-4 py-3 align-top text-right text-slate-700">${formatPercent(session.clickTotal, session.exposureTotal)}</td>
-                          <td class="px-4 py-3 align-top text-right text-slate-700">${formatInteger(session.cartTotal)}</td>
-                          <td class="px-4 py-3 align-top text-right text-slate-700">${session.orderTotal == null ? '-' : formatInteger(session.orderTotal)}</td>
-                          <td class="px-4 py-3 align-top text-right font-medium text-slate-900">${session.gmvTotal == null ? '-' : `¥${formatCurrency(session.gmvTotal)}`}</td>
-                          <td class="px-4 py-3 align-top text-xs text-slate-500">${escapeHtml(formatDateTime(session.updatedAt))}</td>
-                          <td class="px-4 py-3 align-top">
-                            <div class="flex flex-wrap justify-center gap-1">${renderSessionActions(session)}</div>
-                          </td>
-                        </tr>
-                      `
-                      },
-                    )
-                    .join('')
-            }
-          </tbody>
-        </table>
+    `,
+    sortValue: (session) => `${session.title}|${session.id}`,
+  },
+  {
+    key: 'account',
+    title: '账号 / 主播',
+    width: 180,
+    freezeable: true,
+    sortable: true,
+    render: (session) => `
+      <p class="font-medium text-slate-900">${escapeHtml(session.liveAccount)}</p>
+      <p class="mt-1 text-xs text-slate-500">${escapeHtml(session.anchor)}</p>
+    `,
+    sortValue: (session) => `${session.liveAccount}|${session.anchor}`,
+  },
+  {
+    key: 'schedule',
+    title: '开播 - 下播',
+    width: 190,
+    sortable: true,
+    render: (session) => `
+      <div class="text-xs text-slate-600">
+        <p>${escapeHtml(formatDateTime(session.startAt))}</p>
+        <p class="mt-1">${escapeHtml(session.endAt ? formatDateTime(session.endAt) : '-')}</p>
       </div>
-      ${renderPager(totalPages)}
-    </section>
-  `
+    `,
+    sortValue: (session) => session.startAt,
+  },
+  {
+    key: 'exposure',
+    title: '曝光',
+    width: 110,
+    align: 'right',
+    sortable: true,
+    render: (session) => formatInteger(session.exposureTotal),
+    sortValue: (session) => session.exposureTotal,
+  },
+  {
+    key: 'click',
+    title: '点击',
+    width: 110,
+    align: 'right',
+    sortable: true,
+    render: (session) => formatInteger(session.clickTotal),
+    sortValue: (session) => session.clickTotal,
+  },
+  {
+    key: 'clickRate',
+    title: '点击率',
+    width: 110,
+    align: 'right',
+    sortable: true,
+    render: (session) => formatPercent(session.clickTotal, session.exposureTotal),
+    sortValue: (session) => session.exposureTotal > 0 ? session.clickTotal / session.exposureTotal : null,
+  },
+  {
+    key: 'cart',
+    title: '加购',
+    width: 110,
+    align: 'right',
+    sortable: true,
+    render: (session) => formatInteger(session.cartTotal),
+    sortValue: (session) => session.cartTotal,
+  },
+  {
+    key: 'order',
+    title: '订单',
+    width: 110,
+    align: 'right',
+    sortable: true,
+    render: (session) => session.orderTotal == null ? '-' : formatInteger(session.orderTotal),
+    sortValue: (session) => session.orderTotal,
+  },
+  {
+    key: 'gmv',
+    title: 'GMV',
+    width: 130,
+    align: 'right',
+    sortable: true,
+    render: (session) => session.gmvTotal == null ? '-' : `¥${formatCurrency(session.gmvTotal)}`,
+    sortValue: (session) => session.gmvTotal,
+  },
+  {
+    key: 'updated',
+    title: '最近更新',
+    width: 160,
+    freezeable: true,
+    sortable: true,
+    render: (session) => `<span class="text-xs text-slate-500">${escapeHtml(formatDateTime(session.updatedAt))}</span>`,
+    sortValue: (session) => session.updatedAt,
+  },
+  {
+    key: 'actions',
+    title: '操作',
+    width: 112,
+    required: true,
+    actionColumn: true,
+    align: 'right',
+    render: (session) => `<div class="flex justify-end">${renderSessionActions(session)}</div>`,
+  },
+]
+
+function renderStandardLiveTestingListTable(
+  paging: StandardListPageSlice<SessionViewModel>,
+): string {
+  return withLiveTestingLocalInteractions(renderStandardListTable({
+    columns: LIVE_TESTING_LIST_COLUMNS,
+    rows: paging.rows,
+    preferences: liveTestingListUiState.preferences,
+    sort: liveTestingListUiState.sort,
+    eventPrefix: 'pcs-live-testing',
+    emptyText: '暂无匹配的直播测款，请调整筛选条件后重试。',
+  }))
+}
+
+function renderLiveTestingListPagination(
+  paging: StandardListPageSlice<SessionViewModel>,
+): string {
+  return withLiveTestingLocalInteractions(renderTablePagination({
+    total: paging.total,
+    from: paging.from,
+    to: paging.to,
+    currentPage: paging.currentPage,
+    totalPages: paging.totalPages,
+    pageSize: paging.pageSize,
+    actionPrefix: 'pcs-live-testing',
+    fieldPrefix: 'pcs-live-testing',
+    pageSizeOptions: LIVE_TESTING_LIST_PAGE_SIZES,
+  }))
+}
+
+function renderLiveTestingColumnSettings(): string {
+  if (!liveTestingListUiState.columnSettingsOpen) return ''
+  return withLiveTestingLocalInteractions(renderStandardListColumnSettings({
+    title: '列设置',
+    columns: LIVE_TESTING_LIST_COLUMNS,
+    preferences: liveTestingListUiState.preferences,
+    eventPrefix: 'pcs-live-testing',
+    maxFrozenWidth: LIVE_TESTING_LIST_MAX_FROZEN_WIDTH,
+  }))
+}
+
+function refreshLiveTestingListRegions(options: { filters?: boolean; settings?: boolean } = {}): void {
+  if (typeof document === 'undefined') return
+  const paging = getPagedSessions()
+  const tableHost = document.querySelector<HTMLElement>('[data-pcs-live-testing-region="table"]')
+  const paginationHost = document.querySelector<HTMLElement>('[data-pcs-live-testing-region="pagination"]')
+  if (tableHost) {
+    tableHost.innerHTML = renderStandardLiveTestingListTable(paging)
+    hydrateLiveTestingRegion(tableHost)
+  }
+  if (paginationHost) {
+    paginationHost.innerHTML = renderLiveTestingListPagination(paging)
+    hydrateLiveTestingRegion(paginationHost)
+  }
+  if (options.filters) {
+    const filtersHost = document.querySelector<HTMLElement>('[data-pcs-live-testing-region="filters"]')
+    if (filtersHost) {
+      filtersHost.innerHTML = withLiveTestingLocalInteractions(renderListFilters())
+      hydrateLiveTestingRegion(filtersHost)
+    }
+  }
+  if (options.settings) {
+    const settingsHost = document.querySelector<HTMLElement>('[data-pcs-live-testing-region="column-settings"]')
+    if (settingsHost) {
+      settingsHost.innerHTML = renderLiveTestingColumnSettings()
+      hydrateLiveTestingRegion(settingsHost)
+    }
+  }
 }
 
 function renderCreateDrawer(): string {
@@ -2002,15 +2168,43 @@ function createSession(): void {
 export function renderPcsLiveTestingListPage(): string {
   ensureSessionStore()
   syncCreateDrawerStateFromQuery()
-  return `
-    <div class="space-y-5 p-4">
-      ${renderNotice()}
-      ${renderListHeader()}
-      ${renderListFilters()}
-      ${renderListTable()}
+  ensureLiveTestingListPreferences()
+  const transient = {
+    currentPage: state.list.currentPage,
+    sort: liveTestingListUiState.sort,
+  }
+  const hasMountedRoot = typeof document !== 'undefined'
+    && Boolean(document.querySelector('[data-pcs-live-testing-list-page]'))
+  resetStandardListEntryTransientStateOnRouteEntry(transient, hasMountedRoot)
+  state.list.currentPage = transient.currentPage
+  liveTestingListUiState.sort = transient.sort
+  const paging = getPagedSessions()
+  const page = renderStandardListPage({
+    title: '直播测款',
+    primaryActionsHtml: `
+      <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-live-testing-action="open-create-drawer">
+        <i data-lucide="plus" class="h-4 w-4"></i>新增直播测款
+      </button>
+    `,
+    feedbackHtml: renderNotice(),
+    filtersHtml: `<div data-pcs-live-testing-region="filters">${withLiveTestingLocalInteractions(renderListFilters())}</div>`,
+    listTitle: '直播测款列表',
+    listActionsHtml: withLiveTestingLocalInteractions(
+      renderSecondaryButton(
+        '列设置',
+        { prefix: 'pcs-live-testing', action: 'open-column-settings' },
+        'settings-2',
+      ),
+    ),
+    tableHtml: `<div data-pcs-live-testing-region="table">${renderStandardLiveTestingListTable(paging)}</div>`,
+    paginationHtml: `<div data-table-pagination data-pcs-live-testing-region="pagination">${renderLiveTestingListPagination(paging)}</div>`,
+    overlaysHtml: `
+      <div data-pcs-live-testing-region="column-settings">${renderLiveTestingColumnSettings()}</div>
       ${renderListPageDialogs()}
-    </div>
-  `
+    `,
+    className: 'min-w-0 max-w-full',
+  })
+  return `<div class="min-w-0 max-w-full" data-pcs-live-testing-list-page>${page}</div>`
 }
 
 export function renderPcsLiveTestingDetailPage(sessionId: string): string {
@@ -2025,9 +2219,21 @@ export function handlePcsLiveTestingInput(target: Element): boolean {
   const field = fieldNode.dataset.pcsLiveTestingField
   if (!field) return false
 
+  if (field === 'pageSize' && fieldNode instanceof HTMLSelectElement) {
+    liveTestingListUiState.preferences = normalizeLiveTestingListPreferences({
+      ...liveTestingListUiState.preferences,
+      pageSize: Number(fieldNode.value),
+    })
+    state.list.pageSize = liveTestingListUiState.preferences.pageSize
+    state.list.currentPage = 1
+    saveLiveTestingListPreferences()
+    refreshLiveTestingListRegions()
+    return true
+  }
   if (field === 'list-search' && fieldNode instanceof HTMLInputElement) {
     state.list.search = fieldNode.value
     state.list.currentPage = 1
+    refreshLiveTestingListRegions()
     return true
   }
 
@@ -2086,7 +2292,7 @@ export function handlePcsLiveTestingInput(target: Element): boolean {
     return true
   }
 
-  const editTextFields: Record<string, keyof EditDrawerState['draft']> = {
+  const editTextFields = {
     'edit-project-ref': 'projectRef',
     'edit-product-ref': 'productRef',
     'edit-segment-start': 'segmentStart',
@@ -2097,44 +2303,149 @@ export function handlePcsLiveTestingInput(target: Element): boolean {
     'edit-order': 'order',
     'edit-pay': 'pay',
     'edit-gmv': 'gmv',
-  }
-  if (field in editTextFields && fieldNode instanceof HTMLInputElement) {
-    state.editDrawer.draft[editTextFields[field]] = fieldNode.value
+  } as const satisfies Record<string, Exclude<keyof EditDrawerState['draft'], 'intent'>>
+  const editTextField = editTextFields[field as keyof typeof editTextFields]
+  if (editTextField && fieldNode instanceof HTMLInputElement) {
+    state.editDrawer.draft[editTextField] = fieldNode.value
     return true
   }
 
   return false
 }
 
-export function handlePcsLiveTestingEvent(target: HTMLElement): boolean {
+export function handlePcsLiveTestingEvent(target: HTMLElement, event?: Event): boolean {
+  const dragNode = target.closest<HTMLElement>('[data-standard-list-column-drag]')
+  if (dragNode && event && ['dragstart', 'dragover', 'drop', 'dragend'].includes(event.type)) {
+    const columnKey = dragNode.dataset.pcsLiveTestingColumnKey
+      || dragNode.dataset.dragSource
+      || dragNode.dataset.dropTarget
+      || ''
+    if (event.type === 'dragstart') {
+      liveTestingListUiState.draggedColumnKey = columnKey
+      ;(event as DragEvent).dataTransfer?.setData('application/x-higood-list-column-key', columnKey)
+      return Boolean(columnKey)
+    }
+    if (event.type === 'dragend') {
+      liveTestingListUiState.draggedColumnKey = ''
+      return true
+    }
+    const sourceKey = liveTestingListUiState.draggedColumnKey
+    if (!sourceKey || !columnKey || sourceKey === columnKey) return false
+    if (event.type === 'dragover') {
+      event.preventDefault()
+      return true
+    }
+    event.preventDefault()
+    const order = liveTestingListUiState.preferences.order.filter((key) => key !== sourceKey)
+    const targetIndex = order.indexOf(columnKey)
+    if (targetIndex < 0) return false
+    order.splice(targetIndex, 0, sourceKey)
+    liveTestingListUiState.preferences = normalizeLiveTestingListPreferences({
+      ...liveTestingListUiState.preferences,
+      order,
+    })
+    liveTestingListUiState.draggedColumnKey = ''
+    saveLiveTestingListPreferences()
+    refreshLiveTestingListRegions({ settings: true })
+    return true
+  }
+
   const actionNode = target.closest<HTMLElement>('[data-pcs-live-testing-action]')
   if (!actionNode) return false
   const action = actionNode.dataset.pcsLiveTestingAction
   if (!action) return false
 
+  if (action === 'sort-column') {
+    const columnKey = actionNode.dataset.columnKey || ''
+    const column = LIVE_TESTING_LIST_COLUMNS.find((item) => item.key === columnKey && item.sortable)
+    if (!column) return true
+    const currentSort = liveTestingListUiState.sort
+    liveTestingListUiState.sort = currentSort?.key !== columnKey
+      ? { key: columnKey, direction: 'asc' }
+      : currentSort.direction === 'asc'
+        ? { key: columnKey, direction: 'desc' }
+        : null
+    state.list.currentPage = 1
+    refreshLiveTestingListRegions()
+    return true
+  }
+  if (action === 'prev-page' || action === 'next-page') {
+    const totalPages = Math.max(
+      1,
+      Math.ceil(getFilteredSessions().length / liveTestingListUiState.preferences.pageSize),
+    )
+    state.list.currentPage = action === 'prev-page'
+      ? Math.max(1, state.list.currentPage - 1)
+      : Math.min(totalPages, state.list.currentPage + 1)
+    refreshLiveTestingListRegions()
+    return true
+  }
+  if (action === 'open-column-settings' || action === 'close-column-settings') {
+    liveTestingListUiState.columnSettingsOpen = action === 'open-column-settings'
+    refreshLiveTestingListRegions({ settings: true })
+    return true
+  }
+  if (action === 'restore-column-settings') {
+    liveTestingListUiState.preferences = normalizeLiveTestingListPreferences({
+      order: LIVE_TESTING_LIST_COLUMNS.map((column) => column.key),
+      visibleKeys: LIVE_TESTING_LIST_COLUMNS.map((column) => column.key),
+      frozenKeys: [],
+      pageSize: LIVE_TESTING_LIST_PAGE_SIZES[0],
+    })
+    liveTestingListUiState.sort = null
+    state.list.pageSize = liveTestingListUiState.preferences.pageSize
+    state.list.currentPage = 1
+    const storage = getLiveTestingListStorage()
+    if (storage) clearListColumnPreferences(storage, LIVE_TESTING_LIST_STORAGE_KEY)
+    refreshLiveTestingListRegions({ settings: true })
+    return true
+  }
+  if (
+    (action === 'toggle-column-visibility' || action === 'toggle-column-freeze')
+    && (!event || event.type === 'change')
+  ) {
+    const columnKey = actionNode.dataset.pcsLiveTestingColumnKey
+      || actionNode.dataset.columnKey
+      || ''
+    const column = LIVE_TESTING_LIST_COLUMNS.find((item) => item.key === columnKey)
+    if (!column || column.actionColumn) return true
+    const visibleKeys = new Set(liveTestingListUiState.preferences.visibleKeys)
+    const frozenKeys = new Set(liveTestingListUiState.preferences.frozenKeys)
+    if (action === 'toggle-column-visibility' && !column.required) {
+      if (visibleKeys.has(columnKey)) {
+        visibleKeys.delete(columnKey)
+        frozenKeys.delete(columnKey)
+      } else {
+        visibleKeys.add(columnKey)
+      }
+      if (!visibleKeys.has(columnKey) && liveTestingListUiState.sort?.key === columnKey) {
+        liveTestingListUiState.sort = null
+      }
+    }
+    if (action === 'toggle-column-freeze' && column.freezeable) {
+      if (frozenKeys.has(columnKey)) frozenKeys.delete(columnKey)
+      else frozenKeys.add(columnKey)
+    }
+    liveTestingListUiState.preferences = normalizeLiveTestingListPreferences({
+      ...liveTestingListUiState.preferences,
+      visibleKeys: [...visibleKeys],
+      frozenKeys: [...frozenKeys],
+    })
+    saveLiveTestingListPreferences()
+    refreshLiveTestingListRegions({ settings: true })
+    return true
+  }
   if (action === 'close-notice') {
     state.notice = null
     return true
   }
-  if (action === 'query') {
-    state.list.currentPage = 1
-    return true
-  }
   if (action === 'reset') {
-    state.list = { search: '', status: 'all', purpose: 'all', accounting: 'all', quickFilter: 'all', currentPage: 1, pageSize: 8 }
-    return true
-  }
-  if (action === 'set-quick-filter') {
-    const value = (actionNode.dataset.value as QuickFilterKey) || 'all'
-    state.list.quickFilter = state.list.quickFilter === value ? 'all' : value
-    state.list.currentPage = 1
-    return true
-  }
-  if (action === 'set-page') {
-    const page = Number.parseInt(actionNode.dataset.page ?? '', 10)
-    if (Number.isFinite(page) && page > 0) {
-      state.list.currentPage = page
+    state.list = {
+      search: '',
+      currentPage: 1,
+      pageSize: liveTestingListUiState.preferences.pageSize,
     }
+    refreshLiveTestingListRegions({ filters: true })
     return true
   }
   if (action === 'open-create-drawer') {
@@ -2352,6 +2663,7 @@ export function handlePcsLiveTestingEvent(target: HTMLElement): boolean {
 
 export function isPcsLiveTestingDialogOpen(): boolean {
   return Boolean(
+    liveTestingListUiState.columnSettingsOpen ||
     state.createDrawerOpen ||
       state.closeDialog.open ||
       state.accountingDialog.open ||

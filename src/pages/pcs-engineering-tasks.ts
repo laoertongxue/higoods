@@ -90,6 +90,7 @@ import {
 } from '../data/pcs-task-project-relation-writeback.ts'
 import { findStyleArchiveByProjectId, getStyleArchiveById, listStyleArchives } from '../data/pcs-style-archive-repository.ts'
 import { getProjectById, listProjects } from '../data/pcs-project-repository.ts'
+import { listProjectRelationsBySourceObject } from '../data/pcs-project-relation-repository.ts'
 import {
   PATTERN_TASK_SOURCE_TYPE_LIST,
   PLATE_TASK_SOURCE_TYPE_LIST,
@@ -1325,9 +1326,16 @@ function projectButton(projectId: string, projectCode: string, projectName: stri
   return `<button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(projectId)}">${escapeHtml(projectCode || projectName)}</button>`
 }
 
-function projectNodeButton(projectId: string, projectNodeId: string, label: string): string {
-  if (!projectId || !projectNodeId) return '<span class="text-slate-400">未关联项目节点</span>'
-  return `<button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(projectId)}">${escapeHtml(label)}</button>`
+function hasCompletedProjectRelation(
+  sourceModule: string,
+  sourceObjectType: string,
+  sourceObjectId: string,
+): boolean {
+  return listProjectRelationsBySourceObject({
+    sourceModule,
+    sourceObjectType,
+    sourceObjectId,
+  }).some((relation) => relation.projectId && relation.sourceStatus === '已完成')
 }
 
 function styleArchiveButton(styleId: string, styleCode: string, styleName: string): string {
@@ -2845,7 +2853,7 @@ function getRevisionBusinessSource(task: ReturnType<typeof getRevisionTaskById>)
   if (task.sourceType === '人工改版需求') {
     return { purpose: '人工改版需求', sourceText: '来源于人工参考或评审纪要', sourceObject }
   }
-  return { purpose: '测款结论返改', sourceText: '来源于测款结论或项目节点', sourceObject }
+  return { purpose: '测款结论返改', sourceText: '来源于测款结论', sourceObject }
 }
 
 function getRevisionTechPackStatusText(task: ReturnType<typeof getRevisionTaskById>): string {
@@ -4155,7 +4163,7 @@ function buildPatternTaskFlowView(task: PatternTaskRecord, hasPatternAsset: bool
   if (completed) {
     activeKey = 'done'
     stageLabel = '已完成'
-    nextActionText = '任务已完成，项目节点已收口。'
+    nextActionText = '任务已完成，商品项目关系已更新。'
     currentMissingFields = []
   } else if (!hasOutput) {
     activeKey = 'execution'
@@ -4188,7 +4196,7 @@ function buildPatternTaskFlowView(task: PatternTaskRecord, hasPatternAsset: bool
   } else {
     activeKey = 'closure'
     stageLabel = '待完成'
-    nextActionText = '花型产出已闭环，可以完成任务并同步项目节点。'
+    nextActionText = '花型产出已闭环，可以完成任务。'
     currentMissingFields = []
   }
 
@@ -4197,7 +4205,7 @@ function buildPatternTaskFlowView(task: PatternTaskRecord, hasPatternAsset: bool
     { key: 'execution', label: '花型执行', done: submittedForReview || buyerPassed || completed, active: activeKey === 'execution', desc: submittedForReview || buyerPassed || completed ? '已提交买手确认' : hasOutput ? '资料已齐待提交' : '补齐版次/完成图/文件' },
     { key: 'review', label: '买手确认', done: buyerPassed, active: activeKey === 'review', desc: buyerPassed ? '买手已通过' : task.buyerReviewStatus },
     { key: 'closure', label: '产出闭环', done: closureReady, active: activeKey === 'closure', desc: closureReady ? '技术包和花型库已闭环' : '待写包/沉淀' },
-    { key: 'done', label: '任务完成', done: completed, active: activeKey === 'done', desc: completed ? '项目关系已同步' : '待收口' },
+    { key: 'done', label: '任务完成', done: completed, active: activeKey === 'done', desc: completed ? '项目关系已更新' : '待完成' },
   ]
 
   return {
@@ -7357,9 +7365,9 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement, event?: Event
         setNotice(result.message)
         return true
       }
-      const synced = Boolean(result.task.projectId && result.task.projectNodeId)
-      pushRuntimeLog('revision', taskId, '完成任务', synced ? '已完成改版任务并同步商品项目关系。' : '已完成改版任务。')
-      setNotice(`改版任务 ${result.task.revisionTaskCode} 已完成${synced ? '，并同步更新商品项目节点' : ''}。`)
+      const related = hasCompletedProjectRelation('改版任务', '改版任务', result.task.revisionTaskId)
+      pushRuntimeLog('revision', taskId, '完成任务', related ? '已完成改版任务并更新商品项目关系。' : '已完成改版任务。')
+      setNotice(`改版任务 ${result.task.revisionTaskCode} 已完成${related ? '，商品项目关系已更新' : ''}。`)
     } catch (error) {
       setNotice(error instanceof Error ? error.message : '改版任务完成失败。')
     }
@@ -7373,9 +7381,9 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement, event?: Event
         setNotice(result.message)
         return true
       }
-      const synced = Boolean(result.task.projectId && result.task.projectNodeId)
-      pushRuntimeLog('plate', taskId, '完成任务', synced ? '已完成制版任务并同步商品项目关系。' : '已完成制版任务。')
-      setNotice(`制版任务 ${result.task.plateTaskCode} 已完成${synced ? '，并同步更新商品项目节点' : ''}。`)
+      const related = hasCompletedProjectRelation('制版任务', '制版任务', result.task.plateTaskId)
+      pushRuntimeLog('plate', taskId, '完成任务', related ? '已完成制版任务并更新商品项目关系。' : '已完成制版任务。')
+      setNotice(`制版任务 ${result.task.plateTaskCode} 已完成${related ? '，商品项目关系已更新' : ''}。`)
     } catch (error) {
       setNotice(error instanceof Error ? error.message : '制版任务完成失败。')
     }
@@ -7389,9 +7397,9 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement, event?: Event
         setNotice(result.message)
         return true
       }
-      const synced = Boolean(result.task.projectId && result.task.projectNodeId)
-      pushRuntimeLog('pattern', taskId, '完成任务', synced ? '已完成花型任务并同步商品项目关系。' : '已完成花型任务。')
-      setNotice(`花型任务 ${result.task.patternTaskCode} 已完成${synced ? '，并同步更新商品项目节点' : ''}。`)
+      const related = hasCompletedProjectRelation('花型任务', '花型任务', result.task.patternTaskId)
+      pushRuntimeLog('pattern', taskId, '完成任务', related ? '已完成花型任务并更新商品项目关系。' : '已完成花型任务。')
+      setNotice(`花型任务 ${result.task.patternTaskCode} 已完成${related ? '，商品项目关系已更新' : ''}。`)
     } catch (error) {
       setNotice(error instanceof Error ? error.message : '花型任务完成失败。')
     }

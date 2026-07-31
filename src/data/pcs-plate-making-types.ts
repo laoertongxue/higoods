@@ -19,8 +19,8 @@ export interface PlateMakingTaskRecord {
   projectCode: string
   projectName: string
   projectNodeId: string
-  stepCode: 'PATTERN_TASK'
-  stepName: '制版任务'
+  stepCode?: 'PATTERN_TASK'
+  stepName?: '制版任务'
   sourceType: PlateMakingTaskSourceType
   upstreamModule: string
   upstreamObjectType: string

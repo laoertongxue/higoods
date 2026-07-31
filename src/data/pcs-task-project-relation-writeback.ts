@@ -1,9 +1,7 @@
 import {
   getProjectById,
   getProjectNodeRecordByStepCode,
-  updateProjectNodeRecord,
 } from './pcs-project-repository.ts'
-import { markProjectNodeCompletedAndUnlockNext } from './pcs-project-flow-service.ts'
 import { upsertProjectRelation } from './pcs-project-relation-repository.ts'
 import { syncExistingProjectArchiveByProjectId } from './pcs-project-archive-sync.ts'
 import type { ProjectRelationRecord } from './pcs-project-relation-types.ts'
@@ -102,7 +100,6 @@ import {
   type FirstOrderSampleTaskSourceType,
   type RevisionTaskSourceType,
 } from './pcs-task-source-normalizer.ts'
-import { syncProjectNodeInstanceRuntime } from './pcs-project-node-instance-registry.ts'
 
 export type DownstreamTaskType = 'PLATE' | 'PRINT' | 'FIRST_SAMPLE' | 'FIRST_ORDER_SAMPLE'
 
@@ -428,7 +425,7 @@ function revisionExecutionFields(input: RevisionTaskCreateInput, existing?: Revi
 interface TaskWritebackSuccess<TTask> {
   ok: true
   task: TTask
-  relation: ProjectRelationRecord | null
+  relation?: ProjectRelationRecord
   message: string
 }
 
@@ -1427,7 +1424,7 @@ function createPlateMakingTaskStandalone(
     legacyUpstreamRef: style.styleCode,
   })
 
-  return { ok: true, task, relation: null, message: '制版任务已创建。' }
+  return { ok: true, task, message: '制版任务已创建。' }
 }
 
 function resolvePlateUpstream(project: NonNullable<ReturnType<typeof getProjectById>>, input: PlateMakingTaskCreateInput) {
@@ -1783,10 +1780,10 @@ function createPatternTaskStandalone(input: PatternTaskCreateInput): TaskWriteba
     legacyUpstreamRef: style.styleCode,
   })
 
-  return { ok: true, task, relation: null, message: '花型任务已创建。' }
+  return { ok: true, task, message: '花型任务已创建。' }
 }
 
-function createRevisionPatternTaskWithoutProjectNode(
+function createRevisionPatternTaskWithProjectRelation(
   revisionTask: RevisionTaskRecord,
 ): TaskWritebackResult<PatternTaskRecord> {
   const rawCode = `${revisionTask.revisionTaskCode}-PRINT`
@@ -1900,12 +1897,30 @@ function createRevisionPatternTaskWithoutProjectNode(
     legacyUpstreamRef: revisionTask.revisionTaskCode,
   })
 
+  const relation = upsertProjectRelation(
+    relationPayload({
+      projectId: project.projectId,
+      projectCode: project.projectCode,
+      projectNodeId: '',
+      stepCode: '',
+      stepName: '',
+      sourceModule: '花型任务',
+      sourceObjectType: '花型任务',
+      sourceObjectId: task.patternTaskId,
+      sourceObjectCode: task.patternTaskCode,
+      sourceTitle: task.title,
+      sourceStatus: task.status,
+      businessDate: task.updatedAt,
+      ownerName: task.ownerName,
+      operatorName: task.updatedBy,
+    }),
+  )
   syncExistingProjectArchiveByProjectId(task.projectId, task.updatedBy)
   return {
     ok: true,
     task,
-    relation: null,
-    message: '花型任务已创建，当前项目未配置花型节点，已作为改版下游任务挂接。',
+    relation,
+    message: '花型任务已创建，并已建立商品项目关系。',
   }
 }
 
@@ -2110,28 +2125,6 @@ export function submitPlateTaskForSampleReview(
   })
   if (!nextTask) return { ok: false, task, message: '制版任务提交样板确认失败。' }
 
-  if (nextTask.projectId && nextTask.projectNodeId) {
-    updateProjectNodeRecord(
-      nextTask.projectId,
-      nextTask.projectNodeId,
-      {
-        currentStatus: '待确认',
-        latestInstanceId: nextTask.plateTaskId,
-        latestInstanceCode: nextTask.plateTaskCode,
-        latestResultType: '制版已提交样板确认',
-        latestResultText: '制版产出已提交样板确认，等待负责人确认样板。',
-        pendingActionType: '样板确认',
-        pendingActionText: '确认制版样板',
-        updatedAt: now,
-        lastEventType: '制版已提交样板确认',
-        lastEventTime: now,
-      },
-      operatorName,
-    )
-    syncProjectNodeInstanceRuntime(nextTask.projectId, nextTask.projectNodeId, operatorName, now)
-    syncExistingProjectArchiveByProjectId(nextTask.projectId, operatorName)
-  }
-
   return { ok: true, task: nextTask, message: '制版任务已提交样板确认。' }
 }
 
@@ -2167,28 +2160,6 @@ export function reviewPlateTaskSample(
   })
   if (!nextTask) return { ok: false, task, message: '制版样板确认失败。' }
 
-  if (nextTask.projectId && nextTask.projectNodeId) {
-    updateProjectNodeRecord(
-      nextTask.projectId,
-      nextTask.projectNodeId,
-      {
-        currentStatus: approved ? '已确认' : '进行中',
-        latestInstanceId: nextTask.plateTaskId,
-        latestInstanceCode: nextTask.plateTaskCode,
-        latestResultType: approved ? '制版样板已通过' : '制版样板已驳回',
-        latestResultText: approved ? '制版样板已通过，待生成技术包版本。' : '制版样板已驳回，待版师按说明调整纸样。',
-        pendingActionType: approved ? '生成技术包' : '版师调整',
-        pendingActionText: approved ? '生成制版技术包版本' : '按驳回说明调整纸样',
-        updatedAt: now,
-        lastEventType: approved ? '制版样板已通过' : '制版样板已驳回',
-        lastEventTime: now,
-      },
-      operatorName,
-    )
-    syncProjectNodeInstanceRuntime(nextTask.projectId, nextTask.projectNodeId, operatorName, now)
-    syncExistingProjectArchiveByProjectId(nextTask.projectId, operatorName)
-  }
-
   return { ok: true, task: nextTask, message: approved ? '制版样板已通过。' : '制版样板已驳回，已退回版师调整。' }
 }
 
@@ -2217,28 +2188,6 @@ export function submitPatternTaskForBuyerReview(
     note: task.note || '花型师已提交买手确认。',
   })
   if (!nextTask) return { ok: false, task, message: '花型任务提交买手确认失败。' }
-
-  if (nextTask.projectId && nextTask.projectNodeId) {
-    updateProjectNodeRecord(
-      nextTask.projectId,
-      nextTask.projectNodeId,
-      {
-        currentStatus: '待确认',
-        latestInstanceId: nextTask.patternTaskId,
-        latestInstanceCode: nextTask.patternTaskCode,
-        latestResultType: '花型师已提交买手确认',
-        latestResultText: '花型师已提交花型文件和完成确认图，等待买手确认。',
-        pendingActionType: '买手确认花型',
-        pendingActionText: '买手确认花型结果',
-        updatedAt: now,
-        lastEventType: '花型师已提交买手确认',
-        lastEventTime: now,
-      },
-      operatorName,
-    )
-    syncProjectNodeInstanceRuntime(nextTask.projectId, nextTask.projectNodeId, operatorName, now)
-    syncExistingProjectArchiveByProjectId(nextTask.projectId, operatorName)
-  }
 
   return { ok: true, task: nextTask, message: '花型任务已提交买手确认。' }
 }
@@ -2489,7 +2438,7 @@ function buildRevisionFirstSampleTaskInput(revisionTask: RevisionTaskRecord): Fi
   }
 }
 
-function createRevisionFirstSampleTaskWithoutProjectNode(
+function createRevisionFirstSampleTaskWithProjectRelation(
   revisionTask: RevisionTaskRecord,
 ): TaskWritebackResult<FirstSampleTaskRecord> {
   const rawCode = `${revisionTask.revisionTaskCode}-FIRST-SAMPLE`
@@ -2541,12 +2490,30 @@ function createRevisionFirstSampleTaskWithoutProjectNode(
     legacyUpstreamRef: revisionTask.revisionTaskCode,
   })
 
+  const relation = upsertProjectRelation(
+    relationPayload({
+      projectId: project.projectId,
+      projectCode: project.projectCode,
+      projectNodeId: '',
+      stepCode: '',
+      stepName: '',
+      sourceModule: '首版样衣打样',
+      sourceObjectType: '首版样衣打样任务',
+      sourceObjectId: task.firstSampleTaskId,
+      sourceObjectCode: task.firstSampleTaskCode,
+      sourceTitle: task.title,
+      sourceStatus: task.status,
+      businessDate: task.updatedAt,
+      ownerName: task.ownerName,
+      operatorName: task.updatedBy,
+    }),
+  )
   syncExistingProjectArchiveByProjectId(task.projectId, task.updatedBy)
   return {
     ok: true,
     task,
-    relation: null,
-    message: '首版样衣打样任务已创建，当前项目未配置首版样衣节点，已作为改版产出样衣挂接。',
+    relation,
+    message: '首版样衣打样任务已创建，并已建立商品项目关系。',
   }
 }
 
@@ -2722,7 +2689,7 @@ export function createDownstreamTasksFromRevision(
         results.push(createPatternTask(buildRevisionPatternTaskInput(revisionTask)))
         return
       }
-      results.push(createRevisionPatternTaskWithoutProjectNode(revisionTask))
+      results.push(createRevisionPatternTaskWithProjectRelation(revisionTask))
       return
     }
     if (type === 'PLATE') {
@@ -2790,16 +2757,12 @@ export function createDownstreamTasksFromRevision(
         failureMessages.push('当前改版任务已存在首版样衣下游任务。')
         return
       }
-      results.push(createRevisionFirstSampleTaskWithoutProjectNode(revisionTask))
+      results.push(createRevisionFirstSampleTaskWithProjectRelation(revisionTask))
       return
     }
     if (type === 'FIRST_ORDER_SAMPLE') {
       if (!revisionTask.projectId) {
         failureMessages.push('独立改版任务不创建首单样衣下游任务。')
-        return
-      }
-      if (!getProjectNodeRecordByStepCode(revisionTask.projectId, 'FIRST_ORDER_SAMPLE')) {
-        failureMessages.push('商品项目缺少首单样衣节点，不能创建首单样衣下游任务。')
         return
       }
       const existingFirstOrder = listFirstOrderSampleTasks().find(

@@ -13,8 +13,8 @@ export interface FirstOrderSampleTaskRecord {
   projectCode: string
   projectName: string
   projectNodeId: string
-  stepCode: 'FIRST_ORDER_SAMPLE'
-  stepName: '首单样衣打样'
+  stepCode?: 'FIRST_ORDER_SAMPLE'
+  stepName?: '首单样衣打样'
   sourceType: FirstOrderSampleTaskSourceType
   upstreamModule: string
   upstreamObjectType: string

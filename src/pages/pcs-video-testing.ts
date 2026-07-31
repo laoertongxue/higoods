@@ -1,3 +1,25 @@
+// @page-pattern: list
+
+import { renderSecondaryButton } from '../components/ui/button.ts'
+import { renderStandardListPage } from '../components/ui/list-page.ts'
+import {
+  clearListColumnPreferences,
+  loadListColumnPreferences,
+  normalizeListColumnPreferences,
+  paginateStandardListRows,
+  resetStandardListEntryTransientStateOnRouteEntry,
+  saveListColumnPreferences,
+  sortStandardListRows,
+  type StandardListColumnPreferences,
+  type StandardListPageSlice,
+  type StandardListSortState,
+} from '../components/ui/list-table-model.ts'
+import {
+  renderStandardListColumnSettings,
+  renderStandardListTable,
+  type StandardListColumn,
+} from '../components/ui/list-table.ts'
+import { renderTablePagination } from '../components/ui/pagination.ts'
 import { appStore } from '../state/store.ts'
 import {
   ACCOUNTING_STATUS_META,
@@ -39,7 +61,6 @@ import {
 import { ensurePcsProjectDemoDataReady } from '../data/pcs-project-demo-seed-service.ts'
 import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
 
-type QuickFilterKey = 'all' | 'reconciling' | 'canClose' | 'pendingAccounting' | 'accounted'
 type DetailTabKey = 'overview' | 'items' | 'reconcile' | 'evidence' | 'accounting' | 'samples' | 'logs'
 type VideoPlatformCode = VideoRecord['platform']
 type VideoIntent = VideoItem['evaluationIntent']
@@ -166,11 +187,6 @@ interface VideoTestingPageState {
   notice: string | null
   list: {
     search: string
-    status: string
-    purpose: string
-    platform: string
-    accounting: string
-    quickFilter: QuickFilterKey
     currentPage: number
     pageSize: number
   }
@@ -223,11 +239,6 @@ const state: VideoTestingPageState = {
   notice: null,
   list: {
     search: '',
-    status: 'all',
-    purpose: 'all',
-    platform: 'all',
-    accounting: 'all',
-    quickFilter: 'all',
     currentPage: 1,
     pageSize: 8,
   },
@@ -273,6 +284,48 @@ const state: VideoTestingPageState = {
       noDataReason: '',
     },
   },
+}
+
+const VIDEO_TESTING_LIST_STORAGE_KEY = 'higood:list-page:/pcs/testing/video'
+const VIDEO_TESTING_LIST_PAGE_SIZES = [8, 20, 50]
+const VIDEO_TESTING_LIST_MAX_FROZEN_WIDTH = 520
+const VIDEO_TESTING_LIST_COLUMN_RULES = [
+  { key: 'project', required: true, freezeable: true },
+  { key: 'record', required: true, freezeable: true },
+  { key: 'account', freezeable: true },
+  { key: 'creator', freezeable: true },
+  { key: 'published' },
+  { key: 'views' },
+  { key: 'clicks' },
+  { key: 'clickRate' },
+  { key: 'likes' },
+  { key: 'orders' },
+  { key: 'gmv' },
+  { key: 'updated', freezeable: true },
+  { key: 'actions', required: true, actionColumn: true },
+]
+
+const videoTestingListUiState: {
+  sort: StandardListSortState | null
+  preferences: StandardListColumnPreferences
+  columnSettingsOpen: boolean
+  draggedColumnKey: string
+  preferencesLoaded: boolean
+} = {
+  sort: null,
+  preferences: normalizeListColumnPreferences(
+    VIDEO_TESTING_LIST_COLUMN_RULES,
+    {
+      order: VIDEO_TESTING_LIST_COLUMN_RULES.map((item) => item.key),
+      visibleKeys: VIDEO_TESTING_LIST_COLUMN_RULES.map((item) => item.key),
+      frozenKeys: [],
+      pageSize: state.list.pageSize,
+    },
+    VIDEO_TESTING_LIST_PAGE_SIZES,
+  ),
+  columnSettingsOpen: false,
+  draggedColumnKey: '',
+  preferencesLoaded: false,
 }
 
 const recordStore = new Map<string, VideoRecordViewModel>()
@@ -430,7 +483,7 @@ function getVideoWorkItemSnapshot(record: VideoRecordViewModel): {
     actionItem,
     mainImageUrl,
     rows: [
-      { label: '工作项状态', value: getWorkItemStatusLabel(record.status) },
+      { label: '测款状态', value: getWorkItemStatusLabel(record.status) },
       { label: '正式操作', value: '关联短视频测款记录' },
       { label: '渠道店铺商品', value: linkedChannelProduct?.channelProductId || actionItem?.productRef || '-' },
       { label: '渠道店铺商品编码', value: linkedChannelProduct?.channelProductCode || actionItem?.productRef || '-' },
@@ -854,6 +907,92 @@ function syncDetailState(recordId: string): void {
   state.detail.activeTab = normalizeDetailTab(getCurrentQueryParams().get('tab'))
 }
 
+function getVideoTestingListStorage(): Storage | null {
+  try {
+    return typeof window === 'undefined' ? null : window.localStorage
+  } catch {
+    return null
+  }
+}
+
+function normalizeVideoTestingListPreferences(
+  raw: Partial<StandardListColumnPreferences> | null | undefined,
+): StandardListColumnPreferences {
+  const normalized = normalizeListColumnPreferences(
+    VIDEO_TESTING_LIST_COLUMN_RULES,
+    raw,
+    VIDEO_TESTING_LIST_PAGE_SIZES,
+  )
+  const columnsByKey = new Map(VIDEO_TESTING_LIST_COLUMNS.map((column) => [column.key, column]))
+  const visibleKeys = new Set(normalized.visibleKeys)
+  const requestedFrozen = new Set(normalized.frozenKeys)
+  const frozen = normalized.order
+    .map((key) => columnsByKey.get(key))
+    .filter((column): column is StandardListColumn<VideoRecordViewModel> => Boolean(
+      column &&
+      column.freezeable &&
+      !column.actionColumn &&
+      visibleKeys.has(column.key) &&
+      requestedFrozen.has(column.key),
+    ))
+  let frozenWidth = frozen.reduce(
+    (sum, column) => sum + Math.max(column.width, column.minWidth ?? 0),
+    0,
+  )
+  while (frozenWidth > VIDEO_TESTING_LIST_MAX_FROZEN_WIDTH && frozen.length > 0) {
+    const removed = frozen.pop()
+    if (removed) frozenWidth -= Math.max(removed.width, removed.minWidth ?? 0)
+  }
+  return {
+    ...normalized,
+    frozenKeys: frozen.map((column) => column.key),
+  }
+}
+
+function ensureVideoTestingListPreferences(): void {
+  if (videoTestingListUiState.preferencesLoaded) return
+  videoTestingListUiState.preferencesLoaded = true
+  const storage = getVideoTestingListStorage()
+  videoTestingListUiState.preferences = storage
+    ? loadListColumnPreferences(
+        storage,
+        VIDEO_TESTING_LIST_STORAGE_KEY,
+        VIDEO_TESTING_LIST_COLUMN_RULES,
+        videoTestingListUiState.preferences,
+        VIDEO_TESTING_LIST_PAGE_SIZES,
+      )
+    : videoTestingListUiState.preferences
+  videoTestingListUiState.preferences = normalizeVideoTestingListPreferences(
+    videoTestingListUiState.preferences,
+  )
+  state.list.pageSize = videoTestingListUiState.preferences.pageSize
+}
+
+function saveVideoTestingListPreferences(): void {
+  const storage = getVideoTestingListStorage()
+  if (storage) {
+    saveListColumnPreferences(
+      storage,
+      VIDEO_TESTING_LIST_STORAGE_KEY,
+      videoTestingListUiState.preferences,
+    )
+  }
+}
+
+function withVideoTestingLocalInteractions(html: string): string {
+  return html
+    .replace(/data-pcs-video-testing-action="([^"]+)"/g, (attribute) =>
+      `data-skip-page-rerender="true" data-pcs-video-testing-list-control="true" ${attribute}`)
+    .replace(/data-pcs-video-testing-field="([^"]+)"/g, (attribute) =>
+      `data-skip-page-rerender="true" data-pcs-video-testing-list-control="true" ${attribute}`)
+}
+
+function hydrateVideoTestingRegion(region: ParentNode): void {
+  void import('../components/shell.ts')
+    .then(({ hydrateIcons }) => hydrateIcons(region))
+    .catch(() => undefined)
+}
+
 function getFilteredRecords(): VideoRecordViewModel[] {
   const keyword = state.list.search.trim().toLowerCase()
   return getRecords().filter((record) => {
@@ -873,39 +1012,25 @@ function getFilteredRecords(): VideoRecordViewModel[] {
         .includes(keyword)
 
     if (!matchesKeyword) return false
-    if (state.list.status !== 'all' && record.status !== state.list.status) return false
-    if (state.list.purpose !== 'all' && !record.purposes.includes(state.list.purpose)) return false
-    if (state.list.platform !== 'all' && record.platformCode !== state.list.platform) return false
-    if (state.list.accounting !== 'all' && record.testAccountingStatus !== state.list.accounting) return false
-    if (state.list.quickFilter === 'reconciling' && record.status !== 'RECONCILING') return false
-    if (state.list.quickFilter === 'canClose' && !(record.status === 'RECONCILING' && record.itemCount > 0)) return false
-    if (state.list.quickFilter === 'pendingAccounting' && record.testAccountingStatus !== 'PENDING') return false
-    if (state.list.quickFilter === 'accounted' && record.testAccountingStatus !== 'ACCOUNTED') return false
     return true
   })
 }
 
-function getPagedRecords(): { items: VideoRecordViewModel[]; total: number; totalPages: number } {
-  const filtered = getFilteredRecords()
-  const totalPages = Math.max(1, Math.ceil(filtered.length / state.list.pageSize))
-  if (state.list.currentPage > totalPages) state.list.currentPage = totalPages
-  if (state.list.currentPage < 1) state.list.currentPage = 1
-  const start = (state.list.currentPage - 1) * state.list.pageSize
-  return {
-    items: filtered.slice(start, start + state.list.pageSize),
-    total: filtered.length,
-    totalPages,
-  }
-}
-
-function getKpis() {
-  const records = getRecords()
-  return {
-    reconciling: records.filter((item) => item.status === 'RECONCILING').length,
-    canClose: records.filter((item) => item.status === 'RECONCILING' && item.itemCount > 0).length,
-    pendingAccounting: records.filter((item) => item.testAccountingStatus === 'PENDING').length,
-    accounted: records.filter((item) => item.testAccountingStatus === 'ACCOUNTED').length,
-  }
+function getPagedRecords(): StandardListPageSlice<VideoRecordViewModel> {
+  ensureVideoTestingListPreferences()
+  const sorted = sortStandardListRows(
+    getFilteredRecords(),
+    videoTestingListUiState.sort,
+    (record, key) => VIDEO_TESTING_LIST_COLUMNS.find((column) => column.key === key)?.sortValue?.(record),
+  )
+  const paging = paginateStandardListRows(
+    sorted,
+    state.list.currentPage,
+    videoTestingListUiState.preferences.pageSize,
+  )
+  state.list.currentPage = paging.currentPage
+  state.list.pageSize = paging.pageSize
+  return paging
 }
 
 function renderNotice(): string {
@@ -1055,42 +1180,6 @@ function renderPlatformBadge(platform: VideoPlatformCode): string {
   return `<span class="inline-flex rounded-full px-2 py-0.5 text-xs ${meta.color}">${escapeHtml(meta.label)}</span>`
 }
 
-function renderPager(totalPages: number): string {
-  const pages = new Set<number>([1, totalPages, state.list.currentPage, state.list.currentPage - 1, state.list.currentPage + 1])
-  const visiblePages = Array.from(pages).filter((page) => page >= 1 && page <= totalPages).sort((a, b) => a - b)
-  return `
-    <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 text-xs text-slate-500">
-      <p>第 ${state.list.currentPage} / ${totalPages} 页</p>
-      <div class="flex items-center gap-1">
-        <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50 ${state.list.currentPage === 1 ? 'cursor-not-allowed opacity-50' : ''}" data-pcs-video-testing-action="set-page" data-page="${state.list.currentPage - 1}" ${state.list.currentPage === 1 ? 'disabled' : ''}>上一页</button>
-        ${visiblePages
-          .map(
-            (page) => `<button type="button" class="${toClassName(
-              'inline-flex h-8 min-w-8 items-center justify-center rounded-md border px-2 text-xs',
-              page === state.list.currentPage ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
-            )}" data-pcs-video-testing-action="set-page" data-page="${page}">${page}</button>`,
-          )
-          .join('')}
-        <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50 ${state.list.currentPage === totalPages ? 'cursor-not-allowed opacity-50' : ''}" data-pcs-video-testing-action="set-page" data-page="${state.list.currentPage + 1}" ${state.list.currentPage === totalPages ? 'disabled' : ''}>下一页</button>
-      </div>
-    </div>
-  `
-}
-
-function renderListHeader(): string {
-  return `
-    <section class="flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <p class="text-xs text-slate-500">商品中心 / 测款与渠道管理</p>
-        <h1 class="mt-1 text-2xl font-semibold text-slate-900">短视频测款</h1>
-      </div>
-      <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-video-testing-action="open-create-drawer">
-        <i data-lucide="plus" class="h-4 w-4"></i>新增短视频测款
-      </button>
-    </section>
-  `
-}
-
 function renderListFilters(): string {
   return `
     <section class="rounded-lg border bg-white p-4">
@@ -1110,131 +1199,227 @@ function renderListFilters(): string {
   `
 }
 
-function renderKpis(): string {
-  const kpis = getKpis()
-  const cards: Array<{ key: QuickFilterKey; label: string; value: number; helper: string; tone: string }> = [
-    { key: 'reconciling', label: '待核对', value: kpis.reconciling, helper: '发布时间已落地，待补录和复核', tone: 'border-blue-200 bg-blue-50 text-blue-700' },
-    { key: 'canClose', label: '可关账', value: kpis.canClose, helper: '条目齐全，可完成关账', tone: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
-    { key: 'pendingAccounting', label: 'TEST 待入账', value: kpis.pendingAccounting, helper: 'TEST 条目尚未回写结论', tone: 'border-amber-200 bg-amber-50 text-amber-700' },
-    { key: 'accounted', label: '已入账', value: kpis.accounted, helper: '已完成测款结论回写', tone: 'border-violet-200 bg-violet-50 text-violet-700' },
-  ]
-  return `
-    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      ${cards
-        .map(
-          (card) => `
-            <button type="button" class="${toClassName(
-              'rounded-lg border p-4 text-left transition hover:shadow-sm',
-              card.tone,
-              state.list.quickFilter === card.key ? 'ring-2 ring-blue-500' : '',
-            )}" data-pcs-video-testing-action="set-quick-filter" data-value="${card.key}">
-              <p class="text-xs">${escapeHtml(card.label)}</p>
-              <p class="mt-2 text-2xl font-semibold">${card.value}</p>
-              <p class="mt-2 text-xs opacity-80">${escapeHtml(card.helper)}</p>
-            </button>
-          `,
-        )
-        .join('')}
-    </section>
-  `
-}
-
 function renderRecordActions(record: VideoRecordViewModel): string {
   const project = getPrimaryProject(record)
   if (!project) return '<span class="text-xs text-slate-400">-</span>'
   return `<button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/projects/${escapeHtml(project.projectId)}">查看项目</button>`
 }
 
-function renderListTable(): string {
-  const { items, totalPages } = getPagedRecords()
-  return `
-    <section class="rounded-lg border bg-white">
-      <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-        <div>
-          <p class="text-sm font-medium text-slate-900">短视频测款列表</p>
-        </div>
+const VIDEO_TESTING_LIST_COLUMNS: StandardListColumn<VideoRecordViewModel>[] = [
+  {
+    key: 'project',
+    title: '商品项目',
+    width: 220,
+    required: true,
+    freezeable: true,
+    sortable: true,
+    render: (record) => {
+      const project = getPrimaryProject(record)
+      return project
+        ? `
+            <button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(project.projectId)}">${escapeHtml(project.projectCode)}</button>
+            <p class="mt-1 text-xs text-slate-500">${escapeHtml(project.projectName)}</p>
+          `
+        : '<span class="text-sm text-slate-400">-</span>'
+    },
+    sortValue: (record) => {
+      const project = getPrimaryProject(record)
+      return project ? `${project.projectCode}|${project.projectName}` : ''
+    },
+  },
+  {
+    key: 'record',
+    title: '短视频测款',
+    width: 280,
+    required: true,
+    freezeable: true,
+    sortable: true,
+    render: (record) => `
+      <div class="space-y-1">
+        <p class="font-medium text-slate-900">${escapeHtml(record.title)}</p>
+        <p class="text-xs text-slate-500">${escapeHtml(record.id)}</p>
+        ${
+          record.videoUrl.trim()
+            ? `<a href="${escapeHtml(record.videoUrl)}" target="_blank" rel="noreferrer" class="block max-w-[260px] truncate text-xs text-blue-700 hover:underline">${escapeHtml(truncateText(record.videoUrl, 42))}</a>`
+            : '<p class="text-xs text-slate-400">-</p>'
+        }
+        <p class="max-w-[260px] truncate text-xs text-slate-500">备注：${escapeHtml(truncateText(record.note || '-', 36))}</p>
       </div>
-      <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-slate-200 text-sm">
-          <thead class="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-            <tr>
-              <th class="px-4 py-3">商品项目编号</th>
-              <th class="px-4 py-3">测款标题 / 视频链接 / 备注</th>
-              <th class="px-4 py-3">平台 / 发布账号</th>
-              <th class="px-4 py-3">达人 / 运营</th>
-              <th class="px-4 py-3">发布时间</th>
-              <th class="px-4 py-3 text-right">播放</th>
-              <th class="px-4 py-3 text-right">点击</th>
-              <th class="px-4 py-3 text-right">点击率</th>
-              <th class="px-4 py-3 text-right">点赞</th>
-              <th class="px-4 py-3 text-right">订单</th>
-              <th class="px-4 py-3 text-right">GMV</th>
-              <th class="px-4 py-3">最近更新</th>
-              <th class="px-4 py-3 text-center">操作</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
-            ${
-              items.length === 0
-                ? '<tr><td colspan="13" class="px-4 py-10 text-center text-sm text-slate-500">暂无匹配的短视频测款，请调整筛选条件后重试。</td></tr>'
-                : items
-                    .map(
-                      (record) => {
-                        const project = getPrimaryProject(record)
-                        return `
-                        <tr class="hover:bg-slate-50/80">
-                          <td class="px-4 py-3 align-top">
-                            ${
-                              project
-                                ? `
-                                  <button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(project.projectId)}">${escapeHtml(project.projectCode)}</button>
-                                  <p class="mt-1 text-xs text-slate-500">${escapeHtml(project.projectName)}</p>
-                                `
-                                : '<span class="text-sm text-slate-400">-</span>'
-                            }
-                          </td>
-                          <td class="px-4 py-3 align-top">
-                            <div class="space-y-1">
-                              <p class="font-medium text-slate-900">${escapeHtml(record.title)}</p>
-                              <p class="text-xs text-slate-500">${escapeHtml(record.id)}</p>
-                              ${
-                                record.videoUrl.trim()
-                                  ? `<a href="${escapeHtml(record.videoUrl)}" target="_blank" rel="noreferrer" class="block max-w-[260px] truncate text-xs text-blue-700 hover:underline">${escapeHtml(truncateText(record.videoUrl, 42))}</a>`
-                                  : '<p class="text-xs text-slate-400">-</p>'
-                              }
-                              <p class="max-w-[260px] truncate text-xs text-slate-500">备注：${escapeHtml(truncateText(record.note || '-', 36))}</p>
-                            </div>
-                          </td>
-                          <td class="px-4 py-3 align-top">
-                            <div class="space-y-1">
-                              ${renderPlatformBadge(record.platformCode)}
-                              <p class="text-xs text-slate-500">${escapeHtml(record.account)}</p>
-                            </div>
-                          </td>
-                          <td class="px-4 py-3 align-top text-slate-700">${escapeHtml(record.creator)}</td>
-                          <td class="px-4 py-3 align-top text-xs text-slate-500">${escapeHtml(record.publishedAt ? formatDateTime(record.publishedAt) : '-')}</td>
-                          <td class="px-4 py-3 align-top text-right text-slate-700">${formatInteger(record.views)}</td>
-                          <td class="px-4 py-3 align-top text-right text-slate-700">${formatInteger(record.clicks)}</td>
-                          <td class="px-4 py-3 align-top text-right text-slate-700">${formatPercent(record.clicks, record.views)}</td>
-                          <td class="px-4 py-3 align-top text-right text-slate-700">${formatInteger(record.likes)}</td>
-                          <td class="px-4 py-3 align-top text-right text-slate-700">${formatInteger(record.orders)}</td>
-                          <td class="px-4 py-3 align-top text-right font-medium text-slate-900">¥${formatCurrency(record.gmv)}</td>
-                          <td class="px-4 py-3 align-top text-xs text-slate-500">${escapeHtml(formatDateTime(record.updatedAt))}</td>
-                          <td class="px-4 py-3 align-top">
-                            <div class="flex flex-wrap justify-center gap-1">${renderRecordActions(record)}</div>
-                          </td>
-                        </tr>
-                      `
-                      },
-                    )
-                    .join('')
-            }
-          </tbody>
-        </table>
+    `,
+    sortValue: (record) => `${record.title}|${record.id}`,
+  },
+  {
+    key: 'account',
+    title: '平台 / 发布账号',
+    width: 180,
+    freezeable: true,
+    sortable: true,
+    render: (record) => `
+      <div class="space-y-1">
+        ${renderPlatformBadge(record.platformCode)}
+        <p class="text-xs text-slate-500">${escapeHtml(record.account)}</p>
       </div>
-      ${renderPager(totalPages)}
-    </section>
-  `
+    `,
+    sortValue: (record) => `${record.platformLabel}|${record.account}`,
+  },
+  {
+    key: 'creator',
+    title: '达人 / 运营',
+    width: 150,
+    freezeable: true,
+    sortable: true,
+    render: (record) => escapeHtml(record.creator),
+    sortValue: (record) => record.creator,
+  },
+  {
+    key: 'published',
+    title: '发布时间',
+    width: 170,
+    sortable: true,
+    render: (record) => `<span class="text-xs text-slate-500">${escapeHtml(record.publishedAt ? formatDateTime(record.publishedAt) : '-')}</span>`,
+    sortValue: (record) => record.publishedAt,
+  },
+  {
+    key: 'views',
+    title: '播放',
+    width: 105,
+    align: 'right',
+    sortable: true,
+    render: (record) => formatInteger(record.views),
+    sortValue: (record) => record.views,
+  },
+  {
+    key: 'clicks',
+    title: '点击',
+    width: 105,
+    align: 'right',
+    sortable: true,
+    render: (record) => formatInteger(record.clicks),
+    sortValue: (record) => record.clicks,
+  },
+  {
+    key: 'clickRate',
+    title: '点击率',
+    width: 105,
+    align: 'right',
+    sortable: true,
+    render: (record) => formatPercent(record.clicks, record.views),
+    sortValue: (record) => record.views > 0 ? record.clicks / record.views : null,
+  },
+  {
+    key: 'likes',
+    title: '点赞',
+    width: 105,
+    align: 'right',
+    sortable: true,
+    render: (record) => formatInteger(record.likes),
+    sortValue: (record) => record.likes,
+  },
+  {
+    key: 'orders',
+    title: '订单',
+    width: 105,
+    align: 'right',
+    sortable: true,
+    render: (record) => formatInteger(record.orders),
+    sortValue: (record) => record.orders,
+  },
+  {
+    key: 'gmv',
+    title: 'GMV',
+    width: 125,
+    align: 'right',
+    sortable: true,
+    render: (record) => `¥${formatCurrency(record.gmv)}`,
+    sortValue: (record) => record.gmv,
+  },
+  {
+    key: 'updated',
+    title: '最近更新',
+    width: 160,
+    freezeable: true,
+    sortable: true,
+    render: (record) => `<span class="text-xs text-slate-500">${escapeHtml(formatDateTime(record.updatedAt))}</span>`,
+    sortValue: (record) => record.updatedAt,
+  },
+  {
+    key: 'actions',
+    title: '操作',
+    width: 112,
+    required: true,
+    actionColumn: true,
+    align: 'right',
+    render: (record) => `<div class="flex justify-end">${renderRecordActions(record)}</div>`,
+  },
+]
+
+function renderStandardVideoTestingListTable(
+  paging: StandardListPageSlice<VideoRecordViewModel>,
+): string {
+  return withVideoTestingLocalInteractions(renderStandardListTable({
+    columns: VIDEO_TESTING_LIST_COLUMNS,
+    rows: paging.rows,
+    preferences: videoTestingListUiState.preferences,
+    sort: videoTestingListUiState.sort,
+    eventPrefix: 'pcs-video-testing',
+    emptyText: '暂无匹配的短视频测款，请调整筛选条件后重试。',
+  }))
+}
+
+function renderVideoTestingListPagination(
+  paging: StandardListPageSlice<VideoRecordViewModel>,
+): string {
+  return withVideoTestingLocalInteractions(renderTablePagination({
+    total: paging.total,
+    from: paging.from,
+    to: paging.to,
+    currentPage: paging.currentPage,
+    totalPages: paging.totalPages,
+    pageSize: paging.pageSize,
+    actionPrefix: 'pcs-video-testing',
+    fieldPrefix: 'pcs-video-testing',
+    pageSizeOptions: VIDEO_TESTING_LIST_PAGE_SIZES,
+  }))
+}
+
+function renderVideoTestingColumnSettings(): string {
+  if (!videoTestingListUiState.columnSettingsOpen) return ''
+  return withVideoTestingLocalInteractions(renderStandardListColumnSettings({
+    title: '列设置',
+    columns: VIDEO_TESTING_LIST_COLUMNS,
+    preferences: videoTestingListUiState.preferences,
+    eventPrefix: 'pcs-video-testing',
+    maxFrozenWidth: VIDEO_TESTING_LIST_MAX_FROZEN_WIDTH,
+  }))
+}
+
+function refreshVideoTestingListRegions(options: { filters?: boolean; settings?: boolean } = {}): void {
+  if (typeof document === 'undefined') return
+  const paging = getPagedRecords()
+  const tableHost = document.querySelector<HTMLElement>('[data-pcs-video-testing-region="table"]')
+  const paginationHost = document.querySelector<HTMLElement>('[data-pcs-video-testing-region="pagination"]')
+  if (tableHost) {
+    tableHost.innerHTML = renderStandardVideoTestingListTable(paging)
+    hydrateVideoTestingRegion(tableHost)
+  }
+  if (paginationHost) {
+    paginationHost.innerHTML = renderVideoTestingListPagination(paging)
+    hydrateVideoTestingRegion(paginationHost)
+  }
+  if (options.filters) {
+    const filtersHost = document.querySelector<HTMLElement>('[data-pcs-video-testing-region="filters"]')
+    if (filtersHost) {
+      filtersHost.innerHTML = withVideoTestingLocalInteractions(renderListFilters())
+      hydrateVideoTestingRegion(filtersHost)
+    }
+  }
+  if (options.settings) {
+    const settingsHost = document.querySelector<HTMLElement>('[data-pcs-video-testing-region="column-settings"]')
+    if (settingsHost) {
+      settingsHost.innerHTML = renderVideoTestingColumnSettings()
+      hydrateVideoTestingRegion(settingsHost)
+    }
+  }
 }
 
 function renderCreateDrawer(): string {
@@ -2104,15 +2289,43 @@ function createRecord(): void {
 export function renderPcsVideoTestingListPage(): string {
   ensureRecordStore()
   syncCreateDrawerStateFromQuery()
-  return `
-    <div class="space-y-5 p-4">
-      ${renderNotice()}
-      ${renderListHeader()}
-      ${renderListFilters()}
-      ${renderListTable()}
+  ensureVideoTestingListPreferences()
+  const transient = {
+    currentPage: state.list.currentPage,
+    sort: videoTestingListUiState.sort,
+  }
+  const hasMountedRoot = typeof document !== 'undefined'
+    && Boolean(document.querySelector('[data-pcs-video-testing-list-page]'))
+  resetStandardListEntryTransientStateOnRouteEntry(transient, hasMountedRoot)
+  state.list.currentPage = transient.currentPage
+  videoTestingListUiState.sort = transient.sort
+  const paging = getPagedRecords()
+  const page = renderStandardListPage({
+    title: '短视频测款',
+    primaryActionsHtml: `
+      <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-video-testing-action="open-create-drawer">
+        <i data-lucide="plus" class="h-4 w-4"></i>新增短视频测款
+      </button>
+    `,
+    feedbackHtml: renderNotice(),
+    filtersHtml: `<div data-pcs-video-testing-region="filters">${withVideoTestingLocalInteractions(renderListFilters())}</div>`,
+    listTitle: '短视频测款列表',
+    listActionsHtml: withVideoTestingLocalInteractions(
+      renderSecondaryButton(
+        '列设置',
+        { prefix: 'pcs-video-testing', action: 'open-column-settings' },
+        'settings-2',
+      ),
+    ),
+    tableHtml: `<div data-pcs-video-testing-region="table">${renderStandardVideoTestingListTable(paging)}</div>`,
+    paginationHtml: `<div data-table-pagination data-pcs-video-testing-region="pagination">${renderVideoTestingListPagination(paging)}</div>`,
+    overlaysHtml: `
+      <div data-pcs-video-testing-region="column-settings">${renderVideoTestingColumnSettings()}</div>
       ${renderListPageDialogs()}
-    </div>
-  `
+    `,
+    className: 'min-w-0 max-w-full',
+  })
+  return `<div class="min-w-0 max-w-full" data-pcs-video-testing-list-page>${page}</div>`
 }
 
 export function renderPcsVideoTestingDetailPage(recordId: string): string {
@@ -2127,9 +2340,21 @@ export function handlePcsVideoTestingInput(target: Element): boolean {
   const field = fieldNode.dataset.pcsVideoTestingField
   if (!field) return false
 
+  if (field === 'pageSize' && fieldNode instanceof HTMLSelectElement) {
+    videoTestingListUiState.preferences = normalizeVideoTestingListPreferences({
+      ...videoTestingListUiState.preferences,
+      pageSize: Number(fieldNode.value),
+    })
+    state.list.pageSize = videoTestingListUiState.preferences.pageSize
+    state.list.currentPage = 1
+    saveVideoTestingListPreferences()
+    refreshVideoTestingListRegions()
+    return true
+  }
   if (field === 'list-search' && fieldNode instanceof HTMLInputElement) {
     state.list.search = fieldNode.value
     state.list.currentPage = 1
+    refreshVideoTestingListRegions()
     return true
   }
 
@@ -2210,35 +2435,139 @@ export function handlePcsVideoTestingInput(target: Element): boolean {
   return false
 }
 
-export function handlePcsVideoTestingEvent(target: HTMLElement): boolean {
+export function handlePcsVideoTestingEvent(target: HTMLElement, event?: Event): boolean {
+  const dragNode = target.closest<HTMLElement>('[data-standard-list-column-drag]')
+  if (dragNode && event && ['dragstart', 'dragover', 'drop', 'dragend'].includes(event.type)) {
+    const columnKey = dragNode.dataset.pcsVideoTestingColumnKey
+      || dragNode.dataset.dragSource
+      || dragNode.dataset.dropTarget
+      || ''
+    if (event.type === 'dragstart') {
+      videoTestingListUiState.draggedColumnKey = columnKey
+      ;(event as DragEvent).dataTransfer?.setData('application/x-higood-list-column-key', columnKey)
+      return Boolean(columnKey)
+    }
+    if (event.type === 'dragend') {
+      videoTestingListUiState.draggedColumnKey = ''
+      return true
+    }
+    const sourceKey = videoTestingListUiState.draggedColumnKey
+    if (!sourceKey || !columnKey || sourceKey === columnKey) return false
+    if (event.type === 'dragover') {
+      event.preventDefault()
+      return true
+    }
+    event.preventDefault()
+    const order = videoTestingListUiState.preferences.order.filter((key) => key !== sourceKey)
+    const targetIndex = order.indexOf(columnKey)
+    if (targetIndex < 0) return false
+    order.splice(targetIndex, 0, sourceKey)
+    videoTestingListUiState.preferences = normalizeVideoTestingListPreferences({
+      ...videoTestingListUiState.preferences,
+      order,
+    })
+    videoTestingListUiState.draggedColumnKey = ''
+    saveVideoTestingListPreferences()
+    refreshVideoTestingListRegions({ settings: true })
+    return true
+  }
+
   const actionNode = target.closest<HTMLElement>('[data-pcs-video-testing-action]')
   if (!actionNode) return false
   const action = actionNode.dataset.pcsVideoTestingAction
   if (!action) return false
 
+  if (action === 'sort-column') {
+    const columnKey = actionNode.dataset.columnKey || ''
+    const column = VIDEO_TESTING_LIST_COLUMNS.find((item) => item.key === columnKey && item.sortable)
+    if (!column) return true
+    const currentSort = videoTestingListUiState.sort
+    videoTestingListUiState.sort = currentSort?.key !== columnKey
+      ? { key: columnKey, direction: 'asc' }
+      : currentSort.direction === 'asc'
+        ? { key: columnKey, direction: 'desc' }
+        : null
+    state.list.currentPage = 1
+    refreshVideoTestingListRegions()
+    return true
+  }
+  if (action === 'prev-page' || action === 'next-page') {
+    const totalPages = Math.max(
+      1,
+      Math.ceil(getFilteredRecords().length / videoTestingListUiState.preferences.pageSize),
+    )
+    state.list.currentPage = action === 'prev-page'
+      ? Math.max(1, state.list.currentPage - 1)
+      : Math.min(totalPages, state.list.currentPage + 1)
+    refreshVideoTestingListRegions()
+    return true
+  }
+  if (action === 'open-column-settings' || action === 'close-column-settings') {
+    videoTestingListUiState.columnSettingsOpen = action === 'open-column-settings'
+    refreshVideoTestingListRegions({ settings: true })
+    return true
+  }
+  if (action === 'restore-column-settings') {
+    videoTestingListUiState.preferences = normalizeVideoTestingListPreferences({
+      order: VIDEO_TESTING_LIST_COLUMNS.map((column) => column.key),
+      visibleKeys: VIDEO_TESTING_LIST_COLUMNS.map((column) => column.key),
+      frozenKeys: [],
+      pageSize: VIDEO_TESTING_LIST_PAGE_SIZES[0],
+    })
+    videoTestingListUiState.sort = null
+    state.list.pageSize = videoTestingListUiState.preferences.pageSize
+    state.list.currentPage = 1
+    const storage = getVideoTestingListStorage()
+    if (storage) clearListColumnPreferences(storage, VIDEO_TESTING_LIST_STORAGE_KEY)
+    refreshVideoTestingListRegions({ settings: true })
+    return true
+  }
+  if (
+    (action === 'toggle-column-visibility' || action === 'toggle-column-freeze')
+    && (!event || event.type === 'change')
+  ) {
+    const columnKey = actionNode.dataset.pcsVideoTestingColumnKey
+      || actionNode.dataset.columnKey
+      || ''
+    const column = VIDEO_TESTING_LIST_COLUMNS.find((item) => item.key === columnKey)
+    if (!column || column.actionColumn) return true
+    const visibleKeys = new Set(videoTestingListUiState.preferences.visibleKeys)
+    const frozenKeys = new Set(videoTestingListUiState.preferences.frozenKeys)
+    if (action === 'toggle-column-visibility' && !column.required) {
+      if (visibleKeys.has(columnKey)) {
+        visibleKeys.delete(columnKey)
+        frozenKeys.delete(columnKey)
+      } else {
+        visibleKeys.add(columnKey)
+      }
+      if (!visibleKeys.has(columnKey) && videoTestingListUiState.sort?.key === columnKey) {
+        videoTestingListUiState.sort = null
+      }
+    }
+    if (action === 'toggle-column-freeze' && column.freezeable) {
+      if (frozenKeys.has(columnKey)) frozenKeys.delete(columnKey)
+      else frozenKeys.add(columnKey)
+    }
+    videoTestingListUiState.preferences = normalizeVideoTestingListPreferences({
+      ...videoTestingListUiState.preferences,
+      visibleKeys: [...visibleKeys],
+      frozenKeys: [...frozenKeys],
+    })
+    saveVideoTestingListPreferences()
+    refreshVideoTestingListRegions({ settings: true })
+    return true
+  }
   if (action === 'close-notice') {
     state.notice = null
     return true
   }
-  if (action === 'query') {
-    state.list.currentPage = 1
-    return true
-  }
   if (action === 'reset') {
-    state.list = { search: '', status: 'all', purpose: 'all', platform: 'all', accounting: 'all', quickFilter: 'all', currentPage: 1, pageSize: 8 }
-    return true
-  }
-  if (action === 'set-quick-filter') {
-    const value = (actionNode.dataset.value as QuickFilterKey) || 'all'
-    state.list.quickFilter = state.list.quickFilter === value ? 'all' : value
-    state.list.currentPage = 1
-    return true
-  }
-  if (action === 'set-page') {
-    const page = Number.parseInt(actionNode.dataset.page ?? '', 10)
-    if (Number.isFinite(page) && page > 0) {
-      state.list.currentPage = page
+    state.list = {
+      search: '',
+      currentPage: 1,
+      pageSize: videoTestingListUiState.preferences.pageSize,
     }
+    refreshVideoTestingListRegions({ filters: true })
     return true
   }
   if (action === 'open-create-drawer') {

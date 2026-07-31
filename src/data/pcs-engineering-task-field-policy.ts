@@ -67,7 +67,7 @@ const REVISION_TASK_FIELD_POLICY: EngineeringTaskFieldPolicy = {
     {
       phase: '完成后',
       resultType: '改版任务已完成',
-      resultText: '改版任务已完成，商品项目节点同步完成。',
+      resultText: '改版任务已完成，商品项目关系已更新。',
       pendingActionType: '',
       pendingActionText: '',
     },
@@ -142,7 +142,7 @@ const PLATE_TASK_FIELD_POLICY: EngineeringTaskFieldPolicy = {
     {
       phase: '完成后',
       resultType: '制版任务已完成',
-      resultText: '制版任务已完成，商品项目节点同步完成。',
+      resultText: '制版任务已完成，商品项目关系已更新。',
       pendingActionType: '',
       pendingActionText: '',
     },
@@ -188,7 +188,7 @@ const PATTERN_TASK_FIELD_POLICY: EngineeringTaskFieldPolicy = {
     {
       phase: '完成后',
       resultType: '花型任务已完成',
-      resultText: '花型任务已完成，商品项目节点同步完成。',
+      resultText: '花型任务已完成，商品项目关系已更新。',
       pendingActionType: '',
       pendingActionText: '',
     },
