@@ -10,10 +10,11 @@ import { OWN_WOOL_FACTORY_ID, mockFactories } from './factory-mock-data.ts'
 import { listCuttingSewingDispatchBatches, listCuttingSewingDispatchOrders, listCuttingSewingTransferBags } from './cutting/sewing-dispatch.ts'
 import { listPdaHandoverHeads } from './pda-handover-events.ts'
 import {
-  listWoolWaitHandoverHandoutRecords,
-  listWoolWaitHandoverInboundRecords,
-  listWoolWaitProcessReceiptRecords,
-  listWoolWarehouseInventory,
+  getWoolHandoverEffectiveQty,
+  getWoolProcessReportEffectiveQty,
+  listWoolWarehouseStocksFromStore,
+  listWoolYarnReceiptLineTracesFromStore,
+  readWoolStore,
 } from './wool-task-domain.ts'
 import {
   FULL_CAPABILITY_FACTORY_ID,
@@ -92,11 +93,24 @@ export function getFactoryMobileTransferBagReceiveTasks(factoryId: string) {
 
 export function getFactoryMobileWarehouseOverview(factoryId: string, factoryName: string): FactoryMobileWarehouseOverview {
   if (factoryId === OWN_WOOL_FACTORY_ID) {
-    const waitProcessInventory = listWoolWarehouseInventory('wait-process')
-    const waitHandoverInventory = listWoolWarehouseInventory('wait-handover')
-    const receiptRecords = listWoolWaitProcessReceiptRecords()
-    const inboundRecords = listWoolWaitHandoverInboundRecords()
-    const handoutRecords = listWoolWaitHandoverHandoutRecords()
+    const store = readWoolStore()
+    const waitProcessInventory = listWoolWarehouseStocksFromStore(store, 'WAIT_PROCESS')
+      .filter((item) => item.currentQty > 0)
+    const waitHandoverInventory = listWoolWarehouseStocksFromStore(store, 'WAIT_HANDOVER')
+      .filter((item) => item.currentQty > 0)
+    const receiptLines = Object.keys(store.workOrders)
+      .flatMap((woolOrderId) => listWoolYarnReceiptLineTracesFromStore(store, {
+        woolOrderId,
+        batchMatch: 'ANY',
+      }))
+    const processReports = store.processReports.map((record) => ({
+      record,
+      effectiveQty: getWoolProcessReportEffectiveQty(store, record),
+    }))
+    const handovers = store.handovers.map((record) => ({
+      record,
+      effectiveQty: getWoolHandoverEffectiveQty(store, record),
+    }))
     return {
       factoryId,
       factoryName,
@@ -104,15 +118,20 @@ export function getFactoryMobileWarehouseOverview(factoryId: string, factoryName
       waitProcessQty: waitProcessInventory.reduce((sum, item) => sum + item.currentQty, 0),
       waitHandoverCount: waitHandoverInventory.length,
       waitHandoverQty: waitHandoverInventory.reduce((sum, item) => sum + item.currentQty, 0),
-      todayInboundCount: inboundRecords.length,
-      todayInboundQty: inboundRecords.reduce((sum, item) => sum + item.inboundQty, 0),
-      todayOutboundCount: handoutRecords.length,
-      todayOutboundQty: handoutRecords.reduce((sum, item) => sum + item.handoutQty, 0),
+      todayInboundCount: receiptLines.length + processReports.length,
+      todayInboundQty:
+        receiptLines.reduce((sum, item) => sum + item.effectiveQty, 0)
+        + processReports.reduce((sum, item) => sum + item.effectiveQty, 0),
+      todayOutboundCount: handovers.length,
+      todayOutboundQty: handovers.reduce((sum, item) => sum + item.effectiveQty, 0),
       stocktakeCount: 0,
-      differenceCount: receiptRecords.filter((item) => item.differenceWeightKg !== 0).length,
-      objectionCount: handoutRecords.filter((item) => typeof item.receiverWrittenQty === 'number' && item.receiverWrittenQty !== item.handoutQty).length,
-      pickupCompletedOrderCount: receiptRecords.filter((item) => item.receivedWeightKg > 0).length,
-      handoutCompletedOrderCount: handoutRecords.length,
+      differenceCount: receiptLines.filter((item) => Boolean(item.differenceNote?.trim())).length,
+      objectionCount: handovers.filter(({ record, effectiveQty }) =>
+        record.downstreamReceipt?.status === 'CONFIRMED'
+        && record.downstreamReceipt.actualReceivedQty !== effectiveQty,
+      ).length,
+      pickupCompletedOrderCount: new Set(receiptLines.map((item) => item.receiptId)).size,
+      handoutCompletedOrderCount: handovers.length,
       stocktakeWaitReviewCount: 0,
       stocktakeAdjustedCount: 0,
       transferBagPackTaskCount: 0,

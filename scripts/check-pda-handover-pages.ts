@@ -8,7 +8,15 @@ import {
   getPdaHandoverRecordsByHead,
   listPdaHandoverHeads,
   listQuantityObjections,
+  writeBackHandoverRecord,
 } from '../src/data/fcs/pda-handover-events.ts'
+import {
+  completeWoolWorkOrder,
+  getWoolWarehouseStock,
+  listWoolWorkOrders,
+  readWoolStore,
+  resetWoolFactWorkflowMock,
+} from '../src/data/fcs/wool-task-domain.ts'
 import { removedLegacyProcessCodes } from './utils/special-craft-banlist.ts'
 
 function assert(condition: unknown, message: string): void {
@@ -124,10 +132,80 @@ function checkDataSignals(): void {
   })
 }
 
+function checkWoolFactHandoverProjection(): void {
+  resetWoolFactWorkflowMock('CHECK_TASK_13_HANDOVER')
+  const order = listWoolWorkOrders()
+    .find((item) => item.mockScenarioCode === 'MULTIPLE_HANDOVERS_WITH_STOCK')!
+  const sourceHandovers = readWoolStore().handovers
+    .filter((item) => item.woolOrderId === order.woolOrderId)
+  assert(sourceHandovers.length >= 2, 'Task13 样例必须包含同一加工单多次交出')
+
+  const projectedHeads = listPdaHandoverHeads()
+    .filter((head) => head.taskId === order.taskId && head.processBusinessCode === 'WOOL')
+  assert(
+    projectedHeads.length === sourceHandovers.length,
+    '每次毛织交出必须生成一条独立下游待接收交接单',
+  )
+  assert(
+    new Set(projectedHeads.map((head) => head.handoverOrderId)).size === sourceHandovers.length,
+    '同一毛织加工单的多次交出不得覆盖同一个交接单号',
+  )
+
+  for (const source of sourceHandovers) {
+    const head = projectedHeads.find((item) => item.sourceDocId === source.handoverId)
+    assert(head, `毛织交出缺少下游投影：${source.handoverId}`)
+    assert(head.receiverId === source.receiverId && head.receiverName === source.receiverName, '接收方必须来自结构化去向')
+    const [record] = getPdaHandoverRecordsByHead(head.handoverId)
+    const output = order.outputPlanLines.find((line) => line.outputSkuCode === source.outputSkuCode)!
+    assert(record?.skuCode === output.outputSkuCode, '交接明细必须保留加工后 SKU')
+    assert(record?.handoutObjectType === (output.outputObjectType === 'WOOL_PANEL' ? 'CUT_PIECE' : 'GARMENT'), '交接明细必须保留加工后对象类型')
+    assert(record?.skuColor === output.colorName, '交接明细必须保留款色')
+    assert(record?.skuSize === output.sizeCode, '交接明细必须保留尺码')
+    assert(record?.pieceName === output.woolPartName, '部位毛织交接必须保留部位')
+    assert(record?.sourceWarehouseOutboundFlowId === source.warehouseOutboundFlowId, '交接明细必须关联来源出库流水')
+  }
+
+  const readyOrder = listWoolWorkOrders()
+    .find((item) => item.mockScenarioCode === 'READY_TO_COMPLETE')!
+  const source = readWoolStore().handovers.find((item) => item.woolOrderId === readyOrder.woolOrderId)!
+  const output = readyOrder.outputPlanLines.find((line) => line.outputSkuCode === source.outputSkuCode)!
+  const stockKey = {
+    woolOrderId: readyOrder.woolOrderId,
+    objectSkuCode: output.outputSkuCode,
+    defaultLocationId: output.outputObjectType === 'WOOL_PANEL'
+      ? 'WOOL-WH-CUT-DEFAULT' as const
+      : 'WOOL-WH-GARMENT-DEFAULT' as const,
+  }
+  completeWoolWorkOrder(readyOrder.woolOrderId, {
+    commandId: 'CHECK-T13-COMPLETE-BEFORE-DOWNSTREAM',
+    completedAt: '2026-07-31 16:00:00',
+    completedBy: '毛织主管',
+  })
+  const sourceQtyBefore = readWoolStore().handovers.find((item) => item.handoverId === source.handoverId)!.handoverQty
+  const stockBefore = getWoolWarehouseStock(stockKey)
+  const head = listPdaHandoverHeads().find((item) => item.sourceDocId === source.handoverId)!
+  const record = getPdaHandoverRecordsByHead(head.handoverId)[0]!
+  writeBackHandoverRecord({
+    handoverRecordId: record.recordId,
+    receiverWrittenQty: sourceQtyBefore - 1,
+    receiverWrittenAt: '2026-07-31 16:30:00',
+    receiverWrittenBy: '下游仓管',
+    receiverRemark: '实收少一件',
+  })
+  const after = readWoolStore().handovers.find((item) => item.handoverId === source.handoverId)!
+  assert(after.downstreamReceipt?.status === 'CONFIRMED', '加工单完成后仍必须允许下游确认')
+  assert(after.downstreamReceipt.actualReceivedQty === sourceQtyBefore - 1, '下游确认必须保存实际接收数量')
+  assert(after.downstreamReceipt.differenceQty === -1, '下游确认必须保存差异')
+  assert(after.downstreamReceipt.receivedBy === '下游仓管', '下游确认必须保存接收人')
+  assert(after.handoverQty === sourceQtyBefore, '下游确认不得修改来源交出数量')
+  assert(getWoolWarehouseStock(stockKey) === stockBefore, '下游确认不得恢复毛织库存')
+}
+
 function main(): void {
   checkForbiddenCopy()
   checkPageSignals()
   checkDataSignals()
+  checkWoolFactHandoverProjection()
   console.log('check:pda-handover-pages passed')
 }
 

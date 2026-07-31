@@ -32,6 +32,8 @@ import {
   listFactoryInternalWarehouses,
   resolveEnabledFactoryWarehouseLocation,
 } from '../src/data/fcs/factory-internal-warehouse-locations.ts'
+import { getFactoryMobileWarehouseOverview } from '../src/data/fcs/factory-mobile-warehouse.ts'
+import { OWN_WOOL_FACTORY_ID } from '../src/data/fcs/factory-mock-data.ts'
 import {
   renderCraftWoolWaitHandoverWarehousePage,
   renderCraftWoolWaitProcessWarehousePage,
@@ -46,6 +48,75 @@ const handlersSource = readFileSync(
   new URL('../src/main-handlers/fcs-handlers.ts', import.meta.url),
   'utf8',
 )
+const pdaWarehouseSource = readFileSync(
+  new URL('../src/pages/pda-warehouse.ts', import.meta.url),
+  'utf8',
+)
+const pdaWaitProcessSource = readFileSync(
+  new URL('../src/pages/pda-warehouse-wait-process.ts', import.meta.url),
+  'utf8',
+)
+const pdaWaitHandoverSource = readFileSync(
+  new URL('../src/pages/pda-warehouse-wait-handover.ts', import.meta.url),
+  'utf8',
+)
+const mobileWarehouseSource = readFileSync(
+  new URL('../src/data/fcs/factory-mobile-warehouse.ts', import.meta.url),
+  'utf8',
+)
+
+for (const removedText of [
+  'scheduleWoolMachines',
+  'updateWoolWorkOrderNodeStatus',
+  '给横机使用',
+  'completeWoolPickupHead',
+]) {
+  assert(!pdaWaitProcessSource.includes(removedText), `毛织 PDA 待加工仓不得推进旧加工节点：${removedText}`)
+}
+for (const requiredText of ['确认接收', '纱线领用', '纱线退回', '库存调整']) {
+  assert(pdaWaitProcessSource.includes(requiredText), `毛织 PDA 待加工仓缺少事实动作：${requiredText}`)
+}
+for (const removedText of [
+  "type WoolWaitHandoverAction = 'finish-inbound' | 'handover-confirm'",
+  'confirm-wool-finish-inbound',
+  'confirm-wool-handover',
+  'advanceWoolOrderToPdaWarehouseInbound',
+  'markWoolFeiTicketsPrinted',
+  'submitWoolHandover',
+]) {
+  assert(!pdaWaitHandoverSource.includes(removedText), `毛织 PDA 待交出仓不得保留旧动作循环：${removedText}`)
+}
+for (const requiredText of ['加工填报自动入库', '发起交出出库', '库存调整', '库存转移']) {
+  assert(pdaWaitHandoverSource.includes(requiredText), `毛织 PDA 待交出仓缺少事实展示：${requiredText}`)
+}
+const woolWarehouseBranches = [...pdaWarehouseSource.matchAll(
+  /else if \(isWoolWarehouseRuntime\(runtime\)\) \{([\s\S]*?)\n  \} else/g,
+)]
+  .map((match) => match[1])
+  .join('\n')
+assert(woolWarehouseBranches.length > 0, '必须定位到毛织 PDA 仓管首页专属分支')
+for (const removedText of ['完工入仓', '交出确认', '给横机使用']) {
+  assert(!woolWarehouseBranches.includes(removedText), `毛织 PDA 仓管首页不得展示旧节点动作：${removedText}`)
+}
+for (const requiredText of ['纱线确认接收', '纱线领用', '纱线退回', '查看待交出库存', '查看交出记录']) {
+  assert(woolWarehouseBranches.includes(requiredText), `毛织 PDA 仓管首页缺少新事实入口：${requiredText}`)
+}
+for (const removedApi of [
+  'listWoolWaitHandoverHandoutRecords',
+  'listWoolWaitHandoverInboundRecords',
+  'listWoolWaitProcessReceiptRecords',
+  'listWoolWarehouseInventory',
+]) {
+  assert(!mobileWarehouseSource.includes(removedApi), `移动仓库不得读取旧毛织投影：${removedApi}`)
+}
+for (const requiredApi of [
+  'listWoolYarnReceiptLineTracesFromStore',
+  'listWoolWarehouseStocksFromStore',
+  'getWoolProcessReportEffectiveQty',
+  'getWoolHandoverEffectiveQty',
+]) {
+  assert(mobileWarehouseSource.includes(requiredApi), `移动仓库必须从毛织事实汇总：${requiredApi}`)
+}
 
 for (const locationId of [
   'WOOL-WP-YARN-DEFAULT',
@@ -89,6 +160,25 @@ for (const requiredText of [
 assert(handlersSource.includes('handleCraftWoolWarehouseEvent'), 'FCS 事件分发必须接入毛织仓库局部事件')
 
 resetWoolFactWorkflowMock('CHECK_TASK_11_WAREHOUSE')
+const mobileFactStore = readWoolStore()
+const mobileOverview = getFactoryMobileWarehouseOverview(OWN_WOOL_FACTORY_ID, '我方毛织厂')
+const expectedReceiptLineCount = mobileFactStore.yarnReceipts
+  .reduce((sum, record) => sum + record.lines.length, 0)
+assert.equal(
+  mobileOverview.todayInboundCount,
+  expectedReceiptLineCount + mobileFactStore.processReports.length,
+  '毛织移动仓入库计数必须按接收明细和加工填报事实逐行汇总',
+)
+assert.equal(
+  mobileOverview.todayOutboundCount,
+  mobileFactStore.handovers.length,
+  '毛织移动仓出库计数必须按每次交出事实汇总',
+)
+assert.notEqual(
+  mobileOverview.todayInboundCount,
+  mobileFactStore.yarnReceipts.length + mobileFactStore.workOrders.length,
+  '移动仓不得拿加工单数冒充物料行数',
+)
 const issueOrder = listWoolWorkOrders()
   .find((order) => order.mockScenarioCode === 'YARN_ISSUE_RETURN')!
 const batchIsolationOrder = listWoolWorkOrders()
