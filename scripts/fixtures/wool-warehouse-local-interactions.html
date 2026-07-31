@@ -61,6 +61,54 @@
             changedBy: index === 0 ? '浏览器复核人 <乙>' : `浏览器复核人 ${index + 1}`,
           })
         }
+        const noBatchReceipt = addWoolYarnReceipt(traceOrder.woolOrderId, {
+          commandId: 'BROWSER-T11-TRACE-NO-BATCH',
+          deliveryNo: 'BROWSER-DELIVERY-NO-BATCH',
+          batchNo: '   ',
+          receivedAt: '2026-07-31 16:00:00',
+          receivedBy: '浏览器无批次仓管',
+          remark: '浏览器无批次备注 <b>只显示文本</b>',
+          lines: [{
+            yarnSkuCode: 'YARN-A',
+            yarnName: '浏览器无批次 A 纱',
+            receivedQty: 3,
+            differenceNote: '浏览器无批次差异',
+          }],
+        })
+        const batchXReceipt = addWoolYarnReceipt(traceOrder.woolOrderId, {
+          commandId: 'BROWSER-T11-TRACE-BATCH-X',
+          deliveryNo: 'BROWSER-DELIVERY-BATCH-X',
+          batchNo: ' BATCH-X ',
+          receivedAt: '2026-07-31 16:01:00',
+          receivedBy: '浏览器 X 批次仓管',
+          remark: '浏览器 BATCH-X 备注',
+          lines: [{
+            yarnSkuCode: 'YARN-A',
+            yarnName: '浏览器 BATCH-X A 纱',
+            receivedQty: 4,
+            differenceNote: '浏览器 BATCH-X 差异',
+          }],
+        })
+        changeWoolFactQty({
+          commandId: 'BROWSER-T11-TRACE-NO-BATCH-CHANGE',
+          recordType: 'YARN_RECEIPT',
+          recordId: noBatchReceipt.receiptId,
+          recordLineId: noBatchReceipt.lines[0].lineId,
+          afterQty: 3.5,
+          reason: '浏览器无批次修改历史',
+          changedAt: '2026-07-31 16:10:00',
+          changedBy: '浏览器无批次复核人',
+        })
+        changeWoolFactQty({
+          commandId: 'BROWSER-T11-TRACE-BATCH-X-CHANGE',
+          recordType: 'YARN_RECEIPT',
+          recordId: batchXReceipt.receiptId,
+          recordLineId: batchXReceipt.lines[0].lineId,
+          afterQty: 4.5,
+          reason: '浏览器 BATCH-X 修改历史',
+          changedAt: '2026-07-31 16:11:00',
+          changedBy: '浏览器 X 批次复核人',
+        })
       }
       appStore.navigate(
         mode === 'handover'

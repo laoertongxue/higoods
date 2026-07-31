@@ -28,6 +28,7 @@ import {
   listWoolWarehouseFlows,
   listWoolWarehouseStocks,
   listWoolWorkOrders,
+  normalizeWoolBatchNo,
   readWoolStore,
   returnWoolYarn,
   transferWoolWarehouseStock,
@@ -305,14 +306,14 @@ function issueReturnBalance(row: WarehouseListRow): number {
     .filter((record) =>
       record.woolOrderId === row.woolOrderId
       && record.yarnSkuCode === row.objectSkuCode
-      && record.batchNo === row.batchNo,
+      && normalizeWoolBatchNo(record.batchNo) === normalizeWoolBatchNo(row.batchNo),
     )
     .reduce((sum, record) => sum + record.issuedQty, 0)
   const returned = store.yarnReturns
     .filter((record) =>
       record.woolOrderId === row.woolOrderId
       && record.yarnSkuCode === row.objectSkuCode
-      && record.batchNo === row.batchNo,
+      && normalizeWoolBatchNo(record.batchNo) === normalizeWoolBatchNo(row.batchNo),
     )
     .reduce((sum, record) => sum + record.returnedQty, 0)
   return Math.max(0, issued - returned)
@@ -335,7 +336,7 @@ function externalTransferBalance(flow: WoolWarehouseFlow): number {
     .filter((item) =>
       item.flowType === 'TRANSFER'
       && item.defaultLocationType === flow.defaultLocationType
-      && item.batchNo === flow.batchNo
+      && normalizeWoolBatchNo(item.batchNo) === normalizeWoolBatchNo(flow.batchNo)
       && (
         (
           item.fromWarehouseId === defaultWarehouseId
@@ -672,13 +673,16 @@ function renderDetailDialog(mode: WarehouseMode, row: WarehouseListRow, overlay:
     woolOrderId: row.woolOrderId,
     objectSkuCode: row.objectSkuCode,
     defaultLocationId: row.locationId,
-  }).filter((flow) => flow.batchNo === row.batchNo)
+  }).filter((flow) =>
+    normalizeWoolBatchNo(flow.batchNo) === normalizeWoolBatchNo(row.batchNo),
+  )
   const flowPaging = paginateStandardListRows(flows, overlay.flowPage, 10)
   overlay.flowPage = flowPaging.currentPage
   const receiptTraces = row.objectType === 'YARN'
     ? listWoolYarnReceiptLineTraces({
         woolOrderId: row.woolOrderId,
         objectSkuCode: row.objectSkuCode,
+        batchMatch: 'EXACT',
         batchNo: row.batchNo,
       })
     : []

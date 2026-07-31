@@ -108,6 +108,55 @@ async function assertMode(localUrl: string, mode: 'process' | 'handover'): Promi
     await page.waitForTimeout(220)
     await assertRootStable(page, '筛选输入')
     if (mode === 'process') {
+      await page.locator('[data-wool-warehouse-filter="woolOrderNo"]').fill('WMO-024')
+      await page.waitForTimeout(220)
+      const batchCases = [
+        {
+          rowSelector: '[data-wool-warehouse-action="open-detail"][data-row-id*="|YARN-A||WOOL-WP-YARN-DEFAULT"]',
+          expectedReceipt: 'BROWSER-DELIVERY-NO-BATCH',
+          expectedChange: '浏览器无批次修改历史',
+          expectedFlow: 'TRACE-NO-BATCH',
+          excluded: ['BROWSER-DELIVERY-BATCH-X', 'BROWSER-DELIVERY-01', 'DN-AB', 'TRACE-BATCH-X'],
+        },
+        {
+          rowSelector: '[data-wool-warehouse-action="open-detail"][data-row-id*="|YARN-A|BATCH-AB|WOOL-WP-YARN-DEFAULT"]',
+          expectedReceipt: 'DN-AB',
+          expectedChange: '',
+          expectedFlow: 'WOOL-MOCK-24-AB',
+          excluded: ['BROWSER-DELIVERY-NO-BATCH', 'BROWSER-DELIVERY-BATCH-X', 'BROWSER-DELIVERY-01'],
+        },
+        {
+          rowSelector: '[data-wool-warehouse-action="open-detail"][data-row-id*="|YARN-A|BATCH-X|WOOL-WP-YARN-DEFAULT"]',
+          expectedReceipt: 'BROWSER-DELIVERY-BATCH-X',
+          expectedChange: '浏览器 BATCH-X 修改历史',
+          expectedFlow: 'TRACE-BATCH-X',
+          excluded: ['BROWSER-DELIVERY-NO-BATCH', 'BROWSER-DELIVERY-01', 'DN-AB', 'TRACE-NO-BATCH'],
+        },
+      ]
+      for (const batchCase of batchCases) {
+        await clickWithinBudget(page, batchCase.rowSelector, '打开批次隔离详情')
+        const dialogText = await page.locator('[data-wool-warehouse-dialog]').innerText()
+        const flowText = await page.locator('[data-wool-warehouse-detail-kind="flows"]').locator('xpath=..').innerText()
+        assert.equal(
+          await page.locator('[data-wool-warehouse-detail-kind="receipts"]').getAttribute('data-current-page'),
+          '1',
+          '切换批次详情后接收页码必须从第一页开始',
+        )
+        assert.equal(
+          await page.locator('[data-wool-warehouse-detail-kind="flows"]').getAttribute('data-current-page'),
+          '1',
+          '切换批次详情后流水页码必须从第一页开始',
+        )
+        assert(dialogText.includes(batchCase.expectedReceipt))
+        if (batchCase.expectedChange) assert(dialogText.includes(batchCase.expectedChange))
+        assert(flowText.includes(batchCase.expectedFlow))
+        for (const excluded of batchCase.excluded) {
+          assert(!dialogText.includes(excluded), `批次详情不得串入 ${excluded}`)
+          assert(!flowText.includes(excluded), `批次流水不得串入 ${excluded}`)
+        }
+        assert.equal(await page.locator('[data-wool-warehouse-dialog] b').count(), 0, '批次动态内容必须转义')
+        await clickWithinBudget(page, '[data-wool-warehouse-action="close-overlay"]', '关闭批次隔离详情')
+      }
       await page.locator('[data-wool-warehouse-filter="batchNo"]').fill('BATCH-TRACE')
       await page.waitForTimeout(220)
     }

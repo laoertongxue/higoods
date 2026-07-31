@@ -160,7 +160,13 @@ export interface WoolYarnReceiptLineTrace {
 export interface WoolYarnReceiptLineTraceQuery {
   woolOrderId: string
   objectSkuCode?: string
+  batchMatch: 'ANY' | 'EXACT'
   batchNo?: string
+}
+
+export function normalizeWoolBatchNo(batchNo?: string): string | undefined {
+  const normalized = batchNo?.trim()
+  return normalized || undefined
 }
 
 function requireOrder(woolOrderId: string): WoolWorkOrder {
@@ -212,11 +218,15 @@ export function listWoolYarnReceiptLineTraces(
   query: WoolYarnReceiptLineTraceQuery,
 ): WoolYarnReceiptLineTrace[] {
   const store = readWoolStore()
+  const expectedBatchNo = normalizeWoolBatchNo(query.batchNo)
   return store.yarnReceipts
     .filter((receipt) => receipt.woolOrderId === query.woolOrderId)
     .flatMap((receipt) => receipt.lines
       .filter((line) => !query.objectSkuCode || line.yarnSkuCode === query.objectSkuCode)
-      .filter(() => query.batchNo === undefined || receipt.batchNo === query.batchNo)
+      .filter(() =>
+        query.batchMatch === 'ANY'
+        || normalizeWoolBatchNo(receipt.batchNo) === expectedBatchNo,
+      )
       .map((line): WoolYarnReceiptLineTrace => {
         const qtyChanges = store.qtyChangeLogs
           .filter((change) =>
@@ -235,7 +245,7 @@ export function listWoolYarnReceiptLineTraces(
           lineId: line.lineId,
           woolOrderId: receipt.woolOrderId,
           deliveryNo: receipt.deliveryNo,
-          batchNo: receipt.batchNo,
+          batchNo: normalizeWoolBatchNo(receipt.batchNo),
           yarnSkuCode: line.yarnSkuCode,
           yarnName: line.yarnName,
           originalQty: line.receivedQty,

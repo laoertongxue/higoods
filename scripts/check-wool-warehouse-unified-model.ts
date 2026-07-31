@@ -439,6 +439,7 @@ for (let index = 0; index < 12; index += 1) {
 const receiptTraces = listWoolYarnReceiptLineTraces({
   woolOrderId: issueOrder.woolOrderId,
   objectSkuCode: 'YARN-A',
+  batchMatch: 'EXACT',
   batchNo: 'BATCH-TRACE',
 })
 assert.equal(receiptTraces.length, 12, '确认接收详情必须保留 12 条独立接收明细')
@@ -453,6 +454,86 @@ assert.equal(longTrace.qtyChanges[0].beforeQty, 1)
 assert.equal(longTrace.qtyChanges.at(-1)?.afterQty, traceQty)
 assert.equal(longTrace.traceKey, `${longTrace.receiptId}|${longTrace.lineId}`)
 assert.equal(receiptTraces.find((item) => item.receiptId === traceReceipts[1].receiptId)?.qtyChanges.length, 0)
+
+const noBatchTraceReceipt = addWoolYarnReceipt(issueOrder.woolOrderId, {
+  commandId: 'CHECK-T11-TRACE-NO-BATCH',
+  deliveryNo: 'TRACE-DELIVERY-NO-BATCH',
+  batchNo: '   ',
+  receivedAt: '2026-07-31 13:00:00',
+  receivedBy: '无批次仓管',
+  remark: '仅无批次详情可见',
+  lines: [{
+    yarnSkuCode: 'YARN-A',
+    yarnName: '无批次 A 纱',
+    receivedQty: 3,
+    differenceNote: '无批次差异',
+  }],
+})
+const batchXTraceReceipt = addWoolYarnReceipt(issueOrder.woolOrderId, {
+  commandId: 'CHECK-T11-TRACE-BATCH-X',
+  deliveryNo: 'TRACE-DELIVERY-BATCH-X',
+  batchNo: ' BATCH-X ',
+  receivedAt: '2026-07-31 13:01:00',
+  receivedBy: 'X 批次仓管',
+  remark: '仅 BATCH-X 详情可见',
+  lines: [{
+    yarnSkuCode: 'YARN-A',
+    yarnName: 'BATCH-X A 纱',
+    receivedQty: 4,
+    differenceNote: 'BATCH-X 差异',
+  }],
+})
+changeWoolFactQty({
+  commandId: 'CHECK-T11-TRACE-NO-BATCH-CHANGE',
+  recordType: 'YARN_RECEIPT',
+  recordId: noBatchTraceReceipt.receiptId,
+  recordLineId: noBatchTraceReceipt.lines[0].lineId,
+  afterQty: 3.5,
+  reason: '无批次修改历史',
+  changedAt: '2026-07-31 13:10:00',
+  changedBy: '无批次复核人',
+})
+changeWoolFactQty({
+  commandId: 'CHECK-T11-TRACE-BATCH-X-CHANGE',
+  recordType: 'YARN_RECEIPT',
+  recordId: batchXTraceReceipt.receiptId,
+  recordLineId: batchXTraceReceipt.lines[0].lineId,
+  afterQty: 4.5,
+  reason: 'BATCH-X 修改历史',
+  changedAt: '2026-07-31 13:11:00',
+  changedBy: 'X 批次复核人',
+})
+const allBatchTraces = listWoolYarnReceiptLineTraces({
+  woolOrderId: issueOrder.woolOrderId,
+  objectSkuCode: 'YARN-A',
+  batchMatch: 'ANY',
+})
+assert(allBatchTraces.some((item) => item.receiptId === noBatchTraceReceipt.receiptId))
+assert(allBatchTraces.some((item) => item.receiptId === batchXTraceReceipt.receiptId))
+assert(allBatchTraces.some((item) => item.batchNo === 'BATCH-AB'))
+const exactNoBatchTraces = listWoolYarnReceiptLineTraces({
+  woolOrderId: issueOrder.woolOrderId,
+  objectSkuCode: 'YARN-A',
+  batchMatch: 'EXACT',
+  batchNo: undefined,
+})
+assert.deepEqual(
+  exactNoBatchTraces.map((item) => item.receiptId),
+  [noBatchTraceReceipt.receiptId],
+  'EXACT + undefined 只能查询规范化无批次接收',
+)
+assert.equal(exactNoBatchTraces[0].batchNo, undefined)
+assert.equal(exactNoBatchTraces[0].effectiveQty, 3.5)
+assert.equal(exactNoBatchTraces[0].qtyChanges[0].reason, '无批次修改历史')
+const exactBatchXTraces = listWoolYarnReceiptLineTraces({
+  woolOrderId: issueOrder.woolOrderId,
+  objectSkuCode: 'YARN-A',
+  batchMatch: 'EXACT',
+  batchNo: ' BATCH-X ',
+})
+assert.deepEqual(exactBatchXTraces.map((item) => item.receiptId), [batchXTraceReceipt.receiptId])
+assert.equal(exactBatchXTraces[0].batchNo, 'BATCH-X')
+assert.equal(exactBatchXTraces[0].qtyChanges[0].reason, 'BATCH-X 修改历史')
 
 const completeOrder = listWoolWorkOrders()
   .find((order) => order.mockScenarioCode === 'READY_TO_COMPLETE')!
