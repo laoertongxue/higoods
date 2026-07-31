@@ -14,10 +14,6 @@ import {
 } from '../data/fcs/pda-cutting-execution-source.ts'
 import { listPdaGenericTasksByProcess } from '../data/fcs/pda-task-mock-factory.ts'
 import {
-  buildWoolMobileTaskProjection,
-  getWoolWorkOrderByTaskId,
-} from '../data/fcs/wool-task-domain.ts'
-import {
   getWaterSolubleCurrentAction,
   getWaterSolubleWorkOrderByTaskId,
   WATER_SOLUBLE_STATUS_LABEL,
@@ -73,6 +69,7 @@ interface PdaExecState {
   activeTab: TaskStatusTab
   searchKeyword: string
   riskParam: string
+  page: number
 }
 
 const TAB_CONFIG: Array<{ key: TaskStatusTab; label: string }> = [
@@ -87,7 +84,10 @@ const state: PdaExecState = {
   activeTab: 'NOT_STARTED',
   searchKeyword: '',
   riskParam: '',
+  page: 1,
 }
+
+const PDA_EXEC_PAGE_SIZE = 10
 
 function listTaskFacts(): ProcessTask[] {
   return listPdaMobileExecutionTasks()
@@ -115,14 +115,12 @@ function getQtyUnitLabel(unit: string | undefined): string {
 }
 
 function resolveTaskQtyDisplayMeta(task: ProcessTask, displayProcessName = getTaskProcessDisplayName(task)): { label: string; valueText: string } {
-  const woolOrder = getWoolWorkOrderByTaskId(task.taskId)
-  if (woolOrder) {
-    const label = woolOrder.kind === 'PART_PANEL' ? '本单毛织部位片数（片）' : '本单毛织整件数（件）'
-    const plannedQty = woolOrder.outputPlanLines.reduce((sum, line) => sum + line.plannedQty, 0)
-    const qtyUnit = woolOrder.outputPlanLines[0]?.qtyUnit || (woolOrder.kind === 'PART_PANEL' ? '片' : '件')
+  if (getMobileTaskProcessType(task) === 'WOOL') {
+    const label = task.woolKind === 'PART_PANEL' ? '本单毛织部位片数（片）' : '本单毛织整件数（件）'
+    const qtyUnit = task.qtyDisplayUnit || (task.woolKind === 'PART_PANEL' ? '片' : '件')
     return {
       label,
-      valueText: `${label.replace(/（.*$/, '')}：${plannedQty} ${qtyUnit}`,
+      valueText: `${label.replace(/（.*$/, '')}：${task.qty} ${qtyUnit}`,
     }
   }
 
@@ -221,11 +219,16 @@ function syncTabWithQuery(): void {
   const searchParams = getCurrentSearchParams()
   const rawTab = searchParams.get('tab') || ''
   const mapped = TAB_PARAM_MAP[rawTab] || 'NOT_STARTED'
-  state.activeTab = mapped
-  state.riskParam = searchParams.get('risk') || ''
-  if (searchParams.has('keyword')) {
-    state.searchKeyword = searchParams.get('keyword') || ''
+  const nextRisk = searchParams.get('risk') || ''
+  const nextKeyword = searchParams.has('keyword')
+    ? searchParams.get('keyword') || ''
+    : state.searchKeyword
+  if (state.activeTab !== mapped || state.riskParam !== nextRisk || state.searchKeyword !== nextKeyword) {
+    state.page = 1
   }
+  state.activeTab = mapped
+  state.riskParam = nextRisk
+  state.searchKeyword = nextKeyword
 }
 
 function buildPdaExecListPath(tab = state.activeTab): string {
@@ -342,7 +345,7 @@ function mutateFinishTask(taskId: string, by: string): void {
   const now = nowTimestamp()
   const task = getTaskFactById(taskId)
   if (!task) return
-  if (getPrintWorkOrderByTaskId(taskId) || getDyeWorkOrderByTaskId(taskId) || getWoolWorkOrderByTaskId(taskId)) return
+  if (getPrintWorkOrderByTaskId(taskId) || getDyeWorkOrderByTaskId(taskId) || getMobileTaskProcessType(task) === 'WOOL') return
 
   task.status = 'DONE'
   task.finishedAt = now
@@ -585,11 +588,8 @@ function getPdaExecEmptyStateText(acceptedTasks: ProcessTask[]): string {
 }
 
 function renderWoolFactCard(task: ProcessTask): string {
-  const order = getWoolWorkOrderByTaskId(task.taskId)
-  if (!order) return ''
-  const projection = buildWoolMobileTaskProjection(order.woolOrderId)
   const primaryAction = (['COMPLETE', 'HANDOVER', 'REPORT_PROCESS', 'RECEIVE_YARN'] as const)
-    .find((action) => projection.allowedActions.includes(action))
+    .find((action) => task.woolAllowedActions?.includes(action))
   const actionLabel = primaryAction === 'RECEIVE_YARN'
     ? '确认接收'
     : primaryAction === 'REPORT_PROCESS'
@@ -599,35 +599,33 @@ function renderWoolFactCard(task: ProcessTask): string {
         : primaryAction === 'COMPLETE'
           ? '完成加工单'
           : '查看事实'
-  const outputText = order.outputPlanLines
-    .map((line) => [line.colorName, line.sizeCode, line.woolPartName].filter(Boolean).join('/'))
-    .filter(Boolean)
-    .join('、')
-  const yarnText = projection.readyOutputSkuCodes.length
-    ? `已有可填报款色：${projection.readyOutputSkuCodes.join('、')}`
-    : projection.missingYarnSkus.length
-      ? `尚缺纱线：${projection.missingYarnSkus.join('、')}`
+  const readyOutputSkuCodes = task.woolReadyOutputSkuCodes || []
+  const missingYarnSkus = task.woolMissingYarnSkus || []
+  const yarnText = readyOutputSkuCodes.length
+    ? `已有可填报款色：${readyOutputSkuCodes.join('、')}`
+    : missingYarnSkus.length
+      ? `尚缺纱线：${missingYarnSkus.join('、')}`
       : '等待确认接收纱线'
-  const styleImageUrl = /^(?:https?:\/\/|\/|data:image\/)/i.test(order.styleImageUrl?.trim() || '')
-    ? order.styleImageUrl!.trim()
+  const styleImageUrl = /^(?:https?:\/\/|\/|data:image\/)/i.test(task.woolStyleImageUrl?.trim() || '')
+    ? task.woolStyleImageUrl!.trim()
     : ''
 
   return `
     <article class="cursor-pointer rounded-lg border transition-colors hover:border-primary" data-testid="pda-exec-task-card" data-pda-exec-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">
       <div class="flex gap-3 p-3">
         <div class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted/30">
-          ${styleImageUrl ? `<img class="h-full w-full object-cover" src="${escapeHtml(styleImageUrl)}" alt="${escapeHtml(order.styleNo)}款式图">` : '<span class="text-xs text-muted-foreground">暂无款式图</span>'}
+          ${styleImageUrl ? `<img class="h-full w-full object-cover" src="${escapeHtml(styleImageUrl)}" alt="${escapeHtml(task.woolStyleNo || '')}款式图">` : '<span class="text-xs text-muted-foreground">暂无款式图</span>'}
         </div>
         <div class="min-w-0 flex-1 space-y-2">
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0">
-              <div class="truncate text-sm font-semibold">${escapeHtml(order.woolOrderNo)}</div>
-              <div class="mt-0.5 truncate text-[11px] text-muted-foreground">${escapeHtml(order.styleNo)} · ${escapeHtml(order.productionOrderNo)}</div>
+              <div class="truncate text-sm font-semibold">${escapeHtml(task.woolOrderNo || task.taskNo)}</div>
+              <div class="mt-0.5 truncate text-[11px] text-muted-foreground">${escapeHtml(task.woolStyleNo || '')} · ${escapeHtml(task.productionOrderNo)}</div>
             </div>
-            <span class="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">${escapeHtml(projection.processingStatusLabel)}</span>
+            <span class="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">${escapeHtml(task.woolProcessingStatusLabel || '待处理')}</span>
           </div>
-          <div class="text-xs">加工对象：${escapeHtml(outputText || '待确认')}</div>
-          <div class="rounded-md border px-2 py-1.5 text-xs ${projection.readyOutputSkuCodes.length ? 'border-green-200 bg-green-50 text-green-700' : 'border-amber-200 bg-amber-50 text-amber-700'}">${escapeHtml(yarnText)}</div>
+          <div class="text-xs">加工对象：${escapeHtml(task.woolOutputSummary || '待确认')}</div>
+          <div class="rounded-md border px-2 py-1.5 text-xs ${readyOutputSkuCodes.length ? 'border-green-200 bg-green-50 text-green-700' : 'border-amber-200 bg-amber-50 text-amber-700'}">${escapeHtml(yarnText)}</div>
           <button type="button" class="h-9 w-full rounded-md bg-primary text-sm font-medium text-primary-foreground" data-pda-exec-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">${escapeHtml(actionLabel)}</button>
         </div>
       </div>
@@ -640,7 +638,11 @@ function renderPdaExecCardList(filteredTasks: ProcessTask[], emptyStateText: str
     return `<div class="py-10 text-center text-sm text-muted-foreground">${escapeHtml(emptyStateText)}</div>`
   }
 
-  return filteredTasks
+  const total = filteredTasks.length
+  const totalPages = Math.max(1, Math.ceil(total / PDA_EXEC_PAGE_SIZE))
+  state.page = Math.min(Math.max(state.page, 1), totalPages)
+  const pageTasks = filteredTasks.slice((state.page - 1) * PDA_EXEC_PAGE_SIZE, state.page * PDA_EXEC_PAGE_SIZE)
+  const cards = pageTasks
     .map((task) => {
       if (getMobileTaskProcessType(task) === 'WOOL') return renderWoolFactCard(task)
       if (getMobileTaskProcessType(task) === 'WATER_SOLUBLE') return renderWaterSolubleCard(task)
@@ -650,6 +652,12 @@ function renderPdaExecCardList(filteredTasks: ProcessTask[], emptyStateText: str
       return renderDoneCard(task)
     })
     .join('')
+  return `${cards}
+    <div class="flex items-center justify-between rounded-lg border bg-card px-3 py-2 text-xs" data-pda-exec-pagination>
+      <button type="button" class="rounded border px-3 py-1 disabled:opacity-50" data-pda-exec-action="page" data-page="${state.page - 1}" data-skip-page-rerender="true" ${state.page <= 1 ? 'disabled' : ''}>上一页</button>
+      <span>第 ${state.page} / ${totalPages} 页，每页 ${PDA_EXEC_PAGE_SIZE} 条，共 ${total} 条</span>
+      <button type="button" class="rounded border px-3 py-1 disabled:opacity-50" data-pda-exec-action="page" data-page="${state.page + 1}" data-skip-page-rerender="true" ${state.page >= totalPages ? 'disabled' : ''}>下一页</button>
+    </div>`
 }
 
 export function renderWaterSolubleCard(
@@ -1226,6 +1234,7 @@ export function renderPdaExecPage(): string {
             class="h-9 w-full rounded-md border bg-background pl-9 pr-3 text-sm"
             placeholder="搜索任务号 / 加工单号 / 生产单号 / 物料"
             data-pda-exec-field="searchKeyword"
+            data-skip-page-rerender="true"
             value="${escapeHtml(state.searchKeyword)}"
           />
         </div>
@@ -1268,8 +1277,9 @@ export function handlePdaExecEvent(target: HTMLElement): boolean {
 
     if (field === 'searchKeyword') {
       state.searchKeyword = fieldNode.value
+      state.page = 1
       updatePdaExecCardListInPlace()
-      return false
+      return true
     }
   }
 
@@ -1283,6 +1293,7 @@ export function handlePdaExecEvent(target: HTMLElement): boolean {
     const tab = actionNode.dataset.tab as TaskStatusTab | undefined
     if (tab && TAB_CONFIG.some((item) => item.key === tab)) {
       state.activeTab = tab
+      state.page = 1
       appStore.navigate(buildPdaExecListPath(tab))
     }
     return true
@@ -1293,6 +1304,12 @@ export function handlePdaExecEvent(target: HTMLElement): boolean {
     if (taskId) {
       appStore.navigate(resolvePdaExecCardDetailPath(taskId))
     }
+    return true
+  }
+
+  if (action === 'page') {
+    state.page = Math.max(1, Number(actionNode.dataset.page || 1))
+    updatePdaExecCardListInPlace()
     return true
   }
 
@@ -1340,7 +1357,7 @@ export function handlePdaExecEvent(target: HTMLElement): boolean {
 
     const task = getTaskFactById(taskId)
     if (!task) return true
-    if (getPrintWorkOrderByTaskId(taskId) || getDyeWorkOrderByTaskId(taskId) || getWoolWorkOrderByTaskId(taskId)) {
+    if (getPrintWorkOrderByTaskId(taskId) || getDyeWorkOrderByTaskId(taskId) || getMobileTaskProcessType(task) === 'WOOL') {
       showPdaExecToast('请进入任务详情按当前节点操作')
       return true
     }

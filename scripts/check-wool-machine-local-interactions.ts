@@ -251,6 +251,71 @@ async function assertMachinesPage(localUrl: string): Promise<void> {
   }
 }
 
+async function assertPdaWoolStateCleanup(localUrl: string): Promise<void> {
+  const browser = await chromium.launch({ headless: true })
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } })
+  const pageErrors: string[] = []
+  page.on('pageerror', (error) => pageErrors.push(error.message))
+  try {
+    await page.goto(new URL('/scripts/fixtures/wool-pda-fact-execution.html', localUrl).toString())
+    assert.equal(
+      await page.locator('[data-pda-wool-action]:not([data-skip-page-rerender="true"])').count(),
+      0,
+      '所有由毛织处理器局部更新的按钮都必须显式跳过主入口整页重绘',
+    )
+    await page.locator('[data-pda-wool-action="open-fact"]').first().click()
+    assert.equal(
+      await page.locator('[data-pda-wool-draft]:not([data-skip-page-rerender="true"])').count(),
+      0,
+      '所有毛织弹窗字段都必须显式跳过主入口整页重绘',
+    )
+    const stateBeforeFailure = await page.evaluate(() => (
+      window as typeof window & { getTask12UiState(): { commandId: string } }
+    ).getTask12UiState())
+    await page.locator('[data-pda-wool-action="save-fact"]').click()
+    const stateAfterFailure = await page.evaluate(() => (
+      window as typeof window & { getTask12UiState(): { commandId: string } }
+    ).getTask12UiState())
+    assert(stateBeforeFailure.commandId, '打开毛织事实弹窗必须生成命令号')
+    assert.equal(
+      stateAfterFailure.commandId,
+      stateBeforeFailure.commandId,
+      '同一已打开弹窗保存失败重试必须保留命令号',
+    )
+
+    const stateAfterReentry = await page.evaluate(() => (
+      window as typeof window & {
+        leaveAndReenterTask12(): { overlayAction: string | null; commandId: string; draftActions: string[] }
+      }
+    ).leaveAndReenterTask12())
+    assert.equal(stateAfterReentry.overlayAction, null, '离开再进入同一详情必须清空弹窗')
+    assert.equal(stateAfterReentry.commandId, '', '离开再进入同一详情必须清空命令号')
+    assert.deepEqual(stateAfterReentry.draftActions, [], '离开再进入同一详情必须清空草稿')
+
+    await page.locator('[data-pda-wool-action="open-fact"]').first().click()
+    const stateAfterUserSwitch = await page.evaluate(() => (
+      window as typeof window & {
+        switchTask12User(): null | { overlayAction: string | null; commandId: string; draftActions: string[] }
+      }
+    ).switchTask12User())
+    assert(stateAfterUserSwitch, '同工厂用户切换探针必须找到另一位有效用户')
+    assert.equal(stateAfterUserSwitch?.overlayAction, null, '同工厂换用户必须清空弹窗')
+    assert.equal(stateAfterUserSwitch?.commandId, '', '同工厂换用户必须清空命令号')
+    assert.deepEqual(stateAfterUserSwitch?.draftActions, [], '同工厂换用户必须清空草稿')
+
+    const factDetails = page.locator('[data-pda-wool-fact-list-root] details')
+    await factDetails.evaluate((node: HTMLDetailsElement) => { node.open = true })
+    const nextFactPage = page.locator('[data-pda-wool-action="fact-page"]').last()
+    if (await nextFactPage.isEnabled()) {
+      await nextFactPage.click()
+      assert.equal(await factDetails.getAttribute('open'), '', '事实分页局部刷新后必须保持详情展开')
+    }
+    assert.deepEqual(pageErrors, [], `毛织 PDA 状态清理真实 DOM 不得抛错：${pageErrors.join('；')}`)
+  } finally {
+    await browser.close()
+  }
+}
+
 const browserPort = await findFreeLoopbackPort()
 const server = await createServer({
   logLevel: 'error',
@@ -263,8 +328,9 @@ if (!localUrl) throw new Error('Vite 未返回本地检查地址')
 try {
   await assertAssociationPage(localUrl)
   await assertMachinesPage(localUrl)
+  await assertPdaWoolStateCleanup(localUrl)
 } finally {
   await server.close()
 }
 
-console.log('PASS task 10 browser: real DOM handlers keep roots and refresh local surfaces')
+console.log('PASS task 10/12 browser: real DOM handlers keep roots, retry command IDs, and clear PDA drafts by route/user')

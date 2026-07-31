@@ -45,6 +45,7 @@ import {
   listWaterSolubleMobileTasks,
   listWaterSolubleWorkOrders,
 } from './water-soluble-task-domain.ts'
+import { invokeWoolMobileTaskBinding } from './wool-mobile-binding-entry.ts'
 export {
   validateWoolPdaTaskAccess,
   type WoolPdaTaskAccessResult,
@@ -956,7 +957,9 @@ export function validateProcessMobileTaskBinding(params: ValidateProcessMobileTa
       currentFactoryId: params.currentFactoryId,
     })
   }
-  if (params.processType === 'WOOL') return validateWoolWorkOrderMobileTaskBinding(params.sourceId)
+  if (params.processType === 'WOOL') {
+    return invokeWoolMobileTaskBinding(params, validateWoolWorkOrderMobileTaskBinding)
+  }
   if (params.processType === 'CUTTING') return validateCuttingOrderMobileTaskBinding(params.sourceId)
   if (params.processType === 'SPECIAL_CRAFT') return validateSpecialCraftMobileTaskBinding(params.sourceId)
   if (params.processType === 'POST_FINISHING') return validatePostFinishingMobileTaskBinding(params.sourceId)

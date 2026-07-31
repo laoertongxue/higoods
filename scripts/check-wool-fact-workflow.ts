@@ -798,8 +798,10 @@ const {
   WOOL_DOMAIN_STORE_KEY,
   clearWoolStoreMemoryCache,
   commitWoolStore,
+  getWoolStoreReadCountForDiagnostics,
   readWoolStore,
   replaceWoolStore,
+  resetWoolStoreReadCountForDiagnostics,
   validateWoolStore,
 } = await import('../src/data/fcs/wool-domain/store.ts')
 const {
@@ -5580,6 +5582,18 @@ const task12MobileProjectionSource = readFileSync(
   new URL('../src/data/fcs/wool-domain/mobile.ts', import.meta.url),
   'utf8',
 )
+const task12TodoSource = readFileSync(
+  new URL('../src/data/fcs/factory-mobile-todos.ts', import.meta.url),
+  'utf8',
+)
+const task12TodoRouteSource = readFileSync(
+  new URL('../src/data/fcs/factory-mobile-todo-routes.ts', import.meta.url),
+  'utf8',
+)
+const task12StoreNavigationSource = readFileSync(
+  new URL('../src/state/store.ts', import.meta.url),
+  'utf8',
+)
 const task12ReviewMissingCapabilities = [
   !task12PdaFactSource.includes('validateWoolPdaTaskAccess') && 'P1-1 页面与保存双重访问门禁',
   !task12MobileBindingSource.includes('expectedTaskId') && 'P1-1 exact taskId / woolOrderId 访问校验',
@@ -5632,9 +5646,23 @@ for (const removedText of [
   assert(!task12PdaDetailSource.includes(removedText), `任务 12 PDA 详情不得保留旧执行分支：${removedText}`)
 }
 assert(task12PdaListSource.includes('renderWoolFactCard'))
-assert(task12PdaListSource.includes('buildWoolMobileTaskProjection'))
 assert(task12MobileBindingSource.includes('skipAcceptanceGate'))
 assert(task12MobileBindingSource.includes('requireExactTaskId: true'))
+assert(task12PdaFactSource.includes('data-skip-page-rerender="true"'), '毛织 PDA 局部动作必须跳过整页重绘')
+assert(task12PdaFactSource.includes('refreshFactList'), '事实分页必须只刷新事实列表区域')
+assert(task12MobileProjectionSource.includes('buildWoolMobileTaskProjectionFromStore'), '移动投影必须支持单 Store 快照')
+assert(!task12PdaListSource.includes('getWoolWorkOrderByTaskId'), '普通任务卡不得逐卡读取毛织 Store')
+assert(!task12PdaListSource.includes('buildWoolMobileTaskProjection'), '毛织卡片必须直接消费移动任务投影')
+assert(task12TodoSource.includes("executionProcessType?: 'WOOL'"), '毛织待交出必须有明确来源标识')
+assert(task12TodoRouteSource.includes("`/fcs/pda/exec/${todo.relatedTaskId}`"), '毛织待交出必须精确进入执行详情')
+assert(task12StoreNavigationSource.includes('notifyPdaWoolRouteLeave'), '离开执行详情必须清理毛织草稿')
+assert(task12PdaListSource.includes('data-pda-exec-pagination'), 'PDA 执行卡片列表必须有界分页')
+assert(
+  task12MobileBindingSource.includes(
+    'invokeWoolMobileTaskBinding(params, validateWoolWorkOrderMobileTaskBinding)',
+  ),
+  '通用毛织绑定入口必须透传工厂和 taskId',
+)
 
 const task12ExactOrderA = listWoolWorkOrders()[0]
 const task12ExactOrderB = listWoolWorkOrders()[1]
@@ -5661,6 +5689,7 @@ assert.equal(
 
 const {
   buildWoolMobileTaskProjection,
+  listWoolMobileProcessTasks,
 } = await import('../src/data/fcs/wool-domain/mobile.ts')
 const {
   validateWoolPdaTaskAccess,
@@ -5847,6 +5876,91 @@ assert.equal(
   '可交余额必须取默认库位有效库存与加工未交余额的较小值',
 )
 
+const task12BeforeScaleStore = readWoolStore()
+const task12ScaleTemplate = Object.values(task12BeforeScaleStore.workOrders)[0]
+assert(task12ScaleTemplate, '300+ 移动任务性能探针缺少毛织加工单模板')
+const task12ScaleStore = structuredClone(task12BeforeScaleStore)
+task12ScaleStore.workOrders = {
+  ...task12ScaleStore.workOrders,
+  ...Object.fromEntries(
+  Array.from({ length: 320 }, (_, index) => {
+    const suffix = String(index + 1).padStart(4, '0')
+    const order = structuredClone(task12ScaleTemplate)
+    order.woolOrderId = `WOOL-PDA-SCALE-${suffix}`
+    order.woolOrderNo = `MZ-PDA-SCALE-${suffix}`
+    order.taskId = `TASK-WOOL-PDA-SCALE-${suffix}`
+    order.taskNo = `RW-MZ-PDA-SCALE-${suffix}`
+    return [order.woolOrderId, order]
+  }),
+  ),
+}
+replaceWoolStore(task12ScaleStore)
+resetWoolStoreReadCountForDiagnostics()
+const task12MobileScaleStartedAt = performance.now()
+const task12ScaleTasks = listWoolMobileProcessTasks()
+const task12MobileScaleElapsedMs = performance.now() - task12MobileScaleStartedAt
+assert(task12ScaleTasks.length >= 320)
+assert.equal(getWoolStoreReadCountForDiagnostics(), 1, '整次移动任务列表只能读取、深拷贝一次毛织 Store')
+assert(
+  task12MobileScaleElapsedMs < 200,
+  `320 张毛织加工单移动投影耗时 ${task12MobileScaleElapsedMs.toFixed(1)}ms，超过 200ms 门禁`,
+)
+replaceWoolStore(task12BeforeScaleStore)
+
+const { resolveFactoryMobileTodoActionRoute } = await import('../src/data/fcs/factory-mobile-todo-routes.ts')
+assert.equal(
+  resolveFactoryMobileTodoActionRoute({
+    todoType: '待交出',
+    executionProcessType: 'WOOL',
+    relatedTaskId: task12ExactOrderA.taskId,
+  }),
+  `/fcs/pda/exec/${task12ExactOrderA.taskId}`,
+  '毛织待交出必须进入对应事实执行详情',
+)
+assert.equal(
+  resolveFactoryMobileTodoActionRoute({
+    todoType: '待交出',
+    relatedHandoverOrderId: 'HANDOVER-GENERIC-001',
+  }),
+  '/fcs/pda/handover/HANDOVER-GENERIC-001',
+  '通用交接待办必须保持交接路由',
+)
+
+const { invokeWoolMobileTaskBinding } = await import('../src/data/fcs/wool-mobile-binding-entry.ts')
+const task12BindingStoreBefore = JSON.stringify(readWoolStore())
+const task12ForwardedBindingArgs: Array<[string, string | undefined, string | undefined]> = []
+const task12BindingProbe = (sourceId: string, currentFactoryId?: string, taskId?: string) => {
+  task12ForwardedBindingArgs.push([sourceId, currentFactoryId, taskId])
+  return { valid: false }
+}
+invokeWoolMobileTaskBinding({
+  sourceId: task12ExactOrderA.woolOrderId,
+  currentFactoryId: 'FACTORY-NOT-OWNER',
+  taskId: task12ExactOrderA.taskId,
+}, task12BindingProbe)
+invokeWoolMobileTaskBinding({
+  sourceId: task12ExactOrderA.woolOrderId,
+  currentFactoryId: task12ExactOrderA.factoryId,
+  taskId: 'TASK-WOOL-WRONG',
+}, task12BindingProbe)
+assert.deepEqual(task12ForwardedBindingArgs, [
+  [task12ExactOrderA.woolOrderId, 'FACTORY-NOT-OWNER', task12ExactOrderA.taskId],
+  [task12ExactOrderA.woolOrderId, task12ExactOrderA.factoryId, 'TASK-WOOL-WRONG'],
+], '通用毛织绑定分支必须完整透传 sourceId、currentFactoryId 与 taskId')
+assert.equal(JSON.stringify(readWoolStore()), task12BindingStoreBefore, '通用绑定双门禁失败必须保持毛织 Store 零写')
+
+const { notifyPdaWoolRouteLeave } = await import('../src/state/pda-wool-navigation-cleanup.ts')
+const task12NavigationEvents: string[] = []
+assert.equal(
+  notifyPdaWoolRouteLeave(
+    `/fcs/pda/exec/${task12ExactOrderA.taskId}`,
+    '/fcs/pda/exec',
+    (event) => task12NavigationEvents.push(event.type),
+  ),
+  true,
+)
+assert.deepEqual(task12NavigationEvents, ['higood:pda-wool-exec-leave'])
+
 console.log('PASS task 5: global command receipts, atomic stock, downstream lock, and manual completion')
 console.log('PASS task 6: current machine associations and derived four-state availability')
 console.log('PASS task 7: runtime generation freezes traceable yarn facts and exposes domain actions')
@@ -5854,4 +5968,4 @@ console.log('PASS task 8: standard wool work-order list and fact command dialogs
 console.log(`PASS task 9: seven-tab wool fact detail, paged records, immutable completion facts, and 300-row readiness in ${scaleRenderElapsedMs.toFixed(1)}ms`)
 console.log(`PASS task 10: standard machine workbenches; one snapshot ${task10WorkbenchElapsedMs.toFixed(1)}ms, 600-order/600-machine scale ${task10ScaleElapsedMs.toFixed(1)}ms`)
 console.log('PASS task 11: fixed-location wool warehouse standard lists and local fact commands')
-console.log('PASS task 12: PDA wool fact operations and acceptance-independent exact binding')
+console.log(`PASS task 12: PDA wool fact operations, exact binding, and 320-order single-snapshot projection in ${task12MobileScaleElapsedMs.toFixed(1)}ms`)

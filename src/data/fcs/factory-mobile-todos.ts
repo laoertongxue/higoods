@@ -22,6 +22,7 @@ import {
   listPostFinishingMobileExecutionTasks,
 } from './process-mobile-task-binding.ts'
 import { applyPendingDispatchAutoAcceptance } from './runtime-process-tasks.ts'
+import { resolveFactoryMobileTodoActionRoute } from './factory-mobile-todo-routes.ts'
 
 export type FactoryMobileTodoType =
   | '待接单'
@@ -53,6 +54,7 @@ export interface FactoryMobileTodo {
   relatedInboundRecordId?: string
   relatedOutboundRecordId?: string
   relatedSettlementId?: string
+  executionProcessType?: 'WOOL'
   priority: FactoryMobileTodoPriority
   status: FactoryMobileTodoStatus
   dueAt?: string
@@ -202,11 +204,12 @@ function buildExecTodos(factoryId: string): FactoryMobileTodo[] {
       factoryName: task.assignedFactoryName || task.assignedFactoryId || factoryId,
       relatedTaskId: task.taskId,
       relatedTaskNo: task.taskNo || task.taskId,
+      executionProcessType: woolMeta ? 'WOOL' as const : undefined,
       priority: resolvePriority(task.taskDeadline),
       status: resolveTodoStatus(task),
       dueAt: task.taskDeadline,
       createdAt: task.acceptedAt || task.createdAt || task.taskDeadline || '',
-      detailRoute: `/fcs/pda/notify/todo-start-${task.taskId}`,
+      detailRoute: woolMeta ? `/fcs/pda/exec/${task.taskId}` : `/fcs/pda/notify/todo-start-${task.taskId}`,
       actionLabel: '去处理' as const,
       }
     })
@@ -227,11 +230,12 @@ function buildExecTodos(factoryId: string): FactoryMobileTodo[] {
       factoryName: task.assignedFactoryName || task.assignedFactoryId || factoryId,
       relatedTaskId: task.taskId,
       relatedTaskNo: task.taskNo || task.taskId,
+      executionProcessType: woolMeta ? 'WOOL' as const : undefined,
       priority: resolvePriority(task.taskDeadline, '处理中'),
       status: '处理中' as const,
       dueAt: task.taskDeadline,
       createdAt: task.startedAt || task.acceptedAt || task.taskDeadline || '',
-      detailRoute: `/fcs/pda/notify/todo-finish-${task.taskId}`,
+      detailRoute: woolMeta ? `/fcs/pda/exec/${task.taskId}` : `/fcs/pda/notify/todo-finish-${task.taskId}`,
       actionLabel: '去处理' as const,
       }
     })
@@ -512,27 +516,7 @@ function compareTodo(a: FactoryMobileTodo, b: FactoryMobileTodo): number {
 }
 
 export function getFactoryMobileTodoActionRoute(todo: FactoryMobileTodo): string {
-  switch (todo.todoType) {
-    case '待接单':
-      return todo.relatedTaskId ? `/fcs/pda/task-receive/${todo.relatedTaskId}` : '/fcs/pda/task-receive'
-    case '待领料':
-    case '待交出':
-      return todo.relatedHandoverOrderId ? `/fcs/pda/handover/${todo.relatedHandoverOrderId}` : '/fcs/pda/handover'
-    case '待开工':
-    case '待完工':
-    case '待确认接收':
-    case '待加工填报':
-    case '异常待处理':
-      return todo.relatedTaskId ? `/fcs/pda/exec/${todo.relatedTaskId}` : '/fcs/pda/exec'
-    case '差异待处理':
-      if (todo.relatedOutboundRecordId) return '/fcs/pda/warehouse/outbound-records'
-      if (todo.relatedInboundRecordId) return '/fcs/pda/warehouse/inbound-records'
-      return '/fcs/pda/handover'
-    case '对账待确认':
-      return '/fcs/pda/settlement'
-    default:
-      return '/fcs/pda/task-receive'
-  }
+  return resolveFactoryMobileTodoActionRoute(todo)
 }
 
 export function getFactoryMobileTodos(factoryId: string): FactoryMobileTodo[] {

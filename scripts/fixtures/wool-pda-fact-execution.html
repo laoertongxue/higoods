@@ -9,6 +9,7 @@
     <main id="root"></main>
     <script type="module">
       import {
+        capturePdaWoolExecutionStateForDiagnostics,
         handlePdaWoolExecutionEvent,
         renderPdaWoolExecutionContent,
       } from '/src/pages/pda-wool-fact-execution.ts'
@@ -70,6 +71,21 @@
         return window.getTask12FactCounts()
       }
       window.getTask12StoreFingerprint = () => JSON.stringify(readWoolStore())
+      window.getTask12UiState = () => capturePdaWoolExecutionStateForDiagnostics()
+      window.leaveAndReenterTask12 = () => {
+        window.dispatchEvent(new Event('higood:pda-wool-exec-leave'))
+        root.innerHTML = renderPdaWoolExecutionContent(taskId)
+        return capturePdaWoolExecutionStateForDiagnostics()
+      }
+      window.switchTask12User = () => {
+        const users = listFactoryPdaUsers('OWN_WOOL_FACTORY').filter((item) => item.status === 'ACTIVE')
+        const current = capturePdaWoolExecutionStateForDiagnostics().userId
+        const nextUser = users.find((item) => item.userId !== current)
+        if (!nextUser) return null
+        setPdaSession(createPdaSessionFromUser(nextUser))
+        root.innerHTML = renderPdaWoolExecutionContent(taskId)
+        return capturePdaWoolExecutionStateForDiagnostics()
+      }
       window.getTask12Projection = () => {
         const order = getWoolWorkOrderByTaskId(taskId)
         return order ? buildWoolMobileTaskProjection(order.woolOrderId) : null

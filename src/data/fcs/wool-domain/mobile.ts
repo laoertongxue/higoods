@@ -15,6 +15,7 @@ import type {
   WoolOutputPlanLine,
   WoolQtyChangeLog,
   WoolWarehouseFlow,
+  WoolDomainStore,
   WoolWorkOrder,
 } from './types.ts'
 import { getWoolWarehouseLedgerBalance } from './warehouse-ledger.ts'
@@ -396,10 +397,10 @@ function buildCompletionFacts(
   }
 }
 
-export function buildWoolMobileTaskProjection(
+export function buildWoolMobileTaskProjectionFromStore(
+  store: WoolDomainStore,
   woolOrderId: string,
 ): WoolMobileTaskProjection {
-  const store = readWoolStore()
   const order = store.workOrders[woolOrderId]
   if (!order) throw new Error(`找不到毛织加工单 ${woolOrderId}`)
   const completionFacts = buildCompletionFacts(store, order)
@@ -433,8 +434,18 @@ export function buildWoolMobileTaskProjection(
   }
 }
 
-function buildWoolMobileTask(order: WoolWorkOrder, index: number): ProcessTask {
-  const projection = buildWoolMobileTaskProjection(order.woolOrderId)
+export function buildWoolMobileTaskProjection(
+  woolOrderId: string,
+): WoolMobileTaskProjection {
+  return buildWoolMobileTaskProjectionFromStore(readWoolStore(), woolOrderId)
+}
+
+function buildWoolMobileTaskFromStore(
+  store: WoolDomainStore,
+  order: WoolWorkOrder,
+  index: number,
+): ProcessTask {
+  const projection = buildWoolMobileTaskProjectionFromStore(store, order.woolOrderId)
   const totalPlannedQty = order.outputPlanLines.reduce((sum, line) => sum + line.plannedQty, 0)
   const qtyUnit = order.outputPlanLines[0]?.qtyUnit || (order.kind === 'PART_PANEL' ? '片' : '件')
   const status: ProcessTask['status'] = projection.processingStatus === 'COMPLETED'
@@ -472,7 +483,17 @@ function buildWoolMobileTask(order: WoolWorkOrder, index: number): ProcessTask {
     receiverId: order.downstreamTarget.receiverId,
     receiverName: order.downstreamTarget.receiverName,
     woolOrderId: order.woolOrderId,
+    woolOrderNo: order.woolOrderNo,
+    woolKind: order.kind,
+    woolKindLabel: order.kind === 'PART_PANEL' ? '毛织部位裁片' : '毛织整件',
+    woolStyleNo: order.styleNo,
+    woolStyleImageUrl: order.styleImageUrl,
+    woolOutputSummary: order.outputPlanLines
+      .map((line) => [line.colorName, line.sizeCode, line.woolPartName].filter(Boolean).join('/'))
+      .filter(Boolean)
+      .join('、'),
     woolProcessingStatus: projection.processingStatus,
+    woolProcessingStatusLabel: projection.processingStatusLabel,
     woolAllowedActions: [...projection.allowedActions],
     woolRequiredYarnSkus: [...projection.requiredYarnSkus],
     woolConfirmedYarnSkus: [...projection.confirmedYarnSkus],
@@ -488,5 +509,5 @@ export function listWoolMobileProcessTasks(): ProcessTask[] {
   const store = readWoolStore()
   return Object.values(store.workOrders)
     .sort((left, right) => left.woolOrderNo.localeCompare(right.woolOrderNo))
-    .map(buildWoolMobileTask)
+    .map((order, index) => buildWoolMobileTaskFromStore(store, order, index))
 }

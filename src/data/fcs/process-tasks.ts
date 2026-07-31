@@ -273,6 +273,15 @@ export interface ProcessTask {
   woolKindLabel?: string
   woolOrderId?: string
   woolOrderNo?: string
+  woolStyleNo?: string
+  woolStyleImageUrl?: string
+  woolOutputSummary?: string
+  woolProcessingStatus?: 'UNPROCESSED' | 'PROCESSING' | 'COMPLETED'
+  woolProcessingStatusLabel?: string
+  woolRequiredYarnSkus?: string[]
+  woolConfirmedYarnSkus?: string[]
+  woolMissingYarnSkus?: string[]
+  woolReadyOutputSkuCodes?: string[]
   woolDownstreamTarget?: '后道工厂' | '裁床待交出仓'
   woolAllowedActions?: WoolAllowedAction[]
   yarnSku?: string

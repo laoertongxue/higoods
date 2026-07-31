@@ -56,6 +56,7 @@ const FACT_LABELS: Record<WoolMobileFactRecord['recordType'], string> = {
 
 const state: {
   taskId: string
+  userId: string
   overlay: null | { action: WoolFactAction; woolOrderId: string; commandId: string }
   draftsByAction: Partial<Record<WoolFactAction, WoolActionDraft>>
   factPage: number
@@ -63,6 +64,7 @@ const state: {
   feedback: string
 } = {
   taskId: '',
+  userId: '',
   overlay: null,
   draftsByAction: {},
   factPage: 1,
@@ -72,14 +74,45 @@ const state: {
 
 let commandSequence = 0
 
-function syncTask(taskId: string): void {
-  if (state.taskId === taskId) return
-  state.taskId = taskId
+export function resetPdaWoolExecutionState(): void {
+  state.taskId = ''
+  state.userId = ''
   state.overlay = null
   state.draftsByAction = {}
   state.factPage = 1
   state.error = ''
   state.feedback = ''
+}
+
+export function capturePdaWoolExecutionStateForDiagnostics(): {
+  taskId: string
+  userId: string
+  overlayAction: WoolFactAction | null
+  commandId: string
+  draftActions: WoolFactAction[]
+} {
+  return {
+    taskId: state.taskId,
+    userId: state.userId,
+    overlayAction: state.overlay?.action || null,
+    commandId: state.overlay?.commandId || '',
+    draftActions: Object.keys(state.draftsByAction) as WoolFactAction[],
+  }
+}
+
+function syncTask(taskId: string, userId: string): void {
+  if (state.taskId === taskId && state.userId === userId) return
+  state.taskId = taskId
+  state.userId = userId
+  state.overlay = null
+  state.draftsByAction = {}
+  state.factPage = 1
+  state.error = ''
+  state.feedback = ''
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('higood:pda-wool-exec-leave', resetPdaWoolExecutionState)
 }
 
 function nowText(): string {
@@ -219,14 +252,15 @@ function renderQtyChanges(record: WoolMobileFactRecord): string {
   `).join('')}</div></details>`
 }
 
-function renderFactList(projection: WoolMobileTaskProjection): string {
+function renderFactList(projection: WoolMobileTaskProjection, expanded = false): string {
   const pageSize = 5
   const total = projection.factRecords.length
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   state.factPage = Math.min(Math.max(state.factPage, 1), totalPages)
   const records = projection.factRecords.slice((state.factPage - 1) * pageSize, state.factPage * pageSize)
   return `
-    <details class="rounded-lg border bg-card">
+    <div data-pda-wool-fact-list-root>
+    <details class="rounded-lg border bg-card" ${expanded ? 'open' : ''}>
       <summary class="cursor-pointer px-4 py-3 text-sm font-medium">查看完整事实记录（${total}）</summary>
       <div class="border-t p-3">
         <div class="space-y-2">${records.map((record) => `
@@ -245,17 +279,17 @@ function renderFactList(projection: WoolMobileTaskProjection): string {
           </article>
         `).join('') || '<div class="text-xs text-muted-foreground">暂无记录</div>'}</div>
         <div class="mt-3 flex items-center justify-between text-xs">
-          <button type="button" class="rounded border px-3 py-1 disabled:opacity-50" data-pda-wool-action="fact-page" data-page="${state.factPage - 1}" ${state.factPage <= 1 ? 'disabled' : ''}>上一页</button>
+          <button type="button" class="rounded border px-3 py-1 disabled:opacity-50" data-pda-wool-action="fact-page" data-skip-page-rerender="true" data-page="${state.factPage - 1}" ${state.factPage <= 1 ? 'disabled' : ''}>上一页</button>
           <span>第 ${state.factPage} / ${totalPages} 页，每页 ${pageSize} 条，共 ${total} 条</span>
-          <button type="button" class="rounded border px-3 py-1 disabled:opacity-50" data-pda-wool-action="fact-page" data-page="${state.factPage + 1}" ${state.factPage >= totalPages ? 'disabled' : ''}>下一页</button>
+          <button type="button" class="rounded border px-3 py-1 disabled:opacity-50" data-pda-wool-action="fact-page" data-skip-page-rerender="true" data-page="${state.factPage + 1}" ${state.factPage >= totalPages ? 'disabled' : ''}>下一页</button>
         </div>
       </div>
-    </details>
+    </details></div>
   `
 }
 
 function draftAttrs(field: string, objectSkuCode?: string): string {
-  return `data-pda-wool-draft="sync-draft" data-draft-field="${field}"${objectSkuCode ? ` data-object-sku="${escapeHtml(objectSkuCode)}"` : ''}`
+  return `data-pda-wool-draft="sync-draft" data-skip-page-rerender="true" data-draft-field="${field}"${objectSkuCode ? ` data-object-sku="${escapeHtml(objectSkuCode)}"` : ''}`
 }
 
 function renderReceiptDialog(order: WoolWorkOrder, projection: WoolMobileTaskProjection, draft: WoolActionDraft): string {
@@ -324,7 +358,7 @@ function pagedSection(
   return `<section class="rounded border p-3" data-completion-section="${key}">
     <div class="font-medium">${title}</div>
     <div class="mt-2 space-y-1 text-xs">${visible.join('') || '<div>暂无有效记录</div>'}</div>
-    ${rows.length > pageSize ? `<div class="mt-2 flex items-center justify-between text-xs"><button type="button" class="rounded border px-2 py-1 disabled:opacity-50" data-pda-wool-action="completion-page" data-section="${key}" data-page="${page - 1}" ${page <= 1 ? 'disabled' : ''}>上一页</button><span>${page}/${totalPages}，共 ${rows.length} 条</span><button type="button" class="rounded border px-2 py-1 disabled:opacity-50" data-pda-wool-action="completion-page" data-section="${key}" data-page="${page + 1}" ${page >= totalPages ? 'disabled' : ''}>下一页</button></div>` : ''}
+    ${rows.length > pageSize ? `<div class="mt-2 flex items-center justify-between text-xs"><button type="button" class="rounded border px-2 py-1 disabled:opacity-50" data-pda-wool-action="completion-page" data-skip-page-rerender="true" data-section="${key}" data-page="${page - 1}" ${page <= 1 ? 'disabled' : ''}>上一页</button><span>${page}/${totalPages}，共 ${rows.length} 条</span><button type="button" class="rounded border px-2 py-1 disabled:opacity-50" data-pda-wool-action="completion-page" data-skip-page-rerender="true" data-section="${key}" data-page="${page + 1}" ${page >= totalPages ? 'disabled' : ''}>下一页</button></div>` : ''}
   </section>`
 }
 
@@ -355,10 +389,10 @@ function renderOverlay(order: WoolWorkOrder, projection: WoolMobileTaskProjectio
       : renderCompleteDialog(projection, draft)
   return `<div class="fixed inset-0 z-[140] flex items-end bg-black/40 sm:items-center sm:p-4">
     <section class="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-background sm:mx-auto sm:max-w-lg sm:rounded-lg">
-      <header class="sticky top-0 flex items-center justify-between border-b bg-background px-4 py-3"><h2 class="font-semibold">${ACTION_LABELS[action]}${action === 'COMPLETE' ? '二次确认' : ''}</h2><button type="button" class="rounded border px-3 py-1 text-sm" data-pda-wool-action="close-overlay">关闭</button></header>
+      <header class="sticky top-0 flex items-center justify-between border-b bg-background px-4 py-3"><h2 class="font-semibold">${ACTION_LABELS[action]}${action === 'COMPLETE' ? '二次确认' : ''}</h2><button type="button" class="rounded border px-3 py-1 text-sm" data-pda-wool-action="close-overlay" data-skip-page-rerender="true">关闭</button></header>
       ${state.error ? `<div class="mx-4 mt-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700" data-pda-wool-error>${escapeHtml(state.error)}</div>` : ''}
       ${body}
-      <footer class="sticky bottom-0 flex gap-2 border-t bg-background p-4"><button type="button" class="h-10 flex-1 rounded border" data-pda-wool-action="close-overlay">取消</button><button type="button" class="h-10 flex-1 rounded bg-primary font-medium text-primary-foreground disabled:opacity-50" data-pda-wool-action="save-fact" ${canSubmit ? '' : 'disabled'}>${action === 'COMPLETE' ? '确认完成加工单' : `保存${ACTION_LABELS[action]}`}</button></footer>
+      <footer class="sticky bottom-0 flex gap-2 border-t bg-background p-4"><button type="button" class="h-10 flex-1 rounded border" data-pda-wool-action="close-overlay" data-skip-page-rerender="true">取消</button><button type="button" class="h-10 flex-1 rounded bg-primary font-medium text-primary-foreground disabled:opacity-50" data-pda-wool-action="save-fact" data-skip-page-rerender="true" ${canSubmit ? '' : 'disabled'}>${action === 'COMPLETE' ? '确认完成加工单' : `保存${ACTION_LABELS[action]}`}</button></footer>
     </section>
   </div>`
 }
@@ -367,7 +401,8 @@ export function renderPdaWoolExecutionContent(
   taskId: string,
   initialAccess?: WoolPdaTaskAccessResult,
 ): string {
-  syncTask(taskId)
+  const session = getPdaSession()
+  syncTask(taskId, session?.userId || '')
   const access = initialAccess ?? getCurrentAccess(taskId)
   if (!access.canAccess || !access.order) return renderAccessBlocked(access)
   const order = access.order
@@ -377,13 +412,14 @@ export function renderPdaWoolExecutionContent(
     action !== 'DETAIL' && action !== 'ASSOCIATE_MACHINE' && action !== primary)
   return `<div class="space-y-3 p-4" data-pda-wool-root data-task-id="${escapeHtml(taskId)}" data-wool-order-id="${escapeHtml(order.woolOrderId)}">
     <button type="button" class="text-sm text-muted-foreground" data-pda-execd-action="back" data-skip-page-rerender="true">← 返回</button>
+    ${state.error && !state.overlay ? `<div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700" data-pda-wool-error>${escapeHtml(state.error)}</div>` : ''}
     ${state.feedback ? `<div class="rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">${escapeHtml(state.feedback)}</div>` : ''}
     ${renderStyleIdentity(order)}
     <section class="rounded-lg border bg-card p-4"><div class="flex items-center justify-between"><h2 class="font-semibold">可填报 SKU 与纱线</h2><span class="rounded border px-2 py-1 text-xs">${projection.processingStatusLabel}</span></div><div class="mt-3 space-y-2">${renderOutputReadiness(order, projection)}</div></section>
     ${renderFactList(projection)}
     <section class="rounded-lg border bg-card p-4"><h2 class="text-sm font-semibold">当前操作</h2>
-      ${primary ? `<button type="button" class="mt-3 h-12 w-full rounded-lg bg-primary text-base font-semibold text-primary-foreground" data-pda-wool-action="open-fact" data-wool-fact-action="${primary}" data-wool-order-id="${escapeHtml(order.woolOrderId)}">${ACTION_LABELS[primary]}</button>` : '<div class="mt-3 rounded border bg-muted/30 p-3 text-sm text-muted-foreground">加工单已完成，只能查看事实记录。</div>'}
-      ${secondary.length ? `<details class="mt-3"><summary class="cursor-pointer text-sm text-muted-foreground">其他可操作</summary><div class="mt-2 grid grid-cols-2 gap-2">${secondary.map((action) => `<button type="button" class="h-9 rounded border text-sm" data-pda-wool-action="open-fact" data-wool-fact-action="${action}" data-wool-order-id="${escapeHtml(order.woolOrderId)}">${ACTION_LABELS[action]}</button>`).join('')}</div></details>` : ''}
+      ${primary ? `<button type="button" class="mt-3 h-12 w-full rounded-lg bg-primary text-base font-semibold text-primary-foreground" data-pda-wool-action="open-fact" data-skip-page-rerender="true" data-wool-fact-action="${primary}" data-wool-order-id="${escapeHtml(order.woolOrderId)}">${ACTION_LABELS[primary]}</button>` : '<div class="mt-3 rounded border bg-muted/30 p-3 text-sm text-muted-foreground">加工单已完成，只能查看事实记录。</div>'}
+      ${secondary.length ? `<details class="mt-3"><summary class="cursor-pointer text-sm text-muted-foreground">其他可操作</summary><div class="mt-2 grid grid-cols-2 gap-2">${secondary.map((action) => `<button type="button" class="h-9 rounded border text-sm" data-pda-wool-action="open-fact" data-skip-page-rerender="true" data-wool-fact-action="${action}" data-wool-order-id="${escapeHtml(order.woolOrderId)}">${ACTION_LABELS[action]}</button>`).join('')}</div></details>` : ''}
     </section>
     <div data-pda-wool-overlay-root>${renderOverlay(order, projection)}</div>
   </div>`
@@ -396,6 +432,13 @@ function refreshRoot(root: HTMLElement, taskId: string): void {
 function refreshOverlay(root: HTMLElement, order: WoolWorkOrder): void {
   const target = root.querySelector<HTMLElement>('[data-pda-wool-overlay-root]')
   if (target) target.innerHTML = renderOverlay(order, buildWoolMobileTaskProjection(order.woolOrderId))
+}
+
+function refreshFactList(root: HTMLElement, order: WoolWorkOrder): void {
+  const target = root.querySelector<HTMLElement>('[data-pda-wool-fact-list-root]')
+  if (target) {
+    target.outerHTML = renderFactList(buildWoolMobileTaskProjection(order.woolOrderId), true)
+  }
 }
 
 function syncDraft(target: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement): void {
@@ -457,6 +500,7 @@ export function handlePdaWoolExecutionEvent(target: HTMLElement): boolean {
       || !getWoolAllowedActions(order.woolOrderId).includes(factAction)
     ) {
       state.error = '当前业务事实已变化，请按最新页面操作。'
+      refreshRoot(root, taskId)
       return true
     }
     if (state.overlay?.action !== factAction) state.draftsByAction = {}
@@ -479,7 +523,7 @@ export function handlePdaWoolExecutionEvent(target: HTMLElement): boolean {
   }
   if (action === 'fact-page') {
     state.factPage = Math.max(1, Number(actionNode.dataset.page || 1))
-    refreshRoot(root, taskId)
+    refreshFactList(root, order)
     return true
   }
   if (action === 'completion-page' && state.overlay?.action === 'COMPLETE') {
