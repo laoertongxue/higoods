@@ -1565,6 +1565,7 @@ async function checkSupplementColumnDragInChromium(): Promise<void> {
   const browser = await chromium.launch({ headless: true })
   const page = await browser.newPage({ viewport: { width: 1366, height: 768 } })
   page.setDefaultTimeout(120_000)
+  page.setDefaultNavigationTimeout(120_000)
   const pageErrors: string[] = []
   page.on('pageerror', (error) => pageErrors.push(error.message))
 

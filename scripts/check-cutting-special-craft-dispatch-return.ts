@@ -316,6 +316,7 @@ assertContains(sewingDispatchSource, '特殊工艺未回仓，交出后将形成
 assertNotContains(sewingDispatchSource, buildToken('特殊工艺', '厂', '直接发', '车', '缝'), '特殊工艺厂不得越过裁床统一发料')
 assertContains(progressStatisticsSource, 'getCuttingSpecialCraftReturnStatusByProductionOrder', '统计与进度联动必须消费特殊工艺回仓汇总')
 assertContains(progressStatisticsSource, 'specialCraftReturnStatus', '生产进度必须包含特殊工艺回仓状态')
-assertContains(progressStatisticsSource, '特殊工艺未回仓', '特殊工艺未回仓必须进入阻塞原因')
+assertContains(progressStatisticsSource, "return '未回仓'", '生产进度必须显式区分特殊工艺未回仓状态')
+assertContains(progressStatisticsSource, "return '部分回仓'", '生产进度必须显式区分特殊工艺部分回仓状态')
 
 console.log('check:cutting-special-craft-dispatch-return passed')

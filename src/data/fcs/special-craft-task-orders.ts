@@ -665,6 +665,12 @@ function buildLinkedDemoTaskSeed(input: {
   const factory = pickFactoryForOperation(operation, variantIndex)
   const orderLine = order.demandSnapshot.skuLines[(operationIndex + variantIndex) % order.demandSnapshot.skuLines.length]
   const patternContext = resolveSnapshotPatternContext(snapshot, variantIndex)
+  const garmentBom = operation.targetObject === '成衣'
+    ? snapshot.bomItems.find((item) =>
+        item.type === '成衣'
+        && (item.applicableSkuCodes ?? []).includes(orderLine.skuCode),
+      )
+    : undefined
   const taskPrefix = operation.managementDomain === 'AUXILIARY_CRAFT_FACTORY' ? 'AUX' : 'SPC'
   const craftShortCode = operation.craftCode.replace('CRAFT_', '').replace(/^0+/, '').slice(-4) || operation.operationId.slice(-4)
   const seedKey = stableDemoHash([operation.operationId, order.productionOrderId, variantIndex].join('|'))
@@ -712,6 +718,7 @@ function buildLinkedDemoTaskSeed(input: {
     targetObject,
     unit: getTaskUnit(targetObject),
     feiTicketNos: targetObject === '成衣' ? [] : [`FT-${order.productionOrderNo.replace(/^PO-/, '')}-${String(variantIndex + 1).padStart(2, '0')}`],
+    sourceBomItemId: garmentBom?.id,
     bundleWidthCm: patternContext.bundleWidthCm,
     bundleLengthCm: patternContext.bundleLengthCm,
     remark: `来源生产单 ${order.productionOrderNo} / 技术包 ${snapshot.sourceTechPackVersionLabel || snapshot.versionLabel}`,
@@ -1275,15 +1282,25 @@ function buildLinkedSupplementTaskOrders(
   const supplements: SpecialCraftTaskOrder[] = []
   operations.forEach((operation, operationIndex) => {
     if (operation.operationName === '直喷') return
+    const operationCandidateContexts = operation.targetObject === '成衣'
+      ? candidateContexts.filter(({ order, snapshot }) => {
+          const productionSkuCodes = new Set(order.demandSnapshot.skuLines.map((line) => line.skuCode))
+          return snapshot.bomItems.some((item) =>
+            item.type === '成衣'
+            && (item.applicableSkuCodes ?? []).some((skuCode) => productionSkuCodes.has(skuCode)),
+          )
+        })
+      : candidateContexts
+    if (operationCandidateContexts.length === 0) return
     const existingForOperation = existingTaskOrders
       .filter((taskOrder) => taskOrder.operationId === operation.operationId)
     const existingKeys = new Set(existingForOperation.map((taskOrder) => `${taskOrder.productionOrderId}::${taskOrder.operationId}`))
     let candidateCursor = operationIndex * MIN_TASK_ORDER_COUNT_PER_OPERATION
     while (existingForOperation.length + supplements.filter((taskOrder) => taskOrder.operationId === operation.operationId).length < MIN_TASK_ORDER_COUNT_PER_OPERATION) {
-      const context = candidateContexts[candidateCursor % candidateContexts.length]
+      const context = operationCandidateContexts[candidateCursor % operationCandidateContexts.length]
       candidateCursor += 1
       const key = `${context.order.productionOrderId}::${operation.operationId}`
-      if (existingKeys.has(key) && candidateContexts.length > 1 && existingKeys.size < candidateContexts.length) continue
+      if (existingKeys.has(key) && operationCandidateContexts.length > 1 && existingKeys.size < operationCandidateContexts.length) continue
       existingKeys.add(key)
 
       const variantIndex = existingForOperation.length

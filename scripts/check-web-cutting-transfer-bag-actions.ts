@@ -48,7 +48,7 @@ assert(
   '旧 Mock Web 弹窗模块必须移除，避免保留第二套状态与写入路径',
 )
 
-for (const text of ['库存明细', '特种工艺回收入仓', '库区库位']) {
+for (const text of ['库存明细', '特种工艺回收入仓', '库位图']) {
   assert(warehouseSource.includes(text), `待交出仓工作台不得丢失原功能：${text}`)
 }
 for (const [action, label] of [

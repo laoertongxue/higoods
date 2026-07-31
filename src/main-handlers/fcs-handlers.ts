@@ -239,6 +239,7 @@ import {
   handleFactoryWarehouseSharedEvent,
 } from '../pages/process-factory/shared/warehouse-standard'
 import { closeProductionObjectOverlays } from '../components/production-object-overview'
+import { handleCuttingWarehouseLocationMapEvent } from '../pages/process-factory/cutting/warehouse-location-map'
 
 const CUTTING_PICKUP_LIST_PATHS = new Set([
   '/fcs/craft/cutting/pickup-management/ready',
@@ -334,6 +335,12 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     && target.closest('[data-cutting-binding-action]')
   ) {
     return handleCraftCuttingSpecialProcessesEvent(target)
+  }
+  if (
+    pathname.startsWith('/fcs/craft/cutting/warehouse-management/')
+    && target.closest('[data-cutting-warehouse-map-section] [data-warehouse-map-action]')
+  ) {
+    return handleCuttingWarehouseLocationMapEvent(target, event)
   }
   if (
     isSupplementManagementRoute

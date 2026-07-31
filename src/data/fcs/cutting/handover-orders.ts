@@ -908,7 +908,11 @@ export const handoverRecords: HandoverRecord[] = [
         targetTransferBagCode: 'TB-OUT-14672-002',
       }),
     ],
-    previousHandedOverSummary: [],
+    previousHandedOverSummary: [
+      q({ productionOrderNo: 'PO14672', cutOrderNo: 'CUT-260325-14672-01', color: '雾蓝色', size: 'M', partCode: 'FRONT', partName: '前片', pieceQty: 0, label: '之前已交' }),
+      q({ productionOrderNo: 'PO14672', cutOrderNo: 'CUT-260325-14672-01', color: '雾蓝色', size: 'M', partCode: 'BACK', partName: '后片', pieceQty: 0, label: '之前已交' }),
+      q({ productionOrderNo: 'PO14672', cutOrderNo: 'CUT-260325-14672-01', color: '雾蓝色', size: 'M', partCode: 'SLEEVE', partName: '袖片', pieceQty: 0, label: '之前已交' }),
+    ],
     currentHandedOverSummary: [
       q({ productionOrderNo: 'PO14672', cutOrderNo: 'CUT-260325-14672-01', color: '雾蓝色', size: 'M', partCode: 'FRONT', partName: '前片', pieceQty: 210, label: '本次交出' }),
       q({ productionOrderNo: 'PO14672', cutOrderNo: 'CUT-260325-14672-01', color: '雾蓝色', size: 'M', partCode: 'BACK', partName: '后片', pieceQty: 210, label: '本次交出' }),

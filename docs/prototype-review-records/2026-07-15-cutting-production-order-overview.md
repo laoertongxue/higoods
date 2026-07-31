@@ -66,3 +66,25 @@
 - 页面符合管理端只读事实总览定位，不承担业务人员的阻塞或异常判定。
 - 唯一例外是业务确认的 12 列宽表在小屏需要横向滚动；已通过冻结关键对象列保持生产单与状态对应关系。
 - 多选筛选、分页、详情跳转和真实款式图片均纳入自动化验收。
+
+## 7. 变更覆盖与验证
+
+### 受管文件
+
+- `src/pages/process-factory/cutting/production-order-overview-view.ts`
+
+### 页面路由
+
+- `/fcs/craft/cutting/production-progress`
+
+### 验证命令
+
+- `npm run check:cutting-clean-mainline`：通过
+- `npm run check:cutting-production-progress-columns`：通过
+- `npm run check:prototype-design-governance -- --all`：通过
+- `npm run build`：通过（2269 个模块）
+- Playwright CLI 生产预览验收：通过（1366×768、1280×720 页面无横向溢出，表格容器内部横向滚动，冻结列有效）
+
+### 例外
+
+- 12 列业务宽表仍需在表格容器内部横向滚动；删除的是重复的 2280px 最小撑宽，不删减列、不改变冻结列和业务事实。

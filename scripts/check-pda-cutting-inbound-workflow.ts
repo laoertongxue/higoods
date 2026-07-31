@@ -13,6 +13,9 @@ import {
   buildWaitHandoverLifecycleByBagCode,
 } from '../src/pages/process-factory/cutting/wait-handover-runtime.ts'
 import { isPdaPageHandledLocally } from '../src/main-handlers/pda-local-action-result.ts'
+import { listFactoryInternalWarehouses } from '../src/data/fcs/factory-internal-warehouse.ts'
+import { loadWarehouseLayoutSnapshot } from '../src/pages/process-factory/cutting/warehouse-location-layout-store.ts'
+import { listStableWarehouseLocationRefs } from '../src/pages/process-factory/cutting/warehouse-location-map-model.ts'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const source = readFileSync(`${ROOT}/src/pages/pda-cutting-inbound.ts`, 'utf8')
@@ -86,7 +89,7 @@ assert.equal(
 
 const latestControlValues: Record<string, string> = {
   carrierCode: 'BAG-002',
-  locationLabel: 'CUT-A-01',
+  locationLabel: 'A-01-01',
   scanCode: 'FT-CUT-LATEST-001',
 }
 const fakeWorkflowContainer: HTMLElement = Object.assign(Object.create(null), {
@@ -733,7 +736,7 @@ const crossRoundRepeat = workflow.completePdaCuttingInboundTicketScan(
 assert.equal(crossRoundRepeat.ok, false, '首轮已装袋菲票不得在新一轮再次加入')
 
 const emptyBagInbound = workflow.applyPdaCuttingInboundBusinessTransition(
-  { ...workflow.createPdaCuttingInboundFormState(), carrierCode: 'BAG-002', locationLabel: 'CUT-A-01' },
+  { ...workflow.createPdaCuttingInboundFormState(), carrierCode: 'BAG-002', locationLabel: 'A-01-01' },
   'inbound-location',
   mockLedger,
 )
@@ -741,8 +744,8 @@ assert.equal(emptyBagInbound.ok, false, '空袋不得入仓')
 
 for (const [locationLabel, message] of [
   ['CUT-NOT-FOUND', '不存在库位'],
-  ['CUT-X-99', '停用库位'],
-  ['SEW-A-01', '非裁床库位'],
+  ['停用-01', '停用库位'],
+  ['其他仓-01', '非裁床库位'],
 ] as const) {
   const invalidLocation = workflow.applyPdaCuttingInboundBusinessTransition(
     { ...workflow.createPdaCuttingInboundFormState(), carrierCode: 'BAG-WAIT-001', locationLabel },
@@ -755,7 +758,7 @@ for (const [locationLabel, message] of [
 const validInboundState = {
   ...workflow.createPdaCuttingInboundFormState(),
   carrierCode: 'BAG-WAIT-001',
-  locationLabel: 'CUT-A-01',
+  locationLabel: 'A-01-01',
 }
 const validInbound = workflow.applyPdaCuttingInboundBusinessTransition(
   validInboundState,
@@ -764,7 +767,7 @@ const validInbound = workflow.applyPdaCuttingInboundBusinessTransition(
 )
 assert.equal(validInbound.ok, true, '已装袋待入仓中转袋和有效裁床库位必须允许入仓')
 assert.equal(validInbound.ledger.bags['BAG-WAIT-001'].status, 'INBOUNDED', '入仓后袋状态必须变为已入仓')
-assert.equal(validInbound.ledger.bags['BAG-WAIT-001'].locationLabel, 'CUT-A-01', '入仓后袋必须记录库位')
+assert.equal(validInbound.ledger.bags['BAG-WAIT-001'].locationLabel, 'A-01-01', '入仓后袋必须记录库位')
 
 const repeatedInbound = workflow.applyPdaCuttingInboundBusinessTransition(
   validInboundState,
@@ -803,6 +806,9 @@ for (const forbidden of ['菲票', '加入菲票', '待入仓', '生产单', '�
 
 assert(source.includes('appendWaitHandoverBaggingEvent'), 'PDA 菲票装袋必须写入统一事实账')
 assert(source.includes('appendWaitHandoverInboundEvent'), 'PDA 中转袋入仓必须写入统一事实账')
+assert(source.includes('resolveCurrentWaitHandoverLocationRef'), '中转袋入仓必须按当前工厂解析稳定库位')
+assert(source.includes('locationRef: {'), '中转袋入仓事件必须保存稳定库位引用')
+assert(source.includes('idempotencyKey: `temp-bag:${bagCode}:INBOUND`'), '中转袋入仓必须使用袋码幂等键')
 assert(!source.includes('renderPdaCuttingOrderSelectionPrompt'), '不得保留待入仓菲票或裁片单中间选择页')
 
 function createRuntimeMemoryStorage() {
@@ -846,6 +852,14 @@ const runtimeCandidate = {
   ticketStatus: 'PRINTED',
 } as const
 const runtimeBagCode = 'PDA-RUNTIME-BAG-001'
+const runtimeWarehouse = listFactoryInternalWarehouses().find((item) =>
+  item.factoryId === 'ID-F004' && item.warehouseKind === 'WAIT_HANDOVER')
+assert(runtimeWarehouse, '运行时入仓校验必须存在裁床待交出仓')
+const runtimeLocationRef = listStableWarehouseLocationRefs(
+  runtimeWarehouse,
+  loadWarehouseLayoutSnapshot(runtimeWarehouse).snapshot,
+)[0]
+assert(runtimeLocationRef, '运行时入仓校验必须存在稳定库位')
 workflow.appendPdaCuttingInboundRuntimeEvent(
   {
     ...workflow.createPdaCuttingInboundFormState(),
@@ -864,11 +878,12 @@ workflow.appendPdaCuttingInboundRuntimeEvent(
     ...workflow.createPdaCuttingInboundFormState(),
     operatorName: 'PDA 入仓测试员',
     carrierCode: runtimeBagCode,
-    locationLabel: 'CUT-A-01',
+    locationLabel: runtimeLocationRef.locationNo,
   },
   'inbound-location',
   [runtimeCandidate],
   runtimeStorage,
+  runtimeLocationRef,
 )
 assert.deepEqual(
   listCuttingRuntimeEvents(runtimeStorage)
