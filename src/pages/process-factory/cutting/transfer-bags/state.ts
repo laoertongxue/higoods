@@ -24,6 +24,7 @@ import {
   type CuttingNavigationTarget,
 } from '../navigation-context.ts'
 import {
+  buildRuntimeTransferBagLifecycleProjection,
   buildTransferBagsProjection,
 } from '../transfer-bags-projection.ts'
 import {
@@ -76,7 +77,18 @@ export type MasterStatusFilter = 'ALL' | TransferBagCarrierCurrentStatus
 export type MasterUseStageFilter = 'ALL' | TransferBagCarrierUseStage
 export type UsageStatusFilter = 'ALL' | TransferBagUsageStatusKey
 export type ReturnStatusFilter = 'ALL' | 'WAITING_RETURN' | 'RETURN_INSPECTING' | 'CLOSED' | 'SCRAP_CLOSED'
-export type TransferBagDetailTab = 'basic' | 'current' | 'history' | 'items' | 'logs'
+export type TransferBagDetailTab =
+  | 'basic'
+  | 'current'
+  | 'items'
+  | 'inbound'
+  | 'handover'
+  | 'special-craft'
+  | 'downstream'
+  | 'recovery'
+  | 'logs'
+  | 'differences'
+  | 'history'
 export type TransferBagBaggingStepId = 'scan' | 'review' | 'handover'
 export type TransferBagBaggingStepState = 'pending' | 'active' | 'done' | 'locked'
 export type TransferBagDialog =
@@ -370,8 +382,16 @@ export function getReturnViewModel() {
 }
 
 export function getCarrierManagementProjection() {
-  if (carrierManagementProjectionCache?.version === projectionVersion) return carrierManagementProjectionCache.projection
-  const projection = buildTransferBagCarrierManagementProjection(state.store, getViewModel())
+  const viewModel = getViewModel()
+  const runtimeLifecycleByBagCode =
+    buildRuntimeTransferBagLifecycleProjection(
+      viewModel.masters.map((master) => master.bagCode),
+    )
+  const projection = buildTransferBagCarrierManagementProjection(
+    state.store,
+    viewModel,
+    runtimeLifecycleByBagCode,
+  )
   carrierManagementProjectionCache = {
     version: projectionVersion,
     projection,

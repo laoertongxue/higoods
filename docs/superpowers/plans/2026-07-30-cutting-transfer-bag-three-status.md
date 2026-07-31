@@ -1,5 +1,7 @@
 # 裁床中转袋三状态实现计划
 
+> **当前状态：** 计划中的业务实现、上下游接线、反向门禁、浏览器验收和治理记录均已完成；原任务复选框保留为最初的执行脚本，完成事实以“实施后逐项审查状态”和最终任务收据为准。
+
 > **面向 AI 代理的工作者：** 必需子技能：使用 superpowers:subagent-driven-development（推荐）或 superpowers:executing-plans 逐任务实现此计划。步骤使用复选框（`- [ ]`）语法来跟踪进度。
 
 > **实施要求：** 本计划必须在独立工作树中执行。每个任务先补充能失败的业务门禁，再做最小实现，再运行该任务相关检查。不得把临时 Mock 更新或页面成功提示当成业务事实写入成功。每项任务独立提交，提交前只暂存该任务列出的文件。
@@ -11,6 +13,23 @@
 **技术栈：** Vite、TypeScript、Vanilla TypeScript 字符串模板、Tailwind CSS、本地 Mock/LocalStorage、现有标准列表页组件、Node/tsx 专项检查、Playwright。
 
 ---
+
+## 实施后逐项审查状态
+
+本节是对原计划逐行执行后的事实记录。下方各任务中的复选框保留为原始执行顺序，不单独作为完成证据；是否完成以本节的代码落点、反向门禁和最终验证收据为准。
+
+| 审查项 | 审查发现 | 最终代码落点 | 验证证据 |
+| --- | --- | --- | --- |
+| 三状态与三阶段派生 | 主档投影原先仍可能读取旧 Store 状态 | `transfer-bags-projection.ts` 汇总实时生命周期；`transfer-bags-model.ts` 优先使用运行时状态；`transfer-bags/state.ts` 每次读取当前事实 | `check:transfer-bag-three-status`、`cutting-transfer-bag-simplified-statuses.spec.ts` |
+| 装袋、入仓、交出底层防错 | 页面层有校验，但底层追加函数可被其他调用方绕过；入仓还允许调用方传入菲票 | `wait-handover-runtime.ts` 在事实写入口统一校验阶段、使用周期、完整快照和幂等；入仓不再接收菲票参数 | `check:transfer-bag-three-status`、`check:cutting-wait-handover-transfer-bag-flow` |
+| 取消旧“交出装袋确认”新写入口 | 运行时仍导出旧追加函数 | 删除旧追加函数；事件类型和历史投影只保留只读兼容 | `check:transfer-bag-three-status`、`check:web-cutting-transfer-bag-actions` |
+| 主列表真实路由 | 原 `transfer-bags/list.ts` 没有被实际页面调用，标准列表要求只存在于死文件 | 删除死文件；在真实路由文件 `transfer-bags.ts` 接入标准列表骨架、表格、分页、列设置、排序、显示、顺序和冻结 | `check:list-page-governance`、`check:standard-list-page-template` |
+| 详情事实覆盖 | 原详情只有 5 个页签，不能完整追溯入仓、袋级交出、特殊工艺、下游回写、回收和差异 | `transfer-bags/detail.ts` 拆成 11 个事实区；所有明细列表按每页 10 条分页 | `cutting-transfer-bag-detail-header.spec.ts`、`cutting-transfer-bag-detail-tabs.spec.ts` |
+| Web 与 PDA 动作边界 | 旧浏览器用例仍验证已删除的详情写操作、旧三步卡和旧路由 | 验收改为验证详情只读事实、待交出仓聚焦弹窗、规范上下文路由和统一事实账；PDA 成功用例先形成装袋、入仓事实再交出 | 相关 8 个 Playwright 文件 |
+| 特殊工艺带袋交出 | PDA 原先只取当前扫描的一张菲票，可能用部分内容推动整袋阶段 | PDA 按袋内全部菲票组装同工艺、同接收工厂的整袋载荷；运行时再次对照不可变袋内快照校验票号和数量 | `check:transfer-bag-three-status`、`check:cutting-special-craft-dispatch-return` |
+| 特殊工艺上游可见性 | 特殊工艺任务列表和详情缺少菲票流转摘要；生产进度没有“特殊工艺未回仓”阻断 | `special-craft/task-orders.ts`、`special-craft/task-detail.ts` 展示交出/回仓事实；`progress-statistics-linkage.ts` 增加未回仓阻断 | `check:cutting-special-craft-dispatch-return` |
+| 旧专项检查 | 多个脚本仍把旧名称、旧入口或旧临时账当作正确行为 | 更新仓库切换、待交出仓、PDA 路由、移动闭环及三状态专项门禁 | 本计划第 8、9 任务列出的专项检查 |
+| 低分辨率与交互 | 开发服务冷启动曾使模板检查在默认等待时间内误报；实际页面无主体横向溢出 | 模板检查只扩大首次加载等待时间，不放宽列设置、拖拽和 DOM 稳定断言；浏览器分别验证 1366×768、1280×720 | 标准列表模板检查和 Playwright 浏览器验收 |
 
 ## 0. 已确认边界和实施前基线
 
@@ -100,7 +119,7 @@ git status --short
 
 - `src/pages/process-factory/cutting/transfer-bags/state.ts`
 - `src/pages/process-factory/cutting/transfer-bags/handlers.ts`
-- `src/pages/process-factory/cutting/transfer-bags/list.ts`
+- `src/pages/process-factory/cutting/transfer-bags.ts`
 - `src/pages/process-factory/cutting/transfer-bags/detail.ts`
 - `src/pages/process-factory/cutting/transfer-bags/dialogs.ts`
 - `src/pages/process-factory/cutting/warehouse-hub.ts`
@@ -644,7 +663,7 @@ git commit -m "fix: 统一中转袋PDA与Web事实写入"
 
 - 修改：`src/pages/process-factory/cutting/transfer-bags/state.ts`
 - 修改：`src/pages/process-factory/cutting/transfer-bags/handlers.ts`
-- 修改：`src/pages/process-factory/cutting/transfer-bags/list.ts`
+- 修改：`src/pages/process-factory/cutting/transfer-bags.ts`
 - 修改：`src/pages/process-factory/cutting/transfer-bags/detail.ts`
 - 修改：`src/pages/process-factory/cutting/transfer-bags/dialogs.ts`
 - 修改：`src/pages/process-factory/cutting/transfer-bag-return-model.ts`
@@ -734,7 +753,7 @@ npx playwright test tests/cutting-transfer-bag-confirm-local-refresh.spec.ts
 - [ ] **步骤 7：提交主列表、详情和回收报废**
 
 ```bash
-git add src/pages/process-factory/cutting/transfer-bags/state.ts src/pages/process-factory/cutting/transfer-bags/handlers.ts src/pages/process-factory/cutting/transfer-bags/list.ts src/pages/process-factory/cutting/transfer-bags/detail.ts src/pages/process-factory/cutting/transfer-bags/dialogs.ts src/pages/process-factory/cutting/transfer-bag-return-model.ts scripts/check-transfer-bag-three-status.ts tests/cutting-transfer-bag-simplified-statuses.spec.ts tests/cutting-transfer-bag-detail-header.spec.ts tests/cutting-transfer-bag-detail-tabs.spec.ts tests/cutting-transfer-bag-confirm-local-refresh.spec.ts
+git add src/pages/process-factory/cutting/transfer-bags/state.ts src/pages/process-factory/cutting/transfer-bags/handlers.ts src/pages/process-factory/cutting/transfer-bags.ts src/pages/process-factory/cutting/transfer-bags/detail.ts src/pages/process-factory/cutting/transfer-bags/dialogs.ts src/pages/process-factory/cutting/transfer-bag-return-model.ts scripts/check-transfer-bag-three-status.ts tests/cutting-transfer-bag-simplified-statuses.spec.ts tests/cutting-transfer-bag-detail-header.spec.ts tests/cutting-transfer-bag-detail-tabs.spec.ts tests/cutting-transfer-bag-confirm-local-refresh.spec.ts
 git commit -m "feat: 分层展示中转袋状态与流转阶段"
 ```
 

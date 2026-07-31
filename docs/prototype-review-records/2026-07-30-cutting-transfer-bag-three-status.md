@@ -32,7 +32,7 @@
 | 业务边界 | 通过 | 物理袋、使用周期、流转段、袋内快照和接收回写已分账 |
 | 状态与阶段 | 通过 | 主状态仅保留空闲、使用中、已报废；使用中仅展示三个批准阶段 |
 | 上下游闭环 | 通过 | Web、PDA、特殊工艺、下游接收、物理回收、报废、扫码与标签口径均已覆盖 |
-| 现场可用性 | 有条件通过 | 业务和源码门禁通过；浏览器视觉验收仍受既有列表模板运行问题阻断 |
+| 现场可用性 | 通过 | 业务和源码门禁通过；标准列表、详情、待交出仓及 PDA 关键动作已完成浏览器验收 |
 
 ## 3A. 业务对象与边界复核
 
@@ -92,11 +92,11 @@
 | 数量与状态 | 通过 | 菲票、裁片数量带单位；同一生产单规则由系统校验；物理状态、阶段和接收回写分栏展示 |
 | 扫码与识别 | 通过 | 袋码和库位优先扫码；二维码只保存稳定袋身份；扫码后实时展示袋号、生产单、接收对象和袋内明细 |
 | 防错 | 通过 | 阻断跨生产单、重复确认、错误阶段、部分交出、无物理袋回仓误改状态、差异自动报废 |
-| UI 样式 | 有条件通过 | 源码与静态门禁通过；当前本地 Playwright 在仓库既有标准列表模板验收处等待“列设置”超时，未取得本轮 1366×768、1280×720 截图证据 |
-| 组件交互 | 有条件通过 | 详情、弹窗和扫码反馈采用局部更新；专项源码门禁通过；浏览器实测因既有运行环境问题未闭环 |
+| UI 样式 | 通过 | 标准列表列设置和拖拽门禁通过；1366×768、1280×720 下列表、详情和待交出仓页面主体均无横向溢出 |
+| 组件交互 | 通过 | 详情页签、Web 弹窗和 PDA 扫码反馈采用局部更新；Web 提交失败不再触发整页重绘并关闭弹窗 |
 | 协作关系 | 通过 | 装袋人员、仓管、交出方、接收方、特殊工艺仓管和回收人员写入不同事实，责任边界明确 |
 | 异常与追溯 | 通过 | 保留使用周期、交出流转段、来源交出记录、操作人、时间、库位、差异和报废原因 |
-| 现场设备可用性 | 有条件通过 | PDA 结构为低信息密度、动作优先；1280×720 和 1366×768 的浏览器视觉验收尚受既有 Playwright 问题阻断 |
+| 现场设备可用性 | 通过 | PDA 结构为低信息密度、动作优先；1280×720 和 1366×768 浏览器验收均可完成主要查看与操作 |
 
 ## 6. 问题标签
 
@@ -117,7 +117,9 @@
 | 下游接收差异可能被用于关闭或报废物理袋 | `状态抽象` | 接收人员、回收人员 | 接收回写和物理生命周期分账；只有物理回收或明确报废事实可关闭周期 | 否 |
 | 物理标签携带实时状态会随复用过期 | `追溯不足` | 扫码人员 | 标签只打印稳定身份，实时状态扫码查询 | 否 |
 | 最终复查发现主处理器仍保留旧装袋、入仓、交出直写分支，详情历史仍回退“交出装袋” | `协作断裂` | 管理人员、后续维护人员 | 删除旧分支的事件入口；详情历史统一映射到三个批准阶段；新增专项门禁 | 否 |
-| 全量列表浏览器门禁在等待“列设置”按钮时不结束 | `组件误用` | 原型验收人员 | 保留静态治理、专项门禁和构建证据；浏览器视觉验收单独列为阻断，不冒充通过 | 是 |
+| 标准列表模板首次加载超过旧默认等待时间 | `组件误用` | 原型验收人员 | 只扩大首次加载等待时间；列设置、拖拽、冻结、分页和 DOM 稳定断言保持不变并已通过 | 否 |
+| Web 弹窗校验失败后被通用整页重绘关闭，容易被误认成提交成功 | `点错风险` | 裁床仓管 | 提交按钮声明局部处理；失败保留弹窗和输入，成功才关闭并刷新统一事实 | 否 |
+| 特殊工艺带袋交出只取当前扫描菲票，可能部分内容推动整袋阶段 | `协作断裂` | 特殊工艺交出人员、裁床仓管 | PDA 按整袋组装同工艺、同接收工厂明细；底层再次校验完整袋内快照和数量 | 否 |
 
 ## 8. 性能、分页与低分辨率复核
 
@@ -125,19 +127,19 @@
 - 主列表的状态筛选只允许三个主状态，阶段筛选只允许三个流转阶段。
 - 操作列保持右侧可见；袋码、状态、阶段和报废属于不可省略的防错信息。
 - Web 弹窗、PDA 扫码反馈和详情动作采用局部状态更新，不因输入事件重绘整个应用外壳。
-- 交互响应目标为 200ms 以内；源码级处理路径满足局部更新约束，但本轮未取得浏览器计时证据。
-- 1366×768 为标准验收分辨率、1280×720 为最低可用分辨率；静态样式和表格容器符合约束，视觉截图验收仍待本地 Playwright 基线问题解决后补测。
+- 交互响应目标为 200ms 以内；PDA 成功/失败反馈和 Web 弹窗打开均用 `performance.now()` 实测，保持局部 DOM 更新。
+- 1366×768 为标准验收分辨率、1280×720 为最低可用分辨率；列表、详情和待交出仓页面主体宽度均等于视口宽度，宽表只在表格容器内滚动。
 
 ## 6. 最终结论
 
-结论：有条件通过
+结论：通过
 
 说明：
 
 - 业务模型、状态边界、上下游事实写入、跨端投影、防错、历史周期、二维码和标签口径通过源码审查与专项自动检查。
 - 本轮复查新增清理了主事件处理器中的旧装袋 / 入仓 / 交出直写入口，并将中转袋详情历史阶段统一到三阶段口径。
-- 条件只涉及浏览器视觉与交互计时证据未闭环，不涉及三状态业务规则缺失。
-- 在浏览器基线问题解决前，交付状态不得表述为“浏览器验收通过”或远端“已交付”。
+- 逐项复查继续补齐了真实标准列表接线、11 个详情事实区、特殊工艺任务/进度上游、特殊工艺整袋交出以及 Web 失败弹窗保留。
+- 本地实现与验证闭环不等于远端交付；没有 GitHub provider 回执时不得表述为远端“已交付”。
 
 ## 7. 变更覆盖与验证
 
@@ -153,14 +155,16 @@
 
 #### Web 页面与交互
 
+- `src/main.ts`
 - `src/main-handlers/fcs-handlers.ts`
 - `src/pages/process-factory/cutting/transfer-bag-return-model.ts`
 - `src/pages/process-factory/cutting/transfer-bags-model.ts`
+- `src/pages/process-factory/cutting/transfer-bags-projection.ts`
 - `src/pages/process-factory/cutting/transfer-bags.ts`
 - `src/pages/process-factory/cutting/transfer-bags/detail.ts`
 - `src/pages/process-factory/cutting/transfer-bags/dialogs.ts`
 - `src/pages/process-factory/cutting/transfer-bags/handlers.ts`
-- `src/pages/process-factory/cutting/transfer-bags/list.ts`
+- `src/pages/process-factory/cutting/transfer-bags/list.ts`（删除）
 - `src/pages/process-factory/cutting/transfer-bags/state.ts`
 - `src/pages/process-factory/cutting/wait-handover-runtime.ts`
 - `src/pages/process-factory/cutting/warehouse-hub.ts`
@@ -173,6 +177,9 @@
 - `src/pages/pda-handover-detail.ts`
 - `src/pages/pda-transfer-bag-detail.ts`
 - `src/pages/print/templates/label-print-template.ts`
+- `src/pages/process-factory/special-craft/task-orders.ts`
+- `src/pages/process-factory/special-craft/task-detail.ts`
+- `src/data/fcs/progress-statistics-linkage.ts`
 
 ### 页面路由
 
@@ -196,14 +203,16 @@
 - `npm run check:transfer-bag-mobile-closed-loop`：通过
 - `npm run check:pda-handover-detail-source`：通过
 - `npm run check:cutting-sewing-dispatch`：通过
-- `npm run check:list-page-governance:static`：通过
-- `npm run check:prototype-design-governance -- --all`：通过，覆盖 22 个受管文件和 1 份审查记录
+- `npm run check:list-page-governance`：通过
+- `npm run check:standard-list-page-template`：通过
+- `npm run check:prototype-design-governance -- --all`：通过
+- 相关 8 个中转袋 Playwright 文件：通过
+- 1366×768、1280×720 列表 / 详情 / 待交出仓页面宽度检查：通过
 - `npm run build`：通过
-- `npm run workflow:verify`：失败，任务收据状态为 `implemented`；仅命中下述两项既有门禁阻断
+- `npm run workflow:verify`：失败（任务相关检查均通过，但受未改动页面 `production-order-overview-view.ts` 的既有 `min-w >= 1600px` 全量门禁阻断，收据状态为 `implemented`）
 
 ### 例外
 
-- `npm run check:list-page-governance` 的静态阶段通过，但浏览器模板阶段在等待“列设置”按钮时持续无进展；手动终止后报 `Target page, context or browser has been closed`。相同浏览器空白 / 等待问题在本任务补漏前的基线提交也可复现，因此不归因于三状态改动。
 - `npm run check:cutting:all` 已进入并通过本次新增中转袋门禁，随后在未改动的 `src/pages/process-factory/cutting/production-order-overview-view.ts` 命中既有 `min-w >= 1600px` 失败。本任务不扩大到该宽表页面。
 - `check:handover-writeback-difference-unification` 在未改动的 `src/pages/process-factory/printing/work-order-detail.ts` 因缺少“交出面料米数”失败；该问题在任务基线已存在，不属于中转袋物理生命周期。
-- 替代防错措施：三状态专项门禁、Web / PDA 流转专项门禁、静态列表治理、生产构建、CodeGraph 结构核查和机器可读任务收据必须全部执行；浏览器视觉验收状态保持未闭环。
+- 上述两项是仓库其他页面的既有全量门禁问题；本任务相关专项门禁、浏览器验收、生产构建和 CodeGraph 均已独立通过。最终任务收据必须如实保留全量门禁结果，因此状态为 `implemented`，不得表述为 `verified`。

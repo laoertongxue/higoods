@@ -2269,7 +2269,7 @@ function renderWaitHandoverTabs(activeTab: WaitHandoverTabKey): string {
     { key: 'bagging', label: '菲票装袋' },
     { key: 'inbound', label: '中转袋入仓' },
     { key: 'handover-bagging', label: '中转袋交出' },
-    { key: 'special-craft-return', label: '特种工艺回收入仓' },
+    { key: 'special-craft-return', label: '特殊工艺回仓' },
     { key: 'locations', label: '库区库位' },
   ]
   return renderHubTabs('warehouse-management-wait-handover', activeTab, tabs)
@@ -2349,6 +2349,7 @@ function getWaitHandoverTicketOptions(): Array<{ value: string; label: string }>
   return buildRuntimeTicketCandidatesFromGeneratedTickets(listSpreadingResultGeneratedFeiTickets())
     .filter((ticket) => ticket.ticketStatus !== 'VOIDED')
     .filter((ticket) => !inventoryTicketIds.has(ticket.feiTicketId))
+    .filter((ticket) => validateFeiTicketNumberingBeforeBagging(ticket).ok)
     .slice(0, 30)
     .map((ticket) => ({
       value: ticket.feiTicketId,
@@ -2793,7 +2794,7 @@ function renderWaitHandoverWebActionDialog(action: WaitHandoverWebAction, select
         </div>
         <footer class="flex justify-end gap-2 border-t px-5 py-4">
           <button type="button" class="h-10 rounded-md border px-4 text-sm hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="close-dialog">取消</button>
-          <button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-wait-handover-action="submit-${escapeHtml(action)}">${escapeHtml(submitMap[action])}</button>
+          <button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-wait-handover-action="submit-${escapeHtml(action)}">${escapeHtml(submitMap[action])}</button>
         </footer>
       </section>
     </div>

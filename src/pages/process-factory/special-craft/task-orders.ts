@@ -8,6 +8,7 @@ import {
   getSpecialCraftTaskOrders,
   type SpecialCraftTaskOrder,
 } from '../../../data/fcs/special-craft-task-orders.ts'
+import { getSpecialCraftBindingSummaryByTaskOrderId } from '../../../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
 import { renderProductionOrderIdentityCell } from '../../../data/fcs/production-order-identity.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
@@ -84,6 +85,7 @@ const columnRules: StandardListColumnRule[] = [
   { key: 'targetObject', freezeable: true },
   { key: 'factory' },
   { key: 'qtyProgress' },
+  { key: 'feiTicketFlow' },
   { key: 'status', freezeable: true },
   { key: 'actions', required: true, actionColumn: true },
 ]
@@ -145,6 +147,20 @@ const COLUMNS: StandardListColumn<ExpandedTaskOrderRow>[] = [
     render(row) {
       return `<div class="text-sm tabular-nums">计划 ${formatQty(row.taskOrder.planQty)}${escapeHtml(row.taskOrder.unit)}</div>
         <div class="mt-0.5 text-xs text-muted-foreground tabular-nums">接收 ${formatQty(row.taskOrder.receivedQty)} / 完成 ${formatQty(row.taskOrder.completedQty)} / 待交出 ${formatQty(row.taskOrder.waitHandoverQty)}</div>`
+    },
+  },
+  {
+    key: 'feiTicketFlow', title: '菲票流转', width: 200,
+    render(row) {
+      if (row.taskOrder.targetObject === '成衣') {
+        return '<div class="text-xs text-muted-foreground">成衣加工单不关联菲票</div>'
+      }
+      const summary = getSpecialCraftBindingSummaryByTaskOrderId(row.taskOrder.taskOrderId)
+      return `
+        <div class="text-xs tabular-nums text-foreground">关联菲票数 ${summary.linkedFeiTicketCount}</div>
+        <div class="mt-1 text-xs tabular-nums text-muted-foreground">已发料菲票数 ${summary.dispatchedFeiTicketCount} / 已回仓菲票数 ${summary.returnedFeiTicketCount}</div>
+        <div class="mt-1 text-xs text-muted-foreground">回仓状态：${escapeHtml(summary.returnStatus)}</div>
+      `
     },
   },
   {

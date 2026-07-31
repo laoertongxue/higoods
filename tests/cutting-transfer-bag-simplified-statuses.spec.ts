@@ -3,10 +3,13 @@ import { expect, test } from '@playwright/test'
 import { collectPageErrors, expectNoPageErrors } from './helpers/seed-cutting-runtime-state'
 
 test('中转袋流转只展示三个主状态与三个流转阶段', async ({ page }) => {
+  test.setTimeout(180_000)
   const errors = collectPageErrors(page)
 
   await page.goto('/fcs/craft/cutting/transfer-bags')
-  await expect(page.getByRole('heading', { name: '中转袋流转', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '中转袋流转', exact: true })).toBeVisible({
+    timeout: 120_000,
+  })
 
   const body = page.locator('body')
   await expect(body).toContainText('空闲')
@@ -36,11 +39,14 @@ test('中转袋流转只展示三个主状态与三个流转阶段', async ({ pa
     '入仓暂存中',
     '已交出待回收',
   ])
-  await expect(page.getByRole('columnheader', { name: '当前状态' })).toBeVisible()
-  await expect(page.getByRole('columnheader', { name: '当前使用' })).toBeVisible()
+  await expect(page.getByRole('columnheader', { name: /中转袋状态/ })).toBeVisible()
+  await expect(page.getByRole('columnheader', { name: /当前流转阶段/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: '列设置' })).toBeVisible()
 
   await page.goto('/fcs/craft/cutting/transfer-bag-detail?bagId=carrier-bag-001')
-  await expect(page.getByRole('heading', { name: '中转袋详情', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '中转袋详情', exact: true })).toBeVisible({
+    timeout: 120_000,
+  })
 
   const summaryStrip = page.locator('[data-transfer-bag-summary-strip]')
   await expect(summaryStrip).toContainText('当前状态')

@@ -50,7 +50,8 @@ const TRANSFER_BAG_LIFECYCLE = 'src/data/fcs/cutting/transfer-bag-lifecycle.ts'
 
 const WAREHOUSE_HUB = 'src/pages/process-factory/cutting/warehouse-hub.ts'
 const T_BAGS = 'src/pages/process-factory/cutting/transfer-bags.ts'
-const T_BAGS_LIST = 'src/pages/process-factory/cutting/transfer-bags/list.ts'
+// 中转袋真实路由由 transfer-bags.ts 渲染；旧 list.ts 已删除，避免静态脚本审到死代码。
+const T_BAGS_LIST = T_BAGS
 const T_BAGS_HANDLERS = 'src/pages/process-factory/cutting/transfer-bags/handlers.ts'
 const T_BAGS_DIALOGS = 'src/pages/process-factory/cutting/transfer-bags/dialogs.ts'
 const T_BAGS_STATE = 'src/pages/process-factory/cutting/transfer-bags/state.ts'

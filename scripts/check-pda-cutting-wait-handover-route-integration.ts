@@ -74,7 +74,7 @@ function buildExpectedEntries(taskId: string) {
     {
       title: '特殊工艺回仓',
       route: `/fcs/pda/cutting/handover/${taskId}?action=special-craft-return`,
-      markers: ['特种工艺回收入仓', '特殊工艺回仓', '确认特殊工艺回仓入仓'],
+      markers: ['特殊工艺回仓', '特殊工艺回仓扫码', '确认特殊工艺回仓入仓'],
     },
     {
       title: '菲票打编号',

@@ -45,6 +45,9 @@ import {
   type SpreadingTraceAnchor,
 } from './marker-spreading-model.ts'
 import type { CutOrderRow } from './cut-orders-model.ts'
+import type {
+  TransferBagLifecycleView,
+} from '../../../data/fcs/cutting/transfer-bag-lifecycle.ts'
 
 export type { TransferBagUsageStage }
 
@@ -2896,6 +2899,7 @@ function uniqueTransferBagScrapRecordsByBag(records: TransferBagScrapRecord[]): 
 export function buildTransferBagCarrierManagementProjection(
   store: TransferBagStore,
   viewModel: TransferBagViewModel,
+  runtimeLifecycleByBagCode: Readonly<Record<string, TransferBagLifecycleView>> = {},
 ): TransferBagCarrierManagementProjection {
   const scrapRecords = buildTransferBagScrapRecordsFromStore(store, viewModel)
   const scrapCountByBag = scrapRecords.reduce<Record<string, number>>((result, record) => {
@@ -2911,7 +2915,10 @@ export function buildTransferBagCarrierManagementProjection(
   const masterRecords: TransferBagMasterArchiveRecord[] = viewModel.masters.map((master) => {
     const relatedUsages = (usagesByBag[master.bagId] || []).slice().sort((left, right) => right.usageNo.localeCompare(left.usageNo, 'zh-CN'))
     const currentUsage = master.currentUsage
-    const currentUseStage = deriveCarrierManagementUseStage(currentUsage)
+    const runtimeLifecycle = runtimeLifecycleByBagCode[master.bagCode]
+    const currentUseStage = runtimeLifecycle
+      ? runtimeLifecycle.flowStageLabel
+      : deriveCarrierManagementUseStage(currentUsage)
     const currentBoundObjectType = !currentUsage
       ? ''
       : currentUseStage === '入仓暂存中'
@@ -2930,10 +2937,15 @@ export function buildTransferBagCarrierManagementProjection(
       bagMaterial: isBagMaterialText(master.bagMaterial || (master.carrierType === 'box' ? '周转箱' : '循环软袋')),
       ownershipFactoryId: master.ownershipFactoryId || '',
       ownershipFactoryName: master.ownershipFactoryName || '',
-      currentStatus: deriveCarrierManagementStatus(master),
+      currentStatus:
+        runtimeLifecycle?.mainStatusLabel
+        || deriveCarrierManagementStatus(master),
       currentLocation: master.currentLocation || '待命位',
       currentUseStage,
-      currentUseId: currentUsage?.usageId || '',
+      currentUseId:
+        runtimeLifecycle?.usageCycleId
+        || currentUsage?.usageId
+        || '',
       currentBoundObjectType,
       currentBoundObjectId: currentUseStage === '入仓暂存中' ? currentUsage?.usageId || '' : currentUsage?.boundObjectId || currentUsage?.sewingTaskId || '',
       currentBoundObjectNo,
@@ -2944,7 +2956,10 @@ export function buildTransferBagCarrierManagementProjection(
       lastReturnedAt: master.currentReturnedAt,
       totalUseCount: relatedUsages.length,
       scrapCount: scrapCountByBag[master.bagCode] || 0,
-      enabled: master.enabled !== false && master.currentStatus !== 'DISABLED',
+      enabled:
+        runtimeLifecycle
+          ? runtimeLifecycle.mainStatus !== 'DISABLED'
+          : master.enabled !== false && master.currentStatus !== 'DISABLED',
       createdAt: master.createdAt || '2026-03-01 08:00',
       createdBy: master.createdBy || '裁床仓管',
     }

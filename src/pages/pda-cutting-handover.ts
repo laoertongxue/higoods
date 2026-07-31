@@ -857,9 +857,34 @@ function validateSpecialCraftHandoverScans(
     return { ok: false, message: '该菲票不在已扫描的特殊工艺中转袋中。' }
   }
 
-  const craftItems = (sourceRecord.specialCraftItems || []).filter((item) => item.feiTicketId === ticket.feiTicketId)
-  if (!craftItems.length) return { ok: false, message: '该菲票没有当前交出单的特殊工艺明细。' }
-  const repeatedCraft = craftItems.find((item) => runtimeEventHasTicket('特殊工艺交出', ticket.feiTicketId, item.specialCraftId))
+  const bagTicketIds = bag.containedFeiTicketIds.length
+    ? bag.containedFeiTicketIds
+    : sourceRecord.feiTicketItems.map((item) => item.feiTicketId)
+  const craftItems = (sourceRecord.specialCraftItems || []).filter(
+    (item) => bagTicketIds.includes(item.feiTicketId),
+  )
+  if (!craftItems.length) return { ok: false, message: '该中转袋没有当前交出单的特殊工艺明细。' }
+  const craftTicketIds = new Set(craftItems.map((item) => item.feiTicketId))
+  if (bagTicketIds.some((feiTicketId) => !craftTicketIds.has(feiTicketId))) {
+    return { ok: false, message: '该中转袋内存在未归入当前特殊工艺的菲票，不能部分交出。' }
+  }
+  const firstCraft = craftItems[0]
+  if (
+    craftItems.some(
+      (item) =>
+        item.craftCategory !== firstCraft.craftCategory
+        || item.craftType !== firstCraft.craftType
+        || item.receiverFactoryId !== firstCraft.receiverFactoryId,
+    )
+  ) {
+    return { ok: false, message: '该中转袋内菲票对应不同特殊工艺或接收工厂，请先重新整袋归集。' }
+  }
+  const repeatedCraft = craftItems.find((item) =>
+    runtimeEventHasTicket(
+      '特殊工艺交出',
+      item.feiTicketId,
+      item.specialCraftId,
+    ))
   if (repeatedCraft) return { ok: false, message: '该菲票的当前特殊工艺已交出，不能重复交出。' }
   return { ok: true, bag, craftItems, ticketNo: ticket.feiTicketNo }
 }

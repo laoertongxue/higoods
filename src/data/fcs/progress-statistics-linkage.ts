@@ -1054,6 +1054,16 @@ export function buildProgressBlockingReasons(order: ProductionOrder): ProgressBl
   if (cuttingStatus !== '已裁剪') add('裁床', order.productionOrderNo, cuttingStatus === '裁剪中' ? '裁剪未完成' : '唛架未完成', '裁剪', '/fcs/craft/cutting/production-progress')
   if (feiStatus !== '已生成') add('菲票', order.productionOrderNo, '菲票未生成', '打印菲票', '/fcs/craft/cutting/fei-tickets')
   if (waitHandoverStatus !== '已入裁床厂待交出仓') add('裁床', order.productionOrderNo, '裁片未入裁床厂待交出仓', '裁片入仓', '/fcs/craft/cutting/production-progress')
+  if (specialReturnStatus === '未回仓' || specialReturnStatus === '部分回仓') {
+    add(
+      '特殊工艺',
+      order.productionOrderNo,
+      '特殊工艺未回仓',
+      '查看特殊工艺回仓',
+      '/fcs/craft/cutting/warehouse-management/wait-handover?tab=special-craft-return',
+      '加急',
+    )
+  }
   if (specialReturnStatus === '差异') add('特殊工艺', order.productionOrderNo, '特殊工艺差异', '处理差异', '/fcs/craft/cutting/warehouse-management/wait-handover?tab=special-craft-return', '紧急')
   if (specialReturnStatus === '异议中') add('特殊工艺', order.productionOrderNo, '特殊工艺异议中', '处理异议', '/fcs/craft/cutting/warehouse-management/wait-handover?tab=special-craft-return', '紧急')
   sewingSnapshot.blockingReasons.forEach((reason) => {

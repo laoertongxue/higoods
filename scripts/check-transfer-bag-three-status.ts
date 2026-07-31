@@ -53,6 +53,27 @@ const transferBagDetailSource = readFileSync(
   )),
   'utf8',
 )
+const transferBagProjectionSource = readFileSync(
+  fileURLToPath(new URL(
+    '../src/pages/process-factory/cutting/transfer-bags-projection.ts',
+    import.meta.url,
+  )),
+  'utf8',
+)
+const transferBagStateSource = readFileSync(
+  fileURLToPath(new URL(
+    '../src/pages/process-factory/cutting/transfer-bags/state.ts',
+    import.meta.url,
+  )),
+  'utf8',
+)
+const waitHandoverRuntimeSource = readFileSync(
+  fileURLToPath(new URL(
+    '../src/pages/process-factory/cutting/wait-handover-runtime.ts',
+    import.meta.url,
+  )),
+  'utf8',
+)
 
 assert.deepEqual(
   lifecycle.TRANSFER_BAG_MAIN_STATUS_META,
@@ -526,7 +547,6 @@ const inboundActionInput = {
   bagCode: 'BAG-ACTION-001',
   warehouseArea: 'A 区',
   locationCode: 'A-01-01',
-  tickets: [actionTicket],
   occurredAt: '2026-07-30 13:10',
   usageCycleId: actionCycleId,
   idempotencyKey: `${actionCycleId}:INBOUND_CONFIRMED`,
@@ -548,6 +568,45 @@ assert.equal(
     .buildWaitHandoverLifecycleByBagCode('BAG-ACTION-001', actionStorage)
     .flowStage,
   'INBOUND_STORED',
+)
+assert.equal(
+  /appendWaitHandoverInboundEvent\(input:\s*\{[\s\S]*?\btickets\??:/.test(
+    waitHandoverRuntimeSource,
+  ),
+  false,
+  '入仓命令不得接收页面传入的菲票数组',
+)
+assert.equal(
+  waitHandoverRuntimeSource.includes(
+    'export function appendWaitHandoverBaggingConfirmEvent',
+  ),
+  false,
+  '新代码不得继续暴露“交出装袋确认”写入口',
+)
+assert.throws(
+  () => waitHandoverRuntime.appendWaitHandoverBaggingEvent({
+    ...actionInput,
+    occurredAt: '2026-07-30 13:11',
+    idempotencyKey: `${actionCycleId}:BAGGING_CONFIRMED:duplicate-cycle`,
+  }),
+  /不能重复装袋/,
+  '已进入使用周期的物理袋必须由统一命令阻断重复装袋',
+)
+assert.throws(
+  () => waitHandoverRuntime.appendWaitHandoverInboundEvent({
+    source: 'WEB',
+    operator: {
+      operatorId: 'OP-ACTION-IDLE-INBOUND',
+      operatorName: '入仓测试员',
+    },
+    bagCode: 'BAG-IDLE-INBOUND-001',
+    warehouseArea: 'A 区',
+    locationCode: 'A-01-02',
+    occurredAt: '2026-07-30 13:12',
+    storage: actionStorage,
+  }),
+  /尚未完成菲票装袋|不能入仓/,
+  '空闲袋必须由统一命令阻断入仓',
 )
 
 const handoverPayload = {
@@ -589,6 +648,25 @@ const handoverActionInput = {
     `${actionCycleId}:HANDOVER_CONFIRMED:${handoverPayload.handoverRecordId}`,
   storage: actionStorage,
 }
+assert.throws(
+  () => waitHandoverRuntime.appendWaitHandoverHandoverRecordEvent({
+    ...handoverActionInput,
+    payload: {
+      ...handoverPayload,
+      handoverRecordId: 'HANDOVER-RECORD-PARTIAL-001',
+      transferBagUses: [{
+        ...handoverPayload.transferBagUses[0],
+        containedFeiTicketIds: [],
+      }],
+      feiTicketItems: [],
+      currentHandedOverQty: 0,
+    },
+    idempotencyKey:
+      `${actionCycleId}:HANDOVER_CONFIRMED:HANDOVER-RECORD-PARTIAL-001`,
+  }),
+  /完整中转袋|袋内快照/,
+  '交出命令必须在统一命令边界阻断按菲票或空内容局部交出',
+)
 const firstHandoverAction =
   waitHandoverRuntime.appendWaitHandoverHandoverRecordEvent(
     handoverActionInput,
@@ -706,6 +784,31 @@ const specialHandoverPayload = {
   handedOverAt: '2026-07-30 13:50',
   handedOverBy: '工艺交出测试员',
 }
+assert.throws(
+  () =>
+    waitHandoverRuntime.appendWaitHandoverSpecialCraftHandoverEvent({
+      source: 'WEB',
+      operator: {
+        operatorId: 'OP-ACTION-PARTIAL',
+        operatorName: '工艺交出测试员',
+      },
+      payload: {
+        ...specialHandoverPayload,
+        handoverRecordId: 'SPECIAL-HANDOVER-RECORD-PARTIAL',
+        feiTicketItems: [],
+      },
+      handoverOrderId: specialHandoverPayload.handoverOrderId,
+      handoverRecordId: 'SPECIAL-HANDOVER-RECORD-PARTIAL',
+      specialCraftId: 'SPECIAL-CRAFT-ACTION-002',
+      transferBagCode: 'BAG-ACTION-001',
+      fromWarehouseArea: '特殊工艺回仓区',
+      occurredAt: '2026-07-30 13:49',
+      usageCycleId: actionCycleId,
+      storage: actionStorage,
+    }),
+  /完整菲票快照/,
+  '特殊工艺带袋交出不得用部分菲票推动整只袋进入交出阶段',
+)
 const specialHandoverAction =
   waitHandoverRuntime.appendWaitHandoverSpecialCraftHandoverEvent({
     source: 'WEB',
@@ -893,6 +996,47 @@ assert(
     "const useStageOptions: TransferBagCarrierUseStage[] = ['菲票已装袋', '入仓暂存中', '已交出待回收']",
   ),
   '中转袋主列表必须单独提供三个流转阶段筛选',
+)
+for (const contract of [
+  '// @page-pattern: list',
+  'return renderStandardListPage({',
+  'return renderStandardListTable({',
+  'renderTablePagination({',
+  'renderStandardListColumnSettings({',
+]) {
+  assert(
+    transferBagPageSource.includes(contract),
+    `真实中转袋列表路由未落实标准列表契约：${contract}`,
+  )
+}
+assert(
+  transferBagProjectionSource.includes(
+    'buildRuntimeTransferBagLifecycleProjection',
+  )
+    && transferBagStateSource.includes(
+      'buildRuntimeTransferBagLifecycleProjection',
+    ),
+  '主列表必须实时读取统一生命周期事实投影，不能只读旧 TransferBagStore',
+)
+for (const detailSection of [
+  '当前袋内菲票快照',
+  '中转袋入仓记录',
+  '袋级交出记录',
+  '特殊工艺带袋回仓记录',
+  '下游接收与回写记录',
+  '物理回收',
+  '报废记录',
+  '业务差异',
+  '历史周期',
+]) {
+  assert(
+    transferBagDetailSource.includes(detailSection),
+    `中转袋详情缺少设计要求的分区：${detailSection}`,
+  )
+}
+assert(
+  transferBagDetailSource.includes('renderDetailPagination({'),
+  '中转袋详情各类数据明细必须分页',
 )
 assert.equal(
   /WAITING_CLEANING|WAITING_REPAIR/.test(

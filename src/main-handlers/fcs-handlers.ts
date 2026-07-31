@@ -448,7 +448,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     await handleCraftCuttingPickupManagementEvent(target, event) ||
     await handleCraftCuttingHandoverOrdersEvent(target) ||
     await handleCraftCuttingSampleWarehouseEvent(target) ||
-    await handleCraftCuttingTransferBagsEvent(target) ||
+    await handleCraftCuttingTransferBagsEvent(target, event) ||
     await handleCraftCuttingSpecialProcessesEvent(target) ||
     await handleCraftCuttingSummaryEvent(target) ||
     (isSupplementManagementRoute && await handleCraftCuttingSupplementManagementEvent(target, event)) ||

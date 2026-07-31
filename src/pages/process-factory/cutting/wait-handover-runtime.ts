@@ -1,5 +1,4 @@
 import {
-  appendCuttingRuntimeEvent,
   appendCuttingRuntimeEventIdempotent,
   listCuttingRuntimeEvents,
   listCuttingRuntimeEventsByInventoryScope,
@@ -11,7 +10,6 @@ import {
   type FeiTicketInboundPayload,
   type TransferBagInboundPayload,
   type HandoverRecordSubmitPayload,
-  type HandoverBaggingConfirmPayload,
   type SpecialCraftHandoverPayload,
   type SpecialCraftReturnPayload,
 } from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
@@ -108,6 +106,143 @@ function runtimeString(value: unknown): string {
 function runtimeNumber(value: unknown): number {
   const numeric = Number(value)
   return Number.isFinite(numeric) ? numeric : 0
+}
+
+function resolveWaitHandoverStorage(
+  storage: BrowserStorageLike | null | undefined,
+): BrowserStorageLike | null {
+  return storage === undefined ? getBrowserLocalStorage() : storage
+}
+
+function findWaitHandoverIdempotentEvent(
+  idempotencyKey: string,
+  storage: BrowserStorageLike | null,
+): CuttingRuntimeEvent | undefined {
+  return listCuttingRuntimeEvents(storage).find(
+    (event) =>
+      event.eventStatus !== '已取消'
+      && event.idempotencyKey === idempotencyKey,
+  )
+}
+
+function assertWaitHandoverActionAllowed(input: {
+  bagCode: string
+  action: 'BAGGING' | 'INBOUND' | 'HANDOVER' | 'SPECIAL_CRAFT_RETURN' | 'PHYSICAL_RETURN' | 'SCRAP'
+  actionLabel: string
+  storage: BrowserStorageLike | null
+}): TransferBagLifecycleView {
+  const lifecycle = buildWaitHandoverLifecycleByBagCode(
+    input.bagCode,
+    input.storage,
+  )
+  if (!lifecycle.allowedActions.includes(input.action)) {
+    const current = `${lifecycle.mainStatusLabel} / ${lifecycle.flowStageLabel}`
+    throw new Error(
+      `${input.bagCode} 当前为${current}，不能${input.actionLabel}。`,
+    )
+  }
+  return lifecycle
+}
+
+function sortedNonEmpty(values: Array<string | undefined>): string[] {
+  return values.map((value) => value?.trim() || '').filter(Boolean).sort()
+}
+
+function assertWholeBagHandoverPayload(input: {
+  bagCode: string
+  payload: HandoverRecordSubmitPayload
+  snapshot: WaitHandoverBaggingSnapshot
+}): void {
+  if (input.payload.transferBagUses.length !== 1) {
+    throw new Error('一次交出只能确认一只完整中转袋。')
+  }
+  const bagUse = input.payload.transferBagUses[0]
+  if (!bagUse || bagUse.bagCode !== input.bagCode) {
+    throw new Error('交出记录的中转袋与当前整袋快照不一致。')
+  }
+  if (!input.payload.receiverId || !input.payload.receiverName) {
+    throw new Error('整袋交出必须明确接收任务或接收工厂。')
+  }
+
+  const snapshotIds = sortedNonEmpty(
+    input.snapshot.tickets.map((ticket) => ticket.feiTicketId),
+  )
+  const bagUseIds = sortedNonEmpty(bagUse.containedFeiTicketIds)
+  const payloadIds = sortedNonEmpty(
+    input.payload.feiTicketItems.map((ticket) => ticket.feiTicketId),
+  )
+  const sameIds = (left: string[], right: string[]) =>
+    left.length === right.length
+    && left.every((value, index) => value === right[index])
+  if (
+    !snapshotIds.length
+    || !sameIds(snapshotIds, bagUseIds)
+    || !sameIds(snapshotIds, payloadIds)
+  ) {
+    throw new Error('交出必须使用当前使用周期的完整中转袋袋内快照。')
+  }
+
+  const snapshotQty = input.snapshot.tickets.reduce(
+    (sum, ticket) => sum + Number(ticket.pieceQty || 0),
+    0,
+  )
+  const payloadQty = input.payload.feiTicketItems.reduce(
+    (sum, ticket) => sum + Number(ticket.pieceQty || 0),
+    0,
+  )
+  if (
+    Number(bagUse.totalPieceQty) !== snapshotQty
+    || Number(input.payload.currentHandedOverQty) !== snapshotQty
+    || payloadQty !== snapshotQty
+  ) {
+    throw new Error('交出数量必须等于完整中转袋袋内快照数量。')
+  }
+}
+
+function assertWholeBagSpecialCraftHandoverPayload(input: {
+  bagCode: string
+  payload: SpecialCraftHandoverPayload
+  snapshot: WaitHandoverBaggingSnapshot
+}): void {
+  if (
+    !input.payload.handoverRecordId
+    || !input.payload.receiverFactoryId
+    || !input.payload.receiverFactoryName
+  ) {
+    throw new Error('特殊工艺整袋交出必须明确来源记录和接收工厂。')
+  }
+  const snapshotIds = sortedNonEmpty(
+    input.snapshot.tickets.map((ticket) => ticket.feiTicketId),
+  )
+  const payloadIds = sortedNonEmpty(
+    Array.from(
+      new Set(
+        input.payload.feiTicketItems.map((ticket) => ticket.feiTicketId),
+      ),
+    ),
+  )
+  if (
+    snapshotIds.length !== payloadIds.length
+    || snapshotIds.some((value, index) => value !== payloadIds[index])
+  ) {
+    throw new Error('特殊工艺带袋交出必须包含当前中转袋的完整菲票快照。')
+  }
+  const payloadQtyByTicket = input.payload.feiTicketItems.reduce<
+    Record<string, number>
+  >((result, ticket) => {
+    result[ticket.feiTicketId] =
+      (result[ticket.feiTicketId] || 0) + Number(ticket.pieceQty || 0)
+    return result
+  }, {})
+  if (
+    input.snapshot.tickets.some(
+      (ticket) =>
+        payloadQtyByTicket[ticket.feiTicketId]
+        !== Number(ticket.pieceQty || 0),
+    )
+  ) {
+    throw new Error('特殊工艺带袋交出数量必须等于完整中转袋袋内快照数量。')
+  }
 }
 
 function getWaitHandoverEventUsageCycleId(
@@ -243,11 +378,30 @@ export function appendWaitHandoverPhysicalReturnEvent(input: {
   note?: string
   storage?: BrowserStorageLike | null
 }) {
+  const storage = resolveWaitHandoverStorage(input.storage)
   const occurredAt =
     input.returnedAt
     || new Date().toISOString().slice(0, 16).replace('T', ' ')
+  const idempotencyKey = `${input.usageCycleId}:PHYSICAL_BAG_RETURNED`
+  const existing = findWaitHandoverIdempotentEvent(
+    idempotencyKey,
+    storage,
+  )
+  if (existing) return existing
+  const lifecycle = assertWaitHandoverActionAllowed({
+    bagCode: input.bagCode,
+    action: 'PHYSICAL_RETURN',
+    actionLabel: '确认物理袋回收',
+    storage,
+  })
+  if (lifecycle.usageCycleId !== input.usageCycleId) {
+    throw new Error('回收使用周期与中转袋当前使用周期不一致。')
+  }
+  if (!input.returnWarehouseName.trim()) {
+    throw new Error('请填写物理袋回收位置。')
+  }
   return appendCuttingRuntimeEventIdempotent({
-    idempotencyKey: `${input.usageCycleId}:PHYSICAL_BAG_RETURNED`,
+    idempotencyKey,
     eventType: '中转袋回收',
     eventSource: input.source,
     eventStatus: '已同步',
@@ -267,7 +421,7 @@ export function appendWaitHandoverPhysicalReturnEvent(input: {
       returnedBy: input.operator.operatorName,
       note: input.note || '',
     },
-  }, input.storage).event
+  }, storage).event
 }
 
 export function appendWaitHandoverScrapEvent(input: {
@@ -279,6 +433,13 @@ export function appendWaitHandoverScrapEvent(input: {
   reason: string
   storage?: BrowserStorageLike | null
 }) {
+  const storage = resolveWaitHandoverStorage(input.storage)
+  if (!input.bagCode.trim()) {
+    throw new Error('请明确扫描或选择需要报废的物理中转袋。')
+  }
+  if (!input.reason.trim()) {
+    throw new Error('确认报废必须填写报废原因。')
+  }
   const occurredAt =
     input.scrappedAt
     || new Date().toISOString().slice(0, 16).replace('T', ' ')
@@ -287,10 +448,22 @@ export function appendWaitHandoverScrapEvent(input: {
     || resolveWaitHandoverUsageCycleId(
       input.bagCode,
       occurredAt,
-      input.storage ?? getBrowserLocalStorage(),
+      storage,
     )
+  const idempotencyKey = `${input.bagCode}:BAG_SCRAPPED`
+  const existing = findWaitHandoverIdempotentEvent(
+    idempotencyKey,
+    storage,
+  )
+  if (existing) return existing
+  assertWaitHandoverActionAllowed({
+    bagCode: input.bagCode,
+    action: 'SCRAP',
+    actionLabel: '确认报废',
+    storage,
+  })
   return appendCuttingRuntimeEventIdempotent({
-    idempotencyKey: `${input.bagCode}:BAG_SCRAPPED`,
+    idempotencyKey,
     eventType: '中转袋报废',
     eventSource: input.source,
     eventStatus: '已同步',
@@ -309,7 +482,7 @@ export function appendWaitHandoverScrapEvent(input: {
       scrappedBy: input.operator.operatorName,
       reason: input.reason,
     },
-  }, input.storage).event
+  }, storage).event
 }
 
 function resolveWaitHandoverUsageCycleId(
@@ -704,17 +877,38 @@ export function appendWaitHandoverBaggingEvent(input: {
   idempotencyKey?: string
   storage?: BrowserStorageLike | null
 }) {
+  const storage = resolveWaitHandoverStorage(input.storage)
+  if (!input.bagCode.trim()) {
+    throw new Error('请扫描或输入中转袋编号。')
+  }
   const occurredAt = input.occurredAt || new Date().toISOString().slice(0, 16).replace('T', ' ')
   const usageCycleId =
     input.usageCycleId
     || buildWaitHandoverUsageCycleId(input.bagCode, occurredAt)
   const tickets = input.tickets
+  if (!tickets.length) {
+    throw new Error('请至少选择或扫描一张有效菲票。')
+  }
   const productionOrderNos = uniqueStrings(
     tickets.map((ticket) => ticket.productionOrderNo),
   )
   if (productionOrderNos.length !== 1) {
     throw new Error('同一中转袋只能装入同一生产单的菲票')
   }
+  const idempotencyKey =
+    input.idempotencyKey
+    || `${usageCycleId}:BAGGING_CONFIRMED`
+  const existing = findWaitHandoverIdempotentEvent(
+    idempotencyKey,
+    storage,
+  )
+  if (existing) return existing
+  assertWaitHandoverActionAllowed({
+    bagCode: input.bagCode,
+    action: 'BAGGING',
+    actionLabel: '重复装袋',
+    storage,
+  })
   const totalPieceQty = tickets.reduce((sum, ticket) => sum + Number(ticket.pieceQty || 0), 0)
   const first = tickets[0]
   const payload: FeiTicketBaggingPayload = {
@@ -727,9 +921,7 @@ export function appendWaitHandoverBaggingEvent(input: {
     baggingAt: occurredAt,
   }
   return appendCuttingRuntimeEventIdempotent({
-    idempotencyKey:
-      input.idempotencyKey
-      || `${usageCycleId}:BAGGING_CONFIRMED`,
+    idempotencyKey,
     eventType: '菲票装袋',
     eventSource: input.source,
     eventStatus: '已同步',
@@ -750,7 +942,7 @@ export function appendWaitHandoverBaggingEvent(input: {
       usageCycleId,
     },
     payload,
-  }, input.storage).event
+  }, storage).event
 }
 
 export function appendWaitHandoverInboundEvent(input: {
@@ -759,29 +951,55 @@ export function appendWaitHandoverInboundEvent(input: {
   bagCode: string
   warehouseArea: string
   locationCode: string
-  tickets?: WaitHandoverRuntimeTicketInput[]
   occurredAt?: string
   usageCycleId?: string
   idempotencyKey?: string
   storage?: BrowserStorageLike | null
 }) {
+  const storage = resolveWaitHandoverStorage(input.storage)
+  if (!input.bagCode.trim()) {
+    throw new Error('请扫描或输入中转袋编号。')
+  }
+  if (!input.warehouseArea.trim() || !input.locationCode.trim()) {
+    throw new Error('请填写入仓库区和库位。')
+  }
   const occurredAt = input.occurredAt || new Date().toISOString().slice(0, 16).replace('T', ' ')
   const snapshot = resolveWaitHandoverBaggingSnapshot(
     input.bagCode,
-    input.storage ?? getBrowserLocalStorage(),
+    storage,
   )
-  const tickets = snapshot?.tickets || input.tickets || []
-  if (!snapshot && !tickets.length) {
+  if (!snapshot?.tickets.length) {
     throw new Error('该中转袋尚未形成菲票装袋快照，不能入仓')
   }
+  const tickets = snapshot.tickets
   const usageCycleId =
     input.usageCycleId
-    || snapshot?.usageCycleId
+    || snapshot.usageCycleId
     || resolveWaitHandoverUsageCycleId(
       input.bagCode,
       occurredAt,
-      input.storage ?? getBrowserLocalStorage(),
+      storage,
     )
+  if (
+    input.usageCycleId
+    && input.usageCycleId !== snapshot.usageCycleId
+  ) {
+    throw new Error('入仓使用周期与最近确认装袋快照不一致。')
+  }
+  const idempotencyKey =
+    input.idempotencyKey
+    || `${usageCycleId}:INBOUND_CONFIRMED`
+  const existing = findWaitHandoverIdempotentEvent(
+    idempotencyKey,
+    storage,
+  )
+  if (existing) return existing
+  assertWaitHandoverActionAllowed({
+    bagCode: input.bagCode,
+    action: 'INBOUND',
+    actionLabel: '入仓',
+    storage,
+  })
   const totalPieceQty = tickets.reduce((sum, ticket) => sum + Number(ticket.pieceQty || 0), 0)
   const first = tickets[0]
   const payload: FeiTicketInboundPayload = {
@@ -796,9 +1014,7 @@ export function appendWaitHandoverInboundEvent(input: {
     mixedFlag: buildMixedFlag(tickets),
   }
   return appendCuttingRuntimeEventIdempotent({
-    idempotencyKey:
-      input.idempotencyKey
-      || `${usageCycleId}:INBOUND_CONFIRMED`,
+    idempotencyKey,
     eventType: '中转袋入仓',
     eventSource: input.source,
     eventStatus: '已同步',
@@ -827,76 +1043,7 @@ export function appendWaitHandoverInboundEvent(input: {
       toLocationCode: input.locationCode,
     },
     payload,
-  }, input.storage).event
-}
-
-export function appendWaitHandoverBaggingConfirmEvent(input: {
-  source: CuttingRuntimeEventSource
-  operator: WaitHandoverRuntimeOperator
-  pickingTaskId: string
-  pickingTaskNo: string
-  sewingTaskId: string
-  sewingTaskNo: string
-  sourceTempBagCode: string
-  targetTransferBagCode: string
-  bagUseId?: string
-  tickets: Array<Pick<WaitHandoverRuntimeTicketInput, 'feiTicketId' | 'feiTicketNo' | 'pieceQty'>>
-  occurredAt?: string
-}) {
-  const occurredAt = input.occurredAt || new Date().toISOString()
-  const recordId = `${input.source}-BAG-CONFIRM-${input.pickingTaskId}-${Date.now()}`
-  const totalPieceQty = input.tickets.reduce((sum, ticket) => sum + Number(ticket.pieceQty || 0), 0)
-  const ticketIds = input.tickets.map((ticket) => ticket.feiTicketId).filter(Boolean)
-  const ticketNos = input.tickets.map((ticket) => ticket.feiTicketNo).filter(Boolean)
-  const payload: HandoverBaggingConfirmPayload = {
-    baggingConfirmRecordId: recordId,
-    baggingConfirmRecordNo: `SBG-${compactDate(occurredAt)}-${input.pickingTaskNo}`,
-    pickingTaskId: input.pickingTaskId,
-    pickingTaskNo: input.pickingTaskNo,
-    sewingTaskId: input.sewingTaskId,
-    sewingTaskNo: input.sewingTaskNo,
-    sourceTempBagCode: input.sourceTempBagCode,
-    targetTransferBagCode: input.targetTransferBagCode,
-    bagUseId: input.bagUseId || `${input.source}-BAG-USE-${input.pickingTaskId}-${Date.now()}`,
-    scannedFeiTicketIds: ticketIds,
-    scannedFeiTicketNos: ticketNos,
-    containedFeiTicketIds: ticketIds,
-    containedFeiTicketNos: ticketNos,
-    totalPieceQty,
-    pickedQty: totalPieceQty,
-    unit: '片',
-    scannedAt: occurredAt,
-    scannedBy: input.operator.operatorName,
-    packedAt: occurredAt,
-    packedBy: input.operator.operatorName,
-    checkResult: '正常',
-    bagBindingRule: '一个中转袋只能绑定一个车缝任务',
-  }
-  return appendCuttingRuntimeEvent({
-    eventType: '交出装袋确认',
-    eventSource: input.source,
-    eventStatus: '已同步',
-    occurredAt,
-    operatorId: input.operator.operatorId,
-    operatorName: input.operator.operatorName,
-    operatorRole: input.operator.operatorRole || '裁片仓装袋确认员',
-    refs: {
-      feiTicketIds: payload.containedFeiTicketIds,
-      feiTicketNos: payload.containedFeiTicketNos,
-      transferBagCode: input.targetTransferBagCode,
-    },
-    inventoryEffect: {
-      inventoryScope: '裁床待交出仓',
-      direction: 'ADJUST',
-      qty: totalPieceQty,
-      unit: '片',
-      fromWarehouseArea: '入仓暂存区',
-      fromLocationCode: input.sourceTempBagCode,
-      toWarehouseArea: '中转袋暂存区',
-      toLocationCode: input.targetTransferBagCode,
-    },
-    payload,
-  })
+  }, storage).event
 }
 
 export function appendWaitHandoverHandoverRecordEvent(input: {
@@ -911,30 +1058,62 @@ export function appendWaitHandoverHandoverRecordEvent(input: {
   idempotencyKey?: string
   storage?: BrowserStorageLike | null
 }) {
+  const storage = resolveWaitHandoverStorage(input.storage)
   const occurredAt = input.occurredAt || input.payload.submittedAt || new Date().toISOString()
-  const bagCode = input.payload.transferBagUses[0]?.bagCode || ''
+  if (input.payload.transferBagUses.length !== 1) {
+    throw new Error('一次交出只能确认一只完整中转袋。')
+  }
+  const bagCode = input.payload.transferBagUses[0]?.bagCode?.trim() || ''
+  if (!bagCode) {
+    throw new Error('请扫描需要整袋交出的中转袋。')
+  }
+  const snapshot = resolveWaitHandoverBaggingSnapshot(
+    bagCode,
+    storage,
+  )
+  if (!snapshot?.tickets.length) {
+    throw new Error('该中转袋没有可交出的袋内快照。')
+  }
   const usageCycleId =
     input.usageCycleId
     || resolveWaitHandoverUsageCycleId(
       bagCode,
       occurredAt,
-      input.storage ?? getBrowserLocalStorage(),
+      storage,
     )
+  if (usageCycleId !== snapshot.usageCycleId) {
+    throw new Error('交出使用周期与当前袋内快照不一致。')
+  }
+  const idempotencyKey =
+    input.idempotencyKey
+    || `${usageCycleId}:HANDOVER_CONFIRMED:${input.payload.handoverRecordId}`
+  const existing = findWaitHandoverIdempotentEvent(
+    idempotencyKey,
+    storage,
+  )
+  if (existing) return existing
+  assertWaitHandoverActionAllowed({
+    bagCode,
+    action: 'HANDOVER',
+    actionLabel: '整袋交出',
+    storage,
+  })
+  assertWholeBagHandoverPayload({
+    bagCode,
+    payload: input.payload,
+    snapshot,
+  })
   const handoverLegId =
     input.handoverLegId
     || buildNextWaitHandoverHandoverLeg({
       bagCode,
       usageCycleId,
-      events: listCuttingRuntimeEvents(
-        input.storage ?? getBrowserLocalStorage(),
-      ),
+      events: listCuttingRuntimeEvents(storage),
     }).handoverLegId
   const feiTicketIds = input.payload.feiTicketItems.map((item) => item.feiTicketId).filter(Boolean)
   const feiTicketNos = input.payload.feiTicketItems.map((item) => item.feiTicketNo).filter(Boolean)
   return appendCuttingRuntimeEventIdempotent({
-    idempotencyKey:
-      input.idempotencyKey
-      || `${usageCycleId}:HANDOVER_CONFIRMED:${input.payload.handoverRecordId}`,
+    idempotencyKey,
     eventType: '新增交出记录',
     eventSource: input.source,
     eventStatus: '已同步',
@@ -960,7 +1139,7 @@ export function appendWaitHandoverHandoverRecordEvent(input: {
       fromLocationCode: input.fromLocationCode,
     },
     payload: input.payload,
-  }, input.storage).event
+  }, storage).event
 }
 
 export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
@@ -978,28 +1157,57 @@ export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
   idempotencyKey?: string
   storage?: BrowserStorageLike | null
 }) {
+  const storage = resolveWaitHandoverStorage(input.storage)
   const occurredAt = input.occurredAt || input.payload.handedOverAt || new Date().toISOString()
+  if (!input.transferBagCode.trim()) {
+    throw new Error('特殊工艺带袋交出必须明确物理中转袋。')
+  }
+  const snapshot = resolveWaitHandoverBaggingSnapshot(
+    input.transferBagCode,
+    storage,
+  )
+  if (!snapshot?.tickets.length) {
+    throw new Error('该中转袋没有可交出的袋内快照。')
+  }
   const usageCycleId =
     input.usageCycleId
     || resolveWaitHandoverUsageCycleId(
       input.transferBagCode,
       occurredAt,
-      input.storage ?? getBrowserLocalStorage(),
+      storage,
     )
+  if (usageCycleId !== snapshot.usageCycleId) {
+    throw new Error('特殊工艺交出使用周期与当前袋内快照不一致。')
+  }
+  const idempotencyKey =
+    input.idempotencyKey
+    || `${usageCycleId}:HANDOVER_CONFIRMED:${input.handoverRecordId}`
+  const existing = findWaitHandoverIdempotentEvent(
+    idempotencyKey,
+    storage,
+  )
+  if (existing) return existing
+  assertWaitHandoverActionAllowed({
+    bagCode: input.transferBagCode,
+    action: 'HANDOVER',
+    actionLabel: '整袋交出',
+    storage,
+  })
+  assertWholeBagSpecialCraftHandoverPayload({
+    bagCode: input.transferBagCode,
+    payload: input.payload,
+    snapshot,
+  })
   const handoverLegId =
     input.handoverLegId
     || buildNextWaitHandoverHandoverLeg({
       bagCode: input.transferBagCode,
       usageCycleId,
-      events: listCuttingRuntimeEvents(
-        input.storage ?? getBrowserLocalStorage(),
-      ),
+      events: listCuttingRuntimeEvents(storage),
     }).handoverLegId
   const totalQty = input.payload.feiTicketItems.reduce((sum, item) => sum + Number(item.pieceQty || 0), 0)
   return appendCuttingRuntimeEventIdempotent({
-    idempotencyKey:
-      input.idempotencyKey
-      || `${usageCycleId}:HANDOVER_CONFIRMED:${input.handoverRecordId}`,
+    idempotencyKey,
     eventType: '特殊工艺交出',
     eventSource: input.source,
     eventStatus: '已同步',
@@ -1026,7 +1234,7 @@ export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
       fromLocationCode: input.transferBagCode,
     },
     payload: input.payload,
-  }, input.storage).event
+  }, storage).event
 }
 
 export function appendWaitHandoverSpecialCraftReturnEvent(input: {
@@ -1040,6 +1248,7 @@ export function appendWaitHandoverSpecialCraftReturnEvent(input: {
   idempotencyKey?: string
   storage?: BrowserStorageLike | null
 }) {
+  const storage = resolveWaitHandoverStorage(input.storage)
   const occurredAt = input.occurredAt || input.payload.returnedAt || new Date().toISOString()
   const bagCode = input.payload.transferBagCode || ''
   const usageCycleId =
@@ -1049,7 +1258,7 @@ export function appendWaitHandoverSpecialCraftReturnEvent(input: {
         ? resolveWaitHandoverUsageCycleId(
           bagCode,
           occurredAt,
-          input.storage ?? getBrowserLocalStorage(),
+          storage,
         )
         : ''
     )
@@ -1059,16 +1268,43 @@ export function appendWaitHandoverSpecialCraftReturnEvent(input: {
       bagCode
         ? buildWaitHandoverLifecycleByBagCode(
           bagCode,
-          input.storage ?? getBrowserLocalStorage(),
+          storage,
         ).activeHandoverLegId
         : null
     )
     || undefined
+  const idempotencyKey =
+    input.idempotencyKey
+    || `${usageCycleId || 'ticket-only'}:SPECIAL_CRAFT_RETURN:${input.payload.returnRecordId}`
+  const existing = findWaitHandoverIdempotentEvent(
+    idempotencyKey,
+    storage,
+  )
+  if (existing) return existing
+  if (bagCode) {
+    const lifecycle = assertWaitHandoverActionAllowed({
+      bagCode,
+      action: 'SPECIAL_CRAFT_RETURN',
+      actionLabel: '确认特殊工艺带袋回仓',
+      storage,
+    })
+    if (lifecycle.usageCycleId !== usageCycleId) {
+      throw new Error('特殊工艺回仓使用周期与当前物理袋不一致。')
+    }
+    if (
+      !input.payload.sourceHandoverRecordId
+      || !input.payload.warehouseArea
+      || !input.payload.locationCode
+    ) {
+      throw new Error('带袋特殊工艺回仓必须保留来源交出记录、库区和库位。')
+    }
+    if (!activeHandoverLegId) {
+      throw new Error('当前中转袋没有可关闭的交出流转段。')
+    }
+  }
   const returnedQty = input.payload.returnedFeiTicketItems.reduce((sum, item) => sum + Number(item.returnedQty || 0), 0)
   return appendCuttingRuntimeEventIdempotent({
-    idempotencyKey:
-      input.idempotencyKey
-      || `${usageCycleId || 'ticket-only'}:SPECIAL_CRAFT_RETURN:${input.payload.returnRecordId}`,
+    idempotencyKey,
     eventType: '特殊工艺回仓',
     eventSource: input.source,
     eventStatus: '已同步',
@@ -1095,5 +1331,5 @@ export function appendWaitHandoverSpecialCraftReturnEvent(input: {
       toLocationCode: input.payload.locationCode,
     },
     payload: input.payload,
-  }, input.storage).event
+  }, storage).event
 }
