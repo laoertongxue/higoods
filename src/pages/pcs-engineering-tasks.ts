@@ -2542,7 +2542,6 @@ function renderProjectContext(task: {
     renderKeyValueGrid(
       [
         { label: '商品项目', value: projectButton(task.projectId, task.projectCode, task.projectName) },
-        { label: '项目步骤', value: projectNodeButton(task.projectId, task.projectNodeId, task.stepName) },
         { label: '来源类型', value: escapeHtml(task.sourceType) },
         { label: '款式档案', value: styleArchiveLink(style.styleId, style.styleCode, style.styleName, task.projectId) },
         { label: '款式编码', value: escapeHtml(style.styleCode || task.productStyleCode || task.spuCode || '-') },
@@ -2564,7 +2563,6 @@ function renderRevisionContext(task: ReturnType<typeof getRevisionTaskById>): st
       [
         { label: '来源类型', value: escapeHtml(task.sourceType) },
         { label: '关联商品项目', value: projectButton(task.projectId, task.projectCode, task.projectName) },
-        { label: '关联项目节点', value: projectNodeButton(task.projectId, task.projectNodeId, task.stepName) },
         { label: '关联款式档案', value: styleArchiveButton(style.styleId, style.styleCode, style.styleName) },
         { label: '款式编码', value: escapeHtml(style.styleCode || '-') },
         { label: '来源对象', value: escapeHtml(task.upstreamObjectCode || task.upstreamObjectId || '—') },
@@ -3938,7 +3936,6 @@ function renderPlateDetailPage(plateTaskId: string): string {
       ], 2))}
       ${renderSectionCard('正式对象核对', renderKeyValueGrid([
         { label: '商品项目', value: projectButton(task.projectId, task.projectCode, task.projectName) },
-        { label: '项目步骤', value: projectNodeButton(task.projectId, task.projectNodeId, task.stepName) },
         { label: '上游对象', value: escapeHtml(task.upstreamObjectCode || task.upstreamObjectId || '-') },
         { label: '制版状态', value: renderStatusBadge(task.status) },
       ], 2))}
@@ -4492,7 +4489,6 @@ function renderPatternDetailPage(patternTaskId: string): string {
       ], 1))}
       ${renderSectionCard('正式对象核对', renderKeyValueGrid([
         { label: '商品项目', value: projectButton(task.projectId, task.projectCode, task.projectName) },
-        { label: '项目步骤', value: projectNodeButton(task.projectId, task.projectNodeId, task.stepName) },
         { label: '技术包状态', value: escapeHtml(task.linkedTechPackVersionStatus || '未写回') },
         { label: '正式状态', value: renderStatusBadge(task.status) },
       ], 1))}
@@ -5130,7 +5126,6 @@ function renderFirstSampleDetailPage(firstSampleTaskId: string): string {
       ], 2))}
       ${renderSectionCard('正式对象核对', renderKeyValueGrid([
         { label: '商品项目', value: projectButton(task.projectId, task.projectCode, task.projectName) },
-        { label: '项目步骤', value: projectNodeButton(task.projectId, task.projectNodeId, task.stepName) },
         { label: '正式状态', value: renderStatusBadge(task.status, true) },
       ], 2))}
     </div>
@@ -5459,7 +5454,6 @@ function renderFirstOrderDetailPage(firstOrderSampleTaskId: string): string {
       ], 2))}
       ${renderSectionCard('正式对象核对', renderKeyValueGrid([
         { label: '商品项目', value: projectButton(task.projectId, task.projectCode, task.projectName) },
-        { label: '项目步骤', value: projectNodeButton(task.projectId, task.projectNodeId, task.stepName) },
         { label: '结果编号', value: escapeHtml(task.sampleCode || '-') },
         { label: '正式状态', value: renderStatusBadge(task.status, true) },
       ], 2))}
@@ -5740,7 +5734,7 @@ function submitPlateCreate(): void {
     title: draft.title.trim() || '新建制版任务',
     sourceType: projectMode ? '项目固定步骤' : '人工创建',
     upstreamModule: projectMode ? '商品项目' : '款式档案',
-    upstreamObjectType: projectMode ? '项目步骤' : '款式档案',
+    upstreamObjectType: projectMode ? '商品项目' : '款式档案',
     upstreamObjectId: projectMode ? (project?.projectId || '') : (selectedStyle?.styleId || ''),
     upstreamObjectCode: projectMode ? (project?.projectCode || '') : (selectedStyle?.styleCode || ''),
     styleId: selectedStyle?.styleId || defaults.styleId,
@@ -5851,7 +5845,7 @@ function submitPatternCreate(): void {
     title: draft.title.trim() || '新建花型任务',
     sourceType: projectMode ? '项目固定步骤' : '人工创建',
     upstreamModule: projectMode ? '商品项目' : '款式档案',
-    upstreamObjectType: projectMode ? '项目步骤' : '款式档案',
+    upstreamObjectType: projectMode ? '商品项目' : '款式档案',
     upstreamObjectId: projectMode ? (project?.projectId || '') : (selectedStyle?.styleId || ''),
     upstreamObjectCode: projectMode ? (project?.projectCode || '') : (selectedStyle?.styleCode || ''),
     styleId: selectedStyle?.styleId || defaults.styleId,

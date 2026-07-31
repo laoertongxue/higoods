@@ -609,7 +609,7 @@ function blockCancelledNode(
 function resolveUpstreamForProjectStep(project: NonNullable<ReturnType<typeof getProjectById>>) {
   return {
     upstreamModule: '商品项目',
-    upstreamObjectType: '项目步骤',
+    upstreamObjectType: '商品项目',
     upstreamObjectId: project.projectId,
     upstreamObjectCode: project.projectCode,
   }
@@ -1717,8 +1717,8 @@ export function createPlateMakingTaskWithProjectRelation(
       projectId: project.projectId,
       projectCode: project.projectCode,
       projectNodeId: '',
-      stepCode: 'PATTERN_TASK',
-      stepName: '制版任务',
+      stepCode: '',
+      stepName: '',
       sourceModule: '制版任务',
       sourceObjectType: '制版任务',
       sourceObjectId: task.plateTaskId,
@@ -1864,8 +1864,8 @@ export function createPatternTaskWithProjectRelation(input: PatternTaskCreateInp
       projectId: project.projectId,
       projectCode: project.projectCode,
       projectNodeId: '',
-      stepCode: 'PATTERN_ARTWORK_TASK',
-      stepName: '花型任务',
+      stepCode: '',
+      stepName: '',
       sourceModule: '花型任务',
       sourceObjectType: '花型任务',
       sourceObjectId: task.patternTaskId,

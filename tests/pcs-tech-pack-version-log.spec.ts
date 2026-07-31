@@ -27,6 +27,7 @@ import {
 import { generateTechPackVersionFromPatternTask } from '../src/data/pcs-tech-pack-task-generation.ts'
 import {
   replaceTechnicalDataVersionStore,
+  updateTechnicalDataVersionContent,
   updateTechnicalDataVersionRecord,
 } from '../src/data/pcs-technical-data-version-repository.ts'
 import { resetPlateMakingTaskRepository, upsertPlateMakingTask } from '../src/data/pcs-plate-making-repository.ts'
@@ -98,7 +99,6 @@ function prepareProjectAndStyle() {
 
 function createPlateTask(projectId: string, styleCode: string) {
   const project = getProjectById(projectId)!
-  const node = getProjectNodeRecordByStepCode(projectId, 'PATTERN_TASK')!
   return upsertPlateMakingTask({
     plateTaskId: 'plate_task_log_test',
     plateTaskCode: 'PT-TEST-LOG-001',
@@ -106,16 +106,18 @@ function createPlateTask(projectId: string, styleCode: string) {
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectName: project.projectName,
-    projectNodeId: node.projectNodeId,
+    projectNodeId: '',
     stepCode: 'PATTERN_TASK',
     stepName: '制版任务',
     sourceType: '项目固定步骤',
     upstreamModule: '商品项目',
-    upstreamObjectType: '商品项目节点',
-    upstreamObjectId: node.projectNodeId,
-    upstreamObjectCode: node.stepCode,
+    upstreamObjectType: '商品项目',
+    upstreamObjectId: project.projectId,
+    upstreamObjectCode: project.projectCode,
     productStyleCode: styleCode,
     spuCode: styleCode,
+    productHistoryType: '未卖过',
+    patternArea: '深圳',
     patternType: '常规制版',
     sizeRange: 'S-XL',
     patternVersion: 'P1',
@@ -126,7 +128,7 @@ function createPlateTask(projectId: string, styleCode: string) {
     linkedTechPackUpdatedAt: '',
     acceptedAt: '2026-04-20 14:10',
     confirmedAt: '2026-04-20 14:20',
-    status: '已完成',
+    status: '已确认',
     ownerId: project.ownerId,
     ownerName: project.ownerName,
     participantNames: ['制版师'],
@@ -144,7 +146,6 @@ function createPlateTask(projectId: string, styleCode: string) {
 
 function createPatternTask(id: string, code: string, projectId: string, styleCode: string, artworkVersion: string) {
   const project = getProjectById(projectId)!
-  const node = getProjectNodeRecordByStepCode(projectId, 'PATTERN_ARTWORK_TASK')!
   return upsertPatternTask({
     patternTaskId: id,
     patternTaskCode: code,
@@ -152,14 +153,14 @@ function createPatternTask(id: string, code: string, projectId: string, styleCod
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectName: project.projectName,
-    projectNodeId: node.projectNodeId,
+    projectNodeId: '',
     stepCode: 'PATTERN_ARTWORK_TASK',
     stepName: '花型任务',
     sourceType: '项目固定步骤',
     upstreamModule: '商品项目',
-    upstreamObjectType: '商品项目节点',
-    upstreamObjectId: node.projectNodeId,
-    upstreamObjectCode: node.stepCode,
+    upstreamObjectType: '商品项目',
+    upstreamObjectId: project.projectId,
+    upstreamObjectCode: project.projectCode,
     productStyleCode: styleCode,
     spuCode: styleCode,
     artworkType: '印花',
@@ -249,6 +250,25 @@ resetScenario()
 const { style, project } = prepareProjectAndStyle()
 const plateTask = createPlateTask(project.projectId, style.styleCode)
 const baseVersion = generateTechPackVersionFromPlateTask(plateTask.plateTaskId, '测试用户').record
+updateTechnicalDataVersionContent(baseVersion.technicalVersionId, {
+  processEntries: [{
+    id: 'process_log_base',
+    entryType: 'PROCESS_BASELINE',
+    stageCode: 'PROD',
+    stageName: '生产',
+    processCode: 'SEWING',
+    processName: '车缝',
+    assignmentGranularity: 'ORDER',
+    defaultDocType: 'TASK',
+    taskTypeMode: 'PROCESS',
+    isSpecialCraft: false,
+    routeStepNo: 1,
+    routeLaneNo: 1,
+  }],
+  processRouteStatus: 'CONFIRMED',
+  processRouteConfirmedBy: '测试用户',
+  processRouteConfirmedAt: '2026-04-20 14:25',
+})
 updateTechnicalDataVersionRecord(baseVersion.technicalVersionId, {
   reviewStage: '待发布',
   reviewSubmittedAt: '2026-04-20 14:30',

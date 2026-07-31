@@ -425,14 +425,6 @@ function ensureTaskProject(task: { projectId: string; projectCode: string; proje
   return project
 }
 
-function ensureTaskNode(projectId: string, stepCode: string, stepName: string) {
-  const node = getProjectNodeRecordByStepCode(projectId, stepCode)
-  if (!node) {
-    throw new Error(`当前项目缺少${stepName}节点，不能写入技术包版本。`)
-  }
-  return node
-}
-
 function getProjectNodeBindingByTaskType(
   projectId: string,
   taskType: TechPackSourceTaskType,
@@ -982,7 +974,6 @@ export function generateTechPackVersionFromPatternTask(
   if (!task) throw new Error('未找到花型任务。')
   ensurePatternTaskReady(task)
   ensureTaskProject(task, '当前花型任务未绑定正式商品项目，不能写入技术包。')
-  ensureTaskNode(task.projectId, task.stepCode, task.stepName)
   const style = ensureStyleArchive(
     { styleId: '', styleCode: task.productStyleCode, projectId: task.projectId, spuCode: task.spuCode },
     '当前花型任务未绑定正式款式档案，不能写入技术包。',
@@ -1110,7 +1101,6 @@ export function generateTechPackVersionFromRevisionTask(
   if (!task) throw new Error('未找到改版任务。')
   ensureRevisionTaskReady(task)
   ensureTaskProject(task, '当前改版任务未绑定正式商品项目，不能建立技术包版本。')
-  const sourceNode = ensureTaskNode(task.projectId, task.stepCode, task.stepName)
   const style = ensureStyleArchive(
     { styleId: task.styleId, styleCode: task.styleCode || task.productStyleCode, projectId: task.projectId, spuCode: task.spuCode },
     '当前改版任务未绑定正式款式档案，不能建立技术包版本。',
@@ -1133,7 +1123,7 @@ export function generateTechPackVersionFromRevisionTask(
     projectId: task.projectId,
     projectCode: task.projectCode,
     projectName: task.projectName,
-    projectNodeId: sourceNode.projectNodeId,
+    projectNodeId: '',
     createdFromTaskType: 'REVISION',
     createdFromTaskId: task.revisionTaskId,
     createdFromTaskCode: task.revisionTaskCode,

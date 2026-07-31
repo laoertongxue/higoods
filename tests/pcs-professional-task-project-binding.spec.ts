@@ -43,6 +43,8 @@ const plateResult = createPlateMakingTask({
 })
 assert.equal(plateResult.ok, true, plateResult.message)
 assert.equal(plateResult.task?.projectNodeId, '', '制版任务不得依赖已删除的专业项目节点')
+assert.equal(plateResult.task?.upstreamModule, '商品项目')
+assert.equal(plateResult.task?.upstreamObjectType, '商品项目', '制版任务页面来源不得伪造成具体测款步骤')
 assert.equal(plateResult.task?.upstreamObjectId, project.projectId)
 assert.equal(plateResult.task?.upstreamObjectCode, project.projectCode)
 
@@ -64,14 +66,32 @@ const patternResult = createPatternTask({
 })
 assert.equal(patternResult.ok, true, patternResult.message)
 assert.equal(patternResult.task?.projectNodeId, '', '花型任务不得依赖已删除的专业项目节点')
+assert.equal(patternResult.task?.upstreamModule, '商品项目')
+assert.equal(patternResult.task?.upstreamObjectType, '商品项目', '花型任务页面来源不得伪造成具体测款步骤')
 assert.equal(patternResult.task?.upstreamObjectId, project.projectId)
 assert.equal(patternResult.task?.upstreamObjectCode, project.projectCode)
 
 const projectRelations = listProjectRelationsByProject(project.projectId)
 const plateRelation = projectRelations.find((item) => item.sourceObjectId === plateResult.task?.plateTaskId)
 const patternRelation = projectRelations.find((item) => item.sourceObjectId === patternResult.task?.patternTaskId)
-assert.equal(plateRelation?.projectNodeId || '', '', '制版项目关系只绑定商品项目，不绑定专业节点')
-assert.equal(patternRelation?.projectNodeId || '', '', '花型项目关系只绑定商品项目，不绑定专业节点')
+assert.ok(plateRelation, '制版任务必须持久化商品项目关系')
+assert.ok(patternRelation, '花型任务必须持久化商品项目关系')
+assert.equal(plateRelation.projectId, project.projectId)
+assert.equal(patternRelation.projectId, project.projectId)
+assert.equal(plateRelation.projectCode, project.projectCode)
+assert.equal(patternRelation.projectCode, project.projectCode)
+assert.equal(plateRelation.sourceModule, '制版任务')
+assert.equal(patternRelation.sourceModule, '花型任务')
+assert.equal(plateRelation.sourceObjectType, '制版任务')
+assert.equal(patternRelation.sourceObjectType, '花型任务')
+assert.equal(plateRelation.sourceObjectId, plateResult.task?.plateTaskId)
+assert.equal(patternRelation.sourceObjectId, patternResult.task?.patternTaskId)
+assert.equal(plateRelation.sourceObjectCode, plateResult.task?.plateTaskCode)
+assert.equal(patternRelation.sourceObjectCode, patternResult.task?.patternTaskCode)
+assert.equal(plateRelation.projectNodeId || '', '', '制版项目关系只绑定商品项目，不绑定专业节点')
+assert.equal(patternRelation.projectNodeId || '', '', '花型项目关系只绑定商品项目，不绑定专业节点')
+assert.equal(plateRelation.stepCode, '', '制版项目关系不得继续保存已删除的专业步骤编码')
+assert.equal(patternRelation.stepCode, '', '花型项目关系不得继续保存已删除的专业步骤编码')
 
 const revisionProject = listProjects().find((item) =>
   Boolean(getProjectNodeRecordByStepCode(item.projectId, 'TEST_CONCLUSION')),
@@ -103,6 +123,25 @@ if (revisionResult.ok) {
   assert.ok(downstreamPlate, '应能按改版任务上游关系查到制版下游任务')
   assert.equal(downstreamPlate?.projectId, revisionProject.projectId)
   assert.equal(downstreamPlate?.projectNodeId, '', '改版下游制版任务只绑定商品项目，不绑定专业节点')
+  const downstreamRelation = listProjectRelationsByProject(revisionProject.projectId).find(
+    (item) => item.sourceObjectId === downstreamPlate?.plateTaskId,
+  )
+  assert.ok(downstreamRelation, '改版下游制版任务必须持久化商品项目关系')
+  assert.equal(downstreamRelation.projectId, revisionProject.projectId)
+  assert.equal(downstreamRelation.projectCode, revisionProject.projectCode)
+  assert.equal(downstreamRelation.sourceModule, '制版任务')
+  assert.equal(downstreamRelation.sourceObjectType, '制版任务')
+  assert.equal(downstreamRelation.sourceObjectId, downstreamPlate?.plateTaskId)
+  assert.equal(downstreamRelation.sourceObjectCode, downstreamPlate?.plateTaskCode)
+  assert.equal(downstreamRelation.stepCode, '', '改版下游制版关系不得保存已删除的专业步骤编码')
+
+  const repeated = createDownstreamTasksFromRevision(revisionResult.task.revisionTaskId, ['PLATE'])
+  assert.equal(repeated.successCount, 0, '同一改版任务不得重复创建制版下游任务')
+  assert.equal(
+    listPlateMakingTasks().filter((item) => item.upstreamObjectId === revisionResult.task.revisionTaskId).length,
+    1,
+    '重复创建被阻止后只能保留一张制版下游任务',
+  )
 }
 
 console.log('pcs-professional-task-project-binding.spec.ts PASS')

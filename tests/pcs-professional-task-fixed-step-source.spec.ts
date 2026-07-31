@@ -28,7 +28,7 @@ const fixedStepTasks = [...snapshot.plateTasks, ...snapshot.patternTasks].filter
 assert.ok(fixedStepTasks.length > 0, '专业任务演示数据必须包含项目固定步骤来源')
 fixedStepTasks.forEach((task) => {
   assert.equal(task.upstreamModule, '商品项目')
-  assert.equal(task.upstreamObjectType, '项目步骤')
+  assert.equal(task.upstreamObjectType, '商品项目')
   assert.ok(task.projectId, '项目固定步骤来源必须关联商品项目')
   assert.equal(task.projectNodeId, '', '专业任务不重新绑定已删除的项目工作项节点')
 })
@@ -51,6 +51,16 @@ const engineeringPageSource = readFileSync(resolve(repositoryRoot, 'src/pages/pc
 assert.doesNotMatch(engineeringPageSource, /project\?\.templateId|project\?\.templateVersion/, '项目任务来源不得读取已删除的模板字段')
 assert.match(engineeringPageSource, /sourceType: projectMode \? '项目固定步骤' : '人工创建'/, '提交时必须按创建方式锁定来源类型')
 assert.match(engineeringPageSource, /bindingMode === 'project' \? '项目固定步骤' : '人工创建'/, '交互时必须按创建方式锁定来源类型')
+assert.doesNotMatch(
+  engineeringPageSource,
+  /upstreamObjectType: projectMode \? '项目步骤' : '款式档案'/,
+  '页面关联商品项目时不得伪造成某个具体项目步骤',
+)
+assert.doesNotMatch(
+  engineeringPageSource,
+  /\{ label: '项目步骤'|\{ label: '关联项目节点'/,
+  '专业任务详情不得展示不存在的项目步骤关系',
+)
 
 const independentRevisionTasks = snapshot.revisionTasks.filter((task) => !task.projectId)
 assert.ok(independentRevisionTasks.length > 0, '必须保留独立改款／设计任务')

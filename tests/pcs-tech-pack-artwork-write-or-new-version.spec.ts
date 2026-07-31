@@ -5,7 +5,6 @@ import {
 } from '../src/data/pcs-project-relation-repository.ts'
 import {
   getProjectById,
-  getProjectNodeRecordByStepCode,
   resetProjectRepository,
   updateProjectRecord,
 } from '../src/data/pcs-project-repository.ts'
@@ -98,7 +97,6 @@ function prepareProjectAndStyle() {
 
 function createPlateTask(projectId: string, styleCode: string): PlateMakingTaskRecord {
   const project = getProjectById(projectId)!
-  const plateNode = getProjectNodeRecordByStepCode(projectId, 'PATTERN_TASK')!
   return upsertPlateMakingTask({
     plateTaskId: 'plate_task_artwork_test',
     plateTaskCode: 'PT-TEST-ART-001',
@@ -106,16 +104,18 @@ function createPlateTask(projectId: string, styleCode: string): PlateMakingTaskR
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectName: project.projectName,
-    projectNodeId: plateNode.projectNodeId,
+    projectNodeId: '',
     stepCode: 'PATTERN_TASK',
     stepName: '制版任务',
     sourceType: '项目固定步骤',
     upstreamModule: '商品项目',
-    upstreamObjectType: '商品项目节点',
-    upstreamObjectId: plateNode.projectNodeId,
-    upstreamObjectCode: plateNode.stepCode,
+    upstreamObjectType: '商品项目',
+    upstreamObjectId: project.projectId,
+    upstreamObjectCode: project.projectCode,
     productStyleCode: styleCode,
     spuCode: styleCode,
+    productHistoryType: '未卖过',
+    patternArea: '深圳',
     patternType: '常规制版',
     sizeRange: 'S-XL',
     patternVersion: 'P1',
@@ -126,7 +126,7 @@ function createPlateTask(projectId: string, styleCode: string): PlateMakingTaskR
     linkedTechPackUpdatedAt: '',
     acceptedAt: '2026-04-20 10:10',
     confirmedAt: '2026-04-20 10:20',
-    status: '已完成',
+    status: '已确认',
     ownerId: project.ownerId,
     ownerName: project.ownerName,
     participantNames: ['制版师'],
@@ -144,7 +144,6 @@ function createPlateTask(projectId: string, styleCode: string): PlateMakingTaskR
 
 function createPatternTask(id: string, code: string, projectId: string, styleCode: string, artworkVersion: string): PatternTaskRecord {
   const project = getProjectById(projectId)!
-  const patternNode = getProjectNodeRecordByStepCode(projectId, 'PATTERN_ARTWORK_TASK')!
   return upsertPatternTask({
     patternTaskId: id,
     patternTaskCode: code,
@@ -152,14 +151,14 @@ function createPatternTask(id: string, code: string, projectId: string, styleCod
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectName: project.projectName,
-    projectNodeId: patternNode.projectNodeId,
+    projectNodeId: '',
     stepCode: 'PATTERN_ARTWORK_TASK',
     stepName: '花型任务',
     sourceType: '项目固定步骤',
     upstreamModule: '商品项目',
-    upstreamObjectType: '商品项目节点',
-    upstreamObjectId: patternNode.projectNodeId,
-    upstreamObjectCode: patternNode.stepCode,
+    upstreamObjectType: '商品项目',
+    upstreamObjectId: project.projectId,
+    upstreamObjectCode: project.projectCode,
     productStyleCode: styleCode,
     spuCode: styleCode,
     artworkType: '印花',

@@ -28,6 +28,7 @@ import {
   getCurrentTechPackVersionByStyleId,
   listTechnicalDataVersionsByStyleId,
   replaceTechnicalDataVersionStore,
+  updateTechnicalDataVersionContent,
   updateTechnicalDataVersionRecord,
 } from '../src/data/pcs-technical-data-version-repository.ts'
 import { resetPlateMakingTaskRepository, upsertPlateMakingTask } from '../src/data/pcs-plate-making-repository.ts'
@@ -92,7 +93,6 @@ function prepareProjectAndStyle() {
 
 function createPlateTask(id: string, code: string, projectId: string, styleCode: string, patternVersion: string): PlateMakingTaskRecord {
   const project = getProjectById(projectId)!
-  const plateNode = getProjectNodeRecordByStepCode(projectId, 'PATTERN_TASK')!
   return upsertPlateMakingTask({
     plateTaskId: id,
     plateTaskCode: code,
@@ -100,16 +100,18 @@ function createPlateTask(id: string, code: string, projectId: string, styleCode:
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectName: project.projectName,
-    projectNodeId: plateNode.projectNodeId,
+    projectNodeId: '',
     stepCode: 'PATTERN_TASK',
     stepName: '制版任务',
     sourceType: '项目固定步骤',
     upstreamModule: '商品项目',
-    upstreamObjectType: '商品项目节点',
-    upstreamObjectId: plateNode.projectNodeId,
-    upstreamObjectCode: plateNode.stepCode,
+    upstreamObjectType: '商品项目',
+    upstreamObjectId: project.projectId,
+    upstreamObjectCode: project.projectCode,
     productStyleCode: styleCode,
     spuCode: styleCode,
+    productHistoryType: '未卖过',
+    patternArea: '深圳',
     patternType: '常规制版',
     sizeRange: 'S-XL',
     patternVersion,
@@ -120,7 +122,7 @@ function createPlateTask(id: string, code: string, projectId: string, styleCode:
     linkedTechPackUpdatedAt: '',
     acceptedAt: '2026-04-20 12:10',
     confirmedAt: '2026-04-20 12:20',
-    status: '已完成',
+    status: '已确认',
     ownerId: project.ownerId,
     ownerName: project.ownerName,
     participantNames: ['制版师'],
@@ -197,6 +199,25 @@ const { style, project } = prepareProjectAndStyle()
 
 const plateTaskOne = createPlateTask('plate_task_revision_base', 'PT-TEST-REV-BASE', project.projectId, style.styleCode, 'P1')
 const baseVersion = generateTechPackVersionFromPlateTask(plateTaskOne.plateTaskId, '测试用户').record
+updateTechnicalDataVersionContent(baseVersion.technicalVersionId, {
+  processEntries: [{
+    id: 'process_revision_base',
+    entryType: 'PROCESS_BASELINE',
+    stageCode: 'PROD',
+    stageName: '生产',
+    processCode: 'SEWING',
+    processName: '车缝',
+    assignmentGranularity: 'ORDER',
+    defaultDocType: 'TASK',
+    taskTypeMode: 'PROCESS',
+    isSpecialCraft: false,
+    routeStepNo: 1,
+    routeLaneNo: 1,
+  }],
+  processRouteStatus: 'CONFIRMED',
+  processRouteConfirmedBy: '测试用户',
+  processRouteConfirmedAt: '2026-04-20 12:25',
+})
 updateTechnicalDataVersionRecord(baseVersion.technicalVersionId, {
   reviewStage: '待发布',
   reviewSubmittedAt: '2026-04-20 12:30',
