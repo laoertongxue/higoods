@@ -25,6 +25,7 @@ import {
   listWoolWorkOrders,
   returnWoolYarn,
 } from '../data/fcs/wool-task-domain.ts'
+import { formatIndonesiaBusinessDateTime } from '../data/fcs/indonesia-business-time.ts'
 import {
   listMaterialLedgerProjections,
   type MaterialLedgerProjection,
@@ -539,7 +540,7 @@ function normalizeCuttingRuntimeQtyUnit(unit: string | undefined): CuttingRuntim
 }
 
 function getCuttingRuntimeNowText(): string {
-  return new Date().toISOString().slice(0, 16).replace('T', ' ')
+  return formatIndonesiaBusinessDateTime().slice(0, 16)
 }
 
 function parseCuttingQtyAndRoll(rawValue: string | null | undefined, fallbackQty = 0): { qty: number; rollCount: number; displayText: string } {
@@ -1852,8 +1853,12 @@ function getWoolWaitProcessStocks() {
   return listWoolWarehouseStocks('WAIT_PROCESS')
 }
 
+export function resolveWoolWaitProcessStockSelection(stockKey: string) {
+  return getWoolWaitProcessStocks().find((item) => item.stockKey === stockKey)
+}
+
 function getWoolPdaWarehouseNowText(): string {
-  return new Date().toISOString().slice(0, 19).replace('T', ' ')
+  return formatIndonesiaBusinessDateTime()
 }
 
 function createWoolPdaWarehouseCommandId(action: string): string {
@@ -1936,12 +1941,33 @@ function renderWoolStockSelect(field: string, value: string): string {
   `
 }
 
+function renderWoolAdjustmentStockSelect(value: string): string {
+  const stocks = getWoolWaitProcessStocks()
+  return `
+    <label class="block space-y-1.5">
+      <span class="text-xs font-medium text-muted-foreground">纱线库存</span>
+      <select class="h-11 w-full rounded-xl border bg-background px-3 text-sm" data-pda-warehouse-field="wool-issue-location">
+        ${stocks.map((stock) => `
+          <option value="${escapeAttr(stock.stockKey)}" ${stock.stockKey === value ? 'selected' : ''}>
+            ${escapeHtml(`${stock.woolOrderNo} / ${stock.objectSkuCode} / ${stock.batchNo || '无批次'} / ${stock.currentQty}${stock.unit}`)}
+          </option>
+        `).join('')}
+      </select>
+    </label>
+  `
+}
+
 function renderWoolWaitProcessActionPage(action: WoolWaitProcessAction): string {
   if (action === 'receive') ensureWoolReceiveDraft()
   if (action === 'issue') ensureWoolIssueDraft()
   if (action === 'return') ensureWoolReturnActionDraft()
   if (action === 'adjust') {
-    ensureWoolIssueDraft()
+    const first = getWoolWaitProcessStocks().find((item) => item.currentQty > 0)
+      || getWoolWaitProcessStocks()[0]
+    if (!resolveWoolWaitProcessStockSelection(state.woolIssueLocationId)) {
+      state.woolIssueLocationId = first?.stockKey || ''
+      state.woolIssueQty = String(first?.currentQty || 0)
+    }
     state.woolAdjustCommandId ||= createWoolPdaWarehouseCommandId('ADJUST')
   }
   const title = action === 'receive'
@@ -2048,9 +2074,9 @@ function renderWoolWaitProcessActionPage(action: WoolWaitProcessAction): string 
                 </label>
                 ${renderWoolStockSelect('wool-return-location', state.woolReturnLocationId)}
                 <button type="button" class="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground" data-pda-warehouse-action="confirm-wool-return">确认纱线退回</button>
-              `
+                `
                 : `
-                  ${renderWoolStockSelect('wool-issue-location', state.woolIssueLocationId)}
+                  ${renderWoolAdjustmentStockSelect(state.woolIssueLocationId)}
                   <label class="block space-y-1.5">
                     <span class="text-xs font-medium text-muted-foreground">调整后数量（kg）</span>
                     <input class="h-11 w-full rounded-xl border bg-background px-3 text-sm" inputmode="decimal" value="${escapeAttr(state.woolIssueQty)}" data-pda-warehouse-field="wool-issue-qty" />
@@ -2674,11 +2700,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
   if (action === 'confirm-wool-adjust') {
     const runtime = getMobileWarehouseRuntimeContext()
     const qty = Number(state.woolIssueQty)
-    const [yarnSkuCode, batchNoValue] = state.woolIssueLocationId.split('|')
-    const stock = getWoolWaitProcessStocks().find((item) =>
-      item.objectSkuCode === yarnSkuCode
-      && (item.batchNo || '') === batchNoValue,
-    )
+    const stock = resolveWoolWaitProcessStockSelection(state.woolIssueLocationId)
     if (runtime?.factoryId !== OWN_WOOL_FACTORY_ID || !stock) {
       window.alert('当前账号或纱线库存已变化，请重新选择。')
       return true
@@ -2694,7 +2716,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
         woolOrderId: stock.woolOrderId,
         objectSkuCode: stock.objectSkuCode,
         batchNo: stock.batchNo,
-        defaultLocationId: 'WOOL-WP-YARN-DEFAULT',
+        defaultLocationId: stock.defaultLocationId,
         afterQty: qty,
         reason: state.remark,
         operatedAt: getWoolPdaWarehouseNowText(),

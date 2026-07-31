@@ -11,12 +11,15 @@ import {
   clearWoolStoreMemoryCache,
   getWoolOutputHandoverAvailableQty,
   getWoolOutputReadiness,
+  getWoolHandoverEffectiveQty,
+  getWoolProcessReportEffectiveQty,
   getWoolProcessingStatus,
   getWoolStoreReadCountForDiagnostics,
   getWoolWarehouseStock,
   issueWoolYarn,
   listWoolYarnReceiptLineTraces,
   listWoolWarehouseFlows,
+  listWoolWarehouseStocks,
   listWoolWorkOrders,
   readWoolStore,
   replaceWoolStore,
@@ -34,6 +37,11 @@ import {
 } from '../src/data/fcs/factory-internal-warehouse-locations.ts'
 import { getFactoryMobileWarehouseOverview } from '../src/data/fcs/factory-mobile-warehouse.ts'
 import { OWN_WOOL_FACTORY_ID } from '../src/data/fcs/factory-mock-data.ts'
+import {
+  formatIndonesiaBusinessDateTime,
+  isIndonesiaBusinessDateToday,
+} from '../src/data/fcs/indonesia-business-time.ts'
+import { resolveWoolWaitProcessStockSelection } from '../src/pages/pda-warehouse-wait-process.ts'
 import {
   renderCraftWoolWaitHandoverWarehousePage,
   renderCraftWoolWaitProcessWarehousePage,
@@ -76,6 +84,12 @@ for (const removedText of [
 for (const requiredText of ['确认接收', '纱线领用', '纱线退回', '库存调整']) {
   assert(pdaWaitProcessSource.includes(requiredText), `毛织 PDA 待加工仓缺少事实动作：${requiredText}`)
 }
+assert(pdaWaitProcessSource.includes('stock.stockKey'), '毛织 PDA 库存调整选项必须使用完整稳定 stockKey')
+assert(
+  pdaWaitProcessSource.includes('resolveWoolWaitProcessStockSelection(state.woolIssueLocationId)'),
+  '毛织 PDA 库存调整提交前必须按完整 stockKey 重读库存',
+)
+assert(!pdaWaitProcessSource.includes('.toISOString()'), '毛织 PDA 待加工仓不得用 UTC 字符串写业务时间')
 for (const removedText of [
   "type WoolWaitHandoverAction = 'finish-inbound' | 'handover-confirm'",
   'confirm-wool-finish-inbound',
@@ -89,6 +103,7 @@ for (const removedText of [
 for (const requiredText of ['加工填报自动入库', '发起交出出库', '库存调整', '库存转移']) {
   assert(pdaWaitHandoverSource.includes(requiredText), `毛织 PDA 待交出仓缺少事实展示：${requiredText}`)
 }
+assert(!pdaWaitHandoverSource.includes('.toISOString()'), '毛织 PDA 待交出仓不得用 UTC 字符串写业务时间')
 const woolWarehouseBranches = [...pdaWarehouseSource.matchAll(
   /else if \(isWoolWarehouseRuntime\(runtime\)\) \{([\s\S]*?)\n  \} else/g,
 )]
@@ -160,30 +175,124 @@ for (const requiredText of [
 assert(handlersSource.includes('handleCraftWoolWarehouseEvent'), 'FCS 事件分发必须接入毛织仓库局部事件')
 
 resetWoolFactWorkflowMock('CHECK_TASK_11_WAREHOUSE')
+const fixedJakartaNow = new Date('2026-07-30T17:30:00.000Z')
+assert.equal(formatIndonesiaBusinessDateTime(fixedJakartaNow), '2026-07-31 00:30:00')
+assert(isIndonesiaBusinessDateToday('2026-07-31 00:05:00', fixedJakartaNow))
+assert(!isIndonesiaBusinessDateToday('2026-07-30 23:59:59', fixedJakartaNow))
+const historicalOrder = listWoolWorkOrders()
+  .find((order) => order.mockScenarioCode === 'NO_YARN_RECEIPT')!
+const historicalOutput = historicalOrder.outputPlanLines[0]
+addWoolYarnReceipt(historicalOrder.woolOrderId, {
+  commandId: 'CHECK-T13-HISTORY-RECEIPT',
+  receivedAt: '2026-07-29 23:40:00',
+  receivedBy: '历史仓管',
+  lines: historicalOutput.requiredYarnSkus.map((yarnSkuCode) => ({
+    yarnSkuCode,
+    yarnName: `${yarnSkuCode} 历史接收`,
+    receivedQty: 2,
+  })),
+})
+addWoolProcessReport(historicalOrder.woolOrderId, {
+  commandId: 'CHECK-T13-HISTORY-REPORT',
+  outputSkuCode: historicalOutput.outputSkuCode,
+  reportedQty: 1,
+  reportedAt: '2026-07-29 23:45:00',
+  reportedBy: '历史操作员',
+})
+addWoolHandover(historicalOrder.woolOrderId, {
+  commandId: 'CHECK-T13-HISTORY-HANDOVER',
+  outputSkuCode: historicalOutput.outputSkuCode,
+  handoverQty: 1,
+  handedOverAt: '2026-07-29 23:50:00',
+  handedOverBy: '历史仓管',
+})
+const overviewNow = new Date('2026-07-30T16:30:00.000Z')
 const mobileFactStore = readWoolStore()
-const mobileOverview = getFactoryMobileWarehouseOverview(OWN_WOOL_FACTORY_ID, '我方毛织厂')
-const expectedReceiptLineCount = mobileFactStore.yarnReceipts
-  .reduce((sum, record) => sum + record.lines.length, 0)
+const mobileOverview = getFactoryMobileWarehouseOverview(
+  OWN_WOOL_FACTORY_ID,
+  '我方毛织厂',
+  overviewNow,
+)
+const todayReceiptLines = Object.keys(mobileFactStore.workOrders)
+  .flatMap((woolOrderId) => listWoolYarnReceiptLineTraces({ woolOrderId, batchMatch: 'ANY' }))
+  .filter((line) => line.receivedAt.startsWith('2026-07-30'))
+const todayReports = mobileFactStore.processReports.filter((record) => record.reportedAt.startsWith('2026-07-30'))
+const todayHandovers = mobileFactStore.handovers.filter((record) => record.handedOverAt.startsWith('2026-07-30'))
 assert.equal(
   mobileOverview.todayInboundCount,
-  expectedReceiptLineCount + mobileFactStore.processReports.length,
-  '毛织移动仓入库计数必须按接收明细和加工填报事实逐行汇总',
+  todayReceiptLines.length + todayReports.length,
+  '毛织移动仓今日入库计数必须只汇总今日接收明细和加工填报事实',
 )
 assert.equal(
   mobileOverview.todayOutboundCount,
-  mobileFactStore.handovers.length,
-  '毛织移动仓出库计数必须按每次交出事实汇总',
+  todayHandovers.length,
+  '毛织移动仓今日出库计数必须只汇总今日交出事实',
 )
-assert.notEqual(
-  mobileOverview.todayInboundCount,
-  mobileFactStore.yarnReceipts.length + mobileFactStore.workOrders.length,
-  '移动仓不得拿加工单数冒充物料行数',
+assert.equal(
+  mobileOverview.todayInboundQty,
+  todayReceiptLines.reduce((sum, line) => sum + line.effectiveQty, 0)
+    + todayReports.reduce((sum, record) => sum + getWoolProcessReportEffectiveQty(mobileFactStore, record), 0),
+  '毛织移动仓今日入库数量必须排除历史事实',
 )
+assert.equal(
+  mobileOverview.todayOutboundQty,
+  todayHandovers.reduce((sum, record) => sum + getWoolHandoverEffectiveQty(mobileFactStore, record), 0),
+  '毛织移动仓今日出库数量必须排除历史事实',
+)
+resetWoolFactWorkflowMock('CHECK_TASK_11_WAREHOUSE')
 const issueOrder = listWoolWorkOrders()
   .find((order) => order.mockScenarioCode === 'YARN_ISSUE_RETURN')!
 const batchIsolationOrder = listWoolWorkOrders()
   .find((order) => order.mockScenarioCode === 'NO_YARN_RECEIPT')!
 const batchIsolationYarnSku = batchIsolationOrder.outputPlanLines[0].requiredYarnSkus[0]
+const sharedStockOrders = listWoolWorkOrders()
+  .filter((order) => order.outputPlanLines.some((line) => line.requiredYarnSkus.includes('YARN-A')))
+  .slice(0, 2)
+assert.equal(sharedStockOrders.length, 2, '稳定 stockKey 用例需要两个包含同一纱线 SKU 的加工单')
+sharedStockOrders.forEach((order, index) => addWoolYarnReceipt(order.woolOrderId, {
+  commandId: `CHECK-T13-STABLE-STOCK-${index + 1}`,
+  batchNo: 'BATCH-SAME',
+  receivedAt: '2026-07-31 09:40:00',
+  receivedBy: '稳定键仓管',
+  lines: [{
+    yarnSkuCode: 'YARN-A',
+    yarnName: '同 SKU 同批次纱线',
+    receivedQty: index + 4,
+  }],
+}))
+const sharedStocks = listWoolWarehouseStocks('WAIT_PROCESS')
+  .filter((stock) => stock.objectSkuCode === 'YARN-A' && stock.batchNo === 'BATCH-SAME')
+assert.equal(sharedStocks.length, 2)
+assert.notEqual(sharedStocks[0].stockKey, sharedStocks[1].stockKey)
+const selectedSharedStock = resolveWoolWaitProcessStockSelection(sharedStocks[1].stockKey)
+assert.equal(selectedSharedStock?.woolOrderId, sharedStocks[1].woolOrderId)
+const untouchedSharedQty = getWoolWarehouseStock({
+  woolOrderId: sharedStocks[0].woolOrderId,
+  objectSkuCode: sharedStocks[0].objectSkuCode,
+  batchNo: sharedStocks[0].batchNo,
+  defaultLocationId: 'WOOL-WP-YARN-DEFAULT',
+})
+adjustWoolWarehouseStock({
+  commandId: 'CHECK-T13-STABLE-STOCK-ADJUST',
+  woolOrderId: selectedSharedStock!.woolOrderId,
+  objectSkuCode: selectedSharedStock!.objectSkuCode,
+  batchNo: selectedSharedStock!.batchNo,
+  defaultLocationId: selectedSharedStock!.defaultLocationId,
+  afterQty: 2,
+  reason: '只调整选中加工单',
+  operatedAt: '2026-07-31 09:45:00',
+  operatedBy: '稳定键仓管',
+})
+assert.equal(
+  getWoolWarehouseStock({
+    woolOrderId: sharedStocks[0].woolOrderId,
+    objectSkuCode: sharedStocks[0].objectSkuCode,
+    batchNo: sharedStocks[0].batchNo,
+    defaultLocationId: 'WOOL-WP-YARN-DEFAULT',
+  }),
+  untouchedSharedQty,
+  '同 SKU 同批次跨两张加工单时，未选中加工单必须零写',
+)
 addWoolYarnReceipt(batchIsolationOrder.woolOrderId, {
   commandId: 'CHECK-T11-BATCH-EXACT-NO-BATCH',
   batchNo: '   ',

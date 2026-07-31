@@ -5,6 +5,8 @@ import path from 'node:path'
 import process from 'node:process'
 
 import {
+  canPdaFactoryAccessHandoverHead,
+  getPdaHandoutHeads,
   getPdaHandoverRecordsByHead,
   listPdaHandoverHeads,
   listQuantityObjections,
@@ -15,14 +17,65 @@ import {
   getWoolWarehouseStock,
   listWoolWorkOrders,
   readWoolStore,
+  replaceWoolStore,
   resetWoolFactWorkflowMock,
 } from '../src/data/fcs/wool-task-domain.ts'
+import {
+  getPdaSession,
+  listFactoryPdaUsers,
+  setPdaSession,
+} from '../src/data/fcs/store-domain-pda.ts'
+import {
+  DEDICATED_POST_FACTORY_ID,
+  OWN_WOOL_FACTORY_ID,
+  TEST_FACTORY_ID,
+} from '../src/data/fcs/factory-mock-data.ts'
 import { removedLegacyProcessCodes } from './utils/special-craft-banlist.ts'
+
+const pdaSessionStorage = new Map<string, string>()
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: {
+    get length(): number {
+      return pdaSessionStorage.size
+    },
+    clear(): void {
+      pdaSessionStorage.clear()
+    },
+    getItem(key: string): string | null {
+      return pdaSessionStorage.get(key) ?? null
+    },
+    key(index: number): string | null {
+      return [...pdaSessionStorage.keys()][index] ?? null
+    },
+    removeItem(key: string): void {
+      pdaSessionStorage.delete(key)
+    },
+    setItem(key: string, value: string): void {
+      pdaSessionStorage.set(key, String(value))
+    },
+  } satisfies Storage,
+})
 
 function assert(condition: unknown, message: string): void {
   if (!condition) {
     throw new Error(message)
   }
+}
+
+function loginPdaFactory(factoryId: string): void {
+  const user = listFactoryPdaUsers(factoryId).find((item) => item.status === 'ACTIVE')
+  assert(user, `缺少工厂 ${factoryId} 的有效 PDA 用户`)
+  setPdaSession({
+    userId: user.userId,
+    loginId: user.loginId,
+    userName: user.name,
+    roleId: user.roleId,
+    factoryId: user.factoryId,
+    factoryName: user.factoryId,
+    loggedAt: '2026-07-31 10:00:00',
+  })
+  assert(getPdaSession()?.factoryId === factoryId, `PDA 会话未切换到工厂 ${factoryId}`)
 }
 
 const pageFiles = [
@@ -134,6 +187,16 @@ function checkDataSignals(): void {
 
 function checkWoolFactHandoverProjection(): void {
   resetWoolFactWorkflowMock('CHECK_TASK_13_HANDOVER')
+  const initialStore = readWoolStore()
+  replaceWoolStore({
+    ...initialStore,
+    handovers: initialStore.handovers.map((handover) => ({
+      ...handover,
+      receiverType: 'DOWNSTREAM_FACTORY',
+      receiverId: DEDICATED_POST_FACTORY_ID,
+      receiverName: '后道专厂',
+    })),
+  })
   const order = listWoolWorkOrders()
     .find((item) => item.mockScenarioCode === 'MULTIPLE_HANDOVERS_WITH_STOCK')!
   const sourceHandovers = readWoolStore().handovers
@@ -150,6 +213,23 @@ function checkWoolFactHandoverProjection(): void {
     new Set(projectedHeads.map((head) => head.handoverOrderId)).size === sourceHandovers.length,
     '同一毛织加工单的多次交出不得覆盖同一个交接单号',
   )
+  assert(
+    getPdaHandoutHeads(DEDICATED_POST_FACTORY_ID)
+      .filter((head) => head.processBusinessCode === 'WOOL')
+      .length === readWoolStore().handovers.filter((handover) => !handover.downstreamReceipt || handover.downstreamReceipt.status !== 'CONFIRMED').length,
+    '结构化目标工厂必须能看到全部待接收毛织交出',
+  )
+  assert(
+    !getPdaHandoutHeads(OWN_WOOL_FACTORY_ID).some((head) => head.processBusinessCode === 'WOOL'),
+    '来源毛织厂不是接收方时不得看到待接收毛织交出',
+  )
+  assert(
+    !getPdaHandoutHeads(TEST_FACTORY_ID).some((head) => head.processBusinessCode === 'WOOL'),
+    '第三方工厂不得看到不属于自己的毛织交出',
+  )
+  assert(projectedHeads.every((head) => canPdaFactoryAccessHandoverHead(head, DEDICATED_POST_FACTORY_ID)))
+  assert(projectedHeads.every((head) => !canPdaFactoryAccessHandoverHead(head, OWN_WOOL_FACTORY_ID)))
+  assert(projectedHeads.every((head) => !canPdaFactoryAccessHandoverHead(head, TEST_FACTORY_ID)))
 
   for (const source of sourceHandovers) {
     const head = projectedHeads.find((item) => item.sourceDocId === source.handoverId)
@@ -185,6 +265,22 @@ function checkWoolFactHandoverProjection(): void {
   const stockBefore = getWoolWarehouseStock(stockKey)
   const head = listPdaHandoverHeads().find((item) => item.sourceDocId === source.handoverId)!
   const record = getPdaHandoverRecordsByHead(head.handoverId)[0]!
+  loginPdaFactory(OWN_WOOL_FACTORY_ID)
+  const beforeCrossFactoryWrite = JSON.stringify(readWoolStore())
+  let sourceWriteRejected = false
+  try {
+    writeBackHandoverRecord({
+      handoverRecordId: record.recordId,
+      receiverWrittenQty: sourceQtyBefore - 1,
+      receiverWrittenAt: '2026-07-31 16:20:00',
+      receiverWrittenBy: '来源厂仓管',
+    })
+  } catch {
+    sourceWriteRejected = true
+  }
+  assert(sourceWriteRejected, '来源厂不是结构化接收方时必须拒绝下游确认')
+  assert(JSON.stringify(readWoolStore()) === beforeCrossFactoryWrite, '跨工厂拒绝必须零写')
+  loginPdaFactory(DEDICATED_POST_FACTORY_ID)
   writeBackHandoverRecord({
     handoverRecordId: record.recordId,
     receiverWrittenQty: sourceQtyBefore - 1,
@@ -199,6 +295,58 @@ function checkWoolFactHandoverProjection(): void {
   assert(after.downstreamReceipt.receivedBy === '下游仓管', '下游确认必须保存接收人')
   assert(after.handoverQty === sourceQtyBefore, '下游确认不得修改来源交出数量')
   assert(getWoolWarehouseStock(stockKey) === stockBefore, '下游确认不得恢复毛织库存')
+
+  const toctouSource = sourceHandovers.find((item) => item.handoverId !== source.handoverId)!
+  const toctouHead = listPdaHandoverHeads().find((item) => item.sourceDocId === toctouSource.handoverId)!
+  const toctouRecord = getPdaHandoverRecordsByHead(toctouHead.handoverId)[0]!
+  const beforeReceiverChange = readWoolStore()
+  replaceWoolStore({
+    ...beforeReceiverChange,
+    handovers: beforeReceiverChange.handovers.map((handover) => handover.handoverId === toctouSource.handoverId
+      ? {
+          ...handover,
+          receiverType: 'DOWNSTREAM_FACTORY',
+          receiverId: TEST_FACTORY_ID,
+          receiverName: '已切换的接收工厂',
+        }
+      : handover),
+  })
+  const beforeToctouWrite = JSON.stringify(readWoolStore())
+  let staleSessionRejected = false
+  try {
+    writeBackHandoverRecord({
+      handoverRecordId: toctouRecord.recordId,
+      receiverWrittenQty: toctouSource.handoverQty,
+      receiverWrittenAt: '2026-07-31 16:40:00',
+      receiverWrittenBy: '旧接收方仓管',
+    })
+  } catch {
+    staleSessionRejected = true
+  }
+  assert(staleSessionRejected, '接收方变化后必须用最新交出事实拒绝旧会话写入')
+  assert(JSON.stringify(readWoolStore()) === beforeToctouWrite, 'TOCTOU 拒绝必须零写')
+
+  const nonFactoryStore = readWoolStore()
+  replaceWoolStore({
+    ...nonFactoryStore,
+    handovers: nonFactoryStore.handovers.map((handover) => handover.handoverId === toctouSource.handoverId
+      ? {
+          ...handover,
+          receiverType: 'CUTTING_WAIT_HANDOVER_WAREHOUSE',
+          receiverId: 'WOOL-CUTTING-WAIT-HANDOVER',
+          receiverName: '裁床待交出仓',
+        }
+      : handover),
+  })
+  const nonFactoryHead = listPdaHandoverHeads()
+    .find((item) => item.sourceDocId === toctouSource.handoverId)!
+  assert(nonFactoryHead, '非工厂接收方的交出仍必须保留通用非 PDA 投影')
+  assert(nonFactoryHead.factoryId !== OWN_WOOL_FACTORY_ID, '非工厂接收方不得错误映射为来源毛织厂')
+  assert(
+    ![OWN_WOOL_FACTORY_ID, DEDICATED_POST_FACTORY_ID, TEST_FACTORY_ID]
+      .some((factoryId) => getPdaHandoutHeads(factoryId).some((item) => item.handoverId === nonFactoryHead.handoverId)),
+    '非工厂接收方不得进入任一工厂 PDA 待接收列表',
+  )
 }
 
 function main(): void {

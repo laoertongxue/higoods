@@ -92,6 +92,7 @@ import {
   validateWaterSolublePdaActor,
   type WaterSolublePdaActor,
 } from './water-soluble-pda-actor.ts'
+import { getPdaSession } from './store-domain-pda.ts'
 
 export type HandoverAction = 'PICKUP' | 'HANDOUT'
 export type HandoverStatus = 'PENDING' | 'CONFIRMED'
@@ -1400,7 +1401,7 @@ function buildWoolFactHandoverHead(
     receiverId: handover.receiverId,
     receiverName: handover.receiverName,
     qtyUnit: output.qtyUnit,
-    factoryId: order.factoryId,
+    factoryId: targetKind === 'FACTORY' ? handover.receiverId : '',
     taskStatus: completed ? 'DONE' : 'IN_PROGRESS',
     summaryStatus: confirmed ? 'WRITTEN_BACK' : 'SUBMITTED',
     handoverOrderStatus: confirmed ? 'WRITTEN_BACK' : 'WAIT_RECEIVER_WRITEBACK',
@@ -3914,6 +3915,11 @@ function buildHeadsInternal(): PdaHandoverHead[] {
   ]
 }
 
+export function canPdaFactoryAccessHandoverHead(head: PdaHandoverHead, factoryId: string): boolean {
+  if (head.processBusinessCode !== 'WOOL') return head.factoryId === factoryId
+  return head.targetKind === 'FACTORY' && head.receiverId === factoryId
+}
+
 function recomputePostFinishingHeadsInternal(): PdaHandoverHead[] {
   const postFinishingPickupHeads = buildPostFinishingPickupHeads().map((head) => refreshPickupHeadSummary(head))
   const postFinishingSelfReturnPickupHeads = buildPostFinishingSewingSelfReturnPickupHeads().map((head) => refreshPickupHeadSummary(head))
@@ -3943,7 +3949,7 @@ function buildPostFinishingHeadsInternal(): PdaHandoverHead[] {
 
 function listHeadsSorted(factoryId?: string): PdaHandoverHead[] {
   return buildHeadsInternal()
-    .filter((head) => !factoryId || head.factoryId === factoryId)
+    .filter((head) => !factoryId || canPdaFactoryAccessHandoverHead(head, factoryId))
     .sort((a, b) => {
       const bTime = parseDateMs(b.lastRecordAt || b.completedByWarehouseAt || '')
       const aTime = parseDateMs(a.lastRecordAt || a.completedByWarehouseAt || '')
@@ -5022,6 +5028,17 @@ export function writeBackHandoverRecord(input: {
     throw new Error('实收时间不能早于交出时间')
   }
   if (current.sourceWoolHandoverId) {
+    const contextBeforeWrite = getWoolFactHandoverContext(current.sourceWoolHandoverId)
+    const currentPdaSession = getPdaSession()
+    if (!contextBeforeWrite) {
+      throw new Error(`未找到毛织交出事实：${current.sourceWoolHandoverId}`)
+    }
+    if (contextBeforeWrite.handover.receiverType !== 'DOWNSTREAM_FACTORY') {
+      throw new Error('该毛织交出接收方不是工厂，不能在 PDA 确认接收')
+    }
+    if (!currentPdaSession || currentPdaSession.factoryId !== contextBeforeWrite.handover.receiverId) {
+      throw new Error('该毛织交出不属于当前登录工厂，不能确认接收')
+    }
     const updatedSource = confirmWoolDownstreamReceipt(current.sourceWoolHandoverId, {
       commandId: `PDA-WOOL-RECEIVE-${current.sourceWoolHandoverId}`,
       actualReceivedQty: input.receiverWrittenQty,

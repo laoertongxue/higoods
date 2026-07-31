@@ -11,6 +11,7 @@ import {
   acceptHandoverRecordDiff,
   canCompletePdaHandoutHead,
   canCompletePdaPickupHead,
+  canPdaFactoryAccessHandoverHead,
   confirmPdaPickupRecordReceived,
   createFactoryHandoverRecord,
   deriveHandoutObjectProfile,
@@ -2256,6 +2257,22 @@ export function renderPdaHandoverDetailPage(eventId: string): string {
   }
 
   const runtime = getPdaRuntimeContext()
+  if (
+    head.processBusinessCode === 'WOOL'
+    && (!runtime || !canPdaFactoryAccessHandoverHead(head, runtime.factoryId))
+  ) {
+    const content = `
+      <div class="space-y-4 p-4">
+        <button class="inline-flex h-8 items-center rounded-md px-2 text-sm text-muted-foreground hover:bg-muted" data-pda-handoverd-action="back">
+          <i data-lucide="arrow-left" class="mr-2 h-4 w-4"></i>返回
+        </button>
+        <article class="rounded-lg border bg-card px-4 py-8 text-center text-sm text-muted-foreground">
+          该毛织交出不属于当前登录工厂，不能查看或确认接收。
+        </article>
+      </div>
+    `
+    return renderPdaFrame(content, 'handover')
+  }
   if (
     runtime?.factoryId === FULL_CAPABILITY_FACTORY_ID
     && head.processBusinessCode !== 'POST_FINISHING'

@@ -22,6 +22,7 @@ import {
   listPostFinishingWaitHandoverWarehouseRecords,
   listPostFinishingWaitProcessWarehouseRecords,
 } from './post-finishing-domain.ts'
+import { isIndonesiaBusinessDateToday } from './indonesia-business-time.ts'
 
 export interface FactoryMobileWarehouseOverview {
   factoryId: string
@@ -91,7 +92,11 @@ export function getFactoryMobileTransferBagReceiveTasks(factoryId: string) {
   return listCuttingSewingTransferBags().filter((bag) => batchIds.has(bag.dispatchBatchId))
 }
 
-export function getFactoryMobileWarehouseOverview(factoryId: string, factoryName: string): FactoryMobileWarehouseOverview {
+export function getFactoryMobileWarehouseOverview(
+  factoryId: string,
+  factoryName: string,
+  now: Date = new Date(),
+): FactoryMobileWarehouseOverview {
   if (factoryId === OWN_WOOL_FACTORY_ID) {
     const store = readWoolStore()
     const waitProcessInventory = listWoolWarehouseStocksFromStore(store, 'WAIT_PROCESS')
@@ -111,6 +116,15 @@ export function getFactoryMobileWarehouseOverview(factoryId: string, factoryName
       record,
       effectiveQty: getWoolHandoverEffectiveQty(store, record),
     }))
+    const todayReceiptLines = receiptLines.filter((item) =>
+      isIndonesiaBusinessDateToday(item.receivedAt, now),
+    )
+    const todayProcessReports = processReports.filter(({ record }) =>
+      isIndonesiaBusinessDateToday(record.reportedAt, now),
+    )
+    const todayHandovers = handovers.filter(({ record }) =>
+      isIndonesiaBusinessDateToday(record.handedOverAt, now),
+    )
     return {
       factoryId,
       factoryName,
@@ -118,12 +132,12 @@ export function getFactoryMobileWarehouseOverview(factoryId: string, factoryName
       waitProcessQty: waitProcessInventory.reduce((sum, item) => sum + item.currentQty, 0),
       waitHandoverCount: waitHandoverInventory.length,
       waitHandoverQty: waitHandoverInventory.reduce((sum, item) => sum + item.currentQty, 0),
-      todayInboundCount: receiptLines.length + processReports.length,
+      todayInboundCount: todayReceiptLines.length + todayProcessReports.length,
       todayInboundQty:
-        receiptLines.reduce((sum, item) => sum + item.effectiveQty, 0)
-        + processReports.reduce((sum, item) => sum + item.effectiveQty, 0),
-      todayOutboundCount: handovers.length,
-      todayOutboundQty: handovers.reduce((sum, item) => sum + item.effectiveQty, 0),
+        todayReceiptLines.reduce((sum, item) => sum + item.effectiveQty, 0)
+        + todayProcessReports.reduce((sum, item) => sum + item.effectiveQty, 0),
+      todayOutboundCount: todayHandovers.length,
+      todayOutboundQty: todayHandovers.reduce((sum, item) => sum + item.effectiveQty, 0),
       stocktakeCount: 0,
       differenceCount: receiptLines.filter((item) => Boolean(item.differenceNote?.trim())).length,
       objectionCount: handovers.filter(({ record, effectiveQty }) =>

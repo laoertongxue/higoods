@@ -22,6 +22,7 @@ import {
   listWoolWarehouseStocks,
   transferWoolWarehouseStock,
 } from '../data/fcs/wool-task-domain.ts'
+import { formatIndonesiaBusinessDateTime } from '../data/fcs/indonesia-business-time.ts'
 import { listFactoryInternalWarehouses } from '../data/fcs/factory-internal-warehouse-locations.ts'
 import { renderPdaFrame } from './pda-shell'
 import {
@@ -1065,7 +1066,7 @@ export function handlePdaWarehouseWaitHandoverEvent(target: HTMLElement): boolea
       return true
     }
     try {
-      const operatedAt = new Date().toISOString().slice(0, 19).replace('T', ' ')
+      const operatedAt = formatIndonesiaBusinessDateTime()
       if (action === 'confirm-wool-adjust') {
         adjustWoolWarehouseStock({
           commandId: state.woolActionCommandId || createWoolWaitHandoverCommandId('ADJUST'),
