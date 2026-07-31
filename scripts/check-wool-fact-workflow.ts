@@ -5589,6 +5589,9 @@ const task12ReviewMissingCapabilities = [
     || !task12MobileProjectionSource.includes('qtyChanges')) && 'P1-3 有效事实与完整修改链投影',
   (!task12PdaFactSource.includes('draftsByAction')
     || !task12PdaFactSource.includes('sync-draft')) && 'P2 四类弹窗草稿状态',
+  (!task12MobileProjectionSource.includes('getWoolAllowedActionsFromStore')
+    || !task12MobileProjectionSource.includes('getWoolOutputHandoverAvailableQtyFromStore')
+    || !task12PdaFactSource.includes('availableHandoverQty')) && 'P1-4 PDA 交出复用领域可交余额',
 ].filter(Boolean)
 assert.deepEqual(
   task12ReviewMissingCapabilities,
@@ -5723,6 +5726,125 @@ assert(Array.isArray(task12CompletedProjection.completionFacts.currentMachines))
 assert(
   task12CompletedProjection.completionFacts.completionSnapshot,
   '完成后移动投影必须继续展示命令提交时冻结的确认快照',
+)
+
+resetWoolFactWorkflowMock('CHECK_WOOL_TASK_12_HANDOVER_GATE_RED')
+const task12NoReportOrder = listWoolWorkOrders()
+  .find((order) => order.mockScenarioCode === 'NO_YARN_RECEIPT')!
+const task12NoReportOutput = task12NoReportOrder.outputPlanLines[0]
+adjustWoolWarehouseStock({
+  commandId: 'TASK12-STOCK-WITHOUT-REPORT',
+  woolOrderId: task12NoReportOrder.woolOrderId,
+  objectSkuCode: task12NoReportOutput.outputSkuCode,
+  defaultLocationId: task12NoReportOutput.outputObjectType === 'GARMENT'
+    ? 'WOOL-WH-GARMENT-DEFAULT'
+    : 'WOOL-WH-CUT-DEFAULT',
+  afterQty: 5,
+  reason: '验证库存不能越过加工填报门禁',
+  operatedAt: '2026-07-31 09:00:00',
+  operatedBy: '任务 12 红灯',
+})
+const task12NoReportProjection = buildWoolMobileTaskProjection(task12NoReportOrder.woolOrderId)
+assert(
+  !task12NoReportProjection.allowedActions.includes('HANDOVER'),
+  '零加工填报时，即使独立调出 5 件库存也不得开放 HANDOVER',
+)
+assert.equal(
+  (task12NoReportProjection.completionFacts.waitHandoverStocks as Array<{
+    outputSkuCode: string
+    availableHandoverQty?: number
+  }>).find((item) => item.outputSkuCode === task12NoReportOutput.outputSkuCode)?.availableHandoverQty,
+  0,
+  '零加工填报 SKU 的领域可交余额必须为 0',
+)
+
+const task12TwoOutputOrder = listWoolWorkOrders()
+  .find((order) => order.mockScenarioCode === 'MULTI_YARN_SINGLE_RECEIPT')!
+const [task12OutputA, task12OutputB] = task12TwoOutputOrder.outputPlanLines
+const task12ReportA = addWoolProcessReport(task12TwoOutputOrder.woolOrderId, {
+  commandId: 'TASK12-REPORT-A',
+  outputSkuCode: task12OutputA.outputSkuCode,
+  reportedQty: 10,
+  reportedAt: '2026-07-31 09:10:00',
+  reportedBy: '任务 12 红灯',
+})
+adjustWoolWarehouseStock({
+  commandId: 'TASK12-STOCK-B-WITHOUT-REPORT',
+  woolOrderId: task12TwoOutputOrder.woolOrderId,
+  objectSkuCode: task12OutputB.outputSkuCode,
+  defaultLocationId: task12OutputB.outputObjectType === 'GARMENT'
+    ? 'WOOL-WH-GARMENT-DEFAULT'
+    : 'WOOL-WH-CUT-DEFAULT',
+  afterQty: 5,
+  reason: '验证 SKU 独立可交门禁',
+  operatedAt: '2026-07-31 09:11:00',
+  operatedBy: '任务 12 红灯',
+})
+const task12OnlyAProjection = buildWoolMobileTaskProjection(task12TwoOutputOrder.woolOrderId)
+const task12OnlyAAvailability = task12OnlyAProjection.completionFacts.waitHandoverStocks as Array<{
+  outputSkuCode: string
+  availableHandoverQty?: number
+}>
+assert.equal(
+  task12OnlyAAvailability.find((item) => item.outputSkuCode === task12OutputA.outputSkuCode)?.availableHandoverQty,
+  10,
+)
+assert.equal(
+  task12OnlyAAvailability.find((item) => item.outputSkuCode === task12OutputB.outputSkuCode)?.availableHandoverQty,
+  0,
+  'B 只有调整库存、没有加工填报时不得成为交出候选',
+)
+const task12HandoverA = addWoolHandover(task12TwoOutputOrder.woolOrderId, {
+  commandId: 'TASK12-HANDOVER-A-EXHAUST',
+  outputSkuCode: task12OutputA.outputSkuCode,
+  handoverQty: 10,
+  handedOverAt: '2026-07-31 09:12:00',
+  handedOverBy: '任务 12 红灯',
+})
+let task12AfterExhaust = buildWoolMobileTaskProjection(task12TwoOutputOrder.woolOrderId)
+assert(
+  !task12AfterExhaust.allowedActions.includes('HANDOVER'),
+  '累计有效交出耗尽加工余额后不得继续开放 HANDOVER',
+)
+changeWoolFactQty({
+  commandId: 'TASK12-INCREASE-REPORT-A',
+  recordType: 'PROCESS_REPORT',
+  recordId: task12ReportA.reportId,
+  afterQty: 15,
+  reason: '验证数量修改后候选即时更新',
+  changedAt: '2026-07-31 09:13:00',
+  changedBy: '任务 12 红灯',
+})
+task12AfterExhaust = buildWoolMobileTaskProjection(task12TwoOutputOrder.woolOrderId)
+assert.equal(
+  (task12AfterExhaust.completionFacts.waitHandoverStocks as Array<{
+    outputSkuCode: string
+    availableHandoverQty?: number
+  }>).find((item) => item.outputSkuCode === task12OutputA.outputSkuCode)?.availableHandoverQty,
+  5,
+  '加工填报数量修改后，候选余额必须按有效数量即时更新',
+)
+void task12HandoverA
+adjustWoolWarehouseStock({
+  commandId: 'TASK12-SMALLER-STOCK-A',
+  woolOrderId: task12TwoOutputOrder.woolOrderId,
+  objectSkuCode: task12OutputA.outputSkuCode,
+  defaultLocationId: task12OutputA.outputObjectType === 'GARMENT'
+    ? 'WOOL-WH-GARMENT-DEFAULT'
+    : 'WOOL-WH-CUT-DEFAULT',
+  afterQty: 3,
+  reason: '验证库存较小时取库存',
+  operatedAt: '2026-07-31 09:14:00',
+  operatedBy: '任务 12 红灯',
+})
+const task12SmallerStockProjection = buildWoolMobileTaskProjection(task12TwoOutputOrder.woolOrderId)
+assert.equal(
+  (task12SmallerStockProjection.completionFacts.waitHandoverStocks as Array<{
+    outputSkuCode: string
+    availableHandoverQty?: number
+  }>).find((item) => item.outputSkuCode === task12OutputA.outputSkuCode)?.availableHandoverQty,
+  3,
+  '可交余额必须取默认库位有效库存与加工未交余额的较小值',
 )
 
 console.log('PASS task 5: global command receipts, atomic stock, downstream lock, and manual completion')

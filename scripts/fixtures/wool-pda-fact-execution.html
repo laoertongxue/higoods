@@ -15,6 +15,7 @@
       import { resetWoolFactWorkflowMock } from '/src/data/fcs/wool-domain/mock-data.ts'
       import {
         getWoolWorkOrderByTaskId,
+        addWoolHandover,
         buildWoolMobileTaskProjection,
         listWoolFactRecords,
         listWoolMachineViews,
@@ -79,6 +80,21 @@
         const user = listFactoryPdaUsers(factoryId).find((item) => item.status === 'ACTIVE')
         setPdaSession(user ? createPdaSessionFromUser(user) : null)
         root.innerHTML = renderPdaWoolExecutionContent(taskId)
+      }
+      window.consumeTask12HandoverAvailability = () => {
+        const order = getWoolWorkOrderByTaskId(taskId)
+        if (!order) return null
+        const projection = buildWoolMobileTaskProjection(order.woolOrderId)
+        const candidate = projection.completionFacts.waitHandoverStocks
+          .find((item) => item.availableHandoverQty > 0)
+        if (!candidate) return null
+        return addWoolHandover(order.woolOrderId, {
+          commandId: `TASK12-STALE-${Date.now()}`,
+          outputSkuCode: candidate.outputSkuCode,
+          handoverQty: candidate.availableHandoverQty,
+          handedOverAt: '2026-07-31 09:30:00',
+          handedOverBy: '外部并发操作',
+        })
       }
     </script>
   </body>

@@ -146,7 +146,7 @@ function draftFor(action: WoolFactAction, projection: WoolMobileTaskProjection):
   const outputSkuCode = action === 'REPORT_PROCESS'
     ? projection.readyOutputSkuCodes[0] || ''
     : action === 'HANDOVER'
-      ? projection.completionFacts.waitHandoverStocks.find((item) => item.effectiveStockQty > 0)?.outputSkuCode || ''
+      ? projection.completionFacts.waitHandoverStocks.find((item) => item.availableHandoverQty > 0)?.outputSkuCode || ''
       : ''
   const draft = emptyDraft(outputSkuCode)
   state.draftsByAction[action] = draft
@@ -284,20 +284,27 @@ function renderQtyDialog(
   const candidates = action === 'REPORT_PROCESS'
     ? order.outputPlanLines.filter((line) => projection.readyOutputSkuCodes.includes(line.outputSkuCode))
     : order.outputPlanLines.filter((line) =>
-      (projection.completionFacts.waitHandoverStocks.find((item) => item.outputSkuCode === line.outputSkuCode)?.effectiveStockQty || 0) > 0)
+      (projection.completionFacts.waitHandoverStocks.find((item) =>
+        item.outputSkuCode === line.outputSkuCode)?.availableHandoverQty || 0) > 0)
+  if (!candidates.some((line) => line.outputSkuCode === draft.outputSkuCode)) {
+    draft.outputSkuCode = candidates[0]?.outputSkuCode || ''
+  }
   const summary = (sku: string): string => {
     if (action === 'REPORT_PROCESS') {
       const item = projection.completionFacts.processReports.find((entry) => entry.outputSkuCode === sku)
       return `累计 ${item?.effectiveReportedQty || 0} / 上限 ${item?.reportLimitQty || 0}`
     }
     const item = projection.completionFacts.waitHandoverStocks.find((entry) => entry.outputSkuCode === sku)
-    return `默认库位可交 ${item?.effectiveStockQty || 0}${item?.qtyUnit || ''}`
+    return `可交余额 ${item?.availableHandoverQty || 0}${item?.qtyUnit || ''}（默认库位库存 ${item?.effectiveStockQty || 0}${item?.qtyUnit || ''}）`
   }
+  const selectedAvailability = projection.completionFacts.waitHandoverStocks.find((item) =>
+    item.outputSkuCode === draft.outputSkuCode)
   return `<div class="space-y-3 p-4">
     <label class="block text-sm">${action === 'REPORT_PROCESS' ? '加工后 SKU' : '交出 SKU'}
-      <select class="mt-1 h-10 w-full rounded border px-3" ${draftAttrs('outputSkuCode')}>${candidates.map((line) => `<option value="${escapeHtml(line.outputSkuCode)}" ${line.outputSkuCode === draft.outputSkuCode ? 'selected' : ''}>${escapeHtml(outputLabel(order, line.outputSkuCode))}｜${escapeHtml(summary(line.outputSkuCode))}</option>`).join('')}</select>
+      <select class="mt-1 h-10 w-full rounded border px-3" ${draftAttrs('outputSkuCode')} ${candidates.length ? '' : 'disabled'}>${candidates.map((line) => `<option value="${escapeHtml(line.outputSkuCode)}" ${line.outputSkuCode === draft.outputSkuCode ? 'selected' : ''}>${escapeHtml(outputLabel(order, line.outputSkuCode))}｜${escapeHtml(summary(line.outputSkuCode))}</option>`).join('')}</select>
     </label>
-    <label class="block text-sm">本次数量<input type="number" min="1" step="1" class="mt-1 h-10 w-full rounded border px-3" ${draftAttrs('qty')} value="${escapeHtml(draft.qty)}"></label>
+    ${candidates.length ? '' : '<div class="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">当前没有可交出的 SKU。请返回核对有效加工填报、累计有效交出和默认库位库存。</div>'}
+    <label class="block text-sm">本次数量<input type="number" min="1" ${action === 'HANDOVER' ? `max="${selectedAvailability?.availableHandoverQty || 0}"` : ''} step="1" class="mt-1 h-10 w-full rounded border px-3" ${draftAttrs('qty')} value="${escapeHtml(draft.qty)}" ${candidates.length ? '' : 'disabled'}></label>
     ${action === 'HANDOVER' ? `<div class="rounded border bg-muted/30 p-3 text-sm">接收方：${escapeHtml(order.downstreamTarget.receiverName || '交出去向未配置')}</div>` : ''}
     <textarea class="min-h-16 w-full rounded border p-3 text-sm" placeholder="凭证文件名或地址，逗号/换行分隔" ${draftAttrs('proofText')}>${escapeHtml(draft.proofText)}</textarea>
     <textarea class="min-h-16 w-full rounded border p-3 text-sm" placeholder="备注（可选）" ${draftAttrs('remark')}>${escapeHtml(draft.remark)}</textarea>
@@ -339,6 +346,8 @@ function renderOverlay(order: WoolWorkOrder, projection: WoolMobileTaskProjectio
   if (!state.overlay || state.overlay.woolOrderId !== order.woolOrderId) return ''
   const action = state.overlay.action
   const draft = draftFor(action, projection)
+  const canSubmit = action !== 'HANDOVER'
+    || projection.completionFacts.waitHandoverStocks.some((item) => item.availableHandoverQty > 0)
   const body = action === 'RECEIVE_YARN'
     ? renderReceiptDialog(order, projection, draft)
     : action === 'REPORT_PROCESS' || action === 'HANDOVER'
@@ -349,7 +358,7 @@ function renderOverlay(order: WoolWorkOrder, projection: WoolMobileTaskProjectio
       <header class="sticky top-0 flex items-center justify-between border-b bg-background px-4 py-3"><h2 class="font-semibold">${ACTION_LABELS[action]}${action === 'COMPLETE' ? '二次确认' : ''}</h2><button type="button" class="rounded border px-3 py-1 text-sm" data-pda-wool-action="close-overlay">关闭</button></header>
       ${state.error ? `<div class="mx-4 mt-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700" data-pda-wool-error>${escapeHtml(state.error)}</div>` : ''}
       ${body}
-      <footer class="sticky bottom-0 flex gap-2 border-t bg-background p-4"><button type="button" class="h-10 flex-1 rounded border" data-pda-wool-action="close-overlay">取消</button><button type="button" class="h-10 flex-1 rounded bg-primary font-medium text-primary-foreground" data-pda-wool-action="save-fact">${action === 'COMPLETE' ? '确认完成加工单' : `保存${ACTION_LABELS[action]}`}</button></footer>
+      <footer class="sticky bottom-0 flex gap-2 border-t bg-background p-4"><button type="button" class="h-10 flex-1 rounded border" data-pda-wool-action="close-overlay">取消</button><button type="button" class="h-10 flex-1 rounded bg-primary font-medium text-primary-foreground disabled:opacity-50" data-pda-wool-action="save-fact" ${canSubmit ? '' : 'disabled'}>${action === 'COMPLETE' ? '确认完成加工单' : `保存${ACTION_LABELS[action]}`}</button></footer>
     </section>
   </div>`
 }
@@ -419,6 +428,13 @@ export function handlePdaWoolExecutionEvent(target: HTMLElement): boolean {
   const draftNode = target.closest<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('[data-pda-wool-draft="sync-draft"]')
   if (draftNode) {
     syncDraft(draftNode)
+    if (state.overlay?.action === 'HANDOVER' && draftNode.dataset.draftField === 'outputSkuCode') {
+      const access = getCurrentAccess(
+        root.dataset.taskId || '',
+        root.dataset.woolOrderId || '',
+      )
+      if (access.canAccess && access.order) refreshOverlay(root, access.order)
+    }
     return true
   }
   const actionNode = target.closest<HTMLElement>('[data-pda-wool-action]')

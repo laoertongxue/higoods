@@ -1,7 +1,11 @@
 import type { ProcessTask } from '../process-tasks.ts'
 import {
+  getWoolAllowedActionsFromStore,
   getWoolHandoverEffectiveQty,
+  getWoolOutputHandoverAvailableQtyFromStore,
+  getWoolProcessingStatusFromStore,
   getWoolProcessReportEffectiveQty,
+  getWoolWorkOrderReadinessProjectionFromStore,
   getWoolYarnReceiptLineEffectiveQty,
   type WoolAllowedAction,
 } from './queries.ts'
@@ -85,6 +89,7 @@ export interface WoolMobileCompletionFacts {
     outputObjectType: WoolOutputPlanLine['outputObjectType']
     defaultLocationId: 'WOOL-WH-CUT-DEFAULT' | 'WOOL-WH-GARMENT-DEFAULT'
     effectiveStockQty: number
+    availableHandoverQty: number
     qtyUnit: '件' | '片'
   }>
   currentMachines: Array<{
@@ -361,6 +366,11 @@ function buildCompletionFacts(
         objectSkuCode: line.outputSkuCode,
         defaultLocationId,
       }),
+      availableHandoverQty: getWoolOutputHandoverAvailableQtyFromStore(
+        store,
+        order.woolOrderId,
+        line.outputSkuCode,
+      ),
       qtyUnit: line.qtyUnit,
     }
   })
@@ -399,33 +409,12 @@ export function buildWoolMobileTaskProjection(
   const confirmedSet = new Set(confirmedYarnSkus)
   const requiredYarnSkus = completionFacts.yarnReceipts.map((item) => item.yarnSkuCode)
   const missingYarnSkus = requiredYarnSkus.filter((sku) => !confirmedSet.has(sku))
-  const completion = store.completions.find((item) => item.woolOrderId === woolOrderId)
-  const processingStatus: WoolMobileTaskProjection['processingStatus'] = completion
-    ? 'COMPLETED'
-    : store.processReports.some((item) => item.woolOrderId === woolOrderId)
-      ? 'PROCESSING'
-      : 'UNPROCESSED'
+  const readinessProjection = getWoolWorkOrderReadinessProjectionFromStore(store, woolOrderId)
+  const processingStatus = getWoolProcessingStatusFromStore(store, woolOrderId)
   const readyOutputSkuCodes = order.outputPlanLines
-    .filter((line) => line.requiredYarnSkus.every((sku) => confirmedSet.has(sku)))
-    .filter((line) => {
-      const summary = completionFacts.processReports.find((item) =>
-        item.outputSkuCode === line.outputSkuCode)
-      return Boolean(summary && summary.effectiveReportedQty < summary.reportLimitQty)
-    })
+    .filter((line) => readinessProjection.outputsBySku.get(line.outputSkuCode)?.readiness.canReport)
     .map((line) => line.outputSkuCode)
-  const actions: WoolAllowedAction[] = ['DETAIL']
-  if (!completion) {
-    actions.push('RECEIVE_YARN')
-    if (readyOutputSkuCodes.length > 0) actions.push('REPORT_PROCESS')
-    const hasAvailableHandover = completionFacts.waitHandoverStocks.some((item) =>
-      item.effectiveStockQty > 0,
-    )
-    if (hasAvailableHandover) actions.push('HANDOVER')
-    if (readyOutputSkuCodes.length > 0 || completionFacts.currentMachines.length > 0) {
-      actions.push('ASSOCIATE_MACHINE')
-    }
-    if (completionFacts.handovers.some((item) => item.effectiveQty > 0)) actions.push('COMPLETE')
-  }
+  const actions: WoolAllowedAction[] = getWoolAllowedActionsFromStore(store, woolOrderId)
   return {
     woolOrderId: order.woolOrderId,
     taskId: order.taskId,

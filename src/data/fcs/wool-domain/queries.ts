@@ -303,6 +303,13 @@ export function getWoolWorkOrderReadinessProjection(
   woolOrderId: string,
 ): WoolWorkOrderReadinessProjection {
   const store = readWoolStore()
+  return getWoolWorkOrderReadinessProjectionFromStore(store, woolOrderId)
+}
+
+export function getWoolWorkOrderReadinessProjectionFromStore(
+  store: WoolDomainStore,
+  woolOrderId: string,
+): WoolWorkOrderReadinessProjection {
   const order = store.workOrders[woolOrderId]
   if (!order) throw new Error(`找不到毛织加工单 ${woolOrderId}`)
 
@@ -442,6 +449,13 @@ export function getWoolOutputReadiness(
 
 export function getWoolProcessingStatus(woolOrderId: string): WoolProcessingStatus {
   const store = readWoolStore()
+  return getWoolProcessingStatusFromStore(store, woolOrderId)
+}
+
+export function getWoolProcessingStatusFromStore(
+  store: WoolDomainStore,
+  woolOrderId: string,
+): WoolProcessingStatus {
   if (!store.workOrders[woolOrderId]) throw new Error(`找不到毛织加工单 ${woolOrderId}`)
   if (store.completions.some((record) => record.woolOrderId === woolOrderId)) return 'COMPLETED'
   if (
@@ -489,14 +503,24 @@ export function getWoolWorkOrderBlockReason(woolOrderId: string): string {
 
 export function getWoolAllowedActions(woolOrderId: string): WoolAllowedAction[] {
   const store = readWoolStore()
+  return getWoolAllowedActionsFromStore(store, woolOrderId)
+}
+
+export function getWoolAllowedActionsFromStore(
+  store: WoolDomainStore,
+  woolOrderId: string,
+): WoolAllowedAction[] {
   const order = store.workOrders[woolOrderId]
   if (!order) throw new Error(`找不到毛织加工单 ${woolOrderId}`)
   const actions: WoolAllowedAction[] = ['DETAIL']
-  if (getWoolProcessingStatus(woolOrderId) === 'COMPLETED') return actions
+  if (getWoolProcessingStatusFromStore(store, woolOrderId) === 'COMPLETED') return actions
   actions.push('RECEIVE_YARN')
-  const readiness = order.outputPlanLines.map((line) =>
-    getWoolOutputReadiness(woolOrderId, line.outputSkuCode),
-  )
+  const readinessProjection = getWoolWorkOrderReadinessProjectionFromStore(store, woolOrderId)
+  const readiness = order.outputPlanLines.map((line) => {
+    const output = readinessProjection.outputsBySku.get(line.outputSkuCode)
+    if (!output) throw new Error(`毛织加工单 ${woolOrderId} 不包含加工后 SKU ${line.outputSkuCode}`)
+    return output.readiness
+  })
   if (readiness.some((item) => item.canReport)) actions.push('REPORT_PROCESS')
   if (order.outputPlanLines.some((line) =>
     getWoolOutputHandoverAvailableQtyFromStore(store, woolOrderId, line.outputSkuCode) > 0,
