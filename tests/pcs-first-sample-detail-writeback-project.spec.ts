@@ -5,7 +5,10 @@ import {
   getFirstSampleTaskById,
   resetFirstSampleTaskRepository,
 } from '../src/data/pcs-first-sample-repository.ts'
-import { updateFirstSampleTaskDetailAndSync } from '../src/data/pcs-first-sample-project-writeback.ts'
+import {
+  findFirstSampleTaskRelations,
+  updateFirstSampleTaskDetailAndSync,
+} from '../src/data/pcs-first-sample-project-writeback.ts'
 
 resetProjectRepository()
 resetFirstSampleTaskRepository()
@@ -28,7 +31,10 @@ const result = updateFirstSampleTaskDetailAndSync(task.firstSampleTaskId, {
 }, '测试用户')
 
 assert.equal(result.ok, true)
-assert.equal(result.projectNode, null)
+const relation = findFirstSampleTaskRelations(task.firstSampleTaskId)[0]
+assert.ok(relation)
+assert.equal(relation.projectNodeId, null)
+assert.equal(relation.stepCode, '')
 const updated = getFirstSampleTaskById(task.firstSampleTaskId)
 assert.equal(updated?.sampleCode, 'FS-RESULT-26002')
 assert.deepEqual(updated?.sampleImageIds, ['mock://sample-result/fs-26002-1'])

@@ -32,7 +32,9 @@ assert.equal(result.task?.projectId, project!.projectId)
 assert.equal(result.task?.projectNodeId, '')
 assert.equal(result.task?.sourceFirstSampleTaskId, sourceFirstSample!.firstSampleTaskId)
 assert.equal(result.task?.upstreamObjectId, sourceFirstSample!.firstSampleTaskId)
-assert.equal(result.relation, null, '独立首单样衣入口不得生成已删除专业节点关系')
+assert.ok(result.relation, '首单样衣入口必须立即生成商品项目关系')
+assert.equal(result.relation?.projectNodeId, null, '首单样衣关系不得生成已删除专业节点关系')
+assert.equal(result.relation?.stepCode, '')
 assert.deepEqual(
   listProjectNodes(project!.projectId),
   projectNodesBeforeCreate,

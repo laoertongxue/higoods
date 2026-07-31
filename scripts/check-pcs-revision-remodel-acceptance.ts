@@ -26,7 +26,6 @@ import {
 } from '../src/data/pcs-task-source-normalizer.ts'
 import {
   completeRevisionTask,
-  completeRevisionTaskWithProjectRelationSync,
   confirmRevisionTaskOutput,
   createDownstreamTasksFromRevision,
   createRevisionTaskWithProjectRelation,
@@ -368,7 +367,7 @@ assert.equal(isTechPackGenerationAllowedStatus('待确认'), false)
 assert.equal(isTechPackGenerationAllowedStatus('已确认'), true)
 assert.equal(isTechPackGenerationAllowedStatus('已生成技术包'), true)
 
-const beforeTechPackComplete = completeRevisionTaskWithProjectRelationSync(created.task.revisionTaskId, '验收脚本')
+const beforeTechPackComplete = completeRevisionTask(created.task.revisionTaskId, '验收脚本')
 assert.equal(beforeTechPackComplete.ok, false)
 assert.ok(beforeTechPackComplete.message.includes('请先生成改版技术包版本'))
 
@@ -383,7 +382,7 @@ const generatedTask = updateRevisionTask(created.task.revisionTaskId, {
 })
 assert.ok(generatedTask, '应能写入已生成技术包状态')
 
-const completed = completeRevisionTaskWithProjectRelationSync(created.task.revisionTaskId, '验收脚本')
+const completed = completeRevisionTask(created.task.revisionTaskId, '验收脚本')
 assert.equal(completed.ok, true)
 assert.equal(completed.ok && completed.task.status, '已完成')
 assert.equal(getRevisionTaskById(created.task.revisionTaskId)?.status, '已完成')

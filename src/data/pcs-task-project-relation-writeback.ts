@@ -11,6 +11,7 @@ import type { PcsTaskPendingItem } from './pcs-project-types.ts'
 import {
   getFirstSampleTaskById,
   listFirstSampleTasks,
+  updateFirstSampleTask,
   upsertFirstSampleTask,
   upsertFirstSampleTaskPendingItem,
 } from './pcs-first-sample-repository.ts'
@@ -44,7 +45,7 @@ import {
   getPlateTaskReviewMissingFields,
   getRevisionTaskCompletionMissingFields,
 } from './pcs-engineering-task-field-policy.ts'
-import { syncFirstSampleTaskToProjectNode } from './pcs-first-sample-project-writeback.ts'
+import { getFirstSampleCompletionMissingFields } from './pcs-sample-task-field-policy.ts'
 import {
   getPlateMakingTaskById,
   listPlateMakingTasks,
@@ -68,7 +69,7 @@ import {
   upsertFirstOrderSampleTaskPendingItem,
 } from './pcs-first-order-sample-repository.ts'
 import type { FirstOrderSampleTaskRecord } from './pcs-first-order-sample-types.ts'
-import { syncFirstOrderSampleTaskToProjectNode } from './pcs-first-order-sample-project-writeback.ts'
+import { getFirstOrderSampleCompletionMissingFields } from './pcs-first-order-sample-field-policy.ts'
 import {
   createDefaultSamplePlanLines,
   normalizeSamplePlanLines,
@@ -755,8 +756,8 @@ function relationPayload(input: {
 function syncCompletedTaskRelation(input: {
   projectId: string
   projectCode: string
-  sourceModule: '改版任务' | '制版任务' | '花型任务'
-  sourceObjectType: '改版任务' | '制版任务' | '花型任务'
+  sourceModule: '改版任务' | '制版任务' | '花型任务' | '首版样衣打样' | '首单样衣打样'
+  sourceObjectType: '改版任务' | '制版任务' | '花型任务' | '首版样衣打样任务' | '首单样衣打样任务'
   sourceObjectId: string
   sourceObjectCode: string
   sourceTitle: string
@@ -1331,10 +1332,31 @@ export function createRevisionTaskWithProjectRelation(input: RevisionTaskCreateI
     legacyUpstreamRef: input.upstreamObjectCode || input.referenceObjectCode || sourceStyleCode || '',
   })
 
+  const relation = project
+    ? upsertProjectRelation(
+        relationPayload({
+          projectId: project.projectId,
+          projectCode: project.projectCode,
+          projectNodeId: '',
+          stepCode: '',
+          stepName: '',
+          sourceModule: '改版任务',
+          sourceObjectType: '改版任务',
+          sourceObjectId: task.revisionTaskId,
+          sourceObjectCode: task.revisionTaskCode,
+          sourceTitle: task.title,
+          sourceStatus: task.status,
+          businessDate: task.updatedAt,
+          ownerName: task.ownerName,
+          operatorName: task.updatedBy,
+        }),
+      )
+    : null
+  if (project) syncExistingProjectArchiveByProjectId(project.projectId, task.updatedBy)
   return {
     ok: true,
     task,
-    relation: null,
+    relation,
     message: '改版任务已创建。',
   }
 }
@@ -2319,13 +2341,64 @@ export function createFirstSampleTaskWithProjectRelation(
     legacyUpstreamRef: '',
   })
 
+  const relation = upsertProjectRelation(
+    relationPayload({
+      projectId: project.projectId,
+      projectCode: project.projectCode,
+      projectNodeId: '',
+      stepCode: '',
+      stepName: '',
+      sourceModule: '首版样衣打样',
+      sourceObjectType: '首版样衣打样任务',
+      sourceObjectId: task.firstSampleTaskId,
+      sourceObjectCode: task.firstSampleTaskCode,
+      sourceTitle: task.title,
+      sourceStatus: task.status,
+      businessDate: task.updatedAt,
+      ownerName: task.ownerName,
+      operatorName: task.updatedBy,
+    }),
+  )
   syncExistingProjectArchiveByProjectId(task.projectId, task.updatedBy)
   return {
     ok: true,
     task,
-    relation: null,
-    message: '首版样衣打样任务已创建，并已保留商品项目与制版来源，不占用商品项目节点。',
+    relation,
+    message: '首版样衣打样任务已创建，并已建立商品项目关系。',
   }
+}
+
+export function completeFirstSampleTask(
+  firstSampleTaskId: string,
+  operatorName = '当前用户',
+): TaskCompletionResult<FirstSampleTaskRecord> {
+  const task = getFirstSampleTaskById(firstSampleTaskId)
+  if (!task) return { ok: false, task: null, message: '未找到首版样衣打样任务。' }
+  if (task.status === '已取消') return { ok: false, task, message: '当前首版样衣打样任务已取消，不能完成。' }
+  const missingFields = getFirstSampleCompletionMissingFields(task)
+  if (missingFields.length > 0) {
+    return { ok: false, task, message: `缺少字段：${missingFields.join('、')}。` }
+  }
+  const now = nowTaskText()
+  const nextTask = updateFirstSampleTask(firstSampleTaskId, {
+    status: '已通过',
+    updatedAt: now,
+    updatedBy: operatorName,
+  })
+  if (!nextTask) return { ok: false, task, message: '首版样衣打样任务更新失败。' }
+  syncCompletedTaskRelation({
+    projectId: nextTask.projectId,
+    projectCode: nextTask.projectCode,
+    sourceModule: '首版样衣打样',
+    sourceObjectType: '首版样衣打样任务',
+    sourceObjectId: nextTask.firstSampleTaskId,
+    sourceObjectCode: nextTask.firstSampleTaskCode,
+    sourceTitle: nextTask.title,
+    businessDate: nextTask.updatedAt,
+    ownerName: nextTask.ownerName,
+    operatorName,
+  })
+  return { ok: true, task: nextTask, message: '首版样衣打样任务已完成。' }
 }
 
 export function createFirstSampleTaskFromPlate(
@@ -2541,13 +2614,64 @@ export function createFirstOrderSampleTaskWithProjectRelation(
     legacyUpstreamRef: '',
   })
 
+  const relation = upsertProjectRelation(
+    relationPayload({
+      projectId: project.projectId,
+      projectCode: project.projectCode,
+      projectNodeId: '',
+      stepCode: '',
+      stepName: '',
+      sourceModule: '首单样衣打样',
+      sourceObjectType: '首单样衣打样任务',
+      sourceObjectId: task.firstOrderSampleTaskId,
+      sourceObjectCode: task.firstOrderSampleTaskCode,
+      sourceTitle: task.title,
+      sourceStatus: task.status,
+      businessDate: task.updatedAt,
+      ownerName: task.ownerName,
+      operatorName: task.updatedBy,
+    }),
+  )
   syncExistingProjectArchiveByProjectId(task.projectId, task.updatedBy)
   return {
     ok: true,
     task,
-    relation: null,
-    message: '首单样衣打样任务已创建，并已保留商品项目与首版样衣来源，不占用商品项目节点。',
+    relation,
+    message: '首单样衣打样任务已创建，并已建立商品项目关系。',
   }
+}
+
+export function completeFirstOrderSampleTask(
+  firstOrderSampleTaskId: string,
+  operatorName = '当前用户',
+): TaskCompletionResult<FirstOrderSampleTaskRecord> {
+  const task = getFirstOrderSampleTaskById(firstOrderSampleTaskId)
+  if (!task) return { ok: false, task: null, message: '未找到首单样衣打样任务。' }
+  if (task.status === '已取消') return { ok: false, task, message: '当前首单样衣打样任务已取消，不能完成。' }
+  const missingFields = getFirstOrderSampleCompletionMissingFields(task)
+  if (missingFields.length > 0) {
+    return { ok: false, task, message: `缺少字段：${missingFields.join('、')}。` }
+  }
+  const now = nowTaskText()
+  const nextTask = updateFirstOrderSampleTask(firstOrderSampleTaskId, {
+    status: '已通过',
+    updatedAt: now,
+    updatedBy: operatorName,
+  })
+  if (!nextTask) return { ok: false, task, message: '首单样衣打样任务更新失败。' }
+  syncCompletedTaskRelation({
+    projectId: nextTask.projectId,
+    projectCode: nextTask.projectCode,
+    sourceModule: '首单样衣打样',
+    sourceObjectType: '首单样衣打样任务',
+    sourceObjectId: nextTask.firstOrderSampleTaskId,
+    sourceObjectCode: nextTask.firstOrderSampleTaskCode,
+    sourceTitle: nextTask.title,
+    businessDate: nextTask.updatedAt,
+    ownerName: nextTask.ownerName,
+    operatorName,
+  })
+  return { ok: true, task: nextTask, message: '首单样衣打样任务已完成。' }
 }
 
 export function createDownstreamTasksFromRevision(

@@ -128,11 +128,6 @@ assert.deepEqual(
   '创建目录不得再提供业务模板外的样衣来源方式',
 )
 assertIncludesAll(
-  fieldKeys('REVISION_TASK'),
-  ['baseStyleCode', 'targetStyleCodeCandidate', 'revisionScopeNames', 'sampleQty', 'stylePreference', 'revisionSuggestionRichText', 'materialAdjustmentLines', 'newPatternSpuCode', 'patternChangeNote', 'patternFileIds', 'designDraftImageIds', 'ownerName', 'dueAt'],
-  '改版任务字段未覆盖工程开发与打样承接信息',
-)
-assertIncludesAll(
   fieldKeys('SAMPLE_INBOUND_CHECK'),
   ['sampleInboundLines', 'receivedQty', 'generatedSampleCodes', 'receivedAt', 'sampleImageIds', 'qualityCheckResult', 'checkResult'],
   '样衣结果核对字段未覆盖到样登记、样衣编号和实物核对',

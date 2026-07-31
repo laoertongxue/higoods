@@ -56,7 +56,9 @@ const created = createFirstOrderSampleTaskWithProjectRelation({
 assert.equal(created.ok, true, created.message)
 assert.ok(created.task)
 assert.equal(created.task.projectNodeId, '')
-assert.equal(created.relation, null)
+assert.ok(created.relation)
+assert.equal(created.relation?.projectNodeId, null)
+assert.equal(created.relation?.stepCode, '')
 
 const detailSaved = updateFirstOrderSampleTaskDetailAndSync(created.task.firstOrderSampleTaskId, {
   status: '已通过',
@@ -81,7 +83,6 @@ const detailSaved = updateFirstOrderSampleTaskDetailAndSync(created.task.firstOr
   confirmedBy: '检查脚本',
 }, '检查脚本')
 assert.equal(detailSaved.ok, true, detailSaved.message)
-assert.equal(detailSaved.projectNode, null)
 
 const reloaded = getFirstOrderSampleTaskById(created.task.firstOrderSampleTaskId)
 assert.equal(reloaded?.projectNodeId, '')

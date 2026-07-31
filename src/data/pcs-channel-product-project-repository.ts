@@ -2603,14 +2603,6 @@ export function createProjectChannelProductFromListingNode(
   }
 
   const resolvedPayload = resolveListingPayload(projectId, payload)
-  const createSpecError = validateChannelListingSpecLinesForCreate(resolvedPayload.specLines)
-  if (createSpecError) {
-    return { ok: false, message: createSpecError, record: null }
-  }
-  const uploadSpecError = validateChannelListingSpecLinesForUpload(resolvedPayload.specLines)
-  if (uploadSpecError) {
-    return { ok: false, message: uploadSpecError, record: null }
-  }
   const sequence = nextChannelProductSequence(projectId)
   const channelProductId = buildChannelProductId(project.projectCode, sequence)
   const linkedStyle = project.linkedStyleId ? getStyleArchiveById(project.linkedStyleId) : null
@@ -2650,7 +2642,7 @@ export function createProjectChannelProductFromListingNode(
   const channelMeta = getChannelMeta(resolvedPayload.targetChannelCode, resolvedPayload.targetStoreId)
   const timestamp = nowText()
   const channelProductCode = buildChannelProductCode(project.projectCode, sequence)
-  const specLines = normalizeChannelListingSpecLines({
+  const normalizedSpecLines = normalizeChannelListingSpecLines({
     listingBatchId: channelProductId,
     listingBatchCode: channelProductCode,
     projectCode: project.projectCode,
@@ -2684,6 +2676,25 @@ export function createProjectChannelProductFromListingNode(
       : []
   if (migratedListingImages.length > 0) {
     upsertProjectImageAssets(migratedListingImages)
+  }
+  const defaultMigratedImage = migratedListingImages[0] || null
+  const specLines = normalizedSpecLines.map((item) =>
+    item.productImageId || !defaultMigratedImage
+      ? item
+      : {
+          ...item,
+          productImageId: defaultMigratedImage.imageId,
+          productImageUrl: defaultMigratedImage.imageUrl,
+          productImageName: defaultMigratedImage.imageName,
+        },
+  )
+  const createSpecError = validateChannelListingSpecLinesForCreate(specLines)
+  if (createSpecError) {
+    return { ok: false, message: createSpecError, record: null }
+  }
+  const uploadSpecError = validateChannelListingSpecLinesForUpload(specLines)
+  if (uploadSpecError) {
+    return { ok: false, message: uploadSpecError, record: null }
   }
   const listingImages = buildListingImagesFromPayload({
     listingBatchId: channelProductId,
@@ -2938,7 +2949,7 @@ export function markProjectChannelProductListingCompleted(
         latestInstanceId: nextRecord.channelProductId,
         latestInstanceCode: nextRecord.channelProductCode,
         latestResultType: '商品上架已完成',
-        latestResultText: `款式上架批次 ${nextRecord.listingBatchCode} 已完成，已进入下一工作项。`,
+        latestResultText: `款式上架批次 ${nextRecord.listingBatchCode} 已完成，已进入下一步骤。`,
         pendingActionType: '',
         pendingActionText: '',
         updatedAt: timestamp,
@@ -2960,7 +2971,7 @@ export function markProjectChannelProductListingCompleted(
 
   return {
     ok: true,
-    message: '商品上架已完成，已进入下一工作项。',
+    message: '商品上架已完成，已进入下一步骤。',
     record: nextRecord,
   }
 }
@@ -3045,7 +3056,7 @@ export function completeProjectChannelListingNode(
 
   return {
     ok: true,
-    message: '商品上架已完成，已进入下一工作项。',
+    message: '商品上架已完成，已进入下一步骤。',
     record: latestRecord,
   }
 }
@@ -3071,16 +3082,22 @@ export function submitProjectTestingSummary(
   }
 
   const relations = getFormalTestingRelations(projectId)
-  if (relations.length === 0) {
-    return { ok: false, message: '当前项目尚未建立正式直播或短视频测款关系，不能提交测款汇总。', record: primaryRecord }
+  const aggregate = buildProjectTestingSummaryAggregate(projectId, relations, targetRecords)
+  const mappedRelationCount = new Set([...aggregate.liveRelationIds, ...aggregate.videoRelationIds]).size
+  if (mappedRelationCount === 0) {
+    return {
+      ok: false,
+      message: '当前项目尚无已明确关联渠道店铺商品的正式测款记录，不能提交测款汇总。',
+      record: primaryRecord,
+      relationCount: 0,
+    }
   }
 
-  const liveCount = relations.filter((item) => item.sourceObjectType === '直播商品明细').length
-  const videoCount = relations.filter((item) => item.sourceObjectType === '短视频记录').length
-  const aggregate = buildProjectTestingSummaryAggregate(projectId, relations, targetRecords)
+  const liveCount = aggregate.liveRelationIds.length
+  const videoCount = aggregate.videoRelationIds.length
   const summaryText =
     payload.summaryText?.trim() ||
-    `已汇总 ${relations.length} 条正式测款记录，其中直播 ${liveCount} 条，短视频 ${videoCount} 条，覆盖 ${aggregate.channelBreakdowns.length} 个渠道、${aggregate.storeBreakdowns.length} 个店铺、${targetRecords.length} 个渠道店铺商品实例。`
+    `已汇总 ${mappedRelationCount} 条正式测款记录，其中直播 ${liveCount} 条，短视频 ${videoCount} 条，覆盖 ${aggregate.channelBreakdowns.length} 个渠道、${aggregate.storeBreakdowns.length} 个店铺、${targetRecords.length} 个渠道店铺商品实例。`
   const timestamp = nowText()
   const nextRecords = targetRecords.map((record) => {
     const nextRecord: ProjectChannelProductRecord = {
@@ -3117,7 +3134,7 @@ export function submitProjectTestingSummary(
     ok: true,
     message: '已提交测款汇总。',
     record: latestRecord,
-    relationCount: relations.length,
+    relationCount: mappedRelationCount,
     summaryText,
   }
 }
@@ -3154,8 +3171,15 @@ export function submitProjectTestingConclusion(
   }
 
   const relations = getFormalTestingRelations(projectId)
-  if (relations.length === 0) {
-    return { ok: false, message: '当前项目尚未建立正式测款关系，不能提交测款结论。', record: primaryRecord }
+  const aggregate = buildProjectTestingSummaryAggregate(projectId, relations, targetRecords)
+  const mappedRelationCount = new Set([...aggregate.liveRelationIds, ...aggregate.videoRelationIds]).size
+  if (mappedRelationCount === 0) {
+    return {
+      ok: false,
+      message: '当前项目尚无已明确关联渠道店铺商品的正式测款记录，不能提交测款结论。',
+      record: primaryRecord,
+      relationCount: 0,
+    }
   }
 
   const note = payload.note.trim() || `测款结论为${payload.conclusion}。`
@@ -3245,6 +3269,7 @@ export function submitProjectTestingConclusion(
           ? `已提交测款通过结论，当前 ${nextRecords.length} 个渠道店铺商品实例已关联同一商品测款档案。`
           : '已提交测款通过结论，已更新项目关联商品测款档案。',
       record: latestRecord,
+      relationCount: mappedRelationCount,
     }
   }
 
@@ -3308,6 +3333,7 @@ export function submitProjectTestingConclusion(
       ok: true,
       message: '已暂保留当前判断，渠道店铺商品和既有测款事实保持不变，等待稍后再判断。',
       record: latestRecord,
+      relationCount: mappedRelationCount,
     }
   }
 
@@ -3393,6 +3419,7 @@ export function submitProjectTestingConclusion(
         ? `已提交不通过结论，已作废 ${nextRecords.length} 个渠道店铺商品实例，当前项目已进入样衣退回处理。`
         : '已提交不通过结论，当前项目已进入样衣退回处理。',
     record: latestRecord,
+    relationCount: mappedRelationCount,
   }
 }
 

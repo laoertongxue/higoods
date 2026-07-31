@@ -714,9 +714,9 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
       title: '制版-通勤薄款针织开衫(P1)',
       sourceType: '商品项目',
       upstreamModule: '商品项目',
-      upstreamObjectType: '项目步骤',
-      upstreamObjectId: 'PATTERN_TASK',
-      upstreamObjectCode: 'PATTERN_TASK',
+      upstreamObjectType: '商品项目',
+      upstreamObjectId: '',
+      upstreamObjectCode: '',
       productStyleCode: 'SPU-2026-011',
       patternType: '针织开衫',
       sizeRange: 'S-XL',
@@ -784,9 +784,9 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
       title: '制版-秋冬加绒卫裤(P1)',
       sourceType: '商品项目',
       upstreamModule: '商品项目',
-      upstreamObjectType: '项目步骤',
-      upstreamObjectId: 'PATTERN_TASK',
-      upstreamObjectCode: 'PATTERN_TASK',
+      upstreamObjectType: '商品项目',
+      upstreamObjectId: '',
+      upstreamObjectCode: '',
       productStyleCode: 'SPU-2026-012',
       patternType: '卫裤',
       sizeRange: 'S-2XL',
@@ -854,9 +854,9 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
       title: '制版-弹力牛仔裤已写包待收口(P1)',
       sourceType: '商品项目',
       upstreamModule: '商品项目',
-      upstreamObjectType: '项目步骤',
-      upstreamObjectId: 'PATTERN_TASK',
-      upstreamObjectCode: 'PATTERN_TASK',
+      upstreamObjectType: '商品项目',
+      upstreamObjectId: '',
+      upstreamObjectCode: '',
       productStyleCode: 'SPU-2026-018',
       patternType: '牛仔裤',
       sizeRange: 'S-XL',
@@ -980,9 +980,9 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
       title: '制版-针织开衫待提交样板确认(P2)',
       sourceType: '商品项目',
       upstreamModule: '商品项目',
-      upstreamObjectType: '项目步骤',
-      upstreamObjectId: 'PATTERN_TASK',
-      upstreamObjectCode: 'PATTERN_TASK',
+      upstreamObjectType: '商品项目',
+      upstreamObjectId: '',
+      upstreamObjectCode: '',
       productStyleCode: 'SPU-2026-011',
       patternType: '针织开衫',
       sizeRange: 'S-XL',
@@ -1006,9 +1006,9 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
       title: '制版-民族风刺绣连衣裙执行中(P1)',
       sourceType: '商品项目',
       upstreamModule: '商品项目',
-      upstreamObjectType: '项目步骤',
-      upstreamObjectId: 'PATTERN_TASK',
-      upstreamObjectCode: 'PATTERN_TASK',
+      upstreamObjectType: '商品项目',
+      upstreamObjectId: '',
+      upstreamObjectCode: '',
       productStyleCode: 'SPU-2026-007',
       patternType: '刺绣连衣裙',
       sizeRange: 'S-L',
@@ -1033,9 +1033,9 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
       title: '制版-秋冬加绒卫裤资料阻塞(P2)',
       sourceType: '商品项目',
       upstreamModule: '商品项目',
-      upstreamObjectType: '项目步骤',
-      upstreamObjectId: 'PATTERN_TASK',
-      upstreamObjectCode: 'PATTERN_TASK',
+      upstreamObjectType: '商品项目',
+      upstreamObjectId: '',
+      upstreamObjectCode: '',
       productStyleCode: 'SPU-2026-012',
       patternType: '卫裤',
       sizeRange: 'S-2XL',
@@ -1060,9 +1060,9 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
       title: '制版-针织开衫取消任务(P0)',
       sourceType: '商品项目',
       upstreamModule: '商品项目',
-      upstreamObjectType: '项目步骤',
-      upstreamObjectId: 'PATTERN_TASK',
-      upstreamObjectCode: 'PATTERN_TASK',
+      upstreamObjectType: '商品项目',
+      upstreamObjectId: '',
+      upstreamObjectCode: '',
       productStyleCode: 'SPU-2026-011',
       patternType: '针织开衫',
       sizeRange: 'S-XL',
@@ -1090,9 +1090,9 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
     const styleCode = style?.styleCode || item.productStyleCode
     const linkedTechPackVersionId = item.linkedTechPackVersionId || ''
     const updatedAt = item.updatedAt
-    const usesLegacyProjectNodeSource = item.upstreamObjectId === 'PATTERN_TASK'
-    const upstreamObjectId = usesLegacyProjectNodeSource ? project.projectId : item.upstreamObjectId
-    const upstreamObjectCode = usesLegacyProjectNodeSource ? project.projectCode : item.upstreamObjectCode
+    const usesProjectSource = item.sourceType === '商品项目'
+    const upstreamObjectId = usesProjectSource ? project.projectId : item.upstreamObjectId
+    const upstreamObjectCode = usesProjectSource ? project.projectCode : item.upstreamObjectCode
     const sampleConfirmedAt = item.sampleReviewStatus === '样板已通过' ? (item.sampleReviewAt || updatedAt) : ''
     const linkedTechPackUpdatedAt = linkedTechPackVersionId ? updatedAt : ''
 
@@ -1107,8 +1107,8 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
       stepCode: 'PATTERN_TASK',
       stepName: '制版任务',
       sourceType: item.sourceType,
-      upstreamModule: usesLegacyProjectNodeSource ? '商品项目' : item.upstreamModule,
-      upstreamObjectType: usesLegacyProjectNodeSource ? '商品项目' : item.upstreamObjectType,
+      upstreamModule: usesProjectSource ? '商品项目' : item.upstreamModule,
+      upstreamObjectType: usesProjectSource ? '商品项目' : item.upstreamObjectType,
       upstreamObjectId,
       upstreamObjectCode,
       styleId: style?.styleId || '',
@@ -2179,14 +2179,14 @@ export function createTaskRelationBootstrapSnapshot(): TaskRelationBootstrapSnap
   return {
     relations: [
       ...snapshot.revisionTasks
-        .filter((task) => task.projectId && task.projectNodeId)
+        .filter((task) => task.projectId)
         .map((task) =>
           taskRelationRecord({
             projectId: task.projectId,
             projectCode: task.projectCode,
-            projectNodeId: task.projectNodeId,
-            stepCode: task.stepCode,
-            stepName: task.stepName,
+            projectNodeId: '',
+            stepCode: '',
+            stepName: '',
             sourceModule: '改版任务',
             sourceObjectType: '改版任务',
             sourceObjectId: task.revisionTaskId,
@@ -2197,13 +2197,13 @@ export function createTaskRelationBootstrapSnapshot(): TaskRelationBootstrapSnap
             ownerName: task.ownerName,
           }),
         ),
-      ...snapshot.plateTasks.filter((task) => task.projectId && task.projectNodeId).map((task) =>
+      ...snapshot.plateTasks.filter((task) => task.projectId).map((task) =>
         taskRelationRecord({
           projectId: task.projectId,
           projectCode: task.projectCode,
-          projectNodeId: task.projectNodeId,
-          stepCode: task.stepCode,
-          stepName: task.stepName,
+          projectNodeId: '',
+          stepCode: '',
+          stepName: '',
           sourceModule: '制版任务',
           sourceObjectType: '制版任务',
           sourceObjectId: task.plateTaskId,
@@ -2216,13 +2216,13 @@ export function createTaskRelationBootstrapSnapshot(): TaskRelationBootstrapSnap
           note: firstSampleRelationMeta(task),
         }),
       ),
-      ...snapshot.patternTasks.filter((task) => task.projectId && task.projectNodeId).map((task) =>
+      ...snapshot.patternTasks.filter((task) => task.projectId).map((task) =>
         taskRelationRecord({
           projectId: task.projectId,
           projectCode: task.projectCode,
-          projectNodeId: task.projectNodeId,
-          stepCode: task.stepCode,
-          stepName: task.stepName,
+          projectNodeId: '',
+          stepCode: '',
+          stepName: '',
           sourceModule: '花型任务',
           sourceObjectType: '花型任务',
           sourceObjectId: task.patternTaskId,
@@ -2233,13 +2233,13 @@ export function createTaskRelationBootstrapSnapshot(): TaskRelationBootstrapSnap
           ownerName: task.ownerName,
         }),
       ),
-      ...snapshot.firstSampleTasks.filter((task) => task.projectId && task.projectNodeId).map((task) =>
+      ...snapshot.firstSampleTasks.filter((task) => task.projectId).map((task) =>
         taskRelationRecord({
           projectId: task.projectId,
           projectCode: task.projectCode,
-          projectNodeId: task.projectNodeId,
-          stepCode: task.stepCode,
-          stepName: task.stepName,
+          projectNodeId: '',
+          stepCode: '',
+          stepName: '',
           sourceModule: '首版样衣打样',
           sourceObjectType: '首版样衣打样任务',
           sourceObjectId: task.firstSampleTaskId,
@@ -2252,13 +2252,13 @@ export function createTaskRelationBootstrapSnapshot(): TaskRelationBootstrapSnap
           note: firstSampleRelationMeta(task),
         }),
       ),
-      ...snapshot.firstOrderSampleTasks.filter((task) => task.projectId && task.projectNodeId).map((task) =>
+      ...snapshot.firstOrderSampleTasks.filter((task) => task.projectId).map((task) =>
         taskRelationRecord({
           projectId: task.projectId,
           projectCode: task.projectCode,
-          projectNodeId: task.projectNodeId,
-          stepCode: task.stepCode,
-          stepName: task.stepName,
+          projectNodeId: '',
+          stepCode: '',
+          stepName: '',
           sourceModule: '首单样衣打样',
           sourceObjectType: '首单样衣打样任务',
           sourceObjectId: task.firstOrderSampleTaskId,

@@ -80,7 +80,7 @@ assert.ok(throughCase.payload.linkedStyleCode)
 assert.equal(throughCase.payload.nextActionType, '完善商品档案')
 assert.equal(throughCase.project.projectStatus, '进行中')
 assert.equal(throughCase.sampleReturnNode.currentStatus, '未开始')
-assert.match(throughHtml, /关联款式档案编码/)
+assert.match(throughHtml, /关联商品测款档案编码/)
 assert.match(throughHtml, /完善商品档案/)
 
 const eliminatedCase = submitConclusionForProject('PRJ-202604-007', '不通过')

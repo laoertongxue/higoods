@@ -43,13 +43,15 @@ const detail = updateFirstOrderSampleTaskDetailAndSync(task.firstOrderSampleTask
 }, '测试用户')
 
 assert.equal(detail.ok, true)
-assert.equal(detail.projectNode, null)
-assert.match(detail.message, /独立任务/)
+assert.match(detail.message, /商品项目关系/)
 const updated = getFirstOrderSampleTaskById(task.firstOrderSampleTaskId)
 assert.equal(updated?.sampleCode, 'FOS-RESULT-26002')
 assert.equal(updated?.conclusionResult, '通过')
 assert.equal(updated?.confirmedBy, '张娜')
 assert.deepEqual(listProjectNodes(task.projectId), projectNodesBefore)
-assert.equal(findFirstOrderSampleTaskRelations(task.firstOrderSampleTaskId).length, 0)
+const relation = findFirstOrderSampleTaskRelations(task.firstOrderSampleTaskId)[0]
+assert.ok(relation)
+assert.equal(relation.projectNodeId, null)
+assert.equal(relation.stepCode, '')
 
 console.log('pcs-first-order-sample-detail-writeback-project.spec.ts PASS')

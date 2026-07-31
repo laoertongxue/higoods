@@ -1,9 +1,6 @@
 import assert from 'node:assert/strict'
 
-import {
-  getProjectNodeRecordByStepCode,
-  resetProjectRepository,
-} from '../src/data/pcs-project-repository.ts'
+import { resetProjectRepository } from '../src/data/pcs-project-repository.ts'
 import {
   listPlateMakingTaskPendingItems,
   listPlateMakingTasks,
@@ -29,7 +26,7 @@ function actionTarget(action: string, dataset: Record<string, string> = {}): HTM
 }
 
 function countRenderedRows(html: string): number {
-  return (html.match(/<tr class="hover:bg-slate-50\/70">/g) || []).length
+  return (html.match(/<tr class="border-b last:border-b-0 hover:bg-muted\/40">/g) || []).length
 }
 
 resetProjectRepository()
@@ -50,12 +47,14 @@ for (const status of requiredStatuses) {
 for (const task of tasks) {
   assert.ok(task.projectId, `${task.plateTaskCode} 必须关联正式商品项目`)
   assert.ok(task.projectCode, `${task.plateTaskCode} 必须带商品项目编码`)
-  assert.ok(task.projectNodeId, `${task.plateTaskCode} 必须关联正式制版项目节点`)
+  assert.equal(task.projectNodeId, '', `${task.plateTaskCode} 必须直接关联商品项目，不得绑定制版项目节点`)
+  if (task.sourceType === '商品项目') {
+    assert.equal(task.upstreamObjectType, '商品项目', `${task.plateTaskCode} 的来源对象类型必须是商品项目`)
+    assert.equal(task.upstreamObjectId, task.projectId, `${task.plateTaskCode} 的来源对象必须是当前商品项目`)
+    assert.equal(task.upstreamObjectCode, task.projectCode, `${task.plateTaskCode} 的来源编码必须是当前商品项目编码`)
+  }
   assert.ok(task.styleCode || task.productStyleCode || task.spuCode, `${task.plateTaskCode} 必须带款式/SPU 信息`)
   assert.ok((task.materialRequirementLines || []).length > 0, `${task.plateTaskCode} 必须带制版面辅料输入`)
-
-  const node = getProjectNodeRecordByStepCode(task.projectId, 'PATTERN_TASK')
-  assert.equal(node?.projectNodeId, task.projectNodeId, `${task.plateTaskCode} 的项目节点必须是 PATTERN_TASK`)
 
   if (task.status === '待确认') {
     assert.equal(task.sampleReviewStatus, '待样板确认', `${task.plateTaskCode} 待确认状态必须对应待样板确认`)
@@ -92,21 +91,26 @@ for (const task of tasks) {
 }
 
 const page1Html = renderPcsPlateMakingTaskPage()
-assert.ok(page1Html.includes(`共 ${tasks.length} 条，当前第 1 / 2 页`), '制版任务列表第一页应显示分页页脚')
+assert.ok(page1Html.includes(`共 ${tasks.length} 条，当前 1-8`), '制版任务列表第一页应显示分页页脚')
 assert.equal(countRenderedRows(page1Html), 8, '制版任务第一页应只渲染 8 行')
 assert.ok(page1Html.includes('异常待处理'), '制版任务状态筛选应包含异常待处理')
 assert.ok(page1Html.includes('已取消'), '制版任务状态筛选应包含已取消')
 
 const filterIndex = page1Html.indexOf('data-pcs-engineering-field="plate-search"')
 const metricIndex = page1Html.indexOf('data-pcs-engineering-action="set-plate-quick-filter"')
-const tableIndex = page1Html.indexOf('<thead class="bg-slate-50">', metricIndex)
+const tableIndex = page1Html.indexOf('<table class="w-full table-fixed', metricIndex)
 assert.ok(filterIndex >= 0, '制版任务列表应渲染搜索条件')
 assert.ok(metricIndex > filterIndex, '统计卡片必须位于搜索条件下方')
 assert.ok(tableIndex > metricIndex, '制版任务表格必须位于统计卡片下方')
 
-handlePcsEngineeringTaskEvent(actionTarget('change-plate-page', { pageStep: '1' }))
+handlePcsEngineeringTaskEvent(actionTarget('next-page', { pcsEngineeringListModule: 'plate' }))
+Object.defineProperty(globalThis, 'document', {
+  configurable: true,
+  value: { querySelector: () => ({}) },
+})
 const page2Html = renderPcsPlateMakingTaskPage()
-assert.ok(page2Html.includes(`共 ${tasks.length} 条，当前第 2 / 2 页`), '制版任务列表应支持切换到第二页')
+Reflect.deleteProperty(globalThis, 'document')
+assert.ok(page2Html.includes(`共 ${tasks.length} 条，当前 9-${tasks.length}`), '制版任务列表应支持切换到第二页')
 assert.equal(countRenderedRows(page2Html), tasks.length - 8, '制版任务第二页应渲染剩余行')
 
 console.log('check-pcs-plate-making-mock-data PASS')

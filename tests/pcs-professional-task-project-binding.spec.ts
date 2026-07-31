@@ -20,20 +20,34 @@ import {
   updateRevisionTask,
 } from '../src/data/pcs-revision-task-repository.ts'
 import {
+  completeFirstOrderSampleTask,
+  completeFirstSampleTask,
   completePatternTask,
   completePlateMakingTask,
   completeRevisionTask,
+  createFirstOrderSampleTaskWithProjectRelation,
+  createFirstSampleTaskWithProjectRelation,
   createDownstreamTasksFromRevision,
   createPatternTask,
   createPlateMakingTask,
   createRevisionTaskWithProjectRelation,
 } from '../src/data/pcs-task-project-relation-writeback.ts'
+import {
+  resetFirstSampleTaskRepository,
+  updateFirstSampleTask,
+} from '../src/data/pcs-first-sample-repository.ts'
+import {
+  resetFirstOrderSampleTaskRepository,
+  updateFirstOrderSampleTask,
+} from '../src/data/pcs-first-order-sample-repository.ts'
 
 resetProjectRepository()
 resetPlateMakingTaskRepository()
 resetPatternTaskRepository()
 resetProjectRelationRepository()
 resetRevisionTaskRepository()
+resetFirstSampleTaskRepository()
+resetFirstOrderSampleTaskRepository()
 
 const project = listProjects()[0]
 assert.ok(project, '必须存在商品项目演示数据')
@@ -99,6 +113,98 @@ assert.equal(plateRelation.projectNodeId || '', '', '制版项目关系只绑定
 assert.equal(patternRelation.projectNodeId || '', '', '花型项目关系只绑定商品项目，不绑定专业节点')
 assert.equal(plateRelation.stepCode, '', '制版项目关系不得继续保存已删除的专业步骤编码')
 assert.equal(patternRelation.stepCode, '', '花型项目关系不得继续保存已删除的专业步骤编码')
+
+const firstSampleResult = createFirstSampleTaskWithProjectRelation({
+  projectId: project.projectId,
+  title: '项目级首版样衣关系回归',
+  sourceType: '人工创建',
+  sourceTechPackVersionId: 'tpv-project-level-first-sample',
+  factoryId: 'factory-shenzhen-01',
+  factoryName: '深圳样衣间',
+  targetSite: '深圳',
+  sampleMaterialMode: '正确布',
+  samplePurpose: '首版确认',
+  operatorName: '测试用户',
+})
+assert.equal(firstSampleResult.ok, true, firstSampleResult.message)
+assert.equal(firstSampleResult.task?.projectNodeId, '')
+const firstSampleRelation = listProjectRelationsByProject(project.projectId).find(
+  (item) => item.sourceObjectId === firstSampleResult.task?.firstSampleTaskId,
+)
+assert.ok(firstSampleRelation, '首版样衣任务创建时必须立即持久化项目级关系')
+assert.equal(firstSampleRelation.projectNodeId || '', '')
+assert.equal(firstSampleRelation.stepCode, '')
+
+updateFirstSampleTask(firstSampleResult.task!.firstSampleTaskId, {
+  sampleImageIds: ['mock://first-sample/project-level.png'],
+  fitConfirmationSummary: '版型确认通过。',
+  productionReadinessNote: '首版样衣已具备生产准备条件。',
+  confirmedAt: '2026-07-31 10:00',
+})
+const completedFirstSample = completeFirstSampleTask(firstSampleResult.task!.firstSampleTaskId, '测试用户')
+assert.equal(completedFirstSample.ok, true, completedFirstSample.message)
+assert.equal(
+  listProjectRelationsByProject(project.projectId).find(
+    (item) => item.sourceObjectId === firstSampleResult.task?.firstSampleTaskId,
+  )?.sourceStatus,
+  '已完成',
+  '首版样衣任务完成后必须统一回写项目级关系完成态',
+)
+
+const firstOrderResult = createFirstOrderSampleTaskWithProjectRelation({
+  projectId: project.projectId,
+  title: '项目级首单样衣关系回归',
+  sourceType: '首版样衣任务',
+  upstreamModule: '首版样衣打样',
+  upstreamObjectType: '首版样衣打样任务',
+  upstreamObjectId: firstSampleResult.task!.firstSampleTaskId,
+  upstreamObjectCode: firstSampleResult.task!.firstSampleTaskCode,
+  sourceFirstSampleTaskId: firstSampleResult.task!.firstSampleTaskId,
+  sourceFirstSampleTaskCode: firstSampleResult.task!.firstSampleTaskCode,
+  sourceFirstSampleCode: firstSampleResult.task!.sampleCode,
+  sourceTechPackVersionId: 'tpv-project-level-first-order',
+  factoryId: 'factory-shenzhen-01',
+  factoryName: '深圳样衣间',
+  targetSite: '深圳',
+  sampleChainMode: '复用首版结论',
+  operatorName: '测试用户',
+})
+assert.equal(firstOrderResult.ok, true, firstOrderResult.message)
+assert.equal(firstOrderResult.task?.projectNodeId, '')
+const firstOrderRelation = listProjectRelationsByProject(project.projectId).find(
+  (item) => item.sourceObjectId === firstOrderResult.task?.firstOrderSampleTaskId,
+)
+assert.ok(firstOrderRelation, '首单样衣任务创建时必须立即持久化项目级关系')
+assert.equal(firstOrderRelation.projectNodeId || '', '')
+assert.equal(firstOrderRelation.stepCode, '')
+
+updateFirstOrderSampleTask(firstOrderResult.task!.firstOrderSampleTaskId, {
+  samplePlanLines: [{
+    lineId: 'line-project-level-first-order',
+    lineCode: 'FOS-LINE-001',
+    sampleMaterialMode: '正确布',
+    targetSite: '深圳',
+    factoryId: 'factory-shenzhen-01',
+    factoryName: '深圳样衣间',
+    sampleCode: firstOrderResult.task!.sampleCode,
+    sampleStatus: '已完成',
+    note: '',
+  }],
+  finalReferenceNote: '首单样衣作为大货参照。',
+  conclusionResult: '通过',
+  conclusionNote: '首单样衣确认通过。',
+  confirmedAt: '2026-07-31 10:30',
+  confirmedBy: '测试用户',
+})
+const completedFirstOrder = completeFirstOrderSampleTask(firstOrderResult.task!.firstOrderSampleTaskId, '测试用户')
+assert.equal(completedFirstOrder.ok, true, completedFirstOrder.message)
+assert.equal(
+  listProjectRelationsByProject(project.projectId).find(
+    (item) => item.sourceObjectId === firstOrderResult.task?.firstOrderSampleTaskId,
+  )?.sourceStatus,
+  '已完成',
+  '首单样衣任务完成后必须统一回写项目级关系完成态',
+)
 
 const revisionProject = listProjects().find((item) =>
   Boolean(getProjectNodeRecordByStepCode(item.projectId, 'TEST_CONCLUSION')),

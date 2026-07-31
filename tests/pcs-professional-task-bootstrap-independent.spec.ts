@@ -59,10 +59,11 @@ professionalTasks.forEach((task) => {
 
 const relationSnapshot = createTaskRelationBootstrapSnapshot()
 const professionalSourceModules = new Set(['改版任务', '制版任务', '花型任务', '首版样衣打样', '首单样衣打样'])
-assert.equal(relationSnapshot.relations.length, 0, '五类独立专业任务 bootstrap 不得生成项目节点关系')
 assert.ok(
-  relationSnapshot.relations.every((relation) => !professionalSourceModules.has(relation.sourceModule)),
-  'bootstrap 不得残留任何五类专业任务项目关系',
+  relationSnapshot.relations
+    .filter((relation) => professionalSourceModules.has(relation.sourceModule))
+    .every((relation) => relation.projectId && !relation.projectNodeId && !relation.stepCode),
+  '五类专业任务 bootstrap 只能生成商品项目级关系，不得生成专业项目节点关系',
 )
 assert.ok(snapshot.plateTasks.every((task) => task.upstreamObjectId && task.upstreamObjectCode), '制版种子必须保留真实来源对象')
 assert.ok(snapshot.firstOrderSampleTasks.every((task) => task.upstreamObjectId && task.upstreamObjectCode), '首单样衣种子必须保留真实来源任务')

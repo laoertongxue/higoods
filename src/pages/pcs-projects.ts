@@ -128,26 +128,26 @@ import {
   terminateProject,
 } from '../data/pcs-project-flow-service.ts'
 import {
+  createFirstOrderSampleTaskWithProjectRelation,
+  createFirstSampleTaskWithProjectRelation,
   createPatternTaskWithProjectRelation,
   createPlateMakingTaskWithProjectRelation,
   createRevisionTaskWithProjectRelation,
 } from '../data/pcs-task-project-relation-writeback.ts'
 import {
   FIRST_SAMPLE_FACTORY_OPTIONS,
-  createOrUpdateFirstSampleTaskFromProjectNode,
-  getFirstSampleTaskForProjectNode,
-  resolveFirstSampleProjectNodeDefaults,
+  getLatestFirstSampleTaskForProject,
+  resolveFirstSampleProjectDefaults,
 } from '../data/pcs-first-sample-project-writeback.ts'
 import type { FirstSamplePurpose, SampleMaterialMode } from '../data/pcs-sample-chain-types.ts'
 import {
   FIRST_ORDER_SAMPLE_CHAIN_MODE_OPTIONS,
   FIRST_ORDER_SAMPLE_FACTORY_OPTIONS,
   FIRST_ORDER_SAMPLE_SPECIAL_REASON_OPTIONS,
-  createOrUpdateFirstOrderSampleTaskFromProjectNode,
-  getFirstOrderSampleTaskForProjectNode,
+  getLatestFirstOrderSampleTaskForProject,
   listFirstOrderSourceFirstSampleOptions,
   listFirstOrderTechPackVersionOptions,
-  resolveFirstOrderSampleProjectNodeDefaults,
+  resolveFirstOrderSampleProjectDefaults,
 } from '../data/pcs-first-order-sample-project-writeback.ts'
 import type { SampleChainMode } from '../data/pcs-first-order-sample-types.ts'
 import { findStyleArchiveByProjectId } from '../data/pcs-style-archive-repository.ts'
@@ -1226,15 +1226,15 @@ function openEngineeringTaskCreateDialog(
   project: PcsProjectRecord,
   node: PcsProjectNodeRecord,
 ): void {
-  const firstSampleDefaults = resolveFirstSampleProjectNodeDefaults(project.projectId)
-  const firstOrderDefaults = resolveFirstOrderSampleProjectNodeDefaults(project.projectId)
+  const firstSampleDefaults = resolveFirstSampleProjectDefaults(project.projectId)
+  const firstOrderDefaults = resolveFirstOrderSampleProjectDefaults(project.projectId)
   const existingFirstSampleTask =
     node.stepCode === 'FIRST_SAMPLE'
-      ? getFirstSampleTaskForProjectNode(project.projectId, node.projectNodeId)
+      ? getLatestFirstSampleTaskForProject(project.projectId)
       : null
   const existingFirstOrderTask =
     node.stepCode === 'FIRST_ORDER_SAMPLE'
-      ? getFirstOrderSampleTaskForProjectNode(project.projectId, node.projectNodeId)
+      ? getLatestFirstOrderSampleTaskForProject(project.projectId)
       : null
   state.engineeringCreateDialog = {
     open: true,
@@ -1408,9 +1408,10 @@ function submitEngineeringTaskCreateDialog(): { ok: boolean; message: string; ro
     if (!draft.targetSite.trim()) return { ok: false, message: '请选择打样区域。' }
     if (!draft.sampleMaterialMode.trim()) return { ok: false, message: '请选择样衣材质模式。' }
     if (!draft.samplePurpose.trim()) return { ok: false, message: '请选择样衣用途。' }
-    const result = createOrUpdateFirstSampleTaskFromProjectNode({
+    const result = createFirstSampleTaskWithProjectRelation({
       projectId: project.projectId,
-      projectNodeId: node.projectNodeId,
+      title: `${project.projectName}首版样衣打样`,
+      sourceType: '人工创建',
       sourceTaskType: draft.sourceTaskType.trim(),
       sourceTaskId: draft.sourceTaskId.trim(),
       sourceTaskCode: draft.sourceTaskCode.trim(),
@@ -1444,10 +1445,19 @@ function submitEngineeringTaskCreateDialog(): { ok: boolean; message: string; ro
     if (draft.sampleChainMode !== '复用首版结论' && draft.specialSceneReasonCodes.length === 0) {
       return { ok: false, message: '请选择特殊场景原因。' }
     }
-    const result = createOrUpdateFirstOrderSampleTaskFromProjectNode({
+    const sourceFirstSample = getFirstSampleTaskById(draft.sourceFirstSampleTaskId.trim())
+    if (!sourceFirstSample) return { ok: false, message: '未找到来源首版样衣任务。' }
+    const result = createFirstOrderSampleTaskWithProjectRelation({
       projectId: project.projectId,
-      projectNodeId: node.projectNodeId,
+      title: `${project.projectName}首单样衣打样`,
+      sourceType: '首版样衣任务',
+      upstreamModule: '首版样衣打样',
+      upstreamObjectType: '首版样衣打样任务',
+      upstreamObjectId: sourceFirstSample.firstSampleTaskId,
+      upstreamObjectCode: sourceFirstSample.firstSampleTaskCode,
       sourceFirstSampleTaskId: draft.sourceFirstSampleTaskId.trim(),
+      sourceFirstSampleTaskCode: sourceFirstSample.firstSampleTaskCode,
+      sourceFirstSampleCode: sourceFirstSample.sampleCode,
       sourceTechPackVersionId: draft.sourceTechPackVersionId.trim(),
       factoryId: draft.factoryId.trim(),
       factoryName: draft.factoryName.trim(),
@@ -6596,7 +6606,7 @@ function renderFirstSampleSummaryField(label: string, value: unknown): string {
 }
 
 function renderFirstSampleProjectNodeWorkspace(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
-  const task = getFirstSampleTaskForProjectNode(project.projectId, node.node.projectNodeId)
+  const task = getLatestFirstSampleTaskForProject(project.projectId)
   const actionButton = renderEngineeringTaskNodeAction(project, node, task ? 'secondary' : 'primary')
   if (!task) {
     return `
@@ -6656,7 +6666,7 @@ function renderFirstSampleProjectNodeWorkspace(project: PcsProjectRecord, node: 
 }
 
 function renderFirstOrderSampleProjectNodeWorkspace(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
-  const task = getFirstOrderSampleTaskForProjectNode(project.projectId, node.node.projectNodeId)
+  const task = getLatestFirstOrderSampleTaskForProject(project.projectId)
   const actionButton = renderEngineeringTaskNodeAction(project, node, task ? 'secondary' : 'primary')
   if (!task) {
     return `

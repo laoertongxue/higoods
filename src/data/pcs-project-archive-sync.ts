@@ -1,6 +1,5 @@
 import {
   getProjectById,
-  getProjectNodeRecordByStepCode,
   updateProjectRecord,
 } from './pcs-project-repository.ts'
 import { upsertProjectRelation } from './pcs-project-relation-repository.ts'
@@ -76,14 +75,13 @@ function buildPendingItem(projectCode: string, sourceCode: string, reason: strin
 }
 
 function buildRelation(archive: ProjectArchiveRecord, operatorName: string): ProjectRelationRecord {
-  const styleNode = getProjectNodeRecordByStepCode(archive.projectId, 'PROJECT_INIT')
   return {
     projectRelationId: `rel_archive_${archive.projectArchiveId}`,
     projectId: archive.projectId,
     projectCode: archive.projectCode,
-    projectNodeId: styleNode?.projectNodeId || null,
-    stepCode: styleNode ? 'PROJECT_INIT' : '',
-    stepName: styleNode?.stepName || '',
+    projectNodeId: null,
+    stepCode: '',
+    stepName: '',
     relationRole: '产出对象',
     sourceModule: '项目资料归档',
     sourceObjectType: '项目资料归档',
@@ -150,12 +148,11 @@ function computeArchiveSnapshot(archive: ProjectArchiveRecord): {
   const dedupedManual = dedupeManualDocuments(existingManualDocuments, existingManualFiles)
   const nextDocuments = [...collected.documents, ...dedupedManual.documents]
   const nextFiles = [...collected.files, ...dedupedManual.files]
-  const styleNodeId = getProjectNodeRecordByStepCode(project.projectId, 'PROJECT_INIT')?.projectNodeId || ''
   const missingItems = computeProjectArchiveMissingItems({
     archive,
     documents: nextDocuments,
     currentTechnicalVersion: collected.currentTechnicalVersion,
-    transferNodeId: styleNodeId,
+    transferNodeId: '',
   })
   const derived = deriveProjectArchiveState({
     archive,
@@ -308,7 +305,7 @@ export function createProjectArchive(projectId: string, operatorName = '商品�
   return {
     ok: true,
     existed: false,
-    message: '已建立项目资料归档，已写入项目关联，已更新项目节点。',
+    message: '已建立项目资料归档，并已写入商品项目关联。',
     archive,
   }
 }
@@ -425,9 +422,9 @@ export function uploadProjectArchiveManualDocument(
       projectArchiveId,
       projectId: archive.projectId,
       projectCode: archive.projectCode,
-      projectNodeId: getProjectNodeRecordByStepCode(archive.projectId, 'PROJECT_INIT')?.projectNodeId || '',
-      stepCode: 'PROJECT_INIT',
-      stepName: '完善商品档案',
+      projectNodeId: '',
+      stepCode: '',
+      stepName: '',
       sourceModule: '项目资料归档',
       sourceObjectType: groupLabelMap[input.documentGroup],
       sourceObjectId: projectArchiveId,
