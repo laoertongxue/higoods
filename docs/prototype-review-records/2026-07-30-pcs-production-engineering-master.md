@@ -119,6 +119,7 @@
 - `src/data/pcs-project-technical-data-writeback.ts`
 - `src/data/pcs-style-archive-bootstrap.ts`
 - `src/data/pcs-project-decision-flow-service.ts`
+- `src/data/pcs-project-decision-migration.ts`（删除）
 - `src/data/pcs-task-project-relation-writeback.ts`
 - `src/data/pcs-project-relation-repository.ts`
 - `src/data/pcs-revision-task-repository.ts`
@@ -156,7 +157,6 @@
 - `src/data/pcs-project-archive-repository.ts`
 - `src/data/pcs-project-archive-sync.ts`
 - `src/data/pcs-project-archive-types.ts`
-- `src/data/pcs-project-decision-migration.ts`
 - `src/data/pcs-project-demo-seed-service.ts`
 - `src/data/pcs-project-flow-service.ts`
 - `src/data/pcs-project-image-view-model.ts`
@@ -268,6 +268,47 @@
 
 - `src/data/pcs-project-phase-definitions.ts`
 - `src/data/pcs-task-source-normalizer.ts`
+
+### 补充审查结论
+
+- 通过。
+- 无业务例外。
+
+## 12. 项目级专业任务详情与当前业务口径补充审查
+
+### 本次范围
+
+- 商品项目详情直接读取项目级关系，展示改版、制版、花型、首版样衣和首单样衣五类专业任务的类型、编号、状态、来源项目与任务入口。
+- 删除项目详情中不可达的旧专业节点摘要，不再把专业任务伪装为商品项目固定步骤。
+- 专业任务关系只保存项目归属和真实来源对象；不再补空的项目节点、步骤或兼容引用字段。
+- 项目仓储直接使用当前决策值和当前阶段编码，删除旧决策值迁移与旧阶段名称别名迁移。
+- 款式档案文案统一为创建商品项目时同步建立“商品测款”档案，不再使用节点派生档案口径。
+- 本轮删除旧决策迁移文件：`src/data/pcs-project-decision-migration.ts`。
+
+### 规范自查
+
+| 检查项 | 结论 |
+| --- | --- |
+| 业务关系 | 通过。五类专业任务保持独立任务身份，通过项目级关系回到所属商品项目。 |
+| 信息结构 | 通过。项目详情只展示任务类型、状态、编号、来源和入口等必要事实，没有增加说明性长文案。 |
+| 固定步骤边界 | 通过。专业任务不写入商品项目固定步骤节点，固定五步关系仍保留明确节点和步骤字段。 |
+| 档案事实 | 通过。商品项目创建时同步建立“商品测款”档案，后续只做资料完善和正式建档。 |
+| 中文化 | 通过。页面状态、标题、来源和入口均为中文业务文案。 |
+| 交互性能 | 通过。任务入口为直接路由跳转；详情摘要由既有关系数据一次渲染，没有新增高频输入或整页交互重绘。 |
+| 列表与分页 | 不适用。本次新增的是固定上限的项目关系摘要，不是数据列表；既有项目列表未调整。 |
+
+### 补充验证
+
+- `npx tsx tests/pcs-project-professional-relations-detail.spec.ts`：通过。
+- `npx tsx tests/pcs-professional-task-project-binding.spec.ts`：通过。
+- `npx tsx tests/pcs-professional-task-bootstrap-independent.spec.ts`：通过。
+- `npx tsx tests/pcs-task2-final-detail-and-semantic-closure.spec.ts`：通过。
+- `npx tsx tests/pcs-professional-task-model-semantic-closure.spec.ts`：通过。
+- `npx tsx scripts/check-pcs-project-decision-flow.ts`：通过。
+- `npx tsx scripts/check-pcs-first-sample-node-writeback.ts`：通过。
+- `npx tsx scripts/check-pcs-first-order-sample-node-writeback.ts`：通过。
+- `npx tsx scripts/check-pcs-plate-sample-readiness.ts`：通过。
+- `npm run build`：通过。
 
 ### 补充审查结论
 
@@ -725,7 +766,6 @@
 - `src/data/pcs-project-bootstrap.ts`
 - `src/data/pcs-project-data-consistency.ts`
 - `src/data/pcs-project-decision-flow-service.ts`
-- `src/data/pcs-project-decision-migration.ts`
 - `src/data/pcs-project-demo-seed-service.ts`
 - `src/data/pcs-project-domain-contract.ts`
 - `src/data/pcs-project-flow-service.ts`

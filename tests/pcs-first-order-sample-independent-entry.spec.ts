@@ -29,12 +29,13 @@ const result = createFirstOrderSampleTaskWithProjectRelation({
 
 assert.equal(result.ok, true, result.message)
 assert.equal(result.task?.projectId, project!.projectId)
-assert.equal(result.task?.projectNodeId, '')
+assert.equal('projectNodeId' in result.task!, false)
 assert.equal(result.task?.sourceFirstSampleTaskId, sourceFirstSample!.firstSampleTaskId)
 assert.equal(result.task?.upstreamObjectId, sourceFirstSample!.firstSampleTaskId)
 assert.ok(result.relation, '首单样衣入口必须立即生成商品项目关系')
-assert.equal(result.relation?.projectNodeId, null, '首单样衣关系不得生成已删除专业节点关系')
-assert.equal(result.relation?.stepCode, '')
+assert.equal('projectNodeId' in result.relation!, false, '首单样衣关系不得生成专业节点关系')
+assert.equal('stepCode' in result.relation!, false)
+assert.equal('stepName' in result.relation!, false)
 assert.deepEqual(
   listProjectNodes(project!.projectId),
   projectNodesBeforeCreate,

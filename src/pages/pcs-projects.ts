@@ -82,10 +82,6 @@ import {
   type SampleCostFixedProcessOverrides,
 } from '../data/pcs-sample-cost-review-pricing.ts'
 import {
-  getEngineeringTaskFieldPolicy,
-  type EngineeringTaskFieldPolicyCode,
-} from '../data/pcs-engineering-task-field-policy.ts'
-import {
   getLatestProjectInlineNodeRecord,
   getLatestSampleCostReviewSalesPrice,
   listProjectInlineNodeRecordsByNode,
@@ -96,7 +92,10 @@ import {
   type PcsProjectInlineNodeRecord,
   type PcsProjectInlineStepRecordCode,
 } from '../data/pcs-project-inline-node-record-types.ts'
-import type { ProjectRelationRecord } from '../data/pcs-project-relation-types.ts'
+import type {
+  ProjectRelationRecord,
+  ProjectRelationTaskSourceModule,
+} from '../data/pcs-project-relation-types.ts'
 import {
   repairChannelListingNodeInstanceConsistency,
 } from '../data/pcs-channel-product-project-repository.ts'
@@ -141,6 +140,7 @@ import {
 } from '../data/pcs-live-testing-repository.ts'
 import type { LiveProductLine, LiveSessionRecord } from '../data/pcs-live-testing-types.ts'
 import {
+  listProjectRelationsByProject,
   replaceLiveProductLineProjectRelations,
 } from '../data/pcs-project-relation-repository.ts'
 import {
@@ -930,6 +930,71 @@ function renderTestingCreateAction(
 
 function renderProjectProfessionalTaskEntry(project: PcsProjectRecord): string {
   return `<button type="button" class="inline-flex h-9 items-center rounded-md border border-blue-200 bg-blue-50 px-4 text-sm font-medium text-blue-700 hover:bg-blue-100" data-nav="/pcs/patterns/revision?projectId=${escapeHtml(project.projectId)}">进入工程任务</button>`
+}
+
+const PROJECT_PROFESSIONAL_TASK_MODULES = new Set<ProjectRelationTaskSourceModule>([
+  '改版任务',
+  '制版任务',
+  '花型任务',
+  '首版样衣打样',
+  '首单样衣打样',
+])
+
+function getProjectProfessionalTaskRoute(relation: ProjectRelationRecord): string {
+  const taskId = encodeURIComponent(relation.sourceObjectId)
+  if (relation.sourceModule === '改版任务') return `/pcs/patterns/revision/${taskId}`
+  if (relation.sourceModule === '制版任务') return `/pcs/patterns/plate-making/${taskId}`
+  if (relation.sourceModule === '花型任务') return `/pcs/patterns/colors/${taskId}`
+  if (relation.sourceModule === '首版样衣打样') return `/pcs/samples/first-sample/${taskId}`
+  return `/pcs/samples/first-order/${taskId}`
+}
+
+function getProjectProfessionalTaskStatusClass(status: string): string {
+  if (/已完成|已通过|已确认/.test(status)) return 'bg-emerald-100 text-emerald-700'
+  if (/待|审核/.test(status)) return 'bg-amber-100 text-amber-700'
+  if (/驳回|不通过|已取消/.test(status)) return 'bg-rose-100 text-rose-700'
+  return 'bg-blue-100 text-blue-700'
+}
+
+function renderProjectProfessionalTaskSummary(project: PcsProjectRecord): string {
+  const relations = listProjectRelationsByProject(project.projectId)
+    .filter((relation) => PROJECT_PROFESSIONAL_TASK_MODULES.has(relation.sourceModule as ProjectRelationTaskSourceModule))
+    .slice(0, 8)
+
+  if (relations.length === 0) return ''
+
+  return `
+    <section class="rounded-lg border bg-white p-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-base font-semibold text-slate-900">关联工程任务</h2>
+          <p class="mt-1 text-xs text-slate-500">共 ${relations.length} 条</p>
+        </div>
+        ${renderProjectProfessionalTaskEntry(project)}
+      </div>
+      <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        ${relations
+          .map(
+            (relation) => `
+              <article class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <div class="flex items-start justify-between gap-2">
+                  <div class="min-w-0">
+                    <p class="text-xs text-slate-500">任务类型</p>
+                    <p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(relation.sourceModule)}</p>
+                  </div>
+                  <span class="shrink-0 rounded-full px-2 py-0.5 text-[11px] ${getProjectProfessionalTaskStatusClass(relation.sourceStatus)}">${escapeHtml(relation.sourceStatus || '未开始')}</span>
+                </div>
+                <p class="mt-3 text-xs text-slate-500">任务编号</p>
+                <p class="mt-1 truncate text-sm font-medium text-slate-900">${escapeHtml(relation.sourceObjectCode || relation.sourceObjectId)}</p>
+                <p class="mt-2 truncate text-xs text-slate-500">来源：${escapeHtml(project.projectCode)}</p>
+                <button type="button" class="mt-3 inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-blue-700 hover:bg-blue-50" data-nav="${escapeHtml(getProjectProfessionalTaskRoute(relation))}">打开任务</button>
+              </article>
+            `,
+          )
+          .join('')}
+      </div>
+    </section>
+  `
 }
 
 function getDecisionFieldMeta(
@@ -5544,234 +5609,6 @@ function renderPhaseNavigator(viewModel: ProjectViewModel): string {
   `
 }
 
-interface EngineeringTaskBasicField {
-  label: string
-  value: string
-}
-
-interface EngineeringTaskBasicSnapshot {
-  taskLabel: string
-  taskCode: string
-  taskStatus: string
-  updatedAt: string
-  taskExists: boolean
-  fields: EngineeringTaskBasicField[]
-}
-
-function isEngineeringTaskPolicyCode(code: string): code is EngineeringTaskFieldPolicyCode {
-  return code === 'REVISION_TASK' || code === 'PATTERN_TASK' || code === 'PATTERN_ARTWORK_TASK'
-}
-
-function getEngineeringTaskSnapshotFields(
-  code: EngineeringTaskFieldPolicyCode,
-  policy: ReturnType<typeof getEngineeringTaskFieldPolicy>,
-): Array<{ fieldKey: string; label: string }> {
-  const baseFields = policy.createRequiredFields
-  if (code !== 'REVISION_TASK') return baseFields
-
-  const extraFields: Array<{ fieldKey: string; label: string }> = [
-    { fieldKey: 'participantNames', label: '参与人' },
-    { fieldKey: 'revisionVersion', label: '改版版次' },
-    { fieldKey: 'targetStyleCodeCandidate', label: '新款候选编码' },
-    { fieldKey: 'targetStyleNameCandidate', label: '新款候选名称' },
-    { fieldKey: 'sampleQty', label: '样衣数量' },
-    { fieldKey: 'stylePreference', label: '风格偏好' },
-    { fieldKey: 'patternMakerName', label: '打版人' },
-    { fieldKey: 'revisionSuggestionRichText', label: '修改建议' },
-    { fieldKey: 'paperPrintAt', label: '纸样打印时间' },
-    { fieldKey: 'deliveryAddress', label: '寄送地址' },
-    { fieldKey: 'patternArea', label: '打版区域' },
-    { fieldKey: 'materialAdjustmentLines', label: '面辅料变化' },
-    { fieldKey: 'newPatternSpuCode', label: '新花型 SPU' },
-    { fieldKey: 'patternChangeNote', label: '纸样变更说明' },
-    { fieldKey: 'patternPieceImageIds', label: '唛架图片' },
-    { fieldKey: 'patternFileIds', label: '纸样文件' },
-    { fieldKey: 'mainImageIds', label: '主图图片' },
-    { fieldKey: 'designDraftImageIds', label: '设计稿图片' },
-    { fieldKey: 'linkedTechPackVersionCode', label: '技术包版本编码' },
-    { fieldKey: 'linkedTechPackVersionLabel', label: '技术包版本名称' },
-    { fieldKey: 'generatedNewTechPackVersionAt', label: '技术包生成时间' },
-    { fieldKey: 'liveRetestSummary', label: '回直播验证说明' },
-  ]
-
-  const seen = new Set<string>()
-  return [...baseFields, ...extraFields].filter((field) => {
-    if (seen.has(field.fieldKey)) return false
-    seen.add(field.fieldKey)
-    return true
-  })
-}
-
-function formatEngineeringTaskBasicFieldValue(task: Record<string, unknown> | null, fieldKey: string): string {
-  if (!task) return '-'
-
-  if (fieldKey === 'revisionScopeCodes') {
-    const names = Array.isArray(task.revisionScopeNames)
-      ? task.revisionScopeNames.map((item) => String(item ?? '').trim()).filter(Boolean)
-      : []
-    const codes = Array.isArray(task.revisionScopeCodes)
-      ? task.revisionScopeCodes.map((item) => String(item ?? '').trim()).filter(Boolean)
-      : []
-    return names.join('、') || codes.join('、') || '-'
-  }
-
-  if (fieldKey === 'baseStyleCode') {
-    const values = [task.baseStyleCode, task.baseStyleName]
-      .map((item) => String(item ?? '').trim())
-      .filter(Boolean)
-    return values.join(' / ') || '-'
-  }
-
-  if (fieldKey === 'fabricSku') {
-    const values = [task.fabricSku, task.fabricName]
-      .map((item) => String(item ?? '').trim())
-      .filter(Boolean)
-    return values.join(' / ') || '-'
-  }
-
-  if (fieldKey === 'assignedTeamCode') {
-    return String(task.assignedTeamName || task.assignedTeamCode || '').trim() || '-'
-  }
-
-  if (fieldKey === 'assignedMemberId') {
-    return String(task.assignedMemberName || task.assignedMemberId || '').trim() || '-'
-  }
-
-  if (fieldKey === 'patternMakerName') {
-    return String(task.patternMakerName || task.ownerName || '').trim() || '-'
-  }
-
-  if (fieldKey === 'materialAdjustmentLines') {
-    const lines = Array.isArray(task.materialAdjustmentLines) ? task.materialAdjustmentLines : []
-    const text = lines
-      .map((line) => {
-        if (!line || typeof line !== 'object') return ''
-        const item = line as Record<string, unknown>
-        const parts = [
-          String(item.materialName || '').trim(),
-          String(item.materialSku || '').trim(),
-          item.quantity ? `${item.quantity} 件` : '',
-          item.amount ? `合计 ${item.amount}` : '',
-          String(item.printRequirement || item.note || '').trim(),
-        ].filter(Boolean)
-        return parts.join(' / ')
-      })
-      .filter(Boolean)
-    return text.join('；') || '-'
-  }
-
-  if (
-    fieldKey === 'demandImageIds' ||
-    fieldKey === 'evidenceImageUrls' ||
-    fieldKey === 'baseStyleImageIds' ||
-    fieldKey === 'targetStyleImageIds' ||
-    fieldKey === 'newPatternImageIds' ||
-    fieldKey === 'patternPieceImageIds' ||
-    fieldKey === 'patternFileIds' ||
-    fieldKey === 'mainImageIds' ||
-    fieldKey === 'designDraftImageIds'
-  ) {
-    const values = Array.isArray(task[fieldKey]) ? task[fieldKey].map((item) => String(item ?? '').trim()).filter(Boolean) : []
-    return values.length > 0 ? `${values.length} 张` : '-'
-  }
-
-  const value = task[fieldKey]
-  if (Array.isArray(value)) {
-    const values = value.map((item) => String(item ?? '').trim()).filter(Boolean)
-    return values.join('、') || '-'
-  }
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? String(value) : '-'
-  }
-  if (typeof value === 'boolean') {
-    return value ? '是' : '否'
-  }
-  const text = String(value ?? '').trim()
-  if (!text) return '-'
-  if (fieldKey.endsWith('At')) return formatDateTime(text)
-  return text
-}
-
-function resolveEngineeringTaskBasicSnapshot(
-  project: PcsProjectRecord,
-  node: ProjectNodeViewModel,
-): EngineeringTaskBasicSnapshot | null {
-  if (!isEngineeringTaskPolicyCode(node.node.stepCode)) {
-    return null
-  }
-
-  const policy = getEngineeringTaskFieldPolicy(node.node.stepCode)
-  const buildSnapshot = (
-    task: Record<string, unknown> | null,
-    taskCode: string,
-    taskStatus: string,
-    updatedAt: string,
-  ): EngineeringTaskBasicSnapshot => ({
-    taskLabel: policy.taskLabel,
-    taskCode,
-    taskStatus,
-    updatedAt,
-    taskExists: Boolean(task),
-    fields: getEngineeringTaskSnapshotFields(node.node.stepCode, policy).map((field) => ({
-      label: field.label,
-      value: formatEngineeringTaskBasicFieldValue(task, field.fieldKey),
-    })),
-  })
-
-  if (node.node.stepCode === 'REVISION_TASK') {
-    const relation = findLatestProjectRelation(project.projectId, '改版任务', '改版任务')
-    const taskId = relation?.sourceObjectId || relation?.instanceId || node.node.latestInstanceId || ''
-    const task = taskId ? getRevisionTaskByIdSafe(taskId) : null
-    return buildSnapshot(task, task?.revisionTaskCode || '', task?.status || '未创建', task?.updatedAt || node.node.updatedAt || '')
-  }
-
-  if (node.node.stepCode === 'PATTERN_TASK') {
-    const relation = findLatestProjectRelation(project.projectId, '制版任务', '制版任务')
-    const taskId = relation?.sourceObjectId || relation?.instanceId || node.node.latestInstanceId || ''
-    const task = taskId ? getPlateMakingTaskByIdSafe(taskId) : null
-    return buildSnapshot(task, task?.plateTaskCode || '', task?.status || '未创建', task?.updatedAt || node.node.updatedAt || '')
-  }
-
-  const relation = findLatestProjectRelation(project.projectId, '花型任务', '花型任务')
-  const taskId = relation?.sourceObjectId || relation?.instanceId || node.node.latestInstanceId || ''
-  const task = taskId ? getPatternTaskByIdSafe(taskId) : null
-  return buildSnapshot(task, task?.patternTaskCode || '', task?.status || '未创建', task?.updatedAt || node.node.updatedAt || '')
-}
-
-function renderEngineeringTaskBasicSection(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
-  const snapshot = resolveEngineeringTaskBasicSnapshot(project, node)
-  if (!snapshot) return ''
-
-  const metaText = snapshot.taskExists
-    ? [snapshot.taskCode, snapshot.taskStatus, formatDateTime(snapshot.updatedAt)].filter(Boolean).join(' · ')
-    : '未创建'
-
-  return `
-    <section class="space-y-4">
-      <article class="rounded-lg border bg-white p-4">
-        <div class="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h3 class="text-base font-semibold text-slate-900">${escapeHtml(snapshot.taskLabel)}</h3>
-            <p class="mt-1 text-xs text-slate-500">${escapeHtml(metaText)}</p>
-          </div>
-        </div>
-        <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          ${snapshot.fields
-            .map(
-              (field) => `
-                <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-xs text-slate-500">${escapeHtml(field.label)}</p>
-                  <p class="mt-2 text-sm font-medium leading-6 text-slate-900">${escapeHtml(field.value)}</p>
-                </article>
-              `,
-            )
-            .join('')}
-        </div>
-      </article>
-    </section>
-  `
-}
-
 function renderFirstSampleSummaryField(label: string, value: unknown): string {
   return `
     <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
@@ -5981,10 +5818,6 @@ function renderProjectInitSnapshot(project: PcsProjectRecord, node: ProjectNodeV
   `
 }
 
-function isProjectNodeKeyInfoOnly(node: ProjectNodeViewModel): boolean {
-  return isEngineeringTaskPolicyCode(node.node.stepCode)
-}
-
 function canEditProjectNodeFields(node: ProjectNodeViewModel): boolean {
   return node.displayStatus !== '未解锁' && node.node.currentStatus !== '已取消' && node.node.currentStatus !== '已完成'
 }
@@ -6033,10 +5866,6 @@ function renderProjectNodeInlineContent(project: PcsProjectRecord, node: Project
 
   if (isDecisionNode(node)) {
     return renderDecisionNodeSection(project, node)
-  }
-
-  if (isProjectNodeKeyInfoOnly(node)) {
-    return renderEngineeringTaskBasicSection(project, node)
   }
 
   if (canUseInlineRecords(node.node.stepCode) && canEditProjectNodeFields(node)) {
@@ -6163,6 +5992,7 @@ function renderProjectDetailPage(projectId: string): string {
     <div class="space-y-5 p-4">
       ${renderNotice()}
       ${renderProjectHeader(viewModel)}
+      ${renderProjectProfessionalTaskSummary(viewModel.project)}
       <div class="grid gap-4 xl:grid-cols-[240px_minmax(0,1fr)_280px]">
         ${renderPhaseNavigator(viewModel)}
         <div class="space-y-4">
@@ -6420,10 +6250,6 @@ function renderStepFullInfo(project: PcsProjectRecord, node: ProjectNodeViewMode
 
   if (node.node.stepCode === 'FIRST_ORDER_SAMPLE') {
     return renderFirstOrderSampleProjectNodeWorkspace(project, node)
-  }
-
-  if (isEngineeringTaskPolicyCode(node.node.stepCode)) {
-    return renderEngineeringTaskBasicSection(project, node)
   }
 
   const groups = listProjectStepFieldGroups(node.node.stepCode as ProjectStepCode)

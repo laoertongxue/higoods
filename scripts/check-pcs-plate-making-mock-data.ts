@@ -47,7 +47,7 @@ for (const status of requiredStatuses) {
 for (const task of tasks) {
   assert.ok(task.projectId, `${task.plateTaskCode} 必须关联正式商品项目`)
   assert.ok(task.projectCode, `${task.plateTaskCode} 必须带商品项目编码`)
-  assert.equal(task.projectNodeId, '', `${task.plateTaskCode} 必须直接关联商品项目，不得绑定制版项目节点`)
+  assert.equal('projectNodeId' in task, false, `${task.plateTaskCode} 必须直接关联商品项目，不得绑定制版项目节点`)
   if (task.sourceType === '商品项目') {
     assert.equal(task.upstreamObjectType, '商品项目', `${task.plateTaskCode} 的来源对象类型必须是商品项目`)
     assert.equal(task.upstreamObjectId, task.projectId, `${task.plateTaskCode} 的来源对象必须是当前商品项目`)

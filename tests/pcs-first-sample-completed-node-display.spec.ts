@@ -18,15 +18,16 @@ resetProjectRelationRepository()
 
 const task = getFirstSampleTaskById('FS-20260425-008')
 assert.ok(task, '缺少首版样衣完成展示 mock 任务')
-assert.equal(task.projectNodeId, '')
+assert.equal('projectNodeId' in task, false)
 const projectNodesBefore = listProjectNodes(task.projectId)
 
 const syncResult = updateFirstSampleTaskDetailAndSync(task.firstSampleTaskId, {}, '测试用户')
 assert.equal(syncResult.ok, true)
 const relation = findFirstSampleTaskRelations(task.firstSampleTaskId)[0]
 assert.ok(relation)
-assert.equal(relation.projectNodeId, null)
-assert.equal(relation.stepCode, '')
+assert.equal('projectNodeId' in relation, false)
+assert.equal('stepCode' in relation, false)
+assert.equal('stepName' in relation, false)
 assert.deepEqual(listProjectNodes(task.projectId), projectNodesBefore)
 
 const html = renderPcsFirstSampleTaskDetailPage(task.firstSampleTaskId)

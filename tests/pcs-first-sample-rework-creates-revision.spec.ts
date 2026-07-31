@@ -71,7 +71,7 @@ resetPcsEngineeringTaskState()
 
 const task = listFirstSampleTasks().find((item) => item.firstSampleTaskCode === 'FS-20260425-002')
 assert.ok(task, '缺少可用于首版需改版验收的首版样衣任务')
-assert.equal(task.projectNodeId, '')
+assert.equal('projectNodeId' in task, false)
 const sourceProjectNodesBefore = listProjectNodes(task.projectId)
 const prepared = updateFirstSampleTaskDetailAndSync(task.firstSampleTaskId, {
   status: '待确认',

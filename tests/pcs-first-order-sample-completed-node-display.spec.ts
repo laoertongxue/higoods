@@ -14,7 +14,7 @@ resetFirstOrderSampleTaskRepository()
 
 const task = getFirstOrderSampleTaskById('FOS-20260425-003')
 assert.ok(task, '缺少首单样衣完成展示 mock 任务')
-assert.equal(task.projectNodeId, '')
+assert.equal('projectNodeId' in task, false)
 assert.equal(task.status, '已通过')
 assert.equal(task.sourceFirstSampleTaskId, 'FSD-20260425-003')
 assert.equal(task.sourceFirstSampleTaskCode, 'FSD-20260425-003')

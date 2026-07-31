@@ -13,7 +13,7 @@ resetFirstSampleTaskRepository()
 
 const task = getFirstSampleTaskById('FS-20260425-002')
 assert.ok(task, '缺少独立首版样衣任务')
-assert.equal(task.projectNodeId, '')
+assert.equal('projectNodeId' in task, false)
 assert.ok(getProjectById(task.projectId), '首版样衣任务必须关联商品项目')
 
 const source = readFileSync(resolve(process.cwd(), 'src/data/pcs-first-sample-project-writeback.ts'), 'utf8')

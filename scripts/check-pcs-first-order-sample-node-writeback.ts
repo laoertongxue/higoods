@@ -55,10 +55,13 @@ const created = createFirstOrderSampleTaskWithProjectRelation({
 })
 assert.equal(created.ok, true, created.message)
 assert.ok(created.task)
-assert.equal(created.task.projectNodeId, '')
+assert.equal('projectNodeId' in created.task, false)
 assert.ok(created.relation)
-assert.equal(created.relation?.projectNodeId, null)
-assert.equal(created.relation?.stepCode, '')
+assert.equal('projectNodeId' in created.relation!, false)
+assert.equal('stepCode' in created.relation!, false)
+assert.equal('stepName' in created.relation!, false)
+assert.equal('legacyRefType' in created.relation!, false)
+assert.equal('legacyRefValue' in created.relation!, false)
 
 const detailSaved = updateFirstOrderSampleTaskDetailAndSync(created.task.firstOrderSampleTaskId, {
   status: '已通过',
@@ -85,7 +88,7 @@ const detailSaved = updateFirstOrderSampleTaskDetailAndSync(created.task.firstOr
 assert.equal(detailSaved.ok, true, detailSaved.message)
 
 const reloaded = getFirstOrderSampleTaskById(created.task.firstOrderSampleTaskId)
-assert.equal(reloaded?.projectNodeId, '')
+assert.equal('projectNodeId' in reloaded!, false)
 assert.equal(reloaded?.sourceFirstSampleTaskId, sourceFirstSample.firstSampleTaskId)
 assert.equal(reloaded?.conclusionResult, '通过')
 assert.ok(reloaded?.samplePlanLines.some((line) => line.linkedSampleCode === 'FOS-CHECK-001'))

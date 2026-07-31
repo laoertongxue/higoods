@@ -417,14 +417,14 @@ const independentBoundaryViolations = [
 assert.deepEqual(independentBoundaryViolations, [], '独立改版边界存在越界写回')
 assert.equal(maliciousUpstreamRevision.task.upstreamObjectId, testConclusionNode.projectNodeId)
 assert.equal(maliciousUpstreamRevision.task.upstreamObjectCode, testConclusionNode.projectNodeId)
-assert.equal(createdPatternDownstreams[0]?.projectNodeId, '')
-assert.equal(createdFirstSampleDownstreams[0]?.projectNodeId, '')
+assert.equal('projectNodeId' in createdPatternDownstreams[0]!, false)
+assert.equal('projectNodeId' in createdFirstSampleDownstreams[0]!, false)
 assert.deepEqual(
   sourceProjectNodesAfterRevision,
   sourceProjectNodesBeforeRevision,
   '独立改版任务完整闭环不得改写来源商品项目任何测款节点',
 )
-assert.equal(getRevisionTaskById(created.task.revisionTaskId)?.projectNodeId, '')
+assert.equal('projectNodeId' in getRevisionTaskById(created.task.revisionTaskId)!, false)
 pass('完成独立改版任务必须以已生成技术包为前置')
 
 const detailTask = getRevisionTaskById(created.task.revisionTaskId)

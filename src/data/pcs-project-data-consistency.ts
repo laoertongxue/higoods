@@ -529,11 +529,14 @@ export function repairPcsProjectDataConsistency(
     if (!projectLevelSourceModules.has(relation.sourceModule)) return relation
     if (!relation.projectNodeId && !relation.stepCode && !relation.stepName) return relation
     projectLevelRelationRepairCount += 1
+    const {
+      projectNodeId: _projectNodeId,
+      stepCode: _stepCode,
+      stepName: _stepName,
+      ...projectLevelRelation
+    } = relation
     return {
-      ...relation,
-      projectNodeId: null,
-      stepCode: '',
-      stepName: '',
+      ...projectLevelRelation,
       updatedAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
       updatedBy: operatorName,
     }

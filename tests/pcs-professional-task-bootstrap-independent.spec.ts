@@ -70,7 +70,14 @@ const professionalSourceModules = new Set(['改版任务', '制版任务', '花�
 assert.ok(
   relationSnapshot.relations
     .filter((relation) => professionalSourceModules.has(relation.sourceModule))
-    .every((relation) => relation.projectId && !relation.projectNodeId && !relation.stepCode),
+    .every((relation) =>
+      relation.projectId &&
+      !('projectNodeId' in relation) &&
+      !('stepCode' in relation) &&
+      !('stepName' in relation) &&
+      !('legacyRefType' in relation) &&
+      !('legacyRefValue' in relation)
+    ),
   '五类专业任务 bootstrap 只能生成商品项目级关系，不得生成专业项目节点关系',
 )
 assert.ok(snapshot.plateTasks.every((task) => task.upstreamObjectId && task.upstreamObjectCode), '制版种子必须保留真实来源对象')

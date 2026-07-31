@@ -20,7 +20,6 @@ function assertCheck(condition: boolean, message: string): void {
 const projectPageSource = read('src/pages/pcs-projects.ts')
 const channelRepoSource = read('src/data/pcs-channel-product-project-repository.ts')
 const decisionFlowSource = read('src/data/pcs-project-decision-flow-service.ts')
-const migrationSource = read('src/data/pcs-project-decision-migration.ts')
 const flowServiceSource = read('src/data/pcs-project-flow-service.ts')
 
 for (const stepDefinitionCode of ['FEASIBILITY_REVIEW', 'SAMPLE_CONFIRM', 'TEST_CONCLUSION']) {
@@ -67,8 +66,9 @@ assertCheck(!decisionFlowSource.includes('routeProjectToRevisionTask'), '商品�
 assertCheck(!decisionFlowSource.includes('重新改版出样衣'), '商品测款可行性判断不得包含重新改版出样衣分支')
 
 assertCheck(!/projectStatus:\s*'已终止'/.test(decisionFlowSource), '决策流转服务不应在不通过时直接把项目写为已终止')
-assertCheck(migrationSource.includes('LEGACY_DECISION_RESULTS'), '旧决策迁移函数必须存在')
-assertCheck(read('src/data/pcs-project-repository.ts').includes('migrateProjectDecisionSnapshot'), '项目仓储必须调用旧决策迁移函数')
+assertCheck(!fs.existsSync(path.join(root, 'src/data/pcs-project-decision-migration.ts')), '旧决策迁移模块必须删除')
+assertCheck(!read('src/data/pcs-project-repository.ts').includes('migrateProjectDecision'), '项目仓储不得再调用旧决策迁移')
+assertCheck(!read('src/data/pcs-project-inline-node-record-repository.ts').includes('migrateProjectDecision'), '项目节点记录仓储不得再调用旧决策迁移')
 
 if (process.exitCode && process.exitCode !== 0) {
   process.exit(process.exitCode)

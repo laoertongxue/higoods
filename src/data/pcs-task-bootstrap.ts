@@ -51,9 +51,6 @@ function pickStyleByCode(styleCode: string) {
 function taskRelationRecord(input: {
   projectId: string
   projectCode: string
-  projectNodeId: string
-  stepCode: string
-  stepName: string
   sourceModule: ProjectRelationSourceModule
   sourceObjectType: ProjectRelationSourceObjectType
   sourceObjectId: string
@@ -66,12 +63,9 @@ function taskRelationRecord(input: {
   note?: string
 }): ProjectRelationRecord {
   return {
-    projectRelationId: `rel_bootstrap_${input.projectId}_${input.projectNodeId}_${input.sourceObjectId}`.replace(/[^a-zA-Z0-9]/g, '_'),
+    projectRelationId: `rel_bootstrap_${input.projectId}_${input.sourceObjectId}`.replace(/[^a-zA-Z0-9]/g, '_'),
     projectId: input.projectId,
     projectCode: input.projectCode,
-    projectNodeId: input.projectNodeId,
-    stepCode: input.stepCode,
-    stepName: input.stepName,
     relationRole: input.relationRole || '产出对象',
     sourceModule: input.sourceModule,
     sourceObjectType: input.sourceObjectType,
@@ -88,8 +82,6 @@ function taskRelationRecord(input: {
     updatedAt: input.businessDate,
     updatedBy: '系统初始化',
     note: input.note || '专业任务与商品项目已建立关系。',
-    legacyRefType: '',
-    legacyRefValue: '',
   }
 }
 
@@ -2066,9 +2058,6 @@ export function createTaskRelationBootstrapSnapshot(): TaskRelationBootstrapSnap
           taskRelationRecord({
             projectId: task.projectId,
             projectCode: task.projectCode,
-            projectNodeId: '',
-            stepCode: '',
-            stepName: '',
             sourceModule: '改版任务',
             sourceObjectType: '改版任务',
             sourceObjectId: task.revisionTaskId,
@@ -2083,9 +2072,6 @@ export function createTaskRelationBootstrapSnapshot(): TaskRelationBootstrapSnap
         taskRelationRecord({
           projectId: task.projectId,
           projectCode: task.projectCode,
-          projectNodeId: '',
-          stepCode: '',
-          stepName: '',
           sourceModule: '制版任务',
           sourceObjectType: '制版任务',
           sourceObjectId: task.plateTaskId,
@@ -2102,9 +2088,6 @@ export function createTaskRelationBootstrapSnapshot(): TaskRelationBootstrapSnap
         taskRelationRecord({
           projectId: task.projectId,
           projectCode: task.projectCode,
-          projectNodeId: '',
-          stepCode: '',
-          stepName: '',
           sourceModule: '花型任务',
           sourceObjectType: '花型任务',
           sourceObjectId: task.patternTaskId,
@@ -2119,9 +2102,6 @@ export function createTaskRelationBootstrapSnapshot(): TaskRelationBootstrapSnap
         taskRelationRecord({
           projectId: task.projectId,
           projectCode: task.projectCode,
-          projectNodeId: '',
-          stepCode: '',
-          stepName: '',
           sourceModule: '首版样衣打样',
           sourceObjectType: '首版样衣打样任务',
           sourceObjectId: task.firstSampleTaskId,
@@ -2138,9 +2118,6 @@ export function createTaskRelationBootstrapSnapshot(): TaskRelationBootstrapSnap
         taskRelationRecord({
           projectId: task.projectId,
           projectCode: task.projectCode,
-          projectNodeId: '',
-          stepCode: '',
-          stepName: '',
           sourceModule: '首单样衣打样',
           sourceObjectType: '首单样衣打样任务',
           sourceObjectId: task.firstOrderSampleTaskId,

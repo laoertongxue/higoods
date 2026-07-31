@@ -6,7 +6,6 @@ import {
   type PcsProjectInlineNodeRef,
 } from './pcs-project-inline-node-record-types.ts'
 import { createBootstrapProjectInlineNodeRecordSnapshot } from './pcs-project-inline-node-record-bootstrap.ts'
-import { migrateProjectDecisionInlineRecords } from './pcs-project-decision-migration.ts'
 import {
   getProjectById,
   getProjectNodeRecordById,
@@ -156,8 +155,6 @@ const ALLOWED_PAYLOAD_KEYS: Record<PcsProjectInlineStepRecordCode, string[]> = {
     'downShelfFlag',
     'returnDestination',
     'revisitDate',
-    'conclusionLegacyValue',
-    'migrationNote',
   ],
   SAMPLE_RETURN_HANDLE: [
     'handleType',
@@ -581,7 +578,7 @@ function hydrateSnapshot(
   const sourceVersion = toMigrationNumber(snapshot?.version)
   const shouldRefreshSampleCostPricing = sourceVersion < INLINE_NODE_RECORD_STORE_VERSION
   const cleanedRecords = Array.isArray(snapshot?.records)
-    ? migrateProjectDecisionInlineRecords(snapshot.records as Array<PcsProjectInlineNodeRecord & { stepCode?: string | null; projectNodeId?: string | null }>)
+    ? snapshot.records
     : []
 
   return {

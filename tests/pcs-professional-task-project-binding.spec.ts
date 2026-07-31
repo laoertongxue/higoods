@@ -119,10 +119,13 @@ assert.equal(plateRelation.sourceObjectId, plateResult.task?.plateTaskId)
 assert.equal(patternRelation.sourceObjectId, patternResult.task?.patternTaskId)
 assert.equal(plateRelation.sourceObjectCode, plateResult.task?.plateTaskCode)
 assert.equal(patternRelation.sourceObjectCode, patternResult.task?.patternTaskCode)
-assert.equal(plateRelation.projectNodeId || '', '', '制版项目关系只绑定商品项目，不绑定专业节点')
-assert.equal(patternRelation.projectNodeId || '', '', '花型项目关系只绑定商品项目，不绑定专业节点')
-assert.equal(plateRelation.stepCode, '', '制版项目关系不得继续保存已删除的专业步骤编码')
-assert.equal(patternRelation.stepCode, '', '花型项目关系不得继续保存已删除的专业步骤编码')
+for (const relation of [plateRelation, patternRelation]) {
+  assert.equal('projectNodeId' in relation, false, '专业任务项目关系只绑定商品项目')
+  assert.equal('stepCode' in relation, false, '专业任务项目关系不得保存固定步骤编码')
+  assert.equal('stepName' in relation, false)
+  assert.equal('legacyRefType' in relation, false)
+  assert.equal('legacyRefValue' in relation, false)
+}
 
 const firstSampleResult = createFirstSampleTaskWithProjectRelation({
   projectId: project.projectId,
@@ -146,8 +149,9 @@ const firstSampleRelation = listProjectRelationsByProject(project.projectId).fin
   (item) => item.sourceObjectId === firstSampleResult.task?.firstSampleTaskId,
 )
 assert.ok(firstSampleRelation, '首版样衣任务创建时必须立即持久化项目级关系')
-assert.equal(firstSampleRelation.projectNodeId || '', '')
-assert.equal(firstSampleRelation.stepCode, '')
+assert.equal('projectNodeId' in firstSampleRelation, false)
+assert.equal('stepCode' in firstSampleRelation, false)
+assert.equal('stepName' in firstSampleRelation, false)
 
 updateFirstSampleTask(firstSampleResult.task!.firstSampleTaskId, {
   sampleImageIds: ['mock://first-sample/project-level.png'],
@@ -193,8 +197,9 @@ const firstOrderRelation = listProjectRelationsByProject(project.projectId).find
   (item) => item.sourceObjectId === firstOrderResult.task?.firstOrderSampleTaskId,
 )
 assert.ok(firstOrderRelation, '首单样衣任务创建时必须立即持久化项目级关系')
-assert.equal(firstOrderRelation.projectNodeId || '', '')
-assert.equal(firstOrderRelation.stepCode, '')
+assert.equal('projectNodeId' in firstOrderRelation, false)
+assert.equal('stepCode' in firstOrderRelation, false)
+assert.equal('stepName' in firstOrderRelation, false)
 
 updateFirstOrderSampleTask(firstOrderResult.task!.firstOrderSampleTaskId, {
   samplePlanLines: [{
@@ -273,7 +278,9 @@ if (revisionResult.ok) {
   assert.equal(downstreamRelation.sourceObjectType, '制版任务')
   assert.equal(downstreamRelation.sourceObjectId, downstreamPlate?.plateTaskId)
   assert.equal(downstreamRelation.sourceObjectCode, downstreamPlate?.plateTaskCode)
-  assert.equal(downstreamRelation.stepCode, '', '改版下游制版关系不得保存已删除的专业步骤编码')
+  assert.equal('projectNodeId' in downstreamRelation, false)
+  assert.equal('stepCode' in downstreamRelation, false, '改版下游制版关系不得保存专业步骤编码')
+  assert.equal('stepName' in downstreamRelation, false)
 
   const downstreamPattern = listPatternTasks().find(
     (item) => item.upstreamObjectId === revisionResult.task.revisionTaskId,
@@ -320,9 +327,11 @@ if (revisionResult.ok) {
     assert.equal(relation.projectCode, revisionProject.projectCode)
     assert.equal(relation.sourceModule, task.module)
     assert.equal(relation.sourceObjectType, task.type)
-    assert.equal(relation.projectNodeId || '', '')
-    assert.equal(relation.stepCode, '')
-    assert.equal(relation.stepName, '')
+    assert.equal('projectNodeId' in relation, false)
+    assert.equal('stepCode' in relation, false)
+    assert.equal('stepName' in relation, false)
+    assert.equal('legacyRefType' in relation, false)
+    assert.equal('legacyRefValue' in relation, false)
   }
 
   const repeated = createDownstreamTasksFromRevision(

@@ -135,7 +135,7 @@ const measureRevision = createRevisionTaskWithProjectRelation({
 assert.equal(measureRevision.ok, true, '测款结论返改并选择商品项目后应允许创建')
 if (measureRevision.ok) {
   assert.equal(measureRevision.relation, null, '测款结论返改不应把只读来源节点写成任务关系')
-  assert.equal(measureRevision.task.projectNodeId, '', '测款结论返改不应绑定商品项目节点')
+  assert.equal('projectNodeId' in measureRevision.task, false, '测款结论返改不应绑定商品项目节点')
   const downstream = createDownstreamTasksFromRevision(measureRevision.task.revisionTaskId, ['PRINT'])
   assert.equal(downstream.successCount, 1, '勾选花型时应同步创建花型下游任务')
   assert.ok(!downstream.failureMessages.some((message) => message.includes('缺少花型任务节点')), '缺少花型节点不应阻断改版下游花型任务')
@@ -143,7 +143,7 @@ if (measureRevision.ok) {
   const patternDownstreams = listPatternTasks().filter((item) => item.upstreamObjectId === measureRevision.task.revisionTaskId)
   assert.equal(patternDownstreams.length, 1, '花型下游任务应能按改版任务上游关系查到')
   assert.equal(patternDownstreams[0]?.projectId, project!.projectId, '花型下游任务应保留商品项目归属')
-  assert.equal(patternDownstreams[0]?.projectNodeId, '', '花型下游任务不应绑定商品项目节点')
+  assert.equal('projectNodeId' in patternDownstreams[0]!, false, '花型下游任务不应绑定商品项目节点')
   assert.equal(patternDownstreams[0]?.sourceType, '改版任务', '花型下游任务来源应标记为改版任务')
   assert.deepEqual(listProjectNodes(project!.projectId), projectNodesBeforeRevision, '测款结论返改与花型下游不得改写项目节点')
 }

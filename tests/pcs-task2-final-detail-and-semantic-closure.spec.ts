@@ -83,6 +83,11 @@ for (const relativePath of [
     /\w+ByProjectNode/,
     `${relativePath} 不得保留零调用的项目节点查询兼容 API`,
   )
+  assert.doesNotMatch(
+    readSource(relativePath),
+    /从项目节点生成|项目节点生成档案/,
+    `${relativePath} 不得表述为从项目节点生成商品档案`,
+  )
 }
 
 for (const relativePath of [

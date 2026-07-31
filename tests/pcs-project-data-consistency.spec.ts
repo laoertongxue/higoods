@@ -82,22 +82,16 @@ assert.ok(professionalTasks.some((item) => item.moduleName === '改版任务'), 
 assert.ok(professionalTasks.some((item) => item.moduleName === '花型任务'), '应覆盖花型任务仓储')
 assert.ok(professionalTasks.some((item) => item.moduleName === '首版样衣'), '应覆盖首版样衣仓储')
 professionalTasks.forEach(({ moduleName, task }) => {
+  assert.equal('projectNodeId' in task, false, `${moduleName} 不得绑定商品项目节点`)
+  assert.equal('stepCode' in task, false, `${moduleName} 不得保存商品项目步骤编码`)
+  assert.equal('stepName' in task, false, `${moduleName} 不得保存商品项目步骤名称`)
   if (!task.projectId) {
     assert.equal(task.projectCode, '', `${moduleName} 未关联项目时不得残留项目编码`)
     assert.equal(task.projectName, '', `${moduleName} 未关联项目时不得残留项目名称`)
-    assert.equal(task.projectNodeId, '', `${moduleName} 未关联项目时不得绑定项目节点`)
     return
   }
   const project = projects.find((item) => item.projectId === task.projectId)
   assert.ok(project, `${moduleName} ${task.projectId} 必须关联当前真实商品项目`)
-  if (!task.projectNodeId) return
-  const projectNode = listProjectNodes(task.projectId).find((node) => node.projectNodeId === task.projectNodeId)
-  assert.ok(projectNode, `${moduleName} ${task.projectId} 如绑定项目节点，该节点必须真实存在`)
-  assert.equal(
-    projectNode?.stepCode,
-    task.stepCode,
-    `${moduleName} 如绑定项目节点，任务类型必须与节点类型一致`,
-  )
 })
 
 const catalog = getProjectCreateCatalog()

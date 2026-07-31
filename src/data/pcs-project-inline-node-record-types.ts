@@ -125,8 +125,6 @@ export interface SampleInboundCheckDetailSnapshot {
 export interface FeasibilityReviewPayload {
   reviewConclusion: ProjectDecisionResult
   reviewRisk: string
-  reviewConclusionLegacyValue?: string
-  migrationNote?: string
 }
 
 export interface FeasibilityReviewDetailSnapshot {
@@ -166,8 +164,6 @@ export interface SampleShootFitDetailSnapshot {
 export interface SampleConfirmPayload {
   confirmResult: ProjectDecisionResult
   confirmNote: string
-  confirmResultLegacyValue?: string
-  migrationNote?: string
 }
 
 export interface SampleConfirmDetailSnapshot {
@@ -304,8 +300,6 @@ export interface TestConclusionPayload {
   linkedStyleCode?: string
   invalidatedChannelProductId?: string
   nextActionType?: string
-  conclusionLegacyValue?: string
-  migrationNote?: string
 }
 
 export interface TestConclusionDetailSnapshot {

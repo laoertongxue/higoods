@@ -26,7 +26,7 @@ resetProjectRelationRepository()
 
 const task = getFirstSampleTaskById('FS-20260425-002')
 assert.ok(task, '缺少首版样衣项目级关系检查任务')
-assert.equal(task.projectNodeId, '')
+assert.equal('projectNodeId' in task, false)
 const projectNodesBefore = listProjectNodes(task.projectId)
 
 const result = updateFirstSampleTaskDetailAndSync(task.firstSampleTaskId, {
@@ -40,8 +40,11 @@ assert.equal(result.ok, true, result.message)
 const relation = findFirstSampleTaskRelations(task.firstSampleTaskId)[0]
 assert.ok(relation, '首版样衣详情保存后必须写入商品项目关系')
 assert.equal(relation.projectId, task.projectId)
-assert.equal(relation.projectNodeId, null)
-assert.equal(relation.stepCode, '')
+assert.equal('projectNodeId' in relation, false)
+assert.equal('stepCode' in relation, false)
+assert.equal('stepName' in relation, false)
+assert.equal('legacyRefType' in relation, false)
+assert.equal('legacyRefValue' in relation, false)
 assert.match(relation.note, /fitConfirmationSummary/)
 assert.deepEqual(listProjectNodes(task.projectId), projectNodesBefore)
 

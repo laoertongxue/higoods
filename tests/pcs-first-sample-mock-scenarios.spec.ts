@@ -12,7 +12,7 @@ resetFirstSampleTaskRepository()
 
 const tasks = listFirstSampleTasks()
 assert.ok(tasks.length >= 8, '首版样衣模块应保留足够的独立任务场景')
-assert.ok(tasks.every((task) => task.projectId && !task.projectNodeId), '独立首版样衣任务不得依赖商品项目节点')
+assert.ok(tasks.every((task) => task.projectId && !('projectNodeId' in task)), '独立首版样衣任务不得依赖商品项目节点')
 assert.ok(tasks.every((task) => getProjectById(task.projectId)), '首版样衣任务关联的来源项目必须存在')
 
 const incompleteTask = getFirstSampleTaskById('FS-20260425-002')

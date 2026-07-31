@@ -46,6 +46,20 @@ assert.doesNotMatch(
   '专业任务原始种子不得继续携带已删除的项目步骤编码',
 )
 
+for (const relativePath of [
+  '../src/data/pcs-task-project-relation-writeback.ts',
+  '../src/data/pcs-first-sample-project-writeback.ts',
+  '../src/data/pcs-first-order-sample-project-writeback.ts',
+  '../src/data/pcs-task-bootstrap.ts',
+]) {
+  const source = sources.find((item) => item.relativePath === relativePath)!.source
+  assert.doesNotMatch(
+    source,
+    /projectNodeId:\s*(?:null|'')|stepCode:\s*''|stepName:\s*''|legacyRefType:\s*''|legacyRefValue:\s*''/,
+    `${relativePath} 不得为专业任务关系补空兼容字段`,
+  )
+}
+
 const fieldPolicySource = sources.find((item) => item.relativePath.endsWith('pcs-engineering-task-field-policy.ts'))!.source
 assert.doesNotMatch(fieldPolicySource, /商品项目节点同步完成|同步项目节点/)
 

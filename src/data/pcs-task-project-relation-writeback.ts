@@ -721,9 +721,6 @@ function relationPayload(input: {
     projectRelationId: makeRelationId(input.projectId, input.sourceModule, input.sourceObjectId),
     projectId: input.projectId,
     projectCode: input.projectCode,
-    projectNodeId: null,
-    stepCode: '',
-    stepName: '',
     relationRole: '产出对象',
     sourceModule: input.sourceModule,
     sourceObjectType: input.sourceObjectType,
@@ -740,8 +737,6 @@ function relationPayload(input: {
     updatedAt: input.businessDate,
     updatedBy: input.operatorName,
     note: '',
-    legacyRefType: '',
-    legacyRefValue: '',
   }
 }
 

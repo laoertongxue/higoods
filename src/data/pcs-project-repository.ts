@@ -1,4 +1,3 @@
-import { migrateProjectDecisionSnapshot } from './pcs-project-decision-migration.ts'
 import { migrateProjectAlbumUrlsToProjectImages } from './pcs-project-image-migration.ts'
 import { createBootstrapProjectSnapshot } from './pcs-project-bootstrap.ts'
 import {
@@ -251,7 +250,7 @@ function cloneSnapshot(snapshot: PcsProjectStoreSnapshot): PcsProjectStoreSnapsh
 }
 
 function seedSnapshot(): PcsProjectStoreSnapshot {
-  return migrateProjectDecisionSnapshot(createBootstrapProjectSnapshot(PROJECT_STORE_VERSION))
+  return createBootstrapProjectSnapshot(PROJECT_STORE_VERSION)
 }
 
 function migrateSampleCostReviewPricingProjectMocks(snapshot: PcsProjectStoreSnapshot): PcsProjectStoreSnapshot {
@@ -767,18 +766,16 @@ function hydrateSnapshot(
     phases: Array.isArray(snapshot.phases) ? snapshot.phases.map(normalizePhase) : [],
     nodes: Array.isArray(snapshot.nodes) ? snapshot.nodes.map(normalizeNode) : [],
   }
-  const decisionMigrated = migrateProjectDecisionSnapshot(normalized)
-
   if (
-    decisionMigrated.projects.length === 0 &&
-    decisionMigrated.phases.length === 0 &&
-    decisionMigrated.nodes.length === 0
+    normalized.projects.length === 0 &&
+    normalized.phases.length === 0 &&
+    normalized.nodes.length === 0
   ) {
     return ensureProjectStyleArchives(seedSnapshot(), styleSnapshot, styleStoreMissing)
   }
 
   const pricingMockMigrated =
-    sourceVersion < PROJECT_STORE_VERSION ? migrateSampleCostReviewPricingProjectMocks(decisionMigrated) : decisionMigrated
+    sourceVersion < PROJECT_STORE_VERSION ? migrateSampleCostReviewPricingProjectMocks(normalized) : normalized
 
   return ensureProjectStyleArchives(
     repairProjectNodeSequences(mergeMissingBootstrapData(pricingMockMigrated)),

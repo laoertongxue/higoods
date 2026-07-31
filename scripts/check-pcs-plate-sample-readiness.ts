@@ -38,9 +38,6 @@ try {
       projectId: plateWithExistingSample.projectId,
       projectCode: plateWithExistingSample.projectCode,
       projectName: plateWithExistingSample.projectName,
-      projectNodeId: plateWithExistingSample.projectNodeId,
-      stepCode: 'FIRST_SAMPLE',
-      stepName: '首版样衣打样',
       sourceType: '制版任务',
       upstreamModule: '制版任务',
       upstreamObjectType: '制版任务',
@@ -76,8 +73,6 @@ try {
       updatedAt: '2026-04-25 09:40:00',
       updatedBy: '验收脚本',
       note: '',
-      legacyProjectRef: plateWithExistingSample.projectCode,
-      legacyUpstreamRef: plateWithExistingSample.plateTaskCode,
     },
   ])
   const existingSample = evaluatePlateFirstSampleReadiness('PT-20260407-018')
@@ -103,7 +98,7 @@ try {
   const createdResult = createFirstSampleTaskFromPlate('PT-20260407-018', '验收脚本')
   assert.equal(createdResult.ok, true)
   assert.ok(createdResult.task, createdResult.message)
-  assert.equal(createdResult.task?.projectNodeId, '', '真实制版入口创建的首版样衣不得绑定已删除的专业项目节点')
+  assert.equal('projectNodeId' in createdResult.task!, false, '真实制版入口创建的首版样衣不得绑定专业项目节点')
   assert.equal(createdResult.task?.sourceType, '制版任务')
   assert.equal(createdResult.task?.upstreamObjectId, 'PT-20260407-018')
   assert.equal(createdResult.task?.sourceTechPackVersionId, 'tdv_seed_project_018_base')

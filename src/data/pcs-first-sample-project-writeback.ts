@@ -132,9 +132,6 @@ function writeProjectRelation(task: FirstSampleTaskRecord, operatorName: string)
     projectRelationId: `rel_${task.projectId}_first_sample_${task.firstSampleTaskId}`,
     projectId: task.projectId,
     projectCode: task.projectCode,
-    projectNodeId: null,
-    stepCode: '',
-    stepName: '',
     relationRole: '执行记录',
     sourceModule: '首版样衣打样',
     sourceObjectType: '首版样衣打样任务',
@@ -151,8 +148,6 @@ function writeProjectRelation(task: FirstSampleTaskRecord, operatorName: string)
     updatedAt: timestamp,
     updatedBy: operatorName,
     note: JSON.stringify(buildFirstSampleProjectMeta(task)),
-    legacyRefType: '',
-    legacyRefValue: '',
   })
 }
 
