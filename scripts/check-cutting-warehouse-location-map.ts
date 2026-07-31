@@ -54,11 +54,8 @@ assert.match(pdaInboundSource, /不属于当前工厂/)
 assert.match(pdaHandoverSource, /locationRef:/, '特殊工艺回仓必须写稳定库位路径')
 assert.match(warehouseHubSource, /data-wait-handover-location-map/, 'Web 中转袋入仓必须提供待交出仓单选库位图')
 assert.match(warehouseHubSource, /dataset\.waitHandoverWebAction/, '待交出仓真实页面处理器必须承接顶部 Web 动作按钮')
-assert(
-  fcsHandlersSource.indexOf('handleCraftCuttingWaitHandoverEvent(target)')
-    < fcsHandlersSource.indexOf('handleCraftCuttingWaitHandoverWebActionsEvent(target)'),
-  '待交出仓真实页面处理器必须先于旧文本弹窗处理器命中',
-)
+assert.match(fcsHandlersSource, /handleCraftCuttingWaitHandoverEvent\(target\)/, '待交出仓真实页面处理器必须接入主处理链')
+assert.doesNotMatch(fcsHandlersSource, /handleCraftCuttingWaitHandoverWebActionsEvent/, '不得保留旧文本弹窗处理器')
 
 const waitProcess = cuttingWarehouses.find((warehouse) => warehouse.warehouseKind === 'WAIT_PROCESS')
 assert(waitProcess, '缺少裁床待加工仓')
