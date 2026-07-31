@@ -18,7 +18,7 @@ import {
   listMaterialPrepOrderProjections,
   materialPrepWorkbenchTabs,
   pickMaterialPrepRecord,
-  pickupWorkbenchTabs,
+  pickupStatusLabelMap,
   PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
   rejectMaterialPrepRecord,
   serializeProductionMaterialPrepStore,
@@ -62,7 +62,6 @@ const appShellConfig = read('src/data/app-shell-config.ts')
 const routesFcs = read('src/router/routes-fcs.ts')
 const routesPda = read('src/router/routes-pda.ts')
 const routeRenderersFcs = read('src/router/route-renderers-fcs.ts')
-const pickupManagementSource = read('src/pages/process-factory/cutting/pickup-management.ts')
 const pickupManagementListSource = read('src/pages/process-factory/cutting/pickup-management-list.ts')
 const pickupManagementProjectionSource = read('src/pages/process-factory/cutting/pickup-management-projection.ts')
 const pickupManagementRuntimeSource = read('src/runtime/fcs/cutting/pickup-management-runtime.ts')
@@ -96,18 +95,15 @@ assert(
   !/title: '裁前准备'[\s\S]*?href: '\/fcs\/craft\/cutting\/pickup-management'/.test(appShellConfig),
   '裁前准备不得保留旧领料管理菜单项',
 )
-assert(routesFcs.includes('/fcs/craft/cutting/pickup-management-detail'), 'PFOS 领料详情路由缺失')
 assert(routeRenderersFcs.includes('renderCraftCuttingPickupReadyPage'), 'PFOS 已配齐待领料 renderer 缺失')
 assert(routeRenderersFcs.includes('renderCraftCuttingPickupIncompletePage'), 'PFOS 未配齐配料 renderer 缺失')
 assert(routeRenderersFcs.includes('renderCraftCuttingPickupHistoryPage'), 'PFOS 已领料 renderer 缺失')
-assert(routeRenderersFcs.includes('renderCraftCuttingPickupManagementDetailPage'), 'PFOS 领料详情 renderer 缺失')
-assert(pickupManagementListSource.includes('// @page-pattern: list'), '领料管理三列表必须声明标准列表页模式')
+assert(pickupManagementListSource.includes('// @page-pattern: list'), '领料管理 三列表必须声明标准列表页模式')
 assert(pickupManagementListSource.includes('renderStandardListPage'), '领料管理三列表必须使用标准列表页骨架')
 assert(pickupManagementListSource.includes('renderStandardListTable'), '领料管理三列表必须使用标准列表表格')
 assert(pickupManagementListSource.includes('renderTablePagination'), '领料管理三列表必须保留分页')
-assert(pickupManagementSource.includes('listActivePickupNodes'), '领料管理必须以活动待领节点为当前待办对象')
-assert(pickupManagementSource.includes('renderCraftCuttingPickupManagementDetailPage'), '领料管理必须保留节点详情页')
-assert(fcsHandlersSource.includes('handleCraftCuttingPickupManagementEvent'), 'FCS handler 必须承接领料管理交互')
+assert(pickupManagementProjectionSource.includes('listPickupOrderGroups') && pickupManagementProjectionSource.includes('buildPickupRuntimeContext'), '领料管理必须以活动待领节点事实构建生产单分组')
+assert(fcsHandlersSource.includes('handleCraftCuttingPickupListEvent'), 'FCS handler 必须承接领料管理三列表交互')
 assert(pdaWaitProcessSource.includes('listActivePickupNodes'), 'PDA 必须读取与 PC 同源的活动待领节点')
 assert(
   pdaWaitProcessSource.includes('appendPickupSessionWithWarehouseFactsRuntime'),
@@ -154,17 +150,16 @@ assert(
 )
 assert(
   pickupManagementProjectionSource.includes('buildPickupRuntimeContext(storage)')
-  && pickupManagementSource.includes('pickup-management-runtime.ts')
   && pdaWaitProcessSource.includes('pickup-management-runtime.ts'),
-  'Web 三列表、详情与 PDA 必须统一通过 runtime facade 读取节点事实',
+  'Web 三列表与 PDA 必须统一通过 runtime facade 读取节点事实',
 )
 assert(pdaWaitProcessSource.includes('确认全部领料'), 'PDA 必须明确一次领取节点全部物料')
 assert(pdaAccessSource.includes("!targetRoute.startsWith('/fcs/pda')"), 'PDA 登录守卫不得误拦截非 PDA 路由')
 assert(pdaRuntimeSource.includes("startsWith('/fcs/pda')"), 'PDA 登录重定向必须限定 PDA 路由')
-assert(!`${dataSource}\n${pickupManagementSource}\n${pdaWaitProcessSource}\n${warehouseHubSource}`.includes("unit: '米'"), '配料、领料与待加工仓链路不得继续写入旧单位“米”')
+assert(!`${dataSource}\n${pdaWaitProcessSource}\n${warehouseHubSource}`.includes("unit: '米'"), '配料、领料与待加工仓链路不得继续写入旧单位“米”')
 assert(cuttingRuntimeLedgerSource.includes("if (text === '米') return 'yard'"), '运行流水必须兼容历史“米”并统一为 yard')
-assert(!pickupWorkbenchTabs.some((tab) =>
-  ['WAIT_CONTINUE_PICKUP', 'PARTIAL_PICKABLE'].includes(tab.key as PickupOrderStatus)
+assert(!Object.keys(pickupStatusLabelMap).some((key) =>
+  ['WAIT_CONTINUE_PICKUP', 'PARTIAL_PICKABLE'].includes(key)
 ), '裁床领料状态不得把“继续等待”或“部分可领”作为裁床动作')
 const crossUnitStatus = derivePickupStatus(
   [
@@ -223,7 +218,7 @@ for (const projection of projections) {
 for (const status of materialPrepWorkbenchTabs.map((tab) => tab.key)) {
   assert(projections.some((projection) => projection.order.overallPrepStatus === status), `配料工作台缺少状态样例：${status}`)
 }
-for (const status of pickupWorkbenchTabs.map((tab) => tab.key)) {
+for (const status of Object.keys(pickupStatusLabelMap) as PickupOrderStatus[]) {
   assert(projections.some((projection) => projection.order.pickupStatus === status), `领料工作台缺少状态样例：${status}`)
 }
 for (const projection of projections) {
@@ -481,7 +476,7 @@ console.log(
     配料记录生命周期: 'DRAFT → PICKED → STAGED → CONFIRMED',
     当前来源货位与单位: '通过',
     配料状态覆盖: materialPrepWorkbenchTabs.map((tab) => tab.key),
-    领料状态定义: pickupWorkbenchTabs.map((tab) => tab.key),
+    领料状态定义: Object.keys(pickupStatusLabelMap),
     已领料完结与退回规则: '通过',
   }, null, 2),
 )

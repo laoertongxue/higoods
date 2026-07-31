@@ -3,7 +3,7 @@ import { listPdaCuttingTaskSourceRecords } from '../src/data/fcs/cutting/pda-cut
 
 const WAIT_PROCESS_PATH = '/fcs/craft/cutting/warehouse-management/wait-process'
 const WAIT_HANDOVER_PATH = '/fcs/craft/cutting/warehouse-management/wait-handover'
-const PICKUP_MANAGEMENT_PATH = '/fcs/craft/cutting/pickup-management'
+const READY_PICKUP_PATH = '/fcs/craft/cutting/pickup-management/ready'
 
 test.setTimeout(600_000)
 
@@ -99,8 +99,8 @@ for (const path of [WAIT_PROCESS_PATH, WAIT_HANDOVER_PATH]) {
 }
 
 test('PDA 中转仓领料支持连续多选、范围摘要、非法库位禁用和清空', async ({ page }) => {
-  await page.goto(PICKUP_MANAGEMENT_PATH)
-  const pickupHref = await page.getByText('办理领料入库', { exact: true }).first().getAttribute('href')
+  await page.goto(READY_PICKUP_PATH)
+  const pickupHref = await page.getByText('去领料', { exact: true }).first().getAttribute('href')
   expect(pickupHref).toBeTruthy()
   await page.goto(pickupHref!)
   const map = page.locator('[data-pda-cutting-pickup-location-map] [data-warehouse-map-root]')

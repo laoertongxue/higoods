@@ -132,21 +132,20 @@ async function main(): Promise<void> {
   results.push(['裁片配料填入本次可配', fillDuration, actionThresholdMs])
   assert(fillDuration <= actionThresholdMs, `裁片配料填入本次可配耗时 ${fillDuration.toFixed(1)}ms，超过 ${actionThresholdMs}ms`)
 
-  await page.goto(`${baseUrl}/fcs/craft/cutting/pickup-management?tab=PICKUP_DONE`, { waitUntil: 'domcontentloaded' })
-  await page.waitForFunction(() => document.body.innerText.includes('领料管理'), undefined, { timeout: 10_000 })
-  await page.locator('[data-nav*="pickup-management-detail"]').first().waitFor({ timeout: 10_000 })
+  await page.goto(`${baseUrl}/fcs/craft/cutting/pickup-management/ready`, { waitUntil: 'domcontentloaded' })
+  await page.waitForFunction(() => document.body.innerText.includes('已配齐待领料'), undefined, { timeout: 10_000 })
+  await page.locator('a[href*="difference=1"]').first().waitFor({ timeout: 10_000 })
 
-  const openReturnDuration = await measure('领料详情打开退回入口', async () => {
-    await page.locator('[data-nav*="pickup-management-detail"]').first().click()
-    await page.waitForFunction(() => location.pathname.includes('pickup-management-detail'), undefined, { timeout: 10_000 })
+  const openReturnDuration = await measure('领料差异上报打开退回入口', async () => {
+    await page.locator('a[href*="difference=1"]').first().click()
+    await page.waitForFunction(() => location.pathname.includes('/fcs/pda/warehouse/wait-process'), undefined, { timeout: 10_000 })
     await page.waitForTimeout(500)
-    await assertNoPageErrors(pageErrors, '领料详情')
-    await page.waitForFunction(() => document.body.innerText.includes('领料详情'), undefined, { timeout: 10_000 })
-    await page.getByRole('button', { name: /待加工仓入库记录/ }).first().click()
-    await page.getByRole('button', { name: '退回物料' }).first().click()
+    await assertNoPageErrors(pageErrors, '领料差异上报')
+    await page.waitForFunction(() => document.body.innerText.includes('上报领料差异'), undefined, { timeout: 10_000 })
+    await page.locator('[data-pda-warehouse-action="toggle-cutting-pickup-difference"]').first().click()
     await page.waitForFunction(() => {
       const text = document.body.innerText
-      return text.includes('退回物料') && text.includes('退回到中转仓')
+      return text.includes('上报领料差异') && text.includes('提交差异并叫主管')
     }, undefined, { timeout: 10_000 })
   })
   results.push(['领料详情打开退回入口', openReturnDuration, routeThresholdMs])

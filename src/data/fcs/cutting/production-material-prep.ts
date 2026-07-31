@@ -568,13 +568,6 @@ export const materialPrepWorkbenchTabs: Array<{ key: MaterialPrepOrderStatus; la
   { key: 'CLOSED', label: '已关闭' },
 ]
 
-export const pickupWorkbenchTabs: Array<{ key: PickupOrderStatus; label: string }> = [
-  { key: 'WAIT_PICKUP', label: '待领料' },
-  { key: 'REJECTED_WAIT_WLS', label: '打回待仓库处理' },
-  { key: 'PICKUP_DONE', label: '已领料完结' },
-  { key: 'ACTUAL_CLOSED', label: '按实完结' },
-]
-
 const materialPrepTypeMinimums: Record<MaterialPrepMaterialType, number> = {
   面料: 3,
   辅料: 3,

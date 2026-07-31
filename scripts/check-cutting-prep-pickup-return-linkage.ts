@@ -12,10 +12,7 @@ import {
   listActivePickupNodesRuntime as listActivePickupNodes,
 } from '../src/runtime/fcs/cutting/pickup-management-runtime.ts'
 import { renderFcsCuttingPrepPage } from '../src/pages/fcs/material-prep/cutting.ts'
-import {
-  renderCraftCuttingPickupManagementDetailPage,
-  renderCraftCuttingPickupManagementPage,
-} from '../src/pages/process-factory/cutting/pickup-management.ts'
+import { renderCraftCuttingPickupReadyPage } from '../src/pages/process-factory/cutting/pickup-management-list.ts'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -110,14 +107,9 @@ function renderCuttingPrepPage(search: string): string {
   return renderFcsCuttingPrepPage()
 }
 
-function renderPickupManagementDetailPage(search: string): string {
-  mockWindow('/fcs/craft/cutting/pickup-management-detail', search)
-  return renderCraftCuttingPickupManagementDetailPage()
-}
-
-function renderPickupManagementPage(search: string): string {
-  mockWindow('/fcs/craft/cutting/pickup-management', search)
-  return renderCraftCuttingPickupManagementPage()
+function renderPickupReadyPage(): string {
+  mockWindow('/fcs/craft/cutting/pickup-management/ready', '')
+  return renderCraftCuttingPickupReadyPage()
 }
 
 try {
@@ -148,21 +140,14 @@ try {
   const allNodes = listActivePickupNodes(storage)
   assert(allNodes.length > 0, '必须存在活动节点')
 
-  const pickupListHtml = renderPickupManagementPage('')
-  assert(pickupListHtml.includes('未配齐清单'), '领料管理列表必须展示未配齐清单节点')
-  assert(pickupListHtml.includes('已配齐待领'), '领料管理列表必须展示已配齐待领节点')
-  assert(pickupListHtml.includes('历史有效已领'), '领料管理列表必须展示历史有效已领列')
-  assert(pickupListHtml.includes('办理领料入库'), '领料管理列表必须提供办理领料入库按钮')
-
+  const pickupListHtml = renderPickupReadyPage()
+  assert(pickupListHtml.includes('已配齐待领'), '领料管理列表必须展示已配齐待领分组')
+  assert(pickupListHtml.includes('去领料'), '领料管理列表必须提供去领料入口')
+  assert(pickupListHtml.includes('一次领取本节点全部物料'), 'PC 去领料入口必须明确一次领取本节点全部物料')
+  
   const detailPickupNode = allNodes.find((n) => n.nodeType === 'READY_TO_PICKUP')
-  assert(detailPickupNode, '必须存在已配齐待领节点用于详情验证')
-  const detailSearch = `?pickupNodeId=${encodeURIComponent(detailPickupNode.nodeId)}`
-  const pickupDetailHtml = renderPickupManagementDetailPage(detailSearch)
-  assert(pickupDetailHtml.includes('当前节点全部物料'), '领料详情必须展示节点全部物料')
-  assert(pickupDetailHtml.includes('物料明细'), '领料详情必须展示物料明细')
-  assert(pickupDetailHtml.includes('去 PDA 办理领料入库'), '领料详情必须从 PC 携节点快照进入 PDA 办理')
-  assert(!pickupDetailHtml.includes('本轮全部领取</button>'), 'PC 详情不得直接确认领料')
-
+  assert(detailPickupNode, '必须存在已配齐待领节点用于领料会话验证')
+  
   const pickupSession = appendPickupSessionFromNode({
     pickupNodeId: detailPickupNode.nodeId,
     pickupNodeVersion: detailPickupNode.version,

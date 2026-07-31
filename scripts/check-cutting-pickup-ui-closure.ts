@@ -4,7 +4,6 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
 
-const pcSource = fs.readFileSync('src/pages/process-factory/cutting/pickup-management.ts', 'utf8')
 const listPath = 'src/pages/process-factory/cutting/pickup-management-list.ts'
 const listSource = fs.existsSync(listPath) ? fs.readFileSync(listPath, 'utf8') : ''
 const handlerSource = fs.readFileSync('src/main-handlers/fcs-handlers.ts', 'utf8')
@@ -35,10 +34,10 @@ assert(
 assert(listSource.includes('listPickupOrderGroups(kind)'), '三个列表必须按当前列表类型读取生产单分组')
 assert(listSource.includes('/fcs/pda/warehouse/wait-process?scope=cutting&action=pickup&pickupNodeId='), 'PC 去领料必须跳转 PDA 并携带节点快照')
 assert(listSource.includes('一次领取本节点全部物料'), 'PC 去领料入口必须明确一次领取本节点全部物料')
-assert(!pcSource.includes("receiverName: '裁床 李明'"), 'PC 不得硬编码收货人直接确认领料')
-assert(!pcSource.includes('本轮全部领取</button>'), 'PC 详情不得直接确认领取')
+assert(!listSource.includes("receiverName: '裁床 李明'"), 'PC 不得硬编码收货人直接确认领料')
+assert(!listSource.includes('本轮全部领取</button>'), 'PC 列表不得直接确认领取')
 assert(listSource.includes('currentLocations.map'), '未配齐列表必须逐个展示每项物料全部来源库位')
-assert(pcSource.includes('节点版本'), 'PC 详情必须展示节点版本')
+assert(listSource.includes('节点 V'), 'PC 领料记录必须展示节点版本')
 assert(listSource.includes('renderStandardListColumnSettings'), 'PC 标准列表必须提供列设置')
 assert(listSource.includes('saveListColumnPreferences'), 'PC 列显示、顺序、冻结和每页条数必须持久化')
 for (const key of [

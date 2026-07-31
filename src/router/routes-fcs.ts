@@ -98,7 +98,6 @@ import {
   renderCraftCuttingCutOrdersPage,
   renderCraftCuttingCutOrderDetailPage,
   renderCraftCuttingCutOrderClosePage,
-  renderCraftCuttingPickupManagementDetailPage,
   renderCraftCuttingPickupReadyPage,
   renderCraftCuttingPickupIncompletePage,
   renderCraftCuttingPickupHistoryPage,
@@ -300,11 +299,6 @@ export const routes: RouteRegistry = {
       bootstrapSupplementManagementMockData()
       bootstrapPickupManagementRuntimeMockData()
       return renderCraftCuttingPickupHistoryPage()
-    },
-    '/fcs/craft/cutting/pickup-management-detail': () => {
-      bootstrapSupplementManagementMockData()
-      bootstrapPickupManagementRuntimeMockData()
-      return renderCraftCuttingPickupManagementDetailPage()
     },
     '/fcs/craft/cutting/marker-list': () => renderCraftCuttingMarkerListPage(),
     '/fcs/craft/cutting/marker-create': () => renderCraftCuttingMarkerCreatePage(),

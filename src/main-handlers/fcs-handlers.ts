@@ -199,7 +199,6 @@ import {
   handleCraftCuttingWaitHandoverEvent,
   handleCraftCuttingWaitProcessEvent,
 } from '../pages/process-factory/cutting/warehouse-hub'
-import { handleCraftCuttingPickupManagementEvent } from '../pages/process-factory/cutting/pickup-management'
 import { handleCraftCuttingPickupListEvent } from '../pages/process-factory/cutting/pickup-management-list'
 import { handleCraftCuttingHandoverOrdersEvent } from '../pages/process-factory/cutting/handover-orders'
 import { handleCraftCombinedDyeingEvent, handleCraftDyeingEvent } from '../pages/process-factory/dyeing/events'
@@ -252,11 +251,8 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
   const isSupplementManagementRoute = pathname.startsWith('/fcs/craft/cutting/supplement-management')
   const isCutPieceReleaseRoute = pathname.startsWith('/fcs/craft/cutting/cut-piece-release')
   if (pathname.startsWith('/fcs/craft/cutting/pickup-management')) {
-    if (CUTTING_PICKUP_LIST_PATHS.has(pathname)) {
-      return handleCraftCuttingPickupListEvent(target, event)
-    }
-    return pathname === '/fcs/craft/cutting/pickup-management-detail'
-      ? handleCraftCuttingPickupManagementEvent(target, event)
+    return CUTTING_PICKUP_LIST_PATHS.has(pathname)
+      ? handleCraftCuttingPickupListEvent(target, event)
       : false
   }
   if (pathname.startsWith('/fcs/process/water-soluble-orders')) {
@@ -461,7 +457,6 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     await handleCraftCuttingFeiTicketNumberingEvent(target) ||
     await handleCraftCuttingWaitProcessEvent(target) ||
     await handleCraftCuttingWaitHandoverEvent(target) ||
-    await handleCraftCuttingPickupManagementEvent(target, event) ||
     await handleCraftCuttingHandoverOrdersEvent(target) ||
     await handleCraftCuttingSampleWarehouseEvent(target) ||
     await handleCraftCuttingTransferBagsEvent(target, event) ||

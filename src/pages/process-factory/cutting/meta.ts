@@ -9,7 +9,6 @@ export type CuttingCanonicalPageKey =
   | 'production-progress'
   | 'cut-orders'
   | 'cut-order-close'
-  | 'pickup-management'
   | 'pickup-ready'
   | 'pickup-incomplete'
   | 'pickup-history'
@@ -92,16 +91,6 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '确认裁片单关闭原因、关闭前数量账和影响项。',
-  },
-  'pickup-management': {
-    key: 'pickup-management',
-    canonicalPath: '/fcs/craft/cutting/pickup-management',
-    aliases: [],
-    menuGroupTitle: '领料管理',
-    pageTitle: '领料管理',
-    pageSubtitle: '',
-    isPlaceholder: false,
-    shortDescription: '兼容旧入口，并承接领料节点详情。',
   },
   'pickup-ready': {
     key: 'pickup-ready',

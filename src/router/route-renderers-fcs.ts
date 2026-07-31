@@ -317,10 +317,6 @@ export const renderCraftCuttingCutOrderClosePage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/cut-order-release-integration'),
   'renderCraftCuttingCutOrderClosePage',
 )
-export const renderCraftCuttingPickupManagementPage = createAsyncRenderer(
-  () => import('../pages/process-factory/cutting/pickup-management'),
-  'renderCraftCuttingPickupManagementPage',
-)
 export const renderCraftCuttingPickupReadyPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/pickup-management-list'),
   'renderCraftCuttingPickupReadyPage',
@@ -332,10 +328,6 @@ export const renderCraftCuttingPickupIncompletePage = createAsyncRenderer(
 export const renderCraftCuttingPickupHistoryPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/pickup-management-list'),
   'renderCraftCuttingPickupHistoryPage',
-)
-export const renderCraftCuttingPickupManagementDetailPage = createAsyncRenderer(
-  () => import('../pages/process-factory/cutting/pickup-management'),
-  'renderCraftCuttingPickupManagementDetailPage',
 )
 export const renderCraftCuttingProductionProgressPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/production-progress'),
