@@ -30,7 +30,7 @@ import { escapeHtml } from '../../../utils.ts'
 import { renderKindBadge, renderStatusBadge } from './shared.ts'
 
 const EVENT_PREFIX = 'wool-machine-associations'
-const PREFERENCE_KEY = '/fcs/craft/wool/machine-associations:list-columns'
+const PREFERENCE_KEY = '/fcs/process-factory/wool/machine-associations:list-columns'
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
 type AssociationFilterStatus = '' | WoolMachineStatus
@@ -171,11 +171,11 @@ function currentRouteKey(
   const browserPath = typeof window !== 'undefined'
     ? `${window.location.pathname}${window.location.search}`
     : ''
-  const currentPath = storePath.startsWith('/fcs/craft/wool/machine-associations')
+  const currentPath = storePath.startsWith('/fcs/process-factory/wool/machine-associations')
     ? storePath
-    : browserPath.startsWith('/fcs/craft/wool/machine-associations')
+    : browserPath.startsWith('/fcs/process-factory/wool/machine-associations')
       ? browserPath
-      : '/fcs/craft/wool/machine-associations'
+      : '/fcs/process-factory/wool/machine-associations'
   const [pathname, query = ''] = currentPath.split('?')
   const params = new URLSearchParams(query)
   if (requestedWoolOrderId) params.set('woolOrderId', requestedWoolOrderId)

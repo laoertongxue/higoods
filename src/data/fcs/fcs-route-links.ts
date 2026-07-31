@@ -227,21 +227,11 @@ export function buildWoolWaitHandoverWarehouseLink(woolOrderId?: string): string
   return woolOrderId ? `${base}?woolOrderId=${encodeSegment(woolOrderId)}` : base
 }
 
-export function buildWoolFeiTicketsLink(woolOrderId?: string): string {
-  const base = '/fcs/craft/wool/fei-tickets'
-  return woolOrderId ? `${base}?woolOrderId=${encodeSegment(woolOrderId)}` : base
-}
-
-export function buildWoolMachineScheduleLink(woolOrderId?: string): string {
-  const base = '/fcs/craft/wool/machine-schedule'
-  return woolOrderId ? `${base}?woolOrderId=${encodeSegment(woolOrderId)}` : base
-}
-
 export function buildWoolMachineAssociationsLink(
   woolOrderId?: string,
   machineId?: string,
 ): string {
-  const base = '/fcs/craft/wool/machine-associations'
+  const base = '/fcs/process-factory/wool/machine-associations'
   const params = new URLSearchParams()
   if (woolOrderId) params.set('woolOrderId', woolOrderId)
   if (machineId) params.set('machineId', machineId)
@@ -252,11 +242,6 @@ export function buildWoolMachineAssociationsLink(
 export function buildWoolMachinesLink(machineNo?: string): string {
   const base = '/fcs/craft/wool/machines'
   return machineNo ? `${base}?machineNo=${encodeSegment(machineNo)}` : base
-}
-
-export function buildWoolStatisticsLink(woolOrderId?: string): string {
-  const base = '/fcs/craft/wool/statistics'
-  return woolOrderId ? `${base}?woolOrderId=${encodeSegment(woolOrderId)}` : base
 }
 
 export function buildPostFinishingWorkOrderDetailLink(postOrderId: string, tab?: string): string {

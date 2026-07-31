@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { alignWoolColorMaterialMappingsForDemand } from '../src/data/fcs/production-tech-pack-snapshot-builder.ts'
 import {
   buildWoolPanelOutputSku,
@@ -5012,7 +5012,7 @@ for (const field of ['machineModel', 'needleType'] as const) {
 const directedMachineLink = buildWoolMachineAssociationsLink(undefined, 'WM-机型/001')
 assert.equal(
   directedMachineLink,
-  '/fcs/craft/wool/machine-associations?machineId=WM-%E6%9C%BA%E5%9E%8B%2F001',
+  '/fcs/process-factory/wool/machine-associations?machineId=WM-%E6%9C%BA%E5%9E%8B%2F001',
   '设备档案必须用编码后的 machineId 进入唯一生产关联工作台',
 )
 
@@ -5183,7 +5183,7 @@ for (const invalidModel of [strictMixedLock, strictCompletedLock, strictUnknownL
 }
 
 const lockedRouteA = resolveWoolMachineAssociationRouteEntry(undefined, {
-  routeKey: '/fcs/craft/wool/machine-associations?woolOrderId=WOOL-MOCK-23',
+  routeKey: '/fcs/process-factory/wool/machine-associations?woolOrderId=WOOL-MOCK-23',
   hasMountedRoot: false,
   requestedWoolOrderId: mixedLockTarget.woolOrderId,
 })
@@ -5194,7 +5194,7 @@ const sameRouteLocalRender = resolveWoolMachineAssociationRouteEntry({
   selectedMachineIds: ['WM-005'],
   overlayError: '保留中的局部错误',
 }, {
-  routeKey: '/fcs/craft/wool/machine-associations?woolOrderId=WOOL-MOCK-23',
+  routeKey: '/fcs/process-factory/wool/machine-associations?woolOrderId=WOOL-MOCK-23',
   hasMountedRoot: true,
   requestedWoolOrderId: mixedLockTarget.woolOrderId,
 })
@@ -5202,7 +5202,7 @@ assert.equal(sameRouteLocalRender.transferConfirmed, true)
 assert.deepEqual(sameRouteLocalRender.selectedMachineIds, ['WM-005'])
 assert.equal(sameRouteLocalRender.overlayError, '保留中的局部错误')
 const genericRouteAfterLeave = resolveWoolMachineAssociationRouteEntry(sameRouteLocalRender, {
-  routeKey: '/fcs/craft/wool/machine-associations',
+  routeKey: '/fcs/process-factory/wool/machine-associations',
   hasMountedRoot: false,
   requestedWoolOrderId: '',
 })
@@ -5214,7 +5214,7 @@ assert.deepEqual(genericRouteAfterLeave.selectedMachineIds, [])
 assert.equal(genericRouteAfterLeave.transferConfirmed, false)
 assert.equal(genericRouteAfterLeave.overlayError, '')
 const directedMachineRoute = resolveWoolMachineAssociationRouteEntry(genericRouteAfterLeave, {
-  routeKey: '/fcs/craft/wool/machine-associations?machineId=WM-007',
+  routeKey: '/fcs/process-factory/wool/machine-associations?machineId=WM-007',
   hasMountedRoot: true,
   requestedWoolOrderId: '',
   requestedMachineId: 'WM-007',
@@ -5225,7 +5225,7 @@ assert.equal(
   '从设备档案进入生产关联工作台必须精确定位该设备',
 )
 const genericAfterDirectedMachine = resolveWoolMachineAssociationRouteEntry(directedMachineRoute, {
-  routeKey: '/fcs/craft/wool/machine-associations',
+  routeKey: '/fcs/process-factory/wool/machine-associations',
   hasMountedRoot: false,
   requestedWoolOrderId: '',
   requestedMachineId: '',
@@ -5236,7 +5236,7 @@ assert.equal(
   '离开后进入通用工作台必须清理定向设备过滤',
 )
 const directRouteB = resolveWoolMachineAssociationRouteEntry(sameRouteLocalRender, {
-  routeKey: `/fcs/craft/wool/machine-associations?woolOrderId=${strictLimitOrder.woolOrderId}`,
+  routeKey: `/fcs/process-factory/wool/machine-associations?woolOrderId=${strictLimitOrder.woolOrderId}`,
   hasMountedRoot: true,
   requestedWoolOrderId: strictLimitOrder.woolOrderId,
 })
@@ -5522,7 +5522,7 @@ const task10MenuSource = readFileSync(
 for (const source of [task10RoutesSource, task10RenderersSource, task10HandlersSource, task10MenuSource]) {
   assert(!source.includes('machine-schedule'), '当前路由、渲染、事件和菜单不得继续暴露旧横机排产入口')
 }
-assert(task10RoutesSource.includes('/fcs/craft/wool/machine-associations'))
+assert(task10RoutesSource.includes('/fcs/process-factory/wool/machine-associations'))
 assert(task10RenderersSource.includes('renderCraftWoolMachineAssociationsPage'))
 assert(task10HandlersSource.includes('handleCraftWoolMachineAssociationsEvent'))
 assert(task10MenuSource.includes('横机生产关联'))
@@ -5993,6 +5993,97 @@ assert.equal(
 )
 assert.deepEqual(task12NavigationEvents, ['higood:pda-wool-exec-leave'])
 
+const task14ReadSource = (path: string): string =>
+  readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
+const task14ScopedSources = [
+  'src/data/fcs/wool-task-domain.ts',
+  'src/data/fcs/wool-domain/types.ts',
+  'src/data/fcs/wool-domain/commands.ts',
+  'src/data/fcs/wool-domain/queries.ts',
+  'src/pages/process-factory/wool/work-orders.ts',
+  'src/pages/process-factory/wool/work-order-detail.ts',
+  'src/pages/process-factory/wool/machines.ts',
+  'src/pages/process-factory/wool/warehouse.ts',
+  'src/pages/pda-exec-detail.ts',
+  'src/pages/pda-warehouse-wait-process.ts',
+  'src/pages/pda-warehouse-wait-handover.ts',
+  'src/data/fcs/mobile-execution-task-index.ts',
+].map(task14ReadSource).join('\n')
+
+for (const removedText of [
+  '横机成片',
+  '缝盘',
+  '毛织菲票',
+  '已排产',
+  'advanceWoolOrderToWarehouseInbound',
+  'WoolPriceInfo',
+  'recordWoolYarnRecovery',
+]) {
+  assert(
+    !task14ScopedSources.includes(removedText),
+    `毛织运行代码仍残留已删除专属语义：${removedText}`,
+  )
+}
+
+for (const removedPage of [
+  'src/pages/process-factory/wool/fei-tickets.ts',
+  'src/pages/process-factory/wool/statistics.ts',
+  'src/pages/process-factory/wool/machine-schedule.ts',
+]) {
+  assert.equal(
+    existsSync(new URL(`../${removedPage}`, import.meta.url)),
+    false,
+    `旧毛织页面必须删除：${removedPage}`,
+  )
+}
+
+const task14RoutesSource = task14ReadSource('src/router/routes-fcs.ts')
+const task14RenderersSource = task14ReadSource('src/router/route-renderers-fcs.ts')
+const task14MenuSource = task14ReadSource('src/data/app-shell-config.ts')
+const task14LinksSource = task14ReadSource('src/data/fcs/fcs-route-links.ts')
+const task14PrintSource = task14ReadSource('src/pages/print/templates/label-print-template.ts')
+const task14RoutingSources = [
+  task14RoutesSource,
+  task14RenderersSource,
+  task14MenuSource,
+  task14LinksSource,
+].join('\n')
+
+for (const removedRouteText of [
+  '/fcs/craft/wool/fei-tickets',
+  '/fcs/craft/wool/statistics',
+  '/fcs/craft/wool/stats',
+  '/fcs/craft/wool/machine-schedule',
+  'renderCraftWoolFeiTicketsPage',
+  'renderCraftWoolStatisticsPage',
+  'buildWoolFeiTicketsLink',
+  'buildWoolStatisticsLink',
+  'buildWoolMachineScheduleLink',
+]) {
+  assert(
+    !task14RoutingSources.includes(removedRouteText),
+    `路由、菜单或链接仍残留已删除毛织入口：${removedRouteText}`,
+  )
+}
+assert(
+  task14RoutesSource.includes("'/fcs/process-factory/wool/machine-associations'"),
+  '必须注册新的横机生产关联固定路由',
+)
+assert(
+  task14MenuSource.includes("title: '横机生产关联'")
+    && task14MenuSource.includes("href: '/fcs/process-factory/wool/machine-associations'"),
+  '毛织菜单必须只保留“横机生产关联”并指向新固定路由',
+)
+assert(
+  task14LinksSource.includes("const base = '/fcs/process-factory/wool/machine-associations'"),
+  '加工单和设备页的横机关联链接必须统一指向新固定路由',
+)
+assert(
+  !task14PrintSource.includes('listWoolFeiTicketPrintRecords')
+    && !task14PrintSource.includes("ticketSourceType === 'WOOL_PART_PANEL'"),
+  '通用标签打印不得继续读取或渲染毛织菲票',
+)
+
 console.log('PASS task 5: global command receipts, atomic stock, downstream lock, and manual completion')
 console.log('PASS task 6: current machine associations and derived four-state availability')
 console.log('PASS task 7: runtime generation freezes traceable yarn facts and exposes domain actions')
@@ -6001,3 +6092,4 @@ console.log(`PASS task 9: seven-tab wool fact detail, paged records, immutable c
 console.log(`PASS task 10: standard machine workbenches; one snapshot ${task10WorkbenchElapsedMs.toFixed(1)}ms, 600-order/600-machine scale ${task10ScaleElapsedMs.toFixed(1)}ms`)
 console.log('PASS task 11: fixed-location wool warehouse standard lists and local fact commands')
 console.log(`PASS task 12: PDA wool fact operations, exact binding, and 320-order single-snapshot projection in ${task12MobileScaleElapsedMs.toFixed(1)}ms`)
+console.log('PASS task 14: legacy wool pages, routes, print source, price, and node semantics removed')

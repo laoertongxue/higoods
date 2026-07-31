@@ -143,10 +143,8 @@ import {
   renderCraftDyeingWorkOrdersPage,
   renderCraftCombinedDyeingPage,
   renderCraftDyeingWaterSolubleOrdersPage,
-  renderCraftWoolFeiTicketsPage,
   renderCraftWoolMachineAssociationsPage,
   renderCraftWoolMachinesPage,
-  renderCraftWoolStatisticsPage,
   renderCraftWoolWorkOrderDetailPage,
   renderCraftWoolWorkOrdersPage,
   renderCraftWoolWaitHandoverWarehousePage,
@@ -361,11 +359,8 @@ export const routes: RouteRegistry = {
     '/fcs/craft/wool/work-orders': () => renderCraftWoolWorkOrdersPage(),
     '/fcs/craft/wool/wait-process-warehouse': () => renderCraftWoolWaitProcessWarehousePage(),
     '/fcs/craft/wool/wait-handover-warehouse': () => renderCraftWoolWaitHandoverWarehousePage(),
-    '/fcs/craft/wool/fei-tickets': () => renderCraftWoolFeiTicketsPage(),
-    '/fcs/craft/wool/machine-associations': () => renderCraftWoolMachineAssociationsPage(),
+    '/fcs/process-factory/wool/machine-associations': () => renderCraftWoolMachineAssociationsPage(),
     '/fcs/craft/wool/machines': () => renderCraftWoolMachinesPage(),
-    '/fcs/craft/wool/statistics': () => renderCraftWoolStatisticsPage(),
-    '/fcs/craft/wool/stats': () => renderCraftWoolStatisticsPage(),
     '/fcs/craft/wool/warehouse': () =>
       renderRouteRedirect('/fcs/craft/wool/wait-process-warehouse', '正在跳转到毛织待加工仓'),
     '/fcs/craft/wool/warehouse-management': () =>
