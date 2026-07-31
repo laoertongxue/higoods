@@ -24,7 +24,7 @@ const productionHeaders = [
   '染色',
   '拆解',
   '配料',
-  '派单工厂 / 接单 / 领取',
+  '工厂 / 接单 / 领取',
   '唛架',
   '铺布',
   '裁剪',
@@ -79,9 +79,10 @@ function main(): void {
   assert(modelSource.includes("type ProductionProgressViewDimension = 'CUT_ORDER' | 'PRODUCTION_ORDER'"), '裁床进度模型缺少 CUT_ORDER / PRODUCTION_ORDER 双维度定义')
   assert(source.includes('buildProductionOrderOverviewRows'), '裁床进度页未委托只读业务事实投影')
   assert(source.includes('renderProductionOrderOverview'), '裁床进度页未委托生产单总览视图')
-  assert(overviewViewSource.includes('colspan="2"'), '生产单总览缺少下单 / 印染分组列')
-  assert(overviewViewSource.includes('colspan="3"'), '生产单总览缺少中转仓分组列')
-  assert(overviewViewSource.includes('colspan="5"'), '生产单总览缺少裁床厂分组列')
+  assert(overviewViewSource.includes('colspan="2"') && overviewViewSource.includes('>下单</th>'), '生产单总览缺少下单分组列')
+  assert(overviewViewSource.includes('colspan="2"') && overviewViewSource.includes('>印染</th>'), '生产单总览缺少印染分组列')
+  assert(overviewViewSource.includes('colspan="2"') && overviewViewSource.includes('>中转仓</th>'), '生产单总览缺少中转仓分组列')
+  assert(overviewViewSource.includes('colspan="6"') && overviewViewSource.includes('>裁床厂</th>'), '生产单总览缺少裁床厂分组列')
   assert(overviewViewSource.includes('sticky left-0'), '生产单总览未固定生产单列')
   assert(overviewViewSource.includes('sticky left-[240px]'), '生产单总览未固定款式列')
   assert(overviewViewSource.includes('data-cutting-overview-factory-line'), '生产单总览缺少逐行对齐的工厂事实')

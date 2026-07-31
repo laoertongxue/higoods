@@ -49,18 +49,7 @@ executeProcessAction({
   sourceType: 'SPECIAL_CRAFT',
   sourceId: taskOrder.taskOrderId,
   taskId: taskOrder.taskOrderId,
-  actionCode: 'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND',
-  objectType: '成衣',
-  objectQty: totalQty,
-  qtyUnit: '件',
-  skuQtyBySkuCode: qtyBySku,
-})
-executeProcessAction({
-  sourceChannel: 'Web 端',
-  sourceType: 'SPECIAL_CRAFT',
-  sourceId: taskOrder.taskOrderId,
-  taskId: taskOrder.taskOrderId,
-  actionCode: 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES',
+  actionCode: 'SPECIAL_CRAFT_CONFIRM_RECEIVE',
   objectType: '成衣',
   objectQty: totalQty,
   qtyUnit: '件',
@@ -79,7 +68,7 @@ const waitProcessHtml = renderPdaWarehouseWaitProcessPage()
 assert(waitProcessHtml.includes('来源仓：') && waitProcessHtml.includes('下一动作：加工领料'), '待加工仓必须展示来源仓和真实下一动作')
 assert.match(
   waitProcessHtml,
-  new RegExp(`data-pda-warehouse-action="special-craft-wait-process-issue"[^>]*data-stock-item-id="${selectedWaitProcess.stockItemId}"[^>]*data-work-order-id="${taskOrder.taskOrderId}"[^>]*data-sku-code="${selectedWaitProcess.materialSku}"`),
+  new RegExp(`data-pda-warehouse-action="special-craft-wait-process-issue"[^>]*data-stock-item-id="${selectedWaitProcess.stockItemId}"[^>]*data-task-order-id="${taskOrder.taskOrderId}"[^>]*data-sku-code="${selectedWaitProcess.materialSku}"`),
   '待加工仓主按钮必须绑定明确库存、加工单和 SKU',
 )
 setPdaSession(null)
@@ -103,7 +92,7 @@ const waitProcessAfterFirst = listFactoryWaitProcessStockItems()
 assert.equal(waitProcessAfterFirst.find((item) => item.stockItemId === selectedWaitProcess.stockItemId)?.status, '已领用', '点 SKU A 只能领用 A')
 assert.equal(waitProcessAfterFirst.find((item) => item.stockItemId === selectedWaitProcess.stockItemId)?.operatorUserId, auxiliaryUser.userId, 'SKU 行领用必须保留真实登录账号')
 assert.notEqual(waitProcessAfterFirst.find((item) => item.stockItemId === secondWaitProcess.stockItemId)?.status, '已领用', '点 SKU A 不得连带领用 SKU B')
-assert.equal(getSpecialCraftTaskOrderById(taskOrder.taskOrderId)?.status, '已入待加工仓', '部分 SKU 领用时加工单必须保持待加工阶段')
+assert.equal(getSpecialCraftTaskOrderById(taskOrder.taskOrderId)?.status, '加工中', '部分 SKU 领用时加工单保持加工中，等待全部 SKU 领用')
 const partialWaitProcessHtml = renderPdaWarehouseWaitProcessPage()
 assert(!partialWaitProcessHtml.includes(selectedWaitProcess.stockItemId), '已领用 SKU A 必须退出 PDA 待加工操作列表')
 assert(partialWaitProcessHtml.includes(secondWaitProcess.stockItemId), '未领用 SKU B 必须继续留在 PDA 待加工操作列表')
@@ -127,24 +116,6 @@ assert(
   '全部 SKU 领用后必须逐行扣清待加工库存',
 )
 
-executeProcessAction({
-  sourceChannel: '移动端',
-  sourceType: 'SPECIAL_CRAFT',
-  sourceId: taskOrder.taskOrderId,
-  taskId: taskOrder.taskOrderId,
-  actionCode: 'SPECIAL_CRAFT_FINISH_PROCESS',
-  operatorName: auxiliaryUser.name,
-  operatorUserId: auxiliaryUser.userId,
-  operatorFactoryId: auxiliaryUser.factoryId,
-  operatorRoleId: auxiliaryUser.roleId,
-  objectType: '成衣',
-  objectQty: totalQty,
-  qtyUnit: '件',
-  skuQtyBySkuCode: qtyBySku,
-  skuScrapQtyBySkuCode: Object.fromEntries(lines.map((line) => [line.skuCode, 0])),
-  skuDamageQtyBySkuCode: Object.fromEntries(lines.map((line) => [line.skuCode, 0])),
-})
-
 const waitHandoverStocks = listFactoryWaitHandoverStockItems()
   .filter((item) => item.taskId === taskOrder.taskOrderId && item.itemKind === '成衣')
 assert(waitHandoverStocks.length >= 2, '缺少多 SKU 成衣待交出库存')
@@ -153,7 +124,7 @@ const waitHandoverHtml = renderPdaWarehouseWaitHandoverPage()
 assert(waitHandoverHtml.includes('下一站：') && waitHandoverHtml.includes('下一动作：交出确认'), '待交出仓必须展示后道下一站和真实下一动作')
 assert.match(
   waitHandoverHtml,
-  new RegExp(`data-pda-warehouse-action="special-craft-wait-handover-submit"[^>]*data-stock-item-id="${selectedWaitHandover.stockItemId}"[^>]*data-work-order-id="${taskOrder.taskOrderId}"[^>]*data-sku-code="${selectedWaitHandover.materialSku}"`),
+  new RegExp(`data-pda-warehouse-action="special-craft-wait-handover-submit"[^>]*data-stock-item-id="${selectedWaitHandover.stockItemId}"[^>]*data-task-order-id="${taskOrder.taskOrderId}"[^>]*data-sku-code="${selectedWaitHandover.materialSku}"`),
   '待交出仓主按钮必须绑定明确库存、加工单和 SKU',
 )
 assert.equal(handlePdaWarehouseWaitHandoverEvent(buildPdaWarehouseActionTarget(
@@ -163,7 +134,7 @@ assert.equal(handlePdaWarehouseWaitHandoverEvent(buildPdaWarehouseActionTarget(
 const waitHandoverAfterFirst = listFactoryWaitHandoverStockItems().filter((item) => item.taskId === taskOrder.taskOrderId)
 assert.equal(waitHandoverAfterFirst.find((item) => item.stockItemId === selectedWaitHandover.stockItemId)?.status, '已交出', '点 SKU A 只能确认交出 A')
 assert.notEqual(waitHandoverAfterFirst.find((item) => item.stockItemId === secondWaitHandover.stockItemId)?.status, '已交出', '点 SKU A 不得连带交出 SKU B')
-assert.equal(getSpecialCraftTaskOrderById(taskOrder.taskOrderId)?.status, '待交出', '部分 SKU 交出时加工单必须保持待交出阶段')
+assert.equal(getSpecialCraftTaskOrderById(taskOrder.taskOrderId)?.status, '加工中', '部分 SKU 交出时加工单保持加工中，等待整单发起交出')
 const partialWaitHandoverHtml = renderPdaWarehouseWaitHandoverPage()
 assert(!partialWaitHandoverHtml.includes(selectedWaitHandover.stockItemId), '已交出 SKU A 必须退出 PDA 待交出操作列表')
 assert(partialWaitHandoverHtml.includes(secondWaitHandover.stockItemId), '未交出 SKU B 必须继续留在 PDA 待交出操作列表')
@@ -189,7 +160,7 @@ assert(
   taskWaitHandoverAfterSubmit.every((item) => item.status === '已交出'),
   `交出后不得继续滞留待交出仓：${JSON.stringify(taskWaitHandoverAfterSubmit.map((item) => ({ id: item.stockItemId, sku: item.materialSku, status: item.status })))}`,
 )
-assert.equal(getSpecialCraftTaskOrderById(taskOrder.taskOrderId)?.status, '交出待收货', '最后一个 SKU 交出后加工单才能推进交出待收货')
+assert.equal(getSpecialCraftTaskOrderById(taskOrder.taskOrderId)?.status, '加工中', '最后一个 SKU 交出后仍需显式完成加工单')
 assert(
   !renderPdaWarehouseWaitHandoverPage().includes(selectedWaitHandover.stockItemId),
   '已交出的成衣库存不得继续出现在 PDA 待交出操作列表',

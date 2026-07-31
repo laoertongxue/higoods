@@ -34,8 +34,10 @@ import {
   appendWaitHandoverHandoverRecordEvent,
   appendWaitHandoverSpecialCraftHandoverEvent,
   appendWaitHandoverSpecialCraftReturnEvent,
+  buildWaitHandoverLocationOccupancyStates,
   buildWaitHandoverLifecycleByBagCode,
   buildWaitHandoverRuntimeProjection,
+  listWaitHandoverRuntimeEvents,
   resolveWaitHandoverBaggingSnapshot,
   runtimeEventHasWaitHandoverTicket,
 } from './process-factory/cutting/wait-handover-runtime.ts'
@@ -59,6 +61,12 @@ import {
   PDA_PAGE_HANDLED_LOCALLY,
   type PdaPageEventResult,
 } from '../main-handlers/pda-local-action-result'
+import { getCurrentFactoryWarehouseByKind } from './pda-warehouse-shared'
+import { loadWarehouseLayoutSnapshot } from './process-factory/cutting/warehouse-location-layout-store.ts'
+import {
+  resolveStableWarehouseLocationRef,
+  type StableWarehouseLocationRef,
+} from './process-factory/cutting/warehouse-location-map-model.ts'
 
 interface HandoverFormState {
   operatorName: string
@@ -948,6 +956,7 @@ function validateSpecialCraftReturnScans(
       ticketNo: string
       warehouseArea: string
       locationCode: string
+      locationRef: StableWarehouseLocationRef
       returnedQty: number
     }
   | { ok: false; message: string } {
@@ -975,9 +984,20 @@ function validateSpecialCraftReturnScans(
   if (!warehouseArea) return { ok: false, message: '请扫描或填写回仓库区。' }
   const locationCode = normalizeScanValue(form.specialCraftReturnLocationScan)
   if (!locationCode) return { ok: false, message: '请扫描或填写回仓库位。' }
+  const warehouse = getCurrentFactoryWarehouseByKind('WAIT_HANDOVER')
+  if (!warehouse) return { ok: false, message: '当前裁床工厂没有可用的待交出仓。' }
+  const { snapshot } = loadWarehouseLayoutSnapshot(warehouse)
+  const locationRef = resolveStableWarehouseLocationRef(warehouse, {
+    areaName: warehouseArea,
+    locationNo: locationCode,
+  }, snapshot)
+  if (!locationRef) return { ok: false, message: '回仓库位不存在、已停用或编号不唯一，请重新扫描。' }
+  const occupied = buildWaitHandoverLocationOccupancyStates(listWaitHandoverRuntimeEvents())
+    .some((state) => state.locationRef.locationId === locationRef.locationId)
+  if (occupied) return { ok: false, message: '回仓库位已被其他中转袋占用，请更换库位。' }
   const returnedQty = Number(form.specialCraftReturnQty)
   if (!Number.isFinite(returnedQty) || returnedQty <= 0) return { ok: false, message: '请填写大于 0 的实回数量。' }
-  return { ok: true, bag, craftItems, ticket, ticketNo: ticket.feiTicketNo, warehouseArea, locationCode, returnedQty }
+  return { ok: true, bag, craftItems, ticket, ticketNo: ticket.feiTicketNo, warehouseArea, locationCode, locationRef, returnedQty }
 }
 
 function appendRuntimeSpecialCraftReturnEvent(draft: PdaHandoverRecordDraftProjection, form: HandoverFormState, operatorName: string): string {
@@ -1026,6 +1046,17 @@ function appendRuntimeSpecialCraftReturnEvent(draft: PdaHandoverRecordDraftProje
     returnedFeiTicketItems,
     warehouseArea: validation.warehouseArea,
     locationCode: validation.locationCode,
+    locationRef: {
+      factoryId: validation.locationRef.factoryId,
+      warehouseId: validation.locationRef.warehouseId,
+      warehouseKind: 'WAIT_HANDOVER',
+      areaId: validation.locationRef.areaId,
+      areaName: validation.locationRef.areaName,
+      shelfId: validation.locationRef.shelfId,
+      shelfNo: validation.locationRef.shelfNo,
+      locationId: validation.locationRef.locationId,
+      locationNo: validation.locationRef.locationNo,
+    },
     returnedAt: now,
     returnedBy: operatorName,
   }
@@ -1092,7 +1123,7 @@ function renderPdaSpecialCraftReturnFlow(
           ${renderPdaScanInput('回仓中转袋', 'specialCraftReturnBagScan', form.specialCraftReturnBagScan, sourceBag?.bagCode || '无中转袋则留空')}
           ${renderPdaScanInput('回仓菲票', 'specialCraftReturnFeiTicketScan', form.specialCraftReturnFeiTicketScan, ticket?.feiTicketNo || '扫回仓菲票')}
           ${renderPdaScanInput('回仓库区', 'specialCraftReturnAreaScan', form.specialCraftReturnAreaScan, '特殊工艺回仓区')}
-          ${renderPdaScanInput('回仓库位', 'specialCraftReturnLocationScan', form.specialCraftReturnLocationScan, 'SP-RETURN-01')}
+          ${renderPdaScanInput('回仓库位', 'specialCraftReturnLocationScan', form.specialCraftReturnLocationScan, '扫码或输入库位编号')}
           ${renderPdaScanInput('实回数量', 'specialCraftReturnQty', form.specialCraftReturnQty, String(expectedQty || ticket?.pieceQty || '填写实回数量'))}
         </div>
       </div>

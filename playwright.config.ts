@@ -4,6 +4,9 @@ const host = process.env.CUTTING_E2E_HOST || '127.0.0.1'
 const port = process.env.CUTTING_E2E_PORT || '4173'
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || `http://${host}:${port}`
 const reuseExistingServer = !process.env.CI && process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER !== 'false'
+const webServerCommand = process.env.CUTTING_E2E_USE_PREVIEW === 'true'
+  ? `npm run preview -- --host ${host} --port ${port} --strictPort`
+  : `npm run dev -- --host ${host} --port ${port} --strictPort`
 
 export default defineConfig({
   testDir: './tests',
@@ -28,7 +31,7 @@ export default defineConfig({
     ...devices['Desktop Chrome'],
   },
   webServer: {
-    command: `npm run dev -- --host ${host} --port ${port} --strictPort`,
+    command: webServerCommand,
     url: baseURL,
     reuseExistingServer,
     timeout: 120_000,

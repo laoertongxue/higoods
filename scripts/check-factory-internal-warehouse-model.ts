@@ -111,9 +111,18 @@ const stocktakeOrders = listFactoryWarehouseStocktakeOrders()
 const businessFactories = listBusinessFactoryMasterRecords()
 const factoryWarehouseSnapshots = getFactoryWarehouseProgressSnapshots()
 
-const nonSewingFactories = mockFactories.filter((factory) => !SEWING_FACTORY_TYPES.has(factory.factoryType))
+const nonSewingFactories = Array.from(
+  new Map(
+    mockFactories
+      .filter((factory) => !SEWING_FACTORY_TYPES.has(factory.factoryType))
+      .map((factory) => [factory.id, factory]),
+  ).values(),
+)
 const sewingFactories = mockFactories.filter((factory) => SEWING_FACTORY_TYPES.has(factory.factoryType))
 const testFactories = mockFactories.filter((factory) => factory.isTestFactory)
+const standardWarehouses = defaultWarehouses.filter(
+  (warehouse) => !['FAC-AUX-CRAFT', 'FAC-SPC-CRAFT'].includes(warehouse.factoryId),
+)
 
 assertContains(packageSource, 'check:factory-internal-warehouse-model', 'package.json 缺少工厂内部仓检查命令')
 assertContains(packageSource, 'check:factory-handover-warehouse-linkage', 'package.json 缺少交接与仓管联动检查命令')
@@ -164,9 +173,9 @@ sewingFactories.forEach((factory) => {
 })
 assert(defaultWarehouses.every((item) => item.warehouseName.includes(item.warehouseShortName)), '仓库名称应包含仓库短名')
 assert(defaultWarehouses.every((item) => getFactoryWarehouseKindLabel(item.warehouseKind) === item.warehouseShortName), '仓库短名与仓库类型标签不一致')
-assert(defaultWarehouses.every((item) => item.areaList.length >= 8), '默认仓库必须包含 A-F、异常区、待确认区')
+assert(standardWarehouses.every((item) => item.areaList.length >= 8), '普通默认仓库必须包含 A-F、异常区、待确认区')
 ;['A区', 'B区', 'C区', 'D区', 'E区', 'F区', '异常区', '待确认区'].forEach((areaName) => {
-  assert(defaultWarehouses.every((warehouse) => warehouse.areaList.some((area) => area.areaName === areaName)), `默认仓库缺少库区：${areaName}`)
+  assert(standardWarehouses.every((warehouse) => warehouse.areaList.some((area) => area.areaName === areaName)), `普通默认仓库缺少库区：${areaName}`)
 })
 assert(defaultWarehouses.every((item) => item.areaList.every((area) => area.shelfList.length > 0)), '默认库区缺少货架')
 assert(

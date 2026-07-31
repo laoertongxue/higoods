@@ -48,6 +48,30 @@ const input = {
   locationCode: 'FAB-A-01',
   waitProcessLedgerEventId: `pda-check:${node.nodeId}`,
   idempotencyKey: `pda-check:${node.nodeId}:v${node.version}`,
+  toLocationRefs: [
+    {
+      factoryId: 'ID-F004',
+      warehouseId: 'FIW-ID-F004-WAIT_PROCESS',
+      warehouseKind: 'WAIT_PROCESS' as const,
+      areaId: 'AREA-A区',
+      areaName: 'A区',
+      shelfId: 'SHELF-A-01',
+      shelfNo: 'A-01',
+      locationId: 'LOC-A-01-01',
+      locationNo: 'A-01-01',
+    },
+    {
+      factoryId: 'ID-F004',
+      warehouseId: 'FIW-ID-F004-WAIT_PROCESS',
+      warehouseKind: 'WAIT_PROCESS' as const,
+      areaId: 'AREA-A区',
+      areaName: 'A区',
+      shelfId: 'SHELF-A-01',
+      shelfNo: 'A-01',
+      locationId: 'LOC-A-01-02',
+      locationNo: 'A-01-02',
+    },
+  ],
 }
 const first = appendPickupSessionWithWarehouseFactsRuntime(input, (session, transactionStorage) => {
   assert(
@@ -66,6 +90,8 @@ const duplicate = appendPickupSessionWithWarehouseFactsRuntime(
 )
 assert(first.pickupSessionId === duplicate.pickupSessionId, '节点关闭且旧版本重复提交必须幂等返回原 Session')
 assert(first.pickupRecordIds.length === node.items.length, '一次确认必须生成 N 条物料明细')
+assert(first.storageFootprint?.locationIds.length === 2, '领料 Session 必须保存一次性多库位存放范围')
+assert(first.toLocationRefs?.[0]?.locationId === 'LOC-A-01-01', '领料 Session 必须保存稳定库位路径')
 assert(getPickupSessionByNodeId(node.nodeId, storage)?.pickupSessionId === first.pickupSessionId, '必须可按节点找回 Session 用于弱网恢复')
 
 const rollbackStorage = new MemoryStorage()

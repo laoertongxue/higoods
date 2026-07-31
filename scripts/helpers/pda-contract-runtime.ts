@@ -106,6 +106,7 @@ export const buildPdaWarehouseActionTarget = (
           pdaWarehouseAction: action,
           stockItemId: input.stockItemId,
           workOrderId: input.workOrderId,
+          taskOrderId: input.workOrderId,
           skuCode: input.skuCode,
         },
       }

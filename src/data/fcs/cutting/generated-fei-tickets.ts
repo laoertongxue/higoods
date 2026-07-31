@@ -561,7 +561,7 @@ function buildFeiTicketSpecialCrafts(
   line: SpreadingPieceOutputLine,
   sequenceNo: number,
 ): FeiTicketSpecialCraft[] {
-  const scenarioIndex = (sequenceNo - 1) % 8
+  const scenarioIndex = (sequenceNo - 1) % 9
   const seedCrafts: Array<Omit<Parameters<typeof createFeiTicketSpecialCraft>[1], 'index'>> = []
 
   if (scenarioIndex === 0) {

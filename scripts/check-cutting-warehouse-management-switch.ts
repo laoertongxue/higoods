@@ -83,7 +83,7 @@ assert(cuttingGroup, 'PFOS 缺少裁床厂管理菜单组')
 
 assert.deepEqual(
   cuttingGroup.items.map((item) => item.title),
-  ['裁床总览', '裁前准备', '铺布执行', '裁后处理', '裁床仓库管理', '裁床统计'],
+  ['裁床总览', '裁前准备', '领料管理', '铺布执行', '裁后处理', '裁床仓库管理', '裁床统计'],
   '裁床厂管理一级菜单顺序不正确',
 )
 
@@ -119,6 +119,17 @@ assert(exactRoutes['/fcs/craft/cutting/warehouse-management/wait-handover'], '�
 assert(exactRoutes['/fcs/craft/cutting/handover-orders'], '缺少交出单 route')
 assert(exactRoutes['/fcs/craft/cutting/warehouse-management/sample-warehouse'], '缺少样衣仓兼容 route')
 
+const warehouseHubSource = read('src/pages/process-factory/cutting/warehouse-hub.ts')
+assertIncludes(warehouseHubSource, "renderCuttingWarehouseLocationMapSection('WAIT_PROCESS')", '待加工仓未接入共享库位图')
+assertIncludes(warehouseHubSource, "renderCuttingWarehouseLocationMapSection('WAIT_HANDOVER')", '待交出仓未接入共享库位图')
+assertIncludes(warehouseHubSource, "{ key: 'locations', label: '库位图' }", '裁床仓库页签未统一命名为库位图')
+const fcsHandlersSource = read('src/main-handlers/fcs-handlers.ts')
+assertIncludes(
+  fcsHandlersSource,
+  "pathname.startsWith('/fcs/craft/cutting/warehouse-management/')",
+  '库位图交互处理器必须匹配真实 warehouse-management/ 路由',
+)
+
 const routesSource = read('src/router/routes-fcs.ts')
 assertIncludes(routesSource, "renderRouteRedirect('/fcs/craft/cutting/sample-warehouse', '正在跳转到裁床样衣仓')", '样衣仓兼容路由必须跳转裁床样衣仓')
 
@@ -127,7 +138,7 @@ assert(!fs.existsSync(repoPath('src/pages/process-factory/cutting/warehouse-mana
 assert(!fs.existsSync(repoPath('src/pages/process-factory/cutting/warehouse-management.helpers.ts')), '不得复活旧 warehouse-management.helpers.ts')
 
 const waitProcessHtml = renderCraftCuttingWarehouseManagementWaitProcessPage()
-;['库存明细', '中转仓领料', '加工领料', '回收入仓', '库区库位'].forEach((item) =>
+;['库存明细', '中转仓领料', '加工领料', '回收入仓', '库位图'].forEach((item) =>
   assertIncludes(waitProcessHtml, item, `裁床待加工仓缺少仓库页签或动作：${item}`),
 )
 ;['待领料', '待交出仓裁片库存', '回写差异', '新增交出记录'].forEach((item) =>
@@ -142,7 +153,7 @@ const waitHandoverHtml = renderCraftCuttingWarehouseManagementWaitHandoverPage()
   '中转袋入仓',
   '中转袋交出',
   '特殊工艺回仓',
-  '库区库位',
+  '库位图',
   '菲票 / 来源',
   '数量账',
   '袋码 / 库位',
@@ -224,8 +235,11 @@ assertNotIncludes(pdaWarehouseSource + pdaCuttingWaitHandoverActionsSource, "tit
 )
 
 const pdaWaitProcessSource = read('src/pages/pda-warehouse-wait-process.ts')
-;["title: '中转仓领料'", "'处理中转仓领料、加工领料和回收入仓。'", 'data-pda-warehouse-field="cutting-pickup-area"', 'data-pda-warehouse-field="cutting-pickup-location"'].forEach((item) =>
+;["title: '中转仓领料'", "'处理中转仓领料、加工领料和回收入仓。'", 'data-pda-cutting-pickup-location-map', "mode: 'SELECT'", 'toLocationRefs: selectedRefs.map'].forEach((item) =>
   assertIncludes(pdaWaitProcessSource, item, `PDA 裁床待加工仓缺少统一仓管文案：${item}`),
+)
+;['data-pda-warehouse-field="cutting-pickup-area"', 'data-pda-warehouse-field="cutting-pickup-location"'].forEach((item) =>
+  assertNotIncludes(pdaWaitProcessSource, item, `PDA 中转仓领料不得继续使用固定库区库位下拉：${item}`),
 )
 assertNotIncludes(pdaWaitProcessSource, "title: '扫码入仓'", 'PDA 裁床待加工仓不得继续展示“扫码入仓”入口')
 
