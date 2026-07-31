@@ -268,7 +268,7 @@ const maliciousUpstreamRevision = createRevisionTaskWithProjectRelation({
   title: '拒绝调用方覆盖来源节点的验收改版任务',
   sourceType: '测款结论返改',
   upstreamModule: '旧改版任务',
-  upstreamObjectType: '项目工作项',
+  upstreamObjectType: '项目步骤',
   upstreamObjectId: 'legacy-revision-node',
   upstreamObjectCode: 'legacy-revision-node',
   ownerName: project.ownerName,
@@ -451,7 +451,7 @@ const detailHtml = renderPcsRevisionTaskDetailPage(created.task.revisionTaskId)
 ].forEach((label) => {
   assertIncludes(detailHtml, label, `改版详情页缺少：${label}`)
 })
-assert.ok(!detailHtml.includes('正式工作项'), '详情页右侧摘要不应再突出系统节点字段')
+assert.ok(!detailHtml.includes('正式步骤'), '详情页右侧摘要不应再突出系统节点字段')
 assert.ok(!detailHtml.includes('来源任务编号'), '详情页不应再用来源任务编号作为主阅读字段')
 assert.ok(!detailHtml.includes('技术包状态</p>'), '详情页不应重复展示旧版技术包状态字段')
 assert.ok(createdPatternDownstreamCode, '应存在可展示的花型任务编号')

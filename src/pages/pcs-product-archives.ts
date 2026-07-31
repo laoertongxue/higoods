@@ -984,7 +984,7 @@ function renderStyleHeader(): string {
       <div>
         <p class="text-xs text-slate-500">商品中心 / 商品档案</p>
         <h1 class="mt-1 text-2xl font-semibold text-slate-900">款式档案</h1>
-        <p class="mt-1 text-sm text-slate-500">款式档案只能从商品项目的“完善商品档案”节点发起，这里只负责查看、补齐资料和承接后续规格与技术包链路。</p>
+        <p class="mt-1 text-sm text-slate-500">款式档案在商品项目建立时同步创建；这里负责商品档案资料完善，并承接后续规格与技术包链路。</p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
         <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/projects">

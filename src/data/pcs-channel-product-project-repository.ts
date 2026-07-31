@@ -3230,7 +3230,7 @@ export function submitProjectTestingConclusion(
         latestInstanceCode: latestRecord.channelProductCode,
         latestResultType: '测款通过',
         latestResultText: note,
-        pendingActionType: '完善商品档案',
+        pendingActionType: '商品档案资料完善',
         pendingActionText: '请继续完善项目创建时关联的商品测款档案和技术资料。',
         updatedAt: timestamp,
       },
@@ -3247,7 +3247,7 @@ export function submitProjectTestingConclusion(
       {
         linkedStyleId: linkedStyle.styleId,
         linkedStyleCode: linkedStyle.styleCode,
-        nextActionType: '完善商品档案',
+        nextActionType: '商品档案资料完善',
       },
       [],
       operatorName,

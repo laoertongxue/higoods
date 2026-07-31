@@ -457,14 +457,14 @@ function inferTestingProjectIdentity(item: Pick<VideoItemViewModel, 'evaluationI
   return project ? { projectId: project.projectId, projectCode: project.projectCode } : null
 }
 
-function getWorkItemStatusLabel(status: SessionStatus): string {
+function getProjectStepStatusLabel(status: SessionStatus): string {
   if (status === 'RECONCILING') return '进行中'
   if (status === 'COMPLETED') return '已完成'
   if (status === 'CANCELLED') return '已取消'
   return '未开始'
 }
 
-function getVideoWorkItemSnapshot(record: VideoRecordViewModel): {
+function getVideoProjectStepSnapshot(record: VideoRecordViewModel): {
   actionItem: VideoItemViewModel | null
   mainImageUrl: string
   rows: Array<{ label: string; value: string }>
@@ -483,7 +483,7 @@ function getVideoWorkItemSnapshot(record: VideoRecordViewModel): {
     actionItem,
     mainImageUrl,
     rows: [
-      { label: '测款状态', value: getWorkItemStatusLabel(record.status) },
+      { label: '测款状态', value: getProjectStepStatusLabel(record.status) },
       { label: '正式操作', value: '关联短视频测款记录' },
       { label: '渠道店铺商品', value: linkedChannelProduct?.channelProductId || actionItem?.productRef || '-' },
       { label: '渠道店铺商品编码', value: linkedChannelProduct?.channelProductCode || actionItem?.productRef || '-' },
@@ -2035,7 +2035,7 @@ function renderLogsTab(record: VideoRecordViewModel): string {
 }
 
 function renderDetailSidebar(record: VideoRecordViewModel, relatedProjects: Array<{ projectId: string; label: string }>): string {
-  const workItemSnapshot = getVideoWorkItemSnapshot(record)
+  const projectStepSnapshot = getVideoProjectStepSnapshot(record)
   return `
     <div class="space-y-4">
       <section class="rounded-lg border bg-white p-4">
@@ -2072,19 +2072,19 @@ function renderDetailSidebar(record: VideoRecordViewModel, relatedProjects: Arra
           : ''
       }
       <section class="rounded-lg border bg-white p-4">
-        <h3 class="text-sm font-semibold text-slate-900">工作项字段</h3>
+        <h3 class="text-sm font-semibold text-slate-900">项目步骤字段</h3>
         ${
-          workItemSnapshot.mainImageUrl
+          projectStepSnapshot.mainImageUrl
             ? `<div class="mt-4">
                 <div class="mb-2 text-xs text-slate-500">渠道商品主图</div>
                 <div class="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
-                  <img src="${escapeHtml(workItemSnapshot.mainImageUrl)}" alt="渠道商品主图" class="h-40 w-full object-cover" />
+                  <img src="${escapeHtml(projectStepSnapshot.mainImageUrl)}" alt="渠道商品主图" class="h-40 w-full object-cover" />
                 </div>
               </div>`
             : ''
         }
         <div class="mt-4 space-y-3 text-sm">
-          ${workItemSnapshot.rows
+          ${projectStepSnapshot.rows
             .map(
               (row) => `<div class="flex justify-between gap-3"><span class="text-slate-500">${escapeHtml(row.label)}</span><span class="max-w-[150px] text-right text-slate-900">${escapeHtml(row.value)}</span></div>`,
             )
@@ -2096,8 +2096,8 @@ function renderDetailSidebar(record: VideoRecordViewModel, relatedProjects: Arra
             class="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50"
             data-pcs-video-testing-action="open-edit-item"
             data-record-id="${escapeHtml(record.id)}"
-            data-item-id="${escapeHtml(workItemSnapshot.actionItem?.id || '')}"
-            ${workItemSnapshot.actionItem ? '' : 'disabled'}
+            data-item-id="${escapeHtml(projectStepSnapshot.actionItem?.id || '')}"
+            ${projectStepSnapshot.actionItem ? '' : 'disabled'}
           >
             <i data-lucide="link-2" class="h-4 w-4"></i>关联短视频测款记录
           </button>
@@ -2331,7 +2331,11 @@ export function renderPcsVideoTestingListPage(): string {
 export function renderPcsVideoTestingDetailPage(recordId: string): string {
   ensureRecordStore()
   syncDetailState(recordId)
-  return renderPcsVideoTestingListPage()
+  const record = getRecord(recordId)
+  if (!record) {
+    return '<div class="p-6 text-sm text-slate-500">未找到短视频测款记录。</div>'
+  }
+  return renderDetailContent(record)
 }
 
 export function handlePcsVideoTestingInput(target: Element): boolean {

@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --experimental-strip-types --experimental-specifier-resolution=node",
+    "test": "tsx",
     "check:menu-routes": "tsx scripts/check-menu-routes.mjs",
     "check:fcs-task-generation-rules": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-fcs-task-generation-rules.ts",
     "check:production-object-overview": "tsx scripts/check-production-object-overview.ts",

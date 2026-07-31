@@ -188,6 +188,7 @@ const ENGINEERING_LIST_COLUMN_RULES: Record<ModuleKey, StandardListColumnRule[]>
   pattern: [
     { key: 'task', required: true, freezeable: true },
     { key: 'image', required: true, freezeable: true },
+    { key: 'project', required: true, freezeable: true },
     { key: 'source' },
     { key: 'process' },
     { key: 'fabric' },
@@ -3984,6 +3985,7 @@ function getPatternTasksFiltered() {
 const PATTERN_LIST_COLUMNS = createEngineeringListColumns([
   { key: 'task', title: '花型任务', width: 190, required: true, freezeable: true, sortable: true },
   { key: 'image', title: '需求图', width: 90, required: true, freezeable: true },
+  { key: 'project', title: '商品项目', width: 180, required: true, freezeable: true, sortable: true },
   { key: 'source', title: '来源', width: 130, sortable: true },
   { key: 'process', title: '工艺', width: 120 },
   { key: 'fabric', title: '面料', width: 150 },
@@ -4008,6 +4010,7 @@ function getPatternListRows(): EngineeringListRow[] {
             <p class="text-xs text-slate-500">${escapeHtml(task.title)}</p>
           </div>`,
         image: renderSmallImage(task.demandImageIds[0] || ''),
+        project: projectButton(task.projectId, task.projectCode, task.projectName),
         source: escapeHtml(task.demandSourceType),
         process: escapeHtml(task.processType),
         fabric: escapeHtml(task.fabricSku || task.fabricName || '-'),
@@ -4032,6 +4035,7 @@ function getPatternListRows(): EngineeringListRow[] {
       },
       sortValues: {
         task: task.patternTaskCode,
+        project: `${task.projectCode} ${task.projectName}`,
         source: task.demandSourceType,
         member: task.assignedMemberName || task.ownerName,
         review: task.buyerReviewStatus,

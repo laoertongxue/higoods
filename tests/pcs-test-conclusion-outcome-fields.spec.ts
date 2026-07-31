@@ -77,11 +77,11 @@ const throughCase = submitConclusionForProject('PRJ-202603-005', '通过')
 const throughHtml = await throughCase.htmlPromise
 assert.ok(throughCase.payload.linkedStyleId)
 assert.ok(throughCase.payload.linkedStyleCode)
-assert.equal(throughCase.payload.nextActionType, '完善商品档案')
+assert.equal(throughCase.payload.nextActionType, '商品档案资料完善')
 assert.equal(throughCase.project.projectStatus, '进行中')
 assert.equal(throughCase.sampleReturnNode.currentStatus, '未开始')
 assert.match(throughHtml, /关联商品测款档案编码/)
-assert.match(throughHtml, /完善商品档案/)
+assert.match(throughHtml, /商品档案资料完善/)
 
 const eliminatedCase = submitConclusionForProject('PRJ-202604-007', '不通过')
 const eliminatedHtml = await eliminatedCase.htmlPromise

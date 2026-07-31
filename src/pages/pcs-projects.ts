@@ -1262,7 +1262,7 @@ function buildTechPackVersionDiffSummary(
 }
 
 function getTestConclusionNextActionType(decision: string): string {
-  if (decision === '通过') return '完善商品档案'
+  if (decision === '通过') return '商品档案资料完善'
   if (decision === '不通过') return '样衣退回处理'
   if (decision === '暂保留') return '稍后再判断'
   return ''

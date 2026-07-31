@@ -185,7 +185,7 @@ assertIncludesAll(
   '样衣核价字段未完整承接商品核价功能',
 )
 const sampleCostReviewContract = getProjectStepDefinition('SAMPLE_COST_REVIEW')
-assert.equal(sampleCostReviewContract.capabilities.canMultiInstance, false, '样衣核价必须是单实例工作项')
+assert.equal(sampleCostReviewContract.capabilities.canMultiInstance, false, '样衣核价必须是单实例步骤')
 assert.equal(getProjectStepMultiInstanceDefinition('SAMPLE_COST_REVIEW'), null, '样衣核价不应存在多实例语义定义')
 const sampleCostPricing = calculateSampleCostReview({
   spuCode: 'SPU-CHECK-SAMPLE-COST',

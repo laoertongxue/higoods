@@ -198,13 +198,6 @@ export function listPlateMakingTasksByProject(projectId: string): PlateMakingTas
   return loadSnapshot().tasks.filter((item) => item.projectId === projectId).map(cloneTask)
 }
 
-export function listPlateMakingTasksByProjectNode(projectId: string, projectNodeId: string): PlateMakingTaskRecord[] {
-  return loadSnapshot()
-    .tasks
-    .filter((item) => item.projectId === projectId && item.projectNodeId === projectNodeId)
-    .map(cloneTask)
-}
-
 export function upsertPlateMakingTask(task: PlateMakingTaskRecord): PlateMakingTaskRecord {
   const snapshot = loadSnapshot()
   persistSnapshot({

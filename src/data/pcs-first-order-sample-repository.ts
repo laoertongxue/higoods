@@ -158,24 +158,6 @@ export function listFirstOrderSampleTasksByProject(projectId: string): FirstOrde
   return loadSnapshot().tasks.filter((item) => item.projectId === projectId).map(cloneTask)
 }
 
-export function listFirstOrderSampleTasksByProjectNode(
-  projectId: string,
-  projectNodeId: string,
-): FirstOrderSampleTaskRecord[] {
-  return loadSnapshot()
-    .tasks
-    .filter((item) => item.projectId === projectId && item.projectNodeId === projectNodeId)
-    .sort((a, b) => (b.updatedAt || b.createdAt).localeCompare(a.updatedAt || a.createdAt))
-    .map(cloneTask)
-}
-
-export function getLatestFirstOrderSampleTaskByProjectNode(
-  projectId: string,
-  projectNodeId: string,
-): FirstOrderSampleTaskRecord | null {
-  return listFirstOrderSampleTasksByProjectNode(projectId, projectNodeId)[0] ?? null
-}
-
 export function upsertFirstOrderSampleTask(task: FirstOrderSampleTaskRecord): FirstOrderSampleTaskRecord {
   const snapshot = loadSnapshot()
   persistSnapshot({

@@ -46,7 +46,7 @@ assert.match(handlersSource, /handlePcsLiveTestingInput/, 'PCS 主处理器应�
 assert.match(source, /测款入账/, '页面源码应保留测款入账区域')
 assert.match(source, /日志审计|操作日志/, '页面源码应保留日志区域')
 assert.match(source, /关键人/, '页面源码应保留关键人区块')
-assert.match(source, /工作项字段/, '页面源码应保留工作项字段区')
+assert.match(source, /项目步骤字段/, '页面源码应保留项目步骤字段区')
 assert.match(source, /测款状态/, '页面源码应展示测款业务状态')
 assert.doesNotMatch(source, /工作项状态/, '页面源码不得继续展示已删除的工作项语义')
 assert.match(source, /关联直播测款记录/, '页面源码应保留正式关联动作')

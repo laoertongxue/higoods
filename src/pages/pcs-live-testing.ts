@@ -442,14 +442,14 @@ function inferTestingProjectIdentity(item: Pick<SessionItemViewModel, 'intent' |
   return project ? { projectId: project.projectId, projectCode: project.projectCode } : null
 }
 
-function getWorkItemStatusLabel(status: SessionStatus): string {
+function getProjectStepStatusLabel(status: SessionStatus): string {
   if (status === 'RECONCILING') return '进行中'
   if (status === 'COMPLETED') return '已完成'
   if (status === 'CANCELLED') return '已取消'
   return '未开始'
 }
 
-function getLiveWorkItemSnapshot(session: SessionViewModel): {
+function getLiveProjectStepSnapshot(session: SessionViewModel): {
   actionItem: SessionItemViewModel | null
   mainImageUrl: string
   rows: Array<{ label: string; value: string }>
@@ -470,7 +470,7 @@ function getLiveWorkItemSnapshot(session: SessionViewModel): {
     actionItem,
     mainImageUrl,
     rows: [
-      { label: '测款状态', value: getWorkItemStatusLabel(session.status) },
+      { label: '测款状态', value: getProjectStepStatusLabel(session.status) },
       { label: '正式操作', value: '关联直播测款记录' },
       { label: '渠道店铺商品', value: linkedChannelProduct?.channelProductId || actionItem?.productRef || '-' },
       { label: '渠道店铺商品编码', value: linkedChannelProduct?.channelProductCode || actionItem?.productRef || '-' },
@@ -1765,7 +1765,7 @@ function renderLogsTab(session: SessionViewModel): string {
 }
 
 function renderDetailSidebar(session: SessionViewModel, relatedProjects: Array<{ projectId: string; label: string }>): string {
-  const workItemSnapshot = getLiveWorkItemSnapshot(session)
+  const projectStepSnapshot = getLiveProjectStepSnapshot(session)
   return `
     <div class="space-y-4">
       <section class="rounded-lg border bg-white p-4">
@@ -1798,19 +1798,19 @@ function renderDetailSidebar(session: SessionViewModel, relatedProjects: Array<{
         </div>
       </section>
       <section class="rounded-lg border bg-white p-4">
-        <h3 class="text-sm font-semibold text-slate-900">工作项字段</h3>
+        <h3 class="text-sm font-semibold text-slate-900">项目步骤字段</h3>
         ${
-          workItemSnapshot.mainImageUrl
+          projectStepSnapshot.mainImageUrl
             ? `<div class="mt-4">
                 <div class="mb-2 text-xs text-slate-500">渠道商品主图</div>
                 <div class="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
-                  <img src="${escapeHtml(workItemSnapshot.mainImageUrl)}" alt="渠道商品主图" class="h-40 w-full object-cover" />
+                  <img src="${escapeHtml(projectStepSnapshot.mainImageUrl)}" alt="渠道商品主图" class="h-40 w-full object-cover" />
                 </div>
               </div>`
             : ''
         }
         <div class="mt-4 space-y-3 text-sm">
-          ${workItemSnapshot.rows
+          ${projectStepSnapshot.rows
             .map(
               (row) => `<div class="flex justify-between gap-3"><span class="text-slate-500">${escapeHtml(row.label)}</span><span class="max-w-[150px] text-right text-slate-900">${escapeHtml(row.value)}</span></div>`,
             )
@@ -1822,8 +1822,8 @@ function renderDetailSidebar(session: SessionViewModel, relatedProjects: Array<{
             class="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50"
             data-pcs-live-testing-action="open-edit-item"
             data-session-id="${escapeHtml(session.id)}"
-            data-item-id="${escapeHtml(workItemSnapshot.actionItem?.id || '')}"
-            ${workItemSnapshot.actionItem ? '' : 'disabled'}
+            data-item-id="${escapeHtml(projectStepSnapshot.actionItem?.id || '')}"
+            ${projectStepSnapshot.actionItem ? '' : 'disabled'}
           >
             <i data-lucide="link-2" class="h-4 w-4"></i>关联直播测款记录
           </button>
@@ -2210,7 +2210,11 @@ export function renderPcsLiveTestingListPage(): string {
 export function renderPcsLiveTestingDetailPage(sessionId: string): string {
   ensureSessionStore()
   syncDetailState(sessionId)
-  return renderPcsLiveTestingListPage()
+  const session = getSession(sessionId)
+  if (!session) {
+    return '<div class="p-6 text-sm text-slate-500">未找到直播测款记录。</div>'
+  }
+  return renderDetailContent(session)
 }
 
 export function handlePcsLiveTestingInput(target: Element): boolean {

@@ -75,7 +75,7 @@ const holdResult = completeDecisionNodeWithResult(
   '2026-07-31 12:00',
 )
 assert.equal(holdResult.ok, true)
-assert.equal(holdResult.nextNode, null, '暂保留不得启动下一轮工作项')
+assert.equal(holdResult.nextNode, null, '暂保留不得启动下一轮测款')
 const nodesAfterHold = listProjectNodes(project.projectId)
 assert.deepEqual(
   nodesAfterHold

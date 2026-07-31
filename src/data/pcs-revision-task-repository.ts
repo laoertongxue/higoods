@@ -173,13 +173,6 @@ export function listRevisionTasksByProject(projectId: string): RevisionTaskRecor
   return loadSnapshot().tasks.filter((item) => item.projectId === projectId).map(cloneTask)
 }
 
-export function listRevisionTasksByProjectNode(projectId: string, projectNodeId: string): RevisionTaskRecord[] {
-  return loadSnapshot()
-    .tasks
-    .filter((item) => item.projectId === projectId && item.projectNodeId === projectNodeId)
-    .map(cloneTask)
-}
-
 export function upsertRevisionTask(task: RevisionTaskRecord): RevisionTaskRecord {
   const snapshot = loadSnapshot()
   persistSnapshot({

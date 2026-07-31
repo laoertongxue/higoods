@@ -280,6 +280,70 @@
 - 通过。
 - 无业务例外。
 
+## 12. 测款详情与项目步骤语义最终收口
+
+### 本次范围
+
+- 直播测款、短视频测款详情路由直接渲染详情页头、详情页签和当前记录，不再回退到列表页。
+- 两类测款详情统一使用“项目步骤字段”，读取商品项目与测款步骤事实，不再读取或展示已删除的工作项语义。
+- 样衣管理统一展示“商品项目 / 来源步骤”；样衣、申请和台账的数据字段统一为来源步骤。
+- 花型任务标准列表增加不可隐藏的“商品项目”列，可搜索既有项目关系并进入项目详情。
+- 删除五类专业任务仓储中零调用的项目节点兼容查询；固定专业任务继续以商品项目或真实上游任务作为来源。
+- 商品档案后续动作统一为“商品档案资料完善”，明确档案已经在商品项目创建时同步建立。
+
+### 规范自查
+
+| 检查项 | 结论 |
+| --- | --- |
+| 业务边界 | 通过。商品项目保留固定步骤；专业任务保留独立执行对象，不恢复已删除的工作项和专业项目节点。 |
+| 信息结构 | 通过。测款详情、样衣来源和花型项目归属均使用业务人员可直接识别的对象名称。 |
+| 来源可追溯 | 通过。样衣记录保留商品项目与来源步骤；花型任务保留商品项目入口；专业任务来源使用真实项目或上游任务。 |
+| 列表治理 | 通过。花型任务继续使用标准列表页，商品项目列为必需列，操作列固定在右侧，分页和列偏好不变。 |
+| 防错 | 通过。详情路由必须命中真实记录；商品项目列不可隐藏；不存在项目节点查询兼容入口。 |
+| 交互性能 | 通过。详情路由直接渲染目标页面；本次未增加整页高频刷新或输入触发整页重绘。 |
+| 中文化 | 通过。页面统一使用“项目步骤字段”“商品项目”“来源步骤”“商品档案资料完善”。 |
+| Mock 数据 | 通过。既有测款、样衣、花型和商品项目关系足以覆盖列表、详情和来源展示。 |
+
+### 补充验证
+
+- `npm test -- tests/pcs-task2-final-detail-and-semantic-closure.spec.ts`：通过。
+- `npm test -- tests/pcs-channel-products-standard-list-route.spec.ts`：通过，统一 `tsx` 测试入口可正确加载路由依赖。
+- `npm test -- tests/pcs-live-testing.spec.ts`：通过。
+- `npm test -- tests/pcs-video-testing.spec.ts`：通过。
+- `npm test -- tests/pcs-page-slimming-channel-testing.spec.ts`：通过。
+- `npm test -- tests/pcs-professional-task-bootstrap-independent.spec.ts`：通过。
+- `npm test -- tests/pcs-professional-task-fixed-step-source.spec.ts`：通过。
+- `npm test -- tests/pcs-work-item-module-removal.spec.ts`：通过。
+- `npm test -- tests/pcs-task2-dead-project-node-compatibility.spec.ts`：通过。
+- `npm test -- tests/pcs-first-sample-acceptance-status.spec.ts`：通过。
+- `npm test -- tests/pcs-engineering-task-standard-list.spec.ts`：通过。
+- `npm run build`：通过。
+
+### 本轮受管文件
+
+- `src/pages/pcs-live-testing.ts`
+- `src/pages/pcs-video-testing.ts`
+- `src/pages/pcs-sample-management.ts`
+- `src/pages/pcs-engineering-tasks.ts`
+- `src/pages/pcs-product-archives.ts`
+- `src/pages/pcs-projects.ts`
+- `src/data/pcs-sample-management.ts`
+- `src/data/pcs-channel-product-project-repository.ts`
+- `src/data/pcs-project-inline-node-record-bootstrap.ts`
+- `src/data/pcs-project-closure-view-model.ts`
+- `src/data/pcs-project-image-types.ts`
+- `src/data/pcs-product-lifecycle-governance.ts`
+- `src/data/pcs-revision-task-repository.ts`
+- `src/data/pcs-pattern-task-repository.ts`
+- `src/data/pcs-plate-making-repository.ts`
+- `src/data/pcs-first-sample-repository.ts`
+- `src/data/pcs-first-order-sample-repository.ts`
+
+### 补充审查结论
+
+- 通过。
+- 无业务例外。
+
 ## 13. 直播与短视频测款标准列表补充审查
 
 ### 本次范围

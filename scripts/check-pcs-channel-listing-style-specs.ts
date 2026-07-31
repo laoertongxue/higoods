@@ -20,7 +20,7 @@ const projectPageSource = read('src/pages/pcs-projects.ts')
 const channelProductsPageSource = read('src/pages/pcs-channel-products.ts')
 const projectInitSection = projectContractSource.match(/PROJECT_INIT[\s\S]*?CHANNEL_PRODUCT_LISTING/)
 const forbiddenSpecPlanPattern = new RegExp(['plannedColor', 'plannedSize', 'plannedPrint', 'plannedSpec', '规格计划', '预期颜色', '预期尺码', '预期花型'].join('|'))
-assert(projectInitSection, '未找到商品项目立项与商品上架工作项定义片段')
+assert(projectInitSection, '未找到商品项目立项与商品上架步骤定义片段')
 assert(
   !forbiddenSpecPlanPattern.test(projectInitSection![0]),
   '商品项目立项中仍存在规格计划相关字段或文案',

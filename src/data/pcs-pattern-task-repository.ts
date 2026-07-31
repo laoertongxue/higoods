@@ -159,13 +159,6 @@ export function listPatternTasksByProject(projectId: string): PatternTaskRecord[
   return loadSnapshot().tasks.filter((item) => item.projectId === projectId).map(cloneTask)
 }
 
-export function listPatternTasksByProjectNode(projectId: string, projectNodeId: string): PatternTaskRecord[] {
-  return loadSnapshot()
-    .tasks
-    .filter((item) => item.projectId === projectId && item.projectNodeId === projectNodeId)
-    .map(cloneTask)
-}
-
 export function upsertPatternTask(task: PatternTaskRecord): PatternTaskRecord {
   const snapshot = loadSnapshot()
   persistSnapshot({

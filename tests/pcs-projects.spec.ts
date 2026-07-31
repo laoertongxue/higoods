@@ -35,10 +35,10 @@ assert.ok(node, '应存在可用的项目节点')
 
 const stepDefinitionHtml = await renderPcsProjectStepDetailPage(project.projectId, node.projectNodeId)
 
-assert.match(stepDefinitionHtml, /全量信息/, '工作项详情页应渲染全量信息页签')
-assert.match(stepDefinitionHtml, /记录/, '工作项详情页应渲染记录页签')
-assert.match(stepDefinitionHtml, /附件与引用/, '工作项详情页应渲染附件与引用页签')
-assert.match(stepDefinitionHtml, /操作日志/, '工作项详情页应渲染操作日志页签')
+assert.match(stepDefinitionHtml, /全量信息/, '项目步骤详情页应渲染全量信息页签')
+assert.match(stepDefinitionHtml, /记录/, '项目步骤详情页应渲染记录页签')
+assert.match(stepDefinitionHtml, /附件与引用/, '项目步骤详情页应渲染附件与引用页签')
+assert.match(stepDefinitionHtml, /操作日志/, '项目步骤详情页应渲染操作日志页签')
 
 const sampleAcquireProject = listProjects().find((item) =>
   listProjectNodes(item.projectId).some(

@@ -32,7 +32,7 @@ export function buildProjectClosureViewModel(projectId: string): ProjectClosureV
   const archive = getProjectArchiveByProjectId(project.projectId)
   return {
     projectId,
-    styleText: style ? `${style.styleCode} / ${style.styleName}` : '未完善商品档案',
+    styleText: style ? `${style.styleCode} / ${style.styleName}` : '商品档案资料未完善',
     currentTechnicalVersionText: currentTechnicalVersion
       ? `${currentTechnicalVersion.technicalVersionCode} / ${currentTechnicalVersion.versionLabel}`
       : '未启用技术包版本',

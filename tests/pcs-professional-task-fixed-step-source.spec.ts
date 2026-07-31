@@ -30,7 +30,7 @@ fixedStepTasks.forEach((task) => {
   assert.equal(task.upstreamModule, '商品项目')
   assert.equal(task.upstreamObjectType, '商品项目')
   assert.ok(task.projectId, '商品项目来源必须关联商品项目')
-  assert.equal(task.projectNodeId, '', '专业任务不重新绑定已删除的项目工作项节点')
+  assert.equal(task.projectNodeId, '', '专业任务不重新绑定已删除的旧节点')
 })
 
 const productionFiles = [
@@ -43,7 +43,7 @@ productionFiles.forEach((relativePath) => {
   assert.doesNotMatch(
     source,
     /项目模板阶段|项目模板节点|项目模板|模板阶段|项目工作项|工作项节点|工作项状态/,
-    `${relativePath} 不得展示或保存旧项目模板／工作项来源语义`,
+    `${relativePath} 不得展示或保存旧项目模板／旧节点来源语义`,
   )
 })
 

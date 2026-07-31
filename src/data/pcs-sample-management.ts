@@ -42,7 +42,7 @@ export interface PcsSampleRecord {
   projectId: string
   projectCode: string
   projectName: string
-  relatedStepName: string
+  sourceStepName: string
   status: PcsSampleStatus
   availability: PcsSampleAvailability
   responsibleSite: '深圳样衣间' | '雅加达样衣间'
@@ -76,7 +76,7 @@ export interface PcsSampleUseRequest {
   sampleIds: string[]
   projectCode: string
   projectName: string
-  stepDefinitionName: string
+  sourceStepName: string
   purpose: string
   applicant: string
   approver: string
@@ -167,7 +167,7 @@ export interface PcsSampleLedgerEvent {
   holder: string
   sourceDoc: string
   projectCode: string
-  stepDefinitionName: string
+  sourceStepName: string
   operator: string
   isVoided: boolean
   remark: string
@@ -207,7 +207,7 @@ export const PCS_SAMPLE_RECORDS: PcsSampleRecord[] = [
     projectId: 'pcs-project-first-sample-complete',
     projectCode: 'PRJ-202604-001',
     projectName: '印度尼西亚碎花连衣裙',
-    relatedStepName: '直播测款拍摄',
+    sourceStepName: '直播测款拍摄',
     status: '在库可用',
     availability: '可申请',
     responsibleSite: '深圳样衣间',
@@ -235,7 +235,7 @@ export const PCS_SAMPLE_RECORDS: PcsSampleRecord[] = [
     projectId: 'pcs-project-sample-created',
     projectCode: 'PRJ-202604-002',
     projectName: '夏季基础白 T',
-    relatedStepName: '达人试穿',
+    sourceStepName: '达人试穿',
     status: '预占锁定',
     availability: '不可申请',
     responsibleSite: '深圳样衣间',
@@ -263,7 +263,7 @@ export const PCS_SAMPLE_RECORDS: PcsSampleRecord[] = [
     projectId: 'pcs-project-first-order-created',
     projectCode: 'PRJ-202604-003',
     projectName: '腰围放量牛仔短裤',
-    relatedStepName: '首单样衣打样',
+    sourceStepName: '首单样衣打样',
     status: '借出占用',
     availability: '需审批',
     responsibleSite: '深圳样衣间',
@@ -296,7 +296,7 @@ export const PCS_SAMPLE_RECORDS: PcsSampleRecord[] = [
     projectId: 'pcs-project-first-order-wait',
     projectCode: 'PRJ-202604-004',
     projectName: '通勤办公室衬衫',
-    relatedStepName: '雅加达直播备样',
+    sourceStepName: '雅加达直播备样',
     status: '在途待签收',
     availability: '不可申请',
     responsibleSite: '雅加达样衣间',
@@ -337,7 +337,7 @@ export const PCS_SAMPLE_RECORDS: PcsSampleRecord[] = [
     projectId: 'pcs-project-style-ready',
     projectCode: 'PRJ-202604-006',
     projectName: '轻薄针织开衫',
-    relatedStepName: '直播间备样',
+    sourceStepName: '直播间备样',
     status: '维修中',
     availability: '不可申请',
     responsibleSite: '雅加达样衣间',
@@ -370,7 +370,7 @@ export const PCS_SAMPLE_RECORDS: PcsSampleRecord[] = [
     projectId: 'pcs-project-channel-ready',
     projectCode: 'PRJ-202604-007',
     projectName: '白色蕾丝连衣裙',
-    relatedStepName: '渠道商品图补拍',
+    sourceStepName: '渠道商品图补拍',
     status: '借出占用',
     availability: '需审批',
     responsibleSite: '雅加达样衣间',
@@ -396,7 +396,7 @@ export const PCS_SAMPLE_REQUESTS: PcsSampleUseRequest[] = [
     sampleIds: ['smp-001', 'smp-002'],
     projectCode: 'PRJ-202604-001',
     projectName: '印度尼西亚碎花连衣裙',
-    stepDefinitionName: '直播测款拍摄',
+    sourceStepName: '直播测款拍摄',
     purpose: '拍摄主图与直播讲解素材',
     applicant: '张丽',
     approver: '陈明',
@@ -418,7 +418,7 @@ export const PCS_SAMPLE_REQUESTS: PcsSampleUseRequest[] = [
     sampleIds: ['smp-007'],
     projectCode: 'PRJ-202604-007',
     projectName: '白色蕾丝连衣裙',
-    stepDefinitionName: '直播间备样',
+    sourceStepName: '直播间备样',
     purpose: '直播间讲解与试穿',
     applicant: '林小红',
     approver: 'Budi',
@@ -441,7 +441,7 @@ export const PCS_SAMPLE_REQUESTS: PcsSampleUseRequest[] = [
     sampleIds: ['smp-003'],
     projectCode: 'PRJ-202604-003',
     projectName: '腰围放量牛仔短裤',
-    stepDefinitionName: '模特拍摄',
+    sourceStepName: '模特拍摄',
     purpose: '工程样成衣图补拍',
     applicant: '王芳',
     approver: '陈明',
@@ -464,7 +464,7 @@ export const PCS_SAMPLE_REQUESTS: PcsSampleUseRequest[] = [
     sampleIds: ['smp-006'],
     projectCode: 'PRJ-202604-006',
     projectName: '轻薄针织开衫',
-    stepDefinitionName: '直播补样',
+    sourceStepName: '直播补样',
     purpose: '修复后补拍直播细节',
     applicant: '周杰',
     approver: 'Budi',
@@ -569,7 +569,7 @@ export const PCS_SAMPLE_LEDGER_EVENTS: PcsSampleLedgerEvent[] = [
     holder: '林小红',
     sourceDoc: 'UR-202604-002',
     projectCode: 'PRJ-202604-007',
-    stepDefinitionName: '直播间备样',
+    sourceStepName: '直播间备样',
     operator: 'Budi',
     isVoided: false,
     remark: '预计 4 月 13 日归还。',
@@ -588,7 +588,7 @@ export const PCS_SAMPLE_LEDGER_EVENTS: PcsSampleLedgerEvent[] = [
     holder: '顺丰国际',
     sourceDoc: 'TR-202604-001',
     projectCode: 'PRJ-202604-004',
-    stepDefinitionName: '雅加达直播备样',
+    sourceStepName: '雅加达直播备样',
     operator: '物流系统',
     isVoided: false,
     remark: '跨境调拨在途。',
@@ -607,7 +607,7 @@ export const PCS_SAMPLE_LEDGER_EVENTS: PcsSampleLedgerEvent[] = [
     holder: '张丽',
     sourceDoc: 'UR-202604-001',
     projectCode: 'PRJ-202604-002',
-    stepDefinitionName: '短视频拍摄',
+    sourceStepName: '短视频拍摄',
     operator: '陈明',
     isVoided: false,
     remark: '等待仓管确认领用。',
@@ -626,7 +626,7 @@ export const PCS_SAMPLE_LEDGER_EVENTS: PcsSampleLedgerEvent[] = [
     holder: '王芳',
     sourceDoc: 'UR-202604-003',
     projectCode: 'PRJ-202604-003',
-    stepDefinitionName: '模特拍摄',
+    sourceStepName: '模特拍摄',
     operator: '王芳',
     isVoided: false,
     remark: '待仓管验收。',
@@ -738,7 +738,7 @@ function buildGeneratedSampleRecords(): PcsSampleRecord[] {
         projectId: record.projectId,
         projectCode: record.projectCode,
         projectName: record.projectName,
-        relatedStepName: record.stepName || '样衣结果核对',
+        sourceStepName: record.stepName || '样衣结果核对',
         status: isPendingSupplement ? '在途待签收' : '在库可用',
         availability: isCompleteInbound ? '可申请' : '需审批',
         responsibleSite: '深圳样衣间',
@@ -931,7 +931,7 @@ function buildGeneratedSampleLedgerEvents(): PcsSampleLedgerEvent[] {
         holder: String(payload.returnRecipient || operator || destination || '-'),
         sourceDoc,
         projectCode: record.projectCode,
-        stepDefinitionName: record.stepName,
+        sourceStepName: record.stepName,
         operator: operator || record.updatedBy || record.ownerName,
         isVoided: false,
         remark: [payload.returnResult, payload.trackingNumber ? `快递单号：${payload.trackingNumber}` : '', payload.logisticsEvidence]

@@ -1,22 +1,12 @@
 import assert from 'node:assert/strict'
 
 import { FIRST_SAMPLE_TASK_STATUS_LIST } from '../src/data/pcs-first-sample-types.ts'
-import { PCS_PROJECT_STEP_DEFINITIONS } from '../src/data/pcs-project-domain-contract.ts'
 import { createTaskBootstrapSnapshot } from '../src/data/pcs-task-bootstrap.ts'
-
-const firstSampleContract = PCS_PROJECT_STEP_DEFINITIONS.find(
-  (item) => item.stepCode === 'FIRST_SAMPLE',
-)
-assert.ok(firstSampleContract, '缺少 FIRST_SAMPLE 工作项定义')
 
 const formalStatuses = [...FIRST_SAMPLE_TASK_STATUS_LIST]
 assert.deepEqual(formalStatuses, ['草稿', '待处理', '打样中', '待确认', '已通过', '需改版', '已取消'])
 assert.equal(formalStatuses.includes('需补测' as never), false)
 assert.equal(formalStatuses.includes('需补样' as never), false)
-
-const instanceStatuses = firstSampleContract.statusDefinitions.map((item) => item.statusName)
-assert.equal(instanceStatuses.includes('需补测'), false)
-assert.equal(instanceStatuses.includes('需补样'), false)
 
 const storage = new Map<string, string>()
 Object.defineProperty(globalThis, 'localStorage', {

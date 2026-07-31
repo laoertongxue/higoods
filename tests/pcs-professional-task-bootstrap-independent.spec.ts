@@ -16,6 +16,7 @@ const professionalTasks = [
   ...snapshot.firstSampleTasks,
   ...snapshot.firstOrderSampleTasks,
 ]
+const independentRevisionTaskIds = new Set(snapshot.revisionTasks.map((task) => task.revisionTaskId))
 
 assert.ok(snapshot.revisionTasks.length >= 4, '改版模块应保留项目归属与独立创建两类真实业务种子')
 assert.ok(snapshot.plateTasks.length >= 8, '制版模块应保留足够的真实业务种子')
@@ -34,12 +35,15 @@ professionalTasks.forEach((task) => {
     assert.equal(task.projectName, project.projectName)
     assert.equal(task.projectNodeId, '', `${task.stepName} ${task.title} 不能绑定项目节点`)
     assert.notEqual(task.upstreamObjectType, '项目步骤', `${task.stepName} ${task.title} 不能把来源伪装为项目步骤`)
-    assert.doesNotMatch(task.upstreamObjectCode, /^WI-/, `${task.stepName} ${task.title} 不能保留 WI-* 工作项编码`)
+    assert.doesNotMatch(task.upstreamObjectCode, /^WI-/, `${task.stepName} ${task.title} 不能保留 WI-* 旧编码`)
     assert.doesNotMatch(task.legacyUpstreamRef, /^WI-/, `${task.stepName} ${task.title} 不能保留 WI-* 旧来源引用`)
     return
   }
 
-  assert.equal(task.stepCode, 'REVISION_TASK', '只有独立改版／设计任务可以不关联工程主单项目')
+  assert.ok(
+    'revisionTaskId' in task && independentRevisionTaskIds.has(task.revisionTaskId),
+    '只有独立改版／设计任务可以不关联工程主单项目',
+  )
   assert.ok(
     task.sourceType === '既有商品改款' || task.sourceType === '人工改版需求',
     '无项目改版任务只能来源于既有商品改款或人工设计需求',
