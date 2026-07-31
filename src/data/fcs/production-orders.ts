@@ -1449,6 +1449,26 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
   },
 ]
 
+function buildReleaseMaterialSwatchImageUrl(materialCode: string, materialName: string): string {
+  const palette: Record<string, { background: string; swatch: string; stroke: string }> = {
+    A: { background: '#f8fafc', swatch: '#cbd5e1', stroke: '#475569' },
+    B: { background: '#f8fafc', swatch: '#f1f5f9', stroke: '#64748b' },
+    C: { background: '#eff6ff', swatch: '#bfdbfe', stroke: '#2563eb' },
+    D: { background: '#f1f5f9', swatch: '#94a3b8', stroke: '#334155' },
+  }
+  const colors = palette[materialCode] || palette.A
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="120" height="90" viewBox="0 0 120 90">
+      <rect width="120" height="90" rx="10" fill="${colors.background}"/>
+      <rect x="10" y="10" width="100" height="70" rx="8" fill="${colors.swatch}"/>
+      <path d="M10 28h100M10 48h100M10 68h100" stroke="${colors.stroke}" stroke-width="1.2" opacity=".35"/>
+      <path d="M28 10v70M58 10v70M88 10v70" stroke="${colors.stroke}" stroke-width="1.2" opacity=".22"/>
+      <text x="60" y="48" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="700" fill="${colors.stroke}">${materialName}</text>
+    </svg>
+  `.trim()
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
+}
+
 function buildReleaseTargetSupplementProductionOrder(base: ProductionOrder): ProductionOrder {
   const baseSnapshot = cloneProductionOrderTechPackSnapshot(base.techPackSnapshot)
   if (!baseSnapshot) throw new Error('PO14671 补料检查生产单缺少技术包模板')
@@ -1498,6 +1518,7 @@ function buildReleaseTargetSupplementProductionOrder(base: ProductionOrder): Pro
     unitConsumption: 1,
     lossRate: 0,
     supplier: '生产单冻结技术包',
+    materialImageUrl: buildReleaseMaterialSwatchImageUrl(materialCode, name),
     applicableSkuCodes: [...skuCodes],
     linkedPatternIds: [patternId],
     usageProcessCodes: ['CUT_PANEL'],
@@ -1614,7 +1635,10 @@ function buildReleaseTargetSupplementProductionOrder(base: ProductionOrder): Pro
       manualConfirmRequired: false,
     })),
     imageSnapshot: {
-      productImages: [], styleImages: [], sampleImages: [], materialImages: [],
+      productImages: [],
+      styleImages: [],
+      sampleImages: [],
+      materialImages: bomItems.map((item) => item.materialImageUrl || '').filter(Boolean),
       accessoryImages: [], patternImages: [], markerImages: [], artworkImages: [],
     },
     patternDesigns: [],

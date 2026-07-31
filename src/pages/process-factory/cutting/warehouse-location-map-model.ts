@@ -40,6 +40,14 @@ export interface WarehouseLocationOccupancy {
   unit: string
   inboundAt: string
   inboundBy: string
+  materialColor?: string
+  materialSpec?: string
+  footprintLocationNos?: string[]
+  remainingQty?: number
+  partialOccupancyNote?: string
+  taskNo?: string
+  cutOrderNo?: string
+  ticketNos?: string[]
 }
 
 export interface WarehouseLocationMapCell extends StableWarehouseLocationRef {
@@ -70,6 +78,7 @@ export interface WarehouseLocationMapProjection {
   emptyLocationCount: number
   occupiedLocationCount: number
   areas: WarehouseLocationMapArea[]
+  unassignedLocations: StableWarehouseLocationRef[]
   unlocatedOccupancies: WarehouseLocationOccupancy[]
 }
 
@@ -137,7 +146,21 @@ export function resolveStableWarehouseLocationRef(
     item.areaName === input.areaName
     && item.locationNo === input.locationNo,
   )
-  return compatible.length === 1 ? compatible[0] : null
+  if (compatible.length === 1) return compatible[0]
+  const uniqueCurrentNumber = refs.filter((item) => item.locationNo === input.locationNo)
+  if (uniqueCurrentNumber.length === 1) return uniqueCurrentNumber[0]
+  if (snapshot) {
+    const historical = listStableWarehouseLocationRefs(warehouse)
+    const historicalMatches = historical.filter((item) =>
+      item.areaName === input.areaName
+      && (!input.shelfNo || item.shelfNo === input.shelfNo)
+      && item.locationNo === input.locationNo,
+    )
+    if (historicalMatches.length === 1) {
+      return refs.find((item) => item.locationId === historicalMatches[0].locationId) ?? null
+    }
+  }
+  return null
 }
 
 export type WarehouseLocationMigrationStatus = 'MATCHED' | 'NEEDS_CONFIRMATION' | 'UNRESOLVED'
@@ -212,6 +235,13 @@ export function buildWarehouseLocationMapProjection(
         })),
     }))
   const cells = areas.flatMap((area) => area.shelves.flatMap((shelf) => shelf.locations))
+  const unassignedIds = new Set(snapshot.unassignedLocationIds ?? [])
+  const unassignedLocations = listStableWarehouseLocationRefs(warehouse)
+    .filter((location) => unassignedIds.has(location.locationId))
+    .map((location) => {
+      const override = snapshot.locationLabelOverrides?.[location.locationId]
+      return override ? { ...location, ...override } : location
+    })
   return {
     factoryId: effective.factoryId,
     warehouseId: effective.warehouseId,
@@ -221,6 +251,7 @@ export function buildWarehouseLocationMapProjection(
     emptyLocationCount: cells.filter((cell) => cell.businessStatus === 'EMPTY').length,
     occupiedLocationCount: cells.filter((cell) => cell.businessStatus === 'OCCUPIED').length,
     areas,
+    unassignedLocations,
     unlocatedOccupancies: occupancies.filter((occupancy) => !refIds.has(occupancy.locationId)),
   }
 }
@@ -260,6 +291,40 @@ export function validateWarehouseLocationSelection(
         message: '请选择同一货架内连续相邻的空闲库位。',
         selectedLocationIds: uniqueIds,
       }
+}
+
+export function revalidateWarehouseLocationSelection(
+  projection: WarehouseLocationMapProjection,
+  selectedLocationIds: string[],
+): WarehouseLocationSelectionResult {
+  const selected = new Set(selectedLocationIds)
+  const cells = listMapCells(projection)
+  const conflicts = selectedLocationIds
+    .map((locationId) => cells.find((cell) => cell.locationId === locationId))
+    .filter((cell) => !cell || cell.status !== 'AVAILABLE' || cell.businessStatus === 'OCCUPIED')
+  if (!conflicts.length) return validateWarehouseLocationSelection(projection, selectedLocationIds)
+
+  const validCells = cells
+    .filter((cell) => selected.has(cell.locationId))
+    .filter((cell) => cell.status === 'AVAILABLE' && cell.businessStatus === 'EMPTY')
+    .sort((left, right) => left.orderIndex - right.orderIndex)
+  const segments: WarehouseLocationMapCell[][] = []
+  for (const cell of validCells) {
+    const segment = segments.at(-1)
+    const previous = segment?.at(-1)
+    if (!previous || previous.shelfId !== cell.shelfId || cell.orderIndex !== previous.orderIndex + 1) {
+      segments.push([cell])
+    } else {
+      segment.push(cell)
+    }
+  }
+  const retained = segments.sort((left, right) => right.length - left.length)[0] ?? []
+  const conflictLabels = conflicts.map((cell) => cell?.locationNo || '已删除库位')
+  return {
+    ok: false,
+    message: `以下库位已不可用：${conflictLabels.join('、')}。其他仍连续可用的选择已保留，请重新确认。`,
+    selectedLocationIds: retained.map((cell) => cell.locationId),
+  }
 }
 
 export function toggleWarehouseLocationSelection(

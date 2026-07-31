@@ -17,6 +17,7 @@ export type CuttingRuntimeEventType =
   | '待加工仓扫码入仓'
   | '待加工仓加工领料'
   | '待加工仓回收入仓'
+  | '待加工仓位置调整'
   | '裁片单开工'
   | '开始铺布'
   | '完成铺布'
@@ -50,6 +51,7 @@ export interface RuntimeMaterialSnapshot {
   materialSku: string
   materialName: string
   materialColor: string
+  materialSpec?: string
   materialAlias: string
   unit: CuttingRuntimeQtyUnit
 }
@@ -112,6 +114,18 @@ export interface TransferPickupPayload {
   hasDifference: boolean
   differenceReason?: string
   evidencePhotos?: string[]
+  locationRefs?: RuntimeWarehouseLocationRef[]
+  storageFootprint?: {
+    footprintId: string
+    sourceType: 'PICKUP_SESSION'
+    sourceId: string
+    locationIds: string[]
+    totalQty: number
+    remainingQty: number
+    unit: string
+    inboundAt: string
+    inboundBy: string
+  }
 }
 
 export interface WaitProcessInboundPayload {
@@ -146,6 +160,7 @@ export interface WaitProcessIssuePayload {
   issuedBy: string
   issuedAt: string
   purpose: '铺布用料'
+  locationRef?: RuntimeWarehouseLocationRef
 }
 
 export interface WaitProcessReturnPayload {
@@ -163,6 +178,19 @@ export interface WaitProcessReturnPayload {
   returnedBy: string
   returnedAt: string
   reason: '铺布剩余' | '取消加工' | '其他'
+  locationRefs?: RuntimeWarehouseLocationRef[]
+  storageFootprint?: {
+    footprintId: string
+    sourceType: 'PICKUP_SESSION'
+    sourceId: string
+    locationIds: string[]
+    totalQty: number
+    remainingQty: number
+    unit: string
+    inboundAt: string
+    inboundBy: string
+  }
+  locationRef?: RuntimeWarehouseLocationRef
 }
 
 export interface StartWorkPayload {
@@ -357,6 +385,8 @@ export interface SpecialCraftHandoverPayload {
   }>
   handedOverAt: string
   handedOverBy: string
+  locationRef?: RuntimeWarehouseLocationRef
+  idempotencyKey?: string
 }
 
 export interface SpecialCraftReturnPayload {
@@ -388,6 +418,7 @@ export interface SpecialCraftReturnPayload {
   locationRef?: RuntimeWarehouseLocationRef
   returnedAt: string
   returnedBy: string
+  idempotencyKey?: string
 }
 
 export type CuttingRuntimeEventPayload =
@@ -493,6 +524,7 @@ function normalizeMaterial(raw: unknown): RuntimeMaterialSnapshot | undefined {
     materialSku,
     materialName: toString(value.materialName),
     materialColor: toString(value.materialColor),
+    materialSpec: toString(value.materialSpec),
     materialAlias: toString(value.materialAlias),
     unit: normalizeUnit(value.unit, 'yard'),
   }
@@ -547,6 +579,7 @@ function isRuntimeEventType(value: string): value is CuttingRuntimeEventType {
     '待加工仓扫码入仓',
     '待加工仓加工领料',
     '待加工仓回收入仓',
+    '待加工仓位置调整',
     '裁片单开工',
     '开始铺布',
     '完成铺布',
@@ -621,6 +654,7 @@ function eventTypeCode(eventType: CuttingRuntimeEventType): string {
     待加工仓扫码入仓: 'WP-IN',
     待加工仓加工领料: 'WP-OUT',
     待加工仓回收入仓: 'WP-RETURN',
+    待加工仓位置调整: 'WP-ADJUST',
     裁片单开工: 'START',
     开始铺布: 'SPREAD-START',
     完成铺布: 'SPREAD-FINISH',

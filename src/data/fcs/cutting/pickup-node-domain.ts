@@ -96,6 +96,40 @@ export interface PickupSession {
   pickupNodeSnapshot?: PickupNodeProjection
 }
 
+export function adjustPickupSessionStorageFootprint(
+  session: PickupSession,
+  locationRefs: PickupStorageLocationRef[],
+  remainingByUnit: Array<{ unit: string; remainingQty: number }>,
+): PickupSession {
+  if (!session.storageFootprint) throw new Error('当前领料记录没有可调整的存放范围。')
+  const remainingMap = new Map(remainingByUnit.map((item) => [item.unit, Number(item.remainingQty)]))
+  const unitSummaries = session.storageFootprint.unitSummaries.map((summary) => {
+    const remainingQty = remainingMap.has(summary.unit)
+      ? Number(remainingMap.get(summary.unit))
+      : summary.remainingQty
+    if (!Number.isFinite(remainingQty) || remainingQty < 0 || remainingQty > summary.totalQty) {
+      throw new Error(`${summary.unit} 剩余数量必须在 0 至 ${summary.totalQty} 之间。`)
+    }
+    return { ...summary, remainingQty }
+  })
+  const hasRemaining = unitSummaries.some((summary) => summary.remainingQty > 0)
+  if (hasRemaining && !locationRefs.length) throw new Error('仍有剩余物料时必须保留至少一个库位。')
+  const uniqueRefs = Array.from(
+    new Map(locationRefs.map((location) => [location.locationId, structuredClone(location)])).values(),
+  )
+  return {
+    ...structuredClone(session),
+    toWarehouseArea: uniqueRefs[0]?.areaName || session.toWarehouseArea,
+    toLocationCode: uniqueRefs[0]?.locationNo || session.toLocationCode,
+    toLocationRefs: uniqueRefs,
+    storageFootprint: {
+      ...structuredClone(session.storageFootprint),
+      locationIds: uniqueRefs.map((location) => location.locationId),
+      unitSummaries,
+    },
+  }
+}
+
 export interface PickupStorageLocationRef {
   factoryId: string
   warehouseId: string

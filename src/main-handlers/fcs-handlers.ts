@@ -330,7 +330,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
   }
   if (
     pathname.startsWith('/fcs/craft/cutting/warehouse-management/')
-    && target.closest('[data-warehouse-map-action]')
+    && target.closest('[data-cutting-warehouse-map-section] [data-warehouse-map-action]')
   ) {
     return handleCuttingWarehouseLocationMapEvent(target, event)
   }
@@ -452,8 +452,8 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     await handleCraftCuttingFeiTicketsEvent(target) ||
     await handleCraftCuttingFeiTicketNumberingEvent(target) ||
     await handleCraftCuttingWaitProcessEvent(target) ||
-    await handleCraftCuttingWaitHandoverWebActionsEvent(target) ||
     await handleCraftCuttingWaitHandoverEvent(target) ||
+    await handleCraftCuttingWaitHandoverWebActionsEvent(target) ||
     await handleCraftCuttingPickupManagementEvent(target, event) ||
     await handleCraftCuttingHandoverOrdersEvent(target) ||
     await handleCraftCuttingSampleWarehouseEvent(target) ||

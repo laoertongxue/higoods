@@ -80,7 +80,7 @@ assert.equal(
 
 const latestControlValues: Record<string, string> = {
   carrierCode: 'BAG-002',
-  locationLabel: 'CUT-A-01',
+  locationLabel: 'A-01-01',
   scanCode: 'FT-CUT-LATEST-001',
 }
 const fakeWorkflowContainer: HTMLElement = Object.assign(Object.create(null), {
@@ -727,7 +727,7 @@ const crossRoundRepeat = workflow.completePdaCuttingInboundTicketScan(
 assert.equal(crossRoundRepeat.ok, false, '首轮已装袋菲票不得在新一轮再次加入')
 
 const emptyBagInbound = workflow.applyPdaCuttingInboundBusinessTransition(
-  { ...workflow.createPdaCuttingInboundFormState(), carrierCode: 'BAG-002', locationLabel: 'CUT-A-01' },
+  { ...workflow.createPdaCuttingInboundFormState(), carrierCode: 'BAG-002', locationLabel: 'A-01-01' },
   'inbound-location',
   mockLedger,
 )
@@ -735,8 +735,8 @@ assert.equal(emptyBagInbound.ok, false, '空袋不得入仓')
 
 for (const [locationLabel, message] of [
   ['CUT-NOT-FOUND', '不存在库位'],
-  ['CUT-X-99', '停用库位'],
-  ['SEW-A-01', '非裁床库位'],
+  ['停用-01', '停用库位'],
+  ['其他仓-01', '非裁床库位'],
 ] as const) {
   const invalidLocation = workflow.applyPdaCuttingInboundBusinessTransition(
     { ...workflow.createPdaCuttingInboundFormState(), carrierCode: 'BAG-WAIT-001', locationLabel },
@@ -749,7 +749,7 @@ for (const [locationLabel, message] of [
 const validInboundState = {
   ...workflow.createPdaCuttingInboundFormState(),
   carrierCode: 'BAG-WAIT-001',
-  locationLabel: 'CUT-A-01',
+  locationLabel: 'A-01-01',
 }
 const validInbound = workflow.applyPdaCuttingInboundBusinessTransition(
   validInboundState,
@@ -758,7 +758,7 @@ const validInbound = workflow.applyPdaCuttingInboundBusinessTransition(
 )
 assert.equal(validInbound.ok, true, '已装袋待入仓中转袋和有效裁床库位必须允许入仓')
 assert.equal(validInbound.ledger.bags['BAG-WAIT-001'].status, 'INBOUNDED', '入仓后袋状态必须变为已入仓')
-assert.equal(validInbound.ledger.bags['BAG-WAIT-001'].locationLabel, 'CUT-A-01', '入仓后袋必须记录库位')
+assert.equal(validInbound.ledger.bags['BAG-WAIT-001'].locationLabel, 'A-01-01', '入仓后袋必须记录库位')
 
 const repeatedInbound = workflow.applyPdaCuttingInboundBusinessTransition(
   validInboundState,

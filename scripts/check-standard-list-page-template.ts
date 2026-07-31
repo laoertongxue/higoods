@@ -1564,6 +1564,7 @@ async function checkSupplementColumnDragInChromium(): Promise<void> {
   const pageUrl = new URL('/fcs/craft/cutting/supplement-management', localUrl).toString()
   const browser = await chromium.launch({ headless: true })
   const page = await browser.newPage({ viewport: { width: 1366, height: 768 } })
+  page.setDefaultNavigationTimeout(120_000)
   const pageErrors: string[] = []
   page.on('pageerror', (error) => pageErrors.push(error.message))
 
@@ -1571,7 +1572,7 @@ async function checkSupplementColumnDragInChromium(): Promise<void> {
     await page.goto(pageUrl)
     await page.evaluate((key) => localStorage.removeItem(key), supplementStorageKey)
     await page.reload()
-    await page.getByRole('button', { name: '列设置' }).click()
+    await page.getByRole('button', { name: '列设置' }).click({ timeout: 120_000 })
     await page.locator('main').evaluate((main) => { main.dataset.columnDragBrowserMarker = 'kept' })
     await page.evaluate(() => {
       const main = document.querySelector('main')

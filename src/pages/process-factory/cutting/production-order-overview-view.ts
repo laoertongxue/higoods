@@ -220,7 +220,7 @@ function renderTable(rows: ProductionOrderOverviewRow[], state: ProductionOrderO
         <span class="text-xs text-muted-foreground">共 ${pagination.total} 张生产单</span>
       </div>
       ${renderStickyTableScroller(`
-        <table class="min-w-[2280px] w-full table-fixed text-sm" data-testid="cutting-production-progress-main-table">
+        <table class="min-w-full w-max table-fixed text-sm" data-testid="cutting-production-progress-main-table">
           <colgroup>
             <col class="w-[240px]" /><col class="w-[300px]" /><col class="w-[110px]" /><col class="w-[110px]" />
             <col class="w-[100px]" /><col class="w-[110px]" /><col class="w-[470px]" /><col class="w-[100px]" />

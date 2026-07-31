@@ -5,6 +5,7 @@ import {
 import { listBusinessFactoryMasterRecords } from '../factory-master-store.ts'
 import {
   derivePickupNodeType,
+  adjustPickupSessionStorageFootprint,
   type PickupCoverageLine,
   type PickupNodeProjection,
   type PickupNodeItem,
@@ -4301,6 +4302,7 @@ export function appendPickupSessionFromNode(
     idempotencyKey?: string
     warehouseSyncDeferred?: boolean
     toLocationRefs?: PickupStorageLocationRef[]
+    beforePersist?: (session: PickupSession) => void
   },
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): PickupSession {
@@ -4424,6 +4426,7 @@ export function appendPickupSessionFromNode(
     pickupNodeSnapshot: cloneRecord(node),
   }
 
+  input.beforePersist?.(cloneRecord(session))
   store.pickupSessions = [session, ...store.pickupSessions]
   store.pickupRecords = [...newPickupRecords, ...store.pickupRecords]
   persistProductionMaterialPrepStore(store, storage)
@@ -4452,6 +4455,35 @@ export function recordPickupSessionWarehouseSyncResult(
   session.warehouseSyncMessage = result.message
   persistProductionMaterialPrepStore(store, storage)
   return cloneRecord(session)
+}
+
+export function updatePickupSessionStorageFootprint(
+  input: {
+    pickupSessionId: string
+    locationRefs: PickupStorageLocationRef[]
+    remainingByUnit: Array<{ unit: string; remainingQty: number }>
+  },
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): PickupSession {
+  const store = hydrateProductionMaterialPrepStore(storage)
+  const index = store.pickupSessions.findIndex((session) =>
+    session.pickupSessionId === input.pickupSessionId)
+  if (index < 0) throw new Error('领料记录不存在，无法调整存放范围。')
+  const adjusted = adjustPickupSessionStorageFootprint(
+    store.pickupSessions[index],
+    input.locationRefs,
+    input.remainingByUnit,
+  )
+  store.pickupSessions[index] = adjusted
+  store.pickupRecords
+    .filter((record) => record.pickupSessionId === input.pickupSessionId)
+    .forEach((record) => {
+      record.toLocationRefs = cloneRecord(input.locationRefs)
+      record.warehouseArea = adjusted.toWarehouseArea
+      record.locationCode = adjusted.toLocationCode
+    })
+  persistProductionMaterialPrepStore(store, storage)
+  return cloneRecord(adjusted)
 }
 
 export function appendPickupReturnRecord(

@@ -14,6 +14,12 @@ export interface FactoryWarehouseLayoutSnapshot {
   shelfOrderByAreaId: Record<string, string[]>
   locationOrderByShelfId: Record<string, string[]>
   unassignedLocationIds: string[]
+  areaLabelOverrides: Record<string, {
+    areaName: string
+  }>
+  shelfLabelOverrides: Record<string, {
+    shelfNo: string
+  }>
   locationLabelOverrides: Record<string, {
     locationNo: string
     locationName: string
@@ -30,6 +36,19 @@ export interface WarehouseLayoutStorage {
 export interface AppliedWarehouseLayout {
   warehouse: FactoryInternalWarehouse
   warningMessages: string[]
+}
+
+export interface WarehouseLayoutChangeRecord {
+  changeRecordId: string
+  factoryId: string
+  warehouseKind: FactoryInternalWarehouse['warehouseKind']
+  warehouseId: string
+  beforeVersion: number
+  afterVersion: number
+  beforeSnapshot: FactoryWarehouseLayoutSnapshot
+  afterSnapshot: FactoryWarehouseLayoutSnapshot
+  updatedAt: string
+  updatedBy: string
 }
 
 const memoryValues = new Map<string, string>()
@@ -65,6 +84,28 @@ export function getWarehouseLayoutStorageKey(
   return `higood:cutting-warehouse-layout:v1:${factoryId}:${warehouseKind}`
 }
 
+function getWarehouseLayoutHistoryStorageKey(
+  factoryId: string,
+  warehouseKind: FactoryInternalWarehouse['warehouseKind'],
+): string {
+  return `higood:cutting-warehouse-layout-history:v1:${factoryId}:${warehouseKind}`
+}
+
+export function listWarehouseLayoutChangeRecords(
+  factoryId: string,
+  warehouseKind: FactoryInternalWarehouse['warehouseKind'],
+  storage: WarehouseLayoutStorage = currentStorage(),
+): WarehouseLayoutChangeRecord[] {
+  const raw = storage.getItem(getWarehouseLayoutHistoryStorageKey(factoryId, warehouseKind))
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? clone(parsed) : []
+  } catch {
+    return []
+  }
+}
+
 export function buildInitialWarehouseLayoutSnapshot(
   warehouse: FactoryInternalWarehouse,
   updatedBy: string,
@@ -84,6 +125,8 @@ export function buildInitialWarehouseLayoutSnapshot(
       ),
     ),
     unassignedLocationIds: [],
+    areaLabelOverrides: {},
+    shelfLabelOverrides: {},
     locationLabelOverrides: {},
     updatedAt: new Date().toISOString(),
     updatedBy,
@@ -120,7 +163,16 @@ export function loadWarehouseLayoutSnapshot(
   try {
     const parsed = JSON.parse(raw) as unknown
     if (!isCompatibleSnapshot(parsed, warehouse)) throw new Error('layout mismatch')
-    return { snapshot: clone(parsed), warningMessage: '' }
+    return {
+      snapshot: {
+        ...clone(parsed),
+        unassignedLocationIds: [...(parsed.unassignedLocationIds ?? [])],
+        areaLabelOverrides: { ...(parsed.areaLabelOverrides ?? {}) },
+        shelfLabelOverrides: { ...(parsed.shelfLabelOverrides ?? {}) },
+        locationLabelOverrides: { ...(parsed.locationLabelOverrides ?? {}) },
+      },
+      warningMessage: '',
+    }
   } catch {
     return {
       snapshot: buildInitialWarehouseLayoutSnapshot(warehouse, '系统恢复'),
@@ -137,9 +189,11 @@ export function saveWarehouseLayoutSnapshot(
   const key = getWarehouseLayoutStorageKey(snapshot.factoryId, snapshot.warehouseKind)
   const raw = storage.getItem(key)
   let currentVersion = 0
+  let currentSnapshot: FactoryWarehouseLayoutSnapshot | null = null
   if (raw) {
     try {
-      currentVersion = Number((JSON.parse(raw) as Partial<FactoryWarehouseLayoutSnapshot>).layoutVersion ?? -1)
+      currentSnapshot = JSON.parse(raw) as FactoryWarehouseLayoutSnapshot
+      currentVersion = Number(currentSnapshot.layoutVersion ?? -1)
     } catch {
       return { ok: false, message: '部分编排无法恢复，请重新检查。' }
     }
@@ -153,6 +207,25 @@ export function saveWarehouseLayoutSnapshot(
     updatedAt: new Date().toISOString(),
   }
   storage.setItem(key, JSON.stringify(next))
+  const beforeSnapshot = currentSnapshot ?? {
+    ...clone(snapshot),
+    layoutVersion: expectedVersion,
+  }
+  const historyKey = getWarehouseLayoutHistoryStorageKey(snapshot.factoryId, snapshot.warehouseKind)
+  const history = listWarehouseLayoutChangeRecords(snapshot.factoryId, snapshot.warehouseKind, storage)
+  const changeRecord: WarehouseLayoutChangeRecord = {
+    changeRecordId: `${snapshot.factoryId}:${snapshot.warehouseKind}:v${next.layoutVersion}:${next.updatedAt}`,
+    factoryId: snapshot.factoryId,
+    warehouseKind: snapshot.warehouseKind,
+    warehouseId: snapshot.warehouseId,
+    beforeVersion: expectedVersion,
+    afterVersion: next.layoutVersion,
+    beforeSnapshot: clone(beforeSnapshot),
+    afterSnapshot: clone(next),
+    updatedAt: next.updatedAt,
+    updatedBy: next.updatedBy,
+  }
+  storage.setItem(historyKey, JSON.stringify([changeRecord, ...history].slice(0, 100)))
   return { ok: true, message: '库位图编排已保存。', snapshot: next }
 }
 
@@ -174,6 +247,7 @@ function orderByIds<T>(
       warnings.push(`${label} ${id} 已不存在`)
     }
   })
+  if (byId.size) warnings.push(`新增${label}已按主数据顺序追加，请检查后保存`)
   return [...ordered, ...byId.values()]
 }
 
@@ -189,21 +263,36 @@ function applyShelf(
   shelf: FactoryWarehouseShelf,
   snapshot: FactoryWarehouseLayoutSnapshot,
   warnings: string[],
+  locationById: Map<string, FactoryWarehouseLocation>,
+  assignedLocationIds: Set<string>,
+  unassignedLocationIds: Set<string>,
 ): FactoryWarehouseShelf {
+  const requestedIds = (snapshot.locationOrderByShelfId[shelf.shelfId] ?? [])
+    .filter((locationId) => !unassignedLocationIds.has(locationId))
+  const originalFallbackIds = shelf.locationList
+    .map((location) => location.locationId)
+    .filter((locationId) => !assignedLocationIds.has(locationId) && !unassignedLocationIds.has(locationId))
+  if (originalFallbackIds.length) warnings.push('新增库位已按主数据顺序追加，请检查后保存')
   const locationList = orderByIds(
-    shelf.locationList,
-    snapshot.locationOrderByShelfId[shelf.shelfId] ?? [],
+    [...new Set([...requestedIds, ...originalFallbackIds])]
+      .map((locationId) => locationById.get(locationId))
+      .filter((location): location is FactoryWarehouseLocation => Boolean(location)),
+    [...requestedIds, ...originalFallbackIds],
     (location) => location.locationId,
     warnings,
     '库位',
   ).map((location) => applyLocationOverride(location, snapshot))
-  return { ...shelf, locationList }
+  const shelfOverride = snapshot.shelfLabelOverrides?.[shelf.shelfId]
+  return { ...shelf, ...shelfOverride, locationList }
 }
 
 function applyArea(
   area: FactoryWarehouseArea,
   snapshot: FactoryWarehouseLayoutSnapshot,
   warnings: string[],
+  locationById: Map<string, FactoryWarehouseLocation>,
+  assignedLocationIds: Set<string>,
+  unassignedLocationIds: Set<string>,
 ): FactoryWarehouseArea {
   const shelfList = orderByIds(
     area.shelfList,
@@ -211,8 +300,38 @@ function applyArea(
     (shelf) => shelf.shelfId,
     warnings,
     '货架',
-  ).map((shelf) => applyShelf(shelf, snapshot, warnings))
-  return { ...area, shelfList }
+  ).map((shelf) => applyShelf(
+    shelf,
+    snapshot,
+    warnings,
+    locationById,
+    assignedLocationIds,
+    unassignedLocationIds,
+  ))
+  const areaOverride = snapshot.areaLabelOverrides?.[area.areaId]
+  return { ...area, ...areaOverride, shelfList }
+}
+
+export function assignWarehouseLocationToShelf(
+  snapshot: FactoryWarehouseLayoutSnapshot,
+  locationId: string,
+  shelfId: string,
+): FactoryWarehouseLayoutSnapshot {
+  const locationOrderByShelfId = Object.fromEntries(
+    Object.entries(snapshot.locationOrderByShelfId).map(([currentShelfId, locationIds]) => [
+      currentShelfId,
+      locationIds.filter((id) => id !== locationId),
+    ]),
+  )
+  locationOrderByShelfId[shelfId] = [
+    ...(locationOrderByShelfId[shelfId] ?? []),
+    locationId,
+  ]
+  return {
+    ...snapshot,
+    locationOrderByShelfId,
+    unassignedLocationIds: snapshot.unassignedLocationIds.filter((id) => id !== locationId),
+  }
 }
 
 export function applyWarehouseLayoutSnapshot(
@@ -226,13 +345,27 @@ export function applyWarehouseLayoutSnapshot(
       warningMessages: ['编排与当前仓库不匹配，已使用主数据默认顺序。'],
     }
   }
+  const locationById = new Map(
+    warehouse.areaList.flatMap((area) =>
+      area.shelfList.flatMap((shelf) => shelf.locationList),
+    ).map((location) => [location.locationId, location]),
+  )
+  const assignedLocationIds = new Set(Object.values(snapshot.locationOrderByShelfId).flat())
+  const unassignedLocationIds = new Set(snapshot.unassignedLocationIds ?? [])
   const areaList = orderByIds(
     warehouse.areaList,
     snapshot.areaOrder,
     (area) => area.areaId,
     warningMessages,
     '库区',
-  ).map((area) => applyArea(area, snapshot, warningMessages))
+  ).map((area) => applyArea(
+    area,
+    snapshot,
+    warningMessages,
+    locationById,
+    assignedLocationIds,
+    unassignedLocationIds,
+  ))
   return {
     warehouse: { ...clone(warehouse), areaList },
     warningMessages,

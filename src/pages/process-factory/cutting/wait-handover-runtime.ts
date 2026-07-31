@@ -346,9 +346,26 @@ export function buildWaitHandoverLocationOccupancyStates(
       })
       continue
     }
-    if (event.eventType === '新增交出记录' || event.eventType === '特殊工艺交出') {
+    if (event.eventType === '新增交出记录') {
       const bagCode = event.refs.transferBagCode || runtimeString(payload.transferBagCode)
       if (bagCode) states.delete(bagCode)
+      continue
+    }
+    if (event.eventType === '特殊工艺交出') {
+      const bagCode = event.refs.transferBagCode || runtimeString(payload.transferBagCode)
+      const current = bagCode ? states.get(bagCode) : undefined
+      if (!bagCode || !current) continue
+      const handedOverQty = Number(event.inventoryEffect?.qty || runtimeNumber(payload.handoverQty))
+      const remainingQty = Math.max(0, current.totalPieceQty - handedOverQty)
+      if (remainingQty <= 0) {
+        states.delete(bagCode)
+      } else {
+        states.set(bagCode, {
+          ...current,
+          sourceEventId: event.eventId,
+          totalPieceQty: remainingQty,
+        })
+      }
       continue
     }
     if (event.eventType === '特殊工艺回仓') {
@@ -356,12 +373,17 @@ export function buildWaitHandoverLocationOccupancyStates(
       const bagCode = runtimeString(payload.transferBagCode) || event.refs.transferBagCode || `return:${returnRecordId}`
       const locationRef = runtimeLocationRef(payload.locationRef)
       if (!locationRef) continue
+      const current = states.get(bagCode)
+      const returnedQty = Number(event.inventoryEffect?.qty || 0)
       states.set(bagCode, {
         sourceEventId: event.eventId,
         bagCode,
-        productionOrderNo: event.refs.productionOrderNo || '',
-        feiTicketIds: [...(event.refs.feiTicketIds ?? [])],
-        totalPieceQty: Number(event.inventoryEffect?.qty || 0),
+        productionOrderNo: event.refs.productionOrderNo || current?.productionOrderNo || '',
+        feiTicketIds: Array.from(new Set([
+          ...(current?.feiTicketIds ?? []),
+          ...(event.refs.feiTicketIds ?? []),
+        ])),
+        totalPieceQty: Number(current?.totalPieceQty || 0) + returnedQty,
         inboundAt: runtimeString(payload.returnedAt) || event.occurredAt,
         inboundBy: runtimeString(payload.returnedBy) || event.operatorName,
         locationRef,
@@ -407,6 +429,11 @@ export function appendWaitHandoverBaggingEvent(input: {
   tickets: WaitHandoverRuntimeTicketInput[]
   occurredAt?: string
 }) {
+  const ticketIds = input.tickets.map((ticket) => ticket.feiTicketId).filter(Boolean).sort()
+  const existing = listCuttingRuntimeEventsByType('菲票装袋').find((event) =>
+    event.refs.transferBagCode === input.bagCode
+    && [...(event.refs.feiTicketIds || [])].sort().join('|') === ticketIds.join('|'))
+  if (existing) return existing
   const occurredAt = input.occurredAt || new Date().toISOString().slice(0, 16).replace('T', ' ')
   const tickets = input.tickets
   const totalPieceQty = tickets.reduce((sum, ticket) => sum + Number(ticket.pieceQty || 0), 0)
@@ -544,6 +571,9 @@ export function appendWaitHandoverBaggingConfirmEvent(input: {
   tickets: Array<Pick<WaitHandoverRuntimeTicketInput, 'feiTicketId' | 'feiTicketNo' | 'pieceQty'>>
   occurredAt?: string
 }) {
+  const existing = listCuttingRuntimeEventsByType('交出装袋确认').find((event) =>
+    runtimeString(runtimeRecord(event.payload).pickingTaskId) === input.pickingTaskId)
+  if (existing) return existing
   const occurredAt = input.occurredAt || new Date().toISOString()
   const recordId = `${input.source}-BAG-CONFIRM-${input.pickingTaskId}-${Date.now()}`
   const totalPieceQty = input.tickets.reduce((sum, ticket) => sum + Number(ticket.pieceQty || 0), 0)
@@ -592,9 +622,7 @@ export function appendWaitHandoverBaggingConfirmEvent(input: {
       qty: totalPieceQty,
       unit: '片',
       fromWarehouseArea: '入仓暂存区',
-      fromLocationCode: input.sourceTempBagCode,
       toWarehouseArea: '中转袋暂存区',
-      toLocationCode: input.targetTransferBagCode,
     },
     payload,
   })
@@ -608,6 +636,9 @@ export function appendWaitHandoverHandoverRecordEvent(input: {
   fromLocationCode: string
   occurredAt?: string
 }) {
+  const existing = listCuttingRuntimeEventsByType('新增交出记录').find((event) =>
+    event.refs.handoverRecordId === input.payload.handoverRecordId)
+  if (existing) return existing
   const occurredAt = input.occurredAt || input.payload.submittedAt || new Date().toISOString()
   const feiTicketIds = input.payload.feiTicketItems.map((item) => item.feiTicketId).filter(Boolean)
   const feiTicketNos = input.payload.feiTicketItems.map((item) => item.feiTicketNo).filter(Boolean)
@@ -649,8 +680,24 @@ export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
   fromWarehouseArea: string
   occurredAt?: string
 }) {
+  const idempotencyKey = [
+    'special-craft-handover',
+    input.handoverRecordId,
+    input.specialCraftId,
+    ...input.payload.feiTicketItems.map((item) => item.feiTicketId),
+  ].join(':')
+  const existing = listCuttingRuntimeEventsByType('特殊工艺交出').find((event) =>
+    runtimeString(runtimeRecord(event.payload).idempotencyKey) === idempotencyKey)
+  if (existing) return existing
   const occurredAt = input.occurredAt || input.payload.handedOverAt || new Date().toISOString()
   const totalQty = input.payload.feiTicketItems.reduce((sum, item) => sum + Number(item.pieceQty || 0), 0)
+  const currentLocation = buildWaitHandoverLocationOccupancyStates(listWaitHandoverRuntimeEvents())
+    .find((state) => state.bagCode === input.transferBagCode)
+  const payload: SpecialCraftHandoverPayload = {
+    ...input.payload,
+    locationRef: currentLocation?.locationRef,
+    idempotencyKey,
+  }
   return appendCuttingRuntimeEvent({
     eventType: '特殊工艺交出',
     eventSource: input.source,
@@ -672,10 +719,10 @@ export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
       direction: 'OUT',
       qty: totalQty,
       unit: '片',
-      fromWarehouseArea: input.fromWarehouseArea,
-      fromLocationCode: input.transferBagCode,
+      fromWarehouseArea: currentLocation?.locationRef.areaName || input.fromWarehouseArea,
+      fromLocationCode: currentLocation?.locationRef.locationNo,
     },
-    payload: input.payload,
+    payload,
   })
 }
 
@@ -686,8 +733,19 @@ export function appendWaitHandoverSpecialCraftReturnEvent(input: {
   specialCraftId: string
   occurredAt?: string
 }) {
+  const idempotencyKey = input.payload.idempotencyKey || [
+    'special-craft-return',
+    input.payload.sourceHandoverRecordId,
+    input.specialCraftId,
+    ...input.payload.returnedFeiTicketItems.map((item) => item.feiTicketId),
+  ].join(':')
+  const existing = listCuttingRuntimeEventsByType('特殊工艺回仓').find((event) =>
+    runtimeString(runtimeRecord(event.payload).idempotencyKey) === idempotencyKey
+  )
+  if (existing) return existing
   const occurredAt = input.occurredAt || input.payload.returnedAt || new Date().toISOString()
   const returnedQty = input.payload.returnedFeiTicketItems.reduce((sum, item) => sum + Number(item.returnedQty || 0), 0)
+  const payload = { ...input.payload, idempotencyKey }
   return appendCuttingRuntimeEvent({
     eventType: '特殊工艺回仓',
     eventSource: input.source,
@@ -712,6 +770,6 @@ export function appendWaitHandoverSpecialCraftReturnEvent(input: {
       toWarehouseArea: input.payload.warehouseArea,
       toLocationCode: input.payload.locationCode,
     },
-    payload: input.payload,
+    payload,
   })
 }
