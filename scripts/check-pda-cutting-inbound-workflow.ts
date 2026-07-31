@@ -6,6 +6,12 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import * as workflow from '../src/pages/pda-cutting-inbound.ts'
 import { buildTransferBagsProjection } from '../src/pages/process-factory/cutting/transfer-bags-projection.ts'
+import {
+  listCuttingRuntimeEvents,
+} from '../src/data/fcs/cutting/cutting-runtime-event-ledger.ts'
+import {
+  buildWaitHandoverLifecycleByBagCode,
+} from '../src/pages/process-factory/cutting/wait-handover-runtime.ts'
 import { isPdaPageHandledLocally } from '../src/main-handlers/pda-local-action-result.ts'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
@@ -795,9 +801,89 @@ for (const forbidden of ['菲票', '加入菲票', '待入仓', '生产单', '�
   assert(!inboundHtml.includes(forbidden), `中转袋入仓模式不得展示：${forbidden}`)
 }
 
-assert(!source.includes('appendWaitHandoverBaggingEvent'), '快速原型不得写入菲票装袋事件账')
-assert(!source.includes('appendWaitHandoverInboundEvent'), '快速原型不得写入中转袋入仓事件账')
+assert(source.includes('appendWaitHandoverBaggingEvent'), 'PDA 菲票装袋必须写入统一事实账')
+assert(source.includes('appendWaitHandoverInboundEvent'), 'PDA 中转袋入仓必须写入统一事实账')
 assert(!source.includes('renderPdaCuttingOrderSelectionPrompt'), '不得保留待入仓菲票或裁片单中间选择页')
+
+function createRuntimeMemoryStorage() {
+  const records = new Map<string, string>()
+  return {
+    getItem(key: string) {
+      return records.get(key) ?? null
+    },
+    setItem(key: string, value: string) {
+      records.set(key, value)
+    },
+    removeItem(key: string) {
+      records.delete(key)
+    },
+  }
+}
+
+const runtimeStorage = createRuntimeMemoryStorage()
+const runtimeCandidate = {
+  feiTicketId: 'PDA-RUNTIME-FEI-ID-001',
+  ticketRecordId: 'PDA-RUNTIME-FEI-ID-001',
+  ticketNo: 'PDA-RUNTIME-FEI-001',
+  productionOrderId: 'PDA-RUNTIME-PO-ID-001',
+  productionOrderNo: 'PDA-RUNTIME-PO-001',
+  cutOrderId: 'PDA-RUNTIME-CUT-ID-001',
+  cutOrderNo: 'PDA-RUNTIME-CUT-001',
+  sourceSpreadingSessionId: 'PDA-RUNTIME-SPREAD-ID-001',
+  sourceSpreadingSessionNo: 'PDA-RUNTIME-SPREAD-001',
+  spuCode: 'PDA-RUNTIME-SPU-001',
+  color: '黑色',
+  size: 'M',
+  partCode: 'FRONT',
+  partName: '前幅',
+  actualCutPieceQty: 10,
+  qty: 10,
+  pieceSequenceLabel: '1-10',
+  hasSpecialCraft: false,
+  specialCraftDisplayLabel: '无',
+  receiverFactoryDisplay: '无',
+  printStatus: 'PRINTED',
+  ticketStatus: 'PRINTED',
+} as const
+const runtimeBagCode = 'PDA-RUNTIME-BAG-001'
+workflow.appendPdaCuttingInboundRuntimeEvent(
+  {
+    ...workflow.createPdaCuttingInboundFormState(),
+    operatorName: 'PDA 装袋测试员',
+    carrierCode: runtimeBagCode,
+    bagProductionOrderNo: runtimeCandidate.productionOrderNo,
+    inboundQty: String(runtimeCandidate.actualCutPieceQty || runtimeCandidate.qty),
+    scannedTicketNos: [runtimeCandidate.ticketNo],
+  },
+  'bagging',
+  [runtimeCandidate],
+  runtimeStorage,
+)
+workflow.appendPdaCuttingInboundRuntimeEvent(
+  {
+    ...workflow.createPdaCuttingInboundFormState(),
+    operatorName: 'PDA 入仓测试员',
+    carrierCode: runtimeBagCode,
+    locationLabel: 'CUT-A-01',
+  },
+  'inbound-location',
+  [runtimeCandidate],
+  runtimeStorage,
+)
+assert.deepEqual(
+  listCuttingRuntimeEvents(runtimeStorage)
+    .map((event) => event.eventType)
+    .sort(),
+  ['中转袋入仓', '菲票装袋'].sort(),
+  'PDA 装袋与入仓必须写入和 Web 相同的两类事实',
+)
+assert.equal(
+  buildWaitHandoverLifecycleByBagCode(
+    runtimeBagCode,
+    runtimeStorage,
+  ).flowStage,
+  'INBOUND_STORED',
+)
 
 const inboundMainBranchStart = mainSource.indexOf(
   "const pdaCutInboundActionNode = target.closest<HTMLElement>('[data-pda-cut-inbound-action]')",

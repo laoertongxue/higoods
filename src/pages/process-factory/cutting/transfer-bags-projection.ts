@@ -32,6 +32,13 @@ import type {
   MarkerPlanSourceStatus,
 } from './marker-plan-source-model.ts'
 import type { MarkerSpreadingStore } from './marker-spreading-model.ts'
+import {
+  buildWaitHandoverLifecycleByBagCode,
+  listWaitHandoverLifecycleFacts,
+} from './wait-handover-runtime.ts'
+import type {
+  TransferBagLifecycleView,
+} from '../../../data/fcs/cutting/transfer-bag-lifecycle.ts'
 
 const emptyCraftTraceProjection = {
   items: [],
@@ -162,6 +169,25 @@ function buildTransferBagTicketRecords(input: {
   )
 }
 
+export function buildRuntimeTransferBagLifecycleProjection(
+  bagCodes: readonly string[],
+): Record<string, TransferBagLifecycleView> {
+  return Object.fromEntries(
+    Array.from(new Set(bagCodes.map((bagCode) => bagCode.trim()).filter(Boolean)))
+      .map((bagCode) => {
+        const facts = listWaitHandoverLifecycleFacts(bagCode)
+        return facts.length
+          ? [bagCode, buildWaitHandoverLifecycleByBagCode(bagCode)]
+          : null
+      })
+      .filter(
+        (
+          entry,
+        ): entry is [string, TransferBagLifecycleView] => entry !== null,
+      ),
+  )
+}
+
 export function buildTransferBagsProjection(
   snapshot: CuttingDomainSnapshot = buildFcsCuttingDomainSnapshot(),
   storeOverride?: TransferBagStore,
@@ -201,6 +227,10 @@ export function buildTransferBagsProjection(
     store: transferBagStore,
     baseViewModel: transferBagViewModel,
   })
+  const runtimeLifecycleByBagCode =
+    buildRuntimeTransferBagLifecycleProjection(
+      transferBagViewModel.masters.map((master) => master.bagCode),
+    )
 
   return {
     snapshot,
@@ -208,6 +238,7 @@ export function buildTransferBagsProjection(
     store: transferBagStore,
     viewModel: transferBagViewModel,
     returnViewModel: transferBagReturnViewModel,
+    runtimeLifecycleByBagCode,
     craftTraceProjection: emptyCraftTraceProjection,
   }
 }

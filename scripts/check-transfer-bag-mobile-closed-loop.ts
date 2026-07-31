@@ -43,7 +43,6 @@ const pdaTransferBagDetailSource = read('src/pages/pda-transfer-bag-detail.ts')
 const pdaWarehouseSource = read('src/pages/pda-warehouse.ts') + read('src/pages/pda-warehouse-shared.ts')
 const cuttingSewingPageSource = read('src/pages/process-factory/cutting/warehouse-hub.ts')
 const transferBagsPageSource = read('src/pages/process-factory/cutting/transfer-bags.ts')
-  + read('src/pages/process-factory/cutting/transfer-bags/list.ts')
   + read('src/pages/process-factory/cutting/transfer-bags/detail.ts')
   + read('src/pages/process-factory/cutting/transfer-bags/dialogs.ts')
   + read('src/pages/process-factory/cutting/transfer-bags/handlers.ts')
@@ -75,7 +74,6 @@ assertContains(handoverDataSource, 'combinedWritebackStatus', '交出记录缺�
 
 ;[
   '中转袋',
-  '新建中转袋',
   '扫码装袋',
   '移除菲票',
   '完成装袋',
@@ -100,9 +98,16 @@ assertContains(transferBagsPageSource, '打印中转袋二维码', '中转袋主
 assertContains(transferBagLabelTemplateSource, '中转袋编号', '中转袋二维码打印标签缺少中转袋编号')
 assertContains(transferBagLabelTemplateSource, '所属工厂', '中转袋二维码打印标签缺少所属工厂')
 assertContains(transferBagLabelTemplateSource, '本码只代表中转袋档案', '中转袋档案二维码必须明确不代表业务任务')
-assertContains(cuttingQrPayloadSource, 'cycleId?: string', '中转袋档案二维码不得强制携带使用周期')
+assertNotContains(cuttingQrPayloadSource, 'cycleId?: string', '中转袋档案二维码不得携带可变使用周期')
 assertContains(transferBagsPageSource, 'buildTransferBagArchiveQrValue', '中转袋页面二维码必须按主档生成档案码')
 assertNotContains(cuttingQrPayloadSource, '|| !parsed.cycleId', '中转袋档案二维码解析不得强制要求使用周期')
+assertContains(pdaTransferBagDetailSource, 'buildWaitHandoverLifecycleByBagCode', '扫码详情必须读取统一中转袋生命周期')
+assertContains(pdaTransferBagDetailSource, '物理袋状态', '扫码详情必须明确展示物理袋状态')
+assertContains(pdaTransferBagDetailSource, '流转阶段', '扫码详情必须明确展示流转阶段')
+assertContains(pdaTransferBagDetailSource, '接收回写状态', '扫码详情必须明确展示接收回写状态')
+assertContains(pdaHandoverDetailSource, 'buildWaitHandoverLifecycleByBagCode', '下游交出详情必须读取统一中转袋生命周期')
+assertContains(pdaHandoverDetailSource, '物理袋状态', '下游交出详情必须明确展示物理袋状态')
+assertContains(pdaHandoverDetailSource, '接收回写状态', '下游交出详情必须明确展示接收回写状态')
 ;['当前使用周期', '当前归属任务', '当前流向工厂', '绑定菲票数量', '绑定裁片数量', '车缝任务号', '车缝工厂', '回仓任务', '回仓状态'].forEach((token) => {
   assertNotContains(transferBagLabelTemplateSource, token, `中转袋档案二维码不得包含业务流转字段：${token}`)
 })

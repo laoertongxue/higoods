@@ -28,6 +28,8 @@ export type CuttingRuntimeEventType =
   | '新增交出记录'
   | '特殊工艺交出'
   | '特殊工艺回仓'
+  | '中转袋回收'
+  | '中转袋报废'
 
 export interface CuttingRuntimeRefs {
   productionOrderId?: string
@@ -44,6 +46,8 @@ export interface CuttingRuntimeRefs {
   handoverOrderId?: string
   handoverRecordId?: string
   specialCraftId?: string
+  usageCycleId?: string
+  handoverLegId?: string
 }
 
 export interface RuntimeMaterialSnapshot {
@@ -221,22 +225,35 @@ export interface FinishCuttingPayload {
   differenceTypes: Array<'实裁小于计划' | '实际用量异常' | '其他异常'>
 }
 
+export interface FeiTicketBagSnapshotItem {
+  feiTicketId: string
+  feiTicketNo: string
+  productionOrderId: string
+  productionOrderNo: string
+  spreadingOrderId: string
+  spreadingOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
+  spuCode: string
+  color: string
+  size: string
+  partCode: string
+  partName: string
+  pieceQty: number
+  unit: '片'
+  pieceSequenceLabel: string
+  hasSpecialCraft: boolean
+  specialCraftCategory: string
+  specialCraftDisplay: string
+  receiverFactoryDisplay: string
+  printStatus: string
+  voidStatus: string
+}
+
 export interface FeiTicketBaggingPayload {
   baggingRecordId: string
   bagCode: string
-  feiTicketItems: Array<{
-    feiTicketId: string
-    feiTicketNo: string
-    spreadingOrderId: string
-    spreadingOrderNo: string
-    cutOrderId: string
-    cutOrderNo: string
-    pieceQty: number
-    unit: '片'
-    pieceSequenceLabel: string
-    hasSpecialCraft: boolean
-    specialCraftCategory: string
-  }>
+  feiTicketItems: FeiTicketBagSnapshotItem[]
   totalPieceQty: number
   mixedFlag: boolean
   baggingBy: string
@@ -260,18 +277,7 @@ export interface FeiTicketInboundPayload {
   locationCode: string
   inboundBy: string
   inboundAt: string
-  feiTicketItems: Array<{
-    feiTicketId: string
-    feiTicketNo: string
-    spreadingOrderId: string
-    spreadingOrderNo: string
-    cutOrderId: string
-    cutOrderNo: string
-    pieceQty: number
-    unit: '片'
-    pieceSequenceLabel: string
-    hasSpecialCraft: boolean
-  }>
+  feiTicketItems: FeiTicketBagSnapshotItem[]
   totalPieceQty: number
   mixedFlag: boolean
 }
@@ -396,6 +402,7 @@ export type CuttingRuntimeEventPayload =
 export interface CuttingRuntimeEvent {
   eventId: string
   eventNo: string
+  idempotencyKey?: string
   eventType: CuttingRuntimeEventType
   eventSource: CuttingRuntimeEventSource
   eventStatus: CuttingRuntimeEventStatus
@@ -416,6 +423,7 @@ export interface CuttingRuntimeEventLedgerStore {
 }
 
 export interface AppendCuttingRuntimeEventInput {
+  idempotencyKey?: string
   eventType: CuttingRuntimeEventType
   eventSource?: CuttingRuntimeEventSource
   eventStatus?: CuttingRuntimeEventStatus
@@ -466,6 +474,8 @@ function normalizeRefs(raw: unknown): CuttingRuntimeRefs {
     handoverOrderId: toString(value.handoverOrderId),
     handoverRecordId: toString(value.handoverRecordId),
     specialCraftId: toString(value.specialCraftId),
+    usageCycleId: toString(value.usageCycleId),
+    handoverLegId: toString(value.handoverLegId),
   }
 }
 
@@ -543,6 +553,8 @@ function isRuntimeEventType(value: string): value is CuttingRuntimeEventType {
     '新增交出记录',
     '特殊工艺交出',
     '特殊工艺回仓',
+    '中转袋回收',
+    '中转袋报废',
   ].includes(value)
 }
 
@@ -558,6 +570,7 @@ function normalizeEvent(raw: unknown): CuttingRuntimeEvent | null {
   return {
     eventId,
     eventNo: toString(value.eventNo) || eventId,
+    idempotencyKey: toString(value.idempotencyKey) || undefined,
     eventType: eventTypeText,
     eventSource: eventSourceText === 'WEB' || eventSourceText === 'MOCK' || eventSourceText === 'WMS' ? eventSourceText : 'PDA',
     eventStatus:
@@ -617,6 +630,8 @@ function eventTypeCode(eventType: CuttingRuntimeEventType): string {
     新增交出记录: 'HANDOVER',
     特殊工艺交出: 'CRAFT-OUT',
     特殊工艺回仓: 'CRAFT-IN',
+    中转袋回收: 'BAG-RETURN',
+    中转袋报废: 'BAG-SCRAP',
   }
   return map[eventType]
 }
@@ -669,6 +684,8 @@ export function buildCuttingRuntimeEventId(eventType: CuttingRuntimeEventType, r
     refs.cutOrderNo,
     refs.handoverRecordId,
     refs.transferBagCode,
+    refs.usageCycleId,
+    refs.handoverLegId,
     refs.feiTicketIds?.join('-'),
   ].filter(Boolean).join('-') || 'runtime'
   return `cutting-event:${eventTypeCode(eventType)}:${businessKey}:${compactDate(occurredAt)}`
@@ -684,6 +701,7 @@ export function appendCuttingRuntimeEvent(
   const event: CuttingRuntimeEvent = {
     eventId,
     eventNo: `${eventTypeCode(input.eventType)}-${compactDate(occurredAt)}`,
+    idempotencyKey: input.idempotencyKey,
     eventType: input.eventType,
     eventSource: input.eventSource || 'PDA',
     eventStatus: input.eventStatus || '已同步',
@@ -703,6 +721,29 @@ export function appendCuttingRuntimeEvent(
     events: sortEvents(uniqueByEventId([event, ...store.events.filter((item) => item.eventId !== event.eventId)])),
   }, storage)
   return event
+}
+
+export function appendCuttingRuntimeEventIdempotent(
+  input: AppendCuttingRuntimeEventInput & { idempotencyKey: string },
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): {
+  event: CuttingRuntimeEvent
+  appended: boolean
+} {
+  const store = hydrateCuttingRuntimeEventLedgerStore(storage)
+  const existing = store.events.find(
+    (event) => event.idempotencyKey === input.idempotencyKey,
+  )
+  if (existing) {
+    return {
+      event: existing,
+      appended: false,
+    }
+  }
+  return {
+    event: appendCuttingRuntimeEvent(input, storage),
+    appended: true,
+  }
 }
 
 export function listCuttingRuntimeEvents(

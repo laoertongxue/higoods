@@ -17,6 +17,7 @@ import {
   type PrintQrCode,
 } from '../../../data/fcs/print-service.ts'
 import { buildFeiTicketPrintProjection } from '../../process-factory/cutting/fei-ticket-print-projection.ts'
+import { encodeCarrierQr } from '../../../data/fcs/cutting/qr-codes.ts'
 import {
   buildFeiTicketLabelPrintProjection,
 } from '../../process-factory/cutting/fei-ticket-print-projection.ts'
@@ -496,22 +497,14 @@ export function buildTransferBagLabelPrintDocument(input: PrintDocumentBuildInpu
   const sourceId = master?.bagId || master?.carrierId || input.sourceId
   const businessNo = master?.bagCode || master?.carrierCode || sourceId
   const ownershipFactoryName = master?.ownershipFactoryName || '裁床厂'
-  const qrValue = buildPrintQrPayload({
-    documentType: 'TRANSFER_BAG_LABEL',
-    sourceType: 'TRANSFER_BAG_RECORD',
-    sourceId,
-    businessNo,
-    targetRoute: `/fcs/craft/cutting/transfer-bags?transferBagId=${encodeURIComponent(sourceId)}&bagCode=${encodeURIComponent(businessNo)}`,
-    printVersionNo: 'V1',
-    extra: {
-      carrierId: master?.carrierId || master?.bagId || sourceId,
-      carrierCode: businessNo,
-      bagCode: businessNo,
-      carrierType: master?.carrierType || (carrierTypeLabel === '周转箱' ? 'box' : 'bag'),
-      ownershipFactoryId: master?.ownershipFactoryId || '',
-      ownershipFactoryName,
-    },
-  })
+  const qrValue = encodeCarrierQr({
+    carrierId: master?.carrierId || master?.bagId || sourceId,
+    carrierCode: businessNo,
+    carrierType: master?.carrierType || (carrierTypeLabel === '周转箱' ? 'box' : 'bag'),
+    issuedAt: master?.createdAt || '2026-03-24 08:00',
+    ownershipFactoryId: master?.ownershipFactoryId || '',
+    ownershipFactoryName,
+  }).qrValue
   const item: PrintLabelItem = {
     labelTitle: '',
     labelSubtitle: '',

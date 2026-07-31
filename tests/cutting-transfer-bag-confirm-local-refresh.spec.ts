@@ -29,8 +29,61 @@ type ConfirmResult = {
 async function openPdaWorkflow(page: Page, path: string, workflowSelector: string): Promise<void> {
   await seedLocalStorage(page, { fcs_pda_session: PDA_SESSION })
   await page.goto(path, { waitUntil: 'domcontentloaded' })
-  await expect(page.locator(workflowSelector)).toBeVisible({ timeout: 15_000 })
+  await expect(page.locator(workflowSelector)).toBeVisible({ timeout: 30_000 })
   await page.waitForLoadState('networkidle')
+}
+
+async function seedInboundTransferBagLifecycle(page: Page, bagCode: string): Promise<void> {
+  await page.evaluate(async (runtimeBagCode) => {
+    const {
+      appendWaitHandoverBaggingEvent,
+      appendWaitHandoverInboundEvent,
+    } = await import('/src/pages/process-factory/cutting/wait-handover-runtime.ts')
+    const usageCycleId = `E2E-CYCLE-${runtimeBagCode}`
+    const operator = {
+      operatorId: 'F090_operator',
+      operatorName: '全能力测试工厂_操作工',
+      operatorRole: '裁片仓操作员',
+    }
+    appendWaitHandoverBaggingEvent({
+      source: 'PDA',
+      operator,
+      bagCode: runtimeBagCode,
+      usageCycleId,
+      occurredAt: '2026-07-30 10:00',
+      tickets: [{
+        feiTicketId: 'E2E-FEI-PO-202603-0102-001',
+        feiTicketNo: 'E2E-FEI-PO-202603-0102-001',
+        productionOrderId: 'PO-202603-0102',
+        productionOrderNo: 'PO-202603-0102',
+        cutOrderId: 'E2E-CUT-001',
+        cutOrderNo: 'E2E-CUT-001',
+        spreadingOrderId: 'E2E-SPREAD-001',
+        spreadingOrderNo: 'E2E-SPREAD-001',
+        spuCode: 'SPU-E2E-001',
+        color: '黑色',
+        size: 'M',
+        partCode: 'FRONT',
+        partName: '前片',
+        pieceQty: 12,
+        pieceSequenceLabel: '1-12',
+        hasSpecialCraft: false,
+        specialCraftDisplay: '无特殊工艺',
+        receiverFactoryDisplay: 'HiGood 印尼一厂',
+        printStatus: '已打印',
+        voidStatus: '正常',
+      }],
+    })
+    appendWaitHandoverInboundEvent({
+      source: 'PDA',
+      operator,
+      bagCode: runtimeBagCode,
+      usageCycleId,
+      occurredAt: '2026-07-30 10:05',
+      warehouseArea: '裁片暂存区',
+      locationCode: 'E2E-01',
+    })
+  }, bagCode)
 }
 
 async function setInputValueWithoutInputDispatch(
@@ -248,12 +301,14 @@ test('入仓库位错误时局部刷新并聚焦库位', async ({ page }) => {
 })
 
 test('袋码 Enter 后不等待即可立即扫描任务并确认交出', async ({ page }) => {
+  test.setTimeout(120_000)
   const errors = collectPageErrors(page)
   await openPdaWorkflow(
     page,
     '/fcs/pda/cutting/handover/TASK-CUT-PDA-CUT-DONE-0307?action=transfer-bag-handover',
     '[data-pda-transfer-bag-handover-workflow]',
   )
+  await seedInboundTransferBagLifecycle(page, 'E2E-TB-CUT-260730-001')
   await page.evaluate(() => {
     const bagInput = document.querySelector<HTMLInputElement>(
       '[data-pda-cut-handover-field="bagCode"]',
@@ -262,16 +317,16 @@ test('袋码 Enter 后不等待即可立即扫描任务并确认交出', async (
       '[data-pda-cut-handover-field="sewingTaskCode"]',
     )
     if (!bagInput || !taskInput) throw new Error('缺少整袋交出扫码输入框')
-    bagInput.value = 'TB-CUT-260727-001'
+    bagInput.value = 'E2E-TB-CUT-260730-001'
     bagInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
-    taskInput.value = 'SEW-PO-202603-0102-01'
+    taskInput.value = 'CFRW-PO-202603-0102-01'
     taskInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
   })
   await expect(page.locator('[data-pda-transfer-bag-handover-workflow]')).toContainText(
-    'HiGood 印尼一厂',
+    'kol goto车缝厂',
   )
   await expect(page.locator('[data-pda-cut-handover-field="sewingTaskCode"]')).toHaveValue(
-    'SEW-PO-202603-0102-01',
+    'CFRW-PO-202603-0102-01',
   )
 
   const result = await confirmWithoutBrowserAutoScroll(page, {

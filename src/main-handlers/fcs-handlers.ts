@@ -199,7 +199,6 @@ import {
   handleCraftCuttingWaitHandoverEvent,
   handleCraftCuttingWaitProcessEvent,
 } from '../pages/process-factory/cutting/warehouse-hub'
-import { handleCraftCuttingWaitHandoverWebActionsEvent } from '../pages/process-factory/cutting/wait-handover-web-actions'
 import { handleCraftCuttingPickupManagementEvent } from '../pages/process-factory/cutting/pickup-management'
 import { handleCraftCuttingPickupListEvent } from '../pages/process-factory/cutting/pickup-management-list'
 import { handleCraftCuttingHandoverOrdersEvent } from '../pages/process-factory/cutting/handover-orders'
@@ -454,12 +453,11 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     await handleCraftCuttingFeiTicketsEvent(target) ||
     await handleCraftCuttingFeiTicketNumberingEvent(target) ||
     await handleCraftCuttingWaitProcessEvent(target) ||
-    await handleCraftCuttingWaitHandoverWebActionsEvent(target) ||
     await handleCraftCuttingWaitHandoverEvent(target) ||
     await handleCraftCuttingPickupManagementEvent(target, event) ||
     await handleCraftCuttingHandoverOrdersEvent(target) ||
     await handleCraftCuttingSampleWarehouseEvent(target) ||
-    await handleCraftCuttingTransferBagsEvent(target) ||
+    await handleCraftCuttingTransferBagsEvent(target, event) ||
     await handleCraftCuttingSpecialProcessesEvent(target) ||
     await handleCraftCuttingSummaryEvent(target) ||
     (isSupplementManagementRoute && await handleCraftCuttingSupplementManagementEvent(target, event)) ||

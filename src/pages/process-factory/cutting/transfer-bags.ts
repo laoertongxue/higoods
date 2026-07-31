@@ -1,6 +1,27 @@
-// @page-pattern: dashboard
+// @page-pattern: list
 import { appStore } from '../../../state/store.ts'
 import { renderRealQrPlaceholder } from '../../../components/real-qr.ts'
+import { renderSecondaryButton } from '../../../components/ui/button.ts'
+import {
+  renderStandardListPage,
+  renderStandardListStats,
+} from '../../../components/ui/list-page.ts'
+import {
+  renderStandardListColumnSettings,
+  renderStandardListTable,
+  type StandardListColumn,
+} from '../../../components/ui/list-table.ts'
+import {
+  clearListColumnPreferences,
+  loadListColumnPreferences,
+  normalizeListColumnPreferences,
+  paginateStandardListRows,
+  saveListColumnPreferences,
+  sortStandardListRows,
+  type StandardListColumnPreferences,
+  type StandardListSortState,
+} from '../../../components/ui/list-table-model.ts'
+import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { escapeHtml, formatDateTime } from '../../../utils.ts'
 import {
   PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
@@ -135,12 +156,11 @@ import {
   type ReturnFilterField,
   type ReturnDraftField,
   type ConditionDraftField,
+  type ScrapDraftField,
   type MasterDraftField,
   type PackDraftField,
 } from './transfer-bags/state.ts'
 import {
-  completeInboundStorage,
-  confirmHandoverPacking,
   ensureUsageAutoCreatedForTicket,
   getActiveMaster,
   getActiveUsage,
@@ -158,24 +178,24 @@ import {
   getSourceUsage,
   parseTicketInputs,
   refreshDerivedState,
-  releaseInboundBag,
   resetMasterDraft,
   resetMasterPagination,
-  resetPackDraft,
   resetReturnDraft,
   resolveCarrierScanInput,
   resolveLockedUsageContext,
   resolvePackBag,
   resolvePackTickets,
   saveMasterDraft,
-  savePackDraft,
-  saveReturnDraft,
   syncPrefilterFromQuery,
   syncReusableDecisionSuggestion,
 } from './transfer-bags/handlers.ts'
 import {
   renderActiveDialog,
 } from './transfer-bags/dialogs.ts'
+import {
+  appendWaitHandoverPhysicalReturnEvent,
+  appendWaitHandoverScrapEvent,
+} from './wait-handover-runtime.ts'
 import {
   isTransferBagDetailTab,
   readTransferBagDetailTab,
@@ -191,12 +211,9 @@ function renderTag(label: string, className: string): string {
 }
 
 function getCarrierCurrentStatusClass(status: string): string {
-  if (status === '可用') return 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-  if (status === '入仓装袋中' || status === '交出装袋中') return 'bg-blue-100 text-blue-700 border border-blue-200'
-  if (status === '入仓暂存中') return 'bg-cyan-100 text-cyan-700 border border-cyan-200'
-  if (status === '待交出') return 'bg-violet-100 text-violet-700 border border-violet-200'
-  if (status === '已交出待回收') return 'bg-orange-100 text-orange-700 border border-orange-200'
-  if (status === '报废') return 'bg-slate-200 text-slate-700 border border-slate-300'
+  if (status === '空闲') return 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+  if (status === '使用中') return 'bg-blue-100 text-blue-700 border border-blue-200'
+  if (status === '已报废') return 'bg-slate-200 text-slate-700 border border-slate-300'
   return 'bg-slate-100 text-slate-700 border border-slate-200'
 }
 
@@ -346,12 +363,16 @@ function renderMasterStatusActions(options: {
   historyHref: string
 }): string {
   const { item, currentStatus, detailHref, historyHref } = options
-  void currentStatus
   const actionButtons: string[] = [
     `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(detailHref)}">查看详情</button>`,
     `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(historyHref)}">查看使用周期</button>`,
     `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(buildTransferBagLabelPrintLink(item.bagId))}">打印中转袋二维码</button>`,
   ]
+  if (currentStatus !== '已报废') {
+    actionButtons.push(
+      `<button type="button" class="rounded-md border border-rose-200 px-2.5 py-1.5 text-xs text-rose-700 hover:bg-rose-50" data-transfer-bags-action="open-scrap" data-bag-id="${escapeHtml(item.bagId)}">确认报废</button>`,
+    )
+  }
 
   return actionButtons.join('')
 }
@@ -551,9 +572,10 @@ function renderListHeaderActions(): string {
 }
 
 function renderMasterQuickFilterBar(): string {
-  const statusOptions: TransferBagCarrierCurrentStatus[] = ['可用', '入仓装袋中', '入仓暂存中', '交出装袋中', '待交出', '已交出待回收', '报废']
+  const statusOptions: TransferBagCarrierCurrentStatus[] = ['空闲', '使用中', '已报废']
+  const useStageOptions: TransferBagCarrierUseStage[] = ['菲票已装袋', '入仓暂存中', '已交出待回收']
   return renderStickyFilterShell(`
-    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.4fr,1fr,1fr]">
+    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.4fr,1fr,1fr,1fr]">
       <label class="space-y-2">
         <span class="text-sm font-medium text-foreground">袋码</span>
         <input
@@ -564,6 +586,15 @@ function renderMasterQuickFilterBar(): string {
           data-fast-page-render="true"
           data-transfer-bags-master-field="keyword"
         />
+      </label>
+      <label class="space-y-2">
+        <span class="text-sm font-medium text-foreground">当前流转阶段</span>
+        <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-fast-page-render="true" data-transfer-bags-master-field="useStage">
+          <option value="ALL" ${state.masterUseStage === 'ALL' ? 'selected' : ''}>全部阶段</option>
+          ${useStageOptions
+            .map((stage) => `<option value="${escapeHtml(stage)}" ${state.masterUseStage === stage ? 'selected' : ''}>${escapeHtml(stage)}</option>`)
+            .join('')}
+        </select>
       </label>
       <label class="space-y-2">
         <span class="text-sm font-medium text-foreground">当前状态</span>
@@ -636,18 +667,18 @@ function renderActiveListFilterBar(): string {
 function renderActiveListStats(): string {
   const { filteredItems, carrierRecordsByBagCode } = getPagedMasters()
   const statusOf = (item: TransferBagMasterItem) => carrierRecordsByBagCode[item.bagCode]?.currentStatus || item.currentStatus
-  const inUseCount = filteredItems.filter((item) => statusOf(item) === 'IN_USE').length
-  const dispatchedCount = filteredItems.filter((item) => statusOf(item) === 'DISPATCHED').length
-  const disabledCount = filteredItems.filter((item) => statusOf(item) === 'DISABLED').length
+  const idleCount = filteredItems.filter((item) => statusOf(item) === '空闲').length
+  const inUseCount = filteredItems.filter((item) => statusOf(item) === '使用中').length
+  const disabledCount = filteredItems.filter((item) => statusOf(item) === '已报废').length
   const packedTicketCount = filteredItems.reduce((sum, item) => sum + (item.packedTicketCount || 0), 0)
 
-  return renderCompactKpiGroup(`
-    ${renderCompactKpiCard('中转袋', filteredItems.length, '当前筛选范围', 'text-slate-900')}
-    ${renderCompactKpiCard('使用中', inUseCount, '当前绑定业务对象', 'text-blue-600')}
-    ${renderCompactKpiCard('已交出', dispatchedCount, '等待接收方回收', 'text-orange-600')}
-    ${renderCompactKpiCard('已报废', disabledCount, '不可继续流转', 'text-slate-600')}
-    ${renderCompactKpiCard('装载菲票', packedTicketCount, '当前筛选袋内菲票数', 'text-violet-600')}
-  `)
+  return renderStandardListStats([
+    { label: '中转袋', value: filteredItems.length },
+    { label: '空闲', value: idleCount },
+    { label: '使用中', value: inUseCount },
+    { label: '已报废', value: disabledCount },
+    { label: '装载菲票', value: packedTicketCount },
+  ])
 }
 
 function renderUsageRecordQuerySection(): string {
@@ -1030,7 +1061,7 @@ function renderCarrierScrapSection(): string {
                         </td>
                         <td class="px-4 py-3">
                           <div class="font-medium text-blue-700">${escapeHtml(item.bagCode)}</div>
-                          <div class="mt-1">${renderTag(carrierRecord?.currentStatus || '报废', getCarrierCurrentStatusClass(carrierRecord?.currentStatus || '报废'))}</div>
+                          <div class="mt-1">${renderTag(carrierRecord?.currentStatus || '已报废', getCarrierCurrentStatusClass(carrierRecord?.currentStatus || '已报废'))}</div>
                         </td>
                         <td class="px-4 py-3">${renderTransferBagQrCell(item.bagCode)}</td>
                         <td class="px-4 py-3 text-xs text-muted-foreground">
@@ -1145,116 +1176,242 @@ function renderCutPieceSortingTaskPanel(): string {
   return ''
 }
 
-function renderMasterSection(): string {
-  const { filteredItems, pageSlice, carrierRecordsByBagCode } = getPagedMasters()
-  const items = pageSlice.items
+type TransferBagMasterListRow = {
+  item: TransferBagMasterItem
+  carrierRecord?: TransferBagCarrierMasterRecord
+}
+
+const transferBagListPageSizes = [10, 20, 50]
+const transferBagListStorageKey =
+  'standard-list-preferences:/fcs/craft/cutting/transfer-bags'
+const transferBagListMaxFrozenWidth = 720
+let transferBagListPreferencesLoaded = false
+let transferBagListColumnSettingsOpen = false
+let transferBagListSort: StandardListSortState | null = null
+let transferBagListDraggedColumnKey = ''
+
+function renderTransferBagMasterCell(row: TransferBagMasterListRow): string {
+  const { item, carrierRecord } = row
+  const detailHref = buildTransferBagDetailRoute({
+    bagId: item.bagId,
+    bagCode: item.bagCode,
+    usageId: item.currentUsage?.usageId || undefined,
+    usageNo: item.currentUsage?.usageNo || undefined,
+  })
   return `
-    <div class="space-y-3" role="tabpanel" aria-label="中转袋档案">
-      <section class="rounded-lg border bg-card">
-        <div class="flex items-center justify-between border-b px-4 py-3">
-          <div>
-            <h2 class="text-sm font-semibold text-foreground">中转袋档案</h2>
-          </div>
-          <div class="text-xs text-muted-foreground">共 ${filteredItems.length} 条中转袋</div>
-        </div>
-        ${!items.length
-          ? '<div class="px-6 py-10 text-center text-sm text-muted-foreground">暂无匹配结果</div>'
-          : `${renderStickyTableScroller(`
-            <table class="min-w-[1260px] w-full text-sm">
-              <thead class="sticky top-0 z-10 bg-muted/95 text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th class="px-4 py-3 text-left">中转袋</th>
-                  <th class="px-4 py-3 text-left">中转袋二维码</th>
-                  <th class="px-4 py-3 text-left">当前状态</th>
-                  <th class="px-4 py-3 text-left">当前使用</th>
-                  <th class="px-4 py-3 text-left">当前所在</th>
-                  <th class="px-4 py-3 text-left">当前装载</th>
-                  <th class="px-4 py-3 text-left">最近记录</th>
-                  <th class="px-4 py-3 text-left">报废记录</th>
-                  <th class="px-4 py-3 text-left">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${items
-                  .map(
-                    (item) => {
-                      const detailHref = buildTransferBagDetailRoute({
-                        bagId: item.bagId,
-                        bagCode: item.bagCode,
-                        usageId: item.currentUsage?.usageId || undefined,
-                        usageNo: item.currentUsage?.usageNo || undefined,
-                      })
-                      const historyHref = buildTransferBagDetailRoute({
-                        bagId: item.bagId,
-                        bagCode: item.bagCode,
-                        usageId: item.currentUsage?.usageId || undefined,
-                        usageNo: item.currentUsage?.usageNo || undefined,
-                        detailTab: 'history',
-                      })
-                      const carrierRecord = carrierRecordsByBagCode[item.bagCode]
-                      const currentStatus = carrierRecord?.currentStatus || item.visibleStatusMeta.label
-                      const scrapCount = carrierRecord?.scrapCount || 0
-                      return `
-                      <tr class="border-b ${state.activeMasterId === item.bagId ? 'bg-blue-50/60' : 'bg-card'}">
-                        <td class="px-4 py-3">
-                          <button type="button" class="font-medium text-blue-700 hover:underline" data-nav="${escapeHtml(detailHref)}">${escapeHtml(item.bagCode)}</button>
-                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(carrierRecord?.bagSpec || `${item.bagType} / 容量 ${item.capacity} 张`)}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(`载具类型：${item.carrierType === 'box' ? '箱' : '袋'} / ${(carrierRecord?.bagMaterial || '循环载具').split('可' + '复' + '用').join('循环')}`)}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(`归属：${carrierRecord?.ownershipFactoryName || item.ownershipFactoryName || '待补货权工厂'}`)}</div>
-                        </td>
-                        <td class="px-4 py-3">${renderTransferBagQrCell(item.bagCode)}</td>
-                        <td class="px-4 py-3">
-                          ${renderTag(currentStatus, getCarrierCurrentStatusClass(currentStatus))}
-                        </td>
-                        <td class="px-4 py-3">
-                          <div class="font-medium text-foreground">${escapeHtml(carrierRecord?.currentUseStage || '无')}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml([carrierRecord?.currentBoundObjectType, carrierRecord?.currentBoundObjectNo].filter(Boolean).join('：') || '未绑定业务对象')}</div>
-                        </td>
-                        <td class="px-4 py-3">
-                          <div class="font-medium text-foreground">${escapeHtml(carrierRecord?.currentLocation || item.currentLocation || '待命位')}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(carrierRecord?.enabled === false ? '已报废' : '可流转')}</div>
-                        </td>
-                        <td class="px-4 py-3">
-                          <div class="font-medium text-foreground">${escapeHtml(`${carrierRecord?.currentFeiTicketCount || item.packedTicketCount || 0} 张菲票`)}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(`${carrierRecord?.currentPieceQty || item.currentTotalPieceCount || 0} 片裁片`)}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">物料：按装载明细追溯</div>
-                        </td>
-                        <td class="px-4 py-3">
-                          <div class="font-medium text-foreground">${escapeHtml(carrierRecord?.lastUsedAt || item.currentUsage?.startedAt || '暂无使用记录')}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">最近交出：${escapeHtml(item.currentUsage?.dispatchAt || '暂无')}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">最近回收：${escapeHtml(carrierRecord?.lastReturnedAt || '暂无')}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">累计使用：${escapeHtml(String(carrierRecord?.totalUseCount || 0))} 次</div>
-                        </td>
-                        <td class="px-4 py-3">
-                          <div class="font-medium ${scrapCount ? 'text-rose-700' : 'text-muted-foreground'}">${escapeHtml(String(scrapCount))} 条</div>
-                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(scrapCount ? '查看报废记录确认处置结果' : '无报废记录')}</div>
-                        </td>
-                        <td class="px-4 py-3">
-                          <div class="flex flex-wrap gap-2">
-                            ${renderMasterStatusActions({ item, currentStatus, detailHref, historyHref })}
-                          </div>
-                        </td>
-                      </tr>
-                    `
-                    },
-                  )
-                  .join('')}
-              </tbody>
-            </table>
-          `)}
-          ${renderWorkbenchPagination({
-            page: pageSlice.page,
-            pageSize: pageSlice.pageSize,
-            total: filteredItems.length,
-            actionAttr: 'data-transfer-bags-action',
-            pageAction: 'set-master-page',
-            pageSizeAttr: 'data-transfer-bags-master-page-size',
-            extraAttrs: 'data-fast-page-render="true"',
-            pageSizeOptions: [10, 20, 50],
-          })}`}
-      </section>
-    </div>
+    <button type="button" class="font-medium text-blue-700 hover:underline" data-nav="${escapeHtml(detailHref)}">${escapeHtml(item.bagCode)}</button>
+    <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(carrierRecord?.bagSpec || `${item.bagType} / 容量 ${item.capacity} 张`)}</div>
+    <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(`归属：${carrierRecord?.ownershipFactoryName || item.ownershipFactoryName || '待补货权工厂'}`)}</div>
   `
+}
+
+const transferBagListColumns: StandardListColumn<TransferBagMasterListRow>[] = [
+  {
+    key: 'bag',
+    title: '中转袋',
+    width: 230,
+    required: true,
+    freezeable: true,
+    sortable: true,
+    render: renderTransferBagMasterCell,
+    sortValue: ({ item }) => item.bagCode,
+  },
+  {
+    key: 'qr',
+    title: '中转袋二维码',
+    width: 150,
+    required: true,
+    freezeable: true,
+    render: ({ item }) => renderTransferBagQrCell(item.bagCode),
+  },
+  {
+    key: 'status',
+    title: '中转袋状态',
+    width: 130,
+    required: true,
+    freezeable: true,
+    sortable: true,
+    render: ({ item, carrierRecord }) => {
+      const status = carrierRecord?.currentStatus || item.visibleStatusMeta.label
+      return renderTag(status, getCarrierCurrentStatusClass(status))
+    },
+    sortValue: ({ item, carrierRecord }) =>
+      carrierRecord?.currentStatus || item.visibleStatusMeta.label,
+  },
+  {
+    key: 'stage',
+    title: '当前流转阶段',
+    width: 170,
+    required: true,
+    freezeable: true,
+    sortable: true,
+    render: ({ carrierRecord }) => `
+      <div class="font-medium text-foreground">${escapeHtml(carrierRecord?.currentUseStage || '—')}</div>
+      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(carrierRecord?.currentUseId || '无打开使用周期')}</div>
+    `,
+    sortValue: ({ carrierRecord }) => carrierRecord?.currentUseStage || '—',
+  },
+  {
+    key: 'location',
+    title: '当前所在',
+    width: 190,
+    freezeable: true,
+    sortable: true,
+    render: ({ item, carrierRecord }) => `
+      <div class="font-medium text-foreground">${escapeHtml(carrierRecord?.currentLocation || item.currentLocation || '待命位')}</div>
+      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(carrierRecord?.enabled === false ? '已报废' : '可流转')}</div>
+    `,
+    sortValue: ({ item, carrierRecord }) =>
+      carrierRecord?.currentLocation || item.currentLocation || '',
+  },
+  {
+    key: 'load',
+    title: '当前装载',
+    width: 170,
+    sortable: true,
+    render: ({ item, carrierRecord }) => `
+      <div class="font-medium text-foreground">${escapeHtml(`${carrierRecord?.currentFeiTicketCount || item.packedTicketCount || 0} 张菲票`)}</div>
+      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(`${carrierRecord?.currentPieceQty || item.currentTotalPieceCount || 0} 片裁片`)}</div>
+    `,
+    sortValue: ({ item, carrierRecord }) =>
+      carrierRecord?.currentFeiTicketCount || item.packedTicketCount || 0,
+  },
+  {
+    key: 'recent',
+    title: '最近记录',
+    width: 220,
+    sortable: true,
+    render: ({ item, carrierRecord }) => `
+      <div class="font-medium text-foreground">${escapeHtml(carrierRecord?.lastUsedAt || item.currentUsage?.startedAt || '暂无使用记录')}</div>
+      <div class="mt-1 text-xs text-muted-foreground">最近交出：${escapeHtml(item.currentUsage?.dispatchAt || '暂无')}</div>
+      <div class="mt-1 text-xs text-muted-foreground">最近回收：${escapeHtml(carrierRecord?.lastReturnedAt || '暂无')}</div>
+    `,
+    sortValue: ({ item, carrierRecord }) =>
+      carrierRecord?.lastUsedAt || item.currentUsage?.startedAt || '',
+  },
+  {
+    key: 'scrap',
+    title: '报废记录',
+    width: 140,
+    sortable: true,
+    render: ({ carrierRecord }) => {
+      const count = carrierRecord?.scrapCount || 0
+      return `
+        <div class="font-medium ${count ? 'text-rose-700' : 'text-muted-foreground'}">${count} 条</div>
+        <div class="mt-1 text-xs text-muted-foreground">${count ? '查看报废记录' : '无报废记录'}</div>
+      `
+    },
+    sortValue: ({ carrierRecord }) => carrierRecord?.scrapCount || 0,
+  },
+  {
+    key: 'actions',
+    title: '操作',
+    width: 240,
+    required: true,
+    actionColumn: true,
+    render: ({ item, carrierRecord }) => {
+      const detailHref = buildTransferBagDetailRoute({
+        bagId: item.bagId,
+        bagCode: item.bagCode,
+        usageId: item.currentUsage?.usageId || undefined,
+        usageNo: item.currentUsage?.usageNo || undefined,
+      })
+      const historyHref = buildTransferBagDetailRoute({
+        bagId: item.bagId,
+        bagCode: item.bagCode,
+        usageId: item.currentUsage?.usageId || undefined,
+        usageNo: item.currentUsage?.usageNo || undefined,
+        detailTab: 'history',
+      })
+      const currentStatus =
+        carrierRecord?.currentStatus
+        || item.visibleStatusMeta.label
+      return `<div class="flex flex-wrap gap-2">${renderMasterStatusActions({
+        item,
+        currentStatus,
+        detailHref,
+        historyHref,
+      })}</div>`
+    },
+  },
+]
+
+const defaultTransferBagListPreferences = normalizeListColumnPreferences(
+  transferBagListColumns,
+  {
+    order: transferBagListColumns.map((column) => column.key),
+    visibleKeys: transferBagListColumns.map((column) => column.key),
+    frozenKeys: ['bag'],
+    pageSize: 10,
+  },
+  transferBagListPageSizes,
+)
+let transferBagListPreferences: StandardListColumnPreferences =
+  defaultTransferBagListPreferences
+
+function ensureTransferBagListPreferences(): void {
+  if (transferBagListPreferencesLoaded) return
+  transferBagListPreferencesLoaded = true
+  try {
+    transferBagListPreferences = loadListColumnPreferences(
+      localStorage,
+      transferBagListStorageKey,
+      transferBagListColumns,
+      defaultTransferBagListPreferences,
+      transferBagListPageSizes,
+    )
+  } catch {
+    transferBagListPreferences = defaultTransferBagListPreferences
+  }
+  state.masterPageSize = transferBagListPreferences.pageSize
+}
+
+function saveTransferBagListPreferences(): void {
+  try {
+    saveListColumnPreferences(
+      localStorage,
+      transferBagListStorageKey,
+      transferBagListPreferences,
+    )
+  } catch {
+    // 本地偏好保存失败不阻断列表查询。
+  }
+}
+
+function getTransferBagMasterListView() {
+  ensureTransferBagListPreferences()
+  const { filteredItems, carrierRecordsByBagCode } = getPagedMasters()
+  const rows = filteredItems.map((item) => ({
+    item,
+    carrierRecord: carrierRecordsByBagCode[item.bagCode],
+  }))
+  const sortedRows = sortStandardListRows(
+    rows,
+    transferBagListSort,
+    (row, key) =>
+      transferBagListColumns.find((column) => column.key === key)
+        ?.sortValue?.(row),
+  )
+  const paging = paginateStandardListRows(
+    sortedRows,
+    state.masterPage,
+    transferBagListPreferences.pageSize,
+  )
+  state.masterPage = paging.currentPage
+  return { filteredItems, paging }
+}
+
+function renderMasterSection(
+  view = getTransferBagMasterListView(),
+): string {
+  return renderStandardListTable({
+    columns: transferBagListColumns,
+    rows: view.paging.rows,
+    preferences: transferBagListPreferences,
+    sort: transferBagListSort,
+    eventPrefix: 'transfer-bag-list',
+    emptyText: '暂无匹配结果。',
+  })
 }
 
 function renderMasterDetail(item: TransferBagMasterItem | null): string {
@@ -1945,8 +2102,6 @@ function renderReturnWorkbenchSection(): string {
                 <span class="text-sm font-medium text-foreground">回收结果</span>
                 <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-condition-field="reusableDecision">
                   <option value="REUSABLE" ${state.conditionDraft.reusableDecision === 'REUSABLE' ? 'selected' : ''}>可继续使用</option>
-                  <option value="WAITING_CLEANING" ${state.conditionDraft.reusableDecision === 'WAITING_CLEANING' ? 'selected' : ''}>可继续使用</option>
-                  <option value="WAITING_REPAIR" ${state.conditionDraft.reusableDecision === 'WAITING_REPAIR' ? 'selected' : ''}>可继续使用</option>
                   <option value="DISABLED" ${state.conditionDraft.reusableDecision === 'DISABLED' ? 'selected' : ''}>报废</option>
                 </select>
               </label>
@@ -2188,18 +2343,44 @@ function renderListPage(): string {
   syncPrefilterFromQuery()
   if (isTransferBagDetailPage()) return renderDetailPage()
   const meta = getCanonicalCuttingMeta(getCurrentTransferBagPathname(), 'transfer-bags')
-  return `
-    <div class="space-y-3 p-4">
-      ${renderCuttingPageHeader(meta, { actionsHtml: renderListHeaderActions() })}
-      ${renderPrefilterBar()}
-      ${renderLandingBanner()}
-      ${renderFeedbackBar()}
-      ${renderActiveListFilterBar()}
-      ${renderActiveListStats()}
-      ${renderMasterSection()}
-      ${renderActiveDialog()}
-    </div>
-  `
+  const view = getTransferBagMasterListView()
+  const columnSettingsButton = renderSecondaryButton(
+    '列设置',
+    { prefix: 'transfer-bag-list', action: 'open-column-settings' },
+    'columns-3',
+  )
+  const pagination = renderTablePagination({
+    total: view.paging.total,
+    from: view.paging.from,
+    to: view.paging.to,
+    currentPage: view.paging.currentPage,
+    totalPages: view.paging.totalPages,
+    pageSize: view.paging.pageSize,
+    actionPrefix: 'transfer-bag-list',
+    fieldPrefix: 'transfer-bag-list',
+    pageSizeOptions: transferBagListPageSizes,
+  })
+  const columnSettings = transferBagListColumnSettingsOpen
+    ? renderStandardListColumnSettings({
+        title: '中转袋列表列设置',
+        columns: transferBagListColumns,
+        preferences: transferBagListPreferences,
+        eventPrefix: 'transfer-bag-list',
+        maxFrozenWidth: transferBagListMaxFrozenWidth,
+      })
+    : ''
+  return renderStandardListPage({
+    title: meta.pageTitle,
+    primaryActionsHtml: renderListHeaderActions(),
+    feedbackHtml: `${renderLandingBanner()}${renderFeedbackBar()}`,
+    filtersHtml: `${renderPrefilterBar()}${renderActiveListFilterBar()}`,
+    statsHtml: renderActiveListStats(),
+    listTitle: `中转袋档案（${view.filteredItems.length}）`,
+    listActionsHtml: columnSettingsButton,
+    tableHtml: renderMasterSection(view),
+    paginationHtml: pagination,
+    overlaysHtml: `${renderActiveDialog()}${columnSettings}`,
+  })
 }
 
 
@@ -2348,29 +2529,16 @@ function completeReturnInspection(targetUsageId?: string): boolean {
   }
 
   const receipt = buildReturnReceiptFromState(usage, bag)
+  const condition = buildConditionRecordFromState(usage, bag)
   const validation = validateReturnReceiptPayload({
     usage,
     bag,
     receipt,
+    condition,
   })
   if (!validation.ok) {
     setFeedback('warning', validation.reason)
     return true
-  }
-
-  const receiptIndex = state.store.returnReceipts.findIndex((item) => item.usageId === usage.usageId)
-  if (receiptIndex >= 0) {
-    state.store.returnReceipts[receiptIndex] = receipt
-  } else {
-    state.store.returnReceipts.push(receipt)
-  }
-
-  const condition = buildConditionRecordFromState(usage, bag)
-  const conditionIndex = state.store.conditionRecords.findIndex((item) => item.usageId === usage.usageId)
-  if (conditionIndex >= 0) {
-    state.store.conditionRecords[conditionIndex] = condition
-  } else {
-    state.store.conditionRecords.push(condition)
   }
 
   const closure = closeTransferBagUsageCycle({
@@ -2381,6 +2549,50 @@ function completeReturnInspection(targetUsageId?: string): boolean {
     nowText: receipt.returnAt,
     closedBy: receipt.receivedBy || '中转袋工作台',
   })
+  try {
+    if (closure.nextBagStatus === 'DISABLED') {
+      appendWaitHandoverScrapEvent({
+        source: 'WEB',
+        operator: {
+          operatorName: receipt.receivedBy,
+          operatorRole: '中转袋主管',
+        },
+        bagCode: bag.bagCode,
+        usageCycleId: usage.cycleId,
+        scrappedAt: receipt.returnAt,
+        reason: condition.damageType,
+      })
+    } else {
+      appendWaitHandoverPhysicalReturnEvent({
+        source: 'WEB',
+        operator: {
+          operatorName: receipt.receivedBy,
+          operatorRole: '中转袋回收员',
+        },
+        bagCode: bag.bagCode,
+        usageCycleId: usage.cycleId,
+        returnedAt: receipt.returnAt,
+        returnWarehouseName: receipt.returnWarehouseName,
+        note: receipt.note,
+      })
+    }
+  } catch (error) {
+    setFeedback('warning', error instanceof Error ? error.message : '中转袋回收事实写入失败，请重试。')
+    return true
+  }
+  const receiptIndex = state.store.returnReceipts.findIndex((item) => item.usageId === usage.usageId)
+  if (receiptIndex >= 0) {
+    state.store.returnReceipts[receiptIndex] = receipt
+  } else {
+    state.store.returnReceipts.push(receipt)
+  }
+
+  const conditionIndex = state.store.conditionRecords.findIndex((item) => item.usageId === usage.usageId)
+  if (conditionIndex >= 0) {
+    state.store.conditionRecords[conditionIndex] = condition
+  } else {
+    state.store.conditionRecords.push(condition)
+  }
   const closureIndex = state.store.closureResults.findIndex((item) => item.usageId === usage.usageId)
   if (closureIndex >= 0) {
     state.store.closureResults[closureIndex] = closure
@@ -2413,6 +2625,96 @@ function completeReturnInspection(targetUsageId?: string): boolean {
   persistStore()
   closeActiveDialog()
   setFeedback(closure.closureStatus === 'SCRAP_CLOSED' ? 'warning' : 'success', `${usage.usageNo} 已完成回收，${bag.bagCode} 当前状态：${deriveTransferBagMasterStatus(bag.currentStatus).label}。`)
+  return true
+}
+
+function completeDirectScrap(): boolean {
+  const reason = state.scrapDraft.reason.trim()
+  const authorizedBy = state.scrapDraft.authorizedBy.trim()
+  if (!reason) {
+    setFeedback('warning', '确认报废时必须填写报废原因。')
+    return true
+  }
+  if (!authorizedBy) {
+    setFeedback('warning', '确认报废时必须填写授权主管。')
+    return true
+  }
+  const bag = getSourceMaster(state.scrapDraft.bagId)
+  if (!bag) {
+    setFeedback('warning', '未找到待报废的中转袋，请返回列表重新选择。')
+    return true
+  }
+  if (bag.currentStatus === 'DISABLED') {
+    setFeedback('warning', `${bag.bagCode} 已报废，不能重复确认。`)
+    return true
+  }
+  const occurredAt = nowText()
+  const openUsage = state.store.usages
+    .filter((usage) =>
+      usage.bagId === bag.bagId
+      && !['CLOSED', 'SCRAP_CLOSED'].includes(usage.usageStatus))
+    .sort((left, right) => right.startedAt.localeCompare(left.startedAt, 'zh-CN'))[0]
+    || null
+  try {
+    appendWaitHandoverScrapEvent({
+      source: 'WEB',
+      operator: {
+        operatorName: authorizedBy,
+        operatorRole: '中转袋主管',
+      },
+      bagCode: bag.bagCode,
+      usageCycleId: openUsage?.cycleId,
+      scrappedAt: occurredAt,
+      reason,
+    })
+  } catch (error) {
+    setFeedback('warning', error instanceof Error ? error.message : '中转袋报废事实写入失败，请重试。')
+    return true
+  }
+
+  if (openUsage) {
+    openUsage.usageStatus = 'SCRAP_CLOSED'
+    openUsage.cycleStatus = 'SCRAP_CLOSED'
+    openUsage.returnedAt = occurredAt
+    openUsage.returnedBy = authorizedBy
+    openUsage.note = `主管直接报废：${reason}`
+    state.store.closureResults.push({
+      closureId: buildCuttingTraceabilityId('closure', occurredAt, openUsage.cycleId, 'direct-scrap'),
+      cycleId: openUsage.cycleId,
+      cycleNo: openUsage.cycleNo,
+      usageId: openUsage.usageId,
+      usageNo: openUsage.usageNo,
+      closedAt: occurredAt,
+      closedBy: authorizedBy,
+      closureStatus: 'SCRAP_CLOSED',
+      nextBagStatus: 'DISABLED',
+      reason,
+      warningMessages: ['主管已确认实物不可继续使用。'],
+    })
+  }
+  bag.currentStatus = 'DISABLED'
+  bag.currentLocation = '报废区'
+  bag.enabled = false
+  bag.note = [bag.note, `报废：${reason}`].filter(Boolean).join('；')
+  state.store.scrapRecords.push({
+    scrapRecordId: buildCuttingTraceabilityId('scrap', occurredAt, bag.bagId),
+    bagCode: bag.bagCode,
+    scrapType: '中转袋报废',
+    relatedUseId: openUsage?.usageId || '',
+    relatedObjectType: openUsage ? '使用周期' : '中转袋主档',
+    relatedObjectId: openUsage?.usageNo || bag.bagCode,
+    description: reason,
+    evidencePhotos: [],
+    reportedAt: occurredAt,
+    reportedBy: authorizedBy,
+    handlingStatus: '已关闭',
+    handledAt: occurredAt,
+    handledBy: authorizedBy,
+  })
+  refreshDerivedState()
+  persistStore()
+  closeActiveDialog()
+  setFeedback('success', `${bag.bagCode} 已由 ${authorizedBy} 确认报废。`)
   return true
 }
 
@@ -2827,7 +3129,191 @@ export function renderCraftCuttingTransferBagDetailPage(): string {
   return renderDetailPage()
 }
 
-export function handleCraftCuttingTransferBagsEvent(target: Element): boolean {
+export function handleCraftCuttingTransferBagsEvent(
+  target: Element,
+  event?: Event,
+): boolean {
+  const standardFieldNode = target.closest<
+    HTMLInputElement | HTMLSelectElement
+  >('[data-transfer-bag-list-field]')
+  if (
+    standardFieldNode?.dataset.transferBagListField === 'pageSize'
+    && event?.type === 'change'
+  ) {
+    const pageSize = Number(standardFieldNode.value)
+    if (transferBagListPageSizes.includes(pageSize)) {
+      transferBagListPreferences = normalizeListColumnPreferences(
+        transferBagListColumns,
+        { ...transferBagListPreferences, pageSize },
+        transferBagListPageSizes,
+      )
+      state.masterPage = 1
+      state.masterPageSize = pageSize
+      saveTransferBagListPreferences()
+    }
+    return true
+  }
+
+  const standardActionNode = target.closest<HTMLElement>(
+    '[data-transfer-bag-list-action]',
+  )
+  const standardAction =
+    standardActionNode?.dataset.transferBagListAction
+  if (standardActionNode && standardAction) {
+    if (standardAction === 'prev-page') {
+      state.masterPage = Math.max(1, state.masterPage - 1)
+      return true
+    }
+    if (standardAction === 'next-page') {
+      state.masterPage += 1
+      return true
+    }
+    if (standardAction === 'sort-column') {
+      const key = standardActionNode.dataset.columnKey || ''
+      const column = transferBagListColumns.find(
+        (item) => item.key === key && item.sortable,
+      )
+      if (!column) return true
+      transferBagListSort =
+        transferBagListSort?.key !== key
+          ? { key, direction: 'asc' }
+          : transferBagListSort.direction === 'asc'
+            ? { key, direction: 'desc' }
+            : null
+      state.masterPage = 1
+      return true
+    }
+    if (standardAction === 'open-column-settings') {
+      transferBagListColumnSettingsOpen = true
+      return true
+    }
+    if (standardAction === 'close-column-settings') {
+      transferBagListColumnSettingsOpen = false
+      return true
+    }
+    if (
+      standardAction === 'toggle-column-visibility'
+      && event?.type === 'change'
+    ) {
+      const key =
+        standardActionNode.dataset.transferBagListColumnKey
+        || standardActionNode.dataset.columnKey
+        || ''
+      const column = transferBagListColumns.find((item) => item.key === key)
+      if (!column || column.required || column.actionColumn) return true
+      const visibleKeys = new Set(transferBagListPreferences.visibleKeys)
+      const frozenKeys = new Set(transferBagListPreferences.frozenKeys)
+      if (visibleKeys.has(key)) {
+        visibleKeys.delete(key)
+        frozenKeys.delete(key)
+      } else {
+        visibleKeys.add(key)
+      }
+      transferBagListPreferences = normalizeListColumnPreferences(
+        transferBagListColumns,
+        {
+          ...transferBagListPreferences,
+          visibleKeys: [...visibleKeys],
+          frozenKeys: [...frozenKeys],
+        },
+        transferBagListPageSizes,
+      )
+      if (!visibleKeys.has(key) && transferBagListSort?.key === key) {
+        transferBagListSort = null
+      }
+      saveTransferBagListPreferences()
+      return true
+    }
+    if (
+      standardAction === 'toggle-column-freeze'
+      && event?.type === 'change'
+    ) {
+      const key =
+        standardActionNode.dataset.transferBagListColumnKey
+        || standardActionNode.dataset.columnKey
+        || ''
+      const column = transferBagListColumns.find((item) => item.key === key)
+      if (!column?.freezeable || column.actionColumn) return true
+      const frozenKeys = new Set(transferBagListPreferences.frozenKeys)
+      if (frozenKeys.has(key)) frozenKeys.delete(key)
+      else frozenKeys.add(key)
+      transferBagListPreferences = normalizeListColumnPreferences(
+        transferBagListColumns,
+        {
+          ...transferBagListPreferences,
+          frozenKeys: [...frozenKeys],
+        },
+        transferBagListPageSizes,
+      )
+      saveTransferBagListPreferences()
+      return true
+    }
+    if (standardAction === 'restore-column-settings') {
+      transferBagListPreferences = defaultTransferBagListPreferences
+      transferBagListSort = null
+      state.masterPage = 1
+      try {
+        clearListColumnPreferences(
+          localStorage,
+          transferBagListStorageKey,
+        )
+      } catch {
+        // 本地偏好清理失败不阻断列表恢复。
+      }
+      return true
+    }
+  }
+
+  const dragNode = target.closest<HTMLElement>(
+    '[data-standard-list-column-drag]',
+  )
+  if (
+    dragNode
+    && event
+    && ['dragstart', 'dragover', 'drop', 'dragend'].includes(event.type)
+  ) {
+    const key =
+      dragNode.dataset.dragSource
+      || dragNode.dataset.dropTarget
+      || ''
+    if (event.type === 'dragstart') {
+      transferBagListDraggedColumnKey = key
+      return true
+    }
+    if (event.type === 'dragover') {
+      event.preventDefault()
+      return true
+    }
+    if (event.type === 'drop') {
+      event.preventDefault()
+      const sourceKey = transferBagListDraggedColumnKey
+      const targetKey = key
+      const order = transferBagListPreferences.order.filter(
+        (columnKey) => columnKey !== sourceKey,
+      )
+      const targetIndex = order.indexOf(targetKey)
+      if (
+        sourceKey
+        && targetIndex >= 0
+        && !transferBagListColumns.find(
+          (column) => column.key === sourceKey,
+        )?.actionColumn
+      ) {
+        order.splice(targetIndex, 0, sourceKey)
+        transferBagListPreferences = normalizeListColumnPreferences(
+          transferBagListColumns,
+          { ...transferBagListPreferences, order },
+          transferBagListPageSizes,
+        )
+        saveTransferBagListPreferences()
+      }
+      transferBagListDraggedColumnKey = ''
+      return true
+    }
+    transferBagListDraggedColumnKey = ''
+    return true
+  }
+
   const masterFieldNode = target.closest<HTMLElement>('[data-transfer-bags-master-field]')
   if (masterFieldNode) {
     const field = masterFieldNode.dataset.transferBagsMasterField as MasterFilterField | undefined
@@ -2932,6 +3418,18 @@ export function handleCraftCuttingTransferBagsEvent(target: Element): boolean {
     return true
   }
 
+  const scrapDraftFieldNode = target.closest<HTMLElement>('[data-transfer-bags-scrap-draft-field]')
+  if (scrapDraftFieldNode) {
+    const field = scrapDraftFieldNode.dataset.transferBagsScrapDraftField as ScrapDraftField | undefined
+    if (!field) return false
+    const input = scrapDraftFieldNode as HTMLInputElement
+    state.scrapDraft = {
+      ...state.scrapDraft,
+      [field]: input.value,
+    }
+    return true
+  }
+
   const conditionToggleNode = target.closest<HTMLElement>('[data-transfer-bags-condition-toggle]')
   if (conditionToggleNode) {
     const field = conditionToggleNode.dataset.transferBagsConditionToggle
@@ -2995,21 +3493,17 @@ export function handleCraftCuttingTransferBagsEvent(target: Element): boolean {
     state.activeDialog = 'new-master'
     return true
   }
+  if (action === 'open-scrap') {
+    state.scrapDraft = {
+      bagId: actionNode.dataset.bagId || '',
+      reason: '',
+      authorizedBy: '',
+    }
+    state.activeDialog = 'scrap'
+    return true
+  }
+  if (action === 'save-scrap') return completeDirectScrap()
   if (action === 'save-master') return saveMasterDraft()
-  if (action === 'open-inbound-pack') {
-    resetPackDraft('INBOUND_TEMP', actionNode.dataset.bagId)
-    state.activeDialog = 'inbound-pack'
-    return true
-  }
-  if (action === 'open-handover-pack') {
-    resetPackDraft('HANDOVER_PACKING', actionNode.dataset.bagId)
-    state.activeDialog = 'handover-pack'
-    return true
-  }
-  if (action === 'save-inbound-pack') return savePackDraft('INBOUND_TEMP')
-  if (action === 'save-handover-pack') return savePackDraft('HANDOVER_PACKING')
-  if (action === 'complete-inbound-storage') return completeInboundStorage(actionNode.dataset.usageId || state.activeUsageId || undefined)
-  if (action === 'release-inbound-bag') return releaseInboundBag(actionNode.dataset.usageId || state.activeUsageId || undefined)
   if (action === 'open-return') {
     const usageId = actionNode.dataset.usageId || state.activeUsageId || ''
     if (usageId) syncUsageSelection(usageId)
@@ -3017,7 +3511,7 @@ export function handleCraftCuttingTransferBagsEvent(target: Element): boolean {
     state.activeDialog = 'return'
     return true
   }
-  if (action === 'save-return') return saveReturnDraft()
+  if (action === 'save-return') return completeReturnInspection(state.activeUsageId || undefined)
   if (action === 'prepare-return') {
     const usageId = actionNode.dataset.usageId || state.activeUsageId || ''
     if (usageId) syncUsageSelection(usageId)
@@ -3085,14 +3579,7 @@ export function handleCraftCuttingTransferBagsEvent(target: Element): boolean {
     syncUsageSelection(usageId)
     return true
   }
-  if (action === 'create-usage') return createUsage()
-  if (action === 'bind-ticket') return bindTicketByInput()
-  if (action === 'import-prefill') return importCandidateTickets()
-  if (action === 'remove-binding') return removeBinding(actionNode.dataset.bindingId)
   if (action === 'print-manifest') return printManifest(actionNode.dataset.usageId || state.activeUsageId || undefined)
-  if (action === 'confirm-handover') return confirmHandoverPacking(actionNode.dataset.usageId || state.activeUsageId || undefined)
-  if (action === 'mark-ready') return updateUsageStatus(actionNode.dataset.usageId || state.activeUsageId || undefined, 'READY_TO_DISPATCH')
-  if (action === 'mark-dispatched') return updateUsageStatus(actionNode.dataset.usageId || state.activeUsageId || undefined, 'DISPATCHED')
   if (action === 'complete-return-inspection') return completeReturnInspection(actionNode.dataset.usageId || state.activeUsageId || undefined)
 
   if (action === 'go-cut-piece-warehouse-index') {

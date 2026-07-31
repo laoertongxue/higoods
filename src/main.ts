@@ -617,7 +617,7 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
   }
   if (pathname.startsWith('/fcs/craft/cutting/transfer-bags')) {
     const transferBagsPage = await getCraftCuttingTransferBagsPageModule()
-    return transferBagsPage.handleCraftCuttingTransferBagsEvent(eventTarget)
+    return transferBagsPage.handleCraftCuttingTransferBagsEvent(eventTarget, event)
   }
   if (
     pathname.startsWith('/fcs/craft/cutting/production-progress') ||
