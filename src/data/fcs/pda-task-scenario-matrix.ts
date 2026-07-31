@@ -69,7 +69,7 @@ export const PDA_MOBILE_PROCESS_DEFINITIONS: PdaMobileProcessDefinition[] = [
     primaryFactoryIds: ['OWN_WOOL_FACTORY'],
     preferredAssignmentMode: 'DIRECT',
     supportsTaskMatrix: true,
-    notes: '周哥毛织厂自有任务，覆盖整件毛织与部位毛织的接单、收纱、开工、关键节点和交出。',
+    notes: '周哥毛织厂自有任务，整件毛织与部位毛织均按确认接收、加工填报、发起交出和人工完成加工单执行；缺少任一必需纱线的款色不可填报。',
   },
   {
     key: 'PRINTING',

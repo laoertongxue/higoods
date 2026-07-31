@@ -36,6 +36,7 @@ export interface WoolWorkOrder {
   productionOrderNo: string
   styleNo: string
   styleName: string
+  styleImageUrl?: string
   internalStyleCode?: string
   factoryId: string
   factoryName: string

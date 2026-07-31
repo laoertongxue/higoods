@@ -113,6 +113,7 @@ interface ValidateBindingContext {
   actualTask: ProcessTask | null
   currentFactoryId: string
   requireExactTaskId?: boolean
+  skipAcceptanceGate?: boolean
 }
 
 export interface ValidateProcessMobileTaskBindingParams {
@@ -572,13 +573,20 @@ function isTaskClosed(task: ProcessTask | null | undefined): boolean {
 }
 
 export function isTaskExecutable(task: ProcessTask | null | undefined): boolean {
-  if (!task || !isTaskAccepted(task) || isTaskRejected(task) || isTaskInBiddingOrAwarding(task) || isTaskClosed(task)) return false
+  if (!task || isTaskClosed(task)) return false
+  if (getMobileTaskProcessType(task) === 'WOOL') {
+    return EXECUTABLE_STATES.has(getMobileTaskExecutionState(task))
+  }
+  if (!isTaskAccepted(task) || isTaskRejected(task) || isTaskInBiddingOrAwarding(task)) return false
   return EXECUTABLE_STATES.has(getMobileTaskExecutionState(task))
 }
 
 export function isTaskVisibleInMobileExecutionList(task: ProcessTask | null | undefined, currentFactoryId = TEST_FACTORY_ID): boolean {
   if (!task) return false
   if (!isMobileTaskFactoryMatched(task, currentFactoryId)) return false
+  if (getMobileTaskProcessType(task) === 'WOOL') {
+    return !isTaskClosed(task) && OPENABLE_STATES.has(getMobileTaskExecutionState(task))
+  }
   if (!isTaskAccepted(task)) return false
   if (isTaskRejected(task) || isTaskInBiddingOrAwarding(task) || isTaskClosed(task)) return false
   return OPENABLE_STATES.has(getMobileTaskExecutionState(task))
@@ -628,18 +636,19 @@ export function getMobileTaskAccessResult(task: ProcessTask | null | undefined, 
       suggestedAction: reasonMeta.action,
     }
   }
+  const skipAcceptanceGate = getMobileTaskProcessType(task) === 'WOOL'
   let reasonCode: BindingReasonCode = 'OK'
   if (!isMobileTaskFactoryMatched(task, currentFactoryId)) {
     reasonCode = 'TASK_FACTORY_MISMATCH'
-  } else if (isTaskRejected(task)) {
+  } else if (!skipAcceptanceGate && isTaskRejected(task)) {
     reasonCode = 'TASK_REJECTED'
   } else if (isTaskClosed(task)) {
     reasonCode = 'TASK_CLOSED'
-  } else if (getMobileTaskBiddingState(task) === '待定标') {
+  } else if (!skipAcceptanceGate && getMobileTaskBiddingState(task) === '待定标') {
     reasonCode = 'TASK_WAITING_AWARD'
-  } else if (isTaskInBiddingOrAwarding(task)) {
+  } else if (!skipAcceptanceGate && isTaskInBiddingOrAwarding(task)) {
     reasonCode = 'TASK_IN_BIDDING'
-  } else if (!isTaskAccepted(task)) {
+  } else if (!skipAcceptanceGate && !isTaskAccepted(task)) {
     reasonCode = 'TASK_NOT_ACCEPTED'
   } else if (!isTaskVisibleInMobileExecutionList(task, currentFactoryId)) {
     reasonCode = 'TASK_NOT_VISIBLE_IN_MOBILE_LIST'
@@ -672,7 +681,8 @@ function validateBinding(context: ValidateBindingContext): ProcessMobileTaskBind
   const isFactoryMatched = task
     ? isMobileTaskFactoryMatched(task, context.currentFactoryId, context.expectedFactoryId)
     : false
-  const isAcceptedOrExecutable = Boolean(task) && (isTaskAccepted(task) || isTaskExecutable(task))
+  const isAcceptedOrExecutable = Boolean(task)
+    && (context.skipAcceptanceGate || isTaskAccepted(task) || isTaskExecutable(task))
   const isVisibleInMobileExecutionList = isTaskVisibleInMobileExecutionList(task, context.currentFactoryId)
 
   let reasonCode: BindingReasonCode = 'OK'
@@ -688,15 +698,15 @@ function validateBinding(context: ValidateBindingContext): ProcessMobileTaskBind
     reasonCode = 'TASK_PROCESS_TYPE_MISMATCH'
   } else if (!isFactoryMatched) {
     reasonCode = 'TASK_FACTORY_MISMATCH'
-  } else if (isTaskRejected(task)) {
+  } else if (!context.skipAcceptanceGate && isTaskRejected(task)) {
     reasonCode = 'TASK_REJECTED'
   } else if (isTaskClosed(task)) {
     reasonCode = 'TASK_CLOSED'
-  } else if (getMobileTaskBiddingState(task) === '待定标') {
+  } else if (!context.skipAcceptanceGate && getMobileTaskBiddingState(task) === '待定标') {
     reasonCode = 'TASK_WAITING_AWARD'
-  } else if (isTaskInBiddingOrAwarding(task)) {
+  } else if (!context.skipAcceptanceGate && isTaskInBiddingOrAwarding(task)) {
     reasonCode = 'TASK_IN_BIDDING'
-  } else if (!isTaskAccepted(task)) {
+  } else if (!context.skipAcceptanceGate && !isTaskAccepted(task)) {
     reasonCode = 'TASK_NOT_ACCEPTED'
   } else if (!isVisibleInMobileExecutionList) {
     reasonCode = 'TASK_NOT_VISIBLE_IN_MOBILE_LIST'
@@ -738,7 +748,7 @@ function getDyeTask(order: DyeWorkOrder): ProcessTask | null {
 }
 
 function getWoolTask(order: WoolWorkOrder): ProcessTask | null {
-  return getPdaMobileExecutionTaskById(order.taskNo)
+  return getPdaMobileExecutionTaskById(order.taskId)
 }
 
 function selectBestCuttingTask(orderId: string): ProcessTask | null {
@@ -835,13 +845,15 @@ export function validateWoolWorkOrderMobileTaskBinding(woolOrderId: string): Pro
     workOrderNo: order?.woolOrderNo || woolOrderId,
     processType: 'WOOL',
     sourceType: 'WOOL_WORK_ORDER',
-    sourceId: woolOrderId,
-    expectedTaskId: order?.taskNo,
+    sourceId: order?.woolOrderId || woolOrderId,
+    expectedTaskId: order?.taskId,
     expectedTaskNo: order?.taskNo,
     expectedFactoryId: order?.factoryId,
     sourceExists: Boolean(order),
     actualTask: order ? getWoolTask(order) : null,
     currentFactoryId: order?.factoryId || TEST_FACTORY_ID,
+    requireExactTaskId: true,
+    skipAcceptanceGate: true,
   })
 }
 

@@ -813,6 +813,7 @@ const {
   getWoolAllowedActions,
   getWoolWarehouseStock,
   getWoolWorkOrderBlockReason,
+  getWoolWorkOrderByTaskId,
   getWoolWorkOrderReadinessProjection,
   getWoolWorkOrderTab,
   getWoolWorkOrderTabCounts,
@@ -5555,6 +5556,87 @@ for (const removedText of [
   assert(!task11WarehouseSource.includes(removedText), `任务 11 毛织仓库不得保留：${removedText}`)
 }
 
+const task12PdaDetailSource = readFileSync(
+  new URL('../src/pages/pda-exec-detail.ts', import.meta.url),
+  'utf8',
+)
+const task12PdaFactSource = readFileSync(
+  new URL('../src/pages/pda-wool-fact-execution.ts', import.meta.url),
+  'utf8',
+)
+const task12PdaListSource = readFileSync(
+  new URL('../src/pages/pda-exec.ts', import.meta.url),
+  'utf8',
+)
+const task12PdaReceiveSource = readFileSync(
+  new URL('../src/pages/pda-task-receive.ts', import.meta.url),
+  'utf8',
+)
+const task12MobileBindingSource = readFileSync(
+  new URL('../src/data/fcs/process-mobile-task-binding.ts', import.meta.url),
+  'utf8',
+)
+for (const requiredText of [
+  '确认接收',
+  '加工填报',
+  '发起交出',
+  '完成加工单',
+  'getWoolAllowedActions',
+  'addWoolYarnReceipt',
+  'addWoolProcessReport',
+  'addWoolHandover',
+  'completeWoolWorkOrder',
+  'data-wool-order-id',
+  'data-skip-page-rerender="true"',
+]) {
+  assert(task12PdaFactSource.includes(requiredText), `任务 12 PDA 毛织执行缺少：${requiredText}`)
+}
+for (const removedText of [
+  'acceptWoolWorkOrder',
+  'updateWoolWorkOrderNodeStatus',
+  'markWoolFeiTicketsPrinted',
+  'scheduleWoolMachines',
+]) {
+  assert(!task12PdaDetailSource.includes(removedText), `任务 12 PDA 毛织执行不得保留：${removedText}`)
+  assert(!task12PdaReceiveSource.includes(removedText), `任务 12 PDA 接单不得保留：${removedText}`)
+}
+for (const removedText of [
+  'wool-workflow',
+  'wool-node-start',
+  'startWoolOrderFromMobile',
+  'reportWoolMilestoneFromMobile',
+  'finishWoolOrderFromMobile',
+]) {
+  assert(!task12PdaDetailSource.includes(removedText), `任务 12 PDA 详情不得保留旧执行分支：${removedText}`)
+}
+assert(task12PdaListSource.includes('renderWoolFactCard'))
+assert(task12PdaListSource.includes('buildWoolMobileTaskProjection'))
+assert(task12MobileBindingSource.includes('skipAcceptanceGate'))
+assert(task12MobileBindingSource.includes('requireExactTaskId: true'))
+
+const task12ExactOrderA = listWoolWorkOrders()[0]
+const task12ExactOrderB = listWoolWorkOrders()[1]
+assert.equal(getWoolWorkOrderByTaskId(task12ExactOrderA.taskId)?.woolOrderId, task12ExactOrderA.woolOrderId)
+assert.equal(getWoolWorkOrderByTaskId('TASK-WOOL-NOT-EXISTS'), undefined)
+assert.throws(
+  () => commitWoolStore((draft) => {
+    draft.workOrders[task12ExactOrderB.woolOrderId].taskId = task12ExactOrderA.taskId
+  }),
+  /加工单任务存在重复 ID/,
+  '存储层必须拒绝同一 taskId 绑定多个毛织加工单',
+)
+const { acceptPdaGenericProcessTask } = await import('../src/data/fcs/pda-task-mock-factory.ts')
+const task12StoreBeforeGenericAccept = JSON.stringify(readWoolStore())
+acceptPdaGenericProcessTask(task12ExactOrderA.taskId, {
+  acceptedAt: '2026-07-31 10:00:00',
+  acceptedBy: '任务 12 接单零写探针',
+})
+assert.equal(
+  JSON.stringify(readWoolStore()),
+  task12StoreBeforeGenericAccept,
+  '通用 PDA 接单探针不得写入毛织事实仓',
+)
+
 console.log('PASS task 5: global command receipts, atomic stock, downstream lock, and manual completion')
 console.log('PASS task 6: current machine associations and derived four-state availability')
 console.log('PASS task 7: runtime generation freezes traceable yarn facts and exposes domain actions')
@@ -5562,3 +5644,4 @@ console.log('PASS task 8: standard wool work-order list and fact command dialogs
 console.log(`PASS task 9: seven-tab wool fact detail, paged records, immutable completion facts, and 300-row readiness in ${scaleRenderElapsedMs.toFixed(1)}ms`)
 console.log(`PASS task 10: standard machine workbenches; one snapshot ${task10WorkbenchElapsedMs.toFixed(1)}ms, 600-order/600-machine scale ${task10ScaleElapsedMs.toFixed(1)}ms`)
 console.log('PASS task 11: fixed-location wool warehouse standard lists and local fact commands')
+console.log('PASS task 12: PDA wool fact operations and acceptance-independent exact binding')

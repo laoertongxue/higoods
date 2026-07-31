@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>毛织 PDA 事实执行交互夹具</title>
+  </head>
+  <body>
+    <main id="root"></main>
+    <script type="module">
+      import {
+        handlePdaWoolExecutionEvent,
+        renderPdaWoolExecutionContent,
+      } from '/src/pages/pda-wool-fact-execution.ts'
+      import { resetWoolFactWorkflowMock } from '/src/data/fcs/wool-domain/mock-data.ts'
+      import {
+        getWoolWorkOrderByTaskId,
+        listWoolFactRecords,
+      } from '/src/data/fcs/wool-task-domain.ts'
+
+      const taskId = new URLSearchParams(location.search).get('taskId') || 'TASK-WOOL-MOCK-01'
+      resetWoolFactWorkflowMock('TASK12_BROWSER_DOM')
+      const root = document.querySelector('#root')
+      root.innerHTML = renderPdaWoolExecutionContent(taskId)
+      document.addEventListener('click', (event) => {
+        if (!(event.target instanceof HTMLElement)) return
+        handlePdaWoolExecutionEvent(event.target)
+      })
+      window.getTask12FactCounts = () => {
+        const order = getWoolWorkOrderByTaskId(taskId)
+        if (!order) return null
+        const records = listWoolFactRecords({ woolOrderId: order.woolOrderId })
+        return records.reduce((counts, item) => {
+          counts[item.recordType] = (counts[item.recordType] || 0) + 1
+          return counts
+        }, {})
+      }
+      window.doubleSubmitTask12CurrentDialog = () => {
+        const button = document.querySelector('[data-pda-wool-action="save-fact"]')
+        if (!(button instanceof HTMLElement)) return null
+        handlePdaWoolExecutionEvent(button)
+        handlePdaWoolExecutionEvent(button)
+        return window.getTask12FactCounts()
+      }
+    </script>
+  </body>
+</html>

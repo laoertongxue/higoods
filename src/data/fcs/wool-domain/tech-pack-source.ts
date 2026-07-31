@@ -432,6 +432,13 @@ export function buildWoolOrderFromRuntimeTask(taskId: string): WoolWorkOrder {
     productionOrderNo: source.productionOrderNo,
     styleNo: techPackSnapshot.styleCode || productionOrder.demandSnapshot.spuCode,
     styleName: techPackSnapshot.styleName || productionOrder.demandSnapshot.spuName,
+    styleImageUrl: [
+      ...techPackSnapshot.imageSnapshot.styleImages,
+      ...techPackSnapshot.imageSnapshot.productImages,
+      ...techPackSnapshot.imageSnapshot.sampleImages,
+      ...techPackSnapshot.imageSnapshot.artworkImages,
+      ...techPackSnapshot.imageSnapshot.patternImages,
+    ].find(Boolean) || undefined,
     internalStyleCode: techPackSnapshot.internalStyleCode || undefined,
     factoryId: task.assignedFactoryId || '',
     factoryName: task.assignedFactoryName || '',

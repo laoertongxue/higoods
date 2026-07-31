@@ -721,6 +721,26 @@ export function listWoolWorkOrders(filters: WoolWorkOrderFilters = {}): WoolWork
     .sort((left, right) => left.woolOrderNo.localeCompare(right.woolOrderNo))
 }
 
+export function getWoolWorkOrderById(woolOrderId: string): WoolWorkOrder | undefined {
+  const normalizedId = woolOrderId.trim()
+  if (!normalizedId) return undefined
+  return Object.values(readWoolStore().workOrders).find((order) =>
+    order.woolOrderId === normalizedId,
+  )
+}
+
+export function getWoolWorkOrderByTaskId(taskId: string): WoolWorkOrder | undefined {
+  const normalizedId = taskId.trim()
+  if (!normalizedId) return undefined
+  const matches = Object.values(readWoolStore().workOrders).filter((order) =>
+    order.taskId === normalizedId,
+  )
+  if (matches.length > 1) {
+    throw new Error(`移动任务 ${normalizedId} 关联了多张毛织加工单，禁止猜测具体加工单`)
+  }
+  return matches[0]
+}
+
 export function getWoolWorkOrderTabCounts(
   filters: Omit<WoolWorkOrderFilters, 'tab'> = {},
 ): Record<WoolWorkOrderTab, number> {
