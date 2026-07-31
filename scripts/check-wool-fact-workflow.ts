@@ -6084,6 +6084,59 @@ assert(
   '通用标签打印不得继续读取或渲染毛织菲票',
 )
 
+const task15E2eSource = task14ReadSource('tests/wool-management-fact-workflow.spec.ts')
+const task15ReviewSource = task14ReadSource(
+  'docs/prototype-review-records/2026-07-30-wool-management-fact-workflow.md',
+)
+for (const requiredE2eText of [
+  'mockScenarioCode',
+  '搜索条件联动三个 Tab',
+  '任一款色全部必需纱线',
+  '计划数量的 150%',
+  '至少一次加工填报才可交出',
+  '五类事实并自动解除横机',
+  '横机支持一单多设备',
+  '固定默认库位',
+  '下游确认后锁定',
+  '关键交互小于 200ms',
+  '1366',
+  '1280',
+  "page.goto('/placeholder.svg')",
+  '/fcs/craft/wool/work-orders',
+  '/fcs/process-factory/wool/machine-associations',
+]) {
+  assert(
+    task15E2eSource.includes(requiredE2eText),
+    `毛织事实流 E2E 缺少稳定验收锚点：${requiredE2eText}`,
+  )
+}
+assert(
+  task15E2eSource.includes("test.describe.configure({ mode: 'serial' })")
+    && task15E2eSource.includes('window.localStorage.setItem(woolStoreKey, JSON.stringify(baseStore))'),
+  '毛织事实流 E2E 必须串行复用浏览器上下文，并在每例独立重置 Mock Store',
+)
+
+for (const requiredReviewText of [
+  '# 毛织管理事实流原型审查记录',
+  '## 2.1 业务对象与协作关系核查',
+  '## 2.2 核心规则核查',
+  '## 2.3 页面与交互核查',
+  '## 3. 自查结论',
+  '## 5. 自动验收场景',
+  '### 例外',
+  '不按重量和单件用量换算最多可加工件数',
+  '毛织待交出仓 / 裁片默认库位',
+  '毛织待交出仓 / 成衣默认库位',
+  '1366×768',
+  '1280×720',
+  '/fcs/pda/handover/:handoverId',
+]) {
+  assert(
+    task15ReviewSource.includes(requiredReviewText),
+    `毛织事实流正式审查记录缺少必要说明：${requiredReviewText}`,
+  )
+}
+
 console.log('PASS task 5: global command receipts, atomic stock, downstream lock, and manual completion')
 console.log('PASS task 6: current machine associations and derived four-state availability')
 console.log('PASS task 7: runtime generation freezes traceable yarn facts and exposes domain actions')
@@ -6093,3 +6146,4 @@ console.log(`PASS task 10: standard machine workbenches; one snapshot ${task10Wo
 console.log('PASS task 11: fixed-location wool warehouse standard lists and local fact commands')
 console.log(`PASS task 12: PDA wool fact operations, exact binding, and 320-order single-snapshot projection in ${task12MobileScaleElapsedMs.toFixed(1)}ms`)
 console.log('PASS task 14: legacy wool pages, routes, print source, price, and node semantics removed')
+console.log('PASS task 15: independent E2E scenarios and formal prototype governance review')

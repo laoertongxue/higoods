@@ -23,6 +23,7 @@ import {
   getWoolOutputReportedQty,
   getWoolOutputStockQty,
   getWoolProcessingStatus,
+  getWoolMachineById,
   getWoolWorkOrderBlockReason,
   getWoolWorkOrderTab,
   getWoolWorkOrderTabCounts,
@@ -547,6 +548,12 @@ function renderCompleteDialog(order: WoolWorkOrder): string {
   const receiptFacts = listWoolFactRecords({ woolOrderId: order.woolOrderId, recordType: 'YARN_RECEIPT' })
   const reportFacts = listWoolFactRecords({ woolOrderId: order.woolOrderId, recordType: 'PROCESS_REPORT' })
   const handoverFacts = listWoolFactRecords({ woolOrderId: order.woolOrderId, recordType: 'HANDOVER' })
+  const machineFacts = listWoolMachineAssociations(order.woolOrderId).map((association) => {
+    const machine = getWoolMachineById(association.machineId)
+    return machine
+      ? `${machine.machineNo}｜${machine.machineName}｜生产中｜关联时间 ${association.associatedAt}`
+      : `${association.machineId}｜设备资料缺失｜关联时间 ${association.associatedAt}`
+  })
   const yarnSummary = [...new Set(order.outputPlanLines.flatMap((line) => line.requiredYarnSkus))].map((sku) => {
     const matchedReceipts = receiptFacts
       .map((item) => item.record as WoolYarnReceiptRecord)
@@ -585,6 +592,9 @@ function renderCompleteDialog(order: WoolWorkOrder): string {
         return `<div>${escapeHtml(record.handoverId)}：${effectiveHandoverQty(record)}${record.qtyUnit}，${escapeHtml(downstream)}</div>`
       }).join('') || '<div>暂无交出记录</div>'}</div>`)}
       ${factBlock('待交出仓情况', order.outputPlanLines.map((line) => `<div>${escapeHtml(line.outputSkuCode)}：默认库位现存 ${getWoolOutputStockQty(order.woolOrderId, line.outputSkuCode)}${line.qtyUnit}</div>`).join(''))}
+      ${factBlock('当前横机关联', machineFacts.length
+        ? machineFacts.map((text) => `<div>${escapeHtml(text)}</div>`).join('')
+        : '<div>当前未关联横机；确认完成后无需解除设备关系。</div>')}
     </div>
     <label class="mt-4 block text-sm"><span class="mb-1 block text-xs text-muted-foreground">完成确认备注</span><textarea class="min-h-20 w-full rounded-md border p-3" data-wool-dialog-field="remark"></textarea></label>
     <div class="mt-3 text-xs text-muted-foreground">当前共有 ${receiptFacts.length} 次接收、${reportFacts.length} 次加工填报、${handoverFacts.length} 次发起交出。确认后系统自动解除本加工单全部横机关联。</div>
