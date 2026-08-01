@@ -103,6 +103,8 @@ const pdaHandoverSource = readFileSync(new URL('../src/pages/pda-cutting-handove
 const warehouseHubSource = readFileSync(new URL('../src/pages/process-factory/cutting/warehouse-hub.ts', import.meta.url), 'utf8')
 const warehouseMapSource = readFileSync(new URL('../src/pages/process-factory/cutting/warehouse-location-map.ts', import.meta.url), 'utf8')
 const warehouseMapUiSource = readFileSync(new URL('../src/components/ui/warehouse-location-map.ts', import.meta.url), 'utf8')
+const warehouseMapModelSource = readFileSync(new URL('../src/pages/process-factory/cutting/warehouse-location-map-model.ts', import.meta.url), 'utf8')
+const warehouseMapReviewRecordSource = readFileSync(new URL('../docs/prototype-review-records/2026-07-30-cutting-warehouse-location-map.md', import.meta.url), 'utf8')
 const warehouseLayoutStoreSource = readFileSync(new URL('../src/pages/process-factory/cutting/warehouse-location-layout-store.ts', import.meta.url), 'utf8')
 const warehouseLayoutStoreModule = await import('../src/pages/process-factory/cutting/warehouse-location-layout-store.ts') as Record<string, unknown>
 const fcsHandlersSource = readFileSync(new URL('../src/main-handlers/fcs-handlers.ts', import.meta.url), 'utf8')
@@ -932,24 +934,39 @@ mismatchedProjection.areas.flatMap((area) => area.shelves).flatMap((shelf) => sh
   .find((location) => location.locationId === shelfLocationIds[0])!.warehouseId = 'OTHER-WAREHOUSE'
 assert.equal(validateWarehouseLocationSelection(mismatchedProjection, [shelfLocationIds[0]]).ok, false, '稳定引用与当前仓库不一致时不得选择')
 const conflictProjection = structuredClone(emptyProjection)
-const conflictCells = conflictProjection.areas.flatMap((area) => area.shelves)
+const allConflictCells = conflictProjection.areas.flatMap((area) => area.shelves)
   .flatMap((shelf) => shelf.locations)
-  .filter((location) => [shelfLocationIds[1], crossAreaLocationId].includes(location.locationId))
-assert.equal(conflictCells.length, 2)
-conflictCells.forEach((cell) => { cell.businessStatus = 'OCCUPIED' })
+const validCell = allConflictCells.find((location) => location.locationId === shelfLocationIds[0])!
+const occupiedCell = allConflictCells.find((location) => location.locationId === shelfLocationIds[1])!
+occupiedCell.businessStatus = 'OCCUPIED'
+const stoppedLocationCell = allConflictCells.find((location) => location.locationId === shelfLocationIds[2])!
+stoppedLocationCell.status = 'STOPPED'
+const stoppedShelfCell = allConflictCells.find((location) => location.locationId === crossShelfLocationId)!
+stoppedShelfCell.shelfStatus = 'STOPPED'
+const stoppedAreaCell = allConflictCells.find((location) => location.locationId === crossAreaLocationId)!
+stoppedAreaCell.areaStatus = 'STOPPED'
 const revalidatedSelection = revalidateWarehouseLocationSelection(conflictProjection, [
-  shelfLocationIds[0],
-  shelfLocationIds[1],
-  crossShelfLocationId,
-  crossAreaLocationId,
+  validCell.locationId,
+  occupiedCell.locationId,
+  'UNKNOWN-LOCATION',
+  stoppedAreaCell.locationId,
+  stoppedShelfCell.locationId,
+  stoppedLocationCell.locationId,
+  externalLocationId,
 ])
 assert.equal(revalidatedSelection.ok, false)
-conflictCells.forEach((cell) => assert.match(revalidatedSelection.message, new RegExp(cell.locationNo), '冲突反馈必须列出每个完整库位编号'))
-assert.deepEqual(revalidatedSelection.selectedLocationIds, [shelfLocationIds[0], crossShelfLocationId], '重投影后只剔除冲突项并保持其余点击顺序')
-const unknownRevalidation = revalidateWarehouseLocationSelection(emptyProjection, [shelfLocationIds[0], 'UNKNOWN-LOCATION'])
-assert.equal(unknownRevalidation.ok, false)
-assert.match(unknownRevalidation.message, /UNKNOWN-LOCATION/, '未知库位冲突反馈必须保留可追溯 ID')
-assert.deepEqual(unknownRevalidation.selectedLocationIds, [shelfLocationIds[0]])
+for (const cell of [occupiedCell, stoppedAreaCell, stoppedShelfCell, stoppedLocationCell]) {
+  assert.match(revalidatedSelection.message, new RegExp(cell.locationNo), `冲突反馈必须包含完整库位编号 ${cell.locationNo}`)
+}
+assert.match(revalidatedSelection.message, /UNKNOWN-LOCATION/, '未知库位冲突反馈必须保留可追溯 ID')
+assert.match(revalidatedSelection.message, new RegExp(externalLocationId), '错仓 ID 在当前投影无法识别时必须作为未知库位保留原 ID')
+assert.deepEqual(revalidatedSelection.selectedLocationIds, [validCell.locationId], '同次重校验必须剔除所有冲突且仅保留有效项')
+assert.doesNotMatch(warehouseMapModelSource, /unassignedLocations/, 'v3 投影不得保留未编排库位兼容字段或空数组')
+assert.doesNotMatch(
+  warehouseMapReviewRecordSource,
+  /连续选择|连续多选|仍连续|连续相邻|端点扩展|范围摘要|同一货架的两个连续空闲格/,
+  '当前原型审查记录不得保留与自由跨区、跨货架、跨层多选冲突的旧结论',
+)
 
 const footprint = buildWarehouseStorageFootprint({
   footprintId: 'pickup-session:TEST',

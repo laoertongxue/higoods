@@ -112,7 +112,6 @@ export interface WarehouseLocationMapProjection {
   emptyLocationCount: number
   occupiedLocationCount: number
   areas: WarehouseLocationMapArea[]
-  unassignedLocations: StableWarehouseLocationRef[]
   unlocatedOccupancies: WarehouseLocationOccupancy[]
 }
 
@@ -314,7 +313,6 @@ export function buildWarehouseLocationMapProjection(
     emptyLocationCount: cells.filter((cell) => cell.businessStatus === 'EMPTY').length,
     occupiedLocationCount: cells.filter((cell) => cell.businessStatus === 'OCCUPIED').length,
     areas,
-    unassignedLocations: [],
     unlocatedOccupancies: [
       ...occupancies.filter((occupancy) => !knownLocationIds.has(occupancy.locationId)).map((occupancy) => ({
         ...occupancy,
