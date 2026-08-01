@@ -14,6 +14,29 @@ export type WarehouseLocationMapMode = 'VIEW' | 'SELECT' | 'LAYOUT'
 export const WAREHOUSE_LEVEL_VIEWPORT_PAGE_SIZE = 8
 export const WAREHOUSE_POSITION_VIEWPORT_PAGE_SIZE = 12
 
+export function maxWarehouseShelfPositionCount(levels: ReadonlyArray<{ locations: readonly unknown[] }>): number {
+  let maximum = 0
+  for (const level of levels) {
+    if (level.locations.length > maximum) maximum = level.locations.length
+  }
+  return maximum
+}
+
+export function resolveWarehouseShelfViewportPagination(
+  levels: ReadonlyArray<{ locations: readonly unknown[] }>,
+  requestedLevelPage = 1,
+  requestedPositionPage = 1,
+): { levelPage: number; levelPageCount: number; positionPage: number; positionPageCount: number } {
+  const levelPageCount = Math.max(1, Math.ceil(levels.length / WAREHOUSE_LEVEL_VIEWPORT_PAGE_SIZE))
+  const positionPageCount = Math.max(1, Math.ceil(maxWarehouseShelfPositionCount(levels) / WAREHOUSE_POSITION_VIEWPORT_PAGE_SIZE))
+  return {
+    levelPage: Math.min(Math.max(1, requestedLevelPage), levelPageCount),
+    levelPageCount,
+    positionPage: Math.min(Math.max(1, requestedPositionPage), positionPageCount),
+    positionPageCount,
+  }
+}
+
 export interface WarehouseLocationMapOptions {
   projection: WarehouseLocationMapProjection
   mode: WarehouseLocationMapMode
@@ -113,11 +136,11 @@ function renderShelfViewport(
   requestedLevelPage = 1,
   requestedPositionPage = 1,
 ): string {
-  const levelPageCount = Math.max(1, Math.ceil(shelf.levels.length / WAREHOUSE_LEVEL_VIEWPORT_PAGE_SIZE))
-  const maxPositionCount = Math.max(0, ...shelf.levels.map((level) => level.locations.length))
-  const positionPageCount = Math.max(1, Math.ceil(maxPositionCount / WAREHOUSE_POSITION_VIEWPORT_PAGE_SIZE))
-  const levelPage = Math.min(Math.max(1, requestedLevelPage), levelPageCount)
-  const positionPage = Math.min(Math.max(1, requestedPositionPage), positionPageCount)
+  const { levelPage, levelPageCount, positionPage, positionPageCount } = resolveWarehouseShelfViewportPagination(
+    shelf.levels,
+    requestedLevelPage,
+    requestedPositionPage,
+  )
   const visibleLevels = shelf.levels.slice((levelPage - 1) * WAREHOUSE_LEVEL_VIEWPORT_PAGE_SIZE, levelPage * WAREHOUSE_LEVEL_VIEWPORT_PAGE_SIZE)
   const positionStart = (positionPage - 1) * WAREHOUSE_POSITION_VIEWPORT_PAGE_SIZE
   return `<div class="min-w-0" data-warehouse-map-shelf-viewport data-shelf-id="${escapeHtml(shelf.shelfId)}" data-level-page="${levelPage}" data-position-page="${positionPage}">
@@ -149,9 +172,7 @@ export function handleWarehouseLocationMapViewportEvent(target: HTMLElement, pro
   const shelf = projection.areas.flatMap((area) => area.shelves).find((item) => item.shelfId === viewport.dataset.shelfId)
   if (!shelf) return false
   const selectedIds = new Set(Array.from(mapRoot.querySelectorAll<HTMLElement>('[data-warehouse-map-selected-item]')).map((item) => item.dataset.locationId || '').filter(Boolean))
-  const levelPageCount = Math.max(1, Math.ceil(shelf.levels.length / WAREHOUSE_LEVEL_VIEWPORT_PAGE_SIZE))
-  const maxPositionCount = Math.max(0, ...shelf.levels.map((level) => level.locations.length))
-  const positionPageCount = Math.max(1, Math.ceil(maxPositionCount / WAREHOUSE_POSITION_VIEWPORT_PAGE_SIZE))
+  const { levelPageCount, positionPageCount } = resolveWarehouseShelfViewportPagination(shelf.levels)
   let levelPage = Number(viewport.dataset.levelPage) || 1
   let positionPage = Number(viewport.dataset.positionPage) || 1
   if (action === 'viewport-level-page') levelPage = moveViewportPage(levelPage, levelPageCount, actionNode.dataset.pageAction)

@@ -46,6 +46,8 @@ import {
 } from '../src/pages/process-factory/cutting/wait-handover-runtime.ts'
 import {
   handleWarehouseLocationMapOccupancyEvent,
+  maxWarehouseShelfPositionCount,
+  resolveWarehouseShelfViewportPagination,
   renderWarehouseLocationMap,
   renderWarehouseLocationMapSummarySection,
 } from '../src/components/ui/warehouse-location-map.ts'
@@ -174,7 +176,19 @@ assert.match(warehouseMapUiSource, /WAREHOUSE_LEVEL_VIEWPORT_PAGE_SIZE/, '共享
 assert.match(warehouseMapUiSource, /WAREHOUSE_POSITION_VIEWPORT_PAGE_SIZE/, '共享库位图必须限制单次位置 DOM 数')
 assert.match(warehouseMapUiSource, /data-warehouse-map-shelf-viewport/, '每个货架必须有可局部替换的有界视窗')
 assert.match(warehouseMapUiSource, /handleWarehouseLocationMapViewportEvent/, '共享库位图必须提供局部视窗事件处理器')
+assert.doesNotMatch(warehouseMapUiSource, /Math\.max\([^\n]*\.\.\.shelf\.levels/, '超大层级投影不得通过参数展开计算最大位置数')
 assert.match(warehouseMapSource, /handleWarehouseLocationMapViewportEvent\(/, 'PFOS 独立事件链必须接入共享视窗处理器')
+
+const massiveViewportLevels = Array.from({ length: 200_000 }, (_, index) => ({
+  levelNo: 200_000 - index,
+  locations: index === 199_999 ? [{}] : [],
+}))
+assert.equal(maxWarehouseShelfPositionCount(massiveViewportLevels), 1, '20 万层最大位置数计算不得发生参数展开 RangeError')
+assert.deepEqual(
+  resolveWarehouseShelfViewportPagination(massiveViewportLevels, 25_000, 1),
+  { levelPage: 25_000, levelPageCount: 25_000, positionPage: 1, positionPageCount: 1 },
+  '20 万层投影必须正确计算层总页数并可达末页',
+)
 assert.equal((warehouseMapSource.match(/statusField\(/g) || []).length >= 4, true, '库区、货架、库位三类编辑表单必须提供启用状态字段')
 assert.match(warehouseLayoutStoreSource, /function setWarehouseLocationEnabled[\s\S]*return updateWarehouseLocation\(/, '独立库位启停 API 必须复用原子库位更新实现')
 assert.match(warehouseMapSource, /scrollX[\s\S]*scrollY[\s\S]*scrollTo/, '局部保存刷新必须显式保持页面滚动位置')
