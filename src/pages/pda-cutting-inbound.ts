@@ -37,7 +37,10 @@ import {
   type StableWarehouseLocationRef,
   type WarehouseLocationOccupancy,
 } from './process-factory/cutting/warehouse-location-map-model.ts'
-import { renderWarehouseLocationMap } from '../components/ui/warehouse-location-map.ts'
+import {
+  handleWarehouseLocationMapOccupancyEvent,
+  renderWarehouseLocationMap,
+} from '../components/ui/warehouse-location-map.ts'
 import { listFactoryInternalWarehouses } from '../data/fcs/factory-internal-warehouse.ts'
 
 export type PdaCuttingInboundMode = 'bagging' | 'inbound-location'
@@ -1181,6 +1184,10 @@ export function handlePdaCuttingInboundEvent(
   const mode = getInboundMode()
   const warehouseMapNode = target.closest<HTMLElement>('[data-warehouse-map-action]')
   if (mode === 'inbound-location' && warehouseMapNode) {
+    const projection = buildPdaInboundLocationMapProjection()
+    if (projection && handleWarehouseLocationMapOccupancyEvent(warehouseMapNode, projection)) {
+      return PDA_PAGE_HANDLED_LOCALLY
+    }
     const workflowContainer = resolvePdaCuttingInboundFormContainer(warehouseMapNode)
     const taskId = workflowContainer?.dataset.taskId || appTaskIdFromPath()
     if (!taskId) return true

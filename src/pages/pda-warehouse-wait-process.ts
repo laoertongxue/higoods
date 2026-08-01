@@ -96,7 +96,10 @@ import {
 } from './pda-warehouse-shared'
 import { getSpecialCraftFeiTicketSummary } from '../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
 import { executeSpecialCraftWaitProcessIssue } from '../data/fcs/special-craft-pda-warehouse-actions.ts'
-import { renderWarehouseLocationMap } from '../components/ui/warehouse-location-map.ts'
+import {
+  handleWarehouseLocationMapOccupancyEvent,
+  renderWarehouseLocationMap,
+} from '../components/ui/warehouse-location-map.ts'
 import {
   buildWarehouseLocationMapProjection,
   listWarehouseLocationMapCells,
@@ -2561,6 +2564,12 @@ export function renderPdaWarehouseWaitProcessPage(): string {
 
 export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean {
   const warehouseMapNode = target.closest<HTMLElement>('[data-warehouse-map-action]')
+  if (warehouseMapNode && (state.cuttingPickupNodeId || state.cuttingAdjustFootprintSessionId)) {
+    const projection = buildCuttingPickupMapProjection(
+      state.cuttingAdjustFootprintSessionId || undefined,
+    )
+    if (projection && handleWarehouseLocationMapOccupancyEvent(warehouseMapNode, projection)) return true
+  }
   if (
     warehouseMapNode
     && (state.cuttingPickupNodeId || state.cuttingAdjustFootprintSessionId)

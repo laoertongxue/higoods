@@ -78,7 +78,10 @@ import {
   renderCuttingWarehouseLocationMapSection,
   resolveCurrentCuttingWarehouseLocationRef,
 } from './warehouse-location-map.ts'
-import { renderWarehouseLocationMap } from '../../../components/ui/warehouse-location-map.ts'
+import {
+  handleWarehouseLocationMapOccupancyEvent,
+  renderWarehouseLocationMap,
+} from '../../../components/ui/warehouse-location-map.ts'
 import {
   listWarehouseLocationMapCells,
   revalidateWarehouseLocationSelection,
@@ -1643,6 +1646,10 @@ function submitWaitProcessWarehouseAction(dialog: HTMLElement): boolean {
 export function handleCraftCuttingWaitProcessEvent(target: HTMLElement): boolean {
   const mapActionNode = target.closest<HTMLElement>('[data-warehouse-map-action]')
   const mapRegion = mapActionNode?.closest<HTMLElement>('[data-wait-process-location-map]')
+  if (mapActionNode && mapRegion) {
+    const current = buildCurrentCuttingWarehouseMapProjection('WAIT_PROCESS')
+    if (current && handleWarehouseLocationMapOccupancyEvent(mapActionNode, current.projection)) return true
+  }
   if (
     mapActionNode
     && mapRegion
@@ -3333,6 +3340,8 @@ export function handleCraftCuttingWaitHandoverEvent(target: HTMLElement): boolea
   if (locationNode) {
     const dialog = locationNode.closest<HTMLElement>('[data-wait-handover-modal]')
     if (!dialog) return false
+    const current = buildCurrentCuttingWarehouseMapProjection('WAIT_HANDOVER')
+    if (current && handleWarehouseLocationMapOccupancyEvent(locationNode, current.projection)) return true
     if (locationNode.dataset.warehouseMapAction === 'clear-selection') {
       waitHandoverSelectedLocationId = ''
     } else if (locationNode.dataset.warehouseMapAction === 'toggle-location') {

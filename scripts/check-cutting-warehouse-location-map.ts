@@ -45,6 +45,7 @@ import {
   type WaitHandoverRuntimeTicketInput,
 } from '../src/pages/process-factory/cutting/wait-handover-runtime.ts'
 import {
+  handleWarehouseLocationMapOccupancyEvent,
   renderWarehouseLocationMap,
   renderWarehouseLocationMapSummarySection,
 } from '../src/components/ui/warehouse-location-map.ts'
@@ -123,11 +124,15 @@ assert.doesNotMatch(pdaInboundSource, /selectionLimit/, 'PDA 单选业务状态�
 assert.match(pdaInboundSource, /selectedLocationIds: form\.selectedLocationId \? \[form\.selectedLocationId\] : \[\]/, 'PDA 中转袋入仓地图必须只投影当前单值选中状态')
 assert.match(pdaInboundSource, /eventState\.form\.locationLabel = location\.locationNo[\s\S]*eventState\.form\.selectedLocationId = location\.locationId/, 'PDA 中转袋入仓点击其他空闲格必须直接替换单值业务状态')
 assert.match(pdaInboundSource, /eventState\.form\.selectedLocationId === locationId[\s\S]*locationLabel = ''[\s\S]*selectedLocationId = ''/, 'PDA 中转袋入仓点击当前摘要项必须清空单值业务状态')
+assert.equal(typeof handleWarehouseLocationMapOccupancyEvent, 'function', '共享库位图必须导出可调用的占用详情局部事件处理器')
+assert.match(pdaInboundSource, /handleWarehouseLocationMapOccupancyEvent\(warehouseMapNode, projection\)/, 'PDA 中转袋入仓必须接入共享占用详情事件处理器')
 assert.match(pdaInboundSource, /不属于当前工厂/)
 assert.match(pdaHandoverSource, /locationRef:/, '特殊工艺回仓必须写稳定库位路径')
 assert.match(warehouseHubSource, /data-wait-handover-location-map/, 'Web 中转袋入仓必须提供待交出仓单选库位图')
+assert.equal((warehouseHubSource.match(/handleWarehouseLocationMapOccupancyEvent\(/g) || []).length, 2, 'Web 待加工仓与待交出仓两个 SELECT 入口必须分别接入共享占用详情事件处理器')
 assert.match(warehouseHubSource, /waitHandoverSelectedLocationId === locationId \? '' : locationId/, 'Web 中转袋入仓点击当前摘要项必须清空，点击其他空闲格必须替换单值选择')
 assert.match(warehouseHubSource, /dataset\.waitHandoverWebAction/, '待交出仓真实页面处理器必须承接顶部 Web 动作按钮')
+assert.equal((pdaWaitProcessSource.match(/handleWarehouseLocationMapOccupancyEvent\(/g) || []).length, 1, 'PDA 待加工仓的领料与调整两个 SELECT 地图必须由同一事件入口接入共享占用详情处理器')
 assert.match(fcsHandlersSource, /handleCraftCuttingWaitHandoverEvent\(target\)/, '待交出仓真实页面处理器必须接入主处理链')
 assert.doesNotMatch(fcsHandlersSource, /handleCraftCuttingWaitHandoverWebActionsEvent/, '不得保留旧文本弹窗处理器')
 assert.match(warehouseMapSource, /open-add-area/, '普通查看模式缺少新增库区入口')
@@ -831,7 +836,7 @@ const stoppedMapHtml = renderWarehouseLocationMap({
   mode: 'SELECT',
   factoryName: '中央裁床',
 })
-assert.match(stoppedMapHtml, /P01 · 停用[\s\S]*A-R01-L04-P01[\s\S]*货架已停用，不可选择/, '停用节点必须直接显示状态、完整编号和不可选原因')
+assert.match(stoppedMapHtml, /P01 · 空闲[\s\S]*A-R01-L04-P01[\s\S]*货架已停用，不可选择/, '停用空闲节点必须保留空闲业务状态，并单独显示不可选原因')
 assert.match(stoppedMapHtml, /disabled aria-disabled="true"/, '停用节点在选位模式必须不可选')
 const stoppedAreaWarehouse = structuredClone(selectionWarehouse)
 stoppedAreaWarehouse.areaList[0].status = 'STOPPED'
@@ -973,6 +978,10 @@ for (const statusField of ['areaStatus', 'shelfStatus', 'status'] as const) {
   })
   const stoppedOccupiedCellHtml = findLocationButtonHtml(stoppedOccupiedMapHtml, shelfLocationIds[1])
   assert.match(stoppedOccupiedCellHtml, /data-warehouse-map-action="open-occupancy"/, `SELECT 模式 ${statusField} 停用的未选占用格必须保留详情入口`)
+  assert.match(stoppedOccupiedCellHtml, /P02 · 占用/, `SELECT 模式 ${statusField} 停用的未选占用格必须保留占用主业务状态`)
+  const stoppedReason = statusField === 'areaStatus' ? '库区已停用' : statusField === 'shelfStatus' ? '货架已停用' : '库位已停用'
+  assert.match(stoppedOccupiedCellHtml, new RegExp(`${stoppedReason}，不可选择`), `SELECT 模式 ${statusField} 停用的未选占用格必须单独显示停用原因`)
+  assert.match(stoppedOccupiedCellHtml, /border-rose-300 bg-rose-50 text-rose-800/, `SELECT 模式 ${statusField} 停用的未选占用格必须保留占用视觉`)
   assert.doesNotMatch(stoppedOccupiedCellHtml, /\sdisabled(?:\s|>)/, `SELECT 模式 ${statusField} 停用的未选占用格有详情时不得 disabled`)
   assert.doesNotMatch(stoppedOccupiedCellHtml, /data-warehouse-map-action="toggle-location"/, `SELECT 模式 ${statusField} 停用的未选占用格不得进入选中动作`)
 }

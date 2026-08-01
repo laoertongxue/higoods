@@ -57,10 +57,10 @@ function renderCell(
   const bagSummary = summary?.bagCode
     ? `${summary.bagCode} · ${summary.ticketNos?.length ?? 0} 张菲票 · ${summary.qty} ${summary.unit}`
     : ''
-  const statusClass = unavailableReason
-    ? 'border-slate-300 bg-slate-100 text-slate-600'
-    : occupied
+  const statusClass = occupied
     ? 'border-rose-300 bg-rose-50 text-rose-800'
+    : unavailableReason
+      ? 'border-slate-300 bg-slate-100 text-slate-600'
     : selected
       ? 'border-blue-600 bg-blue-600 text-white ring-2 ring-blue-200'
       : 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
@@ -77,7 +77,7 @@ function renderCell(
         aria-pressed="${selected}"
         ${mode === 'SELECT' && selectionButtonDisabled ? 'disabled aria-disabled="true"' : ''}
       >
-        <span class="block font-semibold">P${String(cell.positionNo).padStart(2, '0')} · ${unavailableReason ? '停用' : occupied ? '占用' : '空闲'}</span>
+        <span class="block font-semibold">P${String(cell.positionNo).padStart(2, '0')} · ${occupied ? '占用' : '空闲'}</span>
         <span class="mt-0.5 block font-mono">${escapeHtml(cell.locationNo)}</span>
         ${unavailableReason ? `<span class="mt-0.5 block">${escapeHtml(unavailableReason)}，不可选择</span>` : ''}
         ${occupied && summary ? `
@@ -122,6 +122,8 @@ function renderOccupancyDrawer(
   projection: WarehouseLocationMapProjection,
   requestedLocationId?: string,
   requestedPage?: number,
+  requestedDetailId?: string,
+  requestedDetailPage?: number,
 ): string {
   const locationId = requestedLocationId ?? (typeof window !== 'undefined'
     ? new URLSearchParams(window.location.search).get('locationId')
@@ -134,12 +136,12 @@ function renderOccupancyDrawer(
     typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('occupancyPage') : 1,
   ) || 1)), pageCount)
   const occupancies = cell.occupancies.slice((page - 1) * 10, page * 10)
-  const detailPage = Math.max(1, Number(
+  const detailPage = Math.max(1, requestedDetailPage ?? (Number(
     typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('occupancyDetailPage') : 1,
-  ) || 1)
-  const detailId = typeof window !== 'undefined'
+  ) || 1))
+  const detailId = requestedDetailId ?? (typeof window !== 'undefined'
     ? new URLSearchParams(window.location.search).get('occupancyDetailId') || ''
-    : ''
+    : '')
   const detailPageForItem = (item: WarehouseLocationOccupancy): number => item.occupancyId === detailId
     ? detailPage
     : 1
@@ -211,8 +213,52 @@ export function renderWarehouseLocationMapOccupancyOverlay(
   projection: WarehouseLocationMapProjection,
   requestedLocationId?: string,
   requestedPage?: number,
+  requestedDetailId?: string,
+  requestedDetailPage?: number,
 ): string {
-  return renderOccupancyDrawer(projection, requestedLocationId, requestedPage)
+  return renderOccupancyDrawer(projection, requestedLocationId, requestedPage, requestedDetailId, requestedDetailPage)
+}
+
+export function handleWarehouseLocationMapOccupancyEvent(
+  target: HTMLElement,
+  projection: WarehouseLocationMapProjection,
+): boolean {
+  const actionNode = target.closest<HTMLElement>('[data-warehouse-map-action]')
+  const action = actionNode?.dataset.warehouseMapAction
+  if (!actionNode || !['open-occupancy', 'close-occupancy', 'occupancy-page', 'occupancy-detail-page'].includes(action || '')) {
+    return false
+  }
+  const mapRoot = actionNode.closest<HTMLElement>('[data-warehouse-map-root]')
+  if (!mapRoot) return false
+
+  if (action === 'open-occupancy') {
+    mapRoot.dataset.occupancyLocationId = actionNode.dataset.locationId || ''
+    mapRoot.dataset.occupancyPage = '1'
+    mapRoot.dataset.occupancyDetailId = ''
+    mapRoot.dataset.occupancyDetailPage = '1'
+  } else if (action === 'close-occupancy') {
+    mapRoot.dataset.occupancyLocationId = ''
+  } else if (action === 'occupancy-page') {
+    mapRoot.dataset.occupancyPage = actionNode.dataset.page || '1'
+    mapRoot.dataset.occupancyDetailId = ''
+    mapRoot.dataset.occupancyDetailPage = '1'
+  } else if (action === 'occupancy-detail-page') {
+    mapRoot.dataset.occupancyDetailId = actionNode.dataset.occupancyId || ''
+    mapRoot.dataset.occupancyDetailPage = actionNode.dataset.page || '1'
+  }
+
+  mapRoot.querySelectorAll<HTMLElement>('[data-warehouse-map-occupancy-overlay]').forEach((node) => node.remove())
+  const locationId = mapRoot.dataset.occupancyLocationId || ''
+  if (locationId) {
+    mapRoot.insertAdjacentHTML('beforeend', renderWarehouseLocationMapOccupancyOverlay(
+      projection,
+      locationId,
+      Number(mapRoot.dataset.occupancyPage) || 1,
+      mapRoot.dataset.occupancyDetailId || '',
+      Number(mapRoot.dataset.occupancyDetailPage) || 1,
+    ))
+  }
+  return true
 }
 
 export function renderWarehouseLocationMapUnlocatedSection(
