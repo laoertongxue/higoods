@@ -10,12 +10,18 @@ export interface StableWarehouseLocationRef {
   warehouseId: string
   warehouseKind: FactoryInternalWarehouse['warehouseKind']
   areaId: string
+  areaCode: string
   areaName: string
   shelfId: string
+  shelfSequence: number
   shelfNo: string
   locationId: string
   locationNo: string
   locationName: string
+  levelNo: number
+  positionNo: number
+  areaStatus: FactoryWarehouseLocationStatus
+  shelfStatus: FactoryWarehouseLocationStatus
   status: FactoryWarehouseLocationStatus
   orderIndex: number
 }
@@ -81,6 +87,13 @@ export interface WarehouseLocationMapShelf {
   areaName: string
   shelfId: string
   shelfNo: string
+  levels: WarehouseLocationMapLevel[]
+  /** @deprecated 任务 5 改造共享地图组件后移除；只由 levels 展平派生。 */
+  readonly locations: WarehouseLocationMapCell[]
+}
+
+export interface WarehouseLocationMapLevel {
+  levelNo: number
   locations: WarehouseLocationMapCell[]
 }
 
@@ -135,12 +148,18 @@ export function listStableWarehouseLocationRefs(
         warehouseId: effective.warehouseId,
         warehouseKind: effective.warehouseKind,
         areaId: area.areaId,
+        areaCode: area.code ?? '',
         areaName: area.areaName,
         shelfId: shelf.shelfId,
+        shelfSequence: shelf.shelfSequence ?? 0,
         shelfNo: shelf.shelfNo,
         locationId: location.locationId,
         locationNo: location.locationNo,
         locationName: location.locationName,
+        levelNo: location.levelNo ?? 0,
+        positionNo: location.positionNo ?? 0,
+        areaStatus: area.status,
+        shelfStatus: shelf.status,
         status: location.status,
         orderIndex,
       })),
@@ -207,7 +226,8 @@ export function classifyHistoricalWarehouseLocation(
 }
 
 function listMapCells(projection: WarehouseLocationMapProjection): WarehouseLocationMapCell[] {
-  return projection.areas.flatMap((area) => area.shelves.flatMap((shelf) => shelf.locations))
+  return projection.areas.flatMap((area) =>
+    area.shelves.flatMap((shelf) => shelf.levels.flatMap((level) => level.locations)))
 }
 
 export function buildWarehouseLocationMapProjection(
@@ -218,16 +238,9 @@ export function buildWarehouseLocationMapProjection(
   const effective = applyWarehouseLayoutSnapshot(warehouse, snapshot).warehouse
   const refs = listStableWarehouseLocationRefs(warehouse, snapshot)
   const knownLocationIds = new Set(refs.map((ref) => ref.locationId))
-  const activeLocationIds = new Set(effective.areaList
-    .filter((area) => area.status === 'AVAILABLE')
-    .flatMap((area) => area.shelfList
-      .filter((shelf) => shelf.status === 'AVAILABLE')
-      .flatMap((shelf) => shelf.locationList
-        .filter((location) => location.status === 'AVAILABLE')
-        .map((location) => location.locationId))))
   const candidateOccupanciesByLocationId = new Map<string, WarehouseLocationOccupancy[]>()
   occupancies.forEach((occupancy) => {
-    if (!activeLocationIds.has(occupancy.locationId)) return
+    if (!knownLocationIds.has(occupancy.locationId)) return
     const rows = candidateOccupanciesByLocationId.get(occupancy.locationId) ?? []
     rows.push(occupancy)
     candidateOccupanciesByLocationId.set(occupancy.locationId, rows)
@@ -251,33 +264,47 @@ export function buildWarehouseLocationMapProjection(
   })
   const refById = new Map(refs.map((ref) => [ref.locationId, ref]))
   const areas = effective.areaList
-    .filter((area) => area.status === 'AVAILABLE')
     .map((area) => ({
       areaId: area.areaId,
       areaName: area.areaName,
       shelves: area.shelfList
-        .filter((shelf) => shelf.status === 'AVAILABLE')
-        .map((shelf) => ({
-          areaId: area.areaId,
-          areaName: area.areaName,
-          shelfId: shelf.shelfId,
-          shelfNo: shelf.shelfNo,
-          locations: shelf.locationList
-            .filter((location) => location.status === 'AVAILABLE')
+        .map((shelf) => {
+          const cells = shelf.locationList
             .map((location) => {
               const ref = refById.get(location.locationId)
               if (!ref) return null
               const rows = occupancyByLocationId.get(location.locationId) ?? []
               return {
                 ...ref,
-                 businessStatus: rows.length || conflictingLocationIds.has(location.locationId) ? 'OCCUPIED' as const : 'EMPTY' as const,
+                businessStatus: rows.length || conflictingLocationIds.has(location.locationId) ? 'OCCUPIED' as const : 'EMPTY' as const,
                 occupancies: rows,
               }
             })
-            .filter((location): location is WarehouseLocationMapCell => Boolean(location)),
-        })),
+            .filter((location): location is WarehouseLocationMapCell => Boolean(location))
+          const cellsByLevel = new Map<number, WarehouseLocationMapCell[]>()
+          cells.forEach((cell) => {
+            const levelCells = cellsByLevel.get(cell.levelNo) ?? []
+            levelCells.push(cell)
+            cellsByLevel.set(cell.levelNo, levelCells)
+          })
+          const levels = Array.from(cellsByLevel.entries())
+            .sort(([left], [right]) => right - left)
+            .map(([levelNo, locations]) => ({
+              levelNo,
+              locations: locations.sort((left, right) => left.positionNo - right.positionNo),
+            }))
+          return {
+            areaId: area.areaId,
+            areaName: area.areaName,
+            shelfId: shelf.shelfId,
+            shelfNo: shelf.shelfNo,
+            levels,
+            locations: levels.flatMap((level) => level.locations),
+          }
+        }),
     }))
-  const cells = areas.flatMap((area) => area.shelves.flatMap((shelf) => shelf.locations))
+  const cells = areas.flatMap((area) =>
+    area.shelves.flatMap((shelf) => shelf.levels.flatMap((level) => level.locations)))
   return {
     factoryId: effective.factoryId,
     warehouseId: effective.warehouseId,
@@ -289,11 +316,9 @@ export function buildWarehouseLocationMapProjection(
     areas,
     unassignedLocations: [],
     unlocatedOccupancies: [
-      ...occupancies.filter((occupancy) => !activeLocationIds.has(occupancy.locationId)).map((occupancy) => ({
+      ...occupancies.filter((occupancy) => !knownLocationIds.has(occupancy.locationId)).map((occupancy) => ({
         ...occupancy,
-        partialOccupancyNote: occupancy.partialOccupancyNote || (knownLocationIds.has(occupancy.locationId)
-          ? '原库位已停用，请主管确认新的可用库位。'
-          : '历史库位无法唯一匹配，请主管确认后重新定位。'),
+        partialOccupancyNote: occupancy.partialOccupancyNote || '历史库位无法唯一匹配，请主管确认后重新定位。',
       })),
       ...conflictingOccupancies,
     ],
@@ -313,61 +338,50 @@ export function validateWarehouseLocationSelection(
   if (cells.length !== uniqueIds.length) {
     return { ok: false, message: '库位不存在或已停用，请重新选择。', selectedLocationIds: uniqueIds }
   }
+  if (cells.some((cell) =>
+    cell.factoryId !== projection.factoryId
+    || cell.warehouseId !== projection.warehouseId
+    || cell.warehouseKind !== projection.warehouseKind)) {
+    return { ok: false, message: '所选库位不属于当前工厂或当前仓库，请重新选择。', selectedLocationIds: uniqueIds }
+  }
+  if (cells.some((cell) =>
+    cell.areaStatus !== 'AVAILABLE'
+    || cell.shelfStatus !== 'AVAILABLE'
+    || cell.status !== 'AVAILABLE')) {
+    return { ok: false, message: '库位不存在或已停用，请重新选择。', selectedLocationIds: uniqueIds }
+  }
   if (cells.some((cell) => cell.businessStatus === 'OCCUPIED')) {
     return { ok: false, message: '所选库位已被占用，请重新选择。', selectedLocationIds: uniqueIds }
   }
-  const first = cells[0]
-  if (cells.some((cell) => cell.areaId !== first.areaId || cell.shelfId !== first.shelfId)) {
-    return { ok: false, message: '请选择同一货架内连续相邻的空闲库位。', selectedLocationIds: uniqueIds }
-  }
-  const orderIndexes = cells.map((cell) => cell.orderIndex).sort((left, right) => left - right)
-  const consecutive = orderIndexes.every((orderIndex, index) =>
-    index === 0 || orderIndex === orderIndexes[index - 1] + 1
-  )
-  return consecutive
-    ? {
-        ok: true,
-        message: '',
-        selectedLocationIds: cells.sort((left, right) => left.orderIndex - right.orderIndex).map((cell) => cell.locationId),
-      }
-    : {
-        ok: false,
-        message: '请选择同一货架内连续相邻的空闲库位。',
-        selectedLocationIds: uniqueIds,
-      }
+  return { ok: true, message: '', selectedLocationIds: uniqueIds }
 }
 
 export function revalidateWarehouseLocationSelection(
   projection: WarehouseLocationMapProjection,
   selectedLocationIds: string[],
 ): WarehouseLocationSelectionResult {
-  const selected = new Set(selectedLocationIds)
-  const cells = listMapCells(projection)
-  const conflicts = selectedLocationIds
-    .map((locationId) => cells.find((cell) => cell.locationId === locationId))
-    .filter((cell) => !cell || cell.status !== 'AVAILABLE' || cell.businessStatus === 'OCCUPIED')
-  if (!conflicts.length) return validateWarehouseLocationSelection(projection, selectedLocationIds)
-
-  const validCells = cells
-    .filter((cell) => selected.has(cell.locationId))
-    .filter((cell) => cell.status === 'AVAILABLE' && cell.businessStatus === 'EMPTY')
-    .sort((left, right) => left.orderIndex - right.orderIndex)
-  const segments: WarehouseLocationMapCell[][] = []
-  for (const cell of validCells) {
-    const segment = segments.at(-1)
-    const previous = segment?.at(-1)
-    if (!previous || previous.shelfId !== cell.shelfId || cell.orderIndex !== previous.orderIndex + 1) {
-      segments.push([cell])
-    } else {
-      segment.push(cell)
-    }
-  }
-  const retained = segments.sort((left, right) => right.length - left.length)[0] ?? []
-  const conflictLabels = conflicts.map((cell) => cell?.locationNo || '已删除库位')
+  const uniqueIds = Array.from(new Set(selectedLocationIds))
+  const cellsById = new Map(listMapCells(projection).map((cell) => [cell.locationId, cell]))
+  const retained: string[] = []
+  const conflictLabels: string[] = []
+  uniqueIds.forEach((locationId) => {
+    const cell = cellsById.get(locationId)
+    const valid = cell
+      && cell.factoryId === projection.factoryId
+      && cell.warehouseId === projection.warehouseId
+      && cell.warehouseKind === projection.warehouseKind
+      && cell.areaStatus === 'AVAILABLE'
+      && cell.shelfStatus === 'AVAILABLE'
+      && cell.status === 'AVAILABLE'
+      && cell.businessStatus === 'EMPTY'
+    if (valid) retained.push(locationId)
+    else conflictLabels.push(cell?.locationNo || `未知库位（${locationId}）`)
+  })
+  if (!conflictLabels.length) return validateWarehouseLocationSelection(projection, uniqueIds)
   return {
     ok: false,
-    message: `以下库位已不可用：${conflictLabels.join('、')}。其他仍连续可用的选择已保留，请重新确认。`,
-    selectedLocationIds: retained.map((cell) => cell.locationId),
+    message: `以下库位已不可用：${conflictLabels.join('、')}。其他仍可用的选择已保留，请重新确认。`,
+    selectedLocationIds: retained,
   }
 }
 
@@ -376,23 +390,14 @@ export function toggleWarehouseLocationSelection(
   selectedLocationIds: string[],
   locationId: string,
 ): WarehouseLocationSelectionResult {
-  const current = validateWarehouseLocationSelection(projection, selectedLocationIds)
-  const normalizedCurrent = selectedLocationIds.length
-    ? (current.ok ? current.selectedLocationIds : [...selectedLocationIds])
-    : []
+  const normalizedCurrent = Array.from(new Set(selectedLocationIds))
   const selectedIndex = normalizedCurrent.indexOf(locationId)
   if (selectedIndex >= 0) {
-    if (normalizedCurrent.length > 2 && selectedIndex > 0 && selectedIndex < normalizedCurrent.length - 1) {
-      return {
-        ok: false,
-        message: '只能从已选范围两端取消库位。',
-        selectedLocationIds: normalizedCurrent,
-      }
+    return {
+      ok: true,
+      message: '',
+      selectedLocationIds: normalizedCurrent.filter((id) => id !== locationId),
     }
-    const next = normalizedCurrent.filter((id) => id !== locationId)
-    return next.length
-      ? validateWarehouseLocationSelection(projection, next)
-      : { ok: true, message: '', selectedLocationIds: [] }
   }
   return validateWarehouseLocationSelection(projection, [...normalizedCurrent, locationId])
 }
