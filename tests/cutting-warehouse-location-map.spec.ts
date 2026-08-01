@@ -396,14 +396,36 @@ test('PDA 中转袋入仓可从库位图单选空闲库位', async ({ page }) =>
   await page.goto(`/fcs/pda/cutting/inbound/${taskId}?action=inbound-location`)
   const map = page.locator('[data-pda-inbound-location-map] [data-warehouse-map-root]')
   await expect(map).toBeVisible({ timeout: 300_000 })
-  const first = map.locator('[data-warehouse-map-action="toggle-location"]:not([disabled])').first()
-  const locationNo = await first.getAttribute('data-location-no')
-  await first.click()
-  await expect(page.locator('[data-pda-cut-inbound-field="locationLabel"]')).toHaveValue(locationNo || '')
-  await expect(map).toContainText('已选 1 个')
-  const stillEnabled = map.locator('[data-warehouse-map-action="toggle-location"]:not([disabled])')
-  await expect(stillEnabled).toHaveCount(1)
-  await expect(stillEnabled).toHaveAttribute('aria-pressed', 'true')
+  const availableLocations = await map.locator(
+    '[data-warehouse-map-action="toggle-location"]:not([disabled])',
+  ).evaluateAll((buttons) => buttons.slice(0, 2).map((button) => ({
+    locationId: (button as HTMLButtonElement).dataset.locationId || '',
+    locationNo: (button as HTMLButtonElement).dataset.locationNo || '',
+  })))
+  expect(availableLocations).toHaveLength(2)
+  const [firstLocation, secondLocation] = availableLocations
+  const locationInput = page.locator('[data-pda-cut-inbound-field="locationLabel"]')
+  const selectionSummary = map.locator('[data-warehouse-map-selection-summary]')
+  const selectedItems = selectionSummary.locator('[data-warehouse-map-selected-item]')
+
+  await map.locator(`[data-location-id="${firstLocation.locationId}"]`).click()
+  await expect(locationInput).toHaveValue(firstLocation.locationNo)
+  await expect(selectionSummary).toContainText('已选 1 个库位')
+  await expect(selectedItems).toHaveCount(1)
+  await expect(selectedItems).toContainText(firstLocation.locationNo)
+
+  const secondButton = map.locator(`[data-location-id="${secondLocation.locationId}"]`)
+  await expect(secondButton).toBeEnabled()
+  await expect(secondButton).toHaveAttribute('aria-pressed', 'false')
+  await secondButton.click()
+
+  await expect(locationInput).toHaveValue(secondLocation.locationNo)
+  await expect(selectionSummary).toContainText('已选 1 个库位')
+  await expect(selectedItems).toHaveCount(1)
+  await expect(selectedItems).toContainText(secondLocation.locationNo)
+  await expect(selectedItems).not.toContainText(firstLocation.locationNo)
+  await expect(map.locator(`[data-location-id="${firstLocation.locationId}"]`)).toHaveAttribute('aria-pressed', 'false')
+  await expect(secondButton).toHaveAttribute('aria-pressed', 'true')
 })
 
 for (const viewport of [

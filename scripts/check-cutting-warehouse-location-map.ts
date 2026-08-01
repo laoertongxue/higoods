@@ -120,6 +120,8 @@ assert.doesNotMatch(pdaWaitProcessSource, /存放范围|原范围/, 'PDA 选位�
 assert.match(pdaWaitProcessSource, /}, syncCuttingPickupSessionRuntimeFacts\)/, '领料必须通过原子运行时入口写共享事件与本地会话')
 assert.match(pdaInboundSource, /data-pda-inbound-location-map/)
 assert.doesNotMatch(pdaInboundSource, /selectionLimit/, 'PDA 单选业务状态不得继续泄漏为共享地图数量限制 API')
+assert.match(pdaInboundSource, /selectedLocationIds: form\.selectedLocationId \? \[form\.selectedLocationId\] : \[\]/, 'PDA 中转袋入仓地图必须只投影当前单值选中状态')
+assert.match(pdaInboundSource, /eventState\.form\.locationLabel = location\.locationNo[\s\S]*eventState\.form\.selectedLocationId = location\.locationId/, 'PDA 中转袋入仓点击其他空闲格必须直接替换单值业务状态')
 assert.match(pdaInboundSource, /不属于当前工厂/)
 assert.match(pdaHandoverSource, /locationRef:/, '特殊工艺回仓必须写稳定库位路径')
 assert.match(warehouseHubSource, /data-wait-handover-location-map/, 'Web 中转袋入仓必须提供待交出仓单选库位图')
