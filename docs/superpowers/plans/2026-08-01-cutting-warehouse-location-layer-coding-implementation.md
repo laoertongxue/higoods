@@ -338,7 +338,14 @@ git commit -m "feat(裁床仓库): 支持分层投影与自由多选"
 
 ```bash
 npm run check:cutting-warehouse-location-map
-git add src/components/ui/warehouse-location-map.ts scripts/check-cutting-warehouse-location-map.ts
+git add \
+  src/pages/process-factory/cutting/warehouse-location-map-model.ts \
+  src/components/ui/warehouse-location-map.ts \
+  src/pages/process-factory/cutting/warehouse-location-map.ts \
+  src/pages/process-factory/cutting/warehouse-hub.ts \
+  src/pages/pda-warehouse-wait-process.ts \
+  scripts/check-cutting-warehouse-location-map.ts \
+  docs/prototype-review-records/2026-07-30-cutting-warehouse-location-map.md
 git commit -m "feat(裁床仓库): 展示货架分层库位矩阵"
 ```
 
