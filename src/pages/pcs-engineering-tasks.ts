@@ -3915,11 +3915,11 @@ export function renderPcsFirstSampleTaskDetailPage(firstSampleTaskId: string): s
 }
 
 export function renderPcsFirstOrderSampleTaskPage(): string {
-  return renderFirstOrderListPage()
+  return renderPcsFirstSampleTaskPage()
 }
 
 export function renderPcsFirstOrderSampleTaskDetailPage(firstOrderSampleTaskId: string): string {
-  return renderFirstOrderDetailPage(firstOrderSampleTaskId)
+  return renderPcsFirstSampleTaskDetailPage(firstOrderSampleTaskId)
 }
 
 
