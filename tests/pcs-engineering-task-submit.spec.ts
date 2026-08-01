@@ -81,6 +81,11 @@ submitEngineeringTaskResult(master.masterOrderId, taskId('BASE_PATTERN_KNIT'))
 const sampleResult = submitEngineeringTaskResult(
   master.masterOrderId,
   taskId('PRE_PRODUCTION_SAMPLE'),
+  {
+    resultImageIds: ['mock://sample/front'],
+    resultQuantity: 1,
+    submittedBy: '制作团队A',
+  },
 )
 assert.equal(sampleResult.task.status, '已完成')
 assert.ok(sampleResult.task.submittedAt, '样衣提交应记录提交时间')

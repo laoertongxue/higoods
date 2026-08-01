@@ -299,6 +299,25 @@ export function submitEngineeringTaskResult(
     }
   }
 
+  if (task.taskType === 'PRE_PRODUCTION_SAMPLE') {
+    const resultImageIds = (input.resultImageIds ?? []).map((item) => item.trim()).filter(Boolean)
+    if (resultImageIds.length === 0) {
+      throw new Error('请至少上传 1 张产前版样衣成果图片。')
+    }
+    if (!Number.isFinite(input.resultQuantity) || Number(input.resultQuantity) <= 0) {
+      throw new Error('产前版样衣制作数量必须大于 0。')
+    }
+    if (!input.submittedBy?.trim()) {
+      throw new Error('请填写产前版样衣成果提交人。')
+    }
+    input = {
+      ...input,
+      resultImageIds,
+      resultQuantity: Number(input.resultQuantity),
+      submittedBy: input.submittedBy.trim(),
+    }
+  }
+
   const submittedAt = nowText()
   const targetStatus = resolveEngineeringTaskSubmitStatus(task.taskType)
   task.status = targetStatus

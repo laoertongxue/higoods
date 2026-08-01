@@ -252,7 +252,48 @@ function renderTaskDrawer(model: EngineeringMasterDetailModel, task: Engineering
       ? '提交成果后进入待审核，由买手逐项审核。'
       : '提交成果后任务即完成，无需人工确认。'
     : ''
-  const submitHtml = submittable
+  const submitHtml = submittable && rawTask.taskType === 'PRE_PRODUCTION_SAMPLE'
+    ? `
+      <div class="space-y-3" data-pre-production-sample-result-form>
+        <label class="block text-sm text-slate-700">
+          <span class="mb-1 block font-medium">上传成果图片</span>
+          <input
+            type="text"
+            class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm"
+            placeholder="输入图片名称，多张用逗号分隔"
+            data-${DETAIL_EVENT_PREFIX}-field="sample-result-images"
+          />
+        </label>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block text-sm text-slate-700">
+            <span class="mb-1 block font-medium">制作数量</span>
+            <input
+              type="number"
+              min="1"
+              step="1"
+              class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm"
+              data-${DETAIL_EVENT_PREFIX}-field="sample-result-quantity"
+            />
+          </label>
+          <label class="block text-sm text-slate-700">
+            <span class="mb-1 block font-medium">提交人</span>
+            <input
+              type="text"
+              class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm"
+              data-${DETAIL_EVENT_PREFIX}-field="sample-result-submitted-by"
+            />
+          </label>
+        </div>
+        <button
+          type="button"
+          class="inline-flex h-9 w-full items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700"
+          data-${DETAIL_EVENT_PREFIX}-action="submit-pre-production-sample-result"
+          data-task-id="${escapeHtml(rawTask.taskId)}"
+        >提交样衣成果</button>
+        <p class="text-xs text-slate-500">成果完整提交后任务即完成。</p>
+      </div>
+    `
+    : submittable
     ? `
       <button
         type="button"
@@ -456,6 +497,40 @@ export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): bool
       ok = true
     } catch (error) {
       message = error instanceof Error ? error.message : '提交成果失败。'
+    }
+    const model = buildEngineeringMasterDetailModel(masterKey)
+    if (model) {
+      refreshLanesRegion(model)
+      refreshTaskDrawer(model, detailUiState.selectedTaskId)
+    }
+    showDetailFeedback(message, ok)
+    return true
+  }
+  if (action === 'submit-pre-production-sample-result') {
+    const taskId = actionNode.dataset.taskId || ''
+    const masterKey = currentMasterKey()
+    if (!taskId || !masterKey) return true
+    const imageField = document.querySelector<HTMLInputElement>(`[data-${DETAIL_EVENT_PREFIX}-field="sample-result-images"]`)
+    const quantityField = document.querySelector<HTMLInputElement>(`[data-${DETAIL_EVENT_PREFIX}-field="sample-result-quantity"]`)
+    const submittedByField = document.querySelector<HTMLInputElement>(`[data-${DETAIL_EVENT_PREFIX}-field="sample-result-submitted-by"]`)
+    const resultImageIds = (imageField?.value ?? '')
+      .split(/[,，]/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+    const resultQuantity = Number(quantityField?.value ?? 0)
+    const submittedBy = submittedByField?.value ?? ''
+    let message = ''
+    let ok = false
+    try {
+      const result = submitEngineeringTaskResult(masterKey, taskId, {
+        resultImageIds,
+        resultQuantity,
+        submittedBy,
+      })
+      message = `「${result.task.taskName}」成果已提交，任务已完成。`
+      ok = true
+    } catch (error) {
+      message = error instanceof Error ? error.message : '提交样衣成果失败。'
     }
     const model = buildEngineeringMasterDetailModel(masterKey)
     if (model) {
