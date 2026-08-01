@@ -1719,6 +1719,46 @@ function buildPickingTempBagSources(items: HandoverPickingAllocatedInventoryItem
 function buildCurrentBagCompatibilityProjection(
   allocations: SewingTaskAllocation[],
 ): TargetTransferBagUse[] {
+  const globalTicketIds = new Set<string>()
+  const taskNoById = new Map<string, string>()
+  const taskIdByNo = new Map<string, string>()
+  const productionOrdersByBag = new Map<string, Set<string>>()
+  allocations.forEach((allocation) => {
+    const sewingTaskId = allocation.sewingTaskId.trim()
+    const sewingTaskNo = allocation.sewingTaskNo.trim()
+    if (!sewingTaskId || !sewingTaskNo) {
+      throw new Error('物理袋聚合所需的车缝任务 ID 和任务号不能为空。')
+    }
+    const mappedTaskNo = taskNoById.get(sewingTaskId)
+    if (mappedTaskNo && mappedTaskNo !== sewingTaskNo) {
+      throw new Error(`车缝任务 ID ${sewingTaskId} 与任务号必须一一对应，不能同时映射 ${mappedTaskNo}、${sewingTaskNo}。`)
+    }
+    const mappedTaskId = taskIdByNo.get(sewingTaskNo)
+    if (mappedTaskId && mappedTaskId !== sewingTaskId) {
+      throw new Error(`车缝任务号 ${sewingTaskNo} 与任务 ID 必须一一对应，不能同时映射 ${mappedTaskId}、${sewingTaskId}。`)
+    }
+    taskNoById.set(sewingTaskId, sewingTaskNo)
+    taskIdByNo.set(sewingTaskNo, sewingTaskId)
+    allocation.allocatedItems.forEach((item) => {
+      const feiTicketId = item.feiTicketId.trim()
+      if (!feiTicketId) throw new Error('物理袋聚合中的菲票 ID 不能为空。')
+      if (globalTicketIds.has(feiTicketId)) {
+        throw new Error(`菲票 ${feiTicketId} 重复进入物理袋聚合，不能静默合并或累加。`)
+      }
+      globalTicketIds.add(feiTicketId)
+      const bagCode = item.tempBagCode.trim()
+      if (!bagCode) return
+      const productionOrders = productionOrdersByBag.get(bagCode) || new Set<string>()
+      const productionOrderNo = item.productionOrderNo.trim()
+      if (!productionOrderNo) throw new Error(`物理袋 ${bagCode} 中的菲票缺少生产单。`)
+      productionOrders.add(productionOrderNo)
+      if (productionOrders.size > 1) {
+        throw new Error(`同一物理袋 ${bagCode} 只能包含同一生产单的菲票。`)
+      }
+      productionOrdersByBag.set(bagCode, productionOrders)
+    })
+  })
+
   const byCurrentBag = new Map<string, {
     items: SewingTaskAllocationItem[]
     sewingTaskIds: string[]

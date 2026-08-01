@@ -3,8 +3,12 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import type { PdaPageEventResult } from '../src/main-handlers/pda-local-action-result.ts'
 import {
+  appendCuttingRuntimeEvent,
   listCuttingRuntimeEvents,
 } from '../src/data/fcs/cutting/cutting-runtime-event-ledger.ts'
+import {
+  submitWholeBagHandover,
+} from '../src/data/fcs/cutting/transfer-bag-operations.ts'
 import {
   appendWaitHandoverBaggingEvent,
   appendWaitHandoverInboundEvent,
@@ -373,6 +377,10 @@ const runtimeTicket = {
   partCode: 'FRONT',
   partName: '前幅',
   pieceQty: 10,
+  sewingTaskId: 'PDA-SEWING-TASK-ID-001',
+  sewingTaskNo: 'PDA-SEWING-TASK-001',
+  receiverFactoryId: 'PDA-FACTORY-001',
+  receiverFactoryName: 'HiGood 印尼一厂',
   pieceSequenceLabel: '1-10',
   hasSpecialCraft: false,
   specialCraftDisplay: '无',
@@ -388,6 +396,38 @@ appendWaitHandoverBaggingEvent({
   occurredAt: '2026-07-30 17:00',
   storage: runtimeStorage,
 })
+const runtimeUsageCycleId = listCuttingRuntimeEvents(runtimeStorage)
+  .find((event) => event.eventType === '菲票装袋')?.refs.usageCycleId
+assert(runtimeUsageCycleId, 'PDA 装袋事实必须生成使用周期')
+appendCuttingRuntimeEvent({
+  eventType: '菲票装袋',
+  eventSource: 'PDA',
+  eventStatus: '已同步',
+  occurredAt: '2026-07-30 17:00',
+  operatorName: 'PDA 装袋员',
+  idempotencyKey: `${runtimeUsageCycleId}:BAGGING_CONFIRMED`,
+  refs: {
+    productionOrderId: runtimeTicket.productionOrderId,
+    productionOrderNo: runtimeTicket.productionOrderNo,
+    cutOrderId: runtimeTicket.cutOrderId,
+    cutOrderNo: runtimeTicket.cutOrderNo,
+    spreadingOrderId: runtimeTicket.spreadingOrderId,
+    spreadingOrderNo: runtimeTicket.spreadingOrderNo,
+    feiTicketIds: [runtimeTicket.feiTicketId],
+    feiTicketNos: [runtimeTicket.feiTicketNo],
+    transferBagCode: runtimeBagCode,
+    usageCycleId: runtimeUsageCycleId,
+  },
+  payload: {
+    baggingRecordId: `bagging:${runtimeBagCode}:strict-fact`,
+    bagCode: runtimeBagCode,
+    feiTicketItems: [{ ...runtimeTicket, unit: '片' }],
+    totalPieceQty: runtimeTicket.pieceQty,
+    mixedFlag: false,
+    baggingBy: 'PDA 装袋员',
+    baggingAt: '2026-07-30 17:00',
+  },
+}, runtimeStorage)
 appendWaitHandoverInboundEvent({
   source: 'PDA',
   operator: { operatorName: 'PDA 入仓员' },
@@ -438,7 +478,36 @@ assert.equal(
     runtimeBagCode,
     runtimeStorage,
   ).flowStage,
+  'INBOUND_STORED',
+  'legacy PDA 交出事件缺少完整权威载荷时不得推进生命周期',
+)
+submitWholeBagHandover({
+  bagCode: runtimeBagCode,
+  usageCycleId: runtimeUsageCycleId,
+  handoverOrderId: 'PDA-HO-STRICT-001',
+  handoverOrderNo: 'PDA-HO-STRICT-001',
+  handoverRecordId: 'PDA-HR-STRICT-001',
+  handoverRecordNo: 'PDA-HR-STRICT-001',
+  assignments: [{
+    feiTicketId: runtimeTicket.feiTicketId,
+    feiTicketNo: runtimeTicket.feiTicketNo,
+    sewingTaskId: runtimeTicket.sewingTaskId,
+    sewingTaskNo: runtimeTicket.sewingTaskNo,
+    receiverFactoryId: runtimeTicket.receiverFactoryId,
+    receiverFactoryName: runtimeTicket.receiverFactoryName,
+  }],
+  submittedTicketSnapshot: [{ ...runtimeTicket }],
+  operator: { operatorName: 'PDA 交出员' },
+  source: 'PDA',
+  occurredAt: '2026-07-30 17:20',
+}, runtimeStorage)
+assert.equal(
+  buildWaitHandoverLifecycleByBagCode(
+    runtimeBagCode,
+    runtimeStorage,
+  ).flowStage,
   'HANDED_OVER_WAITING_RETURN',
+  '数据层完整成功交出事实必须推进统一生命周期',
 )
 assert(
   !pageSource.includes('appendWaitHandoverBaggingConfirmEvent'),

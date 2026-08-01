@@ -36,6 +36,9 @@ const waitHandoverRuntime = await import(
 const transferBagRuntime = await import(
   '../src/data/fcs/cutting/transfer-bag-runtime.ts'
 )
+const transferBagOperations = await import(
+  '../src/data/fcs/cutting/transfer-bag-operations.ts'
+)
 const transferBagReturnModel = await import(
   '../src/pages/process-factory/cutting/transfer-bag-return-model.ts'
 )
@@ -1192,40 +1195,103 @@ assert.deepEqual(firstLeg, {
   handoverSequence: 1,
 })
 
+const strictHandoverTicketSnapshot = [{
+  feiTicketId: 'FT-ID-001',
+  feiTicketNo: 'FT-001',
+  productionOrderId: 'PO-ID-001',
+  productionOrderNo: 'PO-001',
+  cutOrderId: 'CUT-ID-001',
+  cutOrderNo: 'CUT-001',
+  color: '深蓝',
+  size: 'M',
+  partCode: 'FRONT',
+  partName: '前片',
+  pieceQty: 10,
+  sewingTaskId: 'SEW-ID-001',
+  sewingTaskNo: 'SEW-001',
+  receiverFactoryId: 'FAC-001',
+  receiverFactoryName: '车缝一厂',
+}]
+const strictHandoverCanonicalIntent = JSON.stringify({
+  bagCode: 'BAG-TDD-001',
+  usageCycleId,
+  handoverOrderId: 'ORDER-001',
+  handoverOrderNo: 'ORDER-001',
+  handoverRecordId: 'HANDOVER-001',
+  handoverRecordNo: 'HANDOVER-001',
+  assignments: [{
+    feiTicketId: 'FT-ID-001',
+    feiTicketNo: 'FT-001',
+    sewingTaskId: 'SEW-ID-001',
+    sewingTaskNo: 'SEW-001',
+    receiverFactoryId: 'FAC-001',
+    receiverFactoryName: '车缝一厂',
+  }],
+  submittedTicketSnapshot: strictHandoverTicketSnapshot,
+  source: 'WEB',
+  operator: {
+    operatorId: '',
+    operatorName: '测试交出员',
+    operatorRole: '裁片仓交出员',
+  },
+})
 runtimeLedger.appendCuttingRuntimeEventIdempotent({
   eventType: '新增交出记录',
   eventSource: 'WEB',
   eventStatus: '已同步',
   occurredAt: '2026-07-30 12:30',
   operatorName: '测试交出员',
-  idempotencyKey: `${usageCycleId}:HANDOVER_CONFIRMED:${firstLeg.handoverLegId}`,
+  idempotencyKey: 'whole-bag-handover:HANDOVER-001',
   refs: {
+    productionOrderId: 'PO-ID-001',
+    productionOrderNo: 'PO-001',
+    feiTicketIds: ['FT-ID-001'],
+    feiTicketNos: ['FT-001'],
     transferBagCode: 'BAG-TDD-001',
     usageCycleId,
+    handoverOrderId: 'ORDER-001',
+    handoverRecordId: 'HANDOVER-001',
     handoverLegId: firstLeg.handoverLegId,
+    sewingTaskIds: ['SEW-ID-001'],
+    sewingTaskNos: ['SEW-001'],
+  },
+  inventoryEffect: {
+    inventoryScope: '裁床待交出仓',
+    direction: 'OUT',
+    qty: 10,
+    unit: '片',
+    fromWarehouseArea: '待交出 A 区',
+    fromLocationCode: 'A-01',
   },
   payload: {
+    canonicalIntent: strictHandoverCanonicalIntent,
     handoverRecordId: 'HANDOVER-001',
     handoverRecordNo: 'HANDOVER-001',
     handoverOrderId: 'ORDER-001',
     handoverOrderNo: 'ORDER-001',
-    status: '待接收',
-    submitSource: 'WEB',
-    sourceWarehouseId: 'cutting-wait-handover',
-    sourceWarehouseName: '裁床待交出仓',
-    receiverType: 'SEWING_TASK',
-    receiverId: 'SEW-001',
-    receiverName: '车缝任务 001',
-    receiverFactoryId: 'FAC-001',
-    receiverFactoryName: '车缝一厂',
+    receiverType: '车缝厂',
+    receiverId: 'FAC-001',
+    receiverName: '车缝一厂',
     currentHandedOverQty: 10,
-    unit: '片',
-    bagCount: 1,
-    handoverMode: '整袋交出',
     submittedAt: '2026-07-30 12:30',
     submittedBy: '测试交出员',
-    feiTicketItems: [],
-    transferBagUses: [],
+    feiTicketItems: [{
+      feiTicketId: 'FT-ID-001',
+      feiTicketNo: 'FT-001',
+      pieceQty: 10,
+      unit: '片',
+    }],
+    transferBagUses: [{
+      bagUseId: usageCycleId,
+      bagCode: 'BAG-TDD-001',
+      containedFeiTicketIds: ['FT-ID-001'],
+      totalPieceQty: 10,
+      sewingTaskIds: ['SEW-ID-001'],
+      sewingTaskNos: ['SEW-001'],
+      ticketSnapshot: strictHandoverTicketSnapshot,
+      sourceWarehouseArea: '待交出 A 区',
+      sourceLocationCode: 'A-01',
+    }],
   },
 }, storage)
 
@@ -1358,6 +1424,10 @@ const actionTicket = {
   partCode: 'FRONT',
   partName: '前幅',
   pieceQty: 10,
+  sewingTaskId: 'SEW-ID-ACTION-001',
+  sewingTaskNo: 'SEW-ACTION-001',
+  receiverFactoryId: 'SEWING-FACTORY-ACTION-001',
+  receiverFactoryName: '测试车缝厂',
   pieceSequenceLabel: '1-10',
   hasSpecialCraft: false,
   specialCraftDisplay: '无',
@@ -1394,6 +1464,38 @@ assert.equal(
   `${actionCycleId}:BAGGING_CONFIRMED`,
 )
 assert.equal(firstBaggingAction.eventId, duplicateBaggingAction.eventId)
+runtimeLedger.appendCuttingRuntimeEvent({
+  eventType: '菲票装袋',
+  eventSource: 'WEB',
+  eventStatus: '已同步',
+  occurredAt: '2026-07-30 13:00',
+  operatorId: 'OP-ACTION-001',
+  operatorName: '动作测试员',
+  operatorRole: '裁片仓装袋员',
+  idempotencyKey: `${actionCycleId}:BAGGING_CONFIRMED`,
+  refs: {
+    productionOrderId: actionTicket.productionOrderId,
+    productionOrderNo: actionTicket.productionOrderNo,
+    cutOrderId: actionTicket.cutOrderId,
+    cutOrderNo: actionTicket.cutOrderNo,
+    spreadingOrderId: actionTicket.spreadingOrderId,
+    spreadingOrderNo: actionTicket.spreadingOrderNo,
+    feiTicketIds: [actionTicket.feiTicketId],
+    feiTicketNos: [actionTicket.feiTicketNo],
+    transferBagCode: 'BAG-ACTION-001',
+    usageCycleId: actionCycleId,
+  },
+  payload: {
+    baggingRecordId: 'bagging:BAG-ACTION-001:strict-fact',
+    bagCode: 'BAG-ACTION-001',
+    feiTicketItems: [{ ...actionTicket, unit: '片' }],
+    totalPieceQty: 10,
+    mixedFlag: false,
+    baggingBy: '动作测试员',
+    baggingAt: '2026-07-30 13:00',
+  },
+}, actionStorage)
+assert.equal(runtimeLedger.listCuttingRuntimeEvents(actionStorage).length, 1, '完整袋票事实替换同一装袋事件时不得增加事件数')
 assert.equal(
   waitHandoverRuntime
     .buildWaitHandoverLifecycleByBagCode('BAG-ACTION-001', actionStorage)
@@ -1531,13 +1633,53 @@ assert.throws(
   '交出命令必须在统一命令边界阻断按菲票或空内容局部交出',
 )
 const firstHandoverAction =
-  waitHandoverRuntime.appendWaitHandoverHandoverRecordEvent(
-    handoverActionInput,
-  )
+  transferBagOperations.submitWholeBagHandover({
+    bagCode: 'BAG-ACTION-001',
+    usageCycleId: actionCycleId,
+    handoverOrderId: handoverPayload.handoverOrderId,
+    handoverOrderNo: handoverPayload.handoverOrderNo,
+    handoverRecordId: handoverPayload.handoverRecordId,
+    handoverRecordNo: handoverPayload.handoverRecordNo,
+    assignments: [{
+      feiTicketId: actionTicket.feiTicketId,
+      feiTicketNo: actionTicket.feiTicketNo,
+      sewingTaskId: actionTicket.sewingTaskId,
+      sewingTaskNo: actionTicket.sewingTaskNo,
+      receiverFactoryId: actionTicket.receiverFactoryId,
+      receiverFactoryName: actionTicket.receiverFactoryName,
+    }],
+    submittedTicketSnapshot: [{ ...actionTicket }],
+    operator: {
+      operatorId: 'OP-ACTION-003',
+      operatorName: '交出测试员',
+    },
+    source: 'WEB',
+    occurredAt: '2026-07-30 13:20',
+  }, actionStorage)
 const duplicateHandoverAction =
-  waitHandoverRuntime.appendWaitHandoverHandoverRecordEvent(
-    handoverActionInput,
-  )
+  transferBagOperations.submitWholeBagHandover({
+    bagCode: 'BAG-ACTION-001',
+    usageCycleId: actionCycleId,
+    handoverOrderId: handoverPayload.handoverOrderId,
+    handoverOrderNo: handoverPayload.handoverOrderNo,
+    handoverRecordId: handoverPayload.handoverRecordId,
+    handoverRecordNo: handoverPayload.handoverRecordNo,
+    assignments: [{
+      feiTicketId: actionTicket.feiTicketId,
+      feiTicketNo: actionTicket.feiTicketNo,
+      sewingTaskId: actionTicket.sewingTaskId,
+      sewingTaskNo: actionTicket.sewingTaskNo,
+      receiverFactoryId: actionTicket.receiverFactoryId,
+      receiverFactoryName: actionTicket.receiverFactoryName,
+    }],
+    submittedTicketSnapshot: [{ ...actionTicket }],
+    operator: {
+      operatorId: 'OP-ACTION-003',
+      operatorName: '交出测试员',
+    },
+    source: 'WEB',
+    occurredAt: '2026-07-30 13:20',
+  }, actionStorage)
 assert.equal(firstHandoverAction.eventId, duplicateHandoverAction.eventId)
 assert.equal(
   runtimeLedger.listCuttingRuntimeEvents(actionStorage).length,

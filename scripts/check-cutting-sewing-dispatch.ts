@@ -144,10 +144,61 @@ function assertEligibilityReason(
   assert.equal(resolveWholeBagHandoverEligibility(input).reason, expectedReason, message)
 }
 
-function currentCycleHandoverEvent(currentUse: TransferBagCurrentUse): CuttingRuntimeEvent {
+function currentCycleHandoverEvent(
+  currentUse: TransferBagCurrentUse,
+  assignments: FeiTicketSewingAssignment[],
+  handoverRecordId = 'HR-CURRENT-CYCLE',
+): CuttingRuntimeEvent {
+  const ticketSnapshot = submittedSnapshotFor(currentUse.tickets, assignments)
+  const handoverOrderId = `HO-${handoverRecordId}`
+  const handoverOrderNo = handoverOrderId
+  const handoverRecordNo = handoverRecordId
+  const sewingTaskIds = [...new Set(assignments.map((item) => item.sewingTaskId))]
+  const sewingTaskNos = [...new Set(assignments.map((item) => item.sewingTaskNo))]
+  const totalPieceQty = ticketSnapshot.reduce((sum, item) => sum + item.pieceQty, 0)
+  const canonicalIntent = JSON.stringify({
+    bagCode: currentUse.bagCode,
+    usageCycleId: currentUse.usageCycleId,
+    handoverOrderId,
+    handoverOrderNo,
+    handoverRecordId,
+    handoverRecordNo,
+    assignments: assignments.map((item) => ({
+      feiTicketId: item.feiTicketId,
+      feiTicketNo: item.feiTicketNo,
+      sewingTaskId: item.sewingTaskId,
+      sewingTaskNo: item.sewingTaskNo,
+      receiverFactoryId: item.receiverFactoryId,
+      receiverFactoryName: item.receiverFactoryName,
+    })).sort((left, right) => left.feiTicketId.localeCompare(right.feiTicketId)),
+    submittedTicketSnapshot: ticketSnapshot.map((item) => ({
+      feiTicketId: item.feiTicketId,
+      feiTicketNo: item.feiTicketNo,
+      productionOrderId: item.productionOrderId,
+      productionOrderNo: item.productionOrderNo,
+      cutOrderId: item.cutOrderId,
+      cutOrderNo: item.cutOrderNo,
+      color: item.color,
+      size: item.size,
+      partCode: item.partCode,
+      partName: item.partName,
+      pieceQty: item.pieceQty,
+      sewingTaskId: item.sewingTaskId,
+      sewingTaskNo: item.sewingTaskNo,
+      receiverFactoryId: item.receiverFactoryId,
+      receiverFactoryName: item.receiverFactoryName,
+    })).sort((left, right) => left.feiTicketId.localeCompare(right.feiTicketId)),
+    source: 'WEB',
+    operator: {
+      operatorId: '',
+      operatorName: '交出员',
+      operatorRole: '裁片仓交出员',
+    },
+  })
   return {
     eventId: 'EVENT-HANDOVER-CURRENT-CYCLE',
     eventNo: 'EVENT-HANDOVER-CURRENT-CYCLE',
+    idempotencyKey: `whole-bag-handover:${handoverRecordId}`,
     eventType: '新增交出记录',
     eventSource: 'WEB',
     eventStatus: '已记录',
@@ -155,12 +206,58 @@ function currentCycleHandoverEvent(currentUse: TransferBagCurrentUse): CuttingRu
     createdAt: '2026-08-01 09:00',
     operatorId: '',
     operatorName: '交出员',
-    operatorRole: '',
+    operatorRole: '裁片仓交出员',
     refs: {
+      productionOrderId: ticketSnapshot[0].productionOrderId,
+      productionOrderNo: ticketSnapshot[0].productionOrderNo,
       transferBagCode: currentUse.bagCode,
       usageCycleId: currentUse.usageCycleId || undefined,
+      handoverOrderId,
+      handoverRecordId,
+      handoverLegId: `${currentUse.usageCycleId}:handover:1`,
+      feiTicketIds: ticketSnapshot.map((item) => item.feiTicketId),
+      feiTicketNos: ticketSnapshot.map((item) => item.feiTicketNo),
+      sewingTaskIds,
+      sewingTaskNos,
     },
-    payload: { handoverRecordId: 'HR-CURRENT-CYCLE' },
+    inventoryEffect: {
+      inventoryScope: '裁床待交出仓',
+      direction: 'OUT',
+      qty: totalPieceQty,
+      unit: '片',
+      fromWarehouseArea: '待交出 A 区',
+      fromLocationCode: 'A-01',
+    },
+    payload: {
+      canonicalIntent,
+      handoverOrderId,
+      handoverOrderNo,
+      handoverRecordId,
+      handoverRecordNo,
+      receiverType: '车缝厂',
+      receiverId: assignments[0].receiverFactoryId,
+      receiverName: assignments[0].receiverFactoryName,
+      transferBagUses: [{
+        bagUseId: currentUse.usageCycleId,
+        bagCode: currentUse.bagCode,
+        containedFeiTicketIds: ticketSnapshot.map((item) => item.feiTicketId),
+        totalPieceQty,
+        sewingTaskIds,
+        sewingTaskNos,
+        ticketSnapshot,
+        sourceWarehouseArea: '待交出 A 区',
+        sourceLocationCode: 'A-01',
+      }],
+      feiTicketItems: ticketSnapshot.map((item) => ({
+        feiTicketId: item.feiTicketId,
+        feiTicketNo: item.feiTicketNo,
+        pieceQty: item.pieceQty,
+        unit: '片',
+      })),
+      currentHandedOverQty: totalPieceQty,
+      submittedAt: '2026-08-01 09:00',
+      submittedBy: '交出员',
+    },
   }
 }
 
@@ -210,7 +307,7 @@ const mixedProductionOrderCurrentUse: TransferBagCurrentUse = {
   tickets: wholeBagTickets.map((ticket, index) =>
     index === 11 ? { ...ticket, productionOrderNo: 'PO-002' } : ticket),
 }
-const currentHandoverEvent = currentCycleHandoverEvent(wholeBagCurrentUse)
+const currentHandoverEvent = currentCycleHandoverEvent(wholeBagCurrentUse, sameFactoryAssignments)
 assertEligibilityReason({
   currentUse: { ...wholeBagCurrentUse, flowStage: 'PACKED' },
   assignments: sameFactoryAssignments,
@@ -318,45 +415,21 @@ assert.match(resolveWholeBagHandoverEligibility({
   currentUse: wholeBagCurrentUse,
   assignments: sameFactoryAssignments,
   submittedTicketSnapshot: sameFactorySubmittedSnapshot,
-  existingHandoverEvents: [{
-    eventId: 'EVENT-HANDOVER-EXISTING',
-    eventNo: 'EVENT-HANDOVER-EXISTING',
-    eventType: '新增交出记录',
-    eventSource: 'WEB',
-    eventStatus: '已记录',
-    occurredAt: '2026-08-01 09:00',
-    createdAt: '2026-08-01 09:00',
-    operatorId: '',
-    operatorName: '交出员',
-    operatorRole: '',
-    refs: {
-      transferBagCode: wholeBagCurrentUse.bagCode,
-      usageCycleId: wholeBagCurrentUse.usageCycleId || undefined,
-    },
-    payload: { handoverRecordId: 'HR-EXISTING' },
-  }],
+  existingHandoverEvents: [currentCycleHandoverEvent(
+    wholeBagCurrentUse,
+    sameFactoryAssignments,
+    'HR-EXISTING',
+  )],
 }).reason, /已有未完成或重复交出事实/, '已有未完成交出事实必须失败')
 assert.equal(resolveWholeBagHandoverEligibility({
   currentUse: wholeBagCurrentUse,
   assignments: sameFactoryAssignments,
   submittedTicketSnapshot: sameFactorySubmittedSnapshot,
-  existingHandoverEvents: [{
-    eventId: 'EVENT-HANDOVER-OLD-CYCLE',
-    eventNo: 'EVENT-HANDOVER-OLD-CYCLE',
-    eventType: '新增交出记录',
-    eventSource: 'WEB',
-    eventStatus: '已同步',
-    occurredAt: '2026-07-31 09:00',
-    createdAt: '2026-07-31 09:00',
-    operatorId: '',
-    operatorName: '历史交出员',
-    operatorRole: '',
-    refs: {
-      transferBagCode: wholeBagCurrentUse.bagCode,
-      usageCycleId: 'usage:BAG-MULTI-TASK:OLD',
-    },
-    payload: { handoverRecordId: 'HR-OLD-CYCLE' },
-  }],
+  existingHandoverEvents: [currentCycleHandoverEvent(
+    { ...wholeBagCurrentUse, usageCycleId: 'usage:BAG-MULTI-TASK:OLD' },
+    sameFactoryAssignments,
+    'HR-OLD-CYCLE',
+  )],
 }).ok, true, '同一物理袋旧周期的历史交出不得阻断当前新周期')
 
 const assignmentProjectionInput = [
@@ -439,6 +512,41 @@ assert(pickingCompatibility.tasks.every((task) =>
     bag.containedFeiTickets.length === 2
     && bag.sewingTaskIds?.length === 2
     && bag.totalPieceQty === 12)), '任务下兼容袋视图也必须复用统一物理袋全量事实')
+
+const duplicateTicketProjection = structuredClone(assignmentProjection)
+duplicateTicketProjection.allocations[1].allocatedItems[0].feiTicketId =
+  duplicateTicketProjection.allocations[0].allocatedItems[0].feiTicketId
+assert.throws(
+  () => buildHandoverPickingTaskProjectionFromAllocationProjection(duplicateTicketProjection),
+  /菲票.*重复.*物理袋聚合/,
+  '物理袋聚合前必须阻断全局重复菲票，不能静默合并或重复累加',
+)
+
+const crossProductionOrderProjection = structuredClone(assignmentProjection)
+crossProductionOrderProjection.allocations[1].allocatedItems[0].productionOrderNo = 'PO-OTHER'
+assert.throws(
+  () => buildHandoverPickingTaskProjectionFromAllocationProjection(crossProductionOrderProjection),
+  /同一物理袋.*同一生产单/,
+  '同一物理袋出现跨生产单菲票时必须显式阻断',
+)
+
+const conflictingTaskMappingProjection = structuredClone(assignmentProjection)
+conflictingTaskMappingProjection.allocations[1].sewingTaskId =
+  conflictingTaskMappingProjection.allocations[0].sewingTaskId
+assert.throws(
+  () => buildHandoverPickingTaskProjectionFromAllocationProjection(conflictingTaskMappingProjection),
+  /车缝任务 ID.*任务号.*一一对应/,
+  '同一任务 ID 映射到不同任务号时必须显式阻断',
+)
+
+const conflictingTaskNoMappingProjection = structuredClone(assignmentProjection)
+conflictingTaskNoMappingProjection.allocations[1].sewingTaskNo =
+  conflictingTaskNoMappingProjection.allocations[0].sewingTaskNo
+assert.throws(
+  () => buildHandoverPickingTaskProjectionFromAllocationProjection(conflictingTaskNoMappingProjection),
+  /车缝任务号.*任务 ID.*一一对应/,
+  '同一任务号映射到不同任务 ID 时必须显式阻断',
+)
 
 assertNotContains(dataSource, buildToken('BAG', '-PICK-'), '车缝任务分配不得预造或模拟中转袋')
 

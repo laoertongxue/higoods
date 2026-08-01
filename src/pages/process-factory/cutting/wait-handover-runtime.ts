@@ -29,6 +29,7 @@ import {
 } from '../../../data/fcs/cutting/transfer-bag-lifecycle.ts'
 import {
   eventTouchesTransferBag,
+  isCompleteSuccessfulWholeBagHandoverEvent,
   parseCompleteTransferBagRepackPayload,
   resolveTransferBagCurrentUse,
 } from '../../../data/fcs/cutting/transfer-bag-operations.ts'
@@ -375,6 +376,10 @@ function toWaitHandoverLifecycleFact(
   usageCycleId: string,
   bagCode: string,
 ): TransferBagLifecycleFact | null {
+  if (
+    event.eventType === '新增交出记录'
+    && !isCompleteSuccessfulWholeBagHandoverEvent(event)
+  ) return null
   if (event.eventType === '中转袋拆袋重装') {
     const factType = getWaitHandoverRepackBag(event, 'resultBags', bagCode)
       ? 'REPACK_RESULT_CONFIRMED'
@@ -662,8 +667,10 @@ export function buildNextWaitHandoverHandoverLeg(input: {
         isWaitHandoverBagEventForCode(event, input.bagCode)
         && getWaitHandoverEventUsageCycleId(event) === input.usageCycleId
         && (
-          event.eventType === '新增交出记录'
-          || event.eventType === '特殊工艺交出'
+          (event.eventType === '新增交出记录'
+            && isCompleteSuccessfulWholeBagHandoverEvent(event))
+          || (event.eventType === '特殊工艺交出'
+            && (event.eventStatus === '已记录' || event.eventStatus === '已同步'))
         ))
       .map((event) => event.refs.handoverLegId)
       .filter(Boolean),

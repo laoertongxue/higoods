@@ -315,14 +315,13 @@ export function resolveWholeBagHandoverEligibility(
   }
 
   const conflictingHandover = (input.existingHandoverEvents || []).find((event) => {
-    if (event.eventStatus === '已取消' || event.eventType !== '新增交出记录') return false
-    const payload = eventPayload(event)
-    const bagUse = records(payload.transferBagUses)
-      .find((value) => text(value.bagCode) === currentUse.bagCode)
-    const handoverUsageCycleId = eventUsageCycleId(event) || text(bagUse?.bagUseId)
-    return handoverUsageCycleId && currentUse.usageCycleId
-      ? handoverUsageCycleId === currentUse.usageCycleId
-      : eventTouchesTransferBag(event, currentUse.bagCode)
+    const wholeBagHandover = parseStrictWholeBagHandoverEvent(event)
+    return Boolean(
+      wholeBagHandover
+      && wholeBagHandover.bagCode === currentUse.bagCode
+      && currentUse.usageCycleId
+      && wholeBagHandover.usageCycleId === currentUse.usageCycleId,
+    )
   })
   if (conflictingHandover) {
     return failedWholeBagHandover('当前中转袋使用周期已有未完成或重复交出事实，不能再次交出。')
@@ -696,7 +695,34 @@ function resolveTransferBagCurrentUseFromEvents(
       continue
     }
 
-    if (event.eventType === '新增交出记录' || event.eventType === '特殊工艺交出') {
+    if (event.eventType === '新增交出记录') {
+      const wholeBagHandover = parseStrictWholeBagHandoverEvent(event)
+      if (
+        !wholeBagHandover
+        || wholeBagHandover.bagCode !== bagCode
+        || !state.usageCycleId
+        || wholeBagHandover.usageCycleId !== state.usageCycleId
+      ) {
+        continue
+      }
+      const handoverRecordId = event.refs.handoverRecordId || text(payload.handoverRecordId)
+      if (handoverRecordId && state.tickets.length) {
+        const snapshots = handoverSnapshots.get(handoverRecordId) || []
+        snapshots.push(state.tickets)
+        handoverSnapshots.set(handoverRecordId, snapshots)
+      }
+      state = {
+        ...state,
+        tickets: [],
+        mainStatus: 'IN_USE',
+        flowStage: 'HANDED_OVER_WAITING_RETURN',
+        latestHandoverEventId: event.eventId,
+      }
+      continue
+    }
+
+    if (event.eventType === '特殊工艺交出') {
+      if (event.eventStatus !== '已记录' && event.eventStatus !== '已同步') continue
       const handoverRecordId = event.refs.handoverRecordId || text(payload.handoverRecordId)
       if (handoverRecordId && state.tickets.length) {
         const snapshots = handoverSnapshots.get(handoverRecordId) || []
@@ -1045,10 +1071,33 @@ function buildWholeBagHandoverCanonicalIntent(input: {
   operator: TransferBagRuntimeOperator
 }): string {
   const assignments = input.assignments
-    .map((item) => ({ ...item }))
+    .map((item) => ({
+      feiTicketId: text(item.feiTicketId),
+      feiTicketNo: text(item.feiTicketNo),
+      sewingTaskId: text(item.sewingTaskId),
+      sewingTaskNo: text(item.sewingTaskNo),
+      receiverFactoryId: text(item.receiverFactoryId),
+      receiverFactoryName: text(item.receiverFactoryName),
+    }))
     .sort((left, right) => left.feiTicketId.localeCompare(right.feiTicketId))
   const submittedTicketSnapshot = input.submittedTicketSnapshot
-    .map((item) => ({ ...item }))
+    .map((item) => ({
+      feiTicketId: text(item.feiTicketId),
+      feiTicketNo: text(item.feiTicketNo),
+      productionOrderId: text(item.productionOrderId),
+      productionOrderNo: text(item.productionOrderNo),
+      cutOrderId: text(item.cutOrderId),
+      cutOrderNo: text(item.cutOrderNo),
+      color: text(item.color),
+      size: text(item.size),
+      partCode: text(item.partCode),
+      partName: text(item.partName),
+      pieceQty: item.pieceQty,
+      sewingTaskId: text(item.sewingTaskId),
+      sewingTaskNo: text(item.sewingTaskNo),
+      receiverFactoryId: text(item.receiverFactoryId),
+      receiverFactoryName: text(item.receiverFactoryName),
+    }))
     .sort((left, right) => left.feiTicketId.localeCompare(right.feiTicketId))
   return JSON.stringify({
     bagCode: input.bagCode,
@@ -1068,17 +1117,207 @@ function buildWholeBagHandoverCanonicalIntent(input: {
   })
 }
 
-function findSuccessfulWholeBagHandoverByRecordId(
+interface StrictWholeBagHandoverEventFact {
+  event: CuttingRuntimeEvent<'新增交出记录'>
+  handoverRecordId: string
+  bagCode: string
+  usageCycleId: string
+  productionOrderId: string
+  productionOrderNo: string
+  canonicalIntent: string
+}
+
+function strictRequiredStringArray(value: unknown): string[] | null {
+  if (!Array.isArray(value) || !value.length) return null
+  const values = value.map(text)
+  if (values.some((item) => !item) || new Set(values).size !== values.length) return null
+  return values
+}
+
+function parseStrictWholeBagHandoverEvent(
+  event: CuttingRuntimeEvent,
+): StrictWholeBagHandoverEventFact | null {
+  if (
+    event.eventType !== '新增交出记录'
+    || (event.eventStatus !== '已记录' && event.eventStatus !== '已同步')
+  ) return null
+
+  const payload = eventPayload(event)
+  const handoverOrderId = text(payload.handoverOrderId)
+  const handoverOrderNo = text(payload.handoverOrderNo)
+  const handoverRecordId = text(payload.handoverRecordId)
+  const handoverRecordNo = text(payload.handoverRecordNo)
+  const receiverId = text(payload.receiverId)
+  const receiverName = text(payload.receiverName)
+  const submittedAt = text(payload.submittedAt)
+  const submittedBy = text(payload.submittedBy)
+  if (
+    !handoverOrderId
+    || !handoverOrderNo
+    || !handoverRecordId
+    || !handoverRecordNo
+    || payload.receiverType !== '车缝厂'
+    || !receiverId
+    || !receiverName
+    || !submittedAt
+    || !submittedBy
+  ) return null
+
+  const transferBagUses = records(payload.transferBagUses)
+  if (transferBagUses.length !== 1) return null
+  const bagUse = transferBagUses[0]
+  const bagCode = text(bagUse.bagCode)
+  const usageCycleId = text(bagUse.bagUseId)
+  const containedFeiTicketIds = strictRequiredStringArray(bagUse.containedFeiTicketIds)
+  const sewingTaskIds = strictRequiredStringArray(bagUse.sewingTaskIds)
+  const sewingTaskNos = strictRequiredStringArray(bagUse.sewingTaskNos)
+  const sourceWarehouseArea = text(bagUse.sourceWarehouseArea)
+  const sourceLocationCode = text(bagUse.sourceLocationCode)
+  if (
+    !bagCode
+    || !usageCycleId
+    || !containedFeiTicketIds
+    || !sewingTaskIds
+    || !sewingTaskNos
+    || !sourceWarehouseArea
+    || !sourceLocationCode
+  ) return null
+
+  let ticketSnapshot: TransferBagTicketFactSnapshot[]
+  try {
+    ticketSnapshot = normalizeRequiredSubmittedTicketSnapshot(bagUse.ticketSnapshot)
+  } catch {
+    return null
+  }
+  const snapshotTicketIds = ticketSnapshot.map((ticket) => ticket.feiTicketId)
+  const snapshotTicketNos = ticketSnapshot.map((ticket) => ticket.feiTicketNo)
+  if (!sameStrings(containedFeiTicketIds, snapshotTicketIds)) return null
+
+  const productionOrderIds = unique(ticketSnapshot.map((ticket) => ticket.productionOrderId))
+  const productionOrderNos = unique(ticketSnapshot.map((ticket) => ticket.productionOrderNo))
+  const snapshotTaskIds = unique(ticketSnapshot.map((ticket) => ticket.sewingTaskId))
+  const snapshotTaskNos = unique(ticketSnapshot.map((ticket) => ticket.sewingTaskNo))
+  const receiverIds = unique(ticketSnapshot.map((ticket) => ticket.receiverFactoryId))
+  const receiverNames = unique(ticketSnapshot.map((ticket) => ticket.receiverFactoryName))
+  if (
+    productionOrderIds.length !== 1
+    || productionOrderNos.length !== 1
+    || receiverIds.length !== 1
+    || receiverNames.length !== 1
+    || receiverIds[0] !== receiverId
+    || receiverNames[0] !== receiverName
+    || !sameStrings(sewingTaskIds, snapshotTaskIds)
+    || !sameStrings(sewingTaskNos, snapshotTaskNos)
+  ) return null
+  const taskNoById = new Map<string, string>()
+  const taskIdByNo = new Map<string, string>()
+  for (const ticket of ticketSnapshot) {
+    const mappedTaskNo = taskNoById.get(ticket.sewingTaskId)
+    const mappedTaskId = taskIdByNo.get(ticket.sewingTaskNo)
+    if (
+      (mappedTaskNo && mappedTaskNo !== ticket.sewingTaskNo)
+      || (mappedTaskId && mappedTaskId !== ticket.sewingTaskId)
+    ) return null
+    taskNoById.set(ticket.sewingTaskId, ticket.sewingTaskNo)
+    taskIdByNo.set(ticket.sewingTaskNo, ticket.sewingTaskId)
+  }
+
+  const totalPieceQty = ticketSnapshot.reduce((sum, ticket) => sum + ticket.pieceQty, 0)
+  if (
+    bagUse.totalPieceQty !== totalPieceQty
+    || payload.currentHandedOverQty !== totalPieceQty
+  ) return null
+  const feiTicketItems = records(payload.feiTicketItems)
+  const feiTicketItemIds = strictRequiredStringArray(feiTicketItems.map((item) => item.feiTicketId))
+  if (!feiTicketItemIds || !sameStrings(feiTicketItemIds, snapshotTicketIds)) return null
+  const snapshotById = new Map(ticketSnapshot.map((ticket) => [ticket.feiTicketId, ticket]))
+  if (feiTicketItems.some((item) => {
+    const snapshot = snapshotById.get(text(item.feiTicketId))
+    return !snapshot
+      || text(item.feiTicketNo) !== snapshot.feiTicketNo
+      || item.pieceQty !== snapshot.pieceQty
+      || item.unit !== '片'
+  })) return null
+
+  if (
+    text(event.refs.transferBagCode) !== bagCode
+    || text(event.refs.usageCycleId) !== usageCycleId
+    || text(event.refs.handoverOrderId) !== handoverOrderId
+    || text(event.refs.handoverRecordId) !== handoverRecordId
+    || text(event.refs.productionOrderId) !== productionOrderIds[0]
+    || text(event.refs.productionOrderNo) !== productionOrderNos[0]
+    || text(event.refs.handoverLegId) !== `${usageCycleId}:handover:1`
+    || event.idempotencyKey !== `whole-bag-handover:${handoverRecordId}`
+    || !sameStrings(event.refs.feiTicketIds || [], snapshotTicketIds)
+    || !sameStrings(event.refs.feiTicketNos || [], snapshotTicketNos)
+    || !sameStrings(event.refs.sewingTaskIds || [], sewingTaskIds)
+    || !sameStrings(event.refs.sewingTaskNos || [], sewingTaskNos)
+  ) return null
+  if (
+    !event.inventoryEffect
+    || event.inventoryEffect.inventoryScope !== '裁床待交出仓'
+    || event.inventoryEffect.direction !== 'OUT'
+    || event.inventoryEffect.qty !== totalPieceQty
+    || event.inventoryEffect.unit !== '片'
+    || text(event.inventoryEffect.fromWarehouseArea) !== sourceWarehouseArea
+    || text(event.inventoryEffect.fromLocationCode) !== sourceLocationCode
+    || submittedAt !== event.occurredAt
+    || submittedBy !== event.operatorName
+  ) return null
+
+  const assignments = ticketSnapshot.map((ticket) => ({
+    feiTicketId: ticket.feiTicketId,
+    feiTicketNo: ticket.feiTicketNo,
+    sewingTaskId: ticket.sewingTaskId,
+    sewingTaskNo: ticket.sewingTaskNo,
+    receiverFactoryId: ticket.receiverFactoryId,
+    receiverFactoryName: ticket.receiverFactoryName,
+  }))
+  const canonicalIntent = buildWholeBagHandoverCanonicalIntent({
+    bagCode,
+    usageCycleId,
+    handoverOrderId,
+    handoverOrderNo,
+    handoverRecordId,
+    handoverRecordNo,
+    assignments,
+    submittedTicketSnapshot: ticketSnapshot,
+    source: event.eventSource,
+    operator: {
+      operatorId: event.operatorId,
+      operatorName: event.operatorName,
+      operatorRole: event.operatorRole,
+    },
+  })
+  if (text(payload.canonicalIntent) !== canonicalIntent) return null
+
+  return {
+    event: event as CuttingRuntimeEvent<'新增交出记录'>,
+    handoverRecordId,
+    bagCode,
+    usageCycleId,
+    productionOrderId: productionOrderIds[0],
+    productionOrderNo: productionOrderNos[0],
+    canonicalIntent,
+  }
+}
+
+export function isCompleteSuccessfulWholeBagHandoverEvent(
+  event: CuttingRuntimeEvent,
+): boolean {
+  return Boolean(parseStrictWholeBagHandoverEvent(event))
+}
+
+function findWholeBagHandoverEventsByRecordId(
   events: CuttingRuntimeEvent[],
   handoverRecordId: string,
-): CuttingRuntimeEvent<'新增交出记录'> | undefined {
-  return events.find((event) =>
+): CuttingRuntimeEvent<'新增交出记录'>[] {
+  return events.filter((event) =>
     event.eventType === '新增交出记录'
-    && (event.eventStatus === '已记录' || event.eventStatus === '已同步')
     && (
       text(event.refs.handoverRecordId) === handoverRecordId
       || text(eventPayload(event).handoverRecordId) === handoverRecordId
-    )) as CuttingRuntimeEvent<'新增交出记录'> | undefined
+    )) as CuttingRuntimeEvent<'新增交出记录'>[]
 }
 
 export function submitWholeBagHandover(
@@ -1095,8 +1334,8 @@ export function submitWholeBagHandover(
   const occurredAt = input.occurredAt?.trim()
     || new Date().toISOString().slice(0, 16).replace('T', ' ')
   const events = sortedRuntimeEvents(storage)
-  const existingRecord = findSuccessfulWholeBagHandoverByRecordId(events, handoverRecordId)
-  if (existingRecord) {
+  const existingRecords = findWholeBagHandoverEventsByRecordId(events, handoverRecordId)
+  if (existingRecords.length) {
     let retryCanonicalIntent = ''
     try {
       retryCanonicalIntent = buildWholeBagHandoverCanonicalIntent({
@@ -1114,8 +1353,11 @@ export function submitWholeBagHandover(
     } catch {
       throw new Error(`交出记录 ID ${handoverRecordId} 已存在，但本次请求业务意图冲突。`)
     }
-    if (text(eventPayload(existingRecord).canonicalIntent) === retryCanonicalIntent) {
-      return existingRecord
+    const existingFact = existingRecords.length === 1
+      ? parseStrictWholeBagHandoverEvent(existingRecords[0])
+      : null
+    if (existingFact?.canonicalIntent === retryCanonicalIntent) {
+      return existingFact.event
     }
     throw new Error(`交出记录 ID ${handoverRecordId} 已存在，但本次请求业务意图冲突。`)
   }
@@ -1185,7 +1427,7 @@ export function submitWholeBagHandover(
     submittedBy,
   }
   const handoverLegId = `${currentUse.usageCycleId}:handover:1`
-  return appendCuttingRuntimeEventIdempotent({
+  const appendResult = appendCuttingRuntimeEventIdempotent({
     idempotencyKey: `whole-bag-handover:${handoverRecordId}`,
     eventType: '新增交出记录',
     eventSource: input.source,
@@ -1216,5 +1458,18 @@ export function submitWholeBagHandover(
       fromLocationCode: sourceLocation.locationCode,
     },
     payload,
-  }, storage).event
+  }, storage)
+  const persistedFact = parseStrictWholeBagHandoverEvent(appendResult.event)
+  if (
+    !persistedFact
+    || persistedFact.handoverRecordId !== handoverRecordId
+    || persistedFact.bagCode !== bagCode
+    || persistedFact.usageCycleId !== currentUse.usageCycleId
+    || persistedFact.productionOrderId !== ticketSnapshot[0].productionOrderId
+    || persistedFact.productionOrderNo !== ticketSnapshot[0].productionOrderNo
+    || persistedFact.canonicalIntent !== canonicalIntent
+  ) {
+    throw new Error(`交出记录 ID ${handoverRecordId} 已存在，但本次请求业务意图冲突。`)
+  }
+  return persistedFact.event
 }

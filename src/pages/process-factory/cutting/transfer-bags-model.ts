@@ -230,6 +230,8 @@ export interface TransferBagUsage {
   locationCode?: string
   sewingTaskId: string
   sewingTaskNo: string
+  sewingTaskIds?: string[]
+  sewingTaskNos?: string[]
   sewingFactoryId: string
   sewingFactoryName: string
   styleCode: string
@@ -1060,6 +1062,18 @@ function uniqueStrings(values: Array<string | undefined>): string[] {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value))))
 }
 
+function normalizeUsageTaskValues(
+  values: string[] | undefined,
+  ...fallbacks: Array<string | undefined>
+): string[] {
+  const normalized = Array.isArray(values)
+    ? values.map((value) => value.trim()).filter(Boolean)
+    : []
+  return uniqueStrings(normalized.length
+    ? normalized
+    : fallbacks.map((value) => value?.trim()).filter(Boolean))
+}
+
 export function getTransferBagTicketPrintStatusLabel(
   ticket: Pick<TransferBagTicketCandidate, 'ticketStatus' | 'printStatus'> | null | undefined,
 ): string {
@@ -1196,14 +1210,31 @@ function toPageMaster(master: TransferCarrierRecord): TransferBagMaster {
 function toRuntimeUsage(usage: TransferBagUsage): TransferCarrierCycleRecord {
   const normalized = normalizeTransferCarrierCycleRecord(usage as unknown as Record<string, unknown>)
   const isHandoverTarget = usage.boundObjectType === '车缝任务' || usage.usageStage === 'HANDOVER_PACKING'
+  const explicitTaskIds = normalizeUsageTaskValues(usage.sewingTaskIds)
+  const explicitTaskNos = normalizeUsageTaskValues(usage.sewingTaskNos)
+  const sewingTaskIds = explicitTaskIds.length
+    ? explicitTaskIds
+    : normalizeUsageTaskValues(
+        undefined,
+        usage.sewingTaskId?.trim() || (isHandoverTarget ? usage.boundObjectId : undefined),
+      )
+  const sewingTaskNos = explicitTaskNos.length
+    ? explicitTaskNos
+    : normalizeUsageTaskValues(
+        undefined,
+        usage.sewingTaskNo?.trim() || (isHandoverTarget ? usage.boundObjectNo : undefined),
+      )
   return {
     cycleId: normalized.cycleId,
     cycleNo: normalized.cycleNo,
     carrierId: normalized.carrierId,
     carrierCode: normalized.carrierCode,
     carrierType: normalized.carrierType,
-    sewingTaskId: isHandoverTarget ? usage.boundObjectId || usage.sewingTaskId : usage.sewingTaskId,
-    sewingTaskNo: isHandoverTarget ? usage.boundObjectNo || usage.sewingTaskNo : usage.sewingTaskNo,
+    // 新周期只写数组；旧页面事实没有数组时，才保留单值兼容回填。
+    sewingTaskId: explicitTaskIds.length ? '' : sewingTaskIds[0] || '',
+    sewingTaskNo: explicitTaskNos.length ? '' : sewingTaskNos[0] || '',
+    sewingTaskIds,
+    sewingTaskNos,
     sewingFactoryId: usage.receiverType === '工厂' ? usage.receiverId || usage.sewingFactoryId : usage.sewingFactoryId,
     sewingFactoryName: usage.receiverType === '工厂' ? usage.receiverName || usage.sewingFactoryName : usage.sewingFactoryName,
     boundObjectType: usage.boundObjectType,
@@ -1245,6 +1276,10 @@ function toRuntimeUsage(usage: TransferBagUsage): TransferCarrierCycleRecord {
 function toPageUsage(usage: TransferCarrierCycleRecord): TransferBagUsage {
   const usageStage = normalizeTransferBagUsageStage(usage.usageStage)
   const isInboundTemp = usageStage === 'INBOUND_TEMP'
+  const sewingTaskIds = normalizeUsageTaskValues(usage.sewingTaskIds, usage.sewingTaskId)
+  const sewingTaskNos = normalizeUsageTaskValues(usage.sewingTaskNos, usage.sewingTaskNo)
+  const primarySewingTaskId = sewingTaskIds[0] || ''
+  const primarySewingTaskNo = sewingTaskNos[0] || ''
   return {
     cycleId: usage.cycleId,
     cycleNo: usage.cycleNo,
@@ -1256,8 +1291,9 @@ function toPageUsage(usage: TransferCarrierCycleRecord): TransferBagUsage {
     bagId: usage.carrierId,
     bagCode: usage.carrierCode,
     boundObjectType: usage.boundObjectType || (isInboundTemp ? '入仓暂存记录' : '车缝任务'),
-    boundObjectId: usage.boundObjectId || (isInboundTemp ? usage.cycleId : usage.sewingTaskId),
-    boundObjectNo: usage.boundObjectNo || (isInboundTemp ? usage.cycleNo : usage.sewingTaskNo),
+    // 页面旧模型只能展示一个 boundObject，明确取数组首项兼容；完整关系仍保留在数组中。
+    boundObjectId: usage.boundObjectId || (isInboundTemp ? usage.cycleId : primarySewingTaskId),
+    boundObjectNo: usage.boundObjectNo || (isInboundTemp ? usage.cycleNo : primarySewingTaskNo),
     receiverType: usage.receiverType || (isInboundTemp ? '仓库' : '工厂'),
     receiverId: usage.receiverId || (isInboundTemp ? 'cutting-wait-handover' : usage.sewingFactoryId),
     receiverName: usage.receiverName || (isInboundTemp ? '裁床待交出仓' : usage.sewingFactoryName),
@@ -1265,8 +1301,10 @@ function toPageUsage(usage: TransferCarrierCycleRecord): TransferBagUsage {
     sourceWarehouseName: usage.sourceWarehouseName || '裁床待交出仓',
     warehouseArea: usage.warehouseArea || '',
     locationCode: usage.locationCode || '',
-    sewingTaskId: usage.sewingTaskId,
-    sewingTaskNo: usage.sewingTaskNo,
+    sewingTaskId: usage.sewingTaskId || primarySewingTaskId,
+    sewingTaskNo: usage.sewingTaskNo || primarySewingTaskNo,
+    sewingTaskIds,
+    sewingTaskNos,
     sewingFactoryId: usage.sewingFactoryId,
     sewingFactoryName: usage.sewingFactoryName,
     styleCode: usage.styleCode,

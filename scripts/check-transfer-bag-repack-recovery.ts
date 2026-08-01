@@ -3,6 +3,7 @@
 // @ts-expect-error 本脚本由 Node + tsx 运行，仓库未安装 @types/node。
 import assert from 'node:assert/strict'
 import {
+  CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY,
   appendCuttingRuntimeEvent,
   listCuttingRuntimeEvents,
   type TransferBagRepackPayload,
@@ -24,6 +25,14 @@ import {
   type TransferCarrierRecord,
 } from '../src/data/fcs/cutting/transfer-bag-runtime.ts'
 import {
+  createTransferBagUsageDraft,
+  deserializeTransferBagStorage,
+  serializeTransferBagStorage,
+  type TransferBagMaster,
+  type TransferBagStore,
+} from '../src/pages/process-factory/cutting/transfer-bags-model.ts'
+import {
+  buildNextWaitHandoverHandoverLeg,
   buildWaitHandoverLocationOccupancyStates,
   buildWaitHandoverLifecycleByBagCode,
   buildWaitHandoverRuntimeProjection,
@@ -36,6 +45,23 @@ function createMemoryStorage(): BrowserStorageLike {
     getItem: (key) => records.get(key) ?? null,
     setItem: (key, value) => records.set(key, value),
     removeItem: (key) => records.delete(key),
+  }
+}
+
+function emptyPageTransferBagStore(): TransferBagStore {
+  return {
+    masters: [],
+    usages: [],
+    bindings: [],
+    manifests: [],
+    sewingTasks: [],
+    auditTrail: [],
+    returnReceipts: [],
+    conditionRecords: [],
+    reuseCycles: [],
+    closureResults: [],
+    returnAuditTrail: [],
+    scrapRecords: [],
   }
 }
 
@@ -1395,39 +1421,21 @@ function appendLegacyBaggingConfirm(input: {
   const historical = ticket('HISTORY', 'PO-HISTORY', 'F-HISTORY')
   appendBagging({ storage, bagCode: 'BAG-CURRENT', usageCycleId: 'usage:BAG-CURRENT:old', tickets: [current] })
   appendBagging({ storage, bagCode: 'BAG-HISTORY', usageCycleId: 'usage:BAG-HISTORY:old', tickets: [historical] })
-  appendCuttingRuntimeEvent({
-    eventType: '新增交出记录',
-    eventSource: 'WEB',
-    eventStatus: '已同步',
-    occurredAt: '2026-08-01 09:10',
-    operatorName: '交出员',
-    refs: {
-      transferBagCode: 'BAG-HISTORY',
-      usageCycleId: 'usage:BAG-HISTORY:old',
-      handoverLegId: 'leg:history:1',
-      feiTicketIds: ['HISTORY'],
-    },
-    payload: {
+  appendInbound({ storage, bagCode: 'BAG-HISTORY', usageCycleId: 'usage:BAG-HISTORY:old', tickets: [historical] })
+  const historicalAssignments = [assignment(historical, 'SEW-HISTORY', 'F-HISTORY')]
+  submitWholeBagHandover(handoverInput(
+    'BAG-HISTORY',
+    'usage:BAG-HISTORY:old',
+    [historical],
+    historicalAssignments,
+    {
       handoverOrderId: 'HO-HISTORY',
       handoverOrderNo: 'HO-HISTORY',
       handoverRecordId: 'HR-HISTORY',
       handoverRecordNo: 'HR-HISTORY',
-      receiverType: '车缝厂',
-      receiverId: 'F-HISTORY',
-      receiverName: '历史接收厂',
-      transferBagUses: [{
-        bagUseId: 'usage:BAG-HISTORY:old',
-        bagCode: 'BAG-HISTORY',
-        containedFeiTicketIds: ['HISTORY'],
-        totalPieceQty: historical.pieceQty,
-        ticketSnapshot: [historical],
-      }],
-      feiTicketItems: [{ feiTicketId: 'HISTORY', feiTicketNo: historical.feiTicketNo, pieceQty: historical.pieceQty, unit: '片' }],
-      currentHandedOverQty: historical.pieceQty,
-      submittedAt: '2026-08-01 09:10',
-      submittedBy: '交出员',
+      occurredAt: '2026-08-01 09:10',
     },
-  }, storage)
+  ), storage)
   const candidates = buildWaitHandoverRuntimeProjection([
     { feiTicketId: 'CURRENT' },
     { feiTicketId: 'HISTORY' },
@@ -1548,6 +1556,47 @@ function appendLegacyBaggingConfirm(input: {
   assert.equal(retriedEvent.eventId, event.eventId, '同 ID 等价重试必须返回首次成功事件')
   assert.equal(listCuttingRuntimeEvents(storage).length, countAfterFirstHandover, '同 ID 等价重试不得追加事件')
 
+  const reorderedRetry = structuredClone(firstHandoverInput)
+  reorderedRetry.assignments = reorderedRetry.assignments.map((item) => ({
+    receiverFactoryName: item.receiverFactoryName,
+    receiverFactoryId: item.receiverFactoryId,
+    sewingTaskNo: item.sewingTaskNo,
+    sewingTaskId: item.sewingTaskId,
+    feiTicketNo: item.feiTicketNo,
+    feiTicketId: item.feiTicketId,
+    diagnosticNote: '非业务调试字段不得进入幂等意图',
+  }) as FeiTicketSewingAssignment)
+  reorderedRetry.submittedTicketSnapshot = reorderedRetry.submittedTicketSnapshot.map((item) => ({
+    receiverFactoryName: item.receiverFactoryName,
+    receiverFactoryId: item.receiverFactoryId,
+    sewingTaskNo: item.sewingTaskNo,
+    sewingTaskId: item.sewingTaskId,
+    pieceQty: item.pieceQty,
+    partName: item.partName,
+    partCode: item.partCode,
+    size: item.size,
+    color: item.color,
+    cutOrderNo: item.cutOrderNo,
+    cutOrderId: item.cutOrderId,
+    productionOrderNo: item.productionOrderNo,
+    productionOrderId: item.productionOrderId,
+    feiTicketNo: item.feiTicketNo,
+    feiTicketId: item.feiTicketId,
+    diagnosticNote: '未知字段必须忽略',
+  }) as TransferBagTicketFactSnapshot)
+  const reorderedEvent = submitWholeBagHandover(reorderedRetry, storage)
+  assert.equal(reorderedEvent.eventId, event.eventId, '快照键插入顺序和额外非业务字段不得改变等价重试')
+  assert.equal(listCuttingRuntimeEvents(storage).length, countAfterFirstHandover, 'canonical 等价重试不得追加事件')
+
+  const duplicateRetry = structuredClone(firstHandoverInput)
+  duplicateRetry.assignments.push({ ...duplicateRetry.assignments[0] })
+  assertRejectedWithoutWriting(
+    storage,
+    () => submitWholeBagHandover(duplicateRetry, storage),
+    /意图冲突/,
+    '同 ID 重试的重复分配必须先由运行时守卫拒绝，不能被 canonical 排序去重掩盖',
+  )
+
   ;[
     {
       label: '中转袋',
@@ -1608,6 +1657,18 @@ function appendLegacyBaggingConfirm(input: {
     snapshotBeforeMutation,
     '历史交出快照必须与后续输入对象修改隔离',
   )
+  const returnedPayload = reorderedEvent.payload as typeof payload
+  returnedPayload.transferBagUses[0].ticketSnapshot[0].pieceQty = 777
+  reorderedEvent.refs.feiTicketIds?.push('MUTATED-RETURN')
+  const persistedAfterReturnedMutation = listCuttingRuntimeEvents(storage)
+    .find((item) => item.eventId === event.eventId)
+  const persistedAfterReturnedMutationPayload = persistedAfterReturnedMutation?.payload as typeof payload | undefined
+  assert.equal(
+    persistedAfterReturnedMutationPayload?.transferBagUses[0].ticketSnapshot[0].pieceQty,
+    snapshotBeforeMutation[0].pieceQty,
+    '返回事件对象修改不得污染事件账中的深拷贝事实',
+  )
+  assert(!persistedAfterReturnedMutation?.refs.feiTicketIds?.includes('MUTATED-RETURN'), '返回 refs 也必须与账本深拷贝隔离')
   const current = resolveTransferBagCurrentUse('BAG-HANDOVER-INBOUND', storage)
   assert.deepEqual(current.tickets, [], '成功交出后必须清空当前袋票关系')
   assert.equal(current.mainStatus, 'IN_USE')
@@ -2036,6 +2097,137 @@ function appendLegacyBaggingConfirm(input: {
 }
 
 {
+  const storage = createMemoryStorage()
+  const bagCode = 'BAG-HANDOVER-FAILED-ID-COLLISION'
+  const usageCycleId = `usage:${bagCode}:1`
+  const handoverRecordId = 'HR-FAILED-ID-COLLISION'
+  const tickets = [ticket('FAILED-ID-COLLISION-01', 'PO-FAILED-ID-COLLISION', 'FACTORY-HANDOVER', 12)]
+  const assignments = [assignment(tickets[0], 'SEW-01')]
+  appendCuttingRuntimeEvent({
+    idempotencyKey: `whole-bag-handover:${handoverRecordId}`,
+    eventType: '新增交出记录',
+    eventSource: 'WEB',
+    eventStatus: '同步失败',
+    occurredAt: '2026-08-01 07:00',
+    operatorName: '失败事件导入员',
+    refs: {
+      transferBagCode: 'BAG-OTHER-FAILED',
+      usageCycleId: 'usage:BAG-OTHER-FAILED:1',
+      handoverRecordId,
+    },
+    payload: { handoverRecordId },
+  } as Parameters<typeof appendCuttingRuntimeEvent>[0], storage)
+  appendBagging({ storage, bagCode, usageCycleId, tickets })
+  appendInbound({ storage, bagCode, usageCycleId, tickets })
+  assertRejectedWithoutWriting(
+    storage,
+    () => submitWholeBagHandover(handoverInput(
+      bagCode,
+      usageCycleId,
+      tickets,
+      assignments,
+      { handoverRecordId, handoverRecordNo: handoverRecordId },
+    ), storage),
+    /交出记录 ID .*意图冲突/,
+    '另一袋同步失败事件占用同一交出幂等键时不得被当成本次成功事件返回',
+  )
+  const current = resolveTransferBagCurrentUse(bagCode, storage)
+  assert.equal(current.flowStage, 'INBOUND_STORED', '失败 ID 碰撞不得清空当前袋票关系')
+  assert.equal(current.tickets.length, 1)
+}
+
+{
+  const storage = createMemoryStorage()
+  const bagCode = 'BAG-HANDOVER-DAMAGED-SUCCESS'
+  const usageCycleId = `usage:${bagCode}:1`
+  const tickets = [ticket('DAMAGED-SUCCESS-01', 'PO-DAMAGED-SUCCESS', 'FACTORY-HANDOVER', 12)]
+  const assignments = [assignment(tickets[0], 'SEW-01')]
+  appendBagging({ storage, bagCode, usageCycleId, tickets })
+  appendInbound({ storage, bagCode, usageCycleId, tickets })
+  const request = handoverInput(bagCode, usageCycleId, tickets, assignments)
+  const event = submitWholeBagHandover(request, storage)
+  const rawLedger = storage.getItem?.(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY)
+  assert(rawLedger, '测试必须取得事件账持久化内容')
+  const damagedStore = JSON.parse(rawLedger) as { events: Array<Record<string, unknown>> }
+  const damagedEvent = damagedStore.events.find((item) => item.eventId === event.eventId)
+  assert(damagedEvent, '测试必须找到首次成功交出事件')
+  const damagedPayload = damagedEvent.payload as Record<string, unknown>
+  damagedPayload.transferBagUses = []
+  damagedPayload.feiTicketItems = []
+  storage.setItem?.(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, JSON.stringify(damagedStore))
+  assertRejectedWithoutWriting(
+    storage,
+    () => submitWholeBagHandover(structuredClone(request), storage),
+    /交出记录 ID .*意图冲突/,
+    '损坏历史成功载荷即使保留伪造 canonicalIntent 也不得命中等价重试',
+  )
+}
+
+;(['同步失败', '已取消', '已记录'] as const).forEach((eventStatus, index) => {
+  const storage = createMemoryStorage()
+  const bagCode = `BAG-HANDOVER-NON-SUCCESS-${index + 1}`
+  const usageCycleId = `usage:${bagCode}:1`
+  const tickets = [ticket(`NON-SUCCESS-${index + 1}`, 'PO-NON-SUCCESS', 'FACTORY-HANDOVER', 12)]
+  appendBagging({ storage, bagCode, usageCycleId, tickets })
+  appendInbound({ storage, bagCode, usageCycleId, tickets })
+  const factsBefore = listWaitHandoverLifecycleFacts(bagCode, storage)
+  appendCuttingRuntimeEvent({
+    eventType: '新增交出记录',
+    eventSource: 'WEB',
+    eventStatus,
+    occurredAt: `2026-08-01 09:0${index + 1}`,
+    operatorName: '交出员',
+    refs: { transferBagCode: bagCode, usageCycleId, handoverRecordId: `HR-NON-SUCCESS-${index + 1}` },
+    payload: { handoverRecordId: `HR-NON-SUCCESS-${index + 1}` },
+  } as Parameters<typeof appendCuttingRuntimeEvent>[0], storage)
+  const current = resolveTransferBagCurrentUse(bagCode, storage)
+  assert.equal(current.flowStage, 'INBOUND_STORED', `${eventStatus}交出事件不得推进袋生命周期`)
+  assert.deepEqual(current.tickets, tickets, `${eventStatus}交出事件不得清空当前袋票关系`)
+  assert.deepEqual(listWaitHandoverLifecycleFacts(bagCode, storage), factsBefore, `${eventStatus}交出事件不得生成交出生命周期事实`)
+  assert.deepEqual(buildNextWaitHandoverHandoverLeg({
+    bagCode,
+    usageCycleId,
+    events: listCuttingRuntimeEvents(storage),
+  }), {
+    handoverLegId: `${usageCycleId}:handover:1`,
+    handoverSequence: 1,
+  }, `${eventStatus}交出事件不得占用下一交出流转段`)
+  const assignments = [assignment(tickets[0], 'SEW-01')]
+  const successfulEvent = submitWholeBagHandover(handoverInput(
+    bagCode,
+    usageCycleId,
+    tickets,
+    assignments,
+    {
+      handoverRecordId: `HR-AFTER-NON-SUCCESS-${index + 1}`,
+      handoverRecordNo: `HR-AFTER-NON-SUCCESS-${index + 1}`,
+    },
+  ), storage)
+  assert.equal(successfulEvent.eventStatus, '已同步', `${eventStatus}不完整事件不得阻断后续完整整袋交出`)
+})
+
+{
+  const storage = createMemoryStorage()
+  const bagCode = 'BAG-HANDOVER-DAMAGED-FOLD'
+  const usageCycleId = `usage:${bagCode}:1`
+  const tickets = [ticket('DAMAGED-FOLD-01', 'PO-DAMAGED-FOLD', 'FACTORY-HANDOVER', 12)]
+  appendBagging({ storage, bagCode, usageCycleId, tickets })
+  appendInbound({ storage, bagCode, usageCycleId, tickets })
+  appendCuttingRuntimeEvent({
+    eventType: '新增交出记录',
+    eventSource: 'WEB',
+    eventStatus: '已同步',
+    occurredAt: '2026-08-01 09:30',
+    operatorName: '损坏事件导入员',
+    refs: { transferBagCode: bagCode, usageCycleId, handoverRecordId: 'HR-DAMAGED-FOLD' },
+    payload: { handoverRecordId: 'HR-DAMAGED-FOLD', canonicalIntent: '伪造意图' },
+  } as Parameters<typeof appendCuttingRuntimeEvent>[0], storage)
+  const current = resolveTransferBagCurrentUse(bagCode, storage)
+  assert.equal(current.flowStage, 'INBOUND_STORED', '损坏成功载荷不得推进袋生命周期')
+  assert.deepEqual(current.tickets, tickets, '损坏成功载荷不得清空当前袋票关系')
+}
+
+{
   const legacy = deserializeTransferBagRuntimeStorage(JSON.stringify({
     usages: [{
       cycleId: 'CYCLE-LEGACY',
@@ -2101,6 +2293,76 @@ function appendLegacyBaggingConfirm(input: {
   assert.deepEqual(cycle.sewingTaskNos, ['SEW-NEW'])
   assert.equal(cycle.sewingTaskId, '', '新周期不得把第一个任务回写为唯一任务单值')
   assert.equal(cycle.sewingTaskNo, '')
+
+  const pageBag: TransferBagMaster = {
+    carrierId: 'BAG-ID-PAGE-ARRAY',
+    carrierCode: 'BAG-PAGE-ARRAY',
+    carrierType: 'bag',
+    latestCycleId: '',
+    latestCycleNo: '',
+    bagId: 'BAG-ID-PAGE-ARRAY',
+    bagCode: 'BAG-PAGE-ARRAY',
+    bagName: '页面数组适配袋',
+    bagSpec: '标准袋',
+    bagMaterial: '尼龙',
+    ownershipFactoryId: 'FACTORY-HANDOVER',
+    ownershipFactoryName: '唯一接收车缝厂',
+    bagType: '标准中转袋',
+    capacity: 100,
+    reusable: true,
+    currentStatus: 'IDLE',
+    currentLocation: '裁床待交出仓',
+    latestUsageId: '',
+    latestUsageNo: '',
+    currentCycleId: '',
+    currentOwnerTaskId: '',
+    note: '页面模型数组测试',
+  }
+  const pageDraft = createTransferBagUsageDraft({
+    bag: pageBag,
+    sewingTask: task,
+    existingUsages: [],
+    nowText: '2026-08-01 11:10',
+  })
+  assert.deepEqual(pageDraft.sewingTaskIds, ['SEW-NEW-ID'], '页面适配必须优先保留新周期任务 ID 数组')
+  assert.deepEqual(pageDraft.sewingTaskNos, ['SEW-NEW'], '页面适配必须优先保留新周期任务号数组')
+  assert.equal(pageDraft.boundObjectId, 'SEW-NEW-ID', '单值 boundObject 只能明确兼容展示数组中的首个任务')
+  assert.equal(pageDraft.boundObjectNo, 'SEW-NEW')
+
+  const singleStore = emptyPageTransferBagStore()
+  singleStore.masters = [pageBag]
+  singleStore.usages = [pageDraft]
+  singleStore.sewingTasks = [{ ...task }]
+  const singleRoundTrip = deserializeTransferBagStorage(serializeTransferBagStorage(singleStore)).usages[0]
+  assert.deepEqual(singleRoundTrip.sewingTaskIds, ['SEW-NEW-ID'], '页面模型单任务往返不得丢失数组')
+  assert.deepEqual(singleRoundTrip.sewingTaskNos, ['SEW-NEW'])
+
+  const multiStore = emptyPageTransferBagStore()
+  multiStore.masters = [pageBag]
+  multiStore.usages = [{
+    ...pageDraft,
+    sewingTaskId: 'SEW-LEGACY-SINGLE-ID',
+    sewingTaskNo: 'SEW-LEGACY-SINGLE',
+    sewingTaskIds: ['SEW-NEW-ID', 'SEW-SECOND-ID'],
+    sewingTaskNos: ['SEW-NEW', 'SEW-SECOND'],
+  }]
+  multiStore.sewingTasks = [{ ...task }]
+  const multiRoundTrip = deserializeTransferBagStorage(serializeTransferBagStorage(multiStore)).usages[0]
+  assert.deepEqual(multiRoundTrip.sewingTaskIds, ['SEW-NEW-ID', 'SEW-SECOND-ID'], '页面模型多任务往返不得静默截断数组')
+  assert.deepEqual(multiRoundTrip.sewingTaskNos, ['SEW-NEW', 'SEW-SECOND'])
+
+  const legacyPageStore = emptyPageTransferBagStore()
+  legacyPageStore.masters = [pageBag]
+  legacyPageStore.usages = [{
+    ...pageDraft,
+    sewingTaskId: 'SEW-PAGE-LEGACY-ID',
+    sewingTaskNo: 'SEW-PAGE-LEGACY',
+    sewingTaskIds: [],
+    sewingTaskNos: [],
+  }]
+  const legacyPageRoundTrip = deserializeTransferBagStorage(serializeTransferBagStorage(legacyPageStore)).usages[0]
+  assert.deepEqual(legacyPageRoundTrip.sewingTaskIds, ['SEW-PAGE-LEGACY-ID'], '页面数组空值时必须回退旧任务单值')
+  assert.deepEqual(legacyPageRoundTrip.sewingTaskNos, ['SEW-PAGE-LEGACY'])
 }
 
 console.log('PASS check-transfer-bag-repack-recovery')
