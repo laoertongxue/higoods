@@ -1018,12 +1018,25 @@ export function buildWaitHandoverLocationOccupancyStates(
     if (event.eventType === '特殊工艺回仓') {
       const returnRecordId = runtimeString(payload.returnRecordId) || event.eventId
       const bagCode = runtimeString(payload.transferBagCode) || event.refs.transferBagCode || `return:${returnRecordId}`
-      const stateKeys = findWaitHandoverStateKeys(states, bagCode, event.refs.usageCycleId)
+      const returnedLocations = runtimeWarehouseLocations(payload)
+      const returnedScope = returnedLocations[0]
+        ? `${returnedLocations[0].factoryId}:${returnedLocations[0].warehouseId}:${returnedLocations[0].warehouseKind}`
+        : ''
+      if (returnedScope && returnedLocations.some((location) =>
+        `${location.factoryId}:${location.warehouseId}:${location.warehouseKind}` !== returnedScope)) continue
+      const candidateStateKeys = findWaitHandoverStateKeys(states, bagCode, event.refs.usageCycleId)
+      const candidateScopes = new Set(candidateStateKeys
+        .map((stateKey) => states.get(stateKey))
+        .filter((state): state is WaitHandoverLocationOccupancyState => Boolean(state))
+        .map((state) => `${state.locationRef.factoryId}:${state.locationRef.warehouseId}:${state.locationRef.warehouseKind}`))
+      if (!returnedLocations.length && candidateScopes.size !== 1) continue
+      const stateKeys = returnedLocations.length
+        ? findWaitHandoverStateKeys(states, bagCode, event.refs.usageCycleId, returnedLocations[0])
+        : candidateStateKeys
       const currentStates = stateKeys
         .map((stateKey) => states.get(stateKey))
         .filter((state): state is WaitHandoverLocationOccupancyState => Boolean(state))
       const current = currentStates[0]
-      const returnedLocations = runtimeWarehouseLocations(payload)
       const warehouseLocations = currentStates
         .flatMap((state) => state.warehouseLocations.length ? state.warehouseLocations : [state.locationRef])
         .concat(returnedLocations)

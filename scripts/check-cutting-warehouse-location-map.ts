@@ -1721,6 +1721,83 @@ multiMapStatesAfterLocationlessReturn.forEach((state) => {
     '沿用旧 footprint 时不得退化为单格',
   )
 })
+const scopedLocationF1 = {
+  ...waitHandoverLocations[0],
+  factoryId: 'FACTORY-SCOPE-F1',
+  warehouseId: 'WAREHOUSE-SCOPE-W1',
+  locationId: 'LOCATION-SCOPE-F1-A',
+  locationNo: 'F1-A-01',
+}
+const scopedLocationF2 = {
+  ...waitHandoverLocations[1],
+  factoryId: 'FACTORY-SCOPE-F2',
+  warehouseId: 'WAREHOUSE-SCOPE-W2',
+  locationId: 'LOCATION-SCOPE-F2-B',
+  locationNo: 'F2-B-01',
+}
+const scopedInboundF1 = structuredClone(multiMapInboundEvent)
+scopedInboundF1.eventId = 'EVENT-SCOPE-F1-INBOUND'
+scopedInboundF1.occurredAt = '2026-08-01 12:00'
+scopedInboundF1.payload = {
+  ...(scopedInboundF1.payload as Record<string, unknown>),
+  warehouseLocations: [scopedLocationF1],
+}
+const scopedInboundF2 = structuredClone(multiMapInboundEvent)
+scopedInboundF2.eventId = 'EVENT-SCOPE-F2-INBOUND'
+scopedInboundF2.occurredAt = '2026-08-01 12:01'
+scopedInboundF2.payload = {
+  ...(scopedInboundF2.payload as Record<string, unknown>),
+  warehouseLocations: [scopedLocationF2],
+}
+const scopedBaseEvents = [multiMapBaggingEvent, scopedInboundF1, scopedInboundF2]
+const scopedBaseStates = buildWaitHandoverLocationOccupancyStates(scopedBaseEvents)
+assert.equal(scopedBaseStates.length, 2, '双工厂同袋同周期必须先形成两个独立 scope 占用')
+const scopedReturnF1 = structuredClone(multiMapPartialReturnEvent)
+scopedReturnF1.eventId = 'EVENT-SCOPE-F1-SPECIAL-RETURN'
+scopedReturnF1.occurredAt = '2026-08-01 12:10'
+scopedReturnF1.payload = {
+  ...(scopedReturnF1.payload as Record<string, unknown>),
+  warehouseLocations: [scopedLocationF1],
+}
+const scopedStatesAfterF1Return = buildWaitHandoverLocationOccupancyStates([...scopedBaseEvents, scopedReturnF1])
+assert.equal(scopedStatesAfterF1Return.length, 2, '定向 F1 回仓不得吞并 F2 scope')
+const scopedStateF1 = scopedStatesAfterF1Return.find((state) => state.locationRef.factoryId === scopedLocationF1.factoryId)
+const scopedStateF2 = scopedStatesAfterF1Return.find((state) => state.locationRef.factoryId === scopedLocationF2.factoryId)
+assert(scopedStateF1 && scopedStateF2, '定向回仓后 F1/F2 scope 都必须保留')
+assert.equal(scopedStateF1.totalPieceQty, 25, '定向 F1 回仓 5 片只能使 F1 变为 25 片')
+assert.equal(scopedStateF2.totalPieceQty, 20, 'F2 不得被 F1 回仓事实改写')
+assert.deepEqual(scopedStateF1.warehouseLocations.map((location) => location.locationId), [scopedLocationF1.locationId])
+assert.deepEqual(scopedStateF2.warehouseLocations.map((location) => location.locationId), [scopedLocationF2.locationId])
+const normalizeScopedStates = (states: ReturnType<typeof buildWaitHandoverLocationOccupancyStates>) => states
+  .map((state) => ({
+    scope: `${state.locationRef.factoryId}:${state.locationRef.warehouseId}:${state.locationRef.warehouseKind}`,
+    qty: state.totalPieceQty,
+    tickets: state.feiTicketIds,
+    locations: state.warehouseLocations.map((location) => location.locationId),
+  }))
+  .sort((left, right) => left.scope.localeCompare(right.scope))
+const ambiguousLocationlessReturn = structuredClone(scopedReturnF1)
+ambiguousLocationlessReturn.eventId = 'EVENT-SCOPE-AMBIGUOUS-LOCATIONLESS-RETURN'
+ambiguousLocationlessReturn.payload = {
+  ...(ambiguousLocationlessReturn.payload as Record<string, unknown>),
+  warehouseLocations: undefined,
+}
+assert.deepEqual(
+  normalizeScopedStates(buildWaitHandoverLocationOccupancyStates([...scopedBaseEvents, ambiguousLocationlessReturn])),
+  normalizeScopedStates(scopedBaseStates),
+  '无库位回仓面对多 scope 歧义时必须忽略事件且不改写任一 scope',
+)
+const mixedScopeReturn = structuredClone(scopedReturnF1)
+mixedScopeReturn.eventId = 'EVENT-SCOPE-MIXED-RETURN'
+mixedScopeReturn.payload = {
+  ...(mixedScopeReturn.payload as Record<string, unknown>),
+  warehouseLocations: [scopedLocationF1, scopedLocationF2],
+}
+assert.deepEqual(
+  normalizeScopedStates(buildWaitHandoverLocationOccupancyStates([...scopedBaseEvents, mixedScopeReturn])),
+  normalizeScopedStates(scopedBaseStates),
+  '回仓 payload 混入不同 scope 时必须忽略整个事件且不改写任一 scope',
+)
 const multiMapFinalHandoverEvent: CuttingRuntimeEvent = {
   ...structuredClone(multiMapInboundEvent),
   eventId: 'EVENT-MULTI-MAP-FINAL-HANDOVER',
