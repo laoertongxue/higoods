@@ -904,7 +904,7 @@ export function buildCuttingRuntimeEventId(eventType: CuttingRuntimeEventType, r
     normalizedRefs.transferBagCode,
     normalizedRefs.usageCycleId,
     normalizedRefs.handoverLegId,
-    normalizedRefs.repackBatchId,
+    eventType === '中转袋拆袋重装' ? normalizedRefs.repackBatchId : undefined,
     normalizedRefs.feiTicketIds?.join('-'),
   ].filter(Boolean).join('-') || 'runtime'
   return `cutting-event:${eventTypeCode(eventType)}:${businessKey}:${compactDate(occurredAt)}`

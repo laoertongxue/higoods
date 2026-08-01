@@ -811,6 +811,35 @@ assert.equal(
   ),
   '重装批次前后空白不得改变事件业务键',
 )
+assert.notEqual(
+  runtimeLedger.buildCuttingRuntimeEventId(
+    '中转袋拆袋重装',
+    { repackBatchId: 'REPACK-A' },
+    '2026-08-01 10:00',
+  ),
+  runtimeLedger.buildCuttingRuntimeEventId(
+    '中转袋拆袋重装',
+    { repackBatchId: 'REPACK-B' },
+    '2026-08-01 10:00',
+  ),
+  '不同重装批次必须继续生成不同事件业务键',
+)
+assert.equal(
+  runtimeLedger.buildCuttingRuntimeEventId(
+    '中转袋报废',
+    { transferBagCode: 'BAG-SCRAP-SCOPE-001' },
+    '2026-08-01 10:00',
+  ),
+  runtimeLedger.buildCuttingRuntimeEventId(
+    '中转袋报废',
+    {
+      transferBagCode: 'BAG-SCRAP-SCOPE-001',
+      repackBatchId: 'UNRELATED-REPACK',
+    },
+    '2026-08-01 10:00',
+  ),
+  '非重装事件必须忽略无关的重装批次引用',
+)
 assert.equal(
   runtimeLedger.buildCuttingRuntimeEventId(
     '中转袋拆袋重装',
