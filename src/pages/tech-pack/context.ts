@@ -49,6 +49,22 @@ import {
   replaceTechnicalDataVersionStore,
 } from '../../data/pcs-technical-data-version-repository.ts'
 import {
+  getProjectStoreSnapshot,
+  replaceProjectStore,
+} from '../../data/pcs-project-repository.ts'
+import {
+  getProjectRelationStoreSnapshot,
+  replaceProjectRelationStore,
+} from '../../data/pcs-project-relation-repository.ts'
+import {
+  getProjectArchiveStoreSnapshot,
+  replaceProjectArchiveStore,
+} from '../../data/pcs-project-archive-repository.ts'
+import {
+  captureStyleArchiveRepositoryState,
+  restoreStyleArchiveRepositoryState,
+} from '../../data/pcs-style-archive-repository.ts'
+import {
   canEditTechnicalModule,
   getTechnicalProcessRouteGate,
 } from '../../data/pcs-tech-pack-review.ts'
@@ -2525,6 +2541,51 @@ interface TechnicalContentEngineeringLinkageOperations {
   applyEngineeringTasks?: typeof applyBomRequirementsToEngineeringTasks
 }
 
+interface TechnicalContentEngineeringLinkageSnapshots {
+  technical: ReturnType<typeof getTechnicalDataVersionStoreSnapshot>
+  engineering: ReturnType<typeof getEngineeringMasterOrderStoreSnapshot>
+  relation: ReturnType<typeof getProjectRelationStoreSnapshot>
+  style: ReturnType<typeof captureStyleArchiveRepositoryState>
+  project: ReturnType<typeof getProjectStoreSnapshot>
+  archive: ReturnType<typeof getProjectArchiveStoreSnapshot>
+}
+
+function captureTechnicalContentEngineeringLinkageSnapshots(): TechnicalContentEngineeringLinkageSnapshots {
+  return {
+    technical: getTechnicalDataVersionStoreSnapshot(),
+    engineering: getEngineeringMasterOrderStoreSnapshot(),
+    relation: getProjectRelationStoreSnapshot(),
+    style: captureStyleArchiveRepositoryState(),
+    project: getProjectStoreSnapshot(),
+    archive: getProjectArchiveStoreSnapshot(),
+  }
+}
+
+function restoreTechnicalContentEngineeringLinkageSnapshots(
+  snapshots: TechnicalContentEngineeringLinkageSnapshots,
+  originalError: unknown,
+): never {
+  const rollbackErrors: unknown[] = []
+  const restore = (action: () => void): void => {
+    try {
+      action()
+    } catch (error) {
+      rollbackErrors.push(error)
+    }
+  }
+  restore(() => replaceProjectStore(snapshots.project))
+  restore(() => replaceProjectRelationStore(snapshots.relation))
+  restore(() => replaceProjectArchiveStore(snapshots.archive))
+  restore(() => replaceTechnicalDataVersionStore(snapshots.technical))
+  restore(() => replaceEngineeringMasterOrderStore(snapshots.engineering))
+  // 商品项目仓恢复可能触发款式种子同步，因此款式仓最后精确恢复。
+  restore(() => restoreStyleArchiveRepositoryState(snapshots.style))
+  if (rollbackErrors.length > 0 && originalError instanceof Error) {
+    Object.assign(originalError, { rollbackErrors })
+  }
+  throw originalError
+}
+
 function saveTechnicalDataVersionContentWithEngineeringLinkage(
   technicalVersionId: string,
   bomItems: BomItemRow[],
@@ -2535,8 +2596,7 @@ function saveTechnicalDataVersionContentWithEngineeringLinkage(
   const master = resolveEngineeringMasterForTechnicalVersion(technicalVersionId)
   const engineeringRows = master ? buildEngineeringBomTaskRows(bomItems) : []
   if (master) validateBomRequirementsForEngineeringTasks(master.masterOrderId, engineeringRows)
-  const technicalSnapshot = getTechnicalDataVersionStoreSnapshot()
-  const engineeringSnapshot = getEngineeringMasterOrderStoreSnapshot()
+  const snapshots = captureTechnicalContentEngineeringLinkageSnapshots()
   const saveTechnicalContent = operations.saveTechnicalContent ?? saveTechnicalDataVersionContent
   const applyEngineeringTasks = operations.applyEngineeringTasks ?? applyBomRequirementsToEngineeringTasks
   try {
@@ -2546,9 +2606,7 @@ function saveTechnicalDataVersionContentWithEngineeringLinkage(
       : null
     return { technicalVersion, engineeringLinkage }
   } catch (error) {
-    replaceTechnicalDataVersionStore(technicalSnapshot)
-    replaceEngineeringMasterOrderStore(engineeringSnapshot)
-    throw error
+    restoreTechnicalContentEngineeringLinkageSnapshots(snapshots, error)
   }
 }
 

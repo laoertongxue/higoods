@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-import { listStyleArchives, resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
+import {
+  captureStyleArchiveRepositoryState,
+  listStyleArchives,
+  resetStyleArchiveRepository,
+} from '../src/data/pcs-style-archive-repository.ts'
+import { getProjectStoreSnapshot } from '../src/data/pcs-project-repository.ts'
+import { getProjectRelationStoreSnapshot } from '../src/data/pcs-project-relation-repository.ts'
+import { getProjectArchiveStoreSnapshot } from '../src/data/pcs-project-archive-repository.ts'
+import { saveTechnicalDataVersionContent } from '../src/data/pcs-project-technical-data-writeback.ts'
 import {
   applyBomRequirementsToEngineeringTasks,
   createEngineeringMasterOrder,
@@ -185,6 +193,26 @@ assert.throws(
 )
 
 const atomicVersionId = createSourceVersion('ATOMIC', master.masterOrderId, '')
+function captureAtomicStores() {
+  return {
+    technical: getTechnicalDataVersionStoreSnapshot(),
+    engineering: getEngineeringMasterOrderStoreSnapshot(),
+    relation: getProjectRelationStoreSnapshot(),
+    style: captureStyleArchiveRepositoryState(),
+    project: getProjectStoreSnapshot(),
+    archive: getProjectArchiveStoreSnapshot(),
+  }
+}
+
+function assertAtomicStoresEqual(expected: ReturnType<typeof captureAtomicStores>, message: string) {
+  assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), expected.technical, `${message}：技术版本仓`)
+  assert.deepEqual(getEngineeringMasterOrderStoreSnapshot(), expected.engineering, `${message}：工程主单仓`)
+  assert.deepEqual(getProjectRelationStoreSnapshot(), expected.relation, `${message}：项目关系仓`)
+  assert.deepEqual(captureStyleArchiveRepositoryState(), expected.style, `${message}：款式档案仓`)
+  assert.deepEqual(getProjectStoreSnapshot(), expected.project, `${message}：商品项目仓`)
+  assert.deepEqual(getProjectArchiveStoreSnapshot(), expected.archive, `${message}：项目归档仓`)
+}
+
 const engineeringSnapshotBeforeSaveFailure = getEngineeringMasterOrderStoreSnapshot()
 const technicalSnapshotBeforeSaveFailure = getTechnicalDataVersionStoreSnapshot()
 assert.throws(
@@ -204,8 +232,27 @@ assert.throws(
 assert.deepEqual(getEngineeringMasterOrderStoreSnapshot(), engineeringSnapshotBeforeSaveFailure, '技术包保存失败必须恢复工程仓')
 assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), technicalSnapshotBeforeSaveFailure, '技术包保存失败必须恢复技术版本仓')
 
+const allStoresBeforeTechnicalSideEffectFailure = captureAtomicStores()
+assert.throws(
+  () => saveTechnicalDataVersionContentWithEngineeringLinkage(
+    atomicVersionId,
+    bomRows,
+    { patternDesc: '技术包保存副作用不应残留' },
+    '买手A',
+    {
+      saveTechnicalContent: (technicalVersionId, patch, operatorName) => {
+        saveTechnicalDataVersionContent(technicalVersionId, patch, operatorName)
+        throw new Error('模拟技术包保存中途失败')
+      },
+    },
+  ),
+  /模拟技术包保存中途失败/,
+)
+assertAtomicStoresEqual(allStoresBeforeTechnicalSideEffectFailure, '技术包保存中途失败必须恢复所有副作用仓')
+
 const engineeringSnapshotBeforeApplyFailure = getEngineeringMasterOrderStoreSnapshot()
 const technicalSnapshotBeforeApplyFailure = getTechnicalDataVersionStoreSnapshot()
+const allStoresBeforeApplyFailure = captureAtomicStores()
 assert.throws(
   () => saveTechnicalDataVersionContentWithEngineeringLinkage(
     atomicVersionId,
@@ -223,6 +270,7 @@ assert.throws(
 )
 assert.deepEqual(getEngineeringMasterOrderStoreSnapshot(), engineeringSnapshotBeforeApplyFailure, '工程同步失败必须恢复工程仓')
 assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), technicalSnapshotBeforeApplyFailure, '工程同步失败必须恢复技术版本仓')
+assertAtomicStoresEqual(allStoresBeforeApplyFailure, '技术保存成功后工程同步失败必须恢复所有副作用仓')
 
 const prevalidationVersionId = createSourceVersion('PREVALIDATE', secondMaster.masterOrderId, '')
 const secondPatternTaskId = `${secondMaster.masterOrderId}-PATTERN_ARTWORK`

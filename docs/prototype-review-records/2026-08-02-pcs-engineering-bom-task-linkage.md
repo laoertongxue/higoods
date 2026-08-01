@@ -63,7 +63,7 @@
 | 三类技术包工艺误投影为工程任务或准备时效项 | 协作断裂 | 跟单、生产团队 | 联动结果只返回技术包工艺，不创建任务 | 否 |
 | 仅凭款式推断工程主单会把无来源版本写入错误主单 | 选不对 | 买手、跟单 | 只接受技术包版本记录中的工程主单或来源任务引用 | 否 |
 | 两个权威来源指向不同主单时按列表顺序命中，会写错工程任务 | 选不对 | 买手、跟单 | 分别解析两个来源，冲突时明确阻断 | 否 |
-| 技术包与工程任务分两次落库，第二步失败会留下单边数据 | 协作断裂 | 买手、跟单 | 保存前捕获两仓快照，任一步失败统一恢复并保留原错误 | 否 |
+| 技术包保存会继续写项目关系、款式档案、商品项目和项目归档，若只恢复技术版本与工程主单会留下半状态 | 协作断裂 | 买手、跟单 | 保存前统一捕获技术版本、工程主单、项目关系、款式档案、商品项目和项目归档六仓快照；任一步失败逐仓恢复，款式仓最后精确恢复，保留原错误并附加回滚错误 | 否 |
 
 ## 6. 最终结论
 
@@ -91,7 +91,7 @@
 ### 验证命令
 
 - `npx tsx tests/pcs-engineering-bom-task-linkage.spec.ts`：通过。
-- `npx tsx tests/pcs-engineering-bom-task-linkage-page.spec.ts`：通过；覆盖真实技术包保存链和权威来源门禁。
+- `npx tsx tests/pcs-engineering-bom-task-linkage-page.spec.ts`：通过；覆盖真实技术包保存链、权威来源门禁，以及技术保存中途失败和工程同步失败时六仓逐一恢复。
 - `npx tsx tests/pcs-engineering-master-domain.spec.ts`：通过。
 - `npx tsx tests/pcs-engineering-material-review.spec.ts`：通过。
 - `npx tsx tests/pcs-engineering-color-stages.spec.ts`：通过。
