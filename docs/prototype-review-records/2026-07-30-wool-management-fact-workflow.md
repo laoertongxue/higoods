@@ -191,6 +191,10 @@ Playwright 用例使用 `mockScenarioCode` 查找业务场景，不依赖加工�
 - `src/pages/process-factory/wool/warehouse.ts`
 - `src/pages/process-factory/wool/shared.ts`
 - `src/pages/pda-wool-fact-execution.ts`
+- `src/pages/fcs-production-tech-pack-snapshot.ts`
+- `src/pages/tech-pack/context.ts`
+- `src/pages/tech-pack/events.ts`
+- `src/pages/tech-pack/process-domain.ts`
 - `src/pages/pda-exec-detail.ts`
 - `src/pages/pda-exec.ts`
 - `src/pages/pda-handover.ts`
@@ -207,9 +211,15 @@ Playwright 用例使用 `mockScenarioCode` 查找业务场景，不依赖加工�
 - `src/data/fcs/wool-domain/warehouse-ledger.ts`
 - `src/data/fcs/wool-domain/mobile.ts`
 - `src/data/fcs/wool-domain/mock-data.ts`
+- `src/data/fcs/production-order-tech-pack-runtime.ts`
+- `src/data/fcs/production-tech-pack-snapshot-builder.ts`
+- `src/data/fcs/production-tech-pack-snapshot-types.ts`
 - `src/data/fcs/process-tasks.ts`
 - `src/data/fcs/runtime-process-tasks.ts`
+- `src/data/fcs/task-detail-rows.ts`
+- `src/data/fcs/tech-packs.ts`
 - `src/data/pcs-pattern-library.ts`
+- `src/data/pcs-technical-data-version-types.ts`
 - `src/data/fcs/pda-handover-events.ts`
 - `src/data/fcs/wool-pda-task-access.ts`
 - `src/data/fcs/wool-mobile-binding-entry.ts`
