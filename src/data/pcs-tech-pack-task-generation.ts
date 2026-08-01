@@ -1,5 +1,8 @@
 import { syncExistingProjectArchiveByProjectId } from './pcs-project-archive-sync.ts'
-import { listEngineeringMasterOrders } from './pcs-engineering-master-repository.ts'
+import {
+  getEngineeringChangeTaskById,
+  listEngineeringMasterOrders,
+} from './pcs-engineering-master-repository.ts'
 import {
   getProjectById,
   updateProjectRecord,
@@ -45,6 +48,7 @@ import type {
 import type { RevisionTaskRecord } from './pcs-revision-task-types.ts'
 import type { PlateMakingTaskRecord } from './pcs-plate-making-types.ts'
 import type { PatternTaskRecord } from './pcs-pattern-task-types.ts'
+import type { EngineeringTaskType } from './pcs-engineering-master-types.ts'
 import { normalizeProcessRouteEntries } from './tech-pack-process-route.ts'
 
 export type TechPackGenerationAction = 'CREATED' | 'WRITTEN'
@@ -71,11 +75,29 @@ interface AuthoritativeTechPackSource {
   sourceTaskName: string
 }
 
-function resolveEngineeringMasterTechPackSource(styleId: string): AuthoritativeTechPackSource {
-  const master = listEngineeringMasterOrders()
-    .filter((record) => record.styleId === styleId && record.status !== '已关闭' && record.status !== '已终止')
-    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0]
-  if (!master) throw new Error('当前款式没有未关闭的工程主单，不能建立技术包版本。')
+interface EngineeringTaskUpstreamRef {
+  upstreamObjectId: string
+  upstreamObjectCode: string
+}
+
+function resolveEngineeringMasterTechPackSource(
+  styleId: string,
+  upstream: EngineeringTaskUpstreamRef,
+  allowedTaskTypes: EngineeringTaskType[],
+  taskName: string,
+): AuthoritativeTechPackSource {
+  const master = listEngineeringMasterOrders().find((record) =>
+    record.tasks.some(
+      (task) =>
+        allowedTaskTypes.includes(task.taskType) &&
+        task.taskId === upstream.upstreamObjectId,
+    ),
+  )
+  if (!master) throw new Error(`当前${taskName}未明确关联工程主单内的${taskName}，不能建立技术包版本。`)
+  if (master.styleId !== styleId) throw new Error(`当前${taskName}关联的工程主单与款式不一致。`)
+  if (master.status === '已关闭' || master.status === '已终止') {
+    throw new Error(`当前${taskName}关联的工程主单已关闭或终止，不能建立技术包版本。`)
+  }
   const task = master.tasks.find((item) => item.taskType === 'TECH_PACK_CONFIRMATION')
   if (!task) throw new Error('当前工程主单没有技术包确认任务，不能建立技术包版本。')
   return {
@@ -90,14 +112,21 @@ function resolveEngineeringMasterTechPackSource(styleId: string): AuthoritativeT
 }
 
 function resolveEngineeringChangeTechPackSource(task: RevisionTaskRecord): AuthoritativeTechPackSource {
+  const change = getEngineeringChangeTaskById(task.upstreamObjectId)
+  if (!change || (task.upstreamObjectCode && change.engineeringChangeTaskCode !== task.upstreamObjectCode)) {
+    throw new Error('当前改版任务未明确关联工程变更任务，不能建立技术包版本。')
+  }
+  if (change.styleId !== task.styleId) {
+    throw new Error('当前改版任务关联的工程变更任务与款式不一致。')
+  }
   return {
-    sourceProjectId: task.revisionTaskId,
-    sourceProjectCode: task.revisionTaskCode,
-    sourceProjectName: task.title,
+    sourceProjectId: change.engineeringChangeTaskId,
+    sourceProjectCode: change.engineeringChangeTaskCode,
+    sourceProjectName: change.title,
     sourceTaskType: 'ENGINEERING_CHANGE',
-    sourceTaskId: task.revisionTaskId,
-    sourceTaskCode: task.revisionTaskCode,
-    sourceTaskName: task.title,
+    sourceTaskId: change.engineeringChangeTaskId,
+    sourceTaskCode: change.engineeringChangeTaskCode,
+    sourceTaskName: change.title,
   }
 }
 
@@ -627,10 +656,16 @@ export function writeProjectRelationFromTechPackVersion(
   operatorName = '当前用户',
   _sourceTaskType: StoredTechPackSourceTaskType = record.createdFromTaskType,
 ): void {
+  const style = getStyleArchiveById(record.styleId)
+  if (!style?.sourceProjectId) return
+  const project = getProjectById(style.sourceProjectId)
   upsertProjectRelation({
     projectRelationId: buildProjectRelationId(record.technicalVersionId),
-    projectId: record.sourceProjectId,
-    projectCode: record.sourceProjectCode,
+    projectId: style.sourceProjectId,
+    projectCode: project?.projectCode || '',
+    projectNodeId: null,
+    stepCode: '',
+    stepName: '',
     relationRole: '产出对象',
     sourceModule: '技术包',
     sourceObjectType: '技术包版本',
@@ -663,9 +698,10 @@ export function syncStyleArchiveFromTechPackVersion(record: TechnicalDataVersion
 }
 
 export function syncProjectFromTechPackVersion(record: TechnicalDataVersionRecord): void {
-  if (!record.sourceProjectId) return
+  const style = getStyleArchiveById(record.styleId)
+  if (!style?.sourceProjectId) return
   updateProjectRecord(
-    record.sourceProjectId,
+    style.sourceProjectId,
     {
       linkedTechPackVersionId: record.technicalVersionId,
       linkedTechPackVersionCode: record.technicalVersionCode,
@@ -689,10 +725,11 @@ function finalizeGeneration(
   operatorName: string,
   sourceTaskType: StoredTechPackSourceTaskType = record.createdFromTaskType,
 ): TechPackGenerationResult {
-  writeProjectRelationFromTechPackVersion(record, operatorName, sourceTaskType)
   syncStyleArchiveFromTechPackVersion(record)
   syncProjectFromTechPackVersion(record)
-  syncExistingProjectArchiveByProjectId(record.sourceProjectId, operatorName)
+  const style = getStyleArchiveById(record.styleId)
+  if (style?.sourceProjectId) syncExistingProjectArchiveByProjectId(style.sourceProjectId, operatorName)
+  writeProjectRelationFromTechPackVersion(record, operatorName, sourceTaskType)
   return {
     action,
     record: getTechnicalDataVersionById(record.technicalVersionId) || record,
@@ -849,7 +886,12 @@ export function generateTechPackVersionFromPlateTask(
     { styleId: '', styleCode: task.productStyleCode, projectId: task.projectId, spuCode: task.spuCode },
     '当前制版任务未绑定正式款式档案，不能建立技术包版本。',
   )
-  const source = resolveEngineeringMasterTechPackSource(style.styleId)
+  const source = resolveEngineeringMasterTechPackSource(
+    style.styleId,
+    task,
+    ['BASE_PATTERN_WOVEN', 'BASE_PATTERN_KNIT', 'SIZE_PATTERN_WOVEN', 'SIZE_PATTERN_KNIT'],
+    '制版任务',
+  )
   const baseVersion = getCurrentTechPackVersionByStyleId(style.styleId) || listTechnicalDataVersionsByStyleId(style.styleId)[0] || null
   const baseContent = baseVersion ? getTechnicalDataVersionContent(baseVersion.technicalVersionId) : null
   const nextRecord = buildTechPackVersionRecord({
@@ -918,7 +960,12 @@ export function generateTechPackVersionFromPatternTask(
     { styleId: '', styleCode: task.productStyleCode, projectId: task.projectId, spuCode: task.spuCode },
     '当前花型任务未绑定正式款式档案，不能写入技术包。',
   )
-  const source = resolveEngineeringMasterTechPackSource(style.styleId)
+  const source = resolveEngineeringMasterTechPackSource(
+    style.styleId,
+    task,
+    ['PATTERN_ARTWORK'],
+    '花型任务',
+  )
   const effectiveVersion = getCurrentTechPackVersionByStyleId(style.styleId)
   const plateDraftVersion = getLatestPlateWritableVersion(style.styleId)
   const targetVersion = effectiveVersion || plateDraftVersion
@@ -934,7 +981,13 @@ export function generateTechPackVersionFromPatternTask(
   const nextPatternLibraryRefs = buildPatternLibraryRefs(task, targetVersion)
   const nextPatternAssetRefs = buildPatternAssetRefs(task, targetVersion)
 
-  if (!hasArtworkContent(targetVersion, targetContent)) {
+  const canWriteTargetInPlace =
+    targetVersion.versionStatus === 'DRAFT' &&
+    targetVersion.createdFromTaskType === source.sourceTaskType &&
+    targetVersion.sourceProjectId === source.sourceProjectId &&
+    targetVersion.createdFromTaskId === source.sourceTaskId
+
+  if (canWriteTargetInPlace && !hasArtworkContent(targetVersion, targetContent)) {
     updateTechnicalDataVersionContent(targetVersion.technicalVersionId, {
       patternDesigns: nextDesigns,
     })

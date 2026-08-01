@@ -242,8 +242,9 @@ function mergeMissingSeedData(snapshot: ProjectRelationStoreSnapshot): ProjectRe
   const seeded = seedSnapshot()
   return normalizeRelationSnapshot({
     version: PROJECT_RELATION_STORE_VERSION,
-    relations: dedupeRelations([...snapshot.relations, ...seeded.relations]),
-    pendingItems: dedupePendingItems([...snapshot.pendingItems, ...seeded.pendingItems]),
+    // 同一业务关系时间相同时保留当前仓库中的显式写入，种子只补缺失数据。
+    relations: dedupeRelations([...seeded.relations, ...snapshot.relations]),
+    pendingItems: dedupePendingItems([...seeded.pendingItems, ...snapshot.pendingItems]),
   })
 }
 

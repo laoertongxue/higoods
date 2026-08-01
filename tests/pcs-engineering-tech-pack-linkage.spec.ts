@@ -2,8 +2,11 @@ import assert from 'node:assert/strict'
 
 import {
   createEngineeringMasterOrder,
+  createEngineeringChangeTask,
   publishEngineeringMasterOrder,
+  resetEngineeringChangeRepository,
   resetEngineeringMasterRepository,
+  setEngineeringMasterStatus,
 } from '../src/data/pcs-engineering-master-repository.ts'
 import {
   getRevisionTaskById,
@@ -19,6 +22,7 @@ import {
   getTechnicalDataVersionById,
   listTechnicalDataVersions,
   resetTechnicalDataVersionRepository,
+  updateTechnicalDataVersionRecord,
 } from '../src/data/pcs-technical-data-version-repository.ts'
 import type {
   TechPackSourceTaskType,
@@ -27,6 +31,7 @@ import type {
 
 resetStyleArchiveRepository()
 resetEngineeringMasterRepository()
+resetEngineeringChangeRepository()
 resetRevisionTaskRepository()
 resetTechnicalDataVersionRepository()
 
@@ -80,21 +85,51 @@ const masterVersion = createTechnicalDataVersionDraft(nextRecord('MASTER', {
 }))
 assert.equal(masterVersion.createdFromTaskType, 'ENGINEERING_MASTER')
 
+const nonConfirmationTask = master.tasks.find((task) => task.taskType !== 'TECH_PACK_CONFIRMATION')
+assert.ok(nonConfirmationTask)
+assert.throws(
+  () => createTechnicalDataVersionDraft(nextRecord('MASTER-WRONG-TASK-TYPE', {
+    styleId: master.styleId,
+    styleCode: master.styleCode,
+    sourceProjectId: master.masterOrderId,
+    createdFromTaskType: 'ENGINEERING_MASTER',
+    createdFromTaskId: nonConfirmationTask.taskId,
+    createdFromTaskCode: nonConfirmationTask.taskId,
+  })),
+  /技术包确认任务/,
+)
+
 const changeTask = listRevisionTasks().find((task) => Boolean(task.styleId))
 assert.ok(changeTask)
 assert.ok(getRevisionTaskById(changeTask.revisionTaskId))
+setEngineeringMasterStatus(master.masterOrderId, '已关闭')
+const engineeringChange = createEngineeringChangeTask({
+  sourceMasterOrderId: master.masterOrderId,
+  createdBy: '跟单A',
+})
 const changeVersion = createTechnicalDataVersionDraft(nextRecord('CHANGE', {
-  styleId: changeTask.styleId,
-  styleCode: changeTask.styleCode,
-  styleName: changeTask.styleName,
-  sourceProjectId: changeTask.revisionTaskId,
-  sourceProjectCode: changeTask.projectCode,
-  sourceProjectName: changeTask.projectName,
+  styleId: engineeringChange.styleId,
+  styleCode: engineeringChange.styleCode,
+  styleName: engineeringChange.styleName,
+  sourceProjectId: engineeringChange.engineeringChangeTaskId,
+  sourceProjectCode: engineeringChange.engineeringChangeTaskCode,
+  sourceProjectName: engineeringChange.title,
   createdFromTaskType: 'ENGINEERING_CHANGE',
-  createdFromTaskId: changeTask.revisionTaskId,
-  createdFromTaskCode: changeTask.revisionTaskCode,
+  createdFromTaskId: engineeringChange.engineeringChangeTaskId,
+  createdFromTaskCode: engineeringChange.engineeringChangeTaskCode,
 }))
 assert.equal(changeVersion.createdFromTaskType, 'ENGINEERING_CHANGE')
+
+assert.throws(
+  () => createTechnicalDataVersionDraft(nextRecord('PLAIN-REVISION-CANNOT-CHANGE', {
+    styleId: changeTask.styleId,
+    styleCode: changeTask.styleCode,
+    sourceProjectId: changeTask.revisionTaskId,
+    createdFromTaskType: 'ENGINEERING_CHANGE',
+    createdFromTaskId: changeTask.revisionTaskId,
+  })),
+  /工程变更任务不存在/,
+)
 
 for (const sourceType of ['MANUAL', 'REVISION', 'PLATE', 'ARTWORK'] as const) {
   assert.throws(
@@ -144,12 +179,26 @@ assert.throws(
 assert.throws(
   () => createTechnicalDataVersionDraft(nextRecord('CHANGE-PROJECT-MISMATCH', {
     createdFromTaskType: 'ENGINEERING_CHANGE',
-    styleId: changeTask.styleId,
-    styleCode: changeTask.styleCode,
-    sourceProjectId: changeTask.revisionTaskId,
+    styleId: engineeringChange.styleId,
+    styleCode: engineeringChange.styleCode,
+    sourceProjectId: engineeringChange.engineeringChangeTaskId,
     createdFromTaskId: masterTask.taskId,
   })),
   /技术包来源对象与工程变更任务不一致/,
+)
+
+const beforeIdentityPatch = getTechnicalDataVersionById(masterVersion.technicalVersionId)
+assert.ok(beforeIdentityPatch)
+assert.throws(
+  () => updateTechnicalDataVersionRecord(masterVersion.technicalVersionId, {
+    sourceProjectId: engineeringChange.engineeringChangeTaskId,
+  }),
+  /来源身份.*禁止修改/,
+)
+assert.deepEqual(
+  getTechnicalDataVersionById(masterVersion.technicalVersionId),
+  beforeIdentityPatch,
+  '来源身份修改失败不得产生部分写入',
 )
 
 console.log('pcs-engineering-tech-pack-linkage.spec.ts PASS')

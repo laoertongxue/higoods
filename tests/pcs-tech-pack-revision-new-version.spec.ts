@@ -35,6 +35,13 @@ import { resetPlateMakingTaskRepository, upsertPlateMakingTask } from '../src/da
 import { getRevisionTaskById, resetRevisionTaskRepository, upsertRevisionTask } from '../src/data/pcs-revision-task-repository.ts'
 import type { PlateMakingTaskRecord } from '../src/data/pcs-plate-making-types.ts'
 import type { RevisionTaskRecord } from '../src/data/pcs-revision-task-types.ts'
+import {
+  createEngineeringChangeTask,
+  createEngineeringMasterOrder,
+  publishEngineeringMasterOrder,
+  resetEngineeringMasterRepository,
+  setEngineeringMasterStatus,
+} from '../src/data/pcs-engineering-master-repository.ts'
 
 function resetScenario(): void {
   resetProjectRepository()
@@ -49,6 +56,7 @@ function resetScenario(): void {
   resetTechPackVersionLogRepository()
   resetPlateMakingTaskRepository()
   resetRevisionTaskRepository()
+  resetEngineeringMasterRepository()
 }
 
 function prepareProjectAndStyle() {
@@ -196,8 +204,19 @@ function createRevisionTask(projectId: string, styleId: string, styleCode: strin
 
 resetScenario()
 const { style, project } = prepareProjectAndStyle()
+const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
+  styleId: style.styleId,
+  styleCode: style.styleCode,
+  merchandiserName: '测试跟单',
+}).masterOrderId)
 
-const plateTaskOne = createPlateTask('plate_task_revision_base', 'PT-TEST-REV-BASE', project.projectId, style.styleCode, 'P1')
+const plateTaskOne = upsertPlateMakingTask({
+  ...createPlateTask('plate_task_revision_base', 'PT-TEST-REV-BASE', project.projectId, style.styleCode, 'P1'),
+  upstreamModule: '生产工程管理',
+  upstreamObjectType: '工程专业任务',
+  upstreamObjectId: `${master.masterOrderId}-BASE_PATTERN_WOVEN`,
+  upstreamObjectCode: `${master.masterOrderCode}-BASE_PATTERN_WOVEN`,
+})
 const baseVersion = generateTechPackVersionFromPlateTask(plateTaskOne.plateTaskId, '测试用户').record
 updateTechnicalDataVersionContent(baseVersion.technicalVersionId, {
   processEntries: [{
@@ -249,14 +268,38 @@ updateTechnicalDataVersionRecord(baseVersion.technicalVersionId, {
 publishTechnicalDataVersion(baseVersion.technicalVersionId, '测试用户')
 activateTechPackVersionForStyle(style.styleId, baseVersion.technicalVersionId, '测试用户')
 
-const plateTaskTwo = createPlateTask('plate_task_revision_draft', 'PT-TEST-REV-DRAFT', project.projectId, style.styleCode, 'P2')
+const plateTaskTwo = upsertPlateMakingTask({
+  ...createPlateTask('plate_task_revision_draft', 'PT-TEST-REV-DRAFT', project.projectId, style.styleCode, 'P2'),
+  upstreamModule: '生产工程管理',
+  upstreamObjectType: '工程专业任务',
+  upstreamObjectId: `${master.masterOrderId}-SIZE_PATTERN_WOVEN`,
+  upstreamObjectCode: `${master.masterOrderCode}-SIZE_PATTERN_WOVEN`,
+})
 const draftVersion = generateTechPackVersionFromPlateTask(plateTaskTwo.plateTaskId, '测试用户').record
 assert.equal(draftVersion.versionStatus, 'DRAFT', '用于干扰校验的制版技术包应保持草稿状态')
 
 const revisionTask = createRevisionTask(project.projectId, style.styleId, style.styleCode, style.styleName)
-const revisionResult = generateTechPackVersionFromRevisionTask(revisionTask.revisionTaskId, '测试用户')
+assert.throws(
+  () => generateTechPackVersionFromRevisionTask(revisionTask.revisionTaskId, '测试用户'),
+  /未明确关联工程变更任务/,
+  '普通改版任务不得直接冒充工程变更来源',
+)
+setEngineeringMasterStatus(master.masterOrderId, '已关闭')
+const engineeringChange = createEngineeringChangeTask({
+  sourceMasterOrderId: master.masterOrderId,
+  createdBy: '测试跟单',
+})
+const linkedRevisionTask = upsertRevisionTask({
+  ...revisionTask,
+  upstreamModule: '生产工程管理',
+  upstreamObjectType: '工程变更任务',
+  upstreamObjectId: engineeringChange.engineeringChangeTaskId,
+  upstreamObjectCode: engineeringChange.engineeringChangeTaskCode,
+})
+const revisionResult = generateTechPackVersionFromRevisionTask(linkedRevisionTask.revisionTaskId, '测试用户')
 
-assert.equal(revisionResult.record.createdFromTaskType, 'REVISION', '改版生成的新版本必须记录来源任务类型')
+assert.equal(revisionResult.record.createdFromTaskType, 'ENGINEERING_CHANGE', '改版生成的新版本必须记录真实工程变更来源')
+assert.equal(revisionResult.record.sourceProjectId, engineeringChange.engineeringChangeTaskId, '技术包必须绑定真实工程变更对象')
 assert.equal(revisionResult.record.baseTechnicalVersionId, baseVersion.technicalVersionId, '改版新版本必须基于当前生效技术包版本')
 assert.ok(revisionResult.record.linkedRevisionTaskIds.includes(revisionTask.revisionTaskId), '改版新版本必须记录改版任务链')
 assert.notEqual(revisionResult.record.technicalVersionId, draftVersion.technicalVersionId, '改版任务不得写入已有草稿版本')

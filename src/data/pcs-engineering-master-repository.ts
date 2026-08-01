@@ -8,12 +8,16 @@ import {
   resolveInitialTaskStatus,
 } from './pcs-engineering-dependency-policy.ts'
 import type { EngineeringBomTaskLinkageRow } from './pcs-engineering-bom-types.ts'
+import {
+  replaceEngineeringTechPackAuthorityIndex,
+} from './pcs-engineering-tech-pack-authority-index.ts'
 import { assertFirstFormalProduction } from './pcs-engineering-first-production-policy.ts'
 import {
   getStyleArchiveById,
   findStyleArchiveByCode,
 } from './pcs-style-archive-repository.ts'
 import type {
+  EngineeringChangeTaskRecord,
   EngineeringMasterOrderRecord,
   EngineeringMasterOrderSnapshot,
   EngineeringTaskRecord,
@@ -69,17 +73,19 @@ function cloneSnapshot(snapshot: EngineeringMasterOrderSnapshot): EngineeringMas
   return {
     version: snapshot.version,
     records: snapshot.records.map(cloneRecord),
+    changeTasks: (snapshot.changeTasks || []).map((record) => ({ ...record })),
   }
 }
 
 function seedSnapshot(): EngineeringMasterOrderSnapshot {
-  return { version: ENGINEERING_MASTER_STORE_VERSION, records: [] }
+  return { version: ENGINEERING_MASTER_STORE_VERSION, records: [], changeTasks: [] }
 }
 
 function readSnapshot(): EngineeringMasterOrderSnapshot {
   if (memorySnapshot) return cloneSnapshot(memorySnapshot)
   if (!canUseStorage()) {
     memorySnapshot = seedSnapshot()
+    replaceEngineeringTechPackAuthorityIndex(memorySnapshot.records, memorySnapshot.changeTasks || [])
     return cloneSnapshot(memorySnapshot)
   }
   try {
@@ -90,7 +96,9 @@ function readSnapshot(): EngineeringMasterOrderSnapshot {
         memorySnapshot = {
           version: ENGINEERING_MASTER_STORE_VERSION,
           records: parsed.records.map(normalizeRecord),
+          changeTasks: Array.isArray(parsed.changeTasks) ? parsed.changeTasks.map((record) => ({ ...record })) : [],
         }
+        replaceEngineeringTechPackAuthorityIndex(memorySnapshot.records, memorySnapshot.changeTasks || [])
         return cloneSnapshot(memorySnapshot)
       }
     }
@@ -98,6 +106,7 @@ function readSnapshot(): EngineeringMasterOrderSnapshot {
     // 存储损坏时回退到空种子
   }
   memorySnapshot = seedSnapshot()
+  replaceEngineeringTechPackAuthorityIndex(memorySnapshot.records, memorySnapshot.changeTasks || [])
   return cloneSnapshot(memorySnapshot)
 }
 
@@ -137,6 +146,7 @@ function normalizeRecord(record: EngineeringMasterOrderRecord): EngineeringMaste
 
 function writeSnapshot(snapshot: EngineeringMasterOrderSnapshot): void {
   memorySnapshot = cloneSnapshot(snapshot)
+  replaceEngineeringTechPackAuthorityIndex(memorySnapshot.records, memorySnapshot.changeTasks || [])
   if (!canUseStorage()) return
   try {
     localStorage.setItem(ENGINEERING_MASTER_STORAGE_KEY, JSON.stringify(memorySnapshot))
@@ -167,6 +177,51 @@ export interface CreateEngineeringMasterOrderInput {
   styleCode: string
   merchandiserName: string
   createdBy?: string
+}
+
+export interface CreateEngineeringChangeTaskInput {
+  sourceMasterOrderId: string
+  createdBy: string
+}
+
+export function createEngineeringChangeTask(input: CreateEngineeringChangeTaskInput): EngineeringChangeTaskRecord {
+  const snapshot = readSnapshot()
+  const master = snapshot.records.find((record) => record.masterOrderId === input.sourceMasterOrderId)
+  if (!master) throw new Error(`来源工程主单不存在：${input.sourceMasterOrderId}`)
+  if (master.status !== '已关闭') throw new Error('仅已关闭工程主单可以创建工程变更任务。')
+  const changeTasks = snapshot.changeTasks || []
+  const sequence = changeTasks.length + 1
+  const id = `EC-${Date.now().toString(36)}-${String(sequence).padStart(3, '0')}`
+  const record: EngineeringChangeTaskRecord = {
+    engineeringChangeTaskId: id,
+    engineeringChangeTaskCode: `EC-${String(sequence).padStart(3, '0')}`,
+    title: `${master.styleName}工程变更`,
+    sourceMasterOrderId: master.masterOrderId,
+    sourceMasterOrderCode: master.masterOrderCode,
+    styleId: master.styleId,
+    styleCode: master.styleCode,
+    styleName: master.styleName,
+    status: '进行中',
+    createdAt: nowText(),
+    createdBy: input.createdBy,
+    completedAt: '',
+  }
+  snapshot.changeTasks = [...changeTasks, record]
+  writeSnapshot(snapshot)
+  return { ...record }
+}
+
+export function getEngineeringChangeTaskById(engineeringChangeTaskId: string): EngineeringChangeTaskRecord | null {
+  const record = (readSnapshot().changeTasks || []).find(
+    (item) => item.engineeringChangeTaskId === engineeringChangeTaskId,
+  )
+  return record ? { ...record } : null
+}
+
+export function resetEngineeringChangeRepository(): void {
+  const snapshot = readSnapshot()
+  snapshot.changeTasks = []
+  writeSnapshot(snapshot)
 }
 
 export function createEngineeringMasterOrder(input: CreateEngineeringMasterOrderInput): EngineeringMasterOrderRecord {
@@ -286,6 +341,7 @@ export function replaceEngineeringMasterOrderStore(snapshot: EngineeringMasterOr
 
 export function resetEngineeringMasterRepository(): void {
   memorySnapshot = seedSnapshot()
+  replaceEngineeringTechPackAuthorityIndex([], [])
   if (!canUseStorage()) return
   try {
     localStorage.removeItem(ENGINEERING_MASTER_STORAGE_KEY)

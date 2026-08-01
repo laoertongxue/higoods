@@ -149,7 +149,25 @@ export interface EngineeringMasterOrderRecord {
   terminateReason: string
 }
 
+export type EngineeringChangeTaskStatus = '进行中' | '已完成'
+
+export interface EngineeringChangeTaskRecord {
+  engineeringChangeTaskId: string
+  engineeringChangeTaskCode: string
+  title: string
+  sourceMasterOrderId: string
+  sourceMasterOrderCode: string
+  styleId: string
+  styleCode: string
+  styleName: string
+  status: EngineeringChangeTaskStatus
+  createdAt: string
+  createdBy: string
+  completedAt: string
+}
+
 export interface EngineeringMasterOrderSnapshot {
   version: number
   records: EngineeringMasterOrderRecord[]
+  changeTasks?: EngineeringChangeTaskRecord[]
 }

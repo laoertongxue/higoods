@@ -1,6 +1,8 @@
 import { createTechnicalDataVersionBootstrapSnapshot } from './pcs-technical-data-version-bootstrap.ts'
-import { getEngineeringMasterOrderById } from './pcs-engineering-master-repository.ts'
-import { getRevisionTaskById } from './pcs-revision-task-repository.ts'
+import {
+  getIndexedEngineeringChangeTask,
+  getIndexedEngineeringMasterOrder,
+} from './pcs-engineering-tech-pack-authority-index.ts'
 import { getStyleArchiveById } from './pcs-style-archive-repository.ts'
 import {
   hasTechPackPrintRequirement,
@@ -258,10 +260,14 @@ function validateTechnicalVersionCreationSource(record: TechnicalDataVersionReco
   }
 
   if (record.createdFromTaskType === 'ENGINEERING_MASTER') {
-    const master = getEngineeringMasterOrderById(record.sourceProjectId)
+    const master = getIndexedEngineeringMasterOrder(record.sourceProjectId)
     if (!master) throw new Error(`工程主单不存在：${record.sourceProjectId}`)
-    if (!master.tasks.some((task) => task.taskId === record.createdFromTaskId)) {
+    const sourceTask = master.tasks.find((task) => task.taskId === record.createdFromTaskId)
+    if (!sourceTask) {
       throw new Error(`工程主单任务不存在：${record.createdFromTaskId}`)
+    }
+    if (sourceTask.taskType !== 'TECH_PACK_CONFIRMATION') {
+      throw new Error('工程主单来源任务必须是技术包确认任务。')
     }
     if (master.styleId !== record.styleId) {
       throw new Error('技术包款式与工程主单款式不一致。')
@@ -269,9 +275,9 @@ function validateTechnicalVersionCreationSource(record: TechnicalDataVersionReco
     return
   }
 
-  const changeTask = getRevisionTaskById(record.sourceProjectId)
+  const changeTask = getIndexedEngineeringChangeTask(record.sourceProjectId)
   if (!changeTask) throw new Error(`工程变更任务不存在：${record.sourceProjectId}`)
-  if (changeTask.revisionTaskId !== record.createdFromTaskId) {
+  if (changeTask.engineeringChangeTaskId !== record.createdFromTaskId) {
     throw new Error('技术包来源对象与工程变更任务不一致。')
   }
   if (changeTask.styleId !== record.styleId) {
@@ -1021,6 +1027,18 @@ export function updateTechnicalDataVersionRecord(
   technicalVersionId: string,
   patch: Partial<TechnicalDataVersionRecord>,
 ): TechnicalDataVersionRecord | null {
+  const immutableSourceKeys = [
+    'sourceProjectId',
+    'sourceProjectCode',
+    'sourceProjectName',
+    'sourceProjectNodeId',
+    'createdFromTaskType',
+    'createdFromTaskId',
+    'createdFromTaskCode',
+  ] as const
+  if (immutableSourceKeys.some((key) => Object.prototype.hasOwnProperty.call(patch, key))) {
+    throw new Error('技术包来源身份字段禁止修改。')
+  }
   const snapshot = loadSnapshot()
   const index = snapshot.records.findIndex((item) => item.technicalVersionId === technicalVersionId)
   if (index < 0) return null

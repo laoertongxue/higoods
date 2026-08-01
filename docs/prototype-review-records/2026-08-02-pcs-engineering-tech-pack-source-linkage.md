@@ -23,7 +23,10 @@
 - 工程主单来源必须同时指向真实主单及其技术包确认任务，且款式一致。
 - 工程变更来源必须指向真实变更任务，来源对象、任务和款式一致。
 - `MANUAL`、`REVISION`、`PLATE`、`ARTWORK` 不再允许创建新版本；既有已发布旧记录仍可查询和查看。
+- 制版任务、花型任务必须通过 `upstreamObjectId` 明确关联工程主单中的对应专业任务，禁止按款式查找“最新主单”。
+- 普通改版任务不是工程变更事实源；只有明确关联真实工程变更任务后，才允许生成工程变更来源的技术包草稿。
 - 既有制版、花型、改版生成入口只映射权威工程来源，不再写入旧来源类型。
+- 已发布或旧来源技术包只允许查询、查看和作为新草稿的基础版本，禁止在原记录中写入花型或改写来源身份。
 
 ## 3. 自查结论
 
@@ -37,7 +40,7 @@
 | 文案 | 通过 | 阻断信息使用中文业务文案。 |
 | 数量与状态 | 通过 | 不改变技术包版本状态。 |
 | 扫码与识别 | 通过 | 不涉及扫码。 |
-| 防错 | 通过 | 缺失、不存在、跨对象或跨款式来源均在入仓前阻断。 |
+| 防错 | 通过 | 缺失、不存在、非技术包确认任务、未明确关联、跨对象或跨款式来源均在入仓前阻断。 |
 | UI 样式 | 通过 | 本阶段无 UI 变化。 |
 | 组件交互 | 通过 | 本阶段无交互变化。 |
 | 协作关系 | 通过 | 工程主单 / 工程变更为技术包来源事实源。 |
@@ -55,6 +58,9 @@
 | --- | --- | --- | --- | --- |
 | 旧入口直接写入制版、花型或改版来源，无法证明技术包来自权威工程对象 | 追溯不足 | 跟单、买手、版师 | 生成入口统一解析工程主单或工程变更任务，再写入技术包 | 否 |
 | 来源对象、来源任务或款式不一致时可能关联错误技术包 | 选不对 | 跟单、买手 | 入仓前逐项校验并阻断 | 否 |
+| 按款式选择最新工程主单会把专业成果挂错主单 | 选不对 | 跟单、版师、花型团队 | 制版、花型任务必须关联主单内具体专业任务，技术包来源再统一指向该主单的技术包确认任务 | 否 |
+| 旧已发布技术包缺少花型时可能被原位覆盖 | 追溯不足 | 买手、跟单 | 旧版本保持只读，基于旧内容创建工程来源草稿并写入花型 | 否 |
+| 更新接口可能通过改写来源字段绕过创建门禁 | 追溯不足 | 系统维护人员 | 来源对象与来源任务字段设为不可变，更新接口直接阻断 | 否 |
 
 ## 6. 最终结论
 
@@ -69,7 +75,12 @@
 
 - `src/data/pcs-technical-data-version-types.ts`
 - `src/data/pcs-technical-data-version-repository.ts`
+- `src/data/pcs-engineering-master-types.ts`
+- `src/data/pcs-engineering-master-repository.ts`
+- `src/data/pcs-engineering-tech-pack-authority-index.ts`
 - `src/data/pcs-tech-pack-task-generation.ts`
+- `src/data/pcs-project-relation-repository.ts`
+- `src/data/pcs-channel-product-project-repository.ts`
 
 ### 页面路由
 
@@ -78,6 +89,9 @@
 ### 验证命令
 
 - `npx tsx tests/pcs-engineering-tech-pack-linkage.spec.ts`：通过。
+- `npx tsx tests/pcs-tech-pack-plate-primary-generation.spec.ts`：通过。
+- `npx tsx tests/pcs-tech-pack-artwork-write-or-new-version.spec.ts`：通过。
+- `npx tsx tests/pcs-tech-pack-revision-new-version.spec.ts`：通过。
 - `npx tsx tests/pcs-tech-pack-generation-entry.spec.ts`：通过。
 - `npm run build`：通过。
 - `npm run check:prototype-design-governance -- --all`：通过。

@@ -34,6 +34,11 @@ import {
   upsertPlateMakingTask,
 } from '../src/data/pcs-plate-making-repository.ts'
 import type { PlateMakingTaskRecord } from '../src/data/pcs-plate-making-types.ts'
+import {
+  createEngineeringMasterOrder,
+  publishEngineeringMasterOrder,
+  resetEngineeringMasterRepository,
+} from '../src/data/pcs-engineering-master-repository.ts'
 
 function resetScenario(): void {
   resetProjectRepository()
@@ -47,6 +52,7 @@ function resetScenario(): void {
   clearProjectRelationStore()
   resetTechPackVersionLogRepository()
   resetPlateMakingTaskRepository()
+  resetEngineeringMasterRepository()
 }
 
 function prepareProjectAndStyle() {
@@ -145,13 +151,36 @@ resetScenario()
 const { style, project } = prepareProjectAndStyle()
 const projectNodesBefore = listProjectNodes(project.projectId)
 const plateTask = createPlateTask(project.projectId, style.styleCode)
+const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
+  styleId: style.styleId,
+  styleCode: style.styleCode,
+  merchandiserName: '测试跟单',
+}).masterOrderId)
+assert.throws(
+  () => generateTechPackVersionFromPlateTask(plateTask.plateTaskId, '测试用户'),
+  /明确关联工程主单.*制版任务/,
+  '未显式归属工程主单的制版任务不得按款式猜测来源',
+)
+upsertPlateMakingTask({
+  ...plateTask,
+  upstreamModule: '生产工程管理',
+  upstreamObjectType: '工程专业任务',
+  upstreamObjectId: `${master.masterOrderId}-BASE_PATTERN_WOVEN`,
+  upstreamObjectCode: `${master.masterOrderCode}-BASE_PATTERN_WOVEN`,
+})
 const result = generateTechPackVersionFromPlateTask(plateTask.plateTaskId, '测试用户')
 
 assert.equal(result.record.primaryPlateTaskId, plateTask.plateTaskId, '制版任务必须成为技术包主挂载入口')
 assert.equal(result.record.primaryPlateTaskCode, plateTask.plateTaskCode, '技术包版本必须记录主制版任务编号')
 assert.equal(result.record.primaryPlateTaskVersion, plateTask.patternVersion, '技术包版本必须记录主制版版本')
 assert.ok(result.record.linkedPatternTaskIds.includes(plateTask.plateTaskId), '技术包版本必须记录关联制版任务')
-assert.equal(result.record.createdFromTaskType, 'PLATE', '首个技术包版本应记录来源为制版任务')
+assert.equal(result.record.createdFromTaskType, 'ENGINEERING_MASTER', '首个技术包版本必须记录工程主单权威来源')
+assert.equal(result.record.sourceProjectId, master.masterOrderId, '技术包必须来自制版任务显式所属的工程主单')
+assert.equal(
+  result.record.createdFromTaskId,
+  `${master.masterOrderId}-TECH_PACK_CONFIRMATION`,
+  '工程主单技术包来源任务必须严格为技术包确认任务',
+)
 assert.equal(result.record.sourceProjectNodeId, '', '独立制版任务生成技术包不得绑定已移除的制版节点')
 assert.equal(result.logType, '制版生成技术包', '制版生成必须写对应日志类型')
 

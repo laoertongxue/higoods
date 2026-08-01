@@ -26,7 +26,6 @@ import {
 } from './pcs-channel-store-master.ts'
 import {
   getTechnicalDataVersionById,
-  updateTechnicalDataVersionRecord,
 } from './pcs-technical-data-version-repository.ts'
 import {
   createProjectImageAssetRecords,
@@ -1583,13 +1582,6 @@ function applyScenarioStyleLinks(): void {
       currentTechPackVersionActivatedBy: activated ? '商品中心' : '',
       updatedAt: (activated ? technicalVersion.publishedAt : technicalVersion.updatedAt) || style.updatedAt,
       updatedBy: DEMO_OPERATOR,
-    })
-
-    updateTechnicalDataVersionRecord(technicalVersion.technicalVersionId, {
-      sourceProjectId: project.projectId,
-      sourceProjectCode: project.projectCode,
-      sourceProjectName: project.projectName,
-      sourceProjectNodeId: '',
     })
 
     updateProjectRecord(
