@@ -226,18 +226,44 @@ export function buildWaitProcessRuntimeOccupancies(
         latestAdjustmentAtBySessionId.set(pickupSessionId, event.occurredAt)
       }
     })
-  const sourceEvents = events
+  const allSourceEvents = events
     .filter((event) =>
       event.eventStatus !== '已取消'
       && (event.eventType === '中转仓领料' || event.eventType === '待加工仓回收入仓')
       && event.inventoryEffect?.direction === 'IN',
     )
+  const sourceEvents = allSourceEvents
     .filter((event) => classifyPayloadWarehouseScope(runtimeRecord(event.payload)).belongs)
   const originalQtyBySessionUnit = new Map<string, number>()
   const sourceEventsBySessionUnit = new Map<string, CuttingRuntimeEvent[]>()
-  const outQtyBySessionUnit = new Map<string, number>()
-  const outQtyByMaterialUnit = new Map<string, number>()
-  const outRowsByMaterialLocation: Array<{ key: string; qty: number; occurredAt: string }> = []
+  const outQtyBySourceEventId = new Map<string, number>()
+  const sourceEventIds = new Set(sourceEvents.map((event) => event.eventId))
+  const eventSessionId = (event: CuttingRuntimeEvent): string => {
+    const payload = runtimeRecord(event.payload)
+    return runtimeString(payload.pickupSessionId) || event.refs.handoverRecordId?.split(':')[0] || event.eventId
+  }
+  const eventUnit = (event: CuttingRuntimeEvent): string =>
+    (event.inventoryEffect?.unit || event.material?.unit || '').trim().toLowerCase()
+  const eventMaterialSku = (event: CuttingRuntimeEvent): string =>
+    runtimeString(runtimeRecord(event.payload).materialSku) || event.material?.materialSku || ''
+  const eventLocationIds = (event: CuttingRuntimeEvent): string[] => {
+    const payload = runtimeRecord(event.payload)
+    const rows = Array.isArray(payload.warehouseLocations)
+      ? payload.warehouseLocations
+      : Array.isArray(payload.locationRefs)
+        ? payload.locationRefs
+        : payload.locationRef ? [payload.locationRef] : []
+    return rows.map((row) => runtimeString(runtimeRecord(row).locationId)).filter(Boolean)
+  }
+  sourceEvents.forEach((event) => {
+    const payload = runtimeRecord(event.payload)
+    const key = `${eventSessionId(event)}:${eventUnit(event)}`
+    originalQtyBySessionUnit.set(key, (originalQtyBySessionUnit.get(key) || 0)
+      + Number(payload.pickupQty || payload.returnedQty || event.inventoryEffect?.qty || 0))
+    const rows = sourceEventsBySessionUnit.get(key) ?? []
+    rows.push(event)
+    sourceEventsBySessionUnit.set(key, rows)
+  })
   events
     .filter((event) => event.eventStatus !== '已取消' && event.inventoryEffect?.direction === 'OUT')
     .forEach((event) => {
@@ -257,37 +283,48 @@ export function buildWaitProcessRuntimeOccupancies(
           && runtimeString(locationRef.warehouseKind) === warehouse.warehouseKind
         : classifyPayloadWarehouseScope(payload).belongs)
       if (!belongs) return
-      const sessionId = runtimeString(payload.pickupSessionId) || event.refs.handoverRecordId || ''
-      const unit = (event.inventoryEffect?.unit || event.material?.unit || '').trim().toLowerCase()
       const qty = Number(payload.issuedQty || payload.pickupQty || event.inventoryEffect?.qty || 0)
-      if (sessionId) {
-        const key = `${sessionId}:${unit}`
-        const adjustmentAt = latestAdjustmentAtBySessionId.get(sessionId)
-        if (!adjustmentAt || event.occurredAt > adjustmentAt) {
-          outQtyBySessionUnit.set(key, (outQtyBySessionUnit.get(key) || 0) + qty)
-        }
+      if (!(qty > 0)) return
+      const explicitSourceIds = Array.isArray(payload.sourceInboundEventIds)
+        ? payload.sourceInboundEventIds.map(runtimeString).filter(Boolean)
+        : runtimeString(payload.sourceInboundEventId) ? [runtimeString(payload.sourceInboundEventId)] : []
+      const pickupSessionId = runtimeString(payload.pickupSessionId)
+      let candidates = explicitSourceIds.length
+        ? sourceEvents.filter((source) => explicitSourceIds.includes(source.eventId))
+        : pickupSessionId
+          ? sourceEvents.filter((source) => eventSessionId(source) === pickupSessionId && eventUnit(source) === eventUnit(event))
+          : []
+      if (!candidates.length && !explicitSourceIds.length && !pickupSessionId) {
+        const materialSku = eventMaterialSku(event)
+        const outLocationIds = new Set(eventLocationIds(event))
+        const legacyCandidates = allSourceEvents.filter((source) =>
+          eventMaterialSku(source) === materialSku
+          && eventUnit(source) === eventUnit(event)
+          && (!outLocationIds.size || eventLocationIds(source).some((id) => outLocationIds.has(id))))
+        candidates = legacyCandidates.length === 1 && sourceEventIds.has(legacyCandidates[0].eventId)
+          ? [legacyCandidates[0]]
+          : []
       }
-      const materialSku = runtimeString(payload.materialSku) || event.material?.materialSku || ''
-      if (materialSku && warehouseLocations.length) {
-        const materialKey = `${materialSku}:${unit}`
-        outQtyByMaterialUnit.set(materialKey, (outQtyByMaterialUnit.get(materialKey) || 0) + qty)
-      }
-      const locationId = runtimeString(locationRef.locationId)
-      if (!materialSku || !locationId) return
-      const key = `${materialSku}:${unit}:${locationId}`
-      outRowsByMaterialLocation.push({ key, qty, occurredAt: event.occurredAt })
+      if (!candidates.length) return
+      const activeCandidates = candidates.filter((source) => {
+        const adjustmentAt = latestAdjustmentAtBySessionId.get(eventSessionId(source))
+        return !adjustmentAt || event.occurredAt > adjustmentAt
+      })
+      const originalTotal = activeCandidates.reduce((sum, source) => {
+        const sourcePayload = runtimeRecord(source.payload)
+        return sum + Number(sourcePayload.pickupQty || sourcePayload.returnedQty || source.inventoryEffect?.qty || 0)
+      }, 0)
+      let allocated = 0
+      activeCandidates.forEach((source, index) => {
+        const sourcePayload = runtimeRecord(source.payload)
+        const original = Number(sourcePayload.pickupQty || sourcePayload.returnedQty || source.inventoryEffect?.qty || 0)
+        const share = index === activeCandidates.length - 1
+          ? qty - allocated
+          : Number((qty * original / Math.max(originalTotal, 1)).toFixed(2))
+        allocated += share
+        outQtyBySourceEventId.set(source.eventId, (outQtyBySourceEventId.get(source.eventId) || 0) + share)
+      })
     })
-  sourceEvents.forEach((event) => {
-    const payload = runtimeRecord(event.payload)
-    const sessionId = runtimeString(payload.pickupSessionId) || event.refs.handoverRecordId || event.eventId
-    const unit = (event.inventoryEffect?.unit || event.material?.unit || '').trim().toLowerCase()
-    const key = `${sessionId}:${unit}`
-    originalQtyBySessionUnit.set(key, (originalQtyBySessionUnit.get(key) || 0)
-      + Number(payload.pickupQty || payload.returnedQty || event.inventoryEffect?.qty || 0))
-    const rows = sourceEventsBySessionUnit.get(key) ?? []
-    rows.push(event)
-    sourceEventsBySessionUnit.set(key, rows)
-  })
   const adjustedQtyByEventId = new Map<string, number>()
   sourceEventsBySessionUnit.forEach((rows, key) => {
     const sessionId = key.slice(0, key.lastIndexOf(':'))
@@ -355,23 +392,11 @@ export function buildWaitProcessRuntimeOccupancies(
       const prepLineId = runtimeString(payload.prepLineId) || event.material?.materialSku || event.eventId
       const eventUnit = event.inventoryEffect?.unit || event.material?.unit || ''
       const originalQty = Number(payload.pickupQty || payload.returnedQty || event.inventoryEffect?.qty || 0)
-      const sessionUnitKey = `${pickupSessionId}:${eventUnit.trim().toLowerCase()}`
-      const originalSessionUnitQty = originalQtyBySessionUnit.get(sessionUnitKey) || originalQty
-      const materialSku = event.material?.materialSku || runtimeString(payload.materialSku)
-      const adjustmentAt = latestAdjustmentAtBySessionId.get(pickupSessionId)
-      const locationOutQty = Array.from(new Set(rawRefs.map((ref) => runtimeString(runtimeRecord(ref).locationId)).filter(Boolean)))
-        .reduce((sum, locationId) => sum + outRowsByMaterialLocation
-          .filter((row) => row.key === `${materialSku}:${eventUnit.trim().toLowerCase()}:${locationId}`)
-          .filter((row) => !adjustmentAt || row.occurredAt > adjustmentAt)
-          .reduce((qty, row) => qty + row.qty, 0), 0)
-      const totalOutQty = Math.max(outQtyBySessionUnit.get(sessionUnitKey) || 0, locationOutQty)
-      const materialOutQty = outQtyByMaterialUnit.get(`${materialSku}:${eventUnit.trim().toLowerCase()}`) || 0
-      const effectiveOutQty = Math.max(totalOutQty, materialOutQty)
+      const effectiveOutQty = outQtyBySourceEventId.get(event.eventId) || 0
       const totalQty = adjustment
         ? Number(Math.max(0, (adjustedQtyByEventId.get(event.eventId) || 0)
-          - effectiveOutQty * originalQty / Math.max(originalSessionUnitQty, 1)).toFixed(2))
-        : Number(Math.max(0, originalQty - effectiveOutQty
-          * originalQty / Math.max(originalSessionUnitQty, 1)).toFixed(2))
+          - effectiveOutQty).toFixed(2))
+        : Number(Math.max(0, originalQty - effectiveOutQty).toFixed(2))
       if (totalQty <= 0) return []
       const footprintLocationNos = occupancyLocations.map((ref) => ref.locationNo)
       const rollPayload = adjustment ?? payload
@@ -388,6 +413,8 @@ export function buildWaitProcessRuntimeOccupancies(
       return occupancyLocations.map((ref) => ({
         occupancyId: `wait-process-runtime:${event.eventId}:${ref.locationId}`,
         footprintId: `pickup-session:${pickupSessionId}:${prepLineId}`,
+        sourceEventId: event.eventId,
+        sourceSessionId: pickupSessionId,
         locationId: ref.locationId,
         productionOrderNo: event.refs.productionOrderNo || event.refs.cutOrderNo || '',
         objectNo: event.material?.materialSku || prepLineId,

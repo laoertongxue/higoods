@@ -1494,6 +1494,18 @@ function submitWaitProcessWarehouseAction(dialog: HTMLElement): boolean {
     locationCode = selectedLocationRefs[0].locationNo
   }
   const warehouseLocations = selectedLocationRefs.map((ref) => ({ ...ref, warehouseKind: 'WAIT_PROCESS' as const }))
+  const issueSourceMap = action === 'process-issue'
+    ? buildCurrentCuttingWarehouseMapProjection('WAIT_PROCESS')
+    : null
+  const issueSourceOccupancies = issueSourceMap
+    ? listWarehouseLocationMapCells(issueSourceMap.projection).flatMap((cell) => cell.occupancies)
+      .filter((occupancy) => occupancy.objectNo === row.materialIdentity.materialSku
+        && occupancy.productionOrderNo === row.productionOrderNo)
+    : []
+  const sourceInboundEventIds = Array.from(new Set(issueSourceOccupancies
+    .map((occupancy) => occupancy.sourceEventId).filter(Boolean) as string[]))
+  const sourcePickupSessionIds = Array.from(new Set(issueSourceOccupancies
+    .map((occupancy) => occupancy.sourceSessionId).filter(Boolean) as string[]))
 
   if (!warehouseArea || !locationCode) {
     window.alert('请确认库区和库位。')
@@ -1553,6 +1565,10 @@ function submitWaitProcessWarehouseAction(dialog: HTMLElement): boolean {
   }
 
   if (action === 'process-issue') {
+    if (!sourceInboundEventIds.length) {
+      window.alert('当前存放记录缺少可核对的入仓关联，请刷新后重试。')
+      return true
+    }
     const spreadingOrderNo = readWaitProcessActionField(dialog, 'spreadingOrderNo') || readWaitProcessActionField(dialog, 'scanCode') || '铺布单待补'
     const payload: WaitProcessIssuePayload = {
       issueRecordId: `web-issue:${row.cutOrderId}:${compactDate}`,
@@ -1569,6 +1585,23 @@ function submitWaitProcessWarehouseAction(dialog: HTMLElement): boolean {
       issuedBy: operatorName,
       issuedAt: occurredAt,
       purpose: '铺布用料',
+      pickupSessionId: sourcePickupSessionIds.length === 1 ? sourcePickupSessionIds[0] : undefined,
+      sourceInboundEventIds,
+      warehouseLocations: Array.from(new Map(issueSourceMap
+        ? listWarehouseLocationMapCells(issueSourceMap.projection)
+          .filter((cell) => cell.occupancies.some((occupancy) => sourceInboundEventIds.includes(occupancy.sourceEventId || '')))
+          .map((cell) => [cell.locationId, {
+            factoryId: cell.factoryId,
+            warehouseId: cell.warehouseId,
+            warehouseKind: cell.warehouseKind,
+            areaId: cell.areaId,
+            areaName: cell.areaName,
+            shelfId: cell.shelfId,
+            shelfNo: cell.shelfNo,
+            locationId: cell.locationId,
+            locationNo: cell.locationNo,
+          }])
+        : []).values()),
     }
     appendCuttingRuntimeEvent({
       ...commonInput,

@@ -167,6 +167,10 @@ export interface WaitProcessIssuePayload {
   issuedBy: string
   issuedAt: string
   purpose: '铺布用料'
+  pickupSessionId?: string
+  sourceInboundEventIds?: string[]
+  warehouseLocations?: RuntimeWarehouseLocationRef[]
+  /** 旧事件只读兼容；新提交统一写 warehouseLocations。 */
   locationRef?: RuntimeWarehouseLocationRef
 }
 

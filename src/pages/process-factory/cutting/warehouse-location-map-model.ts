@@ -38,6 +38,8 @@ export type WarehouseLocationBusinessStatus = 'EMPTY' | 'OCCUPIED'
 export interface WarehouseLocationOccupancy {
   occupancyId: string
   footprintId: string
+  sourceEventId?: string
+  sourceSessionId?: string
   locationId: string
   productionOrderNo: string
   objectNo: string

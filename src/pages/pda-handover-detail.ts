@@ -2746,7 +2746,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     const confirmedAt = receiverWritebackNowProvider()
     const currentSnapshot = getSewingDeliverySlaSnapshot(record.taskId || record.sourceTaskId)
     if (currentSnapshot?.active && !buildReceiverWritebackSlaPreview(record.recordId, receiverWrittenQty, confirmedAt)) {
-      showPdaHandoverDetailToast('履约投影校验失败，请重新确认')
+      showPdaHandoverDetailToast('交出信息已更新，请重新确认')
       return true
     }
 

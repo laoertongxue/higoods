@@ -107,7 +107,6 @@ import {
   revalidateWarehouseLocationSelection,
   resolveStableWarehouseLocationRef,
   toggleWarehouseLocationSelection,
-  validateWarehouseLocationSelection,
   type StableWarehouseLocationRef,
   type WarehouseLocationMapProjection,
   type WarehouseLocationOccupancy,
@@ -116,6 +115,13 @@ import { loadWarehouseLayoutSnapshot } from './process-factory/cutting/warehouse
 import { buildWaitProcessRuntimeOccupancies } from './process-factory/cutting/warehouse-location-map.ts'
 
 type WaitProcessFilter = '全部' | '待领料' | '已入待加工仓' | '差异待处理'
+
+export function revalidatePdaCuttingFootprintAdjustmentSelection(
+  projection: WarehouseLocationMapProjection,
+  selectedLocationIds: string[],
+) {
+  return revalidateWarehouseLocationSelection(projection, selectedLocationIds)
+}
 
 interface WaitProcessState {
   status: WaitProcessFilter
@@ -2371,7 +2377,7 @@ function renderWoolReturnDraftPage(): string {
       <section class="flex items-start justify-between gap-3 border-b pb-4">
         <div class="min-w-0">
           <div class="text-xl font-semibold text-foreground">回收入仓</div>
-          <div class="mt-1 text-xs leading-5 text-muted-foreground">毛织损耗或剩余纱线回收入仓。关联毛织加工单可选，不选则按当前来源记录。</div>
+          <div class="mt-1 text-xs leading-5 text-muted-foreground">毛织损耗或剩余纱线回收入仓。关联毛织加工单可选，不选则按本次回收信息。</div>
         </div>
         <button type="button" class="shrink-0 rounded-full bg-muted px-3 py-2 text-xs font-medium" data-pda-warehouse-action="cancel-wool-return">返回仓管</button>
       </section>
@@ -2643,7 +2649,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     }
     const hasRemaining = remainingByUnit.some((item) => item.remainingQty > 0)
     const selection = hasRemaining
-      ? validateWarehouseLocationSelection(projection, state.cuttingAdjustFootprintLocationIds)
+      ? revalidatePdaCuttingFootprintAdjustmentSelection(projection, state.cuttingAdjustFootprintLocationIds)
       : { ok: true, message: '', selectedLocationIds: [] }
     if (!selection.ok) {
       window.alert(selection.message)
@@ -2933,6 +2939,14 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     }
     const warehouseArea = warehouseLocations[0].areaName
     const locationCode = warehouseLocations[0].locationNo
+    const sourceInboundEventIds = Array.from(new Set(warehouseLocations.flatMap((location) =>
+      location.occupancies.map((occupancy) => occupancy.sourceEventId).filter(Boolean) as string[])))
+    const sourcePickupSessionIds = Array.from(new Set(warehouseLocations.flatMap((location) =>
+      location.occupancies.map((occupancy) => occupancy.sourceSessionId).filter(Boolean) as string[])))
+    if (!sourceInboundEventIds.length) {
+      window.alert('当前存放记录缺少可核对的入仓关联，请刷新后重试。')
+      return true
+    }
     const occurredAt = getCuttingRuntimeNowText()
     const inventoryEffect: RuntimeInventoryEffect = {
       inventoryScope: '裁床待加工仓',
@@ -2967,6 +2981,8 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
         issuedBy: '裁床仓管',
         issuedAt: occurredAt,
         purpose: '铺布用料',
+        pickupSessionId: sourcePickupSessionIds.length === 1 ? sourcePickupSessionIds[0] : undefined,
+        sourceInboundEventIds,
         warehouseLocations: warehouseLocations.map((location) => ({
           factoryId: location.factoryId,
           warehouseId: location.warehouseId,

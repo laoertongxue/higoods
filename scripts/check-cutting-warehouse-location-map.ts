@@ -119,9 +119,11 @@ const warehouseMapReviewRecordSource = readFileSync(new URL('../docs/prototype-r
 const warehouseLayoutStoreSource = readFileSync(new URL('../src/pages/process-factory/cutting/warehouse-location-layout-store.ts', import.meta.url), 'utf8')
 const warehouseLayoutStoreModule = await import('../src/pages/process-factory/cutting/warehouse-location-layout-store.ts') as Record<string, unknown>
 const fcsHandlersSource = readFileSync(new URL('../src/main-handlers/fcs-handlers.ts', import.meta.url), 'utf8')
+const pdaWaitProcessModule = await import('../src/pages/pda-warehouse-wait-process.ts') as Record<string, unknown>
 assert.doesNotMatch(pdaWaitProcessSource, /CUTTING_RECEIVE_LOCATIONS/, 'PDA 不得保留第二套硬编码裁床库位')
 assert.doesNotMatch(`${pdaWaitProcessSource}\n${pdaInboundSource}\n${pdaHandoverSource}\n${warehouseHubSource}`, /FAB-A-0|CUT-A-01|SP-RETURN-0/, '裁床现场页不得继续展示旧硬编码库位')
 assert.match(pdaWaitProcessSource, /调整剩余存放库位/)
+assert.match(pdaWaitProcessSource, /revalidatePdaCuttingFootprintAdjustmentSelection/, '剩余存放调整确认必须走最新投影整组重校验')
 assert.doesNotMatch(pdaWaitProcessSource, /存放范围|原范围/, 'PDA 选位文案不得继续使用范围摘要表达')
 assert.match(pdaWaitProcessSource, /}, syncCuttingPickupSessionRuntimeFacts\)/, '领料必须通过原子运行时入口写共享事件与本地会话')
 assert.match(pdaInboundSource, /data-pda-inbound-location-map/)
@@ -1246,6 +1248,26 @@ for (const cell of [occupiedCell, stoppedAreaCell, stoppedShelfCell, stoppedLoca
 assert.match(revalidatedSelection.message, /UNKNOWN-LOCATION/, '未知库位冲突反馈必须保留可追溯 ID')
 assert.match(revalidatedSelection.message, new RegExp(externalLocationId), '错仓 ID 在当前投影无法识别时必须作为未知库位保留原 ID')
 assert.deepEqual(revalidatedSelection.selectedLocationIds, [validCell.locationId], '同次重校验必须剔除所有冲突且仅保留有效项')
+assert.equal(
+  typeof pdaWaitProcessModule.revalidatePdaCuttingFootprintAdjustmentSelection,
+  'function',
+  'PDA 剩余存放调整必须导出动态整组重校验入口',
+)
+const revalidateFootprintAdjustment = pdaWaitProcessModule.revalidatePdaCuttingFootprintAdjustmentSelection as (
+  projection: typeof conflictProjection,
+  ids: string[],
+) => { ok: boolean; message: string; selectedLocationIds: string[] }
+const footprintMultiConflict = revalidateFootprintAdjustment(conflictProjection, [
+  validCell.locationId,
+  occupiedCell.locationId,
+  stoppedShelfCell.locationId,
+  stoppedLocationCell.locationId,
+])
+assert.equal(footprintMultiConflict.ok, false, '剩余存放调整任一库位冲突必须整组失败')
+for (const cell of [occupiedCell, stoppedShelfCell, stoppedLocationCell]) {
+  assert.match(footprintMultiConflict.message, new RegExp(cell.locationNo), `剩余存放冲突必须列出完整编号 ${cell.locationNo}`)
+}
+assert.deepEqual(footprintMultiConflict.selectedLocationIds, [validCell.locationId], '重校验结果可返回有效项供提示，但确认不得部分写入')
 assert.equal('unassignedLocations' in emptyProjection, false, '运行时 v3 投影不得保留未编排库位字段')
 const currentReviewConclusionStart = warehouseMapReviewRecordSource.indexOf('## 9. 2026-08-01 分层投影与自由多选审查')
 assert(currentReviewConclusionStart >= 0, '审查记录必须包含当前分层投影与自由多选结论')
@@ -1337,6 +1359,70 @@ const afterIssueOccupancies = buildWaitProcessRuntimeOccupancies(selectionWareho
   },
 ])
 assert(afterIssueOccupancies.every((occupancy) => occupancy.qty === 200), '加工领料 OUT 后必须扣减当前待加工仓占用量')
+const sameSkuSessionOne: CuttingRuntimeEvent = {
+  ...structuredClone(runtimePickupEvent),
+  eventId: 'EVENT-SAME-SKU-SESSION-1',
+  refs: { productionOrderNo: 'PO-SAME-1', handoverRecordId: 'SESSION-SAME-1:LINE-1' },
+  material: { ...runtimePickupEvent.material, materialSku: 'MAT-SAME-SKU' },
+  inventoryEffect: { ...runtimePickupEvent.inventoryEffect!, qty: 100 },
+  payload: {
+    ...(runtimePickupEvent.payload as Record<string, unknown>),
+    pickupSessionId: 'SESSION-SAME-1', prepLineId: 'LINE-1', pickupQty: 100,
+    warehouseLocations: [footprintRefs[0]],
+  },
+}
+const sameSkuSessionTwo: CuttingRuntimeEvent = {
+  ...structuredClone(sameSkuSessionOne),
+  eventId: 'EVENT-SAME-SKU-SESSION-2',
+  refs: { productionOrderNo: 'PO-SAME-2', handoverRecordId: 'SESSION-SAME-2:LINE-2' },
+  payload: {
+    ...(sameSkuSessionOne.payload as Record<string, unknown>),
+    pickupSessionId: 'SESSION-SAME-2', prepLineId: 'LINE-2', warehouseLocations: [footprintRefs[1]],
+  },
+}
+const sessionOnePartialOut: CuttingRuntimeEvent = {
+  ...structuredClone(sameSkuSessionOne),
+  eventId: 'EVENT-SAME-SKU-SESSION-1-OUT-40',
+  eventType: '待加工仓加工领料',
+  occurredAt: '2026-07-30 08:20',
+  inventoryEffect: { inventoryScope: '裁床待加工仓', direction: 'OUT', qty: 40, unit: 'yard' },
+  payload: {
+    pickupSessionId: 'SESSION-SAME-1',
+    sourceInboundEventIds: ['EVENT-SAME-SKU-SESSION-1'],
+    materialSku: 'MAT-SAME-SKU', issuedQty: 40, warehouseLocations: [footprintRefs[0]],
+  },
+}
+const stableSessionPartial = buildWaitProcessRuntimeOccupancies(selectionWarehouse, selectionSnapshot, [
+  sameSkuSessionOne, sameSkuSessionTwo, sessionOnePartialOut,
+])
+assert.equal(stableSessionPartial.find((item) => item.locationId === footprintRefs[0].locationId)?.qty, 60, '会话1部分 OUT 只能扣会话1')
+assert.equal(stableSessionPartial.find((item) => item.locationId === footprintRefs[1].locationId)?.qty, 100, '会话1 OUT 后会话2必须完全不变')
+const stableSessionReleased = buildWaitProcessRuntimeOccupancies(selectionWarehouse, selectionSnapshot, [
+  sameSkuSessionOne,
+  sameSkuSessionTwo,
+  sessionOnePartialOut,
+  {
+    ...structuredClone(sessionOnePartialOut),
+    eventId: 'EVENT-SAME-SKU-SESSION-1-OUT-60',
+    occurredAt: '2026-07-30 08:30',
+    inventoryEffect: { inventoryScope: '裁床待加工仓', direction: 'OUT', qty: 60, unit: 'yard' },
+    payload: { ...(sessionOnePartialOut.payload as Record<string, unknown>), issuedQty: 60 },
+  },
+])
+assert.equal(stableSessionReleased.some((item) => item.locationId === footprintRefs[0].locationId), false, '会话1全量 OUT 必须释放会话1完整 footprint')
+assert.equal(stableSessionReleased.find((item) => item.locationId === footprintRefs[1].locationId)?.qty, 100, '会话1全释放不得影响同 SKU 会话2')
+const ambiguousLegacyOut: CuttingRuntimeEvent = {
+  ...structuredClone(sessionOnePartialOut),
+  eventId: 'EVENT-SAME-SKU-LEGACY-AMBIGUOUS',
+  payload: { materialSku: 'MAT-SAME-SKU', issuedQty: 40, warehouseLocations: [footprintRefs[0], footprintRefs[1]] },
+  refs: {},
+}
+const ambiguousLegacyResult = buildWaitProcessRuntimeOccupancies(selectionWarehouse, selectionSnapshot, [
+  sameSkuSessionOne, sameSkuSessionTwo, ambiguousLegacyOut,
+])
+assert.deepEqual(ambiguousLegacyResult.map((item) => item.qty).sort((a, b) => a - b), [100, 100], '旧 OUT 有多个同 SKU 候选时必须保守不扣减')
+const uniqueLegacyResult = buildWaitProcessRuntimeOccupancies(selectionWarehouse, selectionSnapshot, [sameSkuSessionOne, ambiguousLegacyOut])
+assert.equal(uniqueLegacyResult[0]?.qty, 60, '旧 OUT 仅有唯一同 SKU 候选时允许兼容扣减')
 const adjustedRuntimeOccupancies = buildWaitProcessRuntimeOccupancies(selectionWarehouse, selectionSnapshot, [
   runtimePickupEvent,
   {

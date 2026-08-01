@@ -93,8 +93,10 @@
 - `src/pages/pda-cutting-inbound.ts`
 - `src/pages/pda-warehouse-wait-process.ts`
 - `src/pages/pda-cutting-handover.ts`
+- `src/pages/pda-handover-detail.ts`
 - `src/pages/process-factory/cutting/warehouse-hub.ts`
 - `src/pages/process-factory/cutting/wait-handover-runtime.ts`
+- `src/data/fcs/cutting/cutting-runtime-event-ledger.ts`
 - `scripts/check-pda-cutting-inbound-workflow.ts`
 - `docs/superpowers/specs/2026-07-30-cutting-warehouse-location-map-design.md`
 
@@ -151,7 +153,10 @@
 - `src/pages/pda-cutting-inbound.ts`
 - `src/pages/pda-cutting-handover.ts`
 - `src/pages/pda-warehouse-wait-process.ts`
+- `src/pages/pda-handover-detail.ts`
 - `src/pages/process-factory/cutting/warehouse-location-map.ts`
+- `src/pages/process-factory/cutting/warehouse-hub.ts`
+- `src/data/fcs/cutting/cutting-runtime-event-ledger.ts`
 - `scripts/check-pda-cutting-inbound-workflow.ts`
 - `scripts/check-pda-cutting-transfer-bag-handover.ts`
 - `scripts/check-cutting-special-craft-dispatch-return.ts`
@@ -159,6 +164,24 @@
 
 ### 8.4 审查结论与例外
 
-结论：通过。未发现新的 `读不懂`、`选不对`、`算不准`、`点错风险` 或 `协作断裂` 问题。
+结论：任务 8 的代码专项检查与构建门禁通过，但浏览器验收尚未闭环，不能表述为“全部通过”或“无问题”。两条 PDA 定向 Playwright 用例运行到 180 秒仍未进入断言，按执行边界终止，结果为 `2 did not run`。任务 9 继续完成真实浏览器交互与截图验收。
 
-例外：仍按原型边界使用本地 Mock 与浏览器事件账，不实现真实后端、跨设备并发锁和角色鉴权；提交前最新投影复核、整次失败和稳定库位引用已作为演示防错保留。
+例外：仍按原型边界使用本地 Mock 与浏览器事件账，不实现真实后端、跨设备并发锁和角色鉴权；提交前最新投影复核、整次失败和稳定库位引用已作为演示防错保留。浏览器交互结论不由静态检查、动态脚本或构建结果代替。
+
+### 8.5 规格返修补充
+
+- 剩余存放调整确认使用最新库位投影对完整选择数组重校验；多个库位同时占用或停用时，整组失败并列出全部完整编号，不写入部分有效项。
+- 特殊工艺扫码即时检查当前工厂、仓库、库区、货架、库位启停和占用状态；任何异常均不追加数组，并显示现场可执行的中文短提示。
+- 待加工仓出库优先按入仓事件编号和领料会话关联对应存放事实；旧事件只有唯一候选时兼容扣减，存在多个同物料候选时保守不扣，避免跨会话误释放。
+- PDA 首屏使用“本次回仓”“交出信息”等动作业务文案，不显示来源记录、投影或稳定 ID 等技术词。
+
+### 8.6 当前验证事实
+
+- `npm run check:pda-cutting-inbound-workflow`：通过。
+- `npm run check:pda-cutting-transfer-bag-handover`：通过。
+- `npm run check:cutting-special-craft-dispatch-return`：通过。
+- `npm run check:cutting-warehouse-location-map`：通过。
+- `npm run build`：通过。
+- `npm run check:prototype-design-governance -- --all`：通过。
+- `npx playwright test tests/cutting-warehouse-location-map.spec.ts --list`：通过，共列出 16 条用例。
+- 两条 PDA 定向 Playwright 执行：180 秒未进入断言后终止，结果为 `2 did not run`；任务 9 继续真实浏览器验收。

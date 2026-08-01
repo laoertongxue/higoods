@@ -67,7 +67,6 @@ import {
   buildWarehouseLocationMapProjection,
   listWarehouseLocationMapCells,
   revalidateWarehouseLocationSelection,
-  resolveStableWarehouseLocationRef,
   toggleWarehouseLocationSelection,
   type StableWarehouseLocationRef,
   type WarehouseLocationMapProjection,
@@ -999,23 +998,39 @@ function listSelectedSpecialCraftReturnLocations(selectedLocationIds: string[]):
   return listWarehouseLocationMapCells(projection).filter((cell) => selected.has(cell.locationId))
 }
 
-function appendPdaSpecialCraftReturnScannedLocation(form: HandoverFormState, scanValue: string): string {
-  const warehouse = getCurrentFactoryWarehouseByKind('WAIT_HANDOVER')
-  if (!warehouse) return '当前裁床工厂没有可用的待交出仓。'
-  const { snapshot } = loadWarehouseLayoutSnapshot(warehouse)
+export function applyPdaSpecialCraftReturnLocationScan(
+  selectedLocationIds: string[],
+  scanValue: string,
+  projection: WarehouseLocationMapProjection,
+): { selectedLocationIds: string[]; message: string } {
   const normalized = normalizeScanValue(scanValue).normalize('NFKC').toUpperCase()
-  const location = listWarehouseLocationMapCells(buildPdaSpecialCraftReturnLocationMapProjection()!)
+  const stableParts = scanValue.trim().split('|')
+  if (stableParts.length === 4 && (
+    stableParts[0] !== projection.factoryId
+    || stableParts[1] !== projection.warehouseId
+    || stableParts[2] !== projection.warehouseKind
+  )) {
+    return { selectedLocationIds, message: '该库位不属于当前仓库，请重新扫描。' }
+  }
+  const location = listWarehouseLocationMapCells(projection)
     .find((cell) => cell.locationNo.normalize('NFKC').toUpperCase() === normalized
       || `${cell.factoryId}|${cell.warehouseId}|${cell.warehouseKind}|${cell.locationId}` === scanValue.trim())
+  if (!location) return { selectedLocationIds, message: '库位不存在，请重新扫描。' }
+  if (location.areaStatus !== 'AVAILABLE') return { selectedLocationIds, message: '库区已停用，请更换库位。' }
+  if (location.shelfStatus !== 'AVAILABLE') return { selectedLocationIds, message: '货架已停用，请更换库位。' }
+  if (location.status !== 'AVAILABLE') return { selectedLocationIds, message: '库位已停用，请更换库位。' }
+  if (location.businessStatus === 'OCCUPIED') return { selectedLocationIds, message: '该库位已占用，请更换库位。' }
+  if (selectedLocationIds.includes(location.locationId)) return { selectedLocationIds, message: `${location.locationNo} 已选择。` }
+  return { selectedLocationIds: [...selectedLocationIds, location.locationId], message: `${location.locationNo} 已加入。` }
+}
+
+function appendPdaSpecialCraftReturnScannedLocation(form: HandoverFormState, scanValue: string): string {
+  const projection = buildPdaSpecialCraftReturnLocationMapProjection()
+  if (!projection) return '当前裁床工厂没有可用的待交出仓。'
+  const result = applyPdaSpecialCraftReturnLocationScan(form.specialCraftReturnLocationIds, scanValue, projection)
   form.specialCraftReturnLocationScan = ''
-  if (!location) {
-    const rawLocation = resolveStableWarehouseLocationRef(warehouse, { locationNo: scanValue }, snapshot)
-    return rawLocation?.status !== 'AVAILABLE' ? '该库位已停用，请更换库位。' : '库位不存在或不属于当前仓库，请重新扫描。'
-  }
-  if (location.businessStatus === 'OCCUPIED') return '该库位已占用，请更换库位。'
-  if (form.specialCraftReturnLocationIds.includes(location.locationId)) return `${location.locationNo} 已选择。`
-  form.specialCraftReturnLocationIds = [...form.specialCraftReturnLocationIds, location.locationId]
-  return `${location.locationNo} 已加入。`
+  form.specialCraftReturnLocationIds = result.selectedLocationIds
+  return result.message
 }
 
 function validateSpecialCraftReturnScans(
@@ -1180,7 +1195,7 @@ function renderPdaSpecialCraftReturnFlow(
     <div class="space-y-3 text-xs" data-task-id="${escapeHtml(taskId)}">
       <div class="rounded-xl border bg-violet-50 px-3 py-3 text-violet-900">
         <div class="font-medium">特殊工艺回仓扫码</div>
-        <div class="mt-1 text-sm font-semibold">${escapeHtml(draft.handoverOrderNo)} / 来源记录 ${escapeHtml(sourceRecord.handoverRecordNo)}</div>
+        <div class="mt-1 text-sm font-semibold">${escapeHtml(draft.handoverOrderNo)} / 本次回仓 ${escapeHtml(sourceRecord.handoverRecordNo)}</div>
         <div class="mt-1">有中转袋时先扫中转袋，再扫菲票获取裁片部位，最后扫库区库位并确认入仓。</div>
       </div>
       <div class="rounded-xl border px-3 py-3">
