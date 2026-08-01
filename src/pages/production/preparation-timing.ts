@@ -65,6 +65,7 @@ import {
   type ProductionPreparationItem,
   type ProductionPreparationRecord,
 } from '../../data/fcs/production-preparation-timing.ts'
+import { mergeEngineeringColorPreparationTimes } from '../../data/pcs-engineering-preparation-timing-view.ts'
 
 const PAGE_PATH = '/fcs/production/preparation-timing'
 const STATS_PAGE_PATH = '/fcs/production/preparation-timing-statistics'
@@ -1142,13 +1143,17 @@ function renderLedgerTab(params: URLSearchParams, month: string): string {
   syncLedgerFilterContext(params, month)
   const filter = parseFilter(params)
   const runtime = loadPreparationRuntimeState()
-  const recordsWithRuntime = mergePreparationRuntimeRecords(productionPreparationRecords, runtime)
+  const recordsWithRuntime = mergeEngineeringColorPreparationTimes(
+    mergePreparationRuntimeRecords(productionPreparationRecords, runtime),
+  )
   const records = filterLedgerRecords(filter, month, recordsWithRuntime)
   const recordId = valueOf(params, 'recordId')
   const sourceFallbackRecord = recordId ? getProductionPreparationRecord(recordId) : null
   const fallbackRecord = recordId
     ? recordsWithRuntime.find((record) => record.recordId === recordId) ??
-      (sourceFallbackRecord ? mergePreparationRuntimeRecords([sourceFallbackRecord], runtime)[0] : null)
+      (sourceFallbackRecord
+        ? mergeEngineeringColorPreparationTimes(mergePreparationRuntimeRecords([sourceFallbackRecord], runtime))[0]
+        : null)
     : null
   const detailRecord = recordId
     ? records.find((record) => record.recordId === recordId) ??
@@ -1423,6 +1428,11 @@ function renderItemCard(record: ProductionPreparationRecord, item: ProductionPre
       <div class="mt-3 rounded-lg border bg-muted/20 px-3 py-2 text-xs">
         <span class="text-muted-foreground">前置准备项：</span>${escapeHtml(dependencyText(record, item))}
       </div>
+      ${item.sourceObjectNo
+        ? `<div class="mt-2 text-xs"><span class="text-muted-foreground">来源：</span>${item.sourceHref
+            ? `<button type="button" class="text-blue-700 hover:underline" data-nav="${escapeHtml(item.sourceHref)}">${escapeHtml(item.sourceObjectNo)}</button>`
+            : escapeHtml(item.sourceObjectNo)}</div>`
+        : ''}
       ${
         item.status === '已完成' && !hasCompletionEvidence(item)
           ? `<p class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">${item.itemType === '辅料下单' ? '异常：已完成但采购单号或逐单下单时间不完整，请补充登记。' : '异常：已完成但缺少上传文件、上传人或上传时间，请补传完成凭证。'}</p>`

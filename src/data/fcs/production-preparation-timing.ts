@@ -1595,10 +1595,11 @@ function hasPatternUploadGap(item: ProductionPreparationItem): boolean {
 export function hasValidPreparationCompletionEvidence(
   item: Pick<
     ProductionPreparationItem,
-    'itemType' | 'status' | 'actualFinishAt' | 'accessoryPurchaseOrderNos' | 'accessoryPurchaseOrderedAts' | 'accessoryPurchaseUpdatedAt' | 'uploads' | 'dyeRequirement'
+    'itemType' | 'status' | 'actualFinishAt' | 'accessoryPurchaseOrderNos' | 'accessoryPurchaseOrderedAts' | 'accessoryPurchaseUpdatedAt' | 'uploads' | 'dyeRequirement' | 'sourceObjectType' | 'evidenceType'
   >,
 ): boolean {
   if (item.status !== '已完成' || !item.actualFinishAt) return false
+  if (item.sourceObjectType === '工程主单' && item.evidenceType === '工程主单节点') return true
   if (item.itemType === '辅料下单') {
     const orderNos = item.accessoryPurchaseOrderNos?.map((orderNo) => orderNo.trim()) ?? []
     const orderedAts = item.accessoryPurchaseOrderedAts?.map((orderedAt) => orderedAt.trim()) ?? []
@@ -1643,6 +1644,7 @@ export function canWritePreparationItemRuntime(
   record: Pick<ProductionPreparationRecord, 'status' | 'workItemsConfirmedBy' | 'workItemsConfirmedAt' | 'items'>,
   item: ProductionPreparationItem,
 ): boolean {
+  if (item.sourceObjectType === '工程主单') return false
   if (record.status === '已关闭' || !record.workItemsConfirmedBy || !record.workItemsConfirmedAt) return false
   if (item.selectedByMerchandiser === false || item.status === '无需') return false
   return item.dependsOnItemIds.every((dependencyId) => {
