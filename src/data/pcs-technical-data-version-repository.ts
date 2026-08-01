@@ -1,8 +1,8 @@
 import { createTechnicalDataVersionBootstrapSnapshot } from './pcs-technical-data-version-bootstrap.ts'
 import {
-  getIndexedEngineeringChangeTask,
-  getIndexedEngineeringMasterOrder,
-} from './pcs-engineering-tech-pack-authority-index.ts'
+  getAuthoritativeEngineeringChangeTask,
+  getAuthoritativeEngineeringMasterOrder,
+} from './pcs-engineering-master-store.ts'
 import { getStyleArchiveById } from './pcs-style-archive-repository.ts'
 import {
   hasTechPackPrintRequirement,
@@ -260,7 +260,7 @@ function validateTechnicalVersionCreationSource(record: TechnicalDataVersionReco
   }
 
   if (record.createdFromTaskType === 'ENGINEERING_MASTER') {
-    const master = getIndexedEngineeringMasterOrder(record.sourceProjectId)
+    const master = getAuthoritativeEngineeringMasterOrder(record.sourceProjectId)
     if (!master) throw new Error(`工程主单不存在：${record.sourceProjectId}`)
     const sourceTask = master.tasks.find((task) => task.taskId === record.createdFromTaskId)
     if (!sourceTask) {
@@ -275,7 +275,7 @@ function validateTechnicalVersionCreationSource(record: TechnicalDataVersionReco
     return
   }
 
-  const changeTask = getIndexedEngineeringChangeTask(record.sourceProjectId)
+  const changeTask = getAuthoritativeEngineeringChangeTask(record.sourceProjectId)
   if (!changeTask) throw new Error(`工程变更任务不存在：${record.sourceProjectId}`)
   if (changeTask.engineeringChangeTaskId !== record.createdFromTaskId) {
     throw new Error('技术包来源对象与工程变更任务不一致。')
@@ -283,6 +283,13 @@ function validateTechnicalVersionCreationSource(record: TechnicalDataVersionReco
   if (changeTask.styleId !== record.styleId) {
     throw new Error('技术包款式与工程变更任务款式不一致。')
   }
+}
+
+function isPublishedLegacyTechnicalVersion(record: TechnicalDataVersionRecord | undefined): boolean {
+  return Boolean(
+    record?.versionStatus === 'PUBLISHED' &&
+    ['REVISION', 'PLATE', 'ARTWORK', 'MANUAL'].includes(record.createdFromTaskType),
+  )
 }
 
 function normalizeChangeScope(value: string | null | undefined): TechPackVersionChangeScope {
@@ -1027,7 +1034,16 @@ export function updateTechnicalDataVersionRecord(
   technicalVersionId: string,
   patch: Partial<TechnicalDataVersionRecord>,
 ): TechnicalDataVersionRecord | null {
+  const snapshot = loadSnapshot()
+  const index = snapshot.records.findIndex((item) => item.technicalVersionId === technicalVersionId)
+  if (index < 0) return null
+  if (isPublishedLegacyTechnicalVersion(snapshot.records[index])) {
+    throw new Error('旧来源的已发布技术包仅供查询，处于只读状态，禁止修改。')
+  }
   const immutableSourceKeys = [
+    'styleId',
+    'styleCode',
+    'styleName',
     'sourceProjectId',
     'sourceProjectCode',
     'sourceProjectName',
@@ -1039,9 +1055,6 @@ export function updateTechnicalDataVersionRecord(
   if (immutableSourceKeys.some((key) => Object.prototype.hasOwnProperty.call(patch, key))) {
     throw new Error('技术包来源身份字段禁止修改。')
   }
-  const snapshot = loadSnapshot()
-  const index = snapshot.records.findIndex((item) => item.technicalVersionId === technicalVersionId)
-  if (index < 0) return null
   const content = snapshot.contents.find((item) => item.technicalVersionId === technicalVersionId) ?? createEmptyContent(technicalVersionId)
   const nextRecord = normalizeRecord(
     {
@@ -1064,6 +1077,10 @@ export function updateTechnicalDataVersionContent(
   patch: Partial<TechnicalDataVersionContent>,
 ): TechnicalDataVersionContent | null {
   const snapshot = loadSnapshot()
+  const targetRecord = snapshot.records.find((item) => item.technicalVersionId === technicalVersionId)
+  if (isPublishedLegacyTechnicalVersion(targetRecord)) {
+    throw new Error('旧来源的已发布技术包仅供查询，处于只读状态，禁止修改。')
+  }
   const contentIndex = snapshot.contents.findIndex((item) => item.technicalVersionId === technicalVersionId)
   const base = contentIndex >= 0 ? snapshot.contents[contentIndex] : createEmptyContent(technicalVersionId)
   const nextContent = normalizeContent({

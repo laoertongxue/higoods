@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 
+import * as authorityIndex from '../src/data/pcs-engineering-tech-pack-authority-index.ts'
 import {
   createEngineeringMasterOrder,
   createEngineeringChangeTask,
@@ -19,9 +20,11 @@ import {
 } from '../src/data/pcs-style-archive-repository.ts'
 import {
   createTechnicalDataVersionDraft,
+  getTechnicalDataVersionContent,
   getTechnicalDataVersionById,
   listTechnicalDataVersions,
   resetTechnicalDataVersionRepository,
+  updateTechnicalDataVersionContent,
   updateTechnicalDataVersionRecord,
 } from '../src/data/pcs-technical-data-version-repository.ts'
 import type {
@@ -43,6 +46,20 @@ const legacyPublished = listTechnicalDataVersions().find((record) =>
 )
 assert.ok(legacyPublished, '测试数据必须包含已发布旧来源技术包')
 assert.equal(getTechnicalDataVersionById(legacyPublished.technicalVersionId)?.technicalVersionId, legacyPublished.technicalVersionId)
+const legacyPublishedBefore = getTechnicalDataVersionById(legacyPublished.technicalVersionId)
+const legacyPublishedContentBefore = getTechnicalDataVersionContent(legacyPublished.technicalVersionId)
+assert.ok(legacyPublishedBefore)
+assert.ok(legacyPublishedContentBefore)
+assert.throws(
+  () => updateTechnicalDataVersionRecord(legacyPublished.technicalVersionId, { note: '禁止改写旧来源发布记录' }),
+  /旧来源.*已发布.*只读/,
+)
+assert.throws(
+  () => updateTechnicalDataVersionContent(legacyPublished.technicalVersionId, { patternDesc: '禁止改写旧来源发布内容' }),
+  /旧来源.*已发布.*只读/,
+)
+assert.deepEqual(getTechnicalDataVersionById(legacyPublished.technicalVersionId), legacyPublishedBefore)
+assert.deepEqual(getTechnicalDataVersionContent(legacyPublished.technicalVersionId), legacyPublishedContentBefore)
 
 const baseRecord = listTechnicalDataVersions()[0]
 assert.ok(baseRecord)
@@ -199,6 +216,36 @@ assert.deepEqual(
   getTechnicalDataVersionById(masterVersion.technicalVersionId),
   beforeIdentityPatch,
   '来源身份修改失败不得产生部分写入',
+)
+
+for (const [field, value] of [
+  ['styleId', engineeringChange.styleId],
+  ['styleCode', engineeringChange.styleCode],
+  ['styleName', engineeringChange.styleName],
+  ['sourceProjectCode', engineeringChange.engineeringChangeTaskCode],
+  ['sourceProjectName', engineeringChange.title],
+  ['sourceProjectNodeId', engineeringChange.engineeringChangeTaskId],
+  ['createdFromTaskType', 'ENGINEERING_CHANGE'],
+  ['createdFromTaskId', engineeringChange.engineeringChangeTaskId],
+  ['createdFromTaskCode', engineeringChange.engineeringChangeTaskCode],
+] as const) {
+  assert.throws(
+    () => updateTechnicalDataVersionRecord(masterVersion.technicalVersionId, {
+      [field]: value,
+    }),
+    /来源身份.*禁止修改/,
+    `${field} 创建后必须不可修改`,
+  )
+}
+assert.deepEqual(
+  getTechnicalDataVersionById(masterVersion.technicalVersionId),
+  beforeIdentityPatch,
+  '任一款式或来源身份修改失败均不得产生部分写入',
+)
+assert.deepEqual(
+  Object.keys(authorityIndex),
+  [],
+  '技术包来源不得存在可公开注入、索引或整体替换的旁路仓储',
 )
 
 console.log('pcs-engineering-tech-pack-linkage.spec.ts PASS')
