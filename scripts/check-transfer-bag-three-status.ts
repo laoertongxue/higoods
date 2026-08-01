@@ -1726,6 +1726,17 @@ const specialReturnPayload = {
   }],
   warehouseArea: '特殊工艺回仓区',
   locationCode: 'SC-01',
+  locationRef: {
+    factoryId: 'FACTORY-CUTTING',
+    warehouseId: 'WAREHOUSE-WAIT-HANDOVER',
+    warehouseKind: 'WAIT_HANDOVER' as const,
+    areaId: 'AREA-SPECIAL-RETURN',
+    areaName: '特殊工艺回仓区',
+    shelfId: 'SHELF-SPECIAL-RETURN',
+    shelfNo: 'SC',
+    locationId: 'LOCATION-SC-01',
+    locationNo: 'SC-01',
+  },
   returnedAt: '2026-07-30 13:40',
   returnedBy: '回仓测试员',
 }

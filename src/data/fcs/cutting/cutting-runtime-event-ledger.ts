@@ -519,6 +519,7 @@ export interface CompleteSpecialCraftHandoverPayload
   usageCycleId: string
   handoverLegId: string
   ticketSnapshot: TransferBagTicketFactSnapshot[]
+  sourceInventoryEventId: string
   sourceWarehouseArea: string
   sourceLocationCode: string
   idempotencyKey: string

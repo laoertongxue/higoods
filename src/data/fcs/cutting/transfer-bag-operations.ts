@@ -1232,8 +1232,10 @@ export function buildSpecialCraftWholeBagHandoverCanonicalIntent(input: {
   receiverFactoryName: string
   feiTicketItems: CompleteSpecialCraftHandoverPayload['feiTicketItems']
   ticketSnapshot: TransferBagTicketFactSnapshot[]
+  sourceInventoryEventId: string
   sourceWarehouseArea: string
   sourceLocationCode: string
+  sourceLocationRef?: RuntimeWarehouseLocationRef
   handedOverAt: string
   handedOverBy: string
   idempotencyKey: string
@@ -1253,6 +1255,20 @@ export function buildSpecialCraftWholeBagHandoverCanonicalIntent(input: {
   const ticketSnapshot = input.ticketSnapshot
     .map(normalizeWholeBagTicketSnapshot)
     .sort((left, right) => left.feiTicketId.localeCompare(right.feiTicketId))
+  const rawSourceLocationRef = record(input.sourceLocationRef)
+  const sourceLocationRef = text(rawSourceLocationRef.locationId)
+    ? {
+        factoryId: text(rawSourceLocationRef.factoryId),
+        warehouseId: text(rawSourceLocationRef.warehouseId),
+        warehouseKind: rawSourceLocationRef.warehouseKind === 'WAIT_PROCESS' ? 'WAIT_PROCESS' : 'WAIT_HANDOVER',
+        areaId: text(rawSourceLocationRef.areaId),
+        areaName: text(rawSourceLocationRef.areaName),
+        shelfId: text(rawSourceLocationRef.shelfId),
+        shelfNo: text(rawSourceLocationRef.shelfNo),
+        locationId: text(rawSourceLocationRef.locationId),
+        locationNo: text(rawSourceLocationRef.locationNo),
+      }
+    : null
   return JSON.stringify({
     bagCode: text(input.bagCode),
     usageCycleId: text(input.usageCycleId),
@@ -1266,8 +1282,10 @@ export function buildSpecialCraftWholeBagHandoverCanonicalIntent(input: {
     receiverFactoryName: text(input.receiverFactoryName),
     feiTicketItems,
     ticketSnapshot,
+    sourceInventoryEventId: text(input.sourceInventoryEventId),
     sourceWarehouseArea: text(input.sourceWarehouseArea),
     sourceLocationCode: text(input.sourceLocationCode),
+    sourceLocationRef,
     handedOverAt: text(input.handedOverAt),
     handedOverBy: text(input.handedOverBy),
     idempotencyKey: text(input.idempotencyKey),
@@ -1357,6 +1375,7 @@ function parseStrictSpecialCraftHandoverEvent(
   const receiverFactoryName = text(payload.receiverFactoryName)
   const sourceWarehouseArea = text(payload.sourceWarehouseArea)
   const sourceLocationCode = text(payload.sourceLocationCode)
+  const sourceInventoryEventId = text(payload.sourceInventoryEventId)
   const handedOverAt = text(payload.handedOverAt)
   const handedOverBy = text(payload.handedOverBy)
   const idempotencyKey = text(payload.idempotencyKey)
@@ -1373,6 +1392,7 @@ function parseStrictSpecialCraftHandoverEvent(
     || !receiverFactoryName
     || !sourceWarehouseArea
     || !sourceLocationCode
+    || !sourceInventoryEventId
     || !handedOverAt
     || !handedOverBy
     || !idempotencyKey
@@ -1438,8 +1458,10 @@ function parseStrictSpecialCraftHandoverEvent(
     receiverFactoryName,
     feiTicketItems: feiTicketItems as unknown as CompleteSpecialCraftHandoverPayload['feiTicketItems'],
     ticketSnapshot,
+    sourceInventoryEventId,
     sourceWarehouseArea,
     sourceLocationCode,
+    sourceLocationRef: payload.locationRef as RuntimeWarehouseLocationRef | undefined,
     handedOverAt,
     handedOverBy,
     idempotencyKey,

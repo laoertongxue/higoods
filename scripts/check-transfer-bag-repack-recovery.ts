@@ -2630,6 +2630,78 @@ function appendLegacyBaggingConfirm(input: {
   })
 }
 
+for (const collisionKind of ['cancelled-record', 'damaged-idempotency'] as const) {
+  const storage = createMemoryStorage()
+  const suffix = collisionKind === 'cancelled-record' ? 'CANCELLED' : 'DAMAGED-IDEMPOTENCY'
+  const bagCode = `BAG-SPECIAL-COLLISION-${suffix}`
+  const usageCycleId = `usage:${bagCode}:1`
+  const handoverRecordId = `SPECIAL-HR-COLLISION-${suffix}`
+  const idempotencyKey = `${usageCycleId}:HANDOVER_CONFIRMED:${handoverRecordId}`
+  const tickets = [ticket(`SPECIAL-COLLISION-${suffix}-01`, `PO-SPECIAL-COLLISION-${suffix}`, 'CRAFT-FACTORY-COLLISION', 12)]
+  appendBagging({ storage, bagCode, usageCycleId, tickets })
+  appendInbound({ storage, bagCode, usageCycleId, tickets })
+  appendCuttingRuntimeEvent({
+    idempotencyKey,
+    eventType: '特殊工艺交出',
+    eventSource: 'WEB',
+    eventStatus: collisionKind === 'cancelled-record' ? '已取消' : '已同步',
+    occurredAt: '2026-08-01 11:10',
+    operatorName: '异常事实导入员',
+    refs: {
+      transferBagCode: bagCode,
+      usageCycleId,
+      handoverRecordId: collisionKind === 'cancelled-record' ? handoverRecordId : 'OTHER-DAMAGED-RECORD',
+    },
+    payload: { handoverRecordId: collisionKind === 'cancelled-record' ? handoverRecordId : 'OTHER-DAMAGED-RECORD' },
+  } as Parameters<typeof appendCuttingRuntimeEvent>[0], storage)
+  const eventsBefore = listCuttingRuntimeEvents(storage)
+  const input: Parameters<typeof appendWaitHandoverSpecialCraftHandoverEvent>[0] = {
+    source: 'WEB',
+    operator: { operatorName: '特殊工艺交出员' },
+    payload: {
+      handoverOrderId: `SPECIAL-HO-COLLISION-${suffix}`,
+      handoverRecordId,
+      craftCategory: '特种工艺',
+      craftType: '绣花',
+      receiverFactoryId: 'CRAFT-FACTORY-COLLISION',
+      receiverFactoryName: '碰撞测试绣花厂',
+      feiTicketItems: tickets.map((item) => ({
+        feiTicketId: item.feiTicketId,
+        feiTicketNo: item.feiTicketNo,
+        specialCraftId: 'SPECIAL-CRAFT-COLLISION',
+        partName: item.partName,
+        size: item.size,
+        pieceQty: item.pieceQty,
+      })),
+      handedOverAt: '2026-08-01 11:20',
+      handedOverBy: '特殊工艺交出员',
+    },
+    handoverOrderId: `SPECIAL-HO-COLLISION-${suffix}`,
+    handoverRecordId,
+    specialCraftId: 'SPECIAL-CRAFT-COLLISION',
+    transferBagCode: bagCode,
+    fromWarehouseArea: '展示仓名称',
+    occurredAt: '2026-08-01 11:20',
+    usageCycleId,
+    storage,
+  }
+  assert.throws(
+    () => appendWaitHandoverSpecialCraftHandoverEvent(input),
+    /冲突|已存在|不完整/,
+    `${collisionKind} 与新特殊工艺交出发生同 ID/幂等碰撞时必须明确拒绝`,
+  )
+  assert.deepEqual(listCuttingRuntimeEvents(storage), eventsBefore, `${collisionKind} 碰撞必须零写入`)
+  assert.equal(resolveTransferBagCurrentUse(bagCode, storage).flowStage, 'INBOUND_STORED', `${collisionKind} 碰撞不得推进当前使用`)
+  assert.deepEqual(buildNextWaitHandoverHandoverLeg({
+    bagCode,
+    usageCycleId,
+    events: listCuttingRuntimeEvents(storage),
+  }), {
+    handoverLegId: `${usageCycleId}:handover:1`,
+    handoverSequence: 1,
+  }, `${collisionKind} 碰撞不得占用流转段`)
+}
+
 {
   const baseStorage = createMemoryStorage()
   const bagCode = 'BAG-SPECIAL-INTERNAL-LEG'
@@ -2795,7 +2867,55 @@ for (const withLocationRef of [false, true]) {
   })
   const normalEventCountBefore = listCuttingRuntimeEvents(storage)
     .filter((event) => event.eventType === '新增交出记录').length
+  const specialStorage = createMemoryStorage()
+  specialStorage.setItem(
+    CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY,
+    storage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) || '',
+  )
+  const specialRetryInput: Parameters<typeof appendWaitHandoverSpecialCraftHandoverEvent>[0] = {
+    source: 'PDA',
+    operator: { operatorName: 'PDA 特殊工艺交出员', operatorRole: '特殊工艺交出员' },
+    payload: {
+      handoverOrderId: `SPECIAL-HO-RETRY-${suffix}`,
+      handoverRecordId: `SPECIAL-HR-RETRY-${suffix}`,
+      craftCategory: '特种工艺',
+      craftType: '绣花',
+      receiverFactoryId: 'CRAFT-FACTORY-SOURCE',
+      receiverFactoryName: '来源测试绣花厂',
+      feiTicketItems: tickets.map((item) => ({
+        feiTicketId: item.feiTicketId,
+        feiTicketNo: item.feiTicketNo,
+        specialCraftId: 'SPECIAL-CRAFT-SOURCE',
+        partName: item.partName,
+        size: item.size,
+        pieceQty: item.pieceQty,
+      })),
+      handedOverAt: '2026-08-01 12:25',
+      handedOverBy: 'PDA 特殊工艺交出员',
+    },
+    handoverOrderId: `SPECIAL-HO-RETRY-${suffix}`,
+    handoverRecordId: `SPECIAL-HR-RETRY-${suffix}`,
+    specialCraftId: 'SPECIAL-CRAFT-SOURCE',
+    transferBagCode: bagCode,
+    fromWarehouseArea: '裁床待交出仓',
+    occurredAt: '2026-08-01 12:25',
+    usageCycleId,
+    ...(withLocationRef ? { locationRef: b99LocationRef } : {}),
+    storage: specialStorage,
+  }
   if (!withLocationRef) {
+    const specialEventCountBefore = listCuttingRuntimeEvents(specialStorage)
+      .filter((event) => event.eventType === '特殊工艺交出').length
+    assert.throws(
+      () => appendWaitHandoverSpecialCraftHandoverEvent(specialRetryInput),
+      /库位|来源|唯一/,
+      '特殊工艺回仓缺少 locationRef 后，特殊工艺再次交出也必须阻断',
+    )
+    assert.equal(
+      listCuttingRuntimeEvents(specialStorage).filter((event) => event.eventType === '特殊工艺交出').length,
+      specialEventCountBefore,
+      '特殊工艺回仓缺少 locationRef 后再次交出必须零写入',
+    )
     assert.throws(
       () => submitWholeBagHandover(ordinaryInput, storage),
       /库位|来源|唯一/,
@@ -2807,6 +2927,67 @@ for (const withLocationRef of [false, true]) {
       '特殊工艺回仓缺少 locationRef 时普通交出必须零写入',
     )
   } else {
+    const specialHandover = appendWaitHandoverSpecialCraftHandoverEvent(specialRetryInput)
+    const specialPayload = specialHandover.payload as Record<string, unknown>
+    assert.equal(specialPayload.sourceWarehouseArea, '待交出 B 区', '特殊工艺再次交出必须取权威 B 区而非 PDA 展示仓名')
+    assert.equal(specialPayload.sourceLocationCode, 'B99', '特殊工艺再次交出必须取权威 B99')
+    assert.deepEqual(specialPayload.locationRef, b99LocationRef, '特殊工艺再次交出必须绑定权威 B99 locationRef')
+    const specialRetry = appendWaitHandoverSpecialCraftHandoverEvent(specialRetryInput)
+    assert.equal(specialRetry.eventId, specialHandover.eventId, 'PDA 完全相同对象重试必须按权威来源意图返回原事实')
+    const c99LocationRef = {
+      ...b99LocationRef,
+      areaId: 'AREA-C',
+      areaName: '待交出 C 区',
+      shelfId: 'SHELF-C',
+      shelfNo: 'C',
+      locationId: `LOCATION-C99-${suffix}`,
+      locationNo: 'C99',
+    }
+    appendWaitHandoverSpecialCraftReturnEvent({
+      source: 'WEB',
+      operator: { operatorName: '特殊工艺回仓员' },
+      payload: {
+        returnRecordId: `SPECIAL-RETURN-RETRY-${suffix}`,
+        returnRecordNo: `SPECIAL-RETURN-RETRY-${suffix}`,
+        sourceHandoverOrderId: specialRetryInput.handoverOrderId,
+        sourceHandoverRecordId: specialRetryInput.handoverRecordId,
+        receiverFactoryId: 'CRAFT-FACTORY-SOURCE',
+        receiverFactoryName: '来源测试绣花厂',
+        transferBagCode: bagCode,
+        returnedFeiTicketItems: tickets.map((item) => ({
+          feiTicketId: item.feiTicketId,
+          feiTicketNo: item.feiTicketNo,
+          specialCraftId: 'SPECIAL-CRAFT-SOURCE',
+          craftType: '绣花',
+          partName: item.partName,
+          size: item.size,
+          expectedQty: item.pieceQty,
+          returnedQty: item.pieceQty,
+          unit: '片' as const,
+          returnStatus: '已回仓' as const,
+        })),
+        warehouseArea: '待交出 C 区',
+        locationCode: 'C99',
+        locationRef: c99LocationRef,
+        returnedAt: '2026-08-01 12:28',
+        returnedBy: '特殊工艺回仓员',
+      },
+      specialCraftId: 'SPECIAL-CRAFT-SOURCE',
+      occurredAt: '2026-08-01 12:28',
+      usageCycleId,
+      storage: specialStorage,
+    })
+    const specialEventCountAfterAuthorityChange = listCuttingRuntimeEvents(specialStorage).length
+    assert.throws(
+      () => appendWaitHandoverSpecialCraftHandoverEvent(specialRetryInput),
+      /冲突|变化|权威来源/,
+      '首次交出成功后权威库位事实变化，同记录重试必须冲突',
+    )
+    assert.equal(
+      listCuttingRuntimeEvents(specialStorage).length,
+      specialEventCountAfterAuthorityChange,
+      '权威库位事实变化后的同记录重试必须零写入',
+    )
     const ordinaryHandover = submitWholeBagHandover(ordinaryInput, storage)
     const ordinaryPayload = ordinaryHandover.payload as Record<string, unknown>
     const bagUse = (ordinaryPayload.transferBagUses as Array<Record<string, unknown>>)[0]

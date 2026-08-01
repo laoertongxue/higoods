@@ -182,6 +182,25 @@ function runtimeLocationRef(value: unknown): RuntimeWarehouseLocationRef | null 
   }
 }
 
+function sameRuntimeLocationRef(
+  left: RuntimeWarehouseLocationRef | null | undefined,
+  right: RuntimeWarehouseLocationRef | null | undefined,
+): boolean {
+  return Boolean(
+    left
+    && right
+    && left.factoryId === right.factoryId
+    && left.warehouseId === right.warehouseId
+    && left.warehouseKind === right.warehouseKind
+    && left.areaId === right.areaId
+    && left.areaName === right.areaName
+    && left.shelfId === right.shelfId
+    && left.shelfNo === right.shelfNo
+    && left.locationId === right.locationId
+    && left.locationNo === right.locationNo
+  )
+}
+
 function resolveWaitHandoverStorage(
   storage: BrowserStorageLike | null | undefined,
 ): BrowserStorageLike | null {
@@ -1149,6 +1168,7 @@ function resolveActiveWaitHandoverSourceInventory(
   usageCycleId: string,
   storage: BrowserStorageLike | null,
 ): {
+  sourceEventId: string
   warehouseArea: string
   locationCode: string
   locationRef?: RuntimeWarehouseLocationRef
@@ -1160,27 +1180,13 @@ function resolveActiveWaitHandoverSourceInventory(
   })
   if (source) {
     return {
+      sourceEventId: source.sourceEventId,
       warehouseArea: source.warehouseArea,
       locationCode: source.locationCode,
       ...(source.locationRef ? { locationRef: source.locationRef } : {}),
     }
   }
-  const latestInbound = [...listCuttingRuntimeEvents(storage)]
-    .filter((event) =>
-      (event.eventStatus === '已记录' || event.eventStatus === '已同步')
-      && event.inventoryEffect?.direction === 'IN'
-      && eventTouchesTransferBag(event, bagCode)
-      && getWaitHandoverEventUsageCycleId(event) === usageCycleId)
-    .sort(compareCuttingRuntimeChronologyAscending)
-    .at(-1)
-  if (!latestInbound) return null
-  const payload = runtimeRecord(latestInbound.payload)
-  const warehouseArea = runtimeString(payload.warehouseArea)
-    || runtimeString(latestInbound.inventoryEffect?.toWarehouseArea)
-  const locationCode = runtimeString(payload.locationCode)
-    || runtimeString(latestInbound.inventoryEffect?.toLocationCode)
-  if (!warehouseArea || !locationCode) return null
-  return { warehouseArea, locationCode }
+  return null
 }
 
 export function buildWaitHandoverRuntimeProjection(
@@ -1528,13 +1534,13 @@ export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
   storage?: BrowserStorageLike | null
 }) {
   const storage = resolveWaitHandoverStorage(input.storage)
+  const events = [...listCuttingRuntimeEvents(storage)].sort(compareCuttingRuntimeChronologyAscending)
   const occurredAt = input.occurredAt || input.payload.handedOverAt || new Date().toISOString()
   if (!input.transferBagCode.trim()) {
     throw new Error('特殊工艺带袋交出必须明确物理中转袋。')
   }
-  const existingSpecialCraftHandover = listCuttingRuntimeEvents(storage).find((event) =>
-    event.eventStatus !== '已取消'
-    && event.eventType === '特殊工艺交出'
+  const existingSpecialCraftHandover = events.find((event) =>
+    event.eventType === '特殊工艺交出'
     && (
       (input.idempotencyKey && event.idempotencyKey === input.idempotencyKey)
       || event.refs.handoverRecordId === input.handoverRecordId
@@ -1546,22 +1552,33 @@ export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
     const existingPayload = existingSpecialCraftHandover.payload as CompleteSpecialCraftHandoverPayload
     const existingLocationRef = runtimeLocationRef(existingPayload.locationRef)
     const requestedLocationRef = runtimeLocationRef(input.locationRef || input.payload.locationRef)
-    const sameLocationRef = !requestedLocationRef || Boolean(
-      existingLocationRef
-      && requestedLocationRef.factoryId === existingLocationRef.factoryId
-      && requestedLocationRef.warehouseId === existingLocationRef.warehouseId
-      && requestedLocationRef.warehouseKind === existingLocationRef.warehouseKind
-      && requestedLocationRef.areaId === existingLocationRef.areaId
-      && requestedLocationRef.areaName === existingLocationRef.areaName
-      && requestedLocationRef.shelfId === existingLocationRef.shelfId
-      && requestedLocationRef.shelfNo === existingLocationRef.shelfNo
-      && requestedLocationRef.locationId === existingLocationRef.locationId
-      && requestedLocationRef.locationNo === existingLocationRef.locationNo
-    )
     const requestedUsageCycleId = input.usageCycleId || existingPayload.usageCycleId
     const requestedLegId = input.handoverLegId || existingPayload.handoverLegId
     const requestedIdempotencyKey = input.idempotencyKey
       || `${requestedUsageCycleId}:HANDOVER_CONFIRMED:${input.handoverRecordId}`
+    const currentAuthority = resolveTransferBagAuthoritativeCurrentLocation({
+      bagCode: input.transferBagCode,
+      usageCycleId: requestedUsageCycleId,
+      events,
+    })
+    const existingIndex = events.findIndex((event) => event.eventId === existingSpecialCraftHandover.eventId)
+    const laterInboundFactExists = existingIndex >= 0 && events.slice(existingIndex + 1).some((event) =>
+      (event.eventType === '中转袋入仓' || event.eventType === '特殊工艺回仓')
+      && (event.eventStatus === '已记录' || event.eventStatus === '已同步')
+      && eventTouchesTransferBag(event, input.transferBagCode)
+      && getWaitHandoverEventUsageCycleId(event) === requestedUsageCycleId)
+    if (!currentAuthority && laterInboundFactExists) {
+      throw new Error(`特殊工艺交出记录 ID ${input.handoverRecordId} 的当前权威来源库位缺失，本次重试业务意图冲突。`)
+    }
+    const retrySourceInventory = currentAuthority || {
+      sourceEventId: existingPayload.sourceInventoryEventId,
+      warehouseArea: existingPayload.sourceWarehouseArea,
+      locationCode: existingPayload.sourceLocationCode,
+      ...(existingLocationRef ? { locationRef: existingLocationRef } : {}),
+    }
+    const retryLocationRef = retrySourceInventory.locationRef
+    const requestedLocationMatches = !requestedLocationRef
+      || sameRuntimeLocationRef(requestedLocationRef, retryLocationRef)
     const retryCanonicalIntent = buildSpecialCraftWholeBagHandoverCanonicalIntent({
       bagCode: input.transferBagCode,
       usageCycleId: requestedUsageCycleId,
@@ -1575,8 +1592,10 @@ export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
       receiverFactoryName: input.payload.receiverFactoryName,
       feiTicketItems: input.payload.feiTicketItems,
       ticketSnapshot: existingPayload.ticketSnapshot,
-      sourceWarehouseArea: existingPayload.sourceWarehouseArea,
-      sourceLocationCode: existingPayload.sourceLocationCode,
+      sourceInventoryEventId: retrySourceInventory.sourceEventId,
+      sourceWarehouseArea: retrySourceInventory.warehouseArea,
+      sourceLocationCode: retrySourceInventory.locationCode,
+      sourceLocationRef: retrySourceInventory.locationRef,
       handedOverAt: occurredAt,
       handedOverBy: input.operator.operatorName,
       idempotencyKey: requestedIdempotencyKey,
@@ -1587,8 +1606,7 @@ export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
       },
     })
     if (
-      sameLocationRef
-      && input.fromWarehouseArea.trim() === existingPayload.sourceWarehouseArea
+      requestedLocationMatches
       && input.payload.handedOverAt === occurredAt
       && input.payload.handedOverBy === input.operator.operatorName
       && retryCanonicalIntent === existingPayload.canonicalIntent
@@ -1618,11 +1636,12 @@ export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
   const idempotencyKey =
     input.idempotencyKey
     || `${usageCycleId}:HANDOVER_CONFIRMED:${input.handoverRecordId}`
-  const existing = findWaitHandoverIdempotentEvent(
-    idempotencyKey,
-    storage,
+  const existingIdempotencyCollision = listCuttingRuntimeEvents(storage).find(
+    (event) => event.idempotencyKey === idempotencyKey,
   )
-  if (existing) return existing
+  if (existingIdempotencyCollision) {
+    throw new Error(`特殊工艺交出幂等键 ${idempotencyKey} 已存在，但事实不完整或业务意图冲突。`)
+  }
   assertWaitHandoverActionAllowed({
     bagCode: input.transferBagCode,
     action: 'HANDOVER',
@@ -1653,12 +1672,11 @@ export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
   if (!sourceInventory) throw new Error('无法唯一确认待交出仓库位，请从当前仓库重新发起交出。')
   if (
     input.locationRef
-    && sourceInventory.locationRef
-    && input.locationRef.locationId !== sourceInventory.locationRef.locationId
+    && !sameRuntimeLocationRef(input.locationRef, sourceInventory.locationRef)
   ) {
     throw new Error('特殊工艺交出的来源库位已变化，请刷新后重试。')
   }
-  const locationRef = sourceInventory.locationRef || input.locationRef
+  const locationRef = sourceInventory.locationRef
   const sourceWarehouseArea = sourceInventory.warehouseArea
   const sourceLocationCode = sourceInventory.locationCode
   const operatorRole = input.operator.operatorRole || '特殊工艺交出员'
@@ -1670,6 +1688,7 @@ export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
     usageCycleId,
     handoverLegId,
     ticketSnapshot: currentUse.tickets.map((ticket) => ({ ...ticket })),
+    sourceInventoryEventId: sourceInventory.sourceEventId,
     sourceWarehouseArea,
     sourceLocationCode,
     handedOverAt: occurredAt,
@@ -1691,8 +1710,10 @@ export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
     receiverFactoryName: completePayload.receiverFactoryName,
     feiTicketItems: completePayload.feiTicketItems,
     ticketSnapshot: completePayload.ticketSnapshot,
+    sourceInventoryEventId: sourceInventory.sourceEventId,
     sourceWarehouseArea,
     sourceLocationCode,
+    sourceLocationRef: locationRef,
     handedOverAt: occurredAt,
     handedOverBy: input.operator.operatorName,
     idempotencyKey,
@@ -1750,7 +1771,17 @@ export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
   if (!isCompleteSuccessfulSpecialCraftHandoverEvent(candidate)) {
     throw new Error('特殊工艺整袋交出候选事实不完整，已在写入前拒绝。')
   }
-  return appendCuttingRuntimeEventIdempotent(appendInput, storage).event
+  const appendResult = appendCuttingRuntimeEventIdempotent(appendInput, storage)
+  const appendedPayload = appendResult.event.payload as CompleteSpecialCraftHandoverPayload
+  if (
+    !isCompleteSuccessfulSpecialCraftHandoverEvent(appendResult.event)
+    || appendedPayload.canonicalIntent !== completePayload.canonicalIntent
+    || appendResult.event.refs.handoverRecordId !== input.handoverRecordId
+    || appendResult.event.idempotencyKey !== idempotencyKey
+  ) {
+    throw new Error(`特殊工艺交出记录 ID ${input.handoverRecordId} 写入结果与候选事实冲突。`)
+  }
+  return appendResult.event
 }
 
 export function appendWaitHandoverSpecialCraftReturnEvent(input: {
