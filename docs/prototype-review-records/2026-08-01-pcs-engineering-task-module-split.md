@@ -28,6 +28,7 @@
 - 页面使用标准列表页、标准表格和分页；列显示、顺序、冻结及每页条数按路由保存，操作列固定在右侧。
 - `shared.ts` 只承担列表偏好、通用渲染和仍在使用的独立改版页面状态；不再保存制版、花型的创建 / 详情草稿，也不再处理其图片和文件草稿事件。
 - `shared.ts` 已删除无引用的旧改版创建 / 详情草稿、图片预览、文件上传及旧页面专属可变状态，从 1392 行收缩至 933 行；独立改款页面自己的编辑状态保留在 `revision-task.ts`。
+- 改版任务专项检查以独立 `revision-task.ts` 为准，覆盖标准列表 / 分页、基于款式到目标款式、样衣物料、关联花型 / 调色和统一 8 档状态；不得用旧巨型改版区块作为通过条件。
 - 本切片不实施花型或调色成果逐项审核与返工，相关能力在后续任务完成。
 
 ## 3. 自查结论
@@ -60,6 +61,7 @@
 | 旧检查仍以旧状态或旧分页结构作为通过条件 | 研发、验收人员 | 更新为真实工程主单数据、8 档状态和标准列表 / 分页行为 | 否 |
 | 产前版样衣成果校验失败仍刷新抽屉，导致输入丢失且错误提示被遮挡 | 样衣制作团队 | 失败时不刷新泳道和抽屉，在抽屉按钮附近就地显示错误；成功后才局部刷新 | 否 |
 | 共享文件仍残留已停用页面的草稿、上传和图片预览能力 | 研发、维护人员 | 依据引用影响面删除无调用能力，只保留现行列表、状态与通用详情渲染 | 否 |
+| 改版任务专项检查仍要求旧巨型页面区块，与独立改版页冲突 | 研发、验收人员 | 按独立页面真实契约重写检查，补充薄分派器、标准列表、源 / 目标 SPU、物料、关联任务和统一状态门禁 | 否 |
 
 ## 6. 最终结论
 
@@ -82,6 +84,7 @@
 - `tests/pcs-engineering-task-standard-list.spec.ts`
 - `scripts/check-pcs-pattern-task-refactor.ts`
 - `scripts/check-pcs-plate-making-mock-data.ts`
+- `scripts/check-pcs-revision-task-refactor.ts`
 
 ### 验证命令
 
@@ -99,6 +102,7 @@
 - `npm run check:pcs-pattern-task-refactor`：通过。
 - `npm run check:pcs-sample-chain-refactor`：通过。
 - `npm run check:pcs-plate-making-mock-data`：通过。
+- `npm run check:pcs-revision-task-refactor`：通过；不再要求旧巨型改版区块。
 - `npm run check:list-page-governance`：通过。
 - `npm run check:prototype-design-governance -- --all`：通过。
 - `npm run check:menu-routes`：通过。
