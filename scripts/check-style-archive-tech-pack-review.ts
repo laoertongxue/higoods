@@ -20,7 +20,7 @@ Object.defineProperty(globalThis, 'localStorage', {
 })
 
 const { submitTechPackFirstStageReview } = await import('../src/data/pcs-tech-pack-review.ts')
-const { replaceTechnicalDataVersionStore } = await import('../src/data/pcs-technical-data-version-repository.ts')
+const { installTechnicalDataVersionFixtures } = await import('./helpers/technical-data-version-fixtures.ts')
 const { replaceStyleArchiveStore } = await import('../src/data/pcs-style-archive-repository.ts')
 const {
   handlePcsProductArchiveEvent,
@@ -202,7 +202,7 @@ replaceStyleArchiveStore({
   records: [style],
   pendingItems: [],
 })
-replaceTechnicalDataVersionStore({
+installTechnicalDataVersionFixtures({
   version: 3,
   records: [record],
   contents: [content],

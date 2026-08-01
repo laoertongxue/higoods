@@ -112,6 +112,9 @@ const baseRecord = listTechnicalDataVersions()[0]
 const style = listStyleArchives()[0]
 assert.ok(baseRecord)
 assert.ok(style)
+const productProjectId = style.sourceProjectId
+assert.ok(productProjectId, '技术包启用原子性测试需要款式关联的商品项目')
+assert.ok(getProjectById(productProjectId), '款式来源商品项目必须真实存在')
 resetEngineeringMasterRepository()
 const engineeringMaster = publishEngineeringMasterOrder(createEngineeringMasterOrder({
   styleId: style.styleId,
@@ -277,10 +280,10 @@ for (const failureStep of activationFailureSteps) {
     makeContent(versionId, [makeBomItem(`BOM-ROLLBACK-${failureStep}`, validSku.materialSkuId, '米')]),
   )
   const technicalBefore = getTechnicalDataVersionStoreSnapshot()
-  const sourceProjectId = engineeringMaster.masterOrderId
-  const projectBefore = getProjectById(sourceProjectId)
-  const relationBefore = listProjectRelationsByProject(sourceProjectId)
-  const archiveBefore = getProjectArchiveFacts(sourceProjectId)
+  const projectBefore = getProjectById(productProjectId)
+  const relationBefore = listProjectRelationsByProject(productProjectId)
+  const masterRelationBefore = listProjectRelationsByProject(engineeringMaster.masterOrderId)
+  const archiveBefore = getProjectArchiveFacts(productProjectId)
   const targetStyleBefore = getStyleArchiveById(style.styleId)
   const logsBefore = listTechPackVersionLogs()
 
@@ -293,9 +296,14 @@ for (const failureStep of activationFailureSteps) {
 
   assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), technicalBefore, `${failureStep} 失败后技术包仓必须恢复`)
   assert.deepEqual(getStyleArchiveById(style.styleId), targetStyleBefore, `${failureStep} 失败后款式仓必须恢复`)
-  assert.deepEqual(getProjectById(sourceProjectId), projectBefore, `${failureStep} 失败后项目仓必须恢复`)
-  assert.deepEqual(listProjectRelationsByProject(sourceProjectId), relationBefore, `${failureStep} 失败后项目关系仓必须恢复`)
-  assert.deepEqual(getProjectArchiveFacts(sourceProjectId), archiveBefore, `${failureStep} 失败后项目归档仓必须恢复`)
+  assert.deepEqual(getProjectById(productProjectId), projectBefore, `${failureStep} 失败后项目仓必须恢复`)
+  assert.deepEqual(listProjectRelationsByProject(productProjectId), relationBefore, `${failureStep} 失败后项目关系仓必须恢复`)
+  assert.deepEqual(
+    listProjectRelationsByProject(engineeringMaster.masterOrderId),
+    masterRelationBefore,
+    `${failureStep} 失败后不得残留以工程主单 ID 冒充商品项目 ID 的关系`,
+  )
+  assert.deepEqual(getProjectArchiveFacts(productProjectId), archiveBefore, `${failureStep} 失败后项目归档仓必须恢复`)
   assert.deepEqual(listTechPackVersionLogs(), logsBefore, `${failureStep} 失败后启用日志仓必须恢复`)
 }
 
@@ -311,6 +319,17 @@ const successContent = getTechnicalDataVersionContent(successVersionId)
 assert.equal(successContent?.bomPricingSnapshot?.materialLines[0]?.standardUnitPriceCny, 8.7654)
 assert.equal(successContent?.bomPricingSnapshot?.exchangeRateIdrPerCny, 2250)
 assert.equal(getStyleArchiveById(style.styleId)?.currentTechPackVersionId, successVersionId)
+assert.equal(getProjectById(productProjectId)?.linkedTechPackVersionId, successVersionId)
+assert.ok(
+  listProjectRelationsByProject(productProjectId).some((item) => item.sourceObjectId === successVersionId),
+  '正式技术包关系必须写入款式来源商品项目',
+)
+assert.equal(
+  listProjectRelationsByProject(engineeringMaster.masterOrderId).some((item) => item.sourceObjectId === successVersionId),
+  false,
+  '不得生成以工程主单 ID 冒充商品项目 ID 的孤立关系',
+)
+assert.equal(getProjectArchiveFacts(productProjectId).archive?.currentTechnicalVersionId, successVersionId)
 
 changePrice(validSku.materialSkuId, 19.9999)
 updateLatestPcsExchangeRate({ idrPerCny: 2500, updatedBy: '系统管理员' })

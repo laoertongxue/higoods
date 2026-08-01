@@ -25,7 +25,8 @@ const logTypeSource = read('src/data/pcs-tech-pack-version-log-types.ts')
 const logRepoSource = read('src/data/pcs-tech-pack-version-log-repository.ts')
 const writebackSource = read('src/data/pcs-project-technical-data-writeback.ts')
 const activationSource = read('src/data/pcs-tech-pack-version-activation.ts')
-const engineeringPageSource = read('src/pages/pcs-engineering-tasks.ts')
+const engineeringPageSource = readTree('src/pages/pcs-engineering-tasks')
+const techPackTaskPageSource = read('src/pages/pcs-engineering-tasks/tech-pack-task.ts')
 const archivePageSource = read('src/pages/pcs-product-archives.ts')
 const projectPageSource = read('src/pages/pcs-projects.ts')
 const legacyLinkedField = ['linked', 'Technical', 'Version'].join('')
@@ -57,12 +58,17 @@ assert.ok(!archivePageSource.includes(['新建', '技术包版本'].join('')), '
 assert.ok(!archivePageSource.includes(['复制为', '新版本'].join('')), '款式档案页不得再出现旧复制入口')
 assert.ok(!projectPageSource.includes(['新建', '技术包版本'].join('')), '商品项目页不得再出现旧直建入口')
 
-assert.ok(engineeringPageSource.includes('生成改版技术包版本'), '改版任务页必须保留生成改版技术包版本动作')
-assert.ok(engineeringPageSource.includes(plateActionLabel), '制版任务页必须保留制版技术包动作')
-assert.ok(engineeringPageSource.includes('写入技术包花型'), '花型任务页必须保留写入技术包花型动作')
-assert.ok(engineeringPageSource.includes('生成花型新版本'), '花型任务页必须保留生成花型新版本动作')
-assert.ok(engineeringPageSource.includes('查看版本日志'), '任务页必须提供查看版本日志入口')
-assert.ok(engineeringPageSource.includes('查看关联技术包'), '任务页必须提供查看关联技术包入口')
+assert.ok(!engineeringPageSource.includes('生成改版技术包版本'), '改版任务页不得保留绕过工程来源的直建动作')
+assert.ok(!engineeringPageSource.includes(plateActionLabel), '制版任务页不得保留绕过工程来源的直建动作')
+assert.ok(!engineeringPageSource.includes('写入技术包花型'), '花型任务页不得保留绕过工程来源的直写动作')
+assert.ok(!engineeringPageSource.includes('生成花型新版本'), '花型任务页不得保留绕过工程来源的新版本动作')
+assert.ok(techPackTaskPageSource.includes("TECH_PACK_CONFIRMATION"), '工程主单任务必须提供技术包确认任务入口')
+assert.ok(generationSource.includes('resolveEngineeringMasterTechPackSource'), '专业任务产出必须解析到工程主单来源')
+assert.ok(generationSource.includes('resolveEngineeringChangeTechPackSource'), '改版返工必须解析到工程变更来源')
+assert.ok(
+  typeSource.includes("export type TechPackSourceTaskType = 'ENGINEERING_MASTER' | 'ENGINEERING_CHANGE'"),
+  '新技术包来源只允许工程主单或工程变更',
+)
 
 assert.ok(!typeSource.includes(legacyLinkedField), '类型定义中不得再出现旧 linkedTechnicalVersion 字段')
 assert.ok(!writebackSource.includes(legacyLinkedField), '正式写入服务中不得再出现旧 linkedTechnicalVersion 字段')

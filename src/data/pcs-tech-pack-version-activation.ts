@@ -1,5 +1,4 @@
 import {
-  getProjectById,
   getProjectStoreSnapshot,
   replaceProjectStore,
   updateProjectRecord,
@@ -35,6 +34,7 @@ import {
   buildTechnicalDataVersionBomPricingSnapshot,
   saveTechnicalDataVersionBomPricingSnapshot,
 } from './pcs-engineering-bom-pricing.ts'
+import { resolveTechnicalVersionProductProject } from './pcs-technical-data-version-project-source.ts'
 
 function nowText(): string {
   const now = new Date()
@@ -150,10 +150,10 @@ export function activateTechPackVersionForStyle(
       if (!updatedStyle) throw new Error('更新款式当前生效技术包版本失败。')
       markActivationStepCompleted('STYLE')
 
-      if (record.sourceProjectId) {
-        const project = getProjectById(record.sourceProjectId)
+      const source = resolveTechnicalVersionProductProject(record)
+      if (source) {
         updateProjectRecord(
-          record.sourceProjectId,
+          source.project.projectId,
           {
             linkedTechPackVersionId: record.technicalVersionId,
             linkedTechPackVersionCode: record.technicalVersionCode,
@@ -168,8 +168,8 @@ export function activateTechPackVersionForStyle(
 
         upsertProjectRelation({
           projectRelationId: `rel_tech_pack_${record.technicalVersionId}`,
-          projectId: record.sourceProjectId,
-          projectCode: record.sourceProjectCode,
+          projectId: source.project.projectId,
+          projectCode: source.project.projectCode,
           relationRole: '产出对象',
           sourceModule: '技术包',
           sourceObjectType: '技术包版本',
@@ -189,9 +189,7 @@ export function activateTechPackVersionForStyle(
         })
         markActivationStepCompleted('RELATION')
 
-        if (project) {
-          syncExistingProjectArchiveByProjectId(project.projectId, operatorName)
-        }
+        syncExistingProjectArchiveByProjectId(source.project.projectId, operatorName)
         markActivationStepCompleted('ARCHIVE')
       }
 

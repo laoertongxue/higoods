@@ -33,7 +33,7 @@ const {
   resetTechPackVersionLogRepository,
 } = await import('../src/data/pcs-tech-pack-version-log-repository.ts')
 const { buildTechnicalVersionListByStyle } = await import('../src/data/pcs-technical-data-version-view-model.ts')
-const { replaceTechnicalDataVersionStore } = await import('../src/data/pcs-technical-data-version-repository.ts')
+const { installTechnicalDataVersionFixtures } = await import('./helpers/technical-data-version-fixtures.ts')
 const { handleTechPackEvent, renderTechPackPage } = await import('../src/pages/tech-pack.ts')
 
 const technicalVersionId = 'tdv_review_log_001'
@@ -129,7 +129,7 @@ const content: TechnicalDataVersionContent = {
   },
 }
 
-replaceTechnicalDataVersionStore({
+installTechnicalDataVersionFixtures({
   version: 3,
   records: [record],
   contents: [content],
@@ -156,7 +156,12 @@ assert.ok(logTypes.has('技术包审核通过'), '应记录审核通过日志')
 assert.ok(logTypes.has('技术包审核不通过'), '应记录审核不通过日志')
 assert.ok(logTypes.has('跟单打回第一阶段'), '应记录跟单打回第一阶段日志')
 assert.ok(logs.some((item) => item.changeText.includes('物料清单、核价')), '买手审核日志应说明物料清单、核价范围')
-assert.ok(logs.some((item) => item.changeText.includes('纸样管理、款色用料对应')), '版师审核日志应说明纸样管理、款色用料对应范围')
+assert.ok(logs.some((item) => item.changeText.includes('纸样池')), '版师审核日志应说明纸样池范围')
+assert.equal(
+  logs.some((item) => item.operatorName === '版师B' && item.changeText.includes('款色用料对应')),
+  false,
+  '款色用料对应由跟单维护，不应记入版师审核范围',
+)
 
 const listItem = buildTechnicalVersionListByStyle(styleId)[0]
 assert.ok(listItem.versionLogCount >= 5, '技术包版本列表应统计审核日志数量')

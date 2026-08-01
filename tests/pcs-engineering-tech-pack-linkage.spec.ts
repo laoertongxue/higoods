@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
-import * as authorityIndex from '../src/data/pcs-engineering-tech-pack-authority-index.ts'
 import * as engineeringMasterRepository from '../src/data/pcs-engineering-master-repository.ts'
 import * as technicalDataVersionRepository from '../src/data/pcs-technical-data-version-repository.ts'
 import {
@@ -255,10 +256,18 @@ assert.deepEqual(
   beforeIdentityPatch,
   '任一款式或来源身份修改失败均不得产生部分写入',
 )
+assert.equal(
+  existsSync(resolve('src/data/pcs-engineering-tech-pack-authority-index.ts')),
+  false,
+  '空的技术包旁路索引模块应彻底删除，而不是保留空壳文件',
+)
+const scriptsUsingTechnicalStoreReplacement = readdirSync(resolve('scripts'))
+  .filter((fileName) => fileName.endsWith('.ts'))
+  .filter((fileName) => readFileSync(resolve('scripts', fileName), 'utf8').includes('replaceTechnicalDataVersionStore'))
 assert.deepEqual(
-  Object.keys(authorityIndex),
+  scriptsUsingTechnicalStoreReplacement,
   [],
-  '技术包来源不得存在可公开注入、索引或整体替换的旁路仓储',
+  '检查脚本必须通过合法领域入口建立技术包夹具，不得恢复任意替换技术版本仓储的公开入口',
 )
 
 console.log('pcs-engineering-tech-pack-linkage.spec.ts PASS')

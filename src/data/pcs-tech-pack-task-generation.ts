@@ -3,10 +3,7 @@ import {
   getEngineeringChangeTaskById,
   listEngineeringMasterOrders,
 } from './pcs-engineering-master-repository.ts'
-import {
-  getProjectById,
-  updateProjectRecord,
-} from './pcs-project-repository.ts'
+import { updateProjectRecord } from './pcs-project-repository.ts'
 import { upsertProjectRelation } from './pcs-project-relation-repository.ts'
 import { getRevisionTaskById, updateRevisionTask } from './pcs-revision-task-repository.ts'
 import { getPlateMakingTaskById, updatePlateMakingTask } from './pcs-plate-making-repository.ts'
@@ -50,6 +47,7 @@ import type { PlateMakingTaskRecord } from './pcs-plate-making-types.ts'
 import type { PatternTaskRecord } from './pcs-pattern-task-types.ts'
 import type { EngineeringTaskType } from './pcs-engineering-master-types.ts'
 import { normalizeProcessRouteEntries } from './tech-pack-process-route.ts'
+import { resolveTechnicalVersionProductProject } from './pcs-technical-data-version-project-source.ts'
 
 export type TechPackGenerationAction = 'CREATED' | 'WRITTEN'
 
@@ -656,13 +654,12 @@ export function writeProjectRelationFromTechPackVersion(
   operatorName = '当前用户',
   _sourceTaskType: StoredTechPackSourceTaskType = record.createdFromTaskType,
 ): void {
-  const style = getStyleArchiveById(record.styleId)
-  if (!style?.sourceProjectId) return
-  const project = getProjectById(style.sourceProjectId)
+  const source = resolveTechnicalVersionProductProject(record)
+  if (!source) return
   upsertProjectRelation({
     projectRelationId: buildProjectRelationId(record.technicalVersionId),
-    projectId: style.sourceProjectId,
-    projectCode: project?.projectCode || '',
+    projectId: source.project.projectId,
+    projectCode: source.project.projectCode,
     projectNodeId: null,
     stepCode: '',
     stepName: '',
@@ -698,10 +695,10 @@ export function syncStyleArchiveFromTechPackVersion(record: TechnicalDataVersion
 }
 
 export function syncProjectFromTechPackVersion(record: TechnicalDataVersionRecord): void {
-  const style = getStyleArchiveById(record.styleId)
-  if (!style?.sourceProjectId) return
+  const source = resolveTechnicalVersionProductProject(record)
+  if (!source) return
   updateProjectRecord(
-    style.sourceProjectId,
+    source.project.projectId,
     {
       linkedTechPackVersionId: record.technicalVersionId,
       linkedTechPackVersionCode: record.technicalVersionCode,
@@ -727,8 +724,8 @@ function finalizeGeneration(
 ): TechPackGenerationResult {
   syncStyleArchiveFromTechPackVersion(record)
   syncProjectFromTechPackVersion(record)
-  const style = getStyleArchiveById(record.styleId)
-  if (style?.sourceProjectId) syncExistingProjectArchiveByProjectId(style.sourceProjectId, operatorName)
+  const source = resolveTechnicalVersionProductProject(record)
+  if (source) syncExistingProjectArchiveByProjectId(source.project.projectId, operatorName)
   writeProjectRelationFromTechPackVersion(record, operatorName, sourceTaskType)
   return {
     action,

@@ -349,7 +349,6 @@ export function runEngineeringMasterRepositoryTransaction<Operation extends () =
   try {
     const result = operation()
     if (isThenable(result)) {
-      writeSnapshot(snapshotBeforeOperation)
       throw new Error('工程主单仓储事务仅支持同步操作，禁止返回 Promise 或 thenable。')
     }
     return result as ReturnType<Operation>

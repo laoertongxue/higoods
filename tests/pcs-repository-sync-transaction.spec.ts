@@ -14,6 +14,30 @@ import {
   runTechnicalDataVersionRepositoryTransaction,
 } from '../src/data/pcs-technical-data-version-repository.ts'
 
+function installCountingLocalStorage(): { getSetCount: () => number; restore: () => void } {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+  const values = new Map<string, string>()
+  let setCount = 0
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        setCount += 1
+        values.set(key, value)
+      },
+      removeItem: (key: string) => values.delete(key),
+    },
+  })
+  return {
+    getSetCount: () => setCount,
+    restore: () => {
+      if (previous) Object.defineProperty(globalThis, 'localStorage', previous)
+      else Reflect.deleteProperty(globalThis, 'localStorage')
+    },
+  }
+}
+
 resetStyleArchiveRepository()
 resetEngineeringMasterRepository()
 const style = listStyleArchives()[0]
@@ -41,6 +65,8 @@ assert.deepEqual(
 )
 
 const engineeringBeforeThenable = getEngineeringMasterOrderStoreSnapshot()
+const engineeringStorage = installCountingLocalStorage()
+const engineeringWritesBeforeThenable = engineeringStorage.getSetCount()
 const engineeringThenableOperation = (() => {
   return {
     then: (resolve: (value: string) => void) => {
@@ -60,6 +86,12 @@ assert.throws(
 )
 await Promise.resolve()
 assert.deepEqual(getEngineeringMasterOrderStoreSnapshot(), engineeringBeforeThenable, 'thenable 回调不得留下工程主单写入')
+assert.equal(
+  engineeringStorage.getSetCount() - engineeringWritesBeforeThenable,
+  1,
+  '工程主单 thenable 事务只需回滚一次，不得重复恢复同一快照',
+)
+engineeringStorage.restore()
 
 resetTechnicalDataVersionRepository()
 const technicalBeforeAsync = getTechnicalDataVersionStoreSnapshot()
@@ -88,6 +120,8 @@ assert.deepEqual(
 )
 
 const technicalBeforeThenable = getTechnicalDataVersionStoreSnapshot()
+const technicalStorage = installCountingLocalStorage()
+const technicalWritesBeforeThenable = technicalStorage.getSetCount()
 const technicalThenableOperation = (() => {
   return {
     then: (resolve: (value: string) => void) => {
@@ -111,5 +145,11 @@ assert.throws(
 )
 await Promise.resolve()
 assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), technicalBeforeThenable, 'thenable 回调不得留下技术资料写入')
+assert.equal(
+  technicalStorage.getSetCount() - technicalWritesBeforeThenable,
+  1,
+  '技术资料 thenable 事务只需回滚一次，不得重复恢复同一快照',
+)
+technicalStorage.restore()
 
 console.log('pcs-repository-sync-transaction.spec.ts PASS')

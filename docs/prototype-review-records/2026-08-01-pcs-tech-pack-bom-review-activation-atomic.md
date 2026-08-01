@@ -49,6 +49,7 @@
 | 首次提交审核未实时校验 BOM 价格和换算 | 算不准 | 买手、审核人 | 在唯一首次提交入口纯校验最新标准价、单位换算和汇率，校验通过前不写审核状态与日志 | 否 |
 | 启用先改款式指针再生成快照 | 点错风险 | 跟单 | 先完整构建快照，成功后再写快照和款式指针，后续写入失败时回滚关键记录 | 否 |
 | 正式成本可能随档案或汇率变化 | 追溯不足 | 跟单、生产协同角色 | 正式启用时冻结标准价与汇率快照，后续变化不回写 | 否 |
+| 技术包工程来源 ID 被误当作商品项目 ID，会把关系和归档写到不存在的项目 | 协作断裂 | 跟单、买手 | 启用时统一从款式档案解析来源商品项目；原子测试同时验证成功回写和工程主单 ID 下零孤立关系 | 否 |
 
 ## 6. 最终结论
 
@@ -63,6 +64,7 @@
 - `src/data/pcs-engineering-bom-pricing.ts`
 - `src/data/pcs-tech-pack-review.ts`
 - `src/data/pcs-tech-pack-version-activation.ts`
+- `src/data/pcs-technical-data-version-project-source.ts`
 
 ### 页面路由
 
@@ -70,7 +72,7 @@
 
 ### 验证命令
 
-- `npm test -- tests/pcs-tech-pack-bom-review-activation-atomic.spec.ts`：通过
+- `npx tsx tests/pcs-tech-pack-bom-review-activation-atomic.spec.ts`：通过；覆盖真实商品项目 / 关系 / 归档成功回写、工程主单 ID 零孤立关系及六仓失败回滚
 - `npm test -- tests/pcs-engineering-bom-pricing.spec.ts`：通过
 - `npm run check:prototype-design-governance -- --all`：通过
 - `npm run build`：通过

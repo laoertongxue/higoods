@@ -1190,7 +1190,6 @@ export function runTechnicalDataVersionRepositoryTransaction<Operation extends (
   try {
     const result = operation()
     if (isThenable(result)) {
-      persistSnapshot(snapshotBeforeOperation)
       throw new Error('技术资料版本仓储事务仅支持同步操作，禁止返回 Promise 或 thenable。')
     }
     return result as ReturnType<Operation>

@@ -14,8 +14,8 @@ import {
 import {
   buildTechnicalDataDerivedState,
   getTechnicalDataVersionContent,
-  replaceTechnicalDataVersionStore,
 } from '../src/data/pcs-technical-data-version-repository.ts'
+import { installTechnicalDataVersionFixtures } from './helpers/technical-data-version-fixtures.ts'
 import type {
   TechnicalDataVersionContent,
   TechnicalDataVersionRecord,
@@ -549,7 +549,7 @@ const legacyOnlyGateId = 'tdv_route_legacy_only_gate'
 const reviewGateId = 'tdv_route_review_gate'
 const publishGateId = 'tdv_route_publish_gate'
 const publishedMissingRouteId = 'tdv_route_published_missing_status'
-replaceTechnicalDataVersionStore({
+installTechnicalDataVersionFixtures({
   version: 4,
   records: [
     buildRouteGateRecord(roundtripId),
