@@ -512,6 +512,18 @@ export interface SpecialCraftHandoverPayload {
   idempotencyKey?: string
 }
 
+export interface CompleteSpecialCraftHandoverPayload
+  extends SpecialCraftHandoverPayload {
+  canonicalIntent: string
+  bagCode: string
+  usageCycleId: string
+  handoverLegId: string
+  ticketSnapshot: TransferBagTicketFactSnapshot[]
+  sourceWarehouseArea: string
+  sourceLocationCode: string
+  idempotencyKey: string
+}
+
 export interface SpecialCraftReturnPayload {
   returnRecordId: string
   returnRecordNo: string
@@ -562,6 +574,7 @@ export type CuttingRuntimeEventPayload =
   | TransferBagScrapPayload
   | HandoverRecordSubmitPayload
   | SpecialCraftHandoverPayload
+  | CompleteSpecialCraftHandoverPayload
   | SpecialCraftReturnPayload
   | Record<string, unknown>
 

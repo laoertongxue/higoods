@@ -5,6 +5,7 @@ import {
   listCuttingRuntimeEventsByType,
   type CuttingRuntimeEvent,
   type CuttingRuntimeEventSource,
+  type CompleteSpecialCraftHandoverPayload,
   type FeiTicketBagSnapshotItem,
   type FeiTicketBaggingPayload,
   type FeiTicketInboundPayload,
@@ -29,7 +30,9 @@ import {
 } from '../../../data/fcs/cutting/transfer-bag-lifecycle.ts'
 import {
   buildNextTransferBagHandoverLeg,
+  buildSpecialCraftWholeBagHandoverCanonicalIntent,
   eventTouchesTransferBag,
+  isCompleteSuccessfulSpecialCraftHandoverEvent,
   isCompleteSuccessfulWholeBagHandoverEvent,
   parseCompleteTransferBagRepackPayload,
   resolveTransferBagCurrentUse,
@@ -271,11 +274,18 @@ function assertWholeBagSpecialCraftHandoverPayload(input: {
   bagCode: string
   payload: SpecialCraftHandoverPayload
   snapshot: WaitHandoverBaggingSnapshot
+  handoverOrderId: string
+  handoverRecordId: string
+  specialCraftId: string
+  occurredAt: string
+  operatorName: string
 }): void {
   if (
     !input.payload.handoverRecordId
     || !input.payload.receiverFactoryId
     || !input.payload.receiverFactoryName
+    || input.payload.handoverOrderId !== input.handoverOrderId
+    || input.payload.handoverRecordId !== input.handoverRecordId
   ) {
     throw new Error('特殊工艺整袋交出必须明确来源记录和接收工厂。')
   }
@@ -305,11 +315,22 @@ function assertWholeBagSpecialCraftHandoverPayload(input: {
   if (
     input.snapshot.tickets.some(
       (ticket) =>
-        payloadQtyByTicket[ticket.feiTicketId]
-        !== Number(ticket.pieceQty || 0),
+        payloadQtyByTicket[ticket.feiTicketId] !== Number(ticket.pieceQty || 0)
+        || !input.payload.feiTicketItems.some((item) =>
+          item.feiTicketId === ticket.feiTicketId
+          && item.feiTicketNo === ticket.feiTicketNo
+          && item.specialCraftId === input.specialCraftId
+          && item.partName === ticket.partName
+          && item.size === ticket.size),
     )
   ) {
-    throw new Error('特殊工艺带袋交出数量必须等于完整中转袋袋内快照数量。')
+    throw new Error('特殊工艺带袋交出明细必须与完整中转袋袋内快照一致。')
+  }
+  if (
+    input.payload.handedOverAt !== input.occurredAt
+    || input.payload.handedOverBy !== input.operatorName
+  ) {
+    throw new Error('特殊工艺整袋交出的时间和操作人必须与提交事实一致。')
   }
 }
 
@@ -380,6 +401,10 @@ function toWaitHandoverLifecycleFact(
   if (
     event.eventType === '新增交出记录'
     && !isCompleteSuccessfulWholeBagHandoverEvent(event)
+  ) return null
+  if (
+    event.eventType === '特殊工艺交出'
+    && !isCompleteSuccessfulSpecialCraftHandoverEvent(event)
   ) return null
   if (event.eventType === '中转袋拆袋重装') {
     const factType = getWaitHandoverRepackBag(event, 'resultBags', bagCode)
@@ -1057,21 +1082,12 @@ export function buildWaitHandoverLocationOccupancyStates(
       continue
     }
     if (event.eventType === '特殊工艺交出') {
+      if (!isCompleteSuccessfulSpecialCraftHandoverEvent(event)) continue
       const bagCode = event.refs.transferBagCode || runtimeString(payload.transferBagCode)
        const stateKey = bagCode ? findWaitHandoverStateKey(states, bagCode, event.refs.usageCycleId, runtimeLocationRef(payload.locationRef)) : undefined
        const current = stateKey ? states.get(stateKey) : undefined
       if (!bagCode || !current) continue
-      const handedOverQty = Number(event.inventoryEffect?.qty || runtimeNumber(payload.handoverQty))
-      const remainingQty = Math.max(0, current.totalPieceQty - handedOverQty)
-      if (remainingQty <= 0) {
-         if (stateKey) states.delete(stateKey)
-      } else {
-         states.set(stateKey!, {
-          ...current,
-          sourceEventId: event.eventId,
-          totalPieceQty: remainingQty,
-        })
-      }
+      if (stateKey) states.delete(stateKey)
       continue
     }
     if (event.eventType === '特殊工艺回仓') {
@@ -1123,6 +1139,48 @@ function resolveActiveWaitHandoverLocationRef(
   const candidates = buildWaitHandoverLocationOccupancyStates(listCuttingRuntimeEvents(storage))
     .filter((state) => state.bagCode === bagCode && state.usageCycleId === usageCycleId)
   return candidates.length === 1 ? candidates[0].locationRef : candidates.length > 1 ? null : undefined
+}
+
+function resolveActiveWaitHandoverSourceInventory(
+  bagCode: string,
+  usageCycleId: string,
+  storage: BrowserStorageLike | null,
+): {
+  warehouseArea: string
+  locationCode: string
+  locationRef?: RuntimeWarehouseLocationRef
+} | null {
+  const activeLocationRef = resolveActiveWaitHandoverLocationRef(bagCode, usageCycleId, storage)
+  if (activeLocationRef === null) return null
+  if (activeLocationRef) {
+    return {
+      warehouseArea: activeLocationRef.areaName,
+      locationCode: activeLocationRef.locationNo,
+      locationRef: activeLocationRef,
+    }
+  }
+  const latestInbound = [...listCuttingRuntimeEvents(storage)]
+    .filter((event) =>
+      (event.eventStatus === '已记录' || event.eventStatus === '已同步')
+      && event.inventoryEffect?.direction === 'IN'
+      && eventTouchesTransferBag(event, bagCode)
+      && getWaitHandoverEventUsageCycleId(event) === usageCycleId)
+    .sort(compareCuttingRuntimeChronologyAscending)
+    .at(-1)
+  if (!latestInbound) return null
+  const payload = runtimeRecord(latestInbound.payload)
+  const warehouseArea = runtimeString(payload.warehouseArea)
+    || runtimeString(latestInbound.inventoryEffect?.toWarehouseArea)
+  const locationCode = runtimeString(payload.locationCode)
+    || runtimeString(latestInbound.inventoryEffect?.toLocationCode)
+  if (!warehouseArea || !locationCode) return null
+  return {
+    warehouseArea,
+    locationCode,
+    ...(runtimeLocationRef(payload.locationRef)
+      ? { locationRef: runtimeLocationRef(payload.locationRef)! }
+      : {}),
+  }
 }
 
 export function buildWaitHandoverRuntimeProjection(
@@ -1481,7 +1539,12 @@ export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
       (input.idempotencyKey && event.idempotencyKey === input.idempotencyKey)
       || event.refs.handoverRecordId === input.handoverRecordId
     ))
-  if (existingSpecialCraftHandover) return existingSpecialCraftHandover
+  if (existingSpecialCraftHandover) {
+    if (isCompleteSuccessfulSpecialCraftHandoverEvent(existingSpecialCraftHandover)) {
+      return existingSpecialCraftHandover
+    }
+    throw new Error(`特殊工艺交出记录 ID ${input.handoverRecordId} 已存在，但事实不完整或业务意图冲突。`)
+  }
   const snapshot = resolveWaitHandoverBaggingSnapshot(
     input.transferBagCode,
     storage,
@@ -1517,6 +1580,11 @@ export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
     bagCode: input.transferBagCode,
     payload: input.payload,
     snapshot,
+    handoverOrderId: input.handoverOrderId,
+    handoverRecordId: input.handoverRecordId,
+    specialCraftId: input.specialCraftId,
+    occurredAt,
+    operatorName: input.operator.operatorName,
   })
   const handoverLegId =
     input.handoverLegId
@@ -1525,10 +1593,65 @@ export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
       usageCycleId,
       events: listCuttingRuntimeEvents(storage),
     }).handoverLegId
-  const totalQty = input.payload.feiTicketItems.reduce((sum, item) => sum + Number(item.pieceQty || 0), 0)
-  const locationRef = input.locationRef || resolveActiveWaitHandoverLocationRef(input.transferBagCode, usageCycleId, storage)
-  if (locationRef === null) throw new Error('无法唯一确认待交出仓库位，请从当前仓库重新发起交出。')
-  return appendCuttingRuntimeEventIdempotent({
+  const currentUse = resolveTransferBagCurrentUse(input.transferBagCode, storage)
+  if (currentUse.usageCycleId !== usageCycleId || !currentUse.tickets.length) {
+    throw new Error('特殊工艺交出提交时的当前袋票快照已变化，请刷新后重试。')
+  }
+  const totalQty = currentUse.tickets.reduce((sum, item) => sum + Number(item.pieceQty || 0), 0)
+  const sourceInventory = resolveActiveWaitHandoverSourceInventory(input.transferBagCode, usageCycleId, storage)
+  if (!sourceInventory) throw new Error('无法唯一确认待交出仓库位，请从当前仓库重新发起交出。')
+  if (
+    input.locationRef
+    && sourceInventory.locationRef
+    && input.locationRef.locationId !== sourceInventory.locationRef.locationId
+  ) {
+    throw new Error('特殊工艺交出的来源库位已变化，请刷新后重试。')
+  }
+  const locationRef = sourceInventory.locationRef || input.locationRef
+  const sourceWarehouseArea = sourceInventory.warehouseArea
+  const sourceLocationCode = sourceInventory.locationCode
+  const operatorRole = input.operator.operatorRole || '特殊工艺交出员'
+  const completePayload: CompleteSpecialCraftHandoverPayload = {
+    ...input.payload,
+    handoverOrderId: input.handoverOrderId,
+    handoverRecordId: input.handoverRecordId,
+    bagCode: input.transferBagCode,
+    usageCycleId,
+    handoverLegId,
+    ticketSnapshot: currentUse.tickets.map((ticket) => ({ ...ticket })),
+    sourceWarehouseArea,
+    sourceLocationCode,
+    handedOverAt: occurredAt,
+    handedOverBy: input.operator.operatorName,
+    idempotencyKey,
+    locationRef,
+    canonicalIntent: '',
+  }
+  completePayload.canonicalIntent = buildSpecialCraftWholeBagHandoverCanonicalIntent({
+    bagCode: input.transferBagCode,
+    usageCycleId,
+    handoverLegId,
+    handoverOrderId: input.handoverOrderId,
+    handoverRecordId: input.handoverRecordId,
+    specialCraftId: input.specialCraftId,
+    craftCategory: completePayload.craftCategory,
+    craftType: completePayload.craftType,
+    receiverFactoryId: completePayload.receiverFactoryId,
+    receiverFactoryName: completePayload.receiverFactoryName,
+    feiTicketItems: completePayload.feiTicketItems,
+    ticketSnapshot: completePayload.ticketSnapshot,
+    sourceWarehouseArea,
+    sourceLocationCode,
+    handedOverAt: occurredAt,
+    handedOverBy: input.operator.operatorName,
+    idempotencyKey,
+    source: input.source,
+    operator: {
+      ...input.operator,
+      operatorRole,
+    },
+  })
+  const appendedSpecialCraftHandover = appendCuttingRuntimeEventIdempotent({
     idempotencyKey,
     eventType: '特殊工艺交出',
     eventSource: input.source,
@@ -1536,7 +1659,7 @@ export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
     occurredAt,
     operatorId: input.operator.operatorId,
     operatorName: input.operator.operatorName,
-    operatorRole: input.operator.operatorRole || '特殊工艺交出员',
+    operatorRole,
     refs: {
       handoverOrderId: input.handoverOrderId,
       handoverRecordId: input.handoverRecordId,
@@ -1552,11 +1675,15 @@ export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
       direction: 'OUT',
       qty: totalQty,
       unit: '片',
-      fromWarehouseArea: input.fromWarehouseArea,
-      fromLocationCode: input.transferBagCode,
+      fromWarehouseArea: sourceWarehouseArea,
+      fromLocationCode: sourceLocationCode,
     },
-    payload: { ...input.payload, locationRef },
+    payload: completePayload,
   }, storage).event
+  if (!isCompleteSuccessfulSpecialCraftHandoverEvent(appendedSpecialCraftHandover)) {
+    throw new Error('特殊工艺整袋交出事实写入后校验失败。')
+  }
+  return appendedSpecialCraftHandover
 }
 
 export function appendWaitHandoverSpecialCraftReturnEvent(input: {

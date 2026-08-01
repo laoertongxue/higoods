@@ -12,6 +12,7 @@ import {
 import type { BrowserStorageLike } from '../src/data/browser-storage.ts'
 import {
   eventTouchesTransferBag,
+  isCompleteSuccessfulSpecialCraftHandoverEvent,
   isCompleteSuccessfulWholeBagHandoverEvent,
   resolveWholeBagHandoverEligibility,
   resolveTransferBagCurrentUse,
@@ -2228,6 +2229,151 @@ function appendLegacyBaggingConfirm(input: {
   const current = resolveTransferBagCurrentUse(bagCode, storage)
   assert.equal(current.flowStage, 'INBOUND_STORED', '损坏成功载荷不得推进袋生命周期')
   assert.deepEqual(current.tickets, tickets, '损坏成功载荷不得清空当前袋票关系')
+}
+
+{
+  const storage = createMemoryStorage()
+  const bagCode = 'BAG-SPECIAL-STRICT-FACT'
+  const usageCycleId = `usage:${bagCode}:1`
+  const tickets = [ticket('SPECIAL-STRICT-01', 'PO-SPECIAL-STRICT', 'CRAFT-FACTORY-STRICT', 12)]
+  appendBagging({ storage, bagCode, usageCycleId, tickets })
+  appendInbound({ storage, bagCode, usageCycleId, tickets })
+  const factsBefore = listWaitHandoverLifecycleFacts(bagCode, storage)
+  const assertUnconsumed = (message: string) => {
+    const current = resolveTransferBagCurrentUse(bagCode, storage)
+    assert.equal(current.flowStage, 'INBOUND_STORED', `${message}，不得推进当前使用阶段`)
+    assert.deepEqual(current.tickets, tickets, `${message}，不得清空当前袋票关系`)
+    assert.deepEqual(listWaitHandoverLifecycleFacts(bagCode, storage), factsBefore, `${message}，不得生成生命周期交出事实`)
+    assert.deepEqual(buildNextWaitHandoverHandoverLeg({
+      bagCode,
+      usageCycleId,
+      events: listCuttingRuntimeEvents(storage),
+    }), {
+      handoverLegId: `${usageCycleId}:handover:1`,
+      handoverSequence: 1,
+    }, `${message}，不得占用交出流转段`)
+    assert.equal(
+      buildWaitHandoverLocationOccupancyStates(listCuttingRuntimeEvents(storage))
+        .some((state) => state.bagCode === bagCode && state.usageCycleId === usageCycleId),
+      true,
+      `${message}，不得删除待交出仓库位占用`,
+    )
+  }
+  appendCuttingRuntimeEvent({
+    eventType: '特殊工艺交出',
+    eventSource: 'WEB',
+    eventStatus: '同步失败',
+    occurredAt: '2026-08-01 08:30',
+    operatorName: '失败事实导入员',
+    refs: {
+      handoverOrderId: 'SPECIAL-HO-FAILED',
+      handoverRecordId: 'SPECIAL-HR-FAILED',
+      specialCraftId: 'SPECIAL-CRAFT-STRICT',
+      transferBagCode: bagCode,
+      usageCycleId,
+      handoverLegId: `${usageCycleId}:handover:1`,
+      feiTicketIds: tickets.map((item) => item.feiTicketId),
+      feiTicketNos: tickets.map((item) => item.feiTicketNo),
+    },
+    inventoryEffect: {
+      inventoryScope: '裁床待交出仓',
+      direction: 'OUT',
+      qty: 12,
+      unit: '片',
+      fromWarehouseArea: '待交出 A 区',
+      fromLocationCode: `A-${bagCode}`,
+    },
+    payload: { handoverRecordId: 'SPECIAL-HR-FAILED' },
+  } as Parameters<typeof appendCuttingRuntimeEvent>[0], storage)
+  assertUnconsumed('同步失败的特殊工艺 OUT')
+
+  const damaged = appendCuttingRuntimeEvent({
+    eventType: '特殊工艺交出',
+    eventSource: 'WEB',
+    eventStatus: '已同步',
+    occurredAt: '2026-08-01 08:40',
+    operatorName: '损坏事实导入员',
+    refs: {
+      handoverOrderId: 'SPECIAL-HO-DAMAGED',
+      handoverRecordId: 'SPECIAL-HR-DAMAGED',
+      specialCraftId: 'SPECIAL-CRAFT-STRICT',
+      transferBagCode: bagCode,
+      usageCycleId,
+      handoverLegId: `${usageCycleId}:handover:7`,
+      feiTicketIds: tickets.map((item) => item.feiTicketId),
+      feiTicketNos: tickets.map((item) => item.feiTicketNo),
+    },
+    inventoryEffect: {
+      inventoryScope: '裁床待交出仓',
+      direction: 'OUT',
+      qty: 12,
+      unit: '片',
+      fromWarehouseArea: '待交出 A 区',
+      fromLocationCode: `A-${bagCode}`,
+    },
+    payload: {
+      handoverRecordId: 'SPECIAL-HR-DAMAGED',
+      canonicalIntent: '伪造完整事实',
+    },
+  } as Parameters<typeof appendCuttingRuntimeEvent>[0], storage)
+  assert.equal(isCompleteSuccessfulSpecialCraftHandoverEvent(damaged), false, '损坏特殊工艺载荷不得通过严格守卫')
+  assertUnconsumed('已同步但损坏且伪造 handover:7 的特殊工艺事实')
+
+  const complete = appendWaitHandoverSpecialCraftHandoverEvent({
+    source: 'WEB',
+    operator: { operatorId: 'OP-SPECIAL-STRICT', operatorName: '特殊工艺交出员' },
+    payload: {
+      handoverOrderId: 'SPECIAL-HO-STRICT',
+      handoverRecordId: 'SPECIAL-HR-STRICT',
+      craftCategory: '特种工艺',
+      craftType: '绣花',
+      receiverFactoryId: 'CRAFT-FACTORY-STRICT',
+      receiverFactoryName: '严格事实绣花厂',
+      feiTicketItems: tickets.map((item) => ({
+        feiTicketId: item.feiTicketId,
+        feiTicketNo: item.feiTicketNo,
+        specialCraftId: 'SPECIAL-CRAFT-STRICT',
+        partName: item.partName,
+        size: item.size,
+        pieceQty: item.pieceQty,
+      })),
+      handedOverAt: '2026-08-01 09:00',
+      handedOverBy: '特殊工艺交出员',
+    },
+    handoverOrderId: 'SPECIAL-HO-STRICT',
+    handoverRecordId: 'SPECIAL-HR-STRICT',
+    specialCraftId: 'SPECIAL-CRAFT-STRICT',
+    transferBagCode: bagCode,
+    fromWarehouseArea: '待交出 A 区',
+    occurredAt: '2026-08-01 09:00',
+    usageCycleId,
+    storage,
+  })
+  assert.equal(isCompleteSuccessfulSpecialCraftHandoverEvent(complete), true, 'writer 必须产生可独立验证的完整特殊工艺整袋交出事实')
+  assert.deepEqual(
+    [resolveTransferBagCurrentUse(bagCode, storage).flowStage, resolveTransferBagCurrentUse(bagCode, storage).tickets.length],
+    ['HANDED_OVER_WAITING_RETURN', 0],
+    '完整成功特殊工艺交出必须推进当前使用投影',
+  )
+  assert.equal(
+    listWaitHandoverLifecycleFacts(bagCode, storage).at(-1)?.factType,
+    'HANDOVER_CONFIRMED',
+    '完整成功特殊工艺交出必须进入生命周期事实',
+  )
+  assert.deepEqual(buildNextWaitHandoverHandoverLeg({
+    bagCode,
+    usageCycleId,
+    events: listCuttingRuntimeEvents(storage),
+  }), {
+    handoverLegId: `${usageCycleId}:handover:2`,
+    handoverSequence: 2,
+  }, '完整成功特殊工艺交出必须只占用一个交出流转段')
+  assert.equal(
+    buildWaitHandoverLocationOccupancyStates(listCuttingRuntimeEvents(storage))
+      .some((state) => state.bagCode === bagCode && state.usageCycleId === usageCycleId),
+    false,
+    '完整成功特殊工艺整袋交出必须删除待交出仓库位占用',
+  )
 }
 
 {

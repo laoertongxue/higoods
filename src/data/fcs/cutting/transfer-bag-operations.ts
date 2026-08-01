@@ -3,6 +3,7 @@ import {
   listCuttingRuntimeEvents,
   type CuttingRuntimeEvent,
   type CuttingRuntimeEventSource,
+  type CompleteSpecialCraftHandoverPayload,
   type RuntimeWarehouseLocationRef,
   type TransferBagRepackPayload,
   type TransferBagTicketFactSnapshot,
@@ -724,7 +725,13 @@ function resolveTransferBagCurrentUseFromEvents(
     }
 
     if (event.eventType === '特殊工艺交出') {
-      if (event.eventStatus !== '已记录' && event.eventStatus !== '已同步') continue
+      const specialCraftHandover = parseStrictSpecialCraftHandoverEvent(event)
+      if (
+        !specialCraftHandover
+        || specialCraftHandover.bagCode !== bagCode
+        || !state.usageCycleId
+        || specialCraftHandover.usageCycleId !== state.usageCycleId
+      ) continue
       const handoverRecordId = event.refs.handoverRecordId || text(payload.handoverRecordId)
       if (handoverRecordId && state.tickets.length) {
         const snapshots = handoverSnapshots.get(handoverRecordId) || []
@@ -1121,6 +1128,91 @@ function buildWholeBagHandoverCanonicalIntent(input: {
   })
 }
 
+export function buildSpecialCraftWholeBagHandoverCanonicalIntent(input: {
+  bagCode: string
+  usageCycleId: string
+  handoverLegId: string
+  handoverOrderId: string
+  handoverRecordId: string
+  specialCraftId: string
+  craftCategory: '辅助工艺' | '特种工艺'
+  craftType: string
+  receiverFactoryId: string
+  receiverFactoryName: string
+  feiTicketItems: CompleteSpecialCraftHandoverPayload['feiTicketItems']
+  ticketSnapshot: TransferBagTicketFactSnapshot[]
+  sourceWarehouseArea: string
+  sourceLocationCode: string
+  handedOverAt: string
+  handedOverBy: string
+  idempotencyKey: string
+  source: CuttingRuntimeEventSource
+  operator: TransferBagRuntimeOperator
+}): string {
+  const feiTicketItems = input.feiTicketItems
+    .map((item) => ({
+      feiTicketId: text(item.feiTicketId),
+      feiTicketNo: text(item.feiTicketNo),
+      specialCraftId: text(item.specialCraftId),
+      partName: text(item.partName),
+      size: text(item.size),
+      pieceQty: item.pieceQty,
+    }))
+    .sort((left, right) => left.feiTicketId.localeCompare(right.feiTicketId))
+  const ticketSnapshot = input.ticketSnapshot
+    .map(normalizeWholeBagTicketSnapshot)
+    .sort((left, right) => left.feiTicketId.localeCompare(right.feiTicketId))
+  return JSON.stringify({
+    bagCode: text(input.bagCode),
+    usageCycleId: text(input.usageCycleId),
+    handoverLegId: text(input.handoverLegId),
+    handoverOrderId: text(input.handoverOrderId),
+    handoverRecordId: text(input.handoverRecordId),
+    specialCraftId: text(input.specialCraftId),
+    craftCategory: input.craftCategory,
+    craftType: text(input.craftType),
+    receiverFactoryId: text(input.receiverFactoryId),
+    receiverFactoryName: text(input.receiverFactoryName),
+    feiTicketItems,
+    ticketSnapshot,
+    sourceWarehouseArea: text(input.sourceWarehouseArea),
+    sourceLocationCode: text(input.sourceLocationCode),
+    handedOverAt: text(input.handedOverAt),
+    handedOverBy: text(input.handedOverBy),
+    idempotencyKey: text(input.idempotencyKey),
+    source: input.source,
+    operator: {
+      operatorId: text(input.operator.operatorId),
+      operatorName: text(input.operator.operatorName),
+      operatorRole: text(input.operator.operatorRole) || '特殊工艺交出员',
+    },
+  })
+}
+
+interface StrictSpecialCraftHandoverEventFact {
+  event: CuttingRuntimeEvent<'特殊工艺交出'>
+  handoverRecordId: string
+  bagCode: string
+  usageCycleId: string
+  handoverLegId: string
+  handoverSequence: number
+  canonicalIntent: string
+}
+
+const SPECIAL_CRAFT_SNAPSHOT_REQUIRED_FIELDS: Array<keyof TransferBagTicketFactSnapshot> = [
+  'feiTicketId',
+  'feiTicketNo',
+  'productionOrderId',
+  'productionOrderNo',
+  'cutOrderId',
+  'cutOrderNo',
+  'color',
+  'size',
+  'partCode',
+  'partName',
+  'pieceQty',
+]
+
 interface StrictWholeBagHandoverEventFact {
   event: CuttingRuntimeEvent<'新增交出记录'>
   handoverRecordId: string
@@ -1150,6 +1242,134 @@ function strictRequiredStringArray(value: unknown): string[] | null {
   const values = value.map(text)
   if (values.some((item) => !item) || new Set(values).size !== values.length) return null
   return values
+}
+
+function parseStrictSpecialCraftHandoverEvent(
+  event: CuttingRuntimeEvent,
+): StrictSpecialCraftHandoverEventFact | null {
+  if (
+    event.eventType !== '特殊工艺交出'
+    || (event.eventStatus !== '已记录' && event.eventStatus !== '已同步')
+  ) return null
+
+  const payload = eventPayload(event)
+  const bagCode = text(payload.bagCode)
+  const usageCycleId = text(payload.usageCycleId)
+  const handoverLegId = text(payload.handoverLegId)
+  const handoverSequence = parseHandoverLegSequence(usageCycleId, handoverLegId)
+  const handoverOrderId = text(payload.handoverOrderId)
+  const handoverRecordId = text(payload.handoverRecordId)
+  const specialCraftId = text(event.refs.specialCraftId)
+  const craftCategory = payload.craftCategory
+  const craftType = text(payload.craftType)
+  const receiverFactoryId = text(payload.receiverFactoryId)
+  const receiverFactoryName = text(payload.receiverFactoryName)
+  const sourceWarehouseArea = text(payload.sourceWarehouseArea)
+  const sourceLocationCode = text(payload.sourceLocationCode)
+  const handedOverAt = text(payload.handedOverAt)
+  const handedOverBy = text(payload.handedOverBy)
+  const idempotencyKey = text(payload.idempotencyKey)
+  if (
+    !bagCode
+    || !usageCycleId
+    || handoverSequence === null
+    || !handoverOrderId
+    || !handoverRecordId
+    || !specialCraftId
+    || (craftCategory !== '辅助工艺' && craftCategory !== '特种工艺')
+    || !craftType
+    || !receiverFactoryId
+    || !receiverFactoryName
+    || !sourceWarehouseArea
+    || !sourceLocationCode
+    || !handedOverAt
+    || !handedOverBy
+    || !idempotencyKey
+  ) return null
+
+  const rawSnapshot = records(payload.ticketSnapshot)
+  if (!rawSnapshot.length) return null
+  const ticketSnapshot = rawSnapshot.map((item) =>
+    normalizeWholeBagTicketSnapshot(item as unknown as TransferBagTicketFactSnapshot))
+  if (ticketSnapshot.some((item) =>
+    SPECIAL_CRAFT_SNAPSHOT_REQUIRED_FIELDS.some((field) => field === 'pieceQty'
+      ? !Number.isFinite(item.pieceQty) || item.pieceQty <= 0
+      : !text(item[field])))) return null
+  const snapshotTicketIds = strictRequiredStringArray(ticketSnapshot.map((item) => item.feiTicketId))
+  const snapshotTicketNos = strictRequiredStringArray(ticketSnapshot.map((item) => item.feiTicketNo))
+  if (!snapshotTicketIds || !snapshotTicketNos) return null
+
+  const feiTicketItems = records(payload.feiTicketItems)
+  const itemTicketIds = strictRequiredStringArray(feiTicketItems.map((item) => item.feiTicketId))
+  if (!itemTicketIds || !sameStrings(itemTicketIds, snapshotTicketIds)) return null
+  const snapshotById = new Map(ticketSnapshot.map((item) => [item.feiTicketId, item]))
+  if (feiTicketItems.some((item) => {
+    const snapshot = snapshotById.get(text(item.feiTicketId))
+    return !snapshot
+      || text(item.feiTicketNo) !== snapshot.feiTicketNo
+      || text(item.specialCraftId) !== specialCraftId
+      || text(item.partName) !== snapshot.partName
+      || text(item.size) !== snapshot.size
+      || item.pieceQty !== snapshot.pieceQty
+  })) return null
+
+  const totalPieceQty = ticketSnapshot.reduce((sum, item) => sum + item.pieceQty, 0)
+  if (
+    text(event.refs.transferBagCode) !== bagCode
+    || text(event.refs.usageCycleId) !== usageCycleId
+    || text(event.refs.handoverLegId) !== handoverLegId
+    || text(event.refs.handoverOrderId) !== handoverOrderId
+    || text(event.refs.handoverRecordId) !== handoverRecordId
+    || !sameStrings(event.refs.feiTicketIds || [], snapshotTicketIds)
+    || !sameStrings(event.refs.feiTicketNos || [], snapshotTicketNos)
+    || event.idempotencyKey !== idempotencyKey
+    || !event.inventoryEffect
+    || event.inventoryEffect.inventoryScope !== '裁床待交出仓'
+    || event.inventoryEffect.direction !== 'OUT'
+    || event.inventoryEffect.qty !== totalPieceQty
+    || event.inventoryEffect.unit !== '片'
+    || text(event.inventoryEffect.fromWarehouseArea) !== sourceWarehouseArea
+    || text(event.inventoryEffect.fromLocationCode) !== sourceLocationCode
+    || handedOverAt !== event.occurredAt
+    || handedOverBy !== event.operatorName
+  ) return null
+
+  const canonicalIntent = buildSpecialCraftWholeBagHandoverCanonicalIntent({
+    bagCode,
+    usageCycleId,
+    handoverLegId,
+    handoverOrderId,
+    handoverRecordId,
+    specialCraftId,
+    craftCategory,
+    craftType,
+    receiverFactoryId,
+    receiverFactoryName,
+    feiTicketItems: feiTicketItems as unknown as CompleteSpecialCraftHandoverPayload['feiTicketItems'],
+    ticketSnapshot,
+    sourceWarehouseArea,
+    sourceLocationCode,
+    handedOverAt,
+    handedOverBy,
+    idempotencyKey,
+    source: event.eventSource,
+    operator: {
+      operatorId: event.operatorId,
+      operatorName: event.operatorName,
+      operatorRole: event.operatorRole,
+    },
+  })
+  if (text(payload.canonicalIntent) !== canonicalIntent) return null
+
+  return {
+    event: event as CuttingRuntimeEvent<'特殊工艺交出'>,
+    handoverRecordId,
+    bagCode,
+    usageCycleId,
+    handoverLegId,
+    handoverSequence,
+    canonicalIntent,
+  }
 }
 
 function parseStrictWholeBagHandoverEvent(
@@ -1332,6 +1552,12 @@ export function isCompleteSuccessfulWholeBagHandoverEvent(
   return Boolean(parseStrictWholeBagHandoverEvent(event))
 }
 
+export function isCompleteSuccessfulSpecialCraftHandoverEvent(
+  event: CuttingRuntimeEvent,
+): boolean {
+  return Boolean(parseStrictSpecialCraftHandoverEvent(event))
+}
+
 export function buildNextTransferBagHandoverLeg(input: {
   bagCode: string
   usageCycleId: string
@@ -1349,15 +1575,9 @@ export function buildNextTransferBagHandoverLeg(input: {
       const fact = parseStrictWholeBagHandoverEvent(event)
       return fact ? [fact.handoverSequence] : []
     }
-    if (
-      event.eventType !== '特殊工艺交出'
-      || (event.eventStatus !== '已记录' && event.eventStatus !== '已同步')
-    ) return []
-    const sequence = parseHandoverLegSequence(
-      input.usageCycleId,
-      text(event.refs.handoverLegId),
-    )
-    return sequence === null ? [] : [sequence]
+    if (event.eventType !== '特殊工艺交出') return []
+    const fact = parseStrictSpecialCraftHandoverEvent(event)
+    return fact ? [fact.handoverSequence] : []
   })
   const handoverSequence = Math.max(0, ...sequences) + 1
   return {

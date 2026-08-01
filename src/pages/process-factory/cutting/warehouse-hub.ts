@@ -2,6 +2,7 @@ import {
   type HandoverPickingTask,
   type HandoverPickingTaskProjection,
   type SewingTaskAllocationProjection,
+  type FeiTicketSewingAssignment,
   buildHandoverPickingTaskProjectionFromAllocationProjection,
   buildSewingTaskAllocationProjectionFromInventory,
 } from '../../../data/fcs/cutting/sewing-dispatch.ts'
@@ -40,7 +41,6 @@ import {
   type TransferPickupPayload,
   type WaitProcessIssuePayload,
   type WaitProcessReturnPayload,
-  type HandoverRecordSubmitPayload,
 } from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import { escapeHtml } from '../../../utils.ts'
 import { renderCompactKpiCard, renderCompactKpiGroup, renderStickyTableScroller } from './layout.helpers.ts'
@@ -63,7 +63,6 @@ import {
   type FactoryWarehouseFlowLine,
 } from '../shared/warehouse-standard.ts'
 import {
-  appendWaitHandoverHandoverRecordEvent,
   appendWaitHandoverBaggingEvent,
   appendWaitHandoverInboundEvent,
   appendWaitHandoverSpecialCraftReturnEvent,
@@ -72,6 +71,11 @@ import {
   resolveWaitHandoverBaggingSnapshot,
   runtimeEventHasWaitHandoverTicket,
 } from './wait-handover-runtime.ts'
+import {
+  isCompleteSuccessfulWholeBagHandoverEvent,
+  resolveTransferBagCurrentUse,
+  submitWholeBagHandover,
+} from '../../../data/fcs/cutting/transfer-bag-operations.ts'
 import { buildBindingProcessOrders } from './binding-strip-orders.ts'
 import {
   buildCurrentCuttingWarehouseMapProjection,
@@ -2608,13 +2612,14 @@ type WaitHandoverConfirmSelection = {
   bagCode: string
   sourceWarehouseName: string
   sourceLocationCode: string
+  assignments: FeiTicketSewingAssignment[]
   tickets: Array<{ feiTicketId: string; feiTicketNo: string; pieceQty: number }>
 }
 
-function buildWaitHandoverConfirmSelections(): WaitHandoverConfirmSelection[] {
-  const projection = buildWaitHandoverWebPickingProjection()
+export function buildWaitHandoverConfirmSelections(): WaitHandoverConfirmSelection[] {
   const inventoryRecords = buildWaitHandoverWebInventoryRecords()
     .filter((record) => record.voidStatus !== '已作废')
+  const allocationProjection = buildSewingTaskAllocationProjectionFromInventory(inventoryRecords)
   const recordsByBagCode = new Map<string, InboundTempBagInventoryRecord[]>()
   inventoryRecords.forEach((record) => {
     const records = recordsByBagCode.get(record.tempBagCode) || []
@@ -2625,26 +2630,17 @@ function buildWaitHandoverConfirmSelections(): WaitHandoverConfirmSelection[] {
   recordsByBagCode.forEach((bagRecords, bagCode) => {
     const lifecycle = buildWaitHandoverLifecycleByBagCode(bagCode)
     if (lifecycle.flowStage !== 'INBOUND_STORED') return
-    const bagTicketIds = new Set(
-      bagRecords.map((record) => record.feiTicketId),
-    )
-    const tasksWithBagItems = projection.tasks.filter((task) =>
-      task.allocatedInventoryItems.some(
-        (item) =>
-          item.tempBagCode === bagCode
-          && bagTicketIds.has(item.feiTicketId),
-      ))
-    if (tasksWithBagItems.length !== 1) return
-    const task = tasksWithBagItems[0]
-    const allocatedTicketIds = new Set(
-      task.allocatedInventoryItems
-        .filter((item) => item.tempBagCode === bagCode)
-        .map((item) => item.feiTicketId),
-    )
-    if (
-      bagRecords.some((record) =>
-        !allocatedTicketIds.has(record.feiTicketId))
-    ) return
+    const bagAssignments = bagRecords.flatMap((record) => {
+      const matches = allocationProjection.assignments.filter((item) => item.feiTicketId === record.feiTicketId)
+      return matches.length === 1 ? matches : []
+    })
+    if (bagAssignments.length !== bagRecords.length) return
+    const receiverFactoryIds = uniqueStrings(bagAssignments.map((item) => item.receiverFactoryId))
+    const receiverFactoryNames = uniqueStrings(bagAssignments.map((item) => item.receiverFactoryName))
+    if (receiverFactoryIds.length !== 1 || receiverFactoryNames.length !== 1) return
+    const sewingTaskIds = uniqueStrings(bagAssignments.map((item) => item.sewingTaskId))
+    const sewingTaskNos = uniqueStrings(bagAssignments.map((item) => item.sewingTaskNo))
+    if (!sewingTaskIds.length || sewingTaskIds.length !== sewingTaskNos.length) return
     if (
       bagRecords.some((record) =>
         runtimeEventHasWaitHandoverTicket(
@@ -2653,18 +2649,19 @@ function buildWaitHandoverConfirmSelections(): WaitHandoverConfirmSelection[] {
         ))
     ) return
     selections.push({
-      value: `inbound-bag|${bagCode}|${task.pickingTaskId}`,
-      handoverOrderId: `WEB-HO-${task.pickingTaskId}`,
-      handoverOrderNo: `${task.sewingTaskNo}-交出`,
+      value: `inbound-bag|${bagCode}|${sewingTaskIds.join('+')}`,
+      handoverOrderId: `WEB-HO-${sewingTaskIds.join('+')}`,
+      handoverOrderNo: `${sewingTaskNos.join('、')}-交出`,
       receiverType: '车缝厂',
-      receiverId: task.receiverFactoryId,
-      receiverName: task.receiverFactoryName,
+      receiverId: receiverFactoryIds[0],
+      receiverName: receiverFactoryNames[0],
       bagUseId: lifecycle.usageCycleId || `legacy:${bagCode}`,
       bagCode,
       sourceWarehouseName:
         bagRecords[0]?.warehouseArea
-        || task.sourceWarehouseName,
+        || '裁床待交出仓',
       sourceLocationCode: bagRecords[0]?.locationCode || '',
+      assignments: bagAssignments,
       tickets: bagRecords.map((record) => ({
         feiTicketId: record.feiTicketId,
         feiTicketNo: record.feiTicketNo,
@@ -3185,51 +3182,58 @@ function submitWaitHandoverRecord(dialog: HTMLElement): boolean {
     window.alert('该中转袋已有交出记录，不能拆票或重复交出。')
     return true
   }
-  const tickets = selection.tickets
+  const currentUse = resolveTransferBagCurrentUse(selection.bagCode)
+  if (!currentUse.usageCycleId || !currentUse.tickets.length) {
+    window.alert('当前中转袋缺少可核对的袋内菲票快照，请刷新后重试。')
+    return true
+  }
+  const assignmentByTicketId = new Map(selection.assignments.map((item) => [item.feiTicketId, item]))
+  const missingAssignment = currentUse.tickets.find((ticket) => {
+    const assignment = assignmentByTicketId.get(ticket.feiTicketId)
+    return !assignment
+      || !assignment.sewingTaskId
+      || !assignment.sewingTaskNo
+      || !assignment.receiverFactoryId
+      || !assignment.receiverFactoryName
+  })
+  if (missingAssignment) {
+    window.alert(`菲票 ${missingAssignment.feiTicketNo} 缺少当前车缝任务或接收工厂分配，不能整袋交出。`)
+    return true
+  }
   const now = new Date().toISOString()
   const recordId = `WEB-HR-${selection.handoverOrderId}-${Date.now()}`
   const recordNo = `${selection.handoverOrderNo}-WEB-${String(Date.now()).slice(-4)}`
-  const currentHandedOverQty = tickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0)
-  const payload: HandoverRecordSubmitPayload = {
-    handoverOrderId: selection.handoverOrderId,
-    handoverOrderNo: selection.handoverOrderNo,
-    handoverRecordId: recordId,
-    handoverRecordNo: recordNo,
-    receiverType: selection.receiverType,
-    receiverId: selection.receiverId,
-    receiverName: selection.receiverName,
-    transferBagUses: [{
-      bagUseId: selection.bagUseId,
-      bagCode: selection.bagCode,
-      containedFeiTicketIds: tickets.map((ticket) => ticket.feiTicketId),
-      totalPieceQty: currentHandedOverQty,
-    }],
-    feiTicketItems: tickets.map((ticket) => ({
-      feiTicketId: ticket.feiTicketId,
-      feiTicketNo: ticket.feiTicketNo,
-      pieceQty: ticket.pieceQty,
-      unit: '片',
-    })),
-    currentHandedOverQty,
-    submittedAt: now,
-    submittedBy: getWaitHandoverWebOperator(dialog).operatorName,
-  }
-  appendWaitHandoverHandoverRecordEvent({
-    source: 'WEB',
-    operator: { ...getWaitHandoverWebOperator(dialog), operatorRole: '裁片仓交出员' },
-    payload,
-    fromWarehouseArea: selection.sourceWarehouseName,
-    fromLocationCode: selection.bagCode,
-    occurredAt: now,
-    usageCycleId:
-      lifecycle.usageCycleId
-      || selection.bagUseId,
-    locationRef: resolveCurrentCuttingWarehouseLocationRef(
-      'WAIT_HANDOVER',
-      selection.sourceWarehouseName,
-      selection.sourceLocationCode,
-    ) || undefined,
+  const submittedTicketSnapshot = currentUse.tickets.map((ticket) => {
+    const assignment = assignmentByTicketId.get(ticket.feiTicketId)!
+    return {
+      ...ticket,
+      sewingTaskId: assignment.sewingTaskId,
+      sewingTaskNo: assignment.sewingTaskNo,
+      receiverFactoryId: assignment.receiverFactoryId,
+      receiverFactoryName: assignment.receiverFactoryName,
+    }
   })
+  try {
+    const event = submitWholeBagHandover({
+      bagCode: selection.bagCode,
+      usageCycleId: currentUse.usageCycleId,
+      handoverOrderId: selection.handoverOrderId,
+      handoverOrderNo: selection.handoverOrderNo,
+      handoverRecordId: recordId,
+      handoverRecordNo: recordNo,
+      assignments: selection.assignments,
+      submittedTicketSnapshot,
+      operator: { ...getWaitHandoverWebOperator(dialog), operatorRole: '裁片仓交出员' },
+      source: 'WEB',
+      occurredAt: now,
+    })
+    if (!isCompleteSuccessfulWholeBagHandoverEvent(event)) {
+      throw new Error('整袋交出事实写入后校验失败，请保留当前页面并重试。')
+    }
+  } catch (error) {
+    window.alert(error instanceof Error ? error.message : '整袋交出失败，请保留当前页面并重试。')
+    return true
+  }
   return false
 }
 
@@ -4614,6 +4618,7 @@ function renderWaitHandoverWorkbench(projection: WaitHandoverWorkbenchProjection
 function listRuntimeWaitHandoverEvents(): CuttingRuntimeEvent[] {
   const events = [
     ...listCuttingRuntimeEventsByInventoryScope('裁床待交出仓'),
+    ...listCuttingRuntimeEventsByType('菲票装袋'),
     ...listCuttingRuntimeEventsByType('交出装袋确认'),
     ...listCuttingRuntimeEventsByType('新增交出记录'),
     ...listCuttingRuntimeEventsByType('特殊工艺交出'),

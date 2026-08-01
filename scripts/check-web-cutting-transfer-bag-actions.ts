@@ -93,6 +93,15 @@ assert(
   ),
   'Web 动作分发不得保留“交出装袋确认”写入口',
 )
+assert(
+  warehouseSource.includes('submitWholeBagHandover({')
+  && warehouseSource.includes('isCompleteSuccessfulWholeBagHandoverEvent(event)'),
+  'Web 整袋交出必须走权威整袋提交并在成功后复核完整事实',
+)
+assert(
+  !warehouseSource.includes('appendWaitHandoverHandoverRecordEvent({'),
+  'Web 整袋交出不得继续调用旧简化交出 writer',
+)
 
 const runtimeLedger = await import(
   '../src/data/fcs/cutting/cutting-runtime-event-ledger.ts'
@@ -208,6 +217,176 @@ assert.throws(
   }),
   /同一生产单/,
   '真实装袋入口必须阻断一个袋混入多个生产单',
+)
+
+const browserStorage = createMemoryStorage()
+let rejectAuthoritativeWrite = false
+const guardedBrowserStorage = {
+  getItem: browserStorage.getItem,
+  setItem(key: string, value: string) {
+    if (
+      rejectAuthoritativeWrite
+      && value.includes('whole-bag-handover:')
+    ) throw new Error('模拟 Web 权威账本写入失败')
+    browserStorage.setItem(key, value)
+  },
+  removeItem: browserStorage.removeItem,
+}
+const alerts: string[] = []
+let removedDialogCount = 0
+let refreshCount = 0
+Object.defineProperty(globalThis, 'window', {
+  configurable: true,
+  value: {
+    localStorage: guardedBrowserStorage,
+    location: { pathname: '/fcs/craft/cutting/warehouse-management/wait-handover', search: '' },
+    alert(message: string) {
+      alerts.push(message)
+    },
+    dispatchEvent() {
+      refreshCount += 1
+      return true
+    },
+  },
+})
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: guardedBrowserStorage,
+})
+Object.defineProperty(globalThis, 'document', {
+  configurable: true,
+  value: {
+    getElementById() {
+      return { remove: () => { removedDialogCount += 1 } }
+    },
+  },
+})
+
+const warehouseModule = await import(
+  '../src/pages/process-factory/cutting/warehouse-hub.ts'
+)
+assert.equal(
+  typeof warehouseModule.buildWaitHandoverConfirmSelections,
+  'function',
+  '真实 Web handler 检查必须能读取其当前可交出选择，而不是在测试中绕过页面直接写数据层',
+)
+
+browserStorage.removeItem(runtimeLedger.CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY)
+const handlerBagCode = 'WEB-HANDLER-BAG-001'
+const handlerUsageCycleId = runtime.buildWaitHandoverUsageCycleId(handlerBagCode, '2026-07-30 17:00')
+runtime.appendWaitHandoverBaggingEvent({
+  source: 'WEB',
+  operator: { operatorName: 'Web Handler 装袋员' },
+  bagCode: handlerBagCode,
+  tickets: [{ ...ticket, hasSpecialCraft: false }],
+  occurredAt: '2026-07-30 17:00',
+  usageCycleId: handlerUsageCycleId,
+  storage: guardedBrowserStorage,
+})
+runtime.appendWaitHandoverInboundEvent({
+  source: 'WEB',
+  operator: { operatorName: 'Web Handler 入仓员' },
+  bagCode: handlerBagCode,
+  warehouseArea: 'Web Handler 待交出区',
+  locationCode: 'WEB-001',
+  locationRef: {
+    factoryId: 'FACTORY-WEB-HANDLER',
+    warehouseId: 'WAREHOUSE-WEB-HANDLER',
+    warehouseKind: 'WAIT_HANDOVER',
+    areaId: 'AREA-WEB-HANDLER',
+    areaName: 'Web Handler 待交出区',
+    shelfId: 'SHELF-WEB-HANDLER',
+    shelfNo: 'WEB',
+    locationId: 'LOCATION-WEB-HANDLER-001',
+    locationNo: 'WEB-001',
+  },
+  occurredAt: '2026-07-30 17:10',
+  usageCycleId: handlerUsageCycleId,
+  storage: guardedBrowserStorage,
+})
+const handlerSelection = warehouseModule.buildWaitHandoverConfirmSelections()
+  .find((selection) => selection.bagCode === handlerBagCode)
+assert(
+  handlerSelection,
+  '测试数据中必须找到具有当前车缝任务和接收工厂分配的真实 Web 可交出中转袋',
+)
+
+const fieldValues: Record<string, string> = {
+  handoverSelection: handlerSelection.value,
+  operatorName: 'Web Handler 交出员',
+}
+const dialog = {
+  querySelector(selector: string) {
+    const field = selector.match(/data-wait-handover-field="([^"]+)"/)?.[1] || ''
+    return field ? { value: fieldValues[field] || '' } : null
+  },
+}
+const actionNode = {
+  dataset: { waitHandoverAction: 'submit-handover' },
+  closest(selector: string) {
+    return selector === '[data-wait-handover-modal]' ? dialog : null
+  },
+}
+const target = {
+  closest(selector: string) {
+    if (selector === '[data-wait-handover-modal] [data-warehouse-map-action]') return null
+    if (selector === '[data-wait-handover-action], [data-wait-handover-web-action]') return actionNode
+    return null
+  },
+}
+
+rejectAuthoritativeWrite = true
+assert.equal(
+  warehouseModule.handleCraftCuttingWaitHandoverEvent(target as unknown as HTMLElement),
+  true,
+  '真实 Web handler 必须接管交出点击',
+)
+rejectAuthoritativeWrite = false
+assert.match(alerts.at(-1) || '', /模拟 Web 权威账本写入失败/, '权威账本写入失败必须保留原始错误提示')
+assert.equal(removedDialogCount, 0, '权威写入失败不得关闭当前交出弹窗')
+assert.equal(refreshCount, 0, '权威写入失败不得刷新成伪成功状态')
+assert.equal(
+  runtime.buildWaitHandoverLifecycleByBagCode(handlerBagCode, guardedBrowserStorage).flowStage,
+  'INBOUND_STORED',
+  '权威写入失败不得推进中转袋生命周期',
+)
+
+assert.equal(
+  warehouseModule.handleCraftCuttingWaitHandoverEvent(target as unknown as HTMLElement),
+  true,
+  '真实 Web handler 重试必须仍可提交',
+)
+assert.equal(removedDialogCount, 1, '只有权威事实写入成功后才关闭交出弹窗')
+assert.equal(refreshCount, 1, '只有权威事实写入成功后才刷新工作台')
+const handlerEvents = runtimeLedger.listCuttingRuntimeEvents(guardedBrowserStorage)
+const handlerHandover = handlerEvents.find((event: { eventType: string }) => event.eventType === '新增交出记录')
+assert(handlerHandover, '真实 Web handler 必须写入新增交出记录')
+const operations = await import(
+  '../src/data/fcs/cutting/transfer-bag-operations.ts'
+)
+assert.equal(operations.isCompleteSuccessfulWholeBagHandoverEvent(handlerHandover), true, '真实 Web handler 事件必须通过权威严格守卫')
+const handlerPayload = handlerHandover.payload as {
+  canonicalIntent: string
+  handoverLegId: string
+  transferBagUses: Array<{
+    sewingTaskIds: string[]
+    sewingTaskNos: string[]
+    ticketSnapshot: unknown[]
+    sourceWarehouseArea: string
+    sourceLocationCode: string
+  }>
+}
+assert.match(handlerPayload.canonicalIntent, /"handoverLegId"/, 'Web 交出必须持久化 canonical 业务意图')
+assert.equal(handlerPayload.handoverLegId, `${handlerUsageCycleId}:handover:1`, 'Web 交出必须使用共享动态流转段')
+assert(handlerPayload.transferBagUses[0].sewingTaskIds.length > 0, 'Web 交出必须持久化实际车缝任务 ID 数组')
+assert(handlerPayload.transferBagUses[0].sewingTaskNos.length > 0, 'Web 交出必须持久化实际车缝任务号数组')
+assert(handlerPayload.transferBagUses[0].ticketSnapshot.length > 0, 'Web 交出必须持久化当前完整袋内快照')
+assert.equal(handlerPayload.transferBagUses[0].sourceWarehouseArea, 'Web Handler 待交出区')
+assert.match(handlerPayload.transferBagUses[0].sourceLocationCode, /^WEB-/)
+assert.equal(
+  runtime.buildWaitHandoverLifecycleByBagCode(handlerBagCode, guardedBrowserStorage).flowStage,
+  'HANDED_OVER_WAITING_RETURN',
+  '真实 Web handler 成功后必须由权威事实推进生命周期',
 )
 
 console.log('check:web-cutting-transfer-bag-actions passed')
