@@ -4,7 +4,10 @@ import {
   getEngineeringMasterOrderById,
   updateEngineeringTaskRecord,
 } from './pcs-engineering-master-repository.ts'
-import { ensurePatternAssetForEngineeringMaterialLine } from './pcs-pattern-library-archive-linkage.ts'
+import {
+  assertPatternAssetCanBeGeneratedForEngineeringMaterialLine,
+  ensurePatternAssetForEngineeringMaterialLine,
+} from './pcs-pattern-library-archive-linkage.ts'
 import type {
   EngineeringTaskMaterialLine,
   EngineeringTaskRecord,
@@ -194,7 +197,19 @@ export function reviewEngineeringMaterialResults(
 
   if (task.taskType === 'PATTERN_ARTWORK') {
     const masterOrder = getEngineeringMasterOrderById(input.masterOrderId)!
-    for (const decision of input.decisions.filter((item) => item.decision === '通过')) {
+    const passedDecisions = input.decisions.filter((item) => item.decision === '通过')
+    for (const decision of passedDecisions) {
+      const line = activeLines.find((item) => item.materialLineId === decision.materialLineId)!
+      assertPatternAssetCanBeGeneratedForEngineeringMaterialLine({
+        masterOrder,
+        task,
+        line,
+        reviewerName,
+        reviewedAt,
+        decision: '通过',
+      })
+    }
+    for (const decision of passedDecisions) {
       const line = activeLines.find((item) => item.materialLineId === decision.materialLineId)!
       ensurePatternAssetForEngineeringMaterialLine({
         masterOrder,

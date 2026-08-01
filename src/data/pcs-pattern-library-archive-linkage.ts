@@ -16,6 +16,32 @@ export interface EnsurePatternAssetForEngineeringMaterialLineInput {
   decision: '通过'
 }
 
+export function assertPatternAssetCanBeGeneratedForEngineeringMaterialLine(
+  input: EnsurePatternAssetForEngineeringMaterialLineInput,
+): void {
+  if (input.task.taskType !== 'PATTERN_ARTWORK') throw new Error('仅花型任务可以生成花型资产。')
+  if (input.decision !== '通过') throw new Error('只有审核通过的物料行可以生成花型资产。')
+  if (input.line.status !== '正常') throw new Error('因需求变更结束的物料行不能生成花型资产。')
+  if (!input.reviewerName.trim() || !input.reviewedAt.trim()) {
+    throw new Error('花型资产缺少买手审核人或审核时间。')
+  }
+
+  const resultFileIds = input.line.resultFileIds.map((item) => item.trim()).filter(Boolean)
+  const effectImageIds = input.line.effectImageIds.map((item) => item.trim()).filter(Boolean)
+  if (!(resultFileIds[0] || effectImageIds[0])) {
+    throw new Error(`物料行 ${input.line.materialLineId} 缺少花型成果，不能生成资产。`)
+  }
+  if (!input.line.materialSkuId.trim()) {
+    throw new Error(`物料行 ${input.line.materialLineId} 缺少物料 SKU，不能生成资产。`)
+  }
+  if (!input.line.productColor?.trim()) {
+    throw new Error(`物料行 ${input.line.materialLineId} 缺少商品颜色，不能生成资产。`)
+  }
+  if (!input.line.printProcess?.trim()) {
+    throw new Error(`物料行 ${input.line.materialLineId} 缺少印花工艺，不能生成资产。`)
+  }
+}
+
 function filenameFromReference(reference: string, fallback: string): string {
   const raw = reference.split(/[?#]/)[0]?.split('/').at(-1) || fallback
   try {
@@ -33,12 +59,9 @@ function extensionFromFilename(filename: string): string {
 export function ensurePatternAssetForEngineeringMaterialLine(
   input: EnsurePatternAssetForEngineeringMaterialLineInput,
 ): PatternAssetRecord {
-  if (input.task.taskType !== 'PATTERN_ARTWORK') throw new Error('仅花型任务可以生成花型资产。')
-  if (input.decision !== '通过') throw new Error('只有审核通过的物料行可以生成花型资产。')
-  if (input.line.status !== '正常') throw new Error('因需求变更结束的物料行不能生成花型资产。')
+  assertPatternAssetCanBeGeneratedForEngineeringMaterialLine(input)
   const reviewerName = input.reviewerName.trim()
   const reviewedAt = input.reviewedAt.trim()
-  if (!reviewerName || !reviewedAt) throw new Error('花型资产缺少买手审核人或审核时间。')
 
   const existing = listPatternAssets().find((asset) => {
     const snapshot = asset.source_pattern_task_snapshot
@@ -50,14 +73,10 @@ export function ensurePatternAssetForEngineeringMaterialLine(
 
   const resultFileIds = input.line.resultFileIds.map((item) => item.trim()).filter(Boolean)
   const effectImageIds = input.line.effectImageIds.map((item) => item.trim()).filter(Boolean)
-  const primaryReference = resultFileIds[0] || effectImageIds[0]
-  if (!primaryReference) throw new Error(`物料行 ${input.line.materialLineId} 缺少花型成果，不能生成资产。`)
+  const primaryReference = resultFileIds[0] || effectImageIds[0]!
   const materialSku = input.line.materialSkuId.trim()
-  const productColor = input.line.productColor?.trim() || ''
-  const printProcess = input.line.printProcess?.trim() || ''
-  if (!materialSku) throw new Error(`物料行 ${input.line.materialLineId} 缺少物料 SKU，不能生成资产。`)
-  if (!productColor) throw new Error(`物料行 ${input.line.materialLineId} 缺少商品颜色，不能生成资产。`)
-  if (!printProcess) throw new Error(`物料行 ${input.line.materialLineId} 缺少印花工艺，不能生成资产。`)
+  const productColor = input.line.productColor!.trim()
+  const printProcess = input.line.printProcess!.trim()
   const originalFilename = filenameFromReference(primaryReference, `${input.line.materialLineId}.ai`)
   const fileExt = extensionFromFilename(originalFilename)
 

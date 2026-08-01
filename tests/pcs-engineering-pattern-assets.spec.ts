@@ -157,4 +157,54 @@ assert.deepEqual(blueAsset.source_pattern_task_snapshot?.result_file_ids, ['file
 assert.deepEqual(blueAsset.source_pattern_task_snapshot?.effect_image_ids, ['img://PAT-ASSET-2-v2.png'])
 assert.equal(blueAsset.created_by, '买手B')
 
+resetEngineeringMasterRepository()
+resetPatternLibraryStore()
+
+const atomicMaster = publishEngineeringMasterOrder(createEngineeringMasterOrder({
+  styleId: style.styleId,
+  styleCode: style.styleCode,
+  merchandiserName: '跟单A',
+}).masterOrderId)
+const atomicTaskId = `${atomicMaster.masterOrderId}-PATTERN_ARTWORK`
+
+updateEngineeringTaskRecord(atomicMaster.masterOrderId, atomicTaskId, (task) => {
+  task.status = '待审核'
+  task.startedAt = '2026-08-01 10:00:00'
+  task.submittedAt = '2026-08-01 11:00:00'
+  task.materialLines = [
+    patternLine('PAT-ATOMIC-1', 'MAT-GREEN-001', '绿色'),
+    {
+      ...patternLine('PAT-ATOMIC-2', 'MAT-YELLOW-002', '黄色'),
+      productColor: '',
+    },
+  ]
+})
+
+const masterBeforeRejectedReview = getEngineeringMasterOrderById(atomicMaster.masterOrderId)
+const assetsBeforeRejectedReview = listPatternAssets()
+assert.throws(
+  () => reviewEngineeringMaterialResults({
+    masterOrderId: atomicMaster.masterOrderId,
+    taskId: atomicTaskId,
+    reviewerName: '买手C',
+    reviewerRole: '买手',
+    decisions: [
+      { materialLineId: 'PAT-ATOMIC-1', decision: '通过', reason: '' },
+      { materialLineId: 'PAT-ATOMIC-2', decision: '通过', reason: '' },
+    ],
+  }),
+  /物料行 PAT-ATOMIC-2 缺少商品颜色，不能生成资产/,
+  '任一通过行无法生成资产时，整单审核必须失败',
+)
+assert.deepEqual(
+  getEngineeringMasterOrderById(atomicMaster.masterOrderId),
+  masterBeforeRejectedReview,
+  '整单审核失败时，工程主单、任务、物料行和审核轮次必须保持不变',
+)
+assert.deepEqual(
+  listPatternAssets(),
+  assetsBeforeRejectedReview,
+  '整单审核失败时，花型资产库必须保持不变，不能留下前序通过行的孤立资产',
+)
+
 console.log('pcs-engineering-pattern-assets.spec.ts PASS')
