@@ -468,7 +468,10 @@ function buildWaitHandoverOccupancies(warehouse: FactoryInternalWarehouse, inclu
       && state.locationRef.warehouseId === warehouse.warehouseId,
     )
     .map((state) => {
-      const resolvedTickets = state.feiTicketIds.map((ticketId) => ticketById.get(ticketId)).filter(Boolean)
+      const resolvedTickets = state.feiTicketIds
+        .filter((ticketId) => Number(state.feiTicketQtyById[ticketId] || 0) > 0)
+        .map((ticketId) => ticketById.get(ticketId))
+        .filter(Boolean)
       const ticketDetails = resolvedTickets.map((ticket) => ({
         feiTicketNo: ticket!.feiTicketNo,
         partName: ticket!.partName,

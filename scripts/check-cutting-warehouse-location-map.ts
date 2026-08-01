@@ -1644,6 +1644,60 @@ const multiMapStates = buildWaitHandoverLocationOccupancyStates([multiMapBagging
 assert.equal(multiMapStates.length, 2, '待交出多库位入仓必须逐位置形成占用')
 assert.equal(new Set(multiMapStates.map((state) => state.bagCode)).size, 1, '待交出多库位业务袋数量只能汇总一次')
 assert.equal(new Set(multiMapStates.flatMap((state) => state.feiTicketIds)).size, 1, '待交出多库位菲票数量只能汇总一次')
+const twoTicketInboundEvent: CuttingRuntimeEvent = {
+  ...structuredClone(multiMapInboundEvent),
+  eventId: 'EVENT-TWO-TICKET-INBOUND',
+  refs: { ...multiMapInboundEvent.refs, feiTicketIds: ['T1', 'T2'], feiTicketNos: ['T1', 'T2'] },
+  payload: {
+    ...(multiMapInboundEvent.payload as Record<string, unknown>),
+    feiTicketItems: [
+      { feiTicketId: 'T1', feiTicketNo: 'T1', pieceQty: 10 },
+      { feiTicketId: 'T2', feiTicketNo: 'T2', pieceQty: 10 },
+    ],
+    totalPieceQty: 20,
+  },
+}
+const handoverAllT1Event: CuttingRuntimeEvent = {
+  ...structuredClone(twoTicketInboundEvent),
+  eventId: 'EVENT-HANDOVER-ALL-T1',
+  eventType: '特殊工艺交出',
+  occurredAt: '2026-08-01 11:06',
+  refs: { ...twoTicketInboundEvent.refs, feiTicketIds: ['T1'], feiTicketNos: ['T1'] },
+  inventoryEffect: { ...twoTicketInboundEvent.inventoryEffect!, direction: 'OUT', qty: 10 },
+  payload: {
+    transferBagCode: multiMapBagCode,
+    feiTicketItems: [{ feiTicketId: 'T1', feiTicketNo: 'T1', pieceQty: 10 }],
+  },
+}
+const statesAfterAllT1Handover = buildWaitHandoverLocationOccupancyStates([twoTicketInboundEvent, handoverAllT1Event])
+statesAfterAllT1Handover.forEach((state) => {
+  assert.deepEqual(state.feiTicketIds, ['T2'], 'T1 全部交出后活动菲票必须只保留 T2')
+  assert.deepEqual(state.feiTicketQtyById, { T2: 10 }, 'T1 全部交出后票级剩余账必须只保留 T2 10片')
+  assert.equal(state.totalPieceQty, 10, 'T1 全部交出后袋内总量必须为 10片')
+  assert.equal(state.feiTicketIds.length, 1, 'T1 全部交出后占用详情只能投影 1张活动菲票')
+  assert.equal(state.feiTicketIds.reduce((sum, ticketId) => sum + state.feiTicketQtyById[ticketId], 0), state.totalPieceQty, '活动菲票详情合计必须等于袋内总量')
+})
+const returnPartT1Event: CuttingRuntimeEvent = {
+  ...structuredClone(twoTicketInboundEvent),
+  eventId: 'EVENT-RETURN-PART-T1',
+  eventType: '特殊工艺回仓',
+  occurredAt: '2026-08-01 11:07',
+  refs: { ...twoTicketInboundEvent.refs, feiTicketIds: ['T1'], feiTicketNos: ['T1'] },
+  inventoryEffect: { ...twoTicketInboundEvent.inventoryEffect!, direction: 'IN', qty: 5 },
+  payload: {
+    transferBagCode: multiMapBagCode,
+    returnRecordId: 'RETURN-PART-T1',
+    warehouseLocations: waitHandoverLocations,
+    returnedFeiTicketItems: [{ feiTicketId: 'T1', feiTicketNo: 'T1', returnedQty: 5 }],
+  },
+}
+const statesAfterPartT1Return = buildWaitHandoverLocationOccupancyStates([twoTicketInboundEvent, handoverAllT1Event, returnPartT1Event])
+statesAfterPartT1Return.forEach((state) => {
+  assert.deepEqual(state.feiTicketIds, ['T2', 'T1'], 'T1 回仓 5片后必须按原剩余票、回仓票事实顺序恢复活动菲票')
+  assert.deepEqual(state.feiTicketQtyById, { T2: 10, T1: 5 }, 'T1 回仓 5片后票级剩余账必须为 T2 10片、T1 5片')
+  assert.equal(state.totalPieceQty, 15, 'T1 回仓 5片后袋内总量必须为 15片')
+  assert.equal(state.feiTicketIds.reduce((sum, ticketId) => sum + state.feiTicketQtyById[ticketId], 0), state.totalPieceQty, '回仓后活动菲票详情合计必须等于袋内总量')
+})
 const sameTimeHandoverEvent: CuttingRuntimeEvent = {
   ...structuredClone(multiMapInboundEvent),
   eventId: 'EVENT-SAME-TIME-HANDOVER',
@@ -1773,6 +1827,32 @@ const mergedLargeFootprint = mergeWaitHandoverWarehouseLocations(largeStates, [r
 assert.equal(footprintReadCount, 1, 'N 格各带 N footprint 时只能读取一份可信完整 footprint')
 assert.equal(mergedLargeFootprint.length, 1_000, '线性合并不得丢失任一原库位')
 assert.equal(mergedLargeFootprint[0].locationNo, refreshedFirstLocation.locationNo, '回仓同 ID 最新快照必须覆盖且保持首次顺序')
+let firstFragmentFootprintReads = 0
+let secondFragmentFootprintReads = 0
+const fragmentedStates = [
+  {
+    ...multiMapReturnedStates[0],
+    locationRef: waitHandoverLocations[0],
+    get warehouseLocations() {
+      firstFragmentFootprintReads += 1
+      return [waitHandoverLocations[0]]
+    },
+  },
+  {
+    ...multiMapReturnedStates[1],
+    locationRef: waitHandoverLocations[1],
+    get warehouseLocations() {
+      secondFragmentFootprintReads += 1
+      return [waitHandoverLocations[1]]
+    },
+  },
+]
+const fragmentedLatestA = { ...waitHandoverLocations[0], locationNo: `${waitHandoverLocations[0].locationNo}-回仓新编号` }
+const mergedFragmentedFootprint = mergeWaitHandoverWarehouseLocations(fragmentedStates, [fragmentedLatestA])
+assert.equal(firstFragmentFootprintReads, 1, '历史碎片只能读取首个非空完整范围候选一次')
+assert.equal(secondFragmentFootprintReads, 0, '补齐历史碎片不得读取后续状态携带的重复完整范围')
+assert.deepEqual(mergedFragmentedFootprint.map((location) => location.locationId), waitHandoverLocations.map((location) => location.locationId), 'A/B 历史碎片必须按状态稳定顺序补齐为完整范围')
+assert.equal(mergedFragmentedFootprint[0].locationNo, fragmentedLatestA.locationNo, '碎片补齐后回仓同 ID 最新快照仍必须覆盖且保持首次顺序')
 assert.match(warehouseMapSource, /footprintId:\s*buildWaitHandoverStorageFootprintId\(state\)/, '待交出占用必须用包含仓库 scope 和使用周期的稳定 footprintId')
 assert.match(warehouseMapSource, /function buildWaitHandoverStorageFootprintId\(/, '必须集中构造待交出占用 footprintId')
 const firstCycleFootprintId = buildWaitHandoverStorageFootprintId(multiMapReturnedStates[0])
@@ -1783,6 +1863,7 @@ const secondCycleFootprintId = buildWaitHandoverStorageFootprintId({
 assert.notEqual(firstCycleFootprintId, secondCycleFootprintId, '同袋不同活动周期必须形成两个独立占用摘要')
 assert.equal(new Set([firstCycleFootprintId, secondCycleFootprintId]).size, 2, '两个活动周期必须各自计数，不得按袋号合并')
 assert.match(warehouseMapSource, /pieceQty:\s*Number\(state\.feiTicketQtyById\[ticket!\.feiTicketId\]/, '占用详情的菲票片数必须读取运行时剩余票级数量')
+assert.match(warehouseMapSource, /filter\(\(ticketId\)\s*=>\s*Number\(state\.feiTicketQtyById\[ticketId\]/, '占用详情必须在解析票元数据前过滤剩余数量为0的菲票')
 assert.doesNotMatch(
   readFileSync(new URL('../src/pages/process-factory/cutting/wait-handover-runtime.ts', import.meta.url), 'utf8')
     .match(/if \(event\.eventType === '特殊工艺回仓'\)[\s\S]*?\n    }\n  }/)?.[0] || '',

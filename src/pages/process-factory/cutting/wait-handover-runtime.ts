@@ -115,6 +115,10 @@ function runtimeTicketQtyById(value: unknown, qtyField: 'pieceQty' | 'returnedQt
   return Object.fromEntries(quantities)
 }
 
+function runtimeTicketIds(value: unknown): string[] {
+  return uniqueStrings((Array.isArray(value) ? value : []).map((row) => runtimeString(runtimeRecord(row).feiTicketId)))
+}
+
 function adjustRuntimeTicketQtys(
   current: Record<string, number>,
   deltas: Record<string, number>,
@@ -142,7 +146,15 @@ export function mergeWaitHandoverWarehouseLocations(
   }
   trustedFootprint ??= currentStates.map((state) => state.locationRef)
   const warehouseLocationById = new Map<string, RuntimeWarehouseLocationRef>()
-  trustedFootprint.concat(returnedLocations).forEach((location) => {
+  trustedFootprint.forEach((location) => {
+    warehouseLocationById.set(location.locationId, location)
+  })
+  currentStates.forEach((state) => {
+    if (!warehouseLocationById.has(state.locationRef.locationId)) {
+      warehouseLocationById.set(state.locationRef.locationId, state.locationRef)
+    }
+  })
+  returnedLocations.forEach((location) => {
     warehouseLocationById.set(location.locationId, location)
   })
   return Array.from(warehouseLocationById.values())
@@ -1069,6 +1081,7 @@ export function buildWaitHandoverLocationOccupancyStates(
           states.set(stateKey, {
             ...state,
             sourceEventId: event.eventId,
+            feiTicketIds: state.feiTicketIds.filter((ticketId) => Number(nextTicketQtyById[ticketId] || 0) > 0),
             totalPieceQty: remainingQty,
             feiTicketQtyById: nextTicketQtyById,
           })
@@ -1108,10 +1121,12 @@ export function buildWaitHandoverLocationOccupancyStates(
       const nextQty = Object.keys(returnedTicketQtyById).length
         ? explicitNextQty
         : Number(current?.totalPieceQty || 0) + returnedQty
-      const nextTicketIds = Array.from(new Set([
+      const returnedTicketIds = runtimeTicketIds(payload.returnedFeiTicketItems)
+      const appendedTicketIds = returnedTicketIds.length ? returnedTicketIds : event.refs.feiTicketIds ?? []
+      const nextTicketIds = uniqueStrings([
         ...currentStates.flatMap((state) => state.feiTicketIds),
-        ...(event.refs.feiTicketIds ?? []),
-      ]))
+        ...appendedTicketIds,
+      ]).filter((ticketId) => Number(nextTicketQtyById[ticketId] || 0) > 0)
       const usageCycleId = event.refs.usageCycleId || current?.usageCycleId
       stateKeys.forEach((stateKey) => states.delete(stateKey))
       warehouseLocations.forEach((locationRef) => {
