@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict'
-import fs from 'node:fs'
 
 import { listStyleArchives, resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
 import {
@@ -7,6 +6,7 @@ import {
   getEngineeringMasterOrderById,
   publishEngineeringMasterOrder,
   resetEngineeringMasterRepository,
+  setEngineeringMasterStatus,
   submitEngineeringTaskResult,
 } from '../src/data/pcs-engineering-master-repository.ts'
 import { resolveEngineeringTaskSubmitStatus } from '../src/data/pcs-engineering-dependency-policy.ts'
@@ -48,6 +48,7 @@ assert.equal(wovenResult.task.status, '已完成')
 assert.ok(wovenResult.task.submittedAt, '提交后应记录提交时间')
 assert.ok(wovenResult.task.firstCompletedAt, '提交即完成应记录首次完成时间')
 assert.equal(wovenResult.task.effectiveCompletedAt, wovenResult.task.firstCompletedAt)
+assert.equal(wovenResult.task.startedAt, wovenResult.task.submittedAt, '待开始任务直接提交时应以提交时间补齐开始时间')
 
 // 待前置且前置未完成：禁止提交
 assert.throws(
@@ -55,6 +56,25 @@ assert.throws(
   /前置/,
   '前置任务未完成时样衣任务不得提交',
 )
+
+// 只有已发布/进行中的主单可以接收专业任务成果；收口阶段必须拒绝继续改写任务事实。
+for (const [index, status] of (['技术包审核中', '待关闭', '已关闭'] as const).entries()) {
+  const blockedStyle = listStyleArchives()[index + 1]
+  assert.ok(blockedStyle, `缺少用于${status}门禁测试的款式档案`)
+  const blockedMaster = createEngineeringMasterOrder({
+    styleId: blockedStyle.styleId,
+    styleCode: blockedStyle.styleCode,
+    merchandiserName: '跟单C',
+  })
+  const blockedPublished = publishEngineeringMasterOrder(blockedMaster.masterOrderId)
+  setEngineeringMasterStatus(blockedPublished.masterOrderId, status)
+  assert.throws(
+    () => submitEngineeringTaskResult(blockedPublished.masterOrderId, `${blockedPublished.masterOrderId}-BASE_PATTERN_WOVEN`),
+    /仅进行中的工程主单/,
+    `${status}主单不得继续提交任务成果`,
+  )
+  setEngineeringMasterStatus(blockedPublished.masterOrderId, '已终止')
+}
 
 // 前置完成后待前置任务可提交：产前版样衣提交即完成
 submitEngineeringTaskResult(master.masterOrderId, taskId('BASE_PATTERN_KNIT'))
@@ -77,33 +97,6 @@ assert.throws(
   () => submitEngineeringTaskResult(master.masterOrderId, taskId('BASE_PATTERN_WOVEN')),
   /已完成/,
   '已完成任务不得重复提交',
-)
-
-// 删除任务级样衣验收：制作团队提交首版样衣结果后直接形成“已通过”业务状态，
-// 不得再保留“待确认 -> 确认完成”的第二次任务动作。
-const engineeringTaskPageSource = fs.readFileSync('src/pages/pcs-engineering-tasks.ts', 'utf8')
-const submitFirstSampleResultSource = engineeringTaskPageSource.slice(
-  engineeringTaskPageSource.indexOf('function submitFirstSampleResult()'),
-  engineeringTaskPageSource.indexOf('function submitFirstOrderCreate()'),
-)
-const advanceFirstSampleTaskSource = engineeringTaskPageSource.slice(
-  engineeringTaskPageSource.indexOf('function advanceFirstSampleTask('),
-  engineeringTaskPageSource.indexOf('function advanceFirstOrderTask('),
-)
-assert.match(
-  submitFirstSampleResultSource,
-  /status:\s*'已通过'/,
-  '首版样衣结果提交后应直接形成已通过状态',
-)
-assert.doesNotMatch(
-  submitFirstSampleResultSource,
-  /status:\s*'待确认'/,
-  '首版样衣结果提交后不得再进入任务级待确认',
-)
-assert.doesNotMatch(
-  advanceFirstSampleTaskSource,
-  /task\.status\s*===\s*'待确认'|确认完成/,
-  '首版样衣任务推进不得保留第二次确认动作',
 )
 
 // 工程主单详情提交后必须局部刷新泳道与反馈区域，不能依赖整页重绘。

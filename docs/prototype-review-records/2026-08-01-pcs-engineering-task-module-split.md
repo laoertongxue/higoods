@@ -1,16 +1,16 @@
-# PCS 工程任务页面模块拆分审查记录
+# PCS 工程任务页面模块拆分与事实源收口审查记录
 
 ## 1. 基本信息
 
 | 项目 | 内容 |
 | --- | --- |
 | 审查日期 | 2026-08-01 |
-| 相关需求 / 任务 | task-727：pcs-engineering-tasks 巨型页面模块拆分（共享骨架、花型模块、新页面接入） |
+| 相关需求 / 任务 | Task 5：工程专业任务统一事实源与提交语义；延续 task-727 页面模块拆分 |
 | 涉及系统 | PCS |
-| 涉及页面路径 | /pcs/engineering/revision、/pcs/engineering/plate、/pcs/engineering/pattern、/pcs/engineering/first-sample、/pcs/engineering/first-order-sample、/pcs/engineering/color、/pcs/engineering/purchase、/pcs/engineering/tech-pack（列表与详情） |
+| 涉及页面路径 | /pcs/patterns/plate-making、/pcs/patterns/artwork、/pcs/samples/first-sample（列表与详情）；其余既有工程任务页面沿用原路由 |
 | 端类型 | 管理端 |
 | 主要角色 | 工艺、版师、花型设计师、买手、跟单、样衣制作团队 |
-| 主要任务 | 将 7624 行单文件按“共享骨架 / 页面业务”拆分，保持路由、事件入口、数据格式与页面行为完全兼容 |
+| 主要任务 | 制版、花型、产前版样衣统一读取工程主单任务；收口提交门禁和产前版样衣成果语义 |
 
 ## 2. 参考规范
 
@@ -29,25 +29,30 @@
   - `src/pages/pcs-engineering-tasks/purchase-task.ts`：辅料下单任务（ACCESSORY_PURCHASE）。
   - `src/pages/pcs-engineering-tasks/tech-pack-task.ts`：技术包确认任务（TECH_PACK_CONFIRMATION）。
 - 三个新页面复用 shared.ts 标准列表骨架与模块钩子分派（module: color / purchase / techPack），状态筛选口径与工程任务记录 8 档状态一致（未启用、待前置、待开始、进行中、待审核、返工中、已完成、因需求变更结束），统计口径为全部 / 进行中 / 待审核 / 返工中 / 已完成；页面只读展示，任务状态推进在工程主单详情完成；主按钮“查看工程主单”为导航动作（nav: 前缀，走全局 data-nav 处理）。
+- 制版、花型、产前版样衣新增独立页面模块，列表与详情均从 `EngineeringMasterOrderRecord.tasks` 展开，不再读取各自旧任务仓储：
+  - 制版提交成果后直接完成。
+  - 花型提交成果后进入待审核；逐项成果审核留到后续任务实施。
+  - 产前版样衣由制作团队提交成果图片、制作数量和提交人，提交即完成，不生成任务级验收、确认人或复用结论。
+- `submitEngineeringTaskResult` 只允许已发布或进行中的工程主单写入成果；待开始任务直接提交时自动补齐开始时间。技术包审核中、待关闭、已关闭等收口状态均阻断提交。
 - 拆分不改变路由（10 个动态导入仍指向同一入口文件）、不改变 main-handlers 的输入 / 事件 / 弹窗导出契约、不改变页面文案、状态口径、筛选、分页、列偏好持久化与详情交互。
-- 列表状态筛选口径与拆分前一致：制版 / 花型等专业任务通用筛选保留七档（进行中、待确认、已确认、已生成技术包、已完成、异常待处理、已取消，`ENGINEERING_COMMON_FILTER_STATUS_OPTIONS`）；改版任务专用筛选收敛为五档（`REVISION_FILTER_STATUS_OPTIONS`）。拆分过程中曾误将通用筛选收为五档，已通过 `check:pcs-plate-making-mock-data` 回归发现并恢复七档，保持与拆分前行为完全一致。
+- 本切片只收口制版、花型、产前版样衣，不改独立改版任务的业务逻辑；三个新页面只展示工程任务统一 8 档状态。
 
 ## 3. 自查结论
 
 | 检查项 | 结论 | 说明 |
 | --- | --- | --- |
 | 角色匹配 | 通过 | 五类工程任务的角色与操作入口在拆分前后完全一致；三个新页面按工程主单任务定义展示负责团队（染厂 / 采购人员 / 跟单）。 |
-| 任务清晰度 | 通过 | 列表统计、筛选、创建与详情主动作均未变化，仅代码位置移动；新页面列表统计与 8 档状态筛选口径清晰，详情页只读展示任务概要、主单、物料、返工、依赖与日志。 |
+| 任务清晰度 | 通过 | 制版、花型、产前版样衣列表明确展示所属主单、款式、团队、依赖与提交时间；详情读取同一任务事实。 |
 | 信息架构与导航 | 通过 | 路由注册与页面跳转保持不变，10 个页面导出由同一入口 re-export 兼容；新页面通过 data-nav 与工程主单详情互相可达，主按钮“查看工程主单”走全局 data-nav 处理。 |
 | 页面模式 | 通过 | 列表页仍使用标准列表骨架（renderEngineeringStandardListPage）与标准表格、分页。 |
 | 信息负荷 | 通过 | 未新增或删除任何字段展示。 |
 | 文案 | 通过 | 全部中文业务文案与状态值原样保留，无英文状态码。 |
-| 数量与状态 | 通过 | 状态展示与拆分前完全一致：通用专业任务筛选七档（含异常待处理、已取消），改版任务专用五档；新页面使用工程任务记录 8 档状态（未启用、待前置、待开始、进行中、待审核、返工中、已完成、因需求变更结束），全部中文展示，与既有测试（pcs-engineering-task-status）保持一致。 |
+| 数量与状态 | 通过 | 三个页面使用工程任务记录 8 档状态；产前版样衣成果数量带“件”，图片数量带“张”，均由任务事实读取。 |
 | 扫码与识别 | 通过 | 本次不涉及扫码场景。 |
 | 防错 | 通过 | 必需列、操作列固定、完成前缺字段拦截等防错逻辑原样保留。 |
 | UI 样式 | 通过 | 未调整任何样式与布局。 |
 | 组件交互 | 通过 | 弹窗、抽屉、行操作、Tab 均为局部更新，不触发整页重绘。 |
-| 协作关系 | 通过 | 五类任务间上下游关系展示逻辑未变。 |
+| 协作关系 | 通过 | 专业团队处理任务，工程主单承载任务与固定依赖；产前版样衣记录制作团队的提交人和提交时间。 |
 | 异常与追溯 | 通过 | 操作记录、超期统计、空态提示原样保留；新页面展示任务时间线日志（生成 / 开始 / 提交 / 完成），物料行为空时展示空态文案。 |
 | 现场设备可用性 | 通过 | 管理端页面，不涉及现场 PDA。 |
 
@@ -76,6 +81,8 @@
 
 ### 受管文件
 
+- `src/data/pcs-engineering-master-repository.ts`
+- `src/data/pcs-engineering-master-types.ts`
 - `src/data/pcs-channel-product-project-repository.ts`
 - `src/data/pcs-first-order-sample-project-writeback.ts`
 - `src/data/pcs-first-order-sample-repository.ts`
@@ -97,6 +104,10 @@
 - `src/pages/pcs-engineering-tasks/shared.ts`
 - `src/pages/pcs-engineering-tasks/pattern-task.ts`
 - `src/pages/pcs-engineering-tasks/master-task-common.ts`
+- `src/pages/pcs-engineering-tasks/master-task-page.ts`
+- `src/pages/pcs-engineering-tasks/plate-making-task.ts`
+- `src/pages/pcs-engineering-tasks/pattern-master-task.ts`
+- `src/pages/pcs-engineering-tasks/first-sample-task.ts`
 - `src/pages/pcs-engineering-tasks/color-task.ts`
 - `src/pages/pcs-engineering-tasks/purchase-task.ts`
 - `src/pages/pcs-engineering-tasks/tech-pack-task.ts`
@@ -114,8 +125,17 @@
 - `/pcs/engineering/color`、`/pcs/engineering/color/:id`
 - `/pcs/engineering/purchase`、`/pcs/engineering/purchase/:id`
 - `/pcs/engineering/tech-pack`、`/pcs/engineering/tech-pack/:id`
+- `/pcs/patterns/plate-making`、`/pcs/patterns/plate-making/:id`
+- `/pcs/patterns/artwork`、`/pcs/patterns/artwork/:id`
+- `/pcs/samples/first-sample`、`/pcs/samples/first-sample/:id`
 
 ### 验证命令
+
+- `npx tsx tests/pcs-engineering-task-submit.spec.ts`：通过（真实调用提交门禁、开始时间与局部刷新行为）
+- `npx tsx tests/pcs-engineering-professional-fact-source.spec.ts`：通过（制版、花型、产前版样衣读取工程主单任务）
+- `npx tsx tests/pcs-first-sample-engineering-result.spec.ts`：通过（真实提交成果并验证持久化、校验与无任务级验收文案）
+- `npx tsx tests/pcs-engineering-task-status.spec.ts`、`pcs-engineering-master-domain.spec.ts`、`pcs-engineering-dependency-policy.spec.ts`：通过
+- `npm run check:list-page-governance:static`：通过
 
 - `npm test -- tests/pcs-engineering-task-status.spec.ts`：通过（状态集合 8 档断言）
 - `npm run check:pcs-plate-making-refactor`：通过

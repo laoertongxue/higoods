@@ -77,6 +77,9 @@ export interface EngineeringTaskRecord {
   submittedAt: string
   firstCompletedAt: string
   effectiveCompletedAt: string
+  resultImageIds: string[]
+  resultQuantity: number
+  resultSubmittedBy: string
 }
 
 export interface EngineeringPriorResultReuseLine {

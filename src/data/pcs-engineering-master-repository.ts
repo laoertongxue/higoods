@@ -41,6 +41,7 @@ function cloneTask(task: EngineeringTaskRecord): EngineeringTaskRecord {
     dependsOnTaskIds: [...task.dependsOnTaskIds],
     materialLines: task.materialLines.map((line) => ({ ...line })),
     reworkRounds: task.reworkRounds.map((round) => ({ ...round })),
+    resultImageIds: [...(task.resultImageIds || [])],
   }
 }
 
@@ -91,7 +92,14 @@ function readSnapshot(): EngineeringMasterOrderSnapshot {
 function normalizeRecord(record: EngineeringMasterOrderRecord): EngineeringMasterOrderRecord {
   return cloneRecord({
     ...record,
-    tasks: Array.isArray(record.tasks) ? record.tasks : [],
+    tasks: Array.isArray(record.tasks)
+      ? record.tasks.map((task) => ({
+          ...task,
+          resultImageIds: Array.isArray(task.resultImageIds) ? [...task.resultImageIds] : [],
+          resultQuantity: Number(task.resultQuantity || 0),
+          resultSubmittedBy: task.resultSubmittedBy || '',
+        }))
+      : [],
     priorResultReuseLines: Array.isArray(record.priorResultReuseLines) ? record.priorResultReuseLines : [],
   })
 }
@@ -209,6 +217,9 @@ export function publishEngineeringMasterOrder(masterOrderId: string): Engineerin
       submittedAt: '',
       firstCompletedAt: '',
       effectiveCompletedAt: '',
+      resultImageIds: [],
+      resultQuantity: 0,
+      resultSubmittedBy: '',
     })
   }
 
@@ -238,17 +249,37 @@ export function resetEngineeringMasterRepository(): void {
   }
 }
 
+// 主单状态变更的单一仓储入口。页面不可直接改写快照；后续关闭流程复用此入口。
+export function setEngineeringMasterStatus(
+  masterOrderId: string,
+  status: EngineeringMasterOrderRecord['status'],
+): EngineeringMasterOrderRecord {
+  const snapshot = readSnapshot()
+  const record = snapshot.records.find((item) => item.masterOrderId === masterOrderId)
+  if (!record) throw new Error(`工程主单不存在：${masterOrderId}`)
+  record.status = status
+  writeSnapshot(snapshot)
+  return cloneRecord(record)
+}
+
+export interface SubmitEngineeringTaskResultInput {
+  resultImageIds?: string[]
+  resultQuantity?: number
+  submittedBy?: string
+}
+
 // 提交任务成果：制版与产前版样衣提交即完成；花型和调色进入待审核。
 // 待前置任务要求全部前置已完成；条件任务未启用时禁止提交。
 export function submitEngineeringTaskResult(
   masterOrderId: string,
   taskId: string,
+  input: SubmitEngineeringTaskResultInput = {},
 ): { masterOrder: EngineeringMasterOrderRecord; task: EngineeringTaskRecord } {
   const snapshot = readSnapshot()
   const record = snapshot.records.find((item) => item.masterOrderId === masterOrderId)
   if (!record) throw new Error(`工程主单不存在：${masterOrderId}`)
-  if (record.status === '草稿' || record.status === '已终止') {
-    throw new Error('仅已发布工程主单的任务可以提交成果。')
+  if (record.status !== '已发布' && record.status !== '进行中') {
+    throw new Error('仅进行中的工程主单可以提交任务成果。')
   }
 
   const task = record.tasks.find((item) => item.taskId === taskId)
@@ -271,7 +302,11 @@ export function submitEngineeringTaskResult(
   const submittedAt = nowText()
   const targetStatus = resolveEngineeringTaskSubmitStatus(task.taskType)
   task.status = targetStatus
+  if (!task.startedAt) task.startedAt = submittedAt
   task.submittedAt = submittedAt
+  if (input.resultImageIds) task.resultImageIds = [...input.resultImageIds]
+  if (input.resultQuantity !== undefined) task.resultQuantity = Math.max(0, Number(input.resultQuantity || 0))
+  if (input.submittedBy !== undefined) task.resultSubmittedBy = input.submittedBy.trim()
   if (targetStatus === '已完成') {
     task.firstCompletedAt = submittedAt
     task.effectiveCompletedAt = submittedAt
