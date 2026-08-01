@@ -71,6 +71,7 @@ reviewEngineeringMaterialResults({
   masterOrderId: master.masterOrderId,
   taskId,
   reviewerName: '买手A',
+  reviewerRole: '买手',
   decisions: [
     { materialLineId: 'PAT-ASSET-1', decision: '通过', reason: '' },
     { materialLineId: 'PAT-ASSET-2', decision: '未通过', reason: '颜色偏暗' },
@@ -135,6 +136,7 @@ reviewEngineeringMaterialResults({
   masterOrderId: master.masterOrderId,
   taskId,
   reviewerName: '买手B',
+  reviewerRole: '买手',
   decisions: [{ materialLineId: 'PAT-ASSET-2', decision: '通过', reason: '' }],
 })
 

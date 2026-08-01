@@ -156,8 +156,8 @@ export function reviewEngineeringMaterialResults(
   const task = getReviewableTask(input.masterOrderId, input.taskId)
   const reviewerName = input.reviewerName.trim()
   if (!reviewerName) throw new Error('请填写审核人。')
-  if ((task.taskType === 'COLOR_YARN' || task.taskType === 'COLOR_FABRIC') && input.reviewerRole !== '买手') {
-    throw new Error('调色成果只能由买手审核。')
+  if (input.reviewerRole !== '买手') {
+    throw new Error('花型与调色成果只能由买手审核。')
   }
   if (task.status !== '待审核') throw new Error('当前任务不在待审核状态。')
 

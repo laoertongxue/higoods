@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 
+import { listPatternAssets, resetPatternLibraryStore } from '../src/data/pcs-pattern-library.ts'
 import { listStyleArchives, resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
 import {
   createEngineeringMasterOrder,
@@ -37,6 +38,7 @@ function materialLine(materialLineId: string, materialName: string): Engineering
 
 resetStyleArchiveRepository()
 resetEngineeringMasterRepository()
+resetPatternLibraryStore()
 
 const style = listStyleArchives()[0]
 assert.ok(style, '应存在款式档案演示数据')
@@ -56,12 +58,40 @@ updateEngineeringTaskRecord(master.masterOrderId, patternTaskId, (task) => {
   task.materialLines = [materialLine('PAT-1', '红色印花面料'), materialLine('PAT-2', '蓝色印花面料'), endedLine]
 })
 
+const beforeUnauthorizedPatternReview = getEngineeringMasterOrderById(master.masterOrderId)
+const assetsBeforeUnauthorizedPatternReview = listPatternAssets()
+assert.throws(
+  () => reviewEngineeringMaterialResults({
+    masterOrderId: master.masterOrderId,
+    taskId: patternTaskId,
+    reviewerName: '跟单A',
+    reviewerRole: '跟单',
+    decisions: [
+      { materialLineId: 'PAT-1', decision: '通过', reason: '' },
+      { materialLineId: 'PAT-2', decision: '通过', reason: '' },
+    ],
+  }),
+  /花型与调色成果只能由买手审核/,
+  '花型任务不得绕过页面由非买手直接审核',
+)
+assert.deepEqual(
+  getEngineeringMasterOrderById(master.masterOrderId),
+  beforeUnauthorizedPatternReview,
+  '非买手审核失败后不得修改工程主单、任务或物料行',
+)
+assert.deepEqual(
+  listPatternAssets(),
+  assetsBeforeUnauthorizedPatternReview,
+  '非买手审核失败后不得生成花型资产',
+)
+
 const beforeInvalidReview = getEngineeringMasterOrderById(master.masterOrderId)
 assert.throws(
   () => reviewEngineeringMaterialResults({
     masterOrderId: master.masterOrderId,
     taskId: patternTaskId,
     reviewerName: '买手A',
+    reviewerRole: '买手',
     decisions: [{ materialLineId: 'PAT-1', decision: '通过', reason: '' }],
   }),
   /不得遗漏.*PAT-2/,
@@ -78,6 +108,7 @@ assert.throws(
     masterOrderId: master.masterOrderId,
     taskId: patternTaskId,
     reviewerName: '买手A',
+    reviewerRole: '买手',
     decisions: [
       { materialLineId: 'PAT-1', decision: '通过', reason: '' },
       { materialLineId: 'PAT-1', decision: '未通过', reason: '重复行' },
@@ -91,6 +122,7 @@ assert.throws(
     masterOrderId: master.masterOrderId,
     taskId: patternTaskId,
     reviewerName: '买手A',
+    reviewerRole: '买手',
     decisions: [
       { materialLineId: 'PAT-1', decision: '通过', reason: '' },
       { materialLineId: 'PAT-2', decision: '通过', reason: '' },
@@ -105,6 +137,7 @@ assert.throws(
     masterOrderId: master.masterOrderId,
     taskId: patternTaskId,
     reviewerName: '买手A',
+    reviewerRole: '买手',
     decisions: [
       { materialLineId: 'PAT-1', decision: '通过', reason: '' },
       { materialLineId: 'PAT-2', decision: '未通过', reason: '' },
@@ -117,6 +150,7 @@ const mixed = reviewEngineeringMaterialResults({
   masterOrderId: master.masterOrderId,
   taskId: patternTaskId,
   reviewerName: '买手A',
+  reviewerRole: '买手',
   decisions: [
     { materialLineId: 'PAT-1', decision: '通过', reason: '' },
     { materialLineId: 'PAT-2', decision: '未通过', reason: '颜色偏暗' },
@@ -159,6 +193,7 @@ assert.throws(
     masterOrderId: master.masterOrderId,
     taskId: patternTaskId,
     reviewerName: '买手A',
+    reviewerRole: '买手',
     decisions: [
       { materialLineId: 'PAT-1', decision: '通过', reason: '' },
       { materialLineId: 'PAT-2', decision: '通过', reason: '' },
@@ -172,6 +207,7 @@ const completed = reviewEngineeringMaterialResults({
   masterOrderId: master.masterOrderId,
   taskId: patternTaskId,
   reviewerName: '买手A',
+  reviewerRole: '买手',
   decisions: [{ materialLineId: 'PAT-2', decision: '通过', reason: '' }],
 })
 assert.equal(completed.taskStatus, '已完成')
@@ -193,6 +229,7 @@ assert.throws(
     masterOrderId: master.masterOrderId,
     taskId: unsupportedTaskId,
     reviewerName: '买手A',
+    reviewerRole: '买手',
     decisions: [],
   }),
   /仅花型与调色任务支持逐项审核/,

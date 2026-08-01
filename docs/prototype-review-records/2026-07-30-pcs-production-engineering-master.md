@@ -35,6 +35,7 @@
 ### 任务 6 切片 A 业务事实（逐项审核服务）
 
 - 花型与调色任务按工程主单内的有效物料行整单审核；审核服务不读取旧花型任务仓库，也不生成花型资产。
+- 花型与调色成果最终均只能由买手审核；统一审核服务必须校验买手角色，不能仅凭审核人姓名或页面入口放行。
 - 每轮必须覆盖全部当前待审核行；重复、遗漏、非当前有效行和未填写原因的未通过行均整体拒绝，不产生部分写入。
 - 任一物料行未通过时任务进入“返工中”，已通过行锁定；下一轮只能修改、重提和审核上一轮未通过行。
 - 全部有效物料行通过后任务进入“已完成”，保留每轮审核、返工轮次、首次完成时间和当前有效完成时间。
@@ -158,7 +159,7 @@
 - `npm run check:list-page-governance`：通过（任务 4，含标准列表页模板与原型治理全量检查）。
 - `npm run check:menu-routes`：通过（任务 4）。
 - `npm run build`：通过（任务 4）。
-- `npx tsx tests/pcs-engineering-material-review.spec.ts`：通过（任务 6 切片 A）。
+- `npx tsx tests/pcs-engineering-material-review.spec.ts`：通过（任务 6 切片 A，含花型非买手审核原子拒绝门禁）。
 - `npm run build`：通过（任务 6 切片 A）。
 - `npx tsx tests/pcs-engineering-pattern-assets.spec.ts`：通过（任务 6 切片 B：逐行生成、字段完整、未通过不生成、重试幂等与第二轮生成）。
 - `npx playwright test tests/pcs-engineering-task-review-ui.spec.ts`：通过（任务 6 切片 D：调色三阶段门禁、花型混合审核、原因必填、通过行锁定及仅失败行返工）。
