@@ -345,7 +345,7 @@
 
 - `npm run check:cutting-warehouse-location-map`：通过，覆盖无固定 99 上限、逐层具体错误、三类启停、占用停用保护、原子库位编号＋状态、版本和单条历史。
 - `npm run build`：通过。
-- `npx playwright test tests/cutting-warehouse-location-map.spec.ts --list`：发现 10 项。
+- `npx playwright test tests/cutting-warehouse-location-map.spec.ts --list`：发现 11 项。
 - 定向 Playwright：“维护表单冲突和占用保护”最新 1/1 通过（45.7 秒）；“非占用三类维护”在显式归一化 VIEW → LAYOUT 后 1/1 通过（34.8 秒），覆盖 `R100` 创建、三类编号／状态保存、滚动保持和页面外壳 DOM 保持。本结论仅针对这两个受控场景，不代表其余库位图 E2E 已运行。
 - 原型仍使用浏览器本地存储，不接真实后端、权限、审批和数据库锁；这是既定原型边界。
 - 本次必要范围扩展到 `warehouse-location-layout-store.ts`、`warehouse-location-map-model.ts` 与编号生成 mock 的正整数校验；只删除伪业务上限并补原子启停，不扩写任务 7/8 的入仓写回。
