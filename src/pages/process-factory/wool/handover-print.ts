@@ -29,31 +29,14 @@ function renderStyleImage(imageUrl: string | undefined): string {
   return `<img src="${escapeHtml(imageUrl)}" alt="SPU 款式图" class="h-28 w-28 shrink-0 rounded-md border bg-white object-contain p-1" data-testid="wool-print-style-image" data-wool-print-style-image>`
 }
 
-function renderMaterialItem(skuCode: string, imageUrl: string | undefined, index: number): string {
-  const image = isRealPrintImage(imageUrl)
-    ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(skuCode)} 物料图" class="h-24 w-full object-contain" data-testid="wool-print-material-image-${index + 1}">`
-    : '<div class="flex h-24 items-center justify-center border-b border-dashed border-red-300 bg-red-50 p-2 text-center text-xs text-red-700">物料图缺失，需补真实图片</div>'
-  return `<figure class="overflow-hidden rounded-md border bg-white" data-wool-print-material-item data-material-sku="${escapeHtml(skuCode)}">
-    ${image}
-    <figcaption class="border-t px-2 py-1.5 text-center font-mono text-[11px] text-slate-700">物料 SKU：${escapeHtml(skuCode)}</figcaption>
-  </figure>`
-}
-
 function receiverLabel(record: WoolHandoverRecord): string {
   return record.receiverType === 'CUTTING_WAIT_HANDOVER_WAREHOUSE'
     ? '裁床工厂（裁床待交出仓）'
     : record.receiverName
 }
 
-function hasCompletePrintImages(order: WoolWorkOrder, records: WoolHandoverRecord[]): boolean {
-  if (!isRealPrintImage(order.styleImageUrl)) return false
-  return records.every((record) => {
-    const line = findOutputLine(order, record.outputSkuCode)
-    if (!line) return false
-    return line.requiredYarnSkus.every((materialSkuCode) => isRealPrintImage(
-      line.materialImages?.find((item) => item.materialSkuCode === materialSkuCode)?.imageUrl,
-    ))
-  })
+function hasCompletePrintImages(order: WoolWorkOrder): boolean {
+  return isRealPrintImage(order.styleImageUrl)
 }
 
 function renderHandoverPage(order: WoolWorkOrder, record: WoolHandoverRecord, pageNo: number): string {
@@ -131,19 +114,6 @@ function renderHandoverPage(order: WoolWorkOrder, record: WoolHandoverRecord, pa
       </table>
     </section>
 
-    <section class="mt-4 rounded-md border p-3" data-wool-print-materials>
-      <div class="mb-2 text-sm font-semibold">本次交出对应物料</div>
-      <div class="grid grid-cols-3 gap-2">
-        ${line?.requiredYarnSkus.map((skuCode, index) =>
-          renderMaterialItem(
-            skuCode,
-            line.materialImages?.find((item) => item.materialSkuCode === skuCode)?.imageUrl,
-            index,
-          )).join('')
-          || '<div class="col-span-3 rounded-md border border-dashed border-red-300 bg-red-50 p-3 text-sm text-red-700">未找到加工后 SKU 对应的技术包物料，禁止正式打印。</div>'}
-      </div>
-    </section>
-
     <footer class="mt-8 grid grid-cols-3 gap-8 text-center text-sm">
       <div class="border-t pt-2">交出人：${escapeHtml(record.handedOverBy)}</div>
       <div class="border-t pt-2">承运/交接</div>
@@ -164,7 +134,7 @@ export function renderCraftWoolHandoverPrintPage(woolOrderId: string, handoverId
   const handovers = handoverId
     ? allHandovers.filter((record) => record.handoverId === handoverId)
     : allHandovers
-  const hasCompleteImages = hasCompletePrintImages(order, handovers)
+  const hasCompleteImages = hasCompletePrintImages(order)
   const emptyMessage = handoverId
     ? `未找到对应的交出记录：${escapeHtml(handoverId)}`
     : '该毛织加工单还没有交出记录，暂无可打印交出单。'
@@ -177,7 +147,7 @@ export function renderCraftWoolHandoverPrintPage(woolOrderId: string, handoverId
     <div class="print-toolbar mx-auto mb-4 flex w-[210mm] items-center justify-between rounded-md border bg-white p-3">
       <div>
         <div class="font-semibold">毛织交出单打印</div>
-        <div class="text-xs ${hasCompleteImages ? 'text-slate-500' : 'font-medium text-red-700'}">${hasCompleteImages ? 'A4 纸；每条交出记录一页，二维码可扫码追溯。' : '图片不完整，禁止正式打印；请先补齐真实款式图和物料图。'}</div>
+        <div class="text-xs ${hasCompleteImages ? 'text-slate-500' : 'font-medium text-red-700'}">${hasCompleteImages ? 'A4 纸；每条交出记录一页，二维码可扫码追溯。' : '款式图不完整，禁止正式打印；请先补齐真实款式图。'}</div>
       </div>
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400" ${hasCompleteImages && handovers.length > 0 ? `onclick="const qrNodes = [...document.querySelectorAll('[data-real-qr]')]; if (!qrNodes.length || qrNodes.some((node) => !node.querySelector('svg'))) { window.alert('二维码正在生成，请稍后再打印。'); return; } window.print()"` : 'disabled aria-disabled="true"'}>打印</button>
     </div>

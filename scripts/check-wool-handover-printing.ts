@@ -37,13 +37,6 @@ assert(
   partPanelOrder.styleImageUrl && !partPanelOrder.styleImageUrl.includes('/placeholder'),
   '毛织交出单涉及的款式必须带真实款式图，不能使用占位图',
 )
-assert(
-  partOutput.materialImages?.length === partOutput.requiredYarnSkus.length
-    && partOutput.materialImages.every((item) =>
-      partOutput.requiredYarnSkus.includes(item.materialSkuCode)
-      && item.imageUrl.endsWith('.jpg')),
-  '毛织交出单涉及的物料必须带真实物料图，不能使用占位图',
-)
 addWoolYarnReceipt(partPanelOrder.woolOrderId, {
   commandId: 'CHECK-WOOL-PRINT-RECEIPT',
   receivedAt: '2026-08-01 09:00:00',
@@ -86,6 +79,7 @@ const workOrdersSource = read('src/pages/process-factory/wool/work-orders.ts')
 const workOrderDetailSource = read('src/pages/process-factory/wool/work-order-detail.ts')
 const woolTypesSource = read('src/data/fcs/wool-domain/types.ts')
 const woolMockSource = read('src/data/fcs/wool-domain/mock-data.ts')
+const woolTechPackSource = read('src/data/fcs/wool-domain/tech-pack-source.ts')
 const snapshotBuilderSource = read('src/data/fcs/production-tech-pack-snapshot-builder.ts')
 const realQrSource = read('src/components/real-qr.ts')
 const routeSource = read('src/router/routes-fcs.ts')
@@ -132,7 +126,6 @@ for (const requiredText of [
   '颜色',
   '尺码',
   '款式图',
-  '物料图',
 ]) {
   assert(printSource.includes(requiredText), `毛织交出单打印页缺少：${requiredText}`)
 }
@@ -160,9 +153,25 @@ assert(
 )
 assert(
   !woolMockSource.includes('data:image/svg+xml')
-    && /styleImageUrl:\s*['"`]\/[^'"`]+\.jpg/.test(woolMockSource)
-    && /materialImages[\s\S]*materialSkuCode[\s\S]*\.jpg/.test(woolMockSource),
-  '毛织 Mock 款式图和物料图必须使用 public 下真实 jpg 资产，不得使用 data SVG 伪图',
+    && /styleImageUrl:\s*['"`]\/[^'"`]+\.jpg/.test(woolMockSource),
+  '毛织 Mock 款式图必须使用 public 下真实 jpg 资产，不得使用 data SVG 伪图',
+)
+for (const forbiddenText of [
+  '本次交出对应物料',
+  'data-wool-print-materials',
+  'data-wool-print-material-item',
+  'data-material-sku',
+  'wool-print-material-image',
+  '物料图',
+]) {
+  assert(!printSource.includes(forbiddenText), `毛织交出单不得残留投入纱线板块：${forbiddenText}`)
+}
+assert(
+  !woolTypesSource.includes('materialImages')
+    && !woolMockSource.includes('materialImages')
+    && !woolTechPackSource.includes('materialImages')
+    && !woolTechPackSource.includes('materialImageUrl'),
+  '毛织领域源文件不得残留 materialImages 或毛织专用 materialImageUrl 数据链',
 )
 assert(
   snapshotBuilderSource.includes('styleImages')
@@ -247,8 +256,7 @@ for (const expectedRenderedText of [
   'data-real-qr',
   'data-wool-print-spu-info',
   'wool-print-style-image',
-  'wool-print-material-image-1',
-  `data-material-sku="${partOutput.requiredYarnSkus[0]}"`,
+  partOutput.outputSkuCode,
 ]) {
   assert(renderedPrintPage.includes(expectedRenderedText), `实际交出单渲染结果缺少：${expectedRenderedText}`)
 }
@@ -263,9 +271,8 @@ assert(
   '唯一款式图必须与 SPU 款式信息处于同一区块',
 )
 assert(
-  partPanelOrder.styleImageUrl?.endsWith('.jpg')
-    && partOutput.materialImages?.every((item) => item.imageUrl.endsWith('.jpg')),
-  '实际交出单图片必须来自 public 下真实 jpg 资产',
+  partPanelOrder.styleImageUrl?.endsWith('.jpg'),
+  '实际交出单款式图必须来自 public 下真实 jpg 资产',
 )
 const renderedBatch = renderCraftWoolHandoverPrintPage(partPanelOrder.woolOrderId)
 assert(renderedBatch.includes(handover.handoverId) && renderedBatch.includes(secondHandover.handoverId), '加工单入口必须批量打印全部交出记录')

@@ -15,10 +15,6 @@ export interface WoolOutputPlanLine {
   plannedQty: number
   qtyUnit: '件'
   requiredYarnSkus: string[]
-  materialImages?: Array<{
-    materialSkuCode: string
-    imageUrl: string
-  }>
   sourceTechPackVersionId: string
   sourceTechPackVersionCode: string
   sourceColorMappingIds: string[]

@@ -57,17 +57,6 @@ function outputLine(
 ): WoolOutputPlanLine {
   const garmentSkuCode = `HG-WOOL-${String(sequence).padStart(2, '0')}-${colorCode}-M`
   const isPanel = kind === 'PART_PANEL'
-  const materialImageBySku: Record<string, string> = {
-    'YARN-A': '/materials/yarn-stitching.jpg',
-    'YARN-B': '/materials/yarn-ball.jpg',
-    'YARN-C': '/materials/yarn-ball.jpg',
-  }
-  const materialImages = requiredYarnSkus
-    .filter((sku) => Boolean(materialImageBySku[sku]))
-    .map((materialSkuCode) => ({
-      materialSkuCode,
-      imageUrl: materialImageBySku[materialSkuCode],
-    }))
   return {
     outputSkuCode: isPanel ? `WP-SLEEVE-${garmentSkuCode}` : garmentSkuCode,
     outputObjectType: isPanel ? 'WOOL_PANEL' : 'GARMENT',
@@ -79,7 +68,6 @@ function outputLine(
     plannedQty: 100,
     qtyUnit: '件',
     requiredYarnSkus,
-    materialImages,
     sourceTechPackVersionId: `TPV-WOOL-${String(sequence).padStart(2, '0')}`,
     sourceTechPackVersionCode: `WOOL-TP-${String(sequence).padStart(2, '0')}-V1`,
     sourceColorMappingIds: requiredYarnSkus.length > 0 ? [`MAP-WOOL-${sequence}-${colorCode}`] : [],
