@@ -36,8 +36,8 @@ const CUTTING_WAREHOUSE_SPECS: Record<CuttingWarehouseKind, CuttingWarehouseArea
 }
 
 function assertSequence(value: number, label: string): void {
-  if (!Number.isInteger(value) || value < 1 || value > 99) {
-    throw new Error(`${label}必须是 1 到 99 的整数。`)
+  if (!Number.isFinite(value) || !Number.isSafeInteger(value) || value < 1) {
+    throw new Error(`${label}必须是有限正整数。`)
   }
 }
 

@@ -137,8 +137,8 @@ function assertWarehouseHierarchySequence(
   nodeType: '货架' | '库位',
   nodeId: string,
 ): asserts value is number {
-  if (!Number.isInteger(value) || value! < 1 || value! > 99) {
-    throw new Error(`${nodeType} ${nodeId} 的${fieldLabel}必须是 1 到 99 的整数。`)
+  if (!Number.isFinite(value) || !Number.isSafeInteger(value) || value! < 1) {
+    throw new Error(`${nodeType} ${nodeId} 的${fieldLabel}必须是有限正整数。`)
   }
 }
 

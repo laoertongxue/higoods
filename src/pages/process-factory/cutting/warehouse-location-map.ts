@@ -670,6 +670,14 @@ function remarkField(value = ''): string {
   return `<label class="block text-sm"><span class="font-medium">备注</span><textarea name="remark" class="mt-1 h-20 w-full rounded-md border px-3 py-2" placeholder="可选">${escapeHtml(value)}</textarea></label>`
 }
 
+function statusField(enabled: boolean, disabled = false): string {
+  return `<label class="block text-sm"><span class="font-medium">启用状态</span><select name="enabled" ${disabled ? 'disabled' : ''} class="mt-1 h-10 w-full rounded-md border bg-background px-3 disabled:cursor-not-allowed disabled:bg-muted"><option value="true" ${enabled ? 'selected' : ''}>启用</option><option value="false" ${enabled ? '' : 'selected'}>停用</option></select></label>`
+}
+
+function statusChangeRow(currentEnabled: boolean, nextEnabled: boolean): { before: string; after: string } {
+  return { before: currentEnabled ? '启用' : '停用', after: nextEnabled ? '启用' : '停用' }
+}
+
 function renderLocationNumberChangePreview(rows: Array<{ before?: string; after: string }>, message = '完整编号预览'): string {
   return `<section class="rounded-md border bg-muted/20 p-3" data-location-number-preview><h3 class="text-sm font-medium">${escapeHtml(message)}</h3><div class="mt-2 max-h-48 space-y-1 overflow-y-auto font-mono text-xs">${rows.length ? rows.map((row) => `<div>${row.before ? `${escapeHtml(row.before)} → ` : ''}${escapeHtml(row.after)}</div>`).join('') : '<div class="text-muted-foreground">暂无受影响库位</div>'}</div></section>`
 }
@@ -717,7 +725,8 @@ function renderEditAreaDialog(kind: CuttingWarehouseMapKind, current: NonNullabl
   if (!area) return ''
   const occupied = occupiedDescendants(current, area.shelfList.flatMap((shelf) => shelf.locationList.map((location) => location.locationId)))
   const rows = area.shelfList.flatMap((shelf) => shelf.locationList.map((location) => ({ before: location.locationNo, after: location.locationNo })))
-  return dialogShell(kind, current.snapshot, { type: 'edit-area', areaId }, '编辑库区', `${affectedNotice(occupied)}${field('库区编码', 'areaCode', area.code || '', { disabled: Boolean(occupied.length) })}${field('库区名称', 'areaName', area.areaName, { disabled: Boolean(occupied.length) })}${remarkField(area.remark)}${renderLocationNumberChangePreview(rows, '原编号 → 新编号（输入后实时更新）')}`)
+  const enabled = area.status === 'AVAILABLE'
+  return dialogShell(kind, current.snapshot, { type: 'edit-area', areaId }, '编辑库区', `${affectedNotice(occupied)}${field('库区编码', 'areaCode', area.code || '', { disabled: Boolean(occupied.length) })}${field('库区名称', 'areaName', area.areaName, { disabled: Boolean(occupied.length) })}${statusField(enabled, Boolean(occupied.length) && enabled)}${remarkField(area.remark)}${renderLocationNumberChangePreview([...rows, statusChangeRow(enabled, enabled)], '编号与状态：原 → 新（输入后实时更新）')}`)
 }
 
 function renderEditShelfDialog(kind: CuttingWarehouseMapKind, current: NonNullable<ReturnType<typeof buildCurrentCuttingWarehouseMapProjection>>, shelfId: string): string {
@@ -725,14 +734,16 @@ function renderEditShelfDialog(kind: CuttingWarehouseMapKind, current: NonNullab
   const shelf = area?.shelfList.find((item) => item.shelfId === shelfId)
   if (!area || !shelf) return ''
   const occupied = occupiedDescendants(current, shelf.locationList.map((location) => location.locationId))
-  return dialogShell(kind, current.snapshot, { type: 'edit-shelf', shelfId }, '编辑货架', `${affectedNotice(occupied)}${field('货架序号', 'shelfSequence', String(shelf.shelfSequence || 1), { type: 'number', disabled: Boolean(occupied.length) })}${remarkField(shelf.remark)}${renderLocationNumberChangePreview(shelf.locationList.map((location) => ({ before: location.locationNo, after: location.locationNo })), '原编号 → 新编号（输入后实时更新）')}`)
+  const enabled = shelf.status === 'AVAILABLE'
+  return dialogShell(kind, current.snapshot, { type: 'edit-shelf', shelfId }, '编辑货架', `${affectedNotice(occupied)}${field('货架序号', 'shelfSequence', String(shelf.shelfSequence || 1), { type: 'number', disabled: Boolean(occupied.length) })}${statusField(enabled, Boolean(occupied.length) && enabled)}${remarkField(shelf.remark)}${renderLocationNumberChangePreview([...shelf.locationList.map((location) => ({ before: location.locationNo, after: location.locationNo })), statusChangeRow(enabled, enabled)], '编号与状态：原 → 新（输入后实时更新）')}`)
 }
 
 function renderEditLocationDialog(kind: CuttingWarehouseMapKind, current: NonNullable<ReturnType<typeof buildCurrentCuttingWarehouseMapProjection>>, locationId: string): string {
   const location = current.snapshot.areaList.flatMap((area) => area.shelfList.flatMap((shelf) => shelf.locationList)).find((item) => item.locationId === locationId)
   if (!location) return ''
   const occupied = occupiedDescendants(current, [locationId])
-  return dialogShell(kind, current.snapshot, { type: 'edit-location', locationId }, '编辑库位', `${affectedNotice(occupied)}${field('层号（L）', 'levelNo', String(location.levelNo || 1), { type: 'number', disabled: Boolean(occupied.length) })}${field('层内位置号（P）', 'positionNo', String(location.positionNo || 1), { type: 'number', disabled: Boolean(occupied.length) })}${remarkField(location.remark)}${renderLocationNumberChangePreview([{ before: location.locationNo, after: location.locationNo }], '原编号 → 新编号（输入后实时更新）')}`)
+  const enabled = location.status === 'AVAILABLE'
+  return dialogShell(kind, current.snapshot, { type: 'edit-location', locationId }, '编辑库位', `${affectedNotice(occupied)}${field('层号（L）', 'levelNo', String(location.levelNo || 1), { type: 'number', disabled: Boolean(occupied.length) })}${field('层内位置号（P）', 'positionNo', String(location.positionNo || 1), { type: 'number', disabled: Boolean(occupied.length) })}${statusField(enabled, Boolean(occupied.length) && enabled)}${remarkField(location.remark)}${renderLocationNumberChangePreview([{ before: location.locationNo, after: location.locationNo }, statusChangeRow(enabled, enabled)], '编号与状态：原 → 新（输入后实时更新）')}`)
 }
 
 function renderCuttingWarehouseLocationMapModal(kind: CuttingWarehouseMapKind, dialog: MaintenanceDialog): string {
@@ -762,6 +773,10 @@ function openCuttingWarehouseLocationMapModal(kind: CuttingWarehouseMapKind, dia
   })
   modal?.addEventListener('change', (event) => {
     const target = event.target instanceof HTMLElement ? event.target : event.target instanceof Node ? event.target.parentElement : null
+    if (target instanceof HTMLSelectElement && target.name === 'enabled') {
+      updateMaintenancePreview(modal, kind)
+      return
+    }
     if (!target?.closest('[data-warehouse-map-action]')) return
     if (handleCuttingWarehouseLocationMapEvent(target, event)) event.stopPropagation()
   })
@@ -776,61 +791,80 @@ function openCuttingWarehouseLocationMapModal(kind: CuttingWarehouseMapKind, dia
 }
 
 function formValue(form: ParentNode, name: string): string {
-  return form.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[name="${name}"]`)?.value.trim() || ''
+  return form.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(`[name="${name}"]`)?.value.trim() || ''
 }
 
-function positiveInteger(value: string): number | null {
+function parseRequiredPositiveInteger(value: string, label: string): number {
   const parsed = Number(value)
-  return Number.isInteger(parsed) && parsed > 0 && parsed <= 99 ? parsed : null
+  if (!value || !Number.isFinite(parsed) || !Number.isSafeInteger(parsed) || parsed < 1) throw new Error(`${label}必须是有限正整数。`)
+  return parsed
+}
+
+function replaceMaintenancePreviewHtml(modal: HTMLElement, html: string): void {
+  const currentPreview = modal.querySelector<HTMLElement>('[data-location-number-preview], [data-maintenance-preview-error]')
+  if (!currentPreview) return
+  const template = document.createElement('template')
+  template.innerHTML = html.trim()
+  const nextPreview = template.content.firstElementChild
+  if (nextPreview) currentPreview.replaceWith(nextPreview)
 }
 
 function replaceMaintenancePreview(modal: HTMLElement, rows: Array<{ before?: string; after: string }>): void {
-  const currentPreview = modal.querySelector<HTMLElement>('[data-location-number-preview]')
-  if (!currentPreview) return
-  const template = document.createElement('template')
-  template.innerHTML = renderLocationNumberChangePreview(rows, '原编号 → 新编号（实时预览）').trim()
-  const nextPreview = template.content.firstElementChild
-  if (nextPreview) currentPreview.replaceWith(nextPreview)
+  replaceMaintenancePreviewHtml(modal, renderLocationNumberChangePreview(rows, '编号与状态：原 → 新（实时预览）'))
+}
+
+function replaceMaintenancePreviewError(modal: HTMLElement, message: string): void {
+  replaceMaintenancePreviewHtml(modal, `<section class="rounded-md border border-rose-300 bg-rose-50 p-3 text-sm text-rose-800" data-maintenance-preview-error>${escapeHtml(message)}</section>`)
 }
 
 function updateMaintenancePreview(modal: HTMLElement, kind: CuttingWarehouseMapKind): void {
   const current = buildCurrentCuttingWarehouseMapProjection(kind, { includeDemoOccupancies: getSearchParams().get('demo') === '1' })
   if (!current) return
   const type = modal.dataset.maintenanceDialog
+  try {
   if (type === 'create-shelf') {
-    const levelCount = positiveInteger(formValue(modal, 'levelCount')) || 1
-    const defaultCount = positiveInteger(formValue(modal, 'defaultPositionCount')) || 1
+    const levelCount = parseRequiredPositiveInteger(formValue(modal, 'levelCount'), '层数')
+    const defaultCount = parseRequiredPositiveInteger(formValue(modal, 'defaultPositionCount'), '默认每层位置数')
     const editor = modal.querySelector<HTMLElement>('[data-level-position-editor]')
-    const existing = Array.from({ length: levelCount }, (_, index) => positiveInteger(formValue(modal, `positionCount-${index + 1}`)) || defaultCount)
+    const existing = Array.from({ length: levelCount }, (_, index) => {
+      const raw = formValue(modal, `positionCount-${index + 1}`)
+      return raw ? parseRequiredPositiveInteger(raw, `第 ${index + 1} 层位置数`) : defaultCount
+    })
     if (editor && editor.querySelectorAll('input').length !== levelCount) editor.outerHTML = renderLevelPositionEditor(levelCount, existing)
-    const counts = Array.from({ length: levelCount }, (_, index) => positiveInteger(formValue(modal, `positionCount-${index + 1}`)) || defaultCount)
+    const counts = Array.from({ length: levelCount }, (_, index) => parseRequiredPositiveInteger(formValue(modal, `positionCount-${index + 1}`), `第 ${index + 1} 层位置数`))
     const area = current.snapshot.areaList.find((item) => item.areaId === modal.dataset.areaId)
-    replaceMaintenancePreview(modal, createShelfPreview(area?.code || '', positiveInteger(formValue(modal, 'shelfSequence')) || 1, counts))
+    replaceMaintenancePreview(modal, createShelfPreview(area?.code || '', parseRequiredPositiveInteger(formValue(modal, 'shelfSequence'), '货架序号'), counts))
     return
   }
   if (type === 'edit-area') {
     const area = current.snapshot.areaList.find((item) => item.areaId === modal.dataset.areaId)
     if (!area) return
     const code = formValue(modal, 'areaCode') || area.code || ''
-    replaceMaintenancePreview(modal, area.shelfList.flatMap((shelf) => shelf.locationList.map((location) => ({ before: location.locationNo, after: `${code}-R${String(shelf.shelfSequence).padStart(2, '0')}-L${String(location.levelNo).padStart(2, '0')}-P${String(location.positionNo).padStart(2, '0')}` }))))
+    const nextEnabled = formValue(modal, 'enabled') === 'true'
+    replaceMaintenancePreview(modal, [...area.shelfList.flatMap((shelf) => shelf.locationList.map((location) => ({ before: location.locationNo, after: `${code}-R${String(shelf.shelfSequence).padStart(2, '0')}-L${String(location.levelNo).padStart(2, '0')}-P${String(location.positionNo).padStart(2, '0')}` }))), statusChangeRow(area.status === 'AVAILABLE', nextEnabled)])
     return
   }
   if (type === 'edit-shelf') {
     const area = current.snapshot.areaList.find((item) => item.shelfList.some((shelf) => shelf.shelfId === modal.dataset.shelfId))
     const shelf = area?.shelfList.find((item) => item.shelfId === modal.dataset.shelfId)
     if (!area || !shelf) return
-    const sequence = positiveInteger(formValue(modal, 'shelfSequence')) || shelf.shelfSequence
-    replaceMaintenancePreview(modal, shelf.locationList.map((location) => ({ before: location.locationNo, after: `${area.code}-R${String(sequence).padStart(2, '0')}-L${String(location.levelNo).padStart(2, '0')}-P${String(location.positionNo).padStart(2, '0')}` })))
+    const sequence = parseRequiredPositiveInteger(formValue(modal, 'shelfSequence'), '货架序号')
+    const nextEnabled = formValue(modal, 'enabled') === 'true'
+    replaceMaintenancePreview(modal, [...shelf.locationList.map((location) => ({ before: location.locationNo, after: `${area.code}-R${String(sequence).padStart(2, '0')}-L${String(location.levelNo).padStart(2, '0')}-P${String(location.positionNo).padStart(2, '0')}` })), statusChangeRow(shelf.status === 'AVAILABLE', nextEnabled)])
     return
   }
   if (type === 'edit-location') {
     for (const area of current.snapshot.areaList) for (const shelf of area.shelfList) {
       const location = shelf.locationList.find((item) => item.locationId === modal.dataset.locationId)
       if (!location) continue
-      const levelNo = positiveInteger(formValue(modal, 'levelNo')) || location.levelNo
-      const positionNo = positiveInteger(formValue(modal, 'positionNo')) || location.positionNo
-      replaceMaintenancePreview(modal, [{ before: location.locationNo, after: `${area.code}-R${String(shelf.shelfSequence).padStart(2, '0')}-L${String(levelNo).padStart(2, '0')}-P${String(positionNo).padStart(2, '0')}` }])
+      const levelNo = parseRequiredPositiveInteger(formValue(modal, 'levelNo'), '层号')
+      const positionNo = parseRequiredPositiveInteger(formValue(modal, 'positionNo'), '层内位置号')
+      const nextEnabled = formValue(modal, 'enabled') === 'true'
+      replaceMaintenancePreview(modal, [{ before: location.locationNo, after: `${area.code}-R${String(shelf.shelfSequence).padStart(2, '0')}-L${String(levelNo).padStart(2, '0')}-P${String(positionNo).padStart(2, '0')}` }, statusChangeRow(location.status === 'AVAILABLE', nextEnabled)])
     }
+  }
+  } catch (error) {
+    replaceMaintenancePreviewError(modal, error instanceof Error ? error.message : '无法生成预览，请检查输入。')
   }
 }
 
@@ -843,6 +877,8 @@ function updateUrlParam(name: string, value: string | null): void {
 
 function refreshMapSection(kind: CuttingWarehouseMapKind): void {
   if (typeof document === 'undefined') return
+  const scrollX = typeof window === 'undefined' ? 0 : window.scrollX
+  const scrollY = typeof window === 'undefined' ? 0 : window.scrollY
   const region = document.querySelector<HTMLElement>(`[data-cutting-warehouse-map-section][data-warehouse-kind="${kind}"]`)
   if (!region) return
   const template = document.createElement('template')
@@ -860,6 +896,7 @@ function refreshMapSection(kind: CuttingWarehouseMapKind): void {
     currentMap.replaceWith(nextMap)
     hydrateIcons(nextMap)
   }
+  if (typeof window !== 'undefined') window.scrollTo(scrollX, scrollY)
 }
 
 function refreshOccupancyOverlay(kind: CuttingWarehouseMapKind): void {
@@ -961,11 +998,10 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
             updatedBy: '当前用户',
           })
         } else if (type === 'create-shelf') {
-          const levelCount = positiveInteger(formValue(modal, 'levelCount'))
-          const defaultCount = positiveInteger(formValue(modal, 'defaultPositionCount'))
-          const sequence = positiveInteger(formValue(modal, 'shelfSequence'))
-          if (!levelCount || !defaultCount || !sequence) throw new Error('货架序号、层数和每层位置数必须填写 1 到 99 的正整数。')
-          const positionCounts = Array.from({ length: levelCount }, (_, index) => positiveInteger(formValue(modal, `positionCount-${index + 1}`)) || defaultCount)
+          const levelCount = parseRequiredPositiveInteger(formValue(modal, 'levelCount'), '层数')
+          parseRequiredPositiveInteger(formValue(modal, 'defaultPositionCount'), '默认每层位置数')
+          const sequence = parseRequiredPositiveInteger(formValue(modal, 'shelfSequence'), '货架序号')
+          const positionCounts = Array.from({ length: levelCount }, (_, index) => parseRequiredPositiveInteger(formValue(modal, `positionCount-${index + 1}`), `第 ${index + 1} 层位置数`))
           next = createWarehouseShelf(next, {
             areaId: modal.dataset.areaId || '',
             shelfId: `SHELF-${modal.dataset.areaId}-${Date.now()}`,
@@ -975,16 +1011,15 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
             updatedBy: '当前用户',
           })
         } else if (type === 'edit-area') {
-          next = updateWarehouseArea(next, { areaId: modal.dataset.areaId || '', code: formValue(modal, 'areaCode') || undefined, areaName: formValue(modal, 'areaName') || undefined, remark: formValue(modal, 'remark'), updatedBy: '当前用户' }, occupiedIds)
+          next = updateWarehouseArea(next, { areaId: modal.dataset.areaId || '', code: formValue(modal, 'areaCode') || undefined, areaName: formValue(modal, 'areaName') || undefined, enabled: formValue(modal, 'enabled') === 'true', remark: formValue(modal, 'remark'), updatedBy: '当前用户' }, occupiedIds)
         } else if (type === 'edit-shelf') {
-          const sequence = positiveInteger(formValue(modal, 'shelfSequence'))
-          if (!sequence) throw new Error('货架序号必须填写 1 到 99 的正整数。')
-          next = updateWarehouseShelf(next, { shelfId: modal.dataset.shelfId || '', shelfSequence: sequence, remark: formValue(modal, 'remark'), updatedBy: '当前用户' }, occupiedIds)
+          const sequence = parseRequiredPositiveInteger(formValue(modal, 'shelfSequence'), '货架序号')
+          next = updateWarehouseShelf(next, { shelfId: modal.dataset.shelfId || '', shelfSequence: sequence, enabled: formValue(modal, 'enabled') === 'true', remark: formValue(modal, 'remark'), updatedBy: '当前用户' }, occupiedIds)
         } else if (type === 'edit-location') {
-          const levelNo = positiveInteger(formValue(modal, 'levelNo'))
-          const positionNo = positiveInteger(formValue(modal, 'positionNo'))
-          if (!levelNo || !positionNo) throw new Error('层号和层内位置号必须填写 1 到 99 的正整数。')
-          next = updateWarehouseLocation(next, { locationId: modal.dataset.locationId || '', levelNo, positionNo, remark: formValue(modal, 'remark'), updatedBy: '当前用户' }, occupiedIds)
+          const levelNo = parseRequiredPositiveInteger(formValue(modal, 'levelNo'), '层号')
+          const positionNo = parseRequiredPositiveInteger(formValue(modal, 'positionNo'), '层内位置号')
+          const locationId = modal.dataset.locationId || ''
+          next = updateWarehouseLocation(current.snapshot, { locationId, levelNo, positionNo, enabled: formValue(modal, 'enabled') === 'true', remark: formValue(modal, 'remark'), updatedBy: '当前用户' }, occupiedIds)
         }
         const saved = saveWarehouseLayoutSnapshot(next, expectedVersion)
         if (!saved.ok) throw new Error(saved.message)

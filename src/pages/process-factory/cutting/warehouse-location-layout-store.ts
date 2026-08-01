@@ -88,6 +88,7 @@ export interface UpdateWarehouseLocationInput {
   levelNo?: number
   positionNo?: number
   remark?: string
+  enabled?: boolean
   updatedBy: string
 }
 
@@ -191,7 +192,7 @@ function assertText(value: string, label: string): void {
 }
 
 function assertSequence(value: number, label: string): void {
-  if (!Number.isInteger(value) || value < 1 || value > 99) throw new Error(`${label}必须是 1 到 99 的整数。`)
+  if (!Number.isSafeInteger(value) || !Number.isFinite(value) || value < 1) throw new Error(`${label}必须是有限正整数。`)
 }
 
 function assertAreaCode(code: string): void {
@@ -240,7 +241,7 @@ function locationNo(area: FactoryWarehouseArea, shelf: FactoryWarehouseShelf, le
 }
 
 function renumberShelf(area: FactoryWarehouseArea, shelf: FactoryWarehouseShelf): void {
-  if (!shelf.shelfSequence) throw new Error('货架序号必须是 1 到 99 的整数。')
+  if (!shelf.shelfSequence) throw new Error('货架序号必须是有限正整数。')
   shelf.shelfNo = `R${String(shelf.shelfSequence).padStart(2, '0')}`
   shelf.shelfName = `${area.areaName} ${shelf.shelfNo}`
   shelf.locationList.forEach((location) => {
@@ -575,7 +576,7 @@ export function updateWarehouseArea(snapshot: FactoryWarehouseLayoutSnapshot, in
   if (input.areaName !== undefined) assertText(input.areaName, '库区名称')
   const changesProtectedField = (input.areaName !== undefined && input.areaName.trim() !== current.areaName)
     || (input.code !== undefined && input.code !== current.code)
-    || (input.enabled !== undefined && (input.enabled ? 'AVAILABLE' : 'STOPPED') !== current.status)
+    || (input.enabled === false && current.status !== 'STOPPED')
   const changesDerivedFields = (input.areaName !== undefined && input.areaName.trim() !== current.areaName)
     || (input.code !== undefined && input.code !== current.code)
   if (changesProtectedField) {
@@ -601,8 +602,9 @@ export function createWarehouseShelf(snapshot: FactoryWarehouseLayoutSnapshot, i
   assertText(input.shelfId, '货架 ID')
   assertSequence(input.shelfSequence, '货架序号')
   if (!input.positionCounts.length) throw new Error('新建货架至少需要 1 层。')
-  if (input.positionCounts.length > 99) throw new Error('货架层数必须是 1 到 99。')
-  input.positionCounts.forEach((count) => assertSequence(count, '每层库位数量'))
+  input.positionCounts.forEach((count, index) => assertSequence(count, `第 ${index + 1} 层位置数`))
+  const totalLocationCount = input.positionCounts.reduce((total, count) => total + count, 0)
+  if (!Number.isSafeInteger(totalLocationCount)) throw new Error('本次生成库位总数超出语言可安全表示范围，请调整输入后重试。')
   const area = findArea(snapshot, input.areaId)
   if (listShelves(snapshot).some((shelf) => shelf.shelfId === input.shelfId)) throw new Error(`货架 ID ${input.shelfId} 已存在。`)
   if (area.shelfList.some((shelf) => shelf.shelfSequence === input.shelfSequence)) throw new Error(`货架序号 ${input.shelfSequence} 已存在。`)
@@ -643,7 +645,7 @@ export function updateWarehouseShelf(snapshot: FactoryWarehouseLayoutSnapshot, i
   if (input.shelfSequence !== undefined) assertSequence(input.shelfSequence, '货架序号')
   const changesProtectedField = (input.shelfSequence !== undefined && input.shelfSequence !== current.shelf.shelfSequence)
     || (input.shelfName !== undefined && input.shelfName.trim() !== current.shelf.shelfName)
-    || (input.enabled !== undefined && (input.enabled ? 'AVAILABLE' : 'STOPPED') !== current.shelf.status)
+    || (input.enabled === false && current.shelf.status !== 'STOPPED')
   const changesDerivedFields = input.shelfSequence !== undefined && input.shelfSequence !== current.shelf.shelfSequence
   if (changesProtectedField) {
     assertNoOccupied(
@@ -672,11 +674,14 @@ export function updateWarehouseLocation(snapshot: FactoryWarehouseLayoutSnapshot
   const structuralChange = (input.levelNo !== undefined && input.levelNo !== current.location.levelNo)
     || (input.positionNo !== undefined && input.positionNo !== current.location.positionNo)
   if (structuralChange) assertNoOccupied(snapshot, [input.locationId], occupiedLocationIds, '只能修改备注，不能修改层号或层内位置号')
+  const nextStatus = input.enabled === undefined ? current.location.status : input.enabled ? 'AVAILABLE' : 'STOPPED'
+  if (nextStatus !== current.location.status && input.enabled === false) assertNoOccupied(snapshot, [input.locationId], occupiedLocationIds, '不能停用')
   return nextSnapshot(snapshot, input.updatedBy, (next) => {
     const { area, shelf, location } = findLocationContext(next, input.locationId)
     if (input.levelNo !== undefined) location.levelNo = input.levelNo
     if (input.positionNo !== undefined) location.positionNo = input.positionNo
     if (input.remark !== undefined) location.remark = input.remark.trim()
+    if (input.enabled !== undefined) location.status = nextStatus
     if (structuralChange) renumberShelf(area, shelf)
   })
 }
@@ -717,13 +722,7 @@ export function adjustWarehouseLevelPositionCount(snapshot: FactoryWarehouseLayo
 }
 
 export function setWarehouseLocationEnabled(snapshot: FactoryWarehouseLayoutSnapshot, input: SetWarehouseLocationEnabledInput, occupiedLocationIds: Iterable<string>): FactoryWarehouseLayoutSnapshot {
-  const current = findLocationContext(snapshot, input.locationId)
-  const nextStatus = input.enabled ? 'AVAILABLE' : 'STOPPED'
-  if (current.location.status === nextStatus) return snapshot
-  assertNoOccupied(snapshot, [input.locationId], occupiedLocationIds, input.enabled ? '不能启用' : '不能停用')
-  return nextSnapshot(snapshot, input.updatedBy, (next) => {
-    findLocationContext(next, input.locationId).location.status = nextStatus
-  })
+  return updateWarehouseLocation(snapshot, input, occupiedLocationIds)
 }
 
 export function revokeNewWarehouseNode(snapshot: FactoryWarehouseLayoutSnapshot, input: RevokeNewWarehouseNodeInput, referencedLocationIds: Iterable<string>): FactoryWarehouseLayoutSnapshot {

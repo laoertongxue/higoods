@@ -110,6 +110,7 @@ const pdaHandoverSource = readFileSync(new URL('../src/pages/pda-cutting-handove
 const warehouseHubSource = readFileSync(new URL('../src/pages/process-factory/cutting/warehouse-hub.ts', import.meta.url), 'utf8')
 const warehouseMapSource = readFileSync(new URL('../src/pages/process-factory/cutting/warehouse-location-map.ts', import.meta.url), 'utf8')
 const warehouseMapUiSource = readFileSync(new URL('../src/components/ui/warehouse-location-map.ts', import.meta.url), 'utf8')
+const warehouseMapModelSource = readFileSync(new URL('../src/pages/process-factory/cutting/warehouse-location-map-model.ts', import.meta.url), 'utf8')
 const warehouseMapReviewRecordSource = readFileSync(new URL('../docs/prototype-review-records/2026-07-30-cutting-warehouse-location-map.md', import.meta.url), 'utf8')
 const warehouseLayoutStoreSource = readFileSync(new URL('../src/pages/process-factory/cutting/warehouse-location-layout-store.ts', import.meta.url), 'utf8')
 const warehouseLayoutStoreModule = await import('../src/pages/process-factory/cutting/warehouse-location-layout-store.ts') as Record<string, unknown>
@@ -149,6 +150,13 @@ for (const renderer of [
 }
 assert.match(fcsHandlersSource, /data-cutting-warehouse-modal/, '维护弹窗事件必须接入裁床库位图处理链')
 assert.doesNotMatch(warehouseMapSource, /window\.prompt|prompt\(/, '库位图维护不得使用浏览器原生 prompt')
+assert.doesNotMatch(`${warehouseLayoutStoreSource}\n${warehouseMapSource}\n${warehouseMapModelSource}`, /1 到 99|<= 99|> 99/, '库位维护及投影不得保留 99 的固定业务上限')
+assert.doesNotMatch(warehouseMapSource, /function positiveInteger\(/, '页面不得用带 99 上限的 positiveInteger 静默修正输入')
+assert.match(warehouseMapSource, /`第 \$\{index \+ 1\} 层位置数`/, '逐层位置数校验必须把具体层号传入严格解析器')
+assert.match(warehouseMapSource, /data-maintenance-preview-error/, '非法逐层输入必须在预览区显示错误')
+assert.equal((warehouseMapSource.match(/statusField\(/g) || []).length >= 4, true, '库区、货架、库位三类编辑表单必须提供启用状态字段')
+assert.match(warehouseLayoutStoreSource, /function setWarehouseLocationEnabled[\s\S]*return updateWarehouseLocation\(/, '独立库位启停 API 必须复用原子库位更新实现')
+assert.match(warehouseMapSource, /scrollX[\s\S]*scrollY[\s\S]*scrollTo/, '局部保存刷新必须显式保持页面滚动位置')
 assert.doesNotMatch(
   `${warehouseLayoutStoreSource}\n${warehouseMapSource}\n${warehouseMapUiSource}`,
   /assignWarehouseLocationToShelf|assign-location/,
@@ -385,12 +393,24 @@ assert.throws(
   }),
   /货架序号 1 已存在/,
 )
-assert.throws(
-  () => createWarehouseShelf(areaOnly, {
-    areaId: 'AREA-C', shelfId: 'SHELF-C-BAD', shelfSequence: 100, positionCounts: [1], updatedBy: '仓库主管',
-  }),
-  /1 到 99/,
-)
+const shelfBeyondLegacyLimit = createWarehouseShelf(areaOnly, {
+  areaId: 'AREA-C', shelfId: 'SHELF-C-R100', shelfSequence: 100, positionCounts: [1], updatedBy: '仓库主管',
+})
+assert.equal(shelfBeyondLegacyLimit.areaList.find((area) => area.areaId === 'AREA-C')?.shelfList[0]?.shelfNo, 'R100', '货架序号不得保留 99 的伪业务上限')
+for (const [positionCounts, expected] of [
+  [[1, 0], /第 2 层位置数必须是有限正整数/],
+  [[-1], /第 1 层位置数必须是有限正整数/],
+  [[1.5], /第 1 层位置数必须是有限正整数/],
+  [[Number.POSITIVE_INFINITY], /第 1 层位置数必须是有限正整数/],
+] as const) {
+  assert.throws(
+    () => createWarehouseShelf(areaOnly, {
+      areaId: 'AREA-C', shelfId: `SHELF-C-INVALID-${String(positionCounts[0])}`, shelfSequence: 2, positionCounts: [...positionCounts], updatedBy: '仓库主管',
+    }),
+    expected,
+    '逐层位置数必须逐项严格校验并指出具体层号',
+  )
+}
 
 const levelExpanded = adjustWarehouseLevelPositionCount(shelfAdded, {
   shelfId: 'SHELF-C-R01', levelNo: 2, positionCount: 5, updatedBy: '仓库主管',
@@ -419,10 +439,11 @@ stoppedOccupiedSnapshot.areaList
   .find((area) => area.areaId === 'AREA-C')!
   .shelfList[0]
   .locationList.find((location) => location.locationId === occupiedId)!.status = 'STOPPED'
-assert.throws(
-  () => setWarehouseLocationEnabled(stoppedOccupiedSnapshot, { locationId: occupiedId, enabled: true, updatedBy: '仓库主管' }, new Set([occupiedId])),
-  /占用库位 C-R01-L02-P03 不能启用/,
-  '已停用但仍占用的合法 v3 库位不得重新启用，并必须列出完整编号',
+assert.equal(
+  setWarehouseLocationEnabled(stoppedOccupiedSnapshot, { locationId: occupiedId, enabled: true, updatedBy: '仓库主管' }, new Set([occupiedId]))
+    .areaList.find((area) => area.areaId === 'AREA-C')!.shelfList[0].locationList.find((location) => location.locationId === occupiedId)!.status,
+  'AVAILABLE',
+  '已停用节点即使存在占用事实也必须允许恢复启用',
 )
 assert.strictEqual(
   setWarehouseLocationEnabled(stoppedOccupiedSnapshot, { locationId: occupiedId, enabled: false, updatedBy: '仓库主管' }, new Set([occupiedId])),
@@ -498,6 +519,36 @@ assert.deepEqual(renumberedShelf.locationList.map((location) => location.locatio
 assert(renumberedShelf.locationList.every((location) => location.locationNo.startsWith('D-R01-')), '库区代码变化后全部下级完整编号必须重算')
 const shelfRenumbered = updateWarehouseShelf(areaRenumbered, { shelfId: 'SHELF-C-R01', shelfSequence: 2, updatedBy: '仓库主管' }, new Set())
 assert(shelfRenumbered.areaList.find((area) => area.areaId === 'AREA-C')!.shelfList[0].locationList.every((location) => location.locationNo.startsWith('D-R02-')), '货架序号变化后全部下级完整编号必须重算')
+const editableLocationId = idsBeforeRenumber.at(-1)!
+const locationRenumbered = updateWarehouseLocation(shelfRenumbered, { locationId: editableLocationId, levelNo: 4, positionNo: 1, remark: '移到第4层', updatedBy: '仓库主管' }, new Set())
+assert.equal(locationRenumbered.areaList.find((area) => area.areaId === 'AREA-C')!.shelfList[0].locationList.find((location) => location.locationId === editableLocationId)?.locationNo, 'D-R02-L04-P01', '非占用库位编辑必须保存编号变化')
+const areaStopped = updateWarehouseArea(shelfAdded, { areaId: 'AREA-C', enabled: false, updatedBy: '仓库主管' }, new Set())
+assert.equal(areaStopped.areaList.find((area) => area.areaId === 'AREA-C')?.status, 'STOPPED', '非占用库区必须可停用')
+const areaEnabled = updateWarehouseArea(areaStopped, { areaId: 'AREA-C', enabled: true, updatedBy: '仓库主管' }, new Set())
+assert.equal(areaEnabled.areaList.find((area) => area.areaId === 'AREA-C')?.status, 'AVAILABLE', '非占用库区必须可重新启用')
+const shelfStopped = updateWarehouseShelf(shelfAdded, { shelfId: 'SHELF-C-R01', enabled: false, updatedBy: '仓库主管' }, new Set())
+assert.equal(shelfStopped.areaList.find((area) => area.areaId === 'AREA-C')?.shelfList[0].status, 'STOPPED', '非占用货架必须可停用')
+const locationStopped = setWarehouseLocationEnabled(shelfAdded, { locationId: editableLocationId, enabled: false, updatedBy: '仓库主管' }, new Set())
+assert.equal(locationStopped.areaList.find((area) => area.areaId === 'AREA-C')?.shelfList[0].locationList.find((location) => location.locationId === editableLocationId)?.status, 'STOPPED', '非占用库位必须可停用')
+const atomicLocationStorage = createMemoryWarehouseLayoutStorage()
+const atomicLocationBaseline = loadWarehouseLayoutSnapshot(waitProcess, atomicLocationStorage).snapshot
+const atomicLocation = atomicLocationBaseline.areaList[0].shelfList[0].locationList.at(-1)!
+const atomicLocationChanged = updateWarehouseLocation(atomicLocationBaseline, {
+  locationId: atomicLocation.locationId,
+  levelNo: 100,
+  positionNo: 1,
+  enabled: false,
+  updatedBy: '仓库主管',
+}, new Set())
+assert.equal(atomicLocationChanged.layoutVersion, atomicLocationBaseline.layoutVersion + 1, '库位编号与状态同次编辑必须只增加一个版本')
+assert.equal(saveWarehouseLayoutSnapshot(atomicLocationChanged, 0, atomicLocationStorage).ok, true, '库位编号与状态原子编辑必须一次保存成功')
+const atomicLocationHistory = listWarehouseLayoutChangeRecords(waitProcess.factoryId, waitProcess.warehouseKind, waitProcess.warehouseId, atomicLocationStorage)
+assert.equal(atomicLocationHistory.length, 1, '库位编号与状态原子编辑必须只产生一条历史')
+assert.equal(atomicLocationHistory[0].beforeSnapshot.areaList[0].shelfList[0].locationList.find((location) => location.locationId === atomicLocation.locationId)?.status, 'AVAILABLE')
+assert.equal(atomicLocationHistory[0].afterSnapshot.areaList[0].shelfList[0].locationList.find((location) => location.locationId === atomicLocation.locationId)?.status, 'STOPPED')
+assert.equal(atomicLocationHistory[0].afterSnapshot.areaList[0].shelfList[0].locationList.find((location) => location.locationId === atomicLocation.locationId)?.locationNo, 'A-R01-L100-P01')
+assert.throws(() => updateWarehouseArea(shelfAdded, { areaId: 'AREA-C', enabled: false, updatedBy: '仓库主管' }, new Set([occupiedId])), /占用库位.*不能修改.*启停状态/, '有占用后代的库区不得停用')
+assert.throws(() => updateWarehouseShelf(shelfAdded, { shelfId: 'SHELF-C-R01', enabled: false, updatedBy: '仓库主管' }, new Set([occupiedId])), /占用库位.*不能修改.*启停状态/, '有占用后代的货架不得停用')
 assert.throws(
   () => updateWarehouseLocation(shelfRenumbered, {
     locationId: idsBeforeRenumber[1], levelNo: 1, positionNo: 1, updatedBy: '仓库主管',
@@ -537,6 +588,20 @@ assert.equal(layoutHistory[0].afterVersion, 1)
 assert.equal(layoutHistory[0].updatedBy, '仓库主管')
 assert.equal(layoutHistory[0].beforeSnapshot.areaList.some((area) => area.areaId === 'AREA-C'), false, '历史 before 必须是真实已加载基线，不得包含新节点')
 assert.equal(layoutHistory[0].afterSnapshot.areaList.some((area) => area.areaId === 'AREA-C'), true, '历史 after 必须包含本次新节点')
+const statusHistoryStorage = createMemoryWarehouseLayoutStorage()
+const statusHistoryBaseline = loadWarehouseLayoutSnapshot(waitProcess, statusHistoryStorage).snapshot
+const statusAreaId = statusHistoryBaseline.areaList[0].areaId
+const statusShelfId = statusHistoryBaseline.areaList[0].shelfList[0].shelfId
+const statusLocationId = statusHistoryBaseline.areaList[0].shelfList[0].locationList[0].locationId
+const statusAreaSnapshot = updateWarehouseArea(statusHistoryBaseline, { areaId: statusAreaId, enabled: false, updatedBy: '仓库主管' }, new Set())
+assert.equal(saveWarehouseLayoutSnapshot(statusAreaSnapshot, 0, statusHistoryStorage).ok, true)
+const statusShelfSnapshot = updateWarehouseShelf(statusAreaSnapshot, { shelfId: statusShelfId, enabled: false, updatedBy: '仓库主管' }, new Set())
+assert.equal(saveWarehouseLayoutSnapshot(statusShelfSnapshot, 1, statusHistoryStorage).ok, true)
+const statusLocationSnapshot = setWarehouseLocationEnabled(statusShelfSnapshot, { locationId: statusLocationId, enabled: false, updatedBy: '仓库主管' }, new Set())
+assert.equal(saveWarehouseLayoutSnapshot(statusLocationSnapshot, 2, statusHistoryStorage).ok, true)
+const statusHistory = listWarehouseLayoutChangeRecords(waitProcess.factoryId, waitProcess.warehouseKind, waitProcess.warehouseId, statusHistoryStorage)
+assert.equal(statusHistory.length, 3, '库区、货架、库位三类状态变化必须逐次保存历史')
+assert.equal(statusHistory[0]?.afterSnapshot.areaList[0].shelfList[0].locationList[0].status, 'STOPPED', '最新历史 after 必须保存库位停用事实')
 const directSaveStorage = createMemoryWarehouseLayoutStorage()
 const directSave = saveWarehouseLayoutSnapshot(areaOnly, 0, directSaveStorage)
 assert.equal(directSave.ok, false, '未先加载基线不得直接保存变更后快照')
@@ -648,32 +713,32 @@ const malformedHierarchyCases: Array<{
   {
     label: '缺少货架序号',
     mutate: (warehouse) => { delete warehouse.areaList[0].shelfList[0].shelfSequence },
-    expected: new RegExp(`货架 ${selectionShelf.shelfId}.*货架序号.*1 到 99`),
+    expected: new RegExp(`货架 ${selectionShelf.shelfId}.*货架序号.*有限正整数`),
   },
   {
     label: '非法货架序号',
     mutate: (warehouse) => { warehouse.areaList[0].shelfList[0].shelfSequence = 1.5 },
-    expected: new RegExp(`货架 ${selectionShelf.shelfId}.*货架序号.*1 到 99`),
+    expected: new RegExp(`货架 ${selectionShelf.shelfId}.*货架序号.*有限正整数`),
   },
   {
     label: '缺少层号',
     mutate: (warehouse) => { delete warehouse.areaList[0].shelfList[0].locationList[0].levelNo },
-    expected: new RegExp(`库位 ${selectionSeed.locationId}.*层号.*1 到 99`),
+    expected: new RegExp(`库位 ${selectionSeed.locationId}.*层号.*有限正整数`),
   },
   {
     label: '非法层号',
-    mutate: (warehouse) => { warehouse.areaList[0].shelfList[0].locationList[0].levelNo = 100 },
-    expected: new RegExp(`库位 ${selectionSeed.locationId}.*层号.*1 到 99`),
+    mutate: (warehouse) => { warehouse.areaList[0].shelfList[0].locationList[0].levelNo = 1.5 },
+    expected: new RegExp(`库位 ${selectionSeed.locationId}.*层号.*有限正整数`),
   },
   {
     label: '缺少层内位置号',
     mutate: (warehouse) => { delete warehouse.areaList[0].shelfList[0].locationList[0].positionNo },
-    expected: new RegExp(`库位 ${selectionSeed.locationId}.*层内位置号.*1 到 99`),
+    expected: new RegExp(`库位 ${selectionSeed.locationId}.*层内位置号.*有限正整数`),
   },
   {
     label: '非法层内位置号',
     mutate: (warehouse) => { warehouse.areaList[0].shelfList[0].locationList[0].positionNo = 0 },
-    expected: new RegExp(`库位 ${selectionSeed.locationId}.*层内位置号.*1 到 99`),
+    expected: new RegExp(`库位 ${selectionSeed.locationId}.*层内位置号.*有限正整数`),
   },
 ]
 for (const malformedCase of malformedHierarchyCases) {
