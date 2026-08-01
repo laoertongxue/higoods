@@ -4,6 +4,51 @@ const PAGE_SIZE = 8
 const draftValues = new Map<string, string>()
 const currentPages = new Map<string, number>()
 
+type ClosestCapable = {
+  closest: (selector: string) => unknown
+}
+
+function isClosestCapable(value: unknown): value is ClosestCapable {
+  return typeof value === 'object'
+    && value !== null
+    && typeof (value as { closest?: unknown }).closest === 'function'
+}
+
+function isReviewUiDomNode(value: unknown): value is HTMLElement {
+  if (!isClosestCapable(value)) return false
+  const candidate = value as {
+    dataset?: unknown
+    querySelector?: unknown
+    querySelectorAll?: unknown
+  }
+  return typeof candidate.dataset === 'object'
+    && candidate.dataset !== null
+    && typeof candidate.querySelector === 'function'
+    && typeof candidate.querySelectorAll === 'function'
+}
+
+function isParentNodeLike(value: unknown): value is ParentNode {
+  return typeof value === 'object'
+    && value !== null
+    && typeof (value as { querySelector?: unknown }).querySelector === 'function'
+    && typeof (value as { querySelectorAll?: unknown }).querySelectorAll === 'function'
+}
+
+export function getTaskUiActionNode(target: unknown, expectedModule: string): HTMLElement | null {
+  if (!isClosestCapable(target)) return null
+  const node = target.closest(`[data-review-ui-action][data-review-ui-module="${expectedModule}"]`)
+  if (!isReviewUiDomNode(node)) return null
+  if (node.dataset.reviewUiModule !== expectedModule || !node.dataset.reviewUiAction) return null
+  return node
+}
+
+export function getTaskUiFeedbackContainer(node: HTMLElement, selector: string): ParentNode | null {
+  const closestContainer = node.closest(selector)
+  if (isParentNodeLike(closestContainer)) return closestContainer
+  const fallback = typeof document === 'undefined' ? null : document
+  return isParentNodeLike(fallback) ? fallback : null
+}
+
 function scopeKey(module: string, taskId: string): string {
   return `${module}:${taskId}`
 }
@@ -65,7 +110,8 @@ export function changeTaskUiPage(module: string, taskId: string, page: number): 
   currentPages.set(scopeKey(module, taskId), Math.max(1, page))
 }
 
-export function setTaskUiFeedback(container: ParentNode, message: string, tone: 'error' | 'success' = 'error'): void {
+export function setTaskUiFeedback(container: ParentNode | null, message: string, tone: 'error' | 'success' = 'error'): void {
+  if (!isParentNodeLike(container)) return
   const region = container.querySelector<HTMLElement>('[data-review-ui-feedback]')
   if (!region) return
   region.className = tone === 'error'

@@ -38,6 +38,8 @@ import {
 } from './master-task-common.ts'
 import {
   changeTaskUiPage,
+  getTaskUiActionNode,
+  getTaskUiFeedbackContainer,
   getTaskUiValue,
   handleTaskUiInput,
   paginateTaskLines,
@@ -204,12 +206,12 @@ export function handleColorTaskInput(target: Element): boolean {
 }
 
 export function handleColorTaskEvent(target: HTMLElement): boolean {
-  const node = target.closest<HTMLElement>('[data-review-ui-action][data-review-ui-module="color"]')
+  const node = getTaskUiActionNode(target, 'color')
   if (!node) return false
   const taskId = node.dataset.taskId || ''
   const action = node.dataset.reviewUiAction || ''
   const detail = getEngineeringTaskDetail(taskId)
-  const container = node.closest<HTMLElement>(`[data-engineering-review-detail="color:${taskId}"]`) || document
+  const container = getTaskUiFeedbackContainer(node, `[data-engineering-review-detail="color:${taskId}"]`)
   try {
     if (!detail || !COLOR_TASK_TYPES.includes(detail.task.taskType as typeof COLOR_TASK_TYPES[number])) throw new Error('调色任务不存在。')
     const { task, master } = detail

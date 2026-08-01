@@ -18,6 +18,8 @@ import {
 import { createMasterTaskPage } from './master-task-page.ts'
 import {
   changeTaskUiPage,
+  getTaskUiActionNode,
+  getTaskUiFeedbackContainer,
   getTaskUiValue,
   handleTaskUiInput,
   paginateTaskLines,
@@ -111,11 +113,11 @@ export function handlePatternTaskInput(target: Element): boolean {
 }
 
 export function handlePatternTaskEvent(target: HTMLElement): boolean {
-  const node = target.closest<HTMLElement>('[data-review-ui-action][data-review-ui-module="pattern"]')
+  const node = getTaskUiActionNode(target, MODULE)
   if (!node) return false
   const action = node.dataset.reviewUiAction || ''
   const taskId = node.dataset.taskId || ''
-  const container = node.closest<HTMLElement>(`[data-engineering-review-detail="${MODULE}:${taskId}"]`) || document
+  const container = getTaskUiFeedbackContainer(node, `[data-engineering-review-detail="${MODULE}:${taskId}"]`)
   try {
     if (action === 'page') {
       changeTaskUiPage(MODULE, taskId, Number(node.dataset.page || 1))

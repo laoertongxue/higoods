@@ -25,8 +25,21 @@ import {
   resetPcsEngineeringTaskState,
   submitEngineeringFirstSampleResult,
 } from '../src/pages/pcs-engineering-tasks.ts'
+import { handlePatternTaskEvent } from '../src/pages/pcs-engineering-tasks/pattern-task.ts'
+import { handleColorTaskEvent } from '../src/pages/pcs-engineering-tasks/color-task.ts'
 
 function makeActionTarget(action: string, extraDataset: Record<string, string> = {}): HTMLElement {
+  return {
+    dataset: { pcsEngineeringAction: action, ...extraDataset },
+    closest(selector: string) {
+      if (selector === '[data-pcs-engineering-action]') return this
+      if (selector === '[data-pcs-engineering-list-module]' && this.dataset.pcsEngineeringListModule) return this
+      return null
+    },
+  } as unknown as HTMLElement
+}
+
+function makeInvalidClosestTarget(action: string, extraDataset: Record<string, string> = {}): HTMLElement {
   return {
     dataset: { pcsEngineeringAction: action, ...extraDataset },
     closest() { return this },
@@ -132,6 +145,24 @@ const quickFilterTarget = makeActionTarget('set-first-sample-quick-filter', {
 })
 assert.equal(handlePcsEngineeringTaskEvent(quickFilterTarget), true, '统一事件入口应处理产前版样衣列表快捷筛选')
 assert.match(renderPcsFirstSampleTaskPage(), /已完成/, '快捷筛选后的列表应仍显示当前工程任务状态')
+
+// 非真实 DOM 目标即使错误地让 closest 命中自身，也不能被花型或调色处理器误捕获；
+// 聚合入口仍须把事件交给原本的标准列表处理器。
+const invalidClosestTarget = makeInvalidClosestTarget('set-first-sample-quick-filter', {
+  pcsEngineeringListModule: 'firstSample',
+  quickFilter: 'completed',
+})
+assert.equal(handlePatternTaskEvent(invalidClosestTarget), false, '无 ParentNode 能力的目标不得被花型处理器捕获')
+assert.equal(handleColorTaskEvent(invalidClosestTarget), false, '无 ParentNode 能力的目标不得被调色处理器捕获')
+assert.doesNotThrow(
+  () => handlePcsEngineeringTaskEvent(invalidClosestTarget),
+  '无效 closest 返回值不得导致统一事件入口抛错',
+)
+assert.equal(handlePcsEngineeringTaskEvent(invalidClosestTarget), true, '无效目标应继续交给原有标准列表事件处理器')
+
+const noClosestTarget = { dataset: {} } as unknown as HTMLElement
+assert.equal(handlePatternTaskEvent(noClosestTarget), false, '缺少 closest 能力的目标不得被花型处理器捕获')
+assert.equal(handleColorTaskEvent(noClosestTarget), false, '缺少 closest 能力的目标不得被调色处理器捕获')
 
 const storedMaster = getEngineeringMasterOrderById(master.masterOrderId)
 assert.equal(storedMaster?.tasks.find((task) => task.taskId === sampleTaskId)?.status, '已完成', '专业页面提交必须写回工程主单唯一事实源')
