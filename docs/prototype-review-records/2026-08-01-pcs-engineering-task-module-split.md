@@ -22,7 +22,7 @@
 - 改版、制版、花型、首版样衣、首单样衣五类工程专业任务的页面逻辑从单一巨型文件拆分为：
   - `src/pages/pcs-engineering-tasks/shared.ts`：类型、state、公共渲染、图片 / 文件上传处理、标准列表公共骨架与模块钩子分派。
   - `src/pages/pcs-engineering-tasks/pattern-task.ts`：花型模块的列表 / 详情渲染、创建弹窗、流程视图与列表分派注册，导出页面入口与跨文件所需的成员选项读取。
-  - `src/pages/pcs-engineering-tasks.ts`：保留其余四类任务的页面级函数、输入与事件处理入口，并通过 re-export 保持 10 个页面导出契约不变。
+  - `src/pages/pcs-engineering-tasks.ts`：薄分派器，只保留页面导出、列表筛选 / 分页 / 列偏好轻交互、改款与设计打样编辑分派，以及旧路由到产前版样衣的无文案别名。
 - 新增三个工程专业任务只读页面（读取工程主单任务记录）：
   - `src/pages/pcs-engineering-tasks/master-task-common.ts`：公共读取（listEngineeringTasksByType / getEngineeringTaskDetail）与公共卡片渲染（概要、主单、物料、返工、依赖、日志）。
   - `src/pages/pcs-engineering-tasks/color-task.ts`：调色任务（纱线 / 面料，COLOR_YARN / COLOR_FABRIC）。
@@ -34,7 +34,7 @@
   - 花型提交成果后进入待审核；逐项成果审核留到后续任务实施。
   - 产前版样衣由制作团队提交成果图片、制作数量和提交人，提交即完成，不生成任务级验收、确认人或复用结论。
 - `submitEngineeringTaskResult` 只允许已发布或进行中的工程主单写入成果；待开始任务直接提交时自动补齐开始时间。技术包审核中、待关闭、已关闭等收口状态均阻断提交。
-- 拆分不改变路由（10 个动态导入仍指向同一入口文件）、不改变 main-handlers 的输入 / 事件 / 弹窗导出契约、不改变页面文案、状态口径、筛选、分页、列偏好持久化与详情交互。
+- 拆分不改变路由（动态导入仍指向同一入口文件）、不改变 main-handlers 的输入 / 事件 / 弹窗导出契约；专业页的页面文案、状态口径、筛选、分页、列偏好持久化与详情交互由各自模块维护。
 - 本切片只收口制版、花型、产前版样衣，不改独立改版任务的业务逻辑；三个新页面只展示工程任务统一 8 档状态。
 
 ## 3. 自查结论
@@ -64,7 +64,7 @@
 
 | 问题 | 标签 | 影响角色 | 处理方式 | 是否仍有风险 |
 | --- | --- | --- | --- | --- |
-| 巨型单文件（7624 行）难以维护，公共函数与页面逻辑混杂 | 无 | 工程专业任务维护者 | 按共享骨架 / 页面业务拆分，公共部分移入 shared.ts，页面函数保留在入口文件 | 否 |
+| 巨型单文件（5,000+ 行）难以维护，公共函数与页面逻辑混杂 | 无 | 工程专业任务维护者 | 按共享骨架 / 页面业务拆分；入口文件收为薄分派器，页面函数在各专业模块内维护 | 否 |
 | 列表公共读取散落在页面文件中 | 无 | 工程专业任务维护者 | 新增 registerEngineeringListModule 钩子注册，五个模块统一注册列 / 行 / 状态 / 统计 | 否 |
 
 ## 6. 最终结论
@@ -73,7 +73,7 @@
 
 说明：
 
-- 本次为纯结构性拆分：路由、事件入口、数据格式、页面文案与交互行为均保持兼容。
+- 本次为结构性拆分：路由、事件入口与数据格式保持兼容；已废止的首单样衣、任务级验收与暂停 / 取消 / 异常动作不再由入口层保留。
 - 拆分后 `npm run check:list-page-governance`、`npm run check:prototype-design-governance -- --all` 与构建验证均通过。
 - 全项目既有类型错误（如 TS2367 tab 比较、capacity-calendar 等）与本次拆分无关，已在验证中确认非本次引入。
 
@@ -132,6 +132,7 @@
 ### 验证命令
 
 - `npx tsx tests/pcs-engineering-task-submit.spec.ts`：通过（真实调用提交门禁、开始时间与局部刷新行为）
+- `node --import tsx tests/pcs-engineering-thin-dispatcher.spec.ts`：通过（入口文件少于 500 行、无旧事实源和已废止动作、首单旧入口仅别名到产前版样衣）
 - `npx tsx tests/pcs-engineering-professional-fact-source.spec.ts`：通过（制版、花型、产前版样衣读取工程主单任务）
 - `npx tsx tests/pcs-first-sample-engineering-result.spec.ts`：通过（真实提交成果并验证持久化、校验与无任务级验收文案）
 - `npx tsx tests/pcs-engineering-task-status.spec.ts`、`pcs-engineering-master-domain.spec.ts`、`pcs-engineering-dependency-policy.spec.ts`：通过

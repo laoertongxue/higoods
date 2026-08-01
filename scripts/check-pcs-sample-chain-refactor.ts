@@ -2,89 +2,18 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 
-const ROOT = process.cwd()
+const read = (file: string): string => fs.readFileSync(path.join(process.cwd(), file), 'utf8')
+const dispatcher = read('src/pages/pcs-engineering-tasks.ts')
+const page = read('src/pages/pcs-engineering-tasks/first-sample-task.ts')
 
-function read(relativePath: string): string {
-  return fs.readFileSync(path.join(ROOT, relativePath), 'utf8')
+assert.match(page, /PRE_PRODUCTION_SAMPLE/, '产前版样衣必须绑定工程主单任务类型')
+assert.match(page, /listEngineeringTasksByType/, '产前版样衣必须从工程主单任务读取')
+assert.match(page, /submitEngineeringTaskResult/, '产前版样衣成果必须写入工程主单任务')
+assert.match(page, /resultImageIds/, '产前版样衣成果必须维护结果图片')
+assert.match(page, /resultQuantity/, '产前版样衣成果必须维护制作数量')
+assert.match(dispatcher, /renderPcsFirstOrderSampleTaskPage\s*=\s*renderPcsFirstSampleTaskPage/, '旧路由入口只能别名到产前版样衣')
+for (const legacy of ['pcs-first-sample-repository', 'pcs-first-order-sample-repository', 'submit-first-sample-acceptance', 'submit-first-order-conclusion']) {
+  assert.ok(!dispatcher.includes(legacy), `任务入口不得保留旧样衣事实或动作：${legacy}`)
 }
-
-function assertIncludes(source: string, pattern: string, message: string): void {
-  assert.ok(source.includes(pattern), message)
-}
-
-function assertNotIncludes(source: string, pattern: string, message: string): void {
-  assert.ok(!source.includes(pattern), message)
-}
-
-const firstSampleTypes = read('src/data/pcs-first-sample-types.ts')
-const firstOrderTypes = read('src/data/pcs-first-order-sample-types.ts')
-const sampleChainTypes = read('src/data/pcs-sample-chain-types.ts')
-const sampleChainService = read('src/data/pcs-sample-chain-service.ts')
-const domainContract = read('src/data/pcs-project-domain-contract.ts')
-const engineeringPage = read('src/pages/pcs-engineering-tasks.ts')
-const archiveCollector = read('src/data/pcs-project-archive-collector.ts')
-
-;[
-  'sourceTechPackVersionId',
-  'reuseAsFirstOrderBasisFlag',
-  'reuseAsFirstOrderBasisConfirmedAt',
-  'sampleImageIds',
-].forEach((field) => {
-  assertIncludes(firstSampleTypes, field, `首版样衣缺少字段：${field}`)
-})
-
-;[
-  'sourceFirstSampleTaskId',
-  'sampleChainMode',
-  'specialSceneReasonCodes',
-  'productionReferenceRequiredFlag',
-  'chinaReviewRequiredFlag',
-  'correctFabricRequiredFlag',
-  'samplePlanLines',
-].forEach((field) => {
-  assertIncludes(firstOrderTypes + sampleChainService, field, `首单样衣打样缺少字段：${field}`)
-})
-
-;[
-  'SamplePlanLine',
-  '复用首版结论',
-  '替代布确认样',
-  '正确布确认样',
-  '工厂参照确认',
-  '新增首单样衣确认',
-  '替代布与正确布双确认',
-].forEach((label) => {
-  assertIncludes(sampleChainTypes + sampleChainService + engineeringPage, label, `样衣链路缺少：${label}`)
-})
-
-;[
-  'FIRST_SAMPLE',
-  'FIRST_ORDER_SAMPLE',
-  '是否可复用为首单',
-  '首单确认方式',
-  '特殊场景原因',
-  '工厂参照样',
-  '最终参照样衣',
-].forEach((label) => {
-  assertIncludes(domainContract, label, `样衣任务契约字段定义缺少：${label}`)
-})
-
-assertIncludes(engineeringPage, '样衣计划', '页面缺少样衣计划')
-assertIncludes(engineeringPage, '最终参照说明', '页面缺少最终参照说明')
-assertIncludes(engineeringPage, 'getFirstOrderSampleChainMissingFields', '首单完成前缺少链路校验')
-assertIncludes(archiveCollector, 'samplePlanLines', '项目资料归档缺少样衣计划采集')
-assertIncludes(archiveCollector, '工厂参照样', '项目资料归档缺少工厂参照样采集')
-
-;[
-  'sampleAsset',
-  'SampleAsset',
-  'sourceFirstSampleAssetId',
-  'finalReferenceSampleAssetIds',
-  'expectedArrival',
-  'trackingNo',
-  'linkedSampleAssetId',
-].forEach((field) => {
-  assertNotIncludes(firstSampleTypes + firstOrderTypes + sampleChainTypes + sampleChainService + engineeringPage + domainContract + archiveCollector, field, `PCS 样衣方案不应保留旧资产/流转字段：${field}`)
-})
 
 console.log('check-pcs-sample-chain-refactor PASS')
