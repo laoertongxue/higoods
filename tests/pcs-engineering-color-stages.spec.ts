@@ -67,6 +67,74 @@ updateEngineeringTaskRecord(master.masterOrderId, otherTaskId, (task) => {
   task.materialLines = [line('YARN-1', '染色')]
 })
 
+updateEngineeringTaskRecord(master.masterOrderId, otherTaskId, (task) => {
+  task.status = '未启用'
+  task.materialLines = []
+})
+const disabledSnapshot = getEngineeringMasterOrderById(master.masterOrderId)
+assert.throws(
+  () => confirmEngineeringColorRequirements({
+    masterOrderId: master.masterOrderId,
+    taskId: otherTaskId,
+    confirmedBy: '跟单A',
+    requirements: [],
+  }),
+  /未启用.*不能确认染色要求/,
+  '未启用任务不能用空物料绕过阶段二门禁',
+)
+assert.deepEqual(
+  getEngineeringMasterOrderById(master.masterOrderId),
+  disabledSnapshot,
+  '未启用任务确认失败后必须保持主单快照完全不变',
+)
+
+updateEngineeringTaskRecord(master.masterOrderId, otherTaskId, (task) => {
+  task.status = '进行中'
+  task.materialLines = [
+    line('PRINT-ONLY', '印花'),
+    line('DYE-INACTIVE', '染色', '因需求变更结束'),
+  ]
+})
+const emptyApplicableSnapshot = getEngineeringMasterOrderById(master.masterOrderId)
+assert.throws(
+  () => confirmEngineeringColorRequirements({
+    masterOrderId: master.masterOrderId,
+    taskId: otherTaskId,
+    confirmedBy: '跟单A',
+    requirements: [],
+  }),
+  /暂无有效染色物料.*不能确认染色要求/,
+  '已启用任务也必须至少有一条当前有效染色物料',
+)
+assert.deepEqual(
+  getEngineeringMasterOrderById(master.masterOrderId),
+  emptyApplicableSnapshot,
+  '空有效染色物料确认失败后必须保持主单快照完全不变',
+)
+
+updateEngineeringTaskRecord(master.masterOrderId, otherTaskId, (task) => {
+  task.status = '待审核'
+  task.materialLines = [line('DYE-WRONG-STATUS', '染色')]
+})
+const wrongStatusSnapshot = getEngineeringMasterOrderById(master.masterOrderId)
+assert.throws(
+  () => confirmEngineeringColorRequirements({
+    masterOrderId: master.masterOrderId,
+    taskId: otherTaskId,
+    confirmedBy: '跟单A',
+    requirements: [
+      { materialLineId: 'DYE-WRONG-STATUS', pantoneColorCode: '19-4052 TCX', colorName: '经典蓝', dyeColorCode: 'B-01' },
+    ],
+  }),
+  /处于待审核.*不能确认染色要求/,
+  '非待开始或进行中的任务不能确认染色要求',
+)
+assert.deepEqual(
+  getEngineeringMasterOrderById(master.masterOrderId),
+  wrongStatusSnapshot,
+  '非可确认状态失败后必须保持主单快照完全不变',
+)
+
 assert.deepEqual(
   listEngineeringColorBomLines(master.masterOrderId, taskId).map((item) => item.materialLineId),
   ['DYE-RED', 'DYE-BLUE'],
