@@ -487,6 +487,7 @@ export interface WholeBagHandoverTransferBagUse {
 export interface WholeBagHandoverSubmitPayload
   extends Omit<HandoverRecordSubmitPayload, 'transferBagUses'> {
   canonicalIntent: string
+  handoverLegId: string
   transferBagUses: [WholeBagHandoverTransferBagUse]
 }
 

@@ -12,6 +12,7 @@ import {
 import type { BrowserStorageLike } from '../src/data/browser-storage.ts'
 import {
   eventTouchesTransferBag,
+  isCompleteSuccessfulWholeBagHandoverEvent,
   resolveWholeBagHandoverEligibility,
   resolveTransferBagCurrentUse,
   submitWholeBagHandover,
@@ -32,6 +33,8 @@ import {
   type TransferBagStore,
 } from '../src/pages/process-factory/cutting/transfer-bags-model.ts'
 import {
+  appendWaitHandoverSpecialCraftHandoverEvent,
+  appendWaitHandoverSpecialCraftReturnEvent,
   buildNextWaitHandoverHandoverLeg,
   buildWaitHandoverLocationOccupancyStates,
   buildWaitHandoverLifecycleByBagCode,
@@ -2225,6 +2228,189 @@ function appendLegacyBaggingConfirm(input: {
   const current = resolveTransferBagCurrentUse(bagCode, storage)
   assert.equal(current.flowStage, 'INBOUND_STORED', '损坏成功载荷不得推进袋生命周期')
   assert.deepEqual(current.tickets, tickets, '损坏成功载荷不得清空当前袋票关系')
+}
+
+{
+  const storage = createMemoryStorage()
+  const bagCode = 'BAG-DYNAMIC-HANDOVER-LEG'
+  const usageCycleId = `usage:${bagCode}:1`
+  const tickets = [ticket('DYNAMIC-LEG-01', 'PO-DYNAMIC-LEG', 'FACTORY-HANDOVER', 12)]
+  const assignments = [assignment(tickets[0], 'SEW-DYNAMIC-LEG')]
+  const submittedTickets = submittedSnapshotFor(tickets, assignments)
+  appendBagging({ storage, bagCode, usageCycleId, tickets })
+  appendInbound({ storage, bagCode, usageCycleId, tickets })
+  const specialHandover = appendWaitHandoverSpecialCraftHandoverEvent({
+    source: 'WEB',
+    operator: { operatorName: '特殊工艺交出员' },
+    payload: {
+      handoverOrderId: 'SPECIAL-HO-DYNAMIC-001',
+      handoverRecordId: 'SPECIAL-HR-DYNAMIC-001',
+      craftCategory: '特种工艺',
+      craftType: '绣花',
+      receiverFactoryId: 'CRAFT-FACTORY-DYNAMIC',
+      receiverFactoryName: '测试绣花厂',
+      feiTicketItems: submittedTickets.map((item) => ({
+        feiTicketId: item.feiTicketId,
+        feiTicketNo: item.feiTicketNo,
+        specialCraftId: 'CRAFT-DYNAMIC-001',
+        partName: item.partName,
+        size: item.size,
+        pieceQty: item.pieceQty,
+      })),
+      handedOverAt: '2026-08-01 09:00',
+      handedOverBy: '特殊工艺交出员',
+    },
+    handoverOrderId: 'SPECIAL-HO-DYNAMIC-001',
+    handoverRecordId: 'SPECIAL-HR-DYNAMIC-001',
+    specialCraftId: 'CRAFT-DYNAMIC-001',
+    transferBagCode: bagCode,
+    fromWarehouseArea: '待交出 A 区',
+    occurredAt: '2026-08-01 09:00',
+    usageCycleId,
+    storage,
+  })
+  assert.equal(specialHandover.refs.handoverLegId, `${usageCycleId}:handover:1`)
+  appendWaitHandoverSpecialCraftReturnEvent({
+    source: 'WEB',
+    operator: { operatorName: '特殊工艺回仓员' },
+    payload: {
+      returnRecordId: 'SPECIAL-RETURN-DYNAMIC-001',
+      returnRecordNo: 'SPECIAL-RETURN-DYNAMIC-001',
+      sourceHandoverOrderId: 'SPECIAL-HO-DYNAMIC-001',
+      sourceHandoverOrderNo: 'SPECIAL-HO-DYNAMIC-001',
+      sourceHandoverRecordId: 'SPECIAL-HR-DYNAMIC-001',
+      sourceHandoverRecordNo: 'SPECIAL-HR-DYNAMIC-001',
+      receiverFactoryId: 'CRAFT-FACTORY-DYNAMIC',
+      receiverFactoryName: '测试绣花厂',
+      transferBagCode: bagCode,
+      warehouseName: '裁床待交出仓',
+      craftType: '绣花',
+      returnedFeiTicketItems: submittedTickets.map((item) => ({
+        feiTicketId: item.feiTicketId,
+        feiTicketNo: item.feiTicketNo,
+        specialCraftId: 'CRAFT-DYNAMIC-001',
+        craftType: '绣花',
+        partName: item.partName,
+        size: item.size,
+        expectedQty: item.pieceQty,
+        returnedQty: item.pieceQty,
+        unit: '片' as const,
+        returnStatus: '已回仓' as const,
+      })),
+      warehouseArea: '待交出 A 区',
+      locationCode: `A-${bagCode}`,
+      returnedAt: '2026-08-01 09:20',
+      returnedBy: '特殊工艺回仓员',
+    },
+    specialCraftId: 'CRAFT-DYNAMIC-001',
+    occurredAt: '2026-08-01 09:20',
+    usageCycleId,
+    storage,
+  })
+  assert.equal(
+    buildWaitHandoverLifecycleByBagCode(bagCode, storage).flowStage,
+    'INBOUND_STORED',
+    '特殊工艺整袋回仓后必须恢复可再次交出的已入仓阶段',
+  )
+  const ordinaryHandover = submitWholeBagHandover(handoverInput(
+    bagCode,
+    usageCycleId,
+    tickets,
+    assignments,
+    {
+      handoverRecordId: 'HR-DYNAMIC-ORDINARY-002',
+      handoverRecordNo: 'HR-DYNAMIC-ORDINARY-002',
+      occurredAt: '2026-08-01 09:30',
+    },
+  ), storage)
+  assert.equal(
+    ordinaryHandover.refs.handoverLegId,
+    `${usageCycleId}:handover:2`,
+    '特殊工艺交出并回仓后，普通整袋交出必须使用第二交出段',
+  )
+  assert.equal(isCompleteSuccessfulWholeBagHandoverEvent(ordinaryHandover), true, '第二交出段必须仍通过严格守卫')
+  const ordinaryPayload = ordinaryHandover.payload as Record<string, unknown>
+  assert.equal(ordinaryPayload.handoverLegId, `${usageCycleId}:handover:2`, '交出段必须进入权威载荷')
+  assert(
+    String(ordinaryPayload.canonicalIntent).includes(`"handoverLegId":"${usageCycleId}:handover:2"`),
+    'canonical 必须绑定动态交出段，避免回仓关联歧义',
+  )
+  const zeroLegEvent = structuredClone(ordinaryHandover)
+  zeroLegEvent.refs.handoverLegId = `${usageCycleId}:handover:0`
+  ;(zeroLegEvent.payload as Record<string, unknown>).handoverLegId = `${usageCycleId}:handover:0`
+  ;(zeroLegEvent.payload as Record<string, unknown>).canonicalIntent = String(
+    (zeroLegEvent.payload as Record<string, unknown>).canonicalIntent,
+  ).replace(`${usageCycleId}:handover:2`, `${usageCycleId}:handover:0`)
+  assert.equal(isCompleteSuccessfulWholeBagHandoverEvent(zeroLegEvent), false, 'handover:0 不得被严格守卫承认为成功交出段')
+  const mismatchedLegEvent = structuredClone(ordinaryHandover)
+  mismatchedLegEvent.refs.handoverLegId = `${usageCycleId}:handover:3`
+  assert.equal(isCompleteSuccessfulWholeBagHandoverEvent(mismatchedLegEvent), false, 'refs 与载荷/canonical 的交出段不一致时必须拒绝')
+  const retry = submitWholeBagHandover(handoverInput(
+    bagCode,
+    usageCycleId,
+    tickets,
+    assignments,
+    {
+      handoverRecordId: 'HR-DYNAMIC-ORDINARY-002',
+      handoverRecordNo: 'HR-DYNAMIC-ORDINARY-002',
+      occurredAt: '2026-08-01 09:30',
+    },
+  ), storage)
+  assert.equal(retry.eventId, ordinaryHandover.eventId, '动态交出段等价重试必须返回原事实')
+}
+
+{
+  const storage = createMemoryStorage()
+  const bagCode = 'BAG-OCCUPANCY-STRICT-HANDOVER'
+  const usageCycleId = `usage:${bagCode}:1`
+  const tickets = [ticket('OCCUPANCY-STRICT-01', 'PO-OCCUPANCY', 'FACTORY-HANDOVER', 12)]
+  const assignments = [assignment(tickets[0], 'SEW-OCCUPANCY')]
+  appendBagging({ storage, bagCode, usageCycleId, tickets })
+  appendInbound({ storage, bagCode, usageCycleId, tickets })
+  const assertOccupied = (message: string) => assert.equal(
+    buildWaitHandoverLocationOccupancyStates(listCuttingRuntimeEvents(storage))
+      .filter((state) => state.bagCode === bagCode && state.usageCycleId === usageCycleId)
+      .length,
+    1,
+    message,
+  )
+  assertOccupied('中转袋入仓后必须形成库位占用')
+  ;(['同步失败', '已取消', '已记录', '已同步'] as const).forEach((eventStatus, index) => {
+    appendCuttingRuntimeEvent({
+      eventType: '新增交出记录',
+      eventSource: 'WEB',
+      eventStatus,
+      occurredAt: `2026-08-01 09:4${index}`,
+      operatorName: '异常交出导入员',
+      refs: {
+        transferBagCode: bagCode,
+        usageCycleId,
+        handoverRecordId: `HR-OCCUPANCY-INCOMPLETE-${index}`,
+      },
+      payload: {
+        handoverRecordId: `HR-OCCUPANCY-INCOMPLETE-${index}`,
+      },
+    } as Parameters<typeof appendCuttingRuntimeEvent>[0], storage)
+    assertOccupied(`${eventStatus}的残缺交出事实不得删除待交出仓占用`)
+  })
+  const complete = submitWholeBagHandover(handoverInput(
+    bagCode,
+    usageCycleId,
+    tickets,
+    assignments,
+    {
+      handoverRecordId: 'HR-OCCUPANCY-COMPLETE',
+      handoverRecordNo: 'HR-OCCUPANCY-COMPLETE',
+      occurredAt: '2026-08-01 10:00',
+    },
+  ), storage)
+  assert.equal(isCompleteSuccessfulWholeBagHandoverEvent(complete), true)
+  assert.equal(
+    buildWaitHandoverLocationOccupancyStates(listCuttingRuntimeEvents(storage))
+      .some((state) => state.bagCode === bagCode && state.usageCycleId === usageCycleId),
+    false,
+    '只有完整成功整袋交出事实才能删除待交出仓占用',
+  )
 }
 
 {

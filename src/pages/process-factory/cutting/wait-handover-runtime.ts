@@ -28,6 +28,7 @@ import {
   type TransferBagLifecycleView,
 } from '../../../data/fcs/cutting/transfer-bag-lifecycle.ts'
 import {
+  buildNextTransferBagHandoverLeg,
   eventTouchesTransferBag,
   isCompleteSuccessfulWholeBagHandoverEvent,
   parseCompleteTransferBagRepackPayload,
@@ -661,26 +662,7 @@ export function buildNextWaitHandoverHandoverLeg(input: {
   handoverLegId: string
   handoverSequence: number
 } {
-  const handoverLegIds = new Set(
-    input.events
-      .filter((event) =>
-        isWaitHandoverBagEventForCode(event, input.bagCode)
-        && getWaitHandoverEventUsageCycleId(event) === input.usageCycleId
-        && (
-          (event.eventType === '新增交出记录'
-            && isCompleteSuccessfulWholeBagHandoverEvent(event))
-          || (event.eventType === '特殊工艺交出'
-            && (event.eventStatus === '已记录' || event.eventStatus === '已同步'))
-        ))
-      .map((event) => event.refs.handoverLegId)
-      .filter(Boolean),
-  )
-  const handoverSequence = handoverLegIds.size + 1
-  return {
-    handoverLegId:
-      `${input.usageCycleId}:handover:${handoverSequence}`,
-    handoverSequence,
-  }
+  return buildNextTransferBagHandoverLeg(input)
 }
 
 function getRuntimeTicketPrintStatus(ticket?: GeneratedFeiTicketSourceRecord): string {
@@ -1068,6 +1050,7 @@ export function buildWaitHandoverLocationOccupancyStates(
       continue
     }
     if (event.eventType === '新增交出记录') {
+      if (!isCompleteSuccessfulWholeBagHandoverEvent(event)) continue
       const bagCode = event.refs.transferBagCode || runtimeString(payload.transferBagCode)
       const stateKey = bagCode ? findWaitHandoverStateKey(states, bagCode, event.refs.usageCycleId, runtimeLocationRef(payload.locationRef)) : undefined
       if (stateKey) states.delete(stateKey)

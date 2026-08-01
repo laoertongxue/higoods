@@ -7,9 +7,6 @@ import {
   listCuttingRuntimeEvents,
 } from '../src/data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import {
-  submitWholeBagHandover,
-} from '../src/data/fcs/cutting/transfer-bag-operations.ts'
-import {
   appendWaitHandoverBaggingEvent,
   appendWaitHandoverInboundEvent,
   buildWaitHandoverLifecycleByBagCode,
@@ -47,7 +44,9 @@ type TransferBagCandidate = {
 
 type SewingTaskCandidate = {
   sewingTaskNo: string
+  sewingTaskId?: string
   productionOrderNo: string
+  receiverFactoryId?: string
   receiverFactoryName: string
   receivableStatus: '可接收' | '不可接收'
 }
@@ -447,67 +446,20 @@ const runtimeHandoverCandidates = {
   }],
   sewingTasks: [{
     sewingTaskNo: 'PDA-SEWING-TASK-001',
+    sewingTaskId: 'PDA-SEWING-TASK-ID-001',
     productionOrderNo: runtimeTicket.productionOrderNo,
+    receiverFactoryId: 'PDA-FACTORY-001',
     receiverFactoryName: 'HiGood 印尼一厂',
     receivableStatus: '可接收' as const,
   }],
 }
-workflow.appendPdaTransferBagHandoverRuntimeEvent(
-  {
-    ...workflow.createPdaTransferBagHandoverFormState(),
-    bagCode: runtimeBagCode,
-    sewingTaskCode: 'PDA-SEWING-TASK-001',
-    sewingTaskNo: 'PDA-SEWING-TASK-001',
-    productionOrderNo: runtimeTicket.productionOrderNo,
-    receiverFactoryName: 'HiGood 印尼一厂',
-    ticketCount: 1,
-  },
-  runtimeHandoverCandidates,
-  runtimeStorage,
-)
-const runtimeHandoverEvents = listCuttingRuntimeEvents(runtimeStorage)
-  .filter((event) => event.eventType === '新增交出记录')
-assert.equal(runtimeHandoverEvents.length, 1, 'PDA 整袋交出必须写入一条统一交出事实')
-assert.deepEqual(
-  runtimeHandoverEvents[0].refs.feiTicketIds,
-  [runtimeTicket.feiTicketId],
-  'PDA 整袋交出必须一次写入袋内完整菲票快照',
-)
 assert.equal(
   buildWaitHandoverLifecycleByBagCode(
     runtimeBagCode,
     runtimeStorage,
   ).flowStage,
   'INBOUND_STORED',
-  'legacy PDA 交出事件缺少完整权威载荷时不得推进生命周期',
-)
-submitWholeBagHandover({
-  bagCode: runtimeBagCode,
-  usageCycleId: runtimeUsageCycleId,
-  handoverOrderId: 'PDA-HO-STRICT-001',
-  handoverOrderNo: 'PDA-HO-STRICT-001',
-  handoverRecordId: 'PDA-HR-STRICT-001',
-  handoverRecordNo: 'PDA-HR-STRICT-001',
-  assignments: [{
-    feiTicketId: runtimeTicket.feiTicketId,
-    feiTicketNo: runtimeTicket.feiTicketNo,
-    sewingTaskId: runtimeTicket.sewingTaskId,
-    sewingTaskNo: runtimeTicket.sewingTaskNo,
-    receiverFactoryId: runtimeTicket.receiverFactoryId,
-    receiverFactoryName: runtimeTicket.receiverFactoryName,
-  }],
-  submittedTicketSnapshot: [{ ...runtimeTicket }],
-  operator: { operatorName: 'PDA 交出员' },
-  source: 'PDA',
-  occurredAt: '2026-07-30 17:20',
-}, runtimeStorage)
-assert.equal(
-  buildWaitHandoverLifecycleByBagCode(
-    runtimeBagCode,
-    runtimeStorage,
-  ).flowStage,
-  'HANDED_OVER_WAITING_RETURN',
-  '数据层完整成功交出事实必须推进统一生命周期',
+  '真实 PDA 交出动作前必须处于已入仓阶段',
 )
 assert(
   !pageSource.includes('appendWaitHandoverBaggingConfirmEvent'),
@@ -752,6 +704,13 @@ assert.deepEqual(
   { preventScroll: true },
   '任务缺失时必须聚焦替换后的任务输入且禁止浏览器自动滚动',
 )
+assert.equal(
+  listCuttingRuntimeEvents(handlerRuntimeStorage)
+    .filter((runtimeEvent) => runtimeEvent.eventType === '新增交出记录')
+    .length,
+  0,
+  '真实 PDA 确认失败不得写入交出事实或推进生命周期',
+)
 
 taskInput.value = 'SEW-PO-202603-0102-01'
 dispatchTransferInput(taskInput, 'keydown', 'Enter')
@@ -862,6 +821,38 @@ assert.deepEqual(
   bagInput.focusOptions,
   { preventScroll: true },
   '成功后必须聚焦替换后的袋码输入且禁止浏览器自动滚动',
+)
+const handlerHandoverEvents = listCuttingRuntimeEvents(handlerRuntimeStorage)
+  .filter((event) =>
+    event.eventType === '新增交出记录'
+    && event.refs.transferBagCode === handlerBagCode)
+assert.equal(handlerHandoverEvents.length, 1, '真实 PDA 确认入口必须只写一条整袋交出事实')
+assert.deepEqual(
+  handlerHandoverEvents[0].refs.sewingTaskIds,
+  [handlerTask.sewingTaskId],
+  '真实 PDA 新写事实必须保留任务 ID 数组',
+)
+assert.deepEqual(
+  handlerHandoverEvents[0].refs.sewingTaskNos,
+  [handlerTask.sewingTaskNo],
+  '真实 PDA 新写事实必须保留任务号数组',
+)
+const handlerHandoverPayload = handlerHandoverEvents[0].payload as Record<string, unknown>
+assert.equal(typeof handlerHandoverPayload.canonicalIntent, 'string', '真实 PDA 新写事实必须带固定 canonical')
+const handlerBagUse = (handlerHandoverPayload.transferBagUses as Array<Record<string, unknown>>)[0]
+assert(Array.isArray(handlerBagUse.ticketSnapshot), '真实 PDA 新写事实必须带完整袋内票快照')
+assert.equal(handlerBagUse.bagUseId, handlerHandoverEvents[0].refs.usageCycleId, '真实 PDA 新写事实必须绑定当前使用周期')
+assert.equal(typeof handlerBagUse.sourceWarehouseArea, 'string', '真实 PDA 新写事实必须带来源库区')
+assert.equal(typeof handlerBagUse.sourceLocationCode, 'string', '真实 PDA 新写事实必须带来源库位')
+assert.equal(
+  handlerHandoverEvents[0].idempotencyKey,
+  `whole-bag-handover:${handlerHandoverEvents[0].refs.handoverRecordId}`,
+  '真实 PDA 新写事实必须使用权威整袋交出幂等键',
+)
+assert.equal(
+  buildWaitHandoverLifecycleByBagCode(handlerBagCode, handlerRuntimeStorage).flowStage,
+  'HANDED_OVER_WAITING_RETURN',
+  '真实 PDA 确认成功后必须推进统一交出生命周期',
 )
 assert.equal(
   (pageModule.resolvePdaTransferBagHandoverConfirmFocus as (

@@ -30,6 +30,7 @@ import {
   getBrowserLocalStorage,
   type BrowserStorageLike,
 } from '../data/browser-storage.ts'
+import { submitWholeBagHandover } from '../data/fcs/cutting/transfer-bag-operations.ts'
 import {
   appendWaitHandoverHandoverRecordEvent,
   appendWaitHandoverSpecialCraftHandoverEvent,
@@ -523,53 +524,45 @@ export function appendPdaTransferBagHandoverRuntimeEvent(
     throw new Error('这个中转袋已绑定其他车缝任务，请换一个袋。')
   }
   const usageCycleId = lifecycle.usageCycleId || snapshot.usageCycleId
+  const sewingTaskId = task.sewingTaskId?.trim() || ''
+  const receiverFactoryId = task.receiverFactoryId?.trim() || ''
+  if (!sewingTaskId || !receiverFactoryId) {
+    throw new Error('当前车缝任务缺少任务或接收工厂标识，请重新扫描。')
+  }
   const recordId =
     `PDA-HR-${usageCycleId.replace(/[^A-Za-z0-9]/g, '-')}-${task.sewingTaskNo}`
-  const currentHandedOverQty = snapshot.tickets.reduce(
-    (sum, ticket) => sum + ticket.pieceQty,
-    0,
-  )
-  const payload: HandoverRecordSubmitPayload = {
-    handoverOrderId: `PDA-HO-${task.sewingTaskId || task.sewingTaskNo}`,
-    handoverOrderNo: `${task.sewingTaskNo}-交出`,
+  const handoverOrderId = `PDA-HO-${sewingTaskId}`
+  const handoverOrderNo = `${task.sewingTaskNo}-交出`
+  const assignments = snapshot.tickets.map((ticket) => ({
+    feiTicketId: ticket.feiTicketId,
+    feiTicketNo: ticket.feiTicketNo,
+    sewingTaskId,
+    sewingTaskNo: task.sewingTaskNo,
+    receiverFactoryId,
+    receiverFactoryName: task.receiverFactoryName,
+  }))
+  const submittedTicketSnapshot = snapshot.tickets.map((ticket) => ({
+    ...ticket,
+    sewingTaskId,
+    sewingTaskNo: task.sewingTaskNo,
+    receiverFactoryId,
+    receiverFactoryName: task.receiverFactoryName,
+  }))
+  submitWholeBagHandover({
+    bagCode: bag.bagCode,
+    usageCycleId,
+    handoverOrderId,
+    handoverOrderNo,
     handoverRecordId: recordId,
     handoverRecordNo: `${task.sewingTaskNo}-PDA-整袋`,
-    receiverType: '车缝厂',
-    receiverId: task.receiverFactoryId || task.sewingTaskId || task.sewingTaskNo,
-    receiverName: task.receiverFactoryName,
-    transferBagUses: [{
-      bagUseId: usageCycleId,
-      bagCode: bag.bagCode,
-      containedFeiTicketIds: snapshot.tickets.map(
-        (ticket) => ticket.feiTicketId,
-      ),
-      totalPieceQty: currentHandedOverQty,
-    }],
-    feiTicketItems: snapshot.tickets.map((ticket) => ({
-      feiTicketId: ticket.feiTicketId,
-      feiTicketNo: ticket.feiTicketNo,
-      pieceQty: ticket.pieceQty,
-      unit: '片',
-    })),
-    currentHandedOverQty,
-    submittedAt: new Date().toISOString(),
-    submittedBy: 'PDA 裁片仓交出员',
-  }
-  appendWaitHandoverHandoverRecordEvent({
+    assignments,
+    submittedTicketSnapshot,
     source: 'PDA',
     operator: {
-      operatorName: payload.submittedBy,
+      operatorName: 'PDA 裁片仓交出员',
       operatorRole: '裁片仓交出员',
     },
-    payload,
-    fromWarehouseArea: '裁床待交出仓',
-    fromLocationCode: bag.bagCode,
-    usageCycleId,
-    locationRef: resolveCurrentHandoverLocationRef(bag.bagCode, usageCycleId, storage),
-    idempotencyKey:
-      `${usageCycleId}:HANDOVER_CONFIRMED:${task.sewingTaskNo}`,
-    storage,
-  })
+  }, storage)
 }
 
 export interface PdaTransferBagHandoverScanTimerController {

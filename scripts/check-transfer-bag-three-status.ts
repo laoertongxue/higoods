@@ -1215,6 +1215,7 @@ const strictHandoverTicketSnapshot = [{
 const strictHandoverCanonicalIntent = JSON.stringify({
   bagCode: 'BAG-TDD-001',
   usageCycleId,
+  handoverLegId: firstLeg.handoverLegId,
   handoverOrderId: 'ORDER-001',
   handoverOrderNo: 'ORDER-001',
   handoverRecordId: 'HANDOVER-001',
@@ -1265,6 +1266,7 @@ runtimeLedger.appendCuttingRuntimeEventIdempotent({
   },
   payload: {
     canonicalIntent: strictHandoverCanonicalIntent,
+    handoverLegId: firstLeg.handoverLegId,
     handoverRecordId: 'HANDOVER-001',
     handoverRecordNo: 'HANDOVER-001',
     handoverOrderId: 'ORDER-001',

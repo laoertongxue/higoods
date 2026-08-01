@@ -348,7 +348,9 @@ export function resolveWholeBagHandoverEligibility(
   ) {
     return failedWholeBagHandover('提交的整袋交出快照与当前袋票关系不一致，请刷新后重试。')
   }
-  if (currentUse.compatibilityBlockedReason) {
+  const legacyAssignmentCanBeCompleted = currentUse.compatibilityBlockedReason === '历史袋内快照缺少接收工厂事实，当前关系仅供核查，不能拆袋重装。'
+    || currentUse.compatibilityBlockedReason === '历史袋内快照缺少车缝任务事实，当前关系仅供核查，不能拆袋重装。'
+  if (currentUse.compatibilityBlockedReason && !legacyAssignmentCanBeCompleted) {
     return failedWholeBagHandover(currentUse.compatibilityBlockedReason)
   }
 
@@ -1061,6 +1063,7 @@ function requiredHandoverText(value: string, label: string): string {
 function buildWholeBagHandoverCanonicalIntent(input: {
   bagCode: string
   usageCycleId: string
+  handoverLegId: string
   handoverOrderId: string
   handoverOrderNo: string
   handoverRecordId: string
@@ -1102,6 +1105,7 @@ function buildWholeBagHandoverCanonicalIntent(input: {
   return JSON.stringify({
     bagCode: input.bagCode,
     usageCycleId: input.usageCycleId,
+    handoverLegId: input.handoverLegId,
     handoverOrderId: input.handoverOrderId,
     handoverOrderNo: input.handoverOrderNo,
     handoverRecordId: input.handoverRecordId,
@@ -1122,9 +1126,23 @@ interface StrictWholeBagHandoverEventFact {
   handoverRecordId: string
   bagCode: string
   usageCycleId: string
+  handoverLegId: string
+  handoverSequence: number
   productionOrderId: string
   productionOrderNo: string
   canonicalIntent: string
+}
+
+function parseHandoverLegSequence(
+  usageCycleId: string,
+  handoverLegId: string,
+): number | null {
+  const prefix = `${usageCycleId}:handover:`
+  if (!handoverLegId.startsWith(prefix)) return null
+  const rawSequence = handoverLegId.slice(prefix.length)
+  if (!/^[1-9]\d*$/.test(rawSequence)) return null
+  const sequence = Number(rawSequence)
+  return Number.isSafeInteger(sequence) && sequence > 0 ? sequence : null
 }
 
 function strictRequiredStringArray(value: unknown): string[] | null {
@@ -1168,6 +1186,8 @@ function parseStrictWholeBagHandoverEvent(
   const bagUse = transferBagUses[0]
   const bagCode = text(bagUse.bagCode)
   const usageCycleId = text(bagUse.bagUseId)
+  const handoverLegId = text(payload.handoverLegId)
+  const handoverSequence = parseHandoverLegSequence(usageCycleId, handoverLegId)
   const containedFeiTicketIds = strictRequiredStringArray(bagUse.containedFeiTicketIds)
   const sewingTaskIds = strictRequiredStringArray(bagUse.sewingTaskIds)
   const sewingTaskNos = strictRequiredStringArray(bagUse.sewingTaskNos)
@@ -1176,6 +1196,7 @@ function parseStrictWholeBagHandoverEvent(
   if (
     !bagCode
     || !usageCycleId
+    || handoverSequence === null
     || !containedFeiTicketIds
     || !sewingTaskIds
     || !sewingTaskNos
@@ -1246,7 +1267,7 @@ function parseStrictWholeBagHandoverEvent(
     || text(event.refs.handoverRecordId) !== handoverRecordId
     || text(event.refs.productionOrderId) !== productionOrderIds[0]
     || text(event.refs.productionOrderNo) !== productionOrderNos[0]
-    || text(event.refs.handoverLegId) !== `${usageCycleId}:handover:1`
+    || text(event.refs.handoverLegId) !== handoverLegId
     || event.idempotencyKey !== `whole-bag-handover:${handoverRecordId}`
     || !sameStrings(event.refs.feiTicketIds || [], snapshotTicketIds)
     || !sameStrings(event.refs.feiTicketNos || [], snapshotTicketNos)
@@ -1276,6 +1297,7 @@ function parseStrictWholeBagHandoverEvent(
   const canonicalIntent = buildWholeBagHandoverCanonicalIntent({
     bagCode,
     usageCycleId,
+    handoverLegId,
     handoverOrderId,
     handoverOrderNo,
     handoverRecordId,
@@ -1296,6 +1318,8 @@ function parseStrictWholeBagHandoverEvent(
     handoverRecordId,
     bagCode,
     usageCycleId,
+    handoverLegId,
+    handoverSequence,
     productionOrderId: productionOrderIds[0],
     productionOrderNo: productionOrderNos[0],
     canonicalIntent,
@@ -1306,6 +1330,40 @@ export function isCompleteSuccessfulWholeBagHandoverEvent(
   event: CuttingRuntimeEvent,
 ): boolean {
   return Boolean(parseStrictWholeBagHandoverEvent(event))
+}
+
+export function buildNextTransferBagHandoverLeg(input: {
+  bagCode: string
+  usageCycleId: string
+  events: CuttingRuntimeEvent[]
+}): {
+  handoverLegId: string
+  handoverSequence: number
+} {
+  const sequences = input.events.flatMap((event) => {
+    if (
+      text(event.refs.transferBagCode) !== input.bagCode
+      || text(event.refs.usageCycleId) !== input.usageCycleId
+    ) return []
+    if (event.eventType === '新增交出记录') {
+      const fact = parseStrictWholeBagHandoverEvent(event)
+      return fact ? [fact.handoverSequence] : []
+    }
+    if (
+      event.eventType !== '特殊工艺交出'
+      || (event.eventStatus !== '已记录' && event.eventStatus !== '已同步')
+    ) return []
+    const sequence = parseHandoverLegSequence(
+      input.usageCycleId,
+      text(event.refs.handoverLegId),
+    )
+    return sequence === null ? [] : [sequence]
+  })
+  const handoverSequence = Math.max(0, ...sequences) + 1
+  return {
+    handoverLegId: `${input.usageCycleId}:handover:${handoverSequence}`,
+    handoverSequence,
+  }
 }
 
 function findWholeBagHandoverEventsByRecordId(
@@ -1336,11 +1394,18 @@ export function submitWholeBagHandover(
   const events = sortedRuntimeEvents(storage)
   const existingRecords = findWholeBagHandoverEventsByRecordId(events, handoverRecordId)
   if (existingRecords.length) {
+    const existingFact = existingRecords.length === 1
+      ? parseStrictWholeBagHandoverEvent(existingRecords[0])
+      : null
+    if (!existingFact) {
+      throw new Error(`交出记录 ID ${handoverRecordId} 已存在，但本次请求业务意图冲突。`)
+    }
     let retryCanonicalIntent = ''
     try {
       retryCanonicalIntent = buildWholeBagHandoverCanonicalIntent({
         bagCode,
         usageCycleId,
+        handoverLegId: existingFact.handoverLegId,
         handoverOrderId,
         handoverOrderNo,
         handoverRecordId,
@@ -1353,10 +1418,7 @@ export function submitWholeBagHandover(
     } catch {
       throw new Error(`交出记录 ID ${handoverRecordId} 已存在，但本次请求业务意图冲突。`)
     }
-    const existingFact = existingRecords.length === 1
-      ? parseStrictWholeBagHandoverEvent(existingRecords[0])
-      : null
-    if (existingFact?.canonicalIntent === retryCanonicalIntent) {
+    if (existingFact.canonicalIntent === retryCanonicalIntent) {
       return existingFact.event
     }
     throw new Error(`交出记录 ID ${handoverRecordId} 已存在，但本次请求业务意图冲突。`)
@@ -1377,9 +1439,15 @@ export function submitWholeBagHandover(
   }
   const assignments = normalizeRequiredAssignments(input.assignments)
   const submittedTicketSnapshot = normalizeRequiredSubmittedTicketSnapshot(input.submittedTicketSnapshot)
+  const handoverLeg = buildNextTransferBagHandoverLeg({
+    bagCode,
+    usageCycleId,
+    events,
+  })
   const canonicalIntent = buildWholeBagHandoverCanonicalIntent({
     bagCode,
     usageCycleId,
+    handoverLegId: handoverLeg.handoverLegId,
     handoverOrderId,
     handoverOrderNo,
     handoverRecordId,
@@ -1408,6 +1476,7 @@ export function submitWholeBagHandover(
   }
   const payload: WholeBagHandoverSubmitPayload = {
     canonicalIntent,
+    handoverLegId: handoverLeg.handoverLegId,
     handoverOrderId,
     handoverOrderNo,
     handoverRecordId,
@@ -1426,7 +1495,6 @@ export function submitWholeBagHandover(
     submittedAt: occurredAt,
     submittedBy,
   }
-  const handoverLegId = `${currentUse.usageCycleId}:handover:1`
   const appendResult = appendCuttingRuntimeEventIdempotent({
     idempotencyKey: `whole-bag-handover:${handoverRecordId}`,
     eventType: '新增交出记录',
@@ -1443,7 +1511,7 @@ export function submitWholeBagHandover(
       usageCycleId: currentUse.usageCycleId,
       handoverOrderId,
       handoverRecordId,
-      handoverLegId,
+      handoverLegId: handoverLeg.handoverLegId,
       feiTicketIds: ticketSnapshot.map((ticket) => ticket.feiTicketId),
       feiTicketNos: ticketSnapshot.map((ticket) => ticket.feiTicketNo),
       sewingTaskIds: [...eligibility.sewingTaskIds],

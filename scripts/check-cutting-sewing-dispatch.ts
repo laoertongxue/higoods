@@ -156,9 +156,11 @@ function currentCycleHandoverEvent(
   const sewingTaskIds = [...new Set(assignments.map((item) => item.sewingTaskId))]
   const sewingTaskNos = [...new Set(assignments.map((item) => item.sewingTaskNo))]
   const totalPieceQty = ticketSnapshot.reduce((sum, item) => sum + item.pieceQty, 0)
+  const handoverLegId = `${currentUse.usageCycleId}:handover:1`
   const canonicalIntent = JSON.stringify({
     bagCode: currentUse.bagCode,
     usageCycleId: currentUse.usageCycleId,
+    handoverLegId,
     handoverOrderId,
     handoverOrderNo,
     handoverRecordId,
@@ -214,7 +216,7 @@ function currentCycleHandoverEvent(
       usageCycleId: currentUse.usageCycleId || undefined,
       handoverOrderId,
       handoverRecordId,
-      handoverLegId: `${currentUse.usageCycleId}:handover:1`,
+      handoverLegId,
       feiTicketIds: ticketSnapshot.map((item) => item.feiTicketId),
       feiTicketNos: ticketSnapshot.map((item) => item.feiTicketNo),
       sewingTaskIds,
@@ -230,6 +232,7 @@ function currentCycleHandoverEvent(
     },
     payload: {
       canonicalIntent,
+      handoverLegId,
       handoverOrderId,
       handoverOrderNo,
       handoverRecordId,
