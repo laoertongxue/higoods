@@ -51,7 +51,6 @@ import {
   filterReceivePendingAcceptTasks,
   filterReceiveQuotedTenders,
 } from '../data/fcs/pda-receive-scope.ts'
-import { acceptWoolWorkOrder } from '../data/fcs/wool-task-domain.ts'
 import {
   assertDyeWorkOrderPdaAcceptanceAllowed,
   recordDyeWorkOrderPdaAcceptance,
@@ -335,11 +334,6 @@ export function acceptPdaTaskWithRuntimeFallback(
 ): ProcessTask {
   const task = getTaskFactById(taskId)
   if (!task) throw new Error('任务不存在或已被移除')
-  const woolOrderId = (task as ProcessTask & { woolOrderId?: string }).woolOrderId
-  if (task.processBusinessCode === 'WOOL' && woolOrderId) {
-    acceptWoolWorkOrder(woolOrderId, by, acceptedAt)
-    return getTaskFactById(taskId) ?? task
-  }
   if (task.processBusinessCode === 'POST_FINISHING' || task.processCode === 'POST_FINISHING' || task.processNameZh === '后道') {
     acceptPostFinishingTask(taskId, by, acceptedAt)
     return getTaskFactById(taskId) ?? task

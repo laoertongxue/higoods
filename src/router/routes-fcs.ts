@@ -146,10 +146,9 @@ import {
   renderCraftDyeingWorkOrdersPage,
   renderCraftCombinedDyeingPage,
   renderCraftDyeingWaterSolubleOrdersPage,
-  renderCraftWoolFeiTicketsPage,
-  renderCraftWoolMachineSchedulePage,
+  renderCraftWoolMachineAssociationsPage,
+  renderCraftWoolHandoverPrintPage,
   renderCraftWoolMachinesPage,
-  renderCraftWoolStatisticsPage,
   renderCraftWoolWorkOrderDetailPage,
   renderCraftWoolWorkOrdersPage,
   renderCraftWoolWaitHandoverWarehousePage,
@@ -379,11 +378,8 @@ export const routes: RouteRegistry = {
     '/fcs/craft/wool/work-orders': () => renderCraftWoolWorkOrdersPage(),
     '/fcs/craft/wool/wait-process-warehouse': () => renderCraftWoolWaitProcessWarehousePage(),
     '/fcs/craft/wool/wait-handover-warehouse': () => renderCraftWoolWaitHandoverWarehousePage(),
-    '/fcs/craft/wool/fei-tickets': () => renderCraftWoolFeiTicketsPage(),
-    '/fcs/craft/wool/machine-schedule': () => renderCraftWoolMachineSchedulePage(),
+    '/fcs/process-factory/wool/machine-associations': () => renderCraftWoolMachineAssociationsPage(),
     '/fcs/craft/wool/machines': () => renderCraftWoolMachinesPage(),
-    '/fcs/craft/wool/statistics': () => renderCraftWoolStatisticsPage(),
-    '/fcs/craft/wool/stats': () => renderCraftWoolStatisticsPage(),
     '/fcs/craft/wool/warehouse': () =>
       renderRouteRedirect('/fcs/craft/wool/wait-process-warehouse', '正在跳转到毛织待加工仓'),
     '/fcs/craft/wool/warehouse-management': () =>
@@ -552,6 +548,17 @@ export const routes: RouteRegistry = {
         `/fcs/craft/dyeing/work-orders?dyeOrderId=${encodeURIComponent(decodeURIComponent(match[1]))}`,
         '正在跳转到染色加工单',
       ),
+    },
+    {
+      pattern: /^\/fcs\/craft\/wool\/work-orders\/([^/]+)\/handover-print\/([^/]+)$/,
+      render: (match) => renderCraftWoolHandoverPrintPage(
+        decodeURIComponent(match[1]),
+        decodeURIComponent(match[2]),
+      ),
+    },
+    {
+      pattern: /^\/fcs\/craft\/wool\/work-orders\/([^/]+)\/handover-print$/,
+      render: (match) => renderCraftWoolHandoverPrintPage(decodeURIComponent(match[1])),
     },
     {
       pattern: /^\/fcs\/craft\/wool\/work-orders\/([^/]+)$/,

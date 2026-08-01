@@ -45,14 +45,22 @@ export function renderDrawerFooter(config: DrawerFooterConfig): string {
   
   if (config.cancel) {
     const cancelLabel = config.cancel.label || '取消'
-    buttons.push(renderSecondaryButton(cancelLabel, { prefix: config.cancel.prefix, action: config.cancel.action }))
+    buttons.push(renderSecondaryButton(cancelLabel, {
+      prefix: config.cancel.prefix,
+      action: config.cancel.action,
+      skipPageRerender: config.cancel.skipPageRerender,
+    }))
   }
   
   if (config.confirm) {
     buttons.push(renderButton({
       label: config.confirm.label,
       variant: config.confirm.variant || 'primary',
-      action: { prefix: config.confirm.prefix, action: config.confirm.action },
+      action: {
+        prefix: config.confirm.prefix,
+        action: config.confirm.action,
+        skipPageRerender: config.confirm.skipPageRerender,
+      },
       disabled: config.confirm.disabled,
     }))
   }

@@ -6,11 +6,9 @@ import {
   parsePageSize,
   type PagingResult,
 } from '../../../utils/paging.ts'
-import {
-  getWoolWorkOrderKindLabel,
-  getWoolWorkOrderStatusLabel,
-  type WoolWorkOrderKind,
-  type WoolWorkOrderStatus,
+import type {
+  WoolProcessingStatus,
+  WoolWorkOrderKind,
 } from '../../../data/fcs/wool-task-domain.ts'
 
 export type BadgeTone = 'muted' | 'info' | 'warning' | 'success' | 'danger'
@@ -44,19 +42,24 @@ export function renderBadge(label: string, tone: BadgeTone = 'muted'): string {
 }
 
 export function renderKindBadge(kind: WoolWorkOrderKind): string {
-  return renderBadge(getWoolWorkOrderKindLabel(kind), kind === 'PART_PANEL' ? 'info' : 'muted')
+  return renderBadge(kind === 'PART_PANEL' ? '部位毛织' : '整件毛织', kind === 'PART_PANEL' ? 'info' : 'muted')
 }
 
-export function renderStatusBadge(status: WoolWorkOrderStatus): string {
+export function renderStatusBadge(status: WoolProcessingStatus | string): string {
+  const label = status === 'COMPLETED'
+    ? '已完成'
+    : status === 'PROCESSING'
+      ? '加工中'
+      : status === 'UNPROCESSED'
+        ? '未加工'
+        : status
   const tone: BadgeTone =
     status === 'COMPLETED'
       ? 'success'
-      : ['WAIT_PICKUP', 'PICKUP_IN_PROGRESS', 'WAIT_MACHINE_SCHEDULE', 'MACHINE_SCHEDULED', 'WAIT_HANDOVER', 'HANDOVER_SUBMITTED', 'WAIT_FEI_TICKET', 'FEI_TICKET_PRINTED'].includes(status)
-          ? 'warning'
-          : ['FLAT_WOOL', 'LINKING', 'IRONING', 'PACKING'].includes(status)
-            ? 'info'
-            : 'muted'
-  return renderBadge(getWoolWorkOrderStatusLabel(status), tone)
+      : status === 'PROCESSING'
+        ? 'info'
+        : 'muted'
+  return renderBadge(label, tone)
 }
 
 export function renderMetricCard(title: string, value: string, helper = ''): string {

@@ -316,8 +316,6 @@ function buildDictionaryCoverageBase(
           ? '裁床待交出仓'
           : '后道工厂'
         : undefined,
-    requiresFeiTicket: definition.processCode === 'WOOL' && definition.craftName === '部位毛织',
-    packagingRequired: definition.processCode === 'WOOL' && definition.craftName === '整件毛织' ? false : undefined,
     materialIssueMode: definition.processCode === 'WOOL' ? 'WAREHOUSE_DELIVERY' : undefined,
     linkedBomItemIds: linkedBomItem ? [linkedBomItem.id] : undefined,
     ...waterSolubleMaterialFields,
@@ -589,8 +587,6 @@ function toTaskArtifact(context: ResolvedEntryContext): GeneratedTaskArtifact {
     selectedTargetObject: context.sourceEntry.selectedTargetObject,
     woolTaskType: context.sourceEntry.woolTaskType,
     downstreamTarget: context.sourceEntry.downstreamTarget,
-    requiresFeiTicket: context.sourceEntry.requiresFeiTicket,
-    packagingRequired: context.sourceEntry.packagingRequired,
     materialIssueMode: context.sourceEntry.materialIssueMode,
     linkedBomItemIds: context.sourceEntry.linkedBomItemIds ? [...context.sourceEntry.linkedBomItemIds] : undefined,
     linkedPatternIds: context.sourceEntry.linkedPatternIds ? [...context.sourceEntry.linkedPatternIds] : undefined,

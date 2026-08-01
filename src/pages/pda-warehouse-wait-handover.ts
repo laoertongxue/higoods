@@ -16,19 +16,14 @@ import {
   listPostFinishingWaitHandoverWarehouseRecords,
 } from '../data/fcs/post-finishing-domain.ts'
 import {
-  completeWoolPickupHead,
+  adjustWoolWarehouseStock,
   getWoolWorkOrderById,
-  getWoolYarnUsageSummary,
-  listWoolWaitHandoverHandoutRecords,
-  listWoolWaitHandoverInboundRecords,
-  listWoolWorkOrders,
-  listWoolWarehouseInventory,
-  listWoolWarehouseLocations,
-  markWoolFeiTicketsPrinted,
-  scheduleWoolMachines,
-  submitWoolHandover,
-  updateWoolWorkOrderNodeStatus,
+  listWoolWarehouseFlows,
+  listWoolWarehouseStocks,
+  transferWoolWarehouseStock,
 } from '../data/fcs/wool-task-domain.ts'
+import { formatIndonesiaBusinessDateTime } from '../data/fcs/indonesia-business-time.ts'
+import { listFactoryInternalWarehouses } from '../data/fcs/factory-internal-warehouse-locations.ts'
 import { renderPdaFrame } from './pda-shell'
 import {
   buildWarehouseDifferenceText,
@@ -80,13 +75,11 @@ interface WaitHandoverState {
   auxiliaryHandoverArea: string
   auxiliaryHandoverShelf: string
   auxiliaryHandoverLocation: string
-  woolFinishOrderId: string
-  woolFinishQty: string
-  woolFinishLocationId: string
-  woolHandoverOrderId: string
-  woolHandoverQty: string
-  woolHandoverReceiver: string
-  woolHandoverLocationId: string
+  woolStockKey: string
+  woolActionQty: string
+  woolTransferTarget: string
+  woolActionReason: string
+  woolActionCommandId: string
 }
 
 const state: WaitHandoverState = {
@@ -109,13 +102,11 @@ const state: WaitHandoverState = {
   auxiliaryHandoverArea: '',
   auxiliaryHandoverShelf: '',
   auxiliaryHandoverLocation: '',
-  woolFinishOrderId: '',
-  woolFinishQty: '',
-  woolFinishLocationId: '',
-  woolHandoverOrderId: '',
-  woolHandoverQty: '',
-  woolHandoverReceiver: '',
-  woolHandoverLocationId: '',
+  woolStockKey: '',
+  woolActionQty: '',
+  woolTransferTarget: '',
+  woolActionReason: '',
+  woolActionCommandId: '',
 }
 
 const FILTERS: Array<{ value: WaitHandoverFilter; label: string }> = [
@@ -130,7 +121,7 @@ const FILTERS: Array<{ value: WaitHandoverFilter; label: string }> = [
 const LINKED_QR_FIELD = ['handoverRecord', 'QrValue'].join('')
 
 type AuxiliaryWaitHandoverAction = 'finish-inbound' | 'handover-confirm'
-type WoolWaitHandoverAction = 'finish-inbound' | 'handover-confirm'
+type WoolWaitHandoverAction = 'adjust' | 'transfer'
 
 function getCraftWarehouseRuntimeLabel(): '辅助工艺' | '特种工艺' | null {
   const runtime = getMobileWarehouseRuntimeContext()
@@ -735,17 +726,17 @@ function renderPostFinishingWaitHandoverPage(): string {
 }
 
 function getWoolWaitHandoverAction(value?: string | null): WoolWaitHandoverAction | null {
-  return value === 'finish-inbound' || value === 'handover-confirm' ? value : null
+  return value === 'adjust' || value === 'transfer' ? value : null
 }
 
-function getWoolWaitHandoverLocations() {
-  return listWoolWarehouseLocations('wait-handover')
+function getWoolWaitHandoverStocks() {
+  return listWoolWarehouseStocks('WAIT_HANDOVER')
 }
 
 function renderWoolWaitHandoverActionCards(activeAction?: WoolWaitHandoverAction | null): string {
   const actions: Array<{ key: WoolWaitHandoverAction; title: string; desc: string }> = [
-    { key: 'finish-inbound', title: '完工入仓', desc: '整件按件、部位片按片确认入仓。' },
-    { key: 'handover-confirm', title: '交出确认', desc: '确认接收方和数量，形成交出记录。' },
+    { key: 'adjust', title: '库存调整', desc: '盘点有误时填写原因并调整当前数量。' },
+    { key: 'transfer', title: '库存转移', desc: '将默认库位库存转到公共仓库启用库位。' },
   ]
   return `
     <section class="grid grid-cols-2 gap-2">
@@ -763,15 +754,15 @@ function renderWoolWaitHandoverActionCards(activeAction?: WoolWaitHandoverAction
   `
 }
 
-function renderWoolHandoverLocationSelect(field: string, value: string): string {
-  const locations = getWoolWaitHandoverLocations()
+function renderWoolWaitHandoverStockSelect(value: string): string {
+  const stocks = getWoolWaitHandoverStocks()
   return `
     <label class="block space-y-1.5">
-      <span class="text-xs font-medium text-muted-foreground">库区库位</span>
-      <select class="h-11 w-full rounded-xl border bg-background px-3 text-sm" data-pda-warehouse-field="${escapeAttr(field)}">
-        ${locations.map((location) => `
-          <option value="${escapeAttr(location.locationId)}" ${location.locationId === value ? 'selected' : ''}>
-            ${escapeHtml(`${location.areaName} / ${location.locationCode}`)}
+      <span class="text-xs font-medium text-muted-foreground">库存对象</span>
+      <select class="h-11 w-full rounded-xl border bg-background px-3 text-sm" data-pda-warehouse-field="wool-stock-key">
+        ${stocks.map((stock) => `
+          <option value="${escapeAttr(stock.stockKey)}" ${stock.stockKey === value ? 'selected' : ''}>
+            ${escapeHtml(`${stock.woolOrderNo} / ${stock.objectSkuCode} / ${stock.currentQty}${stock.unit}`)}
           </option>
         `).join('')}
       </select>
@@ -779,132 +770,78 @@ function renderWoolHandoverLocationSelect(field: string, value: string): string 
   `
 }
 
-function advanceWoolOrderToPdaWarehouseInbound(orderId: string): void {
-  for (let index = 0; index < 12; index += 1) {
-    const order = getWoolWorkOrderById(orderId)
-    if (!order) return
-    if (['WAIT_FEI_TICKET', 'FEI_TICKET_PRINTED', 'WAIT_HANDOVER', 'HANDOVER_SUBMITTED', 'COMPLETED'].includes(order.status)) return
-    if (order.status === 'WAIT_PICKUP' || order.status === 'PICKUP_IN_PROGRESS' || order.status === 'WAIT_ACCEPT') {
-      completeWoolPickupHead(orderId, 'PDA 毛织仓管')
-      continue
-    }
-    if (order.status === 'WAIT_MACHINE_SCHEDULE') {
-      scheduleWoolMachines(orderId, 'PDA 毛织仓管')
-      continue
-    }
-    if (order.status === 'MACHINE_SCHEDULED') {
-      const usage = getWoolYarnUsageSummary(order)
-      updateWoolWorkOrderNodeStatus(orderId, '横机成片', '进行中', 'PDA 毛织仓管', undefined, {
-        yarnUsageWeightKg: usage.processingUsageWeightKg || order.yarnReceipt.receivedWeightKg || order.yarnReceipt.plannedWeightKg,
-      })
-      continue
-    }
-    if (order.status === 'FLAT_WOOL') {
-      updateWoolWorkOrderNodeStatus(orderId, '横机成片', '已完成', 'PDA 毛织仓管')
-      continue
-    }
-    if (order.status === 'WAIT_LINKING') {
-      updateWoolWorkOrderNodeStatus(orderId, '缝盘', '进行中', 'PDA 毛织仓管')
-      continue
-    }
-    if (order.status === 'LINKING') {
-      const usage = getWoolYarnUsageSummary(order)
-      updateWoolWorkOrderNodeStatus(orderId, '缝盘', '已完成', 'PDA 毛织仓管', undefined, {
-        yarnLossWeightKg: usage.linkingLossWeightKg || Math.max((usage.processingUsageWeightKg || order.yarnReceipt.plannedWeightKg) * 0.015, 0.1),
-      })
-      continue
-    }
-    if (order.status === 'WAIT_IRONING') {
-      updateWoolWorkOrderNodeStatus(orderId, '熨烫', '进行中', 'PDA 毛织仓管')
-      continue
-    }
-    if (order.status === 'IRONING') {
-      updateWoolWorkOrderNodeStatus(orderId, '熨烫', '已完成', 'PDA 毛织仓管')
-      continue
-    }
-    if (order.status === 'WAIT_PACKING') {
-      updateWoolWorkOrderNodeStatus(orderId, '包装', order.needsPackaging ? '进行中' : '已跳过', 'PDA 毛织仓管')
-      continue
-    }
-    if (order.status === 'PACKING') {
-      updateWoolWorkOrderNodeStatus(orderId, '包装', '已完成', 'PDA 毛织仓管')
-      continue
-    }
-    return
-  }
+function createWoolWaitHandoverCommandId(action: string): string {
+  const suffix = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  return `PDA-WOOL-${action}-${suffix}`
 }
 
 function ensureWoolWaitHandoverDraft(action: WoolWaitHandoverAction): void {
-  const location = getWoolWaitHandoverLocations()[0]
-  if (action === 'finish-inbound') {
-    const order = listWoolWorkOrders().find((item) => !['HANDOVER_SUBMITTED', 'COMPLETED'].includes(item.status)) || listWoolWorkOrders()[0]
-    state.woolFinishOrderId ||= order?.woolOrderId || ''
-    state.woolFinishQty ||= String(order?.completedQty || order?.plannedQty || 0)
-    state.woolFinishLocationId ||= location?.locationId || ''
-    return
+  const item = getWoolWaitHandoverStocks().find((stock) => stock.currentQty > 0)
+    || getWoolWaitHandoverStocks()[0]
+  state.woolStockKey ||= item?.stockKey || ''
+  state.woolActionQty ||= String(item?.currentQty || 0)
+  state.woolActionCommandId ||= createWoolWaitHandoverCommandId(action.toUpperCase())
+  if (action === 'transfer' && !state.woolTransferTarget) {
+    const target = listFactoryInternalWarehouses()
+      .filter((warehouse) => warehouse.isEnabled)
+      .flatMap((warehouse) => warehouse.areaList
+        .filter((area) => area.status === 'AVAILABLE')
+        .flatMap((area) => area.shelfList
+          .filter((shelf) => shelf.status === 'AVAILABLE')
+          .flatMap((shelf) => shelf.locationList
+            .filter((location) => location.status === 'AVAILABLE')
+            .map((location) => `${warehouse.warehouseId}|${location.locationId}`))))
+      .find(Boolean)
+    state.woolTransferTarget = target || ''
   }
-  const inventory = listWoolWarehouseInventory('wait-handover')
-  const item = inventory.find((record) => record.currentQty > 0) || inventory[0]
-  state.woolHandoverOrderId ||= item?.woolOrderId || ''
-  state.woolHandoverQty ||= String(item?.currentQty || 0)
-  state.woolHandoverReceiver ||= '后道工厂 / 裁床待交出仓'
-  state.woolHandoverLocationId ||= location?.locationId || ''
 }
 
 function renderWoolWaitHandoverActionPage(action: WoolWaitHandoverAction): string {
   ensureWoolWaitHandoverDraft(action)
-  const isFinishInbound = action === 'finish-inbound'
-  const orders = listWoolWorkOrders()
-  const inventory = listWoolWarehouseInventory('wait-handover')
-  const orderOptions = orders.slice(0, 24).map((order) => `
-    <option value="${escapeAttr(order.woolOrderId)}" ${order.woolOrderId === state.woolFinishOrderId ? 'selected' : ''}>
-      ${escapeHtml(`${order.woolOrderNo} / ${order.kind === 'PART_PANEL' ? '部位片' : '整件'} / ${order.plannedQty} ${order.qtyUnit}`)}
-    </option>
-  `).join('')
-  const seen = new Set<string>()
-  const handoverOptions = inventory.filter((item) => {
-    if (seen.has(item.woolOrderId)) return false
-    seen.add(item.woolOrderId)
-    return true
-  }).map((item) => `
-    <option value="${escapeAttr(item.woolOrderId)}" ${item.woolOrderId === state.woolHandoverOrderId ? 'selected' : ''}>
-      ${escapeHtml(`${item.woolOrderNo} / ${item.inventoryObjectType} / ${item.currentQty} ${item.unit}`)}
-    </option>
-  `).join('')
+  const isAdjust = action === 'adjust'
+  const targetOptions = listFactoryInternalWarehouses()
+    .filter((warehouse) => warehouse.isEnabled)
+    .flatMap((warehouse) => warehouse.areaList
+      .filter((area) => area.status === 'AVAILABLE')
+      .flatMap((area) => area.shelfList
+        .filter((shelf) => shelf.status === 'AVAILABLE')
+        .flatMap((shelf) => shelf.locationList
+          .filter((location) => location.status === 'AVAILABLE')
+          .map((location) => {
+            const value = `${warehouse.warehouseId}|${location.locationId}`
+            return `<option value="${escapeAttr(value)}" ${value === state.woolTransferTarget ? 'selected' : ''}>${escapeHtml(`${warehouse.warehouseName} / ${area.areaName} / ${location.locationName}`)}</option>`
+          }))))
+    .join('')
   return `
     <div class="space-y-4 px-4 pb-5 pt-4">
       <section class="flex items-start justify-between gap-3">
         <div>
-          <div class="text-xl font-semibold leading-tight text-foreground">${escapeHtml(isFinishInbound ? '完工入仓' : '交出确认')}</div>
-          <div class="mt-1 text-xs leading-5 text-muted-foreground">毛织待交出仓支持整件毛织按件、部位毛织片按片管理。</div>
+          <div class="text-xl font-semibold leading-tight text-foreground">${escapeHtml(isAdjust ? '库存调整' : '库存转移')}</div>
+          <div class="mt-1 text-xs leading-5 text-muted-foreground">加工填报自动入库、发起交出出库均为只读事实；仓管只处理独立库存修正。</div>
         </div>
         <button type="button" class="shrink-0 rounded-full bg-muted px-3 py-1.5 text-xs font-medium" data-nav="/fcs/pda/warehouse">返回仓管</button>
       </section>
       ${renderWoolWaitHandoverActionCards(action)}
       <section class="space-y-3 rounded-2xl border bg-card px-4 py-4 shadow-sm">
+        ${renderWoolWaitHandoverStockSelect(state.woolStockKey)}
         <label class="block space-y-1.5">
-          <span class="text-xs font-medium text-muted-foreground">${isFinishInbound ? '毛织加工单' : '待交出库存'}</span>
-          <select class="h-11 w-full rounded-xl border bg-background px-3 text-sm" data-pda-warehouse-field="${isFinishInbound ? 'wool-finish-order' : 'wool-handover-order'}">
-            ${isFinishInbound ? orderOptions : handoverOptions}
-          </select>
+          <span class="text-xs font-medium text-muted-foreground">${isAdjust ? '调整后数量' : '转移数量'}</span>
+          <input class="h-11 w-full rounded-xl border bg-background px-3 text-sm" inputmode="decimal" value="${escapeAttr(state.woolActionQty)}" data-pda-warehouse-field="wool-action-qty" />
         </label>
+        ${isAdjust ? '' : `
+          <label class="block space-y-1.5">
+            <span class="text-xs font-medium text-muted-foreground">目标公共库位</span>
+            <select class="h-11 w-full rounded-xl border bg-background px-3 text-sm" data-pda-warehouse-field="wool-transfer-target">${targetOptions}</select>
+          </label>
+        `}
         <label class="block space-y-1.5">
-          <span class="text-xs font-medium text-muted-foreground">${isFinishInbound ? '完工数量' : '交出数量'}</span>
-          <input class="h-11 w-full rounded-xl border bg-background px-3 text-sm" inputmode="decimal" value="${escapeAttr(isFinishInbound ? state.woolFinishQty : state.woolHandoverQty)}" data-pda-warehouse-field="${isFinishInbound ? 'wool-finish-qty' : 'wool-handover-qty'}" />
+          <span class="text-xs font-medium text-muted-foreground">${isAdjust ? '调整原因' : '转移原因'}</span>
+          <textarea class="min-h-20 w-full rounded-xl border bg-background px-3 py-2 text-sm" data-pda-warehouse-field="wool-action-reason">${escapeHtml(state.woolActionReason)}</textarea>
         </label>
-        ${
-          isFinishInbound
-            ? renderWoolHandoverLocationSelect('wool-finish-location', state.woolFinishLocationId)
-            : `
-              <label class="block space-y-1.5">
-                <span class="text-xs font-medium text-muted-foreground">接收方</span>
-                <input class="h-11 w-full rounded-xl border bg-background px-3 text-sm" value="${escapeAttr(state.woolHandoverReceiver)}" data-pda-warehouse-field="wool-handover-receiver" />
-              </label>
-              ${renderWoolHandoverLocationSelect('wool-handover-location', state.woolHandoverLocationId)}
-            `
-        }
-        <button type="button" class="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground" data-pda-warehouse-action="${isFinishInbound ? 'confirm-wool-finish-inbound' : 'confirm-wool-handover'}">
-          ${escapeHtml(isFinishInbound ? '确认完工入仓' : '确认交出')}
+        <button type="button" class="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground" data-pda-warehouse-action="${isAdjust ? 'confirm-wool-adjust' : 'confirm-wool-transfer'}">
+          ${escapeHtml(isAdjust ? '确认库存调整' : '确认库存转移')}
         </button>
       </section>
     </div>
@@ -912,14 +849,24 @@ function renderWoolWaitHandoverActionPage(action: WoolWaitHandoverAction): strin
 }
 
 function renderWoolWaitHandoverPage(): string {
-  const activeAction = getWoolWaitHandoverAction(getMobileWarehouseSearchParams().get('action'))
+  const params = getMobileWarehouseSearchParams()
+  const activeAction = getWoolWaitHandoverAction(params.get('action'))
   if (activeAction) {
-    const title = activeAction === 'finish-inbound' ? '毛织完工入仓' : '毛织交出确认'
+    const title = activeAction === 'adjust' ? '毛织库存调整' : '毛织库存转移'
     return renderPdaFrame(renderWoolWaitHandoverActionPage(activeAction), 'warehouse', { headerTitle: title, disableTodoAutoOpen: true })
   }
-  const inventory = listWoolWarehouseInventory('wait-handover')
-  const inbounds = listWoolWaitHandoverInboundRecords()
-  const handouts = listWoolWaitHandoverHandoutRecords()
+  const inventory = getWoolWaitHandoverStocks()
+  const flows = listWoolWarehouseFlows({ warehouseMode: 'WAIT_HANDOVER' })
+    .sort((left, right) => right.operatedAt.localeCompare(left.operatedAt))
+  const inboundFlows = flows.filter((flow) => flow.businessType === 'PROCESS_REPORT')
+  const outboundFlows = flows.filter((flow) => flow.businessType === 'HANDOVER')
+  const pageSize = 6
+  const stockTotalPages = Math.max(1, Math.ceil(inventory.length / pageSize))
+  const flowTotalPages = Math.max(1, Math.ceil(flows.length / pageSize))
+  const stockPage = Math.min(Math.max(Number(params.get('stockPage')) || 1, 1), stockTotalPages)
+  const flowPage = Math.min(Math.max(Number(params.get('flowPage')) || 1, 1), flowTotalPages)
+  const stockRows = inventory.slice((stockPage - 1) * pageSize, stockPage * pageSize)
+  const flowRows = flows.slice((flowPage - 1) * pageSize, flowPage * pageSize)
   const content = `
     <div class="space-y-4 px-4 pb-5 pt-4">
       <section class="grid grid-cols-2 gap-2">
@@ -928,35 +875,77 @@ function renderWoolWaitHandoverPage(): string {
       </section>
       <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
         <div class="text-base font-semibold">毛织待交出仓</div>
-        <div class="mt-1 text-xs text-muted-foreground">加工入仓形成库存，交出给后道工厂或裁床待交出仓后扣减。</div>
+        <div class="mt-1 text-xs text-muted-foreground">加工填报自动入库，发起交出自动出库；这里查看库存和事实流水。</div>
         <div class="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
           <div class="rounded-xl bg-muted px-2 py-2"><div class="font-semibold">${inventory.length}</div><div class="text-muted-foreground">库存</div></div>
-          <div class="rounded-xl bg-muted px-2 py-2"><div class="font-semibold">${inbounds.length}</div><div class="text-muted-foreground">入仓</div></div>
-          <div class="rounded-xl bg-muted px-2 py-2"><div class="font-semibold">${handouts.length}</div><div class="text-muted-foreground">交出</div></div>
+          <div class="rounded-xl bg-muted px-2 py-2"><div class="font-semibold">${inboundFlows.length}</div><div class="text-muted-foreground">加工填报自动入库</div></div>
+          <div class="rounded-xl bg-muted px-2 py-2"><div class="font-semibold">${outboundFlows.length}</div><div class="text-muted-foreground">发起交出出库</div></div>
         </div>
       </section>
       ${renderWoolWaitHandoverActionCards()}
+      <div class="px-1 text-sm font-semibold">待交出库存</div>
       <section class="space-y-3">
-        ${inventory.map((item) => `
+        ${stockRows.map((item) => {
+          const order = getWoolWorkOrderById(item.woolOrderId)
+          return `
           <article class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
             <div class="flex items-start justify-between gap-3">
               <div>
                 <div class="text-sm font-semibold">${escapeHtml(item.woolOrderNo)}</div>
-                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.itemName)} · ${escapeHtml(item.itemSpec)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.objectSkuCode)} · ${escapeHtml(item.objectName)}</div>
               </div>
-              ${renderStatusPill(item.statusText)}
+              ${renderStatusPill(item.completed ? '已完成加工单剩余库存' : item.currentQty > 0 ? '有库存' : '无库存')}
             </div>
             <div class="mt-3 space-y-1.5 text-xs text-muted-foreground">
               <div>生产单：${escapeHtml(item.productionOrderNo)}</div>
               <div>当前库存：${item.currentQty} ${escapeHtml(item.unit)}</div>
-              <div>库区库位：${escapeHtml(item.locationText)}</div>
-              <div>流水：${item.flowRecords.map((flow) => `${flow.flowType}${flow.qty}${flow.unit}`).join(' / ') || '-'}</div>
+              <div>对象类型：${escapeHtml(item.objectType === 'CUT_PIECE' ? '裁片' : '成衣')}</div>
+              <div>默认库位：${escapeHtml(item.defaultLocationId)}</div>
             </div>
             <div class="mt-4 flex flex-wrap gap-2">
-              <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-nav="${escapeAttr(resolveTaskRoute(item.taskNo))}">查看任务</button>
+              <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-nav="${escapeAttr(resolveTaskRoute(order?.taskId))}">查看任务</button>
+            </div>
+          </article>
+        `}).join('')}
+      </section>
+      <section class="flex items-center justify-between rounded-xl border bg-card px-3 py-2 text-xs">
+        <span>库存第 ${stockPage} / ${stockTotalPages} 页 · 共 ${inventory.length} 条</span>
+        <div class="flex gap-2">
+          <button type="button" class="rounded-full border px-3 py-1.5 disabled:opacity-40" data-nav="/fcs/pda/warehouse/wait-handover?stockPage=${stockPage - 1}&flowPage=${flowPage}" ${stockPage <= 1 ? 'disabled' : ''}>上一页</button>
+          <button type="button" class="rounded-full border px-3 py-1.5 disabled:opacity-40" data-nav="/fcs/pda/warehouse/wait-handover?stockPage=${stockPage + 1}&flowPage=${flowPage}" ${stockPage >= stockTotalPages ? 'disabled' : ''}>下一页</button>
+        </div>
+      </section>
+      <div class="px-1 text-sm font-semibold">库存流水</div>
+      <section class="space-y-3">
+        ${flowRows.map((flow) => `
+          <article class="rounded-2xl border bg-card px-4 py-3 text-xs shadow-sm">
+            <div class="flex items-start justify-between gap-3">
+              <div class="font-semibold">${escapeHtml(flow.objectSkuCode)}</div>
+              ${renderStatusPill(
+                flow.businessType === 'PROCESS_REPORT'
+                  ? '加工填报自动入库'
+                  : flow.businessType === 'HANDOVER'
+                    ? '发起交出出库'
+                    : flow.businessType === 'STOCK_ADJUSTMENT'
+                      ? '库存调整'
+                      : '库存转移',
+              )}
+            </div>
+            <div class="mt-2 space-y-1 text-muted-foreground">
+              <div>数量：${flow.qty} ${escapeHtml(flow.unit)}</div>
+              <div>库位：${escapeHtml(flow.defaultLocationId)}</div>
+              <div>操作：${escapeHtml(flow.operatedBy)} · ${escapeHtml(flow.operatedAt)}</div>
+              ${flow.reason ? `<div>原因：${escapeHtml(flow.reason)}</div>` : ''}
             </div>
           </article>
         `).join('')}
+      </section>
+      <section class="flex items-center justify-between rounded-xl border bg-card px-3 py-2 text-xs">
+        <span>流水第 ${flowPage} / ${flowTotalPages} 页 · 共 ${flows.length} 条</span>
+        <div class="flex gap-2">
+          <button type="button" class="rounded-full border px-3 py-1.5 disabled:opacity-40" data-nav="/fcs/pda/warehouse/wait-handover?stockPage=${stockPage}&flowPage=${flowPage - 1}" ${flowPage <= 1 ? 'disabled' : ''}>上一页</button>
+          <button type="button" class="rounded-full border px-3 py-1.5 disabled:opacity-40" data-nav="/fcs/pda/warehouse/wait-handover?stockPage=${stockPage}&flowPage=${flowPage + 1}" ${flowPage >= flowTotalPages ? 'disabled' : ''}>下一页</button>
+        </div>
       </section>
     </div>
   `
@@ -1057,56 +1046,65 @@ export function handlePdaWarehouseWaitHandoverEvent(target: HTMLElement): boolea
     })
     return true
   }
-  if (action === 'confirm-wool-finish-inbound') {
-    const qty = Number(state.woolFinishQty)
-    if (!state.woolFinishOrderId) {
-      window.alert('请选择毛织加工单。')
+  if (action === 'confirm-wool-adjust' || action === 'confirm-wool-transfer') {
+    const runtime = getMobileWarehouseRuntimeContext()
+    const stock = getWoolWaitHandoverStocks().find((item) => item.stockKey === state.woolStockKey)
+    const qty = Number(state.woolActionQty)
+    if (runtime?.factoryId !== OWN_WOOL_FACTORY_ID || !stock) {
+      window.alert('当前账号或库存已变化，请返回后重新选择。')
       return true
     }
-    if (!Number.isFinite(qty) || qty <= 0) {
-      window.alert('请输入大于 0 的完工数量。')
+    if (!Number.isFinite(qty) || qty < 0 || !state.woolActionReason.trim()) {
+      window.alert('请输入有效数量和原因。')
       return true
     }
-    if (!state.woolFinishLocationId) {
-      window.alert('请选择库区库位。')
+    if (action === 'confirm-wool-transfer' && qty <= 0) {
+      window.alert('转移数量必须大于 0。')
       return true
     }
-    advanceWoolOrderToPdaWarehouseInbound(state.woolFinishOrderId)
-    state.woolFinishOrderId = ''
-    state.woolFinishQty = ''
-    state.woolFinishLocationId = ''
-    window.location.href = '/fcs/pda/warehouse/wait-handover'
-    return true
-  }
-  if (action === 'confirm-wool-handover') {
-    const qty = Number(state.woolHandoverQty)
-    if (!state.woolHandoverOrderId) {
-      window.alert('请选择待交出库存。')
+    if (!window.confirm(`确认${action === 'confirm-wool-adjust' ? '调整' : '转移'} ${stock.objectSkuCode} ${qty} ${stock.unit}？`)) {
       return true
     }
-    if (!Number.isFinite(qty) || qty <= 0) {
-      window.alert('请输入大于 0 的交出数量。')
-      return true
+    try {
+      const operatedAt = formatIndonesiaBusinessDateTime()
+      if (action === 'confirm-wool-adjust') {
+        adjustWoolWarehouseStock({
+          commandId: state.woolActionCommandId || createWoolWaitHandoverCommandId('ADJUST'),
+          woolOrderId: stock.woolOrderId,
+          objectSkuCode: stock.objectSkuCode,
+          batchNo: stock.batchNo,
+          defaultLocationId: stock.defaultLocationId,
+          afterQty: qty,
+          reason: state.woolActionReason,
+          operatedAt,
+          operatedBy: 'PDA 毛织仓管',
+        })
+      } else {
+        const [toWarehouseId = '', toLocationId = ''] = state.woolTransferTarget.split('|')
+        transferWoolWarehouseStock({
+          commandId: state.woolActionCommandId || createWoolWaitHandoverCommandId('TRANSFER'),
+          woolOrderId: stock.woolOrderId,
+          objectSkuCode: stock.objectSkuCode,
+          batchNo: stock.batchNo,
+          defaultLocationId: stock.defaultLocationId,
+          fromLocationId: stock.defaultLocationId,
+          toWarehouseId,
+          toLocationId,
+          qty,
+          reason: state.woolActionReason,
+          operatedAt,
+          operatedBy: 'PDA 毛织仓管',
+        })
+      }
+      state.woolStockKey = ''
+      state.woolActionQty = ''
+      state.woolTransferTarget = ''
+      state.woolActionReason = ''
+      state.woolActionCommandId = ''
+      window.location.href = '/fcs/pda/warehouse/wait-handover'
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '库存操作失败，请叫主管处理。')
     }
-    if (!state.woolHandoverReceiver.trim()) {
-      window.alert('请输入接收方。')
-      return true
-    }
-    if (!state.woolHandoverLocationId) {
-      window.alert('请选择库区库位。')
-      return true
-    }
-    advanceWoolOrderToPdaWarehouseInbound(state.woolHandoverOrderId)
-    const ready = getWoolWorkOrderById(state.woolHandoverOrderId)
-    if (ready?.status === 'WAIT_FEI_TICKET') {
-      markWoolFeiTicketsPrinted(state.woolHandoverOrderId, 'PDA 毛织仓管')
-    }
-    submitWoolHandover(state.woolHandoverOrderId, 'PDA 毛织仓管')
-    state.woolHandoverOrderId = ''
-    state.woolHandoverQty = ''
-    state.woolHandoverReceiver = ''
-    state.woolHandoverLocationId = ''
-    window.location.href = '/fcs/pda/warehouse/wait-handover'
     return true
   }
   if (action === 'confirm-auxiliary-finish' || action === 'confirm-auxiliary-handover') {
@@ -1192,36 +1190,22 @@ export function handlePdaWarehouseWaitHandoverEvent(target: HTMLElement): boolea
     state.remark = value
     return true
   }
-  if (field === 'wool-finish-order') {
-    state.woolFinishOrderId = value
-    const order = getWoolWorkOrderById(value)
-    if (order) state.woolFinishQty = String(order.completedQty || order.plannedQty)
+  if (field === 'wool-stock-key') {
+    state.woolStockKey = value
+    const stock = getWoolWaitHandoverStocks().find((item) => item.stockKey === value)
+    if (stock) state.woolActionQty = String(stock.currentQty)
     return true
   }
-  if (field === 'wool-finish-qty') {
-    state.woolFinishQty = value
+  if (field === 'wool-action-qty') {
+    state.woolActionQty = value
     return true
   }
-  if (field === 'wool-finish-location') {
-    state.woolFinishLocationId = value
+  if (field === 'wool-transfer-target') {
+    state.woolTransferTarget = value
     return true
   }
-  if (field === 'wool-handover-order') {
-    state.woolHandoverOrderId = value
-    const item = listWoolWarehouseInventory('wait-handover').find((record) => record.woolOrderId === value)
-    if (item) state.woolHandoverQty = String(item.currentQty || 0)
-    return true
-  }
-  if (field === 'wool-handover-qty') {
-    state.woolHandoverQty = value
-    return true
-  }
-  if (field === 'wool-handover-receiver') {
-    state.woolHandoverReceiver = value
-    return true
-  }
-  if (field === 'wool-handover-location') {
-    state.woolHandoverLocationId = value
+  if (field === 'wool-action-reason') {
+    state.woolActionReason = value
     return true
   }
   if (field === 'auxiliary-finish-scan') {

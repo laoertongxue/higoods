@@ -2415,7 +2415,6 @@ function handleTechPackField(
       outputValue: '',
       outputValueUnit: '产值/件',
       difficulty: '中等',
-      packagingRequired: false,
       remark: '',
     }
     return true
@@ -2426,7 +2425,6 @@ function handleTechPackField(
       processCode: value,
       craftCode: '',
       selectedTargetObject: '',
-      packagingRequired: false,
     }
     return true
   }
@@ -2456,15 +2454,10 @@ function handleTechPackField(
       craftCode: value,
       selectedTargetObject,
       linkedBomItemIds: [],
-      packagingRequired: craft?.craftName === '整件毛织' ? state.newTechnique.packagingRequired : false,
       outputValue: craft ? String(craft.referenceOutputValueValue) : state.newTechnique.outputValue,
       outputValueUnit: craft ? craft.referenceOutputValueUnitLabel : state.newTechnique.outputValueUnit,
     }
     refreshTechniqueFormDialogDom()
-    return true
-  }
-  if (field === 'new-technique-packaging-required') {
-    state.newTechnique.packagingRequired = checked
     return true
   }
   if (field === 'new-technique-target-object') {
@@ -2627,16 +2620,6 @@ function handleTechPackField(
     updateTechnique(techId, (item) => ({ ...item, remark: value }))
     return true
   }
-  if (field === 'tech-packaging-required') {
-    const techId = node.dataset.techId
-    if (!techId) return true
-    updateTechnique(techId, (item) => ({
-      ...item,
-      packagingRequired: item.technique === '整件毛织' || item.woolTaskType === 'WHOLE_GARMENT' ? checked : false,
-    }))
-    return true
-  }
-
   if (field === 'material-price') {
     const rowId = node.dataset.rowId
     if (!rowId) return true
@@ -4202,7 +4185,6 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       craftCode: target.entryType === 'CRAFT' ? target.craftCode : '',
       selectedTargetObject: target.selectedTargetObject || '',
       linkedBomItemIds: target.selectedTargetObject === '成衣' ? validGarmentBomLinks : [],
-      packagingRequired: Boolean(target.packagingRequired),
       ruleSource: target.ruleSource,
       assignmentGranularity: target.assignmentGranularity,
       detailSplitMode: target.detailSplitMode,
@@ -4359,8 +4341,6 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       targetObjectName: effectiveMeta.targetObjectName,
       woolTaskType: effectiveMeta.woolTaskType,
       downstreamTarget: effectiveMeta.downstreamTarget,
-      requiresFeiTicket: effectiveMeta.requiresFeiTicket,
-      packagingRequired: effectiveMeta.packagingRequired,
       materialIssueMode: effectiveMeta.materialIssueMode,
       linkedBomItemIds: effectiveMeta.selectedTargetObject === '成衣'
         ? [...state.newTechnique.linkedBomItemIds]

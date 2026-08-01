@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>毛织仓库局部交互检查</title>
+  </head>
+  <body>
+    <main id="app"></main>
+    <script type="module">
+      import { appStore } from '/src/state/store.ts'
+      import {
+        addWoolYarnReceipt,
+        changeWoolFactQty,
+        listWoolWorkOrders,
+        readWoolStore,
+        resetWoolFactWorkflowMock,
+        WOOL_DOMAIN_STORE_KEY,
+      } from '/src/data/fcs/wool-task-domain.ts'
+      import {
+        handleCraftWoolWarehouseEvent,
+        renderCraftWoolWaitHandoverWarehousePage,
+        renderCraftWoolWaitProcessWarehousePage,
+      } from '/src/pages/process-factory/wool/warehouse.ts'
+
+      const mode = new URLSearchParams(location.search).get('mode') === 'handover'
+        ? 'handover'
+        : 'process'
+      resetWoolFactWorkflowMock(`BROWSER_TASK_11_${mode}`)
+      if (mode === 'process') {
+        const traceOrder = listWoolWorkOrders()
+          .find((order) => order.mockScenarioCode === 'YARN_ISSUE_RETURN')
+        const traceReceipts = Array.from({ length: 12 }, (_, index) =>
+          addWoolYarnReceipt(traceOrder.woolOrderId, {
+            commandId: `BROWSER-T11-TRACE-RECEIPT-${index + 1}`,
+            deliveryNo: `BROWSER-DELIVERY-${String(index + 1).padStart(2, '0')}`,
+            batchNo: 'BATCH-TRACE',
+            receivedAt: `2026-07-31 14:${String(index).padStart(2, '0')}:00`,
+            receivedBy: index === 0 ? '浏览器仓管 <甲>' : `浏览器仓管 ${index + 1}`,
+            proofFiles: index === 0 ? ['凭证<' + 'script>alert(1)<' + '/script>.jpg'] : [],
+            remark: index === 0 ? '浏览器备注 <img src=x onerror=alert(1)>' : `浏览器备注 ${index + 1}`,
+            lines: [{
+              yarnSkuCode: 'YARN-A',
+              yarnName: '黑色纱线 <A>',
+              receivedQty: index + 1,
+              differenceNote: index === 0 ? '浏览器差异 <svg onload=alert(1)>' : `浏览器差异 ${index + 1}`,
+            }],
+          }),
+        )
+        let traceQty = traceReceipts[0].lines[0].receivedQty
+        for (let index = 0; index < 12; index += 1) {
+          traceQty += 0.1
+          changeWoolFactQty({
+            commandId: `BROWSER-T11-TRACE-CHANGE-${index + 1}`,
+            recordType: 'YARN_RECEIPT',
+            recordId: traceReceipts[0].receiptId,
+            recordLineId: traceReceipts[0].lines[0].lineId,
+            afterQty: traceQty,
+            reason: index === 0 ? '浏览器修改 <' + 'script>alert(1)<' + '/script>' : `浏览器数量复核 ${index + 1}`,
+            changedAt: `2026-07-31 15:${String(index).padStart(2, '0')}:00`,
+            changedBy: index === 0 ? '浏览器复核人 <乙>' : `浏览器复核人 ${index + 1}`,
+          })
+        }
+        const noBatchReceipt = addWoolYarnReceipt(traceOrder.woolOrderId, {
+          commandId: 'BROWSER-T11-TRACE-NO-BATCH',
+          deliveryNo: 'BROWSER-DELIVERY-NO-BATCH',
+          batchNo: '   ',
+          receivedAt: '2026-07-31 16:00:00',
+          receivedBy: '浏览器无批次仓管',
+          remark: '浏览器无批次备注 <b>只显示文本</b>',
+          lines: [{
+            yarnSkuCode: 'YARN-A',
+            yarnName: '浏览器无批次 A 纱',
+            receivedQty: 3,
+            differenceNote: '浏览器无批次差异',
+          }],
+        })
+        const batchXReceipt = addWoolYarnReceipt(traceOrder.woolOrderId, {
+          commandId: 'BROWSER-T11-TRACE-BATCH-X',
+          deliveryNo: 'BROWSER-DELIVERY-BATCH-X',
+          batchNo: ' BATCH-X ',
+          receivedAt: '2026-07-31 16:01:00',
+          receivedBy: '浏览器 X 批次仓管',
+          remark: '浏览器 BATCH-X 备注',
+          lines: [{
+            yarnSkuCode: 'YARN-A',
+            yarnName: '浏览器 BATCH-X A 纱',
+            receivedQty: 4,
+            differenceNote: '浏览器 BATCH-X 差异',
+          }],
+        })
+        changeWoolFactQty({
+          commandId: 'BROWSER-T11-TRACE-NO-BATCH-CHANGE',
+          recordType: 'YARN_RECEIPT',
+          recordId: noBatchReceipt.receiptId,
+          recordLineId: noBatchReceipt.lines[0].lineId,
+          afterQty: 3.5,
+          reason: '浏览器无批次修改历史',
+          changedAt: '2026-07-31 16:10:00',
+          changedBy: '浏览器无批次复核人',
+        })
+        changeWoolFactQty({
+          commandId: 'BROWSER-T11-TRACE-BATCH-X-CHANGE',
+          recordType: 'YARN_RECEIPT',
+          recordId: batchXReceipt.receiptId,
+          recordLineId: batchXReceipt.lines[0].lineId,
+          afterQty: 4.5,
+          reason: '浏览器 BATCH-X 修改历史',
+          changedAt: '2026-07-31 16:11:00',
+          changedBy: '浏览器 X 批次复核人',
+        })
+      }
+      appStore.navigate(
+        mode === 'handover'
+          ? '/fcs/craft/wool/wait-handover-warehouse'
+          : '/fcs/craft/wool/wait-process-warehouse',
+      )
+      const app = document.querySelector('#app')
+      app.innerHTML = mode === 'handover'
+        ? renderCraftWoolWaitHandoverWarehousePage()
+        : renderCraftWoolWaitProcessWarehousePage()
+      for (const eventName of ['click', 'change', 'input', 'dragstart', 'dragover', 'drop']) {
+        document.addEventListener(eventName, async (event) => {
+          const target = event.target instanceof Element ? event.target : null
+          if (!target || target.closest('[data-nav]')) return
+          if (await handleCraftWoolWarehouseEvent(target, event)) event.preventDefault()
+        })
+      }
+      window.__woolWarehouseFixture = {
+        root: document.querySelector('[data-wool-warehouse-root]'),
+        snapshot: () => JSON.stringify(readWoolStore()),
+        storageSnapshot: () => localStorage.getItem(WOOL_DOMAIN_STORE_KEY),
+      }
+    </script>
+  </body>
+</html>

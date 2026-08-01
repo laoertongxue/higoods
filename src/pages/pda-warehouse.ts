@@ -43,26 +43,6 @@ function isCraftWarehouseRuntime(runtime: NonNullable<ReturnType<typeof getMobil
   return factory?.factoryType === 'CENTRAL_AUX' || factory?.factoryType === 'CENTRAL_SPECIAL'
 }
 
-function getWaitHandoverInboundShortcut(runtime: NonNullable<ReturnType<typeof getMobileWarehouseRuntimeContext>>): Pick<WarehouseShortcut, 'title' | 'subtitle'> {
-  const factory = getFactoryMasterRecordById(runtime.factoryId)
-  if (isWoolWarehouseRuntime(runtime)) {
-    return {
-      title: '完工入仓',
-      subtitle: '整件毛织按件、部位毛织片按片入待交出仓。',
-    }
-  }
-  if (factory?.factoryType === 'CENTRAL_PRINT' || factory?.factoryType === 'CENTRAL_DYE') {
-    return {
-      title: '加工物料入仓',
-      subtitle: '加工完成后扫码入待交出仓。',
-    }
-  }
-  return {
-    title: '完工入仓',
-    subtitle: '加工完成后扫码入待交出仓。',
-  }
-}
-
 function resolveWarehouseRoute(
   route: '/fcs/pda/warehouse/wait-process' | '/fcs/pda/warehouse/wait-handover' | '/fcs/pda/warehouse/stocktake',
   runtime: ReturnType<typeof getMobileWarehouseRuntimeContext>,
@@ -172,20 +152,26 @@ function renderWaitProcessActions(runtime: NonNullable<ReturnType<typeof getMobi
   } else if (isWoolWarehouseRuntime(runtime)) {
     waitProcessActions = [
       {
-        title: '领料入仓',
-        subtitle: '确认纱线重量和库区库位。',
+        title: '纱线确认接收',
+        subtitle: '按加工单确认实际收到的纱线。',
         route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-process', runtime, { action: 'receive' }),
         ...buildPendingTone(pickupCount),
       },
       {
-        title: '加工领料',
-        subtitle: '从待加工仓领出纱线给横机使用。',
+        title: '纱线领用',
+        subtitle: '从默认纱线库位领出实际用量。',
         route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-process', runtime, { action: 'issue' }),
       },
       {
-        title: '回收入仓',
-        subtitle: '毛织剩余纱线回收入仓。',
+        title: '纱线退回',
+        subtitle: '将未使用纱线退回默认纱线库位。',
         route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-process', runtime, { action: 'return' }),
+      },
+      {
+        title: '库存调整',
+        subtitle: '二次确认后修正纱线账面库存。',
+        route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-process', runtime, { action: 'adjust' }),
+        tone: 'warning',
       },
     ]
   } else {
@@ -202,7 +188,6 @@ function renderWaitProcessActions(runtime: NonNullable<ReturnType<typeof getMobi
 
 function renderWaitHandoverActions(runtime: NonNullable<ReturnType<typeof getMobileWarehouseRuntimeContext>>): string {
   const handoverCount = getActiveTodoCount(runtime, ['待交出'])
-  const inboundShortcut = getWaitHandoverInboundShortcut(runtime)
   let waitHandoverActions: WarehouseShortcut[]
   if (isCuttingWarehouseRuntime(runtime)) {
     waitHandoverActions = getPdaCuttingWaitHandoverActions()
@@ -223,14 +208,14 @@ function renderWaitHandoverActions(runtime: NonNullable<ReturnType<typeof getMob
   } else if (isWoolWarehouseRuntime(runtime)) {
     waitHandoverActions = [
       {
-        title: inboundShortcut.title,
-        subtitle: inboundShortcut.subtitle,
-        route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-handover', runtime, { action: 'finish-inbound' }),
+        title: '查看待交出库存',
+        subtitle: '查看加工填报入库后的裁片、成衣库存。',
+        route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-handover', runtime),
       },
       {
-        title: '交出确认',
-        subtitle: '确认接收方和数量，形成毛织交出记录。',
-        route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-handover', runtime, { action: 'handover-confirm' }),
+        title: '查看交出记录',
+        subtitle: '查看每次发起交出形成的独立交接记录。',
+        route: '/fcs/pda/handover?tab=handout',
         ...buildPendingTone(handoverCount),
       },
     ]

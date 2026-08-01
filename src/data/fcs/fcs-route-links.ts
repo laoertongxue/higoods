@@ -212,6 +212,11 @@ export function buildWoolWorkOrderDetailLink(woolOrderId: string, tab?: string):
   return tab ? `${base}?tab=${encodeSegment(tab)}` : base
 }
 
+export function buildWoolHandoverPrintLink(woolOrderId: string, handoverId?: string): string {
+  const base = `/fcs/craft/wool/work-orders/${encodeSegment(woolOrderId)}/handover-print`
+  return handoverId ? `${base}/${encodeSegment(handoverId)}` : base
+}
+
 export function buildPostFinishingTaskLink(postTaskId?: string): string {
   const base = '/fcs/craft/post-finishing/tasks'
   return postTaskId ? `${base}?taskId=${encodeSegment(postTaskId)}` : base
@@ -227,24 +232,21 @@ export function buildWoolWaitHandoverWarehouseLink(woolOrderId?: string): string
   return woolOrderId ? `${base}?woolOrderId=${encodeSegment(woolOrderId)}` : base
 }
 
-export function buildWoolFeiTicketsLink(woolOrderId?: string): string {
-  const base = '/fcs/craft/wool/fei-tickets'
-  return woolOrderId ? `${base}?woolOrderId=${encodeSegment(woolOrderId)}` : base
-}
-
-export function buildWoolMachineScheduleLink(woolOrderId?: string): string {
-  const base = '/fcs/craft/wool/machine-schedule'
-  return woolOrderId ? `${base}?woolOrderId=${encodeSegment(woolOrderId)}` : base
+export function buildWoolMachineAssociationsLink(
+  woolOrderId?: string,
+  machineId?: string,
+): string {
+  const base = '/fcs/process-factory/wool/machine-associations'
+  const params = new URLSearchParams()
+  if (woolOrderId) params.set('woolOrderId', woolOrderId)
+  if (machineId) params.set('machineId', machineId)
+  const query = params.toString()
+  return query ? `${base}?${query}` : base
 }
 
 export function buildWoolMachinesLink(machineNo?: string): string {
   const base = '/fcs/craft/wool/machines'
   return machineNo ? `${base}?machineNo=${encodeSegment(machineNo)}` : base
-}
-
-export function buildWoolStatisticsLink(woolOrderId?: string): string {
-  const base = '/fcs/craft/wool/statistics'
-  return woolOrderId ? `${base}?woolOrderId=${encodeSegment(woolOrderId)}` : base
 }
 
 export function buildPostFinishingWorkOrderDetailLink(postOrderId: string, tab?: string): string {

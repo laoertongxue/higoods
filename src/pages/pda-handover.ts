@@ -4,6 +4,7 @@ import { renderRealQrPlaceholder } from '../components/real-qr'
 import { renderPdaFrame } from './pda-shell'
 import {
   deriveHandoutObjectProfile,
+  findPdaHandoverHead,
   getPdaHandoverSourceDisplay,
   getPdaCompletedHeads,
   getPdaHandoverRecordsByHead,
@@ -78,6 +79,19 @@ function getCurrentFactoryId(): string {
   const runtime = getPdaRuntimeContext()
   state.selectedFactoryId = runtime?.factoryId ?? ''
   return state.selectedFactoryId
+}
+
+export function mergeHandoverHeadsById(...groups: PdaHandoverHead[][]): PdaHandoverHead[] {
+  const headsById = new Map<string, PdaHandoverHead>()
+  groups.flat().forEach((head) => headsById.set(head.handoverId, head))
+  const businessTime = (head: PdaHandoverHead): number => {
+    const timestamps = [head.lastRecordAt, head.completedByWarehouseAt]
+      .map((value) => value ? new Date(value.replace(' ', 'T')).getTime() : 0)
+      .filter(Number.isFinite)
+    return timestamps.length > 0 ? Math.max(...timestamps) : 0
+  }
+  return [...headsById.values()]
+    .sort((left, right) => businessTime(right) - businessTime(left))
 }
 
 function renderPartyChip(kind: PdaHandoverHead['targetKind'], name: string): string {
@@ -424,17 +438,19 @@ function renderOpenHeadCard(head: PdaHandoverHead): string {
 
         <div class="text-[10px] text-muted-foreground">${escapeHtml(meta.hint)}</div>
 
-        <div class="mt-1 grid grid-cols-2 gap-2">
+        <div class="mt-1 grid ${head.processBusinessCode === 'WOOL' ? 'grid-cols-1' : 'grid-cols-2'} gap-2">
           <button
             class="inline-flex h-8 items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
             data-pda-handover-action="open-detail"
             data-event-id="${escapeHtml(head.handoverId)}"
           >${actionLabel}</button>
-          <button
-            class="inline-flex h-8 items-center justify-center rounded-md border px-3 text-xs font-medium hover:bg-muted"
-            data-pda-handover-action="open-new-record"
-            data-event-id="${escapeHtml(head.handoverId)}"
-          >新增交出记录</button>
+          ${head.processBusinessCode === 'WOOL'
+            ? ''
+            : `<button
+                class="inline-flex h-8 items-center justify-center rounded-md border px-3 text-xs font-medium hover:bg-muted"
+                data-pda-handover-action="open-new-record"
+                data-event-id="${escapeHtml(head.handoverId)}"
+              >新增交出记录</button>`}
         </div>
       </div>
     </article>
@@ -555,8 +571,16 @@ export function renderPdaHandoverPage(): string {
   }
   syncAllPostFinishingSewingSelfReturnHandoverRecords()
   const pickupHeads = isPostFinishingFactory ? getPdaPostFinishingPickupHeads() : getPdaPickupHeads(selectedFactoryId)
-  const handoutHeads = isPostFinishingFactory ? getPdaPostFinishingHandoutHeads() : getPdaHandoutHeads(selectedFactoryId)
-  const doneHeads = isPostFinishingFactory ? getPdaPostFinishingCompletedHeads() : getPdaCompletedHeads(selectedFactoryId)
+  const factoryWoolHandoutHeads = getPdaHandoutHeads(selectedFactoryId)
+    .filter((head) => head.processBusinessCode === 'WOOL')
+  const factoryWoolCompletedHeads = getPdaCompletedHeads(selectedFactoryId)
+    .filter((head) => head.processBusinessCode === 'WOOL')
+  const handoutHeads = isPostFinishingFactory
+    ? mergeHandoverHeadsById(getPdaPostFinishingHandoutHeads(), factoryWoolHandoutHeads)
+    : getPdaHandoutHeads(selectedFactoryId)
+  const doneHeads = isPostFinishingFactory
+    ? mergeHandoverHeadsById(getPdaPostFinishingCompletedHeads(), factoryWoolCompletedHeads)
+    : getPdaCompletedHeads(selectedFactoryId)
 
   const tabCounts: Record<HandoverTab, number> = {
     pickup: pickupHeads.length,
@@ -673,6 +697,11 @@ export function handlePdaHandoverEvent(target: HTMLElement): boolean {
   if (action === 'open-new-record') {
     const eventId = actionNode.dataset.eventId
     if (eventId) {
+      const head = findPdaHandoverHead(eventId)
+      if (head?.processBusinessCode === 'WOOL') {
+        appStore.navigate(resolvePdaHandoverDetailPath(eventId, appStore.getState().pathname))
+        return true
+      }
       appStore.navigate(`${resolvePdaHandoverDetailPath(eventId, appStore.getState().pathname)}?action=new-record`)
     }
     return true

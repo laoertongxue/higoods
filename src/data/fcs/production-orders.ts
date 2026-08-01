@@ -1511,6 +1511,7 @@ function buildReleaseTargetSupplementProductionOrder(base: ProductionOrder): Pro
     type,
     name,
     materialCode: `RELEASE-${materialCode}`,
+    materialImageUrl: buildReleaseMaterialSwatchImageUrl(materialCode, name),
     spec: `${name} / 放行目标补料`,
     colorLabel: colors.join(' / '),
     unit: '件',
@@ -1561,6 +1562,7 @@ function buildReleaseTargetSupplementProductionOrder(base: ProductionOrder): Pro
   }]
   const colorMaterialMappings = colors.map((color, colorIndex) => ({
     id: `${versionId}-mapping-${colorIndex + 1}`,
+    mappingOrigin: 'TECH_PACK' as const,
     spuCode: 'ASYSA26060310',
     colorCode: color,
     colorName: color,

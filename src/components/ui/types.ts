@@ -8,6 +8,7 @@
 export interface ActionConfig {
   prefix: string   // 事件前缀，如 'spu', 'sku', 'sample'
   action: string   // 动作名，如 'close-drawer', 'submit'
+  skipPageRerender?: boolean
 }
 
 export function toDataPrefix(prefix: string): string {
@@ -21,7 +22,7 @@ export function toDataPrefix(prefix: string): string {
  * 生成 data-action 属性字符串
  */
 export function toActionAttr(config: ActionConfig): string {
-  return `data-${toDataPrefix(config.prefix)}-action="${config.action}"`
+  return `data-${toDataPrefix(config.prefix)}-action="${config.action}"${config.skipPageRerender ? ' data-skip-page-rerender="true"' : ''}`
 }
 
 /**

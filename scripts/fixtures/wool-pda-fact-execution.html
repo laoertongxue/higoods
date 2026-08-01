@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>毛织 PDA 事实执行交互夹具</title>
+  </head>
+  <body>
+    <main id="root"></main>
+    <script type="module">
+      import {
+        capturePdaWoolExecutionStateForDiagnostics,
+        handlePdaWoolExecutionEvent,
+        renderPdaWoolExecutionContent,
+      } from '/src/pages/pda-wool-fact-execution.ts'
+      import { resetWoolFactWorkflowMock } from '/src/data/fcs/wool-domain/mock-data.ts'
+      import {
+        getWoolWorkOrderByTaskId,
+        addWoolHandover,
+        buildWoolMobileTaskProjection,
+        listWoolFactRecords,
+        listWoolMachineViews,
+        readWoolStore,
+        replaceWoolMachineAssociations,
+      } from '/src/data/fcs/wool-task-domain.ts'
+      import {
+        createPdaSessionFromUser,
+        ensureFactoryPdaSeed,
+        listFactoryPdaUsers,
+        setPdaSession,
+      } from '/src/data/fcs/store-domain-pda.ts'
+
+      const taskId = new URLSearchParams(location.search).get('taskId') || 'TASK-WOOL-MOCK-01'
+      resetWoolFactWorkflowMock('TASK12_BROWSER_DOM')
+      const initialOrder = getWoolWorkOrderByTaskId(taskId)
+      if (taskId === 'TASK-WOOL-MOCK-08' && initialOrder) {
+        const machine = listWoolMachineViews().find((item) => item.status === 'IDLE')
+        if (machine) {
+          replaceWoolMachineAssociations(initialOrder.woolOrderId, [machine.machineId], {
+            operatedAt: '2026-07-31 08:00:00',
+            operatedBy: '真实 DOM 验证',
+          })
+        }
+      }
+      ensureFactoryPdaSeed('OWN_WOOL_FACTORY', '周哥毛织厂')
+      const woolUser = listFactoryPdaUsers('OWN_WOOL_FACTORY').find((item) => item.status === 'ACTIVE')
+      if (woolUser) setPdaSession(createPdaSessionFromUser(woolUser))
+      const root = document.querySelector('#root')
+      root.innerHTML = renderPdaWoolExecutionContent(taskId)
+      const handle = (event) => {
+        if (!(event.target instanceof HTMLElement)) return
+        handlePdaWoolExecutionEvent(event.target)
+      }
+      document.addEventListener('click', handle)
+      document.addEventListener('input', handle)
+      document.addEventListener('change', handle)
+      window.getTask12FactCounts = () => {
+        const order = getWoolWorkOrderByTaskId(taskId)
+        if (!order) return null
+        const records = listWoolFactRecords({ woolOrderId: order.woolOrderId })
+        return records.reduce((counts, item) => {
+          counts[item.recordType] = (counts[item.recordType] || 0) + 1
+          return counts
+        }, {})
+      }
+      window.doubleSubmitTask12CurrentDialog = () => {
+        const button = document.querySelector('[data-pda-wool-action="save-fact"]')
+        if (!(button instanceof HTMLElement)) return null
+        handlePdaWoolExecutionEvent(button)
+        handlePdaWoolExecutionEvent(button)
+        return window.getTask12FactCounts()
+      }
+      window.getTask12StoreFingerprint = () => JSON.stringify(readWoolStore())
+      window.getTask12UiState = () => capturePdaWoolExecutionStateForDiagnostics()
+      window.leaveAndReenterTask12 = () => {
+        window.dispatchEvent(new Event('higood:pda-wool-exec-leave'))
+        root.innerHTML = renderPdaWoolExecutionContent(taskId)
+        return capturePdaWoolExecutionStateForDiagnostics()
+      }
+      window.switchTask12User = () => {
+        const users = listFactoryPdaUsers('OWN_WOOL_FACTORY').filter((item) => item.status === 'ACTIVE')
+        const current = capturePdaWoolExecutionStateForDiagnostics().userId
+        const nextUser = users.find((item) => item.userId !== current)
+        if (!nextUser) return null
+        setPdaSession(createPdaSessionFromUser(nextUser))
+        root.innerHTML = renderPdaWoolExecutionContent(taskId)
+        return capturePdaWoolExecutionStateForDiagnostics()
+      }
+      window.getTask12Projection = () => {
+        const order = getWoolWorkOrderByTaskId(taskId)
+        return order ? buildWoolMobileTaskProjection(order.woolOrderId) : null
+      }
+      window.clearTask12Session = () => setPdaSession(null)
+      window.switchTask12FactorySession = (factoryId, factoryName) => {
+        ensureFactoryPdaSeed(factoryId, factoryName)
+        const user = listFactoryPdaUsers(factoryId).find((item) => item.status === 'ACTIVE')
+        setPdaSession(user ? createPdaSessionFromUser(user) : null)
+        root.innerHTML = renderPdaWoolExecutionContent(taskId)
+      }
+      window.consumeTask12HandoverAvailability = () => {
+        const order = getWoolWorkOrderByTaskId(taskId)
+        if (!order) return null
+        const projection = buildWoolMobileTaskProjection(order.woolOrderId)
+        const candidate = projection.completionFacts.waitHandoverStocks
+          .find((item) => item.availableHandoverQty > 0)
+        if (!candidate) return null
+        return addWoolHandover(order.woolOrderId, {
+          commandId: `TASK12-STALE-${Date.now()}`,
+          outputSkuCode: candidate.outputSkuCode,
+          handoverQty: candidate.availableHandoverQty,
+          handedOverAt: '2026-07-31 09:30:00',
+          handedOverBy: '外部并发操作',
+        })
+      }
+    </script>
+  </body>
+</html>

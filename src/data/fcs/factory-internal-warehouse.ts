@@ -18,9 +18,38 @@ import type {
   ProcessWorkOrderSourceSnapshot,
   ProcessWorkOrderSourceType,
 } from './process-work-order-domain.ts'
+import {
+  createFactoryWarehouseArea as createFactoryWarehouseAreaInRegistry,
+  createFactoryWarehouseLocation as createFactoryWarehouseLocationInRegistry,
+  createFactoryWarehouseShelf as createFactoryWarehouseShelfInRegistry,
+  getFactoryInternalWarehouseRegistryReference,
+  listFactoryInternalWarehouses as listFactoryInternalWarehouseLocations,
+  toggleFactoryWarehouseNodeStatus as toggleFactoryWarehouseNodeStatusInRegistry,
+  updateFactoryWarehouseNodeRemark as updateFactoryWarehouseNodeRemarkInRegistry,
+} from './factory-internal-warehouse-locations.ts'
+import type {
+  FactoryInternalWarehouse,
+  FactoryInternalWarehouseKind,
+  FactoryWarehouseArea,
+  FactoryWarehouseLocation,
+  FactoryWarehouseLocationStatus,
+  FactoryWarehouseNodeRow,
+  FactoryWarehouseShelf,
+} from './factory-internal-warehouse-locations.ts'
+export {
+  buildCraftWarehouseAreas,
+  buildDefaultFactoryInternalWarehouses,
+} from './factory-internal-warehouse-locations.ts'
+export type {
+  FactoryInternalWarehouse,
+  FactoryInternalWarehouseKind,
+  FactoryWarehouseArea,
+  FactoryWarehouseLocation,
+  FactoryWarehouseLocationStatus,
+  FactoryWarehouseNodeRow,
+  FactoryWarehouseShelf,
+} from './factory-internal-warehouse-locations.ts'
 
-export type FactoryInternalWarehouseKind = 'WAIT_PROCESS' | 'WAIT_HANDOVER'
-export type FactoryWarehouseLocationStatus = 'AVAILABLE' | 'STOPPED'
 export type FactoryWarehouseSourceRecordType = 'MATERIAL_PICKUP' | 'HANDOVER_RECEIVE' | 'TRANSFER_RECEIVE' | 'STOCKTAKE_ADJUSTMENT'
 export type FactoryWarehouseSourceObjectKind =
   | '面辅料仓'
@@ -50,46 +79,6 @@ export type FactoryWarehouseStocktakeStatus = '盘点中' | '待确认' | '已�
 export type FactoryWarehouseStocktakeLineStatus = '未盘' | '已盘' | '差异'
 export type FactoryWarehouseStocktakeReviewStatus = '待审核' | '审核通过' | '已驳回' | '已调整'
 export type FactoryWarehouseAdjustmentOrderStatus = '待执行' | '已完成' | '已作废'
-
-export interface FactoryWarehouseLocation {
-  locationId: string
-  locationNo: string
-  locationName: string
-  status: FactoryWarehouseLocationStatus
-  remark?: string
-}
-
-export interface FactoryWarehouseShelf {
-  shelfId: string
-  shelfNo: string
-  shelfName: string
-  locationList: FactoryWarehouseLocation[]
-  status: FactoryWarehouseLocationStatus
-  remark?: string
-}
-
-export interface FactoryWarehouseArea {
-  areaId: string
-  areaName: string
-  shelfList: FactoryWarehouseShelf[]
-  status: FactoryWarehouseLocationStatus
-  remark?: string
-}
-
-export interface FactoryInternalWarehouse {
-  warehouseId: string
-  factoryId: string
-  factoryName: string
-  factoryKind: FactoryType
-  warehouseKind: FactoryInternalWarehouseKind
-  warehouseName: string
-  warehouseShortName: '待加工仓' | '待交出仓'
-  isDefault: boolean
-  isEnabled: boolean
-  areaList: FactoryWarehouseArea[]
-  createdAt: string
-  updatedAt: string
-}
 
 interface FactoryWarehouseBaseItem {
   stockItemId: string
@@ -398,24 +387,6 @@ export interface FactoryWarehouseAdjustmentOrder {
   remark?: string
 }
 
-export interface FactoryWarehouseNodeRow {
-  rowType: 'AREA' | 'SHELF' | 'LOCATION'
-  warehouseId: string
-  warehouseName: string
-  factoryId: string
-  factoryName: string
-  areaId: string
-  areaName: string
-  shelfId?: string
-  shelfNo?: string
-  shelfName?: string
-  locationId?: string
-  locationNo?: string
-  locationName?: string
-  status: FactoryWarehouseLocationStatus
-  remark?: string
-}
-
 interface FactoryInternalWarehouseStore {
   warehouses: FactoryInternalWarehouse[]
   waitProcessStockItems: FactoryWaitProcessStockItem[]
@@ -432,7 +403,6 @@ export interface FactoryInternalWarehouseMutationSnapshot {
   inboundRecords: FactoryWarehouseInboundRecord[]
 }
 
-const DEFAULT_AREA_NAMES = ['A区', 'B区', 'C区', 'D区', 'E区', 'F区', '异常区', '待确认区'] as const
 const NORMAL_AREA_NAMES = ['A区', 'B区', 'C区', 'D区', 'E区', 'F区'] as const
 const SEWING_FACTORY_TYPES = new Set<FactoryType>(['CENTRAL_GARMENT', 'SATELLITE_SEWING', 'THIRD_SEWING'])
 let internalWarehouseStore: FactoryInternalWarehouseStore | null = null
@@ -508,87 +478,6 @@ function resolvePrimaryFactoryProcess(factory: Factory): { processCode?: string;
     processCode: ability.processCode,
     processName: ability.processName || getProcessDefinitionByCode(ability.processCode)?.processName || ability.processCode,
   }
-}
-
-function buildDefaultLocations(areaName: string): FactoryWarehouseLocation[] {
-  const prefix = areaName.replace('区', '')
-  return [
-    {
-      locationId: `LOC-${prefix}-01-01`,
-      locationNo: `${prefix}-01-01`,
-      locationName: `${prefix}-01-01`,
-      status: 'AVAILABLE',
-      remark: areaName === '异常区' ? '用于差异与破损暂存' : areaName === '待确认区' ? '待领料或待确认明细' : '',
-    },
-    {
-      locationId: `LOC-${prefix}-01-02`,
-      locationNo: `${prefix}-01-02`,
-      locationName: `${prefix}-01-02`,
-      status: 'AVAILABLE',
-      remark: '',
-    },
-  ]
-}
-
-function buildDefaultShelf(areaName: string): FactoryWarehouseShelf[] {
-  const prefix = areaName.replace('区', '')
-  return [
-    {
-      shelfId: `SHELF-${prefix}-01`,
-      shelfNo: `${prefix}-01`,
-      shelfName: `${prefix}-01`,
-      locationList: buildDefaultLocations(areaName),
-      status: 'AVAILABLE',
-      remark: areaName === '异常区' ? '异常件集中放置' : '',
-    },
-  ]
-}
-
-function buildDefaultAreaList(): FactoryWarehouseArea[] {
-  return DEFAULT_AREA_NAMES.map((areaName) => ({
-    areaId: `AREA-${areaName}`,
-    areaName,
-    shelfList: buildDefaultShelf(areaName),
-    status: 'AVAILABLE',
-    remark: areaName === '待确认区' ? '待接收或待复核' : '',
-  }))
-}
-
-export function buildDefaultFactoryInternalWarehouses(factories: Factory[] = mockFactories): FactoryInternalWarehouse[] {
-  const seenIds = new Set<string>()
-  return factories
-    .filter((factory) => isNonSewingFactory(factory))
-    .filter((factory) => {
-      if (seenIds.has(factory.id)) return false
-      seenIds.add(factory.id)
-      return true
-    })
-    .flatMap((factory) => {
-      const createdAt = factory.createdAt || '2026-04-01 08:00:00'
-      const updatedAt = factory.updatedAt || createdAt
-      const areaList = factory.id === 'FAC-AUX-CRAFT'
-        ? buildCraftWarehouseAreas().filter((area) => area.areaId.startsWith('AUX-'))
-        : factory.id === 'FAC-SPC-CRAFT'
-          ? buildCraftWarehouseAreas().filter((area) => area.areaId.startsWith('SPC-'))
-          : buildDefaultAreaList()
-      return (['WAIT_PROCESS', 'WAIT_HANDOVER'] as const).map((warehouseKind) => {
-        const warehouseShortName = getWarehouseShortName(warehouseKind)
-        return {
-          warehouseId: `FIW-${factory.id}-${warehouseKind}`,
-          factoryId: factory.id,
-          factoryName: factory.name,
-          factoryKind: factory.factoryType,
-          warehouseKind,
-          warehouseName: `${factory.name} · ${warehouseShortName}`,
-          warehouseShortName,
-          isDefault: true,
-          isEnabled: true,
-          areaList,
-          createdAt,
-          updatedAt,
-        } satisfies FactoryInternalWarehouse
-      })
-    })
 }
 
 export function recordAuxiliaryGarmentReceiptToPostFactory(input: {
@@ -870,28 +759,6 @@ const ONBOARDING_CUTTING_FACTORY_NAME = ONBOARDING_CUTTING_FACTORIES[0].factoryN
 
 function getOnboardingCuttingSeedNo(factoryId: string): string {
   return ONBOARDING_CUTTING_FACTORIES.find((factory) => factory.factoryId === factoryId)?.seedNo || '034'
-}
-
-function buildOnboardingCuttingInternalWarehouses(): FactoryInternalWarehouse[] {
-  return ONBOARDING_CUTTING_FACTORIES.flatMap((factory) =>
-    (['WAIT_PROCESS', 'WAIT_HANDOVER'] as const).map((warehouseKind) => {
-      const warehouseShortName = getWarehouseShortName(warehouseKind)
-      return {
-        warehouseId: `FIW-${factory.factoryId}-${warehouseKind}`,
-        factoryId: factory.factoryId,
-        factoryName: factory.factoryName,
-        factoryKind: 'CENTRAL_CUTTING',
-        warehouseKind,
-        warehouseName: `${factory.factoryName} · ${warehouseShortName}`,
-        warehouseShortName,
-        isDefault: true,
-        isEnabled: true,
-        areaList: buildDefaultAreaList(),
-        createdAt: '2026-04-20 08:00:00',
-        updatedAt: '2026-04-20 08:00:00',
-      } satisfies FactoryInternalWarehouse
-    }),
-  )
 }
 
 function pickWarehouseLocation(
@@ -1739,10 +1606,7 @@ function refreshStocktakeOrderStatusAfterAdjustment(order: FactoryWarehouseStock
 }
 
 function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
-  const warehouses = [
-    ...buildDefaultFactoryInternalWarehouses(mockFactories),
-    ...buildOnboardingCuttingInternalWarehouses(),
-  ]
+  const warehouses = getFactoryInternalWarehouseRegistryReference()
   const warehouseMap = new Map<string, FactoryInternalWarehouse>()
   const waitProcessWarehouseMap = new Map<string, FactoryInternalWarehouse>()
   const waitHandoverWarehouseMap = new Map<string, FactoryInternalWarehouse>()
@@ -2667,7 +2531,7 @@ function findPendingWaitHandoverStockIndexByOrderId(
 }
 
 export function listFactoryInternalWarehouses(): FactoryInternalWarehouse[] {
-  return cloneValue(ensureFactoryInternalWarehouseStore().warehouses)
+  return listFactoryInternalWarehouseLocations()
 }
 
 export function listFactoryInternalWarehouseFactoryOptions(): Factory[] {
@@ -3004,118 +2868,16 @@ export function listFactoryWarehouseNodeRows(factoryId?: string): FactoryWarehou
     )
 }
 
-function mutateWarehouseNode(
-  rowType: FactoryWarehouseNodeRow['rowType'],
-  ids: { warehouseId: string; areaId: string; shelfId?: string; locationId?: string },
-  updater: (target: FactoryWarehouseArea | FactoryWarehouseShelf | FactoryWarehouseLocation) => void,
-): boolean {
-  const store = ensureFactoryInternalWarehouseStore()
-  const warehouse = store.warehouses.find((item) => item.warehouseId === ids.warehouseId)
-  if (!warehouse) return false
-  const area = warehouse.areaList.find((item) => item.areaId === ids.areaId)
-  if (!area) return false
-  if (rowType === 'AREA') {
-    updater(area)
-    warehouse.updatedAt = nowTimestamp()
-    return true
-  }
-  const shelf = area.shelfList.find((item) => item.shelfId === ids.shelfId)
-  if (!shelf) return false
-  if (rowType === 'SHELF') {
-    updater(shelf)
-    warehouse.updatedAt = nowTimestamp()
-    return true
-  }
-  const location = shelf.locationList.find((item) => item.locationId === ids.locationId)
-  if (!location) return false
-  updater(location)
-  warehouse.updatedAt = nowTimestamp()
-  return true
-}
-
 export function createFactoryWarehouseArea(warehouseId: string): FactoryWarehouseArea | null {
-  const store = ensureFactoryInternalWarehouseStore()
-  const warehouse = store.warehouses.find((item) => item.warehouseId === warehouseId)
-  if (!warehouse) return null
-  const nextIndex = warehouse.areaList.length + 1
-  const areaName = `扩展区${nextIndex}`
-  const area: FactoryWarehouseArea = {
-    areaId: `AREA-${warehouseId}-${nextIndex}`,
-    areaName,
-    shelfList: [
-      {
-        shelfId: `SHELF-${warehouseId}-${nextIndex}-01`,
-        shelfNo: `扩展-${nextIndex}-01`,
-        shelfName: `扩展-${nextIndex}-01`,
-        locationList: [
-          {
-            locationId: `LOC-${warehouseId}-${nextIndex}-01-01`,
-            locationNo: `扩展-${nextIndex}-01-01`,
-            locationName: `扩展-${nextIndex}-01-01`,
-            status: 'AVAILABLE',
-            remark: '',
-          },
-        ],
-        status: 'AVAILABLE',
-        remark: '',
-      },
-    ],
-    status: 'AVAILABLE',
-    remark: '',
-  }
-  warehouse.areaList.push(area)
-  warehouse.updatedAt = nowTimestamp()
-  return cloneValue(area)
+  return createFactoryWarehouseAreaInRegistry(warehouseId)
 }
 
 export function createFactoryWarehouseShelf(warehouseId: string, areaId?: string): FactoryWarehouseShelf | null {
-  const store = ensureFactoryInternalWarehouseStore()
-  const warehouse = store.warehouses.find((item) => item.warehouseId === warehouseId)
-  if (!warehouse) return null
-  const area = warehouse.areaList.find((item) => item.areaId === areaId) || warehouse.areaList[0]
-  if (!area) return null
-  const nextIndex = area.shelfList.length + 1
-  const prefix = area.areaName.replace('区', '')
-  const shelf: FactoryWarehouseShelf = {
-    shelfId: `SHELF-${area.areaId}-${nextIndex}`,
-    shelfNo: `${prefix}-${String(nextIndex).padStart(2, '0')}`,
-    shelfName: `${prefix}-${String(nextIndex).padStart(2, '0')}`,
-    locationList: [
-      {
-        locationId: `LOC-${area.areaId}-${nextIndex}-01`,
-        locationNo: `${prefix}-${String(nextIndex).padStart(2, '0')}-01`,
-        locationName: `${prefix}-${String(nextIndex).padStart(2, '0')}-01`,
-        status: 'AVAILABLE',
-        remark: '',
-      },
-    ],
-    status: 'AVAILABLE',
-    remark: '',
-  }
-  area.shelfList.push(shelf)
-  warehouse.updatedAt = nowTimestamp()
-  return cloneValue(shelf)
+  return createFactoryWarehouseShelfInRegistry(warehouseId, areaId)
 }
 
 export function createFactoryWarehouseLocation(warehouseId: string, areaId?: string, shelfId?: string): FactoryWarehouseLocation | null {
-  const store = ensureFactoryInternalWarehouseStore()
-  const warehouse = store.warehouses.find((item) => item.warehouseId === warehouseId)
-  if (!warehouse) return null
-  const area = warehouse.areaList.find((item) => item.areaId === areaId) || warehouse.areaList[0]
-  if (!area) return null
-  const shelf = area.shelfList.find((item) => item.shelfId === shelfId) || area.shelfList[0]
-  if (!shelf) return null
-  const nextIndex = shelf.locationList.length + 1
-  const location: FactoryWarehouseLocation = {
-    locationId: `LOC-${shelf.shelfId}-${nextIndex}`,
-    locationNo: `${shelf.shelfNo}-${String(nextIndex).padStart(2, '0')}`,
-    locationName: `${shelf.shelfNo}-${String(nextIndex).padStart(2, '0')}`,
-    status: 'AVAILABLE',
-    remark: '',
-  }
-  shelf.locationList.push(location)
-  warehouse.updatedAt = nowTimestamp()
-  return cloneValue(location)
+  return createFactoryWarehouseLocationInRegistry(warehouseId, areaId, shelfId)
 }
 
 export function updateFactoryWarehouseNodeRemark(
@@ -3123,18 +2885,14 @@ export function updateFactoryWarehouseNodeRemark(
   ids: { warehouseId: string; areaId: string; shelfId?: string; locationId?: string },
   remark: string,
 ): boolean {
-  return mutateWarehouseNode(rowType, ids, (target) => {
-    target.remark = remark.trim()
-  })
+  return updateFactoryWarehouseNodeRemarkInRegistry(rowType, ids, remark)
 }
 
 export function toggleFactoryWarehouseNodeStatus(
   rowType: FactoryWarehouseNodeRow['rowType'],
   ids: { warehouseId: string; areaId: string; shelfId?: string; locationId?: string },
 ): boolean {
-  return mutateWarehouseNode(rowType, ids, (target) => {
-    target.status = target.status === 'AVAILABLE' ? 'STOPPED' : 'AVAILABLE'
-  })
+  return toggleFactoryWarehouseNodeStatusInRegistry(rowType, ids)
 }
 
 export function updateWaitProcessStockLocation(
@@ -3725,23 +3483,4 @@ export function getFactoryWarehouseKindLabel(warehouseKind: FactoryInternalWareh
 
 export function getFactoryWarehousePositionLabel(status: FactoryWarehouseLocationStatus): string {
   return getWarehouseLocationStatusLabel(status)
-}
-
-export function buildCraftWarehouseAreas(): FactoryWarehouseArea[] {
-  return [
-    { areaId: 'AUX-WP-AREA-01', areaName: '绣花-成衣库区', shelfList: buildDefaultShelf('AUX-WP-01'), status: 'AVAILABLE' },
-    { areaId: 'AUX-WP-AREA-02', areaName: '绣花-裁片库区', shelfList: buildDefaultShelf('AUX-WP-02'), status: 'AVAILABLE' },
-    { areaId: 'AUX-WP-AREA-03', areaName: '烫画-成衣库区', shelfList: buildDefaultShelf('AUX-WP-03'), status: 'AVAILABLE' },
-    { areaId: 'AUX-WP-AREA-04', areaName: '直喷-成衣库区', shelfList: buildDefaultShelf('AUX-WP-04'), status: 'AVAILABLE' },
-    { areaId: 'AUX-WP-AREA-05', areaName: '抽条-裁片库区', shelfList: buildDefaultShelf('AUX-WP-05'), status: 'AVAILABLE' },
-    { areaId: 'AUX-WP-AREA-06', areaName: '压褶-裁片库区', shelfList: buildDefaultShelf('AUX-WP-06'), status: 'AVAILABLE' },
-    { areaId: 'AUX-WP-AREA-07', areaName: '打缆-裁片库区', shelfList: buildDefaultShelf('AUX-WP-07'), status: 'AVAILABLE' },
-    { areaId: 'AUX-WP-AREA-08', areaName: '贝壳绣-裁片库区', shelfList: buildDefaultShelf('AUX-WP-08'), status: 'AVAILABLE' },
-    { areaId: 'AUX-WP-AREA-09', areaName: '曲牙绣-裁片库区', shelfList: buildDefaultShelf('AUX-WP-09'), status: 'AVAILABLE' },
-    { areaId: 'AUX-WP-AREA-10', areaName: '直牙绣-裁片库区', shelfList: buildDefaultShelf('AUX-WP-10'), status: 'AVAILABLE' },
-    { areaId: 'SPC-WP-AREA-01', areaName: '模板工艺-裁片库区', shelfList: buildDefaultShelf('SPC-WP-01'), status: 'AVAILABLE' },
-    { areaId: 'SPC-WP-AREA-02', areaName: '激光袋-裁片库区', shelfList: buildDefaultShelf('SPC-WP-02'), status: 'AVAILABLE' },
-    { areaId: 'SPC-WP-AREA-03', areaName: '花样机-裁片库区', shelfList: buildDefaultShelf('SPC-WP-03'), status: 'AVAILABLE' },
-    { areaId: 'SPC-WP-AREA-04', areaName: '橡筋定长-辅料库区', shelfList: buildDefaultShelf('SPC-WP-04'), status: 'AVAILABLE' },
-  ]
 }

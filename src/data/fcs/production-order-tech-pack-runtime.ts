@@ -3,6 +3,7 @@ import {
 } from './production-tech-pack-snapshot-builder.ts'
 import type {
   ProductionOrderTechPackSnapshot,
+  ProductionTechPackColorMaterialMapping,
   TechPackCutPiecePartSnapshot,
   TechPackImageSnapshot,
   TechPackPatternFileSnapshot,
@@ -11,7 +12,6 @@ import type {
 import { getProductionOrderTechPackSnapshot as getOrderSnapshot } from './production-orders.ts'
 import type {
   TechnicalBomItem,
-  TechnicalColorMaterialMapping,
   TechnicalPatternDesign,
   TechnicalProcessEntry,
   TechnicalSizeRow,
@@ -76,9 +76,12 @@ function cloneSizeTable(items: TechnicalSizeRow[]): TechnicalSizeRow[] {
   return items.map((item) => ({ ...item }))
 }
 
-function cloneColorMappings(items: TechnicalColorMaterialMapping[]): TechnicalColorMaterialMapping[] {
+function cloneColorMappings(
+  items: ProductionTechPackColorMaterialMapping[],
+): ProductionTechPackColorMaterialMapping[] {
   return items.map((item) => ({
     ...item,
+    mappingOrigin: item.mappingOrigin,
     lines: item.lines.map((line) => ({
       ...line,
       applicableSkuCodes: [...(line.applicableSkuCodes ?? [])],
@@ -149,7 +152,7 @@ export function getProductionOrderSizeTable(productionOrderId: string): Technica
 
 export function getProductionOrderColorMaterialMappings(
   productionOrderId: string,
-): TechnicalColorMaterialMapping[] {
+): ProductionTechPackColorMaterialMapping[] {
   const snapshot = getProductionOrderTechPackSnapshot(productionOrderId)
   return snapshot ? cloneColorMappings(snapshot.colorMaterialMappings) : []
 }

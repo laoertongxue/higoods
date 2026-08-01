@@ -1,6 +1,7 @@
 import { menusBySystem, systems } from '../data/app-shell-config.ts'
 import type { AllSystemTabs, MenuGroup, MenuItem, Tab } from '../data/app-shell-types.ts'
 import { notifyPdaCuttingRouteLeave } from './pda-cutting-navigation-cleanup.ts'
+import { notifyPdaWoolRouteLeave } from './pda-wool-navigation-cleanup.ts'
 
 export interface AppState {
   pathname: string
@@ -592,6 +593,7 @@ class AppStore {
     if (this.state.pathname === pathname) return
 
     notifyPdaCuttingRouteLeave(this.state.pathname, pathname)
+    notifyPdaWoolRouteLeave(this.state.pathname, pathname)
     this.state.pathname = pathname
     this.syncTabWithPath(pathname)
     this.syncBrowserHistory(pathname, options.historyMode ?? 'push')
@@ -603,6 +605,7 @@ class AppStore {
     if (this.state.pathname === nextPath) return
 
     notifyPdaCuttingRouteLeave(this.state.pathname, nextPath)
+    notifyPdaWoolRouteLeave(this.state.pathname, nextPath)
     this.state.pathname = nextPath
     this.syncTabWithPath(nextPath)
     this.patch({ pathname: nextPath })

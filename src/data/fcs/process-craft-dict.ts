@@ -1882,7 +1882,7 @@ const supplementalProcessCraftMappings: LegacyCraftMappingDefinition[] = [
     assignmentGranularity: 'SKU',
     detailSplitMode: 'COMPOSITE',
     detailSplitDimensions: ['GARMENT_SKU'],
-    remark: '整件毛织完成后交后道工厂，熨烫为必有节点，包装按单据要求决定。',
+    remark: '整件毛织加工后对象为成衣 SKU，完成后交既定后道工厂。',
   },
   {
     legacyValue: 2000008,
@@ -1896,7 +1896,7 @@ const supplementalProcessCraftMappings: LegacyCraftMappingDefinition[] = [
     assignmentGranularity: 'DETAIL',
     detailSplitMode: 'COMPOSITE',
     detailSplitDimensions: ['PATTERN', 'GARMENT_SKU'],
-    remark: '部位毛织按毛织部位打印菲票，完成后交裁床待交出仓。',
+    remark: '部位毛织加工后对象为毛织部位 SKU，完成后交裁床待交出仓。',
   },
   {
     legacyValue: 2000009,

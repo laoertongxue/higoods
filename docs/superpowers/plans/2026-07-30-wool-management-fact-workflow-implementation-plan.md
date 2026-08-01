@@ -10,6 +10,8 @@
 
 **正式规格：** `docs/superpowers/specs/2026-07-30-wool-management-fact-workflow-design.md`
 
+> **当前执行状态（2026-08-01 复核补漏）：** 任务 1—16 的主体实现已经落地；业务复核发现交出单错误展示了投入纱线，新增任务 17 进行彻底删除。下文任务 1—16 中的“预期 FAIL”“新文件不存在”等文字是历史 TDD 执行步骤，不代表当前代码状态；当前未完成边界以任务 17 和文末“交出单复核补漏验收矩阵”为准。
+
 ---
 
 ## 实施边界
@@ -18,7 +20,7 @@
 - 只重写毛织管理及其直接上下游消费者；其他工艺的熨烫、包装、菲票、价格、统计和仓库位置逻辑保持不变。
 - 毛织侧不计算纱线最多可加工件数，也不做纱线预占或款色间分配。
 - 已确认设计中的三类核心操作名称固定为“确认接收”“加工填报”“发起交出”；上游任务“接单”不得替代确认接收。
-- 整件毛织加工后对象是成衣 SKU，单位为件；部位毛织加工后对象是毛织部位 SKU，单位为片。
+- 整件毛织加工后对象是成衣 SKU，单位为件；部位毛织加工后对象是毛织部位 SKU，但完工数量、交出数量和 150% 上限均按颜色+尺码件数，不按片数换算。
 - 完成加工单只由业务人员二次确认，不增加数量充分性判断。
 - 本计划执行时应在隔离 worktree 中进行；不得覆盖主工作区中与本任务无关的未提交修改。
 
@@ -45,6 +47,7 @@
 - `src/pages/process-factory/wool/work-order-detail.ts`：事实页签、分页记录、数量修改历史和完成快照。
 - `src/pages/process-factory/wool/machines.ts`：四状态设备档案和维修/停用影响确认。
 - `src/pages/process-factory/wool/warehouse.ts`：三个固定默认库位、领用/退回、库存/流水/调整/转移。
+- `src/pages/process-factory/wool/handover-print.ts`：A4 毛织交出单打印页，展示生产单、毛织加工单、接收方、加工后 SKU、颜色尺码件数、SPU 同区唯一款式图和标准可扫描二维码；不得展示投入纱线或其图片。
 - `src/pages/process-factory/wool/shared.ts`：仅保留毛织详情与弹窗需要的轻量格式化和局部挂载辅助。
 - `scripts/check-wool-internal-style-code.ts`：改为检查内部货号、筛选联动 Tab 和无统计卡片。
 - `scripts/check-wool-warehouse-unified-model.ts`：改为检查固定库位、同源流水和禁止旧仓库自动推进。
@@ -402,8 +405,8 @@ const panel = buildWoolOrderSourceSnapshot({
 const sleeveM = panel.outputPlanLines.find((line) => line.woolPartName === '袖片' && line.sizeCode === 'M')!
 assert.equal(sleeveM.outputObjectType, 'WOOL_PANEL')
 assert.equal(sleeveM.outputSkuCode, `WP-${sleeveM.woolPartCode}-${sleeveM.garmentSkuCode}`)
-assert.equal(sleeveM.plannedQty, 200)
-assert.equal(sleeveM.qtyUnit, '片')
+assert.equal(sleeveM.plannedQty, 100)
+assert.equal(sleeveM.qtyUnit, '件')
 
 const missing = buildWoolOrderSourceSnapshot({
   ...sourceBase,
@@ -431,7 +434,7 @@ assert.equal(missing.outputPlanLines.every((line) => line.sourceColorMappingIds.
 ```ts
 export type WoolProcessingStatus = 'UNPROCESSED' | 'PROCESSING' | 'COMPLETED'
 export type WoolOutputObjectType = 'GARMENT' | 'WOOL_PANEL'
-export type WoolQtyUnit = '件' | '片' | 'kg'
+export type WoolQtyUnit = '件' | 'kg'
 
 export interface WoolOutputPlanLine {
   outputSkuCode: string
@@ -443,7 +446,7 @@ export interface WoolOutputPlanLine {
   colorName: string
   sizeCode: string
   plannedQty: number
-  qtyUnit: '件' | '片'
+  qtyUnit: '件'
   requiredYarnSkus: string[]
   sourceTechPackVersionId: string
   sourceTechPackVersionCode: string
@@ -460,12 +463,12 @@ export interface WoolOutputPlanLine {
 
 1. 从运行时任务定位生产单和冻结技术包快照。
 2. 整件按生产单成衣 SKU 生成计划行。
-3. 部位按纸样部位 × 成衣 SKU 生成稳定部位 SKU，计划片数为成衣计划件数 × 单件片数。
+3. 部位按纸样部位 × 成衣 SKU 生成稳定部位 SKU，计划数量为该颜色+尺码成衣 SKU 的计划件数，单位为件；单件片数只作为技术资料，不参与完工、交出和 150% 上限。
 4. 只读取 `mappingOrigin === 'TECH_PACK'`。
 5. 只接受能由 `bomItemId` 或唯一 `materialCode` 关联到 BOM，且 `usageProcessCodes` 含 `WOOL` 或 `PROC_WOOL` 的行。
 6. 按 `applicableSkuCodes` 投影并按纱线 SKU 去重。
 7. 保留快照版本、关系行和 BOM 行 ID。
-8. 关系、SKU、部位或片数缺失时保留不可填报计划行或明确生成错误，不用名称、类型或第一条 BOM 猜测。
+8. 关系、SKU 或部位缺失时保留不可填报计划行或明确生成错误，不用名称、类型或第一条 BOM 猜测。
 
 - [ ] **步骤 5：收敛通用任务明细的毛织输出对象**
 
@@ -754,7 +757,11 @@ assert.equal(
 
 - [ ] **步骤 5：实现结构化去向交出和下游确认**
 
-`addWoolHandover` 从加工单读取结构化 `receiverType/receiverId/receiverName`，不接受页面自由文本；校验默认库位库存后原子新增交出记录、出库流水和下游待接收投影。`confirmWoolDownstreamReceipt` 只追加实际接收、差异、接收人和时间，不恢复毛织库存、不修改来源交出数量。
+`addWoolHandover` 从加工单读取结构化 `receiverType/receiverId/receiverName`，不接受页面自由文本；按输入 `outputSkuCode` 计算“可交出余额 = min(该 SKU 默认库位有效库存, 该 SKU 累计有效加工填报 - 该 SKU 累计有效交出)”，本次数量不得超过该余额。无该 SKU 有效填报、余额为 0 或超量时零写失败；不同款色 SKU 的填报与库存不得拼接。整件毛织和部位毛织的交出数量均按颜色+尺码件数保存，部位毛织不得写片数。校验通过后才原子新增交出记录、出库流水和下游待接收投影。`confirmWoolDownstreamReceipt` 只追加实际接收、差异、接收人和时间，不恢复毛织库存、不修改来源交出数量。
+
+- [ ] **步骤 5.1：实现毛织交出单打印**
+
+新增 `renderCraftWoolHandoverPrintPage(woolOrderId, handoverId?)`。批量路由 `/fcs/craft/wool/work-orders/:woolOrderId/handover-print` 由加工单列表“打印交出单”进入，逐页输出该加工单全部交出记录；单条路由 `/fcs/craft/wool/work-orders/:woolOrderId/handover-print/:handoverId` 由详情交出记录“打印本次交出单”进入，只输出指定记录。打印页按记录输出 A4 `SURAT JALAN / 毛织交出单`，展示生产单、毛织加工单、结构化下游接收方、加工后 SKU、颜色、尺码和本次交出件数。款式图与 SPU 款式信息处于同一区块且每个 SPU 恰好一张。投入纱线只用于确认接收与开工判断，不属于交出对象；打印页不得出现“本次交出对应物料”、投入纱线 SKU、纱线图片或接收纱线摘要。二维码必须复用 `renderRealQrPlaceholder` / `qrcode.react`，不保留伪条码或伪二维码。缺少真实款式图时提示并禁用正式打印，不以投入纱线图片作为打印门禁。整件毛织接收方为后道工厂；部位毛织接收方为裁床工厂（裁床待交出仓）。毛织打印链路不得出现菲票语义。
 
 - [ ] **步骤 6：实现纱线领用退回与独立库存调整/转移**
 
@@ -771,7 +778,7 @@ assert.equal(
 
 - 接收：完成前可改，差额调整纱线默认库位，不得让库存小于零。
 - 填报：完成前可改，不得超过 150%、低于累计交出或让默认库位库存小于零。
-- 交出：完成前且下游未确认可改，增加量不得超过默认库位库存，减少量返还原默认库位。
+- 交出：完成前且下游未确认可改；增加量不得超过修改前同一 `outputSkuCode` 的可交出余额，该余额继续取默认库位有效库存与“累计有效加工填报减累计有效交出”的较小值；减少量返还原默认库位。独立调高库存不得让累计有效交出超过累计有效加工填报。
 - 三类数量均必须大于 0，必须填写原因，并写 `WoolQtyChangeLog`。
 
 - [ ] **步骤 8：实现人工完成的单次原子提交**
@@ -977,6 +984,8 @@ assert(workOrderSource.includes('不可以开工'))
 assert(workOrderSource.includes('已完成'))
 assert(!workOrderSource.includes('统计卡片'))
 assert(!workOrderSource.includes('advanceWoolOrderToWarehouseInbound'))
+assert(workOrderSource.includes('getWoolOutputHandoverAvailableQty'))
+assert(workOrderSource.includes('可交出余额'))
 ```
 
 - [ ] **步骤 2：运行检查并确认旧列表失败**
@@ -1002,14 +1011,16 @@ npm run check:list-page-governance
 
 - 确认接收：多纱线明细，只选本单必需纱线，保存后追加记录。
 - 加工填报：可选区只显示已齐料且未达 150% 的加工后 SKU；不可选区显示缺纱线或上限原因。
-- 发起交出：只显示默认库位有库存的 SKU，接收对象只读，缺稳定接收方阻断保存。
+- 发起交出：逐 `outputSkuCode` 计算“可交出余额 = min(该 SKU 默认库位有效库存, 该 SKU 累计有效加工填报 - 该 SKU 累计有效交出)”，只显示余额大于 0 的 SKU；接收对象只读，缺稳定接收方阻断保存。不同款色 SKU 的填报、交出和库存不得拼接，独立库存调整不能绕过同一 SKU 的填报余额，保存命令必须按同一口径再次校验并在失败时保持交出记录和库存零写。
 - 完成加工单：至少一次交出才显示；四块事实摘要和明确“系统不判断是否应该完成”提示，二次确认后调用单一完成命令。
 
 所有弹窗输入只维护草稿；保存成功后局部刷新列表和覆盖层。
 
+任务 8 的对抗检查至少覆盖：黑色 SKU 已填报、白色 SKU 填报为 0 时，单独调入白色库存后白色仍不进入交出候选且命令拒绝；有填报 SKU 多次交出后，可交出余额随累计有效交出减少；默认库位库存小于未交出填报余额时取库存值，反之取未交出填报余额；加工填报 150、已交出 40 后即使独立把库存调到 500，也不能把既有交出记录改到 200，且失败后填报、交出、库存、store 和持久化均不变；余额内合法增加可以成功。所有失败分支均不新增交出记录、不写库存流水。
+
 - [ ] **步骤 6：实现数量修改入口和错误提示**
 
-记录详情中的修改弹窗只允许数量和原因。领域错误原样转成可操作中文，例如“最多还可填报 20 件，请将本次数量改为 20 件以内”，不显示“参数异常”。
+记录详情中的修改弹窗只允许数量和原因。修改交出数量时，增加量不得超过修改前同一加工后 SKU 的可交出余额；领域命令在 store 草稿内复用逐 SKU 余额查询，失败时数量修改记录、库存流水和持久化均保持零写。领域错误原样转成可操作中文，例如“最多还可填报 20 件，请将本次数量改为 20 件以内”或“交出增加量不能超过修改前该 SKU 可交出余额 20 件”，不显示“参数异常”。
 
 - [ ] **步骤 7：移除治理基线条目并运行检查**
 
@@ -1677,6 +1688,205 @@ git commit -m "fix: close wool workflow verification gaps"
 
 ---
 
+### 任务 17：彻底删除交出单投入纱线板块并重新截图验收
+
+**文件：**
+- 修改：`scripts/check-wool-handover-printing.ts`
+- 修改：`tests/wool-management-fact-workflow.spec.ts`
+- 修改：`src/data/fcs/wool-domain/types.ts`
+- 修改：`src/data/fcs/wool-domain/tech-pack-source.ts`
+- 修改：`src/data/fcs/wool-domain/mock-data.ts`
+- 修改：`src/pages/process-factory/wool/handover-print.ts`
+- 修改：`docs/prototype-review-records/2026-08-01-wool-handover-printing.md`
+- 修改：`public/materials/sources.json`
+- 删除：`public/materials/yarn-ball.jpg`
+- 生成：`output/playwright/wool-handover-print-spu-integrated.png`
+- 生成：临时目录中的最终 `task-receipt.json`
+
+- [ ] **步骤 1：先把错误展示写成失败检查**
+
+在 `scripts/check-wool-handover-printing.ts` 保留款式图、二维码、颜色+尺码件数和接收方的正向断言，删除“必须有物料图”的正向断言，加入以下负向检查：
+
+```ts
+for (const forbiddenPrintText of [
+  '本次交出对应物料',
+  'data-wool-print-materials',
+  'data-wool-print-material-item',
+  'data-material-sku',
+  'wool-print-material-image',
+  '物料图',
+]) {
+  assert(
+    !printSource.includes(forbiddenPrintText),
+    `毛织交出单不得展示投入纱线物料：${forbiddenPrintText}`,
+  )
+}
+for (const forbiddenDataText of ['materialImages', 'materialImageUrl']) {
+  assert(
+    !woolTypesSource.includes(forbiddenDataText)
+      && !woolMockSource.includes(forbiddenDataText)
+      && !read('src/data/fcs/wool-domain/tech-pack-source.ts').includes(forbiddenDataText),
+    `毛织领域不得保留仅供交出单物料图使用的字段：${forbiddenDataText}`,
+  )
+}
+```
+
+把实际 HTML 检查改为：
+
+```ts
+assert(renderedPrintPage.includes(partOutput.outputSkuCode))
+assert(!renderedPrintPage.includes('本次交出对应物料'))
+assert(!renderedPrintPage.includes('data-wool-print-materials'))
+assert(!renderedPrintPage.includes('data-wool-print-material-item'))
+assert(!renderedPrintPage.includes('data-material-sku'))
+assert(!renderedPrintPage.includes('物料图'))
+```
+
+在 `tests/wool-management-fact-workflow.spec.ts` 的交出单用例中，用以下浏览器断言替换两张投入纱线图片的断言：
+
+```ts
+await expect(printPage).toContainText(handover.outputSkuCode)
+await expect(printPage.getByText('本次交出对应物料')).toHaveCount(0)
+await expect(printPage.locator('[data-wool-print-materials]')).toHaveCount(0)
+await expect(printPage.locator('[data-wool-print-material-item]')).toHaveCount(0)
+await expect(printPage.locator('[data-material-sku]')).toHaveCount(0)
+```
+
+- [ ] **步骤 2：运行专项检查确认旧实现被新规格拦截**
+
+运行：
+
+```bash
+npm run check:wool-handover-printing
+```
+
+预期：FAIL，至少命中“毛织交出单不得展示投入纱线物料”或“毛织领域不得保留仅供交出单物料图使用的字段”；失败原因必须来自现存错误板块或字段，而不是语法错误。
+
+- [ ] **步骤 3：删除毛织打印专用物料图片数据链**
+
+在 `src/data/fcs/wool-domain/types.ts` 的 `WoolOutputPlanLine` 中删除：
+
+```ts
+materialImages?: Array<{
+  materialSkuCode: string
+  imageUrl: string
+}>
+```
+
+在 `src/data/fcs/wool-domain/tech-pack-source.ts` 中：
+
+1. 从 `WoolSourceBomItemInput` 删除 `materialImageUrl?: string`。
+2. 把 `resolveSourceForSku` 返回类型收窄为：
+
+```ts
+Pick<WoolOutputPlanLine, 'requiredYarnSkus' | 'sourceColorMappingIds' | 'sourceBomItemIds'>
+```
+
+3. 删除 `materialImages` 的计算与展开返回。
+4. 删除运行时 BOM 到 `materialImageUrl` 的毛织专用适配；保留 `materialCode`、`usageProcessCodes`、`applicableSkuCodes` 和来源 ID，以免破坏 `requiredYarnSkus` 开工门禁。
+
+在 `src/data/fcs/wool-domain/mock-data.ts` 删除 `materialImageBySku`、`materialImages` 和输出计划行上的 `materialImages`；`requiredYarnSkus` 原样保留。
+
+- [ ] **步骤 4：删除打印板块和物料图打印门禁**
+
+在 `src/pages/process-factory/wool/handover-print.ts`：
+
+1. 删除 `renderMaterialItem`。
+2. 删除完整的 `<section data-wool-print-materials>`。
+3. 把 `hasCompletePrintImages` 收窄为只判断真实 SPU 款式图：
+
+```ts
+function hasCompletePrintImages(order: WoolWorkOrder): boolean {
+  return isRealPrintImage(order.styleImageUrl)
+}
+```
+
+4. 调用处改为 `hasCompletePrintImages(order)`。
+5. 缺图工具栏文案改为“款式图不完整，禁止正式打印；请先补齐真实款式图。”。
+6. 保留加工后 SKU、颜色、尺码、本次交出件数、结构化接收方、唯一 SPU 款式图、二维码和签收栏；不得以接收纱线摘要替代已删除板块。
+
+- [ ] **步骤 5：清理专用资产、审查记录和旧验收描述**
+
+先运行：
+
+```bash
+rg -n "yarn-ball\.jpg" src docs scripts tests public --glob '!public/materials/sources.json'
+```
+
+预期：完成步骤 3、4 后无引用。随后删除 `public/materials/yarn-ball.jpg`，并从 `public/materials/sources.json` 删除 `yarn-ball.jpg` 来源项；不得删除仍被其他模块使用的 `public/materials/yarn-stitching.jpg`。
+
+更新 `docs/prototype-review-records/2026-08-01-wool-handover-printing.md`：
+
+- 页面结构只包含 SPU 同区唯一款式图、加工后对象明细、二维码和签收信息。
+- 明确投入纱线属于上游生产原料，不是交出对象。
+- 将原“物料 SKU 图片”处理结论改为“彻底删除错误板块及其专用数据链”。
+- 防错只保留缺真实款式图禁打和二维码未生成禁打。
+
+同步修正本文档的交出单验收矩阵，保证不再把物料图写成正向要求。
+
+- [ ] **步骤 6：运行专项检查、浏览器验收并生成新截图**
+
+运行：
+
+```bash
+npm run check:wool-handover-printing
+npm run test:wool-fact-workflow:e2e -- --grep "毛织交出单支持加工单批量打印"
+```
+
+预期：全部 PASS。浏览器用例在 1366×768 下验证：
+
+- 每条交出记录生成一张 A4 页。
+- SPU 款式区只有一张真实款式图。
+- 明细存在加工后 SKU、颜色、尺码和件数。
+- 页面不存在投入纱线板块及任何纱线图片。
+- 二维码 SVG 已真实生成。
+- 新截图覆盖写入 `output/playwright/wool-handover-print-spu-integrated.png`。
+
+必须使用本轮新截图人工检查 A4 实际效果；旧截图不得作为验收证据。
+
+- [ ] **步骤 7：提交实现并完成最终验证闭环**
+
+先运行：
+
+```bash
+npm run check:prototype-design-governance
+npm run check:list-page-governance
+npm run build
+git diff --check
+```
+
+预期：全部 PASS。然后提交：
+
+```bash
+git add \
+  src/data/fcs/wool-domain/types.ts \
+  src/data/fcs/wool-domain/tech-pack-source.ts \
+  src/data/fcs/wool-domain/mock-data.ts \
+  src/pages/process-factory/wool/handover-print.ts \
+  scripts/check-wool-handover-printing.ts \
+  tests/wool-management-fact-workflow.spec.ts \
+  docs/prototype-review-records/2026-08-01-wool-handover-printing.md \
+  docs/superpowers/plans/2026-07-30-wool-management-fact-workflow-implementation-plan.md \
+  public/materials/sources.json \
+  public/materials/yarn-ball.jpg
+git commit -m "fix: 删除毛织交出单投入物料板块"
+```
+
+提交后重新运行：
+
+```bash
+codegraph sync
+codegraph status
+receipt_dir="$(mktemp -d)"
+npm run workflow:verify -- \
+  --output "$receipt_dir/task-receipt.json" \
+  --task-boundary "毛织交出单彻底删除投入纱线板块及其打印专用数据链，并重新截图验收"
+```
+
+预期：CodeGraph 无待同步文件；任务收据状态为 `verified`，绑定任务 17 最终提交和最新工作区差异。若两阶段审查又产生实质修改，必须重新执行步骤 6、7并生成新收据。
+
+---
+
 ## 规格覆盖自检矩阵
 
 | 正式规格主题 | 实现任务 | 核心证据 |
@@ -1684,7 +1894,7 @@ git commit -m "fix: close wool workflow verification gaps"
 | 多次确认接收且一次可多纱线 | 1、4、5、8、12 | `WoolYarnReceiptRecord.lines`、专项检查、Web/PDA 弹窗 |
 | 任一加工后 SKU 必需纱线全部接收才可填报 | 2、3、4、5 | `mappingOrigin`、`getWoolOutputReadiness` |
 | 不按纱线数量换算加工件数 | 4、5 | 齐料只比较 SKU 集合；150% 独立检查 |
-| 整件/部位加工后对象与计划量 | 3、7 | 成衣 SKU/毛织部位 SKU、件/片和片数乘法 |
+| 整件/部位加工后对象与计划量 | 3、7 | 成衣 SKU/毛织部位 SKU；两者计划、填报、库存和交出均为颜色+尺码件数，单件部位片数只作技术资料 |
 | 三个含数量 Tab 与搜索联动，无统计卡片 | 4、8、15 | 列表查询、标准列表、Playwright |
 | 三类核心操作均可多次 | 5、8、12 | 追加式事实记录和共享领域命令 |
 | 150% 上限及达到上限后的 Tab 原因 | 1、4、5、8 | `Math.floor(plannedQty * 1.5)` 和阻断原因 |
@@ -1704,16 +1914,32 @@ git commit -m "fix: close wool workflow verification gaps"
 | 通用接单/价格/里程碑不构成毛织门禁 | 7、12、14 | 新任务初始检查和移动投影 |
 | PDA 与 Web 共用事实和命令 | 8、12、13 | 同一领域门面和幂等记录号 |
 | 删除旧节点、菲票、统计、价格、已排产、完工入仓 | 2、7、11、12、13、14 | 文件删除、路由删除、全链路负向检查 |
+| 交出单不展示投入纱线及其图片 | 17 | 删除打印板块、毛织专用图片字段/映射/Mock/资产；专项负向检查与新 A4 截图 |
 | 标准列表、分页、固定操作列和局部刷新 | 8、9、10、11、15 | 列表治理、原型治理和浏览器验收 |
-| 原型审查与最终收据 | 15、16 | 审查记录、构建、CodeGraph、`task-receipt.json` |
+| 原型审查与最终收据 | 15、16、17 | 修订审查记录、新截图、构建、CodeGraph、`task-receipt.json` |
+
+## 交出单复核补漏验收矩阵
+
+| 复核项 | 文档证据 | 代码证据 | 自动检查 / 浏览器证据 |
+| --- | --- | --- | --- |
+| 整件、部位的计划 / 填报 / 库存 / 交出 / 修改均按颜色+尺码件数 | 正式规格 3.2、8.5、12.2、13、16.1 | `WoolOutputPlanLine.qtyUnit`、`WoolHandoverRecord.qtyUnit` 固定为 `件` | 专项检查禁止设计与计划出现 `件 | 片` 残留；E2E 校验部位和整件固定库位流水 |
+| 列表批量打印全部交出记录 | 正式规格 12.2 | `buildWoolHandoverPrintLink(woolOrderId)`、批量动态路由 | E2E 断言两条交出记录生成两张 A4 页 |
+| 详情精确打印单条交出记录 | 正式规格 12.2 | `buildWoolHandoverPrintLink(woolOrderId, handoverId)`、详情“打印本次交出单”、单条动态路由 | 专项检查与 E2E 断言只出现指定 `handoverId`；不存在时显示明确空态 |
+| SPU 款式与唯一款式图同区 | 正式规格 12.2 | `data-wool-print-spu-info` 内恰好一个 `data-wool-print-style-image` | 专项检查统计每页一张；E2E 核对款号和图片同区 |
+| 款式图来自款式档案 / 技术包快照 | 正式规格 12.2 | 技术包快照冻结 `style.mainImageUrl` 和图库；毛织加工单读取快照 | 专项检查禁止 Mock `data:image/svg+xml`，断言真实 `.jpg` |
+| 投入纱线不是交出对象 | 正式规格 1.1、12.2、13、16.4 | 删除 `materialImages`、毛织专用 `materialImageUrl` 映射、Mock 图片和整块 `data-wool-print-materials` | 专项检查与 E2E 负向断言无板块、无纱线 SKU、无纱线图；新 A4 截图人工复核 |
+| 二维码真实可扫描且无伪条码 | 正式规格 12.2 | `renderRealQrPlaceholder` 使用 `qrcode.react/QRCodeSVG`；打印按钮在 SVG 未生成时阻止打印 | E2E 等待每页真实 SVG；专项检查禁止伪方格、装饰条纹和伪条码文案，并校验二维码生成门禁 |
+| 缺图不可冒充正式打印 | 正式规格 12.2、16.4 | 仅缺真实款式图时禁用“打印”；投入纱线图片不参与打印门禁 | 专项检查固定禁打文案；浏览器打印样例必须使用真实款式图 |
+| 毛织无菲票 | 正式规格 12.2、16.5 | 毛织打印链路仅有交出单 | 专项检查和 E2E 均断言无“菲票” |
 
 ## 执行检查点
 
-建议按以下四批执行，每批结束后审查当前差异和检查输出：
+建议按以下五批执行，每批结束后审查当前差异和检查输出：
 
 1. 任务 1—6：事实领域、技术包来源、固定库位原子命令、设备关系。
 2. 任务 7—10：上游生成、加工单列表/详情、横机页面。
 3. 任务 11—14：Web/PDA 仓库、PDA 执行、下游交接、旧代码删除。
 4. 任务 15—16：原型审查、浏览器验收、全量回归和机器收据。
+5. 任务 17：以失败检查锁定“投入纱线不是交出对象”，彻底删除专用数据链和打印板块，重新截图并重新生成机器收据。
 
 每一批都必须在上一批专项检查通过后开始；不得先删除旧页面再补事实消费者，也不得用兼容函数继续推进旧节点。

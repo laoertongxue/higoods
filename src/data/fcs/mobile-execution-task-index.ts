@@ -225,6 +225,10 @@ function getWaterSolubleSourceInfo(task: ProcessTask): Partial<MobileExecutionTa
 function getWoolSourceInfo(task: ProcessTask): Partial<MobileExecutionTaskSourceInfo> {
   const order = getWoolWorkOrderByTaskId(task.taskId)
   if (!order) return {}
+  const requiredYarnSkus = [...new Set(order.outputPlanLines.flatMap((line) => line.requiredYarnSkus))]
+  const outputSkuCodes = order.outputPlanLines.map((line) => line.outputSkuCode)
+  const colorNames = [...new Set(order.outputPlanLines.map((line) => line.colorName).filter(Boolean))]
+  const partNames = [...new Set(order.outputPlanLines.map((line) => line.woolPartName).filter(Boolean))]
   return {
     sourceType: 'WOOL_WORK_ORDER',
     sourceId: normalizeString(order.woolOrderId),
@@ -232,15 +236,16 @@ function getWoolSourceInfo(task: ProcessTask): Partial<MobileExecutionTaskSource
     sourceWorkOrderNo: normalizeString(order.woolOrderNo),
     workOrderNo: normalizeString(order.woolOrderNo),
     woolOrderNo: normalizeString(order.woolOrderNo),
-    sourceIds: uniqueStrings([order.woolOrderId, order.taskNo]),
+    sourceIds: uniqueStrings([order.woolOrderId, order.taskId]),
     sourceNos: uniqueStrings([order.woolOrderNo, order.taskNo]),
     productionOrderNo: normalizeString(order.productionOrderNo || task.productionOrderId),
     sourceTaskNo: normalizeString(order.taskNo),
-    materialSku: normalizeString(order.yarnReceipt.yarnSku),
-    targetColor: normalizeString(order.colorName),
-    partName: normalizeString(order.kind === 'PART_PANEL' ? order.partPanels.map((panel) => panel.partName).join(' / ') : '整件'),
+    materialSku: normalizeString(requiredYarnSkus.join(' / ')),
+    materialName: normalizeString(outputSkuCodes.join(' / ')),
+    targetColor: normalizeString(colorNames.join(' / ')),
+    partName: normalizeString(order.kind === 'PART_PANEL' ? partNames.join(' / ') : '整件'),
     operationName: normalizeString(order.kind === 'PART_PANEL' ? '部位毛织' : '整件毛织'),
-    feiTicketNos: uniqueStrings(order.partPanels.map((panel) => panel.feiTicketNo)),
+    feiTicketNos: [],
   }
 }
 

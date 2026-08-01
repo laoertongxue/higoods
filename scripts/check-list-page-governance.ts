@@ -31,6 +31,12 @@ export function isListCandidate(source: string): boolean {
 
 export function hasStandardListContract(source: string): boolean {
   return STANDARD_LIST_CONTRACT.every((symbol) => source.includes(symbol))
+    || (
+      /import\s+\{[^}]*renderStandardListPage[^}]*\}\s+from\s+['"][^'"]*\/list-page\.ts['"]/.test(source)
+      && /import\s+\{[^}]*createProcessOrderListController[^}]*\}\s+from\s+['"][^'"]*\/process-order-list-controller\.ts['"]/.test(source)
+      && source.includes('renderStandardListPage({')
+      && source.includes('createProcessOrderListController({')
+    )
 }
 
 export function sha256(source: string): string {
@@ -142,6 +148,12 @@ function runSelfTest(): void {
   assert.equal(parsePagePattern('// @page-pattern: unknown'), null)
   assert.equal(isListCandidate('<table><tbody></tbody></table> renderTablePagination'), true)
   assert.equal(hasStandardListContract('renderStandardListPage renderStandardListTable renderTablePagination'), true)
+  assert.equal(hasStandardListContract(`
+    import { renderStandardListPage } from './ui/list-page.ts'
+    import { createProcessOrderListController } from './ui/process-order-list-controller.ts'
+    const controller = createProcessOrderListController({})
+    renderStandardListPage({})
+  `), true)
   assert.equal(hasStandardListContract('renderTable(<tbody>)'), false)
   assert.throws(() => validateBaselineIntegrity({ 'src/pages/old.ts': 'a'.repeat(64) }, { 'src/pages/old.ts': 'b'.repeat(64) }))
   assert.throws(() => validateBaselineIntegrity({ 'src/pages/new.ts': 'a'.repeat(64) }, {}))
