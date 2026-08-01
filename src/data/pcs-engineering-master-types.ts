@@ -73,6 +73,10 @@ export interface EngineeringTaskMaterialLine {
   requirementType: EngineeringTaskMaterialRequirementType
   productColor?: string
   printProcess?: string
+  pantoneColorCode?: string
+  colorName?: string
+  dyeColorCode?: string
+  dyeFactoryName?: string
   status: '正常' | '因需求变更结束'
   resultFileIds: string[]
   effectImageIds: string[]
@@ -110,6 +114,9 @@ export interface EngineeringTaskRecord {
   resultQuantity: number
   resultSubmittedBy: string
   materialReviewRounds: EngineeringTaskMaterialReviewRound[]
+  colorRequirementConfirmedBy: string
+  colorRequirementConfirmedAt: string
+  colorResultCompletedAt: string
 }
 
 export interface EngineeringPriorResultReuseLine {

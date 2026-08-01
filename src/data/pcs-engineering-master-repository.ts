@@ -106,6 +106,9 @@ function normalizeRecord(record: EngineeringMasterOrderRecord): EngineeringMaste
           resultImageIds: Array.isArray(task.resultImageIds) ? [...task.resultImageIds] : [],
           resultQuantity: Number(task.resultQuantity || 0),
           resultSubmittedBy: task.resultSubmittedBy || '',
+          colorRequirementConfirmedBy: task.colorRequirementConfirmedBy || '',
+          colorRequirementConfirmedAt: task.colorRequirementConfirmedAt || '',
+          colorResultCompletedAt: task.colorResultCompletedAt || '',
           materialReviewRounds: Array.isArray(task.materialReviewRounds) ? task.materialReviewRounds : [],
           materialLines: Array.isArray(task.materialLines)
             ? task.materialLines.map((line) => ({
@@ -243,6 +246,9 @@ export function publishEngineeringMasterOrder(masterOrderId: string): Engineerin
       resultQuantity: 0,
       resultSubmittedBy: '',
       materialReviewRounds: [],
+      colorRequirementConfirmedBy: '',
+      colorRequirementConfirmedAt: '',
+      colorResultCompletedAt: '',
     })
   }
 

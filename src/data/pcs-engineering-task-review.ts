@@ -56,10 +56,19 @@ function assertExactLineSet(
   }
 }
 
+function listApplicableMaterialLines(task: EngineeringTaskRecord): EngineeringTaskMaterialLine[] {
+  const activeLines = task.materialLines.filter((line) => line.status === '正常')
+  if (task.taskType === 'COLOR_YARN' || task.taskType === 'COLOR_FABRIC') {
+    return activeLines.filter((line) => line.requirementType === '染色')
+  }
+  return activeLines
+}
+
 export interface SubmitEngineeringMaterialResultLine {
   materialLineId: string
   resultFileIds: string[]
   effectImageIds: string[]
+  dyeFactoryName?: string
 }
 
 export interface SubmitEngineeringMaterialResultsInput {
@@ -78,7 +87,7 @@ export function submitEngineeringMaterialResults(input: SubmitEngineeringMateria
   }
 
   assertUniqueLineIds(input.results, '提交')
-  const activeLines = task.materialLines.filter((line) => line.status === '正常')
+  const activeLines = listApplicableMaterialLines(task)
   for (const result of input.results) {
     const line = activeLines.find((item) => item.materialLineId === result.materialLineId)
     if (!line) throw new Error(`成果提交包含非当前有效物料行：${result.materialLineId}`)
@@ -100,6 +109,7 @@ export function submitEngineeringMaterialResults(input: SubmitEngineeringMateria
       const line = storedTask.materialLines.find((item) => item.materialLineId === result.materialLineId)!
       line.resultFileIds = result.resultFileIds.map((item) => item.trim()).filter(Boolean)
       line.effectImageIds = result.effectImageIds.map((item) => item.trim()).filter(Boolean)
+      if (typeof result.dyeFactoryName === 'string') line.dyeFactoryName = result.dyeFactoryName.trim()
       line.resultSubmittedBy = submittedBy
       line.resultSubmittedAt = submittedAt
       line.reviewStatus = '待审核'
@@ -127,6 +137,7 @@ export interface ReviewEngineeringMaterialResultsInput {
   masterOrderId: string
   taskId: string
   reviewerName: string
+  reviewerRole?: string
   decisions: ReviewEngineeringMaterialDecisionInput[]
 }
 
@@ -145,10 +156,13 @@ export function reviewEngineeringMaterialResults(
   const task = getReviewableTask(input.masterOrderId, input.taskId)
   const reviewerName = input.reviewerName.trim()
   if (!reviewerName) throw new Error('请填写审核人。')
+  if ((task.taskType === 'COLOR_YARN' || task.taskType === 'COLOR_FABRIC') && input.reviewerRole !== '买手') {
+    throw new Error('调色成果只能由买手审核。')
+  }
   if (task.status !== '待审核') throw new Error('当前任务不在待审核状态。')
 
   assertUniqueLineIds(input.decisions, '审核')
-  const activeLines = task.materialLines.filter((line) => line.status === '正常')
+  const activeLines = listApplicableMaterialLines(task)
   const pendingLines = activeLines.filter((line) => line.reviewStatus === '待审核')
   if (pendingLines.length === 0) throw new Error('当前任务没有待审核物料行。')
 
@@ -232,13 +246,15 @@ export function reviewEngineeringMaterialResults(
       return
     }
 
-    const allEffectiveLinesPassed = storedTask.materialLines
-      .filter((line) => line.status === '正常')
+    const allEffectiveLinesPassed = listApplicableMaterialLines(storedTask)
       .every((line) => line.reviewStatus === '通过')
     if (!allEffectiveLinesPassed) throw new Error('仍有有效物料行未通过，不能完成任务。')
     storedTask.status = '已完成'
     if (!storedTask.firstCompletedAt) storedTask.firstCompletedAt = reviewedAt
     storedTask.effectiveCompletedAt = reviewedAt
+    if (storedTask.taskType === 'COLOR_YARN' || storedTask.taskType === 'COLOR_FABRIC') {
+      storedTask.colorResultCompletedAt = reviewedAt
+    }
     const activeReworkRound = storedTask.reworkRounds.at(-1)
     if (activeReworkRound && !activeReworkRound.passedAt) activeReworkRound.passedAt = reviewedAt
   }).task
