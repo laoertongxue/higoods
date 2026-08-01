@@ -19,7 +19,7 @@
 
 ### 本次业务事实
 
-- 改版、制版、花型、首版样衣、首单样衣五类工程专业任务的页面逻辑从单一巨型文件拆分为：
+- 改款、制版、花型、产前版样衣四类工程专业任务的页面逻辑从单一巨型文件拆分为：
   - `src/pages/pcs-engineering-tasks/shared.ts`：类型、state、公共渲染、图片 / 文件上传处理、标准列表公共骨架与模块钩子分派。
   - `src/pages/pcs-engineering-tasks/pattern-task.ts`：花型模块的列表 / 详情渲染、创建弹窗、流程视图与列表分派注册，导出页面入口与跨文件所需的成员选项读取。
   - `src/pages/pcs-engineering-tasks.ts`：薄分派器，只保留页面导出、列表筛选 / 分页 / 列偏好轻交互、改款与设计打样编辑分派，以及旧路由到产前版样衣的无文案别名。
@@ -29,13 +29,14 @@
   - `src/pages/pcs-engineering-tasks/purchase-task.ts`：辅料下单任务（ACCESSORY_PURCHASE）。
   - `src/pages/pcs-engineering-tasks/tech-pack-task.ts`：技术包确认任务（TECH_PACK_CONFIRMATION）。
 - 三个新页面复用 shared.ts 标准列表骨架与模块钩子分派（module: color / purchase / techPack），状态筛选口径与工程任务记录 8 档状态一致（未启用、待前置、待开始、进行中、待审核、返工中、已完成、因需求变更结束），统计口径为全部 / 进行中 / 待审核 / 返工中 / 已完成；页面只读展示，任务状态推进在工程主单详情完成；主按钮“查看工程主单”为导航动作（nav: 前缀，走全局 data-nav 处理）。
-- 制版、花型、产前版样衣新增独立页面模块，列表与详情均从 `EngineeringMasterOrderRecord.tasks` 展开，不再读取各自旧任务仓储：
+- 制版、花型、产前版样衣新增独立页面模块，列表与详情均从 `EngineeringMasterOrderRecord.tasks` 展开：
   - 制版提交成果后直接完成。
   - 花型提交成果后进入待审核；逐项成果审核留到后续任务实施。
   - 产前版样衣由制作团队提交成果图片、制作数量和提交人，提交即完成，不生成任务级验收、确认人或复用结论。
 - `submitEngineeringTaskResult` 只允许已发布或进行中的工程主单写入成果；待开始任务直接提交时自动补齐开始时间。技术包审核中、待关闭、已关闭等收口状态均阻断提交。
 - 拆分不改变路由（动态导入仍指向同一入口文件）、不改变 main-handlers 的输入 / 事件 / 弹窗导出契约；专业页的页面文案、状态口径、筛选、分页、列偏好持久化与详情交互由各自模块维护。
 - 本切片只收口制版、花型、产前版样衣，不改独立改版任务的业务逻辑；三个新页面只展示工程任务统一 8 档状态。
+- `shared.ts` 只保留改款、制版、花型、产前版样衣及工程主单派生任务的共享列表状态；产前版样衣页面只保留工程主单任务列表筛选状态。共享状态徽章和筛选固定为 8 档，历史 Mock 状态仅在渲染前归一化为其中一档，不作为页面输出。
 
 ## 3. 自查结论
 
@@ -73,7 +74,7 @@
 
 说明：
 
-- 本次为结构性拆分：路由、事件入口与数据格式保持兼容；已废止的首单样衣、任务级验收与暂停 / 取消 / 异常动作不再由入口层保留。
+- 本次为结构性拆分：路由、事件入口与数据格式保持兼容；共享入口只保留当前工程主单任务所需的公共状态与动作。
 - 拆分后 `npm run check:list-page-governance`、`npm run check:prototype-design-governance -- --all` 与构建验证均通过。
 - 全项目既有类型错误（如 TS2367 tab 比较、capacity-calendar 等）与本次拆分无关，已在验证中确认非本次引入。
 
@@ -84,9 +85,6 @@
 - `src/data/pcs-engineering-master-repository.ts`
 - `src/data/pcs-engineering-master-types.ts`
 - `src/data/pcs-channel-product-project-repository.ts`
-- `src/data/pcs-first-order-sample-project-writeback.ts`
-- `src/data/pcs-first-order-sample-repository.ts`
-- `src/data/pcs-first-order-sample-types.ts`
 - `src/data/pcs-first-sample-project-writeback.ts`
 - `src/data/pcs-first-sample-types.ts`
 - `src/data/pcs-project-archive-sync.ts`
@@ -121,7 +119,6 @@
 - `/pcs/engineering/plate`、`/pcs/engineering/plate/:id`
 - `/pcs/engineering/pattern`、`/pcs/engineering/pattern/:id`
 - `/pcs/engineering/first-sample`、`/pcs/engineering/first-sample/:id`
-- `/pcs/engineering/first-order-sample`、`/pcs/engineering/first-order-sample/:id`
 - `/pcs/engineering/color`、`/pcs/engineering/color/:id`
 - `/pcs/engineering/purchase`、`/pcs/engineering/purchase/:id`
 - `/pcs/engineering/tech-pack`、`/pcs/engineering/tech-pack/:id`
@@ -132,17 +129,18 @@
 ### 验证命令
 
 - `npx tsx tests/pcs-engineering-task-submit.spec.ts`：通过（真实调用提交门禁、开始时间与局部刷新行为）
-- `node --import tsx tests/pcs-engineering-thin-dispatcher.spec.ts`：通过（入口文件少于 500 行、无旧事实源和已废止动作、首单旧入口仅别名到产前版样衣）
+- `node --import tsx tests/pcs-engineering-thin-dispatcher.spec.ts`：通过（入口文件少于 500 行、无废止动作与重复事实源）
 - `npx tsx tests/pcs-engineering-professional-fact-source.spec.ts`：通过（制版、花型、产前版样衣读取工程主单任务）
 - `npx tsx tests/pcs-first-sample-engineering-result.spec.ts`：通过（真实提交成果并验证持久化、校验与无任务级验收文案）
 - `npx tsx tests/pcs-engineering-task-status.spec.ts`、`pcs-engineering-master-domain.spec.ts`、`pcs-engineering-dependency-policy.spec.ts`：通过
 - `npm run check:list-page-governance:static`：通过
 
 - `npm test -- tests/pcs-engineering-task-status.spec.ts`：通过（状态集合 8 档断言）
+- `npm test -- tests/pcs-engineering-shared-state-boundary.spec.ts`：通过（共享状态只输出 8 档，且共享 state / 列表偏好不再持有已废止任务状态）
 - `npm run check:pcs-plate-making-refactor`：通过
 - `npm run check:pcs-pattern-task-refactor`：通过（已同步扫描 pattern-task.ts）
 - `npm run check:pcs-sample-chain-refactor`：通过
-- `npm run check:pcs-revision-task-refactor`、`check:pcs-revision-remodel-acceptance`、`check:pcs-plate-making-mock-data`、`check:pcs-first-sample-node-writeback`、`check:pcs-plate-sample-readiness`、`check:pcs-closure-unification`：通过（逐一运行确认）
+- `npm run check:pcs-plate-making-mock-data`、`check:pcs-first-sample-node-writeback`、`check:pcs-plate-sample-readiness`、`check:pcs-closure-unification`：通过（由对应切片逐一运行确认）
 - `npm run check:list-page-governance`：通过
 - `npm run check:prototype-design-governance -- --all`：通过
 - `npm run check:menu-routes`：通过

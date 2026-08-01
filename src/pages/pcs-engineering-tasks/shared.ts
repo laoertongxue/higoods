@@ -1,5 +1,5 @@
 // 生产工程专业任务：共享类型、状态、公共渲染与列表公共骨架
-// 由 pcs-engineering-tasks.ts（改版/制版/首版样衣/首单样衣）与 pattern-task.ts（花型）共用
+// 由 pcs-engineering-tasks.ts（改款、制版、产前版样衣）与专业任务页共用。
 // 本文件不依赖任何页面模块，避免循环依赖；页面模块只能单向依赖本文件。
 
 import { renderSecondaryButton } from '../../components/ui/button.ts'
@@ -30,8 +30,6 @@ import type {
   PatternTaskProcessType,
   PatternTaskTeamCode,
 } from '../../data/pcs-pattern-task-types.ts'
-import type { FirstSamplePurpose, SampleChainMode, SampleMaterialMode, SamplePlanLine, SampleSpecialSceneReasonCode } from '../../data/pcs-sample-chain-types.ts'
-import type { FirstSampleTaskRecord } from '../../data/pcs-first-sample-types.ts'
 import type { PlateMakingMaterialLine } from '../../data/pcs-plate-making-material-types.ts'
 import type { PlateMakingPatternImageLine } from '../../data/pcs-plate-making-pattern-file-types.ts'
 import type { RevisionTaskLiveRetestStatus } from '../../data/pcs-revision-task-file-types.ts'
@@ -40,16 +38,13 @@ import type { PatternTaskSourceType, PlateMakingTaskSourceType, RevisionTaskSour
 import { findStyleArchiveByProjectId, listStyleArchives } from '../../data/pcs-style-archive-repository.ts'
 import { getProjectById, listProjects } from '../../data/pcs-project-repository.ts'
 import { listProjectRelationsBySourceObject } from '../../data/pcs-project-relation-repository.ts'
-import { createDefaultSamplePlanLines } from '../../data/pcs-sample-chain-service.ts'
 import { escapeHtml, formatDateTime, toClassName } from '../../utils.ts'
 
-export type ModuleKey = 'revision' | 'plate' | 'pattern' | 'firstSample' | 'firstOrder' | 'color' | 'purchase' | 'techPack'
+export type ModuleKey = 'revision' | 'plate' | 'pattern' | 'firstSample' | 'color' | 'purchase' | 'techPack'
 export type TaskBindingMode = 'project' | 'style'
 export type RevisionTab = 'plan' | 'issues' | 'samples' | 'outputs' | 'downstream' | 'logs'
 export type PlateTab = 'demand' | 'execution' | 'review' | 'outputs' | 'closure' | 'logs'
 export type PatternTab = 'demand' | 'execution' | 'review' | 'closure' | 'logs'
-export type FirstSampleTab = 'overview' | 'inputs' | 'result' | 'acceptance' | 'logs'
-export type FirstOrderTab = 'overview' | 'version' | 'result' | 'conclusion' | 'logs'
 
 export interface EngineeringLog {
   time: string
@@ -90,7 +85,6 @@ export const ENGINEERING_LIST_STORAGE_KEYS: Record<ModuleKey, string> = {
   plate: 'higood:list-page:/pcs/patterns/plate-making',
   pattern: 'higood:list-page:/pcs/patterns/colors',
   firstSample: 'higood:list-page:/pcs/samples/first-sample',
-  firstOrder: 'higood:list-page:/pcs/samples/first-order',
   color: 'higood:list-page:/pcs/engineering/color',
   purchase: 'higood:list-page:/pcs/engineering/purchase',
   techPack: 'higood:list-page:/pcs/engineering/tech-pack',
@@ -145,18 +139,6 @@ export const ENGINEERING_LIST_COLUMN_RULES: Record<ModuleKey, StandardListColumn
     { key: 'site' },
     { key: 'materialMode' },
     { key: 'sampleCode' },
-    { key: 'firstOrderBasis' },
-    { key: 'actions', required: true, actionColumn: true },
-  ],
-  firstOrder: [
-    { key: 'task', required: true, freezeable: true },
-    { key: 'project', freezeable: true },
-    { key: 'status', required: true, freezeable: true },
-    { key: 'chainMode' },
-    { key: 'site' },
-    { key: 'patternVersion' },
-    { key: 'artworkVersion' },
-    { key: 'conclusion' },
     { key: 'actions', required: true, actionColumn: true },
   ],
   color: [
@@ -272,34 +254,6 @@ export interface PatternCreateDraft {
   note: string
 }
 
-export interface SampleCreateDraft {
-  projectId: string
-  title: string
-  ownerName: string
-  sourceTechPackVersionId: string
-  sourceTechPackVersionCode: string
-  sourceTechPackVersionLabel: string
-  factoryId: string
-  factoryName: string
-  targetSite: string
-  sampleMaterialMode: SampleMaterialMode
-  samplePurpose: FirstSamplePurpose
-  note: string
-}
-
-export interface FirstOrderCreateDraft extends SampleCreateDraft {
-  sourceFirstSampleTaskId: string
-  patternVersion: string
-  artworkVersion: string
-  sampleChainMode: SampleChainMode
-  specialSceneReasonCodes: SampleSpecialSceneReasonCode[]
-  productionReferenceRequiredFlag: boolean
-  chinaReviewRequiredFlag: boolean
-  correctFabricRequiredFlag: boolean
-  samplePlanLinesText: string
-  finalReferenceNote: string
-}
-
 export interface RevisionDetailDraft {
   participantNamesText: string
   revisionVersion: string
@@ -368,103 +322,19 @@ export interface PatternDetailDraft {
   hotSellerFlag: boolean
 }
 
-export interface FirstSampleDetailDraft {
-  sampleCode: string
-  sampleImageIdsText: string
-  fitConfirmationSummary: string
-  artworkConfirmationSummary: string
-  productionReadinessNote: string
-  reuseAsFirstOrderBasisFlag: boolean
-  reuseAsFirstOrderBasisConfirmedAt: string
-  reuseAsFirstOrderBasisConfirmedBy: string
-  reuseAsFirstOrderBasisNote: string
-  confirmedAt: string
-}
-
-export interface FirstOrderDetailDraft {
-  patternVersion: string
-  artworkVersion: string
-  samplePlanLinesText: string
-  finalReferenceNote: string
-  sampleCode: string
-  conclusionResult: '' | '通过' | '需改版' | '需补首单'
-  conclusionNote: string
-  confirmedAt: string
-  confirmedBy: string
-}
-
-export interface FirstSampleStartDraft {
-  operatorName: string
-  startedAt: string
-  planFinishAt: string
-  startNote: string
-}
-
-export interface FirstSampleResultDraft {
-  sampleCode: string
-  submittedBy: string
-  completedAt: string
-  sampleImageIds: string[]
-  resultNote: string
-}
-
-export interface FirstOrderStartDraft {
-  operatorName: string
-  startedAt: string
-  planFinishAt: string
-  factoryConfirmNote: string
-}
-
-export interface FirstOrderResultDraft {
-  sampleCode: string
-  submittedBy: string
-  completedAt: string
-  finalReferenceNote: string
-  samplePlanLinesText: string
-  resultNote: string
-}
-
 export const COMMON_STATUS_META: Record<string, { label: string; className: string }> = {
-  草稿: { label: '草稿', className: 'bg-slate-100 text-slate-700' },
-  未开始: { label: '未开始', className: 'bg-slate-100 text-slate-700' },
-  进行中: { label: '进行中', className: 'bg-blue-100 text-blue-700' },
-  待确认: { label: '待确认', className: 'bg-amber-100 text-amber-700' },
-  已确认: { label: '待生成技术包', className: 'bg-emerald-100 text-emerald-700' },
-  已生成技术包: { label: '待完成', className: 'bg-cyan-100 text-cyan-700' },
-  已完成: { label: '已完成', className: 'bg-green-100 text-green-700' },
-  异常待处理: { label: '阻塞', className: 'bg-rose-100 text-rose-700' },
-  已取消: { label: '已取消', className: 'bg-slate-100 text-slate-500' },
   未启用: { label: '未启用', className: 'bg-slate-100 text-slate-400' },
   待前置: { label: '待前置', className: 'bg-slate-100 text-slate-700' },
   待开始: { label: '待开始', className: 'bg-slate-100 text-slate-700' },
+  进行中: { label: '进行中', className: 'bg-blue-100 text-blue-700' },
   待审核: { label: '待审核', className: 'bg-amber-100 text-amber-700' },
   返工中: { label: '返工中', className: 'bg-orange-100 text-orange-700' },
+  已完成: { label: '已完成', className: 'bg-green-100 text-green-700' },
   因需求变更结束: { label: '因需求变更结束', className: 'bg-slate-100 text-slate-500' },
-  未提交: { label: '未提交', className: 'bg-slate-100 text-slate-700' },
-  待样板确认: { label: '待样板确认', className: 'bg-amber-100 text-amber-700' },
-  样板已通过: { label: '样板已通过', className: 'bg-emerald-100 text-emerald-700' },
-  样板已驳回: { label: '样板已驳回', className: 'bg-rose-100 text-rose-700' },
-  制版执行中: { label: '制版执行中', className: 'bg-blue-100 text-blue-700' },
-  待提交样板确认: { label: '待提交样板确认', className: 'bg-indigo-100 text-indigo-700' },
-  待生成技术包: { label: '待生成技术包', className: 'bg-emerald-100 text-emerald-700' },
-  待完成任务: { label: '待完成任务', className: 'bg-cyan-100 text-cyan-700' },
 }
 
-// 专业任务通用状态筛选：保留异常阻塞与已取消，便于筛选历史状态任务
-export const ENGINEERING_COMMON_FILTER_STATUS_OPTIONS = ['进行中', '待确认', '已确认', '已生成技术包', '已完成', '异常待处理', '已取消']
-export const REVISION_FILTER_STATUS_OPTIONS = ['进行中', '待确认', '已确认', '已生成技术包', '已完成']
-
-export const SAMPLE_STATUS_META: Record<string, { label: string; className: string }> = {
-  草稿: { label: '草稿', className: 'bg-slate-100 text-slate-700' },
-  待处理: { label: '待处理', className: 'bg-slate-100 text-slate-700' },
-  打样中: { label: '打样中', className: 'bg-blue-100 text-blue-700' },
-  待确认: { label: '待确认', className: 'bg-amber-100 text-amber-700' },
-  已通过: { label: '已通过', className: 'bg-emerald-100 text-emerald-700' },
-  需改版: { label: '需改版', className: 'bg-orange-100 text-orange-700' },
-  需补样: { label: '需补样', className: 'bg-violet-100 text-violet-700' },
-  需补首单: { label: '需补首单', className: 'bg-violet-100 text-violet-700' },
-  已取消: { label: '已取消', className: 'bg-slate-100 text-slate-500' },
-}
+export const ENGINEERING_COMMON_FILTER_STATUS_OPTIONS = ['未启用', '待前置', '待开始', '进行中', '待审核', '返工中', '已完成', '因需求变更结束']
+export const REVISION_FILTER_STATUS_OPTIONS = ENGINEERING_COMMON_FILTER_STATUS_OPTIONS
 
 export const REVISION_SCOPE_OPTIONS = [
   { value: 'PATTERN', label: '版型结构' },
@@ -481,10 +351,6 @@ export const PATTERN_DEMAND_SOURCE_OPTIONS: PatternTaskDemandSourceType[] = ['�
 export const PATTERN_PROCESS_OPTIONS: PatternTaskProcessType[] = ['数码印', '烫画', '直喷']
 export const PATTERN_COLOR_DEPTH_OPTIONS: PatternTaskColorDepthOption[] = ['浅色', '深色', '中间值']
 export const PATTERN_DIFFICULTY_OPTIONS: PatternTaskDifficultyGrade[] = ['A++', 'A+', 'A', 'B', 'C', 'D']
-
-export const SAMPLE_SITE_OPTIONS = ['all', '深圳', '雅加达']
-export const SAMPLE_CHAIN_MODE_OPTIONS: SampleChainMode[] = ['复用首版结论', '新增首单样衣确认', '替代布与正确布双确认']
-export const SAMPLE_SPECIAL_REASON_OPTIONS: SampleSpecialSceneReasonCode[] = ['定位印', '大货量大', '工厂参照样', '正确布确认', '其它']
 
 export const initialRevisionCreateDraft = (): RevisionCreateDraft => ({
   bindingMode: 'project',
@@ -618,124 +484,6 @@ export const initialPatternDetailDraft = (): PatternDetailDraft => ({
   hotSellerFlag: false,
 })
 
-export const initialSampleCreateDraft = (): SampleCreateDraft => ({
-  projectId: '',
-  title: '',
-  ownerName: '',
-  sourceTechPackVersionId: '',
-  sourceTechPackVersionCode: '',
-  sourceTechPackVersionLabel: '',
-  factoryId: '',
-  factoryName: '',
-  targetSite: '深圳',
-  sampleMaterialMode: '正确布',
-  samplePurpose: '首版确认',
-  note: '',
-})
-
-export const initialFirstOrderCreateDraft = (): FirstOrderCreateDraft => ({
-  ...initialSampleCreateDraft(),
-  sourceFirstSampleTaskId: '',
-  patternVersion: '',
-  artworkVersion: '',
-  sampleChainMode: '复用首版结论',
-  specialSceneReasonCodes: [],
-  productionReferenceRequiredFlag: false,
-  chinaReviewRequiredFlag: false,
-  correctFabricRequiredFlag: false,
-  samplePlanLinesText: serializeFirstOrderSamplePlanLines(createDefaultSamplePlanLines('复用首版结论')),
-  finalReferenceNote: '',
-})
-
-export const initialFirstSampleDetailDraft = (): FirstSampleDetailDraft => ({
-  sampleCode: '',
-  sampleImageIdsText: '',
-  fitConfirmationSummary: '',
-  artworkConfirmationSummary: '',
-  productionReadinessNote: '',
-  reuseAsFirstOrderBasisFlag: false,
-  reuseAsFirstOrderBasisConfirmedAt: '',
-  reuseAsFirstOrderBasisConfirmedBy: '',
-  reuseAsFirstOrderBasisNote: '',
-  confirmedAt: '',
-})
-
-export function buildFirstSampleDetailDraft(task: FirstSampleTaskRecord): FirstSampleDetailDraft {
-  return {
-    sampleCode: task.sampleCode || '',
-    sampleImageIdsText: (task.sampleImageIds || []).join('\n'),
-    fitConfirmationSummary: task.fitConfirmationSummary || '',
-    artworkConfirmationSummary: task.artworkConfirmationSummary || '',
-    productionReadinessNote: task.productionReadinessNote || '',
-    reuseAsFirstOrderBasisFlag: Boolean(task.reuseAsFirstOrderBasisFlag),
-    reuseAsFirstOrderBasisConfirmedAt: task.reuseAsFirstOrderBasisConfirmedAt || '',
-    reuseAsFirstOrderBasisConfirmedBy: task.reuseAsFirstOrderBasisConfirmedBy || '',
-    reuseAsFirstOrderBasisNote: task.reuseAsFirstOrderBasisNote || '',
-    confirmedAt: task.confirmedAt || '',
-  }
-}
-
-export const initialFirstOrderDetailDraft = (): FirstOrderDetailDraft => ({
-  patternVersion: '',
-  artworkVersion: '',
-  samplePlanLinesText: '',
-  finalReferenceNote: '',
-  sampleCode: '',
-  conclusionResult: '',
-  conclusionNote: '',
-  confirmedAt: '',
-  confirmedBy: '',
-})
-
-export const initialFirstSampleStartDraft = (): FirstSampleStartDraft => ({
-  operatorName: '当前用户',
-  startedAt: nowText(),
-  planFinishAt: '',
-  startNote: '',
-})
-
-export const initialFirstSampleResultDraft = (): FirstSampleResultDraft => ({
-  sampleCode: '',
-  submittedBy: '当前用户',
-  completedAt: nowText(),
-  sampleImageIds: [],
-  resultNote: '',
-})
-
-export const initialFirstOrderStartDraft = (): FirstOrderStartDraft => ({
-  operatorName: '当前用户',
-  startedAt: nowText(),
-  planFinishAt: '',
-  factoryConfirmNote: '',
-})
-
-export const initialFirstOrderResultDraft = (): FirstOrderResultDraft => ({
-  sampleCode: '',
-  submittedBy: '当前用户',
-  completedAt: nowText(),
-  finalReferenceNote: '',
-  samplePlanLinesText: '',
-  resultNote: '',
-})
-
-export function serializeFirstOrderSamplePlanLines(lines: SamplePlanLine[]): string {
-  return (lines || [])
-    .map((line) =>
-      [
-        line.sampleRole,
-        line.materialMode,
-        line.quantity,
-        line.targetFactoryName,
-        line.linkedSampleCode,
-        line.status,
-        line.note,
-      ]
-        .map((item) => String(item ?? '').trim())
-        .join(' | '),
-    )
-    .join('\n')
-}
-
 export const state = {
   notice: null as string | null,
   revisionList: { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1 } as ListState,
@@ -761,36 +509,6 @@ export const state = {
   patternDetailDraft: initialPatternDetailDraft(),
 
   firstSampleList: { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1, site: 'all' } as SampleListState,
-  firstSampleTab: 'overview' as FirstSampleTab,
-  firstSampleCreateOpen: false,
-  firstSampleCreateDraft: initialSampleCreateDraft(),
-  firstSampleDetailDraftTaskId: '',
-  firstSampleDetailDraft: initialFirstSampleDetailDraft(),
-  firstSampleStartOpen: false,
-  firstSampleStartTaskId: '',
-  firstSampleStartDraft: initialFirstSampleStartDraft(),
-  firstSampleResultOpen: false,
-  firstSampleResultTaskId: '',
-  firstSampleResultDraft: initialFirstSampleResultDraft(),
-
-  firstOrderList: { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1, site: 'all' } as SampleListState,
-  firstOrderTab: 'overview' as FirstOrderTab,
-  firstOrderCreateOpen: false,
-  firstOrderCreateDraft: initialFirstOrderCreateDraft(),
-  firstOrderDetailDraftTaskId: '',
-  firstOrderDetailDraft: initialFirstOrderDetailDraft(),
-  firstOrderStartOpen: false,
-  firstOrderStartTaskId: '',
-  firstOrderStartDraft: initialFirstOrderStartDraft(),
-  firstOrderResultOpen: false,
-  firstOrderResultTaskId: '',
-  firstOrderResultDraft: initialFirstOrderResultDraft(),
-  firstOrderConclusionOpen: false,
-  firstOrderConclusionTaskId: '',
-  firstOrderConclusionResult: '通过',
-  firstOrderConclusionNote: '',
-  firstOrderConclusionConfirmedBy: '当前用户',
-  firstOrderConclusionConfirmedAt: nowText(),
 
   colorList: { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1 } as ListState,
   purchaseList: { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1 } as ListState,
@@ -802,7 +520,6 @@ export const engineeringListUiState: Record<ModuleKey, EngineeringListUiState> =
   plate: createEngineeringListUiState('plate'),
   pattern: createEngineeringListUiState('pattern'),
   firstSample: createEngineeringListUiState('firstSample'),
-  firstOrder: createEngineeringListUiState('firstOrder'),
   color: createEngineeringListUiState('color'),
   purchase: createEngineeringListUiState('purchase'),
   techPack: createEngineeringListUiState('techPack'),
@@ -812,7 +529,6 @@ export const engineeringListPreferencesLoaded: Record<ModuleKey, boolean> = {
   plate: false,
   pattern: false,
   firstSample: false,
-  firstOrder: false,
   color: false,
   purchase: false,
   techPack: false,
@@ -823,13 +539,11 @@ export const runtimeLogs: Record<ModuleKey, Map<string, EngineeringLog[]>> = {
   plate: new Map(),
   pattern: new Map(),
   firstSample: new Map(),
-  firstOrder: new Map(),
   color: new Map(),
   purchase: new Map(),
   techPack: new Map(),
 }
 
-export const firstOrderConclusionMap = new Map<string, { result: string; note: string; updatedAt: string }>()
 export function nowText(): string {
   const now = new Date()
   const pad = (value: number) => String(value).padStart(2, '0')
@@ -866,19 +580,27 @@ export function mergeLogs(module: ModuleKey, taskId: string, logs: EngineeringLo
 }
 
 export function getCommonStatusMeta(status: string): { label: string; className: string } {
-  return COMMON_STATUS_META[status] || { label: status || '-', className: 'bg-slate-100 text-slate-600' }
+  const visibleStatus = normalizeEngineeringVisibleStatus(status)
+  return COMMON_STATUS_META[visibleStatus] || { label: visibleStatus || '-', className: 'bg-slate-100 text-slate-600' }
 }
 
 export function getStatusFilterLabel(status: string): string {
-  return COMMON_STATUS_META[status]?.label || status
+  return getCommonStatusMeta(status).label
 }
 
-export function getSampleStatusMeta(status: string): { label: string; className: string } {
-  return SAMPLE_STATUS_META[status] || { label: status || '-', className: 'bg-slate-100 text-slate-600' }
+export function normalizeEngineeringVisibleStatus(status: string): string {
+  if (['草稿', '未开始', '待处理', '未提交'].includes(status)) return '待开始'
+  if (['打样中', '制版执行中'].includes(status)) return '进行中'
+  if (['待确认', '待样板确认', '待提交样板确认'].includes(status)) return '待审核'
+  if (['已确认', '已生成技术包', '已通过', '样板已通过', '待生成技术包', '待完成任务'].includes(status)) return '已完成'
+  if (['需改版', '需补样', '需补首单', '异常待处理', '样板已驳回'].includes(status)) return '返工中'
+  if (status === '已取消') return '因需求变更结束'
+  return status
 }
 
 export function renderStatusBadge(status: string, sample = false): string {
-  const meta = sample ? getSampleStatusMeta(status) : getCommonStatusMeta(status)
+  void sample
+  const meta = getCommonStatusMeta(status)
   return `<span class="${escapeHtml(toClassName('inline-flex rounded-full px-2.5 py-1 text-xs font-medium', meta.className))}">${escapeHtml(meta.label)}</span>`
 }
 
@@ -1599,10 +1321,6 @@ export function buildMockFileId(file: File): string {
 }
 
 export function appendImageValues(field: string, values: string[]): boolean {
-  if (field === 'first-sample-result-sample-images') {
-    state.firstSampleResultDraft.sampleImageIds = [...state.firstSampleResultDraft.sampleImageIds, ...values]
-    return true
-  }
   if (field === 'revision-detail-target-style-images') {
     state.revisionDetailDraft.targetStyleImageIds = [...state.revisionDetailDraft.targetStyleImageIds, ...values]
     return true
@@ -1680,10 +1398,6 @@ export function appendFileValues(field: string, values: string[]): boolean {
 
 export function removeListValue(scope: string, index: number): boolean {
   if (index < 0) return false
-  if (scope === 'first-sample-result-sample-images') {
-    state.firstSampleResultDraft.sampleImageIds = state.firstSampleResultDraft.sampleImageIds.filter((_, itemIndex) => itemIndex !== index)
-    return true
-  }
   if (scope === 'revision-detail-target-style-images') {
     state.revisionDetailDraft.targetStyleImageIds = state.revisionDetailDraft.targetStyleImageIds.filter((_, itemIndex) => itemIndex !== index)
     return true
@@ -1890,7 +1604,7 @@ export function renderProjectContext(task: {
 export function getEngineeringListModule(node: HTMLElement): ModuleKey | null {
   const value = node.dataset.pcsEngineeringListModule
     || node.closest<HTMLElement>('[data-pcs-engineering-list-module]')?.dataset.pcsEngineeringListModule
-  return value === 'revision' || value === 'plate' || value === 'pattern' || value === 'firstSample' || value === 'firstOrder' || value === 'color' || value === 'purchase' || value === 'techPack'
+  return value === 'revision' || value === 'plate' || value === 'pattern' || value === 'firstSample' || value === 'color' || value === 'purchase' || value === 'techPack'
     ? value
     : null
 }
