@@ -80,6 +80,7 @@
     "check:pda-cutting-transfer-bag-handover": "tsx scripts/check-pda-cutting-transfer-bag-handover.ts",
     "check:web-cutting-transfer-bag-actions": "tsx scripts/check-web-cutting-transfer-bag-actions.ts",
     "check:transfer-bag-three-status": "tsx scripts/check-transfer-bag-three-status.ts",
+    "check:transfer-bag-repack-recovery": "tsx scripts/check-transfer-bag-repack-recovery.ts",
     "check:cutting-wait-handover-transfer-bag-flow": "tsx scripts/check-cutting-wait-handover-transfer-bag-flow.ts",
     "check:cut-piece-release-mock-records": "tsx scripts/check-cut-piece-release-mock-records.ts",
     "check:cut-piece-release-available-qty": "tsx scripts/check-cut-piece-release-available-qty.ts",

@@ -13,6 +13,8 @@ import {
   type HandoverRecordSubmitPayload,
   type SpecialCraftHandoverPayload,
   type SpecialCraftReturnPayload,
+  type TransferBagRepackPayload,
+  type TransferBagTicketFactSnapshot,
 } from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import {
   getBrowserLocalStorage,
@@ -24,6 +26,10 @@ import {
   type TransferBagLifecycleFact,
   type TransferBagLifecycleView,
 } from '../../../data/fcs/cutting/transfer-bag-lifecycle.ts'
+import {
+  eventTouchesTransferBag,
+  resolveTransferBagCurrentUse,
+} from '../../../data/fcs/cutting/transfer-bag-operations.ts'
 import {
   listSpreadingResultGeneratedFeiTickets,
   type GeneratedFeiTicketSourceRecord,
@@ -314,10 +320,30 @@ function isWaitHandoverBagEventForCode(
   event: CuttingRuntimeEvent,
   bagCode: string,
 ): boolean {
-  if (event.eventStatus === '已取消') return false
-  return event.refs.transferBagCode === bagCode
-    || runtimeString(runtimeRecord(event.payload).bagCode) === bagCode
-    || runtimeString(runtimeRecord(event.payload).transferBagCode) === bagCode
+  return eventTouchesTransferBag(event, bagCode)
+}
+
+function getWaitHandoverRepackBag(
+  event: CuttingRuntimeEvent,
+  key: 'sourceBags' | 'resultBags',
+  bagCode: string,
+): Record<string, unknown> | undefined {
+  if (event.eventType !== '中转袋拆袋重装') return undefined
+  const value = runtimeRecord(event.payload)[key]
+  return (Array.isArray(value) ? value : [])
+    .map((item) => runtimeRecord(item))
+    .find((bag) => runtimeString(bag.bagCode) === bagCode)
+}
+
+function getWaitHandoverBagEventUsageCycleId(
+  event: CuttingRuntimeEvent,
+  bagCode: string,
+): string {
+  const resultBag = getWaitHandoverRepackBag(event, 'resultBags', bagCode)
+  if (resultBag) return runtimeString(resultBag.usageCycleId)
+  const sourceBag = getWaitHandoverRepackBag(event, 'sourceBags', bagCode)
+  if (sourceBag) return runtimeString(sourceBag.usageCycleId)
+  return getWaitHandoverEventUsageCycleId(event)
 }
 
 function inferWaitHandoverEventCycleIds(
@@ -330,10 +356,13 @@ function inferWaitHandoverEventCycleIds(
     left.occurredAt.localeCompare(right.occurredAt)
     || left.eventId.localeCompare(right.eventId))) {
     if (!isWaitHandoverBagEventForCode(event, bagCode)) continue
-    const declaredCycleId = getWaitHandoverEventUsageCycleId(event)
+    const declaredCycleId = getWaitHandoverBagEventUsageCycleId(event, bagCode)
     if (event.eventType === '菲票装袋') {
       currentCycleId = declaredCycleId
         || buildWaitHandoverUsageCycleId(bagCode, event.occurredAt)
+    } else if (event.eventType === '中转袋拆袋重装') {
+      const resultBag = getWaitHandoverRepackBag(event, 'resultBags', bagCode)
+      currentCycleId = resultBag ? declaredCycleId : ''
     } else if (declaredCycleId) {
       currentCycleId = declaredCycleId
     }
@@ -345,7 +374,23 @@ function inferWaitHandoverEventCycleIds(
 function toWaitHandoverLifecycleFact(
   event: CuttingRuntimeEvent,
   usageCycleId: string,
+  bagCode: string,
 ): TransferBagLifecycleFact | null {
+  if (event.eventType === '中转袋拆袋重装') {
+    const factType = getWaitHandoverRepackBag(event, 'resultBags', bagCode)
+      ? 'REPACK_RESULT_CONFIRMED'
+      : getWaitHandoverRepackBag(event, 'sourceBags', bagCode)
+        ? 'REPACK_SOURCE_EMPTIED'
+        : null
+    return factType
+      ? {
+          factId: event.eventId,
+          factType,
+          usageCycleId,
+          occurredAt: event.occurredAt,
+        }
+      : null
+  }
   const factType =
     event.eventType === '菲票装袋'
       ? 'BAGGING_CONFIRMED'
@@ -381,11 +426,11 @@ export function listWaitHandoverLifecycleFacts(
   return events
     .map((event) => {
       const usageCycleId =
-        getWaitHandoverEventUsageCycleId(event)
+        getWaitHandoverBagEventUsageCycleId(event, bagCode)
         || inferredCycleIds.get(event.eventId)
         || ''
       return usageCycleId
-        ? toWaitHandoverLifecycleFact(event, usageCycleId)
+        ? toWaitHandoverLifecycleFact(event, usageCycleId, bagCode)
         : null
     })
     .filter((fact): fact is TransferBagLifecycleFact => Boolean(fact))
@@ -397,25 +442,47 @@ export function listWaitHandoverLifecycleFacts(
 function listWaitHandoverLifecycleCycles(
   bagCode: string,
   facts: TransferBagLifecycleFact[],
+  events: CuttingRuntimeEvent[],
 ): TransferBagLifecycleCycle[] {
-  const baggingFacts = facts.filter(
-    (fact) => fact.factType === 'BAGGING_CONFIRMED',
-  )
-  return baggingFacts.map((fact) => {
+  const startFacts = facts.filter((fact) =>
+    fact.factType === 'BAGGING_CONFIRMED'
+    || fact.factType === 'REPACK_RESULT_CONFIRMED')
+  const uniqueStartByCycle = new Map<string | undefined, TransferBagLifecycleFact>()
+  for (const fact of startFacts) {
+    if (!uniqueStartByCycle.has(fact.usageCycleId)) {
+      uniqueStartByCycle.set(fact.usageCycleId, fact)
+    }
+  }
+  const uniqueStarts = Array.from(uniqueStartByCycle.values())
+  return uniqueStarts.map((fact) => {
     const closeFact = facts
       .filter((candidate) =>
         candidate.usageCycleId === fact.usageCycleId
-        && candidate.factType === 'PHYSICAL_BAG_RETURNED')
+        && (
+          candidate.factType === 'PHYSICAL_BAG_RETURNED'
+          || candidate.factType === 'REPACK_SOURCE_EMPTIED'
+        ))
       .sort((left, right) =>
         left.occurredAt.localeCompare(right.occurredAt)
         || left.factId.localeCompare(right.factId))
       .at(-1)
+    const replacedByRepack = events
+      .filter((event) =>
+        event.eventType === '中转袋拆袋重装'
+        && eventTouchesTransferBag(event, bagCode)
+        && runtimeString(getWaitHandoverRepackBag(event, 'sourceBags', bagCode)?.usageCycleId) === fact.usageCycleId
+        && runtimeString(getWaitHandoverRepackBag(event, 'resultBags', bagCode)?.usageCycleId) !== fact.usageCycleId)
+      .sort((left, right) =>
+        left.occurredAt.localeCompare(right.occurredAt)
+        || left.eventId.localeCompare(right.eventId))
+      .at(-1)
+    const closedAt = closeFact?.occurredAt || replacedByRepack?.occurredAt
     return {
       usageCycleId: fact.usageCycleId || '',
       startedAt: fact.occurredAt,
-      ...(closeFact
+      ...(closedAt
         ? {
-            closedAt: closeFact.occurredAt,
+            closedAt,
             closeResult: 'REUSABLE' as const,
           }
         : {}),
@@ -555,10 +622,12 @@ export function buildWaitHandoverLifecycleByBagCode(
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): TransferBagLifecycleView {
   const facts = listWaitHandoverLifecycleFacts(bagCode, storage)
+  const events = listCuttingRuntimeEvents(storage)
+    .filter((event) => eventTouchesTransferBag(event, bagCode))
   return deriveTransferBagLifecycle({
     carrierId: bagCode,
     bagCode,
-    cycles: listWaitHandoverLifecycleCycles(bagCode, facts),
+    cycles: listWaitHandoverLifecycleCycles(bagCode, facts, events),
     facts,
   })
 }
@@ -730,33 +799,45 @@ export function resolveWaitHandoverBaggingSnapshot(
   bagCode: string,
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): WaitHandoverBaggingSnapshot | null {
-  const event = listCuttingRuntimeEvents(storage)
-    .filter((candidate) =>
-      candidate.eventType === '菲票装袋'
-      && isWaitHandoverBagEventForCode(candidate, bagCode))
-    .sort((left, right) =>
-      right.occurredAt.localeCompare(left.occurredAt)
-      || right.eventId.localeCompare(left.eventId))[0]
-  if (!event) return null
-  const payload = runtimeRecord(event.payload)
-  const tickets = (
-    Array.isArray(payload.feiTicketItems)
-      ? payload.feiTicketItems
-      : []
-  ).map((item) =>
-    buildWaitHandoverRuntimeTicketFromSnapshotItem(
-      runtimeRecord(item),
-      event,
-    ))
+  const currentUse = resolveTransferBagCurrentUse(bagCode, storage)
+  if (!currentUse.usageCycleId || !currentUse.tickets.length) return null
+  const tickets = currentUse.tickets.map((ticket) =>
+    buildWaitHandoverRuntimeTicketFromTransferBagFact(ticket))
   return {
-    usageCycleId:
-      getWaitHandoverEventUsageCycleId(event)
-      || buildWaitHandoverUsageCycleId(bagCode, event.occurredAt),
-    productionOrderNo:
-      uniqueStrings(tickets.map((ticket) => ticket.productionOrderNo))[0]
-      || event.refs.productionOrderNo
-      || '',
+    usageCycleId: currentUse.usageCycleId,
+    productionOrderNo: currentUse.productionOrderNo,
     tickets,
+  }
+}
+
+function buildWaitHandoverRuntimeTicketFromTransferBagFact(
+  ticket: TransferBagTicketFactSnapshot,
+): WaitHandoverRuntimeTicketInput {
+  const compatibility = runtimeRecord(ticket)
+  return {
+    feiTicketId: ticket.feiTicketId,
+    feiTicketNo: ticket.feiTicketNo,
+    productionOrderId: ticket.productionOrderId,
+    productionOrderNo: ticket.productionOrderNo,
+    cutOrderId: ticket.cutOrderId,
+    cutOrderNo: ticket.cutOrderNo,
+    spreadingOrderId: runtimeString(compatibility.spreadingOrderId),
+    spreadingOrderNo: runtimeString(compatibility.spreadingOrderNo),
+    spuCode: runtimeString(compatibility.spuCode),
+    color: ticket.color,
+    size: ticket.size,
+    partCode: ticket.partCode,
+    partName: ticket.partName,
+    pieceQty: ticket.pieceQty,
+    pieceSequenceLabel: runtimeString(compatibility.pieceSequenceLabel) || '按菲票追踪',
+    hasSpecialCraft: Boolean(compatibility.hasSpecialCraft),
+    specialCraftDisplay: runtimeString(compatibility.specialCraftDisplay) || '无',
+    receiverFactoryDisplay:
+      ticket.receiverFactoryName
+      || runtimeString(compatibility.receiverFactoryDisplay)
+      || '接收工厂待补充',
+    printStatus: runtimeString(compatibility.printStatus) || '已打印',
+    voidStatus: runtimeString(compatibility.voidStatus) || '有效',
   }
 }
 
@@ -810,15 +891,20 @@ export function buildWaitHandoverRuntimeTicketFromTransferCandidate(ticket: Tran
   }
 }
 
-export function listWaitHandoverRuntimeEvents(): CuttingRuntimeEvent[] {
+export function listWaitHandoverRuntimeEvents(
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): CuttingRuntimeEvent[] {
   const events = [
-    ...listCuttingRuntimeEventsByInventoryScope('裁床待交出仓'),
-    ...listCuttingRuntimeEventsByType('菲票装袋'),
-    ...listCuttingRuntimeEventsByType('中转袋入仓'),
-    ...listCuttingRuntimeEventsByType('交出装袋确认'),
-    ...listCuttingRuntimeEventsByType('新增交出记录'),
-    ...listCuttingRuntimeEventsByType('特殊工艺交出'),
-    ...listCuttingRuntimeEventsByType('特殊工艺回仓'),
+    ...listCuttingRuntimeEventsByInventoryScope('裁床待交出仓', storage),
+    ...listCuttingRuntimeEventsByType('菲票装袋', storage),
+    ...listCuttingRuntimeEventsByType('中转袋入仓', storage),
+    ...listCuttingRuntimeEventsByType('中转袋拆袋重装', storage),
+    ...listCuttingRuntimeEventsByType('交出装袋确认', storage),
+    ...listCuttingRuntimeEventsByType('新增交出记录', storage),
+    ...listCuttingRuntimeEventsByType('特殊工艺交出', storage),
+    ...listCuttingRuntimeEventsByType('特殊工艺回仓', storage),
+    ...listCuttingRuntimeEventsByType('中转袋回收', storage),
+    ...listCuttingRuntimeEventsByType('中转袋报废', storage),
   ]
   const seen = new Set<string>()
   return events
@@ -924,6 +1010,18 @@ export function buildWaitHandoverLocationOccupancyStates(
       })
       continue
     }
+    if (event.eventType === '中转袋拆袋重装') {
+      const repack = event.payload as TransferBagRepackPayload
+      for (const sourceBag of repack.sourceBags) {
+        const stateKey = findWaitHandoverStateKey(
+          states,
+          sourceBag.bagCode,
+          sourceBag.usageCycleId,
+        )
+        if (stateKey) states.delete(stateKey)
+      }
+      continue
+    }
     if (event.eventType === '交出装袋确认') {
       const sourceBagCode = runtimeString(payload.sourceTempBagCode)
       const targetBagCode = runtimeString(payload.targetTransferBagCode) || event.refs.transferBagCode || ''
@@ -992,6 +1090,16 @@ export function buildWaitHandoverLocationOccupancyStates(
           ? `中转袋 ${runtimeString(payload.transferBagCode)}`
           : `特殊工艺回仓 ${runtimeString(payload.returnRecordNo) || returnRecordId}`,
       })
+      continue
+    }
+    if (event.eventType === '中转袋回收' || event.eventType === '中转袋报废') {
+      const bagCode = event.refs.transferBagCode
+        || runtimeString(payload.bagCode)
+        || runtimeString(payload.transferBagCode)
+      const stateKey = bagCode
+        ? findWaitHandoverStateKey(states, bagCode, event.refs.usageCycleId)
+        : undefined
+      if (stateKey) states.delete(stateKey)
     }
   }
   return Array.from(states.values())
@@ -1007,17 +1115,31 @@ function resolveActiveWaitHandoverLocationRef(
   return candidates.length === 1 ? candidates[0].locationRef : candidates.length > 1 ? null : undefined
 }
 
-export function buildWaitHandoverRuntimeProjection(generatedTickets = listSpreadingResultGeneratedFeiTickets()): WaitHandoverRuntimeProjection {
-  const runtimeEvents = listWaitHandoverRuntimeEvents()
+export function buildWaitHandoverRuntimeProjection(
+  generatedTickets = listSpreadingResultGeneratedFeiTickets(),
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): WaitHandoverRuntimeProjection {
+  const runtimeEvents = listWaitHandoverRuntimeEvents(storage)
   const inboundTempBags = buildRuntimeInboundTempBagsFromWaitHandoverEvents(runtimeEvents, generatedTickets)
   const inboundInventoryRecords = buildInboundTempBagInventoryRecords(inboundTempBags)
-  const inboundTicketIds = new Set(inboundInventoryRecords.map((record) => record.feiTicketId))
+  const bagCodes = uniqueStrings(runtimeEvents.flatMap((event) => [
+    event.refs.transferBagCode,
+    ...(event.refs.transferBagCodes || []),
+    runtimeString(runtimeRecord(event.payload).bagCode),
+    runtimeString(runtimeRecord(event.payload).transferBagCode),
+    runtimeString(runtimeRecord(event.payload).sourceTempBagCode),
+    runtimeString(runtimeRecord(event.payload).targetTransferBagCode),
+  ]))
+  const currentTicketIds = new Set(
+    bagCodes.flatMap((bagCode) =>
+      resolveTransferBagCurrentUse(bagCode, storage).tickets.map((ticket) => ticket.feiTicketId)),
+  )
   return {
     runtimeEvents,
     generatedTickets,
     inboundTempBags,
     inboundInventoryRecords,
-    ticketCandidates: generatedTickets.filter((ticket) => !inboundTicketIds.has(ticket.feiTicketId)),
+    ticketCandidates: generatedTickets.filter((ticket) => !currentTicketIds.has(ticket.feiTicketId)),
     baggingConfirmEvents: runtimeEvents.filter((event) => event.eventType === '交出装袋确认'),
     handoverRecordEvents: runtimeEvents.filter((event) => event.eventType === '新增交出记录'),
   }
@@ -1236,6 +1358,14 @@ export function appendWaitHandoverHandoverRecordEvent(input: {
   if (!bagCode) {
     throw new Error('请扫描需要整袋交出的中转袋。')
   }
+  const existingHandoverRecord = listCuttingRuntimeEvents(storage).find((event) =>
+    event.eventStatus !== '已取消'
+    && event.eventType === '新增交出记录'
+    && (
+      (input.idempotencyKey && event.idempotencyKey === input.idempotencyKey)
+      || event.refs.handoverRecordId === input.payload.handoverRecordId
+    ))
+  if (existingHandoverRecord) return existingHandoverRecord
   const snapshot = resolveWaitHandoverBaggingSnapshot(
     bagCode,
     storage,
@@ -1334,6 +1464,14 @@ export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
   if (!input.transferBagCode.trim()) {
     throw new Error('特殊工艺带袋交出必须明确物理中转袋。')
   }
+  const existingSpecialCraftHandover = listCuttingRuntimeEvents(storage).find((event) =>
+    event.eventStatus !== '已取消'
+    && event.eventType === '特殊工艺交出'
+    && (
+      (input.idempotencyKey && event.idempotencyKey === input.idempotencyKey)
+      || event.refs.handoverRecordId === input.handoverRecordId
+    ))
+  if (existingSpecialCraftHandover) return existingSpecialCraftHandover
   const snapshot = resolveWaitHandoverBaggingSnapshot(
     input.transferBagCode,
     storage,
