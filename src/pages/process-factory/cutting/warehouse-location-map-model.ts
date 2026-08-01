@@ -87,14 +87,14 @@ export interface WarehouseLocationMapShelf {
   areaName: string
   shelfId: string
   shelfNo: string
-  levels: WarehouseLocationMapLevel[]
+  readonly levels: readonly WarehouseLocationMapLevel[]
   /** @deprecated 任务 5 改造共享地图组件后移除；只由 levels 展平派生。 */
-  readonly locations: WarehouseLocationMapCell[]
+  readonly locations: readonly WarehouseLocationMapCell[]
 }
 
 export interface WarehouseLocationMapLevel {
-  levelNo: number
-  locations: WarehouseLocationMapCell[]
+  readonly levelNo: number
+  readonly locations: readonly WarehouseLocationMapCell[]
 }
 
 export interface WarehouseLocationMapArea {
@@ -133,6 +133,48 @@ export interface WarehouseStorageFootprint {
   inboundBy: string
 }
 
+function assertWarehouseHierarchySequence(
+  value: number | undefined,
+  fieldLabel: '货架序号' | '层号' | '层内位置号',
+  nodeType: '货架' | '库位',
+  nodeId: string,
+): asserts value is number {
+  if (!Number.isInteger(value) || value! < 1 || value! > 99) {
+    throw new Error(`${nodeType} ${nodeId} 的${fieldLabel}必须是 1 到 99 的整数。`)
+  }
+}
+
+function assertWarehouseHierarchyFacts(warehouse: FactoryInternalWarehouse): void {
+  warehouse.areaList.forEach((area) => {
+    if (!area.code || !/^[A-Z]$/.test(area.code)) {
+      throw new Error(`库区 ${area.areaId} 的库区代码必须是 A 到 Z 的单个大写字母。`)
+    }
+    area.shelfList.forEach((shelf) => {
+      assertWarehouseHierarchySequence(shelf.shelfSequence, '货架序号', '货架', shelf.shelfId)
+      shelf.locationList.forEach((location) => {
+        assertWarehouseHierarchySequence(location.levelNo, '层号', '库位', location.locationId)
+        assertWarehouseHierarchySequence(location.positionNo, '层内位置号', '库位', location.locationId)
+      })
+    })
+  })
+}
+
+function buildWarehouseLocationMapShelf(input: {
+  areaId: string
+  areaName: string
+  shelfId: string
+  shelfNo: string
+  levels: readonly WarehouseLocationMapLevel[]
+}): WarehouseLocationMapShelf {
+  const shelf = { ...input } as Omit<WarehouseLocationMapShelf, 'locations'>
+  Object.defineProperty(shelf, 'locations', {
+    configurable: false,
+    enumerable: true,
+    get: () => Object.freeze(shelf.levels.flatMap((level) => level.locations)),
+  })
+  return shelf as WarehouseLocationMapShelf
+}
+
 export function listStableWarehouseLocationRefs(
   warehouse: FactoryInternalWarehouse,
   snapshot?: FactoryWarehouseLayoutSnapshot,
@@ -140,6 +182,7 @@ export function listStableWarehouseLocationRefs(
   const effective = snapshot
     ? applyWarehouseLayoutSnapshot(warehouse, snapshot).warehouse
     : warehouse
+  assertWarehouseHierarchyFacts(effective)
   return effective.areaList.flatMap((area) =>
     area.shelfList.flatMap((shelf) =>
       shelf.locationList.map((location, orderIndex) => ({
@@ -147,16 +190,16 @@ export function listStableWarehouseLocationRefs(
         warehouseId: effective.warehouseId,
         warehouseKind: effective.warehouseKind,
         areaId: area.areaId,
-        areaCode: area.code ?? '',
+        areaCode: area.code!,
         areaName: area.areaName,
         shelfId: shelf.shelfId,
-        shelfSequence: shelf.shelfSequence ?? 0,
+        shelfSequence: shelf.shelfSequence!,
         shelfNo: shelf.shelfNo,
         locationId: location.locationId,
         locationNo: location.locationNo,
         locationName: location.locationName,
-        levelNo: location.levelNo ?? 0,
-        positionNo: location.positionNo ?? 0,
+        levelNo: location.levelNo!,
+        positionNo: location.positionNo!,
         areaStatus: area.status,
         shelfStatus: shelf.status,
         status: location.status,
@@ -229,6 +272,22 @@ function listMapCells(projection: WarehouseLocationMapProjection): WarehouseLoca
     area.shelves.flatMap((shelf) => shelf.levels.flatMap((level) => level.locations)))
 }
 
+type WarehouseLocationSelectability = 'SELECTABLE' | 'MISSING' | 'WRONG_SCOPE' | 'STOPPED' | 'OCCUPIED'
+
+function classifyWarehouseLocationSelectability(
+  projection: WarehouseLocationMapProjection,
+  cell: WarehouseLocationMapCell | undefined,
+): WarehouseLocationSelectability {
+  if (!cell) return 'MISSING'
+  if (cell.factoryId !== projection.factoryId
+    || cell.warehouseId !== projection.warehouseId
+    || cell.warehouseKind !== projection.warehouseKind) return 'WRONG_SCOPE'
+  if (cell.areaStatus !== 'AVAILABLE'
+    || cell.shelfStatus !== 'AVAILABLE'
+    || cell.status !== 'AVAILABLE') return 'STOPPED'
+  return cell.businessStatus === 'OCCUPIED' ? 'OCCUPIED' : 'SELECTABLE'
+}
+
 export function buildWarehouseLocationMapProjection(
   warehouse: FactoryInternalWarehouse,
   snapshot: FactoryWarehouseLayoutSnapshot,
@@ -286,20 +345,19 @@ export function buildWarehouseLocationMapProjection(
             levelCells.push(cell)
             cellsByLevel.set(cell.levelNo, levelCells)
           })
-          const levels = Array.from(cellsByLevel.entries())
+          const levels = Object.freeze(Array.from(cellsByLevel.entries())
             .sort(([left], [right]) => right - left)
-            .map(([levelNo, locations]) => ({
+            .map(([levelNo, locations]) => Object.freeze({
               levelNo,
-              locations: locations.sort((left, right) => left.positionNo - right.positionNo),
-            }))
-          return {
+              locations: Object.freeze(locations.sort((left, right) => left.positionNo - right.positionNo)),
+            })))
+          return buildWarehouseLocationMapShelf({
             areaId: area.areaId,
             areaName: area.areaName,
             shelfId: shelf.shelfId,
             shelfNo: shelf.shelfNo,
             levels,
-            locations: levels.flatMap((level) => level.locations),
-          }
+          })
         }),
     }))
   const cells = areas.flatMap((area) =>
@@ -332,23 +390,17 @@ export function validateWarehouseLocationSelection(
     return { ok: false, message: '请选择空闲库位。', selectedLocationIds: [] }
   }
   const cellsById = new Map(listMapCells(projection).map((cell) => [cell.locationId, cell]))
-  const cells = uniqueIds.map((id) => cellsById.get(id)).filter((cell): cell is WarehouseLocationMapCell => Boolean(cell))
-  if (cells.length !== uniqueIds.length) {
+  const selectabilities = uniqueIds.map((id) => classifyWarehouseLocationSelectability(projection, cellsById.get(id)))
+  if (selectabilities.includes('MISSING')) {
     return { ok: false, message: '库位不存在或已停用，请重新选择。', selectedLocationIds: uniqueIds }
   }
-  if (cells.some((cell) =>
-    cell.factoryId !== projection.factoryId
-    || cell.warehouseId !== projection.warehouseId
-    || cell.warehouseKind !== projection.warehouseKind)) {
+  if (selectabilities.includes('WRONG_SCOPE')) {
     return { ok: false, message: '所选库位不属于当前工厂或当前仓库，请重新选择。', selectedLocationIds: uniqueIds }
   }
-  if (cells.some((cell) =>
-    cell.areaStatus !== 'AVAILABLE'
-    || cell.shelfStatus !== 'AVAILABLE'
-    || cell.status !== 'AVAILABLE')) {
+  if (selectabilities.includes('STOPPED')) {
     return { ok: false, message: '库位不存在或已停用，请重新选择。', selectedLocationIds: uniqueIds }
   }
-  if (cells.some((cell) => cell.businessStatus === 'OCCUPIED')) {
+  if (selectabilities.includes('OCCUPIED')) {
     return { ok: false, message: '所选库位已被占用，请重新选择。', selectedLocationIds: uniqueIds }
   }
   return { ok: true, message: '', selectedLocationIds: uniqueIds }
@@ -364,15 +416,7 @@ export function revalidateWarehouseLocationSelection(
   const conflictLabels: string[] = []
   uniqueIds.forEach((locationId) => {
     const cell = cellsById.get(locationId)
-    const valid = cell
-      && cell.factoryId === projection.factoryId
-      && cell.warehouseId === projection.warehouseId
-      && cell.warehouseKind === projection.warehouseKind
-      && cell.areaStatus === 'AVAILABLE'
-      && cell.shelfStatus === 'AVAILABLE'
-      && cell.status === 'AVAILABLE'
-      && cell.businessStatus === 'EMPTY'
-    if (valid) retained.push(locationId)
+    if (classifyWarehouseLocationSelectability(projection, cell) === 'SELECTABLE') retained.push(locationId)
     else conflictLabels.push(cell?.locationNo || `未知库位（${locationId}）`)
   })
   if (!conflictLabels.length) return validateWarehouseLocationSelection(projection, uniqueIds)

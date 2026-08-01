@@ -33,6 +33,7 @@ import {
   revalidateWarehouseLocationSelection,
   toggleWarehouseLocationSelection,
   validateWarehouseLocationSelection,
+  type WarehouseLocationMapCell,
 } from '../src/pages/process-factory/cutting/warehouse-location-map-model.ts'
 import {
   appendWaitHandoverBaggingEvent,
@@ -41,7 +42,10 @@ import {
   buildWaitHandoverLocationOccupancyStates,
   type WaitHandoverRuntimeTicketInput,
 } from '../src/pages/process-factory/cutting/wait-handover-runtime.ts'
-import { renderWarehouseLocationMap } from '../src/components/ui/warehouse-location-map.ts'
+import {
+  renderWarehouseLocationMap,
+  renderWarehouseLocationMapSummarySection,
+} from '../src/components/ui/warehouse-location-map.ts'
 import {
   buildCurrentCuttingWarehouseMapProjection,
   buildWaitProcessRuntimeOccupancies,
@@ -103,7 +107,6 @@ const pdaHandoverSource = readFileSync(new URL('../src/pages/pda-cutting-handove
 const warehouseHubSource = readFileSync(new URL('../src/pages/process-factory/cutting/warehouse-hub.ts', import.meta.url), 'utf8')
 const warehouseMapSource = readFileSync(new URL('../src/pages/process-factory/cutting/warehouse-location-map.ts', import.meta.url), 'utf8')
 const warehouseMapUiSource = readFileSync(new URL('../src/components/ui/warehouse-location-map.ts', import.meta.url), 'utf8')
-const warehouseMapModelSource = readFileSync(new URL('../src/pages/process-factory/cutting/warehouse-location-map-model.ts', import.meta.url), 'utf8')
 const warehouseMapReviewRecordSource = readFileSync(new URL('../docs/prototype-review-records/2026-07-30-cutting-warehouse-location-map.md', import.meta.url), 'utf8')
 const warehouseLayoutStoreSource = readFileSync(new URL('../src/pages/process-factory/cutting/warehouse-location-layout-store.ts', import.meta.url), 'utf8')
 const warehouseLayoutStoreModule = await import('../src/pages/process-factory/cutting/warehouse-location-layout-store.ts') as Record<string, unknown>
@@ -611,6 +614,61 @@ assert.equal(loadWarehouseLayoutSnapshot(otherWarehouse, storage).snapshot.layou
 const selectionWarehouse = structuredClone(waitProcess)
 const selectionShelf = selectionWarehouse.areaList[0].shelfList[0]
 const selectionSeed = selectionShelf.locationList[0]
+const malformedHierarchyCases: Array<{
+  label: string
+  mutate: (warehouse: typeof selectionWarehouse) => void
+  expected: RegExp
+}> = [
+  {
+    label: '缺少库区代码',
+    mutate: (warehouse) => { delete warehouse.areaList[0].code },
+    expected: new RegExp(`库区 ${selectionWarehouse.areaList[0].areaId}.*库区代码.*A 到 Z`),
+  },
+  {
+    label: '非法库区代码',
+    mutate: (warehouse) => { warehouse.areaList[0].code = 'AA' },
+    expected: new RegExp(`库区 ${selectionWarehouse.areaList[0].areaId}.*库区代码.*A 到 Z`),
+  },
+  {
+    label: '缺少货架序号',
+    mutate: (warehouse) => { delete warehouse.areaList[0].shelfList[0].shelfSequence },
+    expected: new RegExp(`货架 ${selectionShelf.shelfId}.*货架序号.*1 到 99`),
+  },
+  {
+    label: '非法货架序号',
+    mutate: (warehouse) => { warehouse.areaList[0].shelfList[0].shelfSequence = 1.5 },
+    expected: new RegExp(`货架 ${selectionShelf.shelfId}.*货架序号.*1 到 99`),
+  },
+  {
+    label: '缺少层号',
+    mutate: (warehouse) => { delete warehouse.areaList[0].shelfList[0].locationList[0].levelNo },
+    expected: new RegExp(`库位 ${selectionSeed.locationId}.*层号.*1 到 99`),
+  },
+  {
+    label: '非法层号',
+    mutate: (warehouse) => { warehouse.areaList[0].shelfList[0].locationList[0].levelNo = 100 },
+    expected: new RegExp(`库位 ${selectionSeed.locationId}.*层号.*1 到 99`),
+  },
+  {
+    label: '缺少层内位置号',
+    mutate: (warehouse) => { delete warehouse.areaList[0].shelfList[0].locationList[0].positionNo },
+    expected: new RegExp(`库位 ${selectionSeed.locationId}.*层内位置号.*1 到 99`),
+  },
+  {
+    label: '非法层内位置号',
+    mutate: (warehouse) => { warehouse.areaList[0].shelfList[0].locationList[0].positionNo = 0 },
+    expected: new RegExp(`库位 ${selectionSeed.locationId}.*层内位置号.*1 到 99`),
+  },
+]
+for (const malformedCase of malformedHierarchyCases) {
+  const malformedWarehouse = structuredClone(selectionWarehouse)
+  malformedCase.mutate(malformedWarehouse)
+  assert.throws(
+    () => listStableWarehouseLocationRefs(malformedWarehouse),
+    malformedCase.expected,
+    `${malformedCase.label}时必须携带节点标识快速失败`,
+  )
+}
 const selectionSnapshot = buildInitialWarehouseLayoutSnapshot(selectionWarehouse, '选择测试')
 const shelfLocationIds = selectionShelf.locationList.map((location) => location.locationId)
 const emptyProjection = buildWarehouseLocationMapProjection(selectionWarehouse, selectionSnapshot, [])
@@ -665,6 +723,19 @@ assert.deepEqual(
 )
 for (const area of emptyProjection.areas) {
   for (const shelf of area.shelves) {
+    assert.equal(Object.isFrozen(shelf.levels), true, '货架 levels 必须冻结为只读事实')
+    assert.equal(Object.getOwnPropertyDescriptor(shelf, 'locations')?.get instanceof Function, true, 'flat locations 必须是派生 getter')
+    assert.equal(Object.getOwnPropertyDescriptor(shelf, 'locations')?.set, undefined, 'flat locations 不得提供替换 setter')
+    const firstFlatLocations = shelf.locations
+    const secondFlatLocations = shelf.locations
+    assert.equal(Object.isFrozen(firstFlatLocations), true, 'flat locations getter 每次返回冻结数组')
+    assert.deepEqual(secondFlatLocations, firstFlatLocations, 'levels 不变时 flat getter 内容必须一致')
+    assert.equal(Reflect.set(shelf, 'locations', []), false, 'flat locations 不得被独立替换为第二套事实')
+    assert.throws(
+      () => (firstFlatLocations as unknown as WarehouseLocationMapCell[]).push(firstFlatLocations[0]),
+      TypeError,
+      'flat locations 不得 push 分叉',
+    )
     assert.deepEqual(
       shelf.levels.map((level) => level.levelNo),
       shelf.levels.map((level) => level.levelNo).sort((left, right) => right - left),
@@ -675,6 +746,14 @@ for (const area of emptyProjection.areas) {
       level.locations.map((location) => location.positionNo).sort((left, right) => left - right),
       '同层库位必须按层内位置升序投影',
     ))
+    shelf.levels.forEach((level) => {
+      assert.equal(Object.isFrozen(level.locations), true, '每层 locations 必须冻结为只读事实')
+      assert.throws(
+        () => (level.locations as unknown as WarehouseLocationMapCell[]).splice(0, 1),
+        TypeError,
+        '层内 locations 不得 splice 修改',
+      )
+    })
   }
 }
 assert.equal(
@@ -779,15 +858,12 @@ const duplicatedFootprintProjection = buildWarehouseLocationMapProjection(select
   { ...firstOccupancy, occupancyId: 'OCC-SAME-FOOTPRINT-2', locationId: shelfLocationIds[1], qty: 100 },
   { ...firstOccupancy, occupancyId: 'OCC-SAME-FOOTPRINT-3', locationId: shelfLocationIds[2], qty: 100 },
 ])
-const duplicatedFootprintHtml = renderWarehouseLocationMap({
-  projection: duplicatedFootprintProjection,
-  mode: 'VIEW',
-  factoryName: '中央裁床',
-})
-assert.match(duplicatedFootprintHtml, /3 个库位/, '同一占用范围跨库位时应按唯一库位计数')
-assert.match(duplicatedFootprintHtml, /1 卷/, '同一业务对象跨三个库位时占用对象明细只能累计一次')
-assert.match(duplicatedFootprintHtml, /库存口径 100 yard/, '同一占用范围跨库位时总量只能计算一次')
-assert.doesNotMatch(duplicatedFootprintHtml, /库存口径 200 yard/, '生产单摘要不得重复累计同一占用范围')
+const duplicatedFootprintSummaryHtml = renderWarehouseLocationMapSummarySection(duplicatedFootprintProjection)
+assert.match(duplicatedFootprintSummaryHtml, /<span>3 个库位<\/span>/, '同一占用范围跨库位时应按唯一库位计数')
+assert.match(duplicatedFootprintSummaryHtml, /<span>1 卷<\/span>/, '摘要中同一业务对象跨三个库位时只能累计一卷')
+assert.match(duplicatedFootprintSummaryHtml, /<span>100 Yard \/ 91\.44 米<\/span>/, '摘要中的卷数量只能累计一次')
+assert.match(duplicatedFootprintSummaryHtml, /<span>库存口径 100 yard<\/span>/, '摘要中的库存数量只能累计一次')
+assert.doesNotMatch(duplicatedFootprintSummaryHtml, /<span>3 卷<\/span>|<span>300 Yard|库存口径 300 yard/, '摘要不得重复累计三张单格卡片中的同一业务对象')
 const mixedUnitProjection = buildWarehouseLocationMapProjection(selectionWarehouse, selectionSnapshot, [
   { ...firstOccupancy, locationId: shelfLocationIds[0], qty: 100 },
   { ...firstOccupancy, occupancyId: 'OCC-METER', footprintId: 'FOOTPRINT-METER', locationId: shelfLocationIds[2], qty: 50, unit: '米' },
@@ -961,9 +1037,13 @@ for (const cell of [occupiedCell, stoppedAreaCell, stoppedShelfCell, stoppedLoca
 assert.match(revalidatedSelection.message, /UNKNOWN-LOCATION/, '未知库位冲突反馈必须保留可追溯 ID')
 assert.match(revalidatedSelection.message, new RegExp(externalLocationId), '错仓 ID 在当前投影无法识别时必须作为未知库位保留原 ID')
 assert.deepEqual(revalidatedSelection.selectedLocationIds, [validCell.locationId], '同次重校验必须剔除所有冲突且仅保留有效项')
-assert.doesNotMatch(warehouseMapModelSource, /unassignedLocations/, 'v3 投影不得保留未编排库位兼容字段或空数组')
+assert.equal('unassignedLocations' in emptyProjection, false, '运行时 v3 投影不得保留未编排库位字段')
+const currentReviewConclusionStart = warehouseMapReviewRecordSource.indexOf('## 9. 2026-08-01 分层投影与自由多选审查')
+assert(currentReviewConclusionStart >= 0, '审查记录必须包含当前分层投影与自由多选结论')
+const currentReviewConclusion = warehouseMapReviewRecordSource.slice(currentReviewConclusionStart)
+assert.match(currentReviewConclusion, /跨库区、货架、层.*任意顺序取消.*不设置数量上限/s, '当前结论必须明确自由多选边界')
 assert.doesNotMatch(
-  warehouseMapReviewRecordSource,
+  currentReviewConclusion,
   /连续选择|连续多选|仍连续|连续相邻|端点扩展|范围摘要|同一货架的两个连续空闲格/,
   '当前原型审查记录不得保留与自由跨区、跨货架、跨层多选冲突的旧结论',
 )

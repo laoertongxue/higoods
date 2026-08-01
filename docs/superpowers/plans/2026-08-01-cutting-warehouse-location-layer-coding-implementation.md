@@ -309,8 +309,14 @@ git commit -m "feat(裁床仓库): 支持分层投影与自由多选"
 
 **文件：**
 
+- 修改：`src/pages/process-factory/cutting/warehouse-location-map-model.ts`
 - 修改：`src/components/ui/warehouse-location-map.ts`
+- 修改：`src/pages/process-factory/cutting/warehouse-location-map.ts`
+- 修改：`src/pages/process-factory/cutting/warehouse-hub.ts`
+- 修改：`src/pages/pda-warehouse-wait-process.ts`
 - 修改：`scripts/check-cutting-warehouse-location-map.ts`
+
+任务 5 完成正式分层矩阵时，必须删除 `WarehouseLocationMapShelf.locations` flat 兼容 getter，并把上述 model、shared component、warehouse-hub、PDA 待加工仓、裁床库位图页面和专项检查的全部读取迁移为直接消费 `levels`。实施前后均需用 CodeGraph 和字面检索重新确认所有新增消费者，文件范围不得只按本计划静态清单截断。
 
 - [ ] **步骤 1：先写 HTML 输出失败检查**
 
