@@ -1717,17 +1717,37 @@ function buildPickingTempBagSources(items: HandoverPickingAllocatedInventoryItem
 }
 
 function buildCurrentBagCompatibilityProjection(
-  allocation: SewingTaskAllocation,
-  pickingTaskId: string,
-  items: HandoverPickingAllocatedInventoryItem[],
+  allocations: SewingTaskAllocation[],
 ): TargetTransferBagUse[] {
-  const byCurrentBag = new Map<string, HandoverPickingAllocatedInventoryItem[]>()
-  items.forEach((item) => {
-    const rows = byCurrentBag.get(item.tempBagCode) || []
-    rows.push(item)
-    byCurrentBag.set(item.tempBagCode, rows)
+  const byCurrentBag = new Map<string, {
+    items: SewingTaskAllocationItem[]
+    sewingTaskIds: string[]
+    sewingTaskNos: string[]
+    packedAt: string
+    packedBy: string
+  }>()
+  allocations.forEach((allocation) => {
+    allocation.allocatedItems.forEach((item) => {
+      const bagCode = item.tempBagCode.trim()
+      if (!bagCode) return
+      const current = byCurrentBag.get(bagCode) || {
+        items: [],
+        sewingTaskIds: [],
+        sewingTaskNos: [],
+        packedAt: allocation.createdAt,
+        packedBy: allocation.createdBy,
+      }
+      current.items.push(item)
+      if (!current.sewingTaskIds.includes(allocation.sewingTaskId)) {
+        current.sewingTaskIds.push(allocation.sewingTaskId)
+      }
+      if (!current.sewingTaskNos.includes(allocation.sewingTaskNo)) {
+        current.sewingTaskNos.push(allocation.sewingTaskNo)
+      }
+      byCurrentBag.set(bagCode, current)
+    })
   })
-  return [...byCurrentBag.entries()].map(([bagCode, bagItems]) => ({
+  return [...byCurrentBag.entries()].map(([bagCode, bag]) => ({
     bagUseId: `current:${bagCode}`,
     bagCode,
     bagMasterId: '',
@@ -1735,19 +1755,28 @@ function buildCurrentBagCompatibilityProjection(
     // 旧视图字段保留为空；当前任务关系只用数组表达，且不建立新袋票关系。
     sewingTaskId: '',
     sewingTaskNo: '',
-    sewingTaskIds: [allocation.sewingTaskId],
-    sewingTaskNos: [allocation.sewingTaskNo],
-    pickingTaskId,
-    containedFeiTickets: bagItems.map((item) => ({
+    sewingTaskIds: [...bag.sewingTaskIds],
+    sewingTaskNos: [...bag.sewingTaskNos],
+    pickingTaskId: '',
+    containedFeiTickets: bag.items.map((item) => ({
       feiTicketId: item.feiTicketId,
       feiTicketNo: item.feiTicketNo,
       pieceQty: item.pieceQty,
     })),
-    totalPieceQty: sum(bagItems.map((item) => item.pieceQty)),
-    packedAt: allocation.createdAt,
-    packedBy: allocation.createdBy,
+    totalPieceQty: sum(bag.items.map((item) => item.pieceQty)),
+    packedAt: bag.packedAt,
+    packedBy: bag.packedBy,
     bagStatus: '装袋中',
   }))
+}
+
+function cloneTargetTransferBagUse(value: TargetTransferBagUse): TargetTransferBagUse {
+  return {
+    ...value,
+    sewingTaskIds: [...(value.sewingTaskIds || [])],
+    sewingTaskNos: [...(value.sewingTaskNos || [])],
+    containedFeiTickets: value.containedFeiTickets.map((ticket) => ({ ...ticket })),
+  }
 }
 
 function buildPickingScanChecks(tasks: HandoverPickingTask[], projection: SewingTaskAllocationProjection): HandoverPickingScanCheck[] {
@@ -1875,6 +1904,7 @@ function buildPickingScanChecks(tasks: HandoverPickingTask[], projection: Sewing
 export function buildHandoverPickingTaskProjectionFromAllocationProjection(
   allocationProjection: SewingTaskAllocationProjection,
 ): HandoverPickingTaskProjection {
+  const targetTransferBags = buildCurrentBagCompatibilityProjection(allocationProjection.allocations)
   const tasks: HandoverPickingTask[] = allocationProjection.allocations.map((allocation, index) => {
     const pickingTaskId = `PICK-${allocation.sewingTaskId}`
     const requiredItems = buildPickingRequiredItems(allocation)
@@ -1894,11 +1924,9 @@ export function buildHandoverPickingTaskProjectionFromAllocationProjection(
     // 分配投影只确认菲票去向，不预造中转袋，也不改变当前袋票关系。
     const pickedItems: HandoverPickingPickedItem[] = []
     const shortageItems = buildPickingShortageItems(requiredItems, pickedItems)
-    const targetTransferBags = buildCurrentBagCompatibilityProjection(
-      allocation,
-      pickingTaskId,
-      allocatedInventoryItems,
-    )
+    const taskTargetTransferBags = targetTransferBags
+      .filter((bag) => bag.sewingTaskIds?.includes(allocation.sewingTaskId))
+      .map(cloneTargetTransferBagUse)
     const taskStatus: HandoverPickingTaskStatus = '待分拣'
 
     return {
@@ -1917,20 +1945,16 @@ export function buildHandoverPickingTaskProjectionFromAllocationProjection(
       pickedItems,
       shortageItems,
       tempBagSources: buildPickingTempBagSources(allocatedInventoryItems),
-      targetTransferBags,
+      targetTransferBags: taskTargetTransferBags,
       createdAt: allocation.createdAt,
       createdBy: allocation.createdBy,
       updatedAt: index === 0 ? '2026-05-23 11:18:00' : '2026-05-23 11:38:00',
     }
   })
-  const targetTransferBags = [...new Map(
-    tasks.flatMap((task) => task.targetTransferBags)
-      .map((bag) => [bag.bagCode, bag]),
-  ).values()]
   const scanChecks = buildPickingScanChecks(tasks, allocationProjection)
   return {
     tasks,
-    targetTransferBags,
+    targetTransferBags: targetTransferBags.map(cloneTargetTransferBagUse),
     scanChecks,
     taskCount: tasks.length,
     pendingCount: tasks.filter((task) => task.taskStatus === '待分拣').length,

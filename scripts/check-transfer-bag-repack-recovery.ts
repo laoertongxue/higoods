@@ -11,6 +11,7 @@ import {
 import type { BrowserStorageLike } from '../src/data/browser-storage.ts'
 import {
   eventTouchesTransferBag,
+  resolveWholeBagHandoverEligibility,
   resolveTransferBagCurrentUse,
   submitWholeBagHandover,
   submitTransferBagRepack,
@@ -78,18 +79,59 @@ function assignment(
   }
 }
 
+function submittedSnapshotFor(
+  tickets: TransferBagTicketFactSnapshot[],
+  assignments: FeiTicketSewingAssignment[],
+): TransferBagTicketFactSnapshot[] {
+  const assignmentByTicketId = new Map(assignments.map((item) => [item.feiTicketId, item]))
+  return tickets.map((item) => {
+    const assigned = assignmentByTicketId.get(item.feiTicketId)
+    assert(assigned, `菲票 ${item.feiTicketId} 缺少提交分配`)
+    return {
+      ...item,
+      sewingTaskId: assigned.sewingTaskId,
+      sewingTaskNo: assigned.sewingTaskNo,
+      receiverFactoryId: assigned.receiverFactoryId,
+      receiverFactoryName: assigned.receiverFactoryName,
+    }
+  })
+}
+
+function submittedSnapshotForRequest(
+  tickets: TransferBagTicketFactSnapshot[],
+  assignments: FeiTicketSewingAssignment[],
+): TransferBagTicketFactSnapshot[] {
+  const assignmentByTicketId = new Map(assignments.map((item) => [item.feiTicketId, item]))
+  return tickets.map((item) => {
+    const assigned = assignmentByTicketId.get(item.feiTicketId)
+    return assigned
+      ? {
+          ...item,
+          sewingTaskId: assigned.sewingTaskId,
+          sewingTaskNo: assigned.sewingTaskNo,
+          receiverFactoryId: assigned.receiverFactoryId,
+          receiverFactoryName: assigned.receiverFactoryName,
+        }
+      : { ...item }
+  })
+}
+
 function handoverInput(
   bagCode: string,
+  usageCycleId: string,
+  tickets: TransferBagTicketFactSnapshot[],
   assignments: FeiTicketSewingAssignment[],
   overrides: Partial<Parameters<typeof submitWholeBagHandover>[0]> = {},
 ): Parameters<typeof submitWholeBagHandover>[0] {
   return {
     bagCode,
+    usageCycleId,
     handoverOrderId: `HO-${bagCode}`,
     handoverOrderNo: `HO-${bagCode}`,
     handoverRecordId: `HR-${bagCode}`,
     handoverRecordNo: `HR-${bagCode}`,
     assignments,
+    submittedTicketSnapshot: submittedSnapshotForRequest(tickets, assignments),
     operator: {
       operatorId: 'OP-HANDOVER',
       operatorName: '整袋交出员',
@@ -1381,6 +1423,31 @@ function appendLegacyBaggingConfirm(input: {
 
 {
   const storage = createMemoryStorage()
+  const bagCode = 'BAG-HANDOVER-SNAPSHOT-REQUIRED'
+  const usageCycleId = `usage:${bagCode}:1`
+  const tickets = [
+    ticket('SNAPSHOT-REQUIRED-01', 'PO-SNAPSHOT-REQUIRED', 'FACTORY-HANDOVER', 7),
+    ticket('SNAPSHOT-REQUIRED-02', 'PO-SNAPSHOT-REQUIRED', 'FACTORY-HANDOVER', 5),
+  ]
+  const assignments = [assignment(tickets[0], 'SEW-01'), assignment(tickets[1], 'SEW-02')]
+  appendBagging({ storage, bagCode, usageCycleId, tickets })
+  appendInbound({ storage, bagCode, usageCycleId, tickets })
+  assertRejectedWithoutWriting(
+    storage,
+    () => submitWholeBagHandover(handoverInput(
+      bagCode,
+      usageCycleId,
+      tickets,
+      assignments,
+      { submittedTicketSnapshot: undefined },
+    ), storage),
+    /提交.*快照.*必填/,
+    '整袋交出省略提交快照必须在运行时失败',
+  )
+}
+
+{
+  const storage = createMemoryStorage()
   const tickets = [
     ticket('HANDOVER-01', 'PO-HANDOVER', 'FACTORY-HANDOVER', 7),
     ticket('HANDOVER-02', 'PO-HANDOVER', 'FACTORY-HANDOVER', 5),
@@ -1401,10 +1468,13 @@ function appendLegacyBaggingConfirm(input: {
     assignment(tickets[0], 'SEW-01'),
     assignment(tickets[1], 'SEW-02'),
   ]
-  const event = submitWholeBagHandover(
-    handoverInput('BAG-HANDOVER-INBOUND', assignments),
-    storage,
+  const firstHandoverInput = handoverInput(
+    'BAG-HANDOVER-INBOUND',
+    'usage:BAG-HANDOVER-INBOUND:1',
+    tickets,
+    assignments,
   )
+  const event = submitWholeBagHandover(firstHandoverInput, storage)
   assert.equal(event.eventType, '新增交出记录')
   const payload = event.payload as {
     receiverId: string
@@ -1427,10 +1497,87 @@ function appendLegacyBaggingConfirm(input: {
   assert.deepEqual(payload.transferBagUses[0].containedFeiTicketIds, ['HANDOVER-01', 'HANDOVER-02'])
   assert.equal(payload.transferBagUses[0].totalPieceQty, 12)
   assert.equal(payload.transferBagUses[0].ticketSnapshot.length, 2)
+  assert.notEqual(
+    payload.transferBagUses[0].ticketSnapshot[0],
+    firstHandoverInput.submittedTicketSnapshot[0],
+    '交出事件快照不得复用调用方提交快照对象',
+  )
   assert.equal(payload.transferBagUses[0].sourceWarehouseArea, '待交出 A 区', '入仓袋必须沿用真实待交出仓库区')
   assert.equal(payload.transferBagUses[0].sourceLocationCode, 'A-BAG-HANDOVER-INBOUND', '入仓袋必须沿用真实待交出仓库位')
   assert.equal(event.inventoryEffect?.fromWarehouseArea, '待交出 A 区')
   assert.equal(event.inventoryEffect?.fromLocationCode, 'A-BAG-HANDOVER-INBOUND')
+
+  const countAfterFirstHandover = listCuttingRuntimeEvents(storage).length
+  const equivalentRetry = structuredClone(firstHandoverInput)
+  equivalentRetry.bagCode = ` ${equivalentRetry.bagCode} `
+  equivalentRetry.usageCycleId = ` ${equivalentRetry.usageCycleId} `
+  equivalentRetry.handoverOrderNo = ` ${equivalentRetry.handoverOrderNo} `
+  equivalentRetry.assignments.reverse()
+  equivalentRetry.assignments.forEach((item) => {
+    item.feiTicketId = ` ${item.feiTicketId} `
+    item.sewingTaskId = ` ${item.sewingTaskId} `
+    item.receiverFactoryName = ` ${item.receiverFactoryName} `
+  })
+  equivalentRetry.submittedTicketSnapshot.reverse()
+  equivalentRetry.submittedTicketSnapshot.forEach((item) => {
+    item.feiTicketId = ` ${item.feiTicketId} `
+    item.sewingTaskId = ` ${item.sewingTaskId} `
+    item.receiverFactoryName = ` ${item.receiverFactoryName} `
+  })
+  equivalentRetry.occurredAt = '2026-08-01 10:30'
+  const retriedEvent = submitWholeBagHandover(equivalentRetry, storage)
+  assert.equal(retriedEvent.eventId, event.eventId, '同 ID 等价重试必须返回首次成功事件')
+  assert.equal(listCuttingRuntimeEvents(storage).length, countAfterFirstHandover, '同 ID 等价重试不得追加事件')
+
+  ;[
+    {
+      label: '中转袋',
+      mutate: (value: typeof firstHandoverInput) => { value.bagCode = 'BAG-HANDOVER-CONFLICT' },
+    },
+    {
+      label: '使用周期',
+      mutate: (value: typeof firstHandoverInput) => { value.usageCycleId = 'usage:BAG-HANDOVER-INBOUND:2' },
+    },
+    {
+      label: '提交快照片数',
+      mutate: (value: typeof firstHandoverInput) => { value.submittedTicketSnapshot[0].pieceQty += 1 },
+    },
+    {
+      label: '车缝任务',
+      mutate: (value: typeof firstHandoverInput) => {
+        value.assignments[0].sewingTaskId = 'SEW-CONFLICT-ID'
+        value.assignments[0].sewingTaskNo = 'SEW-CONFLICT'
+        value.submittedTicketSnapshot[0].sewingTaskId = 'SEW-CONFLICT-ID'
+        value.submittedTicketSnapshot[0].sewingTaskNo = 'SEW-CONFLICT'
+      },
+    },
+    {
+      label: '接收工厂',
+      mutate: (value: typeof firstHandoverInput) => {
+        value.assignments.forEach((item) => {
+          item.receiverFactoryId = 'FACTORY-CONFLICT'
+          item.receiverFactoryName = '冲突车缝厂'
+        })
+        value.submittedTicketSnapshot.forEach((item) => {
+          item.receiverFactoryId = 'FACTORY-CONFLICT'
+          item.receiverFactoryName = '冲突车缝厂'
+        })
+      },
+    },
+    {
+      label: '交出单',
+      mutate: (value: typeof firstHandoverInput) => { value.handoverOrderId = 'HO-CONFLICT' },
+    },
+  ].forEach(({ label, mutate }) => {
+    const conflictingRetry = structuredClone(firstHandoverInput)
+    mutate(conflictingRetry)
+    assertRejectedWithoutWriting(
+      storage,
+      () => submitWholeBagHandover(conflictingRetry, storage),
+      /意图冲突/,
+      `同一交出记录 ID 的${label}变化必须明确冲突`,
+    )
+  })
 
   const snapshotBeforeMutation = structuredClone(payload.transferBagUses[0].ticketSnapshot)
   assignments[0].sewingTaskNo = 'MUTATED-AFTER-HANDOVER'
@@ -1449,10 +1596,16 @@ function appendLegacyBaggingConfirm(input: {
 
   assertRejectedWithoutWriting(
     storage,
-    () => submitWholeBagHandover(handoverInput('BAG-HANDOVER-INBOUND', assignments, {
+    () => submitWholeBagHandover(handoverInput(
+      'BAG-HANDOVER-INBOUND',
+      'usage:BAG-HANDOVER-INBOUND:1',
+      tickets,
+      assignments,
+      {
       handoverRecordId: 'HR-BAG-HANDOVER-INBOUND-REPEAT',
       handoverRecordNo: 'HR-BAG-HANDOVER-INBOUND-REPEAT',
-    }), storage),
+      },
+    ), storage),
     /不能.*交出|已交出|重复交出/,
     '已交出待回收的同一周期不得重复交出',
   )
@@ -1470,10 +1623,16 @@ function appendLegacyBaggingConfirm(input: {
     usageCycleId: 'usage:BAG-HANDOVER-READY:1',
     tickets,
   })
-  const event = submitWholeBagHandover(handoverInput('BAG-HANDOVER-READY', [
+  const readyAssignments = [
     assignment(tickets[0], 'SEW-01'),
     assignment(tickets[1], 'SEW-02'),
-  ]), storage)
+  ]
+  const event = submitWholeBagHandover(handoverInput(
+    'BAG-HANDOVER-READY',
+    'usage:BAG-HANDOVER-READY:1',
+    tickets,
+    readyAssignments,
+  ), storage)
   const payload = event.payload as {
     transferBagUses: Array<{ sourceWarehouseArea: string; sourceLocationCode: string }>
   }
@@ -1533,6 +1692,52 @@ function appendLegacyBaggingConfirm(input: {
     },
     expected: /快照/,
   },
+  {
+    label: '省略提交快照',
+    assignments: (tickets: TransferBagTicketFactSnapshot[]) => [
+      assignment(tickets[0], 'SEW-01'),
+      assignment(tickets[1], 'SEW-02'),
+    ],
+    overrides: { submittedTicketSnapshot: undefined },
+    expected: /提交.*快照.*必填/,
+  },
+  {
+    label: '提交快照字段不完整',
+    assignments: (tickets: TransferBagTicketFactSnapshot[]) => [
+      assignment(tickets[0], 'SEW-01'),
+      assignment(tickets[1], 'SEW-02'),
+    ],
+    overrides: {
+      submittedTicketSnapshot: [
+        {
+          ...ticket('FAIL-01', 'PO-FAIL', 'FACTORY-HANDOVER', 7),
+          sewingTaskId: 'SEW-01-ID',
+          sewingTaskNo: 'SEW-01',
+          receiverFactoryName: '',
+        },
+        {
+          ...ticket('FAIL-02', 'PO-FAIL', 'FACTORY-HANDOVER', 5),
+          sewingTaskId: 'SEW-02-ID',
+          sewingTaskNo: 'SEW-02',
+        },
+      ],
+    },
+    expected: /提交.*快照.*不完整/,
+  },
+  {
+    label: '提交快照重复菲票',
+    assignments: (tickets: TransferBagTicketFactSnapshot[]) => [
+      assignment(tickets[0], 'SEW-01'),
+      assignment(tickets[1], 'SEW-02'),
+    ],
+    overrides: {
+      submittedTicketSnapshot: [
+        { ...ticket('FAIL-01', 'PO-FAIL', 'FACTORY-HANDOVER', 7), sewingTaskId: 'SEW-01-ID', sewingTaskNo: 'SEW-01' },
+        { ...ticket('FAIL-01', 'PO-FAIL', 'FACTORY-HANDOVER', 7), sewingTaskId: 'SEW-01-ID', sewingTaskNo: 'SEW-01' },
+      ],
+    },
+    expected: /提交.*快照.*重复菲票/,
+  },
 ].forEach(({ label, assignments, overrides, expected }, index) => {
   const storage = createMemoryStorage()
   const tickets = [
@@ -1555,11 +1760,127 @@ function appendLegacyBaggingConfirm(input: {
     storage,
     () => submitWholeBagHandover(handoverInput(
       `BAG-HANDOVER-FAIL-${index}`,
+      `usage:BAG-HANDOVER-FAIL-${index}:1`,
+      tickets,
       assignments(tickets),
       overrides,
     ), storage),
     expected,
     `${label}必须失败`,
+  )
+})
+
+{
+  const storage = createMemoryStorage()
+  const bagCode = 'BAG-HANDOVER-ASSIGNMENT-DRIFT'
+  const usageCycleId = `usage:${bagCode}:1`
+  const tickets = [
+    ticket('ASSIGNMENT-DRIFT-01', 'PO-ASSIGNMENT-DRIFT', 'FACTORY-HANDOVER', 7),
+    ticket('ASSIGNMENT-DRIFT-02', 'PO-ASSIGNMENT-DRIFT', 'FACTORY-HANDOVER', 5),
+  ]
+  appendBagging({ storage, bagCode, usageCycleId, tickets })
+  appendInbound({ storage, bagCode, usageCycleId, tickets })
+  const qualifiedAssignments = [assignment(tickets[0], 'SEW-01'), assignment(tickets[1], 'SEW-02')]
+  const qualifiedSnapshot = submittedSnapshotFor(tickets, qualifiedAssignments)
+  assert.equal(resolveWholeBagHandoverEligibility({
+    currentUse: resolveTransferBagCurrentUse(bagCode, storage),
+    assignments: qualifiedAssignments,
+    submittedTicketSnapshot: qualifiedSnapshot,
+  }).ok, true, '任务漂移反例必须先完成资格确认')
+  const driftedAssignments = qualifiedAssignments.map((item, index) =>
+    index === 0
+      ? { ...item, sewingTaskId: 'SEW-02-ID', sewingTaskNo: 'SEW-02' }
+      : item)
+  assertRejectedWithoutWriting(
+    storage,
+    () => submitWholeBagHandover(handoverInput(
+      bagCode,
+      usageCycleId,
+      tickets,
+      driftedAssignments,
+      { submittedTicketSnapshot: qualifiedSnapshot },
+    ), storage),
+    /快照/,
+    '资格确认后车缝任务漂移必须阻断',
+  )
+}
+
+;[
+  {
+    label: '袋内菲票集合',
+    drift: (tickets: TransferBagTicketFactSnapshot[]) => [
+      ...tickets,
+      ticket('FACT-DRIFT-03', tickets[0].productionOrderNo, 'FACTORY-HANDOVER', 3),
+    ],
+    assertDrift: (tickets: TransferBagTicketFactSnapshot[]) => tickets.length === 3,
+  },
+  {
+    label: '生产单',
+    drift: (tickets: TransferBagTicketFactSnapshot[]) => tickets.map((item) => ({
+      ...item,
+      productionOrderId: 'PO-ID-FACT-DRIFT-NEW',
+      productionOrderNo: 'PO-FACT-DRIFT-NEW',
+    })),
+    assertDrift: (tickets: TransferBagTicketFactSnapshot[]) =>
+      tickets.every((item) => item.productionOrderNo === 'PO-FACT-DRIFT-NEW'),
+  },
+  {
+    label: '片数',
+    drift: (tickets: TransferBagTicketFactSnapshot[]) => tickets.map((item, index) =>
+      index === 0 ? { ...item, pieceQty: item.pieceQty + 1 } : item),
+    assertDrift: (tickets: TransferBagTicketFactSnapshot[]) => tickets[0]?.pieceQty === 8,
+  },
+].forEach(({ label, drift, assertDrift }, index) => {
+  const storage = createMemoryStorage()
+  const bagCode = `BAG-HANDOVER-FACT-DRIFT-${index}`
+  const usageCycleId = `usage:${bagCode}:1`
+  const originalTickets = [
+    ticket('FACT-DRIFT-01', 'PO-FACT-DRIFT', 'FACTORY-HANDOVER', 7),
+    ticket('FACT-DRIFT-02', 'PO-FACT-DRIFT', 'FACTORY-HANDOVER', 5),
+  ]
+  appendBagging({ storage, bagCode, usageCycleId, tickets: originalTickets })
+  appendInbound({ storage, bagCode, usageCycleId, tickets: originalTickets })
+  const qualifiedAssignments = [
+    assignment(originalTickets[0], 'SEW-01'),
+    assignment(originalTickets[1], 'SEW-02'),
+  ]
+  const qualifiedSnapshot = submittedSnapshotFor(originalTickets, qualifiedAssignments)
+  assert.equal(resolveWholeBagHandoverEligibility({
+    currentUse: resolveTransferBagCurrentUse(bagCode, storage),
+    assignments: qualifiedAssignments,
+    submittedTicketSnapshot: qualifiedSnapshot,
+  }).ok, true, `${label}漂移反例必须先完成资格确认`)
+
+  const driftedTickets = drift(originalTickets)
+  appendBagging({
+    storage,
+    bagCode,
+    usageCycleId,
+    tickets: driftedTickets,
+    occurredAt: '2026-08-01 09:00',
+  })
+  appendInbound({
+    storage,
+    bagCode,
+    usageCycleId,
+    tickets: driftedTickets,
+    occurredAt: '2026-08-01 09:10',
+  })
+  const currentUseAfterDrift = resolveTransferBagCurrentUse(bagCode, storage)
+  assert(assertDrift(currentUseAfterDrift.tickets), `${label}漂移事实必须真实进入当前袋票关系`)
+  const driftedAssignments = driftedTickets.map((item, taskIndex) =>
+    assignment(item, taskIndex === 1 ? 'SEW-02' : 'SEW-01'))
+  assertRejectedWithoutWriting(
+    storage,
+    () => submitWholeBagHandover(handoverInput(
+      bagCode,
+      usageCycleId,
+      driftedTickets,
+      driftedAssignments,
+      { submittedTicketSnapshot: qualifiedSnapshot },
+    ), storage),
+    /快照/,
+    `资格确认后${label}漂移必须阻断`,
   )
 })
 
@@ -1592,6 +1913,8 @@ function appendLegacyBaggingConfirm(input: {
     storage,
     () => submitWholeBagHandover(handoverInput(
       bagCode,
+      `usage:${bagCode}:1`,
+      tickets,
       tickets.map((item, index) => assignment(item, index ? 'SEW-02' : 'SEW-01')),
     ), storage),
     expected,
@@ -1603,9 +1926,93 @@ function appendLegacyBaggingConfirm(input: {
   const storage = createMemoryStorage()
   assertRejectedWithoutWriting(
     storage,
-    () => submitWholeBagHandover(handoverInput('BAG-HANDOVER-EMPTY', []), storage),
-    /不是入仓暂存中或待交出|没有菲票/,
+    () => submitWholeBagHandover(handoverInput(
+      'BAG-HANDOVER-EMPTY',
+      'usage:BAG-HANDOVER-EMPTY:1',
+      [],
+      [],
+    ), storage),
+    /逐票车缝任务分配必填|完整提交快照必填|不是入仓暂存中或待交出|没有菲票/,
     '空闲空袋不得整袋交出',
+  )
+}
+
+{
+  const storage = createMemoryStorage()
+  const bagCode = 'BAG-HANDOVER-SCRAP-ID-COLLISION'
+  const usageCycleId = `usage:${bagCode}:1`
+  const tickets = [ticket('SCRAP-ID-COLLISION-01', 'PO-SCRAP-ID-COLLISION', 'FACTORY-HANDOVER', 12)]
+  const assignments = [assignment(tickets[0], 'SEW-01')]
+  appendCuttingRuntimeEvent({
+    eventType: '中转袋报废',
+    eventSource: 'WEB',
+    eventStatus: '已同步',
+    occurredAt: '2026-08-01 07:00',
+    operatorName: '资产管理员',
+    refs: {
+      transferBagCode: 'BAG-SCRAPPED-HISTORY',
+      handoverRecordId: 'HR-SCRAP-ID-COLLISION',
+    },
+    payload: {
+      bagCode: 'BAG-SCRAPPED-HISTORY',
+      handoverRecordId: 'HR-SCRAP-ID-COLLISION',
+      reason: '破损报废',
+    },
+  } as Parameters<typeof appendCuttingRuntimeEvent>[0], storage)
+  appendBagging({ storage, bagCode, usageCycleId, tickets })
+  appendInbound({ storage, bagCode, usageCycleId, tickets })
+  const event = submitWholeBagHandover(handoverInput(
+    bagCode,
+    usageCycleId,
+    tickets,
+    assignments,
+    {
+      handoverRecordId: 'HR-SCRAP-ID-COLLISION',
+      handoverRecordNo: 'HR-SCRAP-ID-COLLISION',
+    },
+  ), storage)
+  assert.equal(event.eventType, '新增交出记录', '报废或破损历史事件不得误命中交出幂等记录')
+}
+
+{
+  const backingStorage = createMemoryStorage()
+  let rejectWrite = false
+  const storage: BrowserStorageLike = {
+    getItem: (key) => backingStorage.getItem(key),
+    setItem: (key, value) => {
+      if (rejectWrite) throw new Error('模拟事件追加失败')
+      backingStorage.setItem(key, value)
+    },
+    removeItem: (key) => backingStorage.removeItem(key),
+  }
+  const bagCode = 'BAG-HANDOVER-APPEND-FAILURE'
+  const usageCycleId = `usage:${bagCode}:1`
+  const tickets = [
+    ticket('APPEND-FAILURE-01', 'PO-APPEND-FAILURE', 'FACTORY-HANDOVER', 7),
+    ticket('APPEND-FAILURE-02', 'PO-APPEND-FAILURE', 'FACTORY-HANDOVER', 5),
+  ]
+  const assignments = [assignment(tickets[0], 'SEW-01'), assignment(tickets[1], 'SEW-02')]
+  appendBagging({ storage, bagCode, usageCycleId, tickets })
+  appendInbound({ storage, bagCode, usageCycleId, tickets })
+  const before = resolveTransferBagCurrentUse(bagCode, storage)
+  rejectWrite = true
+  assertRejectedWithoutWriting(
+    storage,
+    () => submitWholeBagHandover(handoverInput(
+      bagCode,
+      usageCycleId,
+      tickets,
+      assignments,
+    ), storage),
+    /模拟事件追加失败/,
+    '事件追加异常必须向调用方抛出',
+  )
+  rejectWrite = false
+  const after = resolveTransferBagCurrentUse(bagCode, storage)
+  assert.deepEqual(
+    [after.usageCycleId, after.flowStage, after.tickets],
+    [before.usageCycleId, before.flowStage, before.tickets],
+    '交出事件追加异常不得清空或改变当前袋票关系',
   )
 }
 

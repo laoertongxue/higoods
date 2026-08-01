@@ -115,6 +115,24 @@ function assignmentFor(
   }
 }
 
+function submittedSnapshotFor(
+  tickets: TransferBagTicketFactSnapshot[],
+  assignments: FeiTicketSewingAssignment[],
+): TransferBagTicketFactSnapshot[] {
+  const assignmentByTicketId = new Map(assignments.map((item) => [item.feiTicketId, item]))
+  return tickets.map((ticket) => {
+    const assignment = assignmentByTicketId.get(ticket.feiTicketId)
+    assert(assignment, `菲票 ${ticket.feiTicketId} 缺少提交分配`)
+    return {
+      ...ticket,
+      sewingTaskId: assignment.sewingTaskId,
+      sewingTaskNo: assignment.sewingTaskNo,
+      receiverFactoryId: assignment.receiverFactoryId,
+      receiverFactoryName: assignment.receiverFactoryName,
+    }
+  })
+}
+
 const wholeBagTickets = Array.from({ length: 12 }, (_, index) => wholeBagTicket(index + 1))
 const wholeBagCurrentUse: TransferBagCurrentUse = {
   bagCode: 'BAG-MULTI-TASK',
@@ -127,10 +145,12 @@ const wholeBagCurrentUse: TransferBagCurrentUse = {
 }
 const sameFactoryAssignments = wholeBagTickets.map((ticket, index) =>
   assignmentFor(ticket, index < 7 ? 'SEW-01' : 'SEW-02'))
+const sameFactorySubmittedSnapshot = submittedSnapshotFor(wholeBagTickets, sameFactoryAssignments)
 
 const sameFactoryEligibility = resolveWholeBagHandoverEligibility({
   currentUse: wholeBagCurrentUse,
   assignments: sameFactoryAssignments,
+  submittedTicketSnapshot: sameFactorySubmittedSnapshot,
 })
 assert.equal(sameFactoryEligibility.ok, true, '同一工厂的两个车缝任务必须允许整袋交出')
 assert.deepEqual(sameFactoryEligibility.sewingTaskIds, ['SEW-01-ID', 'SEW-02-ID'], '任务 ID 必须去重并保持菲票分配顺序')
@@ -142,12 +162,14 @@ assert.equal(sameFactoryEligibility.ticketSnapshot[0].sewingTaskNo, 'SEW-01', '�
 assert.equal(wholeBagCurrentUse.tickets[0].sewingTaskId, '历史任务不得作为资格来源', '资格计算不得修改当前袋票关系')
 assert.notEqual(sameFactoryEligibility.ticketSnapshot[0], wholeBagCurrentUse.tickets[0], '交出快照必须是不可变深拷贝')
 
+const crossFactoryAssignments = sameFactoryAssignments.map((assignment, index) =>
+  index === 11
+    ? { ...assignment, receiverFactoryId: 'FACTORY-B', receiverFactoryName: '车缝二厂' }
+    : assignment)
 const crossFactoryEligibility = resolveWholeBagHandoverEligibility({
   currentUse: wholeBagCurrentUse,
-  assignments: sameFactoryAssignments.map((assignment, index) =>
-    index === 11
-      ? { ...assignment, receiverFactoryId: 'FACTORY-B', receiverFactoryName: '车缝二厂' }
-      : assignment),
+  assignments: crossFactoryAssignments,
+  submittedTicketSnapshot: submittedSnapshotFor(wholeBagTickets, crossFactoryAssignments),
 })
 assert.equal(crossFactoryEligibility.ok, false)
 assert.equal(crossFactoryEligibility.reason, '袋内菲票分配给多个车缝工厂，请先拆袋重装。')
@@ -155,31 +177,37 @@ assert.equal(crossFactoryEligibility.reason, '袋内菲票分配给多个车缝�
 assert.equal(resolveWholeBagHandoverEligibility({
   currentUse: wholeBagCurrentUse,
   assignments: sameFactoryAssignments.slice(0, -1),
+  submittedTicketSnapshot: sameFactorySubmittedSnapshot,
 }).ok, false, '任一当前菲票未分配必须失败')
 assert.match(resolveWholeBagHandoverEligibility({
   currentUse: wholeBagCurrentUse,
   assignments: [...sameFactoryAssignments, { ...sameFactoryAssignments[0] }],
+  submittedTicketSnapshot: sameFactorySubmittedSnapshot,
 }).reason, /重复分配/, '同一菲票即使同工厂同任务也不能静默去重')
 assert.match(resolveWholeBagHandoverEligibility({
   currentUse: wholeBagCurrentUse,
   assignments: [...sameFactoryAssignments, assignmentFor(wholeBagTicket(99), 'SEW-01')],
+  submittedTicketSnapshot: sameFactorySubmittedSnapshot,
 }).reason, /额外菲票/, '分配中存在当前袋外菲票必须失败')
 
 ;(['PACKED', 'HANDED_OVER_WAITING_RETURN', null] as const).forEach((flowStage) => {
   assert.equal(resolveWholeBagHandoverEligibility({
     currentUse: { ...wholeBagCurrentUse, flowStage },
     assignments: sameFactoryAssignments,
+    submittedTicketSnapshot: sameFactorySubmittedSnapshot,
   }).ok, false, `${flowStage || 'IDLE / DISABLED'} 阶段不得本次整袋交出`)
 })
 ;(['IDLE', 'DISABLED'] as const).forEach((mainStatus) => {
   assert.equal(resolveWholeBagHandoverEligibility({
     currentUse: { ...wholeBagCurrentUse, mainStatus, flowStage: null },
     assignments: sameFactoryAssignments,
+    submittedTicketSnapshot: sameFactorySubmittedSnapshot,
   }).ok, false, `${mainStatus} 主状态不得本次整袋交出`)
 })
 assert.equal(resolveWholeBagHandoverEligibility({
   currentUse: { ...wholeBagCurrentUse, tickets: [] },
   assignments: [],
+  submittedTicketSnapshot: [],
 }).ok, false, '当前袋为空必须失败')
 assert.equal(resolveWholeBagHandoverEligibility({
   currentUse: {
@@ -188,16 +216,18 @@ assert.equal(resolveWholeBagHandoverEligibility({
       index === 11 ? { ...ticket, productionOrderNo: 'PO-002' } : ticket),
   },
   assignments: sameFactoryAssignments,
+  submittedTicketSnapshot: sameFactorySubmittedSnapshot,
 }).ok, false, '混生产单必须失败')
 assert.match(resolveWholeBagHandoverEligibility({
   currentUse: wholeBagCurrentUse,
   assignments: sameFactoryAssignments,
-  submittedTicketSnapshot: sameFactoryEligibility.ticketSnapshot.map((ticket, index) =>
+  submittedTicketSnapshot: sameFactorySubmittedSnapshot.map((ticket, index) =>
     index === 0 ? { ...ticket, pieceQty: ticket.pieceQty + 1 } : ticket),
 }).reason, /快照/, '提交快照与当前关系不一致必须失败')
 assert.match(resolveWholeBagHandoverEligibility({
   currentUse: wholeBagCurrentUse,
   assignments: sameFactoryAssignments,
+  submittedTicketSnapshot: sameFactorySubmittedSnapshot,
   existingHandoverEvents: [{
     eventId: 'EVENT-HANDOVER-EXISTING',
     eventNo: 'EVENT-HANDOVER-EXISTING',
@@ -219,6 +249,7 @@ assert.match(resolveWholeBagHandoverEligibility({
 assert.equal(resolveWholeBagHandoverEligibility({
   currentUse: wholeBagCurrentUse,
   assignments: sameFactoryAssignments,
+  submittedTicketSnapshot: sameFactorySubmittedSnapshot,
   existingHandoverEvents: [{
     eventId: 'EVENT-HANDOVER-OLD-CYCLE',
     eventNo: 'EVENT-HANDOVER-OLD-CYCLE',
@@ -248,7 +279,7 @@ const assignmentProjectionInput = [
     productionOrderId: 'PO-ASSIGN-ID',
     productionOrderNo: 'PO-ASSIGN',
     spuCode: 'SPU-ASSIGN',
-    color: '深蓝',
+    color: '炭灰',
     size: 'M',
     partName: '前片',
     pieceQty: 7,
@@ -301,6 +332,23 @@ assert.deepEqual(
   ['BAG-CURRENT-ASSIGN'],
   '旧视图兼容投影只能读取当前物理袋，不得生成结果袋',
 )
+assert.equal(pickingCompatibility.targetTransferBags.length, 1, '同一物理袋不得按车缝任务拆成多个兼容袋投影')
+assert.deepEqual(
+  pickingCompatibility.targetTransferBags[0].sewingTaskIds,
+  assignmentProjection.allocations.map((allocation) => allocation.sewingTaskId),
+  '7+5 同袋兼容投影必须保留两个车缝任务',
+)
+assert.deepEqual(
+  pickingCompatibility.targetTransferBags[0].containedFeiTickets.map((ticket) => ticket.feiTicketId),
+  ['FEI-ASSIGN-01', 'FEI-ASSIGN-02'],
+  '7+5 同袋兼容投影必须保留两张当前菲票',
+)
+assert.equal(pickingCompatibility.targetTransferBags[0].totalPieceQty, 12, '7+5 同袋兼容投影总片数必须为 12')
+assert(pickingCompatibility.tasks.every((task) =>
+  task.targetTransferBags.every((bag) =>
+    bag.containedFeiTickets.length === 2
+    && bag.sewingTaskIds?.length === 2
+    && bag.totalPieceQty === 12)), '任务下兼容袋视图也必须复用统一物理袋全量事实')
 
 assertNotContains(dataSource, buildToken('BAG', '-PICK-'), '车缝任务分配不得预造或模拟中转袋')
 

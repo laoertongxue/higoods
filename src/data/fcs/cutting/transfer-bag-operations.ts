@@ -62,17 +62,18 @@ export interface ResolveWholeBagHandoverEligibilityInput {
   currentUse: TransferBagCurrentUse
   assignments: FeiTicketSewingAssignment[]
   existingHandoverEvents?: CuttingRuntimeEvent[]
-  submittedTicketSnapshot?: TransferBagTicketFactSnapshot[]
+  submittedTicketSnapshot: TransferBagTicketFactSnapshot[]
 }
 
 export interface SubmitWholeBagHandoverInput {
   bagCode: string
+  usageCycleId: string
   handoverOrderId: string
   handoverOrderNo: string
   handoverRecordId: string
   handoverRecordNo: string
   assignments: FeiTicketSewingAssignment[]
-  submittedTicketSnapshot?: TransferBagTicketFactSnapshot[]
+  submittedTicketSnapshot: TransferBagTicketFactSnapshot[]
   operator: TransferBagRuntimeOperator
   source: CuttingRuntimeEventSource
   occurredAt?: string
@@ -141,19 +142,98 @@ function sameWholeBagTicketSnapshot(
   right: TransferBagTicketFactSnapshot[],
 ): boolean {
   if (left.length !== right.length) return false
-  const rightById = new Map(right.map((ticket) => [ticket.feiTicketId, ticket]))
+  const normalizedLeft = left.map(normalizeWholeBagTicketSnapshot)
+  const normalizedRight = right.map(normalizeWholeBagTicketSnapshot)
+  const rightById = new Map(normalizedRight.map((ticket) => [ticket.feiTicketId, ticket]))
   if (rightById.size !== right.length) return false
-  return left.every((ticket) => {
+  return normalizedLeft.every((ticket) => {
     const expected = rightById.get(ticket.feiTicketId)
     return Boolean(expected)
       && WHOLE_BAG_SNAPSHOT_FIELDS.every((field) => ticket[field] === expected?.[field])
   })
 }
 
+function normalizeWholeBagTicketSnapshot(
+  ticket: TransferBagTicketFactSnapshot,
+): TransferBagTicketFactSnapshot {
+  return {
+    ...ticket,
+    feiTicketId: text(ticket.feiTicketId),
+    feiTicketNo: text(ticket.feiTicketNo),
+    productionOrderId: text(ticket.productionOrderId),
+    productionOrderNo: text(ticket.productionOrderNo),
+    cutOrderId: text(ticket.cutOrderId),
+    cutOrderNo: text(ticket.cutOrderNo),
+    color: text(ticket.color),
+    size: text(ticket.size),
+    partCode: text(ticket.partCode),
+    partName: text(ticket.partName),
+    sewingTaskId: text(ticket.sewingTaskId),
+    sewingTaskNo: text(ticket.sewingTaskNo),
+    receiverFactoryId: text(ticket.receiverFactoryId),
+    receiverFactoryName: text(ticket.receiverFactoryName),
+  }
+}
+
+function normalizeRequiredSubmittedTicketSnapshot(
+  value: unknown,
+): TransferBagTicketFactSnapshot[] {
+  if (!Array.isArray(value) || !value.length) {
+    throw new Error('整袋交出的完整提交快照必填。')
+  }
+  const snapshot = value.map((item) => normalizeWholeBagTicketSnapshot(record(item) as unknown as TransferBagTicketFactSnapshot))
+  const incomplete = snapshot.find((item) =>
+    WHOLE_BAG_SNAPSHOT_FIELDS.some((field) => field === 'pieceQty'
+      ? !Number.isFinite(item.pieceQty) || item.pieceQty <= 0
+      : !text(item[field])))
+  if (incomplete) {
+    throw new Error(`整袋交出的提交快照不完整：${incomplete.feiTicketNo || incomplete.feiTicketId || '未知菲票'}。`)
+  }
+  const ticketIds = snapshot.map((item) => item.feiTicketId)
+  const duplicateTicketId = ticketIds.find((ticketId, index) => ticketIds.indexOf(ticketId) !== index)
+  if (duplicateTicketId) {
+    throw new Error(`整袋交出的提交快照存在重复菲票：${duplicateTicketId}。`)
+  }
+  return snapshot
+}
+
+function normalizeRequiredAssignments(value: unknown): FeiTicketSewingAssignment[] {
+  if (!Array.isArray(value) || !value.length) {
+    throw new Error('整袋交出的逐票车缝任务分配必填。')
+  }
+  const assignments = value.map((item) => {
+    const source = record(item)
+    return {
+      feiTicketId: text(source.feiTicketId),
+      feiTicketNo: text(source.feiTicketNo),
+      sewingTaskId: text(source.sewingTaskId),
+      sewingTaskNo: text(source.sewingTaskNo),
+      receiverFactoryId: text(source.receiverFactoryId),
+      receiverFactoryName: text(source.receiverFactoryName),
+    }
+  })
+  const incomplete = assignments.find((item) => Object.values(item).some((field) => !field))
+  if (incomplete) {
+    throw new Error(`整袋交出的逐票任务分配不完整：${incomplete?.feiTicketNo || incomplete?.feiTicketId || '未知菲票'}。`)
+  }
+  const ticketIds = assignments.map((item) => item.feiTicketId)
+  const duplicateTicketId = ticketIds.find((ticketId, index) => ticketIds.indexOf(ticketId) !== index)
+  if (duplicateTicketId) {
+    throw new Error(`菲票 ${duplicateTicketId} 存在重复分配，不能整袋交出。`)
+  }
+  return assignments
+}
+
 export function resolveWholeBagHandoverEligibility(
   input: ResolveWholeBagHandoverEligibilityInput,
 ): WholeBagHandoverEligibility {
   const { currentUse } = input
+  let submittedTicketSnapshot: TransferBagTicketFactSnapshot[]
+  try {
+    submittedTicketSnapshot = normalizeRequiredSubmittedTicketSnapshot(input.submittedTicketSnapshot)
+  } catch (error) {
+    return failedWholeBagHandover(error instanceof Error ? error.message : '整袋交出的完整提交快照无效。')
+  }
   if (currentUse.flowStage !== 'INBOUND_STORED' && currentUse.flowStage !== 'READY_HANDOVER') {
     return failedWholeBagHandover('当前中转袋不是入仓暂存中或待交出，不能整袋交出。')
   }
@@ -265,8 +345,7 @@ export function resolveWholeBagHandoverEligibility(
     }
   })
   if (
-    input.submittedTicketSnapshot
-    && !sameWholeBagTicketSnapshot(ticketSnapshot, input.submittedTicketSnapshot)
+    !sameWholeBagTicketSnapshot(ticketSnapshot, submittedTicketSnapshot)
   ) {
     return failedWholeBagHandover('提交的整袋交出快照与当前袋票关系不一致，请刷新后重试。')
   }
@@ -950,38 +1029,104 @@ function requiredHandoverText(value: string, label: string): string {
   return normalized
 }
 
+function buildWholeBagHandoverCanonicalIntent(input: {
+  bagCode: string
+  usageCycleId: string
+  handoverOrderId: string
+  handoverOrderNo: string
+  handoverRecordId: string
+  handoverRecordNo: string
+  assignments: FeiTicketSewingAssignment[]
+  submittedTicketSnapshot: TransferBagTicketFactSnapshot[]
+  source: CuttingRuntimeEventSource
+  operator: TransferBagRuntimeOperator
+}): string {
+  const assignments = input.assignments
+    .map((item) => ({ ...item }))
+    .sort((left, right) => left.feiTicketId.localeCompare(right.feiTicketId))
+  const submittedTicketSnapshot = input.submittedTicketSnapshot
+    .map((item) => ({ ...item }))
+    .sort((left, right) => left.feiTicketId.localeCompare(right.feiTicketId))
+  return JSON.stringify({
+    bagCode: input.bagCode,
+    usageCycleId: input.usageCycleId,
+    handoverOrderId: input.handoverOrderId,
+    handoverOrderNo: input.handoverOrderNo,
+    handoverRecordId: input.handoverRecordId,
+    handoverRecordNo: input.handoverRecordNo,
+    assignments,
+    submittedTicketSnapshot,
+    source: input.source,
+    operator: {
+      operatorId: text(input.operator.operatorId),
+      operatorName: text(input.operator.operatorName),
+      operatorRole: text(input.operator.operatorRole) || '裁片仓交出员',
+    },
+  })
+}
+
+function findSuccessfulWholeBagHandoverByRecordId(
+  events: CuttingRuntimeEvent[],
+  handoverRecordId: string,
+): CuttingRuntimeEvent<'新增交出记录'> | undefined {
+  return events.find((event) =>
+    event.eventType === '新增交出记录'
+    && (event.eventStatus === '已记录' || event.eventStatus === '已同步')
+    && (
+      text(event.refs.handoverRecordId) === handoverRecordId
+      || text(eventPayload(event).handoverRecordId) === handoverRecordId
+    )) as CuttingRuntimeEvent<'新增交出记录'> | undefined
+}
+
 export function submitWholeBagHandover(
   input: SubmitWholeBagHandoverInput,
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): CuttingRuntimeEvent<'新增交出记录'> {
   const bagCode = requiredHandoverText(input.bagCode, '中转袋编号')
+  const usageCycleId = requiredHandoverText(input.usageCycleId, '中转袋使用周期')
   const handoverOrderId = requiredHandoverText(input.handoverOrderId, '交出单 ID')
   const handoverOrderNo = requiredHandoverText(input.handoverOrderNo, '交出单号')
   const handoverRecordId = requiredHandoverText(input.handoverRecordId, '交出记录 ID')
   const handoverRecordNo = requiredHandoverText(input.handoverRecordNo, '交出记录号')
   const submittedBy = requiredHandoverText(input.operator.operatorName, '交出人')
+  const assignments = normalizeRequiredAssignments(input.assignments)
+  const submittedTicketSnapshot = normalizeRequiredSubmittedTicketSnapshot(input.submittedTicketSnapshot)
+  const canonicalIntent = buildWholeBagHandoverCanonicalIntent({
+    bagCode,
+    usageCycleId,
+    handoverOrderId,
+    handoverOrderNo,
+    handoverRecordId,
+    handoverRecordNo,
+    assignments,
+    submittedTicketSnapshot,
+    source: input.source,
+    operator: input.operator,
+  })
   const occurredAt = input.occurredAt?.trim()
     || new Date().toISOString().slice(0, 16).replace('T', ' ')
   const events = sortedRuntimeEvents(storage)
+  const existingRecord = findSuccessfulWholeBagHandoverByRecordId(events, handoverRecordId)
+  if (existingRecord) {
+    if (text(eventPayload(existingRecord).canonicalIntent) === canonicalIntent) {
+      return existingRecord
+    }
+    throw new Error(`交出记录 ID ${handoverRecordId} 已存在，但本次请求业务意图冲突。`)
+  }
   const currentUse = resolveTransferBagCurrentUse(bagCode, storage)
+  if (currentUse.usageCycleId !== usageCycleId) {
+    throw new Error('提交的中转袋使用周期与当前袋票关系不一致，请刷新后重试。')
+  }
   const eligibility = resolveWholeBagHandoverEligibility({
     currentUse,
-    assignments: input.assignments,
+    assignments,
     existingHandoverEvents: events,
-    submittedTicketSnapshot: input.submittedTicketSnapshot,
+    submittedTicketSnapshot,
   })
   if (!eligibility.ok) throw new Error(eligibility.reason)
   if (!currentUse.usageCycleId) {
     throw new Error('当前中转袋缺少使用周期，不能整袋交出。')
   }
-  const duplicateRecord = events.find((event) =>
-    event.eventType === '新增交出记录'
-    && (
-      event.refs.handoverRecordId === handoverRecordId
-      || text(eventPayload(event).handoverRecordId) === handoverRecordId
-    ))
-  if (duplicateRecord) throw new Error('交出记录已存在，不能重复交出。')
-
   const sourceLocation = wholeBagHandoverSourceLocation({ currentUse, events })
   const ticketSnapshot = eligibility.ticketSnapshot.map((ticket) => ({ ...ticket }))
   const totalPieceQty = ticketSnapshot.reduce((sum, ticket) => sum + ticket.pieceQty, 0)
@@ -1000,6 +1145,7 @@ export function submitWholeBagHandover(
       : {}),
   }
   const payload: WholeBagHandoverSubmitPayload = {
+    canonicalIntent,
     handoverOrderId,
     handoverOrderNo,
     handoverRecordId,
