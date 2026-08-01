@@ -188,6 +188,77 @@ assert.equal(
   'INBOUND_STORED',
 )
 
+const multiStorage = createMemoryStorage()
+const multiBagCode = 'WEB-REAL-BAG-MULTI-001'
+const multiUsageCycleId = runtime.buildWaitHandoverUsageCycleId(
+  multiBagCode,
+  '2026-08-01 09:00',
+)
+runtime.appendWaitHandoverBaggingEvent({
+  source: 'WEB',
+  operator: { operatorName: 'Web 装袋员' },
+  bagCode: multiBagCode,
+  tickets: [ticket],
+  occurredAt: '2026-08-01 09:00',
+  usageCycleId: multiUsageCycleId,
+  storage: multiStorage,
+})
+const multiLocations = [
+  {
+    factoryId: 'CUTTING-CENTER', warehouseId: 'CUTTING-WAIT-HANDOVER', warehouseKind: 'WAIT_HANDOVER',
+    areaId: 'AREA-A', areaCode: 'A', areaName: 'A 区',
+    shelfId: 'SHELF-A-01', shelfSequence: 1, shelfNo: 'R01',
+    locationId: 'LOC-A-R01-L01-P01', locationNo: 'A-R01-L01-P01', locationName: 'A-R01-L01-P01',
+    levelNo: 1, positionNo: 1, areaStatus: 'AVAILABLE', shelfStatus: 'AVAILABLE', status: 'AVAILABLE', orderIndex: 0,
+  },
+  {
+    factoryId: 'CUTTING-CENTER', warehouseId: 'CUTTING-WAIT-HANDOVER', warehouseKind: 'WAIT_HANDOVER',
+    areaId: 'AREA-B', areaCode: 'B', areaName: 'B 区',
+    shelfId: 'SHELF-B-02', shelfSequence: 2, shelfNo: 'R02',
+    locationId: 'LOC-B-R02-L03-P02', locationNo: 'B-R02-L03-P02', locationName: 'B-R02-L03-P02',
+    levelNo: 3, positionNo: 2, areaStatus: 'AVAILABLE', shelfStatus: 'AVAILABLE', status: 'AVAILABLE', orderIndex: 1,
+  },
+] as const
+const multiInboundEvent = runtime.appendWaitHandoverInboundEvent({
+  source: 'WEB',
+  operator: { operatorName: 'Web 入仓员' },
+  bagCode: multiBagCode,
+  warehouseArea: multiLocations[0].areaName,
+  locationCode: multiLocations[0].locationNo,
+  locationRef: multiLocations[0],
+  warehouseLocations: multiLocations,
+  occurredAt: '2026-08-01 09:05',
+  usageCycleId: multiUsageCycleId,
+  storage: multiStorage,
+} as Parameters<typeof runtime.appendWaitHandoverInboundEvent>[0] & { warehouseLocations: typeof multiLocations })
+assert.deepEqual(
+  (multiInboundEvent.payload as { warehouseLocations?: unknown[] }).warehouseLocations,
+  multiLocations,
+  'Web 入仓事件必须一次保存全部稳定库位引用和提交时编号快照',
+)
+assert.equal(
+  (multiInboundEvent.payload as { locationRef?: unknown }).locationRef,
+  undefined,
+  '新入仓事实不得同时双写单库位 locationRef',
+)
+const multiStates = runtime.buildWaitHandoverLocationOccupancyStates([multiInboundEvent])
+assert.equal(multiStates.length, 2, '一个中转袋选择两个库位后必须投影两个占用格')
+assert.equal(new Set(multiStates.map((state: { bagCode: string }) => state.bagCode)).size, 1, '多库位占用的业务袋数量只能汇总一次')
+assert.equal(new Set(multiStates.flatMap((state: { feiTicketIds: string[] }) => state.feiTicketIds)).size, 1, '多库位占用的菲票数量只能汇总一次')
+const multiHandoverEvent = {
+  ...structuredClone(multiInboundEvent),
+  eventId: 'WEB-REAL-HANDOVER-MULTI-001',
+  eventType: '新增交出记录' as const,
+  occurredAt: '2026-08-01 09:10',
+  inventoryEffect: { inventoryScope: '裁床待交出仓', direction: 'OUT' as const, qty: 12, unit: '片' as const },
+  payload: { transferBagCode: multiBagCode, warehouseLocations: multiLocations },
+}
+assert.equal(
+  runtime.buildWaitHandoverLocationOccupancyStates([multiInboundEvent, multiHandoverEvent]).length,
+  0,
+  '整袋交出必须一次释放该袋全部库位',
+)
+
 assert.throws(
   () => runtime.appendWaitHandoverBaggingEvent({
     source: 'WEB',

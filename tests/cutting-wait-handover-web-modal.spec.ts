@@ -49,7 +49,7 @@ test('待交出仓保留原工作台，三个中转袋操作均在当前页面�
   await expect(
     page.locator('[data-wait-handover-action="open-special-craft-return"]'),
   ).toBeVisible()
-  await expect(page.getByRole('button', { name: '库区库位', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: '库位图', exact: true })).toBeVisible()
   await expect(page.locator('[data-wait-handover-web-selector]')).toHaveCount(0)
   const actions = [
     { label: '菲票装袋', action: 'bagging' },
@@ -111,8 +111,13 @@ test('待交出仓保留原工作台，三个中转袋操作均在当前页面�
   await expect(
     inboundDialog.locator('[data-wait-handover-field="bagCode"]'),
   ).toHaveValue(bagCode)
-  await inboundDialog.locator('[data-wait-handover-field="warehouseArea"]').fill('裁片暂存区')
-  await inboundDialog.locator('[data-wait-handover-field="locationCode"]').fill('E2E-01')
+  await inboundDialog.locator('[data-warehouse-map-action="clear-selection"]').click()
+  const areaCards = inboundDialog.locator('article').filter({ has: page.locator('h3') })
+  const firstAreaCell = areaCards.nth(0).locator('[data-warehouse-map-action="toggle-location"]:not([disabled])').first()
+  const secondAreaCell = areaCards.nth(1).locator('[data-warehouse-map-action="toggle-location"]:not([disabled])').first()
+  await firstAreaCell.click()
+  await secondAreaCell.click()
+  await expect(inboundDialog.locator('[data-warehouse-map-selection-summary]')).toContainText('已选 2 个库位')
   await inboundDialog.getByRole('button', { name: '确认中转袋入仓', exact: true }).click()
   await expect(inboundDialog).toHaveCount(0)
 
@@ -125,6 +130,9 @@ test('待交出仓保留原工作台，三个中转袋操作均在当前页面�
   expect(persistedFacts.map((event) => event.eventType)).toContain('菲票装袋')
   expect(persistedFacts.map((event) => event.eventType)).toContain('中转袋入仓')
   expect(JSON.stringify(persistedFacts)).toContain(bagCode)
+  const inboundFact = persistedFacts.find((event) => event.eventType === '中转袋入仓' && JSON.stringify(event).includes(bagCode))
+  expect((inboundFact?.payload as { warehouseLocations?: unknown[] })?.warehouseLocations).toHaveLength(2)
+  expect((inboundFact?.payload as { locationRef?: unknown })?.locationRef).toBeUndefined()
 
   await page.locator('[data-wait-handover-action="open-handover"]').click()
   const handoverDialog = page.locator('[data-wait-handover-modal="handover"]')

@@ -180,7 +180,9 @@ export function buildWaitProcessRuntimeOccupancies(
         forceUnresolved: false,
       }
     }
-    const refs = Array.isArray(payload.locationRefs) ? payload.locationRefs.map(runtimeRecord) : []
+    const refs = Array.isArray(payload.warehouseLocations)
+      ? payload.warehouseLocations.map(runtimeRecord)
+      : Array.isArray(payload.locationRefs) ? payload.locationRefs.map(runtimeRecord) : []
     const hasMatchingStableRef = refs.some((ref) => runtimeString(ref.factoryId) === warehouse.factoryId
       && runtimeString(ref.warehouseId) === warehouse.warehouseId
       && runtimeString(ref.warehouseKind) === warehouse.warehouseKind)
@@ -304,9 +306,13 @@ export function buildWaitProcessRuntimeOccupancies(
       const payloadScope = classifyPayloadWarehouseScope(payload)
       const pickupSessionId = runtimeString(payload.pickupSessionId) || event.refs.handoverRecordId || event.eventId
       const adjustment = latestAdjustmentBySessionId.get(pickupSessionId)
-      const rawRefs = Array.isArray(adjustment?.locationRefs)
-        ? adjustment.locationRefs
-        : Array.isArray(payload.locationRefs) ? payload.locationRefs : []
+      const rawRefs = Array.isArray(adjustment?.warehouseLocations)
+        ? adjustment.warehouseLocations
+        : Array.isArray(adjustment?.locationRefs)
+          ? adjustment.locationRefs
+          : Array.isArray(payload.warehouseLocations)
+            ? payload.warehouseLocations
+            : Array.isArray(payload.locationRefs) ? payload.locationRefs : []
       const locationRefs = rawRefs
         .map((rawRef) => {
           if (payloadScope.forceUnresolved) return null
@@ -466,7 +472,7 @@ function buildWaitHandoverOccupancies(warehouse: FactoryInternalWarehouse, inclu
       }))
       const images = resolveOccupancyImages(resolvedTickets[0]?.productionOrderId)
       return {
-        occupancyId: `wait-handover:${state.sourceEventId}`,
+        occupancyId: `wait-handover:${state.sourceEventId}:${state.locationRef.locationId}`,
         footprintId: `bag:${state.bagCode}`,
         locationId: state.locationRef.locationId,
         productionOrderNo: state.productionOrderNo,
@@ -477,6 +483,7 @@ function buildWaitHandoverOccupancies(warehouse: FactoryInternalWarehouse, inclu
         inboundAt: state.inboundAt,
         inboundBy: state.inboundBy,
         ticketNos: state.feiTicketIds.map((ticketId) => ticketById.get(ticketId)?.feiTicketNo || ticketId),
+        footprintLocationNos: state.warehouseLocations.map((location) => location.locationNo),
         styleName: '裁片生产单款式',
         styleImageUrl: images.styleImageUrl,
         bagCode: state.bagCode,

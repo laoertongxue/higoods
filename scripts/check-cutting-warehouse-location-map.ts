@@ -131,9 +131,11 @@ assert.equal(typeof handleWarehouseLocationMapOccupancyEvent, 'function', '共�
 assert.match(pdaInboundSource, /handleWarehouseLocationMapOccupancyEvent\(warehouseMapNode, projection\)/, 'PDA 中转袋入仓必须接入共享占用详情事件处理器')
 assert.match(pdaInboundSource, /不属于当前工厂/)
 assert.match(pdaHandoverSource, /locationRef:/, '特殊工艺回仓必须写稳定库位路径')
-assert.match(warehouseHubSource, /data-wait-handover-location-map/, 'Web 中转袋入仓必须提供待交出仓单选库位图')
+assert.match(warehouseHubSource, /data-wait-handover-location-map/, 'Web 中转袋入仓必须提供待交出仓多选库位图')
 assert.equal((warehouseHubSource.match(/handleWarehouseLocationMapOccupancyEvent\(/g) || []).length, 2, 'Web 待加工仓与待交出仓两个 SELECT 入口必须分别接入共享占用详情事件处理器')
-assert.match(warehouseHubSource, /waitHandoverSelectedLocationId === locationId \? '' : locationId/, 'Web 中转袋入仓点击当前摘要项必须清空，点击其他空闲格必须替换单值选择')
+assert.match(warehouseHubSource, /toggleWarehouseLocationSelection\([\s\S]*waitHandoverSelectedLocationIds[\s\S]*locationId/, 'Web 中转袋入仓必须通过共享自由多选规则追加或取消任意库位')
+assert.match(warehouseHubSource, /warehouseLocations,\s*usageCycleId: snapshot\.usageCycleId/, 'Web 待交出入仓必须把全部稳定库位引用作为唯一事实提交')
+assert.doesNotMatch(warehouseHubSource.match(/function submitWaitHandoverInbound[\s\S]*?\n}\n\nfunction submitWaitHandoverRecord/)?.[0] || '', /locationRef:/, 'Web 待交出新提交不得双写单库位事实')
 assert.match(warehouseHubSource, /dataset\.waitHandoverWebAction/, '待交出仓真实页面处理器必须承接顶部 Web 动作按钮')
 assert.equal((pdaWaitProcessSource.match(/handleWarehouseLocationMapOccupancyEvent\(/g) || []).length, 1, 'PDA 待加工仓的领料与调整两个 SELECT 地图必须由同一事件入口接入共享占用详情处理器')
 assert.match(fcsHandlersSource, /handleCraftCuttingWaitHandoverEvent\(target\)/, '待交出仓真实页面处理器必须接入主处理链')
@@ -1300,7 +1302,7 @@ const runtimePickupEvent: CuttingRuntimeEvent = {
     prepLineId: 'LINE-001',
     pickupQty: 300,
     rollCount: 9,
-    locationRefs: footprintRefs,
+    warehouseLocations: footprintRefs,
     storageFootprint: footprint,
     pickupBy: '测试仓管',
     pickupAt: '2026-07-30 08:00',
@@ -1311,7 +1313,7 @@ const runtimeFootprintOccupancies = buildWaitProcessRuntimeOccupancies(
   selectionSnapshot,
   [runtimePickupEvent],
 )
-assert.equal(runtimeFootprintOccupancies.length, 3, '多库位领料应占用全部连续库位')
+assert.equal(runtimeFootprintOccupancies.length, 3, '多库位领料应占用全部所选库位')
 assert(runtimeFootprintOccupancies.every((occupancy) => occupancy.qty === 300), '每个关联库位详情都应显示同一批物料总量')
 assert(runtimeFootprintOccupancies.every((occupancy) => occupancy.footprintLocationNos?.length === 3))
 assert.equal(runtimeFootprintOccupancies[0].rollDetails?.length, 9, '演示卷行必须使用运行时事实中的 rollCount')
@@ -1347,7 +1349,7 @@ assert.equal(adjustedRuntimeOccupancies.length, 2, '位置调整后只保留最�
 assert(adjustedRuntimeOccupancies.every((occupancy) => occupancy.qty === 120 && occupancy.remainingQty === 120), '位置调整后必须显示当前剩余量')
 const sharedSessionBase = {
   ...structuredClone(runtimePickupEvent),
-  payload: { ...structuredClone(runtimePickupEvent.payload as Record<string, unknown>), locationRefs: [footprintRefs[0]] },
+  payload: { ...structuredClone(runtimePickupEvent.payload as Record<string, unknown>), warehouseLocations: [footprintRefs[0]] },
 }
 const sharedSessionOccupancies = buildWaitProcessRuntimeOccupancies(selectionWarehouse, selectionSnapshot, [
   {
@@ -1380,7 +1382,7 @@ const microSessionEvents: CuttingRuntimeEvent[] = Array.from({ length: 4 }, (_, 
   refs: { ...runtimePickupEvent.refs, handoverRecordId: `SESSION-MICRO:LINE-${index + 1}` },
   material: { ...runtimePickupEvent.material, materialSku: `MAT-MICRO-${index + 1}` },
   inventoryEffect: { ...runtimePickupEvent.inventoryEffect!, qty: 1 },
-  payload: { ...(runtimePickupEvent.payload as Record<string, unknown>), pickupSessionId: 'SESSION-MICRO', prepLineId: `LINE-${index + 1}`, pickupQty: 1, locationRefs: [footprintRefs[0]] },
+  payload: { ...(runtimePickupEvent.payload as Record<string, unknown>), pickupSessionId: 'SESSION-MICRO', prepLineId: `LINE-${index + 1}`, pickupQty: 1, warehouseLocations: [footprintRefs[0]] },
 }))
 microSessionEvents.push({
   ...structuredClone(runtimePickupEvent),
@@ -1417,7 +1419,7 @@ const crossFactoryRuntimeOccupancies = buildWaitProcessRuntimeOccupancies(select
   eventId: 'EVENT-CROSS-FACTORY',
   payload: {
     ...structuredClone(runtimePickupEvent.payload as Record<string, unknown>),
-    locationRefs: footprintRefs.map((ref) => ({ ...ref, factoryId: 'OTHER-FACTORY' })),
+    warehouseLocations: footprintRefs.map((ref) => ({ ...ref, factoryId: 'OTHER-FACTORY' })),
   },
 }])
 assert.equal(crossFactoryRuntimeOccupancies.length, 0, '其他工厂复用同一 locationId 的事件不得投影到当前仓库')
@@ -1443,6 +1445,7 @@ const legacyTextEvent: CuttingRuntimeEvent = {
   payload: {
     ...structuredClone(runtimePickupEvent.payload as Record<string, unknown>),
     pickupSessionId: 'SESSION-LEGACY-TEXT',
+    warehouseLocations: undefined,
     locationRefs: [{ areaName: 'C区', shelfNo: 'R01', locationNo: 'C-R01-L01-P01' }],
   },
 }
@@ -1465,6 +1468,7 @@ const unresolvedLegacyEvent: CuttingRuntimeEvent = {
   payload: {
     ...structuredClone(runtimePickupEvent.payload as Record<string, unknown>),
     pickupSessionId: 'SESSION-LEGACY-UNRESOLVED',
+    warehouseLocations: undefined,
     locationRefs: [{ areaName: '历史区', shelfNo: '历史架', locationNo: '历史位-999' }],
   },
 }
@@ -1601,6 +1605,43 @@ const inboundEvent = appendWaitHandoverInboundEvent({
   occurredAt: '2026-07-30 09:05',
   storage: runtimeStorage,
 })
+
+const multiMapStorage = createMemoryWarehouseLayoutStorage()
+const multiMapBagCode = 'BAG-MAP-MULTI-001'
+const multiMapBaggingEvent = appendWaitHandoverBaggingEvent({
+  source: 'WEB',
+  operator: { operatorName: '多库位装袋员' },
+  bagCode: multiMapBagCode,
+  tickets: [runtimeTicket],
+  occurredAt: '2026-08-01 11:00',
+  storage: multiMapStorage,
+})
+const waitHandoverLocations = footprintRefs.slice(0, 2).map((ref, index) => ({
+  ...ref,
+  warehouseId: waitProcess.warehouseId.replace('WAIT_PROCESS', 'WAIT_HANDOVER'),
+  warehouseKind: 'WAIT_HANDOVER' as const,
+  orderIndex: index,
+}))
+const multiMapInboundEvent = appendWaitHandoverInboundEvent({
+  source: 'WEB',
+  operator: { operatorName: '多库位入仓员' },
+  bagCode: multiMapBagCode,
+  warehouseArea: waitHandoverLocations[0].areaName,
+  locationCode: waitHandoverLocations[0].locationNo,
+  locationRef: waitHandoverLocations[0],
+  warehouseLocations: waitHandoverLocations,
+  occurredAt: '2026-08-01 11:05',
+  storage: multiMapStorage,
+} as Parameters<typeof appendWaitHandoverInboundEvent>[0] & { warehouseLocations: typeof waitHandoverLocations })
+assert.deepEqual(
+  (multiMapInboundEvent.payload as { warehouseLocations?: unknown[] }).warehouseLocations,
+  waitHandoverLocations,
+  '待交出 Web 入仓必须保存跨区跨架跨层的全部稳定库位引用',
+)
+const multiMapStates = buildWaitHandoverLocationOccupancyStates([multiMapBaggingEvent, multiMapInboundEvent])
+assert.equal(multiMapStates.length, 2, '待交出多库位入仓必须逐位置形成占用')
+assert.equal(new Set(multiMapStates.map((state) => state.bagCode)).size, 1, '待交出多库位业务袋数量只能汇总一次')
+assert.equal(new Set(multiMapStates.flatMap((state) => state.feiTicketIds)).size, 1, '待交出多库位菲票数量只能汇总一次')
 const inboundBags = buildRuntimeInboundTempBagsFromWaitHandoverEvents([baggingEvent, inboundEvent], [])
 assert.equal(inboundBags.length, 1, '中转袋入仓后应形成一个在仓袋')
 assert.equal(inboundBags[0].bagCode, 'BAG-MAP-001')
@@ -1609,11 +1650,11 @@ crossFactorySameBagEvent.eventId = 'EVENT-INBOUND-SAME-BAG-OTHER-FACTORY'
 crossFactorySameBagEvent.occurredAt = '2026-07-30 09:06'
 crossFactorySameBagEvent.payload = {
   ...(crossFactorySameBagEvent.payload as Record<string, unknown>),
-  locationRef: {
-    ...((crossFactorySameBagEvent.payload as Record<string, unknown>).locationRef as Record<string, unknown>),
+  warehouseLocations: ((inboundEvent.payload as Record<string, unknown>).warehouseLocations as Array<Record<string, unknown>>).map((location) => ({
+    ...location,
     factoryId: 'OTHER-FACTORY',
     warehouseId: 'OTHER-WAIT-HANDOVER',
-  },
+  })),
 }
 assert.equal(
   buildWaitHandoverLocationOccupancyStates([inboundEvent, crossFactorySameBagEvent]).length,
@@ -1628,7 +1669,7 @@ const crossFactoryHandoverEvent = {
   inventoryEffect: { inventoryScope: '裁床待交出仓', direction: 'OUT' as const, qty: 100, unit: '片' as const },
   payload: {
     transferBagCode: 'BAG-MAP-001',
-    locationRef: (crossFactorySameBagEvent.payload as Record<string, unknown>).locationRef,
+    warehouseLocations: (crossFactorySameBagEvent.payload as Record<string, unknown>).warehouseLocations,
   },
 }
 const statesAfterOtherFactoryHandover = buildWaitHandoverLocationOccupancyStates([
@@ -1650,7 +1691,7 @@ assert.equal(
 )
 assert.equal((inboundEvent.payload as Record<string, unknown>).idempotencyKey, 'temp-bag:BAG-MAP-001:INBOUND')
 assert.equal(
-  ((inboundEvent.payload as Record<string, unknown>).locationRef as { locationId?: string })?.locationId,
+  ((inboundEvent.payload as Record<string, unknown>).warehouseLocations as Array<{ locationId?: string }>)?.[0]?.locationId,
   firstLocation.locationId,
 )
 const baggingConfirmEvent = {
@@ -1718,7 +1759,7 @@ const partialSpecialCraftReturnEvent = {
     returnRecordId: 'RETURN-PARTIAL-001',
     returnedAt: '2026-07-30 09:30',
     returnedBy: '回仓员',
-    locationRef: (inboundEvent.payload as { locationRef: unknown }).locationRef,
+    warehouseLocations: (inboundEvent.payload as { warehouseLocations: unknown }).warehouseLocations,
   },
 }
 const partiallyReturnedStates = buildWaitHandoverLocationOccupancyStates([
@@ -1743,7 +1784,7 @@ const looseSpecialCraftReturnEvent = {
     returnRecordNo: 'SCR-LOOSE-001',
     returnedAt: '2026-07-30 10:00',
     returnedBy: '回仓员',
-    locationRef: (inboundEvent.payload as { locationRef: unknown }).locationRef,
+    warehouseLocations: (inboundEvent.payload as { warehouseLocations: unknown }).warehouseLocations,
   },
 }
 const looseReturnStates = buildWaitHandoverLocationOccupancyStates([looseSpecialCraftReturnEvent])

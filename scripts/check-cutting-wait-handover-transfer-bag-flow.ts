@@ -9,6 +9,12 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import {
+  appendWaitHandoverBaggingEvent,
+  appendWaitHandoverInboundEvent,
+  buildWaitHandoverLocationOccupancyStates,
+  buildWaitHandoverUsageCycleId,
+} from '../src/pages/process-factory/cutting/wait-handover-runtime.ts'
 
 const ROOT = resolve(import.meta.dirname, '..')
 
@@ -34,6 +40,15 @@ function assertNotContains(source: string, needle: string, message: string): voi
 
 function assertMatch(source: string, pattern: RegExp, message: string): void {
   if (pattern.test(source)) { passed++ } else { failures.push(`MISSING: ${message}`) }
+}
+
+function createMemoryStorage() {
+  const records = new Map<string, string>()
+  return {
+    getItem: (key: string) => records.get(key) ?? null,
+    setItem: (key: string, value: string) => records.set(key, value),
+    removeItem: (key: string) => records.delete(key),
+  }
 }
 
 // ─── 辅助读取函数 ───
@@ -135,6 +150,44 @@ assertContains(runtime, 'appendWaitHandoverBaggingEvent', 'RUNTIME 缺少 append
 assertContains(runtime, 'appendWaitHandoverInboundEvent', 'RUNTIME 必须有 appendWaitHandoverInboundEvent（中转袋入仓：仅库位）')
 assertContains(runtime, "eventType: '菲票装袋'", 'RUNTIME appendWaitHandoverBaggingEvent 必须写入菲票装袋')
 assertContains(runtime, "eventType: '中转袋入仓'", 'RUNTIME appendWaitHandoverInboundEvent 必须写入中转袋入仓')
+
+const multiStorage = createMemoryStorage()
+const multiBagCode = 'FLOW-MULTI-BAG-001'
+const multiOccurredAt = '2026-08-01 10:00'
+const multiUsageCycleId = buildWaitHandoverUsageCycleId(multiBagCode, multiOccurredAt)
+const multiTicket = {
+  feiTicketId: 'FLOW-MULTI-FEI-001', feiTicketNo: 'FLOW-MULTI-FEI-001',
+  productionOrderId: 'FLOW-PO-ID', productionOrderNo: 'FLOW-PO-001',
+  cutOrderId: 'FLOW-CUT-ID', cutOrderNo: 'FLOW-CUT-001',
+  spreadingOrderId: 'FLOW-SPREAD-ID', spreadingOrderNo: 'FLOW-SPREAD-001',
+  spuCode: 'FLOW-SPU', color: '蓝色', size: 'L', partCode: 'BACK', partName: '后幅',
+  pieceQty: 18, pieceSequenceLabel: '1-18', hasSpecialCraft: false,
+  specialCraftDisplay: '无', receiverFactoryDisplay: '无', printStatus: '已打印', voidStatus: '有效',
+}
+appendWaitHandoverBaggingEvent({
+  source: 'WEB', operator: { operatorName: '流程装袋员' }, bagCode: multiBagCode,
+  tickets: [multiTicket], occurredAt: multiOccurredAt, usageCycleId: multiUsageCycleId, storage: multiStorage,
+})
+const multiLocations = [
+  { factoryId: 'F-CUT', warehouseId: 'WH-HANDOVER', warehouseKind: 'WAIT_HANDOVER', areaId: 'A', areaCode: 'A', areaName: 'A 区', shelfId: 'A-R01', shelfSequence: 1, shelfNo: 'R01', locationId: 'L-A', locationNo: 'A-R01-L01-P01', locationName: 'A-R01-L01-P01', levelNo: 1, positionNo: 1, areaStatus: 'AVAILABLE', shelfStatus: 'AVAILABLE', status: 'AVAILABLE', orderIndex: 0 },
+  { factoryId: 'F-CUT', warehouseId: 'WH-HANDOVER', warehouseKind: 'WAIT_HANDOVER', areaId: 'B', areaCode: 'B', areaName: 'B 区', shelfId: 'B-R02', shelfSequence: 2, shelfNo: 'R02', locationId: 'L-B', locationNo: 'B-R02-L03-P02', locationName: 'B-R02-L03-P02', levelNo: 3, positionNo: 2, areaStatus: 'AVAILABLE', shelfStatus: 'AVAILABLE', status: 'AVAILABLE', orderIndex: 1 },
+] as const
+const multiInbound = appendWaitHandoverInboundEvent({
+  source: 'WEB', operator: { operatorName: '流程入仓员' }, bagCode: multiBagCode,
+  warehouseArea: multiLocations[0].areaName, locationCode: multiLocations[0].locationNo,
+  locationRef: multiLocations[0], warehouseLocations: multiLocations,
+  occurredAt: '2026-08-01 10:05', usageCycleId: multiUsageCycleId, storage: multiStorage,
+} as Parameters<typeof appendWaitHandoverInboundEvent>[0] & { warehouseLocations: typeof multiLocations })
+const multiPayload = multiInbound.payload as { warehouseLocations?: unknown[]; locationRef?: unknown }
+if (multiPayload.warehouseLocations?.length === 2) passed++
+else failures.push('RUNTIME: 中转袋入仓必须保存全部 warehouseLocations')
+if (multiPayload.locationRef === undefined) passed++
+else failures.push('RUNTIME: 新入仓事实不得双写单个 locationRef')
+const multiStates = buildWaitHandoverLocationOccupancyStates([multiInbound])
+if (multiStates.length === 2) passed++
+else failures.push('RUNTIME: 两个库位必须形成两个占用格')
+if (new Set(multiStates.map((state) => state.bagCode)).size === 1 && new Set(multiStates.flatMap((state) => state.feiTicketIds)).size === 1) passed++
+else failures.push('RUNTIME: 多库位业务汇总必须按袋和菲票稳定 ID 去重')
 
 // 1.4 关键字段声明
 const handoverData = read(HANDOVER_ORDERS_DATA)

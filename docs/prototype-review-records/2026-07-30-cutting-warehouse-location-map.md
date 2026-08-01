@@ -389,3 +389,46 @@
 - 本轮没有运行其余 11 项路由、PDA、占用详情及分辨率场景，不据此宣称库位图全量 E2E 通过。
 - 最终大层级质量补充：共享视窗不再使用 `Math.max(...levels)` 参数展开；专项检查真实构造 200,000 层（仅末层 1 个位置），验证最大位置数为 1、层总页数为 25,000、请求末页保持第 25,000 页且未发生 `RangeError`。该项属于 Node 专项真实运行，不新增 Playwright 用例，因此 Playwright `--list` 仍为 16 项，本轮 E2E 实际执行范围仍为上述 5 项。
 - 无产品设计例外。原型仍使用浏览器本地存储；容量估算用于提前给出技术修正建议，实际保存仍以浏览器持久化结果为准。
+
+## 13. 2026-08-01 Web 多库位入仓事实与原子防错审查
+
+### 本次范围
+
+- PFOS 待加工仓“中转仓领料、回收入仓”和待交出仓“中转袋入仓”统一把全部所选库位保存为 `warehouseLocations`；数组保留稳定库位 ID、提交时完整编号及库区、货架、层、层内位置快照。
+- 待加工仓、待交出仓都允许跨库区、跨货架、跨层自由选择多个空闲库位；点击顺序即摘要顺序，可逐项取消或清空，不设置相邻、连续或固定数量上限。
+- Web 确认入仓前重新读取最新布局和占用投影。任一所选库位不存在、停用、错仓或已占用时整次阻断，一次列出全部冲突编号，不写入部分事件。
+- 同一物料批次或中转袋在每个实际位置形成占用格；生产单摘要按存放范围、中转袋和菲票稳定事实去重，数量只汇总一次。
+- 中转袋交出、特殊工艺整袋交出或取消事件按袋和使用周期一次释放该对象全部库位；旧单库位事件只作为读取兼容，不再由 Web 新提交双写。
+
+### 自查结论
+
+| 检查项 | 结论 | 说明 |
+| --- | --- | --- |
+| 角色与页面模式 | 通过 | 本次只调整 PFOS 主管／文员 Web 入仓动作；PDA 文件保持任务 8 边界不变。 |
+| 仓储定位 | 通过 | 已选摘要逐项显示现场完整库位编号；页面不显示稳定 ID、投影或技术字段。 |
+| 选择防错 | 通过 | 共享自由多选允许跨区、跨架、跨层；提交前以最新布局、启停和占用事实原子重校验。 |
+| 冲突反馈 | 通过 | 同次全部冲突以中文完整编号返回；未知位置保留原识别值，便于主管定位后重新选择。 |
+| 数量与状态 | 通过 | 多格只表示物理占用，物料数量、中转袋数、菲票数和裁片数均按稳定业务对象去重。 |
+| 协作与追溯 | 通过 | Web 事件保存全部稳定库位引用和提交时编号快照，下游占用、交出和释放读取同一数组事实。 |
+| 局部交互与性能 | 通过 | 点选、逐项取消、清空仍只替换当前库位图区域；弹窗和页面根节点不重绘。 |
+| 中文化 | 通过 | 新增提示为“至少选择一个空闲库位”“所选库位结构已变化”等短中文动作提示，无英文状态码展示。 |
+
+### 受管文件与验证
+
+- `src/pages/process-factory/cutting/warehouse-hub.ts`
+- `src/pages/process-factory/cutting/wait-handover-runtime.ts`
+- `src/pages/process-factory/cutting/warehouse-location-map.ts`
+- `src/data/fcs/cutting/cutting-runtime-event-ledger.ts`
+- `scripts/check-cutting-wait-handover-transfer-bag-flow.ts`
+- `scripts/check-web-cutting-transfer-bag-actions.ts`
+- `scripts/check-cutting-warehouse-location-map.ts`
+- `tests/cutting-wait-handover-web-modal.spec.ts`
+- `npm run check:cutting-wait-handover-transfer-bag-flow`：通过。
+- `npm run check:web-cutting-transfer-bag-actions`：通过。
+- `npm run check:cutting-warehouse-location-map`：通过。
+- `npm run build`：通过。
+
+### 例外
+
+- 无产品设计例外。PDA 多库位选位、扫码追加和现场文案属于任务 8，本次未修改 PDA 文件。
+- 原型继续使用浏览器本地运行事件账，不模拟真实数据库并发锁；提交前重读最新本地投影用于演示原子冲突防错。
