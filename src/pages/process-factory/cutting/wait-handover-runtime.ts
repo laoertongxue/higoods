@@ -92,6 +92,33 @@ export interface WaitHandoverLocationOccupancyState {
   locationRef: RuntimeWarehouseLocationRef
   objectNo?: string
   objectName?: string
+  usageCycleId?: string
+}
+
+function waitHandoverStateKey(bagCode: string, locationRef?: RuntimeWarehouseLocationRef, usageCycleId?: string): string {
+  const scope = locationRef
+    ? `${locationRef.factoryId}:${locationRef.warehouseId}:${locationRef.warehouseKind}`
+    : 'unknown-scope'
+  return `${scope}:${usageCycleId || bagCode}:${bagCode}`
+}
+
+function findWaitHandoverStateKey(
+  states: Map<string, WaitHandoverLocationOccupancyState>,
+  bagCode: string,
+  usageCycleId?: string,
+  locationRef?: RuntimeWarehouseLocationRef | null,
+): string | undefined {
+  const candidates = Array.from(states.entries()).filter(([, state]) => state.bagCode === bagCode)
+    .filter(([, state]) => !locationRef || (
+      state.locationRef.factoryId === locationRef.factoryId
+      && state.locationRef.warehouseId === locationRef.warehouseId
+      && state.locationRef.warehouseKind === locationRef.warehouseKind
+    ))
+  if (usageCycleId) {
+    const cycleCandidates = candidates.filter(([, state]) => state.usageCycleId === usageCycleId)
+    return cycleCandidates.length === 1 ? cycleCandidates[0][0] : undefined
+  }
+  return candidates.length === 1 ? candidates[0][0] : undefined
 }
 
 function uniqueStrings(values: Array<string | undefined>): string[] {
@@ -887,7 +914,7 @@ export function buildWaitHandoverLocationOccupancyStates(
       const bagCode = runtimeString(payload.bagCode) || event.refs.transferBagCode || ''
       const locationRef = runtimeLocationRef(payload.locationRef)
       if (!bagCode || !locationRef) continue
-      states.set(bagCode, {
+       states.set(waitHandoverStateKey(bagCode, locationRef, runtimeString(payload.usageCycleId) || event.refs.usageCycleId), {
         sourceEventId: event.eventId,
         bagCode,
         productionOrderNo: event.refs.productionOrderNo || '',
@@ -895,20 +922,24 @@ export function buildWaitHandoverLocationOccupancyStates(
         totalPieceQty: runtimeNumber(payload.totalPieceQty) || Number(event.inventoryEffect?.qty || 0),
         inboundAt: runtimeString(payload.inboundAt) || event.occurredAt,
         inboundBy: runtimeString(payload.inboundBy) || event.operatorName,
-        locationRef,
+         locationRef,
+         usageCycleId: runtimeString(payload.usageCycleId) || event.refs.usageCycleId,
       })
       continue
     }
     if (event.eventType === '交出装袋确认') {
       const sourceBagCode = runtimeString(payload.sourceTempBagCode)
       const targetBagCode = runtimeString(payload.targetTransferBagCode) || event.refs.transferBagCode || ''
-      const source = sourceBagCode ? states.get(sourceBagCode) : undefined
+      const eventLocationRef = runtimeLocationRef(payload.locationRef)
+      const sourceKey = sourceBagCode ? findWaitHandoverStateKey(states, sourceBagCode, event.refs.usageCycleId, eventLocationRef) : undefined
+      const source = sourceKey ? states.get(sourceKey) : undefined
       if (!source || !targetBagCode) continue
-      states.delete(sourceBagCode)
-      states.set(targetBagCode, {
+       states.delete(sourceKey!)
+       states.set(waitHandoverStateKey(targetBagCode, source.locationRef, event.refs.usageCycleId || source.usageCycleId), {
         ...source,
         sourceEventId: event.eventId,
-        bagCode: targetBagCode,
+         bagCode: targetBagCode,
+         usageCycleId: event.refs.usageCycleId || source.usageCycleId,
         feiTicketIds: event.refs.feiTicketIds?.length ? [...event.refs.feiTicketIds] : source.feiTicketIds,
         totalPieceQty: Number(event.inventoryEffect?.qty || source.totalPieceQty),
       })
@@ -916,19 +947,21 @@ export function buildWaitHandoverLocationOccupancyStates(
     }
     if (event.eventType === '新增交出记录') {
       const bagCode = event.refs.transferBagCode || runtimeString(payload.transferBagCode)
-      if (bagCode) states.delete(bagCode)
+      const stateKey = bagCode ? findWaitHandoverStateKey(states, bagCode, event.refs.usageCycleId, runtimeLocationRef(payload.locationRef)) : undefined
+      if (stateKey) states.delete(stateKey)
       continue
     }
     if (event.eventType === '特殊工艺交出') {
       const bagCode = event.refs.transferBagCode || runtimeString(payload.transferBagCode)
-      const current = bagCode ? states.get(bagCode) : undefined
+       const stateKey = bagCode ? findWaitHandoverStateKey(states, bagCode, event.refs.usageCycleId, runtimeLocationRef(payload.locationRef)) : undefined
+       const current = stateKey ? states.get(stateKey) : undefined
       if (!bagCode || !current) continue
       const handedOverQty = Number(event.inventoryEffect?.qty || runtimeNumber(payload.handoverQty))
       const remainingQty = Math.max(0, current.totalPieceQty - handedOverQty)
       if (remainingQty <= 0) {
-        states.delete(bagCode)
+         if (stateKey) states.delete(stateKey)
       } else {
-        states.set(bagCode, {
+         states.set(stateKey!, {
           ...current,
           sourceEventId: event.eventId,
           totalPieceQty: remainingQty,
@@ -941,9 +974,10 @@ export function buildWaitHandoverLocationOccupancyStates(
       const bagCode = runtimeString(payload.transferBagCode) || event.refs.transferBagCode || `return:${returnRecordId}`
       const locationRef = runtimeLocationRef(payload.locationRef)
       if (!locationRef) continue
-      const current = states.get(bagCode)
+       const stateKey = findWaitHandoverStateKey(states, bagCode, event.refs.usageCycleId, locationRef)
+       const current = stateKey ? states.get(stateKey) : undefined
       const returnedQty = Number(event.inventoryEffect?.qty || 0)
-      states.set(bagCode, {
+       states.set(stateKey || waitHandoverStateKey(bagCode, locationRef, event.refs.usageCycleId), {
         sourceEventId: event.eventId,
         bagCode,
         productionOrderNo: event.refs.productionOrderNo || current?.productionOrderNo || '',
@@ -954,7 +988,8 @@ export function buildWaitHandoverLocationOccupancyStates(
         totalPieceQty: Number(current?.totalPieceQty || 0) + returnedQty,
         inboundAt: runtimeString(payload.returnedAt) || event.occurredAt,
         inboundBy: runtimeString(payload.returnedBy) || event.operatorName,
-        locationRef,
+         locationRef,
+         usageCycleId: event.refs.usageCycleId || current?.usageCycleId,
         objectNo: runtimeString(payload.transferBagCode) || runtimeString(payload.returnRecordNo) || returnRecordId,
         objectName: runtimeString(payload.transferBagCode)
           ? `中转袋 ${runtimeString(payload.transferBagCode)}`
@@ -963,6 +998,16 @@ export function buildWaitHandoverLocationOccupancyStates(
     }
   }
   return Array.from(states.values())
+}
+
+function resolveActiveWaitHandoverLocationRef(
+  bagCode: string,
+  usageCycleId: string,
+  storage: BrowserStorageLike | null,
+): RuntimeWarehouseLocationRef | null | undefined {
+  const candidates = buildWaitHandoverLocationOccupancyStates(listCuttingRuntimeEvents(storage))
+    .filter((state) => state.bagCode === bagCode && state.usageCycleId === usageCycleId)
+  return candidates.length === 1 ? candidates[0].locationRef : candidates.length > 1 ? null : undefined
 }
 
 export function buildWaitHandoverRuntimeProjection(generatedTickets = listSpreadingResultGeneratedFeiTickets()): WaitHandoverRuntimeProjection {
@@ -1178,6 +1223,7 @@ export function appendWaitHandoverHandoverRecordEvent(input: {
   payload: HandoverRecordSubmitPayload
   fromWarehouseArea: string
   fromLocationCode: string
+  locationRef?: RuntimeWarehouseLocationRef
   occurredAt?: string
   usageCycleId?: string
   handoverLegId?: string
@@ -1236,6 +1282,8 @@ export function appendWaitHandoverHandoverRecordEvent(input: {
       usageCycleId,
       events: listCuttingRuntimeEvents(storage),
     }).handoverLegId
+  const locationRef = input.locationRef || resolveActiveWaitHandoverLocationRef(bagCode, usageCycleId, storage)
+  if (locationRef === null) throw new Error('无法唯一确认待交出仓库位，请从当前仓库重新发起交出。')
   const feiTicketIds = input.payload.feiTicketItems.map((item) => item.feiTicketId).filter(Boolean)
   const feiTicketNos = input.payload.feiTicketItems.map((item) => item.feiTicketNo).filter(Boolean)
   return appendCuttingRuntimeEventIdempotent({
@@ -1264,7 +1312,7 @@ export function appendWaitHandoverHandoverRecordEvent(input: {
       fromWarehouseArea: input.fromWarehouseArea,
       fromLocationCode: input.fromLocationCode,
     },
-    payload: input.payload,
+    payload: { ...input.payload, locationRef },
   }, storage).event
 }
 
@@ -1277,6 +1325,7 @@ export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
   specialCraftId: string
   transferBagCode: string
   fromWarehouseArea: string
+  locationRef?: RuntimeWarehouseLocationRef
   occurredAt?: string
   usageCycleId?: string
   handoverLegId?: string
@@ -1332,6 +1381,8 @@ export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
       events: listCuttingRuntimeEvents(storage),
     }).handoverLegId
   const totalQty = input.payload.feiTicketItems.reduce((sum, item) => sum + Number(item.pieceQty || 0), 0)
+  const locationRef = input.locationRef || resolveActiveWaitHandoverLocationRef(input.transferBagCode, usageCycleId, storage)
+  if (locationRef === null) throw new Error('无法唯一确认待交出仓库位，请从当前仓库重新发起交出。')
   return appendCuttingRuntimeEventIdempotent({
     idempotencyKey,
     eventType: '特殊工艺交出',
@@ -1359,7 +1410,7 @@ export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
       fromWarehouseArea: input.fromWarehouseArea,
       fromLocationCode: input.transferBagCode,
     },
-    payload: input.payload,
+    payload: { ...input.payload, locationRef },
   }, storage).event
 }
 

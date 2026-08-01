@@ -338,7 +338,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
   }
   if (
     pathname.startsWith('/fcs/craft/cutting/warehouse-management/')
-    && target.closest('[data-cutting-warehouse-map-section] [data-warehouse-map-action]')
+    && target.closest('[data-cutting-warehouse-map-section] [data-warehouse-map-action], [data-cutting-warehouse-modal] [data-warehouse-map-action]')
   ) {
     return handleCuttingWarehouseLocationMapEvent(target, event)
   }

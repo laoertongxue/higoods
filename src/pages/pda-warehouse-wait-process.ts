@@ -39,6 +39,7 @@ import {
   getPickupSessionByNodeId,
   getMaterialPrepRecordContext,
   listMaterialPrepOrderProjections,
+  PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
   recordPickupSessionWarehouseSyncResult,
   updatePickupSessionStorageFootprint,
 } from '../data/fcs/cutting/production-material-prep.ts'
@@ -62,6 +63,7 @@ import { buildMarkerSpreadingProjection } from './process-factory/cutting/marker
 import type { SpreadingOrder } from './process-factory/cutting/marker-spreading-model.ts'
 import {
   appendCuttingRuntimeEvent,
+  CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY,
   listCuttingRuntimeEventsByInventoryScope,
   listCuttingRuntimeEventsByType,
   type CuttingRuntimeEvent,
@@ -127,6 +129,7 @@ interface WaitProcessState {
   cuttingAdjustFootprintSessionId: string
   cuttingAdjustFootprintLocationIds: string[]
   cuttingAdjustRemainingByUnit: Record<string, string>
+  cuttingAdjustFootprintFingerprint: string
   cuttingPickupDifferenceOpen: boolean
   cuttingPickupDifferenceDemandLineId: string
   cuttingPickupDifferenceQty: string
@@ -190,6 +193,7 @@ const state: WaitProcessState = {
   cuttingAdjustFootprintSessionId: '',
   cuttingAdjustFootprintLocationIds: [],
   cuttingAdjustRemainingByUnit: {},
+  cuttingAdjustFootprintFingerprint: '',
   cuttingPickupDifferenceOpen: false,
   cuttingPickupDifferenceDemandLineId: '',
   cuttingPickupDifferenceQty: '',
@@ -1014,12 +1018,14 @@ function openCuttingFootprintAdjustment(pickupSessionId: string): void {
       String(summary.remainingQty),
     ]),
   )
+  state.cuttingAdjustFootprintFingerprint = JSON.stringify(session.storageFootprint)
 }
 
 function clearCuttingFootprintAdjustment(): void {
   state.cuttingAdjustFootprintSessionId = ''
   state.cuttingAdjustFootprintLocationIds = []
   state.cuttingAdjustRemainingByUnit = {}
+  state.cuttingAdjustFootprintFingerprint = ''
 }
 
 function renderCuttingFootprintAdjustmentMap(): string {
@@ -2616,6 +2622,10 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
       window.alert('领料记录或库位图已更新，请返回重试。')
       return true
     }
+    if (JSON.stringify(session.storageFootprint) !== state.cuttingAdjustFootprintFingerprint) {
+      window.alert('领料记录已被其他页面更新，请退出后重新调整。')
+      return true
+    }
     const remainingByUnit = session.storageFootprint.unitSummaries.map((summary) => ({
       unit: summary.unit,
       remainingQty: Number(state.cuttingAdjustRemainingByUnit[summary.unit]),
@@ -2637,7 +2647,26 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
       selection.selectedLocationIds,
     )
     const occurredAt = getCuttingRuntimeNowText()
+    const transactionStorage = getBrowserLocalStorage()
+    const beforePrepStore = transactionStorage?.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY) ?? null
+    const beforeEventStore = transactionStorage?.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) ?? null
     try {
+      updatePickupSessionStorageFootprint({
+        pickupSessionId: session.pickupSessionId,
+        locationRefs: selectedRefs.map((ref) => ({
+          factoryId: ref.factoryId,
+          warehouseId: ref.warehouseId,
+          warehouseKind: 'WAIT_PROCESS',
+          areaId: ref.areaId,
+          areaName: ref.areaName,
+          shelfId: ref.shelfId,
+          shelfNo: ref.shelfNo,
+          locationId: ref.locationId,
+          locationNo: ref.locationNo,
+        })),
+        remainingByUnit,
+      })
+      const afterPrepStore = transactionStorage?.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY) ?? null
       appendCuttingRuntimeEvent({
         eventType: '待加工仓位置调整',
         operatorName: '裁床仓管',
@@ -2657,6 +2686,9 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
         },
         payload: {
           pickupSessionId: session.pickupSessionId,
+          factoryId: projection.factoryId,
+          warehouseId: projection.warehouseId,
+          warehouseKind: projection.warehouseKind,
           previousLocationIds: session.storageFootprint.locationIds,
           locationRefs: selectedRefs.map((ref) => ({
             factoryId: ref.factoryId,
@@ -2674,23 +2706,20 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
           adjustedBy: '裁床仓管',
         },
       })
-      updatePickupSessionStorageFootprint({
-        pickupSessionId: session.pickupSessionId,
-        locationRefs: selectedRefs.map((ref) => ({
-          factoryId: ref.factoryId,
-          warehouseId: ref.warehouseId,
-          warehouseKind: 'WAIT_PROCESS',
-          areaId: ref.areaId,
-          areaName: ref.areaName,
-          shelfId: ref.shelfId,
-          shelfNo: ref.shelfNo,
-          locationId: ref.locationId,
-          locationNo: ref.locationNo,
-        })),
-        remainingByUnit,
-      })
       clearCuttingFootprintAdjustment()
     } catch (error) {
+      if (transactionStorage) {
+        const currentPrepStore = transactionStorage.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY) ?? null
+        if (currentPrepStore === afterPrepStore) {
+          if (beforePrepStore === null) transactionStorage.removeItem?.(PRODUCTION_MATERIAL_PREP_STORAGE_KEY)
+          else transactionStorage.setItem?.(PRODUCTION_MATERIAL_PREP_STORAGE_KEY, beforePrepStore)
+        }
+        const currentEventStore = transactionStorage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) ?? null
+        if (currentEventStore === beforeEventStore) {
+          if (beforeEventStore === null) transactionStorage.removeItem?.(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY)
+          else transactionStorage.setItem?.(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, beforeEventStore)
+        }
+      }
       window.alert(error instanceof Error ? error.message : '存放范围调整失败，请重试。')
     }
     return true
