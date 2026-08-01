@@ -320,7 +320,8 @@ export function hasManualPrepProcessContent(item: Partial<BomDrivenPrepTechnique
   )
 }
 
-export function syncPreparationProcessesFromBom<T extends BomDrivenPrepTechnique>(
+// 仅同步技术包内的工艺路线；本函数不创建工程任务，也不写入生产准备时效。
+export function syncTechPackProcessesFromBom<T extends BomDrivenPrepTechnique>(
   techniques: T[],
   bomRows: BomProcessLinkageBomRow[],
 ): SyncPreparationProcessesFromBomResult<T> {

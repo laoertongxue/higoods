@@ -84,12 +84,17 @@ import {
   bomRequirementOptions,
   bomTriggerFieldLabel,
   isBomDrivenPrepTechnique as isBomDrivenPrepTechniqueFromBom,
-  syncPreparationProcessesFromBom,
+  syncTechPackProcessesFromBom,
   type BomRequirementFlag,
   type BomTriggerField,
 } from './bom-process-linkage.ts'
 import { buildPatternSignature } from './pattern-duplicate-check.ts'
 import { normalizeProcessRouteEntries } from '../../data/tech-pack-process-route.ts'
+import {
+  applyBomRequirementsToEngineeringTasks,
+  listEngineeringMasterOrders,
+  type ApplyBomRequirementsToEngineeringTasksResult,
+} from '../../data/pcs-engineering-master-repository.ts'
 
 type TechPackTab =
   | 'pattern'
@@ -2444,7 +2449,7 @@ function syncBomDrivenPrepTechniques(
   techniques: TechniqueItem[],
   bomItems: BomItemRow[],
 ): TechniqueItem[] {
-  const syncedTechniques = syncPreparationProcessesFromBom(techniques, bomItems).techniques
+  const syncedTechniques = syncTechPackProcessesFromBom(techniques, bomItems).techniques
   const hasMissingRoute = syncedTechniques.some((item) => {
     const routeFields = getRouteFields(item)
     return !isPositiveRouteNo(routeFields.routeStepNo) || !isPositiveRouteNo(routeFields.routeLaneNo)
@@ -2463,6 +2468,36 @@ function syncBomDrivenPrepTechniques(
       })),
     ),
   )
+}
+
+function applyEngineeringTaskLinkageFromBomForTechnicalVersion(
+  technicalVersionId: string | null,
+  bomItems: BomItemRow[],
+): ApplyBomRequirementsToEngineeringTasksResult | null {
+  if (!technicalVersionId) return null
+  const technicalVersion = getTechnicalDataVersionById(technicalVersionId)
+  if (!technicalVersion) return null
+  const master = listEngineeringMasterOrders().find(
+    (item) => (
+      item.masterOrderId === technicalVersion.sourceProjectId
+      || item.tasks.some((task) => task.taskId === technicalVersion.createdFromTaskId)
+    ) && (item.status === '已发布' || item.status === '进行中'),
+  )
+  if (!master) return null
+  const materialRows = partitionBomItemsByType(bomItems).materialBomItems.map((item) => ({
+    bomItemId: item.id,
+    materialSkuId: item.materialSkuId || item.materialCode || item.id,
+    materialName: item.materialName,
+    materialType: item.type,
+    productColor: item.colorLabel,
+    printRequirement: item.printRequirement && item.printRequirement !== '无' ? '是' as const : '否' as const,
+    printProcess: item.printRequirement && item.printRequirement !== '无' ? item.printRequirement : undefined,
+    dyeRequirement: item.dyeRequirement && item.dyeRequirement !== '无' ? '是' as const : '否' as const,
+    shrinkRequirement: item.shrinkRequirement,
+    washRequirement: item.washRequirement,
+    waterSolubleRequirement: item.waterSolubleRequirement,
+  }))
+  return applyBomRequirementsToEngineeringTasks(master.masterOrderId, materialRows)
 }
 
 function getCraftOptionByCode(code: string): CraftOption | null {
@@ -5194,6 +5229,7 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
   clearTechPackDerivedCache()
 
   if (options.persist !== false && state.currentTechnicalVersionId && !state.compatibilityMode) {
+    applyEngineeringTaskLinkageFromBomForTechnicalVersion(state.currentTechnicalVersionId, state.bomItems)
     const patch = {
       ...buildTechnicalContentPatchFromLegacyTechPack(next),
       processRouteStatus: state.processRouteStatus,
@@ -5615,6 +5651,7 @@ export {
   toTechniqueItemFromEntry,
   buildTechniquesFromTechPack,
   syncBomDrivenPrepTechniques,
+  applyEngineeringTaskLinkageFromBomForTechnicalVersion,
   normalizeTechniqueRoutes,
   markProcessRouteUnconfirmed,
   hasConfirmedProcessRoute,

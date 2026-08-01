@@ -30,7 +30,7 @@ import {
   hasInvalidDyePrintOrder,
   type ProcessRouteDraftState,
 } from '../src/pages/tech-pack/events.ts'
-import { syncPreparationProcessesFromBom } from '../src/pages/tech-pack/bom-process-linkage.ts'
+import { syncTechPackProcessesFromBom } from '../src/pages/tech-pack/bom-process-linkage.ts'
 import type { TechniqueItem } from '../src/pages/tech-pack/context.ts'
 
 type CheckRouteEntry = {
@@ -334,7 +334,7 @@ assert.match(
   /hasInvalidDyePrintOrder\(nextTechniques\)/,
   '保存编辑入口必须复用同一先染后印守卫',
 )
-const generatedDyePrint = syncPreparationProcessesFromBom([], [
+const generatedDyePrint = syncTechPackProcessesFromBom([], [
   {
     id: 'bom-shared-dye-print',
     dyeRequirement: '匹染',

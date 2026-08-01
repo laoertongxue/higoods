@@ -1,5 +1,26 @@
 export type EngineeringBomOperatorRole = '买手' | '跟单' | '版师' | '管理员'
 
+export type EngineeringBomRequirementFlag = '是' | '否'
+
+// BOM 驱动工程任务时只传递任务所需的物料事实；同一物料可在不同 BOM 行分别存在。
+export interface EngineeringBomTaskLinkageRow {
+  bomItemId: string
+  materialSkuId?: string
+  materialName?: string
+  materialType?: string
+  productColor?: string
+  printRequirement?: EngineeringBomRequirementFlag
+  printProcess?: string
+  dyeRequirement?: EngineeringBomRequirementFlag
+  pantoneColorCode?: string
+  colorName?: string
+  dyeColorCode?: string
+  dyeFactoryName?: string
+  shrinkRequirement?: EngineeringBomRequirementFlag
+  washRequirement?: EngineeringBomRequirementFlag
+  waterSolubleRequirement?: EngineeringBomRequirementFlag
+}
+
 export interface EngineeringBomMaterialLineDraft {
   materialSkuId: string
   usage: number

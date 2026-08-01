@@ -67,6 +67,7 @@ export interface EngineeringTaskMaterialReviewRound {
 
 export interface EngineeringTaskMaterialLine {
   materialLineId: string
+  bomItemId?: string
   materialSkuId: string
   materialName: string
   materialType: string

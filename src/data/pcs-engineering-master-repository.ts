@@ -2,10 +2,12 @@
 // 任务骨架在发布时一次性生成，依赖只从固定策略复制，不提供任何更新依赖的接口。
 
 import {
+  buildDependencyClosure,
   getEngineeringTaskDefinition,
   resolveEngineeringTaskSubmitStatus,
   resolveInitialTaskStatus,
 } from './pcs-engineering-dependency-policy.ts'
+import type { EngineeringBomTaskLinkageRow } from './pcs-engineering-bom-types.ts'
 import { assertFirstFormalProduction } from './pcs-engineering-first-production-policy.ts'
 import {
   getStyleArchiveById,
@@ -15,6 +17,7 @@ import type {
   EngineeringMasterOrderRecord,
   EngineeringMasterOrderSnapshot,
   EngineeringTaskRecord,
+  EngineeringTaskType,
 } from './pcs-engineering-master-types.ts'
 
 const ENGINEERING_MASTER_STORAGE_KEY = 'higood-pcs-engineering-master-store-v1'
@@ -305,6 +308,196 @@ export function updateEngineeringTaskRecord(
   update(task, master)
   writeSnapshot(snapshot)
   return { masterOrder: cloneRecord(master), task: cloneTask(task) }
+}
+
+export type EngineeringTechPackOnlyProcess = '缩水' | '洗水' | '水溶'
+
+export interface ApplyBomRequirementsToEngineeringTasksResult {
+  masterOrder: EngineeringMasterOrderRecord
+  tasks: EngineeringTaskRecord[]
+  createdTaskCount: 0
+  techPackOnlyProcesses: EngineeringTechPackOnlyProcess[]
+}
+
+function hasBomRequirement(value: unknown): boolean {
+  return value === '是' || value === true
+}
+
+function listTechPackOnlyProcesses(rows: EngineeringBomTaskLinkageRow[]): EngineeringTechPackOnlyProcess[] {
+  const processes: EngineeringTechPackOnlyProcess[] = []
+  if (rows.some((row) => hasBomRequirement(row.shrinkRequirement))) processes.push('缩水')
+  if (rows.some((row) => hasBomRequirement(row.washRequirement))) processes.push('洗水')
+  if (rows.some((row) => hasBomRequirement(row.waterSolubleRequirement))) processes.push('水溶')
+  return processes
+}
+
+function canonicalDependencyIds(masterOrderId: string, taskType: EngineeringTaskType): string[] {
+  return getEngineeringTaskDefinition(taskType).dependsOn.map((dependency) => `${masterOrderId}-${dependency}`)
+}
+
+function assertTaskSkeletonsExist(
+  master: EngineeringMasterOrderRecord,
+  taskTypes: EngineeringTaskType[],
+): void {
+  for (const taskType of buildDependencyClosure(taskTypes)) {
+    if (master.tasks.some((task) => task.taskType === taskType)) continue
+    const taskName = getEngineeringTaskDefinition(taskType).taskName
+    throw new Error(`工程主单缺少${taskName}骨架，无法根据 BOM 启用。`)
+  }
+}
+
+function enableTaskAndFixedPrerequisites(
+  master: EngineeringMasterOrderRecord,
+  taskType: EngineeringTaskType,
+): EngineeringTaskRecord {
+  const definition = getEngineeringTaskDefinition(taskType)
+  for (const dependencyType of definition.dependsOn) {
+    enableTaskAndFixedPrerequisites(master, dependencyType)
+  }
+  const task = master.tasks.find((item) => item.taskType === taskType)
+  if (!task) {
+    throw new Error(`工程主单缺少${definition.taskName}骨架，无法根据 BOM 启用。`)
+  }
+  task.dependsOnTaskIds = canonicalDependencyIds(master.masterOrderId, taskType)
+  if (task.status !== '未启用' && task.status !== '因需求变更结束') return task
+  const hasPendingDependency = task.dependsOnTaskIds.some((dependencyId) => {
+    const dependency = master.tasks.find((item) => item.taskId === dependencyId)
+    return dependency?.status !== '已完成' && dependency?.status !== '因需求变更结束'
+  })
+  task.status = hasPendingDependency ? '待前置' : '待开始'
+  return task
+}
+
+function createBomMaterialLine(
+  task: EngineeringTaskRecord,
+  row: EngineeringBomTaskLinkageRow,
+  requirementType: '印花' | '染色',
+) {
+  const materialSkuId = row.materialSkuId || row.bomItemId
+  return {
+    materialLineId: `${task.taskId}-${row.bomItemId}`,
+    bomItemId: row.bomItemId,
+    materialSkuId,
+    materialName: row.materialName || materialSkuId,
+    materialType: row.materialType || '面料',
+    requirementType,
+    productColor: row.productColor,
+    printProcess: requirementType === '印花' ? row.printProcess : undefined,
+    pantoneColorCode: requirementType === '染色' ? row.pantoneColorCode : undefined,
+    colorName: requirementType === '染色' ? row.colorName : undefined,
+    dyeColorCode: requirementType === '染色' ? row.dyeColorCode : undefined,
+    dyeFactoryName: requirementType === '染色' ? row.dyeFactoryName : undefined,
+    status: '正常' as const,
+    resultFileIds: [],
+    effectImageIds: [],
+    resultSubmittedBy: '',
+    resultSubmittedAt: '',
+    reviewStatus: '待提交' as const,
+    reviewReason: '',
+    reviewedBy: '',
+    reviewedAt: '',
+  }
+}
+
+function syncTaskMaterialLines(
+  master: EngineeringMasterOrderRecord,
+  taskType: 'PATTERN_ARTWORK' | 'COLOR_FABRIC',
+  rows: EngineeringBomTaskLinkageRow[],
+  requirementType: '印花' | '染色',
+): void {
+  const task = enableTaskAndFixedPrerequisites(master, taskType)
+  const activeBomItemIds = new Set(rows.map((row) => row.bomItemId))
+  const hadSubmittedResult = task.status === '已完成'
+    || task.status === '待审核'
+    || Boolean(task.submittedAt)
+    || task.materialLines.some((line) => Boolean(line.resultSubmittedAt) || line.resultFileIds.length > 0)
+  let addedOrReactivated = false
+
+  for (const line of task.materialLines) {
+    if (line.requirementType !== requirementType || !line.bomItemId) continue
+    if (!activeBomItemIds.has(line.bomItemId)) line.status = '因需求变更结束'
+  }
+
+  for (const row of rows) {
+    const existing = task.materialLines.find(
+      (line) => line.requirementType === requirementType && line.bomItemId === row.bomItemId,
+    )
+    if (!existing) {
+      task.materialLines.push(createBomMaterialLine(task, row, requirementType))
+      addedOrReactivated = true
+      continue
+    }
+    if (existing.status === '因需求变更结束') addedOrReactivated = true
+    existing.status = '正常'
+    existing.materialSkuId = row.materialSkuId || row.bomItemId
+    existing.materialName = row.materialName || existing.materialSkuId
+    existing.materialType = row.materialType || '面料'
+    existing.productColor = row.productColor
+    if (requirementType === '印花') existing.printProcess = row.printProcess
+    if (requirementType === '染色') {
+      existing.pantoneColorCode = row.pantoneColorCode
+      existing.colorName = row.colorName
+      existing.dyeColorCode = row.dyeColorCode
+      existing.dyeFactoryName = row.dyeFactoryName
+    }
+  }
+
+  const activeLines = task.materialLines.filter(
+    (line) => line.requirementType === requirementType && line.status === '正常',
+  )
+  if (activeLines.length === 0) {
+    task.status = '因需求变更结束'
+    return
+  }
+  if (hadSubmittedResult && addedOrReactivated) {
+    const roundNo = Math.max(0, ...task.reworkRounds.map((round) => round.roundNo)) + 1
+    task.reworkRounds.push({
+      roundNo,
+      reason: 'BOM 新增或恢复物料工艺要求',
+      startedAt: nowText(),
+      submittedAt: '',
+      passedAt: '',
+    })
+    task.status = '返工中'
+  }
+}
+
+// BOM 只启用工程主单发布时已有的条件任务骨架，并按 BOM 行维护任务物料事实。
+// 缩水、洗水、水溶留在技术包工艺，不生成工程任务或生产准备时效项。
+export function applyBomRequirementsToEngineeringTasks(
+  masterOrderId: string,
+  rows: EngineeringBomTaskLinkageRow[],
+): ApplyBomRequirementsToEngineeringTasksResult {
+  const snapshot = readSnapshot()
+  const master = snapshot.records.find((item) => item.masterOrderId === masterOrderId)
+  if (!master) throw new Error(`工程主单不存在：${masterOrderId}`)
+  if (master.status !== '已发布' && master.status !== '进行中') {
+    throw new Error('仅已发布或进行中的工程主单可以同步 BOM 工艺要求。')
+  }
+
+  const printRows = rows.filter((row) => hasBomRequirement(row.printRequirement))
+  const dyeRows = rows.filter((row) => hasBomRequirement(row.dyeRequirement))
+  const requiredTaskTypes: EngineeringTaskType[] = []
+  if (printRows.length > 0) requiredTaskTypes.push('PATTERN_ARTWORK')
+  if (dyeRows.length > 0) requiredTaskTypes.push('COLOR_FABRIC')
+  assertTaskSkeletonsExist(master, requiredTaskTypes)
+
+  const patternTask = master.tasks.find((task) => task.taskType === 'PATTERN_ARTWORK')
+  if (patternTask && (printRows.length > 0 || patternTask.materialLines.some((line) => line.requirementType === '印花'))) {
+    syncTaskMaterialLines(master, 'PATTERN_ARTWORK', printRows, '印花')
+  }
+  const colorTask = master.tasks.find((task) => task.taskType === 'COLOR_FABRIC')
+  if (colorTask && (dyeRows.length > 0 || colorTask.materialLines.some((line) => line.requirementType === '染色'))) {
+    syncTaskMaterialLines(master, 'COLOR_FABRIC', dyeRows, '染色')
+  }
+
+  writeSnapshot(snapshot)
+  return {
+    masterOrder: cloneRecord(master),
+    tasks: master.tasks.map(cloneTask),
+    createdTaskCount: 0,
+    techPackOnlyProcesses: listTechPackOnlyProcesses(rows),
+  }
 }
 
 export interface SubmitEngineeringTaskResultInput {
