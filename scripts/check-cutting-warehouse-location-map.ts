@@ -170,6 +170,22 @@ const setFailureStorage = {
 const setFailureLoad = loadWarehouseLayoutSnapshot(waitProcess, setFailureStorage) as ReturnType<typeof loadWarehouseLayoutSnapshot> & { persistenceAvailable?: boolean }
 assert.equal(setFailureLoad.persistenceAvailable, false, '首次建立基线失败必须显式标记不可持久化')
 assert.match(setFailureLoad.warningMessage, /当前仅可查看，无法保存/)
+const validLayoutKey = getWarehouseLayoutStorageKey(waitProcess.factoryId, waitProcess.warehouseKind, waitProcess.warehouseId)
+const validLayoutRaw = JSON.stringify(initial)
+const validReadOnlyWriteAttempts: Array<{ key: string; value: string }> = []
+const validReadOnlyStorage = {
+  getItem: (key: string) => key === validLayoutKey ? validLayoutRaw : null,
+  setItem: (key: string, value: string) => {
+    validReadOnlyWriteAttempts.push({ key, value })
+    throw new Error('已有布局只读')
+  },
+  removeItem: () => undefined,
+}
+const validReadOnlyLoad = loadWarehouseLayoutSnapshot(waitProcess, validReadOnlyStorage)
+assert.equal(validReadOnlyLoad.persistenceAvailable, false, '命中合法 v3 缓存时仍必须探测存储可写性')
+assert.match(validReadOnlyLoad.warningMessage, /当前仅可查看，无法保存/)
+assert.deepEqual(validReadOnlyLoad.snapshot, initial, '可写性探测失败不得改变已有合法布局事实')
+assert.deepEqual(validReadOnlyWriteAttempts, [{ key: validLayoutKey, value: validLayoutRaw }], '只能用原 key 原 raw 原样写回探测可写性')
 const getFailureStorage = {
   getItem: () => { throw new Error('存储不可读') },
   setItem: () => undefined,

@@ -420,6 +420,9 @@ export function loadWarehouseLayoutSnapshot(
     try {
       const parsed = JSON.parse(raw) as unknown
       if (isV3Snapshot(parsed, warehouse)) {
+        if (persistenceAvailable) {
+          try { storage.setItem(key, raw) } catch { persistenceAvailable = false }
+        }
         return {
           snapshot: clone(parsed),
           warningMessage: persistenceAvailable ? '' : '当前仅可查看，无法保存。',
