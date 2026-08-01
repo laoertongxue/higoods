@@ -13,7 +13,10 @@ import {
   type WholeBagHandoverSubmitPayload,
 } from './cutting-runtime-event-ledger.ts'
 import type { FeiTicketSewingAssignment } from './sewing-dispatch.ts'
-import { compareCuttingRuntimeChronologyAscending } from './cutting-runtime-chronology.ts'
+import {
+  compareCuttingRuntimeChronologyAscending,
+  normalizeCuttingRuntimeLedgerSequence,
+} from './cutting-runtime-chronology.ts'
 import {
   getBrowserLocalStorage,
   type BrowserStorageLike,
@@ -1107,6 +1110,95 @@ export function resolveTransferBagCurrentUse(
   )
 }
 
+function strictRuntimeEventPrefix(
+  event: CuttingRuntimeEvent,
+  events: CuttingRuntimeEvent[],
+): CuttingRuntimeEvent[] | null {
+  const ordered = events
+    .filter((item) => item.eventStatus !== '已取消')
+    .sort(compareCuttingRuntimeChronologyAscending)
+  let eventIndex = ordered.findIndex((item) => item === event)
+  if (eventIndex < 0) {
+    eventIndex = ordered.findIndex((item) =>
+      item.eventId === event.eventId
+      && item.ledgerSequence === event.ledgerSequence
+      && item.idempotencyKey === event.idempotencyKey)
+  }
+  if (eventIndex < 0) return null
+  const targetSequence = normalizeCuttingRuntimeLedgerSequence(event.ledgerSequence)
+  return ordered.slice(0, eventIndex).filter((item) => {
+    if (item.occurredAt !== event.occurredAt) return true
+    const itemSequence = normalizeCuttingRuntimeLedgerSequence(item.ledgerSequence)
+    return targetSequence !== undefined && itemSequence !== undefined
+      ? itemSequence < targetSequence
+      : compareCuttingRuntimeChronologyAscending(item, event) < 0
+  })
+}
+
+function completeRecoveryTransitionIdentity(
+  event: CuttingRuntimeEvent,
+): { bagCode: string; usageCycleId: string } | null {
+  const parsed = parseCompleteRecoveryEvent(event)
+  if (parsed) {
+    return {
+      bagCode: parsed.payload.bagCode,
+      usageCycleId: parsed.payload.usageCycleId,
+    }
+  }
+  const payload = eventPayload(event)
+  const bagCode = text(payload.bagCode)
+  const usageCycleId = text(payload.usageCycleId)
+  return isCompleteLegacyRecoveryEvent(event, bagCode, usageCycleId || null)
+    ? { bagCode, usageCycleId }
+    : null
+}
+
+export function isEffectiveTransferBagRecoveryEvent(
+  event: CuttingRuntimeEvent,
+  events: CuttingRuntimeEvent[],
+): boolean {
+  const identity = completeRecoveryTransitionIdentity(event)
+  const prefix = strictRuntimeEventPrefix(event, events)
+  if (!identity || !prefix) return false
+  const before = resolveTransferBagCurrentUseFromEvents(identity.bagCode, prefix, true)
+  if (
+    before.mainStatus !== 'IN_USE'
+    || before.flowStage !== 'HANDED_OVER_WAITING_RETURN'
+    || before.usageCycleId !== identity.usageCycleId
+  ) return false
+  const after = resolveTransferBagCurrentUseFromEvents(
+    identity.bagCode,
+    [...prefix, event],
+    true,
+  )
+  return after.mainStatus === 'IDLE'
+    && after.flowStage === null
+    && after.usageCycleId === null
+    && after.tickets.length === 0
+}
+
+export function isEffectiveTransferBagScrapEvent(
+  event: CuttingRuntimeEvent,
+  events: CuttingRuntimeEvent[],
+): boolean {
+  const parsed = parseCompleteScrapEvent(event)
+  const payload = eventPayload(event)
+  const bagCode = parsed?.payload.bagCode || text(payload.bagCode)
+  const complete = Boolean(parsed) || isCompleteLegacyScrapEvent(event, bagCode)
+  const prefix = strictRuntimeEventPrefix(event, events)
+  if (!complete || !bagCode || !prefix) return false
+  const before = resolveTransferBagCurrentUseFromEvents(bagCode, prefix, true)
+  if (before.mainStatus !== 'IDLE' || before.tickets.length > 0) return false
+  const after = resolveTransferBagCurrentUseFromEvents(
+    bagCode,
+    [...prefix, event],
+    true,
+  )
+  return after.mainStatus === 'DISABLED'
+    && after.flowStage === null
+    && after.tickets.length === 0
+}
+
 function normalizeRecoverTransferBagInput(
   input: RecoverTransferBagInput,
 ): NormalizedRecoverTransferBagInput {
@@ -1222,7 +1314,7 @@ export function recoverTransferBag(
     fact.canonicalIntent === canonicalRecoveryIntent(
       normalized,
       fact.payload.usageCycleId,
-    ))
+    ) && isEffectiveTransferBagRecoveryEvent(fact.event, events))
   if (equivalent) return cloneRuntimeEvent(equivalent.event)
 
   if (
@@ -1246,6 +1338,7 @@ export function recoverTransferBag(
     if (
       fact
       && fact.canonicalIntent === canonicalRecoveryIntent(normalized, usageCycleId)
+      && isEffectiveTransferBagRecoveryEvent(fact.event, events)
     ) return cloneRuntimeEvent(fact.event)
     throw new Error('中转袋回收的业务意图冲突。')
   }
@@ -1284,9 +1377,11 @@ export function recoverTransferBag(
     },
   }, storage)
   const persisted = parseCompleteRecoveryEvent(appendResult.event)
+  const persistedEvents = listCuttingRuntimeEvents(storage)
   if (
     !persisted
     || persisted.canonicalIntent !== canonicalRecoveryIntent(normalized, usageCycleId)
+    || !isEffectiveTransferBagRecoveryEvent(persisted.event, persistedEvents)
   ) throw new Error('中转袋回收事实写入后校验失败。')
   return cloneRuntimeEvent(persisted.event)
 }
@@ -1301,7 +1396,11 @@ export function submitTransferBagScrap(
   const collisions = events.filter((event) => event.idempotencyKey === idempotencyKey)
   if (collisions.length) {
     const fact = collisions.length === 1 ? parseCompleteScrapEvent(collisions[0]) : null
-    if (fact && fact.canonicalIntent === canonicalScrapIntent(normalized)) {
+    if (
+      fact
+      && fact.canonicalIntent === canonicalScrapIntent(normalized)
+      && isEffectiveTransferBagScrapEvent(fact.event, events)
+    ) {
       return cloneRuntimeEvent(fact.event)
     }
     throw new Error('中转袋报废的业务意图冲突。')
@@ -1338,7 +1437,12 @@ export function submitTransferBagScrap(
     },
   }, storage)
   const persisted = parseCompleteScrapEvent(appendResult.event)
-  if (!persisted || persisted.canonicalIntent !== canonicalScrapIntent(normalized)) {
+  const persistedEvents = listCuttingRuntimeEvents(storage)
+  if (
+    !persisted
+    || persisted.canonicalIntent !== canonicalScrapIntent(normalized)
+    || !isEffectiveTransferBagScrapEvent(persisted.event, persistedEvents)
+  ) {
     throw new Error('中转袋报废事实写入后校验失败。')
   }
   return cloneRuntimeEvent(persisted.event)
@@ -1357,12 +1461,20 @@ export function recoverThenScrapTransferBag(input: {
   if (current.mainStatus !== 'IDLE' || current.tickets.length > 0) {
     throw new Error('中转袋回收后未进入空闲状态，不能继续报废。')
   }
-  const scrapEvent = submitTransferBagScrap({
+  const normalizedScrap = normalizeScrapTransferBagInput({
     ...input.scrap,
     bagCode,
     source: input.recovery.source,
     operator: input.recovery.operator,
-  }, storage)
+  })
+  if (normalizedScrap.occurredAt.localeCompare(recoveryEvent.occurredAt, 'zh-CN') < 0) {
+    throw new Error('报废时间不能早于回收时间。')
+  }
+  const scrapEvent = submitTransferBagScrap(normalizedScrap, storage)
+  const disabled = resolveTransferBagCurrentUse(bagCode, storage)
+  if (disabled.mainStatus !== 'DISABLED') {
+    throw new Error('中转袋报废后未进入已报废状态。')
+  }
   return { recoveryEvent, scrapEvent }
 }
 

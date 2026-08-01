@@ -14,6 +14,7 @@ import {
   eventTouchesTransferBag,
   isCompleteSuccessfulSpecialCraftHandoverEvent,
   isCompleteSuccessfulWholeBagHandoverEvent,
+  isEffectiveTransferBagRecoveryEvent,
   ensureTransferBagAvailableForUse,
   recoverThenScrapTransferBag,
   recoverTransferBag,
@@ -3836,6 +3837,248 @@ function scrapInput(
     () => ensureTransferBagAvailableForUse({ bagCode: 'BAG-ENSURE-DISABLED' }, disabledStorage),
     '这个袋子已经报废，不能继续使用。',
     '已报废袋必须永久阻断再次使用',
+  )
+}
+
+{
+  const specificationRedFailures: string[] = []
+  const captureSpecificationRed = (label: string, verify: () => void) => {
+    try {
+      verify()
+    } catch (error) {
+      specificationRedFailures.push(
+        `${label}: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+  }
+
+  captureSpecificationRed('P1-1 回收后报废不得倒序占用报废幂等键', () => {
+    const storage = createMemoryStorage()
+    const bagCode = 'BAG-RECOVER-THEN-SCRAP-REVERSED-TIME'
+    seedHandedOverBag(storage, bagCode)
+    const reversedInput = {
+      recovery: recoveryInput(bagCode, { occurredAt: '2026-08-01 10:00' }),
+      scrap: {
+        reason: '袋体破裂，无法继续使用',
+        authorizedBy: '裁片仓主管',
+        occurredAt: '2026-08-01 09:00',
+      },
+    }
+    assert.throws(
+      () => recoverThenScrapTransferBag(reversedInput, storage),
+      (error: unknown) => error instanceof Error
+        && error.message === '报废时间不能早于回收时间。',
+      '第二步报废时间早于已成功回收时间时必须精确拒绝',
+    )
+    const afterRejected = listCuttingRuntimeEvents(storage)
+    const recoveryEvent = afterRejected.find((event) => event.eventType === '中转袋回收')
+    assert(recoveryEvent, '倒序报废拒绝后必须保留第一步成功回收事实')
+    assert.equal(afterRejected.filter((event) => event.eventType === '中转袋回收').length, 1)
+    assert.equal(afterRejected.filter((event) => event.eventType === '中转袋报废').length, 0)
+    assert.equal(
+      afterRejected.some((event) => event.idempotencyKey === `${bagCode}:BAG_SCRAPPED`),
+      false,
+      '倒序报废不得占用稳定报废幂等键',
+    )
+    assert.equal(resolveTransferBagCurrentUse(bagCode, storage).mainStatus, 'IDLE')
+
+    const retried = recoverThenScrapTransferBag({
+      ...structuredClone(reversedInput),
+      scrap: {
+        ...reversedInput.scrap,
+        occurredAt: '2026-08-01 10:10',
+      },
+    }, storage)
+    assert.equal(retried.recoveryEvent.eventId, recoveryEvent.eventId, '纠正报废时间重试必须复用原回收事实')
+    assert.equal(listCuttingRuntimeEvents(storage).filter((event) => event.eventType === '中转袋回收').length, 1)
+    assert.equal(listCuttingRuntimeEvents(storage).filter((event) => event.eventType === '中转袋报废').length, 1)
+    assert.equal(resolveTransferBagCurrentUse(bagCode, storage).mainStatus, 'DISABLED')
+  })
+
+  captureSpecificationRed('P1-2 幂等等价事实必须证明状态迁移合法', () => {
+    const illegalRetryFailures: string[] = []
+    const packedRecoveryStorage = createMemoryStorage()
+    const recoveryBagCode = 'BAG-PACKED-ILLEGAL-RECOVERY-RETRY'
+    const recoveryCycleId = `usage:${recoveryBagCode}:1`
+    const recoveryTickets = [ticket('PACKED-ILLEGAL-RECOVERY', 'PO-PACKED-ILLEGAL-RECOVERY', 'FACTORY-HANDOVER')]
+    appendBagging({
+      storage: packedRecoveryStorage,
+      bagCode: recoveryBagCode,
+      usageCycleId: recoveryCycleId,
+      tickets: recoveryTickets,
+      occurredAt: '2026-08-01 10:00',
+    })
+    appendCuttingRuntimeEvent({
+      idempotencyKey: `${recoveryCycleId}:PHYSICAL_BAG_RETURNED`,
+      eventType: '中转袋回收',
+      eventSource: 'WEB',
+      eventStatus: '已同步',
+      occurredAt: '2026-08-01 10:00',
+      operatorId: 'OP-RECOVERY',
+      operatorName: '回收员',
+      operatorRole: '中转袋回收员',
+      refs: { transferBagCode: recoveryBagCode, usageCycleId: recoveryCycleId },
+      payload: {
+        bagCode: recoveryBagCode,
+        usageCycleId: recoveryCycleId,
+        physicalBagReceived: true,
+        physicalBagEmpty: true,
+        recoveryMode: 'NORMAL',
+        recoveryNode: '裁床一厂',
+        recoveryLocation: '空袋回收位 A-01',
+        reason: '',
+        recoveredAt: '2026-08-01 10:00',
+        recoveredBy: '回收员',
+      },
+    }, packedRecoveryStorage)
+    try {
+      assertRejectedWithoutWriting(
+        packedRecoveryStorage,
+        () => recoverTransferBag(recoveryInput(recoveryBagCode, { occurredAt: '2026-08-01 10:00' }), packedRecoveryStorage),
+        /(业务意图冲突|还有有效菲票)/,
+        'PACKED 上注入的完整同意图回收事实不得被当作成功重试',
+      )
+    } catch (error) {
+      illegalRetryFailures.push(`回收: ${error instanceof Error ? error.message : String(error)}`)
+    }
+
+    const packedScrapStorage = createMemoryStorage()
+    const scrapBagCode = 'BAG-PACKED-ILLEGAL-SCRAP-RETRY'
+    const scrapCycleId = `usage:${scrapBagCode}:1`
+    const scrapTickets = [ticket('PACKED-ILLEGAL-SCRAP', 'PO-PACKED-ILLEGAL-SCRAP', 'FACTORY-HANDOVER')]
+    appendBagging({
+      storage: packedScrapStorage,
+      bagCode: scrapBagCode,
+      usageCycleId: scrapCycleId,
+      tickets: scrapTickets,
+      occurredAt: '2026-08-01 10:00',
+    })
+    appendCuttingRuntimeEvent({
+      idempotencyKey: `${scrapBagCode}:BAG_SCRAPPED`,
+      eventType: '中转袋报废',
+      eventSource: 'WEB',
+      eventStatus: '已同步',
+      occurredAt: '2026-08-01 10:00',
+      operatorId: 'OP-SCRAP',
+      operatorName: '报废员',
+      operatorRole: '中转袋主管',
+      refs: { transferBagCode: scrapBagCode },
+      payload: {
+        bagCode: scrapBagCode,
+        idleConfirmed: true,
+        reason: '袋体破裂，无法继续使用',
+        authorizedBy: '裁片仓主管',
+        scrappedAt: '2026-08-01 10:00',
+        scrappedBy: '报废员',
+      },
+    }, packedScrapStorage)
+    try {
+      assertRejectedWithoutWriting(
+        packedScrapStorage,
+        () => submitTransferBagScrap(scrapInput(scrapBagCode, { occurredAt: '2026-08-01 10:00' }), packedScrapStorage),
+        /(业务意图冲突|还有有效菲票)/,
+        'PACKED 上注入的完整同意图报废事实不得被当作成功重试',
+      )
+    } catch (error) {
+      illegalRetryFailures.push(`报废: ${error instanceof Error ? error.message : String(error)}`)
+    }
+    assert.deepEqual(illegalRetryFailures, [], illegalRetryFailures.join('；'))
+  })
+
+  captureSpecificationRed('P1-3 wait-handover 不得采纳 PACKED 上的形状完整回收事实', () => {
+    const storage = createMemoryStorage()
+    const bagCode = 'BAG-WAIT-PACKED-ILLEGAL-RECOVERY'
+    const usageCycleId = `usage:${bagCode}:1`
+    const tickets = [ticket('WAIT-PACKED-ILLEGAL-RECOVERY', 'PO-WAIT-PACKED-ILLEGAL-RECOVERY', 'FACTORY-HANDOVER')]
+    appendBagging({ storage, bagCode, usageCycleId, tickets, occurredAt: '2026-08-01 10:00' })
+    appendCuttingRuntimeEvent({
+      eventType: '中转袋回收',
+      eventSource: 'WEB',
+      eventStatus: '已同步',
+      occurredAt: '2026-08-01 10:00',
+      operatorName: '回收员',
+      refs: { transferBagCode: bagCode, usageCycleId },
+      payload: {
+        bagCode,
+        usageCycleId,
+        physicalBagReceived: true,
+        physicalBagEmpty: true,
+        recoveryMode: 'NORMAL',
+        recoveryNode: '裁床一厂',
+        recoveryLocation: '空袋回收位 A-01',
+        reason: '',
+        recoveredAt: '2026-08-01 10:00',
+        recoveredBy: '回收员',
+      },
+    }, storage)
+    const authoritative = resolveTransferBagCurrentUse(bagCode, storage)
+    assert.equal(authoritative.mainStatus, 'IN_USE')
+    assert.equal(authoritative.flowStage, 'PACKED')
+    const lifecycle = buildWaitHandoverLifecycleByBagCode(bagCode, storage)
+    assert.equal(lifecycle.mainStatus, 'IN_USE')
+    assert.equal(lifecycle.flowStage, 'PACKED')
+    assert.equal(lifecycle.canStartBagging, false)
+    assert.equal(
+      listWaitHandoverLifecycleFacts(bagCode, storage).some((fact) => fact.factType === 'PHYSICAL_BAG_RETURNED'),
+      false,
+      '同一时间但账本序号更晚的非法回收事实不得关闭 PACKED 周期',
+    )
+
+    const sameSequenceStorage = createMemoryStorage()
+    const sameSequenceBagCode = 'BAG-RECOVERY-SAME-SEQUENCE'
+    const { usageCycleId: sameSequenceCycleId } = seedHandedOverBag(
+      sameSequenceStorage,
+      sameSequenceBagCode,
+    )
+    appendCuttingRuntimeEvent({
+      eventType: '中转袋回收',
+      eventSource: 'WEB',
+      eventStatus: '已同步',
+      occurredAt: '2026-08-01 08:20',
+      operatorName: '回收员',
+      refs: { transferBagCode: sameSequenceBagCode, usageCycleId: sameSequenceCycleId },
+      payload: {
+        bagCode: sameSequenceBagCode,
+        usageCycleId: sameSequenceCycleId,
+        physicalBagReceived: true,
+        physicalBagEmpty: true,
+        recoveryMode: 'NORMAL',
+        recoveryNode: '裁床一厂',
+        recoveryLocation: '空袋回收位 A-01',
+        reason: '',
+        recoveredAt: '2026-08-01 08:20',
+        recoveredBy: '回收员',
+      },
+    }, sameSequenceStorage)
+    const rawLedger = JSON.parse(
+      sameSequenceStorage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) || '{"events":[]}',
+    ) as { events: Array<Record<string, unknown>> }
+    const handover = rawLedger.events.find((event) => event.eventType === '新增交出记录')
+    const sameSequenceRecovery = rawLedger.events.find((event) => event.eventType === '中转袋回收')
+    assert(handover && sameSequenceRecovery)
+    sameSequenceRecovery.ledgerSequence = handover.ledgerSequence
+    handover.createdAt = '2026-08-01 08:20:00.001'
+    handover.eventId = 'A-HANDOVER-SAME-SEQUENCE'
+    sameSequenceRecovery.createdAt = '2026-08-01 08:20:00.002'
+    sameSequenceRecovery.eventId = 'Z-RECOVERY-SAME-SEQUENCE'
+    sameSequenceStorage.setItem(
+      CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY,
+      JSON.stringify(rawLedger),
+    )
+    const sameSequenceEvents = listCuttingRuntimeEvents(sameSequenceStorage)
+    const persistedSameSequenceRecovery = sameSequenceEvents.find((event) => event.eventType === '中转袋回收')
+    assert(persistedSameSequenceRecovery)
+    assert.equal(
+      isEffectiveTransferBagRecoveryEvent(persistedSameSequenceRecovery, sameSequenceEvents),
+      false,
+      '同发生时间且同账本序号的交出事实不得被纳入回收事件的严格前缀',
+    )
+  })
+
+  assert.deepEqual(
+    specificationRedFailures,
+    [],
+    `规格审查 P1 红灯：\n${specificationRedFailures.join('\n')}`,
   )
 }
 

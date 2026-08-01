@@ -33,9 +33,9 @@ import {
   buildNextTransferBagHandoverLeg,
   buildSpecialCraftWholeBagHandoverCanonicalIntent,
   eventTouchesTransferBag,
+  isEffectiveTransferBagRecoveryEvent,
+  isEffectiveTransferBagScrapEvent,
   isCompleteSuccessfulSpecialCraftHandoverEvent,
-  isCompleteSuccessfulTransferBagRecoveryEvent,
-  isCompleteSuccessfulTransferBagScrapEvent,
   isCompleteSuccessfulWholeBagHandoverEvent,
   parseCompleteTransferBagRepackPayload,
   parseTransferBagAuthoritativeLocationFact,
@@ -423,6 +423,7 @@ function toWaitHandoverLifecycleFact(
   event: CuttingRuntimeEvent,
   usageCycleId: string,
   bagCode: string,
+  events: CuttingRuntimeEvent[],
 ): TransferBagLifecycleFact | null {
   if (
     event.eventType === '新增交出记录'
@@ -434,11 +435,11 @@ function toWaitHandoverLifecycleFact(
   ) return null
   if (
     event.eventType === '中转袋回收'
-    && !isCompleteSuccessfulTransferBagRecoveryEvent(event)
+    && !isEffectiveTransferBagRecoveryEvent(event, events)
   ) return null
   if (
     event.eventType === '中转袋报废'
-    && !isCompleteSuccessfulTransferBagScrapEvent(event)
+    && !isEffectiveTransferBagScrapEvent(event, events)
   ) return null
   if (event.eventType === '中转袋拆袋重装') {
     const factType = getWaitHandoverRepackBag(event, 'resultBags', bagCode)
@@ -499,7 +500,7 @@ export function listWaitHandoverLifecycleFacts(
         || inferredCycleIds.get(event.eventId)
         || ''
       return usageCycleId || event.eventType === '中转袋报废'
-        ? toWaitHandoverLifecycleFact(event, usageCycleId, bagCode)
+        ? toWaitHandoverLifecycleFact(event, usageCycleId, bagCode, events)
         : null
     })
     .filter((fact): fact is TransferBagLifecycleFact => Boolean(fact))
