@@ -15,6 +15,7 @@ export const routes: RouteRegistry = {
     '/pcs/workspace/alerts': renderClearedPcsPage('商品中心预警'),
     '/pcs/projects': () => renderers.renderPcsProjectListPage(),
     '/pcs/projects/create': () => renderers.renderPcsProjectCreatePage(),
+    '/pcs/engineering/masters': () => renderers.renderPcsEngineeringMasterListPage(),
     '/pcs/testing/live': () => renderers.renderPcsLiveTestingListPage(),
     '/pcs/testing/video': () => renderers.renderPcsVideoTestingListPage(),
     '/pcs/channels/products': () => renderers.renderPcsChannelProductListPage(),
@@ -66,6 +67,10 @@ export const routes: RouteRegistry = {
     '/pcs/settings/platforms': () => renderRouteRedirect('/pcs/settings/config-workspace', '系统设置已收口到基础配置'),
   },
   dynamicRoutes: [
+    {
+      pattern: /^\/pcs\/engineering\/masters\/([^/]+)$/,
+      render: (match) => renderers.renderPcsEngineeringMasterDetailPage(match[1]),
+    },
     {
       pattern: /^\/pcs\/projects\/([^/]+)$/,
       render: (match) => renderers.renderPcsProjectDetailPage(match[1]),

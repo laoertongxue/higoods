@@ -187,6 +187,23 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
     closeActions: [{ datasetKey: 'pcsSampleAction', value: 'close-drawers' }],
   },
   {
+    cacheKey: 'pcs-engineering-master-list',
+    matches: (pathname) => pathname === '/pcs/engineering/masters',
+    importModule: () => import('../pages/pcs-engineering-master-list'),
+    eventExport: 'handlePcsEngineeringMasterListEvent',
+    inputExport: 'handlePcsEngineeringMasterListInput',
+    dialogExport: 'isPcsEngineeringMasterListDialogOpen',
+    closeActions: [{ datasetKey: 'pcsEngineeringMasterAction', value: 'close-column-settings' }],
+  },
+  {
+    cacheKey: 'pcs-engineering-master-detail',
+    matches: (pathname) => /^\/pcs\/engineering\/masters\/[^/]+$/.test(pathname),
+    importModule: () => import('../pages/pcs-engineering-master-detail'),
+    eventExport: 'handlePcsEngineeringMasterDetailEvent',
+    dialogExport: 'isPcsEngineeringMasterDetailDialogOpen',
+    closeActions: [{ datasetKey: 'pcsEngineeringMasterAction', value: 'close-task-drawer' }],
+  },
+  {
     cacheKey: 'pcs-engineering-tasks',
     matches: (pathname) =>
       isAnyExactOrNestedPath(pathname, [

@@ -182,6 +182,14 @@ export const renderPcsProjectListPage = createAsyncRenderer(
   () => import('../pages/pcs-projects-list'),
   'renderPcsProjectListPage',
 )
+export const renderPcsEngineeringMasterListPage = createAsyncRenderer(
+  () => import('../pages/pcs-engineering-master-list'),
+  'renderPcsEngineeringMasterListPage',
+)
+export const renderPcsEngineeringMasterDetailPage = createAsyncRenderer(
+  () => import('../pages/pcs-engineering-master-detail'),
+  'renderPcsEngineeringMasterDetailPage',
+)
 export const renderPcsProjectCreatePage = createAsyncRenderer(
   () => import('../pages/pcs-projects'),
   'renderPcsProjectCreatePage',
