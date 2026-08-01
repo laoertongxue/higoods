@@ -33,6 +33,7 @@ import {
 } from './pcs-engineering-tasks/first-sample-task.ts'
 import { handlePatternTaskEvent, handlePatternTaskInput } from './pcs-engineering-tasks/pattern-task.ts'
 import { handleColorTaskEvent, handleColorTaskInput } from './pcs-engineering-tasks/color-task.ts'
+import { handlePurchaseTaskEvent } from './pcs-engineering-tasks/purchase-task.ts'
 
 export { renderPcsRevisionTaskDetailPage, renderPcsRevisionTaskPage } from './pcs-engineering-tasks/revision-task.ts'
 export { renderPcsPlateMakingTaskDetailPage, renderPcsPlateMakingTaskPage } from './pcs-engineering-tasks/plate-making-task.ts'
@@ -170,7 +171,7 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
 }
 
 export function handlePcsEngineeringTaskEvent(target: HTMLElement, event?: Event): boolean {
-  if (handlePatternTaskEvent(target) || handleColorTaskEvent(target)) return true
+  if (handlePatternTaskEvent(target) || handleColorTaskEvent(target) || handlePurchaseTaskEvent(target, event)) return true
   const module = getEngineeringListModule(target)
   if (module && handleListDrag(module, target, event)) return true
   const node = target.closest<HTMLElement>('[data-pcs-engineering-action]')

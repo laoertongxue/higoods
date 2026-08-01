@@ -53,6 +53,7 @@ function cloneTask(task: EngineeringTaskRecord): EngineeringTaskRecord {
       decisions: round.decisions.map((decision) => ({ ...decision })),
     })),
     resultImageIds: [...(task.resultImageIds || [])],
+    boundPurchaseOrderNos: [...(task.boundPurchaseOrderNos || [])],
   }
 }
 
@@ -112,6 +113,8 @@ function normalizeRecord(record: EngineeringMasterOrderRecord): EngineeringMaste
           colorRequirementConfirmedBy: task.colorRequirementConfirmedBy || '',
           colorRequirementConfirmedAt: task.colorRequirementConfirmedAt || '',
           colorResultCompletedAt: task.colorResultCompletedAt || '',
+          completedAt: task.completedAt || task.effectiveCompletedAt || '',
+          boundPurchaseOrderNos: Array.isArray(task.boundPurchaseOrderNos) ? task.boundPurchaseOrderNos : [],
           materialReviewRounds: Array.isArray(task.materialReviewRounds) ? task.materialReviewRounds : [],
           materialLines: Array.isArray(task.materialLines)
             ? task.materialLines.map((line) => ({
@@ -245,6 +248,8 @@ export function publishEngineeringMasterOrder(masterOrderId: string): Engineerin
       submittedAt: '',
       firstCompletedAt: '',
       effectiveCompletedAt: '',
+      completedAt: '',
+      boundPurchaseOrderNos: [],
       resultImageIds: [],
       resultQuantity: 0,
       resultSubmittedBy: '',
@@ -340,6 +345,7 @@ export function validateBomRequirementsForEngineeringTasks(
   const requiredTaskTypes: EngineeringTaskType[] = []
   if (rows.some((row) => hasBomRequirement(row.printRequirement))) requiredTaskTypes.push('PATTERN_ARTWORK')
   if (rows.some((row) => hasBomRequirement(row.dyeRequirement))) requiredTaskTypes.push('COLOR_FABRIC')
+  if (rows.some((row) => row.materialType === '辅料')) requiredTaskTypes.push('ACCESSORY_PURCHASE')
   assertTaskSkeletonsExist(master, requiredTaskTypes)
 }
 
@@ -395,7 +401,7 @@ function enableTaskAndFixedPrerequisites(
 function createBomMaterialLine(
   task: EngineeringTaskRecord,
   row: EngineeringBomTaskLinkageRow,
-  requirementType: '印花' | '染色',
+  requirementType: '印花' | '染色' | '辅料',
 ) {
   const materialSkuId = row.materialSkuId || row.bomItemId
   return {
@@ -425,9 +431,9 @@ function createBomMaterialLine(
 
 function syncTaskMaterialLines(
   master: EngineeringMasterOrderRecord,
-  taskType: 'PATTERN_ARTWORK' | 'COLOR_FABRIC',
+  taskType: 'PATTERN_ARTWORK' | 'COLOR_FABRIC' | 'ACCESSORY_PURCHASE',
   rows: EngineeringBomTaskLinkageRow[],
-  requirementType: '印花' | '染色',
+  requirementType: '印花' | '染色' | '辅料',
 ): void {
   const taskBeforeSync = master.tasks.find((item) => item.taskType === taskType)
   if (!taskBeforeSync) {
@@ -480,6 +486,13 @@ function syncTaskMaterialLines(
     return
   }
   if (hadSubmittedResult && addedOrReactivated) {
+    if (taskType === 'ACCESSORY_PURCHASE') {
+      task.status = '进行中'
+      task.submittedAt = ''
+      task.completedAt = ''
+      task.effectiveCompletedAt = ''
+      return
+    }
     const roundNo = Math.max(0, ...task.reworkRounds.map((round) => round.roundNo)) + 1
     task.reworkRounds.push({
       roundNo,
@@ -505,6 +518,7 @@ export function applyBomRequirementsToEngineeringTasks(
 
   const printRows = rows.filter((row) => hasBomRequirement(row.printRequirement))
   const dyeRows = rows.filter((row) => hasBomRequirement(row.dyeRequirement))
+  const accessoryRows = rows.filter((row) => row.materialType === '辅料')
   const patternTask = master.tasks.find((task) => task.taskType === 'PATTERN_ARTWORK')
   if (patternTask && (printRows.length > 0 || patternTask.materialLines.some((line) => line.requirementType === '印花'))) {
     syncTaskMaterialLines(master, 'PATTERN_ARTWORK', printRows, '印花')
@@ -512,6 +526,10 @@ export function applyBomRequirementsToEngineeringTasks(
   const colorTask = master.tasks.find((task) => task.taskType === 'COLOR_FABRIC')
   if (colorTask && (dyeRows.length > 0 || colorTask.materialLines.some((line) => line.requirementType === '染色'))) {
     syncTaskMaterialLines(master, 'COLOR_FABRIC', dyeRows, '染色')
+  }
+  const purchaseTask = master.tasks.find((task) => task.taskType === 'ACCESSORY_PURCHASE')
+  if (purchaseTask && (accessoryRows.length > 0 || purchaseTask.materialLines.some((line) => line.requirementType === '辅料'))) {
+    syncTaskMaterialLines(master, 'ACCESSORY_PURCHASE', accessoryRows, '辅料')
   }
 
   writeSnapshot(snapshot)
@@ -545,6 +563,9 @@ export function submitEngineeringTaskResult(
 
   const task = record.tasks.find((item) => item.taskId === taskId)
   if (!task) throw new Error(`工程任务不存在：${taskId}`)
+  if (task.taskType === 'ACCESSORY_PURCHASE') {
+    throw new Error('辅料下单任务只能通过绑定采购单自动完成，不能手动提交成果。')
+  }
   if (task.status === '未启用') throw new Error('任务未启用，不能提交成果。')
   if (task.status === '待审核') throw new Error('任务已提交成果，等待审核。')
   if (task.status === '返工中') throw new Error('任务处于返工中，不能提交成果。')

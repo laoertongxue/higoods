@@ -111,6 +111,9 @@ export interface EngineeringTaskRecord {
   submittedAt: string
   firstCompletedAt: string
   effectiveCompletedAt: string
+  // 辅料下单任务以已绑定采购单中的最晚实际下单时间完成；保留显式字段供时效投影读取。
+  completedAt?: string
+  boundPurchaseOrderNos?: string[]
   resultImageIds: string[]
   resultQuantity: number
   resultSubmittedBy: string

@@ -141,11 +141,10 @@ const handled = handlePcsEngineeringMasterDetailEvent({
 assert.equal(handled, true)
 assert.equal(
   getEngineeringMasterOrderById(master.masterOrderId)?.tasks.find((task) => task.taskId === accessoryTaskId)?.status,
-  '已完成',
-  '详情提交成果应更新工程任务事实源',
+  '待开始',
+  '辅料下单任务不得通过通用提交成果入口完成',
 )
-assert.match(lanesHost.innerHTML, /已完成/, '提交后应局部刷新泳道区域')
-assert.match(feedbackHost.innerHTML, /已提交成果.*已完成/s, '提交后应在局部反馈区域展示结果')
+assert.match(feedbackHost.innerHTML, /只能通过绑定采购单自动完成/, '通用提交入口必须明确提示采购绑定边界')
 Object.defineProperty(globalThis, 'window', { configurable: true, value: originalWindow })
 Object.defineProperty(globalThis, 'document', { configurable: true, value: originalDocument })
 

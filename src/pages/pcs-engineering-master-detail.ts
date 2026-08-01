@@ -246,7 +246,7 @@ function renderTaskDrawer(model: EngineeringMasterDetailModel, task: Engineering
       `).join('')
     : '<p class="text-sm text-slate-400">暂无返工记录</p>'
 
-  const submittable = SUBMITTABLE_STATUSES.includes(rawTask.status)
+  const submittable = SUBMITTABLE_STATUSES.includes(rawTask.status) && rawTask.taskType !== 'ACCESSORY_PURCHASE'
   const submitHint = submittable
     ? task.reviewRequired
       ? '提交成果后进入待审核，由买手逐项审核。'
@@ -308,7 +308,9 @@ function renderTaskDrawer(model: EngineeringMasterDetailModel, task: Engineering
       >提交成果</button>
       <p class="mt-2 text-xs text-slate-500">${escapeHtml(submitHint)}</p>
     `
-    : `<p class="text-sm text-slate-500">当前状态：${escapeHtml(rawTask.status)}</p>`
+    : rawTask.taskType === 'ACCESSORY_PURCHASE'
+      ? `<button type="button" class="inline-flex h-9 w-full items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-blue-700 hover:bg-slate-50" data-nav="/pcs/engineering/purchase/${escapeHtml(rawTask.taskId)}">绑定采购单</button>`
+      : `<p class="text-sm text-slate-500">当前状态：${escapeHtml(rawTask.status)}</p>`
 
   return `
     <div class="fixed inset-0 z-50 flex justify-end bg-black/30" data-engineering-master-drawer-backdrop>

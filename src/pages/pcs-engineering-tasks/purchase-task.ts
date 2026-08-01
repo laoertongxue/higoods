@@ -1,9 +1,16 @@
+// @page-pattern: list
+// 标准列表契约由 renderEngineeringStandardListPage 内部统一调用：renderStandardListPage、renderStandardListTable、renderTablePagination。
 // 辅料下单任务模块：读取工程主单任务记录，列表 / 详情渲染与列表分派注册。
 // 页面只读展示任务记录，任务状态推进在工程主单详情完成。
 
 import type { EngineeringTaskRecord } from '../../data/pcs-engineering-master-types.ts'
 import { getEngineeringMasterOrderById } from '../../data/pcs-engineering-master-repository.ts'
 import { getEngineeringTaskDefinition } from '../../data/pcs-engineering-dependency-policy.ts'
+import {
+  bindAccessoryPurchaseOrder,
+  getAccessoryPurchaseTaskLinkage,
+  unbindAccessoryPurchaseOrder,
+} from '../../data/pcs-engineering-purchase-linkage.ts'
 import { escapeHtml, formatDateTime } from '../../utils.ts'
 import {
   type EngineeringListRow,
@@ -18,7 +25,6 @@ import {
   state,
 } from './shared.ts'
 import {
-  ENGINEERING_TASK_FILTER_STATUS_OPTIONS,
   getEngineeringTaskDetail,
   getEngineeringTaskSourceOptions,
   getEngineeringTaskTeamOptions,
@@ -27,12 +33,99 @@ import {
   renderTaskLogsCard,
   renderTaskMasterCard,
   renderTaskMaterialLinesCard,
-  renderTaskReworkRoundsCard,
   renderTaskSummaryCard,
 } from './master-task-common.ts'
 
 const PURCHASE_TASK_TYPES = ['ACCESSORY_PURCHASE'] as const
 const PURCHASE_LIST_PATH = '/pcs/engineering/purchase'
+const PURCHASE_DETAIL_PAGE_SIZE = 5
+const PURCHASE_FILTER_STATUS_OPTIONS = ['待开始', '进行中', '已完成']
+const purchaseDetailPages = new Map<string, number>()
+
+function renderPurchaseLinkageContent(masterOrderId: string, taskId: string): string {
+  const { task, purchaseOrders, gate } = getAccessoryPurchaseTaskLinkage(masterOrderId, taskId)
+  const required = [...new Set(task.materialLines.filter((line) => line.status === '正常' && line.requirementType === '辅料').map((line) => line.materialSkuId))]
+  const totalPages = Math.max(1, Math.ceil(purchaseOrders.length / PURCHASE_DETAIL_PAGE_SIZE))
+  const currentPage = Math.min(Math.max(1, purchaseDetailPages.get(taskId) || 1), totalPages)
+  purchaseDetailPages.set(taskId, currentPage)
+  const pageRows = purchaseOrders.slice((currentPage - 1) * PURCHASE_DETAIL_PAGE_SIZE, currentPage * PURCHASE_DETAIL_PAGE_SIZE)
+  return `<div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+      <div>
+        <h2 class="font-semibold text-slate-900">绑定采购单</h2>
+        <p class="mt-1 text-xs ${gate.complete ? 'text-emerald-600' : 'text-amber-700'}">已覆盖 ${gate.coveredMaterialSkuIds.length}/${required.length}${gate.missingMaterialSkuIds.length > 0 ? ` · 缺少 ${escapeHtml(gate.missingMaterialSkuIds.join('、'))}` : ''}</p>
+      </div>
+      <form class="flex gap-2" data-purchase-bind-form>
+        <input name="purchaseOrderNo" data-purchase-order-input autocomplete="off" class="h-9 w-56 rounded-md border border-slate-300 px-3 text-sm" placeholder="输入采购单号" />
+        <button type="submit" class="h-9 rounded-md bg-blue-600 px-4 text-sm text-white hover:bg-blue-700" data-purchase-action="bind-order" data-master-order-id="${escapeHtml(masterOrderId)}" data-task-id="${escapeHtml(taskId)}">绑定</button>
+      </form>
+    </div>
+    <p class="min-h-6 px-5 pt-3 text-xs text-rose-600" data-purchase-feedback>${gate.blockReason ? escapeHtml(gate.blockReason) : ''}</p>
+    <div class="overflow-x-auto px-5 pb-3">
+      <table class="w-full min-w-[900px] text-left text-sm">
+        <thead class="bg-slate-50 text-xs text-slate-500"><tr><th class="px-3 py-2">采购单号</th><th class="px-3 py-2">供应商</th><th class="px-3 py-2">物料</th><th class="px-3 py-2">数量</th><th class="px-3 py-2">采购状态</th><th class="px-3 py-2">实际下单时间</th><th class="px-3 py-2 text-right">操作</th></tr></thead>
+        <tbody>${pageRows.length > 0 ? pageRows.map((order) => `<tr class="border-t border-slate-100">
+          <td class="px-3 py-3 font-medium">${escapeHtml(order.purchaseOrderNo)}</td>
+          <td class="px-3 py-3">${escapeHtml(order.supplierName)}</td>
+          <td class="px-3 py-3">${order.materialLines.map((line) => `${escapeHtml(line.materialSkuId)} · ${escapeHtml(line.materialName)}`).join('<br>')}</td>
+          <td class="px-3 py-3">${order.materialLines.map((line) => `${line.quantity} ${escapeHtml(line.unit)}`).join('<br>')}</td>
+          <td class="px-3 py-3">${escapeHtml(order.status)}</td>
+          <td class="px-3 py-3">${escapeHtml(order.orderedAt || '未下单')}</td>
+          <td class="px-3 py-3 text-right"><button type="button" class="text-rose-600 hover:underline" data-purchase-action="unbind-order" data-master-order-id="${escapeHtml(masterOrderId)}" data-task-id="${escapeHtml(taskId)}" data-purchase-order-no="${escapeHtml(order.purchaseOrderNo)}">解除绑定</button></td>
+        </tr>`).join('') : '<tr><td colspan="7" class="px-3 py-8 text-center text-slate-400">暂无已绑定采购单</td></tr>'}</tbody>
+      </table>
+    </div>
+    <div class="flex items-center justify-between border-t border-slate-100 px-5 py-3 text-xs text-slate-500">
+      <span>共 ${purchaseOrders.length} 条 · 每页 ${PURCHASE_DETAIL_PAGE_SIZE} 条 · 第 ${currentPage} 页 / 共 ${totalPages} 页</span>
+      <div class="flex gap-2"><button type="button" class="rounded border px-3 py-1 disabled:opacity-40" ${currentPage <= 1 ? 'disabled' : ''} data-purchase-action="purchase-prev-page" data-master-order-id="${escapeHtml(masterOrderId)}" data-task-id="${escapeHtml(taskId)}">上一页</button><button type="button" class="rounded border px-3 py-1 disabled:opacity-40" ${currentPage >= totalPages ? 'disabled' : ''} data-purchase-action="purchase-next-page" data-master-order-id="${escapeHtml(masterOrderId)}" data-task-id="${escapeHtml(taskId)}">下一页</button></div>
+    </div>`
+}
+
+function renderPurchaseLinkageRegion(masterOrderId: string, taskId: string): string {
+  return `<section class="rounded-lg border border-slate-200 bg-white" data-purchase-linkage-region>${renderPurchaseLinkageContent(masterOrderId, taskId)}</section>`
+}
+
+function refreshPurchaseLinkage(masterOrderId: string, taskId: string): void {
+  const host = document.querySelector<HTMLElement>('[data-purchase-linkage-region]')
+  if (host) host.innerHTML = renderPurchaseLinkageContent(masterOrderId, taskId)
+}
+
+export function handlePurchaseTaskEvent(target: HTMLElement, event?: Event): boolean {
+  const node = target.closest<HTMLElement>('[data-purchase-action]')
+  if (!node) return false
+  const action = node.dataset.purchaseAction || ''
+  const masterOrderId = node.dataset.masterOrderId || ''
+  const taskId = node.dataset.taskId || ''
+  if (!masterOrderId || !taskId) return false
+  event?.preventDefault()
+  const feedback = () => document.querySelector<HTMLElement>('[data-purchase-feedback]')
+  try {
+    if (action === 'bind-order') {
+      const input = document.querySelector<HTMLInputElement>('[data-purchase-order-input]')
+      const orderNo = input?.value.trim() || ''
+      bindAccessoryPurchaseOrder(masterOrderId, taskId, orderNo)
+      refreshPurchaseLinkage(masterOrderId, taskId)
+      const currentFeedback = feedback()
+      if (currentFeedback) currentFeedback.textContent = `已绑定采购单 ${orderNo}`
+      return true
+    }
+    if (action === 'unbind-order') {
+      unbindAccessoryPurchaseOrder(masterOrderId, taskId, node.dataset.purchaseOrderNo || '')
+      refreshPurchaseLinkage(masterOrderId, taskId)
+      return true
+    }
+    if (action === 'purchase-prev-page' || action === 'purchase-next-page') {
+      const current = purchaseDetailPages.get(taskId) || 1
+      purchaseDetailPages.set(taskId, action === 'purchase-prev-page' ? Math.max(1, current - 1) : current + 1)
+      refreshPurchaseLinkage(masterOrderId, taskId)
+      return true
+    }
+  } catch (error) {
+    const currentFeedback = feedback()
+    if (currentFeedback) currentFeedback.textContent = error instanceof Error ? error.message : '采购单绑定失败。'
+    return true
+  }
+  return false
+}
 
 function getPurchaseTasksFiltered(): EngineeringTaskRecord[] {
   const tasks = listEngineeringTasksByType(PURCHASE_TASK_TYPES)
@@ -113,8 +206,6 @@ function renderPurchaseListStats(): string {
   return `<section class="flex flex-wrap gap-3">
     ${renderMetricButton('全部任务', tasks.length, state.purchaseList.quickFilter === 'all', 'all', 'set-purchase-quick-filter')}
     ${renderMetricButton('进行中', tasks.filter((item) => item.status === '进行中').length, state.purchaseList.quickFilter === 'in-progress', 'in-progress', 'set-purchase-quick-filter')}
-    ${renderMetricButton('待审核', tasks.filter((item) => item.status === '待审核').length, state.purchaseList.quickFilter === 'pending-review', 'pending-review', 'set-purchase-quick-filter')}
-    ${renderMetricButton('返工中', tasks.filter((item) => item.status === '返工中').length, state.purchaseList.quickFilter === 'rework', 'rework', 'set-purchase-quick-filter')}
     ${renderMetricButton('已完成', tasks.filter((item) => item.status === '已完成').length, state.purchaseList.quickFilter === 'completed', 'completed', 'set-purchase-quick-filter')}
   </section>`
 }
@@ -133,7 +224,7 @@ function renderPurchaseListPage(): string {
       statusField: 'purchase-status',
       ownerField: 'purchase-owner',
       sourceField: 'purchase-source',
-      statusOptions: ENGINEERING_TASK_FILTER_STATUS_OPTIONS,
+      statusOptions: PURCHASE_FILTER_STATUS_OPTIONS,
       ownerOptions: getEngineeringTaskTeamOptions(tasks),
       sourceOptions: getEngineeringTaskSourceOptions(tasks),
     }),
@@ -162,7 +253,7 @@ function renderPurchaseDetailPage(taskId: string): string {
       ${renderTaskSummaryCard(task, master)}
       ${renderTaskMasterCard(master)}
       ${renderTaskMaterialLinesCard(task)}
-      ${renderTaskReworkRoundsCard(task)}
+      ${renderPurchaseLinkageRegion(master.masterOrderId, task.taskId)}
       ${renderTaskDependencyCard(task)}
       ${renderTaskLogsCard(task, master, 'purchase')}
     </div>
