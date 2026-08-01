@@ -259,7 +259,7 @@ test('同仓名称重复与设备配额不足均保留维护输入', async ({ pa
     Storage.prototype.setItem = () => { throw new DOMException('quota exceeded', 'QuotaExceededError') }
   })
   await modal.locator('[data-warehouse-map-action="submit-maintenance"]').click()
-  await expect(modal.locator('[data-maintenance-error]')).toContainText('本次规模超出当前设备可处理能力，建议拆分货架/减少单次生成')
+  await expect(modal.locator('[data-maintenance-error]')).toContainText('当前设备可用资源不足，建议拆分货架/减少单次生成')
   await expect(modal.locator('[name="areaName"]')).toHaveValue('设备容量保护区')
   await page.evaluate(() => (window as typeof window & { __restoreStorageSetItem?: () => void }).__restoreStorageSetItem?.())
 })
