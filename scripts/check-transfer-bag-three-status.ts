@@ -1835,6 +1835,11 @@ assert.throws(
   /完整中转袋|袋内快照/,
   '交出命令必须在统一命令边界阻断按菲票或空内容局部交出',
 )
+const ordinaryActionStorage = createMemoryStorage()
+ordinaryActionStorage.setItem(
+  runtimeLedger.CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY,
+  actionStorage.getItem(runtimeLedger.CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) || '',
+)
 const firstHandoverAction =
   transferBagOperations.submitWholeBagHandover({
     bagCode: 'BAG-ACTION-001',
@@ -1858,7 +1863,7 @@ const firstHandoverAction =
     },
     source: 'WEB',
     occurredAt: '2026-07-30 13:20',
-  }, actionStorage)
+  }, ordinaryActionStorage)
 const duplicateHandoverAction =
   transferBagOperations.submitWholeBagHandover({
     bagCode: 'BAG-ACTION-001',
@@ -1882,10 +1887,10 @@ const duplicateHandoverAction =
     },
     source: 'WEB',
     occurredAt: '2026-07-30 13:20',
-  }, actionStorage)
+  }, ordinaryActionStorage)
 assert.equal(firstHandoverAction.eventId, duplicateHandoverAction.eventId)
 assert.equal(
-  runtimeLedger.listCuttingRuntimeEvents(actionStorage).length,
+  runtimeLedger.listCuttingRuntimeEvents(ordinaryActionStorage).length,
   3,
   '整袋交出动作重复提交不得写入第二条事件',
 )
@@ -1896,10 +1901,44 @@ assert.equal(
 )
 assert.equal(
   waitHandoverRuntime
-    .buildWaitHandoverLifecycleByBagCode('BAG-ACTION-001', actionStorage)
+    .buildWaitHandoverLifecycleByBagCode('BAG-ACTION-001', ordinaryActionStorage)
     .flowStage,
   'HANDED_OVER_WAITING_RETURN',
 )
+
+waitHandoverRuntime.appendWaitHandoverSpecialCraftHandoverEvent({
+  source: 'WEB',
+  operator: {
+    operatorId: 'OP-ACTION-SPECIAL-SOURCE',
+    operatorName: '特殊工艺来源交出员',
+  },
+  payload: {
+    handoverOrderId: handoverPayload.handoverOrderId,
+    handoverRecordId: handoverPayload.handoverRecordId,
+    craftCategory: '特种工艺',
+    craftType: '印花',
+    receiverFactoryId: 'CRAFT-FACTORY-ACTION-001',
+    receiverFactoryName: '测试工艺厂',
+    feiTicketItems: [{
+      feiTicketId: actionTicket.feiTicketId,
+      feiTicketNo: actionTicket.feiTicketNo,
+      specialCraftId: 'SPECIAL-CRAFT-ACTION-001',
+      partName: '前幅',
+      size: 'M',
+      pieceQty: 10,
+    }],
+    handedOverAt: '2026-07-30 13:20',
+    handedOverBy: '特殊工艺来源交出员',
+  },
+  handoverOrderId: handoverPayload.handoverOrderId,
+  handoverRecordId: handoverPayload.handoverRecordId,
+  specialCraftId: 'SPECIAL-CRAFT-ACTION-001',
+  transferBagCode: 'BAG-ACTION-001',
+  fromWarehouseArea: 'A 区',
+  occurredAt: '2026-07-30 13:20',
+  usageCycleId: actionCycleId,
+  storage: actionStorage,
+})
 
 const specialReturnPayload = {
   returnRecordId: 'SPECIAL-RETURN-ACTION-001',

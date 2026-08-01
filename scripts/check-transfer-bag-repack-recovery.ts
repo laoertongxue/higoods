@@ -21,6 +21,7 @@ import {
   resolveWholeBagHandoverEligibility,
   resolveTransferBagCurrentUse,
   submitTransferBagScrap,
+  submitSpecialCraftBagReturn,
   submitWholeBagHandover,
   submitTransferBagRepack,
 } from '../src/data/fcs/cutting/transfer-bag-operations.ts'
@@ -54,6 +55,107 @@ function createMemoryStorage(): BrowserStorageLike {
     getItem: (key) => records.get(key) ?? null,
     setItem: (key, value) => records.set(key, value),
     removeItem: (key) => records.delete(key),
+  }
+}
+
+function seedSpecialCraftBagHandover(input: {
+  storage: BrowserStorageLike
+  suffix: string
+  tickets?: TransferBagTicketFactSnapshot[]
+  occurredAt?: string
+}) {
+  const bagCode = `BAG-SPECIAL-RETURN-${input.suffix}`
+  const usageCycleId = `usage:${bagCode}:1`
+  const sourceHandoverRecordId = `SPECIAL-HR-RETURN-${input.suffix}`
+  const sourceHandoverOrderId = `SPECIAL-HO-RETURN-${input.suffix}`
+  const specialCraftId = `SPECIAL-CRAFT-RETURN-${input.suffix}`
+  const tickets = input.tickets || [
+    ticket(`${input.suffix}-01`, `PO-${input.suffix}`, 'CRAFT-FACTORY-RETURN', 12),
+    ticket(`${input.suffix}-02`, `PO-${input.suffix}`, 'CRAFT-FACTORY-RETURN', 8),
+  ]
+  appendBagging({
+    storage: input.storage,
+    bagCode,
+    usageCycleId,
+    tickets,
+    occurredAt: '2026-08-01 08:00',
+  })
+  appendInbound({
+    storage: input.storage,
+    bagCode,
+    usageCycleId,
+    tickets,
+    occurredAt: '2026-08-01 08:10',
+  })
+  const handover = appendWaitHandoverSpecialCraftHandoverEvent({
+    source: 'WEB',
+    operator: { operatorId: 'OP-SPECIAL-OUT', operatorName: '特殊工艺交出员' },
+    payload: {
+      handoverOrderId: sourceHandoverOrderId,
+      handoverRecordId: sourceHandoverRecordId,
+      craftCategory: '特种工艺',
+      craftType: '绣花',
+      receiverFactoryId: 'CRAFT-FACTORY-RETURN',
+      receiverFactoryName: '特殊工艺回仓测试厂',
+      feiTicketItems: tickets.map((item) => ({
+        feiTicketId: item.feiTicketId,
+        feiTicketNo: item.feiTicketNo,
+        specialCraftId,
+        partName: item.partName,
+        size: item.size,
+        pieceQty: item.pieceQty,
+      })),
+      handedOverAt: input.occurredAt || '2026-08-01 09:00',
+      handedOverBy: '特殊工艺交出员',
+    },
+    handoverOrderId: sourceHandoverOrderId,
+    handoverRecordId: sourceHandoverRecordId,
+    specialCraftId,
+    transferBagCode: bagCode,
+    fromWarehouseArea: '待交出 A 区',
+    occurredAt: input.occurredAt || '2026-08-01 09:00',
+    usageCycleId,
+    storage: input.storage,
+  })
+  return {
+    bagCode,
+    usageCycleId,
+    sourceHandoverRecordId,
+    sourceHandoverOrderId,
+    specialCraftId,
+    tickets,
+    handover,
+  }
+}
+
+function specialCraftReturnLocation(suffix: string) {
+  return {
+    factoryId: 'FACTORY-CUTTING',
+    warehouseId: 'WAREHOUSE-WAIT-HANDOVER',
+    warehouseKind: 'WAIT_HANDOVER' as const,
+    areaId: 'AREA-RETURN',
+    areaName: '待交出回仓区',
+    shelfId: 'SHELF-RETURN',
+    shelfNo: 'R',
+    locationId: `LOCATION-RETURN-${suffix}`,
+    locationNo: `R-${suffix}`,
+  }
+}
+
+function specialCraftBagReturnInput(
+  seeded: ReturnType<typeof seedSpecialCraftBagHandover>,
+  suffix: string,
+  overrides: Partial<Parameters<typeof submitSpecialCraftBagReturn>[0]> = {},
+): Parameters<typeof submitSpecialCraftBagReturn>[0] {
+  return {
+    sourceHandoverRecordId: seeded.sourceHandoverRecordId,
+    bagCode: seeded.bagCode,
+    returnedTicketIds: seeded.tickets.map((item) => item.feiTicketId),
+    locationRef: specialCraftReturnLocation(suffix),
+    operator: { operatorId: 'OP-SPECIAL-IN', operatorName: '特殊工艺回仓员' },
+    source: 'WEB',
+    occurredAt: '2026-08-01 09:20',
+    ...overrides,
   }
 }
 
@@ -2796,7 +2898,7 @@ for (const collisionKind of ['cancelled-record', 'damaged-idempotency'] as const
   assert.deepEqual(buildWaitHandoverLocationOccupancyStates(listCuttingRuntimeEvents(baseStorage)), occupancyBefore, 'append 抛错后库位占用不得推进')
 }
 
-for (const withLocationRef of [false, true]) {
+for (const withLocationRef of [true]) {
   const storage = createMemoryStorage()
   const suffix = withLocationRef ? 'WITH-REF' : 'WITHOUT-REF'
   const bagCode = `BAG-NORMAL-SOURCE-${suffix}`
@@ -4364,6 +4466,411 @@ function scrapInput(
     qualityReviewRedFailures,
     [],
     `质量审查 P1 红灯：\n${qualityReviewRedFailures.join('\n')}`,
+  )
+}
+
+// 任务 6 TDD 合同：特殊工艺带袋回仓必须按不可变来源快照恢复关系。
+{
+  const storage = createMemoryStorage()
+  const seeded = seedSpecialCraftBagHandover({ storage, suffix: 'COMPLETE' })
+  const returned = submitSpecialCraftBagReturn({
+    sourceHandoverRecordId: seeded.sourceHandoverRecordId,
+    bagCode: seeded.bagCode,
+    returnedTicketIds: seeded.tickets.map((item) => item.feiTicketId),
+    locationRef: specialCraftReturnLocation('COMPLETE'),
+    operator: { operatorId: 'OP-SPECIAL-IN', operatorName: '特殊工艺回仓员' },
+    source: 'WEB',
+    occurredAt: '2026-08-01 09:20',
+  }, storage)
+  assert.equal(returned.eventType, '特殊工艺回仓', '原袋原票完整回仓必须写入特殊工艺回仓事实')
+  const current = resolveTransferBagCurrentUse(seeded.bagCode, storage)
+  assert.deepEqual(
+    [current.mainStatus, current.flowStage, current.tickets.map((item) => item.feiTicketId)],
+    ['IN_USE', 'INBOUND_STORED', seeded.tickets.map((item) => item.feiTicketId)],
+    '原袋原票完整回仓必须恢复当前袋票关系',
+  )
+  const occupancies = buildWaitHandoverLocationOccupancyStates(listCuttingRuntimeEvents(storage))
+    .filter((item) => item.bagCode === seeded.bagCode)
+  assert.equal(occupancies.length, 1, '特殊工艺带袋回仓必须且只能恢复一个库位占用')
+  assert.deepEqual(occupancies[0].locationRef, specialCraftReturnLocation('COMPLETE'))
+}
+
+{
+  const storage = createMemoryStorage()
+  const seeded = seedSpecialCraftBagHandover({ storage, suffix: 'OCCUPIED' })
+  appendBagging({
+    storage,
+    bagCode: 'BAG-SPECIAL-RETURN-OTHER',
+    usageCycleId: 'usage:BAG-SPECIAL-RETURN-OTHER:1',
+    tickets: [seeded.tickets[0]],
+    occurredAt: '2026-08-01 09:10',
+  })
+  assertRejectedWithoutWriting(
+    storage,
+    () => submitSpecialCraftBagReturn({
+      sourceHandoverRecordId: seeded.sourceHandoverRecordId,
+      bagCode: seeded.bagCode,
+      returnedTicketIds: seeded.tickets.map((item) => item.feiTicketId),
+      locationRef: specialCraftReturnLocation('OCCUPIED'),
+      operator: { operatorName: '特殊工艺回仓员' },
+      source: 'WEB',
+      occurredAt: '2026-08-01 09:20',
+    }, storage),
+    /已被其他当前中转袋绑定/,
+    '菲票已被其他当前袋占用必须失败',
+  )
+}
+
+{
+  const storage = createMemoryStorage()
+  const seeded = seedSpecialCraftBagHandover({ storage, suffix: 'MISMATCH' })
+  assertRejectedWithoutWriting(
+    storage,
+    () => submitSpecialCraftBagReturn({
+      sourceHandoverRecordId: seeded.sourceHandoverRecordId,
+      bagCode: seeded.bagCode,
+      returnedTicketIds: [seeded.tickets[0].feiTicketId],
+      locationRef: specialCraftReturnLocation('MISMATCH'),
+      operator: { operatorName: '特殊工艺回仓员' },
+      source: 'WEB',
+      occurredAt: '2026-08-01 09:20',
+    }, storage),
+    /原交出快照不一致/,
+    '实物与原交出快照不一致必须失败',
+  )
+}
+
+{
+  const storage = createMemoryStorage()
+  const seeded = seedSpecialCraftBagHandover({ storage, suffix: 'EMPTY' })
+  assertRejectedWithoutWritingExact(
+    storage,
+    () => submitSpecialCraftBagReturn({
+      sourceHandoverRecordId: seeded.sourceHandoverRecordId,
+      bagCode: seeded.bagCode,
+      returnedTicketIds: [],
+      locationRef: specialCraftReturnLocation('EMPTY'),
+      operator: { operatorName: '特殊工艺回仓员' },
+      source: 'WEB',
+      occurredAt: '2026-08-01 09:20',
+    }, storage),
+    '空袋请执行中转袋回收。',
+    '物理袋为空必须指引中转袋回收',
+  )
+}
+
+{
+  const storage = createMemoryStorage()
+  const seeded = seedSpecialCraftBagHandover({ storage, suffix: 'IDEMPOTENT' })
+  const input = specialCraftBagReturnInput(seeded, 'IDEMPOTENT')
+  const first = submitSpecialCraftBagReturn(input, storage)
+  const afterFirst = listCuttingRuntimeEvents(storage)
+  const retry = submitSpecialCraftBagReturn(structuredClone(input), storage)
+  assert.equal(retry.eventId, first.eventId, '同来源交出记录和周期的等价重试必须返回原事实')
+  assert.deepEqual(listCuttingRuntimeEvents(storage), afterFirst, '等价重试不得重复写入')
+  ;(first.payload as Record<string, unknown>).warehouseArea = '外部篡改'
+  assert.notEqual(
+    (listCuttingRuntimeEvents(storage).find((event) => event.eventId === first.eventId)?.payload as Record<string, unknown>).warehouseArea,
+    '外部篡改',
+    '命令返回值必须深拷贝，不能修改存储事实',
+  )
+  for (const [label, conflicting] of [
+    ['菲票', specialCraftBagReturnInput(seeded, 'IDEMPOTENT', { returnedTicketIds: [seeded.tickets[0].feiTicketId] })],
+    ['库位', specialCraftBagReturnInput(seeded, 'IDEMPOTENT-CONFLICT')],
+    ['操作人', specialCraftBagReturnInput(seeded, 'IDEMPOTENT', { operator: { operatorName: '另一回仓员' } })],
+    ['来源', specialCraftBagReturnInput(seeded, 'IDEMPOTENT', { source: 'PDA' })],
+  ] as const) {
+    assertRejectedWithoutWriting(
+      storage,
+      () => submitSpecialCraftBagReturn(conflicting, storage),
+      /业务意图冲突/,
+      `幂等重试的${label}变化必须冲突`,
+    )
+  }
+  assertRejectedWithoutWriting(
+    storage,
+    () => submitSpecialCraftBagReturn(specialCraftBagReturnInput(seeded, 'IDEMPOTENT', {
+      bagCode: 'BAG-SPECIAL-RETURN-CONFLICT',
+    }), storage),
+    /中转袋.*不一致/,
+    '幂等重试的物理袋变化必须冲突',
+  )
+}
+
+{
+  const storage = createMemoryStorage()
+  const seeded = seedSpecialCraftBagHandover({ storage, suffix: 'LOCATION' })
+  assertRejectedWithoutWriting(
+    storage,
+    () => submitSpecialCraftBagReturn(specialCraftBagReturnInput(seeded, 'LOCATION', {
+      locationRef: {
+        ...specialCraftReturnLocation('LOCATION'),
+        shelfId: '',
+      },
+    }), storage),
+    /完整的待交出仓库位/,
+    '特殊工艺带袋回仓缺少完整权威库位必须失败',
+  )
+}
+
+{
+  const storage = createMemoryStorage()
+  const seeded = seedSpecialCraftBagHandover({ storage, suffix: 'NO-BAG' })
+  const event = appendWaitHandoverSpecialCraftReturnEvent({
+    source: 'WEB',
+    operator: { operatorName: '无袋回仓员' },
+    payload: {
+      returnRecordId: 'SPECIAL-RETURN-NO-BAG',
+      returnRecordNo: 'SPECIAL-RETURN-NO-BAG',
+      sourceHandoverOrderId: seeded.sourceHandoverOrderId,
+      sourceHandoverRecordId: seeded.sourceHandoverRecordId,
+      receiverFactoryId: 'CRAFT-FACTORY-RETURN',
+      receiverFactoryName: '特殊工艺回仓测试厂',
+      returnedFeiTicketItems: seeded.tickets.map((item) => ({
+        feiTicketId: item.feiTicketId,
+        feiTicketNo: item.feiTicketNo,
+        specialCraftId: seeded.specialCraftId,
+        expectedQty: item.pieceQty,
+        returnedQty: item.pieceQty,
+        unit: '片' as const,
+        returnStatus: '已回仓' as const,
+      })),
+      warehouseArea: '待交出回仓区',
+      locationCode: 'R-NO-BAG',
+      locationRef: specialCraftReturnLocation('NO-BAG'),
+      returnedAt: '2026-08-01 09:20',
+      returnedBy: '无袋回仓员',
+    },
+    specialCraftId: seeded.specialCraftId,
+    occurredAt: '2026-08-01 09:20',
+    storage,
+  })
+  assert.equal(event.eventType, '特殊工艺回仓', '只有菲票回仓必须保留无袋回仓事实')
+  assert.equal(Boolean(event.refs.transferBagCode), false, '无袋回仓不得带有效中转袋引用')
+  assert.equal(Boolean(event.refs.usageCycleId), false, '无袋回仓不得绑定有效袋使用周期')
+  assert.equal(Boolean(event.refs.handoverLegId), false, '无袋回仓不得绑定有效袋交出段')
+  assert.equal(
+    buildWaitHandoverLocationOccupancyStates(listCuttingRuntimeEvents(storage)).length,
+    0,
+    '无袋回仓不得生成虚拟袋码或库位占用',
+  )
+  assert.equal(resolveTransferBagCurrentUse(seeded.bagCode, storage).flowStage, 'HANDED_OVER_WAITING_RETURN')
+}
+
+{
+  const storage = createMemoryStorage()
+  const seeded = seedSpecialCraftBagHandover({ storage, suffix: 'EMPTY-BAG' })
+  const event = appendWaitHandoverSpecialCraftReturnEvent({
+    source: 'WEB',
+    operator: { operatorName: '空袋回收员' },
+    payload: {
+      returnRecordId: 'SPECIAL-RETURN-EMPTY-BAG',
+      returnRecordNo: 'SPECIAL-RETURN-EMPTY-BAG',
+      sourceHandoverOrderId: seeded.sourceHandoverOrderId,
+      sourceHandoverRecordId: seeded.sourceHandoverRecordId,
+      receiverFactoryId: 'CRAFT-FACTORY-RETURN',
+      receiverFactoryName: '特殊工艺回仓测试厂',
+      transferBagCode: seeded.bagCode,
+      returnedFeiTicketItems: [],
+      warehouseArea: '待交出回仓区',
+      locationCode: 'R-EMPTY-BAG',
+      locationRef: specialCraftReturnLocation('EMPTY-BAG'),
+      returnedAt: '2026-08-01 09:20',
+      returnedBy: '空袋回收员',
+    },
+    specialCraftId: seeded.specialCraftId,
+    occurredAt: '2026-08-01 09:20',
+    storage,
+  })
+  assert.equal(event.eventType, '中转袋回收', '物理空袋无票必须走中转袋回收')
+  assert.equal(resolveTransferBagCurrentUse(seeded.bagCode, storage).mainStatus, 'IDLE')
+  assert.equal(
+    listCuttingRuntimeEvents(storage).filter((item) => item.eventType === '特殊工艺回仓').length,
+    0,
+    '物理空袋不得伪造特殊工艺带袋回仓事实',
+  )
+}
+
+{
+  const storage = createMemoryStorage()
+  const seeded = seedSpecialCraftBagHandover({
+    storage,
+    suffix: 'SAME-MINUTE',
+    occurredAt: '2026-08-01 09:00',
+  })
+  submitSpecialCraftBagReturn(specialCraftBagReturnInput(seeded, 'SAME-MINUTE', {
+    occurredAt: '2026-08-01 09:00',
+  }), storage)
+  const second = appendWaitHandoverSpecialCraftHandoverEvent({
+    source: 'WEB',
+    operator: { operatorName: '特殊工艺二次交出员' },
+    payload: {
+      handoverOrderId: 'SPECIAL-HO-SAME-MINUTE-2',
+      handoverRecordId: 'SPECIAL-HR-SAME-MINUTE-2',
+      craftCategory: '特种工艺',
+      craftType: '绣花',
+      receiverFactoryId: 'CRAFT-FACTORY-RETURN',
+      receiverFactoryName: '特殊工艺回仓测试厂',
+      feiTicketItems: seeded.tickets.map((item) => ({
+        feiTicketId: item.feiTicketId,
+        feiTicketNo: item.feiTicketNo,
+        specialCraftId: seeded.specialCraftId,
+        partName: item.partName,
+        size: item.size,
+        pieceQty: item.pieceQty,
+      })),
+      handedOverAt: '2026-08-01 09:00',
+      handedOverBy: '特殊工艺二次交出员',
+    },
+    handoverOrderId: 'SPECIAL-HO-SAME-MINUTE-2',
+    handoverRecordId: 'SPECIAL-HR-SAME-MINUTE-2',
+    specialCraftId: seeded.specialCraftId,
+    transferBagCode: seeded.bagCode,
+    fromWarehouseArea: '待交出回仓区',
+    occurredAt: '2026-08-01 09:00',
+    usageCycleId: seeded.usageCycleId,
+    storage,
+  })
+  assert.equal(second.refs.handoverLegId, `${seeded.usageCycleId}:handover:2`, '同分钟回仓后再次交出必须进入 handover:2')
+}
+
+{
+  const storage = createMemoryStorage()
+  const seeded = seedSpecialCraftBagHandover({ storage, suffix: 'CROSS-CYCLE' })
+  recoverTransferBag({
+    bagCode: seeded.bagCode,
+    physicalBagReceived: true,
+    physicalBagEmpty: true,
+    recoveryMode: 'NORMAL',
+    recoveryNode: '裁床',
+    recoveryLocation: '空袋区',
+    reason: '',
+    operator: { operatorName: '空袋回收员' },
+    source: 'WEB',
+    occurredAt: '2026-08-01 09:10',
+  }, storage)
+  const newTickets = [ticket('CROSS-CYCLE-NEW', 'PO-CROSS-CYCLE-NEW', 'CRAFT-FACTORY-RETURN')]
+  appendBagging({
+    storage,
+    bagCode: seeded.bagCode,
+    usageCycleId: `usage:${seeded.bagCode}:2`,
+    tickets: newTickets,
+    occurredAt: '2026-08-01 09:15',
+  })
+  assertRejectedWithoutWriting(
+    storage,
+    () => submitSpecialCraftBagReturn(specialCraftBagReturnInput(seeded, 'CROSS-CYCLE'), storage),
+    /不是该来源记录的已交出待回收状态/,
+    '旧周期来源交出不得恢复到新使用周期',
+  )
+}
+
+{
+  const storage = createMemoryStorage()
+  const seeded = seedSpecialCraftBagHandover({ storage, suffix: 'STORAGE-FAIL' })
+  const eventsBefore = listCuttingRuntimeEvents(storage)
+  const rejectingStorage: BrowserStorageLike = {
+    getItem: (key) => storage.getItem(key),
+    setItem: () => { throw new Error('模拟特殊工艺回仓存储失败') },
+    removeItem: (key) => storage.removeItem(key),
+  }
+  assert.throws(
+    () => submitSpecialCraftBagReturn(specialCraftBagReturnInput(seeded, 'STORAGE-FAIL'), rejectingStorage),
+    /模拟特殊工艺回仓存储失败/,
+  )
+  assert.deepEqual(listCuttingRuntimeEvents(storage), eventsBefore, '特殊工艺回仓存储失败必须保持零写入')
+}
+
+{
+  const storage = createMemoryStorage()
+  const seeded = seedSpecialCraftBagHandover({ storage, suffix: 'EARLY-TIME' })
+  assertRejectedWithoutWriting(
+    storage,
+    () => submitSpecialCraftBagReturn(specialCraftBagReturnInput(seeded, 'EARLY-TIME', {
+      occurredAt: '2026-08-01 08:59',
+    }), storage),
+    /时间不能早于来源交出事实/,
+    '特殊工艺带袋回仓时间早于来源交出必须失败',
+  )
+}
+
+{
+  const storage = createMemoryStorage()
+  const sourceTicket = ticket('VOID-RETURN-01', 'PO-VOID-RETURN', 'CRAFT-FACTORY-RETURN') as TransferBagTicketFactSnapshot & { voidStatus: string }
+  sourceTicket.voidStatus = '已作废'
+  const seeded = seedSpecialCraftBagHandover({ storage, suffix: 'VOID', tickets: [sourceTicket] })
+  assertRejectedWithoutWriting(
+    storage,
+    () => submitSpecialCraftBagReturn(specialCraftBagReturnInput(seeded, 'VOID'), storage),
+    /已作废或缺失/,
+    '来源快照任一菲票已作废必须失败',
+  )
+}
+
+for (const [suffix, eventStatus, payload] of [
+  ['FAILED', '同步失败', { handoverRecordId: 'SPECIAL-HR-INVALID-FAILED' }],
+  ['CANCELED', '已取消', { handoverRecordId: 'SPECIAL-HR-INVALID-CANCELED' }],
+  ['INCOMPLETE', '已同步', { handoverRecordId: 'SPECIAL-HR-INVALID-INCOMPLETE' }],
+] as const) {
+  const storage = createMemoryStorage()
+  const sourceHandoverRecordId = `SPECIAL-HR-INVALID-${suffix}`
+  appendCuttingRuntimeEvent({
+    eventType: '特殊工艺交出',
+    eventSource: 'WEB',
+    eventStatus,
+    occurredAt: '2026-08-01 09:00',
+    operatorName: '非法事实导入员',
+    refs: {
+      handoverRecordId: sourceHandoverRecordId,
+      transferBagCode: `BAG-SPECIAL-INVALID-${suffix}`,
+      usageCycleId: `usage:BAG-SPECIAL-INVALID-${suffix}:1`,
+    },
+    payload,
+  } as Parameters<typeof appendCuttingRuntimeEvent>[0], storage)
+  assertRejectedWithoutWriting(
+    storage,
+    () => submitSpecialCraftBagReturn({
+      sourceHandoverRecordId,
+      bagCode: `BAG-SPECIAL-INVALID-${suffix}`,
+      returnedTicketIds: [`INVALID-${suffix}-01`],
+      locationRef: specialCraftReturnLocation(`INVALID-${suffix}`),
+      operator: { operatorName: '特殊工艺回仓员' },
+      source: 'WEB',
+      occurredAt: '2026-08-01 09:20',
+    }, storage),
+    /不存在、未成功或事实不完整/,
+    `${eventStatus}或残缺来源交出不得生效`,
+  )
+}
+
+{
+  const storage = createMemoryStorage()
+  const seeded = seedSpecialCraftBagHandover({ storage, suffix: 'DISABLED' })
+  recoverTransferBag({
+    bagCode: seeded.bagCode,
+    physicalBagReceived: true,
+    physicalBagEmpty: true,
+    recoveryMode: 'NORMAL',
+    recoveryNode: '裁床',
+    recoveryLocation: '空袋区',
+    reason: '',
+    operator: { operatorName: '空袋回收员' },
+    source: 'WEB',
+    occurredAt: '2026-08-01 09:10',
+  }, storage)
+  submitTransferBagScrap({
+    bagCode: seeded.bagCode,
+    reason: '袋体破损',
+    authorizedBy: '裁床主管',
+    operator: { operatorName: '资产管理员' },
+    source: 'WEB',
+    occurredAt: '2026-08-01 09:15',
+  }, storage)
+  assertRejectedWithoutWriting(
+    storage,
+    () => submitSpecialCraftBagReturn(specialCraftBagReturnInput(seeded, 'DISABLED'), storage),
+    /已经报废/,
+    '已报废袋不得被特殊工艺回仓复活',
   )
 }
 

@@ -47,6 +47,7 @@ const CUTTING_MAINLINE_LEDGER = 'src/data/fcs/cutting/cutting-mainline-event-led
 const SEWING_DISPATCH = 'src/data/fcs/cutting/sewing-dispatch.ts'
 const TRANSFER_BAG_RUNTIME = 'src/data/fcs/cutting/transfer-bag-runtime.ts'
 const TRANSFER_BAG_LIFECYCLE = 'src/data/fcs/cutting/transfer-bag-lifecycle.ts'
+const TRANSFER_BAG_OPERATIONS = 'src/data/fcs/cutting/transfer-bag-operations.ts'
 
 const WAREHOUSE_HUB = 'src/pages/process-factory/cutting/warehouse-hub.ts'
 const T_BAGS = 'src/pages/process-factory/cutting/transfer-bags.ts'
@@ -131,10 +132,20 @@ assertNotContains(ledger, "'菲票入仓暂存'", 'EVENT_LEDGER 不得继续保�
 
 // 1.3 写入函数
 const runtime = read(WAIT_HANDOVER_RUNTIME)
+const transferBagOperations = read(TRANSFER_BAG_OPERATIONS)
 assertContains(runtime, 'appendWaitHandoverBaggingEvent', 'RUNTIME 缺少 appendWaitHandoverBaggingEvent（菲票装袋）')
 assertContains(runtime, 'appendWaitHandoverInboundEvent', 'RUNTIME 必须有 appendWaitHandoverInboundEvent（中转袋入仓：仅库位）')
 assertContains(runtime, "eventType: '菲票装袋'", 'RUNTIME appendWaitHandoverBaggingEvent 必须写入菲票装袋')
 assertContains(runtime, "eventType: '中转袋入仓'", 'RUNTIME appendWaitHandoverInboundEvent 必须写入中转袋入仓')
+
+// 1.3.1 任务 6：特殊工艺带袋回仓统一命令和三分流
+assertContains(transferBagOperations, 'export function submitSpecialCraftBagReturn', 'OPERATIONS 必须导出特殊工艺带袋回仓共享命令')
+assertContains(transferBagOperations, 'appendCuttingRuntimeEventIdempotentValidated', '特殊工艺带袋回仓必须使用写前验证的原子 append')
+assertContains(transferBagOperations, '空袋请执行中转袋回收。', '共享命令必须用精确文案阻断空袋')
+assertContains(runtime, 'return submitSpecialCraftBagReturn({', '带袋有票回仓必须委托共享命令')
+assertContains(runtime, 'return recoverTransferBag({', '物理空袋无票必须委托中转袋回收')
+assertContains(runtime, 'isCompleteSuccessfulSpecialCraftBagReturnEvent(event)', '库位和生命周期投影只接受严格带袋回仓事实')
+assertNotContains(runtime, '`return:${returnRecordId}`', '无袋回仓不得生成虚拟袋码占用库位')
 
 // 1.4 关键字段声明
 const handoverData = read(HANDOVER_ORDERS_DATA)

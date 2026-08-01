@@ -36,12 +36,14 @@ import {
   isEffectiveTransferBagRecoveryEvent,
   isEffectiveTransferBagScrapEvent,
   isCompleteSuccessfulSpecialCraftHandoverEvent,
+  isCompleteSuccessfulSpecialCraftBagReturnEvent,
   isCompleteSuccessfulWholeBagHandoverEvent,
   parseCompleteTransferBagRepackPayload,
   parseTransferBagAuthoritativeLocationFact,
   resolveTransferBagAuthoritativeCurrentLocation,
   resolveTransferBagCurrentUse,
   recoverTransferBag,
+  submitSpecialCraftBagReturn,
   submitTransferBagScrap,
 } from '../../../data/fcs/cutting/transfer-bag-operations.ts'
 import {
@@ -432,6 +434,10 @@ function toWaitHandoverLifecycleFact(
   if (
     event.eventType === '特殊工艺交出'
     && !isCompleteSuccessfulSpecialCraftHandoverEvent(event)
+  ) return null
+  if (
+    event.eventType === '特殊工艺回仓'
+    && !isCompleteSuccessfulSpecialCraftBagReturnEvent(event)
   ) return null
   if (
     event.eventType === '中转袋回收'
@@ -1055,10 +1061,11 @@ export function buildWaitHandoverLocationOccupancyStates(
       continue
     }
     if (event.eventType === '特殊工艺回仓') {
+      if (!isCompleteSuccessfulSpecialCraftBagReturnEvent(event)) continue
       const returnRecordId = runtimeString(payload.returnRecordId) || event.eventId
-      const bagCode = runtimeString(payload.transferBagCode) || event.refs.transferBagCode || `return:${returnRecordId}`
+      const bagCode = runtimeString(payload.transferBagCode) || event.refs.transferBagCode || ''
       const locationRef = parseTransferBagAuthoritativeLocationFact(event)?.locationRef
-      if (!locationRef) continue
+      if (!bagCode || !locationRef) continue
        const stateKey = findWaitHandoverStateKey(states, bagCode, event.refs.usageCycleId, locationRef)
        const current = stateKey ? states.get(stateKey) : undefined
       const returnedQty = Number(event.inventoryEffect?.qty || 0)
@@ -1739,7 +1746,41 @@ export function appendWaitHandoverSpecialCraftReturnEvent(input: {
 }) {
   const storage = resolveWaitHandoverStorage(input.storage)
   const occurredAt = input.occurredAt || input.payload.returnedAt || new Date().toISOString()
-  const bagCode = input.payload.transferBagCode || ''
+  const operationOccurredAt = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(occurredAt)
+    ? occurredAt.slice(0, 16).replace('T', ' ')
+    : occurredAt
+  const bagCode = input.payload.transferBagCode?.trim() || ''
+  const returnedTicketIds = input.payload.returnedFeiTicketItems
+    .map((item) => item.feiTicketId.trim())
+    .filter(Boolean)
+  if (bagCode && returnedTicketIds.length) {
+    return submitSpecialCraftBagReturn({
+      sourceHandoverRecordId: input.payload.sourceHandoverRecordId,
+      bagCode,
+      returnedTicketIds,
+      locationRef: input.payload.locationRef as RuntimeWarehouseLocationRef,
+      operator: input.operator,
+      source: input.source,
+      occurredAt: operationOccurredAt,
+    }, storage)
+  }
+  if (bagCode && returnedTicketIds.length === 0) {
+    return recoverTransferBag({
+      bagCode,
+      physicalBagReceived: true,
+      physicalBagEmpty: true,
+      recoveryMode: 'NORMAL',
+      recoveryNode: input.payload.receiverFactoryName || '特殊工艺工厂',
+      recoveryLocation: [input.payload.warehouseArea, input.payload.locationCode]
+        .map((value) => value.trim())
+        .filter(Boolean)
+        .join(' / ') || '裁床待交出仓',
+      reason: `特殊工艺空袋回仓：${input.payload.sourceHandoverRecordId}`,
+      operator: input.operator,
+      source: input.source,
+      occurredAt: operationOccurredAt,
+    }, storage)
+  }
   const usageCycleId =
     input.usageCycleId
     || (
@@ -1770,27 +1811,6 @@ export function appendWaitHandoverSpecialCraftReturnEvent(input: {
     storage,
   )
   if (existing) return existing
-  if (bagCode) {
-    const lifecycle = assertWaitHandoverActionAllowed({
-      bagCode,
-      action: 'SPECIAL_CRAFT_RETURN',
-      actionLabel: '确认特殊工艺带袋回仓',
-      storage,
-    })
-    if (lifecycle.usageCycleId !== usageCycleId) {
-      throw new Error('特殊工艺回仓使用周期与当前物理袋不一致。')
-    }
-    if (
-      !input.payload.sourceHandoverRecordId
-      || !input.payload.warehouseArea
-      || !input.payload.locationCode
-    ) {
-      throw new Error('带袋特殊工艺回仓必须保留来源交出记录、库区和库位。')
-    }
-    if (!activeHandoverLegId) {
-      throw new Error('当前中转袋没有可关闭的交出流转段。')
-    }
-  }
   const returnedQty = input.payload.returnedFeiTicketItems.reduce((sum, item) => sum + Number(item.returnedQty || 0), 0)
   return appendCuttingRuntimeEventIdempotent({
     idempotencyKey,
@@ -1807,9 +1827,9 @@ export function appendWaitHandoverSpecialCraftReturnEvent(input: {
       specialCraftId: input.specialCraftId,
       feiTicketIds: input.payload.returnedFeiTicketItems.map((item) => item.feiTicketId),
       feiTicketNos: input.payload.returnedFeiTicketItems.map((item) => item.feiTicketNo),
-      transferBagCode: bagCode,
-      usageCycleId: usageCycleId || undefined,
-      handoverLegId: activeHandoverLegId,
+      ...(bagCode ? { transferBagCode: bagCode } : {}),
+      ...(usageCycleId ? { usageCycleId } : {}),
+      ...(activeHandoverLegId ? { handoverLegId: activeHandoverLegId } : {}),
     },
     inventoryEffect: {
       inventoryScope: '裁床待交出仓',
