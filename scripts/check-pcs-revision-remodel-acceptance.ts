@@ -458,6 +458,7 @@ assertIncludes(detailHtml, '2 个', '改版详情页默认视图应展示已生�
 pass('详情页内容结构聚焦业务推进、缺失项和下一动作')
 
 const pageSource = fs.readFileSync('src/pages/pcs-engineering-tasks.ts', 'utf8')
+const sharedSource = fs.readFileSync('src/pages/pcs-engineering-tasks/shared.ts', 'utf8')
 ;[
   'data-pcs-engineering-action="submit-revision-confirmation"',
   'data-pcs-engineering-action="confirm-revision-output"',
@@ -469,9 +470,9 @@ const pageSource = fs.readFileSync('src/pages/pcs-engineering-tasks.ts', 'utf8')
 })
 assertIncludes(pageSource, '创建建议下游', '下游页签缺少创建建议下游入口')
 assertIncludes(pageSource, 'sourceOptions: REVISION_TASK_SOURCE_TYPE_LIST', '列表来源筛选必须固定展示标准改版来源')
-assertIncludes(pageSource, "已确认: { label: '待生成技术包'", '已确认状态必须按待生成技术包展示')
-assertIncludes(pageSource, "已生成技术包: { label: '待完成'", '已生成技术包状态必须按待完成展示')
-assertIncludes(pageSource, "REVISION_FILTER_STATUS_OPTIONS = ['进行中', '待确认', '已确认', '已生成技术包', '已完成']", '改版任务状态筛选必须收敛为 5 个业务状态')
+assertIncludes(pageSource + sharedSource, "已确认: { label: '待生成技术包'", '已确认状态必须按待生成技术包展示')
+assertIncludes(pageSource + sharedSource, "已生成技术包: { label: '待完成'", '已生成技术包状态必须按待完成展示')
+assertIncludes(pageSource + sharedSource, "REVISION_FILTER_STATUS_OPTIONS = ['进行中', '待确认', '已确认', '已生成技术包', '已完成']", '改版任务状态筛选必须收敛为 5 个业务状态')
 assertIncludes(pageSource, 'statusOptions: REVISION_FILTER_STATUS_OPTIONS', '改版任务列表必须使用专用五状态筛选')
 assertIncludes(pageSource, "label: '产出样衣'", '改版详情页样衣页签必须表达为产出样衣')
 assertIncludes(pageSource, '当前改版任务暂未产出样衣', '产出样衣空状态必须按当前改版任务语义表达')
@@ -481,9 +482,9 @@ assert.ok(!pageSource.includes("if (!task.projectId) return '先补齐正式商�
 assert.ok(!pageSource.includes("missing.push('关联商品项目')"), '独立改版任务缺失项不得提示关联商品项目')
 assert.ok(!pageSource.includes("label: '关联样衣'"), '改版详情页不得继续使用关联样衣页签')
 assert.ok(!pageSource.includes("statusOptions: ['未开始', '进行中'"), '工程任务状态筛选不得继续展示未开始')
-const revisionFilterSource = pageSource.slice(
-  pageSource.indexOf('const REVISION_FILTER_STATUS_OPTIONS'),
-  pageSource.indexOf('const SAMPLE_STATUS_META'),
+const revisionFilterSource = sharedSource.slice(
+  sharedSource.indexOf('const REVISION_FILTER_STATUS_OPTIONS'),
+  sharedSource.indexOf('const SAMPLE_STATUS_META'),
 )
 assert.ok(!revisionFilterSource.includes('异常待处理'), '改版任务状态筛选不得继续展示阻塞状态')
 assert.ok(!revisionFilterSource.includes('已取消'), '改版任务状态筛选不得继续展示已取消')

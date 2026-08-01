@@ -21,6 +21,7 @@ const teamConfig = read('src/data/pcs-pattern-task-team-config.ts')
 const flowService = read('src/data/pcs-pattern-task-flow-service.ts')
 const policy = read('src/data/pcs-engineering-task-field-policy.ts')
 const page = read('src/pages/pcs-engineering-tasks.ts')
+const patternPage = read('src/pages/pcs-engineering-tasks/pattern-task.ts')
 const libraryTypes = read('src/data/pcs-pattern-library-types.ts')
 const techPackGeneration = read('src/data/pcs-tech-pack-task-generation.ts')
 
@@ -68,7 +69,7 @@ const techPackGeneration = read('src/data/pcs-tech-pack-task-generation.ts')
   'buyerReviewStatus',
   'buyerReviewerName',
 ].forEach((value) => {
-  assertIncludes(patternTypes + flowService + page, value, `买手审核流缺少：${value}`)
+  assertIncludes(patternTypes + flowService + page + patternPage, value, `买手审核流缺少：${value}`)
 })
 
 ;[
@@ -76,7 +77,7 @@ const techPackGeneration = read('src/data/pcs-tech-pack-task-generation.ts')
   'patternStyleTags',
   'hotSellerFlag',
 ].forEach((field) => {
-  assertIncludes(patternTypes + page + libraryTypes, field, `花型库串联缺少字段：${field}`)
+  assertIncludes(patternTypes + page + patternPage + libraryTypes, field, `花型库串联缺少字段：${field}`)
 })
 
 ;[
@@ -92,15 +93,15 @@ const techPackGeneration = read('src/data/pcs-tech-pack-task-generation.ts')
   '花型库沉淀',
   '技术包写入',
 ].forEach((label) => {
-  assertIncludes(page, label, `花型任务页面缺少区块：${label}`)
+  assertIncludes(page + patternPage, label, `花型任务页面缺少区块：${label}`)
 })
 
 assertIncludes(policy, '买手已通过', '完成校验必须要求买手通过')
 assertIncludes(policy, 'completionImageIds', '完成校验必须要求完成确认图片')
 assertIncludes(policy, 'patternFileIds', '完成校验必须要求花型文件')
-assertIncludes(page, 'submit-pattern-buyer-review', '执行与颜色必须提供提交买手确认动作')
+assertIncludes(page + patternPage, 'submit-pattern-buyer-review', '执行与颜色必须提供提交买手确认动作')
 assertIncludes(techPackGeneration, 'completionImageIds', '技术包花型写入应优先使用完成确认图片')
-assertNotIncludes(page, '温度设置', '花型任务页面不得把温度设置作为主字段')
-assertNotIncludes(page, 'temperatureSetting', '花型任务页面不得保留 temperatureSetting 主字段')
+assertNotIncludes(page + patternPage, '温度设置', '花型任务页面不得把温度设置作为主字段')
+assertNotIncludes(page + patternPage, 'temperatureSetting', '花型任务页面不得保留 temperatureSetting 主字段')
 
 console.log('check-pcs-pattern-task-refactor PASS')

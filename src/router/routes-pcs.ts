@@ -16,6 +16,9 @@ export const routes: RouteRegistry = {
     '/pcs/projects': () => renderers.renderPcsProjectListPage(),
     '/pcs/projects/create': () => renderers.renderPcsProjectCreatePage(),
     '/pcs/engineering/masters': () => renderers.renderPcsEngineeringMasterListPage(),
+    '/pcs/engineering/color': () => renderers.renderPcsColorTaskPage(),
+    '/pcs/engineering/purchase': () => renderers.renderPcsPurchaseTaskPage(),
+    '/pcs/engineering/tech-pack': () => renderers.renderPcsTechPackTaskPage(),
     '/pcs/testing/live': () => renderers.renderPcsLiveTestingListPage(),
     '/pcs/testing/video': () => renderers.renderPcsVideoTestingListPage(),
     '/pcs/channels/products': () => renderers.renderPcsChannelProductListPage(),
@@ -70,6 +73,18 @@ export const routes: RouteRegistry = {
     {
       pattern: /^\/pcs\/engineering\/masters\/([^/]+)$/,
       render: (match) => renderers.renderPcsEngineeringMasterDetailPage(match[1]),
+    },
+    {
+      pattern: /^\/pcs\/engineering\/color\/([^/]+)$/,
+      render: (match) => renderers.renderPcsColorTaskDetailPage(match[1]),
+    },
+    {
+      pattern: /^\/pcs\/engineering\/purchase\/([^/]+)$/,
+      render: (match) => renderers.renderPcsPurchaseTaskDetailPage(match[1]),
+    },
+    {
+      pattern: /^\/pcs\/engineering\/tech-pack\/([^/]+)$/,
+      render: (match) => renderers.renderPcsTechPackTaskDetailPage(match[1]),
     },
     {
       pattern: /^\/pcs\/projects\/([^/]+)$/,
