@@ -257,7 +257,11 @@ if (revisionResult.ok) {
     revisionResult.task.revisionTaskId,
     ['PLATE', 'PRINT', 'FIRST_SAMPLE', 'FIRST_ORDER_SAMPLE'],
   )
-  assert.equal(downstream.successCount, 4, '改版任务四类下游均不得依赖已删除的专业项目节点')
+  assert.equal(downstream.successCount, 3, '改版任务可直接创建制版、花型和首版任务；首单必须另选已通过首版来源')
+  assert.ok(
+    downstream.failureMessages.some((message) => message.includes('来源首版样衣任务')),
+    '首单任务不得绕过已通过首版来源校验',
+  )
   assert.ok(
     !downstream.failureMessages.some((message) => message.includes('节点')),
     '缺少任何专业项目节点不得阻断改版下游任务',
@@ -293,8 +297,8 @@ if (revisionResult.ok) {
   )
   assert.ok(downstreamPattern, '应能按改版任务上游关系查到花型下游任务')
   assert.ok(downstreamFirstSample, '应能按改版任务上游关系查到首版样衣下游任务')
-  assert.ok(downstreamFirstOrder, '应能在不存在 FIRST_ORDER_SAMPLE 项目节点时创建首单样衣下游任务')
-  for (const task of [downstreamPattern, downstreamFirstSample, downstreamFirstOrder]) {
+  assert.equal(downstreamFirstOrder, undefined, '未选择已通过首版来源时不得创建首单样衣下游任务')
+  for (const task of [downstreamPattern, downstreamFirstSample]) {
     assert.equal('projectNodeId' in task!, false)
     assert.equal('stepCode' in task!, false)
     assert.equal('stepName' in task!, false)
@@ -312,11 +316,6 @@ if (revisionResult.ok) {
       id: downstreamFirstSample?.firstSampleTaskId,
       module: '首版样衣打样',
       type: '首版样衣打样任务',
-    },
-    {
-      id: downstreamFirstOrder?.firstOrderSampleTaskId,
-      module: '首单样衣打样',
-      type: '首单样衣打样任务',
     },
   ]) {
     const relation = listProjectRelationsByProject(revisionProject.projectId).find(

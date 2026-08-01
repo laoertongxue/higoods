@@ -16,7 +16,7 @@ import {
 } from './pcs-technical-data-version-repository.ts'
 import { nowTaskText } from './pcs-task-source-normalizer.ts'
 import type {
-  FirstOrderSampleProjectNodeMeta,
+  FirstOrderSampleProjectRelationMeta,
   FirstOrderSampleTaskRecord,
 } from './pcs-first-order-sample-types.ts'
 import type { ProjectRelationRecord } from './pcs-project-relation-types.ts'
@@ -133,7 +133,7 @@ export function getLatestFirstOrderSampleTaskForProject(projectId: string): Firs
   return sortByUpdatedAtDesc(listFirstOrderSampleTasksByProject(projectId))[0] || null
 }
 
-export function buildFirstOrderProjectMeta(task: FirstOrderSampleTaskRecord): FirstOrderSampleProjectNodeMeta {
+export function buildFirstOrderSampleProjectRelationMeta(task: FirstOrderSampleTaskRecord): FirstOrderSampleProjectRelationMeta {
   return {
     sourceFirstSampleTaskId: task.sourceFirstSampleTaskId || '',
     sourceFirstSampleTaskCode: task.sourceFirstSampleTaskCode || '',
@@ -189,7 +189,7 @@ function writeProjectRelation(task: FirstOrderSampleTaskRecord, operatorName: st
     createdBy: task.createdBy || operatorName,
     updatedAt: timestamp,
     updatedBy: operatorName,
-    note: JSON.stringify(buildFirstOrderProjectMeta(task)),
+    note: JSON.stringify(buildFirstOrderSampleProjectRelationMeta(task)),
   })
 }
 
@@ -200,14 +200,17 @@ export function updateFirstOrderSampleTaskDetailAndSync(
 ): FirstOrderSampleProjectWritebackResult {
   const current = getFirstOrderSampleTaskById(firstOrderSampleTaskId)
   if (!current) return { ok: false, message: '未找到首单样衣打样任务，不能保存详情。', task: null }
-  const updated = updateFirstOrderSampleTask(firstOrderSampleTaskId, {
+  const normalizedPatch: Partial<FirstOrderSampleTaskRecord> = {
     ...patch,
-    samplePlanLines: Array.isArray(patch.samplePlanLines)
-      ? patch.samplePlanLines.map((line) => ({ ...line }))
-      : patch.samplePlanLines,
     updatedAt: nowTaskText(),
     updatedBy: operatorName,
-  })
+  }
+  if (Array.isArray(patch.samplePlanLines)) {
+    normalizedPatch.samplePlanLines = patch.samplePlanLines.map((line) => ({ ...line }))
+  } else {
+    delete normalizedPatch.samplePlanLines
+  }
+  const updated = updateFirstOrderSampleTask(firstOrderSampleTaskId, normalizedPatch)
   if (!updated) return { ok: false, message: '首单样衣打样任务保存失败。', task: null }
   if (updated.projectId) {
     writeProjectRelation(updated, operatorName)

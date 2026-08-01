@@ -54,8 +54,6 @@ upsertProjectRelation({
   updatedAt: '2026-07-31 10:00',
   updatedBy: '测试用户',
   note: '',
-  legacyRefType: '',
-  legacyRefValue: '',
 })
 
 const summary = submitProjectTestingSummary(project!.projectId, {}, '测试用户')

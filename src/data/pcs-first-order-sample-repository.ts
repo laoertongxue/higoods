@@ -46,7 +46,7 @@ function seedSnapshot(): FirstOrderSampleTaskStoreSnapshot {
 
 function normalizeTask(task: FirstOrderSampleTaskRecord): FirstOrderSampleTaskRecord {
   const sampleChainMode = task.sampleChainMode || '复用首版结论'
-  const sourceFirstSampleCode = task.sourceFirstSampleCode || (sampleChainMode === '复用首版结论' ? task.sampleCode || '' : '')
+  const sourceFirstSampleCode = task.sourceFirstSampleCode || ''
   return {
     ...cloneTask(task),
     note: task.note || '',

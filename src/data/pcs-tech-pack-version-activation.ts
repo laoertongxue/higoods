@@ -65,9 +65,6 @@ export function activateTechPackVersionForStyle(
       projectRelationId: `rel_tech_pack_${record.technicalVersionId}`,
       projectId: record.sourceProjectId,
       projectCode: record.sourceProjectCode,
-      projectNodeId: null,
-      stepCode: '',
-      stepName: '',
       relationRole: '产出对象',
       sourceModule: '技术包',
       sourceObjectType: '技术包版本',
@@ -84,8 +81,6 @@ export function activateTechPackVersionForStyle(
       updatedAt: activatedAt,
       updatedBy: operatorName,
       note: '',
-      legacyRefType: '',
-      legacyRefValue: '',
     })
 
     if (project) {

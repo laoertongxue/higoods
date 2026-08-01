@@ -1,6 +1,5 @@
-import { createBootstrapProjectRelationSnapshot } from './pcs-project-relation-bootstrap.ts'
 import { createTaskRelationBootstrapSnapshot } from './pcs-task-bootstrap.ts'
-import { createTestingRelationBootstrapSnapshot } from './pcs-testing-relation-bootstrap.ts'
+import { createProjectChannelProductRelationBootstrapSnapshot } from './pcs-channel-product-project-repository.ts'
 import {
   buildLiveProductLineProjectRelation,
   buildVideoRecordProjectRelation,
@@ -66,17 +65,34 @@ function seedSnapshot(): ProjectRelationStoreSnapshot {
       pendingItems: [],
     }
   }
-  const bootstrapSnapshot = createBootstrapProjectRelationSnapshot({
-    version: PROJECT_RELATION_STORE_VERSION,
-    projects: projectSnapshot.projects,
-    nodes: projectSnapshot.nodes,
-  })
   const taskSnapshot = createTaskRelationBootstrapSnapshot()
-  const testingSnapshot = createTestingRelationBootstrapSnapshot()
+  const channelSnapshot = createProjectChannelProductRelationBootstrapSnapshot()
+  const currentTestingRelations = channelSnapshot.records.flatMap((record) => {
+    const relations: ProjectRelationRecord[] = []
+    if (record.linkedLiveLineId) {
+      const liveLine = getLiveProductLineById(record.linkedLiveLineId)
+      const liveResult = liveLine
+        ? buildLiveProductLineProjectRelation(liveLine, record.projectId)
+        : null
+      if (liveResult?.relation) relations.push(liveResult.relation)
+    }
+    if (record.linkedVideoRecordId) {
+      const videoRecord = getVideoTestRecordById(record.linkedVideoRecordId)
+      const videoResult = videoRecord
+        ? buildVideoRecordProjectRelation(videoRecord, record.projectId)
+        : null
+      if (videoResult?.relation) relations.push(videoResult.relation)
+    }
+    return relations
+  })
   return normalizeRelationSnapshot({
     version: PROJECT_RELATION_STORE_VERSION,
-    relations: dedupeRelations([...bootstrapSnapshot.relations, ...taskSnapshot.relations, ...testingSnapshot.relations]),
-    pendingItems: dedupePendingItems([...bootstrapSnapshot.pendingItems, ...taskSnapshot.pendingItems, ...testingSnapshot.pendingItems]),
+    relations: dedupeRelations([
+      ...taskSnapshot.relations,
+      ...channelSnapshot.relations,
+      ...currentTestingRelations,
+    ]),
+    pendingItems: [],
   })
 }
 
@@ -170,12 +186,6 @@ function normalizeRelation(record: ProjectRelationRecord): ProjectRelationRecord
   if (Object.prototype.hasOwnProperty.call(record, 'stepName')) {
     normalized.stepName = record.stepName || ''
   }
-  if (Object.prototype.hasOwnProperty.call(record, 'legacyRefType')) {
-    normalized.legacyRefType = record.legacyRefType || ''
-  }
-  if (Object.prototype.hasOwnProperty.call(record, 'legacyRefValue')) {
-    normalized.legacyRefValue = record.legacyRefValue || ''
-  }
   return normalized
 }
 
@@ -188,8 +198,6 @@ function normalizePendingItem(item: ProjectRelationPendingItem): ProjectRelation
     reason: item.reason || '未提供待补齐原因。',
     discoveredAt: item.discoveredAt || '',
     sourceTitle: item.sourceTitle || '',
-    legacyRefType: item.legacyRefType || '',
-    legacyRefValue: item.legacyRefValue || '',
   }
 }
 
@@ -469,13 +477,28 @@ export function listProjectRelationsByTechnicalVersion(technicalVersionId: strin
 
 export function upsertProjectRelation(record: ProjectRelationRecord): ProjectRelationRecord {
   const snapshot = loadSnapshot()
-  const normalized = normalizeRelation({
+  const candidate = normalizeRelation({
     ...record,
     projectRelationId: record.projectRelationId || nextRelationId(),
   })
+  const candidateKey = buildRelationUniqueKey(candidate)
+  const existing = snapshot.relations.find(
+    (item) => buildRelationUniqueKey(normalizeRelation(item)) === candidateKey,
+  )
+  const normalized = normalizeRelation({
+    ...candidate,
+    projectRelationId: existing?.projectRelationId || candidate.projectRelationId,
+    createdAt: existing?.createdAt || candidate.createdAt,
+    createdBy: existing?.createdBy || candidate.createdBy,
+  })
   persistSnapshot({
     ...snapshot,
-    relations: [...snapshot.relations, normalized],
+    relations: [
+      ...snapshot.relations.filter(
+        (item) => buildRelationUniqueKey(normalizeRelation(item)) !== candidateKey,
+      ),
+      normalized,
+    ],
   })
   return cloneRelation(normalized)
 }

@@ -67,7 +67,7 @@ function taskRelationRecord(input: {
     projectRelationId: `rel_bootstrap_${input.projectId}_${input.sourceObjectId}`.replace(/[^a-zA-Z0-9]/g, '_'),
     projectId: input.projectId,
     projectCode: input.projectCode,
-    relationRole: input.relationRole || '产出对象',
+    relationRole: input.relationRole || '执行记录',
     sourceModule: input.sourceModule,
     sourceObjectType: input.sourceObjectType,
     sourceObjectId: input.sourceObjectId,

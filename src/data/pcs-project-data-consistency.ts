@@ -504,12 +504,6 @@ export function auditPcsProjectDataConsistency(): PcsProjectDataConsistencyRepor
   }
 }
 
-function buildConsistencyPendingReason(relation: ProjectRelationRecord): string {
-  return relation.projectNodeId
-    ? '历史测款关系绑定的项目节点已失效，当前未继续保留为正式关系。'
-    : '历史测款关系未绑定正式项目节点，当前未继续保留为正式关系。'
-}
-
 export function repairPcsProjectDataConsistency(
   operatorName = '系统修复',
 ): PcsProjectDataConsistencyRepairResult {
@@ -541,36 +535,9 @@ export function repairPcsProjectDataConsistency(
       updatedBy: operatorName,
     }
   })
-  const migratedPendingItems = fixedStepRelations
-    .filter(
-      (relation) =>
-        (relation.sourceModule === '直播' || relation.sourceModule === '短视频') &&
-          (!relation.projectNodeId || !getProjectNodeRecordById(relation.projectId, relation.projectNodeId))
-    )
-    .map((relation) => ({
-      pendingRelationId: `pending_repair_${relation.projectRelationId}`,
-      sourceModule: relation.sourceModule,
-      sourceObjectCode: relation.sourceLineCode || relation.sourceObjectCode,
-      rawProjectCode: relation.projectCode,
-      reason: buildConsistencyPendingReason(relation),
-      discoveredAt: relation.updatedAt || relation.businessDate,
-      sourceTitle: relation.sourceTitle,
-      legacyRefType: relation.legacyRefType || `${relation.sourceModule}.relation`,
-      legacyRefValue: relation.legacyRefValue || relation.sourceLineId || relation.sourceObjectId,
-    }))
-
-  const nextRelations = fixedStepRelations.filter(
-    (relation) =>
-      !(
-        (relation.sourceModule === '直播' || relation.sourceModule === '短视频') &&
-          (!relation.projectNodeId || !getProjectNodeRecordById(relation.projectId, relation.projectNodeId))
-      ),
-  )
-
   replaceProjectRelationStore({
     ...relationSnapshot,
-    relations: nextRelations,
-    pendingItems: [...relationSnapshot.pendingItems, ...migratedPendingItems],
+    relations: fixedStepRelations,
   })
 
   const projectSnapshot = getProjectStoreSnapshot()
@@ -606,7 +573,7 @@ export function repairPcsProjectDataConsistency(
   })
 
   return {
-    relationRepairCount: migratedPendingItems.length + projectLevelRelationRepairCount,
+    relationRepairCount: projectLevelRelationRepairCount,
     nodeRepairCount,
     report: auditPcsProjectDataConsistency(),
   }

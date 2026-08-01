@@ -13,7 +13,7 @@ import { listPlateMakingTasksByProject } from './pcs-plate-making-repository.ts'
 import { listPatternTasksByProject } from './pcs-pattern-task-repository.ts'
 import { listRevisionTasksByProject } from './pcs-revision-task-repository.ts'
 import { nowTaskText } from './pcs-task-source-normalizer.ts'
-import type { FirstSampleProjectNodeMeta, FirstSampleTaskRecord } from './pcs-first-sample-types.ts'
+import type { FirstSampleProjectRelationMeta, FirstSampleTaskRecord } from './pcs-first-sample-types.ts'
 import type { ProjectRelationRecord } from './pcs-project-relation-types.ts'
 
 export const FIRST_SAMPLE_FACTORY_OPTIONS = [
@@ -94,7 +94,7 @@ export function getLatestFirstSampleTaskForProject(projectId: string): FirstSamp
   return sortByUpdatedAtDesc(listFirstSampleTasksByProject(projectId))[0] || null
 }
 
-export function buildFirstSampleProjectMeta(task: FirstSampleTaskRecord): FirstSampleProjectNodeMeta {
+export function buildFirstSampleProjectRelationMeta(task: FirstSampleTaskRecord): FirstSampleProjectRelationMeta {
   return {
     sourceTaskType: task.sourceTaskType || task.upstreamObjectType || task.upstreamModule || '',
     sourceTaskId: task.sourceTaskId || task.upstreamObjectId || '',
@@ -147,7 +147,7 @@ function writeProjectRelation(task: FirstSampleTaskRecord, operatorName: string)
     createdBy: task.createdBy || operatorName,
     updatedAt: timestamp,
     updatedBy: operatorName,
-    note: JSON.stringify(buildFirstSampleProjectMeta(task)),
+    note: JSON.stringify(buildFirstSampleProjectRelationMeta(task)),
   })
 }
 
@@ -158,12 +158,17 @@ export function updateFirstSampleTaskDetailAndSync(
 ): FirstSampleProjectWritebackResult {
   const current = getFirstSampleTaskById(firstSampleTaskId)
   if (!current) return { ok: false, message: '未找到首版样衣打样任务，不能保存详情。', task: null }
-  const updated = updateFirstSampleTask(firstSampleTaskId, {
+  const normalizedPatch: Partial<FirstSampleTaskRecord> = {
     ...patch,
-    sampleImageIds: Array.isArray(patch.sampleImageIds) ? [...patch.sampleImageIds] : patch.sampleImageIds,
     updatedAt: nowTaskText(),
     updatedBy: operatorName,
-  })
+  }
+  if (Array.isArray(patch.sampleImageIds)) {
+    normalizedPatch.sampleImageIds = [...patch.sampleImageIds]
+  } else {
+    delete normalizedPatch.sampleImageIds
+  }
+  const updated = updateFirstSampleTask(firstSampleTaskId, normalizedPatch)
   if (!updated) return { ok: false, message: '首版样衣打样任务保存失败。', task: null }
   if (updated.projectId) {
     writeProjectRelation(updated, operatorName)

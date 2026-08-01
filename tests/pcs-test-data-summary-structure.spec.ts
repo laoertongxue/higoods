@@ -196,8 +196,6 @@ upsertProjectRelation({
   updatedAt: `${videoRecord!.businessDate} 10:00`,
   updatedBy: '测试用户',
   note: '该短视频记录没有显式绑定渠道店铺商品，不应进入汇总。',
-  legacyRefType: '',
-  legacyRefValue: '',
 })
 
 upsertProjectRelation({
@@ -223,8 +221,6 @@ upsertProjectRelation({
   updatedAt: `${liveLine!.businessDate} 19:00`,
   updatedBy: '测试用户',
   note: '该直播记录已显式绑定 TikTok 印尼主店渠道商品。',
-  legacyRefType: '',
-  legacyRefValue: '',
 })
 
 const summaryResult = submitProjectTestingSummary(

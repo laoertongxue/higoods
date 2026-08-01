@@ -721,7 +721,7 @@ function relationPayload(input: {
     projectRelationId: makeRelationId(input.projectId, input.sourceModule, input.sourceObjectId),
     projectId: input.projectId,
     projectCode: input.projectCode,
-    relationRole: '产出对象',
+    relationRole: '执行记录',
     sourceModule: input.sourceModule,
     sourceObjectType: input.sourceObjectType,
     sourceObjectId: input.sourceObjectId,
@@ -990,24 +990,24 @@ function firstSampleChainFields(
 function resolveSourceFirstSample(
   input: FirstOrderSampleTaskCreateInput,
   projectId: string,
+): FirstSampleTaskRecord | null {
+  const sourceTaskId = input.sourceFirstSampleTaskId || (
+    input.upstreamObjectType?.includes('首版') ? input.upstreamObjectId || '' : ''
+  )
+  if (!sourceTaskId) return null
+  const matched = getFirstSampleTaskById(sourceTaskId)
+  if (!matched || matched.projectId !== projectId || matched.status !== '已通过' || !matched.sampleCode) return null
+  return matched
+}
+
+function firstOrderSourceFields(
+  sourceTask: FirstSampleTaskRecord | null,
+  existing?: FirstOrderSampleTaskRecord | null,
 ): Pick<FirstOrderSampleTaskRecord, 'sourceFirstSampleTaskId' | 'sourceFirstSampleTaskCode' | 'sourceFirstSampleCode'> {
-  const fromInput = {
-    sourceFirstSampleTaskId: input.sourceFirstSampleTaskId || '',
-    sourceFirstSampleTaskCode: input.sourceFirstSampleTaskCode || '',
-    sourceFirstSampleCode: input.sourceFirstSampleCode || '',
-  }
-  if (fromInput.sourceFirstSampleTaskId || fromInput.sourceFirstSampleTaskCode || fromInput.sourceFirstSampleCode) return fromInput
-  const matched = listFirstSampleTasks()
-    .filter((task) => task.projectId === projectId)
-    .find(
-      (task) =>
-        task.firstSampleTaskId === input.upstreamObjectId ||
-        task.firstSampleTaskCode === input.upstreamObjectCode,
-    )
   return {
-    sourceFirstSampleTaskId: matched?.firstSampleTaskId || (input.upstreamObjectType?.includes('首版') ? input.upstreamObjectId || '' : ''),
-    sourceFirstSampleTaskCode: matched?.firstSampleTaskCode || (input.upstreamObjectType?.includes('首版') ? input.upstreamObjectCode || '' : ''),
-    sourceFirstSampleCode: matched?.sampleCode || '',
+    sourceFirstSampleTaskId: sourceTask?.firstSampleTaskId || existing?.sourceFirstSampleTaskId || '',
+    sourceFirstSampleTaskCode: sourceTask?.firstSampleTaskCode || existing?.sourceFirstSampleTaskCode || '',
+    sourceFirstSampleCode: sourceTask?.sampleCode || existing?.sourceFirstSampleCode || '',
   }
 }
 
@@ -1018,7 +1018,7 @@ function firstOrderChainFields(
 ): Pick<FirstOrderSampleTaskRecord,
   'sourceTechPackVersionId' | 'sourceTechPackVersionCode' | 'sourceTechPackVersionLabel' | 'sourceFirstSampleTaskId' | 'sourceFirstSampleTaskCode' | 'sourceFirstSampleCode' | 'sampleChainMode' | 'specialSceneReasonCodes' | 'specialSceneReasonText' | 'productionReferenceRequiredFlag' | 'chinaReviewRequiredFlag' | 'correctFabricRequiredFlag' | 'samplePlanLines' | 'finalReferenceNote' | 'conclusionResult' | 'conclusionNote' | 'confirmedAt' | 'confirmedBy'
 > {
-  const sourceFirst = resolveSourceFirstSample(input, projectId)
+  const sourceFirst = firstOrderSourceFields(resolveSourceFirstSample(input, projectId), existing)
   const sampleChainMode = input.sampleChainMode || existing?.sampleChainMode || '复用首版结论'
   const defaultLines = createDefaultSamplePlanLines(sampleChainMode, sourceFirst.sourceFirstSampleCode)
   return {
@@ -2430,18 +2430,24 @@ export function createFirstOrderSampleTaskWithProjectRelation(
     return { ok: false, message: projectPending!.reason, pendingItem: projectPending! }
   }
 
-  const manualProjectSource = input.sourceType === '人工创建'
-  const upstreamError = ensureFormalSource(
-    '首单样衣打样',
-    input.sourceType,
-    input.upstreamObjectId || '',
-    input.upstreamObjectCode || '',
-    manualProjectSource ? project.projectCode : '',
+  const sourceTaskId = input.sourceFirstSampleTaskId || (
+    input.upstreamObjectType?.includes('首版') ? input.upstreamObjectId || '' : ''
   )
-  if (upstreamError) {
-    const pendingItem = makePendingItem('首单样衣打样', rawCode, project.projectCode, input.upstreamObjectCode || input.upstreamObjectId || '', upstreamError)
+  const sourceTask = sourceTaskId ? getFirstSampleTaskById(sourceTaskId) : null
+  let sourceError = ''
+  if (!sourceTaskId || !sourceTask) {
+    sourceError = '请选择真实存在的来源首版样衣任务。'
+  } else if (sourceTask.projectId !== project.projectId) {
+    sourceError = '来源首版样衣任务不属于当前商品项目。'
+  } else if (sourceTask.status !== '已通过') {
+    sourceError = '来源首版样衣任务必须已通过。'
+  } else if (!sourceTask.sampleCode) {
+    sourceError = '来源首版样衣任务缺少首版结果编号。'
+  }
+  if (sourceError) {
+    const pendingItem = makePendingItem('首单样衣打样', rawCode, project.projectCode, sourceTaskId, sourceError)
     upsertFirstOrderSampleTaskPendingItem(pendingItem)
-    return { ok: false, message: upstreamError, pendingItem }
+    return { ok: false, message: sourceError, pendingItem }
   }
 
   const now = nowTaskText()
@@ -2454,18 +2460,25 @@ export function createFirstOrderSampleTaskWithProjectRelation(
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectName: project.projectName,
-    sourceType: input.sourceType,
-    upstreamModule: input.upstreamModule || (manualProjectSource ? '商品项目' : ''),
-    upstreamObjectType: input.upstreamObjectType || (manualProjectSource ? '商品项目' : ''),
-    upstreamObjectId: input.upstreamObjectId || (manualProjectSource ? project.projectId : ''),
-    upstreamObjectCode: input.upstreamObjectCode || (manualProjectSource ? project.projectCode : ''),
+    sourceType: '首版样衣打样',
+    upstreamModule: '首版样衣打样',
+    upstreamObjectType: '首版样衣打样任务',
+    upstreamObjectId: sourceTask!.firstSampleTaskId,
+    upstreamObjectCode: sourceTask!.firstSampleTaskCode,
     factoryId: input.factoryId || '',
     factoryName: input.factoryName || '',
     targetSite: input.targetSite || '深圳',
     patternVersion: input.patternVersion || '',
     artworkVersion: input.artworkVersion || '',
     sampleCode: input.sampleCode || buildFirstOrderSampleCode(input.targetSite || '深圳', listFirstOrderSampleTasks().length),
-    ...firstOrderChainFields(input, project.projectId, existing),
+    ...firstOrderChainFields({
+      ...input,
+      sourceFirstSampleTaskId: sourceTask!.firstSampleTaskId,
+      sourceFirstSampleTaskCode: sourceTask!.firstSampleTaskCode,
+      sourceFirstSampleCode: sourceTask!.sampleCode,
+      upstreamObjectId: sourceTask!.firstSampleTaskId,
+      upstreamObjectCode: sourceTask!.firstSampleTaskCode,
+    }, project.projectId, existing),
     confirmedAt: input.confirmedAt || existing?.confirmedAt || '',
     confirmedBy: input.confirmedBy || existing?.confirmedBy || '',
     status: '待处理',

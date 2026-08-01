@@ -589,9 +589,6 @@ export function writeProjectRelationFromTechPackVersion(
     projectRelationId: buildProjectRelationId(record.technicalVersionId),
     projectId: record.sourceProjectId,
     projectCode: record.sourceProjectCode,
-    projectNodeId: null,
-    stepCode: '',
-    stepName: '',
     relationRole: '产出对象',
     sourceModule: '技术包',
     sourceObjectType: '技术包版本',
@@ -608,8 +605,6 @@ export function writeProjectRelationFromTechPackVersion(
     updatedAt: record.updatedAt,
     updatedBy: operatorName,
     note: '',
-    legacyRefType: '',
-    legacyRefValue: '',
   })
 }
 

@@ -70,8 +70,6 @@ export interface ProjectRelationRecord {
   updatedAt: string
   updatedBy: string
   note: string
-  legacyRefType?: string
-  legacyRefValue?: string
 }
 
 export interface ProjectRelationPendingItem {
@@ -82,8 +80,6 @@ export interface ProjectRelationPendingItem {
   reason: string
   discoveredAt: string
   sourceTitle: string
-  legacyRefType: string
-  legacyRefValue: string
 }
 
 export interface ProjectRelationStoreSnapshot {

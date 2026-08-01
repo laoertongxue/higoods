@@ -49,7 +49,7 @@ export interface FirstSampleTaskRecord {
   note: string
 }
 
-export interface FirstSampleProjectNodeMeta {
+export interface FirstSampleProjectRelationMeta {
   sourceTaskType: string
   sourceTaskId: string
   sourceTaskCode: string

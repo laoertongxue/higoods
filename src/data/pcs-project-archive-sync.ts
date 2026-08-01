@@ -79,9 +79,6 @@ function buildRelation(archive: ProjectArchiveRecord, operatorName: string): Pro
     projectRelationId: `rel_archive_${archive.projectArchiveId}`,
     projectId: archive.projectId,
     projectCode: archive.projectCode,
-    projectNodeId: null,
-    stepCode: '',
-    stepName: '',
     relationRole: '产出对象',
     sourceModule: '项目资料归档',
     sourceObjectType: '项目资料归档',
@@ -98,8 +95,6 @@ function buildRelation(archive: ProjectArchiveRecord, operatorName: string): Pro
     updatedAt: archive.updatedAt,
     updatedBy: operatorName,
     note: '',
-    legacyRefType: '',
-    legacyRefValue: '',
   }
 }
 

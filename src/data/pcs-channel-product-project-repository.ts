@@ -1431,9 +1431,6 @@ function buildStyleRelation(
     projectRelationId: `rel_style_${style.styleId}`,
     projectId: project.projectId,
     projectCode: project.projectCode,
-    projectNodeId: null,
-    stepCode: '',
-    stepName: '',
     relationRole: '产出对象',
     sourceModule: '款式档案',
     sourceObjectType: '款式档案',
@@ -1450,8 +1447,6 @@ function buildStyleRelation(
     updatedAt: style.updatedAt,
     updatedBy: operatorName,
     note: '商品项目创建时已建立关联款式档案，并与渠道店铺商品保持三码关联。',
-    legacyRefType: '',
-    legacyRefValue: '',
   }
 }
 
@@ -1467,9 +1462,6 @@ function buildTechnicalVersionRelation(
     projectRelationId: `rel_technical_version_${record.technicalVersionId}`,
     projectId: project.projectId,
     projectCode: project.projectCode,
-    projectNodeId: null,
-    stepCode: '',
-    stepName: '',
     relationRole: '产出对象',
     sourceModule: '技术包',
     sourceObjectType: '技术包版本',
@@ -1486,8 +1478,6 @@ function buildTechnicalVersionRelation(
     updatedAt: record.updatedAt,
     updatedBy: operatorName,
     note: '',
-    legacyRefType: '',
-    legacyRefValue: '',
   }
 }
 
@@ -1521,8 +1511,6 @@ function buildChannelProductRelation(
     note: record.styleCode
       ? `已形成款式档案 / 渠道店铺商品 / 上游编码串联：${record.styleCode} / ${record.channelProductCode} / ${record.upstreamChannelProductCode}`
       : record.invalidatedReason || record.testingStatusText,
-    legacyRefType: '',
-    legacyRefValue: '',
   }
 }
 
@@ -1535,9 +1523,6 @@ function buildUpstreamSyncRelation(
     projectRelationId: `rel_upstream_sync_${record.channelProductId}`,
     projectId: record.projectId,
     projectCode: record.projectCode,
-    projectNodeId: null,
-    stepCode: '',
-    stepName: '',
     relationRole: '执行记录',
     sourceModule: '上游渠道商品同步',
     sourceObjectType: '上游渠道商品同步',
@@ -1554,8 +1539,6 @@ function buildUpstreamSyncRelation(
     updatedAt: record.lastUpstreamSyncAt || record.updatedAt,
     updatedBy: operatorName,
     note: record.upstreamSyncLog || record.upstreamSyncNote,
-    legacyRefType: '',
-    legacyRefValue: '',
   }
 }
 
