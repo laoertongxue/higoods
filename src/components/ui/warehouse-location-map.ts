@@ -38,6 +38,7 @@ function renderCell(
         : ''
   const hasOccupancyDetail = occupied && cell.occupancies.length > 0
   const selectionDisabled = Boolean(unavailableReason) || (occupied && !hasOccupancyDetail)
+  const selectionButtonDisabled = selectionDisabled && !selected && !hasOccupancyDetail
   const action = mode === 'SELECT'
     ? selected
       ? 'toggle-location'
@@ -67,14 +68,14 @@ function renderCell(
     <div class="shrink-0">
       <button
         type="button"
-        class="relative min-h-11 min-w-[9.5rem] rounded-md border px-2 py-1.5 text-left text-xs ${statusClass} ${mode === 'SELECT' && selectionDisabled && !selected ? 'cursor-not-allowed opacity-60' : ''}"
+        class="relative min-h-11 min-w-[9.5rem] rounded-md border px-2 py-1.5 text-left text-xs ${statusClass} ${mode === 'SELECT' && selectionButtonDisabled ? 'cursor-not-allowed opacity-60' : ''}"
         data-skip-page-rerender="true"
         data-warehouse-map-action="${action}"
         data-location-id="${escapeHtml(cell.locationId)}"
         data-location-no="${escapeHtml(cell.locationNo)}"
         data-position-no="${cell.positionNo}"
         aria-pressed="${selected}"
-        ${mode === 'SELECT' && selectionDisabled && !selected ? 'disabled aria-disabled="true"' : ''}
+        ${mode === 'SELECT' && selectionButtonDisabled ? 'disabled aria-disabled="true"' : ''}
       >
         <span class="block font-semibold">P${String(cell.positionNo).padStart(2, '0')} · ${unavailableReason ? '停用' : occupied ? '占用' : '空闲'}</span>
         <span class="mt-0.5 block font-mono">${escapeHtml(cell.locationNo)}</span>

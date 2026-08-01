@@ -961,6 +961,21 @@ const selectOccupiedCellHtml = findLocationButtonHtml(selectMapHtml, shelfLocati
 assert.match(selectOccupiedCellHtml, /data-warehouse-map-action="open-occupancy"/, 'SELECT 模式未选占用格必须保留占用详情入口')
 assert.doesNotMatch(selectOccupiedCellHtml, /\sdisabled(?:\s|>)/, 'SELECT 模式有占用详情的库位不得 disabled')
 assert.doesNotMatch(selectOccupiedCellHtml, /data-warehouse-map-action="toggle-location"/, 'SELECT 模式未选占用格不得进入选中动作')
+for (const statusField of ['areaStatus', 'shelfStatus', 'status'] as const) {
+  const stoppedOccupiedProjection = structuredClone(occupiedProjection)
+  const stoppedOccupiedCell = listWarehouseLocationMapCells(stoppedOccupiedProjection)
+    .find((cell) => cell.locationId === shelfLocationIds[1])!
+  stoppedOccupiedCell[statusField] = 'STOPPED'
+  const stoppedOccupiedMapHtml = renderWarehouseLocationMap({
+    projection: stoppedOccupiedProjection,
+    mode: 'SELECT',
+    factoryName: '中央裁床',
+  })
+  const stoppedOccupiedCellHtml = findLocationButtonHtml(stoppedOccupiedMapHtml, shelfLocationIds[1])
+  assert.match(stoppedOccupiedCellHtml, /data-warehouse-map-action="open-occupancy"/, `SELECT 模式 ${statusField} 停用的未选占用格必须保留详情入口`)
+  assert.doesNotMatch(stoppedOccupiedCellHtml, /\sdisabled(?:\s|>)/, `SELECT 模式 ${statusField} 停用的未选占用格有详情时不得 disabled`)
+  assert.doesNotMatch(stoppedOccupiedCellHtml, /data-warehouse-map-action="toggle-location"/, `SELECT 模式 ${statusField} 停用的未选占用格不得进入选中动作`)
+}
 const selectedOccupiedMapHtml = renderWarehouseLocationMap({
   projection: occupiedProjection,
   mode: 'SELECT',
