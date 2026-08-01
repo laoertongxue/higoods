@@ -129,6 +129,25 @@ function adjustRuntimeTicketQtys(
   return Object.fromEntries(next)
 }
 
+export function mergeWaitHandoverWarehouseLocations(
+  currentStates: readonly WaitHandoverLocationOccupancyState[],
+  returnedLocations: readonly RuntimeWarehouseLocationRef[],
+): RuntimeWarehouseLocationRef[] {
+  let trustedFootprint: readonly RuntimeWarehouseLocationRef[] | undefined
+  for (const state of currentStates) {
+    const candidate = state.warehouseLocations
+    if (!candidate.length) continue
+    trustedFootprint = candidate
+    break
+  }
+  trustedFootprint ??= currentStates.map((state) => state.locationRef)
+  const warehouseLocationById = new Map<string, RuntimeWarehouseLocationRef>()
+  trustedFootprint.concat(returnedLocations).forEach((location) => {
+    warehouseLocationById.set(location.locationId, location)
+  })
+  return Array.from(warehouseLocationById.values())
+}
+
 function waitHandoverStateKey(bagCode: string, locationRef?: RuntimeWarehouseLocationRef, usageCycleId?: string): string {
   const scope = locationRef
     ? `${locationRef.factoryId}:${locationRef.warehouseId}:${locationRef.warehouseKind}`
@@ -1079,12 +1098,7 @@ export function buildWaitHandoverLocationOccupancyStates(
         .map((stateKey) => states.get(stateKey))
         .filter((state): state is WaitHandoverLocationOccupancyState => Boolean(state))
       const current = currentStates[0]
-      const warehouseLocationById = new Map<string, RuntimeWarehouseLocationRef>()
-      currentStates
-        .flatMap((state) => state.warehouseLocations.length ? state.warehouseLocations : [state.locationRef])
-        .concat(returnedLocations)
-        .forEach((location) => warehouseLocationById.set(location.locationId, location))
-      const warehouseLocations = Array.from(warehouseLocationById.values())
+      const warehouseLocations = mergeWaitHandoverWarehouseLocations(currentStates, returnedLocations)
       if (!warehouseLocations.length) continue
       const returnedQty = Number(event.inventoryEffect?.qty || 0)
       const returnedTicketQtyById = runtimeTicketQtyById(payload.returnedFeiTicketItems, 'returnedQty')

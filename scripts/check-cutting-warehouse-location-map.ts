@@ -42,6 +42,7 @@ import {
   appendWaitHandoverInboundEvent,
   buildRuntimeInboundTempBagsFromWaitHandoverEvents,
   buildWaitHandoverLocationOccupancyStates,
+  mergeWaitHandoverWarehouseLocations,
   type WaitHandoverRuntimeTicketInput,
 } from '../src/pages/process-factory/cutting/wait-handover-runtime.ts'
 import {
@@ -1753,6 +1754,25 @@ assert.equal(
   20,
   '同一 footprint 的业务数量汇总只能计 20 片',
 )
+let footprintReadCount = 0
+const largeFootprint = Array.from({ length: 1_000 }, (_, index) => ({
+  ...waitHandoverLocations[index % waitHandoverLocations.length],
+  locationId: `LARGE-LOCATION-${index}`,
+  locationNo: `LARGE-${index}`,
+}))
+const largeStates = largeFootprint.map((locationRef, index) => ({
+  ...multiMapReturnedStates[index % multiMapReturnedStates.length],
+  locationRef,
+  get warehouseLocations() {
+    footprintReadCount += 1
+    return largeFootprint
+  },
+}))
+const refreshedFirstLocation = { ...largeFootprint[0], locationNo: 'LARGE-0-最新' }
+const mergedLargeFootprint = mergeWaitHandoverWarehouseLocations(largeStates, [refreshedFirstLocation])
+assert.equal(footprintReadCount, 1, 'N 格各带 N footprint 时只能读取一份可信完整 footprint')
+assert.equal(mergedLargeFootprint.length, 1_000, '线性合并不得丢失任一原库位')
+assert.equal(mergedLargeFootprint[0].locationNo, refreshedFirstLocation.locationNo, '回仓同 ID 最新快照必须覆盖且保持首次顺序')
 assert.match(warehouseMapSource, /footprintId:\s*buildWaitHandoverStorageFootprintId\(state\)/, '待交出占用必须用包含仓库 scope 和使用周期的稳定 footprintId')
 assert.match(warehouseMapSource, /function buildWaitHandoverStorageFootprintId\(/, '必须集中构造待交出占用 footprintId')
 const firstCycleFootprintId = buildWaitHandoverStorageFootprintId(multiMapReturnedStates[0])
@@ -1768,6 +1788,12 @@ assert.doesNotMatch(
     .match(/if \(event\.eventType === '特殊工艺回仓'\)[\s\S]*?\n    }\n  }/)?.[0] || '',
   /findIndex\(/,
   '特殊工艺回仓 footprint 合并不得回退为 O(n²) 的 findIndex 扫描',
+)
+assert.doesNotMatch(
+  readFileSync(new URL('../src/pages/process-factory/cutting/wait-handover-runtime.ts', import.meta.url), 'utf8')
+    .match(/if \(event\.eventType === '特殊工艺回仓'\)[\s\S]*?\n    }\n  }/)?.[0] || '',
+  /currentStates\s*\.flatMap\(\(state\)\s*=>\s*state\.warehouseLocations/,
+  '特殊工艺回仓不得把每格重复携带的完整 footprint 再次全部展开',
 )
 const multiMapReturnWithoutLocationsEvent = structuredClone(multiMapPartialReturnEvent)
 multiMapReturnWithoutLocationsEvent.eventId = 'EVENT-MULTI-MAP-SPECIAL-RETURN-WITHOUT-LOCATIONS'
