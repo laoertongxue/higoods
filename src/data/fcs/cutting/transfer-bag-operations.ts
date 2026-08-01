@@ -1,7 +1,9 @@
 import {
+  appendCuttingRuntimeEvent,
   appendCuttingRuntimeEventIdempotent,
   buildCuttingRuntimeEventId,
   listCuttingRuntimeEvents,
+  type AppendCuttingRuntimeEventInput,
   type CuttingRuntimeEvent,
   type CuttingRuntimeEventSource,
   type CompleteSpecialCraftHandoverPayload,
@@ -1268,6 +1270,18 @@ function assertRuntimeEventIdAvailable(input: {
   }
 }
 
+function buildUnpersistedRuntimeEventCandidate<
+  T extends '中转袋回收' | '中转袋报废',
+>(
+  input: AppendCuttingRuntimeEventInput<T>,
+  storage: BrowserStorageLike | null,
+): CuttingRuntimeEvent<T> {
+  return appendCuttingRuntimeEvent(input, {
+    getItem: (key) => storage?.getItem(key) ?? null,
+    setItem: () => undefined,
+  })
+}
+
 function recoveryStateError(current: TransferBagCurrentUse): string {
   if (current.mainStatus === 'DISABLED') return '这个袋子已经报废，不能回收。'
   if (current.mainStatus === 'IDLE') return '这个袋子当前空闲，无需回收。'
@@ -1300,16 +1314,26 @@ export function recoverTransferBag(
 ): CuttingRuntimeEvent<'中转袋回收'> {
   const normalized = normalizeRecoverTransferBagInput(input)
   const events = listCuttingRuntimeEvents(storage)
+  const current = resolveTransferBagCurrentUse(normalized.bagCode, storage)
+  if (
+    current.flowStage === 'PACKED'
+    || current.flowStage === 'INBOUND_STORED'
+    || current.flowStage === 'READY_HANDOVER'
+    || current.tickets.length > 0
+  ) {
+    throw new Error(recoveryStateError(current))
+  }
   const completeRecoveryFacts = events
     .map(parseCompleteRecoveryEvent)
     .filter((fact): fact is NonNullable<ReturnType<typeof parseCompleteRecoveryEvent>> =>
       Boolean(fact && fact.payload.bagCode === normalized.bagCode))
-  const current = resolveTransferBagCurrentUse(normalized.bagCode, storage)
   const retryCandidates = current.flowStage === 'HANDED_OVER_WAITING_RETURN'
     && current.usageCycleId
     ? completeRecoveryFacts.filter((fact) =>
         fact.payload.usageCycleId === current.usageCycleId)
-    : completeRecoveryFacts
+    : current.mainStatus === 'IDLE' || current.mainStatus === 'DISABLED'
+      ? completeRecoveryFacts
+      : []
   const equivalent = retryCandidates.find((fact) =>
     fact.canonicalIntent === canonicalRecoveryIntent(
       normalized,
@@ -1350,7 +1374,9 @@ export function recoverTransferBag(
     events,
   })
 
-  const appendResult = appendCuttingRuntimeEventIdempotent({
+  const appendInput: AppendCuttingRuntimeEventInput<'中转袋回收'> & {
+    idempotencyKey: string
+  } = {
     idempotencyKey,
     eventType: '中转袋回收',
     eventSource: normalized.source,
@@ -1375,12 +1401,18 @@ export function recoverTransferBag(
       recoveredAt: normalized.occurredAt,
       recoveredBy: normalized.operator.operatorName,
     },
-  }, storage)
+  }
+  const candidate = buildUnpersistedRuntimeEventCandidate(appendInput, storage)
+  if (!isEffectiveTransferBagRecoveryEvent(candidate, [...events, candidate])) {
+    throw new Error('回收时间不能早于当前交出事实。')
+  }
+  const appendResult = appendCuttingRuntimeEventIdempotent(appendInput, storage)
   const persisted = parseCompleteRecoveryEvent(appendResult.event)
   const persistedEvents = listCuttingRuntimeEvents(storage)
   if (
     !persisted
     || persisted.canonicalIntent !== canonicalRecoveryIntent(normalized, usageCycleId)
+    || (appendResult.appended && persisted.event.ledgerSequence !== candidate.ledgerSequence)
     || !isEffectiveTransferBagRecoveryEvent(persisted.event, persistedEvents)
   ) throw new Error('中转袋回收事实写入后校验失败。')
   return cloneRuntimeEvent(persisted.event)
@@ -1417,7 +1449,9 @@ export function submitTransferBagScrap(
     idempotencyKey,
     events,
   })
-  const appendResult = appendCuttingRuntimeEventIdempotent({
+  const appendInput: AppendCuttingRuntimeEventInput<'中转袋报废'> & {
+    idempotencyKey: string
+  } = {
     idempotencyKey,
     eventType: '中转袋报废',
     eventSource: normalized.source,
@@ -1435,12 +1469,18 @@ export function submitTransferBagScrap(
       scrappedAt: normalized.occurredAt,
       scrappedBy: normalized.operator.operatorName,
     },
-  }, storage)
+  }
+  const candidate = buildUnpersistedRuntimeEventCandidate(appendInput, storage)
+  if (!isEffectiveTransferBagScrapEvent(candidate, [...events, candidate])) {
+    throw new Error('报废时间不能早于袋子进入空闲状态的时间。')
+  }
+  const appendResult = appendCuttingRuntimeEventIdempotent(appendInput, storage)
   const persisted = parseCompleteScrapEvent(appendResult.event)
   const persistedEvents = listCuttingRuntimeEvents(storage)
   if (
     !persisted
     || persisted.canonicalIntent !== canonicalScrapIntent(normalized)
+    || (appendResult.appended && persisted.event.ledgerSequence !== candidate.ledgerSequence)
     || !isEffectiveTransferBagScrapEvent(persisted.event, persistedEvents)
   ) {
     throw new Error('中转袋报废事实写入后校验失败。')

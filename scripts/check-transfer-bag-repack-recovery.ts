@@ -4082,4 +4082,144 @@ function scrapInput(
   )
 }
 
+{
+  const secondReviewRedFailures: string[] = []
+  const captureSecondReviewRed = (label: string, verify: () => void) => {
+    try {
+      verify()
+    } catch (error) {
+      secondReviewRedFailures.push(
+        `${label}: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+  }
+
+  captureSecondReviewRed('P1-1 回收报废候选必须在写入前证明迁移合法', () => {
+    const candidateFailures: string[] = []
+
+    try {
+      const storage = createMemoryStorage()
+      const bagCode = 'BAG-RECOVERY-PREWRITE-CHRONOLOGY'
+      const { usageCycleId } = seedHandedOverBag(storage, bagCode)
+      const eventsBefore = listCuttingRuntimeEvents(storage)
+      const expectedSequence = Math.max(...eventsBefore.map((event) => Number(event.ledgerSequence) || 0)) + 1
+      assertRejectedWithoutWritingExact(
+        storage,
+        () => recoverTransferBag(recoveryInput(bagCode, {
+          occurredAt: '2026-08-01 08:15',
+        }), storage),
+        '回收时间不能早于当前交出事实。',
+        '早于 08:20 交出事实的 08:15 回收候选必须写前拒绝',
+      )
+      assert.equal(
+        listCuttingRuntimeEvents(storage).some((event) =>
+          event.idempotencyKey === `${usageCycleId}:PHYSICAL_BAG_RETURNED`),
+        false,
+        '非法回收候选不得占用回收幂等键',
+      )
+      assert.equal(resolveTransferBagCurrentUse(bagCode, storage).flowStage, 'HANDED_OVER_WAITING_RETURN')
+      const corrected = recoverTransferBag(recoveryInput(bagCode, {
+        occurredAt: '2026-08-01 09:00',
+      }), storage)
+      assert.equal(corrected.ledgerSequence, expectedSequence, '写前拒绝后纠正回收必须使用原本的下一账本序号')
+      assert.equal(resolveTransferBagCurrentUse(bagCode, storage).mainStatus, 'IDLE')
+    } catch (error) {
+      candidateFailures.push(`回收候选: ${error instanceof Error ? error.message : String(error)}`)
+    }
+
+    try {
+      const storage = createMemoryStorage()
+      const bagCode = 'BAG-SCRAP-PREWRITE-CHRONOLOGY'
+      seedHandedOverBag(storage, bagCode)
+      recoverTransferBag(recoveryInput(bagCode, { occurredAt: '2026-08-01 09:00' }), storage)
+      const eventsBefore = listCuttingRuntimeEvents(storage)
+      const expectedSequence = Math.max(...eventsBefore.map((event) => Number(event.ledgerSequence) || 0)) + 1
+      assertRejectedWithoutWritingExact(
+        storage,
+        () => submitTransferBagScrap(scrapInput(bagCode, {
+          occurredAt: '2026-08-01 08:15',
+        }), storage),
+        '报废时间不能早于袋子进入空闲状态的时间。',
+        '早于 09:00 回收事实的 08:15 报废候选必须写前拒绝',
+      )
+      assert.equal(
+        listCuttingRuntimeEvents(storage).some((event) =>
+          event.idempotencyKey === `${bagCode}:BAG_SCRAPPED`),
+        false,
+        '非法报废候选不得占用报废幂等键',
+      )
+      assert.equal(resolveTransferBagCurrentUse(bagCode, storage).mainStatus, 'IDLE')
+      const corrected = submitTransferBagScrap(scrapInput(bagCode, {
+        occurredAt: '2026-08-01 09:10',
+      }), storage)
+      assert.equal(corrected.ledgerSequence, expectedSequence, '写前拒绝后纠正报废必须使用原本的下一账本序号')
+      assert.equal(resolveTransferBagCurrentUse(bagCode, storage).mainStatus, 'DISABLED')
+    } catch (error) {
+      candidateFailures.push(`报废候选: ${error instanceof Error ? error.message : String(error)}`)
+    }
+
+    try {
+      const storage = createMemoryStorage()
+      const bagCode = 'BAG-SCRAP-PREWRITE-ACTIVE'
+      const usageCycleId = `usage:${bagCode}:1`
+      const tickets = [ticket('SCRAP-PREWRITE-ACTIVE', 'PO-SCRAP-PREWRITE-ACTIVE', 'FACTORY-HANDOVER')]
+      appendBagging({ storage, bagCode, usageCycleId, tickets })
+      assertRejectedWithoutWritingExact(
+        storage,
+        () => submitTransferBagScrap(scrapInput(bagCode), storage),
+        '这个袋子还有有效菲票，请先拆袋重装。',
+        '使用中袋的报废候选必须零写入拒绝',
+      )
+      assert.equal(
+        listCuttingRuntimeEvents(storage).some((event) =>
+          event.idempotencyKey === `${bagCode}:BAG_SCRAPPED`),
+        false,
+      )
+    } catch (error) {
+      candidateFailures.push(`使用中报废候选: ${error instanceof Error ? error.message : String(error)}`)
+    }
+
+    assert.deepEqual(candidateFailures, [], candidateFailures.join('；'))
+  })
+
+  captureSecondReviewRed('P1-2 活跃新周期不得命中旧周期回收事实', () => {
+    const storage = createMemoryStorage()
+    const bagCode = 'BAG-RECOVERY-OLD-CYCLE-ACTIVE-RETRY'
+    const oldCycleId = `usage:${bagCode}:old`
+    seedHandedOverBag(storage, bagCode, oldCycleId)
+    const oldRecovery = recoverTransferBag(recoveryInput(bagCode, {
+      occurredAt: '2026-08-01 09:00',
+    }), storage)
+    const newCycleId = `usage:${bagCode}:new`
+    const newTickets = [ticket('OLD-CYCLE-ACTIVE-NEW', 'PO-OLD-CYCLE-ACTIVE-NEW', 'FACTORY-HANDOVER')]
+    appendBagging({
+      storage,
+      bagCode,
+      usageCycleId: newCycleId,
+      tickets: newTickets,
+      occurredAt: '2026-08-01 09:10',
+    })
+    assertRejectedWithoutWritingExact(
+      storage,
+      () => recoverTransferBag(recoveryInput(bagCode, {
+        occurredAt: '2026-08-01 09:20',
+      }), storage),
+      '这个袋子还有有效菲票，请先拆袋重装。',
+      '新周期 PACKED 时相同业务意图不得返回旧周期合法回收事件',
+    )
+    assert.equal(resolveTransferBagCurrentUse(bagCode, storage).flowStage, 'PACKED')
+    assert.equal(listCuttingRuntimeEvents(storage).filter((event) => event.eventType === '中转袋回收').length, 1)
+    assert.equal(
+      listCuttingRuntimeEvents(storage).find((event) => event.eventType === '中转袋回收')?.eventId,
+      oldRecovery.eventId,
+    )
+  })
+
+  assert.deepEqual(
+    secondReviewRedFailures,
+    [],
+    `第二次规格复审 P1 红灯：\n${secondReviewRedFailures.join('\n')}`,
+  )
+}
+
 console.log('PASS check-transfer-bag-repack-recovery')
