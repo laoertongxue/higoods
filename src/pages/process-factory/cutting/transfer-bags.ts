@@ -626,6 +626,18 @@ function renderMasterQuickFilterBar(): string {
   `)
 }
 
+function resolveTransferBagFlowStageDataKey(
+  stage: TransferBagCarrierUseStage | undefined,
+): string {
+  if (stage === TRANSFER_BAG_FLOW_STAGE_META.PACKED.label) return 'PACKED'
+  if (stage === TRANSFER_BAG_FLOW_STAGE_META.INBOUND_STORED.label) return 'INBOUND_STORED'
+  if (stage === TRANSFER_BAG_FLOW_STAGE_META.READY_HANDOVER.label) return 'READY_HANDOVER'
+  if (stage === TRANSFER_BAG_FLOW_STAGE_META.HANDED_OVER_WAITING_RETURN.label) {
+    return 'HANDED_OVER_WAITING_RETURN'
+  }
+  return 'NONE'
+}
+
 function renderUsageRecordQuickFilterBar(): string {
   return renderStickyFilterShell(`
     <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.4fr,1fr,1fr]">
@@ -1252,7 +1264,7 @@ const transferBagListColumns: StandardListColumn<TransferBagMasterListRow>[] = [
     freezeable: true,
     sortable: true,
     render: ({ carrierRecord }) => `
-      <div class="font-medium text-foreground">${escapeHtml(carrierRecord?.currentUseStage || '—')}</div>
+      <div class="font-medium text-foreground" data-transfer-bag-flow-stage="${resolveTransferBagFlowStageDataKey(carrierRecord?.currentUseStage)}">${escapeHtml(carrierRecord?.currentUseStage || '—')}</div>
       <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(carrierRecord?.currentUseId || '无打开使用周期')}</div>
     `,
     sortValue: ({ carrierRecord }) => carrierRecord?.currentUseStage || '—',

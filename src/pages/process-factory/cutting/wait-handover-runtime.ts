@@ -405,10 +405,10 @@ function listWaitHandoverLifecycleCycles(
     const closeFact = facts
       .filter((candidate) =>
         candidate.usageCycleId === fact.usageCycleId
-        && (
-          candidate.factType === 'PHYSICAL_BAG_RETURNED'
-          || candidate.factType === 'BAG_SCRAPPED'
-        ))
+        && candidate.factType === 'PHYSICAL_BAG_RETURNED')
+      .sort((left, right) =>
+        left.occurredAt.localeCompare(right.occurredAt)
+        || left.factId.localeCompare(right.factId))
       .at(-1)
     return {
       usageCycleId: fact.usageCycleId || '',
@@ -416,10 +416,7 @@ function listWaitHandoverLifecycleCycles(
       ...(closeFact
         ? {
             closedAt: closeFact.occurredAt,
-            closeResult:
-              closeFact.factType === 'BAG_SCRAPPED'
-                ? 'DISABLED' as const
-                : 'REUSABLE' as const,
+            closeResult: 'REUSABLE' as const,
           }
         : {}),
     }

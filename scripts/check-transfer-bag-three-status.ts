@@ -565,6 +565,91 @@ assert.equal(runtimeLifecycle.mainStatus, 'IN_USE')
 assert.equal(runtimeLifecycle.flowStage, 'HANDED_OVER_WAITING_RETURN')
 assert.equal(runtimeLifecycle.activeHandoverLegId, firstLeg.handoverLegId)
 
+const adapterScrapStorage = createMemoryStorage()
+const adapterScrapBagCode = 'BAG-ADAPTER-SCRAP-001'
+const adapterScrapCycleId = waitHandoverRuntime.buildWaitHandoverUsageCycleId(
+  adapterScrapBagCode,
+  '2026-07-30 12:40',
+)
+const adapterBaggingEvent = runtimeLedger.appendCuttingRuntimeEventIdempotent({
+  eventType: '菲票装袋',
+  eventSource: 'WEB',
+  eventStatus: '已同步',
+  occurredAt: '2026-07-30 12:40',
+  operatorName: '适配回归装袋员',
+  idempotencyKey: `${adapterScrapCycleId}:BAGGING_CONFIRMED`,
+  refs: {
+    transferBagCode: adapterScrapBagCode,
+    usageCycleId: adapterScrapCycleId,
+  },
+  payload: {
+    bagCode: adapterScrapBagCode,
+    usageCycleId: adapterScrapCycleId,
+  },
+}, adapterScrapStorage).event
+const adapterInvalidScrapEvent = runtimeLedger.appendCuttingRuntimeEventIdempotent({
+  eventType: '中转袋报废',
+  eventSource: 'WEB',
+  eventStatus: '已同步',
+  occurredAt: '2026-07-30 12:45',
+  operatorName: '适配回归报废员',
+  idempotencyKey: `${adapterScrapBagCode}:BAG_SCRAPPED:invalid-open-cycle`,
+  refs: {
+    transferBagCode: adapterScrapBagCode,
+    usageCycleId: adapterScrapCycleId,
+  },
+  payload: {
+    bagCode: adapterScrapBagCode,
+    usageCycleId: adapterScrapCycleId,
+    reason: '使用中误写报废事实',
+  },
+}, adapterScrapStorage).event
+const runtimeLifecycleAfterInvalidScrap =
+  waitHandoverRuntime.buildWaitHandoverLifecycleByBagCode(
+    adapterScrapBagCode,
+    adapterScrapStorage,
+  )
+assert.equal(runtimeLifecycleAfterInvalidScrap.mainStatus, 'IN_USE')
+assert.equal(runtimeLifecycleAfterInvalidScrap.flowStage, 'PACKED')
+assert.deepEqual(
+  runtimeLifecycleAfterInvalidScrap.sourceFactIds,
+  [adapterBaggingEvent.eventId],
+  '运行态适配链路不得把使用中无效报废事实采纳为生命周期证据',
+)
+runtimeLedger.appendCuttingRuntimeEventIdempotent({
+  eventType: '中转袋回收',
+  eventSource: 'WEB',
+  eventStatus: '已同步',
+  occurredAt: '2026-07-30 12:50',
+  operatorName: '适配回归回收员',
+  idempotencyKey: `${adapterScrapCycleId}:PHYSICAL_BAG_RETURNED`,
+  refs: {
+    transferBagCode: adapterScrapBagCode,
+    usageCycleId: adapterScrapCycleId,
+  },
+  payload: {
+    bagCode: adapterScrapBagCode,
+    usageCycleId: adapterScrapCycleId,
+    returnWarehouseName: '裁片仓空袋区',
+  },
+}, adapterScrapStorage)
+const runtimeLifecycleAfterLegalClose =
+  waitHandoverRuntime.buildWaitHandoverLifecycleByBagCode(
+    adapterScrapBagCode,
+    adapterScrapStorage,
+  )
+assert.equal(runtimeLifecycleAfterLegalClose.mainStatus, 'IDLE')
+assert.equal(runtimeLifecycleAfterLegalClose.flowStage, null)
+assert.deepEqual(
+  runtimeLifecycleAfterLegalClose.sourceFactIds,
+  [],
+  '周期合法关闭后，旧无效报废事实不得延迟生效',
+)
+assert.notEqual(
+  adapterInvalidScrapEvent.eventId,
+  adapterBaggingEvent.eventId,
+)
+
 const actionStorage = createMemoryStorage()
 const actionTicket = {
   feiTicketId: 'FT-ID-ACTION-001',
