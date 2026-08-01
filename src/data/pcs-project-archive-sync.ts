@@ -5,7 +5,10 @@ import {
 import { upsertProjectRelation } from './pcs-project-relation-repository.ts'
 import type { ProjectRelationRecord } from './pcs-project-relation-types.ts'
 import { getStyleArchiveById } from './pcs-style-archive-repository.ts'
-import { updateTechnicalDataVersionRecord } from './pcs-technical-data-version-repository.ts'
+import {
+  getTechnicalDataVersionById,
+  updateTechnicalDataVersionRecord,
+} from './pcs-technical-data-version-repository.ts'
 import {
   collectProjectArchiveAutoData,
   computeProjectArchiveMissingItems,
@@ -179,6 +182,13 @@ function markCollectedTechnicalVersions(documents: ProjectArchiveDocumentRecord[
       .map((document) => document.sourceObjectId),
   )
   versionIds.forEach((technicalVersionId) => {
+    const version = getTechnicalDataVersionById(technicalVersionId)
+    if (
+      version?.versionStatus === 'PUBLISHED'
+      && ['REVISION', 'PLATE', 'ARTWORK', 'MANUAL'].includes(version.createdFromTaskType)
+    ) {
+      return
+    }
     updateTechnicalDataVersionRecord(technicalVersionId, {
       archiveCollectedFlag: true,
       archiveCollectedAt: timestamp,

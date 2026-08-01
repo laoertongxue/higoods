@@ -25,6 +25,7 @@ import {
 } from '../src/data/pcs-tech-pack-version-log-repository.ts'
 import {
   getTechnicalDataVersionContent,
+  getTechnicalDataVersionById,
   getTechnicalDataVersionStoreSnapshot,
   listTechnicalDataVersionsByStyleId,
   replaceTechnicalDataVersionStore,
@@ -296,6 +297,8 @@ replaceTechnicalDataVersionStore({
       : record,
   ),
 })
+const legacyRecordBefore = getTechnicalDataVersionById(legacyVersion.technicalVersionId)
+assert.ok(legacyRecordBefore)
 updateStyleArchive(legacyScenario.style.styleId, {
   currentTechPackVersionId: legacyVersion.technicalVersionId,
   currentTechPackVersionCode: legacyVersion.technicalVersionCode,
@@ -325,6 +328,11 @@ assert.deepEqual(
   getTechnicalDataVersionContent(legacyVersion.technicalVersionId),
   legacyContentBefore,
   '旧已发布技术包内容必须保持不变',
+)
+assert.deepEqual(
+  getTechnicalDataVersionById(legacyVersion.technicalVersionId),
+  legacyRecordBefore,
+  '归档同步也不得改写旧已发布技术包记录',
 )
 
 console.log('pcs-tech-pack-artwork-write-or-new-version.spec.ts PASS')
