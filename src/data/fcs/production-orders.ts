@@ -1518,7 +1518,6 @@ function buildReleaseTargetSupplementProductionOrder(base: ProductionOrder): Pro
     unitConsumption: 1,
     lossRate: 0,
     supplier: '生产单冻结技术包',
-    materialImageUrl: buildReleaseMaterialSwatchImageUrl(materialCode, name),
     applicableSkuCodes: [...skuCodes],
     linkedPatternIds: [patternId],
     usageProcessCodes: ['CUT_PANEL'],
