@@ -417,6 +417,23 @@ export interface TransferBagScrapPayload {
   scrappedBy: string
 }
 
+interface LegacyTransferBagRecoveryPayload {
+  bagCode: string
+  usageCycleId: string
+  returnWarehouseName: string
+  returnedAt: string
+  returnedBy: string
+  note?: string
+}
+
+interface LegacyTransferBagScrapPayload {
+  bagCode: string
+  usageCycleId?: string
+  reason: string
+  scrappedAt: string
+  scrappedBy: string
+}
+
 export interface HandoverRecordSubmitPayload {
   handoverOrderId: string
   handoverOrderNo: string
@@ -520,11 +537,32 @@ export type CuttingRuntimeEventPayload =
   | SpecialCraftReturnPayload
   | Record<string, unknown>
 
-export interface CuttingRuntimeEvent {
+export type StrictTransferBagRuntimeEventType =
+  | '中转袋拆袋重装'
+  | '中转袋回收'
+  | '中转袋报废'
+
+type StrictTransferBagRuntimePayloadByType = {
+  中转袋拆袋重装: TransferBagRepackPayload
+  中转袋回收: TransferBagRecoveryPayload | LegacyTransferBagRecoveryPayload
+  中转袋报废: TransferBagScrapPayload | LegacyTransferBagScrapPayload
+}
+
+export type CuttingRuntimeEventPayloadFor<
+  T extends CuttingRuntimeEventType,
+> = T extends StrictTransferBagRuntimeEventType
+  ? StrictTransferBagRuntimePayloadByType[T]
+  : CuttingRuntimeEventPayload
+
+type NoInferRuntimeEventType<T> = [T][T extends unknown ? 0 : never]
+
+export interface CuttingRuntimeEvent<
+  T extends CuttingRuntimeEventType = CuttingRuntimeEventType,
+> {
   eventId: string
   eventNo: string
   idempotencyKey?: string
-  eventType: CuttingRuntimeEventType
+  eventType: T
   eventSource: CuttingRuntimeEventSource
   eventStatus: CuttingRuntimeEventStatus
   occurredAt: string
@@ -536,16 +574,18 @@ export interface CuttingRuntimeEvent {
   material?: RuntimeMaterialSnapshot
   pattern?: RuntimePatternSnapshot
   inventoryEffect?: RuntimeInventoryEffect
-  payload: CuttingRuntimeEventPayload
+  payload: CuttingRuntimeEventPayloadFor<NoInferRuntimeEventType<T>>
 }
 
 export interface CuttingRuntimeEventLedgerStore {
   events: CuttingRuntimeEvent[]
 }
 
-export interface AppendCuttingRuntimeEventInput {
+export interface AppendCuttingRuntimeEventInput<
+  T extends CuttingRuntimeEventType = CuttingRuntimeEventType,
+> {
   idempotencyKey?: string
-  eventType: CuttingRuntimeEventType
+  eventType: T
   eventSource?: CuttingRuntimeEventSource
   eventStatus?: CuttingRuntimeEventStatus
   occurredAt?: string
@@ -557,7 +597,7 @@ export interface AppendCuttingRuntimeEventInput {
   material?: RuntimeMaterialSnapshot
   pattern?: RuntimePatternSnapshot
   inventoryEffect?: RuntimeInventoryEffect
-  payload: CuttingRuntimeEventPayload
+  payload: CuttingRuntimeEventPayloadFor<NoInferRuntimeEventType<T>>
 }
 
 function toArray<T>(value: unknown): T[] {
@@ -818,29 +858,30 @@ export function persistCuttingRuntimeEventLedgerStore(
 }
 
 export function buildCuttingRuntimeEventId(eventType: CuttingRuntimeEventType, refs: CuttingRuntimeRefs, occurredAt: string): string {
+  const normalizedRefs = normalizeRefs(refs)
   const businessKey = [
-    refs.spreadingOrderId,
-    refs.spreadingOrderNo,
-    refs.cutOrderId,
-    refs.cutOrderNo,
-    refs.handoverRecordId,
-    refs.transferBagCode,
-    refs.usageCycleId,
-    refs.handoverLegId,
-    refs.repackBatchId,
-    refs.feiTicketIds?.join('-'),
+    normalizedRefs.spreadingOrderId,
+    normalizedRefs.spreadingOrderNo,
+    normalizedRefs.cutOrderId,
+    normalizedRefs.cutOrderNo,
+    normalizedRefs.handoverRecordId,
+    normalizedRefs.transferBagCode,
+    normalizedRefs.usageCycleId,
+    normalizedRefs.handoverLegId,
+    normalizedRefs.repackBatchId,
+    normalizedRefs.feiTicketIds?.join('-'),
   ].filter(Boolean).join('-') || 'runtime'
   return `cutting-event:${eventTypeCode(eventType)}:${businessKey}:${compactDate(occurredAt)}`
 }
 
-export function appendCuttingRuntimeEvent(
-  input: AppendCuttingRuntimeEventInput,
+export function appendCuttingRuntimeEvent<T extends CuttingRuntimeEventType>(
+  input: AppendCuttingRuntimeEventInput<T>,
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
-): CuttingRuntimeEvent {
+): CuttingRuntimeEvent<T> {
   const occurredAt = input.occurredAt || new Date().toISOString().slice(0, 16).replace('T', ' ')
-  const refs = input.refs || {}
+  const refs = normalizeRefs(input.refs)
   const eventId = buildCuttingRuntimeEventId(input.eventType, refs, occurredAt)
-  const event: CuttingRuntimeEvent = {
+  const event: CuttingRuntimeEvent<T> = {
     eventId,
     eventNo: `${eventTypeCode(input.eventType)}-${compactDate(occurredAt)}`,
     idempotencyKey: input.idempotencyKey,
@@ -865,11 +906,11 @@ export function appendCuttingRuntimeEvent(
   return event
 }
 
-export function appendCuttingRuntimeEventIdempotent(
-  input: AppendCuttingRuntimeEventInput & { idempotencyKey: string },
+export function appendCuttingRuntimeEventIdempotent<T extends CuttingRuntimeEventType>(
+  input: AppendCuttingRuntimeEventInput<T> & { idempotencyKey: string },
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): {
-  event: CuttingRuntimeEvent
+  event: CuttingRuntimeEvent<T>
   appended: boolean
 } {
   const store = hydrateCuttingRuntimeEventLedgerStore(storage)
@@ -878,7 +919,7 @@ export function appendCuttingRuntimeEventIdempotent(
   )
   if (existing) {
     return {
-      event: existing,
+      event: existing as CuttingRuntimeEvent<T>,
       appended: false,
     }
   }

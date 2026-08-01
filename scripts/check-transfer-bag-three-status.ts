@@ -5,7 +5,16 @@ import assert from 'node:assert/strict'
 // @ts-expect-error 本脚本由 Node + tsx 运行，仓库未安装 @types/node。
 import { existsSync, readFileSync } from 'node:fs'
 // @ts-expect-error 本脚本由 Node + tsx 运行，仓库未安装 @types/node。
+import { execFileSync } from 'node:child_process'
+// @ts-expect-error 本脚本由 Node + tsx 运行，仓库未安装 @types/node。
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+// @ts-expect-error 本脚本由 Node + tsx 运行，仓库未安装 @types/node。
+import { tmpdir } from 'node:os'
+// @ts-expect-error 本脚本由 Node + tsx 运行，仓库未安装 @types/node。
+import { join } from 'node:path'
+// @ts-expect-error 本脚本由 Node + tsx 运行，仓库未安装 @types/node。
 import { fileURLToPath } from 'node:url'
+import type { AppendCuttingRuntimeEventInput } from '../src/data/fcs/cutting/cutting-runtime-event-ledger.ts'
 
 const lifecycleModuleUrl = new URL(
   '../src/data/fcs/cutting/transfer-bag-lifecycle.ts',
@@ -418,6 +427,14 @@ const transferBagTicketFactSnapshot = {
   receiverFactoryId: 'FACTORY-ID-REPACK-001',
   receiverFactoryName: '车缝一厂',
 }
+const secondTransferBagTicketFactSnapshot = {
+  ...transferBagTicketFactSnapshot,
+  feiTicketId: 'FT-ID-REPACK-002',
+  feiTicketNo: 'FT-REPACK-002',
+  color: '炭灰',
+  size: 'L',
+  pieceQty: 9,
+}
 
 const repackEvent = {
   eventId: 'cutting-event:BAG-REPACK:REPACK-001:202608011000',
@@ -433,7 +450,7 @@ const repackEvent = {
   operatorRole: '裁片仓主管',
   refs: {
     repackBatchId: ' REPACK-001 ',
-    transferBagCodes: ['BAG-SOURCE-001', '', 'BAG-RESULT-001', 'BAG-SOURCE-001'],
+    transferBagCodes: ['BAG-SOURCE-001', '', 'BAG-SOURCE-002', 'BAG-RESULT-001', 'BAG-SOURCE-001'],
     sewingTaskIds: ['SEW-ID-REPACK-001', '', 'SEW-ID-REPACK-001'],
     sewingTaskNos: ['SEW-REPACK-001', ''],
   },
@@ -443,18 +460,32 @@ const repackEvent = {
       bagCode: 'BAG-SOURCE-001',
       usageCycleId: 'cycle:BAG-SOURCE-001:001',
       beforeTickets: [transferBagTicketFactSnapshot],
+    }, {
+      bagCode: 'BAG-SOURCE-002',
+      usageCycleId: 'cycle:BAG-SOURCE-002:001',
+      beforeTickets: [secondTransferBagTicketFactSnapshot],
     }],
     resultBags: [{
       bagCode: 'BAG-RESULT-001',
       usageCycleId: 'cycle:BAG-RESULT-001:001',
       reusedSourceBag: false,
       tickets: [transferBagTicketFactSnapshot],
+    }, {
+      bagCode: 'BAG-SOURCE-001',
+      usageCycleId: 'cycle:BAG-SOURCE-001:002',
+      reusedSourceBag: true,
+      tickets: [secondTransferBagTicketFactSnapshot],
     }],
     movedTickets: [{
       feiTicketId: 'FT-ID-REPACK-001',
       fromBagCode: 'BAG-SOURCE-001',
       toBagCode: 'BAG-RESULT-001',
       pieceQty: 12,
+    }, {
+      feiTicketId: 'FT-ID-REPACK-002',
+      fromBagCode: 'BAG-SOURCE-002',
+      toBagCode: 'BAG-SOURCE-001',
+      pieceQty: 9,
     }],
     confirmedAt: '2026-08-01 10:00',
     confirmedBy: '重装操作员',
@@ -516,6 +547,48 @@ const scrapEvent = {
   },
 }
 
+const repackAppendInput = {
+  idempotencyKey: repackEvent.idempotencyKey,
+  eventType: '中转袋拆袋重装',
+  eventSource: repackEvent.eventSource,
+  eventStatus: repackEvent.eventStatus,
+  occurredAt: repackEvent.occurredAt,
+  createdAt: repackEvent.createdAt,
+  operatorId: repackEvent.operatorId,
+  operatorName: repackEvent.operatorName,
+  operatorRole: repackEvent.operatorRole,
+  refs: repackEvent.refs,
+  payload: repackEvent.payload,
+} satisfies AppendCuttingRuntimeEventInput<'中转袋拆袋重装'>
+
+const recoveryAppendInput = {
+  idempotencyKey: recoveryEvent.idempotencyKey,
+  eventType: '中转袋回收',
+  eventSource: recoveryEvent.eventSource,
+  eventStatus: recoveryEvent.eventStatus,
+  occurredAt: recoveryEvent.occurredAt,
+  createdAt: recoveryEvent.createdAt,
+  operatorId: recoveryEvent.operatorId,
+  operatorName: recoveryEvent.operatorName,
+  operatorRole: recoveryEvent.operatorRole,
+  refs: recoveryEvent.refs,
+  payload: recoveryEvent.payload,
+} satisfies AppendCuttingRuntimeEventInput<'中转袋回收'>
+
+const scrapAppendInput = {
+  idempotencyKey: scrapEvent.idempotencyKey,
+  eventType: '中转袋报废',
+  eventSource: scrapEvent.eventSource,
+  eventStatus: scrapEvent.eventStatus,
+  occurredAt: scrapEvent.occurredAt,
+  createdAt: scrapEvent.createdAt,
+  operatorId: scrapEvent.operatorId,
+  operatorName: scrapEvent.operatorName,
+  operatorRole: scrapEvent.operatorRole,
+  refs: scrapEvent.refs,
+  payload: scrapEvent.payload,
+} satisfies AppendCuttingRuntimeEventInput<'中转袋报废'>
+
 const legacyBaggingConfirmEvent = {
   eventId: 'cutting-event:BAG-CONFIRM:BAG-LEGACY-001:202607301000',
   eventNo: 'BAG-CONFIRM-202607301000',
@@ -558,7 +631,7 @@ const legacyBaggingConfirmEvent = {
 }
 
 const restoredTransferBagEvents = runtimeLedger.deserializeCuttingRuntimeEventLedgerStorage(
-  JSON.stringify({
+  runtimeLedger.serializeCuttingRuntimeEventLedgerStorage({
     events: [repackEvent, recoveryEvent, scrapEvent, legacyBaggingConfirmEvent],
   }),
 )
@@ -572,6 +645,9 @@ assert.deepEqual(
   repackEvent.payload,
   '重装事件的袋、菲票和移动数量事实必须完整往返',
 )
+assert.equal(restoredRepackEvent?.payload.sourceBags.length, 2)
+assert.equal(restoredRepackEvent?.payload.resultBags.length, 2)
+assert.equal(restoredRepackEvent?.payload.resultBags[1].reusedSourceBag, true)
 assert.deepEqual(
   restoredRepackEvent?.payload.resultBags[0].tickets,
   [transferBagTicketFactSnapshot],
@@ -584,7 +660,7 @@ assert.equal(
 )
 assert.deepEqual(
   restoredRepackEvent?.refs.transferBagCodes,
-  ['BAG-SOURCE-001', 'BAG-RESULT-001'],
+  ['BAG-SOURCE-001', 'BAG-SOURCE-002', 'BAG-RESULT-001'],
   '重装引用袋号必须去空、去重且保持稳定顺序',
 )
 assert.deepEqual(restoredRepackEvent?.refs.sewingTaskIds, ['SEW-ID-REPACK-001'])
@@ -697,15 +773,22 @@ assert.deepEqual(restoredCurrentTransferBagUse?.ticketSnapshot, [transferBagTick
 
 const repackIdempotencyStorage = createMemoryStorage()
 const firstRepackAppend = runtimeLedger.appendCuttingRuntimeEventIdempotent(
-  repackEvent,
+  repackAppendInput,
   repackIdempotencyStorage,
 )
 const duplicateRepackAppend = runtimeLedger.appendCuttingRuntimeEventIdempotent(
-  repackEvent,
+  repackAppendInput,
   repackIdempotencyStorage,
 )
 assert.equal(firstRepackAppend.appended, true)
 assert.equal(duplicateRepackAppend.appended, false)
+assert.equal(firstRepackAppend.event.refs.repackBatchId, 'REPACK-001')
+assert.deepEqual(
+  firstRepackAppend.event.refs.transferBagCodes,
+  ['BAG-SOURCE-001', 'BAG-SOURCE-002', 'BAG-RESULT-001'],
+)
+assert.deepEqual(firstRepackAppend.event.refs.sewingTaskIds, ['SEW-ID-REPACK-001'])
+assert.deepEqual(firstRepackAppend.event.refs.sewingTaskNos, ['SEW-REPACK-001'])
 assert.equal(
   runtimeLedger.buildCuttingRuntimeEventId(
     '中转袋拆袋重装',
@@ -716,10 +799,95 @@ assert.equal(
   '重装批次必须进入稳定业务事件编号',
 )
 assert.equal(
+  runtimeLedger.buildCuttingRuntimeEventId(
+    '中转袋拆袋重装',
+    { repackBatchId: ' REPACK-001 ' },
+    '2026-08-01 10:00',
+  ),
+  runtimeLedger.buildCuttingRuntimeEventId(
+    '中转袋拆袋重装',
+    { repackBatchId: 'REPACK-001' },
+    '2026-08-01 10:00',
+  ),
+  '重装批次前后空白不得改变事件业务键',
+)
+assert.equal(
+  runtimeLedger.buildCuttingRuntimeEventId(
+    '中转袋拆袋重装',
+    { repackBatchId: '   ' },
+    '2026-08-01 10:00',
+  ),
+  runtimeLedger.buildCuttingRuntimeEventId(
+    '中转袋拆袋重装',
+    {},
+    '2026-08-01 10:00',
+  ),
+  '空白重装批次必须与空引用走同一事件业务键兜底',
+)
+assert.equal(
   runtimeLedger.listCuttingRuntimeEvents(repackIdempotencyStorage).length,
   1,
   '同一重装幂等键重复追加只能保留一条事实',
 )
+
+const runtimeLedgerModulePath = fileURLToPath(new URL(
+  '../src/data/fcs/cutting/cutting-runtime-event-ledger.ts',
+  import.meta.url,
+))
+const typeProbeDir = mkdtempSync(join(tmpdir(), 'higoods-transfer-bag-event-contract-'))
+const typeProbePath = join(typeProbeDir, 'runtime-event-contract-probe.ts')
+try {
+  writeFileSync(typeProbePath, `
+import {
+  appendCuttingRuntimeEvent,
+  appendCuttingRuntimeEventIdempotent,
+} from ${JSON.stringify(runtimeLedgerModulePath)}
+import type { AppendCuttingRuntimeEventInput } from ${JSON.stringify(runtimeLedgerModulePath)}
+
+const validRepack = {
+  eventType: '中转袋拆袋重装',
+  operatorName: '类型检查员',
+  payload: {
+    repackBatchId: 'REPACK-TYPE-001',
+    sourceBags: [],
+    resultBags: [],
+    movedTickets: [],
+    confirmedAt: '2026-08-01 10:00',
+    confirmedBy: '类型检查员',
+  },
+} satisfies AppendCuttingRuntimeEventInput<'中转袋拆袋重装'>
+void validRepack
+
+const invalidRepack: AppendCuttingRuntimeEventInput<'中转袋拆袋重装'> = {
+  eventType: '中转袋拆袋重装',
+  operatorName: '类型检查员',
+  // @ts-expect-error 重装事件不得接受未建模的任意载荷。
+  payload: { arbitrary: 123 },
+}
+void invalidRepack
+
+appendCuttingRuntimeEvent({
+  eventType: '中转袋拆袋重装',
+  operatorName: '类型检查员',
+  // @ts-expect-error 新增事件追加入口不得接受未建模的任意载荷。
+  payload: { arbitrary: 123 },
+})
+appendCuttingRuntimeEventIdempotent({
+  idempotencyKey: 'REPACK-TYPE-INVALID',
+  eventType: '中转袋拆袋重装',
+  operatorName: '类型检查员',
+  // @ts-expect-error 新增事件幂等追加入口不得接受未建模的任意载荷。
+  payload: { arbitrary: 123 },
+})
+`)
+  execFileSync('npm', [
+    'exec', 'tsc', '--', '--noEmit', '--target', 'ES2022', '--module', 'ESNext',
+    '--moduleResolution', 'Bundler', '--strict', '--skipLibCheck', '--lib', 'ES2022,DOM',
+    '--allowImportingTsExtensions', typeProbePath,
+  ], { stdio: 'inherit' })
+} finally {
+  rmSync(typeProbeDir, { recursive: true, force: true })
+}
 
 assert.equal(
   typeof runtimeLedger.appendCuttingRuntimeEventIdempotent,
