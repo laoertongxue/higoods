@@ -8,16 +8,31 @@ import {
 } from '../src/data/pcs-material-archive-repository.ts'
 import { updateLatestPcsExchangeRate } from '../src/data/pcs-exchange-rate-config.ts'
 import { submitTechPackFirstStageReview } from '../src/data/pcs-tech-pack-review.ts'
-import { activateTechPackVersionForStyle } from '../src/data/pcs-tech-pack-version-activation.ts'
+import {
+  activateTechPackVersionForStyle,
+  setTechPackActivationFailureStepForTesting,
+} from '../src/data/pcs-tech-pack-version-activation.ts'
+import {
+  getProjectArchiveByProjectId,
+  listProjectArchiveDocumentsByArchiveId,
+  listProjectArchiveFilesByArchiveId,
+  listProjectArchiveMissingItemsByArchiveId,
+} from '../src/data/pcs-project-archive-repository.ts'
+import { listProjectRelationsByProject } from '../src/data/pcs-project-relation-repository.ts'
+import { getProjectById } from '../src/data/pcs-project-repository.ts'
 import {
   getStyleArchiveById,
   listStyleArchives,
 } from '../src/data/pcs-style-archive-repository.ts'
-import { listTechPackVersionLogsByVersionId } from '../src/data/pcs-tech-pack-version-log-repository.ts'
+import {
+  listTechPackVersionLogs,
+  listTechPackVersionLogsByVersionId,
+} from '../src/data/pcs-tech-pack-version-log-repository.ts'
 import {
   createTechnicalDataVersionDraft,
   getTechnicalDataVersionById,
   getTechnicalDataVersionContent,
+  getTechnicalDataVersionStoreSnapshot,
   listTechnicalDataVersions,
 } from '../src/data/pcs-technical-data-version-repository.ts'
 import type {
@@ -105,6 +120,8 @@ function makeRecord(input: {
     styleId: style.styleId,
     styleCode: style.styleCode,
     styleName: style.styleName,
+    sourceProjectId: style.sourceProjectId,
+    sourceProjectCode: style.sourceProjectCode,
     versionStatus: input.status,
     reviewStage: input.reviewStage,
     buyerReview: undefined,
@@ -161,6 +178,18 @@ function makeContent(technicalVersionId: string, bomItems: TechnicalBomItem[]): 
     patternDesigns: [],
     attachments: [],
     legacyCompatibleCostPayload: {},
+  }
+}
+
+function getProjectArchiveFacts(projectId: string) {
+  const archive = getProjectArchiveByProjectId(projectId)
+  const byId = <T>(items: T[], getId: (item: T) => string) =>
+    [...items].sort((left, right) => getId(left).localeCompare(getId(right)))
+  return {
+    archive,
+    documents: archive ? byId(listProjectArchiveDocumentsByArchiveId(archive.projectArchiveId), (item) => item.archiveDocumentId) : [],
+    files: archive ? byId(listProjectArchiveFilesByArchiveId(archive.projectArchiveId), (item) => item.archiveFileId) : [],
+    missingItems: archive ? byId(listProjectArchiveMissingItemsByArchiveId(archive.projectArchiveId), (item) => item.archiveMissingItemId) : [],
   }
 }
 
@@ -223,6 +252,37 @@ assert.deepEqual(getStyleArchiveById(style.styleId), styleBefore)
 assert.deepEqual(getTechnicalDataVersionById(invalidActivationVersionId), invalidActivationRecordBefore)
 assert.deepEqual(getTechnicalDataVersionContent(invalidActivationVersionId), invalidContentBefore)
 assert.deepEqual(listTechPackVersionLogsByVersionId(invalidActivationVersionId), invalidLogsBefore)
+
+// 任一启用写步骤失败，都必须恢复技术包、款式、项目、关系、归档及启用日志六类事实源。
+const activationFailureSteps = ['PRICING_SNAPSHOT', 'STYLE', 'PROJECT', 'RELATION', 'ARCHIVE', 'LOG'] as const
+for (const failureStep of activationFailureSteps) {
+  const versionId = `task7_activation_rollback_${failureStep}_${Date.now()}_${Math.random()}`
+  createTechnicalDataVersionDraft(
+    makeRecord({ id: versionId, status: 'PUBLISHED', reviewStage: '已发布' }),
+    makeContent(versionId, [makeBomItem(`BOM-ROLLBACK-${failureStep}`, validSku.materialSkuId, '米')]),
+  )
+  const technicalBefore = getTechnicalDataVersionStoreSnapshot()
+  const sourceProjectId = style.sourceProjectId
+  const projectBefore = getProjectById(sourceProjectId)
+  const relationBefore = listProjectRelationsByProject(sourceProjectId)
+  const archiveBefore = getProjectArchiveFacts(sourceProjectId)
+  const targetStyleBefore = getStyleArchiveById(style.styleId)
+  const logsBefore = listTechPackVersionLogs()
+
+  setTechPackActivationFailureStepForTesting(failureStep)
+  assert.throws(
+    () => activateTechPackVersionForStyle(style.styleId, versionId, '跟单甲'),
+    new RegExp(`模拟启用${failureStep}写入失败`),
+  )
+  setTechPackActivationFailureStepForTesting(null)
+
+  assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), technicalBefore, `${failureStep} 失败后技术包仓必须恢复`)
+  assert.deepEqual(getStyleArchiveById(style.styleId), targetStyleBefore, `${failureStep} 失败后款式仓必须恢复`)
+  assert.deepEqual(getProjectById(sourceProjectId), projectBefore, `${failureStep} 失败后项目仓必须恢复`)
+  assert.deepEqual(listProjectRelationsByProject(sourceProjectId), relationBefore, `${failureStep} 失败后项目关系仓必须恢复`)
+  assert.deepEqual(getProjectArchiveFacts(sourceProjectId), archiveBefore, `${failureStep} 失败后项目归档仓必须恢复`)
+  assert.deepEqual(listTechPackVersionLogs(), logsBefore, `${failureStep} 失败后启用日志仓必须恢复`)
+}
 
 // 成功启用只冻结一次当时的标准价和汇率；之后档案及系统汇率变化不影响正式快照。
 const successVersionId = `task7_activation_success_${Date.now()}`

@@ -1,18 +1,35 @@
 import {
   getProjectById,
+  getProjectStoreSnapshot,
+  replaceProjectStore,
   updateProjectRecord,
 } from './pcs-project-repository.ts'
+import {
+  getProjectArchiveStoreSnapshot,
+  replaceProjectArchiveStore,
+} from './pcs-project-archive-repository.ts'
 import { syncExistingProjectArchiveByProjectId } from './pcs-project-archive-sync.ts'
-import { upsertProjectRelation } from './pcs-project-relation-repository.ts'
+import {
+  getProjectRelationStoreSnapshot,
+  replaceProjectRelationStore,
+  upsertProjectRelation,
+} from './pcs-project-relation-repository.ts'
 import {
   appendTechPackVersionLog,
   listTechPackVersionLogs,
   replaceTechPackVersionLogStore,
 } from './pcs-tech-pack-version-log-repository.ts'
-import { getStyleArchiveById, updateStyleArchive } from './pcs-style-archive-repository.ts'
+import {
+  captureStyleArchiveRepositoryState,
+  getStyleArchiveById,
+  restoreStyleArchiveRepositoryState,
+  updateStyleArchive,
+} from './pcs-style-archive-repository.ts'
 import {
   getTechnicalDataVersionById,
   getTechnicalDataVersionContent,
+  getTechnicalDataVersionStoreSnapshot,
+  replaceTechnicalDataVersionStore,
   updateTechnicalDataVersionContent,
 } from './pcs-technical-data-version-repository.ts'
 import {
@@ -24,6 +41,58 @@ function nowText(): string {
   const now = new Date()
   const pad = (value: number) => String(value).padStart(2, '0')
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`
+}
+
+export type TechPackActivationMutationStep =
+  | 'PRICING_SNAPSHOT'
+  | 'STYLE'
+  | 'PROJECT'
+  | 'RELATION'
+  | 'ARCHIVE'
+  | 'LOG'
+
+let failureStepForTesting: TechPackActivationMutationStep | null = null
+
+export function setTechPackActivationFailureStepForTesting(
+  step: TechPackActivationMutationStep | null,
+): void {
+  failureStepForTesting = step
+}
+
+function markActivationStepCompleted(step: TechPackActivationMutationStep): void {
+  if (failureStepForTesting === step) throw new Error(`模拟启用${step}写入失败`)
+}
+
+function restoreActivationStores(
+  snapshots: {
+    technical: ReturnType<typeof getTechnicalDataVersionStoreSnapshot>
+    style: ReturnType<typeof captureStyleArchiveRepositoryState>
+    project: ReturnType<typeof getProjectStoreSnapshot>
+    relation: ReturnType<typeof getProjectRelationStoreSnapshot>
+    archive: ReturnType<typeof getProjectArchiveStoreSnapshot>
+    logs: ReturnType<typeof listTechPackVersionLogs>
+  },
+  originalError: unknown,
+): never {
+  const rollbackErrors: unknown[] = []
+  const restore = (action: () => void) => {
+    try {
+      action()
+    } catch (error) {
+      rollbackErrors.push(error)
+    }
+  }
+  restore(() => replaceProjectStore(snapshots.project))
+  restore(() => replaceProjectRelationStore(snapshots.relation))
+  restore(() => replaceProjectArchiveStore(snapshots.archive))
+  restore(() => replaceTechnicalDataVersionStore(snapshots.technical))
+  restore(() => replaceTechPackVersionLogStore(snapshots.logs))
+  // 项目仓恢复会触发款式种子同步，款式仓必须最后精确恢复。
+  restore(() => restoreStyleArchiveRepositoryState(snapshots.style))
+  if (rollbackErrors.length > 0 && originalError instanceof Error) {
+    Object.assign(originalError, { rollbackErrors })
+  }
+  throw originalError
 }
 
 export function activateTechPackVersionForStyle(
@@ -55,12 +124,20 @@ export function activateTechPackVersionForStyle(
     activatedAt,
     operatorName,
   )
-  const logsBeforeActivation = listTechPackVersionLogs()
+  const snapshotsBeforeActivation = {
+    technical: getTechnicalDataVersionStoreSnapshot(),
+    style: captureStyleArchiveRepositoryState(),
+    project: getProjectStoreSnapshot(),
+    relation: getProjectRelationStoreSnapshot(),
+    archive: getProjectArchiveStoreSnapshot(),
+    logs: listTechPackVersionLogs(),
+  }
 
   try {
     if (pricingSnapshot) {
       saveTechnicalDataVersionBomPricingSnapshot(technicalVersionId, pricingSnapshot)
     }
+    markActivationStepCompleted('PRICING_SNAPSHOT')
     const updatedStyle = updateStyleArchive(styleId, {
       archiveStatus: 'ACTIVE',
       techPackStatus: '已启用',
@@ -74,6 +151,7 @@ export function activateTechPackVersionForStyle(
       updatedBy: operatorName,
     })
     if (!updatedStyle) throw new Error('更新款式当前生效技术包版本失败。')
+    markActivationStepCompleted('STYLE')
 
     if (record.sourceProjectId) {
       const project = getProjectById(record.sourceProjectId)
@@ -89,6 +167,7 @@ export function activateTechPackVersionForStyle(
         },
         operatorName,
       )
+      markActivationStepCompleted('PROJECT')
 
       upsertProjectRelation({
         projectRelationId: `rel_tech_pack_${record.technicalVersionId}`,
@@ -111,10 +190,12 @@ export function activateTechPackVersionForStyle(
         updatedBy: operatorName,
         note: '',
       })
+      markActivationStepCompleted('RELATION')
 
       if (project) {
         syncExistingProjectArchiveByProjectId(project.projectId, operatorName)
       }
+      markActivationStepCompleted('ARCHIVE')
     }
 
     appendTechPackVersionLog({
@@ -138,11 +219,9 @@ export function activateTechPackVersionForStyle(
       createdAt: activatedAt,
       createdBy: operatorName,
     })
+    markActivationStepCompleted('LOG')
   } catch (error) {
-    updateTechnicalDataVersionContent(technicalVersionId, content)
-    updateStyleArchive(styleId, style)
-    replaceTechPackVersionLogStore(logsBeforeActivation)
-    throw error
+    restoreActivationStores(snapshotsBeforeActivation, error)
   }
 
   return getTechnicalDataVersionById(technicalVersionId) ?? record
