@@ -1593,14 +1593,26 @@ for (const stoppedCase of [
 const waitProcessHandler = pdaWaitProcessModule.handlePdaWarehouseWaitProcessEvent as (target: HTMLElement) => boolean
 const handlerAlerts: string[] = []
 ;(globalThis.window as unknown as { alert: (message: string) => void }).alert = (message) => handlerAlerts.push(message)
-const buildIssueTarget = (action: string, sourceNo = '', pickupSessionId = '') => ({
+const buildIssueTarget = (action: string, selectedBatch = '') => {
+  const startContainer = {
+    dataset: { sourceNo: '' },
+    querySelector(selector: string) {
+      return selector === '[data-cutting-issue-batch]' ? { value: selectedBatch } : null
+    },
+  }
+  const actionNode = {
+    dataset: { pdaWarehouseAction: action },
+    closest(selector: string) {
+      return selector === '[data-cutting-issue-start]' ? startContainer : null
+    },
+  }
+  return ({
   closest(selector: string) {
-    if (selector === '[data-pda-warehouse-action]') {
-      return { dataset: { pdaWarehouseAction: action, sourceNo, pickupSessionId } }
-    }
+    if (selector === '[data-pda-warehouse-action]') return actionNode
     return null
   },
-}) as unknown as HTMLElement
+  }) as unknown as HTMLElement
+}
 const appendHandlerInbound = (
   sourceNo: string,
   materialSku: string,
@@ -1624,7 +1636,9 @@ const appendHandlerInbound = (
   },
 }, globalLayoutStorage)
 
-const handlerLedgerRow = listMaterialLedgerProjections().find((row) => row.cutOrderNo && row.materialIdentity.materialSku)
+const handlerLedgerRows = listMaterialLedgerProjections()
+const handlerLedgerRow = handlerLedgerRows.find((row) => row.availableQty > 0)
+  || handlerLedgerRows.find((row) => row.cutOrderNo && row.materialIdentity.materialSku)
 assert(handlerLedgerRow, '真实处理器测试必须取得一个当前加工领料对象')
 const handlerWarehouse = getCurrentFactoryWarehouseByKind('WAIT_PROCESS')
 assert(handlerWarehouse, '真实处理器测试必须取得当前 PDA 工厂待加工仓')
@@ -1636,8 +1650,26 @@ const explicitMaterialSku = handlerLedgerRow.materialIdentity.materialSku
 const explicitProductionOrderNo = handlerLedgerRow.productionOrderNo
 const explicitInbound = appendHandlerInbound(explicitSourceNo, explicitMaterialSku, explicitProductionOrderNo, 'SESSION-HANDLER-1', handlerFootprintRefs[0], 200)
 const otherSameCellInbound = appendHandlerInbound('CUT-HANDLER-OTHER', 'MAT-HANDLER-OTHER', explicitProductionOrderNo, 'SESSION-HANDLER-OTHER', handlerFootprintRefs[0], 77)
+;(globalThis.window as unknown as { location: { search: string } }).location.search = '?scope=cutting&action=issue'
+const singleBatchHtml = (pdaWaitProcessModule.renderPdaWarehouseWaitProcessPage as () => string)()
+assert.doesNotMatch(singleBatchHtml, /data-cutting-issue-batch/, '单候选应自动绑定，不增加选择步骤')
+assert.equal(waitProcessHandler(buildIssueTarget('cutting-wp-issue')), true, '单候选点击真实开始按钮应自动绑定并进入草稿')
+assert.equal(waitProcessHandler(buildIssueTarget('cancel-cutting-wp-issue')), true)
+
 const otherTargetSessionInbound = appendHandlerInbound(explicitSourceNo, explicitMaterialSku, explicitProductionOrderNo, 'SESSION-HANDLER-2', handlerFootprintRefs[1], 100)
-assert.equal(waitProcessHandler(buildIssueTarget('cutting-wp-issue', explicitSourceNo, 'SESSION-HANDLER-1')), true)
+const multiBatchHtml = (pdaWaitProcessModule.renderPdaWarehouseWaitProcessPage as () => string)()
+const batchSelectHtml = multiBatchHtml.match(/<select[^>]*data-cutting-issue-batch[^>]*>([\s\S]*?)<\/select>/)?.[1] || ''
+assert(batchSelectHtml, '多候选真实页面必须渲染“本次领料批次”选择控件')
+assert.match(multiBatchHtml, /本次领料批次/)
+assert.match(batchSelectHtml, /value=""[^>]*>请选择本次领料批次</, '多候选默认不得误选')
+assert.match(batchSelectHtml, /入仓[^<]*剩余[^<]*yard[^<]*库位/, '批次选项只显示入仓时间、剩余数量、单位和完整库位')
+const visibleBatchText = batchSelectHtml.replace(/<[^>]+>/g, ' ')
+assert.doesNotMatch(visibleBatchText, /SESSION-HANDLER|EVENT-|pickupSessionId|sourceEventId/, '现场选项不得显示会话 ID、事件 ID 或技术词')
+const countBeforeNoSelection = listCuttingRuntimeEvents(globalLayoutStorage).length
+assert.equal(waitProcessHandler(buildIssueTarget('cutting-wp-issue')), true)
+assert.equal(listCuttingRuntimeEvents(globalLayoutStorage).length, countBeforeNoSelection, '多候选未选批次不得追加 OUT')
+assert.equal(handlerAlerts.at(-1), '请选择本次领料批次。')
+assert.equal(waitProcessHandler(buildIssueTarget('cutting-wp-issue', 'SESSION-HANDLER-1')), true)
 assert.equal(waitProcessHandler(buildIssueTarget('confirm-cutting-wp-issue')), true)
 const explicitOut = listCuttingRuntimeEvents(globalLayoutStorage).find((event) =>
   event.eventType === '待加工仓加工领料'
@@ -1650,14 +1682,6 @@ const explicitProjected = buildWaitProcessRuntimeOccupancies(handlerWarehouse, h
 assert.equal(explicitProjected.find((item) => item.sourceEventId === otherSameCellInbound.eventId)?.qty, 77, '同格其他物料 occupancy 必须保持不变')
 assert.equal(explicitProjected.find((item) => item.sourceEventId === otherTargetSessionInbound.eventId)?.qty, 100, '同物料订单其他会话必须保持不变')
 
-const blockedSourceNo = explicitSourceNo
-appendHandlerInbound(blockedSourceNo, explicitMaterialSku, explicitProductionOrderNo, 'SESSION-BLOCKED-1', handlerFootprintRefs[0], 100)
-appendHandlerInbound(blockedSourceNo, explicitMaterialSku, explicitProductionOrderNo, 'SESSION-BLOCKED-2', handlerFootprintRefs[1], 100)
-assert.equal(waitProcessHandler(buildIssueTarget('cutting-wp-issue', blockedSourceNo)), true)
-const eventCountBeforeBlockedConfirm = listCuttingRuntimeEvents(globalLayoutStorage).length
-assert.equal(waitProcessHandler(buildIssueTarget('confirm-cutting-wp-issue')), true)
-assert.equal(listCuttingRuntimeEvents(globalLayoutStorage).length, eventCountBeforeBlockedConfirm, '无显式会话且多次入仓时不得追加 OUT')
-assert.equal(handlerAlerts.at(-1), '存在多次入仓记录，请先选择具体入仓记录。')
 const legacyTextEvent: CuttingRuntimeEvent = {
   ...structuredClone(runtimePickupEvent),
   eventId: 'EVENT-LEGACY-TEXT',
