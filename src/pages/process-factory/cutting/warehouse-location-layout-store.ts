@@ -594,7 +594,7 @@ export function updateWarehouseLocation(snapshot: FactoryWarehouseLayoutSnapshot
     if (input.levelNo !== undefined) location.levelNo = input.levelNo
     if (input.positionNo !== undefined) location.positionNo = input.positionNo
     if (input.remark !== undefined) location.remark = input.remark.trim()
-    renumberShelf(area, shelf)
+    if (structuralChange) renumberShelf(area, shelf)
   })
 }
 

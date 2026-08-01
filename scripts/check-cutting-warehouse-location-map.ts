@@ -227,7 +227,23 @@ assert.throws(
   () => updateWarehouseLocation(shelfAdded, { locationId: occupiedId, levelNo: 3, positionNo: 2, updatedBy: '仓库主管' }, new Set([occupiedId])),
   /占用.*只能修改备注/,
 )
-assert.doesNotThrow(() => updateWarehouseLocation(shelfAdded, { locationId: occupiedId, remark: '盘点确认', updatedBy: '仓库主管' }, new Set([occupiedId])))
+const customNamedLocationSnapshot = structuredClone(shelfAdded)
+const customNamedLocationArea = customNamedLocationSnapshot.areaList.find((area) => area.areaId === 'AREA-C')!
+const customNamedLocationShelf = customNamedLocationArea.shelfList[0]
+customNamedLocationShelf.shelfName = '主管保留整架名称'
+customNamedLocationShelf.locationList.find((location) => location.locationId === occupiedId)!.locationName = '占用目标自定义名称'
+customNamedLocationShelf.locationList.find((location) => location.levelNo === 2 && location.positionNo === 2)!.locationName = '相邻库位自定义名称'
+const expectedLocationRemarkOnly = structuredClone(customNamedLocationSnapshot.areaList)
+expectedLocationRemarkOnly
+  .find((area) => area.areaId === 'AREA-C')!
+  .shelfList[0]
+  .locationList.find((location) => location.locationId === occupiedId)!.remark = '盘点确认'
+const locationRemarkOnly = updateWarehouseLocation(
+  customNamedLocationSnapshot,
+  { locationId: occupiedId, remark: '盘点确认', updatedBy: '仓库主管' },
+  new Set([occupiedId]),
+)
+assert.deepEqual(locationRemarkOnly.areaList, expectedLocationRemarkOnly, '占用库位仅改备注时，除目标 remark 外整个库区深值必须保持不变')
 assert.throws(
   () => updateWarehouseArea(shelfAdded, { areaId: 'AREA-C', code: 'D', updatedBy: '仓库主管' }, new Set([occupiedId])),
   /占用.*不能修改库区代码/,
