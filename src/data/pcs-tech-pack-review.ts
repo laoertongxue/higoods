@@ -4,6 +4,7 @@ import {
   updateTechnicalDataVersionRecord,
 } from './pcs-technical-data-version-repository.ts'
 import { appendTechPackVersionLog } from './pcs-tech-pack-version-log-repository.ts'
+import { assertTechnicalDataVersionBomCanSubmitForReview } from './pcs-engineering-bom-pricing.ts'
 import {
   formatTechPackDesignRequirementBlockMessage,
   validateTechPackDesignRequirement,
@@ -680,6 +681,7 @@ export function submitTechPackFirstStageReview(
 ): TechnicalDataVersionRecord {
   const record = requireDraftRecord(technicalVersionId)
   assertDesignRequirementSatisfied(technicalVersionId, '提交审核前请先补齐花型设计')
+  assertTechnicalDataVersionBomCanSubmitForReview(technicalVersionId)
   const legacyMode = typeof input === 'string'
   const operator = normalizeOperator(legacyMode ? input : input.operator, legacyMode ? input : '当前用户')
   const buyerReviewer = resolveReviewerForNode(

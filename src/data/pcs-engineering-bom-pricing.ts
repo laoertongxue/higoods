@@ -166,6 +166,37 @@ export function assertEngineeringBomCanSubmitForReview(
   if (invalid) throw new Error(`物料 ${invalid.materialSkuCode} 标准单价失效，不能提交技术包审核。`)
 }
 
+function buildTechnicalDataVersionBomDraft(
+  technicalVersionId: string,
+): EngineeringBomDraft | null {
+  const content = getTechnicalDataVersionContent(technicalVersionId)
+  if (!content) throw new Error('未找到技术包版本内容，无法校验 BOM 与价格。')
+
+  // 既有技术包没有物料 SKU 定价字段，继续沿用原审核和启用策略。
+  // 一旦任一行进入新 BOM 定价模型，则所有行都必须具备可追溯的物料 SKU。
+  if (!content.bomItems.some((item) => Boolean(item.materialSkuId))) return null
+
+  return {
+    materialLines: content.bomItems.map((item) => {
+      if (!item.materialSkuId) throw new Error(`BOM 行 ${item.name} 未关联物料 SKU，不能提交技术包审核。`)
+      return {
+        materialSkuId: item.materialSkuId,
+        usage: item.unitConsumption,
+        sampleQuantity: item.sampleQuantity ?? 1,
+        usageUnit: item.unit || '',
+        lossRate: item.lossRate,
+      }
+    }),
+    customCosts: content.bomCustomCosts ?? [],
+  }
+}
+
+export function assertTechnicalDataVersionBomCanSubmitForReview(technicalVersionId: string): void {
+  const draft = buildTechnicalDataVersionBomDraft(technicalVersionId)
+  if (!draft) return
+  assertEngineeringBomCanSubmitForReview(resolveEngineeringBomDraft(draft), '买手')
+}
+
 export function freezeEngineeringBomPricingSnapshot(input: EngineeringBomDraft & { frozenAt: string; frozenBy: string }): EngineeringBomPricingSnapshot {
   const resolved = resolveEngineeringBomDraft(input)
   assertEngineeringBomCanSubmitForReview(resolved, '买手')
@@ -185,35 +216,40 @@ export function freezeEngineeringBomPricingSnapshot(input: EngineeringBomDraft &
   }
 }
 
-export function freezeTechnicalDataVersionBomPricingSnapshot(
+export function buildTechnicalDataVersionBomPricingSnapshot(
   technicalVersionId: string,
   frozenAt: string,
   frozenBy: string,
-): EngineeringBomPricingSnapshot {
+): EngineeringBomPricingSnapshot | null {
   const record = getTechnicalDataVersionById(technicalVersionId)
   if (!record) throw new Error('未找到技术包版本，无法形成 BOM 成本快照。')
   if (record.versionStatus !== 'PUBLISHED' || record.reviewStage !== '已发布') {
     throw new Error('技术包必须完成审核发布后，才能形成正式 BOM 成本快照。')
   }
-  const content = getTechnicalDataVersionContent(technicalVersionId)
-  if (!content) throw new Error('未找到技术包版本内容，无法形成 BOM 成本快照。')
-  const materialLines = content.bomItems.map((item) => {
-    if (!item.materialSkuId) throw new Error(`BOM 行 ${item.name} 未关联物料 SKU，无法形成正式成本快照。`)
-    return {
-      materialSkuId: item.materialSkuId,
-      usage: item.unitConsumption,
-      sampleQuantity: item.sampleQuantity ?? 1,
-      usageUnit: item.unit || '',
-      lossRate: item.lossRate,
-    }
-  })
-  const snapshot = freezeEngineeringBomPricingSnapshot({
-    materialLines,
-    customCosts: content.bomCustomCosts ?? [],
+  const draft = buildTechnicalDataVersionBomDraft(technicalVersionId)
+  if (!draft) return null
+  return freezeEngineeringBomPricingSnapshot({
+    ...draft,
     frozenAt,
     frozenBy,
   })
+}
+
+export function saveTechnicalDataVersionBomPricingSnapshot(
+  technicalVersionId: string,
+  snapshot: EngineeringBomPricingSnapshot,
+): EngineeringBomPricingSnapshot {
   const updated = updateTechnicalDataVersionContent(technicalVersionId, { bomPricingSnapshot: snapshot })
   if (!updated) throw new Error('保存技术包 BOM 成本快照失败。')
   return snapshot
+}
+
+export function freezeTechnicalDataVersionBomPricingSnapshot(
+  technicalVersionId: string,
+  frozenAt: string,
+  frozenBy: string,
+): EngineeringBomPricingSnapshot {
+  const snapshot = buildTechnicalDataVersionBomPricingSnapshot(technicalVersionId, frozenAt, frozenBy)
+  if (!snapshot) throw new Error('既有技术包未使用 BOM 定价字段，无需形成正式成本快照。')
+  return saveTechnicalDataVersionBomPricingSnapshot(technicalVersionId, snapshot)
 }
