@@ -1169,10 +1169,23 @@ export function pushTechnicalDataVersionPendingItem(item: TechnicalDataVersionPe
   })
 }
 
-export function runTechnicalDataVersionRepositoryTransaction<T>(operation: () => T): T {
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+  if ((typeof value !== 'object' || value === null) && typeof value !== 'function') return false
+  return typeof (value as { then?: unknown }).then === 'function'
+}
+
+export function runTechnicalDataVersionRepositoryTransaction<Operation extends () => unknown>(
+  operation: Operation & (ReturnType<Operation> extends PromiseLike<unknown> ? never : unknown),
+): ReturnType<Operation> {
   const snapshotBeforeOperation = loadSnapshot()
   try {
-    return operation()
+    const result = operation()
+    if (isThenable(result)) {
+      void Promise.resolve(result).catch(() => undefined)
+      persistSnapshot(snapshotBeforeOperation)
+      throw new Error('技术资料版本仓储事务仅支持同步操作，禁止返回 Promise 或 thenable。')
+    }
+    return result as ReturnType<Operation>
   } catch (error) {
     persistSnapshot(snapshotBeforeOperation)
     throw error

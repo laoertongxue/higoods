@@ -1,7 +1,8 @@
 // 正式生产事实的轻量只读索引。
-// 生产单模块注册运行态读取器；首单门禁每次直接读取当前生产单，不保存状态副本。
+// 首单门禁每次直接读取唯一的生产单运行态数组，不保存副本，也不开放替换入口。
 
 import { productionDemands } from './production-demands.ts'
+import { productionOrderRuntimeStore } from './production-order-runtime-store.ts'
 
 export type FormalProductionOrderStatus =
   | 'DRAFT'
@@ -22,14 +23,6 @@ export interface ProductionOrderFormalFact {
 
 const NON_FORMAL_PRODUCTION_ORDER_STATUSES: FormalProductionOrderStatus[] = ['DRAFT', 'CANCELLED', 'ON_HOLD']
 
-type ProductionOrderFormalFactReader = () => readonly ProductionOrderFormalFact[]
-
-let productionOrderFormalFactReader: ProductionOrderFormalFactReader = () => []
-
-export function registerProductionOrderFormalFactReader(reader: ProductionOrderFormalFactReader): void {
-  productionOrderFormalFactReader = reader
-}
-
 export function listProductionOrderFormalFacts(): ProductionOrderFormalFact[] {
   const demandFacts = productionDemands
     .filter((demand) => demand.demandStatus === 'CONVERTED' || demand.hasProductionOrder)
@@ -39,7 +32,12 @@ export function listProductionOrderFormalFacts(): ProductionOrderFormalFact[] {
       status: 'WAIT_ASSIGNMENT' as const,
     }))
   const factsByOrderId = new Map<string, ProductionOrderFormalFact>()
-  for (const fact of [...demandFacts, ...productionOrderFormalFactReader()]) {
+  const orderFacts = productionOrderRuntimeStore.map((order) => ({
+    productionOrderId: order.productionOrderId,
+    spuCode: order.demandSnapshot.spuCode,
+    status: order.status,
+  }))
+  for (const fact of [...demandFacts, ...orderFacts]) {
     factsByOrderId.set(fact.productionOrderId, { ...fact })
   }
   return Array.from(factsByOrderId.values())

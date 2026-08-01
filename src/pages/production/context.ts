@@ -9,14 +9,12 @@ import {
   type AssignmentProgressStatus,
   type AuditLog,
   type RiskFlag,
-  cloneProductionLedgerDetails,
   productionOrderStatusConfig,
   assignmentProgressStatusConfig,
   riskFlagConfig,
   formatProductionOrderMainFactoryName,
   isProductionOrderMainFactoryPending,
 } from '../../data/fcs/production-orders'
-import { registerProductionOrderFormalFactReader } from '../../data/fcs/production-order-formal-fact-index'
 import {
   indonesiaFactories,
   type FactoryTier,
@@ -27,7 +25,6 @@ import {
 } from '../../data/fcs/indonesia-factories'
 import { legalEntities } from '../../data/fcs/legal-entities'
 import {
-  cloneProductionOrderTechPackSnapshot,
   getDemandCurrentTechPackInfo,
   listPublishedTechPackVersionOptionsForDemand,
 } from '../../data/fcs/production-tech-pack-snapshot-builder'
@@ -222,7 +219,7 @@ interface ProductionPatchForm {
 
 interface ProductionState {
   demands: ProductionDemand[]
-  orders: ProductionOrder[]
+  readonly orders: ProductionOrder[]
 
   demandKeyword: string
   demandStatusFilter: ProductionDemand['demandStatus'] | 'ALL'
@@ -398,41 +395,6 @@ function cloneDemand(demand: ProductionDemand): ProductionDemand {
     ...demand,
     marketScopes: [...demand.marketScopes],
     skuLines: demand.skuLines.map((sku) => ({ ...sku })),
-  }
-}
-
-function cloneOrder(order: ProductionOrder): ProductionOrder {
-  return {
-    ...order,
-    mainFactorySnapshot: {
-      ...order.mainFactorySnapshot,
-      tags: [...order.mainFactorySnapshot.tags],
-    },
-    sewingFactorySnapshots: order.sewingFactorySnapshots?.map((factory) => ({
-      ...factory,
-      tags: [...factory.tags],
-    })),
-    techPackSnapshot: cloneProductionOrderTechPackSnapshot(order.techPackSnapshot),
-    demandSnapshot: {
-      ...order.demandSnapshot,
-      skuLines: order.demandSnapshot.skuLines.map((sku) => ({ ...sku })),
-    },
-    sourceDemandIds: [...(order.sourceDemandIds ?? [order.demandId])],
-    sourceDemandSnapshots: (order.sourceDemandSnapshots ?? [order.demandSnapshot]).map((snapshot) => ({
-      ...snapshot,
-      skuLines: snapshot.skuLines.map((sku) => ({ ...sku })),
-    })),
-    assignmentSummary: { ...order.assignmentSummary },
-    assignmentProgress: { ...order.assignmentProgress },
-    biddingSummary: { ...order.biddingSummary },
-    directDispatchSummary: { ...order.directDispatchSummary },
-    taskBreakdownSummary: {
-      ...order.taskBreakdownSummary,
-      taskTypesTop3: [...order.taskBreakdownSummary.taskTypesTop3],
-    },
-    ledgerDetails: cloneProductionLedgerDetails(order.ledgerDetails),
-    riskFlags: [...order.riskFlags],
-    auditLogs: order.auditLogs.map((log) => ({ ...log })),
   }
 }
 
@@ -1004,7 +966,7 @@ function applyOrderTaskBreakdown(orderIds: string[]): number {
     buildBatchTaskGenerationPreview([...targetIds], listProcessWorkOrders()).map((preview) => [preview.productionOrderId, preview]),
   )
 
-  state.orders = state.orders.map((order) => {
+  const nextOrders = state.orders.map((order) => {
     if (!targetIds.has(order.productionOrderId) || !canOrderStartTaskBreakdown(order)) {
       return order
     }
@@ -1071,6 +1033,7 @@ function applyOrderTaskBreakdown(orderIds: string[]): number {
       updatedAt: now,
     }
   })
+  state.orders.splice(0, state.orders.length, ...nextOrders)
 
   return changedCount
 }
@@ -1814,7 +1777,7 @@ function closeAllProductionDialogs(): void {
 
 const state: ProductionState = {
   demands: productionDemands.map(cloneDemand),
-  orders: productionOrders.map(cloneOrder),
+  orders: productionOrders,
 
   demandKeyword: '',
   demandStatusFilter: 'ALL',
@@ -1901,13 +1864,6 @@ const state: ProductionState = {
   detailSimulateStatus: 'DRAFT',
   detailConfirmSimulateOpen: false,
 }
-
-// 页面运行态可能新增、恢复或变更生产单；首单门禁始终读取这一事实源。
-registerProductionOrderFormalFactReader(() => state.orders.map((order) => ({
-  productionOrderId: order.productionOrderId,
-  spuCode: order.demandSnapshot.spuCode,
-  status: order.status,
-})))
 
 export type {
   OrderViewMode,

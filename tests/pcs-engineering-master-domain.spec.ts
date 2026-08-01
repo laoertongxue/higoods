@@ -4,6 +4,7 @@ import { listStyleArchives, resetStyleArchiveRepository } from '../src/data/pcs-
 import { assertFirstFormalProduction } from '../src/data/pcs-engineering-first-production-policy.ts'
 import { productionOrders } from '../src/data/fcs/production-orders.ts'
 import { productionDemands } from '../src/data/fcs/production-demands.ts'
+import * as formalProductionOrderFactIndex from '../src/data/fcs/production-order-formal-fact-index.ts'
 import {
   createEngineeringMasterOrder,
   publishEngineeringMasterOrder,
@@ -36,28 +37,29 @@ assert.doesNotThrow(
 productionOrders.pop()
 
 const { state: productionRuntimeState } = await import('../src/pages/production/context.ts')
-const runtimeOrdersBeforeRestore = productionRuntimeState.orders
-const restoredRuntimeOrder = structuredClone(runtimeOrdersBeforeRestore[0])
+assert.equal(productionRuntimeState.orders, productionOrders, '页面运行态和首单门禁必须共享同一生产单数组')
+assert.deepEqual(
+  Object.keys(formalProductionOrderFactIndex).sort(),
+  ['hasFormalProductionOrderFact', 'listProductionOrderFormalFacts'],
+  '正式生产事实索引不得公开注册、替换或清空入口',
+)
+const restoredRuntimeOrder = structuredClone(productionOrders[0])
 restoredRuntimeOrder.productionOrderId = 'PO-FIRST-ORDER-RUNTIME-RESTORE'
 restoredRuntimeOrder.productionOrderNo = 'PO-FIRST-ORDER-RUNTIME-RESTORE'
 restoredRuntimeOrder.demandSnapshot.spuCode = 'SPU-FIRST-ORDER-RUNTIME-RESTORE'
 restoredRuntimeOrder.status = 'EXECUTING'
-productionRuntimeState.orders = [...runtimeOrdersBeforeRestore, restoredRuntimeOrder]
+productionOrders.push(restoredRuntimeOrder)
 assert.throws(
   () => assertFirstFormalProduction(restoredRuntimeOrder.demandSnapshot.spuCode),
   /已经正式生产过/,
-  '运行态恢复新增的执行中生产单必须立即进入首单门禁',
+  '页面上下文加载后，经导出的生产单数组新增正式生产单仍必须立即进入首单门禁',
 )
-productionRuntimeState.orders = productionRuntimeState.orders.map((order) =>
-  order.productionOrderId === restoredRuntimeOrder.productionOrderId
-    ? { ...order, status: 'CANCELLED' }
-    : order,
-)
+restoredRuntimeOrder.status = 'CANCELLED'
 assert.doesNotThrow(
   () => assertFirstFormalProduction(restoredRuntimeOrder.demandSnapshot.spuCode),
-  '运行态恢复后改为已取消必须立即退出首单门禁',
+  '同一事实源中的生产单改为已取消后必须立即退出首单门禁',
 )
-productionRuntimeState.orders = runtimeOrdersBeforeRestore
+productionOrders.splice(productionOrders.indexOf(restoredRuntimeOrder), 1)
 
 // 首次正式生产校验：已正式生产款式必须阻断
 assert.throws(() => assertFirstFormalProduction('SPU-2024-001'), /已经正式生产过/)

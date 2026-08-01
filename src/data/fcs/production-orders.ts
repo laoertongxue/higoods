@@ -14,7 +14,7 @@ import {
   cloneProductionOrderTechPackSnapshot,
 } from './production-tech-pack-snapshot-builder.ts'
 import type { ProductionOrderTechPackSnapshot } from './production-tech-pack-snapshot-types.ts'
-import { registerProductionOrderFormalFactReader } from './production-order-formal-fact-index.ts'
+import { productionOrderRuntimeStore } from './production-order-runtime-store.ts'
 
 export type ProductionOrderStatus =
   | 'DRAFT'
@@ -1673,16 +1673,11 @@ function buildReleaseTargetSupplementProductionOrder(base: ProductionOrder): Pro
 }
 
 const seededProductionOrders = productionOrderSeeds.map((seed) => buildProductionOrderFromSeed(seed))
-export const productionOrders: ProductionOrder[] = [
+productionOrderRuntimeStore.splice(0, productionOrderRuntimeStore.length,
   ...seededProductionOrders,
   buildReleaseTargetSupplementProductionOrder(seededProductionOrders[1]),
-]
-
-registerProductionOrderFormalFactReader(() => productionOrders.map((order) => ({
-  productionOrderId: order.productionOrderId,
-  spuCode: order.demandSnapshot.spuCode,
-  status: order.status,
-})))
+)
+export const productionOrders: ProductionOrder[] = productionOrderRuntimeStore
 
 export const productionOrderStatusConfig: Record<ProductionOrderStatus, { label: string; color: string }> = {
   DRAFT: { label: '草稿', color: 'bg-gray-100 text-gray-700' },

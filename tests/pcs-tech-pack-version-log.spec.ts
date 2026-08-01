@@ -25,6 +25,18 @@ import {
   resetTechPackVersionLogRepository,
 } from '../src/data/pcs-tech-pack-version-log-repository.ts'
 import { generateTechPackVersionFromPatternTask } from '../src/data/pcs-tech-pack-task-generation.ts'
+import { assertFirstFormalProduction } from '../src/data/pcs-engineering-first-production-policy.ts'
+import {
+  createEngineeringChangeTask,
+  createEngineeringMasterOrder,
+  publishEngineeringMasterOrder,
+  resetEngineeringMasterRepository,
+  setEngineeringMasterStatus,
+} from '../src/data/pcs-engineering-master-repository.ts'
+import type {
+  EngineeringChangeTaskRecord,
+  EngineeringMasterOrderRecord,
+} from '../src/data/pcs-engineering-master-types.ts'
 import {
   resetTechnicalDataVersionRepository,
   updateTechnicalDataVersionContent,
@@ -49,11 +61,20 @@ function resetScenario(): void {
   resetPlateMakingTaskRepository()
   resetPatternTaskRepository()
   resetRevisionTaskRepository()
+  resetEngineeringMasterRepository()
   resetPcsProductArchiveState()
 }
 
 function prepareProjectAndStyle() {
-  const style = listStyleArchives().find((item) => item.sourceProjectId) || findStyleArchiveByProjectId('PRJ-20251216-004')
+  const style = listStyleArchives().find((item) => {
+    if (!item.sourceProjectId) return false
+    try {
+      assertFirstFormalProduction(item.styleCode)
+      return true
+    } catch {
+      return false
+    }
+  }) || findStyleArchiveByProjectId('PRJ-20251216-004')
   assert.ok(style, '应存在可用于版本日志测试的款式档案')
   const project = getProjectById(style!.sourceProjectId)
   assert.ok(project, '款式档案必须能找到来源商品项目')
@@ -86,13 +107,21 @@ function prepareProjectAndStyle() {
     '测试用户',
   )
 
+  const freshStyle = getStyleArchiveById(style!.styleId)!
+  const engineeringMaster = publishEngineeringMasterOrder(createEngineeringMasterOrder({
+    styleId: freshStyle.styleId,
+    styleCode: freshStyle.styleCode,
+    merchandiserName: '测试跟单',
+  }).masterOrderId)
+
   return {
-    style: getStyleArchiveById(style!.styleId)!,
+    style: freshStyle,
     project: getProjectById(project!.projectId)!,
+    engineeringMaster,
   }
 }
 
-function createPlateTask(projectId: string, styleCode: string) {
+function createPlateTask(projectId: string, styleCode: string, master: EngineeringMasterOrderRecord) {
   const project = getProjectById(projectId)!
   return upsertPlateMakingTask({
     plateTaskId: 'plate_task_log_test',
@@ -105,10 +134,10 @@ function createPlateTask(projectId: string, styleCode: string) {
     stepCode: 'PATTERN_TASK',
     stepName: '制版任务',
     sourceType: '商品项目',
-    upstreamModule: '商品项目',
-    upstreamObjectType: '商品项目',
-    upstreamObjectId: project.projectId,
-    upstreamObjectCode: project.projectCode,
+    upstreamModule: '生产工程管理',
+    upstreamObjectType: '工程专业任务',
+    upstreamObjectId: `${master.masterOrderId}-BASE_PATTERN_WOVEN`,
+    upstreamObjectCode: `${master.masterOrderCode}-BASE_PATTERN_WOVEN`,
     productStyleCode: styleCode,
     spuCode: styleCode,
     productHistoryType: '未卖过',
@@ -139,7 +168,14 @@ function createPlateTask(projectId: string, styleCode: string) {
   })
 }
 
-function createPatternTask(id: string, code: string, projectId: string, styleCode: string, artworkVersion: string) {
+function createPatternTask(
+  id: string,
+  code: string,
+  projectId: string,
+  styleCode: string,
+  artworkVersion: string,
+  master: EngineeringMasterOrderRecord,
+) {
   const project = getProjectById(projectId)!
   return upsertPatternTask({
     patternTaskId: id,
@@ -152,10 +188,10 @@ function createPatternTask(id: string, code: string, projectId: string, styleCod
     stepCode: 'PATTERN_ARTWORK_TASK',
     stepName: '花型任务',
     sourceType: '商品项目',
-    upstreamModule: '商品项目',
-    upstreamObjectType: '商品项目',
-    upstreamObjectId: project.projectId,
-    upstreamObjectCode: project.projectCode,
+    upstreamModule: '生产工程管理',
+    upstreamObjectType: '工程专业任务',
+    upstreamObjectId: `${master.masterOrderId}-PATTERN_ARTWORK`,
+    upstreamObjectCode: `${master.masterOrderCode}-PATTERN_ARTWORK`,
     productStyleCode: styleCode,
     spuCode: styleCode,
     artworkType: '印花',
@@ -187,7 +223,13 @@ function createPatternTask(id: string, code: string, projectId: string, styleCod
   })
 }
 
-function createRevisionTask(projectId: string, styleId: string, styleCode: string, styleName: string) {
+function createRevisionTask(
+  projectId: string,
+  styleId: string,
+  styleCode: string,
+  styleName: string,
+  change: EngineeringChangeTaskRecord,
+) {
   const project = getProjectById(projectId)!
   const node = getProjectNodeRecordByStepCode(projectId, 'TEST_CONCLUSION')!
   return upsertRevisionTask({
@@ -201,10 +243,10 @@ function createRevisionTask(projectId: string, styleId: string, styleCode: strin
     stepCode: 'REVISION_TASK',
     stepName: '改版任务',
     sourceType: '人工创建',
-    upstreamModule: '商品项目',
-    upstreamObjectType: '商品项目节点',
-    upstreamObjectId: node.projectNodeId,
-    upstreamObjectCode: node.stepCode,
+    upstreamModule: '生产工程管理',
+    upstreamObjectType: '工程变更任务',
+    upstreamObjectId: change.engineeringChangeTaskId,
+    upstreamObjectCode: change.engineeringChangeTaskCode,
     styleId,
     styleCode,
     styleName,
@@ -242,8 +284,8 @@ function createRevisionTask(projectId: string, styleId: string, styleCode: strin
 }
 
 resetScenario()
-const { style, project } = prepareProjectAndStyle()
-const plateTask = createPlateTask(project.projectId, style.styleCode)
+const { style, project, engineeringMaster } = prepareProjectAndStyle()
+const plateTask = createPlateTask(project.projectId, style.styleCode, engineeringMaster)
 const baseVersion = generateTechPackVersionFromPlateTask(plateTask.plateTaskId, '测试用户').record
 updateTechnicalDataVersionContent(baseVersion.technicalVersionId, {
   processEntries: [{
@@ -264,6 +306,8 @@ updateTechnicalDataVersionContent(baseVersion.technicalVersionId, {
   processRouteConfirmedBy: '测试用户',
   processRouteConfirmedAt: '2026-04-20 14:25',
 })
+const patternTaskOne = createPatternTask('pattern_task_log_write', 'AT-TEST-LOG-001', project.projectId, style.styleCode, 'ART-LOG-V1', engineeringMaster)
+generateTechPackVersionFromPatternTask(patternTaskOne.patternTaskId, '测试用户')
 updateTechnicalDataVersionRecord(baseVersion.technicalVersionId, {
   reviewStage: '待发布',
   reviewSubmittedAt: '2026-04-20 14:30',
@@ -295,12 +339,15 @@ updateTechnicalDataVersionRecord(baseVersion.technicalVersionId, {
 publishTechnicalDataVersion(baseVersion.technicalVersionId, '测试用户')
 activateTechPackVersionForStyle(style.styleId, baseVersion.technicalVersionId, '测试用户')
 
-const patternTaskOne = createPatternTask('pattern_task_log_write', 'AT-TEST-LOG-001', project.projectId, style.styleCode, 'ART-LOG-V1')
-generateTechPackVersionFromPatternTask(patternTaskOne.patternTaskId, '测试用户')
-const patternTaskTwo = createPatternTask('pattern_task_log_new', 'AT-TEST-LOG-002', project.projectId, style.styleCode, 'ART-LOG-V2')
+const patternTaskTwo = createPatternTask('pattern_task_log_new', 'AT-TEST-LOG-002', project.projectId, style.styleCode, 'ART-LOG-V2', engineeringMaster)
 generateTechPackVersionFromPatternTask(patternTaskTwo.patternTaskId, '测试用户')
 
-const revisionTask = createRevisionTask(project.projectId, style.styleId, style.styleCode, style.styleName)
+setEngineeringMasterStatus(engineeringMaster.masterOrderId, '已关闭')
+const engineeringChange = createEngineeringChangeTask({
+  sourceMasterOrderId: engineeringMaster.masterOrderId,
+  createdBy: '测试用户',
+})
+const revisionTask = createRevisionTask(project.projectId, style.styleId, style.styleCode, style.styleName, engineeringChange)
 generateTechPackVersionFromRevisionTask(revisionTask.revisionTaskId, '测试用户')
 
 const logTypes = listTechPackVersionLogsByStyleId(style.styleId).map((item) => item.logType)

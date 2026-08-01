@@ -21,6 +21,13 @@ import {
   listTechnicalDataVersions,
 } from '../src/data/pcs-technical-data-version-repository.ts'
 import type { TechnicalBomItem, TechnicalDataVersionContent } from '../src/data/pcs-technical-data-version-types.ts'
+import { listStyleArchives } from '../src/data/pcs-style-archive-repository.ts'
+import { assertFirstFormalProduction } from '../src/data/pcs-engineering-first-production-policy.ts'
+import {
+  createEngineeringMasterOrder,
+  publishEngineeringMasterOrder,
+  resetEngineeringMasterRepository,
+} from '../src/data/pcs-engineering-master-repository.ts'
 import {
   refreshBomPricingWorkspaceLocally,
   renderBomPricingWorkspace,
@@ -68,6 +75,23 @@ function createMaterial(input: { price: number; pricingUnit: string; usageUnit: 
 const pricedSku = createMaterial({ price: 12.3456, pricingUnit: '码', usageUnit: '米', factor: 1.0936 })
 const base = listTechnicalDataVersions()[0]
 assert.ok(base)
+resetEngineeringMasterRepository()
+const style = listStyleArchives().find((item) => {
+  try {
+    assertFirstFormalProduction(item.styleCode)
+    return true
+  } catch {
+    return false
+  }
+})
+assert.ok(style, '应存在可用于 BOM 与价格页面测试的首单款式')
+const engineeringMaster = publishEngineeringMasterOrder(createEngineeringMasterOrder({
+  styleId: style.styleId,
+  styleCode: style.styleCode,
+  merchandiserName: '测试跟单',
+}).masterOrderId)
+const techPackConfirmationTask = engineeringMaster.tasks.find((task) => task.taskType === 'TECH_PACK_CONFIRMATION')
+assert.ok(techPackConfirmationTask, '工程主单必须包含技术包确认任务')
 const versionId = `task7_page_${Date.now()}`
 const bomItems: TechnicalBomItem[] = Array.from({ length: 6 }, (_, index) => ({
   id: `BOM-PAGE-${index + 1}`,
@@ -101,6 +125,16 @@ createTechnicalDataVersionDraft(
     ...base,
     technicalVersionId: versionId,
     technicalVersionCode: `TP-${versionId}`,
+    styleId: style.styleId,
+    styleCode: style.styleCode,
+    styleName: style.styleName,
+    sourceProjectId: engineeringMaster.masterOrderId,
+    sourceProjectCode: engineeringMaster.masterOrderCode,
+    sourceProjectName: engineeringMaster.styleName,
+    sourceProjectNodeId: '',
+    createdFromTaskType: 'ENGINEERING_MASTER',
+    createdFromTaskId: techPackConfirmationTask.taskId,
+    createdFromTaskCode: techPackConfirmationTask.taskId,
     versionStatus: 'DRAFT',
     reviewStage: '未提交审核',
     buyerReview: undefined,

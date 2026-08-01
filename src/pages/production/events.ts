@@ -2580,7 +2580,7 @@ export function handleProductionEvent(target: HTMLElement, event?: Event): boole
     const targetStatus = state.detailSimulateStatus
     const lockedStatuses: ProductionOrderStatus[] = ['EXECUTING', 'COMPLETED', 'CANCELLED']
 
-    state.orders = state.orders.map((order) => {
+    const nextOrders = state.orders.map((order) => {
       if (order.productionOrderId !== orderId) return order
 
       const auditLog: AuditLog = {
@@ -2599,6 +2599,7 @@ export function handleProductionEvent(target: HTMLElement, event?: Event): boole
         auditLogs: [...order.auditLogs, auditLog],
       }
     })
+    state.orders.splice(0, state.orders.length, ...nextOrders)
 
     state.detailConfirmSimulateOpen = false
     state.detailSimulateOpen = false

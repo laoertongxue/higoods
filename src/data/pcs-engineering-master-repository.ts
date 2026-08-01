@@ -328,10 +328,23 @@ export function getEngineeringMasterOrderStoreSnapshot(): EngineeringMasterOrder
   return readSnapshot()
 }
 
-export function runEngineeringMasterRepositoryTransaction<T>(operation: () => T): T {
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+  if ((typeof value !== 'object' || value === null) && typeof value !== 'function') return false
+  return typeof (value as { then?: unknown }).then === 'function'
+}
+
+export function runEngineeringMasterRepositoryTransaction<Operation extends () => unknown>(
+  operation: Operation & (ReturnType<Operation> extends PromiseLike<unknown> ? never : unknown),
+): ReturnType<Operation> {
   const snapshotBeforeOperation = readSnapshot()
   try {
-    return operation()
+    const result = operation()
+    if (isThenable(result)) {
+      void Promise.resolve(result).catch(() => undefined)
+      writeSnapshot(snapshotBeforeOperation)
+      throw new Error('工程主单仓储事务仅支持同步操作，禁止返回 Promise 或 thenable。')
+    }
+    return result as ReturnType<Operation>
   } catch (error) {
     writeSnapshot(snapshotBeforeOperation)
     throw error

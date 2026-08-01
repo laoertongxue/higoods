@@ -16,6 +16,12 @@ import {
 } from '../src/data/pcs-style-archive-repository.ts'
 import { resetTechnicalDataVersionRepository } from '../src/data/pcs-technical-data-version-repository.ts'
 import { resetTechPackVersionLogRepository } from '../src/data/pcs-tech-pack-version-log-repository.ts'
+import { assertFirstFormalProduction } from '../src/data/pcs-engineering-first-production-policy.ts'
+import {
+  createEngineeringMasterOrder,
+  publishEngineeringMasterOrder,
+  resetEngineeringMasterRepository,
+} from '../src/data/pcs-engineering-master-repository.ts'
 import {
   getPlateMakingTaskById,
   resetPlateMakingTaskRepository,
@@ -30,8 +36,17 @@ resetTechnicalDataVersionRepository()
 clearProjectRelationStore()
 resetTechPackVersionLogRepository()
 resetPlateMakingTaskRepository()
+resetEngineeringMasterRepository()
 
-const style = listStyleArchives().find((item) => item.sourceProjectId) || findStyleArchiveByProjectId('PRJ-20251216-004')
+const style = listStyleArchives().find((item) => {
+  if (!item.sourceProjectId) return false
+  try {
+    assertFirstFormalProduction(item.styleCode)
+    return true
+  } catch {
+    return false
+  }
+}) || findStyleArchiveByProjectId('PRJ-20251216-004')
 assert.ok(style, '必须存在款式档案演示数据')
 const project = getProjectById(style!.sourceProjectId)
 assert.ok(project, '款式档案必须有来源项目')
@@ -53,6 +68,12 @@ updateProjectRecord(project!.projectId, {
   linkedTechPackVersionStatus: '',
 }, '测试用户')
 
+const engineeringMaster = publishEngineeringMasterOrder(createEngineeringMasterOrder({
+  styleId: style!.styleId,
+  styleCode: style!.styleCode,
+  merchandiserName: '测试跟单',
+}).masterOrderId)
+
 const task: PlateMakingTaskRecord = upsertPlateMakingTask({
   plateTaskId: 'plate_anchor_test',
   plateTaskCode: 'PT-ANCHOR-001',
@@ -64,10 +85,10 @@ const task: PlateMakingTaskRecord = upsertPlateMakingTask({
   stepCode: 'PATTERN_TASK',
   stepName: '制版任务',
   sourceType: '人工创建',
-  upstreamModule: '商品项目',
-  upstreamObjectType: '商品项目',
-  upstreamObjectId: project!.projectId,
-  upstreamObjectCode: project!.projectCode,
+  upstreamModule: '生产工程管理',
+  upstreamObjectType: '工程专业任务',
+  upstreamObjectId: `${engineeringMaster.masterOrderId}-BASE_PATTERN_WOVEN`,
+  upstreamObjectCode: `${engineeringMaster.masterOrderCode}-BASE_PATTERN_WOVEN`,
   productStyleCode: style!.styleCode,
   spuCode: style!.styleCode,
   productHistoryType: '未卖过',

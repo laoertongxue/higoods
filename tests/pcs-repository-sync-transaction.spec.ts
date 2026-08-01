@@ -1,0 +1,105 @@
+import assert from 'node:assert/strict'
+
+import { listStyleArchives, resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
+import {
+  createEngineeringMasterOrder,
+  getEngineeringMasterOrderStoreSnapshot,
+  resetEngineeringMasterRepository,
+  runEngineeringMasterRepositoryTransaction,
+} from '../src/data/pcs-engineering-master-repository.ts'
+import {
+  getTechnicalDataVersionStoreSnapshot,
+  pushTechnicalDataVersionPendingItem,
+  resetTechnicalDataVersionRepository,
+  runTechnicalDataVersionRepositoryTransaction,
+} from '../src/data/pcs-technical-data-version-repository.ts'
+
+resetStyleArchiveRepository()
+resetEngineeringMasterRepository()
+const style = listStyleArchives()[0]
+assert.ok(style, '应存在款式档案演示数据')
+
+const engineeringBeforeAsync = getEngineeringMasterOrderStoreSnapshot()
+const asyncEngineeringOperation = (async () => {
+  createEngineeringMasterOrder({
+    styleId: style.styleId,
+    styleCode: style.styleCode,
+    merchandiserName: '事务测试跟单',
+  })
+  await Promise.resolve()
+  throw new Error('异步失败')
+}) as unknown as () => unknown
+assert.throws(
+  () => runEngineeringMasterRepositoryTransaction(asyncEngineeringOperation),
+  /仅支持同步操作.*Promise 或 thenable/,
+  '工程主单仓储必须立即拒绝异步回调',
+)
+assert.deepEqual(
+  getEngineeringMasterOrderStoreSnapshot(),
+  engineeringBeforeAsync,
+  '异步回调在首次 await 前产生的工程主单写入也必须全部回滚',
+)
+
+const engineeringBeforeThenable = getEngineeringMasterOrderStoreSnapshot()
+const engineeringThenableOperation = (() => {
+  createEngineeringMasterOrder({
+    styleId: style.styleId,
+    styleCode: style.styleCode,
+    merchandiserName: 'thenable 测试跟单',
+  })
+  return { then: (resolve: (value: string) => void) => resolve('done') }
+}) as unknown as () => unknown
+assert.throws(
+  () => runEngineeringMasterRepositoryTransaction(engineeringThenableOperation),
+  /仅支持同步操作.*Promise 或 thenable/,
+  '工程主单仓储必须拒绝自定义 thenable',
+)
+assert.deepEqual(getEngineeringMasterOrderStoreSnapshot(), engineeringBeforeThenable, 'thenable 回调不得留下工程主单写入')
+
+resetTechnicalDataVersionRepository()
+const technicalBeforeAsync = getTechnicalDataVersionStoreSnapshot()
+const asyncTechnicalOperation = (async () => {
+  pushTechnicalDataVersionPendingItem({
+    pendingId: 'pending-async-transaction-test',
+    rawTechnicalCode: 'TD-ASYNC-TEST',
+    rawStyleField: 'SPU-ASYNC-TEST',
+    rawProjectField: 'PRJ-ASYNC-TEST',
+    rawVersionLabel: 'V1',
+    reason: '异步事务回滚测试',
+    discoveredAt: '2026-08-02 10:00:00',
+  })
+  await Promise.resolve()
+  throw new Error('异步失败')
+}) as unknown as () => unknown
+assert.throws(
+  () => runTechnicalDataVersionRepositoryTransaction(asyncTechnicalOperation),
+  /仅支持同步操作.*Promise 或 thenable/,
+  '技术资料仓储必须立即拒绝异步回调',
+)
+assert.deepEqual(
+  getTechnicalDataVersionStoreSnapshot(),
+  technicalBeforeAsync,
+  '异步回调在首次 await 前产生的技术资料写入也必须全部回滚',
+)
+
+const technicalBeforeThenable = getTechnicalDataVersionStoreSnapshot()
+const technicalThenableOperation = (() => {
+  pushTechnicalDataVersionPendingItem({
+    pendingId: 'pending-thenable-transaction-test',
+    rawTechnicalCode: 'TD-THENABLE-TEST',
+    rawStyleField: 'SPU-THENABLE-TEST',
+    rawProjectField: 'PRJ-THENABLE-TEST',
+    rawVersionLabel: 'V1',
+    reason: 'thenable 事务回滚测试',
+    discoveredAt: '2026-08-02 10:05:00',
+  })
+  return { then: (resolve: (value: string) => void) => resolve('done') }
+}) as unknown as () => unknown
+assert.throws(
+  () => runTechnicalDataVersionRepositoryTransaction(technicalThenableOperation),
+  /仅支持同步操作.*Promise 或 thenable/,
+  '技术资料仓储必须拒绝自定义 thenable',
+)
+assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), technicalBeforeThenable, 'thenable 回调不得留下技术资料写入')
+
+console.log('pcs-repository-sync-transaction.spec.ts PASS')

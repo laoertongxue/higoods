@@ -276,12 +276,6 @@ const legacyVersion = generateTechPackVersionFromPlateTask(legacyPlateTask.plate
 const legacyContentBefore = getTechnicalDataVersionContent(legacyVersion.technicalVersionId)
 updateTechnicalDataVersionRecord(legacyVersion.technicalVersionId, {
   versionStatus: 'PUBLISHED',
-  createdFromTaskType: 'PLATE',
-  sourceProjectId: legacyScenario.project.projectId,
-  sourceProjectCode: legacyScenario.project.projectCode,
-  sourceProjectName: legacyScenario.project.projectName,
-  createdFromTaskId: legacyPlateTask.plateTaskId,
-  createdFromTaskCode: legacyPlateTask.plateTaskCode,
 })
 const legacyRecordBefore = getTechnicalDataVersionById(legacyVersion.technicalVersionId)
 assert.ok(legacyRecordBefore)
