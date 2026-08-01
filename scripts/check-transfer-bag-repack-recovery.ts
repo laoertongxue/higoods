@@ -173,10 +173,52 @@ function repackInput(overrides: Partial<Parameters<typeof submitTransferBagRepac
   }
 }
 
+function assertRejectedWithoutWriting(
+  storage: BrowserStorageLike,
+  action: () => unknown,
+  expected: RegExp,
+  message: string,
+): void {
+  const before = listCuttingRuntimeEvents(storage).length
+  assert.throws(action, expected, message)
+  assert.equal(
+    listCuttingRuntimeEvents(storage).length,
+    before,
+    `${message}，失败后不得新增事件`,
+  )
+}
+
+function appendLegacyBaggingConfirm(input: {
+  storage: BrowserStorageLike
+  sourceBagCode?: string
+  targetBagCode?: string
+  feiTicketIds: string[]
+  occurredAt?: string
+}) {
+  return appendCuttingRuntimeEvent({
+    eventType: '交出装袋确认',
+    eventSource: 'WEB',
+    eventStatus: '已同步',
+    occurredAt: input.occurredAt || '2026-08-01 08:30',
+    operatorName: '历史装袋确认员',
+    refs: {
+      transferBagCode: input.targetBagCode,
+      usageCycleId: input.targetBagCode ? `usage:${input.targetBagCode}:legacy` : undefined,
+      feiTicketIds: input.feiTicketIds,
+    },
+    payload: {
+      sourceTempBagCode: input.sourceBagCode || '',
+      targetTransferBagCode: input.targetBagCode || '',
+      containedFeiTicketIds: input.feiTicketIds,
+      scannedFeiTicketIds: input.feiTicketIds,
+    },
+  } as Parameters<typeof appendCuttingRuntimeEvent>[0], input.storage)
+}
+
 {
   const storage = createMemoryStorage()
   seedTwoSourceBags(storage)
-  assert.throws(
+  assertRejectedWithoutWriting(storage,
     () => submitTransferBagRepack(repackInput({
       results: [{ bagCode: 'BAG-RESULT', feiTicketIds: ['A1', 'B1', 'A2', 'B2'] }],
     }), storage),
@@ -188,7 +230,7 @@ function repackInput(overrides: Partial<Parameters<typeof submitTransferBagRepac
 {
   const storage = createMemoryStorage()
   seedTwoSourceBags(storage)
-  assert.throws(
+  assertRejectedWithoutWriting(storage,
     () => submitTransferBagRepack(repackInput({
       results: [
         { bagCode: 'BAG-A', feiTicketIds: ['A1', 'A2'] },
@@ -203,7 +245,7 @@ function repackInput(overrides: Partial<Parameters<typeof submitTransferBagRepac
 {
   const storage = createMemoryStorage()
   seedTwoSourceBags(storage)
-  assert.throws(
+  assertRejectedWithoutWriting(storage,
     () => submitTransferBagRepack(repackInput({
       results: [
         { bagCode: 'BAG-A', feiTicketIds: ['A1', 'A2'] },
@@ -224,7 +266,7 @@ function repackInput(overrides: Partial<Parameters<typeof submitTransferBagRepac
     usageCycleId: 'usage:BAG-UNRELATED-IN-USE:old',
     tickets: [ticket('U1', 'PO-U', 'F-U')],
   })
-  assert.throws(
+  assertRejectedWithoutWriting(storage,
     () => submitTransferBagRepack(repackInput({
       results: [
         { bagCode: 'BAG-A', feiTicketIds: ['A1', 'A2'] },
@@ -239,40 +281,107 @@ function repackInput(overrides: Partial<Parameters<typeof submitTransferBagRepac
 {
   const storage = createMemoryStorage()
   seedTwoSourceBags(storage)
-  assert.throws(
+  assertRejectedWithoutWriting(storage,
     () => submitTransferBagRepack(repackInput({
       sourceBagCodes: ['BAG-A', 'BAG-A'],
     }), storage),
     /来源袋.*重复|唯一/,
+    '重复来源袋必须失败',
   )
-  assert.throws(
+  assertRejectedWithoutWriting(storage,
     () => submitTransferBagRepack(repackInput({
       sourceBagCodes: ['BAG-A', 'BAG-EMPTY'],
     }), storage),
     /没有当前菲票|不能为空|当前阶段/,
+    '无当前菲票的来源袋必须失败',
+  )
+}
+
+{
+  const storage = createMemoryStorage()
+  seedTwoSourceBags(storage)
+  assertRejectedWithoutWriting(storage,
+    () => submitTransferBagRepack(repackInput({
+      results: [
+        { bagCode: 'BAG-A', feiTicketIds: ['A1', 'A2'] },
+        { bagCode: 'BAG-NEW', feiTicketIds: ['B1', 'B2', 'NOT-A-SOURCE'] },
+      ],
+    }), storage),
+    /非来源菲票/,
+    '结果中出现额外菲票必须失败',
+  )
+}
+
+{
+  const storage = createMemoryStorage()
+  seedTwoSourceBags(storage)
+  assertRejectedWithoutWriting(storage,
+    () => submitTransferBagRepack(repackInput({
+      results: [
+        { bagCode: 'BAG-A', feiTicketIds: ['A1', 'A2'] },
+        { bagCode: 'BAG-NEW', feiTicketIds: [] },
+      ],
+    }), storage),
+    /至少需要一张菲票/,
+    '空结果袋必须失败',
+  )
+  assertRejectedWithoutWriting(storage,
+    () => submitTransferBagRepack(repackInput({
+      results: [
+        { bagCode: 'BAG-A', feiTicketIds: ['A1', 'A2'] },
+        { bagCode: 'BAG-NEW', feiTicketIds: ['   '] },
+      ],
+    }), storage),
+    /菲票编号不能为空/,
+    '空白菲票编号必须在归一化后失败',
+  )
+}
+
+{
+  const storage = createMemoryStorage()
+  seedTwoSourceBags(storage)
+  appendCuttingRuntimeEvent({
+    eventType: '中转袋报废',
+    eventSource: 'WEB',
+    eventStatus: '已同步',
+    occurredAt: '2026-08-01 08:40',
+    operatorName: '资产管理员',
+    refs: { transferBagCode: 'BAG-DISABLED' },
+    payload: { bagCode: 'BAG-DISABLED' },
+  }, storage)
+  assertRejectedWithoutWriting(storage,
+    () => submitTransferBagRepack(repackInput({
+      results: [
+        { bagCode: 'BAG-A', feiTicketIds: ['A1', 'A2'] },
+        { bagCode: 'BAG-DISABLED', feiTicketIds: ['B1', 'B2'] },
+      ],
+    }), storage),
+    /已报废/,
+    '已报废袋不得作为结果袋',
   )
 }
 
 {
   const storage = createMemoryStorage()
   const { sourceA, sourceB } = seedTwoSourceBags(storage)
-  assert.throws(
+  const tamperedStorage = {
+    ...storage,
+    getItem(key: string) {
+      const raw = storage.getItem(key)
+      if (!raw) return raw
+      const parsed = JSON.parse(raw)
+      const source = parsed.events.find((event: { refs: { transferBagCode?: string } }) => event.refs.transferBagCode === 'BAG-B')
+      if (source?.payload?.feiTicketItems?.[0]) source.payload.feiTicketItems[0].pieceQty = 999
+      return JSON.stringify(parsed)
+    },
+  }
+  assertRejectedWithoutWriting(tamperedStorage,
     () => submitTransferBagRepack(repackInput({
       results: [
         { bagCode: 'BAG-A', feiTicketIds: ['A1', 'A2'] },
         { bagCode: 'BAG-NEW', feiTicketIds: ['B1', 'B2'] },
       ],
-    }), {
-      ...storage,
-      getItem(key) {
-        const raw = storage.getItem(key)
-        if (!raw) return raw
-        const parsed = JSON.parse(raw)
-        const source = parsed.events.find((event: { refs: { transferBagCode?: string } }) => event.refs.transferBagCode === 'BAG-B')
-        if (source?.payload?.feiTicketItems?.[0]) source.payload.feiTicketItems[0].pieceQty = 999
-        return JSON.stringify(parsed)
-      },
-    }),
+    }), tamperedStorage),
     /数量|片数|pieceQty/,
     'pieceQty 被历史引用篡改时必须失败',
   )
@@ -288,7 +397,7 @@ function repackInput(overrides: Partial<Parameters<typeof submitTransferBagRepac
   const event = raw.events.find((item: { eventType: string; refs: { transferBagCode?: string } }) => item.refs.transferBagCode === 'BAG-A' && item.eventType === '菲票装袋')
   event.payload.feiTicketItems[1] = changedFactory
   storage.setItem?.('cuttingRuntimeEventLedger', JSON.stringify(raw))
-  assert.throws(
+  assertRejectedWithoutWriting(storage,
     () => submitTransferBagRepack(repackInput(), storage),
     /接收工厂/,
     '同一结果袋跨接收工厂必须失败',
@@ -298,6 +407,9 @@ function repackInput(overrides: Partial<Parameters<typeof submitTransferBagRepac
 {
   const storage = createMemoryStorage()
   const { sourceA, sourceB } = seedTwoSourceBags(storage)
+  const unrelated = [ticket('UNRELATED-1', 'PO-UNRELATED', 'F-UNRELATED', 6)]
+  appendBagging({ storage, bagCode: 'BAG-UNRELATED', usageCycleId: 'usage:BAG-UNRELATED:old', tickets: unrelated })
+  appendInbound({ storage, bagCode: 'BAG-UNRELATED', usageCycleId: 'usage:BAG-UNRELATED:old', tickets: unrelated })
   const first = submitTransferBagRepack(repackInput(), storage)
   const retry = submitTransferBagRepack(repackInput({ repackBatchId: ' REPACK-2-TO-2 ' }), storage)
   const repackEvents = listCuttingRuntimeEvents(storage).filter((event) => event.eventType === '中转袋拆袋重装')
@@ -310,6 +422,7 @@ function repackInput(overrides: Partial<Parameters<typeof submitTransferBagRepac
   for (const bagCode of ['BAG-A', 'BAG-B', 'BAG-NEW']) {
     assert.equal(eventTouchesTransferBag(repackEvents[0], bagCode), true, `重装事件必须触及 ${bagCode}`)
   }
+  assert.equal(eventTouchesTransferBag(repackEvents[0], 'BAG-UNRELATED'), false, '重装事件不得误触无关袋')
   assert.equal(resolveTransferBagCurrentUse('BAG-A', storage).flowStage, 'READY_HANDOVER')
   assert.equal(resolveTransferBagCurrentUse('BAG-A', storage).usageCycleId, 'usage:BAG-A:old')
   assert.deepEqual(resolveTransferBagCurrentUse('BAG-A', storage).tickets, sourceA)
@@ -335,6 +448,92 @@ function repackInput(overrides: Partial<Parameters<typeof submitTransferBagRepac
   assert.equal(buildWaitHandoverLifecycleByBagCode('BAG-B', storage).mainStatus, 'IDLE')
   const occupancies = buildWaitHandoverLocationOccupancyStates(listCuttingRuntimeEvents(storage))
   assert.equal(occupancies.some((state) => ['BAG-A', 'BAG-B', 'BAG-NEW'].includes(state.bagCode)), false)
+  assert.deepEqual(occupancies.map((state) => state.bagCode), ['BAG-UNRELATED'], '只保留无关袋库位，来源袋清空且结果袋不自动占位')
+}
+
+{
+  const storage = createMemoryStorage()
+  const source = [ticket('NORMAL-1', 'PO-NORMAL', 'F-NORMAL')]
+  appendBagging({ storage, bagCode: 'BAG-A', usageCycleId: 'usage:BAG-A:old', tickets: source })
+  const event = submitTransferBagRepack({
+    repackBatchId: ' REPACK-NORMALIZED ',
+    sourceBagCodes: [' BAG-A '],
+    results: [{ bagCode: ' BAG-A ', feiTicketIds: [' NORMAL-1 '] }],
+    operator: {
+      operatorId: ' OP-NORMAL ',
+      operatorName: ' 重装员甲 ',
+      operatorRole: ' 裁片仓主管 ',
+    },
+    source: 'WEB',
+    occurredAt: ' 2026-08-01 09:05 ',
+  }, storage)
+  const payload = event.payload as TransferBagRepackPayload
+  assert.equal(payload.repackBatchId, 'REPACK-NORMALIZED')
+  assert.equal(payload.resultBags[0].bagCode, 'BAG-A')
+  assert.equal(payload.resultBags[0].reusedSourceBag, true)
+  assert.equal(payload.resultBags[0].usageCycleId, 'usage:BAG-A:old')
+  assert.deepEqual(event.refs.transferBagCodes, ['BAG-A'])
+  assert.deepEqual(event.refs.feiTicketIds, ['NORMAL-1'])
+  assert.equal(event.operatorId, 'OP-NORMAL')
+  assert.equal(event.operatorName, '重装员甲')
+  assert.equal(event.operatorRole, '裁片仓主管')
+  assert.equal(event.occurredAt, '2026-08-01 09:05')
+}
+
+{
+  const storage = createMemoryStorage()
+  const source = [ticket('ORDER-1', 'PO-ORDER', 'F-ORDER')]
+  const bagging = appendBagging({
+    storage,
+    bagCode: 'BAG-ORDER',
+    usageCycleId: 'usage:BAG-ORDER:old',
+    tickets: source,
+  })
+  const repack = submitTransferBagRepack({
+    repackBatchId: 'REPACK-SAME-TIME',
+    sourceBagCodes: ['BAG-ORDER'],
+    results: [{ bagCode: 'BAG-ORDER', feiTicketIds: ['ORDER-1'] }],
+    operator,
+    source: 'WEB',
+    occurredAt: '2026-08-01 08:00',
+  }, storage)
+  const normalizedBagging = { ...bagging, eventId: 'event-a-bagging', occurredAt: '2026-08-01 08:00' }
+  const normalizedRepack = { ...repack, eventId: 'event-z-repack', occurredAt: '2026-08-01 08:00' }
+  const forward = createMemoryStorage()
+  const reverse = createMemoryStorage()
+  forward.setItem?.('cuttingRuntimeEventLedger', JSON.stringify({ events: [normalizedBagging, normalizedRepack] }))
+  reverse.setItem?.('cuttingRuntimeEventLedger', JSON.stringify({ events: [normalizedRepack, normalizedBagging] }))
+  const forwardUse = resolveTransferBagCurrentUse('BAG-ORDER', forward)
+  const reverseUse = resolveTransferBagCurrentUse('BAG-ORDER', reverse)
+  assert.deepEqual(reverseUse, forwardUse, '同时间当前关系投影不得依赖原始输入顺序')
+  assert.equal(forwardUse.flowStage, 'READY_HANDOVER')
+}
+
+{
+  const storage = createMemoryStorage()
+  const source = [ticket('LOCATION-1', 'PO-LOCATION', 'F-LOCATION')]
+  appendBagging({ storage, bagCode: 'BAG-LOCATION', usageCycleId: 'usage:BAG-LOCATION:old', tickets: source })
+  const inbound = appendInbound({
+    storage,
+    bagCode: 'BAG-LOCATION',
+    usageCycleId: 'usage:BAG-LOCATION:old',
+    tickets: source,
+    occurredAt: '2026-08-01 08:10',
+  })
+  const repack = submitTransferBagRepack({
+    repackBatchId: 'REPACK-LOCATION-SAME-TIME',
+    sourceBagCodes: ['BAG-LOCATION'],
+    results: [{ bagCode: 'BAG-LOCATION-NEW', feiTicketIds: ['LOCATION-1'] }],
+    operator,
+    source: 'WEB',
+    occurredAt: '2026-08-01 08:10',
+  }, storage)
+  const normalizedInbound = { ...inbound, eventId: 'event-a-inbound', occurredAt: '2026-08-01 08:10' }
+  const normalizedRepack = { ...repack, eventId: 'event-z-repack', occurredAt: '2026-08-01 08:10' }
+  const forward = buildWaitHandoverLocationOccupancyStates([normalizedInbound, normalizedRepack])
+  const reverse = buildWaitHandoverLocationOccupancyStates([normalizedRepack, normalizedInbound])
+  assert.deepEqual(reverse, forward, '同时间库位投影不得依赖原始输入顺序')
+  assert.deepEqual(forward, [], '同时间事件按 eventId 折叠后来源袋库位应清空')
 }
 
 {
@@ -361,6 +560,24 @@ function repackInput(overrides: Partial<Parameters<typeof submitTransferBagRepac
     eventType: '中转袋回收',
     eventSource: 'WEB',
     eventStatus: '已同步',
+    occurredAt: '2026-08-01 08:25',
+    operatorName: '仅作标记员',
+    refs: {
+      transferBagCode: 'BAG-FORCE-RESULT',
+      usageCycleId: 'usage:BAG-FORCE-RESULT:old',
+    },
+    payload: {
+      bagCode: 'BAG-FORCE-RESULT',
+      physicalBagReceived: true,
+      physicalBagEmpty: false,
+      reason: '只有回收标记，没有空袋事实',
+    },
+  }, storage)
+  assert.equal(resolveTransferBagCurrentUse('BAG-FORCE-RESULT', storage).mainStatus, 'IN_USE', '任意回收标记不得释放袋')
+  appendCuttingRuntimeEvent({
+    eventType: '中转袋回收',
+    eventSource: 'WEB',
+    eventStatus: '已同步',
     occurredAt: '2026-08-01 08:30',
     operatorName: '强制回收员',
     refs: {
@@ -380,6 +597,7 @@ function repackInput(overrides: Partial<Parameters<typeof submitTransferBagRepac
       recoveredBy: '强制回收员',
     },
   }, storage)
+  assert.equal(resolveTransferBagCurrentUse('BAG-FORCE-RESULT', storage).mainStatus, 'IDLE', '有效强制回收后结果袋才可用')
   const event = submitTransferBagRepack({
     repackBatchId: 'REPACK-FORCED-RECOVERY-TARGET',
     sourceBagCodes: ['BAG-FORCE-SOURCE'],
@@ -390,6 +608,88 @@ function repackInput(overrides: Partial<Parameters<typeof submitTransferBagRepac
   }, storage)
   assert.equal(event.eventType, '中转袋拆袋重装')
   assert.equal(resolveTransferBagCurrentUse('BAG-FORCE-RESULT', storage).usageCycleId, 'usage:BAG-FORCE-RESULT:REPACK-FORCED-RECOVERY-TARGET')
+}
+
+{
+  const storage = createMemoryStorage()
+  const legacyTickets = [ticket('LEGACY-1', 'PO-LEGACY', 'F-LEGACY')]
+  appendBagging({
+    storage,
+    bagCode: 'BAG-LEGACY-SOURCE',
+    usageCycleId: 'usage:BAG-LEGACY-SOURCE:old',
+    tickets: legacyTickets,
+  })
+  const confirm = appendLegacyBaggingConfirm({
+    storage,
+    sourceBagCode: 'BAG-LEGACY-SOURCE',
+    targetBagCode: 'BAG-LEGACY-TARGET',
+    feiTicketIds: ['LEGACY-1'],
+  })
+  const target = resolveTransferBagCurrentUse('BAG-LEGACY-TARGET', storage)
+  assert.equal(target.flowStage, 'READY_HANDOVER')
+  assert.deepEqual(target.tickets, legacyTickets, '旧确认仅在来源、结果和菲票集合唯一时恢复快照')
+  assert.equal(resolveTransferBagCurrentUse('BAG-LEGACY-SOURCE', storage).mainStatus, 'IDLE')
+  assert.equal(eventTouchesTransferBag(confirm, 'BAG-LEGACY-TARGET'), true)
+  assert.equal(eventTouchesTransferBag(confirm, 'BAG-LEGACY-SOURCE'), true)
+  assert.equal(eventTouchesTransferBag(confirm, 'BAG-OTHER'), false)
+}
+
+{
+  const storage = createMemoryStorage()
+  const legacyTickets = [ticket('LEGACY-AMBIGUOUS', 'PO-LEGACY', 'F-LEGACY')]
+  appendBagging({
+    storage,
+    bagCode: 'BAG-LEGACY-AMBIGUOUS-SOURCE',
+    usageCycleId: 'usage:BAG-LEGACY-AMBIGUOUS-SOURCE:old',
+    tickets: legacyTickets,
+  })
+  appendLegacyBaggingConfirm({
+    storage,
+    targetBagCode: 'BAG-LEGACY-AMBIGUOUS-TARGET',
+    feiTicketIds: ['LEGACY-AMBIGUOUS'],
+  })
+  const ambiguous = resolveTransferBagCurrentUse('BAG-LEGACY-AMBIGUOUS-TARGET', storage)
+  assert.deepEqual(ambiguous.tickets, [])
+  assert.match(ambiguous.compatibilityBlockedReason || '', /无法唯一恢复/)
+}
+
+{
+  const storage = createMemoryStorage()
+  const legacyTickets = [ticket('LEGACY-SUPERSEDED', 'PO-LEGACY', 'F-LEGACY')]
+  appendBagging({
+    storage,
+    bagCode: 'BAG-LEGACY-SUPERSEDED-SOURCE',
+    usageCycleId: 'usage:BAG-LEGACY-SUPERSEDED-SOURCE:old',
+    tickets: legacyTickets,
+  })
+  appendLegacyBaggingConfirm({
+    storage,
+    sourceBagCode: 'BAG-LEGACY-SUPERSEDED-SOURCE',
+    targetBagCode: 'BAG-LEGACY-SUPERSEDED-TARGET',
+    feiTicketIds: ['LEGACY-SUPERSEDED'],
+  })
+  appendCuttingRuntimeEvent({
+    eventType: '中转袋拆袋重装',
+    eventSource: 'WEB',
+    eventStatus: '已同步',
+    occurredAt: '2026-08-01 08:40',
+    operatorName: '新重装员',
+    refs: {
+      repackBatchId: 'REPACK-SUPERSEDE-LEGACY',
+      transferBagCodes: ['BAG-LEGACY-SUPERSEDED-TARGET'],
+    },
+    payload: {
+      repackBatchId: 'REPACK-SUPERSEDE-LEGACY',
+      sourceBags: [],
+      resultBags: [],
+      movedTickets: [],
+      confirmedAt: '2026-08-01 08:40',
+      confirmedBy: '新重装员',
+    },
+  }, storage)
+  const superseded = resolveTransferBagCurrentUse('BAG-LEGACY-SUPERSEDED-TARGET', storage)
+  assert.deepEqual(superseded.tickets, [], '存在新重装事实时不得恢复旧确认的菲票')
+  assert.match(superseded.compatibilityBlockedReason || '', /新重装|旧交出装袋确认/)
 }
 
 {
@@ -417,7 +717,7 @@ function repackInput(overrides: Partial<Parameters<typeof submitTransferBagRepac
   }, storage)
   const legacy = resolveTransferBagCurrentUse('BAG-LEGACY-INCOMPLETE', storage)
   assert.match(legacy.compatibilityBlockedReason || '', /接收工厂/)
-  assert.throws(
+  assertRejectedWithoutWriting(storage,
     () => submitTransferBagRepack({
       repackBatchId: 'REPACK-LEGACY-INCOMPLETE',
       sourceBagCodes: ['BAG-LEGACY-INCOMPLETE'],
@@ -457,6 +757,19 @@ function repackInput(overrides: Partial<Parameters<typeof submitTransferBagRepac
   assert.equal(resolveTransferBagCurrentUse('BAG-X', storage).productionOrderNo, 'PO-Y')
   assert.equal(resolveTransferBagCurrentUse('BAG-Y', storage).mainStatus, 'IDLE')
   assert.equal(resolveTransferBagCurrentUse('BAG-Z', storage).usageCycleId, 'usage:BAG-Z:REPACK-CROSS-ORDER')
+  assert.deepEqual(
+    listWaitHandoverLifecycleFacts('BAG-X', storage).map((fact) => [fact.factType, fact.usageCycleId]),
+    [
+      ['BAGGING_CONFIRMED', 'usage:BAG-X:old'],
+      ['REPACK_RESULT_CONFIRMED', 'usage:BAG-X:REPACK-CROSS-ORDER'],
+    ],
+    '跨生产单复用必须关闭旧周期并以重装批次建立新周期',
+  )
+  const lifecycle = buildWaitHandoverLifecycleByBagCode('BAG-X', storage)
+  assert.equal(lifecycle.usageCycleId, 'usage:BAG-X:REPACK-CROSS-ORDER')
+  assert.equal(lifecycle.flowStage, 'READY_HANDOVER')
+  assert.equal(lifecycle.sourceFactIds.length, 1, '旧周期必须关闭，当前生命周期只能取新重装周期事实')
+  assert.match(lifecycle.sourceFactIds[0], /BAG-REPACK/)
 }
 
 {

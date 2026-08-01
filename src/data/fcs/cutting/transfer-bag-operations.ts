@@ -298,11 +298,14 @@ function resolveTransferBagCurrentUseFromEvents(
       continue
     }
 
-    if (
-      allowLegacyConfirm
-      && !hasNewRepackFact
-      && event.eventType === '交出装袋确认'
-    ) {
+    if (allowLegacyConfirm && event.eventType === '交出装袋确认') {
+      if (hasNewRepackFact) {
+        state = {
+          ...state,
+          compatibilityBlockedReason: '当前袋已存在新拆袋重装事实，旧交出装袋确认不再用于恢复菲票关系。',
+        }
+        continue
+      }
       const sourceBagCode = text(payload.sourceTempBagCode)
       const targetBagCode = text(payload.targetTransferBagCode)
       const recovered = sourceBagCode && targetBagCode
@@ -413,6 +416,34 @@ function assertUniqueNonEmpty(values: string[], label: string): string[] {
   return normalized
 }
 
+function normalizeSubmitTransferBagRepackInput(
+  input: SubmitTransferBagRepackInput,
+  repackBatchId: string,
+): SubmitTransferBagRepackInput {
+  const sourceBagCodes = assertUniqueNonEmpty(input.sourceBagCodes, '来源袋编号')
+  const results = input.results.map((result) => {
+    const bagCode = result.bagCode.trim()
+    const feiTicketIds = result.feiTicketIds.map((feiTicketId) => feiTicketId.trim())
+    if (feiTicketIds.some((feiTicketId) => !feiTicketId)) {
+      throw new Error(`${bagCode || '结果袋'} 的菲票编号不能为空。`)
+    }
+    return { bagCode, feiTicketIds }
+  })
+  assertUniqueNonEmpty(results.map((result) => result.bagCode), '结果袋编号')
+  return {
+    repackBatchId,
+    sourceBagCodes,
+    results,
+    operator: {
+      operatorId: input.operator.operatorId?.trim(),
+      operatorName: input.operator.operatorName.trim(),
+      operatorRole: input.operator.operatorRole?.trim(),
+    },
+    source: input.source,
+    occurredAt: input.occurredAt?.trim(),
+  }
+}
+
 function assertRepackSourceTicketComplete(ticket: TransferBagTicketFactSnapshot): void {
   if (!ticket.feiTicketId) throw new Error('来源袋存在无法唯一识别的菲票，不能拆袋重装。')
   if (!ticket.productionOrderNo) throw new Error(`${ticket.feiTicketNo || ticket.feiTicketId} 缺少生产单事实，不能拆袋重装。`)
@@ -441,7 +472,8 @@ export function submitTransferBagRepack(
     ))
   if (existing) return existing as CuttingRuntimeEvent<'中转袋拆袋重装'>
 
-  const sourceBagCodes = assertUniqueNonEmpty(input.sourceBagCodes, '来源袋编号')
+  const normalizedInput = normalizeSubmitTransferBagRepackInput(input, repackBatchId)
+  const sourceBagCodes = normalizedInput.sourceBagCodes
   if (!sourceBagCodes.length) throw new Error('来源袋编号不能为空。')
   const sourceUses = sourceBagCodes.map((bagCode) => resolveTransferBagCurrentUse(bagCode, storage))
   const allowedSourceStages = new Set<TransferBagFlowStageKey>([
@@ -458,9 +490,9 @@ export function submitTransferBagRepack(
     source.tickets.forEach(assertRepackSourceTicketComplete)
   }
 
-  const resultBagCodes = assertUniqueNonEmpty(input.results.map((result) => result.bagCode), '结果袋编号')
+  const resultBagCodes = normalizedInput.results.map((result) => result.bagCode)
   if (!resultBagCodes.length) throw new Error('结果袋不能为空。')
-  input.results.forEach((result) => {
+  normalizedInput.results.forEach((result) => {
     if (!result.feiTicketIds.length) throw new Error(`${result.bagCode} 至少需要一张菲票。`)
   })
 
@@ -470,7 +502,7 @@ export function submitTransferBagRepack(
   if (new Set(sourceTicketIds).size !== sourceTicketIds.length) {
     throw new Error('来源袋当前关系中存在重复菲票，不能拆袋重装。')
   }
-  const resultTicketIds = input.results.flatMap((result) => result.feiTicketIds.map((id) => id.trim()))
+  const resultTicketIds = normalizedInput.results.flatMap((result) => result.feiTicketIds)
   const duplicateResultTicketId = resultTicketIds.find((id, index) => resultTicketIds.indexOf(id) !== index)
   if (duplicateResultTicketId) {
     throw new Error(`菲票 ${duplicateResultTicketId} 在结果袋中重复，全部来源菲票必须恰好出现一次。`)
@@ -481,8 +513,8 @@ export function submitTransferBagRepack(
   if (extraTicketIds.length) throw new Error(`结果袋包含非来源菲票：${extraTicketIds.join('、')}。`)
 
   const sourceTicketById = new Map(sourceTickets.map((item) => [item.ticket.feiTicketId, item]))
-  for (const result of input.results) {
-    const resultTickets = result.feiTicketIds.map((id) => sourceTicketById.get(id.trim())!.ticket)
+  for (const result of normalizedInput.results) {
+    const resultTickets = result.feiTicketIds.map((id) => sourceTicketById.get(id)!.ticket)
     if (unique(resultTickets.map((ticket) => ticket.productionOrderNo)).length !== 1) {
       throw new Error(`${result.bagCode} 结果袋只能装入同一生产单的菲票。`)
     }
@@ -500,15 +532,15 @@ export function submitTransferBagRepack(
     }
   }
 
-  const resultBags: TransferBagRepackPayload['resultBags'] = input.results.map((result) => {
-    const tickets = result.feiTicketIds.map((id) => sourceTicketById.get(id.trim())!.ticket)
+  const resultBags: TransferBagRepackPayload['resultBags'] = normalizedInput.results.map((result) => {
+    const tickets = result.feiTicketIds.map((id) => sourceTicketById.get(id)!.ticket)
     const sourceUse = sourceUses.find((source) => source.bagCode === result.bagCode)
     const productionOrderNo = tickets[0]?.productionOrderNo || ''
     const usageCycleId = sourceUse?.productionOrderNo === productionOrderNo
       ? sourceUse.usageCycleId || `usage:${result.bagCode}:${repackBatchId}`
       : `usage:${result.bagCode}:${repackBatchId}`
     return {
-      bagCode: result.bagCode.trim(),
+      bagCode: result.bagCode,
       usageCycleId,
       reusedSourceBag: Boolean(sourceUse),
       tickets,
@@ -526,24 +558,24 @@ export function submitTransferBagRepack(
       toBagCode: result.bagCode,
       pieceQty: ticket.pieceQty,
     })))
-  const occurredAt = input.occurredAt || new Date().toISOString().slice(0, 16).replace('T', ' ')
+  const occurredAt = normalizedInput.occurredAt || new Date().toISOString().slice(0, 16).replace('T', ' ')
   const payload: TransferBagRepackPayload = {
     repackBatchId,
     sourceBags,
     resultBags,
     movedTickets,
     confirmedAt: occurredAt,
-    confirmedBy: input.operator.operatorName,
+    confirmedBy: normalizedInput.operator.operatorName,
   }
   return appendCuttingRuntimeEventIdempotent({
     idempotencyKey,
     eventType: '中转袋拆袋重装',
-    eventSource: input.source,
+    eventSource: normalizedInput.source,
     eventStatus: '已同步',
     occurredAt,
-    operatorId: input.operator.operatorId,
-    operatorName: input.operator.operatorName,
-    operatorRole: input.operator.operatorRole || '裁片仓重装员',
+    operatorId: normalizedInput.operator.operatorId,
+    operatorName: normalizedInput.operator.operatorName,
+    operatorRole: normalizedInput.operator.operatorRole || '裁片仓重装员',
     refs: {
       repackBatchId,
       transferBagCodes: unique([...sourceBagCodes, ...resultBagCodes]),

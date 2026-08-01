@@ -913,7 +913,9 @@ export function listWaitHandoverRuntimeEvents(
       seen.add(event.eventId)
       return true
     })
-    .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt, 'zh-CN'))
+    .sort((left, right) =>
+      right.occurredAt.localeCompare(left.occurredAt, 'zh-CN')
+      || right.eventId.localeCompare(left.eventId, 'zh-CN'))
 }
 
 export function buildRuntimeInboundTempBagsFromWaitHandoverEvents(
@@ -989,7 +991,9 @@ export function buildWaitHandoverLocationOccupancyStates(
   const states = new Map<string, WaitHandoverLocationOccupancyState>()
   const events = [...runtimeEvents]
     .filter((event) => event.eventStatus !== '已取消')
-    .sort((left, right) => left.occurredAt.localeCompare(right.occurredAt, 'zh-CN'))
+    .sort((left, right) =>
+      left.occurredAt.localeCompare(right.occurredAt, 'zh-CN')
+      || left.eventId.localeCompare(right.eventId, 'zh-CN'))
 
   for (const event of events) {
     const payload = runtimeRecord(event.payload)
