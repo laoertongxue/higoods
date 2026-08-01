@@ -14,18 +14,13 @@ import {
   cloneProductionOrderTechPackSnapshot,
 } from './production-tech-pack-snapshot-builder.ts'
 import type { ProductionOrderTechPackSnapshot } from './production-tech-pack-snapshot-types.ts'
-import { productionOrderRuntimeStore } from './production-order-runtime-store.ts'
+import {
+  productionOrderRuntimeStore,
+  RELEASE_TARGET_SUPPLEMENT_PRODUCTION_FACT,
+  type ProductionOrderRuntimeStatus,
+} from './production-order-runtime-store.ts'
 
-export type ProductionOrderStatus =
-  | 'DRAFT'
-  | 'WAIT_TECH_PACK_RELEASE'
-  | 'READY_FOR_BREAKDOWN'
-  | 'WAIT_ASSIGNMENT'
-  | 'ASSIGNING'
-  | 'EXECUTING'
-  | 'COMPLETED'
-  | 'CANCELLED'
-  | 'ON_HOLD'
+export type ProductionOrderStatus = ProductionOrderRuntimeStatus
 
 export type OwnerPartyType = 'FACTORY' | 'LEGAL_ENTITY'
 export type TechPackStatus = 'MISSING' | 'BETA' | 'RELEASED'
@@ -1470,11 +1465,8 @@ function buildReleaseMaterialSwatchImageUrl(materialCode: string, materialName: 
 }
 
 function buildReleaseTargetSupplementProductionOrder(base: ProductionOrder): ProductionOrder {
-  const formalFact = {
-    productionOrderId: 'po-14671',
-    status: 'WAIT_ASSIGNMENT' as const,
-  }
-  const spuCode = 'ASYSA26060310'
+  const formalFact = RELEASE_TARGET_SUPPLEMENT_PRODUCTION_FACT
+  const spuCode = formalFact.demandSnapshot.spuCode
   const baseSnapshot = cloneProductionOrderTechPackSnapshot(base.techPackSnapshot)
   if (!baseSnapshot) throw new Error('PO14671 补料检查生产单缺少技术包模板')
   const colors = ['Black', 'White', 'Navy', 'Red']
@@ -1677,7 +1669,7 @@ productionOrderRuntimeStore.splice(0, productionOrderRuntimeStore.length,
   ...seededProductionOrders,
   buildReleaseTargetSupplementProductionOrder(seededProductionOrders[1]),
 )
-export const productionOrders: ProductionOrder[] = productionOrderRuntimeStore
+export const productionOrders = productionOrderRuntimeStore as ProductionOrder[]
 
 export const productionOrderStatusConfig: Record<ProductionOrderStatus, { label: string; color: string }> = {
   DRAFT: { label: '草稿', color: 'bg-gray-100 text-gray-700' },

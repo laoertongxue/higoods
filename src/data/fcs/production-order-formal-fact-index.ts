@@ -2,18 +2,12 @@
 // 首单门禁每次直接读取唯一的生产单运行态数组，不保存副本，也不开放替换入口。
 
 import { productionDemands } from './production-demands.ts'
-import { productionOrderRuntimeStore } from './production-order-runtime-store.ts'
+import {
+  productionOrderRuntimeStore,
+  type ProductionOrderRuntimeStatus,
+} from './production-order-runtime-store.ts'
 
-export type FormalProductionOrderStatus =
-  | 'DRAFT'
-  | 'WAIT_TECH_PACK_RELEASE'
-  | 'READY_FOR_BREAKDOWN'
-  | 'WAIT_ASSIGNMENT'
-  | 'ASSIGNING'
-  | 'EXECUTING'
-  | 'COMPLETED'
-  | 'CANCELLED'
-  | 'ON_HOLD'
+export type FormalProductionOrderStatus = ProductionOrderRuntimeStatus
 
 export interface ProductionOrderFormalFact {
   productionOrderId: string

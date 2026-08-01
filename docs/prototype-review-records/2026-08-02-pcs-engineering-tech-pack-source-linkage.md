@@ -21,8 +21,8 @@
 
 - 技术包新版本只接受工程主单或工程变更任务两类权威来源。
 - 技术包来源校验直接读取工程主单权威仓储，不保留可公开注入或整体替换的旁路索引。
-- 首单门禁继续同时识别已转单需求和生产单运行态；生产单模块只有一份运行态数组，页面和正式生产事实索引读取同一引用，不提供注册、替换或清空入口。
-- 工程主单仓和技术包仓不再公开任意快照替换；跨仓事务只接受同步回调，Promise 或 thenable 会被立即阻断并恢复事务前快照，页面不能回灌伪造快照。
+- 首单门禁继续同时识别已转单需求和生产单运行态；生产单模块只有一份运行态数组，该数组在无页面依赖的运行态事实模块中初始化，页面和正式生产事实索引读取同一引用，不提供注册、替换或清空入口。
+- 工程主单仓和技术包仓不再公开任意快照替换；跨仓事务在调用回调前拒绝 `AsyncFunction`，同步回调返回 Promise 或 thenable 时恢复事务前快照并直接阻断，不同化 Promise，不调用 thenable 的 `then`。
 - 工程主单来源必须同时指向真实主单及其技术包确认任务，且款式一致。
 - 工程变更来源必须指向真实变更任务，来源对象、任务和款式一致。
 - `MANUAL`、`REVISION`、`PLATE`、`ARTWORK` 不再允许创建新版本；既有已发布旧记录仍可查询和查看。
@@ -71,8 +71,9 @@
 | 创建后的款式身份被改写会使技术包与权威来源错配 | 选不对 | 买手、跟单 | 款式三字段与全部来源身份字段统一设为不可变 | 否 |
 | 技术包直接读取工程主单仓储时可能与生产单技术包初始化形成循环 | 追溯不足 | 跟单 | 正式生产事实改为轻量只读索引；普通生产单由已转单需求动态派生，无需求 Seed 的独立生产单与实际生产单共用同一事实记录 | 否 |
 | 正式生产状态另存静态副本会漏掉新建、状态变更和页面运行态恢复 | 追溯不足 | 跟单 | `productionOrders` 与页面 `state.orders` 共享唯一运行态数组；事实索引只读该数组，已转单需求仍作为补充事实 | 否 |
+| 冷启动只加载首单策略时，生产单页面数据尚未执行，可能将已正式生产款式误判为首单 | 选不对 | 跟单 | 唯一运行态 store 自身从无页面依赖的事实初始化；生产单完整记录继续复用该事实组装并原位写入同一数组 | 否 |
 | 页面持有技术包仓或工程主单仓快照并可整体回灌，可能绕过正常写入门禁 | 追溯不足 | 买手、跟单 | 删除两个公开 replace API；页面改用仓储内部捕获和回滚的事务回调 | 否 |
-| 事务回调返回 Promise 时，异步失败会发生在同步 `try/catch` 之外并留下部分写入 | 追溯不足 | 买手、跟单 | 两仓事务 API 在类型层拒绝 Promise 回调，运行时同时识别 Promise / thenable，立即回滚并给出中文阻断信息 | 否 |
+| 事务回调为 `AsyncFunction` 或返回自定义 thenable 时，同化其结果会在回滚后再次触发写入 | 追溯不足 | 买手、跟单 | 两仓事务 API 在类型层拒绝 Promise 回调；运行时在调用前拒绝 `AsyncFunction`，对返回的 thenable 只恢复快照并抛错，不调用 `then` | 否 |
 | 来源专项测试仍用商品项目或受保护字段改写伪造来源，无法证明真实门禁 | 追溯不足 | 系统维护人员 | 制版、花型、版本日志及 BOM 页面夹具全部改用真实工程主单／工程变更来源 | 否 |
 
 ## 6. 最终结论
@@ -114,6 +115,7 @@
 
 - `npx tsx tests/pcs-engineering-tech-pack-linkage.spec.ts`：通过。
 - `npx tsx tests/pcs-engineering-master-domain.spec.ts`：通过；覆盖全部正式生产单以及无需求 Seed 的独立正式生产单仍必须判定为非首单。
+- `npx tsx tests/pcs-engineering-first-production-cold-start.spec.ts`：通过；覆盖独立子进程只导入首单策略时，`ASYSA26060310` 仍必须识别为已有正式生产事实。
 - `npx tsx tests/pcs-tech-pack-plate-primary-generation.spec.ts`：通过。
 - `npx tsx tests/pcs-tech-pack-artwork-write-or-new-version.spec.ts`：通过。
 - `npx tsx tests/pcs-tech-pack-revision-new-version.spec.ts`：通过。
@@ -121,7 +123,7 @@
 - `npx tsx tests/pcs-tech-pack-generation-rule-cleanup.spec.ts`：通过；旧专业任务页不得保留绕过工程来源的技术包生成动作。
 - `npx tsx tests/pcs-tech-pack-version-log.spec.ts`：通过。
 - `npx tsx tests/pcs-tech-pack-version-log-archive.spec.ts`：通过。
-- `npx tsx tests/pcs-repository-sync-transaction.spec.ts`：通过；覆盖 Promise 与自定义 thenable 的零写入回滚。
+- `npx tsx tests/pcs-repository-sync-transaction.spec.ts`：通过；覆盖 `AsyncFunction` 在调用前被拒绝，以及自定义 thenable 的 `then` 不被调用；等待微任务后两仓仍为零写入。
 - `npx tsx scripts/check-pcs-repository-sync-transactions.ts`：通过；类型层拒绝 Promise 回调。
 - `npx tsx tests/pcs-tech-pack-bom-review-activation-atomic.spec.ts`：通过。
 - `npx tsx tests/pcs-engineering-bom-pricing.spec.ts`：通过。

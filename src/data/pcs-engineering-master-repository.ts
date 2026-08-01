@@ -333,14 +333,22 @@ function isThenable(value: unknown): value is PromiseLike<unknown> {
   return typeof (value as { then?: unknown }).then === 'function'
 }
 
+const ASYNC_FUNCTION_PROTOTYPE = Object.getPrototypeOf(async function () {})
+
+function isAsyncFunction(operation: () => unknown): boolean {
+  return Object.getPrototypeOf(operation) === ASYNC_FUNCTION_PROTOTYPE
+}
+
 export function runEngineeringMasterRepositoryTransaction<Operation extends () => unknown>(
   operation: Operation & (ReturnType<Operation> extends PromiseLike<unknown> ? never : unknown),
 ): ReturnType<Operation> {
+  if (isAsyncFunction(operation)) {
+    throw new Error('工程主单仓储事务仅支持同步操作，禁止传入 AsyncFunction。')
+  }
   const snapshotBeforeOperation = readSnapshot()
   try {
     const result = operation()
     if (isThenable(result)) {
-      void Promise.resolve(result).catch(() => undefined)
       writeSnapshot(snapshotBeforeOperation)
       throw new Error('工程主单仓储事务仅支持同步操作，禁止返回 Promise 或 thenable。')
     }
