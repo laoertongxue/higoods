@@ -105,6 +105,14 @@ export interface RevokeNewWarehouseNodeInput {
   updatedBy: string
 }
 
+interface LayoutNodeCreationMetadata {
+  layoutCreatedInVersion: number
+}
+
+type LayoutWarehouseArea = FactoryWarehouseArea & Partial<LayoutNodeCreationMetadata>
+type LayoutWarehouseShelf = FactoryWarehouseShelf & Partial<LayoutNodeCreationMetadata>
+type LayoutWarehouseLocation = FactoryWarehouseLocation & Partial<LayoutNodeCreationMetadata>
+
 const memoryValues = new Map<string, string>()
 
 function clone<T>(value: T): T {
@@ -398,11 +406,14 @@ export function saveWarehouseLayoutSnapshot(
       currentSnapshot = null
     }
   }
-  const currentVersion = currentSnapshot?.layoutVersion ?? 0
+  if (!currentSnapshot) {
+    return { ok: false, message: '未加载当前库位布局，请刷新加载后再保存。' }
+  }
+  const currentVersion = currentSnapshot.layoutVersion
   if (currentVersion !== expectedVersion || snapshot.layoutVersion !== expectedVersion + 1) {
     return { ok: false, message: '库位图已被更新，请刷新后重试。' }
   }
-  const beforeSnapshot = currentSnapshot ?? { ...clone(snapshot), layoutVersion: expectedVersion }
+  const beforeSnapshot = currentSnapshot
   const historyKey = getWarehouseLayoutHistoryStorageKey(snapshot.factoryId, snapshot.warehouseKind, snapshot.warehouseId)
   const history = listWarehouseLayoutChangeRecords(snapshot.factoryId, snapshot.warehouseKind, snapshot.warehouseId, storage)
   const changeRecord: WarehouseLayoutChangeRecord = {
@@ -444,8 +455,14 @@ export function resetWarehouseLayoutSnapshot(
       if (isV3Snapshot(JSON.parse(raw), warehouse)) return { ok: false, message: '库位图已被其他页面恢复或更新，请刷新后重试。' }
     } catch { /* Damaged cache may be replaced. */ }
   }
-  const initial = buildInitialWarehouseLayoutSnapshot(warehouse, updatedBy)
-  const snapshot = { ...initial, layoutVersion: 1 }
+  const baseline = loadWarehouseLayoutSnapshot(warehouse, storage).snapshot
+  const snapshot = {
+    ...baseline,
+    areaList: clone(warehouse.areaList),
+    layoutVersion: baseline.layoutVersion + 1,
+    updatedAt: new Date().toISOString(),
+    updatedBy,
+  }
   const result = saveWarehouseLayoutSnapshot(snapshot, 0, storage)
   return result.ok ? { ok: true, message: '已恢复默认编排。', snapshot: result.snapshot } : result
 }
@@ -464,7 +481,8 @@ export function createWarehouseArea(snapshot: FactoryWarehouseLayoutSnapshot, in
       shelfList: [],
       status: 'AVAILABLE',
       remark: input.remark?.trim() ?? '',
-    })
+      layoutCreatedInVersion: snapshot.layoutVersion + 1,
+    } as LayoutWarehouseArea)
   })
 }
 
@@ -472,9 +490,17 @@ export function updateWarehouseArea(snapshot: FactoryWarehouseLayoutSnapshot, in
   const current = findArea(snapshot, input.areaId)
   if (input.code !== undefined) assertAreaCode(input.code)
   if (input.areaName !== undefined) assertText(input.areaName, '库区名称')
-  const changesNumber = input.code !== undefined && input.code !== current.code
-  const disables = input.enabled === false && current.status !== 'STOPPED'
-  if (changesNumber || disables) assertNoOccupied(snapshot, current.shelfList.flatMap((shelf) => shelf.locationList.map((location) => location.locationId)), occupiedLocationIds, changesNumber ? '不能修改库区代码' : '不能停用库区')
+  const changesProtectedField = (input.areaName !== undefined && input.areaName.trim() !== current.areaName)
+    || (input.code !== undefined && input.code !== current.code)
+    || (input.enabled !== undefined && (input.enabled ? 'AVAILABLE' : 'STOPPED') !== current.status)
+  if (changesProtectedField) {
+    assertNoOccupied(
+      snapshot,
+      current.shelfList.flatMap((shelf) => shelf.locationList.map((location) => location.locationId)),
+      occupiedLocationIds,
+      '只能修改备注，不能修改库区代码、名称或启停状态',
+    )
+  }
   if (input.code && snapshot.areaList.some((area) => area.areaId !== input.areaId && area.code === input.code)) throw new Error(`库区代码 ${input.code} 已存在。`)
   return nextSnapshot(snapshot, input.updatedBy, (next) => {
     const area = findArea(next, input.areaId)
@@ -505,7 +531,8 @@ export function createWarehouseShelf(snapshot: FactoryWarehouseLayoutSnapshot, i
       locationList: [],
       status: 'AVAILABLE',
       remark: input.remark?.trim() ?? '',
-    }
+      layoutCreatedInVersion: snapshot.layoutVersion + 1,
+    } as LayoutWarehouseShelf
     input.positionCounts.forEach((count, levelIndex) => {
       const levelNo = levelIndex + 1
       for (let positionNo = 1; positionNo <= count; positionNo += 1) {
@@ -518,7 +545,8 @@ export function createWarehouseShelf(snapshot: FactoryWarehouseLayoutSnapshot, i
           positionNo,
           status: 'AVAILABLE',
           remark: '',
-        })
+          layoutCreatedInVersion: snapshot.layoutVersion + 1,
+        } as LayoutWarehouseLocation)
       }
     })
     nextArea.shelfList.push(shelf)
@@ -528,9 +556,17 @@ export function createWarehouseShelf(snapshot: FactoryWarehouseLayoutSnapshot, i
 export function updateWarehouseShelf(snapshot: FactoryWarehouseLayoutSnapshot, input: UpdateWarehouseShelfInput, occupiedLocationIds: Iterable<string>): FactoryWarehouseLayoutSnapshot {
   const current = findShelfContext(snapshot, input.shelfId)
   if (input.shelfSequence !== undefined) assertSequence(input.shelfSequence, '货架序号')
-  const changesNumber = input.shelfSequence !== undefined && input.shelfSequence !== current.shelf.shelfSequence
-  const disables = input.enabled === false && current.shelf.status !== 'STOPPED'
-  if (changesNumber || disables) assertNoOccupied(snapshot, current.shelf.locationList.map((location) => location.locationId), occupiedLocationIds, changesNumber ? '不能修改货架序号' : '不能停用货架')
+  const changesProtectedField = (input.shelfSequence !== undefined && input.shelfSequence !== current.shelf.shelfSequence)
+    || (input.shelfName !== undefined && input.shelfName.trim() !== current.shelf.shelfName)
+    || (input.enabled !== undefined && (input.enabled ? 'AVAILABLE' : 'STOPPED') !== current.shelf.status)
+  if (changesProtectedField) {
+    assertNoOccupied(
+      snapshot,
+      current.shelf.locationList.map((location) => location.locationId),
+      occupiedLocationIds,
+      '只能修改备注，不能修改货架序号、名称或启停状态',
+    )
+  }
   if (input.shelfSequence !== undefined && current.area.shelfList.some((shelf) => shelf.shelfId !== input.shelfId && shelf.shelfSequence === input.shelfSequence)) throw new Error(`货架序号 ${input.shelfSequence} 已存在。`)
   return nextSnapshot(snapshot, input.updatedBy, (next) => {
     const { area, shelf } = findShelfContext(next, input.shelfId)
@@ -585,7 +621,8 @@ export function adjustWarehouseLevelPositionCount(snapshot: FactoryWarehouseLayo
           positionNo,
           status: 'AVAILABLE',
           remark: '',
-        })
+          layoutCreatedInVersion: snapshot.layoutVersion + 1,
+        } as LayoutWarehouseLocation)
       }
     }
     nextShelf.locationList.sort((left, right) => (left.levelNo ?? 0) - (right.levelNo ?? 0) || (left.positionNo ?? 0) - (right.positionNo ?? 0))
@@ -608,11 +645,25 @@ export function revokeNewWarehouseNode(snapshot: FactoryWarehouseLayoutSnapshot,
   }
   const referenced = new Set(referencedLocationIds)
   let locationIds: string[] = []
-  if (input.nodeType === 'AREA') locationIds = findArea(snapshot, input.nodeId).shelfList.flatMap((shelf) => shelf.locationList.map((location) => location.locationId))
-  if (input.nodeType === 'SHELF') locationIds = findShelfContext(snapshot, input.nodeId).shelf.locationList.map((location) => location.locationId)
-  if (input.nodeType === 'LOCATION') locationIds = [findLocationContext(snapshot, input.nodeId).location.locationId]
+  let node: LayoutWarehouseArea | LayoutWarehouseShelf | LayoutWarehouseLocation
+  if (input.nodeType === 'AREA') {
+    node = findArea(snapshot, input.nodeId) as LayoutWarehouseArea
+    locationIds = node.shelfList.flatMap((shelf) => shelf.locationList.map((location) => location.locationId))
+  } else if (input.nodeType === 'SHELF') {
+    node = findShelfContext(snapshot, input.nodeId).shelf as LayoutWarehouseShelf
+    locationIds = node.locationList.map((location) => location.locationId)
+  } else {
+    node = findLocationContext(snapshot, input.nodeId).location as LayoutWarehouseLocation
+    locationIds = [node.locationId]
+  }
+  if (node.layoutCreatedInVersion !== input.createdInLayoutVersion) {
+    throw new Error('仅允许撤销本次新建的错误节点，日常维护不能硬删除。')
+  }
   const conflicts = locationIds.filter((locationId) => referenced.has(locationId))
-  if (conflicts.length) throw new Error(`节点下有 ${conflicts.length} 个库位已被引用或占用，不能撤销。`)
+  if (conflicts.length) {
+    const conflictNos = conflicts.map((locationId) => findLocationContext(snapshot, locationId).location.locationNo)
+    throw new Error(`库位 ${conflictNos.join('、')} 已被引用或占用，不能撤销。`)
+  }
   return nextSnapshot(snapshot, input.updatedBy, (next) => {
     if (input.nodeType === 'AREA') next.areaList = next.areaList.filter((area) => area.areaId !== input.nodeId)
     if (input.nodeType === 'SHELF') {
@@ -664,7 +715,8 @@ export function appendWarehouseLocation(snapshot: FactoryWarehouseLayoutSnapshot
       locationName: no,
       levelNo,
       positionNo,
-    })
+      layoutCreatedInVersion: snapshot.layoutVersion + 1,
+    } as LayoutWarehouseLocation)
   })
 }
 

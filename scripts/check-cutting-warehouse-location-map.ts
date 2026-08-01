@@ -119,6 +119,17 @@ assert.match(warehouseMapSource, /open-add-area/, '普通查看模式缺少新�
 assert.match(warehouseMapSource, /open-add-location/, '普通查看模式缺少新增库位入口')
 assert.match(warehouseMapSource, /data-cutting-warehouse-modal/, '新增库区和库位必须使用独立弹窗')
 assert.match(fcsHandlersSource, /data-cutting-warehouse-modal/, '新增弹窗事件必须接入裁床库位图处理链')
+const sourceBetween = (start: string, end: string) => {
+  const startIndex = warehouseMapSource.indexOf(`if (action === '${start}')`)
+  return warehouseMapSource.slice(startIndex, warehouseMapSource.indexOf(`if (action === '${end}'`, startIndex))
+}
+const renameLocationSource = sourceBetween('rename-location', 'rename-area')
+const renameAreaSource = sourceBetween('rename-area', 'rename-shelf')
+const renameShelfSource = sourceBetween('rename-shelf', 'assign-location')
+for (const [label, source] of [['库位', renameLocationSource], ['库区', renameAreaSource], ['货架', renameShelfSource]] as const) {
+  assert.doesNotMatch(source, /window\.prompt|persistSnapshot|replaceWarehouseAreaList/, `旧 ${label} 改号入口不得自由修改 v3 结构`)
+  assert.match(source, /系统生成|层级维护/, `旧 ${label} 改号入口必须提示进入系统生成的层级维护`)
+}
 const viewSectionHtml = renderCuttingWarehouseLocationMapSection('WAIT_PROCESS', 'VIEW')
 const layoutSectionHtml = renderCuttingWarehouseLocationMapSection('WAIT_PROCESS', 'LAYOUT')
 assert.match(viewSectionHtml, /data-warehouse-map-action="open-add-area"[^>]+data-warehouse-kind="WAIT_PROCESS"[^>]+data-warehouse-id=/, '新增库区入口必须绑定当前仓库')
@@ -129,7 +140,7 @@ const waitProcess = cuttingWarehouses.find((warehouse) => warehouse.warehouseKin
 assert(waitProcess, '缺少裁床待加工仓')
 
 const storage = createMemoryWarehouseLayoutStorage()
-const initial = buildInitialWarehouseLayoutSnapshot(waitProcess, '系统初始化')
+const initial = loadWarehouseLayoutSnapshot(waitProcess, storage).snapshot
 assert.equal(initial.schemaVersion, 3)
 assert.equal(initial.factoryId, waitProcess.factoryId)
 assert.equal(initial.layoutVersion, 0)
@@ -221,10 +232,23 @@ assert.throws(
   () => updateWarehouseArea(shelfAdded, { areaId: 'AREA-C', code: 'D', updatedBy: '仓库主管' }, new Set([occupiedId])),
   /占用.*不能修改库区代码/,
 )
+const secondOccupiedId = createdShelf.locationList.find((location) => location.levelNo === 1 && location.positionNo === 1)!.locationId
+assert.throws(
+  () => updateWarehouseArea(shelfAdded, { areaId: 'AREA-C', areaName: '占用区改名', updatedBy: '仓库主管' }, new Set([occupiedId, secondOccupiedId])),
+  new RegExp(`占用.*${createdShelf.locationList.find((location) => location.locationId === occupiedId)!.locationNo}.*${createdShelf.locationList.find((location) => location.locationId === secondOccupiedId)!.locationNo}|占用.*${createdShelf.locationList.find((location) => location.locationId === secondOccupiedId)!.locationNo}.*${createdShelf.locationList.find((location) => location.locationId === occupiedId)!.locationNo}`),
+  '库区任一后代占用时，除备注外不得改名称且必须列出全部冲突完整编号',
+)
+assert.doesNotThrow(() => updateWarehouseArea(shelfAdded, { areaId: 'AREA-C', remark: '占用区备注', updatedBy: '仓库主管' }, new Set([occupiedId])))
 assert.throws(
   () => updateWarehouseShelf(shelfAdded, { shelfId: 'SHELF-C-R01', shelfSequence: 2, updatedBy: '仓库主管' }, new Set([occupiedId])),
   /占用.*不能修改货架序号/,
 )
+assert.throws(
+  () => updateWarehouseShelf(shelfAdded, { shelfId: 'SHELF-C-R01', shelfName: '占用货架改名', updatedBy: '仓库主管' }, new Set([occupiedId, secondOccupiedId])),
+  /占用.*C-R01-L0[12]-P0[13].*C-R01-L0[12]-P0[13]/,
+  '货架任一库位占用时，除备注外不得改名称且必须列出全部冲突完整编号',
+)
+assert.doesNotThrow(() => updateWarehouseShelf(shelfAdded, { shelfId: 'SHELF-C-R01', remark: '占用货架备注', updatedBy: '仓库主管' }, new Set([occupiedId])))
 
 const idsBeforeRenumber = createdShelf.locationList.map((location) => location.locationId)
 const areaRenumbered = updateWarehouseArea(shelfAdded, { areaId: 'AREA-C', code: 'D', updatedBy: '仓库主管' }, new Set())
@@ -240,16 +264,27 @@ assert.throws(
   /完整编号 D-R02-L01-P01 已存在/,
 )
 assert.throws(
-  () => revokeNewWarehouseNode(shelfAdded, { nodeType: 'AREA', nodeId: 'AREA-C', createdInLayoutVersion: 1, updatedBy: '仓库主管' }, new Set([occupiedId])),
-  /引用|占用/,
+  () => revokeNewWarehouseNode(shelfAdded, { nodeType: 'SHELF', nodeId: 'SHELF-C-R01', createdInLayoutVersion: 2, updatedBy: '仓库主管' }, new Set([occupiedId, secondOccupiedId])),
+  /C-R01-L02-P03.*C-R01-L01-P01|C-R01-L01-P01.*C-R01-L02-P03/,
+  '撤销节点有引用或占用时必须列出所有冲突完整编号',
 )
 assert.throws(
-  () => revokeNewWarehouseNode(initial, { nodeType: 'AREA', nodeId: firstArea.areaId, createdInLayoutVersion: 0, updatedBy: '仓库主管' }, new Set()),
+  () => revokeNewWarehouseNode(shelfAdded, { nodeType: 'AREA', nodeId: firstArea.areaId, createdInLayoutVersion: 1, updatedBy: '仓库主管' }, new Set()),
   /仅允许撤销本次新建/,
-  '既有节点不得借撤销动作硬删除',
+  '调用方伪报版本也不得撤销没有内部创建元数据的既有节点',
 )
 const revoked = revokeNewWarehouseNode(shelfAdded, { nodeType: 'SHELF', nodeId: 'SHELF-C-R01', createdInLayoutVersion: 2, updatedBy: '仓库主管' }, new Set())
 assert.equal(revoked.areaList.find((area) => area.areaId === 'AREA-C')?.shelfList.length, 0, '无引用的新建错误货架允许撤销')
+
+const revokeStorage = createMemoryWarehouseLayoutStorage()
+const revokeBaseline = loadWarehouseLayoutSnapshot(waitProcess, revokeStorage).snapshot
+const persistedNewArea = createWarehouseArea(revokeBaseline, { areaId: 'AREA-REVOKE', areaName: 'C区', code: 'C', updatedBy: '仓库主管' })
+assert.equal(saveWarehouseLayoutSnapshot(persistedNewArea, 0, revokeStorage).ok, true)
+const reloadedNewArea = loadWarehouseLayoutSnapshot(waitProcess, revokeStorage).snapshot
+const reloadedAreaNode = reloadedNewArea.areaList.find((area) => area.areaId === 'AREA-REVOKE') as typeof firstArea & { layoutCreatedInVersion?: number }
+assert.equal(reloadedAreaNode.layoutCreatedInVersion, 1, '新建节点内部创建版本必须跨 localStorage JSON 持久化')
+const revokedAfterReload = revokeNewWarehouseNode(reloadedNewArea, { nodeType: 'AREA', nodeId: 'AREA-REVOKE', createdInLayoutVersion: 1, updatedBy: '仓库主管' }, new Set())
+assert.equal(revokedAfterReload.areaList.some((area) => area.areaId === 'AREA-REVOKE'), false, '真实新建空库区在重新加载后仍允许撤销')
 
 const saved = saveWarehouseLayoutSnapshot(areaOnly, 0, storage)
 assert.equal(saved.ok, true)
@@ -259,8 +294,14 @@ assert.equal(layoutHistory.length, 1)
 assert.equal(layoutHistory[0].beforeVersion, 0)
 assert.equal(layoutHistory[0].afterVersion, 1)
 assert.equal(layoutHistory[0].updatedBy, '仓库主管')
+assert.equal(layoutHistory[0].beforeSnapshot.areaList.some((area) => area.areaId === 'AREA-C'), false, '历史 before 必须是真实已加载基线，不得包含新节点')
+assert.equal(layoutHistory[0].afterSnapshot.areaList.some((area) => area.areaId === 'AREA-C'), true, '历史 after 必须包含本次新节点')
+const directSaveStorage = createMemoryWarehouseLayoutStorage()
+const directSave = saveWarehouseLayoutSnapshot(areaOnly, 0, directSaveStorage)
+assert.equal(directSave.ok, false, '未先加载基线不得直接保存变更后快照')
+assert.match(directSave.message, /请刷新加载后再保存/)
 const siblingWarehouse = { ...structuredClone(waitProcess), warehouseId: `${waitProcess.warehouseId}-SIBLING`, warehouseName: '同类型备用待加工仓' }
-const siblingSnapshot = buildInitialWarehouseLayoutSnapshot(siblingWarehouse, '备用仓初始化')
+const siblingSnapshot = loadWarehouseLayoutSnapshot(siblingWarehouse, storage).snapshot
 const siblingChanged = createWarehouseArea(siblingSnapshot, { areaId: 'SIBLING-C', areaName: 'C区', code: 'C', updatedBy: '备用仓主管' })
 assert.equal(saveWarehouseLayoutSnapshot(siblingChanged, 0, storage).ok, true)
 assert.equal(loadWarehouseLayoutSnapshot(waitProcess, storage).snapshot.warehouseId, waitProcess.warehouseId, '同工厂同类型多仓布局不得互相覆盖')

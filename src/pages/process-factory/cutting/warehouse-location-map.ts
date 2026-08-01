@@ -1068,64 +1068,15 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
     return true
   }
   if (action === 'rename-location') {
-    const current = buildCurrentCuttingWarehouseMapProjection(kind)
-    const locationId = node.dataset.locationId || ''
-    const cell = current?.projection.areas
-      .flatMap((area) => area.shelves.flatMap((shelf) => shelf.locations))
-      .find((item) => item.locationId === locationId)
-    const nextNo = typeof window !== 'undefined' ? window.prompt('请输入新的库位编号', cell?.locationNo || '')?.trim() : ''
-    if (!nextNo || !cell) return true
-    const duplicate = listStableWarehouseLocationRefs(current.warehouse, current.snapshot)
-      .some((location) => location.locationId !== locationId
-        && normalizeWarehouseIdentifier(location.locationNo) === normalizeWarehouseIdentifier(nextNo))
-    if (duplicate) {
-      window.alert('库位编号已存在，请更换后重试。')
-      return true
-    }
     window.alert('库位完整编号由库区代码、货架序号、层号和层内位置号自动生成，请在后续层级维护入口调整。')
     return true
   }
   if (action === 'rename-area') {
-    const current = buildCurrentCuttingWarehouseMapProjection(kind)
-    const areaId = node.dataset.areaId || ''
-    const area = current?.projection.areas.find((item) => item.areaId === areaId)
-    const nextName = typeof window !== 'undefined'
-      ? window.prompt('请输入新的库区名称', area?.areaName || '')?.trim()
-      : ''
-    if (!nextName || !area) return true
-    if (current?.projection.areas.some((item) => item.areaId !== areaId
-      && normalizeWarehouseIdentifier(item.areaName) === normalizeWarehouseIdentifier(nextName))) {
-      window.alert('库区名称已存在，请更换后重试。')
-      return true
-    }
-    persistSnapshot(kind, (snapshot) => mutateSnapshotAreaList(snapshot, (areaList) => {
-      const targetArea = areaList.find((item) => item.areaId === areaId)
-      if (targetArea) targetArea.areaName = nextName
-    }))
+    window.alert('库区名称和代码请在后续层级维护入口调整，系统将先检查占用库位再生成编号。')
     return true
   }
   if (action === 'rename-shelf') {
-    const current = buildCurrentCuttingWarehouseMapProjection(kind)
-    const shelfId = node.dataset.shelfId || ''
-    const shelf = current?.projection.areas
-      .flatMap((area) => area.shelves)
-      .find((item) => item.shelfId === shelfId)
-    const nextNo = typeof window !== 'undefined'
-      ? window.prompt('请输入新的货架编号', shelf?.shelfNo || '')?.trim()
-      : ''
-    if (!nextNo || !shelf) return true
-    const duplicate = current?.projection.areas
-      .flatMap((area) => area.shelves)
-      .some((item) => item.shelfId !== shelfId
-        && normalizeWarehouseIdentifier(item.shelfNo) === normalizeWarehouseIdentifier(nextNo))
-    if (duplicate) {
-      window.alert('货架编号已存在，请更换后重试。')
-      return true
-    }
-    persistSnapshot(kind, (snapshot) => mutateSnapshotAreaList(snapshot, (areaList) => {
-      const targetShelf = areaList.flatMap((item) => item.shelfList).find((item) => item.shelfId === shelfId)
-      if (targetShelf) targetShelf.shelfNo = nextNo
-    }))
+    window.alert('货架名称和序号请在后续层级维护入口调整，系统将先检查占用库位再生成编号。')
     return true
   }
   if (action === 'assign-location' && target instanceof HTMLSelectElement) {
