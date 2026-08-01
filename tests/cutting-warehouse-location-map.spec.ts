@@ -33,6 +33,31 @@ async function openWarehouseMap(page: Page, path: string): Promise<void> {
   await expect(page.locator('[data-warehouse-map-root]')).toBeVisible({ timeout: 300_000 })
 }
 
+async function openStandaloneShelfMaintenanceDialog(page: Page): Promise<void> {
+  await page.goto('/src/pages/process-factory/cutting/warehouse-location-map.ts', { waitUntil: 'domcontentloaded' })
+  await page.evaluate(async () => {
+    Object.keys(localStorage).filter((key) => key.startsWith('higood:cutting-warehouse-layout:')).forEach((key) => localStorage.removeItem(key))
+    document.body.innerHTML = '<section data-cutting-warehouse-map-section data-warehouse-kind="WAIT_PROCESS"></section>'
+    const module = await import('/src/pages/process-factory/cutting/warehouse-location-map.ts')
+    const current = module.buildCurrentCuttingWarehouseMapProjection('WAIT_PROCESS')
+    if (!current) throw new Error('无法建立独立库位图维护上下文')
+    module.openCuttingWarehouseLocationMapModal('WAIT_PROCESS', { type: 'create-shelf', areaId: current.snapshot.areaList[0].areaId })
+  })
+}
+
+async function openStandaloneAreaMaintenanceDialog(page: Page): Promise<string> {
+  await page.goto('/src/pages/process-factory/cutting/warehouse-location-map.ts', { waitUntil: 'domcontentloaded' })
+  return page.evaluate(async () => {
+    Object.keys(localStorage).filter((key) => key.startsWith('higood:cutting-warehouse-layout:')).forEach((key) => localStorage.removeItem(key))
+    document.body.innerHTML = '<section data-cutting-warehouse-map-section data-warehouse-kind="WAIT_PROCESS"></section>'
+    const module = await import('/src/pages/process-factory/cutting/warehouse-location-map.ts')
+    const current = module.buildCurrentCuttingWarehouseMapProjection('WAIT_PROCESS')
+    if (!current) throw new Error('无法建立独立库位图维护上下文')
+    module.openCuttingWarehouseLocationMapModal('WAIT_PROCESS', { type: 'create-area' })
+    return current.snapshot.areaList[0].areaName
+  })
+}
+
 async function clickAndAcceptDialog(page: Page, selector: string): Promise<void> {
   const dialogPromise = page.waitForEvent('dialog')
   await page.locator(selector).evaluate((button) => {
@@ -139,6 +164,104 @@ test('维护表单冲突和占用保护保留输入并显示受影响编号', as
   await expect(modal.locator('[name="enabled"]')).toBeDisabled()
   await expect(modal).toContainText('占用库位')
   await expect(modal).toContainText(/A-R\d+-L\d+-P\d+/)
+})
+
+test('大规模分层维护分页可达并及时反馈预览与保存', async ({ page }) => {
+  await openStandaloneShelfMaintenanceDialog(page)
+  const modal = page.locator('[data-cutting-warehouse-modal]')
+  await expect(modal.getByRole('dialog')).toBeVisible()
+  await expect(modal.locator('form[data-cutting-warehouse-maintenance-form]')).toBeVisible()
+  await modal.locator('[name="shelfSequence"]').fill('100')
+  await modal.locator('[name="levelCount"]').fill('45')
+  await modal.locator('[name="defaultPositionCount"]').fill('2')
+  await expect(modal.locator('[data-level-position-editor]')).toContainText('共 45 层')
+  expect(await modal.locator('[data-level-position-editor] input').count()).toBeLessThanOrEqual(20)
+  await modal.locator('[data-level-editor-page="next"]').click()
+  await expect(modal.locator('[name="positionCount-21"]')).toBeVisible()
+  await modal.locator('[data-level-editor-page="last"]').click()
+  await expect(modal.locator('[name="positionCount-45"]')).toBeVisible()
+  await expect(modal.locator('[data-location-number-preview]')).toContainText('共 90 个完整编号')
+  await modal.locator('[data-location-preview-page="last"]').click()
+  await expect(modal.locator('[data-location-number-preview]')).toContainText(/-L45-P02/)
+  expect(await modal.locator('[data-location-preview-row]').count()).toBeLessThanOrEqual(40)
+  await expect(modal.locator('[data-maintenance-dialog-body]')).toHaveClass(/overflow-y-auto/)
+  await expect(modal.locator('[data-warehouse-map-action="submit-maintenance"]')).toBeVisible()
+
+  const previewElapsed = await modal.locator('[name="positionCount-45"]').evaluate(async (input) => {
+    const preview = document.querySelector('[data-location-number-preview]')
+    if (!preview) throw new Error('缺少完整编号预览')
+    const startedAt = performance.now()
+    await new Promise<void>((resolve, reject) => {
+      const timeout = window.setTimeout(() => reject(new Error('实时预览未及时反馈')), 1_000)
+      const observer = new MutationObserver(() => {
+        window.clearTimeout(timeout)
+        observer.disconnect()
+        resolve()
+      })
+      observer.observe(preview.parentElement || document.body, { childList: true, subtree: true })
+      ;(input as HTMLInputElement).value = '3'
+      input.dispatchEvent(new InputEvent('input', { bubbles: true }))
+    })
+    return performance.now() - startedAt
+  })
+  expect(previewElapsed).toBeLessThan(200)
+  await expect(modal.locator('[data-location-number-preview]')).toContainText('共 91 个完整编号')
+
+  const saveFeedbackElapsed = await modal.locator('[data-warehouse-map-action="submit-maintenance"]').evaluate(async (button) => {
+    const startedAt = performance.now()
+    await new Promise<void>((resolve, reject) => {
+      const timeout = window.setTimeout(() => reject(new Error('保存未及时显示处理中反馈')), 1_000)
+      const observer = new MutationObserver(() => {
+        if (!document.querySelector('[data-maintenance-saving]')) return
+        window.clearTimeout(timeout)
+        observer.disconnect()
+        resolve()
+      })
+      observer.observe(document.body, { childList: true, subtree: true, attributes: true })
+      ;(button as HTMLButtonElement).click()
+    })
+    return performance.now() - startedAt
+  })
+  expect(saveFeedbackElapsed).toBeLessThan(200)
+  await expect(modal).toHaveCount(0)
+  const persisted = await page.evaluate(() => {
+    const layoutEntry = Object.entries(localStorage).find(([key]) => key.includes('warehouse-layout:v3'))
+    const historyEntry = Object.entries(localStorage).find(([key]) => key.includes('warehouse-layout-history:v3'))
+    return {
+      raw: Object.values(localStorage).join('\n'),
+      layoutVersion: layoutEntry ? JSON.parse(layoutEntry[1]).layoutVersion : -1,
+      historyCount: historyEntry ? JSON.parse(historyEntry[1]).length : -1,
+    }
+  })
+  expect(persisted.raw).toContain('-R100-L45-P03')
+  expect(persisted.layoutVersion).toBe(1)
+  expect(persisted.historyCount).toBe(1)
+})
+
+test('同仓名称重复与设备配额不足均保留维护输入', async ({ page }) => {
+  const existingAreaName = await openStandaloneAreaMaintenanceDialog(page)
+  const modal = page.locator('[data-cutting-warehouse-modal]')
+  await modal.locator('[name="areaCode"]').fill('Z')
+  await modal.locator('[name="areaName"]').fill(`  ${existingAreaName}  `)
+  await modal.locator('[name="areaName"]').press('Enter')
+  await expect(modal.locator('[data-maintenance-error]')).toContainText(`库区名称 ${existingAreaName} 已存在`)
+  await expect(modal.locator('[name="areaName"]')).toHaveValue(`  ${existingAreaName}  `)
+  await modal.locator('[data-warehouse-map-action="close-maintenance-dialog"]').last().click()
+  await page.evaluate(async () => {
+    const module = await import('/src/pages/process-factory/cutting/warehouse-location-map.ts')
+    module.openCuttingWarehouseLocationMapModal('WAIT_PROCESS', { type: 'create-area' })
+  })
+  await modal.locator('[name="areaCode"]').fill('Z')
+  await modal.locator('[name="areaName"]').fill('设备容量保护区')
+  await page.evaluate(() => {
+    const originalSetItem = Storage.prototype.setItem
+    ;(window as typeof window & { __restoreStorageSetItem?: () => void }).__restoreStorageSetItem = () => { Storage.prototype.setItem = originalSetItem }
+    Storage.prototype.setItem = () => { throw new DOMException('quota exceeded', 'QuotaExceededError') }
+  })
+  await modal.locator('[data-warehouse-map-action="submit-maintenance"]').click()
+  await expect(modal.locator('[data-maintenance-error]')).toContainText('本次规模超出当前设备可处理能力，建议拆分货架/减少单次生成')
+  await expect(modal.locator('[name="areaName"]')).toHaveValue('设备容量保护区')
+  await page.evaluate(() => (window as typeof window & { __restoreStorageSetItem?: () => void }).__restoreStorageSetItem?.())
 })
 
 test('非占用三类维护保存编号和状态并保持滚动与页面外壳', async ({ page }) => {

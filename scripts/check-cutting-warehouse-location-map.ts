@@ -151,9 +151,18 @@ for (const renderer of [
 assert.match(fcsHandlersSource, /data-cutting-warehouse-modal/, '维护弹窗事件必须接入裁床库位图处理链')
 assert.doesNotMatch(warehouseMapSource, /window\.prompt|prompt\(/, '库位图维护不得使用浏览器原生 prompt')
 assert.doesNotMatch(`${warehouseLayoutStoreSource}\n${warehouseMapSource}\n${warehouseMapModelSource}`, /1 到 99|<= 99|> 99/, '库位维护及投影不得保留 99 的固定业务上限')
+assert.doesNotMatch(`${warehouseLayoutStoreSource}\n${warehouseMapSource}\n${warehouseMapModelSource}`, /5000|5_000/, '不得以资源保护名义增加固定业务数量上限')
 assert.doesNotMatch(warehouseMapSource, /function positiveInteger\(/, '页面不得用带 99 上限的 positiveInteger 静默修正输入')
-assert.match(warehouseMapSource, /`第 \$\{index \+ 1\} 层位置数`/, '逐层位置数校验必须把具体层号传入严格解析器')
+assert.match(warehouseMapSource, /`第 \$\{levelNo\} 层位置数`/, '逐层位置数校验必须把具体层号传入严格解析器')
 assert.match(warehouseMapSource, /data-maintenance-preview-error/, '非法逐层输入必须在预览区显示错误')
+assert.match(warehouseMapSource, /data-level-editor-pagination/, '逐层编辑器必须分页并允许访问全部层')
+assert.match(warehouseMapSource, /data-location-preview-pagination/, '完整编号预览必须分页并展示总数和当前页')
+assert.match(warehouseMapSource, /data-maintenance-saving/, '保存点击必须先显示正在生成或保存反馈')
+assert.match(warehouseMapSource, /本次规模超出当前设备可处理能力，建议拆分货架\/减少单次生成/, '资源失败必须在弹窗提供可执行中文建议')
+assert.match(warehouseMapSource, /role="dialog"/, '维护弹窗必须声明 dialog 语义')
+assert.match(warehouseMapSource, /aria-modal="true"/, '维护弹窗必须声明 aria-modal')
+assert.match(warehouseMapSource, /aria-labelledby=/, '维护弹窗标题必须关联 aria-labelledby')
+assert.match(warehouseMapSource, /<form[\s\S]*data-cutting-warehouse-maintenance-form/, '维护字段必须位于可按 Enter 提交的 form 中')
 assert.equal((warehouseMapSource.match(/statusField\(/g) || []).length >= 4, true, '库区、货架、库位三类编辑表单必须提供启用状态字段')
 assert.match(warehouseLayoutStoreSource, /function setWarehouseLocationEnabled[\s\S]*return updateWarehouseLocation\(/, '独立库位启停 API 必须复用原子库位更新实现')
 assert.match(warehouseMapSource, /scrollX[\s\S]*scrollY[\s\S]*scrollTo/, '局部保存刷新必须显式保持页面滚动位置')
@@ -366,6 +375,21 @@ assert.throws(
   () => createWarehouseArea(areaOnly, { areaId: 'AREA-C2', areaName: '重复区', code: 'C', updatedBy: '仓库主管' }),
   /库区代码 C 已存在/,
 )
+assert.throws(
+  () => createWarehouseArea(areaOnly, { areaId: 'AREA-DUPLICATE-NAME', areaName: '  C区  ', code: 'D', updatedBy: '仓库主管' }),
+  /库区名称 C区 已存在/,
+  '同仓库类型新增库区名称 trim 后必须唯一',
+)
+assert.throws(
+  () => updateWarehouseArea(areaOnly, { areaId: firstArea.areaId, areaName: ' C区 ', updatedBy: '仓库主管' }, new Set()),
+  /库区名称 C区 已存在/,
+  '同仓库类型编辑库区名称 trim 后必须唯一',
+)
+const waitHandoverWarehouse = cuttingWarehouses.find((warehouse) => warehouse.warehouseKind === 'WAIT_HANDOVER')!
+const crossKindSameName = createWarehouseArea(buildInitialWarehouseLayoutSnapshot(waitHandoverWarehouse), {
+  areaId: 'AREA-WAIT-HANDOVER-C', areaName: ' C区 ', code: 'C', updatedBy: '待交出仓主管',
+})
+assert.equal(crossKindSameName.areaList.at(-1)?.areaName, 'C区', '不同 warehouse kind 必须允许相同库区名称')
 assert.throws(
   () => createWarehouseArea(areaOnly, { areaId: 'AREA-BAD', areaName: '非法区', code: 'c', updatedBy: '仓库主管' }),
   /单个大写字母/,

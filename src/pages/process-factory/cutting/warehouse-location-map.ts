@@ -27,7 +27,7 @@ import {
   resetWarehouseLayoutSnapshot,
   applyWarehouseLayoutSnapshot,
   createWarehouseArea,
-  createWarehouseShelf,
+  createWarehouseShelfInBatches,
   updateWarehouseArea,
   updateWarehouseShelf,
   updateWarehouseLocation,
@@ -678,22 +678,56 @@ function statusChangeRow(currentEnabled: boolean, nextEnabled: boolean): { befor
   return { before: currentEnabled ? '启用' : '停用', after: nextEnabled ? '启用' : '停用' }
 }
 
-function renderLocationNumberChangePreview(rows: Array<{ before?: string; after: string }>, message = '完整编号预览'): string {
-  return `<section class="rounded-md border bg-muted/20 p-3" data-location-number-preview><h3 class="text-sm font-medium">${escapeHtml(message)}</h3><div class="mt-2 max-h-48 space-y-1 overflow-y-auto font-mono text-xs">${rows.length ? rows.map((row) => `<div>${row.before ? `${escapeHtml(row.before)} → ` : ''}${escapeHtml(row.after)}</div>`).join('') : '<div class="text-muted-foreground">暂无受影响库位</div>'}</div></section>`
+const LEVEL_EDITOR_PAGE_SIZE = 20
+const LOCATION_PREVIEW_PAGE_SIZE = 40
+const MAINTENANCE_RESOURCE_LIMIT_MESSAGE = '本次规模超出当前设备可处理能力，建议拆分货架/减少单次生成。'
+
+interface ShelfDraftState {
+  levelCount: number
+  defaultPositionCountRaw: string
+  positionCountOverrides: Map<number, string>
+  editorPage: number
+  previewPage: number
 }
 
-function renderLevelPositionEditor(levelCount: number, positionCounts: number[]): string {
-  return `<section data-level-position-editor class="rounded-md border p-3"><div class="text-sm font-medium">逐层位置数</div><div class="mt-2 grid gap-2 sm:grid-cols-2">${Array.from({ length: levelCount }, (_, index) => field(`L${String(index + 1).padStart(2, '0')} 位置数`, `positionCount-${index + 1}`, String(positionCounts[index] ?? positionCounts[0] ?? 1), { type: 'number' })).join('')}</div></section>`
+const shelfDraftStates = new WeakMap<HTMLElement, ShelfDraftState>()
+
+function paginationButton(label: string, action: string, pageAction: 'first' | 'previous' | 'next' | 'last', disabled: boolean): string {
+  return `<button type="button" class="h-8 rounded border px-2 text-xs disabled:cursor-not-allowed disabled:opacity-40" data-skip-page-rerender="true" data-warehouse-map-action="${action}" data-${action === 'change-level-editor-page' ? 'level-editor' : 'location-preview'}-page="${pageAction}" ${disabled ? 'disabled' : ''}>${label}</button>`
+}
+
+function renderLocationNumberChangePreview(rows: Array<{ before?: string; after: string }>, message = '完整编号预览', requestedPage = 1): string {
+  const totalPages = Math.max(1, Math.ceil(rows.length / LOCATION_PREVIEW_PAGE_SIZE))
+  const page = Math.min(Math.max(1, requestedPage), totalPages)
+  const visibleRows = rows.slice((page - 1) * LOCATION_PREVIEW_PAGE_SIZE, page * LOCATION_PREVIEW_PAGE_SIZE)
+  return `<section class="rounded-md border bg-muted/20 p-3" data-location-number-preview data-preview-page="${page}"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="text-sm font-medium">${escapeHtml(message)}</h3><span class="text-xs text-muted-foreground">共 ${rows.length} 个完整编号｜第 ${page}/${totalPages} 页</span></div><div class="mt-2 max-h-48 space-y-1 overflow-y-auto font-mono text-xs">${visibleRows.length ? visibleRows.map((row) => `<div data-location-preview-row>${row.before ? `${escapeHtml(row.before)} → ` : ''}${escapeHtml(row.after)}</div>`).join('') : '<div class="text-muted-foreground">暂无受影响库位</div>'}</div><div class="mt-2 flex flex-wrap items-center justify-end gap-2" data-location-preview-pagination>${paginationButton('首页', 'change-location-preview-page', 'first', page === 1)}${paginationButton('上一页', 'change-location-preview-page', 'previous', page === 1)}${paginationButton('下一页', 'change-location-preview-page', 'next', page === totalPages)}${paginationButton('末页', 'change-location-preview-page', 'last', page === totalPages)}</div></section>`
+}
+
+function renderLevelPositionEditor(levelCount: number, valueAt: (levelNo: number) => string, requestedPage = 1): string {
+  const totalPages = Math.max(1, Math.ceil(levelCount / LEVEL_EDITOR_PAGE_SIZE))
+  const page = Math.min(Math.max(1, requestedPage), totalPages)
+  const firstLevel = (page - 1) * LEVEL_EDITOR_PAGE_SIZE + 1
+  const lastLevel = Math.min(levelCount, page * LEVEL_EDITOR_PAGE_SIZE)
+  const fields: string[] = []
+  for (let levelNo = firstLevel; levelNo <= lastLevel; levelNo += 1) {
+    fields.push(field(`L${String(levelNo).padStart(2, '0')} 位置数`, `positionCount-${levelNo}`, valueAt(levelNo), { type: 'number' }))
+  }
+  return `<section data-level-position-editor class="rounded-md border p-3"><div class="flex flex-wrap items-center justify-between gap-2"><div class="text-sm font-medium">逐层位置数</div><span class="text-xs text-muted-foreground">共 ${levelCount} 层｜第 ${page}/${totalPages} 页</span></div><div class="mt-2 max-h-72 overflow-y-auto pr-1"><div class="grid gap-2 sm:grid-cols-2">${fields.join('')}</div></div><div class="mt-3 flex flex-wrap items-center justify-end gap-2" data-level-editor-pagination>${paginationButton('首页', 'change-level-editor-page', 'first', page === 1)}${paginationButton('上一页', 'change-level-editor-page', 'previous', page === 1)}${paginationButton('下一页', 'change-level-editor-page', 'next', page === totalPages)}${paginationButton('末页', 'change-level-editor-page', 'last', page === totalPages)}</div></section>`
 }
 
 function dialogShell(kind: CuttingWarehouseMapKind, snapshot: FactoryWarehouseLayoutSnapshot, dialog: MaintenanceDialog, title: string, content: string): string {
+  const formId = 'cutting-warehouse-maintenance-form'
+  const titleId = 'cutting-warehouse-maintenance-title'
   const html = renderFormDialog({
     title,
     description: kind === 'WAIT_PROCESS' ? '当前维护：待加工仓' : '当前维护：待交出仓',
     closeAction: { prefix: 'warehouse-map', action: 'close-maintenance-dialog' },
     submitAction: { prefix: 'warehouse-map', action: 'submit-maintenance', label: '保存' },
     width: 'lg',
-  }, `<div class="space-y-4" data-cutting-warehouse-maintenance-form>${content}<div class="hidden rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-800" role="alert" data-maintenance-error></div></div>`)
+  }, `<form id="${formId}" class="space-y-4" data-cutting-warehouse-maintenance-form><button type="submit" class="hidden" tabindex="-1" aria-hidden="true"></button><div class="max-h-[calc(100vh-14rem)] space-y-4 overflow-y-auto pr-1" data-maintenance-dialog-body>${content}<div class="hidden rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-800" role="alert" data-maintenance-error></div></div></form>`)
+    .replace('<div class="relative bg-background', `<div role="dialog" aria-modal="true" aria-labelledby="${titleId}" class="relative max-h-[calc(100vh-2rem)] bg-background`)
+    .replace('<h2 class="text-lg font-semibold">', `<h2 id="${titleId}" class="text-lg font-semibold">`)
+    .replace('<button class="p-1 hover:bg-muted rounded-md -mr-2 -mt-2"', '<button type="button" aria-label="关闭维护弹窗" class="p-1 hover:bg-muted rounded-md -mr-2 -mt-2"')
   return `<div id="${CUTTING_WAREHOUSE_MODAL_ID}" class="fixed inset-0 z-[140]" data-cutting-warehouse-modal data-warehouse-kind="${kind}" data-maintenance-dialog="${dialog.type}" data-area-id="${'areaId' in dialog ? escapeHtml(dialog.areaId) : ''}" data-shelf-id="${'shelfId' in dialog ? escapeHtml(dialog.shelfId) : ''}" data-location-id="${'locationId' in dialog ? escapeHtml(dialog.locationId) : ''}" data-layout-version="${snapshot.layoutVersion}">${html}</div>`
 }
 
@@ -701,14 +735,12 @@ function renderCreateAreaDialog(kind: CuttingWarehouseMapKind, snapshot: Factory
   return dialogShell(kind, snapshot, { type: 'create-area' }, '新增库区', `${field('库区编码', 'areaCode', '', { placeholder: 'A 到 Z' })}${field('库区名称', 'areaName')}${remarkField()}${renderLocationNumberChangePreview([], '创建后为空库区，不自动生成货架或库位')}`)
 }
 
-function createShelfPreview(areaCode: string, shelfSequence: number, positionCounts: number[]): Array<{ after: string }> {
-  return positionCounts.flatMap((count, levelIndex) => Array.from({ length: count }, (_, positionIndex) => ({ after: `${areaCode}-R${String(shelfSequence).padStart(2, '0')}-L${String(levelIndex + 1).padStart(2, '0')}-P${String(positionIndex + 1).padStart(2, '0')}` })))
-}
-
 function renderCreateShelfDialog(kind: CuttingWarehouseMapKind, snapshot: FactoryWarehouseLayoutSnapshot, areaId: string, values = { shelfSequence: 1, levelCount: 1, defaultPositionCount: 1, positionCounts: [1], remark: '' }): string {
   const area = snapshot.areaList.find((item) => item.areaId === areaId)
   if (!area) return ''
-  return dialogShell(kind, snapshot, { type: 'create-shelf', areaId }, `在 ${area.code} 区新增货架`, `${field('货架序号', 'shelfSequence', String(values.shelfSequence), { type: 'number' })}${field('层数', 'levelCount', String(values.levelCount), { type: 'number' })}${field('默认每层位置数', 'defaultPositionCount', String(values.defaultPositionCount), { type: 'number' })}${renderLevelPositionEditor(values.levelCount, values.positionCounts)}${remarkField(values.remark)}${renderLocationNumberChangePreview(createShelfPreview(area.code || '', values.shelfSequence, values.positionCounts))}`)
+  const defaultValue = String(values.defaultPositionCount)
+  const rows = values.positionCounts.flatMap((count, levelIndex) => Array.from({ length: count }, (_, positionIndex) => ({ after: `${area.code}-R${String(values.shelfSequence).padStart(2, '0')}-L${String(levelIndex + 1).padStart(2, '0')}-P${String(positionIndex + 1).padStart(2, '0')}` })))
+  return dialogShell(kind, snapshot, { type: 'create-shelf', areaId }, `在 ${area.code} 区新增货架`, `${field('货架序号', 'shelfSequence', String(values.shelfSequence), { type: 'number' })}${field('层数', 'levelCount', String(values.levelCount), { type: 'number' })}${field('默认每层位置数', 'defaultPositionCount', defaultValue, { type: 'number' })}${renderLevelPositionEditor(values.levelCount, (levelNo) => String(values.positionCounts[levelNo - 1] ?? defaultValue))}${remarkField(values.remark)}${renderLocationNumberChangePreview(rows)}`)
 }
 
 function occupiedDescendants(current: NonNullable<ReturnType<typeof buildCurrentCuttingWarehouseMapProjection>>, locationIds: string[]): string[] {
@@ -756,7 +788,7 @@ function renderCuttingWarehouseLocationMapModal(kind: CuttingWarehouseMapKind, d
   return renderEditLocationDialog(kind, current, dialog.locationId)
 }
 
-function openCuttingWarehouseLocationMapModal(kind: CuttingWarehouseMapKind, dialog: MaintenanceDialog): void {
+export function openCuttingWarehouseLocationMapModal(kind: CuttingWarehouseMapKind, dialog: MaintenanceDialog): void {
   if (typeof document === 'undefined') return
   removeCuttingWarehouseLocationMapModal()
   const section = document.querySelector<HTMLElement>(`[data-cutting-warehouse-map-section][data-warehouse-kind="${kind}"]`)
@@ -765,6 +797,15 @@ function openCuttingWarehouseLocationMapModal(kind: CuttingWarehouseMapKind, dia
   if (modal) {
     modal.querySelectorAll<HTMLElement>('[data-warehouse-map-action]').forEach((item) => { item.dataset.skipPageRerender = 'true' })
     hydrateIcons(modal)
+    if (dialog.type === 'create-shelf') {
+      shelfDraftStates.set(modal, {
+        levelCount: Number(formValue(modal, 'levelCount')) || 1,
+        defaultPositionCountRaw: formValue(modal, 'defaultPositionCount') || '1',
+        positionCountOverrides: new Map(),
+        editorPage: 1,
+        previewPage: 1,
+      })
+    }
   }
   modal?.addEventListener('click', (event) => {
     const target = event.target instanceof HTMLElement ? event.target : event.target instanceof Node ? event.target.parentElement : null
@@ -783,10 +824,33 @@ function openCuttingWarehouseLocationMapModal(kind: CuttingWarehouseMapKind, dia
   modal?.addEventListener('input', (event) => {
     const target = event.target instanceof HTMLInputElement ? event.target : null
     if (!target) return
-    if (target.name === 'defaultPositionCount') {
-      modal.querySelectorAll<HTMLInputElement>('[data-level-position-editor] input').forEach((input) => { input.value = target.value })
+    if (modal.dataset.maintenanceDialog === 'create-shelf') {
+      const draft = requireShelfDraftState(modal)
+      if (target.name === 'defaultPositionCount') {
+        draft.defaultPositionCountRaw = target.value
+        draft.positionCountOverrides.clear()
+        replaceLevelPositionEditor(modal, draft)
+      } else if (target.name === 'levelCount') {
+        const parsed = Number(target.value)
+        if (Number.isSafeInteger(parsed) && parsed > 0) {
+          draft.levelCount = parsed
+          draft.positionCountOverrides.forEach((_, levelNo) => {
+            if (levelNo > parsed) draft.positionCountOverrides.delete(levelNo)
+          })
+          draft.editorPage = Math.min(draft.editorPage, Math.max(1, Math.ceil(parsed / LEVEL_EDITOR_PAGE_SIZE)))
+          draft.previewPage = 1
+          replaceLevelPositionEditor(modal, draft)
+        }
+      } else {
+        const match = target.name.match(/^positionCount-(\d+)$/)
+        if (match) draft.positionCountOverrides.set(Number(match[1]), target.value)
+      }
     }
     updateMaintenancePreview(modal, kind)
+  })
+  modal?.addEventListener('submit', (event) => {
+    event.preventDefault()
+    modal.querySelector<HTMLButtonElement>('[data-warehouse-map-action="submit-maintenance"]')?.click()
   })
 }
 
@@ -800,6 +864,92 @@ function parseRequiredPositiveInteger(value: string, label: string): number {
   return parsed
 }
 
+function requireShelfDraftState(modal: HTMLElement): ShelfDraftState {
+  const existing = shelfDraftStates.get(modal)
+  if (existing) return existing
+  const state: ShelfDraftState = {
+    levelCount: parseRequiredPositiveInteger(formValue(modal, 'levelCount'), '层数'),
+    defaultPositionCountRaw: formValue(modal, 'defaultPositionCount'),
+    positionCountOverrides: new Map(),
+    editorPage: 1,
+    previewPage: 1,
+  }
+  shelfDraftStates.set(modal, state)
+  return state
+}
+
+function shelfDraftValue(state: ShelfDraftState, levelNo: number): string {
+  return state.positionCountOverrides.get(levelNo) ?? state.defaultPositionCountRaw
+}
+
+function captureVisibleShelfDraftValues(modal: HTMLElement, state: ShelfDraftState): void {
+  modal.querySelectorAll<HTMLInputElement>('[data-level-position-editor] input').forEach((input) => {
+    const match = input.name.match(/^positionCount-(\d+)$/)
+    if (match) state.positionCountOverrides.set(Number(match[1]), input.value)
+  })
+}
+
+function replaceLevelPositionEditor(modal: HTMLElement, state: ShelfDraftState): void {
+  const editor = modal.querySelector<HTMLElement>('[data-level-position-editor]')
+  if (!editor) return
+  const template = document.createElement('template')
+  template.innerHTML = renderLevelPositionEditor(state.levelCount, (levelNo) => shelfDraftValue(state, levelNo), state.editorPage).trim()
+  const next = template.content.firstElementChild
+  if (next) editor.replaceWith(next)
+}
+
+function parseShelfDraftSummary(state: ShelfDraftState): { defaultCount: number; overrides: Map<number, number>; totalCount: number } {
+  const defaultCount = parseRequiredPositiveInteger(state.defaultPositionCountRaw, '默认每层位置数')
+  const overrides = new Map<number, number>()
+  let totalCount = defaultCount * state.levelCount
+  if (!Number.isSafeInteger(totalCount)) throw new Error('本次生成库位总数超出语言可安全表示范围，请调整输入后重试。')
+  state.positionCountOverrides.forEach((raw, levelNo) => {
+    if (levelNo < 1 || levelNo > state.levelCount) return
+    const count = parseRequiredPositiveInteger(raw, `第 ${levelNo} 层位置数`)
+    overrides.set(levelNo, count)
+    totalCount += count - defaultCount
+  })
+  if (!Number.isSafeInteger(totalCount)) throw new Error('本次生成库位总数超出语言可安全表示范围，请调整输入后重试。')
+  return { defaultCount, overrides, totalCount }
+}
+
+function resolveShelfPreviewLocation(state: ShelfDraftState, summary: ReturnType<typeof parseShelfDraftSummary>, offset: number): { levelNo: number; positionNo: number } {
+  let nextLevel = 1
+  let remaining = offset
+  const sortedOverrides = [...summary.overrides.entries()].sort(([left], [right]) => left - right)
+  for (const [overrideLevel, overrideCount] of sortedOverrides) {
+    const uniformLevels = overrideLevel - nextLevel
+    const uniformCount = uniformLevels * summary.defaultCount
+    if (remaining < uniformCount) return { levelNo: nextLevel + Math.floor(remaining / summary.defaultCount), positionNo: remaining % summary.defaultCount + 1 }
+    remaining -= uniformCount
+    if (remaining < overrideCount) return { levelNo: overrideLevel, positionNo: remaining + 1 }
+    remaining -= overrideCount
+    nextLevel = overrideLevel + 1
+  }
+  return { levelNo: nextLevel + Math.floor(remaining / summary.defaultCount), positionNo: remaining % summary.defaultCount + 1 }
+}
+
+function renderCreateShelfPreview(areaCode: string, shelfSequence: number, state: ShelfDraftState): string {
+  const summary = parseShelfDraftSummary(state)
+  const totalPages = Math.max(1, Math.ceil(summary.totalCount / LOCATION_PREVIEW_PAGE_SIZE))
+  state.previewPage = Math.min(Math.max(1, state.previewPage), totalPages)
+  const start = (state.previewPage - 1) * LOCATION_PREVIEW_PAGE_SIZE
+  const end = Math.min(summary.totalCount, start + LOCATION_PREVIEW_PAGE_SIZE)
+  const rows: Array<{ after: string }> = []
+  for (let offset = start; offset < end; offset += 1) {
+    const { levelNo, positionNo } = resolveShelfPreviewLocation(state, summary, offset)
+    rows.push({ after: `${areaCode}-R${String(shelfSequence).padStart(2, '0')}-L${String(levelNo).padStart(2, '0')}-P${String(positionNo).padStart(2, '0')}` })
+  }
+  const visible = renderLocationNumberChangePreview(rows, '完整编号实时预览')
+  return visible
+    .replace(`共 ${rows.length} 个完整编号｜第 1/1 页`, `共 ${summary.totalCount} 个完整编号｜第 ${state.previewPage}/${totalPages} 页`)
+    .replace('data-preview-page="1"', `data-preview-page="${state.previewPage}"`)
+    .replace(/data-location-preview-page="first" disabled/, `data-location-preview-page="first" ${state.previewPage === 1 ? 'disabled' : ''}`)
+    .replace(/data-location-preview-page="previous" disabled/, `data-location-preview-page="previous" ${state.previewPage === 1 ? 'disabled' : ''}`)
+    .replace(/data-location-preview-page="next" disabled/, `data-location-preview-page="next" ${state.previewPage === totalPages ? 'disabled' : ''}`)
+    .replace(/data-location-preview-page="last" disabled/, `data-location-preview-page="last" ${state.previewPage === totalPages ? 'disabled' : ''}`)
+}
+
 function replaceMaintenancePreviewHtml(modal: HTMLElement, html: string): void {
   const currentPreview = modal.querySelector<HTMLElement>('[data-location-number-preview], [data-maintenance-preview-error]')
   if (!currentPreview) return
@@ -810,7 +960,8 @@ function replaceMaintenancePreviewHtml(modal: HTMLElement, html: string): void {
 }
 
 function replaceMaintenancePreview(modal: HTMLElement, rows: Array<{ before?: string; after: string }>): void {
-  replaceMaintenancePreviewHtml(modal, renderLocationNumberChangePreview(rows, '编号与状态：原 → 新（实时预览）'))
+  const page = Number(modal.querySelector<HTMLElement>('[data-location-number-preview]')?.dataset.previewPage) || 1
+  replaceMaintenancePreviewHtml(modal, renderLocationNumberChangePreview(rows, '编号与状态：原 → 新（实时预览）', page))
 }
 
 function replaceMaintenancePreviewError(modal: HTMLElement, message: string): void {
@@ -824,16 +975,10 @@ function updateMaintenancePreview(modal: HTMLElement, kind: CuttingWarehouseMapK
   try {
   if (type === 'create-shelf') {
     const levelCount = parseRequiredPositiveInteger(formValue(modal, 'levelCount'), '层数')
-    const defaultCount = parseRequiredPositiveInteger(formValue(modal, 'defaultPositionCount'), '默认每层位置数')
-    const editor = modal.querySelector<HTMLElement>('[data-level-position-editor]')
-    const existing = Array.from({ length: levelCount }, (_, index) => {
-      const raw = formValue(modal, `positionCount-${index + 1}`)
-      return raw ? parseRequiredPositiveInteger(raw, `第 ${index + 1} 层位置数`) : defaultCount
-    })
-    if (editor && editor.querySelectorAll('input').length !== levelCount) editor.outerHTML = renderLevelPositionEditor(levelCount, existing)
-    const counts = Array.from({ length: levelCount }, (_, index) => parseRequiredPositiveInteger(formValue(modal, `positionCount-${index + 1}`), `第 ${index + 1} 层位置数`))
+    const draft = requireShelfDraftState(modal)
+    draft.levelCount = levelCount
     const area = current.snapshot.areaList.find((item) => item.areaId === modal.dataset.areaId)
-    replaceMaintenancePreview(modal, createShelfPreview(area?.code || '', parseRequiredPositiveInteger(formValue(modal, 'shelfSequence'), '货架序号'), counts))
+    replaceMaintenancePreviewHtml(modal, renderCreateShelfPreview(area?.code || '', parseRequiredPositiveInteger(formValue(modal, 'shelfSequence'), '货架序号'), draft))
     return
   }
   if (type === 'edit-area') {
@@ -962,6 +1107,48 @@ function persistSnapshot(
   refreshMapSection(kind)
 }
 
+function movePaginationPage(currentPage: number, totalPages: number, action: string | undefined): number {
+  if (action === 'first') return 1
+  if (action === 'previous') return Math.max(1, currentPage - 1)
+  if (action === 'next') return Math.min(totalPages, currentPage + 1)
+  if (action === 'last') return totalPages
+  return currentPage
+}
+
+function yieldMaintenanceWork(): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => setTimeout(resolve, 0))
+    else setTimeout(resolve, 0)
+  })
+}
+
+async function collectShelfPositionCounts(state: ShelfDraftState): Promise<number[]> {
+  const counts: number[] = []
+  for (let levelNo = 1; levelNo <= state.levelCount; levelNo += 1) {
+    counts.push(parseRequiredPositiveInteger(shelfDraftValue(state, levelNo), `第 ${levelNo} 层位置数`))
+    if (levelNo % 200 === 0) await yieldMaintenanceWork()
+  }
+  return counts
+}
+
+function maintenanceErrorMessage(error: unknown): string {
+  if (error instanceof RangeError) return MAINTENANCE_RESOURCE_LIMIT_MESSAGE
+  const name = error instanceof DOMException ? error.name : ''
+  const message = error instanceof Error ? error.message : ''
+  if (name === 'QuotaExceededError' || /quota|memory|array length|call stack/i.test(message)) return MAINTENANCE_RESOURCE_LIMIT_MESSAGE
+  return message || '保存失败，请检查输入后重试。'
+}
+
+function setMaintenanceSaving(modal: HTMLElement, saving: boolean): void {
+  const button = modal.querySelector<HTMLButtonElement>('[data-warehouse-map-action="submit-maintenance"]')
+  if (button) {
+    button.disabled = saving
+    button.textContent = saving ? '正在生成并保存…' : '保存'
+    if (saving) button.setAttribute('data-maintenance-saving', 'true')
+    else button.removeAttribute('data-maintenance-saving')
+  }
+}
+
 export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, event?: Event): boolean {
   const node = target.closest<HTMLElement>('[data-warehouse-map-action]')
   if (!node) return false
@@ -974,6 +1161,31 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
       removeCuttingWarehouseLocationMapModal()
       return true
     }
+    if (action === 'change-level-editor-page') {
+      const draft = requireShelfDraftState(modal)
+      captureVisibleShelfDraftValues(modal, draft)
+      const totalPages = Math.max(1, Math.ceil(draft.levelCount / LEVEL_EDITOR_PAGE_SIZE))
+      draft.editorPage = movePaginationPage(draft.editorPage, totalPages, node.dataset.levelEditorPage)
+      replaceLevelPositionEditor(modal, draft)
+      updateMaintenancePreview(modal, kind)
+      return true
+    }
+    if (action === 'change-location-preview-page') {
+      if (modal.dataset.maintenanceDialog === 'create-shelf') {
+        const draft = requireShelfDraftState(modal)
+        const totalCount = parseShelfDraftSummary(draft).totalCount
+        const totalPages = Math.max(1, Math.ceil(totalCount / LOCATION_PREVIEW_PAGE_SIZE))
+        draft.previewPage = movePaginationPage(draft.previewPage, totalPages, node.dataset.locationPreviewPage)
+      } else {
+        const preview = modal.querySelector<HTMLElement>('[data-location-number-preview]')
+        const currentPage = Number(preview?.dataset.previewPage) || 1
+        const summary = preview?.querySelector('span')?.textContent || ''
+        const totalPages = Number(summary.match(/\/(\d+) 页/)?.[1]) || 1
+        if (preview) preview.dataset.previewPage = String(movePaginationPage(currentPage, totalPages, node.dataset.locationPreviewPage))
+      }
+      updateMaintenancePreview(modal, kind)
+      return true
+    }
     if (action === 'submit-maintenance') {
       if (event?.type === 'click' && node instanceof HTMLButtonElement) event.preventDefault()
       const showError = (message: string) => {
@@ -982,6 +1194,9 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
         error.textContent = message
         error.classList.remove('hidden')
       }
+      setMaintenanceSaving(modal, true)
+      void (async () => {
+      await yieldMaintenanceWork()
       try {
         const current = buildCurrentCuttingWarehouseMapProjection(kind)
         if (!current) throw new Error('当前仓库库位图不可用，请刷新后重试。')
@@ -998,11 +1213,14 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
             updatedBy: '当前用户',
           })
         } else if (type === 'create-shelf') {
+          const draft = requireShelfDraftState(modal)
           const levelCount = parseRequiredPositiveInteger(formValue(modal, 'levelCount'), '层数')
+          draft.levelCount = levelCount
           parseRequiredPositiveInteger(formValue(modal, 'defaultPositionCount'), '默认每层位置数')
           const sequence = parseRequiredPositiveInteger(formValue(modal, 'shelfSequence'), '货架序号')
-          const positionCounts = Array.from({ length: levelCount }, (_, index) => parseRequiredPositiveInteger(formValue(modal, `positionCount-${index + 1}`), `第 ${index + 1} 层位置数`))
-          next = createWarehouseShelf(next, {
+          captureVisibleShelfDraftValues(modal, draft)
+          const positionCounts = await collectShelfPositionCounts(draft)
+          next = await createWarehouseShelfInBatches(next, {
             areaId: modal.dataset.areaId || '',
             shelfId: `SHELF-${modal.dataset.areaId}-${Date.now()}`,
             shelfSequence: sequence,
@@ -1026,9 +1244,10 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
         removeCuttingWarehouseLocationMapModal()
         refreshMapSection(kind)
       } catch (error) {
-        const message = error instanceof Error ? error.message : '保存失败，请检查输入后重试。'
-        showError(message)
+        showError(maintenanceErrorMessage(error))
+        setMaintenanceSaving(modal, false)
       }
+      })()
       return true
     }
     return false

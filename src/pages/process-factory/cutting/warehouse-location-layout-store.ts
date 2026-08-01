@@ -264,6 +264,7 @@ function validateSnapshot(snapshot: FactoryWarehouseLayoutSnapshot): void {
   }
   const areaIds = new Set<string>()
   const areaCodes = new Set<string>()
+  const areaNames = new Set<string>()
   const shelfIds = new Set<string>()
   const locationIds = new Set<string>()
   const locationNos = new Set<string>()
@@ -275,8 +276,11 @@ function validateSnapshot(snapshot: FactoryWarehouseLayoutSnapshot): void {
     assertAreaCode(area.code)
     if (areaIds.has(area.areaId)) throw new Error(`库区 ID ${area.areaId} 已存在。`)
     if (areaCodes.has(area.code)) throw new Error(`库区代码 ${area.code} 已存在。`)
+    const normalizedAreaName = area.areaName.trim()
+    if (areaNames.has(normalizedAreaName)) throw new Error(`库区名称 ${normalizedAreaName} 已存在。`)
     areaIds.add(area.areaId)
     areaCodes.add(area.code)
+    areaNames.add(normalizedAreaName)
     const sequences = new Set<number>()
     area.shelfList.forEach((shelf) => {
       assertCreationMetadata(shelf, `货架 ${shelf.shelfId}`)
@@ -512,11 +516,16 @@ export function saveWarehouseLayoutSnapshot(
   try {
     storage.setItem(key, JSON.stringify(snapshot))
     storage.setItem(historyKey, JSON.stringify([changeRecord, ...history].slice(0, 100)))
-  } catch {
+  } catch (error) {
     try {
       if (previousLayoutRaw === null) storage.removeItem?.(key); else storage.setItem(key, previousLayoutRaw)
       if (previousHistoryRaw === null) storage.removeItem?.(historyKey); else storage.setItem(historyKey, previousHistoryRaw)
     } catch { /* Best-effort rollback only. */ }
+    const name = typeof DOMException !== 'undefined' && error instanceof DOMException ? error.name : ''
+    const message = error instanceof Error ? error.message : ''
+    if (error instanceof RangeError || name === 'QuotaExceededError' || /quota|memory|array length|call stack/i.test(message)) {
+      return { ok: false, message: '本次规模超出当前设备可处理能力，建议拆分货架/减少单次生成。' }
+    }
     return { ok: false, message: '库位图保存失败，未能同步编排历史，请重试。' }
   }
   return { ok: true, message: '库位图编排已保存。', snapshot: clone(snapshot) }
@@ -557,10 +566,12 @@ export function createWarehouseArea(snapshot: FactoryWarehouseLayoutSnapshot, in
   assertText(input.areaName, '库区名称')
   if (snapshot.areaList.some((area) => area.areaId === input.areaId)) throw new Error(`库区 ID ${input.areaId} 已存在。`)
   if (snapshot.areaList.some((area) => area.code === input.code)) throw new Error(`库区代码 ${input.code} 已存在。`)
+  const normalizedAreaName = input.areaName.trim()
+  if (snapshot.areaList.some((area) => area.areaName.trim() === normalizedAreaName)) throw new Error(`库区名称 ${normalizedAreaName} 已存在。`)
   return nextSnapshot(snapshot, input.updatedBy, (next) => {
     next.areaList.push({
       areaId: input.areaId,
-      areaName: input.areaName.trim(),
+      areaName: normalizedAreaName,
       code: input.code,
       shelfList: [],
       status: 'AVAILABLE',
@@ -588,6 +599,8 @@ export function updateWarehouseArea(snapshot: FactoryWarehouseLayoutSnapshot, in
     )
   }
   if (input.code && snapshot.areaList.some((area) => area.areaId !== input.areaId && area.code === input.code)) throw new Error(`库区代码 ${input.code} 已存在。`)
+  const normalizedAreaName = input.areaName?.trim()
+  if (normalizedAreaName && snapshot.areaList.some((area) => area.areaId !== input.areaId && area.areaName.trim() === normalizedAreaName)) throw new Error(`库区名称 ${normalizedAreaName} 已存在。`)
   return nextSnapshot(snapshot, input.updatedBy, (next) => {
     const area = findArea(next, input.areaId)
     if (input.areaName !== undefined) area.areaName = input.areaName.trim()
@@ -637,6 +650,67 @@ export function createWarehouseShelf(snapshot: FactoryWarehouseLayoutSnapshot, i
       }
     })
     nextArea.shelfList.push(shelf)
+  })
+}
+
+const WAREHOUSE_BUILD_BATCH_SIZE = 200
+
+export async function createWarehouseShelfInBatches(
+  snapshot: FactoryWarehouseLayoutSnapshot,
+  input: CreateWarehouseShelfInput,
+  yieldControl: () => Promise<void> = () => new Promise((resolve) => setTimeout(resolve, 0)),
+): Promise<FactoryWarehouseLayoutSnapshot> {
+  assertText(input.shelfId, '货架 ID')
+  assertSequence(input.shelfSequence, '货架序号')
+  if (!input.positionCounts.length) throw new Error('新建货架至少需要 1 层。')
+  input.positionCounts.forEach((count, index) => assertSequence(count, `第 ${index + 1} 层位置数`))
+  const totalLocationCount = input.positionCounts.reduce((total, count) => total + count, 0)
+  if (!Number.isSafeInteger(totalLocationCount)) throw new Error('本次生成库位总数超出语言可安全表示范围，请调整输入后重试。')
+  const area = findArea(snapshot, input.areaId)
+  if (listShelves(snapshot).some((shelf) => shelf.shelfId === input.shelfId)) throw new Error(`货架 ID ${input.shelfId} 已存在。`)
+  if (area.shelfList.some((shelf) => shelf.shelfSequence === input.shelfSequence)) throw new Error(`货架序号 ${input.shelfSequence} 已存在。`)
+  const shelfNo = `R${String(input.shelfSequence).padStart(2, '0')}`
+  const existingIds = new Set(listLocations(snapshot).map((location) => location.locationId))
+  const locationList: FactoryWarehouseLocation[] = []
+  let builtCount = 0
+  for (let levelIndex = 0; levelIndex < input.positionCounts.length; levelIndex += 1) {
+    const levelNo = levelIndex + 1
+    for (let positionNo = 1; positionNo <= input.positionCounts[levelIndex]; positionNo += 1) {
+      const no = buildCuttingWarehouseLocationNo(area.code || '', input.shelfSequence, levelNo, positionNo)
+      const stem = `${input.shelfId}-L${String(levelNo).padStart(2, '0')}-P${String(positionNo).padStart(2, '0')}`
+      let locationId = stem
+      let suffix = 2
+      while (existingIds.has(locationId)) {
+        locationId = `${stem}-${suffix}`
+        suffix += 1
+      }
+      existingIds.add(locationId)
+      locationList.push({
+        locationId,
+        locationNo: no,
+        locationName: no,
+        levelNo,
+        positionNo,
+        status: 'AVAILABLE',
+        remark: '',
+        layoutCreatedInVersion: snapshot.layoutVersion + 1,
+      } as LayoutWarehouseLocation)
+      builtCount += 1
+      if (builtCount % WAREHOUSE_BUILD_BATCH_SIZE === 0) await yieldControl()
+    }
+  }
+  return nextSnapshot(snapshot, input.updatedBy, (next) => {
+    const nextArea = findArea(next, input.areaId)
+    nextArea.shelfList.push({
+      shelfId: input.shelfId,
+      shelfNo,
+      shelfName: `${nextArea.areaName} ${shelfNo}`,
+      shelfSequence: input.shelfSequence,
+      locationList,
+      status: 'AVAILABLE',
+      remark: input.remark?.trim() ?? '',
+      layoutCreatedInVersion: snapshot.layoutVersion + 1,
+    } as LayoutWarehouseShelf)
   })
 }
 
