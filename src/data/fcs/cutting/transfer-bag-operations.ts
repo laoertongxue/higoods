@@ -228,20 +228,13 @@ export function resolveWholeBagHandoverEligibility(
   input: ResolveWholeBagHandoverEligibilityInput,
 ): WholeBagHandoverEligibility {
   const { currentUse } = input
-  let submittedTicketSnapshot: TransferBagTicketFactSnapshot[]
-  try {
-    submittedTicketSnapshot = normalizeRequiredSubmittedTicketSnapshot(input.submittedTicketSnapshot)
-  } catch (error) {
-    return failedWholeBagHandover(error instanceof Error ? error.message : '整袋交出的完整提交快照无效。')
-  }
+  // 核心业务校验顺序固定为：阶段 → 非空 → 单生产单 → 逐票分配 →
+  // 唯一接收工厂 → 当前周期重复交出 → 完整提交快照；兼容阻断只能在其后追加。
   if (currentUse.flowStage !== 'INBOUND_STORED' && currentUse.flowStage !== 'READY_HANDOVER') {
     return failedWholeBagHandover('当前中转袋不是入仓暂存中或待交出，不能整袋交出。')
   }
   if (!currentUse.tickets.length) {
     return failedWholeBagHandover('当前中转袋没有菲票，不能整袋交出。')
-  }
-  if (currentUse.compatibilityBlockedReason) {
-    return failedWholeBagHandover(currentUse.compatibilityBlockedReason)
   }
 
   const productionOrderNos = unique(currentUse.tickets.map((ticket) => ticket.productionOrderNo))
@@ -274,16 +267,17 @@ export function resolveWholeBagHandoverEligibility(
   if (incompleteTicket) {
     return failedWholeBagHandover(`菲票 ${incompleteTicket.feiTicketNo || incompleteTicket.feiTicketId} 的当前袋内事实不完整。`)
   }
-  const assignmentTicketIds = input.assignments.map((assignment) => assignment.feiTicketId.trim())
-  const duplicateAssignmentId = assignmentTicketIds.find((ticketId, index) =>
-    Boolean(ticketId) && assignmentTicketIds.indexOf(ticketId) !== index)
-  if (duplicateAssignmentId) {
-    return failedWholeBagHandover(`菲票 ${duplicateAssignmentId} 存在重复分配，不能整袋交出。`)
+  let assignments: FeiTicketSewingAssignment[]
+  try {
+    assignments = normalizeRequiredAssignments(input.assignments)
+  } catch (error) {
+    return failedWholeBagHandover(error instanceof Error ? error.message : '整袋交出的逐票车缝任务分配无效。')
   }
+  const assignmentTicketIds = assignments.map((assignment) => assignment.feiTicketId)
 
   const currentTicketIdSet = new Set(currentTicketIds)
   const assignmentByTicketId = new Map(
-    input.assignments.map((assignment) => [assignment.feiTicketId.trim(), assignment]),
+    assignments.map((assignment) => [assignment.feiTicketId, assignment]),
   )
   const missingTicketIds = currentTicketIds.filter((ticketId) => !assignmentByTicketId.has(ticketId))
   if (missingTicketIds.length) {
@@ -344,10 +338,19 @@ export function resolveWholeBagHandoverEligibility(
       receiverFactoryName: assignment.receiverFactoryName.trim(),
     }
   })
+  let submittedTicketSnapshot: TransferBagTicketFactSnapshot[]
+  try {
+    submittedTicketSnapshot = normalizeRequiredSubmittedTicketSnapshot(input.submittedTicketSnapshot)
+  } catch (error) {
+    return failedWholeBagHandover(error instanceof Error ? error.message : '整袋交出的完整提交快照无效。')
+  }
   if (
     !sameWholeBagTicketSnapshot(ticketSnapshot, submittedTicketSnapshot)
   ) {
     return failedWholeBagHandover('提交的整袋交出快照与当前袋票关系不一致，请刷新后重试。')
+  }
+  if (currentUse.compatibilityBlockedReason) {
+    return failedWholeBagHandover(currentUse.compatibilityBlockedReason)
   }
 
   return {
@@ -1089,6 +1092,47 @@ export function submitWholeBagHandover(
   const handoverRecordId = requiredHandoverText(input.handoverRecordId, '交出记录 ID')
   const handoverRecordNo = requiredHandoverText(input.handoverRecordNo, '交出记录号')
   const submittedBy = requiredHandoverText(input.operator.operatorName, '交出人')
+  const occurredAt = input.occurredAt?.trim()
+    || new Date().toISOString().slice(0, 16).replace('T', ' ')
+  const events = sortedRuntimeEvents(storage)
+  const existingRecord = findSuccessfulWholeBagHandoverByRecordId(events, handoverRecordId)
+  if (existingRecord) {
+    let retryCanonicalIntent = ''
+    try {
+      retryCanonicalIntent = buildWholeBagHandoverCanonicalIntent({
+        bagCode,
+        usageCycleId,
+        handoverOrderId,
+        handoverOrderNo,
+        handoverRecordId,
+        handoverRecordNo,
+        assignments: normalizeRequiredAssignments(input.assignments),
+        submittedTicketSnapshot: normalizeRequiredSubmittedTicketSnapshot(input.submittedTicketSnapshot),
+        source: input.source,
+        operator: input.operator,
+      })
+    } catch {
+      throw new Error(`交出记录 ID ${handoverRecordId} 已存在，但本次请求业务意图冲突。`)
+    }
+    if (text(eventPayload(existingRecord).canonicalIntent) === retryCanonicalIntent) {
+      return existingRecord
+    }
+    throw new Error(`交出记录 ID ${handoverRecordId} 已存在，但本次请求业务意图冲突。`)
+  }
+  const currentUse = resolveTransferBagCurrentUse(bagCode, storage)
+  const eligibility = resolveWholeBagHandoverEligibility({
+    currentUse,
+    assignments: input.assignments,
+    existingHandoverEvents: events,
+    submittedTicketSnapshot: input.submittedTicketSnapshot,
+  })
+  if (!eligibility.ok) throw new Error(eligibility.reason)
+  if (!currentUse.usageCycleId) {
+    throw new Error('当前中转袋缺少使用周期，不能整袋交出。')
+  }
+  if (currentUse.usageCycleId !== usageCycleId) {
+    throw new Error('提交的中转袋使用周期与当前袋票关系不一致，请刷新后重试。')
+  }
   const assignments = normalizeRequiredAssignments(input.assignments)
   const submittedTicketSnapshot = normalizeRequiredSubmittedTicketSnapshot(input.submittedTicketSnapshot)
   const canonicalIntent = buildWholeBagHandoverCanonicalIntent({
@@ -1103,30 +1147,6 @@ export function submitWholeBagHandover(
     source: input.source,
     operator: input.operator,
   })
-  const occurredAt = input.occurredAt?.trim()
-    || new Date().toISOString().slice(0, 16).replace('T', ' ')
-  const events = sortedRuntimeEvents(storage)
-  const existingRecord = findSuccessfulWholeBagHandoverByRecordId(events, handoverRecordId)
-  if (existingRecord) {
-    if (text(eventPayload(existingRecord).canonicalIntent) === canonicalIntent) {
-      return existingRecord
-    }
-    throw new Error(`交出记录 ID ${handoverRecordId} 已存在，但本次请求业务意图冲突。`)
-  }
-  const currentUse = resolveTransferBagCurrentUse(bagCode, storage)
-  if (currentUse.usageCycleId !== usageCycleId) {
-    throw new Error('提交的中转袋使用周期与当前袋票关系不一致，请刷新后重试。')
-  }
-  const eligibility = resolveWholeBagHandoverEligibility({
-    currentUse,
-    assignments,
-    existingHandoverEvents: events,
-    submittedTicketSnapshot,
-  })
-  if (!eligibility.ok) throw new Error(eligibility.reason)
-  if (!currentUse.usageCycleId) {
-    throw new Error('当前中转袋缺少使用周期，不能整袋交出。')
-  }
   const sourceLocation = wholeBagHandoverSourceLocation({ currentUse, events })
   const ticketSnapshot = eligibility.ticketSnapshot.map((ticket) => ({ ...ticket }))
   const totalPieceQty = ticketSnapshot.reduce((sum, ticket) => sum + ticket.pieceQty, 0)

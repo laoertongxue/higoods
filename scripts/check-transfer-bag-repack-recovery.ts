@@ -316,6 +316,25 @@ function assertRejectedWithoutWriting(
   )
 }
 
+function assertRejectedWithoutWritingExact(
+  storage: BrowserStorageLike,
+  action: () => unknown,
+  expectedMessage: string,
+  message: string,
+): void {
+  const before = listCuttingRuntimeEvents(storage).length
+  assert.throws(
+    action,
+    (error: unknown) => error instanceof Error && error.message === expectedMessage,
+    message,
+  )
+  assert.equal(
+    listCuttingRuntimeEvents(storage).length,
+    before,
+    `${message}，失败后不得新增事件`,
+  )
+}
+
 function appendLegacyBaggingConfirm(input: {
   storage: BrowserStorageLike
   sourceBagCode?: string
@@ -1594,7 +1613,7 @@ function appendLegacyBaggingConfirm(input: {
   assert.equal(current.mainStatus, 'IN_USE')
   assert.equal(current.flowStage, 'HANDED_OVER_WAITING_RETURN')
 
-  assertRejectedWithoutWriting(
+  assertRejectedWithoutWritingExact(
     storage,
     () => submitWholeBagHandover(handoverInput(
       'BAG-HANDOVER-INBOUND',
@@ -1606,7 +1625,7 @@ function appendLegacyBaggingConfirm(input: {
       handoverRecordNo: 'HR-BAG-HANDOVER-INBOUND-REPEAT',
       },
     ), storage),
-    /不能.*交出|已交出|重复交出/,
+    '当前中转袋不是入仓暂存中或待交出，不能整袋交出。',
     '已交出待回收的同一周期不得重复交出',
   )
 }
@@ -1924,7 +1943,7 @@ function appendLegacyBaggingConfirm(input: {
 
 {
   const storage = createMemoryStorage()
-  assertRejectedWithoutWriting(
+  assertRejectedWithoutWritingExact(
     storage,
     () => submitWholeBagHandover(handoverInput(
       'BAG-HANDOVER-EMPTY',
@@ -1932,7 +1951,7 @@ function appendLegacyBaggingConfirm(input: {
       [],
       [],
     ), storage),
-    /逐票车缝任务分配必填|完整提交快照必填|不是入仓暂存中或待交出|没有菲票/,
+    '当前中转袋不是入仓暂存中或待交出，不能整袋交出。',
     '空闲空袋不得整袋交出',
   )
 }

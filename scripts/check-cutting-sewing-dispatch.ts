@@ -22,7 +22,10 @@ import {
   validateTransferBagCompleteness,
   type FeiTicketSewingAssignment,
 } from '../src/data/fcs/cutting/sewing-dispatch.ts'
-import type { TransferBagTicketFactSnapshot } from '../src/data/fcs/cutting/cutting-runtime-event-ledger.ts'
+import type {
+  CuttingRuntimeEvent,
+  TransferBagTicketFactSnapshot,
+} from '../src/data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import {
   resolveWholeBagHandoverEligibility,
   type TransferBagCurrentUse,
@@ -133,6 +136,34 @@ function submittedSnapshotFor(
   })
 }
 
+function assertEligibilityReason(
+  input: Parameters<typeof resolveWholeBagHandoverEligibility>[0],
+  expectedReason: string,
+  message: string,
+): void {
+  assert.equal(resolveWholeBagHandoverEligibility(input).reason, expectedReason, message)
+}
+
+function currentCycleHandoverEvent(currentUse: TransferBagCurrentUse): CuttingRuntimeEvent {
+  return {
+    eventId: 'EVENT-HANDOVER-CURRENT-CYCLE',
+    eventNo: 'EVENT-HANDOVER-CURRENT-CYCLE',
+    eventType: '新增交出记录',
+    eventSource: 'WEB',
+    eventStatus: '已记录',
+    occurredAt: '2026-08-01 09:00',
+    createdAt: '2026-08-01 09:00',
+    operatorId: '',
+    operatorName: '交出员',
+    operatorRole: '',
+    refs: {
+      transferBagCode: currentUse.bagCode,
+      usageCycleId: currentUse.usageCycleId || undefined,
+    },
+    payload: { handoverRecordId: 'HR-CURRENT-CYCLE' },
+  }
+}
+
 const wholeBagTickets = Array.from({ length: 12 }, (_, index) => wholeBagTicket(index + 1))
 const wholeBagCurrentUse: TransferBagCurrentUse = {
   bagCode: 'BAG-MULTI-TASK',
@@ -173,6 +204,65 @@ const crossFactoryEligibility = resolveWholeBagHandoverEligibility({
 })
 assert.equal(crossFactoryEligibility.ok, false)
 assert.equal(crossFactoryEligibility.reason, '袋内菲票分配给多个车缝工厂，请先拆袋重装。')
+
+const mixedProductionOrderCurrentUse: TransferBagCurrentUse = {
+  ...wholeBagCurrentUse,
+  tickets: wholeBagTickets.map((ticket, index) =>
+    index === 11 ? { ...ticket, productionOrderNo: 'PO-002' } : ticket),
+}
+const currentHandoverEvent = currentCycleHandoverEvent(wholeBagCurrentUse)
+assertEligibilityReason({
+  currentUse: { ...wholeBagCurrentUse, flowStage: 'PACKED' },
+  assignments: sameFactoryAssignments,
+  submittedTicketSnapshot: undefined as never,
+}, '当前中转袋不是入仓暂存中或待交出，不能整袋交出。', 'PACKED 非空袋必须先返回阶段错误')
+assertEligibilityReason({
+  currentUse: { ...wholeBagCurrentUse, tickets: [] },
+  assignments: [],
+  submittedTicketSnapshot: undefined as never,
+}, '当前中转袋没有菲票，不能整袋交出。', 'INBOUND 空袋必须先返回袋空错误')
+assertEligibilityReason({
+  currentUse: mixedProductionOrderCurrentUse,
+  assignments: sameFactoryAssignments,
+  submittedTicketSnapshot: undefined as never,
+}, '一个中转袋当前只能包含同一生产单的菲票。', '混生产单必须先返回单生产单错误')
+assertEligibilityReason({
+  currentUse: { ...wholeBagCurrentUse, mainStatus: 'IDLE', flowStage: null, tickets: [] },
+  assignments: [],
+  submittedTicketSnapshot: [] as never,
+}, '当前中转袋不是入仓暂存中或待交出，不能整袋交出。', 'IDLE 空袋必须先返回阶段错误')
+assertEligibilityReason({
+  currentUse: { ...mixedProductionOrderCurrentUse, compatibilityBlockedReason: '历史兼容阻断' },
+  assignments: sameFactoryAssignments,
+  submittedTicketSnapshot: undefined as never,
+}, '一个中转袋当前只能包含同一生产单的菲票。', 'compatibility 阻断不得抢在单生产单错误之前')
+assertEligibilityReason({
+  currentUse: wholeBagCurrentUse,
+  assignments: sameFactoryAssignments.slice(0, -1),
+  submittedTicketSnapshot: undefined as never,
+}, '袋内菲票未分配车缝任务：FEI-12。', '逐票分配错误必须先于快照错误')
+assertEligibilityReason({
+  currentUse: wholeBagCurrentUse,
+  assignments: crossFactoryAssignments,
+  existingHandoverEvents: [currentHandoverEvent],
+  submittedTicketSnapshot: undefined as never,
+}, '袋内菲票分配给多个车缝工厂，请先拆袋重装。', '唯一接收工厂错误必须先于周期重复和快照错误')
+assertEligibilityReason({
+  currentUse: wholeBagCurrentUse,
+  assignments: sameFactoryAssignments,
+  existingHandoverEvents: [currentHandoverEvent],
+  submittedTicketSnapshot: undefined as never,
+}, '当前中转袋使用周期已有未完成或重复交出事实，不能再次交出。', '当前周期重复错误必须先于快照错误')
+assertEligibilityReason({
+  currentUse: { ...wholeBagCurrentUse, compatibilityBlockedReason: '历史兼容阻断' },
+  assignments: sameFactoryAssignments,
+  submittedTicketSnapshot: undefined as never,
+}, '整袋交出的完整提交快照必填。', 'compatibility 阻断必须位于完整快照校验之后')
+assertEligibilityReason({
+  currentUse: { ...wholeBagCurrentUse, compatibilityBlockedReason: '历史兼容阻断' },
+  assignments: sameFactoryAssignments,
+  submittedTicketSnapshot: sameFactorySubmittedSnapshot,
+}, '历史兼容阻断', '核心有序校验通过后才允许返回 compatibility 阻断')
 
 assert.equal(resolveWholeBagHandoverEligibility({
   currentUse: wholeBagCurrentUse,
