@@ -426,6 +426,12 @@ test('PDA 中转袋入仓可从库位图单选空闲库位', async ({ page }) =>
   await expect(selectedItems).not.toContainText(firstLocation.locationNo)
   await expect(map.locator(`[data-location-id="${firstLocation.locationId}"]`)).toHaveAttribute('aria-pressed', 'false')
   await expect(secondButton).toHaveAttribute('aria-pressed', 'true')
+
+  await selectedItems.click()
+  await expect(locationInput).toHaveValue('')
+  await expect(selectionSummary).toContainText('已选 0 个库位')
+  await expect(selectedItems).toHaveCount(0)
+  await expect(secondButton).toHaveAttribute('aria-pressed', 'false')
 })
 
 for (const viewport of [

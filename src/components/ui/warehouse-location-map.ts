@@ -36,10 +36,17 @@ function renderCell(
       : cell.status !== 'AVAILABLE'
         ? '库位已停用'
         : ''
-  const selectionDisabled = occupied || Boolean(unavailableReason)
+  const hasOccupancyDetail = occupied && cell.occupancies.length > 0
+  const selectionDisabled = Boolean(unavailableReason) || (occupied && !hasOccupancyDetail)
   const action = mode === 'SELECT'
-    ? (selected || !selectionDisabled ? 'toggle-location' : '')
-    : occupied && cell.occupancies.length ? 'open-occupancy' : ''
+    ? selected
+      ? 'toggle-location'
+      : hasOccupancyDetail
+        ? 'open-occupancy'
+        : !selectionDisabled && !occupied
+          ? 'toggle-location'
+          : ''
+    : hasOccupancyDetail ? 'open-occupancy' : ''
   const summary = cell.occupancies[0]
   const rollSummary = summary?.rollDetails?.length
     ? `${summary.rollDetails.length} 卷 · ${Number(summary.rollDetails.reduce((sum, roll) => sum + roll.yard, 0).toFixed(2))} Yard / ${Number(summary.rollDetails.reduce((sum, roll) => sum + roll.meter, 0).toFixed(2))} 米`

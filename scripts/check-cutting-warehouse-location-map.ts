@@ -122,9 +122,11 @@ assert.match(pdaInboundSource, /data-pda-inbound-location-map/)
 assert.doesNotMatch(pdaInboundSource, /selectionLimit/, 'PDA 单选业务状态不得继续泄漏为共享地图数量限制 API')
 assert.match(pdaInboundSource, /selectedLocationIds: form\.selectedLocationId \? \[form\.selectedLocationId\] : \[\]/, 'PDA 中转袋入仓地图必须只投影当前单值选中状态')
 assert.match(pdaInboundSource, /eventState\.form\.locationLabel = location\.locationNo[\s\S]*eventState\.form\.selectedLocationId = location\.locationId/, 'PDA 中转袋入仓点击其他空闲格必须直接替换单值业务状态')
+assert.match(pdaInboundSource, /eventState\.form\.selectedLocationId === locationId[\s\S]*locationLabel = ''[\s\S]*selectedLocationId = ''/, 'PDA 中转袋入仓点击当前摘要项必须清空单值业务状态')
 assert.match(pdaInboundSource, /不属于当前工厂/)
 assert.match(pdaHandoverSource, /locationRef:/, '特殊工艺回仓必须写稳定库位路径')
 assert.match(warehouseHubSource, /data-wait-handover-location-map/, 'Web 中转袋入仓必须提供待交出仓单选库位图')
+assert.match(warehouseHubSource, /waitHandoverSelectedLocationId === locationId \? '' : locationId/, 'Web 中转袋入仓点击当前摘要项必须清空，点击其他空闲格必须替换单值选择')
 assert.match(warehouseHubSource, /dataset\.waitHandoverWebAction/, '待交出仓真实页面处理器必须承接顶部 Web 动作按钮')
 assert.match(fcsHandlersSource, /handleCraftCuttingWaitHandoverEvent\(target\)/, '待交出仓真实页面处理器必须接入主处理链')
 assert.doesNotMatch(fcsHandlersSource, /handleCraftCuttingWaitHandoverWebActionsEvent/, '不得保留旧文本弹窗处理器')
@@ -948,6 +950,47 @@ const selectMapHtml = renderWarehouseLocationMap({
 })
 assert.doesNotMatch(selectMapHtml, /生产单占用摘要/, '一线选位模式不得展示管理型生产单摘要')
 assert.doesNotMatch(selectMapHtml, /连续|相邻|起止范围|选择范围|范围：/, '选位组件不得推断或提示连续相邻范围')
+const findLocationButtonHtml = (html: string, locationId: string): string => {
+  const locationIndex = html.indexOf(`data-location-id="${locationId}"`)
+  if (locationIndex < 0) return ''
+  const buttonStart = html.lastIndexOf('<button', locationIndex)
+  const buttonEnd = html.indexOf('</button>', locationIndex)
+  return buttonStart >= 0 && buttonEnd >= 0 ? html.slice(buttonStart, buttonEnd + '</button>'.length) : ''
+}
+const selectOccupiedCellHtml = findLocationButtonHtml(selectMapHtml, shelfLocationIds[1])
+assert.match(selectOccupiedCellHtml, /data-warehouse-map-action="open-occupancy"/, 'SELECT 模式未选占用格必须保留占用详情入口')
+assert.doesNotMatch(selectOccupiedCellHtml, /\sdisabled(?:\s|>)/, 'SELECT 模式有占用详情的库位不得 disabled')
+assert.doesNotMatch(selectOccupiedCellHtml, /data-warehouse-map-action="toggle-location"/, 'SELECT 模式未选占用格不得进入选中动作')
+const selectedOccupiedMapHtml = renderWarehouseLocationMap({
+  projection: occupiedProjection,
+  mode: 'SELECT',
+  factoryName: '中央裁床',
+  selectedLocationIds: [shelfLocationIds[1]],
+})
+const selectedOccupiedCellHtml = findLocationButtonHtml(selectedOccupiedMapHtml, shelfLocationIds[1])
+assert.match(selectedOccupiedCellHtml, /data-warehouse-map-action="toggle-location"/, '已选库位后来变占用时仍必须允许取消')
+assert.doesNotMatch(selectedOccupiedCellHtml, /\sdisabled(?:\s|>)/, '已选库位后来变占用时不得 disabled')
+const stoppedSelectionProjection = structuredClone(emptyProjection)
+const stoppedSelectionCell = listWarehouseLocationMapCells(stoppedSelectionProjection)
+  .find((cell) => cell.locationId === shelfLocationIds[0])!
+stoppedSelectionCell.status = 'STOPPED'
+const stoppedSelectMapHtml = renderWarehouseLocationMap({
+  projection: stoppedSelectionProjection,
+  mode: 'SELECT',
+  factoryName: '中央裁床',
+})
+const stoppedSelectCellHtml = findLocationButtonHtml(stoppedSelectMapHtml, shelfLocationIds[0])
+assert.match(stoppedSelectCellHtml, /disabled aria-disabled="true"/, 'SELECT 模式停用未占用格必须继续禁用')
+assert.match(stoppedSelectCellHtml, /库位已停用，不可选择/, 'SELECT 模式停用未占用格必须显示禁用原因')
+const selectedStoppedMapHtml = renderWarehouseLocationMap({
+  projection: stoppedSelectionProjection,
+  mode: 'SELECT',
+  factoryName: '中央裁床',
+  selectedLocationIds: [shelfLocationIds[0]],
+})
+const selectedStoppedCellHtml = findLocationButtonHtml(selectedStoppedMapHtml, shelfLocationIds[0])
+assert.match(selectedStoppedCellHtml, /data-warehouse-map-action="toggle-location"/, '已选库位后来停用时仍必须允许取消')
+assert.doesNotMatch(selectedStoppedCellHtml, /\sdisabled(?:\s|>)/, '已选库位后来停用时不得 disabled')
 assert.equal(
   validateWarehouseLocationSelection(occupiedProjection, [shelfLocationIds[0], shelfLocationIds[1]]).message,
   '所选库位已被占用，请重新选择。',

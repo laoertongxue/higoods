@@ -3336,7 +3336,8 @@ export function handleCraftCuttingWaitHandoverEvent(target: HTMLElement): boolea
     if (locationNode.dataset.warehouseMapAction === 'clear-selection') {
       waitHandoverSelectedLocationId = ''
     } else if (locationNode.dataset.warehouseMapAction === 'toggle-location') {
-      waitHandoverSelectedLocationId = locationNode.dataset.locationId || ''
+      const locationId = locationNode.dataset.locationId || ''
+      waitHandoverSelectedLocationId = waitHandoverSelectedLocationId === locationId ? '' : locationId
     } else {
       return false
     }

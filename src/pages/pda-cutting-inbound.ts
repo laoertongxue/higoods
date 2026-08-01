@@ -1190,11 +1190,16 @@ export function handlePdaCuttingInboundEvent(
       eventState.form.selectedLocationId = ''
     } else if (warehouseMapNode.dataset.warehouseMapAction === 'toggle-location') {
       const locationId = warehouseMapNode.dataset.locationId || ''
-      const location = listCurrentWaitHandoverLocationRefs()
-        .find((item) => item.locationId === locationId)
-      if (!location) return true
-      eventState.form.locationLabel = location.locationNo
-      eventState.form.selectedLocationId = location.locationId
+      if (eventState.form.selectedLocationId === locationId) {
+        eventState.form.locationLabel = ''
+        eventState.form.selectedLocationId = ''
+      } else {
+        const location = listCurrentWaitHandoverLocationRefs()
+          .find((item) => item.locationId === locationId)
+        if (!location) return true
+        eventState.form.locationLabel = location.locationNo
+        eventState.form.selectedLocationId = location.locationId
+      }
     } else {
       return true
     }
