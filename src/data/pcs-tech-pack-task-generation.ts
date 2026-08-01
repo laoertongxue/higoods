@@ -1,4 +1,5 @@
 import { syncExistingProjectArchiveByProjectId } from './pcs-project-archive-sync.ts'
+import { listEngineeringMasterOrders } from './pcs-engineering-master-repository.ts'
 import {
   getProjectById,
   updateProjectRecord,
@@ -29,6 +30,7 @@ import {
 } from './pcs-technical-data-version-repository.ts'
 import type {
   TechPackSourceTaskType,
+  StoredTechPackSourceTaskType,
   TechPackVersionChangeScope,
   TechnicalBomItem,
   TechnicalColorMaterialMapping,
@@ -57,6 +59,46 @@ export interface TechPackGenerationResult {
     | '花型生成新版本'
     | '改版生成新版本'
   actionText: string
+}
+
+interface AuthoritativeTechPackSource {
+  sourceProjectId: string
+  sourceProjectCode: string
+  sourceProjectName: string
+  sourceTaskType: TechPackSourceTaskType
+  sourceTaskId: string
+  sourceTaskCode: string
+  sourceTaskName: string
+}
+
+function resolveEngineeringMasterTechPackSource(styleId: string): AuthoritativeTechPackSource {
+  const master = listEngineeringMasterOrders()
+    .filter((record) => record.styleId === styleId && record.status !== '已关闭' && record.status !== '已终止')
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0]
+  if (!master) throw new Error('当前款式没有未关闭的工程主单，不能建立技术包版本。')
+  const task = master.tasks.find((item) => item.taskType === 'TECH_PACK_CONFIRMATION')
+  if (!task) throw new Error('当前工程主单没有技术包确认任务，不能建立技术包版本。')
+  return {
+    sourceProjectId: master.masterOrderId,
+    sourceProjectCode: master.masterOrderCode,
+    sourceProjectName: master.styleName,
+    sourceTaskType: 'ENGINEERING_MASTER',
+    sourceTaskId: task.taskId,
+    sourceTaskCode: task.taskId,
+    sourceTaskName: task.taskName,
+  }
+}
+
+function resolveEngineeringChangeTechPackSource(task: RevisionTaskRecord): AuthoritativeTechPackSource {
+  return {
+    sourceProjectId: task.revisionTaskId,
+    sourceProjectCode: task.revisionTaskCode,
+    sourceProjectName: task.title,
+    sourceTaskType: 'ENGINEERING_CHANGE',
+    sourceTaskId: task.revisionTaskId,
+    sourceTaskCode: task.revisionTaskCode,
+    sourceTaskName: task.title,
+  }
 }
 
 function nowText(): string {
@@ -583,7 +625,7 @@ function getStyleTechPackStatus(
 export function writeProjectRelationFromTechPackVersion(
   record: TechnicalDataVersionRecord,
   operatorName = '当前用户',
-  _sourceTaskType: TechPackSourceTaskType = record.createdFromTaskType,
+  _sourceTaskType: StoredTechPackSourceTaskType = record.createdFromTaskType,
 ): void {
   upsertProjectRelation({
     projectRelationId: buildProjectRelationId(record.technicalVersionId),
@@ -645,7 +687,7 @@ function finalizeGeneration(
     | '花型生成新版本'
     | '改版生成新版本',
   operatorName: string,
-  sourceTaskType: TechPackSourceTaskType = record.createdFromTaskType,
+  sourceTaskType: StoredTechPackSourceTaskType = record.createdFromTaskType,
 ): TechPackGenerationResult {
   writeProjectRelationFromTechPackVersion(record, operatorName, sourceTaskType)
   syncStyleArchiveFromTechPackVersion(record)
@@ -807,19 +849,20 @@ export function generateTechPackVersionFromPlateTask(
     { styleId: '', styleCode: task.productStyleCode, projectId: task.projectId, spuCode: task.spuCode },
     '当前制版任务未绑定正式款式档案，不能建立技术包版本。',
   )
+  const source = resolveEngineeringMasterTechPackSource(style.styleId)
   const baseVersion = getCurrentTechPackVersionByStyleId(style.styleId) || listTechnicalDataVersionsByStyleId(style.styleId)[0] || null
   const baseContent = baseVersion ? getTechnicalDataVersionContent(baseVersion.technicalVersionId) : null
   const nextRecord = buildTechPackVersionRecord({
     styleId: style.styleId,
     styleCode: style.styleCode,
     styleName: style.styleName,
-    projectId: task.projectId,
-    projectCode: task.projectCode,
-    projectName: task.projectName,
+    projectId: source.sourceProjectId,
+    projectCode: source.sourceProjectCode,
+    projectName: source.sourceProjectName,
     projectNodeId: '',
-    createdFromTaskType: 'PLATE',
-    createdFromTaskId: task.plateTaskId,
-    createdFromTaskCode: task.plateTaskCode,
+    createdFromTaskType: source.sourceTaskType,
+    createdFromTaskId: source.sourceTaskId,
+    createdFromTaskCode: source.sourceTaskCode,
     baseVersion,
     primaryPlateTaskId: task.plateTaskId,
     primaryPlateTaskCode: task.plateTaskCode,
@@ -840,10 +883,10 @@ export function generateTechPackVersionFromPlateTask(
     changeScope: '制版生成',
     changeText: `已由制版任务 ${task.plateTaskCode} 建立技术包版本 ${createdRecord.versionLabel}。`,
     operatorName,
-    sourceTaskType: 'PLATE',
-    sourceTaskId: task.plateTaskId,
-    sourceTaskCode: task.plateTaskCode,
-    sourceTaskName: task.title,
+    sourceTaskType: source.sourceTaskType,
+    sourceTaskId: source.sourceTaskId,
+    sourceTaskCode: source.sourceTaskCode,
+    sourceTaskName: source.sourceTaskName,
     beforeVersion: baseVersion,
     afterVersion: createdRecord,
   })
@@ -859,7 +902,7 @@ export function generateTechPackVersionFromPlateTask(
     updatedAt: createdRecord.updatedAt,
     updatedBy: operatorName,
   })
-  const result = finalizeGeneration(createdRecord, 'CREATED', '制版生成技术包', operatorName, 'PLATE')
+  const result = finalizeGeneration(createdRecord, 'CREATED', '制版生成技术包', operatorName, source.sourceTaskType)
   return result
 }
 
@@ -875,6 +918,7 @@ export function generateTechPackVersionFromPatternTask(
     { styleId: '', styleCode: task.productStyleCode, projectId: task.projectId, spuCode: task.spuCode },
     '当前花型任务未绑定正式款式档案，不能写入技术包。',
   )
+  const source = resolveEngineeringMasterTechPackSource(style.styleId)
   const effectiveVersion = getCurrentTechPackVersionByStyleId(style.styleId)
   const plateDraftVersion = getLatestPlateWritableVersion(style.styleId)
   const targetVersion = effectiveVersion || plateDraftVersion
@@ -913,10 +957,10 @@ export function generateTechPackVersionFromPatternTask(
       changeScope: '花型写入',
       changeText: `已由花型任务 ${task.patternTaskCode} 写入当前技术包版本花型。`,
       operatorName,
-      sourceTaskType: 'ARTWORK',
-      sourceTaskId: task.patternTaskId,
-      sourceTaskCode: task.patternTaskCode,
-      sourceTaskName: task.title,
+      sourceTaskType: source.sourceTaskType,
+      sourceTaskId: source.sourceTaskId,
+      sourceTaskCode: source.sourceTaskCode,
+      sourceTaskName: source.sourceTaskName,
       beforeVersion: targetVersion,
       afterVersion: updatedRecord,
     })
@@ -930,20 +974,20 @@ export function generateTechPackVersionFromPatternTask(
       updatedBy: operatorName,
     })
     syncPatternAssetTechPackLineage(task, updatedRecord, operatorName)
-    return finalizeGeneration(updatedRecord, 'WRITTEN', '花型写入技术包', operatorName, 'ARTWORK')
+    return finalizeGeneration(updatedRecord, 'WRITTEN', '花型写入技术包', operatorName, source.sourceTaskType)
   }
 
   const nextRecord = buildTechPackVersionRecord({
     styleId: targetVersion.styleId,
     styleCode: targetVersion.styleCode,
     styleName: targetVersion.styleName,
-    projectId: targetVersion.sourceProjectId,
-    projectCode: targetVersion.sourceProjectCode,
-    projectName: targetVersion.sourceProjectName,
+    projectId: source.sourceProjectId,
+    projectCode: source.sourceProjectCode,
+    projectName: source.sourceProjectName,
     projectNodeId: targetVersion.sourceProjectNodeId,
-    createdFromTaskType: 'ARTWORK',
-    createdFromTaskId: task.patternTaskId,
-    createdFromTaskCode: task.patternTaskCode,
+    createdFromTaskType: source.sourceTaskType,
+    createdFromTaskId: source.sourceTaskId,
+    createdFromTaskCode: source.sourceTaskCode,
     baseVersion: targetVersion,
     primaryPlateTaskId: targetVersion.primaryPlateTaskId,
     primaryPlateTaskCode: targetVersion.primaryPlateTaskCode,
@@ -971,10 +1015,10 @@ export function generateTechPackVersionFromPatternTask(
     changeScope: '花型替换',
     changeText: `已由花型任务 ${task.patternTaskCode} 基于 ${targetVersion.versionLabel} 生成仅调整花型的新版本。`,
     operatorName,
-    sourceTaskType: 'ARTWORK',
-    sourceTaskId: task.patternTaskId,
-    sourceTaskCode: task.patternTaskCode,
-    sourceTaskName: task.title,
+    sourceTaskType: source.sourceTaskType,
+    sourceTaskId: source.sourceTaskId,
+    sourceTaskCode: source.sourceTaskCode,
+    sourceTaskName: source.sourceTaskName,
     beforeVersion: targetVersion,
     afterVersion: createdRecord,
   })
@@ -987,7 +1031,7 @@ export function generateTechPackVersionFromPatternTask(
     updatedAt: createdRecord.updatedAt,
     updatedBy: operatorName,
   })
-  return finalizeGeneration(createdRecord, 'CREATED', '花型生成新版本', operatorName, 'ARTWORK')
+  return finalizeGeneration(createdRecord, 'CREATED', '花型生成新版本', operatorName, source.sourceTaskType)
 }
 
 export function generateTechPackVersionFromRevisionTask(
@@ -1002,6 +1046,7 @@ export function generateTechPackVersionFromRevisionTask(
     { styleId: task.styleId, styleCode: task.styleCode || task.productStyleCode, projectId: task.projectId, spuCode: task.spuCode },
     '当前改版任务未绑定正式款式档案，不能建立技术包版本。',
   )
+  const source = resolveEngineeringChangeTechPackSource(task)
   const currentEffective = getCurrentTechPackVersionByStyleId(style.styleId)
   if (!currentEffective) {
     throw new Error('当前款式尚未启用技术包版本，不能基于改版生成新版本。')
@@ -1017,13 +1062,13 @@ export function generateTechPackVersionFromRevisionTask(
     styleId: currentEffective.styleId,
     styleCode: currentEffective.styleCode,
     styleName: currentEffective.styleName,
-    projectId: task.projectId,
-    projectCode: task.projectCode,
-    projectName: task.projectName,
+    projectId: source.sourceProjectId,
+    projectCode: source.sourceProjectCode,
+    projectName: source.sourceProjectName,
     projectNodeId: '',
-    createdFromTaskType: 'REVISION',
-    createdFromTaskId: task.revisionTaskId,
-    createdFromTaskCode: task.revisionTaskCode,
+    createdFromTaskType: source.sourceTaskType,
+    createdFromTaskId: source.sourceTaskId,
+    createdFromTaskCode: source.sourceTaskCode,
     baseVersion: currentEffective,
     primaryPlateTaskId: currentEffective.primaryPlateTaskId,
     primaryPlateTaskCode: currentEffective.primaryPlateTaskCode,
@@ -1045,10 +1090,10 @@ export function generateTechPackVersionFromRevisionTask(
     changeScope: '改版生成',
     changeText: `已由改版任务 ${task.revisionTaskCode} 基于 ${currentEffective.versionLabel} 生成新的技术包版本。`,
     operatorName,
-    sourceTaskType: 'REVISION',
-    sourceTaskId: task.revisionTaskId,
-    sourceTaskCode: task.revisionTaskCode,
-    sourceTaskName: task.title,
+    sourceTaskType: source.sourceTaskType,
+    sourceTaskId: source.sourceTaskId,
+    sourceTaskCode: source.sourceTaskCode,
+    sourceTaskName: source.sourceTaskName,
     beforeVersion: currentEffective,
     afterVersion: createdRecord,
   })
@@ -1064,7 +1109,7 @@ export function generateTechPackVersionFromRevisionTask(
     updatedAt: createdRecord.updatedAt,
     updatedBy: operatorName,
   })
-  return finalizeGeneration(createdRecord, 'CREATED', '改版生成新版本', operatorName, 'REVISION')
+  return finalizeGeneration(createdRecord, 'CREATED', '改版生成新版本', operatorName, source.sourceTaskType)
 }
 
 export function isTechPackGenerationAllowedStatus(status: string): boolean {

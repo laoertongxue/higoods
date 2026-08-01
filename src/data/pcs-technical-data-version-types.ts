@@ -2,7 +2,9 @@ import type { EngineeringBomCustomCostDraft, EngineeringBomPricingSnapshot } fro
 
 export type TechnicalVersionStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
 export type TechnicalDomainStatus = 'EMPTY' | 'DRAFT' | 'COMPLETE'
-export type TechPackSourceTaskType = 'REVISION' | 'PLATE' | 'ARTWORK' | 'MANUAL'
+export type TechPackSourceTaskType = 'ENGINEERING_MASTER' | 'ENGINEERING_CHANGE'
+export type LegacyTechPackSourceTaskType = 'REVISION' | 'PLATE' | 'ARTWORK' | 'MANUAL'
+export type StoredTechPackSourceTaskType = TechPackSourceTaskType | LegacyTechPackSourceTaskType
 export type TechPackVersionChangeScope = '制版生成' | '花型写入' | '花型替换' | '改版生成' | '手动新增'
 export type TechnicalGarmentDifficultyGrade = 'A' | 'A+' | 'A++' | 'B' | 'C' | 'D'
 export const TECHNICAL_GARMENT_DIFFICULTY_GRADES: TechnicalGarmentDifficultyGrade[] = ['A', 'A+', 'A++', 'B', 'C', 'D']
@@ -491,7 +493,7 @@ export interface TechnicalDataVersionRecord {
   linkedRevisionTaskIds: string[]
   linkedPatternTaskIds: string[]
   linkedArtworkTaskIds: string[]
-  createdFromTaskType: TechPackSourceTaskType
+  createdFromTaskType: StoredTechPackSourceTaskType
   createdFromTaskId: string
   createdFromTaskCode: string
   baseTechnicalVersionId: string

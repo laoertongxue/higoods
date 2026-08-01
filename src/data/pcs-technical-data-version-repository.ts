@@ -1,4 +1,6 @@
 import { createTechnicalDataVersionBootstrapSnapshot } from './pcs-technical-data-version-bootstrap.ts'
+import { getEngineeringMasterOrderById } from './pcs-engineering-master-repository.ts'
+import { getRevisionTaskById } from './pcs-revision-task-repository.ts'
 import { getStyleArchiveById } from './pcs-style-archive-repository.ts'
 import {
   hasTechPackPrintRequirement,
@@ -7,6 +9,7 @@ import {
 import { normalizeProcessRouteEntries } from './tech-pack-process-route.ts'
 import type {
   TechPackSourceTaskType,
+  StoredTechPackSourceTaskType,
   TechPackVersionChangeScope,
   TechnicalAttachment,
   TechnicalBomItem,
@@ -237,12 +240,43 @@ function normalizeDomainStatus(value: string | null | undefined): TechnicalDomai
 function normalizeSourceTaskType(
   value: string | null | undefined,
   record?: Pick<TechnicalDataVersionRecord, 'linkedRevisionTaskIds' | 'linkedPatternTaskIds' | 'linkedArtworkTaskIds'>,
-): TechPackSourceTaskType {
+): StoredTechPackSourceTaskType {
+  if (value === 'ENGINEERING_MASTER' || value === 'ENGINEERING_CHANGE') return value
   if (value === 'REVISION' || value === 'PLATE' || value === 'ARTWORK' || value === 'MANUAL') return value
   if ((record?.linkedRevisionTaskIds?.length ?? 0) > 0) return 'REVISION'
   if ((record?.linkedPatternTaskIds?.length ?? 0) > 0) return 'PLATE'
   if ((record?.linkedArtworkTaskIds?.length ?? 0) > 0) return 'ARTWORK'
   return 'REVISION'
+}
+
+function validateTechnicalVersionCreationSource(record: TechnicalDataVersionRecord): void {
+  if (record.createdFromTaskType !== 'ENGINEERING_MASTER' && record.createdFromTaskType !== 'ENGINEERING_CHANGE') {
+    throw new Error('技术包新版本只能由工程主单或工程变更任务生成。')
+  }
+  if (!record.sourceProjectId.trim() || !record.createdFromTaskId.trim()) {
+    throw new Error('技术包必须同时记录来源对象和来源任务。')
+  }
+
+  if (record.createdFromTaskType === 'ENGINEERING_MASTER') {
+    const master = getEngineeringMasterOrderById(record.sourceProjectId)
+    if (!master) throw new Error(`工程主单不存在：${record.sourceProjectId}`)
+    if (!master.tasks.some((task) => task.taskId === record.createdFromTaskId)) {
+      throw new Error(`工程主单任务不存在：${record.createdFromTaskId}`)
+    }
+    if (master.styleId !== record.styleId) {
+      throw new Error('技术包款式与工程主单款式不一致。')
+    }
+    return
+  }
+
+  const changeTask = getRevisionTaskById(record.sourceProjectId)
+  if (!changeTask) throw new Error(`工程变更任务不存在：${record.sourceProjectId}`)
+  if (changeTask.revisionTaskId !== record.createdFromTaskId) {
+    throw new Error('技术包来源对象与工程变更任务不一致。')
+  }
+  if (changeTask.styleId !== record.styleId) {
+    throw new Error('技术包款式与工程变更任务款式不一致。')
+  }
 }
 
 function normalizeChangeScope(value: string | null | undefined): TechPackVersionChangeScope {
@@ -970,6 +1004,7 @@ export function createTechnicalDataVersionDraft(
   record: TechnicalDataVersionRecord,
   content?: TechnicalDataVersionContent,
 ): TechnicalDataVersionRecord {
+  validateTechnicalVersionCreationSource(record)
   const snapshot = loadSnapshot()
   const normalizedContent = normalizeContent(content ?? createEmptyContent(record.technicalVersionId))
   const normalizedRecord = normalizeRecord(record, new Map([[record.technicalVersionId, normalizedContent]]))
