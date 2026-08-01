@@ -6,6 +6,10 @@ import {
 import {
   getSpecialCraftTaskOrderById,
 } from '../../../data/fcs/special-craft-task-orders.ts'
+import {
+  getSpecialCraftBindingSummaryByTaskOrderId,
+  getSpecialCraftBindingsByTaskOrderId,
+} from '../../../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
 import { executeProcessWebAction } from '../../../data/fcs/process-web-status-actions.ts'
@@ -126,6 +130,8 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
   }
   const webActions = getFastSpecialCraftWebActions(taskOrder)
   const taskOrderQty = taskOrder.currentQty || taskOrder.planQty || 1
+  const flowBindings = getSpecialCraftBindingsByTaskOrderId(taskOrder.taskOrderId)
+  const flowSummary = getSpecialCraftBindingSummaryByTaskOrderId(taskOrder.taskOrderId)
 
   const basicInfo = renderInfoGrid([
     { label: '任务号', value: escapeHtml(taskOrder.taskOrderNo) },
@@ -222,20 +228,37 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
     )
     .join('')
 
-  const bindingRows = taskOrder.feiTicketNos
-    .map(
-      (feiTicketNo) => `
+  const bindingRows = flowBindings.length
+    ? flowBindings.map(
+      (binding) => `
         <tr class="align-top">
-          <td class="px-3 py-3">${escapeHtml(feiTicketNo)}</td>
-          <td class="px-3 py-3">${escapeHtml(taskOrder.partName || '—')}</td>
-          <td class="px-3 py-3">${escapeHtml(taskOrder.fabricColor || '—')}</td>
-          <td class="px-3 py-3">${escapeHtml(taskOrder.sizeCode || '多尺码')}</td>
-          <td class="px-3 py-3">${formatQty(taskOrder.planQty)} ${escapeHtml(taskOrder.unit)}</td>
-          <td class="px-3 py-3">${renderStatusBadge(taskOrder.status)}</td>
+          <td class="px-3 py-3">${escapeHtml(binding.feiTicketNo)}</td>
+          <td class="px-3 py-3">${escapeHtml(binding.partName)}</td>
+          <td class="px-3 py-3">${escapeHtml(binding.colorName)}</td>
+          <td class="px-3 py-3">${escapeHtml(binding.sizeCode)}</td>
+          <td class="px-3 py-3">${formatQty(binding.currentQty)} ${escapeHtml(binding.unit)}</td>
+          <td class="px-3 py-3">${renderStatusBadge(binding.specialCraftFlowStatus)}</td>
+          <td class="px-3 py-3">${escapeHtml(binding.dispatchHandoverRecordNo || '未交出')}</td>
+          <td class="px-3 py-3">${escapeHtml(binding.returnHandoverRecordNo || '未回仓')}</td>
         </tr>
       `,
-    )
-    .join('')
+    ).join('')
+    : taskOrder.feiTicketNos
+      .map(
+        (feiTicketNo) => `
+          <tr class="align-top">
+            <td class="px-3 py-3">${escapeHtml(feiTicketNo)}</td>
+            <td class="px-3 py-3">${escapeHtml(taskOrder.partName || '—')}</td>
+            <td class="px-3 py-3">${escapeHtml(taskOrder.fabricColor || '—')}</td>
+            <td class="px-3 py-3">${escapeHtml(taskOrder.sizeCode || '多尺码')}</td>
+            <td class="px-3 py-3">${formatQty(taskOrder.planQty)} ${escapeHtml(taskOrder.unit)}</td>
+            <td class="px-3 py-3">${renderStatusBadge(taskOrder.status)}</td>
+            <td class="px-3 py-3">未交出</td>
+            <td class="px-3 py-3">未回仓</td>
+          </tr>
+        `,
+      )
+      .join('')
 
   const taskDetailHref = buildSpecialCraftTaskDetailPath(operation, taskOrder.taskOrderId)
   const activeTab = getCurrentTaskDetailTab()
@@ -274,11 +297,20 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
       <div class="space-y-5">
         ${renderSection(
           '菲票流转',
+          renderInfoGrid([
+            { label: '关联菲票数', value: String(flowSummary.linkedFeiTicketCount) },
+            { label: '发料状态', value: flowSummary.dispatchedFeiTicketCount > 0 ? `已发料 ${flowSummary.dispatchedFeiTicketCount} 张` : '待发料' },
+            { label: '回仓状态', value: escapeHtml(flowSummary.returnStatus) },
+            { label: '已回仓菲票数', value: String(flowSummary.returnedFeiTicketCount) },
+          ]),
+        )}
+        ${renderSection(
+          '菲票流转明细',
           bindingRows
             ? renderTable(
-                ['菲票号', '裁片部位', '颜色', '尺码', '计划数量', '当前状态'],
+                ['菲票号', '裁片部位', '颜色', '尺码', '当前数量', '当前状态', '发料交出记录', '回仓交出记录'],
                 bindingRows,
-                'min-w-[860px]',
+                'min-w-[1180px]',
               )
             : renderEmptyState('暂无菲票流转'),
         )}

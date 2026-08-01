@@ -281,7 +281,20 @@ export function getDialogTitle(): string {
   if (state.activeDialog === 'bagging-pack') return '菲票装袋'
   if (state.activeDialog === 'handover-pack') return '交出装袋'
   if (state.activeDialog === 'return') return '回收确认'
+  if (state.activeDialog === 'scrap') return '确认报废中转袋'
   return '中转袋流转'
+}
+
+export function syncUsageSelection(usageId: string): void {
+  const usage = getViewModel().usagesById[usageId]
+  if (!usage) return
+  state.activeUsageId = usageId
+  state.activeMasterId = usage.bagId
+  state.draft.bagId = usage.bagId
+  state.draft.bagCodeInput = usage.bagCode
+  state.draft.sewingTaskId = usage.sewingTaskId
+  state.draft.note = usage.note
+  resetReturnDraft(usageId)
 }
 
 export function syncReusableDecisionSuggestion(): void {

@@ -31,6 +31,8 @@ import {
 } from './route-renderers'
 import { renderRouteRedirect } from './route-utils'
 import { getPdaCurrentAuthSession, resolvePdaPostLoginRoute, buildPdaAuthLoginPath } from '../data/fcs/factory-onboarding-flow.ts'
+import { bootstrapPickupManagementRuntimeMockData } from '../runtime/fcs/cutting/pickup-management-runtime.ts'
+import { bootstrapSupplementManagementMockData } from '../pages/process-factory/cutting/supplement-management.ts'
 
 function decodeRouteSegment(value: string): string {
   try {
@@ -58,7 +60,11 @@ export const routes: RouteRegistry = {
     '/fcs/pda/handover/sewing-self-return': () => renderPdaSewingSelfReturnPage(),
     '/fcs/pda/transfer-bag-detail': () => renderPdaTransferBagDetailPage(),
     '/fcs/pda/warehouse': () => renderPdaWarehousePage(),
-    '/fcs/pda/warehouse/wait-process': () => renderPdaWarehouseWaitProcessPage(),
+    '/fcs/pda/warehouse/wait-process': () => {
+      bootstrapSupplementManagementMockData()
+      bootstrapPickupManagementRuntimeMockData()
+      return renderPdaWarehouseWaitProcessPage()
+    },
     '/fcs/pda/warehouse/wait-handover': () => renderPdaWarehouseWaitHandoverPage(),
     '/fcs/pda/warehouse/inbound-records': () => renderPdaWarehouseInboundRecordsPage(),
     '/fcs/pda/warehouse/outbound-records': () => renderPdaWarehouseOutboundRecordsPage(),

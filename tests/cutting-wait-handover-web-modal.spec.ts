@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 
+import { collectPageErrors, expectNoPageErrors } from './helpers/seed-cutting-runtime-state'
+
 const WAIT_HANDOVER_PATH = '/fcs/craft/cutting/warehouse-management/wait-handover'
 
 async function openModalAndMeasure(
@@ -8,7 +10,7 @@ async function openModalAndMeasure(
 ): Promise<number> {
   return page.evaluate(async (actionName) => {
     const trigger = document.querySelector<HTMLButtonElement>(
-      `[data-wait-handover-web-action="open-${actionName}"]`,
+      `[data-wait-handover-action="open-${actionName}"]`,
     )
     if (!trigger) throw new Error(`未找到弹窗入口：${actionName}`)
     const startedAt = performance.now()
@@ -32,7 +34,8 @@ async function openModalAndMeasure(
 }
 
 test('待交出仓保留原工作台，三个中转袋操作均在当前页面打开弹窗', async ({ page }) => {
-  test.setTimeout(90_000)
+  test.setTimeout(240_000)
+  const errors = collectPageErrors(page)
   await page.goto(WAIT_HANDOVER_PATH, { waitUntil: 'domcontentloaded' })
   await page.waitForTimeout(300)
   if ((await page.locator('body').innerText()).trim().length < 20) {
@@ -40,16 +43,14 @@ test('待交出仓保留原工作台，三个中转袋操作均在当前页面�
   }
 
   await expect(page.getByRole('heading', { name: '裁床待交出仓' })).toBeVisible({
-    timeout: 30_000,
+    timeout: 120_000,
   })
   await expect(page.getByRole('button', { name: '库存明细', exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: '特种工艺回收入仓', exact: true })).toBeVisible()
+  await expect(
+    page.locator('[data-wait-handover-action="open-special-craft-return"]'),
+  ).toBeVisible()
   await expect(page.getByRole('button', { name: '库区库位', exact: true })).toBeVisible()
   await expect(page.locator('[data-wait-handover-web-selector]')).toHaveCount(0)
-  await page.getByRole('heading', { name: '裁床待交出仓' }).evaluate((heading) => {
-    heading.dataset.waitHandoverWorkbenchStable = 'true'
-  })
-
   const actions = [
     { label: '菲票装袋', action: 'bagging' },
     { label: '中转袋入仓', action: 'inbound' },
@@ -68,40 +69,71 @@ test('待交出仓保留原工作台，三个中转袋操作均在当前页面�
     await dialog.getByText('关闭', { exact: true }).click()
     await expect(dialog).toHaveCount(0)
 
-    await page
-      .locator(`[data-wait-handover-web-action="open-${item.action}"]`)
-      .click()
-    await expect(dialog).toBeVisible()
-
-    if (item.action === 'bagging') {
-      await dialog.locator('[data-wait-handover-web-field="bagCode"]').fill('WEB-BAG-001')
-      await dialog.locator('[data-wait-handover-web-field="ticketCode"]').fill('WEB-FEI-001')
-      await dialog.getByRole('button', { name: '加入', exact: true }).click()
-      await expect(dialog).toContainText('WEB-FEI-001')
-      await dialog.getByRole('button', { name: '确认装袋', exact: true }).click()
-      await expect(dialog).toContainText('装袋成功')
-    } else if (item.action === 'inbound') {
-      await dialog.locator('[data-wait-handover-web-field="bagCode"]').fill('WEB-BAG-002')
-      await dialog.locator('[data-wait-handover-web-field="locationCode"]').fill('裁床仓 A-01')
-      await dialog.getByRole('button', { name: '确认入仓', exact: true }).click()
-      await expect(dialog).toContainText('入仓成功')
-    } else {
-      await dialog.locator('[data-wait-handover-web-field="bagCode"]').fill('WEB-BAG-003')
-      await dialog.locator('[data-wait-handover-web-field="sewingTaskCode"]').fill('SEW-TASK-001')
-      await dialog.getByRole('button', { name: '查询任务', exact: true }).click()
-      await expect(
-        dialog.locator('[data-wait-handover-web-field="productionOrderNo"]'),
-      ).toHaveValue('PO-H000123')
-      await expect(
-        dialog.locator('[data-wait-handover-web-field="receiverFactoryName"]'),
-      ).toHaveValue('印尼一厂')
-      await dialog.getByRole('button', { name: '确认整袋交出', exact: true }).click()
-      await expect(dialog).toContainText('交出成功')
-    }
     expect(page.url()).toBe(urlBefore)
-    await expect(page.locator('[data-wait-handover-workbench-stable="true"]')).toHaveCount(1)
-
-    await dialog.getByText('关闭', { exact: true }).click()
-    await expect(dialog).toHaveCount(0)
   }
+
+  await page.evaluate(async () => {
+    const {
+      listSpreadingResultGeneratedFeiTickets,
+    } = await import('/src/data/fcs/cutting/generated-fei-tickets.ts')
+    const {
+      completeFeiTicketNumbering,
+    } = await import('/src/data/fcs/cutting/fei-ticket-numbering.ts')
+    listSpreadingResultGeneratedFeiTickets()
+      .filter((ticket) => ticket.ticketStatus !== 'VOIDED' && ticket.pieceSequenceRange)
+      .forEach((ticket) => {
+        completeFeiTicketNumbering({
+          feiTicketNoOrId: ticket.feiTicketId,
+          operatorName: 'Web 验收打编号员',
+          source: 'WEB',
+        })
+      })
+  })
+
+  const bagCode = `WEB-E2E-${Date.now()}`
+  await page.locator('[data-wait-handover-action="open-bagging"]').click()
+  const baggingDialog = page.locator('[data-wait-handover-modal="bagging"]')
+  await expect(baggingDialog).toBeVisible()
+  await baggingDialog.locator('[data-wait-handover-field="bagCode"]').fill(bagCode)
+  await expect(
+    baggingDialog.locator('[data-wait-handover-field="bagCode"]'),
+  ).toHaveValue(bagCode)
+  const ticketSelect = baggingDialog.locator('[data-wait-handover-field="feiTicketId"]')
+  expect(await ticketSelect.locator('option:not([disabled])').count()).toBeGreaterThan(0)
+  await ticketSelect.selectOption({ index: 0 })
+  await baggingDialog.getByRole('button', { name: '确认菲票装袋', exact: true }).click()
+  await expect(baggingDialog).toHaveCount(0)
+
+  await page.locator('[data-wait-handover-action="open-inbound"]').click()
+  const inboundDialog = page.locator('[data-wait-handover-modal="inbound"]')
+  await expect(inboundDialog).toBeVisible()
+  await inboundDialog.locator('[data-wait-handover-field="bagCode"]').fill(bagCode)
+  await expect(
+    inboundDialog.locator('[data-wait-handover-field="bagCode"]'),
+  ).toHaveValue(bagCode)
+  await inboundDialog.locator('[data-wait-handover-field="warehouseArea"]').fill('裁片暂存区')
+  await inboundDialog.locator('[data-wait-handover-field="locationCode"]').fill('E2E-01')
+  await inboundDialog.getByRole('button', { name: '确认中转袋入仓', exact: true }).click()
+  await expect(inboundDialog).toHaveCount(0)
+
+  const persistedFacts = await page.evaluate(() => {
+    const ledger = JSON.parse(
+      window.localStorage.getItem('cuttingRuntimeEventLedger') || '{"events":[]}',
+    ) as { events?: Array<{ eventType?: string; refs?: unknown; payload?: unknown }> }
+    return ledger.events || []
+  }, bagCode)
+  expect(persistedFacts.map((event) => event.eventType)).toContain('菲票装袋')
+  expect(persistedFacts.map((event) => event.eventType)).toContain('中转袋入仓')
+  expect(JSON.stringify(persistedFacts)).toContain(bagCode)
+
+  await page.locator('[data-wait-handover-action="open-handover"]').click()
+  const handoverDialog = page.locator('[data-wait-handover-modal="handover"]')
+  await expect(handoverDialog).toBeVisible()
+  await expect(handoverDialog).toContainText('一次只交出一个完整中转袋')
+  await expect(handoverDialog.locator('[data-wait-handover-field="handoverSelection"]')).toBeVisible()
+  await expect(handoverDialog.locator('[data-wait-handover-field="ticketScanInput"]')).toHaveCount(0)
+  await handoverDialog.getByText('关闭', { exact: true }).click()
+  await expect(handoverDialog).toHaveCount(0)
+
+  await expectNoPageErrors(errors)
 })

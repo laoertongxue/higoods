@@ -40,6 +40,23 @@ import {
   buildSupplementPartShortages,
   type SupplementPartShortage,
 } from '../../../data/fcs/cut-piece-release-domain.ts'
+import {
+  ensureSupplementRecordPickupSeeds,
+  listSupplementRecords as listSupplementRecordsFromStore,
+  prependSupplementRecord,
+  resetSupplementRecordsForTest,
+  type SupplementAbAnalysisRow,
+  type SupplementDraft,
+  type SupplementLine,
+  type SupplementManualSourceType,
+  type SupplementMaterialDemand,
+  type SupplementMaterialPatternRef,
+  type SupplementProcessWorkOrderRef,
+  type SupplementRecord,
+  type SupplementRoleConfirmStatus,
+  type SupplementSizeColorRow,
+  type SupplementSourceType,
+} from '../../../data/fcs/cutting/supplement-records.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderSecondaryButton } from '../../../components/ui/button.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
@@ -61,14 +78,8 @@ import {
   type StandardListColumn,
 } from '../../../components/ui/list-table.ts'
 
-type SupplementManualSourceType = 'production-order' | 'cut-order'
-type SupplementSourceType = SupplementManualSourceType | 'release-snapshot'
 type SupplementFilterSourceType = 'ALL' | SupplementSourceType
-type SupplementRecordStatus = '已确认'
 type SupplementProcessKind = '印花' | '染色'
-type SupplementMaterialRole = '面料A' | '面料B' | '面料C' | '里布' | '衬' | '罗纹' | '辅料' | '包材' | '未识别'
-type SupplementRoleSource = '物料-纸样关联别名' | '物料行继承别名' | '纸样辅助识别' | '顺序推断' | '未识别'
-type SupplementRoleConfirmStatus = '已确认' | '待确认'
 
 interface SupplementFilters {
   sourceType: SupplementFilterSourceType
@@ -86,92 +97,6 @@ interface SupplementFeedback {
   message: string
 }
 
-interface SupplementSizeColorRow {
-  key: string
-  skuCode: string
-  color: string
-  size: string
-  plannedQty: number
-  actualCutPieces: number
-  inboundPieces: number
-  completeSetQty: number
-  inboundSetQty: number
-  shortageQty: number
-  existingSupplementQty: number
-  suggestedSupplementQty: number
-  relatedCutOrderNos: string[]
-}
-
-interface SupplementMaterialDemand {
-  key: string
-  materialPatternMappingId: string
-  sourceBomItemId: string
-  techPackVersionId: string
-  materialSku: string
-  materialName: string
-  materialTypeLabel: string
-  materialImageUrl: string
-  materialAlias: string
-  materialRole: SupplementMaterialRole
-  roleSource: SupplementRoleSource
-  roleConfirmStatus: SupplementRoleConfirmStatus
-  patternId: string
-  patternName: string
-  requiredQty: number
-  unit: string
-  printRequired: boolean
-  dyeRequired: boolean
-  processNote: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
-}
-
-interface SupplementMaterialPatternRef {
-  materialPatternMappingId: string
-  techPackVersionId: string
-  materialSku: string
-  materialName: string
-  materialImageUrl: string
-  materialTypeLabel: string
-  materialAlias: string
-  materialRole: SupplementMaterialRole
-  roleSource: SupplementRoleSource
-  roleConfirmStatus: SupplementRoleConfirmStatus
-  patternId: string
-  patternName: string
-  cutOrderNo: string
-  line: CuttingMaterialLine
-  mappingLine?: TechnicalColorMaterialMappingLine
-  bomItem?: TechPackBomItemSnapshot
-}
-
-interface SupplementAbAnalysisRow {
-  key: string
-  skuCode: string
-  color: string
-  size: string
-  plannedQty: number
-  benchmarkMaterial: SupplementMaterialPatternRef
-  shortageMaterial: SupplementMaterialPatternRef
-  benchmarkCutQty: number
-  currentRoleCutQty: number
-  differenceQty: number
-  shortageQty: number
-  existingSupplementQty: number
-  suggestedSupplementQty: number
-  relatedCutOrderNos: string[]
-  roleConfirmStatus: SupplementRoleConfirmStatus
-}
-
-interface SupplementLine extends SupplementSizeColorRow {
-  supplementQty: number
-  basis: SupplementAbAnalysisRow
-  isManualAdjusted: boolean
-  adjustReason: string
-  actualMissingPieceQty?: number
-  piecesPerGarment?: number
-}
-
 interface SupplementCandidate {
   id: string
   sourceType: SupplementManualSourceType
@@ -187,46 +112,13 @@ interface SupplementCandidate {
   blockedReason: string
 }
 
-export interface SupplementDraft {
-  candidateId: string
-  sourceType: SupplementSourceType
-  sourceNo: string
-  productionOrderId: string
-  productionOrderNo: string
-  styleName: string
-  spuCode: string
-  reason: string
-  reasonDetail: string
-  lines: SupplementLine[]
-  materialDemands: SupplementMaterialDemand[]
-  confirmationIdentity?: string
-  releaseSnapshotId?: string
-  releaseMatrixVersion?: number
-  releaseTargetConfirmedAt?: string
-}
-
-export interface SupplementProcessWorkOrderRef {
-  processType: 'PRINT' | 'DYE'
-  sourceType: 'CUT_PIECE_SUPPLEMENT'
-  workOrderId: string
-  workOrderNo: string
-  materialSku: string
-  materialName: string
-  plannedQty: number
-  unit: string
-}
-
-export interface SupplementRecord {
-  id: string
-  recordNo: string
-  confirmationKey: string
-  requestFingerprint: string
-  status: SupplementRecordStatus
-  createdAt: string
-  createdBy: string
-  draft: SupplementDraft
-  processWorkOrderRefs: SupplementProcessWorkOrderRef[]
-}
+export type {
+  SupplementDraft,
+  SupplementLine,
+  SupplementMaterialDemand,
+  SupplementProcessWorkOrderRef,
+  SupplementRecord,
+} from '../../../data/fcs/cutting/supplement-records.ts'
 
 interface SupplementProcessLink {
   kind: SupplementProcessKind
@@ -2574,14 +2466,13 @@ function saveConfirmedSupplementRecord(input: {
     processWorkOrderRefs: structuredClone(input.processWorkOrderRefs),
   }
   state.records = [record, ...state.records]
-  return structuredClone(record)
+  return prependSupplementRecord(record)
 }
 
 export function confirmSupplementAndGenerateProcessWorkOrders(
   draft: SupplementDraft,
   createdBy: string,
 ): { ok: true; record: SupplementRecord } | { ok: false; message: string } {
-  ensureMockSupplementOrders()
   const confirmationKey = buildSupplementConfirmationIdentity(draft)
   const requestFingerprint = buildSupplementRequestFingerprint(draft)
   const identity = buildSupplementRecordIdentity(draft)
@@ -2810,8 +2701,7 @@ export function confirmSupplementAndGenerateProcessWorkOrders(
 }
 
 export function listSupplementRecords(): SupplementRecord[] {
-  ensureMockSupplementOrders()
-  return structuredClone(state.records)
+  return listSupplementRecordsFromStore()
 }
 
 function buildMockDraft(
@@ -2869,9 +2759,31 @@ function buildMockDraft(
 function ensureMockSupplementOrders(): void {
   if (mockSupplementOrdersSeeded) return
   mockSupplementOrdersSeeded = true
-  if (state.records.length) return
+  state.records = listSupplementRecordsFromStore()
 
-  const candidates = buildCandidates().filter((candidate) => candidate.canInitiate && candidate.abAnalysisRows.length > 0)
+  const seedSourceOrder = [
+    'CUT-260302-004-01',
+    'CUT-260306-101-03',
+    'CUT-260306-101-04',
+    'CUT-260306-101-05',
+    'CUT-260306-101-06',
+    'CUT-260303-002-01',
+    'CUT-260306-101-01',
+    'CUT-260306-101-02',
+    'CUT-260303-007-01',
+    'CUT-260301-003-01',
+    'CUT-260301-005-01',
+    'PO-202603-0008',
+  ]
+  const seedSourceSet = new Set(seedSourceOrder)
+  const candidates = cuttingOrderProgressRecords
+    .filter((record) => ['PO-202603-0002', 'PO-202603-0003', 'PO-202603-0004', 'PO-202603-0008'].includes(record.productionOrderId))
+    .flatMap((record) => [
+      ...(record.productionOrderId === 'PO-202603-0008' ? [buildProductionCandidate(record)] : []),
+      ...buildCutOrderCandidates(record).filter((candidate) => seedSourceSet.has(candidate.sourceNo)),
+    ])
+    .filter((candidate) => candidate.canInitiate && candidate.abAnalysisRows.length > 0)
+    .sort((left, right) => seedSourceOrder.indexOf(left.sourceNo) - seedSourceOrder.indexOf(right.sourceNo))
   if (!candidates.length) return
   const reasons = ['裁片损耗', '尺码齐套不足', '验片破损', '裁剪差异']
   const details = [
@@ -2881,9 +2793,8 @@ function ensureMockSupplementOrders(): void {
     '裁剪数量与计划存在差异，主管确认后发起补料。',
   ]
   const creators = ['裁床主管 周敏', '裁床组长 林洁', '验片主管 陈玲', '裁床主管 王海']
-  const records: SupplementRecord[] = []
-
-  for (let index = 0; index < candidates.length * 2 && records.length < 12; index += 1) {
+  let coveredSeedCount = 0
+  for (let index = 0; index < candidates.length * 2 && coveredSeedCount < 12; index += 1) {
     const candidate = candidates[index % candidates.length]
     const draft = buildMockDraft(
       candidate,
@@ -2900,17 +2811,55 @@ function ensureMockSupplementOrders(): void {
       ...draft,
       lines,
       materialDemands,
-      confirmationIdentity: `mock-supplement-${index + 1}`,
+      confirmationIdentity: `supplement-page-seed-${index + 1}`,
     }
-    const confirmed = confirmSupplementAndGenerateProcessWorkOrders(variedDraft, creators[index % creators.length])
+    const existingSeed = state.records.find((record) =>
+      record.draft.productionOrderId === variedDraft.productionOrderId
+      && record.draft.sourceNo === variedDraft.sourceNo
+      && record.draft.materialDemands.length === variedDraft.materialDemands.length
+      && record.draft.materialDemands.every((demand) =>
+        variedDraft.materialDemands.some((candidateDemand) =>
+          candidateDemand.materialPatternMappingId === demand.materialPatternMappingId
+          && candidateDemand.materialSku === demand.materialSku
+          && candidateDemand.unit === demand.unit
+        )
+      )
+    )
+    if (existingSeed) {
+      coveredSeedCount += 1
+      continue
+    }
+    const hasProcessDemand = variedDraft.materialDemands.some((demand) => demand.printRequired || demand.dyeRequired)
+    const confirmed = hasProcessDemand
+      ? confirmSupplementAndGenerateProcessWorkOrders(variedDraft, creators[index % creators.length])
+      : {
+          ok: true as const,
+          record: saveConfirmedSupplementRecord({
+            identity: buildSupplementRecordIdentity(variedDraft),
+            draft: variedDraft,
+            createdBy: creators[index % creators.length],
+            processWorkOrderRefs: [],
+            confirmationKey: buildSupplementConfirmationIdentity(variedDraft),
+            requestFingerprint: buildSupplementRequestFingerprint(variedDraft),
+          }),
+        }
     if (!confirmed.ok) continue
-    records.push({
-      ...confirmed.record,
-      createdAt: `2026-03-${String(25 - Math.floor(index / 4)).padStart(2, '0')} ${String(16 - (index % 4)).padStart(2, '0')}:${String((index * 7) % 60).padStart(2, '0')}`,
-    })
+    coveredSeedCount += 1
   }
 
-  state.records = records
+  state.records = listSupplementRecordsFromStore()
+}
+
+export function bootstrapSupplementManagementMockData(): SupplementRecord[] {
+  ensureSupplementRecordPickupSeeds()
+  ensureMockSupplementOrders()
+  return listSupplementRecordsFromStore()
+}
+
+export function resetSupplementManagementMockDataForTest(): void {
+  mockSupplementOrdersSeeded = false
+  state.records = []
+  resetSupplementRecordsForTest()
 }
 
 function setFiltersFromDom(): void {
@@ -2945,6 +2894,7 @@ export function isCraftCuttingSupplementManagementDialogOpen(): boolean {
 }
 
 export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement, event?: Event): boolean {
+  bootstrapSupplementManagementMockData()
   const internalDragEvent = event as (DragEvent & {
     higoodStandardListColumnDrag?: true
     higoodStandardListColumnKey?: string
@@ -3359,7 +3309,7 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
 }
 
 export function renderCraftCuttingSupplementManagementPage(): string {
-  ensureMockSupplementOrders()
+  bootstrapSupplementManagementMockData()
   ensureSupplementListPreferences()
   if (isSupplementCreateMode()) {
     return renderCraftCuttingSupplementCreatePage()
@@ -3391,7 +3341,7 @@ export function renderCraftCuttingSupplementManagementPage(): string {
 }
 
 export function renderCraftCuttingSupplementCreatePage(): string {
-  ensureMockSupplementOrders()
+  bootstrapSupplementManagementMockData()
   prepareReleaseSnapshotCreateState()
   let activeCandidate = state.activeCandidateId ? getCandidateById(state.activeCandidateId) : undefined
   if (state.activeCandidateId && !activeCandidate) {

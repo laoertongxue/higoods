@@ -13,9 +13,32 @@ import {
 import { buildTransferBagsProjection } from './process-factory/cutting/transfer-bags-projection.ts'
 import type { TransferBagTicketCandidate } from './process-factory/cutting/transfer-bags-model.ts'
 import {
+  getBrowserLocalStorage,
+  type BrowserStorageLike,
+} from '../data/browser-storage.ts'
+import {
+  appendWaitHandoverBaggingEvent,
+  appendWaitHandoverInboundEvent,
+  buildWaitHandoverLocationOccupancyStates,
+  buildWaitHandoverRuntimeTicketFromTransferCandidate,
+  listWaitHandoverRuntimeEvents,
+  resolveWaitHandoverBaggingSnapshot,
+  type WaitHandoverRuntimeTicketInput,
+} from './process-factory/cutting/wait-handover-runtime.ts'
+import {
   PDA_PAGE_HANDLED_LOCALLY,
   type PdaPageEventResult,
 } from '../main-handlers/pda-local-action-result'
+import { getCurrentFactoryWarehouseByKind } from './pda-warehouse-shared'
+import { loadWarehouseLayoutSnapshot } from './process-factory/cutting/warehouse-location-layout-store.ts'
+import {
+  buildWarehouseLocationMapProjection,
+  listStableWarehouseLocationRefs,
+  type StableWarehouseLocationRef,
+  type WarehouseLocationOccupancy,
+} from './process-factory/cutting/warehouse-location-map-model.ts'
+import { renderWarehouseLocationMap } from '../components/ui/warehouse-location-map.ts'
+import { listFactoryInternalWarehouses } from '../data/fcs/factory-internal-warehouse.ts'
 
 export type PdaCuttingInboundMode = 'bagging' | 'inbound-location'
 export type PdaCuttingInboundTicketScanStatus = 'idle' | 'valid' | 'invalid'
@@ -32,6 +55,7 @@ export interface InboundFormState {
   scanFeedbackMessage: string
   lastTicketScanStatus: PdaCuttingInboundTicketScanStatus
   resultMessage: string
+  selectedLocationId: string
 }
 
 export interface ScannedTicketInput {
@@ -139,7 +163,7 @@ export function createPdaCuttingInboundMockLedger(
         status: 'INBOUNDED',
         ticketNos: ['FT-DEMO-INBOUNDED-001'],
         productionOrderNo: 'PO-202603-0004',
-        locationLabel: 'CUT-A-01',
+        locationLabel: 'A-01-01',
       },
       'BAG-HAND-001': {
         bagCode: 'BAG-HAND-001',
@@ -180,18 +204,18 @@ export function createPdaCuttingInboundMockLedger(
       },
     },
     locations: {
-      'CUT-A-01': {
-        locationLabel: 'CUT-A-01',
+      'A-01-01': {
+        locationLabel: 'A-01-01',
         enabled: true,
         warehouseType: 'CUTTING',
       },
-      'CUT-X-99': {
-        locationLabel: 'CUT-X-99',
+      '停用-01': {
+        locationLabel: '停用-01',
         enabled: false,
         warehouseType: 'CUTTING',
       },
-      'SEW-A-01': {
-        locationLabel: 'SEW-A-01',
+      '其他仓-01': {
+        locationLabel: '其他仓-01',
         enabled: true,
         warehouseType: 'OTHER',
       },
@@ -241,7 +265,7 @@ function replacePdaCuttingInboundMockLedger(ledger: PdaCuttingInboundMockLedger)
 }
 
 function normalizeInboundCode(value: string): string {
-  return value.trim().toUpperCase()
+  return value.normalize('NFKC').trim().toUpperCase().replace(/[‐‑‒–—−\s]+/gu, '-')
 }
 
 function bagStatusMessage(
@@ -410,6 +434,7 @@ export function createPdaCuttingInboundFormState(): InboundFormState {
     scanFeedbackMessage: '',
     lastTicketScanStatus: 'idle',
     resultMessage: '',
+    selectedLocationId: '',
   }
 }
 
@@ -515,6 +540,71 @@ export function confirmPdaCuttingInboundRound(
   }
 }
 
+export function appendPdaCuttingInboundRuntimeEvent(
+  state: InboundFormState,
+  mode: PdaCuttingInboundMode,
+  candidates: TransferBagTicketCandidate[] = listInboundTicketCandidates(),
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+  locationRefOverride?: StableWarehouseLocationRef,
+): void {
+  const bagCode = normalizeInboundCode(state.carrierCode)
+  if (!bagCode) throw new Error('请扫描中转袋。')
+  if (mode === 'bagging') {
+    const ticketNos = state.scannedTicketNos.map(normalizeInboundCode)
+    const tickets = ticketNos.map((ticketNo) =>
+      candidates.find((candidate) =>
+        normalizeInboundCode(candidate.ticketNo) === ticketNo))
+    if (tickets.some((ticket) => !ticket)) {
+      throw new Error('存在无法写入事实账的菲票，请重新扫描。')
+    }
+    appendWaitHandoverBaggingEvent({
+      source: 'PDA',
+      operator: {
+        operatorName: state.operatorName.trim() || '仓务操作员',
+        operatorRole: '裁片仓装袋员',
+      },
+      bagCode,
+      tickets: tickets.map((ticket) =>
+        buildWaitHandoverRuntimeTicketFromTransferCandidate(ticket!)),
+      storage,
+    })
+    return
+  }
+
+  const snapshot = resolveWaitHandoverBaggingSnapshot(bagCode, storage)
+  if (!snapshot) {
+    throw new Error('该中转袋尚未完成菲票装袋，不能入仓。')
+  }
+  const locationRef = locationRefOverride || resolveCurrentWaitHandoverLocationRef(state.locationLabel)
+  if (!locationRef) {
+    throw new Error('库位不存在、已占用或不属于当前工厂，请重新选择。')
+  }
+  appendWaitHandoverInboundEvent({
+    source: 'PDA',
+    operator: {
+      operatorName: state.operatorName.trim() || '仓务操作员',
+      operatorRole: '裁片仓入仓员',
+    },
+    bagCode,
+    warehouseArea: locationRef.areaName,
+    locationCode: locationRef.locationNo,
+    locationRef: {
+      factoryId: locationRef.factoryId,
+      warehouseId: locationRef.warehouseId,
+      warehouseKind: 'WAIT_HANDOVER',
+      areaId: locationRef.areaId,
+      areaName: locationRef.areaName,
+      shelfId: locationRef.shelfId,
+      shelfNo: locationRef.shelfNo,
+      locationId: locationRef.locationId,
+      locationNo: locationRef.locationNo,
+    },
+    usageCycleId: snapshot.usageCycleId,
+    idempotencyKey: `${snapshot.usageCycleId}:INBOUND_CONFIRMED`,
+    storage,
+  })
+}
+
 function getInboundStateStore(): Map<string, InboundFormState> {
   if (typeof window === 'undefined') return fallbackInboundState
   if (!window.__higoodPdaCuttingInboundState) {
@@ -607,6 +697,166 @@ function resolveInboundEventState(
 
 function listInboundTicketCandidates(): TransferBagTicketCandidate[] {
   return buildTransferBagsProjection().viewModel.ticketCandidates
+}
+
+function listCurrentWaitHandoverLocationRefs(): StableWarehouseLocationRef[] {
+  const warehouse = getCurrentFactoryWarehouseByKind('WAIT_HANDOVER')
+  if (!warehouse) return []
+  const { snapshot } = loadWarehouseLayoutSnapshot(warehouse)
+  return listStableWarehouseLocationRefs(warehouse, snapshot)
+}
+
+function buildPdaInboundLocationMapProjection() {
+  const warehouse = getCurrentFactoryWarehouseByKind('WAIT_HANDOVER')
+  if (!warehouse) return null
+  const { snapshot } = loadWarehouseLayoutSnapshot(warehouse)
+  const occupancies: WarehouseLocationOccupancy[] = buildWaitHandoverLocationOccupancyStates(
+    listWaitHandoverRuntimeEvents(),
+  )
+    .filter((state) =>
+      state.locationRef.factoryId === warehouse.factoryId
+      && state.locationRef.warehouseId === warehouse.warehouseId,
+    )
+    .map((state) => ({
+      occupancyId: `wait-handover:${state.sourceEventId}`,
+      footprintId: `bag:${state.bagCode}`,
+      locationId: state.locationRef.locationId,
+      productionOrderNo: state.productionOrderNo,
+      objectNo: state.bagCode,
+      objectName: `中转袋 ${state.bagCode}`,
+      qty: state.totalPieceQty,
+      unit: '片',
+      inboundAt: state.inboundAt,
+      inboundBy: state.inboundBy,
+    }))
+  return buildWarehouseLocationMapProjection(warehouse, snapshot, occupancies)
+}
+
+function renderPdaInboundLocationMap(form: InboundFormState): string {
+  const projection = buildPdaInboundLocationMapProjection()
+  if (!projection) {
+    return '<div class="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">当前没有可用的待交出仓库位。</div>'
+  }
+  return renderWarehouseLocationMap({
+    projection,
+    mode: 'SELECT',
+    factoryName: '当前裁床工厂',
+    selectedLocationIds: form.selectedLocationId ? [form.selectedLocationId] : [],
+    selectionLimit: 1,
+  })
+}
+
+function validateCurrentWaitHandoverLocation(
+  locationLabel: string,
+): { ok: true; ref: StableWarehouseLocationRef } | { ok: false; message: string } {
+  const warehouse = getCurrentFactoryWarehouseByKind('WAIT_HANDOVER')
+  if (!warehouse) return { ok: false, message: '当前工厂未设置待交出仓，不能入仓。' }
+  const loaded = loadWarehouseLayoutSnapshot(warehouse)
+  const qrParts = locationLabel.trim().split('|').map((part) => part.trim())
+  if (qrParts.length === 4) {
+    const [factoryId, warehouseId, warehouseKind, locationId] = qrParts
+    if (factoryId !== warehouse.factoryId || warehouseId !== warehouse.warehouseId || warehouseKind !== warehouse.warehouseKind) {
+      return { ok: false, message: '该库位不属于当前工厂或当前仓库，请重新扫描。' }
+    }
+    const exactRef = listStableWarehouseLocationRefs(warehouse, loaded.snapshot)
+      .find((location) => location.locationId === locationId)
+    if (!exactRef) return { ok: false, message: '库位不存在，请重新扫描。' }
+    if (exactRef.status !== 'AVAILABLE') return { ok: false, message: '该库位已停用，请更换库位。' }
+    const occupied = buildWaitHandoverLocationOccupancyStates(listWaitHandoverRuntimeEvents())
+      .some((state) => state.locationRef.factoryId === warehouse.factoryId
+        && state.locationRef.warehouseId === warehouse.warehouseId
+        && state.locationRef.warehouseKind === warehouse.warehouseKind
+        && state.locationRef.locationId === exactRef.locationId)
+    if (occupied) return { ok: false, message: '该库位已被其他中转袋占用，请更换库位。' }
+    return { ok: true, ref: exactRef }
+  }
+  if (qrParts.length === 2 && normalizeInboundCode(qrParts[0]) !== normalizeInboundCode(warehouse.factoryId)) {
+    return { ok: false, message: '该库位不属于当前工厂，请重新扫描。' }
+  }
+  const normalized = normalizeInboundCode(qrParts.length === 2 ? qrParts[1] : locationLabel)
+  if (!normalized) return { ok: false, message: '请扫描库区库位，或从库位图选择。' }
+  if (qrParts.length === 2) {
+    const sameFactoryMatches = listFactoryInternalWarehouses()
+      .filter((item) => item.factoryId === warehouse.factoryId)
+      .flatMap((item) => listStableWarehouseLocationRefs(item, loadWarehouseLayoutSnapshot(item).snapshot))
+      .filter((location) => normalizeInboundCode(location.locationNo) === normalized)
+    if (sameFactoryMatches.length !== 1) {
+      return { ok: false, message: '旧版库位码无法唯一确认仓库，请从库位图选择。' }
+    }
+  }
+  const rawMatches = listStableWarehouseLocationRefs(warehouse).filter((location) =>
+    normalizeInboundCode(location.locationNo) === normalized,
+  )
+  if (rawMatches.length > 1) return { ok: false, message: '库位编号不唯一，请从库位图选择。' }
+  if (rawMatches[0] && loaded.snapshot.unassignedLocationIds.includes(rawMatches[0].locationId)) {
+    return { ok: false, message: '该库位尚未编排到货架，请联系仓务文员。' }
+  }
+  if (rawMatches[0] && rawMatches[0].status !== 'AVAILABLE') {
+    return { ok: false, message: '该库位已停用，请更换库位。' }
+  }
+  const matches = listStableWarehouseLocationRefs(warehouse, loaded.snapshot).filter((location) =>
+    normalizeInboundCode(location.locationNo) === normalized,
+  )
+  if (!matches.length) return { ok: false, message: '库位不存在，请重新扫描。' }
+  if (matches.length > 1) return { ok: false, message: '库位编号不唯一，请从库位图选择。' }
+  const occupied = buildWaitHandoverLocationOccupancyStates(listWaitHandoverRuntimeEvents())
+    .some((state) => state.locationRef.factoryId === warehouse.factoryId
+      && state.locationRef.warehouseId === warehouse.warehouseId
+      && state.locationRef.warehouseKind === warehouse.warehouseKind
+      && state.locationRef.locationId === matches[0].locationId)
+  if (occupied) return { ok: false, message: '该库位已被其他中转袋占用，请更换库位。' }
+  return { ok: true, ref: matches[0] }
+}
+
+function resolveCurrentWaitHandoverLocationRef(locationLabel: string): StableWarehouseLocationRef | null {
+  const result = validateCurrentWaitHandoverLocation(locationLabel)
+  return result.ok ? result.ref : null
+}
+
+function mergeCurrentWaitHandoverLocations(
+  ledger: PdaCuttingInboundMockLedger,
+): PdaCuttingInboundMockLedger {
+  const next = clonePdaCuttingInboundMockLedger(ledger)
+  next.locations = {}
+  listCurrentWaitHandoverLocationRefs().forEach((location) => {
+    next.locations[normalizeInboundCode(location.locationNo)] = {
+      locationLabel: location.locationNo,
+      enabled: location.status === 'AVAILABLE',
+      warehouseType: 'CUTTING',
+    }
+  })
+  return next
+}
+
+function buildInboundRuntimeTickets(
+  bag: PdaCuttingInboundMockLedger['bags'][string],
+): WaitHandoverRuntimeTicketInput[] {
+  const candidates = listInboundTicketCandidates()
+  return bag.ticketNos.map((ticketNo) => {
+    const candidate = candidates.find((item) => normalizeInboundCode(item.ticketNo) === normalizeInboundCode(ticketNo))
+    return {
+      feiTicketId: candidate?.feiTicketId || ticketNo,
+      feiTicketNo: ticketNo,
+      productionOrderId: candidate?.productionOrderId || '',
+      productionOrderNo: candidate?.productionOrderNo || bag.productionOrderNo,
+      cutOrderId: candidate?.cutOrderId || '',
+      cutOrderNo: candidate?.cutOrderNo || '',
+      spreadingOrderId: candidate?.sourceSpreadingSessionId || '',
+      spreadingOrderNo: candidate?.sourceSpreadingSessionNo || '',
+      spuCode: candidate?.spuCode || candidate?.styleCode || '',
+      color: candidate?.color || candidate?.fabricColor || '',
+      size: candidate?.size || '',
+      partCode: candidate?.partCode || '',
+      partName: candidate?.partName || '',
+      pieceQty: Number(candidate?.actualCutPieceQty || candidate?.qty || 0),
+      pieceSequenceLabel: candidate?.pieceSequenceLabel || '',
+      hasSpecialCraft: Boolean(candidate?.hasSpecialCraft),
+      specialCraftDisplay: candidate?.specialCraftDisplayLabel || '无',
+      receiverFactoryDisplay: candidate?.receiverFactoryDisplay || '待分配',
+      printStatus: candidate?.printStatus || 'PRINTED',
+      voidStatus: candidate?.ticketStatus === 'VOIDED' ? 'VOIDED' : 'VALID',
+    }
+  })
 }
 
 export function resolvePdaCuttingInboundScanTrigger(
@@ -776,6 +1026,8 @@ function renderPdaCuttingInboundWorkflowContent(
               value="${escapeHtml(form.locationLabel)}"
               placeholder="扫描库区库位"
             />
+            <div class="text-xs text-muted-foreground">扫码不便时，可直接在下方库位图选择一个空闲库位。</div>
+            <div data-pda-inbound-location-map>${renderPdaInboundLocationMap(form)}</div>
           </div>
         `
         : `
@@ -931,6 +1183,38 @@ export function handlePdaCuttingInboundEvent(
   event?: Event,
 ): PdaPageEventResult {
   const mode = getInboundMode()
+  const warehouseMapNode = target.closest<HTMLElement>('[data-warehouse-map-action]')
+  if (mode === 'inbound-location' && warehouseMapNode) {
+    const workflowContainer = resolvePdaCuttingInboundFormContainer(warehouseMapNode)
+    const taskId = workflowContainer?.dataset.taskId || appTaskIdFromPath()
+    if (!taskId) return true
+    const eventState = resolveInboundEventState(taskId, mode, warehouseMapNode)
+    if (warehouseMapNode.dataset.warehouseMapAction === 'clear-selection') {
+      eventState.form.locationLabel = ''
+      eventState.form.selectedLocationId = ''
+    } else if (warehouseMapNode.dataset.warehouseMapAction === 'toggle-location') {
+      const locationId = warehouseMapNode.dataset.locationId || ''
+      const location = listCurrentWaitHandoverLocationRefs()
+        .find((item) => item.locationId === locationId)
+      if (!location) return true
+      eventState.form.locationLabel = location.locationNo
+      eventState.form.selectedLocationId = location.locationId
+    } else {
+      return true
+    }
+    replaceState(
+      taskId,
+      mode,
+      eventState.form,
+      eventState.selectedExecutionOrderId,
+      eventState.selectedExecutionOrderNo,
+    )
+    const input = workflowContainer?.querySelector<HTMLInputElement>('[data-pda-cut-inbound-field="locationLabel"]')
+    if (input) input.value = eventState.form.locationLabel
+    const mapRegion = workflowContainer?.querySelector<HTMLElement>('[data-pda-inbound-location-map]')
+    if (mapRegion) mapRegion.innerHTML = renderPdaInboundLocationMap(eventState.form)
+    return PDA_PAGE_HANDLED_LOCALLY
+  }
   const fieldNode = target.closest<HTMLElement>('[data-pda-cut-inbound-field]')
   if (
     fieldNode instanceof HTMLInputElement ||
@@ -944,7 +1228,10 @@ export function handlePdaCuttingInboundEvent(
     if (!field) return true
 
     if (field === 'carrierCode') eventState.form.carrierCode = fieldNode.value
-    if (field === 'locationLabel') eventState.form.locationLabel = fieldNode.value
+    if (field === 'locationLabel') {
+      eventState.form.locationLabel = fieldNode.value
+      eventState.form.selectedLocationId = resolveCurrentWaitHandoverLocationRef(fieldNode.value)?.locationId || ''
+    }
     if (field === 'scanCode' && mode === 'bagging' && fieldNode instanceof HTMLInputElement) {
       eventState.form.scanCode = fieldNode.value
       if (fieldNode.value.trim()) eventState.form.lastTicketScanStatus = 'idle'
@@ -992,11 +1279,52 @@ export function handlePdaCuttingInboundEvent(
     eventState = resolveInboundEventState(taskId, mode, actionNode)
   }
 
-  const currentLedger = getPdaCuttingInboundMockLedger()
-  const confirmation = confirmPdaCuttingInboundRound(eventState.form, mode, currentLedger)
+  const locationValidation = mode === 'inbound-location'
+    ? validateCurrentWaitHandoverLocation(eventState.form.locationLabel)
+    : null
+  if (locationValidation && !locationValidation.ok) {
+    const failedForm = completePdaCuttingInboundRound(eventState.form, mode, {
+      ok: false,
+      message: locationValidation.message,
+    })
+    replaceState(
+      taskId,
+      mode,
+      failedForm,
+      eventState.selectedExecutionOrderId,
+      eventState.selectedExecutionOrderNo,
+    )
+    return updatePdaCuttingInboundWorkflow(
+      workflowContainer,
+      mode,
+      failedForm,
+      taskId,
+      'locationLabel',
+    ) ? PDA_PAGE_HANDLED_LOCALLY : true
+  }
+
+  const currentLedger = mode === 'inbound-location'
+    ? mergeCurrentWaitHandoverLocations(getPdaCuttingInboundMockLedger())
+    : getPdaCuttingInboundMockLedger()
+  let confirmation = confirmPdaCuttingInboundRound(eventState.form, mode, currentLedger)
   if (confirmation.result.ok) {
-    ticketScanTimerController.cancel(stateKey)
-    replacePdaCuttingInboundMockLedger(confirmation.ledger)
+    try {
+      appendPdaCuttingInboundRuntimeEvent(eventState.form, mode)
+      ticketScanTimerController.cancel(stateKey)
+      replacePdaCuttingInboundMockLedger(confirmation.ledger)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '事实账写入失败，请重试。'
+      const result = { ok: false, message }
+      confirmation = {
+        result,
+        nextForm: completePdaCuttingInboundRound(
+          eventState.form,
+          mode,
+          result,
+        ),
+        ledger: currentLedger,
+      }
+    }
   }
   replaceState(
     taskId,

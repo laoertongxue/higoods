@@ -9,7 +9,9 @@ export type CuttingCanonicalPageKey =
   | 'production-progress'
   | 'cut-orders'
   | 'cut-order-close'
-  | 'pickup-management'
+  | 'pickup-ready'
+  | 'pickup-incomplete'
+  | 'pickup-history'
   | 'marker-list'
   | 'marker-create'
   | 'spreading-list'
@@ -90,15 +92,35 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     isPlaceholder: false,
     shortDescription: '确认裁片单关闭原因、关闭前数量账和影响项。',
   },
-  'pickup-management': {
-    key: 'pickup-management',
-    canonicalPath: '/fcs/craft/cutting/pickup-management',
+  'pickup-ready': {
+    key: 'pickup-ready',
+    canonicalPath: '/fcs/craft/cutting/pickup-management/ready',
     aliases: [],
-    menuGroupTitle: '裁前准备',
-    pageTitle: '领料管理',
+    menuGroupTitle: '领料管理',
+    pageTitle: '已配齐待领料',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '查看中转仓已确认配料、裁床可领数量、打回记录和待加工仓领料执行入口。',
+    shortDescription: '按生产单查看已配齐物料和待领托盘，并进入 PDA 一次领取当前节点全部物料。',
+  },
+  'pickup-incomplete': {
+    key: 'pickup-incomplete',
+    canonicalPath: '/fcs/craft/cutting/pickup-management/incomplete',
+    aliases: [],
+    menuGroupTitle: '领料管理',
+    pageTitle: '未配齐配料',
+    pageSubtitle: '',
+    isPlaceholder: false,
+    shortDescription: '按生产单查看未配齐物料、全部中转仓库位和当前可领数量。',
+  },
+  'pickup-history': {
+    key: 'pickup-history',
+    canonicalPath: '/fcs/craft/cutting/pickup-management/history',
+    aliases: [],
+    menuGroupTitle: '领料管理',
+    pageTitle: '已领料',
+    pageSubtitle: '',
+    isPlaceholder: false,
+    shortDescription: '按生产单查看领料路径、最终结果、领取次数和逐需求行数量。',
   },
   'marker-list': {
     key: 'marker-list',

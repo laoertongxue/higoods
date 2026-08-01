@@ -24,6 +24,7 @@ import {
   type CuttingNavigationTarget,
 } from '../navigation-context.ts'
 import {
+  buildRuntimeTransferBagLifecycleProjection,
   buildTransferBagsProjection,
 } from '../transfer-bags-projection.ts'
 import {
@@ -76,7 +77,18 @@ export type MasterStatusFilter = 'ALL' | TransferBagCarrierCurrentStatus
 export type MasterUseStageFilter = 'ALL' | TransferBagCarrierUseStage
 export type UsageStatusFilter = 'ALL' | TransferBagUsageStatusKey
 export type ReturnStatusFilter = 'ALL' | 'WAITING_RETURN' | 'RETURN_INSPECTING' | 'CLOSED' | 'SCRAP_CLOSED'
-export type TransferBagDetailTab = 'basic' | 'current' | 'history' | 'items' | 'logs'
+export type TransferBagDetailTab =
+  | 'basic'
+  | 'current'
+  | 'items'
+  | 'inbound'
+  | 'handover'
+  | 'special-craft'
+  | 'downstream'
+  | 'recovery'
+  | 'logs'
+  | 'differences'
+  | 'history'
 export type TransferBagBaggingStepId = 'scan' | 'review' | 'handover'
 export type TransferBagBaggingStepState = 'pending' | 'active' | 'done' | 'locked'
 export type TransferBagDialog =
@@ -84,6 +96,7 @@ export type TransferBagDialog =
   | 'inbound-pack'
   | 'handover-pack'
   | 'return'
+  | 'scrap'
 export type TransferBagsProjection = ReturnType<typeof buildTransferBagsProjection>
 export type TransferBagCarrierManagementProjection = ReturnType<typeof buildTransferBagCarrierManagementProjection>
 export type TransferBagCarrierMasterRecord = TransferBagCarrierManagementProjection['masterRecords'][number]
@@ -105,6 +118,7 @@ export type ReturnDraftField =
   | 'discrepancyNote'
   | 'note'
 export type ConditionDraftField = 'conditionStatus' | 'cleanlinessStatus' | 'damageType' | 'repairNeeded' | 'reusableDecision' | 'note'
+export type ScrapDraftField = 'reason' | 'authorizedBy'
 export type MasterDraftField = 'bagCode' | 'carrierType' | 'capacity' | 'bagSpec' | 'bagMaterial' | 'ownershipFactoryId' | 'currentLocation' | 'note'
 export type PackDraftField =
   | 'bagId'
@@ -220,6 +234,11 @@ export interface TransferBagsPageState {
     repairNeeded: boolean
     reusableDecision: TransferBagReusableDecision
     note: string
+  }
+  scrapDraft: {
+    bagId: string
+    reason: string
+    authorizedBy: string
   }
   feedback: FeedbackState
 }
@@ -346,6 +365,11 @@ export const state: TransferBagsPageState = {
     reusableDecision: 'REUSABLE',
     note: '',
   },
+  scrapDraft: {
+    bagId: '',
+    reason: '',
+    authorizedBy: '',
+  },
   feedback: null,
 }
 
@@ -358,8 +382,16 @@ export function getReturnViewModel() {
 }
 
 export function getCarrierManagementProjection() {
-  if (carrierManagementProjectionCache?.version === projectionVersion) return carrierManagementProjectionCache.projection
-  const projection = buildTransferBagCarrierManagementProjection(state.store, getViewModel())
+  const viewModel = getViewModel()
+  const runtimeLifecycleByBagCode =
+    buildRuntimeTransferBagLifecycleProjection(
+      viewModel.masters.map((master) => master.bagCode),
+    )
+  const projection = buildTransferBagCarrierManagementProjection(
+    state.store,
+    viewModel,
+    runtimeLifecycleByBagCode,
+  )
   carrierManagementProjectionCache = {
     version: projectionVersion,
     projection,

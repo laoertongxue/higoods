@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import {
+  bootstrapSupplementManagementMockData,
   confirmSupplementAndGenerateProcessWorkOrders,
   listSupplementRecords,
   setSupplementRecordSaveFailureForTest,
@@ -19,6 +20,7 @@ import {
   type ProcessWorkOrderGenerationInput,
 } from '../src/data/fcs/process-work-order-generation-service.ts'
 
+bootstrapSupplementManagementMockData()
 const initialRecords = listSupplementRecords()
 assert(initialRecords.length > 0, '缺少补料检查数据')
 
@@ -356,7 +358,9 @@ assert.equal(listProcessWorkOrders().length, duplicateInputCounts.workOrders + 1
 duplicateTransaction.rollback()
 assertTransactionCounts(duplicateInputCounts, '公开事务主动回滚')
 
-const releaseOrder = productionOrders.find((order) => order.productionOrderNo === 'PO14671')
+const releaseOrders = productionOrders.filter((order) => order.productionOrderNo === 'PO14671')
+assert.equal(releaseOrders.length, 1, 'PO14671 生产单号必须唯一，不得由旧演示映射与正式补料生产单重复占用')
+const releaseOrder = releaseOrders[0]
 assert(releaseOrder?.techPackSnapshot, 'PO14671 必须有独立的冻结技术包快照')
 const releaseSnapshot = releaseOrder.techPackSnapshot
 const releaseSkuCodes = releaseOrder.demandSnapshot.skuLines.map((line) => line.skuCode).sort()
@@ -367,6 +371,8 @@ const releaseBomIds = new Set(releaseSnapshot.bomItems.map((item) => item.id))
 const releasePatternIds = new Set(releaseSnapshot.patternFiles.map((item) => item.patternFileId))
 for (const bomItem of releaseSnapshot.bomItems) {
   assert.deepEqual([...bomItem.applicableSkuCodes].sort(), releaseSkuCodes, `BOM ${bomItem.id} 必须适用当前生产单全部 SKU`)
+  assert(bomItem.materialImageUrl, `BOM ${bomItem.id} 必须保留冻结物料图片`)
+  assert(releaseSnapshot.imageSnapshot.materialImages.includes(bomItem.materialImageUrl), `BOM ${bomItem.id} 的物料图片必须进入冻结图片快照`)
   assert(bomItem.linkedPatternIds.every((id) => releasePatternIds.has(id)), `BOM ${bomItem.id} 不得引用外部纸样`)
 }
 for (const mapping of releaseSnapshot.colorMaterialMappings) {

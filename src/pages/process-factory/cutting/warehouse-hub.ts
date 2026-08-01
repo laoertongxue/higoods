@@ -66,15 +66,30 @@ import {
   appendWaitHandoverHandoverRecordEvent,
   appendWaitHandoverBaggingEvent,
   appendWaitHandoverInboundEvent,
-  appendWaitHandoverBaggingConfirmEvent,
   appendWaitHandoverSpecialCraftReturnEvent,
+  buildWaitHandoverLifecycleByBagCode,
   buildWaitHandoverRuntimeTicketFromGeneratedTicket,
+  resolveWaitHandoverBaggingSnapshot,
   runtimeEventHasWaitHandoverTicket,
 } from './wait-handover-runtime.ts'
 import { buildBindingProcessOrders } from './binding-strip-orders.ts'
+import {
+  buildCurrentCuttingWarehouseMapProjection,
+  renderCuttingWarehouseLocationMapSection,
+  resolveCurrentCuttingWarehouseLocationRef,
+} from './warehouse-location-map.ts'
+import { renderWarehouseLocationMap } from '../../../components/ui/warehouse-location-map.ts'
+import {
+  revalidateWarehouseLocationSelection,
+  toggleWarehouseLocationSelection,
+  validateWarehouseLocationSelection,
+} from './warehouse-location-map-model.ts'
 
 type WaitProcessTabKey = 'inventory' | 'claimRecords' | 'usage' | 'returns' | 'locations'
 type WaitProcessWarehouseAction = 'claim' | 'process-issue' | 'return'
+
+let waitProcessSelectedLocationIds: string[] = []
+let waitHandoverSelectedLocationId = ''
 
 const waitProcessStockFlowEventTypes: CuttingMaterialLedgerEventType[] = [
   'CUTTING_WAIT_PROCESS_INBOUNDED',
@@ -1126,7 +1141,7 @@ function renderWaitProcessTabs(activeTab: WaitProcessTabKey): string {
     { key: 'claimRecords', label: '中转仓领料' },
     { key: 'usage', label: '加工领料' },
     { key: 'returns', label: '回收入仓' },
-    { key: 'locations', label: '库区库位' },
+    { key: 'locations', label: '库位图' },
   ]
 
   return `
@@ -1203,9 +1218,51 @@ function renderWaitProcessActionSelect(field: string, label: string, options: Ar
   `
 }
 
+function getWaitProcessSelectedLocationRefs() {
+  const current = buildCurrentCuttingWarehouseMapProjection('WAIT_PROCESS')
+  if (!current) return []
+  const selected = new Set(waitProcessSelectedLocationIds)
+  return current.projection.areas
+    .flatMap((area) => area.shelves.flatMap((shelf) => shelf.locations))
+    .filter((location) => selected.has(location.locationId))
+}
+
+function renderWaitProcessTargetLocationMap(): string {
+  const current = buildCurrentCuttingWarehouseMapProjection('WAIT_PROCESS')
+  if (!current) {
+    return '<div class="md:col-span-2 rounded-md border border-dashed p-4 text-sm text-muted-foreground">当前裁床工厂没有可用的待加工仓库位。</div>'
+  }
+  const selectedRefs = getWaitProcessSelectedLocationRefs()
+  return `
+    <div class="md:col-span-2 space-y-2" data-wait-process-location-map>
+      <input type="hidden" data-wait-process-field="warehouseArea" value="${escapeHtml(selectedRefs[0]?.areaName || '')}" />
+      <input type="hidden" data-wait-process-field="locationCode" value="${escapeHtml(selectedRefs[0]?.locationNo || '')}" />
+      <div class="text-xs font-medium text-slate-700">存放库位（可多选同一货架内连续空闲库位）</div>
+      ${renderWarehouseLocationMap({
+        projection: current.projection,
+        mode: 'SELECT',
+        factoryName: current.warehouse.factoryName,
+        selectedLocationIds: waitProcessSelectedLocationIds,
+      })}
+    </div>
+  `
+}
+
+function refreshWaitProcessLocationMap(dialog: HTMLElement): void {
+  const region = dialog.querySelector<HTMLElement>('[data-wait-process-location-map]')
+  if (!region) return
+  const replacement = document.createElement('div')
+  replacement.innerHTML = renderWaitProcessTargetLocationMap().trim()
+  const nextRegion = replacement.firstElementChild
+  if (nextRegion) region.replaceWith(nextRegion)
+}
+
 function renderWaitProcessWarehouseActionDialog(items: WaitProcessInventoryItem[]): string {
   const action = getWarehouseSearchParams().get('warehouseAction') as WaitProcessWarehouseAction | null
-  if (!action || !['claim', 'process-issue', 'return'].includes(action)) return ''
+  if (!action || !['claim', 'process-issue', 'return'].includes(action)) {
+    waitProcessSelectedLocationIds = []
+    return ''
+  }
 
   const params = getWarehouseSearchParams()
   const prepRecordId = params.get('prepRecordId') || ''
@@ -1219,22 +1276,18 @@ function renderWaitProcessWarehouseActionDialog(items: WaitProcessInventoryItem[
     label: `${item.row.cutOrderNo} / ${item.row.materialIdentity.materialSku} / ${item.row.materialIdentity.materialColor}`,
   }))
   const selectedCutOrderId = prepContext?.line.cutOrderId || params.get('cutOrderId') || ''
-  const selectedArea = prepContext?.line.materialType === '辅料'
-    ? '辅料暂存区'
-    : prepContext?.line.materialType === '纱线'
-      ? '纱线暂存区'
-      : prepContext?.line.materialType === '包材'
-        ? '包材暂存区'
-        : ''
-  const selectedLocation = prepContext?.line.materialType === '辅料'
-    ? 'ACC-TEMP-01'
-    : prepContext?.line.materialType === '纱线'
-      ? 'YRN-TEMP-01'
-      : prepContext?.line.materialType === '包材'
-        ? 'PKG-TEMP-01'
-        : ''
-  const baseAreaOptions = Array.from(new Set([selectedArea, ...(areaOptions.length ? areaOptions : ['面料 A 区', '面料 B 区'])].filter(Boolean))).map((value) => ({ value, label: value }))
-  const baseLocationOptions = Array.from(new Set([selectedLocation, ...(locationOptions.length ? locationOptions : ['FAB-A-01', 'FAB-B-02'])].filter(Boolean))).map((value) => ({ value, label: value }))
+  const currentMap = buildCurrentCuttingWarehouseMapProjection('WAIT_PROCESS')
+  const masterLocations = currentMap?.projection.areas.flatMap((area) =>
+    area.shelves.flatMap((shelf) =>
+      shelf.locations.map((location) => ({ areaName: area.areaName, locationNo: location.locationNo })),
+    ),
+  ) ?? []
+  const masterAreaOptions = Array.from(new Set(masterLocations.map((location) => location.areaName)))
+  const masterLocationOptions = Array.from(new Set(masterLocations.map((location) => location.locationNo)))
+  const baseAreaOptions = Array.from(new Set([...areaOptions, ...masterAreaOptions]))
+    .map((value) => ({ value, label: value }))
+  const baseLocationOptions = Array.from(new Set([...locationOptions, ...masterLocationOptions]))
+    .map((value) => ({ value, label: value }))
   const selectedMaterialOption = prepContext
     ? {
         value: prepContext.line.cutOrderId,
@@ -1261,8 +1314,7 @@ function renderWaitProcessWarehouseActionDialog(items: WaitProcessInventoryItem[
         renderWaitProcessActionSelect('cutOrderId', '物料', baseMaterialOptions, selectedCutOrderId),
         renderWaitProcessActionTextField('quantity', '领料数量', '例如 300', prepContext ? String(prepContext.availableToPickupQty || prepContext.item.preparedQty) : ''),
         renderWaitProcessActionTextField('rollCount', '卷数', '例如 2', prepContext ? String(prepContext.item.rollCount) : ''),
-        renderWaitProcessActionSelect('warehouseArea', '入库库区', baseAreaOptions, selectedArea),
-        renderWaitProcessActionSelect('locationCode', '入库库位', baseLocationOptions, selectedLocation),
+        renderWaitProcessTargetLocationMap(),
         renderWaitProcessActionTextField('operatorName', '领料人', '默认当前操作人'),
       ],
     },
@@ -1291,8 +1343,7 @@ function renderWaitProcessWarehouseActionDialog(items: WaitProcessInventoryItem[
         renderWaitProcessActionSelect('cutOrderId', '面料', baseMaterialOptions),
         renderWaitProcessActionTextField('quantity', '回收数量', '例如 35'),
         renderWaitProcessActionTextField('rollCount', '卷数', '例如 1'),
-        renderWaitProcessActionSelect('warehouseArea', '回收库区', baseAreaOptions),
-        renderWaitProcessActionSelect('locationCode', '回收库位', baseLocationOptions),
+        renderWaitProcessTargetLocationMap(),
         renderWaitProcessActionTextField('returnReason', '回收原因', '例如 铺布余料', '铺布剩余'),
       ],
     },
@@ -1333,6 +1384,7 @@ function renderWaitProcessWarehouseActionDialog(items: WaitProcessInventoryItem[
 function removeWaitProcessWarehouseActionDialog(): void {
   if (typeof document === 'undefined') return
   document.querySelector<HTMLElement>('[data-wait-process-modal]')?.remove()
+  waitProcessSelectedLocationIds = []
 }
 
 function requestWaitProcessRefresh(): void {
@@ -1416,8 +1468,38 @@ function submitWaitProcessWarehouseAction(dialog: HTMLElement): boolean {
     material: buildRuntimeMaterialFromWaitProcessRow(row),
     pattern: buildRuntimePatternFromWaitProcessRow(row),
   }
-  const warehouseArea = readWaitProcessActionField(dialog, 'warehouseArea')
-  const locationCode = readWaitProcessActionField(dialog, 'locationCode')
+  let warehouseArea = readWaitProcessActionField(dialog, 'warehouseArea')
+  let locationCode = readWaitProcessActionField(dialog, 'locationCode')
+  const targetLocationAction = action === 'claim' || action === 'return'
+  const latestMap = targetLocationAction
+    ? buildCurrentCuttingWarehouseMapProjection('WAIT_PROCESS')
+    : null
+  const locationSelection = latestMap
+    ? revalidateWarehouseLocationSelection(latestMap.projection, waitProcessSelectedLocationIds)
+    : null
+  if (locationSelection && !locationSelection.ok) {
+    waitProcessSelectedLocationIds = locationSelection.selectedLocationIds
+    refreshWaitProcessLocationMap(dialog)
+    window.alert(locationSelection.message)
+    return true
+  }
+  if (locationSelection?.ok) waitProcessSelectedLocationIds = locationSelection.selectedLocationIds
+  const selectedLocationRefs = targetLocationAction ? getWaitProcessSelectedLocationRefs() : []
+  if (selectedLocationRefs.length) {
+    warehouseArea = selectedLocationRefs[0].areaName
+    locationCode = selectedLocationRefs[0].locationNo
+  }
+  const runtimeLocationRefs = selectedLocationRefs.map((ref) => ({
+    factoryId: ref.factoryId,
+    warehouseId: ref.warehouseId,
+    warehouseKind: 'WAIT_PROCESS' as const,
+    areaId: ref.areaId,
+    areaName: ref.areaName,
+    shelfId: ref.shelfId,
+    shelfNo: ref.shelfNo,
+    locationId: ref.locationId,
+    locationNo: ref.locationNo,
+  }))
 
   if (!warehouseArea || !locationCode) {
     window.alert('请确认库区和库位。')
@@ -1446,6 +1528,18 @@ function submitWaitProcessWarehouseAction(dialog: HTMLElement): boolean {
       pickupAt: occurredAt,
       hasDifference: false,
       differenceReason: readWaitProcessActionField(dialog, 'remark') || undefined,
+      locationRefs: runtimeLocationRefs,
+      storageFootprint: {
+        footprintId: `web-pickup:${prepRecordId || row.cutOrderId}:${compactDate}`,
+        sourceType: 'PICKUP_SESSION',
+        sourceId: `web-pickup:${prepRecordId || row.cutOrderId}:${compactDate}`,
+        locationIds: runtimeLocationRefs.map((ref) => ref.locationId),
+        totalQty: quantity,
+        remainingQty: quantity,
+        unit: 'yard',
+        inboundAt: occurredAt,
+        inboundBy: operatorName,
+      },
     }
     appendCuttingRuntimeEvent({
       ...commonInput,
@@ -1516,6 +1610,18 @@ function submitWaitProcessWarehouseAction(dialog: HTMLElement): boolean {
     returnedBy: operatorName,
     returnedAt: occurredAt,
     reason: readWaitProcessActionField(dialog, 'returnReason') === '取消加工' ? '取消加工' : readWaitProcessActionField(dialog, 'returnReason') === '其他' ? '其他' : '铺布剩余',
+    locationRefs: runtimeLocationRefs,
+    storageFootprint: {
+      footprintId: `web-return:${row.cutOrderId}:${compactDate}`,
+      sourceType: 'PICKUP_SESSION',
+      sourceId: `web-return:${row.cutOrderId}:${compactDate}`,
+      locationIds: runtimeLocationRefs.map((ref) => ref.locationId),
+      totalQty: quantity,
+      remainingQty: quantity,
+      unit: 'yard',
+      inboundAt: occurredAt,
+      inboundBy: operatorName,
+    },
   }
   appendCuttingRuntimeEvent({
     ...commonInput,
@@ -1536,6 +1642,32 @@ function submitWaitProcessWarehouseAction(dialog: HTMLElement): boolean {
 }
 
 export function handleCraftCuttingWaitProcessEvent(target: HTMLElement): boolean {
+  const mapActionNode = target.closest<HTMLElement>('[data-warehouse-map-action]')
+  const mapRegion = mapActionNode?.closest<HTMLElement>('[data-wait-process-location-map]')
+  if (
+    mapActionNode
+    && mapRegion
+    && ['toggle-location', 'clear-selection'].includes(mapActionNode.dataset.warehouseMapAction || '')
+  ) {
+    const current = buildCurrentCuttingWarehouseMapProjection('WAIT_PROCESS')
+    if (!current) return true
+    if (mapActionNode.dataset.warehouseMapAction === 'clear-selection') {
+      waitProcessSelectedLocationIds = []
+    } else {
+      const result = toggleWarehouseLocationSelection(
+        current.projection,
+        waitProcessSelectedLocationIds,
+        mapActionNode.dataset.locationId || '',
+      )
+      if (!result.ok) {
+        window.alert(result.message)
+        return true
+      }
+      waitProcessSelectedLocationIds = result.selectedLocationIds
+    }
+    mapRegion.outerHTML = renderWaitProcessTargetLocationMap()
+    return true
+  }
   const actionNode = target.closest<HTMLElement>('[data-wait-process-action]')
   const action = actionNode?.dataset.waitProcessAction
   if (!action) return false
@@ -1945,11 +2077,10 @@ function renderWaitHandoverBaggingTable(rows: WaitHandoverBaggingTableRow[], emp
             <td class="px-3 py-3 align-top">${escapeHtml(row.status)}</td>
             <td class="px-3 py-3 align-top">
               <div class="flex flex-wrap gap-2">
-                <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-handover-bagging-confirm">交出装袋确认</button>
                 ${
                   row.confirmSelection
-                    ? `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-handover" data-wait-handover-selection="${escapeHtml(row.confirmSelection)}">交出确认</button>`
-                    : '<button type="button" class="cursor-not-allowed rounded-md border border-dashed px-2.5 py-1.5 text-xs text-muted-foreground" disabled>交出确认</button>'
+                    ? `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-handover" data-wait-handover-selection="${escapeHtml(row.confirmSelection)}">整袋交出</button>`
+                    : '<button type="button" class="cursor-not-allowed rounded-md border border-dashed px-2.5 py-1.5 text-xs text-muted-foreground" disabled>待整袋满足交出条件</button>'
                 }
               </div>
             </td>
@@ -2269,8 +2400,8 @@ function renderWaitHandoverTabs(activeTab: WaitHandoverTabKey): string {
     { key: 'bagging', label: '菲票装袋' },
     { key: 'inbound', label: '中转袋入仓' },
     { key: 'handover-bagging', label: '中转袋交出' },
-    { key: 'special-craft-return', label: '特种工艺回收入仓' },
-    { key: 'locations', label: '库区库位' },
+    { key: 'special-craft-return', label: '特殊工艺回仓' },
+    { key: 'locations', label: '库位图' },
   ]
   return renderHubTabs('warehouse-management-wait-handover', activeTab, tabs)
 }
@@ -2278,22 +2409,23 @@ function renderWaitHandoverTabs(activeTab: WaitHandoverTabKey): string {
 function renderWaitHandoverHeaderActions(firstTaskId: string): string {
   return `
     <div class="flex flex-nowrap items-center gap-2 overflow-x-auto">
-      <button type="button" class="h-10 shrink-0 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-wait-handover-web-action="open-bagging">菲票装袋</button>
-      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-web-action="open-inbound">中转袋入仓</button>
-      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-web-action="open-handover">中转袋交出</button>
+      <button type="button" class="h-10 shrink-0 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-wait-handover-action="open-bagging">菲票装袋</button>
+      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-inbound">中转袋入仓</button>
+      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-handover">中转袋交出</button>
       <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-special-craft-return">特殊工艺回仓</button>
       <button type="button" class="h-10 shrink-0 rounded-md border border-blue-200 bg-blue-50 px-3 text-sm text-blue-700 hover:bg-blue-100" data-nav="/fcs/pda/cutting/handover/${escapeHtml(firstTaskId)}?action=special-craft-return">PDA 现场扫码</button>
     </div>
   `
 }
 
-type WaitHandoverWebAction = 'bagging' | 'inbound' | 'handover-bagging-confirm' | 'handover' | 'special-craft-return'
+type WaitHandoverWebAction = 'bagging' | 'inbound' | 'handover' | 'special-craft-return'
 
 const WAIT_HANDOVER_WEB_MODAL_ID = 'cutting-wait-handover-web-action-modal'
 
 function removeWaitHandoverWebActionDialog(): void {
   if (typeof document === 'undefined') return
   document.getElementById(WAIT_HANDOVER_WEB_MODAL_ID)?.remove()
+  waitHandoverSelectedLocationId = ''
 }
 
 function requestWaitHandoverWebRefresh(): void {
@@ -2349,6 +2481,7 @@ function getWaitHandoverTicketOptions(): Array<{ value: string; label: string }>
   return buildRuntimeTicketCandidatesFromGeneratedTickets(listSpreadingResultGeneratedFeiTickets())
     .filter((ticket) => ticket.ticketStatus !== 'VOIDED')
     .filter((ticket) => !inventoryTicketIds.has(ticket.feiTicketId))
+    .filter((ticket) => validateFeiTicketNumberingBeforeBagging(ticket).ok)
     .slice(0, 30)
     .map((ticket) => ({
       value: ticket.feiTicketId,
@@ -2474,74 +2607,78 @@ type WaitHandoverConfirmSelection = {
   bagUseId: string
   bagCode: string
   sourceWarehouseName: string
+  sourceLocationCode: string
   tickets: Array<{ feiTicketId: string; feiTicketNo: string; pieceQty: number }>
 }
 
 function buildWaitHandoverConfirmSelections(): WaitHandoverConfirmSelection[] {
   const projection = buildWaitHandoverWebPickingProjection()
-  const taskById = new Map(projection.tasks.map((task) => [task.pickingTaskId, task]))
+  const inventoryRecords = buildWaitHandoverWebInventoryRecords()
+    .filter((record) => record.voidStatus !== '已作废')
+  const recordsByBagCode = new Map<string, InboundTempBagInventoryRecord[]>()
+  inventoryRecords.forEach((record) => {
+    const records = recordsByBagCode.get(record.tempBagCode) || []
+    records.push(record)
+    recordsByBagCode.set(record.tempBagCode, records)
+  })
   const selections: WaitHandoverConfirmSelection[] = []
-  projection.tasks.forEach((task) => {
-    task.targetTransferBags.forEach((bag) => {
-      const tickets = bag.containedFeiTickets
-        .filter((ticket) => !runtimeEventHasWaitHandoverTicket('新增交出记录', ticket.feiTicketId))
-        .map((ticket) => ({
-          feiTicketId: ticket.feiTicketId,
-          feiTicketNo: ticket.feiTicketNo,
-          pieceQty: ticket.pieceQty,
-        }))
-      if (!tickets.length) return
-      selections.push({
-        value: `task-bag|${task.pickingTaskId}|${bag.bagUseId}`,
-        handoverOrderId: `WEB-HO-${task.pickingTaskId}`,
-        handoverOrderNo: `${task.sewingTaskNo}-交出`,
-        receiverType: '工厂',
-        receiverId: task.receiverFactoryId,
-        receiverName: task.receiverFactoryName,
-        bagUseId: bag.bagUseId,
-        bagCode: bag.bagCode,
-        sourceWarehouseName: task.sourceWarehouseName,
-        tickets,
-      })
+  recordsByBagCode.forEach((bagRecords, bagCode) => {
+    const lifecycle = buildWaitHandoverLifecycleByBagCode(bagCode)
+    if (lifecycle.flowStage !== 'INBOUND_STORED') return
+    const bagTicketIds = new Set(
+      bagRecords.map((record) => record.feiTicketId),
+    )
+    const tasksWithBagItems = projection.tasks.filter((task) =>
+      task.allocatedInventoryItems.some(
+        (item) =>
+          item.tempBagCode === bagCode
+          && bagTicketIds.has(item.feiTicketId),
+      ))
+    if (tasksWithBagItems.length !== 1) return
+    const task = tasksWithBagItems[0]
+    const allocatedTicketIds = new Set(
+      task.allocatedInventoryItems
+        .filter((item) => item.tempBagCode === bagCode)
+        .map((item) => item.feiTicketId),
+    )
+    if (
+      bagRecords.some((record) =>
+        !allocatedTicketIds.has(record.feiTicketId))
+    ) return
+    if (
+      bagRecords.some((record) =>
+        runtimeEventHasWaitHandoverTicket(
+          '新增交出记录',
+          record.feiTicketId,
+        ))
+    ) return
+    selections.push({
+      value: `inbound-bag|${bagCode}|${task.pickingTaskId}`,
+      handoverOrderId: `WEB-HO-${task.pickingTaskId}`,
+      handoverOrderNo: `${task.sewingTaskNo}-交出`,
+      receiverType: '车缝厂',
+      receiverId: task.receiverFactoryId,
+      receiverName: task.receiverFactoryName,
+      bagUseId: lifecycle.usageCycleId || `legacy:${bagCode}`,
+      bagCode,
+      sourceWarehouseName:
+        bagRecords[0]?.warehouseArea
+        || task.sourceWarehouseName,
+      sourceLocationCode: bagRecords[0]?.locationCode || '',
+      tickets: bagRecords.map((record) => ({
+        feiTicketId: record.feiTicketId,
+        feiTicketNo: record.feiTicketNo,
+        pieceQty: record.pieceQty,
+      })),
     })
   })
-  listRuntimeWaitHandoverEvents()
-    .filter((event) => event.eventType === '交出装袋确认')
-    .forEach((event) => {
-      const payload = toRuntimeRecord(event.payload)
-      const task = taskById.get(runtimeString(payload.pickingTaskId))
-      const rawTickets = Array.isArray(payload.tickets) ? payload.tickets : []
-      const tickets = rawTickets
-        .map((rawTicket) => {
-          const ticket = toRuntimeRecord(rawTicket)
-          return {
-            feiTicketId: runtimeString(ticket.feiTicketId),
-            feiTicketNo: runtimeString(ticket.feiTicketNo),
-            pieceQty: runtimeNumber(ticket.pieceQty),
-          }
-        })
-        .filter((ticket) => ticket.feiTicketId && !runtimeEventHasWaitHandoverTicket('新增交出记录', ticket.feiTicketId))
-      if (!tickets.length) return
-      selections.push({
-        value: `runtime-bag|${event.eventId}`,
-        handoverOrderId: `WEB-HO-${runtimeString(payload.pickingTaskId) || event.eventId}`,
-        handoverOrderNo: `${runtimeString(payload.sewingTaskNo) || runtimeString(payload.pickingTaskNo) || 'WEB'}-交出`,
-        receiverType: '工厂',
-        receiverId: task?.receiverFactoryId || '',
-        receiverName: task?.receiverFactoryName || runtimeString(payload.receiverName) || '待指定接收对象',
-        bagUseId: event.eventId,
-        bagCode: runtimeString(payload.targetTransferBagCode) || event.refs.transferBagCode || '待补中转袋',
-        sourceWarehouseName: task?.sourceWarehouseName || '裁床待交出仓',
-        tickets,
-      })
-    })
   return selections.slice(0, 30)
 }
 
 function getWaitHandoverRecordOptions(): Array<{ value: string; label: string }> {
   return buildWaitHandoverConfirmSelections().map((selection) => ({
     value: selection.value,
-    label: `${selection.handoverOrderNo} / ${selection.bagCode} / ${selection.tickets.length} 张菲票 / ${selection.receiverName}`,
+    label: `${selection.bagCode} / ${selection.handoverOrderNo} / 整袋 ${selection.tickets.length} 张菲票 / ${selection.receiverName}`,
   }))
 }
 
@@ -2631,23 +2768,62 @@ function renderWaitHandoverWebStep(index: number, title: string, done: boolean, 
   `
 }
 
+function getWaitHandoverDefaultLocation() {
+  const current = buildCurrentCuttingWarehouseMapProjection('WAIT_HANDOVER')
+  return current?.projection.areas
+    .flatMap((area) => area.shelves.flatMap((shelf) =>
+      shelf.locations.map((location) => ({ areaName: area.areaName, location }))))
+    .find((item) => item.location.businessStatus === 'EMPTY' && item.location.status === 'AVAILABLE') ?? null
+}
+
+function renderWaitHandoverLocationSelector(): string {
+  const current = buildCurrentCuttingWarehouseMapProjection('WAIT_HANDOVER')
+  if (!current) {
+    return '<div class="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">当前裁床工厂没有可用的待交出仓库位。</div>'
+  }
+  const selected = current.projection.areas
+    .flatMap((area) => area.shelves.flatMap((shelf) =>
+      shelf.locations.map((location) => ({ areaName: area.areaName, location }))))
+    .find((item) => item.location.locationId === waitHandoverSelectedLocationId)
+  return `
+    <div class="space-y-2" data-wait-handover-location-map>
+      <input type="hidden" data-wait-handover-field="warehouseArea" value="${escapeHtml(selected?.areaName || '')}" />
+      <input type="hidden" data-wait-handover-field="locationCode" value="${escapeHtml(selected?.location.locationNo || '')}" />
+      <div class="text-sm font-medium text-foreground">选择空闲库位</div>
+      ${renderWarehouseLocationMap({
+        projection: current.projection,
+        mode: 'SELECT',
+        factoryName: current.warehouse.factoryName,
+        selectedLocationIds: waitHandoverSelectedLocationId ? [waitHandoverSelectedLocationId] : [],
+        selectionLimit: 1,
+      })}
+    </div>
+  `
+}
+
+function refreshWaitHandoverLocationSelector(dialog: HTMLElement): void {
+  const region = dialog.querySelector<HTMLElement>('[data-wait-handover-location-map]')
+  if (!region) return
+  const template = document.createElement('template')
+  template.innerHTML = renderWaitHandoverLocationSelector().trim()
+  const next = template.content.firstElementChild
+  if (next) region.replaceWith(next)
+}
+
 function renderWaitHandoverWebActionDialog(action: WaitHandoverWebAction, selectedValue = ''): string {
   const titleMap: Record<WaitHandoverWebAction, string> = {
     bagging: '菲票装袋',
     inbound: '中转袋入仓',
-    'handover-bagging-confirm': '交出装袋确认',
-    handover: '交出确认',
+    handover: '中转袋交出',
     'special-craft-return': '特殊工艺回仓',
   }
   const submitMap: Record<WaitHandoverWebAction, string> = {
     bagging: '确认菲票装袋',
     inbound: '确认中转袋入仓',
-    'handover-bagging-confirm': '交出装袋确认',
-    handover: '确认交出',
+    handover: '确认整袋交出',
     'special-craft-return': '确认回仓入库',
   }
   const inboundTicketOptions = getWaitHandoverTicketOptions()
-  const pickingOptions = getWaitHandoverPickingOptions()
   const selectedConfirm = selectedValue ? findWaitHandoverConfirmSelection(selectedValue) : null
   const specialCraftReturnOptions = getWaitHandoverSpecialCraftReturnOptions()
   const selectedSpecialCraftReturn = selectedValue ? findWaitHandoverSpecialCraftReturnSelection(selectedValue) : buildWaitHandoverSpecialCraftReturnSelections()[0] || null
@@ -2709,55 +2885,37 @@ function renderWaitHandoverWebActionDialog(action: WaitHandoverWebAction, select
             </div>
           </div>
         `)}
-        ${renderWaitHandoverWebStep(2, '扫码菲票', false, false, `
-          <label class="space-y-2">
-            <span class="text-sm font-medium text-foreground">待入仓菲票</span>
-            <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="feiTicketId">
-              ${buildWaitHandoverActionSelectOptions(inboundTicketOptions, '暂无待入仓菲票')}
-            </select>
-          </label>
-          <label class="mt-3 block space-y-2">
-            <span class="text-sm font-medium text-foreground">菲票码</span>
-            <textarea class="min-h-[104px] w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="ticketScanInput" placeholder="连续扫描多张菲票，或粘贴票号，使用空格 / 换行 / 顿号分隔"></textarea>
-          </label>
-          <div class="mt-2 grid gap-2 text-xs text-muted-foreground md:grid-cols-3">
-            <div>已扫描：<span class="font-medium text-foreground">待提交识别</span></div>
-            <div>已识别：<span class="font-medium text-foreground">${escapeHtml(String(inboundTicketOptions.length ? 1 : 0))}</span> 张</div>
-            <div>未匹配：<span class="font-medium text-foreground">提交时校验</span></div>
-          </div>
-        `)}
-        ${renderWaitHandoverWebStep(3, '选择库区库位', false, false, `
-          <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <label class="space-y-2"><span class="text-sm font-medium text-foreground">库区</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="warehouseArea" value="裁片暂存区" /></label>
-            <label class="space-y-2"><span class="text-sm font-medium text-foreground">库位</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="locationCode" value="A-01-01" /></label>
+        ${renderWaitHandoverWebStep(2, '选择库区库位', false, false, `
+          ${renderWaitHandoverLocationSelector()}
+          <div class="mt-3 grid gap-3 md:grid-cols-2">
             <label class="space-y-2"><span class="text-sm font-medium text-foreground">操作人</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="operatorName" value="裁床仓管" /></label>
             <label class="space-y-2"><span class="text-sm font-medium text-foreground">备注</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="remark" /></label>
           </div>
         `)}
-        <div class="rounded-lg border bg-muted/15 px-4 py-3 text-sm text-muted-foreground">中转袋入仓只绑定库区库位；菲票必须已先完成装袋。</div>
+        <div class="rounded-lg border bg-muted/15 px-4 py-3 text-sm text-muted-foreground">入仓只确认整袋位置；袋内菲票自动沿用“菲票装袋”时的快照，不再重复扫描。</div>
       </div>
     `
     : action === 'handover'
       ? `
         <div class="space-y-3">
-          ${renderWaitHandoverWebStep(1, '选择交出装袋确认记录', Boolean(selectedConfirm), true, `
+          ${renderWaitHandoverWebStep(1, '选择已入仓中转袋', Boolean(selectedConfirm), true, `
             <label class="space-y-2">
-              <span class="text-sm font-medium text-foreground">交出装袋确认记录</span>
+              <span class="text-sm font-medium text-foreground">待交出整袋</span>
               <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="handoverSelection">
-                ${buildWaitHandoverActionSelectOptions(getWaitHandoverRecordOptions(), '暂无可交出装袋确认记录', selectedValue)}
+                ${buildWaitHandoverActionSelectOptions(getWaitHandoverRecordOptions(), '暂无完整归属同一接收任务的已入仓中转袋', selectedValue)}
               </select>
             </label>
             <div class="mt-3 rounded-lg border bg-background px-3 py-2 text-sm">
               <div><span class="text-muted-foreground">中转袋：</span><span class="font-medium text-foreground">${escapeHtml(selectedConfirm?.bagCode || '待选择')}</span></div>
               <div class="mt-1 text-xs text-muted-foreground">接收对象：${escapeHtml(selectedConfirm?.receiverName || '待确认')}</div>
-              <div class="mt-1 text-xs text-muted-foreground">菲票数量：${escapeHtml(String(selectedConfirm?.tickets.length || 0))} 张</div>
+              <div class="mt-1 text-xs text-muted-foreground">袋内快照：${escapeHtml(String(selectedConfirm?.tickets.length || 0))} 张菲票，交出时不可拆分</div>
             </div>
           `)}
           ${renderWaitHandoverWebStep(2, '交出确认', false, Boolean(selectedConfirm), `
             <label class="space-y-2"><span class="text-sm font-medium text-foreground">操作人</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="operatorName" value="交出仓管" /></label>
             <label class="mt-3 block space-y-2"><span class="text-sm font-medium text-foreground">备注</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="remark" /></label>
           `)}
-          <div class="rounded-lg border bg-muted/15 px-4 py-3 text-sm text-muted-foreground">交出确认后，中转袋直接进入“已交出待回收”。</div>
+          <div class="rounded-lg border bg-muted/15 px-4 py-3 text-sm text-muted-foreground">一次只交出一个完整中转袋；确认后进入“已交出待回收”。</div>
         </div>
       `
       : action === 'special-craft-return'
@@ -2784,9 +2942,8 @@ function renderWaitHandoverWebActionDialog(action: WaitHandoverWebAction, select
               <div class="mt-2 text-xs text-muted-foreground">扫码顺序：有中转袋先扫中转袋，再扫菲票；系统按菲票带出裁片部位、尺码和应回数量。</div>
             `)}
             ${renderWaitHandoverWebStep(3, '确认库区库位并入仓', false, false, `
-              <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <label class="space-y-2"><span class="text-sm font-medium text-foreground">回仓库区</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="warehouseArea" value="特殊工艺回仓区" /></label>
-                <label class="space-y-2"><span class="text-sm font-medium text-foreground">回仓库位</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="locationCode" value="SP-RETURN-01" /></label>
+              ${renderWaitHandoverLocationSelector()}
+              <div class="mt-3 grid gap-3 md:grid-cols-2">
                 <label class="space-y-2"><span class="text-sm font-medium text-foreground">实回数量</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="returnQty" value="${escapeHtml(String(selectedSpecialCraftReturn?.pieceQty || ''))}" /></label>
                 <label class="space-y-2"><span class="text-sm font-medium text-foreground">操作人</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="operatorName" value="特殊工艺回仓员" /></label>
               </div>
@@ -2794,47 +2951,7 @@ function renderWaitHandoverWebActionDialog(action: WaitHandoverWebAction, select
             <div class="rounded-lg border bg-muted/15 px-4 py-3 text-sm text-muted-foreground">确认后写入裁床待交出仓库存，并在库存明细中标记为“已做特殊工艺”。</div>
           </div>
         `
-      : `
-        <div class="space-y-3">
-          ${renderWaitHandoverWebStep(1, '扫码中转袋二维码', false, true, `
-            <div class="grid gap-3 md:grid-cols-[1fr,1fr]">
-              <label class="space-y-2"><span class="text-sm font-medium text-foreground">中转袋二维码 / 袋码</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="targetTransferBagCode" value="WEB-HANDOVER-BAG-001" placeholder="扫描中转袋二维码，或输入 BAG-A-001" /></label>
-              <div class="rounded-lg border bg-background px-3 py-2 text-sm">
-                <div><span class="text-muted-foreground">已选中转袋：</span><span class="font-medium text-foreground">待扫描</span></div>
-                <div class="mt-1 text-xs text-muted-foreground">当前状态：待确认</div>
-                <div class="mt-1 text-xs text-muted-foreground">当前位置：待确认</div>
-              </div>
-            </div>
-          `)}
-          ${renderWaitHandoverWebStep(2, '扫码菲票', false, false, `
-            <label class="space-y-2">
-              <span class="text-sm font-medium text-foreground">交出装袋确认任务 / 菲票</span>
-              <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="pickingSelection">
-                ${buildWaitHandoverActionSelectOptions(pickingOptions, '暂无交出装袋确认任务')}
-              </select>
-            </label>
-            <label class="mt-3 block space-y-2">
-              <span class="text-sm font-medium text-foreground">菲票码</span>
-              <textarea class="min-h-[104px] w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="ticketScanInput" placeholder="连续扫描多张菲票，或粘贴票号，使用空格 / 换行 / 顿号分隔；不填则使用上方选择的菲票"></textarea>
-            </label>
-            <div class="mt-2 grid gap-2 text-xs text-muted-foreground md:grid-cols-3">
-              <div>已扫描：<span class="font-medium text-foreground">待提交识别</span></div>
-              <div>已识别：<span class="font-medium text-foreground">${escapeHtml(String(pickingOptions.length ? 1 : 0))}</span> 张</div>
-              <div>未匹配：<span class="font-medium text-foreground">提交时校验</span></div>
-            </div>
-          `)}
-          ${renderWaitHandoverWebStep(3, '交出信息', false, false, `
-            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <label class="space-y-2"><span class="text-sm font-medium text-foreground">来源暂存袋</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="sourceTempBagCode" value="按任务默认来源袋" /></label>
-              <label class="space-y-2"><span class="text-sm font-medium text-foreground">绑定对象类型</span><select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="boundObjectType"><option>车缝任务</option><option>特殊工艺交出单</option></select></label>
-              <label class="space-y-2"><span class="text-sm font-medium text-foreground">接收对象类型</span><select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="receiverType"><option>工厂</option></select></label>
-              <label class="space-y-2"><span class="text-sm font-medium text-foreground">操作人</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="operatorName" value="交出仓管" /></label>
-              <label class="space-y-2 xl:col-span-4"><span class="text-sm font-medium text-foreground">备注</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="remark" /></label>
-            </div>
-          `)}
-          <div class="rounded-lg border bg-muted/15 px-4 py-3 text-sm text-muted-foreground">交出装袋确认后，记录进入“已装袋待交出”；交出确认作为本记录内部结果处理。</div>
-        </div>
-      `
+      : ''
   return `
     <div id="${WAIT_HANDOVER_WEB_MODAL_ID}" class="fixed inset-0 z-[130]" data-wait-handover-modal="${escapeHtml(action)}">
       <button type="button" class="absolute inset-0 bg-black/45" data-skip-page-rerender="true" data-wait-handover-action="close-dialog" aria-label="关闭"></button>
@@ -2851,7 +2968,7 @@ function renderWaitHandoverWebActionDialog(action: WaitHandoverWebAction, select
         </div>
         <footer class="flex justify-end gap-2 border-t px-5 py-4">
           <button type="button" class="h-10 rounded-md border px-4 text-sm hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="close-dialog">取消</button>
-          <button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-wait-handover-action="submit-${escapeHtml(action)}">${escapeHtml(submitMap[action])}</button>
+          <button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-wait-handover-action="submit-${escapeHtml(action)}">${escapeHtml(submitMap[action])}</button>
         </footer>
       </section>
     </div>
@@ -2861,6 +2978,9 @@ function renderWaitHandoverWebActionDialog(action: WaitHandoverWebAction, select
 function openWaitHandoverWebActionDialog(action: WaitHandoverWebAction, selectedValue = ''): void {
   if (typeof document === 'undefined') return
   removeWaitHandoverWebActionDialog()
+  if (action === 'inbound' || action === 'special-craft-return') {
+    waitHandoverSelectedLocationId = getWaitHandoverDefaultLocation()?.location.locationId || ''
+  }
   ;(document.getElementById('app') || document.body).insertAdjacentHTML('beforeend', renderWaitHandoverWebActionDialog(action, selectedValue))
 }
 
@@ -2949,6 +3069,23 @@ function submitWaitHandoverBagging(dialog: HTMLElement): boolean {
     window.alert(`以下菲票未匹配：${missingScanCodes.join('、')}`)
     return true
   }
+  const bagCode = readWaitHandoverWebField(dialog, 'bagCode')
+  if (!bagCode) {
+    window.alert('请扫描或输入中转袋编号。')
+    return true
+  }
+  const bagLifecycle = buildWaitHandoverLifecycleByBagCode(bagCode)
+  if (!bagLifecycle.canStartBagging) {
+    window.alert(`${bagCode} 当前为${bagLifecycle.mainStatusLabel}${bagLifecycle.flowStage ? `（${bagLifecycle.flowStageLabel}）` : ''}，不能重复装袋。`)
+    return true
+  }
+  const productionOrderNos = uniqueStrings(
+    tickets.map((ticket) => ticket.productionOrderNo),
+  )
+  if (productionOrderNos.length !== 1) {
+    window.alert('同一中转袋只能装入同一生产单的菲票。')
+    return true
+  }
   const duplicatedTicket = tickets.find((ticket) => runtimeEventHasWaitHandoverTicket('菲票装袋', ticket.feiTicketId))
   if (duplicatedTicket) {
     const record = duplicatedTicket as unknown as Record<string, unknown>
@@ -2960,7 +3097,6 @@ function submitWaitHandoverBagging(dialog: HTMLElement): boolean {
     window.alert(validateFeiTicketNumberingBeforeBagging(unnumberedTicket).reason)
     return true
   }
-  const bagCode = readWaitHandoverWebField(dialog, 'bagCode') || 'WEB-TEMP-BAG-001'
   appendWaitHandoverBaggingEvent({
     source: 'WEB',
     operator: getWaitHandoverWebOperator(dialog),
@@ -2971,102 +3107,59 @@ function submitWaitHandoverBagging(dialog: HTMLElement): boolean {
 }
 
 function submitWaitHandoverInbound(dialog: HTMLElement): boolean {
-  const feiTicketId = readWaitHandoverWebField(dialog, 'feiTicketId')
-  const { tickets, missingScanCodes } = resolveWaitHandoverInboundTickets(
-    feiTicketId,
-    readWaitHandoverWebField(dialog, 'ticketScanInput'),
-  )
-  if (!tickets.length) {
-    window.alert('请选择或扫描已装袋菲票。')
+  const bagCode = readWaitHandoverWebField(dialog, 'bagCode')
+  if (!bagCode) {
+    window.alert('请扫描或输入中转袋编号。')
     return true
   }
-  if (missingScanCodes.length) {
-    window.alert(`以下菲票未匹配：${missingScanCodes.join('、')}`)
+  const snapshot = resolveWaitHandoverBaggingSnapshot(bagCode)
+  if (!snapshot) {
+    window.alert(`${bagCode} 尚未完成菲票装袋，不能入仓。`)
     return true
   }
-  const unbaggedTicket = tickets.find((ticket) => !runtimeEventHasWaitHandoverTicket('菲票装袋', ticket.feiTicketId))
-  if (unbaggedTicket) {
-    const record = unbaggedTicket as unknown as Record<string, unknown>
-    window.alert(`${String(record.feiTicketNo || record.ticketNo || unbaggedTicket.feiTicketId)} 尚未菲票装袋，不能直接中转袋入仓。`)
+  const lifecycle = buildWaitHandoverLifecycleByBagCode(bagCode)
+  if (lifecycle.flowStage !== 'PACKED') {
+    window.alert(`${bagCode} 当前为${lifecycle.flowStageLabel}，不能重复入仓。`)
     return true
   }
-  const duplicatedTicket = tickets.find((ticket) => runtimeEventHasWaitHandoverTicket('中转袋入仓', ticket.feiTicketId))
-  if (duplicatedTicket) {
-    const record = duplicatedTicket as unknown as Record<string, unknown>
-    window.alert(`${String(record.feiTicketNo || record.ticketNo || duplicatedTicket.feiTicketId)} 已中转袋入仓，不能重复入仓。`)
+  const warehouseArea = readWaitHandoverWebField(dialog, 'warehouseArea')
+  const locationCode = readWaitHandoverWebField(dialog, 'locationCode')
+  if (!warehouseArea || !locationCode) {
+    window.alert('请填写入仓库区和库位。')
     return true
   }
-  const bagCode = readWaitHandoverWebField(dialog, 'bagCode') || 'WEB-TEMP-BAG-001'
+  const locationRef = resolveCurrentCuttingWarehouseLocationRef('WAIT_HANDOVER', warehouseArea, locationCode)
+  if (!locationRef) {
+    window.alert('入仓库位不存在、已停用或编号不唯一，请重新确认。')
+    return true
+  }
+  const latestMap = buildCurrentCuttingWarehouseMapProjection('WAIT_HANDOVER')
+  const latestCell = latestMap?.projection.areas
+    .flatMap((area) => area.shelves.flatMap((shelf) => shelf.locations))
+    .find((cell) => cell.locationId === locationRef.locationId)
+  if (!latestCell || latestCell.businessStatus === 'OCCUPIED') {
+    window.alert('入仓库位已被占用，请更换库位。')
+    return true
+  }
   appendWaitHandoverInboundEvent({
     source: 'WEB',
     operator: getWaitHandoverWebOperator(dialog),
     bagCode,
-    warehouseArea: readWaitHandoverWebField(dialog, 'warehouseArea') || 'B 区',
-    locationCode: readWaitHandoverWebField(dialog, 'locationCode') || 'B-02 临时位',
-    tickets: tickets.map((ticket) => buildWaitHandoverRuntimeTicketFromGeneratedTicket(ticket)),
-  })
-  return false
-}
-
-function submitWaitHandoverBaggingConfirm(dialog: HTMLElement): boolean {
-  const selection = resolveWaitHandoverPickingSelections(
-    readWaitHandoverWebField(dialog, 'pickingSelection'),
-    readWaitHandoverWebField(dialog, 'ticketScanInput'),
-  )
-  if (!selection.task || !selection.items.length) {
-    window.alert('请选择可交出装袋确认菲票。')
-    return true
-  }
-  if (selection.missingScanCodes.length) {
-    window.alert(`以下菲票未匹配：${selection.missingScanCodes.join('、')}`)
-    return true
-  }
-  if (selection.mixedTask) {
-    window.alert('交出装袋确认一次只能处理同一个任务下的菲票。')
-    return true
-  }
-  const alreadyPicked = selection.items.find((item) => selection.task?.pickedItems.some((pickedItem) => pickedItem.feiTicketId === item.feiTicketId))
-  if (alreadyPicked) {
-    window.alert('该菲票已在当前交出装袋确认任务中装袋，不能重复装袋。')
-    return true
-  }
-  const duplicatedTicket = selection.items.find((item) => runtimeEventHasWaitHandoverTicket('交出装袋确认', item.feiTicketId))
-  if (duplicatedTicket) {
-    window.alert(`${duplicatedTicket.feiTicketNo} 已有交出装袋确认记录，不能重复交出装袋确认。`)
-    return true
-  }
-  const unnumberedTicket = selection.items.find((item) => !validateFeiTicketNumberingBeforeBagging({
-    feiTicketId: item.feiTicketId,
-    feiTicketNo: item.feiTicketNo,
-    partName: item.partName,
-  }).ok)
-  if (unnumberedTicket) {
-    window.alert(validateFeiTicketNumberingBeforeBagging({
-      feiTicketId: unnumberedTicket.feiTicketId,
-      feiTicketNo: unnumberedTicket.feiTicketNo,
-      partName: unnumberedTicket.partName,
-    }).reason)
-    return true
-  }
-  const targetTransferBagCode = readWaitHandoverWebField(dialog, 'targetTransferBagCode')
-  if (!targetTransferBagCode) {
-    window.alert('请填写目标中转袋。')
-    return true
-  }
-  appendWaitHandoverBaggingConfirmEvent({
-    source: 'WEB',
-    operator: { ...getWaitHandoverWebOperator(dialog), operatorRole: '裁片仓装袋确认员' },
-    pickingTaskId: selection.task.pickingTaskId,
-    pickingTaskNo: selection.task.pickingTaskNo,
-    sewingTaskId: selection.task.sewingTaskId,
-    sewingTaskNo: selection.task.sewingTaskNo,
-    sourceTempBagCode: selection.sourceTempBagCode || readWaitHandoverWebField(dialog, 'sourceTempBagCode') || '按任务默认来源袋',
-    targetTransferBagCode,
-    tickets: selection.items.map((item) => ({
-      feiTicketId: item.feiTicketId,
-      feiTicketNo: item.feiTicketNo,
-      pieceQty: item.pieceQty,
-    })),
+    warehouseArea: locationRef.areaName,
+    locationCode: locationRef.locationNo,
+    locationRef: {
+      factoryId: locationRef.factoryId,
+      warehouseId: locationRef.warehouseId,
+      warehouseKind: 'WAIT_HANDOVER',
+      areaId: locationRef.areaId,
+      areaName: locationRef.areaName,
+      shelfId: locationRef.shelfId,
+      shelfNo: locationRef.shelfNo,
+      locationId: locationRef.locationId,
+      locationNo: locationRef.locationNo,
+    },
+    usageCycleId: snapshot.usageCycleId,
+    idempotencyKey: `temp-bag:${bagCode}:INBOUND`,
   })
   return false
 }
@@ -3074,14 +3167,25 @@ function submitWaitHandoverBaggingConfirm(dialog: HTMLElement): boolean {
 function submitWaitHandoverRecord(dialog: HTMLElement): boolean {
   const selection = findWaitHandoverConfirmSelection(readWaitHandoverWebField(dialog, 'handoverSelection'))
   if (!selection) {
-    window.alert('请选择可交出确认的装袋记录。')
+    window.alert('请选择可整袋交出的已入仓中转袋。')
     return true
   }
-  const tickets = selection.tickets.filter((ticket) => !runtimeEventHasWaitHandoverTicket('新增交出记录', ticket.feiTicketId))
-  if (!tickets.length) {
-    window.alert('该装袋记录已完成交出确认，不能重复交出。')
+  const lifecycle = buildWaitHandoverLifecycleByBagCode(selection.bagCode)
+  if (lifecycle.flowStage !== 'INBOUND_STORED') {
+    window.alert(`${selection.bagCode} 当前为${lifecycle.flowStageLabel}，不能交出。`)
     return true
   }
+  if (
+    selection.tickets.some((ticket) =>
+      runtimeEventHasWaitHandoverTicket(
+        '新增交出记录',
+        ticket.feiTicketId,
+      ))
+  ) {
+    window.alert('该中转袋已有交出记录，不能拆票或重复交出。')
+    return true
+  }
+  const tickets = selection.tickets
   const now = new Date().toISOString()
   const recordId = `WEB-HR-${selection.handoverOrderId}-${Date.now()}`
   const recordNo = `${selection.handoverOrderNo}-WEB-${String(Date.now()).slice(-4)}`
@@ -3117,6 +3221,14 @@ function submitWaitHandoverRecord(dialog: HTMLElement): boolean {
     fromWarehouseArea: selection.sourceWarehouseName,
     fromLocationCode: selection.bagCode,
     occurredAt: now,
+    usageCycleId:
+      lifecycle.usageCycleId
+      || selection.bagUseId,
+    locationRef: resolveCurrentCuttingWarehouseLocationRef(
+      'WAIT_HANDOVER',
+      selection.sourceWarehouseName,
+      selection.sourceLocationCode,
+    ) || undefined,
   })
   return false
 }
@@ -3153,6 +3265,19 @@ function submitWaitHandoverSpecialCraftReturn(dialog: HTMLElement): boolean {
     return true
   }
   const now = new Date().toISOString()
+  const locationRef = resolveCurrentCuttingWarehouseLocationRef('WAIT_HANDOVER', warehouseArea, locationCode)
+  if (!locationRef) {
+    window.alert('回仓库位不存在、已停用或编号不唯一，请重新确认。')
+    return true
+  }
+  const latestMap = buildCurrentCuttingWarehouseMapProjection('WAIT_HANDOVER')
+  const latestCell = latestMap?.projection.areas
+    .flatMap((area) => area.shelves.flatMap((shelf) => shelf.locations))
+    .find((cell) => cell.locationId === locationRef.locationId)
+  if (!latestCell || latestCell.businessStatus === 'OCCUPIED') {
+    window.alert('回仓库位已被占用，请更换库位。')
+    return true
+  }
   const returnStatus = returnedQty === selection.pieceQty ? '已回仓' : returnedQty < selection.pieceQty ? '部分回仓' : '回仓差异'
   const returnRecordId = `WEB-SCR-${selection.sourceHandoverRecordId}-${Date.now()}`
   appendWaitHandoverSpecialCraftReturnEvent({
@@ -3184,6 +3309,17 @@ function submitWaitHandoverSpecialCraftReturn(dialog: HTMLElement): boolean {
       }],
       warehouseArea,
       locationCode,
+      locationRef: {
+        factoryId: locationRef.factoryId,
+        warehouseId: locationRef.warehouseId,
+        warehouseKind: 'WAIT_HANDOVER',
+        areaId: locationRef.areaId,
+        areaName: locationRef.areaName,
+        shelfId: locationRef.shelfId,
+        shelfNo: locationRef.shelfNo,
+        locationId: locationRef.locationId,
+        locationNo: locationRef.locationNo,
+      },
       returnedAt: now,
       returnedBy: getWaitHandoverWebOperator(dialog).operatorName,
     },
@@ -3194,8 +3330,22 @@ function submitWaitHandoverSpecialCraftReturn(dialog: HTMLElement): boolean {
 }
 
 export function handleCraftCuttingWaitHandoverEvent(target: HTMLElement): boolean {
-  const actionNode = target.closest<HTMLElement>('[data-wait-handover-action]')
-  const action = actionNode?.dataset.waitHandoverAction
+  const locationNode = target.closest<HTMLElement>('[data-wait-handover-modal] [data-warehouse-map-action]')
+  if (locationNode) {
+    const dialog = locationNode.closest<HTMLElement>('[data-wait-handover-modal]')
+    if (!dialog) return false
+    if (locationNode.dataset.warehouseMapAction === 'clear-selection') {
+      waitHandoverSelectedLocationId = ''
+    } else if (locationNode.dataset.warehouseMapAction === 'toggle-location') {
+      waitHandoverSelectedLocationId = locationNode.dataset.locationId || ''
+    } else {
+      return false
+    }
+    refreshWaitHandoverLocationSelector(dialog)
+    return true
+  }
+  const actionNode = target.closest<HTMLElement>('[data-wait-handover-action], [data-wait-handover-web-action]')
+  const action = actionNode?.dataset.waitHandoverAction || actionNode?.dataset.waitHandoverWebAction
   if (!action) return false
   if (action === 'close-dialog') {
     removeWaitHandoverWebActionDialog()
@@ -3205,7 +3355,7 @@ export function handleCraftCuttingWaitHandoverEvent(target: HTMLElement): boolea
     openWaitHandoverBagTicketDetailDialog(actionNode?.dataset.waitHandoverSelection || '')
     return true
   }
-  if (action === 'open-bagging' || action === 'open-inbound' || action === 'open-handover-bagging-confirm' || action === 'open-handover' || action === 'open-special-craft-return') {
+  if (action === 'open-bagging' || action === 'open-inbound' || action === 'open-handover' || action === 'open-special-craft-return') {
     openWaitHandoverWebActionDialog(action.replace('open-', '') as WaitHandoverWebAction, actionNode?.dataset.waitHandoverSelection || '')
     return true
   }
@@ -3214,7 +3364,6 @@ export function handleCraftCuttingWaitHandoverEvent(target: HTMLElement): boolea
   const blocked =
     action === 'submit-bagging' ? submitWaitHandoverBagging(dialog) :
     action === 'submit-inbound' ? submitWaitHandoverInbound(dialog) :
-    action === 'submit-handover-bagging-confirm' ? submitWaitHandoverBaggingConfirm(dialog) :
     action === 'submit-handover' ? submitWaitHandoverRecord(dialog) :
     action === 'submit-special-craft-return' ? submitWaitHandoverSpecialCraftReturn(dialog) :
     true
@@ -5246,13 +5395,7 @@ export function renderCraftCuttingWarehouseManagementWaitProcessPage(): string {
     ${renderWaitProcessEventStats(returnEvents, '回收入仓记录')}
     ${renderWaitProcessEventTable(returnEvents, '暂无符合筛选条件的回收入仓记录。', inventoryItems)}
   </section>`
-  const locationContent = `<section class="space-y-4">
-    <div class="flex justify-end rounded-lg border bg-card p-4">${renderWarehouseLocationToolbar('裁床待加工仓')}</div>
-    ${renderLocationRows('裁床待加工仓', [
-      ['裁床待加工仓', '面料 A 区', 'FAB-A-01', '待裁面料'],
-      ['裁床待加工仓', '面料 B 区', 'FAB-B-02', '余料'],
-    ])}
-  </section>`
+  const locationContent = renderCuttingWarehouseLocationMapSection('WAIT_PROCESS')
   const activeContent =
     activeTab === 'claimRecords'
       ? claimRecordContent
@@ -5416,10 +5559,10 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
   const specialCraftReturnRows = projectedSpecialCraftReturnRows.length
     ? projectedSpecialCraftReturnRows
     : [
-        ['SCR-20260324-001', 'HR-CF-20260324-001', '模板工序专属工厂', '模板工序', '128 片 / 128 片', '特殊工艺回仓区 / SP-RETURN-01', '已回仓', '无差异'],
-        ['SCR-20260324-002', 'HR-CF-20260324-002', '绣花专属工厂', '绣花', '96 片 / 96 片', '特殊工艺回仓区 / SP-RETURN-02', '已回仓', '无差异'],
-        ['SCR-20260323-003', 'HR-CF-20260323-004', '压褶专属工厂', '压褶', '72 片 / 60 片', '差异暂存区 / DIFF-01', '部分回仓', '少回 12 片'],
-        ['SCR-20260322-004', 'HR-CF-20260322-006', '激光开袋专属工厂', '激光开袋', '54 片 / 54 片', '特殊工艺回仓区 / SP-RETURN-03', '已回仓', '无差异'],
+        ['SCR-20260324-001', 'HR-CF-20260324-001', '模板工序专属工厂', '模板工序', '128 片 / 128 片', '裁床待交出仓 / 已定位', '已回仓', '无差异'],
+        ['SCR-20260324-002', 'HR-CF-20260324-002', '绣花专属工厂', '绣花', '96 片 / 96 片', '裁床待交出仓 / 已定位', '已回仓', '无差异'],
+        ['SCR-20260323-003', 'HR-CF-20260323-004', '压褶专属工厂', '压褶', '72 片 / 60 片', '裁床待交出仓 / 待确认位置', '部分回仓', '少回 12 片'],
+        ['SCR-20260322-004', 'HR-CF-20260322-006', '激光开袋专属工厂', '激光开袋', '54 片 / 54 片', '裁床待交出仓 / 已定位', '已回仓', '无差异'],
       ]
   const writebackDifferenceRows = [
     ...workbenchProjection.discrepancyAndShortageItems.map((item) => [
@@ -5509,16 +5652,7 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
     </article>
     ${renderHubTable(['回仓记录', '来源交出记录', '承接工厂', '工艺', '应回 / 实回', '回仓库位', '状态', '差异'], specialCraftReturnRows, '暂无特殊工艺回仓记录。')}
   </section>`
-  const locationContent = `<section class="rounded-lg border bg-card">
-    <div class="border-b px-4 py-3">${renderWarehouseLocationToolbar('裁床待交出仓')}</div>
-    ${renderLocationRows('裁床待交出仓', [
-      ['裁床待交出仓', '待入仓确认区', 'CUT-IN-01', '已打印未入仓菲票'],
-      ['裁床待交出仓', '裁片 A 区', 'CUT-A-01', '在库待分配裁片'],
-      ['裁床待交出仓', '中转袋暂存区', 'BAG-A-01', '已装袋待交出中转袋'],
-      ['裁床待交出仓', '特殊工艺回仓区', 'SP-RETURN-01', '特殊工艺回仓裁片'],
-      ['裁床待交出仓', '差异暂存区', 'DIFF-01', '回写差异或数量异常裁片'],
-    ])}
-  </section>`
+  const locationContent = renderCuttingWarehouseLocationMapSection('WAIT_HANDOVER')
   const activeContent =
     activeTab === 'bagging'
       ? inboundBaggingContent
@@ -5534,7 +5668,7 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
 
   return renderHubShell({
     metaKey: 'warehouse-management-wait-handover',
-    description: '基于菲票、裁片和中转袋管理待交出仓库存、菲票装袋、中转袋入仓、交出装袋确认、特种工艺回收入仓和库区库位。',
+    description: '基于菲票、裁片和中转袋管理待交出仓库存、菲票装袋、中转袋入仓、整袋交出、特殊工艺回仓和库区库位。',
     kpis: '',
     tabs: renderWaitHandoverTabs(activeTab),
     content: activeContent,

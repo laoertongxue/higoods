@@ -1,11 +1,14 @@
 export type PickupNodeType = 'INCOMPLETE_PICKABLE' | 'READY_TO_PICKUP'
 export type PickupNodeStatus = 'OPEN' | 'CLOSED'
 export type PickupNodeLocationPolicy = 'KEEP_CURRENT_LOCATION' | 'ASSIGN_INCOMPLETE_LOCATION' | 'DIRECT_READY_AREA'
+export type PickupNodeCarrierType = 'WAREHOUSE_LOCATIONS' | 'PALLET'
+export type PickupNodeReadySource = 'DIRECT_READY' | 'UPGRADED_FROM_INCOMPLETE'
 
 export interface PickupCoverageLine {
   key: string
   unit: string
   requiredQty: number
+  processComplete: boolean
   lineEffectivePickedQty: number
   effectivePickedQty: number
   currentAvailableQty: number
@@ -69,6 +72,10 @@ export interface PickupNodeProjection extends PickupNodeIdentity {
   productionOrderNo: string
   sequence: number
   updatedAt: string
+  carrierType: PickupNodeCarrierType
+  palletId: string
+  palletDisplayLabel: string
+  readySource: PickupNodeReadySource | null
   itemCount: number
   items: PickupNodeItem[]
 }
@@ -86,12 +93,75 @@ export interface PickupSession {
   pickedAt: string
   toWarehouseArea: string
   toLocationCode: string
+  toLocationRefs?: PickupStorageLocationRef[]
+  storageFootprint?: PickupStorageFootprint
   status: '本轮已领完'
   warehouseSyncStatus: '已回写' | '回写异常待重试'
   warehouseSyncMessage?: string
   idempotencyKey?: string
   migrationEvidence?: '按累计领料逐行齐套推导' | '旧事实不足，保守按未配齐'
   pickupNodeSnapshot?: PickupNodeProjection
+}
+
+export function adjustPickupSessionStorageFootprint(
+  session: PickupSession,
+  locationRefs: PickupStorageLocationRef[],
+  remainingByUnit: Array<{ unit: string; remainingQty: number }>,
+): PickupSession {
+  if (!session.storageFootprint) throw new Error('当前领料记录没有可调整的存放范围。')
+  const remainingMap = new Map(remainingByUnit.map((item) => [item.unit, Number(item.remainingQty)]))
+  const unitSummaries = session.storageFootprint.unitSummaries.map((summary) => {
+    const remainingQty = remainingMap.has(summary.unit)
+      ? Number(remainingMap.get(summary.unit))
+      : summary.remainingQty
+    if (!Number.isFinite(remainingQty) || remainingQty < 0 || remainingQty > summary.totalQty) {
+      throw new Error(`${summary.unit} 剩余数量必须在 0 至 ${summary.totalQty} 之间。`)
+    }
+    return { ...summary, remainingQty }
+  })
+  const hasRemaining = unitSummaries.some((summary) => summary.remainingQty > 0)
+  if (hasRemaining && !locationRefs.length) throw new Error('仍有剩余物料时必须保留至少一个库位。')
+  const uniqueRefs = Array.from(
+    new Map(locationRefs.map((location) => [location.locationId, structuredClone(location)])).values(),
+  )
+  return {
+    ...structuredClone(session),
+    toWarehouseArea: uniqueRefs[0]?.areaName || session.toWarehouseArea,
+    toLocationCode: uniqueRefs[0]?.locationNo || session.toLocationCode,
+    toLocationRefs: uniqueRefs,
+    storageFootprint: {
+      ...structuredClone(session.storageFootprint),
+      locationIds: uniqueRefs.map((location) => location.locationId),
+      unitSummaries,
+    },
+  }
+}
+
+export interface PickupStorageLocationRef {
+  factoryId: string
+  warehouseId: string
+  warehouseKind: 'WAIT_PROCESS'
+  areaId: string
+  areaName: string
+  shelfId: string
+  shelfNo: string
+  locationId: string
+  locationNo: string
+}
+
+export interface PickupStorageFootprint {
+  footprintId: string
+  sourceType: 'PICKUP_SESSION'
+  sourceId: string
+  locationIds: string[]
+  unitSummaries: Array<{
+    unit: string
+    totalQty: number
+    remainingQty: number
+    rollCount: number
+  }>
+  inboundAt: string
+  inboundBy: string
 }
 
 export interface PickupNodeSnapshotState {
@@ -101,11 +171,14 @@ export interface PickupNodeSnapshotState {
   version: number
   fingerprint: string
   updatedAt: string
+  nodeType: PickupNodeType
+  readySource: PickupNodeReadySource | null
 }
 
 export function derivePickupNodeType(lines: PickupCoverageLine[]): PickupNodeType {
   return lines.length > 0 && lines.every((line) =>
-    line.effectivePickedQty + line.currentAvailableQty >= line.requiredQty
+    line.processComplete
+    && line.effectivePickedQty + line.currentAvailableQty >= line.requiredQty
   ) ? 'READY_TO_PICKUP' : 'INCOMPLETE_PICKABLE'
 }
 

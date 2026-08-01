@@ -8,6 +8,8 @@ import {
 } from '../data/fcs/special-craft-operations'
 import { buildDeductionEntryHrefByBasisId } from '../data/fcs/quality-chain-adapter'
 import { renderRouteRedirect } from './route-utils'
+import { bootstrapPickupManagementRuntimeMockData } from '../runtime/fcs/cutting/pickup-management-runtime.ts'
+import { bootstrapSupplementManagementMockData } from '../pages/process-factory/cutting/supplement-management.ts'
 import {
   renderTaskBreakdownPage,
   renderCapabilityPage,
@@ -96,8 +98,9 @@ import {
   renderCraftCuttingCutOrdersPage,
   renderCraftCuttingCutOrderDetailPage,
   renderCraftCuttingCutOrderClosePage,
-  renderCraftCuttingPickupManagementDetailPage,
-  renderCraftCuttingPickupManagementPage,
+  renderCraftCuttingPickupReadyPage,
+  renderCraftCuttingPickupIncompletePage,
+  renderCraftCuttingPickupHistoryPage,
   renderCraftCuttingProductionProgressPage,
   renderCraftCuttingProductionOrderProgressPage,
   renderCraftCuttingProductionProgressDetailPage,
@@ -280,8 +283,23 @@ export const routes: RouteRegistry = {
     '/fcs/craft/cutting/production-order-progress': () => renderCraftCuttingProductionOrderProgressPage(),
     '/fcs/craft/cutting/cut-orders': () => renderCraftCuttingCutOrdersPage(),
     '/fcs/craft/cutting/cut-order-close': () => renderCraftCuttingCutOrderClosePage(),
-    '/fcs/craft/cutting/pickup-management': () => renderCraftCuttingPickupManagementPage(),
-    '/fcs/craft/cutting/pickup-management-detail': () => renderCraftCuttingPickupManagementDetailPage(),
+    '/fcs/craft/cutting/pickup-management': () =>
+      renderRouteRedirect('/fcs/craft/cutting/pickup-management/ready', '正在跳转到已配齐待领料'),
+    '/fcs/craft/cutting/pickup-management/ready': () => {
+      bootstrapSupplementManagementMockData()
+      bootstrapPickupManagementRuntimeMockData()
+      return renderCraftCuttingPickupReadyPage()
+    },
+    '/fcs/craft/cutting/pickup-management/incomplete': () => {
+      bootstrapSupplementManagementMockData()
+      bootstrapPickupManagementRuntimeMockData()
+      return renderCraftCuttingPickupIncompletePage()
+    },
+    '/fcs/craft/cutting/pickup-management/history': () => {
+      bootstrapSupplementManagementMockData()
+      bootstrapPickupManagementRuntimeMockData()
+      return renderCraftCuttingPickupHistoryPage()
+    },
     '/fcs/craft/cutting/marker-list': () => renderCraftCuttingMarkerListPage(),
     '/fcs/craft/cutting/marker-create': () => renderCraftCuttingMarkerCreatePage(),
     '/fcs/craft/cutting/spreading-list': () => renderCraftCuttingSpreadingListPage(),

@@ -233,7 +233,7 @@ Mock 数据应优先表现：
 - 新增或调整的列表页必须在页面源文件顶部声明 `// @page-pattern: list`，并通过 `npm run check:list-page-governance`。
 - 列表页必须使用标准列表页组件契约：`renderStandardListPage`、`renderStandardListTable` 和 `renderTablePagination`，同时具备分页、列排序 / 显示 / 冻结能力与右侧固定操作栏。
 - `scripts/standard-list-page-baseline.json` 只允许保留尚未迁移且未发生变化的历史页面哈希。基线哈希不得被修改，也不得为绕过检查新增；完成迁移后应删除对应基线条目。
-- `npm run build` 会自动先执行统一列表页治理检查；Pull Request 和推送到 `main` 必须通过 GitHub Actions 的 `list-page-governance` 必检状态。
+- `npm run build` 会自动先执行统一列表页治理检查。
 - 例外只能通过原型审查记录说明范围、原因和迁移计划，不能通过修改检查脚本或基线文件绕过门禁。
 
 ### 7.3 标准列表页模板治理

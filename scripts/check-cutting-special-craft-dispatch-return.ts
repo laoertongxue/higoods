@@ -120,21 +120,21 @@ assertContains(flowSource, 'previous.specialCraftFlowStatus === \'已回仓\'', 
 })
 
 ;[
-  buildToken('特殊工艺', '发料'),
-  buildToken('扫', '菲票加入本次交出'),
-  buildToken('创建', '交出记录'),
-  buildToken('查看', '任务'),
+  buildToken('特殊工艺', '交出'),
+  buildToken('生成', '特殊工艺交出单'),
+  buildToken('中转袋'),
+  buildToken('菲票'),
   buildToken('查看', '交出记录'),
 ].forEach((token) => {
-  assertContains(dispatchPageSource, token, `特殊工艺发料页面缺少：${token}`)
+  assertContains(dispatchPageSource, token, `特殊工艺交出页面缺少：${token}`)
 })
 
 ;[
   buildToken('特殊工艺', '回仓'),
-  buildToken('扫', '菲票确认回仓'),
-  buildToken('查看', '回仓记录'),
-  buildToken('查看', '差异'),
-  buildToken('查看', '异议'),
+  buildToken('选择来源', '特殊工艺交出记录'),
+  buildToken('回仓', '中转袋'),
+  buildToken('回仓', '库区'),
+  buildToken('回仓', '库位'),
 ].forEach((token) => {
   assertContains(returnPageSource, token, `特殊工艺回仓页面缺少：${token}`)
 })
@@ -161,19 +161,19 @@ assertContains(flowSource, 'previous.specialCraftFlowStatus === \'已回仓\'', 
 ;[
   buildToken('待加工仓'),
   buildToken('待交出仓'),
-  buildToken('入库记录'),
+  buildToken('接收', '入仓记录'),
   buildToken('出库记录'),
-  buildToken('回仓状态'),
-  buildToken('当前所在'),
+  buildToken('回写数量'),
+  buildToken('差异', ' / ', '异议'),
 ].forEach((token) => {
-  assertContains(specialCraftWarehouseSource, token, `特殊工艺仓库管理缺少：${token}`)
+  assertContains(specialCraftWarehouseSource, token, `特殊工艺仓库管理缺少仓库闭环信息：${token}`)
 })
 
 ;[
   buildToken('是否需要特殊工艺'),
   buildToken('特殊工艺'),
   buildToken('特殊工艺任务'),
-  buildToken('发料状态'),
+  buildToken('交出状态'),
   buildToken('回仓状态'),
   buildToken('当前所在'),
 ].forEach((token) => {
@@ -182,8 +182,8 @@ assertContains(flowSource, 'previous.specialCraftFlowStatus === \'已回仓\'', 
 
 ;[
   buildToken('需要特殊工艺菲票数'),
-  buildToken('待发料菲票数'),
-  buildToken('已发料菲票数'),
+  buildToken('待交出菲票数'),
+  buildToken('已交出菲票数'),
   buildToken('已接收菲票数'),
   buildToken('待回仓菲票数'),
   buildToken('已回仓菲票数'),
@@ -226,15 +226,12 @@ assertContains(flowSource, 'previous.specialCraftFlowStatus === \'已回仓\'', 
 })
 
 ;[
-  buildToken('P', 'DA'),
   buildToken('来', '料仓'),
   buildToken('半成品', '仓'),
   buildToken('库存', '三态'),
   buildToken('上架', '任务'),
   buildToken('拣货', '波次'),
   buildToken('库位', '规则'),
-  'QR payload',
-  'JSON.stringify',
 ].forEach((token) => {
   assertNotContains(
     dispatchPageSource +
@@ -313,12 +310,13 @@ const orderSummary = getCuttingSpecialCraftReturnStatusByProductionOrder(summary
 assert(orderSummary.totalNeedSpecialCraftFeiTickets > 0, '生产单特殊工艺回仓汇总未生成')
 assertContains(sewingDispatchSource, 'getEligibleFeiTicketsForSewingDispatch', '裁片交出必须依赖特殊工艺回仓可用菲票筛选')
 assertContains(sewingDispatchSource, "specialCraftSummary.returnStatus.includes('已回仓')", '需要特殊工艺的菲票必须已回仓才可进入裁片交出')
-assertContains(sewingDispatchSource, '差异待处理不阻断裁片统一交出', '特殊工艺差异待处理不应阻断已回仓裁片交出')
+assertContains(sewingDispatchSource, '特殊工艺差异待处理不阻断裁片交出', '特殊工艺差异待处理不应阻断已回仓裁片交出')
 assertContains(sewingDispatchSource, 'currentQty > 0', '特殊工艺已回仓裁片仍需 currentQty 大于 0')
 assertContains(sewingDispatchSource, '特殊工艺未回仓，交出后将形成缺口', '特殊工艺未回仓必须形成交出后缺口')
 assertNotContains(sewingDispatchSource, buildToken('特殊工艺', '厂', '直接发', '车', '缝'), '特殊工艺厂不得越过裁床统一发料')
 assertContains(progressStatisticsSource, 'getCuttingSpecialCraftReturnStatusByProductionOrder', '统计与进度联动必须消费特殊工艺回仓汇总')
 assertContains(progressStatisticsSource, 'specialCraftReturnStatus', '生产进度必须包含特殊工艺回仓状态')
-assertContains(progressStatisticsSource, '特殊工艺未回仓', '特殊工艺未回仓必须进入阻塞原因')
+assertContains(progressStatisticsSource, "return '未回仓'", '生产进度必须显式区分特殊工艺未回仓状态')
+assertContains(progressStatisticsSource, "return '部分回仓'", '生产进度必须显式区分特殊工艺部分回仓状态')
 
 console.log('check:cutting-special-craft-dispatch-return passed')

@@ -2,14 +2,16 @@
 
 import {
   appendPickupReturnRecord,
-  appendPickupSessionFromNode,
   createProductionMaterialPrepSeedStore,
   getMaterialPrepRecordContext,
-  listActivePickupNodes,
   listPickupReturnRecords,
   PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
   serializeProductionMaterialPrepStore,
 } from '../src/data/fcs/cutting/production-material-prep.ts'
+import {
+  appendPickupSessionFromNodeRuntime as appendPickupSessionFromNode,
+  listActivePickupNodesRuntime as listActivePickupNodes,
+} from '../src/runtime/fcs/cutting/pickup-management-runtime.ts'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -51,7 +53,10 @@ storage.setItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY, serializeProductionMateria
 const initialReturnCount = listPickupReturnRecords(storage).length
 
 const nodes = listActivePickupNodes(storage)
-const node = nodes.find((n) => n.nodeType === 'READY_TO_PICKUP')
+const node = nodes.find((n) =>
+  n.nodeType === 'READY_TO_PICKUP'
+  && n.items.some((item) => !item.prepLineId.startsWith('SUPPLEMENT:'))
+)
 assert(node, '必须存在已配齐待领节点用于领料')
 assert(node.items.length > 0, '节点必须包含可领物料明细')
 
@@ -65,7 +70,7 @@ const session = appendPickupSessionFromNode({
 }, storage)
 assert(session.pickupRecordIds.length === node.items.length, '领料主记录必须包含节点全部物料明细')
 
-const firstItem = node.items[0]
+const firstItem = node.items.find((item) => !item.prepLineId.startsWith('SUPPLEMENT:'))!
 const context = getMaterialPrepRecordContext(firstItem.sourcePrepRecordIds[0], firstItem.prepLineId, storage)
 assert(context?.record.recordStatus === 'CONFIRMED', '领料后配料记录仍必须保持已确认')
 

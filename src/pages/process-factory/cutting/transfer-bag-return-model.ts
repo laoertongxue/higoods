@@ -20,6 +20,13 @@ import {
   type TransferBagValidationResult,
   type TransferBagViewModel,
 } from './transfer-bags-model.ts'
+export type {
+  TransferBagConditionRecord,
+  TransferBagConditionStatus,
+  TransferBagDiscrepancyType,
+  TransferBagReturnReceipt,
+  TransferBagReusableDecision,
+} from './transfer-bags-model.ts'
 import {
   buildCuttingTraceabilityId,
 } from '../../../data/fcs/cutting/qr-codes.ts'
@@ -171,6 +178,12 @@ export function validateReturnReceiptPayload(options: {
   if (!options.receipt.returnWarehouseName.trim()) return { ok: false, reason: '请填写回收仓或回收点。' }
   if (!options.receipt.returnAt.trim()) return { ok: false, reason: '请填写回收时间。' }
   if (!options.receipt.receivedBy.trim()) return { ok: false, reason: '请填写回收确认人。' }
+  if (
+    options.condition?.reusableDecision === 'DISABLED'
+    && !options.condition.damageType.trim()
+  ) {
+    return { ok: false, reason: '确认报废时必须填写报废原因。' }
+  }
   return { ok: true, reason: '' }
 }
 
@@ -181,7 +194,7 @@ export function deriveBagConditionDecision(options: {
   repairNeeded: boolean
   reusableDecision?: TransferBagReusableDecision
 }): ReturnDecisionMeta {
-  if (options.reusableDecision === 'DISABLED' || options.conditionStatus === 'SEVERE_DAMAGE' || options.damageType?.includes('报废')) {
+  if (options.reusableDecision === 'DISABLED') {
     return {
       reusableDecision: 'DISABLED',
       nextBagStatus: 'DISABLED',
@@ -230,9 +243,13 @@ export function closeTransferBagUsageCycle(options: {
     usageNo: options.usage.cycleNo,
     closedAt: options.nowText,
     closedBy: options.closedBy,
-    closureStatus: warningMessages.length ? 'SCRAP_CLOSED' : 'CLOSED',
+    closureStatus: decision.nextBagStatus === 'DISABLED' ? 'SCRAP_CLOSED' : 'CLOSED',
     nextBagStatus: decision.nextBagStatus,
-    reason: warningMessages.length ? '当前使用周期在存在差异或报废结果的前提下完成关闭。' : '当前使用周期已完成回收确认并正式关闭。',
+    reason: decision.nextBagStatus === 'DISABLED'
+      ? '主管已确认中转袋实物不可继续使用，本次使用周期按报废关闭。'
+      : options.receipt.discrepancyType !== 'NONE'
+        ? '当前使用周期已完成回收确认；业务差异已单独保存，不影响中转袋继续使用。'
+        : '当前使用周期已完成回收确认并正式关闭。',
     warningMessages,
   }
 }
