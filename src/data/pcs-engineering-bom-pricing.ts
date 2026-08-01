@@ -127,7 +127,12 @@ function resolveMaterialLine(line: EngineeringBomMaterialLineDraft): Engineering
   const sku = getMaterialSkuRecordById(line.materialSkuId)
   if (!sku) throw new Error('未找到 BOM 中的物料 SKU。')
   const priceValid = sku.status === 'ACTIVE' && Number.isFinite(sku.costPrice) && sku.costPrice > 0
-  const conversion = resolveConversion(sku.materialSkuId, line.usageUnit, sku.pricingUnit)
+  let conversion = 0
+  try {
+    conversion = resolveConversion(sku.materialSkuId, line.usageUnit, sku.pricingUnit)
+  } catch (error) {
+    if (priceValid) throw error
+  }
   const rawCost = priceValid
     ? line.usage * line.sampleQuantity * (1 + line.lossRate) * conversion * sku.costPrice
     : null

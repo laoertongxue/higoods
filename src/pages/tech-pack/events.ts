@@ -13,7 +13,11 @@ import { buildPatternSignature, checkDuplicatePattern } from './pattern-duplicat
 import { renderPieceInstanceSpecialCraftDialog } from './pattern-domain.ts'
 import { renderBomFormDialog } from './bom-domain.ts'
 import { renderAddTechniqueDialog } from './process-domain.ts'
-import { getBomPricingPage, setBomPricingPage } from './cost-domain.ts'
+import {
+  getBomPricingPage,
+  refreshBomPricingWorkspaceLocally,
+  setBomPricingPage,
+} from './cost-domain.ts'
 import {
   publishTechnicalDataVersion,
   saveTechnicalDataVersionRecordMeta,
@@ -1808,7 +1812,7 @@ function updateCurrentBomPricingLine(
   const bomItemId = node.dataset.bomItemId
   if (!technicalVersionId || !bomItemId) return
   try {
-    saveTechnicalDataVersionBomMaterialLine(technicalVersionId, bomItemId, patch, getCurrentEngineeringBomRole())
+    const workspace = saveTechnicalDataVersionBomMaterialLine(technicalVersionId, bomItemId, patch, getCurrentEngineeringBomRole())
     state.bomItems = state.bomItems.map((item) => item.id === bomItemId
       ? {
           ...item,
@@ -1819,12 +1823,15 @@ function updateCurrentBomPricingLine(
           lossRate: patch.lossRate ?? item.lossRate,
         }
       : item)
+    const workspaceRoot = node.closest('[data-testid="bom-pricing-workspace"]')
+    if (workspaceRoot) refreshBomPricingWorkspaceLocally({ root: workspaceRoot, workspace, technicalVersionId })
   } catch (error) {
     window.alert(error instanceof Error ? error.message : '保存 BOM 与价格失败。')
   }
 }
 
 function updateCurrentBomCustomCost(
+  node: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
   index: number,
   patch: Partial<{ title: string; amountIdr: number }>,
 ): void {
@@ -1834,7 +1841,9 @@ function updateCurrentBomCustomCost(
   if (!content) return
   const customCosts = (content.bomCustomCosts ?? []).map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item)
   try {
-    saveTechnicalDataVersionBomCustomCosts(technicalVersionId, customCosts, getCurrentEngineeringBomRole())
+    const workspace = saveTechnicalDataVersionBomCustomCosts(technicalVersionId, customCosts, getCurrentEngineeringBomRole())
+    const workspaceRoot = node.closest('[data-testid="bom-pricing-workspace"]')
+    if (workspaceRoot) refreshBomPricingWorkspaceLocally({ root: workspaceRoot, workspace, technicalVersionId })
   } catch (error) {
     window.alert(error instanceof Error ? error.message : '保存自定义费用失败。')
   }
@@ -2712,11 +2721,11 @@ function handleTechPackField(
     return true
   }
   if (field === 'bom-custom-cost-title') {
-    updateCurrentBomCustomCost(Number.parseInt(node.dataset.costIndex || '-1', 10), { title: value })
+    updateCurrentBomCustomCost(node, Number.parseInt(node.dataset.costIndex || '-1', 10), { title: value })
     return true
   }
   if (field === 'bom-custom-cost-amount-idr') {
-    updateCurrentBomCustomCost(Number.parseInt(node.dataset.costIndex || '-1', 10), { amountIdr: Number.parseFloat(value) })
+    updateCurrentBomCustomCost(node, Number.parseInt(node.dataset.costIndex || '-1', 10), { amountIdr: Number.parseFloat(value) })
     return true
   }
 

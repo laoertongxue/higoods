@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 
 import {
   createMaterialArchive,
@@ -9,6 +10,7 @@ import {
 import {
   MATERIAL_STANDARD_PRICE_REQUIRED_MESSAGE,
   getTechnicalDataVersionBomWorkspace,
+  resolveEngineeringBomDraft,
   saveTechnicalDataVersionBomCustomCosts,
   saveTechnicalDataVersionBomMaterialLine,
 } from '../src/data/pcs-engineering-bom-pricing.ts'
@@ -19,7 +21,10 @@ import {
   listTechnicalDataVersions,
 } from '../src/data/pcs-technical-data-version-repository.ts'
 import type { TechnicalBomItem, TechnicalDataVersionContent } from '../src/data/pcs-technical-data-version-types.ts'
-import { renderBomPricingWorkspace } from '../src/pages/tech-pack/cost-domain.ts'
+import {
+  refreshBomPricingWorkspaceLocally,
+  renderBomPricingWorkspace,
+} from '../src/pages/tech-pack/cost-domain.ts'
 
 function createMaterial(input: { price: number; pricingUnit: string; usageUnit: string; factor?: number }) {
   const archive = createMaterialArchive({
@@ -144,7 +149,14 @@ assert.equal(workspace.materialLines[0]?.conversionToPricingUnit, 1.0936)
 assert.equal(workspace.materialLines[0]?.usage, 1.25)
 assert.equal(workspace.materialLines[0]?.sampleQuantity, 2)
 
-const firstPage = renderBomPricingWorkspace({ workspace, editable: true, materialPage: 1, customCostPage: 1, pageSize: 5 })
+const firstPage = renderBomPricingWorkspace({
+  workspace,
+  editable: true,
+  materialPage: 1,
+  customCostPage: 1,
+  pageSize: 5,
+  bomItemIds: bomItems.map((item) => item.id),
+})
 assert.match(firstPage, /BOM 与价格/)
 assert.match(firstPage, /标准单价（CNY）/)
 assert.match(firstPage, /12\.3456/)
@@ -157,6 +169,85 @@ assert.match(firstPage, /第 1 页 \/ 共 2 页/)
 assert.match(firstPage, /人民币\/印尼盾汇率/)
 assert.match(firstPage, /自定义费用（IDR）/)
 assert.doesNotMatch(firstPage, /custom-cost-currency|custom-cost-unit/)
+assert.match(firstPage, /data-bom-pricing-row-cost="BOM-PAGE-1"/, '物料行小计必须有稳定的局部刷新目标')
+assert.match(firstPage, /data-bom-pricing-summary="material-cost-cny"/, '物料成本摘要必须可局部刷新')
+assert.match(firstPage, /data-bom-pricing-summary="comprehensive-cost-cny"/, '综合人民币成本必须可局部刷新')
+assert.match(firstPage, /data-bom-pricing-summary="comprehensive-cost-idr"/, '综合印尼盾成本必须可局部刷新')
+assert.match(firstPage, /data-bom-pricing-summary="exchange-rate"/, '汇率必须在同一局部刷新路径更新')
+
+type FakeRefreshNode = {
+  dataset: Record<string, string>
+  textContent: string
+  className: string
+}
+const rowCostNode: FakeRefreshNode = { dataset: { bomPricingRowCost: 'BOM-PAGE-1' }, textContent: '旧行小计', className: '' }
+const rowStatusNode: FakeRefreshNode = { dataset: { bomPricingRowStatus: 'BOM-PAGE-1' }, textContent: '旧状态', className: '' }
+const summaryNodes = [
+  'material-cost-cny',
+  'custom-cost-idr',
+  'exchange-rate',
+  'comprehensive-cost-cny',
+  'comprehensive-cost-idr',
+].map((key): FakeRefreshNode => ({ dataset: { bomPricingSummary: key }, textContent: `旧-${key}`, className: '' }))
+let rootInnerHtmlWrites = 0
+const focusedInput = { id: '正在编辑的单位用量输入框' }
+const fakeRoot = {
+  activeInput: focusedInput,
+  get innerHTML() { return '不可替换的工作区' },
+  set innerHTML(_value: string) { rootInnerHtmlWrites += 1 },
+  querySelectorAll(selector: string) {
+    if (selector === '[data-bom-pricing-row-cost]') return [rowCostNode]
+    if (selector === '[data-bom-pricing-row-status]') return [rowStatusNode]
+    if (selector === '[data-bom-pricing-summary]') return summaryNodes
+    return []
+  },
+}
+
+const usageUpdatedWorkspace = saveTechnicalDataVersionBomMaterialLine(versionId, 'BOM-PAGE-1', {
+  usage: 2,
+  sampleQuantity: 3,
+  usageUnit: '米',
+  lossRate: 0.1,
+}, '买手')
+refreshBomPricingWorkspaceLocally({
+  root: fakeRoot as unknown as ParentNode,
+  workspace: usageUpdatedWorkspace,
+  technicalVersionId: versionId,
+})
+assert.equal(rowCostNode.textContent, `¥ ${usageUpdatedWorkspace.materialLines[0]?.materialCostCny?.toFixed(2)}`)
+assert.equal(summaryNodes[0]?.textContent, `¥ ${usageUpdatedWorkspace.cost.materialCostCny.toFixed(2)}`)
+assert.equal(summaryNodes[3]?.textContent, `¥ ${usageUpdatedWorkspace.cost.comprehensiveCostCny.toFixed(2)}`)
+assert.equal(summaryNodes[4]?.textContent, `Rp ${Math.round(usageUpdatedWorkspace.cost.comprehensiveCostIdr).toLocaleString('id-ID')}`)
+assert.equal(rootInnerHtmlWrites, 0, '局部刷新不得替换工作区 innerHTML')
+assert.equal(fakeRoot.activeInput, focusedInput, '局部刷新必须保留当前输入焦点节点')
+
+const customCostUpdatedWorkspace = saveTechnicalDataVersionBomCustomCosts(
+  versionId,
+  [{ title: '车位费', amountIdr: 90000 }],
+  '买手',
+)
+refreshBomPricingWorkspaceLocally({
+  root: fakeRoot as unknown as ParentNode,
+  workspace: customCostUpdatedWorkspace,
+  technicalVersionId: versionId,
+})
+assert.equal(summaryNodes[1]?.textContent, 'Rp 90.000')
+assert.equal(summaryNodes[3]?.textContent, `¥ ${customCostUpdatedWorkspace.cost.comprehensiveCostCny.toFixed(2)}`)
+assert.equal(summaryNodes[4]?.textContent, `Rp ${Math.round(customCostUpdatedWorkspace.cost.comprehensiveCostIdr).toLocaleString('id-ID')}`)
+assert.equal(summaryNodes[2]?.textContent, '1 CNY = 2.250 IDR')
+assert.equal(rootInnerHtmlWrites, 0)
+
+const eventSource = readFileSync(new URL('../src/pages/tech-pack/events.ts', import.meta.url), 'utf8')
+assert.match(
+  eventSource,
+  /const workspace = saveTechnicalDataVersionBomMaterialLine[\s\S]{0,1200}refreshBomPricingWorkspaceLocally\(\{ root: workspaceRoot, workspace, technicalVersionId \}\)/,
+  'BOM 物料保存成功后必须立即调用局部刷新',
+)
+assert.match(
+  eventSource,
+  /const workspace = saveTechnicalDataVersionBomCustomCosts[\s\S]{0,800}refreshBomPricingWorkspaceLocally\(\{ root: workspaceRoot, workspace, technicalVersionId \}\)/,
+  '自定义费用保存成功后必须立即调用局部刷新',
+)
 
 const readonlyPage = renderBomPricingWorkspace({ workspace, editable: false, materialPage: 1, customCostPage: 1, pageSize: 5 })
 assert.doesNotMatch(readonlyPage, /data-tech-field="bom-pricing-usage"/)
@@ -192,6 +283,20 @@ assert.throws(
   }, '买手'),
   (error: unknown) => error instanceof Error && error.message === MATERIAL_STANDARD_PRICE_REQUIRED_MESSAGE,
 )
+
+const invalidPriceWithoutConversionSku = createMaterial({ price: 0, pricingUnit: '码', usageUnit: '米' })
+const invalidPriceWithoutConversion = resolveEngineeringBomDraft({
+  materialLines: [{
+    materialSkuId: invalidPriceWithoutConversionSku.materialSkuId,
+    usage: 1,
+    sampleQuantity: 1,
+    usageUnit: '米',
+    lossRate: 0,
+  }],
+  customCosts: [],
+})
+assert.equal(invalidPriceWithoutConversion.materialLines[0]?.priceStatus, '标准单价失效')
+assert.equal(invalidPriceWithoutConversion.materialLines[0]?.materialCostCny, null)
 
 const noConversionSku = createMaterial({ price: 10, pricingUnit: '码', usageUnit: '米' })
 assert.throws(

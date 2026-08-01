@@ -25,6 +25,47 @@ function formatIdr(value: number): string {
   return `Rp ${Math.round(value).toLocaleString('id-ID')}`
 }
 
+type BomPricingLocalRefreshRoot = Pick<ParentNode, 'querySelectorAll'>
+
+function updateBomPricingSummary(
+  root: BomPricingLocalRefreshRoot,
+  values: Record<string, string>,
+): void {
+  root.querySelectorAll<HTMLElement>('[data-bom-pricing-summary]').forEach((node) => {
+    const key = node.dataset.bomPricingSummary
+    if (key && Object.hasOwn(values, key)) node.textContent = values[key] ?? ''
+  })
+}
+
+export function refreshBomPricingWorkspaceLocally(input: {
+  root: BomPricingLocalRefreshRoot
+  workspace: EngineeringBomResolvedDraft
+  technicalVersionId: string
+}): void {
+  const content = getTechnicalDataVersionContent(input.technicalVersionId)
+  const lineByBomItemId = new Map(
+    (content?.bomItems ?? []).map((item, index) => [item.id, input.workspace.materialLines[index]] as const),
+  )
+
+  input.root.querySelectorAll<HTMLElement>('[data-bom-pricing-row-cost]').forEach((node) => {
+    const line = lineByBomItemId.get(node.dataset.bomPricingRowCost || '')
+    if (line) node.textContent = formatCny(line.materialCostCny)
+  })
+  input.root.querySelectorAll<HTMLElement>('[data-bom-pricing-row-status]').forEach((node) => {
+    const line = lineByBomItemId.get(node.dataset.bomPricingRowStatus || '')
+    if (!line) return
+    node.textContent = line.priceStatus
+    node.className = `rounded-full px-2 py-1 text-xs ${line.priceStatus === '有效' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`
+  })
+  updateBomPricingSummary(input.root, {
+    'material-cost-cny': formatCny(input.workspace.cost.materialCostCny),
+    'custom-cost-idr': formatIdr(input.workspace.cost.customCostIdr),
+    'exchange-rate': `1 CNY = ${input.workspace.cost.exchangeRateIdrPerCny.toLocaleString('id-ID')} IDR`,
+    'comprehensive-cost-cny': formatCny(input.workspace.cost.comprehensiveCostCny),
+    'comprehensive-cost-idr': formatIdr(input.workspace.cost.comprehensiveCostIdr),
+  })
+}
+
 function renderPager(input: {
   page: number
   total: number
@@ -119,10 +160,10 @@ export function renderBomPricingWorkspace(input: {
                         <td class="px-3 py-2 text-right">${editor.loss}</td>
                         <td class="px-3 py-2">${editor.unit}</td>
                         <td class="px-3 py-2">${escapeHtml(line.pricingUnit)}</td>
-                        <td class="px-3 py-2 text-right">${line.conversionToPricingUnit.toFixed(4)}</td>
+                        <td class="px-3 py-2 text-right">${line.conversionToPricingUnit > 0 ? line.conversionToPricingUnit.toFixed(4) : '-'}</td>
                         <td class="px-3 py-2 text-right font-mono">${line.standardUnitPriceCny === null ? '-' : line.standardUnitPriceCny.toFixed(4)}</td>
-                        <td class="px-3 py-2 text-right font-medium">${formatCny(line.materialCostCny)}</td>
-                        <td class="sticky right-0 bg-card px-3 py-2"><span class="rounded-full px-2 py-1 text-xs ${line.priceStatus === '有效' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}">${escapeHtml(line.priceStatus)}</span></td>
+                        <td class="px-3 py-2 text-right font-medium" data-bom-pricing-row-cost="${escapeHtml(bomItemId)}">${formatCny(line.materialCostCny)}</td>
+                        <td class="sticky right-0 bg-card px-3 py-2"><span class="rounded-full px-2 py-1 text-xs ${line.priceStatus === '有效' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}" data-bom-pricing-row-status="${escapeHtml(bomItemId)}">${escapeHtml(line.priceStatus)}</span></td>
                       </tr>
                     `
                   }).join('')}
@@ -159,11 +200,11 @@ export function renderBomPricingWorkspace(input: {
       </section>
 
       <section class="grid grid-cols-1 gap-3 md:grid-cols-5">
-        <article class="rounded-lg border bg-card p-4"><p class="text-xs text-muted-foreground">物料成本</p><p class="mt-2 text-lg font-semibold">${formatCny(input.workspace.cost.materialCostCny)}</p></article>
-        <article class="rounded-lg border bg-card p-4"><p class="text-xs text-muted-foreground">自定义费用</p><p class="mt-2 text-lg font-semibold">${formatIdr(input.workspace.cost.customCostIdr)}</p></article>
-        <article class="rounded-lg border bg-card p-4"><p class="text-xs text-muted-foreground">人民币/印尼盾汇率</p><p class="mt-2 text-lg font-semibold">1 CNY = ${input.workspace.cost.exchangeRateIdrPerCny.toLocaleString('id-ID')} IDR</p></article>
-        <article class="rounded-lg border bg-card p-4"><p class="text-xs text-muted-foreground">综合成本（CNY）</p><p class="mt-2 text-lg font-semibold text-blue-700">${formatCny(input.workspace.cost.comprehensiveCostCny)}</p></article>
-        <article class="rounded-lg border bg-card p-4"><p class="text-xs text-muted-foreground">综合成本（IDR）</p><p class="mt-2 text-lg font-semibold text-blue-700">${formatIdr(input.workspace.cost.comprehensiveCostIdr)}</p></article>
+        <article class="rounded-lg border bg-card p-4"><p class="text-xs text-muted-foreground">物料成本</p><p class="mt-2 text-lg font-semibold" data-bom-pricing-summary="material-cost-cny">${formatCny(input.workspace.cost.materialCostCny)}</p></article>
+        <article class="rounded-lg border bg-card p-4"><p class="text-xs text-muted-foreground">自定义费用</p><p class="mt-2 text-lg font-semibold" data-bom-pricing-summary="custom-cost-idr">${formatIdr(input.workspace.cost.customCostIdr)}</p></article>
+        <article class="rounded-lg border bg-card p-4"><p class="text-xs text-muted-foreground">人民币/印尼盾汇率</p><p class="mt-2 text-lg font-semibold" data-bom-pricing-summary="exchange-rate">1 CNY = ${input.workspace.cost.exchangeRateIdrPerCny.toLocaleString('id-ID')} IDR</p></article>
+        <article class="rounded-lg border bg-card p-4"><p class="text-xs text-muted-foreground">综合成本（CNY）</p><p class="mt-2 text-lg font-semibold text-blue-700" data-bom-pricing-summary="comprehensive-cost-cny">${formatCny(input.workspace.cost.comprehensiveCostCny)}</p></article>
+        <article class="rounded-lg border bg-card p-4"><p class="text-xs text-muted-foreground">综合成本（IDR）</p><p class="mt-2 text-lg font-semibold text-blue-700" data-bom-pricing-summary="comprehensive-cost-idr">${formatIdr(input.workspace.cost.comprehensiveCostIdr)}</p></article>
       </section>
     </div>
   `
