@@ -48,6 +48,27 @@ export interface WarehouseLocationOccupancy {
   taskNo?: string
   cutOrderNo?: string
   ticketNos?: string[]
+  styleName?: string
+  styleImageUrl?: string
+  materialImageUrl?: string
+  rollDetails?: Array<{
+    rollNo: string
+    yard: number
+    meter: number
+    locationNo?: string
+  }>
+  rollCount?: number
+  rollDetailsAreDemo?: boolean
+  bagCode?: string
+  packed?: boolean
+  ticketDetails?: Array<{
+    feiTicketNo: string
+    partName: string
+    size: string
+    pieceQty: number
+    specialCraftText?: string
+  }>
+  unresolvedTicketCount?: number
 }
 
 export interface WarehouseLocationMapCell extends StableWarehouseLocationRef {
@@ -147,8 +168,6 @@ export function resolveStableWarehouseLocationRef(
     && item.locationNo === input.locationNo,
   )
   if (compatible.length === 1) return compatible[0]
-  const uniqueCurrentNumber = refs.filter((item) => item.locationNo === input.locationNo)
-  if (uniqueCurrentNumber.length === 1) return uniqueCurrentNumber[0]
   if (snapshot) {
     const historical = listStableWarehouseLocationRefs(warehouse)
     const historicalMatches = historical.filter((item) =>
@@ -198,13 +217,37 @@ export function buildWarehouseLocationMapProjection(
 ): WarehouseLocationMapProjection {
   const effective = applyWarehouseLayoutSnapshot(warehouse, snapshot).warehouse
   const refs = listStableWarehouseLocationRefs(warehouse, snapshot)
-  const refIds = new Set(refs.map((ref) => ref.locationId))
-  const occupancyByLocationId = new Map<string, WarehouseLocationOccupancy[]>()
+  const knownLocationIds = new Set(refs.map((ref) => ref.locationId))
+  const activeLocationIds = new Set(effective.areaList
+    .filter((area) => area.status === 'AVAILABLE')
+    .flatMap((area) => area.shelfList
+      .filter((shelf) => shelf.status === 'AVAILABLE')
+      .flatMap((shelf) => shelf.locationList
+        .filter((location) => location.status === 'AVAILABLE')
+        .map((location) => location.locationId))))
+  const candidateOccupanciesByLocationId = new Map<string, WarehouseLocationOccupancy[]>()
   occupancies.forEach((occupancy) => {
-    if (!refIds.has(occupancy.locationId)) return
-    const rows = occupancyByLocationId.get(occupancy.locationId) ?? []
+    if (!activeLocationIds.has(occupancy.locationId)) return
+    const rows = candidateOccupanciesByLocationId.get(occupancy.locationId) ?? []
     rows.push(occupancy)
-    occupancyByLocationId.set(occupancy.locationId, rows)
+    candidateOccupanciesByLocationId.set(occupancy.locationId, rows)
+  })
+  const occupancyByLocationId = new Map<string, WarehouseLocationOccupancy[]>()
+  const conflictingOccupancies: WarehouseLocationOccupancy[] = []
+  const conflictingLocationIds = new Set<string>()
+  candidateOccupanciesByLocationId.forEach((rows, locationId) => {
+    const productionOrderKeys = new Set(rows.map((occupancy) => occupancy.productionOrderNo || occupancy.objectNo))
+    if (productionOrderKeys.size > 1) {
+      conflictingLocationIds.add(locationId)
+      const markedRows = rows.map((occupancy) => ({
+        ...occupancy,
+        partialOccupancyNote: '该库位已关联其他生产单，请主管确认后重新定位。',
+      }))
+      conflictingOccupancies.push(...markedRows)
+      occupancyByLocationId.set(locationId, markedRows)
+      return
+    }
+    occupancyByLocationId.set(locationId, rows)
   })
   const refById = new Map(refs.map((ref) => [ref.locationId, ref]))
   const areas = effective.areaList
@@ -227,7 +270,7 @@ export function buildWarehouseLocationMapProjection(
               const rows = occupancyByLocationId.get(location.locationId) ?? []
               return {
                 ...ref,
-                businessStatus: rows.length ? 'OCCUPIED' as const : 'EMPTY' as const,
+                 businessStatus: rows.length || conflictingLocationIds.has(location.locationId) ? 'OCCUPIED' as const : 'EMPTY' as const,
                 occupancies: rows,
               }
             })
@@ -252,7 +295,15 @@ export function buildWarehouseLocationMapProjection(
     occupiedLocationCount: cells.filter((cell) => cell.businessStatus === 'OCCUPIED').length,
     areas,
     unassignedLocations,
-    unlocatedOccupancies: occupancies.filter((occupancy) => !refIds.has(occupancy.locationId)),
+    unlocatedOccupancies: [
+      ...occupancies.filter((occupancy) => !activeLocationIds.has(occupancy.locationId)).map((occupancy) => ({
+        ...occupancy,
+        partialOccupancyNote: occupancy.partialOccupancyNote || (knownLocationIds.has(occupancy.locationId)
+          ? '原库位已停用，请主管确认新的可用库位。'
+          : '历史库位无法唯一匹配，请主管确认后重新定位。'),
+      })),
+      ...conflictingOccupancies,
+    ],
   }
 }
 

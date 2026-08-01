@@ -38,6 +38,7 @@ import {
   type WarehouseLocationOccupancy,
 } from './process-factory/cutting/warehouse-location-map-model.ts'
 import { renderWarehouseLocationMap } from '../components/ui/warehouse-location-map.ts'
+import { listFactoryInternalWarehouses } from '../data/fcs/factory-internal-warehouse.ts'
 
 export type PdaCuttingInboundMode = 'bagging' | 'inbound-location'
 export type PdaCuttingInboundTicketScanStatus = 'idle' | 'valid' | 'invalid'
@@ -264,7 +265,7 @@ function replacePdaCuttingInboundMockLedger(ledger: PdaCuttingInboundMockLedger)
 }
 
 function normalizeInboundCode(value: string): string {
-  return value.trim().toUpperCase()
+  return value.normalize('NFKC').trim().toUpperCase().replace(/[‐‑‒–—−\s]+/gu, '-')
 }
 
 function bagStatusMessage(
@@ -599,7 +600,7 @@ export function appendPdaCuttingInboundRuntimeEvent(
       locationNo: locationRef.locationNo,
     },
     usageCycleId: snapshot.usageCycleId,
-    idempotencyKey: `temp-bag:${bagCode}:INBOUND`,
+    idempotencyKey: `${snapshot.usageCycleId}:INBOUND_CONFIRMED`,
     storage,
   })
 }
@@ -752,11 +753,37 @@ function validateCurrentWaitHandoverLocation(
   if (!warehouse) return { ok: false, message: '当前工厂未设置待交出仓，不能入仓。' }
   const loaded = loadWarehouseLayoutSnapshot(warehouse)
   const qrParts = locationLabel.trim().split('|').map((part) => part.trim())
+  if (qrParts.length === 4) {
+    const [factoryId, warehouseId, warehouseKind, locationId] = qrParts
+    if (factoryId !== warehouse.factoryId || warehouseId !== warehouse.warehouseId || warehouseKind !== warehouse.warehouseKind) {
+      return { ok: false, message: '该库位不属于当前工厂或当前仓库，请重新扫描。' }
+    }
+    const exactRef = listStableWarehouseLocationRefs(warehouse, loaded.snapshot)
+      .find((location) => location.locationId === locationId)
+    if (!exactRef) return { ok: false, message: '库位不存在，请重新扫描。' }
+    if (exactRef.status !== 'AVAILABLE') return { ok: false, message: '该库位已停用，请更换库位。' }
+    const occupied = buildWaitHandoverLocationOccupancyStates(listWaitHandoverRuntimeEvents())
+      .some((state) => state.locationRef.factoryId === warehouse.factoryId
+        && state.locationRef.warehouseId === warehouse.warehouseId
+        && state.locationRef.warehouseKind === warehouse.warehouseKind
+        && state.locationRef.locationId === exactRef.locationId)
+    if (occupied) return { ok: false, message: '该库位已被其他中转袋占用，请更换库位。' }
+    return { ok: true, ref: exactRef }
+  }
   if (qrParts.length === 2 && normalizeInboundCode(qrParts[0]) !== normalizeInboundCode(warehouse.factoryId)) {
     return { ok: false, message: '该库位不属于当前工厂，请重新扫描。' }
   }
   const normalized = normalizeInboundCode(qrParts.length === 2 ? qrParts[1] : locationLabel)
   if (!normalized) return { ok: false, message: '请扫描库区库位，或从库位图选择。' }
+  if (qrParts.length === 2) {
+    const sameFactoryMatches = listFactoryInternalWarehouses()
+      .filter((item) => item.factoryId === warehouse.factoryId)
+      .flatMap((item) => listStableWarehouseLocationRefs(item, loadWarehouseLayoutSnapshot(item).snapshot))
+      .filter((location) => normalizeInboundCode(location.locationNo) === normalized)
+    if (sameFactoryMatches.length !== 1) {
+      return { ok: false, message: '旧版库位码无法唯一确认仓库，请从库位图选择。' }
+    }
+  }
   const rawMatches = listStableWarehouseLocationRefs(warehouse).filter((location) =>
     normalizeInboundCode(location.locationNo) === normalized,
   )
@@ -773,7 +800,10 @@ function validateCurrentWaitHandoverLocation(
   if (!matches.length) return { ok: false, message: '库位不存在，请重新扫描。' }
   if (matches.length > 1) return { ok: false, message: '库位编号不唯一，请从库位图选择。' }
   const occupied = buildWaitHandoverLocationOccupancyStates(listWaitHandoverRuntimeEvents())
-    .some((state) => state.locationRef.locationId === matches[0].locationId)
+    .some((state) => state.locationRef.factoryId === warehouse.factoryId
+      && state.locationRef.warehouseId === warehouse.warehouseId
+      && state.locationRef.warehouseKind === warehouse.warehouseKind
+      && state.locationRef.locationId === matches[0].locationId)
   if (occupied) return { ok: false, message: '该库位已被其他中转袋占用，请更换库位。' }
   return { ok: true, ref: matches[0] }
 }

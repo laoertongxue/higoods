@@ -429,6 +429,18 @@ export function completePdaTransferBagHandoverScan(
   }
 }
 
+function resolveCurrentHandoverLocationRef(bagCode: string, usageCycleId: string, storage?: BrowserStorageLike | null) {
+  const warehouse = getCurrentFactoryWarehouseByKind('WAIT_HANDOVER')
+  const candidates = buildWaitHandoverLocationOccupancyStates(listWaitHandoverRuntimeEvents(storage))
+    .filter((state) => state.bagCode === bagCode && state.usageCycleId === usageCycleId)
+    .filter((state) => !warehouse || (
+      state.locationRef.factoryId === warehouse.factoryId
+      && state.locationRef.warehouseId === warehouse.warehouseId
+      && state.locationRef.warehouseKind === warehouse.warehouseKind
+    ))
+  return candidates.length === 1 ? candidates[0].locationRef : undefined
+}
+
 export function completePdaTransferBagHandoverRound(
   state: PdaTransferBagHandoverFormState,
   result: { ok: boolean; message?: string },
@@ -553,6 +565,7 @@ export function appendPdaTransferBagHandoverRuntimeEvent(
     fromWarehouseArea: '裁床待交出仓',
     fromLocationCode: bag.bagCode,
     usageCycleId,
+    locationRef: resolveCurrentHandoverLocationRef(bag.bagCode, usageCycleId, storage),
     idempotencyKey:
       `${usageCycleId}:HANDOVER_CONFIRMED:${task.sewingTaskNo}`,
     storage,
@@ -835,6 +848,8 @@ function appendRuntimeUniversalHandoverEvent(draft: PdaHandoverRecordDraftProjec
     payload,
     fromWarehouseArea: sourceRecord.sourceWarehouseName,
     fromLocationCode: validation.bag.bagCode,
+    usageCycleId: validation.bag.bagUseId,
+    locationRef: resolveCurrentHandoverLocationRef(validation.bag.bagCode, validation.bag.bagUseId),
     occurredAt: now,
   })
 
@@ -937,6 +952,8 @@ function appendRuntimeSpecialCraftHandoverEvent(draft: PdaHandoverRecordDraftPro
     specialCraftId: firstCraft.specialCraftId,
     transferBagCode: validation.bag.bagCode,
     fromWarehouseArea: sourceRecord.sourceWarehouseName,
+    usageCycleId: validation.bag.bagUseId,
+    locationRef: resolveCurrentHandoverLocationRef(validation.bag.bagCode, validation.bag.bagUseId),
     occurredAt: now,
   })
 

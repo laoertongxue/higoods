@@ -2607,6 +2607,7 @@ type WaitHandoverConfirmSelection = {
   bagUseId: string
   bagCode: string
   sourceWarehouseName: string
+  sourceLocationCode: string
   tickets: Array<{ feiTicketId: string; feiTicketNo: string; pieceQty: number }>
 }
 
@@ -2663,6 +2664,7 @@ function buildWaitHandoverConfirmSelections(): WaitHandoverConfirmSelection[] {
       sourceWarehouseName:
         bagRecords[0]?.warehouseArea
         || task.sourceWarehouseName,
+      sourceLocationCode: bagRecords[0]?.locationCode || '',
       tickets: bagRecords.map((record) => ({
         feiTicketId: record.feiTicketId,
         feiTicketNo: record.feiTicketNo,
@@ -3222,6 +3224,11 @@ function submitWaitHandoverRecord(dialog: HTMLElement): boolean {
     usageCycleId:
       lifecycle.usageCycleId
       || selection.bagUseId,
+    locationRef: resolveCurrentCuttingWarehouseLocationRef(
+      'WAIT_HANDOVER',
+      selection.sourceWarehouseName,
+      selection.sourceLocationCode,
+    ) || undefined,
   })
   return false
 }

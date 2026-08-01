@@ -2,6 +2,7 @@ import { escapeHtml } from '../../utils.ts'
 import type {
   WarehouseLocationMapCell,
   WarehouseLocationMapProjection,
+  WarehouseLocationOccupancy,
 } from '../../pages/process-factory/cutting/warehouse-location-map-model.ts'
 import { toggleWarehouseLocationSelection } from '../../pages/process-factory/cutting/warehouse-location-map-model.ts'
 
@@ -29,8 +30,16 @@ function renderCell(
   const selected = selectedIds.has(cell.locationId)
   const action = mode === 'SELECT'
     ? (occupied || selectionDisabled ? '' : 'toggle-location')
-    : occupied ? 'open-occupancy' : ''
+    : occupied && cell.occupancies.length ? 'open-occupancy' : ''
   const summary = cell.occupancies[0]
+  const rollSummary = summary?.rollDetails?.length
+    ? `${summary.rollDetails.length} 卷 · ${Number(summary.rollDetails.reduce((sum, roll) => sum + roll.yard, 0).toFixed(2))} Yard / ${Number(summary.rollDetails.reduce((sum, roll) => sum + roll.meter, 0).toFixed(2))} 米`
+    : summary?.rollCount
+      ? `${summary.rollCount} 卷 · 卷明细待补充`
+    : ''
+  const bagSummary = summary?.bagCode
+    ? `${summary.bagCode} · ${summary.ticketNos?.length ?? 0} 张菲票 · ${summary.qty} ${summary.unit}`
+    : ''
   const statusClass = occupied
     ? 'border-rose-300 bg-rose-50 text-rose-800'
     : selected
@@ -53,6 +62,7 @@ function renderCell(
         ${occupied && summary ? `
           <span class="mt-1 block max-w-28 truncate" title="${escapeHtml(summary.productionOrderNo || '未关联生产单')}">${escapeHtml(summary.productionOrderNo || '未关联生产单')}</span>
           <span class="block max-w-28 truncate" title="${escapeHtml(summary.objectName)}">${escapeHtml(summary.objectName)}</span>
+          <span class="block max-w-36 truncate" title="${escapeHtml(rollSummary || bagSummary || `${summary.qty} ${summary.unit}`)}">${escapeHtml(rollSummary || bagSummary || `${summary.qty} ${summary.unit}`)}</span>
           ${cell.occupancies.length > 1 ? `<span class="block">等 ${cell.occupancies.length} 项</span>` : ''}
         ` : ''}
         ${selected ? '<span class="absolute right-1 top-0.5 font-bold">✓</span>' : ''}
@@ -69,9 +79,10 @@ function renderCell(
 }
 
 function renderPageControls(
-  action: 'occupancy-page' | 'unlocated-page',
+  action: 'occupancy-page' | 'occupancy-detail-page' | 'summary-page' | 'unlocated-page',
   page: number,
   total: number,
+  detailId?: string,
 ): string {
   const pageSize = 10
   const pageCount = Math.max(1, Math.ceil(total / pageSize))
@@ -79,8 +90,8 @@ function renderPageControls(
     <div class="mt-3 flex items-center justify-between gap-2 text-xs">
       <span>第 ${page} / ${pageCount} 页 · 每页 ${pageSize} 条 · 共 ${total} 条</span>
       <div class="flex gap-2">
-        <button type="button" class="min-h-11 rounded-md border px-3 disabled:opacity-50" data-skip-page-rerender="true" data-warehouse-map-action="${action}" data-page="${page - 1}" ${page <= 1 ? 'disabled' : ''}>上一页</button>
-        <button type="button" class="min-h-11 rounded-md border px-3 disabled:opacity-50" data-skip-page-rerender="true" data-warehouse-map-action="${action}" data-page="${page + 1}" ${page >= pageCount ? 'disabled' : ''}>下一页</button>
+        <button type="button" class="min-h-11 rounded-md border px-3 disabled:opacity-50" data-skip-page-rerender="true" data-warehouse-map-action="${action}" data-page="${page - 1}" ${detailId ? `data-occupancy-id="${escapeHtml(detailId)}"` : ''} ${page <= 1 ? 'disabled' : ''}>上一页</button>
+        <button type="button" class="min-h-11 rounded-md border px-3 disabled:opacity-50" data-skip-page-rerender="true" data-warehouse-map-action="${action}" data-page="${page + 1}" ${detailId ? `data-occupancy-id="${escapeHtml(detailId)}"` : ''} ${page >= pageCount ? 'disabled' : ''}>下一页</button>
       </div>
     </div>
   `
@@ -104,8 +115,17 @@ function renderOccupancyDrawer(
     typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('occupancyPage') : 1,
   ) || 1)), pageCount)
   const occupancies = cell.occupancies.slice((page - 1) * 10, page * 10)
+  const detailPage = Math.max(1, Number(
+    typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('occupancyDetailPage') : 1,
+  ) || 1)
+  const detailId = typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search).get('occupancyDetailId') || ''
+    : ''
+  const detailPageForItem = (item: WarehouseLocationOccupancy): number => item.occupancyId === detailId
+    ? detailPage
+    : 1
   return `
-    <aside class="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto border-l bg-background p-5 shadow-xl" data-warehouse-map-occupancy-drawer>
+    <aside class="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto border-l bg-background p-5 shadow-xl" data-warehouse-map-occupancy-overlay data-warehouse-map-occupancy-drawer>
       <div class="flex items-start justify-between gap-3">
         <div>
           <p class="text-xs text-muted-foreground">${escapeHtml(cell.areaName)} / ${escapeHtml(cell.shelfNo)}</p>
@@ -116,13 +136,26 @@ function renderOccupancyDrawer(
       <div class="mt-4 space-y-3">
         ${occupancies.map((item) => `
           <article class="rounded-lg border p-3 text-sm">
-            <div class="font-medium">${escapeHtml(item.objectName)}</div>
+            <div class="flex items-start gap-3">
+              ${item.styleImageUrl
+                ? `<span class="shrink-0"><img src="${escapeHtml(item.styleImageUrl)}" alt="款式图" class="h-16 w-16 rounded-md border object-cover" onerror="this.hidden=true;this.nextElementSibling.hidden=false" /><span hidden class="flex h-16 w-16 items-center justify-center rounded-md border bg-muted/30 px-2 text-center text-xs text-muted-foreground">款式图加载失败</span></span>`
+                : '<div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-md border bg-muted/30 px-2 text-center text-xs text-muted-foreground">款式图待补充</div>'}
+              <div class="min-w-0">
+                <div class="font-medium">${escapeHtml(item.productionOrderNo || '未关联生产单')}</div>
+                <div class="mt-1 text-muted-foreground">${escapeHtml(item.styleName || item.objectName)}</div>
+              </div>
+            </div>
+            ${projection.warehouseKind === 'WAIT_PROCESS' ? (item.materialImageUrl
+              ? `<div class="mt-3 flex items-center gap-3"><span><img src="${escapeHtml(item.materialImageUrl)}" alt="物料图" class="h-14 w-14 rounded-md border object-cover" onerror="this.hidden=true;this.nextElementSibling.hidden=false" /><span hidden class="flex h-14 w-14 items-center justify-center rounded-md border bg-muted/30 px-2 text-center text-xs text-muted-foreground">物料图加载失败</span></span><span class="text-xs text-muted-foreground">物料图 / ${escapeHtml(item.objectName)}</span></div>`
+              : '<div class="mt-3 rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">物料图待补充</div>') : ''}
             <div class="mt-2 grid grid-cols-2 gap-2 text-muted-foreground">
-              <span>生产单：${escapeHtml(item.productionOrderNo || '未关联')}</span>
               <span>对象编号：${escapeHtml(item.objectNo)}</span>
               ${item.taskNo ? `<span>裁片任务：${escapeHtml(item.taskNo)}</span>` : ''}
               ${item.cutOrderNo ? `<span>裁片单：${escapeHtml(item.cutOrderNo)}</span>` : ''}
               ${item.ticketNos?.length ? `<span>菲票：${escapeHtml(item.ticketNos.join('、'))}</span>` : ''}
+              ${item.bagCode ? `<span>中转袋：${escapeHtml(item.bagCode)}</span>` : ''}
+              ${item.packed ? '<span>袋内状态：已装菲票</span>' : ''}
+              ${item.unresolvedTicketCount ? `<span>菲票明细待补充：${item.unresolvedTicketCount} 张</span>` : ''}
               <span>数量：${escapeHtml(String(item.qty))} ${escapeHtml(item.unit)}</span>
               <span>入仓人：${escapeHtml(item.inboundBy || '未记录')}</span>
               <span>入仓时间：${escapeHtml(item.inboundAt || '未记录')}</span>
@@ -131,13 +164,134 @@ function renderOccupancyDrawer(
               ${item.materialSpec ? `<span>规格：${escapeHtml(item.materialSpec)}</span>` : ''}
               ${typeof item.remainingQty === 'number' ? `<span>剩余数量：${escapeHtml(String(item.remainingQty))} ${escapeHtml(item.unit)}</span>` : ''}
             </div>
+            ${item.rollDetails?.length ? `
+              <div class="mt-3 overflow-x-auto">
+                <div class="mb-1 text-xs font-medium text-foreground">${item.rollDetailsAreDemo ? '演示卷明细' : '物料卷明细'}</div>
+                <table class="min-w-[560px] w-full text-xs"><thead><tr class="border-b text-left text-muted-foreground"><th class="px-2 py-1">卷号</th><th class="px-2 py-1">Yard</th><th class="px-2 py-1">米</th><th class="px-2 py-1">库位</th></tr></thead><tbody>${item.rollDetails.slice((Math.min(detailPageForItem(item), Math.max(1, Math.ceil(item.rollDetails.length / 10))) - 1) * 10, Math.min(detailPageForItem(item), Math.max(1, Math.ceil(item.rollDetails.length / 10))) * 10).map((roll) => `<tr class="border-b last:border-b-0"><td class="px-2 py-1">${escapeHtml(roll.rollNo)}</td><td class="px-2 py-1">${escapeHtml(String(roll.yard))}</td><td class="px-2 py-1">${escapeHtml(String(roll.meter))}</td><td class="px-2 py-1">${escapeHtml(roll.locationNo || cell.locationNo)}</td></tr>`).join('')}</tbody></table>
+                ${renderPageControls('occupancy-detail-page', Math.min(detailPageForItem(item), Math.max(1, Math.ceil(item.rollDetails.length / 10))), item.rollDetails.length, item.occupancyId)}
+              </div>
+            ` : projection.warehouseKind === 'WAIT_PROCESS' ? '<div class="mt-3 rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">卷明细待补充，当前仅保留总量。</div>' : ''}
+            ${item.ticketDetails?.length ? `
+              <div class="mt-3 overflow-x-auto">
+                <div class="mb-1 text-xs font-medium text-foreground">袋内菲票明细</div>
+                <table class="min-w-[640px] w-full text-xs"><thead><tr class="border-b text-left text-muted-foreground"><th class="px-2 py-1">菲票号</th><th class="px-2 py-1">部位</th><th class="px-2 py-1">尺码</th><th class="px-2 py-1">片数</th><th class="px-2 py-1">特殊工艺</th></tr></thead><tbody>${item.ticketDetails.slice((Math.min(detailPageForItem(item), Math.max(1, Math.ceil(item.ticketDetails.length / 10))) - 1) * 10, Math.min(detailPageForItem(item), Math.max(1, Math.ceil(item.ticketDetails.length / 10))) * 10).map((ticket) => `<tr class="border-b last:border-b-0"><td class="px-2 py-1">${escapeHtml(ticket.feiTicketNo)}</td><td class="px-2 py-1">${escapeHtml(ticket.partName)}</td><td class="px-2 py-1">${escapeHtml(ticket.size)}</td><td class="px-2 py-1">${escapeHtml(String(ticket.pieceQty))} 片</td><td class="px-2 py-1">${escapeHtml(ticket.specialCraftText || '无')}</td></tr>`).join('')}</tbody></table>
+                ${renderPageControls('occupancy-detail-page', Math.min(detailPageForItem(item), Math.max(1, Math.ceil(item.ticketDetails.length / 10))), item.ticketDetails.length, item.occupancyId)}
+              </div>
+            ` : projection.warehouseKind === 'WAIT_HANDOVER' && item.packed ? `<div class="mt-3 rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">袋内菲票明细待补充，请按菲票号核对。</div>` : ''}
             ${item.partialOccupancyNote ? `<div class="mt-2 rounded bg-amber-50 px-2 py-1 text-xs text-amber-800">${escapeHtml(item.partialOccupancyNote)}</div>` : ''}
           </article>
         `).join('')}
       </div>
       ${renderPageControls('occupancy-page', page, cell.occupancies.length)}
     </aside>
-    <button type="button" class="fixed inset-0 z-40 bg-black/30" aria-label="关闭占用明细" data-skip-page-rerender="true" data-warehouse-map-action="close-occupancy"></button>
+    <button type="button" class="fixed inset-0 z-40 bg-black/30" aria-label="关闭占用明细" data-warehouse-map-occupancy-overlay data-skip-page-rerender="true" data-warehouse-map-action="close-occupancy"></button>
+  `
+}
+
+export function renderWarehouseLocationMapOccupancyOverlay(
+  projection: WarehouseLocationMapProjection,
+  requestedLocationId?: string,
+  requestedPage?: number,
+): string {
+  return renderOccupancyDrawer(projection, requestedLocationId, requestedPage)
+}
+
+export function renderWarehouseLocationMapUnlocatedSection(
+  projection: WarehouseLocationMapProjection,
+  requestedPage?: number,
+): string {
+  if (!projection.unlocatedOccupancies.length) return ''
+  const pageCount = Math.max(1, Math.ceil(projection.unlocatedOccupancies.length / 10))
+  const page = Math.min(Math.max(1, requestedPage ?? (Number(
+    typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('unlocatedPage') : 1,
+  ) || 1)), pageCount)
+  const rows = projection.unlocatedOccupancies.slice((page - 1) * 10, page * 10)
+  return `
+    <article class="rounded-lg border border-amber-200 bg-amber-50 p-4" data-warehouse-map-unlocated-section>
+      <h3 class="font-semibold text-amber-900">待确认历史库位 ${projection.unlocatedOccupancies.length} 条</h3>
+      <p class="mt-1 text-sm text-amber-800">历史记录未能唯一匹配当前库位，请人工确认后再纳入库位图。</p>
+      <div class="mt-3 space-y-2">
+        ${rows.map((item) => `
+          <div class="rounded-md border border-amber-200 bg-white px-3 py-2 text-sm">
+            <div>${escapeHtml(item.productionOrderNo || '未关联生产单')} · ${escapeHtml(item.objectName)}</div>
+            <div class="mt-1 text-xs text-amber-800">${escapeHtml(item.partialOccupancyNote || '历史库位无法唯一匹配，请主管确认后重新定位。')}</div>
+          </div>
+        `).join('')}
+      </div>
+      ${renderPageControls('unlocated-page', page, projection.unlocatedOccupancies.length)}
+    </article>
+  `
+}
+
+export function renderWarehouseLocationMapSummarySection(projection: WarehouseLocationMapProjection): string {
+  const groups = new Map<string, {
+    productionOrderNo: string
+    objectNames: Set<string>
+    locationIds: Set<string>
+    qtyByUnit: Map<string, Map<string, number>>
+    footprintIds: Set<string>
+    rolls: Map<string, { yard: number; meter: number }>
+    reportedRollCount: Map<string, number>
+    bagCodes: Set<string>
+    tickets: Set<string>
+  }>()
+  projection.areas
+    .flatMap((area) => area.shelves.flatMap((shelf) => shelf.locations))
+    .flatMap((cell) => cell.occupancies.map((occupancy) => ({ cell, occupancy })))
+    .forEach(({ cell, occupancy }) => {
+      const key = occupancy.productionOrderNo || occupancy.objectNo
+      const group = groups.get(key) ?? {
+        productionOrderNo: occupancy.productionOrderNo || '未关联生产单',
+        objectNames: new Set<string>(),
+        locationIds: new Set<string>(),
+        qtyByUnit: new Map<string, Map<string, number>>(),
+        footprintIds: new Set<string>(),
+        rolls: new Map<string, { yard: number; meter: number }>(),
+        reportedRollCount: new Map<string, number>(),
+        bagCodes: new Set<string>(),
+        tickets: new Set<string>(),
+      }
+      group.locationIds.add(cell.locationId)
+      group.objectNames.add(occupancy.objectName)
+      group.footprintIds.add(occupancy.footprintId)
+      const qtyByFootprintId = group.qtyByUnit.get(occupancy.unit) ?? new Map<string, number>()
+      qtyByFootprintId.set(
+        occupancy.footprintId,
+        Math.max(qtyByFootprintId.get(occupancy.footprintId) ?? 0, occupancy.qty),
+      )
+      group.qtyByUnit.set(occupancy.unit, qtyByFootprintId)
+      occupancy.rollDetails?.forEach((roll) => group.rolls.set(`${occupancy.footprintId}:${roll.rollNo}`, { yard: roll.yard, meter: roll.meter }))
+      if (occupancy.rollCount) group.reportedRollCount.set(occupancy.footprintId, occupancy.rollCount)
+      if (occupancy.bagCode) group.bagCodes.add(occupancy.bagCode)
+      occupancy.ticketNos?.forEach((ticketNo) => group.tickets.add(ticketNo))
+      groups.set(key, group)
+    })
+  if (!groups.size) return ''
+  const pageCount = Math.max(1, Math.ceil(groups.size / 10))
+  const page = Math.min(Math.max(1, Number(
+    typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('summaryPage') : 1,
+  ) || 1), pageCount)
+  const rows = Array.from(groups.values()).slice((page - 1) * 10, page * 10)
+  return `
+    <div class="rounded-lg border bg-card p-4" data-warehouse-map-summary-section>
+      <div class="mb-3 flex flex-wrap items-center justify-between gap-2"><h3 class="text-sm font-semibold">生产单占用摘要</h3><span class="text-xs text-muted-foreground">按生产单汇总，多库位不重复计量</span></div>
+      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        ${rows.map((group) => `
+          <article class="rounded-md border bg-muted/10 p-3 text-sm">
+            <div class="font-medium">${escapeHtml(group.productionOrderNo)}</div>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(Array.from(group.objectNames).join('、'))}</div>
+            <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              ${projection.warehouseKind === 'WAIT_PROCESS'
+                ? `<span>${Math.max(group.rolls.size, ...group.reportedRollCount.values(), 0)} 卷</span><span>${Number((group.rolls.size ? Array.from(group.rolls.values()).reduce((sum, roll) => sum + roll.yard, 0) : Array.from(group.qtyByUnit.entries()).reduce((sum, [unit, rows]) => sum + (['米', 'm'].includes(unit.trim().toLowerCase()) ? Array.from(rows.values()).reduce((qty, value) => qty + value, 0) / 0.9144 : ['yard', 'yards', 'yd', '码'].includes(unit.trim().toLowerCase()) ? Array.from(rows.values()).reduce((qty, value) => qty + value, 0) : 0), 0)).toFixed(2))} Yard / ${Number((group.rolls.size ? Array.from(group.rolls.values()).reduce((sum, roll) => sum + roll.meter, 0) : Array.from(group.qtyByUnit.entries()).reduce((sum, [unit, rows]) => sum + (['米', 'm'].includes(unit.trim().toLowerCase()) ? Array.from(rows.values()).reduce((qty, value) => qty + value, 0) : ['yard', 'yards', 'yd', '码'].includes(unit.trim().toLowerCase()) ? Array.from(rows.values()).reduce((qty, value) => qty + value, 0) * 0.9144 : 0), 0)).toFixed(2))} 米</span>`
+                : `<span>${group.bagCodes.size} 袋</span><span>${group.tickets.size} 张菲票</span><span>${Array.from(group.qtyByUnit.get('片')?.values() ?? []).reduce((sum, qty) => sum + qty, 0)} 片</span>`}
+              <span>${group.locationIds.size} 个库位</span>
+              <span>库存口径 ${Array.from(group.qtyByUnit.entries()).map(([unit, qtyByFootprintId]) => `${escapeHtml(String(Array.from(qtyByFootprintId.values()).reduce((sum, qty) => sum + qty, 0)))} ${escapeHtml(unit)}`).join('、')}</span>
+            </div>
+          </article>
+        `).join('')}
+      </div>
+      ${renderPageControls('summary-page', page, groups.size)}
+    </div>
   `
 }
 
@@ -151,12 +305,6 @@ export function renderWarehouseLocationMap(options: WarehouseLocationMapOptions)
   const selectedRange = selectedCells.length
     ? `${selectedCells[0].locationNo} 至 ${selectedCells.at(-1)?.locationNo}`
     : '未选择'
-  const requestedUnlocatedPage = options.unlocatedPage ?? (Number(
-    typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('unlocatedPage') : 1,
-  ) || 1)
-  const unlocatedPageCount = Math.max(1, Math.ceil(projection.unlocatedOccupancies.length / 10))
-  const unlocatedPage = Math.min(Math.max(1, requestedUnlocatedPage), unlocatedPageCount)
-  const unlocatedRows = projection.unlocatedOccupancies.slice((unlocatedPage - 1) * 10, unlocatedPage * 10)
   return `
     <section class="space-y-4" data-warehouse-map-root data-warehouse-id="${escapeHtml(projection.warehouseId)}" data-warehouse-kind="${escapeHtml(projection.warehouseKind)}">
       <div class="rounded-lg border bg-card p-4">
@@ -181,6 +329,8 @@ export function renderWarehouseLocationMap(options: WarehouseLocationMapOptions)
         ` : ''}
         ${options.feedbackMessage ? `<div class="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800" role="status">${escapeHtml(options.feedbackMessage)}</div>` : ''}
       </div>
+
+      ${mode === 'SELECT' ? '' : renderWarehouseLocationMapSummarySection(projection)}
 
       ${projection.areas.map((area) => `
         <article class="rounded-lg border bg-card">
@@ -247,19 +397,8 @@ export function renderWarehouseLocationMap(options: WarehouseLocationMapOptions)
         </article>
       ` : ''}
 
-      ${projection.unlocatedOccupancies.length ? `
-        <article class="rounded-lg border border-amber-200 bg-amber-50 p-4">
-          <h3 class="font-semibold text-amber-900">待确认历史库位 ${projection.unlocatedOccupancies.length} 条</h3>
-          <p class="mt-1 text-sm text-amber-800">历史记录未能唯一匹配当前库位，请人工确认后再纳入库位图。</p>
-          <div class="mt-3 space-y-2">
-            ${unlocatedRows.map((item) => `
-              <div class="rounded-md border border-amber-200 bg-white px-3 py-2 text-sm">${escapeHtml(item.productionOrderNo || '未关联生产单')} · ${escapeHtml(item.objectName)}</div>
-            `).join('')}
-          </div>
-          ${renderPageControls('unlocated-page', unlocatedPage, projection.unlocatedOccupancies.length)}
-        </article>
-      ` : ''}
-      ${renderOccupancyDrawer(projection, options.openLocationId, options.occupancyPage)}
+      ${renderWarehouseLocationMapUnlocatedSection(projection, options.unlocatedPage)}
+      ${renderWarehouseLocationMapOccupancyOverlay(projection, options.openLocationId, options.occupancyPage)}
     </section>
   `
 }

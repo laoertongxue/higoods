@@ -808,7 +808,7 @@ assert(source.includes('appendWaitHandoverBaggingEvent'), 'PDA 菲票装袋必�
 assert(source.includes('appendWaitHandoverInboundEvent'), 'PDA 中转袋入仓必须写入统一事实账')
 assert(source.includes('resolveCurrentWaitHandoverLocationRef'), '中转袋入仓必须按当前工厂解析稳定库位')
 assert(source.includes('locationRef: {'), '中转袋入仓事件必须保存稳定库位引用')
-assert(source.includes('idempotencyKey: `temp-bag:${bagCode}:INBOUND`'), '中转袋入仓必须使用袋码幂等键')
+assert(source.includes('idempotencyKey: `${snapshot.usageCycleId}:INBOUND_CONFIRMED`'), '中转袋入仓必须使用使用周期幂等键')
 assert(!source.includes('renderPdaCuttingOrderSelectionPrompt'), '不得保留待入仓菲票或裁片单中间选择页')
 
 function createRuntimeMemoryStorage() {
