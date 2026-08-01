@@ -25,6 +25,10 @@ export interface EngineeringPurchaseOrderFact {
   accessible?: boolean
 }
 
+export type EngineeringPurchaseOrderView =
+  | (Omit<EngineeringPurchaseOrderFact, 'accessible'> & { accessStatus: '可读取' })
+  | { purchaseOrderNo: string; accessStatus: '无权读取' }
+
 export interface AccessoryPurchaseCompletionGate {
   complete: boolean
   completed: boolean
@@ -170,8 +174,16 @@ function assertPurchaseTask(masterOrderId: string, taskId: string) {
 
 export interface AccessoryPurchaseTaskLinkage {
   task: EngineeringTaskRecord
-  purchaseOrders: EngineeringPurchaseOrderFact[]
+  purchaseOrders: EngineeringPurchaseOrderView[]
   gate: AccessoryPurchaseCompletionGate
+}
+
+function toPurchaseOrderView(order: EngineeringPurchaseOrderFact): EngineeringPurchaseOrderView {
+  if (order.accessible === false) {
+    return { purchaseOrderNo: order.purchaseOrderNo, accessStatus: '无权读取' }
+  }
+  const { accessible: _accessible, ...readableOrder } = order
+  return { ...readableOrder, accessStatus: '可读取' }
 }
 
 export function computeAccessoryPurchaseTaskLinkage(masterOrderId: string, taskId: string): AccessoryPurchaseTaskLinkage {
@@ -193,7 +205,7 @@ export function computeAccessoryPurchaseTaskLinkage(masterOrderId: string, taskI
         : `采购单不属于当前款式：${wrongStyleOrders.map((order) => order.purchaseOrderNo).join('、')}`,
     }
   }
-  return { task, purchaseOrders, gate }
+  return { task, purchaseOrders: purchaseOrders.map(toPurchaseOrderView), gate }
 }
 
 // 兼容既有只读调用；该入口只计算，不写回。
@@ -247,7 +259,7 @@ export function bindAccessoryPurchaseOrder(masterOrderId: string, taskId: string
     current.startedAt ||= fact.orderedAt || new Date().toLocaleString('zh-CN', { hour12: false })
     applyGate(current, gate)
   })
-  return { ...result, purchaseOrders, gate }
+  return { ...result, purchaseOrders: purchaseOrders.map(toPurchaseOrderView), gate }
 }
 
 export function unbindAccessoryPurchaseOrder(masterOrderId: string, taskId: string, purchaseOrderNo: string) {
@@ -261,5 +273,5 @@ export function unbindAccessoryPurchaseOrder(masterOrderId: string, taskId: stri
     current.boundPurchaseOrderNos = nextOrderNos
     applyGate(current, gate)
   })
-  return { ...result, purchaseOrders, gate }
+  return { ...result, purchaseOrders: purchaseOrders.map(toPurchaseOrderView), gate }
 }

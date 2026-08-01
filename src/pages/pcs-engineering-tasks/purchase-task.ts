@@ -43,6 +43,30 @@ const PURCHASE_DETAIL_PAGE_SIZE = 5
 const PURCHASE_FILTER_STATUS_OPTIONS = ['待开始', '进行中', '已完成']
 const purchaseDetailPages = new Map<string, number>()
 
+function renderPurchaseOrderRow(
+  order: AccessoryPurchaseTaskLinkage['purchaseOrders'][number],
+  masterOrderId: string,
+  taskId: string,
+): string {
+  const unbindButton = `<button type="button" class="text-rose-600 hover:underline" data-purchase-action="unbind-order" data-master-order-id="${escapeHtml(masterOrderId)}" data-task-id="${escapeHtml(taskId)}" data-purchase-order-no="${escapeHtml(order.purchaseOrderNo)}">解除绑定</button>`
+  if (order.accessStatus === '无权读取') {
+    return `<tr class="border-t border-slate-100">
+      <td class="px-3 py-3 font-medium">${escapeHtml(order.purchaseOrderNo)}</td>
+      <td colspan="5" class="px-3 py-3 text-amber-700">无权读取</td>
+      <td class="px-3 py-3 text-right">${unbindButton}</td>
+    </tr>`
+  }
+  return `<tr class="border-t border-slate-100">
+    <td class="px-3 py-3 font-medium">${escapeHtml(order.purchaseOrderNo)}</td>
+    <td class="px-3 py-3">${escapeHtml(order.supplierName)}</td>
+    <td class="px-3 py-3">${order.materialLines.map((line) => `${escapeHtml(line.materialSkuId)} · ${escapeHtml(line.materialName)}`).join('<br>')}</td>
+    <td class="px-3 py-3">${order.materialLines.map((line) => `${line.quantity} ${escapeHtml(line.unit)}`).join('<br>')}</td>
+    <td class="px-3 py-3">${escapeHtml(order.status)}</td>
+    <td class="px-3 py-3">${escapeHtml(order.orderedAt || '未下单')}</td>
+    <td class="px-3 py-3 text-right">${unbindButton}</td>
+  </tr>`
+}
+
 function renderPurchaseSummaryContent(linkage: AccessoryPurchaseTaskLinkage): string {
   const { task, gate } = linkage
   return `<div class="grid gap-3 px-5 py-4 sm:grid-cols-3">
@@ -77,15 +101,7 @@ function renderPurchaseLinkageContent(masterOrderId: string, taskId: string, cur
     <div class="overflow-x-auto px-5 pb-3">
       <table class="w-full min-w-[900px] text-left text-sm">
         <thead class="bg-slate-50 text-xs text-slate-500"><tr><th class="px-3 py-2">采购单号</th><th class="px-3 py-2">供应商</th><th class="px-3 py-2">物料</th><th class="px-3 py-2">数量</th><th class="px-3 py-2">采购状态</th><th class="px-3 py-2">实际下单时间</th><th class="px-3 py-2 text-right">操作</th></tr></thead>
-        <tbody>${pageRows.length > 0 ? pageRows.map((order) => `<tr class="border-t border-slate-100">
-          <td class="px-3 py-3 font-medium">${escapeHtml(order.purchaseOrderNo)}</td>
-          <td class="px-3 py-3">${escapeHtml(order.supplierName)}</td>
-          <td class="px-3 py-3">${order.materialLines.map((line) => `${escapeHtml(line.materialSkuId)} · ${escapeHtml(line.materialName)}`).join('<br>')}</td>
-          <td class="px-3 py-3">${order.materialLines.map((line) => `${line.quantity} ${escapeHtml(line.unit)}`).join('<br>')}</td>
-          <td class="px-3 py-3">${escapeHtml(order.status)}</td>
-          <td class="px-3 py-3">${escapeHtml(order.orderedAt || '未下单')}</td>
-          <td class="px-3 py-3 text-right"><button type="button" class="text-rose-600 hover:underline" data-purchase-action="unbind-order" data-master-order-id="${escapeHtml(masterOrderId)}" data-task-id="${escapeHtml(taskId)}" data-purchase-order-no="${escapeHtml(order.purchaseOrderNo)}">解除绑定</button></td>
-        </tr>`).join('') : '<tr><td colspan="7" class="px-3 py-8 text-center text-slate-400">暂无已绑定采购单</td></tr>'}</tbody>
+        <tbody>${pageRows.length > 0 ? pageRows.map((order) => renderPurchaseOrderRow(order, masterOrderId, taskId)).join('') : '<tr><td colspan="7" class="px-3 py-8 text-center text-slate-400">暂无已绑定采购单</td></tr>'}</tbody>
       </table>
     </div>
     <div class="flex items-center justify-between border-t border-slate-100 px-5 py-3 text-xs text-slate-500">

@@ -167,6 +167,45 @@ setEngineeringPurchaseOrderFacts([
 ])
 assert.equal(reconcileAccessoryPurchaseTaskLinkage(master.masterOrderId, taskId).task.status, '已完成')
 
+// 已绑定采购单后来失去读取权限时，门禁必须回退，且领域返回和页面均不得泄露采购事实详情。
+updateEngineeringPurchaseOrderFact('PO-B', {
+  accessible: false,
+  supplierName: '权限撤销后的秘密供应商',
+  orderedAt: '2099-12-31 23:59:59',
+  materialLines: [{ materialSkuId: 'ACC-B', materialName: '权限撤销后的秘密物料', quantity: 987654321, unit: '秘密单位' }],
+})
+const deniedAfterBinding = reconcileAccessoryPurchaseTaskLinkage(master.masterOrderId, taskId)
+assert.equal(deniedAfterBinding.task.status, '进行中')
+assert.equal(deniedAfterBinding.task.completedAt, '')
+assert.equal(deniedAfterBinding.task.effectiveCompletedAt, '')
+assert.match(deniedAfterBinding.gate.blockReason, /无权读取.*PO-B/)
+assert.deepEqual(
+  deniedAfterBinding.purchaseOrders.find((order) => order.purchaseOrderNo === 'PO-B'),
+  { purchaseOrderNo: 'PO-B', accessStatus: '无权读取' },
+  '无权采购单的只读领域视图只能保留单号和访问状态',
+)
+const deniedHtml = renderPcsPurchaseTaskDetailPage(taskId)
+assert.match(deniedHtml, /PO-B/)
+assert.match(deniedHtml, /无权读取/)
+assert.doesNotMatch(deniedHtml, /权限撤销后的秘密供应商/)
+assert.doesNotMatch(deniedHtml, /权限撤销后的秘密物料/)
+assert.doesNotMatch(deniedHtml, /987654321/)
+assert.doesNotMatch(deniedHtml, /秘密单位/)
+assert.doesNotMatch(deniedHtml, /2099-12-31 23:59:59/)
+
+updateEngineeringPurchaseOrderFact('PO-B', { accessible: true, orderedAt: '2026-08-02 16:30:00' })
+const restoredAfterBinding = reconcileAccessoryPurchaseTaskLinkage(master.masterOrderId, taskId)
+assert.equal(restoredAfterBinding.task.status, '已完成')
+assert.equal(restoredAfterBinding.task.completedAt, '2026-08-02 16:30:00')
+const restoredOrder = restoredAfterBinding.purchaseOrders.find((order) => order.purchaseOrderNo === 'PO-B')
+assert.equal(restoredOrder?.accessStatus, '可读取')
+assert.match(restoredOrder?.accessStatus === '可读取' ? restoredOrder.supplierName : '', /秘密供应商/)
+const restoredHtml = renderPcsPurchaseTaskDetailPage(taskId)
+assert.match(restoredHtml, /权限撤销后的秘密供应商/)
+assert.match(restoredHtml, /权限撤销后的秘密物料/)
+assert.match(restoredHtml, /987654321/)
+assert.match(restoredHtml, /2026-08-02 16:30:00/)
+
 const afterUnbind = unbindAccessoryPurchaseOrder(master.masterOrderId, taskId, 'PO-B')
 assert.equal(afterUnbind.gate.complete, false)
 assert.equal(afterUnbind.task.status, '进行中')
