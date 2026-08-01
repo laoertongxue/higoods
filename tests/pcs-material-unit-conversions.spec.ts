@@ -5,8 +5,10 @@ import {
   createMaterialSkuRecord,
   getMaterialArchiveById,
   getMaterialSkuRecordById,
+  listMaterialLogRecordsByMaterialId,
   updateMaterialUnitConversions,
 } from '../src/data/pcs-material-archive-repository.ts'
+import { currentUser } from '../src/pages/tech-pack/context.ts'
 import {
   handlePcsMaterialArchiveDetailEvent,
   handlePcsMaterialArchiveDetailInput,
@@ -50,7 +52,7 @@ assert.ok(sku)
 const added = updateMaterialUnitConversions(
   material.materialId,
   [{ fromUnit: '米', toUnit: '码', factor: 1.0936 }],
-  '买手甲',
+  { id: 'U001', name: 'Budi Santoso' },
 )
 assert.deepEqual(added.unitConversions, [{ fromUnit: '米', toUnit: '码', factor: 1.0936 }], '应能新增米到码换算')
 assert.deepEqual(
@@ -62,10 +64,26 @@ assert.deepEqual(
 const edited = updateMaterialUnitConversions(
   material.materialId,
   [{ fromUnit: '米', toUnit: '码', factor: 1.1 }],
-  '买手甲',
+  { id: 'U001', name: 'Budi Santoso' },
 )
 assert.equal(edited.unitConversions?.[0]?.factor, 1.1, '应能编辑换算系数')
 assert.equal(getMaterialArchiveById(material.materialId)?.unitConversions?.[0]?.factor, 1.1, '刷新读取后应保留编辑结果')
+assert.equal(
+  listMaterialLogRecordsByMaterialId(material.materialId)[0]?.operatorName,
+  'Budi Santoso',
+  '单位换算日志必须记录真实当前买手姓名',
+)
+
+assert.throws(
+  () => updateMaterialUnitConversions(
+    material.materialId,
+    [{ fromUnit: '米', toUnit: '码', factor: 1.2 }],
+    { id: 'PATTERN-001', name: '版师B' },
+  ),
+  /只有买手可以维护单位换算/,
+  '非买手直接调用仓储写入口也必须被拒绝',
+)
+assert.equal(getMaterialArchiveById(material.materialId)?.unitConversions?.[0]?.factor, 1.1, '越权写入不得污染原数据')
 
 for (const [name, conversions, message] of [
   ['非正数系数', [{ fromUnit: '米', toUnit: '码', factor: 0 }], /换算系数必须大于 0/],
@@ -81,7 +99,7 @@ for (const [name, conversions, message] of [
   ],
 ] as const) {
   assert.throws(
-    () => updateMaterialUnitConversions(material.materialId, conversions, '买手甲'),
+    () => updateMaterialUnitConversions(material.materialId, conversions, { id: 'U001', name: 'Budi Santoso' }),
     message,
     `${name}必须阻断`,
   )
@@ -105,10 +123,22 @@ function fieldTarget(field: string, value: string, conversionIndex: string): Ele
 }
 
 resetPcsMaterialArchiveDetailState()
-updateMaterialUnitConversions(material.materialId, [], '买手甲')
+updateMaterialUnitConversions(material.materialId, [], { id: 'U001', name: 'Budi Santoso' })
 let html = renderPcsMaterialArchiveDetailPage('fabric', material.materialId)
 assert.match(html, /维护单位换算/, '物料详情必须提供可达的单位换算维护入口')
 assert.match(html, /¥12\.3456/, '标准单价必须按人民币 4 位小数展示')
+
+const originalCurrentUser = { ...currentUser }
+currentUser.id = 'PATTERN-001'
+currentUser.name = '版师B'
+html = renderPcsMaterialArchiveDetailPage('fabric', material.materialId)
+assert.doesNotMatch(html, /维护单位换算/, '非买手详情页不得展示单位换算维护入口')
+assert.equal(
+  handlePcsMaterialArchiveDetailEvent(actionTarget('open-unit-conversions', { materialId: material.materialId })),
+  false,
+  '非买手即使伪造页面动作也不能打开维护抽屉',
+)
+Object.assign(currentUser, originalCurrentUser)
 
 assert.equal(handlePcsMaterialArchiveDetailEvent(actionTarget('open-unit-conversions', { materialId: material.materialId })), true)
 html = renderPcsMaterialArchiveDetailPage('fabric', material.materialId)
@@ -136,7 +166,7 @@ assert.equal(handlePcsMaterialArchiveDetailEvent(actionTarget('delete-unit-conve
 assert.equal(handlePcsMaterialArchiveDetailEvent(actionTarget('submit-unit-conversions')), true)
 assert.deepEqual(getMaterialArchiveById(material.materialId)?.unitConversions, [], '页面应支持删除换算关系')
 
-const deleted = updateMaterialUnitConversions(material.materialId, [], '买手甲')
+const deleted = updateMaterialUnitConversions(material.materialId, [], { id: 'U001', name: 'Budi Santoso' })
 assert.deepEqual(deleted.unitConversions, [], '仓储应支持删除全部换算关系')
 assert.deepEqual(getMaterialSkuRecordById(sku.materialSkuId)?.unitConversions, [], '删除后 SKU 换算事实也应同步')
 

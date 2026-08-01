@@ -1,5 +1,6 @@
 import { buildTechnicalVersionListByStyle } from './pcs-technical-data-version-view-model.ts'
 import { listStyleArchives } from './pcs-style-archive-repository.ts'
+import { getTechPackReviewerById } from './pcs-tech-pack-reviewer-directory.ts'
 import type {
   MaterialArchiveKind,
   MaterialArchiveRecord,
@@ -1115,8 +1116,13 @@ export function getMaterialSkuRecordById(materialSkuId: string): MaterialSkuReco
 export function updateMaterialUnitConversions(
   materialId: string,
   conversions: MaterialArchiveRecord['unitConversions'],
-  operatorName = '系统演示',
+  operator: { id: string; name: string },
 ): MaterialArchiveRecord {
+  const reviewer = getTechPackReviewerById(operator.id)
+  if (!reviewer?.roles.includes('买手')) {
+    throw new Error('只有买手可以维护单位换算。')
+  }
+  const operatorName = reviewer.reviewerName
   const snapshot = loadSnapshot()
   const material = snapshot.records.find((item) => item.materialId === materialId)
   if (!material) throw new Error('未找到对应物料主档。')

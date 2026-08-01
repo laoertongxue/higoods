@@ -6,7 +6,9 @@ import {
   updateMaterialUnitConversions,
 } from '../data/pcs-material-archive-repository.ts'
 import type { MaterialArchiveKind, MaterialArchiveRecord, MaterialUnitConversion } from '../data/pcs-material-archive-types.ts'
+import { getTechPackReviewerById } from '../data/pcs-tech-pack-reviewer-directory.ts'
 import { escapeHtml } from '../utils.ts'
+import { currentUser } from './tech-pack/context.ts'
 import {
   handlePcsMaterialArchiveEvent,
   handlePcsMaterialArchiveInput,
@@ -35,6 +37,10 @@ const unitConversionState: {
 
 function getAllowedUnits(material: MaterialArchiveRecord): string[] {
   return [...new Set([material.mainUnit, ...material.auxiliaryUnits, material.pricingUnit].filter(Boolean))]
+}
+
+function canCurrentUserMaintainUnitConversions(): boolean {
+  return Boolean(getTechPackReviewerById(currentUser.id)?.roles.includes('买手'))
 }
 
 function renderUnitSelect(field: string, value: string, index: number, units: string[]): string {
@@ -66,7 +72,7 @@ function renderUnitConversionRows(material: MaterialArchiveRecord): string {
 }
 
 function renderUnitConversionDrawer(): string {
-  if (!unitConversionState.open || !unitConversionState.materialId) return ''
+  if (!canCurrentUserMaintainUnitConversions() || !unitConversionState.open || !unitConversionState.materialId) return ''
   const material = getMaterialArchiveById(unitConversionState.materialId)
   if (!material) return ''
   return `
@@ -98,6 +104,7 @@ function refreshUnitConversionRows(): void {
 }
 
 function openUnitConversionEditor(materialId: string): boolean {
+  if (!canCurrentUserMaintainUnitConversions()) return false
   const material = getMaterialArchiveById(materialId)
   if (!material) return false
   unitConversionState.open = true
@@ -122,13 +129,17 @@ function closeUnitConversionEditor(): void {
 }
 
 function submitUnitConversions(): void {
+  if (!canCurrentUserMaintainUnitConversions()) {
+    unitConversionState.notice = '只有买手可以维护单位换算。'
+    return
+  }
   const conversions: MaterialUnitConversion[] = unitConversionState.rows.map((row) => ({
     fromUnit: row.fromUnit,
     toUnit: row.toUnit,
     factor: Number.parseFloat(row.factor),
   }))
   try {
-    updateMaterialUnitConversions(unitConversionState.materialId, conversions, '当前买手')
+    updateMaterialUnitConversions(unitConversionState.materialId, conversions, currentUser)
     closeUnitConversionEditor()
   } catch (error) {
     unitConversionState.notice = error instanceof Error ? error.message : '保存单位换算失败。'
@@ -167,10 +178,12 @@ export function resetPcsMaterialArchiveDetailState(): void {
 
 export function renderPcsMaterialArchiveDetailPage(kind: MaterialArchiveKind, materialId: string): string {
   let html = upgradeStandardPricePrecision(renderBaseMaterialArchiveDetailPage(kind, materialId), materialId)
-  html = html.replace(
-    /(<button[^>]*data-pcs-material-archive-action="open-log"[^>]*>)/,
-    `${renderEntryButton(materialId)}$1`,
-  )
+  if (canCurrentUserMaintainUnitConversions()) {
+    html = html.replace(
+      /(<button[^>]*data-pcs-material-archive-action="open-log"[^>]*>)/,
+      `${renderEntryButton(materialId)}$1`,
+    )
+  }
   const drawer = renderUnitConversionDrawer()
   return drawer ? html.replace(/\s*<\/div>\s*$/, `${drawer}</div>`) : html
 }
@@ -178,6 +191,7 @@ export function renderPcsMaterialArchiveDetailPage(kind: MaterialArchiveKind, ma
 export function handlePcsMaterialArchiveDetailInput(target: Element): boolean {
   const fieldNode = target.closest<HTMLElement>('[data-pcs-material-unit-field]')
   if (!fieldNode) return handlePcsMaterialArchiveInput(target)
+  if (!canCurrentUserMaintainUnitConversions()) return false
   const index = Number.parseInt(fieldNode.dataset.conversionIndex || '', 10)
   const row = unitConversionState.rows[index]
   if (!row) return false
@@ -200,11 +214,13 @@ export function handlePcsMaterialArchiveDetailEvent(target: HTMLElement): boolea
     return true
   }
   if (action === 'add-unit-conversion') {
+    if (!canCurrentUserMaintainUnitConversions()) return false
     unitConversionState.rows.push({ fromUnit: '', toUnit: '', factor: '' })
     refreshUnitConversionRows()
     return true
   }
   if (action === 'delete-unit-conversion') {
+    if (!canCurrentUserMaintainUnitConversions()) return false
     const index = Number.parseInt(actionNode.dataset.conversionIndex || '', 10)
     if (!Number.isInteger(index) || !unitConversionState.rows[index]) return false
     unitConversionState.rows.splice(index, 1)
@@ -212,6 +228,7 @@ export function handlePcsMaterialArchiveDetailEvent(target: HTMLElement): boolea
     return true
   }
   if (action === 'submit-unit-conversions') {
+    if (!canCurrentUserMaintainUnitConversions()) return false
     submitUnitConversions()
     return true
   }
