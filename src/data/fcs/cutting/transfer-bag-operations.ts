@@ -6,6 +6,7 @@ import {
   type TransferBagRepackPayload,
   type TransferBagTicketFactSnapshot,
 } from './cutting-runtime-event-ledger.ts'
+import { compareCuttingRuntimeChronologyAscending } from './cutting-runtime-chronology.ts'
 import {
   getBrowserLocalStorage,
   type BrowserStorageLike,
@@ -79,9 +80,7 @@ function eventPayload(event: CuttingRuntimeEvent): Record<string, unknown> {
 function sortedRuntimeEvents(storage: BrowserStorageLike | null): CuttingRuntimeEvent[] {
   return listCuttingRuntimeEvents(storage)
     .filter((event) => event.eventStatus !== '已取消')
-    .sort((left, right) =>
-      left.occurredAt.localeCompare(right.occurredAt)
-      || left.eventId.localeCompare(right.eventId))
+    .sort(compareCuttingRuntimeChronologyAscending)
 }
 
 function repackBagCodes(event: CuttingRuntimeEvent): string[] {
@@ -244,6 +243,7 @@ function resolveTransferBagCurrentUseFromEvents(
   for (let index = 0; index < events.length; index += 1) {
     const event = events[index]
     if (!eventTouchesTransferBag(event, bagCode)) continue
+    if (state.mainStatus === 'DISABLED') continue
     const payload = eventPayload(event)
 
     if (event.eventType === '菲票装袋') {
@@ -437,6 +437,32 @@ function normalizeSubmitTransferBagRepackInput(
   }
 }
 
+function canonicalRepackIntent(input: {
+  sourceBagCodes: string[]
+  results: Array<{ bagCode: string; feiTicketIds: string[] }>
+}): string {
+  return JSON.stringify({
+    sourceBagCodes: unique(input.sourceBagCodes).sort(),
+    results: input.results
+      .map((result) => ({
+        bagCode: result.bagCode.trim(),
+        feiTicketIds: unique(result.feiTicketIds).sort(),
+      }))
+      .sort((left, right) => left.bagCode.localeCompare(right.bagCode, 'zh-CN')),
+  })
+}
+
+function existingRepackIntent(event: CuttingRuntimeEvent): string {
+  const payload = eventPayload(event)
+  return canonicalRepackIntent({
+    sourceBagCodes: records(payload.sourceBags).map((bag) => text(bag.bagCode)),
+    results: records(payload.resultBags).map((bag) => ({
+      bagCode: text(bag.bagCode),
+      feiTicketIds: records(bag.tickets).map((ticket) => text(ticket.feiTicketId)),
+    })),
+  })
+}
+
 function assertRepackSourceTicketComplete(ticket: TransferBagTicketFactSnapshot): void {
   if (!ticket.feiTicketId) throw new Error('来源袋存在无法唯一识别的菲票，不能拆袋重装。')
   if (!ticket.productionOrderNo) throw new Error(`${ticket.feiTicketNo || ticket.feiTicketId} 缺少生产单事实，不能拆袋重装。`)
@@ -454,6 +480,7 @@ export function submitTransferBagRepack(
 ): CuttingRuntimeEvent<'中转袋拆袋重装'> {
   const repackBatchId = input.repackBatchId.trim()
   if (!repackBatchId) throw new Error('重装批次编号不能为空。')
+  const normalizedInput = normalizeSubmitTransferBagRepackInput(input, repackBatchId)
   const idempotencyKey = `transfer-bag-repack:${repackBatchId}`
   const existing = listCuttingRuntimeEvents(storage).find((event) =>
     event.eventStatus !== '已取消'
@@ -463,9 +490,13 @@ export function submitTransferBagRepack(
       || event.refs.repackBatchId?.trim() === repackBatchId
       || text(eventPayload(event).repackBatchId) === repackBatchId
     ))
-  if (existing) return existing as CuttingRuntimeEvent<'中转袋拆袋重装'>
+  if (existing) {
+    if (existingRepackIntent(existing) !== canonicalRepackIntent(normalizedInput)) {
+      throw new Error('重装批次已存在且请求内容不一致。')
+    }
+    return existing as CuttingRuntimeEvent<'中转袋拆袋重装'>
+  }
 
-  const normalizedInput = normalizeSubmitTransferBagRepackInput(input, repackBatchId)
   const sourceBagCodes = normalizedInput.sourceBagCodes
   if (!sourceBagCodes.length) throw new Error('来源袋编号不能为空。')
   const sourceUses = sourceBagCodes.map((bagCode) => resolveTransferBagCurrentUse(bagCode, storage))

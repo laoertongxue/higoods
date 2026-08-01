@@ -13,9 +13,9 @@ import {
   type HandoverRecordSubmitPayload,
   type SpecialCraftHandoverPayload,
   type SpecialCraftReturnPayload,
-  type TransferBagRepackPayload,
   type TransferBagTicketFactSnapshot,
 } from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
+import { compareCuttingRuntimeChronologyAscending } from '../../../data/fcs/cutting/cutting-runtime-chronology.ts'
 import {
   getBrowserLocalStorage,
   type BrowserStorageLike,
@@ -352,9 +352,7 @@ function inferWaitHandoverEventCycleIds(
 ): Map<string, string> {
   const result = new Map<string, string>()
   let currentCycleId = ''
-  for (const event of [...events].sort((left, right) =>
-    left.occurredAt.localeCompare(right.occurredAt)
-    || left.eventId.localeCompare(right.eventId))) {
+  for (const event of [...events].sort(compareCuttingRuntimeChronologyAscending)) {
     if (!isWaitHandoverBagEventForCode(event, bagCode)) continue
     const declaredCycleId = getWaitHandoverBagEventUsageCycleId(event, bagCode)
     if (event.eventType === '菲票装袋') {
@@ -388,6 +386,8 @@ function toWaitHandoverLifecycleFact(
           factType,
           usageCycleId,
           occurredAt: event.occurredAt,
+          ledgerSequence: event.ledgerSequence,
+          createdAt: event.createdAt,
         }
       : null
   }
@@ -413,6 +413,8 @@ function toWaitHandoverLifecycleFact(
     usageCycleId,
     handoverLegId: event.refs.handoverLegId,
     occurredAt: event.occurredAt,
+    ledgerSequence: event.ledgerSequence,
+    createdAt: event.createdAt,
   }
 }
 
@@ -422,6 +424,7 @@ export function listWaitHandoverLifecycleFacts(
 ): TransferBagLifecycleFact[] {
   const events = listCuttingRuntimeEvents(storage)
     .filter((event) => isWaitHandoverBagEventForCode(event, bagCode))
+    .sort(compareCuttingRuntimeChronologyAscending)
   const inferredCycleIds = inferWaitHandoverEventCycleIds(events, bagCode)
   return events
     .map((event) => {
@@ -434,9 +437,7 @@ export function listWaitHandoverLifecycleFacts(
         : null
     })
     .filter((fact): fact is TransferBagLifecycleFact => Boolean(fact))
-    .sort((left, right) =>
-      left.occurredAt.localeCompare(right.occurredAt)
-      || left.factId.localeCompare(right.factId))
+    .sort(compareCuttingRuntimeChronologyAscending)
 }
 
 function listWaitHandoverLifecycleCycles(
@@ -462,9 +463,6 @@ function listWaitHandoverLifecycleCycles(
           candidate.factType === 'PHYSICAL_BAG_RETURNED'
           || candidate.factType === 'REPACK_SOURCE_EMPTIED'
         ))
-      .sort((left, right) =>
-        left.occurredAt.localeCompare(right.occurredAt)
-        || left.factId.localeCompare(right.factId))
       .at(-1)
     const replacedByRepack = events
       .filter((event) =>
@@ -472,9 +470,7 @@ function listWaitHandoverLifecycleCycles(
         && eventTouchesTransferBag(event, bagCode)
         && runtimeString(getWaitHandoverRepackBag(event, 'sourceBags', bagCode)?.usageCycleId) === fact.usageCycleId
         && runtimeString(getWaitHandoverRepackBag(event, 'resultBags', bagCode)?.usageCycleId) !== fact.usageCycleId)
-      .sort((left, right) =>
-        left.occurredAt.localeCompare(right.occurredAt)
-        || left.eventId.localeCompare(right.eventId))
+      .sort(compareCuttingRuntimeChronologyAscending)
       .at(-1)
     const closedAt = closeFact?.occurredAt || replacedByRepack?.occurredAt
     return {
@@ -913,9 +909,7 @@ export function listWaitHandoverRuntimeEvents(
       seen.add(event.eventId)
       return true
     })
-    .sort((left, right) =>
-      right.occurredAt.localeCompare(left.occurredAt, 'zh-CN')
-      || right.eventId.localeCompare(left.eventId, 'zh-CN'))
+    .sort((left, right) => compareCuttingRuntimeChronologyAscending(right, left))
 }
 
 export function buildRuntimeInboundTempBagsFromWaitHandoverEvents(
@@ -991,9 +985,7 @@ export function buildWaitHandoverLocationOccupancyStates(
   const states = new Map<string, WaitHandoverLocationOccupancyState>()
   const events = [...runtimeEvents]
     .filter((event) => event.eventStatus !== '已取消')
-    .sort((left, right) =>
-      left.occurredAt.localeCompare(right.occurredAt, 'zh-CN')
-      || left.eventId.localeCompare(right.eventId, 'zh-CN'))
+    .sort(compareCuttingRuntimeChronologyAscending)
 
   for (const event of events) {
     const payload = runtimeRecord(event.payload)
@@ -1015,12 +1007,16 @@ export function buildWaitHandoverLocationOccupancyStates(
       continue
     }
     if (event.eventType === '中转袋拆袋重装') {
-      const repack = event.payload as TransferBagRepackPayload
-      for (const sourceBag of repack.sourceBags) {
+      const sourceBags = Array.isArray(payload.sourceBags)
+        ? payload.sourceBags.map((item) => runtimeRecord(item))
+        : []
+      for (const sourceBag of sourceBags) {
+        const sourceBagCode = runtimeString(sourceBag.bagCode)
+        if (!sourceBagCode) continue
         const stateKey = findWaitHandoverStateKey(
           states,
-          sourceBag.bagCode,
-          sourceBag.usageCycleId,
+          sourceBagCode,
+          runtimeString(sourceBag.usageCycleId) || undefined,
         )
         if (stateKey) states.delete(stateKey)
       }

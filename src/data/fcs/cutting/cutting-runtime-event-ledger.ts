@@ -2,6 +2,10 @@ import {
   getBrowserLocalStorage,
   type BrowserStorageLike,
 } from '../../browser-storage.ts'
+import {
+  compareCuttingRuntimeChronologyAscending,
+  normalizeCuttingRuntimeLedgerSequence,
+} from './cutting-runtime-chronology.ts'
 
 export const CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY = 'cuttingRuntimeEventLedger'
 
@@ -561,6 +565,7 @@ export interface CuttingRuntimeEvent<
 > {
   eventId: string
   eventNo: string
+  ledgerSequence?: number
   idempotencyKey?: string
   eventType: T
   eventSource: CuttingRuntimeEventSource
@@ -785,6 +790,7 @@ function normalizeEvent(raw: unknown): CuttingRuntimeEvent | null {
   return {
     eventId,
     eventNo: toString(value.eventNo) || eventId,
+    ledgerSequence: normalizeCuttingRuntimeLedgerSequence(value.ledgerSequence),
     idempotencyKey: toString(value.idempotencyKey) || undefined,
     eventType: eventTypeText,
     eventSource: eventSourceText === 'WEB' || eventSourceText === 'MOCK' || eventSourceText === 'WMS' ? eventSourceText : 'PDA',
@@ -820,7 +826,7 @@ function uniqueByEventId(events: CuttingRuntimeEvent[]): CuttingRuntimeEvent[] {
 }
 
 function sortEvents(events: CuttingRuntimeEvent[]): CuttingRuntimeEvent[] {
-  return events.slice().sort((left, right) => right.occurredAt.localeCompare(left.occurredAt, 'zh-CN'))
+  return events.slice().sort((left, right) => compareCuttingRuntimeChronologyAscending(right, left))
 }
 
 function compactDate(value: string): string {
@@ -920,10 +926,19 @@ export function appendCuttingRuntimeEvent<T extends CuttingRuntimeEventType>(
     input.refs,
     input.payload,
   )
+  const store = hydrateCuttingRuntimeEventLedgerStore(storage)
+  const ledgerSequence = store.events.reduce(
+    (maximum, event) => Math.max(
+      maximum,
+      normalizeCuttingRuntimeLedgerSequence(event.ledgerSequence) || 0,
+    ),
+    0,
+  ) + 1
   const eventId = buildCuttingRuntimeEventId(input.eventType, refs, occurredAt)
   const event: CuttingRuntimeEvent = {
     eventId,
     eventNo: `${eventTypeCode(input.eventType)}-${compactDate(occurredAt)}`,
+    ledgerSequence,
     idempotencyKey: input.idempotencyKey,
     eventType: input.eventType,
     eventSource: input.eventSource || 'PDA',
@@ -939,7 +954,6 @@ export function appendCuttingRuntimeEvent<T extends CuttingRuntimeEventType>(
     inventoryEffect: input.inventoryEffect,
     payload,
   }
-  const store = hydrateCuttingRuntimeEventLedgerStore(storage)
   persistCuttingRuntimeEventLedgerStore({
     events: sortEvents(uniqueByEventId([event, ...store.events.filter((item) => item.eventId !== event.eventId)])),
   }, storage)

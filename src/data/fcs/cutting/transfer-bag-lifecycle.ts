@@ -1,3 +1,5 @@
+import { compareCuttingRuntimeChronologyAscending } from './cutting-runtime-chronology.ts'
+
 export type TransferBagMainStatusKey =
   | 'IDLE'
   | 'IN_USE'
@@ -47,6 +49,8 @@ export interface TransferBagLifecycleFact {
   usageCycleId?: string
   handoverLegId?: string
   occurredAt: string
+  ledgerSequence?: number
+  createdAt?: string
 }
 
 export interface TransferBagLifecycleInput {
@@ -99,10 +103,7 @@ const LIFECYCLE_STAGE_FACT_TYPES = new Set<TransferBagLifecycleFactType>([
 function sortByTimeAndId<T extends { occurredAt: string; factId: string }>(
   items: T[],
 ): T[] {
-  return [...items].sort((left, right) => {
-    const time = left.occurredAt.localeCompare(right.occurredAt)
-    return time || left.factId.localeCompare(right.factId)
-  })
+  return [...items].sort(compareCuttingRuntimeChronologyAscending)
 }
 
 function sortCycles(

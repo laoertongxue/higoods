@@ -229,6 +229,87 @@ function appendLegacyBaggingConfirm(input: {
 
 {
   const storage = createMemoryStorage()
+  const disabledTicket = ticket('DISABLED-1', 'PO-DISABLED', 'F-DISABLED')
+  appendCuttingRuntimeEvent({
+    eventType: '中转袋报废',
+    eventSource: 'WEB',
+    eventStatus: '已同步',
+    occurredAt: '2026-08-01 08:00',
+    operatorName: '资产管理员',
+    refs: { transferBagCode: 'BAG-DISABLED-TERMINAL' },
+    payload: { bagCode: 'BAG-DISABLED-TERMINAL' },
+  }, storage)
+  assert.equal(resolveTransferBagCurrentUse('BAG-DISABLED-TERMINAL', storage).mainStatus, 'DISABLED')
+
+  appendBagging({
+    storage,
+    bagCode: 'BAG-DISABLED-TERMINAL',
+    usageCycleId: 'usage:BAG-DISABLED-TERMINAL:invalid-bagging',
+    tickets: [disabledTicket],
+    occurredAt: '2026-08-01 09:00',
+  })
+  let disabled = resolveTransferBagCurrentUse('BAG-DISABLED-TERMINAL', storage)
+  assert.deepEqual(
+    [disabled.mainStatus, disabled.tickets, disabled.flowStage],
+    ['DISABLED', [], null],
+    '报废终态不得被后续装袋复活',
+  )
+
+  appendCuttingRuntimeEvent({
+    eventType: '中转袋拆袋重装',
+    eventSource: 'WEB',
+    eventStatus: '已同步',
+    occurredAt: '2026-08-01 10:00',
+    operatorName: '异常重装员',
+    refs: {
+      repackBatchId: 'REPACK-DISABLED-INVALID',
+      transferBagCodes: ['BAG-SOURCE-INVALID', 'BAG-DISABLED-TERMINAL'],
+      feiTicketIds: ['DISABLED-1'],
+    },
+    payload: {
+      repackBatchId: 'REPACK-DISABLED-INVALID',
+      sourceBags: [],
+      resultBags: [{
+        bagCode: 'BAG-DISABLED-TERMINAL',
+        usageCycleId: 'usage:BAG-DISABLED-TERMINAL:invalid-repack',
+        reusedSourceBag: false,
+        tickets: [disabledTicket],
+      }],
+      movedTickets: [],
+      confirmedAt: '2026-08-01 10:00',
+      confirmedBy: '异常重装员',
+    },
+  }, storage)
+  disabled = resolveTransferBagCurrentUse('BAG-DISABLED-TERMINAL', storage)
+  assert.deepEqual(
+    [disabled.mainStatus, disabled.tickets, disabled.flowStage],
+    ['DISABLED', [], null],
+    '报废终态不得被后续重装复活',
+  )
+
+  appendCuttingRuntimeEvent({
+    eventType: '中转袋回收',
+    eventSource: 'WEB',
+    eventStatus: '已同步',
+    occurredAt: '2026-08-01 11:00',
+    operatorName: '异常回收员',
+    refs: { transferBagCode: 'BAG-DISABLED-TERMINAL' },
+    payload: {
+      bagCode: 'BAG-DISABLED-TERMINAL',
+      physicalBagReceived: true,
+      physicalBagEmpty: true,
+    },
+  }, storage)
+  disabled = resolveTransferBagCurrentUse('BAG-DISABLED-TERMINAL', storage)
+  assert.deepEqual(
+    [disabled.mainStatus, disabled.tickets, disabled.flowStage],
+    ['DISABLED', [], null],
+    '报废终态不得被后续回收清回空闲',
+  )
+}
+
+{
+  const storage = createMemoryStorage()
   seedTwoSourceBags(storage)
   assertRejectedWithoutWriting(storage,
     () => submitTransferBagRepack(repackInput({
@@ -411,11 +492,45 @@ function appendLegacyBaggingConfirm(input: {
   appendBagging({ storage, bagCode: 'BAG-UNRELATED', usageCycleId: 'usage:BAG-UNRELATED:old', tickets: unrelated })
   appendInbound({ storage, bagCode: 'BAG-UNRELATED', usageCycleId: 'usage:BAG-UNRELATED:old', tickets: unrelated })
   const first = submitTransferBagRepack(repackInput(), storage)
-  const retry = submitTransferBagRepack(repackInput({ repackBatchId: ' REPACK-2-TO-2 ' }), storage)
+  const retry = submitTransferBagRepack(repackInput({
+    repackBatchId: ' REPACK-2-TO-2 ',
+    sourceBagCodes: [' BAG-B ', ' BAG-A '],
+    results: [
+      { bagCode: ' BAG-NEW ', feiTicketIds: [' B2 ', ' B1 '] },
+      { bagCode: ' BAG-A ', feiTicketIds: [' A2 ', ' A1 '] },
+    ],
+  }), storage)
   const repackEvents = listCuttingRuntimeEvents(storage).filter((event) => event.eventType === '中转袋拆袋重装')
   const repackPayload = repackEvents[0].payload as TransferBagRepackPayload
   assert.equal(first.eventId, retry.eventId)
   assert.equal(repackEvents.length, 1, '同一重装批次重试只能保留一条事件')
+  assertRejectedWithoutWriting(storage,
+    () => submitTransferBagRepack(repackInput({
+      sourceBagCodes: ['BAG-A'],
+    }), storage),
+    /重装批次已存在且请求内容不一致/,
+    '相同批次改变来源袋集合必须失败',
+  )
+  assertRejectedWithoutWriting(storage,
+    () => submitTransferBagRepack(repackInput({
+      results: [
+        { bagCode: 'BAG-A', feiTicketIds: ['A1', 'A2'] },
+        { bagCode: 'BAG-OTHER', feiTicketIds: ['B1', 'B2'] },
+      ],
+    }), storage),
+    /重装批次已存在且请求内容不一致/,
+    '相同批次改变结果袋必须失败',
+  )
+  assertRejectedWithoutWriting(storage,
+    () => submitTransferBagRepack(repackInput({
+      results: [
+        { bagCode: 'BAG-A', feiTicketIds: ['B1', 'B2'] },
+        { bagCode: 'BAG-NEW', feiTicketIds: ['A1', 'A2'] },
+      ],
+    }), storage),
+    /重装批次已存在且请求内容不一致/,
+    '相同批次改变结果袋菲票映射必须失败',
+  )
   assert.equal(repackPayload.sourceBags.length, 2)
   assert.equal(repackPayload.resultBags.length, 2)
   assert(repackPayload.resultBags.some((bag) => bag.bagCode === 'BAG-A' && bag.reusedSourceBag))
@@ -482,58 +597,126 @@ function appendLegacyBaggingConfirm(input: {
 
 {
   const storage = createMemoryStorage()
-  const source = [ticket('ORDER-1', 'PO-ORDER', 'F-ORDER')]
+  const source = [ticket('SAME-TIME-1', 'PO-SAME-TIME', 'F-SAME-TIME')]
+  const occurredAt = '2026-08-01 08:00'
   const bagging = appendBagging({
     storage,
-    bagCode: 'BAG-ORDER',
-    usageCycleId: 'usage:BAG-ORDER:old',
+    bagCode: 'BAG-SAME-TIME',
+    usageCycleId: 'usage:BAG-SAME-TIME:old',
     tickets: source,
+    occurredAt,
+  })
+  const inbound = appendInbound({
+    storage,
+    bagCode: 'BAG-SAME-TIME',
+    usageCycleId: 'usage:BAG-SAME-TIME:old',
+    tickets: source,
+    occurredAt,
   })
   const repack = submitTransferBagRepack({
     repackBatchId: 'REPACK-SAME-TIME',
-    sourceBagCodes: ['BAG-ORDER'],
-    results: [{ bagCode: 'BAG-ORDER', feiTicketIds: ['ORDER-1'] }],
+    sourceBagCodes: ['BAG-SAME-TIME'],
+    results: [{ bagCode: 'BAG-SAME-TIME', feiTicketIds: ['SAME-TIME-1'] }],
     operator,
     source: 'WEB',
-    occurredAt: '2026-08-01 08:00',
+    occurredAt,
   }, storage)
-  const normalizedBagging = { ...bagging, eventId: 'event-a-bagging', occurredAt: '2026-08-01 08:00' }
-  const normalizedRepack = { ...repack, eventId: 'event-z-repack', occurredAt: '2026-08-01 08:00' }
-  const forward = createMemoryStorage()
+  assert.equal(repack.eventId.localeCompare(inbound.eventId) < 0, true, '真实重装 eventId 字典序早于入仓，不能充当因果序号')
+  const actualEvents = listCuttingRuntimeEvents(storage)
+  assert.deepEqual(
+    [bagging, inbound, repack].map((event) => event.ledgerSequence),
+    [1, 2, 3],
+    '同步连续追加也必须取得单调账本序号',
+  )
+  assert.deepEqual(
+    actualEvents.map((event) => event.ledgerSequence).sort((left, right) => Number(left) - Number(right)),
+    [1, 2, 3],
+    '账本序列化和反序列化必须保留因果序号',
+  )
   const reverse = createMemoryStorage()
-  forward.setItem?.('cuttingRuntimeEventLedger', JSON.stringify({ events: [normalizedBagging, normalizedRepack] }))
-  reverse.setItem?.('cuttingRuntimeEventLedger', JSON.stringify({ events: [normalizedRepack, normalizedBagging] }))
-  const forwardUse = resolveTransferBagCurrentUse('BAG-ORDER', forward)
-  const reverseUse = resolveTransferBagCurrentUse('BAG-ORDER', reverse)
+  reverse.setItem?.('cuttingRuntimeEventLedger', JSON.stringify({ events: [...actualEvents].reverse() }))
+  const forwardUse = resolveTransferBagCurrentUse('BAG-SAME-TIME', storage)
+  const reverseUse = resolveTransferBagCurrentUse('BAG-SAME-TIME', reverse)
   assert.deepEqual(reverseUse, forwardUse, '同时间当前关系投影不得依赖原始输入顺序')
-  assert.equal(forwardUse.flowStage, 'READY_HANDOVER')
+  assert.equal(forwardUse.flowStage, 'READY_HANDOVER', '同时间真实追加顺序必须以重装结果为最后因果事实')
+  assert.deepEqual(
+    listWaitHandoverLifecycleFacts('BAG-SAME-TIME', storage).map((fact) => fact.factType),
+    ['BAGGING_CONFIRMED', 'INBOUND_CONFIRMED', 'REPACK_RESULT_CONFIRMED'],
+    '同时间生命周期事实也必须保留真实追加因果顺序',
+  )
+  assert.deepEqual(
+    listWaitHandoverLifecycleFacts('BAG-SAME-TIME', reverse).map((fact) => fact.factType),
+    ['BAGGING_CONFIRMED', 'INBOUND_CONFIRMED', 'REPACK_RESULT_CONFIRMED'],
+    '同时间生命周期事实正逆输入必须一致',
+  )
+  assert.equal(buildWaitHandoverLifecycleByBagCode('BAG-SAME-TIME', storage).flowStage, 'READY_HANDOVER')
+  assert.equal(buildWaitHandoverLifecycleByBagCode('BAG-SAME-TIME', reverse).flowStage, 'READY_HANDOVER')
+  const occupancyForward = buildWaitHandoverLocationOccupancyStates([bagging, inbound, repack])
+  const occupancyReverse = buildWaitHandoverLocationOccupancyStates([repack, inbound, bagging])
+  assert.deepEqual(occupancyReverse, occupancyForward, '同时间库位投影不得依赖原始输入顺序')
+  assert.deepEqual(occupancyForward, [], '同时间真实追加顺序必须由重装清除来源袋库位')
+
+  const oldEvents = actualEvents.map(({ ledgerSequence: _ledgerSequence, ...event }) => event)
+  const oldForward = createMemoryStorage()
+  const oldReverse = createMemoryStorage()
+  oldForward.setItem?.('cuttingRuntimeEventLedger', JSON.stringify({ events: oldEvents }))
+  oldReverse.setItem?.('cuttingRuntimeEventLedger', JSON.stringify({ events: [...oldEvents].reverse() }))
+  assert.deepEqual(
+    resolveTransferBagCurrentUse('BAG-SAME-TIME', oldReverse),
+    resolveTransferBagCurrentUse('BAG-SAME-TIME', oldForward),
+    '旧事件缺少账本序号时仍须由 createdAt 和真实 eventId 确定性兜底',
+  )
 }
 
 {
   const storage = createMemoryStorage()
-  const source = [ticket('LOCATION-1', 'PO-LOCATION', 'F-LOCATION')]
-  appendBagging({ storage, bagCode: 'BAG-LOCATION', usageCycleId: 'usage:BAG-LOCATION:old', tickets: source })
-  const inbound = appendInbound({
+  const unrelated = [ticket('CORRUPT-UNRELATED-1', 'PO-CORRUPT-UNRELATED', 'F-CORRUPT-UNRELATED')]
+  appendBagging({
     storage,
-    bagCode: 'BAG-LOCATION',
-    usageCycleId: 'usage:BAG-LOCATION:old',
-    tickets: source,
+    bagCode: 'BAG-CORRUPT-UNRELATED',
+    usageCycleId: 'usage:BAG-CORRUPT-UNRELATED:old',
+    tickets: unrelated,
+    occurredAt: '2026-08-01 08:00',
+  })
+  appendInbound({
+    storage,
+    bagCode: 'BAG-CORRUPT-UNRELATED',
+    usageCycleId: 'usage:BAG-CORRUPT-UNRELATED:old',
+    tickets: unrelated,
     occurredAt: '2026-08-01 08:10',
   })
-  const repack = submitTransferBagRepack({
-    repackBatchId: 'REPACK-LOCATION-SAME-TIME',
-    sourceBagCodes: ['BAG-LOCATION'],
-    results: [{ bagCode: 'BAG-LOCATION-NEW', feiTicketIds: ['LOCATION-1'] }],
-    operator,
-    source: 'WEB',
-    occurredAt: '2026-08-01 08:10',
-  }, storage)
-  const normalizedInbound = { ...inbound, eventId: 'event-a-inbound', occurredAt: '2026-08-01 08:10' }
-  const normalizedRepack = { ...repack, eventId: 'event-z-repack', occurredAt: '2026-08-01 08:10' }
-  const forward = buildWaitHandoverLocationOccupancyStates([normalizedInbound, normalizedRepack])
-  const reverse = buildWaitHandoverLocationOccupancyStates([normalizedRepack, normalizedInbound])
-  assert.deepEqual(reverse, forward, '同时间库位投影不得依赖原始输入顺序')
-  assert.deepEqual(forward, [], '同时间事件按 eventId 折叠后来源袋库位应清空')
+  appendCuttingRuntimeEvent({
+    eventType: '中转袋拆袋重装',
+    eventSource: 'WEB',
+    eventStatus: '已同步',
+    occurredAt: '2026-08-01 09:00',
+    operatorName: '旧版数据导入',
+    refs: { repackBatchId: 'REPACK-CORRUPT-MISSING' },
+    payload: { repackBatchId: 'REPACK-CORRUPT-MISSING' },
+  } as Parameters<typeof appendCuttingRuntimeEvent>[0], storage)
+  appendCuttingRuntimeEvent({
+    eventType: '中转袋拆袋重装',
+    eventSource: 'WEB',
+    eventStatus: '已同步',
+    occurredAt: '2026-08-01 09:10',
+    operatorName: '损坏数据导入',
+    refs: { repackBatchId: 'REPACK-CORRUPT-NON-ARRAY' },
+    payload: {
+      repackBatchId: 'REPACK-CORRUPT-NON-ARRAY',
+      sourceBags: 'not-an-array',
+      resultBags: { bagCode: 'not-an-array' },
+    },
+  } as Parameters<typeof appendCuttingRuntimeEvent>[0], storage)
+  const events = listCuttingRuntimeEvents(storage)
+  assert.doesNotThrow(
+    () => buildWaitHandoverRuntimeProjection([], storage),
+    '损坏或旧版重装载荷不得导致运行投影崩溃',
+  )
+  assert.deepEqual(
+    buildWaitHandoverLocationOccupancyStates(events).map((state) => state.bagCode),
+    ['BAG-CORRUPT-UNRELATED'],
+    '损坏重装部分应跳过且保留无关袋占位',
+  )
 }
 
 {
