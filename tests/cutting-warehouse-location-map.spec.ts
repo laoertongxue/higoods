@@ -1,8 +1,8 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { listPdaCuttingTaskSourceRecords } from '../src/data/fcs/cutting/pda-cutting-task-source.ts'
 
 const WAIT_PROCESS_PATH = '/fcs/craft/cutting/warehouse-management/wait-process'
 const WAIT_HANDOVER_PATH = '/fcs/craft/cutting/warehouse-management/wait-handover'
+const PDA_CUTTING_TASK_ID = 'TASK-CUT-PDA-NO-PICKUP-0301'
 
 test.setTimeout(600_000)
 
@@ -29,7 +29,7 @@ async function resetWarehouseMapStores(page: Page): Promise<void> {
 
 async function openWarehouseMap(page: Page, path: string): Promise<void> {
   await page.goto(`${path}${path.includes('?') ? '&' : '?'}tab=locations`, { waitUntil: 'domcontentloaded' })
-  await expect(page.locator('[data-warehouse-map-root]')).toBeVisible({ timeout: 300_000 })
+  await expect(page.locator('[data-warehouse-map-root]').first()).toBeVisible({ timeout: 300_000 })
 }
 
 async function openStandaloneShelfMaintenanceDialog(page: Page): Promise<void> {
@@ -111,6 +111,68 @@ async function openControlledPdaPickup(page: Page): Promise<void> {
     document.body.addEventListener('click', (event) => {
       const target = event.target instanceof HTMLElement ? event.target : null
       if (target) module.handlePdaWarehouseWaitProcessEvent(target)
+    })
+  })
+}
+
+async function openControlledPdaSpecialCraftReturn(page: Page, taskId: string): Promise<void> {
+  await page.goto('/src/pages/pda-cutting-handover.ts', { waitUntil: 'domcontentloaded' })
+  await page.evaluate(async ({ taskId }) => {
+    const pda = await import('/src/data/fcs/store-domain-pda.ts')
+    const user = pda.listFactoryPdaUsers('FACTORY-ONBOARD-0035')[0] || await pda.createFactoryPdaUser({
+      factoryId: 'FACTORY-ONBOARD-0035', name: '裁床仓管', loginId: 'location_e2e_operator', password: '123456', roleId: 'ROLE_OPERATOR',
+    })
+    pda.setPdaSession(pda.createPdaSessionFromUser(user))
+    window.history.replaceState({}, '', `/fcs/pda/cutting/handover/${taskId}?action=special-craft-return`)
+    const module = await import('/src/pages/pda-cutting-handover.ts')
+    document.body.innerHTML = module.renderPdaCuttingHandoverPage(taskId)
+    const dispatch = (event: Event) => {
+      const target = event.target instanceof HTMLElement ? event.target : null
+      if (target) module.handlePdaCuttingHandoverEvent(target, event)
+    }
+    document.body.addEventListener('click', dispatch)
+    document.body.addEventListener('input', dispatch)
+    document.body.addEventListener('keydown', dispatch)
+  }, { taskId })
+}
+
+async function openControlledPdaIssueWithMultipleBatches(page: Page): Promise<void> {
+  await page.goto('/src/pages/pda-warehouse-wait-process.ts', { waitUntil: 'domcontentloaded' })
+  await page.evaluate(async () => {
+    const pda = await import('/src/data/fcs/store-domain-pda.ts')
+    const user = pda.listFactoryPdaUsers('FACTORY-ONBOARD-0035')[0] || await pda.createFactoryPdaUser({
+      factoryId: 'FACTORY-ONBOARD-0035', name: '裁床仓管', loginId: 'location_e2e_operator', password: '123456', roleId: 'ROLE_OPERATOR',
+    })
+    pda.setPdaSession(pda.createPdaSessionFromUser(user))
+    const ledger = await import('/src/data/fcs/cutting/cutting-runtime-event-ledger.ts')
+    const material = await import('/src/data/fcs/cutting/material-ledger.ts')
+    const warehouse = await import('/src/pages/pda-warehouse-shared.ts')
+    const layout = await import('/src/pages/process-factory/cutting/warehouse-location-layout-store.ts')
+    const model = await import('/src/pages/process-factory/cutting/warehouse-location-map-model.ts')
+    const row = material.listMaterialLedgerProjections().find((item) => item.availableQty > 0)
+      || material.listMaterialLedgerProjections().find((item) => item.cutOrderNo && item.materialIdentity.materialSku)
+    const currentWarehouse = warehouse.getCurrentFactoryWarehouseByKind('WAIT_PROCESS')
+    if (!row || !currentWarehouse) throw new Error('缺少多批次受控源数据')
+    const refs = model.listStableWarehouseLocationRefs(
+      currentWarehouse,
+      layout.loadWarehouseLayoutSnapshot(currentWarehouse).snapshot,
+    ).slice(0, 2)
+    if (refs.length < 2) throw new Error('缺少多批次受控库位')
+    refs.forEach((ref, index) => ledger.appendCuttingRuntimeEvent({
+      eventType: '中转仓领料', operatorName: '浏览器验收仓管', occurredAt: `2026-08-02 10:0${index}`,
+      refs: { cutOrderNo: row.cutOrderNo, productionOrderNo: row.productionOrderNo, handoverRecordId: `E2E-BATCH-${index + 1}:LINE` },
+      material: { materialSku: row.materialIdentity.materialSku, materialName: row.materialIdentity.materialName, materialColor: row.materialIdentity.materialColor },
+      inventoryEffect: { inventoryScope: '裁床待加工仓', direction: 'IN', qty: 10 + index, unit: 'yard', rollCount: 1, toWarehouseArea: ref.areaName, toLocationCode: ref.locationNo },
+      payload: { pickupSessionId: `E2E-BATCH-${index + 1}`, prepLineId: `E2E-BATCH-${index + 1}:LINE`, pickupQty: 10 + index, rollCount: 1, warehouseLocations: [ref], storageFootprint: model.buildWarehouseStorageFootprint([ref], [{ unit: 'yard', qty: 10 + index }]) },
+    }))
+    window.history.replaceState({}, '', '/fcs/pda/warehouse/wait-process?scope=cutting&action=issue')
+    const module = await import('/src/pages/pda-warehouse-wait-process.ts')
+    document.body.innerHTML = module.renderPdaWarehouseWaitProcessPage()
+    document.body.addEventListener('click', (event) => {
+      const target = event.target instanceof HTMLElement ? event.target : null
+      if (target && module.handlePdaWarehouseWaitProcessEvent(target)) {
+        document.body.innerHTML = module.renderPdaWarehouseWaitProcessPage()
+      }
     })
   })
 }
@@ -411,6 +473,10 @@ test('共享库位图大投影视窗末层末位置可达且保留选择与占�
   const root = page.locator('[data-warehouse-map-root]')
   expect(await root.locator('[data-warehouse-map-shelf-viewport] [data-location-id]').count()).toBeLessThanOrEqual(96)
   await expect(root).toContainText('Z-R100-L100-P01')
+  const firstViewportCodes = await root.locator('[data-warehouse-map-shelf-viewport] [data-location-no]').evaluateAll((nodes) =>
+    nodes.slice(0, 16).map((node) => (node as HTMLElement).dataset.locationNo || ''))
+  expect(firstViewportCodes.slice(0, 12)).toEqual(Array.from({ length: 12 }, (_, index) => `Z-R100-L100-P${String(index + 1).padStart(2, '0')}`))
+  expect(firstViewportCodes.slice(12, 16)).toEqual(Array.from({ length: 4 }, (_, index) => `Z-R100-L99-P${String(index + 1).padStart(2, '0')}`))
   await root.locator('[data-warehouse-map-action="viewport-level-page"][data-page-action="last"]').click()
   await root.locator('[data-warehouse-map-action="viewport-position-page"][data-page-action="last"]').click()
   await expect(root).toContainText('Z-R100-L01-P100')
@@ -624,9 +690,59 @@ test('PDA 中转仓领料支持跨区货架层自由多选、任意取消、逐�
     return []
   })
   expect(crossHierarchyLocations).toHaveLength(3)
-  for (const location of crossHierarchyLocations) {
-    await map.locator(`[data-location-id="${location.locationId}"]`).click()
-  }
+  const initialPageScrollY = await page.evaluate(() => {
+    const tracked = window as typeof window & {
+      __selectionRoot?: Element
+      __selectionShell?: Element
+      __selectionScroll?: Element
+      __selectionPageScrollY?: number
+    }
+    tracked.__selectionRoot = document.querySelector('[data-warehouse-map-root]') || undefined
+    tracked.__selectionShell = document.body.firstElementChild || undefined
+    tracked.__selectionScroll = document.querySelector('[data-warehouse-shelf-scroll]') || undefined
+    const scroll = tracked.__selectionScroll as HTMLElement | undefined
+    if (scroll) scroll.scrollLeft = Math.min(24, scroll.scrollWidth - scroll.clientWidth)
+    window.scrollTo(0, Math.min(160, document.documentElement.scrollHeight - window.innerHeight))
+    tracked.__selectionPageScrollY = window.scrollY
+    return window.scrollY
+  })
+  expect(initialPageScrollY).toBeGreaterThan(0)
+  const firstSelectionElapsed = await page.evaluate(async (locationId) => {
+    const button = document.querySelector<HTMLButtonElement>(`[data-pda-cutting-pickup-location-map] [data-location-id="${locationId}"]`)
+    if (!button) throw new Error('缺少首次选位按钮')
+    const startedAt = performance.now()
+    const selectionFeedback = new Promise<void>((resolve, reject) => {
+      const timeout = window.setTimeout(() => reject(new Error('首次选位未及时反馈')), 1_000)
+      const observer = new MutationObserver(() => {
+        if (!document.querySelector('[data-warehouse-map-selected-item]')) return
+        window.clearTimeout(timeout)
+        observer.disconnect()
+        resolve()
+      })
+      observer.observe(document.body, { childList: true, subtree: true })
+    })
+    button.click()
+    await selectionFeedback
+    return performance.now() - startedAt
+  }, crossHierarchyLocations[0].locationId)
+  console.info(`PDA 库位首次选位 DOM 反馈：${firstSelectionElapsed.toFixed(2)}ms`)
+  expect(firstSelectionElapsed).toBeLessThan(200)
+  expect(await page.evaluate(async () => {
+    await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()))
+    const tracked = window as typeof window & {
+      __selectionRoot?: Element
+      __selectionShell?: Element
+      __selectionPageScrollY?: number
+    }
+    return {
+      mapRootLocallyReplaced: tracked.__selectionRoot !== document.querySelector('[data-warehouse-map-root]')
+        && tracked.__selectionRoot?.isConnected === false
+        && Boolean(document.querySelector('[data-warehouse-map-root]')),
+      pageShellPreserved: tracked.__selectionShell === document.body.firstElementChild,
+      pageScrollPreserved: window.scrollY === tracked.__selectionPageScrollY,
+    }
+  })).toEqual({ mapRootLocallyReplaced: true, pageShellPreserved: true, pageScrollPreserved: true })
+  for (const location of crossHierarchyLocations.slice(1)) await map.locator(`[data-location-id="${location.locationId}"]`).click()
   const selectionSummary = map.locator('[data-warehouse-map-selection-summary]')
   const selectedItems = selectionSummary.locator('[data-warehouse-map-selected-item]')
   await expect(selectionSummary).toContainText('已选 3 个库位')
@@ -644,10 +760,44 @@ test('PDA 中转仓领料支持跨区货架层自由多选、任意取消、逐�
   await expect(selectionSummary).toContainText('已选 0 个库位')
 })
 
+test('PDA 扫码异常、特殊工艺回仓和多候选领料批次均走真实页面处理器', async ({ page }) => {
+  await openControlledPdaSpecialCraftReturn(page, PDA_CUTTING_TASK_ID)
+  const specialMap = page.locator('[data-pda-special-craft-return-location-map] [data-warehouse-map-root]')
+  await expect(specialMap).toBeVisible()
+  const available = await specialMap.locator('[data-warehouse-map-action="toggle-location"]:not([disabled])').evaluateAll((nodes) =>
+    nodes.slice(0, 2).map((node) => ({ id: (node as HTMLElement).dataset.locationId || '', no: (node as HTMLElement).dataset.locationNo || '' })))
+  expect(available).toHaveLength(2)
+  const scan = page.locator('[data-pda-cut-handover-field="specialCraftReturnLocationScan"]')
+  await scan.fill(available[0].no)
+  await scan.press('Enter')
+  await expect(specialMap.locator('[data-warehouse-map-selection-summary]')).toContainText(available[0].no)
+  await scan.fill(available[1].no)
+  await scan.press('Enter')
+  await expect(specialMap.locator('[data-warehouse-map-selection-summary]')).toContainText('已选 2 个库位')
+  await scan.fill('Z-R99-L99-P99')
+  await scan.press('Enter')
+  await expect(page.locator('[data-pda-special-craft-return-location-feedback]')).toContainText('不存在')
+  await expect(specialMap.locator('[data-warehouse-map-selection-summary]')).toContainText('已选 2 个库位')
+
+  await openControlledPdaIssueWithMultipleBatches(page)
+  const batch = page.locator('[data-cutting-issue-batch]')
+  await expect(batch).toBeVisible()
+  await expect(batch).toHaveValue('')
+  const labels = await batch.locator('option').allTextContents()
+  expect(labels.filter((label) => label.includes('入仓')).length).toBeGreaterThanOrEqual(2)
+  expect(labels.join(' ')).not.toMatch(/E2E-BATCH|EVENT-|pickupSessionId|sourceEventId/)
+  page.once('dialog', async (dialog) => {
+    expect(dialog.message()).toBe('请选择本次领料批次。')
+    await dialog.accept()
+  })
+  await page.locator('[data-pda-warehouse-action="cutting-wp-issue"]').click()
+  await batch.selectOption({ index: 1 })
+  await page.locator('[data-pda-warehouse-action="cutting-wp-issue"]').click()
+  await expect(page.locator('[data-pda-warehouse-action="confirm-cutting-wp-issue"]')).toBeVisible()
+})
+
 test('PDA 中转袋入仓可点选多个库位、逐项取消并确认完整数组', async ({ page }) => {
-  const taskId = listPdaCuttingTaskSourceRecords()[0]?.taskId
-  expect(taskId).toBeTruthy()
-  await openControlledPdaInbound(page, taskId!)
+  await openControlledPdaInbound(page, PDA_CUTTING_TASK_ID)
   const map = page.locator('[data-pda-inbound-location-map] [data-warehouse-map-root]')
   await expect(map).toBeVisible({ timeout: 300_000 })
   const availableLocations = await map.locator(
@@ -705,12 +855,10 @@ for (const viewport of [
   test(`${viewport.width}×${viewport.height} 库位图不产生页面级横向溢出`, async ({ page }) => {
     await page.setViewportSize(viewport)
     const path = viewport.width <= 390
-      ? `/fcs/pda/cutting/inbound/${listPdaCuttingTaskSourceRecords()[0]?.taskId}?action=inbound-location`
+      ? `/fcs/pda/cutting/inbound/${PDA_CUTTING_TASK_ID}?action=inbound-location`
       : WAIT_PROCESS_PATH
     if (viewport.width <= 390) {
-      const taskId = listPdaCuttingTaskSourceRecords()[0]?.taskId
-      expect(taskId).toBeTruthy()
-      await openControlledPdaInbound(page, taskId!)
+      await openControlledPdaInbound(page, PDA_CUTTING_TASK_ID)
       await expect(page.locator('[data-warehouse-map-root]')).toBeVisible({ timeout: 300_000 })
       await expect(page.getByRole('button', { name: '维护库位图', exact: true })).toHaveCount(0)
     } else {
@@ -718,5 +866,18 @@ for (const viewport of [
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth))
       .toBeLessThanOrEqual(viewport.width)
+    if (viewport.width === 1280) {
+      const shelfScroll = page.locator('[data-warehouse-shelf-scroll]').first()
+      await expect(shelfScroll).toBeVisible()
+      await shelfScroll.evaluate((node) => {
+        const section = node.closest<HTMLElement>('[data-cutting-warehouse-map-section]')
+        if (section) section.style.maxWidth = '640px'
+      })
+      expect(await shelfScroll.evaluate((node) => node.scrollWidth)).toBeGreaterThan(await shelfScroll.evaluate((node) => node.clientWidth))
+      await shelfScroll.evaluate((node) => { node.scrollLeft = node.scrollWidth })
+      expect(await shelfScroll.evaluate((node) => node.scrollLeft)).toBeGreaterThan(0)
+      await expect(page.locator('[data-warehouse-map-action="enter-maintenance"]')).toBeVisible()
+      await expect(page.locator('[data-warehouse-map-action="enter-maintenance"]')).toBeEnabled()
+    }
   })
 }

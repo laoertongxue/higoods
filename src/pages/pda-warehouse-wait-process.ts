@@ -1116,7 +1116,7 @@ function renderCuttingFootprintAdjustmentMap(): string {
 function refreshCuttingFootprintAdjustmentMap(): void {
   if (typeof document === 'undefined') return
   const region = document.querySelector<HTMLElement>('[data-pda-cutting-footprint-map]')
-  if (region) region.innerHTML = renderCuttingFootprintAdjustmentMap()
+  replaceRegionHtmlPreservingPageScroll(region, renderCuttingFootprintAdjustmentMap())
 }
 
 function renderCuttingFootprintAdjustmentPage(): string {
@@ -1162,10 +1162,19 @@ function renderCuttingPickupLocationMap(): string {
   })
 }
 
+function replaceRegionHtmlPreservingPageScroll(region: HTMLElement | null, html: string): void {
+  if (!region) return
+  const scrollX = window.scrollX
+  const scrollY = window.scrollY
+  region.innerHTML = html
+  window.scrollTo(scrollX, scrollY)
+  window.requestAnimationFrame(() => window.scrollTo(scrollX, scrollY))
+}
+
 function refreshCuttingPickupLocationMap(): void {
   if (typeof document === 'undefined') return
   const root = document.querySelector<HTMLElement>('[data-pda-cutting-pickup-location-map]')
-  if (root) root.innerHTML = renderCuttingPickupLocationMap()
+  replaceRegionHtmlPreservingPageScroll(root, renderCuttingPickupLocationMap())
 }
 
 function buildPickupUnitSummaries(node: PickupNodeProjection): Array<{ unit: string; qty: number; rollCount: number }> {
@@ -1550,7 +1559,7 @@ function renderCuttingReturnLocationMap(): string {
 function refreshCuttingReturnLocationMap(): void {
   if (typeof document === 'undefined') return
   const region = document.querySelector<HTMLElement>('[data-pda-cutting-return-location-map]')
-  if (region) region.innerHTML = renderCuttingReturnLocationMap()
+  replaceRegionHtmlPreservingPageScroll(region, renderCuttingReturnLocationMap())
 }
 
 function renderCuttingReturnDraftPage(): string {
