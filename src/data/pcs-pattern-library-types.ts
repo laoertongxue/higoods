@@ -140,6 +140,16 @@ export interface PatternAsset {
     assigned_team_name?: string
     assigned_member_name?: string
     buyer_review_status?: string
+    source_master_order_id?: string
+    source_task_id?: string
+    source_material_line_id?: string
+    material_sku?: string
+    product_color?: string
+    process_type?: string
+    result_file_ids?: string[]
+    effect_image_ids?: string[]
+    buyer_reviewed_by?: string
+    buyer_reviewed_at?: string
   }
   reference_count: number
   created_by: string

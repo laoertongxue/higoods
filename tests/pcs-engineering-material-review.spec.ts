@@ -21,6 +21,8 @@ function materialLine(materialLineId: string, materialName: string): Engineering
     materialName,
     materialType: '面料',
     requirementType: '印花',
+    productColor: materialName.includes('蓝色') ? '蓝色' : '红色',
+    printProcess: '数码印花',
     status: '正常',
     resultFileIds: [`file://${materialLineId}.ai`],
     effectImageIds: [`img://${materialLineId}`],

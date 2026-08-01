@@ -4,6 +4,7 @@ import {
   getEngineeringMasterOrderById,
   updateEngineeringTaskRecord,
 } from './pcs-engineering-master-repository.ts'
+import { ensurePatternAssetForEngineeringMaterialLine } from './pcs-pattern-library-archive-linkage.ts'
 import type {
   EngineeringTaskMaterialLine,
   EngineeringTaskRecord,
@@ -169,6 +170,29 @@ export function reviewEngineeringMaterialResults(
   const reviewedAt = nowText()
   const decisionMap = new Map(input.decisions.map((decision) => [decision.materialLineId, decision]))
   const hasRejectedLine = input.decisions.some((decision) => decision.decision === '未通过')
+  const projectedPassedLineIds = new Set([
+    ...activeLines.filter((line) => line.reviewStatus === '通过').map((line) => line.materialLineId),
+    ...input.decisions.filter((decision) => decision.decision === '通过').map((decision) => decision.materialLineId),
+  ])
+  if (!hasRejectedLine && activeLines.some((line) => !projectedPassedLineIds.has(line.materialLineId))) {
+    throw new Error('仍有有效物料行未通过，不能完成任务。')
+  }
+
+  if (task.taskType === 'PATTERN_ARTWORK') {
+    const masterOrder = getEngineeringMasterOrderById(input.masterOrderId)!
+    for (const decision of input.decisions.filter((item) => item.decision === '通过')) {
+      const line = activeLines.find((item) => item.materialLineId === decision.materialLineId)!
+      ensurePatternAssetForEngineeringMaterialLine({
+        masterOrder,
+        task,
+        line,
+        reviewerName,
+        reviewedAt,
+        decision: '通过',
+      })
+    }
+  }
+
   const updated = updateEngineeringTaskRecord(input.masterOrderId, input.taskId, (storedTask) => {
     for (const line of storedTask.materialLines.filter((item) => item.status === '正常' && item.reviewStatus === '待审核')) {
       const decision = decisionMap.get(line.materialLineId)!

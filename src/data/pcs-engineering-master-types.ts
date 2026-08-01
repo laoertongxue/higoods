@@ -71,6 +71,8 @@ export interface EngineeringTaskMaterialLine {
   materialName: string
   materialType: string
   requirementType: EngineeringTaskMaterialRequirementType
+  productColor?: string
+  printProcess?: string
   status: '正常' | '因需求变更结束'
   resultFileIds: string[]
   effectImageIds: string[]
