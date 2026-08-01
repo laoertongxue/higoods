@@ -6,19 +6,25 @@ export type TransferBagMainStatusKey =
 export type TransferBagFlowStageKey =
   | 'PACKED'
   | 'INBOUND_STORED'
+  | 'READY_HANDOVER'
   | 'HANDED_OVER_WAITING_RETURN'
 
 export type TransferBagLifecycleAction =
   | 'BAGGING'
   | 'INBOUND'
+  | 'REPACK'
+  | 'REPACK_TARGET'
   | 'HANDOVER'
   | 'SPECIAL_CRAFT_RETURN'
   | 'PHYSICAL_RETURN'
+  | 'FORCE_RETURN'
   | 'SCRAP'
 
 export type TransferBagLifecycleFactType =
   | 'BAGGING_CONFIRMED'
   | 'INBOUND_CONFIRMED'
+  | 'REPACK_RESULT_CONFIRMED'
+  | 'REPACK_SOURCE_EMPTIED'
   | 'HANDOVER_CONFIRMED'
   | 'SPECIAL_CRAFT_BAG_RETURNED'
   | 'PHYSICAL_BAG_RETURNED'
@@ -58,7 +64,7 @@ export interface TransferBagLifecycleView {
   mainStatus: TransferBagMainStatusKey
   mainStatusLabel: '空闲' | '使用中' | '已报废'
   flowStage: TransferBagFlowStageKey | null
-  flowStageLabel: '菲票已装袋' | '入仓暂存中' | '已交出待回收' | '—'
+  flowStageLabel: '菲票已装袋' | '入仓暂存中' | '待交出' | '已交出待回收' | '—'
   canStartBagging: boolean
   allowedActions: TransferBagLifecycleAction[]
   sourceFactIds: string[]
@@ -76,6 +82,7 @@ export const TRANSFER_BAG_MAIN_STATUS_META = {
 export const TRANSFER_BAG_FLOW_STAGE_META = {
   PACKED: { label: '菲票已装袋' },
   INBOUND_STORED: { label: '入仓暂存中' },
+  READY_HANDOVER: { label: '待交出' },
   HANDED_OVER_WAITING_RETURN: { label: '已交出待回收' },
 } as const satisfies Record<TransferBagFlowStageKey, {
   label: Exclude<TransferBagLifecycleView['flowStageLabel'], '—'>
@@ -84,6 +91,7 @@ export const TRANSFER_BAG_FLOW_STAGE_META = {
 const LIFECYCLE_STAGE_FACT_TYPES = new Set<TransferBagLifecycleFactType>([
   'BAGGING_CONFIRMED',
   'INBOUND_CONFIRMED',
+  'REPACK_RESULT_CONFIRMED',
   'HANDOVER_CONFIRMED',
   'SPECIAL_CRAFT_BAG_RETURNED',
 ])
@@ -117,6 +125,9 @@ function stageFromFact(
   ) {
     return 'INBOUND_STORED'
   }
+  if (fact.factType === 'REPACK_RESULT_CONFIRMED') {
+    return 'READY_HANDOVER'
+  }
   if (fact.factType === 'HANDOVER_CONFIRMED') {
     return 'HANDED_OVER_WAITING_RETURN'
   }
@@ -128,13 +139,15 @@ function allowedActionsFor(
   flowStage: TransferBagFlowStageKey | null,
 ): TransferBagLifecycleAction[] {
   if (mainStatus === 'DISABLED') return []
-  if (mainStatus === 'IDLE') return ['BAGGING', 'SCRAP']
-  if (flowStage === 'PACKED') return ['INBOUND', 'SCRAP']
-  if (flowStage === 'INBOUND_STORED') return ['HANDOVER', 'SCRAP']
-  if (flowStage === 'HANDED_OVER_WAITING_RETURN') {
-    return ['SPECIAL_CRAFT_RETURN', 'PHYSICAL_RETURN', 'SCRAP']
+  if (mainStatus === 'IDLE') return ['BAGGING', 'REPACK_TARGET', 'SCRAP']
+  if (flowStage === 'PACKED') return ['INBOUND', 'REPACK']
+  if (flowStage === 'INBOUND_STORED' || flowStage === 'READY_HANDOVER') {
+    return ['REPACK', 'HANDOVER']
   }
-  return ['SCRAP']
+  if (flowStage === 'HANDED_OVER_WAITING_RETURN') {
+    return ['SPECIAL_CRAFT_RETURN', 'PHYSICAL_RETURN', 'FORCE_RETURN']
+  }
+  return []
 }
 
 function buildView(input: {
@@ -172,6 +185,44 @@ export function deriveTransferBagLifecycle(
 ): TransferBagLifecycleView {
   const sortedCycles = sortCycles(input.cycles)
   const latestCycle = sortedCycles.at(-1)
+  const sourceEmptiedCycleIds = new Set(
+    input.facts
+      .filter((fact) => fact.factType === 'REPACK_SOURCE_EMPTIED')
+      .map((fact) => fact.usageCycleId)
+      .filter((usageCycleId): usageCycleId is string => Boolean(usageCycleId)),
+  )
+  const openCycles = sortedCycles.filter((cycle) =>
+    !cycle.closedAt && !sourceEmptiedCycleIds.has(cycle.usageCycleId),
+  )
+  const openCycle = openCycles.at(-1)
+
+  if (openCycle) {
+    const stageFacts = sortByTimeAndId(
+      input.facts.filter((fact) =>
+        fact.usageCycleId === openCycle.usageCycleId
+        && LIFECYCLE_STAGE_FACT_TYPES.has(fact.factType)),
+    )
+    const latestStageFact = stageFacts.at(-1)
+    const flowStage = stageFromFact(latestStageFact)
+    const compatibilityBlockedReason = !flowStage
+      ? '当前使用周期缺少可确认的装袋、入仓、分装交出或交出事实，请由主管核查历史记录。'
+      : undefined
+
+    return buildView({
+      carrierId: input.carrierId,
+      bagCode: input.bagCode,
+      usageCycleId: openCycle.usageCycleId,
+      activeHandoverLegId:
+        flowStage === 'HANDED_OVER_WAITING_RETURN'
+          ? latestStageFact?.handoverLegId || null
+          : null,
+      mainStatus: 'IN_USE',
+      flowStage,
+      sourceFactIds: stageFacts.map((fact) => fact.factId),
+      compatibilityBlockedReason,
+    })
+  }
+
   const scrapFact = sortByTimeAndId(
     input.facts.filter((fact) => fact.factType === 'BAG_SCRAPPED'),
   ).at(-1)
@@ -187,40 +238,11 @@ export function deriveTransferBagLifecycle(
     })
   }
 
-  const openCycles = sortedCycles.filter((cycle) => !cycle.closedAt)
-  const openCycle = openCycles.at(-1)
-  if (!openCycle) {
-    return buildView({
-      carrierId: input.carrierId,
-      bagCode: input.bagCode,
-      usageCycleId: null,
-      mainStatus: 'IDLE',
-      flowStage: null,
-    })
-  }
-
-  const stageFacts = sortByTimeAndId(
-    input.facts.filter((fact) =>
-      fact.usageCycleId === openCycle.usageCycleId
-      && LIFECYCLE_STAGE_FACT_TYPES.has(fact.factType)),
-  )
-  const latestStageFact = stageFacts.at(-1)
-  const flowStage = stageFromFact(latestStageFact)
-  const compatibilityBlockedReason = !flowStage
-    ? '当前使用周期缺少可确认的装袋、入仓或交出事实，请由主管核查历史记录。'
-    : undefined
-
   return buildView({
     carrierId: input.carrierId,
     bagCode: input.bagCode,
-    usageCycleId: openCycle.usageCycleId,
-    activeHandoverLegId:
-      flowStage === 'HANDED_OVER_WAITING_RETURN'
-        ? latestStageFact?.handoverLegId || null
-        : null,
-    mainStatus: 'IN_USE',
-    flowStage,
-    sourceFactIds: stageFacts.map((fact) => fact.factId),
-    compatibilityBlockedReason,
+    usageCycleId: null,
+    mainStatus: 'IDLE',
+    flowStage: null,
   })
 }

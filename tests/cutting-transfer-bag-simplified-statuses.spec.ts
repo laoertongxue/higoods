@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 
 import { collectPageErrors, expectNoPageErrors } from './helpers/seed-cutting-runtime-state'
 
-test('中转袋流转只展示三个主状态与三个流转阶段', async ({ page }) => {
+test('中转袋流转只展示三个主状态与四个流转阶段', async ({ page }) => {
   test.setTimeout(180_000)
   const errors = collectPageErrors(page)
 
@@ -23,6 +23,10 @@ test('中转袋流转只展示三个主状态与三个流转阶段', async ({ pa
   await expect(body).not.toContainText('回仓验收中')
   await expect(body).not.toContainText('待维修')
   await expect(body).not.toContainText('待清洗')
+  await expect(body).not.toContainText('可用')
+  await expect(body).not.toContainText('已回写')
+  await expect(body).not.toContainText('收货差异')
+  await expect(body).toContainText('待交出')
 
   const statusSelect = page.locator('select[data-transfer-bags-master-field="status"]')
   await expect(statusSelect.locator('option')).toHaveText([
@@ -37,6 +41,7 @@ test('中转袋流转只展示三个主状态与三个流转阶段', async ({ pa
     '全部阶段',
     '菲票已装袋',
     '入仓暂存中',
+    '待交出',
     '已交出待回收',
   ])
   await expect(page.getByRole('columnheader', { name: /中转袋状态/ })).toBeVisible()

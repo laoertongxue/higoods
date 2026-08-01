@@ -89,9 +89,10 @@ assert.deepEqual(
   {
     PACKED: { label: '菲票已装袋' },
     INBOUND_STORED: { label: '入仓暂存中' },
+    READY_HANDOVER: { label: '待交出' },
     HANDED_OVER_WAITING_RETURN: { label: '已交出待回收' },
   },
-  '使用中的流转阶段必须且只能是三个已完成事实',
+  '使用中的流转阶段必须且只能是四个已完成事实',
 )
 
 const base = {
@@ -109,7 +110,7 @@ assert.equal(idle.flowStage, null)
 assert.equal(idle.mainStatusLabel, '空闲')
 assert.equal(idle.flowStageLabel, '—')
 assert.equal(idle.canStartBagging, true)
-assert.deepEqual(idle.allowedActions, ['BAGGING', 'SCRAP'])
+assert.deepEqual(idle.allowedActions, ['BAGGING', 'REPACK_TARGET', 'SCRAP'])
 
 const openCycle = {
   usageCycleId: 'cycle:BAG-A-001:001',
@@ -134,7 +135,7 @@ assert.equal(packed.flowStage, 'PACKED')
 assert.equal(packed.mainStatusLabel, '使用中')
 assert.equal(packed.flowStageLabel, '菲票已装袋')
 assert.equal(packed.canStartBagging, false)
-assert.deepEqual(packed.allowedActions, ['INBOUND', 'SCRAP'])
+assert.deepEqual(packed.allowedActions, ['INBOUND', 'REPACK'])
 
 const inboundFact = {
   factId: 'fact:inbound:001',
@@ -149,7 +150,23 @@ const inbound = lifecycle.deriveTransferBagLifecycle({
 })
 assert.equal(inbound.mainStatus, 'IN_USE')
 assert.equal(inbound.flowStage, 'INBOUND_STORED')
-assert.deepEqual(inbound.allowedActions, ['HANDOVER', 'SCRAP'])
+assert.deepEqual(inbound.allowedActions, ['REPACK', 'HANDOVER'])
+
+const repackResultFact = {
+  factId: 'fact:repack-result:001',
+  factType: 'REPACK_RESULT_CONFIRMED',
+  usageCycleId: openCycle.usageCycleId,
+  occurredAt: '2026-07-30 09:15',
+}
+const readyHandover = lifecycle.deriveTransferBagLifecycle({
+  ...base,
+  cycles: [openCycle],
+  facts: [packedFact, inboundFact, repackResultFact],
+})
+assert.equal(readyHandover.mainStatus, 'IN_USE')
+assert.equal(readyHandover.flowStage, 'READY_HANDOVER')
+assert.equal(readyHandover.flowStageLabel, '待交出')
+assert.deepEqual(readyHandover.allowedActions, ['REPACK', 'HANDOVER'])
 
 const handoverFact = {
   factId: 'fact:handover:001',
@@ -168,7 +185,7 @@ assert.equal(handedOver.flowStage, 'HANDED_OVER_WAITING_RETURN')
 assert.equal(handedOver.activeHandoverLegId, 'leg:001')
 assert.deepEqual(
   handedOver.allowedActions,
-  ['SPECIAL_CRAFT_RETURN', 'PHYSICAL_RETURN', 'SCRAP'],
+  ['SPECIAL_CRAFT_RETURN', 'PHYSICAL_RETURN', 'FORCE_RETURN'],
 )
 
 const downstreamFacts = [
@@ -247,7 +264,7 @@ assert.equal(closedDisabled.mainStatus, 'DISABLED')
 assert.equal(closedDisabled.flowStage, null)
 assert.deepEqual(closedDisabled.allowedActions, [])
 
-const scrapped = lifecycle.deriveTransferBagLifecycle({
+const scrappedDuringOpenCycle = lifecycle.deriveTransferBagLifecycle({
   ...base,
   cycles: [openCycle],
   facts: [
@@ -260,8 +277,44 @@ const scrapped = lifecycle.deriveTransferBagLifecycle({
     },
   ],
 })
-assert.equal(scrapped.mainStatus, 'DISABLED')
-assert.equal(scrapped.flowStage, null)
+assert.equal(scrappedDuringOpenCycle.mainStatus, 'IN_USE')
+assert.equal(scrappedDuringOpenCycle.flowStage, 'PACKED')
+assert.deepEqual(scrappedDuringOpenCycle.allowedActions, ['INBOUND', 'REPACK'])
+
+const scrappedWithoutOpenCycle = lifecycle.deriveTransferBagLifecycle({
+  ...base,
+  cycles: [],
+  facts: [{
+    factId: 'fact:scrap:idle:001',
+    factType: 'BAG_SCRAPPED',
+    occurredAt: '2026-07-30 09:05',
+  }],
+})
+assert.equal(scrappedWithoutOpenCycle.mainStatus, 'DISABLED')
+assert.equal(scrappedWithoutOpenCycle.flowStage, null)
+
+const repackedSourceEmptied = lifecycle.deriveTransferBagLifecycle({
+  ...base,
+  cycles: [openCycle],
+  facts: [
+    packedFact,
+    inboundFact,
+    repackResultFact,
+    {
+      factId: 'fact:repack-source-emptied:001',
+      factType: 'REPACK_SOURCE_EMPTIED',
+      usageCycleId: openCycle.usageCycleId,
+      occurredAt: '2026-07-30 09:16',
+    },
+  ],
+})
+assert.equal(repackedSourceEmptied.mainStatus, 'IDLE')
+assert.equal(repackedSourceEmptied.flowStage, null)
+assert.deepEqual(
+  repackedSourceEmptied.allowedActions,
+  ['BAGGING', 'REPACK_TARGET', 'SCRAP'],
+  '分装交出原袋清空必须关闭当前使用周期并恢复空闲',
+)
 
 const newerCycle = {
   usageCycleId: 'cycle:BAG-A-001:002',
@@ -298,7 +351,7 @@ const ambiguousLegacyCycle = lifecycle.deriveTransferBagLifecycle({
 assert.equal(ambiguousLegacyCycle.mainStatus, 'IN_USE')
 assert.equal(ambiguousLegacyCycle.flowStage, null)
 assert(ambiguousLegacyCycle.compatibilityBlockedReason)
-assert.deepEqual(ambiguousLegacyCycle.allowedActions, ['SCRAP'])
+assert.deepEqual(ambiguousLegacyCycle.allowedActions, [])
 
 function createMemoryStorage() {
   const records = new Map<string, string>()
@@ -991,12 +1044,19 @@ assert(
   ),
   '中转袋主列表状态筛选必须且只能提供空闲、使用中、已报废',
 )
-assert(
-  transferBagPageSource.includes(
-    "const useStageOptions: TransferBagCarrierUseStage[] = ['菲票已装袋', '入仓暂存中', '已交出待回收']",
-  ),
-  '中转袋主列表必须单独提供三个流转阶段筛选',
-)
+for (const stageKey of [
+  'PACKED',
+  'INBOUND_STORED',
+  'READY_HANDOVER',
+  'HANDED_OVER_WAITING_RETURN',
+]) {
+  assert(
+    transferBagPageSource.includes(
+      `TRANSFER_BAG_FLOW_STAGE_META.${stageKey}.label`,
+    ),
+    `中转袋主列表必须复用统一生命周期中的${stageKey}阶段元数据`,
+  )
+}
 for (const contract of [
   '// @page-pattern: list',
   'return renderStandardListPage({',

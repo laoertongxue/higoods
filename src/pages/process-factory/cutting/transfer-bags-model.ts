@@ -769,7 +769,7 @@ export interface TransferBagViewModel {
 }
 
 export type TransferBagCarrierCurrentStatus = '空闲' | '使用中' | '已报废'
-export type TransferBagCarrierUseStage = '—' | '菲票已装袋' | '入仓暂存中' | '已交出待回收'
+export type TransferBagCarrierUseStage = '—' | '菲票已装袋' | '入仓暂存中' | '待交出' | '已交出待回收'
 
 export interface TransferBagMasterArchiveRecord {
   bagMasterId: string

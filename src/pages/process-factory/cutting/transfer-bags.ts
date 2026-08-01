@@ -51,6 +51,7 @@ import {
   parseCuttingTraceQr,
 } from '../../../data/fcs/cutting/qr-codes.ts'
 import { parseCarrierQrValue } from '../../../data/fcs/cutting/transfer-bag-runtime.ts'
+import { TRANSFER_BAG_FLOW_STAGE_META } from '../../../data/fcs/cutting/transfer-bag-lifecycle.ts'
 import { buildTransferBagLabelPrintLink } from '../../../data/fcs/fcs-route-links.ts'
 import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts'
 import { listBusinessFactoryMasterRecords } from '../../../data/fcs/factory-master-store.ts'
@@ -573,7 +574,12 @@ function renderListHeaderActions(): string {
 
 function renderMasterQuickFilterBar(): string {
   const statusOptions: TransferBagCarrierCurrentStatus[] = ['空闲', '使用中', '已报废']
-  const useStageOptions: TransferBagCarrierUseStage[] = ['菲票已装袋', '入仓暂存中', '已交出待回收']
+  const useStageOptions: TransferBagCarrierUseStage[] = [
+    TRANSFER_BAG_FLOW_STAGE_META.PACKED.label,
+    TRANSFER_BAG_FLOW_STAGE_META.INBOUND_STORED.label,
+    TRANSFER_BAG_FLOW_STAGE_META.READY_HANDOVER.label,
+    TRANSFER_BAG_FLOW_STAGE_META.HANDED_OVER_WAITING_RETURN.label,
+  ]
   return renderStickyFilterShell(`
     <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.4fr,1fr,1fr,1fr]">
       <label class="space-y-2">
