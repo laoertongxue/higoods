@@ -64,9 +64,19 @@ import {
 import { getCurrentFactoryWarehouseByKind } from './pda-warehouse-shared'
 import { loadWarehouseLayoutSnapshot } from './process-factory/cutting/warehouse-location-layout-store.ts'
 import {
+  buildWarehouseLocationMapProjection,
+  listWarehouseLocationMapCells,
+  revalidateWarehouseLocationSelection,
   resolveStableWarehouseLocationRef,
+  toggleWarehouseLocationSelection,
   type StableWarehouseLocationRef,
+  type WarehouseLocationMapProjection,
+  type WarehouseLocationOccupancy,
 } from './process-factory/cutting/warehouse-location-map-model.ts'
+import {
+  handleWarehouseLocationMapOccupancyEvent,
+  renderWarehouseLocationMap,
+} from '../components/ui/warehouse-location-map.ts'
 
 interface HandoverFormState {
   operatorName: string
@@ -82,8 +92,8 @@ interface HandoverFormState {
   specialCraftFeiTicketScan: string
   specialCraftReturnBagScan: string
   specialCraftReturnFeiTicketScan: string
-  specialCraftReturnAreaScan: string
   specialCraftReturnLocationScan: string
+  specialCraftReturnLocationIds: string[]
   specialCraftReturnQty: string
 }
 
@@ -429,18 +439,6 @@ export function completePdaTransferBagHandoverScan(
   }
 }
 
-function resolveCurrentHandoverLocationRef(bagCode: string, usageCycleId: string, storage?: BrowserStorageLike | null) {
-  const warehouse = getCurrentFactoryWarehouseByKind('WAIT_HANDOVER')
-  const candidates = buildWaitHandoverLocationOccupancyStates(listWaitHandoverRuntimeEvents(storage))
-    .filter((state) => state.bagCode === bagCode && state.usageCycleId === usageCycleId)
-    .filter((state) => !warehouse || (
-      state.locationRef.factoryId === warehouse.factoryId
-      && state.locationRef.warehouseId === warehouse.warehouseId
-      && state.locationRef.warehouseKind === warehouse.warehouseKind
-    ))
-  return candidates.length === 1 ? candidates[0].locationRef : undefined
-}
-
 export function completePdaTransferBagHandoverRound(
   state: PdaTransferBagHandoverFormState,
   result: { ok: boolean; message?: string },
@@ -565,7 +563,6 @@ export function appendPdaTransferBagHandoverRuntimeEvent(
     fromWarehouseArea: '裁床待交出仓',
     fromLocationCode: bag.bagCode,
     usageCycleId,
-    locationRef: resolveCurrentHandoverLocationRef(bag.bagCode, usageCycleId, storage),
     idempotencyKey:
       `${usageCycleId}:HANDOVER_CONFIRMED:${task.sewingTaskNo}`,
     storage,
@@ -662,8 +659,8 @@ function getState(taskId: string, executionOrderId?: string | null, executionOrd
     specialCraftFeiTicketScan: '',
     specialCraftReturnBagScan: '',
     specialCraftReturnFeiTicketScan: '',
-    specialCraftReturnAreaScan: '',
     specialCraftReturnLocationScan: '',
+    specialCraftReturnLocationIds: [],
     specialCraftReturnQty: '',
   }
   handoverState.set(stateKey, initial)
@@ -757,7 +754,7 @@ function syncHandoverFormFromControls(form: HandoverFormState, container: Parent
     const field = fieldNode.dataset.pdaCutHandoverField
     if (!field || !(field in form)) return
     if (fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLTextAreaElement) {
-      ;(form as Record<string, string>)[field] = fieldNode.value
+      ;(form as unknown as Record<string, string>)[field] = fieldNode.value
     }
   })
 }
@@ -849,7 +846,6 @@ function appendRuntimeUniversalHandoverEvent(draft: PdaHandoverRecordDraftProjec
     fromWarehouseArea: sourceRecord.sourceWarehouseName,
     fromLocationCode: validation.bag.bagCode,
     usageCycleId: validation.bag.bagUseId,
-    locationRef: resolveCurrentHandoverLocationRef(validation.bag.bagCode, validation.bag.bagUseId),
     occurredAt: now,
   })
 
@@ -953,11 +949,73 @@ function appendRuntimeSpecialCraftHandoverEvent(draft: PdaHandoverRecordDraftPro
     transferBagCode: validation.bag.bagCode,
     fromWarehouseArea: sourceRecord.sourceWarehouseName,
     usageCycleId: validation.bag.bagUseId,
-    locationRef: resolveCurrentHandoverLocationRef(validation.bag.bagCode, validation.bag.bagUseId),
     occurredAt: now,
   })
 
   return `已同步特殊工艺交出：${validation.ticketNo} / ${firstCraft.craftType}，交出 ${totalQty} 片。`
+}
+
+function buildPdaSpecialCraftReturnLocationMapProjection() {
+  const warehouse = getCurrentFactoryWarehouseByKind('WAIT_HANDOVER')
+  if (!warehouse) return null
+  const { snapshot } = loadWarehouseLayoutSnapshot(warehouse)
+  const occupancies: WarehouseLocationOccupancy[] = buildWaitHandoverLocationOccupancyStates(
+    listWaitHandoverRuntimeEvents(),
+  )
+    .filter((state) => state.locationRef.factoryId === warehouse.factoryId
+      && state.locationRef.warehouseId === warehouse.warehouseId
+      && state.locationRef.warehouseKind === warehouse.warehouseKind)
+    .map((state) => ({
+      occupancyId: `wait-handover:${state.sourceEventId}`,
+      footprintId: `bag:${state.bagCode}`,
+      locationId: state.locationRef.locationId,
+      productionOrderNo: state.productionOrderNo,
+      objectNo: state.objectNo || state.bagCode,
+      objectName: state.objectName || `中转袋 ${state.bagCode}`,
+      qty: state.totalPieceQty,
+      unit: '片',
+      inboundAt: state.inboundAt,
+      inboundBy: state.inboundBy,
+    }))
+  return buildWarehouseLocationMapProjection(warehouse, snapshot, occupancies)
+}
+
+export function validatePdaSpecialCraftReturnLocationSelection(
+  selectedLocationIds: string[],
+  projectionOverride?: WarehouseLocationMapProjection | null,
+) {
+  const projection = projectionOverride === undefined
+    ? buildPdaSpecialCraftReturnLocationMapProjection()
+    : projectionOverride
+  return projection
+    ? revalidateWarehouseLocationSelection(projection, selectedLocationIds)
+    : { ok: false, message: '当前裁床工厂没有可用的待交出仓。', selectedLocationIds: [] }
+}
+
+function listSelectedSpecialCraftReturnLocations(selectedLocationIds: string[]): StableWarehouseLocationRef[] {
+  const projection = buildPdaSpecialCraftReturnLocationMapProjection()
+  if (!projection) return []
+  const selected = new Set(selectedLocationIds)
+  return listWarehouseLocationMapCells(projection).filter((cell) => selected.has(cell.locationId))
+}
+
+function appendPdaSpecialCraftReturnScannedLocation(form: HandoverFormState, scanValue: string): string {
+  const warehouse = getCurrentFactoryWarehouseByKind('WAIT_HANDOVER')
+  if (!warehouse) return '当前裁床工厂没有可用的待交出仓。'
+  const { snapshot } = loadWarehouseLayoutSnapshot(warehouse)
+  const normalized = normalizeScanValue(scanValue).normalize('NFKC').toUpperCase()
+  const location = listWarehouseLocationMapCells(buildPdaSpecialCraftReturnLocationMapProjection()!)
+    .find((cell) => cell.locationNo.normalize('NFKC').toUpperCase() === normalized
+      || `${cell.factoryId}|${cell.warehouseId}|${cell.warehouseKind}|${cell.locationId}` === scanValue.trim())
+  form.specialCraftReturnLocationScan = ''
+  if (!location) {
+    const rawLocation = resolveStableWarehouseLocationRef(warehouse, { locationNo: scanValue }, snapshot)
+    return rawLocation?.status !== 'AVAILABLE' ? '该库位已停用，请更换库位。' : '库位不存在或不属于当前仓库，请重新扫描。'
+  }
+  if (location.businessStatus === 'OCCUPIED') return '该库位已占用，请更换库位。'
+  if (form.specialCraftReturnLocationIds.includes(location.locationId)) return `${location.locationNo} 已选择。`
+  form.specialCraftReturnLocationIds = [...form.specialCraftReturnLocationIds, location.locationId]
+  return `${location.locationNo} 已加入。`
 }
 
 function validateSpecialCraftReturnScans(
@@ -971,9 +1029,7 @@ function validateSpecialCraftReturnScans(
       craftItems: NonNullable<HandoverRecord['specialCraftItems']>
       ticket: HandoverRecord['feiTicketItems'][number]
       ticketNo: string
-      warehouseArea: string
-      locationCode: string
-      locationRef: StableWarehouseLocationRef
+      warehouseLocations: StableWarehouseLocationRef[]
       returnedQty: number
     }
   | { ok: false; message: string } {
@@ -997,24 +1053,13 @@ function validateSpecialCraftReturnScans(
   if (expectedQty <= 0) return { ok: false, message: '该菲票没有可回仓数量。' }
   const alreadyReturned = craftItems.find((item) => runtimeEventHasTicket('特殊工艺回仓', ticket.feiTicketId, item.specialCraftId))
   if (alreadyReturned) return { ok: false, message: '该菲票的当前特殊工艺已回仓，不能重复回仓。' }
-  const warehouseArea = normalizeScanValue(form.specialCraftReturnAreaScan)
-  if (!warehouseArea) return { ok: false, message: '请扫描或填写回仓库区。' }
-  const locationCode = normalizeScanValue(form.specialCraftReturnLocationScan)
-  if (!locationCode) return { ok: false, message: '请扫描或填写回仓库位。' }
-  const warehouse = getCurrentFactoryWarehouseByKind('WAIT_HANDOVER')
-  if (!warehouse) return { ok: false, message: '当前裁床工厂没有可用的待交出仓。' }
-  const { snapshot } = loadWarehouseLayoutSnapshot(warehouse)
-  const locationRef = resolveStableWarehouseLocationRef(warehouse, {
-    areaName: warehouseArea,
-    locationNo: locationCode,
-  }, snapshot)
-  if (!locationRef) return { ok: false, message: '回仓库位不存在、已停用或编号不唯一，请重新扫描。' }
-  const occupied = buildWaitHandoverLocationOccupancyStates(listWaitHandoverRuntimeEvents())
-    .some((state) => state.locationRef.locationId === locationRef.locationId)
-  if (occupied) return { ok: false, message: '回仓库位已被其他中转袋占用，请更换库位。' }
+  const locationSelection = validatePdaSpecialCraftReturnLocationSelection(form.specialCraftReturnLocationIds)
+  if (!locationSelection.ok) return { ok: false, message: locationSelection.message }
+  const warehouseLocations = listSelectedSpecialCraftReturnLocations(locationSelection.selectedLocationIds)
+  if (!warehouseLocations.length) return { ok: false, message: '请选择回仓库位。' }
   const returnedQty = Number(form.specialCraftReturnQty)
   if (!Number.isFinite(returnedQty) || returnedQty <= 0) return { ok: false, message: '请填写大于 0 的实回数量。' }
-  return { ok: true, bag, craftItems, ticket, ticketNo: ticket.feiTicketNo, warehouseArea, locationCode, locationRef, returnedQty }
+  return { ok: true, bag, craftItems, ticket, ticketNo: ticket.feiTicketNo, warehouseLocations, returnedQty }
 }
 
 function appendRuntimeSpecialCraftReturnEvent(draft: PdaHandoverRecordDraftProjection, form: HandoverFormState, operatorName: string): string {
@@ -1061,19 +1106,19 @@ function appendRuntimeSpecialCraftReturnEvent(draft: PdaHandoverRecordDraftProje
     warehouseName: '裁床待交出仓',
     craftType: craftItems[0].craftType,
     returnedFeiTicketItems,
-    warehouseArea: validation.warehouseArea,
-    locationCode: validation.locationCode,
-    locationRef: {
-      factoryId: validation.locationRef.factoryId,
-      warehouseId: validation.locationRef.warehouseId,
+    warehouseArea: validation.warehouseLocations[0].areaName,
+    locationCode: validation.warehouseLocations[0].locationNo,
+    warehouseLocations: validation.warehouseLocations.map((location) => ({
+      factoryId: location.factoryId,
+      warehouseId: location.warehouseId,
       warehouseKind: 'WAIT_HANDOVER',
-      areaId: validation.locationRef.areaId,
-      areaName: validation.locationRef.areaName,
-      shelfId: validation.locationRef.shelfId,
-      shelfNo: validation.locationRef.shelfNo,
-      locationId: validation.locationRef.locationId,
-      locationNo: validation.locationRef.locationNo,
-    },
+      areaId: location.areaId,
+      areaName: location.areaName,
+      shelfId: location.shelfId,
+      shelfNo: location.shelfNo,
+      locationId: location.locationId,
+      locationNo: location.locationNo,
+    })),
     returnedAt: now,
     returnedBy: operatorName,
   }
@@ -1090,7 +1135,18 @@ function appendRuntimeSpecialCraftReturnEvent(draft: PdaHandoverRecordDraftProje
     occurredAt: now,
   })
 
-  return `已同步特殊工艺回仓：${validation.ticketNo} / ${validation.ticket.partName}，回仓 ${returnedQty} 片，入 ${validation.warehouseArea} / ${validation.locationCode}。`
+  return `特殊工艺回仓成功：${validation.ticketNo}，${returnedQty} 片，入 ${validation.warehouseLocations.map((location) => location.locationNo).join('、')}。`
+}
+
+function renderPdaSpecialCraftReturnLocationMap(form: HandoverFormState): string {
+  const projection = buildPdaSpecialCraftReturnLocationMapProjection()
+  if (!projection) return '<div class="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">当前没有可用库位。</div>'
+  return renderWarehouseLocationMap({
+    projection,
+    mode: 'SELECT',
+    factoryName: '当前裁床工厂',
+    selectedLocationIds: form.specialCraftReturnLocationIds,
+  })
 }
 
 function renderPdaSpecialCraftReturnFlow(
@@ -1139,18 +1195,19 @@ function renderPdaSpecialCraftReturnFlow(
           ${renderPdaScanInput('来源特殊工艺交出单', 'specialCraftOrderScan', form.specialCraftOrderScan, draft.handoverOrderNo)}
           ${renderPdaScanInput('回仓中转袋', 'specialCraftReturnBagScan', form.specialCraftReturnBagScan, sourceBag?.bagCode || '无中转袋则留空')}
           ${renderPdaScanInput('回仓菲票', 'specialCraftReturnFeiTicketScan', form.specialCraftReturnFeiTicketScan, ticket?.feiTicketNo || '扫回仓菲票')}
-          ${renderPdaScanInput('回仓库区', 'specialCraftReturnAreaScan', form.specialCraftReturnAreaScan, '特殊工艺回仓区')}
-          ${renderPdaScanInput('回仓库位', 'specialCraftReturnLocationScan', form.specialCraftReturnLocationScan, '扫码或输入库位编号')}
+          ${renderPdaScanInput('扫码加库位', 'specialCraftReturnLocationScan', form.specialCraftReturnLocationScan, '扫描库位后按回车')}
           ${renderPdaScanInput('实回数量', 'specialCraftReturnQty', form.specialCraftReturnQty, String(expectedQty || ticket?.pieceQty || '填写实回数量'))}
         </div>
+        <div class="mt-2 text-xs text-muted-foreground" data-pda-special-craft-return-location-feedback>${escapeHtml(form.feedbackMessage)}</div>
       </div>
+      <div data-pda-special-craft-return-location-map>${renderPdaSpecialCraftReturnLocationMap(form)}</div>
       ${renderPdaCuttingSummaryGrid([
         { label: '菲票', value: ticket?.feiTicketNo || '待扫描' },
         { label: '裁片部位', value: ticket ? `${ticket.partName} / ${ticket.size}` : '待扫描菲票后获取' },
         { label: '应回数量', value: expectedQty ? `${expectedQty} 片` : '待识别' },
         { label: '回仓状态', value: returnStatus },
         { label: '承接工厂', value: firstCraft?.receiverFactoryName || sourceRecord.receiverName },
-        { label: '回仓去向', value: `${form.specialCraftReturnAreaScan || '待扫库区'} / ${form.specialCraftReturnLocationScan || '待扫库位'}` },
+        { label: '已选库位', value: listSelectedSpecialCraftReturnLocations(form.specialCraftReturnLocationIds).map((location) => location.locationNo).join('、') || '待选择' },
       ])}
       ${form.feedbackMessage ? renderPdaCuttingFeedbackNotice(form.feedbackMessage, form.feedbackMessage.includes('已同步') ? 'success' : 'warning') : ''}
       <button
@@ -1452,11 +1509,12 @@ export function renderPdaCuttingHandoverPage(taskId: string): string {
           ${renderPdaScanInput('交出菲票', 'specialCraftFeiTicketScan', form.specialCraftFeiTicketScan, '扫交出菲票')}
           ${renderPdaScanInput('回仓中转袋', 'specialCraftReturnBagScan', form.specialCraftReturnBagScan, specialCraftSourceRecord?.transferBagUses[0]?.bagCode || '扫回仓中转袋')}
           ${renderPdaScanInput('回仓菲票', 'specialCraftReturnFeiTicketScan', form.specialCraftReturnFeiTicketScan, '扫回仓菲票')}
-          ${renderPdaScanInput('回仓库区', 'specialCraftReturnAreaScan', form.specialCraftReturnAreaScan, '扫回仓库区')}
-          ${renderPdaScanInput('回仓库位', 'specialCraftReturnLocationScan', form.specialCraftReturnLocationScan, '扫回仓库位')}
+          ${renderPdaScanInput('扫码加库位', 'specialCraftReturnLocationScan', form.specialCraftReturnLocationScan, '扫描库位后按回车')}
           ${renderPdaScanInput('实回数量', 'specialCraftReturnQty', form.specialCraftReturnQty, '填写实回数量')}
         </div>
+        <div class="mt-2 text-xs text-muted-foreground" data-pda-special-craft-return-location-feedback>${escapeHtml(form.feedbackMessage)}</div>
       </div>
+      <div data-pda-special-craft-return-location-map>${renderPdaSpecialCraftReturnLocationMap(form)}</div>
       ${renderPdaCuttingSummaryGrid([
         { label: '本次工艺', value: '绣花' },
         { label: '承接工厂', value: specialCraftDraft.receiverName },
@@ -1577,6 +1635,37 @@ export function handlePdaCuttingHandoverEvent(
   target: HTMLElement,
   event?: Event,
 ): PdaPageEventResult {
+  const warehouseMapNode = target.closest<HTMLElement>('[data-warehouse-map-action]')
+  if (warehouseMapNode) {
+    const projection = buildPdaSpecialCraftReturnLocationMapProjection()
+    if (!projection) return true
+    if (handleWarehouseLocationMapOccupancyEvent(warehouseMapNode, projection)) {
+      return PDA_PAGE_HANDLED_LOCALLY
+    }
+    const taskId = warehouseMapNode.closest<HTMLElement>('[data-task-id]')?.dataset.taskId || appTaskIdFromPath()
+    if (!taskId) return true
+    const form = getState(taskId, readSelectedExecutionOrderIdFromLocation(), readSelectedExecutionOrderNoFromLocation())
+    if (warehouseMapNode.dataset.warehouseMapAction === 'clear-selection') {
+      form.specialCraftReturnLocationIds = []
+    } else if (warehouseMapNode.dataset.warehouseMapAction === 'toggle-location') {
+      const result = toggleWarehouseLocationSelection(
+        projection,
+        form.specialCraftReturnLocationIds,
+        warehouseMapNode.dataset.locationId || '',
+      )
+      if (!result.ok) form.feedbackMessage = result.message
+      else form.specialCraftReturnLocationIds = result.selectedLocationIds
+    } else {
+      return true
+    }
+    const mapRegion = warehouseMapNode.closest<HTMLElement>('[data-task-id]')
+      ?.querySelector<HTMLElement>('[data-pda-special-craft-return-location-map]')
+    if (mapRegion) mapRegion.innerHTML = renderPdaSpecialCraftReturnLocationMap(form)
+    const feedback = warehouseMapNode.closest<HTMLElement>('[data-task-id]')
+      ?.querySelector<HTMLElement>('[data-pda-special-craft-return-location-feedback]')
+    if (feedback) feedback.textContent = form.feedbackMessage
+    return PDA_PAGE_HANDLED_LOCALLY
+  }
   const fieldNode = target.closest<HTMLElement>('[data-pda-cut-handover-field]')
   if (
     fieldNode instanceof HTMLInputElement ||
@@ -1589,6 +1678,22 @@ export function handlePdaCuttingHandoverEvent(
     const form = getState(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
     const field = fieldNode.dataset.pdaCutHandoverField
     if (!field) return true
+
+    if (field === 'specialCraftReturnLocationScan' && fieldNode instanceof HTMLInputElement) {
+      form.specialCraftReturnLocationScan = fieldNode.value
+      if ((event?.type === 'keydown' && 'key' in event && event.key === 'Enter') || event?.type === 'change') {
+        form.feedbackMessage = appendPdaSpecialCraftReturnScannedLocation(form, fieldNode.value)
+        fieldNode.value = ''
+        const mapRegion = fieldNode.closest<HTMLElement>('[data-task-id]')
+          ?.querySelector<HTMLElement>('[data-pda-special-craft-return-location-map]')
+        if (mapRegion) mapRegion.innerHTML = renderPdaSpecialCraftReturnLocationMap(form)
+        const feedback = fieldNode.closest<HTMLElement>('[data-task-id]')
+          ?.querySelector<HTMLElement>('[data-pda-special-craft-return-location-feedback]')
+        if (feedback) feedback.textContent = form.feedbackMessage
+        return PDA_PAGE_HANDLED_LOCALLY
+      }
+      return true
+    }
 
     if (
       fieldNode instanceof HTMLInputElement &&
@@ -1654,7 +1759,7 @@ export function handlePdaCuttingHandoverEvent(
     }
 
     if (field in form) {
-      ;(form as Record<string, string>)[field] = fieldNode.value
+      ;(form as unknown as Record<string, string>)[field] = fieldNode.value
     }
     return true
   }

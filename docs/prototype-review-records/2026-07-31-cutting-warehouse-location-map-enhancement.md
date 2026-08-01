@@ -122,3 +122,43 @@
 - 原设计的编排快照已明确扩展为可保存原型新增结构，这是因为通用仓库 Store 仅驻留内存；新增结构统一进入裁床稳定库位投影，真实交付时仍应由仓库主数据服务承接。
 - 本原型没有真实角色鉴权；新增按钮按用户确认的 VIEW/LAYOUT 模式显示，正式系统需由主管/文员权限控制。PDA/SELECT 模式不显示新增入口和管理摘要。
 - 真实技术包图片缺失时显示“待补充”，不使用错误款式图冒充；固定样例图片只用于明确的 demo 占用。
+
+## 8. 2026-08-01 PDA 自由多库位执行补充审查
+
+### 8.1 变更范围
+
+- `/fcs/pda/cutting/inbound/:taskId?action=inbound-location`：中转袋入仓扫码、跨区多选、整组确认。
+- `/fcs/pda/cutting/handover/:taskId?action=special-craft-return`：特殊工艺票级回仓、跨区多选、整组确认。
+- `/fcs/pda/warehouse/wait-process?scope=cutting`：中转仓领料存放、剩余存放调整、回收入仓和加工领料释放。
+- 中转袋整袋交出：释放该使用周期内全部待交出仓库位。
+
+### 8.2 规范自查
+
+| 检查项 | 结论 | 说明 |
+| --- | --- | --- |
+| 角色与端侧边界 | 通过 | PDA 仅显示扫码、点选、取消、清空和确认，不显示维护库位图、新增库区、货架、编辑或停用入口。 |
+| 任务清晰度 | 通过 | 首屏围绕当前袋、菲票或物料、数量、已选完整库位编号和唯一确认主按钮组织。 |
+| 选位与扫码 | 通过 | 启用空闲库位可跨库区、货架和层自由多选；扫码追加，重复、占用、停用、缺失和跨仓给中文短提示。 |
+| 防错 | 通过 | 确认前使用最新库位投影整组复核；任一冲突整次阻断并列出完整编号，不部分写入。 |
+| 数量口径 | 通过 | 多格逐格占用；袋、菲票、片数、物料数量和卷数按稳定业务对象只汇总一次。 |
+| 事实一致性 | 通过 | 新 PDA 入仓/回仓事件只写 `warehouseLocations`；历史 `locationRef`、`locationRefs` 仅保留读取兼容。 |
+| 释放闭环 | 通过 | 中转袋交出、待加工仓加工领料和余量归零均释放业务对象的全部位置。 |
+| 局部响应 | 通过 | 点格、清空和扫码追加只更新地图与已选摘要，不触发页面根节点重绘。 |
+| 中文与现场表达 | 通过 | PDA 不展示稳定 ID、投影、结构字段等技术词，不出现相邻、连续或固定数量上限说明。 |
+
+### 8.3 受管文件补充
+
+- `src/pages/pda-cutting-inbound.ts`
+- `src/pages/pda-cutting-handover.ts`
+- `src/pages/pda-warehouse-wait-process.ts`
+- `src/pages/process-factory/cutting/warehouse-location-map.ts`
+- `scripts/check-pda-cutting-inbound-workflow.ts`
+- `scripts/check-pda-cutting-transfer-bag-handover.ts`
+- `scripts/check-cutting-special-craft-dispatch-return.ts`
+- `scripts/check-cutting-warehouse-location-map.ts`
+
+### 8.4 审查结论与例外
+
+结论：通过。未发现新的 `读不懂`、`选不对`、`算不准`、`点错风险` 或 `协作断裂` 问题。
+
+例外：仍按原型边界使用本地 Mock 与浏览器事件账，不实现真实后端、跨设备并发锁和角色鉴权；提交前最新投影复核、整次失败和稳定库位引用已作为演示防错保留。

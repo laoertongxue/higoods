@@ -8,6 +8,7 @@ import {
 import {
   appendWaitHandoverBaggingEvent,
   appendWaitHandoverInboundEvent,
+  buildWaitHandoverLocationOccupancyStates,
   buildWaitHandoverLifecycleByBagCode,
 } from '../src/pages/process-factory/cutting/wait-handover-runtime.ts'
 
@@ -394,6 +395,18 @@ appendWaitHandoverInboundEvent({
   bagCode: runtimeBagCode,
   warehouseArea: '裁床待交出仓',
   locationCode: 'CUT-A-01',
+  warehouseLocations: [
+    {
+      factoryId: 'ID-F004', warehouseId: 'CUTTING-WAIT-HANDOVER', warehouseKind: 'WAIT_HANDOVER',
+      areaId: 'AREA-A', areaName: 'A 区', shelfId: 'SHELF-A-01', shelfNo: 'R01',
+      locationId: 'PDA-HANDOVER-LOC-01', locationNo: 'A-R01-L01-P01',
+    },
+    {
+      factoryId: 'ID-F004', warehouseId: 'CUTTING-WAIT-HANDOVER', warehouseKind: 'WAIT_HANDOVER',
+      areaId: 'AREA-B', areaName: 'B 区', shelfId: 'SHELF-B-01', shelfNo: 'R01',
+      locationId: 'PDA-HANDOVER-LOC-02', locationNo: 'B-R01-L02-P01',
+    },
+  ],
   occurredAt: '2026-07-30 17:10',
   storage: runtimeStorage,
 })
@@ -428,6 +441,16 @@ workflow.appendPdaTransferBagHandoverRuntimeEvent(
 const runtimeHandoverEvents = listCuttingRuntimeEvents(runtimeStorage)
   .filter((event) => event.eventType === '新增交出记录')
 assert.equal(runtimeHandoverEvents.length, 1, 'PDA 整袋交出必须写入一条统一交出事实')
+assert.equal(
+  buildWaitHandoverLocationOccupancyStates(listCuttingRuntimeEvents(runtimeStorage)).length,
+  0,
+  'PDA 整袋交出必须一次释放该袋占用的全部库位',
+)
+assert.doesNotMatch(
+  pageSource,
+  /appendWaitHandoverHandoverRecordEvent\([\s\S]*?locationRef:/,
+  'PDA 整袋交出新事件不得继续写单值 locationRef，只能由运行时读取既有 warehouseLocations',
+)
 assert.deepEqual(
   runtimeHandoverEvents[0].refs.feiTicketIds,
   [runtimeTicket.feiTicketId],

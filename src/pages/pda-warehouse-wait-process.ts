@@ -102,6 +102,7 @@ import {
 } from '../components/ui/warehouse-location-map.ts'
 import {
   buildWarehouseLocationMapProjection,
+  listStableWarehouseLocationRefs,
   listWarehouseLocationMapCells,
   revalidateWarehouseLocationSelection,
   resolveStableWarehouseLocationRef,
@@ -146,8 +147,7 @@ interface WaitProcessState {
   cuttingIssueRollCount: string
   cuttingReturnSourceNo: string
   cuttingReturnRelatedDocNo: string
-  cuttingReturnWarehouseArea: string
-  cuttingReturnLocationCode: string
+  cuttingReturnLocationIds: string[]
   cuttingReturnQty: string
   cuttingReturnRollCount: string
   auxiliaryReceiveScan: string
@@ -210,8 +210,7 @@ const state: WaitProcessState = {
   cuttingIssueRollCount: '',
   cuttingReturnSourceNo: '',
   cuttingReturnRelatedDocNo: '',
-  cuttingReturnWarehouseArea: '',
-  cuttingReturnLocationCode: '',
+  cuttingReturnLocationIds: [],
   cuttingReturnQty: '',
   cuttingReturnRollCount: '',
   auxiliaryReceiveScan: '',
@@ -1164,7 +1163,7 @@ function syncCuttingPickupSessionRuntimeFacts(
         sourceLocations: item.sourceLocations,
         warehouseArea: session.toWarehouseArea,
         locationCode: session.toLocationCode,
-        locationRefs: session.toLocationRefs,
+        warehouseLocations: session.toLocationRefs,
         storageFootprint: session.storageFootprint,
         pickupBy: session.receiverName,
         pickupAt: session.pickedAt,
@@ -1450,9 +1449,7 @@ function openCuttingReturnDraft(sourceNo?: string): void {
   const defaultRollCount = defaultQty > 0 ? Math.max(Math.ceil(defaultQty / 280), 1) : 1
   state.cuttingReturnSourceNo = row?.cutOrderNo || sourceNo || ''
   state.cuttingReturnRelatedDocNo = ''
-  const firstLocation = listCuttingReceiveLocations()[0]
-  state.cuttingReturnWarehouseArea = firstLocation?.area || ''
-  state.cuttingReturnLocationCode = firstLocation?.locations[0] || ''
+  state.cuttingReturnLocationIds = []
   state.cuttingReturnQty = String(defaultQty)
   state.cuttingReturnRollCount = String(defaultRollCount)
 }
@@ -1460,20 +1457,26 @@ function openCuttingReturnDraft(sourceNo?: string): void {
 function clearCuttingReturnDraft(): void {
   state.cuttingReturnSourceNo = ''
   state.cuttingReturnRelatedDocNo = ''
-  state.cuttingReturnWarehouseArea = ''
-  state.cuttingReturnLocationCode = ''
+  state.cuttingReturnLocationIds = []
   state.cuttingReturnQty = ''
   state.cuttingReturnRollCount = ''
 }
 
-function getCuttingReturnLocationOptions() {
-  const receiveLocations = listCuttingReceiveLocations()
-  const currentArea = state.cuttingReturnWarehouseArea || receiveLocations[0]?.area || ''
-  const currentAreaConfig = receiveLocations.find((item) => item.area === currentArea) || receiveLocations[0]
-  return {
-    areaOptions: receiveLocations.map((item) => item.area),
-    locationOptions: currentAreaConfig?.locations || [],
-  }
+function renderCuttingReturnLocationMap(): string {
+  const projection = buildCuttingPickupMapProjection()
+  if (!projection) return '<div class="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">当前没有可用库位。</div>'
+  return renderWarehouseLocationMap({
+    projection,
+    mode: 'SELECT',
+    factoryName: getMobileWarehouseRuntimeContext()?.factoryName || '当前裁床工厂',
+    selectedLocationIds: state.cuttingReturnLocationIds,
+  })
+}
+
+function refreshCuttingReturnLocationMap(): void {
+  if (typeof document === 'undefined') return
+  const region = document.querySelector<HTMLElement>('[data-pda-cutting-return-location-map]')
+  if (region) region.innerHTML = renderCuttingReturnLocationMap()
 }
 
 function renderCuttingReturnDraftPage(): string {
@@ -1488,7 +1491,6 @@ function renderCuttingReturnDraftPage(): string {
     : row
       ? `${row.materialIdentity.materialSku} · ${row.materialIdentity.materialName} / ${row.materialIdentity.materialColor || '待补颜色'}`
       : '可不关联单据，直接按现场剩余面料回收入仓'
-  const options = getCuttingReturnLocationOptions()
   return `
     <section class="space-y-4">
       <div class="space-y-2 px-1">
@@ -1506,7 +1508,7 @@ function renderCuttingReturnDraftPage(): string {
       <div class="space-y-3 px-1">
         <div>
           <div class="text-base font-semibold text-foreground">确认回收入仓</div>
-          <div class="mt-1 text-xs leading-5 text-muted-foreground">选择关联单据不是必填；必须确认回收入库区、库位、数量和卷数。</div>
+          <div class="mt-1 text-xs leading-5 text-muted-foreground">选择关联单据不是必填；请选择实际存放的全部库位，再确认数量和卷数。</div>
         </div>
         <label class="block space-y-1.5">
           <span class="text-xs font-medium text-muted-foreground">关联单据（可选）</span>
@@ -1515,18 +1517,7 @@ function renderCuttingReturnDraftPage(): string {
             ${documentOptions.map((item) => `<option value="${escapeAttr(item.docNo)}" ${item.docNo === state.cuttingReturnRelatedDocNo ? 'selected' : ''}>${escapeHtml(item.label)}</option>`).join('')}
           </select>
         </label>
-        <label class="block space-y-1.5">
-          <span class="text-xs font-medium text-muted-foreground">回收入库区</span>
-          <select class="h-11 w-full rounded-xl border bg-background px-3 text-sm" data-pda-warehouse-field="cutting-return-area">
-            ${options.areaOptions.map((area) => `<option value="${escapeAttr(area)}" ${area === state.cuttingReturnWarehouseArea ? 'selected' : ''}>${escapeHtml(area)}</option>`).join('')}
-          </select>
-        </label>
-        <label class="block space-y-1.5">
-          <span class="text-xs font-medium text-muted-foreground">回收入库位</span>
-          <select class="h-11 w-full rounded-xl border bg-background px-3 text-sm" data-pda-warehouse-field="cutting-return-location">
-            ${options.locationOptions.map((location) => `<option value="${escapeAttr(location)}" ${location === state.cuttingReturnLocationCode ? 'selected' : ''}>${escapeHtml(location)}</option>`).join('')}
-          </select>
-        </label>
+        <div data-pda-cutting-return-location-map>${renderCuttingReturnLocationMap()}</div>
         <div class="grid grid-cols-2 gap-2">
           <label class="block space-y-1.5">
             <span class="text-xs font-medium text-muted-foreground">回收数量（yard）</span>
@@ -2564,7 +2555,7 @@ export function renderPdaWarehouseWaitProcessPage(): string {
 
 export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean {
   const warehouseMapNode = target.closest<HTMLElement>('[data-warehouse-map-action]')
-  if (warehouseMapNode && (state.cuttingPickupNodeId || state.cuttingAdjustFootprintSessionId)) {
+  if (warehouseMapNode && (state.cuttingPickupNodeId || state.cuttingAdjustFootprintSessionId || state.cuttingReturnSourceNo)) {
     const projection = buildCuttingPickupMapProjection(
       state.cuttingAdjustFootprintSessionId || undefined,
     )
@@ -2572,21 +2563,25 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
   }
   if (
     warehouseMapNode
-    && (state.cuttingPickupNodeId || state.cuttingAdjustFootprintSessionId)
+    && (state.cuttingPickupNodeId || state.cuttingAdjustFootprintSessionId || state.cuttingReturnSourceNo)
     && ['toggle-location', 'clear-selection'].includes(warehouseMapNode.dataset.warehouseMapAction || '')
   ) {
     const adjusting = Boolean(state.cuttingAdjustFootprintSessionId)
+    const returning = !adjusting && Boolean(state.cuttingReturnSourceNo)
     const projection = buildCuttingPickupMapProjection(
       adjusting ? state.cuttingAdjustFootprintSessionId : undefined,
     )
     if (!projection) return true
     const currentIds = adjusting
       ? state.cuttingAdjustFootprintLocationIds
-      : state.cuttingPickupLocationIds
+      : returning ? state.cuttingReturnLocationIds : state.cuttingPickupLocationIds
     if (warehouseMapNode.dataset.warehouseMapAction === 'clear-selection') {
       if (adjusting) {
         state.cuttingAdjustFootprintLocationIds = []
         refreshCuttingFootprintAdjustmentMap()
+      } else if (returning) {
+        state.cuttingReturnLocationIds = []
+        refreshCuttingReturnLocationMap()
       } else {
         state.cuttingPickupLocationIds = []
         refreshCuttingPickupLocationMap()
@@ -2605,6 +2600,9 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     if (adjusting) {
       state.cuttingAdjustFootprintLocationIds = result.selectedLocationIds
       refreshCuttingFootprintAdjustmentMap()
+    } else if (returning) {
+      state.cuttingReturnLocationIds = result.selectedLocationIds
+      refreshCuttingReturnLocationMap()
     } else {
       state.cuttingPickupLocationIds = result.selectedLocationIds
       const refs = getSelectedCuttingPickupLocationRefs(projection)
@@ -2699,7 +2697,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
           warehouseId: projection.warehouseId,
           warehouseKind: projection.warehouseKind,
           previousLocationIds: session.storageFootprint.locationIds,
-          locationRefs: selectedRefs.map((ref) => ({
+          warehouseLocations: selectedRefs.map((ref) => ({
             factoryId: ref.factoryId,
             warehouseId: ref.warehouseId,
             warehouseKind: 'WAIT_PROCESS',
@@ -2921,13 +2919,20 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
       window.alert('请输入大于 0 的卷数。')
       return true
     }
-    const warehouseArea = state.cuttingIssueWarehouseArea
-    const locationCode = state.cuttingIssueLocationCode
-    const locationRef = resolveCurrentWaitProcessLocationRef(warehouseArea, locationCode)
-    if (!locationRef) {
-      window.alert('来源库位不存在、已停用或编号不唯一，请重新选择。')
+    const projection = buildCuttingPickupMapProjection()
+    const materialSku = row?.materialIdentity.materialSku || sourceNo
+    const productionOrderNo = row?.productionOrderNo || ''
+    const warehouseLocations = projection
+      ? listWarehouseLocationMapCells(projection).filter((cell) => cell.occupancies.some((occupancy) =>
+        occupancy.objectNo === materialSku
+        && (!productionOrderNo || occupancy.productionOrderNo === productionOrderNo)))
+      : []
+    if (!warehouseLocations.length) {
+      window.alert('来源库位已更新，请重新选择加工领料对象。')
       return true
     }
+    const warehouseArea = warehouseLocations[0].areaName
+    const locationCode = warehouseLocations[0].locationNo
     const occurredAt = getCuttingRuntimeNowText()
     const inventoryEffect: RuntimeInventoryEffect = {
       inventoryScope: '裁床待加工仓',
@@ -2962,17 +2967,17 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
         issuedBy: '裁床仓管',
         issuedAt: occurredAt,
         purpose: '铺布用料',
-        locationRef: {
-          factoryId: locationRef.factoryId,
-          warehouseId: locationRef.warehouseId,
+        warehouseLocations: warehouseLocations.map((location) => ({
+          factoryId: location.factoryId,
+          warehouseId: location.warehouseId,
           warehouseKind: 'WAIT_PROCESS',
-          areaId: locationRef.areaId,
-          areaName: locationRef.areaName,
-          shelfId: locationRef.shelfId,
-          shelfNo: locationRef.shelfNo,
-          locationId: locationRef.locationId,
-          locationNo: locationRef.locationNo,
-        },
+          areaId: location.areaId,
+          areaName: location.areaName,
+          shelfId: location.shelfId,
+          shelfNo: location.shelfNo,
+          locationId: location.locationId,
+          locationNo: location.locationNo,
+        })),
       },
     })
     clearCuttingIssueDraft()
@@ -3008,18 +3013,19 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
       window.alert('请输入大于 0 的卷数。')
       return true
     }
-    const warehouseArea = state.cuttingReturnWarehouseArea
-    const locationCode = state.cuttingReturnLocationCode
-    const locationRef = resolveCurrentWaitProcessLocationRef(warehouseArea, locationCode)
     const latestProjection = buildCuttingPickupMapProjection()
-    const latestCell = latestProjection
-      ? listWarehouseLocationMapCells(latestProjection)
-      .find((cell) => cell.locationId === locationRef?.locationId)
-      : undefined
-    if (!locationRef || !latestCell || latestCell.businessStatus === 'OCCUPIED') {
-      window.alert('回收库位不存在、已停用或已被占用，请重新选择。')
+    if (!latestProjection) {
+      window.alert('当前裁床工厂没有可用的待加工仓库位。')
       return true
     }
+    const selection = revalidateWarehouseLocationSelection(latestProjection, state.cuttingReturnLocationIds)
+    if (!selection.ok) {
+      window.alert(selection.message)
+      return true
+    }
+    const warehouseLocations = getSelectedCuttingPickupLocationRefs(latestProjection, selection.selectedLocationIds)
+    const warehouseArea = warehouseLocations[0]?.areaName || ''
+    const locationCode = warehouseLocations[0]?.locationNo || ''
     const occurredAt = getCuttingRuntimeNowText()
     const inventoryEffect: RuntimeInventoryEffect = {
       inventoryScope: '裁床待加工仓',
@@ -3054,33 +3060,22 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
         returnedBy: '裁床仓管',
         returnedAt: occurredAt,
         reason: '铺布剩余',
-        locationRef: {
-          factoryId: locationRef.factoryId,
-          warehouseId: locationRef.warehouseId,
+        warehouseLocations: warehouseLocations.map((location) => ({
+          factoryId: location.factoryId,
+          warehouseId: location.warehouseId,
           warehouseKind: 'WAIT_PROCESS',
-          areaId: locationRef.areaId,
-          areaName: locationRef.areaName,
-          shelfId: locationRef.shelfId,
-          shelfNo: locationRef.shelfNo,
-          locationId: locationRef.locationId,
-          locationNo: locationRef.locationNo,
-        },
-        locationRefs: [{
-          factoryId: locationRef.factoryId,
-          warehouseId: locationRef.warehouseId,
-          warehouseKind: 'WAIT_PROCESS',
-          areaId: locationRef.areaId,
-          areaName: locationRef.areaName,
-          shelfId: locationRef.shelfId,
-          shelfNo: locationRef.shelfNo,
-          locationId: locationRef.locationId,
-          locationNo: locationRef.locationNo,
-        }],
+          areaId: location.areaId,
+          areaName: location.areaName,
+          shelfId: location.shelfId,
+          shelfNo: location.shelfNo,
+          locationId: location.locationId,
+          locationNo: location.locationNo,
+        })),
         storageFootprint: {
           footprintId: `wp-return:${sourceNo}:${occurredAt}`,
           sourceType: 'PICKUP_SESSION',
           sourceId: `wp-return:${sourceNo}:${occurredAt}`,
-          locationIds: [locationRef.locationId],
+          locationIds: warehouseLocations.map((location) => location.locationId),
           totalQty: returnedQty,
           remainingQty: returnedQty,
           unit: 'yard',
@@ -3366,16 +3361,6 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     state.cuttingReturnRelatedDocNo = value
     const row = value ? findCuttingLedgerRowByReturnDocument(value) : findCuttingWaitProcessLedgerRow(state.cuttingReturnSourceNo)
     if (row) state.cuttingReturnSourceNo = row.cutOrderNo
-    return true
-  }
-  if (field === 'cutting-return-area') {
-    state.cuttingReturnWarehouseArea = value
-    const nextArea = listCuttingReceiveLocations().find((item) => item.area === value)
-    state.cuttingReturnLocationCode = nextArea?.locations[0] || ''
-    return true
-  }
-  if (field === 'cutting-return-location') {
-    state.cuttingReturnLocationCode = value
     return true
   }
   if (field === 'cutting-return-qty') {

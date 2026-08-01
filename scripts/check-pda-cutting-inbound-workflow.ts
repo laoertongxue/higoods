@@ -87,9 +87,23 @@ assert.equal(
   'PDA 裁片入仓页必须导出确认后的局部工作区刷新函数',
 )
 
+const multiLocationInitialState = workflow.createPdaCuttingInboundFormState() as ReturnType<
+  typeof workflow.createPdaCuttingInboundFormState
+> & { selectedLocationIds?: string[] }
+assert.deepEqual(
+  multiLocationInitialState.selectedLocationIds,
+  [],
+  'PDA 中转袋入仓必须以 selectedLocationIds 数组作为唯一选位事实',
+)
+assert.equal(
+  'selectedLocationId' in multiLocationInitialState,
+  false,
+  'PDA 中转袋入仓不得继续保存单值 selectedLocationId',
+)
+
 const latestControlValues: Record<string, string> = {
   carrierCode: 'BAG-002',
-  locationLabel: 'A-01-01',
+  locationScan: 'A-01-01',
   scanCode: 'FT-CUT-LATEST-001',
 }
 const fakeWorkflowContainer: HTMLElement = Object.assign(Object.create(null), {
@@ -115,7 +129,7 @@ assert.equal(
 const latestFormState = workflow.createPdaCuttingInboundFormState()
 workflow.syncPdaCuttingInboundFormFromControls(latestFormState, resolvedWorkflowContainer)
 assert.equal(latestFormState.carrierCode, latestControlValues.carrierCode, '确认前必须同步输入框中的最新袋码')
-assert.equal(latestFormState.locationLabel, latestControlValues.locationLabel, '确认前必须同步输入框中的最新库位')
+assert.equal(latestFormState.locationScan, latestControlValues.locationScan, '确认前必须同步输入框中的最新库位扫码')
 assert.equal(latestFormState.scanCode, latestControlValues.scanCode, '确认前必须同步输入框中的最新菲票扫码值')
 
 assert.equal(workflow.PDA_CUTTING_INBOUND_SCAN_DEBOUNCE_MS, 150, '扫码枪输入 debounce 必须为约 150ms')
@@ -288,18 +302,18 @@ assert(freshBaggingHtml.includes('已扫菲票 0 张'), '装袋成功后必须�
 
 const inboundState = workflow.createPdaCuttingInboundFormState()
 inboundState.carrierCode = 'BAG-002'
-inboundState.locationLabel = 'B-02-03'
+inboundState.selectedLocationIds = ['B-02-03', 'A-01-01']
 const failedInbound = workflow.completePdaCuttingInboundRound(inboundState, 'inbound-location', {
   ok: false,
   message: '库位无效，请重新扫描。',
 })
 assert.equal(failedInbound.carrierCode, 'BAG-002', '入仓失败必须保留袋码')
-assert.equal(failedInbound.locationLabel, 'B-02-03', '入仓失败必须保留库位')
+assert.deepEqual(failedInbound.selectedLocationIds, ['B-02-03', 'A-01-01'], '入仓失败必须保留全部库位')
 
 const successfulInbound = workflow.completePdaCuttingInboundRound(inboundState, 'inbound-location', { ok: true })
 assert.equal(successfulInbound.resultMessage, '入仓成功', '入仓成功提示必须精确')
 assert.equal(successfulInbound.carrierCode, '', '入仓成功后必须清空袋码')
-assert.equal(successfulInbound.locationLabel, '', '入仓成功后必须清空库位')
+assert.deepEqual(successfulInbound.selectedLocationIds, [], '入仓成功后必须清空库位')
 
 const demoTicketNos = [
   'FT-CUT-260307-102-01-001',
@@ -360,7 +374,7 @@ const buildInboundConfirmHarness = (taskId: string, carrierCode: string) => {
     querySelector(selector: string) {
       if (selector === '[data-pda-cut-inbound-field="carrierCode"]') return carrierInput
       if (selector === '[data-pda-cut-inbound-field="scanCode"]') return ticketInput
-      if (selector === '[data-pda-cut-inbound-field="locationLabel"]') return null
+      if (selector === '[data-pda-cut-inbound-field="locationScan"]') return null
       if (selector === '[data-pda-cut-inbound-live]') return liveRegion
       return null
     },
@@ -460,7 +474,7 @@ assert.equal(
     ok: false,
     message: '库位无效，请重新扫描。',
   }),
-  'locationLabel',
+  'locationScan',
   '库位错误必须回到库位',
 )
 assert.equal(
@@ -736,7 +750,7 @@ const crossRoundRepeat = workflow.completePdaCuttingInboundTicketScan(
 assert.equal(crossRoundRepeat.ok, false, '首轮已装袋菲票不得在新一轮再次加入')
 
 const emptyBagInbound = workflow.applyPdaCuttingInboundBusinessTransition(
-  { ...workflow.createPdaCuttingInboundFormState(), carrierCode: 'BAG-002', locationLabel: 'A-01-01' },
+  { ...workflow.createPdaCuttingInboundFormState(), carrierCode: 'BAG-002', selectedLocationIds: ['A-01-01'] },
   'inbound-location',
   mockLedger,
 )
@@ -748,7 +762,7 @@ for (const [locationLabel, message] of [
   ['其他仓-01', '非裁床库位'],
 ] as const) {
   const invalidLocation = workflow.applyPdaCuttingInboundBusinessTransition(
-    { ...workflow.createPdaCuttingInboundFormState(), carrierCode: 'BAG-WAIT-001', locationLabel },
+    { ...workflow.createPdaCuttingInboundFormState(), carrierCode: 'BAG-WAIT-001', selectedLocationIds: [locationLabel] },
     'inbound-location',
     mockLedger,
   )
@@ -758,7 +772,7 @@ for (const [locationLabel, message] of [
 const validInboundState = {
   ...workflow.createPdaCuttingInboundFormState(),
   carrierCode: 'BAG-WAIT-001',
-  locationLabel: 'A-01-01',
+  selectedLocationIds: ['A-01-01'],
 }
 const validInbound = workflow.applyPdaCuttingInboundBusinessTransition(
   validInboundState,
@@ -796,7 +810,7 @@ for (const forbidden of ['加入菲票', '待入仓菲票', '生产单', '铺布
 }
 
 const inboundHtml = workflow.renderPdaCuttingInboundWorkflow('inbound-location', inboundState)
-for (const text of ['1 扫中转袋', '2 扫库区库位', '3 确认入仓', '确认入仓']) {
+for (const text of ['1 扫中转袋', '2 选择入仓库位', '3 确认入仓', '确认入仓']) {
   assert(inboundHtml.includes(text), `中转袋入仓模式缺少：${text}`)
 }
 assert.equal((inboundHtml.match(/<button\b/g) || []).length, 1, '中转袋入仓工作区只能有一个主要按钮')
@@ -807,7 +821,8 @@ for (const forbidden of ['菲票', '加入菲票', '待入仓', '生产单', '�
 assert(source.includes('appendWaitHandoverBaggingEvent'), 'PDA 菲票装袋必须写入统一事实账')
 assert(source.includes('appendWaitHandoverInboundEvent'), 'PDA 中转袋入仓必须写入统一事实账')
 assert(source.includes('resolveCurrentWaitHandoverLocationRef'), '中转袋入仓必须按当前工厂解析稳定库位')
-assert(source.includes('locationRef: {'), '中转袋入仓事件必须保存稳定库位引用')
+assert(source.includes('warehouseLocations: warehouseLocations.map'), '中转袋入仓事件必须保存全部稳定库位引用')
+assert(!source.includes('locationRefOverride'), 'PDA 中转袋入仓不得保留单值库位写入覆盖口')
 assert(source.includes('idempotencyKey: `${snapshot.usageCycleId}:INBOUND_CONFIRMED`'), '中转袋入仓必须使用使用周期幂等键')
 assert(!source.includes('renderPdaCuttingOrderSelectionPrompt'), '不得保留待入仓菲票或裁片单中间选择页')
 
@@ -860,6 +875,11 @@ const runtimeLocationRef = listStableWarehouseLocationRefs(
   loadWarehouseLayoutSnapshot(runtimeWarehouse).snapshot,
 )[0]
 assert(runtimeLocationRef, '运行时入仓校验必须存在稳定库位')
+const secondRuntimeLocationRef = listStableWarehouseLocationRefs(
+  runtimeWarehouse,
+  loadWarehouseLayoutSnapshot(runtimeWarehouse).snapshot,
+).find((item) => item.locationId !== runtimeLocationRef.locationId)
+assert(secondRuntimeLocationRef, '运行时入仓校验必须存在第二个稳定库位')
 workflow.appendPdaCuttingInboundRuntimeEvent(
   {
     ...workflow.createPdaCuttingInboundFormState(),
@@ -878,12 +898,21 @@ workflow.appendPdaCuttingInboundRuntimeEvent(
     ...workflow.createPdaCuttingInboundFormState(),
     operatorName: 'PDA 入仓测试员',
     carrierCode: runtimeBagCode,
-    locationLabel: runtimeLocationRef.locationNo,
+    selectedLocationIds: [runtimeLocationRef.locationId, secondRuntimeLocationRef.locationId],
   },
   'inbound-location',
   [runtimeCandidate],
   runtimeStorage,
-  runtimeLocationRef,
+  [runtimeLocationRef, secondRuntimeLocationRef],
+)
+const runtimeInboundEvent = listCuttingRuntimeEvents(runtimeStorage)
+  .find((event) => event.eventType === '中转袋入仓')
+assert(runtimeInboundEvent, 'PDA 中转袋入仓必须写入统一事实')
+assert.deepEqual(
+  (runtimeInboundEvent.payload as { warehouseLocations?: Array<{ locationId: string }> }).warehouseLocations
+    ?.map((item) => item.locationId),
+  [runtimeLocationRef.locationId, secondRuntimeLocationRef.locationId],
+  'PDA 中转袋入仓必须按选择顺序一次写入全部 warehouseLocations',
 )
 assert.deepEqual(
   listCuttingRuntimeEvents(runtimeStorage)
