@@ -99,6 +99,7 @@ import { executeSpecialCraftWaitProcessIssue } from '../data/fcs/special-craft-p
 import { renderWarehouseLocationMap } from '../components/ui/warehouse-location-map.ts'
 import {
   buildWarehouseLocationMapProjection,
+  listWarehouseLocationMapCells,
   revalidateWarehouseLocationSelection,
   resolveStableWarehouseLocationRef,
   toggleWarehouseLocationSelection,
@@ -993,8 +994,7 @@ function getSelectedCuttingPickupLocationRefs(
   selectedLocationIds: string[] = state.cuttingPickupLocationIds,
 ): StableWarehouseLocationRef[] {
   const selected = new Set(selectedLocationIds)
-  return projection.areas
-    .flatMap((area) => area.shelves.flatMap((shelf) => shelf.locations))
+  return listWarehouseLocationMapCells(projection)
     .filter((location) => selected.has(location.locationId))
 }
 
@@ -1053,7 +1053,7 @@ function renderCuttingFootprintAdjustmentPage(): string {
   }
   return `
     <div class="space-y-4 px-4 pb-5 pt-4">
-      ${renderCuttingWaitProcessSubpageHeader('调整剩余存放范围', '按现场剩余实物调整连续库位范围，并记录每个单位的剩余数量。')}
+      ${renderCuttingWaitProcessSubpageHeader('调整剩余存放库位', '按现场剩余实物调整存放库位，并记录每个单位的剩余数量。')}
       <section class="rounded-2xl border bg-card p-4 text-sm">
         <div class="font-semibold">${escapeHtml(session.pickupSessionNo)}</div>
         <div class="mt-1 text-xs text-muted-foreground">原范围：${escapeHtml(session.toLocationRefs?.map((ref) => ref.locationNo).join('、') || session.toLocationCode)}</div>
@@ -1561,7 +1561,7 @@ function renderCuttingWaitProcessEventResult(event: CuttingRuntimeEvent): string
         <button type="button" class="mt-2 rounded-full border border-amber-300 px-3 py-1.5 text-xs text-amber-700" data-pda-warehouse-action="retry-cutting-pickup-sync" data-pickup-session-id="${escapeAttr(runtimeString(payload.pickupSessionId))}">重试仓储回写</button>
       ` : ''}
       ${pickupSession?.storageFootprint ? `
-        <button type="button" class="mt-2 rounded-full border px-3 py-1.5 text-xs" data-pda-warehouse-action="open-cutting-footprint-adjustment" data-pickup-session-id="${escapeAttr(pickupSession.pickupSessionId)}">调整剩余存放范围</button>
+        <button type="button" class="mt-2 rounded-full border px-3 py-1.5 text-xs" data-pda-warehouse-action="open-cutting-footprint-adjustment" data-pickup-session-id="${escapeAttr(pickupSession.pickupSessionId)}">调整剩余存放库位</button>
       ` : ''}
     </div>
   `
@@ -3003,9 +3003,10 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     const locationCode = state.cuttingReturnLocationCode
     const locationRef = resolveCurrentWaitProcessLocationRef(warehouseArea, locationCode)
     const latestProjection = buildCuttingPickupMapProjection()
-    const latestCell = latestProjection?.areas
-      .flatMap((area) => area.shelves.flatMap((shelf) => shelf.locations))
+    const latestCell = latestProjection
+      ? listWarehouseLocationMapCells(latestProjection)
       .find((cell) => cell.locationId === locationRef?.locationId)
+      : undefined
     if (!locationRef || !latestCell || latestCell.businessStatus === 'OCCUPIED') {
       window.alert('回收库位不存在、已停用或已被占用，请重新选择。')
       return true

@@ -742,7 +742,6 @@ function renderPdaInboundLocationMap(form: InboundFormState): string {
     mode: 'SELECT',
     factoryName: '当前裁床工厂',
     selectedLocationIds: form.selectedLocationId ? [form.selectedLocationId] : [],
-    selectionLimit: 1,
   })
 }
 

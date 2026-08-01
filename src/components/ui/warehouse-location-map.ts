@@ -4,7 +4,10 @@ import type {
   WarehouseLocationMapProjection,
   WarehouseLocationOccupancy,
 } from '../../pages/process-factory/cutting/warehouse-location-map-model.ts'
-import { toggleWarehouseLocationSelection } from '../../pages/process-factory/cutting/warehouse-location-map-model.ts'
+import {
+  listWarehouseLocationMapCells,
+  listWarehouseLocationMapShelfCells,
+} from '../../pages/process-factory/cutting/warehouse-location-map-model.ts'
 
 export type WarehouseLocationMapMode = 'VIEW' | 'SELECT' | 'LAYOUT'
 
@@ -17,19 +20,25 @@ export interface WarehouseLocationMapOptions {
   openLocationId?: string
   occupancyPage?: number
   unlocatedPage?: number
-  selectionLimit?: number
 }
 
 function renderCell(
   cell: WarehouseLocationMapCell,
   mode: WarehouseLocationMapMode,
   selectedIds: Set<string>,
-  selectionDisabled: boolean,
 ): string {
   const occupied = cell.businessStatus === 'OCCUPIED'
   const selected = selectedIds.has(cell.locationId)
+  const unavailableReason = cell.areaStatus !== 'AVAILABLE'
+    ? '库区已停用'
+    : cell.shelfStatus !== 'AVAILABLE'
+      ? '货架已停用'
+      : cell.status !== 'AVAILABLE'
+        ? '库位已停用'
+        : ''
+  const selectionDisabled = occupied || Boolean(unavailableReason)
   const action = mode === 'SELECT'
-    ? (occupied || selectionDisabled ? '' : 'toggle-location')
+    ? (selected || !selectionDisabled ? 'toggle-location' : '')
     : occupied && cell.occupancies.length ? 'open-occupancy' : ''
   const summary = cell.occupancies[0]
   const rollSummary = summary?.rollDetails?.length
@@ -40,7 +49,9 @@ function renderCell(
   const bagSummary = summary?.bagCode
     ? `${summary.bagCode} · ${summary.ticketNos?.length ?? 0} 张菲票 · ${summary.qty} ${summary.unit}`
     : ''
-  const statusClass = occupied
+  const statusClass = unavailableReason
+    ? 'border-slate-300 bg-slate-100 text-slate-600'
+    : occupied
     ? 'border-rose-300 bg-rose-50 text-rose-800'
     : selected
       ? 'border-blue-600 bg-blue-600 text-white ring-2 ring-blue-200'
@@ -49,16 +60,18 @@ function renderCell(
     <div class="shrink-0">
       <button
         type="button"
-        class="relative min-h-11 min-w-11 rounded-md border px-2 py-1.5 text-left text-xs ${statusClass} ${mode === 'SELECT' && (occupied || selectionDisabled) ? 'cursor-not-allowed opacity-60' : ''}"
+        class="relative min-h-11 min-w-[9.5rem] rounded-md border px-2 py-1.5 text-left text-xs ${statusClass} ${mode === 'SELECT' && selectionDisabled && !selected ? 'cursor-not-allowed opacity-60' : ''}"
         data-skip-page-rerender="true"
         data-warehouse-map-action="${action}"
         data-location-id="${escapeHtml(cell.locationId)}"
         data-location-no="${escapeHtml(cell.locationNo)}"
+        data-position-no="${cell.positionNo}"
         aria-pressed="${selected}"
-        ${mode === 'SELECT' && (occupied || selectionDisabled) ? 'disabled aria-disabled="true"' : ''}
+        ${mode === 'SELECT' && selectionDisabled && !selected ? 'disabled aria-disabled="true"' : ''}
       >
-        <span class="block font-semibold">${escapeHtml(cell.locationNo)}</span>
-        <span class="mt-0.5 block">${occupied ? '占用' : '空闲'}</span>
+        <span class="block font-semibold">P${String(cell.positionNo).padStart(2, '0')} · ${unavailableReason ? '停用' : occupied ? '占用' : '空闲'}</span>
+        <span class="mt-0.5 block font-mono">${escapeHtml(cell.locationNo)}</span>
+        ${unavailableReason ? `<span class="mt-0.5 block">${escapeHtml(unavailableReason)}，不可选择</span>` : ''}
         ${occupied && summary ? `
           <span class="mt-1 block max-w-28 truncate" title="${escapeHtml(summary.productionOrderNo || '未关联生产单')}">${escapeHtml(summary.productionOrderNo || '未关联生产单')}</span>
           <span class="block max-w-28 truncate" title="${escapeHtml(summary.objectName)}">${escapeHtml(summary.objectName)}</span>
@@ -106,9 +119,7 @@ function renderOccupancyDrawer(
     ? new URLSearchParams(window.location.search).get('locationId')
     : '')
   if (!locationId) return ''
-  const cell = projection.areas
-    .flatMap((area) => area.shelves.flatMap((shelf) => shelf.locations))
-    .find((item) => item.locationId === locationId)
+  const cell = listWarehouseLocationMapCells(projection).find((item) => item.locationId === locationId)
   if (!cell?.occupancies.length) return ''
   const pageCount = Math.max(1, Math.ceil(cell.occupancies.length / 10))
   const page = Math.min(Math.max(1, requestedPage ?? (Number(
@@ -235,8 +246,7 @@ export function renderWarehouseLocationMapSummarySection(projection: WarehouseLo
     bagCodes: Set<string>
     tickets: Set<string>
   }>()
-  projection.areas
-    .flatMap((area) => area.shelves.flatMap((shelf) => shelf.locations))
+  listWarehouseLocationMapCells(projection)
     .flatMap((cell) => cell.occupancies.map((occupancy) => ({ cell, occupancy })))
     .forEach(({ cell, occupancy }) => {
       const key = occupancy.productionOrderNo || occupancy.objectNo
@@ -297,14 +307,13 @@ export function renderWarehouseLocationMapSummarySection(projection: WarehouseLo
 
 export function renderWarehouseLocationMap(options: WarehouseLocationMapOptions): string {
   const { projection, mode } = options
-  const selectedIds = new Set(options.selectedLocationIds ?? [])
-  const selectedCells = projection.areas
-    .flatMap((area) => area.shelves.flatMap((shelf) => shelf.locations))
-    .filter((cell) => selectedIds.has(cell.locationId))
-    .sort((left, right) => left.orderIndex - right.orderIndex)
-  const selectedRange = selectedCells.length
-    ? `${selectedCells[0].locationNo} 至 ${selectedCells.at(-1)?.locationNo}`
-    : '未选择'
+  const selectedLocationIds = Array.from(new Set(options.selectedLocationIds ?? []))
+  const selectedIds = new Set(selectedLocationIds)
+  const cellsById = new Map(listWarehouseLocationMapCells(projection).map((cell) => [cell.locationId, cell]))
+  const selectedCells = selectedLocationIds.flatMap((locationId) => {
+    const cell = cellsById.get(locationId)
+    return cell ? [cell] : []
+  })
   return `
     <section class="space-y-4" data-warehouse-map-root data-warehouse-id="${escapeHtml(projection.warehouseId)}" data-warehouse-kind="${escapeHtml(projection.warehouseKind)}">
       <div class="rounded-lg border bg-card p-4">
@@ -320,11 +329,14 @@ export function renderWarehouseLocationMap(options: WarehouseLocationMapOptions)
           </div>
         </div>
         ${mode === 'SELECT' ? `
-          <div class="mt-3 rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-800">
+          <div class="mt-3 rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-800" data-warehouse-map-selection-summary>
             <div class="flex flex-wrap items-center justify-between gap-2">
-              <span>${options.selectionLimit === 1 ? '请选择 1 个空闲库位' : '请选择同一货架内连续相邻的空闲库位'}；已选 ${selectedIds.size} 个，范围：${escapeHtml(selectedRange)}。</span>
+              <span>已选 ${selectedCells.length} 个库位</span>
               <button type="button" class="min-h-11 rounded-md border border-blue-200 bg-white px-3" data-skip-page-rerender="true" data-warehouse-map-action="clear-selection" ${selectedIds.size ? '' : 'disabled'}>清空选择</button>
             </div>
+            ${selectedCells.length ? `<div class="mt-2 flex flex-wrap gap-2" data-warehouse-map-selected-items>${selectedCells.map((cell) => `
+              <button type="button" class="min-h-11 rounded-md border border-blue-200 bg-white px-3 font-mono text-xs" data-warehouse-map-selected-item data-skip-page-rerender="true" data-warehouse-map-action="toggle-location" data-location-id="${escapeHtml(cell.locationId)}" data-location-no="${escapeHtml(cell.locationNo)}">${escapeHtml(cell.locationNo)} · 取消</button>
+            `).join('')}</div>` : ''}
           </div>
         ` : ''}
         ${options.feedbackMessage ? `<div class="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800" role="status">${escapeHtml(options.feedbackMessage)}</div>` : ''}
@@ -345,11 +357,13 @@ export function renderWarehouseLocationMap(options: WarehouseLocationMapOptions)
             ` : ''}
           </header>
           <div class="divide-y">
-            ${area.shelves.map((shelf) => `
+            ${area.shelves.map((shelf) => {
+              const shelfCells = listWarehouseLocationMapShelfCells(shelf)
+              return `
               <div class="grid gap-3 p-4 md:grid-cols-[9rem_minmax(0,1fr)]">
                 <div>
                   <div class="text-sm font-medium">${escapeHtml(shelf.shelfNo)}</div>
-                  <div class="mt-1 text-xs text-muted-foreground">${shelf.locations.length} 个库位</div>
+                  <div class="mt-1 text-xs text-muted-foreground">${shelfCells.length} 个库位</div>
                   ${mode === 'LAYOUT' ? `
                     <div class="mt-2 flex gap-1">
                       <button type="button" class="min-h-11 min-w-11 rounded border text-xs" aria-label="${escapeHtml(shelf.shelfNo)} 上移" data-skip-page-rerender="true" data-warehouse-map-action="move-shelf-up" data-area-id="${escapeHtml(area.areaId)}" data-shelf-id="${escapeHtml(shelf.shelfId)}">↑</button>
@@ -358,21 +372,20 @@ export function renderWarehouseLocationMap(options: WarehouseLocationMapOptions)
                     </div>
                   ` : ''}
                 </div>
-                <div class="overflow-x-auto pb-1">
-                  <div class="flex min-w-max gap-2">
-                    ${shelf.locations.map((cell) => {
-                      const selectionDisabled = mode === 'SELECT'
-                        && !selectedIds.has(cell.locationId)
-                        && (
-                          (options.selectionLimit !== undefined && selectedIds.size >= options.selectionLimit)
-                          || !toggleWarehouseLocationSelection(projection, [...selectedIds], cell.locationId).ok
-                        )
-                      return renderCell(cell, mode, selectedIds, selectionDisabled)
-                    }).join('')}
+                <div class="min-w-0 overflow-x-auto pb-1" data-warehouse-shelf-scroll>
+                  <div class="min-w-max space-y-2">
+                    ${shelf.levels.map((level) => `
+                      <div class="grid grid-cols-[4rem_auto] items-start gap-2" data-warehouse-level-no="${level.levelNo}">
+                        <div class="sticky left-0 z-10 flex min-h-11 items-center rounded-md border bg-card px-2 text-xs font-semibold">L${String(level.levelNo).padStart(2, '0')}</div>
+                        <div class="flex gap-2">
+                          ${level.locations.map((cell) => renderCell(cell, mode, selectedIds)).join('')}
+                        </div>
+                      </div>
+                    `).join('')}
                   </div>
                 </div>
               </div>
-            `).join('')}
+            `}).join('')}
           </div>
         </article>
       `).join('')}

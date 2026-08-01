@@ -16,6 +16,7 @@ import {
 } from '../../../components/ui/warehouse-location-map.ts'
 import {
   buildWarehouseLocationMapProjection,
+  listWarehouseLocationMapShelfCells,
   listStableWarehouseLocationRefs,
   resolveStableWarehouseLocationRef,
   type WarehouseLocationMapProjection,
@@ -376,7 +377,7 @@ export function buildWaitProcessRuntimeOccupancies(
         footprintLocationNos,
         remainingQty: totalQty,
         partialOccupancyNote: locationRefs.length > 1
-          ? `本批物料连续存放于 ${locationRefs.length} 个库位；每个库位显示同批总量，汇总按占用对象去重。`
+          ? `本批物料存放于 ${locationRefs.length} 个库位；每个库位显示同批总量，汇总按占用对象去重。`
           : locationRefs.length ? undefined : '历史事件缺少稳定仓库身份或库位无法唯一匹配，请主管确认。',
          cutOrderNo: event.refs.cutOrderNo,
          styleName: '裁床生产单款式',
@@ -954,7 +955,7 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
         .map((item) => normalizeWarehouseIdentifier(item.locationNo)))
       let locationNo = requestedNo
       if (!locationNo) {
-        let sequence = shelf.locations.length + 1
+        let sequence = listWarehouseLocationMapShelfCells(shelf).length + 1
         do {
           locationNo = `${shelf.shelfNo}-${String(sequence).padStart(2, '0')}`
           sequence += 1

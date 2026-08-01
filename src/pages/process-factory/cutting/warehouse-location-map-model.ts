@@ -88,8 +88,6 @@ export interface WarehouseLocationMapShelf {
   shelfId: string
   shelfNo: string
   readonly levels: readonly WarehouseLocationMapLevel[]
-  /** @deprecated 任务 5 改造共享地图组件后移除；只由 levels 展平派生。 */
-  readonly locations: readonly WarehouseLocationMapCell[]
 }
 
 export interface WarehouseLocationMapLevel {
@@ -166,13 +164,20 @@ function buildWarehouseLocationMapShelf(input: {
   shelfNo: string
   levels: readonly WarehouseLocationMapLevel[]
 }): WarehouseLocationMapShelf {
-  const shelf = { ...input } as Omit<WarehouseLocationMapShelf, 'locations'>
-  Object.defineProperty(shelf, 'locations', {
-    configurable: false,
-    enumerable: true,
-    get: () => Object.freeze(shelf.levels.flatMap((level) => level.locations)),
-  })
-  return shelf as WarehouseLocationMapShelf
+  return input
+}
+
+export function listWarehouseLocationMapShelfCells(
+  shelf: WarehouseLocationMapShelf,
+): readonly WarehouseLocationMapCell[] {
+  return Object.freeze(shelf.levels.flatMap((level) => level.locations))
+}
+
+export function listWarehouseLocationMapCells(
+  projection: WarehouseLocationMapProjection,
+): readonly WarehouseLocationMapCell[] {
+  return Object.freeze(projection.areas.flatMap((area) =>
+    area.shelves.flatMap((shelf) => listWarehouseLocationMapShelfCells(shelf))))
 }
 
 export function listStableWarehouseLocationRefs(
@@ -267,11 +272,6 @@ export function classifyHistoricalWarehouseLocation(
   }
 }
 
-function listMapCells(projection: WarehouseLocationMapProjection): WarehouseLocationMapCell[] {
-  return projection.areas.flatMap((area) =>
-    area.shelves.flatMap((shelf) => shelf.levels.flatMap((level) => level.locations)))
-}
-
 type WarehouseLocationSelectability = 'SELECTABLE' | 'MISSING' | 'WRONG_SCOPE' | 'STOPPED' | 'OCCUPIED'
 
 function classifyWarehouseLocationSelectability(
@@ -360,8 +360,7 @@ export function buildWarehouseLocationMapProjection(
           })
         }),
     }))
-  const cells = areas.flatMap((area) =>
-    area.shelves.flatMap((shelf) => shelf.levels.flatMap((level) => level.locations)))
+  const cells = areas.flatMap((area) => area.shelves.flatMap((shelf) => listWarehouseLocationMapShelfCells(shelf)))
   return {
     factoryId: effective.factoryId,
     warehouseId: effective.warehouseId,
@@ -389,7 +388,7 @@ export function validateWarehouseLocationSelection(
   if (!uniqueIds.length) {
     return { ok: false, message: '请选择空闲库位。', selectedLocationIds: [] }
   }
-  const cellsById = new Map(listMapCells(projection).map((cell) => [cell.locationId, cell]))
+  const cellsById = new Map(listWarehouseLocationMapCells(projection).map((cell) => [cell.locationId, cell]))
   const selectabilities = uniqueIds.map((id) => classifyWarehouseLocationSelectability(projection, cellsById.get(id)))
   if (selectabilities.includes('MISSING')) {
     return { ok: false, message: '库位不存在或已停用，请重新选择。', selectedLocationIds: uniqueIds }
@@ -411,7 +410,7 @@ export function revalidateWarehouseLocationSelection(
   selectedLocationIds: string[],
 ): WarehouseLocationSelectionResult {
   const uniqueIds = Array.from(new Set(selectedLocationIds))
-  const cellsById = new Map(listMapCells(projection).map((cell) => [cell.locationId, cell]))
+  const cellsById = new Map(listWarehouseLocationMapCells(projection).map((cell) => [cell.locationId, cell]))
   const retained: string[] = []
   const conflictLabels: string[] = []
   uniqueIds.forEach((locationId) => {

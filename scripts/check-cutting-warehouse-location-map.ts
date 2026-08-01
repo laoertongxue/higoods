@@ -27,6 +27,8 @@ import {
   adjustWarehouseStorageFootprint,
   buildWarehouseLocationMapProjection,
   buildWarehouseStorageFootprint,
+  listWarehouseLocationMapCells,
+  listWarehouseLocationMapShelfCells,
   listStableWarehouseLocationRefs,
   resolveStableWarehouseLocationRef,
   classifyHistoricalWarehouseLocation,
@@ -113,10 +115,10 @@ const warehouseLayoutStoreModule = await import('../src/pages/process-factory/cu
 const fcsHandlersSource = readFileSync(new URL('../src/main-handlers/fcs-handlers.ts', import.meta.url), 'utf8')
 assert.doesNotMatch(pdaWaitProcessSource, /CUTTING_RECEIVE_LOCATIONS/, 'PDA 不得保留第二套硬编码裁床库位')
 assert.doesNotMatch(`${pdaWaitProcessSource}\n${pdaInboundSource}\n${pdaHandoverSource}\n${warehouseHubSource}`, /FAB-A-0|CUT-A-01|SP-RETURN-0/, '裁床现场页不得继续展示旧硬编码库位')
-assert.match(pdaWaitProcessSource, /调整剩余存放范围/)
+assert.match(pdaWaitProcessSource, /调整剩余存放库位/)
 assert.match(pdaWaitProcessSource, /}, syncCuttingPickupSessionRuntimeFacts\)/, '领料必须通过原子运行时入口写共享事件与本地会话')
 assert.match(pdaInboundSource, /data-pda-inbound-location-map/)
-assert.match(pdaInboundSource, /selectionLimit: 1/)
+assert.doesNotMatch(pdaInboundSource, /selectionLimit/, 'PDA 单选业务状态不得继续泄漏为共享地图数量限制 API')
 assert.match(pdaInboundSource, /不属于当前工厂/)
 assert.match(pdaHandoverSource, /locationRef:/, '特殊工艺回仓必须写稳定库位路径')
 assert.match(warehouseHubSource, /data-wait-handover-location-map/, 'Web 中转袋入仓必须提供待交出仓单选库位图')
@@ -132,6 +134,7 @@ assert.doesNotMatch(
   /assignWarehouseLocationToShelf|assign-location/,
   'v3 没有未分配库位事实，不得保留跨货架分配领域函数、事件分支或交互入口',
 )
+assert.doesNotMatch(warehouseMapUiSource, /selectionLimit/, '共享库位图 API 不得暴露 selectionLimit')
 assert.doesNotMatch(warehouseLayoutStoreSource, /export function replaceWarehouseAreaList/, '不得公开任意替换 areaList 的接口')
 for (const apiName of ['reorderWarehouseAreas', 'reorderWarehouseShelves', 'reorderWarehouseLocations']) {
   assert.equal(typeof warehouseLayoutStoreModule[apiName], 'function', `缺少窄排序 API：${apiName}`)
@@ -676,8 +679,7 @@ assert(
   emptyProjection.areas.every((area) => area.shelves.every((shelf) => Array.isArray(shelf.levels))),
   '每个货架必须按 levels 输出分层投影',
 )
-const projectedRefs = emptyProjection.areas.flatMap((area) => area.shelves.flatMap((shelf) =>
-  shelf.levels.flatMap((level) => level.locations)))
+const projectedRefs = listWarehouseLocationMapCells(emptyProjection)
 assert(projectedRefs.length > 10, '自由多选测试必须覆盖超过 10 个可用库位，避免隐含固定上限')
 assert(projectedRefs.every((ref) =>
   ref.warehouseId
@@ -724,17 +726,15 @@ assert.deepEqual(
 for (const area of emptyProjection.areas) {
   for (const shelf of area.shelves) {
     assert.equal(Object.isFrozen(shelf.levels), true, '货架 levels 必须冻结为只读事实')
-    assert.equal(Object.getOwnPropertyDescriptor(shelf, 'locations')?.get instanceof Function, true, 'flat locations 必须是派生 getter')
-    assert.equal(Object.getOwnPropertyDescriptor(shelf, 'locations')?.set, undefined, 'flat locations 不得提供替换 setter')
-    const firstFlatLocations = shelf.locations
-    const secondFlatLocations = shelf.locations
-    assert.equal(Object.isFrozen(firstFlatLocations), true, 'flat locations getter 每次返回冻结数组')
-    assert.deepEqual(secondFlatLocations, firstFlatLocations, 'levels 不变时 flat getter 内容必须一致')
-    assert.equal(Reflect.set(shelf, 'locations', []), false, 'flat locations 不得被独立替换为第二套事实')
+    assert.equal('locations' in shelf, false, '货架不得保留 flat locations getter 或兼容字段')
+    const firstFlatLocations = listWarehouseLocationMapShelfCells(shelf)
+    const secondFlatLocations = listWarehouseLocationMapShelfCells(shelf)
+    assert.equal(Object.isFrozen(firstFlatLocations), true, '统一展平 helper 必须返回冻结只读数组')
+    assert.deepEqual(secondFlatLocations, firstFlatLocations, 'levels 不变时统一 helper 内容必须一致')
     assert.throws(
       () => (firstFlatLocations as unknown as WarehouseLocationMapCell[]).push(firstFlatLocations[0]),
       TypeError,
-      'flat locations 不得 push 分叉',
+      '统一展平结果不得 push 分叉',
     )
     assert.deepEqual(
       shelf.levels.map((level) => level.levelNo),
@@ -795,8 +795,7 @@ const occupiedProjection = buildWarehouseLocationMapProjection(selectionWarehous
 const stoppedWarehouse = structuredClone(selectionWarehouse)
 stoppedWarehouse.areaList[0].shelfList[0].locationList[0].status = 'STOPPED'
 const stoppedSnapshot = buildInitialWarehouseLayoutSnapshot(stoppedWarehouse, '停用测试')
-const firstOccupancy = occupiedProjection.areas.flatMap((area) => area.shelves)
-  .flatMap((shelf) => shelf.locations)
+const firstOccupancy = listWarehouseLocationMapCells(occupiedProjection)
   .find((location) => location.locationId === shelfLocationIds[1])!.occupancies[0]
 const stoppedOccupancyProjection = buildWarehouseLocationMapProjection(stoppedWarehouse, stoppedSnapshot, [{
   ...firstOccupancy,
@@ -804,8 +803,7 @@ const stoppedOccupancyProjection = buildWarehouseLocationMapProjection(stoppedWa
   locationId: shelfLocationIds[0],
 }])
 assert.equal(
-  stoppedOccupancyProjection.areas.flatMap((area) => area.shelves)
-    .flatMap((shelf) => shelf.locations)
+  listWarehouseLocationMapCells(stoppedOccupancyProjection)
     .find((location) => location.locationId === shelfLocationIds[0])?.businessStatus,
   'OCCUPIED',
   '停用只控制可选，停用库位上的占用事实仍必须显示为占用',
@@ -823,6 +821,13 @@ const stoppedShelfProjection = buildWarehouseLocationMapProjection(
   [],
 )
 assert.equal(validateWarehouseLocationSelection(stoppedShelfProjection, [shelfLocationIds[0]]).ok, false, '停用货架内库位不得选择')
+const stoppedMapHtml = renderWarehouseLocationMap({
+  projection: stoppedShelfProjection,
+  mode: 'SELECT',
+  factoryName: '中央裁床',
+})
+assert.match(stoppedMapHtml, /P01 · 停用[\s\S]*A-R01-L04-P01[\s\S]*货架已停用，不可选择/, '停用节点必须直接显示状态、完整编号和不可选原因')
+assert.match(stoppedMapHtml, /disabled aria-disabled="true"/, '停用节点在选位模式必须不可选')
 const stoppedAreaWarehouse = structuredClone(selectionWarehouse)
 stoppedAreaWarehouse.areaList[0].status = 'STOPPED'
 const stoppedAreaProjection = buildWarehouseLocationMapProjection(
@@ -836,13 +841,13 @@ const singleOrderProjection = buildWarehouseLocationMapProjection(selectionWareh
   { ...firstOccupancy, occupancyId: 'OCC-CONFLICT', productionOrderNo: 'PO-OTHER' },
 ])
 assert.equal(
-  singleOrderProjection.areas.flatMap((area) => area.shelves).flatMap((shelf) => shelf.locations)
+  listWarehouseLocationMapCells(singleOrderProjection)
     .find((location) => location.locationId === shelfLocationIds[1])!.occupancies.length,
   2,
   '同一库位出现多生产单冲突时必须保留全部事实供主管核对',
 )
 assert.equal(
-  singleOrderProjection.areas.flatMap((area) => area.shelves).flatMap((shelf) => shelf.locations)
+  listWarehouseLocationMapCells(singleOrderProjection)
     .find((location) => location.locationId === shelfLocationIds[1])!.businessStatus,
   'OCCUPIED',
   '多生产单冲突库位必须保持占用并禁止再次选择',
@@ -883,6 +888,10 @@ assert.match(mapHtml, /占用/)
 assert.match(mapHtml, /min-h-11/)
 assert.match(mapHtml, /min-w-11/)
 assert.match(mapHtml, /overflow-x-auto/)
+assert.match(mapHtml, /class="[^"]*overflow-x-auto[^"]*"[^>]*data-warehouse-shelf-scroll/, '宽货架必须只在货架内部横向滚动')
+assert.match(mapHtml, /data-warehouse-level-no="4"[\s\S]*data-warehouse-level-no="1"/, '同货架 L04 必须显示在 L01 前')
+assert.match(mapHtml, /data-position-no="1"[\s\S]*data-position-no="2"/, '同层 P01 必须显示在 P02 前')
+assert.match(mapHtml, /P01 · (?:空闲|占用)[\s\S]*A-R01-L04-P01/, '库位格第一行必须显示层内位置和中文状态，第二行必须直接显示完整编号')
 assert.doesNotMatch(mapHtml, /库位组/)
 assert.match(mapHtml, /库区：/)
 assert.match(mapHtml, /PO-TEST/)
@@ -895,8 +904,7 @@ assert.match(mapHtml, /物料卷明细|袋内菲票明细/, '占用详情必须�
 assert.match(mapHtml, /款式图/, '占用详情必须支持款式图')
 assert.match(mapHtml, /物料图/, '待加工仓详情必须支持物料图')
 const detailPaginationProjection = structuredClone(occupiedProjection)
-const detailPaginationCell = detailPaginationProjection.areas.flatMap((area) => area.shelves)
-  .flatMap((shelf) => shelf.locations)
+const detailPaginationCell = listWarehouseLocationMapCells(detailPaginationProjection)
   .find((location) => location.locationId === shelfLocationIds[1])!
 detailPaginationCell.occupancies[0].rollDetails = Array.from({ length: 12 }, (_, index) => ({
   rollNo: `ROLL-PAGE-${String(index + 1).padStart(3, '0')}`,
@@ -936,6 +944,7 @@ const selectMapHtml = renderWarehouseLocationMap({
   factoryName: '中央裁床',
 })
 assert.doesNotMatch(selectMapHtml, /生产单占用摘要/, '一线选位模式不得展示管理型生产单摘要')
+assert.doesNotMatch(selectMapHtml, /连续|相邻|起止范围|选择范围|范围：/, '选位组件不得推断或提示连续相邻范围')
 assert.equal(
   validateWarehouseLocationSelection(occupiedProjection, [shelfLocationIds[0], shelfLocationIds[1]]).message,
   '所选库位已被占用，请重新选择。',
@@ -947,13 +956,12 @@ for (const kind of ['WAIT_PROCESS', 'WAIT_HANDOVER'] as const) {
   assert(currentMap, `${kind} 必须生成当前库位图投影`)
   assert(factOnlyMap, `${kind} 必须生成事实占用投影`)
   assert.equal(
-    factOnlyMap.projection.areas.flatMap((area) => area.shelves.flatMap((shelf) => shelf.locations))
+    listWarehouseLocationMapCells(factOnlyMap.projection)
       .some((cell) => cell.occupancies.some((occupancy) => occupancy.occupancyId.includes('-demo:'))),
     false,
     `${kind} 的共享执行投影不得注入演示占用`,
   )
-  const occupiedCells = currentMap.projection.areas
-    .flatMap((area) => area.shelves.flatMap((shelf) => shelf.locations))
+  const occupiedCells = listWarehouseLocationMapCells(currentMap.projection)
     .filter((cell) => cell.businessStatus === 'OCCUPIED')
   assert(occupiedCells.length > 0, `${kind} 必须包含非空闲演示占用`)
   assert(occupiedCells.every((cell) => cell.occupancies.every((occupancy) => occupancy.productionOrderNo)), `${kind} 占用必须标准到生产单`)
@@ -984,8 +992,17 @@ const selectionHtml = renderWarehouseLocationMap({
   factoryName: '中央裁床',
   selectedLocationIds: selectedTwo.selectedLocationIds,
 })
-assert.match(selectionHtml, /已选 2 个/)
+assert.match(selectionHtml, /data-warehouse-map-selection-summary/)
+assert.match(selectionHtml, /已选 2 个库位/)
 assert.match(selectionHtml, /data-warehouse-map-action="clear-selection"/)
+const selectionSummaryHtml = selectionHtml.match(/<div[^>]+data-warehouse-map-selected-items[\s\S]*?<\/div>/)?.[0] ?? ''
+assert.match(selectionSummaryHtml, new RegExp(emptyProjection.areas[0].shelves[0].levels.flatMap((level) => level.locations).find((cell) => cell.locationId === selectedOne.selectedLocationIds[0])!.locationNo), '选中摘要必须逐项显示第一个完整库位编号')
+assert.match(selectionSummaryHtml, new RegExp(emptyProjection.areas[1].shelves[0].levels[0].locations[0].locationNo), '选中摘要必须逐项显示第二个完整库位编号')
+assert(
+  selectionSummaryHtml.indexOf(emptyProjection.areas[0].shelves[0].levels.flatMap((level) => level.locations).find((cell) => cell.locationId === selectedOne.selectedLocationIds[0])!.locationNo)
+    < selectionSummaryHtml.indexOf(emptyProjection.areas[1].shelves[0].levels[0].locations[0].locationNo),
+  '选中摘要必须保持点击顺序',
+)
 const selectedThree = toggleWarehouseLocationSelection(emptyProjection, selectedTwo.selectedLocationIds, crossShelfLocationId)
 assert.deepEqual(selectedThree.selectedLocationIds, [shelfLocationIds[0], crossAreaLocationId, crossShelfLocationId])
 const middleRemoval = toggleWarehouseLocationSelection(emptyProjection, selectedThree.selectedLocationIds, crossAreaLocationId)
@@ -1003,15 +1020,14 @@ const externalLocationId = buildWarehouseLocationMapProjection(
   externalWarehouse,
   buildInitialWarehouseLayoutSnapshot(externalWarehouse, '外部仓测试'),
   [],
-).areas[0].shelves[0].locations[0].locationId
+).areas[0].shelves[0].levels[0].locations[0].locationId
 assert.equal(validateWarehouseLocationSelection(emptyProjection, [externalLocationId]).ok, false, '其他仓库库位不得选择')
 const mismatchedProjection = structuredClone(emptyProjection)
-mismatchedProjection.areas.flatMap((area) => area.shelves).flatMap((shelf) => shelf.locations)
+listWarehouseLocationMapCells(mismatchedProjection)
   .find((location) => location.locationId === shelfLocationIds[0])!.warehouseId = 'OTHER-WAREHOUSE'
 assert.equal(validateWarehouseLocationSelection(mismatchedProjection, [shelfLocationIds[0]]).ok, false, '稳定引用与当前仓库不一致时不得选择')
 const conflictProjection = structuredClone(emptyProjection)
-const allConflictCells = conflictProjection.areas.flatMap((area) => area.shelves)
-  .flatMap((shelf) => shelf.locations)
+const allConflictCells = listWarehouseLocationMapCells(conflictProjection)
 const validCell = allConflictCells.find((location) => location.locationId === shelfLocationIds[0])!
 const occupiedCell = allConflictCells.find((location) => location.locationId === shelfLocationIds[1])!
 occupiedCell.businessStatus = 'OCCUPIED'

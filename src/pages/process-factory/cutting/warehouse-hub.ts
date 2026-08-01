@@ -80,6 +80,7 @@ import {
 } from './warehouse-location-map.ts'
 import { renderWarehouseLocationMap } from '../../../components/ui/warehouse-location-map.ts'
 import {
+  listWarehouseLocationMapCells,
   revalidateWarehouseLocationSelection,
   toggleWarehouseLocationSelection,
   validateWarehouseLocationSelection,
@@ -1222,8 +1223,7 @@ function getWaitProcessSelectedLocationRefs() {
   const current = buildCurrentCuttingWarehouseMapProjection('WAIT_PROCESS')
   if (!current) return []
   const selected = new Set(waitProcessSelectedLocationIds)
-  return current.projection.areas
-    .flatMap((area) => area.shelves.flatMap((shelf) => shelf.locations))
+  return listWarehouseLocationMapCells(current.projection)
     .filter((location) => selected.has(location.locationId))
 }
 
@@ -1237,7 +1237,7 @@ function renderWaitProcessTargetLocationMap(): string {
     <div class="md:col-span-2 space-y-2" data-wait-process-location-map>
       <input type="hidden" data-wait-process-field="warehouseArea" value="${escapeHtml(selectedRefs[0]?.areaName || '')}" />
       <input type="hidden" data-wait-process-field="locationCode" value="${escapeHtml(selectedRefs[0]?.locationNo || '')}" />
-      <div class="text-xs font-medium text-slate-700">存放库位（可多选同一货架内连续空闲库位）</div>
+      <div class="text-xs font-medium text-slate-700">存放库位（可自由选择空闲库位）</div>
       ${renderWarehouseLocationMap({
         projection: current.projection,
         mode: 'SELECT',
@@ -1277,11 +1277,10 @@ function renderWaitProcessWarehouseActionDialog(items: WaitProcessInventoryItem[
   }))
   const selectedCutOrderId = prepContext?.line.cutOrderId || params.get('cutOrderId') || ''
   const currentMap = buildCurrentCuttingWarehouseMapProjection('WAIT_PROCESS')
-  const masterLocations = currentMap?.projection.areas.flatMap((area) =>
-    area.shelves.flatMap((shelf) =>
-      shelf.locations.map((location) => ({ areaName: area.areaName, locationNo: location.locationNo })),
-    ),
-  ) ?? []
+  const masterLocations = currentMap
+    ? listWarehouseLocationMapCells(currentMap.projection)
+      .map((location) => ({ areaName: location.areaName, locationNo: location.locationNo }))
+    : []
   const masterAreaOptions = Array.from(new Set(masterLocations.map((location) => location.areaName)))
   const masterLocationOptions = Array.from(new Set(masterLocations.map((location) => location.locationNo)))
   const baseAreaOptions = Array.from(new Set([...areaOptions, ...masterAreaOptions]))
@@ -2770,9 +2769,9 @@ function renderWaitHandoverWebStep(index: number, title: string, done: boolean, 
 
 function getWaitHandoverDefaultLocation() {
   const current = buildCurrentCuttingWarehouseMapProjection('WAIT_HANDOVER')
-  return current?.projection.areas
-    .flatMap((area) => area.shelves.flatMap((shelf) =>
-      shelf.locations.map((location) => ({ areaName: area.areaName, location }))))
+  if (!current) return null
+  return listWarehouseLocationMapCells(current.projection)
+    .map((location) => ({ areaName: location.areaName, location }))
     .find((item) => item.location.businessStatus === 'EMPTY' && item.location.status === 'AVAILABLE') ?? null
 }
 
@@ -2781,9 +2780,8 @@ function renderWaitHandoverLocationSelector(): string {
   if (!current) {
     return '<div class="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">当前裁床工厂没有可用的待交出仓库位。</div>'
   }
-  const selected = current.projection.areas
-    .flatMap((area) => area.shelves.flatMap((shelf) =>
-      shelf.locations.map((location) => ({ areaName: area.areaName, location }))))
+  const selected = listWarehouseLocationMapCells(current.projection)
+    .map((location) => ({ areaName: location.areaName, location }))
     .find((item) => item.location.locationId === waitHandoverSelectedLocationId)
   return `
     <div class="space-y-2" data-wait-handover-location-map>
@@ -2795,7 +2793,6 @@ function renderWaitHandoverLocationSelector(): string {
         mode: 'SELECT',
         factoryName: current.warehouse.factoryName,
         selectedLocationIds: waitHandoverSelectedLocationId ? [waitHandoverSelectedLocationId] : [],
-        selectionLimit: 1,
       })}
     </div>
   `
@@ -3134,9 +3131,10 @@ function submitWaitHandoverInbound(dialog: HTMLElement): boolean {
     return true
   }
   const latestMap = buildCurrentCuttingWarehouseMapProjection('WAIT_HANDOVER')
-  const latestCell = latestMap?.projection.areas
-    .flatMap((area) => area.shelves.flatMap((shelf) => shelf.locations))
+  const latestCell = latestMap
+    ? listWarehouseLocationMapCells(latestMap.projection)
     .find((cell) => cell.locationId === locationRef.locationId)
+    : undefined
   if (!latestCell || latestCell.businessStatus === 'OCCUPIED') {
     window.alert('入仓库位已被占用，请更换库位。')
     return true
@@ -3271,9 +3269,10 @@ function submitWaitHandoverSpecialCraftReturn(dialog: HTMLElement): boolean {
     return true
   }
   const latestMap = buildCurrentCuttingWarehouseMapProjection('WAIT_HANDOVER')
-  const latestCell = latestMap?.projection.areas
-    .flatMap((area) => area.shelves.flatMap((shelf) => shelf.locations))
+  const latestCell = latestMap
+    ? listWarehouseLocationMapCells(latestMap.projection)
     .find((cell) => cell.locationId === locationRef.locationId)
+    : undefined
   if (!latestCell || latestCell.businessStatus === 'OCCUPIED') {
     window.alert('回仓库位已被占用，请更换库位。')
     return true
