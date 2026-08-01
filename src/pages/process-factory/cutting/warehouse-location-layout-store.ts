@@ -634,9 +634,11 @@ export function adjustWarehouseLevelPositionCount(snapshot: FactoryWarehouseLayo
 
 export function setWarehouseLocationEnabled(snapshot: FactoryWarehouseLayoutSnapshot, input: SetWarehouseLocationEnabledInput, occupiedLocationIds: Iterable<string>): FactoryWarehouseLayoutSnapshot {
   const current = findLocationContext(snapshot, input.locationId)
-  if (!input.enabled && current.location.status !== 'STOPPED') assertNoOccupied(snapshot, [input.locationId], occupiedLocationIds, '不能停用')
+  const nextStatus = input.enabled ? 'AVAILABLE' : 'STOPPED'
+  if (current.location.status === nextStatus) return snapshot
+  assertNoOccupied(snapshot, [input.locationId], occupiedLocationIds, input.enabled ? '不能启用' : '不能停用')
   return nextSnapshot(snapshot, input.updatedBy, (next) => {
-    findLocationContext(next, input.locationId).location.status = input.enabled ? 'AVAILABLE' : 'STOPPED'
+    findLocationContext(next, input.locationId).location.status = nextStatus
   })
 }
 

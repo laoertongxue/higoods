@@ -223,6 +223,21 @@ assert.throws(
   () => setWarehouseLocationEnabled(shelfAdded, { locationId: occupiedId, enabled: false, updatedBy: '仓库主管' }, new Set([occupiedId])),
   /占用.*C-R01-L02-P03/,
 )
+const stoppedOccupiedSnapshot = structuredClone(shelfAdded)
+stoppedOccupiedSnapshot.areaList
+  .find((area) => area.areaId === 'AREA-C')!
+  .shelfList[0]
+  .locationList.find((location) => location.locationId === occupiedId)!.status = 'STOPPED'
+assert.throws(
+  () => setWarehouseLocationEnabled(stoppedOccupiedSnapshot, { locationId: occupiedId, enabled: true, updatedBy: '仓库主管' }, new Set([occupiedId])),
+  /占用库位 C-R01-L02-P03 不能启用/,
+  '已停用但仍占用的合法 v3 库位不得重新启用，并必须列出完整编号',
+)
+assert.strictEqual(
+  setWarehouseLocationEnabled(stoppedOccupiedSnapshot, { locationId: occupiedId, enabled: false, updatedBy: '仓库主管' }, new Set([occupiedId])),
+  stoppedOccupiedSnapshot,
+  '库位启停状态相同时应直接返回原快照，不产生无意义事实变化',
+)
 assert.throws(
   () => updateWarehouseLocation(shelfAdded, { locationId: occupiedId, levelNo: 3, positionNo: 2, updatedBy: '仓库主管' }, new Set([occupiedId])),
   /占用.*只能修改备注/,
