@@ -1020,6 +1020,106 @@ export function submitTransferBagRepack(
   }, storage).event
 }
 
+export interface TransferBagAuthoritativeLocationFact {
+  sourceEventId: string
+  warehouseArea: string
+  locationCode: string
+  locationRef?: RuntimeWarehouseLocationRef
+}
+
+export function parseTransferBagAuthoritativeLocationFact(
+  event: CuttingRuntimeEvent,
+): TransferBagAuthoritativeLocationFact | null {
+  const payload = eventPayload(event)
+  const rawLocationRef = record(payload.locationRef)
+  const warehouseArea = text(payload.warehouseArea)
+    || text(event.inventoryEffect?.toWarehouseArea)
+  const locationCode = text(payload.locationCode)
+    || text(event.inventoryEffect?.toLocationCode)
+  const locationRef = {
+    factoryId: text(rawLocationRef.factoryId),
+    warehouseId: text(rawLocationRef.warehouseId),
+    warehouseKind: rawLocationRef.warehouseKind === 'WAIT_PROCESS'
+      ? 'WAIT_PROCESS' as const
+      : rawLocationRef.warehouseKind === 'WAIT_HANDOVER'
+        ? 'WAIT_HANDOVER' as const
+        : null,
+    areaId: text(rawLocationRef.areaId),
+    areaName: text(rawLocationRef.areaName),
+    shelfId: text(rawLocationRef.shelfId),
+    shelfNo: text(rawLocationRef.shelfNo),
+    locationId: text(rawLocationRef.locationId),
+    locationNo: text(rawLocationRef.locationNo),
+  }
+  const inventoryMatches = Boolean(
+    warehouseArea
+    && locationCode
+    && text(event.inventoryEffect?.toWarehouseArea) === warehouseArea
+    && text(event.inventoryEffect?.toLocationCode) === locationCode
+  )
+  const completeLocationRef = Boolean(
+    locationRef.factoryId
+    && locationRef.warehouseId
+    && locationRef.warehouseKind === 'WAIT_HANDOVER'
+    && locationRef.areaId
+    && locationRef.areaName
+    && locationRef.locationId
+    && locationRef.locationNo
+    && locationRef.areaName === warehouseArea
+    && locationRef.locationNo === locationCode
+  )
+  if (
+    !warehouseArea
+    || !locationCode
+    || !inventoryMatches
+    || (event.eventType === '特殊工艺回仓' && !completeLocationRef)
+  ) return null
+  return {
+    sourceEventId: event.eventId,
+    warehouseArea,
+    locationCode,
+    ...(completeLocationRef
+      ? { locationRef: locationRef as RuntimeWarehouseLocationRef }
+      : {}),
+  }
+}
+
+export function resolveTransferBagAuthoritativeCurrentLocation(input: {
+  bagCode: string
+  usageCycleId: string
+  events: CuttingRuntimeEvent[]
+}): TransferBagAuthoritativeLocationFact | null {
+  let current: TransferBagAuthoritativeLocationFact | null = null
+  const events = [...input.events]
+    .filter((event) => event.eventStatus !== '已取消')
+    .sort(compareCuttingRuntimeChronologyAscending)
+  for (const event of events) {
+    if (
+      !eventTouchesTransferBag(event, input.bagCode)
+      || eventUsageCycleId(event) !== input.usageCycleId
+    ) continue
+    if (event.eventType === '新增交出记录') {
+      if (isCompleteSuccessfulWholeBagHandoverEvent(event)) current = null
+      continue
+    }
+    if (event.eventType === '特殊工艺交出') {
+      if (isCompleteSuccessfulSpecialCraftHandoverEvent(event)) current = null
+      continue
+    }
+    if (
+      event.eventType === '中转袋入仓'
+      || event.eventType === '特殊工艺回仓'
+    ) {
+      if (
+        event.eventStatus !== '已记录'
+        && event.eventStatus !== '已同步'
+      ) continue
+      current = parseTransferBagAuthoritativeLocationFact(event)
+    }
+  }
+  return current
+}
+
 function wholeBagHandoverSourceLocation(input: {
   currentUse: TransferBagCurrentUse
   events: CuttingRuntimeEvent[]
@@ -1034,31 +1134,22 @@ function wholeBagHandoverSourceLocation(input: {
       locationCode: '待交出操作区',
     }
   }
-  const inboundEvent = input.events
-    .filter((event) =>
-      event.eventType === '中转袋入仓'
-      && eventTouchesTransferBag(event, input.currentUse.bagCode)
-      && (
-        !input.currentUse.usageCycleId
-        || !eventUsageCycleId(event)
-        || eventUsageCycleId(event) === input.currentUse.usageCycleId
-      ))
-    .at(-1)
-  const payload = inboundEvent ? eventPayload(inboundEvent) : {}
-  const warehouseArea = text(payload.warehouseArea)
-    || inboundEvent?.inventoryEffect?.toWarehouseArea?.trim()
-    || ''
-  const locationCode = text(payload.locationCode)
-    || inboundEvent?.inventoryEffect?.toLocationCode?.trim()
-    || ''
-  if (!warehouseArea || !locationCode) {
-    throw new Error('入仓暂存中的中转袋缺少真实待交出仓库区或库位，不能整袋交出。')
+  if (!input.currentUse.usageCycleId) {
+    throw new Error('当前中转袋缺少使用周期，不能确认唯一来源库位。')
   }
-  const rawLocationRef = record(payload.locationRef)
-  const locationRef = text(rawLocationRef.locationId) && text(rawLocationRef.locationNo)
-    ? { ...rawLocationRef } as unknown as RuntimeWarehouseLocationRef
-    : undefined
-  return { warehouseArea, locationCode, locationRef }
+  const source = resolveTransferBagAuthoritativeCurrentLocation({
+    bagCode: input.currentUse.bagCode,
+    usageCycleId: input.currentUse.usageCycleId,
+    events: input.events,
+  })
+  if (!source) {
+    throw new Error('无法唯一确认当前待交出仓库位，不能整袋交出。')
+  }
+  return {
+    warehouseArea: source.warehouseArea,
+    locationCode: source.locationCode,
+    ...(source.locationRef ? { locationRef: source.locationRef } : {}),
+  }
 }
 
 function requiredHandoverText(value: string, label: string): string {
