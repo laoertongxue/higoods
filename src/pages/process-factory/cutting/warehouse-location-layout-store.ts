@@ -74,6 +74,11 @@ export interface CreateWarehouseShelfInput {
   updatedBy: string
 }
 
+export interface WarehouseShelfBatchOptions {
+  yieldControl?: () => Promise<void>
+  signal?: AbortSignal
+}
+
 export interface UpdateWarehouseShelfInput {
   shelfId: string
   shelfSequence?: number
@@ -658,8 +663,13 @@ const WAREHOUSE_BUILD_BATCH_SIZE = 200
 export async function createWarehouseShelfInBatches(
   snapshot: FactoryWarehouseLayoutSnapshot,
   input: CreateWarehouseShelfInput,
-  yieldControl: () => Promise<void> = () => new Promise((resolve) => setTimeout(resolve, 0)),
+  options: WarehouseShelfBatchOptions = {},
 ): Promise<FactoryWarehouseLayoutSnapshot> {
+  const yieldControl = options.yieldControl ?? (() => new Promise((resolve) => setTimeout(resolve, 0)))
+  const assertNotAborted = () => {
+    if (options.signal?.aborted) throw new DOMException('已取消生成。', 'AbortError')
+  }
+  assertNotAborted()
   assertText(input.shelfId, '货架 ID')
   assertSequence(input.shelfSequence, '货架序号')
   if (!input.positionCounts.length) throw new Error('新建货架至少需要 1 层。')
@@ -674,6 +684,7 @@ export async function createWarehouseShelfInBatches(
   const locationList: FactoryWarehouseLocation[] = []
   let builtCount = 0
   for (let levelIndex = 0; levelIndex < input.positionCounts.length; levelIndex += 1) {
+    assertNotAborted()
     const levelNo = levelIndex + 1
     for (let positionNo = 1; positionNo <= input.positionCounts[levelIndex]; positionNo += 1) {
       const no = buildCuttingWarehouseLocationNo(area.code || '', input.shelfSequence, levelNo, positionNo)
@@ -696,9 +707,13 @@ export async function createWarehouseShelfInBatches(
         layoutCreatedInVersion: snapshot.layoutVersion + 1,
       } as LayoutWarehouseLocation)
       builtCount += 1
-      if (builtCount % WAREHOUSE_BUILD_BATCH_SIZE === 0) await yieldControl()
+      if (builtCount % WAREHOUSE_BUILD_BATCH_SIZE === 0) {
+        await yieldControl()
+        assertNotAborted()
+      }
     }
   }
+  assertNotAborted()
   return nextSnapshot(snapshot, input.updatedBy, (next) => {
     const nextArea = findArea(next, input.areaId)
     nextArea.shelfList.push({

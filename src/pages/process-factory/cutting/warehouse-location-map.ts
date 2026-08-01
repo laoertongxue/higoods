@@ -9,6 +9,7 @@ import { renderFormDialog } from '../../../components/ui/dialog.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
 import {
   renderWarehouseLocationMap,
+  handleWarehouseLocationMapViewportEvent,
   renderWarehouseLocationMapOccupancyOverlay,
   renderWarehouseLocationMapSummarySection,
   renderWarehouseLocationMapUnlocatedSection,
@@ -657,9 +658,14 @@ type MaintenanceDialog =
   | { type: 'edit-shelf'; shelfId: string }
   | { type: 'edit-location'; locationId: string }
 
-function removeCuttingWarehouseLocationMapModal(): void {
+function removeCuttingWarehouseLocationMapModal(modal?: HTMLElement | null): void {
   if (typeof document === 'undefined') return
-  document.getElementById(CUTTING_WAREHOUSE_MODAL_ID)?.remove()
+  const target = modal ?? document.getElementById(CUTTING_WAREHOUSE_MODAL_ID)
+  if (!target) return
+  maintenanceOperations.get(target)?.controller.abort()
+  maintenanceOperations.delete(target)
+  shelfDraftStates.delete(target)
+  target.remove()
 }
 
 function field(label: string, name: string, value = '', options: { type?: string; disabled?: boolean; placeholder?: string } = {}): string {
@@ -680,7 +686,27 @@ function statusChangeRow(currentEnabled: boolean, nextEnabled: boolean): { befor
 
 const LEVEL_EDITOR_PAGE_SIZE = 20
 const LOCATION_PREVIEW_PAGE_SIZE = 40
-const MAINTENANCE_RESOURCE_LIMIT_MESSAGE = '本次规模超出当前设备可处理能力，建议拆分货架/减少单次生成。'
+const MAINTENANCE_RESOURCE_LIMIT_MESSAGE = '当前设备可用资源不足，建议拆分货架/减少单次生成。'
+const LEGACY_MAINTENANCE_RESOURCE_LIMIT_MESSAGE = '本次规模超出当前设备可处理能力，建议拆分货架/减少单次生成。'
+
+interface MaintenanceRuntimeOverrides {
+  yieldDelayMs?: number
+  resourceEstimate?: { storageAvailableBytes?: number; heapAvailableBytes?: number }
+}
+
+let maintenanceRuntimeOverrides: MaintenanceRuntimeOverrides = {}
+
+export function configureCuttingWarehouseMaintenanceRuntimeForTest(overrides: MaintenanceRuntimeOverrides = {}): void {
+  maintenanceRuntimeOverrides = overrides
+}
+
+interface MaintenanceOperation {
+  token: string
+  controller: AbortController
+  saving: boolean
+}
+
+const maintenanceOperations = new WeakMap<HTMLElement, MaintenanceOperation>()
 
 interface ShelfDraftState {
   levelCount: number
@@ -795,6 +821,11 @@ export function openCuttingWarehouseLocationMapModal(kind: CuttingWarehouseMapKi
   section?.insertAdjacentHTML('beforeend', renderCuttingWarehouseLocationMapModal(kind, dialog))
   const modal = document.getElementById(CUTTING_WAREHOUSE_MODAL_ID)
   if (modal) {
+    const token = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random()}`
+    modal.setAttribute('data-maintenance-instance-token', token)
+    maintenanceOperations.set(modal, { token, controller: new AbortController(), saving: false })
     modal.querySelectorAll<HTMLElement>('[data-warehouse-map-action]').forEach((item) => { item.dataset.skipPageRerender = 'true' })
     hydrateIcons(modal)
     if (dialog.type === 'create-shelf') {
@@ -1117,29 +1148,74 @@ function movePaginationPage(currentPage: number, totalPages: number, action: str
 
 function yieldMaintenanceWork(): Promise<void> {
   return new Promise((resolve) => {
-    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => setTimeout(resolve, 0))
-    else setTimeout(resolve, 0)
+    const delay = maintenanceRuntimeOverrides.yieldDelayMs ?? 0
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => setTimeout(resolve, delay))
+    else setTimeout(resolve, delay)
   })
 }
 
-async function collectShelfPositionCounts(state: ShelfDraftState): Promise<number[]> {
+function abortMaintenanceIfNeeded(signal: AbortSignal): void {
+  if (signal.aborted) throw new DOMException('已取消生成。', 'AbortError')
+}
+
+async function collectShelfPositionCounts(state: ShelfDraftState, signal: AbortSignal): Promise<number[]> {
   const counts: number[] = []
   for (let levelNo = 1; levelNo <= state.levelCount; levelNo += 1) {
+    abortMaintenanceIfNeeded(signal)
     counts.push(parseRequiredPositiveInteger(shelfDraftValue(state, levelNo), `第 ${levelNo} 层位置数`))
-    if (levelNo % 200 === 0) await yieldMaintenanceWork()
+    if (levelNo % 200 === 0) {
+      await yieldMaintenanceWork()
+      abortMaintenanceIfNeeded(signal)
+    }
   }
   return counts
+}
+
+async function estimateMaintenanceAvailableBytes(): Promise<number | undefined> {
+  if (maintenanceRuntimeOverrides.resourceEstimate) {
+    const values = [
+      maintenanceRuntimeOverrides.resourceEstimate.storageAvailableBytes,
+      maintenanceRuntimeOverrides.resourceEstimate.heapAvailableBytes,
+    ].filter((value): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0)
+    return values.length ? Math.min(...values) : undefined
+  }
+  const values: number[] = []
+  try {
+    if (navigator.storage?.estimate) {
+      const estimate = await navigator.storage.estimate()
+      if (typeof estimate.quota === 'number') values.push(Math.max(0, estimate.quota - (estimate.usage ?? 0)))
+    }
+  } catch { /* Browser capacity API is optional. */ }
+  const memory = (performance as Performance & { memory?: { jsHeapSizeLimit: number; usedJSHeapSize: number } }).memory
+  if (memory && Number.isFinite(memory.jsHeapSizeLimit) && Number.isFinite(memory.usedJSHeapSize)) {
+    values.push(Math.max(0, memory.jsHeapSizeLimit - memory.usedJSHeapSize))
+  }
+  return values.length ? Math.min(...values) : undefined
+}
+
+async function assertMaintenanceResourceCapacity(snapshot: FactoryWarehouseLayoutSnapshot, totalLocationCount: number, signal: AbortSignal): Promise<void> {
+  abortMaintenanceIfNeeded(signal)
+  const availableBytes = await estimateMaintenanceAvailableBytes()
+  abortMaintenanceIfNeeded(signal)
+  if (availableBytes === undefined) return
+  const encoder = new TextEncoder()
+  const snapshotBytes = encoder.encode(JSON.stringify(snapshot)).byteLength
+  const sampleLocationBytes = encoder.encode(JSON.stringify({ locationId: 'SHELF-X-L100-P100', locationNo: 'Z-R100-L100-P100', locationName: 'Z-R100-L100-P100', levelNo: 100, positionNo: 100, status: 'AVAILABLE', remark: '', layoutCreatedInVersion: snapshot.layoutVersion + 1 })).byteLength
+  const requiredBytes = snapshotBytes * 3 + sampleLocationBytes * totalLocationCount * 4
+  if (!Number.isSafeInteger(requiredBytes) || requiredBytes > availableBytes) throw new RangeError(MAINTENANCE_RESOURCE_LIMIT_MESSAGE)
 }
 
 function maintenanceErrorMessage(error: unknown): string {
   if (error instanceof RangeError) return MAINTENANCE_RESOURCE_LIMIT_MESSAGE
   const name = error instanceof DOMException ? error.name : ''
   const message = error instanceof Error ? error.message : ''
-  if (name === 'QuotaExceededError' || /quota|memory|array length|call stack/i.test(message)) return MAINTENANCE_RESOURCE_LIMIT_MESSAGE
+  if (name === 'QuotaExceededError' || message === LEGACY_MAINTENANCE_RESOURCE_LIMIT_MESSAGE || /quota|memory|array length|call stack/i.test(message)) return MAINTENANCE_RESOURCE_LIMIT_MESSAGE
   return message || '保存失败，请检查输入后重试。'
 }
 
 function setMaintenanceSaving(modal: HTMLElement, saving: boolean): void {
+  const operation = maintenanceOperations.get(modal)
+  if (operation) operation.saving = saving
   const button = modal.querySelector<HTMLButtonElement>('[data-warehouse-map-action="submit-maintenance"]')
   if (button) {
     button.disabled = saving
@@ -1147,6 +1223,15 @@ function setMaintenanceSaving(modal: HTMLElement, saving: boolean): void {
     if (saving) button.setAttribute('data-maintenance-saving', 'true')
     else button.removeAttribute('data-maintenance-saving')
   }
+  const closeButtons = modal.querySelectorAll<HTMLButtonElement>('[data-warehouse-map-action="close-maintenance-dialog"]')
+  closeButtons.forEach((closeButton) => {
+    if (closeButton.getAttribute('aria-label')) {
+      closeButton.setAttribute('aria-label', saving ? '取消生成' : '关闭维护弹窗')
+      closeButton.title = saving ? '取消生成' : '关闭维护弹窗'
+    } else {
+      closeButton.textContent = saving ? '取消生成' : '取消'
+    }
+  })
 }
 
 export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, event?: Event): boolean {
@@ -1158,7 +1243,7 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
     if (!kind) return false
     const action = node.dataset.warehouseMapAction
     if (action === 'close-maintenance-dialog') {
-      removeCuttingWarehouseLocationMapModal()
+      removeCuttingWarehouseLocationMapModal(modal)
       return true
     }
     if (action === 'change-level-editor-page') {
@@ -1188,7 +1273,16 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
     }
     if (action === 'submit-maintenance') {
       if (event?.type === 'click' && node instanceof HTMLButtonElement) event.preventDefault()
+      const operation = maintenanceOperations.get(modal)
+      if (!operation || operation.saving) return true
+      const { token, controller } = operation
+      const { signal } = controller
+      const isActive = () => !signal.aborted
+        && modal.isConnected
+        && modal.dataset.maintenanceInstanceToken === token
+        && maintenanceOperations.get(modal)?.token === token
       const showError = (message: string) => {
+        if (!isActive()) return
         const error = modal.querySelector<HTMLElement>('[data-maintenance-error]')
         if (!error) return
         error.textContent = message
@@ -1198,6 +1292,7 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
       void (async () => {
       await yieldMaintenanceWork()
       try {
+        abortMaintenanceIfNeeded(signal)
         const current = buildCurrentCuttingWarehouseMapProjection(kind)
         if (!current) throw new Error('当前仓库库位图不可用，请刷新后重试。')
         const expectedVersion = Number(modal.dataset.layoutVersion)
@@ -1219,7 +1314,9 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
           parseRequiredPositiveInteger(formValue(modal, 'defaultPositionCount'), '默认每层位置数')
           const sequence = parseRequiredPositiveInteger(formValue(modal, 'shelfSequence'), '货架序号')
           captureVisibleShelfDraftValues(modal, draft)
-          const positionCounts = await collectShelfPositionCounts(draft)
+          const summary = parseShelfDraftSummary(draft)
+          await assertMaintenanceResourceCapacity(current.snapshot, summary.totalCount, signal)
+          const positionCounts = await collectShelfPositionCounts(draft, signal)
           next = await createWarehouseShelfInBatches(next, {
             areaId: modal.dataset.areaId || '',
             shelfId: `SHELF-${modal.dataset.areaId}-${Date.now()}`,
@@ -1227,7 +1324,7 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
             positionCounts,
             remark: formValue(modal, 'remark'),
             updatedBy: '当前用户',
-          })
+          }, { yieldControl: yieldMaintenanceWork, signal })
         } else if (type === 'edit-area') {
           next = updateWarehouseArea(next, { areaId: modal.dataset.areaId || '', code: formValue(modal, 'areaCode') || undefined, areaName: formValue(modal, 'areaName') || undefined, enabled: formValue(modal, 'enabled') === 'true', remark: formValue(modal, 'remark'), updatedBy: '当前用户' }, occupiedIds)
         } else if (type === 'edit-shelf') {
@@ -1239,13 +1336,18 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
           const locationId = modal.dataset.locationId || ''
           next = updateWarehouseLocation(current.snapshot, { locationId, levelNo, positionNo, enabled: formValue(modal, 'enabled') === 'true', remark: formValue(modal, 'remark'), updatedBy: '当前用户' }, occupiedIds)
         }
+        await yieldMaintenanceWork()
+        abortMaintenanceIfNeeded(signal)
         const saved = saveWarehouseLayoutSnapshot(next, expectedVersion)
         if (!saved.ok) throw new Error(saved.message)
-        removeCuttingWarehouseLocationMapModal()
+        abortMaintenanceIfNeeded(signal)
+        if (!isActive()) return
+        removeCuttingWarehouseLocationMapModal(modal)
         refreshMapSection(kind)
       } catch (error) {
+        if (signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return
         showError(maintenanceErrorMessage(error))
-        setMaintenanceSaving(modal, false)
+        if (isActive()) setMaintenanceSaving(modal, false)
       }
       })()
       return true
@@ -1255,6 +1357,8 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
   const section = node.closest<HTMLElement>('[data-cutting-warehouse-map-section]')
   const kind = section?.dataset.warehouseKind as CuttingWarehouseMapKind | undefined
   if (!kind) return false
+  const viewportCurrent = buildCurrentCuttingWarehouseMapProjection(kind, { includeDemoOccupancies: getSearchParams().get('demo') === '1' })
+  if (viewportCurrent && handleWarehouseLocationMapViewportEvent(node, viewportCurrent.projection)) return true
   const action = node.dataset.warehouseMapAction
   if (action === 'open-create-area') {
     openCuttingWarehouseLocationMapModal(kind, { type: 'create-area' })

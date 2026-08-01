@@ -264,6 +264,109 @@ test('同仓名称重复与设备配额不足均保留维护输入', async ({ pa
   await page.evaluate(() => (window as typeof window & { __restoreStorageSetItem?: () => void }).__restoreStorageSetItem?.())
 })
 
+test('分批生成取消后不写版本历史且旧任务不影响新弹窗', async ({ page }) => {
+  await openStandaloneShelfMaintenanceDialog(page)
+  await page.evaluate(async () => {
+    const module = await import('/src/pages/process-factory/cutting/warehouse-location-map.ts')
+    module.configureCuttingWarehouseMaintenanceRuntimeForTest({
+      yieldDelayMs: 25,
+      resourceEstimate: { storageAvailableBytes: 1_000_000_000, heapAvailableBytes: 1_000_000_000 },
+    })
+  })
+  let modal = page.locator('[data-cutting-warehouse-modal]')
+  await modal.locator('[name="shelfSequence"]').fill('100')
+  await modal.locator('[name="levelCount"]').fill('20')
+  await modal.locator('[name="defaultPositionCount"]').fill('100')
+  await modal.locator('[data-warehouse-map-action="submit-maintenance"]').click()
+  await expect(modal.locator('[data-maintenance-saving]')).toContainText('正在生成并保存')
+  await expect(modal.locator('[data-warehouse-map-action="close-maintenance-dialog"]').last()).toContainText('取消生成')
+  await modal.locator('[data-warehouse-map-action="close-maintenance-dialog"]').last().click()
+  await expect(modal).toHaveCount(0)
+  await page.evaluate(async () => {
+    const module = await import('/src/pages/process-factory/cutting/warehouse-location-map.ts')
+    module.openCuttingWarehouseLocationMapModal('WAIT_PROCESS', { type: 'create-area' })
+  })
+  modal = page.locator('[data-cutting-warehouse-modal]')
+  await modal.locator('[name="areaName"]').fill('新弹窗隔离区')
+  await page.waitForTimeout(300)
+  await expect(modal).toBeVisible()
+  await expect(modal.locator('[name="areaName"]')).toHaveValue('新弹窗隔离区')
+  await expect(modal.locator('[data-maintenance-error]')).toHaveText('')
+  const persisted = await page.evaluate(() => {
+    const layout = Object.entries(localStorage).find(([key]) => key.includes('warehouse-layout:v3'))
+    const history = Object.entries(localStorage).find(([key]) => key.includes('warehouse-layout-history:v3'))
+    return { version: layout ? JSON.parse(layout[1]).layoutVersion : -1, historyCount: history ? JSON.parse(history[1]).length : 0 }
+  })
+  expect(persisted).toEqual({ version: 0, historyCount: 0 })
+})
+
+test('动态资源预算不足时不按固定数量保存并保留输入', async ({ page }) => {
+  await openStandaloneShelfMaintenanceDialog(page)
+  await page.evaluate(async () => {
+    const module = await import('/src/pages/process-factory/cutting/warehouse-location-map.ts')
+    module.configureCuttingWarehouseMaintenanceRuntimeForTest({
+      resourceEstimate: { storageAvailableBytes: 256, heapAvailableBytes: 512 },
+    })
+  })
+  const modal = page.locator('[data-cutting-warehouse-modal]')
+  await modal.locator('[name="shelfSequence"]').fill('100')
+  await modal.locator('[name="levelCount"]').fill('2')
+  await modal.locator('[name="defaultPositionCount"]').fill('2')
+  await modal.locator('[data-warehouse-map-action="submit-maintenance"]').click()
+  await expect(modal.locator('[data-maintenance-error]')).toContainText('当前设备可用资源不足，建议拆分货架/减少单次生成')
+  await expect(modal.locator('[name="shelfSequence"]')).toHaveValue('100')
+  const version = await page.evaluate(() => {
+    const layout = Object.entries(localStorage).find(([key]) => key.includes('warehouse-layout:v3'))
+    return layout ? JSON.parse(layout[1]).layoutVersion : -1
+  })
+  expect(version).toBe(0)
+})
+
+test('共享库位图大投影视窗末层末位置可达且保留选择与占用详情', async ({ page }) => {
+  await page.goto('/src/components/ui/warehouse-location-map.ts', { waitUntil: 'domcontentloaded' })
+  await page.evaluate(async () => {
+    const module = await import('/src/components/ui/warehouse-location-map.ts')
+    const levels = Array.from({ length: 100 }, (_, levelIndex) => ({
+      levelNo: 100 - levelIndex,
+      locations: Array.from({ length: 100 }, (_, positionIndex) => {
+        const levelNo = 100 - levelIndex
+        const positionNo = positionIndex + 1
+        const locationId = `LOC-L${levelNo}-P${positionNo}`
+        const occupied = levelNo === 1 && positionNo === 100
+        return {
+          factoryId: 'F090', warehouseId: 'WH-TEST', warehouseKind: 'WAIT_PROCESS', areaId: 'AREA-TEST', areaCode: 'Z', areaName: '大投影区',
+          shelfId: 'SHELF-R100', shelfSequence: 100, shelfNo: 'R100', locationId, locationNo: `Z-R100-L${String(levelNo).padStart(2, '0')}-P${String(positionNo).padStart(2, '0')}`,
+          locationName: locationId, levelNo, positionNo, areaStatus: 'AVAILABLE', shelfStatus: 'AVAILABLE', status: 'AVAILABLE', orderIndex: positionNo,
+          businessStatus: occupied ? 'OCCUPIED' : 'EMPTY', occupancies: occupied ? [{ occupancyId: 'OCC-END', footprintId: 'FP-END', locationId, productionOrderNo: 'PO-END', objectNo: 'MAT-END', objectName: '末位物料', qty: 1, unit: '卷', inboundAt: '2026-08-01 10:00', inboundBy: '仓管' }] : [],
+        }
+      }),
+    }))
+    const projection = { factoryId: 'F090', warehouseId: 'WH-TEST', warehouseKind: 'WAIT_PROCESS', warehouseName: '大投影仓', totalLocationCount: 10000, emptyLocationCount: 9999, occupiedLocationCount: 1, areas: [{ areaId: 'AREA-TEST', areaName: '大投影区', shelves: [{ areaId: 'AREA-TEST', areaName: '大投影区', shelfId: 'SHELF-R100', shelfNo: 'R100', levels }] }], unlocatedOccupancies: [] }
+    document.body.innerHTML = module.renderWarehouseLocationMap({ projection, mode: 'SELECT', factoryName: '测试工厂', selectedLocationIds: ['LOC-L100-P1'] })
+    document.body.addEventListener('click', (event) => {
+      const target = event.target instanceof HTMLElement ? event.target : null
+      if (target) module.handleWarehouseLocationMapOccupancyEvent(target, projection)
+    })
+    ;(window as typeof window & { __largeProjection?: unknown }).__largeProjection = projection
+  })
+  const root = page.locator('[data-warehouse-map-root]')
+  expect(await root.locator('[data-warehouse-map-shelf-viewport] [data-location-id]').count()).toBeLessThanOrEqual(96)
+  await expect(root).toContainText('Z-R100-L100-P01')
+  await root.locator('[data-warehouse-map-action="viewport-level-page"][data-page-action="last"]').click()
+  await root.locator('[data-warehouse-map-action="viewport-position-page"][data-page-action="last"]').click()
+  await expect(root).toContainText('Z-R100-L01-P100')
+  expect(await root.locator('[data-warehouse-map-shelf-viewport] [data-location-id]').count()).toBeLessThanOrEqual(96)
+  await expect(root.locator('[data-warehouse-map-selected-item]')).toContainText('Z-R100-L100-P01')
+  const viewportIdentity = await root.locator('[data-warehouse-map-shelf-viewport]').evaluate((node) => {
+    ;(window as typeof window & { __viewportBefore?: Element }).__viewportBefore = node
+    return true
+  })
+  expect(viewportIdentity).toBe(true)
+  await root.locator('[data-location-id="LOC-L1-P100"]').click()
+  await expect(root.locator('[data-warehouse-map-occupancy-drawer]')).toContainText('PO-END')
+  expect(await page.evaluate(() => (window as typeof window & { __viewportBefore?: Element }).__viewportBefore?.isConnected)).toBe(true)
+})
+
 test('非占用三类维护保存编号和状态并保持滚动与页面外壳', async ({ page }) => {
   await openWarehouseMap(page, WAIT_PROCESS_PATH)
   const finishMaintenance = page.locator('[data-warehouse-map-action="finish-maintenance"]')

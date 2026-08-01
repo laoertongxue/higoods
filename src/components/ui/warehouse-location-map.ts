@@ -11,6 +11,9 @@ import {
 
 export type WarehouseLocationMapMode = 'VIEW' | 'SELECT' | 'LAYOUT'
 
+export const WAREHOUSE_LEVEL_VIEWPORT_PAGE_SIZE = 8
+export const WAREHOUSE_POSITION_VIEWPORT_PAGE_SIZE = 12
+
 export interface WarehouseLocationMapOptions {
   projection: WarehouseLocationMapProjection
   mode: WarehouseLocationMapMode
@@ -97,6 +100,67 @@ function renderCell(
       ` : ''}
     </div>
   `
+}
+
+function viewportControl(action: 'viewport-level-page' | 'viewport-position-page', label: string, pageAction: 'first' | 'previous' | 'next' | 'last', disabled: boolean): string {
+  return `<button type="button" class="min-h-11 rounded-md border px-3 text-xs disabled:opacity-40" data-skip-page-rerender="true" data-warehouse-map-action="${action}" data-page-action="${pageAction}" ${disabled ? 'disabled' : ''}>${label}</button>`
+}
+
+function renderShelfViewport(
+  shelf: WarehouseLocationMapProjection['areas'][number]['shelves'][number],
+  mode: WarehouseLocationMapMode,
+  selectedIds: Set<string>,
+  requestedLevelPage = 1,
+  requestedPositionPage = 1,
+): string {
+  const levelPageCount = Math.max(1, Math.ceil(shelf.levels.length / WAREHOUSE_LEVEL_VIEWPORT_PAGE_SIZE))
+  const maxPositionCount = Math.max(0, ...shelf.levels.map((level) => level.locations.length))
+  const positionPageCount = Math.max(1, Math.ceil(maxPositionCount / WAREHOUSE_POSITION_VIEWPORT_PAGE_SIZE))
+  const levelPage = Math.min(Math.max(1, requestedLevelPage), levelPageCount)
+  const positionPage = Math.min(Math.max(1, requestedPositionPage), positionPageCount)
+  const visibleLevels = shelf.levels.slice((levelPage - 1) * WAREHOUSE_LEVEL_VIEWPORT_PAGE_SIZE, levelPage * WAREHOUSE_LEVEL_VIEWPORT_PAGE_SIZE)
+  const positionStart = (positionPage - 1) * WAREHOUSE_POSITION_VIEWPORT_PAGE_SIZE
+  return `<div class="min-w-0" data-warehouse-map-shelf-viewport data-shelf-id="${escapeHtml(shelf.shelfId)}" data-level-page="${levelPage}" data-position-page="${positionPage}">
+    ${levelPageCount > 1 || positionPageCount > 1 ? `<div class="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/30 px-3 py-2 text-xs">
+      <div class="flex flex-wrap items-center gap-2"><span>层 第 ${levelPage}/${levelPageCount} 页</span>${viewportControl('viewport-level-page', '首层', 'first', levelPage === 1)}${viewportControl('viewport-level-page', '上一组层', 'previous', levelPage === 1)}${viewportControl('viewport-level-page', '下一组层', 'next', levelPage === levelPageCount)}${viewportControl('viewport-level-page', '末层', 'last', levelPage === levelPageCount)}</div>
+      <div class="flex flex-wrap items-center gap-2"><span>位置 第 ${positionPage}/${positionPageCount} 页</span>${viewportControl('viewport-position-page', '首位置', 'first', positionPage === 1)}${viewportControl('viewport-position-page', '上一组位置', 'previous', positionPage === 1)}${viewportControl('viewport-position-page', '下一组位置', 'next', positionPage === positionPageCount)}${viewportControl('viewport-position-page', '末位置', 'last', positionPage === positionPageCount)}</div>
+    </div>` : ''}
+    <div class="min-w-0 overflow-x-auto pb-1" data-warehouse-shelf-scroll><div class="min-w-max space-y-2">
+      ${visibleLevels.map((level) => `<div class="grid grid-cols-[4rem_auto] items-start gap-2" data-warehouse-level-no="${level.levelNo}"><div class="sticky left-0 z-10 flex min-h-11 items-center rounded-md border bg-card px-2 text-xs font-semibold">L${String(level.levelNo).padStart(2, '0')}</div><div class="flex gap-2">${level.locations.slice(positionStart, positionStart + WAREHOUSE_POSITION_VIEWPORT_PAGE_SIZE).map((cell) => renderCell(cell, mode, selectedIds)).join('')}</div></div>`).join('')}
+    </div></div>
+  </div>`
+}
+
+function moveViewportPage(current: number, count: number, action: string | undefined): number {
+  if (action === 'first') return 1
+  if (action === 'previous') return Math.max(1, current - 1)
+  if (action === 'next') return Math.min(count, current + 1)
+  if (action === 'last') return count
+  return current
+}
+
+export function handleWarehouseLocationMapViewportEvent(target: HTMLElement, projection: WarehouseLocationMapProjection): boolean {
+  const actionNode = target.closest<HTMLElement>('[data-warehouse-map-action]')
+  const action = actionNode?.dataset.warehouseMapAction
+  if (!actionNode || !['viewport-level-page', 'viewport-position-page'].includes(action || '')) return false
+  const mapRoot = actionNode.closest<HTMLElement>('[data-warehouse-map-root]')
+  const viewport = actionNode.closest<HTMLElement>('[data-warehouse-map-shelf-viewport]')
+  if (!mapRoot || !viewport) return false
+  const shelf = projection.areas.flatMap((area) => area.shelves).find((item) => item.shelfId === viewport.dataset.shelfId)
+  if (!shelf) return false
+  const selectedIds = new Set(Array.from(mapRoot.querySelectorAll<HTMLElement>('[data-warehouse-map-selected-item]')).map((item) => item.dataset.locationId || '').filter(Boolean))
+  const levelPageCount = Math.max(1, Math.ceil(shelf.levels.length / WAREHOUSE_LEVEL_VIEWPORT_PAGE_SIZE))
+  const maxPositionCount = Math.max(0, ...shelf.levels.map((level) => level.locations.length))
+  const positionPageCount = Math.max(1, Math.ceil(maxPositionCount / WAREHOUSE_POSITION_VIEWPORT_PAGE_SIZE))
+  let levelPage = Number(viewport.dataset.levelPage) || 1
+  let positionPage = Number(viewport.dataset.positionPage) || 1
+  if (action === 'viewport-level-page') levelPage = moveViewportPage(levelPage, levelPageCount, actionNode.dataset.pageAction)
+  else positionPage = moveViewportPage(positionPage, positionPageCount, actionNode.dataset.pageAction)
+  const template = document.createElement('template')
+  template.innerHTML = renderShelfViewport(shelf, (mapRoot.dataset.warehouseMapMode as WarehouseLocationMapMode) || 'VIEW', selectedIds, levelPage, positionPage).trim()
+  const nextViewport = template.content.firstElementChild
+  if (nextViewport) viewport.replaceWith(nextViewport)
+  return true
 }
 
 function renderPageControls(
@@ -223,6 +287,7 @@ export function handleWarehouseLocationMapOccupancyEvent(
   target: HTMLElement,
   projection: WarehouseLocationMapProjection,
 ): boolean {
+  if (handleWarehouseLocationMapViewportEvent(target, projection)) return true
   const actionNode = target.closest<HTMLElement>('[data-warehouse-map-action]')
   const action = actionNode?.dataset.warehouseMapAction
   if (!actionNode || !['open-occupancy', 'close-occupancy', 'occupancy-page', 'occupancy-detail-page'].includes(action || '')) {
@@ -369,7 +434,7 @@ export function renderWarehouseLocationMap(options: WarehouseLocationMapOptions)
     return cell ? [cell] : []
   })
   return `
-    <section class="space-y-4" data-warehouse-map-root data-warehouse-id="${escapeHtml(projection.warehouseId)}" data-warehouse-kind="${escapeHtml(projection.warehouseKind)}">
+    <section class="space-y-4" data-warehouse-map-root data-warehouse-map-mode="${mode}" data-warehouse-id="${escapeHtml(projection.warehouseId)}" data-warehouse-kind="${escapeHtml(projection.warehouseKind)}">
       <div class="rounded-lg border bg-card p-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -414,6 +479,12 @@ export function renderWarehouseLocationMap(options: WarehouseLocationMapOptions)
           <div class="divide-y">
             ${area.shelves.length ? area.shelves.map((shelf) => {
               const shelfCells = listWarehouseLocationMapShelfCells(shelf)
+              const selectedCell = shelfCells.find((cell) => selectedIds.has(cell.locationId))
+              const selectedLevelIndex = selectedCell ? shelf.levels.findIndex((level) => level.levelNo === selectedCell.levelNo) : -1
+              const selectedLevel = selectedLevelIndex >= 0 ? shelf.levels[selectedLevelIndex] : undefined
+              const selectedPositionIndex = selectedCell && selectedLevel ? selectedLevel.locations.findIndex((cell) => cell.locationId === selectedCell.locationId) : -1
+              const initialLevelPage = selectedLevelIndex >= 0 ? Math.floor(selectedLevelIndex / WAREHOUSE_LEVEL_VIEWPORT_PAGE_SIZE) + 1 : 1
+              const initialPositionPage = selectedPositionIndex >= 0 ? Math.floor(selectedPositionIndex / WAREHOUSE_POSITION_VIEWPORT_PAGE_SIZE) + 1 : 1
               return `
               <div class="grid gap-3 p-4 md:grid-cols-[9rem_minmax(0,1fr)]">
                 <div>
@@ -427,18 +498,7 @@ export function renderWarehouseLocationMap(options: WarehouseLocationMapOptions)
                     </div>
                   ` : ''}
                 </div>
-                <div class="min-w-0 overflow-x-auto pb-1" data-warehouse-shelf-scroll>
-                  <div class="min-w-max space-y-2">
-                    ${shelf.levels.map((level) => `
-                      <div class="grid grid-cols-[4rem_auto] items-start gap-2" data-warehouse-level-no="${level.levelNo}">
-                        <div class="sticky left-0 z-10 flex min-h-11 items-center rounded-md border bg-card px-2 text-xs font-semibold">L${String(level.levelNo).padStart(2, '0')}</div>
-                        <div class="flex gap-2">
-                          ${level.locations.map((cell) => renderCell(cell, mode, selectedIds)).join('')}
-                        </div>
-                      </div>
-                    `).join('')}
-                  </div>
-                </div>
+                ${renderShelfViewport(shelf, mode, selectedIds, initialLevelPage, initialPositionPage)}
               </div>
             `}).join('') : '<div class="p-6 text-center text-sm text-muted-foreground">暂无货架，请新增货架并预览将生成的 L / P 完整编号。</div>'}
           </div>
