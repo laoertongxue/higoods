@@ -29,6 +29,12 @@ export interface AppliedWarehouseLayout {
   warningMessages: string[]
 }
 
+export interface LoadedWarehouseLayout {
+  snapshot: FactoryWarehouseLayoutSnapshot
+  warningMessage: string
+  persistenceAvailable: boolean
+}
+
 export interface WarehouseLayoutChangeRecord {
   changeRecordId: string
   factoryId: string
@@ -234,12 +240,21 @@ function renumberShelf(area: FactoryWarehouseArea, shelf: FactoryWarehouseShelf)
 
 function validateSnapshot(snapshot: FactoryWarehouseLayoutSnapshot): void {
   if (snapshot.schemaVersion !== 3) throw new Error('布局快照版本无效。')
+  if (!Number.isInteger(snapshot.layoutVersion) || snapshot.layoutVersion < 0) throw new Error('布局版本必须是非负整数。')
+  const assertCreationMetadata = (node: object, label: string) => {
+    if (!Object.prototype.hasOwnProperty.call(node, 'layoutCreatedInVersion')) return
+    const createdInVersion = (node as Partial<LayoutNodeCreationMetadata>).layoutCreatedInVersion
+    if (typeof createdInVersion !== 'number' || !Number.isInteger(createdInVersion) || createdInVersion < 1 || createdInVersion > snapshot.layoutVersion) {
+      throw new Error(`${label}的创建版本必须是 1 到当前布局版本的整数。`)
+    }
+  }
   const areaIds = new Set<string>()
   const areaCodes = new Set<string>()
   const shelfIds = new Set<string>()
   const locationIds = new Set<string>()
   const locationNos = new Set<string>()
   snapshot.areaList.forEach((area) => {
+    assertCreationMetadata(area, `库区 ${area.areaId}`)
     assertText(area.areaId, '库区 ID')
     assertText(area.areaName, '库区名称')
     if (!area.code) throw new Error(`库区 ${area.areaName} 缺少库区代码。`)
@@ -250,6 +265,7 @@ function validateSnapshot(snapshot: FactoryWarehouseLayoutSnapshot): void {
     areaCodes.add(area.code)
     const sequences = new Set<number>()
     area.shelfList.forEach((shelf) => {
+      assertCreationMetadata(shelf, `货架 ${shelf.shelfId}`)
       assertText(shelf.shelfId, '货架 ID')
       if (shelf.shelfSequence === undefined) throw new Error(`货架 ${shelf.shelfName} 缺少货架序号。`)
       assertSequence(shelf.shelfSequence, '货架序号')
@@ -259,6 +275,7 @@ function validateSnapshot(snapshot: FactoryWarehouseLayoutSnapshot): void {
       sequences.add(shelf.shelfSequence)
       const positionsByLevel = new Map<number, number[]>()
       shelf.locationList.forEach((location) => {
+        assertCreationMetadata(location, `库位 ${location.locationId}`)
         if (location.levelNo === undefined || location.positionNo === undefined) throw new Error(`库位 ${location.locationNo} 缺少层号或层内位置号。`)
         assertSequence(location.levelNo, '层号')
         assertSequence(location.positionNo, '层内位置号')
@@ -289,6 +306,25 @@ function isV3Snapshot(value: unknown, warehouse?: FactoryInternalWarehouse): val
   if (warehouse && (candidate.factoryId !== warehouse.factoryId || candidate.warehouseId !== warehouse.warehouseId || candidate.warehouseKind !== warehouse.warehouseKind)) return false
   try {
     validateSnapshot(candidate as FactoryWarehouseLayoutSnapshot)
+    if (warehouse) {
+      const baselineAreaIds = new Set(warehouse.areaList.map((area) => area.areaId))
+      const baselineShelfIds = new Set(warehouse.areaList.flatMap((area) => area.shelfList.map((shelf) => shelf.shelfId)))
+      const baselineLocationIds = new Set(warehouse.areaList.flatMap((area) => area.shelfList.flatMap((shelf) => shelf.locationList.map((location) => location.locationId))))
+      const assertBaselineMetadata = (node: object, nodeId: string, baselineIds: Set<string>, label: string) => {
+        const hasMetadata = Object.prototype.hasOwnProperty.call(node, 'layoutCreatedInVersion')
+        if (baselineIds.has(nodeId) && hasMetadata) throw new Error(`默认${label}不得带创建元数据。`)
+        if (!baselineIds.has(nodeId) && !hasMetadata) throw new Error(`新建${label}必须带有效创建元数据。`)
+      }
+      candidate.areaList.forEach((area) => {
+        assertBaselineMetadata(area, area.areaId, baselineAreaIds, '库区')
+        area.shelfList.forEach((shelf) => {
+          assertBaselineMetadata(shelf, shelf.shelfId, baselineShelfIds, '货架')
+          shelf.locationList.forEach((location) => {
+            assertBaselineMetadata(location, location.locationId, baselineLocationIds, '库位')
+          })
+        })
+      })
+    }
     return true
   } catch {
     return false
@@ -299,6 +335,7 @@ function nextSnapshot(snapshot: FactoryWarehouseLayoutSnapshot, updatedBy: strin
   assertText(updatedBy, '操作人')
   const next = clone(snapshot)
   mutate(next)
+  if (JSON.stringify(next.areaList) === JSON.stringify(snapshot.areaList)) return snapshot
   next.layoutVersion = snapshot.layoutVersion + 1
   next.updatedAt = new Date().toISOString()
   next.updatedBy = updatedBy.trim()
@@ -335,7 +372,8 @@ export function listWarehouseLayoutChangeRecords(
   warehouseId = '',
   storage: WarehouseLayoutStorage = currentStorage(),
 ): WarehouseLayoutChangeRecord[] {
-  const raw = storage.getItem(getWarehouseLayoutHistoryStorageKey(factoryId, warehouseKind, warehouseId))
+  let raw: string | null = null
+  try { raw = storage.getItem(getWarehouseLayoutHistoryStorageKey(factoryId, warehouseKind, warehouseId)) } catch { return [] }
   if (!raw) return []
   try {
     const parsed = JSON.parse(raw)
@@ -368,23 +406,38 @@ export function buildInitialWarehouseLayoutSnapshot(
 export function loadWarehouseLayoutSnapshot(
   warehouse: FactoryInternalWarehouse,
   storage: WarehouseLayoutStorage = currentStorage(),
-): { snapshot: FactoryWarehouseLayoutSnapshot; warningMessage: string } {
+): LoadedWarehouseLayout {
   const key = getWarehouseLayoutStorageKey(warehouse.factoryId, warehouse.warehouseKind, warehouse.warehouseId)
-  legacyLayoutKeys(warehouse.factoryId, warehouse.warehouseKind, warehouse.warehouseId).forEach((legacyKey) => storage.removeItem?.(legacyKey))
-  legacyHistoryKeys(warehouse.factoryId, warehouse.warehouseKind, warehouse.warehouseId).forEach((legacyKey) => storage.removeItem?.(legacyKey))
-  const raw = storage.getItem(key)
+  let persistenceAvailable = true
+  const removeSafely = (removeKey: string) => {
+    try { storage.removeItem?.(removeKey) } catch { persistenceAvailable = false }
+  }
+  legacyLayoutKeys(warehouse.factoryId, warehouse.warehouseKind, warehouse.warehouseId).forEach(removeSafely)
+  legacyHistoryKeys(warehouse.factoryId, warehouse.warehouseKind, warehouse.warehouseId).forEach(removeSafely)
+  let raw: string | null = null
+  try { raw = storage.getItem(key) } catch { persistenceAvailable = false }
   if (raw) {
     try {
       const parsed = JSON.parse(raw) as unknown
-      if (isV3Snapshot(parsed, warehouse)) return { snapshot: clone(parsed), warningMessage: '' }
+      if (isV3Snapshot(parsed, warehouse)) {
+        return {
+          snapshot: clone(parsed),
+          warningMessage: persistenceAvailable ? '' : '当前仅可查看，无法保存。',
+          persistenceAvailable,
+        }
+      }
     } catch {
       // Invalid local prototype cache is intentionally discarded below.
     }
-    storage.removeItem?.(key)
+    removeSafely(key)
   }
   const snapshot = buildInitialWarehouseLayoutSnapshot(warehouse, '系统初始化')
-  try { storage.setItem(key, JSON.stringify(snapshot)) } catch { /* Memory fallback remains usable. */ }
-  return { snapshot, warningMessage: '' }
+  try { storage.setItem(key, JSON.stringify(snapshot)) } catch { persistenceAvailable = false }
+  return {
+    snapshot,
+    warningMessage: persistenceAvailable ? '' : '当前仅可查看，无法保存。',
+    persistenceAvailable,
+  }
 }
 
 export function saveWarehouseLayoutSnapshot(
@@ -396,7 +449,10 @@ export function saveWarehouseLayoutSnapshot(
     return { ok: false, message: error instanceof Error ? error.message : '库位图结构不完整，请检查后重试。' }
   }
   const key = getWarehouseLayoutStorageKey(snapshot.factoryId, snapshot.warehouseKind, snapshot.warehouseId)
-  const raw = storage.getItem(key)
+  let raw: string | null
+  try { raw = storage.getItem(key) } catch {
+    return { ok: false, message: '当前仅可查看，无法保存。' }
+  }
   let currentSnapshot: FactoryWarehouseLayoutSnapshot | null = null
   if (raw) {
     try {
@@ -428,8 +484,14 @@ export function saveWarehouseLayoutSnapshot(
     updatedAt: snapshot.updatedAt,
     updatedBy: snapshot.updatedBy,
   }
-  const previousLayoutRaw = storage.getItem(key)
-  const previousHistoryRaw = storage.getItem(historyKey)
+  let previousLayoutRaw: string | null
+  let previousHistoryRaw: string | null
+  try {
+    previousLayoutRaw = storage.getItem(key)
+    previousHistoryRaw = storage.getItem(historyKey)
+  } catch {
+    return { ok: false, message: '当前仅可查看，无法保存。' }
+  }
   try {
     storage.setItem(key, JSON.stringify(snapshot))
     storage.setItem(historyKey, JSON.stringify([changeRecord, ...history].slice(0, 100)))
@@ -449,13 +511,18 @@ export function resetWarehouseLayoutSnapshot(
   storage: WarehouseLayoutStorage = currentStorage(),
 ): { ok: boolean; message: string; snapshot?: FactoryWarehouseLayoutSnapshot } {
   const key = getWarehouseLayoutStorageKey(warehouse.factoryId, warehouse.warehouseKind, warehouse.warehouseId)
-  const raw = storage.getItem(key)
+  let raw: string | null
+  try { raw = storage.getItem(key) } catch {
+    return { ok: false, message: '当前仅可查看，无法保存。' }
+  }
   if (raw) {
     try {
       if (isV3Snapshot(JSON.parse(raw), warehouse)) return { ok: false, message: '库位图已被其他页面恢复或更新，请刷新后重试。' }
     } catch { /* Damaged cache may be replaced. */ }
   }
-  const baseline = loadWarehouseLayoutSnapshot(warehouse, storage).snapshot
+  const loaded = loadWarehouseLayoutSnapshot(warehouse, storage)
+  if (!loaded.persistenceAvailable) return { ok: false, message: loaded.warningMessage }
+  const baseline = loaded.snapshot
   const snapshot = {
     ...baseline,
     areaList: clone(warehouse.areaList),
@@ -605,6 +672,7 @@ export function adjustWarehouseLevelPositionCount(snapshot: FactoryWarehouseLayo
   const currentLevel = shelf.locationList.filter((location) => location.levelNo === input.levelNo)
   if (!currentLevel.length) throw new Error(`货架 ${shelf.shelfNo} 不存在第 ${input.levelNo} 层。`)
   const currentCount = Math.max(...currentLevel.map((location) => location.positionNo ?? 0))
+  if (input.positionCount === currentCount) return snapshot
   if (input.positionCount < currentCount) {
     const removedIds = currentLevel.filter((location) => (location.positionNo ?? 0) > input.positionCount).map((location) => location.locationId)
     assertNoOccupied(snapshot, removedIds, occupiedLocationIds, '不能减少')
@@ -682,13 +750,65 @@ export function revokeNewWarehouseNode(snapshot: FactoryWarehouseLayoutSnapshot,
   })
 }
 
-// 旧地图维护入口的薄适配：事实仍只写入 v3 areaList，不恢复 patch/override 模型。
-export function replaceWarehouseAreaList(
+function assertCompleteOrderIds(currentIds: readonly string[], orderedIds: readonly string[], label: string): void {
+  const current = new Set(currentIds)
+  if (orderedIds.length !== currentIds.length
+    || orderedIds.some((id) => typeof id !== 'string' || !current.has(id))
+    || new Set(orderedIds).size !== current.size) {
+    throw new Error(`${label}排序必须保留完整节点集合，不能新增、删除或修改节点事实。`)
+  }
+}
+
+function hasSameOrder(currentIds: readonly string[], orderedIds: readonly string[]): boolean {
+  return currentIds.every((id, index) => id === orderedIds[index])
+}
+
+export function reorderWarehouseAreas(
   snapshot: FactoryWarehouseLayoutSnapshot,
-  areaList: FactoryWarehouseArea[],
+  orderedAreaIds: readonly string[],
   updatedBy = snapshot.updatedBy,
 ): FactoryWarehouseLayoutSnapshot {
-  return nextSnapshot(snapshot, updatedBy, (next) => { next.areaList = clone(areaList) })
+  const currentIds = snapshot.areaList.map((area) => area.areaId)
+  assertCompleteOrderIds(currentIds, orderedAreaIds, '库区')
+  if (hasSameOrder(currentIds, orderedAreaIds)) return snapshot
+  return nextSnapshot(snapshot, updatedBy, (next) => {
+    const byId = new Map(next.areaList.map((area) => [area.areaId, area]))
+    next.areaList = orderedAreaIds.map((areaId) => byId.get(areaId)!)
+  })
+}
+
+export function reorderWarehouseShelves(
+  snapshot: FactoryWarehouseLayoutSnapshot,
+  areaId: string,
+  orderedShelfIds: readonly string[],
+  updatedBy = snapshot.updatedBy,
+): FactoryWarehouseLayoutSnapshot {
+  const current = findArea(snapshot, areaId)
+  const currentIds = current.shelfList.map((shelf) => shelf.shelfId)
+  assertCompleteOrderIds(currentIds, orderedShelfIds, '货架')
+  if (hasSameOrder(currentIds, orderedShelfIds)) return snapshot
+  return nextSnapshot(snapshot, updatedBy, (next) => {
+    const area = findArea(next, areaId)
+    const byId = new Map(area.shelfList.map((shelf) => [shelf.shelfId, shelf]))
+    area.shelfList = orderedShelfIds.map((shelfId) => byId.get(shelfId)!)
+  })
+}
+
+export function reorderWarehouseLocations(
+  snapshot: FactoryWarehouseLayoutSnapshot,
+  shelfId: string,
+  orderedLocationIds: readonly string[],
+  updatedBy = snapshot.updatedBy,
+): FactoryWarehouseLayoutSnapshot {
+  const current = findShelfContext(snapshot, shelfId).shelf
+  const currentIds = current.locationList.map((location) => location.locationId)
+  assertCompleteOrderIds(currentIds, orderedLocationIds, '库位')
+  if (hasSameOrder(currentIds, orderedLocationIds)) return snapshot
+  return nextSnapshot(snapshot, updatedBy, (next) => {
+    const shelf = findShelfContext(next, shelfId).shelf
+    const byId = new Map(shelf.locationList.map((location) => [location.locationId, location]))
+    shelf.locationList = orderedLocationIds.map((locationId) => byId.get(locationId)!)
+  })
 }
 
 export function appendWarehouseArea(snapshot: FactoryWarehouseLayoutSnapshot, area: FactoryWarehouseArea): FactoryWarehouseLayoutSnapshot {
@@ -722,15 +842,6 @@ export function appendWarehouseLocation(snapshot: FactoryWarehouseLayoutSnapshot
       positionNo,
       layoutCreatedInVersion: snapshot.layoutVersion + 1,
     } as LayoutWarehouseLocation)
-  })
-}
-
-export function assignWarehouseLocationToShelf(snapshot: FactoryWarehouseLayoutSnapshot, locationId: string, shelfId: string): FactoryWarehouseLayoutSnapshot {
-  return nextSnapshot(snapshot, snapshot.updatedBy, (next) => {
-    const source = findLocationContext(next, locationId)
-    const target = findShelfContext(next, shelfId)
-    source.shelf.locationList = source.shelf.locationList.filter((location) => location.locationId !== locationId)
-    target.shelf.locationList.push(source.location)
   })
 }
 

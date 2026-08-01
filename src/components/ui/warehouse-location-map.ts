@@ -377,26 +377,6 @@ export function renderWarehouseLocationMap(options: WarehouseLocationMapOptions)
         </article>
       `).join('')}
 
-      ${mode === 'LAYOUT' && projection.unassignedLocations.length ? `
-        <article class="rounded-lg border border-amber-200 bg-amber-50 p-4">
-          <h3 class="font-semibold text-amber-900">未编排库位 ${projection.unassignedLocations.length} 个</h3>
-          <div class="mt-3 space-y-2">
-            ${projection.unassignedLocations.map((location) => `
-              <div class="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-200 bg-white px-3 py-2 text-sm">
-                <span>${escapeHtml(location.locationNo)} · 原记录 ${escapeHtml(location.areaName)} / ${escapeHtml(location.shelfNo)}</span>
-                <label class="flex items-center gap-2">
-                  <span>放入货架</span>
-                  <select class="min-h-11 rounded-md border px-2" data-skip-page-rerender="true" data-warehouse-map-action="assign-location" data-location-id="${escapeHtml(location.locationId)}">
-                    <option value="">请选择</option>
-                    ${projection.areas.flatMap((area) => area.shelves.map((shelf) => `<option value="${escapeHtml(shelf.shelfId)}">${escapeHtml(area.areaName)} / ${escapeHtml(shelf.shelfNo)}</option>`)).join('')}
-                  </select>
-                </label>
-              </div>
-            `).join('')}
-          </div>
-        </article>
-      ` : ''}
-
       ${renderWarehouseLocationMapUnlocatedSection(projection, options.unlocatedPage)}
       ${renderWarehouseLocationMapOccupancyOverlay(projection, options.openLocationId, options.occupancyPage)}
     </section>

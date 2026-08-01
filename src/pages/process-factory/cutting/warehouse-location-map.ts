@@ -25,11 +25,12 @@ import {
   loadWarehouseLayoutSnapshot,
   saveWarehouseLayoutSnapshot,
   resetWarehouseLayoutSnapshot,
-  assignWarehouseLocationToShelf,
   appendWarehouseArea,
   appendWarehouseLocation,
   applyWarehouseLayoutSnapshot,
-  replaceWarehouseAreaList,
+  reorderWarehouseAreas,
+  reorderWarehouseLocations,
+  reorderWarehouseShelves,
   type FactoryWarehouseLayoutSnapshot,
 } from './warehouse-location-layout-store.ts'
 import {
@@ -576,6 +577,7 @@ export function buildCurrentCuttingWarehouseMapProjection(
   snapshot: FactoryWarehouseLayoutSnapshot
   projection: WarehouseLocationMapProjection
   warningMessage: string
+  persistenceAvailable: boolean
 } | null {
   const warehouse = getCurrentWarehouse(kind)
   if (!warehouse) return null
@@ -589,6 +591,7 @@ export function buildCurrentCuttingWarehouseMapProjection(
     snapshot: loaded.snapshot,
     projection: buildWarehouseLocationMapProjection(warehouse, loaded.snapshot, occupancies),
     warningMessage: [loaded.warningMessage, ...applied.warningMessages].filter(Boolean).join('；'),
+    persistenceAvailable: loaded.persistenceAvailable,
   }
 }
 
@@ -613,8 +616,10 @@ export function renderCuttingWarehouseLocationMapSection(
   if (!current) {
     return '<div class="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">当前没有可用的裁床仓库库位主数据。</div>'
   }
-  const mode = requestedMode ?? (getSearchParams().get('layout') === '1' ? 'LAYOUT' : 'VIEW')
-  const addButtons = mode === 'VIEW'
+  const mode = current.persistenceAvailable
+    ? (requestedMode ?? (getSearchParams().get('layout') === '1' ? 'LAYOUT' : 'VIEW'))
+    : 'VIEW'
+  const addButtons = mode === 'VIEW' && current.persistenceAvailable
     ? `
       <button type="button" class="min-h-11 rounded-md border px-4 text-sm" data-skip-page-rerender="true" data-warehouse-map-action="open-add-area" data-warehouse-kind="${kind}" data-warehouse-id="${escapeHtml(current.warehouse.warehouseId)}">新增库区</button>
       <button type="button" class="min-h-11 rounded-md border px-4 text-sm" data-skip-page-rerender="true" data-warehouse-map-action="open-add-location" data-warehouse-kind="${kind}" data-warehouse-id="${escapeHtml(current.warehouse.warehouseId)}">新增库位</button>
@@ -628,9 +633,10 @@ export function renderCuttingWarehouseLocationMapSection(
           <span class="text-xs text-muted-foreground">编排版本 v${current.snapshot.layoutVersion} · ${escapeHtml(current.snapshot.updatedBy)} · ${escapeHtml(current.snapshot.updatedAt)}</span>
         </div>
         <div class="flex gap-2">
+          ${current.persistenceAvailable ? '' : '<span class="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">当前仅可查看，无法保存</span>'}
           ${current.warningMessage.includes('无法恢复') ? '<button type="button" class="min-h-11 rounded-md border border-amber-300 px-4 text-sm text-amber-800" data-skip-page-rerender="true" data-warehouse-map-action="reset-layout">恢复默认编排</button>' : ''}
           ${addButtons}
-          ${mode === 'LAYOUT'
+          ${!current.persistenceAvailable ? '' : mode === 'LAYOUT'
             ? '<button type="button" class="min-h-11 rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-skip-page-rerender="true" data-warehouse-map-action="finish-layout">完成编排</button>'
             : '<button type="button" class="min-h-11 rounded-md border px-4 text-sm" data-skip-page-rerender="true" data-warehouse-map-action="enter-layout">编排库位图</button>'}
         </div>
@@ -848,23 +854,20 @@ function moveId(ids: string[], id: string, direction: -1 | 1): string[] {
   return next
 }
 
-function mutateSnapshotAreaList(
-  snapshot: FactoryWarehouseLayoutSnapshot,
-  mutate: (areaList: FactoryWarehouseArea[]) => void,
-): FactoryWarehouseLayoutSnapshot {
-  const areaList = structuredClone(snapshot.areaList)
-  mutate(areaList)
-  return replaceWarehouseAreaList(snapshot, areaList, '当前用户')
-}
-
 function persistSnapshot(
   kind: CuttingWarehouseMapKind,
   mutate: (snapshot: FactoryWarehouseLayoutSnapshot) => FactoryWarehouseLayoutSnapshot,
 ): void {
   const current = buildCurrentCuttingWarehouseMapProjection(kind)
   if (!current) return
+  if (!current.persistenceAvailable) {
+    if (typeof window !== 'undefined') window.alert('当前仅可查看，无法保存。')
+    return
+  }
+  const next = mutate(current.snapshot)
+  if (next === current.snapshot) return
   const result = saveWarehouseLayoutSnapshot(
-    { ...mutate(structuredClone(current.snapshot)), updatedBy: '当前用户' },
+    { ...next, updatedBy: '当前用户' },
     current.snapshot.layoutVersion,
   )
   if (!result.ok && typeof window !== 'undefined') window.alert(result.message)
@@ -1041,30 +1044,39 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
     return true
   }
   if (action === 'move-area-left' || action === 'move-area-right') {
-    persistSnapshot(kind, (snapshot) => mutateSnapshotAreaList(snapshot, (areaList) => {
-      const reorderedIds = moveId(areaList.map((area) => area.areaId), node.dataset.areaId || '', action.endsWith('left') ? -1 : 1)
-      areaList.sort((left, right) => reorderedIds.indexOf(left.areaId) - reorderedIds.indexOf(right.areaId))
-    }))
+    persistSnapshot(kind, (snapshot) => reorderWarehouseAreas(
+      snapshot,
+      moveId(snapshot.areaList.map((area) => area.areaId), node.dataset.areaId || '', action.endsWith('left') ? -1 : 1),
+      '当前用户',
+    ))
     return true
   }
   if (action === 'move-shelf-up' || action === 'move-shelf-down') {
     const areaId = node.dataset.areaId || ''
-    persistSnapshot(kind, (snapshot) => mutateSnapshotAreaList(snapshot, (areaList) => {
-      const area = areaList.find((item) => item.areaId === areaId)
-      if (!area) return
-      const reorderedIds = moveId(area.shelfList.map((shelf) => shelf.shelfId), node.dataset.shelfId || '', action.endsWith('up') ? -1 : 1)
-      area.shelfList.sort((left, right) => reorderedIds.indexOf(left.shelfId) - reorderedIds.indexOf(right.shelfId))
-    }))
+    persistSnapshot(kind, (snapshot) => {
+      const area = snapshot.areaList.find((item) => item.areaId === areaId)
+      if (!area) return snapshot
+      return reorderWarehouseShelves(
+        snapshot,
+        areaId,
+        moveId(area.shelfList.map((shelf) => shelf.shelfId), node.dataset.shelfId || '', action.endsWith('up') ? -1 : 1),
+        '当前用户',
+      )
+    })
     return true
   }
   if (action === 'move-location-left' || action === 'move-location-right') {
     const shelfId = node.dataset.shelfId || ''
-    persistSnapshot(kind, (snapshot) => mutateSnapshotAreaList(snapshot, (areaList) => {
-      const shelf = areaList.flatMap((area) => area.shelfList).find((item) => item.shelfId === shelfId)
-      if (!shelf) return
-      const reorderedIds = moveId(shelf.locationList.map((location) => location.locationId), node.dataset.locationId || '', action.endsWith('left') ? -1 : 1)
-      shelf.locationList.sort((left, right) => reorderedIds.indexOf(left.locationId) - reorderedIds.indexOf(right.locationId))
-    }))
+    persistSnapshot(kind, (snapshot) => {
+      const shelf = snapshot.areaList.flatMap((area) => area.shelfList).find((item) => item.shelfId === shelfId)
+      if (!shelf) return snapshot
+      return reorderWarehouseLocations(
+        snapshot,
+        shelfId,
+        moveId(shelf.locationList.map((location) => location.locationId), node.dataset.locationId || '', action.endsWith('left') ? -1 : 1),
+        '当前用户',
+      )
+    })
     return true
   }
   if (action === 'rename-location') {
@@ -1077,13 +1089,6 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
   }
   if (action === 'rename-shelf') {
     window.alert('货架名称和序号请在后续层级维护入口调整，系统将先检查占用库位再生成编号。')
-    return true
-  }
-  if (action === 'assign-location' && target instanceof HTMLSelectElement) {
-    const locationId = node.dataset.locationId || ''
-    if (!locationId || !target.value) return true
-    persistSnapshot(kind, (snapshot) =>
-      assignWarehouseLocationToShelf(snapshot, locationId, target.value))
     return true
   }
   return false
