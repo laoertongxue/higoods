@@ -2663,25 +2663,26 @@ function buildWaitHandoverConfirmSelections(): WaitHandoverConfirmSelection[] {
     )
     const confirmedTaskEvent = [...baggingConfirmEvents].reverse().find((event) => {
       const payload = toRuntimeRecord(event.payload)
-      const eventBagCode = runtimeString(payload.targetTransferBagCode)
-        || runtimeString(payload.sourceTempBagCode)
-        || event.refs.transferBagCode
-      return eventBagCode === bagCode
+      return runtimeString(payload.sourceTempBagCode) === bagCode
         && bagRecords.every((record) => event.refs.feiTicketIds?.includes(record.feiTicketId))
     })
     if (confirmedTaskEvent) {
       const payload = toRuntimeRecord(confirmedTaskEvent.payload)
+      const targetBagCode = runtimeString(payload.targetTransferBagCode) || confirmedTaskEvent.refs.transferBagCode
+      if (!targetBagCode) return
+      const targetLifecycle = buildWaitHandoverLifecycleByBagCode(targetBagCode)
+      if (targetLifecycle.flowStage !== 'INBOUND_STORED') return
       const taskId = runtimeString(payload.pickingTaskId) || confirmedTaskEvent.refs.taskId || confirmedTaskEvent.eventId
       const taskNo = runtimeString(payload.pickingTaskNo) || runtimeString(payload.sewingTaskNo) || taskId
       selections.push({
-        value: `inbound-bag|${bagCode}|${taskId}`,
+        value: `inbound-bag|${targetBagCode}|${taskId}`,
         handoverOrderId: `WEB-HO-${taskId}`,
         handoverOrderNo: `${taskNo}-交出`,
         receiverType: runtimeString(payload.receiverType) || '车缝厂',
         receiverId: runtimeString(payload.receiverFactoryId),
         receiverName: runtimeString(payload.receiverFactoryName) || '接收车缝厂',
-        bagUseId: lifecycle.usageCycleId || `legacy:${bagCode}`,
-        bagCode,
+        bagUseId: targetLifecycle.usageCycleId || runtimeString(payload.bagUseId) || `legacy:${targetBagCode}`,
+        bagCode: targetBagCode,
         sourceWarehouseName: bagRecords[0]?.warehouseArea || '裁床待交出仓',
         sourceLocationCode: bagRecords[0]?.locationCode || '',
         tickets: bagRecords.map((record) => ({

@@ -413,9 +413,11 @@ function isWaitHandoverBagEventForCode(
   bagCode: string,
 ): boolean {
   if (event.eventStatus === '已取消') return false
+  const payload = runtimeRecord(event.payload)
   return event.refs.transferBagCode === bagCode
-    || runtimeString(runtimeRecord(event.payload).bagCode) === bagCode
-    || runtimeString(runtimeRecord(event.payload).transferBagCode) === bagCode
+    || runtimeString(payload.bagCode) === bagCode
+    || runtimeString(payload.transferBagCode) === bagCode
+    || runtimeString(payload.targetTransferBagCode) === bagCode
 }
 
 function inferWaitHandoverEventCycleIds(
@@ -477,16 +479,35 @@ export function listWaitHandoverLifecycleFacts(
     .filter((event) => isWaitHandoverBagEventForCode(event, bagCode))
   const inferredCycleIds = inferWaitHandoverEventCycleIds(events, bagCode)
   return events
-    .map((event) => {
+    .flatMap((event) => {
       const usageCycleId =
         getWaitHandoverEventUsageCycleId(event)
         || inferredCycleIds.get(event.eventId)
         || ''
-      return usageCycleId
-        ? toWaitHandoverLifecycleFact(event, usageCycleId)
-        : null
+      if (!usageCycleId) return []
+      const payload = runtimeRecord(event.payload)
+      if (
+        event.eventType === '交出装袋确认'
+        && runtimeString(payload.targetTransferBagCode) === bagCode
+      ) {
+        return [
+          {
+            factId: `${event.eventId}:target-bagging`,
+            factType: 'BAGGING_CONFIRMED' as const,
+            usageCycleId,
+            occurredAt: event.occurredAt,
+          },
+          {
+            factId: `${event.eventId}:target-inbound`,
+            factType: 'INBOUND_CONFIRMED' as const,
+            usageCycleId,
+            occurredAt: event.occurredAt,
+          },
+        ]
+      }
+      const fact = toWaitHandoverLifecycleFact(event, usageCycleId)
+      return fact ? [fact] : []
     })
-    .filter((fact): fact is TransferBagLifecycleFact => Boolean(fact))
     .sort((left, right) =>
       left.occurredAt.localeCompare(right.occurredAt)
       || left.factId.localeCompare(right.factId))
@@ -831,13 +852,47 @@ export function resolveWaitHandoverBaggingSnapshot(
   bagCode: string,
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): WaitHandoverBaggingSnapshot | null {
-  const event = listCuttingRuntimeEvents(storage)
-    .filter((candidate) =>
-      candidate.eventType === '菲票装袋'
-      && isWaitHandoverBagEventForCode(candidate, bagCode))
+  const events = listCuttingRuntimeEvents(storage)
+    .filter((candidate) => candidate.eventStatus !== '已取消')
     .sort((left, right) =>
       right.occurredAt.localeCompare(left.occurredAt)
-      || right.eventId.localeCompare(left.eventId))[0]
+      || right.eventId.localeCompare(left.eventId))
+  const targetConfirmEvent = events.find((candidate) => {
+    if (candidate.eventType !== '交出装袋确认') return false
+    const payload = runtimeRecord(candidate.payload)
+    return runtimeString(payload.targetTransferBagCode) === bagCode
+      && runtimeString(payload.sourceTempBagCode) !== bagCode
+  })
+  if (targetConfirmEvent) {
+    const payload = runtimeRecord(targetConfirmEvent.payload)
+    const sourceBagCode = runtimeString(payload.sourceTempBagCode)
+    const sourceSnapshot = sourceBagCode
+      ? resolveWaitHandoverBaggingSnapshot(sourceBagCode, storage)
+      : null
+    if (!sourceSnapshot?.tickets.length) return null
+    const containedTicketIds = new Set(uniqueStrings(
+      (Array.isArray(payload.containedFeiTicketIds) ? payload.containedFeiTicketIds : [])
+        .map((ticketId) => runtimeString(ticketId)),
+    ))
+    const tickets = containedTicketIds.size
+      ? sourceSnapshot.tickets.filter((ticket) => containedTicketIds.has(ticket.feiTicketId))
+      : sourceSnapshot.tickets
+    if (!tickets.length) return null
+    return {
+      usageCycleId:
+        getWaitHandoverEventUsageCycleId(targetConfirmEvent)
+        || runtimeString(payload.bagUseId)
+        || buildWaitHandoverUsageCycleId(bagCode, targetConfirmEvent.occurredAt),
+      productionOrderNo:
+        uniqueStrings(tickets.map((ticket) => ticket.productionOrderNo))[0]
+        || targetConfirmEvent.refs.productionOrderNo
+        || '',
+      tickets,
+    }
+  }
+  const event = events.find((candidate) =>
+    candidate.eventType === '菲票装袋'
+    && isWaitHandoverBagEventForCode(candidate, bagCode))
   if (!event) return null
   const payload = runtimeRecord(event.payload)
   const tickets = (
@@ -1034,7 +1089,14 @@ export function buildWaitHandoverLocationOccupancyStates(
       const sourceBagCode = runtimeString(payload.sourceTempBagCode)
       const targetBagCode = runtimeString(payload.targetTransferBagCode) || event.refs.transferBagCode || ''
       const eventLocationRef = runtimeLocationRef(payload.locationRef)
-      const sourceKeys = sourceBagCode ? findWaitHandoverStateKeys(states, sourceBagCode, event.refs.usageCycleId, eventLocationRef) : []
+      const confirmedTicketIds = new Set(event.refs.feiTicketIds ?? [])
+      const sourceKeys = sourceBagCode
+        ? findWaitHandoverStateKeys(states, sourceBagCode, undefined, eventLocationRef)
+          .filter((stateKey) => {
+            const source = states.get(stateKey)
+            return source && source.feiTicketIds.every((ticketId) => confirmedTicketIds.has(ticketId))
+          })
+        : []
       if (!sourceKeys.length || !targetBagCode) continue
       sourceKeys.forEach((sourceKey) => {
         const source = states.get(sourceKey)

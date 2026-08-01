@@ -104,7 +104,8 @@ test('真实待交出工作台以生产 handler 完成三格入仓、一次汇�
   const summaryText = await summary.innerText()
   expect((summaryText.match(new RegExp(bagCode, 'g')) || []).length).toBe(1)
 
-  const transferBagCode = await page.evaluate(async ({ sourceBagCode, locationIds }) => {
+  const targetTransferBagCode = `WEB-TARGET-${Date.now()}`
+  const transferBagCode = await page.evaluate(async ({ sourceBagCode, targetBagCode, locationIds }) => {
     const runtime = await import('/src/pages/process-factory/cutting/wait-handover-runtime.ts')
     const dispatch = await import('/src/data/fcs/cutting/sewing-dispatch.ts')
     const ledger = await import('/src/data/fcs/cutting/cutting-runtime-event-ledger.ts')
@@ -131,30 +132,61 @@ test('真实待交出工作台以生产 handler 完成三格入仓、一次汇�
     const picking = dispatch.buildHandoverPickingTaskProjectionFromAllocationProjection(allocation)
     const task = picking.tasks.find((item) => item.allocatedInventoryItems.some((item) => item.tempBagCode === sourceBagCode))
     if (!task) throw new Error('生产分配/分拣投影未形成真实任务')
+    const confirmedAt = new Date(Date.now() + 1_000).toISOString()
+    const targetUsageCycleId = `cycle:${targetBagCode}:${confirmedAt}`
+    const totalPieceQty = snapshot.tickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0)
     ledger.appendCuttingRuntimeEvent({
       eventType: '交出装袋确认', eventSource: 'WEB', eventStatus: '已同步',
-      occurredAt: '2026-08-02 12:01', operatorName: '交出装袋确认员',
+      occurredAt: confirmedAt, operatorName: '交出装袋确认员',
       refs: {
-        transferBagCode: sourceBagCode, usageCycleId: snapshot.usageCycleId,
+        transferBagCode: targetBagCode, usageCycleId: targetUsageCycleId,
         productionOrderId: snapshot.tickets[0].productionOrderId,
         productionOrderNo: snapshot.tickets[0].productionOrderNo,
         taskId: task.pickingTaskId, feiTicketIds: snapshot.tickets.map((ticket) => ticket.feiTicketId),
         feiTicketNos: snapshot.tickets.map((ticket) => ticket.feiTicketNo),
       },
-      inventoryEffect: { inventoryScope: '裁床待交出仓', direction: 'IN', qty: snapshot.tickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0), unit: '片' },
+      inventoryEffect: { inventoryScope: '裁床待交出仓', direction: 'IN', qty: totalPieceQty, unit: '片' },
       payload: {
-        sourceTempBagCode: sourceBagCode, targetTransferBagCode: sourceBagCode,
+        baggingConfirmRecordId: `BCR-${targetBagCode}`,
+        baggingConfirmRecordNo: `BCR-${targetBagCode}`,
+        sourceTempBagCode: sourceBagCode, targetTransferBagCode: targetBagCode,
+        bagUseId: targetUsageCycleId,
         pickingTaskId: task.pickingTaskId, pickingTaskNo: task.pickingTaskNo,
         sewingTaskId: task.sewingTaskId, sewingTaskNo: task.sewingTaskNo,
         receiverType: '车缝厂', receiverFactoryId: task.receiverFactoryId, receiverFactoryName: task.receiverFactoryName,
+        scannedFeiTicketIds: snapshot.tickets.map((ticket) => ticket.feiTicketId),
+        scannedFeiTicketNos: snapshot.tickets.map((ticket) => ticket.feiTicketNo),
+        containedFeiTicketIds: snapshot.tickets.map((ticket) => ticket.feiTicketId),
+        containedFeiTicketNos: snapshot.tickets.map((ticket) => ticket.feiTicketNo),
+        totalPieceQty,
+        pickedQty: totalPieceQty,
+        unit: '片',
+        scannedAt: confirmedAt,
+        scannedBy: '交出装袋确认员',
+        packedAt: confirmedAt,
+        packedBy: '交出装袋确认员',
+        checkResult: '正常',
+        bagBindingRule: '一个中转袋只能绑定一个车缝任务',
       },
     })
-    const lifecycle = runtime.buildWaitHandoverLifecycleByBagCode(sourceBagCode)
-    if (lifecycle.flowStage !== 'INBOUND_STORED') {
-      throw new Error(`交出装袋确认后袋状态异常：${lifecycle.flowStageLabel}`)
+    const targetSnapshot = runtime.resolveWaitHandoverBaggingSnapshot(targetBagCode)
+    if (!targetSnapshot || targetSnapshot.usageCycleId !== targetUsageCycleId
+      || targetSnapshot.tickets.length !== snapshot.tickets.length) {
+      throw new Error('目标中转袋未建立独立袋内快照和使用周期')
     }
-    return sourceBagCode
-  }, { sourceBagCode: bagCode, locationIds: locations.map((location) => location.id) })
+    const lifecycle = runtime.buildWaitHandoverLifecycleByBagCode(targetBagCode)
+    if (lifecycle.flowStage !== 'INBOUND_STORED') {
+      throw new Error(`目标中转袋交出装袋确认后状态异常：${lifecycle.flowStageLabel}`)
+    }
+    return targetBagCode
+  }, { sourceBagCode: bagCode, targetBagCode: targetTransferBagCode, locationIds: locations.map((location) => location.id) })
+
+  await openWaitHandoverPage(page, '?tab=locations')
+  for (const location of locations) {
+    const locationCell = page.locator(`[data-warehouse-map-shelf-viewport] [data-location-id="${location.id}"]`)
+    await expect(locationCell).toContainText(transferBagCode)
+    await expect(locationCell).not.toContainText(bagCode)
+  }
 
   await openWaitHandoverPage(page)
   await page.locator('[data-wait-handover-action="open-handover"]').click()

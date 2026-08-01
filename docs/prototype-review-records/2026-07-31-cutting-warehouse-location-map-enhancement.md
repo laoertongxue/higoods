@@ -29,26 +29,34 @@
 | --- | --- | --- |
 | 1366×768 结构顺序 | 通过 | L 降序、P 升序、完整库位编码。 |
 | WAIT_PROCESS 多选冲突 | 通过 | 跨区／架／层三位置；最新占用导致整组失败、冲突编号可见、无部分事件。 |
-| WAIT_HANDOVER 生命周期 | 通过 | 真实工作台和生产 handler 三位置入仓、全部格占用、整袋一次汇总、生产分配／分拣确认事实、整袋交出全部释放。 |
+| WAIT_HANDOVER 生命周期 | 通过 | 真实工作台和生产 handler 三位置入仓；分拣确认按源临时袋完整菲票释放源占用，为不同编码的目标中转袋建立独立快照与使用周期；目标袋整袋交出后全部格释放。 |
 | PDA 浏览器实证 | 通过 | 真实 render／handler 覆盖跨区／架／层自由多选、取消、清空、特殊工艺缺失扫码和多批次领料选择。 |
 | PDA 专业检查 | 通过 | 专业脚本覆盖正常扫码以及缺失／停用／占用／跨仓中文阻断和数组不变；不表述为浏览器逐项覆盖。 |
 | PDA 特殊工艺 | 通过 | 真实 render／handler 支持多位置回仓与异常扫码。 |
 | PDA 多批次领料 | 通过 | 真实“本次领料批次”控件默认空；未选阻断；选择后只绑定所选批次。 |
 | 1280×720 宽货架 | 通过 | 页面无横溢，货架内部横滚，维护和主要动作可用。 |
-| 选位性能与滚动 | 通过 | 正式套件首次 DOM 反馈 10.80ms；页面壳身份和非零页面滚动位置保持，地图根按局部刷新边界替换。 |
+| 选位性能与滚动 | 通过 | 正式套件首次 DOM 反馈 9.80ms；页面壳身份和非零页面滚动位置保持，地图根按局部刷新边界替换。 |
 
 ## 当前交付结论
 
 - 规格要求的业务状态、角色边界、Mock 边界、Web／PDA 流程和性能口径一致。
-- 正式浏览器命令使用独立开发服务器和 `workers=1`；最后一次完整复跑为 19/19 通过、退出码 0、总用时 14.3 分钟。
+- 正式浏览器命令使用独立开发服务器和 `workers=1`；最后一次完整复跑为 19/19 通过、退出码 0、总用时 14.4 分钟。
 - 依赖审计要求为 0 个已知漏洞；完整 E2E、所有专项、治理、构建和 CodeGraph 均以本次最终复跑结果收口。
 - 无产品设计例外。受控浏览器页只组合真实生产 render、选择／复核模型、runtime append／release 和事件账；不复制或绕过业务处理逻辑。
 - 原型边界：不实现真实后端、跨设备锁和正式权限系统。
 
 ## 受管文件
 
+- `src/components/ui/warehouse-location-map.ts`
+- `src/data/fcs/cutting/cutting-runtime-event-ledger.ts`
+- `src/data/fcs/cutting/warehouse-location-mock.ts`
+- `src/data/fcs/factory-internal-warehouse.ts`
 - `src/pages/process-factory/cutting/warehouse-hub.ts`
+- `src/pages/process-factory/cutting/wait-handover-runtime.ts`
+- `src/pages/process-factory/cutting/warehouse-location-layout-store.ts`
 - `src/pages/process-factory/cutting/warehouse-location-map-model.ts`
+- `src/pages/process-factory/cutting/warehouse-location-map.ts`
 - `src/pages/pda-cutting-inbound.ts`
 - `src/pages/pda-cutting-handover.ts`
+- `src/pages/pda-handover-detail.ts`
 - `src/pages/pda-warehouse-wait-process.ts`
