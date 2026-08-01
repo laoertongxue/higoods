@@ -68,6 +68,27 @@ export function resetEngineeringPurchaseOrderFacts(): void {
   purchaseOrderFacts = DEFAULT_PURCHASE_ORDER_FACTS.map(cloneFact)
 }
 
+// 仅供采购事实 Mock 适配器和测试模拟外部系统变化；页面不暴露采购单编辑能力。
+export function updateEngineeringPurchaseOrderFact(
+  purchaseOrderNo: string,
+  patch: Partial<Omit<EngineeringPurchaseOrderFact, 'purchaseOrderNo'>>,
+): EngineeringPurchaseOrderFact {
+  const index = purchaseOrderFacts.findIndex((item) => item.purchaseOrderNo === purchaseOrderNo)
+  if (index < 0) throw new Error(`采购单不存在：${purchaseOrderNo}`)
+  const current = purchaseOrderFacts[index]!
+  const next = cloneFact({
+    ...current,
+    ...patch,
+    materialLines: patch.materialLines ?? current.materialLines,
+  })
+  purchaseOrderFacts[index] = next
+  return cloneFact(next)
+}
+
+export function removeEngineeringPurchaseOrderFact(purchaseOrderNo: string): void {
+  purchaseOrderFacts = purchaseOrderFacts.filter((item) => item.purchaseOrderNo !== purchaseOrderNo)
+}
+
 export function findEngineeringPurchaseOrderFact(purchaseOrderNo: string): EngineeringPurchaseOrderFact | null {
   const normalized = purchaseOrderNo.trim().toUpperCase()
   const fact = purchaseOrderFacts.find((item) => item.purchaseOrderNo.trim().toUpperCase() === normalized)
@@ -82,7 +103,7 @@ export function listEngineeringPurchaseOrderFacts(orderNos: string[]): Engineeri
 }
 
 function isValidCoverageOrder(order: EngineeringPurchaseOrderFact): boolean {
-  return Boolean(order.orderedAt.trim()) && !['已作废', '已取消'].includes(order.status)
+  return order.accessible !== false && Boolean(order.orderedAt.trim()) && !['已作废', '已取消'].includes(order.status)
 }
 
 export interface AccessoryPurchaseCoverageOrder {
@@ -107,6 +128,7 @@ export function evaluateAccessoryPurchaseCompletion(input: {
         materialLines: order.materialSkuIds.map((materialSkuId) => ({ materialSkuId, materialName: materialSkuId, quantity: 0, unit: '' })),
       })
   const required = [...new Set(input.requiredMaterialSkuIds.map((item) => item.trim()).filter(Boolean))]
+  const inaccessibleOrders = purchaseOrders.filter((order) => order.accessible === false)
   const invalidOrders = purchaseOrders.filter((order) => ['已作废', '已取消'].includes(order.status))
   const missingTimeOrders = purchaseOrders.filter((order) => !order.orderedAt.trim())
   const validOrders = purchaseOrders.filter(isValidCoverageOrder)
@@ -114,7 +136,8 @@ export function evaluateAccessoryPurchaseCompletion(input: {
   const missing = required.filter((sku) => !covered.includes(sku))
   const completedAt = validOrders.map((order) => order.orderedAt.trim()).sort().at(-1) || ''
   let blockReason = ''
-  if (invalidOrders.length > 0) blockReason = `采购单已作废或无效：${invalidOrders.map((order) => order.purchaseOrderNo).join('、')}`
+  if (inaccessibleOrders.length > 0) blockReason = `无权读取采购单：${inaccessibleOrders.map((order) => order.purchaseOrderNo).join('、')}`
+  else if (invalidOrders.length > 0) blockReason = `采购单已作废或无效：${invalidOrders.map((order) => order.purchaseOrderNo).join('、')}`
   else if (missingTimeOrders.length > 0) blockReason = `采购单缺少实际下单时间：${missingTimeOrders.map((order) => order.purchaseOrderNo).join('、')}`
   else if (missing.length > 0) blockReason = `未覆盖任务所需物料：${missing.join('、')}`
   else if (required.length === 0) blockReason = '当前任务没有可核对的辅料需求。'
@@ -145,15 +168,36 @@ function assertPurchaseTask(masterOrderId: string, taskId: string) {
   return { master, task }
 }
 
-export function getAccessoryPurchaseTaskLinkage(masterOrderId: string, taskId: string): {
+export interface AccessoryPurchaseTaskLinkage {
   task: EngineeringTaskRecord
   purchaseOrders: EngineeringPurchaseOrderFact[]
   gate: AccessoryPurchaseCompletionGate
-} {
-  const { task } = assertPurchaseTask(masterOrderId, taskId)
-  const purchaseOrders = listEngineeringPurchaseOrderFacts(task.boundPurchaseOrderNos || [])
-  return { task, purchaseOrders, gate: evaluateAccessoryPurchaseCompletion({ requiredMaterialSkuIds: requiredMaterialSkuIds(task), purchaseOrders }) }
 }
+
+export function computeAccessoryPurchaseTaskLinkage(masterOrderId: string, taskId: string): AccessoryPurchaseTaskLinkage {
+  const { master, task } = assertPurchaseTask(masterOrderId, taskId)
+  const boundOrderNos = task.boundPurchaseOrderNos || []
+  const purchaseOrders = listEngineeringPurchaseOrderFacts(boundOrderNos)
+  const foundOrderNos = new Set(purchaseOrders.map((order) => order.purchaseOrderNo))
+  const missingOrderNos = boundOrderNos.filter((orderNo) => !foundOrderNos.has(orderNo))
+  const wrongStyleOrders = purchaseOrders.filter((order) => order.styleCode !== master.styleCode)
+  let gate = evaluateAccessoryPurchaseCompletion({ requiredMaterialSkuIds: requiredMaterialSkuIds(task), purchaseOrders })
+  if (missingOrderNos.length > 0 || wrongStyleOrders.length > 0) {
+    gate = {
+      ...gate,
+      complete: false,
+      completed: false,
+      completedAt: '',
+      blockReason: missingOrderNos.length > 0
+        ? `采购事实不存在：${missingOrderNos.join('、')}`
+        : `采购单不属于当前款式：${wrongStyleOrders.map((order) => order.purchaseOrderNo).join('、')}`,
+    }
+  }
+  return { task, purchaseOrders, gate }
+}
+
+// 兼容既有只读调用；该入口只计算，不写回。
+export const getAccessoryPurchaseTaskLinkage = computeAccessoryPurchaseTaskLinkage
 
 function applyGate(task: EngineeringTaskRecord, gate: AccessoryPurchaseCompletionGate): void {
   task.completedAt = gate.completedAt
@@ -163,9 +207,20 @@ function applyGate(task: EngineeringTaskRecord, gate: AccessoryPurchaseCompletio
     task.submittedAt = gate.completedAt
     task.firstCompletedAt ||= gate.completedAt
   } else {
-    task.status = (task.boundPurchaseOrderNos || []).length > 0 ? '进行中' : '待开始'
+    const hasBoundOrder = (task.boundPurchaseOrderNos || []).length > 0
+    task.status = hasBoundOrder ? '进行中' : '待开始'
     task.submittedAt = ''
+    if (!hasBoundOrder) task.startedAt = ''
   }
+}
+
+export function reconcileAccessoryPurchaseTaskLinkage(
+  masterOrderId: string,
+  taskId: string,
+): AccessoryPurchaseTaskLinkage {
+  const computed = computeAccessoryPurchaseTaskLinkage(masterOrderId, taskId)
+  const result = updateEngineeringTaskRecord(masterOrderId, taskId, (current) => applyGate(current, computed.gate))
+  return { task: result.task, purchaseOrders: computed.purchaseOrders, gate: computed.gate }
 }
 
 export function bindAccessoryPurchaseOrder(masterOrderId: string, taskId: string, purchaseOrderNo: string) {

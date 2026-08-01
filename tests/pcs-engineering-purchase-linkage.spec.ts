@@ -11,13 +11,18 @@ import {
 } from '../src/data/pcs-engineering-master-repository.ts'
 import {
   bindAccessoryPurchaseOrder,
+  computeAccessoryPurchaseTaskLinkage,
   evaluateAccessoryPurchaseCompletion,
+  reconcileAccessoryPurchaseTaskLinkage,
+  removeEngineeringPurchaseOrderFact,
   resetEngineeringPurchaseOrderFacts,
   setEngineeringPurchaseOrderFacts,
   unbindAccessoryPurchaseOrder,
+  updateEngineeringPurchaseOrderFact,
 } from '../src/data/pcs-engineering-purchase-linkage.ts'
 import {
   handlePurchaseTaskEvent,
+  reconcileAndRefreshPurchaseTaskRegions,
   renderPcsPurchaseTaskDetailPage,
 } from '../src/pages/pcs-engineering-tasks/purchase-task.ts'
 
@@ -113,15 +118,54 @@ setEngineeringPurchaseOrderFacts([
   ...facts.map((fact) => ({ ...fact, styleCode: style.styleCode })),
   { ...facts[0]!, purchaseOrderNo: 'PO-OTHER', styleCode: 'OTHER-SPU' },
   { ...facts[0]!, purchaseOrderNo: 'PO-UNRELATED', styleCode: style.styleCode, materialLines: [{ materialSkuId: 'ACC-X', materialName: '无关物料', quantity: 1, unit: '个' }] },
+  { ...facts[0]!, purchaseOrderNo: 'PO-LOCKED', styleCode: style.styleCode, accessible: false },
 ])
 assert.throws(() => bindAccessoryPurchaseOrder(master.masterOrderId, taskId, 'PO-OTHER'), /当前款式/)
 assert.throws(() => bindAccessoryPurchaseOrder(master.masterOrderId, taskId, 'PO-UNRELATED'), /任务所需物料/)
+const beforeDeniedBind = getEngineeringMasterOrderById(master.masterOrderId)
+assert.throws(() => bindAccessoryPurchaseOrder(master.masterOrderId, taskId, 'PO-LOCKED'), /无权读取/)
+assert.deepEqual(getEngineeringMasterOrderById(master.masterOrderId), beforeDeniedBind, '无权采购单绑定失败不得改写任务或绑定快照')
 
 const second = bindAccessoryPurchaseOrder(master.masterOrderId, taskId, 'PO-B')
 assert.equal(second.gate.complete, true)
 assert.equal(second.task.status, '已完成')
 assert.equal(second.task.effectiveCompletedAt, '2026-08-02 16:30:00')
 assert.equal(getEngineeringMasterOrderById(master.masterOrderId)?.tasks.find((task) => task.taskId === taskId)?.effectiveCompletedAt, '2026-08-02 16:30:00')
+
+// 普通读取只计算，不应暗中写回；显式 reconcile 才根据最新采购事实回退或恢复任务。
+updateEngineeringPurchaseOrderFact('PO-B', { orderedAt: '' })
+assert.equal(computeAccessoryPurchaseTaskLinkage(master.masterOrderId, taskId).gate.complete, false)
+assert.equal(getEngineeringMasterOrderById(master.masterOrderId)?.tasks.find((task) => task.taskId === taskId)?.status, '已完成')
+let reconciled = reconcileAccessoryPurchaseTaskLinkage(master.masterOrderId, taskId)
+assert.equal(reconciled.task.status, '进行中')
+assert.equal(reconciled.task.completedAt, '')
+assert.equal(reconciled.task.effectiveCompletedAt, '')
+assert.ok(reconciled.task.startedAt, '仍有绑定单时必须保留真实开始时间')
+
+updateEngineeringPurchaseOrderFact('PO-B', { orderedAt: '2026-08-02 16:30:00' })
+reconciled = reconcileAccessoryPurchaseTaskLinkage(master.masterOrderId, taskId)
+assert.equal(reconciled.task.status, '已完成')
+assert.equal(reconciled.task.completedAt, '2026-08-02 16:30:00')
+
+updateEngineeringPurchaseOrderFact('PO-B', { status: '已作废' })
+reconciled = reconcileAccessoryPurchaseTaskLinkage(master.masterOrderId, taskId)
+assert.equal(reconciled.task.status, '进行中')
+assert.equal(reconciled.task.completedAt, '')
+updateEngineeringPurchaseOrderFact('PO-B', { status: '已下单' })
+assert.equal(reconcileAccessoryPurchaseTaskLinkage(master.masterOrderId, taskId).task.status, '已完成')
+
+removeEngineeringPurchaseOrderFact('PO-B')
+reconciled = reconcileAccessoryPurchaseTaskLinkage(master.masterOrderId, taskId)
+assert.equal(reconciled.task.status, '进行中')
+assert.equal(reconciled.task.effectiveCompletedAt, '')
+assert.match(reconciled.gate.blockReason, /PO-B|采购事实/)
+setEngineeringPurchaseOrderFacts([
+  ...facts.map((fact) => ({ ...fact, styleCode: style.styleCode })),
+  { ...facts[0]!, purchaseOrderNo: 'PO-OTHER', styleCode: 'OTHER-SPU' },
+  { ...facts[0]!, purchaseOrderNo: 'PO-UNRELATED', styleCode: style.styleCode, materialLines: [{ materialSkuId: 'ACC-X', materialName: '无关物料', quantity: 1, unit: '个' }] },
+  { ...facts[0]!, purchaseOrderNo: 'PO-LOCKED', styleCode: style.styleCode, accessible: false },
+])
+assert.equal(reconcileAccessoryPurchaseTaskLinkage(master.masterOrderId, taskId).task.status, '已完成')
 
 const afterUnbind = unbindAccessoryPurchaseOrder(master.masterOrderId, taskId, 'PO-B')
 assert.equal(afterUnbind.gate.complete, false)
@@ -139,6 +183,7 @@ assert.doesNotMatch(html, /新增采购单|编辑采购单|审核采购单|取�
 let preventDefaultCalled = false
 const input = { value: 'PO-B' }
 const host = { innerHTML: '' }
+const summaryHost = { innerHTML: '' }
 const feedback = { textContent: '' }
 const originalDocument = globalThis.document
 Object.defineProperty(globalThis, 'document', {
@@ -147,6 +192,7 @@ Object.defineProperty(globalThis, 'document', {
     querySelector(selector: string) {
       if (selector === '[data-purchase-order-input]') return input
       if (selector === '[data-purchase-linkage-region]') return host
+      if (selector === '[data-purchase-summary-region]') return summaryHost
       if (selector === '[data-purchase-feedback]') return feedback
       return null
     },
@@ -162,6 +208,30 @@ assert.equal(handled, true)
 assert.equal(preventDefaultCalled, true)
 assert.match(host.innerHTML, /PO-B/)
 assert.match(feedback.textContent, /已绑定/)
+assert.match(summaryHost.innerHTML, /已完成/)
+assert.match(summaryHost.innerHTML, /2026-08-02 16:30:00/)
+
+updateEngineeringPurchaseOrderFact('PO-B', { status: '已作废' })
+reconcileAndRefreshPurchaseTaskRegions(master.masterOrderId, taskId)
+assert.match(summaryHost.innerHTML, /进行中/)
+assert.doesNotMatch(summaryHost.innerHTML, /2026-08-02 16:30:00/)
+assert.match(host.innerHTML, /已作废/)
+
+updateEngineeringPurchaseOrderFact('PO-B', { status: '已下单' })
+reconcileAndRefreshPurchaseTaskRegions(master.masterOrderId, taskId)
+assert.match(summaryHost.innerHTML, /已完成/)
+handlePurchaseTaskEvent({
+  closest(selector: string) {
+    if (selector !== '[data-purchase-action]') return null
+    return { dataset: { purchaseAction: 'unbind-order', masterOrderId: master.masterOrderId, taskId, purchaseOrderNo: 'PO-B' } }
+  },
+} as unknown as HTMLElement, { preventDefault() {} } as unknown as Event)
+assert.match(summaryHost.innerHTML, /进行中/)
+assert.doesNotMatch(summaryHost.innerHTML, /2026-08-02 16:30:00/)
+
+const unboundAll = unbindAccessoryPurchaseOrder(master.masterOrderId, taskId, 'PO-A')
+assert.equal(unboundAll.task.status, '待开始')
+assert.equal(unboundAll.task.startedAt, '')
 Object.defineProperty(globalThis, 'document', { configurable: true, value: originalDocument })
 
 console.log('pcs-engineering-purchase-linkage.spec.ts PASS')

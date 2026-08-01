@@ -7,8 +7,10 @@ import type { EngineeringTaskRecord } from '../../data/pcs-engineering-master-ty
 import { getEngineeringMasterOrderById } from '../../data/pcs-engineering-master-repository.ts'
 import { getEngineeringTaskDefinition } from '../../data/pcs-engineering-dependency-policy.ts'
 import {
+  type AccessoryPurchaseTaskLinkage,
   bindAccessoryPurchaseOrder,
-  getAccessoryPurchaseTaskLinkage,
+  computeAccessoryPurchaseTaskLinkage,
+  reconcileAccessoryPurchaseTaskLinkage,
   unbindAccessoryPurchaseOrder,
 } from '../../data/pcs-engineering-purchase-linkage.ts'
 import { escapeHtml, formatDateTime } from '../../utils.ts'
@@ -33,7 +35,6 @@ import {
   renderTaskLogsCard,
   renderTaskMasterCard,
   renderTaskMaterialLinesCard,
-  renderTaskSummaryCard,
 } from './master-task-common.ts'
 
 const PURCHASE_TASK_TYPES = ['ACCESSORY_PURCHASE'] as const
@@ -42,8 +43,21 @@ const PURCHASE_DETAIL_PAGE_SIZE = 5
 const PURCHASE_FILTER_STATUS_OPTIONS = ['待开始', '进行中', '已完成']
 const purchaseDetailPages = new Map<string, number>()
 
-function renderPurchaseLinkageContent(masterOrderId: string, taskId: string): string {
-  const { task, purchaseOrders, gate } = getAccessoryPurchaseTaskLinkage(masterOrderId, taskId)
+function renderPurchaseSummaryContent(linkage: AccessoryPurchaseTaskLinkage): string {
+  const { task, gate } = linkage
+  return `<div class="grid gap-3 px-5 py-4 sm:grid-cols-3">
+    <div><p class="text-xs text-slate-500">任务状态</p><div class="mt-1">${renderStatusBadge(task.status)}</div></div>
+    <div><p class="text-xs text-slate-500">采购覆盖</p><p class="mt-1 text-sm font-medium text-slate-800">${gate.coveredMaterialSkuIds.length}/${gate.coveredMaterialSkuIds.length + gate.missingMaterialSkuIds.length}</p></div>
+    <div><p class="text-xs text-slate-500">完成时间</p><p class="mt-1 text-sm font-medium text-slate-800">${escapeHtml(task.completedAt || '—')}</p></div>
+  </div>`
+}
+
+function renderPurchaseSummaryRegion(linkage: AccessoryPurchaseTaskLinkage): string {
+  return `<section class="rounded-lg border border-slate-200 bg-white" data-purchase-summary-region>${renderPurchaseSummaryContent(linkage)}</section>`
+}
+
+function renderPurchaseLinkageContent(masterOrderId: string, taskId: string, currentLinkage?: AccessoryPurchaseTaskLinkage): string {
+  const { task, purchaseOrders, gate } = currentLinkage ?? computeAccessoryPurchaseTaskLinkage(masterOrderId, taskId)
   const required = [...new Set(task.materialLines.filter((line) => line.status === '正常' && line.requirementType === '辅料').map((line) => line.materialSkuId))]
   const totalPages = Math.max(1, Math.ceil(purchaseOrders.length / PURCHASE_DETAIL_PAGE_SIZE))
   const currentPage = Math.min(Math.max(1, purchaseDetailPages.get(taskId) || 1), totalPages)
@@ -80,13 +94,17 @@ function renderPurchaseLinkageContent(masterOrderId: string, taskId: string): st
     </div>`
 }
 
-function renderPurchaseLinkageRegion(masterOrderId: string, taskId: string): string {
-  return `<section class="rounded-lg border border-slate-200 bg-white" data-purchase-linkage-region>${renderPurchaseLinkageContent(masterOrderId, taskId)}</section>`
+function renderPurchaseLinkageRegion(masterOrderId: string, taskId: string, linkage: AccessoryPurchaseTaskLinkage): string {
+  return `<section class="rounded-lg border border-slate-200 bg-white" data-purchase-linkage-region>${renderPurchaseLinkageContent(masterOrderId, taskId, linkage)}</section>`
 }
 
-function refreshPurchaseLinkage(masterOrderId: string, taskId: string): void {
-  const host = document.querySelector<HTMLElement>('[data-purchase-linkage-region]')
-  if (host) host.innerHTML = renderPurchaseLinkageContent(masterOrderId, taskId)
+export function reconcileAndRefreshPurchaseTaskRegions(masterOrderId: string, taskId: string): AccessoryPurchaseTaskLinkage {
+  const linkage = reconcileAccessoryPurchaseTaskLinkage(masterOrderId, taskId)
+  const summaryHost = document.querySelector<HTMLElement>('[data-purchase-summary-region]')
+  const linkageHost = document.querySelector<HTMLElement>('[data-purchase-linkage-region]')
+  if (summaryHost) summaryHost.innerHTML = renderPurchaseSummaryContent(linkage)
+  if (linkageHost) linkageHost.innerHTML = renderPurchaseLinkageContent(masterOrderId, taskId, linkage)
+  return linkage
 }
 
 export function handlePurchaseTaskEvent(target: HTMLElement, event?: Event): boolean {
@@ -103,20 +121,20 @@ export function handlePurchaseTaskEvent(target: HTMLElement, event?: Event): boo
       const input = document.querySelector<HTMLInputElement>('[data-purchase-order-input]')
       const orderNo = input?.value.trim() || ''
       bindAccessoryPurchaseOrder(masterOrderId, taskId, orderNo)
-      refreshPurchaseLinkage(masterOrderId, taskId)
+      reconcileAndRefreshPurchaseTaskRegions(masterOrderId, taskId)
       const currentFeedback = feedback()
       if (currentFeedback) currentFeedback.textContent = `已绑定采购单 ${orderNo}`
       return true
     }
     if (action === 'unbind-order') {
       unbindAccessoryPurchaseOrder(masterOrderId, taskId, node.dataset.purchaseOrderNo || '')
-      refreshPurchaseLinkage(masterOrderId, taskId)
+      reconcileAndRefreshPurchaseTaskRegions(masterOrderId, taskId)
       return true
     }
     if (action === 'purchase-prev-page' || action === 'purchase-next-page') {
       const current = purchaseDetailPages.get(taskId) || 1
       purchaseDetailPages.set(taskId, action === 'purchase-prev-page' ? Math.max(1, current - 1) : current + 1)
-      refreshPurchaseLinkage(masterOrderId, taskId)
+      reconcileAndRefreshPurchaseTaskRegions(masterOrderId, taskId)
       return true
     }
   } catch (error) {
@@ -237,6 +255,9 @@ function renderPurchaseListPage(): string {
 }
 
 function renderPurchaseDetailPage(taskId: string): string {
+  const initialDetail = getEngineeringTaskDetail(taskId)
+  if (!initialDetail) return renderEmptyDetail('辅料下单任务', PURCHASE_LIST_PATH)
+  const linkage = reconcileAccessoryPurchaseTaskLinkage(initialDetail.master.masterOrderId, initialDetail.task.taskId)
   const detail = getEngineeringTaskDetail(taskId)
   if (!detail) return renderEmptyDetail('辅料下单任务', PURCHASE_LIST_PATH)
   const { task, master } = detail
@@ -250,10 +271,10 @@ function renderPurchaseDetailPage(taskId: string): string {
   return `
     <div class="space-y-5 p-4">
       ${header}
-      ${renderTaskSummaryCard(task, master)}
+      ${renderPurchaseSummaryRegion(linkage)}
       ${renderTaskMasterCard(master)}
       ${renderTaskMaterialLinesCard(task)}
-      ${renderPurchaseLinkageRegion(master.masterOrderId, task.taskId)}
+      ${renderPurchaseLinkageRegion(master.masterOrderId, task.taskId, linkage)}
       ${renderTaskDependencyCard(task)}
       ${renderTaskLogsCard(task, master, 'purchase')}
     </div>
