@@ -1219,11 +1219,12 @@ function buildCompletionSnapshot(
       })),
     waitProcessStockSummary: yarnSkus.map((yarnSkuCode) => ({
       yarnSkuCode,
-      stockQty: stockQty(store, {
+      // 纱线库存键包含批次（设计 11.1/13），完成快照汇总必须聚合默认库位所有批次
+      stockQty: getWoolWarehouseLedgerBalance(store.warehouseFlows, {
         woolOrderId: order.woolOrderId,
         objectSkuCode: yarnSkuCode,
         defaultLocationId: 'WOOL-WP-YARN-DEFAULT',
-      }),
+      }, 'ANY'),
       qtyUnit: 'kg',
     })),
     waitHandoverStockSummary: order.outputPlanLines.map((line) => ({

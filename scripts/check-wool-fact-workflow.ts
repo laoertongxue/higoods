@@ -36,6 +36,7 @@ import {
   getRuntimeTaskById,
   listRuntimeExecutionTasks,
   listRuntimeTaskAllocatableGroups,
+  clearRuntimeProcessTasksCache,
   restoreRuntimeDirectDispatchState,
 } from '../src/data/fcs/runtime-process-tasks.ts'
 import {
@@ -3297,6 +3298,17 @@ assert.equal(
   ),
   completionStockBefore,
 )
+const completionWaitProcessStock = completion.confirmationSnapshot.waitProcessStockSummary
+assert.equal(
+  completionWaitProcessStock.find((item) => item.yarnSkuCode === 'YARN-A')?.stockQty,
+  1,
+  '完成快照纱线库存必须聚合默认库位所有批次（YARN-A BATCH-AB 计入）',
+)
+assert.equal(
+  completionWaitProcessStock.find((item) => item.yarnSkuCode === 'YARN-B')?.stockQty,
+  1,
+  '完成快照纱线库存必须聚合默认库位所有批次（YARN-B BATCH-AB 计入）',
+)
 assert.deepEqual(
   completeWoolWorkOrder(completionOrder.woolOrderId, {
     commandId: 'CMD-COMPLETE-CHECK-001',
@@ -4133,18 +4145,21 @@ try {
   resetWoolFactWorkflowMock('CHECK_WOOL_RUNTIME_TASK_DEADLINE')
   woolRuntimeBaseTask.taskDeadline = '  2026-09-08 18:00:00  '
   woolRuntimeSourceOrder.demandSnapshot.requiredDeliveryDate = '2026-09-30'
+  clearRuntimeProcessTasksCache()
   const taskDeadlineOrder = buildWoolOrderFromRuntimeTask(woolRuntimeTask.taskId)
   assert.equal(taskDeadlineOrder.plannedCompletionAt, '2026-09-08 18:00:00')
 
   resetWoolFactWorkflowMock('CHECK_WOOL_RUNTIME_REQUIRED_DELIVERY')
   woolRuntimeBaseTask.taskDeadline = '   '
   woolRuntimeSourceOrder.demandSnapshot.requiredDeliveryDate = '  2026-09-30  '
+  clearRuntimeProcessTasksCache()
   const requiredDeliveryOrder = buildWoolOrderFromRuntimeTask(woolRuntimeTask.taskId)
   assert.equal(requiredDeliveryOrder.plannedCompletionAt, '2026-09-30')
 
   resetWoolFactWorkflowMock('CHECK_WOOL_RUNTIME_MISSING_COMPLETION')
   woolRuntimeBaseTask.taskDeadline = '   '
   woolRuntimeSourceOrder.demandSnapshot.requiredDeliveryDate = null
+  clearRuntimeProcessTasksCache()
   const beforeMissingCompletionStore = readWoolStore()
   const beforeMissingCompletionWrites = storageWrites.length
   assert.throws(
@@ -6090,15 +6105,16 @@ const task15ReviewSource = task14ReadSource(
 )
 for (const requiredE2eText of [
   'mockScenarioCode',
-  '搜索条件联动三个 Tab',
+  '搜索联动三个 Tab',
   '任一款色全部必需纱线',
   '计划数量的 150%',
   '至少一次加工填报才可交出',
-  '五类事实并自动解除横机',
-  '横机支持一单多设备',
-  '固定默认库位',
-  '下游确认后锁定',
-  '关键交互小于 200ms',
+  '完整五类事实',
+  '自动解链',
+  '横机覆盖一单多设备',
+  '固定库位',
+  '锁定来源',
+  '小于 200ms',
   '1366',
   '1280',
   "page.goto('/placeholder.svg')",
@@ -6146,4 +6162,4 @@ console.log(`PASS task 10: standard machine workbenches; one snapshot ${task10Wo
 console.log('PASS task 11: fixed-location wool warehouse standard lists and local fact commands')
 console.log(`PASS task 12: PDA wool fact operations, exact binding, and 320-order single-snapshot projection in ${task12MobileScaleElapsedMs.toFixed(1)}ms`)
 console.log('PASS task 14: legacy wool pages, routes, print source, price, and node semantics removed')
-console.log('PASS task 15: independent E2E scenarios and formal prototype governance review')
+console.log('PASS task 15 static: E2E acceptance anchors and formal prototype governance review are present')

@@ -50,6 +50,20 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
       handled = true
     }
 
+    if (
+      /(?:^|\/)wool(?:\/|-)/i.test(path)
+      || path === 'tests/wool-management-fact-workflow.spec.ts'
+      || path === 'scripts/check-wool-fact-workflow.ts'
+    ) {
+      add(fastChecks, 'npm run check:wool-fact-workflow')
+      add(
+        fullChecks,
+        'PLAYWRIGHT_REUSE_EXISTING_SERVER=false npm run test:wool-fact-workflow:e2e',
+      )
+      escalationReasons.add('毛织事实流变更必须绑定真实独立服务 E2E 退出结果')
+      handled = true
+    }
+
     if (path.startsWith('src/router/')) {
       add(fastChecks, 'npm run check:menu-routes')
       add(fullChecks, 'npm run build')

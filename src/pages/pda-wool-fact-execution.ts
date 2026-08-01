@@ -362,15 +362,39 @@ function pagedSection(
   </section>`
 }
 
+const COMPLETION_SECTION_KEYS: CompletionSection[] = [
+  'yarnReceipts',
+  'processReports',
+  'handovers',
+  'waitHandoverStocks',
+  'currentMachines',
+]
+
+function renderCompletionFactSection(
+  facts: WoolMobileTaskProjection['completionFacts'],
+  key: CompletionSection,
+  draft: WoolActionDraft,
+): string {
+  if (key === 'yarnReceipts') {
+    return pagedSection(key, '1. 确认接收的纱线', facts.yarnReceipts.map((item) => `<div>${escapeHtml(item.yarnSkuCode)}：有效 ${item.effectiveReceivedQty}${item.qtyUnit}；批次 ${escapeHtml(item.batchNos.join('、') || '无')}；最近接收 ${escapeHtml(item.latestReceivedAt || '无')}</div>`), draft)
+  }
+  if (key === 'processReports') {
+    return pagedSection(key, '2. 加工填报', facts.processReports.map((item) => `<div>${escapeHtml(item.outputSkuCode)}：计划 ${item.plannedQty}；150% 上限 ${item.reportLimitQty}；有效填报 ${item.effectiveReportedQty}；与计划差异 ${item.differenceFromPlanQty}${item.qtyUnit}</div>`), draft)
+  }
+  if (key === 'handovers') {
+    return pagedSection(key, '3. 发起交出', facts.handovers.map((item) => `<div>${escapeHtml(item.handoverId)} / ${escapeHtml(item.outputSkuCode)}：有效 ${item.effectiveQty}${item.qtyUnit}；接收方 ${escapeHtml(item.receiverName)}；下游实收 ${item.downstreamActualReceivedQty ?? '待确认'}；差异 ${item.downstreamDifferenceQty ?? '—'}；时间 ${escapeHtml(item.downstreamReceivedAt || '待确认')}</div>`), draft)
+  }
+  if (key === 'waitHandoverStocks') {
+    return pagedSection(key, '4. 待交出仓库存', facts.waitHandoverStocks.map((item) => `<div>${escapeHtml(item.outputSkuCode)}：${item.outputObjectType === 'GARMENT' ? '成衣' : '裁片'}；固定库位 ${escapeHtml(item.defaultLocationId)}；有效余额 ${item.effectiveStockQty}${item.qtyUnit}</div>`), draft)
+  }
+  return pagedSection(key, '5. 当前横机关联', facts.currentMachines.map((item) => `<div>${escapeHtml(item.machineNo)} / ${escapeHtml(item.machineName)}；关联时间 ${escapeHtml(item.associatedAt)}</div>`), draft)
+}
+
 function renderCompleteDialog(projection: WoolMobileTaskProjection, draft: WoolActionDraft): string {
   const facts = projection.completionFacts
   return `<div class="space-y-3 p-4 text-sm">
     <div class="rounded border border-amber-300 bg-amber-50 p-3 font-medium text-amber-900">系统只展示当前事实，不判断是否应该完成。请业务人员自行核对并确认。</div>
-    ${pagedSection('yarnReceipts', '1. 确认接收的纱线', facts.yarnReceipts.map((item) => `<div>${escapeHtml(item.yarnSkuCode)}：有效 ${item.effectiveReceivedQty}${item.qtyUnit}；批次 ${escapeHtml(item.batchNos.join('、') || '无')}；最近接收 ${escapeHtml(item.latestReceivedAt || '无')}</div>`), draft)}
-    ${pagedSection('processReports', '2. 加工填报', facts.processReports.map((item) => `<div>${escapeHtml(item.outputSkuCode)}：计划 ${item.plannedQty}；150% 上限 ${item.reportLimitQty}；有效填报 ${item.effectiveReportedQty}；与计划差异 ${item.differenceFromPlanQty}${item.qtyUnit}</div>`), draft)}
-    ${pagedSection('handovers', '3. 发起交出', facts.handovers.map((item) => `<div>${escapeHtml(item.handoverId)} / ${escapeHtml(item.outputSkuCode)}：有效 ${item.effectiveQty}${item.qtyUnit}；接收方 ${escapeHtml(item.receiverName)}；下游实收 ${item.downstreamActualReceivedQty ?? '待确认'}；差异 ${item.downstreamDifferenceQty ?? '—'}；时间 ${escapeHtml(item.downstreamReceivedAt || '待确认')}</div>`), draft)}
-    ${pagedSection('waitHandoverStocks', '4. 待交出仓库存', facts.waitHandoverStocks.map((item) => `<div>${escapeHtml(item.outputSkuCode)}：${item.outputObjectType === 'GARMENT' ? '成衣' : '裁片'}；固定库位 ${escapeHtml(item.defaultLocationId)}；有效余额 ${item.effectiveStockQty}${item.qtyUnit}</div>`), draft)}
-    ${pagedSection('currentMachines', '5. 当前横机关联', facts.currentMachines.map((item) => `<div>${escapeHtml(item.machineNo)} / ${escapeHtml(item.machineName)}；关联时间 ${escapeHtml(item.associatedAt)}</div>`), draft)}
+    ${COMPLETION_SECTION_KEYS.map((key) => renderCompletionFactSection(facts, key, draft)).join('')}
     <div class="rounded border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">确认完成后，系统会自动解除该加工单当前关联的全部横机。</div>
     <textarea class="min-h-16 w-full rounded border p-3 text-sm" placeholder="完成备注（可选）" ${draftAttrs('remark')}>${escapeHtml(draft.remark)}</textarea>
   </div>`
@@ -432,6 +456,18 @@ function refreshRoot(root: HTMLElement, taskId: string): void {
 function refreshOverlay(root: HTMLElement, order: WoolWorkOrder): void {
   const target = root.querySelector<HTMLElement>('[data-pda-wool-overlay-root]')
   if (target) target.innerHTML = renderOverlay(order, buildWoolMobileTaskProjection(order.woolOrderId))
+}
+
+function refreshCompletionSection(
+  root: HTMLElement,
+  order: WoolWorkOrder,
+  section: CompletionSection,
+): void {
+  const target = root.querySelector<HTMLElement>(`[data-completion-section="${section}"]`)
+  if (!target) return
+  const projection = buildWoolMobileTaskProjection(order.woolOrderId)
+  const draft = draftFor('COMPLETE', projection)
+  target.outerHTML = renderCompletionFactSection(projection.completionFacts, section, draft)
 }
 
 function refreshFactList(root: HTMLElement, order: WoolWorkOrder): void {
@@ -528,9 +564,10 @@ export function handlePdaWoolExecutionEvent(target: HTMLElement): boolean {
   }
   if (action === 'completion-page' && state.overlay?.action === 'COMPLETE') {
     const section = actionNode.dataset.section as CompletionSection
+    if (!COMPLETION_SECTION_KEYS.includes(section)) return true
     const draft = draftFor('COMPLETE', projection)
     draft.completionPages[section] = Math.max(1, Number(actionNode.dataset.page || 1))
-    refreshOverlay(root, order)
+    refreshCompletionSection(root, order, section)
     return true
   }
   if (action !== 'save-fact' || !state.overlay) return true

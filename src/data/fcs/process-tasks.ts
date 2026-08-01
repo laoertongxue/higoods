@@ -1088,6 +1088,16 @@ function createInitialProcessTasks(): ProcessTask[] {
 
 export const processTasks: ProcessTask[] = createInitialProcessTasks()
 
+let processTasksMutatedListener: (() => void) | null = null
+
+export function setProcessTasksMutatedListener(listener: (() => void) | null): void {
+  processTasksMutatedListener = listener
+}
+
+function notifyProcessTasksMutated(): void {
+  processTasksMutatedListener?.()
+}
+
 function getOrderQty(orderId: string): number {
   const order = productionOrders.find((item) => item.productionOrderId === orderId)
   return order?.demandSnapshot.skuLines.reduce((sum, line) => sum + line.qty, 0) ?? 0
@@ -1248,6 +1258,7 @@ export function recordTaskGenerationPreview(preview: ProductionTaskGenerationPre
 
   const tasks = preview.generatedUnits.map((unit, index) => buildTaskFromRuntimePreviewUnit(preview, unit, index))
   processTasks.push(...tasks)
+  notifyProcessTasksMutated()
   const record: TaskGenerationRuntimeRecord = {
     productionOrderId: preview.productionOrderId,
     preview,
@@ -1307,9 +1318,11 @@ export function generateTaskId(orderId: string, seq: number): string {
 // 添加任务
 export function addTask(task: ProcessTask): void {
   processTasks.push(ensureProcessTaskOutputValue(task))
+  notifyProcessTasksMutated()
 }
 
 // 批量添加任务
 export function addTasks(tasks: ProcessTask[]): void {
   processTasks.push(...tasks.map((task) => ensureProcessTaskOutputValue(task)))
+  notifyProcessTasksMutated()
 }

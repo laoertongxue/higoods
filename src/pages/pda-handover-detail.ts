@@ -1896,7 +1896,10 @@ function renderHandoutRecordItem(
   runtimeTask: ReturnType<typeof getPdaHeadRuntimeTask>,
   sourceDoc: ReturnType<typeof getPdaHeadSourceExecutionDoc>,
 ): string {
-  const demoRole = resolveFcsDemoRole('FACTORY')
+  // 毛织交出详情只允许接收执行工厂进入；来源工厂不能通过上方访问门禁。
+  // 因而毛织记录在此页的默认操作角色必然是接收方，不能沿用通用交出单的来源工厂角色。
+  const defaultRole = head.processBusinessCode === 'WOOL' ? 'RECEIVER' : 'FACTORY'
+  const demoRole = resolveFcsDemoRole(defaultRole)
   const meta = getRecordStatusMeta(record.status)
   const profile = deriveHandoutRecordProfile(record, head, runtimeTask, sourceDoc)
   const receiverWrittenQty = getRecordReceiverWrittenQty(record)

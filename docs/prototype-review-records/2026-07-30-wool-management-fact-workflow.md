@@ -7,7 +7,7 @@
 | 审查日期 | 2026-07-30 |
 | 相关需求 / 任务 | 毛织加工单改为“确认接收 → 加工填报 → 发起交出 → 业务确认完成”的事实流，并重做横机动态关联、待交出仓和 PDA 承接 |
 | 涉及系统 | PFOS、FCS PDA、技术包来源 |
-| 涉及页面路径 | `/fcs/craft/wool/work-orders`、`/fcs/craft/wool/work-orders/:id`、`/fcs/process-factory/wool/machine-associations`、`/fcs/craft/wool/machines`、`/fcs/craft/wool/wait-process-warehouse`、`/fcs/craft/wool/wait-handover-warehouse`、`/fcs/pda/exec/:taskId`、`/fcs/pda/handover/:handoverId` |
+| 涉及页面路径 | `/fcs/craft/wool/work-orders`、`/fcs/craft/wool/work-orders/:woolOrderId`、`/fcs/process-factory/wool/machine-associations`、`/fcs/craft/wool/machines`、`/fcs/craft/wool/wait-process-warehouse`、`/fcs/craft/wool/wait-handover-warehouse`、`/fcs/pda/exec/:taskId`、`/fcs/pda/handover/:handoverId` |
 | 端类型 | 管理端、主管端、员工执行端 |
 | 主要角色 | 毛织主管、毛织厂操作工、仓库收发人员、下游工厂操作工 |
 | 主要任务 | 判断可否开工；多次接收、填报和交出；人工确认完成；维护横机与加工单关系；下游确认收货 |
@@ -16,8 +16,8 @@
 
 - `docs/higood-indonesia-factory-product-design-guidelines.md`
 - `docs/higood-indonesia-factory-prototype-review-checklist.md`
-- `docs/plans/2026-07-30-wool-management-fact-workflow-design.md`
-- `docs/plans/2026-07-30-wool-management-fact-workflow-implementation.md`
+- `docs/superpowers/specs/2026-07-30-wool-management-fact-workflow-design.md`
+- `docs/superpowers/plans/2026-07-30-wool-management-fact-workflow-implementation-plan.md`
 
 ## 2.1 业务对象与协作关系核查
 
@@ -172,6 +172,7 @@ Playwright 用例使用 `mockScenarioCode` 查找业务场景，不依赖加工�
 9. PDA 首屏单一主操作、输入和弹窗局部更新、关键点击小于 200ms。
 10. 1366×768 页面主体不横溢，宽表内部滚动，操作列和弹窗按钮可见。
 11. 1280×720 最低分辨率下仍满足上述可用性。
+12. 完成快照的纱线待加工库存按 SKU 聚合默认库位全部批次（含批次接收），与领用按批次扣减口径一致；复查批次口径后，检查脚本与 E2E 验收锚点同步对齐。
 
 ## 6. 最终结论
 
@@ -206,6 +207,9 @@ Playwright 用例使用 `mockScenarioCode` 查找业务场景，不依赖加工�
 - `src/data/fcs/wool-domain/warehouse-ledger.ts`
 - `src/data/fcs/wool-domain/mobile.ts`
 - `src/data/fcs/wool-domain/mock-data.ts`
+- `src/data/fcs/process-tasks.ts`
+- `src/data/fcs/runtime-process-tasks.ts`
+- `src/data/pcs-pattern-library.ts`
 - `src/data/fcs/pda-handover-events.ts`
 - `src/data/fcs/wool-pda-task-access.ts`
 - `src/data/fcs/wool-mobile-binding-entry.ts`
@@ -228,14 +232,23 @@ Playwright 用例使用 `mockScenarioCode` 查找业务场景，不依赖加工�
 
 ### 验证命令
 
-- `npm run test:wool-fact-workflow:e2e`：通过
-- `npm run check:wool-fact-workflow`：通过
+- `npm run test:wool-fact-workflow:e2e`：通过（11/11，独立服务串行执行）
+- `npm run check:wool-fact-workflow`：通过（含完成快照批次聚合断言与 E2E 验收锚点）
 - `npm run check:wool-warehouse-unified-model`：通过
 - `npm run check:pda-handover-pages`：通过
 - `npm run check:pda-handover-detail-source`：通过
 - `npm run check:prototype-design-governance -- --all`：通过
-- `npm run check:list-page-governance`：失败；毛织相关静态治理通过，无关裁床补料基准页的浏览器冷启动曾超时，隔离复跑标准列表模板已通过
+- `npm run check:list-page-governance`：通过（复查批次口径后重新验证）
+- `npm run workflow:verify`：通过（状态 verified，受影响检查路由全部 exitCode 0，无阻塞项）
 - `npm run build`：通过
+
+### 运行时竞态与性能修复（复查补充）
+
+复查中发现并闭环两类运行时问题，均涉及 `src/data/` 数据层，按治理要求补充记录：
+
+1. **PCS 数据水合整页重渲染竞态**：`src/data/pcs-pattern-library.ts` 的 `requestRender` 在任意路由触发 `APP_RENDER_EVENT`，非 PCS 页面整页重绘会覆盖输入值与 DOM 属性。修复为仅 `window.location.pathname.startsWith('/pcs/')` 时派发，消除跨域重绘。
+2. **毛织运行时任务无 memo 导致主线程长阻塞**：`src/data/fcs/runtime-process-tasks.ts` 的 `listRuntimeProcessTasks()` 每次调用全量重建（实测单次约 0.7s），毛织 store seed 对 N 个任务多次触发全量构建，CPU Profiler 实测 28.7s 阻塞（92% selfTime），E2E evaluate 排队超时。修复为 `runtimeTasksCache` memo：12 处变更点（override/split/merge/reassign/restore 等）统一失效；`processTasks` 可被外部直接修改，在 `process-tasks.ts` 增加 `setProcessTasksMutatedListener` 变更钩子，`runtime-process-tasks.ts` 惰性注册（模块顶层注册会因循环依赖触发 TDZ，已实证并修复），并导出 `clearRuntimeProcessTasksCache` 供治理脚本显式清理。
+3. **复查批次口径（A1）与 E2E 验收锚点（B1）**：完成快照纱线待加工库存按 SKU 聚合默认库位全部批次（含批次接收），与领用按批次扣减口径一致；6 处 E2E 锚点同步对齐。
 
 ### 例外
 

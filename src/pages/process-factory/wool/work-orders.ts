@@ -591,7 +591,12 @@ function renderCompleteDialog(order: WoolWorkOrder): string {
           : '下游待确认'
         return `<div>${escapeHtml(record.handoverId)}：${effectiveHandoverQty(record)}${record.qtyUnit}，${escapeHtml(downstream)}</div>`
       }).join('') || '<div>暂无交出记录</div>'}</div>`)}
-      ${factBlock('待交出仓情况', order.outputPlanLines.map((line) => `<div>${escapeHtml(line.outputSkuCode)}：默认库位现存 ${getWoolOutputStockQty(order.woolOrderId, line.outputSkuCode)}${line.qtyUnit}</div>`).join(''))}
+      ${factBlock('待交出仓情况', order.outputPlanLines.map((line) => {
+        const fixedLocationId = line.outputObjectType === 'GARMENT'
+          ? 'WOOL-WH-GARMENT-DEFAULT'
+          : 'WOOL-WH-CUT-DEFAULT'
+        return `<div>${escapeHtml(line.outputSkuCode)}：固定库位 ${fixedLocationId}，现存 ${getWoolOutputStockQty(order.woolOrderId, line.outputSkuCode)}${line.qtyUnit}</div>`
+      }).join(''))}
       ${factBlock('当前横机关联', machineFacts.length
         ? machineFacts.map((text) => `<div>${escapeHtml(text)}</div>`).join('')
         : '<div>当前未关联横机；确认完成后无需解除设备关系。</div>')}
