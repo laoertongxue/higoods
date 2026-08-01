@@ -493,6 +493,8 @@ export function updateWarehouseArea(snapshot: FactoryWarehouseLayoutSnapshot, in
   const changesProtectedField = (input.areaName !== undefined && input.areaName.trim() !== current.areaName)
     || (input.code !== undefined && input.code !== current.code)
     || (input.enabled !== undefined && (input.enabled ? 'AVAILABLE' : 'STOPPED') !== current.status)
+  const changesDerivedFields = (input.areaName !== undefined && input.areaName.trim() !== current.areaName)
+    || (input.code !== undefined && input.code !== current.code)
   if (changesProtectedField) {
     assertNoOccupied(
       snapshot,
@@ -508,7 +510,7 @@ export function updateWarehouseArea(snapshot: FactoryWarehouseLayoutSnapshot, in
     if (input.code !== undefined) area.code = input.code
     if (input.remark !== undefined) area.remark = input.remark.trim()
     if (input.enabled !== undefined) area.status = input.enabled ? 'AVAILABLE' : 'STOPPED'
-    area.shelfList.forEach((shelf) => renumberShelf(area, shelf))
+    if (changesDerivedFields) area.shelfList.forEach((shelf) => renumberShelf(area, shelf))
   })
 }
 
@@ -559,6 +561,7 @@ export function updateWarehouseShelf(snapshot: FactoryWarehouseLayoutSnapshot, i
   const changesProtectedField = (input.shelfSequence !== undefined && input.shelfSequence !== current.shelf.shelfSequence)
     || (input.shelfName !== undefined && input.shelfName.trim() !== current.shelf.shelfName)
     || (input.enabled !== undefined && (input.enabled ? 'AVAILABLE' : 'STOPPED') !== current.shelf.status)
+  const changesDerivedFields = input.shelfSequence !== undefined && input.shelfSequence !== current.shelf.shelfSequence
   if (changesProtectedField) {
     assertNoOccupied(
       snapshot,
@@ -574,7 +577,7 @@ export function updateWarehouseShelf(snapshot: FactoryWarehouseLayoutSnapshot, i
     if (input.shelfName !== undefined) shelf.shelfName = input.shelfName.trim()
     if (input.remark !== undefined) shelf.remark = input.remark.trim()
     if (input.enabled !== undefined) shelf.status = input.enabled ? 'AVAILABLE' : 'STOPPED'
-    renumberShelf(area, shelf)
+    if (changesDerivedFields) renumberShelf(area, shelf)
     if (input.shelfName !== undefined) shelf.shelfName = input.shelfName.trim()
   })
 }

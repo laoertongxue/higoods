@@ -238,7 +238,19 @@ assert.throws(
   new RegExp(`占用.*${createdShelf.locationList.find((location) => location.locationId === occupiedId)!.locationNo}.*${createdShelf.locationList.find((location) => location.locationId === secondOccupiedId)!.locationNo}|占用.*${createdShelf.locationList.find((location) => location.locationId === secondOccupiedId)!.locationNo}.*${createdShelf.locationList.find((location) => location.locationId === occupiedId)!.locationNo}`),
   '库区任一后代占用时，除备注外不得改名称且必须列出全部冲突完整编号',
 )
-assert.doesNotThrow(() => updateWarehouseArea(shelfAdded, { areaId: 'AREA-C', remark: '占用区备注', updatedBy: '仓库主管' }, new Set([occupiedId])))
+const customNamedOccupiedSnapshot = structuredClone(shelfAdded)
+const customNamedArea = customNamedOccupiedSnapshot.areaList.find((area) => area.areaId === 'AREA-C')!
+const customNamedShelf = customNamedArea.shelfList[0]
+customNamedShelf.shelfName = '主管保留货架名称'
+customNamedShelf.locationList[0].locationName = '主管保留库位名称'
+const expectedAreaRemarkOnly = structuredClone(customNamedOccupiedSnapshot.areaList)
+expectedAreaRemarkOnly.find((area) => area.areaId === 'AREA-C')!.remark = '占用区备注'
+const areaRemarkOnly = updateWarehouseArea(
+  customNamedOccupiedSnapshot,
+  { areaId: 'AREA-C', remark: '占用区备注', updatedBy: '仓库主管' },
+  new Set([occupiedId]),
+)
+assert.deepEqual(areaRemarkOnly.areaList, expectedAreaRemarkOnly, '占用库区仅改备注时，除目标 remark 外所有合法 v3 深值必须保持不变')
 assert.throws(
   () => updateWarehouseShelf(shelfAdded, { shelfId: 'SHELF-C-R01', shelfSequence: 2, updatedBy: '仓库主管' }, new Set([occupiedId])),
   /占用.*不能修改货架序号/,
@@ -248,7 +260,14 @@ assert.throws(
   /占用.*C-R01-L0[12]-P0[13].*C-R01-L0[12]-P0[13]/,
   '货架任一库位占用时，除备注外不得改名称且必须列出全部冲突完整编号',
 )
-assert.doesNotThrow(() => updateWarehouseShelf(shelfAdded, { shelfId: 'SHELF-C-R01', remark: '占用货架备注', updatedBy: '仓库主管' }, new Set([occupiedId])))
+const expectedShelfRemarkOnly = structuredClone(customNamedOccupiedSnapshot.areaList)
+expectedShelfRemarkOnly.find((area) => area.areaId === 'AREA-C')!.shelfList[0].remark = '占用货架备注'
+const shelfRemarkOnly = updateWarehouseShelf(
+  customNamedOccupiedSnapshot,
+  { shelfId: 'SHELF-C-R01', remark: '占用货架备注', updatedBy: '仓库主管' },
+  new Set([occupiedId]),
+)
+assert.deepEqual(shelfRemarkOnly.areaList, expectedShelfRemarkOnly, '占用货架仅改备注时，除目标 remark 外所有合法 v3 深值必须保持不变')
 
 const idsBeforeRenumber = createdShelf.locationList.map((location) => location.locationId)
 const areaRenumbered = updateWarehouseArea(shelfAdded, { areaId: 'AREA-C', code: 'D', updatedBy: '仓库主管' }, new Set())
