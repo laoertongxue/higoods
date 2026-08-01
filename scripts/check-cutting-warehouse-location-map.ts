@@ -170,6 +170,32 @@ const setFailureStorage = {
 const setFailureLoad = loadWarehouseLayoutSnapshot(waitProcess, setFailureStorage) as ReturnType<typeof loadWarehouseLayoutSnapshot> & { persistenceAvailable?: boolean }
 assert.equal(setFailureLoad.persistenceAvailable, false, '首次建立基线失败必须显式标记不可持久化')
 assert.match(setFailureLoad.warningMessage, /当前仅可查看，无法保存/)
+const originalWindowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'window')
+let browserStorageGetterLoad: ReturnType<typeof loadWarehouseLayoutSnapshot> | undefined
+let browserStorageGetterError: unknown
+try {
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: Object.defineProperty({}, 'localStorage', {
+      configurable: true,
+      get: () => {
+        const error = new Error('拒绝访问浏览器存储')
+        error.name = 'SecurityError'
+        throw error
+      },
+    }),
+  })
+  browserStorageGetterLoad = loadWarehouseLayoutSnapshot(waitProcess)
+} catch (error) {
+  browserStorageGetterError = error
+} finally {
+  if (originalWindowDescriptor) Object.defineProperty(globalThis, 'window', originalWindowDescriptor)
+  else delete (globalThis as typeof globalThis & { window?: unknown }).window
+}
+assert.equal(browserStorageGetterError, undefined, '访问 localStorage getter 失败不得越过布局加载兜底')
+assert.equal(browserStorageGetterLoad?.persistenceAvailable, false, '浏览器存储不可访问时必须显式标记不可持久化')
+assert.match(browserStorageGetterLoad?.warningMessage ?? '', /当前仅可查看，无法保存/)
+assert.deepEqual(browserStorageGetterLoad?.snapshot.areaList, waitProcess.areaList, '浏览器存储不可访问时仍应返回默认布局事实')
 const validLayoutKey = getWarehouseLayoutStorageKey(waitProcess.factoryId, waitProcess.warehouseKind, waitProcess.warehouseId)
 const validLayoutRaw = JSON.stringify(initial)
 const validReadOnlyWriteAttempts: Array<{ key: string; value: string }> = []

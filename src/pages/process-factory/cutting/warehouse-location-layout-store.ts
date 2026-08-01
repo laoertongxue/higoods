@@ -126,7 +126,20 @@ function clone<T>(value: T): T {
 }
 
 function currentStorage(): WarehouseLayoutStorage {
-  if (typeof window !== 'undefined' && window.localStorage) return window.localStorage
+  if (typeof window !== 'undefined') {
+    try {
+      const storage = window.localStorage
+      if (storage) return storage
+    } catch {
+      const unavailableError = new Error('浏览器存储不可用。')
+      const fail = (): never => { throw unavailableError }
+      return {
+        getItem: fail,
+        setItem: fail,
+        removeItem: fail,
+      }
+    }
+  }
   return {
     getItem: (key) => memoryValues.get(key) ?? null,
     setItem: (key, value) => { memoryValues.set(key, value) },
