@@ -830,6 +830,99 @@ assert.equal(
   '同一重装幂等键重复追加只能保留一条事实',
 )
 
+const buildPayloadOnlyRepackInput = (
+  repackBatchId: string,
+  idempotencyKey: string,
+): AppendCuttingRuntimeEventInput<'中转袋拆袋重装'> & { idempotencyKey: string } => ({
+  idempotencyKey,
+  eventType: '中转袋拆袋重装',
+  eventSource: 'WEB',
+  eventStatus: '已同步',
+  occurredAt: '2026-08-01 14:00',
+  operatorName: '重装覆盖检查员',
+  payload: {
+    ...repackEvent.payload,
+    repackBatchId,
+  },
+})
+
+const repackCollisionStorage = createMemoryStorage()
+const repackBatchA = runtimeLedger.appendCuttingRuntimeEventIdempotent(
+  buildPayloadOnlyRepackInput('REPACK-A', 'REPACK-COLLISION-A'),
+  repackCollisionStorage,
+)
+const repackBatchB = runtimeLedger.appendCuttingRuntimeEventIdempotent(
+  buildPayloadOnlyRepackInput('REPACK-B', 'REPACK-COLLISION-B'),
+  repackCollisionStorage,
+)
+assert.equal(repackBatchA.appended, true)
+assert.equal(repackBatchB.appended, true)
+assert.notEqual(
+  repackBatchA.event.eventId,
+  repackBatchB.event.eventId,
+  '同一分钟且未显式传 refs 的不同重装批次必须生成不同事件编号',
+)
+const repackCollisionEvents = runtimeLedger.listCuttingRuntimeEvents(repackCollisionStorage)
+assert.equal(repackCollisionEvents.length, 2, '不同重装批次不得因事件编号相同而互相覆盖')
+assert.deepEqual(
+  repackCollisionEvents.map((event) => event.refs.repackBatchId).sort(),
+  ['REPACK-A', 'REPACK-B'],
+  '强类型载荷中的重装批次必须回填到持久化引用',
+)
+
+const normalizedPayloadBatch = runtimeLedger.appendCuttingRuntimeEvent(
+  buildPayloadOnlyRepackInput(' REPACK-C ', 'REPACK-NORMALIZED-C'),
+  createMemoryStorage(),
+)
+assert.equal(normalizedPayloadBatch.refs.repackBatchId, 'REPACK-C')
+assert.equal(normalizedPayloadBatch.payload.repackBatchId, 'REPACK-C')
+assert.throws(
+  () => runtimeLedger.appendCuttingRuntimeEvent(
+    buildPayloadOnlyRepackInput('   ', 'REPACK-BLANK'),
+    createMemoryStorage(),
+  ),
+  /重装批次.*不能为空/,
+  '强类型载荷中的空白重装批次必须拒绝，不得退回 runtime 业务键',
+)
+assert.throws(
+  () => runtimeLedger.appendCuttingRuntimeEvent({
+    ...buildPayloadOnlyRepackInput('REPACK-PAYLOAD', 'REPACK-CONFLICT'),
+    refs: { repackBatchId: 'REPACK-REFS' },
+  }, createMemoryStorage()),
+  /重装批次.*不一致/,
+  'refs 与载荷中的重装批次冲突时必须拒绝',
+)
+
+const crossTypeIdempotencyStorage = createMemoryStorage()
+const sharedKeyRepackInput = buildPayloadOnlyRepackInput(
+  'REPACK-SHARED-KEY',
+  'SHARED-RUNTIME-KEY',
+)
+const sharedKeyRepack = runtimeLedger.appendCuttingRuntimeEventIdempotent(
+  sharedKeyRepackInput,
+  crossTypeIdempotencyStorage,
+)
+assert.equal(sharedKeyRepack.appended, true)
+assert.throws(
+  () => runtimeLedger.appendCuttingRuntimeEventIdempotent({
+    ...scrapAppendInput,
+    idempotencyKey: 'SHARED-RUNTIME-KEY',
+  }, crossTypeIdempotencyStorage),
+  /SHARED-RUNTIME-KEY.*中转袋拆袋重装.*中转袋报废/,
+  '同一幂等键被不同事件类型复用时必须显式拒绝，并指出已有和本次类型',
+)
+const duplicateSharedKeyRepack = runtimeLedger.appendCuttingRuntimeEventIdempotent(
+  sharedKeyRepackInput,
+  crossTypeIdempotencyStorage,
+)
+assert.equal(duplicateSharedKeyRepack.appended, false)
+assert.equal(duplicateSharedKeyRepack.event.eventId, sharedKeyRepack.event.eventId)
+assert.equal(
+  runtimeLedger.listCuttingRuntimeEvents(crossTypeIdempotencyStorage).length,
+  1,
+  '同一幂等键且同一事件类型仍须返回原事实且不增加账目',
+)
+
 const runtimeLedgerModulePath = fileURLToPath(new URL(
   '../src/data/fcs/cutting/cutting-runtime-event-ledger.ts',
   import.meta.url,

@@ -633,6 +633,10 @@ function toNormalizedStringArray(value: unknown): string[] {
   }, [])
 }
 
+function normalizeOptionalRepackBatchId(value: unknown): string {
+  return toString(value).trim()
+}
+
 function normalizeRefs(raw: unknown): CuttingRuntimeRefs {
   if (!raw || typeof raw !== 'object') return {}
   const value = raw as Record<string, unknown>
@@ -653,10 +657,37 @@ function normalizeRefs(raw: unknown): CuttingRuntimeRefs {
     specialCraftId: toString(value.specialCraftId),
     usageCycleId: toString(value.usageCycleId),
     handoverLegId: toString(value.handoverLegId),
-    repackBatchId: toString(value.repackBatchId).trim(),
+    repackBatchId: normalizeOptionalRepackBatchId(value.repackBatchId),
     transferBagCodes: toNormalizedStringArray(value.transferBagCodes),
     sewingTaskIds: toNormalizedStringArray(value.sewingTaskIds),
     sewingTaskNos: toNormalizedStringArray(value.sewingTaskNos),
+  }
+}
+
+function normalizeAppendEventFacts(
+  eventType: CuttingRuntimeEventType,
+  rawRefs: CuttingRuntimeRefs | undefined,
+  rawPayload: CuttingRuntimeEventPayloadFor<CuttingRuntimeEventType>,
+): {
+  refs: CuttingRuntimeRefs
+  payload: CuttingRuntimeEventPayloadFor<CuttingRuntimeEventType>
+} {
+  const refs = normalizeRefs(rawRefs)
+  if (eventType !== '中转袋拆袋重装') return { refs, payload: rawPayload }
+
+  const payload = rawPayload as TransferBagRepackPayload
+  const repackBatchId = normalizeOptionalRepackBatchId(payload.repackBatchId)
+  if (!repackBatchId) {
+    throw new Error('重装批次编号不能为空。')
+  }
+  if (refs.repackBatchId && refs.repackBatchId !== repackBatchId) {
+    throw new Error(
+      `重装批次编号不一致：refs 为 ${refs.repackBatchId}，载荷为 ${repackBatchId}。`,
+    )
+  }
+  return {
+    refs: { ...refs, repackBatchId },
+    payload: { ...payload, repackBatchId },
   }
 }
 
@@ -884,7 +915,11 @@ export function appendCuttingRuntimeEvent<T extends CuttingRuntimeEventType>(
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): CuttingRuntimeEvent<T> {
   const occurredAt = input.occurredAt || new Date().toISOString().slice(0, 16).replace('T', ' ')
-  const refs = normalizeRefs(input.refs)
+  const { refs, payload } = normalizeAppendEventFacts(
+    input.eventType,
+    input.refs,
+    input.payload,
+  )
   const eventId = buildCuttingRuntimeEventId(input.eventType, refs, occurredAt)
   const event: CuttingRuntimeEvent = {
     eventId,
@@ -902,7 +937,7 @@ export function appendCuttingRuntimeEvent<T extends CuttingRuntimeEventType>(
     material: input.material,
     pattern: input.pattern,
     inventoryEffect: input.inventoryEffect,
-    payload: input.payload,
+    payload,
   }
   const store = hydrateCuttingRuntimeEventLedgerStore(storage)
   persistCuttingRuntimeEventLedgerStore({
@@ -923,6 +958,11 @@ export function appendCuttingRuntimeEventIdempotent<T extends CuttingRuntimeEven
     (event) => event.idempotencyKey === input.idempotencyKey,
   )
   if (existing) {
+    if (existing.eventType !== input.eventType) {
+      throw new Error(
+        `幂等键 ${input.idempotencyKey} 已被其他事件类型占用：已有事件类型 ${existing.eventType}，本次事件类型 ${input.eventType}。`,
+      )
+    }
     return {
       event: existing as CuttingRuntimeEvent<T>,
       appended: false,
