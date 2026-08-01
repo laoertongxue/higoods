@@ -334,30 +334,60 @@ test('两张库位图占用详情分别展示物料卷和袋内菲票', async ({
   await expectImageOrPlaceholder(handoverDrawer, '款式图', '款式图待补充')
 })
 
-test('PDA 中转仓领料支持连续多选、范围摘要、非法库位禁用和清空', async ({ page }) => {
+test('PDA 中转仓领料支持跨区货架层自由多选、任意取消、逐项摘要和清空', async ({ page }) => {
   await page.goto(READY_PICKUP_PATH)
   const pickupHref = await page.getByRole('link', { name: '去领料', exact: true }).first().getAttribute('href')
   expect(pickupHref).toBeTruthy()
   await page.goto(pickupHref!)
   const map = page.locator('[data-pda-cutting-pickup-location-map] [data-warehouse-map-root]')
   await expect(map).toBeVisible({ timeout: 300_000 })
-  const continuousPair = await map.locator('article').evaluateAll((articles) => {
-    for (const article of articles) {
-      const ids = Array.from(article.querySelectorAll<HTMLButtonElement>(
-        '[data-warehouse-map-action="toggle-location"]:not([disabled])',
-      )).map((button) => button.dataset.locationId || '').filter(Boolean)
-      if (ids.length >= 2) return ids.slice(0, 2)
+  const crossHierarchyLocations = await map.locator(
+    '[data-warehouse-map-action="toggle-location"]:not([disabled])',
+  ).evaluateAll((buttons) => {
+    const candidates = buttons.map((button) => {
+      const element = button as HTMLButtonElement
+      const locationNo = element.dataset.locationNo || ''
+      const match = locationNo.match(/^([A-Z])-R(\d+)-L(\d+)-P\d+$/)
+      return match ? {
+        locationId: element.dataset.locationId || '',
+        locationNo,
+        area: match[1],
+        shelf: `${match[1]}-R${match[2]}`,
+        level: match[3],
+      } : null
+    }).filter((item): item is NonNullable<typeof item> => Boolean(item?.locationId))
+    for (let first = 0; first < candidates.length; first += 1) {
+      for (let second = first + 1; second < candidates.length; second += 1) {
+        for (let third = second + 1; third < candidates.length; third += 1) {
+          const group = [candidates[first], candidates[second], candidates[third]]
+          if (new Set(group.map((item) => item.area)).size > 1
+            && new Set(group.map((item) => item.shelf)).size > 1
+            && new Set(group.map((item) => item.level)).size > 1) return group
+        }
+      }
     }
     return []
   })
-  expect(continuousPair).toHaveLength(2)
-  await map.locator(`[data-location-id="${continuousPair[0]}"]`).click()
-  await map.locator(`[data-location-id="${continuousPair[1]}"]`).click()
-  await expect(map).toContainText('已选 2 个')
-  await expect(map).toContainText('范围：')
+  expect(crossHierarchyLocations).toHaveLength(3)
+  for (const location of crossHierarchyLocations) {
+    await map.locator(`[data-location-id="${location.locationId}"]`).click()
+  }
+  const selectionSummary = map.locator('[data-warehouse-map-selection-summary]')
+  const selectedItems = selectionSummary.locator('[data-warehouse-map-selected-item]')
+  await expect(selectionSummary).toContainText('已选 3 个库位')
+  await expect(selectedItems).toHaveCount(3)
+  for (const [index, location] of crossHierarchyLocations.entries()) {
+    await expect(selectedItems.nth(index)).toContainText(location.locationNo)
+  }
+  await expect(selectionSummary).not.toContainText(/范围：|连续|相邻/)
+  await selectedItems.nth(1).click()
+  await expect(selectionSummary).toContainText('已选 2 个库位')
+  await expect(selectionSummary).toContainText(crossHierarchyLocations[0].locationNo)
+  await expect(selectionSummary).not.toContainText(crossHierarchyLocations[1].locationNo)
+  await expect(selectionSummary).toContainText(crossHierarchyLocations[2].locationNo)
   await expect(map.locator('button[aria-disabled="true"]')).not.toHaveCount(0)
   await map.locator('[data-warehouse-map-action="clear-selection"]').click()
-  await expect(map).toContainText('已选 0 个')
+  await expect(selectionSummary).toContainText('已选 0 个库位')
 })
 
 test('PDA 中转袋入仓可从库位图单选空闲库位', async ({ page }) => {

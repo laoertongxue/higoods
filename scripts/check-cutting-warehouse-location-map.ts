@@ -116,6 +116,7 @@ const fcsHandlersSource = readFileSync(new URL('../src/main-handlers/fcs-handler
 assert.doesNotMatch(pdaWaitProcessSource, /CUTTING_RECEIVE_LOCATIONS/, 'PDA 不得保留第二套硬编码裁床库位')
 assert.doesNotMatch(`${pdaWaitProcessSource}\n${pdaInboundSource}\n${pdaHandoverSource}\n${warehouseHubSource}`, /FAB-A-0|CUT-A-01|SP-RETURN-0/, '裁床现场页不得继续展示旧硬编码库位')
 assert.match(pdaWaitProcessSource, /调整剩余存放库位/)
+assert.doesNotMatch(pdaWaitProcessSource, /存放范围|原范围/, 'PDA 选位文案不得继续使用范围摘要表达')
 assert.match(pdaWaitProcessSource, /}, syncCuttingPickupSessionRuntimeFacts\)/, '领料必须通过原子运行时入口写共享事件与本地会话')
 assert.match(pdaInboundSource, /data-pda-inbound-location-map/)
 assert.doesNotMatch(pdaInboundSource, /selectionLimit/, 'PDA 单选业务状态不得继续泄漏为共享地图数量限制 API')

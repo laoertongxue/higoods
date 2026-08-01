@@ -1007,7 +1007,7 @@ function findPickupSessionById(pickupSessionId: string): PickupSession | null {
 function openCuttingFootprintAdjustment(pickupSessionId: string): void {
   const session = findPickupSessionById(pickupSessionId)
   if (!session?.storageFootprint) {
-    window.alert('当前领料记录没有可调整的存放范围。')
+    window.alert('当前领料记录没有可调整的存放库位。')
     return
   }
   state.cuttingAdjustFootprintSessionId = pickupSessionId
@@ -1056,7 +1056,7 @@ function renderCuttingFootprintAdjustmentPage(): string {
       ${renderCuttingWaitProcessSubpageHeader('调整剩余存放库位', '按现场剩余实物调整存放库位，并记录每个单位的剩余数量。')}
       <section class="rounded-2xl border bg-card p-4 text-sm">
         <div class="font-semibold">${escapeHtml(session.pickupSessionNo)}</div>
-        <div class="mt-1 text-xs text-muted-foreground">原范围：${escapeHtml(session.toLocationRefs?.map((ref) => ref.locationNo).join('、') || session.toLocationCode)}</div>
+        <div class="mt-1 text-xs text-muted-foreground">原存放库位：${escapeHtml(session.toLocationRefs?.map((ref) => ref.locationNo).join('、') || session.toLocationCode)}</div>
         <div class="mt-3 grid grid-cols-2 gap-2">
           ${session.storageFootprint.unitSummaries.map((summary) => `
             <label class="space-y-1">
@@ -2720,7 +2720,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
           else transactionStorage.setItem?.(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, beforeEventStore)
         }
       }
-      window.alert(error instanceof Error ? error.message : '存放范围调整失败，请重试。')
+      window.alert(error instanceof Error ? error.message : '存放库位调整失败，请重试。')
     }
     return true
   }
