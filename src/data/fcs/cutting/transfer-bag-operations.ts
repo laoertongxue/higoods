@@ -3,9 +3,12 @@ import {
   listCuttingRuntimeEvents,
   type CuttingRuntimeEvent,
   type CuttingRuntimeEventSource,
+  type RuntimeWarehouseLocationRef,
   type TransferBagRepackPayload,
   type TransferBagTicketFactSnapshot,
+  type WholeBagHandoverSubmitPayload,
 } from './cutting-runtime-event-ledger.ts'
+import type { FeiTicketSewingAssignment } from './sewing-dispatch.ts'
 import { compareCuttingRuntimeChronologyAscending } from './cutting-runtime-chronology.ts'
 import {
   getBrowserLocalStorage,
@@ -45,6 +48,36 @@ export interface SubmitTransferBagRepackInput {
   occurredAt?: string
 }
 
+export interface WholeBagHandoverEligibility {
+  ok: boolean
+  reason: string
+  receiverFactoryId: string
+  receiverFactoryName: string
+  sewingTaskIds: string[]
+  sewingTaskNos: string[]
+  ticketSnapshot: TransferBagTicketFactSnapshot[]
+}
+
+export interface ResolveWholeBagHandoverEligibilityInput {
+  currentUse: TransferBagCurrentUse
+  assignments: FeiTicketSewingAssignment[]
+  existingHandoverEvents?: CuttingRuntimeEvent[]
+  submittedTicketSnapshot?: TransferBagTicketFactSnapshot[]
+}
+
+export interface SubmitWholeBagHandoverInput {
+  bagCode: string
+  handoverOrderId: string
+  handoverOrderNo: string
+  handoverRecordId: string
+  handoverRecordNo: string
+  assignments: FeiTicketSewingAssignment[]
+  submittedTicketSnapshot?: TransferBagTicketFactSnapshot[]
+  operator: TransferBagRuntimeOperator
+  source: CuttingRuntimeEventSource
+  occurredAt?: string
+}
+
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object'
     ? value as Record<string, unknown>
@@ -71,6 +104,182 @@ function sameStrings(left: string[], right: string[]): boolean {
   const a = [...left].sort()
   const b = [...right].sort()
   return a.length === b.length && a.every((value, index) => value === b[index])
+}
+
+function failedWholeBagHandover(reason: string): WholeBagHandoverEligibility {
+  return {
+    ok: false,
+    reason,
+    receiverFactoryId: '',
+    receiverFactoryName: '',
+    sewingTaskIds: [],
+    sewingTaskNos: [],
+    ticketSnapshot: [],
+  }
+}
+
+const WHOLE_BAG_SNAPSHOT_FIELDS: Array<keyof TransferBagTicketFactSnapshot> = [
+  'feiTicketId',
+  'feiTicketNo',
+  'productionOrderId',
+  'productionOrderNo',
+  'cutOrderId',
+  'cutOrderNo',
+  'color',
+  'size',
+  'partCode',
+  'partName',
+  'pieceQty',
+  'sewingTaskId',
+  'sewingTaskNo',
+  'receiverFactoryId',
+  'receiverFactoryName',
+]
+
+function sameWholeBagTicketSnapshot(
+  left: TransferBagTicketFactSnapshot[],
+  right: TransferBagTicketFactSnapshot[],
+): boolean {
+  if (left.length !== right.length) return false
+  const rightById = new Map(right.map((ticket) => [ticket.feiTicketId, ticket]))
+  if (rightById.size !== right.length) return false
+  return left.every((ticket) => {
+    const expected = rightById.get(ticket.feiTicketId)
+    return Boolean(expected)
+      && WHOLE_BAG_SNAPSHOT_FIELDS.every((field) => ticket[field] === expected?.[field])
+  })
+}
+
+export function resolveWholeBagHandoverEligibility(
+  input: ResolveWholeBagHandoverEligibilityInput,
+): WholeBagHandoverEligibility {
+  const { currentUse } = input
+  if (currentUse.flowStage !== 'INBOUND_STORED' && currentUse.flowStage !== 'READY_HANDOVER') {
+    return failedWholeBagHandover('当前中转袋不是入仓暂存中或待交出，不能整袋交出。')
+  }
+  if (!currentUse.tickets.length) {
+    return failedWholeBagHandover('当前中转袋没有菲票，不能整袋交出。')
+  }
+  if (currentUse.compatibilityBlockedReason) {
+    return failedWholeBagHandover(currentUse.compatibilityBlockedReason)
+  }
+
+  const productionOrderNos = unique(currentUse.tickets.map((ticket) => ticket.productionOrderNo))
+  if (
+    productionOrderNos.length !== 1
+    || !productionOrderNos[0]
+    || currentUse.productionOrderNo.trim() !== productionOrderNos[0]
+  ) {
+    return failedWholeBagHandover('一个中转袋当前只能包含同一生产单的菲票。')
+  }
+
+  const currentTicketIds = currentUse.tickets.map((ticket) => ticket.feiTicketId.trim())
+  if (currentTicketIds.some((ticketId) => !ticketId)) {
+    return failedWholeBagHandover('当前袋内存在无法唯一识别的菲票，不能整袋交出。')
+  }
+  if (new Set(currentTicketIds).size !== currentTicketIds.length) {
+    return failedWholeBagHandover('当前袋票关系存在重复菲票，不能整袋交出。')
+  }
+  const incompleteTicket = currentUse.tickets.find((ticket) =>
+    !ticket.feiTicketNo.trim()
+    || !ticket.productionOrderId.trim()
+    || !ticket.cutOrderId.trim()
+    || !ticket.cutOrderNo.trim()
+    || !ticket.color.trim()
+    || !ticket.size.trim()
+    || !ticket.partCode.trim()
+    || !ticket.partName.trim()
+    || !Number.isFinite(ticket.pieceQty)
+    || ticket.pieceQty <= 0)
+  if (incompleteTicket) {
+    return failedWholeBagHandover(`菲票 ${incompleteTicket.feiTicketNo || incompleteTicket.feiTicketId} 的当前袋内事实不完整。`)
+  }
+  const assignmentTicketIds = input.assignments.map((assignment) => assignment.feiTicketId.trim())
+  const duplicateAssignmentId = assignmentTicketIds.find((ticketId, index) =>
+    Boolean(ticketId) && assignmentTicketIds.indexOf(ticketId) !== index)
+  if (duplicateAssignmentId) {
+    return failedWholeBagHandover(`菲票 ${duplicateAssignmentId} 存在重复分配，不能整袋交出。`)
+  }
+
+  const currentTicketIdSet = new Set(currentTicketIds)
+  const assignmentByTicketId = new Map(
+    input.assignments.map((assignment) => [assignment.feiTicketId.trim(), assignment]),
+  )
+  const missingTicketIds = currentTicketIds.filter((ticketId) => !assignmentByTicketId.has(ticketId))
+  if (missingTicketIds.length) {
+    return failedWholeBagHandover(`袋内菲票未分配车缝任务：${missingTicketIds.join('、')}。`)
+  }
+  const extraTicketIds = assignmentTicketIds.filter((ticketId) => !currentTicketIdSet.has(ticketId))
+  if (extraTicketIds.length) {
+    return failedWholeBagHandover(`分配结果包含当前袋外的额外菲票：${extraTicketIds.join('、')}。`)
+  }
+
+  for (const ticket of currentUse.tickets) {
+    const assignment = assignmentByTicketId.get(ticket.feiTicketId)!
+    if (assignment.feiTicketNo.trim() !== ticket.feiTicketNo.trim()) {
+      return failedWholeBagHandover(`菲票 ${ticket.feiTicketId} 的票号与分配结果不一致。`)
+    }
+    if (
+      !assignment.sewingTaskId.trim()
+      || !assignment.sewingTaskNo.trim()
+      || !assignment.receiverFactoryId.trim()
+      || !assignment.receiverFactoryName.trim()
+    ) {
+      return failedWholeBagHandover(`菲票 ${ticket.feiTicketNo} 的车缝任务或接收工厂信息不完整。`)
+    }
+  }
+
+  const assignmentsInTicketOrder = currentUse.tickets.map((ticket) =>
+    assignmentByTicketId.get(ticket.feiTicketId)!)
+  const receiverFactoryIds = unique(assignmentsInTicketOrder.map((assignment) => assignment.receiverFactoryId))
+  if (receiverFactoryIds.length !== 1) {
+    return failedWholeBagHandover('袋内菲票分配给多个车缝工厂，请先拆袋重装。')
+  }
+  const receiverFactoryNames = unique(assignmentsInTicketOrder.map((assignment) => assignment.receiverFactoryName))
+  if (receiverFactoryNames.length !== 1) {
+    return failedWholeBagHandover('同一接收工厂的名称不一致，请先核对车缝任务分配。')
+  }
+
+  const conflictingHandover = (input.existingHandoverEvents || []).find((event) => {
+    if (event.eventStatus === '已取消' || event.eventType !== '新增交出记录') return false
+    const payload = eventPayload(event)
+    const bagUse = records(payload.transferBagUses)
+      .find((value) => text(value.bagCode) === currentUse.bagCode)
+    const handoverUsageCycleId = eventUsageCycleId(event) || text(bagUse?.bagUseId)
+    return handoverUsageCycleId && currentUse.usageCycleId
+      ? handoverUsageCycleId === currentUse.usageCycleId
+      : eventTouchesTransferBag(event, currentUse.bagCode)
+  })
+  if (conflictingHandover) {
+    return failedWholeBagHandover('当前中转袋使用周期已有未完成或重复交出事实，不能再次交出。')
+  }
+
+  const ticketSnapshot = currentUse.tickets.map((ticket) => {
+    const assignment = assignmentByTicketId.get(ticket.feiTicketId)!
+    return {
+      ...ticket,
+      sewingTaskId: assignment.sewingTaskId.trim(),
+      sewingTaskNo: assignment.sewingTaskNo.trim(),
+      receiverFactoryId: assignment.receiverFactoryId.trim(),
+      receiverFactoryName: assignment.receiverFactoryName.trim(),
+    }
+  })
+  if (
+    input.submittedTicketSnapshot
+    && !sameWholeBagTicketSnapshot(ticketSnapshot, input.submittedTicketSnapshot)
+  ) {
+    return failedWholeBagHandover('提交的整袋交出快照与当前袋票关系不一致，请刷新后重试。')
+  }
+
+  return {
+    ok: true,
+    reason: '',
+    receiverFactoryId: receiverFactoryIds[0],
+    receiverFactoryName: receiverFactoryNames[0],
+    sewingTaskIds: unique(assignmentsInTicketOrder.map((assignment) => assignment.sewingTaskId)),
+    sewingTaskNos: unique(assignmentsInTicketOrder.map((assignment) => assignment.sewingTaskNo)),
+    ticketSnapshot,
+  }
 }
 
 function eventPayload(event: CuttingRuntimeEvent): Record<string, unknown> {
@@ -689,6 +898,156 @@ export function submitTransferBagRepack(
       feiTicketNos: sourceTickets.map(({ ticket }) => ticket.feiTicketNo),
       sewingTaskIds: unique(sourceTickets.map(({ ticket }) => ticket.sewingTaskId)),
       sewingTaskNos: unique(sourceTickets.map(({ ticket }) => ticket.sewingTaskNo)),
+    },
+    payload,
+  }, storage).event
+}
+
+function wholeBagHandoverSourceLocation(input: {
+  currentUse: TransferBagCurrentUse
+  events: CuttingRuntimeEvent[]
+}): {
+  warehouseArea: string
+  locationCode: string
+  locationRef?: RuntimeWarehouseLocationRef
+} {
+  if (input.currentUse.flowStage === 'READY_HANDOVER') {
+    return {
+      warehouseArea: '待交出操作区',
+      locationCode: '待交出操作区',
+    }
+  }
+  const inboundEvent = input.events
+    .filter((event) =>
+      event.eventType === '中转袋入仓'
+      && eventTouchesTransferBag(event, input.currentUse.bagCode)
+      && (
+        !input.currentUse.usageCycleId
+        || !eventUsageCycleId(event)
+        || eventUsageCycleId(event) === input.currentUse.usageCycleId
+      ))
+    .at(-1)
+  const payload = inboundEvent ? eventPayload(inboundEvent) : {}
+  const warehouseArea = text(payload.warehouseArea)
+    || inboundEvent?.inventoryEffect?.toWarehouseArea?.trim()
+    || ''
+  const locationCode = text(payload.locationCode)
+    || inboundEvent?.inventoryEffect?.toLocationCode?.trim()
+    || ''
+  if (!warehouseArea || !locationCode) {
+    throw new Error('入仓暂存中的中转袋缺少真实待交出仓库区或库位，不能整袋交出。')
+  }
+  const rawLocationRef = record(payload.locationRef)
+  const locationRef = text(rawLocationRef.locationId) && text(rawLocationRef.locationNo)
+    ? { ...rawLocationRef } as unknown as RuntimeWarehouseLocationRef
+    : undefined
+  return { warehouseArea, locationCode, locationRef }
+}
+
+function requiredHandoverText(value: string, label: string): string {
+  const normalized = value.trim()
+  if (!normalized) throw new Error(`${label}不能为空。`)
+  return normalized
+}
+
+export function submitWholeBagHandover(
+  input: SubmitWholeBagHandoverInput,
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): CuttingRuntimeEvent<'新增交出记录'> {
+  const bagCode = requiredHandoverText(input.bagCode, '中转袋编号')
+  const handoverOrderId = requiredHandoverText(input.handoverOrderId, '交出单 ID')
+  const handoverOrderNo = requiredHandoverText(input.handoverOrderNo, '交出单号')
+  const handoverRecordId = requiredHandoverText(input.handoverRecordId, '交出记录 ID')
+  const handoverRecordNo = requiredHandoverText(input.handoverRecordNo, '交出记录号')
+  const submittedBy = requiredHandoverText(input.operator.operatorName, '交出人')
+  const occurredAt = input.occurredAt?.trim()
+    || new Date().toISOString().slice(0, 16).replace('T', ' ')
+  const events = sortedRuntimeEvents(storage)
+  const currentUse = resolveTransferBagCurrentUse(bagCode, storage)
+  const eligibility = resolveWholeBagHandoverEligibility({
+    currentUse,
+    assignments: input.assignments,
+    existingHandoverEvents: events,
+    submittedTicketSnapshot: input.submittedTicketSnapshot,
+  })
+  if (!eligibility.ok) throw new Error(eligibility.reason)
+  if (!currentUse.usageCycleId) {
+    throw new Error('当前中转袋缺少使用周期，不能整袋交出。')
+  }
+  const duplicateRecord = events.find((event) =>
+    event.eventType === '新增交出记录'
+    && (
+      event.refs.handoverRecordId === handoverRecordId
+      || text(eventPayload(event).handoverRecordId) === handoverRecordId
+    ))
+  if (duplicateRecord) throw new Error('交出记录已存在，不能重复交出。')
+
+  const sourceLocation = wholeBagHandoverSourceLocation({ currentUse, events })
+  const ticketSnapshot = eligibility.ticketSnapshot.map((ticket) => ({ ...ticket }))
+  const totalPieceQty = ticketSnapshot.reduce((sum, ticket) => sum + ticket.pieceQty, 0)
+  const transferBagUse: WholeBagHandoverSubmitPayload['transferBagUses'][0] = {
+    bagUseId: currentUse.usageCycleId,
+    bagCode,
+    containedFeiTicketIds: ticketSnapshot.map((ticket) => ticket.feiTicketId),
+    totalPieceQty,
+    sewingTaskIds: [...eligibility.sewingTaskIds],
+    sewingTaskNos: [...eligibility.sewingTaskNos],
+    ticketSnapshot,
+    sourceWarehouseArea: sourceLocation.warehouseArea,
+    sourceLocationCode: sourceLocation.locationCode,
+    ...(sourceLocation.locationRef
+      ? { sourceLocationRef: { ...sourceLocation.locationRef } }
+      : {}),
+  }
+  const payload: WholeBagHandoverSubmitPayload = {
+    handoverOrderId,
+    handoverOrderNo,
+    handoverRecordId,
+    handoverRecordNo,
+    receiverType: '车缝厂',
+    receiverId: eligibility.receiverFactoryId,
+    receiverName: eligibility.receiverFactoryName,
+    transferBagUses: [transferBagUse],
+    feiTicketItems: ticketSnapshot.map((ticket) => ({
+      feiTicketId: ticket.feiTicketId,
+      feiTicketNo: ticket.feiTicketNo,
+      pieceQty: ticket.pieceQty,
+      unit: '片',
+    })),
+    currentHandedOverQty: totalPieceQty,
+    submittedAt: occurredAt,
+    submittedBy,
+  }
+  const handoverLegId = `${currentUse.usageCycleId}:handover:1`
+  return appendCuttingRuntimeEventIdempotent({
+    idempotencyKey: `whole-bag-handover:${handoverRecordId}`,
+    eventType: '新增交出记录',
+    eventSource: input.source,
+    eventStatus: '已同步',
+    occurredAt,
+    operatorId: input.operator.operatorId?.trim(),
+    operatorName: submittedBy,
+    operatorRole: input.operator.operatorRole?.trim() || '裁片仓交出员',
+    refs: {
+      productionOrderId: ticketSnapshot[0].productionOrderId,
+      productionOrderNo: ticketSnapshot[0].productionOrderNo,
+      transferBagCode: bagCode,
+      usageCycleId: currentUse.usageCycleId,
+      handoverOrderId,
+      handoverRecordId,
+      handoverLegId,
+      feiTicketIds: ticketSnapshot.map((ticket) => ticket.feiTicketId),
+      feiTicketNos: ticketSnapshot.map((ticket) => ticket.feiTicketNo),
+      sewingTaskIds: [...eligibility.sewingTaskIds],
+      sewingTaskNos: [...eligibility.sewingTaskNos],
+    },
+    inventoryEffect: {
+      inventoryScope: '裁床待交出仓',
+      direction: 'OUT',
+      qty: totalPieceQty,
+      unit: '片',
+      fromWarehouseArea: sourceLocation.warehouseArea,
+      fromLocationCode: sourceLocation.locationCode,
     },
     payload,
   }, storage).event

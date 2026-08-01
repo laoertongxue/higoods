@@ -394,6 +394,15 @@ export interface SewingTaskAllocation {
   remark: string
 }
 
+export interface FeiTicketSewingAssignment {
+  feiTicketId: string
+  feiTicketNo: string
+  sewingTaskId: string
+  sewingTaskNo: string
+  receiverFactoryId: string
+  receiverFactoryName: string
+}
+
 export interface SewingTaskAllocationExcludedInventoryItem {
   inventoryRecordId: string
   feiTicketNo: string
@@ -402,6 +411,7 @@ export interface SewingTaskAllocationExcludedInventoryItem {
 
 export interface SewingTaskAllocationProjection {
   allocations: SewingTaskAllocation[]
+  assignments: FeiTicketSewingAssignment[]
   reservations: InventoryReservation[]
   releasedReservations: InventoryReservation[]
   excludedItems: SewingTaskAllocationExcludedInventoryItem[]
@@ -483,6 +493,8 @@ export interface TargetTransferBagUse {
   useStage: '交出装袋'
   sewingTaskId: string
   sewingTaskNo: string
+  sewingTaskIds?: string[]
+  sewingTaskNos?: string[]
   pickingTaskId: string
   containedFeiTickets: Array<{
     feiTicketId: string
@@ -1592,8 +1604,18 @@ export function buildSewingTaskAllocationProjectionFromInventory(
 
   const availablePieceQty = allocations.reduce((total, allocation) => total + sum(allocation.allocatedItems.map((item) => item.pieceQty)), 0)
   const reservedPieceQty = reservations.filter((reservation) => reservation.reservationStatus !== '已释放').reduce((total, reservation) => total + reservation.reservedQty, 0)
+  const assignments = allocations.flatMap((allocation) =>
+    allocation.allocatedItems.map((item) => ({
+      feiTicketId: item.feiTicketId,
+      feiTicketNo: item.feiTicketNo,
+      sewingTaskId: allocation.sewingTaskId,
+      sewingTaskNo: allocation.sewingTaskNo,
+      receiverFactoryId: allocation.receiverFactoryId,
+      receiverFactoryName: allocation.receiverFactoryName,
+    } satisfies FeiTicketSewingAssignment)))
   return {
     allocations,
+    assignments,
     reservations,
     releasedReservations,
     excludedItems,
@@ -1694,75 +1716,38 @@ function buildPickingTempBagSources(items: HandoverPickingAllocatedInventoryItem
   return [...byBag.values()]
 }
 
-function buildTargetTransferBagUse(
+function buildCurrentBagCompatibilityProjection(
   allocation: SewingTaskAllocation,
   pickingTaskId: string,
-  bagCode: string,
-  items: HandoverPickingPickedItem[],
-  sequence: number,
-): TargetTransferBagUse {
-  return {
-    bagUseId: `TB-USE-${pickingTaskId}-${String(sequence).padStart(2, '0')}`,
+  items: HandoverPickingAllocatedInventoryItem[],
+): TargetTransferBagUse[] {
+  const byCurrentBag = new Map<string, HandoverPickingAllocatedInventoryItem[]>()
+  items.forEach((item) => {
+    const rows = byCurrentBag.get(item.tempBagCode) || []
+    rows.push(item)
+    byCurrentBag.set(item.tempBagCode, rows)
+  })
+  return [...byCurrentBag.entries()].map(([bagCode, bagItems]) => ({
+    bagUseId: `current:${bagCode}`,
     bagCode,
-    bagMasterId: `carrier-${bagCode.toLowerCase()}`,
+    bagMasterId: '',
     useStage: '交出装袋',
-    sewingTaskId: allocation.sewingTaskId,
-    sewingTaskNo: allocation.sewingTaskNo,
+    // 旧视图字段保留为空；当前任务关系只用数组表达，且不建立新袋票关系。
+    sewingTaskId: '',
+    sewingTaskNo: '',
+    sewingTaskIds: [allocation.sewingTaskId],
+    sewingTaskNos: [allocation.sewingTaskNo],
     pickingTaskId,
-    containedFeiTickets: items.map((item) => ({
+    containedFeiTickets: bagItems.map((item) => ({
       feiTicketId: item.feiTicketId,
       feiTicketNo: item.feiTicketNo,
-      pieceQty: item.pickedQty,
+      pieceQty: item.pieceQty,
     })),
-    totalPieceQty: sum(items.map((item) => item.pickedQty)),
-    packedAt: items[0]?.scannedAt || '2026-05-23 11:00:00',
-    packedBy: items[0]?.scannedBy || '裁片仓分拣员',
-    bagStatus: items.length ? '已装袋待交出' : '装袋中',
-  }
-}
-
-function buildPickedItemsForAllocation(
-  allocation: SewingTaskAllocation,
-  allocatedInventoryItems: HandoverPickingAllocatedInventoryItem[],
-  allocationIndex: number,
-): HandoverPickingPickedItem[] {
-  const selectedItems = allocationIndex === 0
-    ? []
-    : allocatedInventoryItems
-  return selectedItems.map((item, index) => ({
-    feiTicketId: item.feiTicketId,
-    feiTicketNo: item.feiTicketNo,
-    scannedAt: `2026-05-23 11:${String(10 + allocationIndex * 10 + index).padStart(2, '0')}:00`,
-    scannedBy: '裁片仓分拣员',
-    sourceTempBagCode: item.tempBagCode,
-    targetTransferBagCode:
-      allocationIndex === 0
-        ? 'BAG-PICK-001'
-        : index % 2 === 0
-          ? 'BAG-PICK-002'
-          : 'BAG-PICK-003',
-    size: item.size,
-    partCode: item.partCode,
-    partName: item.partName,
-    pickedQty: item.pieceQty,
-    checkResult: '通过',
+    totalPieceQty: sum(bagItems.map((item) => item.pieceQty)),
+    packedAt: allocation.createdAt,
+    packedBy: allocation.createdBy,
+    bagStatus: '装袋中',
   }))
-}
-
-function buildTargetBagsForPickingTask(
-  allocation: SewingTaskAllocation,
-  pickingTaskId: string,
-  pickedItems: HandoverPickingPickedItem[],
-): TargetTransferBagUse[] {
-  const byBag = new Map<string, HandoverPickingPickedItem[]>()
-  pickedItems.forEach((item) => {
-    const rows = byBag.get(item.targetTransferBagCode) || []
-    rows.push(item)
-    byBag.set(item.targetTransferBagCode, rows)
-  })
-  return [...byBag.entries()].map(([bagCode, items], index) =>
-    buildTargetTransferBagUse(allocation, pickingTaskId, bagCode, items, index + 1),
-  )
 }
 
 function buildPickingScanChecks(tasks: HandoverPickingTask[], projection: SewingTaskAllocationProjection): HandoverPickingScanCheck[] {
@@ -1830,15 +1815,6 @@ function buildPickingScanChecks(tasks: HandoverPickingTask[], projection: Sewing
         syncStatus: '已同步',
       },
       {
-        checkId: 'PICK-CHECK-BAG-CONFLICT',
-        pickingTaskNo: firstTask.pickingTaskNo,
-        scanObject: '目标中转袋',
-        scannedValue: 'BAG-PICK-LOCKED-001',
-        checkResult: '拒绝',
-        reason: '目标中转袋已绑定其他车缝任务',
-        syncStatus: '已同步',
-      },
-      {
         checkId: 'PICK-CHECK-FEI-OTHER-PICKED',
         pickingTaskNo: firstTask.pickingTaskNo,
         scanObject: '菲票',
@@ -1858,6 +1834,17 @@ function buildPickingScanChecks(tasks: HandoverPickingTask[], projection: Sewing
       checkResult: '拒绝',
       reason: '特殊工艺未回仓，暂不分拣给车缝任务',
       syncStatus: '已同步',
+    })
+  }
+  if (firstAllocated && firstTask) {
+    checks.push({
+      checkId: 'PICK-CHECK-SYNC-FAILED-DEMO',
+      pickingTaskNo: firstTask.pickingTaskNo,
+      scanObject: '菲票',
+      scannedValue: firstAllocated.feiTicketNo,
+      checkResult: '提示',
+      reason: '菲票分配已记录，等待重新同步',
+      syncStatus: '同步失败',
     })
   }
   if (firstPicked && firstTask) {
@@ -1882,17 +1869,6 @@ function buildPickingScanChecks(tasks: HandoverPickingTask[], projection: Sewing
       },
     )
   }
-  if (!firstPicked && firstTask) {
-    checks.push({
-      checkId: 'PICK-CHECK-SYNC-FAILED-DEMO',
-      pickingTaskNo: firstTask.pickingTaskNo,
-      scanObject: '目标中转袋',
-      scannedValue: firstTask.targetTransferBags[0]?.bagCode || 'BAG-PICK-SYNC-DEMO',
-      checkResult: '提示',
-      reason: 'PDA 分拣提交已记录，等待重新同步',
-      syncStatus: '同步失败',
-    })
-  }
   return checks
 }
 
@@ -1915,15 +1891,15 @@ export function buildHandoverPickingTaskProjectionFromAllocationProjection(
       pieceSequenceLabel: item.pieceSequenceLabel,
       specialCraftReturnStatus: item.specialCraftReturnStatus,
     } satisfies HandoverPickingAllocatedInventoryItem))
-    const pickedItems = buildPickedItemsForAllocation(allocation, allocatedInventoryItems, index)
+    // 分配投影只确认菲票去向，不预造中转袋，也不改变当前袋票关系。
+    const pickedItems: HandoverPickingPickedItem[] = []
     const shortageItems = buildPickingShortageItems(requiredItems, pickedItems)
-    const targetTransferBags = buildTargetBagsForPickingTask(allocation, pickingTaskId, pickedItems)
-    const taskStatus: HandoverPickingTaskStatus =
-      targetTransferBags.length > 1 && shortageItems.length === 0
-        ? '已装袋待交出'
-        : pickedItems.length > 0
-          ? '分拣中'
-          : '待分拣'
+    const targetTransferBags = buildCurrentBagCompatibilityProjection(
+      allocation,
+      pickingTaskId,
+      allocatedInventoryItems,
+    )
+    const taskStatus: HandoverPickingTaskStatus = '待分拣'
 
     return {
       pickingTaskId,
@@ -1947,7 +1923,10 @@ export function buildHandoverPickingTaskProjectionFromAllocationProjection(
       updatedAt: index === 0 ? '2026-05-23 11:18:00' : '2026-05-23 11:38:00',
     }
   })
-  const targetTransferBags = tasks.flatMap((task) => task.targetTransferBags)
+  const targetTransferBags = [...new Map(
+    tasks.flatMap((task) => task.targetTransferBags)
+      .map((bag) => [bag.bagCode, bag]),
+  ).values()]
   const scanChecks = buildPickingScanChecks(tasks, allocationProjection)
   return {
     tasks,
@@ -1963,8 +1942,7 @@ export function buildHandoverPickingTaskProjectionFromAllocationProjection(
     ruleNotes: [
       '待交出仓分拣装袋只从车缝任务分配后的菲票 / 裁片库存拣选。',
       '这里是裁片分拣装袋，不是前段中转仓给裁床准备面料。',
-      '中转袋可混装；分拣装袋开始按车缝任务组织裁片。',
-      '分拣装袋阶段一个中转袋只对应一个车缝任务，一个车缝任务可对应多个中转袋。',
+      '车缝任务分配只记录每张菲票的任务和接收工厂，不生成或改写中转袋。',
       '允许部分分拣提交，缺口作为分拣结果展示。',
     ],
   }

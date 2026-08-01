@@ -355,7 +355,8 @@ export interface HandoverBaggingConfirmPayload {
   packedAt: string
   packedBy: string
   checkResult: '正常' | '不属于当前任务' | '已作废' | '特殊工艺未回仓' | '已被其他任务分拣'
-  bagBindingRule: '一个中转袋只能绑定一个车缝任务'
+  // 仅兼容历史确认载荷；新的车缝分配和整袋交出不再写入袋任务绑定规则。
+  bagBindingRule?: string
 }
 
 export interface TransferBagTicketFactSnapshot {
@@ -455,6 +456,9 @@ export interface HandoverRecordSubmitPayload {
     sewingTaskIds?: string[]
     sewingTaskNos?: string[]
     ticketSnapshot?: TransferBagTicketFactSnapshot[]
+    sourceWarehouseArea?: string
+    sourceLocationCode?: string
+    sourceLocationRef?: RuntimeWarehouseLocationRef
   }>
   feiTicketItems: Array<{
     feiTicketId: string
@@ -465,6 +469,24 @@ export interface HandoverRecordSubmitPayload {
   currentHandedOverQty: number
   submittedAt: string
   submittedBy: string
+}
+
+export interface WholeBagHandoverTransferBagUse {
+  bagUseId: string
+  bagCode: string
+  containedFeiTicketIds: string[]
+  totalPieceQty: number
+  sewingTaskIds: string[]
+  sewingTaskNos: string[]
+  ticketSnapshot: TransferBagTicketFactSnapshot[]
+  sourceWarehouseArea: string
+  sourceLocationCode: string
+  sourceLocationRef?: RuntimeWarehouseLocationRef
+}
+
+export interface WholeBagHandoverSubmitPayload
+  extends Omit<HandoverRecordSubmitPayload, 'transferBagUses'> {
+  transferBagUses: [WholeBagHandoverTransferBagUse]
 }
 
 export interface SpecialCraftHandoverPayload {

@@ -107,6 +107,8 @@ export interface TransferCarrierCycleRecord {
   carrierType: TransferCarrierType
   sewingTaskId: string
   sewingTaskNo: string
+  sewingTaskIds?: string[]
+  sewingTaskNos?: string[]
   sewingFactoryId: string
   sewingFactoryName: string
   boundObjectType?: string
@@ -313,16 +315,31 @@ function normalizeMergedSewingTasks(
   })
 }
 
+function normalizeCycleTaskRefs(usage: TransferCarrierCycleRecord): TransferCarrierCycleRecord {
+  const sewingTaskIds = unique(
+    usage.sewingTaskIds?.length ? usage.sewingTaskIds : [usage.sewingTaskId],
+  )
+  const sewingTaskNos = unique(
+    usage.sewingTaskNos?.length ? usage.sewingTaskNos : [usage.sewingTaskNo],
+  )
+  return {
+    ...usage,
+    sewingTaskIds,
+    sewingTaskNos,
+  }
+}
+
 function syncCycleFactoryNames(
   usages: TransferCarrierCycleRecord[],
   sewingTasks: SewingTaskRefRecord[],
 ): TransferCarrierCycleRecord[] {
   const tasksById = Object.fromEntries(sewingTasks.map((task) => [task.sewingTaskId, task]))
   return usages.map((usage) => {
-    const sewingTask = tasksById[usage.sewingTaskId]
-    if (!sewingTask) return usage
+    const normalizedUsage = normalizeCycleTaskRefs(usage)
+    const sewingTask = tasksById[normalizedUsage.sewingTaskIds?.[0] || normalizedUsage.sewingTaskId]
+    if (!sewingTask) return normalizedUsage
     return {
-      ...usage,
+      ...normalizedUsage,
       sewingFactoryId: sewingTask.sewingFactoryId,
       sewingFactoryName: sewingTask.sewingFactoryName,
     }
@@ -458,8 +475,10 @@ export function createCarrierCycleRecord(options: {
     carrierId: options.carrier.carrierId,
     carrierCode: options.carrier.carrierCode,
     carrierType: options.carrier.carrierType,
-    sewingTaskId: options.sewingTask.sewingTaskId,
-    sewingTaskNo: options.sewingTask.sewingTaskNo,
+    sewingTaskId: '',
+    sewingTaskNo: '',
+    sewingTaskIds: [options.sewingTask.sewingTaskId],
+    sewingTaskNos: [options.sewingTask.sewingTaskNo],
     sewingFactoryId: options.sewingTask.sewingFactoryId,
     sewingFactoryName: options.sewingTask.sewingFactoryName,
     styleCode: options.sewingTask.styleCode,
@@ -495,7 +514,7 @@ export function createCarrierDispatchManifest(options: {
     manifestId: buildDispatchManifestId(options.cycle.cycleId, options.nowText),
     cycleId: options.cycle.cycleId,
     carrierCode: options.cycle.carrierCode,
-    sewingTaskNo: options.cycle.sewingTaskNo,
+    sewingTaskNo: options.cycle.sewingTaskNos?.[0] || options.cycle.sewingTaskNo,
     sewingFactoryName: options.cycle.sewingFactoryName,
     ticketCount: options.bindings.length,
     cutOrderCount: unique(options.bindings.map((item) => item.cutOrderNo)).length,
@@ -849,7 +868,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
       latestCycleId: options.latestCycle?.cycleId || currentMaster.latestCycleId,
       latestCycleNo: options.latestCycle?.cycleNo || currentMaster.latestCycleNo,
       currentCycleId: options.currentCycle?.cycleId || '',
-      currentOwnerTaskId: options.currentCycle?.sewingTaskId || '',
+      currentOwnerTaskId: options.currentCycle?.sewingTaskIds?.[0] || options.currentCycle?.sewingTaskId || '',
       note: currentMaster.note,
     })
   }
@@ -926,6 +945,8 @@ export function buildSystemSeedTransferBagRuntime(options: {
     if (usageStage === 'INBOUND_TEMP') {
       cycle.sewingTaskId = ''
       cycle.sewingTaskNo = ''
+      cycle.sewingTaskIds = []
+      cycle.sewingTaskNos = []
       cycle.sewingFactoryId = ''
       cycle.sewingFactoryName = ''
       cycle.styleCode = unique(selectedTickets.map((ticket) => ticket.styleCode)).join(' / ') || '混款'
@@ -988,8 +1009,8 @@ export function buildSystemSeedTransferBagRuntime(options: {
         usageNo: cycle.cycleNo,
         bagId: carrier.carrierId,
         bagCode: carrier.carrierCode,
-        sewingTaskId: cycle.sewingTaskId,
-        sewingTaskNo: cycle.sewingTaskNo,
+        sewingTaskId: cycle.sewingTaskIds?.[0] || cycle.sewingTaskId,
+        sewingTaskNo: cycle.sewingTaskNos?.[0] || cycle.sewingTaskNo,
         returnWarehouseName: options.returnWarehouseName || '裁片仓回收点',
         returnAt: options.returnAt,
         returnedBy: options.returnedBy || '周转回收员',
@@ -1668,6 +1689,14 @@ export function deserializeTransferBagRuntimeStorage(raw: string | null): Transf
       usages: rawCycles.map((item: Record<string, unknown>) => {
         const normalized = normalizeTransferCarrierCycleRecord(item)
         const cycleStatus = normalized.cycleStatus === LEGACY_SCRAP_CLOSED_STATUS ? 'SCRAP_CLOSED' : normalized.cycleStatus
+        const sewingTaskIds = unique(
+          (Array.isArray(item.sewingTaskIds) ? item.sewingTaskIds : [])
+            .map((value) => String(value || '').trim()),
+        )
+        const sewingTaskNos = unique(
+          (Array.isArray(item.sewingTaskNos) ? item.sewingTaskNos : [])
+            .map((value) => String(value || '').trim()),
+        )
         return {
           ...item,
           cycleId: normalized.cycleId,
@@ -1675,6 +1704,12 @@ export function deserializeTransferBagRuntimeStorage(raw: string | null): Transf
           carrierId: normalized.carrierId,
           carrierCode: normalized.carrierCode,
           carrierType: normalized.carrierType,
+          sewingTaskIds: sewingTaskIds.length
+            ? sewingTaskIds
+            : unique([String(item.sewingTaskId || '').trim()]),
+          sewingTaskNos: sewingTaskNos.length
+            ? sewingTaskNos
+            : unique([String(item.sewingTaskNo || '').trim()]),
           cycleStatus,
           status: normalized.status || buildCycleStatus(cycleStatus),
         }
