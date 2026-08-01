@@ -150,4 +150,64 @@ const minimalLine = minimal.masterOrder.tasks
 assert.equal(minimalLine?.materialSkuId, 'BOM-MINIMAL', '最小 BOM 联动输入应使用行 ID 作为缺省物料标识')
 assert.equal(minimalLine?.materialName, 'BOM-MINIMAL', '最小 BOM 联动输入应保留可识别的缺省物料名称')
 
+const lastLineMaster = createPublishedMaster()
+applyBomRequirementsToEngineeringTasks(lastLineMaster.masterOrderId, [
+  row('BOM-LAST-PRINT', { printRequirement: '是' }),
+])
+const beforeLastLineRemoval = getEngineeringMasterOrderById(lastLineMaster.masterOrderId)
+const beforeLastLineTask = beforeLastLineRemoval?.tasks.find((task) => task.taskType === 'PATTERN_ARTWORK')
+assert.ok(beforeLastLineTask)
+const afterLastLineRemoval = applyBomRequirementsToEngineeringTasks(lastLineMaster.masterOrderId, [
+  row('BOM-LAST-PRINT', { printRequirement: '否' }),
+])
+const afterLastLineTask = afterLastLineRemoval.masterOrder.tasks.find((task) => task.taskType === 'PATTERN_ARTWORK')
+assert.equal(afterLastLineTask?.status, beforeLastLineTask.status, '移除唯一印花物料行不得结束整张花型任务')
+assert.equal(afterLastLineTask?.materialLines[0]?.status, '因需求变更结束')
+
+const completedLastLineMaster = createPublishedMaster()
+applyBomRequirementsToEngineeringTasks(completedLastLineMaster.masterOrderId, [
+  row('BOM-COMPLETED-LAST', { dyeRequirement: '是' }),
+])
+const completedColorTaskId = `${completedLastLineMaster.masterOrderId}-COLOR_FABRIC`
+updateEngineeringTaskRecord(completedLastLineMaster.masterOrderId, completedColorTaskId, (task) => {
+  task.status = '已完成'
+  task.resultImageIds = ['result://completed-color']
+  task.materialReviewRounds = [{
+    roundNo: 1,
+    submittedAt: '2026-08-02 10:00:00',
+    submittedBy: '染厂',
+    reviewedAt: '2026-08-02 11:00:00',
+    reviewedBy: '买手A',
+    decisions: [],
+  }]
+})
+const completedRemoved = applyBomRequirementsToEngineeringTasks(completedLastLineMaster.masterOrderId, [
+  row('BOM-COMPLETED-LAST', { dyeRequirement: '否' }),
+])
+const completedColorTask = completedRemoved.masterOrder.tasks.find((task) => task.taskType === 'COLOR_FABRIC')
+assert.equal(completedColorTask?.status, '已完成', '已完成任务移除最后一条染色需求后仍须保持已完成')
+assert.deepEqual(completedColorTask?.resultImageIds, ['result://completed-color'], '移除最后一行不得删除历史成果')
+assert.equal(completedColorTask?.materialReviewRounds.length, 1, '移除最后一行不得删除历史审核')
+
+const multiRemovalMaster = createPublishedMaster()
+applyBomRequirementsToEngineeringTasks(multiRemovalMaster.masterOrderId, [
+  row('BOM-MULTI-A', { printRequirement: '是' }),
+  row('BOM-MULTI-B', { printRequirement: '是' }),
+])
+const multiTaskId = `${multiRemovalMaster.masterOrderId}-PATTERN_ARTWORK`
+updateEngineeringTaskRecord(multiRemovalMaster.masterOrderId, multiTaskId, (task) => {
+  task.status = '进行中'
+})
+applyBomRequirementsToEngineeringTasks(multiRemovalMaster.masterOrderId, [
+  row('BOM-MULTI-A', { printRequirement: '是' }),
+  row('BOM-MULTI-B', { printRequirement: '否' }),
+])
+const afterAllMultiRemoved = applyBomRequirementsToEngineeringTasks(multiRemovalMaster.masterOrderId, [
+  row('BOM-MULTI-A', { printRequirement: '否' }),
+  row('BOM-MULTI-B', { printRequirement: '否' }),
+])
+const multiTask = afterAllMultiRemoved.masterOrder.tasks.find((task) => task.taskType === 'PATTERN_ARTWORK')
+assert.equal(multiTask?.status, '进行中', '多行逐步移除至最后一行时必须保持任务原状态')
+assert.equal(multiTask?.materialLines.every((line) => line.status === '因需求变更结束'), true)
+
 console.log('pcs-engineering-bom-task-linkage.spec.ts PASS')

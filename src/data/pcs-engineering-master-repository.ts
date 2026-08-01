@@ -271,6 +271,14 @@ export function getEngineeringMasterOrderById(masterOrderId: string): Engineerin
   return record ? cloneRecord(record) : null
 }
 
+export function getEngineeringMasterOrderStoreSnapshot(): EngineeringMasterOrderSnapshot {
+  return readSnapshot()
+}
+
+export function replaceEngineeringMasterOrderStore(snapshot: EngineeringMasterOrderSnapshot): void {
+  writeSnapshot(snapshot)
+}
+
 export function resetEngineeringMasterRepository(): void {
   memorySnapshot = seedSnapshot()
   if (!canUseStorage()) return
@@ -317,6 +325,22 @@ export interface ApplyBomRequirementsToEngineeringTasksResult {
   tasks: EngineeringTaskRecord[]
   createdTaskCount: 0
   techPackOnlyProcesses: EngineeringTechPackOnlyProcess[]
+}
+
+export function validateBomRequirementsForEngineeringTasks(
+  masterOrderId: string,
+  rows: EngineeringBomTaskLinkageRow[],
+): void {
+  const snapshot = readSnapshot()
+  const master = snapshot.records.find((item) => item.masterOrderId === masterOrderId)
+  if (!master) throw new Error(`工程主单不存在：${masterOrderId}`)
+  if (master.status !== '已发布' && master.status !== '进行中') {
+    throw new Error('仅已发布或进行中的工程主单可以同步 BOM 工艺要求。')
+  }
+  const requiredTaskTypes: EngineeringTaskType[] = []
+  if (rows.some((row) => hasBomRequirement(row.printRequirement))) requiredTaskTypes.push('PATTERN_ARTWORK')
+  if (rows.some((row) => hasBomRequirement(row.dyeRequirement))) requiredTaskTypes.push('COLOR_FABRIC')
+  assertTaskSkeletonsExist(master, requiredTaskTypes)
 }
 
 function hasBomRequirement(value: unknown): boolean {
@@ -405,6 +429,12 @@ function syncTaskMaterialLines(
   rows: EngineeringBomTaskLinkageRow[],
   requirementType: '印花' | '染色',
 ): void {
+  const taskBeforeSync = master.tasks.find((item) => item.taskType === taskType)
+  if (!taskBeforeSync) {
+    const taskName = getEngineeringTaskDefinition(taskType).taskName
+    throw new Error(`工程主单缺少${taskName}骨架，无法根据 BOM 启用。`)
+  }
+  const statusBeforeSync = taskBeforeSync.status
   const task = enableTaskAndFixedPrerequisites(master, taskType)
   const activeBomItemIds = new Set(rows.map((row) => row.bomItemId))
   const hadSubmittedResult = task.status === '已完成'
@@ -446,7 +476,7 @@ function syncTaskMaterialLines(
     (line) => line.requirementType === requirementType && line.status === '正常',
   )
   if (activeLines.length === 0) {
-    task.status = '因需求变更结束'
+    task.status = statusBeforeSync
     return
   }
   if (hadSubmittedResult && addedOrReactivated) {
@@ -468,20 +498,13 @@ export function applyBomRequirementsToEngineeringTasks(
   masterOrderId: string,
   rows: EngineeringBomTaskLinkageRow[],
 ): ApplyBomRequirementsToEngineeringTasksResult {
+  validateBomRequirementsForEngineeringTasks(masterOrderId, rows)
   const snapshot = readSnapshot()
   const master = snapshot.records.find((item) => item.masterOrderId === masterOrderId)
   if (!master) throw new Error(`工程主单不存在：${masterOrderId}`)
-  if (master.status !== '已发布' && master.status !== '进行中') {
-    throw new Error('仅已发布或进行中的工程主单可以同步 BOM 工艺要求。')
-  }
 
   const printRows = rows.filter((row) => hasBomRequirement(row.printRequirement))
   const dyeRows = rows.filter((row) => hasBomRequirement(row.dyeRequirement))
-  const requiredTaskTypes: EngineeringTaskType[] = []
-  if (printRows.length > 0) requiredTaskTypes.push('PATTERN_ARTWORK')
-  if (dyeRows.length > 0) requiredTaskTypes.push('COLOR_FABRIC')
-  assertTaskSkeletonsExist(master, requiredTaskTypes)
-
   const patternTask = master.tasks.find((task) => task.taskType === 'PATTERN_ARTWORK')
   if (patternTask && (printRows.length > 0 || patternTask.materialLines.some((line) => line.requirementType === '印花'))) {
     syncTaskMaterialLines(master, 'PATTERN_ARTWORK', printRows, '印花')

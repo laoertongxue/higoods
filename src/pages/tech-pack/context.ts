@@ -45,6 +45,8 @@ import { saveTechnicalDataVersionContent } from '../../data/pcs-project-technica
 import {
   getTechnicalDataVersionById,
   getTechnicalDataVersionContent,
+  getTechnicalDataVersionStoreSnapshot,
+  replaceTechnicalDataVersionStore,
 } from '../../data/pcs-technical-data-version-repository.ts'
 import {
   canEditTechnicalModule,
@@ -92,7 +94,10 @@ import { buildPatternSignature } from './pattern-duplicate-check.ts'
 import { normalizeProcessRouteEntries } from '../../data/tech-pack-process-route.ts'
 import {
   applyBomRequirementsToEngineeringTasks,
+  getEngineeringMasterOrderStoreSnapshot,
   listEngineeringMasterOrders,
+  replaceEngineeringMasterOrderStore,
+  validateBomRequirementsForEngineeringTasks,
   type ApplyBomRequirementsToEngineeringTasksResult,
 } from '../../data/pcs-engineering-master-repository.ts'
 
@@ -2470,21 +2475,27 @@ function syncBomDrivenPrepTechniques(
   )
 }
 
-function applyEngineeringTaskLinkageFromBomForTechnicalVersion(
-  technicalVersionId: string | null,
-  bomItems: BomItemRow[],
-): ApplyBomRequirementsToEngineeringTasksResult | null {
+function resolveEngineeringMasterForTechnicalVersion(technicalVersionId: string | null) {
   if (!technicalVersionId) return null
   const technicalVersion = getTechnicalDataVersionById(technicalVersionId)
   if (!technicalVersion) return null
-  const master = listEngineeringMasterOrders().find(
-    (item) => (
-      item.masterOrderId === technicalVersion.sourceProjectId
-      || item.tasks.some((task) => task.taskId === technicalVersion.createdFromTaskId)
-    ) && (item.status === '已发布' || item.status === '进行中'),
-  )
-  if (!master) return null
-  const materialRows = partitionBomItemsByType(bomItems).materialBomItems.map((item) => ({
+  const masters = listEngineeringMasterOrders()
+  const projectMaster = technicalVersion.sourceProjectId
+    ? masters.find((item) => item.masterOrderId === technicalVersion.sourceProjectId) ?? null
+    : null
+  const taskMaster = technicalVersion.createdFromTaskId
+    ? masters.find((item) => item.tasks.some((task) => task.taskId === technicalVersion.createdFromTaskId)) ?? null
+    : null
+  if (projectMaster && taskMaster && projectMaster.masterOrderId !== taskMaster.masterOrderId) {
+    throw new Error('技术包工程来源不一致，无法同步 BOM 工艺任务。')
+  }
+  const master = projectMaster || taskMaster
+  if (!master || (master.status !== '已发布' && master.status !== '进行中')) return null
+  return master
+}
+
+function buildEngineeringBomTaskRows(bomItems: BomItemRow[]) {
+  return partitionBomItemsByType(bomItems).materialBomItems.map((item) => ({
     bomItemId: item.id,
     materialSkuId: item.materialSkuId || item.materialCode || item.id,
     materialName: item.materialName,
@@ -2497,7 +2508,48 @@ function applyEngineeringTaskLinkageFromBomForTechnicalVersion(
     washRequirement: item.washRequirement,
     waterSolubleRequirement: item.waterSolubleRequirement,
   }))
+}
+
+function applyEngineeringTaskLinkageFromBomForTechnicalVersion(
+  technicalVersionId: string | null,
+  bomItems: BomItemRow[],
+): ApplyBomRequirementsToEngineeringTasksResult | null {
+  const master = resolveEngineeringMasterForTechnicalVersion(technicalVersionId)
+  if (!master) return null
+  const materialRows = buildEngineeringBomTaskRows(bomItems)
   return applyBomRequirementsToEngineeringTasks(master.masterOrderId, materialRows)
+}
+
+interface TechnicalContentEngineeringLinkageOperations {
+  saveTechnicalContent?: typeof saveTechnicalDataVersionContent
+  applyEngineeringTasks?: typeof applyBomRequirementsToEngineeringTasks
+}
+
+function saveTechnicalDataVersionContentWithEngineeringLinkage(
+  technicalVersionId: string,
+  bomItems: BomItemRow[],
+  patch: Partial<TechnicalDataVersionContent>,
+  operatorName: string,
+  operations: TechnicalContentEngineeringLinkageOperations = {},
+) {
+  const master = resolveEngineeringMasterForTechnicalVersion(technicalVersionId)
+  const engineeringRows = master ? buildEngineeringBomTaskRows(bomItems) : []
+  if (master) validateBomRequirementsForEngineeringTasks(master.masterOrderId, engineeringRows)
+  const technicalSnapshot = getTechnicalDataVersionStoreSnapshot()
+  const engineeringSnapshot = getEngineeringMasterOrderStoreSnapshot()
+  const saveTechnicalContent = operations.saveTechnicalContent ?? saveTechnicalDataVersionContent
+  const applyEngineeringTasks = operations.applyEngineeringTasks ?? applyBomRequirementsToEngineeringTasks
+  try {
+    const technicalVersion = saveTechnicalContent(technicalVersionId, patch, operatorName)
+    const engineeringLinkage = master
+      ? applyEngineeringTasks(master.masterOrderId, engineeringRows)
+      : null
+    return { technicalVersion, engineeringLinkage }
+  } catch (error) {
+    replaceTechnicalDataVersionStore(technicalSnapshot)
+    replaceEngineeringMasterOrderStore(engineeringSnapshot)
+    throw error
+  }
 }
 
 function getCraftOptionByCode(code: string): CraftOption | null {
@@ -5229,7 +5281,6 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
   clearTechPackDerivedCache()
 
   if (options.persist !== false && state.currentTechnicalVersionId && !state.compatibilityMode) {
-    applyEngineeringTaskLinkageFromBomForTechnicalVersion(state.currentTechnicalVersionId, state.bomItems)
     const patch = {
       ...buildTechnicalContentPatchFromLegacyTechPack(next),
       processRouteStatus: state.processRouteStatus,
@@ -5238,7 +5289,12 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
       processRouteUpdatedBy: state.processRouteUpdatedBy,
       processRouteUpdatedAt: state.processRouteUpdatedAt,
     }
-    saveTechnicalDataVersionContent(state.currentTechnicalVersionId, patch, currentUser.name)
+    saveTechnicalDataVersionContentWithEngineeringLinkage(
+      state.currentTechnicalVersionId,
+      state.bomItems,
+      patch,
+      currentUser.name,
+    )
   }
   return true
 }
@@ -5652,6 +5708,7 @@ export {
   buildTechniquesFromTechPack,
   syncBomDrivenPrepTechniques,
   applyEngineeringTaskLinkageFromBomForTechnicalVersion,
+  saveTechnicalDataVersionContentWithEngineeringLinkage,
   normalizeTechniqueRoutes,
   markProcessRouteUnconfirmed,
   hasConfirmedProcessRoute,
