@@ -18,7 +18,7 @@
 - 只重写毛织管理及其直接上下游消费者；其他工艺的熨烫、包装、菲票、价格、统计和仓库位置逻辑保持不变。
 - 毛织侧不计算纱线最多可加工件数，也不做纱线预占或款色间分配。
 - 已确认设计中的三类核心操作名称固定为“确认接收”“加工填报”“发起交出”；上游任务“接单”不得替代确认接收。
-- 整件毛织加工后对象是成衣 SKU，单位为件；部位毛织加工后对象是毛织部位 SKU，单位为片。
+- 整件毛织加工后对象是成衣 SKU，单位为件；部位毛织加工后对象是毛织部位 SKU，但完工数量、交出数量和 150% 上限均按颜色+尺码件数，不按片数换算。
 - 完成加工单只由业务人员二次确认，不增加数量充分性判断。
 - 本计划执行时应在隔离 worktree 中进行；不得覆盖主工作区中与本任务无关的未提交修改。
 
@@ -45,6 +45,7 @@
 - `src/pages/process-factory/wool/work-order-detail.ts`：事实页签、分页记录、数量修改历史和完成快照。
 - `src/pages/process-factory/wool/machines.ts`：四状态设备档案和维修/停用影响确认。
 - `src/pages/process-factory/wool/warehouse.ts`：三个固定默认库位、领用/退回、库存/流水/调整/转移。
+- `src/pages/process-factory/wool/handover-print.ts`：A4 毛织交出单打印页，展示生产单、毛织加工单、接收方、颜色尺码件数、款式图、物料图、条码和二维码。
 - `src/pages/process-factory/wool/shared.ts`：仅保留毛织详情与弹窗需要的轻量格式化和局部挂载辅助。
 - `scripts/check-wool-internal-style-code.ts`：改为检查内部货号、筛选联动 Tab 和无统计卡片。
 - `scripts/check-wool-warehouse-unified-model.ts`：改为检查固定库位、同源流水和禁止旧仓库自动推进。
@@ -460,12 +461,12 @@ export interface WoolOutputPlanLine {
 
 1. 从运行时任务定位生产单和冻结技术包快照。
 2. 整件按生产单成衣 SKU 生成计划行。
-3. 部位按纸样部位 × 成衣 SKU 生成稳定部位 SKU，计划片数为成衣计划件数 × 单件片数。
+3. 部位按纸样部位 × 成衣 SKU 生成稳定部位 SKU，计划数量为该颜色+尺码成衣 SKU 的计划件数，单位为件；单件片数只作为技术资料，不参与完工、交出和 150% 上限。
 4. 只读取 `mappingOrigin === 'TECH_PACK'`。
 5. 只接受能由 `bomItemId` 或唯一 `materialCode` 关联到 BOM，且 `usageProcessCodes` 含 `WOOL` 或 `PROC_WOOL` 的行。
 6. 按 `applicableSkuCodes` 投影并按纱线 SKU 去重。
 7. 保留快照版本、关系行和 BOM 行 ID。
-8. 关系、SKU、部位或片数缺失时保留不可填报计划行或明确生成错误，不用名称、类型或第一条 BOM 猜测。
+8. 关系、SKU 或部位缺失时保留不可填报计划行或明确生成错误，不用名称、类型或第一条 BOM 猜测。
 
 - [ ] **步骤 5：收敛通用任务明细的毛织输出对象**
 
@@ -754,7 +755,11 @@ assert.equal(
 
 - [ ] **步骤 5：实现结构化去向交出和下游确认**
 
-`addWoolHandover` 从加工单读取结构化 `receiverType/receiverId/receiverName`，不接受页面自由文本；按输入 `outputSkuCode` 计算“可交出余额 = min(该 SKU 默认库位有效库存, 该 SKU 累计有效加工填报 - 该 SKU 累计有效交出)”，本次数量不得超过该余额。无该 SKU 有效填报、余额为 0 或超量时零写失败；不同款色 SKU 的填报与库存不得拼接。校验通过后才原子新增交出记录、出库流水和下游待接收投影。`confirmWoolDownstreamReceipt` 只追加实际接收、差异、接收人和时间，不恢复毛织库存、不修改来源交出数量。
+`addWoolHandover` 从加工单读取结构化 `receiverType/receiverId/receiverName`，不接受页面自由文本；按输入 `outputSkuCode` 计算“可交出余额 = min(该 SKU 默认库位有效库存, 该 SKU 累计有效加工填报 - 该 SKU 累计有效交出)”，本次数量不得超过该余额。无该 SKU 有效填报、余额为 0 或超量时零写失败；不同款色 SKU 的填报与库存不得拼接。整件毛织和部位毛织的交出数量均按颜色+尺码件数保存，部位毛织不得写片数。校验通过后才原子新增交出记录、出库流水和下游待接收投影。`confirmWoolDownstreamReceipt` 只追加实际接收、差异、接收人和时间，不恢复毛织库存、不修改来源交出数量。
+
+- [ ] **步骤 5.1：实现毛织交出单打印**
+
+新增 `renderCraftWoolHandoverPrintPage` 和动态路由 `/fcs/craft/wool/work-orders/:woolOrderId/handover-print`；毛织加工单列表在至少存在一条交出记录后显示“打印交出单”。打印页按交出记录逐张输出 A4 `SURAT JALAN / 毛织交出单`，必须展示生产单、毛织加工单、下游接收工厂、颜色、尺码、本次交出件数、款式图、物料图、条码和二维码。整件毛织接收方为后道工厂；部位毛织接收方为裁床工厂（裁床待交出仓）。毛织打印链路不得出现菲票语义。
 
 - [ ] **步骤 6：实现纱线领用退回与独立库存调整/转移**
 

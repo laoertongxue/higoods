@@ -139,9 +139,9 @@ export function renderCraftWoolHandoverPrintPage(woolOrderId: string): string {
     woolOrderId,
     recordType: 'HANDOVER',
   }).map((item) => item.record as WoolHandoverRecord)
-  return `<main class="min-h-screen bg-slate-100 p-6 text-slate-900">
+  return `<main class="fixed inset-0 z-[9999] min-h-screen overflow-auto bg-slate-100 p-6 text-slate-900" data-wool-handover-print-root>
     <style>
-      @media print { body { background: #fff; } .print-toolbar { display: none; } .a4-page { margin: 0; box-shadow: none; page-break-after: always; } }
+      @media print { body { background: #fff; } [data-wool-handover-print-root] { position: static; overflow: visible; padding: 0; background: #fff; } .print-toolbar { display: none; } .a4-page { margin: 0; box-shadow: none; page-break-after: always; } }
       .a4-page { width: 210mm; min-height: 297mm; margin: 0 auto 24px; background: #fff; padding: 18mm; box-shadow: 0 8px 24px rgba(15,23,42,.16); }
       .barcode { display: flex; height: 42px; align-items: stretch; gap: 2px; }
       .barcode span { display: inline-block; background: #0f172a; }

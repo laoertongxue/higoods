@@ -7,6 +7,7 @@ import {
   addWoolYarnReceipt,
   listWoolWorkOrders,
 } from '../src/data/fcs/wool-task-domain.ts'
+import { renderCraftWoolHandoverPrintPage } from '../src/pages/process-factory/wool/handover-print.ts'
 
 function read(path: string): string {
   return readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
@@ -71,6 +72,8 @@ const routeSource = read('src/router/routes-fcs.ts')
 const renderersSource = read('src/router/route-renderers-fcs.ts')
 const linksSource = read('src/data/fcs/fcs-route-links.ts')
 const printPagePath = 'src/pages/process-factory/wool/handover-print.ts'
+const designSource = read('docs/superpowers/specs/2026-07-30-wool-management-fact-workflow-design.md')
+const planSource = read('docs/superpowers/plans/2026-07-30-wool-management-fact-workflow-implementation-plan.md')
 
 assert(
   workOrdersSource.includes('打印交出单'),
@@ -112,5 +115,46 @@ assert(
   !printSource.includes('菲票') && !workOrdersSource.includes('打印菲票'),
   '毛织打印链路不得出现菲票语义',
 )
+
+for (const forbiddenDocText of [
+  '部位加工后对象 | 毛织部位 SKU，单位为片',
+  '部位计划量 | 成衣 SKU 计划件数 × 单件该部位所需片数',
+  '部位毛织按毛织部位 SKU 和片',
+  '计划片数为成衣计划件数',
+]) {
+  assert(
+    !designSource.includes(forbiddenDocText) && !planSource.includes(forbiddenDocText),
+    `正式设计/实现计划仍残留部位毛织片数口径：${forbiddenDocText}`,
+  )
+}
+for (const requiredDocText of [
+  '部位毛织按毛织部位 SKU 和颜色+尺码件数管理',
+  '每次交出必须可以打印独立交出单',
+  '明细数量按颜色+尺码展示“本次交出件数”',
+  '新增 `renderCraftWoolHandoverPrintPage`',
+]) {
+  assert(
+    designSource.includes(requiredDocText) || planSource.includes(requiredDocText),
+    `正式设计/实现计划缺少毛织交出单或件数口径说明：${requiredDocText}`,
+  )
+}
+
+const renderedPrintPage = renderCraftWoolHandoverPrintPage(partPanelOrder.woolOrderId)
+for (const expectedRenderedText of [
+  handover.handoverId,
+  partPanelOrder.productionOrderNo,
+  partPanelOrder.woolOrderNo,
+  '裁床工厂（裁床待交出仓）',
+  partOutput.colorName,
+  partOutput.sizeCode,
+  '2 件',
+  'data-barcode',
+  'data-qr-code',
+  'wool-print-style-image',
+  'wool-print-material-image-1',
+]) {
+  assert(renderedPrintPage.includes(expectedRenderedText), `实际交出单渲染结果缺少：${expectedRenderedText}`)
+}
+assert(!renderedPrintPage.includes('菲票'), '实际毛织交出单渲染结果不得出现菲票语义')
 
 console.log('check:wool-handover-printing passed')

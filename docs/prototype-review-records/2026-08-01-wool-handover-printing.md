@@ -59,6 +59,7 @@
 
 - 本次变更纠正毛织交出数量口径，并补齐交出单打印链路。
 - 毛织打印链路只打印交出单，不恢复、不新增毛织菲票打印。
+- 已用实际浏览器打开毛织交出单打印页并截图核查，打印预览覆盖系统外壳，只显示 A4 交出单主体和打印工具条。
 
 ## 7. 变更覆盖与验证
 
@@ -85,7 +86,8 @@
 - `npm run build`：通过
 - `npm run check:prototype-design-governance -- --all`：通过
 - `npm run check:list-page-governance`：通过
-- `CUTTING_E2E_PORT=63517 PLAYWRIGHT_REUSE_EXISTING_SERVER=false npm run test:wool-fact-workflow:e2e`：通过
+- `CUTTING_E2E_PORT=64232 PLAYWRIGHT_REUSE_EXISTING_SERVER=false npm run test:wool-fact-workflow:e2e`：通过
+- Playwright 实际截图 `output/playwright/wool-handover-print-part-panel.png`：通过，样例为部位毛织 `WMO-016`，交出数量 `7 件`，接收方为裁床工厂（裁床待交出仓），包含 3 张图片、1 个条码和 1 个二维码。
 
 ### 例外
 
