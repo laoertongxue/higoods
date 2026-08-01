@@ -1,7 +1,11 @@
 // 工程主单 LocalStorage 仓库：主单及任务骨架的唯一事实源。
 // 任务骨架在发布时一次性生成，依赖只从固定策略复制，不提供任何更新依赖的接口。
 
-import { getEngineeringTaskDefinition, resolveInitialTaskStatus } from './pcs-engineering-dependency-policy.ts'
+import {
+  getEngineeringTaskDefinition,
+  resolveEngineeringTaskSubmitStatus,
+  resolveInitialTaskStatus,
+} from './pcs-engineering-dependency-policy.ts'
 import { assertFirstFormalProduction } from './pcs-engineering-first-production-policy.ts'
 import {
   getStyleArchiveById,
@@ -232,4 +236,46 @@ export function resetEngineeringMasterRepository(): void {
   } catch {
     // 忽略存储不可用
   }
+}
+
+// 提交任务成果：制版与产前版样衣提交即完成；花型和调色进入待审核。
+// 待前置任务要求全部前置已完成；条件任务未启用时禁止提交。
+export function submitEngineeringTaskResult(
+  masterOrderId: string,
+  taskId: string,
+): { masterOrder: EngineeringMasterOrderRecord; task: EngineeringTaskRecord } {
+  const snapshot = readSnapshot()
+  const record = snapshot.records.find((item) => item.masterOrderId === masterOrderId)
+  if (!record) throw new Error(`工程主单不存在：${masterOrderId}`)
+  if (record.status === '草稿' || record.status === '已终止') {
+    throw new Error('仅已发布工程主单的任务可以提交成果。')
+  }
+
+  const task = record.tasks.find((item) => item.taskId === taskId)
+  if (!task) throw new Error(`工程任务不存在：${taskId}`)
+  if (task.status === '未启用') throw new Error('任务未启用，不能提交成果。')
+  if (task.status === '待审核') throw new Error('任务已提交成果，等待审核。')
+  if (task.status === '返工中') throw new Error('任务处于返工中，不能提交成果。')
+  if (task.status === '已完成') throw new Error('任务已完成，不能重复提交成果。')
+  if (task.status === '因需求变更结束') throw new Error('任务已因需求变更结束，不能提交成果。')
+  if (task.status === '待前置') {
+    const pendingDependencies = task.dependsOnTaskIds.filter((dependencyId) => {
+      const dependency = record.tasks.find((item) => item.taskId === dependencyId)
+      return !dependency || (dependency.status !== '已完成' && dependency.status !== '因需求变更结束')
+    })
+    if (pendingDependencies.length > 0) {
+      throw new Error('前置任务未完成，不能提交成果。')
+    }
+  }
+
+  const submittedAt = nowText()
+  const targetStatus = resolveEngineeringTaskSubmitStatus(task.taskType)
+  task.status = targetStatus
+  task.submittedAt = submittedAt
+  if (targetStatus === '已完成') {
+    task.firstCompletedAt = submittedAt
+    task.effectiveCompletedAt = submittedAt
+  }
+  writeSnapshot(snapshot)
+  return { masterOrder: cloneRecord(record), task: cloneTask(task) }
 }

@@ -10,6 +10,7 @@ import {
   type EngineeringMasterDetailModel,
   type EngineeringTaskCardModel,
 } from '../data/pcs-engineering-master-view-model.ts'
+import { getEngineeringMasterOrderById, submitEngineeringTaskResult } from '../data/pcs-engineering-master-repository.ts'
 import type {
   EngineeringMasterStatus,
   EngineeringTaskStatus,
@@ -59,6 +60,9 @@ const detailUiState: DetailUiState = {
   selectedTaskId: '',
   drawerOpen: false,
 }
+
+// 可提交成果的任务状态：待开始、进行中；待前置任务在依赖全部完成后也可提交。
+const SUBMITTABLE_STATUSES: EngineeringTaskStatus[] = ['待开始', '进行中', '待前置']
 
 function renderStatusBadge(status: EngineeringMasterStatus): string {
   const tone = MASTER_STATUS_TONES[status] ?? 'bg-slate-100 text-slate-700'
@@ -197,10 +201,11 @@ function renderLaneGrid(model: EngineeringMasterDetailModel): string {
 // ============ 任务抽屉 ============
 
 function renderTaskDrawer(model: EngineeringMasterDetailModel, task: EngineeringTaskCardModel): string {
-  const taskRecord = model.lanes
-    .flatMap((lane) => lane.tasks)
-    .find((item) => item.taskId === task.taskId)
-  if (!taskRecord) return ''
+  // 抽屉需要完整任务记录（时间、物料行、返工轮次），从仓库读取原始数据，不使用卡片视图模型。
+  const rawTask = getEngineeringMasterOrderById(model.masterOrderId)?.tasks.find(
+    (item) => item.taskId === task.taskId,
+  )
+  if (!rawTask) return ''
 
   const dependsOnHtml = task.dependsOnLabels.length > 0
     ? `<p class="text-sm text-slate-700">${escapeHtml(task.dependsOnLabels.join('、'))}</p>`
@@ -210,10 +215,10 @@ function renderTaskDrawer(model: EngineeringMasterDetailModel, task: Engineering
     : '<p class="text-sm text-slate-400">无下游任务</p>'
 
   const timingRows = [
-    ['开始时间', task.startedAt || '—'],
-    ['提交时间', task.submittedAt || '—'],
-    ['首次完成', task.firstCompletedAt || '—'],
-    ['当前完成', task.effectiveCompletedAt || '—'],
+    ['开始时间', rawTask.startedAt || '—'],
+    ['提交时间', rawTask.submittedAt || '—'],
+    ['首次完成', rawTask.firstCompletedAt || '—'],
+    ['当前完成', rawTask.effectiveCompletedAt || '—'],
   ]
     .map(([label, value]) => `
       <div class="flex items-center justify-between gap-3 border-b py-2 text-sm last:border-b-0">
@@ -223,8 +228,8 @@ function renderTaskDrawer(model: EngineeringMasterDetailModel, task: Engineering
     `)
     .join('')
 
-  const materialHtml = taskRecord.materialLines?.length
-    ? taskRecord.materialLines.map((line) => `
+  const materialHtml = rawTask.materialLines?.length
+    ? rawTask.materialLines.map((line) => `
         <div class="flex items-center justify-between gap-3 border-b py-2 text-sm last:border-b-0">
           <span class="text-slate-700">${escapeHtml(line.materialName)}</span>
           <span class="text-xs text-slate-500">${escapeHtml(line.requirementType)}</span>
@@ -232,8 +237,8 @@ function renderTaskDrawer(model: EngineeringMasterDetailModel, task: Engineering
       `).join('')
     : '<p class="text-sm text-slate-400">暂无物料明细</p>'
 
-  const reworkHtml = taskRecord.reworkRounds?.length
-    ? taskRecord.reworkRounds.map((round) => `
+  const reworkHtml = rawTask.reworkRounds?.length
+    ? rawTask.reworkRounds.map((round) => `
         <div class="border-b py-2 text-sm last:border-b-0">
           <p class="text-slate-700">第 ${round.roundNo} 轮返工</p>
           <p class="mt-0.5 text-xs text-slate-500">${escapeHtml(round.reason)} · 提交 ${escapeHtml(round.submittedAt)}</p>
@@ -241,13 +246,31 @@ function renderTaskDrawer(model: EngineeringMasterDetailModel, task: Engineering
       `).join('')
     : '<p class="text-sm text-slate-400">暂无返工记录</p>'
 
+  const submittable = SUBMITTABLE_STATUSES.includes(rawTask.status)
+  const submitHint = submittable
+    ? task.reviewRequired
+      ? '提交成果后进入待审核，由买手逐项审核。'
+      : '提交成果后任务即完成，无需人工确认。'
+    : ''
+  const submitHtml = submittable
+    ? `
+      <button
+        type="button"
+        class="inline-flex h-9 w-full items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700"
+        data-${DETAIL_EVENT_PREFIX}-action="submit-task-result"
+        data-task-id="${escapeHtml(rawTask.taskId)}"
+      >提交成果</button>
+      <p class="mt-2 text-xs text-slate-500">${escapeHtml(submitHint)}</p>
+    `
+    : `<p class="text-sm text-slate-500">当前状态：${escapeHtml(rawTask.status)}</p>`
+
   return `
     <div class="fixed inset-0 z-50 flex justify-end bg-black/30" data-engineering-master-drawer-backdrop>
       <aside class="flex h-full w-full max-w-md flex-col bg-white shadow-xl" role="dialog" aria-label="任务详情">
         <header class="flex items-center justify-between gap-3 border-b px-4 py-3">
           <div class="flex items-center gap-2">
-            <h2 class="text-base font-semibold">${escapeHtml(taskRecord.taskName)}</h2>
-            ${renderTaskStatusBadge(taskRecord.status)}
+            <h2 class="text-base font-semibold">${escapeHtml(rawTask.taskName)}</h2>
+            ${renderTaskStatusBadge(rawTask.status)}
           </div>
           <button
             type="button"
@@ -262,13 +285,13 @@ function renderTaskDrawer(model: EngineeringMasterDetailModel, task: Engineering
             <div class="space-y-1.5 text-sm">
               <p class="text-slate-700">主单：${escapeHtml(model.masterOrderCode)}</p>
               <p class="text-slate-700">款式：${escapeHtml(model.styleName)}（${escapeHtml(model.styleCode)}）</p>
-              <p class="text-slate-700">责任团队：${escapeHtml(taskRecord.ownerTeamName)}</p>
+              <p class="text-slate-700">责任团队：${escapeHtml(rawTask.ownerTeamName)}</p>
             </div>
           </section>
           <section>
             <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">当前阶段与依赖</h3>
             <div class="space-y-1.5">
-              <p class="text-sm text-slate-700">当前节点：${escapeHtml(taskRecord.currentNodeName)}</p>
+              <p class="text-sm text-slate-700">当前节点：${escapeHtml(task.currentNodeName)}</p>
               <div class="rounded-md bg-slate-50 px-3 py-2">
                 <p class="text-xs text-slate-500">前置依赖（只读）</p>
                 ${dependsOnHtml}
@@ -292,6 +315,7 @@ function renderTaskDrawer(model: EngineeringMasterDetailModel, task: Engineering
             ${reworkHtml}
           </section>
         </div>
+        <footer class="border-t px-4 py-3">${submitHtml}</footer>
       </aside>
     </div>
   `
@@ -317,6 +341,7 @@ export function renderPcsEngineeringMasterDetailPage(key: string): string {
   return `
     <div class="min-w-0 max-w-full space-y-3 p-4" data-pcs-engineering-master-detail-page>
       ${renderMasterHeader(model)}
+      <div data-engineering-master-region="feedback"></div>
       ${renderPriorReuseRegion(model)}
       <div data-engineering-master-region="lanes">${withDetailLocalInteractions(renderLaneGrid(model))}</div>
       <div data-engineering-master-region="drawer">${withDetailLocalInteractions(drawerHtml)}</div>
@@ -372,6 +397,28 @@ function refreshTaskDrawer(model: EngineeringMasterDetailModel, selectedTaskId: 
     .catch(() => undefined)
 }
 
+function refreshLanesRegion(model: EngineeringMasterDetailModel): void {
+  if (typeof document === 'undefined') return
+  const lanesHost = document.querySelector<HTMLElement>('[data-engineering-master-region="lanes"]')
+  if (!lanesHost) return
+  lanesHost.innerHTML = withDetailLocalInteractions(renderLaneGrid(model))
+  void import('../components/shell.ts')
+    .then(({ hydrateIcons }) => hydrateIcons(lanesHost))
+    .catch(() => undefined)
+  if (detailUiState.selectedTaskId) highlightTaskDependencies(detailUiState.selectedTaskId)
+}
+
+function showDetailFeedback(message: string, ok: boolean): void {
+  if (typeof document === 'undefined') return
+  const feedbackHost = document.querySelector<HTMLElement>('[data-engineering-master-region="feedback"]')
+  if (!feedbackHost) return
+  feedbackHost.innerHTML = `
+    <section class="rounded-lg border px-4 py-2.5 text-sm ${ok ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-800'}">
+      ${escapeHtml(message)}
+    </section>
+  `
+}
+
 export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): boolean {
   const actionNode = target.closest<HTMLElement>(`[data-${DETAIL_EVENT_PREFIX}-action]`)
   if (!actionNode) return false
@@ -395,6 +442,27 @@ export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): bool
     const model = buildEngineeringMasterDetailModel(currentMasterKey())
     if (model) refreshTaskDrawer(model, '')
     clearTaskCardHighlights()
+    return true
+  }
+  if (action === 'submit-task-result') {
+    const taskId = actionNode.dataset.taskId || ''
+    const masterKey = currentMasterKey()
+    if (!taskId || !masterKey) return true
+    let message = ''
+    let ok = false
+    try {
+      const result = submitEngineeringTaskResult(masterKey, taskId)
+      message = `「${result.task.taskName}」已提交成果，当前状态：${result.task.status}。`
+      ok = true
+    } catch (error) {
+      message = error instanceof Error ? error.message : '提交成果失败。'
+    }
+    const model = buildEngineeringMasterDetailModel(masterKey)
+    if (model) {
+      refreshLanesRegion(model)
+      refreshTaskDrawer(model, detailUiState.selectedTaskId)
+    }
+    showDetailFeedback(message, ok)
     return true
   }
   return false

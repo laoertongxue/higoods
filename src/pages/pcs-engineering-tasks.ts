@@ -110,7 +110,7 @@ import type { FirstSampleTaskRecord } from '../data/pcs-first-sample-types.ts'
 import type { FirstOrderSampleTaskRecord } from '../data/pcs-first-order-sample-types.ts'
 import { tokenizePatternFilename } from '../utils/pcs-pattern-library-services.ts'
 import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
-import { ENGINEERING_COMMON_FILTER_STATUS_OPTIONS, ENGINEERING_LIST_PAGE_SIZES, ENGINEERING_LIST_STORAGE_KEYS, type EngineeringListRow, type EngineeringLog, type FirstOrderDetailDraft, type FirstOrderResultDraft, type FirstSampleDetailDraft, PATTERN_COLOR_DEPTH_OPTIONS, PATTERN_DEMAND_SOURCE_OPTIONS, PATTERN_DIFFICULTY_OPTIONS, PATTERN_PROCESS_OPTIONS, type PatternDetailDraft, type PlateDetailDraft, REVISION_FILTER_STATUS_OPTIONS, REVISION_SCOPE_OPTIONS, type RevisionCreateDraft, type RevisionDetailDraft, SAMPLE_CHAIN_MODE_OPTIONS, SAMPLE_SITE_OPTIONS, SAMPLE_SPECIAL_REASON_OPTIONS, appendFileValues, appendImageValues, baseLogs, buildFirstSampleDetailDraft, buildMockFileId, buildProjectOptions, buildSelectOptions, buildStyleArchiveOptions, clearNotice, createEngineeringListColumns, engineeringListUiState, extractFileLabel, firstOrderConclusionMap, firstSampleAcceptanceMap, fromDateTimeLocalValue, getDisplayImageUrl, getEngineeringListColumns, getEngineeringListModule, getEngineeringListRows, getEngineeringListState, getEngineeringListStorage, getOwners, getProjectDefaultValues, getSources, getTaskStyleInfo, hasCompletedProjectRelation, initialFirstOrderCreateDraft, initialFirstOrderDetailDraft, initialFirstOrderResultDraft, initialFirstOrderStartDraft, initialFirstSampleResultDraft, initialFirstSampleStartDraft, initialPatternCreateDraft, initialPatternDetailDraft, initialPlateCreateDraft, initialPlateDetailDraft, initialRevisionCreateDraft, initialRevisionDetailDraft, initialSampleCreateDraft, isOverdue, mergeLogs, normalizeEngineeringListPreferences, nowText, parsePlateTemplateLinks, parseTagsText, projectButton, pushRuntimeLog, refreshEngineeringColumnOverlay, refreshEngineeringList, registerEngineeringListModule, removeListValue, renderDateTimeInput, renderDialog, renderEmptyDetail, renderEngineeringStandardListPage, renderFileUploader, renderHeaderMeta, renderImageList, renderImageThumbnailGrid, renderImageUploader, renderKeyValueGrid, renderListFilters, renderLogs, renderMetricButton, renderNotice, renderPreviewImageModal, renderProjectContext, renderSectionCard, renderSelectInput, renderSmallImage, renderStatusBadge, renderTabBar, renderTaskSaveBar, renderTextInput, renderTextarea, revisionTaskNewTabLink, runtimeLogs, saveEngineeringListPreferences, serializeFirstOrderSamplePlanLines, serializePlateTemplateLinks, setNotice, splitLines, state, styleArchiveButton, styleArchiveLink, techPackLinkByProject, type FirstOrderTab, type FirstSampleTab, type PatternTab, type PlateTab, type RevisionTab, type TaskBindingMode } from './pcs-engineering-tasks/shared.ts'
+import { ENGINEERING_COMMON_FILTER_STATUS_OPTIONS, ENGINEERING_LIST_PAGE_SIZES, ENGINEERING_LIST_STORAGE_KEYS, type EngineeringListRow, type EngineeringLog, type FirstOrderDetailDraft, type FirstOrderResultDraft, type FirstSampleDetailDraft, PATTERN_COLOR_DEPTH_OPTIONS, PATTERN_DEMAND_SOURCE_OPTIONS, PATTERN_DIFFICULTY_OPTIONS, PATTERN_PROCESS_OPTIONS, type PatternDetailDraft, type PlateDetailDraft, REVISION_FILTER_STATUS_OPTIONS, REVISION_SCOPE_OPTIONS, type RevisionCreateDraft, type RevisionDetailDraft, SAMPLE_CHAIN_MODE_OPTIONS, SAMPLE_SITE_OPTIONS, SAMPLE_SPECIAL_REASON_OPTIONS, appendFileValues, appendImageValues, baseLogs, buildFirstSampleDetailDraft, buildMockFileId, buildProjectOptions, buildSelectOptions, buildStyleArchiveOptions, clearNotice, createEngineeringListColumns, engineeringListUiState, extractFileLabel, firstOrderConclusionMap, fromDateTimeLocalValue, getDisplayImageUrl, getEngineeringListColumns, getEngineeringListModule, getEngineeringListRows, getEngineeringListState, getEngineeringListStorage, getOwners, getProjectDefaultValues, getSources, getTaskStyleInfo, hasCompletedProjectRelation, initialFirstOrderCreateDraft, initialFirstOrderDetailDraft, initialFirstOrderResultDraft, initialFirstOrderStartDraft, initialFirstSampleResultDraft, initialFirstSampleStartDraft, initialPatternCreateDraft, initialPatternDetailDraft, initialPlateCreateDraft, initialPlateDetailDraft, initialRevisionCreateDraft, initialRevisionDetailDraft, initialSampleCreateDraft, isOverdue, mergeLogs, normalizeEngineeringListPreferences, nowText, parsePlateTemplateLinks, parseTagsText, projectButton, pushRuntimeLog, refreshEngineeringColumnOverlay, refreshEngineeringList, registerEngineeringListModule, removeListValue, renderDateTimeInput, renderDialog, renderEmptyDetail, renderEngineeringStandardListPage, renderFileUploader, renderHeaderMeta, renderImageList, renderImageThumbnailGrid, renderImageUploader, renderKeyValueGrid, renderListFilters, renderLogs, renderMetricButton, renderNotice, renderPreviewImageModal, renderProjectContext, renderSectionCard, renderSelectInput, renderSmallImage, renderStatusBadge, renderTabBar, renderTaskSaveBar, renderTextInput, renderTextarea, revisionTaskNewTabLink, runtimeLogs, saveEngineeringListPreferences, serializeFirstOrderSamplePlanLines, serializePlateTemplateLinks, setNotice, splitLines, state, styleArchiveButton, styleArchiveLink, techPackLinkByProject, type FirstOrderTab, type FirstSampleTab, type PatternTab, type PlateTab, type RevisionTab, type TaskBindingMode } from './pcs-engineering-tasks/shared.ts'
 import { getPatternMemberOptions } from './pcs-engineering-tasks/pattern-task.ts'
 export { renderPcsPatternTaskDetailPage, renderPcsPatternTaskPage } from './pcs-engineering-tasks/pattern-task.ts'
 export { renderPcsColorTaskDetailPage, renderPcsColorTaskPage } from './pcs-engineering-tasks/color-task.ts'
@@ -2288,7 +2288,6 @@ function renderFirstOrderSamplePlanEditTable(scope: 'create' | 'result', lines: 
 function getFirstSampleActionLabel(status: string): string {
   if (status === '草稿' || status === '待处理') return '开始打样'
   if (status === '打样中') return '提交结果'
-  if (status === '待确认') return '填写结论'
   if (status === '需改版') return '去创建改版任务'
   return '查看结果'
 }
@@ -2418,7 +2417,7 @@ function renderFirstSampleListPage(): string {
     columns: FIRST_SAMPLE_LIST_COLUMNS,
     listState: state.firstSampleList,
     emptyText: '暂无首版样衣打样数据',
-    overlaysHtml: `${renderFirstSampleCreateDialog()}${renderFirstSampleStartDialog()}${renderFirstSampleResultDialog()}${renderFirstSampleAcceptanceDialog()}${renderRevisionCreateDialog()}`,
+    overlaysHtml: `${renderFirstSampleCreateDialog()}${renderFirstSampleStartDialog()}${renderFirstSampleResultDialog()}${renderRevisionCreateDialog()}`,
   })
 }
 
@@ -2445,7 +2444,7 @@ function renderFirstSampleCreateDialog(): string {
     <div class="mt-4">
       ${renderTextarea('说明', 'first-sample-create-note', draft.note, '')}
     </div>
-    <p class="mt-2 text-xs text-slate-400">创建时必须明确打样工厂、打样区域、材质模式和样衣用途；开始打样、提交结果和填写结论在详情页按动作弹窗完成。</p>
+    <p class="mt-2 text-xs text-slate-400">创建时必须明确打样工厂、打样区域、材质模式和样衣用途；开始打样和提交结果在详情页按动作弹窗完成。</p>
   `
   return renderDialog(state.firstSampleCreateOpen, '新建首版样衣打样', body, 'close-first-sample-create', 'submit-first-sample-create', '创建首版打样')
 }
@@ -2479,30 +2478,6 @@ function renderFirstSampleResultDialog(): string {
     </div>
   `
   return renderDialog(state.firstSampleResultOpen, '提交首版打样结果', body, 'close-first-sample-result', 'submit-first-sample-result', '提交结果')
-}
-
-function renderFirstSampleAcceptanceDialog(): string {
-  const reuseHint = state.firstSampleAcceptanceTaskId
-    ? getFirstSampleTaskById(state.firstSampleAcceptanceTaskId)?.samplePurpose === '首单复用候选'
-    : false
-  const body = `
-    <div class="space-y-4">
-      <div class="grid gap-4 md:grid-cols-2">
-        ${renderTextInput('确认人', 'first-sample-acceptance-confirmed-by', state.firstSampleAcceptanceConfirmedBy, '例如：张娜')}
-        ${renderDateTimeInput('确认时间', 'first-sample-acceptance-confirmed-at', state.firstSampleAcceptanceConfirmedAt)}
-      </div>
-      ${renderSelectInput('验收结论', 'first-sample-acceptance-result', state.firstSampleAcceptanceResult, [
-        { value: '通过', label: '通过' },
-        { value: '需改版', label: '需改版' },
-      ])}
-      ${renderTextarea('版型确认说明', 'first-sample-acceptance-note', state.firstSampleAcceptanceNote, '记录版型、尺寸、穿着效果和需改版点')}
-      ${renderTextarea('花型确认说明', 'first-sample-acceptance-artwork-summary', state.firstSampleAcceptanceArtworkSummary, '记录花型位置、颜色、外观效果；无花型时可写无')}
-      <div class="rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs leading-5 text-blue-800">
-        ${escapeHtml(reuseHint ? '当前样衣用途为首单复用候选。验收通过后会同步写入首单复用依据、复用确认时间、复用确认人和复用说明。' : '当前样衣用途不是首单复用候选。验收通过只记录首版确认结论，不自动写入首单复用依据。')}
-      </div>
-    </div>
-  `
-  return renderDialog(state.firstSampleAcceptanceOpen, '填写首版验收结论', body, 'close-first-sample-acceptance', 'submit-first-sample-acceptance', '提交验收')
 }
 
 function getFirstSampleDetailDraft(task: FirstSampleTaskRecord): FirstSampleDetailDraft {
@@ -2642,17 +2617,15 @@ function renderFirstSampleDetailPage(firstSampleTaskId: string): string {
   const task = getFirstSampleTaskById(firstSampleTaskId)
   if (!task) return renderEmptyDetail('首版样衣打样', '/pcs/samples/first-sample')
   getFirstSampleDetailDraft(task)
-  const acceptance =
-    firstSampleAcceptanceMap.get(task.firstSampleTaskId) ||
-    (task.confirmedAt || task.fitConfirmationSummary || task.productionReadinessNote
-      ? {
-          result: task.status === '已通过' ? '通过' : task.status,
-          note: task.fitConfirmationSummary || task.productionReadinessNote || task.note || '首版样衣已记录验收结论。',
-          updatedAt: task.confirmedAt || task.updatedAt,
-        }
-      : null)
+  const acceptance = task.confirmedAt || task.fitConfirmationSummary || task.productionReadinessNote
+    ? {
+        result: task.status === '已通过' ? '通过' : task.status,
+        note: task.fitConfirmationSummary || task.productionReadinessNote || task.note || '首版样衣已确认。',
+        updatedAt: task.confirmedAt || task.updatedAt,
+      }
+    : null
   const logs = mergeLogs('firstSample', task.firstSampleTaskId, [
-    ...(acceptance ? [{ time: acceptance.updatedAt, action: '填写验收', user: '当前用户', detail: `验收结论：${acceptance.result}。${acceptance.note}` }] : []),
+    ...(acceptance ? [{ time: acceptance.updatedAt, action: '成果状态', user: '当前用户', detail: `业务状态：${acceptance.result}。${acceptance.note}` }] : []),
     ...baseLogs(task),
   ])
   const resultImages = task.sampleImageIds || []
@@ -2694,9 +2667,9 @@ function renderFirstSampleDetailPage(firstSampleTaskId: string): string {
         ], 2)}
         <article class="rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-800">
           ${task.status === '打样中'
-            ? '当前节点需要点击右上角“提交打样结果”，填写结果编号、样衣图片、提交人和完成时间后进入待确认。'
-            : task.status === '待确认' || task.status === '已通过'
-              ? '首版打样结果已提交；完整结论通过右上角“填写验收结论”动作维护。'
+            ? '当前节点需要点击右上角“提交打样结果”，填写结果编号、样衣图片、提交人和完成时间。'
+            : task.status === '待确认'
+              ? '打样结果已提交；该状态仅保留业务结果展示，不再提供任务级验收动作。'
               : '首版开始打样后，再提交正式打样结果。'}
         </article>
         ${resultImages.length > 0
@@ -2732,7 +2705,7 @@ function renderFirstSampleDetailPage(firstSampleTaskId: string): string {
           { label: '确认时间', value: escapeHtml(task.confirmedAt || '-') },
         ], 2)}
         <article class="rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-800">
-          结论信息由右上角“填写验收结论”动作写入。不同动作只填写当前节点需要的信息，不再在 Tab 中补录完整字段。
+          结论信息在打样结果提交时写入。本页只读展示，不再提供任务级验收动作。
         </article>
       </div>
     `,
@@ -2772,7 +2745,6 @@ function renderFirstSampleDetailPage(firstSampleTaskId: string): string {
       </div>
       ${renderFirstSampleStartDialog()}
       ${renderFirstSampleResultDialog()}
-      ${renderFirstSampleAcceptanceDialog()}
       ${renderRevisionCreateDialog()}
     </div>
   `
@@ -3116,7 +3088,6 @@ function closeAllDialogs(): void {
   state.firstSampleCreateOpen = false
   state.firstSampleStartOpen = false
   state.firstSampleResultOpen = false
-  state.firstSampleAcceptanceOpen = false
   state.firstOrderCreateOpen = false
   state.firstOrderStartOpen = false
   state.firstOrderResultOpen = false
@@ -3208,16 +3179,6 @@ function advanceFirstSampleTask(taskId: string): void {
       submittedBy: task.ownerName || '当前用户',
       sampleImageIds: task.sampleImageIds || [],
     }
-    return
-  }
-  if (task.status === '待确认') {
-    state.firstSampleAcceptanceOpen = true
-    state.firstSampleAcceptanceTaskId = taskId
-    state.firstSampleAcceptanceResult = '通过'
-    state.firstSampleAcceptanceNote = ''
-    state.firstSampleAcceptanceArtworkSummary = task.artworkConfirmationSummary || ''
-    state.firstSampleAcceptanceConfirmedBy = task.ownerName || '当前用户'
-    state.firstSampleAcceptanceConfirmedAt = nowText()
     return
   }
   if (task.status === '需改版') {
@@ -3649,11 +3610,22 @@ function submitFirstSampleResult(): void {
     setNotice('请填写提交说明。')
     return
   }
+  const canReuseAsFirstOrderBasis = task.samplePurpose === '首单复用候选'
   const result = updateFirstSampleTaskDetailAndSync(task.firstSampleTaskId, {
-    status: '待确认',
+    status: '已通过',
     sampleCode: draft.sampleCode.trim(),
     sampleImageIds,
-    note: `${task.note ? `${task.note}；` : ''}提交首版打样结果：${draft.sampleCode.trim()}，${draft.resultNote.trim()}`,
+    confirmedAt: draft.completedAt.trim(),
+    reuseAsFirstOrderBasisFlag: canReuseAsFirstOrderBasis,
+    reuseAsFirstOrderBasisConfirmedAt: canReuseAsFirstOrderBasis ? draft.completedAt.trim() : '',
+    reuseAsFirstOrderBasisConfirmedBy: canReuseAsFirstOrderBasis ? draft.submittedBy.trim() : '',
+    reuseAsFirstOrderBasisNote: canReuseAsFirstOrderBasis ? '首版样衣成果已提交，可直接作为首单参照。' : '',
+    fitConfirmationSummary: task.fitConfirmationSummary || '制作团队已提交版型成果。',
+    artworkConfirmationSummary: task.artworkConfirmationSummary || '制作团队已提交花型与外观成果。',
+    productionReadinessNote: task.productionReadinessNote || (canReuseAsFirstOrderBasis
+      ? '可作为首单复用候选。'
+      : '首版样衣成果已提交完成。'),
+    note: `${task.note ? `${task.note}；` : ''}提交首版打样结果并完成任务：${draft.sampleCode.trim()}，${draft.resultNote.trim()}`,
   }, draft.submittedBy.trim())
   if (result.task) {
     state.firstSampleDetailDraftTaskId = result.task.firstSampleTaskId
@@ -3661,7 +3633,7 @@ function submitFirstSampleResult(): void {
   }
   state.firstSampleResultOpen = false
   pushRuntimeLog('firstSample', task.firstSampleTaskId, '提交打样结果', `结果编号：${draft.sampleCode.trim()}；提交人：${draft.submittedBy.trim()}；完成时间：${draft.completedAt}。${draft.resultNote.trim()}`)
-  setNotice(result.ok ? `首版样衣任务 ${task.firstSampleTaskCode} 已提交打样结果。` : result.message)
+  setNotice(result.ok ? `首版样衣任务 ${task.firstSampleTaskCode} 已提交成果并完成。` : result.message)
 }
 
 function submitFirstOrderCreate(): void {
@@ -4361,11 +4333,6 @@ if (field === 'tech-pack-search' && fieldNode instanceof HTMLInputElement) { sta
       case 'first-sample-result-submitted-by': state.firstSampleResultDraft.submittedBy = value; return true
       case 'first-sample-result-completed-at': state.firstSampleResultDraft.completedAt = fromDateTimeLocalValue(value); return true
       case 'first-sample-result-note': state.firstSampleResultDraft.resultNote = value; return true
-      case 'first-sample-acceptance-confirmed-by': state.firstSampleAcceptanceConfirmedBy = value; return true
-      case 'first-sample-acceptance-confirmed-at': state.firstSampleAcceptanceConfirmedAt = fromDateTimeLocalValue(value); return true
-      case 'first-sample-acceptance-result': state.firstSampleAcceptanceResult = value; return true
-      case 'first-sample-acceptance-note': state.firstSampleAcceptanceNote = value; return true
-      case 'first-sample-acceptance-artwork-summary': state.firstSampleAcceptanceArtworkSummary = value; return true
       case 'first-sample-detail-sample-code': state.firstSampleDetailDraft.sampleCode = value; return true
       case 'first-sample-detail-sample-images': state.firstSampleDetailDraft.sampleImageIdsText = value; return true
       case 'first-sample-detail-fit-summary': state.firstSampleDetailDraft.fitConfirmationSummary = value; return true
@@ -5039,54 +5006,6 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement, event?: Event
   }
   if (action === 'first-sample-advance') { advanceFirstSampleTask(actionNode.dataset.taskId || ''); return true }
   if (action === 'save-first-sample-detail') { saveFirstSampleDetail(actionNode.dataset.taskId || state.firstSampleDetailDraftTaskId); return true }
-  if (action === 'close-first-sample-acceptance') { state.firstSampleAcceptanceOpen = false; return true }
-  if (action === 'submit-first-sample-acceptance') {
-    const task = getFirstSampleTaskById(state.firstSampleAcceptanceTaskId)
-    if (!task) { setNotice('未找到首版样衣任务。'); return true }
-    const confirmer = state.firstSampleAcceptanceConfirmedBy.trim()
-    const timestamp = state.firstSampleAcceptanceConfirmedAt.trim()
-    const acceptanceNote = state.firstSampleAcceptanceNote.trim()
-    const artworkSummary = state.firstSampleAcceptanceArtworkSummary.trim()
-    if (!confirmer) { setNotice('请填写确认人。'); return true }
-    if (!timestamp) { setNotice('请填写确认时间。'); return true }
-    if (!acceptanceNote) { setNotice('请填写验收说明。'); return true }
-    if (state.firstSampleAcceptanceResult !== '通过' && state.firstSampleAcceptanceResult !== '需改版') {
-      setNotice('首版验收结论只能选择通过或需改版。')
-      return true
-    }
-    firstSampleAcceptanceMap.set(task.firstSampleTaskId, { result: state.firstSampleAcceptanceResult, note: acceptanceNote, updatedAt: timestamp })
-    const passed = state.firstSampleAcceptanceResult === '通过'
-    const nextStatus = passed ? '已通过' : '需改版'
-    const canReuseAsFirstOrderBasis = passed && task.samplePurpose === '首单复用候选'
-    const result = updateFirstSampleTaskDetailAndSync(task.firstSampleTaskId, {
-      status: nextStatus,
-      confirmedAt: timestamp,
-      reuseAsFirstOrderBasisFlag: canReuseAsFirstOrderBasis,
-      reuseAsFirstOrderBasisConfirmedAt: canReuseAsFirstOrderBasis ? timestamp : '',
-      reuseAsFirstOrderBasisConfirmedBy: canReuseAsFirstOrderBasis ? confirmer : '',
-      reuseAsFirstOrderBasisNote: canReuseAsFirstOrderBasis ? '首版样衣已确认，可直接作为首单参照。' : '',
-      fitConfirmationSummary: passed ? acceptanceNote || task.fitConfirmationSummary || '版型确认通过。' : acceptanceNote || task.fitConfirmationSummary,
-      artworkConfirmationSummary: passed
-        ? artworkSummary || task.artworkConfirmationSummary || '花型与外观确认通过。'
-        : artworkSummary || task.artworkConfirmationSummary,
-      productionReadinessNote: passed
-        ? task.productionReadinessNote || (canReuseAsFirstOrderBasis ? '可作为首单复用候选。' : '首版样衣确认通过，当前仅作为首版确认结论。')
-        : '首版样衣验收需改版，待改版任务完成后重新确认。',
-      note: `${task.note ? `${task.note}；` : ''}验收结论：${state.firstSampleAcceptanceResult}`,
-    }, confirmer)
-    if (result.task) {
-      state.firstSampleDetailDraftTaskId = result.task.firstSampleTaskId
-      state.firstSampleDetailDraft = buildFirstSampleDetailDraft(result.task)
-    }
-    pushRuntimeLog('firstSample', task.firstSampleTaskId, '填写验收', `确认人：${confirmer}；确认时间：${timestamp}；验收结论：${state.firstSampleAcceptanceResult}。${acceptanceNote}`, confirmer)
-    state.firstSampleAcceptanceOpen = false
-    state.firstSampleTab = 'acceptance'
-    setNotice(result.ok
-      ? `首版样衣任务 ${task.firstSampleTaskCode} 已提交验收结论并同步商品项目关系。${passed ? '' : '请在改版处理入口创建或跟进改版任务。'}`
-      : result.message)
-    return true
-  }
-
   if (action === 'first-order-advance') { advanceFirstOrderTask(actionNode.dataset.taskId || ''); return true }
   if (action === 'close-first-order-start') { state.firstOrderStartOpen = false; return true }
   if (action === 'submit-first-order-start') { submitFirstOrderStart(); return true }
@@ -5140,7 +5059,6 @@ export function isPcsEngineeringTaskDialogOpen(): boolean {
     || state.firstSampleCreateOpen
     || state.firstSampleStartOpen
     || state.firstSampleResultOpen
-    || state.firstSampleAcceptanceOpen
     || state.firstOrderCreateOpen
     || state.firstOrderStartOpen
     || state.firstOrderResultOpen
@@ -5181,13 +5099,6 @@ export function resetPcsEngineeringTaskState(): void {
   state.firstSampleResultOpen = false
   state.firstSampleResultTaskId = ''
   state.firstSampleResultDraft = initialFirstSampleResultDraft()
-  state.firstSampleAcceptanceOpen = false
-  state.firstSampleAcceptanceTaskId = ''
-  state.firstSampleAcceptanceResult = '通过'
-  state.firstSampleAcceptanceNote = ''
-  state.firstSampleAcceptanceArtworkSummary = ''
-  state.firstSampleAcceptanceConfirmedBy = '当前用户'
-  state.firstSampleAcceptanceConfirmedAt = nowText()
   state.firstOrderList = { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1, site: 'all' }
   state.firstOrderTab = 'overview'
   state.firstOrderCreateOpen = false
@@ -5207,7 +5118,6 @@ export function resetPcsEngineeringTaskState(): void {
   state.firstOrderConclusionConfirmedBy = '当前用户'
   state.firstOrderConclusionConfirmedAt = nowText()
   Object.values(runtimeLogs).forEach((map) => map.clear())
-  firstSampleAcceptanceMap.clear()
   firstOrderConclusionMap.clear()
 }
 

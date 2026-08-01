@@ -206,3 +206,9 @@ export function resolveInitialTaskStatus(taskType: EngineeringTaskType): Enginee
   if (definition.dependsOn.length > 0) return '待前置'
   return '待开始'
 }
+
+// 提交目标状态派生：制版与产前版样衣提交成果即完成；只有花型和调色进入待审核。
+export function resolveEngineeringTaskSubmitStatus(taskType: EngineeringTaskType): EngineeringTaskStatus {
+  const definition = getEngineeringTaskDefinition(taskType)
+  return definition.reviewRequired ? '待审核' : '已完成'
+}

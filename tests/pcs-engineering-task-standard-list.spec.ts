@@ -9,6 +9,7 @@ import {
   renderPcsRevisionTaskPage,
   resetPcsEngineeringTaskState,
 } from '../src/pages/pcs-engineering-tasks.ts'
+import { ENGINEERING_LIST_STORAGE_KEYS } from '../src/pages/pcs-engineering-tasks/shared.ts'
 
 const pageSource = fs.readFileSync('src/pages/pcs-engineering-tasks.ts', 'utf8')
 const handlerSource = fs.readFileSync('src/main-handlers/pcs-handlers.ts', 'utf8')
@@ -60,8 +61,9 @@ for (const route of [
   '/pcs/samples/first-sample',
   '/pcs/samples/first-order',
 ]) {
-  assert.ok(pageSource.includes(`higood:list-page:${route}`), `缺少按路由持久化键：${route}`)
+  assert.ok(Object.values(ENGINEERING_LIST_STORAGE_KEYS).some((key) => key.includes(route)), `缺少按路由持久化键：${route}`)
 }
+assert.match(pageSource, /ENGINEERING_LIST_STORAGE_KEYS/, '主文件必须引用按路由持久化键常量')
 assert.match(pageSource, /loadListColumnPreferences/, '列表页进入时必须读取列偏好')
 assert.match(pageSource, /saveListColumnPreferences/, '列偏好与每页条数变化后必须保存')
 assert.match(pageSource, /resetStandardListEntryTransientStateOnRouteEntry/, '页码和排序必须在重新进入路由时复位')

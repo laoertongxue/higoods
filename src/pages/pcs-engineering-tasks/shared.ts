@@ -772,13 +772,6 @@ export const state = {
   firstSampleResultOpen: false,
   firstSampleResultTaskId: '',
   firstSampleResultDraft: initialFirstSampleResultDraft(),
-  firstSampleAcceptanceOpen: false,
-  firstSampleAcceptanceTaskId: '',
-  firstSampleAcceptanceResult: '通过',
-  firstSampleAcceptanceNote: '',
-  firstSampleAcceptanceArtworkSummary: '',
-  firstSampleAcceptanceConfirmedBy: '当前用户',
-  firstSampleAcceptanceConfirmedAt: nowText(),
 
   firstOrderList: { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1, site: 'all' } as SampleListState,
   firstOrderTab: 'overview' as FirstOrderTab,
@@ -836,7 +829,6 @@ export const runtimeLogs: Record<ModuleKey, Map<string, EngineeringLog[]>> = {
   techPack: new Map(),
 }
 
-export const firstSampleAcceptanceMap = new Map<string, { result: string; note: string; updatedAt: string }>()
 export const firstOrderConclusionMap = new Map<string, { result: string; note: string; updatedAt: string }>()
 export function nowText(): string {
   const now = new Date()
