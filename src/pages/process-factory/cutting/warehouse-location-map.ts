@@ -3,10 +3,10 @@ import {
   listFactoryWaitProcessStockItems,
   type FactoryInternalWarehouse,
   type FactoryInternalWarehouseKind,
-  type FactoryWarehouseArea,
-  type FactoryWarehouseLocation,
 } from '../../../data/fcs/factory-internal-warehouse.ts'
 import { escapeHtml } from '../../../utils.ts'
+import { renderFormDialog } from '../../../components/ui/dialog.ts'
+import { hydrateIcons } from '../../../components/shell.ts'
 import {
   renderWarehouseLocationMap,
   renderWarehouseLocationMapOccupancyOverlay,
@@ -17,7 +17,6 @@ import {
 import {
   buildWarehouseLocationMapProjection,
   listWarehouseLocationMapShelfCells,
-  listStableWarehouseLocationRefs,
   resolveStableWarehouseLocationRef,
   type WarehouseLocationMapProjection,
   type WarehouseLocationOccupancy,
@@ -26,9 +25,12 @@ import {
   loadWarehouseLayoutSnapshot,
   saveWarehouseLayoutSnapshot,
   resetWarehouseLayoutSnapshot,
-  appendWarehouseArea,
-  appendWarehouseLocation,
   applyWarehouseLayoutSnapshot,
+  createWarehouseArea,
+  createWarehouseShelf,
+  updateWarehouseArea,
+  updateWarehouseShelf,
+  updateWarehouseLocation,
   reorderWarehouseAreas,
   reorderWarehouseLocations,
   reorderWarehouseShelves,
@@ -620,12 +622,6 @@ export function renderCuttingWarehouseLocationMapSection(
   const mode = current.persistenceAvailable
     ? (requestedMode ?? (getSearchParams().get('layout') === '1' ? 'LAYOUT' : 'VIEW'))
     : 'VIEW'
-  const addButtons = mode === 'VIEW' && current.persistenceAvailable
-    ? `
-      <button type="button" class="min-h-11 rounded-md border px-4 text-sm" data-skip-page-rerender="true" data-warehouse-map-action="open-add-area" data-warehouse-kind="${kind}" data-warehouse-id="${escapeHtml(current.warehouse.warehouseId)}">新增库区</button>
-      <button type="button" class="min-h-11 rounded-md border px-4 text-sm" data-skip-page-rerender="true" data-warehouse-map-action="open-add-location" data-warehouse-kind="${kind}" data-warehouse-id="${escapeHtml(current.warehouse.warehouseId)}">新增库位</button>
-    `
-    : ''
   return `
     <section class="space-y-4" data-cutting-warehouse-map-section data-warehouse-kind="${kind}">
       <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-4" data-warehouse-map-toolbar>
@@ -636,10 +632,10 @@ export function renderCuttingWarehouseLocationMapSection(
         <div class="flex gap-2">
           ${current.persistenceAvailable ? '' : '<span class="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">当前仅可查看，无法保存</span>'}
           ${current.warningMessage.includes('无法恢复') ? '<button type="button" class="min-h-11 rounded-md border border-amber-300 px-4 text-sm text-amber-800" data-skip-page-rerender="true" data-warehouse-map-action="reset-layout">恢复默认编排</button>' : ''}
-          ${addButtons}
           ${!current.persistenceAvailable ? '' : mode === 'LAYOUT'
-            ? '<button type="button" class="min-h-11 rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-skip-page-rerender="true" data-warehouse-map-action="finish-layout">完成编排</button>'
-            : '<button type="button" class="min-h-11 rounded-md border px-4 text-sm" data-skip-page-rerender="true" data-warehouse-map-action="enter-layout">编排库位图</button>'}
+            ? `<button type="button" class="min-h-11 rounded-md border px-4 text-sm" data-skip-page-rerender="true" data-warehouse-map-action="open-create-area">新增库区</button>
+               <button type="button" class="min-h-11 rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-skip-page-rerender="true" data-warehouse-map-action="finish-maintenance">完成维护</button>`
+            : `<button type="button" class="min-h-11 rounded-md border px-4 text-sm" data-skip-page-rerender="true" data-warehouse-map-action="enter-maintenance" data-warehouse-kind="${kind}" data-warehouse-id="${escapeHtml(current.warehouse.warehouseId)}">维护库位图</button>`}
         </div>
       </div>
       ${renderWarehouseLocationMap({
@@ -654,140 +650,188 @@ export function renderCuttingWarehouseLocationMapSection(
 
 const CUTTING_WAREHOUSE_MODAL_ID = 'cutting-warehouse-location-map-modal'
 
+type MaintenanceDialog =
+  | { type: 'create-area' }
+  | { type: 'create-shelf'; areaId: string }
+  | { type: 'edit-area'; areaId: string }
+  | { type: 'edit-shelf'; shelfId: string }
+  | { type: 'edit-location'; locationId: string }
+
 function removeCuttingWarehouseLocationMapModal(): void {
   if (typeof document === 'undefined') return
   document.getElementById(CUTTING_WAREHOUSE_MODAL_ID)?.remove()
 }
 
-function renderCuttingWarehouseLocationMapModal(
-  kind: CuttingWarehouseMapKind,
-  action: 'area' | 'location',
-): string {
-  const current = buildCurrentCuttingWarehouseMapProjection(kind, { includeDemoOccupancies: getSearchParams().get('demo') === '1' })
-  if (!current) return ''
-  const areas = current.projection.areas
-  const defaultAreaId = areas[0]?.areaId || ''
-  const areaOptions = areas.map((area) => `<option value="${escapeHtml(area.areaId)}">${escapeHtml(area.areaName)}</option>`).join('')
-  const shelfOptions = areas.flatMap((area) => area.shelves.map((shelf) =>
-    `<option value="${escapeHtml(shelf.shelfId)}" data-area-id="${escapeHtml(area.areaId)}" ${area.areaId === defaultAreaId ? '' : 'hidden disabled'}>${escapeHtml(area.areaName)} / ${escapeHtml(shelf.shelfNo)}</option>`)).join('')
-  return `
-    <div id="${CUTTING_WAREHOUSE_MODAL_ID}" class="fixed inset-0 z-[140]" data-cutting-warehouse-modal data-warehouse-kind="${kind}" data-warehouse-modal-action="${action}" data-layout-version="${current.snapshot.layoutVersion}">
-      <button type="button" class="absolute inset-0 bg-black/45" data-skip-page-rerender="true" data-warehouse-map-action="close-add-dialog" aria-label="关闭"></button>
-      <section class="absolute left-1/2 top-1/2 w-[min(560px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-background shadow-2xl">
-        <header class="flex items-center justify-between border-b px-5 py-4">
-          <h2 class="text-base font-semibold">${action === 'area' ? '新增库区' : '新增库位'}</h2>
-          <button type="button" class="min-h-11 rounded-md border px-3 text-sm" data-skip-page-rerender="true" data-warehouse-map-action="close-add-dialog">关闭</button>
-        </header>
-        <form class="space-y-4 p-5" data-cutting-warehouse-create-form>
-          ${action === 'area' ? `
-            <label class="block text-sm"><span class="font-medium">库区名称</span><input name="areaName" required class="mt-1 h-10 w-full rounded-md border px-3" placeholder="例如 主身扩展区" /></label>
-            <label class="block text-sm"><span class="font-medium">备注</span><textarea name="remark" class="mt-1 h-20 w-full rounded-md border px-3 py-2" placeholder="可选"></textarea></label>
-          ` : `
-            <label class="block text-sm"><span class="font-medium">目标库区</span><select name="areaId" required class="mt-1 h-10 w-full rounded-md border px-3" data-skip-page-rerender="true" data-warehouse-map-action="change-add-area">${areaOptions}</select></label>
-            <label class="block text-sm"><span class="font-medium">目标货架</span><select name="shelfId" required class="mt-1 h-10 w-full rounded-md border px-3">${shelfOptions}</select></label>
-            <label class="block text-sm"><span class="font-medium">库位编号</span><input name="locationNo" class="mt-1 h-10 w-full rounded-md border px-3" placeholder="留空自动生成" /></label>
-            <label class="block text-sm"><span class="font-medium">备注</span><textarea name="remark" class="mt-1 h-20 w-full rounded-md border px-3 py-2" placeholder="可选"></textarea></label>
-          `}
-          <div class="rounded-md bg-muted/30 px-3 py-2 text-xs text-muted-foreground">新增后会进入当前${kind === 'WAIT_PROCESS' ? '待加工仓' : '待交出仓'}库位图，并保留编排版本。</div>
-          <div class="flex justify-end gap-2">
-            <button type="button" class="min-h-11 rounded-md border px-4 text-sm" data-skip-page-rerender="true" data-warehouse-map-action="close-add-dialog">取消</button>
-            <button type="button" class="min-h-11 rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-skip-page-rerender="true" data-warehouse-map-action="submit-add-${action}">保存</button>
-          </div>
-        </form>
-      </section>
-    </div>
-  `
+function field(label: string, name: string, value = '', options: { type?: string; disabled?: boolean; placeholder?: string } = {}): string {
+  return `<label class="block text-sm"><span class="font-medium">${escapeHtml(label)}</span><input name="${name}" type="${options.type || 'text'}" value="${escapeHtml(value)}" ${options.disabled ? 'disabled' : ''} ${options.placeholder ? `placeholder="${escapeHtml(options.placeholder)}"` : ''} class="mt-1 h-10 w-full rounded-md border px-3 disabled:cursor-not-allowed disabled:bg-muted" /></label>`
 }
 
-function openCuttingWarehouseLocationMapModal(kind: CuttingWarehouseMapKind, action: 'area' | 'location'): void {
+function remarkField(value = ''): string {
+  return `<label class="block text-sm"><span class="font-medium">备注</span><textarea name="remark" class="mt-1 h-20 w-full rounded-md border px-3 py-2" placeholder="可选">${escapeHtml(value)}</textarea></label>`
+}
+
+function renderLocationNumberChangePreview(rows: Array<{ before?: string; after: string }>, message = '完整编号预览'): string {
+  return `<section class="rounded-md border bg-muted/20 p-3" data-location-number-preview><h3 class="text-sm font-medium">${escapeHtml(message)}</h3><div class="mt-2 max-h-48 space-y-1 overflow-y-auto font-mono text-xs">${rows.length ? rows.map((row) => `<div>${row.before ? `${escapeHtml(row.before)} → ` : ''}${escapeHtml(row.after)}</div>`).join('') : '<div class="text-muted-foreground">暂无受影响库位</div>'}</div></section>`
+}
+
+function renderLevelPositionEditor(levelCount: number, positionCounts: number[]): string {
+  return `<section data-level-position-editor class="rounded-md border p-3"><div class="text-sm font-medium">逐层位置数</div><div class="mt-2 grid gap-2 sm:grid-cols-2">${Array.from({ length: levelCount }, (_, index) => field(`L${String(index + 1).padStart(2, '0')} 位置数`, `positionCount-${index + 1}`, String(positionCounts[index] ?? positionCounts[0] ?? 1), { type: 'number' })).join('')}</div></section>`
+}
+
+function dialogShell(kind: CuttingWarehouseMapKind, snapshot: FactoryWarehouseLayoutSnapshot, dialog: MaintenanceDialog, title: string, content: string): string {
+  const html = renderFormDialog({
+    title,
+    description: kind === 'WAIT_PROCESS' ? '当前维护：待加工仓' : '当前维护：待交出仓',
+    closeAction: { prefix: 'warehouse-map', action: 'close-maintenance-dialog' },
+    submitAction: { prefix: 'warehouse-map', action: 'submit-maintenance', label: '保存' },
+    width: 'lg',
+  }, `<div class="space-y-4" data-cutting-warehouse-maintenance-form>${content}<div class="hidden rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-800" role="alert" data-maintenance-error></div></div>`)
+  return `<div id="${CUTTING_WAREHOUSE_MODAL_ID}" class="fixed inset-0 z-[140]" data-cutting-warehouse-modal data-warehouse-kind="${kind}" data-maintenance-dialog="${dialog.type}" data-area-id="${'areaId' in dialog ? escapeHtml(dialog.areaId) : ''}" data-shelf-id="${'shelfId' in dialog ? escapeHtml(dialog.shelfId) : ''}" data-location-id="${'locationId' in dialog ? escapeHtml(dialog.locationId) : ''}" data-layout-version="${snapshot.layoutVersion}">${html}</div>`
+}
+
+function renderCreateAreaDialog(kind: CuttingWarehouseMapKind, snapshot: FactoryWarehouseLayoutSnapshot): string {
+  return dialogShell(kind, snapshot, { type: 'create-area' }, '新增库区', `${field('库区编码', 'areaCode', '', { placeholder: 'A 到 Z' })}${field('库区名称', 'areaName')}${remarkField()}${renderLocationNumberChangePreview([], '创建后为空库区，不自动生成货架或库位')}`)
+}
+
+function createShelfPreview(areaCode: string, shelfSequence: number, positionCounts: number[]): Array<{ after: string }> {
+  return positionCounts.flatMap((count, levelIndex) => Array.from({ length: count }, (_, positionIndex) => ({ after: `${areaCode}-R${String(shelfSequence).padStart(2, '0')}-L${String(levelIndex + 1).padStart(2, '0')}-P${String(positionIndex + 1).padStart(2, '0')}` })))
+}
+
+function renderCreateShelfDialog(kind: CuttingWarehouseMapKind, snapshot: FactoryWarehouseLayoutSnapshot, areaId: string, values = { shelfSequence: 1, levelCount: 1, defaultPositionCount: 1, positionCounts: [1], remark: '' }): string {
+  const area = snapshot.areaList.find((item) => item.areaId === areaId)
+  if (!area) return ''
+  return dialogShell(kind, snapshot, { type: 'create-shelf', areaId }, `在 ${area.code} 区新增货架`, `${field('货架序号', 'shelfSequence', String(values.shelfSequence), { type: 'number' })}${field('层数', 'levelCount', String(values.levelCount), { type: 'number' })}${field('默认每层位置数', 'defaultPositionCount', String(values.defaultPositionCount), { type: 'number' })}${renderLevelPositionEditor(values.levelCount, values.positionCounts)}${remarkField(values.remark)}${renderLocationNumberChangePreview(createShelfPreview(area.code || '', values.shelfSequence, values.positionCounts))}`)
+}
+
+function occupiedDescendants(current: NonNullable<ReturnType<typeof buildCurrentCuttingWarehouseMapProjection>>, locationIds: string[]): string[] {
+  const ids = new Set(locationIds)
+  return current.projection.areas.flatMap((area) => area.shelves.flatMap((shelf) => listWarehouseLocationMapShelfCells(shelf))).filter((cell) => ids.has(cell.locationId) && cell.businessStatus === 'OCCUPIED').map((cell) => cell.locationNo)
+}
+
+function affectedNotice(nos: string[]): string {
+  return nos.length ? `<div class="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">占用库位 ${nos.map(escapeHtml).join('、')} 的结构不能修改；请先完成出库或移库。本弹窗仍可修改备注。</div>` : ''
+}
+
+function renderEditAreaDialog(kind: CuttingWarehouseMapKind, current: NonNullable<ReturnType<typeof buildCurrentCuttingWarehouseMapProjection>>, areaId: string): string {
+  const area = current.snapshot.areaList.find((item) => item.areaId === areaId)
+  if (!area) return ''
+  const occupied = occupiedDescendants(current, area.shelfList.flatMap((shelf) => shelf.locationList.map((location) => location.locationId)))
+  const rows = area.shelfList.flatMap((shelf) => shelf.locationList.map((location) => ({ before: location.locationNo, after: location.locationNo })))
+  return dialogShell(kind, current.snapshot, { type: 'edit-area', areaId }, '编辑库区', `${affectedNotice(occupied)}${field('库区编码', 'areaCode', area.code || '', { disabled: Boolean(occupied.length) })}${field('库区名称', 'areaName', area.areaName, { disabled: Boolean(occupied.length) })}${remarkField(area.remark)}${renderLocationNumberChangePreview(rows, '原编号 → 新编号（输入后实时更新）')}`)
+}
+
+function renderEditShelfDialog(kind: CuttingWarehouseMapKind, current: NonNullable<ReturnType<typeof buildCurrentCuttingWarehouseMapProjection>>, shelfId: string): string {
+  const area = current.snapshot.areaList.find((item) => item.shelfList.some((shelf) => shelf.shelfId === shelfId))
+  const shelf = area?.shelfList.find((item) => item.shelfId === shelfId)
+  if (!area || !shelf) return ''
+  const occupied = occupiedDescendants(current, shelf.locationList.map((location) => location.locationId))
+  return dialogShell(kind, current.snapshot, { type: 'edit-shelf', shelfId }, '编辑货架', `${affectedNotice(occupied)}${field('货架序号', 'shelfSequence', String(shelf.shelfSequence || 1), { type: 'number', disabled: Boolean(occupied.length) })}${remarkField(shelf.remark)}${renderLocationNumberChangePreview(shelf.locationList.map((location) => ({ before: location.locationNo, after: location.locationNo })), '原编号 → 新编号（输入后实时更新）')}`)
+}
+
+function renderEditLocationDialog(kind: CuttingWarehouseMapKind, current: NonNullable<ReturnType<typeof buildCurrentCuttingWarehouseMapProjection>>, locationId: string): string {
+  const location = current.snapshot.areaList.flatMap((area) => area.shelfList.flatMap((shelf) => shelf.locationList)).find((item) => item.locationId === locationId)
+  if (!location) return ''
+  const occupied = occupiedDescendants(current, [locationId])
+  return dialogShell(kind, current.snapshot, { type: 'edit-location', locationId }, '编辑库位', `${affectedNotice(occupied)}${field('层号（L）', 'levelNo', String(location.levelNo || 1), { type: 'number', disabled: Boolean(occupied.length) })}${field('层内位置号（P）', 'positionNo', String(location.positionNo || 1), { type: 'number', disabled: Boolean(occupied.length) })}${remarkField(location.remark)}${renderLocationNumberChangePreview([{ before: location.locationNo, after: location.locationNo }], '原编号 → 新编号（输入后实时更新）')}`)
+}
+
+function renderCuttingWarehouseLocationMapModal(kind: CuttingWarehouseMapKind, dialog: MaintenanceDialog): string {
+  const current = buildCurrentCuttingWarehouseMapProjection(kind, { includeDemoOccupancies: getSearchParams().get('demo') === '1' })
+  if (!current) return ''
+  if (dialog.type === 'create-area') return renderCreateAreaDialog(kind, current.snapshot)
+  if (dialog.type === 'create-shelf') return renderCreateShelfDialog(kind, current.snapshot, dialog.areaId)
+  if (dialog.type === 'edit-area') return renderEditAreaDialog(kind, current, dialog.areaId)
+  if (dialog.type === 'edit-shelf') return renderEditShelfDialog(kind, current, dialog.shelfId)
+  return renderEditLocationDialog(kind, current, dialog.locationId)
+}
+
+function openCuttingWarehouseLocationMapModal(kind: CuttingWarehouseMapKind, dialog: MaintenanceDialog): void {
   if (typeof document === 'undefined') return
   removeCuttingWarehouseLocationMapModal()
   const section = document.querySelector<HTMLElement>(`[data-cutting-warehouse-map-section][data-warehouse-kind="${kind}"]`)
-  section?.insertAdjacentHTML('beforeend', renderCuttingWarehouseLocationMapModal(kind, action))
+  section?.insertAdjacentHTML('beforeend', renderCuttingWarehouseLocationMapModal(kind, dialog))
   const modal = document.getElementById(CUTTING_WAREHOUSE_MODAL_ID)
+  if (modal) {
+    modal.querySelectorAll<HTMLElement>('[data-warehouse-map-action]').forEach((item) => { item.dataset.skipPageRerender = 'true' })
+    hydrateIcons(modal)
+  }
   modal?.addEventListener('click', (event) => {
-    const target = event.target instanceof HTMLElement ? event.target : null
+    const target = event.target instanceof HTMLElement ? event.target : event.target instanceof Node ? event.target.parentElement : null
     if (!target?.closest('[data-warehouse-map-action]')) return
     if (handleCuttingWarehouseLocationMapEvent(target, event)) event.stopPropagation()
   })
   modal?.addEventListener('change', (event) => {
-    const target = event.target instanceof HTMLElement ? event.target : null
+    const target = event.target instanceof HTMLElement ? event.target : event.target instanceof Node ? event.target.parentElement : null
     if (!target?.closest('[data-warehouse-map-action]')) return
     if (handleCuttingWarehouseLocationMapEvent(target, event)) event.stopPropagation()
   })
+  modal?.addEventListener('input', (event) => {
+    const target = event.target instanceof HTMLInputElement ? event.target : null
+    if (!target) return
+    if (target.name === 'defaultPositionCount') {
+      modal.querySelectorAll<HTMLInputElement>('[data-level-position-editor] input').forEach((input) => { input.value = target.value })
+    }
+    updateMaintenancePreview(modal, kind)
+  })
 }
 
-function readCreateFormValue(form: ParentNode, name: string): string {
-  return form.querySelector<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(`[name="${name}"]`)?.value.trim() || ''
+function formValue(form: ParentNode, name: string): string {
+  return form.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[name="${name}"]`)?.value.trim() || ''
 }
 
-function buildCustomAreaId(warehouseId: string): string {
-  const randomSuffix = typeof crypto !== 'undefined' && 'randomUUID' in crypto
-    ? crypto.randomUUID().slice(0, 8)
-    : Math.random().toString(36).slice(2, 10)
-  return `AREA-${warehouseId}-CUSTOM-${Date.now()}-${randomSuffix}`
+function positiveInteger(value: string): number | null {
+  const parsed = Number(value)
+  return Number.isInteger(parsed) && parsed > 0 && parsed <= 99 ? parsed : null
 }
 
-function buildCustomLocationId(shelfId: string): string {
-  const randomSuffix = typeof crypto !== 'undefined' && 'randomUUID' in crypto
-    ? crypto.randomUUID().slice(0, 8)
-    : Math.random().toString(36).slice(2, 10)
-  return `LOC-${shelfId}-CUSTOM-${Date.now()}-${randomSuffix}`
+function replaceMaintenancePreview(modal: HTMLElement, rows: Array<{ before?: string; after: string }>): void {
+  const currentPreview = modal.querySelector<HTMLElement>('[data-location-number-preview]')
+  if (!currentPreview) return
+  const template = document.createElement('template')
+  template.innerHTML = renderLocationNumberChangePreview(rows, '原编号 → 新编号（实时预览）').trim()
+  const nextPreview = template.content.firstElementChild
+  if (nextPreview) currentPreview.replaceWith(nextPreview)
 }
 
-function cleanWarehouseNumberLabel(value: string): string {
-  return value.replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '') || '库区'
-}
-
-function normalizeWarehouseIdentifier(value: string): string {
-  return value.normalize('NFKC').trim().toUpperCase().replace(/[‐‑‒–—−\s]+/gu, '-')
-}
-
-function buildUniqueAreaName(projection: WarehouseLocationMapProjection, requestedName: string): string {
-  const names = new Set(projection.areas.map((area) => normalizeWarehouseIdentifier(area.areaName)))
-  if (!names.has(normalizeWarehouseIdentifier(requestedName))) return requestedName
-  let sequence = 2
-  while (names.has(normalizeWarehouseIdentifier(`${requestedName}-${sequence}`))) sequence += 1
-  return `${requestedName}-${sequence}`
-}
-
-function buildInitialAreaNumbers(allLocations: Array<{ shelfNo: string; locationNo: string }>, areaName: string): {
-  shelfNo: string
-  locationNo: string
-} {
-  const shelfNos = new Set(allLocations.map((location) => normalizeWarehouseIdentifier(location.shelfNo)))
-  const locationNos = new Set(allLocations.map((location) => normalizeWarehouseIdentifier(location.locationNo)))
-  let sequence = 1
-  while (true) {
-    const shelfNo = `${cleanWarehouseNumberLabel(areaName)}-${String(sequence).padStart(2, '0')}`
-    const locationNo = `${shelfNo}-01`
-    if (!shelfNos.has(normalizeWarehouseIdentifier(shelfNo)) && !locationNos.has(normalizeWarehouseIdentifier(locationNo))) return { shelfNo, locationNo }
-    sequence += 1
-  }
-}
-
-function saveCreatedWarehouseStructure(
-  kind: CuttingWarehouseMapKind,
-  mutate: (snapshot: FactoryWarehouseLayoutSnapshot) => FactoryWarehouseLayoutSnapshot,
-  expectedVersion: number,
-): boolean {
+function updateMaintenancePreview(modal: HTMLElement, kind: CuttingWarehouseMapKind): void {
   const current = buildCurrentCuttingWarehouseMapProjection(kind, { includeDemoOccupancies: getSearchParams().get('demo') === '1' })
-  if (!current) return false
-  let nextSnapshot: FactoryWarehouseLayoutSnapshot
-  try {
-    nextSnapshot = mutate(structuredClone(current.snapshot))
-  } catch (error) {
-    if (typeof window !== 'undefined') window.alert(error instanceof Error ? error.message : '新增结构失败，请检查后重试。')
-    return false
+  if (!current) return
+  const type = modal.dataset.maintenanceDialog
+  if (type === 'create-shelf') {
+    const levelCount = positiveInteger(formValue(modal, 'levelCount')) || 1
+    const defaultCount = positiveInteger(formValue(modal, 'defaultPositionCount')) || 1
+    const editor = modal.querySelector<HTMLElement>('[data-level-position-editor]')
+    const existing = Array.from({ length: levelCount }, (_, index) => positiveInteger(formValue(modal, `positionCount-${index + 1}`)) || defaultCount)
+    if (editor && editor.querySelectorAll('input').length !== levelCount) editor.outerHTML = renderLevelPositionEditor(levelCount, existing)
+    const counts = Array.from({ length: levelCount }, (_, index) => positiveInteger(formValue(modal, `positionCount-${index + 1}`)) || defaultCount)
+    const area = current.snapshot.areaList.find((item) => item.areaId === modal.dataset.areaId)
+    replaceMaintenancePreview(modal, createShelfPreview(area?.code || '', positiveInteger(formValue(modal, 'shelfSequence')) || 1, counts))
+    return
   }
-  const saved = saveWarehouseLayoutSnapshot({ ...nextSnapshot, updatedBy: '当前用户' }, expectedVersion)
-  if (!saved.ok) {
-    if (typeof window !== 'undefined') window.alert(saved.message)
-    return false
+  if (type === 'edit-area') {
+    const area = current.snapshot.areaList.find((item) => item.areaId === modal.dataset.areaId)
+    if (!area) return
+    const code = formValue(modal, 'areaCode') || area.code || ''
+    replaceMaintenancePreview(modal, area.shelfList.flatMap((shelf) => shelf.locationList.map((location) => ({ before: location.locationNo, after: `${code}-R${String(shelf.shelfSequence).padStart(2, '0')}-L${String(location.levelNo).padStart(2, '0')}-P${String(location.positionNo).padStart(2, '0')}` }))))
+    return
   }
-  removeCuttingWarehouseLocationMapModal()
-  refreshMapSection(kind)
-  return true
+  if (type === 'edit-shelf') {
+    const area = current.snapshot.areaList.find((item) => item.shelfList.some((shelf) => shelf.shelfId === modal.dataset.shelfId))
+    const shelf = area?.shelfList.find((item) => item.shelfId === modal.dataset.shelfId)
+    if (!area || !shelf) return
+    const sequence = positiveInteger(formValue(modal, 'shelfSequence')) || shelf.shelfSequence
+    replaceMaintenancePreview(modal, shelf.locationList.map((location) => ({ before: location.locationNo, after: `${area.code}-R${String(sequence).padStart(2, '0')}-L${String(location.levelNo).padStart(2, '0')}-P${String(location.positionNo).padStart(2, '0')}` })))
+    return
+  }
+  if (type === 'edit-location') {
+    for (const area of current.snapshot.areaList) for (const shelf of area.shelfList) {
+      const location = shelf.locationList.find((item) => item.locationId === modal.dataset.locationId)
+      if (!location) continue
+      const levelNo = positiveInteger(formValue(modal, 'levelNo')) || location.levelNo
+      const positionNo = positiveInteger(formValue(modal, 'positionNo')) || location.positionNo
+      replaceMaintenancePreview(modal, [{ before: location.locationNo, after: `${area.code}-R${String(shelf.shelfSequence).padStart(2, '0')}-L${String(levelNo).padStart(2, '0')}-P${String(positionNo).padStart(2, '0')}` }])
+    }
+  }
 }
 
 function updateUrlParam(name: string, value: string | null): void {
@@ -806,10 +850,16 @@ function refreshMapSection(kind: CuttingWarehouseMapKind): void {
   const nextSection = template.content.firstElementChild
   const currentToolbar = region.querySelector<HTMLElement>('[data-warehouse-map-toolbar]')
   const nextToolbar = nextSection?.querySelector<HTMLElement>('[data-warehouse-map-toolbar]')
-  if (currentToolbar && nextToolbar) currentToolbar.replaceWith(nextToolbar)
+  if (currentToolbar && nextToolbar) {
+    currentToolbar.replaceWith(nextToolbar)
+    hydrateIcons(nextToolbar)
+  }
   const currentMap = region.querySelector<HTMLElement>('[data-warehouse-map-root]')
   const nextMap = nextSection?.querySelector<HTMLElement>('[data-warehouse-map-root]')
-  if (currentMap && nextMap) currentMap.replaceWith(nextMap)
+  if (currentMap && nextMap) {
+    currentMap.replaceWith(nextMap)
+    hydrateIcons(nextMap)
+  }
 }
 
 function refreshOccupancyOverlay(kind: CuttingWarehouseMapKind): void {
@@ -883,96 +933,67 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
     const kind = modal.dataset.warehouseKind as CuttingWarehouseMapKind | undefined
     if (!kind) return false
     const action = node.dataset.warehouseMapAction
-    if (action === 'close-add-dialog') {
+    if (action === 'close-maintenance-dialog') {
       removeCuttingWarehouseLocationMapModal()
       return true
     }
-    if (action === 'change-add-area' && node instanceof HTMLSelectElement) {
-      const shelfSelect = modal.querySelector<HTMLSelectElement>('[name="shelfId"]')
-      if (!shelfSelect) return true
-      let firstAvailable = ''
-      Array.from(shelfSelect.options).forEach((option) => {
-        const available = option.dataset.areaId === node.value
-        option.hidden = !available
-        option.disabled = !available
-        if (available && !firstAvailable) firstAvailable = option.value
-      })
-      shelfSelect.value = firstAvailable
-      return true
-    }
-    if (action === 'submit-add-area' || action === 'submit-add-location') {
+    if (action === 'submit-maintenance') {
       if (event?.type === 'click' && node instanceof HTMLButtonElement) event.preventDefault()
-      const form = modal.querySelector<HTMLElement>('[data-cutting-warehouse-create-form]')
-      if (!form) return true
-      const current = buildCurrentCuttingWarehouseMapProjection(kind)
-      if (!current) return true
-      const expectedVersion = Number(modal.dataset.layoutVersion)
-      if (action === 'submit-add-area') {
-        const requestedAreaName = readCreateFormValue(form, 'areaName')
-        if (!requestedAreaName) {
-          window.alert('请输入库区名称。')
-          return true
+      const showError = (message: string) => {
+        const error = modal.querySelector<HTMLElement>('[data-maintenance-error]')
+        if (!error) return
+        error.textContent = message
+        error.classList.remove('hidden')
+      }
+      try {
+        const current = buildCurrentCuttingWarehouseMapProjection(kind)
+        if (!current) throw new Error('当前仓库库位图不可用，请刷新后重试。')
+        const expectedVersion = Number(modal.dataset.layoutVersion)
+        const occupiedIds = new Set(current.projection.areas.flatMap((area) => area.shelves.flatMap((shelf) => listWarehouseLocationMapShelfCells(shelf))).filter((cell) => cell.businessStatus === 'OCCUPIED').map((cell) => cell.locationId))
+        let next = current.snapshot
+        const type = modal.dataset.maintenanceDialog
+        if (type === 'create-area') {
+          next = createWarehouseArea(next, {
+            areaId: `AREA-${current.warehouse.warehouseId}-${Date.now()}`,
+            code: formValue(modal, 'areaCode').toUpperCase(),
+            areaName: formValue(modal, 'areaName'),
+            remark: formValue(modal, 'remark'),
+            updatedBy: '当前用户',
+          })
+        } else if (type === 'create-shelf') {
+          const levelCount = positiveInteger(formValue(modal, 'levelCount'))
+          const defaultCount = positiveInteger(formValue(modal, 'defaultPositionCount'))
+          const sequence = positiveInteger(formValue(modal, 'shelfSequence'))
+          if (!levelCount || !defaultCount || !sequence) throw new Error('货架序号、层数和每层位置数必须填写 1 到 99 的正整数。')
+          const positionCounts = Array.from({ length: levelCount }, (_, index) => positiveInteger(formValue(modal, `positionCount-${index + 1}`)) || defaultCount)
+          next = createWarehouseShelf(next, {
+            areaId: modal.dataset.areaId || '',
+            shelfId: `SHELF-${modal.dataset.areaId}-${Date.now()}`,
+            shelfSequence: sequence,
+            positionCounts,
+            remark: formValue(modal, 'remark'),
+            updatedBy: '当前用户',
+          })
+        } else if (type === 'edit-area') {
+          next = updateWarehouseArea(next, { areaId: modal.dataset.areaId || '', code: formValue(modal, 'areaCode') || undefined, areaName: formValue(modal, 'areaName') || undefined, remark: formValue(modal, 'remark'), updatedBy: '当前用户' }, occupiedIds)
+        } else if (type === 'edit-shelf') {
+          const sequence = positiveInteger(formValue(modal, 'shelfSequence'))
+          if (!sequence) throw new Error('货架序号必须填写 1 到 99 的正整数。')
+          next = updateWarehouseShelf(next, { shelfId: modal.dataset.shelfId || '', shelfSequence: sequence, remark: formValue(modal, 'remark'), updatedBy: '当前用户' }, occupiedIds)
+        } else if (type === 'edit-location') {
+          const levelNo = positiveInteger(formValue(modal, 'levelNo'))
+          const positionNo = positiveInteger(formValue(modal, 'positionNo'))
+          if (!levelNo || !positionNo) throw new Error('层号和层内位置号必须填写 1 到 99 的正整数。')
+          next = updateWarehouseLocation(next, { locationId: modal.dataset.locationId || '', levelNo, positionNo, remark: formValue(modal, 'remark'), updatedBy: '当前用户' }, occupiedIds)
         }
-        const areaName = buildUniqueAreaName(current.projection, requestedAreaName)
-        const initialNumbers = buildInitialAreaNumbers(
-          listStableWarehouseLocationRefs(current.warehouse, current.snapshot),
-          areaName,
-        )
-        const areaId = buildCustomAreaId(current.warehouse.warehouseId)
-        const area: FactoryWarehouseArea = {
-          areaId,
-          areaName,
-          shelfList: [{
-            shelfId: `SHELF-${areaId}-01`,
-            shelfNo: initialNumbers.shelfNo,
-            shelfName: initialNumbers.shelfNo,
-            locationList: [{
-              locationId: `LOC-${areaId}-01-01`,
-              locationNo: initialNumbers.locationNo,
-              locationName: initialNumbers.locationNo,
-              status: 'AVAILABLE',
-              remark: readCreateFormValue(form, 'remark'),
-            }],
-            status: 'AVAILABLE',
-            remark: readCreateFormValue(form, 'remark'),
-          }],
-          status: 'AVAILABLE',
-          remark: readCreateFormValue(form, 'remark'),
-        }
-        saveCreatedWarehouseStructure(kind, (snapshot) => appendWarehouseArea(snapshot, area), expectedVersion)
-        return true
+        const saved = saveWarehouseLayoutSnapshot(next, expectedVersion)
+        if (!saved.ok) throw new Error(saved.message)
+        removeCuttingWarehouseLocationMapModal()
+        refreshMapSection(kind)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '保存失败，请检查输入后重试。'
+        showError(message)
       }
-      const areaId = readCreateFormValue(form, 'areaId')
-      const shelfId = readCreateFormValue(form, 'shelfId')
-      const area = current.projection.areas.find((item) => item.areaId === areaId)
-      const shelf = area?.shelves.find((item) => item.shelfId === shelfId)
-      if (!area || !shelf) {
-        window.alert('请选择有效的库区和货架。')
-        return true
-      }
-      const requestedNo = readCreateFormValue(form, 'locationNo')
-      const locationNos = new Set(listStableWarehouseLocationRefs(current.warehouse, current.snapshot)
-        .map((item) => normalizeWarehouseIdentifier(item.locationNo)))
-      let locationNo = requestedNo
-      if (!locationNo) {
-        let sequence = listWarehouseLocationMapShelfCells(shelf).length + 1
-        do {
-          locationNo = `${shelf.shelfNo}-${String(sequence).padStart(2, '0')}`
-          sequence += 1
-        } while (locationNos.has(normalizeWarehouseIdentifier(locationNo)))
-      }
-      if (locationNos.has(normalizeWarehouseIdentifier(locationNo))) {
-        window.alert('库位编号已存在，请更换后重试。')
-        return true
-      }
-      const location: FactoryWarehouseLocation = {
-        locationId: buildCustomLocationId(shelfId),
-        locationNo,
-        locationName: locationNo,
-        status: 'AVAILABLE',
-        remark: readCreateFormValue(form, 'remark'),
-      }
-      saveCreatedWarehouseStructure(kind, (snapshot) => appendWarehouseLocation(snapshot, areaId, shelfId, location), expectedVersion)
       return true
     }
     return false
@@ -981,8 +1002,12 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
   const kind = section?.dataset.warehouseKind as CuttingWarehouseMapKind | undefined
   if (!kind) return false
   const action = node.dataset.warehouseMapAction
-  if (action === 'open-add-area' || action === 'open-add-location') {
-    openCuttingWarehouseLocationMapModal(kind, action === 'open-add-area' ? 'area' : 'location')
+  if (action === 'open-create-area') {
+    openCuttingWarehouseLocationMapModal(kind, { type: 'create-area' })
+    return true
+  }
+  if (action === 'open-create-shelf') {
+    openCuttingWarehouseLocationMapModal(kind, { type: 'create-shelf', areaId: node.dataset.areaId || '' })
     return true
   }
   if (action === 'change-factory' && target instanceof HTMLSelectElement) {
@@ -992,8 +1017,8 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
     refreshMapSection(kind)
     return true
   }
-  if (action === 'enter-layout' || action === 'finish-layout') {
-    updateUrlParam('layout', action === 'enter-layout' ? '1' : null)
+  if (action === 'enter-maintenance' || action === 'finish-maintenance') {
+    updateUrlParam('layout', action === 'enter-maintenance' ? '1' : null)
     refreshMapSection(kind)
     return true
   }
@@ -1081,15 +1106,15 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
     return true
   }
   if (action === 'rename-location') {
-    window.alert('库位完整编号由库区代码、货架序号、层号和层内位置号自动生成，请在后续层级维护入口调整。')
+    openCuttingWarehouseLocationMapModal(kind, { type: 'edit-location', locationId: node.dataset.locationId || '' })
     return true
   }
   if (action === 'rename-area') {
-    window.alert('库区名称和代码请在后续层级维护入口调整，系统将先检查占用库位再生成编号。')
+    openCuttingWarehouseLocationMapModal(kind, { type: 'edit-area', areaId: node.dataset.areaId || '' })
     return true
   }
   if (action === 'rename-shelf') {
-    window.alert('货架名称和序号请在后续层级维护入口调整，系统将先检查占用库位再生成编号。')
+    openCuttingWarehouseLocationMapModal(kind, { type: 'edit-shelf', shelfId: node.dataset.shelfId || '' })
     return true
   }
   return false

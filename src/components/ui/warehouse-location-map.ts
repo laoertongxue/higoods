@@ -406,12 +406,13 @@ export function renderWarehouseLocationMap(options: WarehouseLocationMapOptions)
               <div class="flex gap-1">
                 <button type="button" class="min-h-11 rounded-md border px-3 text-sm" data-skip-page-rerender="true" data-warehouse-map-action="move-area-left" data-area-id="${escapeHtml(area.areaId)}">左移库区</button>
                 <button type="button" class="min-h-11 rounded-md border px-3 text-sm" data-skip-page-rerender="true" data-warehouse-map-action="rename-area" data-area-id="${escapeHtml(area.areaId)}">修改库区名称</button>
+                <button type="button" class="min-h-11 rounded-md border px-3 text-sm" data-skip-page-rerender="true" data-warehouse-map-action="open-create-shelf" data-area-id="${escapeHtml(area.areaId)}">新增货架</button>
                 <button type="button" class="min-h-11 rounded-md border px-3 text-sm" data-skip-page-rerender="true" data-warehouse-map-action="move-area-right" data-area-id="${escapeHtml(area.areaId)}">右移库区</button>
               </div>
             ` : ''}
           </header>
           <div class="divide-y">
-            ${area.shelves.map((shelf) => {
+            ${area.shelves.length ? area.shelves.map((shelf) => {
               const shelfCells = listWarehouseLocationMapShelfCells(shelf)
               return `
               <div class="grid gap-3 p-4 md:grid-cols-[9rem_minmax(0,1fr)]">
@@ -439,7 +440,7 @@ export function renderWarehouseLocationMap(options: WarehouseLocationMapOptions)
                   </div>
                 </div>
               </div>
-            `}).join('')}
+            `}).join('') : '<div class="p-6 text-center text-sm text-muted-foreground">暂无货架，请新增货架并预览将生成的 L / P 完整编号。</div>'}
           </div>
         </article>
       `).join('')}

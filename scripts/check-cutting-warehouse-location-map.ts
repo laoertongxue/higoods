@@ -135,10 +135,20 @@ assert.match(warehouseHubSource, /dataset\.waitHandoverWebAction/, '待交出仓
 assert.equal((pdaWaitProcessSource.match(/handleWarehouseLocationMapOccupancyEvent\(/g) || []).length, 1, 'PDA 待加工仓的领料与调整两个 SELECT 地图必须由同一事件入口接入共享占用详情处理器')
 assert.match(fcsHandlersSource, /handleCraftCuttingWaitHandoverEvent\(target\)/, '待交出仓真实页面处理器必须接入主处理链')
 assert.doesNotMatch(fcsHandlersSource, /handleCraftCuttingWaitHandoverWebActionsEvent/, '不得保留旧文本弹窗处理器')
-assert.match(warehouseMapSource, /open-add-area/, '普通查看模式缺少新增库区入口')
-assert.match(warehouseMapSource, /open-add-location/, '普通查看模式缺少新增库位入口')
-assert.match(warehouseMapSource, /data-cutting-warehouse-modal/, '新增库区和库位必须使用独立弹窗')
-assert.match(fcsHandlersSource, /data-cutting-warehouse-modal/, '新增弹窗事件必须接入裁床库位图处理链')
+assert.match(warehouseMapSource, /renderFormDialog\(/, '库位图维护必须复用 renderFormDialog')
+for (const renderer of [
+  'renderCreateAreaDialog',
+  'renderCreateShelfDialog',
+  'renderEditAreaDialog',
+  'renderEditShelfDialog',
+  'renderEditLocationDialog',
+  'renderLevelPositionEditor',
+  'renderLocationNumberChangePreview',
+]) {
+  assert.match(warehouseMapSource, new RegExp(`function ${renderer}\\(`), `缺少正式维护局部函数 ${renderer}`)
+}
+assert.match(fcsHandlersSource, /data-cutting-warehouse-modal/, '维护弹窗事件必须接入裁床库位图处理链')
+assert.doesNotMatch(warehouseMapSource, /window\.prompt|prompt\(/, '库位图维护不得使用浏览器原生 prompt')
 assert.doesNotMatch(
   `${warehouseLayoutStoreSource}\n${warehouseMapSource}\n${warehouseMapUiSource}`,
   /assignWarehouseLocationToShelf|assign-location/,
@@ -149,23 +159,16 @@ assert.doesNotMatch(warehouseLayoutStoreSource, /export function replaceWarehous
 for (const apiName of ['reorderWarehouseAreas', 'reorderWarehouseShelves', 'reorderWarehouseLocations']) {
   assert.equal(typeof warehouseLayoutStoreModule[apiName], 'function', `缺少窄排序 API：${apiName}`)
 }
-const sourceBetween = (start: string, end: string) => {
-  const startIndex = warehouseMapSource.indexOf(`if (action === '${start}')`)
-  return warehouseMapSource.slice(startIndex, warehouseMapSource.indexOf(`if (action === '${end}'`, startIndex))
-}
-const renameLocationSource = sourceBetween('rename-location', 'rename-area')
-const renameAreaSource = sourceBetween('rename-area', 'rename-shelf')
-const renameShelfStart = warehouseMapSource.indexOf("if (action === 'rename-shelf')")
-const renameShelfSource = warehouseMapSource.slice(renameShelfStart, warehouseMapSource.indexOf('\n  return false', renameShelfStart))
-for (const [label, source] of [['库位', renameLocationSource], ['库区', renameAreaSource], ['货架', renameShelfSource]] as const) {
-  assert.doesNotMatch(source, /window\.prompt|persistSnapshot|replaceWarehouseAreaList/, `旧 ${label} 改号入口不得自由修改 v3 结构`)
-  assert.match(source, /系统生成|层级维护/, `旧 ${label} 改号入口必须提示进入系统生成的层级维护`)
-}
 const viewSectionHtml = renderCuttingWarehouseLocationMapSection('WAIT_PROCESS', 'VIEW')
 const layoutSectionHtml = renderCuttingWarehouseLocationMapSection('WAIT_PROCESS', 'LAYOUT')
-assert.match(viewSectionHtml, /data-warehouse-map-action="open-add-area"[^>]+data-warehouse-kind="WAIT_PROCESS"[^>]+data-warehouse-id=/, '新增库区入口必须绑定当前仓库')
-assert.match(viewSectionHtml, /data-warehouse-map-action="open-add-location"[^>]+data-warehouse-kind="WAIT_PROCESS"[^>]+data-warehouse-id=/, '新增库位入口必须绑定当前仓库')
-assert.doesNotMatch(layoutSectionHtml, /open-add-area|open-add-location/, '编排模式不得显示新增结构入口')
+assert.equal((viewSectionHtml.match(/>维护库位图<\/button>/g) || []).length, 1, '普通视图必须只有一个维护库位图入口')
+assert.doesNotMatch(viewSectionHtml, />新增库区<|>新增库位<|>编排库位图</, '普通视图不得保留分散维护入口')
+assert.match(viewSectionHtml, /data-warehouse-map-action="enter-maintenance"[^>]+data-warehouse-kind="WAIT_PROCESS"/, '维护入口必须绑定当前 PFOS 仓库')
+assert.match(layoutSectionHtml, /data-warehouse-map-action="open-create-area"/, '维护模式必须可新增空库区')
+assert.match(layoutSectionHtml, /data-warehouse-map-action="open-create-shelf"/, '维护模式必须可在库区新增货架')
+assert.match(layoutSectionHtml, /data-warehouse-map-action="rename-area"/, '维护模式必须可编辑库区')
+assert.match(layoutSectionHtml, /data-warehouse-map-action="rename-shelf"/, '维护模式必须可编辑货架')
+assert.match(layoutSectionHtml, /data-warehouse-map-action="rename-location"/, '维护模式必须可编辑库位')
 assert.match(warehouseMapSource, /persistenceAvailable/, '库位图页面必须消费持久化可用状态')
 assert.match(warehouseMapSource, /当前仅可查看，无法保存/, '持久化失败时必须向仓库主管展示可行动提示')
 

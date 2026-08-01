@@ -63,30 +63,23 @@ test.beforeEach(async ({ page }) => {
 
 for (const path of [WAIT_PROCESS_PATH, WAIT_HANDOVER_PATH]) {
   const warehouseName = path === WAIT_PROCESS_PATH ? '待加工仓' : '待交出仓'
-  test(`PFOS ${warehouseName}库位图仅展示空闲和占用，并支持局部编排持久化`, async ({ page }) => {
+  test(`PFOS ${warehouseName}通过单一入口维护空库区和分层货架`, async ({ page }) => {
     await openWarehouseMap(page, path)
     const root = page.locator('[data-warehouse-map-root]')
     await expect(root).toContainText('空闲')
     await expect(root).toContainText('占用')
-    await expect(root).not.toContainText('库位组')
-    await expect(root).not.toContainText('部分占用')
-    await expect(root).not.toContainText('预留')
-
-    const sectionIsRecorded = await root.evaluate((element) => {
-      ;(window as typeof window & { __warehouseMapSection?: Element }).__warehouseMapSection =
-        element.closest('[data-cutting-warehouse-map-section]') || undefined
-      return true
-    })
-    expect(sectionIsRecorded).toBe(true)
+    await expect(page.getByRole('button', { name: '维护库位图', exact: true })).toHaveCount(1)
+    await expect(page.getByRole('button', { name: '新增库区', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: '新增库位', exact: true })).toHaveCount(0)
     const elapsed = await page.evaluate(async () => {
-      const button = document.querySelector<HTMLButtonElement>('[data-warehouse-map-action="enter-layout"]')
-      if (!button) throw new Error('缺少编排入口')
+      const button = document.querySelector<HTMLButtonElement>('[data-warehouse-map-action="enter-maintenance"]')
+      if (!button) throw new Error('缺少维护入口')
       const startedAt = performance.now()
       button.click()
       await new Promise<void>((resolve, reject) => {
-        const timeout = window.setTimeout(() => reject(new Error('编排模式未及时打开')), 1_000)
+        const timeout = window.setTimeout(() => reject(new Error('维护模式未及时打开')), 1_000)
         const observer = new MutationObserver(() => {
-          if (!document.querySelector('[data-warehouse-map-action="rename-area"]')) return
+          if (!document.querySelector('[data-warehouse-map-action="open-create-area"]')) return
           window.clearTimeout(timeout)
           observer.disconnect()
           resolve()
@@ -96,142 +89,47 @@ for (const path of [WAIT_PROCESS_PATH, WAIT_HANDOVER_PATH]) {
       return performance.now() - startedAt
     })
     expect(elapsed).toBeLessThan(200)
-    expect(await page.evaluate(() =>
-      (window as typeof window & { __warehouseMapSection?: Element }).__warehouseMapSection
-      === document.querySelector('[data-cutting-warehouse-map-section]'),
-    )).toBe(true)
-    await expect(page.locator('[data-warehouse-map-action="rename-area"]').first()).toBeVisible()
-    await expect(page.locator('[data-warehouse-map-action="rename-shelf"]').first()).toBeVisible()
-    await expect(page.locator('[data-warehouse-map-action="rename-location"]').first()).toBeVisible()
+    await page.locator('[data-warehouse-map-action="open-create-area"]').click()
+    let modal = page.locator('[data-cutting-warehouse-modal]')
+    await modal.locator('[name="areaCode"]').fill('Z')
+    await modal.locator('[name="areaName"]').fill(`浏览器${warehouseName}扩展区`)
+    await modal.locator('[data-warehouse-map-action="submit-maintenance"]').click()
+    expect(await page.evaluate(() => Object.values(localStorage).join('\n'))).toContain(`浏览器${warehouseName}扩展区`)
+    await expect(root).toContainText(`浏览器${warehouseName}扩展区`)
+    await expect(root).toContainText('暂无货架')
 
-    const renameDialog = page.waitForEvent('dialog')
-    await page.locator('[data-warehouse-map-action="rename-area"]').first().evaluate((button) => {
-      window.setTimeout(() => (button as HTMLButtonElement).click(), 0)
-    })
-    await (await renameDialog).accept('验收库区')
-    await expect(page.locator('[data-warehouse-map-root]')).toContainText('验收库区')
+    await root.locator('[data-warehouse-map-action="open-create-shelf"]').last().click()
+    modal = page.locator('[data-cutting-warehouse-modal]')
+    await modal.locator('[name="shelfSequence"]').fill('9')
+    await modal.locator('[name="levelCount"]').fill('2')
+    await modal.locator('[name="defaultPositionCount"]').fill('2')
+    await expect(modal.locator('[data-location-number-preview]')).toContainText('Z-R09-L02-P02')
+    await modal.locator('[name="positionCount-2"]').fill('3')
+    await expect(modal.locator('[data-location-number-preview]')).toContainText('Z-R09-L02-P03')
+    await modal.locator('[data-warehouse-map-action="submit-maintenance"]').click()
+    await expect(root).toContainText('Z-R09-L02-P03')
     await page.reload({ waitUntil: 'domcontentloaded' })
-    await expect(page.locator('[data-warehouse-map-root]')).toContainText('验收库区', { timeout: 120_000 })
-    if (path === WAIT_HANDOVER_PATH) {
-      await page.locator('[data-wait-handover-action="open-inbound"]')
-        .filter({ hasText: /^中转袋入仓$/ })
-        .click()
-      const inboundMap = page.locator('[data-wait-handover-location-map] [data-warehouse-map-root]')
-      await expect(inboundMap).toBeVisible({ timeout: 120_000 })
-      await expect(inboundMap).toContainText('已选 1 个')
-      await page.locator('[data-wait-handover-action="close-dialog"]').last().click()
-    }
+    await expect(page.locator('[data-warehouse-map-root]')).toContainText('Z-R09-L02-P03', { timeout: 120_000 })
   })
 }
 
-test('普通查看模式可新增库区并在刷新后保留', async ({ page }) => {
-  await openWarehouseMap(page, WAIT_PROCESS_PATH)
-  await expect(page.locator('[data-warehouse-map-action="open-add-area"]')).toBeVisible()
-  await expect(page.locator('[data-warehouse-map-action="open-add-location"]')).toBeVisible()
-  const openElapsed = await page.evaluate(async () => {
-    const button = document.querySelector<HTMLButtonElement>('[data-warehouse-map-action="open-add-area"]')
-    if (!button) throw new Error('缺少新增库区入口')
-    const startedAt = performance.now()
-    button.click()
-    await new Promise<void>((resolve, reject) => {
-      const timeout = window.setTimeout(() => reject(new Error('新增库区弹窗未及时打开')), 1_000)
-      const observer = new MutationObserver(() => {
-        if (!document.querySelector('[data-cutting-warehouse-modal]')) return
-        window.clearTimeout(timeout)
-        observer.disconnect()
-        resolve()
-      })
-      observer.observe(document.body, { childList: true, subtree: true })
-    })
-    return performance.now() - startedAt
-  })
-  expect(openElapsed).toBeLessThan(200)
-  const modal = page.locator('[data-cutting-warehouse-modal]')
-  await expect(modal).toBeVisible()
-  await modal.locator('[name="areaName"]').fill('浏览器新增库区')
-  let unexpectedDialog = ''
-  let unexpectedPageError = ''
-  page.once('pageerror', (error) => { unexpectedPageError = error.message })
-  page.once('dialog', async (dialog) => {
-    unexpectedDialog = dialog.message()
-    await dialog.dismiss()
-  })
-  await modal.locator('[data-warehouse-map-action="submit-add-area"]').click()
-  expect(unexpectedDialog, '新增库区不应触发错误提示').toBe('')
-  expect(unexpectedPageError, '新增库区不应触发页面异常').toBe('')
-  await expect(page.locator('[data-warehouse-map-root]')).toContainText('浏览器新增库区')
-  await page.reload({ waitUntil: 'domcontentloaded' })
-  await expect(page.locator('[data-warehouse-map-root]')).toContainText('浏览器新增库区', { timeout: 120_000 })
-})
-
-test('普通查看模式可向既有货架新增库位并在刷新后保留', async ({ page }) => {
-  await openWarehouseMap(page, WAIT_PROCESS_PATH)
-  await page.locator('[data-warehouse-map-action="open-add-location"]').click()
-  const modal = page.locator('[data-cutting-warehouse-modal]')
-  await expect(modal).toBeVisible()
-  const areaValues = await modal.locator('[name="areaId"] option').evaluateAll((options) =>
-    options.map((option) => (option as HTMLOptionElement).value),
-  )
-  if (areaValues.length > 1) {
-    await modal.locator('[name="areaId"]').selectOption(areaValues[1])
-    await expect(modal.locator('[name="shelfId"] option:checked')).toHaveAttribute('data-area-id', areaValues[1])
-  }
-  await modal.locator('[name="locationNo"]').fill('浏览器新增库位-01')
-  await modal.locator('[data-warehouse-map-action="submit-add-location"]').click()
-  await expect(page.locator('[data-warehouse-map-root]')).toContainText('浏览器新增库位-01')
-  await page.reload({ waitUntil: 'domcontentloaded' })
-  await expect(page.locator('[data-warehouse-map-root]')).toContainText('浏览器新增库位-01', { timeout: 120_000 })
-})
-
-test('新增结构入口覆盖取消、必填、重复编号、版本冲突和编排隐藏', async ({ page }) => {
-  await openWarehouseMap(page, WAIT_PROCESS_PATH)
-  const root = page.locator('[data-warehouse-map-root]')
-
-  await page.locator('[data-warehouse-map-action="open-add-area"]').click()
+test('维护表单冲突和占用保护保留输入并显示受影响编号', async ({ page }) => {
+  await openWarehouseMap(page, `${WAIT_PROCESS_PATH}?demo=1`)
+  await page.locator('[data-warehouse-map-action="enter-maintenance"]').click()
+  await page.locator('[data-warehouse-map-action="open-create-shelf"]').first().click()
   let modal = page.locator('[data-cutting-warehouse-modal]')
-  await modal.locator('[name="areaName"]').fill('取消新增库区')
-  await modal.locator('[data-warehouse-map-action="close-add-dialog"]').last().click()
-  await expect(root).not.toContainText('取消新增库区')
+  await modal.locator('[name="shelfSequence"]').fill('1')
+  await modal.locator('[data-warehouse-map-action="submit-maintenance"]').click()
+  await expect(modal.locator('[role="alert"]')).toContainText('货架序号 1 已存在')
+  await expect(modal.locator('[name="shelfSequence"]')).toHaveValue('1')
+  await modal.locator('[data-warehouse-map-action="close-maintenance-dialog"]').last().click()
 
-  await page.locator('[data-warehouse-map-action="open-add-area"]').click()
+  await page.locator('[data-warehouse-map-action="rename-area"]').first().click()
   modal = page.locator('[data-cutting-warehouse-modal]')
-  await clickAndAcceptDialog(page, '[data-cutting-warehouse-modal] [data-warehouse-map-action="submit-add-area"]')
-  await expect(modal).toBeVisible()
-  await modal.locator('[name="areaName"]').fill('版本基线区')
-  await modal.locator('[data-warehouse-map-action="submit-add-area"]').click()
-  await expect(root).toContainText('版本基线区')
-
-  const existingLocationNo = await root.locator('[data-location-no]').first().getAttribute('data-location-no')
-  await page.locator('[data-warehouse-map-action="open-add-location"]').click()
-  modal = page.locator('[data-cutting-warehouse-modal]')
-  await modal.locator('[name="locationNo"]').fill(existingLocationNo || '')
-  await clickAndAcceptDialog(page, '[data-cutting-warehouse-modal] [data-warehouse-map-action="submit-add-location"]')
-  await expect(modal.locator('[name="locationNo"]')).toHaveValue(existingLocationNo || '')
-  await modal.locator('[data-warehouse-map-action="close-add-dialog"]').last().click()
-  await page.locator('[data-warehouse-map-action="open-add-location"]').click()
-  modal = page.locator('[data-cutting-warehouse-modal]')
-  await modal.locator('[name="locationNo"]').fill(`  ${(existingLocationNo || '').toLowerCase()}  `)
-  await clickAndAcceptDialog(page, '[data-cutting-warehouse-modal] [data-warehouse-map-action="submit-add-location"]')
-  await expect(modal).toBeVisible()
-  await modal.locator('[data-warehouse-map-action="close-add-dialog"]').last().click()
-
-  await page.locator('[data-warehouse-map-action="open-add-area"]').click()
-  modal = page.locator('[data-cutting-warehouse-modal]')
-  await modal.locator('[name="areaName"]').fill('冲突保留库区')
-  await page.evaluate(() => {
-    const key = Object.keys(localStorage).find((item) => item.startsWith('higood:cutting-warehouse-layout:v2:') && item.includes(':WAIT_PROCESS:'))
-    if (!key) throw new Error('缺少待加工仓布局快照')
-    const snapshot = JSON.parse(localStorage.getItem(key) || '{}')
-    snapshot.layoutVersion += 1
-    localStorage.setItem(key, JSON.stringify(snapshot))
-  })
-  await clickAndAcceptDialog(page, '[data-cutting-warehouse-modal] [data-warehouse-map-action="submit-add-area"]')
-  await expect(modal.locator('[name="areaName"]')).toHaveValue('冲突保留库区')
-  await modal.locator('[data-warehouse-map-action="close-add-dialog"]').last().click()
-
-  await page.locator('[data-warehouse-map-action="enter-layout"]').click()
-  await expect(page.locator('[data-warehouse-map-action="open-add-area"]')).toHaveCount(0)
-  await expect(page.locator('[data-warehouse-map-action="open-add-location"]')).toHaveCount(0)
+  await expect(modal.locator('[data-location-number-preview]')).toContainText('→')
+  await expect(modal.locator('[name="areaCode"]')).toBeDisabled()
+  await expect(modal).toContainText('占用库位')
+  await expect(modal).toContainText(/A-R\d+-L\d+-P\d+/)
 })
 
 test('两张库位图占用详情分别展示物料卷和袋内菲票', async ({ page }) => {
