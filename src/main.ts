@@ -1425,6 +1425,7 @@ function shouldBypassClickDispatch(target: Element): boolean {
 
 function shouldSkipInputRerender(target: Element): boolean {
   if (target.closest<HTMLElement>('[data-skip-page-rerender="true"]')) return true
+  if (target.closest<HTMLElement>('[data-review-ui-field]')) return true
 
   const techFieldNode = target.closest<HTMLElement>('[data-tech-field]')
   if (techFieldNode) {
@@ -1740,7 +1741,7 @@ root.addEventListener('dragend', dispatchListColumnDragEvent)
 root.addEventListener('click', async (event) => {
   const target = resolveEventElementTarget(event.target)
   if (!target) return
-  const skipPageRerender = Boolean(target.closest<HTMLElement>('[data-skip-page-rerender="true"]'))
+  const skipPageRerender = Boolean(target.closest<HTMLElement>('[data-skip-page-rerender="true"], [data-review-ui-action]'))
   const focusSnapshot = captureFocusSnapshot()
   const previousPathname = appStore.getState().pathname
 

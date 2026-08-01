@@ -48,6 +48,14 @@
 - 资产写入发生在工程任务审核状态改写之前；字段缺失或资产写入失败时不改写任务审核状态。若部分资产已写入后发生重试，确定性键保证已有行不重复创建。
 - 本切片不改页面，不实现调色三阶段、调色资产或 Task 7 成本能力。
 
+### 任务 6 切片 D 页面接线（花型 / 调色）
+
+- 花型任务详情逐项维护成果文件和效果图后整单提交；买手整单审核，支持一键全部通过或逐项混合判定，未通过原因必填。
+- 已通过花型物料只读锁定；返工轮次只显示和提交失败物料。页面只调用统一成果提交与审核服务，不另建花型资产入口。
+- 调色任务详情按 `BOM 染色物料 → 跟单确认 → 染厂成果与买手审核` 三阶段展示和操作；越阶段、缺字段及审核门禁直接使用现有服务反馈。
+- 两页输入仅保存页面草稿，操作成功局部刷新详情，失败仅更新就地反馈，不触发整页重绘；物料区保留分页口径。
+- 本切片不改 Task 7，不新增数据仓储，不设计异常流程或历史任务迁移。
+
 ## 3. 自查结论
 
 | 审查项 | 结论 | 说明 |
@@ -65,6 +73,8 @@
 | 卡片与抽屉 | 通过 | 任务卡点击打开右侧抽屉（局部更新），展示来源、阶段与依赖、时效节点、物料与返工记录，空数据以“暂无”占位。 |
 | 花型资产追溯 | 通过 | 每条资产可追溯到工程主单、花型任务、物料行、成果与买手审核事实；不同物料行不会合并。 |
 | 重试防错 | 通过 | 资产按稳定来源键幂等写入，未通过行不写入，审核任务状态在资产写入成功后才更新。 |
+| 页面步骤与角色 | 通过 | 花型团队 / 染厂提交成果，跟单确认染色要求，买手逐项审核；页面只呈现当前角色必需字段与动作。 |
+| 交互与防错 | 通过 | 服务门禁就地反馈；通过行锁定，返工只开放失败行；输入和按钮不触发整页重绘。 |
 
 ## 4. 本次查漏补缺
 
@@ -117,6 +127,12 @@
 - `src/data/pcs-engineering-task-review.ts`
 - `src/data/pcs-pattern-library-archive-linkage.ts`
 - `src/data/pcs-pattern-library-types.ts`
+- `src/pages/pcs-engineering-tasks/pattern-task.ts`
+- `src/pages/pcs-engineering-tasks/color-task.ts`
+- `src/pages/pcs-engineering-tasks/material-review-task-ui.ts`
+- `src/pages/pcs-engineering-tasks.ts`
+- `src/main-handlers/pcs-handlers.ts`
+- `src/main.ts`
 
 ### 例外
 
@@ -145,6 +161,7 @@
 - `npx tsx tests/pcs-engineering-material-review.spec.ts`：通过（任务 6 切片 A）。
 - `npm run build`：通过（任务 6 切片 A）。
 - `npx tsx tests/pcs-engineering-pattern-assets.spec.ts`：通过（任务 6 切片 B：逐行生成、字段完整、未通过不生成、重试幂等与第二轮生成）。
+- `npx playwright test tests/pcs-engineering-task-review-ui.spec.ts`：通过（任务 6 切片 D：调色三阶段门禁、花型混合审核、原因必填、通过行锁定及仅失败行返工）。
 
 ### 待交付前验证
 

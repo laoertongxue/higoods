@@ -207,6 +207,7 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
     cacheKey: 'pcs-engineering-tasks',
     matches: (pathname) =>
       isAnyExactOrNestedPath(pathname, [
+        '/pcs/engineering/color',
         '/pcs/patterns',
         '/pcs/samples/first-sample',
         '/pcs/samples/first-order',

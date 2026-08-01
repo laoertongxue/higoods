@@ -31,6 +31,8 @@ import {
   renderPcsFirstSampleTaskDetailPage,
   renderPcsFirstSampleTaskPage,
 } from './pcs-engineering-tasks/first-sample-task.ts'
+import { handlePatternTaskEvent, handlePatternTaskInput } from './pcs-engineering-tasks/pattern-task.ts'
+import { handleColorTaskEvent, handleColorTaskInput } from './pcs-engineering-tasks/color-task.ts'
 
 export { renderPcsRevisionTaskDetailPage, renderPcsRevisionTaskPage } from './pcs-engineering-tasks/revision-task.ts'
 export { renderPcsPlateMakingTaskDetailPage, renderPcsPlateMakingTaskPage } from './pcs-engineering-tasks/plate-making-task.ts'
@@ -164,10 +166,11 @@ function handleListAction(module: NonNullable<ListModule>, action: string, node:
 }
 
 export function handlePcsEngineeringTaskInput(target: Element): boolean {
-  return handleRevisionTaskInput(target) || handleListInput(target)
+  return handlePatternTaskInput(target) || handleColorTaskInput(target) || handleRevisionTaskInput(target) || handleListInput(target)
 }
 
 export function handlePcsEngineeringTaskEvent(target: HTMLElement, event?: Event): boolean {
+  if (handlePatternTaskEvent(target) || handleColorTaskEvent(target)) return true
   const module = getEngineeringListModule(target)
   if (module && handleListDrag(module, target, event)) return true
   const node = target.closest<HTMLElement>('[data-pcs-engineering-action]')
