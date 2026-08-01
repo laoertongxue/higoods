@@ -48,6 +48,18 @@ test('中转袋流转只展示三个主状态与四个流转阶段', async ({ pa
   await expect(page.getByRole('columnheader', { name: /当前流转阶段/ })).toBeVisible()
   await expect(page.getByRole('button', { name: '列设置' })).toBeVisible()
 
+  await stageSelect.selectOption({ label: '待交出' })
+
+  const masterTable = page.locator('table').filter({
+    has: page.getByRole('columnheader', { name: /当前流转阶段/ }),
+  })
+  const masterRows = masterTable.locator('tbody tr')
+  await expect(masterRows).not.toHaveCount(0)
+  await expect(masterRows.first().locator('td:nth-child(4) > div:first-child')).toHaveText('待交出')
+  const bagB002Row = masterRows.filter({ hasText: 'BAG-B-002' })
+  await expect(bagB002Row).toHaveCount(1)
+  await expect(bagB002Row.locator('td:nth-child(4) > div:first-child')).toHaveText('待交出')
+
   await page.goto('/fcs/craft/cutting/transfer-bag-detail?bagId=carrier-bag-001')
   await expect(page.getByRole('heading', { name: '中转袋详情', exact: true })).toBeVisible({
     timeout: 120_000,

@@ -114,6 +114,19 @@ function sortCycles(
   })
 }
 
+function isUsageCycleOpenAt(
+  cycle: TransferBagLifecycleCycle,
+  facts: TransferBagLifecycleFact[],
+  occurredAt: string,
+): boolean {
+  if (cycle.startedAt > occurredAt) return false
+  if (cycle.closedAt && cycle.closedAt <= occurredAt) return false
+  return !facts.some((fact) =>
+    fact.usageCycleId === cycle.usageCycleId
+    && fact.factType === 'REPACK_SOURCE_EMPTIED'
+    && fact.occurredAt <= occurredAt)
+}
+
 function stageFromFact(
   fact: TransferBagLifecycleFact | undefined,
 ): TransferBagFlowStageKey | null {
@@ -223,18 +236,22 @@ export function deriveTransferBagLifecycle(
     })
   }
 
-  const scrapFact = sortByTimeAndId(
-    input.facts.filter((fact) => fact.factType === 'BAG_SCRAPPED'),
+  const effectiveScrapFact = sortByTimeAndId(
+    input.facts.filter((fact) =>
+      fact.factType === 'BAG_SCRAPPED'
+      && !sortedCycles.some((cycle) =>
+        isUsageCycleOpenAt(cycle, input.facts, fact.occurredAt))),
   ).at(-1)
 
-  if (scrapFact || latestCycle?.closeResult === 'DISABLED') {
+  if (effectiveScrapFact || latestCycle?.closeResult === 'DISABLED') {
     return buildView({
       carrierId: input.carrierId,
       bagCode: input.bagCode,
-      usageCycleId: scrapFact?.usageCycleId || latestCycle?.usageCycleId || null,
+      usageCycleId:
+        effectiveScrapFact?.usageCycleId || latestCycle?.usageCycleId || null,
       mainStatus: 'DISABLED',
       flowStage: null,
-      sourceFactIds: scrapFact ? [scrapFact.factId] : [],
+      sourceFactIds: effectiveScrapFact ? [effectiveScrapFact.factId] : [],
     })
   }
 

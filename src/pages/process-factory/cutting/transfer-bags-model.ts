@@ -2759,9 +2759,8 @@ function deriveCurrentStatusForDisplay(status: TransferBagMasterStatusKey): Tran
 function deriveCarrierManagementUseStage(usage: TransferBagUsageItem | null | undefined): TransferBagCarrierUseStage {
   if (!usage || isClosedUsageStatus(usage.usageStatus)) return '—'
   if (isHandoverWaitingReturnStatus(usage.usageStatus)) return '已交出待回收'
-  if (usage.usageStage === 'INBOUND_TEMP' && usage.usageStatus === 'READY_TO_DISPATCH') {
-    return '入仓暂存中'
-  }
+  if (usage.usageStage === 'INBOUND_TEMP') return '入仓暂存中'
+  if (usage.usageStatus === 'READY_TO_DISPATCH') return '待交出'
   return '菲票已装袋'
 }
 

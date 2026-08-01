@@ -281,6 +281,34 @@ assert.equal(scrappedDuringOpenCycle.mainStatus, 'IN_USE')
 assert.equal(scrappedDuringOpenCycle.flowStage, 'PACKED')
 assert.deepEqual(scrappedDuringOpenCycle.allowedActions, ['INBOUND', 'REPACK'])
 
+const scrappedThenRepackedSourceEmptied = lifecycle.deriveTransferBagLifecycle({
+  ...base,
+  cycles: [openCycle],
+  facts: [
+    packedFact,
+    {
+      factId: 'fact:scrap:invalid-open-cycle:001',
+      factType: 'BAG_SCRAPPED',
+      usageCycleId: openCycle.usageCycleId,
+      occurredAt: '2026-07-30 09:05',
+    },
+    repackResultFact,
+    {
+      factId: 'fact:repack-source-emptied:after-invalid-scrap:001',
+      factType: 'REPACK_SOURCE_EMPTIED',
+      usageCycleId: openCycle.usageCycleId,
+      occurredAt: '2026-07-30 09:16',
+    },
+  ],
+})
+assert.equal(scrappedThenRepackedSourceEmptied.mainStatus, 'IDLE')
+assert.equal(scrappedThenRepackedSourceEmptied.flowStage, null)
+assert.deepEqual(
+  scrappedThenRepackedSourceEmptied.sourceFactIds,
+  [],
+  '使用中写入的无效报废事实不得在原袋清空后延迟生效',
+)
+
 const scrappedWithoutOpenCycle = lifecycle.deriveTransferBagLifecycle({
   ...base,
   cycles: [],
@@ -292,6 +320,11 @@ const scrappedWithoutOpenCycle = lifecycle.deriveTransferBagLifecycle({
 })
 assert.equal(scrappedWithoutOpenCycle.mainStatus, 'DISABLED')
 assert.equal(scrappedWithoutOpenCycle.flowStage, null)
+assert.deepEqual(
+  scrappedWithoutOpenCycle.sourceFactIds,
+  ['fact:scrap:idle:001'],
+  '袋已空闲后写入的报废事实必须使主状态变为已报废',
+)
 
 const repackedSourceEmptied = lifecycle.deriveTransferBagLifecycle({
   ...base,
