@@ -1,8 +1,13 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 
+import { listStyleArchives, resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
 import {
-  renderPcsFirstOrderSampleTaskPage,
+  createEngineeringMasterOrder,
+  publishEngineeringMasterOrder,
+  resetEngineeringMasterRepository,
+} from '../src/data/pcs-engineering-master-repository.ts'
+import {
   renderPcsFirstSampleTaskPage,
   renderPcsPatternTaskPage,
   renderPcsPlateMakingTaskPage,
@@ -11,21 +16,26 @@ import {
 } from '../src/pages/pcs-engineering-tasks.ts'
 import { ENGINEERING_LIST_STORAGE_KEYS } from '../src/pages/pcs-engineering-tasks/shared.ts'
 
-const pageSource = fs.readFileSync('src/pages/pcs-engineering-tasks.ts', 'utf8')
+const dispatcherSource = fs.readFileSync('src/pages/pcs-engineering-tasks.ts', 'utf8')
 const handlerSource = fs.readFileSync('src/main-handlers/pcs-handlers.ts', 'utf8')
 
-assert.match(pageSource, /^\/\/ @page-pattern: list\s*$/m, '工程专业任务页必须声明标准列表页模式')
-for (const contract of ['renderStandardListPage', 'renderStandardListTable', 'renderTablePagination']) {
-  assert.ok(pageSource.includes(contract), `工程专业任务页必须使用 ${contract}`)
-}
-
+resetStyleArchiveRepository()
+resetEngineeringMasterRepository()
 resetPcsEngineeringTaskState()
+
+const style = listStyleArchives()[0]
+assert.ok(style, '测试必须存在款式档案')
+const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
+  styleId: style.styleId,
+  styleCode: style.styleCode,
+  merchandiserName: '跟单A',
+}).masterOrderId)
+
 const pages = [
   ['改版任务', renderPcsRevisionTaskPage()],
   ['制版任务', renderPcsPlateMakingTaskPage()],
   ['花型任务', renderPcsPatternTaskPage()],
-  ['首版样衣打样', renderPcsFirstSampleTaskPage()],
-  ['首单样衣打样', renderPcsFirstOrderSampleTaskPage()],
+  ['产前版样衣任务', renderPcsFirstSampleTaskPage()],
 ] as const
 
 for (const [label, html] of pages) {
@@ -38,35 +48,23 @@ for (const [label, html] of pages) {
   assert.match(html, /data-skip-page-rerender="true"/, `${label}轻交互必须跳过整页重绘`)
 }
 
-const revisionHtml = pages[0][1]
-const revisionStatusOptions = revisionHtml.match(
-  /data-pcs-engineering-field="revision-status"[\s\S]*?<\/select>/,
-)?.[0] ?? ''
-for (const status of ['进行中', '待确认', '已确认', '已生成技术包', '已完成']) {
-  assert.ok(revisionStatusOptions.includes(status), `改版筛选缺少专用状态：${status}`)
+const engineeringPages = pages.slice(1)
+const engineeringStatuses = ['未启用', '待前置', '待开始', '进行中', '待审核', '返工中', '已完成', '因需求变更结束']
+for (const [label, html] of engineeringPages) {
+  assert.match(html, new RegExp(master.masterOrderCode), `${label}必须读取工程主单编号`)
+  assert.match(html, new RegExp(master.styleCode), `${label}必须读取工程主单款式`)
+  const statusOptions = html.match(/data-pcs-engineering-field="[^"]+-status"[\s\S]*?<\/select>/)?.[0] ?? ''
+  for (const status of engineeringStatuses) {
+    assert.ok(statusOptions.includes(status), `${label}状态筛选缺少工程任务状态：${status}`)
+  }
+  assert.doesNotMatch(statusOptions, /异常待处理|已取消|待确认|已确认/, `${label}不得再暴露旧专业任务状态`)
 }
-assert.doesNotMatch(revisionStatusOptions, /异常待处理|已取消/, '改版筛选不得混入其他专业类型状态')
 
-const plateHtml = pages[1][1]
-const plateStatusOptions = plateHtml.match(
-  /data-pcs-engineering-field="plate-status"[\s\S]*?<\/select>/,
-)?.[0] ?? ''
-assert.match(plateStatusOptions, /异常待处理/, '制版筛选仍需保留自身异常状态')
-assert.match(plateStatusOptions, /已取消/, '制版筛选仍需保留自身取消状态')
-
-for (const route of [
-  '/pcs/patterns/revision',
-  '/pcs/patterns/plate-making',
-  '/pcs/patterns/colors',
-  '/pcs/samples/first-sample',
-  '/pcs/samples/first-order',
-]) {
-  assert.ok(Object.values(ENGINEERING_LIST_STORAGE_KEYS).some((key) => key.includes(route)), `缺少按路由持久化键：${route}`)
-}
-assert.match(pageSource, /ENGINEERING_LIST_STORAGE_KEYS/, '主文件必须引用按路由持久化键常量')
-assert.match(pageSource, /loadListColumnPreferences/, '列表页进入时必须读取列偏好')
-assert.match(pageSource, /saveListColumnPreferences/, '列偏好与每页条数变化后必须保存')
-assert.match(pageSource, /resetStandardListEntryTransientStateOnRouteEntry/, '页码和排序必须在重新进入路由时复位')
+assert.equal(ENGINEERING_LIST_STORAGE_KEYS.pattern, 'higood:list-page:/pcs/patterns/artwork', '花型列表偏好必须按正式花型路由持久化')
+assert.equal(ENGINEERING_LIST_STORAGE_KEYS.firstSample, 'higood:list-page:/pcs/samples/first-sample', '产前版样衣列表偏好必须按正式路由持久化')
+assert.doesNotMatch(dispatcherSource, /pattern-master-task/, '薄分派器不得再导入花型第二页面')
+assert.match(dispatcherSource, /pcs-engineering-tasks\/pattern-task\.ts/, '薄分派器必须直接导出唯一花型任务页面')
+assert.match(dispatcherSource, /ENGINEERING_LIST_STORAGE_KEYS/, '主文件必须引用按路由持久化键常量')
 assert.match(
   handlerSource,
   /dispatchPcsPageEvent\(target: HTMLElement, event\?: Event\)/,

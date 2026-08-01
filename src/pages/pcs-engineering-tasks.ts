@@ -34,7 +34,7 @@ import {
 
 export { renderPcsRevisionTaskDetailPage, renderPcsRevisionTaskPage } from './pcs-engineering-tasks/revision-task.ts'
 export { renderPcsPlateMakingTaskDetailPage, renderPcsPlateMakingTaskPage } from './pcs-engineering-tasks/plate-making-task.ts'
-export { renderPcsPatternTaskDetailPage, renderPcsPatternTaskPage } from './pcs-engineering-tasks/pattern-master-task.ts'
+export { renderPcsPatternTaskDetailPage, renderPcsPatternTaskPage } from './pcs-engineering-tasks/pattern-task.ts'
 export {
   submitEngineeringFirstSampleResult,
 } from './pcs-engineering-tasks/first-sample-task.ts'

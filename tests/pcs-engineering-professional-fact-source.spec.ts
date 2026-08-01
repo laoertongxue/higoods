@@ -7,7 +7,7 @@ import {
   resetEngineeringMasterRepository,
 } from '../src/data/pcs-engineering-master-repository.ts'
 import { renderPcsFirstSampleTaskPage } from '../src/pages/pcs-engineering-tasks/first-sample-task.ts'
-import { renderPcsPatternTaskPage } from '../src/pages/pcs-engineering-tasks/pattern-master-task.ts'
+import { renderPcsPatternTaskPage } from '../src/pages/pcs-engineering-tasks/pattern-task.ts'
 import { renderPcsPlateMakingTaskPage } from '../src/pages/pcs-engineering-tasks/plate-making-task.ts'
 
 resetStyleArchiveRepository()

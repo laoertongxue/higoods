@@ -23,18 +23,9 @@ import {
   type StandardListColumn,
 } from '../../components/ui/list-table.ts'
 import { renderTablePagination } from '../../components/ui/pagination.ts'
-import type {
-  PatternTaskColorDepthOption,
-  PatternTaskDemandSourceType,
-  PatternTaskDifficultyGrade,
-  PatternTaskProcessType,
-  PatternTaskTeamCode,
-} from '../../data/pcs-pattern-task-types.ts'
-import type { PlateMakingMaterialLine } from '../../data/pcs-plate-making-material-types.ts'
-import type { PlateMakingPatternImageLine } from '../../data/pcs-plate-making-pattern-file-types.ts'
 import type { RevisionTaskLiveRetestStatus } from '../../data/pcs-revision-task-file-types.ts'
 import type { RevisionTaskMaterialLine } from '../../data/pcs-revision-task-material-types.ts'
-import type { PatternTaskSourceType, PlateMakingTaskSourceType, RevisionTaskSourceType } from '../../data/pcs-task-source-normalizer.ts'
+import type { RevisionTaskSourceType } from '../../data/pcs-task-source-normalizer.ts'
 import { findStyleArchiveByProjectId, listStyleArchives } from '../../data/pcs-style-archive-repository.ts'
 import { getProjectById, listProjects } from '../../data/pcs-project-repository.ts'
 import { listProjectRelationsBySourceObject } from '../../data/pcs-project-relation-repository.ts'
@@ -43,8 +34,6 @@ import { escapeHtml, formatDateTime, toClassName } from '../../utils.ts'
 export type ModuleKey = 'revision' | 'plate' | 'pattern' | 'firstSample' | 'color' | 'purchase' | 'techPack'
 export type TaskBindingMode = 'project' | 'style'
 export type RevisionTab = 'plan' | 'issues' | 'samples' | 'outputs' | 'downstream' | 'logs'
-export type PlateTab = 'demand' | 'execution' | 'review' | 'outputs' | 'closure' | 'logs'
-export type PatternTab = 'demand' | 'execution' | 'review' | 'closure' | 'logs'
 
 export interface EngineeringLog {
   time: string
@@ -83,7 +72,7 @@ export const ENGINEERING_LIST_MAX_FROZEN_WIDTH = 520
 export const ENGINEERING_LIST_STORAGE_KEYS: Record<ModuleKey, string> = {
   revision: 'higood:list-page:/pcs/patterns/revision',
   plate: 'higood:list-page:/pcs/patterns/plate-making',
-  pattern: 'higood:list-page:/pcs/patterns/colors',
+  pattern: 'higood:list-page:/pcs/patterns/artwork',
   firstSample: 'higood:list-page:/pcs/samples/first-sample',
   color: 'higood:list-page:/pcs/engineering/color',
   purchase: 'higood:list-page:/pcs/engineering/purchase',
@@ -210,50 +199,6 @@ export interface RevisionCreateDraft {
   createPatternTask: boolean
 }
 
-export interface PlateCreateDraft {
-  bindingMode: TaskBindingMode
-  sourceType: PlateMakingTaskSourceType
-  projectId: string
-  styleId: string
-  title: string
-  ownerName: string
-  dueAt: string
-  productStyleCode: string
-  productHistoryType: string
-  patternMakerName: string
-  patternArea: string
-  urgentFlag: boolean
-  patternType: string
-  sizeRange: string
-  note: string
-}
-
-export interface PatternCreateDraft {
-  bindingMode: TaskBindingMode
-  sourceType: PatternTaskSourceType
-  projectId: string
-  styleId: string
-  title: string
-  ownerName: string
-  dueAt: string
-  productStyleCode: string
-  demandSourceType: PatternTaskDemandSourceType
-  processType: PatternTaskProcessType
-  requestQty: string
-  fabricSku: string
-  fabricName: string
-  demandImageIds: string[]
-  assignedTeamCode: PatternTaskTeamCode
-  assignedMemberId: string
-  patternCategoryCode: string
-  patternStyleTagsText: string
-  hotSellerFlag: boolean
-  artworkType: string
-  patternMode: string
-  artworkName: string
-  note: string
-}
-
 export interface RevisionDetailDraft {
   participantNamesText: string
   revisionVersion: string
@@ -283,45 +228,6 @@ export interface RevisionDetailDraft {
   liveRetestSummary: string
 }
 
-export interface PlateDetailDraft {
-  participantNamesText: string
-  patternVersion: string
-  productHistoryType: string
-  patternMakerName: string
-  sampleConfirmedAt: string
-  urgentFlag: boolean
-  patternArea: string
-  colorRequirementText: string
-  newPatternSpuCode: string
-  flowerImageIds: string[]
-  materialRequirementLines: PlateMakingMaterialLine[]
-  patternImageLineItems: PlateMakingPatternImageLine[]
-  patternPdfFileIds: string[]
-  patternDxfFileIds: string[]
-  patternRulFileIds: string[]
-  supportImageIds: string[]
-  supportVideoIds: string[]
-  partTemplateLinksText: string
-  sampleReviewNote: string
-}
-
-export interface PatternDetailDraft {
-  artworkVersion: string
-  difficultyGrade: PatternTaskDifficultyGrade
-  colorDepthOption: PatternTaskColorDepthOption
-  physicalReferenceNote: string
-  colorConfirmNote: string
-  completionImageIds: string[]
-  patternFileIds: string[]
-  liveReferenceImageIds: string[]
-  imageReferenceIds: string[]
-  buyerReviewNote: string
-  transferReason: string
-  patternCategoryCode: string
-  patternStyleTagsText: string
-  hotSellerFlag: boolean
-}
-
 export const COMMON_STATUS_META: Record<string, { label: string; className: string }> = {
   未启用: { label: '未启用', className: 'bg-slate-100 text-slate-400' },
   待前置: { label: '待前置', className: 'bg-slate-100 text-slate-700' },
@@ -346,11 +252,6 @@ export const REVISION_SCOPE_OPTIONS = [
   { value: 'COLOR', label: '颜色' },
   { value: 'PACKAGE', label: '包装标识' },
 ] as const
-
-export const PATTERN_DEMAND_SOURCE_OPTIONS: PatternTaskDemandSourceType[] = ['预售测款通过', '改版任务', '设计师款']
-export const PATTERN_PROCESS_OPTIONS: PatternTaskProcessType[] = ['数码印', '烫画', '直喷']
-export const PATTERN_COLOR_DEPTH_OPTIONS: PatternTaskColorDepthOption[] = ['浅色', '深色', '中间值']
-export const PATTERN_DIFFICULTY_OPTIONS: PatternTaskDifficultyGrade[] = ['A++', 'A+', 'A', 'B', 'C', 'D']
 
 export const initialRevisionCreateDraft = (): RevisionCreateDraft => ({
   bindingMode: 'project',
@@ -401,89 +302,6 @@ export const initialRevisionDetailDraft = (): RevisionDetailDraft => ({
   liveRetestSummary: '',
 })
 
-export const initialPlateCreateDraft = (): PlateCreateDraft => ({
-  bindingMode: 'project',
-  sourceType: '商品项目',
-  projectId: '',
-  styleId: '',
-  title: '',
-  ownerName: '',
-  dueAt: '',
-  productStyleCode: '',
-  productHistoryType: '未卖过',
-  patternMakerName: '',
-  patternArea: '印尼',
-  urgentFlag: false,
-  patternType: '',
-  sizeRange: '',
-  note: '',
-})
-
-export const initialPatternCreateDraft = (): PatternCreateDraft => ({
-  bindingMode: 'project',
-  sourceType: '商品项目',
-  projectId: '',
-  styleId: '',
-  title: '',
-  ownerName: '',
-  dueAt: '',
-  productStyleCode: '',
-  demandSourceType: '预售测款通过',
-  processType: '数码印',
-  requestQty: '1',
-  fabricSku: '',
-  fabricName: '',
-  demandImageIds: [],
-  assignedTeamCode: 'CN_TEAM',
-  assignedMemberId: 'cn_bing_bing',
-  patternCategoryCode: '植物与花卉',
-  patternStyleTagsText: '休闲、印花',
-  hotSellerFlag: false,
-  artworkType: '印花',
-  patternMode: '定位印',
-  artworkName: '',
-  note: '',
-})
-
-export const initialPlateDetailDraft = (): PlateDetailDraft => ({
-  participantNamesText: '',
-  patternVersion: '',
-  productHistoryType: '',
-  patternMakerName: '',
-  sampleConfirmedAt: '',
-  urgentFlag: false,
-  patternArea: '',
-  colorRequirementText: '',
-  newPatternSpuCode: '',
-  flowerImageIds: [],
-  materialRequirementLines: [],
-  patternImageLineItems: [],
-  patternPdfFileIds: [],
-  patternDxfFileIds: [],
-  patternRulFileIds: [],
-  supportImageIds: [],
-  supportVideoIds: [],
-  partTemplateLinksText: '',
-  sampleReviewNote: '',
-})
-
-export const initialPatternDetailDraft = (): PatternDetailDraft => ({
-  artworkVersion: '',
-  difficultyGrade: 'A',
-  colorDepthOption: '中间值',
-  physicalReferenceNote: '',
-  colorConfirmNote: '',
-  completionImageIds: [],
-  patternFileIds: [],
-  liveReferenceImageIds: [],
-  imageReferenceIds: [],
-  buyerReviewNote: '',
-  transferReason: '',
-  patternCategoryCode: '',
-  patternStyleTagsText: '',
-  hotSellerFlag: false,
-})
-
 export const state = {
   notice: null as string | null,
   revisionList: { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1 } as ListState,
@@ -495,18 +313,8 @@ export const state = {
   imagePreview: { open: false, url: '', title: '' },
 
   plateList: { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1 } as ListState,
-  plateTab: 'demand' as PlateTab,
-  plateCreateOpen: false,
-  plateCreateDraft: initialPlateCreateDraft(),
-  plateDetailDraftTaskId: '',
-  plateDetailDraft: initialPlateDetailDraft(),
 
   patternList: { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1 } as ListState,
-  patternTab: 'demand' as PatternTab,
-  patternCreateOpen: false,
-  patternCreateDraft: initialPatternCreateDraft(),
-  patternDetailDraftTaskId: '',
-  patternDetailDraft: initialPatternDetailDraft(),
 
   firstSampleList: { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1, site: 'all' } as SampleListState,
 
@@ -1341,56 +1149,12 @@ export function appendImageValues(field: string, values: string[]): boolean {
     state.revisionDetailDraft.designDraftImageIds = [...state.revisionDetailDraft.designDraftImageIds, ...values]
     return true
   }
-  if (field === 'plate-detail-flower-images') {
-    state.plateDetailDraft.flowerImageIds = [...state.plateDetailDraft.flowerImageIds, ...values]
-    return true
-  }
-  if (field === 'plate-detail-support-images') {
-    state.plateDetailDraft.supportImageIds = [...state.plateDetailDraft.supportImageIds, ...values]
-    return true
-  }
-  if (field === 'pattern-create-demand-images') {
-    state.patternCreateDraft.demandImageIds = [...state.patternCreateDraft.demandImageIds, ...values]
-    return true
-  }
-  if (field === 'pattern-detail-completion-images') {
-    state.patternDetailDraft.completionImageIds = [...state.patternDetailDraft.completionImageIds, ...values]
-    return true
-  }
-  if (field === 'pattern-detail-live-reference-images') {
-    state.patternDetailDraft.liveReferenceImageIds = [...state.patternDetailDraft.liveReferenceImageIds, ...values]
-    return true
-  }
-  if (field === 'pattern-detail-image-reference-images') {
-    state.patternDetailDraft.imageReferenceIds = [...state.patternDetailDraft.imageReferenceIds, ...values]
-    return true
-  }
   return false
 }
 
 export function appendFileValues(field: string, values: string[]): boolean {
   if (field === 'revision-detail-pattern-files') {
     state.revisionDetailDraft.patternFileIds = [...state.revisionDetailDraft.patternFileIds, ...values]
-    return true
-  }
-  if (field === 'plate-detail-pdf-files') {
-    state.plateDetailDraft.patternPdfFileIds = [...state.plateDetailDraft.patternPdfFileIds, ...values]
-    return true
-  }
-  if (field === 'plate-detail-dxf-files') {
-    state.plateDetailDraft.patternDxfFileIds = [...state.plateDetailDraft.patternDxfFileIds, ...values]
-    return true
-  }
-  if (field === 'plate-detail-rul-files') {
-    state.plateDetailDraft.patternRulFileIds = [...state.plateDetailDraft.patternRulFileIds, ...values]
-    return true
-  }
-  if (field === 'plate-detail-support-videos') {
-    state.plateDetailDraft.supportVideoIds = [...state.plateDetailDraft.supportVideoIds, ...values]
-    return true
-  }
-  if (field === 'pattern-detail-pattern-files') {
-    state.patternDetailDraft.patternFileIds = [...state.patternDetailDraft.patternFileIds, ...values]
     return true
   }
   return false
@@ -1420,50 +1184,6 @@ export function removeListValue(scope: string, index: number): boolean {
   }
   if (scope === 'revision-detail-pattern-files') {
     state.revisionDetailDraft.patternFileIds = state.revisionDetailDraft.patternFileIds.filter((_, itemIndex) => itemIndex !== index)
-    return true
-  }
-  if (scope === 'plate-detail-flower-images') {
-    state.plateDetailDraft.flowerImageIds = state.plateDetailDraft.flowerImageIds.filter((_, itemIndex) => itemIndex !== index)
-    return true
-  }
-  if (scope === 'plate-detail-pdf-files') {
-    state.plateDetailDraft.patternPdfFileIds = state.plateDetailDraft.patternPdfFileIds.filter((_, itemIndex) => itemIndex !== index)
-    return true
-  }
-  if (scope === 'plate-detail-dxf-files') {
-    state.plateDetailDraft.patternDxfFileIds = state.plateDetailDraft.patternDxfFileIds.filter((_, itemIndex) => itemIndex !== index)
-    return true
-  }
-  if (scope === 'plate-detail-rul-files') {
-    state.plateDetailDraft.patternRulFileIds = state.plateDetailDraft.patternRulFileIds.filter((_, itemIndex) => itemIndex !== index)
-    return true
-  }
-  if (scope === 'plate-detail-support-images') {
-    state.plateDetailDraft.supportImageIds = state.plateDetailDraft.supportImageIds.filter((_, itemIndex) => itemIndex !== index)
-    return true
-  }
-  if (scope === 'plate-detail-support-videos') {
-    state.plateDetailDraft.supportVideoIds = state.plateDetailDraft.supportVideoIds.filter((_, itemIndex) => itemIndex !== index)
-    return true
-  }
-  if (scope === 'pattern-create-demand-images') {
-    state.patternCreateDraft.demandImageIds = state.patternCreateDraft.demandImageIds.filter((_, itemIndex) => itemIndex !== index)
-    return true
-  }
-  if (scope === 'pattern-detail-completion-images') {
-    state.patternDetailDraft.completionImageIds = state.patternDetailDraft.completionImageIds.filter((_, itemIndex) => itemIndex !== index)
-    return true
-  }
-  if (scope === 'pattern-detail-pattern-files') {
-    state.patternDetailDraft.patternFileIds = state.patternDetailDraft.patternFileIds.filter((_, itemIndex) => itemIndex !== index)
-    return true
-  }
-  if (scope === 'pattern-detail-live-reference-images') {
-    state.patternDetailDraft.liveReferenceImageIds = state.patternDetailDraft.liveReferenceImageIds.filter((_, itemIndex) => itemIndex !== index)
-    return true
-  }
-  if (scope === 'pattern-detail-image-reference-images') {
-    state.patternDetailDraft.imageReferenceIds = state.patternDetailDraft.imageReferenceIds.filter((_, itemIndex) => itemIndex !== index)
     return true
   }
   return false
