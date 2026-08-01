@@ -82,6 +82,7 @@
 
 - `npx tsx tests/pcs-engineering-task-status.spec.ts`：通过。
 - `npx tsx tests/pcs-engineering-task-submit.spec.ts`：通过。
+- `npx tsx tests/pcs-engineering-tasks.spec.ts`：通过；以工程主单真实任务验证制版、花型、产前版样衣、首单静默别名和独立改款 / 设计打样边界。
 - `npx tsx tests/pcs-engineering-pre-production-sample-submit.spec.ts`：通过。
 - `npx tsx tests/pcs-first-sample-engineering-result.spec.ts`：通过。
 - `npx tsx tests/pcs-engineering-professional-fact-source.spec.ts`：通过。
