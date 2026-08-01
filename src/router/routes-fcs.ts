@@ -532,6 +532,13 @@ export const routes: RouteRegistry = {
       ),
     },
     {
+      pattern: /^\/fcs\/craft\/wool\/work-orders\/([^/]+)\/handover-print\/([^/]+)$/,
+      render: (match) => renderCraftWoolHandoverPrintPage(
+        decodeURIComponent(match[1]),
+        decodeURIComponent(match[2]),
+      ),
+    },
+    {
       pattern: /^\/fcs\/craft\/wool\/work-orders\/([^/]+)\/handover-print$/,
       render: (match) => renderCraftWoolHandoverPrintPage(decodeURIComponent(match[1])),
     },

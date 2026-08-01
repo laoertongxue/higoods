@@ -14,7 +14,7 @@
 >
 > 确认结论：本文档作为后续实施、规格审查和业务验收的正式基线
 >
-> 当前阶段：设计已确认，产品代码实现尚未开始
+> 当前阶段：主体实现已落地；2026-08-01 已按交出单、件数口径、真实图片和扫码要求完成复核补漏，仍须以最终规格审查、代码质量审查和浏览器验收结果作为完成依据
 
 ## 1. 文档目的
 
@@ -980,9 +980,13 @@ Web 与 PDA 必须调用同一组领域命令。相同记录编号只保存一�
 - 每张交出单绑定一条交出记录，展示交出单号、生产单、毛织加工单、款号款名、加工类型、交出时间、发起人、下游接收工厂。
 - 明细数量按颜色+尺码展示“本次交出件数”；整件毛织和部位毛织均为件，不展示片数口径。
 - 整件毛织接收方为后道工厂；部位毛织接收方为裁床工厂（裁床待交出仓）。
-- 交出单必须带可扫码识别的条码/二维码区域，扫码信息至少绑定交出记录、生产单和毛织加工单。
-- 涉及的款式必须展示款式图；涉及的纱线/物料必须展示物料图。若技术包或物料主数据缺图，打印页必须显式提示“需补真实图片”，不能静默打印空白图。
-- 毛织加工单列表操作栏在至少存在一条交出记录后显示“打印交出单”入口；未交出时不显示打印入口或进入打印页后提示暂无可打印交出单。
+- 交出单必须使用标准二维码生成能力输出真实可扫描二维码，扫码信息至少绑定交出记录、生产单和毛织加工单；不得把装饰条纹或方格冒充条码、二维码。当前不要求条码，若后续增加条码，必须使用标准条码编码器并通过扫码验证。
+- 正式打印按钮必须确认当前批次每张交出单的二维码 SVG 均已生成；任一页尚未生成时阻止打印并提示稍后重试，不能输出缺少追溯码的交出单。
+- 款式图与 SPU 款式信息处于同一区块，每个 SPU 恰好展示一张来自款式档案/技术包快照的真实款式图，不另设独立“款式图片区”。
+- 每个必需纱线/物料 SKU 都与自己的物料图成对展示，图片来自技术包 BOM 或物料主数据冻结资产，不按无标识图片数组猜测对应关系。
+- 若款式图或任一必需物料图缺失，打印页必须逐项提示“需补真实图片”，并禁用正式打印，不能把缺图预览冒充正式打印通过。
+- 毛织加工单列表操作栏在至少存在一条交出记录后显示“打印交出单”入口，该入口批量打印当前加工单全部交出记录；详情交出记录提供“打印本次交出单”，按 `handoverId` 精确打印单条。
+- 批量路由为 `/fcs/craft/wool/work-orders/:woolOrderId/handover-print`，单条路由为 `/fcs/craft/wool/work-orders/:woolOrderId/handover-print/:handoverId`；指定记录不存在时显示明确空态，不回退为全部交出记录。
 
 下游确认接收后保存实际接收数量、差异、接收人和接收时间。该结果只更新通用交接和毛织详情投影，不自动完成加工单、不恢复毛织库存。即使毛织加工单已经完成，既有下游待接收记录仍可确认；下游确认只追加接收结果，不得修改来源交出数量。
 
@@ -1003,7 +1007,7 @@ Web 与 PDA 必须调用同一组领域命令。相同记录编号只保存一�
 ```ts
 type WoolProcessingStatus = 'UNPROCESSED' | 'PROCESSING' | 'COMPLETED'
 type WoolOutputObjectType = 'GARMENT' | 'WOOL_PANEL'
-type WoolQtyUnit = '件' | '片' | 'kg'
+type WoolQtyUnit = '件' | 'kg'
 
 interface WoolOutputPlanLine {
   outputSkuCode: string
@@ -1015,8 +1019,9 @@ interface WoolOutputPlanLine {
   colorName: string
   sizeCode: string
   plannedQty: number
-  qtyUnit: Exclude<WoolQtyUnit, 'kg'>
+  qtyUnit: '件'
   requiredYarnSkus: string[]
+  materialImages?: Array<{ materialSkuCode: string; imageUrl: string }>
   sourceTechPackVersionId: string
   sourceTechPackVersionCode: string
   sourceColorMappingIds: string[]
@@ -1097,6 +1102,7 @@ interface WoolHandoverRecord {
   woolOrderId: string
   outputSkuCode: string
   handoverQty: number
+  qtyUnit: '件'
   receiverType: 'CUTTING_WAIT_HANDOVER_WAREHOUSE' | 'DOWNSTREAM_FACTORY'
   receiverId: string
   receiverName: string
@@ -1166,18 +1172,18 @@ interface WoolCompletionSnapshot {
     confirmedYarnSkus: string[]
     missingYarnSkus: string[]
   }>
-  processReportSummary: Array<{ outputSkuCode: string; reportedQty: number; qtyUnit: '件' | '片' }>
+  processReportSummary: Array<{ outputSkuCode: string; reportedQty: number; qtyUnit: '件' }>
   handoverSummary: Array<{
     handoverId: string
     outputSkuCode: string
     handoverQty: number
-    qtyUnit: '件' | '片'
+    qtyUnit: '件'
     downstreamActualReceivedQty?: number
     downstreamDifferenceQty?: number
     downstreamReceivedAt?: string
   }>
   waitProcessStockSummary: Array<{ yarnSkuCode: string; stockQty: number; qtyUnit: 'kg' }>
-  waitHandoverStockSummary: Array<{ outputSkuCode: string; stockQty: number; qtyUnit: '件' | '片' }>
+  waitHandoverStockSummary: Array<{ outputSkuCode: string; stockQty: number; qtyUnit: '件' }>
   releasedMachineIds: string[]
   // 新完成记录同时冻结业务编号和名称；字段可选只用于读取升级前历史快照
   releasedMachines?: Array<{ machineId: string; machineNo: string; machineName: string }>
@@ -1396,6 +1402,12 @@ Mock 数据至少覆盖：
 - [ ] 完成后的剩余库存只能通过仓库独立调整或转移处理。
 - [ ] 自动入库、自动出库只使用固定默认库位；库存转走后不会跨库位自动扣减。
 - [ ] 部位、整件交出对象按加工单结构化去向只读带出，不允许自由文本改接收方。
+- [ ] 加工单列表“打印交出单”批量输出全部交出记录；详情每条交出记录的“打印本次交出单”只输出对应 `handoverId`。
+- [ ] 每页交出单的唯一款式图与 SPU 款式信息处于同一区块，不存在独立款式图片区或重复款式图。
+- [ ] 每个必需物料 SKU 与来自技术包/物料主数据的真实图片成对展示；Mock 使用 `public` 下真实图片资产，不使用 `data:image/svg+xml` 伪图。
+- [ ] 二维码由标准二维码组件生成并经浏览器扫码结构检查；不存在伪二维码或被命名为条码的装饰条纹。
+- [ ] 缺少款式图或任一必需物料图时禁用正式打印，并逐项提示需补真实图片。
+- [ ] 毛织打印页、列表和详情均不出现菲票语义。
 
 ### 16.5 旧节点清理
 

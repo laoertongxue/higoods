@@ -28,6 +28,7 @@ import {
   type WoolYarnReceiptLine,
   type WoolYarnReceiptRecord,
 } from '../../../data/fcs/wool-task-domain.ts'
+import { buildWoolHandoverPrintLink } from '../../../data/fcs/fcs-route-links.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
   formatQty,
@@ -621,7 +622,7 @@ function renderHandovers(order: WoolWorkOrder): string {
             <td class="px-3 py-3">${escapeHtml(record.handedOverBy)}<div class="text-xs text-muted-foreground">${escapeHtml(record.handedOverAt)}</div></td>
             <td class="px-3 py-3">${escapeHtml(record.warehouseOutboundFlowId)}</td>
             <td class="px-3 py-3">${record.downstreamReceipt?.status === 'CONFIRMED' ? `已确认 ${formatQty(record.downstreamReceipt.actualReceivedQty, record.qtyUnit)} / 差异 ${formatQty(record.downstreamReceipt.differenceQty, record.qtyUnit)}` : '待下游确认'}</td>
-            <td class="px-3 py-3"><div class="flex gap-2">${recordActionButton('HANDOVER', record.handoverId)}${editButton({ order, recordType: 'HANDOVER', recordId: record.handoverId, objectSkuCode: record.outputSkuCode, currentQty, qtyUnit: record.qtyUnit, downstreamReceipt: record.downstreamReceipt, maxQty: currentQty + getWoolOutputHandoverAvailableQty(order.woolOrderId, record.outputSkuCode) })}</div></td>
+            <td class="px-3 py-3"><div class="flex flex-wrap gap-2">${recordActionButton('HANDOVER', record.handoverId)}${editButton({ order, recordType: 'HANDOVER', recordId: record.handoverId, objectSkuCode: record.outputSkuCode, currentQty, qtyUnit: record.qtyUnit, downstreamReceipt: record.downstreamReceipt, maxQty: currentQty + getWoolOutputHandoverAvailableQty(order.woolOrderId, record.outputSkuCode) })}<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildWoolHandoverPrintLink(order.woolOrderId, record.handoverId))}">打印本次交出单</button></div></td>
           </tr>
         `
       }).join(''),

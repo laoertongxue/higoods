@@ -10,6 +10,8 @@
 
 **正式规格：** `docs/superpowers/specs/2026-07-30-wool-management-fact-workflow-design.md`
 
+> **当前执行状态（2026-08-01 复核补漏）：** 任务 1—16 的主体实现已经落地；下文任务中的“预期 FAIL”“新文件不存在”等文字是历史 TDD 执行步骤，不代表当前代码状态。当前有效验收以文末“交出单复核补漏验收矩阵”为准。
+
 ---
 
 ## 实施边界
@@ -45,7 +47,7 @@
 - `src/pages/process-factory/wool/work-order-detail.ts`：事实页签、分页记录、数量修改历史和完成快照。
 - `src/pages/process-factory/wool/machines.ts`：四状态设备档案和维修/停用影响确认。
 - `src/pages/process-factory/wool/warehouse.ts`：三个固定默认库位、领用/退回、库存/流水/调整/转移。
-- `src/pages/process-factory/wool/handover-print.ts`：A4 毛织交出单打印页，展示生产单、毛织加工单、接收方、颜色尺码件数、款式图、物料图、条码和二维码。
+- `src/pages/process-factory/wool/handover-print.ts`：A4 毛织交出单打印页，展示生产单、毛织加工单、接收方、颜色尺码件数、SPU 同区唯一款式图、按物料 SKU 关联的真实物料图和标准可扫描二维码。
 - `src/pages/process-factory/wool/shared.ts`：仅保留毛织详情与弹窗需要的轻量格式化和局部挂载辅助。
 - `scripts/check-wool-internal-style-code.ts`：改为检查内部货号、筛选联动 Tab 和无统计卡片。
 - `scripts/check-wool-warehouse-unified-model.ts`：改为检查固定库位、同源流水和禁止旧仓库自动推进。
@@ -403,8 +405,8 @@ const panel = buildWoolOrderSourceSnapshot({
 const sleeveM = panel.outputPlanLines.find((line) => line.woolPartName === '袖片' && line.sizeCode === 'M')!
 assert.equal(sleeveM.outputObjectType, 'WOOL_PANEL')
 assert.equal(sleeveM.outputSkuCode, `WP-${sleeveM.woolPartCode}-${sleeveM.garmentSkuCode}`)
-assert.equal(sleeveM.plannedQty, 200)
-assert.equal(sleeveM.qtyUnit, '片')
+assert.equal(sleeveM.plannedQty, 100)
+assert.equal(sleeveM.qtyUnit, '件')
 
 const missing = buildWoolOrderSourceSnapshot({
   ...sourceBase,
@@ -432,7 +434,7 @@ assert.equal(missing.outputPlanLines.every((line) => line.sourceColorMappingIds.
 ```ts
 export type WoolProcessingStatus = 'UNPROCESSED' | 'PROCESSING' | 'COMPLETED'
 export type WoolOutputObjectType = 'GARMENT' | 'WOOL_PANEL'
-export type WoolQtyUnit = '件' | '片' | 'kg'
+export type WoolQtyUnit = '件' | 'kg'
 
 export interface WoolOutputPlanLine {
   outputSkuCode: string
@@ -444,8 +446,9 @@ export interface WoolOutputPlanLine {
   colorName: string
   sizeCode: string
   plannedQty: number
-  qtyUnit: '件' | '片'
+  qtyUnit: '件'
   requiredYarnSkus: string[]
+  materialImages?: Array<{ materialSkuCode: string; imageUrl: string }>
   sourceTechPackVersionId: string
   sourceTechPackVersionCode: string
   sourceColorMappingIds: string[]
@@ -759,7 +762,7 @@ assert.equal(
 
 - [ ] **步骤 5.1：实现毛织交出单打印**
 
-新增 `renderCraftWoolHandoverPrintPage` 和动态路由 `/fcs/craft/wool/work-orders/:woolOrderId/handover-print`；毛织加工单列表在至少存在一条交出记录后显示“打印交出单”。打印页按交出记录逐张输出 A4 `SURAT JALAN / 毛织交出单`，必须展示生产单、毛织加工单、下游接收工厂、颜色、尺码、本次交出件数、款式图、物料图、条码和二维码。整件毛织接收方为后道工厂；部位毛织接收方为裁床工厂（裁床待交出仓）。毛织打印链路不得出现菲票语义。
+新增 `renderCraftWoolHandoverPrintPage(woolOrderId, handoverId?)`。批量路由 `/fcs/craft/wool/work-orders/:woolOrderId/handover-print` 由加工单列表“打印交出单”进入，逐页输出该加工单全部交出记录；单条路由 `/fcs/craft/wool/work-orders/:woolOrderId/handover-print/:handoverId` 由详情交出记录“打印本次交出单”进入，只输出指定记录。打印页按记录输出 A4 `SURAT JALAN / 毛织交出单`，展示生产单、毛织加工单、结构化下游接收方、颜色、尺码和本次交出件数。款式图与 SPU 款式信息处于同一区块且每个 SPU 恰好一张；每个必需物料 SKU 与技术包/BOM 冻结的真实物料图成对展示。二维码必须复用 `renderRealQrPlaceholder` / `qrcode.react`，不保留伪条码或伪二维码。缺少款式图或任一物料图时提示并禁用正式打印。整件毛织接收方为后道工厂；部位毛织接收方为裁床工厂（裁床待交出仓）。毛织打印链路不得出现菲票语义。
 
 - [ ] **步骤 6：实现纱线领用退回与独立库存调整/转移**
 
@@ -1693,7 +1696,7 @@ git commit -m "fix: close wool workflow verification gaps"
 | 多次确认接收且一次可多纱线 | 1、4、5、8、12 | `WoolYarnReceiptRecord.lines`、专项检查、Web/PDA 弹窗 |
 | 任一加工后 SKU 必需纱线全部接收才可填报 | 2、3、4、5 | `mappingOrigin`、`getWoolOutputReadiness` |
 | 不按纱线数量换算加工件数 | 4、5 | 齐料只比较 SKU 集合；150% 独立检查 |
-| 整件/部位加工后对象与计划量 | 3、7 | 成衣 SKU/毛织部位 SKU、件/片和片数乘法 |
+| 整件/部位加工后对象与计划量 | 3、7 | 成衣 SKU/毛织部位 SKU；两者计划、填报、库存和交出均为颜色+尺码件数，单件部位片数只作技术资料 |
 | 三个含数量 Tab 与搜索联动，无统计卡片 | 4、8、15 | 列表查询、标准列表、Playwright |
 | 三类核心操作均可多次 | 5、8、12 | 追加式事实记录和共享领域命令 |
 | 150% 上限及达到上限后的 Tab 原因 | 1、4、5、8 | `Math.floor(plannedQty * 1.5)` 和阻断原因 |
@@ -1715,6 +1718,20 @@ git commit -m "fix: close wool workflow verification gaps"
 | 删除旧节点、菲票、统计、价格、已排产、完工入仓 | 2、7、11、12、13、14 | 文件删除、路由删除、全链路负向检查 |
 | 标准列表、分页、固定操作列和局部刷新 | 8、9、10、11、15 | 列表治理、原型治理和浏览器验收 |
 | 原型审查与最终收据 | 15、16 | 审查记录、构建、CodeGraph、`task-receipt.json` |
+
+## 交出单复核补漏验收矩阵
+
+| 复核项 | 文档证据 | 代码证据 | 自动检查 / 浏览器证据 |
+| --- | --- | --- | --- |
+| 整件、部位的计划 / 填报 / 库存 / 交出 / 修改均按颜色+尺码件数 | 正式规格 3.2、8.5、12.2、13、16.1 | `WoolOutputPlanLine.qtyUnit`、`WoolHandoverRecord.qtyUnit` 固定为 `件` | 专项检查禁止设计与计划出现 `件 | 片` 残留；E2E 校验部位和整件固定库位流水 |
+| 列表批量打印全部交出记录 | 正式规格 12.2 | `buildWoolHandoverPrintLink(woolOrderId)`、批量动态路由 | E2E 断言两条交出记录生成两张 A4 页 |
+| 详情精确打印单条交出记录 | 正式规格 12.2 | `buildWoolHandoverPrintLink(woolOrderId, handoverId)`、详情“打印本次交出单”、单条动态路由 | 专项检查与 E2E 断言只出现指定 `handoverId`；不存在时显示明确空态 |
+| SPU 款式与唯一款式图同区 | 正式规格 12.2 | `data-wool-print-spu-info` 内恰好一个 `data-wool-print-style-image` | 专项检查统计每页一张；E2E 核对款号和图片同区 |
+| 款式图来自款式档案 / 技术包快照 | 正式规格 12.2 | 技术包快照冻结 `style.mainImageUrl` 和图库；毛织加工单读取快照 | 专项检查禁止 Mock `data:image/svg+xml`，断言真实 `.jpg` |
+| 物料图片与物料 SKU 一一对应 | 正式规格 12.2、13 | `materialImages[{ materialSkuCode, imageUrl }]` 从技术包 BOM 冻结；打印卡片标记 `data-material-sku` | 专项检查与 E2E 分别校验 `YARN-A`、`YARN-B` 的真实图片 |
+| 二维码真实可扫描且无伪条码 | 正式规格 12.2 | `renderRealQrPlaceholder` 使用 `qrcode.react/QRCodeSVG`；打印按钮在 SVG 未生成时阻止打印 | E2E 等待每页真实 SVG；专项检查禁止伪方格、装饰条纹和伪条码文案，并校验二维码生成门禁 |
+| 缺图不可冒充正式打印 | 正式规格 12.2、16.4 | 缺款式图/物料图逐项提示，工具条禁用“打印” | 专项检查固定禁打文案；浏览器打印样例必须使用完整真实图片 |
+| 毛织无菲票 | 正式规格 12.2、16.5 | 毛织打印链路仅有交出单 | 专项检查和 E2E 均断言无“菲票” |
 
 ## 执行检查点
 

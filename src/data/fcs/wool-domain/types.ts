@@ -1,6 +1,6 @@
 export type WoolProcessingStatus = 'UNPROCESSED' | 'PROCESSING' | 'COMPLETED'
 export type WoolOutputObjectType = 'GARMENT' | 'WOOL_PANEL'
-export type WoolQtyUnit = '件' | '片' | 'kg'
+export type WoolQtyUnit = '件' | 'kg'
 export type WoolWorkOrderKind = 'WHOLE_GARMENT' | 'PART_PANEL'
 
 export interface WoolOutputPlanLine {
@@ -15,7 +15,10 @@ export interface WoolOutputPlanLine {
   plannedQty: number
   qtyUnit: '件'
   requiredYarnSkus: string[]
-  materialImageUrls?: string[]
+  materialImages?: Array<{
+    materialSkuCode: string
+    imageUrl: string
+  }>
   sourceTechPackVersionId: string
   sourceTechPackVersionCode: string
   sourceColorMappingIds: string[]

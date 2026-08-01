@@ -119,7 +119,7 @@ function resolveMappedBomItem(
 function resolveSourceForSku(
   input: WoolOrderSourceBuildInput,
   sku: WoolSourceSkuLineInput,
-): Pick<WoolOutputPlanLine, 'requiredYarnSkus' | 'materialImageUrls' | 'sourceColorMappingIds' | 'sourceBomItemIds'> {
+): Pick<WoolOutputPlanLine, 'requiredYarnSkus' | 'materialImages' | 'sourceColorMappingIds' | 'sourceBomItemIds'> {
   const mappings = input.colorMaterialMappings.filter((mapping) =>
     mapping.mappingOrigin === 'TECH_PACK'
     && mapping.status !== 'AUTO_DRAFT'
@@ -140,10 +140,16 @@ function resolveSourceForSku(
     }
   }
 
-  const materialImageUrls = uniqueStable(acceptedBomItems.map((item) => item.materialImageUrl ?? ''))
+  const requiredYarnSkus = uniqueStable(acceptedBomItems.map((item) => item.materialCode ?? ''))
+  const materialImages = requiredYarnSkus.flatMap((materialSkuCode) => {
+    const imageUrl = acceptedBomItems
+      .find((item) => item.materialCode === materialSkuCode)
+      ?.materialImageUrl?.trim()
+    return imageUrl ? [{ materialSkuCode, imageUrl }] : []
+  })
   return {
-    requiredYarnSkus: uniqueStable(acceptedBomItems.map((item) => item.materialCode ?? '')),
-    ...(materialImageUrls.length > 0 ? { materialImageUrls } : {}),
+    requiredYarnSkus,
+    ...(materialImages.length > 0 ? { materialImages } : {}),
     sourceColorMappingIds: uniqueStable(mappings.map((mapping) => mapping.id)),
     sourceBomItemIds: uniqueStable(acceptedBomItems.map((item) => item.id)),
   }

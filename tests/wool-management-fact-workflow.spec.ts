@@ -882,6 +882,49 @@ test('完成弹窗展示完整五类事实，完成快照冻结且自动解链�
   expect(after.warehouseFlows.filter((flow) => flow.woolOrderId === order.woolOrderId)).toEqual(sourceFlows)
 })
 
+test('毛织交出单支持加工单批量打印和详情单条打印，SPU 仅一张真实款式图且二维码可扫描', async ({ page }) => {
+  const order = await findScenario(page, 'MULTIPLE_HANDOVERS_WITH_STOCK')
+  const store = await readWoolStore(page)
+  const handovers = store.handovers.filter((item) => item.woolOrderId === order.woolOrderId)
+  expect(handovers).toHaveLength(2)
+
+  await openWoolOrders(page)
+  await filterOrder(page, order.woolOrderNo)
+  await rowFor(page, order).getByRole('button', { name: '打印交出单', exact: true }).click()
+  await expect(page).toHaveURL(new RegExp(`/fcs/craft/wool/work-orders/${order.woolOrderId}/handover-print$`))
+  const batchPages = page.locator('[data-wool-handover-print-page]')
+  await expect(batchPages).toHaveCount(2)
+  for (let index = 0; index < handovers.length; index += 1) {
+    const printPage = batchPages.nth(index)
+    const spuInfo = printPage.locator('[data-wool-print-spu-info]')
+    await expect(spuInfo).toContainText(order.styleNo)
+    await expect(spuInfo.locator('[data-wool-print-style-image]')).toHaveCount(1)
+    await expect(spuInfo.locator('[data-wool-print-style-image]')).toHaveAttribute('src', /\.jpg$/)
+    await expect(printPage.locator('[data-wool-print-style-image]')).toHaveCount(1)
+    await expect(printPage.locator('[data-wool-print-material-item]')).toHaveCount(2)
+    await expect(printPage.locator('[data-wool-print-material-item][data-material-sku="YARN-A"] img')).toHaveAttribute('src', /\.jpg$/)
+    await expect(printPage.locator('[data-wool-print-material-item][data-material-sku="YARN-B"] img')).toHaveAttribute('src', /\.jpg$/)
+    await expect(printPage.locator('[data-real-qr] svg[role="img"]')).toHaveCount(1)
+    await expect(printPage.locator('[data-barcode], [data-qr-code]')).toHaveCount(0)
+  }
+  await expect(page.getByText('菲票')).toHaveCount(0)
+
+  await page.goto(`/fcs/craft/wool/work-orders/${encodeURIComponent(order.woolOrderId)}`)
+  await page.getByRole('button', { name: '发起交出记录', exact: true }).click()
+  const singlePrint = page.getByRole('button', { name: '打印本次交出单', exact: true }).first()
+  await expect(singlePrint).toBeVisible()
+  await singlePrint.click()
+  await expect(page).toHaveURL(new RegExp(
+    `/fcs/craft/wool/work-orders/${order.woolOrderId}/handover-print/${handovers[0].handoverId}$`,
+  ))
+  await expect(page.locator('[data-wool-handover-print-page]')).toHaveCount(1)
+  await expect(page.locator('[data-wool-handover-print-page]')).toHaveAttribute('data-handover-id', handovers[0].handoverId)
+  await expect(page.locator('[data-wool-handover-print-root]')).not.toContainText(handovers[1].handoverId)
+  await page.locator('[data-wool-handover-print-page]').screenshot({
+    path: 'output/playwright/wool-handover-print-spu-integrated.png',
+  })
+})
+
 test('1366×768 预热后唯一 PDA 主操作真实可见结果小于 200ms，输入与弹窗保持局部更新', async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 })
   const order = await findScenario(page, 'ONE_COLOR_READY')

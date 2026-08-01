@@ -57,7 +57,17 @@ function outputLine(
 ): WoolOutputPlanLine {
   const garmentSkuCode = `HG-WOOL-${String(sequence).padStart(2, '0')}-${colorCode}-M`
   const isPanel = kind === 'PART_PANEL'
-  const materialImageUrls = requiredYarnSkus.map((sku, index) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="160" height="120"><rect width="160" height="120" rx="14" fill="${index % 2 === 0 ? '#f8fafc' : '#f1f5f9'}"/><circle cx="80" cy="48" r="30" fill="${sku.endsWith('A') ? '#1f2937' : sku.endsWith('B') ? '#64748b' : '#e5e7eb'}"/><path d="M45 92c18-18 52-18 70 0" fill="none" stroke="#475569" stroke-width="6" stroke-linecap="round"/><text x="80" y="112" text-anchor="middle" font-family="Arial" font-size="13" font-weight="700" fill="#334155">${sku}</text></svg>`)}`)
+  const materialImageBySku: Record<string, string> = {
+    'YARN-A': '/materials/yarn-stitching.jpg',
+    'YARN-B': '/materials/yarn-ball.jpg',
+    'YARN-C': '/materials/yarn-ball.jpg',
+  }
+  const materialImages = requiredYarnSkus
+    .filter((sku) => Boolean(materialImageBySku[sku]))
+    .map((materialSkuCode) => ({
+      materialSkuCode,
+      imageUrl: materialImageBySku[materialSkuCode],
+    }))
   return {
     outputSkuCode: isPanel ? `WP-SLEEVE-${garmentSkuCode}` : garmentSkuCode,
     outputObjectType: isPanel ? 'WOOL_PANEL' : 'GARMENT',
@@ -69,7 +79,7 @@ function outputLine(
     plannedQty: 100,
     qtyUnit: '件',
     requiredYarnSkus,
-    materialImageUrls,
+    materialImages,
     sourceTechPackVersionId: `TPV-WOOL-${String(sequence).padStart(2, '0')}`,
     sourceTechPackVersionCode: `WOOL-TP-${String(sequence).padStart(2, '0')}-V1`,
     sourceColorMappingIds: requiredYarnSkus.length > 0 ? [`MAP-WOOL-${sequence}-${colorCode}`] : [],
@@ -119,7 +129,7 @@ function workOrder(sequence: number, code: WoolMockScenarioCode): WoolWorkOrder 
     productionOrderNo: `PO-WOOL-${String(sequence).padStart(3, '0')}`,
     styleNo: `HG-WOOL-${String(sequence).padStart(3, '0')}`,
     styleName: kind === 'PART_PANEL' ? '针织袖片款' : '针织圆领衫',
-    styleImageUrl: `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240"><rect width="240" height="240" fill="#eff6ff"/><path d="M75 55 45 85l25 28 15-13v90h70v-90l15 13 25-28-30-30-28 14h-34z" fill="#93c5fd" stroke="#2563eb" stroke-width="4"/></svg>`)}`,
+    styleImageUrl: '/cardigan-sample.jpg',
     internalStyleCode: `W${String(sequence).padStart(3, '0')}`,
     factoryId: 'OWN_WOOL_FACTORY',
     factoryName: '周哥毛织厂',

@@ -581,6 +581,7 @@ function buildCutPieceParts(input: {
 }
 
 function buildImageSnapshot(input: {
+  style: Pick<StyleArchiveShellRecord, 'mainImageUrl' | 'galleryImageUrls'>
   bomItems: TechPackBomItemSnapshot[]
   patternFiles: TechPackPatternFileSnapshot[]
   patternDesigns: TechnicalPatternDesign[]
@@ -597,7 +598,10 @@ function buildImageSnapshot(input: {
 
   return {
     productImages: [],
-    styleImages: [],
+    styleImages: uniqueStrings([
+      input.style.mainImageUrl,
+      ...input.style.galleryImageUrls,
+    ]).filter(isAllowedSnapshotImage),
     sampleImages: [],
     materialImages,
     accessoryImages,
@@ -662,6 +666,7 @@ function buildSnapshotFromSource(input: {
       ? normalizeText(content.internalStyleCode)
       : ''
   const imageSnapshot = buildImageSnapshot({
+    style,
     bomItems,
     patternFiles,
     patternDesigns,
