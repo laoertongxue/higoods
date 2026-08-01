@@ -14,7 +14,7 @@ import {
   cloneProductionOrderTechPackSnapshot,
 } from './production-tech-pack-snapshot-builder.ts'
 import type { ProductionOrderTechPackSnapshot } from './production-tech-pack-snapshot-types.ts'
-import { getStandaloneProductionOrderFormalFact } from './production-order-formal-fact-index.ts'
+import { registerProductionOrderFormalFactReader } from './production-order-formal-fact-index.ts'
 
 export type ProductionOrderStatus =
   | 'DRAFT'
@@ -1470,9 +1470,11 @@ function buildReleaseMaterialSwatchImageUrl(materialCode: string, materialName: 
 }
 
 function buildReleaseTargetSupplementProductionOrder(base: ProductionOrder): ProductionOrder {
-  const formalFact = getStandaloneProductionOrderFormalFact('po-14671')
-  if (!formalFact) throw new Error('PO14671 补料检查生产单缺少正式生产事实')
-  const spuCode = formalFact.spuCode
+  const formalFact = {
+    productionOrderId: 'po-14671',
+    status: 'WAIT_ASSIGNMENT' as const,
+  }
+  const spuCode = 'ASYSA26060310'
   const baseSnapshot = cloneProductionOrderTechPackSnapshot(base.techPackSnapshot)
   if (!baseSnapshot) throw new Error('PO14671 补料检查生产单缺少技术包模板')
   const colors = ['Black', 'White', 'Navy', 'Red']
@@ -1675,6 +1677,12 @@ export const productionOrders: ProductionOrder[] = [
   ...seededProductionOrders,
   buildReleaseTargetSupplementProductionOrder(seededProductionOrders[1]),
 ]
+
+registerProductionOrderFormalFactReader(() => productionOrders.map((order) => ({
+  productionOrderId: order.productionOrderId,
+  spuCode: order.demandSnapshot.spuCode,
+  status: order.status,
+})))
 
 export const productionOrderStatusConfig: Record<ProductionOrderStatus, { label: string; color: string }> = {
   DRAFT: { label: '草稿', color: 'bg-gray-100 text-gray-700' },

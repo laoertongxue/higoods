@@ -26,7 +26,7 @@ import {
 } from '../src/data/pcs-tech-pack-version-log-repository.ts'
 import { generateTechPackVersionFromPatternTask } from '../src/data/pcs-tech-pack-task-generation.ts'
 import {
-  replaceTechnicalDataVersionStore,
+  resetTechnicalDataVersionRepository,
   updateTechnicalDataVersionContent,
   updateTechnicalDataVersionRecord,
 } from '../src/data/pcs-technical-data-version-repository.ts'
@@ -43,12 +43,7 @@ import { renderTechPackPage } from '../src/pages/tech-pack.ts'
 function resetScenario(): void {
   resetProjectRepository()
   resetStyleArchiveRepository()
-  replaceTechnicalDataVersionStore({
-    version: 2,
-    records: [],
-    contents: [],
-    pendingItems: [],
-  })
+  resetTechnicalDataVersionRepository()
   clearProjectRelationStore()
   resetTechPackVersionLogRepository()
   resetPlateMakingTaskRepository()

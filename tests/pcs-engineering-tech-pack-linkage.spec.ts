@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 
 import * as authorityIndex from '../src/data/pcs-engineering-tech-pack-authority-index.ts'
+import * as engineeringMasterRepository from '../src/data/pcs-engineering-master-repository.ts'
+import * as technicalDataVersionRepository from '../src/data/pcs-technical-data-version-repository.ts'
 import {
   createEngineeringMasterOrder,
   createEngineeringChangeTask,
@@ -37,6 +39,17 @@ resetEngineeringMasterRepository()
 resetEngineeringChangeRepository()
 resetRevisionTaskRepository()
 resetTechnicalDataVersionRepository()
+
+assert.equal(
+  'replaceEngineeringMasterOrderStore' in engineeringMasterRepository,
+  false,
+  '工程主单仓不得公开任意快照替换入口',
+)
+assert.equal(
+  'replaceTechnicalDataVersionStore' in technicalDataVersionRepository,
+  false,
+  '技术包仓不得公开任意快照替换入口',
+)
 
 const acceptedSourceTypes: TechPackSourceTaskType[] = ['ENGINEERING_MASTER', 'ENGINEERING_CHANGE']
 assert.deepEqual(acceptedSourceTypes, ['ENGINEERING_MASTER', 'ENGINEERING_CHANGE'])

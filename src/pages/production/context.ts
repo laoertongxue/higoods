@@ -16,6 +16,7 @@ import {
   formatProductionOrderMainFactoryName,
   isProductionOrderMainFactoryPending,
 } from '../../data/fcs/production-orders'
+import { registerProductionOrderFormalFactReader } from '../../data/fcs/production-order-formal-fact-index'
 import {
   indonesiaFactories,
   type FactoryTier,
@@ -1900,6 +1901,13 @@ const state: ProductionState = {
   detailSimulateStatus: 'DRAFT',
   detailConfirmSimulateOpen: false,
 }
+
+// 页面运行态可能新增、恢复或变更生产单；首单门禁始终读取这一事实源。
+registerProductionOrderFormalFactReader(() => state.orders.map((order) => ({
+  productionOrderId: order.productionOrderId,
+  spuCode: order.demandSnapshot.spuCode,
+  status: order.status,
+})))
 
 export type {
   OrderViewMode,

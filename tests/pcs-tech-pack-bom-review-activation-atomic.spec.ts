@@ -40,6 +40,11 @@ import type {
   TechnicalDataVersionContent,
   TechnicalDataVersionRecord,
 } from '../src/data/pcs-technical-data-version-types.ts'
+import {
+  createEngineeringMasterOrder,
+  publishEngineeringMasterOrder,
+  resetEngineeringMasterRepository,
+} from '../src/data/pcs-engineering-master-repository.ts'
 
 function createMaterial(input: {
   costPrice: number
@@ -104,9 +109,16 @@ function changePrice(materialSkuId: string, costPrice: number): void {
 }
 
 const baseRecord = listTechnicalDataVersions()[0]
-const style = listStyleArchives().find((item) => item.sourceProjectId) ?? listStyleArchives()[0]
+const style = listStyleArchives()[0]
 assert.ok(baseRecord)
 assert.ok(style)
+resetEngineeringMasterRepository()
+const engineeringMaster = publishEngineeringMasterOrder(createEngineeringMasterOrder({
+  styleId: style.styleId,
+  styleCode: style.styleCode,
+  merchandiserName: '跟单甲',
+}).masterOrderId)
+const engineeringSourceTaskId = `${engineeringMaster.masterOrderId}-TECH_PACK_CONFIRMATION`
 
 function makeRecord(input: {
   id: string
@@ -120,8 +132,11 @@ function makeRecord(input: {
     styleId: style.styleId,
     styleCode: style.styleCode,
     styleName: style.styleName,
-    sourceProjectId: style.sourceProjectId,
-    sourceProjectCode: style.sourceProjectCode,
+    sourceProjectId: engineeringMaster.masterOrderId,
+    sourceProjectCode: engineeringMaster.masterOrderCode,
+    createdFromTaskType: 'ENGINEERING_MASTER',
+    createdFromTaskId: engineeringSourceTaskId,
+    createdFromTaskCode: engineeringSourceTaskId,
     versionStatus: input.status,
     reviewStage: input.reviewStage,
     buyerReview: undefined,
@@ -262,7 +277,7 @@ for (const failureStep of activationFailureSteps) {
     makeContent(versionId, [makeBomItem(`BOM-ROLLBACK-${failureStep}`, validSku.materialSkuId, '米')]),
   )
   const technicalBefore = getTechnicalDataVersionStoreSnapshot()
-  const sourceProjectId = style.sourceProjectId
+  const sourceProjectId = engineeringMaster.masterOrderId
   const projectBefore = getProjectById(sourceProjectId)
   const relationBefore = listProjectRelationsByProject(sourceProjectId)
   const archiveBefore = getProjectArchiveFacts(sourceProjectId)

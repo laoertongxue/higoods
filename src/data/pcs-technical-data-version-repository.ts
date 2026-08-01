@@ -1169,8 +1169,14 @@ export function pushTechnicalDataVersionPendingItem(item: TechnicalDataVersionPe
   })
 }
 
-export function replaceTechnicalDataVersionStore(snapshot: TechnicalDataVersionStoreSnapshot): void {
-  persistSnapshot(snapshot)
+export function runTechnicalDataVersionRepositoryTransaction<T>(operation: () => T): T {
+  const snapshotBeforeOperation = loadSnapshot()
+  try {
+    return operation()
+  } catch (error) {
+    persistSnapshot(snapshotBeforeOperation)
+    throw error
+  }
 }
 
 export function resetTechnicalDataVersionRepository(): void {

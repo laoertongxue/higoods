@@ -14,7 +14,7 @@ import {
   resetStyleArchiveRepository,
   updateStyleArchive,
 } from '../src/data/pcs-style-archive-repository.ts'
-import { replaceTechnicalDataVersionStore } from '../src/data/pcs-technical-data-version-repository.ts'
+import { resetTechnicalDataVersionRepository } from '../src/data/pcs-technical-data-version-repository.ts'
 import { resetTechPackVersionLogRepository } from '../src/data/pcs-tech-pack-version-log-repository.ts'
 import {
   getPlateMakingTaskById,
@@ -26,7 +26,7 @@ import { generateTechPackVersionFromPlateTask } from '../src/data/pcs-tech-pack-
 
 resetProjectRepository()
 resetStyleArchiveRepository()
-replaceTechnicalDataVersionStore({ version: 2, records: [], contents: [], pendingItems: [] })
+resetTechnicalDataVersionRepository()
 clearProjectRelationStore()
 resetTechPackVersionLogRepository()
 resetPlateMakingTaskRepository()

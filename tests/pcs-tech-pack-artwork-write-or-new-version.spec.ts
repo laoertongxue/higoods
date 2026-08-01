@@ -26,9 +26,9 @@ import {
 import {
   getTechnicalDataVersionContent,
   getTechnicalDataVersionById,
-  getTechnicalDataVersionStoreSnapshot,
   listTechnicalDataVersionsByStyleId,
-  replaceTechnicalDataVersionStore,
+  resetTechnicalDataVersionRepository,
+  updateTechnicalDataVersionRecord,
 } from '../src/data/pcs-technical-data-version-repository.ts'
 import {
   resetPlateMakingTaskRepository,
@@ -50,12 +50,7 @@ import {
 function resetScenario(): void {
   resetProjectRepository()
   resetStyleArchiveRepository()
-  replaceTechnicalDataVersionStore({
-    version: 2,
-    records: [],
-    contents: [],
-    pendingItems: [],
-  })
+  resetTechnicalDataVersionRepository()
   clearProjectRelationStore()
   resetTechPackVersionLogRepository()
   resetPlateMakingTaskRepository()
@@ -279,23 +274,14 @@ const legacyPlateTask = upsertPlateMakingTask({
 })
 const legacyVersion = generateTechPackVersionFromPlateTask(legacyPlateTask.plateTaskId, '测试用户').record
 const legacyContentBefore = getTechnicalDataVersionContent(legacyVersion.technicalVersionId)
-const legacyStore = getTechnicalDataVersionStoreSnapshot()
-replaceTechnicalDataVersionStore({
-  ...legacyStore,
-  records: legacyStore.records.map((record) =>
-    record.technicalVersionId === legacyVersion.technicalVersionId
-      ? {
-          ...record,
-          versionStatus: 'PUBLISHED',
-          createdFromTaskType: 'PLATE',
-          sourceProjectId: legacyScenario.project.projectId,
-          sourceProjectCode: legacyScenario.project.projectCode,
-          sourceProjectName: legacyScenario.project.projectName,
-          createdFromTaskId: legacyPlateTask.plateTaskId,
-          createdFromTaskCode: legacyPlateTask.plateTaskCode,
-        }
-      : record,
-  ),
+updateTechnicalDataVersionRecord(legacyVersion.technicalVersionId, {
+  versionStatus: 'PUBLISHED',
+  createdFromTaskType: 'PLATE',
+  sourceProjectId: legacyScenario.project.projectId,
+  sourceProjectCode: legacyScenario.project.projectCode,
+  sourceProjectName: legacyScenario.project.projectName,
+  createdFromTaskId: legacyPlateTask.plateTaskId,
+  createdFromTaskCode: legacyPlateTask.plateTaskCode,
 })
 const legacyRecordBefore = getTechnicalDataVersionById(legacyVersion.technicalVersionId)
 assert.ok(legacyRecordBefore)

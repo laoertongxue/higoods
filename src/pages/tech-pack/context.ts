@@ -45,8 +45,7 @@ import { saveTechnicalDataVersionContent } from '../../data/pcs-project-technica
 import {
   getTechnicalDataVersionById,
   getTechnicalDataVersionContent,
-  getTechnicalDataVersionStoreSnapshot,
-  replaceTechnicalDataVersionStore,
+  runTechnicalDataVersionRepositoryTransaction,
 } from '../../data/pcs-technical-data-version-repository.ts'
 import {
   getProjectStoreSnapshot,
@@ -110,9 +109,8 @@ import { buildPatternSignature } from './pattern-duplicate-check.ts'
 import { normalizeProcessRouteEntries } from '../../data/tech-pack-process-route.ts'
 import {
   applyBomRequirementsToEngineeringTasks,
-  getEngineeringMasterOrderStoreSnapshot,
   listEngineeringMasterOrders,
-  replaceEngineeringMasterOrderStore,
+  runEngineeringMasterRepositoryTransaction,
   validateBomRequirementsForEngineeringTasks,
   type ApplyBomRequirementsToEngineeringTasksResult,
 } from '../../data/pcs-engineering-master-repository.ts'
@@ -2542,8 +2540,6 @@ interface TechnicalContentEngineeringLinkageOperations {
 }
 
 interface TechnicalContentEngineeringLinkageSnapshots {
-  technical: ReturnType<typeof getTechnicalDataVersionStoreSnapshot>
-  engineering: ReturnType<typeof getEngineeringMasterOrderStoreSnapshot>
   relation: ReturnType<typeof getProjectRelationStoreSnapshot>
   style: ReturnType<typeof captureStyleArchiveRepositoryState>
   project: ReturnType<typeof getProjectStoreSnapshot>
@@ -2552,8 +2548,6 @@ interface TechnicalContentEngineeringLinkageSnapshots {
 
 function captureTechnicalContentEngineeringLinkageSnapshots(): TechnicalContentEngineeringLinkageSnapshots {
   return {
-    technical: getTechnicalDataVersionStoreSnapshot(),
-    engineering: getEngineeringMasterOrderStoreSnapshot(),
     relation: getProjectRelationStoreSnapshot(),
     style: captureStyleArchiveRepositoryState(),
     project: getProjectStoreSnapshot(),
@@ -2576,8 +2570,6 @@ function restoreTechnicalContentEngineeringLinkageSnapshots(
   restore(() => replaceProjectStore(snapshots.project))
   restore(() => replaceProjectRelationStore(snapshots.relation))
   restore(() => replaceProjectArchiveStore(snapshots.archive))
-  restore(() => replaceTechnicalDataVersionStore(snapshots.technical))
-  restore(() => replaceEngineeringMasterOrderStore(snapshots.engineering))
   // 商品项目仓恢复可能触发款式种子同步，因此款式仓最后精确恢复。
   restore(() => restoreStyleArchiveRepositoryState(snapshots.style))
   if (rollbackErrors.length > 0 && originalError instanceof Error) {
@@ -2599,15 +2591,19 @@ function saveTechnicalDataVersionContentWithEngineeringLinkage(
   const snapshots = captureTechnicalContentEngineeringLinkageSnapshots()
   const saveTechnicalContent = operations.saveTechnicalContent ?? saveTechnicalDataVersionContent
   const applyEngineeringTasks = operations.applyEngineeringTasks ?? applyBomRequirementsToEngineeringTasks
-  try {
-    const technicalVersion = saveTechnicalContent(technicalVersionId, patch, operatorName)
-    const engineeringLinkage = master
-      ? applyEngineeringTasks(master.masterOrderId, engineeringRows)
-      : null
-    return { technicalVersion, engineeringLinkage }
-  } catch (error) {
-    restoreTechnicalContentEngineeringLinkageSnapshots(snapshots, error)
-  }
+  return runTechnicalDataVersionRepositoryTransaction(() =>
+    runEngineeringMasterRepositoryTransaction(() => {
+      try {
+        const technicalVersion = saveTechnicalContent(technicalVersionId, patch, operatorName)
+        const engineeringLinkage = master
+          ? applyEngineeringTasks(master.masterOrderId, engineeringRows)
+          : null
+        return { technicalVersion, engineeringLinkage }
+      } catch (error) {
+        restoreTechnicalContentEngineeringLinkageSnapshots(snapshots, error)
+      }
+    }),
+  )
 }
 
 function getCraftOptionByCode(code: string): CraftOption | null {

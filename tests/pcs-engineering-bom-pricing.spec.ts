@@ -22,7 +22,29 @@ import {
   createTechnicalDataVersionDraft,
   getTechnicalDataVersionContent,
   listTechnicalDataVersions,
+  resetTechnicalDataVersionRepository,
 } from '../src/data/pcs-technical-data-version-repository.ts'
+import {
+  createEngineeringMasterOrder,
+  publishEngineeringMasterOrder,
+  resetEngineeringMasterRepository,
+} from '../src/data/pcs-engineering-master-repository.ts'
+import {
+  listStyleArchives,
+  resetStyleArchiveRepository,
+} from '../src/data/pcs-style-archive-repository.ts'
+
+resetStyleArchiveRepository()
+resetEngineeringMasterRepository()
+resetTechnicalDataVersionRepository()
+const technicalVersionStyle = listStyleArchives()[0]
+assert.ok(technicalVersionStyle)
+const technicalVersionMaster = publishEngineeringMasterOrder(createEngineeringMasterOrder({
+  styleId: technicalVersionStyle.styleId,
+  styleCode: technicalVersionStyle.styleCode,
+  merchandiserName: '跟单甲',
+}).masterOrderId)
+const technicalVersionSourceTaskId = `${technicalVersionMaster.masterOrderId}-TECH_PACK_CONFIRMATION`
 
 function createPricedMaterial(input: {
   costPrice: number
@@ -239,6 +261,11 @@ createTechnicalDataVersionDraft(
     ...baseVersion,
     technicalVersionId: draftVersionId,
     technicalVersionCode: `TP-TASK7-DRAFT-${Date.now()}`,
+    styleId: technicalVersionStyle.styleId,
+    styleCode: technicalVersionStyle.styleCode,
+    sourceProjectId: technicalVersionMaster.masterOrderId,
+    createdFromTaskType: 'ENGINEERING_MASTER',
+    createdFromTaskId: technicalVersionSourceTaskId,
     versionStatus: 'DRAFT',
     reviewStage: '草稿',
     publishedAt: '',
@@ -270,6 +297,11 @@ createTechnicalDataVersionDraft(
     ...baseVersion,
     technicalVersionId: formalVersionId,
     technicalVersionCode: `TP-TASK7-${Date.now()}`,
+    styleId: technicalVersionStyle.styleId,
+    styleCode: technicalVersionStyle.styleCode,
+    sourceProjectId: technicalVersionMaster.masterOrderId,
+    createdFromTaskType: 'ENGINEERING_MASTER',
+    createdFromTaskId: technicalVersionSourceTaskId,
     versionStatus: 'PUBLISHED',
     reviewStage: '已发布',
     publishedAt: '2026-08-01 11:00',

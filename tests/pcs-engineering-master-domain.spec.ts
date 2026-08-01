@@ -16,6 +16,49 @@ resetEngineeringMasterRepository()
 const freshStyle = listStyleArchives()[0]
 assert.ok(freshStyle, '应存在正式款式档案演示数据')
 
+// 首单门禁必须直接读取生产单运行态事实，而不是维护另一份静态状态副本。
+const runtimeOrderFact = structuredClone(productionOrders[0])
+runtimeOrderFact.productionOrderId = 'PO-FIRST-ORDER-RUNTIME-FACT'
+runtimeOrderFact.productionOrderNo = 'PO-FIRST-ORDER-RUNTIME-FACT'
+runtimeOrderFact.demandSnapshot.spuCode = 'SPU-FIRST-ORDER-RUNTIME-FACT'
+runtimeOrderFact.status = 'EXECUTING'
+productionOrders.push(runtimeOrderFact)
+assert.throws(
+  () => assertFirstFormalProduction(runtimeOrderFact.demandSnapshot.spuCode),
+  /已经正式生产过/,
+  '新增执行中生产单必须立即进入首单门禁',
+)
+runtimeOrderFact.status = 'CANCELLED'
+assert.doesNotThrow(
+  () => assertFirstFormalProduction(runtimeOrderFact.demandSnapshot.spuCode),
+  '同一生产单改为已取消后必须立即退出首单门禁',
+)
+productionOrders.pop()
+
+const { state: productionRuntimeState } = await import('../src/pages/production/context.ts')
+const runtimeOrdersBeforeRestore = productionRuntimeState.orders
+const restoredRuntimeOrder = structuredClone(runtimeOrdersBeforeRestore[0])
+restoredRuntimeOrder.productionOrderId = 'PO-FIRST-ORDER-RUNTIME-RESTORE'
+restoredRuntimeOrder.productionOrderNo = 'PO-FIRST-ORDER-RUNTIME-RESTORE'
+restoredRuntimeOrder.demandSnapshot.spuCode = 'SPU-FIRST-ORDER-RUNTIME-RESTORE'
+restoredRuntimeOrder.status = 'EXECUTING'
+productionRuntimeState.orders = [...runtimeOrdersBeforeRestore, restoredRuntimeOrder]
+assert.throws(
+  () => assertFirstFormalProduction(restoredRuntimeOrder.demandSnapshot.spuCode),
+  /已经正式生产过/,
+  '运行态恢复新增的执行中生产单必须立即进入首单门禁',
+)
+productionRuntimeState.orders = productionRuntimeState.orders.map((order) =>
+  order.productionOrderId === restoredRuntimeOrder.productionOrderId
+    ? { ...order, status: 'CANCELLED' }
+    : order,
+)
+assert.doesNotThrow(
+  () => assertFirstFormalProduction(restoredRuntimeOrder.demandSnapshot.spuCode),
+  '运行态恢复后改为已取消必须立即退出首单门禁',
+)
+productionRuntimeState.orders = runtimeOrdersBeforeRestore
+
 // 首次正式生产校验：已正式生产款式必须阻断
 assert.throws(() => assertFirstFormalProduction('SPU-2024-001'), /已经正式生产过/)
 for (const order of productionOrders.filter((item) => !['DRAFT', 'CANCELLED', 'ON_HOLD'].includes(item.status))) {

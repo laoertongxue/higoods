@@ -328,8 +328,14 @@ export function getEngineeringMasterOrderStoreSnapshot(): EngineeringMasterOrder
   return readSnapshot()
 }
 
-export function replaceEngineeringMasterOrderStore(snapshot: EngineeringMasterOrderSnapshot): void {
-  writeSnapshot(snapshot)
+export function runEngineeringMasterRepositoryTransaction<T>(operation: () => T): T {
+  const snapshotBeforeOperation = readSnapshot()
+  try {
+    return operation()
+  } catch (error) {
+    writeSnapshot(snapshotBeforeOperation)
+    throw error
+  }
 }
 
 export function resetEngineeringMasterRepository(): void {

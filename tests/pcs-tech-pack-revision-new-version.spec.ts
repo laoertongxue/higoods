@@ -27,7 +27,7 @@ import {
 import {
   getCurrentTechPackVersionByStyleId,
   listTechnicalDataVersionsByStyleId,
-  replaceTechnicalDataVersionStore,
+  resetTechnicalDataVersionRepository,
   updateTechnicalDataVersionContent,
   updateTechnicalDataVersionRecord,
 } from '../src/data/pcs-technical-data-version-repository.ts'
@@ -46,12 +46,7 @@ import {
 function resetScenario(): void {
   resetProjectRepository()
   resetStyleArchiveRepository()
-  replaceTechnicalDataVersionStore({
-    version: 2,
-    records: [],
-    contents: [],
-    pendingItems: [],
-  })
+  resetTechnicalDataVersionRepository()
   clearProjectRelationStore()
   resetTechPackVersionLogRepository()
   resetPlateMakingTaskRepository()

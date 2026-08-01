@@ -66,6 +66,7 @@ createTechnicalDataVersionDraft({
   styleId: style.styleId,
   styleCode: style.styleCode,
   sourceProjectId: master.masterOrderId,
+  createdFromTaskType: 'ENGINEERING_MASTER',
   createdFromTaskId: `${master.masterOrderId}-TECH_PACK_CONFIRMATION`,
   versionStatus: 'DRAFT',
   publishedAt: '',
@@ -119,23 +120,21 @@ assert.match(
 )
 assert.doesNotMatch(persistBlock, /applyEngineeringTaskLinkageFromBomForTechnicalVersion\(/, '页面保存链不得分别写两个仓库')
 
-const unrelatedVersionId = `TDV-BOM-UNRELATED-${Date.now()}`
-createTechnicalDataVersionDraft({
-  ...baseVersion,
-  technicalVersionId: unrelatedVersionId,
-  technicalVersionCode: `TP-${unrelatedVersionId}`,
-  styleId: style.styleId,
-  styleCode: style.styleCode,
-  sourceProjectId: 'PRODUCT-PROJECT-NOT-MASTER',
-  createdFromTaskId: '',
-  versionStatus: 'DRAFT',
-  publishedAt: '',
-  publishedBy: '',
-}, { ...content, technicalVersionId: unrelatedVersionId })
-assert.equal(
-  applyEngineeringTaskLinkageFromBomForTechnicalVersion(unrelatedVersionId, bomRows),
-  null,
-  '同款式但无工程主单权威来源的技术包版本不得隐式联动',
+assert.throws(
+  () => createTechnicalDataVersionDraft({
+    ...baseVersion,
+    technicalVersionId: `TDV-BOM-UNRELATED-${Date.now()}`,
+    technicalVersionCode: `TP-BOM-UNRELATED-${Date.now()}`,
+    styleId: style.styleId,
+    styleCode: style.styleCode,
+    sourceProjectId: 'PRODUCT-PROJECT-NOT-MASTER',
+    createdFromTaskId: '',
+    versionStatus: 'DRAFT',
+    publishedAt: '',
+    publishedBy: '',
+  }),
+  /只能由工程主单或工程变更任务生成/,
+  '无工程权威来源的技术包不得先写入再尝试联动',
 )
 
 const secondStyle = listStyleArchives().find((item) => item.styleId !== style.styleId)
@@ -148,18 +147,19 @@ const secondMaster = publishEngineeringMasterOrder(createEngineeringMasterOrder(
 
 function createSourceVersion(
   suffix: string,
-  sourceProjectId: string,
-  createdFromTaskId: string,
+  sourceMaster: typeof master,
+  sourceStyle: typeof style,
 ) {
   const technicalVersionId = `TDV-BOM-SOURCE-${suffix}-${Date.now()}`
   createTechnicalDataVersionDraft({
     ...baseVersion,
     technicalVersionId,
     technicalVersionCode: `TP-${technicalVersionId}`,
-    styleId: style.styleId,
-    styleCode: style.styleCode,
-    sourceProjectId,
-    createdFromTaskId,
+    styleId: sourceStyle.styleId,
+    styleCode: sourceStyle.styleCode,
+    sourceProjectId: sourceMaster.masterOrderId,
+    createdFromTaskType: 'ENGINEERING_MASTER',
+    createdFromTaskId: `${sourceMaster.masterOrderId}-TECH_PACK_CONFIRMATION`,
     versionStatus: 'DRAFT',
     publishedAt: '',
     publishedBy: '',
@@ -167,32 +167,36 @@ function createSourceVersion(
   return technicalVersionId
 }
 
-const projectOnlyVersionId = createSourceVersion('PROJECT', master.masterOrderId, '')
-assert.equal(
-  applyEngineeringTaskLinkageFromBomForTechnicalVersion(projectOnlyVersionId, bomRows)?.masterOrder.masterOrderId,
-  master.masterOrderId,
-  '仅 sourceProjectId 时应关联对应工程主单',
-)
-const taskOnlyVersionId = createSourceVersion('TASK', '', `${secondMaster.masterOrderId}-TECH_PACK_CONFIRMATION`)
-assert.equal(
-  applyEngineeringTaskLinkageFromBomForTechnicalVersion(taskOnlyVersionId, bomRows)?.masterOrder.masterOrderId,
-  secondMaster.masterOrderId,
-  '仅 createdFromTaskId 时应关联任务所属工程主单',
-)
-const noSourceVersionId = createSourceVersion('NONE', '', '')
-assert.equal(applyEngineeringTaskLinkageFromBomForTechnicalVersion(noSourceVersionId, bomRows), null, '无权威来源时不得联动')
-const conflictVersionId = createSourceVersion(
-  'CONFLICT',
-  master.masterOrderId,
-  `${secondMaster.masterOrderId}-TECH_PACK_CONFIRMATION`,
+assert.throws(
+  () => createTechnicalDataVersionDraft({
+    ...baseVersion,
+    technicalVersionId: `TDV-BOM-MISSING-TASK-${Date.now()}`,
+    technicalVersionCode: `TP-BOM-MISSING-TASK-${Date.now()}`,
+    styleId: style.styleId,
+    styleCode: style.styleCode,
+    sourceProjectId: master.masterOrderId,
+    createdFromTaskType: 'ENGINEERING_MASTER',
+    createdFromTaskId: '',
+  }),
+  /同时记录来源对象和来源任务/,
+  '不得创建只有主单而没有来源任务的技术包',
 )
 assert.throws(
-  () => applyEngineeringTaskLinkageFromBomForTechnicalVersion(conflictVersionId, bomRows),
-  /技术包工程来源不一致，无法同步 BOM 工艺任务。/,
-  '双权威来源指向不同主单时必须明确阻断',
+  () => createTechnicalDataVersionDraft({
+    ...baseVersion,
+    technicalVersionId: `TDV-BOM-CONFLICT-${Date.now()}`,
+    technicalVersionCode: `TP-BOM-CONFLICT-${Date.now()}`,
+    styleId: style.styleId,
+    styleCode: style.styleCode,
+    sourceProjectId: master.masterOrderId,
+    createdFromTaskType: 'ENGINEERING_MASTER',
+    createdFromTaskId: `${secondMaster.masterOrderId}-TECH_PACK_CONFIRMATION`,
+  }),
+  /工程主单任务不存在/,
+  '来源主单与任务不一致时必须在创建阶段阻断',
 )
 
-const atomicVersionId = createSourceVersion('ATOMIC', master.masterOrderId, '')
+const atomicVersionId = createSourceVersion('ATOMIC', master, style)
 function captureAtomicStores() {
   return {
     technical: getTechnicalDataVersionStoreSnapshot(),
@@ -272,7 +276,7 @@ assert.deepEqual(getEngineeringMasterOrderStoreSnapshot(), engineeringSnapshotBe
 assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), technicalSnapshotBeforeApplyFailure, '工程同步失败必须恢复技术版本仓')
 assertAtomicStoresEqual(allStoresBeforeApplyFailure, '技术保存成功后工程同步失败必须恢复所有副作用仓')
 
-const prevalidationVersionId = createSourceVersion('PREVALIDATE', secondMaster.masterOrderId, '')
+const prevalidationVersionId = createSourceVersion('PREVALIDATE', secondMaster, secondStyle)
 const secondPatternTaskId = `${secondMaster.masterOrderId}-PATTERN_ARTWORK`
 updateEngineeringTaskRecord(secondMaster.masterOrderId, secondPatternTaskId, (_task, current) => {
   current.tasks = current.tasks.filter((item) => item.taskType !== 'PATTERN_ARTWORK')
