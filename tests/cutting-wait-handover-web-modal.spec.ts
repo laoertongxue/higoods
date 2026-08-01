@@ -1,131 +1,182 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 
-async function openControlledWaitHandover(page: Page): Promise<void> {
-  await page.goto('/src/pages/process-factory/cutting/wait-handover-runtime.ts', { waitUntil: 'domcontentloaded' })
-  await page.evaluate(async () => {
-    localStorage.removeItem('cuttingRuntimeEventLedger')
-    const pda = await import('/src/data/fcs/store-domain-pda.ts')
-    const user = pda.listFactoryPdaUsers('FACTORY-ONBOARD-0035')[0] || await pda.createFactoryPdaUser({ factoryId: 'FACTORY-ONBOARD-0035', name: '裁床仓管', loginId: 'wait_handover_e2e', password: '123456', roleId: 'ROLE_OPERATOR' })
-    pda.setPdaSession(pda.createPdaSessionFromUser(user))
-    const runtime = await import('/src/pages/process-factory/cutting/wait-handover-runtime.ts')
-    const warehouseMap = await import('/src/pages/process-factory/cutting/warehouse-location-map.ts')
-    const component = await import('/src/components/ui/warehouse-location-map.ts')
-    const model = await import('/src/pages/process-factory/cutting/warehouse-location-map-model.ts')
-    let selected: string[] = []
-    const bagCode = 'BAG-B-003'
-    const tickets = [
-      { feiTicketId: 'demo-front', feiTicketNo: 'FT-CUT-260307-102-02-DEMO-FRONT', productionOrderId: 'PO-102', productionOrderNo: 'PO-202603-0102', cutOrderId: 'CUT-102', cutOrderNo: 'CUT-102', spreadingOrderId: 'SP-102', spreadingOrderNo: 'SP-102', color: '卡其色', size: 'L', partCode: '前片', partName: '前片', pieceSequenceLabel: '1-128', pieceQty: 128 },
-      { feiTicketId: 'demo-back', feiTicketNo: 'FT-CUT-260307-102-02-DEMO-BACK', productionOrderId: 'PO-102', productionOrderNo: 'PO-202603-0102', cutOrderId: 'CUT-102', cutOrderNo: 'CUT-102', spreadingOrderId: 'SP-102', spreadingOrderNo: 'SP-102', color: '卡其色', size: 'L', partCode: '后片', partName: '后片', pieceSequenceLabel: '1-128', pieceQty: 128 },
-    ]
-    const render = () => {
-      const current = warehouseMap.buildCurrentCuttingWarehouseMapProjection('WAIT_HANDOVER')
-      if (!current) throw new Error('缺少待交出仓投影')
-      document.body.innerHTML = `<main data-controlled-wait-handover><div class="actions"><button data-action="bagging">确认菲票装袋</button><button data-action="inbound">确认中转袋入仓</button><button data-action="handover">确认整袋交出</button></div>${component.renderWarehouseLocationMap({ projection: current.projection, mode: 'SELECT', factoryName: current.warehouse.factoryName, selectedLocationIds: selected })}${component.renderWarehouseLocationMapSummarySection(current.projection)}</main>`
-    }
-    render()
-    document.body.addEventListener('click', (event) => {
-      const target = event.target instanceof HTMLElement ? event.target : null
-      if (!target) return
-      const current = warehouseMap.buildCurrentCuttingWarehouseMapProjection('WAIT_HANDOVER')
-      if (!current) return
-      const location = target.closest<HTMLElement>('[data-warehouse-map-action="toggle-location"]')
-      if (location) {
-        const result = model.toggleWarehouseLocationSelection(current.projection, selected, location.dataset.locationId || '')
-        if (result.ok) selected = result.selectedLocationIds
-        else window.alert(result.message)
-        render(); return
-      }
-      const action = target.closest<HTMLElement>('[data-action]')?.dataset.action
-      const operator = { operatorId: 'E2E', operatorName: '浏览器仓管', operatorRole: '裁片仓管' }
-      if (action === 'bagging') runtime.appendWaitHandoverBaggingEvent({ source: 'WEB', operator, bagCode, tickets, occurredAt: '2026-08-02 10:00' })
-      if (action === 'inbound') {
-        const validation = model.revalidateWarehouseLocationSelection(current.projection, selected)
-        if (!validation.ok) { window.alert(validation.message); return }
-        const refs = model.listWarehouseLocationMapCells(current.projection).filter((cell) => selected.includes(cell.locationId))
-        runtime.appendWaitHandoverInboundEvent({ source: 'WEB', operator, bagCode, warehouseArea: refs[0].areaName, locationCode: refs[0].locationNo, warehouseLocations: refs, occurredAt: '2026-08-02 10:01' })
-      }
-      if (action === 'handover') runtime.appendWaitHandoverHandoverRecordEvent({ source: 'WEB', operator, fromWarehouseArea: '待交出仓', fromLocationCode: selected[0] || '', occurredAt: '2026-08-02 10:02', payload: { handoverOrderId: 'HO-E2E', handoverOrderNo: 'HO-E2E', handoverRecordId: 'HR-E2E', handoverRecordNo: 'HR-E2E', receiverType: '车缝厂', receiverId: 'SEW-E2E', receiverName: '车缝厂', transferBagUses: [{ bagUseId: 'BAG-USE-E2E', bagCode, containedFeiTicketIds: tickets.map((item) => item.feiTicketId), totalPieceQty: 256 }], feiTicketItems: tickets.map((item) => ({ feiTicketId: item.feiTicketId, feiTicketNo: item.feiTicketNo, pieceQty: item.pieceQty, unit: '片' })), currentHandedOverQty: 256, submittedAt: '2026-08-02 10:02', submittedBy: '浏览器仓管' } })
-      render()
-    })
-  })
+import { collectPageErrors, expectNoPageErrors } from './helpers/seed-cutting-runtime-state'
+
+const WAIT_HANDOVER_PATH = '/fcs/craft/cutting/warehouse-management/wait-handover'
+
+async function openWaitHandoverPage(page: Page, suffix = ''): Promise<void> {
+  await page.goto(`${WAIT_HANDOVER_PATH}${suffix}`, { waitUntil: 'domcontentloaded' })
+  await expect(page.getByRole('heading', { name: '裁床待交出仓' })).toBeVisible({ timeout: 120_000 })
 }
 
-async function openControlledWaitProcess(page: Page): Promise<void> {
-  await page.goto('/src/pages/process-factory/cutting/warehouse-location-map.ts', { waitUntil: 'domcontentloaded' })
-  await page.evaluate(async () => {
-    localStorage.removeItem('cuttingRuntimeEventLedger')
-    const warehouseMap = await import('/src/pages/process-factory/cutting/warehouse-location-map.ts')
-    const component = await import('/src/components/ui/warehouse-location-map.ts')
-    const model = await import('/src/pages/process-factory/cutting/warehouse-location-map-model.ts')
-    const ledger = await import('/src/data/fcs/cutting/cutting-runtime-event-ledger.ts')
-    let selected: string[] = []
-    const render = () => {
-      const current = warehouseMap.buildCurrentCuttingWarehouseMapProjection('WAIT_PROCESS')
-      if (!current) throw new Error('缺少待加工仓投影')
-      document.body.innerHTML = `<main data-controlled-wait-process>${component.renderWarehouseLocationMap({ projection: current.projection, mode: 'SELECT', factoryName: current.warehouse.factoryName, selectedLocationIds: selected })}<button data-action="confirm">确认领料</button></main>`
-    }
-    render()
-    document.body.addEventListener('click', (event) => {
-      const target = event.target instanceof HTMLElement ? event.target : null
-      if (!target) return
-      const current = warehouseMap.buildCurrentCuttingWarehouseMapProjection('WAIT_PROCESS')
-      if (!current) return
-      const cell = target.closest<HTMLElement>('[data-warehouse-map-action="toggle-location"]')
-      if (cell) { const result = model.toggleWarehouseLocationSelection(current.projection, selected, cell.dataset.locationId || ''); if (result.ok) selected = result.selectedLocationIds; else window.alert(result.message); render(); return }
-      if (target.closest('[data-action="confirm"]')) { const result = model.revalidateWarehouseLocationSelection(current.projection, selected); if (!result.ok) { window.alert(result.message); return } }
-    })
-    ;(window as typeof window & { __appendConflict?: (id: string) => number }).__appendConflict = (id) => {
-      const current = warehouseMap.buildCurrentCuttingWarehouseMapProjection('WAIT_PROCESS')!
-      const ref = model.listWarehouseLocationMapCells(current.projection).find((item) => item.locationId === id)!
-      ledger.appendCuttingRuntimeEvent({ eventType: '中转仓领料', operatorName: '其他仓管', occurredAt: '2026-08-02 11:00', refs: { cutOrderNo: 'CUT-CONFLICT', productionOrderNo: 'PO-CONFLICT', handoverRecordId: 'CONFLICT:LINE' }, material: { materialSku: 'MAT-CONFLICT', materialName: '并发物料' }, inventoryEffect: { inventoryScope: '裁床待加工仓', direction: 'IN', qty: 1, unit: 'yard', rollCount: 1, toWarehouseArea: ref.areaName, toLocationCode: ref.locationNo }, payload: { pickupSessionId: 'CONFLICT', warehouseLocations: [ref] } })
-      return ledger.listCuttingRuntimeEvents().length
-    }
-  })
-}
-
-async function selectCrossHierarchyLocations(map: ReturnType<Page['locator']>) {
+async function findCrossHierarchyLocations(map: Locator) {
   return map.locator('[data-warehouse-map-action="toggle-location"]:not([disabled])').evaluateAll((buttons) => {
-    const rows = buttons.map((button) => { const no = (button as HTMLElement).dataset.locationNo || ''; const m = no.match(/^([A-Z])-R(\d+)-L(\d+)-P/); return m ? { id: (button as HTMLElement).dataset.locationId || '', no, area: m[1], shelf: `${m[1]}-${m[2]}`, level: m[3] } : null }).filter((row): row is NonNullable<typeof row> => Boolean(row))
-    for (let a = 0; a < rows.length; a++) for (let b = a + 1; b < rows.length; b++) for (let c = b + 1; c < rows.length; c++) { const group = [rows[a], rows[b], rows[c]]; if (new Set(group.map((x) => x.area)).size > 1 && new Set(group.map((x) => x.shelf)).size > 1 && new Set(group.map((x) => x.level)).size > 1) return group }
+    const rows = buttons.map((button) => {
+      const element = button as HTMLElement
+      const locationNo = element.dataset.locationNo || ''
+      const match = locationNo.match(/^([A-Z])-R(\d+)-L(\d+)-P/)
+      return match ? {
+        id: element.dataset.locationId || '',
+        no: locationNo,
+        area: match[1],
+        shelf: `${match[1]}-R${match[2]}`,
+        level: match[3],
+      } : null
+    }).filter((row): row is NonNullable<typeof row> => Boolean(row?.id))
+    const uniqueRows = Array.from(new Map(rows.map((row) => [row.id, row])).values())
+    for (let first = 0; first < uniqueRows.length; first += 1) {
+      for (let second = first + 1; second < uniqueRows.length; second += 1) {
+        for (let third = second + 1; third < uniqueRows.length; third += 1) {
+          const group = [uniqueRows[first], uniqueRows[second], uniqueRows[third]]
+          if (new Set(group.map((row) => row.area)).size > 1
+            && new Set(group.map((row) => row.shelf)).size > 1
+            && new Set(group.map((row) => row.level)).size > 1) return group
+        }
+      }
+    }
     return []
   })
 }
 
-test('WAIT_PROCESS 跨层级多选在最新占用冲突时原子阻断', async ({ page }) => {
-  test.setTimeout(180_000)
-  await openControlledWaitProcess(page)
-  const map = page.locator('[data-warehouse-map-root]')
-  const locations = await selectCrossHierarchyLocations(map)
-  expect(locations).toHaveLength(3)
-  for (const location of locations) await map.locator(`[data-warehouse-map-shelf-viewport] [data-location-id="${location.id}"]`).click()
-  await expect(map.locator('[data-warehouse-map-selection-summary]')).toContainText('已选 3 个库位')
-  const before = await page.evaluate((id) => (window as typeof window & { __appendConflict: (id: string) => number }).__appendConflict(id), locations[2].id)
-  let conflictMessage = ''
-  page.once('dialog', async (dialog) => {
-    conflictMessage = dialog.message()
-    await dialog.accept()
+test('真实待交出工作台以生产 handler 完成三格入仓、一次汇总和整袋释放', async ({ page }) => {
+  test.setTimeout(300_000)
+  const errors = collectPageErrors(page)
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('wait-handover-handler-e2e-initialized') === '1') return
+    localStorage.removeItem('cuttingRuntimeEventLedger')
+    sessionStorage.setItem('wait-handover-handler-e2e-initialized', '1')
   })
-  await page.getByRole('button', { name: '确认领料' }).click()
-  expect(conflictMessage).toContain(locations[2].no)
-  expect(await page.evaluate(async () => (await import('/src/data/fcs/cutting/cutting-runtime-event-ledger.ts')).listCuttingRuntimeEvents().length)).toBe(before)
-})
+  await openWaitHandoverPage(page)
 
-test('WAIT_HANDOVER 跨层级入仓、一次汇总和整袋释放形成浏览器 UI 闭环', async ({ page }) => {
-  test.setTimeout(120_000)
-  await openControlledWaitHandover(page)
-  await page.getByRole('button', { name: '确认菲票装袋' }).click()
-  const map = page.locator('[data-warehouse-map-root]')
-  const locations = await selectCrossHierarchyLocations(map)
+  await page.evaluate(async () => {
+    const tickets = await import('/src/data/fcs/cutting/generated-fei-tickets.ts')
+    const numbering = await import('/src/data/fcs/cutting/fei-ticket-numbering.ts')
+    tickets.listSpreadingResultGeneratedFeiTickets()
+      .filter((ticket) => ticket.ticketStatus !== 'VOIDED' && ticket.pieceSequenceRange)
+      .forEach((ticket) => numbering.completeFeiTicketNumbering({
+        feiTicketNoOrId: ticket.feiTicketId,
+        operatorName: 'Web 验收打编号员',
+        source: 'WEB',
+      }))
+  })
+
+  const bagCode = `WEB-HANDLER-${Date.now()}`
+  await page.locator('[data-wait-handover-action="open-bagging"]').click()
+  const baggingDialog = page.locator('[data-wait-handover-modal="bagging"]')
+  await expect(baggingDialog).toBeVisible()
+  await baggingDialog.locator('[data-wait-handover-field="bagCode"]').fill(bagCode)
+  const ticketSelect = baggingDialog.locator('[data-wait-handover-field="feiTicketId"]')
+  expect(await ticketSelect.locator('option:not([disabled])').count()).toBeGreaterThan(0)
+  const directSewingTicketId = await ticketSelect.evaluate(async (select) => {
+    const dispatch = await import('/src/data/fcs/cutting/sewing-dispatch.ts')
+    const availableIds = new Set(Array.from((select as HTMLSelectElement).options).map((option) => option.value).filter(Boolean))
+    return dispatch.listAvailableFeiTicketsForSewingDispatch()
+      .find((ticket) => availableIds.has(ticket.feiTicketId) && !ticket.hasSpecialCraft)?.feiTicketId || ''
+  })
+  expect(directSewingTicketId).not.toBe('')
+  await ticketSelect.selectOption(directSewingTicketId)
+  await baggingDialog.getByRole('button', { name: '确认菲票装袋', exact: true }).click()
+  await expect(baggingDialog).toHaveCount(0)
+
+  await page.locator('[data-wait-handover-action="open-inbound"]').click()
+  const inboundDialog = page.locator('[data-wait-handover-modal="inbound"]')
+  await expect(inboundDialog).toBeVisible()
+  await inboundDialog.locator('[data-wait-handover-field="bagCode"]').fill(bagCode)
+  const map = inboundDialog.locator('[data-warehouse-map-root]')
+  const clearSelection = map.locator('[data-warehouse-map-action="clear-selection"]')
+  if (await clearSelection.count()) await clearSelection.click()
+  const locations = await findCrossHierarchyLocations(map)
   expect(locations).toHaveLength(3)
-  for (const location of locations) await map.locator(`[data-location-id="${location.id}"]`).click()
-  await page.getByRole('button', { name: '确认中转袋入仓' }).click()
-  for (const location of locations) await expect(page.locator(`[data-warehouse-map-shelf-viewport] [data-location-id="${location.id}"]`)).toContainText('BAG-B-003')
+  for (const location of locations) {
+    await inboundDialog.locator(`[data-warehouse-map-shelf-viewport] [data-location-id="${location.id}"]`).click()
+  }
+  await expect(inboundDialog.locator('[data-warehouse-map-selection-summary]')).toContainText('已选 3 个库位')
+  await inboundDialog.getByRole('button', { name: '确认中转袋入仓', exact: true }).click()
+  await expect(inboundDialog).toHaveCount(0)
+
+  await openWaitHandoverPage(page, '?tab=locations')
+  for (const location of locations) {
+    await expect(page.locator(`[data-warehouse-map-shelf-viewport] [data-location-id="${location.id}"]`)).toContainText(bagCode)
+  }
   const summary = page.locator('[data-warehouse-map-summary-section]')
   await expect(summary).toContainText('1 袋')
-  await expect(summary).toContainText('2 张菲票')
-  await expect(summary).toContainText('256 片')
   await expect(summary).toContainText('3 个库位')
-  await page.getByRole('button', { name: '确认整袋交出' }).click()
-  for (const location of locations) await expect(page.locator(`[data-warehouse-map-shelf-viewport] [data-location-id="${location.id}"]`)).not.toContainText('BAG-B-003')
+  const summaryText = await summary.innerText()
+  expect((summaryText.match(new RegExp(bagCode, 'g')) || []).length).toBe(1)
+
+  const transferBagCode = await page.evaluate(async ({ sourceBagCode, locationIds }) => {
+    const runtime = await import('/src/pages/process-factory/cutting/wait-handover-runtime.ts')
+    const dispatch = await import('/src/data/fcs/cutting/sewing-dispatch.ts')
+    const ledger = await import('/src/data/fcs/cutting/cutting-runtime-event-ledger.ts')
+    const mapModule = await import('/src/pages/process-factory/cutting/warehouse-location-map.ts')
+    const mapModel = await import('/src/pages/process-factory/cutting/warehouse-location-map-model.ts')
+    const snapshot = runtime.resolveWaitHandoverBaggingSnapshot(sourceBagCode)
+    const currentMap = mapModule.buildCurrentCuttingWarehouseMapProjection('WAIT_HANDOVER')
+    const warehouseLocations = currentMap
+      ? mapModel.listWarehouseLocationMapCells(currentMap.projection).filter((cell) => locationIds.includes(cell.locationId))
+      : []
+    if (!snapshot?.tickets.length || warehouseLocations.length !== locationIds.length) throw new Error('缺少真实分配装袋上游事实')
+    const allocation = dispatch.buildSewingTaskAllocationProjectionFromInventory(snapshot.tickets.map((ticket) => ({
+      inventoryRecordId: `INV-${sourceBagCode}-${ticket.feiTicketId}`,
+      feiTicketId: ticket.feiTicketId, feiTicketNo: ticket.feiTicketNo,
+      cutOrderId: ticket.cutOrderId, cutOrderNo: ticket.cutOrderNo,
+      productionOrderId: ticket.productionOrderId, productionOrderNo: ticket.productionOrderNo,
+      spuCode: ticket.spuCode, color: ticket.color, size: ticket.size, partName: ticket.partName,
+      pieceQty: ticket.pieceQty, pieceSequenceLabel: ticket.pieceSequenceLabel,
+      hasSpecialCraft: ticket.hasSpecialCraft, specialCraftDisplay: ticket.specialCraftDisplayLabel,
+      receiverFactoryDisplay: '', printStatus: '已打印', voidStatus: '有效', tempBagCode: sourceBagCode,
+      warehouseArea: warehouseLocations[0].areaName, locationCode: warehouseLocations[0].locationNo,
+      inboundAt: '2026-08-02 12:00', inventoryStatus: '待分配',
+    })))
+    const picking = dispatch.buildHandoverPickingTaskProjectionFromAllocationProjection(allocation)
+    const task = picking.tasks.find((item) => item.allocatedInventoryItems.some((item) => item.tempBagCode === sourceBagCode))
+    if (!task) throw new Error('生产分配/分拣投影未形成真实任务')
+    ledger.appendCuttingRuntimeEvent({
+      eventType: '交出装袋确认', eventSource: 'WEB', eventStatus: '已同步',
+      occurredAt: '2026-08-02 12:01', operatorName: '交出装袋确认员',
+      refs: {
+        transferBagCode: sourceBagCode, usageCycleId: snapshot.usageCycleId,
+        productionOrderId: snapshot.tickets[0].productionOrderId,
+        productionOrderNo: snapshot.tickets[0].productionOrderNo,
+        taskId: task.pickingTaskId, feiTicketIds: snapshot.tickets.map((ticket) => ticket.feiTicketId),
+        feiTicketNos: snapshot.tickets.map((ticket) => ticket.feiTicketNo),
+      },
+      inventoryEffect: { inventoryScope: '裁床待交出仓', direction: 'IN', qty: snapshot.tickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0), unit: '片' },
+      payload: {
+        sourceTempBagCode: sourceBagCode, targetTransferBagCode: sourceBagCode,
+        pickingTaskId: task.pickingTaskId, pickingTaskNo: task.pickingTaskNo,
+        sewingTaskId: task.sewingTaskId, sewingTaskNo: task.sewingTaskNo,
+        receiverType: '车缝厂', receiverFactoryId: task.receiverFactoryId, receiverFactoryName: task.receiverFactoryName,
+      },
+    })
+    const lifecycle = runtime.buildWaitHandoverLifecycleByBagCode(sourceBagCode)
+    if (lifecycle.flowStage !== 'INBOUND_STORED') {
+      throw new Error(`交出装袋确认后袋状态异常：${lifecycle.flowStageLabel}`)
+    }
+    return sourceBagCode
+  }, { sourceBagCode: bagCode, locationIds: locations.map((location) => location.id) })
+
+  await openWaitHandoverPage(page)
+  await page.locator('[data-wait-handover-action="open-handover"]').click()
+  const handoverDialog = page.locator('[data-wait-handover-modal="handover"]')
+  await expect(handoverDialog).toBeVisible()
+  const handoverSelection = handoverDialog.locator('[data-wait-handover-field="handoverSelection"]')
+  const bagOption = handoverSelection.locator('option').filter({ hasText: transferBagCode })
+  await expect(bagOption).toHaveCount(1)
+  await handoverSelection.selectOption(await bagOption.getAttribute('value') || '')
+  let handoverAlert = ''
+  page.once('dialog', async (dialog) => {
+    handoverAlert = dialog.message()
+    await dialog.accept()
+  })
+  await handoverDialog.getByRole('button', { name: '确认整袋交出', exact: true }).click()
+  expect(handoverAlert).toBe('')
+  await expect(handoverDialog).toHaveCount(0)
+
+  await openWaitHandoverPage(page, '?tab=locations')
+  for (const location of locations) {
+    await expect(page.locator(`[data-warehouse-map-shelf-viewport] [data-location-id="${location.id}"]`)).not.toContainText(transferBagCode)
+  }
   await expect(page.locator('[data-warehouse-map-summary-section]')).toHaveCount(0)
+  await expectNoPageErrors(errors)
 })

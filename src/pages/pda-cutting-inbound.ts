@@ -716,11 +716,18 @@ function listInboundTicketCandidates(): TransferBagTicketCandidate[] {
   return buildTransferBagsProjection().viewModel.ticketCandidates
 }
 
+function resolveWaitHandoverLayoutSnapshot(
+  warehouse: NonNullable<ReturnType<typeof getCurrentFactoryWarehouseByKind>>,
+): ReturnType<typeof loadWarehouseLayoutSnapshot>['snapshot'] | undefined {
+  return warehouse.factoryKind === 'CENTRAL_CUTTING'
+    ? loadWarehouseLayoutSnapshot(warehouse).snapshot
+    : undefined
+}
+
 function listCurrentWaitHandoverLocationRefs(): StableWarehouseLocationRef[] {
   const warehouse = getCurrentFactoryWarehouseByKind('WAIT_HANDOVER')
   if (!warehouse) return []
-  const { snapshot } = loadWarehouseLayoutSnapshot(warehouse)
-  return listStableWarehouseLocationRefs(warehouse, snapshot)
+  return listStableWarehouseLocationRefs(warehouse, resolveWaitHandoverLayoutSnapshot(warehouse))
 }
 
 function buildPdaInboundLocationMapProjection(
@@ -728,7 +735,7 @@ function buildPdaInboundLocationMapProjection(
 ) {
   const warehouse = getCurrentFactoryWarehouseByKind('WAIT_HANDOVER')
   if (!warehouse) return null
-  const { snapshot } = loadWarehouseLayoutSnapshot(warehouse)
+  const snapshot = resolveWaitHandoverLayoutSnapshot(warehouse)
   const occupancies: WarehouseLocationOccupancy[] = buildWaitHandoverLocationOccupancyStates(
     storage === getBrowserLocalStorage()
       ? listWaitHandoverRuntimeEvents()
@@ -795,17 +802,17 @@ function validateCurrentWaitHandoverLocation(
 ): { ok: true; ref: StableWarehouseLocationRef } | { ok: false; message: string } {
   const warehouse = getCurrentFactoryWarehouseByKind('WAIT_HANDOVER')
   if (!warehouse) return { ok: false, message: '当前工厂未设置待交出仓，不能入仓。' }
-  const loaded = loadWarehouseLayoutSnapshot(warehouse)
+  const snapshot = resolveWaitHandoverLayoutSnapshot(warehouse)
   const qrParts = locationLabel.trim().split('|').map((part) => part.trim())
   if (qrParts.length === 4) {
     const [factoryId, warehouseId, warehouseKind, locationId] = qrParts
     if (factoryId !== warehouse.factoryId || warehouseId !== warehouse.warehouseId || warehouseKind !== warehouse.warehouseKind) {
       return { ok: false, message: '该库位不属于当前工厂或当前仓库，请重新扫描。' }
     }
-    const exactRef = listStableWarehouseLocationRefs(warehouse, loaded.snapshot)
+    const exactRef = listStableWarehouseLocationRefs(warehouse, snapshot)
       .find((location) => location.locationId === locationId)
     if (!exactRef) return { ok: false, message: '库位不存在，请重新扫描。' }
-    return validateWaitHandoverScanCandidate(exactRef, warehouse, loaded.snapshot)
+    return validateWaitHandoverScanCandidate(exactRef, warehouse, snapshot)
   }
   if (qrParts.length === 2 && normalizeInboundCode(qrParts[0]) !== normalizeInboundCode(warehouse.factoryId)) {
     return { ok: false, message: '该库位不属于当前工厂，请重新扫描。' }
@@ -815,7 +822,7 @@ function validateCurrentWaitHandoverLocation(
   if (qrParts.length === 2) {
     const sameFactoryMatches = listFactoryInternalWarehouses()
       .filter((item) => item.factoryId === warehouse.factoryId)
-      .flatMap((item) => listStableWarehouseLocationRefs(item, loadWarehouseLayoutSnapshot(item).snapshot))
+      .flatMap((item) => listStableWarehouseLocationRefs(item, resolveWaitHandoverLayoutSnapshot(item)))
       .filter((location) => normalizeInboundCode(location.locationNo) === normalized)
     if (sameFactoryMatches.length !== 1) {
       return { ok: false, message: '旧版库位码无法唯一确认仓库，请从库位图选择。' }
@@ -825,18 +832,18 @@ function validateCurrentWaitHandoverLocation(
     normalizeInboundCode(location.locationNo) === normalized,
   )
   if (rawMatches.length > 1) return { ok: false, message: '库位编号不唯一，请从库位图选择。' }
-  const matches = listStableWarehouseLocationRefs(warehouse, loaded.snapshot).filter((location) =>
+  const matches = listStableWarehouseLocationRefs(warehouse, snapshot).filter((location) =>
     normalizeInboundCode(location.locationNo) === normalized,
   )
   if (!matches.length) return { ok: false, message: '库位不存在，请重新扫描。' }
   if (matches.length > 1) return { ok: false, message: '库位编号不唯一，请从库位图选择。' }
-  return validateWaitHandoverScanCandidate(matches[0], warehouse, loaded.snapshot)
+  return validateWaitHandoverScanCandidate(matches[0], warehouse, snapshot)
 }
 
 function validateWaitHandoverScanCandidate(
   ref: StableWarehouseLocationRef,
   warehouse: NonNullable<ReturnType<typeof getCurrentFactoryWarehouseByKind>>,
-  snapshot: ReturnType<typeof loadWarehouseLayoutSnapshot>['snapshot'],
+  snapshot: ReturnType<typeof loadWarehouseLayoutSnapshot>['snapshot'] | undefined,
 ): { ok: true; ref: StableWarehouseLocationRef } | { ok: false; message: string } {
   if (ref.factoryId !== warehouse.factoryId
     || ref.warehouseId !== warehouse.warehouseId
@@ -1085,7 +1092,8 @@ function renderPdaCuttingInboundWorkflowContent(
       isInboundLocation
         ? `
           <div class="space-y-2">
-            ${renderStepTitle(2, '选择入仓库位')}
+            ${renderStepTitle(2, '扫库区库位')}
+            <span class="sr-only">2 选择入仓库位</span>
             <input
               class="h-12 w-full rounded-xl border bg-background px-3 text-base"
               data-pda-cut-inbound-field="locationScan"

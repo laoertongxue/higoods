@@ -32,16 +32,22 @@
 
 ## 浏览器验收覆盖
 
-- 1366×768：硬断言层 `L` 降序、位置 `P` 升序和完整编码。
-- WAIT_PROCESS：跨区／架／层多选；并发追加占用后确认整组阻断，提示冲突完整编号，事件数不增加。
-- WAIT_HANDOVER：真实生产 runtime、库位模型和地图组件完成“装袋 → 三库位入仓 → 三格占用 → 1 袋／2 张菲票／256 片只汇总一次 → 整袋交出 → 三格释放”UI 闭环。
-- PDA：正式套件首次选位 DOM 反馈为 14.50ms，并保留页面壳身份与非零页面滚动位置；扫码追加两位置、缺失位置中文异常且不改变数组；特殊工艺回仓真实页面处理器；多候选“本次领料批次”默认不预选、未选阻断、选择后进入真实领料草稿。
+- 1366×768 的真实 WAIT_PROCESS 页面在同一场景硬断言层 `L` 降序、位置 `P` 升序、完整编码、占用抽屉、维护新增库区／货架和无页面级横向溢出。
+- WAIT_PROCESS 真实 `warehouseAction=claim` 页面与生产 handler 完成跨区／架／层三选；并发追加真实占用后确认整组阻断，提示冲突完整编号，事件账只增加并发事实、不增加提交事实。
+- WAIT_HANDOVER 真实工作台与生产 handler 完成“菲票装袋 → 三库位入仓 → 三格占用 → 1 袋／3 个库位只汇总一次 → 生产分配／分拣确认事实 → 整袋交出 → 三格释放”，空仓后不再渲染占用汇总区。
+- PDA 浏览器实证：真实生产 render／handler 覆盖跨库区、货架、层自由多选、任意取消与清空；特殊工艺回仓缺失扫码中文阻断；多候选“本次领料批次”默认不预选、未选阻断、选择后进入真实领料草稿。
 - 1280×720：宽货架页面无横向溢出、货架容器可横向滚动、维护入口可见可用。
+
+## 专业检查证据
+
+- `check:pda-cutting-inbound-workflow` 覆盖 PDA 正常扫码、缺失／停用／占用／跨仓阻断与选择数组不被异常扫码污染；这些属于专业脚本证据，不表述为浏览器逐项覆盖。
+- `check:cutting-special-craft-dispatch-return` 覆盖特殊工艺交出／回仓业务事实与数量边界。
+- `check:pda-cutting-transfer-bag-handover`、`check:cutting-wait-handover-transfer-bag-flow` 和 `check:web-cutting-transfer-bag-actions` 覆盖整袋交出、事件事实与 Web／PDA 共用边界。
 
 ## 治理与例外
 
 - 依赖固定审计要求：0 个已知漏洞。
-- 正式浏览器命令使用独立开发服务器 `43176` 端口、`workers=1`，结果为 19/19 通过，退出码 0，总用时 10.6 分钟。
+- 正式浏览器命令使用独立开发服务器和 `workers=1`；最后一次完整复跑为 19/19 通过、退出码 0、总用时 14.3 分钟。
 - 必跑：完整 E2E、库位图专项、PDA 入仓／交出／特殊工艺专项、Web 流转专项、原型治理、列表治理、生产构建、CodeGraph 同步。
 - 产品设计例外：无。原型仍使用本地 Mock 和浏览器事件账，不模拟真实后端、跨设备数据库锁或正式角色鉴权。
 
@@ -67,11 +73,15 @@
 
 ### 受管文件
 
+- `src/pages/process-factory/cutting/warehouse-hub.ts`
+- `src/pages/process-factory/cutting/warehouse-location-map-model.ts`
+- `src/pages/pda-cutting-inbound.ts`
+- `src/pages/pda-cutting-handover.ts`
 - `src/pages/pda-warehouse-wait-process.ts`
 
 ### 验证命令
 
-- `npm run check:cutting-warehouse-location-map-e2e`：通过，19/19，退出码 0，总用时 10.6 分钟。
+- `npm run check:cutting-warehouse-location-map-e2e`：通过，19/19、退出码 0、总用时 14.3 分钟；覆盖 WAIT_PROCESS 与 WAIT_HANDOVER 真实处理器场景。
 - `npm audit --audit-level=low`：通过，0 个已知漏洞。
 - `npm run check:prototype-design-governance -- --all`：通过。
 - `npm run check:list-page-governance`：通过。

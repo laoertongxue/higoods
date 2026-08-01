@@ -2644,6 +2644,8 @@ type WaitHandoverConfirmSelection = {
 
 function buildWaitHandoverConfirmSelections(): WaitHandoverConfirmSelection[] {
   const projection = buildWaitHandoverWebPickingProjection()
+  const baggingConfirmEvents = listRuntimeWaitHandoverEvents()
+    .filter((event) => event.eventType === '交出装袋确认' && event.eventStatus !== '已取消')
   const inventoryRecords = buildWaitHandoverWebInventoryRecords()
     .filter((record) => record.voidStatus !== '已作废')
   const recordsByBagCode = new Map<string, InboundTempBagInventoryRecord[]>()
@@ -2659,6 +2661,37 @@ function buildWaitHandoverConfirmSelections(): WaitHandoverConfirmSelection[] {
     const bagTicketIds = new Set(
       bagRecords.map((record) => record.feiTicketId),
     )
+    const confirmedTaskEvent = [...baggingConfirmEvents].reverse().find((event) => {
+      const payload = toRuntimeRecord(event.payload)
+      const eventBagCode = runtimeString(payload.targetTransferBagCode)
+        || runtimeString(payload.sourceTempBagCode)
+        || event.refs.transferBagCode
+      return eventBagCode === bagCode
+        && bagRecords.every((record) => event.refs.feiTicketIds?.includes(record.feiTicketId))
+    })
+    if (confirmedTaskEvent) {
+      const payload = toRuntimeRecord(confirmedTaskEvent.payload)
+      const taskId = runtimeString(payload.pickingTaskId) || confirmedTaskEvent.refs.taskId || confirmedTaskEvent.eventId
+      const taskNo = runtimeString(payload.pickingTaskNo) || runtimeString(payload.sewingTaskNo) || taskId
+      selections.push({
+        value: `inbound-bag|${bagCode}|${taskId}`,
+        handoverOrderId: `WEB-HO-${taskId}`,
+        handoverOrderNo: `${taskNo}-交出`,
+        receiverType: runtimeString(payload.receiverType) || '车缝厂',
+        receiverId: runtimeString(payload.receiverFactoryId),
+        receiverName: runtimeString(payload.receiverFactoryName) || '接收车缝厂',
+        bagUseId: lifecycle.usageCycleId || `legacy:${bagCode}`,
+        bagCode,
+        sourceWarehouseName: bagRecords[0]?.warehouseArea || '裁床待交出仓',
+        sourceLocationCode: bagRecords[0]?.locationCode || '',
+        tickets: bagRecords.map((record) => ({
+          feiTicketId: record.feiTicketId,
+          feiTicketNo: record.feiTicketNo,
+          pieceQty: record.pieceQty,
+        })),
+      })
+      return
+    }
     const tasksWithBagItems = projection.tasks.filter((task) =>
       task.allocatedInventoryItems.some(
         (item) =>
@@ -4665,6 +4698,7 @@ function renderWaitHandoverWorkbench(projection: WaitHandoverWorkbenchProjection
 function listRuntimeWaitHandoverEvents(): CuttingRuntimeEvent[] {
   const events = [
     ...listCuttingRuntimeEventsByInventoryScope('裁床待交出仓'),
+    ...listCuttingRuntimeEventsByType('菲票装袋'),
     ...listCuttingRuntimeEventsByType('交出装袋确认'),
     ...listCuttingRuntimeEventsByType('新增交出记录'),
     ...listCuttingRuntimeEventsByType('特殊工艺交出'),

@@ -957,7 +957,9 @@ function appendRuntimeSpecialCraftHandoverEvent(draft: PdaHandoverRecordDraftPro
 function buildPdaSpecialCraftReturnLocationMapProjection() {
   const warehouse = getCurrentFactoryWarehouseByKind('WAIT_HANDOVER')
   if (!warehouse) return null
-  const { snapshot } = loadWarehouseLayoutSnapshot(warehouse)
+  const snapshot = warehouse.factoryKind === 'CENTRAL_CUTTING'
+    ? loadWarehouseLayoutSnapshot(warehouse).snapshot
+    : undefined
   const occupancies: WarehouseLocationOccupancy[] = buildWaitHandoverLocationOccupancyStates(
     listWaitHandoverRuntimeEvents(),
   )

@@ -159,6 +159,39 @@ function assertWarehouseHierarchyFacts(warehouse: FactoryInternalWarehouse): voi
   })
 }
 
+function adaptLegacyWarehouseHierarchyForMap(
+  warehouse: FactoryInternalWarehouse,
+): FactoryInternalWarehouse {
+  if (warehouse.factoryKind === 'CENTRAL_CUTTING') return warehouse
+  const areaCodes = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  return {
+    ...warehouse,
+    areaList: warehouse.areaList.map((area, areaIndex) => ({
+      ...area,
+      code: area.code || areaCodes[areaIndex],
+      shelfList: area.shelfList.map((shelf, shelfIndex) => ({
+        ...shelf,
+        shelfSequence: shelf.shelfSequence ?? shelfIndex + 1,
+        locationList: shelf.locationList.map((location, locationIndex) => ({
+          ...location,
+          levelNo: location.levelNo ?? 1,
+          positionNo: location.positionNo ?? locationIndex + 1,
+        })),
+      })),
+    })),
+  }
+}
+
+function resolveEffectiveWarehouseHierarchy(
+  warehouse: FactoryInternalWarehouse,
+  snapshot?: FactoryWarehouseLayoutSnapshot,
+): FactoryInternalWarehouse {
+  const effective = snapshot
+    ? applyWarehouseLayoutSnapshot(warehouse, snapshot).warehouse
+    : warehouse
+  return adaptLegacyWarehouseHierarchyForMap(effective)
+}
+
 function buildWarehouseLocationMapShelf(input: {
   areaId: string
   areaName: string
@@ -186,9 +219,7 @@ export function listStableWarehouseLocationRefs(
   warehouse: FactoryInternalWarehouse,
   snapshot?: FactoryWarehouseLayoutSnapshot,
 ): StableWarehouseLocationRef[] {
-  const effective = snapshot
-    ? applyWarehouseLayoutSnapshot(warehouse, snapshot).warehouse
-    : warehouse
+  const effective = resolveEffectiveWarehouseHierarchy(warehouse, snapshot)
   assertWarehouseHierarchyFacts(effective)
   return effective.areaList.flatMap((area) =>
     area.shelfList.flatMap((shelf) =>
@@ -292,10 +323,10 @@ function classifyWarehouseLocationSelectability(
 
 export function buildWarehouseLocationMapProjection(
   warehouse: FactoryInternalWarehouse,
-  snapshot: FactoryWarehouseLayoutSnapshot,
+  snapshot: FactoryWarehouseLayoutSnapshot | undefined,
   occupancies: WarehouseLocationOccupancy[],
 ): WarehouseLocationMapProjection {
-  const effective = applyWarehouseLayoutSnapshot(warehouse, snapshot).warehouse
+  const effective = resolveEffectiveWarehouseHierarchy(warehouse, snapshot)
   const refs = listStableWarehouseLocationRefs(warehouse, snapshot)
   const knownLocationIds = new Set(refs.map((ref) => ref.locationId))
   const candidateOccupanciesByLocationId = new Map<string, WarehouseLocationOccupancy[]>()

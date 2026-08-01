@@ -658,6 +658,122 @@ test('两张库位图占用详情分别展示物料卷和袋内菲票', async ({
   await expectImageOrPlaceholder(handoverDrawer, '款式图', '款式图待补充')
 })
 
+test('1366 真实待加工仓同场景完成排序占用维护并由生产 handler 原子拒绝并发冲突', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 })
+  await openWarehouseMap(page, `${WAIT_PROCESS_PATH}?demo=1`)
+  let root = page.locator('[data-warehouse-map-root]')
+  const firstShelfCodes = await root.locator('[data-warehouse-map-shelf-viewport] [data-location-no]').evaluateAll((nodes) =>
+    nodes.slice(0, 8).map((node) => (node as HTMLElement).dataset.locationNo || ''))
+  expect(firstShelfCodes).toEqual([
+    'A-R01-L04-P01', 'A-R01-L04-P02', 'A-R01-L04-P03',
+    'A-R01-L03-P01', 'A-R01-L03-P02', 'A-R01-L03-P03',
+    'A-R01-L02-P01', 'A-R01-L02-P02',
+  ])
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+
+  const occupiedCell = root.locator('[data-warehouse-map-action="open-occupancy"]').first()
+  await expect(occupiedCell).toContainText(/A-R\d+-L\d+-P\d+/)
+  await occupiedCell.click()
+  const occupancyDrawer = page.locator('[data-warehouse-map-occupancy-drawer]')
+  await expect(occupancyDrawer).toBeVisible()
+  await expect(occupancyDrawer).toContainText(/物料卷明细|演示卷明细/)
+  await occupancyDrawer.locator('[data-warehouse-map-action="close-occupancy"]').click()
+
+  await page.getByRole('button', { name: '维护库位图', exact: true }).click()
+  await page.locator('[data-warehouse-map-action="open-create-area"]').click()
+  let maintenanceDialog = page.locator('[data-cutting-warehouse-modal]')
+  await maintenanceDialog.locator('[name="areaCode"]').fill('Z')
+  await maintenanceDialog.locator('[name="areaName"]').fill('真实处理器验收区')
+  await maintenanceDialog.locator('[data-warehouse-map-action="submit-maintenance"]').click()
+  root = page.locator('[data-warehouse-map-root]')
+  await root.locator('[data-warehouse-map-action="open-create-shelf"]').last().click()
+  maintenanceDialog = page.locator('[data-cutting-warehouse-modal]')
+  await maintenanceDialog.locator('[name="shelfSequence"]').fill('9')
+  await maintenanceDialog.locator('[name="levelCount"]').fill('2')
+  await maintenanceDialog.locator('[name="defaultPositionCount"]').fill('2')
+  await maintenanceDialog.locator('[data-warehouse-map-action="submit-maintenance"]').click()
+  await expect(root).toContainText('Z-R09-L02-P02')
+
+  await page.goto(`${WAIT_PROCESS_PATH}?warehouseAction=claim`, { waitUntil: 'domcontentloaded' })
+  const actionDialog = page.locator('[data-wait-process-modal][data-wait-process-action-type="claim"]')
+  await expect(actionDialog).toBeVisible({ timeout: 120_000 })
+  const material = actionDialog.locator('[data-wait-process-field="cutOrderId"]')
+  const firstMaterialValue = await material.locator('option').evaluateAll((options) =>
+    options.map((option) => (option as HTMLOptionElement).value).find(Boolean) || '')
+  expect(firstMaterialValue).not.toBe('')
+  await material.selectOption(firstMaterialValue)
+  await actionDialog.locator('[data-wait-process-field="quantity"]').fill('30')
+  await actionDialog.locator('[data-wait-process-field="rollCount"]').fill('3')
+  await actionDialog.locator('[data-wait-process-field="operatorName"]').fill('真实处理器验收仓管')
+  const selectionMap = actionDialog.locator('[data-wait-process-location-map] [data-warehouse-map-root]')
+  const clearSelection = selectionMap.locator('[data-warehouse-map-action="clear-selection"]')
+  if (await clearSelection.isEnabled()) await clearSelection.click()
+  const selectedLocations = await selectionMap.locator('[data-warehouse-map-action="toggle-location"]:not([disabled])').evaluateAll((buttons) => {
+    const candidates = Array.from(new Map(buttons.map((button) => {
+      const element = button as HTMLElement
+      const locationNo = element.dataset.locationNo || ''
+      const match = locationNo.match(/^([A-Z])-R(\d+)-L(\d+)-P\d+$/)
+      return [element.dataset.locationId || '', match ? {
+        locationId: element.dataset.locationId || '', locationNo,
+        area: match[1], shelf: `${match[1]}-R${match[2]}`, level: match[3],
+      } : null] as const
+    }).filter((entry): entry is readonly [string, NonNullable<typeof entry[1]>] => Boolean(entry[0] && entry[1]))).values())
+    for (let first = 0; first < candidates.length; first += 1) {
+      for (let second = first + 1; second < candidates.length; second += 1) {
+        for (let third = second + 1; third < candidates.length; third += 1) {
+          const group = [candidates[first], candidates[second], candidates[third]]
+          if (new Set(group.map((item) => item.area)).size > 1
+            && new Set(group.map((item) => item.shelf)).size > 1
+            && new Set(group.map((item) => item.level)).size > 1) return group
+        }
+      }
+    }
+    return []
+  })
+  expect(selectedLocations).toHaveLength(3)
+  for (const [index, location] of selectedLocations.entries()) {
+    await actionDialog.locator(`[data-wait-process-location-map] [data-location-id="${location.locationId}"]`).click()
+    await expect(actionDialog.locator('[data-warehouse-map-selection-summary]')).toContainText(`已选 ${index + 1} 个库位`)
+  }
+
+  const eventCountBeforeConflict = await page.evaluate(() => {
+    const value = localStorage.getItem('cuttingRuntimeEventLedger')
+    return value ? JSON.parse(value).events.length : 0
+  })
+  await page.evaluate(async (locationId) => {
+    const mapModule = await import('/src/pages/process-factory/cutting/warehouse-location-map.ts')
+    const mapModel = await import('/src/pages/process-factory/cutting/warehouse-location-map-model.ts')
+    const ledger = await import('/src/data/fcs/cutting/cutting-runtime-event-ledger.ts')
+    const current = mapModule.buildCurrentCuttingWarehouseMapProjection('WAIT_PROCESS')
+    const ref = current && mapModel.listWarehouseLocationMapCells(current.projection)
+      .find((cell) => cell.locationId === locationId)
+    if (!ref) throw new Error('缺少并发占用目标库位')
+    ledger.appendCuttingRuntimeEvent({
+      eventType: '中转仓领料', eventSource: 'PDA', eventStatus: '已同步',
+      occurredAt: '2026-08-02 12:00:00', operatorName: '并发入仓仓管',
+      refs: { productionOrderNo: 'PO-CONCURRENT-E2E', handoverRecordId: 'CONCURRENT-E2E:LINE' },
+      material: { materialSku: 'MAT-CONCURRENT-E2E', materialName: '并发占用测试面料', unit: 'yard' },
+      inventoryEffect: { inventoryScope: '裁床待加工仓', direction: 'IN', qty: 1, unit: 'yard', rollCount: 1 },
+      payload: {
+        pickupSessionId: 'CONCURRENT-E2E', prepLineId: 'CONCURRENT-E2E:LINE', pickupQty: 1, rollCount: 1,
+        warehouseLocations: [ref],
+      },
+    })
+  }, selectedLocations[2].locationId)
+  let conflictMessage = ''
+  page.once('dialog', async (dialog) => {
+    conflictMessage = dialog.message()
+    await dialog.accept()
+  })
+  await actionDialog.locator('[data-wait-process-action="submit"]').click()
+  expect(conflictMessage).toContain(selectedLocations[2].locationNo)
+  expect(conflictMessage).toContain('已不可用')
+  await expect(actionDialog).toBeVisible()
+  await expect(actionDialog.locator('[data-warehouse-map-selection-summary]')).toContainText('已选 2 个库位')
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('cuttingRuntimeEventLedger') || '{"events":[]}').events.length))
+    .toBe(eventCountBeforeConflict + 1)
+})
+
 test('PDA 中转仓领料支持跨区货架层自由多选、任意取消、逐项摘要和清空', async ({ page }) => {
   await openControlledPdaPickup(page)
   const map = page.locator('[data-pda-cutting-pickup-location-map] [data-warehouse-map-root]')
