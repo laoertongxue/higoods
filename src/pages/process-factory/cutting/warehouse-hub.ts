@@ -3258,10 +3258,8 @@ function submitWaitHandoverSpecialCraftReturn(dialog: HTMLElement): boolean {
     window.alert('该菲票的特殊工艺已回仓，不能重复回仓。')
     return true
   }
-  const warehouseArea = readWaitHandoverWebField(dialog, 'warehouseArea')
-  const locationCode = readWaitHandoverWebField(dialog, 'locationCode')
-  if (!warehouseArea || !locationCode) {
-    window.alert('请填写回仓库区和库位。')
+  if (!waitHandoverSelectedLocationIds.length) {
+    window.alert('请至少选择一个空闲库位。')
     return true
   }
   const returnedQty = Number(readWaitHandoverWebField(dialog, 'returnQty'))
@@ -3270,20 +3268,31 @@ function submitWaitHandoverSpecialCraftReturn(dialog: HTMLElement): boolean {
     return true
   }
   const now = new Date().toISOString()
-  const locationRef = resolveCurrentCuttingWarehouseLocationRef('WAIT_HANDOVER', warehouseArea, locationCode)
-  if (!locationRef) {
-    window.alert('回仓库位不存在、已停用或编号不唯一，请重新确认。')
-    return true
-  }
   const latestMap = buildCurrentCuttingWarehouseMapProjection('WAIT_HANDOVER')
-  const latestCell = latestMap
-    ? listWarehouseLocationMapCells(latestMap.projection)
-    .find((cell) => cell.locationId === locationRef.locationId)
-    : undefined
-  if (!latestCell || latestCell.businessStatus === 'OCCUPIED') {
-    window.alert('回仓库位已被占用，请更换库位。')
+  if (!latestMap) {
+    window.alert('当前裁床工厂没有可用的待交出仓库位。')
     return true
   }
+  const locationSelection = revalidateWarehouseLocationSelection(
+    latestMap.projection,
+    waitHandoverSelectedLocationIds,
+  )
+  if (!locationSelection.ok) {
+    window.alert(locationSelection.message)
+    return true
+  }
+  const locationsById = new Map(listWarehouseLocationMapCells(latestMap.projection).map((location) => [location.locationId, location]))
+  const warehouseLocations = waitHandoverSelectedLocationIds.flatMap((locationId) => {
+    const location = locationsById.get(locationId)
+    return location ? [location] : []
+  })
+  const firstLocation = warehouseLocations[0]
+  if (!firstLocation || warehouseLocations.length !== waitHandoverSelectedLocationIds.length) {
+    window.alert('所选库位结构已变化，请重新选择库位。')
+    return true
+  }
+  const warehouseArea = firstLocation.areaName
+  const locationCode = firstLocation.locationNo
   const returnStatus = returnedQty === selection.pieceQty ? '已回仓' : returnedQty < selection.pieceQty ? '部分回仓' : '回仓差异'
   const returnRecordId = `WEB-SCR-${selection.sourceHandoverRecordId}-${Date.now()}`
   appendWaitHandoverSpecialCraftReturnEvent({
@@ -3315,17 +3324,7 @@ function submitWaitHandoverSpecialCraftReturn(dialog: HTMLElement): boolean {
       }],
       warehouseArea,
       locationCode,
-      locationRef: {
-        factoryId: locationRef.factoryId,
-        warehouseId: locationRef.warehouseId,
-        warehouseKind: 'WAIT_HANDOVER',
-        areaId: locationRef.areaId,
-        areaName: locationRef.areaName,
-        shelfId: locationRef.shelfId,
-        shelfNo: locationRef.shelfNo,
-        locationId: locationRef.locationId,
-        locationNo: locationRef.locationNo,
-      },
+      warehouseLocations,
       returnedAt: now,
       returnedBy: getWaitHandoverWebOperator(dialog).operatorName,
     },

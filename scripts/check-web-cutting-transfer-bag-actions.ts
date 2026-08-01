@@ -94,6 +94,26 @@ assert(
   'Web 动作分发不得保留“交出装袋确认”写入口',
 )
 
+const specialCraftReturnSubmit = warehouseSource.match(
+  /function submitWaitHandoverSpecialCraftReturn[\s\S]*?\n}\n\nexport function handleCraftCuttingWaitHandoverEvent/,
+)?.[0] || ''
+assert(specialCraftReturnSubmit, '必须保留 Web 特殊工艺回仓提交入口')
+assert.match(
+  specialCraftReturnSubmit,
+  /revalidateWarehouseLocationSelection\([\s\S]*waitHandoverSelectedLocationIds/,
+  'Web 特殊工艺回仓提交前必须基于最新待交出仓投影一次复核全部所选库位',
+)
+assert.match(
+  specialCraftReturnSubmit,
+  /warehouseLocations,/,
+  'Web 特殊工艺回仓事件必须提交全部稳定库位引用',
+)
+assert.doesNotMatch(
+  specialCraftReturnSubmit,
+  /\blocationRef\s*:/,
+  'Web 特殊工艺回仓新事件不得双写旧单库位 locationRef',
+)
+
 const runtimeLedger = await import(
   '../src/data/fcs/cutting/cutting-runtime-event-ledger.ts'
 )

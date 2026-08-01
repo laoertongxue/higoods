@@ -86,6 +86,7 @@ export interface WaitHandoverLocationOccupancyState {
   bagCode: string
   productionOrderNo: string
   feiTicketIds: string[]
+  feiTicketQtyById: Record<string, number>
   totalPieceQty: number
   inboundAt: string
   inboundBy: string
@@ -94,6 +95,38 @@ export interface WaitHandoverLocationOccupancyState {
   objectNo?: string
   objectName?: string
   usageCycleId?: string
+}
+
+function compareWaitHandoverRuntimeEvents(left: CuttingRuntimeEvent, right: CuttingRuntimeEvent): number {
+  return left.occurredAt.localeCompare(right.occurredAt, 'zh-CN')
+    || (left.createdAt || left.occurredAt).localeCompare(right.createdAt || right.occurredAt, 'zh-CN')
+    || left.eventId.localeCompare(right.eventId, 'zh-CN')
+}
+
+function runtimeTicketQtyById(value: unknown, qtyField: 'pieceQty' | 'returnedQty'): Record<string, number> {
+  const rows = Array.isArray(value) ? value : []
+  const quantities = new Map<string, number>()
+  rows.forEach((rawRow) => {
+    const row = runtimeRecord(rawRow)
+    const ticketId = runtimeString(row.feiTicketId)
+    const qty = Math.max(0, runtimeNumber(row[qtyField]))
+    if (ticketId && qty > 0) quantities.set(ticketId, (quantities.get(ticketId) || 0) + qty)
+  })
+  return Object.fromEntries(quantities)
+}
+
+function adjustRuntimeTicketQtys(
+  current: Record<string, number>,
+  deltas: Record<string, number>,
+  direction: 'OUT' | 'IN',
+): Record<string, number> {
+  const next = new Map(Object.entries(current))
+  Object.entries(deltas).forEach(([ticketId, qty]) => {
+    const adjusted = (next.get(ticketId) || 0) + (direction === 'IN' ? qty : -qty)
+    if (adjusted > 0) next.set(ticketId, adjusted)
+    else next.delete(ticketId)
+  })
+  return Object.fromEntries(next)
 }
 
 function waitHandoverStateKey(bagCode: string, locationRef?: RuntimeWarehouseLocationRef, usageCycleId?: string): string {
@@ -940,13 +973,14 @@ export function buildWaitHandoverLocationOccupancyStates(
   const states = new Map<string, WaitHandoverLocationOccupancyState>()
   const events = [...runtimeEvents]
     .filter((event) => event.eventStatus !== '已取消')
-    .sort((left, right) => left.occurredAt.localeCompare(right.occurredAt, 'zh-CN'))
+    .sort(compareWaitHandoverRuntimeEvents)
 
   for (const event of events) {
     const payload = runtimeRecord(event.payload)
     if (event.eventType === '中转袋入仓') {
       const bagCode = runtimeString(payload.bagCode) || event.refs.transferBagCode || ''
       const warehouseLocations = runtimeWarehouseLocations(payload)
+      const feiTicketQtyById = runtimeTicketQtyById(payload.feiTicketItems, 'pieceQty')
       if (!bagCode || !warehouseLocations.length) continue
       warehouseLocations.forEach((locationRef) => {
         states.set(waitHandoverStateKey(bagCode, locationRef, runtimeString(payload.usageCycleId) || event.refs.usageCycleId), {
@@ -954,6 +988,7 @@ export function buildWaitHandoverLocationOccupancyStates(
           bagCode,
           productionOrderNo: event.refs.productionOrderNo || '',
           feiTicketIds: [...(event.refs.feiTicketIds ?? [])],
+          feiTicketQtyById,
           totalPieceQty: runtimeNumber(payload.totalPieceQty) || Number(event.inventoryEffect?.qty || 0),
           inboundAt: runtimeString(payload.inboundAt) || event.occurredAt,
           inboundBy: runtimeString(payload.inboundBy) || event.operatorName,
@@ -980,6 +1015,7 @@ export function buildWaitHandoverLocationOccupancyStates(
           bagCode: targetBagCode,
           usageCycleId: event.refs.usageCycleId || source.usageCycleId,
           feiTicketIds: event.refs.feiTicketIds?.length ? [...event.refs.feiTicketIds] : source.feiTicketIds,
+          feiTicketQtyById: source.feiTicketQtyById,
           totalPieceQty: Number(event.inventoryEffect?.qty || source.totalPieceQty),
         })
       })
@@ -999,7 +1035,12 @@ export function buildWaitHandoverLocationOccupancyStates(
       const current = stateKeys.length ? states.get(stateKeys[0]) : undefined
       if (!bagCode || !current) continue
       const handedOverQty = Number(event.inventoryEffect?.qty || runtimeNumber(payload.handoverQty))
-      const remainingQty = Math.max(0, current.totalPieceQty - handedOverQty)
+      const ticketDeltas = runtimeTicketQtyById(payload.feiTicketItems, 'pieceQty')
+      const nextTicketQtyById = adjustRuntimeTicketQtys(current.feiTicketQtyById, ticketDeltas, 'OUT')
+      const explicitRemainingQty = Object.values(nextTicketQtyById).reduce((sum, qty) => sum + qty, 0)
+      const remainingQty = Object.keys(ticketDeltas).length
+        ? explicitRemainingQty
+        : Math.max(0, current.totalPieceQty - handedOverQty)
       if (remainingQty <= 0) {
         stateKeys.forEach((stateKey) => states.delete(stateKey))
       } else {
@@ -1010,6 +1051,7 @@ export function buildWaitHandoverLocationOccupancyStates(
             ...state,
             sourceEventId: event.eventId,
             totalPieceQty: remainingQty,
+            feiTicketQtyById: nextTicketQtyById,
           })
         })
       }
@@ -1037,18 +1079,21 @@ export function buildWaitHandoverLocationOccupancyStates(
         .map((stateKey) => states.get(stateKey))
         .filter((state): state is WaitHandoverLocationOccupancyState => Boolean(state))
       const current = currentStates[0]
-      const warehouseLocations = currentStates
+      const warehouseLocationById = new Map<string, RuntimeWarehouseLocationRef>()
+      currentStates
         .flatMap((state) => state.warehouseLocations.length ? state.warehouseLocations : [state.locationRef])
         .concat(returnedLocations)
-        .reduce<RuntimeWarehouseLocationRef[]>((merged, location) => {
-          const existingIndex = merged.findIndex((candidate) => candidate.locationId === location.locationId)
-          if (existingIndex >= 0) merged[existingIndex] = location
-          else merged.push(location)
-          return merged
-        }, [])
+        .forEach((location) => warehouseLocationById.set(location.locationId, location))
+      const warehouseLocations = Array.from(warehouseLocationById.values())
       if (!warehouseLocations.length) continue
       const returnedQty = Number(event.inventoryEffect?.qty || 0)
-      const nextQty = Number(current?.totalPieceQty || 0) + returnedQty
+      const returnedTicketQtyById = runtimeTicketQtyById(payload.returnedFeiTicketItems, 'returnedQty')
+      const currentTicketQtyById = current?.feiTicketQtyById || {}
+      const nextTicketQtyById = adjustRuntimeTicketQtys(currentTicketQtyById, returnedTicketQtyById, 'IN')
+      const explicitNextQty = Object.values(nextTicketQtyById).reduce((sum, qty) => sum + qty, 0)
+      const nextQty = Object.keys(returnedTicketQtyById).length
+        ? explicitNextQty
+        : Number(current?.totalPieceQty || 0) + returnedQty
       const nextTicketIds = Array.from(new Set([
         ...currentStates.flatMap((state) => state.feiTicketIds),
         ...(event.refs.feiTicketIds ?? []),
@@ -1061,6 +1106,7 @@ export function buildWaitHandoverLocationOccupancyStates(
           bagCode,
           productionOrderNo: event.refs.productionOrderNo || current?.productionOrderNo || '',
           feiTicketIds: nextTicketIds,
+          feiTicketQtyById: nextTicketQtyById,
           totalPieceQty: nextQty,
           inboundAt: runtimeString(payload.returnedAt) || event.occurredAt,
           inboundBy: runtimeString(payload.returnedBy) || event.operatorName,

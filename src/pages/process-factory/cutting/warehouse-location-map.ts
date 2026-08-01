@@ -40,6 +40,7 @@ import {
 import {
   buildWaitHandoverLocationOccupancyStates,
   listWaitHandoverRuntimeEvents,
+  type WaitHandoverLocationOccupancyState,
 } from './wait-handover-runtime.ts'
 import { listSpreadingResultGeneratedFeiTickets } from '../../../data/fcs/cutting/generated-fei-tickets.ts'
 import {
@@ -452,6 +453,11 @@ function buildWaitProcessOccupancies(
   return [...occupancies, ...buildWaitProcessDemoOccupancies(warehouse, snapshot, occupiedLocationIds)]
 }
 
+export function buildWaitHandoverStorageFootprintId(state: WaitHandoverLocationOccupancyState): string {
+  const scope = `${state.locationRef.factoryId}:${state.locationRef.warehouseKind}:${state.locationRef.warehouseId}`
+  return `bag:${scope}:${state.bagCode}:${state.usageCycleId || 'legacy-cycle'}`
+}
+
 function buildWaitHandoverOccupancies(warehouse: FactoryInternalWarehouse, includeDemoOccupancies: boolean): WarehouseLocationOccupancy[] {
   const tickets = listSpreadingResultGeneratedFeiTickets()
   const ticketById = new Map(tickets.map((ticket) => [ticket.feiTicketId, ticket]))
@@ -467,13 +473,13 @@ function buildWaitHandoverOccupancies(warehouse: FactoryInternalWarehouse, inclu
         feiTicketNo: ticket!.feiTicketNo,
         partName: ticket!.partName,
         size: ticket!.skuSize || '未标记',
-        pieceQty: Number(ticket!.actualCutPieceQty || ticket!.qty || 0),
+        pieceQty: Number(state.feiTicketQtyById[ticket!.feiTicketId] || 0),
         specialCraftText: ticket!.hasSpecialCraft ? ticket!.specialCraftDisplayLabel : undefined,
       }))
       const images = resolveOccupancyImages(resolvedTickets[0]?.productionOrderId)
       return {
         occupancyId: `wait-handover:${state.sourceEventId}:${state.locationRef.locationId}`,
-        footprintId: `bag:${state.bagCode}`,
+        footprintId: buildWaitHandoverStorageFootprintId(state),
         locationId: state.locationRef.locationId,
         productionOrderNo: state.productionOrderNo,
         objectNo: state.objectNo || state.bagCode,

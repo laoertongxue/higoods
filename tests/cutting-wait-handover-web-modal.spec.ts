@@ -6,7 +6,7 @@ const WAIT_HANDOVER_PATH = '/fcs/craft/cutting/warehouse-management/wait-handove
 
 async function openModalAndMeasure(
   page: Page,
-  action: 'bagging' | 'inbound' | 'handover',
+  action: 'bagging' | 'inbound' | 'handover' | 'special-craft-return',
 ): Promise<number> {
   return page.evaluate(async (actionName) => {
     const trigger = document.querySelector<HTMLButtonElement>(
@@ -33,7 +33,7 @@ async function openModalAndMeasure(
   }, action)
 }
 
-test('待交出仓保留原工作台，三个中转袋操作均在当前页面打开弹窗', async ({ page }) => {
+test('待交出仓保留原工作台，四个现场操作均在当前页面打开弹窗', async ({ page }) => {
   test.setTimeout(240_000)
   const errors = collectPageErrors(page)
   await page.goto(WAIT_HANDOVER_PATH, { waitUntil: 'domcontentloaded' })
@@ -55,6 +55,7 @@ test('待交出仓保留原工作台，三个中转袋操作均在当前页面�
     { label: '菲票装袋', action: 'bagging' },
     { label: '中转袋入仓', action: 'inbound' },
     { label: '中转袋交出', action: 'handover' },
+    { label: '特殊工艺回仓', action: 'special-craft-return' },
   ] as const
 
   for (const item of actions) {

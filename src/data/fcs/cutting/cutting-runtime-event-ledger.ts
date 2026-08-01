@@ -435,6 +435,8 @@ export interface SpecialCraftReturnPayload {
   }>
   warehouseArea: string
   locationCode: string
+  warehouseLocations?: RuntimeWarehouseLocationRef[]
+  /** 旧事件只读兼容；Web 新事件只写 warehouseLocations。 */
   locationRef?: RuntimeWarehouseLocationRef
   returnedAt: string
   returnedBy: string
