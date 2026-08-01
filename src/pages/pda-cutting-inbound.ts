@@ -805,14 +805,7 @@ function validateCurrentWaitHandoverLocation(
     const exactRef = listStableWarehouseLocationRefs(warehouse, loaded.snapshot)
       .find((location) => location.locationId === locationId)
     if (!exactRef) return { ok: false, message: '库位不存在，请重新扫描。' }
-    if (exactRef.status !== 'AVAILABLE') return { ok: false, message: '该库位已停用，请更换库位。' }
-    const occupied = buildWaitHandoverLocationOccupancyStates(listWaitHandoverRuntimeEvents())
-      .some((state) => state.locationRef.factoryId === warehouse.factoryId
-        && state.locationRef.warehouseId === warehouse.warehouseId
-        && state.locationRef.warehouseKind === warehouse.warehouseKind
-        && state.locationRef.locationId === exactRef.locationId)
-    if (occupied) return { ok: false, message: '该库位已被其他中转袋占用，请更换库位。' }
-    return { ok: true, ref: exactRef }
+    return validateWaitHandoverScanCandidate(exactRef, warehouse, loaded.snapshot)
   }
   if (qrParts.length === 2 && normalizeInboundCode(qrParts[0]) !== normalizeInboundCode(warehouse.factoryId)) {
     return { ok: false, message: '该库位不属于当前工厂，请重新扫描。' }
@@ -832,21 +825,52 @@ function validateCurrentWaitHandoverLocation(
     normalizeInboundCode(location.locationNo) === normalized,
   )
   if (rawMatches.length > 1) return { ok: false, message: '库位编号不唯一，请从库位图选择。' }
-  if (rawMatches[0] && rawMatches[0].status !== 'AVAILABLE') {
-    return { ok: false, message: '该库位已停用，请更换库位。' }
-  }
   const matches = listStableWarehouseLocationRefs(warehouse, loaded.snapshot).filter((location) =>
     normalizeInboundCode(location.locationNo) === normalized,
   )
   if (!matches.length) return { ok: false, message: '库位不存在，请重新扫描。' }
   if (matches.length > 1) return { ok: false, message: '库位编号不唯一，请从库位图选择。' }
-  const occupied = buildWaitHandoverLocationOccupancyStates(listWaitHandoverRuntimeEvents())
-    .some((state) => state.locationRef.factoryId === warehouse.factoryId
-      && state.locationRef.warehouseId === warehouse.warehouseId
-      && state.locationRef.warehouseKind === warehouse.warehouseKind
-      && state.locationRef.locationId === matches[0].locationId)
-  if (occupied) return { ok: false, message: '该库位已被其他中转袋占用，请更换库位。' }
-  return { ok: true, ref: matches[0] }
+  return validateWaitHandoverScanCandidate(matches[0], warehouse, loaded.snapshot)
+}
+
+function validateWaitHandoverScanCandidate(
+  ref: StableWarehouseLocationRef,
+  warehouse: NonNullable<ReturnType<typeof getCurrentFactoryWarehouseByKind>>,
+  snapshot: ReturnType<typeof loadWarehouseLayoutSnapshot>['snapshot'],
+): { ok: true; ref: StableWarehouseLocationRef } | { ok: false; message: string } {
+  if (ref.factoryId !== warehouse.factoryId
+    || ref.warehouseId !== warehouse.warehouseId
+    || ref.warehouseKind !== warehouse.warehouseKind) {
+    return { ok: false, message: '该库位不属于当前工厂或当前仓库，请重新扫描。' }
+  }
+  if (ref.areaStatus !== 'AVAILABLE') return { ok: false, message: '该库区已停用，请更换库位。' }
+  if (ref.shelfStatus !== 'AVAILABLE') return { ok: false, message: '该货架已停用，请更换库位。' }
+  if (ref.status !== 'AVAILABLE') return { ok: false, message: '该库位已停用，请更换库位。' }
+  const projection = buildWarehouseLocationMapProjection(
+    warehouse,
+    snapshot,
+    buildWaitHandoverLocationOccupancyStates(listWaitHandoverRuntimeEvents())
+      .filter((state) => state.locationRef.factoryId === warehouse.factoryId
+        && state.locationRef.warehouseId === warehouse.warehouseId
+        && state.locationRef.warehouseKind === warehouse.warehouseKind)
+      .map((state) => ({
+        occupancyId: `wait-handover:${state.sourceEventId}`,
+        footprintId: `bag:${state.bagCode}`,
+        locationId: state.locationRef.locationId,
+        productionOrderNo: state.productionOrderNo,
+        objectNo: state.bagCode,
+        objectName: `中转袋 ${state.bagCode}`,
+        qty: state.totalPieceQty,
+        unit: '片',
+        inboundAt: state.inboundAt,
+        inboundBy: state.inboundBy,
+      })),
+  )
+  const cell = listWarehouseLocationMapCells(projection).find((item) => item.locationId === ref.locationId)
+  if (!cell || cell.businessStatus !== 'EMPTY') {
+    return { ok: false, message: '该库位已被其他中转袋占用，请更换库位。' }
+  }
+  return { ok: true, ref }
 }
 
 function resolveCurrentWaitHandoverLocationRef(locationLabel: string): StableWarehouseLocationRef | null {

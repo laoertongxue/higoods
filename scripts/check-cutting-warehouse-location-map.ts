@@ -59,7 +59,14 @@ import {
   renderCuttingWarehouseLocationMapSection,
 } from '../src/pages/process-factory/cutting/warehouse-location-map.ts'
 import { adjustPickupSessionStorageFootprint } from '../src/data/fcs/cutting/pickup-node-domain.ts'
-import type { CuttingRuntimeEvent } from '../src/data/fcs/cutting/cutting-runtime-event-ledger.ts'
+import {
+  appendCuttingRuntimeEvent,
+  listCuttingRuntimeEvents,
+  type CuttingRuntimeEvent,
+} from '../src/data/fcs/cutting/cutting-runtime-event-ledger.ts'
+import { listMaterialLedgerProjections } from '../src/data/fcs/cutting/material-ledger.ts'
+import { getCurrentFactoryWarehouseByKind } from '../src/pages/pda-warehouse-shared.ts'
+import { listFactoryPdaUsers, setPdaSession } from '../src/data/fcs/store-domain-pda.ts'
 
 const cuttingWarehouses = buildDefaultFactoryInternalWarehouses(mockFactories)
   .filter((warehouse) => warehouse.factoryKind === 'CENTRAL_CUTTING')
@@ -120,6 +127,7 @@ const warehouseLayoutStoreSource = readFileSync(new URL('../src/pages/process-fa
 const warehouseLayoutStoreModule = await import('../src/pages/process-factory/cutting/warehouse-location-layout-store.ts') as Record<string, unknown>
 const fcsHandlersSource = readFileSync(new URL('../src/main-handlers/fcs-handlers.ts', import.meta.url), 'utf8')
 const pdaWaitProcessModule = await import('../src/pages/pda-warehouse-wait-process.ts') as Record<string, unknown>
+const pdaInboundModule = await import('../src/pages/pda-cutting-inbound.ts') as Record<string, unknown>
 assert.doesNotMatch(pdaWaitProcessSource, /CUTTING_RECEIVE_LOCATIONS/, 'PDA 不得保留第二套硬编码裁床库位')
 assert.doesNotMatch(`${pdaWaitProcessSource}\n${pdaInboundSource}\n${pdaHandoverSource}\n${warehouseHubSource}`, /FAB-A-0|CUT-A-01|SP-RETURN-0/, '裁床现场页不得继续展示旧硬编码库位')
 assert.match(pdaWaitProcessSource, /调整剩余存放库位/)
@@ -1528,6 +1536,128 @@ const globalLayoutStorage = createMemoryWarehouseLayoutStorage()
 } as unknown as Window
 saveWarehouseLayoutSnapshot(globallyUniqueAreaSnapshot, 0, globalLayoutStorage)
 saveWarehouseLayoutSnapshot(globallyUniqueSnapshot, 1, globalLayoutStorage)
+const handlerPdaUser = listFactoryPdaUsers(waitProcess.factoryId)[0]
+assert(handlerPdaUser, '真实处理器测试必须取得裁床工厂 PDA 用户')
+setPdaSession({
+  userId: handlerPdaUser.userId,
+  loginId: handlerPdaUser.loginId,
+  userName: handlerPdaUser.name,
+  roleId: handlerPdaUser.roleId,
+  factoryId: handlerPdaUser.factoryId,
+  factoryName: waitProcess.factoryName,
+  loggedAt: '2026-07-30 10:00',
+})
+
+const currentWaitHandoverWarehouse = getCurrentFactoryWarehouseByKind('WAIT_HANDOVER')
+assert(currentWaitHandoverWarehouse, '扫码处理器测试必须取得当前 PDA 工厂待交出仓')
+const scanCandidate = listStableWarehouseLocationRefs(
+  currentWaitHandoverWarehouse,
+  loadWarehouseLayoutSnapshot(currentWaitHandoverWarehouse, globalLayoutStorage).snapshot,
+)[0]
+assert(scanCandidate, '扫码处理器测试必须取得待交出仓库位')
+const appendInboundScan = pdaInboundModule.appendPdaCuttingInboundScannedLocation as (
+  form: { locationScan: string; selectedLocationIds: string[] }, scanValue: string,
+) => { ok: boolean; message: string }
+const buildInboundScanForm = () => ({ locationScan: '', selectedLocationIds: [] })
+const persistScanStatus = (level: 'area' | 'shelf' | 'location', status: 'AVAILABLE' | 'STOPPED') => {
+  const current = loadWarehouseLayoutSnapshot(currentWaitHandoverWarehouse, globalLayoutStorage).snapshot
+  const next = structuredClone(current)
+  const area = next.areaList.find((item) => item.areaId === scanCandidate.areaId)!
+  const shelf = area.shelfList.find((item) => item.shelfId === scanCandidate.shelfId)!
+  const location = shelf.locationList.find((item) => item.locationId === scanCandidate.locationId)!
+  if (level === 'area') area.status = status
+  if (level === 'shelf') shelf.status = status
+  if (level === 'location') location.status = status
+  next.layoutVersion = current.layoutVersion + 1
+  next.updatedAt = `2026-07-30 10:${next.layoutVersion}`
+  saveWarehouseLayoutSnapshot(next, current.layoutVersion, globalLayoutStorage)
+}
+for (const stoppedCase of [
+  { level: 'area' as const, message: '该库区已停用，请更换库位。' },
+  { level: 'shelf' as const, message: '该货架已停用，请更换库位。' },
+  { level: 'location' as const, message: '该库位已停用，请更换库位。' },
+]) {
+  persistScanStatus(stoppedCase.level, 'STOPPED')
+  for (const scanCode of [
+    `${scanCandidate.factoryId}|${scanCandidate.warehouseId}|${scanCandidate.warehouseKind}|${scanCandidate.locationId}`,
+    scanCandidate.locationNo,
+  ]) {
+    const form = buildInboundScanForm()
+    const result = appendInboundScan(form, scanCode)
+    assert.equal(result.message, stoppedCase.message, `${stoppedCase.level} 停用时新旧扫码必须即时给出对应提示`)
+    assert.deepEqual(form.selectedLocationIds, [], `${stoppedCase.level} 停用时扫码不得改变选择`)
+  }
+  persistScanStatus(stoppedCase.level, 'AVAILABLE')
+}
+
+const waitProcessHandler = pdaWaitProcessModule.handlePdaWarehouseWaitProcessEvent as (target: HTMLElement) => boolean
+const handlerAlerts: string[] = []
+;(globalThis.window as unknown as { alert: (message: string) => void }).alert = (message) => handlerAlerts.push(message)
+const buildIssueTarget = (action: string, sourceNo = '', pickupSessionId = '') => ({
+  closest(selector: string) {
+    if (selector === '[data-pda-warehouse-action]') {
+      return { dataset: { pdaWarehouseAction: action, sourceNo, pickupSessionId } }
+    }
+    return null
+  },
+}) as unknown as HTMLElement
+const appendHandlerInbound = (
+  sourceNo: string,
+  materialSku: string,
+  productionOrderNo: string,
+  pickupSessionId: string,
+  locationRef: typeof footprintRefs[number],
+  qty: number,
+) => appendCuttingRuntimeEvent({
+  eventType: '中转仓领料',
+  operatorName: '真实处理器测试',
+  occurredAt: `2026-07-30 10:${String(listCuttingRuntimeEvents(globalLayoutStorage).length).padStart(2, '0')}`,
+  refs: { cutOrderNo: sourceNo, productionOrderNo, handoverRecordId: `${pickupSessionId}:LINE` },
+  material: { materialSku, materialName: materialSku, materialColor: '黑色' },
+  inventoryEffect: {
+    inventoryScope: '裁床待加工仓', direction: 'IN', qty, unit: 'yard', rollCount: 1,
+    toWarehouseArea: locationRef.areaName, toLocationCode: locationRef.locationNo,
+  },
+  payload: {
+    pickupSessionId, prepLineId: `${pickupSessionId}:LINE`, pickupQty: qty, rollCount: 1,
+    warehouseLocations: [locationRef], storageFootprint: buildWarehouseStorageFootprint([locationRef], [{ unit: 'yard', qty }]),
+  },
+}, globalLayoutStorage)
+
+const handlerLedgerRow = listMaterialLedgerProjections().find((row) => row.cutOrderNo && row.materialIdentity.materialSku)
+assert(handlerLedgerRow, '真实处理器测试必须取得一个当前加工领料对象')
+const handlerWarehouse = getCurrentFactoryWarehouseByKind('WAIT_PROCESS')
+assert(handlerWarehouse, '真实处理器测试必须取得当前 PDA 工厂待加工仓')
+const handlerWarehouseSnapshot = loadWarehouseLayoutSnapshot(handlerWarehouse, globalLayoutStorage).snapshot
+const handlerFootprintRefs = listStableWarehouseLocationRefs(handlerWarehouse, handlerWarehouseSnapshot).slice(0, 2)
+assert.equal(handlerFootprintRefs.length, 2, '真实处理器测试至少需要两个当前工厂库位')
+const explicitSourceNo = handlerLedgerRow.cutOrderNo
+const explicitMaterialSku = handlerLedgerRow.materialIdentity.materialSku
+const explicitProductionOrderNo = handlerLedgerRow.productionOrderNo
+const explicitInbound = appendHandlerInbound(explicitSourceNo, explicitMaterialSku, explicitProductionOrderNo, 'SESSION-HANDLER-1', handlerFootprintRefs[0], 200)
+const otherSameCellInbound = appendHandlerInbound('CUT-HANDLER-OTHER', 'MAT-HANDLER-OTHER', explicitProductionOrderNo, 'SESSION-HANDLER-OTHER', handlerFootprintRefs[0], 77)
+const otherTargetSessionInbound = appendHandlerInbound(explicitSourceNo, explicitMaterialSku, explicitProductionOrderNo, 'SESSION-HANDLER-2', handlerFootprintRefs[1], 100)
+assert.equal(waitProcessHandler(buildIssueTarget('cutting-wp-issue', explicitSourceNo, 'SESSION-HANDLER-1')), true)
+assert.equal(waitProcessHandler(buildIssueTarget('confirm-cutting-wp-issue')), true)
+const explicitOut = listCuttingRuntimeEvents(globalLayoutStorage).find((event) =>
+  event.eventType === '待加工仓加工领料'
+  && (event.payload as Record<string, unknown>).spreadingOrderNo === explicitSourceNo)
+assert(explicitOut, `真实加工领料 handler 必须追加 OUT 事件；提示：${handlerAlerts.join(' / ')}`)
+assert.deepEqual((explicitOut.payload as Record<string, unknown>).sourceInboundEventIds, [explicitInbound.eventId], '显式会话只能写本会话入仓事件')
+assert.equal((explicitOut.payload as Record<string, unknown>).pickupSessionId, 'SESSION-HANDLER-1', '显式会话必须稳定写入 OUT')
+assert.equal((explicitOut.payload as { warehouseLocations?: unknown[] }).warehouseLocations?.length, 1, '同库位其他 occupancy 不得混入领料来源库位')
+const explicitProjected = buildWaitProcessRuntimeOccupancies(handlerWarehouse, handlerWarehouseSnapshot, listCuttingRuntimeEvents(globalLayoutStorage))
+assert.equal(explicitProjected.find((item) => item.sourceEventId === otherSameCellInbound.eventId)?.qty, 77, '同格其他物料 occupancy 必须保持不变')
+assert.equal(explicitProjected.find((item) => item.sourceEventId === otherTargetSessionInbound.eventId)?.qty, 100, '同物料订单其他会话必须保持不变')
+
+const blockedSourceNo = explicitSourceNo
+appendHandlerInbound(blockedSourceNo, explicitMaterialSku, explicitProductionOrderNo, 'SESSION-BLOCKED-1', handlerFootprintRefs[0], 100)
+appendHandlerInbound(blockedSourceNo, explicitMaterialSku, explicitProductionOrderNo, 'SESSION-BLOCKED-2', handlerFootprintRefs[1], 100)
+assert.equal(waitProcessHandler(buildIssueTarget('cutting-wp-issue', blockedSourceNo)), true)
+const eventCountBeforeBlockedConfirm = listCuttingRuntimeEvents(globalLayoutStorage).length
+assert.equal(waitProcessHandler(buildIssueTarget('confirm-cutting-wp-issue')), true)
+assert.equal(listCuttingRuntimeEvents(globalLayoutStorage).length, eventCountBeforeBlockedConfirm, '无显式会话且多次入仓时不得追加 OUT')
+assert.equal(handlerAlerts.at(-1), '存在多次入仓记录，请先选择具体入仓记录。')
 const legacyTextEvent: CuttingRuntimeEvent = {
   ...structuredClone(runtimePickupEvent),
   eventId: 'EVENT-LEGACY-TEXT',

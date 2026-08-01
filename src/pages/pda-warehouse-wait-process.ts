@@ -147,6 +147,7 @@ interface WaitProcessState {
   cuttingPickupDifferenceNote: string
   cuttingPickupDifferencePhotoName: string
   cuttingIssueSourceNo: string
+  cuttingIssuePickupSessionId: string
   cuttingIssueWarehouseArea: string
   cuttingIssueLocationCode: string
   cuttingIssueQty: string
@@ -210,6 +211,7 @@ const state: WaitProcessState = {
   cuttingPickupDifferenceNote: '',
   cuttingPickupDifferencePhotoName: '',
   cuttingIssueSourceNo: '',
+  cuttingIssuePickupSessionId: '',
   cuttingIssueWarehouseArea: '',
   cuttingIssueLocationCode: '',
   cuttingIssueQty: '',
@@ -1309,7 +1311,7 @@ function renderCuttingPickupDraftPage(): string {
   `
 }
 
-function openCuttingIssueDraft(sourceNo?: string): void {
+function openCuttingIssueDraft(sourceNo?: string, pickupSessionId?: string): void {
   const rows = listMaterialLedgerProjections()
   const row = findCuttingWaitProcessLedgerRow(sourceNo) || rows.find((item) => item.availableQty > 0) || getCuttingWaitProcessActionFallbackRow(rows)
   const stockQty = row?.availableQty || row?.cuttingClaimedQty || row?.transferWarehouseAllocatedQty || 120
@@ -1322,6 +1324,7 @@ function openCuttingIssueDraft(sourceNo?: string): void {
     ? splitCuttingLocationText(getCuttingWaitProcessLocationLabel(row))
     : { warehouseArea: firstLocation?.area || '', locationCode: firstLocation?.locations[0] || '' }
   state.cuttingIssueSourceNo = row?.cutOrderNo || sourceNo || ''
+  state.cuttingIssuePickupSessionId = pickupSessionId || ''
   state.cuttingIssueWarehouseArea = latestLocation.warehouseArea
   state.cuttingIssueLocationCode = latestLocation.locationCode
   state.cuttingIssueQty = String(defaultQty)
@@ -1330,6 +1333,7 @@ function openCuttingIssueDraft(sourceNo?: string): void {
 
 function clearCuttingIssueDraft(): void {
   state.cuttingIssueSourceNo = ''
+  state.cuttingIssuePickupSessionId = ''
   state.cuttingIssueWarehouseArea = ''
   state.cuttingIssueLocationCode = ''
   state.cuttingIssueQty = ''
@@ -2901,7 +2905,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     return true
   }
   if (action === 'cutting-wp-issue') {
-    openCuttingIssueDraft(actionNode?.dataset.sourceNo)
+    openCuttingIssueDraft(actionNode?.dataset.sourceNo, actionNode?.dataset.pickupSessionId)
     return true
   }
   if (action === 'cancel-cutting-wp-issue') {
@@ -2928,21 +2932,45 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     const projection = buildCuttingPickupMapProjection()
     const materialSku = row?.materialIdentity.materialSku || sourceNo
     const productionOrderNo = row?.productionOrderNo || ''
-    const warehouseLocations = projection
-      ? listWarehouseLocationMapCells(projection).filter((cell) => cell.occupancies.some((occupancy) =>
-        occupancy.objectNo === materialSku
-        && (!productionOrderNo || occupancy.productionOrderNo === productionOrderNo)))
+    const matchingCells = projection
+      ? listWarehouseLocationMapCells(projection).map((cell) => ({
+        cell,
+        occupancies: cell.occupancies.filter((occupancy) =>
+          occupancy.objectNo === materialSku
+          && (!productionOrderNo || occupancy.productionOrderNo === productionOrderNo)),
+      })).filter((entry) => entry.occupancies.length > 0)
       : []
+    const sourceGroups = new Map<string, typeof matchingCells>()
+    matchingCells.forEach((entry) => {
+      entry.occupancies.forEach((occupancy) => {
+        const sourceKey = occupancy.sourceSessionId || occupancy.sourceEventId
+        if (!sourceKey) return
+        const existing = sourceGroups.get(sourceKey) || []
+        const cellEntry = existing.find((item) => item.cell.locationId === entry.cell.locationId)
+        if (cellEntry) cellEntry.occupancies.push(occupancy)
+        else existing.push({ cell: entry.cell, occupancies: [occupancy] })
+        sourceGroups.set(sourceKey, existing)
+      })
+    })
+    const selectedSourceKey = state.cuttingIssuePickupSessionId
+      || (sourceGroups.size === 1 ? Array.from(sourceGroups.keys())[0] : '')
+    if (!state.cuttingIssuePickupSessionId && sourceGroups.size > 1) {
+      window.alert('存在多次入仓记录，请先选择具体入仓记录。')
+      return true
+    }
+    const selectedEntries = selectedSourceKey ? sourceGroups.get(selectedSourceKey) || [] : []
+    const warehouseLocations = selectedEntries.map((entry) => entry.cell)
     if (!warehouseLocations.length) {
       window.alert('来源库位已更新，请重新选择加工领料对象。')
       return true
     }
     const warehouseArea = warehouseLocations[0].areaName
     const locationCode = warehouseLocations[0].locationNo
-    const sourceInboundEventIds = Array.from(new Set(warehouseLocations.flatMap((location) =>
-      location.occupancies.map((occupancy) => occupancy.sourceEventId).filter(Boolean) as string[])))
-    const sourcePickupSessionIds = Array.from(new Set(warehouseLocations.flatMap((location) =>
-      location.occupancies.map((occupancy) => occupancy.sourceSessionId).filter(Boolean) as string[])))
+    const selectedOccupancies = selectedEntries.flatMap((entry) => entry.occupancies)
+    const sourceInboundEventIds = Array.from(new Set(selectedOccupancies
+      .map((occupancy) => occupancy.sourceEventId).filter(Boolean) as string[]))
+    const sourcePickupSessionIds = Array.from(new Set(selectedOccupancies
+      .map((occupancy) => occupancy.sourceSessionId).filter(Boolean) as string[]))
     if (!sourceInboundEventIds.length) {
       window.alert('当前存放记录缺少可核对的入仓关联，请刷新后重试。')
       return true
