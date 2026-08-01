@@ -1266,13 +1266,21 @@ assert(getWoolAllowedActions(readyOrder.woolOrderId).includes('REPORT_PROCESS'))
 
 const stockOrder = allOrders.find((item) => item.mockScenarioCode === 'MULTIPLE_HANDOVERS_WITH_STOCK')!
 const stockLine = stockOrder.outputPlanLines[0]
+const secondStockLine = stockOrder.outputPlanLines[1]
 assert.equal(getWoolOutputReportedQty(stockOrder.woolOrderId, stockLine.outputSkuCode), 100)
-assert.equal(getWoolOutputHandedOverQty(stockOrder.woolOrderId, stockLine.outputSkuCode), 50)
+assert.equal(getWoolOutputHandedOverQty(stockOrder.woolOrderId, stockLine.outputSkuCode), 30)
 assert.equal(getWoolWarehouseStock({
   woolOrderId: stockOrder.woolOrderId,
   objectSkuCode: stockLine.outputSkuCode,
   defaultLocationId: 'WOOL-WH-GARMENT-DEFAULT',
-}), 50)
+}), 70)
+assert.equal(getWoolOutputReportedQty(stockOrder.woolOrderId, secondStockLine.outputSkuCode), 40)
+assert.equal(getWoolOutputHandedOverQty(stockOrder.woolOrderId, secondStockLine.outputSkuCode), 20)
+assert.equal(getWoolWarehouseStock({
+  woolOrderId: stockOrder.woolOrderId,
+  objectSkuCode: secondStockLine.outputSkuCode,
+  defaultLocationId: 'WOOL-WH-GARMENT-DEFAULT',
+}), 20)
 assert(getWoolAllowedActions(stockOrder.woolOrderId).includes('HANDOVER'))
 assert(listWoolFactRecords({
   woolOrderId: stockOrder.woolOrderId,
@@ -1282,6 +1290,13 @@ assert.deepEqual(
   new Set(listWoolFactRecords({
     woolOrderId: stockOrder.woolOrderId,
     objectSkuCode: stockLine.outputSkuCode,
+  }).map((item) => item.recordType)),
+  new Set(['PROCESS_REPORT', 'HANDOVER', 'WAREHOUSE_FLOW']),
+)
+assert.deepEqual(
+  new Set(listWoolFactRecords({
+    woolOrderId: stockOrder.woolOrderId,
+    objectSkuCode: secondStockLine.outputSkuCode,
   }).map((item) => item.recordType)),
   new Set(['PROCESS_REPORT', 'HANDOVER', 'WAREHOUSE_FLOW']),
 )

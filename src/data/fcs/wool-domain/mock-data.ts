@@ -54,8 +54,9 @@ function outputLine(
   colorCode: 'BLACK' | 'WHITE',
   kind: WoolWorkOrderKind,
   requiredYarnSkus: string[],
+  sizeCode: 'M' | 'L' = 'M',
 ): WoolOutputPlanLine {
-  const garmentSkuCode = `HG-WOOL-${String(sequence).padStart(2, '0')}-${colorCode}-M`
+  const garmentSkuCode = `HG-WOOL-${String(sequence).padStart(2, '0')}-${colorCode}-${sizeCode}`
   const isPanel = kind === 'PART_PANEL'
   return {
     outputSkuCode: isPanel ? `WP-SLEEVE-${garmentSkuCode}` : garmentSkuCode,
@@ -64,7 +65,7 @@ function outputLine(
     ...(isPanel ? { woolPartCode: 'SLEEVE', woolPartName: '袖片' } : {}),
     colorCode,
     colorName: colorCode === 'BLACK' ? '黑色' : '白色',
-    sizeCode: 'M',
+    sizeCode,
     plannedQty: 100,
     qtyUnit: '件',
     requiredYarnSkus,
@@ -88,7 +89,13 @@ function workOrder(sequence: number, code: WoolMockScenarioCode): WoolWorkOrder 
     ? [outputLine(sequence, 'BLACK', kind, [])]
     : [
         outputLine(sequence, 'BLACK', kind, ['YARN-A', 'YARN-B']),
-        outputLine(sequence, 'WHITE', kind, ['YARN-A', 'YARN-C']),
+        outputLine(
+          sequence,
+          'WHITE',
+          kind,
+          ['YARN-A', 'YARN-C'],
+          code === 'MULTIPLE_HANDOVERS_WITH_STOCK' ? 'L' : 'M',
+        ),
       ]
   const sourceFactCode = code === 'NO_TECH_PACK_MAPPING'
     ? 'NO-MAPPING'
@@ -494,10 +501,11 @@ export function buildWoolFactWorkflowMockStore(_seed = 'DEFAULT'): WoolDomainSto
         addReport(order, 1, 'WHITE-LIMIT', Math.floor(order.outputPlanLines[1].plannedQty * 1.5))
         break
       case 'MULTIPLE_HANDOVERS_WITH_STOCK':
-        addReceipt(order, 'AB', ['YARN-A', 'YARN-B'])
-        addReport(order, 0, 'STOCK', 100)
+        addReceipt(order, 'ABC', ['YARN-A', 'YARN-B', 'YARN-C'])
+        addReport(order, 0, 'STOCK-BLACK-M', 100)
+        addReport(order, 1, 'STOCK-WHITE-L', 40)
         addHandover(order, 0, '1', 30)
-        addHandover(order, 0, '2', 20)
+        addHandover(order, 1, '2', 20)
         break
       case 'READY_TO_COMPLETE':
         addReceipt(order, 'AB', ['YARN-A', 'YARN-B'])

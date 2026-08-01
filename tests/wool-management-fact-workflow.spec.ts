@@ -22,6 +22,7 @@ type ScenarioOrder = {
     plannedQty: number
     qtyUnit: string
     outputObjectType: 'GARMENT' | 'WOOL_PANEL'
+    colorCode: string
     colorName: string
     sizeCode: string
     requiredYarnSkus: string[]
@@ -891,6 +892,16 @@ test('毛织交出单支持加工单批量打印和详情单条打印，SPU 仅�
   const store = await readWoolStore(page)
   const handovers = store.handovers.filter((item) => item.woolOrderId === order.woolOrderId)
   expect(handovers).toHaveLength(2)
+  expect(new Set(handovers.map((item) => item.outputSkuCode)).size).toBe(2)
+  const handoverOutputLines = handovers.map((handover) =>
+    order.outputPlanLines.find((line) => line.outputSkuCode === handover.outputSkuCode))
+  expect(handoverOutputLines.every(Boolean)).toBe(true)
+  expect(new Set(handoverOutputLines.map((line) => JSON.stringify([
+    line?.colorCode,
+    line?.colorName,
+    line?.sizeCode,
+    line?.requiredYarnSkus,
+  ]))).size).toBe(2)
 
   await openWoolOrders(page)
   await filterOrder(page, order.woolOrderNo)

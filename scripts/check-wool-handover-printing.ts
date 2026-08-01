@@ -5,6 +5,7 @@ import {
   addWoolHandover,
   addWoolProcessReport,
   addWoolYarnReceipt,
+  listWoolFactRecords,
   listWoolWorkOrders,
 } from '../src/data/fcs/wool-task-domain.ts'
 import { renderCraftWoolHandoverPrintPage } from '../src/pages/process-factory/wool/handover-print.ts'
@@ -36,6 +37,32 @@ const partOutput = partPanelOrder.outputPlanLines[0]
 assert(
   partPanelOrder.styleImageUrl && !partPanelOrder.styleImageUrl.includes('/placeholder'),
   '毛织交出单涉及的款式必须带真实款式图，不能使用占位图',
+)
+const batchOrder = listWoolWorkOrders()
+  .find((order) => order.mockScenarioCode === 'MULTIPLE_HANDOVERS_WITH_STOCK')
+assert(batchOrder, '缺少批量打印多次交出样例')
+const batchHandovers = listWoolFactRecords({
+  woolOrderId: batchOrder.woolOrderId,
+  recordType: 'HANDOVER',
+}).map((item) => item.record as typeof handover)
+assert.equal(batchHandovers.length, 2, '批量打印样例必须有两次交出')
+assert.equal(
+  new Set(batchHandovers.map((item) => item.outputSkuCode)).size,
+  2,
+  '批量打印两次交出必须分别属于不同加工后 SKU',
+)
+const batchOutputLines = batchHandovers.map((item) =>
+  batchOrder.outputPlanLines.find((line) => line.outputSkuCode === item.outputSkuCode))
+assert(batchOutputLines.every(Boolean), '批量打印每次交出必须找到对应输出计划行')
+assert.equal(
+  new Set(batchOutputLines.map((line) => JSON.stringify([
+    line?.colorCode,
+    line?.colorName,
+    line?.sizeCode,
+    line?.requiredYarnSkus,
+  ]))).size,
+  2,
+  '批量打印两条输出行的颜色、尺码和必需纱线组合必须可区分',
 )
 addWoolYarnReceipt(partPanelOrder.woolOrderId, {
   commandId: 'CHECK-WOOL-PRINT-RECEIPT',
