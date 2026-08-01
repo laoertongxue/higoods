@@ -238,10 +238,8 @@ function resolveTransferBagCurrentUseFromEvents(
   allowLegacyConfirm: boolean,
 ): TransferBagCurrentUse {
   let state = emptyCurrentUse(bagCode)
+  let hasProcessedNewRepackFact = false
   const handoverSnapshots = new Map<string, TransferBagTicketFactSnapshot[][]>()
-  const hasNewRepackFact = events.some((event) =>
-    event.eventType === '中转袋拆袋重装'
-    && eventTouchesTransferBag(event, bagCode))
 
   for (let index = 0; index < events.length; index += 1) {
     const event = events[index]
@@ -295,17 +293,12 @@ function resolveTransferBagCurrentUseFromEvents(
       } else if (repackBag(event, 'sourceBags', bagCode)) {
         state = emptyCurrentUse(bagCode)
       }
+      hasProcessedNewRepackFact = true
       continue
     }
 
     if (allowLegacyConfirm && event.eventType === '交出装袋确认') {
-      if (hasNewRepackFact) {
-        state = {
-          ...state,
-          compatibilityBlockedReason: '当前袋已存在新拆袋重装事实，旧交出装袋确认不再用于恢复菲票关系。',
-        }
-        continue
-      }
+      if (hasProcessedNewRepackFact) continue
       const sourceBagCode = text(payload.sourceTempBagCode)
       const targetBagCode = text(payload.targetTransferBagCode)
       const recovered = sourceBagCode && targetBagCode

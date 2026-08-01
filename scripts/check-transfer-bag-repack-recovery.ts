@@ -655,41 +655,74 @@ function appendLegacyBaggingConfirm(input: {
 
 {
   const storage = createMemoryStorage()
-  const legacyTickets = [ticket('LEGACY-SUPERSEDED', 'PO-LEGACY', 'F-LEGACY')]
-  appendBagging({
-    storage,
-    bagCode: 'BAG-LEGACY-SUPERSEDED-SOURCE',
-    usageCycleId: 'usage:BAG-LEGACY-SUPERSEDED-SOURCE:old',
-    tickets: legacyTickets,
-  })
+  const currentTickets = [ticket('T1', 'PO-T', 'F-T')]
   appendLegacyBaggingConfirm({
     storage,
-    sourceBagCode: 'BAG-LEGACY-SUPERSEDED-SOURCE',
-    targetBagCode: 'BAG-LEGACY-SUPERSEDED-TARGET',
-    feiTicketIds: ['LEGACY-SUPERSEDED'],
+    targetBagCode: 'BAG-T',
+    feiTicketIds: ['T1'],
+    occurredAt: '2026-08-01 07:00',
   })
+  assert.match(
+    resolveTransferBagCurrentUse('BAG-T', storage).compatibilityBlockedReason || '',
+    /无法唯一恢复/,
+    '新重装前的旧确认仍按历史兼容规则折叠',
+  )
   appendCuttingRuntimeEvent({
     eventType: '中转袋拆袋重装',
     eventSource: 'WEB',
     eventStatus: '已同步',
-    occurredAt: '2026-08-01 08:40',
+    occurredAt: '2026-08-01 08:00',
     operatorName: '新重装员',
     refs: {
-      repackBatchId: 'REPACK-SUPERSEDE-LEGACY',
-      transferBagCodes: ['BAG-LEGACY-SUPERSEDED-TARGET'],
+      repackBatchId: 'REPACK-ESTABLISH-T',
+      transferBagCodes: ['BAG-S', 'BAG-T'],
+      feiTicketIds: ['T1'],
     },
     payload: {
-      repackBatchId: 'REPACK-SUPERSEDE-LEGACY',
-      sourceBags: [],
-      resultBags: [],
-      movedTickets: [],
-      confirmedAt: '2026-08-01 08:40',
+      repackBatchId: 'REPACK-ESTABLISH-T',
+      sourceBags: [{
+        bagCode: 'BAG-S',
+        usageCycleId: 'usage:BAG-S:old',
+        beforeTickets: currentTickets,
+      }],
+      resultBags: [{
+        bagCode: 'BAG-T',
+        usageCycleId: 'usage:BAG-T:REPACK-ESTABLISH-T',
+        reusedSourceBag: false,
+        tickets: currentTickets,
+      }],
+      movedTickets: [{
+        feiTicketId: 'T1',
+        fromBagCode: 'BAG-S',
+        toBagCode: 'BAG-T',
+        pieceQty: currentTickets[0].pieceQty,
+      }],
+      confirmedAt: '2026-08-01 08:00',
       confirmedBy: '新重装员',
     },
   }, storage)
-  const superseded = resolveTransferBagCurrentUse('BAG-LEGACY-SUPERSEDED-TARGET', storage)
-  assert.deepEqual(superseded.tickets, [], '存在新重装事实时不得恢复旧确认的菲票')
-  assert.match(superseded.compatibilityBlockedReason || '', /新重装|旧交出装袋确认/)
+  appendLegacyBaggingConfirm({
+    storage,
+    sourceBagCode: 'BAG-OLD-SOURCE',
+    targetBagCode: 'BAG-T',
+    feiTicketIds: ['T1'],
+    occurredAt: '2026-08-01 09:00',
+  })
+  const current = resolveTransferBagCurrentUse('BAG-T', storage)
+  assert.deepEqual(current.tickets, currentTickets, '新重装后的旧确认不得污染当前菲票关系')
+  assert.equal(current.productionOrderNo, 'PO-T')
+  assert.equal(current.usageCycleId, 'usage:BAG-T:REPACK-ESTABLISH-T')
+  assert.equal(current.flowStage, 'READY_HANDOVER')
+  assert.equal(current.compatibilityBlockedReason, undefined, '新重装后的旧确认必须完全退出当前关系折叠')
+  const next = submitTransferBagRepack({
+    repackBatchId: 'REPACK-T-NEXT',
+    sourceBagCodes: ['BAG-T'],
+    results: [{ bagCode: 'BAG-T-NEXT', feiTicketIds: ['T1'] }],
+    operator,
+    source: 'WEB',
+    occurredAt: '2026-08-01 10:00',
+  }, storage)
+  assert.equal(next.eventType, '中转袋拆袋重装', '旧确认不得阻断当前袋继续合法重装')
 }
 
 {
