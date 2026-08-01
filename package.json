@@ -73,7 +73,7 @@
     "check:process-factory-warehouse-menu-consolidation": "tsx scripts/check-process-factory-warehouse-menu-consolidation.ts",
     "check:cutting-warehouse-management-switch": "tsx scripts/check-cutting-warehouse-management-switch.ts",
     "check:cutting-warehouse-location-map": "tsx scripts/check-cutting-warehouse-location-map.ts",
-    "check:cutting-warehouse-location-map-e2e": "npm run build && CUTTING_E2E_USE_PREVIEW=true PLAYWRIGHT_REUSE_EXISTING_SERVER=false CUTTING_E2E_PORT=43176 playwright test tests/cutting-warehouse-location-map.spec.ts",
+    "check:cutting-warehouse-location-map-e2e": "npm run build && CUTTING_E2E_USE_PREVIEW=false PLAYWRIGHT_REUSE_EXISTING_SERVER=false CUTTING_E2E_PORT=43176 playwright test tests/cutting-warehouse-location-map.spec.ts",
     "check:pda-cutting-wait-handover-entry-routing": "tsx scripts/check-pda-cutting-wait-handover-entry-routing.ts",
     "check:pda-cutting-wait-handover-route-integration": "tsx scripts/check-pda-cutting-wait-handover-route-integration.ts",
     "check:pda-cutting-inbound-workflow": "tsx scripts/check-pda-cutting-inbound-workflow.ts",

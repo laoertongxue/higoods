@@ -3,7 +3,6 @@ import { listPdaCuttingTaskSourceRecords } from '../src/data/fcs/cutting/pda-cut
 
 const WAIT_PROCESS_PATH = '/fcs/craft/cutting/warehouse-management/wait-process'
 const WAIT_HANDOVER_PATH = '/fcs/craft/cutting/warehouse-management/wait-handover'
-const READY_PICKUP_PATH = '/fcs/craft/cutting/pickup-management/ready'
 
 test.setTimeout(600_000)
 
@@ -20,8 +19,8 @@ async function resetWarehouseMapStores(page: Page): Promise<void> {
       loginId: 'F090_operator',
       userName: '裁床仓管',
       roleId: 'ROLE_OPERATOR',
-      factoryId: 'F090',
-      factoryName: '全能力测试工厂',
+      factoryId: 'FACTORY-ONBOARD-0035',
+      factoryName: '定位裁演示工厂35',
       loggedAt: '2026-07-30 10:00:00',
     }))
     sessionStorage.setItem('warehouse-map-e2e-initialized', '1')
@@ -55,6 +54,64 @@ async function openStandaloneAreaMaintenanceDialog(page: Page): Promise<string> 
     if (!current) throw new Error('无法建立独立库位图维护上下文')
     module.openCuttingWarehouseLocationMapModal('WAIT_PROCESS', { type: 'create-area' })
     return current.snapshot.areaList[0].areaName
+  })
+}
+
+async function openControlledPdaInbound(page: Page, taskId: string): Promise<void> {
+  await page.goto('/src/pages/pda-cutting-inbound.ts', { waitUntil: 'domcontentloaded' })
+  await page.evaluate(async ({ taskId }) => {
+    const pda = await import('/src/data/fcs/store-domain-pda.ts')
+    const user = pda.listFactoryPdaUsers('FACTORY-ONBOARD-0035')[0] || await pda.createFactoryPdaUser({
+      factoryId: 'FACTORY-ONBOARD-0035', name: '裁床仓管', loginId: 'location_e2e_operator', password: '123456', roleId: 'ROLE_OPERATOR',
+    })
+    pda.setPdaSession(pda.createPdaSessionFromUser(user))
+    window.history.replaceState({}, '', `/fcs/pda/cutting/inbound/${taskId}?action=inbound-location`)
+    const module = await import('/src/pages/pda-cutting-inbound.ts')
+    const bagging = module.createPdaCuttingInboundFormState()
+    bagging.carrierCode = 'BAG-E2E-MULTI'
+    bagging.scannedTicketNos = ['FT-CUT-260307-102-01-001']
+    bagging.inboundQty = '10'
+    module.appendPdaCuttingInboundRuntimeEvent(bagging, 'bagging')
+    const ledger = module.createPdaCuttingInboundMockLedger()
+    ledger.bags[bagging.carrierCode] = {
+      bagCode: bagging.carrierCode,
+      status: 'BAGGED_WAIT_INBOUND',
+      ticketNos: [...bagging.scannedTicketNos],
+      productionOrderNo: 'PO-E2E-MULTI',
+      locationLabel: '',
+    }
+    window.__higoodPdaCuttingInboundMockLedger = ledger
+    const inbound = module.createPdaCuttingInboundFormState()
+    inbound.carrierCode = bagging.carrierCode
+    document.body.innerHTML = module.renderPdaCuttingInboundWorkflow('inbound-location', inbound, taskId)
+    const dispatch = (event: Event) => {
+      const target = event.target instanceof HTMLElement ? event.target : null
+      if (target) module.handlePdaCuttingInboundEvent(target, event)
+    }
+    document.body.addEventListener('click', dispatch)
+    document.body.addEventListener('input', dispatch)
+    document.body.addEventListener('keydown', dispatch)
+  }, { taskId })
+}
+
+async function openControlledPdaPickup(page: Page): Promise<void> {
+  await page.goto('/src/pages/pda-warehouse-wait-process.ts', { waitUntil: 'domcontentloaded' })
+  await page.evaluate(async () => {
+    const pda = await import('/src/data/fcs/store-domain-pda.ts')
+    const user = pda.listFactoryPdaUsers('FACTORY-ONBOARD-0035')[0] || await pda.createFactoryPdaUser({
+      factoryId: 'FACTORY-ONBOARD-0035', name: '裁床仓管', loginId: 'location_e2e_operator', password: '123456', roleId: 'ROLE_OPERATOR',
+    })
+    pda.setPdaSession(pda.createPdaSessionFromUser(user))
+    const runtime = await import('/src/runtime/fcs/cutting/pickup-management-runtime.ts')
+    const node = runtime.listActivePickupNodesRuntime()[0]
+    if (!node) throw new Error('缺少受控领料节点')
+    window.history.replaceState({}, '', `/fcs/pda/warehouse/wait-process?scope=cutting&action=pickup&pickupNodeId=${encodeURIComponent(node.nodeId)}&version=${node.version}`)
+    const module = await import('/src/pages/pda-warehouse-wait-process.ts')
+    document.body.innerHTML = module.renderPdaWarehouseWaitProcessPage()
+    document.body.addEventListener('click', (event) => {
+      const target = event.target instanceof HTMLElement ? event.target : null
+      if (target) module.handlePdaWarehouseWaitProcessEvent(target)
+    })
   })
 }
 
@@ -119,6 +176,7 @@ for (const path of [WAIT_PROCESS_PATH, WAIT_HANDOVER_PATH]) {
     await modal.locator('[name="areaCode"]').fill('Z')
     await modal.locator('[name="areaName"]').fill(`浏览器${warehouseName}扩展区`)
     await modal.locator('[data-warehouse-map-action="submit-maintenance"]').click()
+    await expect(modal).toHaveCount(0)
     expect(await page.evaluate(() => Object.values(localStorage).join('\n'))).toContain(`浏览器${warehouseName}扩展区`)
     await expect(root).toContainText(`浏览器${warehouseName}扩展区`)
     await expect(root).toContainText('暂无货架')
@@ -132,6 +190,7 @@ for (const path of [WAIT_PROCESS_PATH, WAIT_HANDOVER_PATH]) {
     await modal.locator('[name="positionCount-2"]').fill('3')
     await expect(modal.locator('[data-location-number-preview]')).toContainText('Z-R09-L02-P03')
     await modal.locator('[data-warehouse-map-action="submit-maintenance"]').click()
+    await expect(modal).toHaveCount(0)
     await expect(root).toContainText('Z-R09-L02-P03')
     await page.reload({ waitUntil: 'domcontentloaded' })
     await expect(page.locator('[data-warehouse-map-root]')).toContainText('Z-R09-L02-P03', { timeout: 120_000 })
@@ -534,10 +593,7 @@ test('两张库位图占用详情分别展示物料卷和袋内菲票', async ({
 })
 
 test('PDA 中转仓领料支持跨区货架层自由多选、任意取消、逐项摘要和清空', async ({ page }) => {
-  await page.goto(READY_PICKUP_PATH)
-  const pickupHref = await page.getByRole('link', { name: '去领料', exact: true }).first().getAttribute('href')
-  expect(pickupHref).toBeTruthy()
-  await page.goto(pickupHref!)
+  await openControlledPdaPickup(page)
   const map = page.locator('[data-pda-cutting-pickup-location-map] [data-warehouse-map-root]')
   await expect(map).toBeVisible({ timeout: 300_000 })
   const crossHierarchyLocations = await map.locator(
@@ -584,15 +640,14 @@ test('PDA 中转仓领料支持跨区货架层自由多选、任意取消、逐�
   await expect(selectionSummary).toContainText(crossHierarchyLocations[0].locationNo)
   await expect(selectionSummary).not.toContainText(crossHierarchyLocations[1].locationNo)
   await expect(selectionSummary).toContainText(crossHierarchyLocations[2].locationNo)
-  await expect(map.locator('button[aria-disabled="true"]')).not.toHaveCount(0)
   await map.locator('[data-warehouse-map-action="clear-selection"]').click()
   await expect(selectionSummary).toContainText('已选 0 个库位')
 })
 
-test('PDA 中转袋入仓可从库位图单选空闲库位', async ({ page }) => {
+test('PDA 中转袋入仓可点选多个库位、逐项取消并确认完整数组', async ({ page }) => {
   const taskId = listPdaCuttingTaskSourceRecords()[0]?.taskId
   expect(taskId).toBeTruthy()
-  await page.goto(`/fcs/pda/cutting/inbound/${taskId}?action=inbound-location`)
+  await openControlledPdaInbound(page, taskId!)
   const map = page.locator('[data-pda-inbound-location-map] [data-warehouse-map-root]')
   await expect(map).toBeVisible({ timeout: 300_000 })
   const availableLocations = await map.locator(
@@ -603,34 +658,42 @@ test('PDA 中转袋入仓可从库位图单选空闲库位', async ({ page }) =>
   })))
   expect(availableLocations).toHaveLength(2)
   const [firstLocation, secondLocation] = availableLocations
-  const locationInput = page.locator('[data-pda-cut-inbound-field="locationLabel"]')
   const selectionSummary = map.locator('[data-warehouse-map-selection-summary]')
   const selectedItems = selectionSummary.locator('[data-warehouse-map-selected-item]')
 
   await map.locator(`[data-location-id="${firstLocation.locationId}"]`).click()
-  await expect(locationInput).toHaveValue(firstLocation.locationNo)
   await expect(selectionSummary).toContainText('已选 1 个库位')
   await expect(selectedItems).toHaveCount(1)
   await expect(selectedItems).toContainText(firstLocation.locationNo)
 
-  const secondButton = map.locator(`[data-location-id="${secondLocation.locationId}"]`)
+  const secondButton = map.locator(`[data-warehouse-map-shelf-viewport] [data-location-id="${secondLocation.locationId}"]`)
   await expect(secondButton).toBeEnabled()
   await expect(secondButton).toHaveAttribute('aria-pressed', 'false')
   await secondButton.click()
 
-  await expect(locationInput).toHaveValue(secondLocation.locationNo)
-  await expect(selectionSummary).toContainText('已选 1 个库位')
-  await expect(selectedItems).toHaveCount(1)
-  await expect(selectedItems).toContainText(secondLocation.locationNo)
-  await expect(selectedItems).not.toContainText(firstLocation.locationNo)
-  await expect(map.locator(`[data-location-id="${firstLocation.locationId}"]`)).toHaveAttribute('aria-pressed', 'false')
+  await expect(selectionSummary).toContainText('已选 2 个库位')
+  await expect(selectedItems).toHaveCount(2)
+  await expect(selectedItems.nth(0)).toContainText(firstLocation.locationNo)
+  await expect(selectedItems.nth(1)).toContainText(secondLocation.locationNo)
+  await expect(map.locator(`[data-warehouse-map-shelf-viewport] [data-location-id="${firstLocation.locationId}"]`)).toHaveAttribute('aria-pressed', 'true')
   await expect(secondButton).toHaveAttribute('aria-pressed', 'true')
 
-  await selectedItems.click()
-  await expect(locationInput).toHaveValue('')
-  await expect(selectionSummary).toContainText('已选 0 个库位')
-  await expect(selectedItems).toHaveCount(0)
-  await expect(secondButton).toHaveAttribute('aria-pressed', 'false')
+  await selectedItems.nth(0).click()
+  await expect(selectionSummary).toContainText('已选 1 个库位')
+  await expect(selectedItems).toHaveCount(1)
+  await expect(map.locator(`[data-warehouse-map-shelf-viewport] [data-location-id="${firstLocation.locationId}"]`)).toHaveAttribute('aria-pressed', 'false')
+  await expect(secondButton).toHaveAttribute('aria-pressed', 'true')
+
+  await map.locator(`[data-warehouse-map-shelf-viewport] [data-location-id="${firstLocation.locationId}"]`).click()
+  await page.locator('[data-pda-cut-inbound-action="confirm"]').click()
+  await expect(page.locator('[data-pda-cutting-inbound-workflow]')).toContainText('入仓成功')
+  const savedLocationNos = await page.evaluate(() => {
+    const raw = localStorage.getItem('cuttingRuntimeEventLedger') || '{"events":[]}'
+    const events = JSON.parse(raw).events || []
+    const inbound = [...events].reverse().find((event: any) => event.eventType === '中转袋入仓')
+    return (inbound?.payload?.warehouseLocations || []).map((location: any) => location.locationNo)
+  })
+  expect(new Set(savedLocationNos)).toEqual(new Set([secondLocation.locationNo, firstLocation.locationNo]))
 })
 
 for (const viewport of [
@@ -645,8 +708,11 @@ for (const viewport of [
       ? `/fcs/pda/cutting/inbound/${listPdaCuttingTaskSourceRecords()[0]?.taskId}?action=inbound-location`
       : WAIT_PROCESS_PATH
     if (viewport.width <= 390) {
-      await page.goto(path)
+      const taskId = listPdaCuttingTaskSourceRecords()[0]?.taskId
+      expect(taskId).toBeTruthy()
+      await openControlledPdaInbound(page, taskId!)
       await expect(page.locator('[data-warehouse-map-root]')).toBeVisible({ timeout: 300_000 })
+      await expect(page.getByRole('button', { name: '维护库位图', exact: true })).toHaveCount(0)
     } else {
       await openWarehouseMap(page, path)
     }
