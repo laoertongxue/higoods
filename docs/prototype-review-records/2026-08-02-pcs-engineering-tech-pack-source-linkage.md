@@ -21,6 +21,7 @@
 
 - 技术包新版本只接受工程主单或工程变更任务两类权威来源。
 - 技术包来源校验直接读取工程主单权威仓储，不保留可公开注入或整体替换的旁路索引。
+- 首单门禁继续同时识别已转单需求和独立正式生产单；正式生产事实使用不加载技术包的轻量索引，避免工程主单反向依赖技术包。
 - 工程主单来源必须同时指向真实主单及其技术包确认任务，且款式一致。
 - 工程变更来源必须指向真实变更任务，来源对象、任务和款式一致。
 - `MANUAL`、`REVISION`、`PLATE`、`ARTWORK` 不再允许创建新版本；既有已发布旧记录仍可查询和查看。
@@ -66,6 +67,7 @@
 | 可公开替换的技术包来源索引可能伪造工程对象 | 追溯不足 | 系统维护人员 | 移除旁路索引公开接口，来源校验直接读取工程主单权威仓储 | 否 |
 | 已发布旧来源技术包仍可通过记录或内容更新入口被改写 | 追溯不足 | 买手、跟单 | 两类更新入口统一识别已发布旧来源并以只读状态阻断，失败零写入 | 否 |
 | 创建后的款式身份被改写会使技术包与权威来源错配 | 选不对 | 买手、跟单 | 款式三字段与全部来源身份字段统一设为不可变 | 否 |
+| 技术包直接读取工程主单仓储时可能与生产单技术包初始化形成循环 | 追溯不足 | 跟单 | 正式生产事实改为轻量只读索引；普通生产单由已转单需求动态派生，无需求 Seed 的独立生产单与实际生产单共用同一事实记录 | 否 |
 
 ## 6. 最终结论
 
@@ -82,8 +84,11 @@
 - `src/data/pcs-technical-data-version-repository.ts`
 - `src/data/pcs-engineering-master-types.ts`
 - `src/data/pcs-engineering-master-repository.ts`
-- `src/data/pcs-engineering-master-store.ts`
+- `src/data/pcs-engineering-master-store.ts`（删除公开写入旁路）
+- `src/data/pcs-engineering-first-production-policy.ts`
 - `src/data/pcs-engineering-tech-pack-authority-index.ts`
+- `src/data/fcs/production-order-formal-fact-index.ts`
+- `src/data/fcs/production-orders.ts`
 - `src/data/pcs-tech-pack-task-generation.ts`
 - `src/data/pcs-project-relation-repository.ts`
 - `src/data/pcs-channel-product-project-repository.ts`
@@ -95,6 +100,7 @@
 ### 验证命令
 
 - `npx tsx tests/pcs-engineering-tech-pack-linkage.spec.ts`：通过。
+- `npx tsx tests/pcs-engineering-master-domain.spec.ts`：通过；覆盖全部正式生产单以及无需求 Seed 的独立正式生产单仍必须判定为非首单。
 - `npx tsx tests/pcs-tech-pack-plate-primary-generation.spec.ts`：通过。
 - `npx tsx tests/pcs-tech-pack-artwork-write-or-new-version.spec.ts`：通过。
 - `npx tsx tests/pcs-tech-pack-revision-new-version.spec.ts`：通过。

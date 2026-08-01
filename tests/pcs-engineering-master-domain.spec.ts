@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 
 import { listStyleArchives, resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
 import { assertFirstFormalProduction } from '../src/data/pcs-engineering-first-production-policy.ts'
+import { productionOrders } from '../src/data/fcs/production-orders.ts'
+import { productionDemands } from '../src/data/fcs/production-demands.ts'
 import {
   createEngineeringMasterOrder,
   publishEngineeringMasterOrder,
@@ -16,6 +18,33 @@ assert.ok(freshStyle, '应存在正式款式档案演示数据')
 
 // 首次正式生产校验：已正式生产款式必须阻断
 assert.throws(() => assertFirstFormalProduction('SPU-2024-001'), /已经正式生产过/)
+for (const order of productionOrders.filter((item) => !['DRAFT', 'CANCELLED', 'ON_HOLD'].includes(item.status))) {
+  assert.throws(
+    () => assertFirstFormalProduction(order.demandSnapshot.spuCode),
+    /已经正式生产过/,
+    `正式生产单 ${order.productionOrderId} 的款式必须被首单门禁识别`,
+  )
+}
+assert.throws(
+  () => assertFirstFormalProduction('ASYSA26060310'),
+  /已经正式生产过/,
+  '即使生产需求 Seed 缺失，独立正式生产单也必须被首单门禁识别',
+)
+const derivedDemandFact = {
+  ...structuredClone(productionDemands[0]),
+  demandId: 'DEM-FIRST-ORDER-GATE-TEST',
+  spuCode: 'SPU-FIRST-ORDER-GATE-TEST',
+  demandStatus: 'CONVERTED' as const,
+  hasProductionOrder: true,
+  productionOrderId: 'PO-FIRST-ORDER-GATE-TEST',
+}
+productionDemands.push(derivedDemandFact)
+assert.throws(
+  () => assertFirstFormalProduction(derivedDemandFact.spuCode),
+  /已经正式生产过/,
+  '新增已转单需求必须自动进入正式生产事实索引',
+)
+productionDemands.pop()
 assert.doesNotThrow(() => assertFirstFormalProduction(freshStyle.styleCode))
 
 // 无商品／款式档案禁止创建工程主单

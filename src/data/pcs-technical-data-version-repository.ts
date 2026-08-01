@@ -1,8 +1,8 @@
 import { createTechnicalDataVersionBootstrapSnapshot } from './pcs-technical-data-version-bootstrap.ts'
 import {
-  getAuthoritativeEngineeringChangeTask,
-  getAuthoritativeEngineeringMasterOrder,
-} from './pcs-engineering-master-store.ts'
+  getEngineeringChangeTaskById,
+  getEngineeringMasterOrderById,
+} from './pcs-engineering-master-repository.ts'
 import { getStyleArchiveById } from './pcs-style-archive-repository.ts'
 import {
   hasTechPackPrintRequirement,
@@ -260,7 +260,7 @@ function validateTechnicalVersionCreationSource(record: TechnicalDataVersionReco
   }
 
   if (record.createdFromTaskType === 'ENGINEERING_MASTER') {
-    const master = getAuthoritativeEngineeringMasterOrder(record.sourceProjectId)
+    const master = getEngineeringMasterOrderById(record.sourceProjectId)
     if (!master) throw new Error(`工程主单不存在：${record.sourceProjectId}`)
     const sourceTask = master.tasks.find((task) => task.taskId === record.createdFromTaskId)
     if (!sourceTask) {
@@ -275,7 +275,7 @@ function validateTechnicalVersionCreationSource(record: TechnicalDataVersionReco
     return
   }
 
-  const changeTask = getAuthoritativeEngineeringChangeTask(record.sourceProjectId)
+  const changeTask = getEngineeringChangeTaskById(record.sourceProjectId)
   if (!changeTask) throw new Error(`工程变更任务不存在：${record.sourceProjectId}`)
   if (changeTask.engineeringChangeTaskId !== record.createdFromTaskId) {
     throw new Error('技术包来源对象与工程变更任务不一致。')

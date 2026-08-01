@@ -10,11 +10,6 @@ import {
 import type { EngineeringBomTaskLinkageRow } from './pcs-engineering-bom-types.ts'
 import { assertFirstFormalProduction } from './pcs-engineering-first-production-policy.ts'
 import {
-  readEngineeringMasterStoreSnapshot,
-  resetEngineeringMasterStoreSnapshot,
-  writeEngineeringMasterStoreSnapshot,
-} from './pcs-engineering-master-store.ts'
-import {
   getStyleArchiveById,
   findStyleArchiveByCode,
 } from './pcs-style-archive-repository.ts'
@@ -26,7 +21,19 @@ import type {
   EngineeringTaskType,
 } from './pcs-engineering-master-types.ts'
 
+const ENGINEERING_MASTER_STORAGE_KEY = 'higood-pcs-engineering-master-store-v1'
 const ENGINEERING_MASTER_STORE_VERSION = 1
+
+let memorySnapshot: EngineeringMasterOrderSnapshot | null = null
+
+function canUseStorage(): boolean {
+  return (
+    typeof localStorage !== 'undefined' &&
+    typeof localStorage.getItem === 'function' &&
+    typeof localStorage.setItem === 'function' &&
+    typeof localStorage.removeItem === 'function'
+  )
+}
 
 function nowText(): string {
   return new Date().toLocaleString('zh-CN', { hour12: false })
@@ -67,13 +74,34 @@ function cloneSnapshot(snapshot: EngineeringMasterOrderSnapshot): EngineeringMas
   }
 }
 
+function seedSnapshot(): EngineeringMasterOrderSnapshot {
+  return { version: ENGINEERING_MASTER_STORE_VERSION, records: [], changeTasks: [] }
+}
+
 function readSnapshot(): EngineeringMasterOrderSnapshot {
-  const snapshot = readEngineeringMasterStoreSnapshot()
-  return cloneSnapshot({
-    version: ENGINEERING_MASTER_STORE_VERSION,
-    records: snapshot.records.map(normalizeRecord),
-    changeTasks: (snapshot.changeTasks || []).map((record) => ({ ...record })),
-  })
+  if (memorySnapshot) return cloneSnapshot(memorySnapshot)
+  if (!canUseStorage()) {
+    memorySnapshot = seedSnapshot()
+    return cloneSnapshot(memorySnapshot)
+  }
+  try {
+    const raw = localStorage.getItem(ENGINEERING_MASTER_STORAGE_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw) as EngineeringMasterOrderSnapshot
+      if (parsed && Array.isArray(parsed.records)) {
+        memorySnapshot = {
+          version: ENGINEERING_MASTER_STORE_VERSION,
+          records: parsed.records.map(normalizeRecord),
+          changeTasks: Array.isArray(parsed.changeTasks) ? parsed.changeTasks.map((record) => ({ ...record })) : [],
+        }
+        return cloneSnapshot(memorySnapshot)
+      }
+    }
+  } catch {
+    // 存储损坏时回退到空种子
+  }
+  memorySnapshot = seedSnapshot()
+  return cloneSnapshot(memorySnapshot)
 }
 
 function normalizeRecord(record: EngineeringMasterOrderRecord): EngineeringMasterOrderRecord {
@@ -111,7 +139,13 @@ function normalizeRecord(record: EngineeringMasterOrderRecord): EngineeringMaste
 }
 
 function writeSnapshot(snapshot: EngineeringMasterOrderSnapshot): void {
-  writeEngineeringMasterStoreSnapshot(cloneSnapshot(snapshot))
+  memorySnapshot = cloneSnapshot(snapshot)
+  if (!canUseStorage()) return
+  try {
+    localStorage.setItem(ENGINEERING_MASTER_STORAGE_KEY, JSON.stringify(memorySnapshot))
+  } catch {
+    // 原型环境存储不可用时仅保留内存态
+  }
 }
 
 function nextMasterOrderCode(records: EngineeringMasterOrderRecord[]): string {
@@ -299,7 +333,13 @@ export function replaceEngineeringMasterOrderStore(snapshot: EngineeringMasterOr
 }
 
 export function resetEngineeringMasterRepository(): void {
-  resetEngineeringMasterStoreSnapshot()
+  memorySnapshot = seedSnapshot()
+  if (!canUseStorage()) return
+  try {
+    localStorage.removeItem(ENGINEERING_MASTER_STORAGE_KEY)
+  } catch {
+    // 忽略存储不可用
+  }
 }
 
 // 主单状态变更的单一仓储入口。页面不可直接改写快照；后续关闭流程复用此入口。
