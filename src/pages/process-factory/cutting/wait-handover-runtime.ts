@@ -34,11 +34,15 @@ import {
   buildSpecialCraftWholeBagHandoverCanonicalIntent,
   eventTouchesTransferBag,
   isCompleteSuccessfulSpecialCraftHandoverEvent,
+  isCompleteSuccessfulTransferBagRecoveryEvent,
+  isCompleteSuccessfulTransferBagScrapEvent,
   isCompleteSuccessfulWholeBagHandoverEvent,
   parseCompleteTransferBagRepackPayload,
   parseTransferBagAuthoritativeLocationFact,
   resolveTransferBagAuthoritativeCurrentLocation,
   resolveTransferBagCurrentUse,
+  recoverTransferBag,
+  submitTransferBagScrap,
 } from '../../../data/fcs/cutting/transfer-bag-operations.ts'
 import {
   listSpreadingResultGeneratedFeiTickets,
@@ -428,6 +432,14 @@ function toWaitHandoverLifecycleFact(
     event.eventType === '特殊工艺交出'
     && !isCompleteSuccessfulSpecialCraftHandoverEvent(event)
   ) return null
+  if (
+    event.eventType === '中转袋回收'
+    && !isCompleteSuccessfulTransferBagRecoveryEvent(event)
+  ) return null
+  if (
+    event.eventType === '中转袋报废'
+    && !isCompleteSuccessfulTransferBagScrapEvent(event)
+  ) return null
   if (event.eventType === '中转袋拆袋重装') {
     const factType = getWaitHandoverRepackBag(event, 'resultBags', bagCode)
       ? 'REPACK_RESULT_CONFIRMED'
@@ -486,7 +498,7 @@ export function listWaitHandoverLifecycleFacts(
         getWaitHandoverBagEventUsageCycleId(event, bagCode)
         || inferredCycleIds.get(event.eventId)
         || ''
-      return usageCycleId
+      return usageCycleId || event.eventType === '中转袋报废'
         ? toWaitHandoverLifecycleFact(event, usageCycleId, bagCode)
         : null
     })
@@ -570,49 +582,18 @@ export function appendWaitHandoverPhysicalReturnEvent(input: {
   storage?: BrowserStorageLike | null
 }) {
   const storage = resolveWaitHandoverStorage(input.storage)
-  const occurredAt =
-    input.returnedAt
-    || new Date().toISOString().slice(0, 16).replace('T', ' ')
-  const idempotencyKey = `${input.usageCycleId}:PHYSICAL_BAG_RETURNED`
-  const existing = findWaitHandoverIdempotentEvent(
-    idempotencyKey,
-    storage,
-  )
-  if (existing) return existing
-  const lifecycle = assertWaitHandoverActionAllowed({
+  return recoverTransferBag({
     bagCode: input.bagCode,
-    action: 'PHYSICAL_RETURN',
-    actionLabel: '确认物理袋回收',
-    storage,
-  })
-  if (lifecycle.usageCycleId !== input.usageCycleId) {
-    throw new Error('回收使用周期与中转袋当前使用周期不一致。')
-  }
-  if (!input.returnWarehouseName.trim()) {
-    throw new Error('请填写物理袋回收位置。')
-  }
-  return appendCuttingRuntimeEventIdempotent({
-    idempotencyKey,
-    eventType: '中转袋回收',
-    eventSource: input.source,
-    eventStatus: '已同步',
-    occurredAt,
-    operatorId: input.operator.operatorId,
-    operatorName: input.operator.operatorName,
-    operatorRole: input.operator.operatorRole || '中转袋回收员',
-    refs: {
-      transferBagCode: input.bagCode,
-      usageCycleId: input.usageCycleId,
-    },
-    payload: {
-      bagCode: input.bagCode,
-      usageCycleId: input.usageCycleId,
-      returnWarehouseName: input.returnWarehouseName,
-      returnedAt: occurredAt,
-      returnedBy: input.operator.operatorName,
-      note: input.note || '',
-    },
-  }, storage).event
+    physicalBagReceived: true,
+    physicalBagEmpty: true,
+    recoveryMode: 'NORMAL',
+    recoveryNode: input.returnWarehouseName,
+    recoveryLocation: input.returnWarehouseName,
+    reason: input.note || '',
+    operator: input.operator,
+    source: input.source,
+    occurredAt: input.returnedAt,
+  }, storage)
 }
 
 export function appendWaitHandoverScrapEvent(input: {
@@ -622,58 +603,18 @@ export function appendWaitHandoverScrapEvent(input: {
   usageCycleId?: string
   scrappedAt?: string
   reason: string
+  authorizedBy?: string
   storage?: BrowserStorageLike | null
 }) {
   const storage = resolveWaitHandoverStorage(input.storage)
-  if (!input.bagCode.trim()) {
-    throw new Error('请明确扫描或选择需要报废的物理中转袋。')
-  }
-  if (!input.reason.trim()) {
-    throw new Error('确认报废必须填写报废原因。')
-  }
-  const occurredAt =
-    input.scrappedAt
-    || new Date().toISOString().slice(0, 16).replace('T', ' ')
-  const usageCycleId =
-    input.usageCycleId
-    || resolveWaitHandoverUsageCycleId(
-      input.bagCode,
-      occurredAt,
-      storage,
-    )
-  const idempotencyKey = `${input.bagCode}:BAG_SCRAPPED`
-  const existing = findWaitHandoverIdempotentEvent(
-    idempotencyKey,
-    storage,
-  )
-  if (existing) return existing
-  assertWaitHandoverActionAllowed({
+  return submitTransferBagScrap({
     bagCode: input.bagCode,
-    action: 'SCRAP',
-    actionLabel: '确认报废',
-    storage,
-  })
-  return appendCuttingRuntimeEventIdempotent({
-    idempotencyKey,
-    eventType: '中转袋报废',
-    eventSource: input.source,
-    eventStatus: '已同步',
-    occurredAt,
-    operatorId: input.operator.operatorId,
-    operatorName: input.operator.operatorName,
-    operatorRole: input.operator.operatorRole || '中转袋主管',
-    refs: {
-      transferBagCode: input.bagCode,
-      usageCycleId,
-    },
-    payload: {
-      bagCode: input.bagCode,
-      usageCycleId,
-      scrappedAt: occurredAt,
-      scrappedBy: input.operator.operatorName,
-      reason: input.reason,
-    },
-  }, storage).event
+    reason: input.reason,
+    authorizedBy: input.authorizedBy || input.operator.operatorName,
+    operator: input.operator,
+    source: input.source,
+    occurredAt: input.scrappedAt,
+  }, storage)
 }
 
 function resolveWaitHandoverUsageCycleId(

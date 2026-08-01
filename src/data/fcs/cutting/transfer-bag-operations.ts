@@ -1,11 +1,14 @@
 import {
   appendCuttingRuntimeEventIdempotent,
+  buildCuttingRuntimeEventId,
   listCuttingRuntimeEvents,
   type CuttingRuntimeEvent,
   type CuttingRuntimeEventSource,
   type CompleteSpecialCraftHandoverPayload,
   type RuntimeWarehouseLocationRef,
+  type TransferBagRecoveryPayload,
   type TransferBagRepackPayload,
+  type TransferBagScrapPayload,
   type TransferBagTicketFactSnapshot,
   type WholeBagHandoverSubmitPayload,
 } from './cutting-runtime-event-ledger.ts'
@@ -80,6 +83,28 @@ export interface SubmitWholeBagHandoverInput {
   occurredAt?: string
 }
 
+export interface RecoverTransferBagInput {
+  bagCode: string
+  physicalBagReceived: boolean
+  physicalBagEmpty: boolean
+  recoveryMode: 'NORMAL' | 'FORCED'
+  recoveryNode: string
+  recoveryLocation: string
+  reason: string
+  operator: TransferBagRuntimeOperator
+  source: CuttingRuntimeEventSource
+  occurredAt?: string
+}
+
+export interface ScrapTransferBagInput {
+  bagCode: string
+  reason: string
+  authorizedBy: string
+  operator: TransferBagRuntimeOperator
+  source: CuttingRuntimeEventSource
+  occurredAt?: string
+}
+
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object'
     ? value as Record<string, unknown>
@@ -100,6 +125,52 @@ function strings(value: unknown): string[] {
 
 function unique(values: string[]): string[] {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)))
+}
+
+const CUTTING_RUNTIME_EVENT_SOURCES: CuttingRuntimeEventSource[] = [
+  'PDA',
+  'WEB',
+  'MOCK',
+  'WMS',
+]
+
+function requiredText(value: unknown, label: string): string {
+  const normalized = text(value)
+  if (!normalized) throw new Error(`${label}必填。`)
+  return normalized
+}
+
+function requiredEventSource(
+  value: unknown,
+  label: string,
+): CuttingRuntimeEventSource {
+  if (!CUTTING_RUNTIME_EVENT_SOURCES.includes(value as CuttingRuntimeEventSource)) {
+    throw new Error(`${label}无效。`)
+  }
+  return value as CuttingRuntimeEventSource
+}
+
+function normalizedOperator(
+  value: unknown,
+  label: string,
+  defaultRole: string,
+): TransferBagRuntimeOperator {
+  const source = record(value)
+  return {
+    operatorId: text(source.operatorId) || undefined,
+    operatorName: requiredText(source.operatorName, label),
+    operatorRole: text(source.operatorRole) || defaultRole,
+  }
+}
+
+function cloneRuntimeEvent<T extends CuttingRuntimeEvent['eventType']>(
+  event: CuttingRuntimeEvent<T>,
+): CuttingRuntimeEvent<T> {
+  return JSON.parse(JSON.stringify(event)) as CuttingRuntimeEvent<T>
+}
+
+function isSuccessfulRuntimeEvent(event: CuttingRuntimeEvent): boolean {
+  return event.eventStatus === '已记录' || event.eventStatus === '已同步'
 }
 
 function sameStrings(left: string[], right: string[]): boolean {
@@ -540,6 +611,225 @@ function compatibilityReasonForTickets(
   return undefined
 }
 
+type NormalizedRecoverTransferBagInput = Omit<
+  RecoverTransferBagInput,
+  'operator' | 'occurredAt'
+> & {
+  operator: TransferBagRuntimeOperator
+  occurredAt: string
+}
+
+type NormalizedScrapTransferBagInput = Omit<
+  ScrapTransferBagInput,
+  'operator' | 'occurredAt'
+> & {
+  operator: TransferBagRuntimeOperator
+  occurredAt: string
+}
+
+function canonicalRecoveryIntent(
+  input: Omit<NormalizedRecoverTransferBagInput, 'occurredAt'>,
+  usageCycleId: string,
+): string {
+  return JSON.stringify({
+    bagCode: input.bagCode,
+    usageCycleId,
+    physicalBagReceived: input.physicalBagReceived,
+    physicalBagEmpty: input.physicalBagEmpty,
+    recoveryMode: input.recoveryMode,
+    recoveryNode: input.recoveryNode,
+    recoveryLocation: input.recoveryLocation,
+    reason: input.reason,
+    source: input.source,
+    operator: input.operator,
+  })
+}
+
+function canonicalScrapIntent(
+  input: Omit<NormalizedScrapTransferBagInput, 'occurredAt'>,
+): string {
+  return JSON.stringify({
+    bagCode: input.bagCode,
+    reason: input.reason,
+    authorizedBy: input.authorizedBy,
+    source: input.source,
+    operator: input.operator,
+  })
+}
+
+function parseCompleteRecoveryEvent(event: CuttingRuntimeEvent): {
+  event: CuttingRuntimeEvent<'中转袋回收'>
+  payload: TransferBagRecoveryPayload
+  canonicalIntent: string
+} | null {
+  if (event.eventType !== '中转袋回收' || !isSuccessfulRuntimeEvent(event)) return null
+  const payload = eventPayload(event)
+  const bagCode = text(payload.bagCode)
+  const usageCycleId = text(payload.usageCycleId)
+  const recoveryMode = payload.recoveryMode
+  const recoveryNode = text(payload.recoveryNode)
+  const recoveryLocation = text(payload.recoveryLocation)
+  const reason = text(payload.reason)
+  const recoveredAt = text(payload.recoveredAt)
+  const recoveredBy = text(payload.recoveredBy)
+  const operatorName = text(event.operatorName)
+  const source = event.eventSource
+  if (
+    !bagCode
+    || !usageCycleId
+    || payload.physicalBagReceived !== true
+    || payload.physicalBagEmpty !== true
+    || (recoveryMode !== 'NORMAL' && recoveryMode !== 'FORCED')
+    || !recoveryNode
+    || !recoveryLocation
+    || (recoveryMode === 'FORCED' && !reason)
+    || !recoveredAt
+    || !recoveredBy
+    || recoveredAt !== event.occurredAt
+    || recoveredBy !== operatorName
+    || event.refs.transferBagCode !== bagCode
+    || event.refs.usageCycleId !== usageCycleId
+    || !CUTTING_RUNTIME_EVENT_SOURCES.includes(source)
+    || !operatorName
+  ) return null
+  const operator: TransferBagRuntimeOperator = {
+    operatorId: text(event.operatorId) || undefined,
+    operatorName,
+    operatorRole: text(event.operatorRole) || '中转袋回收员',
+  }
+  const normalizedPayload: TransferBagRecoveryPayload = {
+    bagCode,
+    usageCycleId,
+    physicalBagReceived: true,
+    physicalBagEmpty: true,
+    recoveryMode,
+    recoveryNode,
+    recoveryLocation,
+    reason,
+    recoveredAt,
+    recoveredBy,
+  }
+  return {
+    event: event as CuttingRuntimeEvent<'中转袋回收'>,
+    payload: normalizedPayload,
+    canonicalIntent: canonicalRecoveryIntent({
+      bagCode,
+      physicalBagReceived: true,
+      physicalBagEmpty: true,
+      recoveryMode,
+      recoveryNode,
+      recoveryLocation,
+      reason,
+      operator,
+      source,
+    }, usageCycleId),
+  }
+}
+
+function parseCompleteScrapEvent(event: CuttingRuntimeEvent): {
+  event: CuttingRuntimeEvent<'中转袋报废'>
+  payload: TransferBagScrapPayload
+  canonicalIntent: string
+} | null {
+  if (event.eventType !== '中转袋报废' || !isSuccessfulRuntimeEvent(event)) return null
+  const payload = eventPayload(event)
+  const bagCode = text(payload.bagCode)
+  const reason = text(payload.reason)
+  const authorizedBy = text(payload.authorizedBy)
+  const scrappedAt = text(payload.scrappedAt)
+  const scrappedBy = text(payload.scrappedBy)
+  const operatorName = text(event.operatorName)
+  const source = event.eventSource
+  if (
+    !bagCode
+    || payload.idleConfirmed !== true
+    || !reason
+    || !authorizedBy
+    || !scrappedAt
+    || !scrappedBy
+    || scrappedAt !== event.occurredAt
+    || scrappedBy !== operatorName
+    || event.refs.transferBagCode !== bagCode
+    || !CUTTING_RUNTIME_EVENT_SOURCES.includes(source)
+    || !operatorName
+  ) return null
+  const operator: TransferBagRuntimeOperator = {
+    operatorId: text(event.operatorId) || undefined,
+    operatorName,
+    operatorRole: text(event.operatorRole) || '中转袋主管',
+  }
+  const normalizedPayload: TransferBagScrapPayload = {
+    bagCode,
+    idleConfirmed: true,
+    reason,
+    authorizedBy,
+    scrappedAt,
+    scrappedBy,
+  }
+  return {
+    event: event as CuttingRuntimeEvent<'中转袋报废'>,
+    payload: normalizedPayload,
+    canonicalIntent: canonicalScrapIntent({
+      bagCode,
+      reason,
+      authorizedBy,
+      operator,
+      source,
+    }),
+  }
+}
+
+function isCompleteLegacyRecoveryEvent(
+  event: CuttingRuntimeEvent,
+  bagCode: string,
+  usageCycleId: string | null,
+): boolean {
+  if (
+    event.eventType !== '中转袋回收'
+    || !isSuccessfulRuntimeEvent(event)
+    || !usageCycleId
+  ) return false
+  const payload = eventPayload(event)
+  return text(payload.bagCode) === bagCode
+    && text(payload.usageCycleId) === usageCycleId
+    && event.refs.transferBagCode === bagCode
+    && event.refs.usageCycleId === usageCycleId
+    && Boolean(text(payload.returnWarehouseName))
+    && Boolean(text(payload.returnedAt))
+    && Boolean(text(payload.returnedBy))
+}
+
+function isCompleteLegacyScrapEvent(
+  event: CuttingRuntimeEvent,
+  bagCode: string,
+): boolean {
+  if (event.eventType !== '中转袋报废' || !isSuccessfulRuntimeEvent(event)) return false
+  const payload = eventPayload(event)
+  return text(payload.bagCode) === bagCode
+    && event.refs.transferBagCode === bagCode
+    && Boolean(text(payload.reason))
+    && Boolean(text(payload.scrappedAt))
+    && Boolean(text(payload.scrappedBy))
+}
+
+export function isCompleteSuccessfulTransferBagRecoveryEvent(
+  event: CuttingRuntimeEvent,
+): boolean {
+  if (parseCompleteRecoveryEvent(event)) return true
+  const payload = eventPayload(event)
+  const bagCode = text(payload.bagCode)
+  const usageCycleId = text(payload.usageCycleId)
+  return isCompleteLegacyRecoveryEvent(event, bagCode, usageCycleId || null)
+}
+
+export function isCompleteSuccessfulTransferBagScrapEvent(
+  event: CuttingRuntimeEvent,
+): boolean {
+  const bagCode = text(eventPayload(event).bagCode)
+  return Boolean(parseCompleteScrapEvent(event))
+    || isCompleteLegacyScrapEvent(event, bagCode)
+}
+
 function emptyCurrentUse(bagCode: string): TransferBagCurrentUse {
   return {
     bagCode,
@@ -771,16 +1061,29 @@ function resolveTransferBagCurrentUseFromEvents(
     }
 
     if (event.eventType === '中转袋回收') {
-      const validRecovery = (
-        payload.physicalBagReceived === true
-        && payload.physicalBagEmpty === true
-      ) || Boolean(text(payload.returnWarehouseName))
-      if (validRecovery) state = emptyCurrentUse(bagCode)
+      const recovery = parseCompleteRecoveryEvent(event)
+      const matchesCurrentCycle = Boolean(
+        state.usageCycleId
+        && (
+          recovery?.payload.usageCycleId === state.usageCycleId
+          || isCompleteLegacyRecoveryEvent(event, bagCode, state.usageCycleId)
+        ),
+      )
+      if (
+        state.flowStage === 'HANDED_OVER_WAITING_RETURN'
+        && matchesCurrentCycle
+      ) state = emptyCurrentUse(bagCode)
       continue
     }
 
     if (event.eventType === '中转袋报废') {
-      if (state.mainStatus === 'IDLE' && state.tickets.length === 0) {
+      const validScrap = Boolean(parseCompleteScrapEvent(event))
+        || isCompleteLegacyScrapEvent(event, bagCode)
+      if (
+        validScrap
+        && state.mainStatus === 'IDLE'
+        && state.tickets.length === 0
+      ) {
         state = {
           ...emptyCurrentUse(bagCode),
           mainStatus: 'DISABLED',
@@ -802,6 +1105,302 @@ export function resolveTransferBagCurrentUse(
     sortedRuntimeEvents(storage),
     true,
   )
+}
+
+function normalizeRecoverTransferBagInput(
+  input: RecoverTransferBagInput,
+): NormalizedRecoverTransferBagInput {
+  const source = record(input)
+  const bagCode = requiredText(source.bagCode, '中转袋编号')
+  if (source.physicalBagReceived !== true) {
+    throw new Error('请确认实物袋已经收到。')
+  }
+  if (source.physicalBagEmpty !== true) {
+    throw new Error('请确认实物袋为空。')
+  }
+  const recoveryMode = source.recoveryMode
+  if (recoveryMode !== 'NORMAL' && recoveryMode !== 'FORCED') {
+    throw new Error('回收方式无效。')
+  }
+  const reason = text(source.reason)
+  if (recoveryMode === 'FORCED' && !reason) {
+    throw new Error('强制回收必须填写原因。')
+  }
+  return {
+    bagCode,
+    physicalBagReceived: true,
+    physicalBagEmpty: true,
+    recoveryMode,
+    recoveryNode: requiredText(source.recoveryNode, '回收节点'),
+    recoveryLocation: requiredText(source.recoveryLocation, '回收位置'),
+    reason,
+    operator: normalizedOperator(source.operator, '回收操作人', '中转袋回收员'),
+    source: requiredEventSource(source.source, '回收来源'),
+    occurredAt: text(source.occurredAt)
+      || new Date().toISOString().slice(0, 16).replace('T', ' '),
+  }
+}
+
+function normalizeScrapTransferBagInput(
+  input: ScrapTransferBagInput,
+): NormalizedScrapTransferBagInput {
+  const source = record(input)
+  return {
+    bagCode: requiredText(source.bagCode, '中转袋编号'),
+    reason: requiredText(source.reason, '报废原因'),
+    authorizedBy: requiredText(source.authorizedBy, '报废授权人'),
+    operator: normalizedOperator(source.operator, '报废操作人', '中转袋主管'),
+    source: requiredEventSource(source.source, '报废来源'),
+    occurredAt: text(source.occurredAt)
+      || new Date().toISOString().slice(0, 16).replace('T', ' '),
+  }
+}
+
+function assertRuntimeEventIdAvailable(input: {
+  eventType: '中转袋回收' | '中转袋报废'
+  refs: { transferBagCode: string; usageCycleId?: string }
+  occurredAt: string
+  idempotencyKey: string
+  events: CuttingRuntimeEvent[]
+}): void {
+  const eventId = buildCuttingRuntimeEventId(
+    input.eventType,
+    input.refs,
+    input.occurredAt,
+  )
+  const collision = input.events.find((event) =>
+    event.eventId === eventId
+    && event.idempotencyKey !== input.idempotencyKey)
+  if (collision) {
+    throw new Error(`${input.eventType}事件编号 ${eventId} 已被其他事实占用。`)
+  }
+}
+
+function recoveryStateError(current: TransferBagCurrentUse): string {
+  if (current.mainStatus === 'DISABLED') return '这个袋子已经报废，不能回收。'
+  if (current.mainStatus === 'IDLE') return '这个袋子当前空闲，无需回收。'
+  if (
+    current.flowStage === 'PACKED'
+    || current.flowStage === 'INBOUND_STORED'
+    || current.flowStage === 'READY_HANDOVER'
+    || current.tickets.length > 0
+  ) return '这个袋子还有有效菲票，请先拆袋重装。'
+  return '这个袋子当前不是已交出待回收，不能回收。'
+}
+
+function scrapStateError(current: TransferBagCurrentUse): string {
+  if (current.mainStatus === 'DISABLED') return '这个袋子已经报废，不能重复报废。'
+  if (current.flowStage === 'HANDED_OVER_WAITING_RETURN') {
+    return '请先确认实物空袋回收，再报废。'
+  }
+  if (
+    current.flowStage === 'PACKED'
+    || current.flowStage === 'INBOUND_STORED'
+    || current.flowStage === 'READY_HANDOVER'
+    || current.tickets.length > 0
+  ) return '这个袋子还有有效菲票，请先拆袋重装。'
+  return '这个袋子当前不是空闲状态，不能报废。'
+}
+
+export function recoverTransferBag(
+  input: RecoverTransferBagInput,
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): CuttingRuntimeEvent<'中转袋回收'> {
+  const normalized = normalizeRecoverTransferBagInput(input)
+  const events = listCuttingRuntimeEvents(storage)
+  const completeRecoveryFacts = events
+    .map(parseCompleteRecoveryEvent)
+    .filter((fact): fact is NonNullable<ReturnType<typeof parseCompleteRecoveryEvent>> =>
+      Boolean(fact && fact.payload.bagCode === normalized.bagCode))
+  const current = resolveTransferBagCurrentUse(normalized.bagCode, storage)
+  const retryCandidates = current.flowStage === 'HANDED_OVER_WAITING_RETURN'
+    && current.usageCycleId
+    ? completeRecoveryFacts.filter((fact) =>
+        fact.payload.usageCycleId === current.usageCycleId)
+    : completeRecoveryFacts
+  const equivalent = retryCandidates.find((fact) =>
+    fact.canonicalIntent === canonicalRecoveryIntent(
+      normalized,
+      fact.payload.usageCycleId,
+    ))
+  if (equivalent) return cloneRuntimeEvent(equivalent.event)
+
+  if (
+    (current.mainStatus === 'IDLE' || current.mainStatus === 'DISABLED')
+    && completeRecoveryFacts.length
+  ) {
+    throw new Error('中转袋回收的业务意图冲突。')
+  }
+  if (
+    current.flowStage !== 'HANDED_OVER_WAITING_RETURN'
+    || !current.usageCycleId
+  ) {
+    throw new Error(recoveryStateError(current))
+  }
+
+  const usageCycleId = current.usageCycleId
+  const idempotencyKey = `${usageCycleId}:PHYSICAL_BAG_RETURNED`
+  const collisions = events.filter((event) => event.idempotencyKey === idempotencyKey)
+  if (collisions.length) {
+    const fact = collisions.length === 1 ? parseCompleteRecoveryEvent(collisions[0]) : null
+    if (
+      fact
+      && fact.canonicalIntent === canonicalRecoveryIntent(normalized, usageCycleId)
+    ) return cloneRuntimeEvent(fact.event)
+    throw new Error('中转袋回收的业务意图冲突。')
+  }
+  assertRuntimeEventIdAvailable({
+    eventType: '中转袋回收',
+    refs: { transferBagCode: normalized.bagCode, usageCycleId },
+    occurredAt: normalized.occurredAt,
+    idempotencyKey,
+    events,
+  })
+
+  const appendResult = appendCuttingRuntimeEventIdempotent({
+    idempotencyKey,
+    eventType: '中转袋回收',
+    eventSource: normalized.source,
+    eventStatus: '已同步',
+    occurredAt: normalized.occurredAt,
+    operatorId: normalized.operator.operatorId,
+    operatorName: normalized.operator.operatorName,
+    operatorRole: normalized.operator.operatorRole,
+    refs: {
+      transferBagCode: normalized.bagCode,
+      usageCycleId,
+    },
+    payload: {
+      bagCode: normalized.bagCode,
+      usageCycleId,
+      physicalBagReceived: true,
+      physicalBagEmpty: true,
+      recoveryMode: normalized.recoveryMode,
+      recoveryNode: normalized.recoveryNode,
+      recoveryLocation: normalized.recoveryLocation,
+      reason: normalized.reason,
+      recoveredAt: normalized.occurredAt,
+      recoveredBy: normalized.operator.operatorName,
+    },
+  }, storage)
+  const persisted = parseCompleteRecoveryEvent(appendResult.event)
+  if (
+    !persisted
+    || persisted.canonicalIntent !== canonicalRecoveryIntent(normalized, usageCycleId)
+  ) throw new Error('中转袋回收事实写入后校验失败。')
+  return cloneRuntimeEvent(persisted.event)
+}
+
+export function submitTransferBagScrap(
+  input: ScrapTransferBagInput,
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): CuttingRuntimeEvent<'中转袋报废'> {
+  const normalized = normalizeScrapTransferBagInput(input)
+  const events = listCuttingRuntimeEvents(storage)
+  const idempotencyKey = `${normalized.bagCode}:BAG_SCRAPPED`
+  const collisions = events.filter((event) => event.idempotencyKey === idempotencyKey)
+  if (collisions.length) {
+    const fact = collisions.length === 1 ? parseCompleteScrapEvent(collisions[0]) : null
+    if (fact && fact.canonicalIntent === canonicalScrapIntent(normalized)) {
+      return cloneRuntimeEvent(fact.event)
+    }
+    throw new Error('中转袋报废的业务意图冲突。')
+  }
+
+  const current = resolveTransferBagCurrentUse(normalized.bagCode, storage)
+  if (current.mainStatus !== 'IDLE' || current.tickets.length > 0) {
+    throw new Error(scrapStateError(current))
+  }
+  assertRuntimeEventIdAvailable({
+    eventType: '中转袋报废',
+    refs: { transferBagCode: normalized.bagCode },
+    occurredAt: normalized.occurredAt,
+    idempotencyKey,
+    events,
+  })
+  const appendResult = appendCuttingRuntimeEventIdempotent({
+    idempotencyKey,
+    eventType: '中转袋报废',
+    eventSource: normalized.source,
+    eventStatus: '已同步',
+    occurredAt: normalized.occurredAt,
+    operatorId: normalized.operator.operatorId,
+    operatorName: normalized.operator.operatorName,
+    operatorRole: normalized.operator.operatorRole,
+    refs: { transferBagCode: normalized.bagCode },
+    payload: {
+      bagCode: normalized.bagCode,
+      idleConfirmed: true,
+      reason: normalized.reason,
+      authorizedBy: normalized.authorizedBy,
+      scrappedAt: normalized.occurredAt,
+      scrappedBy: normalized.operator.operatorName,
+    },
+  }, storage)
+  const persisted = parseCompleteScrapEvent(appendResult.event)
+  if (!persisted || persisted.canonicalIntent !== canonicalScrapIntent(normalized)) {
+    throw new Error('中转袋报废事实写入后校验失败。')
+  }
+  return cloneRuntimeEvent(persisted.event)
+}
+
+export function recoverThenScrapTransferBag(input: {
+  recovery: RecoverTransferBagInput
+  scrap: Omit<ScrapTransferBagInput, 'bagCode' | 'source' | 'operator'>
+}, storage: BrowserStorageLike | null = getBrowserLocalStorage()): {
+  recoveryEvent: CuttingRuntimeEvent<'中转袋回收'>
+  scrapEvent: CuttingRuntimeEvent<'中转袋报废'>
+} {
+  const recoveryEvent = recoverTransferBag(input.recovery, storage)
+  const bagCode = requiredText(input.recovery.bagCode, '中转袋编号')
+  const current = resolveTransferBagCurrentUse(bagCode, storage)
+  if (current.mainStatus !== 'IDLE' || current.tickets.length > 0) {
+    throw new Error('中转袋回收后未进入空闲状态，不能继续报废。')
+  }
+  const scrapEvent = submitTransferBagScrap({
+    ...input.scrap,
+    bagCode,
+    source: input.recovery.source,
+    operator: input.recovery.operator,
+  }, storage)
+  return { recoveryEvent, scrapEvent }
+}
+
+export function ensureTransferBagAvailableForUse(input: {
+  bagCode: string
+  forceRecovery?: Omit<RecoverTransferBagInput, 'bagCode' | 'recoveryMode'>
+}, storage: BrowserStorageLike | null = getBrowserLocalStorage()): {
+  recovered: boolean
+  current: TransferBagCurrentUse
+} {
+  const bagCode = requiredText(input.bagCode, '中转袋编号')
+  const current = resolveTransferBagCurrentUse(bagCode, storage)
+  if (current.mainStatus === 'IDLE') return { recovered: false, current }
+  if (current.mainStatus === 'DISABLED') {
+    throw new Error('这个袋子已经报废，不能继续使用。')
+  }
+  if (
+    current.flowStage === 'PACKED'
+    || current.flowStage === 'INBOUND_STORED'
+    || current.flowStage === 'READY_HANDOVER'
+    || current.tickets.length > 0
+  ) throw new Error('这个袋子还有有效菲票，请先拆袋重装。')
+  if (current.flowStage !== 'HANDED_OVER_WAITING_RETURN') {
+    throw new Error('这个袋子当前不能继续使用。')
+  }
+  if (!input.forceRecovery) {
+    throw new Error('这个袋子尚未确认实物空袋回收，不能继续使用。')
+  }
+  recoverTransferBag({
+    ...input.forceRecovery,
+    bagCode,
+    recoveryMode: 'FORCED',
+  }, storage)
+  const recoveredCurrent = resolveTransferBagCurrentUse(bagCode, storage)
+  if (recoveredCurrent.mainStatus !== 'IDLE') {
+    throw new Error('强制回收后中转袋未进入空闲状态，不能继续使用。')
+  }
+  return { recovered: true, current: recoveredCurrent }
 }
 
 function assertUniqueNonEmpty(values: string[], label: string): string[] {

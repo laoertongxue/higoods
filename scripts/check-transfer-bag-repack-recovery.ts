@@ -14,8 +14,12 @@ import {
   eventTouchesTransferBag,
   isCompleteSuccessfulSpecialCraftHandoverEvent,
   isCompleteSuccessfulWholeBagHandoverEvent,
+  ensureTransferBagAvailableForUse,
+  recoverThenScrapTransferBag,
+  recoverTransferBag,
   resolveWholeBagHandoverEligibility,
   resolveTransferBagCurrentUse,
+  submitTransferBagScrap,
   submitWholeBagHandover,
   submitTransferBagRepack,
 } from '../src/data/fcs/cutting/transfer-bag-operations.ts'
@@ -414,7 +418,12 @@ function appendLegacyBaggingConfirm(input: {
     occurredAt: '2026-08-01 08:00',
     operatorName: '资产管理员',
     refs: { transferBagCode: 'BAG-DISABLED-TERMINAL' },
-    payload: { bagCode: 'BAG-DISABLED-TERMINAL' },
+    payload: {
+      bagCode: 'BAG-DISABLED-TERMINAL',
+      reason: '历史完整报废事实',
+      scrappedAt: '2026-08-01 08:00',
+      scrappedBy: '资产管理员',
+    },
   }, storage)
   assert.equal(resolveTransferBagCurrentUse('BAG-DISABLED-TERMINAL', storage).mainStatus, 'DISABLED')
 
@@ -554,7 +563,13 @@ function appendLegacyBaggingConfirm(input: {
     occurredAt,
     operatorName: '资产管理员',
     refs: { transferBagCode: bagCode, usageCycleId: `usage:${bagCode}:scrap` },
-    payload: { bagCode, usageCycleId: `usage:${bagCode}:scrap`, reason: '空闲袋合法报废' },
+    payload: {
+      bagCode,
+      usageCycleId: `usage:${bagCode}:scrap`,
+      reason: '空闲袋合法报废',
+      scrappedAt: occurredAt,
+      scrappedBy: '资产管理员',
+    },
   }, storage)
   const assertTerminalLifecycle = (message: string) => {
     const lifecycle = buildWaitHandoverLifecycleByBagCode(bagCode, storage)
@@ -743,7 +758,12 @@ function appendLegacyBaggingConfirm(input: {
     occurredAt: '2026-08-01 08:40',
     operatorName: '资产管理员',
     refs: { transferBagCode: 'BAG-DISABLED' },
-    payload: { bagCode: 'BAG-DISABLED' },
+    payload: {
+      bagCode: 'BAG-DISABLED',
+      reason: '历史完整报废事实',
+      scrappedAt: '2026-08-01 08:40',
+      scrappedBy: '资产管理员',
+    },
   }, storage)
   assertRejectedWithoutWriting(storage,
     () => submitTransferBagRepack(repackInput({
@@ -1156,20 +1176,19 @@ function appendLegacyBaggingConfirm(input: {
   const recovered = ticket('RECOVERED-OLD', 'PO-OLD', 'F-OLD')
   appendBagging({ storage, bagCode: 'BAG-FORCE-SOURCE', usageCycleId: 'usage:BAG-FORCE-SOURCE:old', tickets: [source] })
   appendBagging({ storage, bagCode: 'BAG-FORCE-RESULT', usageCycleId: 'usage:BAG-FORCE-RESULT:old', tickets: [recovered] })
-  appendCuttingRuntimeEvent({
-    eventType: '新增交出记录',
-    eventSource: 'WEB',
-    eventStatus: '已同步',
-    occurredAt: '2026-08-01 08:20',
-    operatorName: '交出员',
-    refs: {
-      transferBagCode: 'BAG-FORCE-RESULT',
-      usageCycleId: 'usage:BAG-FORCE-RESULT:old',
+  appendInbound({ storage, bagCode: 'BAG-FORCE-RESULT', usageCycleId: 'usage:BAG-FORCE-RESULT:old', tickets: [recovered] })
+  const recoveredAssignments = [assignment(recovered, 'SEW-FORCE-RESULT')]
+  submitWholeBagHandover(handoverInput(
+    'BAG-FORCE-RESULT',
+    'usage:BAG-FORCE-RESULT:old',
+    [recovered],
+    recoveredAssignments,
+    {
       handoverRecordId: 'HANDOVER-FORCE-OLD',
-      handoverLegId: 'usage:BAG-FORCE-RESULT:old:handover:1',
+      handoverRecordNo: 'HANDOVER-FORCE-OLD',
+      occurredAt: '2026-08-01 08:20',
     },
-    payload: { handoverRecordId: 'HANDOVER-FORCE-OLD' },
-  }, storage)
+  ), storage)
   appendCuttingRuntimeEvent({
     eventType: '中转袋回收',
     eventSource: 'WEB',
@@ -3188,6 +3207,636 @@ for (const withLocationRef of [false, true]) {
   const legacyPageRoundTrip = deserializeTransferBagStorage(serializeTransferBagStorage(legacyPageStore)).usages[0]
   assert.deepEqual(legacyPageRoundTrip.sewingTaskIds, ['SEW-PAGE-LEGACY-ID'], '页面数组空值时必须回退旧任务单值')
   assert.deepEqual(legacyPageRoundTrip.sewingTaskNos, ['SEW-PAGE-LEGACY'])
+}
+
+function seedHandedOverBag(
+  storage: BrowserStorageLike,
+  bagCode: string,
+  usageCycleId = `usage:${bagCode}:1`,
+) {
+  const tickets = [ticket(`${bagCode}-TICKET`, `PO-${bagCode}`, 'FACTORY-HANDOVER', 12)]
+  const assignments = [assignment(tickets[0], `SEW-${bagCode}`)]
+  appendBagging({
+    storage,
+    bagCode,
+    usageCycleId,
+    tickets,
+    occurredAt: '2026-08-01 08:00',
+  })
+  appendInbound({
+    storage,
+    bagCode,
+    usageCycleId,
+    tickets,
+    occurredAt: '2026-08-01 08:10',
+  })
+  submitWholeBagHandover(handoverInput(
+    bagCode,
+    usageCycleId,
+    tickets,
+    assignments,
+    { occurredAt: '2026-08-01 08:20' },
+  ), storage)
+  assert.equal(
+    resolveTransferBagCurrentUse(bagCode, storage).flowStage,
+    'HANDED_OVER_WAITING_RETURN',
+    '回收测试前置必须形成已交出待回收事实',
+  )
+  return { usageCycleId, tickets }
+}
+
+function recoveryInput(
+  bagCode: string,
+  overrides: Record<string, unknown> = {},
+) {
+  return {
+    bagCode,
+    physicalBagReceived: true,
+    physicalBagEmpty: true,
+    recoveryMode: 'NORMAL' as const,
+    recoveryNode: '裁床一厂',
+    recoveryLocation: '空袋回收位 A-01',
+    reason: '',
+    operator: {
+      operatorId: 'OP-RECOVERY',
+      operatorName: '回收员',
+      operatorRole: '中转袋回收员',
+    },
+    source: 'WEB' as const,
+    occurredAt: '2026-08-01 09:00',
+    ...overrides,
+  }
+}
+
+function scrapInput(
+  bagCode: string,
+  overrides: Record<string, unknown> = {},
+) {
+  return {
+    bagCode,
+    reason: '袋体破裂，无法继续使用',
+    authorizedBy: '裁片仓主管',
+    operator: {
+      operatorId: 'OP-SCRAP',
+      operatorName: '报废员',
+      operatorRole: '中转袋主管',
+    },
+    source: 'WEB' as const,
+    occurredAt: '2026-08-01 09:10',
+    ...overrides,
+  }
+}
+
+{
+  const activeBagError = '这个袋子还有有效菲票，请先拆袋重装。'
+  const cases = [
+    { bagCode: 'BAG-RECOVERY-PACKED', stage: 'PACKED' },
+    { bagCode: 'BAG-RECOVERY-INBOUND', stage: 'INBOUND_STORED' },
+    { bagCode: 'BAG-RECOVERY-READY', stage: 'READY_HANDOVER' },
+  ] as const
+  for (const item of cases) {
+    const storage = createMemoryStorage()
+    const usageCycleId = `usage:${item.bagCode}:1`
+    const tickets = [ticket(`${item.bagCode}-TICKET`, `PO-${item.bagCode}`, 'FACTORY-HANDOVER')]
+    appendBagging({ storage, bagCode: item.bagCode, usageCycleId, tickets })
+    if (item.stage === 'INBOUND_STORED') {
+      appendInbound({ storage, bagCode: item.bagCode, usageCycleId, tickets })
+    }
+    if (item.stage === 'READY_HANDOVER') {
+      appendReadyForHandover({ storage, bagCode: item.bagCode, usageCycleId, tickets })
+    }
+    assertRejectedWithoutWritingExact(
+      storage,
+      () => recoverTransferBag(recoveryInput(item.bagCode), storage),
+      activeBagError,
+      `${item.stage} 且仍有有效菲票时不得回收`,
+    )
+    assertRejectedWithoutWritingExact(
+      storage,
+      () => submitTransferBagScrap(scrapInput(item.bagCode), storage),
+      activeBagError,
+      `${item.stage} 且仍有有效菲票时不得报废`,
+    )
+  }
+
+  const idleStorage = createMemoryStorage()
+  assertRejectedWithoutWritingExact(
+    idleStorage,
+    () => recoverTransferBag(recoveryInput('BAG-RECOVERY-IDLE'), idleStorage),
+    '这个袋子当前空闲，无需回收。',
+    '空闲袋不得写入无意义回收事实',
+  )
+
+  const disabledStorage = createMemoryStorage()
+  submitTransferBagScrap(scrapInput('BAG-RECOVERY-DISABLED'), disabledStorage)
+  assertRejectedWithoutWritingExact(
+    disabledStorage,
+    () => recoverTransferBag(recoveryInput('BAG-RECOVERY-DISABLED'), disabledStorage),
+    '这个袋子已经报废，不能回收。',
+    '已报废袋必须永久阻断回收',
+  )
+
+  const handedStorage = createMemoryStorage()
+  seedHandedOverBag(handedStorage, 'BAG-SCRAP-HANDED')
+  assertRejectedWithoutWritingExact(
+    handedStorage,
+    () => submitTransferBagScrap(scrapInput('BAG-SCRAP-HANDED'), handedStorage),
+    '请先确认实物空袋回收，再报废。',
+    '已交出待回收袋不得跳过回收直接报废',
+  )
+}
+
+{
+  const requiredCases: Array<[string, Record<string, unknown>, RegExp]> = [
+    ['袋码', { bagCode: '   ' }, /中转袋编号.*必填/],
+    ['收到实物袋确认', { physicalBagReceived: false }, /确认实物袋已经收到/],
+    ['空袋确认', { physicalBagEmpty: false }, /确认实物袋为空/],
+    ['回收节点', { recoveryNode: '   ' }, /回收节点.*必填/],
+    ['回收位置', { recoveryLocation: '   ' }, /回收位置.*必填/],
+    ['操作人', { operator: { operatorName: '   ' } }, /回收操作人.*必填/],
+    ['来源', { source: 'INVALID' }, /回收来源.*无效/],
+    ['强制回收原因', { recoveryMode: 'FORCED', reason: '   ' }, /强制回收.*原因/],
+  ]
+  for (const [label, overrides, expected] of requiredCases) {
+    const storage = createMemoryStorage()
+    const bagCode = label === '袋码' ? 'BAG-RECOVERY-REQUIRED' : `BAG-RECOVERY-REQUIRED-${label}`
+    seedHandedOverBag(storage, bagCode)
+    assertRejectedWithoutWriting(
+      storage,
+      () => recoverTransferBag(recoveryInput(bagCode, overrides) as never, storage),
+      expected,
+      `回收${label}必须运行时校验`,
+    )
+  }
+}
+
+{
+  const storage = createMemoryStorage()
+  const bagCode = 'BAG-RECOVERY-SUCCESS'
+  const { usageCycleId } = seedHandedOverBag(storage, bagCode)
+  const request = recoveryInput(bagCode, {
+    recoveryMode: 'FORCED',
+    reason: '下游未回写，但裁床已收到实物空袋',
+  })
+  const event = recoverTransferBag(request, storage)
+  assert.equal(event.eventType, '中转袋回收')
+  assert.equal(event.idempotencyKey, `${usageCycleId}:PHYSICAL_BAG_RETURNED`)
+  assert.equal(event.refs.transferBagCode, bagCode)
+  assert.equal(event.refs.usageCycleId, usageCycleId)
+  assert.deepEqual(event.payload, {
+    bagCode,
+    usageCycleId,
+    physicalBagReceived: true,
+    physicalBagEmpty: true,
+    recoveryMode: 'FORCED',
+    recoveryNode: '裁床一厂',
+    recoveryLocation: '空袋回收位 A-01',
+    reason: '下游未回写，但裁床已收到实物空袋',
+    recoveredAt: '2026-08-01 09:00',
+    recoveredBy: '回收员',
+  })
+  assert.deepEqual(
+    [resolveTransferBagCurrentUse(bagCode, storage).mainStatus, resolveTransferBagCurrentUse(bagCode, storage).tickets],
+    ['IDLE', []],
+    '完整回收事实必须关闭当前周期并清空当前袋票关系',
+  )
+  const lifecycle = buildWaitHandoverLifecycleByBagCode(bagCode, storage)
+  assert.equal(lifecycle.mainStatus, 'IDLE')
+  assert.equal(
+    listWaitHandoverLifecycleFacts(bagCode, storage).some((fact) =>
+      fact.usageCycleId === usageCycleId
+      && fact.factType === 'PHYSICAL_BAG_RETURNED'),
+    true,
+    '完整回收事实必须关闭当前使用周期',
+  )
+  const retry = recoverTransferBag(structuredClone(request), storage)
+  assert.equal(retry.eventId, event.eventId, '等价回收重试必须返回原事件')
+  assert.equal(listCuttingRuntimeEvents(storage).filter((item) => item.eventType === '中转袋回收').length, 1)
+  for (const conflict of [
+    { recoveryMode: 'NORMAL' },
+    { reason: '不同原因' },
+    { recoveryNode: '后道仓' },
+    { recoveryLocation: '另一位置' },
+    { operator: { operatorName: '另一回收员' } },
+    { source: 'PDA' },
+  ]) {
+    assertRejectedWithoutWriting(
+      storage,
+      () => recoverTransferBag(recoveryInput(bagCode, {
+        recoveryMode: 'FORCED',
+        reason: '下游未回写，但裁床已收到实物空袋',
+        ...conflict,
+      }) as never, storage),
+      /回收.*业务意图冲突/,
+      '同一回收幂等键的不同事实意图必须冲突',
+    )
+  }
+  request.operator.operatorName = '调用方篡改'
+  ;(event.payload as Record<string, unknown>).reason = '返回对象篡改'
+  const persisted = listCuttingRuntimeEvents(storage).find((item) => item.eventId === event.eventId)
+  assert.equal(persisted?.operatorName, '回收员', '调用方后续修改不得污染账本操作人')
+  assert.equal((persisted?.payload as Record<string, unknown>).reason, '下游未回写，但裁床已收到实物空袋', '返回 payload 后续修改不得污染账本')
+}
+
+{
+  ;(['同步失败', '已取消'] as const).forEach((eventStatus, index) => {
+    const storage = createMemoryStorage()
+    const bagCode = `BAG-RECOVERY-NON-SUCCESS-${index}`
+    const { usageCycleId } = seedHandedOverBag(storage, bagCode)
+    appendCuttingRuntimeEvent({
+      eventType: '中转袋回收',
+      eventSource: 'WEB',
+      eventStatus,
+      occurredAt: '2026-08-01 09:00',
+      operatorName: '异常回收员',
+      refs: { transferBagCode: bagCode, usageCycleId },
+      payload: {
+        bagCode,
+        usageCycleId,
+        physicalBagReceived: true,
+        physicalBagEmpty: true,
+        recoveryMode: 'NORMAL',
+        recoveryNode: '裁床一厂',
+        recoveryLocation: '空袋回收位',
+        reason: '',
+        recoveredAt: '2026-08-01 09:00',
+        recoveredBy: '异常回收员',
+      },
+    }, storage)
+    assert.equal(resolveTransferBagCurrentUse(bagCode, storage).flowStage, 'HANDED_OVER_WAITING_RETURN', `${eventStatus}回收不得关闭周期`)
+  })
+
+  const storage = createMemoryStorage()
+  const bagCode = 'BAG-RECOVERY-INCOMPLETE'
+  const { usageCycleId } = seedHandedOverBag(storage, bagCode)
+  appendCuttingRuntimeEvent({
+    eventType: '中转袋回收',
+    eventSource: 'WEB',
+    eventStatus: '已同步',
+    occurredAt: '2026-08-01 09:00',
+    operatorName: '残缺回收员',
+    refs: { transferBagCode: bagCode, usageCycleId },
+    payload: { bagCode, usageCycleId, physicalBagReceived: true },
+  } as Parameters<typeof appendCuttingRuntimeEvent>[0], storage)
+  assert.equal(resolveTransferBagCurrentUse(bagCode, storage).flowStage, 'HANDED_OVER_WAITING_RETURN', '残缺回收不得关闭周期')
+}
+
+{
+  const storage = createMemoryStorage()
+  const bagCode = 'BAG-RECOVERY-OLD-CYCLE'
+  const oldCycleId = `usage:${bagCode}:old`
+  seedHandedOverBag(storage, bagCode, oldCycleId)
+  recoverTransferBag(recoveryInput(bagCode, { occurredAt: '2026-08-01 09:00' }), storage)
+  const newTickets = [ticket('NEW-CYCLE-TICKET', 'PO-NEW-CYCLE', 'FACTORY-HANDOVER')]
+  const newCycleId = `usage:${bagCode}:new`
+  appendBagging({ storage, bagCode, usageCycleId: newCycleId, tickets: newTickets, occurredAt: '2026-08-01 09:10' })
+  appendCuttingRuntimeEvent({
+    eventType: '中转袋回收',
+    eventSource: 'WEB',
+    eventStatus: '已同步',
+    occurredAt: '2026-08-01 09:20',
+    operatorName: '旧周期回收导入员',
+    refs: { transferBagCode: bagCode, usageCycleId: oldCycleId },
+    payload: {
+      bagCode,
+      usageCycleId: oldCycleId,
+      physicalBagReceived: true,
+      physicalBagEmpty: true,
+      recoveryMode: 'NORMAL',
+      recoveryNode: '裁床一厂',
+      recoveryLocation: '旧周期回收位',
+      reason: '',
+      recoveredAt: '2026-08-01 09:20',
+      recoveredBy: '旧周期回收导入员',
+    },
+  }, storage)
+  assert.deepEqual(
+    [resolveTransferBagCurrentUse(bagCode, storage).usageCycleId, resolveTransferBagCurrentUse(bagCode, storage).tickets],
+    [newCycleId, newTickets],
+    '旧周期回收事实不得清空当前新周期',
+  )
+}
+
+{
+  const storage = createMemoryStorage()
+  const bagCode = 'BAG-RECOVERY-TWO-CYCLES-SAME-INTENT'
+  const oldCycleId = `usage:${bagCode}:old`
+  seedHandedOverBag(storage, bagCode, oldCycleId)
+  const firstRecovery = recoverTransferBag(recoveryInput(bagCode, {
+    occurredAt: '2026-08-01 09:00',
+  }), storage)
+  const newCycleId = `usage:${bagCode}:new`
+  const newTickets = [ticket('TWO-CYCLES-NEW', 'PO-TWO-CYCLES-NEW', 'FACTORY-HANDOVER')]
+  const newAssignments = [assignment(newTickets[0], 'SEW-TWO-CYCLES-NEW')]
+  appendBagging({ storage, bagCode, usageCycleId: newCycleId, tickets: newTickets, occurredAt: '2026-08-01 09:10' })
+  appendInbound({ storage, bagCode, usageCycleId: newCycleId, tickets: newTickets, occurredAt: '2026-08-01 09:20' })
+  submitWholeBagHandover(handoverInput(
+    bagCode,
+    newCycleId,
+    newTickets,
+    newAssignments,
+    {
+      handoverRecordId: `HR-${bagCode}-NEW`,
+      handoverRecordNo: `HR-${bagCode}-NEW`,
+      occurredAt: '2026-08-01 09:30',
+    },
+  ), storage)
+  const secondRecovery = recoverTransferBag(recoveryInput(bagCode, {
+    occurredAt: '2026-08-01 09:40',
+  }), storage)
+  assert.notEqual(secondRecovery.eventId, firstRecovery.eventId, '新周期相同回收意图不得误命中旧周期回收事实')
+  assert.equal(secondRecovery.refs.usageCycleId, newCycleId)
+  assert.equal(resolveTransferBagCurrentUse(bagCode, storage).mainStatus, 'IDLE')
+  assert.equal(listCuttingRuntimeEvents(storage).filter((event) => event.eventType === '中转袋回收').length, 2)
+}
+
+{
+  const requiredCases: Array<[string, Record<string, unknown>, RegExp]> = [
+    ['袋码', { bagCode: '  ' }, /中转袋编号.*必填/],
+    ['原因', { reason: '  ' }, /报废原因.*必填/],
+    ['授权人', { authorizedBy: '  ' }, /报废授权人.*必填/],
+    ['操作人', { operator: { operatorName: '  ' } }, /报废操作人.*必填/],
+    ['来源', { source: 'INVALID' }, /报废来源.*无效/],
+  ]
+  for (const [label, overrides, expected] of requiredCases) {
+    const storage = createMemoryStorage()
+    assertRejectedWithoutWriting(
+      storage,
+      () => submitTransferBagScrap(scrapInput(`BAG-SCRAP-REQUIRED-${label}`, overrides) as never, storage),
+      expected,
+      `报废${label}必须运行时校验`,
+    )
+  }
+
+  const storage = createMemoryStorage()
+  const request = scrapInput('BAG-SCRAP-SUCCESS')
+  const event = submitTransferBagScrap(request, storage)
+  assert.equal(event.eventType, '中转袋报废')
+  assert.equal(event.idempotencyKey, 'BAG-SCRAP-SUCCESS:BAG_SCRAPPED')
+  assert.equal(event.refs.transferBagCode, 'BAG-SCRAP-SUCCESS')
+  assert.deepEqual(event.payload, {
+    bagCode: 'BAG-SCRAP-SUCCESS',
+    idleConfirmed: true,
+    reason: '袋体破裂，无法继续使用',
+    authorizedBy: '裁片仓主管',
+    scrappedAt: '2026-08-01 09:10',
+    scrappedBy: '报废员',
+  })
+  assert.equal(resolveTransferBagCurrentUse('BAG-SCRAP-SUCCESS', storage).mainStatus, 'DISABLED')
+  const retry = submitTransferBagScrap(structuredClone(request), storage)
+  assert.equal(retry.eventId, event.eventId, '已报废后的等价重试必须返回原完整报废事实')
+  for (const conflict of [
+    { reason: '不同原因' },
+    { authorizedBy: '另一主管' },
+    { operator: { operatorName: '另一报废员' } },
+    { source: 'PDA' },
+  ]) {
+    assertRejectedWithoutWriting(
+      storage,
+      () => submitTransferBagScrap(scrapInput('BAG-SCRAP-SUCCESS', conflict) as never, storage),
+      /报废.*业务意图冲突/,
+      '已报废袋不同报废意图必须冲突且零写入',
+    )
+  }
+  request.operator.operatorName = '调用方篡改'
+  ;(event.payload as Record<string, unknown>).authorizedBy = '返回对象篡改'
+  const persisted = listCuttingRuntimeEvents(storage).find((item) => item.eventId === event.eventId)
+  assert.equal(persisted?.operatorName, '报废员')
+  assert.equal((persisted?.payload as Record<string, unknown>).authorizedBy, '裁片仓主管')
+}
+
+{
+  const storage = createMemoryStorage()
+  const bagCode = 'BAG-RECOVER-THEN-SCRAP'
+  seedHandedOverBag(storage, bagCode)
+  const outcome = recoverThenScrapTransferBag({
+    recovery: recoveryInput(bagCode, { occurredAt: '2026-08-01 09:30' }),
+    scrap: {
+      reason: '袋体破裂，无法继续使用',
+      authorizedBy: '裁片仓主管',
+      occurredAt: '2026-08-01 09:30',
+    },
+  }, storage)
+  assert.equal(outcome.recoveryEvent.eventType, '中转袋回收')
+  assert.equal(outcome.scrapEvent.eventType, '中转袋报废')
+  assert(
+    Number(outcome.recoveryEvent.ledgerSequence) < Number(outcome.scrapEvent.ledgerSequence),
+    '同分钟回收后报废必须依靠账本序号保持事实先后',
+  )
+  assert.equal(resolveTransferBagCurrentUse(bagCode, storage).mainStatus, 'DISABLED')
+
+  const backingStorage = createMemoryStorage()
+  const failureBagCode = 'BAG-RECOVER-THEN-SCRAP-FAILURE'
+  seedHandedOverBag(backingStorage, failureBagCode)
+  let appendCount = 0
+  let rejectSecondAppend = true
+  const faultyStorage: BrowserStorageLike = {
+    getItem: (key) => backingStorage.getItem(key),
+    setItem: (key, value) => {
+      appendCount += 1
+      if (rejectSecondAppend && appendCount === 2) throw new Error('模拟报废追加失败')
+      backingStorage.setItem(key, value)
+    },
+    removeItem: (key) => backingStorage.removeItem(key),
+  }
+  const combinedInput = {
+    recovery: recoveryInput(failureBagCode, { occurredAt: '2026-08-01 09:40' }),
+    scrap: {
+      reason: '袋体撕裂',
+      authorizedBy: '裁片仓主管',
+      occurredAt: '2026-08-01 09:40',
+    },
+  }
+  assert.throws(
+    () => recoverThenScrapTransferBag(combinedInput, faultyStorage),
+    /模拟报废追加失败/,
+    '第二步报废失败必须向调用方暴露',
+  )
+  assert.equal(resolveTransferBagCurrentUse(failureBagCode, backingStorage).mainStatus, 'IDLE', '报废失败不得回滚已成功回收')
+  assert.equal(listCuttingRuntimeEvents(backingStorage).filter((item) => item.eventType === '中转袋回收').length, 1)
+  rejectSecondAppend = false
+  appendCount = 0
+  const retried = recoverThenScrapTransferBag(structuredClone(combinedInput), faultyStorage)
+  assert.equal(retried.scrapEvent.eventType, '中转袋报废')
+  assert.equal(resolveTransferBagCurrentUse(failureBagCode, backingStorage).mainStatus, 'DISABLED')
+  assert.equal(listCuttingRuntimeEvents(backingStorage).filter((item) => item.eventType === '中转袋回收').length, 1, '组合命令重试不得重复写回收事实')
+}
+
+{
+  const backingStorage = createMemoryStorage()
+  const bagCode = 'BAG-RECOVERY-APPEND-FAILURE'
+  seedHandedOverBag(backingStorage, bagCode)
+  let rejectWrite = false
+  const storage: BrowserStorageLike = {
+    getItem: (key) => backingStorage.getItem(key),
+    setItem: (key, value) => {
+      if (rejectWrite) throw new Error('模拟回收追加失败')
+      backingStorage.setItem(key, value)
+    },
+    removeItem: (key) => backingStorage.removeItem(key),
+  }
+  const before = resolveTransferBagCurrentUse(bagCode, storage)
+  rejectWrite = true
+  assertRejectedWithoutWriting(
+    storage,
+    () => recoverTransferBag(recoveryInput(bagCode), storage),
+    /模拟回收追加失败/,
+    '回收存储追加失败必须向调用方抛出',
+  )
+  rejectWrite = false
+  assert.deepEqual(resolveTransferBagCurrentUse(bagCode, storage), before, '回收追加失败不得改变当前周期')
+}
+
+{
+  const storage = createMemoryStorage()
+  const bagCode = 'BAG-RECOVERY-IDEMPOTENCY-COLLISION'
+  const { usageCycleId } = seedHandedOverBag(storage, bagCode)
+  appendCuttingRuntimeEvent({
+    idempotencyKey: `${usageCycleId}:PHYSICAL_BAG_RETURNED`,
+    eventType: '中转袋回收',
+    eventSource: 'WEB',
+    eventStatus: '同步失败',
+    occurredAt: '2026-08-01 08:50',
+    operatorName: '失败回收员',
+    refs: { transferBagCode: bagCode, usageCycleId },
+    payload: {
+      bagCode,
+      usageCycleId,
+      physicalBagReceived: true,
+      physicalBagEmpty: true,
+      recoveryMode: 'NORMAL',
+      recoveryNode: '裁床一厂',
+      recoveryLocation: '失败回收位',
+      reason: '',
+      recoveredAt: '2026-08-01 08:50',
+      recoveredBy: '失败回收员',
+    },
+  }, storage)
+  assertRejectedWithoutWriting(
+    storage,
+    () => recoverTransferBag(recoveryInput(bagCode), storage),
+    /回收.*业务意图冲突/,
+    '失败事实占用同一回收幂等键时不得被当作成功重试',
+  )
+  assert.equal(resolveTransferBagCurrentUse(bagCode, storage).flowStage, 'HANDED_OVER_WAITING_RETURN')
+}
+
+{
+  const storage = createMemoryStorage()
+  const bagCode = 'BAG-RECOVERY-EVENT-ID-COLLISION'
+  const { usageCycleId } = seedHandedOverBag(storage, bagCode)
+  const occurredAt = '2026-08-01 09:00'
+  appendCuttingRuntimeEvent({
+    idempotencyKey: 'other-recovery-intent',
+    eventType: '中转袋回收',
+    eventSource: 'WEB',
+    eventStatus: '同步失败',
+    occurredAt,
+    operatorName: '碰撞回收员',
+    refs: { transferBagCode: bagCode, usageCycleId },
+    payload: {
+      bagCode,
+      usageCycleId,
+      physicalBagReceived: true,
+      physicalBagEmpty: true,
+      recoveryMode: 'NORMAL',
+      recoveryNode: '裁床一厂',
+      recoveryLocation: '碰撞回收位',
+      reason: '',
+      recoveredAt: occurredAt,
+      recoveredBy: '碰撞回收员',
+    },
+  }, storage)
+  assertRejectedWithoutWriting(
+    storage,
+    () => recoverTransferBag(recoveryInput(bagCode, { occurredAt }), storage),
+    /事件编号.*占用/,
+    '同 eventId 的不同回收幂等事实不得被覆盖',
+  )
+}
+
+{
+  const storage = createMemoryStorage()
+  const bagCode = 'BAG-SCRAP-IDEMPOTENCY-COLLISION'
+  appendCuttingRuntimeEvent({
+    idempotencyKey: `${bagCode}:BAG_SCRAPPED`,
+    eventType: '中转袋报废',
+    eventSource: 'WEB',
+    eventStatus: '同步失败',
+    occurredAt: '2026-08-01 09:00',
+    operatorName: '失败报废员',
+    refs: { transferBagCode: bagCode },
+    payload: {
+      bagCode,
+      idleConfirmed: true,
+      reason: '失败报废事实',
+      authorizedBy: '失败主管',
+      scrappedAt: '2026-08-01 09:00',
+      scrappedBy: '失败报废员',
+    },
+  }, storage)
+  assertRejectedWithoutWriting(
+    storage,
+    () => submitTransferBagScrap(scrapInput(bagCode), storage),
+    /报废.*业务意图冲突/,
+    '失败事实占用同一报废幂等键时不得被当作成功重试',
+  )
+  assert.equal(resolveTransferBagCurrentUse(bagCode, storage).mainStatus, 'IDLE')
+}
+
+{
+  const idleStorage = createMemoryStorage()
+  assert.deepEqual(
+    ensureTransferBagAvailableForUse({ bagCode: 'BAG-ENSURE-IDLE' }, idleStorage),
+    {
+      recovered: false,
+      current: resolveTransferBagCurrentUse('BAG-ENSURE-IDLE', idleStorage),
+    },
+  )
+
+  const handedStorage = createMemoryStorage()
+  seedHandedOverBag(handedStorage, 'BAG-ENSURE-HANDED')
+  assertRejectedWithoutWritingExact(
+    handedStorage,
+    () => ensureTransferBagAvailableForUse({ bagCode: 'BAG-ENSURE-HANDED' }, handedStorage),
+    '这个袋子尚未确认实物空袋回收，不能继续使用。',
+    '已交出袋缺少实物确认时不得自动恢复',
+  )
+  const forced = ensureTransferBagAvailableForUse({
+    bagCode: 'BAG-ENSURE-HANDED',
+    forceRecovery: {
+      physicalBagReceived: true,
+      physicalBagEmpty: true,
+      recoveryNode: '裁床一厂',
+      recoveryLocation: '装袋工位空袋区',
+      reason: '前序未回写，现场已确认空袋',
+      operator: { operatorId: 'OP-FORCED', operatorName: '强制回收员' },
+      source: 'PDA',
+      occurredAt: '2026-08-01 10:00',
+    },
+  }, handedStorage)
+  assert.equal(forced.recovered, true)
+  assert.equal(forced.current.mainStatus, 'IDLE')
+  const forcedEvent = listCuttingRuntimeEvents(handedStorage).find((item) => item.eventType === '中转袋回收')
+  assert.equal((forcedEvent?.payload as Record<string, unknown>).recoveryMode, 'FORCED')
+
+  const activeStorage = createMemoryStorage()
+  const activeTickets = [ticket('ENSURE-ACTIVE', 'PO-ENSURE', 'FACTORY-HANDOVER')]
+  appendBagging({ storage: activeStorage, bagCode: 'BAG-ENSURE-ACTIVE', usageCycleId: 'usage:BAG-ENSURE-ACTIVE:1', tickets: activeTickets })
+  assertRejectedWithoutWritingExact(
+    activeStorage,
+    () => ensureTransferBagAvailableForUse({ bagCode: 'BAG-ENSURE-ACTIVE' }, activeStorage),
+    '这个袋子还有有效菲票，请先拆袋重装。',
+    '有有效菲票的袋不得强制回收',
+  )
+  const disabledStorage = createMemoryStorage()
+  submitTransferBagScrap(scrapInput('BAG-ENSURE-DISABLED'), disabledStorage)
+  assertRejectedWithoutWritingExact(
+    disabledStorage,
+    () => ensureTransferBagAvailableForUse({ bagCode: 'BAG-ENSURE-DISABLED' }, disabledStorage),
+    '这个袋子已经报废，不能继续使用。',
+    '已报废袋必须永久阻断再次使用',
+  )
 }
 
 console.log('PASS check-transfer-bag-repack-recovery')

@@ -86,6 +86,24 @@ const waitHandoverRuntimeSource = readFileSync(
   )),
   'utf8',
 )
+const physicalReturnWrapperSource = waitHandoverRuntimeSource.slice(
+  waitHandoverRuntimeSource.indexOf('export function appendWaitHandoverPhysicalReturnEvent'),
+  waitHandoverRuntimeSource.indexOf('export function appendWaitHandoverScrapEvent'),
+)
+const scrapWrapperSource = waitHandoverRuntimeSource.slice(
+  waitHandoverRuntimeSource.indexOf('export function appendWaitHandoverScrapEvent'),
+  waitHandoverRuntimeSource.indexOf('function resolveWaitHandoverUsageCycleId'),
+)
+assert(
+  physicalReturnWrapperSource.includes('return recoverTransferBag({')
+    && !physicalReturnWrapperSource.includes('appendCuttingRuntimeEventIdempotent({'),
+  '旧物理袋回收 wrapper 必须只委托共享回收命令，不得直接新增第二条事实',
+)
+assert(
+  scrapWrapperSource.includes('return submitTransferBagScrap({')
+    && !scrapWrapperSource.includes('appendCuttingRuntimeEventIdempotent({'),
+  '旧报废 wrapper 必须只委托共享报废命令，不得直接新增第二条事实',
+)
 
 assert.deepEqual(
   lifecycle.TRANSFER_BAG_MAIN_STATUS_META,
@@ -1393,17 +1411,17 @@ runtimeLedger.appendCuttingRuntimeEventIdempotent({
     returnWarehouseName: '裁片仓空袋区',
   },
 }, adapterScrapStorage)
-const runtimeLifecycleAfterLegalClose =
+const runtimeLifecycleAfterIncompleteRecovery =
   waitHandoverRuntime.buildWaitHandoverLifecycleByBagCode(
     adapterScrapBagCode,
     adapterScrapStorage,
   )
-assert.equal(runtimeLifecycleAfterLegalClose.mainStatus, 'IDLE')
-assert.equal(runtimeLifecycleAfterLegalClose.flowStage, null)
+assert.equal(runtimeLifecycleAfterIncompleteRecovery.mainStatus, 'IN_USE')
+assert.equal(runtimeLifecycleAfterIncompleteRecovery.flowStage, 'PACKED')
 assert.deepEqual(
-  runtimeLifecycleAfterLegalClose.sourceFactIds,
-  [],
-  '周期合法关闭后，旧无效报废事实不得延迟生效',
+  runtimeLifecycleAfterIncompleteRecovery.sourceFactIds,
+  [adapterBaggingEvent.eventId],
+  '当前仍有有效菲票且回收事实残缺时，不得关闭周期或让旧无效报废延迟生效',
 )
 assert.notEqual(
   adapterInvalidScrapEvent.eventId,
@@ -1889,18 +1907,23 @@ assert.deepEqual(
   '只回菲票、未带回实物袋时不得改变任何中转袋生命周期',
 )
 
-waitHandoverRuntime.appendWaitHandoverPhysicalReturnEvent({
+const physicalReturnAction = waitHandoverRuntime.appendWaitHandoverPhysicalReturnEvent({
   source: 'WEB',
   operator: {
     operatorId: 'OP-ACTION-007',
     operatorName: '回收测试员',
   },
   bagCode: 'BAG-ACTION-001',
-  usageCycleId: actionCycleId,
+  usageCycleId: 'usage:stale-wrapper-cycle',
   returnedAt: '2026-07-30 14:10',
   returnWarehouseName: '裁片仓空袋区',
   storage: actionStorage,
 })
+assert.equal(
+  physicalReturnAction.refs.usageCycleId,
+  actionCycleId,
+  '旧 wrapper 传入的过期周期不得覆盖共享命令读取到的当前周期',
+)
 const physicallyReturnedLifecycle =
   waitHandoverRuntime.buildWaitHandoverLifecycleByBagCode(
     'BAG-ACTION-001',
@@ -1909,17 +1932,20 @@ const physicallyReturnedLifecycle =
 assert.equal(physicallyReturnedLifecycle.mainStatus, 'IDLE')
 assert.equal(physicallyReturnedLifecycle.flowStage, null)
 
-waitHandoverRuntime.appendWaitHandoverScrapEvent({
+const scrapAction = waitHandoverRuntime.appendWaitHandoverScrapEvent({
   source: 'WEB',
   operator: {
     operatorId: 'OP-ACTION-008',
     operatorName: '报废主管',
   },
   bagCode: 'BAG-SCRAP-ACTION-001',
+  usageCycleId: 'usage:stale-scrap-wrapper-cycle',
   scrappedAt: '2026-07-30 14:20',
   reason: '袋体破裂无法继续使用',
   storage: actionStorage,
 })
+assert.equal(scrapAction.refs.transferBagCode, 'BAG-SCRAP-ACTION-001')
+assert.equal(scrapAction.refs.usageCycleId, '', '报废事实不得接受旧 wrapper 注入的过期使用周期')
 const directlyScrappedLifecycle =
   waitHandoverRuntime.buildWaitHandoverLifecycleByBagCode(
     'BAG-SCRAP-ACTION-001',
