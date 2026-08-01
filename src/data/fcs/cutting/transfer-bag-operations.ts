@@ -77,6 +77,76 @@ function eventPayload(event: CuttingRuntimeEvent): Record<string, unknown> {
   return record(event.payload)
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+const TRANSFER_BAG_TICKET_STRING_FIELDS: Array<keyof Omit<TransferBagTicketFactSnapshot, 'pieceQty'>> = [
+  'feiTicketId',
+  'feiTicketNo',
+  'productionOrderId',
+  'productionOrderNo',
+  'cutOrderId',
+  'cutOrderNo',
+  'color',
+  'size',
+  'partCode',
+  'partName',
+  'sewingTaskId',
+  'sewingTaskNo',
+  'receiverFactoryId',
+  'receiverFactoryName',
+]
+
+function isCompleteTransferBagTicketSnapshot(value: unknown): boolean {
+  if (!isRecord(value)) return false
+  return TRANSFER_BAG_TICKET_STRING_FIELDS.every((field) =>
+    typeof value[field] === 'string')
+    && text(value.feiTicketId).length > 0
+    && typeof value.pieceQty === 'number'
+    && Number.isFinite(value.pieceQty)
+}
+
+export function parseCompleteTransferBagRepackPayload(
+  event: CuttingRuntimeEvent,
+): TransferBagRepackPayload | null {
+  if (event.eventType !== '中转袋拆袋重装' || !isRecord(event.payload)) return null
+  const payload = event.payload
+  if (
+    !text(payload.repackBatchId)
+    || !Array.isArray(payload.sourceBags)
+    || !Array.isArray(payload.resultBags)
+    || !Array.isArray(payload.movedTickets)
+    || !text(payload.confirmedAt)
+    || !text(payload.confirmedBy)
+  ) return null
+  const sourceBagsComplete = payload.sourceBags.every((value) =>
+    isRecord(value)
+    && Boolean(text(value.bagCode))
+    && Boolean(text(value.usageCycleId))
+    && Array.isArray(value.beforeTickets)
+    && value.beforeTickets.every(isCompleteTransferBagTicketSnapshot))
+  if (!sourceBagsComplete) return null
+  const resultBagsComplete = payload.resultBags.every((value) =>
+    isRecord(value)
+    && Boolean(text(value.bagCode))
+    && Boolean(text(value.usageCycleId))
+    && typeof value.reusedSourceBag === 'boolean'
+    && Array.isArray(value.tickets)
+    && value.tickets.every(isCompleteTransferBagTicketSnapshot))
+  if (!resultBagsComplete) return null
+  const movedTicketsComplete = payload.movedTickets.every((value) =>
+    isRecord(value)
+    && Boolean(text(value.feiTicketId))
+    && Boolean(text(value.fromBagCode))
+    && Boolean(text(value.toBagCode))
+    && typeof value.pieceQty === 'number'
+    && Number.isFinite(value.pieceQty))
+  return movedTicketsComplete
+    ? payload as unknown as TransferBagRepackPayload
+    : null
+}
+
 function sortedRuntimeEvents(storage: BrowserStorageLike | null): CuttingRuntimeEvent[] {
   return listCuttingRuntimeEvents(storage)
     .filter((event) => event.eventStatus !== '已取消')
@@ -84,11 +154,11 @@ function sortedRuntimeEvents(storage: BrowserStorageLike | null): CuttingRuntime
 }
 
 function repackBagCodes(event: CuttingRuntimeEvent): string[] {
-  if (event.eventType !== '中转袋拆袋重装') return []
-  const payload = eventPayload(event)
+  const payload = parseCompleteTransferBagRepackPayload(event)
+  if (!payload) return []
   return unique([
-    ...records(payload.sourceBags).map((bag) => text(bag.bagCode)),
-    ...records(payload.resultBags).map((bag) => text(bag.bagCode)),
+    ...payload.sourceBags.map((bag) => bag.bagCode),
+    ...payload.resultBags.map((bag) => bag.bagCode),
   ])
 }
 
@@ -98,6 +168,9 @@ export function eventTouchesTransferBag(
 ): boolean {
   const normalizedBagCode = bagCode.trim()
   if (!normalizedBagCode || event.eventStatus === '已取消') return false
+  if (event.eventType === '中转袋拆袋重装') {
+    return repackBagCodes(event).includes(normalizedBagCode)
+  }
   const payload = eventPayload(event)
   const explicitPayloadBagCodes = [
     text(payload.bagCode),
@@ -194,8 +267,11 @@ function repackBag(
   event: CuttingRuntimeEvent,
   kind: 'sourceBags' | 'resultBags',
   bagCode: string,
-): Record<string, unknown> | undefined {
-  return records(eventPayload(event)[kind]).find((bag) => text(bag.bagCode) === bagCode)
+): TransferBagRepackPayload['sourceBags'][number]
+  | TransferBagRepackPayload['resultBags'][number]
+  | undefined {
+  const payload = parseCompleteTransferBagRepackPayload(event)
+  return payload?.[kind].find((bag) => bag.bagCode === bagCode)
 }
 
 function sameTicketQuantities(
@@ -416,13 +492,19 @@ function normalizeSubmitTransferBagRepackInput(
   const sourceBagCodes = assertUniqueNonEmpty(input.sourceBagCodes, '来源袋编号')
   const results = input.results.map((result) => {
     const bagCode = result.bagCode.trim()
-    const feiTicketIds = result.feiTicketIds.map((feiTicketId) => feiTicketId.trim())
-    if (feiTicketIds.some((feiTicketId) => !feiTicketId)) {
-      throw new Error(`${bagCode || '结果袋'} 的菲票编号不能为空。`)
-    }
+    const feiTicketIds = assertUniqueNonEmpty(
+      result.feiTicketIds,
+      `${bagCode || '结果袋'} 的菲票编号`,
+    )
     return { bagCode, feiTicketIds }
   })
   assertUniqueNonEmpty(results.map((result) => result.bagCode), '结果袋编号')
+  const resultTicketIds = results.flatMap((result) => result.feiTicketIds)
+  const duplicateAcrossResults = resultTicketIds.find((feiTicketId, index) =>
+    resultTicketIds.indexOf(feiTicketId) !== index)
+  if (duplicateAcrossResults) {
+    throw new Error(`菲票 ${duplicateAcrossResults} 跨结果袋重复，全部来源菲票必须恰好出现一次。`)
+  }
   return {
     repackBatchId,
     sourceBagCodes,
@@ -442,11 +524,11 @@ function canonicalRepackIntent(input: {
   results: Array<{ bagCode: string; feiTicketIds: string[] }>
 }): string {
   return JSON.stringify({
-    sourceBagCodes: unique(input.sourceBagCodes).sort(),
+    sourceBagCodes: input.sourceBagCodes.map((bagCode) => bagCode.trim()).sort(),
     results: input.results
       .map((result) => ({
         bagCode: result.bagCode.trim(),
-        feiTicketIds: unique(result.feiTicketIds).sort(),
+        feiTicketIds: result.feiTicketIds.map((feiTicketId) => feiTicketId.trim()).sort(),
       }))
       .sort((left, right) => left.bagCode.localeCompare(right.bagCode, 'zh-CN')),
   })

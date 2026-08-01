@@ -1,4 +1,7 @@
-import { compareCuttingRuntimeChronologyAscending } from './cutting-runtime-chronology.ts'
+import {
+  compareCuttingRuntimeChronologyAscending,
+  type CuttingRuntimeChronologyItem,
+} from './cutting-runtime-chronology.ts'
 
 export type TransferBagMainStatusKey =
   | 'IDLE'
@@ -38,8 +41,10 @@ export type TransferBagLifecycleFactType =
 export interface TransferBagLifecycleCycle {
   usageCycleId: string
   startedAt: string
+  startedChronology?: Omit<CuttingRuntimeChronologyItem, 'occurredAt'>
   productionOrderNo?: string
   closedAt?: string
+  closedChronology?: Omit<CuttingRuntimeChronologyItem, 'occurredAt'>
   closeResult?: 'REUSABLE' | 'DISABLED'
 }
 
@@ -109,23 +114,43 @@ function sortByTimeAndId<T extends { occurredAt: string; factId: string }>(
 function sortCycles(
   cycles: TransferBagLifecycleCycle[],
 ): TransferBagLifecycleCycle[] {
-  return [...cycles].sort((left, right) => {
-    const time = left.startedAt.localeCompare(right.startedAt)
-    return time || left.usageCycleId.localeCompare(right.usageCycleId)
-  })
+  return [...cycles].sort((left, right) => compareCuttingRuntimeChronologyAscending(
+    cycleBoundaryChronology(left, 'started'),
+    cycleBoundaryChronology(right, 'started'),
+  ))
+}
+
+function cycleBoundaryChronology(
+  cycle: TransferBagLifecycleCycle,
+  boundary: 'started' | 'closed',
+): CuttingRuntimeChronologyItem {
+  const chronology = boundary === 'started'
+    ? cycle.startedChronology
+    : cycle.closedChronology
+  return {
+    occurredAt: boundary === 'started' ? cycle.startedAt : cycle.closedAt || '',
+    ...chronology,
+    factId: chronology?.factId || `cycle:${cycle.usageCycleId}:${boundary}`,
+  }
 }
 
 function isUsageCycleOpenAt(
   cycle: TransferBagLifecycleCycle,
   facts: TransferBagLifecycleFact[],
-  occurredAt: string,
+  factAt: TransferBagLifecycleFact,
 ): boolean {
-  if (cycle.startedAt > occurredAt) return false
-  if (cycle.closedAt && cycle.closedAt <= occurredAt) return false
+  if (compareCuttingRuntimeChronologyAscending(
+    cycleBoundaryChronology(cycle, 'started'),
+    factAt,
+  ) > 0) return false
+  if (cycle.closedAt && compareCuttingRuntimeChronologyAscending(
+    cycleBoundaryChronology(cycle, 'closed'),
+    factAt,
+  ) <= 0) return false
   return !facts.some((fact) =>
     fact.usageCycleId === cycle.usageCycleId
     && fact.factType === 'REPACK_SOURCE_EMPTIED'
-    && fact.occurredAt <= occurredAt)
+    && compareCuttingRuntimeChronologyAscending(fact, factAt) <= 0)
 }
 
 function stageFromFact(
@@ -210,6 +235,25 @@ export function deriveTransferBagLifecycle(
   )
   const openCycle = openCycles.at(-1)
 
+  const effectiveScrapFact = sortByTimeAndId(
+    input.facts.filter((fact) =>
+      fact.factType === 'BAG_SCRAPPED'
+      && !sortedCycles.some((cycle) =>
+        isUsageCycleOpenAt(cycle, input.facts, fact))),
+  ).at(-1)
+
+  if (effectiveScrapFact || latestCycle?.closeResult === 'DISABLED') {
+    return buildView({
+      carrierId: input.carrierId,
+      bagCode: input.bagCode,
+      usageCycleId:
+        effectiveScrapFact?.usageCycleId || latestCycle?.usageCycleId || null,
+      mainStatus: 'DISABLED',
+      flowStage: null,
+      sourceFactIds: effectiveScrapFact ? [effectiveScrapFact.factId] : [],
+    })
+  }
+
   if (openCycle) {
     const stageFacts = sortByTimeAndId(
       input.facts.filter((fact) =>
@@ -234,25 +278,6 @@ export function deriveTransferBagLifecycle(
       flowStage,
       sourceFactIds: stageFacts.map((fact) => fact.factId),
       compatibilityBlockedReason,
-    })
-  }
-
-  const effectiveScrapFact = sortByTimeAndId(
-    input.facts.filter((fact) =>
-      fact.factType === 'BAG_SCRAPPED'
-      && !sortedCycles.some((cycle) =>
-        isUsageCycleOpenAt(cycle, input.facts, fact.occurredAt))),
-  ).at(-1)
-
-  if (effectiveScrapFact || latestCycle?.closeResult === 'DISABLED') {
-    return buildView({
-      carrierId: input.carrierId,
-      bagCode: input.bagCode,
-      usageCycleId:
-        effectiveScrapFact?.usageCycleId || latestCycle?.usageCycleId || null,
-      mainStatus: 'DISABLED',
-      flowStage: null,
-      sourceFactIds: effectiveScrapFact ? [effectiveScrapFact.factId] : [],
     })
   }
 
