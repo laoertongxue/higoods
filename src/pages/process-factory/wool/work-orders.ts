@@ -40,6 +40,7 @@ import {
   type WoolYarnReceiptRecord,
 } from '../../../data/fcs/wool-task-domain.ts'
 import {
+  buildWoolHandoverPrintLink,
   buildWoolMachineAssociationsLink,
   buildWoolWorkOrderDetailLink,
 } from '../../../data/fcs/fcs-route-links.ts'
@@ -246,6 +247,10 @@ function renderActions(row: WoolListRow): string {
     woolOrderId: order.woolOrderId,
     recordType: ['YARN_RECEIPT', 'PROCESS_REPORT', 'HANDOVER'],
   }).length
+  const handoverCount = listWoolFactRecords({
+    woolOrderId: order.woolOrderId,
+    recordType: 'HANDOVER',
+  }).length
   return `<div class="flex max-w-[360px] flex-wrap justify-end gap-1.5">
     <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildWoolWorkOrderDetailLink(order.woolOrderId))}">查看详情</button>
     ${actions.includes('RECEIVE_YARN') ? renderActionButton('确认接收', 'open-receipt', order) : ''}
@@ -253,6 +258,7 @@ function renderActions(row: WoolListRow): string {
     ${actions.includes('HANDOVER') ? renderActionButton('发起交出', 'open-handover', order, 'border-emerald-200 text-emerald-700') : ''}
     ${actions.includes('ASSOCIATE_MACHINE') ? `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildWoolMachineAssociationsLink(order.woolOrderId))}">关联横机设备</button>` : ''}
     ${factCount > 0 && row.tab !== 'COMPLETED' ? renderActionButton('修改记录数量', 'open-qty-list', order) : ''}
+    ${handoverCount > 0 ? `<button type="button" class="rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildWoolHandoverPrintLink(order.woolOrderId))}">打印交出单</button>` : ''}
     ${actions.includes('COMPLETE') ? renderActionButton('完成加工单', 'open-complete', order, 'border-amber-200 text-amber-700') : ''}
   </div>`
 }

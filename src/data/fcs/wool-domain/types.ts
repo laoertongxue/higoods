@@ -13,8 +13,9 @@ export interface WoolOutputPlanLine {
   colorName: string
   sizeCode: string
   plannedQty: number
-  qtyUnit: '件' | '片'
+  qtyUnit: '件'
   requiredYarnSkus: string[]
+  materialImageUrls?: string[]
   sourceTechPackVersionId: string
   sourceTechPackVersionCode: string
   sourceColorMappingIds: string[]
@@ -133,7 +134,7 @@ export interface WoolHandoverRecord {
   woolOrderId: string
   outputSkuCode: string
   handoverQty: number
-  qtyUnit: '件' | '片'
+  qtyUnit: '件'
   receiverType: 'CUTTING_WAIT_HANDOVER_WAREHOUSE' | 'DOWNSTREAM_FACTORY'
   receiverId: string
   receiverName: string
@@ -234,13 +235,13 @@ export interface WoolCompletionSnapshot {
   processReportSummary: Array<{
     outputSkuCode: string
     reportedQty: number
-    qtyUnit: '件' | '片'
+    qtyUnit: '件'
   }>
   handoverSummary: Array<{
     handoverId: string
     outputSkuCode: string
     handoverQty: number
-    qtyUnit: '件' | '片'
+    qtyUnit: '件'
     downstreamActualReceivedQty?: number
     downstreamDifferenceQty?: number
     downstreamReceivedAt?: string
@@ -253,7 +254,7 @@ export interface WoolCompletionSnapshot {
   waitHandoverStockSummary: Array<{
     outputSkuCode: string
     stockQty: number
-    qtyUnit: '件' | '片'
+    qtyUnit: '件'
   }>
   releasedMachineIds: string[]
   /** 新完成记录必填；仅兼容升级前未冻结设备业务字段的历史本地快照。 */

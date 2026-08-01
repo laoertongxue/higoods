@@ -302,8 +302,8 @@ assert.deepEqual(partSourceSnapshot.outputPlanLines, [{
   colorCode: 'BLACK',
   colorName: '黑色',
   sizeCode: 'M',
-  plannedQty: 200,
-  qtyUnit: '片',
+  plannedQty: 100,
+  qtyUnit: '件',
   requiredYarnSkus: ['YARN-A'],
   sourceTechPackVersionId: 'TPV-WOOL-SOURCE-CHECK',
   sourceTechPackVersionCode: 'TP-WOOL-V1',
@@ -1224,7 +1224,7 @@ const partCapacityOrder = allOrders.find((item) => item.mockScenarioCode === 'PA
 const partCapacityLine = partCapacityOrder.outputPlanLines[0]
 assert.equal(partCapacityOrder.kind, 'PART_PANEL')
 assert.equal(partCapacityLine.outputObjectType, 'WOOL_PANEL')
-assert.equal(partCapacityLine.qtyUnit, '片')
+assert.equal(partCapacityLine.qtyUnit, '件')
 assert.equal(
   getWoolOutputReadiness(partCapacityOrder.woolOrderId, partCapacityLine.outputSkuCode).reportLimitQty,
   Math.floor(partCapacityLine.plannedQty * 1.5),

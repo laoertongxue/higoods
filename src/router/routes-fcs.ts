@@ -144,6 +144,7 @@ import {
   renderCraftCombinedDyeingPage,
   renderCraftDyeingWaterSolubleOrdersPage,
   renderCraftWoolMachineAssociationsPage,
+  renderCraftWoolHandoverPrintPage,
   renderCraftWoolMachinesPage,
   renderCraftWoolWorkOrderDetailPage,
   renderCraftWoolWorkOrdersPage,
@@ -529,6 +530,10 @@ export const routes: RouteRegistry = {
         `/fcs/craft/dyeing/work-orders?dyeOrderId=${encodeURIComponent(decodeURIComponent(match[1]))}`,
         '正在跳转到染色加工单',
       ),
+    },
+    {
+      pattern: /^\/fcs\/craft\/wool\/work-orders\/([^/]+)\/handover-print$/,
+      render: (match) => renderCraftWoolHandoverPrintPage(decodeURIComponent(match[1])),
     },
     {
       pattern: /^\/fcs\/craft\/wool\/work-orders\/([^/]+)$/,

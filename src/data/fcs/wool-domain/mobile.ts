@@ -72,14 +72,14 @@ export interface WoolMobileCompletionFacts {
     reportLimitQty: number
     effectiveReportedQty: number
     differenceFromPlanQty: number
-    qtyUnit: '件' | '片'
+    qtyUnit: '件'
   }>
   handovers: Array<{
     handoverId: string
     outputSkuCode: string
     originalQty: number
     effectiveQty: number
-    qtyUnit: '件' | '片'
+    qtyUnit: '件'
     receiverName: string
     downstreamActualReceivedQty?: number
     downstreamDifferenceQty?: number
@@ -91,7 +91,7 @@ export interface WoolMobileCompletionFacts {
     defaultLocationId: 'WOOL-WH-CUT-DEFAULT' | 'WOOL-WH-GARMENT-DEFAULT'
     effectiveStockQty: number
     availableHandoverQty: number
-    qtyUnit: '件' | '片'
+    qtyUnit: '件'
   }>
   currentMachines: Array<{
     machineId: string
@@ -447,7 +447,7 @@ function buildWoolMobileTaskFromStore(
 ): ProcessTask {
   const projection = buildWoolMobileTaskProjectionFromStore(store, order.woolOrderId)
   const totalPlannedQty = order.outputPlanLines.reduce((sum, line) => sum + line.plannedQty, 0)
-  const qtyUnit = order.outputPlanLines[0]?.qtyUnit || (order.kind === 'PART_PANEL' ? '片' : '件')
+  const qtyUnit = order.outputPlanLines[0]?.qtyUnit || '件'
   const status: ProcessTask['status'] = projection.processingStatus === 'COMPLETED'
     ? 'DONE'
     : projection.processingStatus === 'PROCESSING'

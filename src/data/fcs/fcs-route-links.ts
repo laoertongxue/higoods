@@ -212,6 +212,10 @@ export function buildWoolWorkOrderDetailLink(woolOrderId: string, tab?: string):
   return tab ? `${base}?tab=${encodeSegment(tab)}` : base
 }
 
+export function buildWoolHandoverPrintLink(woolOrderId: string): string {
+  return `/fcs/craft/wool/work-orders/${encodeSegment(woolOrderId)}/handover-print`
+}
+
 export function buildPostFinishingTaskLink(postTaskId?: string): string {
   const base = '/fcs/craft/post-finishing/tasks'
   return postTaskId ? `${base}?taskId=${encodeSegment(postTaskId)}` : base

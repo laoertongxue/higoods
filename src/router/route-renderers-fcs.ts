@@ -510,6 +510,10 @@ export const renderCraftWoolWorkOrderDetailPage = createAsyncRenderer(
   () => import('../pages/process-factory/wool/work-order-detail'),
   'renderCraftWoolWorkOrderDetailPage',
 )
+export const renderCraftWoolHandoverPrintPage = createAsyncRenderer(
+  () => import('../pages/process-factory/wool/handover-print'),
+  'renderCraftWoolHandoverPrintPage',
+)
 export const renderCraftWoolWaitProcessWarehousePage = createAsyncRenderer(
   () => import('../pages/process-factory/wool/warehouse'),
   'renderCraftWoolWaitProcessWarehousePage',

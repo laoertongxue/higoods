@@ -19,6 +19,7 @@ export interface WoolSourceSkuLineInput {
 export interface WoolSourceBomItemInput {
   id: string
   materialCode?: string
+  materialImageUrl?: string
   usageProcessCodes?: string[]
   applicableSkuCodes?: string[]
 }
@@ -118,7 +119,7 @@ function resolveMappedBomItem(
 function resolveSourceForSku(
   input: WoolOrderSourceBuildInput,
   sku: WoolSourceSkuLineInput,
-): Pick<WoolOutputPlanLine, 'requiredYarnSkus' | 'sourceColorMappingIds' | 'sourceBomItemIds'> {
+): Pick<WoolOutputPlanLine, 'requiredYarnSkus' | 'materialImageUrls' | 'sourceColorMappingIds' | 'sourceBomItemIds'> {
   const mappings = input.colorMaterialMappings.filter((mapping) =>
     mapping.mappingOrigin === 'TECH_PACK'
     && mapping.status !== 'AUTO_DRAFT'
@@ -139,8 +140,10 @@ function resolveSourceForSku(
     }
   }
 
+  const materialImageUrls = uniqueStable(acceptedBomItems.map((item) => item.materialImageUrl ?? ''))
   return {
     requiredYarnSkus: uniqueStable(acceptedBomItems.map((item) => item.materialCode ?? '')),
+    ...(materialImageUrls.length > 0 ? { materialImageUrls } : {}),
     sourceColorMappingIds: uniqueStable(mappings.map((mapping) => mapping.id)),
     sourceBomItemIds: uniqueStable(acceptedBomItems.map((item) => item.id)),
   }
@@ -199,7 +202,7 @@ export function buildWoolOrderSourceSnapshot(input: WoolOrderSourceBuildInput): 
     for (const part of matchedParts) {
       const woolPartCode = buildStableWoolPartCode(part.woolPartCode)
       const woolPartName = assertSourceText(part.woolPartName, `部位 ${woolPartCode} 名称`)
-      const pieceCount = validatePlannedQty(
+      validatePlannedQty(
         part.pieceCountPerGarment,
         `部位 ${woolPartCode} 的单件片数`,
       )
@@ -209,8 +212,8 @@ export function buildWoolOrderSourceSnapshot(input: WoolOrderSourceBuildInput): 
         outputObjectType: 'WOOL_PANEL',
         woolPartCode,
         woolPartName,
-        plannedQty: plannedGarmentQty * pieceCount,
-        qtyUnit: '片',
+        plannedQty: plannedGarmentQty,
+        qtyUnit: '件',
       })
     }
   }
@@ -333,6 +336,7 @@ export function buildWoolOrderSourceSnapshotFromRuntimeTask(taskId: string): Woo
     bomItems: snapshot.bomItems.map((item) => ({
       id: item.id,
       materialCode: item.materialCode,
+      materialImageUrl: item.materialImageUrl,
       usageProcessCodes: [...(item.usageProcessCodes ?? [])],
       applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
     })),
