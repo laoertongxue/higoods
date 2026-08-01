@@ -391,12 +391,11 @@ function deriveReviewStage(input: {
   merchandiserReview: TechnicalReviewNode
 }): TechnicalReviewStage {
   if (input.versionStatus === 'PUBLISHED' || input.versionStatus === 'ARCHIVED') return '已发布'
-  if (input.merchandiserReview.status === '审核-已通过') return '待发布'
   if (
     isFirstStageReviewComplete(input.buyerReview) &&
     isFirstStageReviewComplete(input.patternMakerReview)
   ) {
-    return '跟单复核'
+    return input.merchandiserReview.status === '审核-已通过' ? '待发布' : '跟单复核'
   }
   if (
     input.reviewStage === '第一阶段并行审核' ||

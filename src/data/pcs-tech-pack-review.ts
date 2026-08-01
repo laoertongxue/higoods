@@ -46,6 +46,28 @@ export interface TechPackReviewActionInput {
   opinion?: string
 }
 
+export type BomPriceReviewChangeSource =
+  | 'STANDARD_MATERIAL_PRICE_CNY'
+  | 'CUSTOM_COST_IDR'
+  | 'EXCHANGE_RATE_IDR_PER_CNY'
+  | 'BOM_UNIT_CONSUMPTION'
+  | 'BOM_LOSS_RATE'
+
+export interface BomPriceReviewChange {
+  changeSource: BomPriceReviewChangeSource
+  targetId: string
+  beforeValue: number
+  afterValue: number
+}
+
+export interface InvalidateReviewForBomPriceChangeInput {
+  changes?: BomPriceReviewChange[]
+  changedBomItemIds?: string[]
+  beforePriceCny?: number
+  afterPriceCny?: number
+  operator?: string | TechPackReviewOperator
+}
+
 export interface TechPackReviewPendingReviewerInfo {
   nodeKey: TechnicalReviewNodeKey
   role: TechnicalReviewRole
@@ -413,12 +435,11 @@ function deriveReviewStage(input: {
 }): TechnicalReviewStage {
   if (input.versionStatus === 'PUBLISHED') return '已发布'
   if (input.versionStatus === 'ARCHIVED') return '已发布'
-  if (input.merchandiserReview.status === '审核-已通过') return '待发布'
   if (
     isTechnicalReviewNodeComplete(input.buyerReview) &&
     isTechnicalReviewNodeComplete(input.patternMakerReview)
   ) {
-    return '跟单复核'
+    return input.merchandiserReview.status === '审核-已通过' ? '待发布' : '跟单复核'
   }
   if (
     input.reviewStage === '第一阶段并行审核' ||
@@ -492,16 +513,30 @@ export function canEditTechnicalModule(
   const unlockedModuleKeys = normalizeModuleKeys(record.reviewUnlockedModuleKeys)
   if (unlockedModuleKeys.length > 0 && !unlockedModuleKeys.includes(moduleKey)) return false
   const nodes = getTechnicalReviewNodes(record)
+  if (unlockedModuleKeys.length > 0) {
+    const owner = getTechnicalModuleReviewOwner(moduleKey)
+    return !isTechnicalReviewNodeLocked(nodes[owner].status)
+  }
   if (isTechnicalReviewNodeLocked(nodes.MERCHANDISER.status)) return false
   const owner = getTechnicalModuleReviewOwner(moduleKey)
   return !isTechnicalReviewNodeLocked(nodes[owner].status)
 }
 
 export function canPublishTechnicalVersionByReview(
-  record: Pick<TechnicalDataVersionRecord, 'versionStatus' | 'merchandiserReview'>,
+  record: Pick<TechnicalDataVersionRecord, 'versionStatus'> &
+    Partial<Pick<
+      TechnicalDataVersionRecord,
+      'buyerReview' | 'patternMakerReview' | 'merchandiserReview' | 'reviewUnlockedModuleKeys'
+    >>,
 ): boolean {
   const snapshot = normalizeTechnicalReviewSnapshot(record)
-  return record.versionStatus === 'DRAFT' && snapshot.merchandiserReview.status === '审核-已通过'
+  return (
+    record.versionStatus === 'DRAFT' &&
+    isTechnicalReviewNodeComplete(snapshot.buyerReview) &&
+    isTechnicalReviewNodeComplete(snapshot.patternMakerReview) &&
+    snapshot.merchandiserReview.status === '审核-已通过' &&
+    snapshot.reviewUnlockedModuleKeys.length === 0
+  )
 }
 
 export function getTechnicalReviewPendingRoles(
@@ -852,6 +887,12 @@ export function approveTechPackReview(
   const nextPattern = nodeKey === 'PATTERN_MAKER' ? node : snapshot.patternMakerReview
   const firstStagePassed =
     isTechnicalReviewNodeComplete(nextBuyer) && isTechnicalReviewNodeComplete(nextPattern)
+  const completesSelectivePriceReview =
+    nodeKey === 'BUYER' &&
+    firstStagePassed &&
+    snapshot.merchandiserReview.status === '审核-已通过' &&
+    snapshot.reviewUnlockedModuleKeys.length > 0 &&
+    snapshot.reviewUnlockedModuleKeys.every((moduleKey) => moduleKey === 'BOM' || moduleKey === 'COST')
 
   const nextRecord = saveReviewPatch(technicalVersionId, {
     ...(nodeKey === 'BUYER'
@@ -861,6 +902,12 @@ export function approveTechPackReview(
       : { merchandiserReview: node }),
     ...(nodeKey === 'MERCHANDISER'
       ? { reviewStage: '待发布' as const, returnedFromMerchandiserFlag: false, reviewUnlockedModuleKeys: [] }
+      : completesSelectivePriceReview
+      ? {
+          reviewStage: '待发布' as const,
+          merchandiserReview: snapshot.merchandiserReview,
+          reviewUnlockedModuleKeys: [],
+        }
       : firstStagePassed
       ? {
           reviewStage: '跟单复核' as const,
@@ -885,7 +932,7 @@ export function approveTechPackReview(
     createdAt: reviewedAt,
     logKey: nodeKey,
   })
-  if (nodeKey !== 'MERCHANDISER' && firstStagePassed) {
+  if (nodeKey !== 'MERCHANDISER' && firstStagePassed && !completesSelectivePriceReview) {
     sendReviewNotificationSafely({
       technicalVersionId,
       nodeKey: 'MERCHANDISER',
@@ -894,6 +941,58 @@ export function approveTechPackReview(
     })
   }
   return getTechnicalDataVersionById(technicalVersionId) || nextRecord
+}
+
+export function invalidateReviewForBomPriceChange(
+  technicalVersionId: string,
+  input: InvalidateReviewForBomPriceChangeInput,
+): TechnicalDataVersionRecord {
+  const changes = Array.isArray(input.changes) && input.changes.length > 0
+    ? input.changes
+    : Array.isArray(input.changedBomItemIds) && input.changedBomItemIds.length > 0
+    ? input.changedBomItemIds.map((targetId) => ({
+        changeSource: 'STANDARD_MATERIAL_PRICE_CNY' as const,
+        targetId,
+        beforeValue: input.beforePriceCny as number,
+        afterValue: input.afterPriceCny as number,
+      }))
+    : []
+  if (changes.length === 0) {
+    throw new Error('请提供价格变化明细。')
+  }
+  if (
+    changes.some((change) =>
+      !change.targetId.trim() ||
+      !Number.isFinite(change.beforeValue) ||
+      !Number.isFinite(change.afterValue)
+    )
+  ) {
+    throw new Error('价格变化数据无效。')
+  }
+
+  const record = requireDraftRecord(technicalVersionId)
+  if (changes.every((change) => change.beforeValue === change.afterValue)) {
+    return record
+  }
+
+  const operator = normalizeOperator(input.operator, '系统价格联动')
+  const snapshot = normalizeTechnicalReviewSnapshot(record)
+  const changedAt = nowText()
+  return saveReviewPatch(technicalVersionId, {
+    reviewStage: '第一阶段并行审核',
+    buyerReview: resetReviewNodeForRework({
+      record,
+      nodeKey: 'BUYER',
+      currentNode: snapshot.buyerReview,
+      returnedAt: changedAt,
+      operatorName: operator.name,
+    }),
+    patternMakerReview: snapshot.patternMakerReview,
+    merchandiserReview: snapshot.merchandiserReview,
+    reviewUnlockedModuleKeys: ['BOM', 'COST'],
+    updatedAt: changedAt,
+    updatedBy: operator.name,
+  })
 }
 
 export function rejectTechPackReview(
