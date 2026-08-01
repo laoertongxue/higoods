@@ -13,6 +13,7 @@ import { buildPatternSignature, checkDuplicatePattern } from './pattern-duplicat
 import { renderPieceInstanceSpecialCraftDialog } from './pattern-domain.ts'
 import { renderBomFormDialog } from './bom-domain.ts'
 import { renderAddTechniqueDialog } from './process-domain.ts'
+import { getBomPricingPage, setBomPricingPage } from './cost-domain.ts'
 import {
   publishTechnicalDataVersion,
   saveTechnicalDataVersionRecordMeta,
@@ -33,7 +34,13 @@ import {
   formatTechPackDesignRequirementBlockMessage,
   validateTechPackDesignRequirement,
 } from '../../data/pcs-tech-pack-design-requirement.ts'
-import { getFixedTechPackReviewers } from '../../data/pcs-tech-pack-reviewer-directory.ts'
+import { getFixedTechPackReviewers, getTechPackReviewerById } from '../../data/pcs-tech-pack-reviewer-directory.ts'
+import {
+  saveTechnicalDataVersionBomCustomCosts,
+  saveTechnicalDataVersionBomMaterialLine,
+} from '../../data/pcs-engineering-bom-pricing.ts'
+import { getTechnicalDataVersionContent } from '../../data/pcs-technical-data-version-repository.ts'
+import type { EngineeringBomOperatorRole } from '../../data/pcs-engineering-bom-types.ts'
 import type {
   TechnicalGarmentDifficultyGrade,
   TechnicalModuleKey,
@@ -170,6 +177,12 @@ const TECH_PACK_ACTION_MODULE_MAP: Record<string, TechnicalModuleKey> = {
   'delete-bom': 'BOM',
   'add-custom-cost': 'COST',
   'delete-custom-cost': 'COST',
+  'add-bom-custom-cost': 'COST',
+  'delete-bom-custom-cost': 'COST',
+  'bom-material-previous-page': 'COST',
+  'bom-material-next-page': 'COST',
+  'bom-custom-cost-previous-page': 'COST',
+  'bom-custom-cost-next-page': 'COST',
   'confirm-color-mapping': 'COLOR_MATERIAL_MAPPING',
   'mark-color-mapping-manual': 'COLOR_MATERIAL_MAPPING',
   'copy-system-draft-manual': 'COLOR_MATERIAL_MAPPING',
@@ -240,6 +253,7 @@ function getTechPackFieldModuleKey(field: string): TechnicalModuleKey | null {
   const normalized = field.trim()
   if (!normalized) return null
   if (normalized === 'garment-difficulty-grade') return 'QUALITY'
+  if (normalized.startsWith('bom-pricing-') || normalized.startsWith('bom-custom-cost-')) return 'COST'
   if (normalized.startsWith('new-bom-') || normalized.startsWith('bom-')) return 'BOM'
   if (
     normalized.startsWith('custom-cost-') ||
@@ -1782,6 +1796,50 @@ function applyPatternPackageToAssociation(patternPackageId: string): void {
   refreshPatternPieceTotals()
 }
 
+function getCurrentEngineeringBomRole(): EngineeringBomOperatorRole {
+  return getTechPackReviewerById(currentUser.id)?.roles.includes('买手') ? '买手' : '管理员'
+}
+
+function updateCurrentBomPricingLine(
+  node: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
+  patch: Parameters<typeof saveTechnicalDataVersionBomMaterialLine>[2],
+): void {
+  const technicalVersionId = state.currentTechnicalVersionId
+  const bomItemId = node.dataset.bomItemId
+  if (!technicalVersionId || !bomItemId) return
+  try {
+    saveTechnicalDataVersionBomMaterialLine(technicalVersionId, bomItemId, patch, getCurrentEngineeringBomRole())
+    state.bomItems = state.bomItems.map((item) => item.id === bomItemId
+      ? {
+          ...item,
+          materialSkuId: patch.materialSkuId ?? item.materialSkuId,
+          usage: patch.usage ?? item.usage,
+          sampleQuantity: patch.sampleQuantity ?? item.sampleQuantity ?? 1,
+          unit: patch.usageUnit ?? item.unit,
+          lossRate: patch.lossRate ?? item.lossRate,
+        }
+      : item)
+  } catch (error) {
+    window.alert(error instanceof Error ? error.message : '保存 BOM 与价格失败。')
+  }
+}
+
+function updateCurrentBomCustomCost(
+  index: number,
+  patch: Partial<{ title: string; amountIdr: number }>,
+): void {
+  const technicalVersionId = state.currentTechnicalVersionId
+  if (!technicalVersionId) return
+  const content = getTechnicalDataVersionContent(technicalVersionId)
+  if (!content) return
+  const customCosts = (content.bomCustomCosts ?? []).map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item)
+  try {
+    saveTechnicalDataVersionBomCustomCosts(technicalVersionId, customCosts, getCurrentEngineeringBomRole())
+  } catch (error) {
+    window.alert(error instanceof Error ? error.message : '保存自定义费用失败。')
+  }
+}
+
 function handleTechPackField(
   node: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
 ): boolean {
@@ -2634,6 +2692,31 @@ function handleTechPackField(
       ...item,
       packagingRequired: item.technique === '整件毛织' || item.woolTaskType === 'WHOLE_GARMENT' ? checked : false,
     }))
+    return true
+  }
+
+  if (field === 'bom-pricing-usage') {
+    updateCurrentBomPricingLine(node, { usage: Number.parseFloat(value) })
+    return true
+  }
+  if (field === 'bom-pricing-sample-quantity') {
+    updateCurrentBomPricingLine(node, { sampleQuantity: Number.parseFloat(value) })
+    return true
+  }
+  if (field === 'bom-pricing-loss-rate') {
+    updateCurrentBomPricingLine(node, { lossRate: Number.parseFloat(value) / 100 })
+    return true
+  }
+  if (field === 'bom-pricing-usage-unit') {
+    updateCurrentBomPricingLine(node, { usageUnit: value })
+    return true
+  }
+  if (field === 'bom-custom-cost-title') {
+    updateCurrentBomCustomCost(Number.parseInt(node.dataset.costIndex || '-1', 10), { title: value })
+    return true
+  }
+  if (field === 'bom-custom-cost-amount-idr') {
+    updateCurrentBomCustomCost(Number.parseInt(node.dataset.costIndex || '-1', 10), { amountIdr: Number.parseFloat(value) })
     return true
   }
 
@@ -4065,6 +4148,48 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     syncProcessCostRows()
     markProcessRouteUnconfirmed()
     syncTechPackToStore()
+    return true
+  }
+
+  if (action === 'bom-material-previous-page' || action === 'bom-material-next-page') {
+    const offset = action.endsWith('next-page') ? 1 : -1
+    setBomPricingPage('material', getBomPricingPage('material') + offset)
+    return true
+  }
+  if (action === 'bom-custom-cost-previous-page' || action === 'bom-custom-cost-next-page') {
+    const offset = action.endsWith('next-page') ? 1 : -1
+    setBomPricingPage('customCost', getBomPricingPage('customCost') + offset)
+    return true
+  }
+  if (action === 'add-bom-custom-cost') {
+    const technicalVersionId = state.currentTechnicalVersionId
+    const content = technicalVersionId ? getTechnicalDataVersionContent(technicalVersionId) : null
+    if (!technicalVersionId || !content) return true
+    try {
+      saveTechnicalDataVersionBomCustomCosts(
+        technicalVersionId,
+        [...(content.bomCustomCosts ?? []), { title: `自定义费用-${(content.bomCustomCosts?.length ?? 0) + 1}`, amountIdr: 0 }],
+        getCurrentEngineeringBomRole(),
+      )
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '添加自定义费用失败。')
+    }
+    return true
+  }
+  if (action === 'delete-bom-custom-cost') {
+    const technicalVersionId = state.currentTechnicalVersionId
+    const content = technicalVersionId ? getTechnicalDataVersionContent(technicalVersionId) : null
+    const costIndex = Number.parseInt(actionNode.dataset.costIndex || '-1', 10)
+    if (!technicalVersionId || !content || costIndex < 0) return true
+    try {
+      saveTechnicalDataVersionBomCustomCosts(
+        technicalVersionId,
+        (content.bomCustomCosts ?? []).filter((_, index) => index !== costIndex),
+        getCurrentEngineeringBomRole(),
+      )
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '删除自定义费用失败。')
+    }
     return true
   }
 

@@ -37,6 +37,12 @@ function requireBuyer(role: EngineeringBomOperatorRole): void {
   if (role !== '买手') throw new Error('只有买手可以维护 BOM 与价格。')
 }
 
+function requireEditableTechnicalVersion(technicalVersionId: string): void {
+  const record = getTechnicalDataVersionById(technicalVersionId)
+  if (!record) throw new Error('未找到技术包版本。')
+  if (record.versionStatus !== 'DRAFT') throw new Error('已发布的正式版本技术包不能编辑。')
+}
+
 function resolveConversion(materialSkuId: string, usageUnit: string, pricingUnit: string): number {
   if (usageUnit === pricingUnit) return 1
   const sku = getMaterialSkuRecordById(materialSkuId)
@@ -166,7 +172,7 @@ export function assertEngineeringBomCanSubmitForReview(
   if (invalid) throw new Error(`物料 ${invalid.materialSkuCode} 标准单价失效，不能提交技术包审核。`)
 }
 
-function buildTechnicalDataVersionBomDraft(
+export function buildTechnicalDataVersionBomDraft(
   technicalVersionId: string,
 ): EngineeringBomDraft | null {
   const content = getTechnicalDataVersionContent(technicalVersionId)
@@ -189,6 +195,72 @@ function buildTechnicalDataVersionBomDraft(
     }),
     customCosts: content.bomCustomCosts ?? [],
   }
+}
+
+export function getTechnicalDataVersionBomWorkspace(technicalVersionId: string): EngineeringBomResolvedDraft {
+  const draft = buildTechnicalDataVersionBomDraft(technicalVersionId)
+  if (!draft) {
+    return resolveEngineeringBomDraft({ materialLines: [], customCosts: [] })
+  }
+  return resolveEngineeringBomDraft(draft)
+}
+
+export function saveTechnicalDataVersionBomMaterialLine(
+  technicalVersionId: string,
+  bomItemId: string,
+  patch: Partial<EngineeringBomMaterialLineDraft>,
+  role: EngineeringBomOperatorRole,
+): EngineeringBomResolvedDraft {
+  requireBuyer(role)
+  requireEditableTechnicalVersion(technicalVersionId)
+  const content = getTechnicalDataVersionContent(technicalVersionId)
+  if (!content) throw new Error('未找到技术包版本内容。')
+  const item = content.bomItems.find((candidate) => candidate.id === bomItemId)
+  if (!item) throw new Error('未找到要维护的 BOM 物料行。')
+  const materialSkuId = patch.materialSkuId ?? item.materialSkuId
+  if (!materialSkuId) throw new Error('BOM 物料行未关联物料 SKU。')
+  const nextLine = buildEngineeringBomMaterialLine({
+    materialSkuId,
+    usage: patch.usage ?? item.unitConsumption,
+    sampleQuantity: patch.sampleQuantity ?? item.sampleQuantity ?? 1,
+    usageUnit: patch.usageUnit ?? item.unit ?? '',
+    lossRate: patch.lossRate ?? item.lossRate,
+  }, role)
+  const sku = getMaterialSkuRecordById(nextLine.materialSkuId)
+  if (!sku) throw new Error('未找到可用的物料 SKU，无法加入 BOM。')
+  const nextItems = content.bomItems.map((candidate) => candidate.id === bomItemId
+    ? {
+        ...candidate,
+        materialSkuId: nextLine.materialSkuId,
+        materialCode: sku.materialCode,
+        name: sku.materialName,
+        spec: sku.specName,
+        unit: nextLine.usageUnit,
+        unitConsumption: nextLine.usage,
+        sampleQuantity: nextLine.sampleQuantity,
+        lossRate: nextLine.lossRate,
+      }
+    : candidate)
+  updateTechnicalDataVersionContent(technicalVersionId, { bomItems: nextItems })
+  return getTechnicalDataVersionBomWorkspace(technicalVersionId)
+}
+
+export function saveTechnicalDataVersionBomCustomCosts(
+  technicalVersionId: string,
+  customCosts: EngineeringBomDraft['customCosts'],
+  role: EngineeringBomOperatorRole,
+): EngineeringBomResolvedDraft {
+  requireBuyer(role)
+  requireEditableTechnicalVersion(technicalVersionId)
+  calculateEngineeringBomCost({
+    exchangeRateIdrPerCny: getLatestPcsExchangeRate().idrPerCny,
+    materialLines: [],
+    customCosts,
+  })
+  updateTechnicalDataVersionContent(technicalVersionId, {
+    bomCustomCosts: customCosts.map((item) => ({ title: item.title.trim(), amountIdr: item.amountIdr })),
+  })
+  return getTechnicalDataVersionBomWorkspace(technicalVersionId)
 }
 
 export function assertTechnicalDataVersionBomCanSubmitForReview(technicalVersionId: string): void {

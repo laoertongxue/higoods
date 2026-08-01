@@ -218,6 +218,7 @@ type BomItemRow = {
   type: '面料' | '辅料' | '包装材料' | '成衣' | '其他'
   colorLabel: string
   materialCode: string
+  materialSkuId?: string
   materialName: string
   spec: string
   unit: string
@@ -226,6 +227,7 @@ type BomItemRow = {
   applicableSkuCodes: string[]
   usageProcessCodes: string[]
   usage: number
+  sampleQuantity?: number
   lossRate: number
   printRequirement: string
   waterSolubleRequirement: BomRequirementFlag
@@ -4415,6 +4417,7 @@ function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {
       type: item.type as BomItemRow['type'],
       colorLabel: item.colorLabel || '',
       materialCode: item.materialCode || item.id || `MAT-${index + 1}`,
+      materialSkuId: item.materialSkuId,
       materialName: item.name,
       spec: item.spec,
       unit: item.unit || '',
@@ -4423,6 +4426,7 @@ function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {
       applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
       usageProcessCodes: [...(item.usageProcessCodes ?? [])],
       usage: item.unitConsumption,
+      sampleQuantity: item.sampleQuantity ?? 1,
       lossRate: item.lossRate,
       printRequirement: item.printRequirement ?? '无',
       waterSolubleRequirement: item.waterSolubleRequirement ?? '否',
@@ -5087,9 +5091,11 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
         name: item.materialName,
         spec: item.spec,
         materialCode: item.materialCode,
+        materialSkuId: item.materialSkuId,
         unit: item.unit,
         colorLabel: item.colorLabel || undefined,
         unitConsumption: Number(item.usage) || 0,
+        sampleQuantity: item.sampleQuantity ?? 1,
         lossRate: Number(item.lossRate) || 0,
         supplier: '-',
         printRequirement: item.printRequirement || '无',

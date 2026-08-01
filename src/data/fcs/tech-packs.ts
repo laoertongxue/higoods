@@ -331,6 +331,7 @@ export type TechPackBomItemType = '面料' | '辅料' | '包装材料' | '成衣
 
 export interface TechPackBomItem {
   id: string
+  materialSkuId?: string
   type: TechPackBomItemType
   name: string
   spec: string
@@ -338,6 +339,7 @@ export interface TechPackBomItem {
   unit?: string
   colorLabel?: string
   unitConsumption: number
+  sampleQuantity?: number
   lossRate: number
   supplier: string
   printRequirement?: string
