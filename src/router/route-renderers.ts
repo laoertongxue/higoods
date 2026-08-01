@@ -163,7 +163,7 @@ export const renderPcsPartsArchiveCreatePage = createAsyncRenderer(
   'renderPcsPartsArchiveCreatePage',
 )
 export const renderPcsMaterialArchiveDetailPage = createAsyncRenderer(
-  () => import('../pages/pcs-material-archives'),
+  () => import('../pages/pcs-material-archive-detail'),
   'renderPcsMaterialArchiveDetailPage',
 )
 export const renderPcsChannelProductListPage = createAsyncRenderer(

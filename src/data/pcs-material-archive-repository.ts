@@ -1112,6 +1112,69 @@ export function getMaterialSkuRecordById(materialSkuId: string): MaterialSkuReco
   return record ? cloneSkuRecord(record) : null
 }
 
+export function updateMaterialUnitConversions(
+  materialId: string,
+  conversions: MaterialArchiveRecord['unitConversions'],
+  operatorName = '系统演示',
+): MaterialArchiveRecord {
+  const snapshot = loadSnapshot()
+  const material = snapshot.records.find((item) => item.materialId === materialId)
+  if (!material) throw new Error('未找到对应物料主档。')
+
+  const allowedUnits = new Set(uniqueUnits([material.mainUnit, ...material.auxiliaryUnits, material.pricingUnit]))
+  const seenPairs = new Set<string>()
+  const normalizedConversions = (conversions || []).map((item) => {
+    const fromUnit = normalizeUnitText(item.fromUnit)
+    const toUnit = normalizeUnitText(item.toUnit)
+    const factor = Number(item.factor)
+    if (!allowedUnits.has(fromUnit) || !allowedUnits.has(toUnit)) {
+      throw new Error('来源单位和目标单位只能选择该物料已维护的单位。')
+    }
+    if (fromUnit === toUnit) {
+      throw new Error('来源单位和目标单位不能相同。')
+    }
+    if (!Number.isFinite(factor) || factor <= 0) {
+      throw new Error('换算系数必须大于 0。')
+    }
+    const pairKey = `${fromUnit}\u0000${toUnit}`
+    if (seenPairs.has(pairKey)) {
+      throw new Error('单位换算关系不能重复。')
+    }
+    seenPairs.add(pairKey)
+    return { fromUnit, toUnit, factor }
+  })
+
+  const timestamp = nowText()
+  const updatedRecord = normalizeRecord({
+    ...material,
+    unitConversions: normalizedConversions,
+    updatedAt: timestamp,
+    updatedBy: operatorName,
+  })
+  const log = normalizeLogRecord({
+    logId: `${materialId}-log-unit-conversion-${Date.now()}`,
+    materialId,
+    operatorName,
+    title: '维护单位换算',
+    detail: normalizedConversions.length > 0
+      ? `已维护 ${normalizedConversions.length} 条单位换算关系。`
+      : '已清空单位换算关系。',
+    createdAt: timestamp,
+  })
+
+  persistSnapshot({
+    ...snapshot,
+    records: snapshot.records.map((item) => (item.materialId === materialId ? updatedRecord : item)),
+    skuRecords: snapshot.skuRecords.map((item) =>
+      item.materialId === materialId
+        ? normalizeSkuRecord({ ...item, unitConversions: normalizedConversions, updatedAt: timestamp, updatedBy: operatorName })
+        : item,
+    ),
+    logRecords: [log, ...snapshot.logRecords],
+  })
+  return cloneRecord(updatedRecord)
+}
+
 export function listMaterialUsageRecordsByMaterialId(materialId: string): MaterialUsageRecord[] {
   return loadSnapshot().usageRecords.filter((item) => item.materialId === materialId).map(cloneUsageRecord)
 }
