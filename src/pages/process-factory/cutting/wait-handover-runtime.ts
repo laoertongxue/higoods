@@ -1018,27 +1018,42 @@ export function buildWaitHandoverLocationOccupancyStates(
     if (event.eventType === '特殊工艺回仓') {
       const returnRecordId = runtimeString(payload.returnRecordId) || event.eventId
       const bagCode = runtimeString(payload.transferBagCode) || event.refs.transferBagCode || `return:${returnRecordId}`
-      const warehouseLocations = runtimeWarehouseLocations(payload)
+      const stateKeys = findWaitHandoverStateKeys(states, bagCode, event.refs.usageCycleId)
+      const currentStates = stateKeys
+        .map((stateKey) => states.get(stateKey))
+        .filter((state): state is WaitHandoverLocationOccupancyState => Boolean(state))
+      const current = currentStates[0]
+      const returnedLocations = runtimeWarehouseLocations(payload)
+      const warehouseLocations = currentStates
+        .flatMap((state) => state.warehouseLocations.length ? state.warehouseLocations : [state.locationRef])
+        .concat(returnedLocations)
+        .reduce<RuntimeWarehouseLocationRef[]>((merged, location) => {
+          const existingIndex = merged.findIndex((candidate) => candidate.locationId === location.locationId)
+          if (existingIndex >= 0) merged[existingIndex] = location
+          else merged.push(location)
+          return merged
+        }, [])
       if (!warehouseLocations.length) continue
-      const stateKeys = findWaitHandoverStateKeys(states, bagCode, event.refs.usageCycleId, warehouseLocations[0])
-      const current = stateKeys.length ? states.get(stateKeys[0]) : undefined
       const returnedQty = Number(event.inventoryEffect?.qty || 0)
       const nextQty = Number(current?.totalPieceQty || 0) + returnedQty
+      const nextTicketIds = Array.from(new Set([
+        ...currentStates.flatMap((state) => state.feiTicketIds),
+        ...(event.refs.feiTicketIds ?? []),
+      ]))
+      const usageCycleId = event.refs.usageCycleId || current?.usageCycleId
+      stateKeys.forEach((stateKey) => states.delete(stateKey))
       warehouseLocations.forEach((locationRef) => {
-        states.set(waitHandoverStateKey(bagCode, locationRef, event.refs.usageCycleId), {
+        states.set(waitHandoverStateKey(bagCode, locationRef, usageCycleId), {
           sourceEventId: event.eventId,
           bagCode,
           productionOrderNo: event.refs.productionOrderNo || current?.productionOrderNo || '',
-          feiTicketIds: Array.from(new Set([
-            ...(current?.feiTicketIds ?? []),
-            ...(event.refs.feiTicketIds ?? []),
-          ])),
+          feiTicketIds: nextTicketIds,
           totalPieceQty: nextQty,
           inboundAt: runtimeString(payload.returnedAt) || event.occurredAt,
           inboundBy: runtimeString(payload.returnedBy) || event.operatorName,
           locationRef,
           warehouseLocations,
-          usageCycleId: event.refs.usageCycleId || current?.usageCycleId,
+          usageCycleId,
           objectNo: runtimeString(payload.transferBagCode) || runtimeString(payload.returnRecordNo) || returnRecordId,
           objectName: runtimeString(payload.transferBagCode)
             ? `中转袋 ${runtimeString(payload.transferBagCode)}`
