@@ -3,6 +3,10 @@ import { readFileSync } from 'node:fs'
 import { buildDefaultFactoryInternalWarehouses, listFactoryInternalWarehouses } from '../src/data/fcs/factory-internal-warehouse.ts'
 import { mockFactories } from '../src/data/fcs/factory-mock-data.ts'
 import {
+  buildCuttingWarehouseAreaList,
+  buildCuttingWarehouseLocationNo,
+} from '../src/data/fcs/cutting/warehouse-location-mock.ts'
+import {
   applyWarehouseLayoutSnapshot,
   assignWarehouseLocationToShelf,
   appendWarehouseArea,
@@ -46,6 +50,48 @@ const cuttingWarehouses = buildDefaultFactoryInternalWarehouses(mockFactories)
   .filter((warehouse) => warehouse.factoryKind === 'CENTRAL_CUTTING')
 assert(cuttingWarehouses.some((warehouse) => warehouse.warehouseKind === 'WAIT_PROCESS'), '裁床工厂缺少待加工仓')
 assert(cuttingWarehouses.some((warehouse) => warehouse.warehouseKind === 'WAIT_HANDOVER'), '裁床工厂缺少待交出仓')
+
+assert.equal(buildCuttingWarehouseLocationNo('A', 2, 3, 2), 'A-R02-L03-P02')
+const expectedCuttingAreas = {
+  WAIT_PROCESS: buildCuttingWarehouseAreaList('WAIT_PROCESS'),
+  WAIT_HANDOVER: buildCuttingWarehouseAreaList('WAIT_HANDOVER'),
+}
+for (const kind of ['WAIT_PROCESS', 'WAIT_HANDOVER'] as const) {
+  const warehouse = cuttingWarehouses.find((item) => item.warehouseKind === kind)
+  assert(warehouse, `中央裁床缺少 ${kind} 仓库`)
+  assert.deepEqual(warehouse.areaList, expectedCuttingAreas[kind], `${kind} 未使用裁床专属层级库位 Mock`)
+  assert(warehouse.areaList.length > 1, `${kind} 必须包含多个库区`)
+  assert(warehouse.areaList.every((area) => area.shelfList.length > 0), `${kind} 每个库区必须包含货架`)
+  assert(warehouse.areaList.some((area) => area.shelfList.length > 1), `${kind} 必须覆盖同库区多个货架`)
+  const locations = warehouse.areaList.flatMap((area) => area.shelfList.flatMap((shelf) => shelf.locationList))
+  assert.equal(new Set(locations.map((location) => location.locationNo)).size, locations.length, `${kind} 完整库位编号必须唯一`)
+  assert.equal(new Set(locations.map((location) => location.locationId)).size, locations.length, `${kind} 稳定库位 ID 必须唯一`)
+}
+
+const waitProcessMock = expectedCuttingAreas.WAIT_PROCESS
+const waitHandoverMock = expectedCuttingAreas.WAIT_HANDOVER
+const findShelf = (areas: typeof waitProcessMock, areaCode: string, sequence: number) =>
+  areas.find((area) => area.code === areaCode)?.shelfList.find((shelf) => shelf.shelfSequence === sequence)
+const positionCountsByLevel = (shelf: NonNullable<ReturnType<typeof findShelf>>) => {
+  const counts = new Map<number, number>()
+  shelf.locationList.forEach((location) => {
+    const levelNo = location.levelNo ?? 0
+    counts.set(levelNo, (counts.get(levelNo) ?? 0) + 1)
+  })
+  return [...counts.entries()].sort(([left], [right]) => left - right).map(([, count]) => count)
+}
+
+assert.deepEqual(positionCountsByLevel(findShelf(waitProcessMock, 'A', 1)!), [3, 3, 3, 3], '待加工仓 A区 R01 应为4层每层3位')
+assert.deepEqual(positionCountsByLevel(findShelf(waitProcessMock, 'A', 2)!), [2, 2, 3], '待加工仓 A区 R02 应覆盖3层、每层2位和不等层示例')
+assert.deepEqual(positionCountsByLevel(findShelf(waitProcessMock, 'B', 1)!), [1, 1, 1, 1], '待加工仓 B区 R01 应为4层每层1位')
+assert.deepEqual(positionCountsByLevel(findShelf(waitHandoverMock, 'A', 1)!), [4, 4, 4, 4], '待交出仓 A区 R01 应为4层每层4位')
+assert.deepEqual(positionCountsByLevel(findShelf(waitHandoverMock, 'A', 2)!), [2, 2, 3, 2], '待交出仓 A区 R02 应覆盖4层、每层2位和不等层示例')
+assert.deepEqual(positionCountsByLevel(findShelf(waitHandoverMock, 'B', 1)!), [3, 3, 3], '待交出仓 B区 R01 应为3层每层3位')
+
+const waitProcessLocationIds = new Set(waitProcessMock.flatMap((area) => area.shelfList.flatMap((shelf) => shelf.locationList.map((location) => location.locationId))))
+const waitHandoverLocationIds = new Set(waitHandoverMock.flatMap((area) => area.shelfList.flatMap((shelf) => shelf.locationList.map((location) => location.locationId))))
+assert([...waitProcessLocationIds].every((id) => !waitHandoverLocationIds.has(id)), '待加工仓与待交出仓稳定库位 ID 不得交叉')
+assert.notDeepEqual(waitProcessMock, waitHandoverMock, '两仓层级数据必须相互隔离')
 
 const pdaWaitProcessSource = readFileSync(new URL('../src/pages/pda-warehouse-wait-process.ts', import.meta.url), 'utf8')
 const pdaInboundSource = readFileSync(new URL('../src/pages/pda-cutting-inbound.ts', import.meta.url), 'utf8')

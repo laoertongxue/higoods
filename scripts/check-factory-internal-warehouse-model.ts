@@ -29,6 +29,7 @@ import {
 import { getFactoryWarehouseProgressSnapshots } from '../src/data/fcs/progress-statistics-linkage.ts'
 import { getPdaHandoverRecordsByHead, listPdaHandoverHeads } from '../src/data/fcs/pda-handover-events.ts'
 import { listWarehouseIssueOrders } from '../src/data/fcs/warehouse-material-execution.ts'
+import { buildCuttingWarehouseLocationNo } from '../src/data/fcs/cutting/warehouse-location-mock.ts'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const SEWING_FACTORY_TYPES = new Set(['CENTRAL_GARMENT', 'SATELLITE_SEWING', 'THIRD_SEWING'])
@@ -139,6 +140,25 @@ assertContains(dataSource, 'export interface FactoryWarehouseStocktakeOrder', '�
 assertContains(dataSource, 'export interface FactoryWarehouseArea', '缺少库区模型')
 assertContains(dataSource, 'export interface FactoryWarehouseShelf', '缺少货架模型')
 assertContains(dataSource, 'export interface FactoryWarehouseLocation', '缺少库位模型')
+assert.equal(buildCuttingWarehouseLocationNo('A', 2, 3, 2), 'A-R02-L03-P02', '裁床完整库位编号格式不正确')
+const invalidCuttingWarehouseLocationArgs: Array<[string, number, number, number]> = [
+  ['', 1, 1, 1],
+  ['AA', 1, 1, 1],
+  ['a', 1, 1, 1],
+  ['A', 0, 1, 1],
+  ['A', 100, 1, 1],
+  ['A', 1, 0, 1],
+  ['A', 1, 100, 1],
+  ['A', 1, 1, 0],
+  ['A', 1, 1, 100],
+]
+invalidCuttingWarehouseLocationArgs.forEach((args) => {
+  assert.throws(() => buildCuttingWarehouseLocationNo(...args), '非法裁床库位编号参数必须抛错')
+})
+assertContains(dataSource, 'levelNo?: number', '共享库位模型缺少层号字段')
+assertContains(dataSource, 'positionNo?: number', '共享库位模型缺少层内位置号字段')
+assertContains(dataSource, 'shelfSequence?: number', '共享货架模型缺少货架序号字段')
+assertContains(dataSource, 'code?: string', '共享库区模型缺少库区代码字段')
 ;[
   'listFactoryInternalWarehouses',
   'listFactoryWaitProcessStockItems',
@@ -173,9 +193,9 @@ sewingFactories.forEach((factory) => {
 })
 assert(defaultWarehouses.every((item) => item.warehouseName.includes(item.warehouseShortName)), '仓库名称应包含仓库短名')
 assert(defaultWarehouses.every((item) => getFactoryWarehouseKindLabel(item.warehouseKind) === item.warehouseShortName), '仓库短名与仓库类型标签不一致')
-assert(standardWarehouses.every((item) => item.areaList.length >= 8), '普通默认仓库必须包含 A-F、异常区、待确认区')
+assert(standardWarehouses.filter((item) => item.factoryKind !== 'CENTRAL_CUTTING').every((item) => item.areaList.length >= 8), '普通默认仓库必须包含 A-F、异常区、待确认区')
 ;['A区', 'B区', 'C区', 'D区', 'E区', 'F区', '异常区', '待确认区'].forEach((areaName) => {
-  assert(standardWarehouses.every((warehouse) => warehouse.areaList.some((area) => area.areaName === areaName)), `普通默认仓库缺少库区：${areaName}`)
+  assert(standardWarehouses.filter((item) => item.factoryKind !== 'CENTRAL_CUTTING').every((warehouse) => warehouse.areaList.some((area) => area.areaName === areaName)), `普通默认仓库缺少库区：${areaName}`)
 })
 assert(defaultWarehouses.every((item) => item.areaList.every((area) => area.shelfList.length > 0)), '默认库区缺少货架')
 assert(

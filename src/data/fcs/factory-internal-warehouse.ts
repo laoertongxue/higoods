@@ -18,6 +18,7 @@ import type {
   ProcessWorkOrderSourceSnapshot,
   ProcessWorkOrderSourceType,
 } from './process-work-order-domain.ts'
+import { buildCuttingWarehouseAreaList } from './cutting/warehouse-location-mock.ts'
 
 export type FactoryInternalWarehouseKind = 'WAIT_PROCESS' | 'WAIT_HANDOVER'
 export type FactoryWarehouseLocationStatus = 'AVAILABLE' | 'STOPPED'
@@ -55,6 +56,8 @@ export interface FactoryWarehouseLocation {
   locationId: string
   locationNo: string
   locationName: string
+  levelNo?: number
+  positionNo?: number
   status: FactoryWarehouseLocationStatus
   remark?: string
 }
@@ -63,6 +66,7 @@ export interface FactoryWarehouseShelf {
   shelfId: string
   shelfNo: string
   shelfName: string
+  shelfSequence?: number
   locationList: FactoryWarehouseLocation[]
   status: FactoryWarehouseLocationStatus
   remark?: string
@@ -71,6 +75,7 @@ export interface FactoryWarehouseShelf {
 export interface FactoryWarehouseArea {
   areaId: string
   areaName: string
+  code?: string
   shelfList: FactoryWarehouseShelf[]
   status: FactoryWarehouseLocationStatus
   remark?: string
@@ -566,13 +571,15 @@ export function buildDefaultFactoryInternalWarehouses(factories: Factory[] = moc
     .flatMap((factory) => {
       const createdAt = factory.createdAt || '2026-04-01 08:00:00'
       const updatedAt = factory.updatedAt || createdAt
-      const areaList = factory.id === 'FAC-AUX-CRAFT'
-        ? buildCraftWarehouseAreas().filter((area) => area.areaId.startsWith('AUX-'))
-        : factory.id === 'FAC-SPC-CRAFT'
-          ? buildCraftWarehouseAreas().filter((area) => area.areaId.startsWith('SPC-'))
-          : buildDefaultAreaList()
       return (['WAIT_PROCESS', 'WAIT_HANDOVER'] as const).map((warehouseKind) => {
         const warehouseShortName = getWarehouseShortName(warehouseKind)
+        const areaList = factory.id === 'FAC-AUX-CRAFT'
+          ? buildCraftWarehouseAreas().filter((area) => area.areaId.startsWith('AUX-'))
+          : factory.id === 'FAC-SPC-CRAFT'
+            ? buildCraftWarehouseAreas().filter((area) => area.areaId.startsWith('SPC-'))
+            : factory.factoryType === 'CENTRAL_CUTTING'
+              ? buildCuttingWarehouseAreaList(warehouseKind)
+              : buildDefaultAreaList()
         return {
           warehouseId: `FIW-${factory.id}-${warehouseKind}`,
           factoryId: factory.id,
@@ -886,7 +893,7 @@ function buildOnboardingCuttingInternalWarehouses(): FactoryInternalWarehouse[] 
         warehouseShortName,
         isDefault: true,
         isEnabled: true,
-        areaList: buildDefaultAreaList(),
+        areaList: buildCuttingWarehouseAreaList(warehouseKind),
         createdAt: '2026-04-20 08:00:00',
         updatedAt: '2026-04-20 08:00:00',
       } satisfies FactoryInternalWarehouse

@@ -90,6 +90,8 @@
 
 ### 受管文件
 
+- `src/data/fcs/factory-internal-warehouse.ts`
+- `src/data/fcs/cutting/warehouse-location-mock.ts`
 - `src/components/ui/warehouse-location-map.ts`
 - `src/pages/process-factory/cutting/warehouse-location-layout-store.ts`
 - `src/pages/process-factory/cutting/warehouse-location-map-model.ts`
@@ -145,3 +147,37 @@
 结论：通过
 
 说明：设计、实现、逐项审计、专项、13 项直接回归、8 项库位图浏览器验收、生产总览两档分辨率浏览器复核、治理和构建均已通过。经用户授权，发布基线中的生产总览固定撑宽、面料图片、菲票普通场景、首次交出数量及特殊工艺成衣 BOM 追溯缺口均已从源头修复；最终以最后一次 CodeGraph 同步和机器收据为准。
+
+## 7. 2026-08-01 层级库位编号与 Mock 补充审查
+
+### 本次范围
+
+- 在共享工厂内部仓模型中兼容增加库区代码、货架序号、层号和层内位置号；“层”仍由库位字段分组，不新增独立主数据层级。
+- 中央裁床待加工仓、待交出仓改用相互隔离的 A/B 库区、多个货架和逐层位置数量 Mock；其他工厂继续使用原通用仓库结构。
+- 完整库位编号由系统按 `A-R02-L03-P02` 生成；库区仅允许 A 到 Z 单个大写字母，序号仅允许 1 到 99。
+- 本次不改页面、路由、PDA、交互和占用投影；现有页面继续消费共享仓库结构，具体占用写回由后续任务接入。
+
+### 自查结论
+
+| 检查项 | 结论 | 说明 |
+| --- | --- | --- |
+| 角色与页面模式 | 通过 | 本次只补共享结构和演示数据，不改变管理端、主管端、员工执行端现有页面模式。 |
+| 仓储识别与防错 | 通过 | 编号统一生成，阻断非法库区代码、越界序号和重复完整编号；稳定 ID 按待加工仓、待交出仓隔离。 |
+| 信息负荷与文案 | 通过 | 没有新增页面说明或内部状态码；层级字段只作为结构事实供后续地图分组。 |
+| 扫码、数量与异常 | 有条件通过 | 新 Mock 提供可稳定引用的库位 ID；扫码选择、占用对象和异常兜底未在本任务改动，保留给后续页面/投影任务。 |
+| UI、组件与性能 | 不适用 | 本次未改 UI、组件和交互，不引入页面重渲染。 |
+| 现场设备可用性 | 不适用 | 本次未改 PDA 或低分辨率页面。 |
+
+### 受管文件与验证
+
+- `src/data/fcs/factory-internal-warehouse.ts`
+- `src/data/fcs/cutting/warehouse-location-mock.ts`
+- `npm run check:factory-internal-warehouse-model`：通过。
+- `npm run check:cutting-warehouse-location-map`：通过。
+- `npm run check:prototype-design-governance -- --all`：通过。
+- `npm run build`：通过。
+
+### 例外与后续接入
+
+- 本次没有页面设计例外。
+- 占用记录尚未改写为新库位 ID；待后续任务在 `src/pages/process-factory/cutting/warehouse-location-map.ts` 的待加工仓、待交出仓占用投影，以及 PDA/Web 选位写入入口接入，不能把本次结构 Mock 表述为已完成占用写回。
