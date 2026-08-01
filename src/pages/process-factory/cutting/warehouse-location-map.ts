@@ -29,6 +29,7 @@ import {
   appendWarehouseArea,
   appendWarehouseLocation,
   applyWarehouseLayoutSnapshot,
+  replaceWarehouseAreaList,
   type FactoryWarehouseLayoutSnapshot,
 } from './warehouse-location-layout-store.ts'
 import {
@@ -847,6 +848,15 @@ function moveId(ids: string[], id: string, direction: -1 | 1): string[] {
   return next
 }
 
+function mutateSnapshotAreaList(
+  snapshot: FactoryWarehouseLayoutSnapshot,
+  mutate: (areaList: FactoryWarehouseArea[]) => void,
+): FactoryWarehouseLayoutSnapshot {
+  const areaList = structuredClone(snapshot.areaList)
+  mutate(areaList)
+  return replaceWarehouseAreaList(snapshot, areaList, '当前用户')
+}
+
 function persistSnapshot(
   kind: CuttingWarehouseMapKind,
   mutate: (snapshot: FactoryWarehouseLayoutSnapshot) => FactoryWarehouseLayoutSnapshot,
@@ -1031,39 +1041,29 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
     return true
   }
   if (action === 'move-area-left' || action === 'move-area-right') {
-    persistSnapshot(kind, (snapshot) => ({
-      ...snapshot,
-      areaOrder: moveId(snapshot.areaOrder, node.dataset.areaId || '', action.endsWith('left') ? -1 : 1),
+    persistSnapshot(kind, (snapshot) => mutateSnapshotAreaList(snapshot, (areaList) => {
+      const reorderedIds = moveId(areaList.map((area) => area.areaId), node.dataset.areaId || '', action.endsWith('left') ? -1 : 1)
+      areaList.sort((left, right) => reorderedIds.indexOf(left.areaId) - reorderedIds.indexOf(right.areaId))
     }))
     return true
   }
   if (action === 'move-shelf-up' || action === 'move-shelf-down') {
     const areaId = node.dataset.areaId || ''
-    persistSnapshot(kind, (snapshot) => ({
-      ...snapshot,
-      shelfOrderByAreaId: {
-        ...snapshot.shelfOrderByAreaId,
-        [areaId]: moveId(
-          snapshot.shelfOrderByAreaId[areaId] ?? [],
-          node.dataset.shelfId || '',
-          action.endsWith('up') ? -1 : 1,
-        ),
-      },
+    persistSnapshot(kind, (snapshot) => mutateSnapshotAreaList(snapshot, (areaList) => {
+      const area = areaList.find((item) => item.areaId === areaId)
+      if (!area) return
+      const reorderedIds = moveId(area.shelfList.map((shelf) => shelf.shelfId), node.dataset.shelfId || '', action.endsWith('up') ? -1 : 1)
+      area.shelfList.sort((left, right) => reorderedIds.indexOf(left.shelfId) - reorderedIds.indexOf(right.shelfId))
     }))
     return true
   }
   if (action === 'move-location-left' || action === 'move-location-right') {
     const shelfId = node.dataset.shelfId || ''
-    persistSnapshot(kind, (snapshot) => ({
-      ...snapshot,
-      locationOrderByShelfId: {
-        ...snapshot.locationOrderByShelfId,
-        [shelfId]: moveId(
-          snapshot.locationOrderByShelfId[shelfId] ?? [],
-          node.dataset.locationId || '',
-          action.endsWith('left') ? -1 : 1,
-        ),
-      },
+    persistSnapshot(kind, (snapshot) => mutateSnapshotAreaList(snapshot, (areaList) => {
+      const shelf = areaList.flatMap((area) => area.shelfList).find((item) => item.shelfId === shelfId)
+      if (!shelf) return
+      const reorderedIds = moveId(shelf.locationList.map((location) => location.locationId), node.dataset.locationId || '', action.endsWith('left') ? -1 : 1)
+      shelf.locationList.sort((left, right) => reorderedIds.indexOf(left.locationId) - reorderedIds.indexOf(right.locationId))
     }))
     return true
   }
@@ -1082,13 +1082,7 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
       window.alert('库位编号已存在，请更换后重试。')
       return true
     }
-    persistSnapshot(kind, (snapshot) => ({
-      ...snapshot,
-      locationLabelOverrides: {
-        ...snapshot.locationLabelOverrides,
-        [locationId]: { locationNo: nextNo, locationName: nextNo },
-      },
-    }))
+    window.alert('库位完整编号由库区代码、货架序号、层号和层内位置号自动生成，请在后续层级维护入口调整。')
     return true
   }
   if (action === 'rename-area') {
@@ -1104,12 +1098,9 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
       window.alert('库区名称已存在，请更换后重试。')
       return true
     }
-    persistSnapshot(kind, (snapshot) => ({
-      ...snapshot,
-      areaLabelOverrides: {
-        ...snapshot.areaLabelOverrides,
-        [areaId]: { areaName: nextName },
-      },
+    persistSnapshot(kind, (snapshot) => mutateSnapshotAreaList(snapshot, (areaList) => {
+      const targetArea = areaList.find((item) => item.areaId === areaId)
+      if (targetArea) targetArea.areaName = nextName
     }))
     return true
   }
@@ -1131,12 +1122,9 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
       window.alert('货架编号已存在，请更换后重试。')
       return true
     }
-    persistSnapshot(kind, (snapshot) => ({
-      ...snapshot,
-      shelfLabelOverrides: {
-        ...snapshot.shelfLabelOverrides,
-        [shelfId]: { shelfNo: nextNo },
-      },
+    persistSnapshot(kind, (snapshot) => mutateSnapshotAreaList(snapshot, (areaList) => {
+      const targetShelf = areaList.flatMap((item) => item.shelfList).find((item) => item.shelfId === shelfId)
+      if (targetShelf) targetShelf.shelfNo = nextNo
     }))
     return true
   }

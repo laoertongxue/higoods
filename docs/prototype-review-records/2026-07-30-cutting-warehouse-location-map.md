@@ -181,3 +181,40 @@
 
 - 本次没有页面设计例外。
 - 占用记录尚未改写为新库位 ID；待后续任务在 `src/pages/process-factory/cutting/warehouse-location-map.ts` 的待加工仓、待交出仓占用投影，以及 PDA/Web 选位写入入口接入，不能把本次结构 Mock 表述为已完成占用写回。
+
+## 8. 2026-08-01 v3 完整布局快照与维护动作审查
+
+### 本次范围
+
+- 本地布局事实改为 v3 完整不可变快照，直接保存当前库区、货架、库位树；删除顺序补丁、未编排、标签覆盖和新增节点覆盖模型。
+- 新建库区只建立空库区；新建货架按逐层位置数量一次生成全部库位。库区代码、货架序号、层号和层内位置号统一校验，完整编号由系统重算，稳定库位 ID 不随编号变化。
+- 占用库位只允许修改备注；减少、停用、撤销、上级改号和结构调整均阻断并展示冲突完整编号。
+- 非 v3 本地缓存直接失效，静默使用当前 Mock 默认布局建立 v3；布局版本冲突和历史版本继续保留。
+
+### 自查结论
+
+| 检查项 | 结论 | 说明 |
+| --- | --- | --- |
+| 角色与页面模式 | 通过 | 本次重写管理维护领域动作，不改变主管端、现场执行端现有导航和任务入口。 |
+| 仓储识别与防错 | 通过 | 结构字段均有 1 到 99 边界和唯一性校验；冲突错误列出完整库位编号，避免主管误改占用位置。 |
+| 文案与状态 | 通过 | 错误均使用可展示中文；页面不展示 schemaVersion、英文状态码或迁移提示。 |
+| 追溯与并发 | 通过 | 每个成功维护动作形成下一不可变版本，保存仍校验期望版本，并保留前后快照历史。 |
+| PDA 兼容 | 有条件通过 | PDA 删除已废弃的“未编排”读取，仍从 v3 完整树解析稳定库位；本任务不改扫码、多选和业务写回。 |
+| UI、组件与性能 | 有条件通过 | 旧地图维护入口仅通过完整 `areaList` 薄适配保持运行，不恢复 v2 补丁字段；正式分层维护弹窗由任务 6 替换。 |
+
+### 受管文件与验证
+
+- `src/pages/process-factory/cutting/warehouse-location-layout-store.ts`
+- `src/pages/process-factory/cutting/warehouse-location-map.ts`
+- `src/pages/process-factory/cutting/warehouse-location-map-model.ts`
+- `src/pages/pda-cutting-inbound.ts`
+- `scripts/check-cutting-warehouse-location-map.ts`
+- `npm run check:cutting-warehouse-location-map`：通过。
+- `npm run build`：通过。
+- `npm run check:prototype-design-governance -- --all`：通过。
+
+### 例外与后续接入
+
+- 当前原型不迁移 v1/v2 localStorage，不连接真实后端、权限或数据库锁；旧缓存静默失效是本次明确边界。
+- 旧“新增库区 / 新增库位、移动、改名”入口暂时使用 v3 完整快照薄适配，不恢复 patch/override 模型；任务 6 将用 `createWarehouseArea`、`createWarehouseShelf` 等正式领域动作替换旧入口并完成分层维护 UI。
+- 本任务不做库位图分层展示、不移除相邻选位、不改变 PDA/Web 占用写回。

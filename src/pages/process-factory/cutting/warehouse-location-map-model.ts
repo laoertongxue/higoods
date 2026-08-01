@@ -278,13 +278,6 @@ export function buildWarehouseLocationMapProjection(
         })),
     }))
   const cells = areas.flatMap((area) => area.shelves.flatMap((shelf) => shelf.locations))
-  const unassignedIds = new Set(snapshot.unassignedLocationIds ?? [])
-  const unassignedLocations = listStableWarehouseLocationRefs(warehouse)
-    .filter((location) => unassignedIds.has(location.locationId))
-    .map((location) => {
-      const override = snapshot.locationLabelOverrides?.[location.locationId]
-      return override ? { ...location, ...override } : location
-    })
   return {
     factoryId: effective.factoryId,
     warehouseId: effective.warehouseId,
@@ -294,7 +287,7 @@ export function buildWarehouseLocationMapProjection(
     emptyLocationCount: cells.filter((cell) => cell.businessStatus === 'EMPTY').length,
     occupiedLocationCount: cells.filter((cell) => cell.businessStatus === 'OCCUPIED').length,
     areas,
-    unassignedLocations,
+    unassignedLocations: [],
     unlocatedOccupancies: [
       ...occupancies.filter((occupancy) => !activeLocationIds.has(occupancy.locationId)).map((occupancy) => ({
         ...occupancy,

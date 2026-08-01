@@ -788,9 +788,6 @@ function validateCurrentWaitHandoverLocation(
     normalizeInboundCode(location.locationNo) === normalized,
   )
   if (rawMatches.length > 1) return { ok: false, message: '库位编号不唯一，请从库位图选择。' }
-  if (rawMatches[0] && loaded.snapshot.unassignedLocationIds.includes(rawMatches[0].locationId)) {
-    return { ok: false, message: '该库位尚未编排到货架，请联系仓务文员。' }
-  }
   if (rawMatches[0] && rawMatches[0].status !== 'AVAILABLE') {
     return { ok: false, message: '该库位已停用，请更换库位。' }
   }
