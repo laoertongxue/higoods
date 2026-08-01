@@ -180,6 +180,15 @@ function cloneContent(content: TechnicalDataVersionContent): TechnicalDataVersio
     processRouteChangeReason: content.processRouteChangeReason,
     sizeTable: cloneSizeTable(content.sizeTable),
     bomItems: cloneBomItems(content.bomItems),
+    bomCustomCosts: (content.bomCustomCosts ?? []).map((item) => ({ ...item })),
+    bomPricingSnapshot: content.bomPricingSnapshot
+      ? {
+          ...content.bomPricingSnapshot,
+          materialLines: content.bomPricingSnapshot.materialLines.map((item) => ({ ...item })),
+          customCosts: content.bomPricingSnapshot.customCosts.map((item) => ({ ...item })),
+          cost: { ...content.bomPricingSnapshot.cost },
+        }
+      : undefined,
     qualityRules: cloneQualityRules(content.qualityRules),
     colorMaterialMappings: cloneColorMappings(content.colorMaterialMappings),
     patternDesigns: clonePatternDesigns(content.patternDesigns),
@@ -428,6 +437,15 @@ function normalizeContent(content: TechnicalDataVersionContent): TechnicalDataVe
     ...normalizeRouteFields(content),
     sizeTable: cloneSizeTable(Array.isArray(content.sizeTable) ? content.sizeTable : []),
     bomItems: cloneBomItems(Array.isArray(content.bomItems) ? content.bomItems : []),
+    bomCustomCosts: Array.isArray(content.bomCustomCosts) ? content.bomCustomCosts.map((item) => ({ ...item })) : [],
+    bomPricingSnapshot: content.bomPricingSnapshot
+      ? {
+          ...content.bomPricingSnapshot,
+          materialLines: content.bomPricingSnapshot.materialLines.map((item) => ({ ...item })),
+          customCosts: content.bomPricingSnapshot.customCosts.map((item) => ({ ...item })),
+          cost: { ...content.bomPricingSnapshot.cost },
+        }
+      : undefined,
     qualityRules: cloneQualityRules(Array.isArray(content.qualityRules) ? content.qualityRules : []),
     colorMaterialMappings: cloneColorMappings(
       Array.isArray(content.colorMaterialMappings) ? content.colorMaterialMappings : [],

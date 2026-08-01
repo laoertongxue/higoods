@@ -1,3 +1,5 @@
+import type { EngineeringBomCustomCostDraft, EngineeringBomPricingSnapshot } from './pcs-engineering-bom-types.ts'
+
 export type TechnicalVersionStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
 export type TechnicalDomainStatus = 'EMPTY' | 'DRAFT' | 'COMPLETE'
 export type TechPackSourceTaskType = 'REVISION' | 'PLATE' | 'ARTWORK' | 'MANUAL'
@@ -387,9 +389,11 @@ export interface TechnicalBomItem {
   name: string
   spec: string
   materialCode?: string
+  materialSkuId?: string
   unit?: string
   colorLabel?: string
   unitConsumption: number
+  sampleQuantity?: number
   lossRate: number
   supplier: string
   printRequirement?: string
@@ -553,6 +557,8 @@ export interface TechnicalDataVersionContent {
   processRouteChangeReason?: string
   sizeTable: TechnicalSizeRow[]
   bomItems: TechnicalBomItem[]
+  bomCustomCosts?: EngineeringBomCustomCostDraft[]
+  bomPricingSnapshot?: EngineeringBomPricingSnapshot
   qualityRules: TechnicalQualityRule[]
   colorMaterialMappings: TechnicalColorMaterialMapping[]
   patternDesigns: TechnicalPatternDesign[]

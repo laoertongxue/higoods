@@ -91,11 +91,12 @@ function cloneRecord(record: MaterialArchiveRecord): MaterialArchiveRecord {
     processTags: Array.isArray(record.processTags) ? [...record.processTags] : [],
     auxiliaryUnits: Array.isArray(record.auxiliaryUnits) ? [...record.auxiliaryUnits] : [],
     galleryImageUrls: Array.isArray(record.galleryImageUrls) ? [...record.galleryImageUrls] : [],
+    unitConversions: Array.isArray(record.unitConversions) ? record.unitConversions.map((item) => ({ ...item })) : [],
   }
 }
 
 function cloneSkuRecord(record: MaterialSkuRecord): MaterialSkuRecord {
-  return { ...record }
+  return { ...record, unitConversions: Array.isArray(record.unitConversions) ? record.unitConversions.map((item) => ({ ...item })) : [] }
 }
 
 function cloneUsageRecord(record: MaterialUsageRecord): MaterialUsageRecord {
@@ -173,6 +174,11 @@ function normalizeRecord(record: MaterialArchiveRecord): MaterialArchiveRecord {
     pricingUnit: record.pricingUnit || 'PCS',
     mainUnit,
     auxiliaryUnits: resolveAuxiliaryUnits(record, mainUnit),
+    unitConversions: Array.isArray(record.unitConversions)
+      ? record.unitConversions
+          .filter((item) => item && item.fromUnit?.trim() && item.toUnit?.trim() && Number.isFinite(item.factor) && item.factor > 0)
+          .map((item) => ({ fromUnit: item.fromUnit.trim(), toUnit: item.toUnit.trim(), factor: item.factor }))
+      : [],
     remark: record.remark || '',
     createdAt: record.createdAt || record.updatedAt || nowText(),
     createdBy: record.createdBy || '系统初始化',
@@ -188,6 +194,8 @@ function normalizeSkuRecord(record: MaterialSkuRecord): MaterialSkuRecord {
     specName: record.specName || '-',
     sizeName: record.sizeName || '-',
     pricingUnit: record.pricingUnit || 'PCS',
+    unitConversions: Array.isArray(record.unitConversions) ? record.unitConversions.map((item) => ({ ...item })) : [],
+    costPrice: Number.isFinite(record.costPrice) && record.costPrice > 0 ? Number(record.costPrice.toFixed(4)) : 0,
     weightKg: Number.isFinite(record.weightKg) ? record.weightKg : 0,
     lengthCm: Number.isFinite(record.lengthCm) ? record.lengthCm : 0,
     widthCm: Number.isFinite(record.widthCm) ? record.widthCm : 0,
@@ -1149,6 +1157,7 @@ export function createMaterialArchive(input: {
   pricingUnit: string
   mainUnit?: string
   auxiliaryUnits?: string[]
+  unitConversions?: MaterialArchiveRecord['unitConversions']
   mainImageUrl: string
   barcodeTemplateCode: string
   remark: string
@@ -1172,6 +1181,7 @@ export function createMaterialArchive(input: {
     pricingUnit: input.pricingUnit || 'PCS',
     mainUnit: input.mainUnit || input.pricingUnit || MATERIAL_UNIT_DEFAULTS[input.kind].mainUnit,
     auxiliaryUnits: input.auxiliaryUnits || MATERIAL_UNIT_DEFAULTS[input.kind].auxiliaryUnits,
+    unitConversions: input.unitConversions || [],
     mainImageUrl: input.mainImageUrl || '',
     galleryImageUrls: input.mainImageUrl ? [input.mainImageUrl] : [],
     status: 'ACTIVE',
@@ -1235,6 +1245,7 @@ export function createMaterialSkuRecord(materialId: string, input: MaterialSkuDr
     costPrice: normalizedInput.costPrice,
     freightCost: normalizedInput.freightCost,
     pricingUnit: material.pricingUnit,
+    unitConversions: material.unitConversions,
     weightKg: normalizedInput.weightKg,
     lengthCm: normalizedInput.lengthCm,
     widthCm: normalizedInput.widthCm,

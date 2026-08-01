@@ -6,7 +6,11 @@ import { syncExistingProjectArchiveByProjectId } from './pcs-project-archive-syn
 import { upsertProjectRelation } from './pcs-project-relation-repository.ts'
 import { appendTechPackVersionLog } from './pcs-tech-pack-version-log-repository.ts'
 import { getStyleArchiveById, updateStyleArchive } from './pcs-style-archive-repository.ts'
-import { getTechnicalDataVersionById } from './pcs-technical-data-version-repository.ts'
+import {
+  getTechnicalDataVersionById,
+  getTechnicalDataVersionContent,
+} from './pcs-technical-data-version-repository.ts'
+import { freezeTechnicalDataVersionBomPricingSnapshot } from './pcs-engineering-bom-pricing.ts'
 
 function nowText(): string {
   const now = new Date()
@@ -33,6 +37,7 @@ export function activateTechPackVersionForStyle(
   }
 
   const activatedAt = nowText()
+  const content = getTechnicalDataVersionContent(technicalVersionId)
   updateStyleArchive(styleId, {
     archiveStatus: 'ACTIVE',
     techPackStatus: '已启用',
@@ -45,6 +50,9 @@ export function activateTechPackVersionForStyle(
     updatedAt: activatedAt,
     updatedBy: operatorName,
   })
+  if (content?.bomItems.some((item) => Boolean(item.materialSkuId))) {
+    freezeTechnicalDataVersionBomPricingSnapshot(technicalVersionId, activatedAt, operatorName)
+  }
 
   if (record.sourceProjectId) {
     const project = getProjectById(record.sourceProjectId)

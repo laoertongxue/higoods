@@ -1,0 +1,219 @@
+import { getMaterialArchiveById, getMaterialSkuRecordById } from './pcs-material-archive-repository.ts'
+import { getLatestPcsExchangeRate } from './pcs-exchange-rate-config.ts'
+import {
+  getTechnicalDataVersionById,
+  getTechnicalDataVersionContent,
+  updateTechnicalDataVersionContent,
+} from './pcs-technical-data-version-repository.ts'
+import type {
+  EngineeringBomCostResult,
+  EngineeringBomDraft,
+  EngineeringBomMaterialLineDraft,
+  EngineeringBomOperatorRole,
+  EngineeringBomPricingSnapshot,
+  EngineeringBomResolvedDraft,
+  EngineeringBomResolvedMaterialLine,
+} from './pcs-engineering-bom-types.ts'
+
+export const MATERIAL_STANDARD_PRICE_REQUIRED_MESSAGE = '该物料暂无标准单价，无法加入。请先维护该物料的标准单价。'
+
+function roundCny(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100
+}
+
+function roundIdr(value: number): number {
+  return Math.round(value)
+}
+
+function assertPositiveNumber(value: number, label: string): void {
+  if (!Number.isFinite(value) || value <= 0) throw new Error(`${label}必须大于 0。`)
+}
+
+function assertLossRate(value: number): void {
+  if (!Number.isFinite(value) || value < 0 || value >= 1) throw new Error('损耗率必须在 0（含）到 1（不含）之间。')
+}
+
+function requireBuyer(role: EngineeringBomOperatorRole): void {
+  if (role !== '买手') throw new Error('只有买手可以维护 BOM 与价格。')
+}
+
+function resolveConversion(materialSkuId: string, usageUnit: string, pricingUnit: string): number {
+  if (usageUnit === pricingUnit) return 1
+  const sku = getMaterialSkuRecordById(materialSkuId)
+  const archive = sku ? getMaterialArchiveById(sku.materialId) : null
+  const conversions = sku?.unitConversions?.length ? sku.unitConversions : archive?.unitConversions ?? []
+  const direct = conversions.find((item) => item.fromUnit === usageUnit && item.toUnit === pricingUnit)
+  if (direct && Number.isFinite(direct.factor) && direct.factor > 0) return direct.factor
+  const reverse = conversions.find((item) => item.fromUnit === pricingUnit && item.toUnit === usageUnit)
+  if (reverse && Number.isFinite(reverse.factor) && reverse.factor > 0) return 1 / reverse.factor
+  throw new Error(`物料 ${sku?.materialSkuCode || materialSkuId} 缺少 ${usageUnit} 到 ${pricingUnit} 的单位换算关系，无法加入 BOM。`)
+}
+
+export function buildEngineeringBomMaterialLine(
+  input: EngineeringBomMaterialLineDraft,
+  role: EngineeringBomOperatorRole,
+): EngineeringBomMaterialLineDraft {
+  requireBuyer(role)
+  assertPositiveNumber(input.usage, '单位用量')
+  assertPositiveNumber(input.sampleQuantity, '打样数量')
+  assertLossRate(input.lossRate)
+  const sku = getMaterialSkuRecordById(input.materialSkuId)
+  if (!sku || sku.status !== 'ACTIVE') throw new Error('未找到可用的物料 SKU，无法加入 BOM。')
+  if (!Number.isFinite(sku.costPrice) || sku.costPrice <= 0) throw new Error(MATERIAL_STANDARD_PRICE_REQUIRED_MESSAGE)
+  resolveConversion(sku.materialSkuId, input.usageUnit, sku.pricingUnit)
+  return {
+    materialSkuId: sku.materialSkuId,
+    usage: input.usage,
+    sampleQuantity: input.sampleQuantity,
+    usageUnit: input.usageUnit.trim(),
+    lossRate: input.lossRate,
+  }
+}
+
+export function calculateEngineeringBomCost(input: {
+  exchangeRateIdrPerCny: number
+  materialLines: Array<{
+    materialSkuId: string
+    usage: number
+    sampleQuantity?: number
+    usageUnit: string
+    pricingUnit: string
+    conversionToPricingUnit: number | null
+    lossRate: number
+    standardUnitPriceCny: number | null
+  }>
+  customCosts: Array<{ title: string; amountIdr: number }>
+}): EngineeringBomCostResult {
+  assertPositiveNumber(input.exchangeRateIdrPerCny, '汇率')
+  let rawMaterialCostCny = 0
+  for (const line of input.materialLines) {
+    if (!Number.isFinite(line.standardUnitPriceCny) || Number(line.standardUnitPriceCny) <= 0) {
+      throw new Error(MATERIAL_STANDARD_PRICE_REQUIRED_MESSAGE)
+    }
+    if (!Number.isFinite(line.conversionToPricingUnit) || Number(line.conversionToPricingUnit) <= 0) {
+      throw new Error('缺少所需单位换算关系，无法计算 BOM 成本。')
+    }
+    assertPositiveNumber(line.usage, '单位用量')
+    assertPositiveNumber(line.sampleQuantity ?? 1, '打样数量')
+    assertLossRate(line.lossRate)
+    rawMaterialCostCny +=
+      line.usage *
+      (line.sampleQuantity ?? 1) *
+      (1 + line.lossRate) *
+      Number(line.conversionToPricingUnit) *
+      Number(line.standardUnitPriceCny)
+  }
+  const customCostIdr = input.customCosts.reduce((total, item) => {
+    if (!item.title.trim()) throw new Error('自定义成本项名称不能为空。')
+    if (!Number.isFinite(item.amountIdr) || item.amountIdr < 0) throw new Error('自定义成本项金额不能小于 0。')
+    return total + item.amountIdr
+  }, 0)
+  return {
+    materialCostCny: roundCny(rawMaterialCostCny),
+    customCostIdr: roundIdr(customCostIdr),
+    comprehensiveCostCny: roundCny(rawMaterialCostCny + customCostIdr / input.exchangeRateIdrPerCny),
+    comprehensiveCostIdr: roundIdr(rawMaterialCostCny * input.exchangeRateIdrPerCny + customCostIdr),
+    exchangeRateIdrPerCny: input.exchangeRateIdrPerCny,
+  }
+}
+
+function resolveMaterialLine(line: EngineeringBomMaterialLineDraft): EngineeringBomResolvedMaterialLine {
+  const sku = getMaterialSkuRecordById(line.materialSkuId)
+  if (!sku) throw new Error('未找到 BOM 中的物料 SKU。')
+  const priceValid = sku.status === 'ACTIVE' && Number.isFinite(sku.costPrice) && sku.costPrice > 0
+  const conversion = resolveConversion(sku.materialSkuId, line.usageUnit, sku.pricingUnit)
+  const rawCost = priceValid
+    ? line.usage * line.sampleQuantity * (1 + line.lossRate) * conversion * sku.costPrice
+    : null
+  return {
+    ...line,
+    materialCode: sku.materialCode,
+    materialSkuCode: sku.materialSkuCode,
+    materialName: sku.materialName,
+    pricingUnit: sku.pricingUnit,
+    conversionToPricingUnit: conversion,
+    standardUnitPriceCny: priceValid ? Number(sku.costPrice.toFixed(4)) : null,
+    standardUnitPriceCurrency: 'CNY',
+    priceStatus: priceValid ? '有效' : '标准单价失效',
+    materialCostCny: rawCost === null ? null : roundCny(rawCost),
+  }
+}
+
+export function resolveEngineeringBomDraft(draft: EngineeringBomDraft): EngineeringBomResolvedDraft {
+  const materialLines = draft.materialLines.map(resolveMaterialLine)
+  const validLines = materialLines.filter(
+    (line): line is EngineeringBomResolvedMaterialLine & { standardUnitPriceCny: number } => line.standardUnitPriceCny !== null,
+  )
+  const rate = getLatestPcsExchangeRate()
+  const cost = calculateEngineeringBomCost({
+    exchangeRateIdrPerCny: rate.idrPerCny,
+    materialLines: validLines,
+    customCosts: draft.customCosts,
+  })
+  return {
+    materialLines,
+    customCosts: draft.customCosts.map((item) => ({ ...item, currency: 'IDR' })),
+    cost,
+  }
+}
+
+export function assertEngineeringBomCanSubmitForReview(
+  draft: EngineeringBomResolvedDraft,
+  role: EngineeringBomOperatorRole,
+): void {
+  requireBuyer(role)
+  const invalid = draft.materialLines.find((item) => item.priceStatus === '标准单价失效')
+  if (invalid) throw new Error(`物料 ${invalid.materialSkuCode} 标准单价失效，不能提交技术包审核。`)
+}
+
+export function freezeEngineeringBomPricingSnapshot(input: EngineeringBomDraft & { frozenAt: string; frozenBy: string }): EngineeringBomPricingSnapshot {
+  const resolved = resolveEngineeringBomDraft(input)
+  assertEngineeringBomCanSubmitForReview(resolved, '买手')
+  return {
+    snapshotVersion: 1,
+    frozenAt: input.frozenAt,
+    frozenBy: input.frozenBy,
+    exchangeRateIdrPerCny: resolved.cost.exchangeRateIdrPerCny,
+    exchangeRateSource: '系统最新汇率',
+    materialLines: resolved.materialLines.map((item) => ({
+      ...item,
+      standardUnitPriceCny: item.standardUnitPriceCny as number,
+      materialCostCny: item.materialCostCny as number,
+    })),
+    customCosts: resolved.customCosts,
+    cost: { ...resolved.cost },
+  }
+}
+
+export function freezeTechnicalDataVersionBomPricingSnapshot(
+  technicalVersionId: string,
+  frozenAt: string,
+  frozenBy: string,
+): EngineeringBomPricingSnapshot {
+  const record = getTechnicalDataVersionById(technicalVersionId)
+  if (!record) throw new Error('未找到技术包版本，无法形成 BOM 成本快照。')
+  if (record.versionStatus !== 'PUBLISHED' || record.reviewStage !== '已发布') {
+    throw new Error('技术包必须完成审核发布后，才能形成正式 BOM 成本快照。')
+  }
+  const content = getTechnicalDataVersionContent(technicalVersionId)
+  if (!content) throw new Error('未找到技术包版本内容，无法形成 BOM 成本快照。')
+  const materialLines = content.bomItems.map((item) => {
+    if (!item.materialSkuId) throw new Error(`BOM 行 ${item.name} 未关联物料 SKU，无法形成正式成本快照。`)
+    return {
+      materialSkuId: item.materialSkuId,
+      usage: item.unitConsumption,
+      sampleQuantity: item.sampleQuantity ?? 1,
+      usageUnit: item.unit || '',
+      lossRate: item.lossRate,
+    }
+  })
+  const snapshot = freezeEngineeringBomPricingSnapshot({
+    materialLines,
+    customCosts: content.bomCustomCosts ?? [],
+    frozenAt,
+    frozenBy,
+  })
+  const updated = updateTechnicalDataVersionContent(technicalVersionId, { bomPricingSnapshot: snapshot })
+  if (!updated) throw new Error('保存技术包 BOM 成本快照失败。')
+  return snapshot
+}

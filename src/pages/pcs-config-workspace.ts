@@ -24,6 +24,7 @@ import {
   type ProductCategoryNode,
 } from '../data/pcs-config-workspace-repository.ts'
 import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
+import { getLatestPcsExchangeRate, updateLatestPcsExchangeRate } from '../data/pcs-exchange-rate-config.ts'
 
 type WorkspaceStatusFilter = '全部状态' | '启用中' | '停用中'
 type FlatModalMode = 'create' | 'edit' | 'logs'
@@ -48,7 +49,7 @@ const PRODUCT_CATEGORY_META = {
 }
 
 const state = {
-  activeDimension: PRODUCT_CATEGORY_META.id as ConfigWorkspaceDimensionId,
+  activeDimension: PRODUCT_CATEGORY_META.id as ConfigWorkspaceDimensionId | 'exchangeRate',
   search: '',
   statusFilter: '全部状态' as WorkspaceStatusFilter,
   notice: null as string | null,
@@ -65,6 +66,7 @@ const state = {
     sortOrder: '1',
     status: 'ENABLED' as ConfigStatus,
   },
+  exchangeRateDraft: String(getLatestPcsExchangeRate().idrPerCny),
   expandedCategoryIds: new Set<string>(['product-category-1', 'product-category-2']),
 }
 
@@ -232,8 +234,34 @@ function renderSidebar(): string {
             ${typeof summary.count === 'number' ? `<span class="inline-flex min-w-8 items-center justify-center rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-sm text-slate-700">${escapeHtml(String(summary.count))}</span>` : ''}
           </button>
         `).join('')}
+        <button
+          type="button"
+          class="${escapeHtml(toClassName('flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-left text-[15px] transition', state.activeDimension === 'exchangeRate' ? 'bg-blue-50 text-blue-700' : 'text-slate-800 hover:bg-slate-50'))}"
+          data-pcs-config-workspace-action="switch-dimension"
+          data-dimension-id="exchangeRate"
+        ><span class="${state.activeDimension === 'exchangeRate' ? 'font-semibold' : 'font-medium'}">人民币兑印尼盾汇率</span></button>
       </div>
     </aside>
+  `
+}
+
+function renderExchangeRateContent(): string {
+  const rate = getLatestPcsExchangeRate()
+  return `
+    <section class="rounded-xl border border-slate-200 bg-white p-5">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-semibold text-slate-900">人民币兑印尼盾汇率</h2>
+          <p class="mt-1 text-sm text-slate-500">BOM 与价格统一读取当前最新汇率。</p>
+        </div>
+        <div class="text-right text-xs text-slate-500">${escapeHtml(rate.updatedAt)} · ${escapeHtml(rate.updatedBy)}</div>
+      </div>
+      <div class="mt-5 max-w-md">
+        <label class="block text-sm font-medium text-slate-700">1 人民币 = 印尼盾</label>
+        <input type="number" value="${escapeHtml(state.exchangeRateDraft)}" data-pcs-config-workspace-field="exchange-rate-idr-per-cny" class="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-base text-slate-700 outline-none focus:border-blue-500" />
+        <button type="button" class="mt-4 inline-flex h-10 items-center rounded-lg bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-config-workspace-action="save-exchange-rate">保存汇率</button>
+      </div>
+    </section>
   `
 }
 
@@ -721,9 +749,11 @@ export function renderPcsConfigWorkspacePage(): string {
         <div class="flex min-h-[calc(100vh-156px)]">
           ${renderSidebar()}
           <main class="min-w-0 flex-1 bg-slate-50 px-4 py-4">
-            ${state.activeDimension === 'productCategories'
+            ${state.activeDimension === 'exchangeRate'
+              ? renderExchangeRateContent()
+              : state.activeDimension === 'productCategories'
               ? renderCategoryContent()
-              : renderFlatDimensionContent(state.activeDimension)}
+              : renderFlatDimensionContent(state.activeDimension as FlatDimensionId)}
           </main>
         </div>
       </div>
@@ -743,13 +773,24 @@ export function handlePcsConfigWorkspaceEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'switch-dimension') {
-    const dimensionId = actionNode.dataset.dimensionId as ConfigWorkspaceDimensionId
+    const dimensionId = actionNode.dataset.dimensionId as ConfigWorkspaceDimensionId | 'exchangeRate'
     if (dimensionId) {
       state.activeDimension = dimensionId
       state.search = ''
       state.statusFilter = '全部状态'
       closeAllDialogs()
       clearNotice()
+    }
+    return true
+  }
+
+  if (action === 'save-exchange-rate') {
+    try {
+      const saved = updateLatestPcsExchangeRate({ idrPerCny: Number(state.exchangeRateDraft), updatedBy: '系统管理员' })
+      state.exchangeRateDraft = String(saved.idrPerCny)
+      setNotice(`已更新汇率：1 人民币 = ${saved.idrPerCny} 印尼盾。`)
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : '保存汇率失败。')
     }
     return true
   }
@@ -875,6 +916,7 @@ export function handlePcsConfigWorkspaceInput(target: Element): boolean {
   if (field === 'category-name') { state.categoryDraft.name = value; return true }
   if (field === 'category-sort-order') { state.categoryDraft.sortOrder = value; return true }
   if (field === 'category-status') { state.categoryDraft.status = value as ConfigStatus; return true }
+  if (field === 'exchange-rate-idr-per-cny') { state.exchangeRateDraft = value; return true }
 
   return false
 }
@@ -891,5 +933,6 @@ export function resetPcsConfigWorkspaceState(): void {
   state.flatModal = null
   state.categoryModal = null
   state.expandedCategoryIds = new Set(['product-category-1', 'product-category-2'])
+  state.exchangeRateDraft = String(getLatestPcsExchangeRate().idrPerCny)
   resetDrafts()
 }

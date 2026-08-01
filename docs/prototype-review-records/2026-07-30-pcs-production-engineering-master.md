@@ -58,6 +58,16 @@
 - 两页输入仅保存页面草稿，操作成功局部刷新详情，失败仅更新就地反馈，不触发整页重绘；物料区保留分页口径。
 - 本切片不改 Task 7，不新增数据仓储，不设计异常流程或历史任务迁移。
 
+### 任务 7：BOM 与价格
+
+- 物料标准单价只读自物料档案 SKU 的 `costPrice`，币种固定人民币、展示 4 位小数；运费不计入 BOM 标准单价。
+- BOM 草稿只保存物料 SKU、单位用量、打样数量、损耗率和用量单位，计算时直接读取物料档案最新标准单价与系统配置最新汇率，不保存草稿价格快照，也不提供手动同步按钮。
+- 无有效标准单价的物料不能加入 BOM；草稿中的标准单价后续失效时，物料行显示“标准单价失效”并阻断提交技术包审核。
+- 用量单位与计价单位不一致时必须维护有效换算关系；成本按单位用量、打样数量、损耗率与换算系数自动计算。
+- 自定义成本项统一作用于整个 SPU、币种为印尼盾；综合成本同时显示人民币、印尼盾及系统最新人民币兑印尼盾汇率。
+- 只有买手可以维护“BOM 与价格”；系统配置页由管理员维护汇率。技术包经现有审核发布并启用为正式版本时，才冻结物料标准单价、换算、汇率与双币成本快照。
+- 技术包继续保留 BOM、COST、PATTERN、MATERIAL_PATTERN_LINK、COLOR_MATERIAL_MAPPING、PROCESS、SIZE、DESIGN、ATTACHMENT、QUALITY 十模块，本任务不改变审核节点与模块归属。
+
 ## 3. 自查结论
 
 | 审查项 | 结论 | 说明 |
@@ -78,6 +88,9 @@
 | 整单原子防错 | 通过 | 本轮所有通过行先完成资产资料预校验；任一行缺资料时，工程主单、任务、物料行、审核轮次与花型资产库均不改写。 |
 | 页面步骤与角色 | 通过 | 花型团队 / 染厂提交成果，跟单确认染色要求，买手逐项审核；页面只呈现当前角色必需字段与动作。 |
 | 交互与防错 | 通过 | 服务门禁就地反馈；通过行锁定，返工只开放失败行；输入和按钮不触发整页重绘。 |
+| BOM 与价格角色 | 通过 | 买手维护 BOM 与 IDR 自定义成本；管理员只在基础配置维护汇率，其他角色由动作层阻断。 |
+| 成本与单位防错 | 通过 | 无标准单价、标准价失效及缺少单位换算均阻断；数量、损耗、双币与汇率由系统计算。 |
+| 正式快照追溯 | 通过 | 草稿动态读取当前档案与汇率；正式技术包启用时冻结价格、换算、汇率、双币汇总及操作人时间。 |
 
 ## 4. 本次查漏补缺
 
@@ -138,6 +151,15 @@
 - `src/pages/pcs-engineering-tasks.ts`
 - `src/main-handlers/pcs-handlers.ts`
 - `src/main.ts`
+- `src/data/pcs-engineering-bom-types.ts`
+- `src/data/pcs-engineering-bom-pricing.ts`
+- `src/data/pcs-exchange-rate-config.ts`
+- `src/data/pcs-material-archive-types.ts`
+- `src/data/pcs-material-archive-repository.ts`
+- `src/pages/pcs-config-workspace.ts`
+- `src/data/pcs-technical-data-version-types.ts`
+- `src/data/pcs-technical-data-version-repository.ts`
+- `src/data/pcs-tech-pack-version-activation.ts`
 
 ### 例外
 
@@ -168,6 +190,9 @@
 - `npx tsx tests/pcs-engineering-pattern-assets.spec.ts`：通过（任务 6 切片 B：逐行生成、字段完整、未通过不生成、重试幂等、第二轮生成，以及后续通过行缺资料时整单零写入）。
 - `npx playwright test tests/pcs-engineering-task-review-ui.spec.ts`：通过（任务 6 切片 D：调色三阶段门禁、花型混合审核、原因必填、通过行锁定及仅失败行返工）。
 - `npx tsx tests/pcs-engineering-tasks.spec.ts`：通过（任务 6 事件入口守卫：真实 selector 语义、无效 `closest()` 返回值和缺少 `closest` 能力均安全分派）。
+- `npx tsx tests/pcs-engineering-bom-pricing.spec.ts`：通过（任务 7：标准价、换算、损耗与数量、双币、自定义成本、角色门禁、草稿动态价格／汇率、价格失效和正式快照）。
+- `npm run check:pcs-material-archive-units`：通过（任务 7）。
+- `npm run check:tech-pack-bom-unit-guard`：通过（任务 7）。
 
 ### 待交付前验证
 
