@@ -855,8 +855,40 @@ const validRepack = {
     confirmedAt: '2026-08-01 10:00',
     confirmedBy: '类型检查员',
   },
-} satisfies AppendCuttingRuntimeEventInput<'中转袋拆袋重装'>
+} satisfies AppendCuttingRuntimeEventInput
 void validRepack
+
+const validRecovery = {
+  eventType: '中转袋回收',
+  operatorName: '类型检查员',
+  payload: {
+    bagCode: 'BAG-TYPE-RECOVERY-001',
+    usageCycleId: 'cycle:BAG-TYPE-RECOVERY-001:001',
+    physicalBagReceived: true,
+    physicalBagEmpty: true,
+    recoveryMode: 'NORMAL',
+    recoveryNode: '裁片仓',
+    recoveryLocation: '中转袋回收位',
+    reason: '正常回收',
+    recoveredAt: '2026-08-01 10:01',
+    recoveredBy: '类型检查员',
+  },
+} satisfies AppendCuttingRuntimeEventInput
+void validRecovery
+
+const validScrap = {
+  eventType: '中转袋报废',
+  operatorName: '类型检查员',
+  payload: {
+    bagCode: 'BAG-TYPE-SCRAP-001',
+    idleConfirmed: true,
+    reason: '破损',
+    authorizedBy: '仓库经理',
+    scrappedAt: '2026-08-01 10:02',
+    scrappedBy: '类型检查员',
+  },
+} satisfies AppendCuttingRuntimeEventInput
+void validScrap
 
 const invalidRepack: AppendCuttingRuntimeEventInput<'中转袋拆袋重装'> = {
   eventType: '中转袋拆袋重装',
@@ -866,10 +898,46 @@ const invalidRepack: AppendCuttingRuntimeEventInput<'中转袋拆袋重装'> = {
 }
 void invalidRepack
 
+const invalidDefaultRepack: AppendCuttingRuntimeEventInput = {
+  eventType: '中转袋拆袋重装',
+  operatorName: '类型检查员',
+  // @ts-expect-error 默认事件输入也不得接受未建模的任意载荷。
+  payload: { arbitrary: 123 },
+}
+void invalidDefaultRepack
+
+const invalidDefaultRecovery: AppendCuttingRuntimeEventInput = {
+  eventType: '中转袋回收',
+  operatorName: '类型检查员',
+  // @ts-expect-error 默认回收事件输入不得接受未建模的任意载荷。
+  payload: { arbitrary: 123 },
+}
+void invalidDefaultRecovery
+
+const invalidDefaultScrap: AppendCuttingRuntimeEventInput = {
+  eventType: '中转袋报废',
+  operatorName: '类型检查员',
+  // @ts-expect-error 默认报废事件输入不得接受未建模的任意载荷。
+  payload: { arbitrary: 123 },
+}
+void invalidDefaultScrap
+
 appendCuttingRuntimeEvent({
   eventType: '中转袋拆袋重装',
   operatorName: '类型检查员',
   // @ts-expect-error 新增事件追加入口不得接受未建模的任意载荷。
+  payload: { arbitrary: 123 },
+})
+appendCuttingRuntimeEvent({
+  eventType: '中转袋回收',
+  operatorName: '类型检查员',
+  // @ts-expect-error 回收事件追加入口不得接受未建模的任意载荷。
+  payload: { arbitrary: 123 },
+})
+appendCuttingRuntimeEvent({
+  eventType: '中转袋报废',
+  operatorName: '类型检查员',
+  // @ts-expect-error 报废事件追加入口不得接受未建模的任意载荷。
   payload: { arbitrary: 123 },
 })
 appendCuttingRuntimeEventIdempotent({
@@ -877,6 +945,20 @@ appendCuttingRuntimeEventIdempotent({
   eventType: '中转袋拆袋重装',
   operatorName: '类型检查员',
   // @ts-expect-error 新增事件幂等追加入口不得接受未建模的任意载荷。
+  payload: { arbitrary: 123 },
+})
+appendCuttingRuntimeEventIdempotent({
+  idempotencyKey: 'RECOVERY-TYPE-INVALID',
+  eventType: '中转袋回收',
+  operatorName: '类型检查员',
+  // @ts-expect-error 回收事件幂等追加入口不得接受未建模的任意载荷。
+  payload: { arbitrary: 123 },
+})
+appendCuttingRuntimeEventIdempotent({
+  idempotencyKey: 'SCRAP-TYPE-INVALID',
+  eventType: '中转袋报废',
+  operatorName: '类型检查员',
+  // @ts-expect-error 报废事件幂等追加入口不得接受未建模的任意载荷。
   payload: { arbitrary: 123 },
 })
 `)

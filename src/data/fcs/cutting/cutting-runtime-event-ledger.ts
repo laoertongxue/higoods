@@ -581,11 +581,8 @@ export interface CuttingRuntimeEventLedgerStore {
   events: CuttingRuntimeEvent[]
 }
 
-export interface AppendCuttingRuntimeEventInput<
-  T extends CuttingRuntimeEventType = CuttingRuntimeEventType,
-> {
+interface AppendCuttingRuntimeEventInputBase {
   idempotencyKey?: string
-  eventType: T
   eventSource?: CuttingRuntimeEventSource
   eventStatus?: CuttingRuntimeEventStatus
   occurredAt?: string
@@ -597,8 +594,16 @@ export interface AppendCuttingRuntimeEventInput<
   material?: RuntimeMaterialSnapshot
   pattern?: RuntimePatternSnapshot
   inventoryEffect?: RuntimeInventoryEffect
-  payload: CuttingRuntimeEventPayloadFor<NoInferRuntimeEventType<T>>
 }
+
+export type AppendCuttingRuntimeEventInput<
+  T extends CuttingRuntimeEventType = CuttingRuntimeEventType,
+> = T extends CuttingRuntimeEventType
+  ? AppendCuttingRuntimeEventInputBase & {
+    eventType: T
+    payload: CuttingRuntimeEventPayloadFor<NoInferRuntimeEventType<T>>
+  }
+  : never
 
 function toArray<T>(value: unknown): T[] {
   return Array.isArray(value) ? value : []
@@ -881,7 +886,7 @@ export function appendCuttingRuntimeEvent<T extends CuttingRuntimeEventType>(
   const occurredAt = input.occurredAt || new Date().toISOString().slice(0, 16).replace('T', ' ')
   const refs = normalizeRefs(input.refs)
   const eventId = buildCuttingRuntimeEventId(input.eventType, refs, occurredAt)
-  const event: CuttingRuntimeEvent<T> = {
+  const event: CuttingRuntimeEvent = {
     eventId,
     eventNo: `${eventTypeCode(input.eventType)}-${compactDate(occurredAt)}`,
     idempotencyKey: input.idempotencyKey,
@@ -903,7 +908,7 @@ export function appendCuttingRuntimeEvent<T extends CuttingRuntimeEventType>(
   persistCuttingRuntimeEventLedgerStore({
     events: sortEvents(uniqueByEventId([event, ...store.events.filter((item) => item.eventId !== event.eventId)])),
   }, storage)
-  return event
+  return event as CuttingRuntimeEvent<T>
 }
 
 export function appendCuttingRuntimeEventIdempotent<T extends CuttingRuntimeEventType>(
@@ -924,7 +929,7 @@ export function appendCuttingRuntimeEventIdempotent<T extends CuttingRuntimeEven
     }
   }
   return {
-    event: appendCuttingRuntimeEvent(input, storage),
+    event: appendCuttingRuntimeEvent<T>(input, storage),
     appended: true,
   }
 }
