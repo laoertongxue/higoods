@@ -22,21 +22,24 @@ function isRealPrintImage(imageUrl: string | undefined): imageUrl is string {
   return /\.(?:jpe?g|png|webp)(?:[?#].*)?$/i.test(imageUrl)
 }
 
+const PRINT_READY_MESSAGE = 'A4 纸；每条交出记录一页，二维码可扫码追溯。'
+const PRINT_IMAGE_INCOMPLETE_MESSAGE = '款式图不完整，禁止正式打印；请先补齐真实款式图。'
+
+function printImageStateHandler(loaded: boolean): string {
+  return `const root=this.closest('[data-wool-handover-print-root]'); this.dataset.woolPrintImageReady='${loaded ? 'true' : 'false'}'; if (root) { const update=()=>{ const pages=[...root.querySelectorAll('[data-wool-handover-print-page][data-handover-id]')]; const images=pages.map((page)=>page.querySelector('[data-wool-print-style-image]')); const qrReady=pages.length>0 && pages.every((page)=>page.querySelector('[data-real-qr] svg')); const imagesSettled=images.every((image)=>image && image.complete); const ready=qrReady && images.every((image)=>image && image.complete && image.naturalWidth > 0 && image.dataset.woolPrintImageReady==='true'); const button=root.querySelector('[data-wool-print-button]'); if(button){button.disabled=!ready;button.setAttribute('aria-disabled',String(!ready));} const message=root.querySelector('[data-wool-print-readiness-message]'); if(message){const nextText=ready?'${PRINT_READY_MESSAGE}':'${PRINT_IMAGE_INCOMPLETE_MESSAGE}';if(message.textContent!==nextText)message.textContent=nextText;message.classList.toggle('text-slate-500',ready);message.classList.toggle('font-medium',!ready);message.classList.toggle('text-red-700',!ready);} if(qrReady&&imagesSettled&&root.__woolPrintObserver){root.__woolPrintObserver.disconnect();root.__woolPrintObserver=null;} }; root.__updateWoolPrintReadiness=update; if(!root.__woolPrintObserver){root.__woolPrintObserver=new MutationObserver(update);root.__woolPrintObserver.observe(root,{childList:true,subtree:true});} update(); }`
+}
+
 function renderStyleImage(imageUrl: string | undefined): string {
   if (!isRealPrintImage(imageUrl)) {
     return '<div class="flex h-28 w-28 shrink-0 items-center justify-center rounded-md border border-dashed border-red-300 bg-red-50 p-2 text-center text-xs text-red-700" data-testid="wool-print-style-image-missing">款式图缺失，需补真实图片</div>'
   }
-  return `<img src="${escapeHtml(imageUrl)}" alt="SPU 款式图" class="h-28 w-28 shrink-0 rounded-md border bg-white object-contain p-1" data-testid="wool-print-style-image" data-wool-print-style-image>`
+  return `<img src="${escapeHtml(imageUrl)}" alt="SPU 款式图" class="h-28 w-28 shrink-0 rounded-md border bg-white object-contain p-1" data-testid="wool-print-style-image" data-wool-print-style-image onload="${printImageStateHandler(true)}" onerror="${printImageStateHandler(false)}">`
 }
 
 function receiverLabel(record: WoolHandoverRecord): string {
   return record.receiverType === 'CUTTING_WAIT_HANDOVER_WAREHOUSE'
     ? '裁床工厂（裁床待交出仓）'
     : record.receiverName
-}
-
-function hasCompletePrintImages(order: WoolWorkOrder): boolean {
-  return isRealPrintImage(order.styleImageUrl)
 }
 
 function renderHandoverPage(order: WoolWorkOrder, record: WoolHandoverRecord, pageNo: number): string {
@@ -134,7 +137,6 @@ export function renderCraftWoolHandoverPrintPage(woolOrderId: string, handoverId
   const handovers = handoverId
     ? allHandovers.filter((record) => record.handoverId === handoverId)
     : allHandovers
-  const hasCompleteImages = hasCompletePrintImages(order)
   const emptyMessage = handoverId
     ? `未找到对应的交出记录：${escapeHtml(handoverId)}`
     : '该毛织加工单还没有交出记录，暂无可打印交出单。'
@@ -147,9 +149,9 @@ export function renderCraftWoolHandoverPrintPage(woolOrderId: string, handoverId
     <div class="print-toolbar mx-auto mb-4 flex w-[210mm] items-center justify-between rounded-md border bg-white p-3">
       <div>
         <div class="font-semibold">毛织交出单打印</div>
-        <div class="text-xs ${hasCompleteImages ? 'text-slate-500' : 'font-medium text-red-700'}">${hasCompleteImages ? 'A4 纸；每条交出记录一页，二维码可扫码追溯。' : '款式图不完整，禁止正式打印；请先补齐真实款式图。'}</div>
+        <div class="text-xs font-medium text-red-700" data-wool-print-readiness-message>${PRINT_IMAGE_INCOMPLETE_MESSAGE}</div>
       </div>
-      <button type="button" class="rounded-md border px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400" ${hasCompleteImages && handovers.length > 0 ? `onclick="const qrNodes = [...document.querySelectorAll('[data-real-qr]')]; if (!qrNodes.length || qrNodes.some((node) => !node.querySelector('svg'))) { window.alert('二维码正在生成，请稍后再打印。'); return; } window.print()"` : 'disabled aria-disabled="true"'}>打印</button>
+      <button type="button" class="rounded-md border px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400" data-wool-print-button disabled aria-disabled="true" ${handovers.length > 0 && isRealPrintImage(order.styleImageUrl) ? `onclick="const root=this.closest('[data-wool-handover-print-root]'); const pages=[...root.querySelectorAll('[data-wool-handover-print-page][data-handover-id]')]; const images=pages.map((page)=>page.querySelector('[data-wool-print-style-image]')); if(!pages.length||images.some((image)=>!image||!image.complete||image.naturalWidth<=0)){this.disabled=true;this.setAttribute('aria-disabled','true');const message=root.querySelector('[data-wool-print-readiness-message]');if(message){message.textContent='${PRINT_IMAGE_INCOMPLETE_MESSAGE}';message.classList.remove('text-slate-500');message.classList.add('font-medium','text-red-700');}return;} const qrNodes=pages.map((page)=>page.querySelector('[data-real-qr]')); if(qrNodes.some((node)=>!node||!node.querySelector('svg'))){window.alert('二维码正在生成，请稍后再打印。');return;} window.print()"` : ''}>打印</button>
     </div>
     ${handovers.length > 0
       ? handovers.map((record, index) => renderHandoverPage(order, record, index + 1)).join('')

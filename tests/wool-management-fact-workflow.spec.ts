@@ -15,12 +15,16 @@ type ScenarioOrder = {
   woolOrderNo: string
   taskId: string
   kind: 'WHOLE_GARMENT' | 'PART_PANEL'
+  styleImageUrl?: string
   mockScenarioCode?: string
   outputPlanLines: Array<{
     outputSkuCode: string
     plannedQty: number
     qtyUnit: string
     outputObjectType: 'GARMENT' | 'WOOL_PANEL'
+    colorName: string
+    sizeCode: string
+    requiredYarnSkus: string[]
   }>
 }
 
@@ -896,14 +900,21 @@ test('毛织交出单支持加工单批量打印和详情单条打印，SPU 仅�
   await expect(batchPages).toHaveCount(2)
   for (let index = 0; index < handovers.length; index += 1) {
     const printPage = batchPages.nth(index)
+    const handover = handovers[index]
+    const outputLine = order.outputPlanLines.find((line) => line.outputSkuCode === handover.outputSkuCode)
+    expect(outputLine).toBeTruthy()
     const spuInfo = printPage.locator('[data-wool-print-spu-info]')
     await expect(spuInfo).toContainText(order.styleNo)
     await expect(spuInfo.locator('[data-wool-print-style-image]')).toHaveCount(1)
     await expect(spuInfo.locator('[data-wool-print-style-image]')).toHaveAttribute('src', /\.jpg$/)
     await expect(printPage.locator('[data-wool-print-style-image]')).toHaveCount(1)
-    await expect(printPage).toContainText(order.outputPlanLines[0].outputSkuCode)
-    await expect(printPage).toContainText(order.outputPlanLines[0].colorName)
-    await expect(printPage).toContainText(order.outputPlanLines[0].sizeCode)
+    await expect(printPage).toContainText(handover.outputSkuCode)
+    await expect(printPage).toContainText(outputLine!.colorName)
+    await expect(printPage).toContainText(outputLine!.sizeCode)
+    await expect(printPage).toContainText(`${handover.handoverQty} 件`)
+    for (const yarnSkuCode of outputLine!.requiredYarnSkus) {
+      await expect(printPage).not.toContainText(yarnSkuCode)
+    }
     await expect(printPage).toContainText('下游接收工厂')
     await expect(printPage).not.toContainText('本次交出对应物料')
     await expect(printPage).not.toContainText('物料图')
@@ -927,6 +938,79 @@ test('毛织交出单支持加工单批量打印和详情单条打印，SPU 仅�
   await page.locator('[data-wool-handover-print-page]').screenshot({
     path: 'output/playwright/wool-handover-print-spu-integrated.png',
   })
+})
+
+test('毛织交出单仅在真实款式图与全部二维码就绪后允许打印', async ({ page }) => {
+  const emptyOrder = await findScenario(page, 'NO_YARN_RECEIPT')
+  await page.goto(`/fcs/craft/wool/work-orders/${encodeURIComponent(emptyOrder.woolOrderId)}/handover-print`)
+  await expect(page.locator('[data-wool-print-button]')).toBeDisabled()
+
+  const order = await findScenario(page, 'MULTIPLE_HANDOVERS_WITH_STOCK')
+  await page.evaluate(
+    ({ key, woolOrderId }) => {
+      const store = JSON.parse(localStorage.getItem(key) || '{}') as {
+        workOrders: Record<string, ScenarioOrder>
+      }
+      store.workOrders[woolOrderId].styleImageUrl = '/missing.jpg'
+      localStorage.setItem(key, JSON.stringify(store))
+    },
+    { key: WOOL_STORE_KEY, woolOrderId: order.woolOrderId },
+  )
+  await replaceWoolStoreFromStorage(page)
+  await page.goto(`/fcs/craft/wool/work-orders/${encodeURIComponent(order.woolOrderId)}/handover-print`)
+  await expect(page.locator('[data-wool-print-style-image]').first()).toHaveJSProperty('complete', true)
+  await expect(page.locator('[data-wool-print-button]')).toBeDisabled()
+  await expect(page.locator('[data-wool-print-readiness-message]')).toHaveText('款式图不完整，禁止正式打印；请先补齐真实款式图。')
+
+  await page.evaluate(
+    ({ key, woolOrderId, styleImageUrl }) => {
+      const store = JSON.parse(localStorage.getItem(key) || '{}') as {
+        workOrders: Record<string, ScenarioOrder>
+      }
+      store.workOrders[woolOrderId].styleImageUrl = styleImageUrl
+      localStorage.setItem(key, JSON.stringify(store))
+    },
+    { key: WOOL_STORE_KEY, woolOrderId: order.woolOrderId, styleImageUrl: order.styleImageUrl },
+  )
+  await replaceWoolStoreFromStorage(page)
+  await page.goto(`/fcs/craft/wool/work-orders/${encodeURIComponent(order.woolOrderId)}/handover-print`)
+  const printButton = page.locator('[data-wool-print-button]')
+  await expect(printButton).toBeEnabled()
+  await page.evaluate(() => {
+    ;(window as typeof window & { __woolPrintCalls?: number; __woolPrintAlert?: string }).__woolPrintCalls = 0
+    window.print = () => {
+      ;(window as typeof window & { __woolPrintCalls?: number }).__woolPrintCalls =
+        ((window as typeof window & { __woolPrintCalls?: number }).__woolPrintCalls || 0) + 1
+    }
+    window.alert = (message) => {
+      ;(window as typeof window & { __woolPrintAlert?: string }).__woolPrintAlert = String(message)
+    }
+    document.querySelectorAll('[data-real-qr] svg').forEach((svg) => svg.remove())
+  })
+  await printButton.click()
+  await expect.poll(() => page.evaluate(() => ({
+    calls: (window as typeof window & { __woolPrintCalls?: number }).__woolPrintCalls,
+    alert: (window as typeof window & { __woolPrintAlert?: string }).__woolPrintAlert,
+  }))).toEqual({ calls: 0, alert: '二维码正在生成，请稍后再打印。' })
+
+  await page.reload()
+  await expect(printButton).toBeEnabled()
+  await page.evaluate(() => {
+    ;(window as typeof window & { __woolPrintCalls?: number; __woolPrintAlert?: string }).__woolPrintCalls = 0
+    ;(window as typeof window & { __woolPrintAlert?: string }).__woolPrintAlert = ''
+    window.print = () => {
+      ;(window as typeof window & { __woolPrintCalls?: number }).__woolPrintCalls =
+        ((window as typeof window & { __woolPrintCalls?: number }).__woolPrintCalls || 0) + 1
+    }
+    window.alert = (message) => {
+      ;(window as typeof window & { __woolPrintAlert?: string }).__woolPrintAlert = String(message)
+    }
+  })
+  await printButton.click()
+  await expect.poll(() => page.evaluate(() => ({
+    calls: (window as typeof window & { __woolPrintCalls?: number }).__woolPrintCalls,
+    alert: (window as typeof window & { __woolPrintAlert?: string }).__woolPrintAlert,
+  }))).toEqual({ calls: 1, alert: '' })
 })
 
 test('1366×768 预热后唯一 PDA 主操作真实可见结果小于 200ms，输入与弹窗保持局部更新', async ({ page }) => {

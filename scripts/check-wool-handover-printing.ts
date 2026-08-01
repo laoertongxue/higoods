@@ -139,10 +139,18 @@ assert(
   '交出单必须复用 qrcode.react 生成真实可扫描二维码',
 )
 assert(
-  printSource.includes("document.querySelectorAll('[data-real-qr]')")
-    && printSource.includes("qrNodes.some((node) => !node.querySelector('svg'))")
+  printSource.includes("page.querySelector('[data-real-qr]')")
+    && printSource.includes("qrNodes.some((node)=>!node||!node.querySelector('svg'))")
     && printSource.includes('二维码正在生成，请稍后再打印。'),
   '正式打印按钮必须等待每张交出单的真实二维码 SVG 全部生成，避免批量打印空二维码',
+)
+assert(
+  printSource.includes('data-wool-print-button')
+    && printSource.includes('data-wool-print-readiness-message')
+    && printSource.includes('image.complete')
+    && printSource.includes('image.naturalWidth > 0')
+    && printSource.includes('disabled aria-disabled="true"'),
+  '正式打印按钮必须初始禁用，并以真实款式图加载结果和二维码 SVG 共同解锁',
 )
 assert(
   !printSource.includes('function qrCode')
@@ -261,8 +269,12 @@ for (const expectedRenderedText of [
   assert(renderedPrintPage.includes(expectedRenderedText), `实际交出单渲染结果缺少：${expectedRenderedText}`)
 }
 assert(!renderedPrintPage.includes(secondHandover.handoverId), '指定 handoverId 后只能打印对应单条交出记录')
+assert(
+  /data-wool-print-button[^>]*disabled[^>]*aria-disabled="true"/.test(renderedPrintPage),
+  '款式图与二维码完成浏览器加载前，正式打印按钮必须保持禁用',
+)
 assert.equal(
-  (renderedPrintPage.match(/data-wool-print-style-image/g) ?? []).length,
+  (renderedPrintPage.match(/<img[^>]+data-wool-print-style-image(?:\s|>)/g) ?? []).length,
   1,
   '每个 SPU 的交出单只能展示一张款式图',
 )
@@ -278,6 +290,10 @@ const renderedBatch = renderCraftWoolHandoverPrintPage(partPanelOrder.woolOrderI
 assert(renderedBatch.includes(handover.handoverId) && renderedBatch.includes(secondHandover.handoverId), '加工单入口必须批量打印全部交出记录')
 const renderedMissing = renderCraftWoolHandoverPrintPage(partPanelOrder.woolOrderId, 'WHO-NOT-FOUND')
 assert(renderedMissing.includes('未找到对应的交出记录'), '指定不存在的 handoverId 时必须显示清晰空态')
+assert(
+  /data-wool-print-button[^>]*disabled[^>]*aria-disabled="true"/.test(renderedMissing),
+  '无交出记录时正式打印按钮必须禁用',
+)
 assert(!renderedPrintPage.includes('菲票'), '实际毛织交出单渲染结果不得出现菲票语义')
 
 console.log('check:wool-handover-printing passed')
