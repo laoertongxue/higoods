@@ -954,9 +954,9 @@ export function buildCuttingRuntimeEventId(eventType: CuttingRuntimeEventType, r
   return `cutting-event:${eventTypeCode(eventType)}:${businessKey}:${compactDate(occurredAt)}`
 }
 
-export function appendCuttingRuntimeEvent<T extends CuttingRuntimeEventType>(
+function buildCuttingRuntimeEventFromStore<T extends CuttingRuntimeEventType>(
   input: AppendCuttingRuntimeEventInput<T>,
-  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+  store: CuttingRuntimeEventLedgerStore,
 ): CuttingRuntimeEvent<T> {
   const occurredAt = input.occurredAt || new Date().toISOString().slice(0, 16).replace('T', ' ')
   const { refs, payload } = normalizeAppendEventFacts(
@@ -964,7 +964,6 @@ export function appendCuttingRuntimeEvent<T extends CuttingRuntimeEventType>(
     input.refs,
     input.payload,
   )
-  const store = hydrateCuttingRuntimeEventLedgerStore(storage)
   const ledgerSequence = store.events.reduce(
     (maximum, event) => Math.max(
       maximum,
@@ -973,7 +972,7 @@ export function appendCuttingRuntimeEvent<T extends CuttingRuntimeEventType>(
     0,
   ) + 1
   const eventId = buildCuttingRuntimeEventId(input.eventType, refs, occurredAt)
-  const event: CuttingRuntimeEvent = {
+  return {
     eventId,
     eventNo: `${eventTypeCode(input.eventType)}-${compactDate(occurredAt)}`,
     ledgerSequence,
@@ -991,11 +990,30 @@ export function appendCuttingRuntimeEvent<T extends CuttingRuntimeEventType>(
     pattern: input.pattern,
     inventoryEffect: input.inventoryEffect,
     payload,
-  }
+  } as CuttingRuntimeEvent<T>
+}
+
+function persistCuttingRuntimeEventFromSnapshot<T extends CuttingRuntimeEventType>(
+  event: CuttingRuntimeEvent<T>,
+  store: CuttingRuntimeEventLedgerStore,
+  storage: BrowserStorageLike | null,
+): void {
   persistCuttingRuntimeEventLedgerStore({
-    events: sortEvents(uniqueByEventId([event, ...store.events.filter((item) => item.eventId !== event.eventId)])),
+    events: sortEvents(uniqueByEventId([
+      event,
+      ...store.events.filter((item) => item.eventId !== event.eventId),
+    ])),
   }, storage)
-  return event as CuttingRuntimeEvent<T>
+}
+
+export function appendCuttingRuntimeEvent<T extends CuttingRuntimeEventType>(
+  input: AppendCuttingRuntimeEventInput<T>,
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): CuttingRuntimeEvent<T> {
+  const store = hydrateCuttingRuntimeEventLedgerStore(storage)
+  const event = buildCuttingRuntimeEventFromStore<T>(input, store)
+  persistCuttingRuntimeEventFromSnapshot(event, store, storage)
+  return event
 }
 
 export function appendCuttingRuntimeEventIdempotent<T extends CuttingRuntimeEventType>(
@@ -1020,9 +1038,60 @@ export function appendCuttingRuntimeEventIdempotent<T extends CuttingRuntimeEven
       appended: false,
     }
   }
+  const event = buildCuttingRuntimeEventFromStore<T>(input, store)
+  persistCuttingRuntimeEventFromSnapshot(event, store, storage)
   return {
-    event: appendCuttingRuntimeEvent<T>(input, storage),
+    event,
     appended: true,
+  }
+}
+
+export function appendCuttingRuntimeEventIdempotentValidated<
+  T extends CuttingRuntimeEventType,
+>(
+  buildInput: (
+    snapshotEvents: readonly CuttingRuntimeEvent[],
+  ) => AppendCuttingRuntimeEventInput<T> & { idempotencyKey: string },
+  validateBeforePersist: (
+    candidate: CuttingRuntimeEvent<T>,
+    snapshotEvents: readonly CuttingRuntimeEvent[],
+  ) => void,
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): {
+  event: CuttingRuntimeEvent<T>
+  appended: boolean
+  snapshotEvents: readonly CuttingRuntimeEvent[]
+} {
+  const store = hydrateCuttingRuntimeEventLedgerStore(storage)
+  const snapshotEvents = store.events.slice()
+  const input = buildInput(snapshotEvents)
+  const existing = snapshotEvents.find(
+    (event) => event.idempotencyKey === input.idempotencyKey,
+  )
+  if (existing) {
+    if (existing.eventType !== input.eventType) {
+      throw new Error(
+        `幂等键 ${input.idempotencyKey} 已被其他事件类型占用：已有事件类型 ${existing.eventType}，本次事件类型 ${input.eventType}。`,
+      )
+    }
+    return {
+      event: existing as CuttingRuntimeEvent<T>,
+      appended: false,
+      snapshotEvents,
+    }
+  }
+  const candidate = buildCuttingRuntimeEventFromStore<T>(input, store)
+  const eventIdCollision = snapshotEvents.find((event) =>
+    event.eventId === candidate.eventId)
+  if (eventIdCollision) {
+    throw new Error(`事件编号 ${candidate.eventId} 已被其他幂等事实占用。`)
+  }
+  validateBeforePersist(candidate, snapshotEvents)
+  persistCuttingRuntimeEventFromSnapshot(candidate, store, storage)
+  return {
+    event: candidate,
+    appended: true,
+    snapshotEvents,
   }
 }
 

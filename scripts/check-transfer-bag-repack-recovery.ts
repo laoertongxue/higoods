@@ -4222,4 +4222,149 @@ function scrapInput(
   )
 }
 
+{
+  const qualityReviewRedFailures: string[] = []
+  const captureQualityReviewRed = (label: string, verify: () => void) => {
+    try {
+      verify()
+    } catch (error) {
+      qualityReviewRedFailures.push(`${label}: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+  const countedStorageFromRaw = (initialRaw: string | null) => {
+    let raw = initialRaw
+    let reads = 0
+    let writes = 0
+    const storage: BrowserStorageLike = {
+      getItem() {
+        reads += 1
+        return raw
+      },
+      setItem(_key, value) {
+        writes += 1
+        raw = value
+      },
+      removeItem() {
+        raw = null
+      },
+    }
+    return {
+      storage,
+      reads: () => reads,
+      writes: () => writes,
+      raw: () => raw,
+    }
+  }
+
+  captureQualityReviewRed('P1-1 recovery/scrap 新事实使用一次账本快照', () => {
+    const recoverySeed = createMemoryStorage()
+    const recoveryBagCode = 'BAG-QUALITY-SINGLE-SNAPSHOT-RECOVERY'
+    seedHandedOverBag(recoverySeed, recoveryBagCode)
+    const countedRecovery = countedStorageFromRaw(
+      recoverySeed.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY),
+    )
+    recoverTransferBag(recoveryInput(recoveryBagCode), countedRecovery.storage)
+    assert.equal(countedRecovery.reads(), 1, '回收新事实只能读取一次真实账本')
+    assert.equal(countedRecovery.writes(), 1, '回收新事实只能写入一次真实账本')
+
+    const scrapSeed = createMemoryStorage()
+    const scrapBagCode = 'BAG-QUALITY-SINGLE-SNAPSHOT-SCRAP'
+    seedHandedOverBag(scrapSeed, scrapBagCode)
+    recoverTransferBag(recoveryInput(scrapBagCode), scrapSeed)
+    const countedScrap = countedStorageFromRaw(
+      scrapSeed.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY),
+    )
+    submitTransferBagScrap(scrapInput(scrapBagCode), countedScrap.storage)
+    assert.equal(countedScrap.reads(), 1, '报废新事实只能读取一次真实账本')
+    assert.equal(countedScrap.writes(), 1, '报废新事实只能写入一次真实账本')
+  })
+
+  captureQualityReviewRed('P1-1 单次快照消除第二读取变化窗口', () => {
+    const stableSeed = createMemoryStorage()
+    const bagCode = 'BAG-QUALITY-SNAPSHOT-WINDOW'
+    const { usageCycleId } = seedHandedOverBag(stableSeed, bagCode)
+    const stableRaw = stableSeed.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY)
+    assert(stableRaw)
+
+    const changedSeed = createMemoryStorage()
+    changedSeed.setItem?.(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, stableRaw)
+    const changedTickets = [ticket('QUALITY-SNAPSHOT-CHANGED', 'PO-QUALITY-SNAPSHOT-CHANGED', 'FACTORY-HANDOVER')]
+    appendBagging({
+      storage: changedSeed,
+      bagCode,
+      usageCycleId: `usage:${bagCode}:changed`,
+      tickets: changedTickets,
+      occurredAt: '2026-08-01 08:30',
+    })
+    const changedRaw = changedSeed.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY)
+    let persistedRaw = stableRaw
+    let reads = 0
+    let writes = 0
+    const changingStorage: BrowserStorageLike = {
+      getItem() {
+        reads += 1
+        return reads === 1 ? stableRaw : changedRaw
+      },
+      setItem(_key, value) {
+        writes += 1
+        persistedRaw = value
+      },
+    }
+    const recovered = recoverTransferBag(recoveryInput(bagCode), changingStorage)
+    assert.equal(recovered.refs.usageCycleId, usageCycleId)
+    assert.equal(reads, 1, '同步命令不得存在第二次账本读取窗口')
+    assert.equal(writes, 1)
+    assert(persistedRaw?.includes(recovered.eventId))
+  })
+
+  captureQualityReviewRed('P1-2 非法操作时间在任何 storage 访问前拒绝', () => {
+    const invalidTimes = [
+      '任意文本',
+      '2026-02-30 09:00',
+      '2026-08-01 25:61',
+      '2026-08-01T09:00',
+    ]
+    for (const command of ['recover', 'scrap'] as const) {
+      for (const occurredAt of invalidTimes) {
+        const counted = countedStorageFromRaw(null)
+        const action = command === 'recover'
+          ? () => recoverTransferBag(recoveryInput(`BAG-INVALID-TIME-${command}`, { occurredAt }), counted.storage)
+          : () => submitTransferBagScrap(scrapInput(`BAG-INVALID-TIME-${command}`, { occurredAt }), counted.storage)
+        assert.throws(
+          action,
+          (error: unknown) => error instanceof Error
+            && error.message === '操作时间格式不正确，请使用 YYYY-MM-DD HH:mm。',
+          `${command} 必须拒绝非法时间 ${occurredAt}`,
+        )
+        assert.equal(counted.reads(), 0, `${command} 非法时间不得读取 storage`)
+        assert.equal(counted.writes(), 0, `${command} 非法时间不得写入 storage`)
+      }
+    }
+  })
+
+  captureQualityReviewRed('P1-2 undefined 默认时间与合法同分钟保持兼容', () => {
+    const recoveryStorage = createMemoryStorage()
+    const recoveryBagCode = 'BAG-QUALITY-DEFAULT-TIME-RECOVERY'
+    seedHandedOverBag(recoveryStorage, recoveryBagCode)
+    const recovered = recoverTransferBag(recoveryInput(recoveryBagCode, {
+      occurredAt: undefined,
+    }), recoveryStorage)
+    assert.match(recovered.occurredAt, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/)
+    assert.equal((recovered.payload as Record<string, unknown>).recoveredAt, recovered.occurredAt)
+
+    const scrapStorage = createMemoryStorage()
+    const scrapped = submitTransferBagScrap(scrapInput('BAG-QUALITY-DEFAULT-TIME-SCRAP', {
+      occurredAt: undefined,
+    }), scrapStorage)
+    assert.match(scrapped.occurredAt, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/)
+    assert.equal((scrapped.payload as Record<string, unknown>).scrappedAt, scrapped.occurredAt)
+  })
+
+  assert.deepEqual(
+    qualityReviewRedFailures,
+    [],
+    `质量审查 P1 红灯：\n${qualityReviewRedFailures.join('\n')}`,
+  )
+}
+
 console.log('PASS check-transfer-bag-repack-recovery')

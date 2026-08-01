@@ -896,6 +896,189 @@ const buildPayloadOnlyRepackInput = (
   },
 })
 
+{
+  const atomicAppendFailures: string[] = []
+  const validatedAppend = (
+    runtimeLedger as unknown as Record<string, unknown>
+  ).appendCuttingRuntimeEventIdempotentValidated
+  const callValidated = (
+    input: AppendCuttingRuntimeEventInput<'中转袋拆袋重装'> & { idempotencyKey: string },
+    validateBeforePersist: (candidate: Record<string, unknown>, snapshotEvents: Array<Record<string, unknown>>) => void,
+    storage: ReturnType<typeof createMemoryStorage>,
+  ) => {
+    assert.equal(typeof validatedAppend, 'function', 'ledger 必须提供受校验幂等追加 API')
+    return (validatedAppend as Function)(
+      () => input,
+      validateBeforePersist,
+      storage,
+    ) as {
+      event: Record<string, unknown>
+      appended: boolean
+      snapshotEvents: Array<Record<string, unknown>>
+    }
+  }
+  const captureAtomicAppend = (label: string, verify: () => void) => {
+    try {
+      verify()
+    } catch (error) {
+      atomicAppendFailures.push(`${label}: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+  const countingStorage = (initialRaw: string | null = null) => {
+    let raw = initialRaw
+    let reads = 0
+    let writes = 0
+    const storage = {
+      getItem() {
+        reads += 1
+        return raw
+      },
+      setItem(_key: string, value: string) {
+        writes += 1
+        raw = value
+      },
+      removeItem() {
+        raw = null
+      },
+    }
+    return {
+      storage,
+      reads: () => reads,
+      writes: () => writes,
+      raw: () => raw,
+      resetCounts: () => {
+        reads = 0
+        writes = 0
+      },
+    }
+  }
+
+  captureAtomicAppend('validated 新事实单次快照读写与候选一致', () => {
+    const counted = countingStorage()
+    let validatedCandidate: Record<string, unknown> | null = null
+    const input = buildPayloadOnlyRepackInput(' REPACK-VALIDATED ', 'REPACK-VALIDATED-KEY')
+    const result = callValidated(input, (candidate, snapshotEvents) => {
+      validatedCandidate = structuredClone(candidate)
+      assert.equal(snapshotEvents.length, 0)
+      assert.equal(candidate.ledgerSequence, 1)
+      assert.equal((candidate.refs as Record<string, unknown>).repackBatchId, 'REPACK-VALIDATED')
+      assert.equal((candidate.payload as Record<string, unknown>).repackBatchId, 'REPACK-VALIDATED')
+    }, counted.storage)
+    assert.equal(result.appended, true)
+    assert.deepEqual(result.event, validatedCandidate, '校验候选必须与最终持久化事件完全一致')
+    assert.equal(counted.reads(), 1, 'validated 新事实路径只能读取一次真实账本')
+    assert.equal(counted.writes(), 1, 'validated 新事实路径只能写入一次真实账本')
+    assert.equal(runtimeLedger.listCuttingRuntimeEvents(counted.storage).length, 1)
+
+    counted.resetCounts()
+    let retryValidationCalls = 0
+    const retry = callValidated(input, () => {
+      retryValidationCalls += 1
+    }, counted.storage)
+    assert.equal(retry.appended, false)
+    assert.equal(retry.event.eventId, result.event.eventId)
+    assert.equal(retryValidationCalls, 0, 'existing 同 key 必须直接返回，不重复校验或写入')
+    assert.equal(counted.reads(), 1)
+    assert.equal(counted.writes(), 0)
+  })
+
+  captureAtomicAppend('validated 碰撞和回调异常保持零写', () => {
+    const seeded = countingStorage()
+    const baseInput = buildPayloadOnlyRepackInput('REPACK-VALIDATED-COLLISION', 'VALIDATED-COLLISION-BASE')
+    callValidated(baseInput, () => undefined, seeded.storage)
+    const beforeRaw = seeded.raw()
+
+    seeded.resetCounts()
+    assert.throws(
+      () => (validatedAppend as Function)(
+        () => ({
+          ...scrapAppendInput,
+          idempotencyKey: 'VALIDATED-COLLISION-BASE',
+        }),
+        () => undefined,
+        seeded.storage,
+      ),
+      /VALIDATED-COLLISION-BASE.*中转袋拆袋重装.*中转袋报废/,
+    )
+    assert.equal(seeded.reads(), 1)
+    assert.equal(seeded.writes(), 0)
+    assert.equal(seeded.raw(), beforeRaw)
+
+    seeded.resetCounts()
+    assert.throws(
+      () => callValidated({
+        ...baseInput,
+        idempotencyKey: 'VALIDATED-EVENT-ID-COLLISION',
+      }, () => undefined, seeded.storage),
+      /事件编号.*占用/,
+      '不同幂等键生成相同 eventId 时必须零写拒绝',
+    )
+    assert.equal(seeded.reads(), 1)
+    assert.equal(seeded.writes(), 0)
+    assert.equal(seeded.raw(), beforeRaw)
+
+    const rejected = countingStorage()
+    assert.throws(
+      () => callValidated(
+        buildPayloadOnlyRepackInput('REPACK-VALIDATOR-REJECT', 'VALIDATOR-REJECT'),
+        () => { throw new Error('候选迁移无效') },
+        rejected.storage,
+      ),
+      /候选迁移无效/,
+    )
+    assert.equal(rejected.reads(), 1)
+    assert.equal(rejected.writes(), 0)
+    assert.equal(rejected.raw(), null)
+  })
+
+  captureAtomicAppend('validated setItem 失败不留下持久事实', () => {
+    let reads = 0
+    let writeAttempts = 0
+    let raw: string | null = null
+    const storage = {
+      getItem() {
+        reads += 1
+        return raw
+      },
+      setItem() {
+        writeAttempts += 1
+        throw new Error('模拟账本写入失败')
+      },
+      removeItem() {
+        raw = null
+      },
+    }
+    assert.throws(
+      () => callValidated(
+        buildPayloadOnlyRepackInput('REPACK-WRITE-FAIL', 'VALIDATED-WRITE-FAIL'),
+        () => undefined,
+        storage,
+      ),
+      /模拟账本写入失败/,
+    )
+    assert.equal(reads, 1)
+    assert.equal(writeAttempts, 1)
+    assert.equal(raw, null)
+  })
+
+  captureAtomicAppend('现有 idempotent 新事实不再二次 hydrate', () => {
+    const counted = countingStorage()
+    const result = runtimeLedger.appendCuttingRuntimeEventIdempotent(
+      buildPayloadOnlyRepackInput('REPACK-SINGLE-HYDRATE', 'REPACK-SINGLE-HYDRATE'),
+      counted.storage,
+    )
+    assert.equal(result.appended, true)
+    assert.equal(counted.reads(), 1, '现有 idempotent append 新事实也只能 hydrate 一次')
+    assert.equal(counted.writes(), 1)
+  })
+
+  assert.deepEqual(
+    atomicAppendFailures,
+    [],
+    `原子受校验 append 红灯：\n${atomicAppendFailures.join('\n')}`,
+  )
+}
+
 const repackCollisionStorage = createMemoryStorage()
 const repackBatchA = runtimeLedger.appendCuttingRuntimeEventIdempotent(
   buildPayloadOnlyRepackInput('REPACK-A', 'REPACK-COLLISION-A'),
