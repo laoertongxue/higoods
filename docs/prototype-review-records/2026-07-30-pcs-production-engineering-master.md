@@ -32,6 +32,14 @@
 - 依赖关系只读展示：前置依赖与下游任务以高亮表达，不提供人工调整依赖或删除依赖入口。
 - 任务卡点击打开右侧抽屉，展示来源款式、当前阶段与依赖、时效节点、物料明细与返工记录；空数据以“暂无”占位。
 
+### 任务 6 切片 A 业务事实（逐项审核服务）
+
+- 花型与调色任务按工程主单内的有效物料行整单审核；审核服务不读取旧花型任务仓库，也不生成花型资产。
+- 每轮必须覆盖全部当前待审核行；重复、遗漏、非当前有效行和未填写原因的未通过行均整体拒绝，不产生部分写入。
+- 任一物料行未通过时任务进入“返工中”，已通过行锁定；下一轮只能修改、重提和审核上一轮未通过行。
+- 全部有效物料行通过后任务进入“已完成”，保留每轮审核、返工轮次、首次完成时间和当前有效完成时间。
+- 本切片不改页面，不实现花型资产生成、调色角色阶段和生产准备时效回写。
+
 ## 3. 自查结论
 
 | 审查项 | 结论 | 说明 |
@@ -94,6 +102,9 @@
 - `src/router/route-renderers.ts`
 - `src/main-handlers/pcs-handlers.ts`
 - `src/data/app-shell-config.ts`
+- `src/data/pcs-engineering-master-types.ts`
+- `src/data/pcs-engineering-master-repository.ts`
+- `src/data/pcs-engineering-task-review.ts`
 
 ### 例外
 
@@ -119,6 +130,8 @@
 - `npm run check:list-page-governance`：通过（任务 4，含标准列表页模板与原型治理全量检查）。
 - `npm run check:menu-routes`：通过（任务 4）。
 - `npm run build`：通过（任务 4）。
+- `npx tsx tests/pcs-engineering-material-review.spec.ts`：通过（任务 6 切片 A）。
+- `npm run build`：通过（任务 6 切片 A）。
 
 ### 待交付前验证
 

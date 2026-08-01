@@ -39,8 +39,16 @@ function cloneTask(task: EngineeringTaskRecord): EngineeringTaskRecord {
   return {
     ...task,
     dependsOnTaskIds: [...task.dependsOnTaskIds],
-    materialLines: task.materialLines.map((line) => ({ ...line })),
+    materialLines: task.materialLines.map((line) => ({
+      ...line,
+      resultFileIds: [...(line.resultFileIds || [])],
+      effectImageIds: [...(line.effectImageIds || [])],
+    })),
     reworkRounds: task.reworkRounds.map((round) => ({ ...round })),
+    materialReviewRounds: (task.materialReviewRounds || []).map((round) => ({
+      ...round,
+      decisions: round.decisions.map((decision) => ({ ...decision })),
+    })),
     resultImageIds: [...(task.resultImageIds || [])],
   }
 }
@@ -98,6 +106,20 @@ function normalizeRecord(record: EngineeringMasterOrderRecord): EngineeringMaste
           resultImageIds: Array.isArray(task.resultImageIds) ? [...task.resultImageIds] : [],
           resultQuantity: Number(task.resultQuantity || 0),
           resultSubmittedBy: task.resultSubmittedBy || '',
+          materialReviewRounds: Array.isArray(task.materialReviewRounds) ? task.materialReviewRounds : [],
+          materialLines: Array.isArray(task.materialLines)
+            ? task.materialLines.map((line) => ({
+                ...line,
+                resultFileIds: Array.isArray(line.resultFileIds) ? line.resultFileIds : [],
+                effectImageIds: Array.isArray(line.effectImageIds) ? line.effectImageIds : [],
+                resultSubmittedBy: line.resultSubmittedBy || '',
+                resultSubmittedAt: line.resultSubmittedAt || '',
+                reviewStatus: line.reviewStatus || '待提交',
+                reviewReason: line.reviewReason || '',
+                reviewedBy: line.reviewedBy || '',
+                reviewedAt: line.reviewedAt || '',
+              }))
+            : [],
         }))
       : [],
     priorResultReuseLines: Array.isArray(record.priorResultReuseLines) ? record.priorResultReuseLines : [],
@@ -220,6 +242,7 @@ export function publishEngineeringMasterOrder(masterOrderId: string): Engineerin
       resultImageIds: [],
       resultQuantity: 0,
       resultSubmittedBy: '',
+      materialReviewRounds: [],
     })
   }
 
@@ -260,6 +283,22 @@ export function setEngineeringMasterStatus(
   record.status = status
   writeSnapshot(snapshot)
   return cloneRecord(record)
+}
+
+// 工程任务事实只允许通过工程主单仓储改写；专业服务用此入口保持单一事实源。
+export function updateEngineeringTaskRecord(
+  masterOrderId: string,
+  taskId: string,
+  update: (task: EngineeringTaskRecord, master: EngineeringMasterOrderRecord) => void,
+): { masterOrder: EngineeringMasterOrderRecord; task: EngineeringTaskRecord } {
+  const snapshot = readSnapshot()
+  const master = snapshot.records.find((item) => item.masterOrderId === masterOrderId)
+  if (!master) throw new Error(`工程主单不存在：${masterOrderId}`)
+  const task = master.tasks.find((item) => item.taskId === taskId)
+  if (!task) throw new Error(`工程任务不存在：${taskId}`)
+  update(task, master)
+  writeSnapshot(snapshot)
+  return { masterOrder: cloneRecord(master), task: cloneTask(task) }
 }
 
 export interface SubmitEngineeringTaskResultInput {

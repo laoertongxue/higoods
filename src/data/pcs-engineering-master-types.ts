@@ -46,6 +46,25 @@ export const ENGINEERING_TASK_STATUSES: EngineeringTaskStatus[] = [
 
 export type EngineeringTaskMaterialRequirementType = '印花' | '染色' | '辅料'
 
+export type EngineeringMaterialReviewStatus = '待提交' | '待审核' | '通过' | '未通过'
+
+export interface EngineeringTaskMaterialReviewDecision {
+  materialLineId: string
+  decision: '通过' | '未通过'
+  reason: string
+  reviewedBy: string
+  reviewedAt: string
+}
+
+export interface EngineeringTaskMaterialReviewRound {
+  roundNo: number
+  submittedAt: string
+  submittedBy: string
+  reviewedAt: string
+  reviewedBy: string
+  decisions: EngineeringTaskMaterialReviewDecision[]
+}
+
 export interface EngineeringTaskMaterialLine {
   materialLineId: string
   materialSkuId: string
@@ -53,6 +72,14 @@ export interface EngineeringTaskMaterialLine {
   materialType: string
   requirementType: EngineeringTaskMaterialRequirementType
   status: '正常' | '因需求变更结束'
+  resultFileIds: string[]
+  effectImageIds: string[]
+  resultSubmittedBy: string
+  resultSubmittedAt: string
+  reviewStatus: EngineeringMaterialReviewStatus
+  reviewReason: string
+  reviewedBy: string
+  reviewedAt: string
 }
 
 export interface EngineeringTaskReworkRound {
@@ -80,6 +107,7 @@ export interface EngineeringTaskRecord {
   resultImageIds: string[]
   resultQuantity: number
   resultSubmittedBy: string
+  materialReviewRounds: EngineeringTaskMaterialReviewRound[]
 }
 
 export interface EngineeringPriorResultReuseLine {
