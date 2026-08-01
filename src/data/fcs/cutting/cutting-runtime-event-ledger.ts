@@ -25,6 +25,7 @@ export type CuttingRuntimeEventType =
   | '完成裁剪'
   | '菲票装袋'
   | '中转袋入仓'
+  | '中转袋拆袋重装'
   | '交出装袋确认'
   | '新增交出记录'
   | '特殊工艺交出'
@@ -49,6 +50,10 @@ export interface CuttingRuntimeRefs {
   specialCraftId?: string
   usageCycleId?: string
   handoverLegId?: string
+  repackBatchId?: string
+  transferBagCodes?: string[]
+  sewingTaskIds?: string[]
+  sewingTaskNos?: string[]
 }
 
 export interface RuntimeMaterialSnapshot {
@@ -349,6 +354,69 @@ export interface HandoverBaggingConfirmPayload {
   bagBindingRule: '一个中转袋只能绑定一个车缝任务'
 }
 
+export interface TransferBagTicketFactSnapshot {
+  feiTicketId: string
+  feiTicketNo: string
+  productionOrderId: string
+  productionOrderNo: string
+  cutOrderId: string
+  cutOrderNo: string
+  color: string
+  size: string
+  partCode: string
+  partName: string
+  pieceQty: number
+  sewingTaskId: string
+  sewingTaskNo: string
+  receiverFactoryId: string
+  receiverFactoryName: string
+}
+
+export interface TransferBagRepackPayload {
+  repackBatchId: string
+  sourceBags: Array<{
+    bagCode: string
+    usageCycleId: string
+    beforeTickets: TransferBagTicketFactSnapshot[]
+  }>
+  resultBags: Array<{
+    bagCode: string
+    usageCycleId: string
+    reusedSourceBag: boolean
+    tickets: TransferBagTicketFactSnapshot[]
+  }>
+  movedTickets: Array<{
+    feiTicketId: string
+    fromBagCode: string
+    toBagCode: string
+    pieceQty: number
+  }>
+  confirmedAt: string
+  confirmedBy: string
+}
+
+export interface TransferBagRecoveryPayload {
+  bagCode: string
+  usageCycleId: string
+  physicalBagReceived: true
+  physicalBagEmpty: true
+  recoveryMode: 'NORMAL' | 'FORCED'
+  recoveryNode: string
+  recoveryLocation: string
+  reason: string
+  recoveredAt: string
+  recoveredBy: string
+}
+
+export interface TransferBagScrapPayload {
+  bagCode: string
+  idleConfirmed: true
+  reason: string
+  authorizedBy: string
+  scrappedAt: string
+  scrappedBy: string
+}
+
 export interface HandoverRecordSubmitPayload {
   handoverOrderId: string
   handoverOrderNo: string
@@ -362,6 +430,10 @@ export interface HandoverRecordSubmitPayload {
     bagCode: string
     containedFeiTicketIds: string[]
     totalPieceQty: number
+    // 兼容历史交出记录可缺省；新交出命令必须写入以下事实快照字段。
+    sewingTaskIds?: string[]
+    sewingTaskNos?: string[]
+    ticketSnapshot?: TransferBagTicketFactSnapshot[]
   }>
   feiTicketItems: Array<{
     feiTicketId: string
@@ -440,6 +512,9 @@ export type CuttingRuntimeEventPayload =
   | TransferBagInboundPayload
   | FeiTicketInboundPayload
   | HandoverBaggingConfirmPayload
+  | TransferBagRepackPayload
+  | TransferBagRecoveryPayload
+  | TransferBagScrapPayload
   | HandoverRecordSubmitPayload
   | SpecialCraftHandoverPayload
   | SpecialCraftReturnPayload
@@ -502,6 +577,17 @@ function toStringArray(value: unknown): string[] {
   return toArray<unknown>(value).map((item) => toString(item)).filter(Boolean)
 }
 
+function toNormalizedStringArray(value: unknown): string[] {
+  const seen = new Set<string>()
+  return toArray<unknown>(value).reduce<string[]>((result, item) => {
+    const text = toString(item).trim()
+    if (!text || seen.has(text)) return result
+    seen.add(text)
+    result.push(text)
+    return result
+  }, [])
+}
+
 function normalizeRefs(raw: unknown): CuttingRuntimeRefs {
   if (!raw || typeof raw !== 'object') return {}
   const value = raw as Record<string, unknown>
@@ -522,6 +608,10 @@ function normalizeRefs(raw: unknown): CuttingRuntimeRefs {
     specialCraftId: toString(value.specialCraftId),
     usageCycleId: toString(value.usageCycleId),
     handoverLegId: toString(value.handoverLegId),
+    repackBatchId: toString(value.repackBatchId).trim(),
+    transferBagCodes: toNormalizedStringArray(value.transferBagCodes),
+    sewingTaskIds: toNormalizedStringArray(value.sewingTaskIds),
+    sewingTaskNos: toNormalizedStringArray(value.sewingTaskNos),
   }
 }
 
@@ -597,6 +687,7 @@ function isRuntimeEventType(value: string): value is CuttingRuntimeEventType {
     '完成裁剪',
     '菲票装袋',
     '中转袋入仓',
+    '中转袋拆袋重装',
     '交出装袋确认',
     '新增交出记录',
     '特殊工艺交出',
@@ -673,8 +764,9 @@ function eventTypeCode(eventType: CuttingRuntimeEventType): string {
     完成铺布: 'SPREAD-FINISH',
     开始裁剪: 'CUT-START',
     完成裁剪: 'CUT-FINISH',
-     菲票装袋: 'BAGGING',
-     中转袋入仓: 'TICKET-IN',
+    菲票装袋: 'BAGGING',
+    中转袋入仓: 'TICKET-IN',
+    中转袋拆袋重装: 'BAG-REPACK',
     交出装袋确认: 'BAG-CONFIRM',
     新增交出记录: 'HANDOVER',
     特殊工艺交出: 'CRAFT-OUT',
@@ -735,6 +827,7 @@ export function buildCuttingRuntimeEventId(eventType: CuttingRuntimeEventType, r
     refs.transferBagCode,
     refs.usageCycleId,
     refs.handoverLegId,
+    refs.repackBatchId,
     refs.feiTicketIds?.join('-'),
   ].filter(Boolean).join('-') || 'runtime'
   return `cutting-event:${eventTypeCode(eventType)}:${businessKey}:${compactDate(occurredAt)}`

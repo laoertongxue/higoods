@@ -401,6 +401,326 @@ function createMemoryStorage() {
   }
 }
 
+const transferBagTicketFactSnapshot = {
+  feiTicketId: 'FT-ID-REPACK-001',
+  feiTicketNo: 'FT-REPACK-001',
+  productionOrderId: 'PO-ID-REPACK-001',
+  productionOrderNo: 'PO-REPACK-001',
+  cutOrderId: 'CUT-ID-REPACK-001',
+  cutOrderNo: 'CUT-REPACK-001',
+  color: '深蓝',
+  size: 'M',
+  partCode: 'FRONT',
+  partName: '前片',
+  pieceQty: 12,
+  sewingTaskId: 'SEW-ID-REPACK-001',
+  sewingTaskNo: 'SEW-REPACK-001',
+  receiverFactoryId: 'FACTORY-ID-REPACK-001',
+  receiverFactoryName: '车缝一厂',
+}
+
+const repackEvent = {
+  eventId: 'cutting-event:BAG-REPACK:REPACK-001:202608011000',
+  eventNo: 'BAG-REPACK-202608011000',
+  idempotencyKey: 'REPACK-001:CONFIRMED',
+  eventType: '中转袋拆袋重装',
+  eventSource: 'WEB',
+  eventStatus: '已同步',
+  occurredAt: '2026-08-01 10:00',
+  createdAt: '2026-08-01 10:00',
+  operatorId: 'OP-REPACK-001',
+  operatorName: '重装操作员',
+  operatorRole: '裁片仓主管',
+  refs: {
+    repackBatchId: ' REPACK-001 ',
+    transferBagCodes: ['BAG-SOURCE-001', '', 'BAG-RESULT-001', 'BAG-SOURCE-001'],
+    sewingTaskIds: ['SEW-ID-REPACK-001', '', 'SEW-ID-REPACK-001'],
+    sewingTaskNos: ['SEW-REPACK-001', ''],
+  },
+  payload: {
+    repackBatchId: 'REPACK-001',
+    sourceBags: [{
+      bagCode: 'BAG-SOURCE-001',
+      usageCycleId: 'cycle:BAG-SOURCE-001:001',
+      beforeTickets: [transferBagTicketFactSnapshot],
+    }],
+    resultBags: [{
+      bagCode: 'BAG-RESULT-001',
+      usageCycleId: 'cycle:BAG-RESULT-001:001',
+      reusedSourceBag: false,
+      tickets: [transferBagTicketFactSnapshot],
+    }],
+    movedTickets: [{
+      feiTicketId: 'FT-ID-REPACK-001',
+      fromBagCode: 'BAG-SOURCE-001',
+      toBagCode: 'BAG-RESULT-001',
+      pieceQty: 12,
+    }],
+    confirmedAt: '2026-08-01 10:00',
+    confirmedBy: '重装操作员',
+  },
+}
+
+const recoveryEvent = {
+  eventId: 'cutting-event:BAG-RETURN:BAG-RESULT-001:202608011100',
+  eventNo: 'BAG-RETURN-202608011100',
+  idempotencyKey: 'cycle:BAG-RESULT-001:001:RECOVERY',
+  eventType: '中转袋回收',
+  eventSource: 'PDA',
+  eventStatus: '已同步',
+  occurredAt: '2026-08-01 11:00',
+  createdAt: '2026-08-01 11:00',
+  operatorId: 'OP-RECOVERY-001',
+  operatorName: '回收操作员',
+  operatorRole: '中转袋回收员',
+  refs: {
+    transferBagCode: 'BAG-RESULT-001',
+    usageCycleId: 'cycle:BAG-RESULT-001:001',
+  },
+  payload: {
+    bagCode: 'BAG-RESULT-001',
+    usageCycleId: 'cycle:BAG-RESULT-001:001',
+    physicalBagReceived: true,
+    physicalBagEmpty: true,
+    recoveryMode: 'FORCED',
+    recoveryNode: '车缝一厂收货区',
+    recoveryLocation: '裁床中转袋回收位',
+    reason: '下游签收后强制回收空袋',
+    recoveredAt: '2026-08-01 11:00',
+    recoveredBy: '回收操作员',
+  },
+}
+
+const scrapEvent = {
+  eventId: 'cutting-event:BAG-SCRAP:BAG-SCRAP-001:202608011200',
+  eventNo: 'BAG-SCRAP-202608011200',
+  idempotencyKey: 'BAG-SCRAP-001:SCRAPPED',
+  eventType: '中转袋报废',
+  eventSource: 'WEB',
+  eventStatus: '已同步',
+  occurredAt: '2026-08-01 12:00',
+  createdAt: '2026-08-01 12:00',
+  operatorId: 'OP-SCRAP-001',
+  operatorName: '报废操作员',
+  operatorRole: '裁片仓主管',
+  refs: {
+    transferBagCode: 'BAG-SCRAP-001',
+  },
+  payload: {
+    bagCode: 'BAG-SCRAP-001',
+    idleConfirmed: true,
+    reason: '物理袋破损无法复用',
+    authorizedBy: '仓库经理',
+    scrappedAt: '2026-08-01 12:00',
+    scrappedBy: '报废操作员',
+  },
+}
+
+const legacyBaggingConfirmEvent = {
+  eventId: 'cutting-event:BAG-CONFIRM:BAG-LEGACY-001:202607301000',
+  eventNo: 'BAG-CONFIRM-202607301000',
+  eventType: '交出装袋确认',
+  eventSource: 'PDA',
+  eventStatus: '已同步',
+  occurredAt: '2026-07-30 10:00',
+  createdAt: '2026-07-30 10:00',
+  operatorId: 'OP-LEGACY-001',
+  operatorName: '历史装袋员',
+  operatorRole: '裁片仓装袋员',
+  refs: {
+    transferBagCode: 'BAG-LEGACY-001',
+    usageCycleId: 'cycle:BAG-LEGACY-001:001',
+  },
+  payload: {
+    baggingConfirmRecordId: 'legacy-bagging-confirm-001',
+    baggingConfirmRecordNo: 'LEGACY-CONFIRM-001',
+    pickingTaskId: 'PICK-LEGACY-001',
+    pickingTaskNo: 'PICK-LEGACY-001',
+    sewingTaskId: 'SEW-LEGACY-001',
+    sewingTaskNo: 'SEW-LEGACY-001',
+    sourceTempBagCode: 'BAG-LEGACY-SOURCE-001',
+    targetTransferBagCode: 'BAG-LEGACY-001',
+    bagUseId: 'cycle:BAG-LEGACY-001:001',
+    scannedFeiTicketIds: ['FT-LEGACY-001'],
+    scannedFeiTicketNos: ['FT-LEGACY-001'],
+    containedFeiTicketIds: ['FT-LEGACY-001'],
+    containedFeiTicketNos: ['FT-LEGACY-001'],
+    totalPieceQty: 8,
+    pickedQty: 8,
+    unit: '片',
+    scannedAt: '2026-07-30 10:00',
+    scannedBy: '历史装袋员',
+    packedAt: '2026-07-30 10:00',
+    packedBy: '历史装袋员',
+    checkResult: '正常',
+    bagBindingRule: '一个中转袋只能绑定一个车缝任务',
+  },
+}
+
+const restoredTransferBagEvents = runtimeLedger.deserializeCuttingRuntimeEventLedgerStorage(
+  JSON.stringify({
+    events: [repackEvent, recoveryEvent, scrapEvent, legacyBaggingConfirmEvent],
+  }),
+)
+assert.equal(restoredTransferBagEvents.events.length, 4)
+const restoredRepackEvent = restoredTransferBagEvents.events.find(
+  (event: { eventType: string }) => event.eventType === '中转袋拆袋重装',
+)
+assert.equal(restoredRepackEvent?.payload.repackBatchId, 'REPACK-001')
+assert.deepEqual(
+  restoredRepackEvent?.payload,
+  repackEvent.payload,
+  '重装事件的袋、菲票和移动数量事实必须完整往返',
+)
+assert.deepEqual(
+  restoredRepackEvent?.payload.resultBags[0].tickets,
+  [transferBagTicketFactSnapshot],
+  '重装菲票事实快照必须往返保留',
+)
+assert.equal(
+  restoredRepackEvent?.payload.resultBags[0].reusedSourceBag,
+  false,
+  '重装结果袋复用标记必须按 boolean literal 往返保留',
+)
+assert.deepEqual(
+  restoredRepackEvent?.refs.transferBagCodes,
+  ['BAG-SOURCE-001', 'BAG-RESULT-001'],
+  '重装引用袋号必须去空、去重且保持稳定顺序',
+)
+assert.deepEqual(restoredRepackEvent?.refs.sewingTaskIds, ['SEW-ID-REPACK-001'])
+assert.deepEqual(restoredRepackEvent?.refs.sewingTaskNos, ['SEW-REPACK-001'])
+assert.equal(
+  restoredTransferBagEvents.events.find(
+    (event: { eventType: string }) => event.eventType === '中转袋回收',
+  )?.payload.physicalBagReceived,
+  true,
+  '回收物理袋签收事实必须按 boolean literal 往返保留',
+)
+assert.deepEqual(
+  restoredTransferBagEvents.events.find(
+    (event: { eventType: string }) => event.eventType === '中转袋回收',
+  )?.payload,
+  recoveryEvent.payload,
+  '回收事件关键载荷不得在反序列化时丢失',
+)
+assert.equal(
+  restoredTransferBagEvents.events.find(
+    (event: { eventType: string }) => event.eventType === '中转袋报废',
+  )?.payload.idleConfirmed,
+  true,
+  '报废前空闲确认事实必须按 boolean literal 往返保留',
+)
+assert.deepEqual(
+  restoredTransferBagEvents.events.find(
+    (event: { eventType: string }) => event.eventType === '中转袋报废',
+  )?.payload,
+  scrapEvent.payload,
+  '报废事件关键载荷不得在反序列化时丢失',
+)
+const restoredLegacyBaggingConfirmEvent = restoredTransferBagEvents.events.find(
+  (event: { eventType: string }) => event.eventType === '交出装袋确认',
+)
+assert.equal(restoredLegacyBaggingConfirmEvent?.eventStatus, '已同步')
+
+const legacyHandoverRecordSubmitEvent = {
+  eventId: 'cutting-event:HANDOVER:LEGACY-TRANSFER-BAG-001:202607301100',
+  eventNo: 'HANDOVER-202607301100',
+  eventType: '新增交出记录',
+  eventSource: 'WEB',
+  eventStatus: '已同步',
+  occurredAt: '2026-07-30 11:00',
+  createdAt: '2026-07-30 11:00',
+  operatorId: 'OP-LEGACY-HANDOVER-001',
+  operatorName: '历史交出员',
+  operatorRole: '裁片仓交出员',
+  refs: { transferBagCode: 'BAG-LEGACY-TRANSFER-001' },
+  payload: {
+    handoverOrderId: 'HO-LEGACY-001',
+    handoverOrderNo: 'HO-LEGACY-001',
+    handoverRecordId: 'HR-LEGACY-001',
+    handoverRecordNo: 'HR-LEGACY-001',
+    receiverType: '车缝厂',
+    receiverId: 'FACTORY-ID-LEGACY-001',
+    receiverName: '历史车缝厂',
+    transferBagUses: [{
+      bagUseId: 'cycle:BAG-LEGACY-TRANSFER-001:001',
+      bagCode: 'BAG-LEGACY-TRANSFER-001',
+      containedFeiTicketIds: ['FT-LEGACY-TRANSFER-001'],
+      totalPieceQty: 6,
+    }],
+    feiTicketItems: [],
+    currentHandedOverQty: 6,
+    submittedAt: '2026-07-30 11:00',
+    submittedBy: '历史交出员',
+  },
+}
+
+const currentHandoverRecordSubmitEvent = {
+  ...legacyHandoverRecordSubmitEvent,
+  eventId: 'cutting-event:HANDOVER:CURRENT-TRANSFER-BAG-001:202608011300',
+  eventNo: 'HANDOVER-202608011300',
+  occurredAt: '2026-08-01 13:00',
+  createdAt: '2026-08-01 13:00',
+  payload: {
+    ...legacyHandoverRecordSubmitEvent.payload,
+    handoverOrderId: 'HO-CURRENT-001',
+    handoverOrderNo: 'HO-CURRENT-001',
+    handoverRecordId: 'HR-CURRENT-001',
+    handoverRecordNo: 'HR-CURRENT-001',
+    transferBagUses: [{
+      bagUseId: 'cycle:BAG-CURRENT-TRANSFER-001:001',
+      bagCode: 'BAG-CURRENT-TRANSFER-001',
+      containedFeiTicketIds: ['FT-ID-REPACK-001'],
+      totalPieceQty: 12,
+      sewingTaskIds: ['SEW-ID-REPACK-001'],
+      sewingTaskNos: ['SEW-REPACK-001'],
+      ticketSnapshot: [transferBagTicketFactSnapshot],
+    }],
+  },
+}
+const restoredHandoverRecordSubmitEvents = runtimeLedger.deserializeCuttingRuntimeEventLedgerStorage(
+  JSON.stringify({
+    events: [legacyHandoverRecordSubmitEvent, currentHandoverRecordSubmitEvent],
+  }),
+)
+const restoredLegacyTransferBagUse = restoredHandoverRecordSubmitEvents.events.find(
+  (event: { eventId: string }) => event.eventId === legacyHandoverRecordSubmitEvent.eventId,
+)?.payload.transferBagUses[0]
+assert.equal(restoredLegacyTransferBagUse?.sewingTaskIds, undefined)
+assert.equal(restoredLegacyTransferBagUse?.ticketSnapshot, undefined)
+const restoredCurrentTransferBagUse = restoredHandoverRecordSubmitEvents.events.find(
+  (event: { eventId: string }) => event.eventId === currentHandoverRecordSubmitEvent.eventId,
+)?.payload.transferBagUses[0]
+assert.deepEqual(restoredCurrentTransferBagUse?.sewingTaskIds, ['SEW-ID-REPACK-001'])
+assert.deepEqual(restoredCurrentTransferBagUse?.sewingTaskNos, ['SEW-REPACK-001'])
+assert.deepEqual(restoredCurrentTransferBagUse?.ticketSnapshot, [transferBagTicketFactSnapshot])
+
+const repackIdempotencyStorage = createMemoryStorage()
+const firstRepackAppend = runtimeLedger.appendCuttingRuntimeEventIdempotent(
+  repackEvent,
+  repackIdempotencyStorage,
+)
+const duplicateRepackAppend = runtimeLedger.appendCuttingRuntimeEventIdempotent(
+  repackEvent,
+  repackIdempotencyStorage,
+)
+assert.equal(firstRepackAppend.appended, true)
+assert.equal(duplicateRepackAppend.appended, false)
+assert.equal(
+  runtimeLedger.buildCuttingRuntimeEventId(
+    '中转袋拆袋重装',
+    { repackBatchId: 'REPACK-001' },
+    '2026-08-01 10:00',
+  ),
+  'cutting-event:BAG-REPACK:REPACK-001:202608011000',
+  '重装批次必须进入稳定业务事件编号',
+)
+assert.equal(
+  runtimeLedger.listCuttingRuntimeEvents(repackIdempotencyStorage).length,
+  1,
+  '同一重装幂等键重复追加只能保留一条事实',
+)
+
 assert.equal(
   typeof runtimeLedger.appendCuttingRuntimeEventIdempotent,
   'function',
