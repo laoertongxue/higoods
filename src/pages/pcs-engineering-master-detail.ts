@@ -290,6 +290,11 @@ function renderTaskDrawer(model: EngineeringMasterDetailModel, task: Engineering
           data-${DETAIL_EVENT_PREFIX}-action="submit-pre-production-sample-result"
           data-task-id="${escapeHtml(rawTask.taskId)}"
         >提交样衣成果</button>
+        <p
+          class="hidden rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+          data-pre-production-sample-result-error
+          role="alert"
+        ></p>
         <p class="text-xs text-slate-500">成果完整提交后任务即完成。</p>
       </div>
     `
@@ -460,6 +465,15 @@ function showDetailFeedback(message: string, ok: boolean): void {
   `
 }
 
+function showPreProductionSampleResultError(message: string): void {
+  if (typeof document === 'undefined') return
+  const drawerHost = document.querySelector<HTMLElement>('[data-engineering-master-region="drawer"]')
+  const errorHost = drawerHost?.querySelector<HTMLElement>('[data-pre-production-sample-result-error]')
+  if (!errorHost) return
+  errorHost.textContent = message
+  errorHost.className = 'rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700'
+}
+
 export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): boolean {
   const actionNode = target.closest<HTMLElement>(`[data-${DETAIL_EVENT_PREFIX}-action]`)
   if (!actionNode) return false
@@ -531,6 +545,10 @@ export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): bool
       ok = true
     } catch (error) {
       message = error instanceof Error ? error.message : '提交样衣成果失败。'
+    }
+    if (!ok) {
+      showPreProductionSampleResultError(message)
+      return true
     }
     const model = buildEngineeringMasterDetailModel(masterKey)
     if (model) {

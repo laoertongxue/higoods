@@ -24,6 +24,7 @@
 - 工程专业任务统一展示 8 档状态：未启用、待前置、待开始、进行中、待审核、返工中、已完成、因需求变更结束。
 - 每张真实任务独立显示，所属工程主单、款式、负责团队、前置依赖、开始时间、完成时间均读取同一条工程任务记录。
 - 制版任务由制作团队提交成果后完成；花型任务提交成果后进入买手审核；产前版样衣任务填写成果图片、制作数量和提交人，制作团队提交后完成，不设置任务级验收。
+- 产前版样衣成果校验失败时保留抽屉与已填内容，错误紧邻提交动作显示；只有提交成功才局部刷新泳道与抽屉。
 - 页面使用标准列表页、标准表格和分页；列显示、顺序、冻结及每页条数按路由保存，操作列固定在右侧。
 - `shared.ts` 只承担列表偏好、通用渲染和仍在使用的独立改版页面状态；不再保存制版、花型的创建 / 详情草稿，也不再处理其图片和文件草稿事件。
 - 本切片不实施花型或调色成果逐项审核与返工，相关能力在后续任务完成。
@@ -56,6 +57,7 @@
 | 花型存在两个页面入口，事实和交互可能分叉 | 花型制作团队、买手、跟单 | 删除第二页面，正式路由和分派器统一使用 `pattern-task.ts` | 否 |
 | 制版、花型仍保留页面私有草稿和旧数据依赖 | 版师、花型制作团队、维护人员 | 删除无引用草稿类型、状态、初始化器及事件分支，页面统一读取工程主单任务 | 否 |
 | 旧检查仍以旧状态或旧分页结构作为通过条件 | 研发、验收人员 | 更新为真实工程主单数据、8 档状态和标准列表 / 分页行为 | 否 |
+| 产前版样衣成果校验失败仍刷新抽屉，导致输入丢失且错误提示被遮挡 | 样衣制作团队 | 失败时不刷新泳道和抽屉，在抽屉按钮附近就地显示错误；成功后才局部刷新 | 否 |
 
 ## 6. 最终结论
 
@@ -70,6 +72,7 @@
 ### 受管文件
 
 - `src/pages/pcs-engineering-tasks.ts`
+- `src/pages/pcs-engineering-master-detail.ts`
 - `src/pages/pcs-engineering-tasks/shared.ts`
 - `src/pages/pcs-engineering-tasks/pattern-task.ts`
 - `src/pages/pcs-engineering-tasks/pattern-master-task.ts`（删除）
@@ -84,6 +87,7 @@
 - `npx tsx tests/pcs-engineering-task-submit.spec.ts`：通过。
 - `npx tsx tests/pcs-engineering-tasks.spec.ts`：通过；以工程主单真实任务验证制版、花型、产前版样衣、首单静默别名和独立改款 / 设计打样边界。
 - `npx tsx tests/pcs-engineering-pre-production-sample-submit.spec.ts`：通过。
+- `npx playwright test tests/pcs-engineering-pre-production-sample-submit-dom.spec.ts --workers=1`：通过；真实 DOM 与点击事件验证失败输入保留、错误就地可见、成功后局部刷新。
 - `npx tsx tests/pcs-first-sample-engineering-result.spec.ts`：通过。
 - `npx tsx tests/pcs-engineering-professional-fact-source.spec.ts`：通过。
 - `npx tsx tests/pcs-engineering-task-standard-list.spec.ts`：通过。
