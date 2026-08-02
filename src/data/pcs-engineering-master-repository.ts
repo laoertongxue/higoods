@@ -25,6 +25,7 @@ const ENGINEERING_MASTER_STORAGE_KEY = 'higood-pcs-engineering-master-store-v1'
 const ENGINEERING_MASTER_STORE_VERSION = 1
 
 let memorySnapshot: EngineeringMasterOrderSnapshot | null = null
+let repositoryTransactionDepth = 0
 
 function canUseStorage(): boolean {
   return (
@@ -143,7 +144,8 @@ function writeSnapshot(snapshot: EngineeringMasterOrderSnapshot): void {
   if (!canUseStorage()) return
   try {
     localStorage.setItem(ENGINEERING_MASTER_STORAGE_KEY, JSON.stringify(memorySnapshot))
-  } catch {
+  } catch (error) {
+    if (repositoryTransactionDepth > 0) throw error
     // 原型环境存储不可用时仅保留内存态
   }
 }
@@ -346,6 +348,7 @@ export function runEngineeringMasterRepositoryTransaction<Operation extends () =
     throw new Error('工程主单仓储事务仅支持同步操作，禁止传入 AsyncFunction。')
   }
   const snapshotBeforeOperation = readSnapshot()
+  repositoryTransactionDepth += 1
   try {
     const result = operation()
     if (isThenable(result)) {
@@ -353,8 +356,17 @@ export function runEngineeringMasterRepositoryTransaction<Operation extends () =
     }
     return result as ReturnType<Operation>
   } catch (error) {
-    writeSnapshot(snapshotBeforeOperation)
+    memorySnapshot = cloneSnapshot(snapshotBeforeOperation)
+    if (canUseStorage()) {
+      try {
+        localStorage.setItem(ENGINEERING_MASTER_STORAGE_KEY, JSON.stringify(memorySnapshot))
+      } catch {
+        // 回滚时优先恢复内存事实；持久化仍不可用时不得覆盖原始事务异常。
+      }
+    }
     throw error
+  } finally {
+    repositoryTransactionDepth -= 1
   }
 }
 

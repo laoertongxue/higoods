@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   createEngineeringMasterOrder,
   getEngineeringMasterOrderById,
+  getEngineeringMasterOrderStoreSnapshot,
   publishEngineeringMasterOrder,
   resetEngineeringMasterRepository,
   updateEngineeringTaskRecord,
@@ -448,6 +449,77 @@ try {
 } finally {
   if (originalLocalStorageDescriptor) {
     Object.defineProperty(globalThis, 'localStorage', originalLocalStorageDescriptor)
+  } else {
+    delete (globalThis as { localStorage?: Storage }).localStorage
+  }
+}
+
+updateEngineeringTaskRecord(master.masterOrderId, patternTaskId, (task) => {
+  task.status = '已完成'
+})
+const engineeringStorageFailureVersionId = 'TDV-ENGINEERING-STORAGE-TRANSACTION-ROLLBACK'
+resetTechnicalDataVersionRepository()
+createTechnicalDataVersionDraft({
+  ...version,
+  technicalVersionId: engineeringStorageFailureVersionId,
+  technicalVersionCode: 'TP-ENGINEERING-STORAGE-TRANSACTION-ROLLBACK',
+}, { ...seedContent, technicalVersionId: engineeringStorageFailureVersionId })
+const engineeringSnapshotBeforeStorageFailure = getEngineeringMasterOrderStoreSnapshot()
+const technicalVersionBeforeEngineeringStorageFailure = getTechnicalDataVersionById(engineeringStorageFailureVersionId)
+const versionLogsBeforeEngineeringStorageFailure = listTechPackVersionLogs()
+const notificationsBeforeEngineeringStorageFailure = listTechPackReviewNotifications()
+const engineeringStorageDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+const engineeringStorageValues = new Map<string, string>()
+let failEngineeringStorageWrites = false
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: {
+    get length() { return engineeringStorageValues.size },
+    clear() { engineeringStorageValues.clear() },
+    getItem(key: string) { return engineeringStorageValues.get(key) ?? null },
+    key(index: number) { return [...engineeringStorageValues.keys()][index] ?? null },
+    removeItem(key: string) { engineeringStorageValues.delete(key) },
+    setItem(key: string, value: string) {
+      if (key === 'higood-pcs-engineering-master-store-v1' && failEngineeringStorageWrites) {
+        throw new Error('模拟工程主单仓储持续写入失败')
+      }
+      engineeringStorageValues.set(key, value)
+    },
+  } satisfies Storage,
+})
+try {
+  localStorage.setItem('higood-pcs-engineering-master-store-v1', JSON.stringify(engineeringSnapshotBeforeStorageFailure))
+  getEngineeringMasterOrderStoreSnapshot()
+  failEngineeringStorageWrites = true
+  assert.throws(
+    () => returnTechPackReviewByModules(
+      engineeringStorageFailureVersionId,
+      ['DESIGN'],
+      '工程仓储失败时必须整体回滚',
+      '跟单C',
+    ),
+    /模拟工程主单仓储持续写入失败/,
+    '工程仓储事务写失败必须向内层技术版本事务传播',
+  )
+  assert.deepEqual(
+    getEngineeringMasterOrderStoreSnapshot(),
+    engineeringSnapshotBeforeStorageFailure,
+    '工程仓储持续失败时必须直接恢复工程内存快照',
+  )
+  assert.deepEqual(
+    getTechnicalDataVersionById(engineeringStorageFailureVersionId),
+    technicalVersionBeforeEngineeringStorageFailure,
+    '工程仓储失败必须回滚技术版本状态',
+  )
+  assert.deepEqual(listTechPackVersionLogs(), versionLogsBeforeEngineeringStorageFailure, '工程仓储失败不得提交版本日志')
+  assert.deepEqual(
+    listTechPackReviewNotifications(),
+    notificationsBeforeEngineeringStorageFailure,
+    '工程仓储失败不得提交审核通知',
+  )
+} finally {
+  if (engineeringStorageDescriptor) {
+    Object.defineProperty(globalThis, 'localStorage', engineeringStorageDescriptor)
   } else {
     delete (globalThis as { localStorage?: Storage }).localStorage
   }
