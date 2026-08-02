@@ -125,7 +125,11 @@ export function invalidateReviewForBomPriceChange(
   if (changes.every((change) => change.beforeValue === change.afterValue)) return record
   if (
     !record.buyerReview ||
-    (record.buyerReview.status !== '审核-已通过' && record.buyerReview.status !== '审核-未通过')
+    (
+      record.buyerReview.status !== '审核-已通过' &&
+      record.buyerReview.status !== '审核-未通过' &&
+      record.buyerReview.status !== '无需审核'
+    )
   ) return record
   if (failureTechnicalVersionIdForTesting === technicalVersionId) {
     throw new Error('模拟 BOM 与价格审核失效写入失败')

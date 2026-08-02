@@ -197,7 +197,7 @@ function installUnsubmittedFixture(contentOverride: TechnicalDataVersionContent)
 }
 
 function installInReviewFixture(
-  buyerStatus: '待审核' | '审核中',
+  buyerStatus: '待审核' | '审核中' | '无需审核',
   contentOverride: TechnicalDataVersionContent,
 ): void {
   resetTechPackVersionLogRepository()
@@ -492,6 +492,15 @@ saveTechnicalDataVersionBomMaterialLine(technicalVersionId, 'BOM-001', { usage: 
 assert.deepEqual(getTechnicalDataVersionById(technicalVersionId)?.buyerReview, reviewingBuyerBefore, '审核中的买手节点不得因直接 BOM 保存被重置')
 assert.equal(listTechPackVersionLogsByVersionId(technicalVersionId).length, 0, '审核中不得新增复审日志')
 assert.equal(listTechPackReviewNotificationsByVersionId(technicalVersionId).length, 0, '审核中不得重复通知复审')
+
+installInReviewFixture('无需审核', contentWithBom(pricedSku.materialSkuId))
+const noReviewBuyerBefore = getTechnicalDataVersionById(technicalVersionId)?.buyerReview
+saveTechnicalDataVersionBomMaterialLine(technicalVersionId, 'BOM-001', { lossRate: 0.05 }, '买手')
+const noReviewBuyerAfter = getTechnicalDataVersionById(technicalVersionId)?.buyerReview
+assert.equal(noReviewBuyerAfter?.status, '待审核', '无需审核是既有完成结论，BOM 变化后必须进入买手复审')
+assert.notEqual(noReviewBuyerAfter?.diffSnapshotId, noReviewBuyerBefore?.diffSnapshotId, '无需审核失效后必须生成新差异快照')
+assert.equal(listTechPackVersionLogsByVersionId(technicalVersionId).length, 1, '无需审核失效后必须写复审日志')
+assert.equal(listTechPackReviewNotificationsByVersionId(technicalVersionId).length, 1, '无需审核失效后必须发买手复审通知')
 assert.equal(unsubmittedMaterialBefore?.reviewStage, '未提交审核')
 
 installUnsubmittedFixture(contentWithBom(pricedSku.materialSkuId))

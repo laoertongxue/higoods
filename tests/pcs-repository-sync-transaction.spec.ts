@@ -13,24 +13,38 @@ import {
   resetTechnicalDataVersionRepository,
   runTechnicalDataVersionRepositoryTransaction,
 } from '../src/data/pcs-technical-data-version-repository.ts'
+import {
+  getTechPackVersionLogStoreSnapshot,
+  resetTechPackVersionLogRepository,
+} from '../src/data/pcs-tech-pack-version-log-repository.ts'
+import {
+  getTechPackReviewNotificationStoreSnapshot,
+  resetTechPackReviewNotificationRepository,
+} from '../src/data/pcs-tech-pack-review-notification-repository.ts'
 
-function installCountingLocalStorage(): { getSetCount: () => number; restore: () => void } {
+const TECHNICAL_VERSION_STORAGE_KEY = 'higood-pcs-technical-data-version-store-v5'
+const REVIEW_LOG_STORAGE_KEY = 'higood-pcs-tech-pack-version-log-store-v1'
+const REVIEW_NOTIFICATION_STORAGE_KEY = 'higood-pcs-tech-pack-review-notification-store-v1'
+
+function installCountingLocalStorage(): { getSetCount: (key?: string) => number; restore: () => void } {
   const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
   const values = new Map<string, string>()
   let setCount = 0
+  const setCountByKey = new Map<string, number>()
   Object.defineProperty(globalThis, 'localStorage', {
     configurable: true,
     value: {
       getItem: (key: string) => values.get(key) ?? null,
       setItem: (key: string, value: string) => {
         setCount += 1
+        setCountByKey.set(key, (setCountByKey.get(key) ?? 0) + 1)
         values.set(key, value)
       },
       removeItem: (key: string) => values.delete(key),
     },
   })
   return {
-    getSetCount: () => setCount,
+    getSetCount: (key?: string) => key ? setCountByKey.get(key) ?? 0 : setCount,
     restore: () => {
       if (previous) Object.defineProperty(globalThis, 'localStorage', previous)
       else Reflect.deleteProperty(globalThis, 'localStorage')
@@ -119,9 +133,29 @@ assert.deepEqual(
   '异步回调必须在执行前被拒绝，await 后不得留下任何技术资料写入',
 )
 
-const technicalBeforeThenable = getTechnicalDataVersionStoreSnapshot()
 const technicalStorage = installCountingLocalStorage()
-const technicalWritesBeforeThenable = technicalStorage.getSetCount()
+resetTechnicalDataVersionRepository()
+resetTechPackVersionLogRepository()
+resetTechPackReviewNotificationRepository()
+const technicalBeforeThenable = getTechnicalDataVersionStoreSnapshot()
+const snapshotReadCounts = {
+  technical: technicalStorage.getSetCount(TECHNICAL_VERSION_STORAGE_KEY),
+  logs: technicalStorage.getSetCount(REVIEW_LOG_STORAGE_KEY),
+  notifications: technicalStorage.getSetCount(REVIEW_NOTIFICATION_STORAGE_KEY),
+}
+getTechnicalDataVersionStoreSnapshot()
+getTechPackVersionLogStoreSnapshot()
+getTechPackReviewNotificationStoreSnapshot()
+assert.deepEqual({
+  technical: technicalStorage.getSetCount(TECHNICAL_VERSION_STORAGE_KEY),
+  logs: technicalStorage.getSetCount(REVIEW_LOG_STORAGE_KEY),
+  notifications: technicalStorage.getSetCount(REVIEW_NOTIFICATION_STORAGE_KEY),
+}, snapshotReadCounts, '事务快照读取不得被误计为仓储恢复写入')
+const technicalWritesBeforeThenable = {
+  technical: technicalStorage.getSetCount(TECHNICAL_VERSION_STORAGE_KEY),
+  logs: technicalStorage.getSetCount(REVIEW_LOG_STORAGE_KEY),
+  notifications: technicalStorage.getSetCount(REVIEW_NOTIFICATION_STORAGE_KEY),
+}
 const technicalThenableOperation = (() => {
   return {
     then: (resolve: (value: string) => void) => {
@@ -146,9 +180,19 @@ assert.throws(
 await Promise.resolve()
 assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), technicalBeforeThenable, 'thenable 回调不得留下技术资料写入')
 assert.equal(
-  technicalStorage.getSetCount() - technicalWritesBeforeThenable,
+  technicalStorage.getSetCount(TECHNICAL_VERSION_STORAGE_KEY) - technicalWritesBeforeThenable.technical,
   1,
-  '技术资料 thenable 事务只需回滚一次，不得重复恢复同一快照',
+  'thenable 未执行内部业务写入时，技术版本仓只允许恢复一次',
+)
+assert.equal(
+  technicalStorage.getSetCount(REVIEW_LOG_STORAGE_KEY) - technicalWritesBeforeThenable.logs,
+  1,
+  '版本日志仓未发生业务写入时只允许恢复一次',
+)
+assert.equal(
+  technicalStorage.getSetCount(REVIEW_NOTIFICATION_STORAGE_KEY) - technicalWritesBeforeThenable.notifications,
+  1,
+  '审核通知仓未发生业务写入时只允许恢复一次',
 )
 technicalStorage.restore()
 
