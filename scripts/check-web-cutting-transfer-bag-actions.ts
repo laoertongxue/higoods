@@ -201,6 +201,30 @@ assert.deepEqual(
   `Task 7 独立规格审查仍有缺口：\n${taskSevenSpecGaps.join('\n')}`,
 )
 
+const taskSevenSecondReviewGaps = [
+  !actionsSource.includes('buildRepackSourceCurrents')
+  || !actionsSource.includes('resolveActionBagCurrent(bagCode).tickets')
+  || !dialogsSource.includes('selected: item.value === model.current?.bagCode')
+    ? 'P1-A：报废引导打开重装后必须预选并解析权威来源袋当前菲票'
+    : '',
+  !dialogsSource.includes('renderWaitHandoverRecoveryEligibility')
+  || !dialogsSource.includes('isWaitHandoverRecoveryBlocked')
+  || !actionsSource.includes('refreshRecoveryEligibility')
+    ? 'P1-B：回收必须按当前袋状态、实物确认、模式与原因本地闭环资格'
+    : '',
+  !actionsSource.includes('refreshScrapEligibility')
+  || !actionsSource.includes("'recoverFirst'")
+  || !actionsSource.includes("'authorizedBy'")
+  || !actionsSource.includes("'secondConfirm'")
+    ? 'P2-C：已交出袋报废必须在回收后再报废及必要输入齐备后才开放'
+    : '',
+].filter(Boolean)
+assert.deepEqual(
+  taskSevenSecondReviewGaps,
+  [],
+  `Task 7 第二次独立规格审查仍有缺口：\n${taskSevenSecondReviewGaps.join('\n')}`,
+)
+
 const runtimeLedger = await import(
   '../src/data/fcs/cutting/cutting-runtime-event-ledger.ts'
 )

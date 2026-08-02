@@ -31,8 +31,10 @@ import {
 import {
   renderWaitHandoverActionButtons,
   renderWaitHandoverActionDialog,
+  isWaitHandoverRecoveryBlocked,
   isWaitHandoverScrapBlocked,
   renderWaitHandoverBagSummary,
+  renderWaitHandoverRecoveryEligibility,
   renderWaitHandoverScrapEligibility,
   type WaitHandoverActionDialogModel,
   type WaitHandoverDialogCurrent,
@@ -147,9 +149,16 @@ function generatedTicketLabel(ticket: GeneratedFeiTicketSourceRecord): string {
   return `${ticket.feiTicketNo} / ${ticket.productionOrderNo} / ${ticket.skuColor} / ${ticket.skuSize} / ${ticket.partName} / ${ticket.actualCutPieceQty || ticket.qty} 片`
 }
 
+function buildRepackSourceCurrents(preselectedBagCode = ''): TransferBagCurrentUse[] {
+  const byBagCode = new Map<string, TransferBagCurrentUse>()
+  collectCurrentBagCodes().forEach((bagCode) => byBagCode.set(bagCode, resolveActionBagCurrent(bagCode)))
+  if (preselectedBagCode) byBagCode.set(preselectedBagCode, resolveActionBagCurrent(preselectedBagCode))
+  return Array.from(byBagCode.values())
+}
+
 function buildModel(action: WaitHandoverWebAction, bagCode = ''): WaitHandoverActionDialogModel {
   const current = bagCode ? resolveActionBagCurrent(bagCode) : null
-  const currentUses = collectCurrentBagCodes().map((code) => resolveTransferBagCurrentUse(code))
+  const currentUses = buildRepackSourceCurrents(bagCode)
   const activeTicketIds = new Set(currentUses.flatMap((item) => item.tickets.map((ticket) => ticket.feiTicketId)))
   const ticketOptions = listSpreadingResultGeneratedFeiTickets()
     .filter((ticket) => ticket.printStatus !== 'VOIDED')
@@ -197,6 +206,7 @@ export function openWaitHandoverAction(action: WaitHandoverWebAction, bagCode = 
   const modal = modalRoot()
   if (modal) {
     modal.dataset.operationKey = `${action}:${Date.now()}`
+    if (action === 'repack') renderRepackEditor(modal)
     const icons = (window as unknown as { lucide?: { createIcons(options?: { attrs?: Record<string, string>; nameAttr?: string }): void } }).lucide
     if (icons) icons.createIcons({ attrs: { 'aria-hidden': 'true' } })
   }
@@ -459,7 +469,7 @@ function renderRepackEditor(
   options: { addResult?: boolean; removeResultId?: string } = {},
 ): void {
   const sourceBagCodes = readMulti(dialog, 'sourceBagCodes')
-  const tickets = sourceBagCodes.flatMap((bagCode) => resolveTransferBagCurrentUse(bagCode).tickets)
+  const tickets = sourceBagCodes.flatMap((bagCode) => resolveActionBagCurrent(bagCode).tickets)
   const groups = new Map<string, TransferBagTicketFactSnapshot[]>()
   tickets.forEach((ticket) => {
     const key = `${ticket.productionOrderId}|${ticket.productionOrderNo}|${ticket.receiverFactoryId}|${ticket.receiverFactoryName}`
@@ -504,25 +514,65 @@ function refreshRepackPreview(dialog: HTMLElement): void {
   renderRepackEditor(dialog)
 }
 
+function recoveryEligibilityInput(dialog: HTMLElement) {
+  return {
+    physicalBagReceived: readChecked(dialog, 'physicalBagReceived'),
+    physicalBagEmpty: readChecked(dialog, 'physicalBagEmpty'),
+    recoveryMode: (readRadio(dialog, 'recoveryMode') || 'NORMAL') as 'NORMAL' | 'FORCED',
+    reason: readField(dialog, 'reason'),
+    secondConfirm: readChecked(dialog, 'secondConfirm'),
+  }
+}
+
+function scrapEligibilityInput(dialog: HTMLElement) {
+  return {
+    recoverFirst: readChecked(dialog, 'recoverFirst'),
+    physicalBagReceived: readChecked(dialog, 'physicalBagReceived'),
+    physicalBagEmpty: readChecked(dialog, 'physicalBagEmpty'),
+    reason: readField(dialog, 'reason'),
+    authorizedBy: readField(dialog, 'authorizedBy'),
+    operatorName: readField(dialog, 'operatorName'),
+    secondConfirm: readChecked(dialog, 'secondConfirm'),
+  }
+}
+
+function refreshRecoveryEligibility(dialog: HTMLElement, current: WaitHandoverDialogCurrent | null): void {
+  const input = recoveryEligibilityInput(dialog)
+  const eligibility = dialog.querySelector<HTMLElement>('[data-wait-handover-recovery-eligibility]')
+  if (eligibility) eligibility.outerHTML = renderWaitHandoverRecoveryEligibility(current, input)
+  const submit = dialog.querySelector<HTMLButtonElement>('[data-wait-handover-action="submit-recovery"]')
+  if (submit) submit.disabled = isWaitHandoverRecoveryBlocked(current, input)
+}
+
+function refreshScrapEligibility(dialog: HTMLElement, current: WaitHandoverDialogCurrent | null): void {
+  const input = scrapEligibilityInput(dialog)
+  const eligibility = dialog.querySelector<HTMLElement>('[data-wait-handover-eligibility]')
+  if (eligibility) eligibility.outerHTML = renderWaitHandoverScrapEligibility(current)
+  const submit = dialog.querySelector<HTMLButtonElement>('[data-wait-handover-action="submit-scrap"]')
+  if (!submit) return
+  const blocked = isWaitHandoverScrapBlocked(current, input)
+  submit.disabled = blocked
+  submit.dataset.waitHandoverSubmitDisabled = String(blocked)
+}
+
 function refreshBagEligibility(dialog: HTMLElement): void {
   const bagCode = readField(dialog, 'bagCode')
   const current = bagCode ? dialogCurrent(resolveActionBagCurrent(bagCode)) : null
   const summary = dialog.querySelector<HTMLElement>('[data-wait-handover-bag-summary]')
   if (summary) summary.outerHTML = renderWaitHandoverBagSummary(current)
-  if (dialog.dataset.waitHandoverModal !== 'scrap') return
-  const eligibility = dialog.querySelector<HTMLElement>('[data-wait-handover-eligibility]')
-  if (eligibility) eligibility.outerHTML = renderWaitHandoverScrapEligibility(current)
-  const submit = dialog.querySelector<HTMLButtonElement>('[data-wait-handover-action="submit-scrap"]')
-  if (!submit) return
-  const blocked = isWaitHandoverScrapBlocked(current)
-  submit.disabled = blocked
-  submit.dataset.waitHandoverSubmitDisabled = String(blocked)
+  if (dialog.dataset.waitHandoverModal === 'recovery') refreshRecoveryEligibility(dialog, current)
+  if (dialog.dataset.waitHandoverModal === 'scrap') refreshScrapEligibility(dialog, current)
 }
 
 export function handleWaitHandoverActionEvent(target: HTMLElement): boolean {
   const fieldNode = target.closest<HTMLElement>('[data-wait-handover-field]')
   const bagDialog = fieldNode?.closest<HTMLElement>('[data-wait-handover-modal]')
-  if (bagDialog && fieldNode?.dataset.waitHandoverField === 'bagCode') {
+  const localEligibilityFields = [
+    'bagCode', 'recoveryMode', 'physicalBagReceived', 'physicalBagEmpty', 'reason',
+    'secondConfirm', 'recoverFirst', 'authorizedBy', 'operatorName',
+  ]
+  if (bagDialog && ['recovery', 'scrap'].includes(bagDialog.dataset.waitHandoverModal || '')
+    && localEligibilityFields.includes(fieldNode?.dataset.waitHandoverField || '')) {
     refreshBagEligibility(bagDialog)
     return true
   }

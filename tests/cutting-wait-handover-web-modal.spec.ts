@@ -119,7 +119,13 @@ test('待交出仓保留原工作台，六个中转袋动作均局部打开并�
   await expect(activeScrapDialog.locator('[data-wait-handover-bag-summary]')).toContainText(/张菲票/)
   await expect(activeScrapDialog.getByRole('button', { name: '确认报废', exact: true })).toBeDisabled()
   await expect(activeScrapDialog.getByRole('button', { name: '去拆袋重装', exact: true })).toBeVisible()
-  await activeScrapDialog.getByText('关闭', { exact: true }).click()
+  await activeScrapDialog.getByRole('button', { name: '去拆袋重装', exact: true }).click()
+  const guidedRepackDialog = page.locator('[data-wait-handover-modal="repack"]')
+  const guidedSourceSelect = guidedRepackDialog.locator('[data-wait-handover-field="sourceBagCodes"]')
+  await expect(guidedRepackDialog).toBeVisible()
+  await expect(guidedSourceSelect.locator('option:checked')).toHaveText(/BAG-B-003/)
+  await expect(guidedRepackDialog.locator('[data-wait-handover-repack-ticket-assignment]')).not.toHaveCount(0)
+  await guidedRepackDialog.getByText('关闭', { exact: true }).click()
 
   await page.evaluate(async () => {
     const {
@@ -263,6 +269,95 @@ test('待交出仓保留原工作台，六个中转袋动作均局部打开并�
   await expect(repackedHandoverDialog).toContainText('交出成功')
 
   await expectNoPageErrors(errors)
+})
+
+test('回收与已交出报废按当前袋状态和现场确认本地控制提交资格', async ({ page }) => {
+  test.setTimeout(240_000)
+  await page.goto(WAIT_HANDOVER_PATH, { waitUntil: 'domcontentloaded' })
+  await expect(page.getByRole('heading', { name: '裁床待交出仓' })).toBeVisible({ timeout: 120_000 })
+
+  const bagCodes = await page.evaluate(async () => {
+    const { appendCuttingRuntimeEvent } = await import('/src/data/fcs/cutting/cutting-runtime-event-ledger.ts')
+    const { submitTransferBagScrap, submitWholeBagHandover } = await import('/src/data/fcs/cutting/transfer-bag-operations.ts')
+    const suffix = Date.now()
+    const packed = `RECOVERY-PACKED-${suffix}`
+    const handed = `RECOVERY-HANDED-${suffix}`
+    const disabled = `RECOVERY-DISABLED-${suffix}`
+    const idle = `RECOVERY-IDLE-${suffix}`
+    const usageCycleId = `usage:${handed}:1`
+    const ticket = {
+      feiTicketId: `${handed}-T1`, feiTicketNo: `${handed}-菲票-1`,
+      productionOrderId: 'RECOVERY-PO-ID', productionOrderNo: 'RECOVERY-PO-001',
+      cutOrderId: 'RECOVERY-CUT-ID', cutOrderNo: 'RECOVERY-CUT-001',
+      color: '黑色', size: 'M', partCode: 'FRONT', partName: '前幅', pieceQty: 12,
+      sewingTaskId: 'RECOVERY-SEW-ID', sewingTaskNo: 'RECOVERY-SEW-001',
+      receiverFactoryId: 'RECOVERY-FACTORY-ID', receiverFactoryName: '万隆车缝一厂',
+    }
+    const appendBagging = (bagCode: string, cycleId: string, currentTicket: typeof ticket) => appendCuttingRuntimeEvent({
+      eventType: '菲票装袋', eventSource: 'WEB', eventStatus: '已同步', occurredAt: '2026-08-02 11:00', operatorName: '回收测试装袋员',
+      refs: { transferBagCode: bagCode, usageCycleId: cycleId, productionOrderId: currentTicket.productionOrderId, productionOrderNo: currentTicket.productionOrderNo, feiTicketIds: [currentTicket.feiTicketId], feiTicketNos: [currentTicket.feiTicketNo] },
+      payload: { baggingRecordId: `bagging:${bagCode}`, bagCode, feiTicketItems: [currentTicket], totalPieceQty: currentTicket.pieceQty, mixedFlag: false, baggingBy: '回收测试装袋员', baggingAt: '2026-08-02 11:00' },
+    } as never)
+    appendBagging(packed, `usage:${packed}:1`, { ...ticket, feiTicketId: `${packed}-T1`, feiTicketNo: `${packed}-菲票-1` })
+    appendBagging(handed, usageCycleId, ticket)
+    appendCuttingRuntimeEvent({
+      eventType: '中转袋入仓', eventSource: 'WEB', eventStatus: '已同步', occurredAt: '2026-08-02 11:10', operatorName: '回收测试入仓员',
+      refs: { transferBagCode: handed, usageCycleId, productionOrderNo: ticket.productionOrderNo, feiTicketIds: [ticket.feiTicketId] },
+      inventoryEffect: { inventoryScope: '裁床待交出仓', direction: 'IN', qty: 12, unit: '片', toWarehouseArea: '回收测试区', toLocationCode: 'RECOVERY-01' },
+      payload: { tempBagUseId: `temp:${handed}`, bagCode: handed, warehouseArea: '回收测试区', locationCode: 'RECOVERY-01', inboundBy: '回收测试入仓员', inboundAt: '2026-08-02 11:10', feiTicketItems: [ticket], totalPieceQty: 12, mixedFlag: false, locationRef: { factoryId: 'FACTORY-CUTTING', warehouseId: 'WAREHOUSE-WAIT-HANDOVER', warehouseKind: 'WAIT_HANDOVER', areaId: 'AREA-RECOVERY', areaName: '回收测试区', shelfId: 'SHELF-RECOVERY', shelfNo: 'RECOVERY', locationId: 'LOCATION-RECOVERY-01', locationNo: 'RECOVERY-01' } },
+    } as never)
+    const assignment = { feiTicketId: ticket.feiTicketId, feiTicketNo: ticket.feiTicketNo, sewingTaskId: ticket.sewingTaskId, sewingTaskNo: ticket.sewingTaskNo, receiverFactoryId: ticket.receiverFactoryId, receiverFactoryName: ticket.receiverFactoryName }
+    submitWholeBagHandover({
+      bagCode: handed, usageCycleId, handoverOrderId: `HO-${handed}`, handoverOrderNo: `HO-${handed}`,
+      handoverRecordId: `HR-${handed}`, handoverRecordNo: `HR-${handed}`,
+      assignments: [assignment], submittedTicketSnapshot: [ticket],
+      operator: { operatorName: '回收测试交出员', operatorRole: '裁片仓交出员' }, source: 'WEB', occurredAt: '2026-08-02 11:20',
+    })
+    submitTransferBagScrap({ bagCode: disabled, reason: '袋体破损', authorizedBy: '回收测试主管', operator: { operatorName: '回收测试主管', operatorRole: '中转袋主管' }, source: 'WEB', occurredAt: '2026-08-02 11:30' })
+    return { packed, handed, disabled, idle }
+  })
+
+  for (const [state, bagCode, expected] of [
+    ['PACKED', bagCodes.packed, /去拆袋重装/],
+    ['IDLE', bagCodes.idle, /无需回收/],
+    ['DISABLED', bagCodes.disabled, /不能回收/],
+  ] as const) {
+    await page.locator('[data-wait-handover-action="open-recovery"]').click()
+    const dialog = page.locator('[data-wait-handover-modal="recovery"]')
+    await dialog.locator('[data-wait-handover-field="bagCode"]').fill(bagCode)
+    await expect(dialog.locator('[data-wait-handover-recovery-eligibility]'), state).toContainText(expected)
+    await expect(dialog.getByRole('button', { name: '确认回收', exact: true }), state).toBeDisabled()
+    await dialog.getByText('关闭', { exact: true }).click()
+  }
+
+  await page.locator('[data-wait-handover-action="open-recovery"]').click()
+  const recoveryDialog = page.locator('[data-wait-handover-modal="recovery"]')
+  await recoveryDialog.locator('[data-wait-handover-field="bagCode"]').fill(bagCodes.handed)
+  const recoverySubmit = recoveryDialog.getByRole('button', { name: '确认回收', exact: true })
+  await expect(recoverySubmit).toBeDisabled()
+  await recoveryDialog.locator('[data-wait-handover-field="physicalBagReceived"]').check()
+  await recoveryDialog.locator('[data-wait-handover-field="physicalBagEmpty"]').check()
+  await expect(recoverySubmit).toBeEnabled()
+  await recoveryDialog.locator('[data-wait-handover-field="recoveryMode"][value="FORCED"]').check()
+  await expect(recoverySubmit).toBeDisabled()
+  await recoveryDialog.locator('[data-wait-handover-field="reason"]').fill('主管核对后强制回收')
+  await recoveryDialog.locator('[data-wait-handover-field="secondConfirm"]').check()
+  await expect(recoverySubmit).toBeEnabled()
+  await recoveryDialog.getByText('关闭', { exact: true }).click()
+
+  await page.locator('[data-wait-handover-action="open-scrap"]').click()
+  const scrapDialog = page.locator('[data-wait-handover-modal="scrap"]')
+  await scrapDialog.locator('[data-wait-handover-field="bagCode"]').fill(bagCodes.handed)
+  const scrapSubmit = scrapDialog.getByRole('button', { name: '确认报废', exact: true })
+  await expect(scrapSubmit).toBeDisabled()
+  await scrapDialog.locator('[data-wait-handover-field="recoverFirst"]').check()
+  await expect(scrapSubmit).toBeDisabled()
+  await scrapDialog.locator('[data-wait-handover-field="physicalBagReceived"]').check()
+  await scrapDialog.locator('[data-wait-handover-field="physicalBagEmpty"]').check()
+  await scrapDialog.locator('[data-wait-handover-field="reason"]').fill('袋体破损无法继续使用')
+  await scrapDialog.locator('[data-wait-handover-field="authorizedBy"]').fill('回收测试主管')
+  await scrapDialog.locator('[data-wait-handover-field="secondConfirm"]').check()
+  await expect(scrapSubmit).toBeEnabled()
 })
 
 test('待交出仓交出记录只认运行时事实并支持真实本地分页', async ({ page }) => {
