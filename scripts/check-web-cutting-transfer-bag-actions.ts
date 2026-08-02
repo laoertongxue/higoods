@@ -259,6 +259,9 @@ const runtimeLedger = await import(
 const runtime = await import(
   '../src/pages/process-factory/cutting/wait-handover-runtime.ts'
 )
+const operations = await import(
+  '../src/data/fcs/cutting/transfer-bag-operations.ts'
+)
 
 function createMemoryStorage() {
   const records = new Map<string, string>()
@@ -367,6 +370,126 @@ assert.throws(
   }),
   /同一生产单/,
   '真实装袋入口必须阻断一个袋混入多个生产单',
+)
+
+assert.equal(
+  typeof runtime.preflightWaitHandoverBaggingEvent,
+  'function',
+  '共享 runtime 必须导出不写真实账本的装袋预校验',
+)
+const preflightStorage = createMemoryStorage()
+const preflightBagCode = 'WEB-PREFLIGHT-HANDED-001'
+const preflightUsageCycleId = runtime.buildWaitHandoverUsageCycleId(
+  preflightBagCode,
+  '2026-07-30 16:10',
+)
+const preflightTicket = {
+  ...ticket,
+  feiTicketId: 'WEB-PREFLIGHT-FEI-ID-001',
+  feiTicketNo: 'WEB-PREFLIGHT-FEI-001',
+  productionOrderId: 'WEB-PREFLIGHT-PO-ID-001',
+  productionOrderNo: 'WEB-PREFLIGHT-PO-001',
+  sewingTaskId: 'WEB-PREFLIGHT-SEW-ID-001',
+  sewingTaskNo: 'WEB-PREFLIGHT-SEW-001',
+  receiverFactoryId: 'WEB-PREFLIGHT-FACTORY-ID-001',
+  receiverFactoryName: '预校验车缝工厂',
+}
+runtime.appendWaitHandoverBaggingEvent({
+  source: 'WEB',
+  operator: { operatorName: '预校验装袋员' },
+  bagCode: preflightBagCode,
+  tickets: [preflightTicket],
+  occurredAt: '2026-07-30 16:10',
+  usageCycleId: preflightUsageCycleId,
+  storage: preflightStorage,
+})
+runtime.appendWaitHandoverInboundEvent({
+  source: 'WEB',
+  operator: { operatorName: '预校验入仓员' },
+  bagCode: preflightBagCode,
+  warehouseArea: '预校验待交出区',
+  locationCode: 'PREFLIGHT-01',
+  locationRef: {
+    factoryId: 'FACTORY-PREFLIGHT',
+    warehouseId: 'WAREHOUSE-PREFLIGHT',
+    warehouseKind: 'WAIT_HANDOVER',
+    areaId: 'AREA-PREFLIGHT',
+    areaName: '预校验待交出区',
+    shelfId: 'SHELF-PREFLIGHT',
+    shelfNo: 'PREFLIGHT',
+    locationId: 'LOCATION-PREFLIGHT-01',
+    locationNo: 'PREFLIGHT-01',
+  },
+  occurredAt: '2026-07-30 16:20',
+  usageCycleId: preflightUsageCycleId,
+  storage: preflightStorage,
+})
+operations.submitWholeBagHandover({
+  bagCode: preflightBagCode,
+  usageCycleId: preflightUsageCycleId,
+  handoverOrderId: 'WEB-PREFLIGHT-HO-ID-001',
+  handoverOrderNo: 'WEB-PREFLIGHT-HO-001',
+  handoverRecordId: 'WEB-PREFLIGHT-HR-ID-001',
+  handoverRecordNo: 'WEB-PREFLIGHT-HR-001',
+  assignments: [{
+    feiTicketId: preflightTicket.feiTicketId,
+    feiTicketNo: preflightTicket.feiTicketNo,
+    sewingTaskId: preflightTicket.sewingTaskId,
+    sewingTaskNo: preflightTicket.sewingTaskNo,
+    receiverFactoryId: preflightTicket.receiverFactoryId,
+    receiverFactoryName: preflightTicket.receiverFactoryName,
+  }],
+  submittedTicketSnapshot: [preflightTicket],
+  operator: { operatorName: '预校验交出员' },
+  source: 'WEB',
+  occurredAt: '2026-07-30 16:30',
+}, preflightStorage)
+const preflightLedgerBefore = preflightStorage.getItem(
+  runtimeLedger.CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY,
+)
+assert.throws(
+  () => runtime.preflightWaitHandoverBaggingEvent({
+    source: 'WEB',
+    operator: { operatorName: '预校验装袋员' },
+    bagCode: preflightBagCode,
+    tickets: [
+      preflightTicket,
+      {
+        ...preflightTicket,
+        feiTicketId: 'WEB-PREFLIGHT-FEI-ID-002',
+        feiTicketNo: 'WEB-PREFLIGHT-FEI-002',
+        productionOrderId: 'WEB-PREFLIGHT-PO-ID-002',
+        productionOrderNo: 'WEB-PREFLIGHT-PO-002',
+      },
+    ],
+    occurredAt: '2026-07-30 16:40',
+    storage: preflightStorage,
+  }, (temporaryStorage) => {
+    operations.ensureTransferBagAvailableForUse({
+      bagCode: preflightBagCode,
+      forceRecovery: {
+        physicalBagReceived: true,
+        physicalBagEmpty: true,
+        recoveryNode: '裁床待交出仓',
+        recoveryLocation: '装袋操作区',
+        reason: '预校验强制回收',
+        operator: { operatorName: '预校验装袋员' },
+        source: 'WEB',
+      },
+    }, temporaryStorage)
+  }),
+  /同一生产单/,
+  '跨生产单装袋必须在真实强制回收写入前失败',
+)
+assert.equal(
+  preflightStorage.getItem(runtimeLedger.CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY),
+  preflightLedgerBefore,
+  '装袋预校验失败不得写入真实回收或装袋事实',
+)
+assert.equal(
+  runtime.buildWaitHandoverLifecycleByBagCode(preflightBagCode, preflightStorage).flowStage,
+  'HANDED_OVER_WAITING_RETURN',
+  '装袋预校验失败后中转袋必须仍是已交出待回收',
 )
 
 const browserStorage = createMemoryStorage()
@@ -511,9 +634,6 @@ assert.equal(refreshCount, 0, '权威事实写入成功后不得触发整页重�
 const handlerEvents = runtimeLedger.listCuttingRuntimeEvents(guardedBrowserStorage)
 const handlerHandover = handlerEvents.find((event: { eventType: string }) => event.eventType === '新增交出记录')
 assert(handlerHandover, '真实 Web handler 必须写入新增交出记录')
-const operations = await import(
-  '../src/data/fcs/cutting/transfer-bag-operations.ts'
-)
 assert.equal(operations.isCompleteSuccessfulWholeBagHandoverEvent(handlerHandover), true, '真实 Web handler 事件必须通过权威严格守卫')
 const handlerPayload = handlerHandover.payload as {
   canonicalIntent: string

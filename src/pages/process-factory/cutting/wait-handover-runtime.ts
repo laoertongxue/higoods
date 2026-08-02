@@ -1,5 +1,6 @@
 import {
   appendCuttingRuntimeEventIdempotent,
+  CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY,
   listCuttingRuntimeEvents,
   listCuttingRuntimeEventsByInventoryScope,
   listCuttingRuntimeEventsByType,
@@ -102,6 +103,17 @@ export interface WaitHandoverBaggingSnapshot {
   usageCycleId: string
   productionOrderNo: string
   tickets: WaitHandoverRuntimeTicketInput[]
+}
+
+export interface WaitHandoverBaggingEventInput {
+  source: CuttingRuntimeEventSource
+  operator: WaitHandoverRuntimeOperator
+  bagCode: string
+  tickets: WaitHandoverRuntimeTicketInput[]
+  occurredAt?: string
+  usageCycleId?: string
+  idempotencyKey?: string
+  storage?: BrowserStorageLike | null
 }
 
 export interface WaitHandoverLocationOccupancyState {
@@ -1178,16 +1190,7 @@ export function runtimeEventHasWaitHandoverTicket(eventType: string, feiTicketId
   })
 }
 
-export function appendWaitHandoverBaggingEvent(input: {
-  source: CuttingRuntimeEventSource
-  operator: WaitHandoverRuntimeOperator
-  bagCode: string
-  tickets: WaitHandoverRuntimeTicketInput[]
-  occurredAt?: string
-  usageCycleId?: string
-  idempotencyKey?: string
-  storage?: BrowserStorageLike | null
-}) {
+export function appendWaitHandoverBaggingEvent(input: WaitHandoverBaggingEventInput) {
   const storage = resolveWaitHandoverStorage(input.storage)
   if (!input.bagCode.trim()) {
     throw new Error('请扫描或输入中转袋编号。')
@@ -1199,6 +1202,12 @@ export function appendWaitHandoverBaggingEvent(input: {
   const tickets = input.tickets
   if (!tickets.length) {
     throw new Error('请至少选择或扫描一张有效菲票。')
+  }
+  const voidedTicketNos = tickets
+    .filter((ticket) => runtimeString(ticket.voidStatus).includes('作废') || runtimeString(ticket.printStatus).includes('作废'))
+    .map((ticket) => ticket.feiTicketNo || ticket.feiTicketId)
+  if (voidedTicketNos.length) {
+    throw new Error(`以下菲票已作废，不能装袋：${uniqueStrings(voidedTicketNos).join('、')}`)
   }
   const productionOrderNos = uniqueStrings(
     tickets.map((ticket) => ticket.productionOrderNo),
@@ -1254,6 +1263,37 @@ export function appendWaitHandoverBaggingEvent(input: {
     },
     payload,
   }, storage).event
+}
+
+/**
+ * 在临时账本完整执行装袋共享命令；真实账本只读，任何失败都不会留下回收或装袋事实。
+ */
+export function preflightWaitHandoverBaggingEvent(
+  input: WaitHandoverBaggingEventInput,
+  prepareTemporaryStorage?: (storage: BrowserStorageLike) => void,
+): void {
+  const sourceStorage = resolveWaitHandoverStorage(input.storage)
+  const records = new Map<string, string>()
+  const ledgerSnapshot = sourceStorage?.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY)
+  if (ledgerSnapshot !== null && ledgerSnapshot !== undefined) {
+    records.set(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, ledgerSnapshot)
+  }
+  const temporaryStorage: BrowserStorageLike = {
+    getItem(key) {
+      return records.get(key) ?? null
+    },
+    setItem(key, value) {
+      records.set(key, value)
+    },
+    removeItem(key) {
+      records.delete(key)
+    },
+  }
+  prepareTemporaryStorage?.(temporaryStorage)
+  appendWaitHandoverBaggingEvent({
+    ...input,
+    storage: temporaryStorage,
+  })
 }
 
 export function appendWaitHandoverInboundEvent(input: {

@@ -145,6 +145,30 @@ test('待交出仓保留原工作台，六个中转袋动作均局部打开并�
       })
   })
 
+  const invalidBagCode = `WEB-E2E-INVALID-${Date.now()}`
+  const unknownTicketCode = `UNKNOWN-FEI-${Date.now()}`
+  const factsBeforeInvalidSubmit = await page.evaluate(() => JSON.parse(
+    window.localStorage.getItem('cuttingRuntimeEventLedger') || '{"events":[]}',
+  ).events.length)
+  await page.locator('[data-wait-handover-action="open-bagging"]').click()
+  const invalidBaggingDialog = page.locator('[data-wait-handover-modal="bagging"]')
+  await invalidBaggingDialog.locator('[data-wait-handover-field="bagCode"]').fill(invalidBagCode)
+  const invalidTicketSelect = invalidBaggingDialog.locator('[data-wait-handover-field="feiTicketId"]')
+  await invalidTicketSelect.selectOption({ index: 0 })
+  await invalidBaggingDialog.locator('[data-wait-handover-field="ticketScanInput"]').fill(unknownTicketCode)
+  await invalidBaggingDialog.getByRole('button', { name: '确认菲票装袋', exact: true }).click()
+  await expect(invalidBaggingDialog.locator('[data-wait-handover-feedback]')).toContainText(`以下菲票码未匹配：${unknownTicketCode}`)
+  expect(await page.evaluate(({ invalidBagCode }) => {
+    const events = JSON.parse(
+      window.localStorage.getItem('cuttingRuntimeEventLedger') || '{"events":[]}',
+    ).events as Array<{ refs?: { transferBagCode?: string } }>
+    return {
+      count: events.length,
+      hasInvalidBagFact: events.some((event) => event.refs?.transferBagCode === invalidBagCode),
+    }
+  }, { invalidBagCode })).toEqual({ count: factsBeforeInvalidSubmit, hasInvalidBagFact: false })
+  await invalidBaggingDialog.getByText('关闭', { exact: true }).click()
+
   const bagCode = `WEB-E2E-${Date.now()}`
   await page.locator('[data-wait-handover-action="open-bagging"]').click()
   const baggingDialog = page.locator('[data-wait-handover-modal="bagging"]')
@@ -190,6 +214,72 @@ test('待交出仓保留原工作台，六个中转袋动作均局部打开并�
   expect(persistedFacts.map((event) => event.eventType)).toContain('菲票装袋')
   expect(persistedFacts.map((event) => event.eventType)).toContain('中转袋入仓')
   expect(JSON.stringify(persistedFacts)).toContain(bagCode)
+
+  const partialFailureBagCode = await page.evaluate(async () => {
+    const { appendCuttingRuntimeEvent } = await import('/src/data/fcs/cutting/cutting-runtime-event-ledger.ts')
+    const { submitWholeBagHandover } = await import('/src/data/fcs/cutting/transfer-bag-operations.ts')
+    const bagCode = `WEB-PARTIAL-${Date.now()}`
+    const usageCycleId = `usage:${bagCode}:1`
+    const ticket = {
+      feiTicketId: `${bagCode}-T1`, feiTicketNo: `${bagCode}-菲票-1`,
+      productionOrderId: 'WEB-PARTIAL-PO-ID', productionOrderNo: 'WEB-PARTIAL-PO-001',
+      cutOrderId: 'WEB-PARTIAL-CUT-ID', cutOrderNo: 'WEB-PARTIAL-CUT-001',
+      color: '黑色', size: 'M', partCode: 'FRONT', partName: '前幅', pieceQty: 12,
+      sewingTaskId: 'WEB-PARTIAL-SEW-ID', sewingTaskNo: 'WEB-PARTIAL-SEW-001',
+      receiverFactoryId: 'WEB-PARTIAL-FACTORY-ID', receiverFactoryName: '部分成功测试车缝厂',
+    }
+    appendCuttingRuntimeEvent({
+      eventType: '菲票装袋', eventSource: 'WEB', eventStatus: '已同步', occurredAt: '2026-08-01 10:00', operatorName: '部分成功测试装袋员',
+      refs: { transferBagCode: bagCode, usageCycleId, productionOrderId: ticket.productionOrderId, productionOrderNo: ticket.productionOrderNo, feiTicketIds: [ticket.feiTicketId], feiTicketNos: [ticket.feiTicketNo] },
+      payload: { baggingRecordId: `bagging:${bagCode}`, bagCode, feiTicketItems: [ticket], totalPieceQty: 12, mixedFlag: false, baggingBy: '部分成功测试装袋员', baggingAt: '2026-08-01 10:00' },
+    } as never)
+    appendCuttingRuntimeEvent({
+      eventType: '中转袋入仓', eventSource: 'WEB', eventStatus: '已同步', occurredAt: '2026-08-01 10:10', operatorName: '部分成功测试入仓员',
+      refs: { transferBagCode: bagCode, usageCycleId, productionOrderNo: ticket.productionOrderNo, feiTicketIds: [ticket.feiTicketId] },
+      inventoryEffect: { inventoryScope: '裁床待交出仓', direction: 'IN', qty: 12, unit: '片', toWarehouseArea: '部分成功测试区', toLocationCode: 'PARTIAL-01' },
+      payload: { tempBagUseId: `temp:${bagCode}`, bagCode, warehouseArea: '部分成功测试区', locationCode: 'PARTIAL-01', inboundBy: '部分成功测试入仓员', inboundAt: '2026-08-01 10:10', feiTicketItems: [ticket], totalPieceQty: 12, mixedFlag: false, locationRef: { factoryId: 'FACTORY-PARTIAL', warehouseId: 'WAREHOUSE-PARTIAL', warehouseKind: 'WAIT_HANDOVER', areaId: 'AREA-PARTIAL', areaName: '部分成功测试区', shelfId: 'SHELF-PARTIAL', shelfNo: 'PARTIAL', locationId: 'LOCATION-PARTIAL-01', locationNo: 'PARTIAL-01' } },
+    } as never)
+    submitWholeBagHandover({
+      bagCode, usageCycleId, handoverOrderId: `HO-${bagCode}`, handoverOrderNo: `HO-${bagCode}`,
+      handoverRecordId: `HR-${bagCode}`, handoverRecordNo: `HR-${bagCode}`,
+      assignments: [{ feiTicketId: ticket.feiTicketId, feiTicketNo: ticket.feiTicketNo, sewingTaskId: ticket.sewingTaskId, sewingTaskNo: ticket.sewingTaskNo, receiverFactoryId: ticket.receiverFactoryId, receiverFactoryName: ticket.receiverFactoryName }],
+      submittedTicketSnapshot: [ticket], operator: { operatorName: '部分成功测试交出员' }, source: 'WEB', occurredAt: '2026-08-01 10:20',
+    })
+    return bagCode
+  })
+  await page.locator('[data-wait-handover-action="open-bagging"]').click()
+  const partialFailureDialog = page.locator('[data-wait-handover-modal="bagging"]')
+  await partialFailureDialog.locator('[data-wait-handover-field="bagCode"]').fill(partialFailureBagCode)
+  await partialFailureDialog.locator('[data-wait-handover-field="feiTicketId"]').selectOption({ index: 0 })
+  await partialFailureDialog.locator('[data-wait-handover-field="forceRecoveryReason"]').fill('实物空袋已回到装袋区')
+  await partialFailureDialog.locator('[data-wait-handover-field="physicalBagReceived"]').check()
+  await partialFailureDialog.locator('[data-wait-handover-field="physicalBagEmpty"]').check()
+  await page.evaluate(() => {
+    const nativeSetItem = Storage.prototype.setItem
+    let ledgerWriteCount = 0
+    Storage.prototype.setItem = function setItemWithSecondLedgerFailure(key: string, value: string): void {
+      if (key === 'cuttingRuntimeEventLedger') {
+        ledgerWriteCount += 1
+        if (ledgerWriteCount === 2) {
+          Storage.prototype.setItem = nativeSetItem
+          throw new Error('模拟装袋账本第二次写入失败')
+        }
+      }
+      nativeSetItem.call(this, key, value)
+    }
+  })
+  await partialFailureDialog.getByRole('button', { name: '确认菲票装袋', exact: true }).click()
+  await expect(partialFailureDialog.locator('[data-wait-handover-feedback]')).toContainText('回收已成功，装袋未完成：模拟装袋账本第二次写入失败')
+  expect(await page.evaluate(async ({ partialFailureBagCode }) => {
+    const { resolveTransferBagCurrentUse } = await import('/src/data/fcs/cutting/transfer-bag-operations.ts')
+    const events = JSON.parse(window.localStorage.getItem('cuttingRuntimeEventLedger') || '{"events":[]}').events as Array<{ eventType?: string; refs?: { transferBagCode?: string } }>
+    return {
+      mainStatus: resolveTransferBagCurrentUse(partialFailureBagCode).mainStatus,
+      recoveryCount: events.filter((event) => event.eventType === '中转袋回收' && event.refs?.transferBagCode === partialFailureBagCode).length,
+      baggingCount: events.filter((event) => event.eventType === '菲票装袋' && event.refs?.transferBagCode === partialFailureBagCode).length,
+    }
+  }, { partialFailureBagCode })).toEqual({ mainStatus: 'IDLE', recoveryCount: 1, baggingCount: 1 })
+  await partialFailureDialog.getByText('关闭', { exact: true }).click()
 
   await page.locator('[data-wait-handover-action="open-handover"]').click()
   const handoverDialog = page.locator('[data-wait-handover-modal="handover"]')
@@ -251,6 +341,14 @@ test('待交出仓保留原工作台，六个中转袋动作均局部打开并�
   await repackDialog.locator(`[data-wait-handover-repack-ticket-assignment][data-ticket-id="${repackBagCode}-T1"]`).selectOption(resultIds[0])
   await repackDialog.locator(`[data-wait-handover-repack-ticket-assignment][data-ticket-id="${repackBagCode}-T2"]`).selectOption(resultIds[2])
   await repackDialog.locator(`[data-wait-handover-repack-ticket-assignment][data-ticket-id="${repackBagCode}-T3"]`).selectOption(resultIds[1])
+  await resultRows.nth(2).getByRole('button', { name: '移除', exact: true }).click()
+  const unassignedTicket = repackDialog.locator(`[data-wait-handover-repack-ticket-assignment][data-ticket-id="${repackBagCode}-T2"]`)
+  await expect(unassignedTicket).toHaveValue('')
+  await expect(repackDialog.locator('[data-wait-handover-repack-total-preview]')).toContainText('待分配 1 张')
+  await expect(repackDialog.getByRole('button', { name: '确认重装', exact: true })).toBeDisabled()
+  await unassignedTicket.selectOption(resultIds[0])
+  await expect(repackDialog.locator('[data-wait-handover-repack-total-preview]')).toContainText('待分配 0 张')
+  await expect(repackDialog.getByRole('button', { name: '确认重装', exact: true })).toBeEnabled()
   await repackDialog.getByRole('button', { name: '确认重装', exact: true }).dblclick()
   await expect(repackDialog.getByText('重装成功，请继续交出。', { exact: true })).toBeVisible()
   const repackFacts = await page.evaluate(() => JSON.parse(
