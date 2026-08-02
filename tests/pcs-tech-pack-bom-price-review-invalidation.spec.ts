@@ -179,8 +179,8 @@ function createPricedMaterial() {
     gramWeightText: '180g',
     pricingUnit: '米',
     mainUnit: '米',
-    auxiliaryUnits: [],
-    unitConversions: [],
+    auxiliaryUnits: ['Yard'],
+    unitConversions: [{ fromUnit: 'Yard', toUnit: '米', factor: 0.9144 }],
     mainImageUrl: '',
     barcodeTemplateCode: '',
     remark: '',
@@ -258,6 +258,40 @@ assert.deepEqual(
   }],
   '标准单价相同也不能吞掉真实物料 SKU 更换',
 )
+assert.deepEqual(
+  compareBomPriceChanges(samePriceSkuSwitchBefore, {
+    ...samePriceSkuSwitchBefore,
+    bomItems: samePriceSkuSwitchBefore.bomItems.map((item) => ({ ...item, sampleQuantity: 2 })),
+  }),
+  [{
+    changeSource: 'BOM_SAMPLE_QUANTITY',
+    targetId: 'BOM-SAME-PRICE-SKU',
+    beforeValue: 1,
+    afterValue: 2,
+  }],
+  '打样数量变化必须作为独立 BOM 价格事实',
+)
+assert.deepEqual(
+  compareBomPriceChanges(samePriceSkuSwitchBefore, {
+    ...samePriceSkuSwitchBefore,
+    bomItems: samePriceSkuSwitchBefore.bomItems.map((item) => ({ ...item, unit: 'Yard' })),
+  }),
+  [{
+    changeSource: 'BOM_USAGE_UNIT',
+    targetId: 'BOM-SAME-PRICE-SKU',
+    beforeValue: '米',
+    afterValue: 'Yard',
+  }],
+  '用量单位身份变化必须触发，不能只比较换算后的数值',
+)
+assert.deepEqual(
+  compareBomPriceChanges(samePriceSkuSwitchBefore, {
+    ...samePriceSkuSwitchBefore,
+    bomItems: samePriceSkuSwitchBefore.bomItems.map((item) => ({ ...item })),
+  }),
+  [],
+  '打样数量和用量单位同值保存不得产生价格变化事实',
+)
 
 const changedCases = [
   ['STANDARD_MATERIAL_PRICE_CNY', 'MAT-SKU-001', 12.34, 13.21],
@@ -300,7 +334,12 @@ assert.equal(customCostSaved?.patternMakerReview?.status, '审核-已通过')
 assert.equal(customCostSaved?.merchandiserReview?.status, '审核-已通过')
 
 const pricedSku = createPricedMaterial()
-for (const [field, nextValue] of [['usage', 1.2], ['lossRate', 0.05]] as const) {
+for (const [field, nextValue] of [
+  ['usage', 1.2],
+  ['lossRate', 0.05],
+  ['sampleQuantity', 2],
+  ['usageUnit', 'Yard'],
+] as const) {
   installApprovedFixture(contentWithBom(pricedSku.materialSkuId))
   saveTechnicalDataVersionBomMaterialLine(
     technicalVersionId,
@@ -370,9 +409,19 @@ assert.equal(
 )
 
 installApprovedFixture(contentWithBom(pricedSku.materialSkuId))
-saveTechnicalDataVersionBomMaterialLine(technicalVersionId, 'BOM-001', { usage: 1, lossRate: 0 }, '买手')
+saveTechnicalDataVersionBomMaterialLine(
+  technicalVersionId,
+  'BOM-001',
+  { usage: 1, lossRate: 0, sampleQuantity: 1, usageUnit: '米' },
+  '买手',
+)
 const noChangeBefore = getTechnicalDataVersionStoreSnapshot()
-saveTechnicalDataVersionBomMaterialLine(technicalVersionId, 'BOM-001', { usage: 1, lossRate: 0 }, '买手')
+saveTechnicalDataVersionBomMaterialLine(
+  technicalVersionId,
+  'BOM-001',
+  { usage: 1, lossRate: 0, sampleQuantity: 1, usageUnit: '米' },
+  '买手',
+)
 saveTechnicalDataVersionBomCustomCosts(technicalVersionId, [{ title: '车位费', amountIdr: 15000 }], '买手')
 assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), noChangeBefore, '真实保存值未变化时不得失效审核或写入')
 
@@ -465,6 +514,25 @@ assert.throws(
   /金额/,
 )
 assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), failedSaveBefore, '真实保存失败时内容与审核必须全部零写入')
+
+installApprovedFixture(contentWithBom(pricedSku.materialSkuId))
+const dedicatedRollbackBefore = getTechnicalDataVersionStoreSnapshot()
+setBomPriceReviewInvalidationFailureForTesting(technicalVersionId)
+try {
+  assert.throws(
+    () => saveTechnicalDataVersionBomMaterialLine(
+      technicalVersionId,
+      'BOM-001',
+      { sampleQuantity: 2 },
+      '买手',
+    ),
+    /模拟 BOM 与价格审核失效写入失败/,
+    '打样数量变化触发复审失败时必须回滚专用保存入口',
+  )
+} finally {
+  setBomPriceReviewInvalidationFailureForTesting(null)
+}
+assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), dedicatedRollbackBefore, '专用保存入口复审失败必须回滚内容与审核')
 
 installApprovedFixture(contentWithBom(pricedSku.materialSkuId))
 const materialRollbackBefore = getMaterialSkuRecordById(pricedSku.materialSkuId)

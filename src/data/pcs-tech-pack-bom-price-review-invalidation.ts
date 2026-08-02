@@ -16,8 +16,11 @@ export type BomPriceReviewChangeSource =
   | 'BOM_UNIT_CONSUMPTION'
   | 'BOM_LOSS_RATE'
   | 'MATERIAL_SKU_CHANGE'
+  | 'BOM_SAMPLE_QUANTITY'
+  | 'BOM_USAGE_UNIT'
 
-type NumericBomPriceReviewChangeSource = Exclude<BomPriceReviewChangeSource, 'MATERIAL_SKU_CHANGE'>
+type TextBomPriceReviewChangeSource = 'MATERIAL_SKU_CHANGE' | 'BOM_USAGE_UNIT'
+type NumericBomPriceReviewChangeSource = Exclude<BomPriceReviewChangeSource, TextBomPriceReviewChangeSource>
 
 export type BomPriceReviewChange =
   | {
@@ -27,7 +30,7 @@ export type BomPriceReviewChange =
       afterValue: number
     }
   | {
-      changeSource: 'MATERIAL_SKU_CHANGE'
+      changeSource: TextBomPriceReviewChangeSource
       targetId: string
       beforeValue: string
       afterValue: string
@@ -101,7 +104,7 @@ export function invalidateReviewForBomPriceChange(
   if (changes.length === 0) throw new Error('请提供价格变化明细。')
   if (changes.some((change) => {
     if (!change.targetId.trim()) return true
-    if (change.changeSource === 'MATERIAL_SKU_CHANGE') {
+    if (change.changeSource === 'MATERIAL_SKU_CHANGE' || change.changeSource === 'BOM_USAGE_UNIT') {
       return change.beforeValue === change.afterValue
     }
     return !Number.isFinite(change.beforeValue) || !Number.isFinite(change.afterValue)

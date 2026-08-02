@@ -199,7 +199,7 @@ function toTechnicalBomItems(rows: BomItemRow[]): TechnicalDataVersionContent['b
     unit: row.unit,
     colorLabel: row.colorLabel,
     unitConsumption: row.usage,
-    sampleQuantity: 1,
+    sampleQuantity: row.sampleQuantity ?? 1,
     lossRate: row.lossRate,
     supplier: '',
     printRequirement: row.printRequirement,
@@ -322,6 +322,8 @@ assertOnlyBuyerReviewInvalidated(genericSkuSwitchVersionId, '技术包 BOM 同�
 for (const [label, changedRows] of [
   ['修改单位用量', bomRows.map((row) => ({ ...row, usage: row.usage + 0.2 }))],
   ['修改损耗率', bomRows.map((row) => ({ ...row, lossRate: row.lossRate + 0.05 }))],
+  ['修改打样数量', bomRows.map((row) => ({ ...row, sampleQuantity: (row.sampleQuantity ?? 1) + 1 }))],
+  ['修改用量单位', bomRows.map((row) => ({ ...row, unit: 'Yard' }))],
 ] as const) {
   const versionId = createSourceVersion(`GENERIC-${label}`, master, style, {
     ...content,
@@ -345,10 +347,10 @@ markTechnicalVersionApproved(genericNonBomVersionId)
 saveTechnicalDataVersionContentWithEngineeringLinkage(
   genericNonBomVersionId,
   bomRows,
-  { patternDesc: '只修改普通技术资料' },
+  { patternDesc: '只修改普通技术资料', bomItems: initialTechnicalBomItems.map((item) => ({ ...item })) },
   '买手A',
 )
-assert.equal(getTechnicalDataVersionById(genericNonBomVersionId)?.buyerReview?.status, '审核-已通过', '非 BOM 与价格内容变化不得触发复审')
+assert.equal(getTechnicalDataVersionById(genericNonBomVersionId)?.buyerReview?.status, '审核-已通过', '打样数量、用量单位同值及非 BOM 内容变化不得触发复审')
 
 const genericInvalidationFailureVersionId = createSourceVersion('GENERIC-INVALIDATION-FAIL', master, style, {
   ...content,
@@ -361,8 +363,8 @@ try {
   assert.throws(
     () => saveTechnicalDataVersionContentWithEngineeringLinkage(
       genericInvalidationFailureVersionId,
-      bomRows.map((row) => ({ ...row, usage: row.usage + 0.3 })),
-      { bomItems: initialTechnicalBomItems.map((item) => ({ ...item, unitConsumption: item.unitConsumption + 0.3 })) },
+      bomRows.map((row) => ({ ...row, sampleQuantity: (row.sampleQuantity ?? 1) + 1 })),
+      { bomItems: initialTechnicalBomItems.map((item) => ({ ...item, sampleQuantity: (item.sampleQuantity ?? 1) + 1 })) },
       '买手A',
     ),
     /模拟 BOM 与价格审核失效写入失败/,

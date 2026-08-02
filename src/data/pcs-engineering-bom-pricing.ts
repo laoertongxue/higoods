@@ -92,6 +92,26 @@ export function compareBomPriceChanges(
         afterValue: after.lossRate,
       })
     }
+    const beforeSampleQuantity = before.sampleQuantity ?? 1
+    const afterSampleQuantity = after.sampleQuantity ?? 1
+    if (beforeSampleQuantity !== afterSampleQuantity) {
+      changes.push({
+        changeSource: 'BOM_SAMPLE_QUANTITY',
+        targetId: bomItemId,
+        beforeValue: beforeSampleQuantity,
+        afterValue: afterSampleQuantity,
+      })
+    }
+    const beforeUsageUnit = (before.unit ?? '').trim()
+    const afterUsageUnit = (after.unit ?? '').trim()
+    if (beforeUsageUnit !== afterUsageUnit) {
+      changes.push({
+        changeSource: 'BOM_USAGE_UNIT',
+        targetId: bomItemId,
+        beforeValue: beforeUsageUnit,
+        afterValue: afterUsageUnit,
+      })
+    }
   })
 
   const beforeCustomCostIdr = (beforeContent.bomCustomCosts ?? []).reduce((sum, item) => sum + item.amountIdr, 0)
