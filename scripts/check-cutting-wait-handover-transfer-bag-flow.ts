@@ -140,9 +140,12 @@ assertContains(runtime, "eventType: '中转袋入仓'", 'RUNTIME appendWaitHando
 
 // 1.3.1 任务 6：特殊工艺带袋回仓统一命令和三分流
 assertContains(transferBagOperations, 'export function submitSpecialCraftBagReturn', 'OPERATIONS 必须导出特殊工艺带袋回仓共享命令')
+assertContains(transferBagOperations, 'export function submitSpecialCraftTicketOnlyReturn', 'OPERATIONS 必须导出特殊工艺无袋回仓严格命令')
 assertContains(transferBagOperations, 'appendCuttingRuntimeEventIdempotentValidated', '特殊工艺带袋回仓必须使用写前验证的原子 append')
+assertContains(transferBagOperations, 'buildCurrentTicketBagIndexFromSnapshot', '特殊工艺回仓必须单次构建当前票袋关系索引')
 assertContains(transferBagOperations, '空袋请执行中转袋回收。', '共享命令必须用精确文案阻断空袋')
 assertContains(runtime, 'return submitSpecialCraftBagReturn({', '带袋有票回仓必须委托共享命令')
+assertContains(runtime, 'return submitSpecialCraftTicketOnlyReturn({', '无袋有票回仓必须委托严格共享命令')
 assertContains(runtime, 'return recoverTransferBag({', '物理空袋无票必须委托中转袋回收')
 assertContains(runtime, 'isCompleteSuccessfulSpecialCraftBagReturnEvent(event)', '库位和生命周期投影只接受严格带袋回仓事实')
 assertNotContains(runtime, '`return:${returnRecordId}`', '无袋回仓不得生成虚拟袋码占用库位')

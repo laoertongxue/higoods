@@ -2,6 +2,7 @@
 
 // @ts-expect-error 本脚本由 Node + tsx 运行，仓库未安装 @types/node。
 import assert from 'node:assert/strict'
+import { performance } from 'node:perf_hooks'
 import {
   CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY,
   appendCuttingRuntimeEvent,
@@ -156,6 +157,60 @@ function specialCraftBagReturnInput(
     source: 'WEB',
     occurredAt: '2026-08-01 09:20',
     ...overrides,
+  }
+}
+
+function specialCraftTicketOnlyReturnInput(
+  seeded: ReturnType<typeof seedSpecialCraftBagHandover>,
+  suffix: string,
+  overrides: Partial<Parameters<typeof appendWaitHandoverSpecialCraftReturnEvent>[0]> = {},
+): Parameters<typeof appendWaitHandoverSpecialCraftReturnEvent>[0] {
+  const base: Parameters<typeof appendWaitHandoverSpecialCraftReturnEvent>[0] = {
+    source: 'WEB',
+    operator: {
+      operatorId: 'OP-SPECIAL-TICKET-IN',
+      operatorName: '无袋回仓员',
+      operatorRole: '特殊工艺回仓员',
+    },
+    payload: {
+      returnRecordId: `SPECIAL-TICKET-RETURN-${suffix}`,
+      returnRecordNo: `特殊工艺无袋回仓-${suffix}`,
+      sourceHandoverOrderId: seeded.sourceHandoverOrderId,
+      sourceHandoverOrderNo: seeded.sourceHandoverOrderId,
+      sourceHandoverRecordId: seeded.sourceHandoverRecordId,
+      sourceHandoverRecordNo: seeded.sourceHandoverRecordId,
+      receiverFactoryId: 'CRAFT-FACTORY-RETURN',
+      receiverFactoryName: '特殊工艺回仓测试厂',
+      warehouseName: '裁床待交出仓',
+      craftType: '绣花',
+      returnedFeiTicketItems: seeded.tickets.map((item) => ({
+        feiTicketId: item.feiTicketId,
+        feiTicketNo: item.feiTicketNo,
+        specialCraftId: seeded.specialCraftId,
+        craftType: '绣花',
+        partName: item.partName,
+        size: item.size,
+        expectedQty: item.pieceQty,
+        returnedQty: item.pieceQty,
+        unit: '片' as const,
+        returnStatus: '已回仓' as const,
+      })),
+      warehouseArea: '待交出回仓区',
+      locationCode: `R-${suffix}`,
+      locationRef: specialCraftReturnLocation(suffix),
+      returnedAt: '2026-08-01 09:20',
+      returnedBy: '无袋回仓员',
+    },
+    specialCraftId: seeded.specialCraftId,
+    occurredAt: '2026-08-01 09:20',
+  }
+  return {
+    ...base,
+    ...overrides,
+    payload: {
+      ...base.payload,
+      ...overrides.payload,
+    },
   }
 }
 
@@ -4626,10 +4681,15 @@ function scrapInput(
       sourceHandoverRecordId: seeded.sourceHandoverRecordId,
       receiverFactoryId: 'CRAFT-FACTORY-RETURN',
       receiverFactoryName: '特殊工艺回仓测试厂',
+      warehouseName: '裁床待交出仓',
+      craftType: '绣花',
       returnedFeiTicketItems: seeded.tickets.map((item) => ({
         feiTicketId: item.feiTicketId,
         feiTicketNo: item.feiTicketNo,
         specialCraftId: seeded.specialCraftId,
+        craftType: '绣花',
+        partName: item.partName,
+        size: item.size,
         expectedQty: item.pieceQty,
         returnedQty: item.pieceQty,
         unit: '片' as const,
@@ -4655,6 +4715,246 @@ function scrapInput(
     '无袋回仓不得生成虚拟袋码或库位占用',
   )
   assert.equal(resolveTransferBagCurrentUse(seeded.bagCode, storage).flowStage, 'HANDED_OVER_WAITING_RETURN')
+}
+
+// 质量审查 P1 红灯：无袋回仓也必须以完整成功的特殊工艺交出事实为唯一来源。
+{
+  const storage = createMemoryStorage()
+  const seeded = seedSpecialCraftBagHandover({ storage, suffix: 'NO-BAG-STRICT' })
+  const input = specialCraftTicketOnlyReturnInput(seeded, 'NO-BAG-STRICT', { storage })
+  const before = listCuttingRuntimeEvents(storage)
+  assert.throws(
+    () => appendWaitHandoverSpecialCraftReturnEvent({
+      ...input,
+      payload: {
+        ...input.payload,
+        sourceHandoverRecordId: 'UNKNOWN-SPECIAL-HANDOVER',
+      },
+    }),
+    /来源特殊工艺交出记录不存在、未成功或事实不完整/,
+    '无袋回仓不得接受空账本或未知来源记录',
+  )
+  assert.deepEqual(listCuttingRuntimeEvents(storage), before, '未知来源的无袋回仓必须零写入')
+}
+
+{
+  const sourceStorage = createMemoryStorage()
+  const seeded = seedSpecialCraftBagHandover({ storage: sourceStorage, suffix: 'NO-BAG-EMPTY-LEDGER' })
+  const emptyStorage = createMemoryStorage()
+  assertRejectedWithoutWriting(
+    emptyStorage,
+    () => appendWaitHandoverSpecialCraftReturnEvent(
+      specialCraftTicketOnlyReturnInput(seeded, 'NO-BAG-EMPTY-LEDGER', { storage: emptyStorage }),
+    ),
+    /来源特殊工艺交出记录不存在、未成功或事实不完整/,
+    '空账本不得接受无袋回仓',
+  )
+}
+
+{
+  const storage = createMemoryStorage()
+  const ordinaryTicket = ticket('NO-BAG-ORDINARY-01', 'PO-NO-BAG-ORDINARY', 'FACTORY-HANDOVER', 6)
+  const bagCode = 'BAG-NO-BAG-ORDINARY'
+  const usageCycleId = `usage:${bagCode}:1`
+  appendBagging({ storage, bagCode, usageCycleId, tickets: [ordinaryTicket] })
+  appendInbound({ storage, bagCode, usageCycleId, tickets: [ordinaryTicket] })
+  submitWholeBagHandover(
+    handoverInput(bagCode, usageCycleId, [ordinaryTicket], [assignment(ordinaryTicket, 'SEW-NO-BAG-ORDINARY')], {
+      handoverRecordId: 'HR-NO-BAG-ORDINARY',
+      handoverRecordNo: 'HR-NO-BAG-ORDINARY',
+    }),
+    storage,
+  )
+  const sourceStorage = createMemoryStorage()
+  const seeded = seedSpecialCraftBagHandover({ storage: sourceStorage, suffix: 'NO-BAG-ORDINARY-TEMPLATE' })
+  const input = specialCraftTicketOnlyReturnInput(seeded, 'NO-BAG-ORDINARY', { storage })
+  assertRejectedWithoutWriting(
+    storage,
+    () => appendWaitHandoverSpecialCraftReturnEvent({
+      ...input,
+      payload: {
+        ...input.payload,
+        sourceHandoverOrderId: `HO-${bagCode}`,
+        sourceHandoverRecordId: 'HR-NO-BAG-ORDINARY',
+      },
+    }),
+    /来源特殊工艺交出记录不存在、未成功或事实不完整/,
+    '普通整袋交出记录不得伪装成无袋特殊工艺回仓来源',
+  )
+}
+
+for (const sourceStatus of ['已取消', '同步失败'] as const) {
+  const storage = createMemoryStorage()
+  const seeded = seedSpecialCraftBagHandover({ storage, suffix: `NO-BAG-${sourceStatus}` })
+  const rawLedger = storage.getItem?.(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY)
+  assert(rawLedger)
+  const store = JSON.parse(rawLedger) as { events: Array<Record<string, unknown>> }
+  const sourceEvent = store.events.find((event) => event.eventId === seeded.handover.eventId)
+  assert(sourceEvent)
+  sourceEvent.eventStatus = sourceStatus
+  storage.setItem?.(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, JSON.stringify(store))
+  assertRejectedWithoutWriting(
+    storage,
+    () => appendWaitHandoverSpecialCraftReturnEvent(
+      specialCraftTicketOnlyReturnInput(seeded, `NO-BAG-${sourceStatus}`, { storage }),
+    ),
+    /来源特殊工艺交出记录不存在、未成功或事实不完整/,
+    `${sourceStatus}特殊工艺交出不得作为无袋回仓来源`,
+  )
+}
+
+{
+  const storage = createMemoryStorage()
+  const seeded = seedSpecialCraftBagHandover({ storage, suffix: 'NO-BAG-TICKET-FACTS' })
+  const base = specialCraftTicketOnlyReturnInput(seeded, 'NO-BAG-TICKET-FACTS', { storage })
+  for (const [label, payload] of [
+    ['UNKNOWN 菲票', {
+      ...base.payload,
+      returnedFeiTicketItems: base.payload.returnedFeiTicketItems.map((item, index) =>
+        index ? item : { ...item, feiTicketId: 'UNKNOWN-FEI-TICKET' }),
+    }],
+    ['数量差异', {
+      ...base.payload,
+      returnedFeiTicketItems: base.payload.returnedFeiTicketItems.map((item, index) =>
+        index ? item : { ...item, returnedQty: item.returnedQty - 1 }),
+    }],
+    ['重复菲票', {
+      ...base.payload,
+      returnedFeiTicketItems: [base.payload.returnedFeiTicketItems[0], base.payload.returnedFeiTicketItems[0]],
+    }],
+  ] as const) {
+    assertRejectedWithoutWriting(
+      storage,
+      () => appendWaitHandoverSpecialCraftReturnEvent({ ...base, payload }),
+      /重复|不可变快照|不一致/,
+      `无袋回仓${label}必须零写入`,
+    )
+  }
+}
+
+{
+  const storage = createMemoryStorage()
+  const seeded = seedSpecialCraftBagHandover({ storage, suffix: 'NO-BAG-IDEMPOTENT' })
+  const input = specialCraftTicketOnlyReturnInput(seeded, 'NO-BAG-IDEMPOTENT', { storage })
+  const first = appendWaitHandoverSpecialCraftReturnEvent(input)
+  const afterFirst = listCuttingRuntimeEvents(storage)
+  const retry = appendWaitHandoverSpecialCraftReturnEvent({
+    ...input,
+    operator: { ...input.operator },
+    payload: structuredClone(input.payload),
+  })
+  assert.equal(retry.eventId, first.eventId, '无袋回仓完全等价重试必须返回原事实')
+  assert.deepEqual(listCuttingRuntimeEvents(storage), afterFirst, '无袋回仓完全等价重试不得重复写入')
+  ;(first.payload as Record<string, unknown>).returnRecordNo = '外部篡改'
+  assert.notEqual(
+    (listCuttingRuntimeEvents(storage).find((event) => event.eventId === first.eventId)?.payload as Record<string, unknown>).returnRecordNo,
+    '外部篡改',
+    '无袋回仓返回值必须深拷贝',
+  )
+  const conflicts: Array<[string, Parameters<typeof appendWaitHandoverSpecialCraftReturnEvent>[0]]> = [
+    ['回仓记录', { ...input, payload: { ...input.payload, returnRecordId: 'OTHER-RETURN-RECORD' } }],
+    ['回仓编号', { ...input, payload: { ...input.payload, returnRecordNo: 'OTHER-RETURN-NO' } }],
+    ['操作人', { ...input, operator: { ...input.operator, operatorName: '另一无袋回仓员' }, payload: { ...input.payload, returnedBy: '另一无袋回仓员' } }],
+    ['工厂', { ...input, payload: { ...input.payload, receiverFactoryName: '另一特殊工艺厂' } }],
+    ['状态', { ...input, payload: { ...input.payload, returnedFeiTicketItems: input.payload.returnedFeiTicketItems.map((item, index) => index ? item : { ...item, returnStatus: '部分回仓' as const }) } }],
+    ['来源', { ...input, source: 'PDA' }],
+    ['时间', { ...input, occurredAt: '2026-08-01 09:21', payload: { ...input.payload, returnedAt: '2026-08-01 09:21' } }],
+    ['幂等键', { ...input, idempotencyKey: 'OTHER-IDEMPOTENCY-KEY' }],
+  ]
+  for (const [label, conflicting] of conflicts) {
+    assertRejectedWithoutWriting(
+      storage,
+      () => appendWaitHandoverSpecialCraftReturnEvent(conflicting),
+      /冲突|不一致|幂等键|不可变快照/,
+      `无袋回仓${label}变化必须冲突且零写入`,
+    )
+  }
+}
+
+{
+  const storage = createMemoryStorage()
+  const seeded = seedSpecialCraftBagHandover({ storage, suffix: 'NO-BAG-DAMAGED-EXISTING' })
+  const input = specialCraftTicketOnlyReturnInput(seeded, 'NO-BAG-DAMAGED-EXISTING', { storage })
+  const event = appendWaitHandoverSpecialCraftReturnEvent(input)
+  const rawLedger = storage.getItem?.(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY)
+  assert(rawLedger)
+  const store = JSON.parse(rawLedger) as { events: Array<Record<string, unknown>> }
+  const persisted = store.events.find((item) => item.eventId === event.eventId)
+  assert(persisted)
+  const payload = persisted.payload as Record<string, unknown>
+  const items = payload.returnedFeiTicketItems as Array<Record<string, unknown>>
+  items[0].returnedQty = Number(items[0].returnedQty) - 1
+  storage.setItem?.(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, JSON.stringify(store))
+  assertRejectedWithoutWriting(
+    storage,
+    () => appendWaitHandoverSpecialCraftReturnEvent(input),
+    /业务意图冲突/,
+    '同幂等键下损坏的无袋回仓历史事实不得被直接返回',
+  )
+}
+
+{
+  const baseStorage = createMemoryStorage()
+  const seeded = seedSpecialCraftBagHandover({ storage: baseStorage, suffix: 'NO-BAG-STORAGE-FAILURE' })
+  const failingStorage: BrowserStorageLike = {
+    getItem: (key) => baseStorage.getItem?.(key) ?? null,
+    setItem: () => { throw new Error('模拟无袋回仓存储失败') },
+  }
+  assert.throws(
+    () => appendWaitHandoverSpecialCraftReturnEvent(
+      specialCraftTicketOnlyReturnInput(seeded, 'NO-BAG-STORAGE-FAILURE', { storage: failingStorage }),
+    ),
+    /模拟无袋回仓存储失败/,
+  )
+  assert.equal(
+    listCuttingRuntimeEvents(baseStorage).filter((event) =>
+      event.idempotencyKey === `${seeded.sourceHandoverRecordId}:SPECIAL_CRAFT_TICKET_ONLY_RETURNED`).length,
+    0,
+    '无袋回仓存储故障必须保持零写入',
+  )
+}
+
+// 质量审查 P1 红灯：2,000 规模真实提交路径不得逐袋重复 fold 全账本。
+{
+  const storage = createMemoryStorage()
+  const seeded = seedSpecialCraftBagHandover({ storage, suffix: 'PERFORMANCE-2000' })
+  const rawLedger = storage.getItem?.(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY)
+  assert(rawLedger, '性能用例必须取得来源账本')
+  const store = JSON.parse(rawLedger) as { events: Array<Record<string, unknown>> }
+  const baggingTemplate = structuredClone(store.events.find((event) => event.eventType === '菲票装袋'))
+  assert(baggingTemplate, '性能用例必须取得装袋模板')
+  for (let index = store.events.length; index < 2_000; index += 1) {
+    const bagCode = `BAG-PERFORMANCE-${index}`
+    const ticketId = `PERFORMANCE-TICKET-${index}`
+    const event = structuredClone(baggingTemplate)
+    event.eventId = `cutting-event:BAGGING:${index}`
+    event.eventNo = `BAGGING-${index}`
+    event.idempotencyKey = `performance-bagging:${index}`
+    event.occurredAt = `2026-07-${String((index % 28) + 1).padStart(2, '0')} 07:${String(index % 60).padStart(2, '0')}`
+    event.createdAt = event.occurredAt
+    event.refs = {
+      transferBagCode: bagCode,
+      usageCycleId: `usage:${bagCode}:1`,
+      feiTicketIds: [ticketId],
+      feiTicketNos: [`FT-${ticketId}`],
+    }
+    event.payload = {
+      baggingRecordId: `bagging:${bagCode}`,
+      bagCode,
+      feiTicketItems: [ticket(ticketId, `PO-PERFORMANCE-${index}`, 'FACTORY-PERFORMANCE', 1)],
+      totalPieceQty: 1,
+      mixedFlag: false,
+      baggingBy: '性能装袋员',
+      baggingAt: event.occurredAt,
+    }
+    store.events.push(event)
+  }
+  storage.setItem?.(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, JSON.stringify(store))
+  const startedAt = performance.now()
+  submitSpecialCraftBagReturn(specialCraftBagReturnInput(seeded, 'PERFORMANCE-2000'), storage)
+  const elapsedMs = performance.now() - startedAt
+  assert(elapsedMs < 200, `2,000 事件特殊工艺带袋回仓耗时 ${elapsedMs.toFixed(1)}ms，必须低于 200ms`)
+  console.log(`[performance] 2,000 事件特殊工艺带袋回仓 ${elapsedMs.toFixed(1)}ms`)
 }
 
 {

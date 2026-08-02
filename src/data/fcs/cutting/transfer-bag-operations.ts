@@ -121,11 +121,27 @@ export interface SubmitSpecialCraftBagReturnInput {
   occurredAt?: string
 }
 
+export interface SubmitSpecialCraftTicketOnlyReturnInput {
+  payload: SpecialCraftReturnPayload
+  specialCraftId: string
+  operator: TransferBagRuntimeOperator
+  source: CuttingRuntimeEventSource
+  occurredAt?: string
+  idempotencyKey?: string
+}
+
 interface CompleteSpecialCraftBagReturnPayload extends SpecialCraftReturnPayload {
   canonicalIntent: string
   bagCode: string
   usageCycleId: string
   handoverLegId: string
+  sourceHandoverEventId: string
+  ticketSnapshot: TransferBagTicketFactSnapshot[]
+  idempotencyKey: string
+}
+
+interface CompleteSpecialCraftTicketOnlyReturnPayload extends SpecialCraftReturnPayload {
+  canonicalIntent: string
   sourceHandoverEventId: string
   ticketSnapshot: TransferBagTicketFactSnapshot[]
   idempotencyKey: string
@@ -2593,6 +2609,186 @@ function buildSpecialCraftBagReturnCanonicalIntent(input: {
   })
 }
 
+function buildSpecialCraftTicketOnlyReturnCanonicalIntent(input: {
+  payload: SpecialCraftReturnPayload
+  sourceHandoverEventId: string
+  ticketSnapshot: TransferBagTicketFactSnapshot[]
+  specialCraftId: string
+  operator: TransferBagRuntimeOperator
+  source: CuttingRuntimeEventSource
+  occurredAt: string
+  idempotencyKey: string
+}): string {
+  const payload = input.payload
+  const rawLocationRef = record(payload.locationRef)
+  const locationRef = {
+    factoryId: text(rawLocationRef.factoryId),
+    warehouseId: text(rawLocationRef.warehouseId),
+    warehouseKind: rawLocationRef.warehouseKind === 'WAIT_HANDOVER' ? 'WAIT_HANDOVER' : 'WAIT_PROCESS',
+    areaId: text(rawLocationRef.areaId),
+    areaName: text(rawLocationRef.areaName),
+    shelfId: text(rawLocationRef.shelfId),
+    shelfNo: text(rawLocationRef.shelfNo),
+    locationId: text(rawLocationRef.locationId),
+    locationNo: text(rawLocationRef.locationNo),
+  }
+  return JSON.stringify({
+    returnRecordId: text(payload.returnRecordId),
+    returnRecordNo: text(payload.returnRecordNo),
+    sourceHandoverOrderId: text(payload.sourceHandoverOrderId),
+    sourceHandoverOrderNo: text(payload.sourceHandoverOrderNo),
+    sourceHandoverRecordId: text(payload.sourceHandoverRecordId),
+    sourceHandoverRecordNo: text(payload.sourceHandoverRecordNo),
+    receiverFactoryId: text(payload.receiverFactoryId),
+    receiverFactoryName: text(payload.receiverFactoryName),
+    warehouseName: text(payload.warehouseName),
+    craftType: text(payload.craftType),
+    returnedFeiTicketItems: payload.returnedFeiTicketItems
+      .map((item) => ({
+        feiTicketId: text(item.feiTicketId),
+        feiTicketNo: text(item.feiTicketNo),
+        specialCraftId: text(item.specialCraftId),
+        craftType: text(item.craftType),
+        partName: text(item.partName),
+        size: text(item.size),
+        expectedQty: item.expectedQty,
+        returnedQty: item.returnedQty,
+        unit: item.unit,
+        returnStatus: item.returnStatus,
+      }))
+      .sort((left, right) => left.feiTicketId.localeCompare(right.feiTicketId)),
+    warehouseArea: text(payload.warehouseArea),
+    locationCode: text(payload.locationCode),
+    locationRef,
+    returnedAt: text(payload.returnedAt),
+    returnedBy: text(payload.returnedBy),
+    sourceHandoverEventId: input.sourceHandoverEventId,
+    ticketSnapshot: input.ticketSnapshot
+      .map(normalizeWholeBagTicketSnapshot)
+      .sort((left, right) => left.feiTicketId.localeCompare(right.feiTicketId)),
+    specialCraftId: input.specialCraftId,
+    operator: {
+      operatorId: text(input.operator.operatorId),
+      operatorName: input.operator.operatorName,
+      operatorRole: text(input.operator.operatorRole) || '特殊工艺回仓员',
+    },
+    source: input.source,
+    occurredAt: input.occurredAt,
+    idempotencyKey: input.idempotencyKey,
+  })
+}
+
+function parseStrictSpecialCraftTicketOnlyReturnEvent(event: CuttingRuntimeEvent): {
+  event: CuttingRuntimeEvent<'特殊工艺回仓'>
+  payload: CompleteSpecialCraftTicketOnlyReturnPayload
+  canonicalIntent: string
+} | null {
+  if (event.eventType !== '特殊工艺回仓' || !isSuccessfulRuntimeEvent(event)) return null
+  const payload = eventPayload(event)
+  if (
+    text(payload.transferBagCode)
+    || text(payload.bagCode)
+    || text(payload.usageCycleId)
+    || text(payload.handoverLegId)
+    || text(event.refs.transferBagCode)
+    || (event.refs.transferBagCodes?.length || 0) > 0
+    || text(event.refs.usageCycleId)
+    || text(event.refs.handoverLegId)
+  ) return null
+  const sourceHandoverEventId = text(payload.sourceHandoverEventId)
+  const idempotencyKey = text(payload.idempotencyKey)
+  const specialCraftId = text(event.refs.specialCraftId)
+  const sourceHandoverRecordId = text(payload.sourceHandoverRecordId)
+  const sourceHandoverOrderId = text(payload.sourceHandoverOrderId)
+  const locationRef = parseCompleteWaitHandoverLocationRef(payload.locationRef)
+  const rawSnapshot = records(payload.ticketSnapshot)
+  const returnedItems = records(payload.returnedFeiTicketItems)
+  if (
+    !sourceHandoverEventId
+    || !idempotencyKey
+    || !specialCraftId
+    || !sourceHandoverRecordId
+    || !sourceHandoverOrderId
+    || !locationRef
+    || !text(payload.returnRecordId)
+    || !text(payload.returnRecordNo)
+    || !text(payload.sourceHandoverOrderNo)
+    || !text(payload.sourceHandoverRecordNo)
+    || !text(payload.receiverFactoryId)
+    || !text(payload.receiverFactoryName)
+    || !text(payload.warehouseName)
+    || !text(payload.craftType)
+    || !text(payload.warehouseArea)
+    || !text(payload.locationCode)
+    || !text(payload.returnedAt)
+    || !text(payload.returnedBy)
+    || !rawSnapshot.length
+    || !returnedItems.length
+  ) return null
+  const ticketSnapshot = rawSnapshot.map((item) =>
+    normalizeWholeBagTicketSnapshot(item as unknown as TransferBagTicketFactSnapshot))
+  if (ticketSnapshot.some((item) => SPECIAL_CRAFT_SNAPSHOT_REQUIRED_FIELDS.some((field) =>
+    field === 'pieceQty'
+      ? !Number.isFinite(item.pieceQty) || item.pieceQty <= 0
+      : !text(item[field])))) return null
+  const snapshotIds = strictRequiredStringArray(ticketSnapshot.map((item) => item.feiTicketId))
+  const snapshotNos = strictRequiredStringArray(ticketSnapshot.map((item) => item.feiTicketNo))
+  const returnedIds = strictRequiredStringArray(returnedItems.map((item) => item.feiTicketId))
+  if (!snapshotIds || !snapshotNos || !returnedIds || !sameStrings(snapshotIds, returnedIds)) return null
+  const ticketById = new Map(ticketSnapshot.map((item) => [item.feiTicketId, item]))
+  if (returnedItems.some((item) => {
+    const ticket = ticketById.get(text(item.feiTicketId))
+    return !ticket
+      || text(item.feiTicketNo) !== ticket.feiTicketNo
+      || text(item.specialCraftId) !== specialCraftId
+      || text(item.craftType) !== text(payload.craftType)
+      || text(item.partName) !== ticket.partName
+      || text(item.size) !== ticket.size
+      || item.expectedQty !== ticket.pieceQty
+      || item.returnedQty !== ticket.pieceQty
+      || item.unit !== '片'
+      || item.returnStatus !== '已回仓'
+  })) return null
+  if (
+    event.idempotencyKey !== idempotencyKey
+    || idempotencyKey !== `${sourceHandoverRecordId}:SPECIAL_CRAFT_TICKET_ONLY_RETURNED`
+    || event.refs.handoverOrderId !== sourceHandoverOrderId
+    || event.refs.handoverRecordId !== sourceHandoverRecordId
+    || !sameStrings(event.refs.feiTicketIds || [], snapshotIds)
+    || !sameStrings(event.refs.feiTicketNos || [], snapshotNos)
+    || event.inventoryEffect?.inventoryScope !== '裁床待交出仓'
+    || event.inventoryEffect.direction !== 'IN'
+    || event.inventoryEffect.qty !== ticketSnapshot.reduce((sum, item) => sum + item.pieceQty, 0)
+    || event.inventoryEffect.unit !== '片'
+    || text(event.inventoryEffect.toWarehouseArea) !== text(payload.warehouseArea)
+    || text(event.inventoryEffect.toLocationCode) !== text(payload.locationCode)
+    || locationRef.areaName !== text(payload.warehouseArea)
+    || locationRef.locationNo !== text(payload.locationCode)
+    || text(payload.returnedAt) !== event.occurredAt
+    || text(payload.returnedBy) !== event.operatorName
+  ) return null
+  const canonicalIntent = buildSpecialCraftTicketOnlyReturnCanonicalIntent({
+    payload: payload as unknown as SpecialCraftReturnPayload,
+    sourceHandoverEventId,
+    ticketSnapshot,
+    specialCraftId,
+    operator: {
+      operatorId: event.operatorId,
+      operatorName: event.operatorName,
+      operatorRole: event.operatorRole,
+    },
+    source: event.eventSource,
+    occurredAt: event.occurredAt,
+    idempotencyKey,
+  })
+  if (text(payload.canonicalIntent) !== canonicalIntent) return null
+  return {
+    event: event as CuttingRuntimeEvent<'特殊工艺回仓'>,
+    payload: payload as unknown as CompleteSpecialCraftTicketOnlyReturnPayload,
+    canonicalIntent,
+  }
+}
+
 function parseStrictSpecialCraftBagReturnEvent(event: CuttingRuntimeEvent): {
   event: CuttingRuntimeEvent<'特殊工艺回仓'>
   payload: CompleteSpecialCraftBagReturnPayload
@@ -2728,21 +2924,156 @@ export function isCompleteSuccessfulSpecialCraftBagReturnEvent(
   return Boolean(parseStrictSpecialCraftBagReturnEvent(event))
 }
 
-function runtimeTransferBagCodes(events: readonly CuttingRuntimeEvent[]): string[] {
-  return unique(events.flatMap((event) => {
+function buildCurrentTicketBagIndexFromSnapshot(
+  snapshotEvents: readonly CuttingRuntimeEvent[],
+): Map<string, string> {
+  const states = new Map<string, TransferBagCurrentUse>()
+  const bagsWithRepackFacts = new Set<string>()
+  const stateFor = (bagCode: string) => states.get(bagCode) || emptyCurrentUse(bagCode)
+  const update = (bagCode: string, state: TransferBagCurrentUse) => states.set(bagCode, state)
+  const events = snapshotEvents
+    .filter((event) => event.eventStatus !== '已取消')
+    .slice()
+    .sort(compareCuttingRuntimeChronologyAscending)
+
+  for (const event of events) {
     const payload = eventPayload(event)
-    const repack = event.eventType === '中转袋拆袋重装'
-      ? parseCompleteTransferBagRepackPayload(event)
-      : null
-    return [
-      event.refs.transferBagCode || '',
-      ...(event.refs.transferBagCodes || []),
-      text(payload.bagCode),
-      text(payload.transferBagCode),
-      ...(repack?.sourceBags.map((bag) => bag.bagCode) || []),
-      ...(repack?.resultBags.map((bag) => bag.bagCode) || []),
-    ]
-  }))
+    if (event.eventType === '菲票装袋') {
+      const bagCode = text(payload.bagCode) || text(event.refs.transferBagCode)
+      if (!bagCode || stateFor(bagCode).mainStatus === 'DISABLED') continue
+      const tickets = records(payload.feiTicketItems).map((item) => ticketSnapshot(item, event))
+      update(bagCode, {
+        ...stateFor(bagCode),
+        usageCycleId: eventUsageCycleId(event) || `usage:${bagCode}:${event.eventId}`,
+        tickets,
+        mainStatus: 'IN_USE',
+        flowStage: 'PACKED',
+      })
+      continue
+    }
+    if (event.eventType === '中转袋入仓') {
+      const bagCode = text(payload.bagCode) || text(event.refs.transferBagCode)
+      if (!bagCode || stateFor(bagCode).mainStatus === 'DISABLED') continue
+      update(bagCode, {
+        ...stateFor(bagCode),
+        usageCycleId: eventUsageCycleId(event) || stateFor(bagCode).usageCycleId,
+        mainStatus: 'IN_USE',
+        flowStage: 'INBOUND_STORED',
+      })
+      continue
+    }
+    if (event.eventType === '中转袋拆袋重装') {
+      const repack = parseCompleteTransferBagRepackPayload(event)
+      if (!repack) continue
+      for (const sourceBag of repack.sourceBags) {
+        bagsWithRepackFacts.add(sourceBag.bagCode)
+        update(sourceBag.bagCode, emptyCurrentUse(sourceBag.bagCode))
+      }
+      for (const resultBag of repack.resultBags) {
+        bagsWithRepackFacts.add(resultBag.bagCode)
+        const tickets = resultBag.tickets.map((item) => ({ ...item }))
+        update(resultBag.bagCode, {
+          ...stateFor(resultBag.bagCode),
+          usageCycleId: resultBag.usageCycleId,
+          tickets,
+          mainStatus: 'IN_USE',
+          flowStage: 'READY_HANDOVER',
+        })
+      }
+      continue
+    }
+    if (event.eventType === '交出装袋确认') {
+      const sourceBagCode = text(payload.sourceTempBagCode)
+      const targetBagCode = text(payload.targetTransferBagCode)
+      if (!sourceBagCode || !targetBagCode) continue
+      const source = stateFor(sourceBagCode)
+      const expectedIds = unique([
+        ...strings(payload.containedFeiTicketIds),
+        ...strings(payload.scannedFeiTicketIds),
+        ...(event.refs.feiTicketIds || []),
+      ])
+      const recovered = source.tickets.length
+        && expectedIds.length
+        && sameStrings(source.tickets.map((ticket) => ticket.feiTicketId), expectedIds)
+        ? source.tickets.map((ticket) => ({ ...ticket }))
+        : null
+      if (!recovered) continue
+      if (!bagsWithRepackFacts.has(sourceBagCode)) update(sourceBagCode, emptyCurrentUse(sourceBagCode))
+      if (!bagsWithRepackFacts.has(targetBagCode)) {
+        update(targetBagCode, {
+          ...stateFor(targetBagCode),
+          usageCycleId: eventUsageCycleId(event) || stateFor(targetBagCode).usageCycleId,
+          tickets: recovered,
+          mainStatus: 'IN_USE',
+          flowStage: 'READY_HANDOVER',
+        })
+      }
+      continue
+    }
+    if (event.eventType === '新增交出记录' || event.eventType === '特殊工艺交出') {
+      const handover = event.eventType === '新增交出记录'
+        ? parseStrictWholeBagHandoverEvent(event)
+        : parseStrictSpecialCraftHandoverEvent(event)
+      if (!handover) continue
+      const current = stateFor(handover.bagCode)
+      if (current.usageCycleId !== handover.usageCycleId) continue
+      update(handover.bagCode, {
+        ...current,
+        tickets: [],
+        mainStatus: 'IN_USE',
+        flowStage: 'HANDED_OVER_WAITING_RETURN',
+        latestHandoverEventId: handover.event.eventId,
+      })
+      continue
+    }
+    if (event.eventType === '特殊工艺回仓') {
+      const returned = parseStrictSpecialCraftBagReturnEvent(event)
+      if (!returned) continue
+      const current = stateFor(returned.bagCode)
+      if (
+        current.usageCycleId !== returned.usageCycleId
+        || current.latestHandoverEventId !== returned.sourceHandoverEventId
+        || current.flowStage !== 'HANDED_OVER_WAITING_RETURN'
+      ) continue
+      update(returned.bagCode, {
+        ...current,
+        tickets: returned.ticketSnapshot.map((ticket) => ({ ...ticket })),
+        mainStatus: 'IN_USE',
+        flowStage: 'INBOUND_STORED',
+      })
+      continue
+    }
+    if (event.eventType === '中转袋回收') {
+      const bagCode = text(payload.bagCode) || text(event.refs.transferBagCode)
+      if (!bagCode) continue
+      const current = stateFor(bagCode)
+      const recovery = parseCompleteRecoveryEvent(event)
+      const matchesCurrentCycle = Boolean(current.usageCycleId && (
+        recovery?.payload.usageCycleId === current.usageCycleId
+        || isCompleteLegacyRecoveryEvent(event, bagCode, current.usageCycleId)
+      ))
+      if (current.flowStage === 'HANDED_OVER_WAITING_RETURN' && matchesCurrentCycle) {
+        update(bagCode, emptyCurrentUse(bagCode))
+      }
+      continue
+    }
+    if (event.eventType === '中转袋报废') {
+      const bagCode = text(payload.bagCode) || text(event.refs.transferBagCode)
+      if (!bagCode) continue
+      const current = stateFor(bagCode)
+      if (
+        current.mainStatus === 'IDLE'
+        && current.tickets.length === 0
+        && (Boolean(parseCompleteScrapEvent(event)) || isCompleteLegacyScrapEvent(event, bagCode))
+      ) update(bagCode, { ...emptyCurrentUse(bagCode), mainStatus: 'DISABLED' })
+    }
+  }
+
+  const index = new Map<string, string>()
+  for (const [bagCode, state] of states) {
+    for (const ticket of state.tickets) index.set(ticket.feiTicketId, bagCode)
+  }
+  return index
 }
 
 function specialCraftHandoverCandidates(
@@ -2909,14 +3240,11 @@ export function submitSpecialCraftBagReturn(
       if (invalidTicket) {
         throw new Error(`来源快照中的菲票 ${text(invalidTicket.feiTicketId) || '未知菲票'} 已作废或缺失。`)
       }
-      const returnedTicketIdSet = new Set(request.returnedTicketIds)
-      for (const otherBagCode of runtimeTransferBagCodes(events)) {
-        if (otherBagCode === request.bagCode) continue
-        const otherCurrent = resolveTransferBagCurrentUseFromSnapshot(otherBagCode, events)
-        const occupiedTicket = otherCurrent.tickets.find((ticket) =>
-          returnedTicketIdSet.has(ticket.feiTicketId))
-        if (occupiedTicket) {
-          throw new Error(`菲票 ${occupiedTicket.feiTicketId} 已被其他当前中转袋绑定。`)
+      const currentBagByTicketId = buildCurrentTicketBagIndexFromSnapshot(events)
+      for (const ticketId of request.returnedTicketIds) {
+        const currentBagCode = currentBagByTicketId.get(ticketId)
+        if (currentBagCode && currentBagCode !== request.bagCode) {
+          throw new Error(`菲票 ${ticketId} 已被其他当前中转袋绑定。`)
         }
       }
       return appendInput
@@ -2946,6 +3274,199 @@ export function submitSpecialCraftBagReturn(
   const fact = parseStrictSpecialCraftBagReturnEvent(result.event)
   if (!fact || fact.canonicalIntent !== expectedCanonicalIntent) {
     throw new Error('特殊工艺带袋回仓的业务意图冲突。')
+  }
+  return cloneRuntimeEvent(fact.event)
+}
+
+export function submitSpecialCraftTicketOnlyReturn(
+  input: SubmitSpecialCraftTicketOnlyReturnInput,
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): CuttingRuntimeEvent<'特殊工艺回仓'> {
+  const rawPayload = input.payload
+  const sourceHandoverRecordId = requiredText(rawPayload.sourceHandoverRecordId, '来源特殊工艺交出记录')
+  const operator = normalizedOperator(input.operator, '回仓操作人', '特殊工艺回仓员')
+  const source = requiredEventSource(input.source, '回仓来源')
+  const occurredAt = normalizeTransferBagOperationTime(input.occurredAt || rawPayload.returnedAt)
+  const returnedItems = rawPayload.returnedFeiTicketItems
+  if (!returnedItems.length) throw new Error('无袋回仓必须包含回仓菲票。')
+  const returnedTicketIds = returnedItems.map((item) => text(item.feiTicketId))
+  if (returnedTicketIds.some((ticketId) => !ticketId)) throw new Error('回仓菲票编号不能为空。')
+  if (new Set(returnedTicketIds).size !== returnedTicketIds.length) {
+    throw new Error('回仓菲票编号不能重复。')
+  }
+  if (text(rawPayload.transferBagCode)) throw new Error('无袋回仓不得携带中转袋编号。')
+  const locationRef = parseCompleteWaitHandoverLocationRef(rawPayload.locationRef)
+  if (
+    !locationRef
+    || text(rawPayload.warehouseArea) !== locationRef.areaName
+    || text(rawPayload.locationCode) !== locationRef.locationNo
+  ) throw new Error('无袋回仓必须选择与库区、库位一致的完整待交出仓库位。')
+  if (text(rawPayload.returnedAt) && normalizeTransferBagOperationTime(rawPayload.returnedAt) !== occurredAt) {
+    throw new Error('无袋回仓时间与事件时间不一致。')
+  }
+  if (text(rawPayload.returnedBy) !== operator.operatorName) {
+    throw new Error('无袋回仓操作人与载荷不一致。')
+  }
+
+  let expectedCanonicalIntent = ''
+  const result = appendCuttingRuntimeEventIdempotentValidated<'特殊工艺回仓'>(
+    (snapshotEvents) => {
+      const events = [...snapshotEvents]
+      const candidates = specialCraftHandoverCandidates(events, sourceHandoverRecordId)
+      const sourceFact = candidates.length === 1
+        ? parseStrictSpecialCraftHandoverEvent(candidates[0])
+        : null
+      if (!sourceFact) {
+        throw new Error('来源特殊工艺交出记录不存在、未成功或事实不完整。')
+      }
+      const sourcePayload = sourceFact.payload
+      if (
+        text(rawPayload.sourceHandoverOrderId) !== sourcePayload.handoverOrderId
+        || text(input.specialCraftId) !== sourceFact.specialCraftId
+        || text(rawPayload.receiverFactoryId) !== sourcePayload.receiverFactoryId
+        || text(rawPayload.receiverFactoryName) !== sourcePayload.receiverFactoryName
+        || text(rawPayload.craftType) !== sourcePayload.craftType
+      ) throw new Error('无袋回仓载荷与来源特殊工艺交出事实不一致。')
+      const current = resolveTransferBagCurrentUseFromSnapshot(sourceFact.bagCode, events)
+      if (
+        current.mainStatus !== 'IN_USE'
+        || current.flowStage !== 'HANDED_OVER_WAITING_RETURN'
+        || current.usageCycleId !== sourceFact.usageCycleId
+        || current.latestHandoverEventId !== sourceFact.event.eventId
+      ) throw new Error('来源特殊工艺交出记录已不处于待回仓状态。')
+      const expectedTicketIds = sourcePayload.ticketSnapshot.map((ticket) => ticket.feiTicketId)
+      if (!sameStrings(expectedTicketIds, returnedTicketIds)) {
+        throw new Error('无袋回仓菲票与来源不可变快照不一致。')
+      }
+      const snapshotById = new Map(sourcePayload.ticketSnapshot.map((ticket) => [ticket.feiTicketId, ticket]))
+      const sourceItemById = new Map(sourcePayload.feiTicketItems.map((item) => [item.feiTicketId, item]))
+      for (const item of returnedItems) {
+        const ticketId = text(item.feiTicketId)
+        const snapshot = snapshotById.get(ticketId)
+        const sourceItem = sourceItemById.get(ticketId)
+        if (
+          !snapshot
+          || !sourceItem
+          || text(item.feiTicketNo) !== snapshot.feiTicketNo
+          || text(item.specialCraftId) !== sourceFact.specialCraftId
+          || text(item.craftType) !== sourcePayload.craftType
+          || text(item.partName) !== snapshot.partName
+          || text(item.size) !== snapshot.size
+          || item.expectedQty !== snapshot.pieceQty
+          || item.returnedQty !== snapshot.pieceQty
+          || item.unit !== '片'
+          || item.returnStatus !== '已回仓'
+        ) throw new Error(`无袋回仓菲票 ${ticketId || '未知菲票'} 与来源不可变快照不一致。`)
+      }
+      const rawSnapshot = records(eventPayload(sourceFact.event).ticketSnapshot)
+      if (rawSnapshot.some((ticket) => {
+        const voidStatus = text(ticket.voidStatus)
+        return !text(ticket.feiTicketId) || voidStatus === '已作废' || voidStatus.includes('作废')
+      })) throw new Error('来源特殊工艺交出快照包含未知、缺失或已作废菲票。')
+      const currentBagByTicketId = buildCurrentTicketBagIndexFromSnapshot(events)
+      for (const ticketId of returnedTicketIds) {
+        const occupiedBag = currentBagByTicketId.get(ticketId)
+        if (occupiedBag) throw new Error(`菲票 ${ticketId} 已被当前中转袋 ${occupiedBag} 绑定。`)
+      }
+
+      const idempotencyKey = `${sourceFact.handoverRecordId}:SPECIAL_CRAFT_TICKET_ONLY_RETURNED`
+      if (text(input.idempotencyKey) && text(input.idempotencyKey) !== idempotencyKey) {
+        throw new Error('无袋回仓幂等键与来源特殊工艺交出记录不一致。')
+      }
+      const payload: CompleteSpecialCraftTicketOnlyReturnPayload = {
+        returnRecordId: requiredText(rawPayload.returnRecordId, '无袋回仓记录'),
+        returnRecordNo: requiredText(rawPayload.returnRecordNo, '无袋回仓记录编号'),
+        sourceHandoverOrderId: sourcePayload.handoverOrderId,
+        sourceHandoverOrderNo: text(rawPayload.sourceHandoverOrderNo) || sourcePayload.handoverOrderId,
+        sourceHandoverRecordId: sourceFact.handoverRecordId,
+        sourceHandoverRecordNo: text(rawPayload.sourceHandoverRecordNo) || sourceFact.handoverRecordId,
+        receiverFactoryId: sourcePayload.receiverFactoryId,
+        receiverFactoryName: sourcePayload.receiverFactoryName,
+        warehouseName: requiredText(rawPayload.warehouseName, '回仓仓库'),
+        craftType: sourcePayload.craftType,
+        returnedFeiTicketItems: returnedItems.map((item) => ({
+          feiTicketId: text(item.feiTicketId),
+          feiTicketNo: text(item.feiTicketNo),
+          specialCraftId: sourceFact.specialCraftId,
+          craftType: sourcePayload.craftType,
+          partName: text(item.partName),
+          size: text(item.size),
+          expectedQty: item.expectedQty,
+          returnedQty: item.returnedQty,
+          unit: '片',
+          returnStatus: '已回仓',
+        })),
+        warehouseArea: locationRef.areaName,
+        locationCode: locationRef.locationNo,
+        locationRef: { ...locationRef },
+        returnedAt: occurredAt,
+        returnedBy: operator.operatorName,
+        sourceHandoverEventId: sourceFact.event.eventId,
+        ticketSnapshot: sourcePayload.ticketSnapshot.map((ticket) => ({ ...ticket })),
+        idempotencyKey,
+        canonicalIntent: '',
+      }
+      payload.canonicalIntent = buildSpecialCraftTicketOnlyReturnCanonicalIntent({
+        payload,
+        sourceHandoverEventId: payload.sourceHandoverEventId,
+        ticketSnapshot: payload.ticketSnapshot,
+        specialCraftId: sourceFact.specialCraftId,
+        operator,
+        source,
+        occurredAt,
+        idempotencyKey,
+      })
+      expectedCanonicalIntent = payload.canonicalIntent
+      if (events.filter((event) => event.idempotencyKey === idempotencyKey).length > 1) {
+        throw new Error('特殊工艺无袋回仓的业务意图冲突。')
+      }
+      return {
+        idempotencyKey,
+        eventType: '特殊工艺回仓',
+        eventSource: source,
+        eventStatus: '已同步',
+        occurredAt,
+        operatorId: operator.operatorId,
+        operatorName: operator.operatorName,
+        operatorRole: operator.operatorRole,
+        refs: {
+          handoverOrderId: sourcePayload.handoverOrderId,
+          handoverRecordId: sourceFact.handoverRecordId,
+          specialCraftId: sourceFact.specialCraftId,
+          feiTicketIds: payload.ticketSnapshot.map((ticket) => ticket.feiTicketId),
+          feiTicketNos: payload.ticketSnapshot.map((ticket) => ticket.feiTicketNo),
+        },
+        inventoryEffect: {
+          inventoryScope: '裁床待交出仓',
+          direction: 'IN',
+          qty: payload.ticketSnapshot.reduce((sum, ticket) => sum + ticket.pieceQty, 0),
+          unit: '片',
+          toWarehouseArea: payload.warehouseArea,
+          toLocationCode: payload.locationCode,
+        },
+        payload,
+      }
+    },
+    (candidate, snapshotEvents) => {
+      const fact = parseStrictSpecialCraftTicketOnlyReturnEvent(candidate)
+      if (!fact || fact.canonicalIntent !== expectedCanonicalIntent) {
+        throw new Error('特殊工艺无袋回仓候选事实不完整，已在写入前拒绝。')
+      }
+      const candidates = specialCraftHandoverCandidates(snapshotEvents, sourceHandoverRecordId)
+      const sourceFact = candidates.length === 1
+        ? parseStrictSpecialCraftHandoverEvent(candidates[0])
+        : null
+      if (
+        !sourceFact
+        || text(fact.payload.sourceHandoverEventId) !== sourceFact.event.eventId
+        || compareCuttingRuntimeChronologyAscending(candidate, sourceFact.event) <= 0
+      ) throw new Error('特殊工艺无袋回仓时间不能早于来源交出事实。')
+    },
+    storage,
+  )
+  const fact = parseStrictSpecialCraftTicketOnlyReturnEvent(result.event)
+  if (!fact || fact.canonicalIntent !== expectedCanonicalIntent) {
+    throw new Error('特殊工艺无袋回仓的业务意图冲突。')
   }
   return cloneRuntimeEvent(fact.event)
 }

@@ -44,6 +44,7 @@ import {
   resolveTransferBagCurrentUse,
   recoverTransferBag,
   submitSpecialCraftBagReturn,
+  submitSpecialCraftTicketOnlyReturn,
   submitTransferBagScrap,
 } from '../../../data/fcs/cutting/transfer-bag-operations.ts'
 import {
@@ -1781,64 +1782,13 @@ export function appendWaitHandoverSpecialCraftReturnEvent(input: {
       occurredAt: operationOccurredAt,
     }, storage)
   }
-  const usageCycleId =
-    input.usageCycleId
-    || (
-      bagCode
-        ? resolveWaitHandoverUsageCycleId(
-          bagCode,
-          occurredAt,
-          storage,
-        )
-        : ''
-    )
-  const activeHandoverLegId =
-    input.handoverLegId
-    || (
-      bagCode
-        ? buildWaitHandoverLifecycleByBagCode(
-          bagCode,
-          storage,
-        ).activeHandoverLegId
-        : null
-    )
-    || undefined
-  const idempotencyKey =
-    input.idempotencyKey
-    || `${usageCycleId || 'ticket-only'}:SPECIAL_CRAFT_RETURN:${input.payload.returnRecordId}`
-  const existing = findWaitHandoverIdempotentEvent(
-    idempotencyKey,
-    storage,
-  )
-  if (existing) return existing
-  const returnedQty = input.payload.returnedFeiTicketItems.reduce((sum, item) => sum + Number(item.returnedQty || 0), 0)
-  return appendCuttingRuntimeEventIdempotent({
-    idempotencyKey,
-    eventType: '特殊工艺回仓',
-    eventSource: input.source,
-    eventStatus: '已同步',
-    occurredAt,
-    operatorId: input.operator.operatorId,
-    operatorName: input.operator.operatorName,
-    operatorRole: input.operator.operatorRole || '特殊工艺回仓员',
-    refs: {
-      handoverOrderId: input.payload.sourceHandoverOrderId,
-      handoverRecordId: input.payload.sourceHandoverRecordId,
-      specialCraftId: input.specialCraftId,
-      feiTicketIds: input.payload.returnedFeiTicketItems.map((item) => item.feiTicketId),
-      feiTicketNos: input.payload.returnedFeiTicketItems.map((item) => item.feiTicketNo),
-      ...(bagCode ? { transferBagCode: bagCode } : {}),
-      ...(usageCycleId ? { usageCycleId } : {}),
-      ...(activeHandoverLegId ? { handoverLegId: activeHandoverLegId } : {}),
-    },
-    inventoryEffect: {
-      inventoryScope: '裁床待交出仓',
-      direction: 'IN',
-      qty: returnedQty,
-      unit: '片',
-      toWarehouseArea: input.payload.warehouseArea,
-      toLocationCode: input.payload.locationCode,
-    },
+  if (!returnedTicketIds.length) throw new Error('无袋回仓必须包含回仓菲票。')
+  return submitSpecialCraftTicketOnlyReturn({
     payload: input.payload,
-  }, storage).event
+    specialCraftId: input.specialCraftId,
+    operator: input.operator,
+    source: input.source,
+    occurredAt: operationOccurredAt,
+    idempotencyKey: input.idempotencyKey,
+  }, storage)
 }
