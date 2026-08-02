@@ -23,7 +23,14 @@ import type {
 import { escapeHtml } from '../utils.ts'
 
 const DETAIL_EVENT_PREFIX = 'pcs-engineering-master'
-const CURRENT_DEMO_OPERATOR_NAME = '跟单甲'
+
+// 原型尚无统一登录态；详情页把当前主单跟单解析为当前演示操作者。
+// 渲染权限与事件提交必须始终经由同一解析函数，避免身份文案与领域入参漂移。
+export function resolveEngineeringMasterDemoOperatorName(
+  model: Pick<EngineeringMasterDetailModel, 'merchandiserName'>,
+): string {
+  return model.merchandiserName.trim()
+}
 
 const MASTER_STATUS_TONES: Record<EngineeringMasterStatus, string> = {
   草稿: 'bg-slate-100 text-slate-700',
@@ -83,7 +90,8 @@ function renderTaskStatusBadge(status: EngineeringTaskStatus): string {
 // ============ 头部 ============
 
 function renderMasterHeader(model: EngineeringMasterDetailModel): string {
-  let canClose = model.merchandiserName === CURRENT_DEMO_OPERATOR_NAME
+  const operatorName = resolveEngineeringMasterDemoOperatorName(model)
+  let canClose = operatorName === model.merchandiserName
   if (canClose) {
     try {
       validateEngineeringMasterOrderClose(model.masterOrderId)
@@ -594,7 +602,9 @@ export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): bool
     let message = ''
     let ok = false
     try {
-      closeEngineeringMasterOrder(masterKey, CURRENT_DEMO_OPERATOR_NAME)
+      const currentModel = buildEngineeringMasterDetailModel(masterKey)
+      if (!currentModel) throw new Error('未找到工程主单，无法关闭。')
+      closeEngineeringMasterOrder(masterKey, resolveEngineeringMasterDemoOperatorName(currentModel))
       message = '工程主单已关闭。'
       ok = true
     } catch (error) {

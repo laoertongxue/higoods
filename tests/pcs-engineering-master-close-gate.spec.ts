@@ -158,8 +158,8 @@ function createReadyMaster(withPricingBom: boolean) {
   const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
     styleId: style.styleId,
     styleCode: style.styleCode,
-    merchandiserName: '跟单甲',
-    createdBy: '跟单甲',
+    merchandiserName: '跟单-林晓',
+    createdBy: '跟单-林晓',
   }).masterOrderId)
   for (const task of master.tasks) {
     updateEngineeringTaskRecord(master.masterOrderId, task.taskId, (draft) => {
@@ -183,17 +183,40 @@ function createReadyMaster(withPricingBom: boolean) {
     makeRecord(master.masterOrderId, confirmationTaskId, versionId),
     makeContent(versionId, withPricingBom),
   )
-  activateTechPackVersionForStyle(style.styleId, versionId, '跟单甲')
+  activateTechPackVersionForStyle(style.styleId, versionId, '跟单-林晓')
   return { masterOrderId: master.masterOrderId, versionId, confirmationTaskId }
 }
 
-// 正式技术包缺少 BOM 与价格快照时，即使专业任务已完成，也不能关闭工程主单。
-const missingSnapshot = createReadyMaster(false)
-assert.equal(getTechnicalDataVersionContent(missingSnapshot.versionId)?.bomPricingSnapshot, undefined)
-assert.throws(
-  () => validateEngineeringMasterOrderClose(missingSnapshot.masterOrderId),
-  /正式快照|BOM 与价格/,
+// 新工程来源技术包缺少 BOM 与价格字段时，正式启用本身就必须失败，且工程主单与技术包事实不变。
+resetEngineeringMasterRepository()
+const missingSnapshotMaster = publishEngineeringMasterOrder(createEngineeringMasterOrder({
+  styleId: style.styleId,
+  styleCode: style.styleCode,
+  merchandiserName: '跟单-林晓',
+  createdBy: '跟单-林晓',
+}).masterOrderId)
+for (const task of missingSnapshotMaster.tasks) {
+  updateEngineeringTaskRecord(missingSnapshotMaster.masterOrderId, task.taskId, (draft) => {
+    if (draft.taskType === 'TECH_PACK_CONFIRMATION') return
+    draft.status = ['PATTERN_ARTWORK', 'COLOR_YARN', 'COLOR_FABRIC'].includes(draft.taskType)
+      ? '因需求变更结束'
+      : '已完成'
+  })
+}
+const missingSnapshotTaskId = `${missingSnapshotMaster.masterOrderId}-TECH_PACK_CONFIRMATION`
+const missingSnapshotVersionId = `TDV-CLOSE-NO-SNAPSHOT-${Date.now()}`
+createTechnicalDataVersionDraft(
+  makeRecord(missingSnapshotMaster.masterOrderId, missingSnapshotTaskId, missingSnapshotVersionId),
+  makeContent(missingSnapshotVersionId, false),
 )
+const missingSnapshotMasterBefore = getEngineeringMasterOrderById(missingSnapshotMaster.masterOrderId)
+const missingSnapshotContentBefore = getTechnicalDataVersionContent(missingSnapshotVersionId)
+assert.throws(
+  () => activateTechPackVersionForStyle(style.styleId, missingSnapshotVersionId, '跟单-林晓'),
+  /正式快照|BOM.*定价字段/,
+)
+assert.deepEqual(getEngineeringMasterOrderById(missingSnapshotMaster.masterOrderId), missingSnapshotMasterBefore)
+assert.deepEqual(getTechnicalDataVersionContent(missingSnapshotVersionId), missingSnapshotContentBefore)
 
 // 快照结构失效必须被独立校验识别，不能只判断对象是否存在。
 assert.throws(
@@ -278,6 +301,6 @@ const handled = handlePcsEngineeringMasterDetailEvent({
 assert.equal(handled, true)
 assert.equal(getEngineeringMasterOrderById(ready.masterOrderId)?.status, '已关闭')
 assert.ok(getEngineeringMasterOrderById(ready.masterOrderId)?.closedAt)
-assert.throws(() => closeEngineeringMasterOrder(ready.masterOrderId, '跟单甲'), /已关闭|不能重复/)
+assert.throws(() => closeEngineeringMasterOrder(ready.masterOrderId, '跟单-林晓'), /已关闭|不能重复/)
 
 console.log('pcs-engineering-master-close-gate.spec.ts PASS')

@@ -42,6 +42,7 @@ import {
   resetEngineeringMasterRepository,
 } from '../src/data/pcs-engineering-master-repository.ts'
 import { closeEngineeringMasterForFixture } from './helpers/pcs-engineering-master-close-fixture.ts'
+import { publishAndActivateEngineeringTechPackForFixture } from './helpers/pcs-engineering-tech-pack-activation-fixture.ts'
 
 function resetScenario(): void {
   resetProjectRepository()
@@ -232,36 +233,12 @@ updateTechnicalDataVersionContent(baseVersion.technicalVersionId, {
   processRouteConfirmedBy: '测试用户',
   processRouteConfirmedAt: '2026-04-20 12:25',
 })
-updateTechnicalDataVersionRecord(baseVersion.technicalVersionId, {
-  reviewStage: '待发布',
-  reviewSubmittedAt: '2026-04-20 12:30',
-  reviewSubmittedBy: '测试用户',
-  merchandiserReview: {
-    nodeKey: 'MERCHANDISER',
-    nodeName: '跟单审核',
-    status: '审核-已通过',
-    reviewerRole: '跟单',
-    assignedReviewerId: 'merchandiser-test',
-    assignedReviewerName: '测试跟单',
-    assignedReviewerRole: '跟单',
-    assignedReviewerFeishuOpenId: '',
-    assignedAt: '2026-04-20 12:30',
-    assignedBy: '测试用户',
-    reviewedBy: '测试跟单',
-    reviewedAt: '2026-04-20 12:40',
-    startedOpinion: '',
-    opinion: '确认发布',
-    diffSnapshotId: '',
-    diffStatus: '无差异',
-    diffSummaryText: '',
-    lastFeishuNotifyAt: '',
-    lastFeishuNotifyStatus: '未发送',
-    lastFeishuNotifyRecordId: '',
-    todayFeishuNotifiedFlag: false,
-  },
+publishAndActivateEngineeringTechPackForFixture({
+  technicalVersionId: baseVersion.technicalVersionId,
+  masterOrderId: master.masterOrderId,
+  styleId: style.styleId,
+  operatorName: '测试用户',
 })
-publishTechnicalDataVersion(baseVersion.technicalVersionId, '测试用户')
-activateTechPackVersionForStyle(style.styleId, baseVersion.technicalVersionId, '测试用户')
 
 const plateTaskTwo = upsertPlateMakingTask({
   ...createPlateTask('plate_task_revision_draft', 'PT-TEST-REV-DRAFT', project.projectId, style.styleCode, 'P2'),

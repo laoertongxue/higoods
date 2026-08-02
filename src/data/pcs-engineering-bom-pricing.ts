@@ -4,6 +4,7 @@ import {
   getTechnicalDataVersionById,
   getTechnicalDataVersionContent,
   runTechnicalDataVersionRepositoryTransaction,
+  savePublishedTechnicalDataVersionBomPricingSnapshot,
   updateTechnicalDataVersionContent,
 } from './pcs-technical-data-version-repository.ts'
 import {
@@ -21,6 +22,8 @@ import type {
   EngineeringBomResolvedDraft,
   EngineeringBomResolvedMaterialLine,
 } from './pcs-engineering-bom-types.ts'
+import { assertEngineeringBomPricingSnapshotValid } from './pcs-engineering-bom-snapshot-validation.ts'
+export { assertEngineeringBomPricingSnapshotValid } from './pcs-engineering-bom-snapshot-validation.ts'
 
 export const MATERIAL_STANDARD_PRICE_REQUIRED_MESSAGE = '该物料暂无标准单价，无法加入。请先维护该物料的标准单价。'
 
@@ -276,6 +279,7 @@ export function buildTechnicalDataVersionBomDraft(
     materialLines: content.bomItems.map((item) => {
       if (!item.materialSkuId) throw new Error(`BOM 行 ${item.name} 未关联物料 SKU，不能提交技术包审核。`)
       return {
+        bomItemId: item.id,
         materialSkuId: item.materialSkuId,
         usage: item.unitConsumption,
         sampleQuantity: item.sampleQuantity ?? 1,
@@ -395,63 +399,15 @@ export function freezeEngineeringBomPricingSnapshot(input: EngineeringBomDraft &
     customCosts: resolved.customCosts,
     cost: { ...resolved.cost },
     bomItems: [],
-    materialPriceSnapshots: materialLines.map((item) => ({ ...item })),
+    materialPriceSnapshots: materialLines.map((item) => ({
+      ...item,
+      bomItemId: item.bomItemId ?? '',
+    })),
     customCostsIdr: resolved.customCosts.map((item) => ({ ...item })),
     materialCostCny: resolved.cost.materialCostCny,
     comprehensiveCostCny: resolved.cost.comprehensiveCostCny,
     comprehensiveCostIdr: resolved.cost.comprehensiveCostIdr,
     linkedPartTemplateVersions: [],
-  }
-}
-
-export function assertEngineeringBomPricingSnapshotValid(snapshot: EngineeringBomPricingSnapshot): void {
-  if (snapshot.snapshotVersion !== 1) throw new Error('正式 BOM 与价格快照版本无效。')
-  if (!snapshot.frozenAt.trim() || !snapshot.frozenBy.trim()) throw new Error('正式 BOM 与价格快照缺少固化信息。')
-  if (!Number.isFinite(snapshot.exchangeRateIdrPerCny) || snapshot.exchangeRateIdrPerCny <= 0) {
-    throw new Error('正式 BOM 与价格快照汇率无效。')
-  }
-  if (!Array.isArray(snapshot.bomItems) || snapshot.bomItems.length === 0) {
-    throw new Error('正式 BOM 与价格快照缺少 BOM 明细。')
-  }
-  if (!Array.isArray(snapshot.materialPriceSnapshots) || snapshot.materialPriceSnapshots.length !== snapshot.bomItems.length) {
-    throw new Error('正式 BOM 与价格快照的物料价格明细不完整。')
-  }
-  for (const line of snapshot.materialPriceSnapshots) {
-    if (!line.materialSkuId.trim() || !Number.isFinite(line.standardUnitPriceCny) || line.standardUnitPriceCny <= 0) {
-      throw new Error('正式 BOM 与价格快照存在无效物料价格。')
-    }
-    if (!Number.isFinite(line.conversionToPricingUnit) || line.conversionToPricingUnit <= 0) {
-      throw new Error('正式 BOM 与价格快照存在无效单位换算。')
-    }
-  }
-  if (!Array.isArray(snapshot.customCostsIdr) || !Array.isArray(snapshot.linkedPartTemplateVersions)) {
-    throw new Error('正式 BOM 与价格快照结构无效。')
-  }
-  for (const item of snapshot.customCostsIdr) {
-    if (!item.title.trim() || item.currency !== 'IDR' || !Number.isFinite(item.amountIdr) || item.amountIdr < 0) {
-      throw new Error('正式 BOM 与价格快照存在无效自定义成本。')
-    }
-  }
-  for (const template of snapshot.linkedPartTemplateVersions) {
-    if (
-      !template.partTemplateId.trim()
-      || !template.templatePackageId.trim()
-      || !template.templateName.trim()
-      || !template.updatedAt.trim()
-    ) {
-      throw new Error('正式 BOM 与价格快照存在无效部件模板版本。')
-    }
-  }
-  for (const value of [snapshot.materialCostCny, snapshot.comprehensiveCostCny, snapshot.comprehensiveCostIdr]) {
-    if (!Number.isFinite(value) || value < 0) throw new Error('正式 BOM 与价格快照成本汇总无效。')
-  }
-  if (
-    snapshot.cost.exchangeRateIdrPerCny !== snapshot.exchangeRateIdrPerCny
-    || snapshot.cost.materialCostCny !== snapshot.materialCostCny
-    || snapshot.cost.comprehensiveCostCny !== snapshot.comprehensiveCostCny
-    || snapshot.cost.comprehensiveCostIdr !== snapshot.comprehensiveCostIdr
-  ) {
-    throw new Error('正式 BOM 与价格快照成本汇总不一致。')
   }
 }
 
@@ -474,7 +430,12 @@ export function buildTechnicalDataVersionBomPricingSnapshot(
     frozenAt,
     frozenBy,
   })
-  snapshot.bomItems = content.bomItems.map((item) => ({ ...item }))
+  snapshot.bomItems = content.bomItems.map((item) => ({
+    ...item,
+    applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
+    linkedPatternIds: [...(item.linkedPatternIds ?? [])],
+    usageProcessCodes: [...(item.usageProcessCodes ?? [])],
+  }))
   snapshot.linkedPartTemplateVersions = record.linkedPartTemplateIds.map((partTemplateId) => {
     const template = getPartTemplateRecordById(partTemplateId)
     if (!template) throw new Error(`关联部件模板不存在：${partTemplateId}`)
@@ -496,7 +457,8 @@ export function saveTechnicalDataVersionBomPricingSnapshot(
   technicalVersionId: string,
   snapshot: EngineeringBomPricingSnapshot,
 ): EngineeringBomPricingSnapshot {
-  const updated = updateTechnicalDataVersionContent(technicalVersionId, { bomPricingSnapshot: snapshot })
+  assertEngineeringBomPricingSnapshotValid(snapshot)
+  const updated = savePublishedTechnicalDataVersionBomPricingSnapshot(technicalVersionId, snapshot)
   if (!updated) throw new Error('保存技术包 BOM 成本快照失败。')
   return snapshot
 }

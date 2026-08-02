@@ -1,4 +1,5 @@
 import { createTechnicalDataVersionBootstrapSnapshot } from './pcs-technical-data-version-bootstrap.ts'
+import { assertEngineeringBomPricingSnapshotValid } from './pcs-engineering-bom-snapshot-validation.ts'
 import {
   getEngineeringChangeTaskById,
   getEngineeringMasterOrderById,
@@ -201,7 +202,7 @@ function cloneContent(content: TechnicalDataVersionContent): TechnicalDataVersio
           customCosts: content.bomPricingSnapshot.customCosts.map((item) => ({ ...item })),
           cost: { ...content.bomPricingSnapshot.cost },
           bomItems: Array.isArray(content.bomPricingSnapshot.bomItems)
-            ? content.bomPricingSnapshot.bomItems.map((item) => ({ ...item }))
+            ? cloneBomItems(content.bomPricingSnapshot.bomItems)
             : [],
           materialPriceSnapshots: Array.isArray(content.bomPricingSnapshot.materialPriceSnapshots)
             ? content.bomPricingSnapshot.materialPriceSnapshots.map((item) => ({ ...item }))
@@ -514,7 +515,7 @@ function normalizeContent(content: TechnicalDataVersionContent): TechnicalDataVe
           customCosts: content.bomPricingSnapshot.customCosts.map((item) => ({ ...item })),
           cost: { ...content.bomPricingSnapshot.cost },
           bomItems: Array.isArray(content.bomPricingSnapshot.bomItems)
-            ? content.bomPricingSnapshot.bomItems.map((item) => ({ ...item }))
+            ? cloneBomItems(content.bomPricingSnapshot.bomItems)
             : [],
           materialPriceSnapshots: Array.isArray(content.bomPricingSnapshot.materialPriceSnapshots)
             ? content.bomPricingSnapshot.materialPriceSnapshots.map((item) => ({ ...item }))
@@ -1118,6 +1119,21 @@ export function updateTechnicalDataVersionContent(
   if (isPublishedLegacyTechnicalVersion(targetRecord)) {
     throw new Error('旧来源的已发布技术包仅供查询，处于只读状态，禁止修改。')
   }
+  if (
+    targetRecord?.versionStatus === 'PUBLISHED'
+    && (targetRecord.createdFromTaskType === 'ENGINEERING_MASTER' || targetRecord.createdFromTaskType === 'ENGINEERING_CHANGE')
+    && ['bomItems', 'bomCustomCosts', 'bomPricingSnapshot'].some((key) => Object.prototype.hasOwnProperty.call(patch, key))
+  ) {
+    throw new Error('新工程来源的已发布技术包 BOM/COST 正式字段禁止修改。')
+  }
+  return persistTechnicalDataVersionContentPatch(technicalVersionId, patch)
+}
+
+function persistTechnicalDataVersionContentPatch(
+  technicalVersionId: string,
+  patch: Partial<TechnicalDataVersionContent>,
+): TechnicalDataVersionContent | null {
+  const snapshot = loadSnapshot()
   const contentIndex = snapshot.contents.findIndex((item) => item.technicalVersionId === technicalVersionId)
   const base = contentIndex >= 0 ? snapshot.contents[contentIndex] : createEmptyContent(technicalVersionId)
   const nextContent = normalizeContent({
@@ -1146,6 +1162,26 @@ export function updateTechnicalDataVersionContent(
     pendingItems: snapshot.pendingItems,
   })
   return cloneContent(nextContent)
+}
+
+export function savePublishedTechnicalDataVersionBomPricingSnapshot(
+  technicalVersionId: string,
+  bomPricingSnapshot: NonNullable<TechnicalDataVersionContent['bomPricingSnapshot']>,
+): TechnicalDataVersionContent | null {
+  const snapshot = loadSnapshot()
+  const record = snapshot.records.find((item) => item.technicalVersionId === technicalVersionId)
+  if (
+    !record
+    || record.versionStatus !== 'PUBLISHED'
+    || record.reviewStage !== '已发布'
+    || (record.createdFromTaskType !== 'ENGINEERING_MASTER' && record.createdFromTaskType !== 'ENGINEERING_CHANGE')
+  ) {
+    throw new Error('只有已审核发布的新工程来源技术包可以保存正式 BOM/COST 快照。')
+  }
+  const content = snapshot.contents.find((item) => item.technicalVersionId === technicalVersionId)
+  if (content?.bomPricingSnapshot) throw new Error('正式 BOM/COST 快照已存在，禁止覆盖。')
+  assertEngineeringBomPricingSnapshotValid(bomPricingSnapshot)
+  return persistTechnicalDataVersionContentPatch(technicalVersionId, { bomPricingSnapshot })
 }
 
 export function publishTechnicalDataVersionRecord(

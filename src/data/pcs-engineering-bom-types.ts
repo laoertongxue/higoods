@@ -22,6 +22,7 @@ export interface EngineeringBomTaskLinkageRow {
 }
 
 export interface EngineeringBomMaterialLineDraft {
+  bomItemId?: string
   materialSkuId: string
   usage: number
   sampleQuantity: number
@@ -86,7 +87,11 @@ export interface EngineeringBomPricingSnapshot {
   cost: EngineeringBomCostResult
   // 正式启用时固化技术包本身、物料档案价格和关联部件模板，后续档案变化不回写。
   bomItems: TechnicalBomItem[]
-  materialPriceSnapshots: Array<EngineeringBomResolvedMaterialLine & { standardUnitPriceCny: number; materialCostCny: number }>
+  materialPriceSnapshots: Array<EngineeringBomResolvedMaterialLine & {
+    bomItemId: string
+    standardUnitPriceCny: number
+    materialCostCny: number
+  }>
   customCostsIdr: Array<EngineeringBomCustomCostDraft & { currency: 'IDR' }>
   materialCostCny: number
   comprehensiveCostCny: number

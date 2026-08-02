@@ -4,6 +4,7 @@ import {
   closeEngineeringMasterOrder,
   getEngineeringMasterOrderById,
   updateEngineeringTaskRecord,
+  validateEngineeringMasterOrderClose,
 } from '../../src/data/pcs-engineering-master-repository.ts'
 import {
   createMaterialArchive,
@@ -35,6 +36,14 @@ export function closeEngineeringMasterForFixture(masterOrderId: string, operator
       draft.effectiveCompletedAt = '2026-08-02 09:00'
       draft.completedAt = '2026-08-02 09:00'
     })
+  }
+
+  try {
+    validateEngineeringMasterOrderClose(masterOrderId)
+    closeEngineeringMasterOrder(masterOrderId, operatorName)
+    return
+  } catch {
+    // 尚无同源正式技术包时，继续建立完整审核发布夹具并通过正式启用入口完成确认任务。
   }
 
   const material = createMaterialArchive({

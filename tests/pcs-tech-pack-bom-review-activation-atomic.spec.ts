@@ -7,6 +7,7 @@ import {
   updateMaterialSkuRecord,
 } from '../src/data/pcs-material-archive-repository.ts'
 import { updateLatestPcsExchangeRate } from '../src/data/pcs-exchange-rate-config.ts'
+import { assertEngineeringBomPricingSnapshotValid } from '../src/data/pcs-engineering-bom-pricing.ts'
 import { submitTechPackFirstStageReview } from '../src/data/pcs-tech-pack-review.ts'
 import {
   activateTechPackVersionForStyle,
@@ -34,6 +35,8 @@ import {
   getTechnicalDataVersionContent,
   getTechnicalDataVersionStoreSnapshot,
   listTechnicalDataVersions,
+  savePublishedTechnicalDataVersionBomPricingSnapshot,
+  updateTechnicalDataVersionContent,
 } from '../src/data/pcs-technical-data-version-repository.ts'
 import type {
   TechnicalBomItem,
@@ -42,10 +45,15 @@ import type {
 } from '../src/data/pcs-technical-data-version-types.ts'
 import {
   getEngineeringMasterOrderById,
+  assertEngineeringTaskCanComplete,
+  closeEngineeringMasterOrder,
   createEngineeringMasterOrder,
+  createEngineeringChangeTask,
   publishEngineeringMasterOrder,
   resetEngineeringMasterRepository,
+  updateEngineeringTaskRecord,
 } from '../src/data/pcs-engineering-master-repository.ts'
+import { getEngineeringTaskDefinition } from '../src/data/pcs-engineering-dependency-policy.ts'
 import { listPartTemplateRecords } from '../src/data/pcs-part-template-library.ts'
 
 function createMaterial(input: {
@@ -124,6 +132,21 @@ const engineeringMaster = publishEngineeringMasterOrder(createEngineeringMasterO
   merchandiserName: '跟单甲',
 }).masterOrderId)
 const engineeringSourceTaskId = `${engineeringMaster.masterOrderId}-TECH_PACK_CONFIRMATION`
+
+function completeActivationPrerequisites(): void {
+  const dependencyTypes = getEngineeringTaskDefinition('TECH_PACK_CONFIRMATION').dependsOn
+  for (const dependencyType of dependencyTypes) {
+    const taskId = `${engineeringMaster.masterOrderId}-${dependencyType}`
+    updateEngineeringTaskRecord(engineeringMaster.masterOrderId, taskId, (task) => {
+      task.status = dependencyType === 'COLOR_YARN' || dependencyType === 'COLOR_FABRIC'
+        ? '因需求变更结束'
+        : '已完成'
+      task.firstCompletedAt = '2026-08-01 09:00'
+      task.effectiveCompletedAt = '2026-08-01 09:00'
+      task.completedAt = '2026-08-01 09:00'
+    })
+  }
+}
 
 function makeRecord(input: {
   id: string
@@ -273,6 +296,59 @@ assert.deepEqual(getTechnicalDataVersionById(invalidActivationVersionId), invali
 assert.deepEqual(getTechnicalDataVersionContent(invalidActivationVersionId), invalidContentBefore)
 assert.deepEqual(listTechPackVersionLogsByVersionId(invalidActivationVersionId), invalidLogsBefore)
 
+// 技术包确认任务不能由“正式启用”绕过固定前置；拒绝必须发生在任何仓储写入之前。
+const blockedByPrerequisiteVersionId = `task7_activation_prerequisite_${Date.now()}`
+createTechnicalDataVersionDraft(
+  makeRecord({ id: blockedByPrerequisiteVersionId, status: 'PUBLISHED', reviewStage: '已发布' }),
+  makeContent(blockedByPrerequisiteVersionId, [makeBomItem('BOM-ACT-PREREQUISITE', validSku.materialSkuId, '米')]),
+)
+const prerequisiteTechnicalBefore = getTechnicalDataVersionStoreSnapshot()
+const prerequisiteStyleBefore = getStyleArchiveById(style.styleId)
+const prerequisiteEngineeringBefore = getEngineeringMasterOrderById(engineeringMaster.masterOrderId)
+const prerequisiteLogsBefore = listTechPackVersionLogs()
+const clonedMasterWithMissingDependency = structuredClone(prerequisiteEngineeringBefore!)
+const clonedSourceTask = clonedMasterWithMissingDependency.tasks.find((task) => task.taskId === engineeringSourceTaskId)!
+clonedMasterWithMissingDependency.tasks = clonedMasterWithMissingDependency.tasks.filter(
+  (task) => task.taskId !== clonedSourceTask.dependsOnTaskIds[0],
+)
+assert.throws(
+  () => assertEngineeringTaskCanComplete(clonedMasterWithMissingDependency, clonedSourceTask),
+  /固定依赖不存在|依赖不存在/,
+  '依赖记录缺失必须独立阻断',
+)
+assert.throws(
+  () => assertEngineeringTaskCanComplete(prerequisiteEngineeringBefore!, prerequisiteEngineeringBefore!.tasks.find((task) => task.taskId === engineeringSourceTaskId)!),
+  /前置任务.*未完成/,
+  '依赖记录存在但未完成必须独立阻断',
+)
+assert.throws(
+  () => activateTechPackVersionForStyle(style.styleId, blockedByPrerequisiteVersionId, '跟单甲'),
+  /前置任务|固定依赖/,
+)
+assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), prerequisiteTechnicalBefore)
+assert.deepEqual(getStyleArchiveById(style.styleId), prerequisiteStyleBefore)
+assert.deepEqual(getEngineeringMasterOrderById(engineeringMaster.masterOrderId), prerequisiteEngineeringBefore)
+assert.deepEqual(listTechPackVersionLogs(), prerequisiteLogsBefore)
+
+completeActivationPrerequisites()
+
+// 新工程来源技术包没有完整 BOM 定价字段时，正式启用必须失败且所有事实不变。
+const missingSnapshotVersionId = `task7_activation_missing_snapshot_${Date.now()}`
+createTechnicalDataVersionDraft(
+  makeRecord({ id: missingSnapshotVersionId, status: 'PUBLISHED', reviewStage: '已发布' }),
+  makeContent(missingSnapshotVersionId, []),
+)
+const missingSnapshotTechnicalBefore = getTechnicalDataVersionStoreSnapshot()
+const missingSnapshotStyleBefore = getStyleArchiveById(style.styleId)
+const missingSnapshotEngineeringBefore = getEngineeringMasterOrderById(engineeringMaster.masterOrderId)
+assert.throws(
+  () => activateTechPackVersionForStyle(style.styleId, missingSnapshotVersionId, '跟单甲'),
+  /BOM.*正式快照|BOM.*定价字段|正式快照/,
+)
+assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), missingSnapshotTechnicalBefore)
+assert.deepEqual(getStyleArchiveById(style.styleId), missingSnapshotStyleBefore)
+assert.deepEqual(getEngineeringMasterOrderById(engineeringMaster.masterOrderId), missingSnapshotEngineeringBefore)
+
 // 任一启用写步骤失败，都必须恢复技术包、款式、项目、关系、归档及启用日志六类事实源。
 const activationFailureSteps = ['PRICING_SNAPSHOT', 'ENGINEERING_TASK', 'STYLE', 'PROJECT', 'RELATION', 'ARCHIVE', 'LOG'] as const
 for (const failureStep of activationFailureSteps) {
@@ -324,21 +400,34 @@ createTechnicalDataVersionDraft(
     ...makeRecord({ id: successVersionId, status: 'PUBLISHED', reviewStage: '已发布' }),
     linkedPartTemplateIds: [linkedPartTemplateId],
   },
-  makeContent(successVersionId, [makeBomItem('BOM-ACT-OK-1', validSku.materialSkuId, '米')]),
+  makeContent(successVersionId, [
+    {
+      ...makeBomItem('BOM-ACT-OK-1', validSku.materialSkuId, '米'),
+      applicableSkuCodes: ['SKU-RED-S'],
+      linkedPatternIds: ['PATTERN-FRONT'],
+      usageProcessCodes: ['SEWING'],
+    },
+    makeBomItem('BOM-ACT-OK-2', validSku.materialSkuId, '米'),
+  ]),
 )
 updateLatestPcsExchangeRate({ idrPerCny: 2250, updatedBy: '系统管理员' })
 activateTechPackVersionForStyle(style.styleId, successVersionId, '跟单甲')
 const successContent = getTechnicalDataVersionContent(successVersionId)
 assert.equal(successContent?.bomPricingSnapshot?.materialLines[0]?.standardUnitPriceCny, 8.7654)
 assert.equal(successContent?.bomPricingSnapshot?.exchangeRateIdrPerCny, 2250)
-assert.deepEqual(successContent?.bomPricingSnapshot?.bomItems.map((item) => item.id), ['BOM-ACT-OK-1'])
+assert.deepEqual(successContent?.bomPricingSnapshot?.bomItems.map((item) => item.id), ['BOM-ACT-OK-1', 'BOM-ACT-OK-2'])
 assert.equal(successContent?.bomPricingSnapshot?.materialPriceSnapshots[0]?.standardUnitPriceCny, 8.7654)
+assert.deepEqual(
+  successContent?.bomPricingSnapshot?.materialPriceSnapshots.map((line) => (line as typeof line & { bomItemId?: string }).bomItemId),
+  ['BOM-ACT-OK-1', 'BOM-ACT-OK-2'],
+  '同一物料 SKU 的两条 BOM 行必须按稳定 bomItemId 分别固化价格',
+)
 assert.deepEqual(successContent?.bomPricingSnapshot?.customCostsIdr, [
   { title: '车位费', amountIdr: 15000, currency: 'IDR' },
 ])
-assert.equal(successContent?.bomPricingSnapshot?.materialCostCny, 8.77)
-assert.equal(successContent?.bomPricingSnapshot?.comprehensiveCostCny, 15.43)
-assert.equal(successContent?.bomPricingSnapshot?.comprehensiveCostIdr, 34722)
+assert.equal(successContent?.bomPricingSnapshot?.materialCostCny, 17.53)
+assert.equal(successContent?.bomPricingSnapshot?.comprehensiveCostCny, 24.2)
+assert.equal(successContent?.bomPricingSnapshot?.comprehensiveCostIdr, 54444)
 assert.deepEqual(
   successContent?.bomPricingSnapshot?.linkedPartTemplateVersions.map((item) => item.partTemplateId),
   [linkedPartTemplateId],
@@ -358,7 +447,72 @@ assert.equal(
   false,
   '不得生成以工程主单 ID 冒充商品项目 ID 的孤立关系',
 )
-assert.equal(getProjectArchiveFacts(productProjectId).archive?.currentTechnicalVersionId, successVersionId)
+
+// 快照 BOM 必须与普通 BOM 使用同等级深克隆，读取结果的嵌套数组变异不得污染仓储。
+const mutableSnapshot = getTechnicalDataVersionContent(successVersionId)?.bomPricingSnapshot
+assert.ok(mutableSnapshot)
+mutableSnapshot.bomItems[0]!.applicableSkuCodes!.push('SKU-MUTATED')
+mutableSnapshot.bomItems[0]!.linkedPatternIds!.push('PATTERN-MUTATED')
+mutableSnapshot.bomItems[0]!.usageProcessCodes!.push('PROCESS-MUTATED')
+const rereadSnapshot = getTechnicalDataVersionContent(successVersionId)?.bomPricingSnapshot
+assert.deepEqual(rereadSnapshot?.bomItems[0]?.applicableSkuCodes, ['SKU-RED-S'])
+assert.deepEqual(rereadSnapshot?.bomItems[0]?.linkedPatternIds, ['PATTERN-FRONT'])
+assert.deepEqual(rereadSnapshot?.bomItems[0]?.usageProcessCodes, ['SEWING'])
+
+// 逐行价格快照必须与 BOM 行一一对应，重复 bomItemId、错 SKU 或用量口径错配均拒绝。
+const mismatchedSnapshot = structuredClone(rereadSnapshot!)
+Object.assign(mismatchedSnapshot.materialPriceSnapshots[1]!, { bomItemId: 'BOM-ACT-OK-1' })
+assert.throws(() => assertEngineeringBomPricingSnapshotValid(mismatchedSnapshot), /bomItemId|一一对应|重复/)
+assert.throws(
+  () => savePublishedTechnicalDataVersionBomPricingSnapshot(missingSnapshotVersionId, mismatchedSnapshot),
+  /bomItemId|一一对应|重复/,
+  '受限仓储入口自身也必须拒绝无效正式快照',
+)
+const wrongSkuSnapshot = structuredClone(rereadSnapshot!)
+wrongSkuSnapshot.materialPriceSnapshots[1]!.materialSkuId = 'MAT-SKU-WRONG'
+assert.throws(() => assertEngineeringBomPricingSnapshotValid(wrongSkuSnapshot), /物料 SKU|一一对应|不一致/)
+
+// 新来源正式技术包发布后，公开内容更新入口不能改写 BOM/COST 正式字段。
+assert.throws(
+  () => updateTechnicalDataVersionContent(successVersionId, { bomItems: [] }),
+  /已发布|正式字段|禁止修改/,
+)
+assert.throws(
+  () => updateTechnicalDataVersionContent(successVersionId, { bomCustomCosts: [] }),
+  /已发布|正式字段|禁止修改/,
+)
+assert.throws(
+  () => updateTechnicalDataVersionContent(successVersionId, { bomPricingSnapshot: mismatchedSnapshot }),
+  /已发布|正式字段|禁止修改/,
+)
+
+// 工程变更来源正式启用只切换技术包事实，不得改写已关闭主单的任何专业任务。
+closeEngineeringMasterOrder(engineeringMaster.masterOrderId, '跟单甲')
+const engineeringChange = createEngineeringChangeTask({
+  sourceMasterOrderId: engineeringMaster.masterOrderId,
+  createdBy: '跟单甲',
+})
+const masterTasksBeforeChangeActivation = getEngineeringMasterOrderById(engineeringMaster.masterOrderId)?.tasks
+const changeVersionId = `task7_change_activation_${Date.now()}`
+createTechnicalDataVersionDraft(
+  {
+    ...makeRecord({ id: changeVersionId, status: 'PUBLISHED', reviewStage: '已发布' }),
+    sourceProjectId: engineeringChange.engineeringChangeTaskId,
+    sourceProjectCode: engineeringChange.engineeringChangeTaskCode,
+    sourceProjectName: engineeringChange.title,
+    createdFromTaskType: 'ENGINEERING_CHANGE',
+    createdFromTaskId: engineeringChange.engineeringChangeTaskId,
+    createdFromTaskCode: engineeringChange.engineeringChangeTaskCode,
+  },
+  makeContent(changeVersionId, [makeBomItem('BOM-CHANGE-ACT-1', validSku.materialSkuId, '米')]),
+)
+activateTechPackVersionForStyle(style.styleId, changeVersionId, '跟单甲')
+assert.deepEqual(
+  getEngineeringMasterOrderById(engineeringMaster.masterOrderId)?.tasks,
+  masterTasksBeforeChangeActivation,
+  '工程变更技术包启用不得修改来源主单任务',
+)
+assert.equal(getProjectArchiveFacts(productProjectId).archive?.currentTechnicalVersionId, changeVersionId)
 
 changePrice(validSku.materialSkuId, 19.9999)
 updateLatestPcsExchangeRate({ idrPerCny: 2500, updatedBy: '系统管理员' })

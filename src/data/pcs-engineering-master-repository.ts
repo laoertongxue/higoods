@@ -407,7 +407,7 @@ export interface EngineeringMasterOrderCloseValidation {
   technicalVersionId: string
 }
 
-function assertFixedTaskDependenciesSatisfied(master: EngineeringMasterOrderRecord, task: EngineeringTaskRecord): void {
+export function assertFixedTaskDependenciesSatisfied(master: EngineeringMasterOrderRecord, task: EngineeringTaskRecord): void {
   const expected = canonicalDependencyIds(master.masterOrderId, task.taskType)
   const actual = [...task.dependsOnTaskIds]
   if (
@@ -423,6 +423,19 @@ function assertFixedTaskDependenciesSatisfied(master: EngineeringMasterOrderReco
       throw new Error(`${task.taskName}的前置任务「${dependency.taskName}」未完成。`)
     }
   }
+}
+
+export function assertEngineeringTaskCanComplete(
+  master: EngineeringMasterOrderRecord,
+  task: EngineeringTaskRecord,
+): void {
+  if (task.masterOrderId !== master.masterOrderId || !master.tasks.some((candidate) => candidate.taskId === task.taskId)) {
+    throw new Error('工程任务不属于当前工程主单，不能完成。')
+  }
+  if (!['待前置', '待开始', '进行中'].includes(task.status)) {
+    throw new Error(`工程任务当前为${task.status}，不处于可完成状态。`)
+  }
+  assertFixedTaskDependenciesSatisfied(master, task)
 }
 
 export function validateEngineeringMasterOrderClose(

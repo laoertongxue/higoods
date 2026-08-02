@@ -25,12 +25,23 @@ import {
   resetTechPackVersionLogRepository,
 } from '../src/data/pcs-tech-pack-version-log-repository.ts'
 import { generateTechPackVersionFromPatternTask } from '../src/data/pcs-tech-pack-task-generation.ts'
+import {
+  approveTechPackReview,
+  startTechPackReview,
+  submitTechPackFirstStageReview,
+} from '../src/data/pcs-tech-pack-review.ts'
+import {
+  createMaterialArchive,
+  createMaterialSkuRecord,
+} from '../src/data/pcs-material-archive-repository.ts'
 import { assertFirstFormalProduction } from '../src/data/pcs-engineering-first-production-policy.ts'
 import {
   createEngineeringChangeTask,
   createEngineeringMasterOrder,
+  getEngineeringMasterOrderById,
   publishEngineeringMasterOrder,
   resetEngineeringMasterRepository,
+  updateEngineeringTaskRecord,
 } from '../src/data/pcs-engineering-master-repository.ts'
 import { closeEngineeringMasterForFixture } from './helpers/pcs-engineering-master-close-fixture.ts'
 import type {
@@ -39,6 +50,7 @@ import type {
 } from '../src/data/pcs-engineering-master-types.ts'
 import {
   resetTechnicalDataVersionRepository,
+  getTechnicalDataVersionById,
   updateTechnicalDataVersionContent,
   updateTechnicalDataVersionRecord,
 } from '../src/data/pcs-technical-data-version-repository.ts'
@@ -287,7 +299,23 @@ resetScenario()
 const { style, project, engineeringMaster } = prepareProjectAndStyle()
 const plateTask = createPlateTask(project.projectId, style.styleCode, engineeringMaster)
 const baseVersion = generateTechPackVersionFromPlateTask(plateTask.plateTaskId, '测试用户').record
+const pricedMaterial = createMaterialArchive({
+  kind: 'fabric', materialName: '版本日志正式快照面料', materialNameEn: 'Version log fabric', categoryName: '测试面料',
+  specSummary: '标准', composition: '棉', processTags: [], widthText: '150cm', gramWeightText: '180g',
+  pricingUnit: '米', mainUnit: '米', auxiliaryUnits: [], unitConversions: [], mainImageUrl: '', barcodeTemplateCode: '', remark: '',
+})
+const pricedSku = createMaterialSkuRecord(pricedMaterial.materialId, {
+  colorName: '黑色', specName: '标准', sizeName: '-', skuImageUrl: '', costPrice: 10, freightCost: 0,
+  weightKg: 0, lengthCm: 0, widthCm: 0, heightCm: 0, barcode: '',
+})
+assert.ok(pricedSku)
 updateTechnicalDataVersionContent(baseVersion.technicalVersionId, {
+  bomItems: [{
+    id: 'BOM-VERSION-LOG-1', type: '面料', name: pricedSku.materialName, spec: pricedSku.specName,
+    materialCode: pricedSku.materialCode, materialSkuId: pricedSku.materialSkuId, unit: '米',
+    unitConsumption: 1, sampleQuantity: 1, lossRate: 0, supplier: '测试供应商',
+  }],
+  bomCustomCosts: [],
   processEntries: [{
     id: 'process_log_base',
     entryType: 'PROCESS_BASELINE',
@@ -308,35 +336,28 @@ updateTechnicalDataVersionContent(baseVersion.technicalVersionId, {
 })
 const patternTaskOne = createPatternTask('pattern_task_log_write', 'AT-TEST-LOG-001', project.projectId, style.styleCode, 'ART-LOG-V1', engineeringMaster)
 generateTechPackVersionFromPatternTask(patternTaskOne.patternTaskId, '测试用户')
-updateTechnicalDataVersionRecord(baseVersion.technicalVersionId, {
-  reviewStage: '待发布',
-  reviewSubmittedAt: '2026-04-20 14:30',
-  reviewSubmittedBy: '测试用户',
-  merchandiserReview: {
-    nodeKey: 'MERCHANDISER',
-    nodeName: '跟单审核',
-    status: '审核-已通过',
-    reviewerRole: '跟单',
-    assignedReviewerId: 'merchandiser-test',
-    assignedReviewerName: '测试跟单',
-    assignedReviewerRole: '跟单',
-    assignedReviewerFeishuOpenId: '',
-    assignedAt: '2026-04-20 14:30',
-    assignedBy: '测试用户',
-    reviewedBy: '测试跟单',
-    reviewedAt: '2026-04-20 14:40',
-    startedOpinion: '',
-    opinion: '确认发布',
-    diffSnapshotId: '',
-    diffStatus: '无差异',
-    diffSummaryText: '',
-    lastFeishuNotifyAt: '',
-    lastFeishuNotifyStatus: '未发送',
-    lastFeishuNotifyRecordId: '',
-    todayFeishuNotifiedFlag: false,
-  },
-})
+const submittedReview = submitTechPackFirstStageReview(baseVersion.technicalVersionId, '测试用户')
+for (const nodeKey of ['BUYER', 'PATTERN_MAKER'] as const) {
+  const node = nodeKey === 'BUYER' ? submittedReview.buyerReview! : submittedReview.patternMakerReview!
+  if (node.status === '无需审核') continue
+  const operator = { id: node.assignedReviewerId, name: node.assignedReviewerName }
+  startTechPackReview(baseVersion.technicalVersionId, nodeKey, { operator, opinion: '开始审核' })
+  approveTechPackReview(baseVersion.technicalVersionId, nodeKey, '审核通过', operator)
+}
+const merchandiserReview = getTechnicalDataVersionById(baseVersion.technicalVersionId)!.merchandiserReview!
+const merchandiserOperator = { id: merchandiserReview.assignedReviewerId, name: merchandiserReview.assignedReviewerName }
+startTechPackReview(baseVersion.technicalVersionId, 'MERCHANDISER', { operator: merchandiserOperator, opinion: '开始复核' })
+approveTechPackReview(baseVersion.technicalVersionId, 'MERCHANDISER', '确认发布', merchandiserOperator)
 publishTechnicalDataVersion(baseVersion.technicalVersionId, '测试用户')
+for (const task of getEngineeringMasterOrderById(engineeringMaster.masterOrderId)!.tasks) {
+  if (task.taskType === 'TECH_PACK_CONFIRMATION') continue
+  updateEngineeringTaskRecord(engineeringMaster.masterOrderId, task.taskId, (draft) => {
+    draft.status = draft.status === '未启用' ? '因需求变更结束' : '已完成'
+    draft.firstCompletedAt = draft.firstCompletedAt || '2026-04-20 14:45'
+    draft.effectiveCompletedAt = '2026-04-20 14:45'
+    draft.completedAt = '2026-04-20 14:45'
+  })
+}
 activateTechPackVersionForStyle(style.styleId, baseVersion.technicalVersionId, '测试用户')
 
 const patternTaskTwo = createPatternTask('pattern_task_log_new', 'AT-TEST-LOG-002', project.projectId, style.styleCode, 'ART-LOG-V2', engineeringMaster)

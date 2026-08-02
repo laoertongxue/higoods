@@ -37,6 +37,7 @@ import {
 import { resolveTechnicalVersionProductProject } from './pcs-technical-data-version-project-source.ts'
 import {
   getEngineeringMasterOrderById,
+  assertEngineeringTaskCanComplete,
   runEngineeringMasterRepositoryTransaction,
   updateEngineeringTaskRecord,
 } from './pcs-engineering-master-repository.ts'
@@ -80,6 +81,7 @@ function completeSourceEngineeringTechPackTask(
   if (!sourceTask || sourceTask.taskType !== 'TECH_PACK_CONFIRMATION') {
     throw new Error('技术包来源任务不是同一工程主单的技术包确认任务，不能正式启用。')
   }
+  assertEngineeringTaskCanComplete(master, sourceTask)
   updateEngineeringTaskRecord(master.masterOrderId, sourceTask.taskId, (task) => {
     task.status = '已完成'
     if (!task.startedAt) task.startedAt = completedAt
@@ -143,12 +145,14 @@ export function activateTechPackVersionForStyle(
   const activatedAt = nowText()
 
   // 在任何启用写入前，先用最新物料档案、单位换算和汇率完整构建正式快照。
-  // 既有版本没有新 BOM 定价字段时返回 null，并保持原启用策略。
   const pricingSnapshot = buildTechnicalDataVersionBomPricingSnapshot(
     technicalVersionId,
     activatedAt,
     operatorName,
   )
+  if (!pricingSnapshot) {
+    throw new Error('工程来源技术包缺少完整 BOM 定价字段，无法形成正式快照，不能启用。')
+  }
   const snapshotsBeforeActivation = {
     style: captureStyleArchiveRepositoryState(),
     project: getProjectStoreSnapshot(),
@@ -160,9 +164,7 @@ export function activateTechPackVersionForStyle(
   runTechnicalDataVersionRepositoryTransaction(() =>
     runEngineeringMasterRepositoryTransaction(() => {
       try {
-      if (pricingSnapshot) {
-        saveTechnicalDataVersionBomPricingSnapshot(technicalVersionId, pricingSnapshot)
-      }
+      saveTechnicalDataVersionBomPricingSnapshot(technicalVersionId, pricingSnapshot)
       markActivationStepCompleted('PRICING_SNAPSHOT')
       completeSourceEngineeringTechPackTask(record, activatedAt)
       markActivationStepCompleted('ENGINEERING_TASK')

@@ -164,6 +164,7 @@
 - `src/main.ts`
 - `src/data/pcs-engineering-bom-types.ts`
 - `src/data/pcs-engineering-bom-pricing.ts`
+- `src/data/pcs-engineering-bom-snapshot-validation.ts`
 - `src/data/pcs-exchange-rate-config.ts`
 - `src/data/pcs-material-archive-types.ts`
 - `src/data/pcs-material-archive-repository.ts`
@@ -206,6 +207,16 @@
 - `npm run check:tech-pack-bom-unit-guard`：通过（任务 7）。
 - `npm test -- tests/pcs-engineering-master-close-gate.spec.ts`：通过（任务 10：正式快照结构、有效任务与固定依赖、来源技术包、操作者及页面关闭交互）。
 - `npm test -- tests/pcs-tech-pack-bom-review-activation-atomic.spec.ts`：通过（任务 10：正式快照深克隆、真实技术包确认任务完成及后续失败原子回滚）。
+
+## 11. Task 10 阶段②C独立规格审查修复（2026-08-02）
+
+- 角色与权限：工程主单详情仍是 PCS 中国管理端；原型没有统一登录态时，由统一解析函数把当前主单跟单解析为当前演示操作者，渲染与点击事件共用同一身份。真实种子跟单“跟单-林晓”可在全部领域门禁满足后看到并执行关闭，其他身份在领域入口继续被拒绝。
+- 正式启用防错：工程主单来源技术包只能完成精确的技术包确认任务；该任务必须处于可完成状态，固定依赖必须与唯一策略完全一致、记录存在且已完成或因需求变更结束。任一条件失败均拒绝整次启用并保持仓储事实不变。
+- 正式快照：新来源 `ENGINEERING_MASTER`／`ENGINEERING_CHANGE` 技术包启用一律要求完整 BOM 定价字段并生成正式快照；不再保留“无快照仍启用”的兼容路径。
+- 行级追溯：物料价格快照逐行保存稳定 `bomItemId`，并校验数量、ID 唯一集合、物料 SKU、用量、打样数量、单位和损耗与 BOM 一一对应，覆盖同一 SKU 多 BOM 行。
+- 发布后锁定：正式快照 BOM 使用普通 BOM 同等级深克隆；新来源已发布技术包的 `bomItems`、`bomCustomCosts`、`bomPricingSnapshot` 不能通过公开内容更新入口改写。正式启用只通过受限、结构校验且不可覆盖的快照保存入口写入。
+- 交互与性能：关闭按钮仍为局部事件，点击后只刷新头部和反馈区，不触发整页重绘；未新增高频输入或大列表。
+- 自查结论：角色、身份、防错、状态、中文文案、局部交互和正式事实追溯均符合设计规范；无业务例外，无列表页治理例外。
 
 ### 待交付前验证
 
