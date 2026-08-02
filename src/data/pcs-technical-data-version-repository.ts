@@ -1,10 +1,12 @@
 import { createTechnicalDataVersionBootstrapSnapshot } from './pcs-technical-data-version-bootstrap.ts'
 import { assertEngineeringBomPricingSnapshotValid } from './pcs-engineering-bom-snapshot-validation.ts'
 import { getLatestPcsExchangeRate } from './pcs-exchange-rate-config.ts'
+import { resolveEngineeringLinkedPartTemplateVersions } from './pcs-engineering-bom-snapshot-source.ts'
 import {
-  getEngineeringBomPricingSnapshotAttestation,
-  resolveEngineeringLinkedPartTemplateVersions,
-} from './pcs-engineering-bom-snapshot-source.ts'
+  MATERIAL_STANDARD_PRICE_REQUIRED_MESSAGE,
+  resolveEngineeringBomMaterialLine,
+} from './pcs-engineering-bom-material-resolver.ts'
+import type { EngineeringBomPricingSnapshot } from './pcs-engineering-bom-types.ts'
 import {
   getEngineeringChangeTaskById,
   getEngineeringMasterOrderById,
@@ -1169,10 +1171,15 @@ function persistTechnicalDataVersionContentPatch(
   return cloneContent(nextContent)
 }
 
-export function savePublishedTechnicalDataVersionBomPricingSnapshot(
+function roundEngineeringBomCostCny(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100
+}
+
+function buildPublishedTechnicalDataVersionBomPricingSnapshot(
   technicalVersionId: string,
-  bomPricingSnapshot: NonNullable<TechnicalDataVersionContent['bomPricingSnapshot']>,
-): TechnicalDataVersionContent | null {
+  frozenAt: string,
+  frozenBy: string,
+): EngineeringBomPricingSnapshot {
   const snapshot = loadSnapshot()
   const record = snapshot.records.find((item) => item.technicalVersionId === technicalVersionId)
   if (
@@ -1181,24 +1188,98 @@ export function savePublishedTechnicalDataVersionBomPricingSnapshot(
     || record.reviewStage !== '已发布'
     || (record.createdFromTaskType !== 'ENGINEERING_MASTER' && record.createdFromTaskType !== 'ENGINEERING_CHANGE')
   ) {
-    throw new Error('只有已审核发布的新工程来源技术包可以保存正式 BOM/COST 快照。')
+    throw new Error('只有已审核发布的新工程来源技术包可以形成正式 BOM/COST 快照。')
   }
   const content = snapshot.contents.find((item) => item.technicalVersionId === technicalVersionId)
-  if (!content) throw new Error('未找到目标技术包当前内容，不能保存正式 BOM/COST 快照。')
+  if (!content) throw new Error('未找到目标技术包当前内容，不能形成正式 BOM/COST 快照。')
   if (content?.bomPricingSnapshot) throw new Error('正式 BOM/COST 快照已存在，禁止覆盖。')
-  const attestation = getEngineeringBomPricingSnapshotAttestation(bomPricingSnapshot)
+
+  if (!content.bomItems.some((item) => Boolean(item.materialSkuId))) {
+    throw new Error('工程来源技术包缺少完整 BOM 定价字段，无法形成正式快照，不能启用。')
+  }
+  const materialPriceSnapshots = content.bomItems.map((item) => {
+    if (!item.materialSkuId) throw new Error(`BOM 行 ${item.name} 未关联物料 SKU，不能形成正式快照。`)
+    const resolved = resolveEngineeringBomMaterialLine({
+      bomItemId: item.id,
+      materialSkuId: item.materialSkuId,
+      usage: item.unitConsumption,
+      sampleQuantity: item.sampleQuantity ?? 1,
+      usageUnit: item.unit || '',
+      lossRate: item.lossRate,
+    })
+    if (resolved.standardUnitPriceCny === null || resolved.materialCostCny === null) {
+      throw new Error(MATERIAL_STANDARD_PRICE_REQUIRED_MESSAGE)
+    }
+    return {
+      ...resolved,
+      bomItemId: item.id,
+      standardUnitPriceCny: resolved.standardUnitPriceCny,
+      materialCostCny: resolved.materialCostCny,
+    }
+  })
+  const exchangeRateIdrPerCny = getLatestPcsExchangeRate().idrPerCny
+  const customCostsIdr = (content.bomCustomCosts ?? []).map((item) => ({ ...item, currency: 'IDR' as const }))
+  const rawMaterialCostCny = materialPriceSnapshots.reduce(
+    (total, line) => total
+      + line.usage
+      * line.sampleQuantity
+      * (1 + line.lossRate)
+      * line.conversionToPricingUnit
+      * line.standardUnitPriceCny,
+    0,
+  )
+  const customCostIdr = Math.round(customCostsIdr.reduce((total, item) => total + item.amountIdr, 0))
+  const materialCostCny = roundEngineeringBomCostCny(rawMaterialCostCny)
+  const comprehensiveCostCny = roundEngineeringBomCostCny(rawMaterialCostCny + customCostIdr / exchangeRateIdrPerCny)
+  const comprehensiveCostIdr = Math.round(rawMaterialCostCny * exchangeRateIdrPerCny + customCostIdr)
+  const linkedPartTemplateVersions = resolveEngineeringLinkedPartTemplateVersions(record.linkedPartTemplateIds)
+  const bomPricingSnapshot: EngineeringBomPricingSnapshot = {
+    snapshotVersion: 1,
+    frozenAt,
+    frozenBy,
+    exchangeRateIdrPerCny,
+    exchangeRateSource: '系统最新汇率',
+    materialLines: materialPriceSnapshots.map((item) => ({ ...item })),
+    customCosts: customCostsIdr.map((item) => ({ ...item })),
+    cost: {
+      materialCostCny,
+      customCostIdr,
+      comprehensiveCostCny,
+      comprehensiveCostIdr,
+      exchangeRateIdrPerCny,
+    },
+    bomItems: cloneBomItems(content.bomItems),
+    materialPriceSnapshots,
+    customCostsIdr,
+    materialCostCny,
+    comprehensiveCostCny,
+    comprehensiveCostIdr,
+    linkedPartTemplateVersions,
+  }
   assertEngineeringBomPricingSnapshotValid(bomPricingSnapshot, {
     bomItems: content.bomItems,
     bomCustomCosts: content.bomCustomCosts ?? [],
-    exchangeRateIdrPerCny: getLatestPcsExchangeRate().idrPerCny,
-    linkedPartTemplateVersions: resolveEngineeringLinkedPartTemplateVersions(record.linkedPartTemplateIds),
-    frozenAt: attestation?.technicalVersionId === technicalVersionId ? attestation.frozenAt : undefined,
-    frozenBy: attestation?.technicalVersionId === technicalVersionId ? attestation.frozenBy : undefined,
+    exchangeRateIdrPerCny,
+    linkedPartTemplateVersions,
+    frozenAt,
+    frozenBy,
   })
-  if (!attestation || attestation.technicalVersionId !== technicalVersionId) {
-    throw new Error('正式 BOM/COST 快照必须由目标技术包规范构建入口生成，禁止保存手工拼装或克隆快照。')
-  }
-  return persistTechnicalDataVersionContentPatch(technicalVersionId, { bomPricingSnapshot })
+  return bomPricingSnapshot
+}
+
+export function freezePublishedTechnicalDataVersionBomPricingSnapshot(
+  technicalVersionId: string,
+  frozenAt: string,
+  frozenBy: string,
+): EngineeringBomPricingSnapshot {
+  const bomPricingSnapshot = buildPublishedTechnicalDataVersionBomPricingSnapshot(
+    technicalVersionId,
+    frozenAt,
+    frozenBy,
+  )
+  const updated = persistTechnicalDataVersionContentPatch(technicalVersionId, { bomPricingSnapshot })
+  if (!updated) throw new Error('保存技术包 BOM 成本快照失败。')
+  return structuredClone(bomPricingSnapshot)
 }
 
 export function publishTechnicalDataVersionRecord(

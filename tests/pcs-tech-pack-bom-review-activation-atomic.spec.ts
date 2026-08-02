@@ -6,11 +6,12 @@ import {
   getMaterialSkuRecordById,
   updateMaterialSkuRecord,
 } from '../src/data/pcs-material-archive-repository.ts'
-import { updateLatestPcsExchangeRate } from '../src/data/pcs-exchange-rate-config.ts'
+import { getLatestPcsExchangeRate, updateLatestPcsExchangeRate } from '../src/data/pcs-exchange-rate-config.ts'
 import {
   assertEngineeringBomPricingSnapshotValid,
-  buildTechnicalDataVersionBomPricingSnapshot,
+  freezeTechnicalDataVersionBomPricingSnapshot,
 } from '../src/data/pcs-engineering-bom-pricing.ts'
+import * as bomPricingPublicApi from '../src/data/pcs-engineering-bom-pricing.ts'
 import { submitTechPackFirstStageReview } from '../src/data/pcs-tech-pack-review.ts'
 import {
   activateTechPackVersionForStyle,
@@ -38,9 +39,9 @@ import {
   getTechnicalDataVersionContent,
   getTechnicalDataVersionStoreSnapshot,
   listTechnicalDataVersions,
-  savePublishedTechnicalDataVersionBomPricingSnapshot,
   updateTechnicalDataVersionContent,
 } from '../src/data/pcs-technical-data-version-repository.ts'
+import * as technicalVersionRepositoryPublicApi from '../src/data/pcs-technical-data-version-repository.ts'
 import type {
   TechnicalBomItem,
   TechnicalDataVersionContent,
@@ -58,6 +59,8 @@ import {
 } from '../src/data/pcs-engineering-master-repository.ts'
 import { getEngineeringTaskDefinition } from '../src/data/pcs-engineering-dependency-policy.ts'
 import { listPartTemplateRecords } from '../src/data/pcs-part-template-library.ts'
+import { resolveEngineeringLinkedPartTemplateVersions } from '../src/data/pcs-engineering-bom-snapshot-source.ts'
+import * as snapshotSourcePublicApi from '../src/data/pcs-engineering-bom-snapshot-source.ts'
 
 function createMaterial(input: {
   costPrice: number
@@ -462,12 +465,31 @@ assert.deepEqual(rereadSnapshot?.bomItems[0]?.applicableSkuCodes, ['SKU-RED-S'])
 assert.deepEqual(rereadSnapshot?.bomItems[0]?.linkedPatternIds, ['PATTERN-FRONT'])
 assert.deepEqual(rereadSnapshot?.bomItems[0]?.usageProcessCodes, ['SEWING'])
 
+function validateSnapshotAgainstCurrentTarget(
+  technicalVersionId: string,
+  snapshot: NonNullable<TechnicalDataVersionContent['bomPricingSnapshot']>,
+  auditContext?: { frozenAt: string; frozenBy: string },
+): void {
+  const record = getTechnicalDataVersionById(technicalVersionId)
+  const content = getTechnicalDataVersionContent(technicalVersionId)
+  assert.ok(record)
+  assert.ok(content)
+  assertEngineeringBomPricingSnapshotValid(snapshot, {
+    bomItems: content.bomItems,
+    bomCustomCosts: content.bomCustomCosts ?? [],
+    exchangeRateIdrPerCny: getLatestPcsExchangeRate().idrPerCny,
+    linkedPartTemplateVersions: resolveEngineeringLinkedPartTemplateVersions(record.linkedPartTemplateIds),
+    frozenAt: auditContext?.frozenAt,
+    frozenBy: auditContext?.frozenBy,
+  })
+}
+
 // 逐行价格快照必须与 BOM 行一一对应，重复 bomItemId、错 SKU 或用量口径错配均拒绝。
 const mismatchedSnapshot = structuredClone(rereadSnapshot!)
 Object.assign(mismatchedSnapshot.materialPriceSnapshots[1]!, { bomItemId: 'BOM-ACT-OK-1' })
 assert.throws(() => assertEngineeringBomPricingSnapshotValid(mismatchedSnapshot), /bomItemId|一一对应|重复/)
 assert.throws(
-  () => savePublishedTechnicalDataVersionBomPricingSnapshot(missingSnapshotVersionId, mismatchedSnapshot),
+  () => validateSnapshotAgainstCurrentTarget(missingSnapshotVersionId, mismatchedSnapshot),
   /bomItemId|一一对应|重复|目标技术包|当前 BOM|不一致/,
   '受限仓储入口自身也必须拒绝无效正式快照',
 )
@@ -511,7 +533,7 @@ Object.assign(internallyConsistentForeignSnapshot.cost, {
 })
 const foreignSnapshotTargetBefore = getTechnicalDataVersionContent(foreignSnapshotTargetVersionId)
 assert.throws(
-  () => savePublishedTechnicalDataVersionBomPricingSnapshot(foreignSnapshotTargetVersionId, internallyConsistentForeignSnapshot),
+  () => validateSnapshotAgainstCurrentTarget(foreignSnapshotTargetVersionId, internallyConsistentForeignSnapshot),
   /目标技术包|当前 BOM|BOM-TARGET|BOM-FOREIGN|不一致/,
 )
 assert.deepEqual(getTechnicalDataVersionContent(foreignSnapshotTargetVersionId), foreignSnapshotTargetBefore)
@@ -540,7 +562,7 @@ Object.assign(forgedTotalsSnapshot.cost, {
 })
 const forgedTotalsTargetBefore = getTechnicalDataVersionContent(forgedTotalsTargetVersionId)
 assert.throws(
-  () => savePublishedTechnicalDataVersionBomPricingSnapshot(forgedTotalsTargetVersionId, forgedTotalsSnapshot),
+  () => validateSnapshotAgainstCurrentTarget(forgedTotalsTargetVersionId, forgedTotalsSnapshot),
   /物料成本|自定义成本|综合成本|重算|不一致/,
 )
 assert.deepEqual(getTechnicalDataVersionContent(forgedTotalsTargetVersionId), forgedTotalsTargetBefore)
@@ -623,7 +645,7 @@ const tamperedFullFieldSnapshot = makeSelfConsistentSnapshotForTarget({
 })
 const fullFieldTargetBefore = getTechnicalDataVersionContent(fullFieldTargetVersionId)
 assert.throws(
-  () => savePublishedTechnicalDataVersionBomPricingSnapshot(fullFieldTargetVersionId, tamperedFullFieldSnapshot),
+  () => validateSnapshotAgainstCurrentTarget(fullFieldTargetVersionId, tamperedFullFieldSnapshot),
   /目标技术包|当前 BOM|业务字段|不一致/,
 )
 assert.deepEqual(getTechnicalDataVersionContent(fullFieldTargetVersionId), fullFieldTargetBefore)
@@ -636,7 +658,7 @@ const reorderedNestedArraySnapshot = makeSelfConsistentSnapshotForTarget({
   customCostsIdr: [],
 })
 assert.throws(
-  () => savePublishedTechnicalDataVersionBomPricingSnapshot(fullFieldTargetVersionId, reorderedNestedArraySnapshot),
+  () => validateSnapshotAgainstCurrentTarget(fullFieldTargetVersionId, reorderedNestedArraySnapshot),
   /目标技术包|当前 BOM|业务字段|不一致/,
   'BOM 内业务数组按原顺序比较，调用方不能通过重排数组改写正式事实',
 )
@@ -653,7 +675,7 @@ const tamperedTrustedPriceSnapshot = makeSelfConsistentSnapshotForTarget({
 })
 const trustedPriceTargetBefore = getTechnicalDataVersionContent(trustedPriceTargetVersionId)
 assert.throws(
-  () => savePublishedTechnicalDataVersionBomPricingSnapshot(trustedPriceTargetVersionId, tamperedTrustedPriceSnapshot),
+  () => validateSnapshotAgainstCurrentTarget(trustedPriceTargetVersionId, tamperedTrustedPriceSnapshot),
   /标准单价|物料价格|当前物料档案|不一致/,
 )
 assert.deepEqual(getTechnicalDataVersionContent(trustedPriceTargetVersionId), trustedPriceTargetBefore)
@@ -664,7 +686,7 @@ const tamperedConversionSnapshot = makeSelfConsistentSnapshotForTarget({
   customCostsIdr: [],
 })
 assert.throws(
-  () => savePublishedTechnicalDataVersionBomPricingSnapshot(trustedPriceTargetVersionId, tamperedConversionSnapshot),
+  () => validateSnapshotAgainstCurrentTarget(trustedPriceTargetVersionId, tamperedConversionSnapshot),
   /单位换算|当前物料档案|不一致/,
 )
 assert.deepEqual(getTechnicalDataVersionContent(trustedPriceTargetVersionId), trustedPriceTargetBefore)
@@ -680,7 +702,7 @@ const tamperedCustomCostSnapshot = makeSelfConsistentSnapshotForTarget({
 })
 const trustedCustomCostTargetBefore = getTechnicalDataVersionContent(trustedCustomCostTargetVersionId)
 assert.throws(
-  () => savePublishedTechnicalDataVersionBomPricingSnapshot(trustedCustomCostTargetVersionId, tamperedCustomCostSnapshot),
+  () => validateSnapshotAgainstCurrentTarget(trustedCustomCostTargetVersionId, tamperedCustomCostSnapshot),
   /目标技术包|自定义成本|不一致/,
 )
 assert.deepEqual(getTechnicalDataVersionContent(trustedCustomCostTargetVersionId), trustedCustomCostTargetBefore)
@@ -727,16 +749,26 @@ createTechnicalDataVersionDraft(
 updateLatestPcsExchangeRate({ idrPerCny: 2300, updatedBy: '系统管理员' })
 const trustedSnapshotSourceBefore = getTechnicalDataVersionContent(trustedSnapshotSourceVersionId)
 
+function buildTrustedSnapshotCandidate(): NonNullable<TechnicalDataVersionContent['bomPricingSnapshot']> {
+  const snapshot = makeSelfConsistentSnapshotForTarget({
+    bomItem: trustedSnapshotSourceBomItem,
+    standardUnitPriceCny: 8.7654,
+    customCostsIdr: [],
+  })
+  snapshot.frozenAt = '2026-08-02 12:00'
+  snapshot.frozenBy = '跟单甲'
+  snapshot.linkedPartTemplateVersions = resolveEngineeringLinkedPartTemplateVersions(
+    trustedTemplateRecords.map((item) => item.id),
+  )
+  recalculateSnapshotTotalsForRate(snapshot, getLatestPcsExchangeRate().idrPerCny)
+  return snapshot
+}
+
 // 即使调用方按伪造汇率同步重算全部成本，也必须绑定首次固化时的系统最新汇率。
-const forgedExchangeRateSnapshot = buildTechnicalDataVersionBomPricingSnapshot(
-  trustedSnapshotSourceVersionId,
-  '2026-08-02 12:00',
-  '跟单甲',
-)
-assert.ok(forgedExchangeRateSnapshot)
+const forgedExchangeRateSnapshot = buildTrustedSnapshotCandidate()
 recalculateSnapshotTotalsForRate(forgedExchangeRateSnapshot, 9999)
 assert.throws(
-  () => savePublishedTechnicalDataVersionBomPricingSnapshot(trustedSnapshotSourceVersionId, forgedExchangeRateSnapshot),
+  () => validateSnapshotAgainstCurrentTarget(trustedSnapshotSourceVersionId, forgedExchangeRateSnapshot),
   /系统最新汇率|汇率.*不一致/,
 )
 assert.deepEqual(getTechnicalDataVersionContent(trustedSnapshotSourceVersionId), trustedSnapshotSourceBefore)
@@ -744,15 +776,10 @@ assert.deepEqual(getTechnicalDataVersionContent(trustedSnapshotSourceVersionId),
 function assertForgedTemplateSnapshotRejected(
   mutate: (snapshot: NonNullable<TechnicalDataVersionContent['bomPricingSnapshot']>) => void,
 ): void {
-  const snapshot = buildTechnicalDataVersionBomPricingSnapshot(
-    trustedSnapshotSourceVersionId,
-    '2026-08-02 12:00',
-    '跟单甲',
-  )
-  assert.ok(snapshot)
+  const snapshot = buildTrustedSnapshotCandidate()
   mutate(snapshot)
   assert.throws(
-    () => savePublishedTechnicalDataVersionBomPricingSnapshot(trustedSnapshotSourceVersionId, snapshot),
+    () => validateSnapshotAgainstCurrentTarget(trustedSnapshotSourceVersionId, snapshot),
     /关联部件模板|模板版本|模板摘要|不一致/,
   )
   assert.deepEqual(getTechnicalDataVersionContent(trustedSnapshotSourceVersionId), trustedSnapshotSourceBefore)
@@ -794,39 +821,37 @@ for (const mutateAudit of [
     ;(snapshot as typeof snapshot & { exchangeRateSource: string }).exchangeRateSource = '调用方汇率'
   },
 ]) {
-  const snapshot = buildTechnicalDataVersionBomPricingSnapshot(
-    trustedSnapshotSourceVersionId,
-    '2026-08-02 12:00',
-    '跟单甲',
-  )
-  assert.ok(snapshot)
+  const snapshot = buildTrustedSnapshotCandidate()
   mutateAudit(snapshot)
   assert.throws(
-    () => savePublishedTechnicalDataVersionBomPricingSnapshot(trustedSnapshotSourceVersionId, snapshot),
+    () => validateSnapshotAgainstCurrentTarget(trustedSnapshotSourceVersionId, snapshot, {
+      frozenAt: '2026-08-02 12:00',
+      frozenBy: '跟单甲',
+    }),
     /固化信息|审计字段|汇率来源|规范构建|不一致/,
   )
   assert.deepEqual(getTechnicalDataVersionContent(trustedSnapshotSourceVersionId), trustedSnapshotSourceBefore)
 }
 
-const clonedCanonicalSnapshot = structuredClone(buildTechnicalDataVersionBomPricingSnapshot(
+// 公共 API 不再暴露 attester、任意快照保存或可供外部拼装后保存的 canonical builder。
+// 因此外部即使持有完全自洽的深克隆，也没有任何接受 snapshot 对象的正式持久化入口。
+const clonedCanonicalSnapshot = structuredClone(buildTrustedSnapshotCandidate())
+assert.equal('attestEngineeringBomPricingSnapshot' in snapshotSourcePublicApi, false)
+assert.equal('savePublishedTechnicalDataVersionBomPricingSnapshot' in technicalVersionRepositoryPublicApi, false)
+assert.equal('buildTechnicalDataVersionBomPricingSnapshot' in bomPricingPublicApi, false)
+assert.equal('saveTechnicalDataVersionBomPricingSnapshot' in bomPricingPublicApi, false)
+assert.doesNotThrow(() => validateSnapshotAgainstCurrentTarget(
   trustedSnapshotSourceVersionId,
-  '2026-08-02 12:00',
-  '跟单甲',
-)!)
-assert.throws(
-  () => savePublishedTechnicalDataVersionBomPricingSnapshot(trustedSnapshotSourceVersionId, clonedCanonicalSnapshot),
-  /规范构建|手工拼装|克隆快照/,
-  '字段完全一致的深克隆也不能伪造规范构建入口绑定的固化审计上下文',
-)
+  clonedCanonicalSnapshot,
+  { frozenAt: '2026-08-02 12:00', frozenBy: '跟单甲' },
+), '历史快照离线校验仍允许校验可信且自洽的持久化形态')
 assert.deepEqual(getTechnicalDataVersionContent(trustedSnapshotSourceVersionId), trustedSnapshotSourceBefore)
 
-const canonicalTrustedSnapshot = buildTechnicalDataVersionBomPricingSnapshot(
+const canonicalTrustedSnapshot = freezeTechnicalDataVersionBomPricingSnapshot(
   trustedSnapshotSourceVersionId,
   '2026-08-02 12:00',
   '跟单甲',
 )
-assert.ok(canonicalTrustedSnapshot)
-savePublishedTechnicalDataVersionBomPricingSnapshot(trustedSnapshotSourceVersionId, canonicalTrustedSnapshot)
 assert.deepEqual(
   getTechnicalDataVersionContent(trustedSnapshotSourceVersionId)?.bomPricingSnapshot,
   canonicalTrustedSnapshot,

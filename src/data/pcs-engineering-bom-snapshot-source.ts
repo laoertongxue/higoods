@@ -1,16 +1,5 @@
-import type {
-  EngineeringBomPricingSnapshot,
-  EngineeringLinkedPartTemplateVersionSnapshot,
-} from './pcs-engineering-bom-types.ts'
+import type { EngineeringLinkedPartTemplateVersionSnapshot } from './pcs-engineering-bom-types.ts'
 import { getPartTemplateRecordById } from './pcs-part-template-library.ts'
-
-export interface EngineeringBomPricingSnapshotAttestation {
-  technicalVersionId: string
-  frozenAt: string
-  frozenBy: string
-}
-
-const snapshotAttestations = new WeakMap<EngineeringBomPricingSnapshot, EngineeringBomPricingSnapshotAttestation>()
 
 export function resolveEngineeringLinkedPartTemplateVersions(
   linkedPartTemplateIds: string[],
@@ -28,19 +17,4 @@ export function resolveEngineeringLinkedPartTemplateVersions(
       sourceRulFileName: template.sourceRulFileName,
     }
   })
-}
-
-export function attestEngineeringBomPricingSnapshot(
-  snapshot: EngineeringBomPricingSnapshot,
-  attestation: EngineeringBomPricingSnapshotAttestation,
-): EngineeringBomPricingSnapshot {
-  snapshotAttestations.set(snapshot, { ...attestation })
-  return snapshot
-}
-
-export function getEngineeringBomPricingSnapshotAttestation(
-  snapshot: EngineeringBomPricingSnapshot,
-): EngineeringBomPricingSnapshotAttestation | null {
-  const attestation = snapshotAttestations.get(snapshot)
-  return attestation ? { ...attestation } : null
 }

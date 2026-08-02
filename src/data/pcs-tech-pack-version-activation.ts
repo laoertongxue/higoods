@@ -30,10 +30,7 @@ import {
   runTechnicalDataVersionRepositoryTransaction,
   updateTechnicalDataVersionContent,
 } from './pcs-technical-data-version-repository.ts'
-import {
-  buildTechnicalDataVersionBomPricingSnapshot,
-  saveTechnicalDataVersionBomPricingSnapshot,
-} from './pcs-engineering-bom-pricing.ts'
+import { freezeTechnicalDataVersionBomPricingSnapshot } from './pcs-engineering-bom-pricing.ts'
 import { resolveTechnicalVersionProductProject } from './pcs-technical-data-version-project-source.ts'
 import {
   getEngineeringMasterOrderById,
@@ -144,15 +141,6 @@ export function activateTechPackVersionForStyle(
   if (!content) throw new Error('未找到技术包版本内容，不能启用为当前生效版本。')
   const activatedAt = nowText()
 
-  // 在任何启用写入前，先用最新物料档案、单位换算和汇率完整构建正式快照。
-  const pricingSnapshot = buildTechnicalDataVersionBomPricingSnapshot(
-    technicalVersionId,
-    activatedAt,
-    operatorName,
-  )
-  if (!pricingSnapshot) {
-    throw new Error('工程来源技术包缺少完整 BOM 定价字段，无法形成正式快照，不能启用。')
-  }
   const snapshotsBeforeActivation = {
     style: captureStyleArchiveRepositoryState(),
     project: getProjectStoreSnapshot(),
@@ -164,7 +152,8 @@ export function activateTechPackVersionForStyle(
   runTechnicalDataVersionRepositoryTransaction(() =>
     runEngineeringMasterRepositoryTransaction(() => {
       try {
-      saveTechnicalDataVersionBomPricingSnapshot(technicalVersionId, pricingSnapshot)
+      // 规范构建与首次保存位于同一仓储原子入口，调用方不能注入任意快照。
+      freezeTechnicalDataVersionBomPricingSnapshot(technicalVersionId, activatedAt, operatorName)
       markActivationStepCompleted('PRICING_SNAPSHOT')
       completeSourceEngineeringTechPackTask(record, activatedAt)
       markActivationStepCompleted('ENGINEERING_TASK')

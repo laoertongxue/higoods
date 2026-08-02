@@ -3,8 +3,8 @@ import { getLatestPcsExchangeRate } from './pcs-exchange-rate-config.ts'
 import {
   getTechnicalDataVersionById,
   getTechnicalDataVersionContent,
+  freezePublishedTechnicalDataVersionBomPricingSnapshot,
   runTechnicalDataVersionRepositoryTransaction,
-  savePublishedTechnicalDataVersionBomPricingSnapshot,
   updateTechnicalDataVersionContent,
 } from './pcs-technical-data-version-repository.ts'
 import {
@@ -27,10 +27,6 @@ import {
   resolveEngineeringBomConversion,
   resolveEngineeringBomMaterialLine,
 } from './pcs-engineering-bom-material-resolver.ts'
-import {
-  attestEngineeringBomPricingSnapshot,
-  resolveEngineeringLinkedPartTemplateVersions,
-} from './pcs-engineering-bom-snapshot-source.ts'
 export { assertEngineeringBomPricingSnapshotValid } from './pcs-engineering-bom-snapshot-validation.ts'
 export { MATERIAL_STANDARD_PRICE_REQUIRED_MESSAGE } from './pcs-engineering-bom-material-resolver.ts'
 
@@ -379,56 +375,10 @@ export function freezeEngineeringBomPricingSnapshot(input: EngineeringBomDraft &
   }
 }
 
-export function buildTechnicalDataVersionBomPricingSnapshot(
-  technicalVersionId: string,
-  frozenAt: string,
-  frozenBy: string,
-): EngineeringBomPricingSnapshot | null {
-  const record = getTechnicalDataVersionById(technicalVersionId)
-  if (!record) throw new Error('未找到技术包版本，无法形成 BOM 成本快照。')
-  if (record.versionStatus !== 'PUBLISHED' || record.reviewStage !== '已发布') {
-    throw new Error('技术包必须完成审核发布后，才能形成正式 BOM 成本快照。')
-  }
-  const draft = buildTechnicalDataVersionBomDraft(technicalVersionId)
-  if (!draft) return null
-  const content = getTechnicalDataVersionContent(technicalVersionId)
-  if (!content) throw new Error('未找到技术包版本内容，无法形成 BOM 成本快照。')
-  const snapshot = freezeEngineeringBomPricingSnapshot({
-    ...draft,
-    frozenAt,
-    frozenBy,
-  })
-  snapshot.bomItems = content.bomItems.map((item) => ({
-    ...item,
-    applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
-    linkedPatternIds: [...(item.linkedPatternIds ?? [])],
-    usageProcessCodes: [...(item.usageProcessCodes ?? [])],
-  }))
-  snapshot.linkedPartTemplateVersions = resolveEngineeringLinkedPartTemplateVersions(record.linkedPartTemplateIds)
-  assertEngineeringBomPricingSnapshotValid(snapshot)
-  return attestEngineeringBomPricingSnapshot(snapshot, {
-    technicalVersionId,
-    frozenAt,
-    frozenBy,
-  })
-}
-
-export function saveTechnicalDataVersionBomPricingSnapshot(
-  technicalVersionId: string,
-  snapshot: EngineeringBomPricingSnapshot,
-): EngineeringBomPricingSnapshot {
-  assertEngineeringBomPricingSnapshotValid(snapshot)
-  const updated = savePublishedTechnicalDataVersionBomPricingSnapshot(technicalVersionId, snapshot)
-  if (!updated) throw new Error('保存技术包 BOM 成本快照失败。')
-  return snapshot
-}
-
 export function freezeTechnicalDataVersionBomPricingSnapshot(
   technicalVersionId: string,
   frozenAt: string,
   frozenBy: string,
 ): EngineeringBomPricingSnapshot {
-  const snapshot = buildTechnicalDataVersionBomPricingSnapshot(technicalVersionId, frozenAt, frozenBy)
-  if (!snapshot) throw new Error('既有技术包未使用 BOM 定价字段，无需形成正式成本快照。')
-  return saveTechnicalDataVersionBomPricingSnapshot(technicalVersionId, snapshot)
+  return freezePublishedTechnicalDataVersionBomPricingSnapshot(technicalVersionId, frozenAt, frozenBy)
 }
