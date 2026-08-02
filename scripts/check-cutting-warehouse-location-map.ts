@@ -43,6 +43,7 @@ import {
   buildRuntimeInboundTempBagsFromWaitHandoverEvents,
   buildWaitHandoverLocationOccupancyStates,
   mergeWaitHandoverWarehouseLocations,
+  resolveWaitHandoverBaggingSnapshot,
   type WaitHandoverRuntimeTicketInput,
 } from '../src/pages/process-factory/cutting/wait-handover-runtime.ts'
 import {
@@ -2278,12 +2279,51 @@ const secondCycleSameBagEvent = structuredClone(inboundEvent)
 secondCycleSameBagEvent.eventId = 'EVENT-INBOUND-SAME-BAG-CYCLE-2'
 secondCycleSameBagEvent.occurredAt = '2026-07-30 09:07'
 secondCycleSameBagEvent.refs = { ...secondCycleSameBagEvent.refs, usageCycleId: 'cycle:BAG-MAP-001:2' }
-secondCycleSameBagEvent.payload = { ...(secondCycleSameBagEvent.payload as Record<string, unknown>), usageCycleId: 'cycle:BAG-MAP-001:2' }
+secondCycleSameBagEvent.payload = {
+  ...(secondCycleSameBagEvent.payload as Record<string, unknown>),
+  usageCycleId: 'cycle:BAG-MAP-001:2',
+  warehouseLocations: [{
+    ...((inboundEvent.payload as { warehouseLocations: Array<Record<string, unknown>> }).warehouseLocations[0]),
+    locationId: secondLocation.locationId,
+    locationNo: secondLocation.locationNo,
+  }],
+}
 assert.equal(
   buildWaitHandoverLocationOccupancyStates([inboundEvent, secondCycleSameBagEvent]).length,
   2,
   '同一袋码不同使用周期必须保留独立占用状态',
 )
+const exactCycleConfirmEvent = {
+  ...structuredClone(inboundEvent),
+  eventId: 'EVENT-BAGGING-CONFIRM-EXACT-CYCLE',
+  eventType: '交出装袋确认' as const,
+  occurredAt: '2026-07-30 09:10',
+  refs: {
+    ...inboundEvent.refs,
+    transferBagCode: 'BAG-MAP-TARGET-EXACT',
+    usageCycleId: 'cycle:BAG-MAP-TARGET-EXACT:1',
+    feiTicketIds: ['FT-MAP-001'],
+  },
+  payload: {
+    sourceTempBagCode: 'BAG-MAP-001',
+    targetTransferBagCode: 'BAG-MAP-TARGET-EXACT',
+    containedFeiTicketIds: ['FT-MAP-001'],
+  },
+}
+const exactCycleStates = buildWaitHandoverLocationOccupancyStates([
+  inboundEvent,
+  secondCycleSameBagEvent,
+  exactCycleConfirmEvent,
+])
+assert.equal(exactCycleStates.length, 2, '同袋同票多周期确认只能迁移确认前最新的单一源周期')
+assert(exactCycleStates.some((state) =>
+  state.bagCode === 'BAG-MAP-001'
+  && state.usageCycleId === inboundEvent.refs.usageCycleId
+  && state.locationRef.locationId === firstLocation.locationId), 'C1 源周期必须保持原袋和完整 footprint')
+assert(exactCycleStates.some((state) =>
+  state.bagCode === 'BAG-MAP-TARGET-EXACT'
+  && state.usageCycleId === 'cycle:BAG-MAP-TARGET-EXACT:1'
+  && state.locationRef.locationId === secondLocation.locationId), '只允许把确认前最新 C2 完整 footprint 迁入目标袋')
 assert.equal((inboundEvent.payload as Record<string, unknown>).idempotencyKey, 'temp-bag:BAG-MAP-001:INBOUND')
 assert.equal(
   ((inboundEvent.payload as Record<string, unknown>).warehouseLocations as Array<{ locationId?: string }>)?.[0]?.locationId,
@@ -2308,6 +2348,84 @@ const transferredStates = buildWaitHandoverLocationOccupancyStates([
 assert.equal(transferredStates.length, 1, '换袋后同一物理库位只能保留一个占用主体')
 assert.equal(transferredStates[0].bagCode, 'BAG-MAP-TARGET', '换袋后占用主体应变为目标中转袋')
 assert.equal(transferredStates[0].locationRef.locationId, firstLocation.locationId, '换袋应继承原物理库位')
+const historicalSnapshotStorage = createMemoryWarehouseLayoutStorage()
+const historicalSourceBag = 'BAG-HISTORY-SOURCE'
+const historicalTargetBag = 'BAG-HISTORY-TARGET'
+const historicalSourceCycle1 = appendWaitHandoverBaggingEvent({
+  source: 'WEB',
+  operator: { operatorName: '历史装袋员' },
+  bagCode: historicalSourceBag,
+  tickets: [runtimeTicket],
+  occurredAt: '2026-07-30 11:00',
+  storage: historicalSnapshotStorage,
+})
+appendCuttingRuntimeEvent({
+  eventType: '交出装袋确认',
+  eventSource: 'WEB',
+  eventStatus: '已同步',
+  occurredAt: '2026-07-30 11:10',
+  operatorName: '历史分拣确认员',
+  refs: {
+    transferBagCode: historicalTargetBag,
+    usageCycleId: 'cycle:BAG-HISTORY-TARGET:1',
+    feiTicketIds: [runtimeTicket.feiTicketId],
+    feiTicketNos: [runtimeTicket.feiTicketNo],
+  },
+  payload: {
+    sourceTempBagCode: historicalSourceBag,
+    targetTransferBagCode: historicalTargetBag,
+    containedFeiTicketIds: [runtimeTicket.feiTicketId],
+    bagUseId: 'cycle:BAG-HISTORY-TARGET:1',
+  },
+}, historicalSnapshotStorage)
+appendCuttingRuntimeEvent({
+  eventType: '菲票装袋',
+  eventSource: 'WEB',
+  eventStatus: '已同步',
+  occurredAt: '2026-07-30 12:00',
+  operatorName: '源袋复用装袋员',
+  refs: {
+    transferBagCode: historicalSourceBag,
+    usageCycleId: 'cycle:BAG-HISTORY-SOURCE:2',
+    feiTicketIds: [runtimeTicket.feiTicketId],
+    feiTicketNos: [runtimeTicket.feiTicketNo],
+  },
+  payload: {
+    bagCode: historicalSourceBag,
+    usageCycleId: 'cycle:BAG-HISTORY-SOURCE:2',
+    feiTicketItems: [{ ...runtimeTicket, pieceQty: 99 }],
+  },
+}, historicalSnapshotStorage)
+const historicalTargetSnapshot = resolveWaitHandoverBaggingSnapshot(historicalTargetBag, historicalSnapshotStorage)
+assert(historicalTargetSnapshot, '目标袋必须能从交出装袋确认建立历史快照')
+assert.equal(historicalTargetSnapshot.tickets[0]?.pieceQty, runtimeTicket.pieceQty, '源袋后续复用不得改写目标袋确认当时的历史快照')
+assert.notEqual(historicalTargetSnapshot.usageCycleId, historicalSourceCycle1.refs.usageCycleId, '目标袋必须保留自己的独立使用周期')
+const ringSnapshotStorage = createMemoryWarehouseLayoutStorage()
+for (const [sourceBagCode, targetBagCode, occurredAt] of [
+  ['BAG-RING-A', 'BAG-RING-B', '2026-07-30 13:00'],
+  ['BAG-RING-B', 'BAG-RING-A', '2026-07-30 13:10'],
+] as const) {
+  appendCuttingRuntimeEvent({
+    eventType: '交出装袋确认',
+    eventSource: 'WEB',
+    eventStatus: '已同步',
+    occurredAt,
+    operatorName: '环路防护验证员',
+    refs: {
+      transferBagCode: targetBagCode,
+      usageCycleId: `cycle:${targetBagCode}:ring`,
+      feiTicketIds: [runtimeTicket.feiTicketId],
+      feiTicketNos: [runtimeTicket.feiTicketNo],
+    },
+    payload: {
+      sourceTempBagCode: sourceBagCode,
+      targetTransferBagCode: targetBagCode,
+      containedFeiTicketIds: [runtimeTicket.feiTicketId],
+    },
+  }, ringSnapshotStorage)
+}
+assert.equal(resolveWaitHandoverBaggingSnapshot('BAG-RING-A', ringSnapshotStorage), null, '目标袋快照不得递归追溯环路 A→B→A')
+assert.equal(resolveWaitHandoverBaggingSnapshot('BAG-RING-B', ringSnapshotStorage), null, '目标袋快照不得递归追溯环路 B→A→B')
 const handoverEvent = {
   ...structuredClone(inboundEvent),
   eventId: 'EVENT-HANDOVER',

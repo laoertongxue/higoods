@@ -1168,7 +1168,6 @@ function replaceRegionHtmlPreservingPageScroll(region: HTMLElement | null, html:
   const scrollY = window.scrollY
   region.innerHTML = html
   window.scrollTo(scrollX, scrollY)
-  window.requestAnimationFrame(() => window.scrollTo(scrollX, scrollY))
 }
 
 function refreshCuttingPickupLocationMap(): void {

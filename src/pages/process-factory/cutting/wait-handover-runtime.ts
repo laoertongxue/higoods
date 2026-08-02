@@ -79,6 +79,9 @@ export interface WaitHandoverBaggingSnapshot {
   usageCycleId: string
   productionOrderNo: string
   tickets: WaitHandoverRuntimeTicketInput[]
+  sourceBagCode?: string
+  sourceUsageCycleId?: string
+  confirmedAt?: string
 }
 
 export interface WaitHandoverLocationOccupancyState {
@@ -117,6 +120,13 @@ function runtimeTicketQtyById(value: unknown, qtyField: 'pieceQty' | 'returnedQt
 
 function runtimeTicketIds(value: unknown): string[] {
   return uniqueStrings((Array.isArray(value) ? value : []).map((row) => runtimeString(runtimeRecord(row).feiTicketId)))
+}
+
+function sameStringSet(left: Iterable<string>, right: Iterable<string>): boolean {
+  const leftSet = new Set(left)
+  const rightSet = new Set(right)
+  return leftSet.size === rightSet.size
+    && [...leftSet].every((value) => rightSet.has(value))
 }
 
 function adjustRuntimeTicketQtys(
@@ -866,17 +876,30 @@ export function resolveWaitHandoverBaggingSnapshot(
   if (targetConfirmEvent) {
     const payload = runtimeRecord(targetConfirmEvent.payload)
     const sourceBagCode = runtimeString(payload.sourceTempBagCode)
-    const sourceSnapshot = sourceBagCode
-      ? resolveWaitHandoverBaggingSnapshot(sourceBagCode, storage)
-      : null
-    if (!sourceSnapshot?.tickets.length) return null
     const containedTicketIds = new Set(uniqueStrings(
       (Array.isArray(payload.containedFeiTicketIds) ? payload.containedFeiTicketIds : [])
         .map((ticketId) => runtimeString(ticketId)),
     ))
-    const tickets = containedTicketIds.size
-      ? sourceSnapshot.tickets.filter((ticket) => containedTicketIds.has(ticket.feiTicketId))
-      : sourceSnapshot.tickets
+    if (!sourceBagCode || !containedTicketIds.size) return null
+    const declaredSourceCycleId = runtimeString(payload.sourceUsageCycleId)
+    const sourceBaggingEvent = events.find((candidate) => {
+      if (
+        candidate.eventType !== '菲票装袋'
+        || candidate.occurredAt > targetConfirmEvent.occurredAt
+        || !isWaitHandoverBagEventForCode(candidate, sourceBagCode)
+      ) return false
+      const candidatePayload = runtimeRecord(candidate.payload)
+      const candidateTicketIds = candidate.refs.feiTicketIds?.length
+        ? candidate.refs.feiTicketIds
+        : runtimeTicketIds(candidatePayload.feiTicketItems)
+      return sameStringSet(candidateTicketIds, containedTicketIds)
+        && (!declaredSourceCycleId || getWaitHandoverEventUsageCycleId(candidate) === declaredSourceCycleId)
+    })
+    if (!sourceBaggingEvent) return null
+    const sourcePayload = runtimeRecord(sourceBaggingEvent.payload)
+    const tickets = (Array.isArray(sourcePayload.feiTicketItems) ? sourcePayload.feiTicketItems : [])
+      .map((item) => buildWaitHandoverRuntimeTicketFromSnapshotItem(runtimeRecord(item), sourceBaggingEvent))
+      .filter((ticket) => containedTicketIds.has(ticket.feiTicketId))
     if (!tickets.length) return null
     return {
       usageCycleId:
@@ -888,6 +911,12 @@ export function resolveWaitHandoverBaggingSnapshot(
         || targetConfirmEvent.refs.productionOrderNo
         || '',
       tickets,
+      sourceBagCode,
+      sourceUsageCycleId:
+        getWaitHandoverEventUsageCycleId(sourceBaggingEvent)
+        || declaredSourceCycleId
+        || buildWaitHandoverUsageCycleId(sourceBagCode, sourceBaggingEvent.occurredAt),
+      confirmedAt: targetConfirmEvent.occurredAt,
     }
   }
   const event = events.find((candidate) =>
@@ -1090,12 +1119,23 @@ export function buildWaitHandoverLocationOccupancyStates(
       const targetBagCode = runtimeString(payload.targetTransferBagCode) || event.refs.transferBagCode || ''
       const eventLocationRef = runtimeLocationRef(payload.locationRef)
       const confirmedTicketIds = new Set(event.refs.feiTicketIds ?? [])
-      const sourceKeys = sourceBagCode
+      const matchingSourceKeys = sourceBagCode && confirmedTicketIds.size
         ? findWaitHandoverStateKeys(states, sourceBagCode, undefined, eventLocationRef)
           .filter((stateKey) => {
             const source = states.get(stateKey)
-            return source && source.feiTicketIds.every((ticketId) => confirmedTicketIds.has(ticketId))
+            return source
+              && source.inboundAt <= event.occurredAt
+              && sameStringSet(source.feiTicketIds, confirmedTicketIds)
           })
+        : []
+      const latestSource = matchingSourceKeys
+        .map((stateKey) => states.get(stateKey))
+        .filter((state): state is WaitHandoverLocationOccupancyState => Boolean(state))
+        .sort((left, right) =>
+          right.inboundAt.localeCompare(left.inboundAt)
+          || right.sourceEventId.localeCompare(left.sourceEventId))[0]
+      const sourceKeys = latestSource
+        ? matchingSourceKeys.filter((stateKey) => states.get(stateKey)?.usageCycleId === latestSource.usageCycleId)
         : []
       if (!sourceKeys.length || !targetBagCode) continue
       sourceKeys.forEach((sourceKey) => {

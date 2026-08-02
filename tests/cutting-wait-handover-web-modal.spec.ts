@@ -38,7 +38,8 @@ async function findCrossHierarchyLocations(map: Locator) {
   })
 }
 
-test('真实待交出工作台以生产 handler 完成三格入仓、一次汇总和整袋释放', async ({ page }) => {
+test('真实待交出工作台以生产事件账历史确认夹具和最终交出 handler 完成源目标换袋三格闭环', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 })
   test.setTimeout(300_000)
   const errors = collectPageErrors(page)
   await page.addInitScript(() => {
@@ -105,7 +106,7 @@ test('真实待交出工作台以生产 handler 完成三格入仓、一次汇�
   expect((summaryText.match(new RegExp(bagCode, 'g')) || []).length).toBe(1)
 
   const targetTransferBagCode = `WEB-TARGET-${Date.now()}`
-  const transferBagCode = await page.evaluate(async ({ sourceBagCode, targetBagCode, locationIds }) => {
+  const confirmationTargets = await page.evaluate(async ({ sourceBagCode, targetBagCode, locationIds }) => {
     const runtime = await import('/src/pages/process-factory/cutting/wait-handover-runtime.ts')
     const dispatch = await import('/src/data/fcs/cutting/sewing-dispatch.ts')
     const ledger = await import('/src/data/fcs/cutting/cutting-runtime-event-ledger.ts')
@@ -132,6 +133,71 @@ test('真实待交出工作台以生产 handler 完成三格入仓、一次汇�
     const picking = dispatch.buildHandoverPickingTaskProjectionFromAllocationProjection(allocation)
     const task = picking.tasks.find((item) => item.allocatedInventoryItems.some((item) => item.tempBagCode === sourceBagCode))
     if (!task) throw new Error('生产分配/分拣投影未形成真实任务')
+    const sourceEvents = ledger.listCuttingRuntimeEvents()
+    const sourceBaggingEvent = sourceEvents.find((event) =>
+      event.eventType === '菲票装袋' && event.refs.transferBagCode === sourceBagCode)
+    const sourceInboundEvent = sourceEvents.find((event) =>
+      event.eventType === '中转袋入仓' && event.refs.transferBagCode === sourceBagCode)
+    if (!sourceBaggingEvent || !sourceInboundEvent) throw new Error('缺少源袋装袋或入仓历史事实')
+    const baggingAtMs = Date.parse(sourceBaggingEvent.occurredAt)
+    const inboundAtMs = Date.parse(sourceInboundEvent.occurredAt)
+    if (!Number.isFinite(baggingAtMs) || !Number.isFinite(inboundAtMs)) {
+      throw new Error('源袋装袋与入仓时间顺序异常')
+    }
+    const olderTargetBagCode = `${targetBagCode}-OLD`
+    const extraTicketTargetBagCode = `${targetBagCode}-EXTRA`
+    const appendHistoricalConfirm = (input: {
+      targetCode: string
+      occurredAt: string
+      createdAt: string
+      ticketIds: string[]
+      ticketNos: string[]
+      suffix: string
+    }) => ledger.appendCuttingRuntimeEvent({
+      eventType: '交出装袋确认', eventSource: 'WEB', eventStatus: '已同步',
+      occurredAt: input.occurredAt, createdAt: input.createdAt, operatorName: `历史分拣确认员-${input.suffix}`,
+      refs: {
+        transferBagCode: input.targetCode,
+        usageCycleId: `cycle:${input.targetCode}:1`,
+        productionOrderId: snapshot.tickets[0].productionOrderId,
+        productionOrderNo: snapshot.tickets[0].productionOrderNo,
+        taskId: task.pickingTaskId,
+        feiTicketIds: input.ticketIds,
+        feiTicketNos: input.ticketNos,
+      },
+      inventoryEffect: { inventoryScope: '裁床待交出仓', direction: 'IN', qty: snapshot.tickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0), unit: '片' },
+      payload: {
+        sourceTempBagCode: sourceBagCode,
+        targetTransferBagCode: input.targetCode,
+        bagUseId: `cycle:${input.targetCode}:1`,
+        containedFeiTicketIds: input.ticketIds,
+        pickingTaskId: task.pickingTaskId,
+        pickingTaskNo: `${task.pickingTaskNo}-${input.suffix}`,
+        sewingTaskId: task.sewingTaskId,
+        sewingTaskNo: task.sewingTaskNo,
+        receiverType: '车缝厂',
+        receiverFactoryId: task.receiverFactoryId,
+        receiverFactoryName: task.receiverFactoryName,
+      },
+    })
+    const sourceTicketIds = snapshot.tickets.map((ticket) => ticket.feiTicketId)
+    const sourceTicketNos = snapshot.tickets.map((ticket) => ticket.feiTicketNo)
+    appendHistoricalConfirm({
+      targetCode: olderTargetBagCode,
+      occurredAt: sourceBaggingEvent.occurredAt,
+      createdAt: '1970-01-01T00:00:00.001Z',
+      ticketIds: sourceTicketIds,
+      ticketNos: sourceTicketNos,
+      suffix: '旧确认',
+    })
+    appendHistoricalConfirm({
+      targetCode: extraTicketTargetBagCode,
+      occurredAt: sourceBaggingEvent.occurredAt,
+      createdAt: '1970-01-01T00:00:00.002Z',
+      ticketIds: [...sourceTicketIds, 'FT-EXTRA-NOT-IN-SOURCE'],
+      ticketNos: [...sourceTicketNos, 'FT-EXTRA-NOT-IN-SOURCE'],
+      suffix: '多票确认',
+    })
     const confirmedAt = new Date(Date.now() + 1_000).toISOString()
     const targetUsageCycleId = `cycle:${targetBagCode}:${confirmedAt}`
     const totalPieceQty = snapshot.tickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0)
@@ -178,8 +244,9 @@ test('真实待交出工作台以生产 handler 完成三格入仓、一次汇�
     if (lifecycle.flowStage !== 'INBOUND_STORED') {
       throw new Error(`目标中转袋交出装袋确认后状态异常：${lifecycle.flowStageLabel}`)
     }
-    return targetBagCode
+    return { targetBagCode, olderTargetBagCode, extraTicketTargetBagCode }
   }, { sourceBagCode: bagCode, targetBagCode: targetTransferBagCode, locationIds: locations.map((location) => location.id) })
+  const transferBagCode = confirmationTargets.targetBagCode
 
   await openWaitHandoverPage(page, '?tab=locations')
   for (const location of locations) {
@@ -193,8 +260,10 @@ test('真实待交出工作台以生产 handler 完成三格入仓、一次汇�
   const handoverDialog = page.locator('[data-wait-handover-modal="handover"]')
   await expect(handoverDialog).toBeVisible()
   const handoverSelection = handoverDialog.locator('[data-wait-handover-field="handoverSelection"]')
-  const bagOption = handoverSelection.locator('option').filter({ hasText: transferBagCode })
+  const bagOption = handoverSelection.locator('option').filter({ hasText: new RegExp(`^${transferBagCode} /`) })
   await expect(bagOption).toHaveCount(1)
+  await expect(handoverSelection.locator('option').filter({ hasText: new RegExp(`^${confirmationTargets.olderTargetBagCode} /`) })).toHaveCount(0)
+  await expect(handoverSelection.locator('option').filter({ hasText: new RegExp(`^${confirmationTargets.extraTicketTargetBagCode} /`) })).toHaveCount(0)
   await handoverSelection.selectOption(await bagOption.getAttribute('value') || '')
   let handoverAlert = ''
   page.once('dialog', async (dialog) => {

@@ -858,7 +858,19 @@ test('PDA 中转仓领料支持跨区货架层自由多选、任意取消、逐�
       pageScrollPreserved: window.scrollY === tracked.__selectionPageScrollY,
     }
   })).toEqual({ mapRootLocallyReplaced: true, pageShellPreserved: true, pageScrollPreserved: true })
-  for (const location of crossHierarchyLocations.slice(1)) await map.locator(`[data-location-id="${location.locationId}"]`).click()
+  const userScrollAfterSecondSelection = await page.evaluate(async (locationId) => {
+    const button = document.querySelector<HTMLButtonElement>(`[data-pda-cutting-pickup-location-map] [data-location-id="${locationId}"]`)
+    if (!button) throw new Error('缺少连续选位按钮')
+    button.click()
+    const maxScrollY = Math.max(document.documentElement.scrollHeight - window.innerHeight, 0)
+    const userScrollY = Math.min(maxScrollY, Math.max(window.scrollY - 60, 1))
+    window.scrollTo(0, userScrollY)
+    await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()))
+    await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()))
+    return { userScrollY, actualScrollY: window.scrollY }
+  }, crossHierarchyLocations[1].locationId)
+  expect(userScrollAfterSecondSelection.actualScrollY).toBe(userScrollAfterSecondSelection.userScrollY)
+  await map.locator(`[data-location-id="${crossHierarchyLocations[2].locationId}"]`).click()
   const selectionSummary = map.locator('[data-warehouse-map-selection-summary]')
   const selectedItems = selectionSummary.locator('[data-warehouse-map-selected-item]')
   await expect(selectionSummary).toContainText('已选 3 个库位')

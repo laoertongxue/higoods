@@ -1093,7 +1093,6 @@ function renderPdaCuttingInboundWorkflowContent(
         ? `
           <div class="space-y-2">
             ${renderStepTitle(2, '扫库区库位')}
-            <span class="sr-only">2 选择入仓库位</span>
             <input
               class="h-12 w-full rounded-xl border bg-background px-3 text-base"
               data-pda-cut-inbound-field="locationScan"

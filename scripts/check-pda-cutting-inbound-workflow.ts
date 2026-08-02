@@ -810,9 +810,10 @@ for (const forbidden of ['加入菲票', '待入仓菲票', '生产单', '铺布
 }
 
 const inboundHtml = workflow.renderPdaCuttingInboundWorkflow('inbound-location', inboundState)
-for (const text of ['1 扫中转袋', '2 选择入仓库位', '3 确认入仓', '确认入仓']) {
+for (const text of ['1 扫中转袋', '2 扫库区库位', '3 确认入仓', '确认入仓']) {
   assert(inboundHtml.includes(text), `中转袋入仓模式缺少：${text}`)
 }
+assert(!inboundHtml.includes('2 选择入仓库位'), '中转袋入仓不得保留旧步骤“2 选择入仓库位”')
 assert.equal((inboundHtml.match(/<button\b/g) || []).length, 1, '中转袋入仓工作区只能有一个主要按钮')
 for (const forbidden of ['菲票', '加入菲票', '待入仓', '生产单', '铺布单', '面料信息', '当前情况', '当前阶段', '最近记录']) {
   assert(!inboundHtml.includes(forbidden), `中转袋入仓模式不得展示：${forbidden}`)

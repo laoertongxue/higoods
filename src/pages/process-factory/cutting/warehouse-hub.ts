@@ -67,6 +67,7 @@ import {
   appendWaitHandoverBaggingEvent,
   appendWaitHandoverInboundEvent,
   appendWaitHandoverSpecialCraftReturnEvent,
+  buildWaitHandoverLocationOccupancyStates,
   buildWaitHandoverLifecycleByBagCode,
   buildWaitHandoverRuntimeTicketFromGeneratedTicket,
   resolveWaitHandoverBaggingSnapshot,
@@ -2644,8 +2645,13 @@ type WaitHandoverConfirmSelection = {
 
 function buildWaitHandoverConfirmSelections(): WaitHandoverConfirmSelection[] {
   const projection = buildWaitHandoverWebPickingProjection()
-  const baggingConfirmEvents = listRuntimeWaitHandoverEvents()
+  const runtimeEvents = listRuntimeWaitHandoverEvents()
+  const baggingConfirmEvents = runtimeEvents
     .filter((event) => event.eventType === '交出装袋确认' && event.eventStatus !== '已取消')
+    .sort((left, right) =>
+      right.occurredAt.localeCompare(left.occurredAt, 'zh-CN')
+      || (right.createdAt || right.occurredAt).localeCompare(left.createdAt || left.occurredAt, 'zh-CN')
+      || right.eventId.localeCompare(left.eventId, 'zh-CN'))
   const inventoryRecords = buildWaitHandoverWebInventoryRecords()
     .filter((record) => record.voidStatus !== '已作废')
   const recordsByBagCode = new Map<string, InboundTempBagInventoryRecord[]>()
@@ -2655,44 +2661,57 @@ function buildWaitHandoverConfirmSelections(): WaitHandoverConfirmSelection[] {
     recordsByBagCode.set(record.tempBagCode, records)
   })
   const selections: WaitHandoverConfirmSelection[] = []
+  const confirmedSourceCycles = new Set<string>()
+  const occupancies = buildWaitHandoverLocationOccupancyStates(runtimeEvents)
+
+  baggingConfirmEvents.forEach((confirmedTaskEvent) => {
+    const payload = toRuntimeRecord(confirmedTaskEvent.payload)
+    const sourceBagCode = runtimeString(payload.sourceTempBagCode)
+    const targetBagCode = runtimeString(payload.targetTransferBagCode) || confirmedTaskEvent.refs.transferBagCode
+    if (!sourceBagCode || !targetBagCode) return
+    const targetSnapshot = resolveWaitHandoverBaggingSnapshot(targetBagCode)
+    if (!targetSnapshot || targetSnapshot.sourceBagCode !== sourceBagCode) return
+    const confirmedTicketIds = confirmedTaskEvent.refs.feiTicketIds || []
+    if (!sameWaitHandoverTicketSet(confirmedTicketIds, targetSnapshot.tickets.map((ticket) => ticket.feiTicketId))) return
+    const declaredSourceCycleId = runtimeString(payload.sourceUsageCycleId)
+    if (declaredSourceCycleId && targetSnapshot.sourceUsageCycleId !== declaredSourceCycleId) return
+    const sourceCycleKey = `${sourceBagCode}|${targetSnapshot.sourceUsageCycleId || ''}`
+    if (confirmedSourceCycles.has(sourceCycleKey)) return
+    const targetLifecycle = buildWaitHandoverLifecycleByBagCode(targetBagCode)
+    if (targetLifecycle.flowStage !== 'INBOUND_STORED' || targetLifecycle.usageCycleId !== targetSnapshot.usageCycleId) return
+    const targetOccupancy = occupancies.find((state) =>
+      state.bagCode === targetBagCode
+      && state.usageCycleId === targetSnapshot.usageCycleId)
+    if (!targetOccupancy) return
+    const taskId = runtimeString(payload.pickingTaskId) || confirmedTaskEvent.refs.taskId || confirmedTaskEvent.eventId
+    const taskNo = runtimeString(payload.pickingTaskNo) || runtimeString(payload.sewingTaskNo) || taskId
+    confirmedSourceCycles.add(sourceCycleKey)
+    selections.push({
+      value: `inbound-bag|${targetBagCode}|${taskId}`,
+      handoverOrderId: `WEB-HO-${taskId}`,
+      handoverOrderNo: `${taskNo}-交出`,
+      receiverType: runtimeString(payload.receiverType) || '车缝厂',
+      receiverId: runtimeString(payload.receiverFactoryId),
+      receiverName: runtimeString(payload.receiverFactoryName) || '接收车缝厂',
+      bagUseId: targetSnapshot.usageCycleId,
+      bagCode: targetBagCode,
+      sourceWarehouseName: targetOccupancy.locationRef.warehouseName || '裁床待交出仓',
+      sourceLocationCode: targetOccupancy.locationRef.locationCode,
+      tickets: targetSnapshot.tickets.map((ticket) => ({
+        feiTicketId: ticket.feiTicketId,
+        feiTicketNo: ticket.feiTicketNo,
+        pieceQty: ticket.pieceQty,
+      })),
+    })
+  })
+
   recordsByBagCode.forEach((bagRecords, bagCode) => {
     const lifecycle = buildWaitHandoverLifecycleByBagCode(bagCode)
     if (lifecycle.flowStage !== 'INBOUND_STORED') return
     const bagTicketIds = new Set(
       bagRecords.map((record) => record.feiTicketId),
     )
-    const confirmedTaskEvent = [...baggingConfirmEvents].reverse().find((event) => {
-      const payload = toRuntimeRecord(event.payload)
-      return runtimeString(payload.sourceTempBagCode) === bagCode
-        && bagRecords.every((record) => event.refs.feiTicketIds?.includes(record.feiTicketId))
-    })
-    if (confirmedTaskEvent) {
-      const payload = toRuntimeRecord(confirmedTaskEvent.payload)
-      const targetBagCode = runtimeString(payload.targetTransferBagCode) || confirmedTaskEvent.refs.transferBagCode
-      if (!targetBagCode) return
-      const targetLifecycle = buildWaitHandoverLifecycleByBagCode(targetBagCode)
-      if (targetLifecycle.flowStage !== 'INBOUND_STORED') return
-      const taskId = runtimeString(payload.pickingTaskId) || confirmedTaskEvent.refs.taskId || confirmedTaskEvent.eventId
-      const taskNo = runtimeString(payload.pickingTaskNo) || runtimeString(payload.sewingTaskNo) || taskId
-      selections.push({
-        value: `inbound-bag|${targetBagCode}|${taskId}`,
-        handoverOrderId: `WEB-HO-${taskId}`,
-        handoverOrderNo: `${taskNo}-交出`,
-        receiverType: runtimeString(payload.receiverType) || '车缝厂',
-        receiverId: runtimeString(payload.receiverFactoryId),
-        receiverName: runtimeString(payload.receiverFactoryName) || '接收车缝厂',
-        bagUseId: targetLifecycle.usageCycleId || runtimeString(payload.bagUseId) || `legacy:${targetBagCode}`,
-        bagCode: targetBagCode,
-        sourceWarehouseName: bagRecords[0]?.warehouseArea || '裁床待交出仓',
-        sourceLocationCode: bagRecords[0]?.locationCode || '',
-        tickets: bagRecords.map((record) => ({
-          feiTicketId: record.feiTicketId,
-          feiTicketNo: record.feiTicketNo,
-          pieceQty: record.pieceQty,
-        })),
-      })
-      return
-    }
+    if ([...confirmedSourceCycles].some((cycleKey) => cycleKey.startsWith(`${bagCode}|`))) return
     const tasksWithBagItems = projection.tasks.filter((task) =>
       task.allocatedInventoryItems.some(
         (item) =>
@@ -2738,6 +2757,13 @@ function buildWaitHandoverConfirmSelections(): WaitHandoverConfirmSelection[] {
     })
   })
   return selections.slice(0, 30)
+}
+
+function sameWaitHandoverTicketSet(left: string[], right: string[]): boolean {
+  const leftSet = new Set(left.filter(Boolean))
+  const rightSet = new Set(right.filter(Boolean))
+  return leftSet.size === rightSet.size
+    && [...leftSet].every((ticketId) => rightSet.has(ticketId))
 }
 
 function getWaitHandoverRecordOptions(): Array<{ value: string; label: string }> {
