@@ -465,12 +465,82 @@ Object.assign(mismatchedSnapshot.materialPriceSnapshots[1]!, { bomItemId: 'BOM-A
 assert.throws(() => assertEngineeringBomPricingSnapshotValid(mismatchedSnapshot), /bomItemId|一一对应|重复/)
 assert.throws(
   () => savePublishedTechnicalDataVersionBomPricingSnapshot(missingSnapshotVersionId, mismatchedSnapshot),
-  /bomItemId|一一对应|重复/,
+  /bomItemId|一一对应|重复|目标技术包|当前 BOM|不一致/,
   '受限仓储入口自身也必须拒绝无效正式快照',
 )
 const wrongSkuSnapshot = structuredClone(rereadSnapshot!)
 wrongSkuSnapshot.materialPriceSnapshots[1]!.materialSkuId = 'MAT-SKU-WRONG'
 assert.throws(() => assertEngineeringBomPricingSnapshotValid(wrongSkuSnapshot), /物料 SKU|一一对应|不一致/)
+
+// 专用保存入口必须把快照绑定到目标技术包当前 BOM；快照内部自洽也不能把外来 BOM 写入目标版本。
+const foreignSnapshotTargetVersionId = `task7_foreign_snapshot_target_${Date.now()}`
+createTechnicalDataVersionDraft(
+  makeRecord({ id: foreignSnapshotTargetVersionId, status: 'PUBLISHED', reviewStage: '已发布' }),
+  makeContent(foreignSnapshotTargetVersionId, [makeBomItem('BOM-TARGET', validSku.materialSkuId, '米')]),
+)
+const internallyConsistentForeignSnapshot = structuredClone(rereadSnapshot!)
+internallyConsistentForeignSnapshot.bomItems = [
+  { ...internallyConsistentForeignSnapshot.bomItems[0]!, id: 'BOM-FOREIGN', materialSkuId: 'SKU-FOREIGN' },
+]
+internallyConsistentForeignSnapshot.materialPriceSnapshots = [
+  {
+    ...internallyConsistentForeignSnapshot.materialPriceSnapshots[0]!,
+    bomItemId: 'BOM-FOREIGN',
+    materialSkuId: 'SKU-FOREIGN',
+  },
+]
+internallyConsistentForeignSnapshot.materialLines = internallyConsistentForeignSnapshot.materialPriceSnapshots.map(
+  ({ bomItemId: _bomItemId, ...line }) => line,
+)
+internallyConsistentForeignSnapshot.materialCostCny = internallyConsistentForeignSnapshot.materialPriceSnapshots[0]!.materialCostCny
+internallyConsistentForeignSnapshot.comprehensiveCostCny = Number((
+  internallyConsistentForeignSnapshot.materialCostCny
+  + internallyConsistentForeignSnapshot.cost.customCostIdr / internallyConsistentForeignSnapshot.exchangeRateIdrPerCny
+).toFixed(2))
+internallyConsistentForeignSnapshot.comprehensiveCostIdr = Math.round(
+  internallyConsistentForeignSnapshot.materialCostCny * internallyConsistentForeignSnapshot.exchangeRateIdrPerCny
+  + internallyConsistentForeignSnapshot.cost.customCostIdr,
+)
+Object.assign(internallyConsistentForeignSnapshot.cost, {
+  materialCostCny: internallyConsistentForeignSnapshot.materialCostCny,
+  comprehensiveCostCny: internallyConsistentForeignSnapshot.comprehensiveCostCny,
+  comprehensiveCostIdr: internallyConsistentForeignSnapshot.comprehensiveCostIdr,
+})
+const foreignSnapshotTargetBefore = getTechnicalDataVersionContent(foreignSnapshotTargetVersionId)
+assert.throws(
+  () => savePublishedTechnicalDataVersionBomPricingSnapshot(foreignSnapshotTargetVersionId, internallyConsistentForeignSnapshot),
+  /目标技术包|当前 BOM|BOM-TARGET|BOM-FOREIGN|不一致/,
+)
+assert.deepEqual(getTechnicalDataVersionContent(foreignSnapshotTargetVersionId), foreignSnapshotTargetBefore)
+
+// 汇总字段必须由逐行价格、自定义 IDR 成本和汇率重算，不能只校验顶层与 cost 子对象彼此相等。
+const forgedTotalsTargetVersionId = `task7_forged_totals_target_${Date.now()}`
+createTechnicalDataVersionDraft(
+  makeRecord({ id: forgedTotalsTargetVersionId, status: 'PUBLISHED', reviewStage: '已发布' }),
+  makeContent(forgedTotalsTargetVersionId, structuredClone(rereadSnapshot!.bomItems)),
+)
+const forgedTotalsSnapshot = structuredClone(rereadSnapshot!)
+forgedTotalsSnapshot.materialPriceSnapshots.forEach((line) => {
+  line.standardUnitPriceCny = 999
+  line.materialCostCny = 1
+})
+forgedTotalsSnapshot.customCostsIdr = [{ title: '车位费', amountIdr: 5000, currency: 'IDR' }]
+forgedTotalsSnapshot.customCosts = structuredClone(forgedTotalsSnapshot.customCostsIdr)
+forgedTotalsSnapshot.materialCostCny = 1
+forgedTotalsSnapshot.comprehensiveCostCny = 1
+forgedTotalsSnapshot.comprehensiveCostIdr = 1
+Object.assign(forgedTotalsSnapshot.cost, {
+  materialCostCny: 1,
+  customCostIdr: 1,
+  comprehensiveCostCny: 1,
+  comprehensiveCostIdr: 1,
+})
+const forgedTotalsTargetBefore = getTechnicalDataVersionContent(forgedTotalsTargetVersionId)
+assert.throws(
+  () => savePublishedTechnicalDataVersionBomPricingSnapshot(forgedTotalsTargetVersionId, forgedTotalsSnapshot),
+  /物料成本|自定义成本|综合成本|重算|不一致/,
+)
+assert.deepEqual(getTechnicalDataVersionContent(forgedTotalsTargetVersionId), forgedTotalsTargetBefore)
 
 // 新来源正式技术包发布后，公开内容更新入口不能改写 BOM/COST 正式字段。
 assert.throws(
