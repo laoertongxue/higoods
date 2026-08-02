@@ -42,6 +42,8 @@ import {
 } from '../../data/fcs/tech-packs.ts'
 import { buildLegacyTechPackFromTechnicalVersion, buildTechnicalContentPatchFromLegacyTechPack } from '../../data/pcs-technical-data-fcs-adapter.ts'
 import { saveTechnicalDataVersionContent } from '../../data/pcs-project-technical-data-writeback.ts'
+import { compareBomPriceChanges } from '../../data/pcs-engineering-bom-pricing.ts'
+import { invalidateReviewForBomPriceChange } from '../../data/pcs-tech-pack-bom-price-review-invalidation.ts'
 import {
   getTechnicalDataVersionById,
   getTechnicalDataVersionContent,
@@ -2585,6 +2587,8 @@ function saveTechnicalDataVersionContentWithEngineeringLinkage(
   operatorName: string,
   operations: TechnicalContentEngineeringLinkageOperations = {},
 ) {
+  const beforeContent = getTechnicalDataVersionContent(technicalVersionId)
+  if (!beforeContent) throw new Error('未找到技术包版本内容。')
   const master = resolveEngineeringMasterForTechnicalVersion(technicalVersionId)
   const engineeringRows = master ? buildEngineeringBomTaskRows(bomItems) : []
   if (master) validateBomRequirementsForEngineeringTasks(master.masterOrderId, engineeringRows)
@@ -2595,6 +2599,15 @@ function saveTechnicalDataVersionContentWithEngineeringLinkage(
     runEngineeringMasterRepositoryTransaction(() => {
       try {
         const technicalVersion = saveTechnicalContent(technicalVersionId, patch, operatorName)
+        const afterContent = getTechnicalDataVersionContent(technicalVersionId)
+        if (!afterContent) throw new Error('未找到技术包版本内容。')
+        const bomPriceChanges = compareBomPriceChanges(beforeContent, afterContent)
+        if (bomPriceChanges.length > 0) {
+          invalidateReviewForBomPriceChange(technicalVersionId, {
+            changes: bomPriceChanges,
+            operator: operatorName,
+          })
+        }
         const engineeringLinkage = master
           ? applyEngineeringTasks(master.masterOrderId, engineeringRows)
           : null

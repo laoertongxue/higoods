@@ -8,7 +8,10 @@ import {
   invalidateReviewForBomPriceChange,
   startTechPackReview,
 } from '../src/data/pcs-tech-pack-review.ts'
-import { saveTechnicalDataVersionBomCustomCosts } from '../src/data/pcs-engineering-bom-pricing.ts'
+import {
+  compareBomPriceChanges,
+  saveTechnicalDataVersionBomCustomCosts,
+} from '../src/data/pcs-engineering-bom-pricing.ts'
 import {
   createMaterialArchive,
   createMaterialSkuRecord,
@@ -220,6 +223,41 @@ function contentWithBom(materialSkuId: string): TechnicalDataVersionContent {
     bomCustomCosts: [{ title: '车位费', amountIdr: 15000 }],
   }
 }
+
+const samePriceSkuSwitchBefore = {
+  ...content,
+  bomItems: [{
+    id: 'BOM-SAME-PRICE-SKU',
+    type: '面料' as const,
+    name: '同价物料 A',
+    spec: '标准',
+    materialCode: 'MAT-SAME-PRICE',
+    materialSkuId: 'MAT-SKU-SAME-PRICE-A',
+    unit: '米',
+    unitConsumption: 1,
+    sampleQuantity: 1,
+    lossRate: 0,
+    supplier: '测试供应商',
+  }],
+}
+const samePriceSkuSwitchAfter = {
+  ...samePriceSkuSwitchBefore,
+  bomItems: samePriceSkuSwitchBefore.bomItems.map((item) => ({
+    ...item,
+    name: '同价物料 B',
+    materialSkuId: 'MAT-SKU-SAME-PRICE-B',
+  })),
+}
+assert.deepEqual(
+  compareBomPriceChanges(samePriceSkuSwitchBefore, samePriceSkuSwitchAfter),
+  [{
+    changeSource: 'MATERIAL_SKU_CHANGE',
+    targetId: 'BOM-SAME-PRICE-SKU',
+    beforeValue: 'MAT-SKU-SAME-PRICE-A',
+    afterValue: 'MAT-SKU-SAME-PRICE-B',
+  }],
+  '标准单价相同也不能吞掉真实物料 SKU 更换',
+)
 
 const changedCases = [
   ['STANDARD_MATERIAL_PRICE_CNY', 'MAT-SKU-001', 12.34, 13.21],

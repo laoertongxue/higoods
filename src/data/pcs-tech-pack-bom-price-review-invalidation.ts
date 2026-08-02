@@ -15,13 +15,23 @@ export type BomPriceReviewChangeSource =
   | 'EXCHANGE_RATE_IDR_PER_CNY'
   | 'BOM_UNIT_CONSUMPTION'
   | 'BOM_LOSS_RATE'
+  | 'MATERIAL_SKU_CHANGE'
 
-export interface BomPriceReviewChange {
-  changeSource: BomPriceReviewChangeSource
-  targetId: string
-  beforeValue: number
-  afterValue: number
-}
+type NumericBomPriceReviewChangeSource = Exclude<BomPriceReviewChangeSource, 'MATERIAL_SKU_CHANGE'>
+
+export type BomPriceReviewChange =
+  | {
+      changeSource: NumericBomPriceReviewChangeSource
+      targetId: string
+      beforeValue: number
+      afterValue: number
+    }
+  | {
+      changeSource: 'MATERIAL_SKU_CHANGE'
+      targetId: string
+      beforeValue: string
+      afterValue: string
+    }
 
 export interface InvalidateReviewForBomPriceChangeInput {
   changes?: BomPriceReviewChange[]
@@ -89,9 +99,13 @@ export function invalidateReviewForBomPriceChange(
       }))
     : []
   if (changes.length === 0) throw new Error('请提供价格变化明细。')
-  if (changes.some((change) =>
-    !change.targetId.trim() || !Number.isFinite(change.beforeValue) || !Number.isFinite(change.afterValue)
-  )) {
+  if (changes.some((change) => {
+    if (!change.targetId.trim()) return true
+    if (change.changeSource === 'MATERIAL_SKU_CHANGE') {
+      return change.beforeValue === change.afterValue
+    }
+    return !Number.isFinite(change.beforeValue) || !Number.isFinite(change.afterValue)
+  })) {
     throw new Error('价格变化数据无效。')
   }
   const record = getTechnicalDataVersionById(technicalVersionId)

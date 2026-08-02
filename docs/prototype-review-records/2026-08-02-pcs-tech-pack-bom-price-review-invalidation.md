@@ -5,7 +5,7 @@
 | 项目 | 内容 |
 | --- | --- |
 | 审查日期 | 2026-08-02 |
-| 相关需求 / 任务 | Task 10 阶段②A：BOM 与价格变化仅触发买手复审 |
+| 相关需求 / 任务 | Task 10 阶段②A：BOM 与价格变化仅触发买手复审，并覆盖技术包 BOM 弹窗通用保存链 |
 | 涉及系统 | PCS |
 | 涉及页面路径 | 既有技术包 BOM 与价格维护、技术包审核和发布入口 |
 | 端类型 | 管理端 |
@@ -27,7 +27,7 @@
 | 页面模式 | 通过 | 复用既有技术包审核状态与模块编辑门禁。 |
 | 信息负荷 | 通过 | 未增加说明性页面文案。 |
 | 文案 | 通过 | 非法价格变化使用中文阻断提示。 |
-| 数量与状态 | 通过 | 标准单价、自定义印尼盾费用、汇率、单位用量、损耗率及不同标准价的物料 SKU 替换发生真实变化时，买手审核重置为待审核；数值未变化时不失效审核。 |
+| 数量与状态 | 通过 | 标准单价、自定义印尼盾费用、汇率、单位用量、损耗率及物料 SKU 身份发生真实变化时，买手审核重置为待审核；即使新旧 SKU 标准价相同也必须复审，数值与 SKU 身份均未变化时不失效审核。 |
 | 扫码与识别 | 通过 | 本次不涉及扫码。 |
 | 防错 | 通过 | 复审期间仅 BOM、价格可编辑且禁止发布；其他模块保持锁定。 |
 | UI 样式 | 通过 | 本次未改 UI。 |
@@ -53,12 +53,15 @@
 | 真实保存入口与审核失效规则脱节 | 算不准 | 买手 | 单位用量、损耗、自定义费用、标准单价、汇率和物料 SKU 替换均在既有保存入口内比较前后值并触发精确复审 | 否 |
 | 汇率变化只覆盖含物料行的技术包 | 算不准 | 买手 | 汇率传播同时覆盖含物料 SKU 或正数自定义印尼盾费用的草稿版本 | 否 |
 | 物料或汇率已写入后审核失效失败 | 协作断裂 | 买手、跟单 | 跨仓操作使用技术资料仓事务，并显式恢复物料仓或汇率配置，确保内容与审核共同回滚 | 否 |
+| BOM 弹窗新增、删除和编辑通过通用技术资料保存，可能绕过专用价格保存器 | 算不准 | 买手 | 通用保存链统一比较保存前后的 BOM 价格事实；新增、删除、换 SKU、单位用量及损耗率变化均在同一事务中触发买手复审 | 否 |
+| 同价换 SKU 被数值相等过滤 | 算不准 | 买手 | 增加独立的“物料 SKU 变化”事实，使用真实新旧 SKU 身份判断，不再伪装为标准单价变化 | 否 |
+| 通用保存已写技术资料，但审核失效写入失败 | 协作断裂 | 买手、跟单 | 审核失效纳入技术版本仓、工程主单仓及关系、款式、项目、归档四个旁路仓的同一原子边界；失败恢复六仓 | 否 |
 
 ## 6. 最终结论
 
 结论：通过
 
-说明：本次把已确认的精确复审规则接入既有真实保存入口，并补齐无变化、不相关内容与跨仓失败回滚测试；没有新增页面，也没有涉及专业任务返工、正式快照、工程主单关闭或历史任务。
+说明：本次把已确认的精确复审规则同时接入专用 BOM 与价格保存器和技术包 BOM 弹窗通用保存链，并补齐新增、删除、同价换 SKU、单位用量、损耗率、无变化、不相关内容与六仓失败回滚测试；没有新增页面，也没有涉及专业任务返工、正式快照、工程主单关闭或历史任务。
 
 ## 7. 变更覆盖与验证
 
@@ -67,9 +70,11 @@
 - `src/data/pcs-tech-pack-review.ts`
 - `src/data/pcs-tech-pack-bom-price-review-invalidation.ts`
 - `src/data/pcs-engineering-bom-pricing.ts`
+- `src/pages/tech-pack/context.ts`
 - `src/data/pcs-material-archive-repository.ts`
 - `src/data/pcs-exchange-rate-config.ts`
 - `tests/pcs-tech-pack-bom-price-review-invalidation.spec.ts`
+- `tests/pcs-engineering-bom-task-linkage-page.spec.ts`
 
 ### 页面路由
 
@@ -84,6 +89,8 @@
 - `npx tsx tests/pcs-engineering-bom-pricing.spec.ts`：通过
 - `npx tsx tests/pcs-tech-pack-bom-pricing-page.spec.ts`：通过
 - `npx tsx tests/pcs-tech-pack-bom-review-activation-atomic.spec.ts`：通过
+- `npx tsx tests/pcs-engineering-bom-task-linkage.spec.ts`：通过
+- `npx tsx tests/pcs-engineering-bom-task-linkage-page.spec.ts`：通过
 - `npm run check:prototype-design-governance -- --all`：通过
 - `npm run build`：通过
 
