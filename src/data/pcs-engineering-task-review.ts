@@ -180,6 +180,9 @@ export function reopenEngineeringMaterialTaskForTechPackReview(input: {
     }
     storedTask.status = '返工中'
     storedTask.effectiveCompletedAt = ''
+    if (storedTask.taskType === 'COLOR_YARN' || storedTask.taskType === 'COLOR_FABRIC') {
+      storedTask.colorResultCompletedAt = ''
+    }
     storedTask.reworkRounds.push({
       roundNo: storedTask.reworkRounds.length + 1,
       reason,
@@ -288,6 +291,9 @@ export function reviewEngineeringMaterialResults(
       const rejected = input.decisions.filter((decision) => decision.decision === '未通过')
       storedTask.status = '返工中'
       storedTask.effectiveCompletedAt = ''
+      if (storedTask.taskType === 'COLOR_YARN' || storedTask.taskType === 'COLOR_FABRIC') {
+        storedTask.colorResultCompletedAt = ''
+      }
       storedTask.reworkRounds.push({
         roundNo: storedTask.reworkRounds.length + 1,
         reason: rejected.map((decision) => `${decision.materialLineId}：${decision.reason.trim()}`).join('；'),

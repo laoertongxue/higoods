@@ -1092,10 +1092,14 @@ function resolveColorTasksForTechPackRework(record: TechnicalDataVersionRecord):
     throw new Error(`技术包来源工程主单不存在：${record.sourceProjectId}`)
   }
   const taskIds = masterOrder.tasks
-    .filter((task) => (task.taskType === 'COLOR_YARN' || task.taskType === 'COLOR_FABRIC') && task.status !== '未启用')
+    .filter((task) =>
+      (task.taskType === 'COLOR_YARN' || task.taskType === 'COLOR_FABRIC') &&
+      task.status === '已完成' &&
+      task.materialLines.some((line) => line.status === '正常' && line.requirementType === '染色'),
+    )
     .map((task) => task.taskId)
   if (taskIds.length === 0) {
-    throw new Error('技术包来源工程主单没有已启用的原调色任务，无法发起返工。')
+    throw new Error('技术包来源工程主单没有可返工的有效原调色任务。')
   }
   return taskIds.map((taskId) => assertEngineeringTaskCanReopen({
     record,

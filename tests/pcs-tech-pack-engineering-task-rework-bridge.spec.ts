@@ -25,6 +25,8 @@ import type {
   TechnicalReviewNodeKey,
 } from '../src/data/pcs-technical-data-version-types.ts'
 import { listStyleArchives } from '../src/data/pcs-style-archive-repository.ts'
+import { listTechPackVersionLogsByVersionId } from '../src/data/pcs-tech-pack-version-log-repository.ts'
+import { listTechPackReviewNotificationsByVersionId } from '../src/data/pcs-tech-pack-review-notification-repository.ts'
 
 function reviewNode(nodeKey: TechnicalReviewNodeKey): TechnicalReviewNode {
   const meta = nodeKey === 'BUYER'
@@ -154,6 +156,7 @@ for (const [index, taskId] of colorTaskIds.entries()) {
     task.submittedAt = '2026-08-02 09:00'
     task.firstCompletedAt = '2026-08-02 10:00'
     task.effectiveCompletedAt = '2026-08-02 10:00'
+    task.colorResultCompletedAt = '2026-08-02 10:00'
     task.materialLines = [{
       materialLineId: `COLOR-LINE-${index + 1}`,
       materialSkuId: `MAT-COLOR-${index + 1}`,
@@ -207,6 +210,9 @@ for (const taskId of colorTaskIds) {
   const task = colorMaster?.tasks.find((item) => item.taskId === taskId)
   assert.equal(task?.status, '返工中', '款色用料模块打回必须重开原调色任务')
   assert.equal(task?.reworkRounds.length, 1, '每张原调色任务必须新增一轮返工')
+  assert.equal(task?.firstCompletedAt, '2026-08-02 10:00', '调色返工必须保留首次完成时间')
+  assert.equal(task?.effectiveCompletedAt, '', '调色返工必须清空当前有效完成时间')
+  assert.equal(task?.colorResultCompletedAt, '', '调色返工不得继续向生产准备时效投影旧完成时间')
   assert.ok(task?.materialLines.every((line) => line.reviewStatus === '未通过'), '整张任务打回后所有有效成果行进入逐行返工')
 }
 
@@ -242,8 +248,70 @@ const mixedColorReview = reviewEngineeringMaterialResults({
 })
 assert.deepEqual(mixedColorReview.lockedPassedLineIds, ['COLOR-LINE-2'], '逐行审核通过的调色成果必须锁定')
 assert.deepEqual(mixedColorReview.reworkLineIds, ['COLOR-LINE-3'], '逐行审核未通过的调色成果必须继续返工')
+assert.equal(mixedColorReview.firstCompletedAt, '2026-08-02 10:00', '部分未通过后仍须保留首次完成时间')
+assert.equal(mixedColorReview.effectiveCompletedAt, '', '部分未通过后不得保留当前有效完成时间')
+assert.equal(
+  getEngineeringMasterOrderById(master.masterOrderId)?.tasks.find((task) => task.taskId === fabricTaskId)?.colorResultCompletedAt,
+  '',
+  '部分未通过后不得向生产准备时效投影旧调色完成时间',
+)
+submitEngineeringMaterialResults({
+  masterOrderId: master.masterOrderId,
+  taskId: fabricTaskId,
+  submittedBy: '染厂A',
+  results: [
+    { materialLineId: 'COLOR-LINE-3', resultFileIds: ['file://color-3-v3.pdf'], effectImageIds: ['image://color-3-v3'] },
+  ],
+})
+const finalColorReview = reviewEngineeringMaterialResults({
+  masterOrderId: master.masterOrderId,
+  taskId: fabricTaskId,
+  reviewerName: '买手A',
+  reviewerRole: '买手',
+  decisions: [{ materialLineId: 'COLOR-LINE-3', decision: '通过', reason: '' }],
+})
+const completedFabricTask = getEngineeringMasterOrderById(master.masterOrderId)?.tasks.find(
+  (task) => task.taskId === fabricTaskId,
+)
+assert.equal(finalColorReview.taskStatus, '已完成', '失败行再次通过后调色任务必须完成')
+assert.equal(finalColorReview.firstCompletedAt, '2026-08-02 10:00', '再次通过不得覆盖首次完成时间')
+assert.ok(finalColorReview.effectiveCompletedAt, '再次通过必须写入新的有效完成时间')
+assert.equal(completedFabricTask?.colorResultCompletedAt, finalColorReview.effectiveCompletedAt, '调色完成时间必须与新的有效完成时间一致')
 assert.equal(getTechnicalDataVersionById(colorVersionId)?.technicalVersionId, colorVersionId, '调色返工继续使用原技术包版本')
 assert.equal(listTechnicalDataVersions().length, colorVersionCountBefore, '调色返工不得创建新技术包版本')
+
+updateEngineeringTaskRecord(master.masterOrderId, colorTaskIds[0], (task) => {
+  task.status = '已完成'
+  task.materialLines.forEach((line) => { line.status = '因需求变更结束' })
+})
+updateEngineeringTaskRecord(master.masterOrderId, colorTaskIds[1], (task) => {
+  task.status = '已完成'
+  task.materialLines.forEach((line) => { line.status = '正常'; line.reviewStatus = '通过' })
+})
+const staleColorVersionId = 'TDV-COLOR-STALE-TASK'
+resetTechnicalDataVersionRepository()
+createTechnicalDataVersionDraft({
+  ...version,
+  technicalVersionId: staleColorVersionId,
+  technicalVersionCode: 'TP-COLOR-STALE-TASK',
+}, { ...seedContent, technicalVersionId: staleColorVersionId })
+returnTechPackReviewByModules(
+  staleColorVersionId,
+  ['COLOR_MATERIAL_MAPPING'],
+  '仅有效染色物料需要返工',
+  '跟单C',
+)
+const staleColorMaster = getEngineeringMasterOrderById(master.masterOrderId)
+assert.equal(
+  staleColorMaster?.tasks.find((task) => task.taskId === colorTaskIds[0])?.status,
+  '已完成',
+  '没有有效染色物料行的历史调色任务必须跳过',
+)
+assert.equal(
+  staleColorMaster?.tasks.find((task) => task.taskId === colorTaskIds[1])?.status,
+  '返工中',
+  '历史无效任务不得阻断仍有效的调色任务返工',
+)
 
 const missingBindingVersionId = 'TDV-MISSING-ARTWORK-BINDING'
 resetTechnicalDataVersionRepository()
@@ -259,6 +327,34 @@ assert.throws(
   '缺少权威原任务绑定时必须中文报错，不能按款式猜测任务',
 )
 assert.equal(getTechnicalDataVersionById(missingBindingVersionId)?.reviewStage, '跟单复核', '绑定校验失败不得提前改写技术包审核状态')
+
+updateEngineeringTaskRecord(master.masterOrderId, patternTaskId, (task) => {
+  task.status = '已完成'
+  task.materialLines.forEach((line) => { line.reviewStatus = '通过' })
+})
+const duplicateTargetVersionId = 'TDV-DUPLICATE-REWORK-TARGET'
+resetTechnicalDataVersionRepository()
+createTechnicalDataVersionDraft({
+  ...version,
+  technicalVersionId: duplicateTargetVersionId,
+  technicalVersionCode: 'TP-DUPLICATE-REWORK-TARGET',
+  linkedArtworkTaskIds: [patternTaskId, patternTaskId],
+}, { ...seedContent, technicalVersionId: duplicateTargetVersionId })
+const patternBeforeRollback = getEngineeringMasterOrderById(master.masterOrderId)?.tasks.find(
+  (task) => task.taskId === patternTaskId,
+)
+assert.throws(
+  () => returnTechPackReviewByModules(duplicateTargetVersionId, ['DESIGN'], '验证多目标事务回滚', '跟单C'),
+  /不是已完成状态/,
+  '后一个返工目标失败时必须中止整次打回',
+)
+const patternAfterRollback = getEngineeringMasterOrderById(master.masterOrderId)?.tasks.find(
+  (task) => task.taskId === patternTaskId,
+)
+assert.deepEqual(patternAfterRollback, patternBeforeRollback, '后一个目标失败时前一个工程任务必须整体回滚')
+assert.equal(getTechnicalDataVersionById(duplicateTargetVersionId)?.reviewStage, '跟单复核', '工程返工失败时技术包审核状态必须回滚')
+assert.equal(listTechPackVersionLogsByVersionId(duplicateTargetVersionId).length, 0, '工程返工失败不得留下版本日志')
+assert.equal(listTechPackReviewNotificationsByVersionId(duplicateTargetVersionId).length, 0, '工程返工失败不得留下审核通知')
 
 const wrongSourceVersionId = 'TDV-WRONG-SOURCE'
 resetTechnicalDataVersionRepository()
