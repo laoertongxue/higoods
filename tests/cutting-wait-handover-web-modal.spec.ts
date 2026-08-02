@@ -110,6 +110,17 @@ test('待交出仓保留原工作台，六个中转袋动作均局部打开并�
   expect(workbenchIdentityStable, '输入时必须保留工作台 DOM 与弹窗输入').toBe(true)
   await recoveryDialogForInput.getByText('关闭', { exact: true }).click()
 
+  await page.locator('[data-wait-handover-action="open-scrap"]').click()
+  const activeScrapDialog = page.locator('[data-wait-handover-modal="scrap"]')
+  const activeScrapBagInput = activeScrapDialog.locator('[data-wait-handover-field="bagCode"]')
+  await activeScrapBagInput.fill('BAG-B-003')
+  await activeScrapBagInput.press('Enter')
+  await expect(activeScrapDialog.locator('[data-wait-handover-bag-summary]')).toContainText('BAG-B-003')
+  await expect(activeScrapDialog.locator('[data-wait-handover-bag-summary]')).toContainText(/张菲票/)
+  await expect(activeScrapDialog.getByRole('button', { name: '确认报废', exact: true })).toBeDisabled()
+  await expect(activeScrapDialog.getByRole('button', { name: '去拆袋重装', exact: true })).toBeVisible()
+  await activeScrapDialog.getByText('关闭', { exact: true }).click()
+
   await page.evaluate(async () => {
     const {
       listSpreadingResultGeneratedFeiTickets,
@@ -187,11 +198,11 @@ test('待交出仓保留原工作台，六个中转袋动作均局部打开并�
   await page.evaluate(async ({ repackBagCode }) => {
     const { appendCuttingRuntimeEvent } = await import('/src/data/fcs/cutting/cutting-runtime-event-ledger.ts')
     const usageCycleId = `usage:${repackBagCode}:1`
-    const tickets = [1, 2].map((index) => ({
+    const tickets = [1, 2, 3].map((index) => ({
       feiTicketId: `${repackBagCode}-T${index}`,
       feiTicketNo: `${repackBagCode}-菲票-${index}`,
-      productionOrderId: 'WEB-REPACK-PO-ID',
-      productionOrderNo: 'WEB-REPACK-PO-001',
+      productionOrderId: index === 3 ? 'WEB-REPACK-PO-ID-2' : 'WEB-REPACK-PO-ID-1',
+      productionOrderNo: index === 3 ? 'WEB-REPACK-PO-002' : 'WEB-REPACK-PO-001',
       cutOrderId: 'WEB-REPACK-CUT-ID',
       cutOrderNo: 'WEB-REPACK-CUT-001',
       color: '黑色',
@@ -206,14 +217,14 @@ test('待交出仓保留原工作台，六个中转袋动作均局部打开并�
     }))
     appendCuttingRuntimeEvent({
       eventType: '菲票装袋', eventSource: 'WEB', eventStatus: '已同步', occurredAt: '2026-08-02 08:00', operatorName: '重装测试员',
-      refs: { transferBagCode: repackBagCode, usageCycleId, productionOrderId: 'WEB-REPACK-PO-ID', productionOrderNo: 'WEB-REPACK-PO-001', feiTicketIds: tickets.map((ticket) => ticket.feiTicketId), feiTicketNos: tickets.map((ticket) => ticket.feiTicketNo) },
-      payload: { baggingRecordId: `bagging:${repackBagCode}`, bagCode: repackBagCode, feiTicketItems: tickets, totalPieceQty: 12, mixedFlag: true, baggingBy: '重装测试员', baggingAt: '2026-08-02 08:00' },
+      refs: { transferBagCode: repackBagCode, usageCycleId, productionOrderId: 'WEB-REPACK-PO-ID-1', productionOrderNo: 'WEB-REPACK-PO-001', feiTicketIds: tickets.map((ticket) => ticket.feiTicketId), feiTicketNos: tickets.map((ticket) => ticket.feiTicketNo) },
+      payload: { baggingRecordId: `bagging:${repackBagCode}`, bagCode: repackBagCode, feiTicketItems: tickets, totalPieceQty: 18, mixedFlag: true, baggingBy: '重装测试员', baggingAt: '2026-08-02 08:00' },
     } as never)
     appendCuttingRuntimeEvent({
       eventType: '中转袋入仓', eventSource: 'WEB', eventStatus: '已同步', occurredAt: '2026-08-02 08:10', operatorName: '重装测试员',
       refs: { transferBagCode: repackBagCode, usageCycleId, productionOrderNo: 'WEB-REPACK-PO-001', feiTicketIds: tickets.map((ticket) => ticket.feiTicketId) },
-      inventoryEffect: { inventoryScope: '裁床待交出仓', direction: 'IN', qty: 12, unit: '片', toWarehouseArea: '重装测试区', toLocationCode: 'R-01' },
-      payload: { tempBagUseId: `temp:${repackBagCode}`, bagCode: repackBagCode, warehouseArea: '重装测试区', locationCode: 'R-01', inboundBy: '重装测试员', inboundAt: '2026-08-02 08:10', feiTicketItems: tickets, totalPieceQty: 12, mixedFlag: true },
+      inventoryEffect: { inventoryScope: '裁床待交出仓', direction: 'IN', qty: 18, unit: '片', toWarehouseArea: '重装测试区', toLocationCode: 'R-01' },
+      payload: { tempBagUseId: `temp:${repackBagCode}`, bagCode: repackBagCode, warehouseArea: '重装测试区', locationCode: 'R-01', inboundBy: '重装测试员', inboundAt: '2026-08-02 08:10', feiTicketItems: tickets, totalPieceQty: 18, mixedFlag: true },
     } as never)
   }, { repackBagCode })
 
@@ -222,8 +233,18 @@ test('待交出仓保留原工作台，六个中转袋动作均局部打开并�
   await expect(repackDialog).toBeVisible()
   await repackDialog.locator('[data-wait-handover-field="sourceBagCodes"]').selectOption(repackBagCode)
   await expect(repackDialog.locator('[data-wait-handover-repack-group-preview]')).toContainText('雅加达车缝一厂')
-  await expect(repackDialog.locator('[data-wait-handover-repack-group-preview]')).toContainText('2 张 / 12 片')
-  await repackDialog.locator('[data-wait-handover-field="resultBagCode"]').fill(repackBagCode)
+  await expect(repackDialog.locator('[data-wait-handover-repack-result-row]')).toHaveCount(2)
+  await repackDialog.getByRole('button', { name: '新增结果袋', exact: true }).click()
+  const resultRows = repackDialog.locator('[data-wait-handover-repack-result-row]')
+  await expect(resultRows).toHaveCount(3)
+  const resultCodes = [`${repackBagCode}-A`, `${repackBagCode}-B`, repackBagCode]
+  const resultIds = await resultRows.evaluateAll((rows) => rows.map((row) => (row as HTMLElement).dataset.waitHandoverRepackResultRow || ''))
+  for (let index = 0; index < resultCodes.length; index += 1) {
+    await resultRows.nth(index).locator('[data-wait-handover-repack-result-bag-code]').fill(resultCodes[index])
+  }
+  await repackDialog.locator(`[data-wait-handover-repack-ticket-assignment][data-ticket-id="${repackBagCode}-T1"]`).selectOption(resultIds[0])
+  await repackDialog.locator(`[data-wait-handover-repack-ticket-assignment][data-ticket-id="${repackBagCode}-T2"]`).selectOption(resultIds[2])
+  await repackDialog.locator(`[data-wait-handover-repack-ticket-assignment][data-ticket-id="${repackBagCode}-T3"]`).selectOption(resultIds[1])
   await repackDialog.getByRole('button', { name: '确认重装', exact: true }).dblclick()
   await expect(repackDialog.getByText('重装成功，请继续交出。', { exact: true })).toBeVisible()
   const repackFacts = await page.evaluate(() => JSON.parse(
@@ -231,5 +252,47 @@ test('待交出仓保留原工作台，六个中转袋动作均局部打开并�
   ).events.filter((event: { eventType: string }) => event.eventType === '中转袋拆袋重装'))
   expect(repackFacts).toHaveLength(1)
 
+  await repackDialog.getByText('关闭', { exact: true }).click()
+  await page.locator('[data-wait-handover-action="open-handover"]').click()
+  const repackedHandoverDialog = page.locator('[data-wait-handover-modal="handover"]')
+  const repackedHandoverSelect = repackedHandoverDialog.locator('[data-wait-handover-field="handoverSelection"]')
+  const repackedHandoverOption = repackedHandoverSelect.locator(`option:has-text("${repackBagCode}-A")`)
+  await expect(repackedHandoverOption).toHaveCount(1)
+  await repackedHandoverSelect.selectOption(await repackedHandoverOption.getAttribute('value') || '')
+  await repackedHandoverDialog.getByRole('button', { name: '确认整袋交出', exact: true }).click()
+  await expect(repackedHandoverDialog).toContainText('交出成功')
+
   await expectNoPageErrors(errors)
+})
+
+test('待交出仓交出记录只认运行时事实并支持真实本地分页', async ({ page }) => {
+  test.setTimeout(240_000)
+  await page.goto(WAIT_HANDOVER_PATH, { waitUntil: 'domcontentloaded' })
+  await page.evaluate(async () => {
+    const { CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY } = await import('/src/data/fcs/cutting/cutting-runtime-event-ledger.ts')
+    window.localStorage.removeItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY)
+  })
+  await page.goto(`${WAIT_HANDOVER_PATH}?tab=handover-bagging`, { waitUntil: 'domcontentloaded' })
+  await expect(page.getByRole('heading', { name: '裁床待交出仓' })).toBeVisible({ timeout: 120_000 })
+  await expect(page.getByText(/JCR-260324-/)).toHaveCount(0)
+  await expect(page.locator('[data-wait-handover-paged-list="handover-records"]')).toContainText('暂无中转袋交出记录。', { timeout: 120_000 })
+
+  await page.evaluate(async () => {
+    const { appendCuttingRuntimeEvent } = await import('/src/data/fcs/cutting/cutting-runtime-event-ledger.ts')
+    for (let index = 1; index <= 25; index += 1) {
+      appendCuttingRuntimeEvent({
+        eventType: '新增交出记录', eventSource: 'WEB', eventStatus: '已同步', occurredAt: `2026-08-02 10:${String(index).padStart(2, '0')}`, operatorName: '分页测试员',
+        refs: { transferBagCode: `PAGE-BAG-${index}`, productionOrderNo: `PAGE-PO-${index}` },
+        payload: { handoverRecordNo: `PAGE-RECORD-${index}`, handoverOrderNo: `PAGE-ORDER-${index}`, receiverType: '车缝厂', receiverName: '分页测试工厂', currentHandedOverQty: index, transferBagUses: [{ bagCode: `PAGE-BAG-${index}` }], feiTicketItems: [] },
+      } as never)
+    }
+  })
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  const pagedRegion = page.locator('[data-wait-handover-paged-list="handover-records"]')
+  await expect(pagedRegion.locator('tbody tr')).toHaveCount(20, { timeout: 120_000 })
+  await expect(pagedRegion.locator('[data-wait-handover-pagination]')).toContainText('共 25 条')
+  await pagedRegion.locator('[data-wait-handover-pagination-action="next"]').click()
+  const secondPageRegion = page.locator('[data-wait-handover-paged-list="handover-records"]')
+  await expect(secondPageRegion.locator('tbody tr')).toHaveCount(5)
+  await expect(secondPageRegion).toContainText('PAGE-RECORD-1')
 })

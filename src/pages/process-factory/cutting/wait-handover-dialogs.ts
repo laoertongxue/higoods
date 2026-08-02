@@ -19,6 +19,8 @@ export interface WaitHandoverDialogTicket {
 export interface WaitHandoverDialogCurrent {
   bagCode: string
   productionOrderNo: string
+  mainStatus: 'IDLE' | 'IN_USE' | 'DISABLED'
+  flowStage: string
   mainStatusLabel: string
   flowStageLabel: string
   tickets: WaitHandoverDialogTicket[]
@@ -89,8 +91,7 @@ function field(label: string, name: string, value = '', placeholder = ''): strin
   return `<label class="space-y-1.5"><span class="text-sm font-medium text-foreground">${escapeHtml(label)}</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="${escapeHtml(name)}" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder)}" /></label>`
 }
 
-function bagSummary(model: WaitHandoverActionDialogModel): string {
-  const current = model.current
+export function renderWaitHandoverBagSummary(current: WaitHandoverDialogCurrent | null): string {
   if (!current) return '<div data-wait-handover-bag-summary class="rounded-lg border border-dashed bg-muted/10 p-3 text-sm text-muted-foreground">输入或扫描袋码后，系统在这里显示当前状态和改法。</div>'
   const pieceQty = current.tickets.reduce((sum, item) => sum + item.pieceQty, 0)
   return `<div data-wait-handover-bag-summary class="rounded-lg border bg-background p-3 text-sm">
@@ -101,9 +102,31 @@ function bagSummary(model: WaitHandoverActionDialogModel): string {
   </div>`
 }
 
+export function renderWaitHandoverScrapEligibility(current: WaitHandoverDialogCurrent | null): string {
+  if (!current) return '<div data-wait-handover-eligibility class="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">请先输入或扫描待报废袋码。</div>'
+  if (['PACKED', 'INBOUND_STORED', 'READY_HANDOVER'].includes(current.flowStage) || current.tickets.length) {
+    return `<div data-wait-handover-eligibility class="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"><div>${escapeHtml(`${current.bagCode} 当前生产单 ${current.productionOrderNo || '待核查'}，还有 ${current.tickets.length} 张菲票，不得直接报废。`)}</div><button type="button" class="mt-2 rounded-md border border-violet-300 bg-white px-3 py-1.5 text-sm font-medium text-violet-700" data-skip-page-rerender="true" data-wait-handover-action="open-repack" data-wait-handover-selection="${escapeHtml(current.bagCode)}">去拆袋重装</button></div>`
+  }
+  if (current.mainStatus === 'DISABLED') return `<div data-wait-handover-eligibility class="rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-900">${escapeHtml(current.bagCode)} 已报废停用，不能重复报废。</div>`
+  if (current.flowStage === 'HANDED_OVER_WAITING_RETURN') return '<div data-wait-handover-eligibility class="rounded-lg border border-blue-300 bg-blue-50 p-3 text-sm text-blue-900">该袋已交出待回收；仅可在实物空袋已到场时选择“回收后再报废”。</div>'
+  if (current.mainStatus !== 'IDLE') return '<div data-wait-handover-eligibility class="rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-900">当前袋状态不明确，禁止报废，请主管核查。</div>'
+  return '<div data-wait-handover-eligibility class="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900">空闲袋可按危险动作流程报废；仍需填写原因、授权人并二次确认。</div>'
+}
+
+export function isWaitHandoverScrapBlocked(current: WaitHandoverDialogCurrent | null): boolean {
+  if (!current) return true
+  if (['PACKED', 'INBOUND_STORED', 'READY_HANDOVER'].includes(current.flowStage) || current.tickets.length) return true
+  if (current.mainStatus === 'DISABLED') return true
+  return current.mainStatus !== 'IDLE' && current.flowStage !== 'HANDED_OVER_WAITING_RETURN'
+}
+
+function bagSummary(model: WaitHandoverActionDialogModel): string {
+  return renderWaitHandoverBagSummary(model.current)
+}
+
 function baggingContent(model: WaitHandoverActionDialogModel, bagCode: string): string {
   return `<div class="space-y-4">
-    <section class="grid gap-3 md:grid-cols-2">${field('中转袋二维码 / 袋码', 'bagCode', bagCode, '扫码或输入中转袋编号')}${bagSummary(model)}</section>
+    <section class="grid gap-3 md:grid-cols-2">${field('中转袋二维码 / 袋码', 'bagCode', bagCode, '扫码或输入中转袋编号')}${renderWaitHandoverBagSummary(model.current)}</section>
     <section class="space-y-2"><label class="space-y-1.5"><span class="text-sm font-medium">待装袋菲票</span><select class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-wait-handover-field="feiTicketId">${optionsHtml(model.ticketOptions, '暂无可装袋菲票')}</select></label>${field('菲票码（可多张）', 'ticketScanInput', '', '空格、换行或顿号分隔')}</section>
     <section class="grid gap-3 md:grid-cols-2">${field('操作人', 'operatorName', '裁床装袋员')}${field('强制回收原因', 'forceRecoveryReason', '', '仅线上已交出、实物空袋在场时填写')}</section>
     <label class="flex items-center gap-2 text-sm"><input type="checkbox" data-wait-handover-field="physicalBagReceived" />实物袋已收到</label>
@@ -113,7 +136,7 @@ function baggingContent(model: WaitHandoverActionDialogModel, bagCode: string): 
 
 function inboundContent(model: WaitHandoverActionDialogModel, bagCode: string): string {
   return `<div class="space-y-4">
-    <section class="grid gap-3 md:grid-cols-2">${field('中转袋二维码 / 袋码', 'bagCode', bagCode, '扫码或输入中转袋编号')}${bagSummary(model)}</section>
+    <section class="grid gap-3 md:grid-cols-2">${field('中转袋二维码 / 袋码', 'bagCode', bagCode, '扫码或输入中转袋编号')}${renderWaitHandoverBagSummary(model.current)}</section>
     <section class="rounded-lg border bg-blue-50/50 p-3"><div class="text-sm font-semibold">特殊工艺带袋回仓（识别后分支）</div><div class="mt-1 text-xs text-muted-foreground">识别到开放中的特殊工艺交出后，仍由“确认中转袋入仓”恢复原袋原票；空袋请去中转袋回收。</div><select class="mt-2 h-10 w-full rounded-md border bg-background px-3 text-sm" data-wait-handover-field="specialCraftSource"><option value="">普通中转袋入仓</option>${optionsHtml(model.specialCraftReturnOptions, '暂无特殊工艺待回仓记录')}</select>${field('回仓菲票编号', 'returnedTicketIds', '', '多张菲票用空格分隔')}</section>
     <section class="grid gap-3 md:grid-cols-2">${field('库区', 'warehouseArea', '', '扫码或选择库区')}${field('库位', 'locationCode', '', '扫码或选择库位')}</section>
     <section class="grid gap-3 md:grid-cols-2">${field('操作人', 'operatorName', '裁床仓管')}${field('备注', 'remark')}</section>
@@ -126,8 +149,8 @@ function repackContent(model: WaitHandoverActionDialogModel): string {
     : '<option value="" disabled>暂无可重装来源袋</option>'
   return `<div class="grid min-w-0 gap-4 xl:grid-cols-2" data-wait-handover-repack-workspace>
     <section class="rounded-lg border p-4"><h3 class="font-semibold">来源袋 / 菲票</h3><p class="mt-1 text-xs text-muted-foreground">可选多个来源袋；每张当前菲票只能进入一个结果袋。</p><select multiple size="7" class="mt-3 w-full rounded-md border bg-background p-2 text-sm" data-wait-handover-field="sourceBagCodes">${sources}</select><div class="mt-2 text-xs text-muted-foreground">第 1 页 / 共 1 页 · 每页 20 条</div></section>
-    <section class="rounded-lg border p-4"><h3 class="font-semibold">按接收车缝工厂分组</h3><p class="mt-1 text-xs text-muted-foreground">系统读取共享事实自动分组；同袋跨工厂时必须重装，员工不需心算。</p><div class="mt-3 whitespace-pre-line rounded-md bg-muted/20 p-3 text-sm" data-wait-handover-repack-group-preview>请选择来源袋，系统将显示每个接收车缝工厂的生产单、菲票张数和裁片片数。</div></section>
-    <section class="rounded-lg border p-4"><h3 class="font-semibold">结果袋 / 复用旧袋</h3><p class="mt-1 text-xs text-muted-foreground">每行对应一个接收工厂；可填写新空闲袋，也可复用本次来源袋。</p>${field('第一个结果袋', 'resultBagCode', '', '输入或扫描结果袋')}${field('更多结果袋', 'resultBagCodes', '', '跨工厂时用空格分隔')}</section>
+    <section class="rounded-lg border p-4"><h3 class="font-semibold">按接收车缝工厂分组</h3><p class="mt-1 text-xs text-muted-foreground">系统只展示事实分组；最终以每张菲票选择的结果袋为准。</p><div class="mt-3 whitespace-pre-line rounded-md bg-muted/20 p-3 text-sm" data-wait-handover-repack-group-preview>请选择来源袋，系统将显示生产单、接收车缝工厂、菲票张数和裁片片数。</div><div class="mt-3 space-y-2" data-wait-handover-repack-ticket-assignments></div></section>
+    <section class="rounded-lg border p-4"><div class="flex items-center justify-between gap-3"><div><h3 class="font-semibold">结果袋 / 复用旧袋</h3><p class="mt-1 text-xs text-muted-foreground">可新增多个结果袋，也可填写本次来源袋码复用旧袋。</p></div><button type="button" class="shrink-0 rounded-md border px-3 py-1.5 text-sm font-medium text-violet-700" data-skip-page-rerender="true" data-wait-handover-action="add-repack-result">新增结果袋</button></div><div class="mt-3 space-y-2" data-wait-handover-repack-results></div></section>
     <section class="rounded-lg border p-4"><h3 class="font-semibold">合计与确认</h3><div class="mt-3 grid grid-cols-2 gap-2 text-sm" data-wait-handover-repack-total-preview><div class="rounded bg-muted/20 p-3">来源：系统自动汇总张数 / 片数</div><div class="rounded bg-muted/20 p-3">结果：确认前校验数量守恒</div></div><div class="mt-3 text-xs text-muted-foreground">重装和交出是两个独立确认；非空结果袋进入待交出，不再重新入仓。</div>${field('操作人', 'operatorName', '裁片仓重装员')}<input type="hidden" data-wait-handover-field="repackBatchId" value="${escapeHtml(model.repackBatchId)}" /></section>
   </div>`
 }
@@ -156,13 +179,17 @@ export function renderWaitHandoverActionDialog(input: {
         : action === 'handover' ? handoverContent(model)
           : action === 'recovery' ? recoveryContent(model, bagCode)
             : scrapContent(model, bagCode)
+  const actionContent = action === 'scrap'
+    ? `${content}${renderWaitHandoverScrapEligibility(model.current)}`
+    : content
+  const submitDisabled = action === 'scrap' && isWaitHandoverScrapBlocked(model.current)
   const wide = action === 'repack' ? 'w-[min(1180px,calc(100vw-32px))]' : 'w-[min(760px,calc(100vw-32px))]'
   return `<div id="cutting-wait-handover-web-action-modal" class="fixed inset-0 z-[130]" data-skip-page-rerender="true" data-wait-handover-modal="${action}">
     <button type="button" class="absolute inset-0 bg-black/45" data-skip-page-rerender="true" data-wait-handover-action="close-dialog" aria-label="关闭"></button>
     <section class="absolute left-1/2 top-1/2 flex max-h-[calc(100vh-24px)] ${wide} -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border bg-background shadow-2xl">
       <header class="flex shrink-0 items-center justify-between border-b px-5 py-4"><div><h2 class="text-base font-semibold">${TITLE[action]}</h2><p class="mt-1 text-xs text-muted-foreground">扫码优先，手工输入兜底；失败会保留当前输入。</p></div><button type="button" class="rounded-md border px-3 py-1.5 text-sm" data-skip-page-rerender="true" data-wait-handover-action="close-dialog">关闭</button></header>
-      <div class="min-h-0 flex-1 overflow-y-auto px-5 py-4">${content}<div class="mt-4 ${model.error ? 'border-rose-300 bg-rose-50 text-rose-800' : model.feedback ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'hidden'} rounded-lg border p-3 text-sm" role="status" data-wait-handover-feedback>${escapeHtml(model.error || model.feedback)}</div></div>
-      <footer class="flex shrink-0 items-center justify-between gap-3 border-t bg-background px-5 py-4"><span class="text-xs text-muted-foreground">重复双击不会新增第二条业务事实。</span><div class="flex gap-2"><button type="button" class="h-10 rounded-md border px-4 text-sm" data-skip-page-rerender="true" data-wait-handover-action="close-dialog">取消</button><button type="button" class="h-10 rounded-md ${action === 'scrap' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-blue-600 hover:bg-blue-700'} px-4 text-sm font-medium text-white" data-skip-page-rerender="true" data-wait-handover-action="submit-${action}">${SUBMIT[action]}</button></div></footer>
+      <div class="min-h-0 flex-1 overflow-y-auto px-5 py-4">${actionContent}<div class="mt-4 ${model.error ? 'border-rose-300 bg-rose-50 text-rose-800' : model.feedback ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'hidden'} rounded-lg border p-3 text-sm" role="status" data-wait-handover-feedback>${escapeHtml(model.error || model.feedback)}</div></div>
+      <footer class="flex shrink-0 items-center justify-between gap-3 border-t bg-background px-5 py-4"><span class="text-xs text-muted-foreground">重复双击不会新增第二条业务事实。</span><div class="flex gap-2"><button type="button" class="h-10 rounded-md border px-4 text-sm" data-skip-page-rerender="true" data-wait-handover-action="close-dialog">取消</button><button type="button" class="h-10 rounded-md ${action === 'scrap' ? 'bg-rose-600 hover:bg-rose-700 disabled:bg-rose-300' : 'bg-blue-600 hover:bg-blue-700'} px-4 text-sm font-medium text-white" data-skip-page-rerender="true" data-wait-handover-submit-disabled="${submitDisabled ? 'true' : 'false'}" data-wait-handover-action="submit-${action}" ${submitDisabled ? 'disabled' : ''}>${SUBMIT[action]}</button></div></footer>
     </section>
   </div>`
 }

@@ -31,10 +31,14 @@ import {
 import {
   renderWaitHandoverActionButtons,
   renderWaitHandoverActionDialog,
+  isWaitHandoverScrapBlocked,
+  renderWaitHandoverBagSummary,
+  renderWaitHandoverScrapEligibility,
   type WaitHandoverActionDialogModel,
   type WaitHandoverDialogCurrent,
   type WaitHandoverWebAction,
 } from './wait-handover-dialogs.ts'
+import { escapeHtml } from '../../../utils.ts'
 
 export type { WaitHandoverWebAction } from './wait-handover-dialogs.ts'
 export { renderWaitHandoverActionButtons }
@@ -60,6 +64,7 @@ export interface WaitHandoverActionAdapter {
   getSpecialCraftReturnCandidates(): WaitHandoverSpecialCraftReturnCandidate[]
   resolveLocation(warehouseArea: string, locationCode: string): RuntimeWarehouseLocationRef | null
   renderWorkbenchData(): string
+  resolveBagCurrent?(bagCode: string): TransferBagCurrentUse | null
   hydrateRegion?(region: Element): void
 }
 
@@ -116,6 +121,8 @@ function dialogCurrent(current: TransferBagCurrentUse | null): WaitHandoverDialo
   return {
     bagCode: current.bagCode,
     productionOrderNo: current.productionOrderNo,
+    mainStatus: current.mainStatus,
+    flowStage: current.flowStage || '',
     mainStatusLabel: labels.main,
     flowStageLabel: labels.stage,
     tickets: current.tickets.map((ticket) => ({
@@ -130,24 +137,28 @@ function dialogCurrent(current: TransferBagCurrentUse | null): WaitHandoverDialo
   }
 }
 
+function resolveActionBagCurrent(bagCode: string): TransferBagCurrentUse {
+  const runtimeCurrent = resolveTransferBagCurrentUse(bagCode)
+  if (runtimeCurrent.mainStatus !== 'IDLE' || runtimeCurrent.tickets.length) return runtimeCurrent
+  return actionAdapter?.resolveBagCurrent?.(bagCode) || runtimeCurrent
+}
+
 function generatedTicketLabel(ticket: GeneratedFeiTicketSourceRecord): string {
   return `${ticket.feiTicketNo} / ${ticket.productionOrderNo} / ${ticket.skuColor} / ${ticket.skuSize} / ${ticket.partName} / ${ticket.actualCutPieceQty || ticket.qty} 片`
 }
 
 function buildModel(action: WaitHandoverWebAction, bagCode = ''): WaitHandoverActionDialogModel {
-  const current = bagCode ? resolveTransferBagCurrentUse(bagCode) : null
+  const current = bagCode ? resolveActionBagCurrent(bagCode) : null
   const currentUses = collectCurrentBagCodes().map((code) => resolveTransferBagCurrentUse(code))
   const activeTicketIds = new Set(currentUses.flatMap((item) => item.tickets.map((ticket) => ticket.feiTicketId)))
   const ticketOptions = listSpreadingResultGeneratedFeiTickets()
     .filter((ticket) => ticket.printStatus !== 'VOIDED')
     .filter((ticket) => !activeTicketIds.has(ticket.feiTicketId))
     .filter((ticket) => validateFeiTicketNumberingBeforeBagging(ticket).ok)
-    .slice(0, 20)
     .map((ticket) => ({ value: ticket.feiTicketId, label: generatedTicketLabel(ticket) }))
   const repackSources = currentUses
     .filter((item) => ['PACKED', 'INBOUND_STORED', 'READY_HANDOVER'].includes(item.flowStage || ''))
     .filter((item) => item.tickets.length > 0)
-    .slice(0, 20)
     .map((item) => ({
       value: item.bagCode,
       label: `${item.bagCode} / ${item.productionOrderNo} / ${item.tickets.length} 张 / ${item.tickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0)} 片${item.compatibilityBlockedReason ? ' / 待主管核查' : ''}`,
@@ -318,25 +329,16 @@ function submitInbound(dialog: HTMLElement): string {
 function submitRepack(dialog: HTMLElement): string {
   const sourceBagCodes = readMulti(dialog, 'sourceBagCodes')
   if (!sourceBagCodes.length) throw new Error('请至少选择一个来源袋。')
-  const sources = sourceBagCodes.map((bagCode) => resolveTransferBagCurrentUse(bagCode))
-  const groups = new Map<string, TransferBagTicketFactSnapshot[]>()
-  sources.flatMap((source) => source.tickets).forEach((ticket) => {
-    const key = ticket.receiverFactoryId
-    const records = groups.get(key) || []
-    records.push(ticket)
-    groups.set(key, records)
-  })
-  const resultCodes = unique([
-    readField(dialog, 'resultBagCode'),
-    ...splitCodes(readField(dialog, 'resultBagCodes')),
-  ])
-  if (resultCodes.length < groups.size) throw new Error(`当前有 ${groups.size} 个接收车缝工厂，请扫描 ${groups.size} 个结果袋。`)
+  const resultRows = Array.from(dialog.querySelectorAll<HTMLElement>('[data-wait-handover-repack-result-row]'))
+  if (!resultRows.length) throw new Error('请至少新增一个结果袋。')
   submitTransferBagRepack({
     repackBatchId: readField(dialog, 'repackBatchId') || `WEB-REPACK-${Date.now()}`,
     sourceBagCodes,
-    results: Array.from(groups.values()).map((tickets, index) => ({
-      bagCode: resultCodes[index],
-      feiTicketIds: tickets.map((ticket) => ticket.feiTicketId),
+    results: resultRows.map((row) => ({
+      bagCode: row.querySelector<HTMLInputElement>('[data-wait-handover-repack-result-bag-code]')?.value.trim() || '',
+      feiTicketIds: Array.from(dialog.querySelectorAll<HTMLSelectElement>('[data-wait-handover-repack-ticket-assignment]'))
+        .filter((select) => select.value === row.dataset.waitHandoverRepackResultRow)
+        .map((select) => select.dataset.ticketId || ''),
     })),
     operator: operator(dialog, '裁片仓重装员'),
     source: 'WEB',
@@ -435,41 +437,101 @@ function submitAction(action: WaitHandoverWebAction, dialog: HTMLElement): strin
             : submitScrap(dialog)
 }
 
-function refreshRepackPreview(dialog: HTMLElement): void {
+interface RepackResultDraft {
+  id: string
+  bagCode: string
+}
+
+function readRepackResultDrafts(dialog: HTMLElement): RepackResultDraft[] {
+  return Array.from(dialog.querySelectorAll<HTMLElement>('[data-wait-handover-repack-result-row]')).map((row) => ({
+    id: row.dataset.waitHandoverRepackResultRow || '',
+    bagCode: row.querySelector<HTMLInputElement>('[data-wait-handover-repack-result-bag-code]')?.value || '',
+  })).filter((row) => row.id)
+}
+
+function readRepackAssignments(dialog: HTMLElement): Map<string, string> {
+  return new Map(Array.from(dialog.querySelectorAll<HTMLSelectElement>('[data-wait-handover-repack-ticket-assignment]'))
+    .map((select) => [select.dataset.ticketId || '', select.value]))
+}
+
+function renderRepackEditor(
+  dialog: HTMLElement,
+  options: { addResult?: boolean; removeResultId?: string } = {},
+): void {
   const sourceBagCodes = readMulti(dialog, 'sourceBagCodes')
-  const sources = sourceBagCodes.map((bagCode) => resolveTransferBagCurrentUse(bagCode))
-  const tickets = sources.flatMap((source) => source.tickets)
+  const tickets = sourceBagCodes.flatMap((bagCode) => resolveTransferBagCurrentUse(bagCode).tickets)
   const groups = new Map<string, TransferBagTicketFactSnapshot[]>()
   tickets.forEach((ticket) => {
-    const key = `${ticket.receiverFactoryId}|${ticket.receiverFactoryName}`
+    const key = `${ticket.productionOrderId}|${ticket.productionOrderNo}|${ticket.receiverFactoryId}|${ticket.receiverFactoryName}`
     const records = groups.get(key) || []
     records.push(ticket)
     groups.set(key, records)
   })
+  const previousAssignments = readRepackAssignments(dialog)
+  let results = readRepackResultDrafts(dialog)
+  if (options.removeResultId) results = results.filter((result) => result.id !== options.removeResultId)
+  let nextId = Number(dialog.dataset.nextRepackResultId || '1')
+  const addDraft = () => ({ id: `result-${nextId++}`, bagCode: '' })
+  while (results.length < Math.max(groups.size, tickets.length ? 1 : 0)) results.push(addDraft())
+  if (options.addResult) results.push(addDraft())
+  dialog.dataset.nextRepackResultId = String(nextId)
+
+  const resultsRegion = dialog.querySelector<HTMLElement>('[data-wait-handover-repack-results]')
+  if (resultsRegion) {
+    resultsRegion.innerHTML = results.map((result, index) => `<div class="grid gap-2 rounded-md border bg-muted/10 p-3 md:grid-cols-[1fr_auto]" data-wait-handover-repack-result-row="${escapeHtml(result.id)}"><label class="space-y-1"><span class="text-xs font-medium">结果袋 ${index + 1}</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(result.bagCode)}" placeholder="输入或扫描结果袋，可复用来源袋" data-skip-page-rerender="true" data-wait-handover-field="repackResultBagCode" data-wait-handover-repack-result-bag-code /></label><button type="button" class="self-end rounded-md border px-3 py-2 text-xs text-rose-700 disabled:opacity-40" data-skip-page-rerender="true" data-wait-handover-action="remove-repack-result" data-result-id="${escapeHtml(result.id)}" ${results.length === 1 ? 'disabled' : ''}>移除</button></div>`).join('')
+  }
+  const groupKeys = Array.from(groups.keys())
+  const assignmentsRegion = dialog.querySelector<HTMLElement>('[data-wait-handover-repack-ticket-assignments]')
+  if (assignmentsRegion) {
+    assignmentsRegion.innerHTML = tickets.map((ticket) => {
+      const groupIndex = groupKeys.indexOf(`${ticket.productionOrderId}|${ticket.productionOrderNo}|${ticket.receiverFactoryId}|${ticket.receiverFactoryName}`)
+      const previous = previousAssignments.get(ticket.feiTicketId) || ''
+      const assignedResultId = results.some((result) => result.id === previous) ? previous : results[groupIndex]?.id || ''
+      return `<label class="grid gap-2 rounded-md border bg-background p-2 text-xs md:grid-cols-[1fr_11rem] md:items-center"><span>${escapeHtml(`${ticket.feiTicketNo} / ${ticket.productionOrderNo} / ${ticket.receiverFactoryName || '接收工厂待核对'} / ${ticket.pieceQty} 片`)}</span><select class="h-9 rounded-md border bg-background px-2" data-skip-page-rerender="true" data-wait-handover-field="repackTicketAssignment" data-wait-handover-repack-ticket-assignment data-ticket-id="${escapeHtml(ticket.feiTicketId)}"><option value="">请选择结果袋</option>${results.map((result, index) => `<option value="${escapeHtml(result.id)}" ${result.id === assignedResultId ? 'selected' : ''}>结果袋 ${index + 1}</option>`).join('')}</select></label>`
+    }).join('')
+  }
   const groupPreview = dialog.querySelector<HTMLElement>('[data-wait-handover-repack-group-preview]')
-  if (groupPreview) {
-    groupPreview.textContent = groups.size
-      ? Array.from(groups.entries()).map(([key, records], index) => {
-          const productionOrders = unique(records.map((ticket) => ticket.productionOrderNo))
-          const pieceQty = records.reduce((sum, ticket) => sum + ticket.pieceQty, 0)
-          return `${index + 1}. ${key.split('|')[1] || '接收工厂待核对'} / 生产单 ${productionOrders.join('、')} / ${records.length} 张 / ${pieceQty} 片`
-        }).join('\n')
-      : '请选择来源袋，系统将显示每个接收车缝工厂的生产单、菲票张数和裁片片数。'
-  }
+  if (groupPreview) groupPreview.textContent = groups.size
+    ? Array.from(groups.entries()).map(([key, records], index) => `${index + 1}. ${key.split('|')[3] || '接收工厂待核对'} / 生产单 ${key.split('|')[1]} / ${records.length} 张 / ${records.reduce((sum, ticket) => sum + ticket.pieceQty, 0)} 片`).join('\n')
+    : '请选择来源袋，系统将显示生产单、接收车缝工厂、菲票张数和裁片片数。'
   const totalPreview = dialog.querySelector<HTMLElement>('[data-wait-handover-repack-total-preview]')
-  if (totalPreview) {
-    const pieceQty = tickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0)
-    totalPreview.textContent = sourceBagCodes.length
-      ? `来源 ${sourceBagCodes.length} 袋 / ${tickets.length} 张 / ${pieceQty} 片；结果 ${groups.size} 个工厂组，确认时校验集合与数量守恒；来源袋全部转出后变为空闲。`
-      : '来源和结果数量将在选择来源袋后自动汇总。'
-  }
+  if (totalPreview) totalPreview.textContent = sourceBagCodes.length
+    ? `来源 ${sourceBagCodes.length} 袋 / ${tickets.length} 张 / ${tickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0)} 片；结果 ${results.length} 袋。确认时由共享命令校验菲票全集、生产单、接收工厂与数量守恒。`
+    : '来源和结果数量将在选择来源袋后自动汇总。'
+}
+
+function refreshRepackPreview(dialog: HTMLElement): void {
+  renderRepackEditor(dialog)
+}
+
+function refreshBagEligibility(dialog: HTMLElement): void {
+  const bagCode = readField(dialog, 'bagCode')
+  const current = bagCode ? dialogCurrent(resolveActionBagCurrent(bagCode)) : null
+  const summary = dialog.querySelector<HTMLElement>('[data-wait-handover-bag-summary]')
+  if (summary) summary.outerHTML = renderWaitHandoverBagSummary(current)
+  if (dialog.dataset.waitHandoverModal !== 'scrap') return
+  const eligibility = dialog.querySelector<HTMLElement>('[data-wait-handover-eligibility]')
+  if (eligibility) eligibility.outerHTML = renderWaitHandoverScrapEligibility(current)
+  const submit = dialog.querySelector<HTMLButtonElement>('[data-wait-handover-action="submit-scrap"]')
+  if (!submit) return
+  const blocked = isWaitHandoverScrapBlocked(current)
+  submit.disabled = blocked
+  submit.dataset.waitHandoverSubmitDisabled = String(blocked)
 }
 
 export function handleWaitHandoverActionEvent(target: HTMLElement): boolean {
   const fieldNode = target.closest<HTMLElement>('[data-wait-handover-field]')
+  const bagDialog = fieldNode?.closest<HTMLElement>('[data-wait-handover-modal]')
+  if (bagDialog && fieldNode?.dataset.waitHandoverField === 'bagCode') {
+    refreshBagEligibility(bagDialog)
+    return true
+  }
   const fieldDialog = fieldNode?.closest<HTMLElement>('[data-wait-handover-modal="repack"]')
   if (fieldDialog && fieldNode?.dataset.waitHandoverField === 'sourceBagCodes') {
     refreshRepackPreview(fieldDialog)
+    return true
+  }
+  if (fieldDialog && ['repackTicketAssignment', 'repackResultBagCode'].includes(fieldNode?.dataset.waitHandoverField || '')) {
     return true
   }
   const actionNode = target.closest<HTMLElement>('[data-wait-handover-action], [data-wait-handover-web-action]')
@@ -477,6 +539,14 @@ export function handleWaitHandoverActionEvent(target: HTMLElement): boolean {
   if (!actionName) return false
   if (actionName === 'close-dialog') {
     modalRoot()?.remove()
+    return true
+  }
+  if (actionName === 'add-repack-result' || actionName === 'remove-repack-result') {
+    const dialog = actionNode?.closest<HTMLElement>('[data-wait-handover-modal="repack"]')
+    if (!dialog) return false
+    renderRepackEditor(dialog, actionName === 'add-repack-result'
+      ? { addResult: true }
+      : { removeResultId: actionNode?.dataset.resultId || '' })
     return true
   }
   if (actionName.startsWith('open-')) {

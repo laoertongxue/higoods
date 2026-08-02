@@ -35,6 +35,7 @@ import {
 import { renderRealQrPlaceholder } from '../../../components/real-qr.ts'
 import {
   appendCuttingRuntimeEvent,
+  listCuttingRuntimeEvents,
   listCuttingRuntimeEventsByInventoryScope,
   listCuttingRuntimeEventsByType,
   type CuttingRuntimeEvent,
@@ -75,6 +76,7 @@ import {
   isCompleteSuccessfulWholeBagHandoverEvent,
   resolveTransferBagCurrentUse,
   submitWholeBagHandover,
+  type TransferBagCurrentUse,
 } from '../../../data/fcs/cutting/transfer-bag-operations.ts'
 import { buildBindingProcessOrders } from './binding-strip-orders.ts'
 import {
@@ -101,6 +103,7 @@ type WaitProcessWarehouseAction = 'claim' | 'process-issue' | 'return'
 
 let waitProcessSelectedLocationIds: string[] = []
 let waitHandoverSelectedLocationId = ''
+const waitHandoverPaginationState = new Map<string, { page: number; pageSize: number }>()
 
 const waitProcessStockFlowEventTypes: CuttingMaterialLedgerEventType[] = [
   'CUTTING_WAIT_PROCESS_INBOUNDED',
@@ -1885,9 +1888,19 @@ function renderWaitHandoverPill(label: string, className: string): string {
   return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${className}">${escapeHtml(label)}</span>`
 }
 
-function renderWaitHandoverPagination(total: number, pageSize = 20): string {
+function getWaitHandoverPage<T>(listKey: string, records: T[], pageSize = 20): { records: T[]; page: number; pageSize: number; total: number } {
+  const current = waitHandoverPaginationState.get(listKey) || { page: 1, pageSize }
+  const resolvedPageSize = current.pageSize || pageSize
+  const pageCount = Math.max(1, Math.ceil(records.length / resolvedPageSize))
+  const page = Math.min(Math.max(current.page, 1), pageCount)
+  waitHandoverPaginationState.set(listKey, { page, pageSize: resolvedPageSize })
+  const start = (page - 1) * resolvedPageSize
+  return { records: records.slice(start, start + resolvedPageSize), page, pageSize: resolvedPageSize, total: records.length }
+}
+
+function renderWaitHandoverPagination(listKey: string, total: number, page: number, pageSize = 20): string {
   const pageCount = Math.max(1, Math.ceil(total / pageSize))
-  return `<footer class="flex min-h-11 items-center justify-between border-t px-4 py-2 text-xs text-muted-foreground" data-wait-handover-pagination><span>第 1 页 / 共 ${pageCount} 页</span><span>每页 ${pageSize} 条 · 共 ${total} 条</span></footer>`
+  return `<footer class="flex min-h-11 flex-wrap items-center justify-between gap-2 border-t px-4 py-2 text-xs text-muted-foreground" data-wait-handover-pagination data-list-key="${escapeHtml(listKey)}"><span>第 ${page} 页 / 共 ${pageCount} 页 · 每页 ${pageSize} 条 · 共 ${total} 条</span><div class="flex items-center gap-2"><button type="button" class="rounded border px-2 py-1 disabled:opacity-40" data-skip-page-rerender="true" data-wait-handover-pagination-action="previous" data-list-key="${escapeHtml(listKey)}" ${page <= 1 ? 'disabled' : ''}>上一页</button><label class="flex items-center gap-1">第<input class="h-7 w-14 rounded border px-2 text-center" type="number" min="1" max="${pageCount}" value="${page}" data-skip-page-rerender="true" data-wait-handover-pagination-page-input data-list-key="${escapeHtml(listKey)}" />页</label><button type="button" class="rounded border px-2 py-1" data-skip-page-rerender="true" data-wait-handover-pagination-action="go" data-list-key="${escapeHtml(listKey)}">跳转</button><button type="button" class="rounded border px-2 py-1 disabled:opacity-40" data-skip-page-rerender="true" data-wait-handover-pagination-action="next" data-list-key="${escapeHtml(listKey)}" ${page >= pageCount ? 'disabled' : ''}>下一页</button></div></footer>`
 }
 
 function getWaitHandoverInboundBagStatusClass(status: string): string {
@@ -1951,12 +1964,14 @@ function renderWaitHandoverBagTicketDetailButton(bagCode: string): string {
   return `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-bag-ticket-detail" data-wait-handover-selection="${escapeHtml(bagCode)}">查看详情</button>`
 }
 
-function renderWaitHandoverBaggingRecordTable(bags: InboundTempBag[], emptyText = '暂无菲票装袋记录。'): string {
+function renderWaitHandoverBaggingRecordTable(allBags: InboundTempBag[], emptyText = '暂无菲票装袋记录。'): string {
+  const paged = getWaitHandoverPage('bagging-records', allBags)
+  const bags = paged.records
   if (!bags.length) {
-    return `<section class="rounded-lg border bg-card"><div class="border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">${escapeHtml(emptyText)}</div>${renderWaitHandoverPagination(0)}</section>`
+    return `<section class="rounded-lg border bg-card" data-wait-handover-paged-list="bagging-records"><div class="border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">${escapeHtml(emptyText)}</div>${renderWaitHandoverPagination('bagging-records', paged.total, paged.page, paged.pageSize)}</section>`
   }
   return `
-    <section class="rounded-lg border bg-card">
+    <section class="rounded-lg border bg-card" data-wait-handover-paged-list="bagging-records">
       ${renderStickyTableScroller(`
         <table class="min-w-[1200px] w-full text-sm">
           <thead class="sticky top-0 z-10 bg-muted/95 text-xs text-muted-foreground">
@@ -2005,17 +2020,19 @@ function renderWaitHandoverBaggingRecordTable(bags: InboundTempBag[], emptyText 
           </tbody>
         </table>
       `)}
-      ${renderWaitHandoverPagination(bags.length)}
+      ${renderWaitHandoverPagination('bagging-records', paged.total, paged.page, paged.pageSize)}
     </section>
   `
 }
 
-function renderWaitHandoverInboundLocationTable(bags: InboundTempBag[], emptyText = '暂无中转袋入仓记录。'): string {
+function renderWaitHandoverInboundLocationTable(allBags: InboundTempBag[], emptyText = '暂无中转袋入仓记录。'): string {
+  const paged = getWaitHandoverPage('inbound-records', allBags)
+  const bags = paged.records
   if (!bags.length) {
-    return `<section class="rounded-lg border bg-card"><div class="border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">${escapeHtml(emptyText)}</div>${renderWaitHandoverPagination(0)}</section>`
+    return `<section class="rounded-lg border bg-card" data-wait-handover-paged-list="inbound-records"><div class="border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">${escapeHtml(emptyText)}</div>${renderWaitHandoverPagination('inbound-records', paged.total, paged.page, paged.pageSize)}</section>`
   }
   return `
-    <section class="rounded-lg border bg-card">
+    <section class="rounded-lg border bg-card" data-wait-handover-paged-list="inbound-records">
       ${renderStickyTableScroller(`
         <table class="min-w-[1040px] w-full text-sm">
           <thead class="sticky top-0 z-10 bg-muted/95 text-xs text-muted-foreground">
@@ -2051,7 +2068,7 @@ function renderWaitHandoverInboundLocationTable(bags: InboundTempBag[], emptyTex
           </tbody>
         </table>
       `)}
-      ${renderWaitHandoverPagination(bags.length)}
+      ${renderWaitHandoverPagination('inbound-records', paged.total, paged.page, paged.pageSize)}
     </section>
   `
 }
@@ -2116,7 +2133,8 @@ function renderWaitHandoverBaggingTable(rows: WaitHandoverBaggingTableRow[], emp
 }
 
 function renderWaitHandoverHandoverRecordTable(rows: string[][], emptyText = '暂无中转袋交出记录。'): string {
-  return renderHubTable([
+  const paged = getWaitHandoverPage('handover-records', rows)
+  return `<div data-wait-handover-paged-list="handover-records">${renderHubTable([
     '交出记录',
     '交出单',
     '中转袋',
@@ -2127,7 +2145,7 @@ function renderWaitHandoverHandoverRecordTable(rows: string[][], emptyText = '�
     '全部车缝任务',
     '本次交出（菲票 / 裁片）',
     '状态',
-  ], rows, emptyText, renderWaitHandoverPagination(rows.length))
+  ], paged.records, emptyText, renderWaitHandoverPagination('handover-records', paged.total, paged.page, paged.pageSize))}</div>`
 }
 
 function getWaitHandoverEventQty(event: CuttingRuntimeEvent): number {
@@ -2163,7 +2181,7 @@ function getWaitHandoverEventBagText(event: CuttingRuntimeEvent): string {
 function getWaitHandoverEventTypeLabel(eventType: CuttingRuntimeEvent['eventType']): string {
   if (eventType === '菲票装袋') return '菲票装袋'
   if (eventType === '中转袋入仓') return '中转袋入仓'
-  if (eventType === '交出装袋确认') return '交出装袋确认'
+  if (eventType === '交出装袋确认') return '历史重装记录'
   if (eventType === '新增交出记录') return '交出确认'
   if (eventType === '特殊工艺交出') return '特殊工艺交出'
   if (eventType === '特殊工艺回仓') return '特种工艺回收入仓'
@@ -2173,7 +2191,7 @@ function getWaitHandoverEventTypeLabel(eventType: CuttingRuntimeEvent['eventType
 function getWaitHandoverEventSourceText(event: CuttingRuntimeEvent): string {
   const payload = toRuntimeRecord(event.payload)
   if (event.eventType === '菲票装袋') return `菲票装袋：${getWaitHandoverEventBagText(event)}`
-  if (event.eventType === '交出装袋确认') return `交出装袋确认：${runtimeString(payload.pickingTaskNo) || runtimeString(payload.targetTransferBagCode) || getWaitHandoverEventBagText(event)}`
+  if (event.eventType === '交出装袋确认') return `历史重装记录：${runtimeString(payload.pickingTaskNo) || runtimeString(payload.targetTransferBagCode) || getWaitHandoverEventBagText(event)}`
   if (event.eventType === '新增交出记录') {
     return `交出确认：${runtimeString(payload.handoverRecordNo) || runtimeString(payload.handoverOrderNo) || runtimeString(payload.receiverName) || getWaitHandoverEventBagText(event)}`
   }
@@ -2189,7 +2207,7 @@ function getWaitHandoverEventStatusText(event: CuttingRuntimeEvent): string {
   if (event.eventStatus === '同步失败') return '同步失败'
   if (event.eventType === '菲票装袋') return '已装袋'
   if (event.eventType === '中转袋入仓') return '已入仓'
-  if (event.eventType === '交出装袋确认') return '已装袋待交出'
+  if (event.eventType === '交出装袋确认') return '仅历史追溯'
   if (event.eventType === '新增交出记录') return '已交出待回收'
   if (event.eventType === '特殊工艺交出') return '加工中'
   if (event.eventType === '特殊工艺回仓') return '已回仓'
@@ -2633,7 +2651,7 @@ export function buildWaitHandoverConfirmSelections(): WaitHandoverConfirmSelecti
   const selections: WaitHandoverConfirmSelection[] = []
   recordsByBagCode.forEach((bagRecords, bagCode) => {
     const lifecycle = buildWaitHandoverLifecycleByBagCode(bagCode)
-    if (lifecycle.flowStage !== 'INBOUND_STORED') return
+    if (!['INBOUND_STORED', 'READY_HANDOVER'].includes(lifecycle.flowStage || '')) return
     const bagAssignments = bagRecords.flatMap((record) => {
       const matches = allocationProjection.assignments.filter((item) => item.feiTicketId === record.feiTicketId)
       return matches.length === 1 ? matches : []
@@ -2670,6 +2688,52 @@ export function buildWaitHandoverConfirmSelections(): WaitHandoverConfirmSelecti
         feiTicketId: record.feiTicketId,
         feiTicketNo: record.feiTicketNo,
         pieceQty: record.pieceQty,
+      })),
+    })
+  })
+  const repackResultBagCodes = uniqueStrings(listCuttingRuntimeEvents()
+    .filter((event) => event.eventStatus !== '已取消' && event.eventType === '中转袋拆袋重装')
+    .flatMap((event) => {
+      const payload = toRuntimeRecord(event.payload)
+      return Array.isArray(payload.resultBags)
+        ? payload.resultBags.map((item) => runtimeString(toRuntimeRecord(item).bagCode))
+        : []
+    }))
+  repackResultBagCodes.forEach((bagCode) => {
+    if (selections.some((selection) => selection.bagCode === bagCode)) return
+    const lifecycle = buildWaitHandoverLifecycleByBagCode(bagCode)
+    if (lifecycle.flowStage !== 'READY_HANDOVER') return
+    const current = resolveTransferBagCurrentUse(bagCode)
+    if (!current.tickets.length) return
+    const assignments: FeiTicketSewingAssignment[] = current.tickets.map((ticket) => ({
+      feiTicketId: ticket.feiTicketId,
+      feiTicketNo: ticket.feiTicketNo,
+      sewingTaskId: ticket.sewingTaskId,
+      sewingTaskNo: ticket.sewingTaskNo,
+      receiverFactoryId: ticket.receiverFactoryId,
+      receiverFactoryName: ticket.receiverFactoryName,
+    }))
+    const receiverFactoryIds = uniqueStrings(assignments.map((item) => item.receiverFactoryId))
+    const receiverFactoryNames = uniqueStrings(assignments.map((item) => item.receiverFactoryName))
+    const sewingTaskIds = uniqueStrings(assignments.map((item) => item.sewingTaskId))
+    const sewingTaskNos = uniqueStrings(assignments.map((item) => item.sewingTaskNo))
+    if (receiverFactoryIds.length !== 1 || receiverFactoryNames.length !== 1 || !sewingTaskIds.length || sewingTaskIds.length !== sewingTaskNos.length) return
+    selections.push({
+      value: `repack-bag|${bagCode}|${sewingTaskIds.join('+')}`,
+      handoverOrderId: `WEB-HO-${sewingTaskIds.join('+')}`,
+      handoverOrderNo: `${sewingTaskNos.join('、')}-交出`,
+      receiverType: '车缝厂',
+      receiverId: receiverFactoryIds[0],
+      receiverName: receiverFactoryNames[0],
+      bagUseId: current.usageCycleId || `repack:${bagCode}`,
+      bagCode,
+      sourceWarehouseName: '裁床待交出仓',
+      sourceLocationCode: '重装操作区',
+      assignments,
+      tickets: current.tickets.map((ticket) => ({
+        feiTicketId: ticket.feiTicketId,
+        feiTicketNo: ticket.feiTicketNo,
+        pieceQty: ticket.pieceQty,
       })),
     })
   })
@@ -3370,12 +3434,74 @@ function configureWaitHandoverWebActionBridge(): void {
       })),
     resolveLocation: (warehouseArea, locationCode) =>
       resolveCurrentCuttingWarehouseLocationRef('WAIT_HANDOVER', warehouseArea, locationCode),
+    resolveBagCurrent: (bagCode): TransferBagCurrentUse | null => {
+      const bag = buildInboundTempBagsFromTransferBagViewModel(buildTransferBagsProjection().viewModel)
+        .find((item) => item.bagCode === bagCode)
+      if (!bag) return null
+      return {
+        bagCode,
+        usageCycleId: bag.tempBagUseId,
+        productionOrderNo: bag.containedFeiTickets[0]?.productionOrderNo || '',
+        tickets: bag.containedFeiTickets.map((ticket) => ({
+          feiTicketId: ticket.feiTicketId,
+          feiTicketNo: ticket.feiTicketNo,
+          productionOrderId: ticket.productionOrderId,
+          productionOrderNo: ticket.productionOrderNo,
+          cutOrderId: ticket.cutOrderId,
+          cutOrderNo: ticket.cutOrderNo,
+          color: ticket.color,
+          size: ticket.size,
+          partCode: ticket.partName,
+          partName: ticket.partName,
+          pieceQty: ticket.pieceQty,
+          sewingTaskId: '',
+          sewingTaskNo: '',
+          receiverFactoryId: '',
+          receiverFactoryName: ticket.receiverFactoryDisplay,
+        })),
+        mainStatus: 'IN_USE',
+        flowStage: 'INBOUND_STORED',
+        latestHandoverEventId: '',
+      }
+    },
     renderWorkbenchData: () => renderCraftCuttingWarehouseManagementWaitHandoverPage(),
   })
 }
 
+function handleWaitHandoverPaginationEvent(target: HTMLElement): boolean {
+  const pageInput = target.closest<HTMLInputElement>('[data-wait-handover-pagination-page-input]')
+  const actionNode = target.closest<HTMLElement>('[data-wait-handover-pagination-action]')
+  if (pageInput && !actionNode) return true
+  if (!actionNode) return false
+  const listKey = actionNode.dataset.listKey || ''
+  if (!listKey) return false
+  const current = waitHandoverPaginationState.get(listKey) || { page: 1, pageSize: 20 }
+  const action = actionNode.dataset.waitHandoverPaginationAction
+  const requestedPage = action === 'previous'
+    ? current.page - 1
+    : action === 'next'
+      ? current.page + 1
+      : Number(actionNode.closest('[data-wait-handover-pagination]')?.querySelector<HTMLInputElement>('[data-wait-handover-pagination-page-input]')?.value || current.page)
+  waitHandoverPaginationState.set(listKey, {
+    page: Number.isFinite(requestedPage) ? Math.max(1, Math.floor(requestedPage)) : current.page,
+    pageSize: current.pageSize,
+  })
+  if (typeof document === 'undefined') return true
+  const currentRegion = document.querySelector<HTMLElement>(`[data-wait-handover-paged-list="${listKey}"]`)
+  if (!currentRegion) return true
+  const template = document.createElement('template')
+  template.innerHTML = renderCraftCuttingWarehouseManagementWaitHandoverPage().trim()
+  const nextRegion = template.content.querySelector<HTMLElement>(`[data-wait-handover-paged-list="${listKey}"]`)
+  if (!nextRegion) return true
+  currentRegion.replaceWith(nextRegion)
+  const icons = (window as unknown as { lucide?: { createIcons(options?: { attrs?: Record<string, string> }): void } }).lucide
+  icons?.createIcons({ attrs: { 'aria-hidden': 'true' } })
+  return true
+}
+
 export function handleCraftCuttingWaitHandoverEvent(target: HTMLElement): boolean {
   configureWaitHandoverWebActionBridge()
+  if (handleWaitHandoverPaginationEvent(target)) return true
   if (handleWaitHandoverActionEvent(target)) return true
   const locationNode = target.closest<HTMLElement>('[data-wait-handover-modal] [data-warehouse-map-action]')
   if (locationNode) {
@@ -3443,12 +3569,14 @@ function renderWaitHandoverSpecialCraftInventorySummary(records: InboundTempBagI
 }
 
 function renderWaitHandoverInventoryTable(
-  records: InboundTempBagInventoryRecord[],
+  allRecords: InboundTempBagInventoryRecord[],
   reservedQtyByRecord: Map<string, number>,
   runtimeEvents: CuttingRuntimeEvent[],
 ): string {
+  const paged = getWaitHandoverPage('inventory-records', allRecords)
+  const records = paged.records
   if (!records.length) {
-    return `<section class="rounded-lg border bg-card"><div class="border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">暂无裁床待交出仓库存。</div>${renderWaitHandoverPagination(0)}</section>`
+    return `<section class="rounded-lg border bg-card" data-wait-handover-paged-list="inventory-records"><div class="border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">暂无裁床待交出仓库存。</div>${renderWaitHandoverPagination('inventory-records', paged.total, paged.page, paged.pageSize)}</section>`
   }
   const rows = records.map((record) => {
     const reservedQty = reservedQtyByRecord.get(record.inventoryRecordId) || 0
@@ -3492,10 +3620,10 @@ function renderWaitHandoverInventoryTable(
     `
   }).join('')
   return `
-    <div class="rounded-lg border bg-card">
+    <div class="rounded-lg border bg-card" data-wait-handover-paged-list="inventory-records">
       <div class="flex items-center justify-between border-b px-4 py-3">
         <h2 class="text-base font-semibold">待交出仓裁片库存</h2>
-        <span class="text-xs text-muted-foreground">共 ${records.length} 条库存记录</span>
+        <span class="text-xs text-muted-foreground">共 ${paged.total} 条库存记录</span>
       </div>
       <div class="max-h-[32rem] overflow-y-auto">
         <table class="w-full table-fixed text-left text-sm">
@@ -3520,7 +3648,7 @@ function renderWaitHandoverInventoryTable(
           <tbody>${rows}</tbody>
         </table>
       </div>
-      ${renderWaitHandoverPagination(records.length)}
+      ${renderWaitHandoverPagination('inventory-records', paged.total, paged.page, paged.pageSize)}
     </div>
   `
 }
@@ -4669,13 +4797,17 @@ function listRuntimeWaitHandoverEvents(): CuttingRuntimeEvent[] {
     ...listCuttingRuntimeEventsByType('特殊工艺回仓'),
   ]
   const seen = new Set<string>()
-  return events
+  return filterCurrentWaitHandoverRuntimeEvents(events)
     .filter((event) => {
       if (!event.eventId || seen.has(event.eventId)) return false
       seen.add(event.eventId)
       return true
     })
     .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt, 'zh-CN'))
+}
+
+function filterCurrentWaitHandoverRuntimeEvents(events: CuttingRuntimeEvent[]): CuttingRuntimeEvent[] {
+  return events.filter((event) => event.eventType !== '交出装袋确认')
 }
 
 function findGeneratedFeiTicket(
@@ -5233,38 +5365,14 @@ function buildRuntimeHandoverTableProjection(
       order.status,
     ])
 
-  const fallbackRecordRows = recordEvents.length
-    ? []
-    : listHandoverRecords()
-        .filter((record) => record.receiverType === '车缝厂')
-        .sort((left, right) => right.handedOverAt.localeCompare(left.handedOverAt, 'zh-CN'))
-        .map((record) => {
-          const transferBagCodes = uniqueStrings(record.transferBagUses.map((bag) => bag.bagCode).filter(Boolean))
-          const productionOrderNos = uniqueStrings(record.feiTicketItems.map((ticket) => ticket.productionOrderNo).filter(Boolean))
-          const currentQty = record.currentHandedOverSummary.reduce((sum, item) => sum + item.pieceQty, 0)
-            || record.feiTicketItems.reduce((sum, item) => sum + item.pieceQty, 0)
-          return [
-            record.handoverRecordNo,
-            record.handoverOrderNo,
-            transferBagCodes.join('、') || '按交出记录追踪',
-            record.handedOverAt,
-            record.handedOverBy,
-            `${record.receiverType} / ${record.receiverName}`,
-            productionOrderNos.join('、') || record.relatedProductionOrderIds.join('、') || '按菲票追踪',
-            record.relatedSewingTaskId || record.relatedPickingTaskId || '按交出记录追踪',
-            `${record.feiTicketItems.length} 张 / ${formatPieceQty(currentQty)}`,
-            record.recordStatus,
-          ]
-        })
-
   return {
     orderRows,
-    recordRows: recordRows.length ? recordRows.slice().reverse() : fallbackRecordRows,
+    recordRows: recordRows.slice().reverse(),
     summary: {
       orderCount: orderRows.length,
-      recordCount: recordRows.length || fallbackRecordRows.length,
+      recordCount: recordRows.length,
       totalHandedOverQty: Array.from(orderGroups.values()).reduce((sum, order) => sum + order.totalQty, 0),
-      pendingWritebackCount: recordRows.length || fallbackRecordRows.length,
+      pendingWritebackCount: recordRows.length,
       discrepancyCount: recordEvents.filter((event) => event.eventStatus === '同步失败').length,
     },
   }
@@ -5563,7 +5671,6 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
         ...task.targetTransferBags.map((bag) => bag.bagCode),
       ], filters.keyword),
     )
-    .slice(0, 16)
     .map((task) => {
       const runtimeSortingEvents = getRuntimeBaggingConfirmEventsForTask(task, runtimeWaitHandoverEvents)
       const runtimeTicketCount = getRuntimeBaggingConfirmTicketCount(runtimeSortingEvents)
@@ -5593,8 +5700,8 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
         confirmSelection: confirmSelectionByTaskId.get(task.pickingTaskId) || '',
       } satisfies WaitHandoverBaggingTableRow
     })
-  const inboundTempUseRows = filterWaitHandoverInboundTempBags(inboundTempBags, filters).slice(0, 16)
-  const projectedSpecialCraftReturnRows = specialCraftReturnProjection.records.slice(0, 16).map((record) => {
+  const inboundTempUseRows = filterWaitHandoverInboundTempBags(inboundTempBags, filters)
+  const projectedSpecialCraftReturnRows = specialCraftReturnProjection.records.map((record) => {
     const expectedQty = record.expectedReturnSummary.reduce((sum, item) => sum + item.pieceQty, 0)
     const actualQty = record.actualReturnSummary.reduce((sum, item) => sum + item.pieceQty, 0)
     return [
@@ -5616,6 +5723,7 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
         ['SCR-20260323-003', 'HR-CF-20260323-004', '压褶专属工厂', '压褶', '72 片 / 60 片', '裁床待交出仓 / 待确认位置', '部分回仓', '少回 12 片'],
         ['SCR-20260322-004', 'HR-CF-20260322-006', '激光开袋专属工厂', '激光开袋', '54 片 / 54 片', '裁床待交出仓 / 已定位', '已回仓', '无差异'],
       ]
+  const pagedSpecialCraftReturnRows = getWaitHandoverPage('special-craft-return-records', specialCraftReturnRows)
   const writebackDifferenceRows = [
     ...workbenchProjection.discrepancyAndShortageItems.map((item) => [
       item.targetTaskId || item.itemId,
@@ -5639,7 +5747,7 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
         item.reportedAt,
       ]),
     ),
-  ].slice(0, 16)
+  ]
 
   const filteredReservedPieceQty = filteredInventoryRecords.reduce(
     (sum, record) => sum + (reservedQtyByRecord.get(record.inventoryRecordId) || 0),
@@ -5702,7 +5810,7 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
         `).join('')}
       </div>
     </article>
-    ${renderHubTable(['回仓记录', '来源交出记录', '承接工厂', '工艺', '应回 / 实回', '回仓库位', '状态', '差异'], specialCraftReturnRows, '暂无特殊工艺回仓记录。', renderWaitHandoverPagination(specialCraftReturnRows.length))}
+    <div data-wait-handover-paged-list="special-craft-return-records">${renderHubTable(['回仓记录', '来源交出记录', '承接工厂', '工艺', '应回 / 实回', '回仓库位', '状态', '差异'], pagedSpecialCraftReturnRows.records, '暂无特殊工艺回仓记录。', renderWaitHandoverPagination('special-craft-return-records', pagedSpecialCraftReturnRows.total, pagedSpecialCraftReturnRows.page, pagedSpecialCraftReturnRows.pageSize))}</div>
   </section>`
   const locationContent = renderCuttingWarehouseLocationMapSection('WAIT_HANDOVER')
   const activeContent =

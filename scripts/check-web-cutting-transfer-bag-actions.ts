@@ -73,7 +73,7 @@ for (const [action, label] of [
     `${label}必须直接进入真实仓库事实账弹窗`,
   )
   assert.equal(
-    webActionSources.match(new RegExp(`data-wait-handover-action="open-${action}"`, 'g'))?.length,
+    webActionSources.match(new RegExp(`data-wait-handover-action="open-${action}">${label}</button>`, 'g'))?.length,
     1,
     `${label}顶层动作必须且只能出现一次`,
   )
@@ -163,6 +163,42 @@ assert(
 assert(
   !webActionSources.includes('appendWaitHandoverHandoverRecordEvent({'),
   'Web 整袋交出不得继续调用旧简化交出 writer',
+)
+
+const handoverProjectionSource = warehouseSource.match(
+  /function buildRuntimeHandoverTableProjection\([\s\S]*?\n}\n\n/,
+)?.[0] || ''
+const taskSevenSpecGaps = [
+  !warehouseSource.includes("['INBOUND_STORED', 'READY_HANDOVER'].includes(lifecycle.flowStage || '')")
+    ? 'P1-1：重装形成 READY_HANDOVER 后必须仍是可交出候选'
+    : '',
+  !webActionSources.includes('data-wait-handover-repack-result-row')
+  || !actionsSource.includes('data-wait-handover-repack-ticket-assignment')
+    ? 'P1-2：重装必须由员工按结果袋逐票显式分配，支持同厂同单拆多袋及同厂不同单隔离'
+    : '',
+  !actionsSource.includes('refreshBagEligibility')
+  || !dialogsSource.includes('data-wait-handover-submit-disabled')
+    ? 'P1-3：普通袋码输入必须本地识别资格，使用中袋不得提交报废'
+    : '',
+  !warehouseSource.includes('filterCurrentWaitHandoverRuntimeEvents')
+  || !warehouseSource.includes('历史重装记录')
+    ? 'P1-4：旧交出装袋确认只能作为历史重装记录，不得进入当前事件、动作或 KPI'
+    : '',
+  handoverProjectionSource.includes(': listHandoverRecords()')
+    ? 'P1-5：交出页不得在运行时事实为空时回退 JCR 演示记录'
+    : '',
+  !warehouseSource.includes('data-wait-handover-pagination-action="next"')
+  || warehouseSource.includes('filterWaitHandoverInboundTempBags(inboundTempBags, filters).slice(')
+  || warehouseSource.includes('specialCraftReturnProjection.records.slice(')
+  || warehouseSource.includes('].slice(0, 16)')
+  || actionsSource.includes('.slice(0, 20)')
+    ? 'P1-6：Task 7 列表必须使用真实本地分页且不得预截断数据'
+    : '',
+].filter(Boolean)
+assert.deepEqual(
+  taskSevenSpecGaps,
+  [],
+  `Task 7 独立规格审查仍有缺口：\n${taskSevenSpecGaps.join('\n')}`,
 )
 
 const runtimeLedger = await import(
