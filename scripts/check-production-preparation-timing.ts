@@ -7,6 +7,7 @@ import {
   EMPTY_PREPARATION_RUNTIME_STATE,
   PREPARATION_RUNTIME_STORAGE_KEY,
   appendDownloadRecord,
+  getPreparationRecordCapabilities,
   isBasePatternItem,
   loadPreparationRuntimeState,
   mergePreparationRuntimeRecords,
@@ -88,6 +89,7 @@ for (const file of [
   'src/router/routes-fcs.ts',
   'src/router/route-renderers-fcs.ts',
   'src/router/route-renderers.ts',
+  'src/data/pcs-engineering-preparation-projection.ts',
 ] as const) {
   assert.ok(existsSync(file), `${file} 不存在`)
 }
@@ -3028,6 +3030,27 @@ assertHtmlIncludes(
 const pageSource = source('src/pages/production/preparation-timing.ts')
 const mainSource = source('src/main.ts')
 const productionEventsSource = source('src/pages/production/events.ts')
+const projectionSource = source('src/data/pcs-engineering-preparation-projection.ts')
+const runtimeSource = source('src/data/fcs/production-preparation-timing-runtime.ts')
+assert.equal(existsSync('src/data/pcs-engineering-preparation-timing-view.ts'), false, '两调色节点过渡投影必须删除')
+assert.ok(pageSource.includes('projectEngineeringMastersToPreparation'), '台账必须直接读取完整工程主单投影')
+assert.ok(!pageSource.includes('mergeEngineeringColorPreparationTimes'), '台账不得继续叠加两调色节点过渡投影')
+assert.ok(projectionSource.includes('listPreparationProjectionItems'), '11 项结构必须读取固定投影策略')
+assert.ok(projectionSource.includes("`${masterOrderId}:${task.taskId}:${roundNo}`"), '事件必须按 masterOrderId + taskId + roundNo 幂等')
+assert.ok(projectionSource.includes('includedInDurationStats: !reusedPriorResult'), '前期成果复用必须排除时长统计')
+assert.ok(projectionSource.includes('firstFinishedAt: times.first'), '返工投影必须保留首次完成时间')
+assert.ok(projectionSource.includes('effectiveFinishedAt: times.effective'), '返工投影必须保留当前有效完成时间')
+assert.ok(pageSource.includes('getPreparationRecordCapabilities'), '页面必须按记录能力阻断工程来源编辑动作')
+assert.ok(
+  (pageSource.match(/getPreparationRecordCapabilities\(/g)?.length ?? 0) >= 6,
+  '页面渲染与确认、上传、染色要求、采购登记动作必须分别复核只读能力',
+)
+assert.ok(runtimeSource.includes('if (isEngineeringPreparationRecord(record)) return record'), 'runtime 合并必须忽略工程来源记录')
+assert.deepEqual(
+  getPreparationRecordCapabilities({ sourceKind: '工程主单', masterOrderId: 'EM-CHECK-001' }),
+  { confirmItems: false, modifyItems: false, uploadResult: false, maintainDyeRequirement: false, reviewResult: false },
+  '工程来源记录不得开放任何准备项编辑能力',
+)
 assert.ok(pageSource.includes('renderMultiSelectFilter'), '页面必须复用 renderMultiSelectFilter')
 assert.ok(!pageSource.includes(".replace('<details class='"), '生产准备多选不得字符串替换 details HTML')
 assert.ok(!pageSource.includes(".replace('<summary class='"), '生产准备多选不得字符串替换 summary HTML')

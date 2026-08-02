@@ -63,6 +63,33 @@ export const EMPTY_PREPARATION_RUNTIME_STATE: PreparationRuntimeState = {
   accessoryPurchaseOrders: {},
 }
 
+export interface PreparationRecordCapabilities {
+  confirmItems: boolean
+  modifyItems: boolean
+  uploadResult: boolean
+  maintainDyeRequirement: boolean
+  reviewResult: boolean
+}
+
+export function isEngineeringPreparationRecord(
+  record: Pick<ProductionPreparationRecord, 'sourceKind' | 'masterOrderId'>,
+): boolean {
+  return record.sourceKind === '工程主单' && Boolean(record.masterOrderId)
+}
+
+export function getPreparationRecordCapabilities(
+  record: Pick<ProductionPreparationRecord, 'sourceKind' | 'masterOrderId'>,
+): PreparationRecordCapabilities {
+  const writable = !isEngineeringPreparationRecord(record)
+  return {
+    confirmItems: writable,
+    modifyItems: writable,
+    uploadResult: writable,
+    maintainDyeRequirement: writable,
+    reviewResult: writable,
+  }
+}
+
 export function isBasePatternItem(itemType: PreparationItemType): boolean {
   return itemType === '梭织基码纸样' || itemType === '毛织基码纸样'
 }
@@ -122,6 +149,7 @@ export function mergePreparationRuntimeRecords(
   runtime: PreparationRuntimeState,
 ): ProductionPreparationRecord[] {
   return records.map((record) => {
+    if (isEngineeringPreparationRecord(record)) return record
     const confirmation = runtime.confirmedRecords[record.recordId]
     if (!hasRuntimeMergeChangesForRecord(record, runtime, confirmation)) return record
     const selection = resolveRuntimeSelection(confirmation)

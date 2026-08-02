@@ -39,6 +39,7 @@ export type PreparationItemStatus =
   | '待确认'
   | '已完成'
   | '已超时'
+  | '因需求变更结束'
 
 export interface PreparationUploadRecord {
   uploadId: string
@@ -257,6 +258,18 @@ export interface ProductionPreparationItem {
   accessoryPurchaseUpdatedAt?: string
   uploads?: PreparationUploadRecord[]
   downloads?: PreparationDownloadRecord[]
+  /** 工程主单只读投影字段；旧生产准备记录不使用。 */
+  masterOrderId?: string
+  taskId?: string
+  latestRoundNo?: number
+  eventKeys?: string[]
+  actualStartAt?: string
+  firstFinishedAt?: string
+  effectiveFinishedAt?: string
+  reusedPriorResult?: boolean
+  includedInDurationStats?: boolean
+  taskHref?: string
+  purchaseOrderHref?: string
 }
 
 export interface ProductionPreparationOutput {
@@ -309,6 +322,13 @@ export interface ProductionPreparationRecord {
   outputPublishedAt: string
   outputs: ProductionPreparationOutput[]
   items: ProductionPreparationItem[]
+  /** 工程主单来源记录从生成起只读，旧记录保持原有运行态。 */
+  sourceKind?: '工程主单'
+  masterOrderId?: string
+  masterOrderHref?: string
+  formalTechPackHref?: string
+  formalTechPackLabel?: string
+  techPackHref?: string
 }
 
 export interface FlattenedPreparationItem extends ProductionPreparationItem {
@@ -1595,11 +1615,15 @@ function hasPatternUploadGap(item: ProductionPreparationItem): boolean {
 export function hasValidPreparationCompletionEvidence(
   item: Pick<
     ProductionPreparationItem,
-    'itemType' | 'status' | 'actualFinishAt' | 'accessoryPurchaseOrderNos' | 'accessoryPurchaseOrderedAts' | 'accessoryPurchaseUpdatedAt' | 'uploads' | 'dyeRequirement' | 'sourceObjectType' | 'evidenceType'
+    'itemType' | 'status' | 'actualFinishAt' | 'accessoryPurchaseOrderNos' | 'accessoryPurchaseOrderedAts' | 'accessoryPurchaseUpdatedAt' | 'uploads' | 'dyeRequirement' | 'sourceObjectType' | 'evidenceType' | 'reusedPriorResult' | 'effectiveFinishedAt'
   >,
 ): boolean {
-  if (item.status !== '已完成' || !item.actualFinishAt) return false
-  if (item.sourceObjectType === '工程主单' && item.evidenceType === '工程主单节点') return true
+  if (item.status !== '已完成') return false
+  if (item.sourceObjectType === '工程主单') {
+    if (item.reusedPriorResult) return false
+    return Boolean(item.effectiveFinishedAt || item.actualFinishAt)
+  }
+  if (!item.actualFinishAt) return false
   if (item.itemType === '辅料下单') {
     const orderNos = item.accessoryPurchaseOrderNos?.map((orderNo) => orderNo.trim()) ?? []
     const orderedAts = item.accessoryPurchaseOrderedAts?.map((orderedAt) => orderedAt.trim()) ?? []
@@ -1796,7 +1820,9 @@ export function buildProductionPreparationKpis(
   records: ProductionPreparationRecord[] = productionPreparationRecords,
 ): ProductionPreparationKpi[] {
   const activeRecords = records.filter((record) => record.status !== '已关闭')
-  const requiredItems = flattenProductionPreparationItems(activeRecords).filter(isSelectedPreparationItem)
+  const requiredItems = flattenProductionPreparationItems(activeRecords)
+    .filter(isSelectedPreparationItem)
+    .filter((item) => item.includedInDurationStats !== false)
   const completedCount = requiredItems.filter(hasValidPreparationCompletionEvidence).length
   const overdueCount = requiredItems.filter((item) => item.status === '已超时' || item.overdueHours > 0).length
   const completionRate = requiredItems.length ? Math.round((completedCount / requiredItems.length) * 100) : 0
@@ -1846,19 +1872,21 @@ export function buildProductionPreparationKpis(
 export function buildMonthlyPreparationCompletionDetails(
   month: string,
   filter: ProductionPreparationFilter = {},
+  records: ProductionPreparationRecord[] = productionPreparationRecords,
 ): MonthlyPreparationCompletionDetail[] {
   const { month: _ignoredMonth, itemProgresses: _ignoredItemProgresses, ...recordFilter } = filter
-  return flattenProductionPreparationItems(filterProductionPreparationRecords(recordFilter))
+  return flattenProductionPreparationItems(filterProductionPreparationRecords(recordFilter, records))
     .filter(
       (item) =>
         matchesCompletionItemFilter(item, recordFilter) &&
         item.recordStatus !== '已关闭' &&
         item.selectedByMerchandiser === true &&
+        item.includedInDurationStats !== false &&
         hasValidPreparationCompletionEvidence(item) &&
         item.actualFinishAt.startsWith(month),
     )
     .map((item) => {
-      const hours = durationHours(item.plannedStartAt, item.actualFinishAt)
+      const hours = durationHours(item.actualStartAt || item.plannedStartAt, item.actualFinishAt)
       return {
         ...item,
         itemStatus: item.status,
@@ -1893,15 +1921,17 @@ export function getProductionPreparationRecord(recordId: string): ProductionPrep
   return productionPreparationRecords.find((record) => record.recordId === recordId) ?? null
 }
 
-export function getProductionPreparationFilterOptions(): ProductionPreparationFilterOptions {
-  const items = flattenProductionPreparationItems()
+export function getProductionPreparationFilterOptions(
+  records: ProductionPreparationRecord[] = productionPreparationRecords,
+): ProductionPreparationFilterOptions {
+  const items = flattenProductionPreparationItems(records)
   return {
     months: uniqueSorted([
-      ...productionPreparationRecords.map((record) => record.enteredAt.slice(0, 7)),
+      ...records.map((record) => record.enteredAt.slice(0, 7)),
       ...items.map((item) => item.actualFinishAt.slice(0, 7)),
     ]),
-    merchandiserNames: uniqueSorted(productionPreparationRecords.map((record) => record.merchandiserName)),
-    buyerNames: uniqueSorted(productionPreparationRecords.map((record) => record.buyerName)),
+    merchandiserNames: uniqueSorted(records.map((record) => record.merchandiserName)),
+    buyerNames: uniqueSorted(records.map((record) => record.buyerName)),
     recordStatuses: ['全部', ...preparationRecordStatuses],
     itemTypes: ['全部', ...preparationItemTypes],
     ownerTeams: preparationOwnerTeams,
