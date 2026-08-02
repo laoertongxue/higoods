@@ -30,6 +30,7 @@ import {
 import {
   appendReviewLog,
   sendReviewNotificationSafely,
+  sendReviewNotificationStrictly,
   withReviewDiffSnapshot,
 } from './pcs-tech-pack-review-lifecycle.ts'
 import type {
@@ -1025,6 +1026,7 @@ function sendReworkNotifications(input: {
   technicalVersionId: string
   targetNodeKeys: TechnicalReviewNodeKey[]
   createdBy: string
+  strict?: boolean
 }): void {
   const targets = new Set(input.targetNodeKeys)
   const firstStageTargets = (['BUYER', 'PATTERN_MAKER'] as TechnicalReviewNodeKey[]).filter((nodeKey) =>
@@ -1032,7 +1034,8 @@ function sendReworkNotifications(input: {
   )
   const notifyTargets = firstStageTargets.length > 0 ? firstStageTargets : (['MERCHANDISER'] as TechnicalReviewNodeKey[])
   notifyTargets.forEach((nodeKey) => {
-    sendReviewNotificationSafely({
+    const sendNotification = input.strict ? sendReviewNotificationStrictly : sendReviewNotificationSafely
+    sendNotification({
       technicalVersionId: input.technicalVersionId,
       nodeKey,
       notificationType: '打回复审',
@@ -1120,13 +1123,36 @@ function resolveColorTasksForTechPackRework(record: TechnicalDataVersionRecord):
   }))
 }
 
+function assertAllValidColorTasksCompletedForTechPackReview(record: TechnicalDataVersionRecord): void {
+  if (!record.sourceProjectId.trim()) {
+    throw new Error('技术包缺少来源工程主单，无法检查原调色任务。')
+  }
+  const masterOrder = getEngineeringMasterOrderById(record.sourceProjectId)
+  if (!masterOrder) {
+    throw new Error(`技术包来源工程主单不存在：${record.sourceProjectId}`)
+  }
+  const tasks = masterOrder.tasks.filter((task) =>
+    (task.taskType === 'COLOR_YARN' || task.taskType === 'COLOR_FABRIC') &&
+    task.materialLines.some((line) => line.status === '正常' && line.requirementType === '染色'),
+  )
+  if (tasks.length === 0) {
+    throw new Error('技术包来源工程主单没有可复审的有效原调色任务。')
+  }
+  tasks.forEach((task) => assertEngineeringTaskCanReopen({
+    record,
+    taskId: task.taskId,
+    expectedTaskTypes: ['COLOR_YARN', 'COLOR_FABRIC'],
+    taskLabel: '调色任务',
+  }))
+}
+
 function assertEngineeringReworkCompletedBeforeMerchandiserApproval(record: TechnicalDataVersionRecord): void {
   if (record.createdFromTaskType !== 'ENGINEERING_MASTER') return
   if (record.reviewUnlockedModuleKeys.includes('DESIGN')) {
     resolveArtworkTasksForTechPackRework(record)
   }
   if (record.reviewUnlockedModuleKeys.includes('COLOR_MATERIAL_MAPPING')) {
-    resolveColorTasksForTechPackRework(record)
+    assertAllValidColorTasksCompletedForTechPackReview(record)
   }
 }
 
@@ -1189,6 +1215,7 @@ export function returnTechPackReviewByModules(
         technicalVersionId,
         createdBy: operator.name,
         targetNodeKeys,
+        strict: true,
       })
       return savedRecord
     }),

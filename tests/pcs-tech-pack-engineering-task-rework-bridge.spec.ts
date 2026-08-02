@@ -34,6 +34,8 @@ import {
   resetPatternTaskRepository,
   upsertPatternTask,
 } from '../src/data/pcs-pattern-task-repository.ts'
+import { listTechPackReviewNotifications } from '../src/data/pcs-tech-pack-review-notification-repository.ts'
+import { listTechPackVersionLogs } from '../src/data/pcs-tech-pack-version-log-repository.ts'
 
 function reviewNode(nodeKey: TechnicalReviewNodeKey): TechnicalReviewNode {
   const meta = nodeKey === 'BUYER'
@@ -320,6 +322,21 @@ assert.ok(finalColorReview.effectiveCompletedAt, '再次通过必须写入新的
 assert.equal(completedFabricTask?.colorResultCompletedAt, finalColorReview.effectiveCompletedAt, '调色完成时间必须与新的有效完成时间一致')
 assert.equal(getTechnicalDataVersionById(colorVersionId)?.technicalVersionId, colorVersionId, '调色返工继续使用原技术包版本')
 assert.equal(listTechnicalDataVersions().length, colorVersionCountBefore, '调色返工不得创建新技术包版本')
+const colorReturnedMerchandiser = getTechnicalDataVersionById(colorVersionId)?.merchandiserReview
+assert.ok(colorReturnedMerchandiser)
+const colorMerchandiserOperator = {
+  id: colorReturnedMerchandiser.assignedReviewerId,
+  name: colorReturnedMerchandiser.assignedReviewerName,
+}
+startTechPackReview(colorVersionId, 'MERCHANDISER', {
+  opinion: '开始复核调色返工成果',
+  operator: colorMerchandiserOperator,
+})
+assert.throws(
+  () => approveTechPackReview(colorVersionId, 'MERCHANDISER', '确认调色返工完成', colorMerchandiserOperator),
+  /原调色任务当前不是已完成状态/,
+  '两张有效调色任务仅一张重新完成时，另一张返工中必须阻断技术包复审',
+)
 
 updateEngineeringTaskRecord(master.masterOrderId, colorTaskIds[0], (task) => {
   task.status = '已完成'
@@ -368,6 +385,73 @@ assert.throws(
   '缺少权威原任务绑定时必须中文报错，不能按款式猜测任务',
 )
 assert.equal(getTechnicalDataVersionById(missingBindingVersionId)?.reviewStage, '跟单复核', '绑定校验失败不得提前改写技术包审核状态')
+
+updateEngineeringTaskRecord(master.masterOrderId, patternTaskId, (task) => {
+  task.status = '已完成'
+})
+const notificationFailureVersionId = 'TDV-NOTIFICATION-TRANSACTION-ROLLBACK'
+resetTechnicalDataVersionRepository()
+createTechnicalDataVersionDraft({
+  ...version,
+  technicalVersionId: notificationFailureVersionId,
+  technicalVersionCode: 'TP-NOTIFICATION-TRANSACTION-ROLLBACK',
+}, { ...seedContent, technicalVersionId: notificationFailureVersionId })
+const engineeringTaskBeforeNotificationFailure = getEngineeringMasterOrderById(master.masterOrderId)?.tasks.find(
+  (task) => task.taskId === patternTaskId,
+)
+const technicalVersionBeforeNotificationFailure = getTechnicalDataVersionById(notificationFailureVersionId)
+const versionLogsBeforeNotificationFailure = listTechPackVersionLogs()
+const notificationsBeforeNotificationFailure = listTechPackReviewNotifications()
+const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+const storageValues = new Map<string, string>()
+let failNextNotificationWrite = true
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: {
+    get length() { return storageValues.size },
+    clear() { storageValues.clear() },
+    getItem(key: string) { return storageValues.get(key) ?? null },
+    key(index: number) { return [...storageValues.keys()][index] ?? null },
+    removeItem(key: string) { storageValues.delete(key) },
+    setItem(key: string, value: string) {
+      if (key === 'higood-pcs-tech-pack-review-notification-store-v1' && failNextNotificationWrite) {
+        failNextNotificationWrite = false
+        throw new Error('模拟审核通知仓储写入失败')
+      }
+      storageValues.set(key, value)
+    },
+  } satisfies Storage,
+})
+try {
+  assert.throws(
+    () => returnTechPackReviewByModules(
+      notificationFailureVersionId,
+      ['DESIGN'],
+      '通知失败时必须整体回滚',
+      '跟单C',
+    ),
+    /模拟审核通知仓储写入失败/,
+    '原子打回链路的通知仓储写失败必须向上抛出',
+  )
+  assert.deepEqual(
+    getEngineeringMasterOrderById(master.masterOrderId)?.tasks.find((task) => task.taskId === patternTaskId),
+    engineeringTaskBeforeNotificationFailure,
+    '通知仓储失败必须回滚原工程任务',
+  )
+  assert.deepEqual(
+    getTechnicalDataVersionById(notificationFailureVersionId),
+    technicalVersionBeforeNotificationFailure,
+    '通知仓储失败必须回滚技术版本状态',
+  )
+  assert.deepEqual(listTechPackVersionLogs(), versionLogsBeforeNotificationFailure, '通知仓储失败必须回滚版本日志')
+  assert.deepEqual(listTechPackReviewNotifications(), notificationsBeforeNotificationFailure, '通知仓储失败必须回滚审核通知')
+} finally {
+  if (originalLocalStorageDescriptor) {
+    Object.defineProperty(globalThis, 'localStorage', originalLocalStorageDescriptor)
+  } else {
+    delete (globalThis as { localStorage?: Storage }).localStorage
+  }
+}
 
 const wrongSourceVersionId = 'TDV-WRONG-SOURCE'
 resetTechnicalDataVersionRepository()

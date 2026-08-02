@@ -64,8 +64,18 @@ export function sendReviewNotificationSafely(input: {
   diffSnapshot?: Pick<TechnicalReviewDiffSnapshot, 'snapshotId' | 'diffStatus' | 'summaryText'>
 }): void {
   try {
-    sendTechPackReviewFeishuNotification(input)
+    sendReviewNotificationStrictly(input)
   } catch {
     // 原型环境下飞书提醒失败不阻断审核主流程，失败本身由通知账记录。
   }
+}
+
+export function sendReviewNotificationStrictly(input: {
+  technicalVersionId: string
+  nodeKey: TechnicalReviewNodeKey
+  notificationType: '提交审核' | '进入跟单复核' | '打回复审'
+  createdBy: string
+  diffSnapshot?: Pick<TechnicalReviewDiffSnapshot, 'snapshotId' | 'diffStatus' | 'summaryText'>
+}): void {
+  sendTechPackReviewFeishuNotification(input)
 }

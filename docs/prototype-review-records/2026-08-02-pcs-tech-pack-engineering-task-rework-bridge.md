@@ -56,6 +56,8 @@
 | 技术包记录的独立花型任务 ID 被误当作工程任务 ID | 选不对 | 跟单、花型团队 | 先读取独立花型任务，再通过其 `upstreamObjectId` 定位工程主单原专业任务；相同工程任务去重 | 否 |
 | 原专业任务仍在返工时技术包可提前复审通过 | 协作断裂 | 跟单、买手 | 跟单审核通过前校验本次解锁的花型／调色原任务均已完成 | 否 |
 | 日志写入失败但技术包和工程任务已提交 | 追溯不足 | 跟单、专业团队 | 工程、技术版本、审核日志与通知统一置于嵌套事务内 | 否 |
+| 两张有效原调色任务仅一张重新完成时仍可通过技术包复审 | 协作断裂 | 跟单、染厂、买手 | 打回选择仍只接收已完成且有有效染色行的任务；复审时改为校验来源工程主单内全部有效原调色任务，任一返工中或待审核即阻断 | 否 |
+| 原子打回链路吞掉通知仓储写入异常，四类事实无法整体回滚 | 追溯不足 | 跟单、专业团队 | 仅 `returnTechPackReviewByModules` 使用严格通知发送，通知写失败向事务传播；其他既有审核通知继续保持安全发送语义 | 否 |
 
 ## 6. 最终结论
 
@@ -65,8 +67,10 @@
 
 - 花型设计模块使用 `sourceProjectId + linkedArtworkTaskIds` 定位独立花型任务，再读取其工程专业任务绑定。
 - 款色用料模块只读取来源工程主单中已完成且仍存在有效染色物料行的纱线／面料调色任务。
+- 款色用料复审门禁读取来源工程主单内全部有效纱线／面料调色任务；任一任务尚未重新完成均不得进入待发布。
 - 工程变更来源维持既有审核行为，本次不误连工程主单任务。
 - 齐码纸样仍由制作团队提交即完成，不新增独立审核。
+- 原子打回链路内通知仓储失败时，工程任务、技术版本状态、版本日志和审核通知统一回滚；非原子审核通知仍保持失败不阻断主流程。
 
 ## 7. 变更覆盖与验证
 
@@ -74,6 +78,7 @@
 
 - `src/data/pcs-engineering-task-review.ts`
 - `src/data/pcs-tech-pack-task-generation.ts`
+- `src/data/pcs-tech-pack-review-lifecycle.ts`
 - `src/data/pcs-tech-pack-review.ts`
 
 ### 页面路由
@@ -83,12 +88,15 @@
 ### 验证命令
 
 - `npx tsx tests/pcs-tech-pack-engineering-task-rework-bridge.spec.ts`：通过
+- `npx tsx tests/pcs-tech-pack-artwork-write-or-new-version.spec.ts`：通过
 - `npx tsx tests/pcs-engineering-material-review.spec.ts`：通过
 - `npx tsx tests/pcs-engineering-color-stages.spec.ts`：通过
 - `npx tsx tests/pcs-engineering-preparation-color-projection.spec.ts`：通过
 - `npx tsx tests/pcs-engineering-task-submit.spec.ts`：通过
 - `npx tsx tests/pcs-repository-sync-transaction.spec.ts`：通过
 - 技术包复审门禁：原花型／调色任务未完成时阻止跟单审核通过。
+- 双调色任务复审负向场景：一张完成、一张返工中时阻止跟单审核通过。
+- 通知仓储故障注入：工程任务、技术版本状态、版本日志和审核通知全部回滚。
 - `npm run build`：通过
 - `npm run check:prototype-design-governance -- --all`：通过
 
