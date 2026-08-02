@@ -2426,6 +2426,61 @@ assert.deepEqual(
   },
   '空闲袋的当前节点和位置必须读取最近回收运行事实，不能读取旧主档',
 )
+const failedNewerRecoveryEvent = {
+  ...recoveryEvent,
+  eventId: 'cutting-event:BAG-RETURN:BAG-RESULT-001:202608011110',
+  eventNo: 'BAG-RETURN-202608011110',
+  idempotencyKey: 'cycle:BAG-RESULT-001:001:RECOVERY:FAILED',
+  eventStatus: '同步失败',
+  occurredAt: '2026-08-01 11:10',
+  createdAt: '2026-08-01 11:10',
+  payload: {
+    ...recoveryEvent.payload,
+    recoveryNode: '同步失败错误节点',
+    recoveryLocation: '同步失败错误位置',
+    recoveredAt: '2026-08-01 11:10',
+  },
+}
+const incompleteNewestRecoveryEvent = {
+  ...recoveryEvent,
+  eventId: 'cutting-event:BAG-RETURN:BAG-RESULT-001:202608011120',
+  eventNo: 'BAG-RETURN-202608011120',
+  idempotencyKey: 'cycle:BAG-RESULT-001:001:RECOVERY:INCOMPLETE',
+  occurredAt: '2026-08-01 11:20',
+  createdAt: '2026-08-01 11:20',
+  payload: {
+    ...recoveryEvent.payload,
+    recoveryNode: '缺字段错误节点',
+    recoveryLocation: '',
+    recoveredAt: '2026-08-01 11:20',
+  },
+}
+assert.deepEqual(
+  resolveRuntimeCurrentFacts({
+    bagCode: 'BAG-RESULT-001',
+    usageCycleId: null,
+    productionOrderNo: '',
+    tickets: [],
+    mainStatus: 'IDLE',
+    flowStage: null,
+    latestHandoverEventId: null,
+  }, [recoveryEvent, failedNewerRecoveryEvent, incompleteNewestRecoveryEvent]),
+  recoveredCurrentFacts,
+  '较新的同步失败或缺字段回收事件不得遮蔽较早的完整已同步回收位置事实',
+)
+assert.deepEqual(
+  resolveRuntimeCurrentFacts({
+    bagCode: 'BAG-RESULT-001',
+    usageCycleId: null,
+    productionOrderNo: '',
+    tickets: [],
+    mainStatus: 'IDLE',
+    flowStage: null,
+    latestHandoverEventId: null,
+  }, [failedNewerRecoveryEvent, incompleteNewestRecoveryEvent]),
+  { holderType: '—', holderName: '—', warehouseArea: '—', location: '—' },
+  '全部回收事件都未通过权威完整性解析时，当前节点和位置必须显示横线',
+)
 const handedCurrentFacts = resolveRuntimeCurrentFacts({
   bagCode: 'BAG-CURRENT-TRANSFER-001',
   usageCycleId: 'cycle:BAG-CURRENT-TRANSFER-001:001',

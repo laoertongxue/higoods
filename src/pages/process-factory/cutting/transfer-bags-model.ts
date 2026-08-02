@@ -53,6 +53,7 @@ import {
   type CuttingRuntimeEvent,
 } from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import {
+  parseCompleteRecoveryEvent,
   resolveTransferBagCurrentUse,
   resolveTransferBagAuthoritativeCurrentLocation,
   type TransferBagCurrentUse,
@@ -107,19 +108,15 @@ export function resolveTransferBagRuntimeCurrentFacts(
     .filter((event) => event.eventStatus !== '已取消')
     .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt) || right.eventId.localeCompare(left.eventId))
   if (current.mainStatus === 'IDLE') {
-    const recovery = relevantEvents.find((event) => {
-      const payload = runtimeEventPayload(event)
-      return event.eventType === '中转袋回收'
-        && (event.refs.transferBagCode === current.bagCode || runtimeFactText(payload.bagCode) === current.bagCode)
-        && payload.physicalBagReceived === true
-        && payload.physicalBagEmpty === true
-    })
-    const payload = recovery ? runtimeEventPayload(recovery) : {}
+    const recovery = relevantEvents
+      .map(parseCompleteRecoveryEvent)
+      .filter((fact): fact is NonNullable<ReturnType<typeof parseCompleteRecoveryEvent>> => Boolean(fact))
+      .find((fact) => fact.payload.bagCode === current.bagCode)
     return {
       holderType: recovery ? '回收节点' : '—',
-      holderName: runtimeFactText(payload.recoveryNode) || '—',
+      holderName: recovery?.payload.recoveryNode || '—',
       warehouseArea: '—',
-      location: runtimeFactText(payload.recoveryLocation) || '—',
+      location: recovery?.payload.recoveryLocation || '—',
     }
   }
   if (current.mainStatus !== 'IN_USE' || !current.usageCycleId) {

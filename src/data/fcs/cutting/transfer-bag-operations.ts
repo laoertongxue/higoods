@@ -699,7 +699,7 @@ function canonicalScrapIntent(
   })
 }
 
-function parseCompleteRecoveryEvent(event: CuttingRuntimeEvent): {
+export function parseCompleteRecoveryEvent(event: CuttingRuntimeEvent): {
   event: CuttingRuntimeEvent<'中转袋回收'>
   payload: TransferBagRecoveryPayload
   canonicalIntent: string
