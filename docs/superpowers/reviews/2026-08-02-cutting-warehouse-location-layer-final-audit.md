@@ -111,6 +111,7 @@
 - `npm run check:factory-internal-warehouse-model`
 - `npm run check:cutting-warehouse-location-map`
 - `npm run check:cutting:all`
+- `npm run check:cutting-warehouse-location-map-e2e`
 - `npm run test:cutting:all:e2e`
 - `npm run check:prototype-design-governance -- --all`
 - `npm run check:list-page-governance`
@@ -118,7 +119,7 @@
 - `git diff --check`
 - `codegraph sync && codegraph status`
 
-执行结果：上述命令退出码均为 0；`npm audit` 报告 0 项漏洞；库位图专项为 19/19，裁床全量为 107/107；原型设计治理覆盖 6 个受管文件和 1 份完整审查记录；列表页治理扫描 330 个页面并通过 Chromium 列拖拽检查；工作流阶段轨迹测试为 11/11；CodeGraph 索引为最新。生产构建仅保留仓库既有的 chunk size 和 Browserslist 提示，不影响退出码。
+执行结果：上述命令退出码均为 0；`npm audit` 报告 0 项漏洞；`npm run check:cutting-warehouse-location-map-e2e` 为本轮 fresh 运行并通过 19/19，`npm run test:cutting:all:e2e` 为本轮 fresh 运行并通过 107/107；原型设计治理覆盖 6 个受管文件和 1 份完整审查记录；列表页治理扫描 330 个页面并通过 Chromium 列拖拽检查；工作流阶段轨迹测试为 11/11；CodeGraph 索引为最新。生产构建仅保留仓库既有的 chunk size 和 Browserslist 提示，不影响退出码。
 
 库位图专项完整 E2E 的正式口径为 `cutting-warehouse-location-map.spec.ts` 18 项，加 `cutting-wait-handover-web-modal.spec.ts` 1 项，共 19 项；本次 19/19 是任务 10 在生产代码和 Playwright 增强后的 fresh 结果，不沿用任务 9 的历史证据。
 
