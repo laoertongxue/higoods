@@ -7,7 +7,10 @@ import {
   updateMaterialSkuRecord,
 } from '../src/data/pcs-material-archive-repository.ts'
 import { updateLatestPcsExchangeRate } from '../src/data/pcs-exchange-rate-config.ts'
-import { assertEngineeringBomPricingSnapshotValid } from '../src/data/pcs-engineering-bom-pricing.ts'
+import {
+  assertEngineeringBomPricingSnapshotValid,
+  buildTechnicalDataVersionBomPricingSnapshot,
+} from '../src/data/pcs-engineering-bom-pricing.ts'
 import { submitTechPackFirstStageReview } from '../src/data/pcs-tech-pack-review.ts'
 import {
   activateTechPackVersionForStyle,
@@ -681,6 +684,154 @@ assert.throws(
   /目标技术包|自定义成本|不一致/,
 )
 assert.deepEqual(getTechnicalDataVersionContent(trustedCustomCostTargetVersionId), trustedCustomCostTargetBefore)
+
+function recalculateSnapshotTotalsForRate(
+  snapshot: NonNullable<TechnicalDataVersionContent['bomPricingSnapshot']>,
+  exchangeRateIdrPerCny: number,
+): void {
+  const rawMaterialCostCny = snapshot.materialPriceSnapshots.reduce(
+    (total, line) => total + line.usage * line.sampleQuantity * (1 + line.lossRate) * line.conversionToPricingUnit * line.standardUnitPriceCny,
+    0,
+  )
+  const customCostIdr = Math.round(snapshot.customCostsIdr.reduce((total, item) => total + item.amountIdr, 0))
+  const materialCostCny = Math.round((rawMaterialCostCny + Number.EPSILON) * 100) / 100
+  const comprehensiveCostCny = Math.round((rawMaterialCostCny + customCostIdr / exchangeRateIdrPerCny + Number.EPSILON) * 100) / 100
+  const comprehensiveCostIdr = Math.round(rawMaterialCostCny * exchangeRateIdrPerCny + customCostIdr)
+  snapshot.exchangeRateIdrPerCny = exchangeRateIdrPerCny
+  snapshot.materialCostCny = materialCostCny
+  snapshot.comprehensiveCostCny = comprehensiveCostCny
+  snapshot.comprehensiveCostIdr = comprehensiveCostIdr
+  Object.assign(snapshot.cost, {
+    exchangeRateIdrPerCny,
+    materialCostCny,
+    customCostIdr,
+    comprehensiveCostCny,
+    comprehensiveCostIdr,
+  })
+}
+
+const trustedTemplateRecords = listPartTemplateRecords().slice(0, 2)
+assert.equal(trustedTemplateRecords.length, 2, '正式快照可信模板测试需要两个真实部件模板')
+const trustedSnapshotSourceVersionId = `task10_trusted_snapshot_source_${Date.now()}`
+const trustedSnapshotSourceBomItem = { ...fullFieldTargetBomItem, id: 'BOM-TRUSTED-SNAPSHOT-SOURCE' }
+createTechnicalDataVersionDraft(
+  {
+    ...makeRecord({ id: trustedSnapshotSourceVersionId, status: 'PUBLISHED', reviewStage: '已发布' }),
+    linkedPartTemplateIds: trustedTemplateRecords.map((item) => item.id),
+  },
+  {
+    ...makeContent(trustedSnapshotSourceVersionId, [trustedSnapshotSourceBomItem]),
+    bomCustomCosts: [],
+  },
+)
+updateLatestPcsExchangeRate({ idrPerCny: 2300, updatedBy: '系统管理员' })
+const trustedSnapshotSourceBefore = getTechnicalDataVersionContent(trustedSnapshotSourceVersionId)
+
+// 即使调用方按伪造汇率同步重算全部成本，也必须绑定首次固化时的系统最新汇率。
+const forgedExchangeRateSnapshot = buildTechnicalDataVersionBomPricingSnapshot(
+  trustedSnapshotSourceVersionId,
+  '2026-08-02 12:00',
+  '跟单甲',
+)
+assert.ok(forgedExchangeRateSnapshot)
+recalculateSnapshotTotalsForRate(forgedExchangeRateSnapshot, 9999)
+assert.throws(
+  () => savePublishedTechnicalDataVersionBomPricingSnapshot(trustedSnapshotSourceVersionId, forgedExchangeRateSnapshot),
+  /系统最新汇率|汇率.*不一致/,
+)
+assert.deepEqual(getTechnicalDataVersionContent(trustedSnapshotSourceVersionId), trustedSnapshotSourceBefore)
+
+function assertForgedTemplateSnapshotRejected(
+  mutate: (snapshot: NonNullable<TechnicalDataVersionContent['bomPricingSnapshot']>) => void,
+): void {
+  const snapshot = buildTechnicalDataVersionBomPricingSnapshot(
+    trustedSnapshotSourceVersionId,
+    '2026-08-02 12:00',
+    '跟单甲',
+  )
+  assert.ok(snapshot)
+  mutate(snapshot)
+  assert.throws(
+    () => savePublishedTechnicalDataVersionBomPricingSnapshot(trustedSnapshotSourceVersionId, snapshot),
+    /关联部件模板|模板版本|模板摘要|不一致/,
+  )
+  assert.deepEqual(getTechnicalDataVersionContent(trustedSnapshotSourceVersionId), trustedSnapshotSourceBefore)
+}
+
+assertForgedTemplateSnapshotRejected((snapshot) => {
+  snapshot.linkedPartTemplateVersions = snapshot.linkedPartTemplateVersions.slice(0, 1)
+})
+assertForgedTemplateSnapshotRejected((snapshot) => {
+  snapshot.linkedPartTemplateVersions.push({
+    partTemplateId: 'PART-TEMPLATE-FAKE',
+    templatePackageId: 'PACKAGE-FAKE',
+    templateName: '伪造模板',
+    updatedAt: '2026-08-02 12:00',
+    geometryHash: 'fake-hash',
+    sourceDxfFileName: 'fake.dxf',
+    sourceRulFileName: 'fake.rul',
+  })
+})
+assertForgedTemplateSnapshotRejected((snapshot) => {
+  snapshot.linkedPartTemplateVersions.reverse()
+})
+assertForgedTemplateSnapshotRejected((snapshot) => {
+  Object.assign(snapshot.linkedPartTemplateVersions[0]!, {
+    templatePackageId: 'PACKAGE-TAMPERED',
+    templateName: '篡改模板名称',
+    updatedAt: '2099-01-01 00:00',
+    geometryHash: 'tampered-hash',
+    sourceDxfFileName: 'tampered.dxf',
+    sourceRulFileName: 'tampered.rul',
+  })
+})
+
+// 审计字段也必须来自同一规范构建对象，不能把持久化快照克隆后伪造操作时间、操作人或汇率来源。
+for (const mutateAudit of [
+  (snapshot: NonNullable<TechnicalDataVersionContent['bomPricingSnapshot']>) => { snapshot.frozenAt = '2099-01-01 00:00' },
+  (snapshot: NonNullable<TechnicalDataVersionContent['bomPricingSnapshot']>) => { snapshot.frozenBy = '伪造操作人' },
+  (snapshot: NonNullable<TechnicalDataVersionContent['bomPricingSnapshot']>) => {
+    ;(snapshot as typeof snapshot & { exchangeRateSource: string }).exchangeRateSource = '调用方汇率'
+  },
+]) {
+  const snapshot = buildTechnicalDataVersionBomPricingSnapshot(
+    trustedSnapshotSourceVersionId,
+    '2026-08-02 12:00',
+    '跟单甲',
+  )
+  assert.ok(snapshot)
+  mutateAudit(snapshot)
+  assert.throws(
+    () => savePublishedTechnicalDataVersionBomPricingSnapshot(trustedSnapshotSourceVersionId, snapshot),
+    /固化信息|审计字段|汇率来源|规范构建|不一致/,
+  )
+  assert.deepEqual(getTechnicalDataVersionContent(trustedSnapshotSourceVersionId), trustedSnapshotSourceBefore)
+}
+
+const clonedCanonicalSnapshot = structuredClone(buildTechnicalDataVersionBomPricingSnapshot(
+  trustedSnapshotSourceVersionId,
+  '2026-08-02 12:00',
+  '跟单甲',
+)!)
+assert.throws(
+  () => savePublishedTechnicalDataVersionBomPricingSnapshot(trustedSnapshotSourceVersionId, clonedCanonicalSnapshot),
+  /规范构建|手工拼装|克隆快照/,
+  '字段完全一致的深克隆也不能伪造规范构建入口绑定的固化审计上下文',
+)
+assert.deepEqual(getTechnicalDataVersionContent(trustedSnapshotSourceVersionId), trustedSnapshotSourceBefore)
+
+const canonicalTrustedSnapshot = buildTechnicalDataVersionBomPricingSnapshot(
+  trustedSnapshotSourceVersionId,
+  '2026-08-02 12:00',
+  '跟单甲',
+)
+assert.ok(canonicalTrustedSnapshot)
+savePublishedTechnicalDataVersionBomPricingSnapshot(trustedSnapshotSourceVersionId, canonicalTrustedSnapshot)
+assert.deepEqual(
+  getTechnicalDataVersionContent(trustedSnapshotSourceVersionId)?.bomPricingSnapshot,
+  canonicalTrustedSnapshot,
+  '目标 BOM、价格、汇率、模板与审计字段全部可信时允许首次固化',
+)
 
 // 新来源正式技术包发布后，公开内容更新入口不能改写 BOM/COST 正式字段。
 assert.throws(

@@ -12,7 +12,6 @@ import {
   type BomPriceReviewChange,
 } from './pcs-tech-pack-bom-price-review-invalidation.ts'
 import type { TechnicalDataVersionContent } from './pcs-technical-data-version-types.ts'
-import { getPartTemplateRecordById } from './pcs-part-template-library.ts'
 import type {
   EngineeringBomCostResult,
   EngineeringBomDraft,
@@ -28,6 +27,10 @@ import {
   resolveEngineeringBomConversion,
   resolveEngineeringBomMaterialLine,
 } from './pcs-engineering-bom-material-resolver.ts'
+import {
+  attestEngineeringBomPricingSnapshot,
+  resolveEngineeringLinkedPartTemplateVersions,
+} from './pcs-engineering-bom-snapshot-source.ts'
 export { assertEngineeringBomPricingSnapshotValid } from './pcs-engineering-bom-snapshot-validation.ts'
 export { MATERIAL_STANDARD_PRICE_REQUIRED_MESSAGE } from './pcs-engineering-bom-material-resolver.ts'
 
@@ -401,21 +404,13 @@ export function buildTechnicalDataVersionBomPricingSnapshot(
     linkedPatternIds: [...(item.linkedPatternIds ?? [])],
     usageProcessCodes: [...(item.usageProcessCodes ?? [])],
   }))
-  snapshot.linkedPartTemplateVersions = record.linkedPartTemplateIds.map((partTemplateId) => {
-    const template = getPartTemplateRecordById(partTemplateId)
-    if (!template) throw new Error(`关联部件模板不存在：${partTemplateId}`)
-    return {
-      partTemplateId: template.id,
-      templatePackageId: template.templatePackageId,
-      templateName: template.templateName,
-      updatedAt: template.updatedAt,
-      geometryHash: template.geometryHash || '',
-      sourceDxfFileName: template.sourceDxfFileName,
-      sourceRulFileName: template.sourceRulFileName,
-    }
-  })
+  snapshot.linkedPartTemplateVersions = resolveEngineeringLinkedPartTemplateVersions(record.linkedPartTemplateIds)
   assertEngineeringBomPricingSnapshotValid(snapshot)
-  return snapshot
+  return attestEngineeringBomPricingSnapshot(snapshot, {
+    technicalVersionId,
+    frozenAt,
+    frozenBy,
+  })
 }
 
 export function saveTechnicalDataVersionBomPricingSnapshot(

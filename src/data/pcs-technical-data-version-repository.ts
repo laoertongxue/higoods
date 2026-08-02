@@ -1,5 +1,10 @@
 import { createTechnicalDataVersionBootstrapSnapshot } from './pcs-technical-data-version-bootstrap.ts'
 import { assertEngineeringBomPricingSnapshotValid } from './pcs-engineering-bom-snapshot-validation.ts'
+import { getLatestPcsExchangeRate } from './pcs-exchange-rate-config.ts'
+import {
+  getEngineeringBomPricingSnapshotAttestation,
+  resolveEngineeringLinkedPartTemplateVersions,
+} from './pcs-engineering-bom-snapshot-source.ts'
 import {
   getEngineeringChangeTaskById,
   getEngineeringMasterOrderById,
@@ -1181,7 +1186,18 @@ export function savePublishedTechnicalDataVersionBomPricingSnapshot(
   const content = snapshot.contents.find((item) => item.technicalVersionId === technicalVersionId)
   if (!content) throw new Error('未找到目标技术包当前内容，不能保存正式 BOM/COST 快照。')
   if (content?.bomPricingSnapshot) throw new Error('正式 BOM/COST 快照已存在，禁止覆盖。')
-  assertEngineeringBomPricingSnapshotValid(bomPricingSnapshot, content.bomItems, content.bomCustomCosts ?? [])
+  const attestation = getEngineeringBomPricingSnapshotAttestation(bomPricingSnapshot)
+  assertEngineeringBomPricingSnapshotValid(bomPricingSnapshot, {
+    bomItems: content.bomItems,
+    bomCustomCosts: content.bomCustomCosts ?? [],
+    exchangeRateIdrPerCny: getLatestPcsExchangeRate().idrPerCny,
+    linkedPartTemplateVersions: resolveEngineeringLinkedPartTemplateVersions(record.linkedPartTemplateIds),
+    frozenAt: attestation?.technicalVersionId === technicalVersionId ? attestation.frozenAt : undefined,
+    frozenBy: attestation?.technicalVersionId === technicalVersionId ? attestation.frozenBy : undefined,
+  })
+  if (!attestation || attestation.technicalVersionId !== technicalVersionId) {
+    throw new Error('正式 BOM/COST 快照必须由目标技术包规范构建入口生成，禁止保存手工拼装或克隆快照。')
+  }
   return persistTechnicalDataVersionContentPatch(technicalVersionId, { bomPricingSnapshot })
 }
 

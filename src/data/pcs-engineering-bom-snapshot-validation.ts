@@ -1,6 +1,7 @@
 import type {
   EngineeringBomCustomCostDraft,
   EngineeringBomPricingSnapshot,
+  EngineeringLinkedPartTemplateVersionSnapshot,
 } from './pcs-engineering-bom-types.ts'
 import type { TechnicalBomItem } from './pcs-technical-data-version-types.ts'
 import { resolveEngineeringBomMaterialLine } from './pcs-engineering-bom-material-resolver.ts'
@@ -30,14 +31,32 @@ function isStableDeepEqual(left: unknown, right: unknown): boolean {
   return JSON.stringify(stableNormalize(left)) === JSON.stringify(stableNormalize(right))
 }
 
+export interface EngineeringBomPricingSnapshotTrustedTarget {
+  bomItems: TechnicalBomItem[]
+  bomCustomCosts: EngineeringBomCustomCostDraft[]
+  exchangeRateIdrPerCny: number
+  linkedPartTemplateVersions: EngineeringLinkedPartTemplateVersionSnapshot[]
+  frozenAt?: string
+  frozenBy?: string
+}
+
 export function assertEngineeringBomPricingSnapshotValid(
   snapshot: EngineeringBomPricingSnapshot,
-  targetBomItems?: TechnicalBomItem[],
-  targetBomCustomCosts?: EngineeringBomCustomCostDraft[],
+  trustedTarget?: EngineeringBomPricingSnapshotTrustedTarget,
 ): void {
   if (snapshot.snapshotVersion !== 1) throw new Error('正式 BOM 与价格快照版本无效。')
   if (!snapshot.frozenAt.trim() || !snapshot.frozenBy.trim()) throw new Error('正式 BOM 与价格快照缺少固化信息。')
+  if (snapshot.exchangeRateSource !== '系统最新汇率') throw new Error('正式 BOM 与价格快照的汇率来源无效。')
+  if (
+    (trustedTarget?.frozenAt !== undefined && snapshot.frozenAt !== trustedTarget.frozenAt)
+    || (trustedTarget?.frozenBy !== undefined && snapshot.frozenBy !== trustedTarget.frozenBy)
+  ) {
+    throw new Error('正式 BOM 与价格快照的固化审计字段与规范构建上下文不一致。')
+  }
   if (!Number.isFinite(snapshot.exchangeRateIdrPerCny) || snapshot.exchangeRateIdrPerCny <= 0) throw new Error('正式 BOM 与价格快照汇率无效。')
+  if (trustedTarget && snapshot.exchangeRateIdrPerCny !== trustedTarget.exchangeRateIdrPerCny) {
+    throw new Error('正式 BOM 与价格快照的汇率与系统最新汇率不一致。')
+  }
   if (!Array.isArray(snapshot.bomItems) || snapshot.bomItems.length === 0) throw new Error('正式 BOM 与价格快照缺少 BOM 明细。')
   if (!Array.isArray(snapshot.materialPriceSnapshots) || snapshot.materialPriceSnapshots.length !== snapshot.bomItems.length) {
     throw new Error('正式 BOM 与价格快照的物料价格明细不完整。')
@@ -46,6 +65,7 @@ export function assertEngineeringBomPricingSnapshotValid(
   if (snapshotBomItemsById.size !== snapshot.bomItems.length || [...snapshotBomItemsById.keys()].some((id) => !id.trim())) {
     throw new Error('正式 BOM 与价格快照的 BOM 行 ID 缺失或重复。')
   }
+  const targetBomItems = trustedTarget?.bomItems
   const authoritativeTargetBomItems = targetBomItems ?? snapshot.bomItems
   const targetBomItemsById = new Map(authoritativeTargetBomItems.map((item) => [item.id, item]))
   if (
@@ -107,8 +127,8 @@ export function assertEngineeringBomPricingSnapshotValid(
   if (!isStableDeepEqual(snapshot.customCosts, snapshot.customCostsIdr)) {
     throw new Error('正式 BOM 与价格快照的自定义成本明细不一致。')
   }
-  if (targetBomCustomCosts) {
-    const trustedCustomCostsIdr = targetBomCustomCosts.map((item) => ({ ...item, currency: 'IDR' as const }))
+  if (trustedTarget) {
+    const trustedCustomCostsIdr = trustedTarget.bomCustomCosts.map((item) => ({ ...item, currency: 'IDR' as const }))
     if (!isStableDeepEqual(snapshot.customCostsIdr, trustedCustomCostsIdr)) {
       throw new Error('正式 BOM 与价格快照的自定义成本与目标技术包不一致。')
     }
@@ -118,6 +138,9 @@ export function assertEngineeringBomPricingSnapshotValid(
   }
   for (const template of snapshot.linkedPartTemplateVersions) {
     if (!template.partTemplateId.trim() || !template.templatePackageId.trim() || !template.templateName.trim() || !template.updatedAt.trim()) throw new Error('正式 BOM 与价格快照存在无效部件模板版本。')
+  }
+  if (trustedTarget && !isStableDeepEqual(snapshot.linkedPartTemplateVersions, trustedTarget.linkedPartTemplateVersions)) {
+    throw new Error('正式 BOM 与价格快照的关联部件模板版本摘要与目标技术包不一致。')
   }
   for (const value of [snapshot.materialCostCny, snapshot.comprehensiveCostCny, snapshot.comprehensiveCostIdr]) {
     if (!Number.isFinite(value) || value < 0) throw new Error('正式 BOM 与价格快照成本汇总无效。')

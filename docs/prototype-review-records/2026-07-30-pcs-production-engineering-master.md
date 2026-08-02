@@ -165,6 +165,7 @@
 - `src/data/pcs-engineering-bom-types.ts`
 - `src/data/pcs-engineering-bom-pricing.ts`
 - `src/data/pcs-engineering-bom-material-resolver.ts`
+- `src/data/pcs-engineering-bom-snapshot-source.ts`
 - `src/data/pcs-engineering-bom-snapshot-validation.ts`
 - `src/data/pcs-exchange-rate-config.ts`
 - `src/data/pcs-material-archive-types.ts`
@@ -218,6 +219,7 @@
 - 发布后锁定：正式快照 BOM 使用普通 BOM 同等级深克隆；新来源已发布技术包的 `bomItems`、`bomCustomCosts`、`bomPricingSnapshot` 不能通过公开内容更新入口改写。正式启用只通过受限、结构校验且不可覆盖的快照保存入口写入。
 - 复审加固：受限保存入口同时以目标技术包当前 BOM 为权威，拒绝内部自洽但来源于其他 BOM 的快照；物料成本、IDR 自定义成本及按汇率换算的人民币／印尼盾综合成本全部由逐行事实重新计算，不接受调用方伪造汇总。
 - 可信来源加固：首次保存正式快照时，对目标 BOM 的全部业务字段做稳定深比较，BOM 行及字段内数组均保留顺序语义；逐行标准价、单位换算与物料说明统一从当前物料档案解析，自定义成本按目标技术包当前内容核对。调用方即使让伪造价格、换算和汇总彼此自洽，也不能写入；历史已冻结快照的关闭校验仍按冻结事实检查，不受物料档案后续变价影响。
+- 固化上下文加固：首次保存继续从系统配置读取当时最新汇率，并按目标技术版本 `linkedPartTemplateIds` 的既定顺序解析真实模板版本摘要；模板缺失、多余、重排或任一版本字段不符均拒绝。固化时间、操作人和汇率来源绑定同一规范构建对象，手工拼装或深克隆不能冒充；持久化后的历史快照仍只按冻结事实离线自检，不受后续汇率或模板变化影响。
 - 交互与性能：关闭按钮仍为局部事件，点击后只刷新头部和反馈区，不触发整页重绘；未新增高频输入或大列表。
 - 自查结论：角色、身份、防错、状态、中文文案、局部交互和正式事实追溯均符合设计规范；无业务例外，无列表页治理例外。
 
