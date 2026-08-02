@@ -1,16 +1,13 @@
 import {
   buildTransferBagNavigationPayload,
   deriveTransferBagMasterStatus,
-  type TransferBagCleanlinessStatus,
   type TransferBagConditionRecord,
-  type TransferBagConditionStatus,
   type TransferBagDiscrepancyType,
   type TransferBagMaster,
   type TransferBagMasterStatusKey,
   type TransferBagNavigationPayload,
   type TransferBagReturnAuditTrail,
   type TransferBagReturnReceipt,
-  type TransferBagReusableDecision,
   type TransferBagReuseCycleSummary,
   type TransferBagStore,
   type TransferBagSummaryMeta,
@@ -32,7 +29,7 @@ import {
 } from '../../../data/fcs/cutting/qr-codes.ts'
 
 interface ReturnDecisionMeta {
-  reusableDecision: TransferBagReusableDecision
+  reusableDecision: 'REUSABLE'
   nextBagStatus: TransferBagMasterStatusKey
   label: string
   className: string
@@ -48,7 +45,6 @@ interface ReturnDiscrepancyMeta {
 export interface TransferBagReturnUsageItem extends TransferBagUsageItem {
   bagStatusMeta: TransferBagSummaryMeta<TransferBagMasterStatusKey> | null
   latestReturnReceipt: TransferBagReturnReceipt | null
-  latestConditionRecord: TransferBagConditionRecord | null
   latestClosureResult: TransferBagUsageClosureResult | null
   returnEligibility: TransferBagValidationResult
   returnDiscrepancyMeta: ReturnDiscrepancyMeta | null
@@ -57,15 +53,7 @@ export interface TransferBagReturnUsageItem extends TransferBagUsageItem {
 export interface TransferBagReuseCycleItem extends TransferBagReuseCycleSummary {
   latestUsage: TransferBagUsage | null
   latestReturnReceipt: TransferBagReturnReceipt | null
-  latestConditionRecord: TransferBagConditionRecord | null
   bagStatusMeta: TransferBagSummaryMeta<TransferBagMasterStatusKey>
-}
-
-export interface TransferBagConditionDecisionItem extends TransferBagConditionRecord {
-  latestUsage: TransferBagUsage | null
-  bagMaster: TransferBagMaster | null
-  decisionMeta: ReturnDecisionMeta
-  returnDiscrepancyMeta: ReturnDiscrepancyMeta | null
 }
 
 export interface TransferBagReturnViewModel {
@@ -74,16 +62,12 @@ export interface TransferBagReturnViewModel {
     inspectingUsageCount: number
     closedUsageCount: number
     reusableBagCount: number
-    waitingCleaningBagCount: number
-    waitingRepairBagCount: number
   }
   waitingReturnUsages: TransferBagReturnUsageItem[]
   returnReceiptsByUsageId: Record<string, TransferBagReturnReceipt[]>
-  conditionRecordsByUsageId: Record<string, TransferBagConditionRecord[]>
   closureResultsByUsageId: Record<string, TransferBagUsageClosureResult[]>
   returnAuditTrailByUsageId: Record<string, TransferBagReturnAuditTrail[]>
   reuseCycles: TransferBagReuseCycleItem[]
-  conditionItems: TransferBagConditionDecisionItem[]
 }
 
 const discrepancyMetaMap: Record<TransferBagDiscrepancyType, ReturnDiscrepancyMeta | null> = {
@@ -171,39 +155,16 @@ export function validateReturnReceiptPayload(options: {
   usage: TransferBagUsage | null
   bag: TransferBagMaster | null
   receipt: TransferBagReturnReceipt
-  condition?: TransferBagConditionRecord | null
 }): TransferBagValidationResult {
   const eligibility = deriveReturnEligibility({ usage: options.usage, bag: options.bag })
   if (!eligibility.ok) return eligibility
   if (!options.receipt.returnWarehouseName.trim()) return { ok: false, reason: '请填写回收仓或回收点。' }
   if (!options.receipt.returnAt.trim()) return { ok: false, reason: '请填写回收时间。' }
   if (!options.receipt.receivedBy.trim()) return { ok: false, reason: '请填写回收确认人。' }
-  if (
-    options.condition?.reusableDecision === 'DISABLED'
-    && !options.condition.damageType.trim()
-  ) {
-    return { ok: false, reason: '确认报废时必须填写报废原因。' }
-  }
   return { ok: true, reason: '' }
 }
 
-export function deriveBagConditionDecision(options: {
-  conditionStatus: TransferBagConditionStatus
-  cleanlinessStatus: TransferBagCleanlinessStatus
-  damageType?: string
-  repairNeeded: boolean
-  reusableDecision?: TransferBagReusableDecision
-}): ReturnDecisionMeta {
-  if (options.reusableDecision === 'DISABLED') {
-    return {
-      reusableDecision: 'DISABLED',
-      nextBagStatus: 'DISABLED',
-      label: '报废',
-      className: 'bg-slate-200 text-slate-700 border border-slate-300',
-      detailText: '袋况严重损坏，当前轮次关闭后进入报废。',
-    }
-  }
-
+export function deriveBagConditionDecision(_options: Record<string, unknown> = {}): ReturnDecisionMeta {
   return {
     reusableDecision: 'REUSABLE',
     nextBagStatus: 'REUSABLE',
@@ -217,23 +178,13 @@ export function closeTransferBagUsageCycle(options: {
   usage: TransferBagUsage
   bag: TransferBagMaster
   receipt: TransferBagReturnReceipt
-  condition: TransferBagConditionRecord
+  condition?: TransferBagConditionRecord
   nowText: string
   closedBy: string
 }): TransferBagUsageClosureResult {
-  const decision = deriveBagConditionDecision({
-    conditionStatus: options.condition.conditionStatus,
-    cleanlinessStatus: options.condition.cleanlinessStatus,
-    damageType: options.condition.damageType,
-    repairNeeded: options.condition.repairNeeded,
-    reusableDecision: options.condition.reusableDecision,
-  })
   const warningMessages: string[] = []
   if (options.receipt.discrepancyType !== 'NONE') {
     warningMessages.push('本次回收存在差异，已生成回收差异记录。')
-  }
-  if (decision.nextBagStatus !== 'REUSABLE') {
-    warningMessages.push(`当前中转袋关闭后进入“${decision.label}”状态。`)
   }
   return {
     closureId: buildCuttingTraceabilityId('closure', options.nowText, options.usage.cycleId),
@@ -243,13 +194,11 @@ export function closeTransferBagUsageCycle(options: {
     usageNo: options.usage.cycleNo,
     closedAt: options.nowText,
     closedBy: options.closedBy,
-    closureStatus: decision.nextBagStatus === 'DISABLED' ? 'SCRAP_CLOSED' : 'CLOSED',
-    nextBagStatus: decision.nextBagStatus,
-    reason: decision.nextBagStatus === 'DISABLED'
-      ? '主管已确认中转袋实物不可继续使用，本次使用周期按报废关闭。'
-      : options.receipt.discrepancyType !== 'NONE'
-        ? '当前使用周期已完成回收确认；业务差异已单独保存，不影响中转袋继续使用。'
-        : '当前使用周期已完成回收确认并正式关闭。',
+    closureStatus: 'CLOSED',
+    nextBagStatus: 'REUSABLE',
+    reason: options.receipt.discrepancyType !== 'NONE'
+      ? '当前使用周期已完成回收确认；业务差异已单独保存，不影响中转袋继续使用。'
+      : '当前使用周期已完成回收确认并正式关闭。',
     warningMessages,
   }
 }
@@ -344,20 +293,17 @@ export function buildTransferBagReturnViewModel(options: {
   baseViewModel: TransferBagViewModel
 }): TransferBagReturnViewModel {
   const returnReceiptsByUsageId = buildEmptyCollectionMap(options.store.returnReceipts)
-  const conditionRecordsByUsageId = buildEmptyCollectionMap(options.store.conditionRecords)
   const closureResultsByUsageId = buildEmptyCollectionMap(options.store.closureResults)
   const returnAuditTrailByUsageId = buildEmptyCollectionMap(options.store.returnAuditTrail)
 
   const waitingReturnUsages = options.baseViewModel.usages
     .map((usage) => {
       const latestReturnReceipt = sortByLatest(returnReceiptsByUsageId[usage.cycleId] || [], 'returnAt')[0] || null
-      const latestConditionRecord = sortByLatest(conditionRecordsByUsageId[usage.cycleId] || [], 'inspectedAt')[0] || null
       const latestClosureResult = sortByLatest(closureResultsByUsageId[usage.cycleId] || [], 'closedAt')[0] || null
       return {
         ...usage,
         bagStatusMeta: usage.bagMaster ? deriveTransferBagMasterStatus(usage.bagMaster.currentStatus) : null,
         latestReturnReceipt,
-        latestConditionRecord,
         latestClosureResult,
         returnEligibility: deriveReturnEligibility({
           usage,
@@ -379,33 +325,14 @@ export function buildTransferBagReturnViewModel(options: {
       })
       const latestUsage = options.store.usages.find((item) => item.cycleId === cycle.latestCycleId) || null
       const latestReturnReceipt = sortByLatest(options.store.returnReceipts.filter((item) => item.carrierId === bag.carrierId), 'returnAt')[0] || null
-      const latestConditionRecord = sortByLatest(options.store.conditionRecords.filter((item) => item.carrierId === bag.carrierId), 'inspectedAt')[0] || null
       return {
         ...cycle,
         latestUsage,
         latestReturnReceipt,
-        latestConditionRecord,
         bagStatusMeta: deriveTransferBagMasterStatus(cycle.currentReusableStatus),
       }
     })
     .sort((left, right) => left.carrierCode.localeCompare(right.carrierCode, 'zh-CN'))
-
-  const conditionItems = sortByLatest(options.store.conditionRecords, 'inspectedAt')
-    .map((record) => ({
-      ...record,
-      latestUsage: options.store.usages.find((item) => item.cycleId === record.cycleId) || null,
-      bagMaster: options.store.masters.find((item) => item.carrierId === record.carrierId) || null,
-      decisionMeta: deriveBagConditionDecision({
-        conditionStatus: record.conditionStatus,
-        cleanlinessStatus: record.cleanlinessStatus,
-        damageType: record.damageType,
-        repairNeeded: record.repairNeeded,
-        reusableDecision: record.reusableDecision,
-      }),
-      returnDiscrepancyMeta: buildReturnDiscrepancyMeta(
-        sortByLatest(returnReceiptsByUsageId[record.cycleId] || [], 'returnAt')[0]?.discrepancyType || 'NONE',
-      ),
-    }))
 
   return {
     summary: {
@@ -413,15 +340,11 @@ export function buildTransferBagReturnViewModel(options: {
       inspectingUsageCount: waitingReturnUsages.filter((item) => item.usageStatus === 'RETURN_INSPECTING').length,
       closedUsageCount: waitingReturnUsages.filter((item) => ['CLOSED', 'SCRAP_CLOSED'].includes(item.usageStatus)).length,
       reusableBagCount: reuseCycles.filter((item) => item.currentReusableStatus === 'REUSABLE').length,
-      waitingCleaningBagCount: reuseCycles.filter((item) => item.currentReusableStatus === 'WAITING_CLEANING').length,
-      waitingRepairBagCount: reuseCycles.filter((item) => item.currentReusableStatus === 'WAITING_REPAIR').length,
     },
     waitingReturnUsages,
     returnReceiptsByUsageId,
-    conditionRecordsByUsageId,
     closureResultsByUsageId,
     returnAuditTrailByUsageId,
     reuseCycles,
-    conditionItems,
   }
 }

@@ -7,6 +7,7 @@ import {
 } from '../../../../data/fcs/production-order-identity.ts'
 import { buildTransferBagLabelPrintLink } from '../../../../data/fcs/fcs-route-links.ts'
 import { encodeCarrierQr } from '../../../../data/fcs/cutting/qr-codes.ts'
+import { resolveTransferBagCurrentUse } from '../../../../data/fcs/cutting/transfer-bag-operations.ts'
 import {
   listCuttingRuntimeEvents,
   type CuttingRuntimeEvent,
@@ -172,23 +173,23 @@ function renderFeedbackBar(): string {
 
 export function isTransferBagDetailTab(value: string | null | undefined): value is TransferBagDetailTab {
   return [
-    'basic',
+    'identity',
     'current',
-    'items',
+    'cycle',
+    'bagging',
     'inbound',
+    'repack',
     'handover',
     'special-craft',
-    'downstream',
     'recovery',
-    'logs',
-    'differences',
+    'scrap',
     'history',
   ].includes(value || '')
 }
 
 export function readTransferBagDetailTab(): TransferBagDetailTab {
   const detailTab = state.drillContext?.detailTab || getWarehouseSearchParams().get('detailTab')
-  return isTransferBagDetailTab(detailTab) ? detailTab : 'basic'
+  return isTransferBagDetailTab(detailTab) ? detailTab : 'identity'
 }
 
 const detailPageSize = 10
@@ -264,6 +265,10 @@ function runtimeRecord(value: unknown): Record<string, unknown> {
 
 function runtimeString(value: unknown): string {
   return typeof value === 'string' ? value : ''
+}
+
+function runtimeRecords(value: unknown): Array<Record<string, unknown>> {
+  return Array.isArray(value) ? value.map(runtimeRecord) : []
 }
 
 function getDetailRuntimeEvents(bagCode: string): CuttingRuntimeEvent[] {
@@ -459,16 +464,16 @@ export function renderTransferBagDetailTabs(
   activeTab: TransferBagDetailTab,
 ): string {
   const tabs: Array<{ key: TransferBagDetailTab; label: string }> = [
-    { key: 'basic', label: '基本信息' },
-    { key: 'current', label: '当前使用' },
-    { key: 'items', label: '袋内菲票' },
+    { key: 'identity', label: '稳定身份与二维码' },
+    { key: 'current', label: '当前状态与位置' },
+    { key: 'cycle', label: '当前周期与菲票' },
+    { key: 'bagging', label: '装袋记录' },
     { key: 'inbound', label: '入仓记录' },
+    { key: 'repack', label: '拆袋重装' },
     { key: 'handover', label: '袋级交出' },
     { key: 'special-craft', label: '特殊工艺回仓' },
-    { key: 'downstream', label: '接收与回写' },
     { key: 'recovery', label: '物理回收' },
-    { key: 'logs', label: '报废记录' },
-    { key: 'differences', label: '业务差异' },
+    { key: 'scrap', label: '报废记录' },
     { key: 'history', label: '历史周期' },
   ]
 
@@ -969,11 +974,7 @@ export function renderTransferBagCurrentTab(
   const lifecycle = buildWaitHandoverLifecycleByBagCode(activeMaster.bagCode)
   const hasRuntimeFacts = lifecycle.sourceFactIds.length > 0
     || lifecycle.usageCycleId !== null
-  const currentBindings = focusedUsage ? getViewModel().bindingsByUsageId[focusedUsage.usageId] || [] : []
-  const currentSummary = buildTransferBagParentChildSummary(currentBindings)
-  const runtimeSnapshot = resolveWaitHandoverBaggingSnapshot(
-    activeMaster.bagCode,
-  )
+  const currentUse = resolveTransferBagCurrentUse(activeMaster.bagCode)
 
   return `
     <section id="transfer-bag-tabpanel-current" role="tabpanel" aria-labelledby="transfer-bag-tab-current" class="space-y-3 rounded-xl border bg-card p-4">
@@ -988,9 +989,7 @@ export function renderTransferBagCurrentTab(
         ${renderDetailMetric('当前库位', carrierRecord?.currentLocation || activeMaster.currentLocation || '待命位')}
         ${renderDetailMetric(
           '当前装载摘要',
-          runtimeSnapshot
-            ? `${runtimeSnapshot.tickets.length} 张菲票 / ${runtimeSnapshot.tickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0)} 片裁片`
-            : `${currentSummary.ticketCount} 张菲票 / ${currentSummary.quantityTotal} 片裁片`,
+          `${currentUse.tickets.length} 张菲票 / ${currentUse.tickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0)} 片裁片`,
         )}
       </div>
       ${
@@ -1006,34 +1005,17 @@ export function renderTransferBagItemsTab(
   activeMaster: TransferBagMasterItem,
   focusedUsage: TransferBagUsageItem | null,
 ): string {
-  const usages = getDetailBagUsages(activeMaster)
-  const selectedUsage = focusedUsage && focusedUsage.bagId === activeMaster.bagId ? focusedUsage : activeMaster.currentUsage || usages[0] || null
-  const bindings = selectedUsage ? getViewModel().bindingsByUsageId[selectedUsage.usageId] || [] : []
-  const runtimeSnapshot = resolveWaitHandoverBaggingSnapshot(
-    activeMaster.bagCode,
-  )
-  const rows = runtimeSnapshot?.tickets.length
-    ? runtimeSnapshot.tickets.map((ticket) => ({
+  const currentUse = resolveTransferBagCurrentUse(activeMaster.bagCode)
+  const rows = currentUse.tickets.map((ticket) => ({
         ticketNo: ticket.feiTicketNo,
         productionOrderNo: ticket.productionOrderNo,
         cutOrderNo: ticket.cutOrderNo,
-        spuCode: ticket.spuCode,
+        spuCode: '—',
         color: ticket.color,
         size: ticket.size,
         partName: ticket.partName,
         qty: ticket.pieceQty,
         source: activeMaster.bagCode,
-      }))
-    : bindings.map((binding) => ({
-        ticketNo: binding.ticketNo,
-        productionOrderNo: binding.productionOrderNo || '待补',
-        cutOrderNo: binding.cutOrderNo || '待补',
-        spuCode: binding.ticket?.spuCode || selectedUsage?.spuCode || '待补',
-        color: binding.fabricColor || binding.ticket?.fabricColor || binding.ticket?.color || '待补',
-        size: binding.size || binding.ticket?.size || '待补',
-        partName: binding.partName || binding.ticket?.partName || '待补',
-        qty: binding.qty || 0,
-        source: binding.bagCode || activeMaster.bagCode,
       }))
   const paging = paginateDetailItems(rows)
 
@@ -1041,7 +1023,7 @@ export function renderTransferBagItemsTab(
     <section id="transfer-bag-tabpanel-items" role="tabpanel" aria-labelledby="transfer-bag-tab-items" class="space-y-3 rounded-xl border bg-card p-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <h2 class="text-sm font-semibold text-foreground">当前袋内菲票快照</h2>
-        <div class="text-xs text-muted-foreground">${escapeHtml(runtimeSnapshot?.usageCycleId || selectedUsage?.usageNo || '暂无使用周期')}</div>
+        <div class="text-xs text-muted-foreground">${escapeHtml(currentUse.usageCycleId || '暂无使用周期')}</div>
       </div>
       ${rows.length
         ? renderStickyTableScroller(`
@@ -1087,7 +1069,7 @@ export function renderTransferBagItemsTab(
       ${renderDetailPagination({
         activeMaster,
         focusedUsage,
-        activeTab: 'items',
+        activeTab: 'cycle',
         total: rows.length,
         ...paging,
       })}
@@ -1098,7 +1080,7 @@ export function renderTransferBagItemsTab(
 function renderRuntimeEventRecordTab(input: {
   activeMaster: TransferBagMasterItem
   focusedUsage: TransferBagUsageItem | null
-  activeTab: 'inbound' | 'handover' | 'special-craft'
+  activeTab: 'bagging' | 'inbound' | 'repack' | 'handover' | 'special-craft'
   title: string
   stateColumnTitle: string
   emptyText: string
@@ -1160,6 +1142,21 @@ function renderRuntimeEventRecordTab(input: {
   `
 }
 
+export function renderTransferBagBaggingTab(
+  activeMaster: TransferBagMasterItem,
+  focusedUsage: TransferBagUsageItem | null,
+): string {
+  return renderRuntimeEventRecordTab({
+    activeMaster,
+    focusedUsage,
+    activeTab: 'bagging',
+    title: '菲票装袋记录',
+    stateColumnTitle: '装袋记录状态',
+    emptyText: '当前中转袋暂无菲票装袋记录。',
+    eventTypes: ['菲票装袋'],
+  })
+}
+
 export function renderTransferBagInboundTab(
   activeMaster: TransferBagMasterItem,
   focusedUsage: TransferBagUsageItem | null,
@@ -1175,19 +1172,61 @@ export function renderTransferBagInboundTab(
   })
 }
 
-export function renderTransferBagHandoverTab(
+export function renderTransferBagRepackTab(
   activeMaster: TransferBagMasterItem,
   focusedUsage: TransferBagUsageItem | null,
 ): string {
   return renderRuntimeEventRecordTab({
     activeMaster,
     focusedUsage,
-    activeTab: 'handover',
-    title: '袋级交出记录',
-    stateColumnTitle: '交出记录状态',
-    emptyText: '当前中转袋暂无整袋交出记录。',
-    eventTypes: ['新增交出记录', '特殊工艺交出'],
+    activeTab: 'repack',
+    title: '拆袋重装记录',
+    stateColumnTitle: '重装记录状态',
+    emptyText: '当前中转袋暂无拆袋重装记录。',
+    eventTypes: ['中转袋拆袋重装'],
   })
+}
+
+export function renderTransferBagHandoverTab(
+  activeMaster: TransferBagMasterItem,
+  focusedUsage: TransferBagUsageItem | null,
+): string {
+  const events = getDetailRuntimeEvents(activeMaster.bagCode)
+    .filter((event) => ['新增交出记录', '特殊工艺交出'].includes(event.eventType))
+  const paging = paginateDetailItems(events)
+  return `
+    <section class="space-y-3 rounded-xl border bg-card p-4">
+      <div>
+        <h2 class="text-sm font-semibold text-foreground">袋级交出记录</h2>
+        <p class="mt-1 text-sm text-muted-foreground">菲票与片数读取交出提交事件中的不可变快照，不回读中转袋当前内容。</p>
+      </div>
+      ${events.length
+        ? paging.items.map((event) => {
+            const payload = runtimeRecord(event.payload)
+            const bagUses = runtimeRecords(payload.transferBagUses)
+              .filter((item) => runtimeString(item.bagCode) === activeMaster.bagCode)
+            const snapshots = bagUses.flatMap((item) => runtimeRecords(item.ticketSnapshot))
+            return `
+              <article class="space-y-3 rounded-lg border bg-muted/10 p-3">
+                <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <span class="font-medium text-foreground">${escapeHtml(runtimeString(payload.handoverRecordNo) || event.refs.handoverRecordId || event.eventNo)}</span>
+                  <span class="text-xs text-muted-foreground">${escapeHtml(`${event.operatorName} / ${formatDateTime(event.occurredAt)}`)}</span>
+                </div>
+                ${snapshots.length
+                  ? renderStickyTableScroller(`
+                      <table class="min-w-[900px] w-full text-sm">
+                        <thead class="bg-muted/95 text-xs text-muted-foreground"><tr><th class="px-3 py-2 text-left">菲票</th><th class="px-3 py-2 text-left">生产单</th><th class="px-3 py-2 text-left">裁片单</th><th class="px-3 py-2 text-left">颜色 / 尺码 / 部位</th><th class="px-3 py-2 text-right">交出片数</th><th class="px-3 py-2 text-left">接收工厂</th></tr></thead>
+                        <tbody>${snapshots.map((ticket) => `<tr class="border-b bg-card"><td class="px-3 py-2 font-medium">${escapeHtml(runtimeString(ticket.feiTicketNo))}</td><td class="px-3 py-2">${escapeHtml(runtimeString(ticket.productionOrderNo))}</td><td class="px-3 py-2">${escapeHtml(runtimeString(ticket.cutOrderNo))}</td><td class="px-3 py-2">${escapeHtml([runtimeString(ticket.color), runtimeString(ticket.size), runtimeString(ticket.partName)].filter(Boolean).join(' / '))}</td><td class="px-3 py-2 text-right tabular-nums">${escapeHtml(String(ticket.pieceQty || 0))} 片</td><td class="px-3 py-2">${escapeHtml(runtimeString(ticket.receiverFactoryName) || runtimeString(payload.receiverName))}</td></tr>`).join('')}</tbody>
+                      </table>
+                    `, 'max-h-[36vh]')
+                  : '<div class="rounded-md border border-dashed px-4 py-5 text-sm text-muted-foreground">该历史交出事件未保存逐菲票快照，仅保留原事件编号，不补猜当前袋内关系。</div>'}
+              </article>
+            `
+          }).join('')
+        : '<div class="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">当前中转袋暂无整袋交出记录。</div>'}
+      ${renderDetailPagination({ activeMaster, focusedUsage, activeTab: 'handover', total: events.length, ...paging })}
+    </section>
+  `
 }
 
 export function renderTransferBagSpecialCraftTab(
@@ -1579,7 +1618,7 @@ export function renderTransferBagLogsTab(
       ${renderDetailPagination({
         activeMaster,
         focusedUsage,
-        activeTab: 'logs',
+        activeTab: 'scrap',
         total: scrapRecords.length,
         ...paging,
       })}
@@ -1592,17 +1631,18 @@ export function renderTransferBagDetailTabPanel(
   focusedUsage: TransferBagUsageItem | null,
   activeTab: TransferBagDetailTab,
 ): string {
-  if (activeTab === 'basic') return renderTransferBagBasicTab(activeMaster, focusedUsage)
-  if (activeTab === 'items') return renderTransferBagItemsTab(activeMaster, focusedUsage)
-  if (activeTab === 'inbound') return renderTransferBagInboundTab(activeMaster, focusedUsage)
-  if (activeTab === 'handover') return renderTransferBagHandoverTab(activeMaster, focusedUsage)
-  if (activeTab === 'special-craft') return renderTransferBagSpecialCraftTab(activeMaster, focusedUsage)
-  if (activeTab === 'downstream') return renderTransferBagDownstreamTab(activeMaster, focusedUsage)
-  if (activeTab === 'recovery') return renderTransferBagRecoveryTab(activeMaster, focusedUsage)
-  if (activeTab === 'logs') return renderTransferBagLogsTab(activeMaster, focusedUsage)
-  if (activeTab === 'differences') return renderTransferBagDifferencesTab(activeMaster, focusedUsage)
-  if (activeTab === 'history') return renderTransferBagHistoryTab(activeMaster, focusedUsage)
-  return renderTransferBagCurrentTab(activeMaster, focusedUsage)
+  let panel = renderTransferBagCurrentTab(activeMaster, focusedUsage)
+  if (activeTab === 'identity') panel = renderTransferBagBasicTab(activeMaster, focusedUsage)
+  if (activeTab === 'cycle') panel = renderTransferBagItemsTab(activeMaster, focusedUsage)
+  if (activeTab === 'bagging') panel = renderTransferBagBaggingTab(activeMaster, focusedUsage)
+  if (activeTab === 'inbound') panel = renderTransferBagInboundTab(activeMaster, focusedUsage)
+  if (activeTab === 'repack') panel = renderTransferBagRepackTab(activeMaster, focusedUsage)
+  if (activeTab === 'handover') panel = renderTransferBagHandoverTab(activeMaster, focusedUsage)
+  if (activeTab === 'special-craft') panel = renderTransferBagSpecialCraftTab(activeMaster, focusedUsage)
+  if (activeTab === 'recovery') panel = renderTransferBagRecoveryTab(activeMaster, focusedUsage)
+  if (activeTab === 'scrap') panel = renderTransferBagLogsTab(activeMaster, focusedUsage)
+  if (activeTab === 'history') panel = renderTransferBagHistoryTab(activeMaster, focusedUsage)
+  return `<div id="transfer-bag-tabpanel-${activeTab}" role="tabpanel" aria-labelledby="transfer-bag-tab-${activeTab}" data-transfer-bag-detail-layer="${activeTab}">${panel}</div>`
 }
 
 export function renderDetailPage(): string {

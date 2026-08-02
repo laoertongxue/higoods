@@ -72,9 +72,30 @@ const transferBagProjectionSource = readFileSync(
   )),
   'utf8',
 )
+const transferBagModelSource = readFileSync(
+  fileURLToPath(new URL(
+    '../src/pages/process-factory/cutting/transfer-bags-model.ts',
+    import.meta.url,
+  )),
+  'utf8',
+)
+const transferBagReturnModelSource = readFileSync(
+  fileURLToPath(new URL(
+    '../src/pages/process-factory/cutting/transfer-bag-return-model.ts',
+    import.meta.url,
+  )),
+  'utf8',
+)
 const transferBagStateSource = readFileSync(
   fileURLToPath(new URL(
     '../src/pages/process-factory/cutting/transfer-bags/state.ts',
+    import.meta.url,
+  )),
+  'utf8',
+)
+const transferBagHandlersSource = readFileSync(
+  fileURLToPath(new URL(
+    '../src/pages/process-factory/cutting/transfer-bags/handlers.ts',
     import.meta.url,
   )),
   'utf8',
@@ -2310,6 +2331,45 @@ assert(
     ),
   '主列表必须实时读取统一生命周期事实投影，不能只读旧 TransferBagStore',
 )
+assert(
+  transferBagModelSource.includes(
+    "export const TRANSFER_BAG_CARRIER_STAGE_OPTIONS = ['菲票已装袋', '入仓暂存中', '待交出', '已交出待回收'] as const",
+  ),
+  '中转袋主列表流转阶段选项必须且只能是四个当前运行阶段',
+)
+for (const actionContract of [
+  "if (current.mainStatus === 'DISABLED') return ['查看详情']",
+  "if (current.mainStatus === 'IDLE') return ['菲票装袋', '报废', '查看详情']",
+  "if (current.flowStage === 'PACKED') return ['中转袋入仓', '拆袋重装', '查看详情']",
+  "if (current.flowStage === 'INBOUND_STORED' || current.flowStage === 'READY_HANDOVER') return ['拆袋重装', '中转袋交出', '查看详情']",
+  "return ['中转袋回收', '查看详情']",
+]) {
+  assert(
+    transferBagModelSource.includes(actionContract),
+    `中转袋主列表动作资格矩阵缺少合同：${actionContract}`,
+  )
+}
+assert.equal(
+  /returnedGarmentQty|returnedTicketQty|cleanlinessStatus|repairNeeded|WAITING_CLEANING|WAITING_REPAIR/.test(
+    transferBagReturnModelSource,
+  ),
+  false,
+  '中转袋回收模型不得继续包含成衣/菲票回收数、清洁、维修或待清洗待维修状态',
+)
+assert.equal(
+  /returnedFinishedQty|returnedTicketCountSummary|conditionDraft|cleanlinessStatus|repairNeeded|WAITING_CLEANING|WAITING_REPAIR/.test(
+    [transferBagPageSource, transferBagDialogSource, transferBagStateSource, transferBagHandlersSource].join('\n'),
+  ),
+  false,
+  '当前回收页面和处理器不得继续读取旧数量、袋况、清洗或维修字段',
+)
+assert.equal(
+  /usageStatus\s*=\s*['"]SCRAP_CLOSED['"]|cycleStatus\s*=\s*['"]SCRAP_CLOSED['"]|bag\.currentStatus\s*=(?!=)/.test(
+    [transferBagPageSource, transferBagHandlersSource].join('\n'),
+  ),
+  false,
+  '主列表和处理器不得直接关闭开放周期或改写中转袋主档当前状态',
+)
 for (const detailSection of [
   '当前袋内菲票快照',
   '中转袋入仓记录',
@@ -2389,8 +2449,12 @@ const explicitScrapClosure =
     nowText: '2026-07-30 17:10',
     closedBy: '回收主管',
   })
-assert.equal(explicitScrapClosure.closureStatus, 'SCRAP_CLOSED')
-assert.equal(explicitScrapClosure.nextBagStatus, 'DISABLED')
+assert.equal(
+  explicitScrapClosure.closureStatus,
+  'CLOSED',
+  '回收关闭不得根据袋况直接写入报废关闭，继续报废必须走独立事实',
+)
+assert.equal(explicitScrapClosure.nextBagStatus, 'REUSABLE')
 
 const stableCarrierQr = cuttingQrCodes.encodeCarrierQr({
   carrierId: 'carrier:BAG-QR-001',

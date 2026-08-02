@@ -78,6 +78,11 @@ export type MasterUseStageFilter = 'ALL' | TransferBagCarrierUseStage
 export type UsageStatusFilter = 'ALL' | TransferBagUsageStatusKey
 export type ReturnStatusFilter = 'ALL' | 'WAITING_RETURN' | 'RETURN_INSPECTING' | 'CLOSED' | 'SCRAP_CLOSED'
 export type TransferBagDetailTab =
+  | 'identity'
+  | 'cycle'
+  | 'bagging'
+  | 'repack'
+  | 'scrap'
   | 'basic'
   | 'current'
   | 'items'
@@ -112,12 +117,12 @@ export type ReturnDraftField =
   | 'returnAt'
   | 'returnedBy'
   | 'receivedBy'
-  | 'returnedFinishedQty'
-  | 'returnedTicketCountSummary'
+  | 'returnedPieceTotal'
+  | 'returnedTicketTotal'
   | 'discrepancyType'
   | 'discrepancyNote'
   | 'note'
-export type ConditionDraftField = 'conditionStatus' | 'cleanlinessStatus' | 'damageType' | 'repairNeeded' | 'reusableDecision' | 'note'
+export type ConditionDraftField = 'conditionStatus' | 'physicalCheckStatus' | 'damageType' | 'damageNeedsFollowUp' | 'reusableDecision' | 'note'
 export type ScrapDraftField = 'reason' | 'authorizedBy'
 export type MasterDraftField = 'bagCode' | 'carrierType' | 'capacity' | 'bagSpec' | 'bagMaterial' | 'ownershipFactoryId' | 'currentLocation' | 'note'
 export type PackDraftField =
@@ -221,17 +226,17 @@ export interface TransferBagsPageState {
     returnAt: string
     returnedBy: string
     receivedBy: string
-    returnedFinishedQty: string
-    returnedTicketCountSummary: string
+    returnedPieceTotal: string
+    returnedTicketTotal: string
     discrepancyType: TransferBagDiscrepancyType
     discrepancyNote: string
     note: string
   }
-  conditionDraft: {
+  returnPhysicalDraft: {
     conditionStatus: TransferBagConditionStatus
-    cleanlinessStatus: 'CLEAN' | 'DIRTY'
+    physicalCheckStatus: 'CLEAN' | 'DIRTY'
     damageType: string
-    repairNeeded: boolean
+    damageNeedsFollowUp: boolean
     reusableDecision: TransferBagReusableDecision
     note: string
   }
@@ -351,17 +356,17 @@ export const state: TransferBagsPageState = {
     returnAt: '',
     returnedBy: '',
     receivedBy: '',
-    returnedFinishedQty: '',
-    returnedTicketCountSummary: '',
+    returnedPieceTotal: '',
+    returnedTicketTotal: '',
     discrepancyType: 'NONE',
     discrepancyNote: '',
     note: '',
   },
-  conditionDraft: {
+  returnPhysicalDraft: {
     conditionStatus: 'GOOD',
-    cleanlinessStatus: 'CLEAN',
+    physicalCheckStatus: 'CLEAN',
     damageType: '',
-    repairNeeded: false,
+    damageNeedsFollowUp: false,
     reusableDecision: 'REUSABLE',
     note: '',
   },

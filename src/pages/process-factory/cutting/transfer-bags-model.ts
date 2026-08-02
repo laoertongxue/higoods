@@ -48,6 +48,10 @@ import type { CutOrderRow } from './cut-orders-model.ts'
 import type {
   TransferBagLifecycleView,
 } from '../../../data/fcs/cutting/transfer-bag-lifecycle.ts'
+import {
+  resolveTransferBagCurrentUse,
+  type TransferBagCurrentUse,
+} from '../../../data/fcs/cutting/transfer-bag-operations.ts'
 
 export type { TransferBagUsageStage }
 
@@ -772,6 +776,24 @@ export interface TransferBagViewModel {
 
 export type TransferBagCarrierCurrentStatus = '空闲' | '使用中' | '已报废'
 export type TransferBagCarrierUseStage = '—' | '菲票已装袋' | '入仓暂存中' | '待交出' | '已交出待回收'
+export const TRANSFER_BAG_CARRIER_STAGE_OPTIONS = ['菲票已装袋', '入仓暂存中', '待交出', '已交出待回收'] as const
+
+export type TransferBagCarrierAction =
+  | '菲票装袋'
+  | '中转袋入仓'
+  | '拆袋重装'
+  | '中转袋交出'
+  | '中转袋回收'
+  | '报废'
+  | '查看详情'
+
+export function buildCarrierRowActions(current: TransferBagCurrentUse): TransferBagCarrierAction[] {
+  if (current.mainStatus === 'DISABLED') return ['查看详情']
+  if (current.mainStatus === 'IDLE') return ['菲票装袋', '报废', '查看详情']
+  if (current.flowStage === 'PACKED') return ['中转袋入仓', '拆袋重装', '查看详情']
+  if (current.flowStage === 'INBOUND_STORED' || current.flowStage === 'READY_HANDOVER') return ['拆袋重装', '中转袋交出', '查看详情']
+  return ['中转袋回收', '查看详情']
+}
 
 export interface TransferBagMasterArchiveRecord {
   bagMasterId: string
@@ -798,6 +820,7 @@ export interface TransferBagMasterArchiveRecord {
   enabled: boolean
   createdAt: string
   createdBy: string
+  actions: TransferBagCarrierAction[]
 }
 
 export interface TransferBagUseCycleView {
@@ -2936,7 +2959,7 @@ function uniqueTransferBagScrapRecordsByBag(records: TransferBagScrapRecord[]): 
 export function buildTransferBagCarrierManagementProjection(
   store: TransferBagStore,
   viewModel: TransferBagViewModel,
-  runtimeLifecycleByBagCode: Readonly<Record<string, TransferBagLifecycleView>> = {},
+  _runtimeLifecycleByBagCode: Readonly<Record<string, TransferBagLifecycleView>> = {},
 ): TransferBagCarrierManagementProjection {
   const scrapRecords = buildTransferBagScrapRecordsFromStore(store, viewModel)
   const scrapCountByBag = scrapRecords.reduce<Record<string, number>>((result, record) => {
@@ -2952,20 +2975,31 @@ export function buildTransferBagCarrierManagementProjection(
   const masterRecords: TransferBagMasterArchiveRecord[] = viewModel.masters.map((master) => {
     const relatedUsages = (usagesByBag[master.bagId] || []).slice().sort((left, right) => right.usageNo.localeCompare(left.usageNo, 'zh-CN'))
     const currentUsage = master.currentUsage
-    const runtimeLifecycle = runtimeLifecycleByBagCode[master.bagCode]
-    const currentUseStage = runtimeLifecycle
-      ? runtimeLifecycle.flowStageLabel
-      : deriveCarrierManagementUseStage(currentUsage)
-    const currentBoundObjectType = !currentUsage
+    const current = resolveTransferBagCurrentUse(master.bagCode)
+    const currentStatus: TransferBagCarrierCurrentStatus = current.mainStatus === 'DISABLED'
+      ? '已报废'
+      : current.mainStatus === 'IN_USE'
+        ? '使用中'
+        : '空闲'
+    const currentUseStage: TransferBagCarrierUseStage = current.flowStage === 'PACKED'
+      ? '菲票已装袋'
+      : current.flowStage === 'INBOUND_STORED'
+        ? '入仓暂存中'
+        : current.flowStage === 'READY_HANDOVER'
+          ? '待交出'
+          : current.flowStage === 'HANDED_OVER_WAITING_RETURN'
+            ? '已交出待回收'
+            : '—'
+    const currentBoundObjectType = !current.usageCycleId
       ? ''
       : currentUseStage === '入仓暂存中'
         ? '入仓暂存记录'
-        : currentUsage.boundObjectType || '车缝任务'
-    const currentBoundObjectNo = !currentUsage
+        : '生产单'
+    const currentBoundObjectNo = !current.usageCycleId
       ? ''
       : currentUseStage === '入仓暂存中'
-        ? currentUsage.usageNo
-        : currentUsage.boundObjectNo || currentUsage.sewingTaskNo || currentUsage.usageNo
+        ? current.usageCycleId
+        : current.productionOrderNo || current.usageCycleId
     return {
       bagMasterId: master.bagId,
       bagCode: master.bagCode,
@@ -2974,31 +3008,24 @@ export function buildTransferBagCarrierManagementProjection(
       bagMaterial: isBagMaterialText(master.bagMaterial || (master.carrierType === 'box' ? '周转箱' : '循环软袋')),
       ownershipFactoryId: master.ownershipFactoryId || '',
       ownershipFactoryName: master.ownershipFactoryName || '',
-      currentStatus:
-        runtimeLifecycle?.mainStatusLabel
-        || deriveCarrierManagementStatus(master),
+      currentStatus,
       currentLocation: master.currentLocation || '待命位',
       currentUseStage,
-      currentUseId:
-        runtimeLifecycle?.usageCycleId
-        || currentUsage?.usageId
-        || '',
+      currentUseId: current.usageCycleId || '',
       currentBoundObjectType,
-      currentBoundObjectId: currentUseStage === '入仓暂存中' ? currentUsage?.usageId || '' : currentUsage?.boundObjectId || currentUsage?.sewingTaskId || '',
+      currentBoundObjectId: current.usageCycleId || '',
       currentBoundObjectNo,
-      currentFeiTicketCount: master.packedTicketCount,
-      currentPieceQty: master.currentTotalPieceCount,
+      currentFeiTicketCount: current.tickets.length,
+      currentPieceQty: current.tickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0),
       lastUsedAt: relatedUsages[0]?.startedAt || '',
       lastSignedAt: master.currentSignedAt,
       lastReturnedAt: master.currentReturnedAt,
       totalUseCount: relatedUsages.length,
       scrapCount: scrapCountByBag[master.bagCode] || 0,
-      enabled:
-        runtimeLifecycle
-          ? runtimeLifecycle.mainStatus !== 'DISABLED'
-          : master.enabled !== false && master.currentStatus !== 'DISABLED',
+      enabled: current.mainStatus !== 'DISABLED',
       createdAt: master.createdAt || '2026-03-01 08:00',
       createdBy: master.createdBy || '裁床仓管',
+      actions: buildCarrierRowActions(current),
     }
   })
 

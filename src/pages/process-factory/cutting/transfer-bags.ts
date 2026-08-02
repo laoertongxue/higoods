@@ -85,6 +85,7 @@ import {
   serializeTransferBagStorage,
   validateTicketBindingEligibility,
   type TransferBagBindingItem,
+  type TransferBagCarrierAction,
   type TransferBagCarrierCurrentStatus,
   type TransferBagCarrierUseStage,
   type TransferBagItemBinding,
@@ -99,6 +100,10 @@ import {
   type TransferBagUsageStatusKey,
   type TransferBagVisibleStatusKey,
 } from './transfer-bags-model.ts'
+import {
+  openWaitHandoverAction,
+  type WaitHandoverWebAction,
+} from './wait-handover-actions.ts'
 import {
   buildBagReturnAuditTrail,
   buildReuseCycleSummary,
@@ -359,23 +364,26 @@ function renderTransferBagQrCell(bagCode: string, size = 64): string {
 
 function renderMasterStatusActions(options: {
   item: TransferBagMasterItem
-  currentStatus: string
+  actions: TransferBagCarrierAction[]
   detailHref: string
-  historyHref: string
 }): string {
-  const { item, currentStatus, detailHref, historyHref } = options
-  const actionButtons: string[] = [
-    `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(detailHref)}">查看详情</button>`,
-    `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(historyHref)}">查看使用周期</button>`,
-    `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(buildTransferBagLabelPrintLink(item.bagId))}">打印中转袋二维码</button>`,
-  ]
-  if (currentStatus !== '已报废') {
-    actionButtons.push(
-      `<button type="button" class="rounded-md border border-rose-200 px-2.5 py-1.5 text-xs text-rose-700 hover:bg-rose-50" data-transfer-bags-action="open-scrap" data-bag-id="${escapeHtml(item.bagId)}">确认报废</button>`,
-    )
+  const { item, actions, detailHref } = options
+  const waitHandoverActionByLabel: Partial<Record<TransferBagCarrierAction, WaitHandoverWebAction>> = {
+    菲票装袋: 'bagging',
+    中转袋入仓: 'inbound',
+    拆袋重装: 'repack',
+    中转袋交出: 'handover',
+    中转袋回收: 'recovery',
+    报废: 'scrap',
   }
-
-  return actionButtons.join('')
+  return actions.map((action) => {
+    if (action === '查看详情') {
+      return `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(detailHref)}">查看详情</button>`
+    }
+    const actionKey = waitHandoverActionByLabel[action]
+    const dangerClass = action === '报废' ? 'border-rose-200 text-rose-700 hover:bg-rose-50' : 'hover:bg-muted'
+    return `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs ${dangerClass}" data-skip-page-rerender="true" data-transfer-bags-action="open-wait-handover" data-wait-handover-action-key="${escapeHtml(actionKey || '')}" data-bag-code="${escapeHtml(item.bagCode)}">${escapeHtml(action)}</button>`
+  }).join('')
 }
 
 
@@ -514,7 +522,7 @@ function renderReturnStatsCards(): string {
       ${renderCompactKpiCard('已交出待回收', summary.waitingReturnUsageCount, '', 'text-orange-600')}
       ${renderCompactKpiCard('回收确认中', summary.inspectingUsageCount, '', 'text-cyan-600')}
       ${renderCompactKpiCard('已关闭使用周期数', summary.closedUsageCount, '', 'text-emerald-600')}
-      ${renderCompactKpiCard('可用袋数', summary.reusableBagCount + summary.waitingCleaningBagCount + summary.waitingRepairBagCount, '', 'text-emerald-600')}
+      ${renderCompactKpiCard('可用袋数', summary.reusableBagCount, '', 'text-emerald-600')}
       ${renderCompactKpiCard('报废袋数', getViewModel().masters.filter((item) => item.currentStatus === 'DISABLED').length, '', 'text-slate-600')}
       ${renderCompactKpiCard('报废记录数', scrapRecordCount, '', 'text-rose-600')}
   `)
@@ -1334,21 +1342,10 @@ const transferBagListColumns: StandardListColumn<TransferBagMasterListRow>[] = [
         usageId: item.currentUsage?.usageId || undefined,
         usageNo: item.currentUsage?.usageNo || undefined,
       })
-      const historyHref = buildTransferBagDetailRoute({
-        bagId: item.bagId,
-        bagCode: item.bagCode,
-        usageId: item.currentUsage?.usageId || undefined,
-        usageNo: item.currentUsage?.usageNo || undefined,
-        detailTab: 'history',
-      })
-      const currentStatus =
-        carrierRecord?.currentStatus
-        || item.visibleStatusMeta.label
       return `<div class="flex flex-wrap gap-2">${renderMasterStatusActions({
         item,
-        currentStatus,
+        actions: carrierRecord?.actions || ['查看详情'],
         detailHref,
-        historyHref,
       })}</div>`
     },
   },
@@ -2026,10 +2023,10 @@ function renderReturnLedgerSection(): string {
 function renderReturnWorkbenchSection(): string {
   const activeUsage = state.activeUsageId ? getReturnViewModel().waitingReturnUsages.find((item) => item.usageId === state.activeUsageId) || null : null
   const decisionMeta = deriveBagConditionDecision({
-    conditionStatus: state.conditionDraft.conditionStatus,
-    cleanlinessStatus: state.conditionDraft.cleanlinessStatus,
-    damageType: state.conditionDraft.damageType,
-    repairNeeded: state.conditionDraft.repairNeeded,
+    conditionStatus: state.returnPhysicalDraft.conditionStatus,
+    physicalCheckStatus: state.returnPhysicalDraft.physicalCheckStatus,
+    damageType: state.returnPhysicalDraft.damageType,
+    damageNeedsFollowUp: state.returnPhysicalDraft.damageNeedsFollowUp,
   })
   const discrepancyMeta = buildReturnDiscrepancyMeta(state.returnDraft.discrepancyType)
 
@@ -2075,11 +2072,11 @@ function renderReturnWorkbenchSection(): string {
               </label>
               <label class="space-y-2">
                 <span class="text-sm font-medium text-foreground">回收成衣件数摘要（件）</span>
-                <input type="number" value="${escapeHtml(state.returnDraft.returnedFinishedQty)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-return-draft-field="returnedFinishedQty" />
+                <input type="number" value="${escapeHtml(state.returnDraft.returnedPieceTotal)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-return-draft-field="returnedPieceTotal" />
               </label>
               <label class="space-y-2">
                 <span class="text-sm font-medium text-foreground">回收菲票数量摘要</span>
-                <input type="number" value="${escapeHtml(state.returnDraft.returnedTicketCountSummary)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-return-draft-field="returnedTicketCountSummary" />
+                <input type="number" value="${escapeHtml(state.returnDraft.returnedTicketTotal)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-return-draft-field="returnedTicketTotal" />
               </label>
               <label class="space-y-2">
                 <span class="text-sm font-medium text-foreground">差异类型</span>
@@ -2100,39 +2097,39 @@ function renderReturnWorkbenchSection(): string {
               <label class="space-y-2">
                 <span class="text-sm font-medium text-foreground">袋况</span>
                 <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-condition-field="conditionStatus">
-                  <option value="GOOD" ${state.conditionDraft.conditionStatus === 'GOOD' ? 'selected' : ''}>完好</option>
-                  <option value="MINOR_DAMAGE" ${state.conditionDraft.conditionStatus === 'MINOR_DAMAGE' ? 'selected' : ''}>轻微损坏</option>
-                  <option value="SEVERE_DAMAGE" ${state.conditionDraft.conditionStatus === 'SEVERE_DAMAGE' ? 'selected' : ''}>严重损坏</option>
+                  <option value="GOOD" ${state.returnPhysicalDraft.conditionStatus === 'GOOD' ? 'selected' : ''}>完好</option>
+                  <option value="MINOR_DAMAGE" ${state.returnPhysicalDraft.conditionStatus === 'MINOR_DAMAGE' ? 'selected' : ''}>轻微损坏</option>
+                  <option value="SEVERE_DAMAGE" ${state.returnPhysicalDraft.conditionStatus === 'SEVERE_DAMAGE' ? 'selected' : ''}>严重损坏</option>
                 </select>
               </label>
               <label class="space-y-2">
                 <span class="text-sm font-medium text-foreground">洁净情况</span>
-                <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-condition-field="cleanlinessStatus">
-                  <option value="CLEAN" ${state.conditionDraft.cleanlinessStatus === 'CLEAN' ? 'selected' : ''}>干净</option>
-                  <option value="DIRTY" ${state.conditionDraft.cleanlinessStatus === 'DIRTY' ? 'selected' : ''}>已记录袋况</option>
+                <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-condition-field="physicalCheckStatus">
+                  <option value="CLEAN" ${state.returnPhysicalDraft.physicalCheckStatus === 'CLEAN' ? 'selected' : ''}>干净</option>
+                  <option value="DIRTY" ${state.returnPhysicalDraft.physicalCheckStatus === 'DIRTY' ? 'selected' : ''}>已记录袋况</option>
                 </select>
               </label>
               <label class="space-y-2">
                 <span class="text-sm font-medium text-foreground">损坏说明</span>
-                <input type="text" value="${escapeHtml(state.conditionDraft.damageType)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-condition-field="damageType" />
+                <input type="text" value="${escapeHtml(state.returnPhysicalDraft.damageType)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-condition-field="damageType" />
               </label>
               <label class="space-y-2">
                 <span class="text-sm font-medium text-foreground">回收结果</span>
                 <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-condition-field="reusableDecision">
-                  <option value="REUSABLE" ${state.conditionDraft.reusableDecision === 'REUSABLE' ? 'selected' : ''}>可继续使用</option>
-                  <option value="DISABLED" ${state.conditionDraft.reusableDecision === 'DISABLED' ? 'selected' : ''}>报废</option>
+                  <option value="REUSABLE" ${state.returnPhysicalDraft.reusableDecision === 'REUSABLE' ? 'selected' : ''}>可继续使用</option>
+                  <option value="DISABLED" ${state.returnPhysicalDraft.reusableDecision === 'DISABLED' ? 'selected' : ''}>报废</option>
                 </select>
               </label>
               <label class="space-y-2">
                 <span class="text-sm font-medium text-foreground">维修需求</span>
                 <label class="flex h-10 items-center gap-2 rounded-md border bg-background px-3 text-sm">
-                  <input type="checkbox" ${state.conditionDraft.repairNeeded ? 'checked' : ''} data-transfer-bags-condition-toggle="repairNeeded" />
+                  <input type="checkbox" ${state.returnPhysicalDraft.damageNeedsFollowUp ? 'checked' : ''} data-transfer-bags-condition-toggle="damageNeedsFollowUp" />
                 <span>记录袋况</span>
                 </label>
               </label>
               <label class="space-y-2 md:col-span-2 xl:col-span-5">
                 <span class="text-sm font-medium text-foreground">袋况备注</span>
-                <input type="text" value="${escapeHtml(state.conditionDraft.note)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-condition-field="note" />
+                <input type="text" value="${escapeHtml(state.returnPhysicalDraft.note)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-condition-field="note" />
               </label>
             </div>
             <div class="rounded-lg border bg-muted/15 p-3 text-sm">
@@ -2237,7 +2234,7 @@ function renderConditionSection(): string {
                 <td class="px-4 py-3">${escapeHtml(item.bagCode)}</td>
                 <td class="px-4 py-3">${escapeHtml(item.latestUsage?.usageNo || '待补')}</td>
                 <td class="px-4 py-3">${escapeHtml(item.conditionStatus === 'GOOD' ? '完好' : item.conditionStatus === 'MINOR_DAMAGE' ? '轻微破损' : '报废')}</td>
-                <td class="px-4 py-3">${escapeHtml(item.cleanlinessStatus === 'CLEAN' ? '无' : '已记录')}</td>
+                <td class="px-4 py-3">${escapeHtml(item.physicalCheckStatus === 'CLEAN' ? '无' : '已记录')}</td>
                 <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.损坏说明 || '无')}</td>
                 <td class="px-4 py-3">${renderTag(item.decisionMeta.label, item.decisionMeta.className)}</td>
                 <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.returnDiscrepancyMeta?.label || item.decisionMeta.detailText)}</td>
@@ -2444,8 +2441,8 @@ function buildReturnReceiptFromState(usage: TransferBagUsage, bag: TransferBagMa
     returnAt: state.returnDraft.returnAt.trim(),
     returnedBy: state.returnDraft.returnedBy.trim(),
     receivedBy: state.returnDraft.receivedBy.trim(),
-    returnedFinishedQty: summary.quantityTotal,
-    returnedTicketCountSummary: bindings.length,
+    returnedPieceTotal: summary.quantityTotal,
+    returnedTicketTotal: bindings.length,
     returnedCutOrderCount: uniqueStrings(bindings.map((item) => item.cutOrderNo)).length,
     discrepancyType: state.returnDraft.discrepancyType,
     discrepancyNote: state.returnDraft.discrepancyNote.trim(),
@@ -2462,14 +2459,14 @@ function buildConditionRecordFromState(usage: TransferBagUsage, bag: TransferBag
     usageId: usage.usageId,
     bagId: bag.bagId,
     bagCode: bag.bagCode,
-    conditionStatus: state.conditionDraft.conditionStatus,
-    cleanlinessStatus: state.conditionDraft.cleanlinessStatus,
-    damageType: state.conditionDraft.damageType.trim(),
-    repairNeeded: state.conditionDraft.repairNeeded,
-    reusableDecision: state.conditionDraft.reusableDecision,
+    conditionStatus: state.returnPhysicalDraft.conditionStatus,
+    physicalCheckStatus: state.returnPhysicalDraft.physicalCheckStatus,
+    damageType: state.returnPhysicalDraft.damageType.trim(),
+    damageNeedsFollowUp: state.returnPhysicalDraft.damageNeedsFollowUp,
+    reusableDecision: state.returnPhysicalDraft.reusableDecision,
     inspectedAt: nowText(),
     inspectedBy: state.returnDraft.receivedBy.trim() || '中转袋工作台',
-    note: state.conditionDraft.note.trim(),
+    note: state.returnPhysicalDraft.note.trim(),
   }
 }
 
@@ -2625,7 +2622,6 @@ function completeReturnInspection(targetUsageId?: string): boolean {
   usage.returnedBy = receipt.returnedBy
   usage.returnWarehouseName = receipt.returnWarehouseName
   usage.note = closure.reason
-  bag.currentStatus = closure.nextBagStatus === 'REUSABLE' ? 'IDLE' : closure.nextBagStatus
   bag.currentLocation = closure.nextBagStatus === 'DISABLED' ? '报废区' : receipt.returnWarehouseName
 
   state.store.returnAuditTrail.push(
@@ -2691,8 +2687,6 @@ function completeDirectScrap(): boolean {
   }
 
   if (openUsage) {
-    openUsage.usageStatus = 'SCRAP_CLOSED'
-    openUsage.cycleStatus = 'SCRAP_CLOSED'
     openUsage.returnedAt = occurredAt
     openUsage.returnedBy = authorizedBy
     openUsage.note = `主管直接报废：${reason}`
@@ -2710,7 +2704,6 @@ function completeDirectScrap(): boolean {
       warningMessages: ['主管已确认实物不可继续使用。'],
     })
   }
-  bag.currentStatus = 'DISABLED'
   bag.currentLocation = '报废区'
   bag.enabled = false
   bag.note = [bag.note, `报废：${reason}`].filter(Boolean).join('；')
@@ -2772,7 +2765,6 @@ function closeUsageCycleAction(targetUsageId?: string): boolean {
   usage.usageStatus = closure.closureStatus
   usage.cycleStatus = closure.closureStatus
   usage.note = closure.reason
-  bag.currentStatus = closure.nextBagStatus === 'DISABLED' ? 'DISABLED' : 'IDLE'
   const nextBagVisibleLabel = closure.nextBagStatus === 'DISABLED' ? '报废' : '可用'
   bag.currentLocation = closure.nextBagStatus === 'DISABLED' ? '报废区' : '裁片仓空袋区'
 
@@ -3426,8 +3418,8 @@ export function handleCraftCuttingTransferBagsEvent(
     const field = conditionFieldNode.dataset.transferBagsConditionField as ConditionDraftField | undefined
     if (!field) return false
     const input = conditionFieldNode as HTMLInputElement | HTMLSelectElement
-    state.conditionDraft = {
-      ...state.conditionDraft,
+    state.returnPhysicalDraft = {
+      ...state.returnPhysicalDraft,
       [field]: input.value,
     }
     if (field !== 'reusableDecision' && field !== 'note') {
@@ -3451,10 +3443,10 @@ export function handleCraftCuttingTransferBagsEvent(
   const conditionToggleNode = target.closest<HTMLElement>('[data-transfer-bags-condition-toggle]')
   if (conditionToggleNode) {
     const field = conditionToggleNode.dataset.transferBagsConditionToggle
-    if (field === 'repairNeeded') {
-      state.conditionDraft = {
-        ...state.conditionDraft,
-        repairNeeded: (conditionToggleNode as HTMLInputElement).checked,
+    if (field === 'damageNeedsFollowUp') {
+      state.returnPhysicalDraft = {
+        ...state.returnPhysicalDraft,
+        damageNeedsFollowUp: (conditionToggleNode as HTMLInputElement).checked,
       }
       syncReusableDecisionSuggestion()
       return true
@@ -3506,41 +3498,23 @@ export function handleCraftCuttingTransferBagsEvent(
 
   if (action === 'clear-prefill') return clearPrefill()
   if (action === 'close-dialog') return closeActiveDialog()
+  if (action === 'open-wait-handover') {
+    const actionKey = actionNode.dataset.waitHandoverActionKey as WaitHandoverWebAction | undefined
+    const bagCode = actionNode.dataset.bagCode || ''
+    if (!actionKey || !['bagging', 'inbound', 'repack', 'handover', 'recovery', 'scrap'].includes(actionKey)) {
+      setFeedback('warning', '当前中转袋动作无法打开，请刷新后重试。')
+      return true
+    }
+    appStore.navigate(getCanonicalCuttingPath('warehouse-management-wait-handover'))
+    window.requestAnimationFrame(() => openWaitHandoverAction(actionKey, bagCode))
+    return true
+  }
   if (action === 'new-master') {
     resetMasterDraft()
     state.activeDialog = 'new-master'
     return true
   }
-  if (action === 'open-scrap') {
-    state.scrapDraft = {
-      bagId: actionNode.dataset.bagId || '',
-      reason: '',
-      authorizedBy: '',
-    }
-    state.activeDialog = 'scrap'
-    return true
-  }
-  if (action === 'save-scrap') return completeDirectScrap()
   if (action === 'save-master') return saveMasterDraft()
-  if (action === 'open-return') {
-    const usageId = actionNode.dataset.usageId || state.activeUsageId || ''
-    if (usageId) syncUsageSelection(usageId)
-    resetReturnDraft(usageId)
-    state.activeDialog = 'return'
-    return true
-  }
-  if (action === 'save-return') return completeReturnInspection(state.activeUsageId || undefined)
-  if (action === 'prepare-return') {
-    const usageId = actionNode.dataset.usageId || state.activeUsageId || ''
-    if (usageId) syncUsageSelection(usageId)
-    resetReturnDraft(usageId)
-    state.activeDialog = 'return'
-    return true
-  }
-  if (action === 'clear-return-draft') return clearReturnDraft()
-  if (action === 'close-usage-cycle') {
-    return closeUsageCycleAction(actionNode.dataset.usageId || state.activeUsageId || undefined)
-  }
   if (action === 'focus-scan-query') {
     setFeedback('success', '请在袋码筛选中输入或扫描中转袋码。')
     return true
@@ -3598,8 +3572,6 @@ export function handleCraftCuttingTransferBagsEvent(
     return true
   }
   if (action === 'print-manifest') return printManifest(actionNode.dataset.usageId || state.activeUsageId || undefined)
-  if (action === 'complete-return-inspection') return completeReturnInspection(actionNode.dataset.usageId || state.activeUsageId || undefined)
-
   if (action === 'go-cut-piece-warehouse-index') {
     appStore.navigate(getCanonicalCuttingPath('cut-piece-warehouse'))
     return true

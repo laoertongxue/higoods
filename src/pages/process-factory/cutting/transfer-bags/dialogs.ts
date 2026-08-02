@@ -241,63 +241,9 @@ export function renderPackDialog(stage: 'INBOUND_TEMP' | 'HANDOVER_PACKING'): st
   )
 }
 
-export function renderReturnDialog(): string {
-  const usage = getSourceUsage(state.activeUsageId)
-  return renderDialogShell(
-    `
-      ${usage ? `<div class="rounded-lg border bg-muted/15 px-4 py-3 text-sm text-muted-foreground">当前回收：${escapeHtml(usage.usageNo)} / ${escapeHtml(usage.bagCode)}</div>` : ''}
-      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <label class="space-y-2"><span class="text-sm font-medium text-foreground">回收仓 / 回收点</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" value="${escapeHtml(state.returnDraft.returnWarehouseName)}" data-transfer-bags-return-draft-field="returnWarehouseName" /></label>
-        <label class="space-y-2"><span class="text-sm font-medium text-foreground">回收时间</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" value="${escapeHtml(state.returnDraft.returnAt)}" data-transfer-bags-return-draft-field="returnAt" /></label>
-        <label class="space-y-2"><span class="text-sm font-medium text-foreground">回收人</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" value="${escapeHtml(state.returnDraft.returnedBy)}" data-transfer-bags-return-draft-field="returnedBy" /></label>
-        <label class="space-y-2"><span class="text-sm font-medium text-foreground">回收确认人</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" value="${escapeHtml(state.returnDraft.receivedBy)}" data-transfer-bags-return-draft-field="receivedBy" /></label>
-        <label class="space-y-2"><span class="text-sm font-medium text-foreground">差异类型</span><select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-return-draft-field="discrepancyType">
-          ${[
-            ['NONE', '无差异'],
-            ['QTY_MISMATCH', '数量差异'],
-            ['DAMAGED_BAG', '中转袋破损'],
-            ['LATE_RETURN', '逾期未回收'],
-            ['MISSING_RECORD', '缺记录'],
-          ].map(([value, label]) => `<option value="${value}" ${state.returnDraft.discrepancyType === value ? 'selected' : ''}>${label}</option>`).join('')}
-        </select></label>
-        <label class="space-y-2 xl:col-span-3"><span class="text-sm font-medium text-foreground">差异说明</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" value="${escapeHtml(state.returnDraft.discrepancyNote)}" data-transfer-bags-return-draft-field="discrepancyNote" /></label>
-        <label class="space-y-2"><span class="text-sm font-medium text-foreground">袋况</span><select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-condition-field="conditionStatus"><option value="GOOD" ${state.conditionDraft.conditionStatus === 'GOOD' ? 'selected' : ''}>完好</option><option value="MINOR_DAMAGE" ${state.conditionDraft.conditionStatus === 'MINOR_DAMAGE' ? 'selected' : ''}>轻微破损可继续使用</option><option value="SEVERE_DAMAGE" ${state.conditionDraft.conditionStatus === 'SEVERE_DAMAGE' ? 'selected' : ''}>报废</option></select></label>
-        <label class="space-y-2"><span class="text-sm font-medium text-foreground">回收结果</span><select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-condition-field="reusableDecision"><option value="REUSABLE" ${state.conditionDraft.reusableDecision === 'REUSABLE' ? 'selected' : ''}>可继续使用</option><option value="DISABLED" ${state.conditionDraft.reusableDecision === 'DISABLED' ? 'selected' : ''}>报废</option></select></label>
-        <label class="space-y-2 md:col-span-2"><span class="text-sm font-medium text-foreground">报废说明</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" value="${escapeHtml(state.conditionDraft.damageType)}" data-transfer-bags-condition-field="damageType" /></label>
-        <label class="space-y-2 md:col-span-2 xl:col-span-4"><span class="text-sm font-medium text-foreground">回收备注</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" value="${escapeHtml(state.returnDraft.note)}" data-transfer-bags-return-draft-field="note" /></label>
-      </div>
-    `,
-    '<button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-transfer-bags-action="save-return">确认回收</button>',
-  )
-}
-
-export function renderScrapDialog(): string {
-  const bag = getViewModel().mastersById[state.scrapDraft.bagId]
-  return renderDialogShell(
-    `
-      <div class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-        ${escapeHtml(`报废后 ${bag?.bagCode || '该中转袋'} 将不能继续装袋；如存在未关闭周期，系统会保留原业务记录并显式终止该周期。`)}
-      </div>
-      <div class="grid gap-3 md:grid-cols-2">
-        <label class="space-y-2">
-          <span class="text-sm font-medium text-foreground">报废原因</span>
-          <input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-rose-500" value="${escapeHtml(state.scrapDraft.reason)}" placeholder="必填，请说明实物为何不可继续使用" data-transfer-bags-scrap-draft-field="reason" />
-        </label>
-        <label class="space-y-2">
-          <span class="text-sm font-medium text-foreground">授权主管</span>
-          <input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-rose-500" value="${escapeHtml(state.scrapDraft.authorizedBy)}" placeholder="必填，记录确认报废的主管" data-transfer-bags-scrap-draft-field="authorizedBy" />
-        </label>
-      </div>
-    `,
-    '<button type="button" class="rounded-md bg-rose-600 px-3 py-2 text-sm font-medium text-white hover:bg-rose-700" data-transfer-bags-action="save-scrap">确认报废</button>',
-  )
-}
-
 export function renderActiveDialog(): string {
   if (state.activeDialog === 'new-master') return renderNewMasterDialog()
   if (state.activeDialog === 'inbound-pack') return renderPackDialog('INBOUND_TEMP')
   if (state.activeDialog === 'handover-pack') return renderPackDialog('HANDOVER_PACKING')
-  if (state.activeDialog === 'return') return renderReturnDialog()
-  if (state.activeDialog === 'scrap') return renderScrapDialog()
   return ''
 }

@@ -12,23 +12,23 @@ test('中转袋详情按业务事实分区并分页，保留真实二维码', as
     timeout: 120_000,
   })
 
-  const currentTab = page.getByRole('tab', { name: '基本信息', exact: true })
+  const detailLayers = [
+    ['稳定身份与二维码', 'identity'],
+    ['当前状态与位置', 'current'],
+    ['当前周期与菲票', 'cycle'],
+    ['装袋记录', 'bagging'],
+    ['入仓记录', 'inbound'],
+    ['拆袋重装', 'repack'],
+    ['袋级交出', 'handover'],
+    ['特殊工艺回仓', 'special-craft'],
+    ['物理回收', 'recovery'],
+    ['报废记录', 'scrap'],
+    ['历史周期', 'history'],
+  ] as const
+  const currentTab = page.getByRole('tab', { name: detailLayers[0][0], exact: true })
   await expect(currentTab).toBeVisible()
   await expect(currentTab).toHaveAttribute('aria-selected', 'true')
-  await expect(page.getByRole('tab', { name: '当前使用', exact: true })).toBeVisible()
-  for (const tabName of [
-    '袋内菲票',
-    '入仓记录',
-    '袋级交出',
-    '特殊工艺回仓',
-    '接收与回写',
-    '物理回收',
-    '报废记录',
-    '业务差异',
-    '历史周期',
-  ]) {
-    await expect(page.getByRole('tab', { name: tabName, exact: true })).toBeVisible()
-  }
+  await expect(page.getByRole('tab')).toHaveText(detailLayers.map(([label]) => label))
 
   const body = page.locator('body')
   await expect(body).not.toContainText('步骤 1：选择口袋')
@@ -38,21 +38,14 @@ test('中转袋详情按业务事实分区并分页，保留真实二维码', as
   await expect(body).not.toContainText('复用异常')
   await expect(page.locator('[data-real-qr] svg').first()).toBeVisible()
 
-  for (const [tabName, tabKey] of [
-    ['袋内菲票', 'items'],
-    ['入仓记录', 'inbound'],
-    ['袋级交出', 'handover'],
-    ['特殊工艺回仓', 'special-craft'],
-    ['接收与回写', 'downstream'],
-    ['物理回收', 'recovery'],
-    ['报废记录', 'logs'],
-    ['业务差异', 'differences'],
-    ['历史周期', 'history'],
-  ] as const) {
+  for (const [tabName, tabKey] of detailLayers) {
     await page.getByRole('tab', { name: tabName, exact: true }).click()
     await expect(page).toHaveURL(new RegExp(`detailTab=${tabKey}`))
     await expect(page.getByRole('tab', { name: tabName, exact: true })).toHaveAttribute('aria-selected', 'true')
-    await expect(page.getByText(/每页 10 条/)).toBeVisible()
+    if (!['identity', 'current'].includes(tabKey)) {
+      await expect(page.getByText(/每页 10 条/)).toBeVisible()
+    }
+    await expect(page.locator(`[data-transfer-bag-detail-layer="${tabKey}"]`)).toBeVisible()
   }
 
   await expectNoPageErrors(errors)

@@ -299,13 +299,13 @@ export function syncUsageSelection(usageId: string): void {
 
 export function syncReusableDecisionSuggestion(): void {
   const suggested = deriveBagConditionDecision({
-    conditionStatus: state.conditionDraft.conditionStatus,
-    cleanlinessStatus: state.conditionDraft.cleanlinessStatus,
-    damageType: state.conditionDraft.damageType,
-    repairNeeded: state.conditionDraft.repairNeeded,
+    conditionStatus: state.returnPhysicalDraft.conditionStatus,
+    physicalCheckStatus: state.returnPhysicalDraft.physicalCheckStatus,
+    damageType: state.returnPhysicalDraft.damageType,
+    damageNeedsFollowUp: state.returnPhysicalDraft.damageNeedsFollowUp,
   })
-  state.conditionDraft = {
-    ...state.conditionDraft,
+  state.returnPhysicalDraft = {
+    ...state.returnPhysicalDraft,
     reusableDecision: suggested.reusableDecision,
   }
 }
@@ -1292,7 +1292,6 @@ export function releaseInboundBag(targetUsageId?: string): boolean {
   usage.note = '入仓暂存内容已转出或清空，中转袋恢复可用。'
   const bag = getSourceMaster(usage.bagId)
   if (bag && bag.currentStatus !== 'DISABLED') {
-    bag.currentStatus = 'IDLE'
     bag.currentLocation = '裁片仓空袋区'
   }
   state.store.auditTrail.push(
@@ -1390,7 +1389,6 @@ export function syncPrefilterFromQuery(): void {
 export function resetReturnDraft(usageId?: string | null): void {
   const usage = usageId ? getViewModel().usagesById[usageId] ?? null : null
   const latestReceipt = usage ? (getReturnViewModel().returnReceiptsByUsageId[usage.usageId] || []).slice().sort((left, right) => right.returnAt.localeCompare(left.returnAt, 'zh-CN'))[0] || null : null
-  const latestCondition = usage ? (getReturnViewModel().conditionRecordsByUsageId[usage.usageId] || []).slice().sort((left, right) => right.inspectedAt.localeCompare(left.inspectedAt, 'zh-CN'))[0] || null : null
 
   if (!usage) {
     state.returnDraft = {
@@ -1398,17 +1396,17 @@ export function resetReturnDraft(usageId?: string | null): void {
       returnAt: '',
       returnedBy: '',
       receivedBy: '',
-      returnedFinishedQty: '',
-      returnedTicketCountSummary: '',
+      returnedPieceTotal: '',
+      returnedTicketTotal: '',
       discrepancyType: 'NONE',
       discrepancyNote: '',
       note: '',
     }
-    state.conditionDraft = {
+    state.returnPhysicalDraft = {
       conditionStatus: 'GOOD',
-      cleanlinessStatus: 'CLEAN',
+      physicalCheckStatus: 'CLEAN',
       damageType: '',
-      repairNeeded: false,
+      damageNeedsFollowUp: false,
       reusableDecision: 'REUSABLE',
       note: '',
     }
@@ -1421,8 +1419,8 @@ export function resetReturnDraft(usageId?: string | null): void {
       returnAt: latestReceipt.returnAt,
       returnedBy: latestReceipt.returnedBy,
       receivedBy: latestReceipt.receivedBy,
-      returnedFinishedQty: String(latestReceipt.returnedFinishedQty),
-      returnedTicketCountSummary: String(latestReceipt.returnedTicketCountSummary),
+      returnedPieceTotal: '',
+      returnedTicketTotal: '',
       discrepancyType: latestReceipt.discrepancyType,
       discrepancyNote: latestReceipt.discrepancyNote,
       note: latestReceipt.note,
@@ -1440,32 +1438,20 @@ export function resetReturnDraft(usageId?: string | null): void {
       returnAt: draft.returnAt,
       returnedBy: draft.returnedBy,
       receivedBy: draft.receivedBy,
-      returnedFinishedQty: String(draft.returnedFinishedQty),
-      returnedTicketCountSummary: String(draft.returnedTicketCountSummary),
+      returnedPieceTotal: '',
+      returnedTicketTotal: '',
       discrepancyType: draft.discrepancyType,
       discrepancyNote: draft.discrepancyNote,
       note: draft.note,
     }
   }
 
-  if (latestCondition) {
-    state.conditionDraft = {
-      conditionStatus: latestCondition.conditionStatus,
-      cleanlinessStatus: latestCondition.cleanlinessStatus,
-      damageType: latestCondition.damageType,
-      repairNeeded: latestCondition.repairNeeded,
-      reusableDecision: latestCondition.reusableDecision,
-      note: latestCondition.note,
-    }
-  } else {
-    state.conditionDraft = {
-      conditionStatus: 'GOOD',
-      cleanlinessStatus: 'CLEAN',
-      damageType: '',
-      repairNeeded: false,
-      reusableDecision: 'REUSABLE',
-      note: '',
-    }
+  state.returnPhysicalDraft = {
+    conditionStatus: 'GOOD',
+    physicalCheckStatus: 'CLEAN',
+    damageType: '',
+    damageNeedsFollowUp: false,
+    reusableDecision: 'REUSABLE',
+    note: '',
   }
-  syncReusableDecisionSuggestion()
 }
