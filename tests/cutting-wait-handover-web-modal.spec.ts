@@ -40,7 +40,7 @@ async function findCrossHierarchyLocations(map: Locator) {
 
 test('真实待交出工作台以生产事件账历史确认夹具和最终交出 handler 完成源目标换袋三格闭环', async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 })
-  test.setTimeout(300_000)
+  test.setTimeout(420_000)
   const errors = collectPageErrors(page)
   await page.addInitScript(() => {
     if (sessionStorage.getItem('wait-handover-handler-e2e-initialized') === '1') return
@@ -139,6 +139,8 @@ test('真实待交出工作台以生产事件账历史确认夹具和最终交�
     const sourceInboundEvent = sourceEvents.find((event) =>
       event.eventType === '中转袋入仓' && event.refs.transferBagCode === sourceBagCode)
     if (!sourceBaggingEvent || !sourceInboundEvent) throw new Error('缺少源袋装袋或入仓历史事实')
+    const sourceUsageCycleId = sourceBaggingEvent.refs.usageCycleId
+    if (!sourceUsageCycleId) throw new Error('源袋首周期缺少稳定使用周期')
     const baggingAtMs = Date.parse(sourceBaggingEvent.occurredAt)
     const inboundAtMs = Date.parse(sourceInboundEvent.occurredAt)
     if (!Number.isFinite(baggingAtMs) || !Number.isFinite(inboundAtMs)) {
@@ -216,6 +218,7 @@ test('真实待交出工作台以生产事件账历史确认夹具和最终交�
         baggingConfirmRecordId: `BCR-${targetBagCode}`,
         baggingConfirmRecordNo: `BCR-${targetBagCode}`,
         sourceTempBagCode: sourceBagCode, targetTransferBagCode: targetBagCode,
+        sourceUsageCycleId,
         bagUseId: targetUsageCycleId,
         pickingTaskId: task.pickingTaskId, pickingTaskNo: task.pickingTaskNo,
         sewingTaskId: task.sewingTaskId, sewingTaskNo: task.sewingTaskNo,
@@ -237,6 +240,7 @@ test('真实待交出工作台以生产事件账历史确认夹具和最终交�
     })
     const targetSnapshot = runtime.resolveWaitHandoverBaggingSnapshot(targetBagCode)
     if (!targetSnapshot || targetSnapshot.usageCycleId !== targetUsageCycleId
+      || targetSnapshot.sourceUsageCycleId !== sourceUsageCycleId
       || targetSnapshot.tickets.length !== snapshot.tickets.length) {
       throw new Error('目标中转袋未建立独立袋内快照和使用周期')
     }
@@ -279,5 +283,127 @@ test('真实待交出工作台以生产事件账历史确认夹具和最终交�
     await expect(page.locator(`[data-warehouse-map-shelf-viewport] [data-location-id="${location.id}"]`)).not.toContainText(transferBagCode)
   }
   await expect(page.locator('[data-warehouse-map-summary-section]')).toHaveCount(0)
+
+  const declaredCycleFixture = await page.evaluate(async ({ historicalBagCode, historicalTargetBagCode, locationIds }) => {
+    const runtime = await import('/src/pages/process-factory/cutting/wait-handover-runtime.ts')
+    const ledger = await import('/src/data/fcs/cutting/cutting-runtime-event-ledger.ts')
+    const mapModule = await import('/src/pages/process-factory/cutting/warehouse-location-map.ts')
+    const mapModel = await import('/src/pages/process-factory/cutting/warehouse-location-map-model.ts')
+    const historicalSnapshot = runtime.resolveWaitHandoverBaggingSnapshot(historicalBagCode)
+    const historicalEvents = ledger.listCuttingRuntimeEvents()
+    const historicalBagging = historicalEvents.find((event) =>
+      event.eventType === '菲票装袋' && event.refs.transferBagCode === historicalBagCode)
+    const historicalInbound = historicalEvents.find((event) =>
+      event.eventType === '中转袋入仓' && event.refs.transferBagCode === historicalBagCode)
+    const historicalConfirm = historicalEvents.find((event) =>
+      event.eventType === '交出装袋确认' && event.refs.transferBagCode === historicalTargetBagCode)
+    const currentMap = mapModule.buildCurrentCuttingWarehouseMapProjection('WAIT_HANDOVER')
+    const cycleLocations = currentMap
+      ? mapModel.listWarehouseLocationMapCells(currentMap.projection).filter((cell) => locationIds.includes(cell.locationId))
+      : []
+    if (!historicalSnapshot?.tickets.length || !historicalBagging || !historicalInbound || !historicalConfirm || cycleLocations.length < 2) {
+      throw new Error('缺少显式周期 Web 验收上游事实')
+    }
+    const sourceBagCode = `WEB-CYCLE-SOURCE-${Date.now()}`
+    const targetBagCode = `WEB-CYCLE-TARGET-${Date.now()}`
+    const sourceCycle1 = `cycle:${sourceBagCode}:C1`
+    const sourceCycle2 = `cycle:${sourceBagCode}:C2`
+    const targetCycle = `cycle:${targetBagCode}:TC`
+    const startedAt = Date.now() + 10_000
+    const at = (offset: number) => new Date(startedAt + offset).toISOString()
+    const appendCycle = (usageCycleId: string, location: (typeof cycleLocations)[number], offset: number) => {
+      ledger.appendCuttingRuntimeEvent({
+        eventType: '菲票装袋', eventSource: 'WEB', eventStatus: '已同步',
+        occurredAt: at(offset), operatorName: `周期装袋员-${usageCycleId.slice(-2)}`,
+        refs: {
+          ...historicalBagging.refs,
+          transferBagCode: sourceBagCode,
+          usageCycleId,
+        },
+        inventoryEffect: historicalBagging.inventoryEffect,
+        payload: {
+          ...(historicalBagging.payload as Record<string, unknown>),
+          bagCode: sourceBagCode,
+          usageCycleId,
+        },
+      })
+      ledger.appendCuttingRuntimeEvent({
+        eventType: '中转袋入仓', eventSource: 'WEB', eventStatus: '已同步',
+        occurredAt: at(offset + 1), operatorName: `周期入仓员-${usageCycleId.slice(-2)}`,
+        refs: {
+          ...historicalInbound.refs,
+          transferBagCode: sourceBagCode,
+          usageCycleId,
+        },
+        inventoryEffect: historicalInbound.inventoryEffect,
+        payload: {
+          ...(historicalInbound.payload as Record<string, unknown>),
+          bagCode: sourceBagCode,
+          usageCycleId,
+          inboundAt: at(offset + 1),
+          warehouseLocations: [location],
+        },
+      })
+    }
+    appendCycle(sourceCycle1, cycleLocations[0], 0)
+    appendCycle(sourceCycle2, cycleLocations[1], 2_000)
+    const confirmPayload = historicalConfirm.payload as Record<string, unknown>
+    ledger.appendCuttingRuntimeEvent({
+      eventType: '交出装袋确认', eventSource: 'WEB', eventStatus: '已同步',
+      occurredAt: at(4_000), operatorName: '显式 C1 分拣确认员',
+      refs: {
+        ...historicalConfirm.refs,
+        transferBagCode: targetBagCode,
+        usageCycleId: targetCycle,
+        feiTicketIds: historicalSnapshot.tickets.map((ticket) => ticket.feiTicketId),
+        feiTicketNos: historicalSnapshot.tickets.map((ticket) => ticket.feiTicketNo),
+      },
+      inventoryEffect: historicalConfirm.inventoryEffect,
+      payload: {
+        ...confirmPayload,
+        sourceTempBagCode: sourceBagCode,
+        targetTransferBagCode: targetBagCode,
+        sourceUsageCycleId: sourceCycle1,
+        bagUseId: targetCycle,
+        containedFeiTicketIds: historicalSnapshot.tickets.map((ticket) => ticket.feiTicketId),
+        containedFeiTicketNos: historicalSnapshot.tickets.map((ticket) => ticket.feiTicketNo),
+      },
+    })
+    const targetSnapshot = runtime.resolveWaitHandoverBaggingSnapshot(targetBagCode)
+    if (!targetSnapshot || targetSnapshot.sourceUsageCycleId !== sourceCycle1 || targetSnapshot.usageCycleId !== targetCycle) {
+      throw new Error('显式 C1 未形成一致的目标袋历史快照')
+    }
+    const occupancies = runtime.buildWaitHandoverLocationOccupancyStates(runtime.listWaitHandoverRuntimeEvents())
+    const targetC1 = occupancies.find((state) =>
+      state.bagCode === targetBagCode
+      && state.usageCycleId === targetCycle
+      && state.locationRef.locationId === cycleLocations[0].locationId)
+    const sourceC2 = occupancies.find((state) =>
+      state.bagCode === sourceBagCode
+      && state.usageCycleId === sourceCycle2
+      && state.locationRef.locationId === cycleLocations[1].locationId)
+    if (!targetC1 || !sourceC2) throw new Error('显式 C1 占用迁移与 C2 保留不一致')
+    return {
+      sourceBagCode,
+      targetBagCode,
+      sourceCycle1LocationId: cycleLocations[0].locationId,
+      sourceCycle2LocationId: cycleLocations[1].locationId,
+    }
+  }, {
+    historicalBagCode: bagCode,
+    historicalTargetBagCode: transferBagCode,
+    locationIds: locations.map((location) => location.id),
+  })
+
+  await openWaitHandoverPage(page, '?tab=locations')
+  await expect(page.locator(`[data-warehouse-map-shelf-viewport] [data-location-id="${declaredCycleFixture.sourceCycle1LocationId}"]`))
+    .toContainText(declaredCycleFixture.targetBagCode)
+  await expect(page.locator(`[data-warehouse-map-shelf-viewport] [data-location-id="${declaredCycleFixture.sourceCycle2LocationId}"]`))
+    .toContainText(declaredCycleFixture.sourceBagCode)
+  await openWaitHandoverPage(page)
+  await page.locator('[data-wait-handover-action="open-handover"]').click()
+  const declaredCycleDialog = page.locator('[data-wait-handover-modal="handover"]')
+  await expect(declaredCycleDialog.locator('[data-wait-handover-field="handoverSelection"] option')
+    .filter({ hasText: new RegExp(`^${declaredCycleFixture.targetBagCode} /`) })).toHaveCount(1)
   await expectNoPageErrors(errors)
 })

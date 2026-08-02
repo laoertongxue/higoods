@@ -2324,6 +2324,34 @@ assert(exactCycleStates.some((state) =>
   state.bagCode === 'BAG-MAP-TARGET-EXACT'
   && state.usageCycleId === 'cycle:BAG-MAP-TARGET-EXACT:1'
   && state.locationRef.locationId === secondLocation.locationId), '只允许把确认前最新 C2 完整 footprint 迁入目标袋')
+const declaredCycleConfirmEvent = {
+  ...structuredClone(exactCycleConfirmEvent),
+  eventId: 'EVENT-BAGGING-CONFIRM-DECLARED-C1',
+  refs: {
+    ...exactCycleConfirmEvent.refs,
+    transferBagCode: 'BAG-MAP-TARGET-DECLARED',
+    usageCycleId: 'cycle:BAG-MAP-TARGET-DECLARED:1',
+  },
+  payload: {
+    ...exactCycleConfirmEvent.payload,
+    targetTransferBagCode: 'BAG-MAP-TARGET-DECLARED',
+    sourceUsageCycleId: inboundEvent.refs.usageCycleId,
+  },
+}
+const declaredCycleStates = buildWaitHandoverLocationOccupancyStates([
+  inboundEvent,
+  secondCycleSameBagEvent,
+  declaredCycleConfirmEvent,
+])
+assert.equal(declaredCycleStates.length, 2, '显式源周期确认只能迁移声明周期的一份完整 footprint')
+assert(declaredCycleStates.some((state) =>
+  state.bagCode === 'BAG-MAP-TARGET-DECLARED'
+  && state.usageCycleId === 'cycle:BAG-MAP-TARGET-DECLARED:1'
+  && state.locationRef.locationId === firstLocation.locationId), '显式 sourceUsageCycleId=C1 必须只把 C1@L1 迁入目标袋 TC')
+assert(declaredCycleStates.some((state) =>
+  state.bagCode === 'BAG-MAP-001'
+  && state.usageCycleId === 'cycle:BAG-MAP-001:2'
+  && state.locationRef.locationId === secondLocation.locationId), '显式迁移 C1 后 C2@L2 必须保持源袋占用')
 assert.equal((inboundEvent.payload as Record<string, unknown>).idempotencyKey, 'temp-bag:BAG-MAP-001:INBOUND')
 assert.equal(
   ((inboundEvent.payload as Record<string, unknown>).warehouseLocations as Array<{ locationId?: string }>)?.[0]?.locationId,

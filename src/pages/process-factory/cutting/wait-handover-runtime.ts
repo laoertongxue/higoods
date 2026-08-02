@@ -1119,6 +1119,7 @@ export function buildWaitHandoverLocationOccupancyStates(
       const targetBagCode = runtimeString(payload.targetTransferBagCode) || event.refs.transferBagCode || ''
       const eventLocationRef = runtimeLocationRef(payload.locationRef)
       const confirmedTicketIds = new Set(event.refs.feiTicketIds ?? [])
+      const declaredSourceCycleId = runtimeString(payload.sourceUsageCycleId)
       const matchingSourceKeys = sourceBagCode && confirmedTicketIds.size
         ? findWaitHandoverStateKeys(states, sourceBagCode, undefined, eventLocationRef)
           .filter((stateKey) => {
@@ -1126,6 +1127,7 @@ export function buildWaitHandoverLocationOccupancyStates(
             return source
               && source.inboundAt <= event.occurredAt
               && sameStringSet(source.feiTicketIds, confirmedTicketIds)
+              && (!declaredSourceCycleId || source.usageCycleId === declaredSourceCycleId)
           })
         : []
       const latestSource = matchingSourceKeys
