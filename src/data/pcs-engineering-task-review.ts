@@ -153,6 +153,43 @@ export interface ReviewEngineeringMaterialResultsResult {
   effectiveCompletedAt: string
 }
 
+export function reopenEngineeringMaterialTaskForTechPackReview(input: {
+  masterOrderId: string
+  taskId: string
+  reason: string
+}): EngineeringTaskRecord {
+  const task = getReviewableTask(input.masterOrderId, input.taskId)
+  const reason = input.reason.trim()
+  if (!reason) throw new Error('请填写技术包退回原因。')
+  if (task.status !== '已完成') {
+    throw new Error(`原工程任务当前不是已完成状态，无法发起返工：${input.taskId}`)
+  }
+
+  const activeLines = listApplicableMaterialLines(task)
+  if (activeLines.length === 0) {
+    throw new Error(`原工程任务没有可返工的有效物料行：${input.taskId}`)
+  }
+
+  const startedAt = nowText()
+  return updateEngineeringTaskRecord(input.masterOrderId, input.taskId, (storedTask) => {
+    for (const line of listApplicableMaterialLines(storedTask)) {
+      line.reviewStatus = '未通过'
+      line.reviewReason = reason
+      line.reviewedBy = ''
+      line.reviewedAt = ''
+    }
+    storedTask.status = '返工中'
+    storedTask.effectiveCompletedAt = ''
+    storedTask.reworkRounds.push({
+      roundNo: storedTask.reworkRounds.length + 1,
+      reason,
+      startedAt,
+      submittedAt: '',
+      passedAt: '',
+    })
+  }).task
+}
+
 export function reviewEngineeringMaterialResults(
   input: ReviewEngineeringMaterialResultsInput,
 ): ReviewEngineeringMaterialResultsResult {

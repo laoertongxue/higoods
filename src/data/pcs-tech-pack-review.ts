@@ -1,6 +1,7 @@
 import {
   getTechnicalDataVersionById,
   getTechnicalDataVersionContent,
+  runTechnicalDataVersionRepositoryTransaction,
   updateTechnicalDataVersionRecord,
 } from './pcs-technical-data-version-repository.ts'
 export {
@@ -10,6 +11,11 @@ export {
   type InvalidateReviewForBomPriceChangeInput,
 } from './pcs-tech-pack-bom-price-review-invalidation.ts'
 import { assertTechnicalDataVersionBomCanSubmitForReview } from './pcs-engineering-bom-pricing.ts'
+import {
+  getEngineeringMasterOrderById,
+  runEngineeringMasterRepositoryTransaction,
+} from './pcs-engineering-master-repository.ts'
+import { reopenEngineeringMaterialTaskForTechPackReview } from './pcs-engineering-task-review.ts'
 import {
   formatTechPackDesignRequirementBlockMessage,
   validateTechPackDesignRequirement,
@@ -1033,6 +1039,72 @@ function sendReworkNotifications(input: {
   })
 }
 
+interface EngineeringTaskReworkTarget {
+  masterOrderId: string
+  taskId: string
+}
+
+function assertEngineeringTaskCanReopen(input: {
+  record: TechnicalDataVersionRecord
+  taskId: string
+  expectedTaskTypes: Array<'PATTERN_ARTWORK' | 'COLOR_YARN' | 'COLOR_FABRIC'>
+  taskLabel: string
+}): EngineeringTaskReworkTarget {
+  const masterOrder = getEngineeringMasterOrderById(input.record.sourceProjectId)
+  if (!masterOrder) {
+    throw new Error(`技术包来源工程主单不存在：${input.record.sourceProjectId}`)
+  }
+  const task = masterOrder.tasks.find((item) => item.taskId === input.taskId)
+  if (!task || !input.expectedTaskTypes.includes(task.taskType as typeof input.expectedTaskTypes[number])) {
+    throw new Error(`技术包绑定的原${input.taskLabel}不存在：${input.taskId}`)
+  }
+  if (task.status !== '已完成') {
+    throw new Error(`技术包绑定的原${input.taskLabel}当前不是已完成状态：${input.taskId}`)
+  }
+  const requirementType = task.taskType === 'PATTERN_ARTWORK' ? '印花' : '染色'
+  if (!task.materialLines.some((line) => line.status === '正常' && line.requirementType === requirementType)) {
+    throw new Error(`技术包绑定的原${input.taskLabel}没有可返工的有效物料行：${input.taskId}`)
+  }
+  return { masterOrderId: masterOrder.masterOrderId, taskId: task.taskId }
+}
+
+function resolveArtworkTasksForTechPackRework(record: TechnicalDataVersionRecord): EngineeringTaskReworkTarget[] {
+  if (!record.sourceProjectId.trim()) {
+    throw new Error('技术包缺少来源工程主单，无法重开原花型任务。')
+  }
+  if (record.linkedArtworkTaskIds.length === 0) {
+    throw new Error('技术包未绑定原花型任务，无法发起返工。')
+  }
+  return record.linkedArtworkTaskIds.map((taskId) => assertEngineeringTaskCanReopen({
+    record,
+    taskId,
+    expectedTaskTypes: ['PATTERN_ARTWORK'],
+    taskLabel: '花型任务',
+  }))
+}
+
+function resolveColorTasksForTechPackRework(record: TechnicalDataVersionRecord): EngineeringTaskReworkTarget[] {
+  if (!record.sourceProjectId.trim()) {
+    throw new Error('技术包缺少来源工程主单，无法重开原调色任务。')
+  }
+  const masterOrder = getEngineeringMasterOrderById(record.sourceProjectId)
+  if (!masterOrder) {
+    throw new Error(`技术包来源工程主单不存在：${record.sourceProjectId}`)
+  }
+  const taskIds = masterOrder.tasks
+    .filter((task) => (task.taskType === 'COLOR_YARN' || task.taskType === 'COLOR_FABRIC') && task.status !== '未启用')
+    .map((task) => task.taskId)
+  if (taskIds.length === 0) {
+    throw new Error('技术包来源工程主单没有已启用的原调色任务，无法发起返工。')
+  }
+  return taskIds.map((taskId) => assertEngineeringTaskCanReopen({
+    record,
+    taskId,
+    expectedTaskTypes: ['COLOR_YARN', 'COLOR_FABRIC'],
+    taskLabel: '调色任务',
+  }))
+}
+
 export function returnTechPackReviewByModules(
   technicalVersionId: string,
   moduleKeys: TechnicalModuleKey[],
@@ -1047,21 +1119,42 @@ export function returnTechPackReviewByModules(
   assertAssignedReviewer(snapshot.merchandiserReview, operator)
   const unlockedModuleKeys = normalizeModuleKeys(moduleKeys)
   if (unlockedModuleKeys.length === 0) throw new Error('请选择需要重审的模块。')
+  const engineeringTaskTargets: EngineeringTaskReworkTarget[] = []
+  if (record.createdFromTaskType === 'ENGINEERING_MASTER') {
+    if (unlockedModuleKeys.includes('DESIGN')) {
+      engineeringTaskTargets.push(...resolveArtworkTasksForTechPackRework(record))
+    }
+    if (unlockedModuleKeys.includes('COLOR_MATERIAL_MAPPING')) {
+      engineeringTaskTargets.push(...resolveColorTasksForTechPackRework(record))
+    }
+  }
   const returnedAt = nowText()
   const targetNodeKeys = normalizeNodeKeys([
     ...resolveReviewNodeKeysByModules(unlockedModuleKeys),
     'MERCHANDISER',
   ])
-  const nextRecord = saveReviewPatch(technicalVersionId, {
-    ...buildReworkReviewPatch({
-      record,
-      snapshot,
-      targetNodeKeys,
-      unlockedModuleKeys,
-      returnedAt,
-      operatorName: operator.name,
-      opinion: reviewOpinion,
-    }),
+  const nextRecord = runTechnicalDataVersionRepositoryTransaction(() => {
+    const savedRecord = saveReviewPatch(technicalVersionId, {
+      ...buildReworkReviewPatch({
+        record,
+        snapshot,
+        targetNodeKeys,
+        unlockedModuleKeys,
+        returnedAt,
+        operatorName: operator.name,
+        opinion: reviewOpinion,
+      }),
+    })
+    runEngineeringMasterRepositoryTransaction(() => {
+      for (const target of engineeringTaskTargets) {
+        reopenEngineeringMaterialTaskForTechPackReview({
+          masterOrderId: target.masterOrderId,
+          taskId: target.taskId,
+          reason: reviewOpinion,
+        })
+      }
+    })
+    return savedRecord
   })
   appendReviewLog({
     record: nextRecord,
