@@ -39,6 +39,7 @@ import {
   getTechnicalDataVersionContent,
   getTechnicalDataVersionStoreSnapshot,
   listTechnicalDataVersions,
+  publishTechnicalDataVersionRecord,
   updateTechnicalDataVersionContent,
 } from '../src/data/pcs-technical-data-version-repository.ts'
 import * as technicalVersionRepositoryPublicApi from '../src/data/pcs-technical-data-version-repository.ts'
@@ -846,6 +847,62 @@ assert.doesNotThrow(() => validateSnapshotAgainstCurrentTarget(
   { frozenAt: '2026-08-02 12:00', frozenBy: '跟单甲' },
 ), '历史快照离线校验仍允许校验可信且自洽的持久化形态')
 assert.deepEqual(getTechnicalDataVersionContent(trustedSnapshotSourceVersionId), trustedSnapshotSourceBefore)
+
+// 通用 CRUD 不得把调用方快照先塞进新工程草稿，再通过发布入口洗成正式事实。
+const genericUpdateBypassVersionId = `task10_generic_update_bypass_${Date.now()}`
+createTechnicalDataVersionDraft(
+  makeRecord({ id: genericUpdateBypassVersionId, status: 'DRAFT', reviewStage: '未提交审核' }),
+  makeContent(genericUpdateBypassVersionId, [trustedSnapshotSourceBomItem]),
+)
+const genericUpdateBypassBefore = getTechnicalDataVersionStoreSnapshot()
+assert.throws(
+  () => {
+    updateTechnicalDataVersionContent(genericUpdateBypassVersionId, {
+      bomPricingSnapshot: structuredClone(clonedCanonicalSnapshot),
+    })
+    publishTechnicalDataVersionRecord(genericUpdateBypassVersionId, '2026-08-02 12:01', '伪造操作人')
+  },
+  /新工程来源|正式快照|规范固化|禁止提供/,
+  'DRAFT 通用更新后发布不能持久化调用方伪造快照',
+)
+assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), genericUpdateBypassBefore)
+
+// 通用创建入口也不能直接创建携带调用方快照的已发布新工程版本。
+const genericCreateBypassVersionId = `task10_generic_create_bypass_${Date.now()}`
+const genericCreateBypassContent = makeContent(genericCreateBypassVersionId, [trustedSnapshotSourceBomItem])
+genericCreateBypassContent.bomPricingSnapshot = structuredClone(clonedCanonicalSnapshot)
+const genericCreateBypassBefore = getTechnicalDataVersionStoreSnapshot()
+assert.throws(
+  () => createTechnicalDataVersionDraft(
+    makeRecord({ id: genericCreateBypassVersionId, status: 'PUBLISHED', reviewStage: '已发布' }),
+    genericCreateBypassContent,
+  ),
+  /新工程来源|正式快照|规范固化|禁止提供/,
+  'createTechnicalDataVersionDraft 不能直接持久化调用方伪造快照',
+)
+assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), genericCreateBypassBefore)
+
+const genericDraftCreateBypassVersionId = `task10_generic_draft_create_bypass_${Date.now()}`
+const genericDraftCreateBypassContent = makeContent(genericDraftCreateBypassVersionId, [trustedSnapshotSourceBomItem])
+genericDraftCreateBypassContent.bomPricingSnapshot = structuredClone(clonedCanonicalSnapshot)
+const genericDraftCreateBypassBefore = getTechnicalDataVersionStoreSnapshot()
+assert.throws(
+  () => createTechnicalDataVersionDraft(
+    makeRecord({ id: genericDraftCreateBypassVersionId, status: 'DRAFT', reviewStage: '未提交审核' }),
+    genericDraftCreateBypassContent,
+  ),
+  /新工程来源|正式快照|规范固化|禁止提供/,
+  '草稿状态也不能通过通用创建入口预置调用方快照',
+)
+assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), genericDraftCreateBypassBefore)
+
+// 即使仓储中已存在快照，通用发布入口也不能再次把它当作调用方可发布字段接受。
+const genericPublishBypassBefore = getTechnicalDataVersionStoreSnapshot()
+assert.throws(
+  () => publishTechnicalDataVersionRecord(successVersionId, '2026-08-02 12:02', '伪造操作人'),
+  /新工程来源|预置.*快照|规范固化|禁止发布/,
+)
+assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), genericPublishBypassBefore)
 
 const canonicalTrustedSnapshot = freezeTechnicalDataVersionBomPricingSnapshot(
   trustedSnapshotSourceVersionId,
