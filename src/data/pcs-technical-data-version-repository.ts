@@ -1066,13 +1066,9 @@ function isNewEngineeringTechnicalVersion(
 
 function assertCallerDidNotProvideEngineeringBomPricingSnapshot(
   record: TechnicalDataVersionRecord | null | undefined,
-  contentOrPatch: Partial<TechnicalDataVersionContent> | undefined,
+  snapshotWasProvided: boolean,
 ): void {
-  if (
-    isNewEngineeringTechnicalVersion(record)
-    && contentOrPatch
-    && Object.prototype.hasOwnProperty.call(contentOrPatch, 'bomPricingSnapshot')
-  ) {
+  if (isNewEngineeringTechnicalVersion(record) && snapshotWasProvided) {
     throw new Error('新工程来源技术包正式 BOM/COST 快照属于正式字段，禁止修改或通过通用入口提供，必须使用规范固化入口。')
   }
 }
@@ -1082,7 +1078,7 @@ export function createTechnicalDataVersionDraft(
   content?: TechnicalDataVersionContent,
 ): TechnicalDataVersionRecord {
   validateTechnicalVersionCreationSource(record)
-  assertCallerDidNotProvideEngineeringBomPricingSnapshot(record, content)
+  assertCallerDidNotProvideEngineeringBomPricingSnapshot(record, content?.bomPricingSnapshot !== undefined)
   const snapshot = loadSnapshot()
   const normalizedContent = normalizeContent(content ?? createEmptyContent(record.technicalVersionId))
   const normalizedRecord = normalizeRecord(record, new Map([[record.technicalVersionId, normalizedContent]]))
@@ -1146,7 +1142,10 @@ export function updateTechnicalDataVersionContent(
   if (isPublishedLegacyTechnicalVersion(targetRecord)) {
     throw new Error('旧来源的已发布技术包仅供查询，处于只读状态，禁止修改。')
   }
-  assertCallerDidNotProvideEngineeringBomPricingSnapshot(targetRecord, patch)
+  assertCallerDidNotProvideEngineeringBomPricingSnapshot(
+    targetRecord,
+    Object.prototype.hasOwnProperty.call(patch, 'bomPricingSnapshot'),
+  )
   if (
     targetRecord?.versionStatus === 'PUBLISHED'
     && isNewEngineeringTechnicalVersion(targetRecord)

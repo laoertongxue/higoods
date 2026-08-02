@@ -928,6 +928,16 @@ assert.throws(
   () => updateTechnicalDataVersionContent(successVersionId, { bomPricingSnapshot: mismatchedSnapshot }),
   /已发布|正式字段|禁止修改/,
 )
+const publishedSnapshotBeforeExplicitUndefined = getTechnicalDataVersionContent(successVersionId)?.bomPricingSnapshot
+assert.throws(
+  () => updateTechnicalDataVersionContent(successVersionId, { bomPricingSnapshot: undefined }),
+  /已发布|正式字段|禁止修改|规范固化/,
+  'update 显式提交 undefined 仍属于删除正式快照的尝试，不能按 create 兼容规则放行',
+)
+assert.deepEqual(
+  getTechnicalDataVersionContent(successVersionId)?.bomPricingSnapshot,
+  publishedSnapshotBeforeExplicitUndefined,
+)
 
 // 工程变更来源正式启用只切换技术包事实，不得改写已关闭主单的任何专业任务。
 closeEngineeringMasterOrder(engineeringMaster.masterOrderId, '跟单甲')
