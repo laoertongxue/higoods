@@ -5,7 +5,7 @@
 | 项目 | 内容 |
 | --- | --- |
 | 审查日期 | 2026-08-02 |
-| 相关需求 / 任务 | Task 10 阶段②A：BOM 与价格变化仅触发买手复审，并覆盖技术包 BOM 弹窗通用保存链 |
+| 相关需求 / 任务 | Task 10 阶段②A：BOM 与价格变化仅触发买手复审，覆盖技术包 BOM 弹窗通用保存链，并补齐审核生命周期证据 |
 | 涉及系统 | PCS |
 | 涉及页面路径 | 既有技术包 BOM 与价格维护、技术包审核和发布入口 |
 | 端类型 | 管理端 |
@@ -32,8 +32,8 @@
 | 防错 | 通过 | 复审期间仅 BOM、价格可编辑且禁止发布；其他模块保持锁定。 |
 | UI 样式 | 通过 | 本次未改 UI。 |
 | 组件交互 | 通过 | 本次未改组件。 |
-| 协作关系 | 通过 | 版师、跟单审核结论保持；买手复审通过后直接恢复待发布。 |
-| 异常与追溯 | 通过 | 无变化不失效；非法变化数据在任何写入前阻断；审核失效写入失败时，同步回滚技术资料与物料标准价或系统汇率。 |
+| 协作关系 | 通过 | 版师、跟单审核结论保持；已进入审核生命周期的版本在 BOM 与价格变化后重建买手差异快照、追加日志并通知原指定买手；买手复审通过后直接恢复待发布。 |
+| 异常与追溯 | 通过 | 未提交草稿仍保持未提交，不生成审核日志或通知；无变化不失效；非法变化数据在任何写入前阻断；审核失效写入失败时，同步回滚技术资料与物料标准价或系统汇率。 |
 | 现场设备可用性 | 通过 | 管理端审核规则，不涉及现场设备。 |
 
 ## 4. 问题标签
@@ -57,19 +57,24 @@
 | 同价换 SKU 被数值相等过滤 | 算不准 | 买手 | 增加独立的“物料 SKU 变化”事实，使用真实新旧 SKU 身份判断，不再伪装为标准单价变化 | 否 |
 | 打样数量或用量单位改变后，成本已经变化但审核保持有效 | 算不准 | 买手 | 统一比较器增加“打样数量变化”和“用量单位变化”事实；单位按字段身份比较，不以换算结果是否相同代替业务变化 | 否 |
 | 通用保存已写技术资料，但审核失效写入失败 | 协作断裂 | 买手、跟单 | 审核失效纳入技术版本仓、工程主单仓及关系、款式、项目、归档四个旁路仓的同一原子边界；失败恢复六仓 | 否 |
+| BOM 与价格变化只重置状态，沿用旧差异快照且没有日志、通知 | 协作断裂 | 买手、跟单 | 抽取并复用审核生命周期能力；每次失效重建当前买手差异快照、更新差异摘要、追加版本日志并发送买手复审通知 | 否 |
+| 未提交草稿因标准价、汇率或直接 BOM 保存被推进到第一阶段审核 | 点错风险 | 买手、跟单 | 以“是否已经进入审核生命周期”为失效门禁；未提交草稿只保存业务内容，继续通过正式提交入口分配审核人并生成审核事实 | 否 |
 
 ## 6. 最终结论
 
 结论：通过
 
-说明：本次把已确认的精确复审规则同时接入专用 BOM 与价格保存器和技术包 BOM 弹窗通用保存链，并补齐新增、删除、同价换 SKU、单位用量、打样数量、损耗率、用量单位、同值保存、不相关内容与六仓失败回滚测试；没有新增页面，也没有涉及专业任务返工、正式快照、工程主单关闭或历史任务。
+说明：本次把已确认的精确复审规则同时接入专用 BOM 与价格保存器和技术包 BOM 弹窗通用保存链，并将差异快照、审核日志、飞书通知抽取为审核生命周期公共能力；已进入审核生命周期的版本失效旧买手结论，未提交草稿不被提前送审。测试覆盖新增、删除、同价换 SKU、单位用量、打样数量、损耗率、用量单位、标准价、汇率、同值保存、不相关内容、未提交草稿及六仓失败回滚；没有新增页面，也没有涉及专业任务返工、正式快照、工程主单关闭或历史任务。
 
 ## 7. 变更覆盖与验证
 
 ### 受管文件
 
 - `src/data/pcs-tech-pack-review.ts`
+- `src/data/pcs-tech-pack-review-lifecycle.ts`
+- `src/data/pcs-tech-pack-review-feishu.ts`
 - `src/data/pcs-tech-pack-bom-price-review-invalidation.ts`
+- `src/data/pcs-tech-pack-version-log-types.ts`
 - `src/data/pcs-engineering-bom-pricing.ts`
 - `src/pages/tech-pack/context.ts`
 - `src/data/pcs-material-archive-repository.ts`
@@ -90,6 +95,9 @@
 - `npx tsx tests/pcs-engineering-bom-pricing.spec.ts`：通过
 - `npx tsx tests/pcs-tech-pack-bom-pricing-page.spec.ts`：通过
 - `npx tsx tests/pcs-tech-pack-bom-review-activation-atomic.spec.ts`：通过
+- `node --import tsx scripts/check-tech-pack-review-assignee-opinion-diff.ts`：通过
+- `node --import tsx scripts/check-tech-pack-review-feishu-notification.ts`：通过
+- `node --import tsx scripts/check-tech-pack-review-logs.ts`：通过
 - `npx tsx tests/pcs-engineering-bom-task-linkage.spec.ts`：通过
 - `npx tsx tests/pcs-engineering-bom-task-linkage-page.spec.ts`：通过
 - `npm run check:prototype-design-governance -- --all`：通过

@@ -8,6 +8,11 @@ import type {
   TechnicalDataVersionRecord,
   TechnicalReviewNode,
 } from './pcs-technical-data-version-types.ts'
+import {
+  appendReviewLog,
+  sendReviewNotificationSafely,
+  withReviewDiffSnapshot,
+} from './pcs-tech-pack-review-lifecycle.ts'
 
 export type BomPriceReviewChangeSource =
   | 'STANDARD_MATERIAL_PRICE_CNY'
@@ -60,7 +65,7 @@ function nowText(): string {
 
 function resetBuyerReview(record: TechnicalDataVersionRecord, changedAt: string, operatorName: string): TechnicalReviewNode {
   const current = record.buyerReview
-  return {
+  return withReviewDiffSnapshot(record, {
     nodeKey: 'BUYER',
     nodeName: '买手审核',
     status: '待审核',
@@ -75,16 +80,19 @@ function resetBuyerReview(record: TechnicalDataVersionRecord, changedAt: string,
     reviewedAt: '',
     startedOpinion: '',
     opinion: '',
-    diffSnapshotId: current?.diffSnapshotId || '',
-    diffStatus: current?.diffStatus || '无基线',
-    diffSummaryText: current?.diffSummaryText || '',
+    diffSnapshotId: '',
+    diffStatus: '无基线',
+    diffSummaryText: '',
     lastFeishuNotifyAt: current?.lastFeishuNotifyAt || '',
     lastFeishuNotifyStatus: current?.lastFeishuNotifyStatus || '未发送',
     lastFeishuNotifyRecordId: current?.lastFeishuNotifyRecordId || '',
     todayFeishuNotifiedFlag: current?.todayFeishuNotifiedFlag || false,
     todayFeishuNotifyAt: current?.todayFeishuNotifyAt || '',
     feishuNotifyCount: current?.feishuNotifyCount || 0,
-  }
+  }, {
+    diffStatus: '有差异',
+    summaryText: 'BOM 与价格变化，需买手重新审核。',
+  })
 }
 
 export function invalidateReviewForBomPriceChange(
@@ -115,6 +123,7 @@ export function invalidateReviewForBomPriceChange(
   if (!record) throw new Error(`未找到技术包版本：${technicalVersionId}`)
   if (record.versionStatus !== 'DRAFT') throw new Error('仅草稿技术包可以更新审核状态。')
   if (changes.every((change) => change.beforeValue === change.afterValue)) return record
+  if (record.reviewStage === '未提交审核' || !record.buyerReview) return record
   if (failureTechnicalVersionIdForTesting === technicalVersionId) {
     throw new Error('模拟 BOM 与价格审核失效写入失败')
   }
@@ -133,7 +142,28 @@ export function invalidateReviewForBomPriceChange(
     updatedBy: operatorName,
   })
   if (!next) throw new Error(`未找到技术包版本：${technicalVersionId}`)
-  return next
+  appendReviewLog({
+    record: next,
+    logType: 'BOM 与价格变化重新审核',
+    changeText: `BOM 与价格发生 ${changes.length} 项变化，原买手审核结论失效，需买手重新审核。`,
+    operatorName,
+    createdAt: changedAt,
+    logKey: 'BUYER',
+  })
+  sendReviewNotificationSafely({
+    technicalVersionId,
+    nodeKey: 'BUYER',
+    notificationType: '打回复审',
+    createdBy: operatorName,
+    diffSnapshot: next.buyerReview
+      ? {
+          snapshotId: next.buyerReview.diffSnapshotId,
+          diffStatus: next.buyerReview.diffStatus,
+          summaryText: next.buyerReview.diffSummaryText,
+        }
+      : undefined,
+  })
+  return getTechnicalDataVersionById(technicalVersionId) || next
 }
 
 export function invalidateBomPriceReviewsForMaterialStandardPriceChange(input: {

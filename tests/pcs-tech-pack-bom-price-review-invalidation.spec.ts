@@ -23,6 +23,14 @@ import {
   updateLatestPcsExchangeRate,
 } from '../src/data/pcs-exchange-rate-config.ts'
 import { setBomPriceReviewInvalidationFailureForTesting } from '../src/data/pcs-tech-pack-bom-price-review-invalidation.ts'
+import {
+  listTechPackReviewNotificationsByVersionId,
+  resetTechPackReviewNotificationRepository,
+} from '../src/data/pcs-tech-pack-review-notification-repository.ts'
+import {
+  listTechPackVersionLogsByVersionId,
+  resetTechPackVersionLogRepository,
+} from '../src/data/pcs-tech-pack-version-log-repository.ts'
 import { saveTechnicalDataVersionBomMaterialLine } from '../src/data/pcs-engineering-bom-pricing.ts'
 import {
   getTechnicalDataVersionById,
@@ -158,9 +166,31 @@ const content: TechnicalDataVersionContent = {
 }
 
 function installApprovedFixture(contentOverride: TechnicalDataVersionContent = content): void {
+  resetTechPackVersionLogRepository()
+  resetTechPackReviewNotificationRepository()
   installTechnicalDataVersionFixtures({
     version: 3,
     records: [baseRecord],
+    contents: [contentOverride],
+    pendingItems: [],
+  })
+}
+
+function installUnsubmittedFixture(contentOverride: TechnicalDataVersionContent): void {
+  resetTechPackVersionLogRepository()
+  resetTechPackReviewNotificationRepository()
+  installTechnicalDataVersionFixtures({
+    version: 3,
+    records: [{
+      ...baseRecord,
+      reviewStage: '未提交审核',
+      buyerReview: undefined,
+      patternMakerReview: undefined,
+      merchandiserReview: undefined,
+      reviewSubmittedAt: '',
+      reviewSubmittedBy: '',
+      reviewUnlockedModuleKeys: [],
+    }],
     contents: [contentOverride],
     pendingItems: [],
   })
@@ -319,6 +349,17 @@ for (const [changeSource, targetId, beforeValue, afterValue] of changedCases) {
   assert.equal(canEditTechnicalModule(next, 'PATTERN'), false)
   assert.deepEqual(getTechnicalReviewPendingRoles(next), ['买手'])
   assert.equal(canPublishTechnicalVersionByReview(next), false, '买手复审通过前禁止发布')
+  assert.notEqual(next.buyerReview?.diffSnapshotId, before.buyerReview?.diffSnapshotId, `${changeSource} 必须重建买手差异快照`)
+  assert.equal(next.buyerReview?.diffStatus, '有差异', `${changeSource} 必须将当前变化写入差异状态`)
+  assert.match(next.buyerReview?.diffSummaryText || '', /BOM 与价格变化/, `${changeSource} 必须更新差异摘要`)
+  const reviewLogs = listTechPackVersionLogsByVersionId(technicalVersionId)
+  assert.equal(reviewLogs.length, 1, `${changeSource} 必须追加一条审核生命周期日志`)
+  assert.equal(reviewLogs[0]?.logType, 'BOM 与价格变化重新审核')
+  assert.match(reviewLogs[0]?.changeText || '', /买手重新审核/)
+  const notifications = listTechPackReviewNotificationsByVersionId(technicalVersionId)
+  assert.equal(notifications.length, 1, `${changeSource} 必须发送一条买手复审通知`)
+  assert.equal(notifications[0]?.nodeKey, 'BUYER')
+  assert.equal(notifications[0]?.notificationType, '打回复审')
 }
 
 installApprovedFixture()
@@ -375,6 +416,50 @@ assert.equal(
   '待审核',
   '真实物料标准单价保存必须触发引用技术包的买手复审',
 )
+
+installUnsubmittedFixture(contentWithBom(pricedSku.materialSkuId))
+const unsubmittedMaterialBefore = getTechnicalDataVersionById(technicalVersionId)
+const unsubmittedSkuBefore = getMaterialSkuRecordById(pricedSku.materialSkuId)
+assert.ok(unsubmittedSkuBefore)
+assert.ok(updateMaterialSkuRecord(pricedSku.materialSkuId, {
+  colorName: unsubmittedSkuBefore.colorName,
+  specName: unsubmittedSkuBefore.specName,
+  sizeName: unsubmittedSkuBefore.sizeName,
+  skuImageUrl: unsubmittedSkuBefore.skuImageUrl,
+  costPrice: unsubmittedSkuBefore.costPrice + 1,
+  freightCost: unsubmittedSkuBefore.freightCost,
+  weightKg: unsubmittedSkuBefore.weightKg,
+  lengthCm: unsubmittedSkuBefore.lengthCm,
+  widthCm: unsubmittedSkuBefore.widthCm,
+  heightCm: unsubmittedSkuBefore.heightCm,
+  barcode: unsubmittedSkuBefore.barcode,
+}))
+assert.equal(getTechnicalDataVersionById(technicalVersionId)?.reviewStage, '未提交审核', '未提交草稿不得因标准单价变化进入第一阶段审核')
+assert.equal(getTechnicalDataVersionById(technicalVersionId)?.buyerReview?.assignedReviewerId, '')
+assert.equal(getTechnicalDataVersionById(technicalVersionId)?.reviewSubmittedAt, '')
+assert.equal(listTechPackVersionLogsByVersionId(technicalVersionId).length, 0)
+assert.equal(listTechPackReviewNotificationsByVersionId(technicalVersionId).length, 0)
+assert.equal(unsubmittedMaterialBefore?.reviewStage, '未提交审核')
+
+installUnsubmittedFixture(contentWithBom(pricedSku.materialSkuId))
+const unsubmittedRate = getLatestPcsExchangeRate().idrPerCny
+updateLatestPcsExchangeRate({ idrPerCny: unsubmittedRate + 1, updatedBy: '系统管理员' })
+assert.equal(getTechnicalDataVersionById(technicalVersionId)?.reviewStage, '未提交审核', '未提交草稿不得因汇率变化进入第一阶段审核')
+assert.equal(getTechnicalDataVersionById(technicalVersionId)?.buyerReview?.assignedReviewerId, '')
+assert.equal(listTechPackVersionLogsByVersionId(technicalVersionId).length, 0)
+assert.equal(listTechPackReviewNotificationsByVersionId(technicalVersionId).length, 0)
+
+installUnsubmittedFixture(contentWithBom(pricedSku.materialSkuId))
+saveTechnicalDataVersionBomMaterialLine(
+  technicalVersionId,
+  'BOM-001',
+  { usage: 1.25 },
+  '买手',
+)
+assert.equal(getTechnicalDataVersionById(technicalVersionId)?.reviewStage, '未提交审核', '未提交草稿直接保存 BOM 不得绕过提交审核入口')
+assert.equal(getTechnicalDataVersionById(technicalVersionId)?.buyerReview?.assignedReviewerId, '')
+assert.equal(listTechPackVersionLogsByVersionId(technicalVersionId).length, 0)
+assert.equal(listTechPackReviewNotificationsByVersionId(technicalVersionId).length, 0)
 
 installApprovedFixture(contentWithBom(pricedSku.materialSkuId))
 const currentRate = getLatestPcsExchangeRate().idrPerCny
