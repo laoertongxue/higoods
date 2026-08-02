@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict'
 
 import {
-  closeEngineeringMasterOrder,
   getEngineeringMasterOrderById,
   updateEngineeringTaskRecord,
-  validateEngineeringMasterOrderClose,
 } from '../../src/data/pcs-engineering-master-repository.ts'
+import {
+  closeEngineeringMasterOrder,
+  validateEngineeringMasterOrderClose,
+} from '../../src/data/pcs-engineering-master-close-service.ts'
 import {
   createMaterialArchive,
   createMaterialSkuRecord,

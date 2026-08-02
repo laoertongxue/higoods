@@ -345,36 +345,6 @@ export function assertTechnicalDataVersionBomCanSubmitForReview(technicalVersion
   assertEngineeringBomCanSubmitForReview(resolveEngineeringBomDraft(draft), '买手')
 }
 
-export function freezeEngineeringBomPricingSnapshot(input: EngineeringBomDraft & { frozenAt: string; frozenBy: string }): EngineeringBomPricingSnapshot {
-  const resolved = resolveEngineeringBomDraft(input)
-  assertEngineeringBomCanSubmitForReview(resolved, '买手')
-  const materialLines = resolved.materialLines.map((item) => ({
-    ...item,
-    standardUnitPriceCny: item.standardUnitPriceCny as number,
-    materialCostCny: item.materialCostCny as number,
-  }))
-  return {
-    snapshotVersion: 1,
-    frozenAt: input.frozenAt,
-    frozenBy: input.frozenBy,
-    exchangeRateIdrPerCny: resolved.cost.exchangeRateIdrPerCny,
-    exchangeRateSource: '系统最新汇率',
-    materialLines,
-    customCosts: resolved.customCosts,
-    cost: { ...resolved.cost },
-    bomItems: [],
-    materialPriceSnapshots: materialLines.map((item) => ({
-      ...item,
-      bomItemId: item.bomItemId ?? '',
-    })),
-    customCostsIdr: resolved.customCosts.map((item) => ({ ...item })),
-    materialCostCny: resolved.cost.materialCostCny,
-    comprehensiveCostCny: resolved.cost.comprehensiveCostCny,
-    comprehensiveCostIdr: resolved.cost.comprehensiveCostIdr,
-    linkedPartTemplateVersions: [],
-  }
-}
-
 export function freezeTechnicalDataVersionBomPricingSnapshot(
   technicalVersionId: string,
   frozenAt: string,

@@ -8,7 +8,6 @@ import {
   resolveInitialTaskStatus,
 } from './pcs-engineering-dependency-policy.ts'
 import type { EngineeringBomTaskLinkageRow } from './pcs-engineering-bom-types.ts'
-import { assertEngineeringBomPricingSnapshotValid } from './pcs-engineering-bom-pricing.ts'
 import { assertFirstFormalProduction } from './pcs-engineering-first-production-policy.ts'
 import {
   getStyleArchiveById,
@@ -21,10 +20,6 @@ import type {
   EngineeringTaskRecord,
   EngineeringTaskType,
 } from './pcs-engineering-master-types.ts'
-import {
-  getTechnicalDataVersionById,
-  getTechnicalDataVersionContent,
-} from './pcs-technical-data-version-repository.ts'
 
 const ENGINEERING_MASTER_STORAGE_KEY = 'higood-pcs-engineering-master-store-v1'
 const ENGINEERING_MASTER_STORE_VERSION = 1
@@ -401,10 +396,9 @@ export function setEngineeringMasterStatus(
   return cloneRecord(record)
 }
 
-export interface EngineeringMasterOrderCloseValidation {
+export interface EngineeringMasterOrderCloseStateValidation {
   canClose: true
   masterOrderId: string
-  technicalVersionId: string
 }
 
 export function assertFixedTaskDependenciesSatisfied(master: EngineeringMasterOrderRecord, task: EngineeringTaskRecord): void {
@@ -438,9 +432,9 @@ export function assertEngineeringTaskCanComplete(
   assertFixedTaskDependenciesSatisfied(master, task)
 }
 
-export function validateEngineeringMasterOrderClose(
+export function validateEngineeringMasterOrderCloseState(
   masterOrderId: string,
-): EngineeringMasterOrderCloseValidation {
+): EngineeringMasterOrderCloseStateValidation {
   const master = getEngineeringMasterOrderById(masterOrderId)
   if (!master) throw new Error(`工程主单不存在：${masterOrderId}`)
   if (master.status === '已关闭') throw new Error('工程主单已关闭，不能重复关闭。')
@@ -456,47 +450,27 @@ export function validateEngineeringMasterOrderClose(
     assertFixedTaskDependenciesSatisfied(master, task)
   }
 
-  const style = getStyleArchiveById(master.styleId)
-  if (!style?.currentTechPackVersionId) throw new Error('主单款式尚未启用正式技术包，不能关闭工程主单。')
-  const version = getTechnicalDataVersionById(style.currentTechPackVersionId)
-  if (
-    !version
-    || version.styleId !== master.styleId
-    || version.sourceProjectId !== master.masterOrderId
-    || version.createdFromTaskType !== 'ENGINEERING_MASTER'
-    || version.createdFromTaskId !== `${master.masterOrderId}-TECH_PACK_CONFIRMATION`
-    || version.versionStatus !== 'PUBLISHED'
-    || version.reviewStage !== '已发布'
-  ) {
-    throw new Error('主单来源技术包未完成审核发布并启用，不能关闭工程主单。')
-  }
-  const content = getTechnicalDataVersionContent(version.technicalVersionId)
-  if (!content?.bomPricingSnapshot) throw new Error('正式技术包缺少 BOM 与价格正式快照，不能关闭工程主单。')
-  assertEngineeringBomPricingSnapshotValid(content.bomPricingSnapshot)
   return {
     canClose: true,
     masterOrderId: master.masterOrderId,
-    technicalVersionId: version.technicalVersionId,
   }
 }
 
-export function closeEngineeringMasterOrder(
+export function commitEngineeringMasterOrderClose(
   masterOrderId: string,
   operatorName: string,
 ): EngineeringMasterOrderRecord {
-  return runEngineeringMasterRepositoryTransaction(() => {
-    const validation = validateEngineeringMasterOrderClose(masterOrderId)
-    const snapshot = readSnapshot()
-    const master = snapshot.records.find((record) => record.masterOrderId === validation.masterOrderId)
-    if (!master) throw new Error(`工程主单不存在：${masterOrderId}`)
-    if (!operatorName.trim() || operatorName.trim() !== master.merchandiserName) {
-      throw new Error('只有主单跟单本人可以关闭工程主单。')
-    }
-    master.status = '已关闭'
-    master.closedAt = nowText()
-    writeSnapshot(snapshot)
-    return cloneRecord(master)
-  })
+  const validation = validateEngineeringMasterOrderCloseState(masterOrderId)
+  const snapshot = readSnapshot()
+  const master = snapshot.records.find((record) => record.masterOrderId === validation.masterOrderId)
+  if (!master) throw new Error(`工程主单不存在：${masterOrderId}`)
+  if (!operatorName.trim() || operatorName.trim() !== master.merchandiserName) {
+    throw new Error('只有主单跟单本人可以关闭工程主单。')
+  }
+  master.status = '已关闭'
+  master.closedAt = nowText()
+  writeSnapshot(snapshot)
+  return cloneRecord(master)
 }
 
 // 工程任务事实只允许通过工程主单仓储改写；专业服务用此入口保持单一事实源。

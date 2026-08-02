@@ -10,10 +10,10 @@ import {
   assertEngineeringBomCanSubmitForReview,
   buildEngineeringBomMaterialLine,
   calculateEngineeringBomCost,
-  freezeEngineeringBomPricingSnapshot,
   freezeTechnicalDataVersionBomPricingSnapshot,
   resolveEngineeringBomDraft,
 } from '../src/data/pcs-engineering-bom-pricing.ts'
+import * as bomPricingPublicApi from '../src/data/pcs-engineering-bom-pricing.ts'
 import {
   getLatestPcsExchangeRate,
   updateLatestPcsExchangeRate,
@@ -230,20 +230,23 @@ const latestDraft = resolveEngineeringBomDraft({
 assert.equal(latestDraft.cost.materialCostCny, 57.41, '草稿必须直接读取最新标准单价')
 assert.equal(latestDraft.cost.exchangeRateIdrPerCny, 2300, '草稿必须直接读取系统最新汇率')
 
-const snapshot = freezeEngineeringBomPricingSnapshot({
+const snapshot = structuredClone(resolveEngineeringBomDraft({
   materialLines: [draftLine],
   customCosts: [{ title: '车位费', amountIdr: 44000 }],
-  frozenAt: '2026-08-01 10:00',
-  frozenBy: '跟单甲',
-})
+}))
 assert.equal(snapshot.materialLines[0]?.standardUnitPriceCny, 20)
-assert.equal(snapshot.exchangeRateIdrPerCny, 2300)
+assert.equal(snapshot.cost.exchangeRateIdrPerCny, 2300)
 assert.equal(snapshot.customCosts[0]?.currency, 'IDR')
+assert.equal(
+  'freezeEngineeringBomPricingSnapshot' in bomPricingPublicApi,
+  false,
+  '公开 API 不得返回缺少 BOM 事实和 bomItemId 的伪正式快照',
+)
 
 changeSkuCost(pricedSku.materialSkuId, 30)
 updateLatestPcsExchangeRate({ idrPerCny: 2400, updatedBy: '系统管理员' })
-assert.equal(snapshot.materialLines[0]?.standardUnitPriceCny, 20, '正式版本价格快照不得随物料档案变化')
-assert.equal(snapshot.exchangeRateIdrPerCny, 2300, '正式版本汇率快照不得随系统配置变化')
+assert.equal(snapshot.materialLines[0]?.standardUnitPriceCny, 20, '已解析草稿副本不得随物料档案变化')
+assert.equal(snapshot.cost.exchangeRateIdrPerCny, 2300, '已解析草稿副本不得随系统配置变化')
 assert.equal(getLatestPcsExchangeRate().idrPerCny, 2400)
 
 changeSkuCost(pricedSku.materialSkuId, 0)

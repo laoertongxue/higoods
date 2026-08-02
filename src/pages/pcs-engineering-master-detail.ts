@@ -11,11 +11,13 @@ import {
   type EngineeringTaskCardModel,
 } from '../data/pcs-engineering-master-view-model.ts'
 import {
-  closeEngineeringMasterOrder,
   getEngineeringMasterOrderById,
   submitEngineeringTaskResult,
-  validateEngineeringMasterOrderClose,
 } from '../data/pcs-engineering-master-repository.ts'
+import {
+  closeEngineeringMasterOrder,
+  validateEngineeringMasterOrderClose,
+} from '../data/pcs-engineering-master-close-service.ts'
 import type {
   EngineeringMasterStatus,
   EngineeringTaskStatus,

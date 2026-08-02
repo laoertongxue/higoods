@@ -1,15 +1,17 @@
 import assert from 'node:assert/strict'
 
 import {
-  closeEngineeringMasterOrder,
   createEngineeringMasterOrder,
   getEngineeringMasterOrderById,
   publishEngineeringMasterOrder,
   resetEngineeringMasterRepository,
   setEngineeringMasterStatus,
   updateEngineeringTaskRecord,
-  validateEngineeringMasterOrderClose,
 } from '../src/data/pcs-engineering-master-repository.ts'
+import {
+  closeEngineeringMasterOrder,
+  validateEngineeringMasterOrderClose,
+} from '../src/data/pcs-engineering-master-close-service.ts'
 import {
   assertEngineeringBomPricingSnapshotValid,
 } from '../src/data/pcs-engineering-bom-pricing.ts'
