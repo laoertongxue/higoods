@@ -153,7 +153,7 @@ function readProviderEvent(reference: string): {
 
 function parseDesktopExecCommand(input: unknown): { cmd?: unknown; workdir?: unknown } {
   assert(typeof input === 'string', '桌面 provider exec 输入不是字符串')
-  const match = /^\s*const\s+r\s*=\s*await\s+tools\.exec_command\(\s*\{([\s\S]*)\}\s*\)\s*;\s*text\(r\.output\)\s*;\s*$/.exec(input)
+  const match = /^\s*const\s+r\s*=\s*await\s+tools\.exec_command\(\s*\{([\s\S]*)\}\s*\)\s*;\s*text\(r\)\s*;\s*$/.exec(input)
   assert(match, '桌面 provider exec 不是受支持的精确命令包装')
   const jsonObject = `{${match[1].replace(/(^|,)\s*([A-Za-z_][A-Za-z0-9_]*)\s*:/g, '$1"$2":')}}`
   let parsed: unknown
@@ -169,6 +169,24 @@ function parseDesktopExecCommand(input: unknown): { cmd?: unknown; workdir?: unk
     '桌面 provider exec 包含未允许的参数',
   )
   return { cmd: command.cmd, workdir: command.workdir }
+}
+
+function desktopExecSucceeded(resultOutput: string): boolean {
+  if (!/^Script completed\n/.test(resultOutput)) return false
+  const outputMarker = '\nOutput:\n'
+  const outputIndex = resultOutput.indexOf(outputMarker)
+  assert(outputIndex >= 0, '桌面 provider exec 结果缺少 Output 段')
+  let nestedResult: unknown
+  try {
+    nestedResult = JSON.parse(resultOutput.slice(outputIndex + outputMarker.length))
+  } catch {
+    throw new Error('桌面 provider exec 结果未包含可审计的嵌套命令结果')
+  }
+  assert(nestedResult && typeof nestedResult === 'object' && !Array.isArray(nestedResult), '桌面 provider exec 嵌套命令结果格式无效')
+  const exitCode = (nestedResult as { exit_code?: unknown }).exit_code
+  assert(typeof exitCode === 'number' && Number.isInteger(exitCode), '桌面 provider exec 嵌套命令退出码无效')
+  assert.equal(exitCode, 0, '桌面 provider exec 嵌套命令退出码不是 0')
+  return true
 }
 
 export function providerEventTimestamp(reference: string): string {
@@ -228,7 +246,7 @@ function assertProviderSkillInvocation(
       ? result.output.map((item) => item && typeof item === 'object' && typeof (item as { text?: unknown }).text === 'string' ? (item as { text: string }).text : '').join('')
       : ''
   const succeeded = isDesktopExec
-    ? /^Script completed\n/.test(resultOutput)
+    ? desktopExecSucceeded(resultOutput)
     : (() => {
         const resultHeader = resultOutput.split(/\n(?:Final output|Output):/i, 1)[0]
         const exitCodes = [

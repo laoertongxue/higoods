@@ -109,14 +109,47 @@ function sortRecords(records: FeiTicketNumberingRecord[]): FeiTicketNumberingRec
 function normalizeRecord(raw: unknown): FeiTicketNumberingRecord | null {
   if (!raw || typeof raw !== 'object') return null
   const value = raw as Record<string, unknown>
+  const recordId = normalizeText(value.recordId)
+  const feiTicketId = normalizeText(value.feiTicketId)
   const feiTicketNo = normalizeText(value.feiTicketNo)
-  if (!feiTicketNo) return null
   const startNo = toNumber(value.pieceSequenceStartNo)
   const endNo = toNumber(value.pieceSequenceEndNo)
-  const numberCount = toNumber(value.numberCount) || calculateNumberCount(startNo, endNo)
+  const numberCount = toNumber(value.numberCount)
+  const expectedNumberCount = calculateNumberCount(startNo, endNo)
+  const source = value.source
+  const requiredTextValues = [
+    recordId,
+    feiTicketId,
+    feiTicketNo,
+    normalizeText(value.productionOrderId),
+    normalizeText(value.productionOrderNo),
+    normalizeText(value.cutOrderId),
+    normalizeText(value.cutOrderNo),
+    normalizeText(value.spreadingOrderId),
+    normalizeText(value.spreadingOrderNo),
+    normalizeText(value.materialSku),
+    normalizeText(value.color),
+    normalizeText(value.size),
+    normalizeText(value.partCode),
+    normalizeText(value.partName),
+    normalizeText(value.pieceSequenceLabel),
+    normalizeText(value.operatorId),
+    normalizeText(value.operatorName),
+    normalizeText(value.operatorRole),
+    normalizeText(value.completedAt),
+  ]
+  if (
+    requiredTextValues.some((text) => !text)
+    || !Number.isSafeInteger(startNo)
+    || !Number.isSafeInteger(endNo)
+    || !Number.isSafeInteger(numberCount)
+    || expectedNumberCount <= 0
+    || numberCount !== expectedNumberCount
+    || (source !== 'WEB' && source !== 'PDA' && source !== 'MOCK')
+  ) return null
   return {
-    recordId: normalizeText(value.recordId) || `NUM-${compactDate(normalizeText(value.completedAt))}-${feiTicketNo}`,
-    feiTicketId: normalizeText(value.feiTicketId),
+    recordId,
+    feiTicketId,
     feiTicketNo,
     productionOrderId: normalizeText(value.productionOrderId),
     productionOrderNo: normalizeText(value.productionOrderNo),
@@ -133,11 +166,11 @@ function normalizeRecord(raw: unknown): FeiTicketNumberingRecord | null {
     pieceSequenceEndNo: endNo,
     pieceSequenceLabel: normalizeText(value.pieceSequenceLabel),
     numberCount,
-    operatorId: normalizeText(value.operatorId) || normalizeText(value.operatorName),
-    operatorName: normalizeText(value.operatorName) || '打编号员工',
-    operatorRole: normalizeText(value.operatorRole) || '打编号员工',
-    completedAt: normalizeText(value.completedAt) || nowText(),
-    source: value.source === 'WEB' || value.source === 'PDA' ? value.source : value.source === 'MOCK' ? 'MOCK' : 'WEB',
+    operatorId: normalizeText(value.operatorId),
+    operatorName: normalizeText(value.operatorName),
+    operatorRole: normalizeText(value.operatorRole),
+    completedAt: normalizeText(value.completedAt),
+    source,
     remark: normalizeText(value.remark),
   }
 }
@@ -272,7 +305,7 @@ export function listFeiTicketNumberingRecords(): FeiTicketNumberingRecord[] {
 
 export function appendFeiTicketNumberingRecord(record: FeiTicketNumberingRecord): FeiTicketNumberingRecord {
   const normalized = normalizeRecord(record)
-  if (!normalized) throw new Error('菲票编号完成记录缺少票号。')
+  if (!normalized) throw new Error('菲票编号完成记录无效，请核对编号区间、数量和完成信息。')
   persistStore({ records: sortRecords(uniqueRecords([...hydrateStore().records, normalized])) })
   return normalized
 }
@@ -382,15 +415,15 @@ export function completeFeiTicketNumbering(input: {
     source: input.source || 'WEB',
     remark: normalizeText(input.remark),
   }
-  persistStore({ records: sortRecords(uniqueRecords([...hydrateStore().records, record])) })
+  const persistedRecord = appendFeiTicketNumberingRecord(record)
   return {
     ok: true,
     status: '已完成',
-    message: `已完成打编号：${record.feiTicketNo}，编号 ${record.pieceSequenceLabel}，共 ${record.numberCount} 个。`,
+    message: `已完成打编号：${persistedRecord.feiTicketNo}，编号 ${persistedRecord.pieceSequenceLabel}，共 ${persistedRecord.numberCount} 个。`,
     ticket,
-    record,
-    numberCount: record.numberCount,
-    pieceSequenceLabel: record.pieceSequenceLabel,
+    record: persistedRecord,
+    numberCount: persistedRecord.numberCount,
+    pieceSequenceLabel: persistedRecord.pieceSequenceLabel,
   }
 }
 

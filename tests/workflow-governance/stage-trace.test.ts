@@ -65,7 +65,7 @@ function providerEvidence(
   return `provider-event:${providerSessionPath}#L1`
 }
 
-function desktopProviderEvidence(name: string, command: string, status = 'Script completed'): string {
+function desktopOutputOnlyProviderEvidence(name: string, command: string, status = 'Script completed'): string {
   const providerSessionPath = join(fixtureRoot, `${name}.jsonl`)
   const callId = `call-${name}`
   const input = `const r = await tools.exec_command(${JSON.stringify({
@@ -94,22 +94,78 @@ function desktopProviderEvidence(name: string, command: string, status = 'Script
   return `provider-event:${providerSessionPath}#L1`
 }
 
+function structuredDesktopProviderEvidence(
+  name: string,
+  command: string,
+  nestedExitCode = 0,
+  status = 'Script completed',
+): string {
+  const providerSessionPath = join(fixtureRoot, `${name}.jsonl`)
+  const callId = `call-${name}`
+  const input = `const r = await tools.exec_command(${JSON.stringify({
+    cmd: command,
+    workdir: fixtureRoot,
+    yield_time_ms: 10000,
+    max_output_tokens: 30000,
+  })});\ntext(r);`
+  writeFileSync(providerSessionPath, [
+    JSON.stringify({
+      timestamp: '2026-07-29T10:01:00.000Z',
+      type: 'response_item',
+      payload: { type: 'custom_tool_call', name: 'exec', input, call_id: callId },
+    }),
+    JSON.stringify({
+      timestamp: '2026-07-29T10:01:00.100Z',
+      type: 'response_item',
+      payload: {
+        type: 'custom_tool_call_output',
+        call_id: callId,
+        output: [
+          { type: 'input_text', text: `${status}\nWall time 0.1 seconds\nOutput:\n` },
+          {
+            type: 'input_text',
+            text: JSON.stringify({
+              chunk_id: 'fixture',
+              wall_time_seconds: 0.1,
+              exit_code: nestedExitCode,
+              original_token_count: 3,
+              output: '# Test skill\n',
+            }),
+          },
+        ],
+      },
+    }),
+    '',
+  ].join('\n'))
+  return `provider-event:${providerSessionPath}#L1`
+}
+
 const skillEvidence = providerEvidence(
   'provider-session',
   `sed -n '1,240p' ${skillFixturePath}`,
 )
-const desktopSkillEvidence = desktopProviderEvidence(
+const desktopSkillEvidence = structuredDesktopProviderEvidence(
   'desktop-provider-session',
   `sed -n '1,380p' ${skillFixturePath}`,
 )
-const desktopSpoofedEvidence = desktopProviderEvidence(
+const desktopSpoofedEvidence = structuredDesktopProviderEvidence(
   'desktop-spoofed-provider-session',
   `echo "sed -n '1,380p' ${skillFixturePath}"`,
 )
-const desktopFailedEvidence = desktopProviderEvidence(
+const desktopFailedEvidence = structuredDesktopProviderEvidence(
   'desktop-failed-provider-session',
   `sed -n '1,380p' ${skillFixturePath}`,
+  0,
   'Script failed',
+)
+const desktopOutputOnlyEvidence = desktopOutputOnlyProviderEvidence(
+  'desktop-output-only-provider-session',
+  `sed -n '1,380p' ${skillFixturePath}`,
+)
+const desktopNestedCommandFailedEvidence = structuredDesktopProviderEvidence(
+  'desktop-nested-command-failed-provider-session',
+  `sed -n '1,380p' ${skillFixturePath}`,
+  7,
 )
 const spoofedSkillEvidence = providerEvidence(
   'spoofed-provider-session',
@@ -259,6 +315,31 @@ test('桌面端 exec 包装仍拒绝回显伪造和失败读取', () => {
       requireTwoStageReview: false,
     }, validationOptions), /未读取声明的技能源文件/)
   }
+  assert.throws(() => validateStageTrace([
+    event('skill-invocation', {
+      timestamp: '2026-07-29T10:01:00.000Z',
+      skill: requiredSkill,
+      skillSource: skillFixturePath,
+      evidenceRef: desktopOutputOnlyEvidence,
+    }),
+  ], {
+    requiredSkills: [requiredSkill],
+    requireTwoStageReview: false,
+  }, validationOptions), /未包含可审计的嵌套命令结果/)
+})
+
+test('桌面端 exec 外层完成但嵌套命令退出码非零时拒绝技能调用证据', () => {
+  assert.throws(() => validateStageTrace([
+    event('skill-invocation', {
+      timestamp: '2026-07-29T10:01:00.000Z',
+      skill: requiredSkill,
+      skillSource: skillFixturePath,
+      evidenceRef: desktopNestedCommandFailedEvidence,
+    }),
+  ], {
+    requiredSkills: [requiredSkill],
+    requireTwoStageReview: false,
+  }, validationOptions), /桌面 provider exec 嵌套命令退出码不是 0/)
 })
 
 test('请求中只出现技能名称不能冒充实际技能调用', () => {

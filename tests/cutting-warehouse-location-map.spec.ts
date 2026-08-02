@@ -443,6 +443,27 @@ test('动态资源预算不足时不按固定数量保存并保留输入', async
   expect(version).toBe(0)
 })
 
+test('资源能力不可测时关闭生成并提示拆分后重试', async ({ page }) => {
+  await openStandaloneShelfMaintenanceDialog(page)
+  await page.evaluate(async () => {
+    const module = await import('/src/pages/process-factory/cutting/warehouse-location-map.ts')
+    module.configureCuttingWarehouseMaintenanceRuntimeForTest({ resourceEstimate: {} })
+  })
+  const modal = page.locator('[data-cutting-warehouse-modal]')
+  await modal.locator('[name="shelfSequence"]').fill('101')
+  await modal.locator('[name="levelCount"]').fill('21')
+  await modal.locator('[name="defaultPositionCount"]').fill('20')
+  await modal.locator('[data-warehouse-map-action="submit-maintenance"]').click()
+  await expect(modal.locator('[data-maintenance-error]')).toContainText('无法检测当前设备可用资源，请拆分货架/减少单次生成后重试')
+  await expect(modal.locator('[name="levelCount"]')).toHaveValue('21')
+  await expect(modal.locator('[name="defaultPositionCount"]')).toHaveValue('20')
+  const version = await page.evaluate(() => {
+    const layout = Object.entries(localStorage).find(([key]) => key.includes('warehouse-layout:v3'))
+    return layout ? JSON.parse(layout[1]).layoutVersion : -1
+  })
+  expect(version).toBe(0)
+})
+
 test('共享库位图大投影视窗末层末位置可达且保留选择与占用详情', async ({ page }) => {
   await page.goto('/src/components/ui/warehouse-location-map.ts', { waitUntil: 'domcontentloaded' })
   await page.evaluate(async () => {

@@ -53,6 +53,8 @@
 | 领料差异输入导致文件控件被整页重绘替换 | 追溯不足 | 裁床仓管员 | 数量、备注、差异行和照片输入跳过整页重绘，照片名在当前节点局部反馈。 | 否 |
 | 生产单状态入口可能进入不存在的裁床详情 | 选不对 | 裁床主管 | 以生产进度投影中的真实详情行为准；无裁床事实时回生产单台账。 | 否 |
 | 款式图候选可能落到占位图 | 视觉干扰 | 裁床主管 | 过滤占位候选并使用已有样衣 Mock 图作为加载兜底。 | 否 |
+| 畸形编号账可能被误认作已完成 | 协作断裂 | 裁床操作员 | 完成记录统一校验票据关系、正整数编号区间、数量一致性、操作人与完成时间；无效记录不持久化且装袋继续阻断。 | 否 |
+| 浏览器无法检测可用资源时仍可能生成大量库位 | 防错不足 | 裁床主管、文员 | 资源 API 不可测时关闭生成，保留输入并提示拆分货架或减少单次生成后重试；不设置固定业务上限。 | 否 |
 
 ## 6. 最终结论
 
@@ -72,6 +74,7 @@
 - `src/main-handlers/pda-cutting-keydown-routing.ts`
 - `src/pages/pda-cutting-handover.ts`
 - `src/pages/pda-warehouse-wait-process.ts`
+- `src/pages/process-factory/cutting/warehouse-location-map.ts`
 - `src/pages/process-factory/cutting/production-order-overview-projection.ts`
 - `src/pages/process-factory/cutting/production-order-overview-view.ts`
 
@@ -93,6 +96,7 @@
 - `npm run test:cutting:all:e2e`：通过
 - `npm run check:prototype-design-governance -- --all`：通过
 - `npm run check:list-page-governance`：通过
+- `node --experimental-strip-types --test tests/workflow-governance/stage-trace.test.ts`：通过（本轮 12/12）
 
 ### 例外
 

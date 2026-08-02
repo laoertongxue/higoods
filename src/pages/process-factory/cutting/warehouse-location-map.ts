@@ -744,6 +744,7 @@ function statusChangeRow(currentEnabled: boolean, nextEnabled: boolean): { befor
 const LEVEL_EDITOR_PAGE_SIZE = 20
 const LOCATION_PREVIEW_PAGE_SIZE = 40
 const MAINTENANCE_RESOURCE_LIMIT_MESSAGE = '当前设备可用资源不足，建议拆分货架/减少单次生成。'
+const MAINTENANCE_RESOURCE_UNAVAILABLE_MESSAGE = '无法检测当前设备可用资源，请拆分货架/减少单次生成后重试。'
 const LEGACY_MAINTENANCE_RESOURCE_LIMIT_MESSAGE = '本次规模超出当前设备可处理能力，建议拆分货架/减少单次生成。'
 
 interface MaintenanceRuntimeOverrides {
@@ -1254,7 +1255,7 @@ async function assertMaintenanceResourceCapacity(snapshot: FactoryWarehouseLayou
   abortMaintenanceIfNeeded(signal)
   const availableBytes = await estimateMaintenanceAvailableBytes()
   abortMaintenanceIfNeeded(signal)
-  if (availableBytes === undefined) return
+  if (availableBytes === undefined) throw new Error(MAINTENANCE_RESOURCE_UNAVAILABLE_MESSAGE)
   const encoder = new TextEncoder()
   const snapshotBytes = encoder.encode(JSON.stringify(snapshot)).byteLength
   const sampleLocationBytes = encoder.encode(JSON.stringify({ locationId: 'SHELF-X-L100-P100', locationNo: 'Z-R100-L100-P100', locationName: 'Z-R100-L100-P100', levelNo: 100, positionNo: 100, status: 'AVAILABLE', remark: '', layoutCreatedInVersion: snapshot.layoutVersion + 1 })).byteLength
