@@ -136,7 +136,7 @@
 - `src/data/pcs-tech-pack-task-generation.ts`
 - `src/data/pcs-tech-pack-version-activation.ts`
 - `src/data/pcs-engineering-master-repository.ts`
-- `src/data/pcs-engineering-master-close-service.ts`
+- `src/data/pcs-engineering-master-close-service.ts`（已删除）
 - `src/pages/pcs-engineering-master-detail.ts`
 - `src/data/pcs-project-archive-sync.ts`
 - `src/data/pcs-project-data-consistency.ts`
@@ -223,7 +223,7 @@
 - 固化上下文加固：仓储内部在同一原子入口中读取目标 BOM、当前物料档案、系统最新汇率和按 `linkedPartTemplateIds` 顺序解析的真实模板摘要，完成规范构建、可信校验和首次保存；已删除公开 attester、WeakMap 认证和原始快照保存入口，手工拼装或深克隆没有可用的正式持久化通道。启用失败继续由仓储事务整体回滚；持久化后的历史快照仍可只按冻结事实离线自检，不受后续物料价格、汇率或模板变化影响。
 - 通用写入边界：新工程来源无论处于草稿或发布状态，通用创建遇到真实 `bomPricingSnapshot` 值、内容更新遇到该字段被显式提交时均拒绝；因此正常克隆内容携带的 `bomPricingSnapshot: undefined` 可用于创建新草稿，但更新入口仍不能用显式 `undefined` 删除已固化快照。通用发布遇到任何预置正式快照也在写入前拒绝。规范固化入口仍是唯一可写路径；旧来源历史技术包的加载、克隆与离线校验边界保持不变。
 - 历史兼容边界：旧快照缺少逐行 `bomItemId` 时，只在物料 SKU、用量、打样数量、单位、损耗能够与当前 BOM 建立唯一一一对应时迁移；同一事实对应多行、数量不一致或 ID 不完整时，整份无效正式快照不再被伪造补齐。
-- 仓储依赖边界：工程主单仓储只校验并提交自身关闭状态；跨款式、技术包与正式快照的校验由轻量关闭服务编排，保持“校验 + 关闭”同一仓储事务，同时消除技术包仓储与工程主单仓储的双向依赖。
+- 关闭安全边界：已删除可被直接调用的低层关闭提交及轻量关闭服务；唯一公开关闭入口在工程主单仓储的同一事务内执行任务、固定依赖、正式技术包来源与发布状态、正式快照和跟单身份门禁后才落库。为避免以公开 token、attester 或低层提交约定换取表面拆环，本轮恢复工程主单仓储与技术版本仓储的既有循环依赖，并明确保留为 P2 技术质量告警，安全规格优先。
 - 草稿与正式事实边界：删除会返回空 BOM、空 `bomItemId` 的公开冻结函数；页面和测试需要定价预览时使用已解析草稿副本，正式快照仍只允许通过技术包版本规范固化入口生成。
 - 交互与性能：关闭按钮仍为局部事件，点击后只刷新头部和反馈区，不触发整页重绘；未新增高频输入或大列表。
 - 自查结论：角色、身份、防错、状态、中文文案、局部交互和正式事实追溯均符合设计规范；无业务例外，无列表页治理例外。

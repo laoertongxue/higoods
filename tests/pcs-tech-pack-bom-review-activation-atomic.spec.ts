@@ -57,7 +57,7 @@ import {
   resetEngineeringMasterRepository,
   updateEngineeringTaskRecord,
 } from '../src/data/pcs-engineering-master-repository.ts'
-import { closeEngineeringMasterOrder } from '../src/data/pcs-engineering-master-close-service.ts'
+import { closeEngineeringMasterOrder } from '../src/data/pcs-engineering-master-repository.ts'
 import { getEngineeringTaskDefinition } from '../src/data/pcs-engineering-dependency-policy.ts'
 import { listPartTemplateRecords } from '../src/data/pcs-part-template-library.ts'
 import { resolveEngineeringLinkedPartTemplateVersions } from '../src/data/pcs-engineering-bom-snapshot-source.ts'
