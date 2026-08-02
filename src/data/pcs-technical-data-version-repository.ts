@@ -9,6 +9,14 @@ import {
   validateTechPackDesignRequirement,
 } from './pcs-tech-pack-design-requirement.ts'
 import { normalizeProcessRouteEntries } from './tech-pack-process-route.ts'
+import {
+  getTechPackVersionLogStoreSnapshot,
+  restoreTechPackVersionLogStoreSnapshot,
+} from './pcs-tech-pack-version-log-repository.ts'
+import {
+  getTechPackReviewNotificationStoreSnapshot,
+  restoreTechPackReviewNotificationStoreSnapshot,
+} from './pcs-tech-pack-review-notification-repository.ts'
 import type {
   TechPackSourceTaskType,
   StoredTechPackSourceTaskType,
@@ -1186,6 +1194,8 @@ export function runTechnicalDataVersionRepositoryTransaction<Operation extends (
     throw new Error('技术资料版本仓储事务仅支持同步操作，禁止传入 AsyncFunction。')
   }
   const snapshotBeforeOperation = loadSnapshot()
+  const reviewLogSnapshotBeforeOperation = getTechPackVersionLogStoreSnapshot()
+  const reviewNotificationSnapshotBeforeOperation = getTechPackReviewNotificationStoreSnapshot()
   try {
     const result = operation()
     if (isThenable(result)) {
@@ -1194,6 +1204,8 @@ export function runTechnicalDataVersionRepositoryTransaction<Operation extends (
     return result as ReturnType<Operation>
   } catch (error) {
     persistSnapshot(snapshotBeforeOperation)
+    restoreTechPackVersionLogStoreSnapshot(reviewLogSnapshotBeforeOperation)
+    restoreTechPackReviewNotificationStoreSnapshot(reviewNotificationSnapshotBeforeOperation)
     throw error
   }
 }

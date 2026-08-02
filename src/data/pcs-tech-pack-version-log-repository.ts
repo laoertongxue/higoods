@@ -112,6 +112,14 @@ export function listTechPackVersionLogs(): TechPackVersionLogRecord[] {
   return loadSnapshot().logs.map(cloneLog)
 }
 
+export function getTechPackVersionLogStoreSnapshot(): TechPackVersionLogStoreSnapshot {
+  return loadSnapshot()
+}
+
+export function restoreTechPackVersionLogStoreSnapshot(snapshot: TechPackVersionLogStoreSnapshot): void {
+  persistSnapshot(snapshot)
+}
+
 export function listTechPackVersionLogsByVersionId(technicalVersionId: string): TechPackVersionLogRecord[] {
   return loadSnapshot()
     .logs

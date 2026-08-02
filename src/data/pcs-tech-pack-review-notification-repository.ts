@@ -5,7 +5,7 @@ import type {
 const STORAGE_KEY = 'higood-pcs-tech-pack-review-notification-store-v1'
 const STORE_VERSION = 1
 
-interface TechnicalReviewNotificationStoreSnapshot {
+export interface TechnicalReviewNotificationStoreSnapshot {
   version: number
   records: TechnicalReviewNotificationRecord[]
 }
@@ -78,6 +78,16 @@ function persistSnapshot(snapshot: TechnicalReviewNotificationStoreSnapshot): vo
 
 export function listTechPackReviewNotifications(): TechnicalReviewNotificationRecord[] {
   return loadSnapshot().records.map(cloneRecord)
+}
+
+export function getTechPackReviewNotificationStoreSnapshot(): TechnicalReviewNotificationStoreSnapshot {
+  return loadSnapshot()
+}
+
+export function restoreTechPackReviewNotificationStoreSnapshot(
+  snapshot: TechnicalReviewNotificationStoreSnapshot,
+): void {
+  persistSnapshot(snapshot)
 }
 
 export function listTechPackReviewNotificationsByVersionId(

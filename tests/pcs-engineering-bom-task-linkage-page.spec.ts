@@ -11,6 +11,8 @@ import { getProjectRelationStoreSnapshot } from '../src/data/pcs-project-relatio
 import { getProjectArchiveStoreSnapshot } from '../src/data/pcs-project-archive-repository.ts'
 import { saveTechnicalDataVersionContent } from '../src/data/pcs-project-technical-data-writeback.ts'
 import { setBomPriceReviewInvalidationFailureForTesting } from '../src/data/pcs-tech-pack-bom-price-review-invalidation.ts'
+import { listTechPackReviewNotifications } from '../src/data/pcs-tech-pack-review-notification-repository.ts'
+import { listTechPackVersionLogs } from '../src/data/pcs-tech-pack-version-log-repository.ts'
 import {
   applyBomRequirementsToEngineeringTasks,
   createEngineeringMasterOrder,
@@ -271,6 +273,8 @@ function captureAtomicStores() {
     style: captureStyleArchiveRepositoryState(),
     project: getProjectStoreSnapshot(),
     archive: getProjectArchiveStoreSnapshot(),
+    reviewLogs: listTechPackVersionLogs(),
+    reviewNotifications: listTechPackReviewNotifications(),
   }
 }
 
@@ -281,6 +285,8 @@ function assertAtomicStoresEqual(expected: ReturnType<typeof captureAtomicStores
   assert.deepEqual(captureStyleArchiveRepositoryState(), expected.style, `${message}：款式档案仓`)
   assert.deepEqual(getProjectStoreSnapshot(), expected.project, `${message}：商品项目仓`)
   assert.deepEqual(getProjectArchiveStoreSnapshot(), expected.archive, `${message}：项目归档仓`)
+  assert.deepEqual(listTechPackVersionLogs(), expected.reviewLogs, `${message}：技术包审核日志仓`)
+  assert.deepEqual(listTechPackReviewNotifications(), expected.reviewNotifications, `${message}：技术包审核通知仓`)
 }
 
 function assertOnlyBuyerReviewInvalidated(technicalVersionId: string, message: string): void {
@@ -412,14 +418,19 @@ assert.throws(
 )
 assertAtomicStoresEqual(allStoresBeforeTechnicalSideEffectFailure, '技术包保存中途失败必须恢复所有副作用仓')
 
+const applyFailureVersionId = createSourceVersion('APPLY-FAIL-AFTER-REVIEW', master, style, {
+  ...content,
+  bomItems: initialTechnicalBomItems,
+})
+markTechnicalVersionApproved(applyFailureVersionId)
 const engineeringSnapshotBeforeApplyFailure = getEngineeringMasterOrderStoreSnapshot()
 const technicalSnapshotBeforeApplyFailure = getTechnicalDataVersionStoreSnapshot()
 const allStoresBeforeApplyFailure = captureAtomicStores()
 assert.throws(
   () => saveTechnicalDataVersionContentWithEngineeringLinkage(
-    atomicVersionId,
-    bomRows,
-    { patternDesc: '也不应保存' },
+    applyFailureVersionId,
+    bomRows.map((row) => ({ ...row, sampleQuantity: (row.sampleQuantity ?? 1) + 1 })),
+    { bomItems: initialTechnicalBomItems.map((item) => ({ ...item, sampleQuantity: (item.sampleQuantity ?? 1) + 1 })) },
     '买手A',
     {
       applyEngineeringTasks: (masterOrderId, rows) => {

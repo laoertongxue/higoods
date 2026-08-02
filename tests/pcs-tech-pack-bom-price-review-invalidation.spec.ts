@@ -196,6 +196,31 @@ function installUnsubmittedFixture(contentOverride: TechnicalDataVersionContent)
   })
 }
 
+function installInReviewFixture(
+  buyerStatus: '待审核' | '审核中',
+  contentOverride: TechnicalDataVersionContent,
+): void {
+  resetTechPackVersionLogRepository()
+  resetTechPackReviewNotificationRepository()
+  installTechnicalDataVersionFixtures({
+    version: 3,
+    records: [{
+      ...baseRecord,
+      reviewStage: '第一阶段并行审核',
+      buyerReview: {
+        ...makeReviewNode('BUYER'),
+        status: buyerStatus,
+        reviewedBy: '',
+        reviewedAt: '',
+        opinion: '',
+      },
+      reviewUnlockedModuleKeys: [],
+    }],
+    contents: [contentOverride],
+    pendingItems: [],
+  })
+}
+
 function createPricedMaterial() {
   const archive = createMaterialArchive({
     kind: 'fabric',
@@ -439,6 +464,34 @@ assert.equal(getTechnicalDataVersionById(technicalVersionId)?.buyerReview?.assig
 assert.equal(getTechnicalDataVersionById(technicalVersionId)?.reviewSubmittedAt, '')
 assert.equal(listTechPackVersionLogsByVersionId(technicalVersionId).length, 0)
 assert.equal(listTechPackReviewNotificationsByVersionId(technicalVersionId).length, 0)
+
+installInReviewFixture('待审核', contentWithBom(pricedSku.materialSkuId))
+const pendingBuyerBefore = getTechnicalDataVersionById(technicalVersionId)?.buyerReview
+const pendingSkuBefore = getMaterialSkuRecordById(pricedSku.materialSkuId)
+assert.ok(pendingSkuBefore)
+assert.ok(updateMaterialSkuRecord(pricedSku.materialSkuId, {
+  colorName: pendingSkuBefore.colorName,
+  specName: pendingSkuBefore.specName,
+  sizeName: pendingSkuBefore.sizeName,
+  skuImageUrl: pendingSkuBefore.skuImageUrl,
+  costPrice: pendingSkuBefore.costPrice + 1,
+  freightCost: pendingSkuBefore.freightCost,
+  weightKg: pendingSkuBefore.weightKg,
+  lengthCm: pendingSkuBefore.lengthCm,
+  widthCm: pendingSkuBefore.widthCm,
+  heightCm: pendingSkuBefore.heightCm,
+  barcode: pendingSkuBefore.barcode,
+}))
+assert.deepEqual(getTechnicalDataVersionById(technicalVersionId)?.buyerReview, pendingBuyerBefore, '待审核中的买手节点不得因标准价变化被重置')
+assert.equal(listTechPackVersionLogsByVersionId(technicalVersionId).length, 0, '待审核中不得新增复审日志')
+assert.equal(listTechPackReviewNotificationsByVersionId(technicalVersionId).length, 0, '待审核中不得重复通知复审')
+
+installInReviewFixture('审核中', contentWithBom(pricedSku.materialSkuId))
+const reviewingBuyerBefore = getTechnicalDataVersionById(technicalVersionId)?.buyerReview
+saveTechnicalDataVersionBomMaterialLine(technicalVersionId, 'BOM-001', { usage: 1.25 }, '买手')
+assert.deepEqual(getTechnicalDataVersionById(technicalVersionId)?.buyerReview, reviewingBuyerBefore, '审核中的买手节点不得因直接 BOM 保存被重置')
+assert.equal(listTechPackVersionLogsByVersionId(technicalVersionId).length, 0, '审核中不得新增复审日志')
+assert.equal(listTechPackReviewNotificationsByVersionId(technicalVersionId).length, 0, '审核中不得重复通知复审')
 assert.equal(unsubmittedMaterialBefore?.reviewStage, '未提交审核')
 
 installUnsubmittedFixture(contentWithBom(pricedSku.materialSkuId))

@@ -123,7 +123,10 @@ export function invalidateReviewForBomPriceChange(
   if (!record) throw new Error(`未找到技术包版本：${technicalVersionId}`)
   if (record.versionStatus !== 'DRAFT') throw new Error('仅草稿技术包可以更新审核状态。')
   if (changes.every((change) => change.beforeValue === change.afterValue)) return record
-  if (record.reviewStage === '未提交审核' || !record.buyerReview) return record
+  if (
+    !record.buyerReview ||
+    (record.buyerReview.status !== '审核-已通过' && record.buyerReview.status !== '审核-未通过')
+  ) return record
   if (failureTechnicalVersionIdForTesting === technicalVersionId) {
     throw new Error('模拟 BOM 与价格审核失效写入失败')
   }
