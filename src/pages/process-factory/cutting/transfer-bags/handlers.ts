@@ -114,7 +114,6 @@ import {
   type MasterStatusFilter,
   type MasterUseStageFilter,
   type UsageStatusFilter,
-  type ReturnStatusFilter,
   type TransferBagDetailTab,
   type TransferBagBaggingStepId,
   type TransferBagBaggingStepState,
@@ -131,9 +130,6 @@ import {
   type MasterFilterField,
   type UsageFilterField,
   type WorkbenchField,
-  type ReturnFilterField,
-  type ReturnDraftField,
-  type ConditionDraftField,
   type MasterDraftField,
   type PackDraftField,
 } from './state'
@@ -277,12 +273,7 @@ export function resetPackDraft(stage: 'INBOUND_TEMP' | 'HANDOVER_PACKING', bagId
 
 export function getDialogTitle(): string {
   if (state.activeDialog === 'new-master') return '新增中转袋'
-  if (state.activeDialog === 'inbound-pack') return '中转袋入仓'
-  if (state.activeDialog === 'bagging-pack') return '菲票装袋'
-  if (state.activeDialog === 'handover-pack') return '交出装袋'
-  if (state.activeDialog === 'return') return '回收确认'
-  if (state.activeDialog === 'scrap') return '确认报废中转袋'
-  return '中转袋流转'
+  return '中转袋入仓'
 }
 
 export function syncUsageSelection(usageId: string): void {
@@ -294,20 +285,6 @@ export function syncUsageSelection(usageId: string): void {
   state.draft.bagCodeInput = usage.bagCode
   state.draft.sewingTaskId = usage.sewingTaskId
   state.draft.note = usage.note
-  resetReturnDraft(usageId)
-}
-
-export function syncReusableDecisionSuggestion(): void {
-  const suggested = deriveBagConditionDecision({
-    conditionStatus: state.returnPhysicalDraft.conditionStatus,
-    physicalCheckStatus: state.returnPhysicalDraft.physicalCheckStatus,
-    damageType: state.returnPhysicalDraft.damageType,
-    damageNeedsFollowUp: state.returnPhysicalDraft.damageNeedsFollowUp,
-  })
-  state.returnPhysicalDraft = {
-    ...state.returnPhysicalDraft,
-    reusableDecision: suggested.reusableDecision,
-  }
 }
 
 export function matchPrefilter(itemValues: Array<string | undefined>, search?: string): boolean {
@@ -842,7 +819,6 @@ export function buildTransferBagLandingBanner(
 
 export function refreshDerivedState(): void {
   const usageMap = new Map<string, TransferBagItemBinding[]>()
-  const closureMap = new Map<string, typeof state.store.closureResults>()
   state.store.bindings.forEach((binding) => {
     const current = usageMap.get(binding.usageId)
     if (current) {
@@ -864,56 +840,6 @@ export function refreshDerivedState(): void {
         usage.usageStatus = 'PACKING'
         usage.cycleStatus = 'PACKING'
       }
-    }
-  })
-
-  state.store.closureResults.forEach((closure) => {
-    const current = closureMap.get(closure.usageId)
-    if (current) {
-      current.push(closure)
-    } else {
-      closureMap.set(closure.usageId, [closure])
-    }
-  })
-
-  state.store.masters.forEach((master) => {
-    const relatedUsages = state.store.usages.filter((usage) => usage.bagId === master.bagId)
-    const latestUsage = relatedUsages.sort((left, right) => right.usageNo.localeCompare(left.usageNo, 'zh-CN'))[0] || null
-    if (!latestUsage) {
-      master.currentStatus = master.currentStatus === 'DISABLED' ? 'DISABLED' : 'IDLE'
-      master.latestUsageId = ''
-      master.latestUsageNo = ''
-      master.currentCycleId = ''
-      master.currentOwnerTaskId = ''
-      return
-    }
-
-    master.latestUsageId = latestUsage.usageId
-    master.latestUsageNo = latestUsage.usageNo
-    master.latestCycleId = latestUsage.cycleId
-    master.latestCycleNo = latestUsage.cycleNo
-    master.currentCycleId = ['CLOSED', 'SCRAP_CLOSED'].includes(latestUsage.usageStatus) ? '' : latestUsage.cycleId
-    master.currentOwnerTaskId = latestUsage.boundObjectId || latestUsage.sewingTaskId || ''
-    const latestClosure = (closureMap.get(latestUsage.usageId) || []).sort((left, right) => right.closedAt.localeCompare(left.closedAt, 'zh-CN'))[0] || null
-    if (latestUsage.usageStatus === 'CLOSED' || latestUsage.usageStatus === 'SCRAP_CLOSED') {
-      master.currentStatus = latestClosure?.nextBagStatus === 'DISABLED' || master.currentStatus === 'DISABLED' ? 'DISABLED' : 'IDLE'
-      master.currentLocation = master.currentStatus === 'DISABLED' ? '报废区' : latestUsage.returnWarehouseName || '裁片仓空袋区'
-    } else if (master.currentStatus === 'DISABLED') {
-      master.currentLocation = '报废区'
-    } else if (latestUsage.usageStage === 'INBOUND_TEMP') {
-      master.currentStatus = 'IN_USE'
-      master.currentLocation = latestUsage.usageStatus === 'READY_TO_DISPATCH'
-        ? [latestUsage.sourceWarehouseName || '裁床待交出仓', latestUsage.warehouseArea, latestUsage.locationCode].filter(Boolean).join(' / ')
-        : [latestUsage.sourceWarehouseName || '裁床待交出仓', '入仓装袋台', latestUsage.locationCode].filter(Boolean).join(' / ')
-    } else if (latestUsage.usageStatus === 'READY_TO_DISPATCH') {
-      master.currentStatus = 'IN_USE'
-      master.currentLocation = latestUsage.locationCode || '交出待交区'
-    } else if (['DISPATCHED', 'PENDING_SIGNOFF', 'WAITING_RETURN', 'RETURN_INSPECTING'].includes(latestUsage.usageStatus)) {
-      master.currentStatus = 'DISPATCHED'
-      master.currentLocation = latestUsage.receiverName || latestUsage.sewingFactoryName || '接收方待回收'
-    } else {
-      master.currentStatus = 'IN_USE'
-      master.currentLocation = latestUsage.locationCode || '交出装袋台'
     }
   })
 
@@ -1309,15 +1235,6 @@ export function releaseInboundBag(targetUsageId?: string): boolean {
   return true
 }
 
-export function saveReturnDraft(): boolean {
-  const usage = getSourceUsage(state.activeUsageId)
-  if (!usage) {
-    setFeedback('warning', '请先选择待回收的使用记录。')
-    return true
-  }
-  return completeReturnInspection(usage.usageId)
-}
-
 export function syncPrefilterFromQuery(): void {
   const pathname = appStore.getState().pathname
   if (pathname === state.querySignature) return
@@ -1345,7 +1262,6 @@ export function syncPrefilterFromQuery(): void {
     } else {
       state.activeUsageId = null
       state.draft.sewingTaskId = ''
-      resetReturnDraft(null)
     }
 
     if (!detailPage) {
@@ -1365,7 +1281,6 @@ export function syncPrefilterFromQuery(): void {
     state.draft.bagId = ''
     state.draft.bagCodeInput = ''
     state.draft.sewingTaskId = ''
-    resetReturnDraft(null)
   }
 
   if (state.prefilter?.sewingTaskNo) {
@@ -1373,9 +1288,6 @@ export function syncPrefilterFromQuery(): void {
     state.draft.sewingTaskId = matchedTask?.sewingTaskId ?? state.draft.sewingTaskId
   }
 
-  if (state.prefilter?.returnStatus && ['WAITING_RETURN', 'RETURN_INSPECTING', 'CLOSED', 'SCRAP_CLOSED'].includes(state.prefilter.returnStatus)) {
-    state.returnStatus = state.prefilter.returnStatus as ReturnStatusFilter
-  }
 
   if (state.prefilter?.ticketId || state.prefilter?.ticketNo) {
     const matchedTicket =
@@ -1383,75 +1295,5 @@ export function syncPrefilterFromQuery(): void {
       (state.prefilter.ticketNo ? viewModel.ticketCandidatesByNo[state.prefilter.ticketNo] : null) ||
       null
     state.draft.ticketInput = matchedTicket?.ticketNo || state.prefilter.ticketNo || ''
-  }
-}
-
-export function resetReturnDraft(usageId?: string | null): void {
-  const usage = usageId ? getViewModel().usagesById[usageId] ?? null : null
-  const latestReceipt = usage ? (getReturnViewModel().returnReceiptsByUsageId[usage.usageId] || []).slice().sort((left, right) => right.returnAt.localeCompare(left.returnAt, 'zh-CN'))[0] || null : null
-
-  if (!usage) {
-    state.returnDraft = {
-      returnWarehouseName: '',
-      returnAt: '',
-      returnedBy: '',
-      receivedBy: '',
-      returnedPieceTotal: '',
-      returnedTicketTotal: '',
-      discrepancyType: 'NONE',
-      discrepancyNote: '',
-      note: '',
-    }
-    state.returnPhysicalDraft = {
-      conditionStatus: 'GOOD',
-      physicalCheckStatus: 'CLEAN',
-      damageType: '',
-      damageNeedsFollowUp: false,
-      reusableDecision: 'REUSABLE',
-      note: '',
-    }
-    return
-  }
-
-  if (latestReceipt) {
-    state.returnDraft = {
-      returnWarehouseName: latestReceipt.returnWarehouseName,
-      returnAt: latestReceipt.returnAt,
-      returnedBy: latestReceipt.returnedBy,
-      receivedBy: latestReceipt.receivedBy,
-      returnedPieceTotal: '',
-      returnedTicketTotal: '',
-      discrepancyType: latestReceipt.discrepancyType,
-      discrepancyNote: latestReceipt.discrepancyNote,
-      note: latestReceipt.note,
-    }
-  } else {
-    const bindings = getViewModel().bindingsByUsageId[usage.usageId] || []
-    const draft = createReturnReceiptDraft({
-      usage: getSourceUsage(usage.usageId) || usage,
-      bindingsCount: bindings.length,
-      cutOrderCount: uniqueStrings(bindings.map((item) => item.cutOrderNo)).length,
-      nowText: nowText(),
-    })
-    state.returnDraft = {
-      returnWarehouseName: draft.returnWarehouseName,
-      returnAt: draft.returnAt,
-      returnedBy: draft.returnedBy,
-      receivedBy: draft.receivedBy,
-      returnedPieceTotal: '',
-      returnedTicketTotal: '',
-      discrepancyType: draft.discrepancyType,
-      discrepancyNote: draft.discrepancyNote,
-      note: draft.note,
-    }
-  }
-
-  state.returnPhysicalDraft = {
-    conditionStatus: 'GOOD',
-    physicalCheckStatus: 'CLEAN',
-    damageType: '',
-    damageNeedsFollowUp: false,
-    reusableDecision: 'REUSABLE',
-    note: '',
   }
 }

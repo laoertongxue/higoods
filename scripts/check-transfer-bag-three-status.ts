@@ -2370,6 +2370,44 @@ assert.equal(
   false,
   '主列表和处理器不得直接关闭开放周期或改写中转袋主档当前状态',
 )
+assert.equal(
+  /master\.(?:currentStatus|currentCycleId|currentOwnerTaskId|currentLocation|latestUsageId|latestUsageNo)\s*=/.test(
+    transferBagHandlersSource,
+  ),
+  false,
+  '旧 Store 刷新只能维护历史派生数据，不得反写中转袋主档 current/latest 运行字段',
+)
+assert(
+  transferBagModelSource.includes('resolveTransferBagAuthoritativeCurrentLocation({')
+    && !transferBagModelSource.includes("currentLocation: master.currentLocation || '待命位'"),
+  '主列表当前位置必须读取当前使用周期的权威运行位置，冲突时不得回退旧主档位置',
+)
+for (const legacyImplementationAnchor of [
+  'renderReturnLedgerSection',
+  'renderReturnWorkbenchSection',
+  'renderConditionSection',
+  'buildReturnReceiptFromState',
+  'buildConditionRecordFromState',
+  'completeReturnInspection',
+  'completeDirectScrap',
+  'closeUsageCycleAction',
+  'saveReturnDraft',
+  'resetReturnDraft',
+  'syncReusableDecisionSuggestion',
+  'returnedPieceTotal',
+  'returnedTicketTotal',
+  'physicalCheckStatus',
+  'damageNeedsFollowUp',
+  "save-inbound-pack",
+  "save-handover-pack",
+  '入仓暂存支持一个中转袋混装',
+]) {
+  assert.equal(
+    [transferBagPageSource, transferBagDialogSource, transferBagStateSource, transferBagHandlersSource].join('\n').includes(legacyImplementationAnchor),
+    false,
+    `中转袋档案页不得保留第二套旧回收/装袋实现：${legacyImplementationAnchor}`,
+  )
+}
 for (const detailSection of [
   '当前袋内菲票快照',
   '中转袋入仓记录',

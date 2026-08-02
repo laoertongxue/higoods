@@ -49,7 +49,11 @@ import type {
   TransferBagLifecycleView,
 } from '../../../data/fcs/cutting/transfer-bag-lifecycle.ts'
 import {
+  listCuttingRuntimeEvents,
+} from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
+import {
   resolveTransferBagCurrentUse,
+  resolveTransferBagAuthoritativeCurrentLocation,
   type TransferBagCurrentUse,
 } from '../../../data/fcs/cutting/transfer-bag-operations.ts'
 
@@ -59,6 +63,22 @@ const numberFormatter = new Intl.NumberFormat('zh-CN')
 const TRANSFER_QR_FIELD = ['qr', 'Payload'].join('') as const
 const INBOUND_TEMP_BAG_RULE_LABEL = '中转袋可混装不同生产单、SKU、部位的菲票；车缝任务分配后再分拣装袋。'
 const HANDOVER_PACKING_BAG_RULE_LABEL = '交出装袋需先扫中转袋，再扫菲票子码；本阶段才按交出单关系核对。'
+
+export function resolveTransferBagRuntimeCurrentLocation(current: TransferBagCurrentUse): string {
+  if (current.mainStatus === 'DISABLED') return '报废停用'
+  if (current.mainStatus === 'IDLE' || !current.usageCycleId) return '空袋待命位'
+  if (current.flowStage === 'PACKED') return '菲票装袋操作位'
+  if (current.flowStage === 'READY_HANDOVER') return '待交出操作区'
+  if (current.flowStage === 'HANDED_OVER_WAITING_RETURN') return '下游接收节点（待回收）'
+  const location = resolveTransferBagAuthoritativeCurrentLocation({
+    bagCode: current.bagCode,
+    usageCycleId: current.usageCycleId,
+    events: listCuttingRuntimeEvents(),
+  })
+  return location
+    ? [location.warehouseArea, location.locationCode].filter(Boolean).join(' / ')
+    : '入仓位置事实待补'
+}
 
 function normalizeTransferBagUsageStage(stage: string | undefined): TransferBagUsageStage {
   return stage === 'INBOUND_TEMP' ? 'INBOUND_TEMP' : 'HANDOVER_PACKING'
@@ -3009,7 +3029,7 @@ export function buildTransferBagCarrierManagementProjection(
       ownershipFactoryId: master.ownershipFactoryId || '',
       ownershipFactoryName: master.ownershipFactoryName || '',
       currentStatus,
-      currentLocation: master.currentLocation || '待命位',
+      currentLocation: resolveTransferBagRuntimeCurrentLocation(current),
       currentUseStage,
       currentUseId: current.usageCycleId || '',
       currentBoundObjectType,

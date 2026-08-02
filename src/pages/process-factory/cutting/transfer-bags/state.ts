@@ -76,7 +76,6 @@ import {
 export type MasterStatusFilter = 'ALL' | TransferBagCarrierCurrentStatus
 export type MasterUseStageFilter = 'ALL' | TransferBagCarrierUseStage
 export type UsageStatusFilter = 'ALL' | TransferBagUsageStatusKey
-export type ReturnStatusFilter = 'ALL' | 'WAITING_RETURN' | 'RETURN_INSPECTING' | 'CLOSED' | 'SCRAP_CLOSED'
 export type TransferBagDetailTab =
   | 'identity'
   | 'cycle'
@@ -96,12 +95,7 @@ export type TransferBagDetailTab =
   | 'history'
 export type TransferBagBaggingStepId = 'scan' | 'review' | 'handover'
 export type TransferBagBaggingStepState = 'pending' | 'active' | 'done' | 'locked'
-export type TransferBagDialog =
-  | 'new-master'
-  | 'inbound-pack'
-  | 'handover-pack'
-  | 'return'
-  | 'scrap'
+export type TransferBagDialog = 'new-master'
 export type TransferBagsProjection = ReturnType<typeof buildTransferBagsProjection>
 export type TransferBagCarrierManagementProjection = ReturnType<typeof buildTransferBagCarrierManagementProjection>
 export type TransferBagCarrierMasterRecord = TransferBagCarrierManagementProjection['masterRecords'][number]
@@ -111,19 +105,6 @@ export type FeedbackTone = 'success' | 'warning'
 export type MasterFilterField = 'keyword' | 'status' | 'useStage' | 'location' | 'boundObject'
 export type UsageFilterField = 'keyword' | 'status' | 'sewingTask'
 export type WorkbenchField = 'bagId' | 'bagCodeInput' | 'sewingTaskId' | 'ticketInput' | 'note'
-export type ReturnFilterField = 'keyword' | 'status'
-export type ReturnDraftField =
-  | 'returnWarehouseName'
-  | 'returnAt'
-  | 'returnedBy'
-  | 'receivedBy'
-  | 'returnedPieceTotal'
-  | 'returnedTicketTotal'
-  | 'discrepancyType'
-  | 'discrepancyNote'
-  | 'note'
-export type ConditionDraftField = 'conditionStatus' | 'physicalCheckStatus' | 'damageType' | 'damageNeedsFollowUp' | 'reusableDecision' | 'note'
-export type ScrapDraftField = 'reason' | 'authorizedBy'
 export type MasterDraftField = 'bagCode' | 'carrierType' | 'capacity' | 'bagSpec' | 'bagMaterial' | 'ownershipFactoryId' | 'currentLocation' | 'note'
 export type PackDraftField =
   | 'bagId'
@@ -180,8 +161,6 @@ export interface TransferBagsPageState {
   usageKeyword: string
   usageStatus: UsageStatusFilter
   usageSewingTaskId: string
-  returnKeyword: string
-  returnStatus: ReturnStatusFilter
   bindingKeyword: string
   activeMasterId: string | null
   activeUsageId: string | null
@@ -220,30 +199,6 @@ export interface TransferBagsPageState {
     sewingTaskId: string
     ticketInput: string
     note: string
-  }
-  returnDraft: {
-    returnWarehouseName: string
-    returnAt: string
-    returnedBy: string
-    receivedBy: string
-    returnedPieceTotal: string
-    returnedTicketTotal: string
-    discrepancyType: TransferBagDiscrepancyType
-    discrepancyNote: string
-    note: string
-  }
-  returnPhysicalDraft: {
-    conditionStatus: TransferBagConditionStatus
-    physicalCheckStatus: 'CLEAN' | 'DIRTY'
-    damageType: string
-    damageNeedsFollowUp: boolean
-    reusableDecision: TransferBagReusableDecision
-    note: string
-  }
-  scrapDraft: {
-    bagId: string
-    reason: string
-    authorizedBy: string
   }
   feedback: FeedbackState
 }
@@ -308,8 +263,6 @@ export const state: TransferBagsPageState = {
   usageKeyword: '',
   usageStatus: 'ALL',
   usageSewingTaskId: 'ALL',
-  returnKeyword: '',
-  returnStatus: 'ALL',
   bindingKeyword: '',
   activeMasterId: null,
   activeUsageId: null,
@@ -350,30 +303,6 @@ export const state: TransferBagsPageState = {
     sewingTaskId: '',
     ticketInput: '',
     note: '',
-  },
-  returnDraft: {
-    returnWarehouseName: '',
-    returnAt: '',
-    returnedBy: '',
-    receivedBy: '',
-    returnedPieceTotal: '',
-    returnedTicketTotal: '',
-    discrepancyType: 'NONE',
-    discrepancyNote: '',
-    note: '',
-  },
-  returnPhysicalDraft: {
-    conditionStatus: 'GOOD',
-    physicalCheckStatus: 'CLEAN',
-    damageType: '',
-    damageNeedsFollowUp: false,
-    reusableDecision: 'REUSABLE',
-    note: '',
-  },
-  scrapDraft: {
-    bagId: '',
-    reason: '',
-    authorizedBy: '',
   },
   feedback: null,
 }
