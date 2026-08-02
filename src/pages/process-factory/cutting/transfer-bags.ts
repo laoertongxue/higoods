@@ -104,22 +104,6 @@ import {
   openWaitHandoverAction,
   type WaitHandoverWebAction,
 } from './wait-handover-actions.ts'
-import {
-  buildBagReturnAuditTrail,
-  buildReuseCycleSummary,
-  buildReturnDiscrepancyMeta,
-  buildTransferBagReturnViewModel,
-  closeTransferBagUsageCycle,
-  createReturnReceiptDraft,
-  deriveBagConditionDecision,
-  deriveReturnEligibility,
-  validateReturnReceiptPayload,
-  type TransferBagConditionRecord,
-  type TransferBagConditionStatus,
-  type TransferBagDiscrepancyType,
-  type TransferBagReusableDecision,
-  type TransferBagReturnReceipt,
-} from './transfer-bag-return-model.ts'
 import { renderMaterialIdentityBlock } from './material-identity.ts'
 import {
   state,
@@ -131,7 +115,6 @@ import {
   getProjection,
   hydrateStore,
   getViewModel,
-  getReturnViewModel,
   getCarrierManagementProjection,
   persistStore,
   persistSelectedTicketIds,
@@ -723,7 +706,7 @@ function renderUsageRecordQuerySection(): string {
                       bagCode: item.bagCode,
                       usageId: item.usageId,
                       usageNo: item.usageNo,
-                      detailTab: 'items',
+                      detailTab: 'cycle',
                     })
                     const locationText = [
                       item.sourceWarehouseName,
@@ -787,240 +770,6 @@ function renderDemoFixturePanel(): string {
   return ''
 }
 
-function renderInboundTempUseSection(): string {
-  const projection = getCarrierManagementProjection()
-  const items = projection.inboundTempUses
-  return `
-    <section class="rounded-lg border bg-card" role="tabpanel" aria-label="入仓暂存使用">
-      <div class="flex items-center justify-between border-b px-4 py-3">
-        <div>
-          <h2 class="text-sm font-semibold text-foreground">入仓暂存使用</h2>
-        </div>
-        <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="open-inbound-pack">        开始菲票装袋</button>
-      </div>
-      ${items.length
-        ? renderStickyTableScroller(`
-            <table class="min-w-[1200px] w-full text-sm">
-              <thead class="sticky top-0 z-10 bg-muted/95 text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th class="px-4 py-3 text-left">中转袋</th>
-                  <th class="px-4 py-3 text-left">中转袋二维码</th>
-                  <th class="px-4 py-3 text-left">入仓信息</th>
-                  <th class="px-4 py-3 text-left">装入内容</th>
-                  <th class="px-4 py-3 text-left">混装情况</th>
-                  <th class="px-4 py-3 text-left">后续状态</th>
-                  <th class="px-4 py-3 text-left">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${items
-                  .map((item) => {
-                    const detailHref = buildTransferBagDetailRoute({
-                      bagId: item.bagMasterId,
-                      bagCode: item.bagCode,
-                      usageId: item.bagUseId,
-                      usageNo: item.bagUseNo,
-                      detailTab: 'current',
-                    })
-                    const itemsHref = buildTransferBagDetailRoute({
-                      bagId: item.bagMasterId,
-                      bagCode: item.bagCode,
-                      usageId: item.bagUseId,
-                      usageNo: item.bagUseNo,
-                      detailTab: 'items',
-                    })
-                    return `
-                      <tr class="border-b bg-card">
-                        <td class="px-4 py-3">
-                          <div class="font-medium text-blue-700">${escapeHtml(item.bagCode)}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.bagUseNo)}</div>
-                          <div class="mt-2">${renderTag(item.currentStatus, getCarrierCurrentStatusClass(item.currentStatus))}</div>
-                        </td>
-                        <td class="px-4 py-3">${renderTransferBagQrCell(item.bagCode)}</td>
-                        <td class="px-4 py-3 text-xs text-muted-foreground">
-                          <div><span class="font-medium text-foreground">${escapeHtml(item.inboundAt || item.startedAt || '待入仓')}</span></div>
-                          <div class="mt-1">${escapeHtml(item.inboundBy || '裁床仓管')}</div>
-                          <div class="mt-1">${escapeHtml(`${item.sourceWarehouseName} / ${item.warehouseArea} / ${item.locationCode}`)}</div>
-                        </td>
-                        <td class="px-4 py-3 text-xs text-muted-foreground">
-                          <div><span class="font-medium text-foreground">${escapeHtml(String(item.containedFeiTickets.length))}</span> 张菲票</div>
-                          <div class="mt-1"><span class="font-medium text-foreground">${escapeHtml(String(item.containedPieceQty))}</span> 片裁片</div>
-                          <div class="mt-1">${escapeHtml(`${item.containedProductionOrderCount} 个生产单 / ${item.containedCutOrderCount} 张裁片单`)}</div>
-                        </td>
-                        <td class="px-4 py-3">
-                          ${renderTag(item.mixedFlag ? '混装' : '单一来源', item.mixedFlag ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-slate-100 text-slate-700 border border-slate-200')}
-                          <div class="mt-2 text-xs text-muted-foreground">${escapeHtml(item.mixedSummary)}</div>
-                        </td>
-                        <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.currentStatus === '入仓暂存中' ? '暂存中，等待二次分拣或转出' : item.currentStatus === '入仓装袋中' ? '装袋中，待确认暂存' : '已转出或已清空')}</td>
-                        <td class="px-4 py-3">
-                          <div class="flex flex-wrap gap-2">
-                            <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(detailHref)}">查看使用详情</button>
-                            <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(itemsHref)}">查看菲票</button>
-                            <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(getCanonicalCuttingPath('cut-piece-warehouse'))}">查看库存流水</button>
-                            ${item.currentStatus === '入仓装袋中' ? `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-transfer-bags-action="complete-inbound-storage" data-usage-id="${escapeHtml(item.bagUseId)}">确认暂存</button>` : ''}
-                            ${item.currentStatus === '入仓暂存中' ? `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-transfer-bags-action="release-inbound-bag" data-usage-id="${escapeHtml(item.bagUseId)}">清空袋</button>` : ''}
-                          </div>
-                        </td>
-                      </tr>
-                    `
-                  })
-                  .join('')}
-              </tbody>
-            </table>
-          `)
-        : '<div class="px-6 py-10 text-center text-sm text-muted-foreground">暂无入仓暂存使用记录</div>'}
-    </section>
-  `
-}
-
-function renderHandoverPackingUseSection(): string {
-  const projection = getCarrierManagementProjection()
-  const items = projection.handoverPackingUses
-  return `
-    <section class="rounded-lg border bg-card" role="tabpanel" aria-label="交出装袋使用">
-      <div class="flex items-center justify-between border-b px-4 py-3">
-        <div>
-          <h2 class="text-sm font-semibold text-foreground">交出装袋使用</h2>
-        </div>
-        <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="open-handover-pack">开始交出装袋</button>
-      </div>
-      ${items.length
-        ? renderStickyTableScroller(`
-            <table class="min-w-[1260px] w-full text-sm">
-              <thead class="sticky top-0 z-10 bg-muted/95 text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th class="px-4 py-3 text-left">中转袋</th>
-                  <th class="px-4 py-3 text-left">中转袋二维码</th>
-                  <th class="px-4 py-3 text-left">绑定对象</th>
-                  <th class="px-4 py-3 text-left">接收对象</th>
-                  <th class="px-4 py-3 text-left">装入内容</th>
-                  <th class="px-4 py-3 text-left">交出信息</th>
-                  <th class="px-4 py-3 text-left">交出状态</th>
-                  <th class="px-4 py-3 text-left">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${items
-                  .map((item) => {
-                    const detailHref = buildTransferBagDetailRoute({
-                      bagId: item.bagMasterId,
-                      bagCode: item.bagCode,
-                      usageId: item.bagUseId,
-                      usageNo: item.bagUseNo,
-                      detailTab: 'items',
-                    })
-                    const canConfirmHandover = item.currentStatus === '交出装袋中' || item.currentStatus === '待交出'
-                    const canReturn = item.currentStatus === '已交出待回收' && !item.returnedAt
-                    return `
-                      <tr class="border-b bg-card">
-                        <td class="px-4 py-3">
-                          <div class="font-medium text-blue-700">${escapeHtml(item.bagCode)}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.bagUseNo)}</div>
-                          <div class="mt-2">${renderTag(item.currentStatus, getCarrierCurrentStatusClass(item.currentStatus))}</div>
-                        </td>
-                        <td class="px-4 py-3">${renderTransferBagQrCell(item.bagCode)}</td>
-                        <td class="px-4 py-3">
-                          <div class="font-medium text-foreground">${escapeHtml(item.targetObjectNo || '待绑定')}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.targetObjectType || '绑定对象待补')}</div>
-                        </td>
-                        <td class="px-4 py-3">
-                          <div class="font-medium text-foreground">${escapeHtml(formatFactoryDisplayName(item.receiverName || item.receiverFactoryName) || '待指定')}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.receiverType || '接收对象')}</div>
-                        </td>
-                        <td class="px-4 py-3 text-xs text-muted-foreground">
-                          <div><span class="font-medium text-foreground">${escapeHtml(String(item.containedFeiTickets.length))}</span> 张菲票</div>
-                          <div class="mt-1"><span class="font-medium text-foreground">${escapeHtml(String(item.containedPieceQty))}</span> 片裁片</div>
-                          <div class="mt-1">${escapeHtml(item.mixedSummary)}</div>
-                        </td>
-                        <td class="px-4 py-3 text-xs text-muted-foreground">
-                          <div>交出单：${escapeHtml(item.targetObjectNo || '待生成')}</div>
-                          <div class="mt-1">交出记录：${escapeHtml(item.handedOverAt ? item.bagUseNo : '待交出')}</div>
-                          <div class="mt-1">交出时间：${escapeHtml(item.handedOverAt || '待交出')}</div>
-                        </td>
-                        <td class="px-4 py-3">${renderTag(item.currentStatus, getCarrierCurrentStatusClass(item.currentStatus))}</td>
-                        <td class="px-4 py-3">
-                          <div class="flex flex-wrap gap-2">
-                            <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(getCanonicalCuttingPath('handover-record-detail'))}">查看交出记录</button>
-                            <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(detailHref)}">查看装袋明细</button>
-                            ${canConfirmHandover ? `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-transfer-bags-action="confirm-handover" data-usage-id="${escapeHtml(item.bagUseId)}">交出确认</button>` : ''}
-                            ${canReturn ? `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-transfer-bags-action="open-return" data-usage-id="${escapeHtml(item.bagUseId)}">回收确认</button>` : ''}
-                          </div>
-                        </td>
-                      </tr>
-                    `
-                  })
-                  .join('')}
-              </tbody>
-            </table>
-          `)
-        : '<div class="px-6 py-10 text-center text-sm text-muted-foreground">暂无交出装袋使用记录</div>'}
-    </section>
-  `
-}
-
-function renderSignAndReturnUseSection(): string {
-  const projection = getCarrierManagementProjection()
-  const items = projection.signedAndReturnUses
-  return `
-    <section class="rounded-lg border bg-card" role="tabpanel" aria-label="已交出待回收">
-      <div class="flex items-center justify-between border-b px-4 py-3">
-        <h2 class="text-sm font-semibold text-foreground">已交出待回收</h2>
-        <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="open-return">回收确认</button>
-      </div>
-      ${items.length
-        ? renderStickyTableScroller(`
-            <table class="min-w-[1040px] w-full text-sm">
-              <thead class="sticky top-0 z-10 bg-muted/95 text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th class="px-4 py-3 text-left">中转袋</th>
-                  <th class="px-4 py-3 text-left">中转袋二维码</th>
-                  <th class="px-4 py-3 text-left">交出对象</th>
-                  <th class="px-4 py-3 text-left">交出</th>
-                  <th class="px-4 py-3 text-left">回收</th>
-                  <th class="px-4 py-3 text-left">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${items
-                  .map((item) => {
-                    return `
-                      <tr class="border-b bg-card">
-                        <td class="px-4 py-3">
-                          <div class="font-medium text-blue-700">${escapeHtml(item.bagCode)}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.bagUseNo)}</div>
-                        </td>
-                        <td class="px-4 py-3">${renderTransferBagQrCell(item.bagCode)}</td>
-                        <td class="px-4 py-3">
-                          <div class="font-medium text-foreground">${escapeHtml(formatFactoryDisplayName(item.receiverName || item.receiverFactoryName) || '待补接收方')}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.targetObjectNo || '交出记录待补')}</div>
-                        </td>
-                        <td class="px-4 py-3 text-xs text-muted-foreground">
-                          <div><span class="font-medium text-foreground">${escapeHtml(item.handedOverAt || '待交出')}</span></div>
-                          <div class="mt-1">交出记录：${escapeHtml(item.targetObjectNo || item.bagUseNo)}</div>
-                          <div class="mt-1">装载数量：${escapeHtml(String(item.containedPieceQty))} 片</div>
-                        </td>
-                        <td class="px-4 py-3 text-xs text-muted-foreground">
-                          <div><span class="font-medium text-foreground">${escapeHtml(item.returnedAt || '待回收')}</span></div>
-                          <div class="mt-1">回收人：${escapeHtml(item.returnedBy || '待确认')}</div>
-                          <div class="mt-1">回收库位：${escapeHtml(item.returnedAt ? item.returnWarehouseName || item.locationCode : '待确认')}</div>
-                        </td>
-                        <td class="px-4 py-3">
-                          <div class="flex flex-wrap gap-2">
-                            ${!item.returnedAt ? `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-transfer-bags-action="open-return" data-usage-id="${escapeHtml(item.bagUseId)}">回收确认</button>` : ''}
-                          </div>
-                        </td>
-                      </tr>
-                    `
-                  })
-                  .join('')}
-              </tbody>
-            </table>
-          `)
-        : '<div class="px-6 py-10 text-center text-sm text-muted-foreground">暂无已交出待回收记录</div>'}
-    </section>
-  `
-}
-
 function isTransferBagScrapRecord(record: { scrapType?: string; description?: string }): boolean {
   return [record.scrapType, record.description].filter(Boolean).join(' / ').includes('报废')
 }
@@ -1056,7 +805,7 @@ function renderCarrierScrapSection(): string {
                       bagCode: item.bagCode,
                       usageId: item.relatedUseId,
                       usageNo: item.relatedObjectId,
-                      detailTab: 'logs',
+                      detailTab: 'scrap',
                     })
                     return `
                       <tr class="border-b bg-card">
@@ -1264,11 +1013,11 @@ const transferBagListColumns: StandardListColumn<TransferBagMasterListRow>[] = [
     freezeable: true,
     sortable: true,
     render: ({ item, carrierRecord }) => `
-      <div class="font-medium text-foreground">${escapeHtml(carrierRecord?.currentLocation || item.currentLocation || '待命位')}</div>
+      <div class="font-medium text-foreground">${escapeHtml(carrierRecord?.currentLocation || '—')}</div>
       <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(carrierRecord?.enabled === false ? '已报废' : '可流转')}</div>
     `,
     sortValue: ({ item, carrierRecord }) =>
-      carrierRecord?.currentLocation || item.currentLocation || '',
+      carrierRecord?.currentLocation || '',
   },
   {
     key: 'load',

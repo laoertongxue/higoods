@@ -68,7 +68,6 @@ import {
   state,
   nowText,
   getViewModel,
-  getReturnViewModel,
   getCarrierManagementProjection,
   persistStore,
   setFeedback,
@@ -322,25 +321,12 @@ export function renderTransferBagDetailHeader(
   activeMaster: TransferBagMasterItem,
   focusedUsage: TransferBagUsageItem | null,
 ): string {
+  void focusedUsage
   const transferBagQrValue = resolveFormalBagQrValue(activeMaster)
-  const summary = focusedUsage ? buildTransferBagParentChildSummary(focusedUsage.bindingItems || []) : null
   const carrierRecord = getCarrierMasterRecordMap()[activeMaster.bagCode]
-  const lifecycle = buildWaitHandoverLifecycleByBagCode(
-    activeMaster.bagCode,
-  )
-  const hasRuntimeFacts = lifecycle.sourceFactIds.length > 0
-    || lifecycle.usageCycleId !== null
-  const currentStatus = hasRuntimeFacts
-    ? lifecycle.mainStatusLabel
-    : carrierRecord?.currentStatus
-      || focusedUsage?.visibleStatusMeta.label
-      || activeMaster.visibleStatusMeta.label
-  const currentStage = hasRuntimeFacts
-    ? lifecycle.flowStageLabel
-    : carrierRecord?.currentUseStage || '—'
-  const currentUsageCycle = hasRuntimeFacts
-    ? lifecycle.usageCycleId || '—'
-    : focusedUsage?.usageNo || carrierRecord?.currentUseId || '—'
+  const currentStatus = carrierRecord?.currentStatus || '—'
+  const currentStage = carrierRecord?.currentUseStage || '—'
+  const currentUsageCycle = carrierRecord?.currentUseId || '—'
   const summaryItems = [
     {
       label: '中转袋码',
@@ -352,7 +338,7 @@ export function renderTransferBagDetailHeader(
     },
     {
       label: '当前所在位置',
-      valueHtml: `<span class="text-sm font-semibold text-foreground">${escapeHtml(carrierRecord?.currentLocation || '运行位置待补')}</span>`,
+      valueHtml: `<span class="text-sm font-semibold text-foreground">${escapeHtml(carrierRecord?.currentLocation || '—')}</span>`,
     },
     {
       label: '当前流转阶段',
@@ -364,11 +350,11 @@ export function renderTransferBagDetailHeader(
     },
     {
       label: '绑定对象',
-      valueHtml: `<span class="text-sm font-semibold text-foreground">${escapeHtml(carrierRecord?.currentBoundObjectNo || focusedUsage?.boundObjectNo || '未绑定')}</span>`,
+      valueHtml: `<span class="text-sm font-semibold text-foreground">${escapeHtml(carrierRecord?.currentBoundObjectNo || '—')}</span>`,
     },
     {
       label: '当前装载',
-      valueHtml: `<span class="text-sm font-semibold text-foreground">${escapeHtml(`${summary?.ticketCount || 0} 张 / ${activeMaster.capacity} 张`)}</span>`,
+      valueHtml: `<span class="text-sm font-semibold text-foreground">${escapeHtml(`${carrierRecord?.currentFeiTicketCount || 0} 张 / ${activeMaster.capacity} 张`)}</span>`,
     },
   ]
 
@@ -897,7 +883,7 @@ export function renderTransferBagBasicTab(
 ): string {
   void focusedUsage
   const carrierRecord = getCarrierMasterRecordMap()[activeMaster.bagCode]
-  const currentStatus = carrierRecord?.currentStatus || activeMaster.visibleStatusMeta.label
+  const currentStatus = carrierRecord?.currentStatus || '—'
 
   return `
     <section id="transfer-bag-tabpanel-basic" role="tabpanel" aria-labelledby="transfer-bag-tab-basic" class="rounded-xl border bg-card p-4">
@@ -909,7 +895,7 @@ export function renderTransferBagBasicTab(
         ${renderDetailMetric('归属工厂（货权）', carrierRecord?.ownershipFactoryName || activeMaster.ownershipFactoryName || '待补')}
         ${renderDetailMetric('载具类型', activeMaster.carrierType === 'box' ? '箱' : '袋')}
         ${renderDetailMetric('当前状态', currentStatus)}
-        ${renderDetailMetric('当前所在位置', carrierRecord?.currentLocation || '运行位置待补')}
+        ${renderDetailMetric('当前所在位置', carrierRecord?.currentLocation || '—')}
         ${renderDetailMetric('是否启用', carrierRecord?.enabled === false ? '报废' : '启用')}
         ${renderDetailMetric('使用次数', `${carrierRecord?.totalUseCount || 0} 次`)}
         ${renderDetailMetric('报废记录', `${carrierRecord?.scrapCount || 0} 条`, carrierRecord?.scrapCount ? 'text-rose-700' : 'text-foreground')}
@@ -922,33 +908,26 @@ export function renderTransferBagCurrentTab(
   activeMaster: TransferBagMasterItem,
   focusedUsage: TransferBagUsageItem | null,
 ): string {
+  void focusedUsage
   const carrierRecord = getCarrierMasterRecordMap()[activeMaster.bagCode]
-  const lifecycle = buildWaitHandoverLifecycleByBagCode(activeMaster.bagCode)
-  const hasRuntimeFacts = lifecycle.sourceFactIds.length > 0
-    || lifecycle.usageCycleId !== null
   const currentUse = resolveTransferBagCurrentUse(activeMaster.bagCode)
 
   return `
     <section id="transfer-bag-tabpanel-current" role="tabpanel" aria-labelledby="transfer-bag-tab-current" class="space-y-3 rounded-xl border bg-card p-4">
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        ${renderDetailMetric('当前流转阶段', hasRuntimeFacts ? lifecycle.flowStageLabel : carrierRecord?.currentUseStage || '—')}
-        ${renderDetailMetric('当前使用周期', hasRuntimeFacts ? lifecycle.usageCycleId || '暂无' : focusedUsage?.usageNo || '暂无')}
-        ${renderDetailMetric('绑定对象类型', carrierRecord?.currentBoundObjectType || focusedUsage?.boundObjectType || '无')}
-        ${renderDetailMetric('绑定对象单号', carrierRecord?.currentBoundObjectNo || focusedUsage?.boundObjectNo || '无')}
-        ${renderDetailMetric('接收对象类型', focusedUsage?.receiverType || (focusedUsage?.usageStage === 'INBOUND_TEMP' ? '仓库' : '工厂'))}
-        ${renderDetailMetric('接收对象', focusedUsage?.receiverName || formatFactoryDisplayName(focusedUsage?.sewingFactoryName || '') || '待指定')}
-        ${renderDetailMetric('当前库区', focusedUsage?.usageStage === 'INBOUND_TEMP' ? '裁片暂存区' : '交出备货区')}
-        ${renderDetailMetric('当前库位', carrierRecord?.currentLocation || '运行位置待补')}
+        ${renderDetailMetric('当前流转阶段', carrierRecord?.currentUseStage || '—')}
+        ${renderDetailMetric('当前使用周期', carrierRecord?.currentUseId || '—')}
+        ${renderDetailMetric('绑定对象类型', carrierRecord?.currentBoundObjectType || '—')}
+        ${renderDetailMetric('绑定对象单号', carrierRecord?.currentBoundObjectNo || '—')}
+        ${renderDetailMetric('当前持有节点类型', carrierRecord?.currentHolderType || '—')}
+        ${renderDetailMetric('当前持有节点', carrierRecord?.currentHolderName || '—')}
+        ${renderDetailMetric('当前库区', carrierRecord?.currentWarehouseArea || '—')}
+        ${renderDetailMetric('当前库位', carrierRecord?.currentLocation || '—')}
         ${renderDetailMetric(
           '当前装载摘要',
           `${currentUse.tickets.length} 张菲票 / ${currentUse.tickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0)} 片裁片`,
         )}
       </div>
-      ${
-        focusedUsage
-          ? `<div class="rounded-lg border bg-muted/10 p-3 text-sm text-muted-foreground">${escapeHtml(focusedUsage.note || '当前使用记录暂无备注。')}</div>`
-          : '<div class="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">当前中转袋暂无打开中的使用记录。</div>'
-      }
     </section>
   `
 }
@@ -1239,7 +1218,7 @@ export function renderTransferBagDownstreamTab(
       ${renderDetailPagination({
         activeMaster,
         focusedUsage,
-        activeTab: 'downstream',
+        activeTab: 'handover',
         total: records.length,
         ...paging,
       })}
@@ -1296,7 +1275,7 @@ export function renderTransferBagDifferencesTab(
       ${renderDetailPagination({
         activeMaster,
         focusedUsage,
-        activeTab: 'differences',
+        activeTab: 'history',
         total: differences.length,
         ...paging,
       })}
@@ -1502,7 +1481,7 @@ export function renderDetailPage(): string {
       <header data-transfer-bag-page-header class="flex items-center justify-between gap-3">
         <div>
           <h1 class="text-xl font-bold">${escapeHtml(meta.pageTitle)}</h1>
-          ${activeMaster ? `<p class="mt-1 text-sm text-muted-foreground">${escapeHtml([activeMaster.bagCode, getCarrierMasterRecordMap()[activeMaster.bagCode]?.currentStatus || activeMaster.visibleStatusMeta.label, getCarrierMasterRecordMap()[activeMaster.bagCode]?.currentLocation || '运行位置待补'].join(' / '))}</p>` : ''}
+          ${activeMaster ? `<p class="mt-1 text-sm text-muted-foreground">${escapeHtml([activeMaster.bagCode, getCarrierMasterRecordMap()[activeMaster.bagCode]?.currentStatus || '—', getCarrierMasterRecordMap()[activeMaster.bagCode]?.currentLocation || '—'].join(' / '))}</p>` : ''}
         </div>
         <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildTransferBagListRoute())}">返回中转袋流转</button>
       </header>

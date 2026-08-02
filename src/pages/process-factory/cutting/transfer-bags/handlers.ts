@@ -77,20 +77,7 @@ import {
   type TransferBagVisibleStatusKey,
 } from '../transfer-bags-model.ts'
 import {
-  buildBagReturnAuditTrail,
   buildReuseCycleSummary,
-  buildReturnDiscrepancyMeta,
-  buildTransferBagReturnViewModel,
-  closeTransferBagUsageCycle,
-  createReturnReceiptDraft,
-  deriveBagConditionDecision,
-  deriveReturnEligibility,
-  validateReturnReceiptPayload,
-  type TransferBagConditionRecord,
-  type TransferBagConditionStatus,
-  type TransferBagDiscrepancyType,
-  type TransferBagReusableDecision,
-  type TransferBagReturnReceipt,
 } from '../transfer-bag-return-model.ts'
 import { renderMaterialIdentityBlock } from '../material-identity.ts'
 import {
@@ -103,7 +90,6 @@ import {
   getProjection,
   hydrateStore,
   getViewModel,
-  getReturnViewModel,
   getCarrierManagementProjection,
   persistStore,
   persistSelectedTicketIds,

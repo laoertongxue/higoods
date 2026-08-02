@@ -50,6 +50,7 @@ import type {
 } from '../../../data/fcs/cutting/transfer-bag-lifecycle.ts'
 import {
   listCuttingRuntimeEvents,
+  type CuttingRuntimeEvent,
 } from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import {
   resolveTransferBagCurrentUse,
@@ -64,20 +65,101 @@ const TRANSFER_QR_FIELD = ['qr', 'Payload'].join('') as const
 const INBOUND_TEMP_BAG_RULE_LABEL = '中转袋可混装不同生产单、SKU、部位的菲票；车缝任务分配后再分拣装袋。'
 const HANDOVER_PACKING_BAG_RULE_LABEL = '交出装袋需先扫中转袋，再扫菲票子码；本阶段才按交出单关系核对。'
 
-export function resolveTransferBagRuntimeCurrentLocation(current: TransferBagCurrentUse): string {
-  if (current.mainStatus === 'DISABLED') return '报废停用'
-  if (current.mainStatus === 'IDLE' || !current.usageCycleId) return '空袋待命位'
-  if (current.flowStage === 'PACKED') return '菲票装袋操作位'
-  if (current.flowStage === 'READY_HANDOVER') return '待交出操作区'
-  if (current.flowStage === 'HANDED_OVER_WAITING_RETURN') return '下游接收节点（待回收）'
-  const location = resolveTransferBagAuthoritativeCurrentLocation({
+export interface TransferBagRuntimeCurrentFacts {
+  holderType: string
+  holderName: string
+  warehouseArea: string
+  location: string
+}
+
+function runtimeEventPayload(event: CuttingRuntimeEvent): Record<string, unknown> {
+  return event.payload && typeof event.payload === 'object'
+    ? event.payload as Record<string, unknown>
+    : {}
+}
+
+function runtimeFactText(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function runtimeEventTouchesCurrentCycle(event: CuttingRuntimeEvent, current: TransferBagCurrentUse): boolean {
+  const payload = runtimeEventPayload(event)
+  const transferBagUses = Array.isArray(payload.transferBagUses)
+    ? payload.transferBagUses as Array<Record<string, unknown>>
+    : []
+  const matchingUse = transferBagUses.find((item) => runtimeFactText(item.bagCode) === current.bagCode)
+  const bagCode = runtimeFactText(payload.bagCode)
+    || runtimeFactText(payload.transferBagCode)
+    || runtimeFactText(matchingUse?.bagCode)
+    || event.refs.transferBagCode
+  const usageCycleId = runtimeFactText(payload.usageCycleId)
+    || event.refs.usageCycleId
+    || runtimeFactText(matchingUse?.bagUseId)
+  return bagCode === current.bagCode
+    && (!current.usageCycleId || usageCycleId === current.usageCycleId)
+}
+
+export function resolveTransferBagRuntimeCurrentFacts(
+  current: TransferBagCurrentUse,
+  events: CuttingRuntimeEvent[] = listCuttingRuntimeEvents(),
+): TransferBagRuntimeCurrentFacts {
+  const relevantEvents = [...events]
+    .filter((event) => event.eventStatus !== '已取消')
+    .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt) || right.eventId.localeCompare(left.eventId))
+  if (current.mainStatus === 'IDLE') {
+    const recovery = relevantEvents.find((event) => {
+      const payload = runtimeEventPayload(event)
+      return event.eventType === '中转袋回收'
+        && (event.refs.transferBagCode === current.bagCode || runtimeFactText(payload.bagCode) === current.bagCode)
+        && payload.physicalBagReceived === true
+        && payload.physicalBagEmpty === true
+    })
+    const payload = recovery ? runtimeEventPayload(recovery) : {}
+    return {
+      holderType: recovery ? '回收节点' : '—',
+      holderName: runtimeFactText(payload.recoveryNode) || '—',
+      warehouseArea: '—',
+      location: runtimeFactText(payload.recoveryLocation) || '—',
+    }
+  }
+  if (current.mainStatus !== 'IN_USE' || !current.usageCycleId) {
+    return { holderType: '—', holderName: '—', warehouseArea: '—', location: '—' }
+  }
+  if (current.flowStage === 'HANDED_OVER_WAITING_RETURN') {
+    const handover = relevantEvents.find((event) =>
+      (event.eventType === '新增交出记录' || event.eventType === '特殊工艺交出')
+      && runtimeEventTouchesCurrentCycle(event, current)
+      && (!current.latestHandoverEventId || event.eventId === current.latestHandoverEventId))
+    const payload = handover ? runtimeEventPayload(handover) : {}
+    const specialCraftHolderType = [
+      runtimeFactText(payload.craftCategory),
+      runtimeFactText(payload.craftType),
+    ].filter(Boolean).join(' / ')
+    return {
+      holderType: handover?.eventType === '特殊工艺交出'
+        ? specialCraftHolderType || '—'
+        : runtimeFactText(payload.receiverType) || '—',
+      holderName: handover?.eventType === '特殊工艺交出'
+        ? runtimeFactText(payload.receiverFactoryName) || '—'
+        : runtimeFactText(payload.receiverName) || '—',
+      warehouseArea: '—',
+      location: '—',
+    }
+  }
+  const authoritativeLocation = resolveTransferBagAuthoritativeCurrentLocation({
     bagCode: current.bagCode,
     usageCycleId: current.usageCycleId,
-    events: listCuttingRuntimeEvents(),
+    events,
   })
-  return location
-    ? [location.warehouseArea, location.locationCode].filter(Boolean).join(' / ')
-    : '入仓位置事实待补'
+  if (!authoritativeLocation) {
+    return { holderType: '—', holderName: '—', warehouseArea: '—', location: '—' }
+  }
+  return {
+    holderType: '库区',
+    holderName: authoritativeLocation.warehouseArea,
+    warehouseArea: authoritativeLocation.warehouseArea,
+    location: authoritativeLocation.locationCode,
+  }
 }
 
 function normalizeTransferBagUsageStage(stage: string | undefined): TransferBagUsageStage {
@@ -825,6 +907,9 @@ export interface TransferBagMasterArchiveRecord {
   ownershipFactoryName: string
   currentStatus: TransferBagCarrierCurrentStatus
   currentLocation: string
+  currentHolderType: string
+  currentHolderName: string
+  currentWarehouseArea: string
   currentUseStage: TransferBagCarrierUseStage
   currentUseId: string
   currentBoundObjectType: string
@@ -2996,6 +3081,7 @@ export function buildTransferBagCarrierManagementProjection(
     const relatedUsages = (usagesByBag[master.bagId] || []).slice().sort((left, right) => right.usageNo.localeCompare(left.usageNo, 'zh-CN'))
     const currentUsage = master.currentUsage
     const current = resolveTransferBagCurrentUse(master.bagCode)
+    const currentFacts = resolveTransferBagRuntimeCurrentFacts(current)
     const currentStatus: TransferBagCarrierCurrentStatus = current.mainStatus === 'DISABLED'
       ? '已报废'
       : current.mainStatus === 'IN_USE'
@@ -3029,7 +3115,10 @@ export function buildTransferBagCarrierManagementProjection(
       ownershipFactoryId: master.ownershipFactoryId || '',
       ownershipFactoryName: master.ownershipFactoryName || '',
       currentStatus,
-      currentLocation: resolveTransferBagRuntimeCurrentLocation(current),
+      currentLocation: currentFacts.location,
+      currentHolderType: currentFacts.holderType,
+      currentHolderName: currentFacts.holderName,
+      currentWarehouseArea: currentFacts.warehouseArea,
       currentUseStage,
       currentUseId: current.usageCycleId || '',
       currentBoundObjectType,

@@ -39,6 +39,9 @@ const transferBagRuntime = await import(
 const transferBagOperations = await import(
   '../src/data/fcs/cutting/transfer-bag-operations.ts'
 )
+const transferBagModel = await import(
+  '../src/pages/process-factory/cutting/transfer-bags-model.ts'
+)
 const transferBagReturnModel = await import(
   '../src/pages/process-factory/cutting/transfer-bag-return-model.ts'
 )
@@ -2381,6 +2384,154 @@ assert(
   transferBagModelSource.includes('resolveTransferBagAuthoritativeCurrentLocation({')
     && !transferBagModelSource.includes("currentLocation: master.currentLocation || '待命位'"),
   '主列表当前位置必须读取当前使用周期的权威运行位置，冲突时不得回退旧主档位置',
+)
+assert.equal(
+  typeof transferBagModel.resolveTransferBagRuntimeCurrentFacts,
+  'function',
+  '主列表和详情必须共享当前持有节点、位置与绑定的运行事实投影',
+)
+const resolveRuntimeCurrentFacts = transferBagModel.resolveTransferBagRuntimeCurrentFacts as unknown as (
+  current: {
+    bagCode: string
+    usageCycleId: string | null
+    productionOrderNo: string
+    tickets: unknown[]
+    mainStatus: 'IDLE' | 'IN_USE' | 'DISABLED'
+    flowStage: 'PACKED' | 'INBOUND_STORED' | 'READY_HANDOVER' | 'HANDED_OVER_WAITING_RETURN' | null
+    latestHandoverEventId: string | null
+  },
+  events: unknown[],
+) => {
+  holderType: string
+  holderName: string
+  warehouseArea: string
+  location: string
+}
+const recoveredCurrentFacts = resolveRuntimeCurrentFacts({
+  bagCode: 'BAG-RESULT-001',
+  usageCycleId: null,
+  productionOrderNo: '',
+  tickets: [],
+  mainStatus: 'IDLE',
+  flowStage: null,
+  latestHandoverEventId: null,
+}, [recoveryEvent])
+assert.deepEqual(
+  recoveredCurrentFacts,
+  {
+    holderType: '回收节点',
+    holderName: '车缝一厂收货区',
+    warehouseArea: '—',
+    location: '裁床中转袋回收位',
+  },
+  '空闲袋的当前节点和位置必须读取最近回收运行事实，不能读取旧主档',
+)
+const handedCurrentFacts = resolveRuntimeCurrentFacts({
+  bagCode: 'BAG-CURRENT-TRANSFER-001',
+  usageCycleId: 'cycle:BAG-CURRENT-TRANSFER-001:001',
+  productionOrderNo: 'PO-REPACK-001',
+  tickets: [],
+  mainStatus: 'IN_USE',
+  flowStage: 'HANDED_OVER_WAITING_RETURN',
+  latestHandoverEventId: currentHandoverRecordSubmitEvent.eventId,
+}, [currentHandoverRecordSubmitEvent])
+assert.equal(handedCurrentFacts.holderType, '车缝厂')
+assert.equal(handedCurrentFacts.holderName, '历史车缝厂')
+assert.equal(handedCurrentFacts.warehouseArea, '—')
+assert.equal(handedCurrentFacts.location, '—', '交出事实没有接收位置时必须显示横线，不能生成虚假位置')
+const packedWithoutLocation = resolveRuntimeCurrentFacts({
+  bagCode: 'BAG-NO-LOCATION-001',
+  usageCycleId: 'cycle:BAG-NO-LOCATION-001:001',
+  productionOrderNo: 'PO-NO-LOCATION-001',
+  tickets: [],
+  mainStatus: 'IN_USE',
+  flowStage: 'PACKED',
+  latestHandoverEventId: null,
+}, [])
+assert.equal(packedWithoutLocation.holderName, '—')
+assert.equal(packedWithoutLocation.location, '—')
+for (const fabricatedCurrentFact of [
+  '空袋待命位',
+  '菲票装袋操作位',
+  '待交出操作区',
+  '下游接收节点（待回收）',
+  '入仓位置事实待补',
+]) {
+  assert.equal(
+    transferBagModelSource.includes(fabricatedCurrentFact),
+    false,
+    `当前持有位置不得生成无运行事实依据的文案：${fabricatedCurrentFact}`,
+  )
+}
+for (const legacyDeadAnchor of [
+  'renderInboundTempUseSection',
+  'renderHandoverPackingUseSection',
+  'renderSignAndReturnUseSection',
+  'data-transfer-bags-action="open-inbound-pack"',
+  'data-transfer-bags-action="open-handover-pack"',
+  'data-transfer-bags-action="open-return"',
+]) {
+  assert.equal(
+    transferBagPageSource.includes(legacyDeadAnchor),
+    false,
+    `主页面不得保留不可达旧流转实现：${legacyDeadAnchor}`,
+  )
+}
+for (const legacyTabAlias of ["| 'basic'", "| 'items'", "| 'downstream'", "| 'logs'", "| 'differences'"]) {
+  assert.equal(
+    transferBagStateSource.includes(legacyTabAlias),
+    false,
+    `详情页签类型不得保留不可达旧别名：${legacyTabAlias}`,
+  )
+}
+const transferBagDetailHeaderSource = transferBagDetailSource.slice(
+  transferBagDetailSource.indexOf('export function renderTransferBagDetailHeader'),
+  transferBagDetailSource.indexOf('export function renderTransferBagDetailTabs'),
+)
+const transferBagCurrentTabSource = transferBagDetailSource.slice(
+  transferBagDetailSource.indexOf('export function renderTransferBagCurrentTab'),
+  transferBagDetailSource.indexOf('export function renderTransferBagItemsTab'),
+)
+for (const legacyCurrentFallback of [
+  'focusedUsage?.visibleStatusMeta',
+  'focusedUsage?.usageNo',
+  'focusedUsage?.boundObject',
+  'focusedUsage?.receiver',
+  'focusedUsage?.sewingFactoryName',
+  'activeMaster.visibleStatusMeta',
+  'activeMaster.currentLocation',
+]) {
+  assert.equal(
+    `${transferBagDetailHeaderSource}\n${transferBagCurrentTabSource}`.includes(legacyCurrentFallback),
+    false,
+    `详情当前摘要不得回退旧使用记录或主档：${legacyCurrentFallback}`,
+  )
+}
+for (const runtimeCurrentField of [
+  'currentHolderType',
+  'currentHolderName',
+  'currentWarehouseArea',
+  'currentLocation',
+  'currentFeiTicketCount',
+]) {
+  assert(
+    `${transferBagDetailHeaderSource}\n${transferBagCurrentTabSource}`.includes(runtimeCurrentField),
+    `详情当前摘要必须读取运行事实字段：${runtimeCurrentField}`,
+  )
+}
+assert.equal(
+  transferBagPageSource.slice(
+    transferBagPageSource.indexOf('const transferBagListColumns'),
+    transferBagPageSource.indexOf('const defaultTransferBagListPreferences'),
+  ).includes('item.currentLocation'),
+  false,
+  '中转袋主列表当前位置不得回退旧主档位置',
+)
+assert.equal(
+  transferBagPageSource.includes("from './transfer-bag-return-model.ts'")
+    || transferBagStateSource.includes("from '../transfer-bag-return-model.ts'"),
+  false,
+  '主页面和状态层不得继续加载无消费者的旧回收模型',
 )
 for (const legacyImplementationAnchor of [
   'renderReturnLedgerSection',

@@ -56,22 +56,6 @@ import {
   type TransferBagUsageStatusKey,
   type TransferBagVisibleStatusKey,
 } from '../transfer-bags-model.ts'
-import {
-  buildBagReturnAuditTrail,
-  buildReuseCycleSummary,
-  buildReturnDiscrepancyMeta,
-  buildTransferBagReturnViewModel,
-  closeTransferBagUsageCycle,
-  createReturnReceiptDraft,
-  deriveBagConditionDecision,
-  deriveReturnEligibility,
-  validateReturnReceiptPayload,
-  type TransferBagConditionRecord,
-  type TransferBagConditionStatus,
-  type TransferBagDiscrepancyType,
-  type TransferBagReusableDecision,
-  type TransferBagReturnReceipt,
-} from '../transfer-bag-return-model.ts'
 
 export type MasterStatusFilter = 'ALL' | TransferBagCarrierCurrentStatus
 export type MasterUseStageFilter = 'ALL' | TransferBagCarrierUseStage
@@ -82,16 +66,11 @@ export type TransferBagDetailTab =
   | 'bagging'
   | 'repack'
   | 'scrap'
-  | 'basic'
   | 'current'
-  | 'items'
   | 'inbound'
   | 'handover'
   | 'special-craft'
-  | 'downstream'
   | 'recovery'
-  | 'logs'
-  | 'differences'
   | 'history'
 export type TransferBagBaggingStepId = 'scan' | 'review' | 'handover'
 export type TransferBagBaggingStepState = 'pending' | 'active' | 'done' | 'locked'
@@ -309,10 +288,6 @@ export const state: TransferBagsPageState = {
 
 export function getViewModel() {
   return getProjection().viewModel
-}
-
-export function getReturnViewModel() {
-  return getProjection().returnViewModel
 }
 
 export function getCarrierManagementProjection() {
