@@ -1,3 +1,6 @@
+import { invalidateBomPriceReviewsForExchangeRateChange } from './pcs-tech-pack-bom-price-review-invalidation.ts'
+import { runTechnicalDataVersionRepositoryTransaction } from './pcs-technical-data-version-repository.ts'
+
 export interface PcsExchangeRateRecord {
   idrPerCny: number
   updatedAt: string
@@ -40,8 +43,27 @@ export function getLatestPcsExchangeRate(): PcsExchangeRateRecord {
 
 export function updateLatestPcsExchangeRate(input: { idrPerCny: number; updatedBy: string }): PcsExchangeRateRecord {
   if (!Number.isFinite(input.idrPerCny) || input.idrPerCny <= 0) throw new Error('请输入有效的人民币兑印尼盾汇率。')
+  const previous = getLatestPcsExchangeRate()
+  if (previous.idrPerCny === input.idrPerCny) return previous
   const next = { idrPerCny: input.idrPerCny, updatedAt: nowText(), updatedBy: input.updatedBy.trim() || '系统管理员' }
-  memoryRate = next
-  if (canUseStorage()) localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-  return { ...next }
+  const previousStorageValue = canUseStorage() ? localStorage.getItem(STORAGE_KEY) : null
+  return runTechnicalDataVersionRepositoryTransaction(() => {
+    try {
+      memoryRate = next
+      if (canUseStorage()) localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+      invalidateBomPriceReviewsForExchangeRateChange({
+        beforeIdrPerCny: previous.idrPerCny,
+        afterIdrPerCny: next.idrPerCny,
+        operator: next.updatedBy,
+      })
+      return { ...next }
+    } catch (error) {
+      memoryRate = previous
+      if (canUseStorage()) {
+        if (previousStorageValue === null) localStorage.removeItem(STORAGE_KEY)
+        else localStorage.setItem(STORAGE_KEY, previousStorageValue)
+      }
+      throw error
+    }
+  })
 }

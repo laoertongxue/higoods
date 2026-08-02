@@ -8,9 +8,24 @@ import {
   invalidateReviewForBomPriceChange,
   startTechPackReview,
 } from '../src/data/pcs-tech-pack-review.ts'
+import { saveTechnicalDataVersionBomCustomCosts } from '../src/data/pcs-engineering-bom-pricing.ts'
+import {
+  createMaterialArchive,
+  createMaterialSkuRecord,
+  getMaterialSkuRecordById,
+  updateMaterialSkuRecord,
+} from '../src/data/pcs-material-archive-repository.ts'
+import {
+  getLatestPcsExchangeRate,
+  updateLatestPcsExchangeRate,
+} from '../src/data/pcs-exchange-rate-config.ts'
+import { setBomPriceReviewInvalidationFailureForTesting } from '../src/data/pcs-tech-pack-bom-price-review-invalidation.ts'
+import { saveTechnicalDataVersionBomMaterialLine } from '../src/data/pcs-engineering-bom-pricing.ts'
 import {
   getTechnicalDataVersionById,
+  getTechnicalDataVersionContent,
   getTechnicalDataVersionStoreSnapshot,
+  updateTechnicalDataVersionContent,
 } from '../src/data/pcs-technical-data-version-repository.ts'
 import type {
   TechnicalDataVersionContent,
@@ -139,13 +154,71 @@ const content: TechnicalDataVersionContent = {
   legacyCompatibleCostPayload: {},
 }
 
-function installApprovedFixture(): void {
+function installApprovedFixture(contentOverride: TechnicalDataVersionContent = content): void {
   installTechnicalDataVersionFixtures({
     version: 3,
     records: [baseRecord],
-    contents: [content],
+    contents: [contentOverride],
     pendingItems: [],
   })
+}
+
+function createPricedMaterial() {
+  const archive = createMaterialArchive({
+    kind: 'fabric',
+    materialName: `价格失效测试面料-${Date.now()}-${Math.random()}`,
+    materialNameEn: 'Price invalidation fabric',
+    categoryName: '测试面料',
+    specSummary: '测试',
+    composition: '棉',
+    processTags: [],
+    widthText: '150cm',
+    gramWeightText: '180g',
+    pricingUnit: '米',
+    mainUnit: '米',
+    auxiliaryUnits: [],
+    unitConversions: [],
+    mainImageUrl: '',
+    barcodeTemplateCode: '',
+    remark: '',
+  })
+  const sku = createMaterialSkuRecord(archive.materialId, {
+    colorName: '黑色',
+    specName: '标准',
+    sizeName: '-',
+    skuImageUrl: '',
+    costPrice: 12.34,
+    freightCost: 0,
+    weightKg: 0,
+    lengthCm: 0,
+    widthCm: 0,
+    heightCm: 0,
+    barcode: '',
+  })
+  assert.ok(sku)
+  return sku
+}
+
+function contentWithBom(materialSkuId: string): TechnicalDataVersionContent {
+  const sku = getMaterialSkuRecordById(materialSkuId)
+  assert.ok(sku)
+  return {
+    ...content,
+    bomItems: [{
+      id: 'BOM-001',
+      type: '面料',
+      name: sku.materialName,
+      spec: sku.specName,
+      materialCode: sku.materialCode,
+      materialSkuId,
+      unit: '米',
+      unitConsumption: 1,
+      sampleQuantity: 1,
+      lossRate: 0,
+      supplier: '测试供应商',
+    }],
+    bomCustomCosts: [{ title: '车位费', amountIdr: 15000 }],
+  }
 }
 
 const changedCases = [
@@ -175,6 +248,228 @@ for (const [changeSource, targetId, beforeValue, afterValue] of changedCases) {
   assert.deepEqual(getTechnicalReviewPendingRoles(next), ['买手'])
   assert.equal(canPublishTechnicalVersionByReview(next), false, '买手复审通过前禁止发布')
 }
+
+installApprovedFixture()
+saveTechnicalDataVersionBomCustomCosts(
+  technicalVersionId,
+  [{ title: '车位费', amountIdr: 18000 }],
+  '买手',
+)
+const customCostSaved = getTechnicalDataVersionById(technicalVersionId)
+assert.equal(customCostSaved?.buyerReview?.status, '待审核', '真实自定义费用保存必须触发买手复审')
+assert.deepEqual(customCostSaved?.reviewUnlockedModuleKeys, ['BOM', 'COST'])
+assert.equal(customCostSaved?.patternMakerReview?.status, '审核-已通过')
+assert.equal(customCostSaved?.merchandiserReview?.status, '审核-已通过')
+
+const pricedSku = createPricedMaterial()
+for (const [field, nextValue] of [['usage', 1.2], ['lossRate', 0.05]] as const) {
+  installApprovedFixture(contentWithBom(pricedSku.materialSkuId))
+  saveTechnicalDataVersionBomMaterialLine(
+    technicalVersionId,
+    'BOM-001',
+    { [field]: nextValue },
+    '买手',
+  )
+  const saved = getTechnicalDataVersionById(technicalVersionId)
+  assert.equal(saved?.buyerReview?.status, '待审核', `真实 ${field} 保存必须触发买手复审`)
+  assert.deepEqual(saved?.reviewUnlockedModuleKeys, ['BOM', 'COST'])
+  assert.equal(saved?.patternMakerReview?.status, '审核-已通过')
+  assert.equal(saved?.merchandiserReview?.status, '审核-已通过')
+}
+
+installApprovedFixture(contentWithBom(pricedSku.materialSkuId))
+const skuBeforePriceChange = getMaterialSkuRecordById(pricedSku.materialSkuId)
+assert.ok(skuBeforePriceChange)
+assert.ok(updateMaterialSkuRecord(pricedSku.materialSkuId, {
+  colorName: skuBeforePriceChange.colorName,
+  specName: skuBeforePriceChange.specName,
+  sizeName: skuBeforePriceChange.sizeName,
+  skuImageUrl: skuBeforePriceChange.skuImageUrl,
+  costPrice: 13.21,
+  freightCost: skuBeforePriceChange.freightCost,
+  weightKg: skuBeforePriceChange.weightKg,
+  lengthCm: skuBeforePriceChange.lengthCm,
+  widthCm: skuBeforePriceChange.widthCm,
+  heightCm: skuBeforePriceChange.heightCm,
+  barcode: skuBeforePriceChange.barcode,
+}))
+assert.equal(
+  getTechnicalDataVersionById(technicalVersionId)?.buyerReview?.status,
+  '待审核',
+  '真实物料标准单价保存必须触发引用技术包的买手复审',
+)
+
+installApprovedFixture(contentWithBom(pricedSku.materialSkuId))
+const currentRate = getLatestPcsExchangeRate().idrPerCny
+updateLatestPcsExchangeRate({ idrPerCny: currentRate + 1, updatedBy: '系统管理员' })
+assert.equal(
+  getTechnicalDataVersionById(technicalVersionId)?.buyerReview?.status,
+  '待审核',
+  '真实系统汇率保存必须触发草稿技术包的买手复审',
+)
+
+installApprovedFixture({ ...content, bomCustomCosts: [{ title: '车位费', amountIdr: 15000 }] })
+const customCostOnlyRate = getLatestPcsExchangeRate().idrPerCny
+updateLatestPcsExchangeRate({ idrPerCny: customCostOnlyRate + 1, updatedBy: '系统管理员' })
+assert.equal(
+  getTechnicalDataVersionById(technicalVersionId)?.buyerReview?.status,
+  '待审核',
+  '只有自定义印尼盾费用的草稿也必须在汇率变化后触发买手复审',
+)
+
+const replacementSku = createPricedMaterial()
+installApprovedFixture(contentWithBom(pricedSku.materialSkuId))
+saveTechnicalDataVersionBomMaterialLine(
+  technicalVersionId,
+  'BOM-001',
+  { materialSkuId: replacementSku.materialSkuId },
+  '买手',
+)
+assert.equal(
+  getTechnicalDataVersionById(technicalVersionId)?.buyerReview?.status,
+  '待审核',
+  'BOM 更换为不同标准单价的物料 SKU 时必须触发买手复审',
+)
+
+installApprovedFixture(contentWithBom(pricedSku.materialSkuId))
+saveTechnicalDataVersionBomMaterialLine(technicalVersionId, 'BOM-001', { usage: 1, lossRate: 0 }, '买手')
+const noChangeBefore = getTechnicalDataVersionStoreSnapshot()
+saveTechnicalDataVersionBomMaterialLine(technicalVersionId, 'BOM-001', { usage: 1, lossRate: 0 }, '买手')
+saveTechnicalDataVersionBomCustomCosts(technicalVersionId, [{ title: '车位费', amountIdr: 15000 }], '买手')
+assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), noChangeBefore, '真实保存值未变化时不得失效审核或写入')
+
+installApprovedFixture(contentWithBom(pricedSku.materialSkuId))
+const samePriceBefore = getTechnicalDataVersionStoreSnapshot()
+const samePriceSkuBefore = getMaterialSkuRecordById(pricedSku.materialSkuId)
+assert.ok(samePriceSkuBefore)
+assert.ok(updateMaterialSkuRecord(pricedSku.materialSkuId, {
+  colorName: samePriceSkuBefore.colorName,
+  specName: samePriceSkuBefore.specName,
+  sizeName: samePriceSkuBefore.sizeName,
+  skuImageUrl: samePriceSkuBefore.skuImageUrl,
+  costPrice: samePriceSkuBefore.costPrice,
+  freightCost: samePriceSkuBefore.freightCost,
+  weightKg: samePriceSkuBefore.weightKg,
+  lengthCm: samePriceSkuBefore.lengthCm,
+  widthCm: samePriceSkuBefore.widthCm,
+  heightCm: samePriceSkuBefore.heightCm,
+  barcode: samePriceSkuBefore.barcode,
+}))
+assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), samePriceBefore, '标准单价未变化不得失效技术包审核')
+
+installApprovedFixture(contentWithBom(pricedSku.materialSkuId))
+const unrelatedSku = createPricedMaterial()
+const unrelatedSkuBefore = getMaterialSkuRecordById(unrelatedSku.materialSkuId)
+assert.ok(unrelatedSkuBefore)
+const unrelatedSkuReviewBefore = getTechnicalDataVersionStoreSnapshot()
+assert.ok(updateMaterialSkuRecord(unrelatedSku.materialSkuId, {
+  colorName: unrelatedSkuBefore.colorName,
+  specName: unrelatedSkuBefore.specName,
+  sizeName: unrelatedSkuBefore.sizeName,
+  skuImageUrl: unrelatedSkuBefore.skuImageUrl,
+  costPrice: unrelatedSkuBefore.costPrice + 1,
+  freightCost: unrelatedSkuBefore.freightCost,
+  weightKg: unrelatedSkuBefore.weightKg,
+  lengthCm: unrelatedSkuBefore.lengthCm,
+  widthCm: unrelatedSkuBefore.widthCm,
+  heightCm: unrelatedSkuBefore.heightCm,
+  barcode: unrelatedSkuBefore.barcode,
+}))
+assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), unrelatedSkuReviewBefore, '未被 BOM 引用的物料变价不得失效技术包审核')
+
+installApprovedFixture(contentWithBom(pricedSku.materialSkuId))
+const sameRate = getLatestPcsExchangeRate()
+const sameRateReviewBefore = getTechnicalDataVersionStoreSnapshot()
+assert.deepEqual(
+  updateLatestPcsExchangeRate({ idrPerCny: sameRate.idrPerCny, updatedBy: '系统管理员' }),
+  sameRate,
+)
+assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), sameRateReviewBefore, '汇率未变化不得失效技术包审核')
+
+installApprovedFixture(contentWithBom(pricedSku.materialSkuId))
+const unrelatedBefore = getTechnicalDataVersionById(technicalVersionId)
+updateTechnicalDataVersionContent(technicalVersionId, {
+  patternDesc: '普通纸样说明修改',
+  patternFiles: [{
+    id: 'PATTERN-UNRELATED-001',
+    fileName: '普通纸样.dxf',
+    fileUrl: '/mock/普通纸样.dxf',
+    uploadedAt: '2026-08-02 11:00',
+    uploadedBy: '版师B',
+    sourceMode: 'MANUAL',
+  }],
+  patternDesigns: [{
+    id: 'ARTWORK-UNRELATED-001',
+    name: '普通花型成果',
+    designSideType: 'FRONT',
+    fileName: '普通花型.png',
+  }],
+  attachments: [{
+    id: 'ATTACHMENT-UNRELATED-001',
+    fileName: '普通附件.pdf',
+    fileType: 'PDF',
+    fileSize: '120KB',
+    uploadedAt: '2026-08-02 11:00',
+    uploadedBy: '跟单C',
+    downloadUrl: '/mock/普通附件.pdf',
+  }],
+})
+assert.deepEqual(
+  getTechnicalDataVersionById(technicalVersionId)?.buyerReview,
+  unrelatedBefore?.buyerReview,
+  '普通纸样、附件或花型内容保存不得误触发 BOM 与价格审核失效',
+)
+
+installApprovedFixture(contentWithBom(pricedSku.materialSkuId))
+const failedSaveBefore = getTechnicalDataVersionStoreSnapshot()
+assert.throws(
+  () => saveTechnicalDataVersionBomCustomCosts(technicalVersionId, [{ title: '错误费用', amountIdr: Number.NaN }], '买手'),
+  /金额/,
+)
+assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), failedSaveBefore, '真实保存失败时内容与审核必须全部零写入')
+
+installApprovedFixture(contentWithBom(pricedSku.materialSkuId))
+const materialRollbackBefore = getMaterialSkuRecordById(pricedSku.materialSkuId)
+const materialRollbackReviewBefore = getTechnicalDataVersionStoreSnapshot()
+assert.ok(materialRollbackBefore)
+setBomPriceReviewInvalidationFailureForTesting(technicalVersionId)
+try {
+  assert.throws(
+    () => updateMaterialSkuRecord(pricedSku.materialSkuId, {
+      colorName: materialRollbackBefore.colorName,
+      specName: materialRollbackBefore.specName,
+      sizeName: materialRollbackBefore.sizeName,
+      skuImageUrl: materialRollbackBefore.skuImageUrl,
+      costPrice: materialRollbackBefore.costPrice + 2,
+      freightCost: materialRollbackBefore.freightCost,
+      weightKg: materialRollbackBefore.weightKg,
+      lengthCm: materialRollbackBefore.lengthCm,
+      widthCm: materialRollbackBefore.widthCm,
+      heightCm: materialRollbackBefore.heightCm,
+      barcode: materialRollbackBefore.barcode,
+    }),
+    /模拟 BOM 与价格审核失效写入失败/,
+  )
+} finally {
+  setBomPriceReviewInvalidationFailureForTesting(null)
+}
+assert.deepEqual(getMaterialSkuRecordById(pricedSku.materialSkuId), materialRollbackBefore, '审核失效失败必须回滚物料标准单价')
+assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), materialRollbackReviewBefore, '审核失效失败必须回滚技术包仓储')
+
+installApprovedFixture(contentWithBom(pricedSku.materialSkuId))
+const rateRollbackBefore = getLatestPcsExchangeRate()
+const rateRollbackReviewBefore = getTechnicalDataVersionStoreSnapshot()
+setBomPriceReviewInvalidationFailureForTesting(technicalVersionId)
+try {
+  assert.throws(
+    () => updateLatestPcsExchangeRate({ idrPerCny: rateRollbackBefore.idrPerCny + 3, updatedBy: '系统管理员' }),
+    /模拟 BOM 与价格审核失效写入失败/,
+  )
+} finally {
+  setBomPriceReviewInvalidationFailureForTesting(null)
+}
+assert.deepEqual(getLatestPcsExchangeRate(), rateRollbackBefore, '审核失效失败必须回滚系统汇率')
+assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), rateRollbackReviewBefore, '汇率回滚时技术包仓储也必须保持原样')
 
 installApprovedFixture()
 const planCompatible = invalidateReviewForBomPriceChange(technicalVersionId, {

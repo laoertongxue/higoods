@@ -1,6 +1,8 @@
 import { buildTechnicalVersionListByStyle } from './pcs-technical-data-version-view-model.ts'
 import { listStyleArchives } from './pcs-style-archive-repository.ts'
 import { getTechPackReviewerById } from './pcs-tech-pack-reviewer-directory.ts'
+import { invalidateBomPriceReviewsForMaterialStandardPriceChange } from './pcs-tech-pack-bom-price-review-invalidation.ts'
+import { runTechnicalDataVersionRepositoryTransaction } from './pcs-technical-data-version-repository.ts'
 import type {
   MaterialArchiveKind,
   MaterialArchiveRecord,
@@ -1410,11 +1412,24 @@ export function updateMaterialSkuRecord(materialSkuId: string, input: MaterialSk
     createdAt: timestamp,
   })
 
-  persistSnapshot({
-    ...snapshot,
-    records: snapshot.records.map((item) => (item.materialId === material.materialId ? updatedRecord : item)),
-    skuRecords: snapshot.skuRecords.map((item) => (item.materialSkuId === materialSkuId ? updatedSkuRecord : item)),
-    logRecords: [log, ...snapshot.logRecords],
+  return runTechnicalDataVersionRepositoryTransaction(() => {
+    try {
+      persistSnapshot({
+        ...snapshot,
+        records: snapshot.records.map((item) => (item.materialId === material.materialId ? updatedRecord : item)),
+        skuRecords: snapshot.skuRecords.map((item) => (item.materialSkuId === materialSkuId ? updatedSkuRecord : item)),
+        logRecords: [log, ...snapshot.logRecords],
+      })
+      invalidateBomPriceReviewsForMaterialStandardPriceChange({
+        materialSkuId,
+        beforePriceCny: skuRecord.costPrice,
+        afterPriceCny: updatedSkuRecord.costPrice,
+        operator: '系统价格联动',
+      })
+      return cloneSkuRecord(updatedSkuRecord)
+    } catch (error) {
+      persistSnapshot(snapshot)
+      throw error
+    }
   })
-  return cloneSkuRecord(updatedSkuRecord)
 }

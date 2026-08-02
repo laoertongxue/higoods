@@ -3,8 +3,10 @@ import { getLatestPcsExchangeRate } from './pcs-exchange-rate-config.ts'
 import {
   getTechnicalDataVersionById,
   getTechnicalDataVersionContent,
+  runTechnicalDataVersionRepositoryTransaction,
   updateTechnicalDataVersionContent,
 } from './pcs-technical-data-version-repository.ts'
+import { invalidateReviewForBomPriceChange } from './pcs-tech-pack-bom-price-review-invalidation.ts'
 import type {
   EngineeringBomCostResult,
   EngineeringBomDraft,
@@ -216,38 +218,65 @@ export function saveTechnicalDataVersionBomMaterialLine(
   patch: Partial<EngineeringBomMaterialLineDraft>,
   role: EngineeringBomOperatorRole,
 ): EngineeringBomResolvedDraft {
-  requireBuyer(role)
-  requireEditableTechnicalVersion(technicalVersionId)
-  const content = getTechnicalDataVersionContent(technicalVersionId)
-  if (!content) throw new Error('未找到技术包版本内容。')
-  const item = content.bomItems.find((candidate) => candidate.id === bomItemId)
-  if (!item) throw new Error('未找到要维护的 BOM 物料行。')
-  const materialSkuId = patch.materialSkuId ?? item.materialSkuId
-  if (!materialSkuId) throw new Error('BOM 物料行未关联物料 SKU。')
-  const nextLine = buildEngineeringBomMaterialLine({
-    materialSkuId,
-    usage: patch.usage ?? item.unitConsumption,
-    sampleQuantity: patch.sampleQuantity ?? item.sampleQuantity ?? 1,
-    usageUnit: patch.usageUnit ?? item.unit ?? '',
-    lossRate: patch.lossRate ?? item.lossRate,
-  }, role)
-  const sku = getMaterialSkuRecordById(nextLine.materialSkuId)
-  if (!sku) throw new Error('未找到可用的物料 SKU，无法加入 BOM。')
-  const nextItems = content.bomItems.map((candidate) => candidate.id === bomItemId
-    ? {
-        ...candidate,
-        materialSkuId: nextLine.materialSkuId,
-        materialCode: sku.materialCode,
-        name: sku.materialName,
-        spec: sku.specName,
-        unit: nextLine.usageUnit,
-        unitConsumption: nextLine.usage,
-        sampleQuantity: nextLine.sampleQuantity,
-        lossRate: nextLine.lossRate,
-      }
-    : candidate)
-  updateTechnicalDataVersionContent(technicalVersionId, { bomItems: nextItems })
-  return getTechnicalDataVersionBomWorkspace(technicalVersionId)
+  return runTechnicalDataVersionRepositoryTransaction(() => {
+    requireBuyer(role)
+    requireEditableTechnicalVersion(technicalVersionId)
+    const content = getTechnicalDataVersionContent(technicalVersionId)
+    if (!content) throw new Error('未找到技术包版本内容。')
+    const item = content.bomItems.find((candidate) => candidate.id === bomItemId)
+    if (!item) throw new Error('未找到要维护的 BOM 物料行。')
+    const materialSkuId = patch.materialSkuId ?? item.materialSkuId
+    if (!materialSkuId) throw new Error('BOM 物料行未关联物料 SKU。')
+    const nextLine = buildEngineeringBomMaterialLine({
+      materialSkuId,
+      usage: patch.usage ?? item.unitConsumption,
+      sampleQuantity: patch.sampleQuantity ?? item.sampleQuantity ?? 1,
+      usageUnit: patch.usageUnit ?? item.unit ?? '',
+      lossRate: patch.lossRate ?? item.lossRate,
+    }, role)
+    const sku = getMaterialSkuRecordById(nextLine.materialSkuId)
+    if (!sku) throw new Error('未找到可用的物料 SKU，无法加入 BOM。')
+    const previousSku = item.materialSkuId ? getMaterialSkuRecordById(item.materialSkuId) : null
+    const nextItems = content.bomItems.map((candidate) => candidate.id === bomItemId
+      ? {
+          ...candidate,
+          materialSkuId: nextLine.materialSkuId,
+          materialCode: sku.materialCode,
+          name: sku.materialName,
+          spec: sku.specName,
+          unit: nextLine.usageUnit,
+          unitConsumption: nextLine.usage,
+          sampleQuantity: nextLine.sampleQuantity,
+          lossRate: nextLine.lossRate,
+        }
+      : candidate)
+    const changes = [
+      ...(item.materialSkuId !== nextLine.materialSkuId ? [{
+        changeSource: 'STANDARD_MATERIAL_PRICE_CNY' as const,
+        targetId: nextLine.materialSkuId,
+        beforeValue: previousSku?.costPrice ?? 0,
+        afterValue: sku.costPrice,
+      }] : []),
+      ...(item.unitConsumption !== nextLine.usage ? [{
+        changeSource: 'BOM_UNIT_CONSUMPTION' as const,
+        targetId: bomItemId,
+        beforeValue: item.unitConsumption,
+        afterValue: nextLine.usage,
+      }] : []),
+      ...(item.lossRate !== nextLine.lossRate ? [{
+        changeSource: 'BOM_LOSS_RATE' as const,
+        targetId: bomItemId,
+        beforeValue: item.lossRate,
+        afterValue: nextLine.lossRate,
+      }] : []),
+    ]
+    const contentChanged = JSON.stringify(nextItems) !== JSON.stringify(content.bomItems)
+    if (contentChanged) updateTechnicalDataVersionContent(technicalVersionId, { bomItems: nextItems })
+    if (changes.length > 0) {
+      invalidateReviewForBomPriceChange(technicalVersionId, { changes, operator: '系统价格联动' })
+    }
+    return getTechnicalDataVersionBomWorkspace(technicalVersionId)
+  })
 }
 
 export function saveTechnicalDataVersionBomCustomCosts(
@@ -255,17 +284,34 @@ export function saveTechnicalDataVersionBomCustomCosts(
   customCosts: EngineeringBomDraft['customCosts'],
   role: EngineeringBomOperatorRole,
 ): EngineeringBomResolvedDraft {
-  requireBuyer(role)
-  requireEditableTechnicalVersion(technicalVersionId)
-  calculateEngineeringBomCost({
-    exchangeRateIdrPerCny: getLatestPcsExchangeRate().idrPerCny,
-    materialLines: [],
-    customCosts,
+  return runTechnicalDataVersionRepositoryTransaction(() => {
+    requireBuyer(role)
+    requireEditableTechnicalVersion(technicalVersionId)
+    const beforeContent = getTechnicalDataVersionContent(technicalVersionId)
+    if (!beforeContent) throw new Error('未找到技术包版本内容。')
+    calculateEngineeringBomCost({
+      exchangeRateIdrPerCny: getLatestPcsExchangeRate().idrPerCny,
+      materialLines: [],
+      customCosts,
+    })
+    const nextCustomCosts = customCosts.map((item) => ({ title: item.title.trim(), amountIdr: item.amountIdr }))
+    const beforeAmount = (beforeContent.bomCustomCosts ?? []).reduce((sum, item) => sum + item.amountIdr, 0)
+    const afterAmount = nextCustomCosts.reduce((sum, item) => sum + item.amountIdr, 0)
+    const contentChanged = JSON.stringify(nextCustomCosts) !== JSON.stringify(beforeContent.bomCustomCosts ?? [])
+    if (contentChanged) updateTechnicalDataVersionContent(technicalVersionId, { bomCustomCosts: nextCustomCosts })
+    if (beforeAmount !== afterAmount) {
+      invalidateReviewForBomPriceChange(technicalVersionId, {
+        changes: [{
+          changeSource: 'CUSTOM_COST_IDR',
+          targetId: technicalVersionId,
+          beforeValue: beforeAmount,
+          afterValue: afterAmount,
+        }],
+        operator: '系统价格联动',
+      })
+    }
+    return getTechnicalDataVersionBomWorkspace(technicalVersionId)
   })
-  updateTechnicalDataVersionContent(technicalVersionId, {
-    bomCustomCosts: customCosts.map((item) => ({ title: item.title.trim(), amountIdr: item.amountIdr })),
-  })
-  return getTechnicalDataVersionBomWorkspace(technicalVersionId)
 }
 
 export function assertTechnicalDataVersionBomCanSubmitForReview(technicalVersionId: string): void {

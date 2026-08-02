@@ -3,6 +3,12 @@ import {
   getTechnicalDataVersionContent,
   updateTechnicalDataVersionRecord,
 } from './pcs-technical-data-version-repository.ts'
+export {
+  invalidateReviewForBomPriceChange,
+  type BomPriceReviewChange,
+  type BomPriceReviewChangeSource,
+  type InvalidateReviewForBomPriceChangeInput,
+} from './pcs-tech-pack-bom-price-review-invalidation.ts'
 import { appendTechPackVersionLog } from './pcs-tech-pack-version-log-repository.ts'
 import { assertTechnicalDataVersionBomCanSubmitForReview } from './pcs-engineering-bom-pricing.ts'
 import {
@@ -44,28 +50,6 @@ export interface SubmitTechPackReviewInput {
 export interface TechPackReviewActionInput {
   operator?: string | TechPackReviewOperator
   opinion?: string
-}
-
-export type BomPriceReviewChangeSource =
-  | 'STANDARD_MATERIAL_PRICE_CNY'
-  | 'CUSTOM_COST_IDR'
-  | 'EXCHANGE_RATE_IDR_PER_CNY'
-  | 'BOM_UNIT_CONSUMPTION'
-  | 'BOM_LOSS_RATE'
-
-export interface BomPriceReviewChange {
-  changeSource: BomPriceReviewChangeSource
-  targetId: string
-  beforeValue: number
-  afterValue: number
-}
-
-export interface InvalidateReviewForBomPriceChangeInput {
-  changes?: BomPriceReviewChange[]
-  changedBomItemIds?: string[]
-  beforePriceCny?: number
-  afterPriceCny?: number
-  operator?: string | TechPackReviewOperator
 }
 
 export interface TechPackReviewPendingReviewerInfo {
@@ -941,58 +925,6 @@ export function approveTechPackReview(
     })
   }
   return getTechnicalDataVersionById(technicalVersionId) || nextRecord
-}
-
-export function invalidateReviewForBomPriceChange(
-  technicalVersionId: string,
-  input: InvalidateReviewForBomPriceChangeInput,
-): TechnicalDataVersionRecord {
-  const changes = Array.isArray(input.changes) && input.changes.length > 0
-    ? input.changes
-    : Array.isArray(input.changedBomItemIds) && input.changedBomItemIds.length > 0
-    ? input.changedBomItemIds.map((targetId) => ({
-        changeSource: 'STANDARD_MATERIAL_PRICE_CNY' as const,
-        targetId,
-        beforeValue: input.beforePriceCny as number,
-        afterValue: input.afterPriceCny as number,
-      }))
-    : []
-  if (changes.length === 0) {
-    throw new Error('请提供价格变化明细。')
-  }
-  if (
-    changes.some((change) =>
-      !change.targetId.trim() ||
-      !Number.isFinite(change.beforeValue) ||
-      !Number.isFinite(change.afterValue)
-    )
-  ) {
-    throw new Error('价格变化数据无效。')
-  }
-
-  const record = requireDraftRecord(technicalVersionId)
-  if (changes.every((change) => change.beforeValue === change.afterValue)) {
-    return record
-  }
-
-  const operator = normalizeOperator(input.operator, '系统价格联动')
-  const snapshot = normalizeTechnicalReviewSnapshot(record)
-  const changedAt = nowText()
-  return saveReviewPatch(technicalVersionId, {
-    reviewStage: '第一阶段并行审核',
-    buyerReview: resetReviewNodeForRework({
-      record,
-      nodeKey: 'BUYER',
-      currentNode: snapshot.buyerReview,
-      returnedAt: changedAt,
-      operatorName: operator.name,
-    }),
-    patternMakerReview: snapshot.patternMakerReview,
-    merchandiserReview: snapshot.merchandiserReview,
-    reviewUnlockedModuleKeys: ['BOM', 'COST'],
-    updatedAt: changedAt,
-    updatedBy: operator.name,
-  })
 }
 
 export function rejectTechPackReview(
