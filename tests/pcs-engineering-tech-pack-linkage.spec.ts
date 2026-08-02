@@ -10,8 +10,8 @@ import {
   publishEngineeringMasterOrder,
   resetEngineeringChangeRepository,
   resetEngineeringMasterRepository,
-  setEngineeringMasterStatus,
 } from '../src/data/pcs-engineering-master-repository.ts'
+import { closeEngineeringMasterForFixture } from './helpers/pcs-engineering-master-close-fixture.ts'
 import {
   getRevisionTaskById,
   listRevisionTasks,
@@ -133,7 +133,7 @@ assert.throws(
 const changeTask = listRevisionTasks().find((task) => Boolean(task.styleId))
 assert.ok(changeTask)
 assert.ok(getRevisionTaskById(changeTask.revisionTaskId))
-setEngineeringMasterStatus(master.masterOrderId, '已关闭')
+closeEngineeringMasterForFixture(master.masterOrderId, '跟单A')
 const engineeringChange = createEngineeringChangeTask({
   sourceMasterOrderId: master.masterOrderId,
   createdBy: '跟单A',

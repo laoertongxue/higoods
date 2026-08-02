@@ -41,10 +41,12 @@ import type {
   TechnicalDataVersionRecord,
 } from '../src/data/pcs-technical-data-version-types.ts'
 import {
+  getEngineeringMasterOrderById,
   createEngineeringMasterOrder,
   publishEngineeringMasterOrder,
   resetEngineeringMasterRepository,
 } from '../src/data/pcs-engineering-master-repository.ts'
+import { listPartTemplateRecords } from '../src/data/pcs-part-template-library.ts'
 
 function createMaterial(input: {
   costPrice: number
@@ -272,7 +274,7 @@ assert.deepEqual(getTechnicalDataVersionContent(invalidActivationVersionId), inv
 assert.deepEqual(listTechPackVersionLogsByVersionId(invalidActivationVersionId), invalidLogsBefore)
 
 // 任一启用写步骤失败，都必须恢复技术包、款式、项目、关系、归档及启用日志六类事实源。
-const activationFailureSteps = ['PRICING_SNAPSHOT', 'STYLE', 'PROJECT', 'RELATION', 'ARCHIVE', 'LOG'] as const
+const activationFailureSteps = ['PRICING_SNAPSHOT', 'ENGINEERING_TASK', 'STYLE', 'PROJECT', 'RELATION', 'ARCHIVE', 'LOG'] as const
 for (const failureStep of activationFailureSteps) {
   const versionId = `task7_activation_rollback_${failureStep}_${Date.now()}_${Math.random()}`
   createTechnicalDataVersionDraft(
@@ -286,6 +288,7 @@ for (const failureStep of activationFailureSteps) {
   const archiveBefore = getProjectArchiveFacts(productProjectId)
   const targetStyleBefore = getStyleArchiveById(style.styleId)
   const logsBefore = listTechPackVersionLogs()
+  const engineeringBefore = getEngineeringMasterOrderById(engineeringMaster.masterOrderId)
 
   setTechPackActivationFailureStepForTesting(failureStep)
   assert.throws(
@@ -305,12 +308,22 @@ for (const failureStep of activationFailureSteps) {
   )
   assert.deepEqual(getProjectArchiveFacts(productProjectId), archiveBefore, `${failureStep} 失败后项目归档仓必须恢复`)
   assert.deepEqual(listTechPackVersionLogs(), logsBefore, `${failureStep} 失败后启用日志仓必须恢复`)
+  assert.deepEqual(
+    getEngineeringMasterOrderById(engineeringMaster.masterOrderId),
+    engineeringBefore,
+    `${failureStep} 失败后技术包确认任务必须恢复`,
+  )
 }
 
 // 成功启用只冻结一次当时的标准价和汇率；之后档案及系统汇率变化不影响正式快照。
 const successVersionId = `task7_activation_success_${Date.now()}`
+const linkedPartTemplateId = listPartTemplateRecords()[0]?.id
+assert.ok(linkedPartTemplateId, '正式快照测试需要真实部件模板')
 createTechnicalDataVersionDraft(
-  makeRecord({ id: successVersionId, status: 'PUBLISHED', reviewStage: '已发布' }),
+  {
+    ...makeRecord({ id: successVersionId, status: 'PUBLISHED', reviewStage: '已发布' }),
+    linkedPartTemplateIds: [linkedPartTemplateId],
+  },
   makeContent(successVersionId, [makeBomItem('BOM-ACT-OK-1', validSku.materialSkuId, '米')]),
 )
 updateLatestPcsExchangeRate({ idrPerCny: 2250, updatedBy: '系统管理员' })
@@ -318,6 +331,22 @@ activateTechPackVersionForStyle(style.styleId, successVersionId, '跟单甲')
 const successContent = getTechnicalDataVersionContent(successVersionId)
 assert.equal(successContent?.bomPricingSnapshot?.materialLines[0]?.standardUnitPriceCny, 8.7654)
 assert.equal(successContent?.bomPricingSnapshot?.exchangeRateIdrPerCny, 2250)
+assert.deepEqual(successContent?.bomPricingSnapshot?.bomItems.map((item) => item.id), ['BOM-ACT-OK-1'])
+assert.equal(successContent?.bomPricingSnapshot?.materialPriceSnapshots[0]?.standardUnitPriceCny, 8.7654)
+assert.deepEqual(successContent?.bomPricingSnapshot?.customCostsIdr, [
+  { title: '车位费', amountIdr: 15000, currency: 'IDR' },
+])
+assert.equal(successContent?.bomPricingSnapshot?.materialCostCny, 8.77)
+assert.equal(successContent?.bomPricingSnapshot?.comprehensiveCostCny, 15.43)
+assert.equal(successContent?.bomPricingSnapshot?.comprehensiveCostIdr, 34722)
+assert.deepEqual(
+  successContent?.bomPricingSnapshot?.linkedPartTemplateVersions.map((item) => item.partTemplateId),
+  [linkedPartTemplateId],
+)
+const activatedMaster = getEngineeringMasterOrderById(engineeringMaster.masterOrderId)
+const activatedConfirmationTask = activatedMaster?.tasks.find((task) => task.taskType === 'TECH_PACK_CONFIRMATION')
+assert.equal(activatedConfirmationTask?.status, '已完成')
+assert.ok(activatedConfirmationTask?.effectiveCompletedAt, '正式启用后技术包确认任务必须记录当前有效完成时间')
 assert.equal(getStyleArchiveById(style.styleId)?.currentTechPackVersionId, successVersionId)
 assert.equal(getProjectById(productProjectId)?.linkedTechPackVersionId, successVersionId)
 assert.ok(
@@ -336,5 +365,20 @@ updateLatestPcsExchangeRate({ idrPerCny: 2500, updatedBy: '系统管理员' })
 const frozenContent = getTechnicalDataVersionContent(successVersionId)
 assert.equal(frozenContent?.bomPricingSnapshot?.materialLines[0]?.standardUnitPriceCny, 8.7654)
 assert.equal(frozenContent?.bomPricingSnapshot?.exchangeRateIdrPerCny, 2250)
+
+// 仓储读取必须深克隆正式快照，调用方修改返回值不能污染正式事实。
+assert.ok(frozenContent?.bomPricingSnapshot)
+frozenContent.bomPricingSnapshot.bomItems[0].name = '外部篡改'
+frozenContent.bomPricingSnapshot.materialPriceSnapshots[0].materialName = '外部篡改'
+frozenContent.bomPricingSnapshot.customCostsIdr[0].title = '外部篡改'
+frozenContent.bomPricingSnapshot.linkedPartTemplateVersions[0].templateName = '外部篡改'
+const rereadFrozenContent = getTechnicalDataVersionContent(successVersionId)
+assert.notEqual(rereadFrozenContent?.bomPricingSnapshot?.bomItems[0]?.name, '外部篡改')
+assert.notEqual(rereadFrozenContent?.bomPricingSnapshot?.materialPriceSnapshots[0]?.materialName, '外部篡改')
+assert.notEqual(rereadFrozenContent?.bomPricingSnapshot?.customCostsIdr[0]?.title, '外部篡改')
+assert.deepEqual(
+  rereadFrozenContent?.bomPricingSnapshot?.linkedPartTemplateVersions.map((item) => item.partTemplateId),
+  [linkedPartTemplateId],
+)
 
 console.log('pcs-tech-pack-bom-review-activation-atomic.spec.ts PASS')

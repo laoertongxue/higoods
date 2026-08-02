@@ -35,6 +35,12 @@ import {
   saveTechnicalDataVersionBomPricingSnapshot,
 } from './pcs-engineering-bom-pricing.ts'
 import { resolveTechnicalVersionProductProject } from './pcs-technical-data-version-project-source.ts'
+import {
+  getEngineeringMasterOrderById,
+  runEngineeringMasterRepositoryTransaction,
+  updateEngineeringTaskRecord,
+} from './pcs-engineering-master-repository.ts'
+import type { TechnicalDataVersionRecord } from './pcs-technical-data-version-types.ts'
 
 function nowText(): string {
   const now = new Date()
@@ -44,6 +50,7 @@ function nowText(): string {
 
 export type TechPackActivationMutationStep =
   | 'PRICING_SNAPSHOT'
+  | 'ENGINEERING_TASK'
   | 'STYLE'
   | 'PROJECT'
   | 'RELATION'
@@ -60,6 +67,27 @@ export function setTechPackActivationFailureStepForTesting(
 
 function markActivationStepCompleted(step: TechPackActivationMutationStep): void {
   if (failureStepForTesting === step) throw new Error(`模拟启用${step}写入失败`)
+}
+
+function completeSourceEngineeringTechPackTask(
+  record: TechnicalDataVersionRecord,
+  completedAt: string,
+): void {
+  if (record.createdFromTaskType !== 'ENGINEERING_MASTER') return
+  const master = getEngineeringMasterOrderById(record.sourceProjectId)
+  if (!master) throw new Error(`技术包来源工程主单不存在：${record.sourceProjectId}`)
+  const sourceTask = master.tasks.find((task) => task.taskId === record.createdFromTaskId)
+  if (!sourceTask || sourceTask.taskType !== 'TECH_PACK_CONFIRMATION') {
+    throw new Error('技术包来源任务不是同一工程主单的技术包确认任务，不能正式启用。')
+  }
+  updateEngineeringTaskRecord(master.masterOrderId, sourceTask.taskId, (task) => {
+    task.status = '已完成'
+    if (!task.startedAt) task.startedAt = completedAt
+    task.submittedAt = completedAt
+    if (!task.firstCompletedAt) task.firstCompletedAt = completedAt
+    task.effectiveCompletedAt = completedAt
+    task.completedAt = completedAt
+  })
 }
 
 function restoreActivationStores(
@@ -129,12 +157,15 @@ export function activateTechPackVersionForStyle(
     logs: listTechPackVersionLogs(),
   }
 
-  runTechnicalDataVersionRepositoryTransaction(() => {
-    try {
+  runTechnicalDataVersionRepositoryTransaction(() =>
+    runEngineeringMasterRepositoryTransaction(() => {
+      try {
       if (pricingSnapshot) {
         saveTechnicalDataVersionBomPricingSnapshot(technicalVersionId, pricingSnapshot)
       }
       markActivationStepCompleted('PRICING_SNAPSHOT')
+      completeSourceEngineeringTechPackTask(record, activatedAt)
+      markActivationStepCompleted('ENGINEERING_TASK')
       const updatedStyle = updateStyleArchive(styleId, {
         archiveStatus: 'ACTIVE',
         techPackStatus: '已启用',
@@ -215,10 +246,11 @@ export function activateTechPackVersionForStyle(
         createdBy: operatorName,
       })
       markActivationStepCompleted('LOG')
-    } catch (error) {
-      restoreActivationStores(snapshotsBeforeActivation, error)
-    }
-  })
+      } catch (error) {
+        restoreActivationStores(snapshotsBeforeActivation, error)
+      }
+    }),
+  )
 
   return getTechnicalDataVersionById(technicalVersionId) ?? record
 }

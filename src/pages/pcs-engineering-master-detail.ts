@@ -10,7 +10,12 @@ import {
   type EngineeringMasterDetailModel,
   type EngineeringTaskCardModel,
 } from '../data/pcs-engineering-master-view-model.ts'
-import { getEngineeringMasterOrderById, submitEngineeringTaskResult } from '../data/pcs-engineering-master-repository.ts'
+import {
+  closeEngineeringMasterOrder,
+  getEngineeringMasterOrderById,
+  submitEngineeringTaskResult,
+  validateEngineeringMasterOrderClose,
+} from '../data/pcs-engineering-master-repository.ts'
 import type {
   EngineeringMasterStatus,
   EngineeringTaskStatus,
@@ -18,6 +23,7 @@ import type {
 import { escapeHtml } from '../utils.ts'
 
 const DETAIL_EVENT_PREFIX = 'pcs-engineering-master'
+const CURRENT_DEMO_OPERATOR_NAME = '跟单甲'
 
 const MASTER_STATUS_TONES: Record<EngineeringMasterStatus, string> = {
   草稿: 'bg-slate-100 text-slate-700',
@@ -77,6 +83,14 @@ function renderTaskStatusBadge(status: EngineeringTaskStatus): string {
 // ============ 头部 ============
 
 function renderMasterHeader(model: EngineeringMasterDetailModel): string {
+  let canClose = model.merchandiserName === CURRENT_DEMO_OPERATOR_NAME
+  if (canClose) {
+    try {
+      validateEngineeringMasterOrderClose(model.masterOrderId)
+    } catch {
+      canClose = false
+    }
+  }
   return `
     <header class="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3">
       <div class="flex flex-wrap items-center gap-3">
@@ -84,10 +98,17 @@ function renderMasterHeader(model: EngineeringMasterDetailModel): string {
         ${renderStatusBadge(model.status)}
         <span class="text-sm text-slate-500">${escapeHtml(model.styleName)}（${escapeHtml(model.styleCode)}）</span>
       </div>
-      <div class="flex flex-wrap items-center gap-4 text-xs text-slate-500">
+      <div class="flex flex-wrap items-center gap-3 text-xs text-slate-500">
         <span>跟单：${escapeHtml(model.merchandiserName)}</span>
         <span>创建：${escapeHtml(model.createdBy)} · ${escapeHtml(model.createdAt)}</span>
         ${model.publishedAt ? `<span>发布：${escapeHtml(model.publishedAt)}</span>` : ''}
+        ${canClose ? `
+          <button
+            type="button"
+            class="inline-flex h-8 items-center justify-center rounded-md bg-slate-900 px-3 text-xs font-medium text-white hover:bg-slate-800"
+            data-${DETAIL_EVENT_PREFIX}-action="close-master-order"
+          >关闭工程主单</button>
+        ` : ''}
       </div>
     </header>
   `
@@ -388,7 +409,7 @@ export function renderPcsEngineeringMasterDetailPage(key: string): string {
 
   return `
     <div class="min-w-0 max-w-full space-y-3 p-4" data-pcs-engineering-master-detail-page>
-      ${renderMasterHeader(model)}
+      <div data-engineering-master-region="header">${withDetailLocalInteractions(renderMasterHeader(model))}</div>
       <div data-engineering-master-region="feedback"></div>
       ${renderPriorReuseRegion(model)}
       <div data-engineering-master-region="lanes">${withDetailLocalInteractions(renderLaneGrid(model))}</div>
@@ -454,6 +475,13 @@ function refreshLanesRegion(model: EngineeringMasterDetailModel): void {
     .then(({ hydrateIcons }) => hydrateIcons(lanesHost))
     .catch(() => undefined)
   if (detailUiState.selectedTaskId) highlightTaskDependencies(detailUiState.selectedTaskId)
+}
+
+function refreshMasterHeader(model: EngineeringMasterDetailModel): void {
+  if (typeof document === 'undefined') return
+  const headerHost = document.querySelector<HTMLElement>('[data-engineering-master-region="header"]')
+  if (!headerHost) return
+  headerHost.innerHTML = withDetailLocalInteractions(renderMasterHeader(model))
 }
 
 function showDetailFeedback(message: string, ok: boolean): void {
@@ -557,6 +585,23 @@ export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): bool
       refreshLanesRegion(model)
       refreshTaskDrawer(model, detailUiState.selectedTaskId)
     }
+    showDetailFeedback(message, ok)
+    return true
+  }
+  if (action === 'close-master-order') {
+    const masterKey = currentMasterKey()
+    if (!masterKey) return true
+    let message = ''
+    let ok = false
+    try {
+      closeEngineeringMasterOrder(masterKey, CURRENT_DEMO_OPERATOR_NAME)
+      message = '工程主单已关闭。'
+      ok = true
+    } catch (error) {
+      message = error instanceof Error ? error.message : '关闭工程主单失败。'
+    }
+    const model = buildEngineeringMasterDetailModel(masterKey)
+    if (model) refreshMasterHeader(model)
     showDetailFeedback(message, ok)
     return true
   }

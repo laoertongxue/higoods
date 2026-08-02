@@ -200,6 +200,21 @@ function cloneContent(content: TechnicalDataVersionContent): TechnicalDataVersio
           materialLines: content.bomPricingSnapshot.materialLines.map((item) => ({ ...item })),
           customCosts: content.bomPricingSnapshot.customCosts.map((item) => ({ ...item })),
           cost: { ...content.bomPricingSnapshot.cost },
+          bomItems: Array.isArray(content.bomPricingSnapshot.bomItems)
+            ? content.bomPricingSnapshot.bomItems.map((item) => ({ ...item }))
+            : [],
+          materialPriceSnapshots: Array.isArray(content.bomPricingSnapshot.materialPriceSnapshots)
+            ? content.bomPricingSnapshot.materialPriceSnapshots.map((item) => ({ ...item }))
+            : content.bomPricingSnapshot.materialLines.map((item) => ({ ...item })),
+          customCostsIdr: Array.isArray(content.bomPricingSnapshot.customCostsIdr)
+            ? content.bomPricingSnapshot.customCostsIdr.map((item) => ({ ...item }))
+            : content.bomPricingSnapshot.customCosts.map((item) => ({ ...item })),
+          materialCostCny: content.bomPricingSnapshot.materialCostCny ?? content.bomPricingSnapshot.cost.materialCostCny,
+          comprehensiveCostCny: content.bomPricingSnapshot.comprehensiveCostCny ?? content.bomPricingSnapshot.cost.comprehensiveCostCny,
+          comprehensiveCostIdr: content.bomPricingSnapshot.comprehensiveCostIdr ?? content.bomPricingSnapshot.cost.comprehensiveCostIdr,
+          linkedPartTemplateVersions: Array.isArray(content.bomPricingSnapshot.linkedPartTemplateVersions)
+            ? content.bomPricingSnapshot.linkedPartTemplateVersions.map((item) => ({ ...item }))
+            : [],
         }
       : undefined,
     qualityRules: cloneQualityRules(content.qualityRules),
@@ -498,6 +513,21 @@ function normalizeContent(content: TechnicalDataVersionContent): TechnicalDataVe
           materialLines: content.bomPricingSnapshot.materialLines.map((item) => ({ ...item })),
           customCosts: content.bomPricingSnapshot.customCosts.map((item) => ({ ...item })),
           cost: { ...content.bomPricingSnapshot.cost },
+          bomItems: Array.isArray(content.bomPricingSnapshot.bomItems)
+            ? content.bomPricingSnapshot.bomItems.map((item) => ({ ...item }))
+            : [],
+          materialPriceSnapshots: Array.isArray(content.bomPricingSnapshot.materialPriceSnapshots)
+            ? content.bomPricingSnapshot.materialPriceSnapshots.map((item) => ({ ...item }))
+            : content.bomPricingSnapshot.materialLines.map((item) => ({ ...item })),
+          customCostsIdr: Array.isArray(content.bomPricingSnapshot.customCostsIdr)
+            ? content.bomPricingSnapshot.customCostsIdr.map((item) => ({ ...item }))
+            : content.bomPricingSnapshot.customCosts.map((item) => ({ ...item })),
+          materialCostCny: content.bomPricingSnapshot.materialCostCny ?? content.bomPricingSnapshot.cost.materialCostCny,
+          comprehensiveCostCny: content.bomPricingSnapshot.comprehensiveCostCny ?? content.bomPricingSnapshot.cost.comprehensiveCostCny,
+          comprehensiveCostIdr: content.bomPricingSnapshot.comprehensiveCostIdr ?? content.bomPricingSnapshot.cost.comprehensiveCostIdr,
+          linkedPartTemplateVersions: Array.isArray(content.bomPricingSnapshot.linkedPartTemplateVersions)
+            ? content.bomPricingSnapshot.linkedPartTemplateVersions.map((item) => ({ ...item }))
+            : [],
         }
       : undefined,
     qualityRules: cloneQualityRules(Array.isArray(content.qualityRules) ? content.qualityRules : []),

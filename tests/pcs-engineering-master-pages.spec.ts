@@ -19,4 +19,7 @@ assert.match(detailHtml, /data-skip-page-rerender="true" data-pcs-engineering-ma
 // 依赖只读：不允许出现人工调整依赖或删除依赖入口
 assert.doesNotMatch(detailHtml, /调整依赖|删除依赖/)
 
+// 当前演示主单未通过关闭门禁时，不展示关闭入口。
+assert.doesNotMatch(detailHtml, /data-pcs-engineering-master-action="close-master-order"/)
+
 console.log('pcs-engineering-master-pages.spec.ts PASS')

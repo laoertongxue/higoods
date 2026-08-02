@@ -65,6 +65,16 @@ export interface EngineeringBomResolvedDraft {
   cost: EngineeringBomCostResult
 }
 
+export interface EngineeringLinkedPartTemplateVersionSnapshot {
+  partTemplateId: string
+  templatePackageId: string
+  templateName: string
+  updatedAt: string
+  geometryHash: string
+  sourceDxfFileName: string
+  sourceRulFileName: string
+}
+
 export interface EngineeringBomPricingSnapshot {
   snapshotVersion: 1
   frozenAt: string
@@ -74,4 +84,13 @@ export interface EngineeringBomPricingSnapshot {
   materialLines: Array<EngineeringBomResolvedMaterialLine & { standardUnitPriceCny: number; materialCostCny: number }>
   customCosts: Array<EngineeringBomCustomCostDraft & { currency: 'IDR' }>
   cost: EngineeringBomCostResult
+  // 正式启用时固化技术包本身、物料档案价格和关联部件模板，后续档案变化不回写。
+  bomItems: TechnicalBomItem[]
+  materialPriceSnapshots: Array<EngineeringBomResolvedMaterialLine & { standardUnitPriceCny: number; materialCostCny: number }>
+  customCostsIdr: Array<EngineeringBomCustomCostDraft & { currency: 'IDR' }>
+  materialCostCny: number
+  comprehensiveCostCny: number
+  comprehensiveCostIdr: number
+  linkedPartTemplateVersions: EngineeringLinkedPartTemplateVersionSnapshot[]
 }
+import type { TechnicalBomItem } from './pcs-technical-data-version-types.ts'

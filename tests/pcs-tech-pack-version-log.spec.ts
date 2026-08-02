@@ -31,8 +31,8 @@ import {
   createEngineeringMasterOrder,
   publishEngineeringMasterOrder,
   resetEngineeringMasterRepository,
-  setEngineeringMasterStatus,
 } from '../src/data/pcs-engineering-master-repository.ts'
+import { closeEngineeringMasterForFixture } from './helpers/pcs-engineering-master-close-fixture.ts'
 import type {
   EngineeringChangeTaskRecord,
   EngineeringMasterOrderRecord,
@@ -342,7 +342,7 @@ activateTechPackVersionForStyle(style.styleId, baseVersion.technicalVersionId, '
 const patternTaskTwo = createPatternTask('pattern_task_log_new', 'AT-TEST-LOG-002', project.projectId, style.styleCode, 'ART-LOG-V2', engineeringMaster)
 generateTechPackVersionFromPatternTask(patternTaskTwo.patternTaskId, '测试用户')
 
-setEngineeringMasterStatus(engineeringMaster.masterOrderId, '已关闭')
+closeEngineeringMasterForFixture(engineeringMaster.masterOrderId, engineeringMaster.merchandiserName)
 const engineeringChange = createEngineeringChangeTask({
   sourceMasterOrderId: engineeringMaster.masterOrderId,
   createdBy: '测试用户',

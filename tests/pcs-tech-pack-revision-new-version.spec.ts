@@ -40,8 +40,8 @@ import {
   createEngineeringMasterOrder,
   publishEngineeringMasterOrder,
   resetEngineeringMasterRepository,
-  setEngineeringMasterStatus,
 } from '../src/data/pcs-engineering-master-repository.ts'
+import { closeEngineeringMasterForFixture } from './helpers/pcs-engineering-master-close-fixture.ts'
 
 function resetScenario(): void {
   resetProjectRepository()
@@ -279,7 +279,7 @@ assert.throws(
   /未明确关联工程变更任务/,
   '普通改版任务不得直接冒充工程变更来源',
 )
-setEngineeringMasterStatus(master.masterOrderId, '已关闭')
+closeEngineeringMasterForFixture(master.masterOrderId, master.merchandiserName)
 const engineeringChange = createEngineeringChangeTask({
   sourceMasterOrderId: master.masterOrderId,
   createdBy: '测试跟单',

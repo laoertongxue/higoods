@@ -68,6 +68,13 @@
 - 只有买手可以维护“BOM 与价格”；系统配置页由管理员维护汇率。技术包经现有审核发布并启用为正式版本时，才冻结物料标准单价、换算、汇率与双币成本快照。
 - 技术包继续保留 BOM、COST、PATTERN、MATERIAL_PATTERN_LINK、COLOR_MATERIAL_MAPPING、PROCESS、SIZE、DESIGN、ATTACHMENT、QUALITY 十模块，本任务不改变审核节点与模块归属。
 
+### 任务 10 步骤 6—8：正式启用与工程主单关闭
+
+- `ENGINEERING_MASTER` 来源技术包正式启用时，只按 `sourceProjectId + createdFromTaskId` 完成同一工程主单的技术包确认任务；工程变更来源不完成主单任务。
+- 正式快照同时固化 BOM 行、物料价格、IDR 自定义成本、系统汇率、双币成本和关联部件模板；技术包、工程任务、款式、项目、关系、归档与日志在同一启用动作内失败回滚。
+- 工程主单只由主单跟单人工关闭；有效专业任务、固定依赖、已审核发布并生效的来源技术包和有效正式快照全部满足后，详情页才显示关闭动作。
+- 关闭门禁不读取生产需求、生产单或印花／染色加工单，避免把生产执行对象误作工程准备关闭条件。
+
 ## 3. 自查结论
 
 | 审查项 | 结论 | 说明 |
@@ -91,6 +98,8 @@
 | BOM 与价格角色 | 通过 | 买手维护 BOM 与 IDR 自定义成本；管理员只在基础配置维护汇率，其他角色由动作层阻断。 |
 | 成本与单位防错 | 通过 | 无标准单价、标准价失效及缺少单位换算均阻断；数量、损耗、双币与汇率由系统计算。 |
 | 正式快照追溯 | 通过 | 草稿动态读取当前档案与汇率；正式技术包启用时冻结价格、换算、汇率、双币汇总及操作人时间。 |
+| 主单关闭防错 | 通过 | 仅主单跟单可关闭；未完成有效任务、固定依赖异常、正式技术包未生效或快照失效时不展示入口且领域服务阻断。 |
+| 关闭交互响应 | 通过 | 关闭动作沿用 Vanilla TS 事件入口，只局部刷新头部与反馈区，不触发整页重绘。 |
 
 ## 4. 本次查漏补缺
 
@@ -126,6 +135,8 @@
 - `src/data/pcs-task-bootstrap.ts`
 - `src/data/pcs-tech-pack-task-generation.ts`
 - `src/data/pcs-tech-pack-version-activation.ts`
+- `src/data/pcs-engineering-master-repository.ts`
+- `src/pages/pcs-engineering-master-detail.ts`
 - `src/data/pcs-project-archive-sync.ts`
 - `src/data/pcs-project-data-consistency.ts`
 - `src/data/pcs-project-relation-bootstrap.ts`（已删除）
@@ -193,6 +204,8 @@
 - `npx tsx tests/pcs-engineering-bom-pricing.spec.ts`：通过（任务 7：标准价、换算、损耗与数量、双币、自定义成本、角色门禁、草稿动态价格／汇率、价格失效和正式快照）。
 - `npm run check:pcs-material-archive-units`：通过（任务 7）。
 - `npm run check:tech-pack-bom-unit-guard`：通过（任务 7）。
+- `npm test -- tests/pcs-engineering-master-close-gate.spec.ts`：通过（任务 10：正式快照结构、有效任务与固定依赖、来源技术包、操作者及页面关闭交互）。
+- `npm test -- tests/pcs-tech-pack-bom-review-activation-atomic.spec.ts`：通过（任务 10：正式快照深克隆、真实技术包确认任务完成及后续失败原子回滚）。
 
 ### 待交付前验证
 
