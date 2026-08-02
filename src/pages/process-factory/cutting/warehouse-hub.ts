@@ -88,6 +88,13 @@ import {
   toggleWarehouseLocationSelection,
   validateWarehouseLocationSelection,
 } from './warehouse-location-map-model.ts'
+import {
+  configureWaitHandoverActionAdapter,
+  handleWaitHandoverActionEvent,
+  renderWaitHandoverActionButtons,
+  type WaitHandoverHandoverCandidate,
+  type WaitHandoverSpecialCraftReturnCandidate,
+} from './wait-handover-actions.ts'
 
 type WaitProcessTabKey = 'inventory' | 'claimRecords' | 'usage' | 'returns' | 'locations'
 type WaitProcessWarehouseAction = 'claim' | 'process-issue' | 'return'
@@ -1844,9 +1851,9 @@ function renderHubGuideCard(title: string, lines: string[]): string {
   `
 }
 
-function renderHubTable(headers: string[], rows: string[][], emptyText = '暂无数据'): string {
+function renderHubTable(headers: string[], rows: string[][], emptyText = '暂无数据', footerHtml = ''): string {
   if (!rows.length) {
-    return `<div class="rounded-lg border border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">${escapeHtml(emptyText)}</div>`
+    return `<section class="rounded-lg border bg-card"><div class="border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">${escapeHtml(emptyText)}</div>${footerHtml}</section>`
   }
   const tableHtml = `
     <table class="min-w-[960px] w-full text-left text-sm">
@@ -1869,12 +1876,18 @@ function renderHubTable(headers: string[], rows: string[][], emptyText = '暂无
   return `
     <div class="rounded-lg border bg-card">
       ${renderStickyTableScroller(tableHtml, 'max-h-[28rem]')}
+      ${footerHtml}
     </div>
   `
 }
 
 function renderWaitHandoverPill(label: string, className: string): string {
   return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${className}">${escapeHtml(label)}</span>`
+}
+
+function renderWaitHandoverPagination(total: number, pageSize = 20): string {
+  const pageCount = Math.max(1, Math.ceil(total / pageSize))
+  return `<footer class="flex min-h-11 items-center justify-between border-t px-4 py-2 text-xs text-muted-foreground" data-wait-handover-pagination><span>第 1 页 / 共 ${pageCount} 页</span><span>每页 ${pageSize} 条 · 共 ${total} 条</span></footer>`
 }
 
 function getWaitHandoverInboundBagStatusClass(status: string): string {
@@ -1940,7 +1953,7 @@ function renderWaitHandoverBagTicketDetailButton(bagCode: string): string {
 
 function renderWaitHandoverBaggingRecordTable(bags: InboundTempBag[], emptyText = '暂无菲票装袋记录。'): string {
   if (!bags.length) {
-    return `<div class="rounded-lg border border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">${escapeHtml(emptyText)}</div>`
+    return `<section class="rounded-lg border bg-card"><div class="border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">${escapeHtml(emptyText)}</div>${renderWaitHandoverPagination(0)}</section>`
   }
   return `
     <section class="rounded-lg border bg-card">
@@ -1983,7 +1996,7 @@ function renderWaitHandoverBaggingRecordTable(bags: InboundTempBag[], emptyText 
                   <td class="px-4 py-3 align-top">
                     <div class="flex flex-wrap gap-2">
                       ${renderWaitHandoverBagTicketDetailButton(bag.bagCode)}
-                      <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-inbound" data-wait-handover-selection="${escapeHtml(bag.bagCode)}">继续装袋</button>
+                      <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-web-action="open-inbound" data-wait-handover-selection="${escapeHtml(bag.bagCode)}">继续入仓</button>
                     </div>
                   </td>
                 </tr>
@@ -1992,13 +2005,14 @@ function renderWaitHandoverBaggingRecordTable(bags: InboundTempBag[], emptyText 
           </tbody>
         </table>
       `)}
+      ${renderWaitHandoverPagination(bags.length)}
     </section>
   `
 }
 
 function renderWaitHandoverInboundLocationTable(bags: InboundTempBag[], emptyText = '暂无中转袋入仓记录。'): string {
   if (!bags.length) {
-    return `<div class="rounded-lg border border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">${escapeHtml(emptyText)}</div>`
+    return `<section class="rounded-lg border bg-card"><div class="border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">${escapeHtml(emptyText)}</div>${renderWaitHandoverPagination(0)}</section>`
   }
   return `
     <section class="rounded-lg border bg-card">
@@ -2037,6 +2051,7 @@ function renderWaitHandoverInboundLocationTable(bags: InboundTempBag[], emptyTex
           </tbody>
         </table>
       `)}
+      ${renderWaitHandoverPagination(bags.length)}
     </section>
   `
 }
@@ -2083,7 +2098,7 @@ function renderWaitHandoverBaggingTable(rows: WaitHandoverBaggingTableRow[], emp
               <div class="flex flex-wrap gap-2">
                 ${
                   row.confirmSelection
-                    ? `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-handover" data-wait-handover-selection="${escapeHtml(row.confirmSelection)}">整袋交出</button>`
+                    ? `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-web-action="open-handover" data-wait-handover-selection="${escapeHtml(row.confirmSelection)}">整袋交出</button>`
                     : '<button type="button" class="cursor-not-allowed rounded-md border border-dashed px-2.5 py-1.5 text-xs text-muted-foreground" disabled>待整袋满足交出条件</button>'
                 }
               </div>
@@ -2101,9 +2116,6 @@ function renderWaitHandoverBaggingTable(rows: WaitHandoverBaggingTableRow[], emp
 }
 
 function renderWaitHandoverHandoverRecordTable(rows: string[][], emptyText = '暂无中转袋交出记录。'): string {
-  if (!rows.length) {
-    return `<div class="rounded-lg border border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">${escapeHtml(emptyText)}</div>`
-  }
   return renderHubTable([
     '交出记录',
     '交出单',
@@ -2112,10 +2124,10 @@ function renderWaitHandoverHandoverRecordTable(rows: string[][], emptyText = '�
     '交出人',
     '接收对象',
     '生产单',
-    '任务单号',
-    '本次交出',
+    '全部车缝任务',
+    '本次交出（菲票 / 裁片）',
     '状态',
-  ], rows, emptyText)
+  ], rows, emptyText, renderWaitHandoverPagination(rows.length))
 }
 
 function getWaitHandoverEventQty(event: CuttingRuntimeEvent): number {
@@ -2410,16 +2422,8 @@ function renderWaitHandoverTabs(activeTab: WaitHandoverTabKey): string {
   return renderHubTabs('warehouse-management-wait-handover', activeTab, tabs)
 }
 
-function renderWaitHandoverHeaderActions(firstTaskId: string): string {
-  return `
-    <div class="flex flex-nowrap items-center gap-2 overflow-x-auto">
-      <button type="button" class="h-10 shrink-0 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-wait-handover-action="open-bagging">菲票装袋</button>
-      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-inbound">中转袋入仓</button>
-      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-handover">中转袋交出</button>
-      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-special-craft-return">特殊工艺回仓</button>
-      <button type="button" class="h-10 shrink-0 rounded-md border border-blue-200 bg-blue-50 px-3 text-sm text-blue-700 hover:bg-blue-100" data-nav="/fcs/pda/cutting/handover/${escapeHtml(firstTaskId)}?action=special-craft-return">PDA 现场扫码</button>
-    </div>
-  `
+function renderWaitHandoverHeaderActions(_firstTaskId: string): string {
+  return renderWaitHandoverActionButtons()
 }
 
 type WaitHandoverWebAction = 'bagging' | 'inbound' | 'handover' | 'special-craft-return'
@@ -3333,7 +3337,46 @@ function submitWaitHandoverSpecialCraftReturn(dialog: HTMLElement): boolean {
   return false
 }
 
+function configureWaitHandoverWebActionBridge(): void {
+  configureWaitHandoverActionAdapter({
+    getHandoverCandidates: (): WaitHandoverHandoverCandidate[] =>
+      buildWaitHandoverConfirmSelections().map((selection) => {
+        const current = resolveTransferBagCurrentUse(selection.bagCode)
+        const assignmentsByTicketId = new Map(selection.assignments.map((assignment) => [assignment.feiTicketId, assignment]))
+        return {
+          value: selection.value,
+          bagCode: selection.bagCode,
+          handoverOrderId: selection.handoverOrderId,
+          handoverOrderNo: selection.handoverOrderNo,
+          assignments: selection.assignments,
+          submittedTicketSnapshot: current.tickets.map((ticket) => {
+            const assignment = assignmentsByTicketId.get(ticket.feiTicketId)
+            return assignment ? {
+              ...ticket,
+              sewingTaskId: assignment.sewingTaskId,
+              sewingTaskNo: assignment.sewingTaskNo,
+              receiverFactoryId: assignment.receiverFactoryId,
+              receiverFactoryName: assignment.receiverFactoryName,
+            } : ticket
+          }),
+        }
+      }),
+    getSpecialCraftReturnCandidates: (): WaitHandoverSpecialCraftReturnCandidate[] =>
+      buildWaitHandoverSpecialCraftReturnSelections().map((selection) => ({
+        value: selection.value,
+        sourceHandoverRecordId: selection.sourceHandoverRecordId,
+        bagCode: selection.transferBagCode,
+        returnedTicketIds: [selection.feiTicketId],
+      })),
+    resolveLocation: (warehouseArea, locationCode) =>
+      resolveCurrentCuttingWarehouseLocationRef('WAIT_HANDOVER', warehouseArea, locationCode),
+    renderWorkbenchData: () => renderCraftCuttingWarehouseManagementWaitHandoverPage(),
+  })
+}
+
 export function handleCraftCuttingWaitHandoverEvent(target: HTMLElement): boolean {
+  configureWaitHandoverWebActionBridge()
+  if (handleWaitHandoverActionEvent(target)) return true
   const locationNode = target.closest<HTMLElement>('[data-wait-handover-modal] [data-warehouse-map-action]')
   if (locationNode) {
     const dialog = locationNode.closest<HTMLElement>('[data-wait-handover-modal]')
@@ -3405,7 +3448,7 @@ function renderWaitHandoverInventoryTable(
   runtimeEvents: CuttingRuntimeEvent[],
 ): string {
   if (!records.length) {
-    return '<div class="rounded-lg border border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">暂无裁床待交出仓库存。</div>'
+    return `<section class="rounded-lg border bg-card"><div class="border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">暂无裁床待交出仓库存。</div>${renderWaitHandoverPagination(0)}</section>`
   }
   const rows = records.map((record) => {
     const reservedQty = reservedQtyByRecord.get(record.inventoryRecordId) || 0
@@ -3477,6 +3520,7 @@ function renderWaitHandoverInventoryTable(
           <tbody>${rows}</tbody>
         </table>
       </div>
+      ${renderWaitHandoverPagination(records.length)}
     </div>
   `
 }
@@ -5136,11 +5180,14 @@ function buildRuntimeHandoverTableProjection(
     const previousQty = cumulativeByOrder.get(orderNo) || 0
     const cumulativeQty = previousQty + currentQty
     cumulativeByOrder.set(orderNo, cumulativeQty)
-    const transferBagCodes = Array.isArray(payload.transferBagUses)
-      ? payload.transferBagUses
-          .map((rawBag) => runtimeString(toRuntimeRecord(rawBag).bagCode))
-          .filter(Boolean)
+    const transferBagUses = Array.isArray(payload.transferBagUses)
+      ? payload.transferBagUses.map((rawBag) => toRuntimeRecord(rawBag))
       : []
+    const transferBagCodes = transferBagUses.map((rawBag) => runtimeString(rawBag.bagCode)).filter(Boolean)
+    const sewingTaskNos = uniqueStrings([
+      ...(event.refs.sewingTaskNos || []),
+      ...transferBagUses.flatMap((rawBag) => Array.isArray(rawBag.sewingTaskNos) ? rawBag.sewingTaskNos.map((item) => runtimeString(item)) : []),
+    ])
     const productionOrderNos = uniqueStrings([
       ...tickets.map((ticket) => ticket.productionOrderNo),
       event.refs.productionOrderNo,
@@ -5169,8 +5216,8 @@ function buildRuntimeHandoverTableProjection(
       event.operatorName || runtimeString(payload.submittedBy) || '裁片仓交出员',
       `${receiverType || '接收对象'} / ${receiverName}`,
       productionOrderNos.join('、') || '按菲票追踪',
-      runtimeString(payload.sewingTaskNo) || runtimeString(payload.pickingTaskNo) || event.refs.taskId || '按交出记录追踪',
-      formatPieceQty(currentQty),
+      sewingTaskNos.join('、') || runtimeString(payload.sewingTaskNo) || runtimeString(payload.pickingTaskNo) || '按交出记录追踪',
+      `${feiTicketNos.length} 张 / ${formatPieceQty(currentQty)}`,
       event.eventStatus === '同步失败' ? '同步失败' : '待接收回写',
     ]
   })
@@ -5205,7 +5252,7 @@ function buildRuntimeHandoverTableProjection(
             `${record.receiverType} / ${record.receiverName}`,
             productionOrderNos.join('、') || record.relatedProductionOrderIds.join('、') || '按菲票追踪',
             record.relatedSewingTaskId || record.relatedPickingTaskId || '按交出记录追踪',
-            formatPieceQty(currentQty),
+            `${record.feiTicketItems.length} 张 / ${formatPieceQty(currentQty)}`,
             record.recordStatus,
           ]
         })
@@ -5643,7 +5690,7 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
           <p class="mt-1 text-sm text-muted-foreground">来源特殊工艺交出记录回仓时，有中转袋先扫中转袋，再扫菲票获取裁片部位，最后入具体库区库位。</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-wait-handover-action="open-special-craft-return">Web 扫码回仓</button>
+          <span class="inline-flex h-10 items-center rounded-md border bg-muted/20 px-4 text-sm text-muted-foreground">Web 回仓统一从“中转袋入仓”识别处理</span>
           <button type="button" class="h-10 rounded-md border border-blue-200 bg-blue-50 px-4 text-sm font-medium text-blue-700 hover:bg-blue-100" data-nav="/fcs/pda/cutting/handover/${escapeHtml(firstTaskId)}?action=special-craft-return">PDA 回仓扫码</button>
         </div>
       </div>
@@ -5655,7 +5702,7 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
         `).join('')}
       </div>
     </article>
-    ${renderHubTable(['回仓记录', '来源交出记录', '承接工厂', '工艺', '应回 / 实回', '回仓库位', '状态', '差异'], specialCraftReturnRows, '暂无特殊工艺回仓记录。')}
+    ${renderHubTable(['回仓记录', '来源交出记录', '承接工厂', '工艺', '应回 / 实回', '回仓库位', '状态', '差异'], specialCraftReturnRows, '暂无特殊工艺回仓记录。', renderWaitHandoverPagination(specialCraftReturnRows.length))}
   </section>`
   const locationContent = renderCuttingWarehouseLocationMapSection('WAIT_HANDOVER')
   const activeContent =
@@ -5676,7 +5723,7 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
     description: '基于菲票、裁片和中转袋管理待交出仓库存、菲票装袋、中转袋入仓、整袋交出、特殊工艺回仓和库区库位。',
     kpis: '',
     tabs: renderWaitHandoverTabs(activeTab),
-    content: activeContent,
+    content: `<div data-wait-handover-workbench-data>${activeContent}</div>`,
     headerActions: renderWaitHandoverHeaderActions(firstTaskId),
   })
 }

@@ -12,6 +12,13 @@ const warehouseSource = readFileSync(
   `${ROOT}/src/pages/process-factory/cutting/warehouse-hub.ts`,
   'utf8',
 )
+const actionsPath = `${ROOT}/src/pages/process-factory/cutting/wait-handover-actions.ts`
+const dialogsPath = `${ROOT}/src/pages/process-factory/cutting/wait-handover-dialogs.ts`
+assert(existsSync(actionsPath), 'Web 六动作状态和 handler 必须拆到 wait-handover-actions.ts')
+assert(existsSync(dialogsPath), 'Web 六动作模板必须拆到 wait-handover-dialogs.ts')
+const actionsSource = readFileSync(actionsPath, 'utf8')
+const dialogsSource = readFileSync(dialogsPath, 'utf8')
+const webActionSources = `${warehouseSource}\n${actionsSource}\n${dialogsSource}`
 const handlersSource = readFileSync(
   `${ROOT}/src/main-handlers/fcs-handlers.ts`,
   'utf8',
@@ -48,25 +55,80 @@ assert(
   '旧 Mock Web 弹窗模块必须移除，避免保留第二套状态与写入路径',
 )
 
-for (const text of ['库存明细', '特种工艺回收入仓', '库位图']) {
+for (const text of ['库存明细', '特殊工艺回仓', '库位图']) {
   assert(warehouseSource.includes(text), `待交出仓工作台不得丢失原功能：${text}`)
 }
 for (const [action, label] of [
   ['bagging', '菲票装袋'],
   ['inbound', '中转袋入仓'],
+  ['repack', '拆袋重装'],
   ['handover', '中转袋交出'],
+  ['recovery', '中转袋回收'],
+  ['scrap', '中转袋报废'],
 ] as const) {
   assert(
-    warehouseSource.includes(
+    webActionSources.includes(
       `data-wait-handover-action="open-${action}">${label}</button>`,
     ),
     `${label}必须直接进入真实仓库事实账弹窗`,
   )
+  assert.equal(
+    webActionSources.match(new RegExp(`data-wait-handover-action="open-${action}"`, 'g'))?.length,
+    1,
+    `${label}顶层动作必须且只能出现一次`,
+  )
+  assert.match(
+    webActionSources,
+    new RegExp(`data-skip-page-rerender="true"[^>]*data-wait-handover-action="open-${action}"`),
+    `${label}必须屏蔽整页重渲染`,
+  )
+}
+assert(
+  !webActionSources.includes('data-wait-handover-action="open-special-craft-return"'),
+  '特殊工艺回仓不得作为顶层动作，只能由中转袋入仓识别分支',
+)
+
+for (const sharedCommand of [
+  'appendWaitHandoverBaggingEvent(',
+  'appendWaitHandoverInboundEvent(',
+  'submitTransferBagRepack(',
+  'submitWholeBagHandover(',
+  'recoverTransferBag(',
+  'recoverThenScrapTransferBag(',
+  'submitTransferBagScrap(',
+  'submitSpecialCraftBagReturn(',
+]) {
+  assert(actionsSource.includes(sharedCommand), `Web handler 必须调用共享命令：${sharedCommand}`)
+}
+assert(!dialogsSource.includes('transfer-bag-operations'), '弹窗模板不得直接写中转袋事实')
+assert(!dialogsSource.includes('wait-handover-runtime'), '弹窗模板不得直接调用运行命令')
+assert(
+  actionsSource.includes('data-wait-handover-workbench-data')
+  && actionsSource.includes('replaceWith('),
+  '成功后必须只替换工作台数据区',
+)
+assert(
+  !actionsSource.includes("new Event('higood:request-render')")
+  && !actionsSource.includes('root.innerHTML'),
+  '六动作 handler 不得触发 root.innerHTML 或整页 render 事件',
+)
+assert(
+  actionsSource.includes('data-submit-lock') || actionsSource.includes('WeakSet<HTMLElement>'),
+  '六动作提交必须有双击锁并复用共享命令幂等',
+)
+for (const section of ['来源袋 / 菲票', '按接收车缝工厂分组', '结果袋 / 复用旧袋', '合计与确认']) {
+  assert(dialogsSource.includes(section), `重装宽工作区缺少分区：${section}`)
+}
+for (const label of ['普通回收', '强制回收', '实物袋已收到', '实物袋为空', '强制回收原因']) {
+  assert(dialogsSource.includes(label), `回收弹窗缺少防错内容：${label}`)
+}
+for (const label of ['先拆袋重装', '回收后再报废', '二次确认']) {
+  assert(dialogsSource.includes(label), `报废弹窗缺少危险动作防错：${label}`)
 }
 
-const inboundDialogBranch = warehouseSource.match(
-  /: action === 'inbound'([\s\S]*?): action === 'handover'/,
-)?.[1] || ''
+const inboundDialogBranch = dialogsSource.match(
+  /action === 'inbound'([\s\S]*?)action === 'repack'/,
+)?.[1] || dialogsSource
 assert(inboundDialogBranch, '必须保留中转袋入仓弹窗分支')
 assert(
   inboundDialogBranch.includes('中转袋二维码 / 袋码')
@@ -80,26 +142,26 @@ assert(
   '中转袋入仓不得再次选择或扫描菲票',
 )
 assert(
-  warehouseSource.includes('resolveWaitHandoverBaggingSnapshot('),
+  actionsSource.includes('resolveWaitHandoverBaggingSnapshot('),
   '入仓必须按袋号读取装袋时的不可变菲票快照',
 )
 assert(
-  !warehouseSource.includes('function submitWaitHandoverBaggingConfirm('),
+  !webActionSources.includes('function submitWaitHandoverBaggingConfirm('),
   'Web 端不得继续产生“交出装袋确认”第二次装袋事实',
 )
 assert(
-  !warehouseSource.includes(
+  !webActionSources.includes(
     "action === 'submit-handover-bagging-confirm'",
   ),
   'Web 动作分发不得保留“交出装袋确认”写入口',
 )
 assert(
-  warehouseSource.includes('submitWholeBagHandover({')
-  && warehouseSource.includes('isCompleteSuccessfulWholeBagHandoverEvent(event)'),
+  actionsSource.includes('submitWholeBagHandover({')
+  && actionsSource.includes('isCompleteSuccessfulWholeBagHandoverEvent(event)'),
   'Web 整袋交出必须走权威整袋提交并在成功后复核完整事实',
 )
 assert(
-  !warehouseSource.includes('appendWaitHandoverHandoverRecordEvent({'),
+  !webActionSources.includes('appendWaitHandoverHandoverRecordEvent({'),
   'Web 整袋交出不得继续调用旧简化交出 writer',
 )
 
@@ -356,8 +418,8 @@ assert.equal(
   true,
   '真实 Web handler 重试必须仍可提交',
 )
-assert.equal(removedDialogCount, 1, '只有权威事实写入成功后才关闭交出弹窗')
-assert.equal(refreshCount, 1, '只有权威事实写入成功后才刷新工作台')
+assert.equal(removedDialogCount, 0, '权威事实写入成功后仍保留弹窗以展示明确反馈')
+assert.equal(refreshCount, 0, '权威事实写入成功后不得触发整页重渲染事件')
 const handlerEvents = runtimeLedger.listCuttingRuntimeEvents(guardedBrowserStorage)
 const handlerHandover = handlerEvents.find((event: { eventType: string }) => event.eventType === '新增交出记录')
 assert(handlerHandover, '真实 Web handler 必须写入新增交出记录')
