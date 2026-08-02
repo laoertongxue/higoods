@@ -9,7 +9,7 @@ const expectedHeaders = [
   '染色',
   '拆解',
   '配料',
-  '派单工厂 / 接单 / 领取',
+  '工厂 / 接单 / 领取',
   '唛架',
   '铺布',
   '裁剪',
@@ -42,8 +42,8 @@ test('裁片生产单进度主表的表头和数据列保持 12 列对齐', asyn
 
   await expect(table.locator('thead tr').first().locator('th').nth(0)).toHaveAttribute('colspan', '2')
   await expect(table.locator('thead tr').first().locator('th').nth(1)).toHaveAttribute('colspan', '2')
-  await expect(table.locator('thead tr').first().locator('th').nth(2)).toHaveAttribute('colspan', '3')
-  await expect(table.locator('thead tr').first().locator('th').nth(3)).toHaveAttribute('colspan', '5')
+  await expect(table.locator('thead tr').first().locator('th').nth(2)).toHaveAttribute('colspan', '2')
+  await expect(table.locator('thead tr').first().locator('th').nth(3)).toHaveAttribute('colspan', '6')
 
   await expectNoPageErrors(errors)
 })

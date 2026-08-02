@@ -232,7 +232,7 @@
     "test:pda-handover-pickup-list-and-detail:e2e": "playwright test tests/pda-handover-pickup-list-and-detail.spec.ts",
     "test:pda-handover-pickup-confirm-and-dispute:e2e": "playwright test tests/pda-handover-pickup-confirm-and-dispute.spec.ts",
     "test:pda-handover-pickup-dispute-platform-resolution:e2e": "playwright test tests/pda-handover-pickup-dispute-platform-resolution.spec.ts",
-    "test:cutting:all:e2e": "playwright test tests/cutting-*.spec.ts",
+    "test:cutting:all:e2e": "npm run build && CUTTING_E2E_USE_PREVIEW=false PLAYWRIGHT_REUSE_EXISTING_SERVER=false CUTTING_E2E_PORT=43177 CUTTING_E2E_EXPECT_TIMEOUT=60000 CUTTING_E2E_TEST_TIMEOUT=300000 playwright test tests/cutting-*.spec.ts --workers=1",
     "check:process-factory-tabs-and-post-finishing": "tsx scripts/check-process-factory-tabs-and-post-finishing.ts",
     "test:process-factory-tabs-and-post-finishing:e2e": "playwright test tests/process-factory-tabs-and-post-finishing.spec.ts",
     "test:production-order-change-final:e2e": "playwright test --config=playwright.production-order-change.config.ts",

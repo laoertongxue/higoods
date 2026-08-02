@@ -956,6 +956,12 @@ assert.equal(
   taskKeydown.matchedTarget,
   '车缝任务 Enter 必须实际解析为待派发 target',
 )
+const inboundLocationKeydown = buildFakeKeydownTarget('locationScan')
+assert.equal(
+  keydownRoutingModule.resolvePdaCuttingScanKeydownTarget(inboundLocationKeydown.target, 'Enter'),
+  inboundLocationKeydown.matchedTarget,
+  '入仓库位扫码 Enter 必须派发到入仓处理器',
+)
 assert.equal(
   keydownRoutingModule.resolvePdaCuttingScanKeydownTarget(bagKeydown.target, 'A'),
   null,
@@ -966,6 +972,12 @@ assert.equal(
   keydownRoutingModule.resolvePdaCuttingScanKeydownTarget(specialCraftKeydown.target, 'Enter'),
   null,
   '特殊工艺字段不得进入整袋交出 Enter 派发',
+)
+const specialCraftReturnLocationKeydown = buildFakeKeydownTarget('specialCraftReturnLocationScan')
+assert.equal(
+  keydownRoutingModule.resolvePdaCuttingScanKeydownTarget(specialCraftReturnLocationKeydown.target, 'Enter'),
+  specialCraftReturnLocationKeydown.matchedTarget,
+  '特殊工艺回仓库位扫码 Enter 必须派发到回仓处理器',
 )
 const globalKeydownStart = mainSource.indexOf("document.addEventListener('keydown'")
 const globalHandoverScanIndex = mainSource.indexOf('resolvePdaCuttingScanKeydownTarget<HTMLElement>(', globalKeydownStart)

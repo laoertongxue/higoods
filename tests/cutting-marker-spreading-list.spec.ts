@@ -16,7 +16,8 @@ test('铺布单列表的查询、详情、新建与导出入口可用', async ({
   await expect(page).toHaveURL(/\/fcs\/craft\/cutting\/spreading-create(?:\?|$)/)
   await expect(page.getByTestId('cutting-spreading-create-page')).toBeVisible()
 
-  await page.goto('/fcs/craft/cutting/spreading-list')
+  await page.goBack()
+  await expect(page.getByTestId('cutting-spreading-list-page')).toBeVisible()
   const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: '导出当前视图' }).click()
   const download = await downloadPromise

@@ -270,33 +270,75 @@ test('缺少中转袋时局部刷新并聚焦袋码', async ({ page }) => {
   await expectNoPageErrors(errors)
 })
 
-test('入仓库位错误时局部刷新并聚焦库位', async ({ page }) => {
+test('入仓扫描无效完整库位编号时局部反馈并保持库位扫码焦点', async ({ page }) => {
   const errors = collectPageErrors(page)
   await openPdaWorkflow(
     page,
     '/fcs/pda/cutting/inbound/TASK-CUT-PDA-CUT-DONE-0307?action=inbound-location',
     '[data-pda-cutting-inbound-workflow]',
   )
-  const result = await confirmWithoutBrowserAutoScroll(page, {
-    workflowSelector: '[data-pda-cutting-inbound-workflow]',
-    buttonSelector: '[data-pda-cut-inbound-action="confirm"]',
-    feedbackText: '库位不存在，请重新扫描。',
-    activeFieldAttribute: 'data-pda-cut-inbound-field',
-    postClickContentionMs: 220,
-    cpuThrottlingRate: 4,
-    inputValues: [
-      {
-        selector: '[data-pda-cut-inbound-field="carrierCode"]',
-        value: 'BAG-WAIT-001',
-      },
-      {
-        selector: '[data-pda-cut-inbound-field="locationLabel"]',
-        value: 'CUT-NOT-FOUND',
-      },
-    ],
+  const cpuSession = await page.context().newCDPSession(page)
+  await cpuSession.send('Emulation.setCPUThrottlingRate', { rate: 4 })
+  const result = await page.evaluate(async () => {
+    const root = document.querySelector<HTMLElement>('#app')
+    const workflow = document.querySelector<HTMLElement>('[data-pda-cutting-inbound-workflow]')
+    const input = workflow?.querySelector<HTMLInputElement>('[data-pda-cut-inbound-field="locationScan"]')
+    if (!root?.firstElementChild || !workflow || !input) {
+      throw new Error('扫码前未找到根节点、工作区或库位扫码框')
+    }
+
+    workflow.style.height = '180px'
+    workflow.style.overflowY = 'auto'
+    workflow.scrollTop = 80
+    const spacer = document.createElement('div')
+    spacer.dataset.testScrollSpacer = 'true'
+    spacer.style.height = '1200px'
+    document.body.append(spacer)
+    window.scrollTo(0, 360)
+
+    const rootChildBefore = root.firstElementChild
+    const workflowBefore = workflow
+    const scrollBefore = window.scrollY
+    const workflowScrollBefore = workflow.scrollTop
+    input.focus({ preventScroll: true })
+    input.value = 'A-99-99-99'
+    const startedAt = performance.now()
+    const feedbackAt = await new Promise<number>((resolve, reject) => {
+      const deadline = window.setTimeout(() => {
+        observer.disconnect()
+        reject(new Error('扫码后未出现反馈：库位不存在，请重新扫描。'))
+      }, 3_000)
+      const finishIfReady = () => {
+        if (!workflow.textContent?.includes('库位不存在，请重新扫描。')) return
+        window.clearTimeout(deadline)
+        observer.disconnect()
+        resolve(performance.now())
+      }
+      const observer = new MutationObserver(finishIfReady)
+      observer.observe(workflow, { childList: true, subtree: true, characterData: true })
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+      finishIfReady()
+      const contentionUntil = performance.now() + 220
+      while (performance.now() < contentionUntil) {
+        // 模拟扫码处理后，同线程继续承受现场页面任务竞争。
+      }
+    })
+
+    return {
+      durationMs: feedbackAt - startedAt,
+      activeField: document.activeElement?.getAttribute('data-pda-cut-inbound-field') ?? null,
+      rootStable: root.firstElementChild === rootChildBefore,
+      workflowStable: document.querySelector('[data-pda-cutting-inbound-workflow]') === workflowBefore,
+      scrollBefore,
+      scrollAfter: window.scrollY,
+      workflowScrollBefore,
+      workflowScrollAfter: workflow.scrollTop,
+    }
   })
-  console.log(`[PDA confirm] 入仓库位失败 ${result.durationMs.toFixed(1)}ms`)
-  expectLocalConfirmation(result, 'locationLabel', '入仓库位失败')
+  await cpuSession.send('Emulation.setCPUThrottlingRate', { rate: 1 })
+  await cpuSession.detach()
+  console.log(`[PDA confirm] 入仓库位扫码失败 ${result.durationMs.toFixed(1)}ms`)
+  expectLocalConfirmation(result, 'locationScan', '入仓库位失败')
   await expectNoPageErrors(errors)
 })
 

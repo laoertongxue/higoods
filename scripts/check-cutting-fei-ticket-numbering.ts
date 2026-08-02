@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
+  appendFeiTicketNumberingRecord,
   completeFeiTicketNumbering,
   FEI_TICKET_NUMBERING_BLOCK_MESSAGE,
   filterFeiTicketNumberingRecords,
@@ -60,6 +61,35 @@ assert.equal(getFeiTicketNumberingStatus(cases.pendingTicket), '已完成', '完
 const missingScan = resolveFeiTicketNumberingScan(cases.missingRangeTicket!.feiTicketNo)
 assert.equal(missingScan.status, '缺少编号区间', '缺编号区间菲票状态错误')
 assert.equal(missingScan.ok, false, '缺编号区间菲票不能完成打编号')
+
+const crossSnapshotTicket = { feiTicketId: 'FT-CROSS-SNAPSHOT-001', feiTicketNo: 'FT-CROSS-SNAPSHOT-001', partName: '前片' }
+assert.equal(validateFeiTicketNumberingBeforeBagging(crossSnapshotTicket).ok, false, '无编号记录的跨快照菲票仍应拦截')
+appendFeiTicketNumberingRecord({
+  recordId: 'NUM-CROSS-SNAPSHOT-001',
+  feiTicketId: crossSnapshotTicket.feiTicketId,
+  feiTicketNo: crossSnapshotTicket.feiTicketNo,
+  productionOrderId: 'PO-CROSS-SNAPSHOT-001',
+  productionOrderNo: 'PO-CROSS-SNAPSHOT-001',
+  cutOrderId: 'CUT-CROSS-SNAPSHOT-001',
+  cutOrderNo: 'CUT-CROSS-SNAPSHOT-001',
+  spreadingOrderId: 'SPREAD-CROSS-SNAPSHOT-001',
+  spreadingOrderNo: 'SPREAD-CROSS-SNAPSHOT-001',
+  materialSku: 'MAT-CROSS-SNAPSHOT-001',
+  color: '黑色',
+  size: 'M',
+  partCode: 'FRONT',
+  partName: '前片',
+  pieceSequenceStartNo: 1,
+  pieceSequenceEndNo: 60,
+  pieceSequenceLabel: '1-60',
+  numberCount: 60,
+  operatorId: 'CUT-NUM-OP-CROSS',
+  operatorName: '跨快照校验员工',
+  operatorRole: '打编号员工',
+  completedAt: '2026-06-05 15:00',
+  source: 'WEB',
+})
+assert.equal(validateFeiTicketNumberingBeforeBagging(crossSnapshotTicket).ok, true, '权威编号账已有完成记录时应允许跨快照菲票装袋')
 
 const bindingScan = resolveFeiTicketNumberingScan(cases.bindingStripFeiTicketNo)
 assert.equal(bindingScan.status, '免打编号', '捆条菲票必须免打编号')

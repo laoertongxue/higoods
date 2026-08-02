@@ -1511,7 +1511,7 @@ export function renderPdaCuttingHandoverPage(taskId: string): string {
   `
 
   const specialCraftSection = `
-    <div class="space-y-3 text-xs">
+    <div class="space-y-3 text-xs" data-task-id="${escapeHtml(taskId)}">
       <div class="rounded-xl border bg-violet-50 px-3 py-3 text-violet-900">
         <div class="font-medium">特殊工艺交出扫码</div>
         <div class="mt-1 text-sm font-semibold">${escapeHtml(specialCraftDraft.handoverOrderNo)} / 第 ${specialCraftDraft.nextRecordSequence} 次交出</div>
@@ -1661,7 +1661,12 @@ export function handlePdaCuttingHandoverEvent(
     }
     const taskId = warehouseMapNode.closest<HTMLElement>('[data-task-id]')?.dataset.taskId || appTaskIdFromPath()
     if (!taskId) return true
-    const form = getState(taskId, readSelectedExecutionOrderIdFromLocation(), readSelectedExecutionOrderNoFromLocation())
+    const executionContext = resolvePdaHandoverExecutionContext(taskId)
+    const form = getState(
+      taskId,
+      executionContext.executionOrderId,
+      executionContext.executionOrderNo,
+    )
     if (warehouseMapNode.dataset.warehouseMapAction === 'clear-selection') {
       form.specialCraftReturnLocationIds = []
     } else if (warehouseMapNode.dataset.warehouseMapAction === 'toggle-location') {
@@ -1690,9 +1695,12 @@ export function handlePdaCuttingHandoverEvent(
   ) {
     const taskId = fieldNode.closest<HTMLElement>('[data-task-id]')?.dataset.taskId || appTaskIdFromPath()
     if (!taskId) return true
-    const selectedExecutionOrderId = readSelectedExecutionOrderIdFromLocation()
-    const selectedExecutionOrderNo = readSelectedExecutionOrderNoFromLocation()
-    const form = getState(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
+    const executionContext = resolvePdaHandoverExecutionContext(taskId)
+    const form = getState(
+      taskId,
+      executionContext.executionOrderId,
+      executionContext.executionOrderNo,
+    )
     const field = fieldNode.dataset.pdaCutHandoverField
     if (!field) return true
 
@@ -1800,7 +1808,12 @@ export function handlePdaCuttingHandoverEvent(
       transferContext.executionOrderId,
       transferContext.executionOrderNo,
     )
-    const candidates = buildPdaTransferBagHandoverCandidates()
+    // 缺少袋码是输入级错误，不需要先重建整套交出候选投影。
+    // 候选投影会读取并汇总事实账；在低性能 PDA 上，这会让本可立即反馈的
+    // 必填校验被无谓的同步计算拖慢。
+    const candidates: PdaTransferBagHandoverCandidates = state.bagCode.trim()
+      ? buildPdaTransferBagHandoverCandidates()
+      : { bags: [], sewingTasks: [] }
     let nextState = submitPdaTransferBagHandoverRound(
       state,
       candidates,
@@ -1837,11 +1850,10 @@ export function handlePdaCuttingHandoverEvent(
     return updatedLocally ? PDA_PAGE_HANDLED_LOCALLY : true
   }
 
-  const selectedExecutionOrderId = readSelectedExecutionOrderIdFromLocation()
-  const selectedExecutionOrderNo = readSelectedExecutionOrderNoFromLocation()
-  const context = buildPdaCuttingExecutionContext(taskId, 'handover')
-  const resolvedExecutionOrderId = selectedExecutionOrderId || context.selectedExecutionOrderId
-  const resolvedExecutionOrderNo = selectedExecutionOrderNo || context.selectedExecutionOrderNo
+  const executionContext = resolvePdaHandoverExecutionContext(taskId)
+  const context = executionContext.context
+  const resolvedExecutionOrderId = executionContext.executionOrderId
+  const resolvedExecutionOrderNo = executionContext.executionOrderNo
 
   if (action === 'confirm') {
     const form = getState(taskId, resolvedExecutionOrderId, resolvedExecutionOrderNo)
@@ -1904,4 +1916,17 @@ function appTaskIdFromPath(): string {
   if (typeof window === 'undefined') return ''
   const matched = window.location.pathname.match(/\/fcs\/pda\/cutting\/handover\/([^/]+)/)
   return matched?.[1] ?? ''
+}
+
+function resolvePdaHandoverExecutionContext(taskId: string): {
+  context: ReturnType<typeof buildPdaCuttingExecutionContext>
+  executionOrderId: string | null
+  executionOrderNo: string | null
+} {
+  const context = buildPdaCuttingExecutionContext(taskId, 'handover')
+  return {
+    context,
+    executionOrderId: readSelectedExecutionOrderIdFromLocation() || context.selectedExecutionOrderId,
+    executionOrderNo: readSelectedExecutionOrderNoFromLocation() || context.selectedExecutionOrderNo,
+  }
 }

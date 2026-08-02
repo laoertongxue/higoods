@@ -1294,22 +1294,22 @@ function renderCuttingPickupDifference(node: PickupNodeProjection): string {
         <div class="space-y-3">
           <label class="block space-y-1.5">
             <span class="text-xs font-medium text-muted-foreground">差异物料</span>
-            <select class="h-11 w-full rounded-xl border bg-background px-3 text-sm" data-pda-warehouse-field="cutting-pickup-difference-line">
+            <select class="h-11 w-full rounded-xl border bg-background px-3 text-sm" data-pda-warehouse-field="cutting-pickup-difference-line" data-skip-page-rerender="true">
               ${node.items.map((item) => `<option value="${escapeAttr(item.prepLineId)}" ${item.prepLineId === state.cuttingPickupDifferenceDemandLineId ? 'selected' : ''}>${escapeHtml(`${item.materialName} / ${item.materialSku} / ${item.currentAvailableQty} ${item.unit}`)}</option>`).join('')}
             </select>
           </label>
           <label class="block space-y-1.5">
             <span class="text-xs font-medium text-muted-foreground">差异数量（只记录差异，不修改系统可领数量）</span>
-            <input class="h-11 w-full rounded-xl border bg-background px-3 text-sm" inputmode="decimal" value="${escapeAttr(state.cuttingPickupDifferenceQty)}" data-pda-warehouse-field="cutting-pickup-difference-qty">
+            <input class="h-11 w-full rounded-xl border bg-background px-3 text-sm" inputmode="decimal" value="${escapeAttr(state.cuttingPickupDifferenceQty)}" data-pda-warehouse-field="cutting-pickup-difference-qty" data-skip-page-rerender="true">
           </label>
           <label class="block space-y-1.5">
             <span class="text-xs font-medium text-muted-foreground">现场照片</span>
-            <input class="block w-full text-sm" type="file" accept="image/*" capture="environment" data-pda-warehouse-field="cutting-pickup-difference-photo">
-            ${state.cuttingPickupDifferencePhotoName ? `<span class="text-xs text-muted-foreground">已选择：${escapeHtml(state.cuttingPickupDifferencePhotoName)}</span>` : ''}
+            <input class="block w-full text-sm" type="file" accept="image/*" capture="environment" data-pda-warehouse-field="cutting-pickup-difference-photo" data-skip-page-rerender="true">
+            <span class="text-xs text-muted-foreground ${state.cuttingPickupDifferencePhotoName ? '' : 'hidden'}" data-cutting-pickup-difference-photo-name>已选择：${escapeHtml(state.cuttingPickupDifferencePhotoName)}</span>
           </label>
           <label class="block space-y-1.5">
             <span class="text-xs font-medium text-muted-foreground">现场说明</span>
-            <textarea class="min-h-20 w-full rounded-xl border bg-background px-3 py-2 text-sm" placeholder="例如：实物少 2 yard，已留在原库位复核" data-pda-warehouse-field="cutting-pickup-difference-note">${escapeHtml(state.cuttingPickupDifferenceNote)}</textarea>
+            <textarea class="min-h-20 w-full rounded-xl border bg-background px-3 py-2 text-sm" placeholder="例如：实物少 2 yard，已留在原库位复核" data-pda-warehouse-field="cutting-pickup-difference-note" data-skip-page-rerender="true">${escapeHtml(state.cuttingPickupDifferenceNote)}</textarea>
           </label>
           <button type="button" class="w-full rounded-xl bg-amber-600 px-4 py-3 text-sm font-semibold text-white" data-pda-warehouse-action="report-cutting-pickup-difference">提交差异并叫主管</button>
         </div>
@@ -3441,6 +3441,15 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     state.cuttingPickupDifferencePhotoName = fieldNode instanceof HTMLInputElement
       ? fieldNode.files?.[0]?.name || ''
       : ''
+    const selectedFileLabel = fieldNode
+      .closest<HTMLElement>('[data-cutting-pickup-node-id]')
+      ?.querySelector<HTMLElement>('[data-cutting-pickup-difference-photo-name]')
+    if (selectedFileLabel) {
+      selectedFileLabel.textContent = state.cuttingPickupDifferencePhotoName
+        ? `已选择：${state.cuttingPickupDifferencePhotoName}`
+        : ''
+      selectedFileLabel.classList.toggle('hidden', !state.cuttingPickupDifferencePhotoName)
+    }
     return true
   }
   if (field === 'cutting-issue-area') {

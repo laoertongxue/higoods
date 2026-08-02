@@ -141,16 +141,17 @@ assertContains(dataSource, 'export interface FactoryWarehouseArea', '缺少库�
 assertContains(dataSource, 'export interface FactoryWarehouseShelf', '缺少货架模型')
 assertContains(dataSource, 'export interface FactoryWarehouseLocation', '缺少库位模型')
 assert.equal(buildCuttingWarehouseLocationNo('A', 2, 3, 2), 'A-R02-L03-P02', '裁床完整库位编号格式不正确')
+assert.equal(buildCuttingWarehouseLocationNo('A', 100, 101, 102), 'A-R100-L101-P102', '裁床库位结构编号不得设置固定上限')
 const invalidCuttingWarehouseLocationArgs: Array<[string, number, number, number]> = [
   ['', 1, 1, 1],
   ['AA', 1, 1, 1],
   ['a', 1, 1, 1],
   ['A', 0, 1, 1],
-  ['A', 100, 1, 1],
+  ['A', -1, 1, 1],
+  ['A', 1.5, 1, 1],
+  ['A', Number.POSITIVE_INFINITY, 1, 1],
   ['A', 1, 0, 1],
-  ['A', 1, 100, 1],
   ['A', 1, 1, 0],
-  ['A', 1, 1, 100],
 ]
 invalidCuttingWarehouseLocationArgs.forEach((args) => {
   assert.throws(() => buildCuttingWarehouseLocationNo(...args), '非法裁床库位编号参数必须抛错')

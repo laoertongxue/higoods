@@ -921,7 +921,31 @@ test('PDA 扫码异常、特殊工艺回仓和多候选领料批次均走真实�
   await page.locator('[data-pda-warehouse-action="cutting-wp-issue"]').click()
   await batch.selectOption({ index: 1 })
   await page.locator('[data-pda-warehouse-action="cutting-wp-issue"]').click()
-  await expect(page.locator('[data-pda-warehouse-action="confirm-cutting-wp-issue"]')).toBeVisible()
+  const confirmIssue = page.locator('[data-pda-warehouse-action="confirm-cutting-wp-issue"]')
+  await expect(confirmIssue).toBeVisible()
+  await confirmIssue.click()
+  await expect.poll(() => page.evaluate(async () => {
+    const ledger = await import('/src/data/fcs/cutting/cutting-runtime-event-ledger.ts')
+    return ledger.listCuttingRuntimeEventsByType('待加工仓加工领料').length
+  })).toBeGreaterThan(0)
+
+  // 本测试使用只挂载业务模块 handler 的受控页面，不包含 main.ts 的 data-nav 路由分发；
+  // 这里显式切换到回收入仓路由，再继续验证真实回收 handler 和事件账写入。
+  await page.evaluate(async () => {
+    window.history.replaceState({}, '', '/fcs/pda/warehouse/wait-process?scope=cutting&action=return')
+    const module = await import('/src/pages/pda-warehouse-wait-process.ts')
+    document.body.innerHTML = module.renderPdaWarehouseWaitProcessPage()
+  })
+  await expect(page).toHaveURL(/action=return/)
+  await page.locator('[data-pda-warehouse-action="cutting-wp-return"]').click()
+  const returnMap = page.locator('[data-pda-cutting-return-location-map] [data-warehouse-map-root]')
+  await expect(returnMap).toBeVisible()
+  await returnMap.locator('[data-warehouse-map-action="toggle-location"]:not([disabled])').first().click()
+  await page.locator('[data-pda-warehouse-action="confirm-cutting-wp-return"]').click()
+  await expect.poll(() => page.evaluate(async () => {
+    const ledger = await import('/src/data/fcs/cutting/cutting-runtime-event-ledger.ts')
+    return ledger.listCuttingRuntimeEventsByType('待加工仓回收入仓').length
+  })).toBeGreaterThan(0)
 })
 
 test('PDA 中转袋入仓可点选多个库位、逐项取消并确认完整数组', async ({ page }) => {

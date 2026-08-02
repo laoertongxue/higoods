@@ -45,6 +45,13 @@
 - 无产品设计例外。分拣确认明确属于生产事件账历史夹具，不表述为当前 Task 9 UI 操作；页面候选与最终交出使用真实生产 render／handler。
 - 原型边界：不实现真实后端、跨设备锁和正式权限系统。
 
+## 任务 10 全量审计补充
+
+- PDA 领料差异的数量、备注与现场照片均改为局部输入和局部反馈，文件控件不会因相邻输入的异步页面重绘而脱离 DOM；选择照片后立即显示文件名，提交仍写入同一差异事实。
+- 生产单总览状态入口以裁床进度投影中是否存在真实详情行为准：存在裁床执行事实时进入对应行的 8 页签事实详情；不存在裁床执行事实时回到生产单台账，不伪造裁床事实，也不进入“未找到详情”空态。
+- 生产单款式图片只展示非占位的真实 Mock 图片候选；无有效候选时使用仓库已有样衣图兜底，并保留加载失败回退。
+- 上述调整没有增加管理端字段、PDA 操作层级、英文状态或说明性文案；PDA 仍以当前任务、差异输入和确认提交为主动作。
+
 ## 受管文件
 
 - `src/components/ui/warehouse-location-map.ts`
@@ -60,3 +67,5 @@
 - `src/pages/pda-cutting-handover.ts`
 - `src/pages/pda-handover-detail.ts`
 - `src/pages/pda-warehouse-wait-process.ts`
+- `src/pages/process-factory/cutting/production-order-overview-projection.ts`
+- `src/pages/process-factory/cutting/production-order-overview-view.ts`

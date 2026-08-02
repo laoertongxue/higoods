@@ -124,6 +124,9 @@ const warehouseMapSource = readFileSync(new URL('../src/pages/process-factory/cu
 const warehouseMapUiSource = readFileSync(new URL('../src/components/ui/warehouse-location-map.ts', import.meta.url), 'utf8')
 const warehouseMapModelSource = readFileSync(new URL('../src/pages/process-factory/cutting/warehouse-location-map-model.ts', import.meta.url), 'utf8')
 const warehouseMapReviewRecordSource = readFileSync(new URL('../docs/prototype-review-records/2026-07-30-cutting-warehouse-location-map.md', import.meta.url), 'utf8')
+const packageSource = readFileSync(new URL('../package.json', import.meta.url), 'utf8')
+const warehouseLocationDesignSource = readFileSync(new URL('../docs/superpowers/specs/2026-08-01-cutting-warehouse-location-layer-coding-design.md', import.meta.url), 'utf8')
+const warehouseLocationPlanSource = readFileSync(new URL('../docs/superpowers/plans/2026-08-01-cutting-warehouse-location-layer-coding-implementation.md', import.meta.url), 'utf8')
 const warehouseLayoutStoreSource = readFileSync(new URL('../src/pages/process-factory/cutting/warehouse-location-layout-store.ts', import.meta.url), 'utf8')
 const warehouseLayoutStoreModule = await import('../src/pages/process-factory/cutting/warehouse-location-layout-store.ts') as Record<string, unknown>
 const fcsHandlersSource = readFileSync(new URL('../src/main-handlers/fcs-handlers.ts', import.meta.url), 'utf8')
@@ -155,6 +158,20 @@ assert.equal((pdaWaitProcessSource.match(/handleWarehouseLocationMapOccupancyEve
 assert.match(fcsHandlersSource, /handleCraftCuttingWaitHandoverEvent\(target\)/, '待交出仓真实页面处理器必须接入主处理链')
 assert.doesNotMatch(fcsHandlersSource, /handleCraftCuttingWaitHandoverWebActionsEvent/, '不得保留旧文本弹窗处理器')
 assert.match(warehouseMapSource, /renderFormDialog\(/, '库位图维护必须复用 renderFormDialog')
+assert.doesNotMatch(`${warehouseLocationDesignSource}\n${warehouseLocationPlanSource}`, /货架序号、层号和层内位置号限定为 `01` 至 `99`|货架、层、位置为 1–99/, '规格和计划不得保留已被后续确认覆盖的 99 固定业务上限')
+assert.match(warehouseLocationDesignSource, /货架序号、层号和层内位置号必须是有限正整数，不设置固定业务上限/, '规格必须明确结构序号无固定业务上限')
+assert.match(warehouseLocationDesignSource, /至少补足为两位/, '规格必须明确编号字段是最少两位而非固定两位')
+assert.match(warehouseLocationDesignSource, /多选库位数量不设置固定上限.*结构序号不设置固定业务上限/s, '规格必须区分选择数量上限与结构序号上限')
+assert.match(warehouseLocationPlanSource, /有限正整数，不设置固定业务上限；编号至少补足为两位/, '实施计划必须同步最终结构序号与编码宽度口径')
+const packageScripts = (JSON.parse(packageSource) as { scripts?: Record<string, string> }).scripts || {}
+const cuttingAllE2eCommand = packageScripts['test:cutting:all:e2e'] || ''
+assert.match(cuttingAllE2eCommand, /npm run build/, '裁床全量 E2E 必须先构建可复用产物')
+assert.match(cuttingAllE2eCommand, /CUTTING_E2E_USE_PREVIEW=false/, '裁床全量 E2E 必须使用可加载源码模块的开发服务')
+assert.match(cuttingAllE2eCommand, /PLAYWRIGHT_REUSE_EXISTING_SERVER=false/, '裁床全量 E2E 必须使用隔离服务')
+assert.match(cuttingAllE2eCommand, /CUTTING_E2E_PORT=43177/, '裁床全量 E2E 必须使用独立固定端口')
+assert.match(cuttingAllE2eCommand, /CUTTING_E2E_EXPECT_TIMEOUT=60000/, '裁床全量 E2E 必须为大型应用冷启动保留稳定页面就绪窗口')
+assert.match(cuttingAllE2eCommand, /CUTTING_E2E_TEST_TIMEOUT=300000/, '裁床全量 E2E 必须覆盖大型 PDA 懒模块的首次编译与渲染时间')
+assert.match(cuttingAllE2eCommand, /--workers=1/, '裁床全量 E2E 必须串行执行，避免共享本地事实互相污染')
 for (const renderer of [
   'renderCreateAreaDialog',
   'renderCreateShelfDialog',

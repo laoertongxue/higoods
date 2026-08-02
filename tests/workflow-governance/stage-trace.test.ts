@@ -65,9 +65,51 @@ function providerEvidence(
   return `provider-event:${providerSessionPath}#L1`
 }
 
+function desktopProviderEvidence(name: string, command: string, status = 'Script completed'): string {
+  const providerSessionPath = join(fixtureRoot, `${name}.jsonl`)
+  const callId = `call-${name}`
+  const input = `const r = await tools.exec_command(${JSON.stringify({
+    cmd: command,
+    workdir: fixtureRoot,
+    yield_time_ms: 10000,
+    max_output_tokens: 30000,
+  })});\ntext(r.output);`
+  writeFileSync(providerSessionPath, [
+    JSON.stringify({
+      timestamp: '2026-07-29T10:01:00.000Z',
+      type: 'response_item',
+      payload: { type: 'custom_tool_call', name: 'exec', input, call_id: callId },
+    }),
+    JSON.stringify({
+      timestamp: '2026-07-29T10:01:00.100Z',
+      type: 'response_item',
+      payload: {
+        type: 'custom_tool_call_output',
+        call_id: callId,
+        output: [{ type: 'input_text', text: `${status}\nWall time 0.1 seconds\nOutput:\n` }, { type: 'input_text', text: '# Test skill\n' }],
+      },
+    }),
+    '',
+  ].join('\n'))
+  return `provider-event:${providerSessionPath}#L1`
+}
+
 const skillEvidence = providerEvidence(
   'provider-session',
   `sed -n '1,240p' ${skillFixturePath}`,
+)
+const desktopSkillEvidence = desktopProviderEvidence(
+  'desktop-provider-session',
+  `sed -n '1,380p' ${skillFixturePath}`,
+)
+const desktopSpoofedEvidence = desktopProviderEvidence(
+  'desktop-spoofed-provider-session',
+  `echo "sed -n '1,380p' ${skillFixturePath}"`,
+)
+const desktopFailedEvidence = desktopProviderEvidence(
+  'desktop-failed-provider-session',
+  `sed -n '1,380p' ${skillFixturePath}`,
+  'Script failed',
 )
 const spoofedSkillEvidence = providerEvidence(
   'spoofed-provider-session',
@@ -181,6 +223,42 @@ test('完整技能调用、实现、两阶段审查和最终验证轨迹通过',
   assert.equal(result.valid, true)
   assert.deepEqual(result.blockers, [])
   assert(result.stages.includes('code-quality-review'))
+})
+
+test('桌面端 exec 包装中的真实成功 SKILL.md 读取可作为技能调用证据', () => {
+  const result = validateStageTrace([
+    event('trigger'),
+    event('skill-invocation', {
+      timestamp: '2026-07-29T10:01:00.000Z',
+      skill: requiredSkill,
+      skillSource: skillFixturePath,
+      evidenceRef: desktopSkillEvidence,
+    }),
+    event('artifact', { timestamp: '2026-07-29T10:02:00.000Z', artifact: 'package.json', evidenceRef: 'file:package.json' }),
+    event('implementation', { timestamp: '2026-07-29T10:03:00.000Z', evidenceRef: 'git:HEAD' }),
+    event('final-validation', { timestamp: '2026-07-29T10:04:00.000Z', evidenceRef: `validation-receipt:${validationReceiptPath}` }),
+  ], {
+    requiredSkills: [requiredSkill],
+    requireTwoStageReview: false,
+  }, validationOptions)
+
+  assert.equal(result.valid, true)
+})
+
+test('桌面端 exec 包装仍拒绝回显伪造和失败读取', () => {
+  for (const evidenceRef of [desktopSpoofedEvidence, desktopFailedEvidence]) {
+    assert.throws(() => validateStageTrace([
+      event('skill-invocation', {
+        timestamp: '2026-07-29T10:01:00.000Z',
+        skill: requiredSkill,
+        skillSource: skillFixturePath,
+        evidenceRef,
+      }),
+    ], {
+      requiredSkills: [requiredSkill],
+      requireTwoStageReview: false,
+    }, validationOptions), /未读取声明的技能源文件/)
+  }
 })
 
 test('请求中只出现技能名称不能冒充实际技能调用', () => {

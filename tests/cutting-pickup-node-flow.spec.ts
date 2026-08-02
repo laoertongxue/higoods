@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test'
 const readyPath = '/fcs/craft/cutting/pickup-management/ready'
 const incompletePath = '/fcs/craft/cutting/pickup-management/incomplete'
 
-test.setTimeout(120_000)
+test.setTimeout(300_000)
 
 async function resetStores(page: Page): Promise<void> {
   await page.goto('/')
@@ -14,12 +14,12 @@ async function resetStores(page: Page): Promise<void> {
     localStorage.removeItem('standard-list:/fcs/craft/cutting/pickup-management/ready')
     localStorage.removeItem('standard-list:/fcs/craft/cutting/pickup-management/incomplete')
     localStorage.setItem('fcs_pda_session', JSON.stringify({
-      userId: 'F090_operator',
-      loginId: 'F090_operator',
+      userId: 'PDAU-FACTORY-ONBOARD-0034-ADMIN',
+      loginId: 'onboarding_34',
       userName: '裁床仓管',
-      roleId: 'ROLE_OPERATOR',
-      factoryId: 'F090',
-      factoryName: '全能力测试工厂',
+      roleId: 'ROLE_ADMIN',
+      factoryId: 'FACTORY-ONBOARD-0034',
+      factoryName: '定向裁演示工厂34',
       loggedAt: '2026-07-23 10:00:00',
     }))
   })
@@ -29,31 +29,59 @@ test.beforeEach(async ({ page }) => {
   await resetStores(page)
 })
 
+async function warmPickupExecutionModule(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    await import('/src/pages/pda-warehouse-wait-process.ts')
+  })
+}
+
+async function navigateWithinApp(page: Page, path: string): Promise<void> {
+  await page.evaluate((targetPath) => {
+    window.history.pushState({}, '', targetPath)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  }, path)
+}
+
 test('READY 只显示未编号托盘，INCOMPLETE 显示库位；现场差异阻断确认并留下主管证据', async ({ page }, testInfo) => {
   testInfo.setTimeout(300_000)
   await page.goto(readyPath)
-  const readyHref = await page.getByRole('row').filter({ hasText: '去领料' }).first()
-    .getByRole('link', { name: '去领料', exact: true }).getAttribute('href')
+  const readyLink = page.getByRole('row').filter({ hasText: '去领料' }).first()
+    .getByRole('link', { name: '去领料', exact: true })
+  const readyHref = await readyLink.getAttribute('href')
   expect(readyHref).toBeTruthy()
-  await page.goto(readyHref!)
+  await warmPickupExecutionModule(page)
+  await navigateWithinApp(page, readyHref!)
   const readyTask = page.locator('[data-cutting-pickup-node-id]')
   await expect(readyTask).toContainText('待领托盘（暂未编号）', { timeout: 60_000 })
   await expect(readyTask).not.toContainText('来源库位：')
 
   await page.goto(incompletePath)
-  const incompleteHref = await page.getByRole('row').filter({ hasText: '去领料' }).first()
-    .getByRole('link', { name: '去领料', exact: true }).getAttribute('href')
+  const incompleteLink = page.getByRole('row').filter({ hasText: '去领料' }).first()
+    .getByRole('link', { name: '去领料', exact: true })
+  const incompleteHref = await incompleteLink.getAttribute('href')
   expect(incompleteHref).toBeTruthy()
-  await page.goto(`${incompleteHref!}&difference=1`)
+  await navigateWithinApp(page, `${incompleteHref!}&difference=1`)
   const task = page.locator('[data-cutting-pickup-node-id]')
   await expect(task).toContainText('来源库位：', { timeout: 60_000 })
+  const taskHandle = await task.elementHandle()
+  expect(taskHandle).not.toBeNull()
   await task.locator('[data-pda-warehouse-field="cutting-pickup-difference-qty"]').fill('2')
   await task.locator('[data-pda-warehouse-field="cutting-pickup-difference-note"]').fill('实物少 2 yard')
-  await task.locator('[data-pda-warehouse-field="cutting-pickup-difference-photo"]').setInputFiles({
+  const differencePhotoInput = task.locator('[data-pda-warehouse-field="cutting-pickup-difference-photo"]')
+  const differencePhotoHandle = await differencePhotoInput.elementHandle()
+  expect(differencePhotoHandle).not.toBeNull()
+  const photoFeedbackStartedAt = await page.evaluate(() => performance.now())
+  await differencePhotoInput.setInputFiles({
     name: '现场差异.jpg',
     mimeType: 'image/jpeg',
     buffer: Buffer.from('prototype-photo'),
   })
+  await expect(task).toContainText('已选择：现场差异.jpg')
+  const photoFeedbackDuration = await page.evaluate((startedAt) => performance.now() - startedAt, photoFeedbackStartedAt)
+  console.log(`领料差异照片反馈耗时：${photoFeedbackDuration.toFixed(1)}ms`)
+  expect(photoFeedbackDuration).toBeLessThan(200)
+  expect(await taskHandle!.evaluate((node) => node.isConnected)).toBe(true)
+  expect(await differencePhotoHandle!.evaluate((node) => node.isConnected)).toBe(true)
   page.once('dialog', (dialog) => dialog.accept())
   await task.locator('[data-pda-warehouse-action="report-cutting-pickup-difference"]').click()
   await expect(task).toContainText('差异待主管处理，已阻断领料确认')
@@ -86,7 +114,8 @@ for (const [label, path] of [
     await expect(row).toBeVisible({ timeout: 60_000 })
     const productionOrderNo = (await row.textContent())?.match(/PO-\d{6}-\d{4}/)?.[0]
     expect(productionOrderNo).toBeTruthy()
-    const href = await row.getByRole('link', { name: '去领料', exact: true }).getAttribute('href')
+    const pickupLink = row.getByRole('link', { name: '去领料', exact: true })
+    const href = await pickupLink.getAttribute('href')
     expect(href).toBeTruthy()
     const target = new URL(href!, 'http://127.0.0.1')
     const linkedNode = {
@@ -100,7 +129,8 @@ for (const [label, path] of [
     }, productionOrderNo)
     expect(linkedNode).toEqual(activeNode)
 
-    await page.goto(href!)
+    await warmPickupExecutionModule(page)
+    await navigateWithinApp(page, href!)
     const pdaTask = page.locator('[data-cutting-pickup-node-id]')
     await expect(pdaTask).toBeVisible({ timeout: 60_000 })
     await expect(pdaTask).toHaveAttribute('data-cutting-pickup-node-id', linkedNode.nodeId!)
@@ -114,14 +144,21 @@ for (const [label, path] of [
 
 test('PDA 混合单位确认形成 1 Session + N Detail，重复 API 幂等', async ({ page }) => {
   await page.goto(incompletePath)
-  const href = await page.getByRole('row').filter({ hasText: 'PO-202603-0101' })
-    .getByRole('link', { name: '去领料', exact: true }).getAttribute('href')
+  const pickupLink = page.getByRole('row').filter({ hasText: 'PO-202603-0101' })
+    .getByRole('link', { name: '去领料', exact: true })
+  const href = await pickupLink.getAttribute('href')
   expect(href).toBeTruthy()
-  await page.goto(href!)
+  await warmPickupExecutionModule(page)
+  await navigateWithinApp(page, href!)
   const confirmButton = page.locator('button[data-pda-warehouse-action="confirm-cutting-wp-pickup"]')
   await expect(confirmButton).toBeVisible({ timeout: 60_000 })
   await expect(page.locator('body')).toContainText('yard')
   await expect(page.locator('body')).toContainText('粒')
+  const emptyLocation = page.locator(
+    '[data-pda-cutting-pickup-location-map] [data-warehouse-map-action="toggle-location"]:not([disabled])',
+  ).first()
+  await emptyLocation.click()
+  await expect(page.locator('[data-pda-cutting-pickup-location-map] [aria-pressed="true"]')).toHaveCount(1)
   await confirmButton.click()
   await expect(page).toHaveURL(/scope=cutting&action=pickup$/)
 

@@ -270,6 +270,13 @@ export function listFeiTicketNumberingRecords(): FeiTicketNumberingRecord[] {
   return sortRecords(uniqueRecords([...buildFeiTicketNumberingSeedRecords(), ...hydrateStore().records]))
 }
 
+export function appendFeiTicketNumberingRecord(record: FeiTicketNumberingRecord): FeiTicketNumberingRecord {
+  const normalized = normalizeRecord(record)
+  if (!normalized) throw new Error('菲票编号完成记录缺少票号。')
+  persistStore({ records: sortRecords(uniqueRecords([...hydrateStore().records, normalized])) })
+  return normalized
+}
+
 export function getFeiTicketNumberingRecord(feiTicketIdOrNo: string): FeiTicketNumberingRecord | null {
   const normalized = normalizeUpper(feiTicketIdOrNo)
   return listFeiTicketNumberingRecords().find((record) =>
@@ -398,6 +405,12 @@ export function validateFeiTicketNumberingBeforeBagging(ticket: {
   if (!ticket) return { ok: false, reason: '当前票号不存在，请先确认菲票记录。', status: '缺少编号区间' }
   const feiTicketNo = normalizeText(ticket.feiTicketNo || ticket.ticketNo)
   if (isBindingStripFeiTicketNo(feiTicketNo)) return { ok: true, reason: '', status: '免打编号' }
+  if (
+    getFeiTicketNumberingRecord(normalizeText(ticket.feiTicketId))
+    || getFeiTicketNumberingRecord(feiTicketNo)
+  ) {
+    return { ok: true, reason: '', status: '已完成' }
+  }
   const sourceTicket = ticket.pieceSequenceRange
     ? ticket as GeneratedFeiTicketSourceRecord
     : resolveFeiTicketForNumbering(feiTicketNo || ticket.feiTicketId || '')
