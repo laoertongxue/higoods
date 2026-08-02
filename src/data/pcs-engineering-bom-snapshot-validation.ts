@@ -1,5 +1,9 @@
-import type { EngineeringBomPricingSnapshot } from './pcs-engineering-bom-types.ts'
+import type {
+  EngineeringBomCustomCostDraft,
+  EngineeringBomPricingSnapshot,
+} from './pcs-engineering-bom-types.ts'
 import type { TechnicalBomItem } from './pcs-technical-data-version-types.ts'
+import { resolveEngineeringBomMaterialLine } from './pcs-engineering-bom-material-resolver.ts'
 
 function roundCny(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100
@@ -9,9 +13,27 @@ function roundIdr(value: number): number {
   return Math.round(value)
 }
 
+function stableNormalize(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stableNormalize)
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([, item]) => item !== undefined)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, item]) => [key, stableNormalize(item)]),
+    )
+  }
+  return value
+}
+
+function isStableDeepEqual(left: unknown, right: unknown): boolean {
+  return JSON.stringify(stableNormalize(left)) === JSON.stringify(stableNormalize(right))
+}
+
 export function assertEngineeringBomPricingSnapshotValid(
   snapshot: EngineeringBomPricingSnapshot,
-  targetBomItems: TechnicalBomItem[] = snapshot.bomItems,
+  targetBomItems?: TechnicalBomItem[],
+  targetBomCustomCosts?: EngineeringBomCustomCostDraft[],
 ): void {
   if (snapshot.snapshotVersion !== 1) throw new Error('正式 BOM 与价格快照版本无效。')
   if (!snapshot.frozenAt.trim() || !snapshot.frozenBy.trim()) throw new Error('正式 BOM 与价格快照缺少固化信息。')
@@ -24,13 +46,17 @@ export function assertEngineeringBomPricingSnapshotValid(
   if (snapshotBomItemsById.size !== snapshot.bomItems.length || [...snapshotBomItemsById.keys()].some((id) => !id.trim())) {
     throw new Error('正式 BOM 与价格快照的 BOM 行 ID 缺失或重复。')
   }
-  const targetBomItemsById = new Map(targetBomItems.map((item) => [item.id, item]))
+  const authoritativeTargetBomItems = targetBomItems ?? snapshot.bomItems
+  const targetBomItemsById = new Map(authoritativeTargetBomItems.map((item) => [item.id, item]))
   if (
-    targetBomItemsById.size !== targetBomItems.length
+    targetBomItemsById.size !== authoritativeTargetBomItems.length
     || [...targetBomItemsById.keys()].some((id) => !id.trim())
-    || targetBomItems.length !== snapshot.bomItems.length
+    || authoritativeTargetBomItems.length !== snapshot.bomItems.length
   ) {
     throw new Error('正式快照与目标技术包当前 BOM 行集合不一致。')
+  }
+  if (targetBomItems && !isStableDeepEqual(snapshot.bomItems, targetBomItems)) {
+    throw new Error('正式快照与目标技术包当前 BOM 全部业务字段不一致。')
   }
   for (const [bomItemId, targetItem] of targetBomItemsById) {
     const snapshotItem = snapshotBomItemsById.get(bomItemId)
@@ -51,6 +77,22 @@ export function assertEngineeringBomPricingSnapshotValid(
     }
     if (!line.materialSkuId.trim() || !Number.isFinite(line.standardUnitPriceCny) || line.standardUnitPriceCny <= 0) throw new Error('正式 BOM 与价格快照存在无效物料价格。')
     if (!Number.isFinite(line.conversionToPricingUnit) || line.conversionToPricingUnit <= 0) throw new Error('正式 BOM 与价格快照存在无效单位换算。')
+    if (targetBomItems) {
+      const trustedLine = resolveEngineeringBomMaterialLine({
+        bomItemId: bomItem.id,
+        materialSkuId: bomItem.materialSkuId || '',
+        usage: bomItem.unitConsumption,
+        sampleQuantity: bomItem.sampleQuantity ?? 1,
+        usageUnit: bomItem.unit || '',
+        lossRate: bomItem.lossRate,
+      })
+      if (trustedLine.standardUnitPriceCny === null || trustedLine.materialCostCny === null) {
+        throw new Error(`正式 BOM 与价格快照无法取得当前物料档案有效标准单价：${line.bomItemId}`)
+      }
+      if (!isStableDeepEqual(line, trustedLine)) {
+        throw new Error(`正式 BOM 与价格快照的物料价格或单位换算与当前物料档案不一致：${line.bomItemId}`)
+      }
+    }
     const rawLineCostCny = line.usage * line.sampleQuantity * (1 + line.lossRate) * line.conversionToPricingUnit * line.standardUnitPriceCny
     if (line.materialCostCny !== roundCny(rawLineCostCny)) {
       throw new Error(`正式 BOM 与价格快照的逐行物料成本重算不一致：${line.bomItemId}`)
@@ -59,6 +101,18 @@ export function assertEngineeringBomPricingSnapshotValid(
   }
   if ([...targetBomItemsById.keys()].some((bomItemId) => !priceBomItemIds.has(bomItemId))) throw new Error('正式 BOM 与价格快照的 bomItemId 集合不一致，无法一一对应。')
   if (!Array.isArray(snapshot.customCostsIdr) || !Array.isArray(snapshot.linkedPartTemplateVersions)) throw new Error('正式 BOM 与价格快照结构无效。')
+  if (!isStableDeepEqual(snapshot.materialLines, snapshot.materialPriceSnapshots)) {
+    throw new Error('正式 BOM 与价格快照的物料价格明细不一致。')
+  }
+  if (!isStableDeepEqual(snapshot.customCosts, snapshot.customCostsIdr)) {
+    throw new Error('正式 BOM 与价格快照的自定义成本明细不一致。')
+  }
+  if (targetBomCustomCosts) {
+    const trustedCustomCostsIdr = targetBomCustomCosts.map((item) => ({ ...item, currency: 'IDR' as const }))
+    if (!isStableDeepEqual(snapshot.customCostsIdr, trustedCustomCostsIdr)) {
+      throw new Error('正式 BOM 与价格快照的自定义成本与目标技术包不一致。')
+    }
+  }
   for (const item of snapshot.customCostsIdr) {
     if (!item.title.trim() || item.currency !== 'IDR' || !Number.isFinite(item.amountIdr) || item.amountIdr < 0) throw new Error('正式 BOM 与价格快照存在无效自定义成本。')
   }

@@ -542,6 +542,146 @@ assert.throws(
 )
 assert.deepEqual(getTechnicalDataVersionContent(forgedTotalsTargetVersionId), forgedTotalsTargetBefore)
 
+function makeSelfConsistentSnapshotForTarget(input: {
+  bomItem: TechnicalBomItem
+  standardUnitPriceCny: number
+  conversionToPricingUnit?: number
+  customCostsIdr: Array<{ title: string; amountIdr: number; currency: 'IDR' }>
+}) {
+  const result = structuredClone(rereadSnapshot!)
+  const conversionToPricingUnit = input.conversionToPricingUnit ?? 1
+  const rawMaterialCostCny =
+    input.bomItem.unitConsumption
+    * (input.bomItem.sampleQuantity ?? 1)
+    * (1 + input.bomItem.lossRate)
+    * conversionToPricingUnit
+    * input.standardUnitPriceCny
+  const materialCostCny = Math.round((rawMaterialCostCny + Number.EPSILON) * 100) / 100
+  const customCostIdr = Math.round(input.customCostsIdr.reduce((total, item) => total + item.amountIdr, 0))
+  const comprehensiveCostCny = Math.round((rawMaterialCostCny + customCostIdr / result.exchangeRateIdrPerCny + Number.EPSILON) * 100) / 100
+  const comprehensiveCostIdr = Math.round(rawMaterialCostCny * result.exchangeRateIdrPerCny + customCostIdr)
+  result.bomItems = [structuredClone(input.bomItem)]
+  result.materialPriceSnapshots = [{
+    ...result.materialPriceSnapshots[0]!,
+    bomItemId: input.bomItem.id,
+    materialSkuId: input.bomItem.materialSkuId!,
+    usage: input.bomItem.unitConsumption,
+    sampleQuantity: input.bomItem.sampleQuantity ?? 1,
+    usageUnit: input.bomItem.unit!,
+    lossRate: input.bomItem.lossRate,
+    conversionToPricingUnit,
+    standardUnitPriceCny: input.standardUnitPriceCny,
+    materialCostCny,
+  }]
+  result.materialLines = result.materialPriceSnapshots.map((line) => ({ ...line }))
+  result.customCostsIdr = structuredClone(input.customCostsIdr)
+  result.customCosts = structuredClone(input.customCostsIdr)
+  result.materialCostCny = materialCostCny
+  result.comprehensiveCostCny = comprehensiveCostCny
+  result.comprehensiveCostIdr = comprehensiveCostIdr
+  Object.assign(result.cost, {
+    materialCostCny,
+    customCostIdr,
+    comprehensiveCostCny,
+    comprehensiveCostIdr,
+  })
+  return result
+}
+
+function createSnapshotBindingTarget(id: string, bomItem: TechnicalBomItem, customCosts: Array<{ title: string; amountIdr: number }> = []): void {
+  const content = makeContent(id, [bomItem])
+  content.bomCustomCosts = customCosts
+  createTechnicalDataVersionDraft(
+    makeRecord({ id, status: 'PUBLISHED', reviewStage: '已发布' }),
+    content,
+  )
+}
+
+// 即使 id 与 SKU 相同，调用方也不能篡改目标 BOM 的名称、供应商、适用 SKU 等其余业务字段。
+const fullFieldTargetVersionId = `task10_full_field_target_${Date.now()}`
+const fullFieldTargetBomItem: TechnicalBomItem = {
+  ...makeBomItem('BOM-TARGET', validSku.materialSkuId, '米'),
+  name: '目标物料名称',
+  supplier: '目标供应商',
+  applicableSkuCodes: ['SKU-TARGET'],
+  linkedPatternIds: ['PATTERN-TARGET'],
+  usageProcessCodes: ['SEWING', 'CUTTING'],
+}
+createSnapshotBindingTarget(fullFieldTargetVersionId, fullFieldTargetBomItem)
+const tamperedFullFieldSnapshot = makeSelfConsistentSnapshotForTarget({
+  bomItem: {
+    ...fullFieldTargetBomItem,
+    name: '篡改物料名称',
+    supplier: '篡改供应商',
+    applicableSkuCodes: ['SKU-TAMPERED'],
+  },
+  standardUnitPriceCny: 8.7654,
+  customCostsIdr: [],
+})
+const fullFieldTargetBefore = getTechnicalDataVersionContent(fullFieldTargetVersionId)
+assert.throws(
+  () => savePublishedTechnicalDataVersionBomPricingSnapshot(fullFieldTargetVersionId, tamperedFullFieldSnapshot),
+  /目标技术包|当前 BOM|业务字段|不一致/,
+)
+assert.deepEqual(getTechnicalDataVersionContent(fullFieldTargetVersionId), fullFieldTargetBefore)
+const reorderedNestedArraySnapshot = makeSelfConsistentSnapshotForTarget({
+  bomItem: {
+    ...fullFieldTargetBomItem,
+    usageProcessCodes: ['CUTTING', 'SEWING'],
+  },
+  standardUnitPriceCny: 8.7654,
+  customCostsIdr: [],
+})
+assert.throws(
+  () => savePublishedTechnicalDataVersionBomPricingSnapshot(fullFieldTargetVersionId, reorderedNestedArraySnapshot),
+  /目标技术包|当前 BOM|业务字段|不一致/,
+  'BOM 内业务数组按原顺序比较，调用方不能通过重排数组改写正式事实',
+)
+assert.deepEqual(getTechnicalDataVersionContent(fullFieldTargetVersionId), fullFieldTargetBefore)
+
+// 调用方把标准价改成 999 并同步伪造所有成本字段，也不能覆盖当前物料档案可信标准价。
+const trustedPriceTargetVersionId = `task10_trusted_price_target_${Date.now()}`
+const trustedPriceTargetBomItem = { ...fullFieldTargetBomItem, id: 'BOM-TRUSTED-PRICE' }
+createSnapshotBindingTarget(trustedPriceTargetVersionId, trustedPriceTargetBomItem)
+const tamperedTrustedPriceSnapshot = makeSelfConsistentSnapshotForTarget({
+  bomItem: trustedPriceTargetBomItem,
+  standardUnitPriceCny: 999,
+  customCostsIdr: [],
+})
+const trustedPriceTargetBefore = getTechnicalDataVersionContent(trustedPriceTargetVersionId)
+assert.throws(
+  () => savePublishedTechnicalDataVersionBomPricingSnapshot(trustedPriceTargetVersionId, tamperedTrustedPriceSnapshot),
+  /标准单价|物料价格|当前物料档案|不一致/,
+)
+assert.deepEqual(getTechnicalDataVersionContent(trustedPriceTargetVersionId), trustedPriceTargetBefore)
+const tamperedConversionSnapshot = makeSelfConsistentSnapshotForTarget({
+  bomItem: trustedPriceTargetBomItem,
+  standardUnitPriceCny: 8.7654,
+  conversionToPricingUnit: 2,
+  customCostsIdr: [],
+})
+assert.throws(
+  () => savePublishedTechnicalDataVersionBomPricingSnapshot(trustedPriceTargetVersionId, tamperedConversionSnapshot),
+  /单位换算|当前物料档案|不一致/,
+)
+assert.deepEqual(getTechnicalDataVersionContent(trustedPriceTargetVersionId), trustedPriceTargetBefore)
+
+// 正式快照自定义成本必须绑定目标技术包，而不是接受调用方自洽的任意金额。
+const trustedCustomCostTargetVersionId = `task10_trusted_custom_cost_target_${Date.now()}`
+const trustedCustomCostTargetBomItem = { ...fullFieldTargetBomItem, id: 'BOM-TRUSTED-CUSTOM-COST' }
+createSnapshotBindingTarget(trustedCustomCostTargetVersionId, trustedCustomCostTargetBomItem)
+const tamperedCustomCostSnapshot = makeSelfConsistentSnapshotForTarget({
+  bomItem: trustedCustomCostTargetBomItem,
+  standardUnitPriceCny: 8.7654,
+  customCostsIdr: [{ title: '伪造加工费', amountIdr: 5000, currency: 'IDR' }],
+})
+const trustedCustomCostTargetBefore = getTechnicalDataVersionContent(trustedCustomCostTargetVersionId)
+assert.throws(
+  () => savePublishedTechnicalDataVersionBomPricingSnapshot(trustedCustomCostTargetVersionId, tamperedCustomCostSnapshot),
+  /目标技术包|自定义成本|不一致/,
+)
+assert.deepEqual(getTechnicalDataVersionContent(trustedCustomCostTargetVersionId), trustedCustomCostTargetBefore)
+
 // 新来源正式技术包发布后，公开内容更新入口不能改写 BOM/COST 正式字段。
 assert.throws(
   () => updateTechnicalDataVersionContent(successVersionId, { bomItems: [] }),

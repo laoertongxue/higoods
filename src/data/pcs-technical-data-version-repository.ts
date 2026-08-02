@@ -1181,7 +1181,7 @@ export function savePublishedTechnicalDataVersionBomPricingSnapshot(
   const content = snapshot.contents.find((item) => item.technicalVersionId === technicalVersionId)
   if (!content) throw new Error('未找到目标技术包当前内容，不能保存正式 BOM/COST 快照。')
   if (content?.bomPricingSnapshot) throw new Error('正式 BOM/COST 快照已存在，禁止覆盖。')
-  assertEngineeringBomPricingSnapshotValid(bomPricingSnapshot, content.bomItems)
+  assertEngineeringBomPricingSnapshotValid(bomPricingSnapshot, content.bomItems, content.bomCustomCosts ?? [])
   return persistTechnicalDataVersionContentPatch(technicalVersionId, { bomPricingSnapshot })
 }
 
