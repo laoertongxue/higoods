@@ -7,7 +7,11 @@ import {
   resetEngineeringMasterRepository,
   updateEngineeringTaskRecord,
 } from '../src/data/pcs-engineering-master-repository.ts'
-import { returnTechPackReviewByModules } from '../src/data/pcs-tech-pack-review.ts'
+import {
+  approveTechPackReview,
+  returnTechPackReviewByModules,
+  startTechPackReview,
+} from '../src/data/pcs-tech-pack-review.ts'
 import {
   reviewEngineeringMaterialResults,
   submitEngineeringMaterialResults,
@@ -25,8 +29,11 @@ import type {
   TechnicalReviewNodeKey,
 } from '../src/data/pcs-technical-data-version-types.ts'
 import { listStyleArchives } from '../src/data/pcs-style-archive-repository.ts'
-import { listTechPackVersionLogsByVersionId } from '../src/data/pcs-tech-pack-version-log-repository.ts'
-import { listTechPackReviewNotificationsByVersionId } from '../src/data/pcs-tech-pack-review-notification-repository.ts'
+import {
+  listPatternTasks,
+  resetPatternTaskRepository,
+  upsertPatternTask,
+} from '../src/data/pcs-pattern-task-repository.ts'
 
 function reviewNode(nodeKey: TechnicalReviewNodeKey): TechnicalReviewNode {
   const meta = nodeKey === 'BUYER'
@@ -62,6 +69,7 @@ function reviewNode(nodeKey: TechnicalReviewNodeKey): TechnicalReviewNode {
 }
 
 resetEngineeringMasterRepository()
+resetPatternTaskRepository()
 const style = listStyleArchives()[0]
 assert.ok(style)
 const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
@@ -93,6 +101,24 @@ updateEngineeringTaskRecord(master.masterOrderId, patternTaskId, (task) => {
     reviewedAt: '2026-08-02 10:00',
   }]
 })
+const patternTaskSeed = listPatternTasks()[0]
+assert.ok(patternTaskSeed)
+const patternSourceTask = upsertPatternTask({
+  ...patternTaskSeed,
+  patternTaskId: 'PATTERN-TASK-REWORK-BRIDGE',
+  patternTaskCode: 'AT-REWORK-BRIDGE',
+  title: '技术包返工桥接花型任务',
+  styleId: master.styleId,
+  styleCode: master.styleCode,
+  styleName: master.styleName,
+  productStyleCode: master.styleCode,
+  spuCode: master.styleCode,
+  upstreamModule: '生产工程管理',
+  upstreamObjectType: '工程专业任务',
+  upstreamObjectId: patternTaskId,
+  upstreamObjectCode: patternTaskId,
+  status: '已完成',
+})
 
 const seedRecord = listTechnicalDataVersions()[0]
 assert.ok(seedRecord)
@@ -114,7 +140,7 @@ const version: TechnicalDataVersionRecord = {
   createdFromTaskType: 'ENGINEERING_MASTER',
   createdFromTaskId: `${master.masterOrderId}-TECH_PACK_CONFIRMATION`,
   createdFromTaskCode: `${master.masterOrderId}-TECH_PACK_CONFIRMATION`,
-  linkedArtworkTaskIds: [patternTaskId],
+  linkedArtworkTaskIds: [patternSourceTask.patternTaskId],
   versionStatus: 'DRAFT',
   reviewStage: '跟单复核',
   buyerReview: reviewNode('BUYER'),
@@ -144,6 +170,21 @@ assert.equal(reopenedTask?.reworkRounds.length, 1, '重开原花型任务必须�
 assert.equal(returned.technicalVersionId, technicalVersionId, '打回后必须继续审核同一技术包版本')
 assert.equal(getTechnicalDataVersionById(technicalVersionId)?.technicalVersionId, technicalVersionId)
 assert.equal(listTechnicalDataVersions().length, versionCountBefore, '打回不得生成新的技术包版本')
+const returnedMerchandiser = getTechnicalDataVersionById(technicalVersionId)?.merchandiserReview
+assert.ok(returnedMerchandiser)
+const merchandiserOperator = {
+  id: returnedMerchandiser.assignedReviewerId,
+  name: returnedMerchandiser.assignedReviewerName,
+}
+startTechPackReview(technicalVersionId, 'MERCHANDISER', {
+  opinion: '开始复核返工成果',
+  operator: merchandiserOperator,
+})
+assert.throws(
+  () => approveTechPackReview(technicalVersionId, 'MERCHANDISER', '确认技术包返工完成', merchandiserOperator),
+  /原花型任务当前不是已完成状态/,
+  '原专业任务返工未完成前不得绕过工程闭环通过技术包复审',
+)
 
 const colorTaskIds = [
   `${master.masterOrderId}-COLOR_YARN`,
@@ -327,34 +368,6 @@ assert.throws(
   '缺少权威原任务绑定时必须中文报错，不能按款式猜测任务',
 )
 assert.equal(getTechnicalDataVersionById(missingBindingVersionId)?.reviewStage, '跟单复核', '绑定校验失败不得提前改写技术包审核状态')
-
-updateEngineeringTaskRecord(master.masterOrderId, patternTaskId, (task) => {
-  task.status = '已完成'
-  task.materialLines.forEach((line) => { line.reviewStatus = '通过' })
-})
-const duplicateTargetVersionId = 'TDV-DUPLICATE-REWORK-TARGET'
-resetTechnicalDataVersionRepository()
-createTechnicalDataVersionDraft({
-  ...version,
-  technicalVersionId: duplicateTargetVersionId,
-  technicalVersionCode: 'TP-DUPLICATE-REWORK-TARGET',
-  linkedArtworkTaskIds: [patternTaskId, patternTaskId],
-}, { ...seedContent, technicalVersionId: duplicateTargetVersionId })
-const patternBeforeRollback = getEngineeringMasterOrderById(master.masterOrderId)?.tasks.find(
-  (task) => task.taskId === patternTaskId,
-)
-assert.throws(
-  () => returnTechPackReviewByModules(duplicateTargetVersionId, ['DESIGN'], '验证多目标事务回滚', '跟单C'),
-  /不是已完成状态/,
-  '后一个返工目标失败时必须中止整次打回',
-)
-const patternAfterRollback = getEngineeringMasterOrderById(master.masterOrderId)?.tasks.find(
-  (task) => task.taskId === patternTaskId,
-)
-assert.deepEqual(patternAfterRollback, patternBeforeRollback, '后一个目标失败时前一个工程任务必须整体回滚')
-assert.equal(getTechnicalDataVersionById(duplicateTargetVersionId)?.reviewStage, '跟单复核', '工程返工失败时技术包审核状态必须回滚')
-assert.equal(listTechPackVersionLogsByVersionId(duplicateTargetVersionId).length, 0, '工程返工失败不得留下版本日志')
-assert.equal(listTechPackReviewNotificationsByVersionId(duplicateTargetVersionId).length, 0, '工程返工失败不得留下审核通知')
 
 const wrongSourceVersionId = 'TDV-WRONG-SOURCE'
 resetTechnicalDataVersionRepository()

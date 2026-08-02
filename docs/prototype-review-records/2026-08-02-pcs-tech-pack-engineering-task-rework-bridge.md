@@ -53,6 +53,9 @@
 | 调色返工后生产准备时效仍显示旧完成时间 | 追溯不足 | 跟单、买手 | 保留首次完成时间，清空当前有效完成时间与调色完成时间；再次通过后写入新完成时间 | 否 |
 | 已无有效染色物料的历史任务阻断有效任务返工 | 协作断裂 | 跟单、染厂 | 仅选择“已完成且存在正常染色行”的调色任务，历史无效任务自动跳过 | 否 |
 | 多目标返工中后一个目标失败留下部分改写 | 追溯不足 | 跟单、专业团队 | 工程任务与技术包审核保持嵌套事务，任一目标失败时整体回滚，不生成日志和通知 | 否 |
+| 技术包记录的独立花型任务 ID 被误当作工程任务 ID | 选不对 | 跟单、花型团队 | 先读取独立花型任务，再通过其 `upstreamObjectId` 定位工程主单原专业任务；相同工程任务去重 | 否 |
+| 原专业任务仍在返工时技术包可提前复审通过 | 协作断裂 | 跟单、买手 | 跟单审核通过前校验本次解锁的花型／调色原任务均已完成 | 否 |
+| 日志写入失败但技术包和工程任务已提交 | 追溯不足 | 跟单、专业团队 | 工程、技术版本、审核日志与通知统一置于嵌套事务内 | 否 |
 
 ## 6. 最终结论
 
@@ -60,7 +63,7 @@
 
 说明：
 
-- 花型设计模块只使用 `sourceProjectId + linkedArtworkTaskIds` 定位原任务。
+- 花型设计模块使用 `sourceProjectId + linkedArtworkTaskIds` 定位独立花型任务，再读取其工程专业任务绑定。
 - 款色用料模块只读取来源工程主单中已完成且仍存在有效染色物料行的纱线／面料调色任务。
 - 工程变更来源维持既有审核行为，本次不误连工程主单任务。
 - 齐码纸样仍由制作团队提交即完成，不新增独立审核。
@@ -70,6 +73,7 @@
 ### 受管文件
 
 - `src/data/pcs-engineering-task-review.ts`
+- `src/data/pcs-tech-pack-task-generation.ts`
 - `src/data/pcs-tech-pack-review.ts`
 
 ### 页面路由
@@ -84,6 +88,7 @@
 - `npx tsx tests/pcs-engineering-preparation-color-projection.spec.ts`：通过
 - `npx tsx tests/pcs-engineering-task-submit.spec.ts`：通过
 - `npx tsx tests/pcs-repository-sync-transaction.spec.ts`：通过
+- 技术包复审门禁：原花型／调色任务未完成时阻止跟单审核通过。
 - `npm run build`：通过
 - `npm run check:prototype-design-governance -- --all`：通过
 

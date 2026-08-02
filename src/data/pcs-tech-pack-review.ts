@@ -16,6 +16,7 @@ import {
   runEngineeringMasterRepositoryTransaction,
 } from './pcs-engineering-master-repository.ts'
 import { reopenEngineeringMaterialTaskForTechPackReview } from './pcs-engineering-task-review.ts'
+import { getPatternTaskById } from './pcs-pattern-task-repository.ts'
 import {
   formatTechPackDesignRequirementBlockMessage,
   validateTechPackDesignRequirement,
@@ -801,6 +802,7 @@ export function approveTechPackReview(
     throw new Error('买手和版师审核都通过后，才能进入跟单复核。')
   }
   if (nodeKey === 'MERCHANDISER') {
+    assertEngineeringReworkCompletedBeforeMerchandiserApproval(record)
     assertDesignRequirementSatisfied(technicalVersionId, '跟单无法审核通过')
     assertProcessRouteReadyForMerchandiserReview(technicalVersionId)
   }
@@ -1075,7 +1077,16 @@ function resolveArtworkTasksForTechPackRework(record: TechnicalDataVersionRecord
   if (record.linkedArtworkTaskIds.length === 0) {
     throw new Error('技术包未绑定原花型任务，无法发起返工。')
   }
-  return record.linkedArtworkTaskIds.map((taskId) => assertEngineeringTaskCanReopen({
+  const engineeringTaskIds = new Set<string>()
+  for (const patternTaskId of record.linkedArtworkTaskIds) {
+    const patternTask = getPatternTaskById(patternTaskId)
+    if (!patternTask) throw new Error(`技术包绑定的原花型任务不存在：${patternTaskId}`)
+    if (!patternTask.upstreamObjectId.trim()) {
+      throw new Error(`原花型任务未绑定工程主单专业任务：${patternTaskId}`)
+    }
+    engineeringTaskIds.add(patternTask.upstreamObjectId)
+  }
+  return [...engineeringTaskIds].map((taskId) => assertEngineeringTaskCanReopen({
     record,
     taskId,
     expectedTaskTypes: ['PATTERN_ARTWORK'],
@@ -1109,6 +1120,16 @@ function resolveColorTasksForTechPackRework(record: TechnicalDataVersionRecord):
   }))
 }
 
+function assertEngineeringReworkCompletedBeforeMerchandiserApproval(record: TechnicalDataVersionRecord): void {
+  if (record.createdFromTaskType !== 'ENGINEERING_MASTER') return
+  if (record.reviewUnlockedModuleKeys.includes('DESIGN')) {
+    resolveArtworkTasksForTechPackRework(record)
+  }
+  if (record.reviewUnlockedModuleKeys.includes('COLOR_MATERIAL_MAPPING')) {
+    resolveColorTasksForTechPackRework(record)
+  }
+}
+
 export function returnTechPackReviewByModules(
   technicalVersionId: string,
   moduleKeys: TechnicalModuleKey[],
@@ -1137,19 +1158,19 @@ export function returnTechPackReviewByModules(
     ...resolveReviewNodeKeysByModules(unlockedModuleKeys),
     'MERCHANDISER',
   ])
-  const nextRecord = runTechnicalDataVersionRepositoryTransaction(() => {
-    const savedRecord = saveReviewPatch(technicalVersionId, {
-      ...buildReworkReviewPatch({
-        record,
-        snapshot,
-        targetNodeKeys,
-        unlockedModuleKeys,
-        returnedAt,
-        operatorName: operator.name,
-        opinion: reviewOpinion,
-      }),
-    })
-    runEngineeringMasterRepositoryTransaction(() => {
+  const nextRecord = runEngineeringMasterRepositoryTransaction(() =>
+    runTechnicalDataVersionRepositoryTransaction(() => {
+      const savedRecord = saveReviewPatch(technicalVersionId, {
+        ...buildReworkReviewPatch({
+          record,
+          snapshot,
+          targetNodeKeys,
+          unlockedModuleKeys,
+          returnedAt,
+          operatorName: operator.name,
+          opinion: reviewOpinion,
+        }),
+      })
       for (const target of engineeringTaskTargets) {
         reopenEngineeringMaterialTaskForTechPackReview({
           masterOrderId: target.masterOrderId,
@@ -1157,21 +1178,21 @@ export function returnTechPackReviewByModules(
           reason: reviewOpinion,
         })
       }
-    })
-    return savedRecord
-  })
-  appendReviewLog({
-    record: nextRecord,
-    logType: '跟单打回第一阶段',
-    changeText: `跟单复核打回${formatNodeRoles(targetNodeKeys)}重新审核，重审模块：${formatModuleLabels(unlockedModuleKeys)}。原因：${reviewOpinion}`,
-    operatorName: operator.name,
-    createdAt: returnedAt,
-  })
-  sendReworkNotifications({
-    technicalVersionId,
-    createdBy: operator.name,
-    targetNodeKeys,
-  })
+      appendReviewLog({
+        record: savedRecord,
+        logType: '跟单打回第一阶段',
+        changeText: `跟单复核打回${formatNodeRoles(targetNodeKeys)}重新审核，重审模块：${formatModuleLabels(unlockedModuleKeys)}。原因：${reviewOpinion}`,
+        operatorName: operator.name,
+        createdAt: returnedAt,
+      })
+      sendReworkNotifications({
+        technicalVersionId,
+        createdBy: operator.name,
+        targetNodeKeys,
+      })
+      return savedRecord
+    }),
+  )
   return getTechnicalDataVersionById(technicalVersionId) || nextRecord
 }
 
