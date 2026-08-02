@@ -115,10 +115,14 @@ export function renderWaitHandoverScrapEligibility(current: WaitHandoverDialogCu
 }
 
 export interface WaitHandoverRecoveryEligibilityInput {
+  bagCode: string
   physicalBagReceived: boolean
   physicalBagEmpty: boolean
   recoveryMode: 'NORMAL' | 'FORCED'
+  recoveryNode: string
+  recoveryLocation: string
   reason: string
+  operatorName: string
   secondConfirm: boolean
 }
 
@@ -136,19 +140,26 @@ export function renderWaitHandoverRecoveryEligibility(
   if (current.mainStatus === 'IDLE') return `<div ${attr} class="rounded-lg border border-slate-300 bg-slate-50 p-3 text-sm text-slate-700">${escapeHtml(current.bagCode)} 当前空闲，无需回收；可直接用于下次装袋。</div>`
   if (current.flowStage !== 'HANDED_OVER_WAITING_RETURN') return `<div ${attr} class="rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-900">当前袋不是已交出待回收状态，请先完成当前环节或叫主管核查。</div>`
   if (!input.physicalBagReceived || !input.physicalBagEmpty) return `<div ${attr} class="rounded-lg border border-blue-300 bg-blue-50 p-3 text-sm text-blue-900">请确认实物袋已收到且袋内为空，确认后才能回收。</div>`
-  if (input.recoveryMode === 'FORCED' && (!input.reason || !input.secondConfirm)) return `<div ${attr} class="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">强制回收还需填写原因并完成二次确认。</div>`
-  return `<div ${attr} class="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900">实物空袋和回收方式已核对，可以确认回收。</div>`
+  if (!input.recoveryNode || !input.recoveryLocation || !input.reason || !input.operatorName || !input.secondConfirm) return `<div ${attr} class="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">还需填写回收节点、位置、原因、操作人，并完成二次确认。</div>`
+  const readyText = input.recoveryMode === 'FORCED'
+    ? '强制回收条件与最近交出事实已核对，可以确认回收。'
+    : '普通回收条件与最近交出事实已核对，可以确认回收。'
+  return `<div ${attr} class="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900">${readyText}</div>`
 }
 
 export function isWaitHandoverRecoveryBlocked(
   current: WaitHandoverDialogCurrent | null,
   input: WaitHandoverRecoveryEligibilityInput,
 ): boolean {
-  if (!current || current.mainStatus === 'DISABLED') return true
+  if (!input.bagCode || !current || current.mainStatus === 'DISABLED') return true
   if (['PACKED', 'INBOUND_STORED', 'READY_HANDOVER'].includes(current.flowStage) || current.tickets.length) return true
   if (current.flowStage !== 'HANDED_OVER_WAITING_RETURN') return true
   if (!input.physicalBagReceived || !input.physicalBagEmpty) return true
-  return input.recoveryMode === 'FORCED' && (!input.reason || !input.secondConfirm)
+  return !input.recoveryNode
+    || !input.recoveryLocation
+    || !input.reason
+    || !input.operatorName
+    || !input.secondConfirm
 }
 
 export interface WaitHandoverScrapEligibilityInput {
@@ -224,8 +235,8 @@ function handoverContent(model: WaitHandoverActionDialogModel): string {
 }
 
 function recoveryContent(model: WaitHandoverActionDialogModel, bagCode: string): string {
-  const initial = { physicalBagReceived: false, physicalBagEmpty: false, recoveryMode: 'NORMAL' as const, reason: '', secondConfirm: false }
-  return `<div class="space-y-4"><section class="grid gap-3 md:grid-cols-2">${field('中转袋二维码 / 袋码', 'bagCode', bagCode, '只扫描实物已在手上的空袋')}${bagSummary(model)}</section>${renderWaitHandoverRecoveryEligibility(model.current, initial)}<fieldset class="grid gap-3 md:grid-cols-2"><label class="rounded-lg border p-3 text-sm"><input type="radio" name="recoveryMode" value="NORMAL" checked data-wait-handover-field="recoveryMode" /> <strong>普通回收</strong><span class="mt-1 block text-xs text-muted-foreground">后道或裁床收到实物空袋。</span></label><label class="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm"><input type="radio" name="recoveryMode" value="FORCED" data-wait-handover-field="recoveryMode" /> <strong>强制回收</strong><span class="mt-1 block text-xs text-amber-800">只允许已交出待回收且实物空袋在场。</span></label></fieldset><div class="grid gap-3 md:grid-cols-2"><label class="flex items-center gap-2 text-sm"><input type="checkbox" data-wait-handover-field="physicalBagReceived" />实物袋已收到</label><label class="flex items-center gap-2 text-sm"><input type="checkbox" data-wait-handover-field="physicalBagEmpty" />实物袋为空</label></div><section class="grid gap-3 md:grid-cols-2">${field('回收节点', 'recoveryNode', model.recoveryNodeOptions[0] || '裁床待交出仓')}${field('回收位置', 'recoveryLocation', '空袋回收区')}${field('强制回收原因', 'reason', '', '强制回收时必填')}${field('操作人', 'operatorName', '空袋回收员')}</section><label class="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm"><input type="checkbox" data-wait-handover-field="secondConfirm" />强制回收二次确认：实物袋在我手上并且为空</label></div>`
+  const initial = { bagCode, physicalBagReceived: false, physicalBagEmpty: false, recoveryMode: 'NORMAL' as const, recoveryNode: model.recoveryNodeOptions[0] || '裁床待交出仓', recoveryLocation: '空袋回收区', reason: '', operatorName: '空袋回收员', secondConfirm: false }
+  return `<div class="space-y-4"><section class="grid gap-3 md:grid-cols-2">${field('中转袋二维码 / 袋码', 'bagCode', bagCode, '只扫描实物已在手上的空袋')}${bagSummary(model)}</section>${renderWaitHandoverRecoveryEligibility(model.current, initial)}<fieldset class="grid gap-3 md:grid-cols-2"><label class="rounded-lg border p-3 text-sm"><input type="radio" name="recoveryMode" value="NORMAL" checked data-wait-handover-field="recoveryMode" /> <strong>普通回收</strong><span class="mt-1 block text-xs text-muted-foreground">后道或裁床收到实物空袋。</span></label><label class="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm"><input type="radio" name="recoveryMode" value="FORCED" data-wait-handover-field="recoveryMode" /> <strong>强制回收</strong><span class="mt-1 block text-xs text-amber-800">只允许已交出待回收且实物空袋在场，并核对最近交出事实。</span></label></fieldset><div class="grid gap-3 md:grid-cols-2"><label class="flex items-center gap-2 text-sm"><input type="checkbox" data-wait-handover-field="physicalBagReceived" />实物袋已收到</label><label class="flex items-center gap-2 text-sm"><input type="checkbox" data-wait-handover-field="physicalBagEmpty" />实物袋为空</label></div><section class="grid gap-3 md:grid-cols-2">${field('回收节点', 'recoveryNode', model.recoveryNodeOptions[0] || '裁床待交出仓')}${field('回收位置', 'recoveryLocation', '空袋回收区')}${field('回收原因', 'reason', '', '普通与强制回收均必填')}${field('操作人', 'operatorName', '空袋回收员')}</section><label class="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm"><input type="checkbox" data-wait-handover-field="secondConfirm" />回收二次确认：已核对袋码、实物空袋、节点、位置和原因</label></div>`
 }
 
 function scrapContent(model: WaitHandoverActionDialogModel, bagCode: string): string {
@@ -248,7 +259,7 @@ export function renderWaitHandoverActionDialog(input: {
     ? `${content}${renderWaitHandoverScrapEligibility(model.current)}`
     : content
   const submitDisabled = action === 'recovery'
-    ? isWaitHandoverRecoveryBlocked(model.current, { physicalBagReceived: false, physicalBagEmpty: false, recoveryMode: 'NORMAL', reason: '', secondConfirm: false })
+    ? isWaitHandoverRecoveryBlocked(model.current, { bagCode, physicalBagReceived: false, physicalBagEmpty: false, recoveryMode: 'NORMAL', recoveryNode: model.recoveryNodeOptions[0] || '裁床待交出仓', recoveryLocation: '空袋回收区', reason: '', operatorName: '空袋回收员', secondConfirm: false })
     : action === 'scrap' && isWaitHandoverScrapBlocked(model.current)
   const wide = action === 'repack' ? 'w-[min(1180px,calc(100vw-32px))]' : 'w-[min(760px,calc(100vw-32px))]'
   return `<div id="cutting-wait-handover-web-action-modal" class="fixed inset-0 z-[130]" data-skip-page-rerender="true" data-wait-handover-modal="${action}">

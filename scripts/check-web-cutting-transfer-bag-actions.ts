@@ -225,6 +225,34 @@ assert.deepEqual(
   `Task 7 第二次独立规格审查仍有缺口：\n${taskSevenSecondReviewGaps.join('\n')}`,
 )
 
+const recoveryEligibilitySource = dialogsSource.match(
+  /export function isWaitHandoverRecoveryBlocked\([\s\S]*?\n}\n/,
+)?.[0] || ''
+for (const field of [
+  'physicalBagReceived',
+  'physicalBagEmpty',
+  'recoveryNode',
+  'recoveryLocation',
+  'reason',
+  'operatorName',
+  'secondConfirm',
+]) {
+  assert(
+    recoveryEligibilitySource.includes(`input.${field}`),
+    `普通与强制回收本地门禁都必须校验 ${field}`,
+  )
+}
+assert(
+  !recoveryEligibilitySource.includes("input.recoveryMode === 'FORCED' && (!input.reason || !input.secondConfirm)"),
+  '普通回收不得跳过原因和二次确认',
+)
+for (const field of ['recoveryNode', 'recoveryLocation', 'operatorName']) {
+  assert(
+    actionsSource.includes(`${field}: readField(dialog, '${field}')`),
+    `回收局部资格快照必须读取 ${field}`,
+  )
+}
+
 const runtimeLedger = await import(
   '../src/data/fcs/cutting/cutting-runtime-event-ledger.ts'
 )

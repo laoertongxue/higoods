@@ -516,10 +516,14 @@ function refreshRepackPreview(dialog: HTMLElement): void {
 
 function recoveryEligibilityInput(dialog: HTMLElement) {
   return {
+    bagCode: readField(dialog, 'bagCode'),
     physicalBagReceived: readChecked(dialog, 'physicalBagReceived'),
     physicalBagEmpty: readChecked(dialog, 'physicalBagEmpty'),
     recoveryMode: (readRadio(dialog, 'recoveryMode') || 'NORMAL') as 'NORMAL' | 'FORCED',
+    recoveryNode: readField(dialog, 'recoveryNode'),
+    recoveryLocation: readField(dialog, 'recoveryLocation'),
     reason: readField(dialog, 'reason'),
+    operatorName: readField(dialog, 'operatorName'),
     secondConfirm: readChecked(dialog, 'secondConfirm'),
   }
 }
@@ -569,7 +573,7 @@ export function handleWaitHandoverActionEvent(target: HTMLElement): boolean {
   const bagDialog = fieldNode?.closest<HTMLElement>('[data-wait-handover-modal]')
   const localEligibilityFields = [
     'bagCode', 'recoveryMode', 'physicalBagReceived', 'physicalBagEmpty', 'reason',
-    'secondConfirm', 'recoverFirst', 'authorizedBy', 'operatorName',
+    'recoveryNode', 'recoveryLocation', 'secondConfirm', 'recoverFirst', 'authorizedBy', 'operatorName',
   ]
   if (bagDialog && ['recovery', 'scrap'].includes(bagDialog.dataset.waitHandoverModal || '')
     && localEligibilityFields.includes(fieldNode?.dataset.waitHandoverField || '')) {
