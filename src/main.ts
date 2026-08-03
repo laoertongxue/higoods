@@ -114,6 +114,10 @@ function getPdaCuttingHandoverModule(): Promise<PdaCuttingHandoverModule> {
 
 async function handleActivePdaCuttingEvent(target: HTMLElement, event?: Event): Promise<unknown> {
   const pathname = appStore.getState().pathname
+  if (pathname.startsWith('/fcs/pda/cutting/transfer-bag/')) {
+    const pdaHandlers = await getPdaHandlersModule()
+    return pdaHandlers.dispatchPdaPageEvent(target, event)
+  }
   if (pathname.startsWith('/fcs/pda/cutting/inbound/')) {
     const module = await getPdaCuttingInboundModule()
     return module.handlePdaCuttingInboundEvent(target, event)

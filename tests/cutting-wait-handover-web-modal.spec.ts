@@ -193,9 +193,12 @@ test('待交出仓保留原工作台，六个中转袋动作均局部打开并�
   ).toHaveValue(bagCode)
   const inboundLocation = await page.evaluate(async () => {
     const { buildCurrentCuttingWarehouseMapProjection } = await import('/src/pages/process-factory/cutting/warehouse-location-map.ts')
+    const { listWarehouseLocationMapShelfCells } = await import('/src/pages/process-factory/cutting/warehouse-location-map-model.ts')
     const current = buildCurrentCuttingWarehouseMapProjection('WAIT_HANDOVER')
-    const area = current?.projection.areas.find((item) => item.shelves.some((shelf) => shelf.locations.length > 0))
-    const location = area?.shelves.flatMap((shelf) => shelf.locations)[0]
+    const area = current?.projection.areas.find((item) =>
+      item.shelves.some((shelf) => listWarehouseLocationMapShelfCells(shelf).length > 0),
+    )
+    const location = area?.shelves.flatMap((shelf) => listWarehouseLocationMapShelfCells(shelf))[0]
     if (!area || !location) throw new Error('测试环境没有可用的待交出仓库位')
     return { areaName: area.areaName, locationNo: location.locationNo }
   })
