@@ -1461,6 +1461,10 @@ function dependencyText(record: ProductionPreparationRecord, item: ProductionPre
     .join('、') || '无前置准备项'
 }
 
+function renderReusedResultNotice(item: ProductionPreparationItem): string {
+  return `<p class="mt-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">前期成果复用 / 不计本次时效${item.evidenceSummary ? `｜${escapeHtml(item.evidenceSummary)}` : ''}</p>`
+}
+
 function renderItemCard(record: ProductionPreparationRecord, item: ProductionPreparationItem, active: boolean): string {
   const ownerRoleRule = preparationOwnerRoleRules.find((rule) => rule.ownerTeam === item.ownerTeam)
   const engineeringItem = item.sourceObjectType === '工程主单'
@@ -1489,7 +1493,8 @@ function renderItemCard(record: ProductionPreparationRecord, item: ProductionPre
         : ''}
       ${engineeringItem && item.taskHref ? `<div class="mt-2 text-xs"><button type="button" class="text-blue-700 hover:underline" data-nav="${escapeHtml(item.taskHref)}">查看专业任务</button>${item.purchaseOrderHref ? `<button type="button" class="ml-3 text-blue-700 hover:underline" data-nav="${escapeHtml(item.purchaseOrderHref)}">查看采购单</button>` : ''}</div>` : ''}
       ${
-        item.status === '已完成' && !hasCompletionEvidence(item)
+        item.reusedPriorResult ? renderReusedResultNotice(item)
+          : item.status === '已完成' && !hasCompletionEvidence(item)
           ? `<p class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">${item.itemType === '辅料下单' ? '异常：已完成但采购单号或逐单下单时间不完整，请补充登记。' : '异常：已完成但缺少上传文件、上传人或上传时间，请补传完成凭证。'}</p>`
           : ''
       }
@@ -1976,14 +1981,15 @@ function getStatsDetails(month: string, filter: ProductionPreparationFilter): Mo
 function buildStatsRows(month: string, details: MonthlyPreparationCompletionDetail[]): StatsTableRow[] {
   return preparationItemTypes.map((itemType) => {
     const rows = details.filter((detail) => detail.itemType === itemType)
-    const durationTotal = rows.reduce((sum, row) => sum + row.durationHours, 0)
+    const timingRows = rows.filter((row) => row.timingDataComplete)
+    const durationTotal = timingRows.reduce((sum, row) => sum + row.durationHours, 0)
     const ownerTeamText = Array.from(new Set(rows.map((row) => row.ownerTeam).filter(Boolean))).join('、') || '-'
     return {
       itemType,
       completedCount: rows.length,
-      onTimeCompletedCount: rows.filter((row) => row.onTime).length,
-      overdueCompletedCount: rows.filter((row) => !row.onTime).length,
-      averageDurationHours: rows.length ? Number((durationTotal / rows.length).toFixed(1)) : 0,
+      onTimeCompletedCount: timingRows.filter((row) => row.onTime).length,
+      overdueCompletedCount: timingRows.filter((row) => !row.onTime).length,
+      averageDurationHours: timingRows.length ? Number((durationTotal / timingRows.length).toFixed(1)) : 0,
       latestFinishedAt: rows.reduce((latest, row) => (row.actualFinishAt > latest ? row.actualFinishAt : latest), ''),
       ownerTeamText,
       basisText: `${month} 实际完成，已关闭记录、无需项和未选择选填项不计入`,
@@ -1996,10 +2002,11 @@ function getGroupedCompletedCount(stats: StatsTableRow[], itemTypes: Preparation
 }
 
 function renderStatsSummary(details: MonthlyPreparationCompletionDetail[], stats: StatsTableRow[]): string {
-  const onTime = details.filter((detail) => detail.onTime).length
-  const overdue = details.length - onTime
-  const averageHours = details.length
-    ? Number((details.reduce((sum, detail) => sum + detail.durationHours, 0) / details.length).toFixed(1))
+  const timingDetails = details.filter((detail) => detail.timingDataComplete)
+  const onTime = timingDetails.filter((detail) => detail.onTime).length
+  const overdue = timingDetails.length - onTime
+  const averageHours = timingDetails.length
+    ? Number((timingDetails.reduce((sum, detail) => sum + detail.durationHours, 0) / timingDetails.length).toFixed(1))
     : 0
   const cards = [
     ['本月完成准备项', details.length, '项'],
@@ -2125,7 +2132,7 @@ function createDetailStatsColumns(month: string): StandardListColumn<MonthlyPrep
     { key: 'ownerName', title: '责任人', width: 120, sortable: true, sortValue: (row) => row.ownerName, render: (row) => escapeHtml(row.ownerName) },
     { key: 'plannedFinishAt', title: '计划完成时间', width: 180, sortable: true, sortValue: (row) => row.plannedFinishAt, render: (row) => escapeHtml(formatDateTime(row.plannedFinishAt)) },
     { key: 'actualFinishAt', title: '实际完成时间', width: 180, required: true, freezeable: true, sortable: true, sortValue: (row) => row.actualFinishAt, render: (row) => escapeHtml(formatDateTime(row.actualFinishAt)) },
-    { key: 'onTime', title: '是否超时', width: 110, sortable: true, sortValue: (row) => row.onTime ? 0 : 1, render: (row) => renderBadge(row.onTime ? '否' : '是', row.onTime ? 'green' : 'red') },
+    { key: 'onTime', title: '是否超时', width: 110, sortable: true, sortValue: (row) => row.timingDataComplete ? (row.onTime ? 0 : 1) : 2, render: (row) => row.timingDataComplete ? renderBadge(row.onTime ? '否' : '是', row.onTime ? 'green' : 'red') : '<span class="text-xs text-muted-foreground">数据缺失</span>' },
     { key: 'evidenceSummary', title: '证据摘要', width: 280, sortable: true, sortValue: (row) => row.evidenceSummary, render: (row) => `<span class="text-xs text-muted-foreground">${escapeHtml(row.evidenceSummary || '-')}</span>` },
   ]
 }

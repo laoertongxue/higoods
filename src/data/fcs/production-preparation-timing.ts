@@ -370,6 +370,7 @@ export interface MonthlyPreparationCompletionDetail extends FlattenedPreparation
   required: boolean
   durationHours: number
   onTime: boolean
+  timingDataComplete: boolean
 }
 
 export interface PreparationOutputBuildInput {
@@ -1820,12 +1821,11 @@ export function buildProductionPreparationKpis(
   records: ProductionPreparationRecord[] = productionPreparationRecords,
 ): ProductionPreparationKpi[] {
   const activeRecords = records.filter((record) => record.status !== '已关闭')
-  const requiredItems = flattenProductionPreparationItems(activeRecords)
-    .filter(isSelectedPreparationItem)
-    .filter((item) => item.includedInDurationStats !== false)
-  const completedCount = requiredItems.filter(hasValidPreparationCompletionEvidence).length
+  const requiredItems = flattenProductionPreparationItems(activeRecords).filter(isSelectedPreparationItem)
+  const completionItems = requiredItems.filter((item) => item.reusedPriorResult !== true)
+  const completedCount = completionItems.filter(hasValidPreparationCompletionEvidence).length
   const overdueCount = requiredItems.filter((item) => item.status === '已超时' || item.overdueHours > 0).length
-  const completionRate = requiredItems.length ? Math.round((completedCount / requiredItems.length) * 100) : 0
+  const completionRate = completionItems.length ? Math.round((completedCount / completionItems.length) * 100) : 0
   const pendingBuyerReviewCount = requiredItems.filter(
     (item) => item.itemType === '数码印/DTF/DTG花型' && item.buyerReviewStatus === '待确认',
   ).length
@@ -1881,18 +1881,22 @@ export function buildMonthlyPreparationCompletionDetails(
         matchesCompletionItemFilter(item, recordFilter) &&
         item.recordStatus !== '已关闭' &&
         item.selectedByMerchandiser === true &&
-        item.includedInDurationStats !== false &&
+        item.reusedPriorResult !== true &&
         hasValidPreparationCompletionEvidence(item) &&
         item.actualFinishAt.startsWith(month),
     )
     .map((item) => {
-      const hours = durationHours(item.actualStartAt || item.plannedStartAt, item.actualFinishAt)
+      const timingDataComplete = item.includedInDurationStats !== false
+      const hours = timingDataComplete
+        ? durationHours(item.actualStartAt || item.plannedStartAt, item.actualFinishAt)
+        : 0
       return {
         ...item,
         itemStatus: item.status,
         required: item.required,
         durationHours: Number(hours.toFixed(1)),
-        onTime: item.actualFinishAt <= item.plannedFinishAt,
+        onTime: timingDataComplete && item.actualFinishAt <= item.plannedFinishAt,
+        timingDataComplete,
       }
     })
 }
@@ -1905,13 +1909,14 @@ export function buildMonthlyPreparationStats(
 
   return preparationItemTypes.map((itemType) => {
     const rows = details.filter((detail) => detail.itemType === itemType)
-    const durationTotal = rows.reduce((sum, row) => sum + durationHours(row.plannedStartAt, row.actualFinishAt), 0)
+    const timingRows = rows.filter((row) => row.timingDataComplete)
+    const durationTotal = timingRows.reduce((sum, row) => sum + row.durationHours, 0)
     return {
       itemType,
       completedCount: rows.length,
-      onTimeCompletedCount: rows.filter((row) => row.onTime).length,
-      overdueCompletedCount: rows.filter((row) => !row.onTime).length,
-      averageDurationHours: rows.length ? Number((durationTotal / rows.length).toFixed(1)) : 0,
+      onTimeCompletedCount: timingRows.filter((row) => row.onTime).length,
+      overdueCompletedCount: timingRows.filter((row) => !row.onTime).length,
+      averageDurationHours: timingRows.length ? Number((durationTotal / timingRows.length).toFixed(1)) : 0,
       latestFinishedAt: rows.reduce((latest, row) => (row.actualFinishAt > latest ? row.actualFinishAt : latest), ''),
     }
   })

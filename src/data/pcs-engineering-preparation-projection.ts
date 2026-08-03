@@ -167,7 +167,7 @@ function createProjectedItem(
   const reusedPriorResult = Boolean(reuse)
   const times = reusedPriorResult ? { first: '', effective: '' } : completionTimes(task, definition)
   const actualStartAt = reusedPriorResult ? '' : task?.startedAt || ''
-  const taskId = task?.taskId || `${master.masterOrderId}-${definition.taskType}`
+  const taskId = task?.taskId || ''
   const itemId = projectedItemId(master.masterOrderId, definition)
   const orderNo = task?.boundPurchaseOrderNos?.[0] || ''
   return {
@@ -205,7 +205,7 @@ function createProjectedItem(
     effectiveFinishedAt: times.effective,
     reusedPriorResult,
     includedInDurationStats: !reusedPriorResult && Boolean(actualStartAt && times.effective),
-    taskHref: taskHref(definition.taskType, taskId),
+    taskHref: taskId ? taskHref(definition.taskType, taskId) : '',
     accessoryPurchaseOrderNos: task?.boundPurchaseOrderNos ? [...task.boundPurchaseOrderNos] : [],
     accessoryPurchaseOrderedAts: task?.completedAt ? [task.completedAt] : [],
     accessoryPurchaseUpdatedAt: task?.completedAt || '',
@@ -259,7 +259,7 @@ export function projectEngineeringMasterToPreparation(
     productionOrderHref: '',
     techPackVersionLabel: formalTechPack?.versionLabel || '',
     techPackPublishedAt: formalTechPack?.publishedAt || '',
-    status: recordStatus(items),
+    status: master.status === '已关闭' ? '已关闭' : recordStatus(items),
     currentBlockerText: '',
     expectedFinishAt: '',
     closedReason: master.status === '已终止' ? master.terminateReason : '',
@@ -290,7 +290,15 @@ export function projectEngineeringMastersToPreparation(
   formalTechPacks: EngineeringPreparationFormalTechPack[] = [],
 ): ProductionPreparationRecord[] {
   const projectable = masters.filter((master) => master.status !== '草稿' && master.status !== '已终止')
-  const projected = projectable.map((master) => projectEngineeringMasterToPreparation(
+  const firstMasterByStyle = new Map<string, EngineeringMasterOrderRecord>()
+  for (const master of projectable) {
+    const current = firstMasterByStyle.get(master.styleCode)
+    if (!current || [master.createdAt, master.publishedAt, master.masterOrderId].join('\u0000')
+      .localeCompare([current.createdAt, current.publishedAt, current.masterOrderId].join('\u0000')) < 0) {
+      firstMasterByStyle.set(master.styleCode, master)
+    }
+  }
+  const projected = [...firstMasterByStyle.values()].map((master) => projectEngineeringMasterToPreparation(
     master,
     formalTechPacks.find((pack) => pack.masterOrderId === master.masterOrderId),
   ))

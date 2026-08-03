@@ -2,12 +2,17 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
   projectEngineeringMasterToPreparation,
+  projectEngineeringMastersToPreparation,
 } from '../src/data/pcs-engineering-preparation-projection.ts'
 import {
   EMPTY_PREPARATION_RUNTIME_STATE,
   getPreparationRecordCapabilities,
   mergePreparationRuntimeRecords,
 } from '../src/data/fcs/production-preparation-timing-runtime.ts'
+import {
+  buildMonthlyPreparationCompletionDetails,
+  buildProductionPreparationKpis,
+} from '../src/data/fcs/production-preparation-timing.ts'
 import type {
   EngineeringMasterOrderRecord,
   EngineeringTaskRecord,
@@ -91,6 +96,9 @@ assert.equal(completedProjection.items.length, 11, '缺少事件时也必须自�
 const wovenSize = completedProjection.items.find((item) => item.itemType === '梭织齐码纸样')!
 const sample = completedProjection.items.find((item) => item.itemType === '版衣制作')!
 assert.deepEqual(wovenSize.dependsOnItemIds, [sample.itemId], '固定依赖必须由策略生成，不能读取可变输入')
+const missingTaskItem = completedProjection.items.find((item) => item.itemType === '毛织基码纸样')!
+assert.equal(missingTaskItem.taskId, '', '缺少真实专业任务时不得合成 taskId')
+assert.equal(missingTaskItem.taskHref, '', '缺少真实专业任务时不得生成可点击链接')
 
 const reused = projectEngineeringMasterToPreparation(master({
   priorResultReuseLines: [{
@@ -124,6 +132,75 @@ assert.equal(reworkedItem.firstFinishedAt, '2026-07-30 10:00')
 assert.equal(reworkedItem.effectiveFinishedAt, '2026-07-30 14:30')
 assert.equal(reworkedItem.latestRoundNo, 2)
 assert.equal(reworkedItem.eventKeys.length, 2, '重复轮次事件必须按 masterOrderId + taskId + roundNo 去重')
+
+const completedWithMissingStart = projectEngineeringMasterToPreparation(master({
+  tasks: TASK_TYPES.map((type) => type === 'BASE_PATTERN_WOVEN'
+    ? task(type, { startedAt: '' })
+    : task(type)),
+}))
+const missingStartKpis = buildProductionPreparationKpis([completedWithMissingStart])
+assert.equal(
+  missingStartKpis.find((kpi) => kpi.key === 'required-items')?.value,
+  11,
+  '非复用完成项缺开始时间时仍必须计入已选准备项',
+)
+assert.equal(
+  missingStartKpis.find((kpi) => kpi.key === 'completion-rate')?.value,
+  100,
+  '非复用完成项缺开始时间时仍必须计入完成率',
+)
+const missingStartDetails = buildMonthlyPreparationCompletionDetails(
+  '2026-07',
+  {},
+  [completedWithMissingStart],
+)
+assert.equal(missingStartDetails.length, 11, '缺开始时间的普通完成项仍必须保留在完成数量明细')
+const missingStartDetail = missingStartDetails.find((item) => item.itemType === '梭织基码纸样')!
+assert.equal(
+  (missingStartDetail as typeof missingStartDetail & { timingDataComplete?: boolean }).timingDataComplete,
+  false,
+  '缺开始时间的完成项应标记时效数据缺失，不得从完成明细消失',
+)
+
+const originalClosedMaster = master({
+  masterOrderId: 'EM-FIRST-CLOSED',
+  masterOrderCode: 'EM-FIRST-CLOSED-001',
+  status: '已关闭',
+  createdAt: '2026-07-01 08:00',
+  publishedAt: '2026-07-01 09:00',
+  closedAt: '2026-07-31 18:00',
+  tasks: TASK_TYPES.map((type) => task(type, {
+    taskId: `EM-FIRST-CLOSED-${type}`,
+    masterOrderId: 'EM-FIRST-CLOSED',
+  })),
+})
+const illegalLaterActiveMaster = master({
+  masterOrderId: 'EM-LATER-ACTIVE',
+  masterOrderCode: 'EM-LATER-ACTIVE-001',
+  status: '进行中',
+  createdAt: '2026-08-01 08:00',
+  publishedAt: '2026-08-01 09:00',
+  tasks: TASK_TYPES.map((type) => task(type, {
+    taskId: `EM-LATER-ACTIVE-${type}`,
+    masterOrderId: 'EM-LATER-ACTIVE',
+  })),
+})
+const sameStyleLegacy = structuredClone(first)
+sameStyleLegacy.recordId = 'legacy-same-style'
+sameStyleLegacy.sourceKind = undefined
+sameStyleLegacy.masterOrderId = undefined
+const uniqueFirstOrderRecords = projectEngineeringMastersToPreparation(
+  [illegalLaterActiveMaster, originalClosedMaster],
+  [sameStyleLegacy],
+)
+assert.equal(uniqueFirstOrderRecords.length, 1, '同一 SPU 只能投影一张最初首单主单，legacy 也只能替换一次')
+assert.equal(uniqueFirstOrderRecords[0].masterOrderId, originalClosedMaster.masterOrderId, '后来非法 active 主单不得覆盖原始首单事实')
+assert.equal(uniqueFirstOrderRecords[0].status, '已关闭', '已关闭首单必须投影为已关闭记录')
+assert.equal(
+  buildProductionPreparationKpis(uniqueFirstOrderRecords).find((kpi) => kpi.key === 'active-records')?.value,
+  0,
+  '已关闭首单不得进入 active KPI',
+)
 
 assert.equal(first.masterOrderHref, '/pcs/engineering/masters/EM-TEST')
 assert.ok(first.items.every((item) => item.taskHref), '每个准备项必须保留专业任务查看链接')
@@ -162,5 +239,13 @@ assert.deepEqual(mergePreparationRuntimeRecords([first], maliciousRuntime), [fir
 const pageSource = readFileSync('src/pages/production/preparation-timing.ts', 'utf8')
 assert.ok(pageSource.includes('getPreparationRecordCapabilities'), '页面必须按记录能力阻断工程来源编辑入口')
 assert.ok(pageSource.includes('projectEngineeringMastersToPreparation'), '页面必须直接读取工程主单投影')
+assert.ok(
+  pageSource.includes('前期成果复用 / 不计本次时效'),
+  '复用项必须显示只读复用说明，不得落入旧凭证异常提示',
+)
+assert.ok(
+  pageSource.includes("item.reusedPriorResult ? renderReusedResultNotice(item)"),
+  '复用说明必须优先于旧记录的异常/补传分支，且不生成上传动作',
+)
 
 console.log('pcs engineering preparation projection tests passed')
