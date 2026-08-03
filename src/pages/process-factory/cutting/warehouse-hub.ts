@@ -1,3 +1,4 @@
+// @page-pattern: dashboard
 import {
   type HandoverPickingTask,
   type HandoverPickingTaskProjection,
