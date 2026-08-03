@@ -230,7 +230,23 @@
 
 ### 待交付前验证
 
-- PCS 专项检查、列表页治理、原型治理、构建、CodeGraph 同步和任务收据将在本任务最后一次实质改动后统一执行。
+- PCS 总门禁覆盖计划原定 11 项测试，并纳入技术包 BOM 审核启用原子性、工程主单关闭门禁、关闭公开 API 边界、技术资料版本快照兼容与颜色准备投影 5 项关键回归测试；门禁按顺序执行，任一失败立即以非零状态退出。
+- 本轮不引用不存在的旧计划 npm 命令；总门禁直接执行当前仓库内 16 份独立规格测试。
+- `npm run check:pcs-engineering-master`：通过（16/16）。
+- `npm run check:list-page-governance`：通过。
+- `npm run check:prototype-design-governance -- --all`：通过。
+- `npm run check:menu-routes`：通过。
+- `npm run build`：通过。
+- `git diff --check`：通过。
+- CodeGraph 已在最后一次实质改动后同步，索引状态最新、无待同步文件。
+- 浏览器人工验收由总任务负责人按任务 12 的页面、分辨率与交互清单独立完成，不以本记录中的机器门禁替代。
+
+### Task 12 两阶段审查收据准备
+
+- 最终普通验证收据：`/tmp/pcs-engineering-master-task12-verified-receipt.json`。
+- 两阶段审查目标收据：`/tmp/pcs-engineering-master-task12-two-stage-review-receipt.json`。
+- 两阶段审查需由总任务负责人使用可信 Codex provider 事件、实际规格审查收据、代码质量审查收据及共享阶段轨迹生成；本轮未伪造 provider 事件，也未修改共享 stage trace。
+- 当前交付分级只声明本地 `verified`；未执行 push、PR、远端 delivered 或 accepted。
 
 ## 6. 最终结论
 

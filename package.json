@@ -163,6 +163,7 @@
     "check:pcs-plate-sample-readiness": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-plate-sample-readiness.ts",
     "check:pcs-plate-making-mock-data": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-plate-making-mock-data.ts",
     "check:pcs-closure-unification": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-closure-unification.ts",
+    "check:pcs-engineering-master": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-engineering-master.ts",
     "check:capacity-dynamic-status": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-capacity-dynamic-status.ts",
     "check:cutting-production-progress-columns": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-production-progress-columns.ts",
     "check:production-order-progress-tracking": "tsx scripts/check-production-order-progress-tracking.ts",
