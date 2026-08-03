@@ -1164,6 +1164,19 @@ export function resolveTransferBagCurrentUse(
   )
 }
 
+export function resolveTransferBagCurrentUseByTicketId(
+  feiTicketId: string,
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): TransferBagCurrentUse | null {
+  const normalizedTicketId = feiTicketId.trim()
+  if (!normalizedTicketId) return null
+  const events = sortedRuntimeEvents(storage)
+  const bagCode = buildCurrentTicketBagIndexFromSnapshot(events).get(normalizedTicketId)
+  return bagCode
+    ? resolveTransferBagCurrentUseFromEvents(bagCode, events, true)
+    : null
+}
+
 export function resolveTransferBagCurrentUsesFromEvents(
   bagCodes: readonly string[],
   events: readonly CuttingRuntimeEvent[],

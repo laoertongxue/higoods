@@ -11,6 +11,7 @@ import {
 } from '../src/data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import {
   buildWaitHandoverLifecycleByBagCode,
+  appendWaitHandoverSpecialCraftHandoverEvent,
 } from '../src/pages/process-factory/cutting/wait-handover-runtime.ts'
 import { isPdaPageHandledLocally } from '../src/main-handlers/pda-local-action-result.ts'
 import { listFactoryInternalWarehouses } from '../src/data/fcs/factory-internal-warehouse.ts'
@@ -85,6 +86,16 @@ assert.equal(
   typeof workflow.updatePdaCuttingInboundWorkflow,
   'function',
   'PDA 裁片入仓页必须导出确认后的局部工作区刷新函数',
+)
+assert.equal(
+  typeof workflow.scanPdaBagForBagging,
+  'function',
+  'PDA 装袋必须按共享事实解析中转袋当前可用性',
+)
+assert.equal(
+  typeof workflow.confirmPdaBagging,
+  'function',
+  'PDA 装袋必须通过共享事实提交入袋事实',
 )
 
 const latestControlValues: Record<string, string> = {
@@ -852,6 +863,11 @@ const runtimeCandidate = {
   ticketStatus: 'PRINTED',
 } as const
 const runtimeBagCode = 'PDA-RUNTIME-BAG-001'
+assert.deepEqual(
+  workflow.scanPdaBagForBagging(runtimeBagCode, runtimeStorage),
+  { kind: 'AVAILABLE', bagCode: runtimeBagCode },
+  '无当前使用事实的中转袋必须可直接装袋',
+)
 const runtimeWarehouse = listFactoryInternalWarehouses().find((item) =>
   item.factoryId === 'ID-F004' && item.warehouseKind === 'WAIT_HANDOVER')
 assert(runtimeWarehouse, '运行时入仓校验必须存在裁床待交出仓')
@@ -860,18 +876,34 @@ const runtimeLocationRef = listStableWarehouseLocationRefs(
   loadWarehouseLayoutSnapshot(runtimeWarehouse).snapshot,
 )[0]
 assert(runtimeLocationRef, '运行时入仓校验必须存在稳定库位')
-workflow.appendPdaCuttingInboundRuntimeEvent(
-  {
-    ...workflow.createPdaCuttingInboundFormState(),
-    operatorName: 'PDA 装袋测试员',
-    carrierCode: runtimeBagCode,
-    bagProductionOrderNo: runtimeCandidate.productionOrderNo,
-    inboundQty: String(runtimeCandidate.actualCutPieceQty || runtimeCandidate.qty),
-    scannedTicketNos: [runtimeCandidate.ticketNo],
-  },
-  'bagging',
-  [runtimeCandidate],
-  runtimeStorage,
+const runtimeBaggingState = {
+  ...workflow.createPdaCuttingInboundFormState(),
+  operatorName: 'PDA 装袋测试员',
+  carrierCode: runtimeBagCode,
+  bagProductionOrderNo: runtimeCandidate.productionOrderNo,
+  inboundQty: String(runtimeCandidate.actualCutPieceQty || runtimeCandidate.qty),
+  scannedTicketNos: [runtimeCandidate.ticketNo],
+}
+workflow.confirmPdaBagging(runtimeBaggingState, [runtimeCandidate], runtimeStorage)
+workflow.confirmPdaBagging(runtimeBaggingState, [runtimeCandidate], runtimeStorage)
+assert.equal(
+  listCuttingRuntimeEvents(runtimeStorage).filter((event) => event.eventType === '菲票装袋').length,
+  1,
+  '重复确认装袋必须返回同一事实，不得重复追加',
+)
+assert.equal(
+  workflow.scanPdaBagForBagging(runtimeBagCode, runtimeStorage).kind,
+  'BLOCKED',
+  '已装袋的中转袋必须按共享当前事实阻断再次装袋',
+)
+assert.throws(
+  () => workflow.confirmPdaBagging(
+    { ...runtimeBaggingState, carrierCode: 'PDA-RUNTIME-BAG-002' },
+    [runtimeCandidate],
+    runtimeStorage,
+  ),
+  /已在.*中转袋/,
+  '菲票历史记录不阻断，但当前仍绑定其他中转袋时必须阻断',
 )
 workflow.appendPdaCuttingInboundRuntimeEvent(
   {
@@ -898,6 +930,85 @@ assert.equal(
     runtimeStorage,
   ).flowStage,
   'INBOUND_STORED',
+)
+
+const specialReturnStorage = createRuntimeMemoryStorage()
+const specialReturnBagCode = 'PDA-SPECIAL-RETURN-BAG-001'
+const specialReturnCandidate = {
+  ...runtimeCandidate,
+  feiTicketId: 'PDA-SPECIAL-RETURN-FEI-ID-001',
+  ticketRecordId: 'PDA-SPECIAL-RETURN-FEI-ID-001',
+  ticketNo: 'PDA-SPECIAL-RETURN-FEI-001',
+  hasSpecialCraft: true,
+  specialCraftDisplayLabel: '绣花',
+  receiverFactoryDisplay: '特殊工艺回仓测试厂',
+} as const
+workflow.confirmPdaBagging({
+  ...workflow.createPdaCuttingInboundFormState(),
+  carrierCode: specialReturnBagCode,
+  bagProductionOrderNo: specialReturnCandidate.productionOrderNo,
+  scannedTicketNos: [specialReturnCandidate.ticketNo],
+}, [specialReturnCandidate], specialReturnStorage)
+workflow.appendPdaCuttingInboundRuntimeEvent({
+  ...workflow.createPdaCuttingInboundFormState(),
+  carrierCode: specialReturnBagCode,
+  locationLabel: runtimeLocationRef.locationNo,
+}, 'inbound-location', [specialReturnCandidate], specialReturnStorage, runtimeLocationRef)
+const specialUsageCycleId = buildWaitHandoverLifecycleByBagCode(
+  specialReturnBagCode,
+  specialReturnStorage,
+).usageCycleId
+assert(specialUsageCycleId, '特殊工艺交出前必须已形成使用周期')
+const specialHandoverAt = new Date().toISOString().slice(0, 16).replace('T', ' ')
+appendWaitHandoverSpecialCraftHandoverEvent({
+  source: 'PDA',
+  operator: { operatorName: '特殊工艺交出员' },
+  payload: {
+    handoverOrderId: 'PDA-SPECIAL-ORDER-001',
+    handoverRecordId: 'PDA-SPECIAL-RECORD-001',
+    craftCategory: '特种工艺',
+    craftType: '绣花',
+    receiverFactoryId: 'PDA-SPECIAL-FACTORY-001',
+    receiverFactoryName: '特殊工艺回仓测试厂',
+    feiTicketItems: [{
+      feiTicketId: specialReturnCandidate.feiTicketId,
+      feiTicketNo: specialReturnCandidate.ticketNo,
+      specialCraftId: 'PDA-SPECIAL-CRAFT-001',
+      partName: specialReturnCandidate.partName,
+      size: specialReturnCandidate.size,
+      pieceQty: specialReturnCandidate.actualCutPieceQty,
+    }],
+    handedOverAt: specialHandoverAt,
+    handedOverBy: '特殊工艺交出员',
+  },
+  handoverOrderId: 'PDA-SPECIAL-ORDER-001',
+  handoverRecordId: 'PDA-SPECIAL-RECORD-001',
+  specialCraftId: 'PDA-SPECIAL-CRAFT-001',
+  transferBagCode: specialReturnBagCode,
+  fromWarehouseArea: runtimeLocationRef.areaName,
+  occurredAt: specialHandoverAt,
+  usageCycleId: specialUsageCycleId,
+  storage: specialReturnStorage,
+})
+const specialBaggingAvailability = workflow.scanPdaBagForBagging(
+  specialReturnBagCode,
+  specialReturnStorage,
+)
+assert.equal(specialBaggingAvailability.kind, 'BLOCKED', '特殊工艺带袋回仓不得强制空袋回收')
+assert(
+  specialBaggingAvailability.kind === 'BLOCKED' && specialBaggingAvailability.message.includes('特殊工艺带袋回仓'),
+  '特殊工艺带袋回仓必须引导到入仓动作',
+)
+workflow.appendPdaCuttingInboundRuntimeEvent({
+  ...workflow.createPdaCuttingInboundFormState(),
+  operatorName: '特殊工艺回仓员',
+  carrierCode: specialReturnBagCode,
+  locationLabel: runtimeLocationRef.locationNo,
+}, 'inbound-location', [specialReturnCandidate], specialReturnStorage, runtimeLocationRef)
+assert.equal(
+  buildWaitHandoverLifecycleByBagCode(specialReturnBagCode, specialReturnStorage).flowStage,
+  'INBOUND_STORED',
+  '特殊工艺带袋回仓必须在同一入仓页返回入仓暂存中',
 )
 
 const inboundMainBranchStart = mainSource.indexOf(

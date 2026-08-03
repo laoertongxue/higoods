@@ -39,6 +39,14 @@ import {
 } from './process-factory/cutting/warehouse-location-map-model.ts'
 import { renderWarehouseLocationMap } from '../components/ui/warehouse-location-map.ts'
 import { listFactoryInternalWarehouses } from '../data/fcs/factory-internal-warehouse.ts'
+import {
+  ensureTransferBagAvailableForUse,
+  resolveTransferBagCurrentUseByTicketId,
+  submitSpecialCraftBagReturn,
+  type RecoverTransferBagInput,
+  type TransferBagCurrentUse,
+} from '../data/fcs/cutting/transfer-bag-operations.ts'
+import { buildPdaCuttingInboundBagProjection } from './pda-cutting-inbound-projection.ts'
 
 export type PdaCuttingInboundMode = 'bagging' | 'inbound-location'
 export type PdaCuttingInboundTicketScanStatus = 'idle' | 'valid' | 'invalid'
@@ -56,6 +64,9 @@ export interface InboundFormState {
   lastTicketScanStatus: PdaCuttingInboundTicketScanStatus
   resultMessage: string
   selectedLocationId: string
+  physicalBagReceived: boolean
+  physicalBagEmpty: boolean
+  forceRecoveryReason: string
 }
 
 export interface ScannedTicketInput {
@@ -78,6 +89,19 @@ export interface PdaCuttingInboundConfirmOutcome {
   result: InboundRoundResult
   nextForm: InboundFormState
   ledger: PdaCuttingInboundMockLedger
+}
+
+export type PdaBagAvailability =
+  | { kind: 'AVAILABLE'; bagCode: string }
+  | { kind: 'FORCE_RECOVERY_REQUIRED'; bagCode: string; lastHandoverSummary: string }
+  | { kind: 'BLOCKED'; bagCode: string; message: string; currentTicketCount: number }
+
+export type PdaForceRecoveryInput = Omit<RecoverTransferBagInput, 'bagCode' | 'recoveryMode'>
+
+interface PdaSpecialCraftBagReturnContext {
+  sourceHandoverRecordId: string
+  receiverFactoryName: string
+  ticketIds: string[]
 }
 
 export type PdaCuttingInboundBagStatus =
@@ -283,6 +307,155 @@ function bagStatusMessage(
   return '空袋不能入仓，请先完成装袋。'
 }
 
+function pdaBaggingIdempotencyKey(
+  bagCode: string,
+  ticketIds: string[],
+  current: TransferBagCurrentUse,
+): string {
+  const useBoundary = current.idleTransitionEventId || 'INITIAL'
+  return `PDA:BAGGING:${bagCode}:${useBoundary}:${[...ticketIds].sort().join(',')}`
+}
+
+export function scanPdaBagForBagging(
+  rawBagCode: string,
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): PdaBagAvailability {
+  const bagCode = normalizeInboundCode(rawBagCode)
+  if (!bagCode) {
+    return { kind: 'BLOCKED', bagCode: '', message: '请扫描中转袋。', currentTicketCount: 0 }
+  }
+  const current = buildPdaCuttingInboundBagProjection(bagCode, storage)
+  if (current.mainStatus === 'IDLE') return { kind: 'AVAILABLE', bagCode }
+  if (current.mainStatus === 'DISABLED') {
+    return {
+      kind: 'BLOCKED',
+      bagCode,
+      message: '这个袋子已经报废，不能继续使用。',
+      currentTicketCount: 0,
+    }
+  }
+  const specialCraftReturn = resolvePdaSpecialCraftBagReturnContext(bagCode, storage)
+  if (specialCraftReturn) {
+    return {
+      kind: 'BLOCKED',
+      bagCode,
+      message: `这个袋子是特殊工艺带袋回仓，应核对 ${specialCraftReturn.ticketIds.length} 张菲票并先完成入仓。`,
+      currentTicketCount: specialCraftReturn.ticketIds.length,
+    }
+  }
+  if (current.flowStage === 'HANDED_OVER_WAITING_RETURN' && current.tickets.length === 0) {
+    return {
+      kind: 'FORCE_RECOVERY_REQUIRED',
+      bagCode,
+      lastHandoverSummary: current.latestHandoverEventId
+        ? `最近交出记录 ${current.latestHandoverEventId}`
+        : '已交出待回收',
+    }
+  }
+  const message = current.tickets.length
+    ? `这个袋子还有 ${current.tickets.length} 张有效菲票，请先拆袋重装。`
+    : '这个袋子当前不能继续使用。'
+  return {
+    kind: 'BLOCKED',
+    bagCode,
+    message,
+    currentTicketCount: current.tickets.length,
+  }
+}
+
+export function confirmPdaBagging(
+  state: InboundFormState,
+  candidates: TransferBagTicketCandidate[] = listInboundTicketCandidates(),
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+  forceRecovery?: PdaForceRecoveryInput,
+) {
+  const bagCode = normalizeInboundCode(state.carrierCode)
+  if (!bagCode) throw new Error('请扫描中转袋。')
+  const ticketNos = state.scannedTicketNos.map(normalizeInboundCode)
+  if (!ticketNos.length) throw new Error('请扫描菲票。')
+  if (new Set(ticketNos).size !== ticketNos.length) {
+    throw new Error('同一张菲票不能重复装袋，请检查后重试。')
+  }
+  const tickets = ticketNos.map((ticketNo) => candidates.find((candidate) =>
+    normalizeInboundCode(candidate.ticketNo) === ticketNo))
+  const missingTicketNo = ticketNos.find((_, index) => !tickets[index])
+  if (missingTicketNo) throw new Error(`${missingTicketNo} 没有找到，请重新扫描。`)
+  const runtimeTickets = tickets.map((ticket) =>
+    buildWaitHandoverRuntimeTicketFromTransferCandidate(ticket!))
+  const productionOrderNos = Array.from(new Set(runtimeTickets
+    .map((ticket) => ticket.productionOrderNo.trim())
+    .filter(Boolean)))
+  if (productionOrderNos.length !== 1) {
+    throw new Error('同一中转袋只能装入同一生产单的菲票。')
+  }
+
+  const currentBefore = buildPdaCuttingInboundBagProjection(bagCode, storage)
+  const idempotencyKey = pdaBaggingIdempotencyKey(
+    bagCode,
+    runtimeTickets.map((ticket) => ticket.feiTicketId),
+    currentBefore,
+  )
+  const existing = listWaitHandoverRuntimeEvents(storage).find((event) =>
+    event.eventType === '菲票装袋' && event.idempotencyKey === idempotencyKey)
+  if (existing) return existing
+
+  const availability = scanPdaBagForBagging(bagCode, storage)
+  if (availability.kind === 'BLOCKED') throw new Error(availability.message)
+  if (availability.kind === 'FORCE_RECOVERY_REQUIRED' && !forceRecovery) {
+    throw new Error('这个袋子尚未确认实物空袋回收，请先确认强制回收。')
+  }
+  ensureTransferBagAvailableForUse({ bagCode, forceRecovery }, storage)
+
+  for (const ticket of runtimeTickets) {
+    const currentBinding = resolveTransferBagCurrentUseByTicketId(ticket.feiTicketId, storage)
+    if (currentBinding) {
+      throw new Error(`${ticket.feiTicketNo || ticket.feiTicketId} 已在 ${currentBinding.bagCode} 中转袋内，请先拆袋重装。`)
+    }
+  }
+
+  return appendWaitHandoverBaggingEvent({
+    source: 'PDA',
+    operator: {
+      operatorName: state.operatorName.trim() || '仓务操作员',
+      operatorRole: '裁片仓装袋员',
+    },
+    bagCode,
+    tickets: runtimeTickets,
+    idempotencyKey,
+    storage,
+  })
+}
+
+function runtimeRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {}
+}
+
+function resolvePdaSpecialCraftBagReturnContext(
+  bagCode: string,
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): PdaSpecialCraftBagReturnContext | null {
+  const current = buildPdaCuttingInboundBagProjection(bagCode, storage)
+  if (current.flowStage !== 'HANDED_OVER_WAITING_RETURN' || !current.latestHandoverEventId) return null
+  const event = listWaitHandoverRuntimeEvents(storage).find((item) =>
+    item.eventId === current.latestHandoverEventId && item.eventType === '特殊工艺交出')
+  if (!event) return null
+  const payload = runtimeRecord(event.payload)
+  const sourceHandoverRecordId = String(
+    event.refs.handoverRecordId || payload.handoverRecordId || '',
+  ).trim()
+  const ticketIds = (event.refs.feiTicketIds || [])
+    .map((ticketId) => String(ticketId).trim())
+    .filter(Boolean)
+  if (!sourceHandoverRecordId || !ticketIds.length) return null
+  return {
+    sourceHandoverRecordId,
+    receiverFactoryName: String(payload.receiverFactoryName || '特殊工艺厂').trim(),
+    ticketIds,
+  }
+}
+
 export function applyPdaCuttingInboundBusinessTransition(
   state: InboundFormState,
   mode: PdaCuttingInboundMode,
@@ -435,6 +608,9 @@ export function createPdaCuttingInboundFormState(): InboundFormState {
     lastTicketScanStatus: 'idle',
     resultMessage: '',
     selectedLocationId: '',
+    physicalBagReceived: false,
+    physicalBagEmpty: false,
+    forceRecoveryReason: '',
   }
 }
 
@@ -550,24 +726,53 @@ export function appendPdaCuttingInboundRuntimeEvent(
   const bagCode = normalizeInboundCode(state.carrierCode)
   if (!bagCode) throw new Error('请扫描中转袋。')
   if (mode === 'bagging') {
-    const ticketNos = state.scannedTicketNos.map(normalizeInboundCode)
-    const tickets = ticketNos.map((ticketNo) =>
-      candidates.find((candidate) =>
-        normalizeInboundCode(candidate.ticketNo) === ticketNo))
-    if (tickets.some((ticket) => !ticket)) {
-      throw new Error('存在无法写入事实账的菲票，请重新扫描。')
+    const availability = scanPdaBagForBagging(bagCode, storage)
+    const forceRecovery = availability.kind === 'FORCE_RECOVERY_REQUIRED'
+      ? {
+          physicalBagReceived: state.physicalBagReceived,
+          physicalBagEmpty: state.physicalBagEmpty,
+          recoveryNode: '裁床待交出仓',
+          recoveryLocation: '裁床空袋回收点',
+          reason: state.forceRecoveryReason.trim(),
+          operator: {
+            operatorName: state.operatorName.trim() || '仓务操作员',
+            operatorRole: '裁片仓回收员',
+          },
+          source: 'PDA' as const,
+        }
+      : undefined
+    confirmPdaBagging(state, candidates, storage, forceRecovery)
+    return
+  }
+
+  const specialCraftReturn = resolvePdaSpecialCraftBagReturnContext(bagCode, storage)
+  const specialCraftLocationRef = locationRefOverride || resolveCurrentWaitHandoverLocationRef(state.locationLabel)
+  if (specialCraftReturn) {
+    if (!specialCraftLocationRef) {
+      throw new Error('库位不存在、已占用或不属于当前工厂，请重新选择。')
     }
-    appendWaitHandoverBaggingEvent({
-      source: 'PDA',
+    submitSpecialCraftBagReturn({
+      sourceHandoverRecordId: specialCraftReturn.sourceHandoverRecordId,
+      bagCode,
+      returnedTicketIds: specialCraftReturn.ticketIds,
+      locationRef: {
+        factoryId: specialCraftLocationRef.factoryId,
+        warehouseId: specialCraftLocationRef.warehouseId,
+        warehouseKind: 'WAIT_HANDOVER',
+        areaId: specialCraftLocationRef.areaId,
+        areaName: specialCraftLocationRef.areaName,
+        shelfId: specialCraftLocationRef.shelfId,
+        shelfNo: specialCraftLocationRef.shelfNo,
+        locationId: specialCraftLocationRef.locationId,
+        locationNo: specialCraftLocationRef.locationNo,
+      },
       operator: {
         operatorName: state.operatorName.trim() || '仓务操作员',
-        operatorRole: '裁片仓装袋员',
+        operatorRole: '特殊工艺回仓员',
       },
-      bagCode,
-      tickets: tickets.map((ticket) =>
-        buildWaitHandoverRuntimeTicketFromTransferCandidate(ticket!)),
-      storage,
-    })
+      source: 'PDA',
+      occurredAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+    }, storage)
     return
   }
 
@@ -886,7 +1091,8 @@ function validateInboundScan(
   form: InboundFormState,
   scanCode: string,
   candidates: TransferBagTicketCandidate[],
-  ledger: PdaCuttingInboundMockLedger,
+  ledger?: PdaCuttingInboundMockLedger,
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): { ok: boolean; reason: string; ticket: TransferBagTicketCandidate | null } {
   const normalized = scanCode.trim().toUpperCase()
   if (!normalized) return { ok: false, reason: '请扫描菲票。', ticket: null }
@@ -904,15 +1110,26 @@ function validateInboundScan(
   if (ticket.printStatus === 'WAIT_PRINT' && ticket.ticketStatus !== 'PRINTED') {
     return { ok: false, reason: '这张菲票未打印，请换一张。', ticket }
   }
-  const ledgerTicket = ledger.tickets[normalizeInboundCode(ticket.ticketNo)]
-  if (!ledgerTicket) {
-    return { ok: false, reason: '没有找到这张菲票，请重新扫描。', ticket }
-  }
-  if (ledgerTicket.status === 'VOIDED') {
-    return { ok: false, reason: '这张菲票已作废，请换一张。', ticket }
-  }
-  if (ledgerTicket.status === 'BAGGED') {
-    return { ok: false, reason: '这张菲票已装袋，请换一张。', ticket }
+  if (ledger) {
+    const ledgerTicket = ledger.tickets[normalizeInboundCode(ticket.ticketNo)]
+    if (!ledgerTicket) {
+      return { ok: false, reason: '没有找到这张菲票，请重新扫描。', ticket }
+    }
+    if (ledgerTicket.status === 'VOIDED') {
+      return { ok: false, reason: '这张菲票已作废，请换一张。', ticket }
+    }
+    if (ledgerTicket.status === 'BAGGED') {
+      return { ok: false, reason: '这张菲票已装袋，请换一张。', ticket }
+    }
+  } else {
+    const currentBinding = resolveTransferBagCurrentUseByTicketId(ticket.feiTicketId, storage)
+    if (currentBinding) {
+      return {
+        ok: false,
+        reason: `这张菲票已在 ${currentBinding.bagCode} 中转袋内，请先拆袋重装。`,
+        ticket,
+      }
+    }
   }
   if (
     form.bagProductionOrderNo &&
@@ -938,9 +1155,10 @@ export function completePdaCuttingInboundTicketScan(
   form: InboundFormState,
   scanCode: string,
   candidates: TransferBagTicketCandidate[],
-  ledger: PdaCuttingInboundMockLedger,
+  ledger?: PdaCuttingInboundMockLedger,
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): PdaCuttingInboundTicketScanResult {
-  const validation = validateInboundScan(form, scanCode, candidates, ledger)
+  const validation = validateInboundScan(form, scanCode, candidates, ledger, storage)
   if (!validation.ok || !validation.ticket) {
     return {
       ok: false,
@@ -996,6 +1214,46 @@ function renderStepTitle(step: number, label: string): string {
   return `<div class="text-sm font-semibold text-foreground">${step} ${escapeHtml(label)}</div>`
 }
 
+function renderPdaBagAvailability(form: InboundFormState): string {
+  if (!form.carrierCode.trim()) return ''
+  const availability = scanPdaBagForBagging(form.carrierCode)
+  if (availability.kind === 'AVAILABLE') return ''
+  if (availability.kind === 'BLOCKED') {
+    return `<div class="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">${escapeHtml(availability.message)}</div>`
+  }
+  return `
+    <div class="space-y-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+      <div class="font-semibold">这个袋子线上仍是已交出待回收</div>
+      <div>${escapeHtml(availability.lastHandoverSummary)}。只有已收到实物袋且确认袋内无菲票，才能强制回收后继续装袋。</div>
+      <label class="flex items-start gap-2">
+        <input type="checkbox" data-pda-cut-inbound-field="physicalBagReceived" ${form.physicalBagReceived ? 'checked' : ''} />
+        <span>我已收到实物中转袋</span>
+      </label>
+      <label class="flex items-start gap-2">
+        <input type="checkbox" data-pda-cut-inbound-field="physicalBagEmpty" ${form.physicalBagEmpty ? 'checked' : ''} />
+        <span>我已核对实物袋内无菲票</span>
+      </label>
+      <textarea
+        class="min-h-20 w-full rounded-xl border bg-white px-3 py-2"
+        data-pda-cut-inbound-field="forceRecoveryReason"
+        placeholder="填写强制回收原因"
+      >${escapeHtml(form.forceRecoveryReason)}</textarea>
+    </div>
+  `
+}
+
+function renderPdaSpecialCraftReturnContext(form: InboundFormState): string {
+  if (!form.carrierCode.trim()) return ''
+  const context = resolvePdaSpecialCraftBagReturnContext(normalizeInboundCode(form.carrierCode))
+  if (!context) return ''
+  return `
+    <div class="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+      <div class="font-semibold">特殊工艺带袋回仓</div>
+      <div class="mt-1">来源工厂：${escapeHtml(context.receiverFactoryName)}；袋内应回 ${context.ticketIds.length} 张菲票。请核对实物后选择库位入仓。</div>
+    </div>
+  `
+}
+
 function renderPdaCuttingInboundWorkflowContent(
   mode: PdaCuttingInboundMode,
   form: InboundFormState,
@@ -1017,6 +1275,7 @@ function renderPdaCuttingInboundWorkflowContent(
     ${
       isInboundLocation
         ? `
+          ${renderPdaSpecialCraftReturnContext(form)}
           <div class="space-y-2">
             ${renderStepTitle(2, '扫库区库位')}
             <input
@@ -1031,6 +1290,7 @@ function renderPdaCuttingInboundWorkflowContent(
           </div>
         `
         : `
+          ${renderPdaBagAvailability(form)}
           <div class="space-y-2">
             ${renderStepTitle(2, '扫菲票')}
             <input
@@ -1111,7 +1371,6 @@ export function resolvePdaCuttingInboundConfirmFocus(
 export function renderPdaCuttingInboundPage(taskId: string): string {
   const mode = getInboundMode()
   const context = buildPdaCuttingExecutionContext(taskId, 'inbound')
-  getPdaCuttingInboundMockLedger()
   const form = getState(taskId, mode, context.selectedExecutionOrderId, context.selectedExecutionOrderNo)
   const pageTitle = mode === 'inbound-location' ? '中转袋入仓' : '菲票装袋'
 
@@ -1153,7 +1412,6 @@ function completeInboundTicketScan(
     eventState.form,
     fieldNode.value,
     listInboundTicketCandidates(),
-    getPdaCuttingInboundMockLedger(),
   )
   replaceState(
     taskId,
@@ -1173,9 +1431,15 @@ export function syncPdaCuttingInboundFormFromControls(
   const carrierCode = container.querySelector<HTMLInputElement>('[data-pda-cut-inbound-field="carrierCode"]')
   const scanCode = container.querySelector<HTMLInputElement>('[data-pda-cut-inbound-field="scanCode"]')
   const locationLabel = container.querySelector<HTMLInputElement>('[data-pda-cut-inbound-field="locationLabel"]')
+  const physicalBagReceived = container.querySelector<HTMLInputElement>('[data-pda-cut-inbound-field="physicalBagReceived"]')
+  const physicalBagEmpty = container.querySelector<HTMLInputElement>('[data-pda-cut-inbound-field="physicalBagEmpty"]')
+  const forceRecoveryReason = container.querySelector<HTMLTextAreaElement>('[data-pda-cut-inbound-field="forceRecoveryReason"]')
   if (carrierCode) form.carrierCode = carrierCode.value
   if (scanCode) form.scanCode = scanCode.value
   if (locationLabel) form.locationLabel = locationLabel.value
+  if (physicalBagReceived) form.physicalBagReceived = physicalBagReceived.checked
+  if (physicalBagEmpty) form.physicalBagEmpty = physicalBagEmpty.checked
+  if (forceRecoveryReason) form.forceRecoveryReason = forceRecoveryReason.value
 }
 
 export function handlePdaCuttingInboundEvent(
@@ -1227,7 +1491,12 @@ export function handlePdaCuttingInboundEvent(
     const field = fieldNode.dataset.pdaCutInboundField
     if (!field) return true
 
-    if (field === 'carrierCode') eventState.form.carrierCode = fieldNode.value
+    if (field === 'carrierCode') {
+      eventState.form.carrierCode = fieldNode.value
+      eventState.form.physicalBagReceived = false
+      eventState.form.physicalBagEmpty = false
+      eventState.form.forceRecoveryReason = ''
+    }
     if (field === 'locationLabel') {
       eventState.form.locationLabel = fieldNode.value
       eventState.form.selectedLocationId = resolveCurrentWaitHandoverLocationRef(fieldNode.value)?.locationId || ''
@@ -1255,6 +1524,39 @@ export function handlePdaCuttingInboundEvent(
           () => completeInboundTicketScan(fieldNode, taskId, mode, eventState),
         )
       }
+    }
+    if (field === 'physicalBagReceived' && fieldNode instanceof HTMLInputElement) {
+      eventState.form.physicalBagReceived = fieldNode.checked
+    }
+    if (field === 'physicalBagEmpty' && fieldNode instanceof HTMLInputElement) {
+      eventState.form.physicalBagEmpty = fieldNode.checked
+    }
+    if (field === 'forceRecoveryReason') eventState.form.forceRecoveryReason = fieldNode.value
+    if (
+      field === 'carrierCode'
+      && (event?.type === 'change' || (event?.type === 'keydown' && 'key' in event && event.key === 'Enter'))
+    ) {
+      replaceState(
+        taskId,
+        mode,
+        eventState.form,
+        eventState.selectedExecutionOrderId,
+        eventState.selectedExecutionOrderNo,
+      )
+      const workflowContainer = resolvePdaCuttingInboundFormContainer(fieldNode)
+      const availability = mode === 'bagging'
+        ? scanPdaBagForBagging(eventState.form.carrierCode)
+        : null
+      const focusField = mode === 'inbound-location'
+        ? 'locationLabel'
+        : availability?.kind === 'AVAILABLE' ? 'scanCode' : 'carrierCode'
+      return updatePdaCuttingInboundWorkflow(
+        workflowContainer,
+        mode,
+        eventState.form,
+        taskId,
+        focusField,
+      ) ? PDA_PAGE_HANDLED_LOCALLY : true
     }
     return true
   }
@@ -1303,28 +1605,36 @@ export function handlePdaCuttingInboundEvent(
     ) ? PDA_PAGE_HANDLED_LOCALLY : true
   }
 
-  const currentLedger = mode === 'inbound-location'
-    ? mergeCurrentWaitHandoverLocations(getPdaCuttingInboundMockLedger())
-    : getPdaCuttingInboundMockLedger()
-  let confirmation = confirmPdaCuttingInboundRound(eventState.form, mode, currentLedger)
-  if (confirmation.result.ok) {
+  let result: InboundRoundResult
+  if (mode === 'bagging' && eventState.form.lastTicketScanStatus === 'invalid') {
+    result = {
+      ok: false,
+      message: eventState.form.scanFeedbackMessage || '菲票扫码失败，请检查后重试。',
+    }
+  } else if (mode === 'bagging' && eventState.form.scanCode.trim()) {
+    result = { ok: false, message: '请先完成当前菲票扫描。' }
+  } else {
     try {
-      appendPdaCuttingInboundRuntimeEvent(eventState.form, mode)
+      appendPdaCuttingInboundRuntimeEvent(
+        eventState.form,
+        mode,
+        listInboundTicketCandidates(),
+        getBrowserLocalStorage(),
+        locationValidation?.ok ? locationValidation.ref : undefined,
+      )
       ticketScanTimerController.cancel(stateKey)
-      replacePdaCuttingInboundMockLedger(confirmation.ledger)
+      result = { ok: true }
     } catch (error) {
-      const message = error instanceof Error ? error.message : '事实账写入失败，请重试。'
-      const result = { ok: false, message }
-      confirmation = {
-        result,
-        nextForm: completePdaCuttingInboundRound(
-          eventState.form,
-          mode,
-          result,
-        ),
-        ledger: currentLedger,
+      result = {
+        ok: false,
+        message: error instanceof Error ? error.message : '事实账写入失败，请重试。',
       }
     }
+  }
+  const confirmation: PdaCuttingInboundConfirmOutcome = {
+    result,
+    nextForm: completePdaCuttingInboundRound(eventState.form, mode, result),
+    ledger: getPdaCuttingInboundMockLedger(),
   }
   replaceState(
     taskId,

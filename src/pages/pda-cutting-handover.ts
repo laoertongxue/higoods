@@ -1015,6 +1015,9 @@ function appendRuntimeSpecialCraftReturnEvent(draft: PdaHandoverRecordDraftProje
   if (!sourceRecord || !sourceRecord.specialCraftItems?.length) return '当前特殊工艺交出单没有可回仓菲票。'
   const validation = validateSpecialCraftReturnScans(draft, sourceRecord, form)
   if (!validation.ok) return validation.message
+  if (validation.bag) {
+    return `带袋特殊工艺回仓已并入「中转袋入仓」，请到待交出仓扫描 ${validation.bag.bagCode} 完成入仓。`
+  }
   const craftItems = validation.craftItems
 
   const now = new Date().toISOString()
