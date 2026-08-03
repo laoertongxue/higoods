@@ -39,6 +39,7 @@ import {
   createWarehouseShelfInBatches,
   updateWarehouseArea,
   updateWarehouseShelf,
+  updateWarehouseShelfLocationStructure,
   updateWarehouseLocation,
   reorderWarehouseAreas,
   reorderWarehouseLocations,
@@ -847,6 +848,7 @@ type MaintenanceDialog =
   | { type: 'create-shelf'; areaId: string }
   | { type: 'edit-area'; areaId: string }
   | { type: 'edit-shelf'; shelfId: string }
+  | { type: 'edit-shelf-locations'; shelfId: string }
   | { type: 'edit-location'; locationId: string }
 
 function removeCuttingWarehouseLocationMapModal(modal?: HTMLElement | null): void {
@@ -988,6 +990,29 @@ function renderEditShelfDialog(kind: CuttingWarehouseMapKind, current: NonNullab
   return dialogShell(kind, current.snapshot, { type: 'edit-shelf', shelfId }, '编辑货架', `${affectedNotice(occupied)}${field('货架序号', 'shelfSequence', String(shelf.shelfSequence || 1), { type: 'number', disabled: Boolean(occupied.length) })}${statusField(enabled, Boolean(occupied.length) && enabled)}${remarkField(shelf.remark)}${renderLocationNumberChangePreview([...shelf.locationList.map((location) => ({ before: location.locationNo, after: location.locationNo })), statusChangeRow(enabled, enabled)], '编号与状态：原 → 新（输入后实时更新）')}`)
 }
 
+function shelfPositionCounts(shelf: { locationList: Array<{ levelNo?: number; positionNo?: number }> }): number[] {
+  const levelCount = Math.max(1, ...shelf.locationList.map((location) => location.levelNo || 1))
+  return Array.from({ length: levelCount }, (_, levelIndex) => Math.max(1, ...shelf.locationList
+    .filter((location) => (location.levelNo || 1) === levelIndex + 1)
+    .map((location) => location.positionNo || 1)))
+}
+
+function renderEditShelfLocationsDialog(kind: CuttingWarehouseMapKind, current: NonNullable<ReturnType<typeof buildCurrentCuttingWarehouseMapProjection>>, shelfId: string): string {
+  const area = current.snapshot.areaList.find((item) => item.shelfList.some((shelf) => shelf.shelfId === shelfId))
+  const shelf = area?.shelfList.find((item) => item.shelfId === shelfId)
+  if (!area || !shelf) return ''
+  const counts = shelfPositionCounts(shelf)
+  const occupied = occupiedDescendants(current, shelf.locationList.map((location) => location.locationId))
+  const notice = `<div class="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">增加层数或位置数会生成新库位；减少时只删除末端空闲库位。${occupied.length ? `当前占用：${occupied.map(escapeHtml).join('、')}，这些库位不会被删除。` : ''}</div>`
+  return dialogShell(kind, current.snapshot, { type: 'edit-shelf-locations', shelfId }, `维护 ${shelf.shelfNo} 库位`, `${notice}${field('层数', 'levelCount', String(counts.length), { type: 'number' })}${field('默认每层位置数', 'defaultPositionCount', String(counts[0] || 1), { type: 'number' })}${renderLevelPositionEditor(counts.length, (levelNo) => String(counts[levelNo - 1] || 1))}${renderShelfStructurePreview(area.code || '', shelf.shelfSequence, shelf.locationList.length, {
+    levelCount: counts.length,
+    defaultPositionCountRaw: String(counts[0] || 1),
+    positionCountOverrides: new Map(counts.map((count, index) => [index + 1, String(count)])),
+    editorPage: 1,
+    previewPage: 1,
+  })}`)
+}
+
 function renderEditLocationDialog(kind: CuttingWarehouseMapKind, current: NonNullable<ReturnType<typeof buildCurrentCuttingWarehouseMapProjection>>, locationId: string): string {
   const location = current.snapshot.areaList.flatMap((area) => area.shelfList.flatMap((shelf) => shelf.locationList)).find((item) => item.locationId === locationId)
   if (!location) return ''
@@ -1003,6 +1028,7 @@ function renderCuttingWarehouseLocationMapModal(kind: CuttingWarehouseMapKind, d
   if (dialog.type === 'create-shelf') return renderCreateShelfDialog(kind, current.snapshot, dialog.areaId)
   if (dialog.type === 'edit-area') return renderEditAreaDialog(kind, current, dialog.areaId)
   if (dialog.type === 'edit-shelf') return renderEditShelfDialog(kind, current, dialog.shelfId)
+  if (dialog.type === 'edit-shelf-locations') return renderEditShelfLocationsDialog(kind, current, dialog.shelfId)
   return renderEditLocationDialog(kind, current, dialog.locationId)
 }
 
@@ -1020,11 +1046,14 @@ export function openCuttingWarehouseLocationMapModal(kind: CuttingWarehouseMapKi
     maintenanceOperations.set(modal, { token, controller: new AbortController(), saving: false })
     modal.querySelectorAll<HTMLElement>('[data-warehouse-map-action]').forEach((item) => { item.dataset.skipPageRerender = 'true' })
     hydrateIcons(modal)
-    if (dialog.type === 'create-shelf') {
+    if (dialog.type === 'create-shelf' || dialog.type === 'edit-shelf-locations') {
+      const current = dialog.type === 'edit-shelf-locations' ? buildCurrentCuttingWarehouseMapProjection(kind) : null
+      const shelf = current?.snapshot.areaList.flatMap((area) => area.shelfList).find((item) => item.shelfId === dialog.shelfId)
+      const counts = shelf ? shelfPositionCounts(shelf) : []
       shelfDraftStates.set(modal, {
         levelCount: Number(formValue(modal, 'levelCount')) || 1,
         defaultPositionCountRaw: formValue(modal, 'defaultPositionCount') || '1',
-        positionCountOverrides: new Map(),
+        positionCountOverrides: new Map(counts.map((count, index) => [index + 1, String(count)])),
         editorPage: 1,
         previewPage: 1,
       })
@@ -1047,7 +1076,7 @@ export function openCuttingWarehouseLocationMapModal(kind: CuttingWarehouseMapKi
   modal?.addEventListener('input', (event) => {
     const target = event.target instanceof HTMLInputElement ? event.target : null
     if (!target) return
-    if (modal.dataset.maintenanceDialog === 'create-shelf') {
+    if (modal.dataset.maintenanceDialog === 'create-shelf' || modal.dataset.maintenanceDialog === 'edit-shelf-locations') {
       const draft = requireShelfDraftState(modal)
       if (target.name === 'defaultPositionCount') {
         draft.defaultPositionCountRaw = target.value
@@ -1173,6 +1202,25 @@ function renderCreateShelfPreview(areaCode: string, shelfSequence: number, state
     .replace(/data-location-preview-page="last" disabled/, `data-location-preview-page="last" ${state.previewPage === totalPages ? 'disabled' : ''}`)
 }
 
+function renderShelfStructurePreview(
+  areaCode: string,
+  shelfSequence: number,
+  currentLocationCount: number,
+  state: ShelfDraftState,
+): string {
+  const summary = parseShelfDraftSummary(state)
+  const difference = summary.totalCount - currentLocationCount
+  const differenceText = difference > 0
+    ? `新增 ${difference} 个库位`
+    : difference < 0
+      ? `减少 ${Math.abs(difference)} 个空闲库位`
+      : '库位总数不变'
+  return renderCreateShelfPreview(areaCode, shelfSequence, state)
+    .replace('完整编号实时预览', '调整后完整编号预览')
+    .replace('data-location-number-preview', 'data-location-number-preview data-shelf-structure-preview')
+    .replace('<div class="flex flex-wrap items-center justify-between gap-2">', `<div class="mb-3 flex flex-wrap gap-2 text-sm"><span class="rounded-full bg-slate-100 px-3 py-1">当前 ${currentLocationCount} 个</span><span class="rounded-full bg-blue-50 px-3 py-1 text-blue-800">调整后 ${summary.totalCount} 个</span><span class="rounded-full bg-amber-50 px-3 py-1 text-amber-800">${differenceText}</span></div><div class="flex flex-wrap items-center justify-between gap-2">`)
+}
+
 function replaceMaintenancePreviewHtml(modal: HTMLElement, html: string): void {
   const currentPreview = modal.querySelector<HTMLElement>('[data-location-number-preview], [data-maintenance-preview-error]')
   if (!currentPreview) return
@@ -1202,6 +1250,15 @@ function updateMaintenancePreview(modal: HTMLElement, kind: CuttingWarehouseMapK
     draft.levelCount = levelCount
     const area = current.snapshot.areaList.find((item) => item.areaId === modal.dataset.areaId)
     replaceMaintenancePreviewHtml(modal, renderCreateShelfPreview(area?.code || '', parseRequiredPositiveInteger(formValue(modal, 'shelfSequence'), '货架序号'), draft))
+    return
+  }
+  if (type === 'edit-shelf-locations') {
+    const draft = requireShelfDraftState(modal)
+    draft.levelCount = parseRequiredPositiveInteger(formValue(modal, 'levelCount'), '层数')
+    const area = current.snapshot.areaList.find((item) => item.shelfList.some((shelf) => shelf.shelfId === modal.dataset.shelfId))
+    const shelf = area?.shelfList.find((item) => item.shelfId === modal.dataset.shelfId)
+    if (!area || !shelf) return
+    replaceMaintenancePreviewHtml(modal, renderShelfStructurePreview(area.code || '', shelf.shelfSequence, shelf.locationList.length, draft))
     return
   }
   if (type === 'edit-area') {
@@ -1448,7 +1505,7 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
       return true
     }
     if (action === 'change-location-preview-page') {
-      if (modal.dataset.maintenanceDialog === 'create-shelf') {
+      if (modal.dataset.maintenanceDialog === 'create-shelf' || modal.dataset.maintenanceDialog === 'edit-shelf-locations') {
         const draft = requireShelfDraftState(modal)
         const totalCount = parseShelfDraftSummary(draft).totalCount
         const totalPages = Math.max(1, Math.ceil(totalCount / LOCATION_PREVIEW_PAGE_SIZE))
@@ -1524,6 +1581,19 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
         } else if (type === 'edit-shelf') {
           const sequence = parseRequiredPositiveInteger(formValue(modal, 'shelfSequence'), '货架序号')
           next = updateWarehouseShelf(next, { shelfId: modal.dataset.shelfId || '', shelfSequence: sequence, enabled: formValue(modal, 'enabled') === 'true', remark: formValue(modal, 'remark'), updatedBy: '当前用户' }, occupiedIds)
+        } else if (type === 'edit-shelf-locations') {
+          const draft = requireShelfDraftState(modal)
+          draft.levelCount = parseRequiredPositiveInteger(formValue(modal, 'levelCount'), '层数')
+          parseRequiredPositiveInteger(formValue(modal, 'defaultPositionCount'), '默认每层位置数')
+          captureVisibleShelfDraftValues(modal, draft)
+          const summary = parseShelfDraftSummary(draft)
+          await assertMaintenanceResourceCapacity(current.snapshot, summary.totalCount, signal)
+          const positionCounts = await collectShelfPositionCounts(draft, signal)
+          next = updateWarehouseShelfLocationStructure(next, {
+            shelfId: modal.dataset.shelfId || '',
+            positionCounts,
+            updatedBy: '当前用户',
+          }, occupiedIds)
         } else if (type === 'edit-location') {
           const levelNo = parseRequiredPositiveInteger(formValue(modal, 'levelNo'), '层号')
           const positionNo = parseRequiredPositiveInteger(formValue(modal, 'positionNo'), '层内位置号')
@@ -1585,6 +1655,10 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
   }
   if (action === 'open-create-shelf') {
     openCuttingWarehouseLocationMapModal(kind, { type: 'create-shelf', areaId: node.dataset.areaId || '' })
+    return true
+  }
+  if (action === 'open-edit-shelf-locations') {
+    openCuttingWarehouseLocationMapModal(kind, { type: 'edit-shelf-locations', shelfId: node.dataset.shelfId || '' })
     return true
   }
   if (action === 'change-factory' && target instanceof HTMLSelectElement) {

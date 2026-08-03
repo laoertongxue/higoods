@@ -104,6 +104,12 @@ export interface AdjustWarehouseLevelPositionCountInput {
   updatedBy: string
 }
 
+export interface UpdateWarehouseShelfLocationStructureInput {
+  shelfId: string
+  positionCounts: number[]
+  updatedBy: string
+}
+
 export interface SetWarehouseLocationEnabledInput {
   locationId: string
   enabled: boolean
@@ -807,6 +813,52 @@ export function adjustWarehouseLevelPositionCount(snapshot: FactoryWarehouseLayo
       }
     }
     nextShelf.locationList.sort((left, right) => (left.levelNo ?? 0) - (right.levelNo ?? 0) || (left.positionNo ?? 0) - (right.positionNo ?? 0))
+  })
+}
+
+export function updateWarehouseShelfLocationStructure(
+  snapshot: FactoryWarehouseLayoutSnapshot,
+  input: UpdateWarehouseShelfLocationStructureInput,
+  occupiedLocationIds: Iterable<string>,
+): FactoryWarehouseLayoutSnapshot {
+  if (!input.positionCounts.length) throw new Error('货架至少需要保留一层。')
+  input.positionCounts.forEach((count, index) => assertSequence(count, `第 ${index + 1} 层位置数`))
+  const { shelf } = findShelfContext(snapshot, input.shelfId)
+  const desiredCoordinates = new Set(input.positionCounts.flatMap((count, levelIndex) =>
+    Array.from({ length: count }, (_, positionIndex) => `${levelIndex + 1}:${positionIndex + 1}`)))
+  const removedIds = shelf.locationList
+    .filter((location) => !desiredCoordinates.has(`${location.levelNo}:${location.positionNo}`))
+    .map((location) => location.locationId)
+  assertNoOccupied(snapshot, removedIds, occupiedLocationIds, '不能删除')
+  const existingCoordinates = new Set(shelf.locationList.map((location) => `${location.levelNo}:${location.positionNo}`))
+  if (!removedIds.length && desiredCoordinates.size === existingCoordinates.size
+    && [...desiredCoordinates].every((coordinate) => existingCoordinates.has(coordinate))) return snapshot
+  return nextSnapshot(snapshot, input.updatedBy, (next) => {
+    const { area, shelf: nextShelf } = findShelfContext(next, input.shelfId)
+    const existing = new Map(nextShelf.locationList.map((location) => [`${location.levelNo}:${location.positionNo}`, location]))
+    const nextLocations: LayoutWarehouseLocation[] = []
+    input.positionCounts.forEach((count, levelIndex) => {
+      const levelNo = levelIndex + 1
+      for (let positionNo = 1; positionNo <= count; positionNo += 1) {
+        const retained = existing.get(`${levelNo}:${positionNo}`)
+        if (retained) {
+          nextLocations.push(retained as LayoutWarehouseLocation)
+          continue
+        }
+        const no = locationNo(area, nextShelf, levelNo, positionNo)
+        nextLocations.push({
+          locationId: newLocationId(next, nextShelf.shelfId, levelNo, positionNo),
+          locationNo: no,
+          locationName: no,
+          levelNo,
+          positionNo,
+          status: 'AVAILABLE',
+          remark: '',
+          layoutCreatedInVersion: snapshot.layoutVersion + 1,
+        } as LayoutWarehouseLocation)
+      }
+    })
+    nextShelf.locationList = nextLocations
   })
 }
 
