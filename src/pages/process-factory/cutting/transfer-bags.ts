@@ -32,7 +32,6 @@ import {
 } from '../../../data/fcs/cutting/storage/fei-tickets-storage.ts'
 import {
   paginateItems,
-  renderCompactKpiCard,
   renderCompactKpiGroup,
   renderStickyFilterShell,
   renderStickyTableScroller,
@@ -848,70 +847,6 @@ function renderCarrierScrapSection(): string {
             </table>
           `)
         : '<div class="px-6 py-10 text-center text-sm text-muted-foreground">暂无报废记录</div>'}
-    </section>
-  `
-}
-
-function renderTransferBagStageLedgerPanel(): string {
-  const viewModel = getViewModel()
-  const stageItems = viewModel.stageLedgerItems
-  if (!stageItems.length) return ''
-  const stageSummary = viewModel.stageSummary
-
-  return `
-    <section class="rounded-lg border bg-card">
-      <div class="flex items-center justify-between border-b px-4 py-3">
-        <div>
-          <h2 class="text-sm font-semibold text-foreground">中转袋业务阶段</h2>
-        </div>
-        <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-nav="${escapeHtml(getCanonicalCuttingPath('sewing-dispatch'))}">查看交出单</button>
-      </div>
-      <div class="grid gap-3 border-b p-4 md:grid-cols-4">
-        ${renderCompactKpiCard('入仓暂存', stageSummary.inboundTempCount, '允许混装', 'text-blue-600')}
-        ${renderCompactKpiCard('交出装袋', stageSummary.handoverPackingCount, '绑定交出关系', 'text-emerald-600')}
-        ${renderCompactKpiCard('已绑定交出关系', stageSummary.handoverRelationOkCount, '交出单或交出记录', 'text-emerald-600')}
-        ${renderCompactKpiCard('关系待补', stageSummary.handoverRelationMissingCount, '交出装袋阶段', 'text-amber-600')}
-      </div>
-      ${renderStickyTableScroller(`
-        <table class="min-w-[1080px] w-full text-sm">
-          <thead class="bg-muted/60 text-xs text-muted-foreground">
-            <tr>
-              <th class="px-4 py-3 text-left">阶段</th>
-              <th class="px-4 py-3 text-left">中转袋</th>
-              <th class="px-4 py-3 text-left">业务关系</th>
-              <th class="px-4 py-3 text-left">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
-              <th class="px-4 py-3 text-left">裁片单</th>
-              <th class="px-4 py-3 text-left">菲票</th>
-              <th class="px-4 py-3 text-left">状态</th>
-              <th class="px-4 py-3 text-left">规则</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${stageItems
-              .map(
-                (item) => `
-                  <tr class="border-t">
-                    <td class="px-4 py-3">${renderTag(item.stageLabel, item.stage === 'INBOUND_TEMP' ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-emerald-100 text-emerald-700 border border-emerald-200')}</td>
-                    <td class="px-4 py-3">
-                      <div class="font-medium text-blue-700">${escapeHtml(item.carrierCode)}</div>
-                      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.cycleNo || '暂无周期')}</div>
-                    </td>
-                    <td class="px-4 py-3">
-                      <div class="${item.relationOk ? 'text-foreground' : 'text-amber-700'}">${escapeHtml(item.relationLabel)}</div>
-                      ${item.stage === 'HANDOVER_PACKING' ? `<div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.dispatchBatchNo || '交出记录待新增')}</div>` : ''}
-                    </td>
-                    <td class="px-4 py-3">${renderProductionOrderIdentityCell(item.productionOrderNos.join(' / ') || '暂无')}</td>
-                    <td class="px-4 py-3">${escapeHtml(item.cutOrderNos.join(' / ') || '暂无')}</td>
-                    <td class="px-4 py-3">${escapeHtml(`${item.ticketCount} 张`)}</td>
-                    <td class="px-4 py-3">${escapeHtml(item.statusLabel)}</td>
-                    <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.ruleLabel)}</td>
-                  </tr>
-                `,
-              )
-              .join('')}
-          </tbody>
-        </table>
-      `)}
     </section>
   `
 }

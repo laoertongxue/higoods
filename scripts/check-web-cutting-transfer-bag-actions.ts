@@ -182,6 +182,10 @@ const taskSevenSpecGaps = [
     : '',
   !warehouseSource.includes('filterCurrentWaitHandoverRuntimeEvents')
   || !warehouseSource.includes('历史重装记录')
+  || warehouseSource.includes('renderWaitHandoverBaggingTable')
+  || warehouseSource.includes('renderHandoverPickingArea')
+  || warehouseSource.includes("'待交出装袋确认'")
+  || warehouseSource.includes('查看交出装袋确认')
     ? 'P1-4：旧交出装袋确认只能作为历史重装记录，不得进入当前事件、动作或 KPI'
     : '',
   handoverProjectionSource.includes(': listHandoverRecords()')

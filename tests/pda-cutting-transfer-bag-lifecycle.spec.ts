@@ -151,7 +151,8 @@ test('拆袋重装支持多来源、多结果和来源袋复用', async ({ page 
   await expect(page.getByRole('heading', { name: '拆袋重装', exact: true })).toBeVisible()
 
   await page.getByPlaceholder('扫描或填写来源袋编号').fill('PDA-E2E-BAG-A')
-  await page.getByPlaceholder('扫描或填写来源袋编号').press('Enter')
+  await page.getByRole('button', { name: '加入来源袋' }).click()
+  await expect(page.locator('body')).toContainText('当前 1 只')
   await page.getByPlaceholder('扫描或填写来源袋编号').fill('PDA-E2E-BAG-B')
   await page.getByRole('button', { name: '加入来源袋' }).click()
   await expect(page.locator('body')).toContainText('当前 2 只')
@@ -171,6 +172,10 @@ test('拆袋重装支持多来源、多结果和来源袋复用', async ({ page 
   await expect(page.locator('body')).toContainText(/结果\s*2 张 \/ 20 片/)
   await expect(page.locator('body')).toContainText('PDA-E2E-BAG-A')
   await expect(page.locator('body')).toContainText('PDA-E2E-BAG-C')
+  await page.screenshot({
+    path: 'output/playwright/transfer-bag-pda-390x844.png',
+    fullPage: true,
+  })
   await page.getByRole('button', { name: '确认重装' }).click()
   await expect(page.locator('body')).toContainText('重装成功，请继续交出')
   await expect(page.locator('body')).toContainText('待交出')

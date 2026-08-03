@@ -63,8 +63,8 @@ export type { TransferBagUsageStage }
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
 const TRANSFER_QR_FIELD = ['qr', 'Payload'].join('') as const
-const INBOUND_TEMP_BAG_RULE_LABEL = '中转袋可混装不同生产单、SKU、部位的菲票；车缝任务分配后再分拣装袋。'
-const HANDOVER_PACKING_BAG_RULE_LABEL = '交出装袋需先扫中转袋，再扫菲票子码；本阶段才按交出单关系核对。'
+const INBOUND_TEMP_BAG_RULE_LABEL = '一个中转袋只能装同一生产单的菲票；同一生产单可以使用多个中转袋。'
+const HANDOVER_PACKING_BAG_RULE_LABEL = '交出前按当前袋内全部菲票核对生产单、车缝任务和唯一接收工厂。'
 
 export interface TransferBagRuntimeCurrentFacts {
   holderType: string
@@ -3212,8 +3212,8 @@ export function buildTransferBagCarrierManagementProjection(
   return {
     overviewCards: [
       { label: '中转袋档案', value: masterRecords.length, hint: '循环载具主档' },
-      { label: '入仓暂存使用', value: useCycles.filter((cycle) => cycle.useStage === '入仓暂存').length, hint: '允许混装，不绑定车缝任务' },
-      { label: '交出装袋使用', value: handoverPackingUses.length, hint: '一个袋只绑定一个车缝任务' },
+      { label: '入仓暂存使用', value: useCycles.filter((cycle) => cycle.useStage === '入仓暂存').length, hint: '一袋一生产单' },
+      { label: '待交出使用', value: handoverPackingUses.length, hint: '允许同工厂多个车缝任务' },
       { label: '已交出待回收', value: signedAndReturnUses.length, hint: '交出后的载具回收确认' },
       { label: '报废记录', value: scrapRecords.filter((record) => [record.scrapType, record.description].filter(Boolean).join(' / ').includes('报废')).length, hint: '仅统计报废记录' },
     ],

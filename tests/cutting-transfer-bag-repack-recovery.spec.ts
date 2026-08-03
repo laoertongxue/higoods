@@ -176,5 +176,9 @@ for (const viewport of [
     expect(layout.bodyWidth).toBeLessThanOrEqual(layout.viewportWidth + 1)
     expect(layout.tableOverflow).toBe(true)
     await expect(page.getByRole('button', { name: '列设置' })).toBeVisible()
+    await page.screenshot({
+      path: `output/playwright/transfer-bag-web-${viewport.width}x${viewport.height}.png`,
+      fullPage: true,
+    })
   })
 }

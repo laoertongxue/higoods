@@ -735,7 +735,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
       capacity: 22,
       currentStatus: 'IDLE',
       currentLocation: '裁片仓 D 区待发位',
-      note: '待交出前的多款号混装样例。',
+      note: '待交出前的同生产单多菲票样例。',
     }),
     buildCarrierRecord({
       carrierId: 'carrier-bag-014',
@@ -762,7 +762,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
       capacity: 30,
       currentStatus: 'IDLE',
       currentLocation: '裁床待交出仓暂存区',
-      note: '中转袋样品：先菲票装袋（已装袋待入仓），再入库位（已入待交出仓），允许不同生产单、SKU、部位菲票临时混装。',
+      note: '中转袋样品：先菲票装袋（已装袋待入仓），再入库位（已入待交出仓）；袋内菲票属于同一生产单。',
     }),
   ]
 
@@ -799,8 +799,12 @@ export function buildSystemSeedTransferBagRuntime(options: {
   }
 
   function pickInboundTempTickets(count: number): TransferBagSeedTicketLike[] {
+    const productionOrderNo = printedTickets[0]?.productionOrderNo || ''
+    const sameProductionTickets = printedTickets.filter(
+      (ticket) => ticket.productionOrderNo === productionOrderNo,
+    )
     const picked: TransferBagSeedTicketLike[] = []
-    printedTickets.forEach((ticket) => {
+    sameProductionTickets.forEach((ticket) => {
       if (picked.length >= count) return
       const duplicatedContext = picked.some(
         (item) =>
@@ -811,7 +815,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
       )
       if (!duplicatedContext) picked.push(ticket)
     })
-    printedTickets.forEach((ticket) => {
+    sameProductionTickets.forEach((ticket) => {
       if (picked.length >= count) return
       if (!picked.some((item) => item.feiTicketId === ticket.feiTicketId)) picked.push(ticket)
     })
@@ -951,11 +955,11 @@ export function buildSystemSeedTransferBagRuntime(options: {
       cycle.sewingFactoryName = ''
       cycle.styleCode = unique(selectedTickets.map((ticket) => ticket.styleCode)).join(' / ') || '混款'
       cycle.spuCode = unique(selectedTickets.map((ticket) => ticket.spuCode)).join(' / ') || '多 SKU'
-      cycle.skuSummary = unique(selectedTickets.map((ticket) => ticket.materialSku)).join(' / ') || '混装菲票'
+      cycle.skuSummary = unique(selectedTickets.map((ticket) => ticket.materialSku)).join(' / ') || '多菲票'
       cycle.colorSummary = unique(selectedTickets.map((ticket) => ticket.fabricColor || ticket.color)).join(' / ') || '多色'
       cycle.sizeSummary = unique(selectedTickets.map((ticket) => ticket.size || '')).join(' / ') || '多尺码'
       cycleBindings.forEach((binding) => {
-        binding.note = '中转袋绑定：允许不同生产单、SKU、部位菲票临时混装。'
+        binding.note = '中转袋绑定：袋内菲票必须属于同一生产单。'
       })
     }
     cycle.packedTicketCount = cycleBindings.length
@@ -1560,7 +1564,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
     masterStatus: 'IN_USE',
     currentLocation: '裁片仓 D 区待发位',
     ticketCount: 2,
-    note: '多款号混装完成，等待交出。',
+    note: '同生产单多菲票装袋完成，等待交出。',
     finishedPackingAt: '2026-03-24 13:30',
     manifestAt: '2026-03-24 13:36',
   })
@@ -1577,7 +1581,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
     ticketCount: inboundTempTickets.length,
     tickets: inboundTempTickets,
     usageStage: 'INBOUND_TEMP',
-    note: '中转袋：允许不同生产单、SKU、部位菲票临时混装，车缝任务分配后再分拣装袋。',
+    note: '中转袋：袋内菲票属于同一生产单，分配后可直接交出或拆袋重装。',
   })
 
   // ---------- BAG-A-002：补充历史 + 活跃周期 ----------

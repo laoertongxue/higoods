@@ -68,6 +68,13 @@ const transferBagDetailSource = readFileSync(
   )),
   'utf8',
 )
+const transferBagRuntimeSource = readFileSync(
+  fileURLToPath(new URL(
+    '../src/data/fcs/cutting/transfer-bag-runtime.ts',
+    import.meta.url,
+  )),
+  'utf8',
+)
 const transferBagProjectionSource = readFileSync(
   fileURLToPath(new URL(
     '../src/pages/process-factory/cutting/transfer-bags-projection.ts',
@@ -2691,6 +2698,19 @@ for (const legacyImplementationAnchor of [
     [transferBagPageSource, transferBagDialogSource, transferBagStateSource, transferBagHandlersSource].join('\n').includes(legacyImplementationAnchor),
     false,
     `中转袋档案页不得保留第二套旧回收/装袋实现：${legacyImplementationAnchor}`,
+  )
+}
+for (const forbiddenOneBagRule of [
+  '允许不同生产单',
+  '可混装不同生产单',
+  '一个袋只绑定一个车缝任务',
+]) {
+  assert.equal(
+    [transferBagsPageSource, transferBagModelSource, transferBagDetailSource, transferBagRuntimeSource]
+      .join('\n')
+      .includes(forbiddenOneBagRule),
+    false,
+    `中转袋页面、模型和演示数据不得保留冲突规则：${forbiddenOneBagRule}`,
   )
 }
 for (const detailSection of [

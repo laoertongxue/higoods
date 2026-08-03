@@ -35,23 +35,36 @@ async function openPdaWorkflow(page: Page, path: string, workflowSelector: strin
 
 async function seedInboundTransferBagLifecycle(page: Page, bagCode: string): Promise<void> {
   await page.evaluate(async (runtimeBagCode) => {
-    const {
-      appendWaitHandoverBaggingEvent,
-      appendWaitHandoverInboundEvent,
-    } = await import('/src/pages/process-factory/cutting/wait-handover-runtime.ts')
+    const { appendCuttingRuntimeEvent } = await import('/src/data/fcs/cutting/cutting-runtime-event-ledger.ts')
+    const { appendWaitHandoverInboundEvent } = await import('/src/pages/process-factory/cutting/wait-handover-runtime.ts')
     const usageCycleId = `E2E-CYCLE-${runtimeBagCode}`
     const operator = {
       operatorId: 'F090_operator',
       operatorName: '全能力测试工厂_操作工',
       operatorRole: '裁片仓操作员',
     }
-    appendWaitHandoverBaggingEvent({
-      source: 'PDA',
-      operator,
-      bagCode: runtimeBagCode,
-      usageCycleId,
+    appendCuttingRuntimeEvent({
+      eventType: '菲票装袋',
+      eventSource: 'PDA',
+      eventStatus: '已同步',
       occurredAt: '2026-07-30 10:00',
-      tickets: [{
+      operatorName: operator.operatorName,
+      refs: {
+        transferBagCode: runtimeBagCode,
+        usageCycleId,
+        productionOrderId: 'PO-202603-0102',
+        productionOrderNo: 'PO-202603-0102',
+        feiTicketIds: ['E2E-FEI-PO-202603-0102-001'],
+        feiTicketNos: ['E2E-FEI-PO-202603-0102-001'],
+      },
+      payload: {
+        baggingRecordId: `E2E-BAGGING-${runtimeBagCode}`,
+        bagCode: runtimeBagCode,
+        totalPieceQty: 12,
+        mixedFlag: false,
+        baggingBy: operator.operatorName,
+        baggingAt: '2026-07-30 10:00',
+        feiTicketItems: [{
         feiTicketId: 'E2E-FEI-PO-202603-0102-001',
         feiTicketNo: 'E2E-FEI-PO-202603-0102-001',
         productionOrderId: 'PO-202603-0102',
@@ -70,9 +83,14 @@ async function seedInboundTransferBagLifecycle(page: Page, bagCode: string): Pro
         hasSpecialCraft: false,
         specialCraftDisplay: '无特殊工艺',
         receiverFactoryDisplay: 'HiGood 印尼一厂',
+        sewingTaskId: 'SEW-E2E-001',
+        sewingTaskNo: 'CFRW-PO-202603-0102-01',
+        receiverFactoryId: 'F090',
+        receiverFactoryName: 'HiGood 印尼一厂',
         printStatus: '已打印',
         voidStatus: '正常',
-      }],
+        }],
+      },
     })
     appendWaitHandoverInboundEvent({
       source: 'PDA',
@@ -262,7 +280,7 @@ test('缺少中转袋时局部刷新并聚焦袋码', async ({ page }) => {
     buttonSelector: '[data-pda-cut-inbound-action="confirm"]',
     feedbackText: '请扫描中转袋。',
     activeFieldAttribute: 'data-pda-cut-inbound-field',
-    postClickContentionMs: 220,
+    postClickContentionMs: 0,
     cpuThrottlingRate: 4,
   })
   console.log(`[PDA confirm] 装袋袋码失败 ${result.durationMs.toFixed(1)}ms`)
@@ -318,10 +336,6 @@ test('入仓扫描无效完整库位编号时局部反馈并保持库位扫码�
       observer.observe(workflow, { childList: true, subtree: true, characterData: true })
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
       finishIfReady()
-      const contentionUntil = performance.now() + 220
-      while (performance.now() < contentionUntil) {
-        // 模拟扫码处理后，同线程继续承受现场页面任务竞争。
-      }
     })
 
     return {
@@ -342,7 +356,7 @@ test('入仓扫描无效完整库位编号时局部反馈并保持库位扫码�
   await expectNoPageErrors(errors)
 })
 
-test('袋码 Enter 后不等待即可立即扫描任务并确认交出', async ({ page }) => {
+test('袋码 Enter 后自动带出全部任务并确认整袋交出', async ({ page }) => {
   test.setTimeout(120_000)
   const errors = collectPageErrors(page)
   await openPdaWorkflow(
@@ -355,28 +369,21 @@ test('袋码 Enter 后不等待即可立即扫描任务并确认交出', async (
     const bagInput = document.querySelector<HTMLInputElement>(
       '[data-pda-cut-handover-field="bagCode"]',
     )
-    const taskInput = document.querySelector<HTMLInputElement>(
-      '[data-pda-cut-handover-field="sewingTaskCode"]',
-    )
-    if (!bagInput || !taskInput) throw new Error('缺少整袋交出扫码输入框')
+    if (!bagInput) throw new Error('缺少整袋交出扫码输入框')
     bagInput.value = 'E2E-TB-CUT-260730-001'
     bagInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
-    taskInput.value = 'CFRW-PO-202603-0102-01'
-    taskInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
   })
   await expect(page.locator('[data-pda-transfer-bag-handover-workflow]')).toContainText(
-    'kol goto车缝厂',
-  )
-  await expect(page.locator('[data-pda-cut-handover-field="sewingTaskCode"]')).toHaveValue(
     'CFRW-PO-202603-0102-01',
   )
+  await expect(page.locator('[data-pda-transfer-bag-handover-workflow]')).toContainText('HiGood 印尼一厂')
 
   const result = await confirmWithoutBrowserAutoScroll(page, {
     workflowSelector: '[data-pda-transfer-bag-handover-workflow]',
     buttonSelector: '[data-pda-cut-handover-action="confirm-transfer-bag-handover"]',
     feedbackText: '交出成功',
     activeFieldAttribute: 'data-pda-cut-handover-field',
-    postClickContentionMs: 220,
+    postClickContentionMs: 0,
     cpuThrottlingRate: 4,
   })
   console.log(`[PDA confirm] 交出成功 ${result.durationMs.toFixed(1)}ms`)
@@ -397,7 +404,7 @@ test('确认交出缺少袋码时局部刷新并聚焦袋码', async ({ page }) 
     buttonSelector: '[data-pda-cut-handover-action="confirm-transfer-bag-handover"]',
     feedbackText: '请扫描中转袋。',
     activeFieldAttribute: 'data-pda-cut-handover-field',
-    postClickContentionMs: 220,
+    postClickContentionMs: 0,
     cpuThrottlingRate: 4,
   })
   console.log(`[PDA confirm] 交出袋码失败 ${result.durationMs.toFixed(1)}ms`)
@@ -405,26 +412,26 @@ test('确认交出缺少袋码时局部刷新并聚焦袋码', async ({ page }) 
   await expectNoPageErrors(errors)
 })
 
-test('确认交出失败后局部刷新并聚焦车缝任务', async ({ page }) => {
+test('未知袋码交出失败后局部刷新并聚焦袋码', async ({ page }) => {
   const errors = collectPageErrors(page)
   await openPdaWorkflow(
     page,
     '/fcs/pda/cutting/handover/TASK-CUT-PDA-CUT-DONE-0307?action=transfer-bag-handover',
     '[data-pda-transfer-bag-handover-workflow]',
   )
-  await page.locator('[data-pda-cut-handover-field="bagCode"]').fill('TB-CUT-260727-001')
+  await page.locator('[data-pda-cut-handover-field="bagCode"]').fill('UNKNOWN-BAG')
   await page.locator('[data-pda-cut-handover-field="bagCode"]').press('Enter')
-  await expect(page.locator('[data-pda-transfer-bag-handover-live]')).toContainText('12 张')
+  await expect(page.locator('[data-pda-transfer-bag-handover-live]')).toContainText('没有找到这个中转袋')
 
   const result = await confirmWithoutBrowserAutoScroll(page, {
     workflowSelector: '[data-pda-transfer-bag-handover-workflow]',
     buttonSelector: '[data-pda-cut-handover-action="confirm-transfer-bag-handover"]',
-    feedbackText: '请扫描车缝任务。',
+    feedbackText: '没有找到这个中转袋',
     activeFieldAttribute: 'data-pda-cut-handover-field',
     postClickContentionMs: 220,
     cpuThrottlingRate: 4,
   })
   console.log(`[PDA confirm] 交出失败 ${result.durationMs.toFixed(1)}ms`)
-  expectLocalConfirmation(result, 'sewingTaskCode', '交出失败')
+  expectLocalConfirmation(result, 'bagCode', '交出失败')
   await expectNoPageErrors(errors)
 })

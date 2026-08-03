@@ -492,7 +492,7 @@ export function buildBaggingStepSummary(
   if (stepId === 'review') {
     if (!focusedUsage) return '装袋后再核对袋内内容'
     if (!currentSummary?.ticketCount) return '当前还没有菲票，请先扫码装袋'
-    if (isInboundTempUsage) return '中转袋内容可混装，交出前再按车缝任务分拣装袋'
+    if (isInboundTempUsage) return '袋内菲票属于同一生产单；分配后可直接交出或拆袋重装'
     return capacityExceeded ? '当前容量已超出，请先核对后再完成装袋' : '袋内内容待核对，可打印清单后完成装袋'
   }
   if (!focusedUsage) return '完成装袋后才可交出'
@@ -502,7 +502,7 @@ export function buildBaggingStepSummary(
 
 export function buildBaggingStepHelperText(step: TransferBagBaggingStepView): string {
   if (step.id === 'scan') {
-    return step.state === 'locked' ? '本次周转完成后才能再次扫码装袋' : '入仓暂存可混装；交出装袋按交出单或交出记录核对'
+    return step.state === 'locked' ? '本次周转完成后才能再次扫码装袋' : '一袋一生产单；交出前核对当前袋票和唯一接收工厂'
   }
   if (step.id === 'review') {
     return step.state === 'locked' ? '请先扫码装袋，再核对袋内内容' : '核对袋内内容，确认后完成装袋'

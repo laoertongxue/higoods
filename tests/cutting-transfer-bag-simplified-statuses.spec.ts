@@ -26,6 +26,7 @@ test('中转袋流转只展示三个主状态与四个流转阶段', async ({ pa
   await expect(body).not.toContainText('可用')
   await expect(body).not.toContainText('已回写')
   await expect(body).not.toContainText('收货差异')
+  await expect(body).not.toContainText('交出装袋')
   await expect(body).toContainText('待交出')
 
   const statusSelect = page.locator('select[data-transfer-bags-master-field="status"]')

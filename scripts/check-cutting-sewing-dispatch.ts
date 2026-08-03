@@ -727,9 +727,10 @@ assert(summary.remainingGarmentQty >= 0, '交出汇总必须包含剩余未交�
 })
 
 ;[
-  buildToken('中转袋业务阶段'),
+  buildToken('中转袋流转'),
   buildToken('入仓暂存'),
-  buildToken('交出装袋'),
+  buildToken('待交出'),
+  buildToken('已交出待回收'),
   buildToken('袋内菲票明细'),
   buildToken('差异类型'),
 ].forEach((token) => {
@@ -800,10 +801,10 @@ assertContains(dataSource, '交出后缺口', '裁片缺口必须在交出记录
   assertContains(progressStatisticsSource, token, `裁片交出袋级/菲票级回写统计缺少：${token}`)
 })
 ;[
-  '允许混装',
-  '交出装袋',
-  '已回写',
-  '待回写',
+  '直接整袋交出',
+  '拆袋重装',
+  '已交出待回收',
+  '中转袋回收',
   '差异',
 ].forEach((token) => {
   assertContains(sewingDispatchPageSource + transferBagsPageSource + feiTicketsPageSource, token, `裁片交出页面缺少袋级 / 菲票级回写展示：${token}`)

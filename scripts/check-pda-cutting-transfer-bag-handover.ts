@@ -24,6 +24,17 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const pageSource = readFileSync(`${ROOT}/src/pages/pda-cutting-handover.ts`, 'utf8')
 const keydownSource = readFileSync(`${ROOT}/src/main-handlers/pda-cutting-keydown-routing.ts`, 'utf8')
 
+for (const removedSingleTaskPath of [
+  'PdaTransferBagHandoverCandidates',
+  'boundSewingTaskNo',
+  'sewingTaskCode',
+  'completePdaTransferBagHandoverScan',
+  'submitPdaTransferBagHandoverRound',
+  'appendPdaTransferBagHandoverRuntimeEvent',
+]) {
+  assert(!pageSource.includes(removedSingleTaskPath), `PDA 交出源码不得保留旧单任务写路径：${removedSingleTaskPath}`)
+}
+
 function memoryStorage(): BrowserStorageLike {
   const records = new Map<string, string>()
   return {
