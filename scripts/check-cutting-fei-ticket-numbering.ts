@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
+  appendFeiTicketNumberingRecord,
   completeFeiTicketNumbering,
   FEI_TICKET_NUMBERING_BLOCK_MESSAGE,
   filterFeiTicketNumberingRecords,
   getFeiTicketNumberingDemoCases,
+  getFeiTicketNumberingRecord,
   getFeiTicketNumberingStatus,
   isBindingStripFeiTicketNo,
   listFeiTicketNumberingRecords,
@@ -61,6 +63,100 @@ const missingScan = resolveFeiTicketNumberingScan(cases.missingRangeTicket!.feiT
 assert.equal(missingScan.status, '缺少编号区间', '缺编号区间菲票状态错误')
 assert.equal(missingScan.ok, false, '缺编号区间菲票不能完成打编号')
 
+const crossSnapshotTicket = { feiTicketId: 'FT-CROSS-SNAPSHOT-001', feiTicketNo: 'FT-CROSS-SNAPSHOT-001', partName: '前片' }
+assert.equal(validateFeiTicketNumberingBeforeBagging(crossSnapshotTicket).ok, false, '无编号记录的跨快照菲票仍应拦截')
+const validCrossSnapshotRecord = {
+  recordId: 'NUM-CROSS-SNAPSHOT-001',
+  feiTicketId: crossSnapshotTicket.feiTicketId,
+  feiTicketNo: crossSnapshotTicket.feiTicketNo,
+  productionOrderId: 'PO-CROSS-SNAPSHOT-001',
+  productionOrderNo: 'PO-CROSS-SNAPSHOT-001',
+  cutOrderId: 'CUT-CROSS-SNAPSHOT-001',
+  cutOrderNo: 'CUT-CROSS-SNAPSHOT-001',
+  spreadingOrderId: 'SPREAD-CROSS-SNAPSHOT-001',
+  spreadingOrderNo: 'SPREAD-CROSS-SNAPSHOT-001',
+  materialSku: 'MAT-CROSS-SNAPSHOT-001',
+  color: '黑色',
+  size: 'M',
+  partCode: 'FRONT',
+  partName: '前片',
+  pieceSequenceStartNo: 1,
+  pieceSequenceEndNo: 60,
+  pieceSequenceLabel: '1-60',
+  numberCount: 60,
+  operatorId: 'CUT-NUM-OP-CROSS',
+  operatorName: '跨快照校验员工',
+  operatorRole: '打编号员工',
+  completedAt: '2026-06-05 15:00',
+  source: 'WEB',
+} satisfies Parameters<typeof appendFeiTicketNumberingRecord>[0]
+
+const malformedCrossSnapshotRecords = [
+  {
+    ...validCrossSnapshotRecord,
+    recordId: 'NUM-MALFORMED-TICKET-ONLY',
+    feiTicketId: '',
+    productionOrderId: '',
+    productionOrderNo: '',
+    cutOrderId: '',
+    cutOrderNo: '',
+    spreadingOrderId: '',
+    spreadingOrderNo: '',
+    materialSku: '',
+    color: '',
+    size: '',
+    partCode: '',
+    partName: '',
+    pieceSequenceStartNo: 0,
+    pieceSequenceEndNo: 0,
+    pieceSequenceLabel: '',
+    numberCount: 0,
+    operatorId: '',
+    operatorName: '',
+    operatorRole: '',
+    completedAt: '',
+  },
+  {
+    ...validCrossSnapshotRecord,
+    recordId: 'NUM-MALFORMED-ZERO-RANGE',
+    pieceSequenceStartNo: 0,
+    pieceSequenceEndNo: 0,
+    numberCount: 0,
+  },
+  {
+    ...validCrossSnapshotRecord,
+    recordId: 'NUM-MALFORMED-COUNT-MISMATCH',
+    numberCount: 59,
+  },
+  {
+    ...validCrossSnapshotRecord,
+    recordId: 'NUM-MALFORMED-COMPLETION',
+    operatorId: '',
+    operatorName: '',
+    completedAt: '',
+  },
+]
+for (const malformedRecord of malformedCrossSnapshotRecords) {
+  assert.throws(
+    () => appendFeiTicketNumberingRecord(malformedRecord),
+    /菲票编号完成记录无效/,
+    `畸形编号账 ${malformedRecord.recordId} 必须被拒绝`,
+  )
+  assert.equal(
+    getFeiTicketNumberingRecord(malformedRecord.feiTicketNo),
+    null,
+    `畸形编号账 ${malformedRecord.recordId} 不得持久化或被装袋校验读取`,
+  )
+  assert.equal(
+    validateFeiTicketNumberingBeforeBagging(crossSnapshotTicket).ok,
+    false,
+    `畸形编号账 ${malformedRecord.recordId} 不得把菲票误判为已完成`,
+  )
+}
+
+appendFeiTicketNumberingRecord(validCrossSnapshotRecord)
+assert.equal(validateFeiTicketNumberingBeforeBagging(crossSnapshotTicket).ok, true, '权威编号账已有完成记录时应允许跨快照菲票装袋')
+
 const bindingScan = resolveFeiTicketNumberingScan(cases.bindingStripFeiTicketNo)
 assert.equal(bindingScan.status, '免打编号', '捆条菲票必须免打编号')
 assert.equal(validateFeiTicketNumberingBeforeBagging({ feiTicketNo: cases.bindingStripFeiTicketNo }).ok, true, '捆条菲票不应被打编号拦截')
@@ -79,8 +175,7 @@ const dataSource = read('src/data/fcs/cutting/fei-ticket-numbering.ts')
 const webRouteSource = read('src/router/routes-fcs.ts')
 const pdaRouteSource = read('src/router/routes-pda.ts')
 const menuSource = read('src/data/app-shell-config.ts')
-const pdaWarehouseSource = read('src/pages/pda-warehouse.ts')
-const pdaWaitHandoverSource = read('src/pages/pda-warehouse-wait-handover.ts')
+const pdaWaitHandoverActionsSource = read('src/pages/pda-cutting-wait-handover-actions.ts')
 const pdaInboundSource = read('src/pages/pda-cutting-inbound.ts')
 const pdaHandoverSource = read('src/pages/pda-cutting-handover.ts')
 const waitHandoverSource = read('src/pages/process-factory/cutting/warehouse-hub.ts')
@@ -96,8 +191,7 @@ assertContains(menuSource, '菲票打编号', '裁后处理菜单缺少菲票打
 assertContains(webRouteSource, '/fcs/craft/cutting/fei-ticket-numbering', 'Web 缺少菲票打编号路由')
 assertContains(webRouteSource, '/fcs/craft/cutting/fei-ticket-numbering/summary', 'Web 缺少员工计件汇总新窗口路由')
 assertContains(pdaRouteSource, '/fcs/pda/cutting/fei-ticket-numbering', 'PDA 缺少菲票打编号路由')
-assertContains(pdaWarehouseSource, '菲票打编号', '裁床厂 PDA 仓管首页缺少菲票打编号入口')
-assertContains(pdaWaitHandoverSource, 'numbering', 'PDA 待交出仓动作缺少打编号入口')
+assertContains(pdaWaitHandoverActionsSource, "key: 'fei-ticket-numbering'", 'PDA 待交出仓动作缺少打编号入口')
 assertContains(pdaInboundSource, 'validateFeiTicketNumberingBeforeBagging', 'PDA 入仓暂存未接入打编号校验')
 assertContains(pdaHandoverSource, 'validateFeiTicketNumberingBeforeBagging', 'PDA 交出装袋未接入打编号校验')
 assertContains(waitHandoverSource, 'validateFeiTicketNumberingBeforeBagging', 'Web 待交出仓未接入打编号校验')

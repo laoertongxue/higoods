@@ -32,6 +32,7 @@ async function seedCuttingPdaSession(page: Page): Promise<void> {
     session: PDA_SESSION,
     eventLedgerKey: RUNTIME_EVENT_LEDGER_KEY,
   })
+  await page.goto('/fcs/pda/login', { waitUntil: 'domcontentloaded' })
   await page.evaluate(({ session, eventLedgerKey }) => {
     window.localStorage.setItem('fcs_pda_session', JSON.stringify(session))
     if (!window.localStorage.getItem(eventLedgerKey)) {
@@ -43,50 +44,67 @@ async function seedCuttingPdaSession(page: Page): Promise<void> {
   }).catch(() => undefined)
 }
 
-async function ensurePdaSession(page: Page): Promise<void> {
+async function ensurePdaSession(page: Page, session = PDA_SESSION): Promise<void> {
   await page.evaluate(({ session, eventLedgerKey }) => {
     window.localStorage.setItem('fcs_pda_session', JSON.stringify(session))
     if (!window.localStorage.getItem(eventLedgerKey)) {
       window.localStorage.setItem(eventLedgerKey, JSON.stringify({ events: [] }))
     }
   }, {
-    session: PDA_SESSION,
+    session,
     eventLedgerKey: RUNTIME_EVENT_LEDGER_KEY,
   }).catch(() => undefined)
 }
 
-async function gotoPda(page: Page, path: string): Promise<void> {
-  await ensurePdaSession(page)
+async function gotoPda(page: Page, path: string, readySelector: string, session = PDA_SESSION): Promise<void> {
+  await ensurePdaSession(page, session)
+  const isCuttingHandoverRoute = path.startsWith('/fcs/pda/cutting/handover/')
+  if (isCuttingHandoverRoute) {
+    await page.evaluate(async () => {
+      await import('/src/pages/pda-cutting-handover.ts')
+    })
+  }
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    await page.goto(path, { waitUntil: 'domcontentloaded' })
+    if (isCuttingHandoverRoute) {
+      await page.evaluate((nextPath) => {
+        window.history.pushState({}, '', nextPath)
+        window.dispatchEvent(new PopStateEvent('popstate'))
+      }, path)
+    } else {
+      await page.goto(path, { waitUntil: 'domcontentloaded', timeout: 15_000 })
+    }
     await page.waitForLoadState('networkidle', { timeout: 500 }).catch(() => undefined)
     const ready = await expect
       .poll(async () => {
-        const bodyText = await page.locator('body').innerText().catch(() => '')
-        return bodyText.trim().length >= 20 && !bodyText.includes('登录')
-      }, { timeout: 30_000 })
+        return page.locator(readySelector).isVisible().catch(() => false)
+      }, { timeout: 15_000 })
       .toBeTruthy()
       .then(() => true)
       .catch(() => false)
-    if (ready) return
-    await ensurePdaSession(page)
+    if (ready) {
+      await expect(page).not.toHaveURL(/\/fcs\/pda\/login(?:\?|$)/)
+      return
+    }
+    await ensurePdaSession(page, session)
   }
+  throw new Error(`PDA 业务主体未就绪：${path}`)
 }
 
-async function gotoWeb(page: Page, path: string): Promise<void> {
-  await page.goto(path, { waitUntil: 'domcontentloaded' })
-  await page.waitForLoadState('networkidle', { timeout: 500 }).catch(() => undefined)
-  await expect
-    .poll(async () => {
-      const bodyText = await page.locator('body').innerText().catch(() => '')
-      return bodyText.trim().length >= 20
-    }, { timeout: 30_000 })
-    .toBeTruthy()
+async function gotoWeb(page: Page, path: string, readyText: string | RegExp): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await page.goto(path, { waitUntil: 'domcontentloaded' })
+    await page.waitForLoadState('networkidle', { timeout: 500 }).catch(() => undefined)
+    const ready = await expect.poll(async () => {
+      return page.getByText(readyText, { exact: false }).first().isVisible().catch(() => false)
+    }, { timeout: 30_000 }).toBeTruthy().then(() => true).catch(() => false)
+    if (ready) return
+  }
+  throw new Error(`Web 业务主体未就绪：${path}`)
 }
 
 async function ensureAppPage(page: Page): Promise<void> {
   if (page.url() === 'about:blank') {
-    await gotoWeb(page, '/')
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
   }
   await page.waitForLoadState('networkidle', { timeout: 500 }).catch(() => undefined)
 }
@@ -232,9 +250,16 @@ async function verifyEventOnWebPage(
   eventType: string,
   predicate?: (event: RuntimeEventForTest) => boolean,
 ): Promise<void> {
-  await gotoWeb(page, webPath)
-  await expect(page.locator('body')).toContainText(pageText, { timeout: 30000 })
-  await expectRuntimeEvent(page, eventType, predicate)
+  // PDA handlers can leave a route transition queued after confirmation. Use a
+  // clean tab for the Web projection so that transition cannot abort page.goto.
+  const webPage = await page.context().newPage()
+  try {
+    await gotoWeb(webPage, webPath, pageText)
+    await expect(webPage.locator('body')).toContainText(pageText, { timeout: 30000 })
+    await expectRuntimeEvent(webPage, eventType, predicate)
+  } finally {
+    await webPage.close()
+  }
 }
 
 async function getFirstPrintedFeiTicketNo(page: Page): Promise<string> {
@@ -254,12 +279,6 @@ async function getFirstPrintedFeiTicketNo(page: Page): Promise<string> {
 }
 
 async function getPdaHandoverScanData(page: Page): Promise<{
-  picking: {
-    taskNo: string
-    sourceBagCode: string
-    feiTicketNo: string
-    targetBagCode: string
-  }
   handover: {
     orderNo: string
     bagCode: string
@@ -273,48 +292,155 @@ async function getPdaHandoverScanData(page: Page): Promise<{
   }
 }> {
   const scanData = await evaluateOnAppPage(page, async () => {
-    const {
-      buildHandoverPickingTaskProjectionFromAllocationProjection,
-      buildSewingTaskAllocationProjectionFromInventory,
-    } = await import('/src/data/fcs/cutting/sewing-dispatch.ts')
-    const {
-      buildInboundTempBagInventoryRecords,
-      buildInboundTempBagsFromTransferBagViewModel,
-    } = await import('/src/pages/process-factory/cutting/transfer-bags-model.ts')
-    const { buildTransferBagsProjection } = await import('/src/pages/process-factory/cutting/transfer-bags-projection.ts')
     const { buildPdaUniversalHandoverRecordDraft, listHandoverRecords } = await import('/src/data/fcs/cutting/handover-orders.ts')
-
-    const transferBagViewModel = buildTransferBagsProjection().viewModel
-    const inboundTempBags = buildInboundTempBagsFromTransferBagViewModel(transferBagViewModel)
-    const inboundInventoryRecords = buildInboundTempBagInventoryRecords(inboundTempBags)
-    const allocationProjection = buildSewingTaskAllocationProjectionFromInventory(inboundInventoryRecords)
-    const pickingProjection = buildHandoverPickingTaskProjectionFromAllocationProjection(allocationProjection)
-    const pickingTask = pickingProjection.tasks[0]
-    const pickedTicketIds = new Set((pickingTask?.pickedItems || []).map((item: any) => item.feiTicketId))
-    const pickingTicket = pickingTask?.allocatedInventoryItems.find((item: any) => {
-      return item.specialCraftReturnStatus === '不需要特殊工艺' || item.specialCraftReturnStatus === '已回仓'
-        ? !pickedTicketIds.has(item.feiTicketId)
-        : false
-    }) || pickingTask?.allocatedInventoryItems.find((item: any) => !pickedTicketIds.has(item.feiTicketId)) || pickingTask?.allocatedInventoryItems[0]
+    const { appendFeiTicketNumberingRecord, validateFeiTicketNumberingBeforeBagging } = await import('/src/data/fcs/cutting/fei-ticket-numbering.ts')
 
     const handoverDraft = buildPdaUniversalHandoverRecordDraft()
     const handoverRecord = listHandoverRecords().find((record: any) => record.handoverOrderId === handoverDraft.handoverOrderId)
-    const handoverTicket = handoverRecord?.feiTicketItems[0]
+    const handoverTicket = handoverRecord?.feiTicketItems.find((ticket: any) => (
+      handoverRecord.transferBagUses.some((bag: any) => (
+        !bag.containedFeiTicketIds.length || bag.containedFeiTicketIds.includes(ticket.feiTicketId)
+      ))
+    ))
     const handoverBag = handoverRecord?.transferBagUses.find((bag: any) => bag.containedFeiTicketIds.includes(handoverTicket?.feiTicketId)) || handoverRecord?.transferBagUses[0]
+    if (handoverTicket) {
+      appendFeiTicketNumberingRecord({
+        recordId: `NUM-E2E-${handoverTicket.feiTicketId}`,
+        feiTicketId: handoverTicket.feiTicketId,
+        feiTicketNo: handoverTicket.feiTicketNo,
+        productionOrderId: handoverRecord.relatedProductionOrderIds[0] || '',
+        productionOrderNo: handoverTicket.productionOrderNo,
+        cutOrderId: handoverRecord.relatedCutOrderIds[0] || '',
+        cutOrderNo: handoverTicket.cutOrderNo,
+        spreadingOrderId: handoverTicket.spreadingOrderId || '',
+        spreadingOrderNo: handoverTicket.spreadingOrderNo || '',
+        materialSku: handoverTicket.materialSku || '',
+        color: handoverTicket.color,
+        size: handoverTicket.size,
+        partCode: handoverTicket.partCode,
+        partName: handoverTicket.partName,
+        pieceSequenceStartNo: 1,
+        pieceSequenceEndNo: handoverTicket.pieceQty,
+        pieceSequenceLabel: `1-${handoverTicket.pieceQty}`,
+        numberCount: handoverTicket.pieceQty,
+        operatorId: 'CUT-NUM-E2E',
+        operatorName: '运行时事件账验收打编号员',
+        operatorRole: '打编号员工',
+        completedAt: '2026-05-25 08:50',
+        source: 'WEB',
+      })
+      if (!validateFeiTicketNumberingBeforeBagging(handoverTicket).ok) {
+        throw new Error('真实编号账夹具写入后仍未通过装袋前编号校验')
+      }
+      const runtime = await import('/src/pages/process-factory/cutting/wait-handover-runtime.ts')
+      const mapModule = await import('/src/pages/process-factory/cutting/warehouse-location-map.ts')
+      const mapModel = await import('/src/pages/process-factory/cutting/warehouse-location-map-model.ts')
+      const map = mapModule.buildCurrentCuttingWarehouseMapProjection('WAIT_HANDOVER')
+      const location = map
+        ? mapModel.listWarehouseLocationMapCells(map.projection).find((cell: any) => cell.businessStatus !== 'OCCUPIED')
+        : null
+      if (!location) throw new Error('缺少可用于通用交出上游入仓事实的待交出仓库位')
+      const usageCycleId = handoverBag.bagUseId
+      runtime.appendWaitHandoverBaggingEvent({
+        source: 'WEB',
+        operator: { operatorName: '运行时事件账验收装袋员', operatorRole: '裁片仓装袋员' },
+        bagCode: handoverBag.bagCode,
+        usageCycleId,
+        occurredAt: '2026-05-25 08:51',
+        tickets: [{
+          feiTicketId: handoverTicket.feiTicketId,
+          feiTicketNo: handoverTicket.feiTicketNo,
+          productionOrderId: handoverRecord.relatedProductionOrderIds[0] || '',
+          productionOrderNo: handoverTicket.productionOrderNo,
+          cutOrderId: handoverRecord.relatedCutOrderIds[0] || '',
+          cutOrderNo: handoverTicket.cutOrderNo,
+          spreadingOrderId: handoverTicket.spreadingOrderId || '',
+          spreadingOrderNo: handoverTicket.spreadingOrderNo || '',
+          spuCode: handoverTicket.spuCode,
+          color: handoverTicket.color,
+          size: handoverTicket.size,
+          partCode: handoverTicket.partCode,
+          partName: handoverTicket.partName,
+          pieceQty: handoverTicket.pieceQty,
+          pieceSequenceLabel: `1-${handoverTicket.pieceQty}`,
+          hasSpecialCraft: false,
+          specialCraftDisplay: '无',
+          receiverFactoryDisplay: handoverRecord.receiverName,
+          printStatus: '已打印',
+          voidStatus: '有效',
+        }],
+      })
+      runtime.appendWaitHandoverInboundEvent({
+        source: 'WEB',
+        operator: { operatorName: '运行时事件账验收入仓员', operatorRole: '裁片仓入仓员' },
+        bagCode: handoverBag.bagCode,
+        usageCycleId,
+        warehouseArea: location.areaName,
+        locationCode: location.locationNo,
+        locationRef: location,
+        warehouseLocations: [location],
+        occurredAt: '2026-05-25 08:52',
+      })
+    }
 
     const specialCraftDraft = buildPdaUniversalHandoverRecordDraft('HO-CUT-AUX-260324-001')
     const specialCraftRecord = listHandoverRecords().find((record: any) => record.handoverOrderId === specialCraftDraft.handoverOrderId)
     const specialCraftItem = specialCraftRecord?.specialCraftItems?.[0]
     const specialCraftTicket = specialCraftRecord?.feiTicketItems.find((ticket: any) => ticket.feiTicketId === specialCraftItem?.feiTicketId) || specialCraftRecord?.feiTicketItems[0]
     const specialCraftBag = specialCraftRecord?.transferBagUses.find((bag: any) => bag.containedFeiTicketIds.includes(specialCraftTicket?.feiTicketId)) || specialCraftRecord?.transferBagUses[0]
+    if (specialCraftTicket && specialCraftBag) {
+      const runtime = await import('/src/pages/process-factory/cutting/wait-handover-runtime.ts')
+      const mapModule = await import('/src/pages/process-factory/cutting/warehouse-location-map.ts')
+      const mapModel = await import('/src/pages/process-factory/cutting/warehouse-location-map-model.ts')
+      const map = mapModule.buildCurrentCuttingWarehouseMapProjection('WAIT_HANDOVER')
+      const location = map
+        ? mapModel.listWarehouseLocationMapCells(map.projection).find((cell: any) => cell.businessStatus !== 'OCCUPIED')
+        : null
+      if (!location) throw new Error('缺少可用于特殊工艺交出上游入仓事实的待交出仓库位')
+      const usageCycleId = specialCraftBag.bagUseId
+      runtime.appendWaitHandoverBaggingEvent({
+        source: 'WEB',
+        operator: { operatorName: '运行时事件账特殊工艺装袋员', operatorRole: '裁片仓装袋员' },
+        bagCode: specialCraftBag.bagCode,
+        usageCycleId,
+        occurredAt: '2026-05-25 08:53',
+        tickets: [{
+          feiTicketId: specialCraftTicket.feiTicketId,
+          feiTicketNo: specialCraftTicket.feiTicketNo,
+          productionOrderId: specialCraftRecord.relatedProductionOrderIds[0] || '',
+          productionOrderNo: specialCraftTicket.productionOrderNo,
+          cutOrderId: specialCraftRecord.relatedCutOrderIds[0] || '',
+          cutOrderNo: specialCraftTicket.cutOrderNo,
+          spreadingOrderId: specialCraftTicket.spreadingOrderId || '',
+          spreadingOrderNo: specialCraftTicket.spreadingOrderNo || '',
+          spuCode: specialCraftTicket.spuCode,
+          color: specialCraftTicket.color,
+          size: specialCraftTicket.size,
+          partCode: specialCraftTicket.partCode,
+          partName: specialCraftTicket.partName,
+          pieceQty: specialCraftTicket.pieceQty,
+          pieceSequenceLabel: `1-${specialCraftTicket.pieceQty}`,
+          hasSpecialCraft: true,
+          specialCraftDisplay: specialCraftItem?.craftType || '特殊工艺',
+          receiverFactoryDisplay: specialCraftRecord.receiverName,
+          printStatus: '已打印',
+          voidStatus: '有效',
+        }],
+      })
+      runtime.appendWaitHandoverInboundEvent({
+        source: 'WEB',
+        operator: { operatorName: '运行时事件账特殊工艺入仓员', operatorRole: '裁片仓入仓员' },
+        bagCode: specialCraftBag.bagCode,
+        usageCycleId,
+        warehouseArea: location.areaName,
+        locationCode: location.locationNo,
+        locationRef: location,
+        warehouseLocations: [location],
+        occurredAt: '2026-05-25 08:54',
+      })
+    }
 
     return {
-      picking: {
-        taskNo: pickingTask?.pickingTaskNo || '',
-        sourceBagCode: pickingTicket?.tempBagCode || pickingTask?.tempBagSources[0]?.tempBagCode || '',
-        feiTicketNo: pickingTicket?.feiTicketNo || '',
-        targetBagCode: `BAG-E2E-${pickingTask?.sewingTaskNo || 'PICKING'}`,
-      },
       handover: {
         orderNo: handoverDraft.handoverOrderNo,
         bagCode: handoverBag?.bagCode || '',
@@ -329,9 +455,6 @@ async function getPdaHandoverScanData(page: Page): Promise<{
     }
   })
 
-  expect(scanData.picking.taskNo).not.toBe('')
-  expect(scanData.picking.sourceBagCode).not.toBe('')
-  expect(scanData.picking.feiTicketNo).not.toBe('')
   expect(scanData.handover.orderNo).not.toBe('')
   expect(scanData.handover.bagCode).not.toBe('')
   expect(scanData.handover.feiTicketNo).not.toBe('')
@@ -343,56 +466,55 @@ async function getPdaHandoverScanData(page: Page): Promise<{
   return scanData
 }
 
-test('PDA 待加工仓四类动作写入统一事件账，并在 Web 裁床待加工仓可回查', async ({ page }) => {
+// 加工领料与回收入仓的真实表单确认和事件写入由
+// cutting-warehouse-location-map.spec.ts 的“PDA 扫码异常、特殊工艺回仓和多候选领料批次均走真实页面处理器”覆盖。
+test('PDA 中转仓领料按待领节点选位确认，并在 Web 裁床待加工仓回查同一事件账', async ({ page }) => {
   const errors = collectPageErrors(page)
   await seedCuttingPdaSession(page)
+  const pickupSession = {
+    userId: 'PDAU-FACTORY-ONBOARD-0034-ADMIN',
+    loginId: 'onboarding_34',
+    userName: '裁床仓管',
+    roleId: 'ROLE_ADMIN',
+    factoryId: 'FACTORY-ONBOARD-0034',
+    factoryName: '定向裁演示工厂34',
+    loggedAt: '2026-07-23 10:00:00',
+  }
+  await page.addInitScript((session) => {
+    window.localStorage.setItem('fcs_pda_session', JSON.stringify(session))
+  }, pickupSession)
+  await page.evaluate((session) => {
+    window.localStorage.setItem('fcs_pda_session', JSON.stringify(session))
+  }, pickupSession).catch(() => undefined)
 
-  const dialogAnswers = [
-    '128 米 / 2 卷',
-    'CUT-260302-004-01',
-    '面料 A 区 / FAB-A-01',
-    '96 米 / 2 卷',
-    'PB-MKP-20260403-001-A-1',
-    '面料 A 区 / FAB-A-01',
-    '42 米 / 1 卷',
-    'PB-MKP-20260403-001-A-1',
-    '11 米 / 1 卷',
-    '面料 A 区 / FAB-A-02',
-  ]
   page.on('dialog', async (dialog) => {
-    if (dialog.type() === 'prompt') {
-      await dialog.accept(dialogAnswers.shift() || '')
-      return
-    }
     await dialog.accept()
   })
 
-  await gotoPda(page, '/fcs/pda/warehouse/wait-process?scope=cutting')
-  await expect(page.locator('body')).toContainText('裁床待加工仓')
-
-  await page.locator('[data-pda-warehouse-action="cutting-wp-pickup"][data-source-no]').first().click()
+  await page.goto('/fcs/craft/cutting/pickup-management/ready')
+  const pickupLink = page.getByRole('row').filter({ hasText: '去领料' }).first()
+    .getByRole('link', { name: '去领料', exact: true })
+  const pickupHref = await pickupLink.getAttribute('href')
+  expect(pickupHref).toBeTruthy()
+  await page.evaluate(async () => {
+    await import('/src/pages/pda-warehouse-wait-process.ts')
+  })
+  await page.evaluate((targetPath) => {
+    window.history.pushState({}, '', targetPath)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  }, pickupHref!)
+  const pickupTask = page.locator('[data-cutting-pickup-node-id]')
+  await expect(pickupTask).toBeVisible()
+  const emptyLocation = page.locator(
+    '[data-pda-cutting-pickup-location-map] [data-warehouse-map-action="toggle-location"]:not([disabled])',
+  ).first()
+  await expect(emptyLocation).toBeVisible()
+  await emptyLocation.click()
+  await page.locator('[data-pda-warehouse-action="confirm-cutting-wp-pickup"]').click()
   await expectRuntimeEvent(
     page,
     '中转仓领料',
     (event) => Number((event.payload as any)?.pickupQty || 0) > 0,
-  )
-  await clickPdaWarehouseAction(page, 'cutting-wp-receive', '扫码入仓')
-  await expectRuntimeEvent(
-    page,
-    '待加工仓扫码入仓',
-    (event) => event.inventoryEffect?.inventoryScope === '裁床待加工仓' && event.inventoryEffect?.direction === 'IN',
-  )
-  await clickPdaWarehouseAction(page, 'cutting-wp-issue', '加工领料')
-  await expectRuntimeEvent(
-    page,
-    '待加工仓加工领料',
-    (event) => event.inventoryEffect?.inventoryScope === '裁床待加工仓' && event.inventoryEffect?.direction === 'OUT',
-  )
-  await clickPdaWarehouseAction(page, 'cutting-wp-return', '回收入仓')
-  await expectRuntimeEvent(
-    page,
-    '待加工仓回收入仓',
-    (event) => event.inventoryEffect?.inventoryScope === '裁床待加工仓' && event.inventoryEffect?.direction === 'IN',
   )
 
   await verifyEventOnWebPage(
@@ -401,23 +523,6 @@ test('PDA 待加工仓四类动作写入统一事件账，并在 Web 裁床待�
     '流水记录',
     '中转仓领料',
     (event) => Number((event.payload as any)?.pickupQty || 0) > 0,
-  )
-  await expectRuntimeEvent(
-    page,
-    '待加工仓扫码入仓',
-    (event) => event.inventoryEffect?.inventoryScope === '裁床待加工仓' && event.inventoryEffect?.direction === 'IN',
-  )
-  await expectRuntimeEvent(
-    page,
-    '待加工仓加工领料',
-    (event) => event.inventoryEffect?.inventoryScope === '裁床待加工仓' && event.inventoryEffect?.direction === 'OUT',
-  )
-  await verifyEventOnWebPage(
-    page,
-    '/fcs/craft/cutting/warehouse-management/wait-process',
-    '流水记录',
-    '待加工仓回收入仓',
-    (event) => event.inventoryEffect?.inventoryScope === '裁床待加工仓' && event.inventoryEffect?.direction === 'IN',
   )
 
   await expectNoPageErrors(errors)
@@ -428,7 +533,11 @@ test('PDA 完成裁剪写入实际裁剪产出，Web 铺布单和菲票页面可
   await seedCuttingPdaSession(page)
   await seedPickupForPdaTask(page, 'TASK-CUT-PDA-CUTTING-0306')
 
-  await gotoPda(page, '/fcs/pda/cutting/spreading/TASK-CUT-PDA-CUTTING-0306')
+  await gotoPda(
+    page,
+    '/fcs/pda/cutting/spreading/TASK-CUT-PDA-CUTTING-0306',
+    '[data-pda-cut-spreading-field="actualCutQty"]',
+  )
   await expect(page.locator('body')).toContainText('完成裁剪')
   await page.locator('[data-pda-cut-spreading-field="actualCutQty"]').fill('88')
   await page.locator('[data-pda-cut-spreading-field="actualUsage"]').fill('66')
@@ -462,26 +571,35 @@ test('PDA 完成裁剪写入实际裁剪产出，Web 铺布单和菲票页面可
 })
 
 test('PDA 菲票装袋结构化写入袋码、菲票和数量，Web 待交出仓可回查', async ({ page }) => {
+  test.setTimeout(300_000)
   const errors = collectPageErrors(page)
   await seedCuttingPdaSession(page)
 
-  await gotoWeb(page, '/fcs/craft/cutting/transfer-bags')
+  await gotoWeb(page, '/fcs/craft/cutting/transfer-bags', '中转袋')
   const ticketNo = await getFirstPrintedFeiTicketNo(page)
 
-  await gotoPda(page, '/fcs/pda/cutting/inbound/TASK-CUT-PDA-CUT-DONE-0307')
-  await expect(page.locator('body')).toContainText('入仓', { timeout: 30000 })
-  await page.locator('[data-pda-cut-inbound-field="carrierCode"]').fill('BAG-PDA-E2E-001')
-  await page.locator('[data-pda-cut-inbound-field="scanCode"]').fill(ticketNo)
-  await page.locator('[data-pda-cut-inbound-action="add-ticket"]').click()
+  await gotoPda(
+    page,
+    '/fcs/pda/cutting/inbound/TASK-CUT-PDA-CUT-DONE-0307',
+    '[data-pda-cut-inbound-field="carrierCode"]',
+  )
+  await expect(page.getByText('菲票装袋', { exact: true })).toBeVisible({ timeout: 30_000 })
+  const bagCode = 'BAG-001'
+  await expect.poll(() => page.evaluate((code) => (
+    window.__higoodPdaCuttingInboundMockLedger?.bags[code]?.status || ''
+  ), bagCode)).toBe('EMPTY_READY')
+  await page.locator('[data-pda-cut-inbound-field="carrierCode"]').fill(bagCode)
+  const ticketScan = page.locator('[data-pda-cut-inbound-field="scanCode"]')
+  await ticketScan.fill(ticketNo)
+  await ticketScan.press('Enter')
   await expect(page.locator('body')).toContainText('已加入')
-  await page.locator('[data-pda-cut-inbound-field="locationLabel"]').fill('A-01 临时位')
   await page.locator('[data-pda-cut-inbound-action="confirm"]').click()
   await expectRuntimeEvent(
     page,
     '菲票装袋',
     (event) => {
       const payload = event.payload as any
-      return payload?.bagCode === 'BAG-PDA-E2E-001' && Array.isArray(payload?.feiTicketItems) && payload.feiTicketItems.length > 0
+      return payload?.bagCode === bagCode && Array.isArray(payload?.feiTicketItems) && payload.feiTicketItems.length > 0
     },
   )
 
@@ -492,36 +610,36 @@ test('PDA 菲票装袋结构化写入袋码、菲票和数量，Web 待交出仓
     '菲票装袋',
     (event) => {
       const payload = event.payload as any
-      return payload?.bagCode === 'BAG-PDA-E2E-001' && Array.isArray(payload?.feiTicketItems) && payload.feiTicketItems.length > 0
+      return payload?.bagCode === bagCode && Array.isArray(payload?.feiTicketItems) && payload.feiTicketItems.length > 0
     },
   )
 
   await expectNoPageErrors(errors)
 })
 
-test('PDA 分拣装袋、交出、特殊工艺交出和回仓均写入统一事件账，并能在 Web 回查', async ({ page }) => {
-  test.setTimeout(120_000)
+// 分拣装袋到目标袋已经从本页退场；该链路由
+// cutting-wait-handover-web-modal.spec.ts 第 252 行所在的目标袋快照流程继续覆盖。
+test('PDA 通用交出、特殊工艺交出和回仓均写入统一事件账，并能在 Web 回查', async ({ page }) => {
+  test.setTimeout(300_000)
   const errors = collectPageErrors(page)
   await seedCuttingPdaSession(page)
 
-  await gotoWeb(page, '/fcs/craft/cutting/transfer-bags')
+  await gotoWeb(page, '/fcs/craft/cutting/transfer-bags', '中转袋')
   const scanData = await getPdaHandoverScanData(page)
 
-  await gotoPda(page, '/fcs/pda/cutting/handover/TASK-CUT-PDA-CUT-DONE-0307')
-  await expect(page.locator('[data-pda-cut-handover-field="pickingTaskScan"]')).toBeVisible({ timeout: 30000 })
-  await expect(page.locator('[data-pda-cut-handover-action="confirm-picking"]')).toContainText('确认装袋')
-
-  await page.locator('[data-pda-cut-handover-field="pickingTaskScan"]').fill(scanData.picking.taskNo)
-  await page.locator('[data-pda-cut-handover-field="sourceBagScan"]').fill(scanData.picking.sourceBagCode)
-  await page.locator('[data-pda-cut-handover-field="pickingFeiTicketScan"]').fill(scanData.picking.feiTicketNo)
-  await page.locator('[data-pda-cut-handover-field="targetBagScan"]').fill(scanData.picking.targetBagCode)
-  await page.locator('[data-pda-cut-handover-action="confirm-picking"]').click()
-  await expectRuntimeEvent(page, '待交出仓分拣装袋')
+  await gotoPda(
+    page,
+    '/fcs/pda/cutting/handover/TASK-CUT-PDA-CUT-DONE-0307',
+    '[data-pda-cut-handover-field="handoverOrderScan"]',
+  )
+  await expect(page.locator('[data-pda-cut-handover-field="handoverOrderScan"]')).toBeVisible({ timeout: 30000 })
 
   await page.locator('[data-pda-cut-handover-field="handoverOrderScan"]').fill(scanData.handover.orderNo)
   await page.locator('[data-pda-cut-handover-field="handoverBagScan"]').fill(scanData.handover.bagCode)
   await page.locator('[data-pda-cut-handover-field="handoverFeiTicketScan"]').fill(scanData.handover.feiTicketNo)
   await page.locator('[data-pda-cut-handover-action="confirm"]').click()
+  await page.waitForTimeout(50)
+  await expectNoPageErrors(errors)
   await expectRuntimeEvent(page, '新增交出记录')
 
   await page.locator('[data-pda-cut-handover-field="specialCraftOrderScan"]').fill(scanData.specialCraft.orderNo)
@@ -531,8 +649,14 @@ test('PDA 分拣装袋、交出、特殊工艺交出和回仓均写入统一事�
   await expectRuntimeEvent(page, '特殊工艺交出')
 
   await page.locator('[data-pda-cut-handover-field="specialCraftOrderScan"]').fill(scanData.specialCraft.orderNo)
+  await page.locator('[data-pda-cut-handover-field="specialCraftReturnBagScan"]').fill(scanData.specialCraft.bagCode)
   await page.locator('[data-pda-cut-handover-field="specialCraftReturnFeiTicketScan"]').fill(scanData.specialCraft.feiTicketNo)
-  await page.locator('[data-pda-cut-handover-field="specialCraftReturnLocationScan"]').fill('SP-RETURN-E2E-01')
+  const returnLocationNo = await page.locator('[data-warehouse-map-action="toggle-location"]').first().getAttribute('data-location-no') || ''
+  expect(returnLocationNo).not.toBe('')
+  const returnLocationScan = page.locator('[data-pda-cut-handover-field="specialCraftReturnLocationScan"]')
+  await returnLocationScan.fill(returnLocationNo)
+  await returnLocationScan.press('Enter')
+  await expect(page.locator('[data-warehouse-map-selection-summary]')).toContainText(returnLocationNo)
   await page.locator('[data-pda-cut-handover-field="specialCraftReturnQty"]').fill(String(scanData.specialCraft.expectedQty))
   await page.locator('[data-pda-cut-handover-action="confirm-special-craft-return"]').click()
   await expectRuntimeEvent(
@@ -540,12 +664,11 @@ test('PDA 分拣装袋、交出、特殊工艺交出和回仓均写入统一事�
     '特殊工艺回仓',
     (event) => {
       const payload = event.payload as any
-      return payload?.locationCode === 'SP-RETURN-E2E-01'
-        && event.inventoryEffect?.toLocationCode === 'SP-RETURN-E2E-01'
-      && Number(event.inventoryEffect?.qty || 0) === scanData.specialCraft.expectedQty
+      return Boolean(payload?.locationCode)
+        && event.inventoryEffect?.toLocationCode === payload.locationCode
+        && Number(event.inventoryEffect?.qty || 0) === scanData.specialCraft.expectedQty
     },
   )
-  await verifyEventOnWebPage(page, '/fcs/craft/cutting/warehouse-management/wait-handover', '裁床待交出仓', '待交出仓分拣装袋')
   await verifyEventOnWebPage(page, '/fcs/craft/cutting/handover-orders', '交出单', '新增交出记录')
   await verifyEventOnWebPage(
     page,
@@ -564,26 +687,36 @@ test('PDA 分拣装袋、交出、特殊工艺交出和回仓均写入统一事�
   await expectNoPageErrors(errors)
 })
 
-test('PDA 分拣装袋和特殊工艺回仓缺少扫码时不写入事件账', async ({ page }) => {
+test('PDA 特殊工艺回仓缺少来源、库位或数量时不写入事件账', async ({ page }) => {
   const errors = collectPageErrors(page)
   await seedCuttingPdaSession(page)
 
-  await gotoWeb(page, '/fcs/craft/cutting/transfer-bags')
+  await gotoWeb(page, '/fcs/craft/cutting/transfer-bags', '中转袋')
   const scanData = await getPdaHandoverScanData(page)
 
-  await gotoPda(page, '/fcs/pda/cutting/handover/TASK-CUT-PDA-CUT-DONE-0307')
-  await expect(page.locator('[data-pda-cut-handover-field="pickingTaskScan"]')).toBeVisible({ timeout: 30000 })
-  await page.locator('[data-pda-cut-handover-action="confirm-picking"]').click()
-  await expect(page.locator('body')).toContainText('请先扫描当前分拣装袋任务码。')
-  await expectNoRuntimeEvent(page, '待交出仓分拣装袋')
-
-  await page.locator('[data-pda-cut-handover-field="specialCraftOrderScan"]').fill(scanData.specialCraft.orderNo)
-  await page.locator('[data-pda-cut-handover-field="specialCraftReturnFeiTicketScan"]').fill(scanData.specialCraft.feiTicketNo)
+  await gotoPda(
+    page,
+    '/fcs/pda/cutting/handover/TASK-CUT-PDA-CUT-DONE-0307',
+    '[data-pda-cut-handover-field="handoverOrderScan"]',
+  )
+  await expect(page.locator('[data-pda-cut-handover-field="handoverOrderScan"]')).toBeVisible({ timeout: 30000 })
   await page.locator('[data-pda-cut-handover-action="confirm-special-craft-return"]').click()
-  await expect(page.locator('body')).toContainText('请扫描回仓库位。')
+  await expect(page.locator('body')).toContainText('请先扫描来源特殊工艺交出单。')
   await expectNoRuntimeEvent(page, '特殊工艺回仓')
 
-  await page.locator('[data-pda-cut-handover-field="specialCraftReturnLocationScan"]').fill('SP-RETURN-E2E-02')
+  await page.locator('[data-pda-cut-handover-field="specialCraftOrderScan"]').fill(scanData.specialCraft.orderNo)
+  await page.locator('[data-pda-cut-handover-field="specialCraftReturnBagScan"]').fill(scanData.specialCraft.bagCode)
+  await page.locator('[data-pda-cut-handover-field="specialCraftReturnFeiTicketScan"]').fill(scanData.specialCraft.feiTicketNo)
+  await page.locator('[data-pda-cut-handover-action="confirm-special-craft-return"]').click()
+  await expect(page.locator('body')).toContainText('请选择空闲库位。')
+  await expectNoRuntimeEvent(page, '特殊工艺回仓')
+
+  const returnLocationNo = await page.locator('[data-warehouse-map-action="toggle-location"]').first().getAttribute('data-location-no') || ''
+  expect(returnLocationNo).not.toBe('')
+  const returnLocationScan = page.locator('[data-pda-cut-handover-field="specialCraftReturnLocationScan"]')
+  await returnLocationScan.fill(returnLocationNo)
+  await returnLocationScan.press('Enter')
+  await expect(page.locator('[data-warehouse-map-selection-summary]')).toContainText(returnLocationNo)
   await page.locator('[data-pda-cut-handover-action="confirm-special-craft-return"]').click()
   await expect(page.locator('body')).toContainText('请填写大于 0 的实回数量。')
   await expectNoRuntimeEvent(page, '特殊工艺回仓')

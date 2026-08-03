@@ -3,330 +3,758 @@ import { readFileSync } from 'node:fs'
 import { buildDefaultFactoryInternalWarehouses, listFactoryInternalWarehouses } from '../src/data/fcs/factory-internal-warehouse.ts'
 import { mockFactories } from '../src/data/fcs/factory-mock-data.ts'
 import {
+  buildCuttingWarehouseAreaList,
+  buildCuttingWarehouseLocationNo,
+} from '../src/data/fcs/cutting/warehouse-location-mock.ts'
+import {
+  adjustWarehouseLevelPositionCount,
   applyWarehouseLayoutSnapshot,
-  assignWarehouseLocationToShelf,
-  appendWarehouseArea,
-  appendWarehouseLocation,
   buildInitialWarehouseLayoutSnapshot,
+  createWarehouseArea,
+  createWarehouseShelf,
   createMemoryWarehouseLayoutStorage,
   getWarehouseLayoutStorageKey,
   loadWarehouseLayoutSnapshot,
   listWarehouseLayoutChangeRecords,
-  resetWarehouseLayoutSnapshot,
+  revokeNewWarehouseNode,
   saveWarehouseLayoutSnapshot,
+  setWarehouseLocationEnabled,
+  updateWarehouseArea,
+  updateWarehouseLocation,
+  updateWarehouseShelf,
 } from '../src/pages/process-factory/cutting/warehouse-location-layout-store.ts'
 import {
   adjustWarehouseStorageFootprint,
   buildWarehouseLocationMapProjection,
   buildWarehouseStorageFootprint,
+  listWarehouseLocationMapCells,
+  listWarehouseLocationMapShelfCells,
   listStableWarehouseLocationRefs,
   resolveStableWarehouseLocationRef,
   classifyHistoricalWarehouseLocation,
   revalidateWarehouseLocationSelection,
   toggleWarehouseLocationSelection,
   validateWarehouseLocationSelection,
+  type WarehouseLocationMapCell,
 } from '../src/pages/process-factory/cutting/warehouse-location-map-model.ts'
 import {
   appendWaitHandoverBaggingEvent,
   appendWaitHandoverInboundEvent,
   buildRuntimeInboundTempBagsFromWaitHandoverEvents,
   buildWaitHandoverLocationOccupancyStates,
+  mergeWaitHandoverWarehouseLocations,
+  resolveWaitHandoverBaggingSnapshot,
   type WaitHandoverRuntimeTicketInput,
 } from '../src/pages/process-factory/cutting/wait-handover-runtime.ts'
-import { renderWarehouseLocationMap } from '../src/components/ui/warehouse-location-map.ts'
+import {
+  handleWarehouseLocationMapOccupancyEvent,
+  maxWarehouseShelfPositionCount,
+  resolveWarehouseShelfViewportPagination,
+  renderWarehouseLocationMap,
+  renderWarehouseLocationMapSummarySection,
+} from '../src/components/ui/warehouse-location-map.ts'
 import {
   buildCurrentCuttingWarehouseMapProjection,
+  buildWaitHandoverStorageFootprintId,
   buildWaitProcessRuntimeOccupancies,
   renderCuttingWarehouseLocationMapSection,
 } from '../src/pages/process-factory/cutting/warehouse-location-map.ts'
 import { adjustPickupSessionStorageFootprint } from '../src/data/fcs/cutting/pickup-node-domain.ts'
-import type { CuttingRuntimeEvent } from '../src/data/fcs/cutting/cutting-runtime-event-ledger.ts'
+import {
+  appendCuttingRuntimeEvent,
+  listCuttingRuntimeEvents,
+  type CuttingRuntimeEvent,
+} from '../src/data/fcs/cutting/cutting-runtime-event-ledger.ts'
+import { listMaterialLedgerProjections } from '../src/data/fcs/cutting/material-ledger.ts'
+import { getCurrentFactoryWarehouseByKind } from '../src/pages/pda-warehouse-shared.ts'
+import { listFactoryPdaUsers, setPdaSession } from '../src/data/fcs/store-domain-pda.ts'
 
 const cuttingWarehouses = buildDefaultFactoryInternalWarehouses(mockFactories)
   .filter((warehouse) => warehouse.factoryKind === 'CENTRAL_CUTTING')
 assert(cuttingWarehouses.some((warehouse) => warehouse.warehouseKind === 'WAIT_PROCESS'), '裁床工厂缺少待加工仓')
 assert(cuttingWarehouses.some((warehouse) => warehouse.warehouseKind === 'WAIT_HANDOVER'), '裁床工厂缺少待交出仓')
 
+assert.equal(buildCuttingWarehouseLocationNo('A', 2, 3, 2), 'A-R02-L03-P02')
+const expectedCuttingAreas = {
+  WAIT_PROCESS: buildCuttingWarehouseAreaList('WAIT_PROCESS'),
+  WAIT_HANDOVER: buildCuttingWarehouseAreaList('WAIT_HANDOVER'),
+}
+for (const kind of ['WAIT_PROCESS', 'WAIT_HANDOVER'] as const) {
+  const warehouse = cuttingWarehouses.find((item) => item.warehouseKind === kind)
+  assert(warehouse, `中央裁床缺少 ${kind} 仓库`)
+  assert.deepEqual(warehouse.areaList, expectedCuttingAreas[kind], `${kind} 未使用裁床专属层级库位 Mock`)
+  assert(warehouse.areaList.length > 1, `${kind} 必须包含多个库区`)
+  assert(warehouse.areaList.every((area) => area.shelfList.length > 0), `${kind} 每个库区必须包含货架`)
+  assert(warehouse.areaList.some((area) => area.shelfList.length > 1), `${kind} 必须覆盖同库区多个货架`)
+  const locations = warehouse.areaList.flatMap((area) => area.shelfList.flatMap((shelf) => shelf.locationList))
+  assert.equal(new Set(locations.map((location) => location.locationNo)).size, locations.length, `${kind} 完整库位编号必须唯一`)
+  assert.equal(new Set(locations.map((location) => location.locationId)).size, locations.length, `${kind} 稳定库位 ID 必须唯一`)
+}
+
+const waitProcessMock = expectedCuttingAreas.WAIT_PROCESS
+const waitHandoverMock = expectedCuttingAreas.WAIT_HANDOVER
+const findShelf = (areas: typeof waitProcessMock, areaCode: string, sequence: number) =>
+  areas.find((area) => area.code === areaCode)?.shelfList.find((shelf) => shelf.shelfSequence === sequence)
+const positionCountsByLevel = (shelf: NonNullable<ReturnType<typeof findShelf>>) => {
+  const counts = new Map<number, number>()
+  shelf.locationList.forEach((location) => {
+    const levelNo = location.levelNo ?? 0
+    counts.set(levelNo, (counts.get(levelNo) ?? 0) + 1)
+  })
+  return [...counts.entries()].sort(([left], [right]) => left - right).map(([, count]) => count)
+}
+
+assert.deepEqual(positionCountsByLevel(findShelf(waitProcessMock, 'A', 1)!), [3, 3, 3, 3], '待加工仓 A区 R01 应为4层每层3位')
+assert.deepEqual(positionCountsByLevel(findShelf(waitProcessMock, 'A', 2)!), [2, 2, 3], '待加工仓 A区 R02 应覆盖3层、每层2位和不等层示例')
+assert.deepEqual(positionCountsByLevel(findShelf(waitProcessMock, 'B', 1)!), [1, 1, 1, 1], '待加工仓 B区 R01 应为4层每层1位')
+assert.deepEqual(positionCountsByLevel(findShelf(waitHandoverMock, 'A', 1)!), [4, 4, 4, 4], '待交出仓 A区 R01 应为4层每层4位')
+assert.deepEqual(positionCountsByLevel(findShelf(waitHandoverMock, 'A', 2)!), [2, 2, 3, 2], '待交出仓 A区 R02 应覆盖4层、每层2位和不等层示例')
+assert.deepEqual(positionCountsByLevel(findShelf(waitHandoverMock, 'B', 1)!), [3, 3, 3], '待交出仓 B区 R01 应为3层每层3位')
+
+const waitProcessLocationIds = new Set(waitProcessMock.flatMap((area) => area.shelfList.flatMap((shelf) => shelf.locationList.map((location) => location.locationId))))
+const waitHandoverLocationIds = new Set(waitHandoverMock.flatMap((area) => area.shelfList.flatMap((shelf) => shelf.locationList.map((location) => location.locationId))))
+assert([...waitProcessLocationIds].every((id) => !waitHandoverLocationIds.has(id)), '待加工仓与待交出仓稳定库位 ID 不得交叉')
+assert.notDeepEqual(waitProcessMock, waitHandoverMock, '两仓层级数据必须相互隔离')
+
 const pdaWaitProcessSource = readFileSync(new URL('../src/pages/pda-warehouse-wait-process.ts', import.meta.url), 'utf8')
 const pdaInboundSource = readFileSync(new URL('../src/pages/pda-cutting-inbound.ts', import.meta.url), 'utf8')
 const pdaHandoverSource = readFileSync(new URL('../src/pages/pda-cutting-handover.ts', import.meta.url), 'utf8')
 const warehouseHubSource = readFileSync(new URL('../src/pages/process-factory/cutting/warehouse-hub.ts', import.meta.url), 'utf8')
 const warehouseMapSource = readFileSync(new URL('../src/pages/process-factory/cutting/warehouse-location-map.ts', import.meta.url), 'utf8')
+const warehouseMapUiSource = readFileSync(new URL('../src/components/ui/warehouse-location-map.ts', import.meta.url), 'utf8')
+const warehouseMapModelSource = readFileSync(new URL('../src/pages/process-factory/cutting/warehouse-location-map-model.ts', import.meta.url), 'utf8')
+const warehouseMapReviewRecordSource = readFileSync(new URL('../docs/prototype-review-records/2026-07-30-cutting-warehouse-location-map.md', import.meta.url), 'utf8')
+const packageSource = readFileSync(new URL('../package.json', import.meta.url), 'utf8')
+const warehouseLocationDesignSource = readFileSync(new URL('../docs/superpowers/specs/2026-08-01-cutting-warehouse-location-layer-coding-design.md', import.meta.url), 'utf8')
+const warehouseLocationPlanSource = readFileSync(new URL('../docs/superpowers/plans/2026-08-01-cutting-warehouse-location-layer-coding-implementation.md', import.meta.url), 'utf8')
+const warehouseLayoutStoreSource = readFileSync(new URL('../src/pages/process-factory/cutting/warehouse-location-layout-store.ts', import.meta.url), 'utf8')
+const warehouseLayoutStoreModule = await import('../src/pages/process-factory/cutting/warehouse-location-layout-store.ts') as Record<string, unknown>
 const fcsHandlersSource = readFileSync(new URL('../src/main-handlers/fcs-handlers.ts', import.meta.url), 'utf8')
+const pdaWaitProcessModule = await import('../src/pages/pda-warehouse-wait-process.ts') as Record<string, unknown>
+const pdaInboundModule = await import('../src/pages/pda-cutting-inbound.ts') as Record<string, unknown>
 assert.doesNotMatch(pdaWaitProcessSource, /CUTTING_RECEIVE_LOCATIONS/, 'PDA 不得保留第二套硬编码裁床库位')
 assert.doesNotMatch(`${pdaWaitProcessSource}\n${pdaInboundSource}\n${pdaHandoverSource}\n${warehouseHubSource}`, /FAB-A-0|CUT-A-01|SP-RETURN-0/, '裁床现场页不得继续展示旧硬编码库位')
-assert.match(pdaWaitProcessSource, /调整剩余存放范围/)
+assert.match(pdaWaitProcessSource, /调整剩余存放库位/)
+assert.match(pdaWaitProcessSource, /revalidatePdaCuttingFootprintAdjustmentSelection/, '剩余存放调整确认必须走最新投影整组重校验')
+assert.doesNotMatch(pdaWaitProcessSource, /存放范围|原范围/, 'PDA 选位文案不得继续使用范围摘要表达')
 assert.match(pdaWaitProcessSource, /}, syncCuttingPickupSessionRuntimeFacts\)/, '领料必须通过原子运行时入口写共享事件与本地会话')
 assert.match(pdaInboundSource, /data-pda-inbound-location-map/)
-assert.match(pdaInboundSource, /selectionLimit: 1/)
+assert.doesNotMatch(pdaInboundSource, /selectionLimit/, 'PDA 单选业务状态不得继续泄漏为共享地图数量限制 API')
+assert.match(pdaInboundSource, /selectedLocationIds: form\.selectedLocationIds/, 'PDA 中转袋入仓地图必须直接投影数组选位事实')
+assert.match(pdaInboundSource, /toggleWarehouseLocationSelection\([\s\S]*form\.selectedLocationIds/, 'PDA 中转袋入仓点击空闲格必须追加或取消数组选位')
+assert.doesNotMatch(pdaInboundSource, /selectedLocationId\s*:/, 'PDA 中转袋入仓不得保留单值 selectedLocationId 状态')
+assert.equal(typeof handleWarehouseLocationMapOccupancyEvent, 'function', '共享库位图必须导出可调用的占用详情局部事件处理器')
+assert.match(pdaInboundSource, /handleWarehouseLocationMapOccupancyEvent\(warehouseMapNode, projection\)/, 'PDA 中转袋入仓必须接入共享占用详情事件处理器')
 assert.match(pdaInboundSource, /不属于当前工厂/)
-assert.match(pdaHandoverSource, /locationRef:/, '特殊工艺回仓必须写稳定库位路径')
-assert.match(warehouseHubSource, /data-wait-handover-location-map/, 'Web 中转袋入仓必须提供待交出仓单选库位图')
+assert.match(pdaHandoverSource, /warehouseLocations: validation\.warehouseLocations\.map/, '特殊工艺回仓必须一次写入全部稳定库位路径')
+assert.doesNotMatch(pdaHandoverSource.match(/const payload: SpecialCraftReturnPayload = \{[\s\S]*?\n  \}/)?.[0] || '', /locationRef:/, 'PDA 特殊工艺回仓新事件不得双写单库位事实')
+assert.match(warehouseHubSource, /data-wait-handover-location-map/, 'Web 中转袋入仓必须提供待交出仓多选库位图')
+assert.equal((warehouseHubSource.match(/handleWarehouseLocationMapOccupancyEvent\(/g) || []).length, 2, 'Web 待加工仓与待交出仓两个 SELECT 入口必须分别接入共享占用详情事件处理器')
+assert.match(warehouseHubSource, /toggleWarehouseLocationSelection\([\s\S]*waitHandoverSelectedLocationIds[\s\S]*locationId/, 'Web 中转袋入仓必须通过共享自由多选规则追加或取消任意库位')
+assert.match(warehouseHubSource, /warehouseLocations,\s*usageCycleId: snapshot\.usageCycleId/, 'Web 待交出入仓必须把全部稳定库位引用作为唯一事实提交')
+assert.doesNotMatch(warehouseHubSource.match(/function submitWaitHandoverInbound[\s\S]*?\n}\n\nfunction submitWaitHandoverRecord/)?.[0] || '', /locationRef:/, 'Web 待交出新提交不得双写单库位事实')
 assert.match(warehouseHubSource, /dataset\.waitHandoverWebAction/, '待交出仓真实页面处理器必须承接顶部 Web 动作按钮')
+assert.equal((pdaWaitProcessSource.match(/handleWarehouseLocationMapOccupancyEvent\(/g) || []).length, 1, 'PDA 待加工仓的领料与调整两个 SELECT 地图必须由同一事件入口接入共享占用详情处理器')
 assert.match(fcsHandlersSource, /handleCraftCuttingWaitHandoverEvent\(target\)/, '待交出仓真实页面处理器必须接入主处理链')
 assert.doesNotMatch(fcsHandlersSource, /handleCraftCuttingWaitHandoverWebActionsEvent/, '不得保留旧文本弹窗处理器')
-assert.match(warehouseMapSource, /open-add-area/, '普通查看模式缺少新增库区入口')
-assert.match(warehouseMapSource, /open-add-location/, '普通查看模式缺少新增库位入口')
-assert.match(warehouseMapSource, /data-cutting-warehouse-modal/, '新增库区和库位必须使用独立弹窗')
-assert.match(fcsHandlersSource, /data-cutting-warehouse-modal/, '新增弹窗事件必须接入裁床库位图处理链')
+assert.match(warehouseMapSource, /renderFormDialog\(/, '库位图维护必须复用 renderFormDialog')
+assert.doesNotMatch(`${warehouseLocationDesignSource}\n${warehouseLocationPlanSource}`, /货架序号、层号和层内位置号限定为 `01` 至 `99`|货架、层、位置为 1–99/, '规格和计划不得保留已被后续确认覆盖的 99 固定业务上限')
+assert.match(warehouseLocationDesignSource, /货架序号、层号和层内位置号必须是有限正整数，不设置固定业务上限/, '规格必须明确结构序号无固定业务上限')
+assert.match(warehouseLocationDesignSource, /至少补足为两位/, '规格必须明确编号字段是最少两位而非固定两位')
+assert.match(warehouseLocationDesignSource, /多选库位数量不设置固定上限.*结构序号不设置固定业务上限/s, '规格必须区分选择数量上限与结构序号上限')
+assert.match(warehouseLocationPlanSource, /有限正整数，不设置固定业务上限；编号至少补足为两位/, '实施计划必须同步最终结构序号与编码宽度口径')
+const packageScripts = (JSON.parse(packageSource) as { scripts?: Record<string, string> }).scripts || {}
+const cuttingAllE2eCommand = packageScripts['test:cutting:all:e2e'] || ''
+assert.match(cuttingAllE2eCommand, /npm run build/, '裁床全量 E2E 必须先构建可复用产物')
+assert.match(cuttingAllE2eCommand, /CUTTING_E2E_USE_PREVIEW=false/, '裁床全量 E2E 必须使用可加载源码模块的开发服务')
+assert.match(cuttingAllE2eCommand, /PLAYWRIGHT_REUSE_EXISTING_SERVER=false/, '裁床全量 E2E 必须使用隔离服务')
+assert.match(cuttingAllE2eCommand, /CUTTING_E2E_PORT=43177/, '裁床全量 E2E 必须使用独立固定端口')
+assert.match(cuttingAllE2eCommand, /CUTTING_E2E_EXPECT_TIMEOUT=60000/, '裁床全量 E2E 必须为大型应用冷启动保留稳定页面就绪窗口')
+assert.match(cuttingAllE2eCommand, /CUTTING_E2E_TEST_TIMEOUT=300000/, '裁床全量 E2E 必须覆盖大型 PDA 懒模块的首次编译与渲染时间')
+assert.match(cuttingAllE2eCommand, /--workers=1/, '裁床全量 E2E 必须串行执行，避免共享本地事实互相污染')
+for (const renderer of [
+  'renderCreateAreaDialog',
+  'renderCreateShelfDialog',
+  'renderEditAreaDialog',
+  'renderEditShelfDialog',
+  'renderEditLocationDialog',
+  'renderLevelPositionEditor',
+  'renderLocationNumberChangePreview',
+]) {
+  assert.match(warehouseMapSource, new RegExp(`function ${renderer}\\(`), `缺少正式维护局部函数 ${renderer}`)
+}
+assert.match(fcsHandlersSource, /data-cutting-warehouse-modal/, '维护弹窗事件必须接入裁床库位图处理链')
+assert.doesNotMatch(warehouseMapSource, /window\.prompt|prompt\(/, '库位图维护不得使用浏览器原生 prompt')
+assert.doesNotMatch(`${warehouseLayoutStoreSource}\n${warehouseMapSource}\n${warehouseMapModelSource}`, /1 到 99|<= 99|> 99/, '库位维护及投影不得保留 99 的固定业务上限')
+assert.doesNotMatch(`${warehouseLayoutStoreSource}\n${warehouseMapSource}\n${warehouseMapModelSource}`, /5000|5_000/, '不得以资源保护名义增加固定业务数量上限')
+assert.doesNotMatch(warehouseMapSource, /function positiveInteger\(/, '页面不得用带 99 上限的 positiveInteger 静默修正输入')
+assert.match(warehouseMapSource, /`第 \$\{levelNo\} 层位置数`/, '逐层位置数校验必须把具体层号传入严格解析器')
+assert.match(warehouseMapSource, /data-maintenance-preview-error/, '非法逐层输入必须在预览区显示错误')
+assert.match(warehouseMapSource, /data-level-editor-pagination/, '逐层编辑器必须分页并允许访问全部层')
+assert.match(warehouseMapSource, /data-location-preview-pagination/, '完整编号预览必须分页并展示总数和当前页')
+assert.match(warehouseMapSource, /data-maintenance-saving/, '保存点击必须先显示正在生成或保存反馈')
+assert.match(warehouseMapSource, /AbortController/, '每个维护弹窗必须有独立取消令牌')
+assert.match(warehouseMapSource, /data-maintenance-instance-token/, '维护弹窗必须绑定唯一实例 token')
+assert.match(warehouseMapSource, /取消生成/, '保存中必须提供明确取消生成动作')
+assert.match(warehouseMapSource, /navigator\.storage\.estimate/, '保存前必须按浏览器实时存储余量做动态容量预检')
+assert.match(warehouseMapSource, /performance[\s\S]*memory/, '动态容量预检必须在浏览器支持时读取可用堆')
+assert.match(warehouseMapSource, /当前设备可用资源不足，建议拆分货架\/减少单次生成/, '动态容量不足必须提供中文修正动作')
+assert.match(warehouseLayoutStoreSource, /signal\?\.aborted|signal\.aborted/, '分批构造每批必须检查取消信号')
+assert.match(warehouseMapSource, /本次规模超出当前设备可处理能力，建议拆分货架\/减少单次生成/, '资源失败必须在弹窗提供可执行中文建议')
+assert.match(warehouseMapSource, /role="dialog"/, '维护弹窗必须声明 dialog 语义')
+assert.match(warehouseMapSource, /aria-modal="true"/, '维护弹窗必须声明 aria-modal')
+assert.match(warehouseMapSource, /aria-labelledby=/, '维护弹窗标题必须关联 aria-labelledby')
+assert.match(warehouseMapSource, /<form[\s\S]*data-cutting-warehouse-maintenance-form/, '维护字段必须位于可按 Enter 提交的 form 中')
+assert.match(warehouseMapUiSource, /WAREHOUSE_LEVEL_VIEWPORT_PAGE_SIZE/, '共享库位图必须限制单次层 DOM 数')
+assert.match(warehouseMapUiSource, /WAREHOUSE_POSITION_VIEWPORT_PAGE_SIZE/, '共享库位图必须限制单次位置 DOM 数')
+assert.match(warehouseMapUiSource, /data-warehouse-map-shelf-viewport/, '每个货架必须有可局部替换的有界视窗')
+assert.match(warehouseMapUiSource, /handleWarehouseLocationMapViewportEvent/, '共享库位图必须提供局部视窗事件处理器')
+assert.doesNotMatch(warehouseMapUiSource, /Math\.max\([^\n]*\.\.\.shelf\.levels/, '超大层级投影不得通过参数展开计算最大位置数')
+assert.match(warehouseMapSource, /handleWarehouseLocationMapViewportEvent\(/, 'PFOS 独立事件链必须接入共享视窗处理器')
+
+const massiveViewportLevels = Array.from({ length: 200_000 }, (_, index) => ({
+  levelNo: 200_000 - index,
+  locations: index === 199_999 ? [{}] : [],
+}))
+assert.equal(maxWarehouseShelfPositionCount(massiveViewportLevels), 1, '20 万层最大位置数计算不得发生参数展开 RangeError')
+assert.deepEqual(
+  resolveWarehouseShelfViewportPagination(massiveViewportLevels, 25_000, 1),
+  { levelPage: 25_000, levelPageCount: 25_000, positionPage: 1, positionPageCount: 1 },
+  '20 万层投影必须正确计算层总页数并可达末页',
+)
+assert.equal((warehouseMapSource.match(/statusField\(/g) || []).length >= 4, true, '库区、货架、库位三类编辑表单必须提供启用状态字段')
+assert.match(warehouseLayoutStoreSource, /function setWarehouseLocationEnabled[\s\S]*return updateWarehouseLocation\(/, '独立库位启停 API 必须复用原子库位更新实现')
+assert.match(warehouseMapSource, /scrollX[\s\S]*scrollY[\s\S]*scrollTo/, '局部保存刷新必须显式保持页面滚动位置')
+assert.doesNotMatch(
+  `${warehouseLayoutStoreSource}\n${warehouseMapSource}\n${warehouseMapUiSource}`,
+  /assignWarehouseLocationToShelf|assign-location/,
+  'v3 没有未分配库位事实，不得保留跨货架分配领域函数、事件分支或交互入口',
+)
+assert.doesNotMatch(warehouseMapUiSource, /selectionLimit/, '共享库位图 API 不得暴露 selectionLimit')
+assert.doesNotMatch(warehouseLayoutStoreSource, /export function replaceWarehouseAreaList/, '不得公开任意替换 areaList 的接口')
+for (const apiName of ['reorderWarehouseAreas', 'reorderWarehouseShelves', 'reorderWarehouseLocations']) {
+  assert.equal(typeof warehouseLayoutStoreModule[apiName], 'function', `缺少窄排序 API：${apiName}`)
+}
 const viewSectionHtml = renderCuttingWarehouseLocationMapSection('WAIT_PROCESS', 'VIEW')
 const layoutSectionHtml = renderCuttingWarehouseLocationMapSection('WAIT_PROCESS', 'LAYOUT')
-assert.match(viewSectionHtml, /data-warehouse-map-action="open-add-area"[^>]+data-warehouse-kind="WAIT_PROCESS"[^>]+data-warehouse-id=/, '新增库区入口必须绑定当前仓库')
-assert.match(viewSectionHtml, /data-warehouse-map-action="open-add-location"[^>]+data-warehouse-kind="WAIT_PROCESS"[^>]+data-warehouse-id=/, '新增库位入口必须绑定当前仓库')
-assert.doesNotMatch(layoutSectionHtml, /open-add-area|open-add-location/, '编排模式不得显示新增结构入口')
+assert.equal((viewSectionHtml.match(/>维护库位图<\/button>/g) || []).length, 1, '普通视图必须只有一个维护库位图入口')
+assert.doesNotMatch(viewSectionHtml, />新增库区<|>新增库位<|>编排库位图</, '普通视图不得保留分散维护入口')
+assert.match(viewSectionHtml, /data-warehouse-map-action="enter-maintenance"[^>]+data-warehouse-kind="WAIT_PROCESS"/, '维护入口必须绑定当前 PFOS 仓库')
+assert.match(layoutSectionHtml, /data-warehouse-map-action="open-create-area"/, '维护模式必须可新增空库区')
+assert.match(layoutSectionHtml, /data-warehouse-map-action="open-create-shelf"/, '维护模式必须可在库区新增货架')
+assert.match(layoutSectionHtml, /data-warehouse-map-action="rename-area"/, '维护模式必须可编辑库区')
+assert.match(layoutSectionHtml, /data-warehouse-map-action="rename-shelf"/, '维护模式必须可编辑货架')
+assert.match(layoutSectionHtml, /data-warehouse-map-action="rename-location"/, '维护模式必须可编辑库位')
+assert.match(warehouseMapSource, /persistenceAvailable/, '库位图页面必须消费持久化可用状态')
+assert.match(warehouseMapSource, /当前仅可查看，无法保存/, '持久化失败时必须向仓库主管展示可行动提示')
 
 const waitProcess = cuttingWarehouses.find((warehouse) => warehouse.warehouseKind === 'WAIT_PROCESS')
 assert(waitProcess, '缺少裁床待加工仓')
 
 const storage = createMemoryWarehouseLayoutStorage()
-const initial = buildInitialWarehouseLayoutSnapshot(waitProcess, '系统初始化')
+const initial = loadWarehouseLayoutSnapshot(waitProcess, storage).snapshot
+assert.equal(initial.schemaVersion, 3)
 assert.equal(initial.factoryId, waitProcess.factoryId)
 assert.equal(initial.layoutVersion, 0)
-assert.deepEqual(initial.areaOrder, waitProcess.areaList.map((area) => area.areaId), '首次布局应沿用主数据数组顺序')
+assert.deepEqual(initial.areaList, waitProcess.areaList, '首次布局应深拷贝当前仓库完整结构')
+assert.notEqual(initial.areaList, waitProcess.areaList, 'v3 快照不得复用主数据数组引用')
 
-const firstArea = waitProcess.areaList[0]
+const setFailureStorage = {
+  getItem: () => null,
+  setItem: () => { throw new Error('存储不可写') },
+  removeItem: () => undefined,
+}
+const setFailureLoad = loadWarehouseLayoutSnapshot(waitProcess, setFailureStorage) as ReturnType<typeof loadWarehouseLayoutSnapshot> & { persistenceAvailable?: boolean }
+assert.equal(setFailureLoad.persistenceAvailable, false, '首次建立基线失败必须显式标记不可持久化')
+assert.match(setFailureLoad.warningMessage, /当前仅可查看，无法保存/)
+const originalWindowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'window')
+let browserStorageGetterLoad: ReturnType<typeof loadWarehouseLayoutSnapshot> | undefined
+let browserStorageGetterError: unknown
+try {
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: Object.defineProperty({}, 'localStorage', {
+      configurable: true,
+      get: () => {
+        const error = new Error('拒绝访问浏览器存储')
+        error.name = 'SecurityError'
+        throw error
+      },
+    }),
+  })
+  browserStorageGetterLoad = loadWarehouseLayoutSnapshot(waitProcess)
+} catch (error) {
+  browserStorageGetterError = error
+} finally {
+  if (originalWindowDescriptor) Object.defineProperty(globalThis, 'window', originalWindowDescriptor)
+  else delete (globalThis as typeof globalThis & { window?: unknown }).window
+}
+assert.equal(browserStorageGetterError, undefined, '访问 localStorage getter 失败不得越过布局加载兜底')
+assert.equal(browserStorageGetterLoad?.persistenceAvailable, false, '浏览器存储不可访问时必须显式标记不可持久化')
+assert.match(browserStorageGetterLoad?.warningMessage ?? '', /当前仅可查看，无法保存/)
+assert.deepEqual(browserStorageGetterLoad?.snapshot.areaList, waitProcess.areaList, '浏览器存储不可访问时仍应返回默认布局事实')
+const validLayoutKey = getWarehouseLayoutStorageKey(waitProcess.factoryId, waitProcess.warehouseKind, waitProcess.warehouseId)
+const validLayoutRaw = JSON.stringify(initial)
+const validReadOnlyWriteAttempts: Array<{ key: string; value: string }> = []
+const validReadOnlyStorage = {
+  getItem: (key: string) => key === validLayoutKey ? validLayoutRaw : null,
+  setItem: (key: string, value: string) => {
+    validReadOnlyWriteAttempts.push({ key, value })
+    throw new Error('已有布局只读')
+  },
+  removeItem: () => undefined,
+}
+const validReadOnlyLoad = loadWarehouseLayoutSnapshot(waitProcess, validReadOnlyStorage)
+assert.equal(validReadOnlyLoad.persistenceAvailable, false, '命中合法 v3 缓存时仍必须探测存储可写性')
+assert.match(validReadOnlyLoad.warningMessage, /当前仅可查看，无法保存/)
+assert.deepEqual(validReadOnlyLoad.snapshot, initial, '可写性探测失败不得改变已有合法布局事实')
+assert.deepEqual(validReadOnlyWriteAttempts, [{ key: validLayoutKey, value: validLayoutRaw }], '只能用原 key 原 raw 原样写回探测可写性')
+const getFailureStorage = {
+  getItem: () => { throw new Error('存储不可读') },
+  setItem: () => undefined,
+  removeItem: () => undefined,
+}
+const getFailureLoad = loadWarehouseLayoutSnapshot(waitProcess, getFailureStorage) as ReturnType<typeof loadWarehouseLayoutSnapshot> & { persistenceAvailable?: boolean }
+assert.equal(getFailureLoad.persistenceAvailable, false, '读取布局失败不得让页面崩溃')
+assert.match(getFailureLoad.warningMessage, /当前仅可查看，无法保存/)
+assert.deepEqual(
+  listWarehouseLayoutChangeRecords(waitProcess.factoryId, waitProcess.warehouseKind, waitProcess.warehouseId, getFailureStorage),
+  [],
+  '编排历史读取失败应返回空列表而不是抛出异常',
+)
+assert.equal(
+  saveWarehouseLayoutSnapshot(initial, 0, getFailureStorage).ok,
+  false,
+  '保存前读取存储失败必须返回明确失败结果',
+)
+const removeFailureStorage = {
+  getItem: () => JSON.stringify({ ...initial, schemaVersion: 2 }),
+  setItem: () => undefined,
+  removeItem: () => { throw new Error('存储不可删') },
+}
+const removeFailureLoad = loadWarehouseLayoutSnapshot(waitProcess, removeFailureStorage) as ReturnType<typeof loadWarehouseLayoutSnapshot> & { persistenceAvailable?: boolean }
+assert.equal(removeFailureLoad.persistenceAvailable, false, '清理旧缓存失败不得让页面崩溃')
+
+const firstArea = initial.areaList[0]
 const firstShelf = firstArea.shelfList[0]
 const firstLocation = firstShelf.locationList[0]
 const secondLocation = firstShelf.locationList[1]
 assert(firstLocation && secondLocation, '测试货架至少需要两个库位')
 
-const moved = {
-  ...initial,
-  locationOrderByShelfId: {
-    ...initial.locationOrderByShelfId,
-    [firstShelf.shelfId]: [secondLocation.locationId, firstLocation.locationId],
-  },
-  locationLabelOverrides: {
-    [firstLocation.locationId]: {
-      locationNo: '面料-A-02',
-      locationName: '面料-A-02',
-    },
-  },
-  areaLabelOverrides: {
-    [firstArea.areaId]: { areaName: '面料暂存一区' },
-  },
-  shelfLabelOverrides: {
-    [firstShelf.shelfId]: { shelfNo: '货架 A-01' },
-  },
+type ReorderAreas = (snapshot: typeof initial, orderedAreaIds: readonly string[], updatedBy?: string) => typeof initial
+type ReorderShelves = (snapshot: typeof initial, areaId: string, orderedShelfIds: readonly string[], updatedBy?: string) => typeof initial
+type ReorderLocations = (snapshot: typeof initial, shelfId: string, orderedLocationIds: readonly string[], updatedBy?: string) => typeof initial
+const reorderAreas = warehouseLayoutStoreModule.reorderWarehouseAreas as ReorderAreas
+const reorderShelves = warehouseLayoutStoreModule.reorderWarehouseShelves as ReorderShelves
+const reorderLocations = warehouseLayoutStoreModule.reorderWarehouseLocations as ReorderLocations
+const reversedAreaIds = initial.areaList.map((area) => area.areaId).reverse()
+const areaReordered = reorderAreas(initial, reversedAreaIds, '仓库主管')
+assert.deepEqual(areaReordered.areaList.map((area) => area.areaId), reversedAreaIds, '库区排序 API 只应改变库区顺序')
+assert.deepEqual(
+  areaReordered.areaList.map((area) => initial.areaList.find((item) => item.areaId === area.areaId)),
+  areaReordered.areaList,
+  '库区排序后每个节点的业务字段必须原样保留',
+)
+assert.throws(
+  () => reorderLocations(initial, firstShelf.shelfId, firstShelf.locationList.slice(1).map((location) => location.locationId), '仓库主管'),
+  /完整节点集合/,
+  '排序 API 不得借机删除包括占用库位在内的任何节点',
+)
+assert.throws(
+  () => reorderAreas(initial, initial.areaList.map((area, index) => index === 0 ? { ...area, code: 'Z' } : area) as unknown as string[], '仓库主管'),
+  /完整节点集合/,
+  '排序 API 不得接收并写入结构字段修改',
+)
+assert.throws(
+  () => reorderShelves(initial, firstArea.areaId, firstArea.shelfList.map((shelf) => ({ ...shelf, layoutCreatedInVersion: 1 })) as unknown as string[], '仓库主管'),
+  /完整节点集合/,
+  '排序 API 不得接收并注入创建元数据',
+)
+assert.strictEqual(
+  updateWarehouseArea(initial, {
+    areaId: firstArea.areaId,
+    areaName: ` ${firstArea.areaName} `,
+    code: firstArea.code,
+    remark: firstArea.remark ?? '',
+    enabled: firstArea.status === 'AVAILABLE',
+    updatedBy: '仓库主管',
+  }, new Set()),
+  initial,
+  '库区全部规范化业务事实同值时必须返回原快照',
+)
+assert.strictEqual(
+  updateWarehouseShelf(initial, {
+    shelfId: firstShelf.shelfId,
+    shelfSequence: firstShelf.shelfSequence,
+    shelfName: ` ${firstShelf.shelfName} `,
+    remark: firstShelf.remark ?? '',
+    enabled: firstShelf.status === 'AVAILABLE',
+    updatedBy: '仓库主管',
+  }, new Set()),
+  initial,
+  '货架全部规范化业务事实同值时必须返回原快照',
+)
+assert.strictEqual(
+  updateWarehouseLocation(initial, {
+    locationId: firstLocation.locationId,
+    levelNo: firstLocation.levelNo,
+    positionNo: firstLocation.positionNo,
+    remark: firstLocation.remark ?? '',
+    updatedBy: '仓库主管',
+  }, new Set()),
+  initial,
+  '库位全部规范化业务事实同值时必须返回原快照',
+)
+const firstLevelPositionCount = firstShelf.locationList.filter((location) => location.levelNo === firstLocation.levelNo).length
+assert.strictEqual(
+  adjustWarehouseLevelPositionCount(initial, {
+    shelfId: firstShelf.shelfId,
+    levelNo: firstLocation.levelNo!,
+    positionCount: firstLevelPositionCount,
+    updatedBy: '仓库主管',
+  }, new Set()),
+  initial,
+  '层内库位数不变时必须返回原快照',
+)
+assert.strictEqual(reorderAreas(initial, initial.areaList.map((area) => area.areaId)), initial, '库区同顺序不得增加版本')
+assert.strictEqual(reorderShelves(initial, firstArea.areaId, firstArea.shelfList.map((shelf) => shelf.shelfId)), initial, '货架同顺序不得增加版本')
+assert.strictEqual(reorderLocations(initial, firstShelf.shelfId, firstShelf.locationList.map((location) => location.locationId)), initial, '库位同顺序不得增加版本')
+
+const areaOnly = createWarehouseArea(initial, {
+  areaId: 'AREA-C',
+  areaName: 'C区',
+  code: 'C',
+  remark: '临时扩区',
+  updatedBy: '仓库主管',
+})
+assert.equal(areaOnly.areaList.at(-1)?.shelfList.length, 0, '新建库区不得隐式创建货架或库位')
+assert.equal(areaOnly.layoutVersion, 1, '每个成功维护动作必须生成下一版本')
+assert.deepEqual(initial.areaList, waitProcess.areaList, '维护纯函数不得修改输入快照')
+assert.throws(
+  () => createWarehouseArea(areaOnly, { areaId: 'AREA-C2', areaName: '重复区', code: 'C', updatedBy: '仓库主管' }),
+  /库区代码 C 已存在/,
+)
+assert.throws(
+  () => createWarehouseArea(areaOnly, { areaId: 'AREA-DUPLICATE-NAME', areaName: '  C区  ', code: 'D', updatedBy: '仓库主管' }),
+  /库区名称 C区 已存在/,
+  '同仓库类型新增库区名称 trim 后必须唯一',
+)
+assert.throws(
+  () => updateWarehouseArea(areaOnly, { areaId: firstArea.areaId, areaName: ' C区 ', updatedBy: '仓库主管' }, new Set()),
+  /库区名称 C区 已存在/,
+  '同仓库类型编辑库区名称 trim 后必须唯一',
+)
+const waitHandoverWarehouse = cuttingWarehouses.find((warehouse) => warehouse.warehouseKind === 'WAIT_HANDOVER')!
+const crossKindSameName = createWarehouseArea(buildInitialWarehouseLayoutSnapshot(waitHandoverWarehouse), {
+  areaId: 'AREA-WAIT-HANDOVER-C', areaName: ' C区 ', code: 'C', updatedBy: '待交出仓主管',
+})
+assert.equal(crossKindSameName.areaList.at(-1)?.areaName, 'C区', '不同 warehouse kind 必须允许相同库区名称')
+assert.throws(
+  () => createWarehouseArea(areaOnly, { areaId: 'AREA-BAD', areaName: '非法区', code: 'c', updatedBy: '仓库主管' }),
+  /单个大写字母/,
+)
+
+const shelfAdded = createWarehouseShelf(areaOnly, {
+  areaId: 'AREA-C',
+  shelfId: 'SHELF-C-R01',
+  shelfSequence: 1,
+  positionCounts: [2, 3, 1],
+  remark: '三层不等位',
+  updatedBy: '仓库主管',
+})
+const createdShelf = shelfAdded.areaList.find((area) => area.areaId === 'AREA-C')?.shelfList[0]
+assert(createdShelf)
+assert.deepEqual(positionCountsByLevel(createdShelf), [2, 3, 1], '新建货架必须按各层数量一次生成全部层位')
+assert.deepEqual(
+  createdShelf.locationList.map((location) => location.locationNo),
+  ['C-R01-L01-P01', 'C-R01-L01-P02', 'C-R01-L02-P01', 'C-R01-L02-P02', 'C-R01-L02-P03', 'C-R01-L03-P01'],
+)
+assert.equal(new Set(createdShelf.locationList.map((location) => location.locationId)).size, 6, '一次生成的库位 ID 必须稳定且唯一')
+assert.throws(
+  () => createWarehouseShelf(shelfAdded, {
+    areaId: 'AREA-C', shelfId: 'SHELF-C-R01-SECOND', shelfSequence: 1, positionCounts: [1], updatedBy: '仓库主管',
+  }),
+  /货架序号 1 已存在/,
+)
+const shelfBeyondLegacyLimit = createWarehouseShelf(areaOnly, {
+  areaId: 'AREA-C', shelfId: 'SHELF-C-R100', shelfSequence: 100, positionCounts: [1], updatedBy: '仓库主管',
+})
+assert.equal(shelfBeyondLegacyLimit.areaList.find((area) => area.areaId === 'AREA-C')?.shelfList[0]?.shelfNo, 'R100', '货架序号不得保留 99 的伪业务上限')
+for (const [positionCounts, expected] of [
+  [[1, 0], /第 2 层位置数必须是有限正整数/],
+  [[-1], /第 1 层位置数必须是有限正整数/],
+  [[1.5], /第 1 层位置数必须是有限正整数/],
+  [[Number.POSITIVE_INFINITY], /第 1 层位置数必须是有限正整数/],
+] as const) {
+  assert.throws(
+    () => createWarehouseShelf(areaOnly, {
+      areaId: 'AREA-C', shelfId: `SHELF-C-INVALID-${String(positionCounts[0])}`, shelfSequence: 2, positionCounts: [...positionCounts], updatedBy: '仓库主管',
+    }),
+    expected,
+    '逐层位置数必须逐项严格校验并指出具体层号',
+  )
 }
-const saved = saveWarehouseLayoutSnapshot(moved, 0, storage)
+
+const levelExpanded = adjustWarehouseLevelPositionCount(shelfAdded, {
+  shelfId: 'SHELF-C-R01', levelNo: 2, positionCount: 5, updatedBy: '仓库主管',
+}, new Set())
+const expandedShelf = levelExpanded.areaList.find((area) => area.areaId === 'AREA-C')!.shelfList[0]
+assert.deepEqual(positionCountsByLevel(expandedShelf), [2, 5, 1], '增加层位必须从当前最右侧继续追加')
+assert.deepEqual(expandedShelf.locationList.filter((location) => location.levelNo === 2).map((location) => location.positionNo), [1, 2, 3, 4, 5])
+const levelReduced = adjustWarehouseLevelPositionCount(levelExpanded, {
+  shelfId: 'SHELF-C-R01', levelNo: 2, positionCount: 2, updatedBy: '仓库主管',
+}, new Set())
+assert.deepEqual(positionCountsByLevel(levelReduced.areaList.find((area) => area.areaId === 'AREA-C')!.shelfList[0]), [2, 2, 1], '减少层位只能从最右端移除')
+
+const occupiedId = createdShelf.locationList.find((location) => location.levelNo === 2 && location.positionNo === 3)!.locationId
+assert.throws(
+  () => adjustWarehouseLevelPositionCount(shelfAdded, {
+    shelfId: 'SHELF-C-R01', levelNo: 2, positionCount: 2, updatedBy: '仓库主管',
+  }, new Set([occupiedId])),
+  /占用.*C-R01-L02-P03/,
+)
+assert.throws(
+  () => setWarehouseLocationEnabled(shelfAdded, { locationId: occupiedId, enabled: false, updatedBy: '仓库主管' }, new Set([occupiedId])),
+  /占用.*C-R01-L02-P03/,
+)
+const stoppedOccupiedSnapshot = structuredClone(shelfAdded)
+stoppedOccupiedSnapshot.areaList
+  .find((area) => area.areaId === 'AREA-C')!
+  .shelfList[0]
+  .locationList.find((location) => location.locationId === occupiedId)!.status = 'STOPPED'
+assert.equal(
+  setWarehouseLocationEnabled(stoppedOccupiedSnapshot, { locationId: occupiedId, enabled: true, updatedBy: '仓库主管' }, new Set([occupiedId]))
+    .areaList.find((area) => area.areaId === 'AREA-C')!.shelfList[0].locationList.find((location) => location.locationId === occupiedId)!.status,
+  'AVAILABLE',
+  '已停用节点即使存在占用事实也必须允许恢复启用',
+)
+assert.strictEqual(
+  setWarehouseLocationEnabled(stoppedOccupiedSnapshot, { locationId: occupiedId, enabled: false, updatedBy: '仓库主管' }, new Set([occupiedId])),
+  stoppedOccupiedSnapshot,
+  '库位启停状态相同时应直接返回原快照，不产生无意义事实变化',
+)
+assert.throws(
+  () => updateWarehouseLocation(shelfAdded, { locationId: occupiedId, levelNo: 3, positionNo: 2, updatedBy: '仓库主管' }, new Set([occupiedId])),
+  /占用.*只能修改备注/,
+)
+const customNamedLocationSnapshot = structuredClone(shelfAdded)
+const customNamedLocationArea = customNamedLocationSnapshot.areaList.find((area) => area.areaId === 'AREA-C')!
+const customNamedLocationShelf = customNamedLocationArea.shelfList[0]
+customNamedLocationShelf.shelfName = '主管保留整架名称'
+customNamedLocationShelf.locationList.find((location) => location.locationId === occupiedId)!.locationName = '占用目标自定义名称'
+customNamedLocationShelf.locationList.find((location) => location.levelNo === 2 && location.positionNo === 2)!.locationName = '相邻库位自定义名称'
+const expectedLocationRemarkOnly = structuredClone(customNamedLocationSnapshot.areaList)
+expectedLocationRemarkOnly
+  .find((area) => area.areaId === 'AREA-C')!
+  .shelfList[0]
+  .locationList.find((location) => location.locationId === occupiedId)!.remark = '盘点确认'
+const locationRemarkOnly = updateWarehouseLocation(
+  customNamedLocationSnapshot,
+  { locationId: occupiedId, remark: '盘点确认', updatedBy: '仓库主管' },
+  new Set([occupiedId]),
+)
+assert.deepEqual(locationRemarkOnly.areaList, expectedLocationRemarkOnly, '占用库位仅改备注时，除目标 remark 外整个库区深值必须保持不变')
+assert.throws(
+  () => updateWarehouseArea(shelfAdded, { areaId: 'AREA-C', code: 'D', updatedBy: '仓库主管' }, new Set([occupiedId])),
+  /占用.*不能修改库区代码/,
+)
+const secondOccupiedId = createdShelf.locationList.find((location) => location.levelNo === 1 && location.positionNo === 1)!.locationId
+assert.throws(
+  () => updateWarehouseArea(shelfAdded, { areaId: 'AREA-C', areaName: '占用区改名', updatedBy: '仓库主管' }, new Set([occupiedId, secondOccupiedId])),
+  new RegExp(`占用.*${createdShelf.locationList.find((location) => location.locationId === occupiedId)!.locationNo}.*${createdShelf.locationList.find((location) => location.locationId === secondOccupiedId)!.locationNo}|占用.*${createdShelf.locationList.find((location) => location.locationId === secondOccupiedId)!.locationNo}.*${createdShelf.locationList.find((location) => location.locationId === occupiedId)!.locationNo}`),
+  '库区任一后代占用时，除备注外不得改名称且必须列出全部冲突完整编号',
+)
+const customNamedOccupiedSnapshot = structuredClone(shelfAdded)
+const customNamedArea = customNamedOccupiedSnapshot.areaList.find((area) => area.areaId === 'AREA-C')!
+const customNamedShelf = customNamedArea.shelfList[0]
+customNamedShelf.shelfName = '主管保留货架名称'
+customNamedShelf.locationList[0].locationName = '主管保留库位名称'
+const expectedAreaRemarkOnly = structuredClone(customNamedOccupiedSnapshot.areaList)
+expectedAreaRemarkOnly.find((area) => area.areaId === 'AREA-C')!.remark = '占用区备注'
+const areaRemarkOnly = updateWarehouseArea(
+  customNamedOccupiedSnapshot,
+  { areaId: 'AREA-C', remark: '占用区备注', updatedBy: '仓库主管' },
+  new Set([occupiedId]),
+)
+assert.deepEqual(areaRemarkOnly.areaList, expectedAreaRemarkOnly, '占用库区仅改备注时，除目标 remark 外所有合法 v3 深值必须保持不变')
+assert.throws(
+  () => updateWarehouseShelf(shelfAdded, { shelfId: 'SHELF-C-R01', shelfSequence: 2, updatedBy: '仓库主管' }, new Set([occupiedId])),
+  /占用.*不能修改货架序号/,
+)
+assert.throws(
+  () => updateWarehouseShelf(shelfAdded, { shelfId: 'SHELF-C-R01', shelfName: '占用货架改名', updatedBy: '仓库主管' }, new Set([occupiedId, secondOccupiedId])),
+  /占用.*C-R01-L0[12]-P0[13].*C-R01-L0[12]-P0[13]/,
+  '货架任一库位占用时，除备注外不得改名称且必须列出全部冲突完整编号',
+)
+const expectedShelfRemarkOnly = structuredClone(customNamedOccupiedSnapshot.areaList)
+expectedShelfRemarkOnly.find((area) => area.areaId === 'AREA-C')!.shelfList[0].remark = '占用货架备注'
+const shelfRemarkOnly = updateWarehouseShelf(
+  customNamedOccupiedSnapshot,
+  { shelfId: 'SHELF-C-R01', remark: '占用货架备注', updatedBy: '仓库主管' },
+  new Set([occupiedId]),
+)
+assert.deepEqual(shelfRemarkOnly.areaList, expectedShelfRemarkOnly, '占用货架仅改备注时，除目标 remark 外所有合法 v3 深值必须保持不变')
+
+const idsBeforeRenumber = createdShelf.locationList.map((location) => location.locationId)
+const areaRenumbered = updateWarehouseArea(shelfAdded, { areaId: 'AREA-C', code: 'D', updatedBy: '仓库主管' }, new Set())
+const renumberedShelf = areaRenumbered.areaList.find((area) => area.areaId === 'AREA-C')!.shelfList[0]
+assert.deepEqual(renumberedShelf.locationList.map((location) => location.locationId), idsBeforeRenumber, '结构编码变化后 locationId 必须保持稳定')
+assert(renumberedShelf.locationList.every((location) => location.locationNo.startsWith('D-R01-')), '库区代码变化后全部下级完整编号必须重算')
+const shelfRenumbered = updateWarehouseShelf(areaRenumbered, { shelfId: 'SHELF-C-R01', shelfSequence: 2, updatedBy: '仓库主管' }, new Set())
+assert(shelfRenumbered.areaList.find((area) => area.areaId === 'AREA-C')!.shelfList[0].locationList.every((location) => location.locationNo.startsWith('D-R02-')), '货架序号变化后全部下级完整编号必须重算')
+const editableLocationId = idsBeforeRenumber.at(-1)!
+const locationRenumbered = updateWarehouseLocation(shelfRenumbered, { locationId: editableLocationId, levelNo: 4, positionNo: 1, remark: '移到第4层', updatedBy: '仓库主管' }, new Set())
+assert.equal(locationRenumbered.areaList.find((area) => area.areaId === 'AREA-C')!.shelfList[0].locationList.find((location) => location.locationId === editableLocationId)?.locationNo, 'D-R02-L04-P01', '非占用库位编辑必须保存编号变化')
+const areaStopped = updateWarehouseArea(shelfAdded, { areaId: 'AREA-C', enabled: false, updatedBy: '仓库主管' }, new Set())
+assert.equal(areaStopped.areaList.find((area) => area.areaId === 'AREA-C')?.status, 'STOPPED', '非占用库区必须可停用')
+const areaEnabled = updateWarehouseArea(areaStopped, { areaId: 'AREA-C', enabled: true, updatedBy: '仓库主管' }, new Set())
+assert.equal(areaEnabled.areaList.find((area) => area.areaId === 'AREA-C')?.status, 'AVAILABLE', '非占用库区必须可重新启用')
+const shelfStopped = updateWarehouseShelf(shelfAdded, { shelfId: 'SHELF-C-R01', enabled: false, updatedBy: '仓库主管' }, new Set())
+assert.equal(shelfStopped.areaList.find((area) => area.areaId === 'AREA-C')?.shelfList[0].status, 'STOPPED', '非占用货架必须可停用')
+const locationStopped = setWarehouseLocationEnabled(shelfAdded, { locationId: editableLocationId, enabled: false, updatedBy: '仓库主管' }, new Set())
+assert.equal(locationStopped.areaList.find((area) => area.areaId === 'AREA-C')?.shelfList[0].locationList.find((location) => location.locationId === editableLocationId)?.status, 'STOPPED', '非占用库位必须可停用')
+const atomicLocationStorage = createMemoryWarehouseLayoutStorage()
+const atomicLocationBaseline = loadWarehouseLayoutSnapshot(waitProcess, atomicLocationStorage).snapshot
+const atomicLocation = atomicLocationBaseline.areaList[0].shelfList[0].locationList.at(-1)!
+const atomicLocationChanged = updateWarehouseLocation(atomicLocationBaseline, {
+  locationId: atomicLocation.locationId,
+  levelNo: 100,
+  positionNo: 1,
+  enabled: false,
+  updatedBy: '仓库主管',
+}, new Set())
+assert.equal(atomicLocationChanged.layoutVersion, atomicLocationBaseline.layoutVersion + 1, '库位编号与状态同次编辑必须只增加一个版本')
+assert.equal(saveWarehouseLayoutSnapshot(atomicLocationChanged, 0, atomicLocationStorage).ok, true, '库位编号与状态原子编辑必须一次保存成功')
+const atomicLocationHistory = listWarehouseLayoutChangeRecords(waitProcess.factoryId, waitProcess.warehouseKind, waitProcess.warehouseId, atomicLocationStorage)
+assert.equal(atomicLocationHistory.length, 1, '库位编号与状态原子编辑必须只产生一条历史')
+assert.equal(atomicLocationHistory[0].beforeSnapshot.areaList[0].shelfList[0].locationList.find((location) => location.locationId === atomicLocation.locationId)?.status, 'AVAILABLE')
+assert.equal(atomicLocationHistory[0].afterSnapshot.areaList[0].shelfList[0].locationList.find((location) => location.locationId === atomicLocation.locationId)?.status, 'STOPPED')
+assert.equal(atomicLocationHistory[0].afterSnapshot.areaList[0].shelfList[0].locationList.find((location) => location.locationId === atomicLocation.locationId)?.locationNo, 'A-R01-L100-P01')
+assert.throws(() => updateWarehouseArea(shelfAdded, { areaId: 'AREA-C', enabled: false, updatedBy: '仓库主管' }, new Set([occupiedId])), /占用库位.*不能修改.*启停状态/, '有占用后代的库区不得停用')
+assert.throws(() => updateWarehouseShelf(shelfAdded, { shelfId: 'SHELF-C-R01', enabled: false, updatedBy: '仓库主管' }, new Set([occupiedId])), /占用库位.*不能修改.*启停状态/, '有占用后代的货架不得停用')
+assert.throws(
+  () => updateWarehouseLocation(shelfRenumbered, {
+    locationId: idsBeforeRenumber[1], levelNo: 1, positionNo: 1, updatedBy: '仓库主管',
+  }, new Set()),
+  /完整编号 D-R02-L01-P01 已存在/,
+)
+assert.throws(
+  () => revokeNewWarehouseNode(shelfAdded, { nodeType: 'SHELF', nodeId: 'SHELF-C-R01', createdInLayoutVersion: 2, updatedBy: '仓库主管' }, new Set([occupiedId, secondOccupiedId])),
+  /C-R01-L02-P03.*C-R01-L01-P01|C-R01-L01-P01.*C-R01-L02-P03/,
+  '撤销节点有引用或占用时必须列出所有冲突完整编号',
+)
+assert.throws(
+  () => revokeNewWarehouseNode(shelfAdded, { nodeType: 'AREA', nodeId: firstArea.areaId, createdInLayoutVersion: 1, updatedBy: '仓库主管' }, new Set()),
+  /仅允许撤销本次新建/,
+  '调用方伪报版本也不得撤销没有内部创建元数据的既有节点',
+)
+const revoked = revokeNewWarehouseNode(shelfAdded, { nodeType: 'SHELF', nodeId: 'SHELF-C-R01', createdInLayoutVersion: 2, updatedBy: '仓库主管' }, new Set())
+assert.equal(revoked.areaList.find((area) => area.areaId === 'AREA-C')?.shelfList.length, 0, '无引用的新建错误货架允许撤销')
+
+const revokeStorage = createMemoryWarehouseLayoutStorage()
+const revokeBaseline = loadWarehouseLayoutSnapshot(waitProcess, revokeStorage).snapshot
+const persistedNewArea = createWarehouseArea(revokeBaseline, { areaId: 'AREA-REVOKE', areaName: 'C区', code: 'C', updatedBy: '仓库主管' })
+assert.equal(saveWarehouseLayoutSnapshot(persistedNewArea, 0, revokeStorage).ok, true)
+const reloadedNewArea = loadWarehouseLayoutSnapshot(waitProcess, revokeStorage).snapshot
+const reloadedAreaNode = reloadedNewArea.areaList.find((area) => area.areaId === 'AREA-REVOKE') as typeof firstArea & { layoutCreatedInVersion?: number }
+assert.equal(reloadedAreaNode.layoutCreatedInVersion, 1, '新建节点内部创建版本必须跨 localStorage JSON 持久化')
+const revokedAfterReload = revokeNewWarehouseNode(reloadedNewArea, { nodeType: 'AREA', nodeId: 'AREA-REVOKE', createdInLayoutVersion: 1, updatedBy: '仓库主管' }, new Set())
+assert.equal(revokedAfterReload.areaList.some((area) => area.areaId === 'AREA-REVOKE'), false, '真实新建空库区在重新加载后仍允许撤销')
+
+const saved = saveWarehouseLayoutSnapshot(areaOnly, 0, storage)
 assert.equal(saved.ok, true)
 assert.equal(saved.snapshot?.layoutVersion, 1)
 const layoutHistory = listWarehouseLayoutChangeRecords(waitProcess.factoryId, waitProcess.warehouseKind, waitProcess.warehouseId, storage)
 assert.equal(layoutHistory.length, 1)
 assert.equal(layoutHistory[0].beforeVersion, 0)
 assert.equal(layoutHistory[0].afterVersion, 1)
-assert.equal(layoutHistory[0].updatedBy, '系统初始化')
+assert.equal(layoutHistory[0].updatedBy, '仓库主管')
+assert.equal(layoutHistory[0].beforeSnapshot.areaList.some((area) => area.areaId === 'AREA-C'), false, '历史 before 必须是真实已加载基线，不得包含新节点')
+assert.equal(layoutHistory[0].afterSnapshot.areaList.some((area) => area.areaId === 'AREA-C'), true, '历史 after 必须包含本次新节点')
+const statusHistoryStorage = createMemoryWarehouseLayoutStorage()
+const statusHistoryBaseline = loadWarehouseLayoutSnapshot(waitProcess, statusHistoryStorage).snapshot
+const statusAreaId = statusHistoryBaseline.areaList[0].areaId
+const statusShelfId = statusHistoryBaseline.areaList[0].shelfList[0].shelfId
+const statusLocationId = statusHistoryBaseline.areaList[0].shelfList[0].locationList[0].locationId
+const statusAreaSnapshot = updateWarehouseArea(statusHistoryBaseline, { areaId: statusAreaId, enabled: false, updatedBy: '仓库主管' }, new Set())
+assert.equal(saveWarehouseLayoutSnapshot(statusAreaSnapshot, 0, statusHistoryStorage).ok, true)
+const statusShelfSnapshot = updateWarehouseShelf(statusAreaSnapshot, { shelfId: statusShelfId, enabled: false, updatedBy: '仓库主管' }, new Set())
+assert.equal(saveWarehouseLayoutSnapshot(statusShelfSnapshot, 1, statusHistoryStorage).ok, true)
+const statusLocationSnapshot = setWarehouseLocationEnabled(statusShelfSnapshot, { locationId: statusLocationId, enabled: false, updatedBy: '仓库主管' }, new Set())
+assert.equal(saveWarehouseLayoutSnapshot(statusLocationSnapshot, 2, statusHistoryStorage).ok, true)
+const statusHistory = listWarehouseLayoutChangeRecords(waitProcess.factoryId, waitProcess.warehouseKind, waitProcess.warehouseId, statusHistoryStorage)
+assert.equal(statusHistory.length, 3, '库区、货架、库位三类状态变化必须逐次保存历史')
+assert.equal(statusHistory[0]?.afterSnapshot.areaList[0].shelfList[0].locationList[0].status, 'STOPPED', '最新历史 after 必须保存库位停用事实')
+const directSaveStorage = createMemoryWarehouseLayoutStorage()
+const directSave = saveWarehouseLayoutSnapshot(areaOnly, 0, directSaveStorage)
+assert.equal(directSave.ok, false, '未先加载基线不得直接保存变更后快照')
+assert.match(directSave.message, /请刷新加载后再保存/)
 const siblingWarehouse = { ...structuredClone(waitProcess), warehouseId: `${waitProcess.warehouseId}-SIBLING`, warehouseName: '同类型备用待加工仓' }
-const siblingSnapshot = buildInitialWarehouseLayoutSnapshot(siblingWarehouse, '备用仓初始化')
-assert.equal(saveWarehouseLayoutSnapshot(siblingSnapshot, 0, storage).ok, true)
+const siblingSnapshot = loadWarehouseLayoutSnapshot(siblingWarehouse, storage).snapshot
+const siblingChanged = createWarehouseArea(siblingSnapshot, { areaId: 'SIBLING-C', areaName: 'C区', code: 'C', updatedBy: '备用仓主管' })
+assert.equal(saveWarehouseLayoutSnapshot(siblingChanged, 0, storage).ok, true)
 assert.equal(loadWarehouseLayoutSnapshot(waitProcess, storage).snapshot.warehouseId, waitProcess.warehouseId, '同工厂同类型多仓布局不得互相覆盖')
 assert.equal(loadWarehouseLayoutSnapshot(siblingWarehouse, storage).snapshot.warehouseId, siblingWarehouse.warehouseId, '备用仓必须读取独立布局快照')
 
 const reloaded = loadWarehouseLayoutSnapshot(waitProcess, storage)
 assert.equal(reloaded.snapshot.layoutVersion, 1)
 const applied = applyWarehouseLayoutSnapshot(waitProcess, reloaded.snapshot)
-assert.equal(applied.warehouse.areaList[0].shelfList[0].locationList[0].locationId, secondLocation.locationId)
-assert.equal(
-  applied.warehouse.areaList[0].shelfList[0].locationList.find((item) => item.locationId === firstLocation.locationId)?.locationNo,
-  '面料-A-02',
-)
-const anotherShelf = waitProcess.areaList.flatMap((area) => area.shelfList).find((shelf) => shelf.shelfId !== firstShelf.shelfId)
-assert(anotherShelf, '重复归属测试需要第二个货架')
-const duplicateAssignmentSnapshot = {
-  ...structuredClone(initial),
-  locationOrderByShelfId: {
-    ...structuredClone(initial.locationOrderByShelfId),
-    [firstShelf.shelfId]: [firstLocation.locationId],
-    [anotherShelf.shelfId]: [firstLocation.locationId],
-  },
-}
-const duplicateAssignmentApplied = applyWarehouseLayoutSnapshot(waitProcess, duplicateAssignmentSnapshot)
-assert.equal(
-  duplicateAssignmentApplied.warehouse.areaList.flatMap((area) => area.shelfList)
-    .flatMap((shelf) => shelf.locationList)
-    .filter((location) => location.locationId === firstLocation.locationId).length,
-  1,
-  '同一稳定库位不得被重复编排到多个货架',
-)
-assert.equal(applied.warehouse.areaList[0].areaName, '面料暂存一区')
-assert.equal(applied.warehouse.areaList[0].shelfList[0].shelfNo, '货架 A-01')
+assert.deepEqual(applied.warehouse.areaList, areaOnly.areaList, 'v3 应直接应用完整快照事实')
 
-const addedArea = {
-  areaId: 'AREA-ADDED-CHECK',
-  areaName: '演示扩展区',
-  shelfList: [{
-    shelfId: 'SHELF-ADDED-CHECK',
-    shelfNo: '演示扩展区-01',
-    shelfName: '演示扩展区-01',
-    locationList: [{
-      locationId: 'LOC-ADDED-CHECK-01',
-      locationNo: '演示扩展区-01-01',
-      locationName: '演示扩展区-01-01',
-      status: 'AVAILABLE' as const,
-      remark: '',
-    }],
-    status: 'AVAILABLE' as const,
-    remark: '',
-  }],
-  status: 'AVAILABLE' as const,
-  remark: '',
-}
-const addedAreaSnapshot = appendWarehouseArea(initial, addedArea)
-assert.throws(
-  () => appendWarehouseArea(initial, {
-    ...structuredClone(addedArea),
-    areaId: 'AREA-DUPLICATE-NESTED',
-    shelfList: [structuredClone(addedArea.shelfList[0]), structuredClone(addedArea.shelfList[0])],
-  }),
-  /重复(货架|库位)/,
-  '新增库区内部重复货架 ID 必须在保存前阻断',
-)
-assert.throws(
-  () => appendWarehouseArea(initial, {
-    ...structuredClone(addedArea),
-    areaId: 'AREA-DUPLICATE-LOCATION',
-    shelfList: [{
-      ...structuredClone(addedArea.shelfList[0]),
-      shelfId: 'SHELF-DUPLICATE-LOCATION',
-      locationList: [structuredClone(addedArea.shelfList[0].locationList[0]), structuredClone(addedArea.shelfList[0].locationList[0])],
-    }],
-  }),
-  /重复库位/,
-  '新增库区内部重复库位 ID 必须在保存前阻断',
-)
-const addedAreaInputBeforeLocation = structuredClone(addedAreaSnapshot)
-const nestedLocationSnapshot = appendWarehouseLocation(
-  addedAreaSnapshot,
-  addedArea.areaId,
-  addedArea.shelfList[0].shelfId,
-  {
-    locationId: 'LOC-ADDED-CHECK-NESTED-02',
-    locationNo: '演示扩展区-01-02',
-    locationName: '演示扩展区-01-02',
-    status: 'AVAILABLE',
-    remark: '',
-  },
-)
-assert.deepEqual(addedAreaSnapshot, addedAreaInputBeforeLocation, '新增库位纯函数不得修改输入快照')
-assert.equal(
-  nestedLocationSnapshot.addedAreaList?.[0]?.shelfList[0]?.locationList.some((location) => location.locationId === 'LOC-ADDED-CHECK-NESTED-02'),
-  true,
-  '新增到自定义库区货架的库位必须写入返回快照',
-)
-const addedLocationSnapshot = appendWarehouseLocation(
-  addedAreaSnapshot,
-  firstArea.areaId,
-  firstShelf.shelfId,
-  {
-    locationId: 'LOC-ADDED-CHECK-02',
-    locationNo: 'A-01-03',
-    locationName: 'A-01-03',
-    status: 'AVAILABLE',
-    remark: '',
-  },
-)
-const addedApplied = applyWarehouseLayoutSnapshot(waitProcess, addedLocationSnapshot)
-assert.equal(addedApplied.warehouse.areaList.some((area) => area.areaId === addedArea.areaId), true, '新增库区应进入地图投影')
-assert.equal(
-  addedApplied.warehouse.areaList
-    .flatMap((area) => area.shelfList)
-    .flatMap((shelf) => shelf.locationList)
-    .some((location) => location.locationId === 'LOC-ADDED-CHECK-02'),
-  true,
-  '新增到既有货架的库位应进入地图投影',
-)
-const duplicateAddedStructure = applyWarehouseLayoutSnapshot(waitProcess, {
-  ...initial,
-  addedAreaList: [structuredClone(firstArea)],
-})
-assert.match(duplicateAddedStructure.warningMessages.join('；'), /ID 已存在/, '重复新增结构必须显示 warning')
-
-const unassignedSnapshot = {
-  ...initial,
-  unassignedLocationIds: [firstLocation.locationId],
-}
-const unassignedApplied = applyWarehouseLayoutSnapshot(waitProcess, unassignedSnapshot)
-assert.equal(
-  unassignedApplied.warehouse.areaList
-    .flatMap((area) => area.shelfList)
-    .flatMap((shelf) => shelf.locationList)
-    .some((location) => location.locationId === firstLocation.locationId),
-  false,
-  '未编排库位不应继续显示在原货架',
-)
-const assignedSnapshot = assignWarehouseLocationToShelf(
-  unassignedSnapshot,
-  firstLocation.locationId,
-  firstShelf.shelfId,
-)
-assert.equal(assignedSnapshot.unassignedLocationIds.includes(firstLocation.locationId), false)
-assert.equal(
-  assignedSnapshot.locationOrderByShelfId[firstShelf.shelfId].at(-1),
-  firstLocation.locationId,
-  '补齐货架归属后应追加到目标货架',
-)
-
-const staleSave = saveWarehouseLayoutSnapshot(moved, 0, storage)
+const staleSave = saveWarehouseLayoutSnapshot(areaOnly, 0, storage)
 assert.equal(staleSave.ok, false)
 assert.equal(staleSave.message, '库位图已被更新，请刷新后重试。')
 
-const damagedStorage = createMemoryWarehouseLayoutStorage()
-damagedStorage.setItem(
+const oldStorage = createMemoryWarehouseLayoutStorage()
+oldStorage.setItem(
   getWarehouseLayoutStorageKey(waitProcess.factoryId, waitProcess.warehouseKind, waitProcess.warehouseId),
-  '{damaged',
+  JSON.stringify({ ...initial, schemaVersion: 2, areaOrder: ['OLD-AREA'] }),
 )
-assert.doesNotThrow(() => {
-  const damagedLoad = loadWarehouseLayoutSnapshot(waitProcess, damagedStorage)
-  assert.match(damagedLoad.warningMessage, /无法恢复/)
-  const damagedSave = saveWarehouseLayoutSnapshot(
-    damagedLoad.snapshot,
-    damagedLoad.snapshot.layoutVersion,
-    damagedStorage,
-  )
-  assert.equal(damagedSave.ok, false, '损坏的历史编排不得导致保存抛异常')
-})
-const resetSnapshot = resetWarehouseLayoutSnapshot(waitProcess, '恢复测试', damagedStorage)
-assert.equal(resetSnapshot.snapshot?.layoutVersion, 1, '损坏编排应可通过明确恢复动作重建')
-assert.equal(loadWarehouseLayoutSnapshot(waitProcess, damagedStorage).warningMessage, '')
-const staleReset = resetWarehouseLayoutSnapshot(waitProcess, '过期页面', damagedStorage)
-assert.equal(staleReset.ok, false, '过期页面不得覆盖已恢复的有效编排')
-const malformedStructureStorage = createMemoryWarehouseLayoutStorage()
-malformedStructureStorage.setItem(
+const oldLoad = loadWarehouseLayoutSnapshot(waitProcess, oldStorage)
+assert.equal(oldLoad.warningMessage, '', '非 v3 旧缓存必须静默丢弃，不迁移、不提示')
+assert.equal(oldLoad.snapshot.schemaVersion, 3)
+assert.equal(oldLoad.snapshot.layoutVersion, 0)
+assert.deepEqual(oldLoad.snapshot.areaList, waitProcess.areaList, '旧缓存失效后必须使用当前 Mock 默认布局建立 v3')
+
+const forgedBaselineStorage = createMemoryWarehouseLayoutStorage()
+const forgedBaseline = structuredClone(initial) as typeof initial & { areaList: Array<typeof initial.areaList[number] & { layoutCreatedInVersion?: number }> }
+forgedBaseline.layoutVersion = 1
+forgedBaseline.areaList[0].layoutCreatedInVersion = 1
+forgedBaselineStorage.setItem(
   getWarehouseLayoutStorageKey(waitProcess.factoryId, waitProcess.warehouseKind, waitProcess.warehouseId),
-  JSON.stringify({ ...initial, addedAreaList: [{ areaId: 'BROKEN' }] }),
+  JSON.stringify(forgedBaseline),
 )
-const malformedStructureLoad = loadWarehouseLayoutSnapshot(waitProcess, malformedStructureStorage)
-assert.match(malformedStructureLoad.warningMessage, /无法恢复/, '不完整新增结构必须回退并提示')
-const malformedLocationStorage = createMemoryWarehouseLayoutStorage()
-malformedLocationStorage.setItem(
+const forgedBaselineLoad = loadWarehouseLayoutSnapshot(waitProcess, forgedBaselineStorage)
+assert.equal(forgedBaselineLoad.snapshot.layoutVersion, 0, '默认 A 区伪造创建元数据后必须判定缓存无效并重建基线')
+assert.equal('layoutCreatedInVersion' in forgedBaselineLoad.snapshot.areaList[0], false, '重建的默认基线节点不得保留创建元数据')
+assert.throws(
+  () => revokeNewWarehouseNode(forgedBaselineLoad.snapshot, { nodeType: 'AREA', nodeId: firstArea.areaId, createdInLayoutVersion: 1, updatedBy: '仓库主管' }, new Set()),
+  /仅允许撤销本次新建/,
+  '伪造失效快照重建后，既有 A 区仍不得撤销',
+)
+const invalidCreatedVersion = structuredClone(areaOnly) as typeof areaOnly & { areaList: Array<typeof areaOnly.areaList[number] & { layoutCreatedInVersion?: number }> }
+invalidCreatedVersion.areaList.find((area) => area.areaId === 'AREA-C')!.layoutCreatedInVersion = 1.5
+const invalidCreatedVersionSave = saveWarehouseLayoutSnapshot(invalidCreatedVersion, 0, storage)
+assert.equal(invalidCreatedVersionSave.ok, false, '创建元数据必须是有效布局版本整数')
+assert.match(invalidCreatedVersionSave.message, /创建版本/)
+
+const missingNewNodeMetadataStorage = createMemoryWarehouseLayoutStorage()
+const missingNewNodeMetadata = structuredClone(areaOnly) as typeof areaOnly & { areaList: Array<typeof areaOnly.areaList[number] & { layoutCreatedInVersion?: number }> }
+delete missingNewNodeMetadata.areaList.find((area) => area.areaId === 'AREA-C')!.layoutCreatedInVersion
+missingNewNodeMetadataStorage.setItem(
   getWarehouseLayoutStorageKey(waitProcess.factoryId, waitProcess.warehouseKind, waitProcess.warehouseId),
-  JSON.stringify({ ...initial, addedLocationListByShelfId: { [firstShelf.shelfId]: [null] } }),
+  JSON.stringify(missingNewNodeMetadata),
 )
-const malformedLocationLoad = loadWarehouseLayoutSnapshot(waitProcess, malformedLocationStorage)
-assert.match(malformedLocationLoad.warningMessage, /无法恢复/, '损坏的新增库位元素必须回退并提示')
-assert.doesNotThrow(() => applyWarehouseLayoutSnapshot(waitProcess, malformedLocationLoad.snapshot))
-assert.equal(
-  resetWarehouseLayoutSnapshot(waitProcess, '结构恢复测试', malformedLocationStorage).ok,
-  true,
-  '可解析但结构不兼容的快照也必须支持明确恢复',
-)
-const malformedOrderStorage = createMemoryWarehouseLayoutStorage()
-malformedOrderStorage.setItem(
-  getWarehouseLayoutStorageKey(waitProcess.factoryId, waitProcess.warehouseKind, waitProcess.warehouseId),
-  JSON.stringify({ ...initial, locationOrderByShelfId: { [firstShelf.shelfId]: { bad: true } } }),
-)
-const malformedOrderLoad = loadWarehouseLayoutSnapshot(waitProcess, malformedOrderStorage)
-assert.match(malformedOrderLoad.warningMessage, /无法恢复/, '损坏的顺序容器必须回退并提示')
+assert.equal(loadWarehouseLayoutSnapshot(waitProcess, missingNewNodeMetadataStorage).snapshot.layoutVersion, 0, '非基线新节点缺少创建元数据时必须重建默认布局')
 
 const refs = listStableWarehouseLocationRefs(waitProcess, reloaded.snapshot)
 assert.equal(refs.length, waitProcess.areaList.flatMap((area) => area.shelfList.flatMap((shelf) => shelf.locationList)).length)
 const stableResolved = resolveStableWarehouseLocationRef(waitProcess, { locationId: firstLocation.locationId }, reloaded.snapshot)
-assert.equal(stableResolved?.locationNo, '面料-A-02')
+assert.equal(stableResolved?.locationNo, firstLocation.locationNo)
 const textResolved = resolveStableWarehouseLocationRef(waitProcess, {
-  areaName: '面料暂存一区',
-  shelfNo: '货架 A-01',
-  locationNo: '面料-A-02',
+  areaName: firstArea.areaName,
+  shelfNo: firstShelf.shelfNo,
+  locationNo: firstLocation.locationNo,
 }, reloaded.snapshot)
 assert.equal(textResolved?.locationId, firstLocation.locationId)
 assert.equal(resolveStableWarehouseLocationRef(waitProcess, { areaName: '面料 A 区', locationNo: 'FAB-A-01' }, reloaded.snapshot), null)
@@ -350,24 +778,163 @@ assert.equal(loadWarehouseLayoutSnapshot(otherWarehouse, storage).snapshot.layou
 const selectionWarehouse = structuredClone(waitProcess)
 const selectionShelf = selectionWarehouse.areaList[0].shelfList[0]
 const selectionSeed = selectionShelf.locationList[0]
-selectionShelf.locationList = [1, 2, 3].map((index) => ({
-  ...selectionSeed,
-  locationId: `${selectionSeed.locationId}-SELECT-${index}`,
-  locationNo: `${selectionSeed.locationNo}-选${index}`,
-  locationName: `${selectionSeed.locationName}-选${index}`,
-}))
+const malformedHierarchyCases: Array<{
+  label: string
+  mutate: (warehouse: typeof selectionWarehouse) => void
+  expected: RegExp
+}> = [
+  {
+    label: '缺少库区代码',
+    mutate: (warehouse) => { delete warehouse.areaList[0].code },
+    expected: new RegExp(`库区 ${selectionWarehouse.areaList[0].areaId}.*库区代码.*A 到 Z`),
+  },
+  {
+    label: '非法库区代码',
+    mutate: (warehouse) => { warehouse.areaList[0].code = 'AA' },
+    expected: new RegExp(`库区 ${selectionWarehouse.areaList[0].areaId}.*库区代码.*A 到 Z`),
+  },
+  {
+    label: '缺少货架序号',
+    mutate: (warehouse) => { delete warehouse.areaList[0].shelfList[0].shelfSequence },
+    expected: new RegExp(`货架 ${selectionShelf.shelfId}.*货架序号.*有限正整数`),
+  },
+  {
+    label: '非法货架序号',
+    mutate: (warehouse) => { warehouse.areaList[0].shelfList[0].shelfSequence = 1.5 },
+    expected: new RegExp(`货架 ${selectionShelf.shelfId}.*货架序号.*有限正整数`),
+  },
+  {
+    label: '缺少层号',
+    mutate: (warehouse) => { delete warehouse.areaList[0].shelfList[0].locationList[0].levelNo },
+    expected: new RegExp(`库位 ${selectionSeed.locationId}.*层号.*有限正整数`),
+  },
+  {
+    label: '非法层号',
+    mutate: (warehouse) => { warehouse.areaList[0].shelfList[0].locationList[0].levelNo = 1.5 },
+    expected: new RegExp(`库位 ${selectionSeed.locationId}.*层号.*有限正整数`),
+  },
+  {
+    label: '缺少层内位置号',
+    mutate: (warehouse) => { delete warehouse.areaList[0].shelfList[0].locationList[0].positionNo },
+    expected: new RegExp(`库位 ${selectionSeed.locationId}.*层内位置号.*有限正整数`),
+  },
+  {
+    label: '非法层内位置号',
+    mutate: (warehouse) => { warehouse.areaList[0].shelfList[0].locationList[0].positionNo = 0 },
+    expected: new RegExp(`库位 ${selectionSeed.locationId}.*层内位置号.*有限正整数`),
+  },
+]
+for (const malformedCase of malformedHierarchyCases) {
+  const malformedWarehouse = structuredClone(selectionWarehouse)
+  malformedCase.mutate(malformedWarehouse)
+  assert.throws(
+    () => listStableWarehouseLocationRefs(malformedWarehouse),
+    malformedCase.expected,
+    `${malformedCase.label}时必须携带节点标识快速失败`,
+  )
+}
 const selectionSnapshot = buildInitialWarehouseLayoutSnapshot(selectionWarehouse, '选择测试')
 const shelfLocationIds = selectionShelf.locationList.map((location) => location.locationId)
 const emptyProjection = buildWarehouseLocationMapProjection(selectionWarehouse, selectionSnapshot, [])
+assert(
+  emptyProjection.areas.every((area) => area.shelves.every((shelf) => Array.isArray(shelf.levels))),
+  '每个货架必须按 levels 输出分层投影',
+)
+const projectedRefs = listWarehouseLocationMapCells(emptyProjection)
+assert(projectedRefs.length > 10, '自由多选测试必须覆盖超过 10 个可用库位，避免隐含固定上限')
+assert(projectedRefs.every((ref) =>
+  ref.warehouseId
+  && ref.warehouseKind
+  && ref.areaId
+  && ref.areaCode
+  && ref.shelfId
+  && Number.isInteger(ref.shelfSequence)
+  && ref.locationId
+  && ref.locationNo
+  && Number.isInteger(ref.levelNo)
+  && Number.isInteger(ref.positionNo)), '稳定库位引用必须直接携带仓库、库区、货架、层和位置事实')
+const sourceArea = selectionSnapshot.areaList[0]
+const sourceShelf = sourceArea.shelfList[0]
+const sourceLocation = sourceShelf.locationList[0]
+const sourceRef = projectedRefs.find((ref) => ref.locationId === sourceLocation.locationId)!
+assert.deepEqual(
+  {
+    warehouseId: sourceRef.warehouseId,
+    warehouseKind: sourceRef.warehouseKind,
+    areaId: sourceRef.areaId,
+    areaCode: sourceRef.areaCode,
+    shelfId: sourceRef.shelfId,
+    shelfSequence: sourceRef.shelfSequence,
+    locationId: sourceRef.locationId,
+    locationNo: sourceRef.locationNo,
+    levelNo: sourceRef.levelNo,
+    positionNo: sourceRef.positionNo,
+  },
+  {
+    warehouseId: selectionSnapshot.warehouseId,
+    warehouseKind: selectionSnapshot.warehouseKind,
+    areaId: sourceArea.areaId,
+    areaCode: sourceArea.code,
+    shelfId: sourceShelf.shelfId,
+    shelfSequence: sourceShelf.shelfSequence,
+    locationId: sourceLocation.locationId,
+    locationNo: sourceLocation.locationNo,
+    levelNo: sourceLocation.levelNo,
+    positionNo: sourceLocation.positionNo,
+  },
+  '稳定引用字段必须逐项来自当前 v3 快照事实，不得从完整编号反解析',
+)
+for (const area of emptyProjection.areas) {
+  for (const shelf of area.shelves) {
+    assert.equal(Object.isFrozen(shelf.levels), true, '货架 levels 必须冻结为只读事实')
+    assert.equal('locations' in shelf, false, '货架不得保留 flat locations getter 或兼容字段')
+    const firstFlatLocations = listWarehouseLocationMapShelfCells(shelf)
+    const secondFlatLocations = listWarehouseLocationMapShelfCells(shelf)
+    assert.equal(Object.isFrozen(firstFlatLocations), true, '统一展平 helper 必须返回冻结只读数组')
+    assert.deepEqual(secondFlatLocations, firstFlatLocations, 'levels 不变时统一 helper 内容必须一致')
+    assert.throws(
+      () => (firstFlatLocations as unknown as WarehouseLocationMapCell[]).push(firstFlatLocations[0]),
+      TypeError,
+      '统一展平结果不得 push 分叉',
+    )
+    assert.deepEqual(
+      shelf.levels.map((level) => level.levelNo),
+      shelf.levels.map((level) => level.levelNo).sort((left, right) => right - left),
+      '货架层必须按层号降序投影',
+    )
+    shelf.levels.forEach((level) => assert.deepEqual(
+      level.locations.map((location) => location.positionNo),
+      level.locations.map((location) => location.positionNo).sort((left, right) => left - right),
+      '同层库位必须按层内位置升序投影',
+    ))
+    shelf.levels.forEach((level) => {
+      assert.equal(Object.isFrozen(level.locations), true, '每层 locations 必须冻结为只读事实')
+      assert.throws(
+        () => (level.locations as unknown as WarehouseLocationMapCell[]).splice(0, 1),
+        TypeError,
+        '层内 locations 不得 splice 修改',
+      )
+    })
+  }
+}
 assert.equal(
-  validateWarehouseLocationSelection(emptyProjection, shelfLocationIds.slice(0, 2)).ok,
+  validateWarehouseLocationSelection(emptyProjection, [
+    emptyProjection.areas[0].shelves[0].levels[0].locations[0].locationId,
+    emptyProjection.areas[0].shelves[1].levels[0].locations[0].locationId,
+    emptyProjection.areas[1].shelves[0].levels.at(-1)!.locations[0].locationId,
+  ]).ok,
   true,
-  '同货架连续空闲库位应允许选择',
+  '跨库区、跨货架、跨层的空闲库位应允许自由选择',
 )
 assert.equal(
   validateWarehouseLocationSelection(emptyProjection, [shelfLocationIds[0], shelfLocationIds[2]]).ok,
-  false,
-  '中间跨一个库位不得选择',
+  true,
+  '不连续的空闲库位也应允许选择',
+)
+assert.deepEqual(
+  validateWarehouseLocationSelection(emptyProjection, projectedRefs.map((location) => location.locationId)).selectedLocationIds,
+  projectedRefs.map((location) => location.locationId),
+  '应允许选择所有可用库位且保持点击顺序，不得设置固定上限',
 )
 const occupiedProjection = buildWarehouseLocationMapProjection(selectionWarehouse, selectionSnapshot, [{
   occupancyId: 'OCC-MIDDLE',
@@ -389,28 +956,60 @@ const occupiedProjection = buildWarehouseLocationMapProjection(selectionWarehous
 const stoppedWarehouse = structuredClone(selectionWarehouse)
 stoppedWarehouse.areaList[0].shelfList[0].locationList[0].status = 'STOPPED'
 const stoppedSnapshot = buildInitialWarehouseLayoutSnapshot(stoppedWarehouse, '停用测试')
+const firstOccupancy = listWarehouseLocationMapCells(occupiedProjection)
+  .find((location) => location.locationId === shelfLocationIds[1])!.occupancies[0]
 const stoppedOccupancyProjection = buildWarehouseLocationMapProjection(stoppedWarehouse, stoppedSnapshot, [{
-  ...occupiedProjection.areas[0].shelves[0].locations[1].occupancies[0],
+  ...firstOccupancy,
   occupancyId: 'OCC-STOPPED',
   locationId: shelfLocationIds[0],
 }])
 assert.equal(
-  stoppedOccupancyProjection.unlocatedOccupancies.some((occupancy) => occupancy.occupancyId === 'OCC-STOPPED'),
-  true,
-  '停用库位的库存事实必须进入待确认区域，不能静默消失',
+  listWarehouseLocationMapCells(stoppedOccupancyProjection)
+    .find((location) => location.locationId === shelfLocationIds[0])?.businessStatus,
+  'OCCUPIED',
+  '停用只控制可选，停用库位上的占用事实仍必须显示为占用',
 )
-const firstOccupancy = occupiedProjection.areas[0].shelves[0].locations[1].occupancies[0]
+assert.equal(
+  validateWarehouseLocationSelection(stoppedOccupancyProjection, [shelfLocationIds[0]]).ok,
+  false,
+  '停用库位不得选择',
+)
+const stoppedShelfWarehouse = structuredClone(selectionWarehouse)
+stoppedShelfWarehouse.areaList[0].shelfList[0].status = 'STOPPED'
+const stoppedShelfProjection = buildWarehouseLocationMapProjection(
+  stoppedShelfWarehouse,
+  buildInitialWarehouseLayoutSnapshot(stoppedShelfWarehouse, '停用货架测试'),
+  [],
+)
+assert.equal(validateWarehouseLocationSelection(stoppedShelfProjection, [shelfLocationIds[0]]).ok, false, '停用货架内库位不得选择')
+const stoppedMapHtml = renderWarehouseLocationMap({
+  projection: stoppedShelfProjection,
+  mode: 'SELECT',
+  factoryName: '中央裁床',
+})
+assert.match(stoppedMapHtml, /P01 · 空闲[\s\S]*A-R01-L04-P01[\s\S]*货架已停用，不可选择/, '停用空闲节点必须保留空闲业务状态，并单独显示不可选原因')
+assert.match(stoppedMapHtml, /disabled aria-disabled="true"/, '停用节点在选位模式必须不可选')
+const stoppedAreaWarehouse = structuredClone(selectionWarehouse)
+stoppedAreaWarehouse.areaList[0].status = 'STOPPED'
+const stoppedAreaProjection = buildWarehouseLocationMapProjection(
+  stoppedAreaWarehouse,
+  buildInitialWarehouseLayoutSnapshot(stoppedAreaWarehouse, '停用库区测试'),
+  [],
+)
+assert.equal(validateWarehouseLocationSelection(stoppedAreaProjection, [shelfLocationIds[0]]).ok, false, '停用库区内库位不得选择')
 const singleOrderProjection = buildWarehouseLocationMapProjection(selectionWarehouse, selectionSnapshot, [
   firstOccupancy,
   { ...firstOccupancy, occupancyId: 'OCC-CONFLICT', productionOrderNo: 'PO-OTHER' },
 ])
 assert.equal(
-  singleOrderProjection.areas[0].shelves[0].locations[1].occupancies.length,
+  listWarehouseLocationMapCells(singleOrderProjection)
+    .find((location) => location.locationId === shelfLocationIds[1])!.occupancies.length,
   2,
   '同一库位出现多生产单冲突时必须保留全部事实供主管核对',
 )
 assert.equal(
-  singleOrderProjection.areas[0].shelves[0].locations[1].businessStatus,
+  listWarehouseLocationMapCells(singleOrderProjection)
+    .find((location) => location.locationId === shelfLocationIds[1])!.businessStatus,
   'OCCUPIED',
   '多生产单冲突库位必须保持占用并禁止再次选择',
 )
@@ -423,15 +1022,14 @@ assert.equal(
 const duplicatedFootprintProjection = buildWarehouseLocationMapProjection(selectionWarehouse, selectionSnapshot, [
   { ...firstOccupancy, locationId: shelfLocationIds[0], qty: 100 },
   { ...firstOccupancy, occupancyId: 'OCC-SAME-FOOTPRINT-2', locationId: shelfLocationIds[1], qty: 100 },
+  { ...firstOccupancy, occupancyId: 'OCC-SAME-FOOTPRINT-3', locationId: shelfLocationIds[2], qty: 100 },
 ])
-const duplicatedFootprintHtml = renderWarehouseLocationMap({
-  projection: duplicatedFootprintProjection,
-  mode: 'VIEW',
-  factoryName: '中央裁床',
-})
-assert.match(duplicatedFootprintHtml, /2 个库位/, '同一占用范围跨库位时应按唯一库位计数')
-assert.match(duplicatedFootprintHtml, /库存口径 100 yard/, '同一占用范围跨库位时总量只能计算一次')
-assert.doesNotMatch(duplicatedFootprintHtml, /库存口径 200 yard/, '生产单摘要不得重复累计同一占用范围')
+const duplicatedFootprintSummaryHtml = renderWarehouseLocationMapSummarySection(duplicatedFootprintProjection)
+assert.match(duplicatedFootprintSummaryHtml, /<span>3 个库位<\/span>/, '同一占用范围跨库位时应按唯一库位计数')
+assert.match(duplicatedFootprintSummaryHtml, /<span>1 卷<\/span>/, '摘要中同一业务对象跨三个库位时只能累计一卷')
+assert.match(duplicatedFootprintSummaryHtml, /<span>100 Yard \/ 91\.44 米<\/span>/, '摘要中的卷数量只能累计一次')
+assert.match(duplicatedFootprintSummaryHtml, /<span>库存口径 100 yard<\/span>/, '摘要中的库存数量只能累计一次')
+assert.doesNotMatch(duplicatedFootprintSummaryHtml, /<span>3 卷<\/span>|<span>300 Yard|库存口径 300 yard/, '摘要不得重复累计三张单格卡片中的同一业务对象')
 const mixedUnitProjection = buildWarehouseLocationMapProjection(selectionWarehouse, selectionSnapshot, [
   { ...firstOccupancy, locationId: shelfLocationIds[0], qty: 100 },
   { ...firstOccupancy, occupancyId: 'OCC-METER', footprintId: 'FOOTPRINT-METER', locationId: shelfLocationIds[2], qty: 50, unit: '米' },
@@ -451,6 +1049,10 @@ assert.match(mapHtml, /占用/)
 assert.match(mapHtml, /min-h-11/)
 assert.match(mapHtml, /min-w-11/)
 assert.match(mapHtml, /overflow-x-auto/)
+assert.match(mapHtml, /class="[^"]*overflow-x-auto[^"]*"[^>]*data-warehouse-shelf-scroll/, '宽货架必须只在货架内部横向滚动')
+assert.match(mapHtml, /data-warehouse-level-no="4"[\s\S]*data-warehouse-level-no="1"/, '同货架 L04 必须显示在 L01 前')
+assert.match(mapHtml, /data-position-no="1"[\s\S]*data-position-no="2"/, '同层 P01 必须显示在 P02 前')
+assert.match(mapHtml, /P01 · (?:空闲|占用)[\s\S]*A-R01-L04-P01/, '库位格第一行必须显示层内位置和中文状态，第二行必须直接显示完整编号')
 assert.doesNotMatch(mapHtml, /库位组/)
 assert.match(mapHtml, /库区：/)
 assert.match(mapHtml, /PO-TEST/)
@@ -463,7 +1065,8 @@ assert.match(mapHtml, /物料卷明细|袋内菲票明细/, '占用详情必须�
 assert.match(mapHtml, /款式图/, '占用详情必须支持款式图')
 assert.match(mapHtml, /物料图/, '待加工仓详情必须支持物料图')
 const detailPaginationProjection = structuredClone(occupiedProjection)
-const detailPaginationCell = detailPaginationProjection.areas[0].shelves[0].locations[1]
+const detailPaginationCell = listWarehouseLocationMapCells(detailPaginationProjection)
+  .find((location) => location.locationId === shelfLocationIds[1])!
 detailPaginationCell.occupancies[0].rollDetails = Array.from({ length: 12 }, (_, index) => ({
   rollNo: `ROLL-PAGE-${String(index + 1).padStart(3, '0')}`,
   yard: 10,
@@ -502,6 +1105,67 @@ const selectMapHtml = renderWarehouseLocationMap({
   factoryName: '中央裁床',
 })
 assert.doesNotMatch(selectMapHtml, /生产单占用摘要/, '一线选位模式不得展示管理型生产单摘要')
+assert.doesNotMatch(selectMapHtml, /连续|相邻|起止范围|选择范围|范围：/, '选位组件不得推断或提示连续相邻范围')
+const findLocationButtonHtml = (html: string, locationId: string): string => {
+  const locationIndex = html.indexOf(`data-location-id="${locationId}"`)
+  if (locationIndex < 0) return ''
+  const buttonStart = html.lastIndexOf('<button', locationIndex)
+  const buttonEnd = html.indexOf('</button>', locationIndex)
+  return buttonStart >= 0 && buttonEnd >= 0 ? html.slice(buttonStart, buttonEnd + '</button>'.length) : ''
+}
+const selectOccupiedCellHtml = findLocationButtonHtml(selectMapHtml, shelfLocationIds[1])
+assert.match(selectOccupiedCellHtml, /data-warehouse-map-action="open-occupancy"/, 'SELECT 模式未选占用格必须保留占用详情入口')
+assert.doesNotMatch(selectOccupiedCellHtml, /\sdisabled(?:\s|>)/, 'SELECT 模式有占用详情的库位不得 disabled')
+assert.doesNotMatch(selectOccupiedCellHtml, /data-warehouse-map-action="toggle-location"/, 'SELECT 模式未选占用格不得进入选中动作')
+for (const statusField of ['areaStatus', 'shelfStatus', 'status'] as const) {
+  const stoppedOccupiedProjection = structuredClone(occupiedProjection)
+  const stoppedOccupiedCell = listWarehouseLocationMapCells(stoppedOccupiedProjection)
+    .find((cell) => cell.locationId === shelfLocationIds[1])!
+  stoppedOccupiedCell[statusField] = 'STOPPED'
+  const stoppedOccupiedMapHtml = renderWarehouseLocationMap({
+    projection: stoppedOccupiedProjection,
+    mode: 'SELECT',
+    factoryName: '中央裁床',
+  })
+  const stoppedOccupiedCellHtml = findLocationButtonHtml(stoppedOccupiedMapHtml, shelfLocationIds[1])
+  assert.match(stoppedOccupiedCellHtml, /data-warehouse-map-action="open-occupancy"/, `SELECT 模式 ${statusField} 停用的未选占用格必须保留详情入口`)
+  assert.match(stoppedOccupiedCellHtml, /P02 · 占用/, `SELECT 模式 ${statusField} 停用的未选占用格必须保留占用主业务状态`)
+  const stoppedReason = statusField === 'areaStatus' ? '库区已停用' : statusField === 'shelfStatus' ? '货架已停用' : '库位已停用'
+  assert.match(stoppedOccupiedCellHtml, new RegExp(`${stoppedReason}，不可选择`), `SELECT 模式 ${statusField} 停用的未选占用格必须单独显示停用原因`)
+  assert.match(stoppedOccupiedCellHtml, /border-rose-300 bg-rose-50 text-rose-800/, `SELECT 模式 ${statusField} 停用的未选占用格必须保留占用视觉`)
+  assert.doesNotMatch(stoppedOccupiedCellHtml, /\sdisabled(?:\s|>)/, `SELECT 模式 ${statusField} 停用的未选占用格有详情时不得 disabled`)
+  assert.doesNotMatch(stoppedOccupiedCellHtml, /data-warehouse-map-action="toggle-location"/, `SELECT 模式 ${statusField} 停用的未选占用格不得进入选中动作`)
+}
+const selectedOccupiedMapHtml = renderWarehouseLocationMap({
+  projection: occupiedProjection,
+  mode: 'SELECT',
+  factoryName: '中央裁床',
+  selectedLocationIds: [shelfLocationIds[1]],
+})
+const selectedOccupiedCellHtml = findLocationButtonHtml(selectedOccupiedMapHtml, shelfLocationIds[1])
+assert.match(selectedOccupiedCellHtml, /data-warehouse-map-action="toggle-location"/, '已选库位后来变占用时仍必须允许取消')
+assert.doesNotMatch(selectedOccupiedCellHtml, /\sdisabled(?:\s|>)/, '已选库位后来变占用时不得 disabled')
+const stoppedSelectionProjection = structuredClone(emptyProjection)
+const stoppedSelectionCell = listWarehouseLocationMapCells(stoppedSelectionProjection)
+  .find((cell) => cell.locationId === shelfLocationIds[0])!
+stoppedSelectionCell.status = 'STOPPED'
+const stoppedSelectMapHtml = renderWarehouseLocationMap({
+  projection: stoppedSelectionProjection,
+  mode: 'SELECT',
+  factoryName: '中央裁床',
+})
+const stoppedSelectCellHtml = findLocationButtonHtml(stoppedSelectMapHtml, shelfLocationIds[0])
+assert.match(stoppedSelectCellHtml, /disabled aria-disabled="true"/, 'SELECT 模式停用未占用格必须继续禁用')
+assert.match(stoppedSelectCellHtml, /库位已停用，不可选择/, 'SELECT 模式停用未占用格必须显示禁用原因')
+const selectedStoppedMapHtml = renderWarehouseLocationMap({
+  projection: stoppedSelectionProjection,
+  mode: 'SELECT',
+  factoryName: '中央裁床',
+  selectedLocationIds: [shelfLocationIds[0]],
+})
+const selectedStoppedCellHtml = findLocationButtonHtml(selectedStoppedMapHtml, shelfLocationIds[0])
+assert.match(selectedStoppedCellHtml, /data-warehouse-map-action="toggle-location"/, '已选库位后来停用时仍必须允许取消')
+assert.doesNotMatch(selectedStoppedCellHtml, /\sdisabled(?:\s|>)/, '已选库位后来停用时不得 disabled')
 assert.equal(
   validateWarehouseLocationSelection(occupiedProjection, [shelfLocationIds[0], shelfLocationIds[1]]).message,
   '所选库位已被占用，请重新选择。',
@@ -513,13 +1177,12 @@ for (const kind of ['WAIT_PROCESS', 'WAIT_HANDOVER'] as const) {
   assert(currentMap, `${kind} 必须生成当前库位图投影`)
   assert(factOnlyMap, `${kind} 必须生成事实占用投影`)
   assert.equal(
-    factOnlyMap.projection.areas.flatMap((area) => area.shelves.flatMap((shelf) => shelf.locations))
+    listWarehouseLocationMapCells(factOnlyMap.projection)
       .some((cell) => cell.occupancies.some((occupancy) => occupancy.occupancyId.includes('-demo:'))),
     false,
     `${kind} 的共享执行投影不得注入演示占用`,
   )
-  const occupiedCells = currentMap.projection.areas
-    .flatMap((area) => area.shelves.flatMap((shelf) => shelf.locations))
+  const occupiedCells = listWarehouseLocationMapCells(currentMap.projection)
     .filter((cell) => cell.businessStatus === 'OCCUPIED')
   assert(occupiedCells.length > 0, `${kind} 必须包含非空闲演示占用`)
   assert(occupiedCells.every((cell) => cell.occupancies.every((occupancy) => occupancy.productionOrderNo)), `${kind} 占用必须标准到生产单`)
@@ -540,34 +1203,107 @@ for (const kind of ['WAIT_PROCESS', 'WAIT_HANDOVER'] as const) {
 
 const selectedOne = toggleWarehouseLocationSelection(emptyProjection, [], shelfLocationIds[0])
 assert.deepEqual(selectedOne.selectedLocationIds, [shelfLocationIds[0]])
-const selectedTwo = toggleWarehouseLocationSelection(emptyProjection, selectedOne.selectedLocationIds, shelfLocationIds[1])
-assert.deepEqual(selectedTwo.selectedLocationIds, shelfLocationIds.slice(0, 2))
+const crossAreaLocationId = emptyProjection.areas[1].shelves[0].levels[0].locations[0].locationId
+const crossShelfLocationId = emptyProjection.areas[0].shelves[1].levels[0].locations[0].locationId
+const selectedTwo = toggleWarehouseLocationSelection(emptyProjection, selectedOne.selectedLocationIds, crossAreaLocationId)
+assert.deepEqual(selectedTwo.selectedLocationIds, [shelfLocationIds[0], crossAreaLocationId])
 const selectionHtml = renderWarehouseLocationMap({
   projection: emptyProjection,
   mode: 'SELECT',
   factoryName: '中央裁床',
-  selectedLocationIds: shelfLocationIds.slice(0, 2),
+  selectedLocationIds: selectedTwo.selectedLocationIds,
 })
-assert.match(selectionHtml, /已选 2 个/)
-assert.match(selectionHtml, new RegExp(`${selectionShelf.locationList[0].locationNo} 至 ${selectionShelf.locationList[1].locationNo}`))
+assert.match(selectionHtml, /data-warehouse-map-selection-summary/)
+assert.match(selectionHtml, /已选 2 个库位/)
 assert.match(selectionHtml, /data-warehouse-map-action="clear-selection"/)
-const selectedThree = toggleWarehouseLocationSelection(emptyProjection, selectedTwo.selectedLocationIds, shelfLocationIds[2])
-assert.deepEqual(selectedThree.selectedLocationIds, shelfLocationIds.slice(0, 3))
-const middleRemoval = toggleWarehouseLocationSelection(emptyProjection, selectedThree.selectedLocationIds, shelfLocationIds[1])
-assert.equal(middleRemoval.ok, false)
-assert.equal(middleRemoval.message, '只能从已选范围两端取消库位。')
-const endRemoval = toggleWarehouseLocationSelection(emptyProjection, selectedThree.selectedLocationIds, shelfLocationIds[2])
-assert.deepEqual(endRemoval.selectedLocationIds, shelfLocationIds.slice(0, 2))
+const selectionSummaryHtml = selectionHtml.match(/<div[^>]+data-warehouse-map-selected-items[\s\S]*?<\/div>/)?.[0] ?? ''
+assert.match(selectionSummaryHtml, new RegExp(emptyProjection.areas[0].shelves[0].levels.flatMap((level) => level.locations).find((cell) => cell.locationId === selectedOne.selectedLocationIds[0])!.locationNo), '选中摘要必须逐项显示第一个完整库位编号')
+assert.match(selectionSummaryHtml, new RegExp(emptyProjection.areas[1].shelves[0].levels[0].locations[0].locationNo), '选中摘要必须逐项显示第二个完整库位编号')
+assert(
+  selectionSummaryHtml.indexOf(emptyProjection.areas[0].shelves[0].levels.flatMap((level) => level.locations).find((cell) => cell.locationId === selectedOne.selectedLocationIds[0])!.locationNo)
+    < selectionSummaryHtml.indexOf(emptyProjection.areas[1].shelves[0].levels[0].locations[0].locationNo),
+  '选中摘要必须保持点击顺序',
+)
+const selectedThree = toggleWarehouseLocationSelection(emptyProjection, selectedTwo.selectedLocationIds, crossShelfLocationId)
+assert.deepEqual(selectedThree.selectedLocationIds, [shelfLocationIds[0], crossAreaLocationId, crossShelfLocationId])
+const middleRemoval = toggleWarehouseLocationSelection(emptyProjection, selectedThree.selectedLocationIds, crossAreaLocationId)
+assert.equal(middleRemoval.ok, true)
+assert.deepEqual(middleRemoval.selectedLocationIds, [shelfLocationIds[0], crossShelfLocationId], '任意已选项都应按点击顺序直接取消')
+const selectedAll = projectedRefs.reduce(
+  (selection, location) => toggleWarehouseLocationSelection(emptyProjection, selection, location.locationId).selectedLocationIds,
+  [] as string[],
+)
+assert.deepEqual(selectedAll, projectedRefs.map((location) => location.locationId), '逐个点击应能选中全部可用库位且无隐性数量上限')
+assert.equal(toggleWarehouseLocationSelection(occupiedProjection, [], shelfLocationIds[1]).ok, false, '占用库位不得追加选择')
+assert.equal(toggleWarehouseLocationSelection(emptyProjection, [], 'UNKNOWN-LOCATION').ok, false, '未知库位 ID 不得追加选择')
+const externalWarehouse = cuttingWarehouses.find((warehouse) => warehouse.warehouseKind === 'WAIT_HANDOVER')!
+const externalLocationId = buildWarehouseLocationMapProjection(
+  externalWarehouse,
+  buildInitialWarehouseLayoutSnapshot(externalWarehouse, '外部仓测试'),
+  [],
+).areas[0].shelves[0].levels[0].locations[0].locationId
+assert.equal(validateWarehouseLocationSelection(emptyProjection, [externalLocationId]).ok, false, '其他仓库库位不得选择')
+const mismatchedProjection = structuredClone(emptyProjection)
+listWarehouseLocationMapCells(mismatchedProjection)
+  .find((location) => location.locationId === shelfLocationIds[0])!.warehouseId = 'OTHER-WAREHOUSE'
+assert.equal(validateWarehouseLocationSelection(mismatchedProjection, [shelfLocationIds[0]]).ok, false, '稳定引用与当前仓库不一致时不得选择')
 const conflictProjection = structuredClone(emptyProjection)
-const conflictedCell = conflictProjection.areas.flatMap((area) => area.shelves)
-  .flatMap((shelf) => shelf.locations)
-  .find((location) => location.locationId === shelfLocationIds[2])
-assert.ok(conflictedCell)
-conflictedCell.businessStatus = 'OCCUPIED'
-const revalidatedSelection = revalidateWarehouseLocationSelection(conflictProjection, selectedThree.selectedLocationIds)
+const allConflictCells = listWarehouseLocationMapCells(conflictProjection)
+const validCell = allConflictCells.find((location) => location.locationId === shelfLocationIds[0])!
+const occupiedCell = allConflictCells.find((location) => location.locationId === shelfLocationIds[1])!
+occupiedCell.businessStatus = 'OCCUPIED'
+const stoppedLocationCell = allConflictCells.find((location) => location.locationId === shelfLocationIds[2])!
+stoppedLocationCell.status = 'STOPPED'
+const stoppedShelfCell = allConflictCells.find((location) => location.locationId === crossShelfLocationId)!
+stoppedShelfCell.shelfStatus = 'STOPPED'
+const stoppedAreaCell = allConflictCells.find((location) => location.locationId === crossAreaLocationId)!
+stoppedAreaCell.areaStatus = 'STOPPED'
+const revalidatedSelection = revalidateWarehouseLocationSelection(conflictProjection, [
+  validCell.locationId,
+  occupiedCell.locationId,
+  'UNKNOWN-LOCATION',
+  stoppedAreaCell.locationId,
+  stoppedShelfCell.locationId,
+  stoppedLocationCell.locationId,
+  externalLocationId,
+])
 assert.equal(revalidatedSelection.ok, false)
-assert.match(revalidatedSelection.message, new RegExp(conflictedCell.locationNo))
-assert.deepEqual(revalidatedSelection.selectedLocationIds, shelfLocationIds.slice(0, 2))
+for (const cell of [occupiedCell, stoppedAreaCell, stoppedShelfCell, stoppedLocationCell]) {
+  assert.match(revalidatedSelection.message, new RegExp(cell.locationNo), `冲突反馈必须包含完整库位编号 ${cell.locationNo}`)
+}
+assert.match(revalidatedSelection.message, /UNKNOWN-LOCATION/, '未知库位冲突反馈必须保留可追溯 ID')
+assert.match(revalidatedSelection.message, new RegExp(externalLocationId), '错仓 ID 在当前投影无法识别时必须作为未知库位保留原 ID')
+assert.deepEqual(revalidatedSelection.selectedLocationIds, [validCell.locationId], '同次重校验必须剔除所有冲突且仅保留有效项')
+assert.equal(
+  typeof pdaWaitProcessModule.revalidatePdaCuttingFootprintAdjustmentSelection,
+  'function',
+  'PDA 剩余存放调整必须导出动态整组重校验入口',
+)
+const revalidateFootprintAdjustment = pdaWaitProcessModule.revalidatePdaCuttingFootprintAdjustmentSelection as (
+  projection: typeof conflictProjection,
+  ids: string[],
+) => { ok: boolean; message: string; selectedLocationIds: string[] }
+const footprintMultiConflict = revalidateFootprintAdjustment(conflictProjection, [
+  validCell.locationId,
+  occupiedCell.locationId,
+  stoppedShelfCell.locationId,
+  stoppedLocationCell.locationId,
+])
+assert.equal(footprintMultiConflict.ok, false, '剩余存放调整任一库位冲突必须整组失败')
+for (const cell of [occupiedCell, stoppedShelfCell, stoppedLocationCell]) {
+  assert.match(footprintMultiConflict.message, new RegExp(cell.locationNo), `剩余存放冲突必须列出完整编号 ${cell.locationNo}`)
+}
+assert.deepEqual(footprintMultiConflict.selectedLocationIds, [validCell.locationId], '重校验结果可返回有效项供提示，但确认不得部分写入')
+assert.equal('unassignedLocations' in emptyProjection, false, '运行时 v3 投影不得保留未编排库位字段')
+const currentReviewConclusionStart = warehouseMapReviewRecordSource.indexOf('## 9. 2026-08-01 分层投影与自由多选审查')
+assert(currentReviewConclusionStart >= 0, '审查记录必须包含当前分层投影与自由多选结论')
+const currentReviewConclusion = warehouseMapReviewRecordSource.slice(currentReviewConclusionStart)
+assert.match(currentReviewConclusion, /跨库区、货架、层.*任意顺序取消.*不设置数量上限/s, '当前结论必须明确自由多选边界')
+assert.doesNotMatch(
+  currentReviewConclusion,
+  /连续选择|连续多选|仍连续|连续相邻|端点扩展|范围摘要|同一货架的两个连续空闲格/,
+  '当前原型审查记录不得保留与自由跨区、跨货架、跨层多选冲突的旧结论',
+)
 
 const footprint = buildWarehouseStorageFootprint({
   footprintId: 'pickup-session:TEST',
@@ -617,7 +1353,7 @@ const runtimePickupEvent: CuttingRuntimeEvent = {
     prepLineId: 'LINE-001',
     pickupQty: 300,
     rollCount: 9,
-    locationRefs: footprintRefs,
+    warehouseLocations: footprintRefs,
     storageFootprint: footprint,
     pickupBy: '测试仓管',
     pickupAt: '2026-07-30 08:00',
@@ -628,7 +1364,7 @@ const runtimeFootprintOccupancies = buildWaitProcessRuntimeOccupancies(
   selectionSnapshot,
   [runtimePickupEvent],
 )
-assert.equal(runtimeFootprintOccupancies.length, 3, '多库位领料应占用全部连续库位')
+assert.equal(runtimeFootprintOccupancies.length, 3, '多库位领料应占用全部所选库位')
 assert(runtimeFootprintOccupancies.every((occupancy) => occupancy.qty === 300), '每个关联库位详情都应显示同一批物料总量')
 assert(runtimeFootprintOccupancies.every((occupancy) => occupancy.footprintLocationNos?.length === 3))
 assert.equal(runtimeFootprintOccupancies[0].rollDetails?.length, 9, '演示卷行必须使用运行时事实中的 rollCount')
@@ -649,6 +1385,70 @@ const afterIssueOccupancies = buildWaitProcessRuntimeOccupancies(selectionWareho
   },
 ])
 assert(afterIssueOccupancies.every((occupancy) => occupancy.qty === 200), '加工领料 OUT 后必须扣减当前待加工仓占用量')
+const sameSkuSessionOne: CuttingRuntimeEvent = {
+  ...structuredClone(runtimePickupEvent),
+  eventId: 'EVENT-SAME-SKU-SESSION-1',
+  refs: { productionOrderNo: 'PO-SAME-1', handoverRecordId: 'SESSION-SAME-1:LINE-1' },
+  material: { ...runtimePickupEvent.material, materialSku: 'MAT-SAME-SKU' },
+  inventoryEffect: { ...runtimePickupEvent.inventoryEffect!, qty: 100 },
+  payload: {
+    ...(runtimePickupEvent.payload as Record<string, unknown>),
+    pickupSessionId: 'SESSION-SAME-1', prepLineId: 'LINE-1', pickupQty: 100,
+    warehouseLocations: [footprintRefs[0]],
+  },
+}
+const sameSkuSessionTwo: CuttingRuntimeEvent = {
+  ...structuredClone(sameSkuSessionOne),
+  eventId: 'EVENT-SAME-SKU-SESSION-2',
+  refs: { productionOrderNo: 'PO-SAME-2', handoverRecordId: 'SESSION-SAME-2:LINE-2' },
+  payload: {
+    ...(sameSkuSessionOne.payload as Record<string, unknown>),
+    pickupSessionId: 'SESSION-SAME-2', prepLineId: 'LINE-2', warehouseLocations: [footprintRefs[1]],
+  },
+}
+const sessionOnePartialOut: CuttingRuntimeEvent = {
+  ...structuredClone(sameSkuSessionOne),
+  eventId: 'EVENT-SAME-SKU-SESSION-1-OUT-40',
+  eventType: '待加工仓加工领料',
+  occurredAt: '2026-07-30 08:20',
+  inventoryEffect: { inventoryScope: '裁床待加工仓', direction: 'OUT', qty: 40, unit: 'yard' },
+  payload: {
+    pickupSessionId: 'SESSION-SAME-1',
+    sourceInboundEventIds: ['EVENT-SAME-SKU-SESSION-1'],
+    materialSku: 'MAT-SAME-SKU', issuedQty: 40, warehouseLocations: [footprintRefs[0]],
+  },
+}
+const stableSessionPartial = buildWaitProcessRuntimeOccupancies(selectionWarehouse, selectionSnapshot, [
+  sameSkuSessionOne, sameSkuSessionTwo, sessionOnePartialOut,
+])
+assert.equal(stableSessionPartial.find((item) => item.locationId === footprintRefs[0].locationId)?.qty, 60, '会话1部分 OUT 只能扣会话1')
+assert.equal(stableSessionPartial.find((item) => item.locationId === footprintRefs[1].locationId)?.qty, 100, '会话1 OUT 后会话2必须完全不变')
+const stableSessionReleased = buildWaitProcessRuntimeOccupancies(selectionWarehouse, selectionSnapshot, [
+  sameSkuSessionOne,
+  sameSkuSessionTwo,
+  sessionOnePartialOut,
+  {
+    ...structuredClone(sessionOnePartialOut),
+    eventId: 'EVENT-SAME-SKU-SESSION-1-OUT-60',
+    occurredAt: '2026-07-30 08:30',
+    inventoryEffect: { inventoryScope: '裁床待加工仓', direction: 'OUT', qty: 60, unit: 'yard' },
+    payload: { ...(sessionOnePartialOut.payload as Record<string, unknown>), issuedQty: 60 },
+  },
+])
+assert.equal(stableSessionReleased.some((item) => item.locationId === footprintRefs[0].locationId), false, '会话1全量 OUT 必须释放会话1完整 footprint')
+assert.equal(stableSessionReleased.find((item) => item.locationId === footprintRefs[1].locationId)?.qty, 100, '会话1全释放不得影响同 SKU 会话2')
+const ambiguousLegacyOut: CuttingRuntimeEvent = {
+  ...structuredClone(sessionOnePartialOut),
+  eventId: 'EVENT-SAME-SKU-LEGACY-AMBIGUOUS',
+  payload: { materialSku: 'MAT-SAME-SKU', issuedQty: 40, warehouseLocations: [footprintRefs[0], footprintRefs[1]] },
+  refs: {},
+}
+const ambiguousLegacyResult = buildWaitProcessRuntimeOccupancies(selectionWarehouse, selectionSnapshot, [
+  sameSkuSessionOne, sameSkuSessionTwo, ambiguousLegacyOut,
+])
+assert.deepEqual(ambiguousLegacyResult.map((item) => item.qty).sort((a, b) => a - b), [100, 100], '旧 OUT 有多个同 SKU 候选时必须保守不扣减')
+const uniqueLegacyResult = buildWaitProcessRuntimeOccupancies(selectionWarehouse, selectionSnapshot, [sameSkuSessionOne, ambiguousLegacyOut])
+assert.equal(uniqueLegacyResult[0]?.qty, 60, '旧 OUT 仅有唯一同 SKU 候选时允许兼容扣减')
 const adjustedRuntimeOccupancies = buildWaitProcessRuntimeOccupancies(selectionWarehouse, selectionSnapshot, [
   runtimePickupEvent,
   {
@@ -664,7 +1464,7 @@ assert.equal(adjustedRuntimeOccupancies.length, 2, '位置调整后只保留最�
 assert(adjustedRuntimeOccupancies.every((occupancy) => occupancy.qty === 120 && occupancy.remainingQty === 120), '位置调整后必须显示当前剩余量')
 const sharedSessionBase = {
   ...structuredClone(runtimePickupEvent),
-  payload: { ...structuredClone(runtimePickupEvent.payload as Record<string, unknown>), locationRefs: [footprintRefs[0]] },
+  payload: { ...structuredClone(runtimePickupEvent.payload as Record<string, unknown>), warehouseLocations: [footprintRefs[0]] },
 }
 const sharedSessionOccupancies = buildWaitProcessRuntimeOccupancies(selectionWarehouse, selectionSnapshot, [
   {
@@ -697,7 +1497,7 @@ const microSessionEvents: CuttingRuntimeEvent[] = Array.from({ length: 4 }, (_, 
   refs: { ...runtimePickupEvent.refs, handoverRecordId: `SESSION-MICRO:LINE-${index + 1}` },
   material: { ...runtimePickupEvent.material, materialSku: `MAT-MICRO-${index + 1}` },
   inventoryEffect: { ...runtimePickupEvent.inventoryEffect!, qty: 1 },
-  payload: { ...(runtimePickupEvent.payload as Record<string, unknown>), pickupSessionId: 'SESSION-MICRO', prepLineId: `LINE-${index + 1}`, pickupQty: 1, locationRefs: [footprintRefs[0]] },
+  payload: { ...(runtimePickupEvent.payload as Record<string, unknown>), pickupSessionId: 'SESSION-MICRO', prepLineId: `LINE-${index + 1}`, pickupQty: 1, warehouseLocations: [footprintRefs[0]] },
 }))
 microSessionEvents.push({
   ...structuredClone(runtimePickupEvent),
@@ -734,16 +1534,16 @@ const crossFactoryRuntimeOccupancies = buildWaitProcessRuntimeOccupancies(select
   eventId: 'EVENT-CROSS-FACTORY',
   payload: {
     ...structuredClone(runtimePickupEvent.payload as Record<string, unknown>),
-    locationRefs: footprintRefs.map((ref) => ({ ...ref, factoryId: 'OTHER-FACTORY' })),
+    warehouseLocations: footprintRefs.map((ref) => ({ ...ref, factoryId: 'OTHER-FACTORY' })),
   },
 }])
 assert.equal(crossFactoryRuntimeOccupancies.length, 0, '其他工厂复用同一 locationId 的事件不得投影到当前仓库')
-const globallyUniqueSnapshot = appendWarehouseLocation(
-  addedLocationSnapshot,
-  firstArea.areaId,
-  firstShelf.shelfId,
-  { locationId: 'LOC-HISTORY-GLOBAL-UNIQUE', locationNo: 'HISTORY-GLOBAL-UNIQUE-999', locationName: 'HISTORY-GLOBAL-UNIQUE-999', status: 'AVAILABLE' },
-)
+const globallyUniqueAreaSnapshot = createWarehouseArea(initial, {
+  areaId: 'AREA-HISTORY-GLOBAL-UNIQUE', areaName: 'C区', code: 'C', updatedBy: '历史定位测试',
+})
+const globallyUniqueSnapshot = createWarehouseShelf(globallyUniqueAreaSnapshot, {
+  areaId: 'AREA-HISTORY-GLOBAL-UNIQUE', shelfId: 'SHELF-HISTORY-GLOBAL-UNIQUE', shelfSequence: 1, positionCounts: [1], updatedBy: '历史定位测试',
+})
 const originalLocalStorage = globalThis.localStorage
 const originalLayoutWindow = globalThis.window
 const globalLayoutStorage = createMemoryWarehouseLayoutStorage()
@@ -752,14 +1552,162 @@ const globalLayoutStorage = createMemoryWarehouseLayoutStorage()
   localStorage: globalLayoutStorage,
   location: { search: '' },
 } as unknown as Window
-saveWarehouseLayoutSnapshot(globallyUniqueSnapshot, 0, globalLayoutStorage)
+saveWarehouseLayoutSnapshot(globallyUniqueAreaSnapshot, 0, globalLayoutStorage)
+saveWarehouseLayoutSnapshot(globallyUniqueSnapshot, 1, globalLayoutStorage)
+const handlerPdaUser = listFactoryPdaUsers(waitProcess.factoryId)[0]
+assert(handlerPdaUser, '真实处理器测试必须取得裁床工厂 PDA 用户')
+setPdaSession({
+  userId: handlerPdaUser.userId,
+  loginId: handlerPdaUser.loginId,
+  userName: handlerPdaUser.name,
+  roleId: handlerPdaUser.roleId,
+  factoryId: handlerPdaUser.factoryId,
+  factoryName: waitProcess.factoryName,
+  loggedAt: '2026-07-30 10:00',
+})
+
+const currentWaitHandoverWarehouse = getCurrentFactoryWarehouseByKind('WAIT_HANDOVER')
+assert(currentWaitHandoverWarehouse, '扫码处理器测试必须取得当前 PDA 工厂待交出仓')
+const scanCandidate = listStableWarehouseLocationRefs(
+  currentWaitHandoverWarehouse,
+  loadWarehouseLayoutSnapshot(currentWaitHandoverWarehouse, globalLayoutStorage).snapshot,
+)[0]
+assert(scanCandidate, '扫码处理器测试必须取得待交出仓库位')
+const appendInboundScan = pdaInboundModule.appendPdaCuttingInboundScannedLocation as (
+  form: { locationScan: string; selectedLocationIds: string[] }, scanValue: string,
+) => { ok: boolean; message: string }
+const buildInboundScanForm = () => ({ locationScan: '', selectedLocationIds: [] })
+const persistScanStatus = (level: 'area' | 'shelf' | 'location', status: 'AVAILABLE' | 'STOPPED') => {
+  const current = loadWarehouseLayoutSnapshot(currentWaitHandoverWarehouse, globalLayoutStorage).snapshot
+  const next = structuredClone(current)
+  const area = next.areaList.find((item) => item.areaId === scanCandidate.areaId)!
+  const shelf = area.shelfList.find((item) => item.shelfId === scanCandidate.shelfId)!
+  const location = shelf.locationList.find((item) => item.locationId === scanCandidate.locationId)!
+  if (level === 'area') area.status = status
+  if (level === 'shelf') shelf.status = status
+  if (level === 'location') location.status = status
+  next.layoutVersion = current.layoutVersion + 1
+  next.updatedAt = `2026-07-30 10:${next.layoutVersion}`
+  saveWarehouseLayoutSnapshot(next, current.layoutVersion, globalLayoutStorage)
+}
+for (const stoppedCase of [
+  { level: 'area' as const, message: '该库区已停用，请更换库位。' },
+  { level: 'shelf' as const, message: '该货架已停用，请更换库位。' },
+  { level: 'location' as const, message: '该库位已停用，请更换库位。' },
+]) {
+  persistScanStatus(stoppedCase.level, 'STOPPED')
+  for (const scanCode of [
+    `${scanCandidate.factoryId}|${scanCandidate.warehouseId}|${scanCandidate.warehouseKind}|${scanCandidate.locationId}`,
+    scanCandidate.locationNo,
+  ]) {
+    const form = buildInboundScanForm()
+    const result = appendInboundScan(form, scanCode)
+    assert.equal(result.message, stoppedCase.message, `${stoppedCase.level} 停用时新旧扫码必须即时给出对应提示`)
+    assert.deepEqual(form.selectedLocationIds, [], `${stoppedCase.level} 停用时扫码不得改变选择`)
+  }
+  persistScanStatus(stoppedCase.level, 'AVAILABLE')
+}
+
+const waitProcessHandler = pdaWaitProcessModule.handlePdaWarehouseWaitProcessEvent as (target: HTMLElement) => boolean
+const handlerAlerts: string[] = []
+;(globalThis.window as unknown as { alert: (message: string) => void }).alert = (message) => handlerAlerts.push(message)
+const buildIssueTarget = (action: string, selectedBatch = '') => {
+  const startContainer = {
+    dataset: { sourceNo: '' },
+    querySelector(selector: string) {
+      return selector === '[data-cutting-issue-batch]' ? { value: selectedBatch } : null
+    },
+  }
+  const actionNode = {
+    dataset: { pdaWarehouseAction: action },
+    closest(selector: string) {
+      return selector === '[data-cutting-issue-start]' ? startContainer : null
+    },
+  }
+  return ({
+  closest(selector: string) {
+    if (selector === '[data-pda-warehouse-action]') return actionNode
+    return null
+  },
+  }) as unknown as HTMLElement
+}
+const appendHandlerInbound = (
+  sourceNo: string,
+  materialSku: string,
+  productionOrderNo: string,
+  pickupSessionId: string,
+  locationRef: typeof footprintRefs[number],
+  qty: number,
+) => appendCuttingRuntimeEvent({
+  eventType: '中转仓领料',
+  operatorName: '真实处理器测试',
+  occurredAt: `2026-07-30 10:${String(listCuttingRuntimeEvents(globalLayoutStorage).length).padStart(2, '0')}`,
+  refs: { cutOrderNo: sourceNo, productionOrderNo, handoverRecordId: `${pickupSessionId}:LINE` },
+  material: { materialSku, materialName: materialSku, materialColor: '黑色' },
+  inventoryEffect: {
+    inventoryScope: '裁床待加工仓', direction: 'IN', qty, unit: 'yard', rollCount: 1,
+    toWarehouseArea: locationRef.areaName, toLocationCode: locationRef.locationNo,
+  },
+  payload: {
+    pickupSessionId, prepLineId: `${pickupSessionId}:LINE`, pickupQty: qty, rollCount: 1,
+    warehouseLocations: [locationRef], storageFootprint: buildWarehouseStorageFootprint([locationRef], [{ unit: 'yard', qty }]),
+  },
+}, globalLayoutStorage)
+
+const handlerLedgerRows = listMaterialLedgerProjections()
+const handlerLedgerRow = handlerLedgerRows.find((row) => row.availableQty > 0)
+  || handlerLedgerRows.find((row) => row.cutOrderNo && row.materialIdentity.materialSku)
+assert(handlerLedgerRow, '真实处理器测试必须取得一个当前加工领料对象')
+const handlerWarehouse = getCurrentFactoryWarehouseByKind('WAIT_PROCESS')
+assert(handlerWarehouse, '真实处理器测试必须取得当前 PDA 工厂待加工仓')
+const handlerWarehouseSnapshot = loadWarehouseLayoutSnapshot(handlerWarehouse, globalLayoutStorage).snapshot
+const handlerFootprintRefs = listStableWarehouseLocationRefs(handlerWarehouse, handlerWarehouseSnapshot).slice(0, 2)
+assert.equal(handlerFootprintRefs.length, 2, '真实处理器测试至少需要两个当前工厂库位')
+const explicitSourceNo = handlerLedgerRow.cutOrderNo
+const explicitMaterialSku = handlerLedgerRow.materialIdentity.materialSku
+const explicitProductionOrderNo = handlerLedgerRow.productionOrderNo
+const explicitInbound = appendHandlerInbound(explicitSourceNo, explicitMaterialSku, explicitProductionOrderNo, 'SESSION-HANDLER-1', handlerFootprintRefs[0], 200)
+const otherSameCellInbound = appendHandlerInbound('CUT-HANDLER-OTHER', 'MAT-HANDLER-OTHER', explicitProductionOrderNo, 'SESSION-HANDLER-OTHER', handlerFootprintRefs[0], 77)
+;(globalThis.window as unknown as { location: { search: string } }).location.search = '?scope=cutting&action=issue'
+const singleBatchHtml = (pdaWaitProcessModule.renderPdaWarehouseWaitProcessPage as () => string)()
+assert.doesNotMatch(singleBatchHtml, /data-cutting-issue-batch/, '单候选应自动绑定，不增加选择步骤')
+assert.equal(waitProcessHandler(buildIssueTarget('cutting-wp-issue')), true, '单候选点击真实开始按钮应自动绑定并进入草稿')
+assert.equal(waitProcessHandler(buildIssueTarget('cancel-cutting-wp-issue')), true)
+
+const otherTargetSessionInbound = appendHandlerInbound(explicitSourceNo, explicitMaterialSku, explicitProductionOrderNo, 'SESSION-HANDLER-2', handlerFootprintRefs[1], 100)
+const multiBatchHtml = (pdaWaitProcessModule.renderPdaWarehouseWaitProcessPage as () => string)()
+const batchSelectHtml = multiBatchHtml.match(/<select[^>]*data-cutting-issue-batch[^>]*>([\s\S]*?)<\/select>/)?.[1] || ''
+assert(batchSelectHtml, '多候选真实页面必须渲染“本次领料批次”选择控件')
+assert.match(multiBatchHtml, /本次领料批次/)
+assert.match(batchSelectHtml, /value=""[^>]*>请选择本次领料批次</, '多候选默认不得误选')
+assert.match(batchSelectHtml, /入仓[^<]*剩余[^<]*yard[^<]*库位/, '批次选项只显示入仓时间、剩余数量、单位和完整库位')
+const visibleBatchText = batchSelectHtml.replace(/<[^>]+>/g, ' ')
+assert.doesNotMatch(visibleBatchText, /SESSION-HANDLER|EVENT-|pickupSessionId|sourceEventId/, '现场选项不得显示会话 ID、事件 ID 或技术词')
+const countBeforeNoSelection = listCuttingRuntimeEvents(globalLayoutStorage).length
+assert.equal(waitProcessHandler(buildIssueTarget('cutting-wp-issue')), true)
+assert.equal(listCuttingRuntimeEvents(globalLayoutStorage).length, countBeforeNoSelection, '多候选未选批次不得追加 OUT')
+assert.equal(handlerAlerts.at(-1), '请选择本次领料批次。')
+assert.equal(waitProcessHandler(buildIssueTarget('cutting-wp-issue', 'SESSION-HANDLER-1')), true)
+assert.equal(waitProcessHandler(buildIssueTarget('confirm-cutting-wp-issue')), true)
+const explicitOut = listCuttingRuntimeEvents(globalLayoutStorage).find((event) =>
+  event.eventType === '待加工仓加工领料'
+  && (event.payload as Record<string, unknown>).spreadingOrderNo === explicitSourceNo)
+assert(explicitOut, `真实加工领料 handler 必须追加 OUT 事件；提示：${handlerAlerts.join(' / ')}`)
+assert.deepEqual((explicitOut.payload as Record<string, unknown>).sourceInboundEventIds, [explicitInbound.eventId], '显式会话只能写本会话入仓事件')
+assert.equal((explicitOut.payload as Record<string, unknown>).pickupSessionId, 'SESSION-HANDLER-1', '显式会话必须稳定写入 OUT')
+assert.equal((explicitOut.payload as { warehouseLocations?: unknown[] }).warehouseLocations?.length, 1, '同库位其他 occupancy 不得混入领料来源库位')
+const explicitProjected = buildWaitProcessRuntimeOccupancies(handlerWarehouse, handlerWarehouseSnapshot, listCuttingRuntimeEvents(globalLayoutStorage))
+assert.equal(explicitProjected.find((item) => item.sourceEventId === otherSameCellInbound.eventId)?.qty, 77, '同格其他物料 occupancy 必须保持不变')
+assert.equal(explicitProjected.find((item) => item.sourceEventId === otherTargetSessionInbound.eventId)?.qty, 100, '同物料订单其他会话必须保持不变')
+
 const legacyTextEvent: CuttingRuntimeEvent = {
   ...structuredClone(runtimePickupEvent),
   eventId: 'EVENT-LEGACY-TEXT',
   payload: {
     ...structuredClone(runtimePickupEvent.payload as Record<string, unknown>),
     pickupSessionId: 'SESSION-LEGACY-TEXT',
-    locationRefs: [{ areaName: firstArea.areaName, shelfNo: firstShelf.shelfNo, locationNo: 'HISTORY-GLOBAL-UNIQUE-999' }],
+    warehouseLocations: undefined,
+    locationRefs: [{ areaName: 'C区', shelfNo: 'R01', locationNo: 'C-R01-L01-P01' }],
   },
 }
 const uniqueWaitProcessWarehouses = Array.from(new Map(listFactoryInternalWarehouses()
@@ -774,13 +1722,14 @@ const legacyTextOccupancies = uniqueWaitProcessWarehouses
     [legacyTextEvent],
   ))
 assert.equal(legacyTextOccupancies.length, 1, '非首仓自定义历史库位全局唯一时只能形成一条占用')
-assert.equal(legacyTextOccupancies[0]?.locationId, 'LOC-HISTORY-GLOBAL-UNIQUE', '历史文本库位全局唯一匹配时必须保留占用事实')
+assert.equal(legacyTextOccupancies[0]?.locationId, 'SHELF-HISTORY-GLOBAL-UNIQUE-L01-P01', '历史文本库位全局唯一匹配时必须保留占用事实')
 const unresolvedLegacyEvent: CuttingRuntimeEvent = {
   ...structuredClone(runtimePickupEvent),
   eventId: 'EVENT-LEGACY-UNRESOLVED',
   payload: {
     ...structuredClone(runtimePickupEvent.payload as Record<string, unknown>),
     pickupSessionId: 'SESSION-LEGACY-UNRESOLVED',
+    warehouseLocations: undefined,
     locationRefs: [{ areaName: '历史区', shelfNo: '历史架', locationNo: '历史位-999' }],
   },
 }
@@ -917,6 +1866,395 @@ const inboundEvent = appendWaitHandoverInboundEvent({
   occurredAt: '2026-07-30 09:05',
   storage: runtimeStorage,
 })
+
+const multiMapStorage = createMemoryWarehouseLayoutStorage()
+const multiMapBagCode = 'BAG-MAP-MULTI-001'
+const multiMapBaggingEvent = appendWaitHandoverBaggingEvent({
+  source: 'WEB',
+  operator: { operatorName: '多库位装袋员' },
+  bagCode: multiMapBagCode,
+  tickets: [runtimeTicket],
+  occurredAt: '2026-08-01 11:00',
+  storage: multiMapStorage,
+})
+const waitHandoverSnapshot = loadWarehouseLayoutSnapshot(waitHandoverWarehouse, createMemoryWarehouseLayoutStorage()).snapshot
+const waitHandoverRefs = listStableWarehouseLocationRefs(waitHandoverWarehouse, waitHandoverSnapshot)
+const waitHandoverAreaARef = waitHandoverRefs.find((ref) => ref.areaCode === 'A')
+const waitHandoverAreaBRef = waitHandoverRefs.find((ref) => ref.areaCode === 'B')
+assert(waitHandoverAreaARef && waitHandoverAreaBRef, '待交出仓多库位动态检查必须覆盖 A/B 两个库区')
+const waitHandoverLocations = [waitHandoverAreaARef, waitHandoverAreaBRef]
+const multiMapInboundEvent = appendWaitHandoverInboundEvent({
+  source: 'WEB',
+  operator: { operatorName: '多库位入仓员' },
+  bagCode: multiMapBagCode,
+  warehouseArea: waitHandoverLocations[0].areaName,
+  locationCode: waitHandoverLocations[0].locationNo,
+  locationRef: waitHandoverLocations[0],
+  warehouseLocations: waitHandoverLocations,
+  occurredAt: '2026-08-01 11:05',
+  storage: multiMapStorage,
+} as Parameters<typeof appendWaitHandoverInboundEvent>[0] & { warehouseLocations: typeof waitHandoverLocations })
+assert.deepEqual(
+  (multiMapInboundEvent.payload as { warehouseLocations?: unknown[] }).warehouseLocations,
+  waitHandoverLocations,
+  '待交出 Web 入仓必须保存跨区跨架跨层的全部稳定库位引用',
+)
+const multiMapStates = buildWaitHandoverLocationOccupancyStates([multiMapBaggingEvent, multiMapInboundEvent])
+assert.equal(multiMapStates.length, 2, '待交出多库位入仓必须逐位置形成占用')
+assert.equal(new Set(multiMapStates.map((state) => state.bagCode)).size, 1, '待交出多库位业务袋数量只能汇总一次')
+assert.equal(new Set(multiMapStates.flatMap((state) => state.feiTicketIds)).size, 1, '待交出多库位菲票数量只能汇总一次')
+const twoTicketInboundEvent: CuttingRuntimeEvent = {
+  ...structuredClone(multiMapInboundEvent),
+  eventId: 'EVENT-TWO-TICKET-INBOUND',
+  refs: { ...multiMapInboundEvent.refs, feiTicketIds: ['T1', 'T2'], feiTicketNos: ['T1', 'T2'] },
+  payload: {
+    ...(multiMapInboundEvent.payload as Record<string, unknown>),
+    feiTicketItems: [
+      { feiTicketId: 'T1', feiTicketNo: 'T1', pieceQty: 10 },
+      { feiTicketId: 'T2', feiTicketNo: 'T2', pieceQty: 10 },
+    ],
+    totalPieceQty: 20,
+  },
+}
+const handoverAllT1Event: CuttingRuntimeEvent = {
+  ...structuredClone(twoTicketInboundEvent),
+  eventId: 'EVENT-HANDOVER-ALL-T1',
+  eventType: '特殊工艺交出',
+  occurredAt: '2026-08-01 11:06',
+  refs: { ...twoTicketInboundEvent.refs, feiTicketIds: ['T1'], feiTicketNos: ['T1'] },
+  inventoryEffect: { ...twoTicketInboundEvent.inventoryEffect!, direction: 'OUT', qty: 10 },
+  payload: {
+    transferBagCode: multiMapBagCode,
+    feiTicketItems: [{ feiTicketId: 'T1', feiTicketNo: 'T1', pieceQty: 10 }],
+  },
+}
+const statesAfterAllT1Handover = buildWaitHandoverLocationOccupancyStates([twoTicketInboundEvent, handoverAllT1Event])
+statesAfterAllT1Handover.forEach((state) => {
+  assert.deepEqual(state.feiTicketIds, ['T2'], 'T1 全部交出后活动菲票必须只保留 T2')
+  assert.deepEqual(state.feiTicketQtyById, { T2: 10 }, 'T1 全部交出后票级剩余账必须只保留 T2 10片')
+  assert.equal(state.totalPieceQty, 10, 'T1 全部交出后袋内总量必须为 10片')
+  assert.equal(state.feiTicketIds.length, 1, 'T1 全部交出后占用详情只能投影 1张活动菲票')
+  assert.equal(state.feiTicketIds.reduce((sum, ticketId) => sum + state.feiTicketQtyById[ticketId], 0), state.totalPieceQty, '活动菲票详情合计必须等于袋内总量')
+})
+const returnPartT1Event: CuttingRuntimeEvent = {
+  ...structuredClone(twoTicketInboundEvent),
+  eventId: 'EVENT-RETURN-PART-T1',
+  eventType: '特殊工艺回仓',
+  occurredAt: '2026-08-01 11:07',
+  refs: { ...twoTicketInboundEvent.refs, feiTicketIds: ['T1'], feiTicketNos: ['T1'] },
+  inventoryEffect: { ...twoTicketInboundEvent.inventoryEffect!, direction: 'IN', qty: 5 },
+  payload: {
+    transferBagCode: multiMapBagCode,
+    returnRecordId: 'RETURN-PART-T1',
+    warehouseLocations: waitHandoverLocations,
+    returnedFeiTicketItems: [{ feiTicketId: 'T1', feiTicketNo: 'T1', returnedQty: 5 }],
+  },
+}
+const statesAfterPartT1Return = buildWaitHandoverLocationOccupancyStates([twoTicketInboundEvent, handoverAllT1Event, returnPartT1Event])
+statesAfterPartT1Return.forEach((state) => {
+  assert.deepEqual(state.feiTicketIds, ['T2', 'T1'], 'T1 回仓 5片后必须按原剩余票、回仓票事实顺序恢复活动菲票')
+  assert.deepEqual(state.feiTicketQtyById, { T2: 10, T1: 5 }, 'T1 回仓 5片后票级剩余账必须为 T2 10片、T1 5片')
+  assert.equal(state.totalPieceQty, 15, 'T1 回仓 5片后袋内总量必须为 15片')
+  assert.equal(state.feiTicketIds.reduce((sum, ticketId) => sum + state.feiTicketQtyById[ticketId], 0), state.totalPieceQty, '回仓后活动菲票详情合计必须等于袋内总量')
+})
+const sameTimeHandoverEvent: CuttingRuntimeEvent = {
+  ...structuredClone(multiMapInboundEvent),
+  eventId: 'EVENT-SAME-TIME-HANDOVER',
+  eventType: '新增交出记录',
+  occurredAt: multiMapInboundEvent.occurredAt,
+  createdAt: '2026-08-01 11:05:01',
+  inventoryEffect: { ...multiMapInboundEvent.inventoryEffect!, direction: 'OUT', qty: 20 },
+  payload: { transferBagCode: multiMapBagCode, warehouseLocations: waitHandoverLocations },
+}
+const sameTimeInboundEvent: CuttingRuntimeEvent = {
+  ...structuredClone(multiMapInboundEvent),
+  eventId: 'EVENT-SAME-TIME-INBOUND',
+  createdAt: '2026-08-01 11:05:00',
+}
+assert.deepEqual(
+  buildWaitHandoverLocationOccupancyStates([sameTimeInboundEvent, sameTimeHandoverEvent]),
+  buildWaitHandoverLocationOccupancyStates([sameTimeHandoverEvent, sameTimeInboundEvent]),
+  '相同 occurredAt 的同一事件集合必须按 createdAt/eventId 稳定折叠，不受输入排列影响',
+)
+assert.equal(
+  buildWaitHandoverLocationOccupancyStates([sameTimeHandoverEvent, sameTimeInboundEvent]).length,
+  0,
+  '相同 occurredAt 时入仓必须先于稍后创建的交出事实折叠',
+)
+assert.deepEqual(
+  (multiMapStates[0] as unknown as { feiTicketQtyById?: Record<string, number> }).feiTicketQtyById,
+  { 'FT-MAP-001': 20 },
+  '入仓状态必须保存逐票剩余片数',
+)
+const multiMapPartialHandoverEvent: CuttingRuntimeEvent = {
+  ...structuredClone(multiMapInboundEvent),
+  eventId: 'EVENT-MULTI-MAP-SPECIAL-HANDOVER-PARTIAL',
+  eventType: '特殊工艺交出',
+  occurredAt: '2026-08-01 11:10',
+  refs: { ...multiMapInboundEvent.refs, feiTicketIds: ['FT-MAP-001'] },
+  inventoryEffect: { ...multiMapInboundEvent.inventoryEffect!, direction: 'OUT', qty: 5 },
+  payload: {
+    transferBagCode: multiMapBagCode,
+    handoverQty: 5,
+    feiTicketItems: [{ feiTicketId: 'FT-MAP-001', feiTicketNo: 'FT-MAP-001', pieceQty: 5 }],
+  },
+}
+const latestAreaARef = {
+  ...waitHandoverLocations[0],
+  locationNo: `${waitHandoverLocations[0].locationNo}-新编号`,
+}
+const multiMapPartialReturnEvent: CuttingRuntimeEvent = {
+  ...structuredClone(multiMapInboundEvent),
+  eventId: 'EVENT-MULTI-MAP-SPECIAL-RETURN-PARTIAL',
+  eventType: '特殊工艺回仓',
+  occurredAt: '2026-08-01 11:20',
+  refs: {
+    ...multiMapInboundEvent.refs,
+    feiTicketIds: ['FT-MAP-001'],
+  },
+  inventoryEffect: { ...multiMapInboundEvent.inventoryEffect!, direction: 'IN', qty: 5 },
+  payload: {
+    transferBagCode: multiMapBagCode,
+    returnRecordId: 'RETURN-MULTI-MAP-001',
+    returnedAt: '2026-08-01 11:20',
+    returnedBy: '回仓员',
+    warehouseLocations: [latestAreaARef],
+    returnedFeiTicketItems: [{ feiTicketId: 'FT-MAP-001', feiTicketNo: 'FT-MAP-001', returnedQty: 5 }],
+  },
+}
+const multiMapPartiallyHandedOverStates = buildWaitHandoverLocationOccupancyStates([
+  multiMapBaggingEvent,
+  multiMapInboundEvent,
+  multiMapPartialHandoverEvent,
+])
+multiMapPartiallyHandedOverStates.forEach((state) => {
+  assert.equal(state.totalPieceQty, 15, '20 片菲票交出 5 片后占用总量必须为 15 片')
+  assert.deepEqual(
+    (state as unknown as { feiTicketQtyById?: Record<string, number> }).feiTicketQtyById,
+    { 'FT-MAP-001': 15 },
+    '20 片菲票交出 5 片后票级剩余明细必须为 15 片',
+  )
+})
+const multiMapReturnedStates = buildWaitHandoverLocationOccupancyStates([
+  multiMapBaggingEvent,
+  multiMapInboundEvent,
+  multiMapPartialHandoverEvent,
+  multiMapPartialReturnEvent,
+])
+assert.equal(multiMapReturnedStates.length, 2, '回仓到 A 格后不得丢失 B 格的原占用')
+assert.deepEqual(
+  multiMapReturnedStates.map((state) => state.locationRef.locationId),
+  waitHandoverLocations.map((location) => location.locationId),
+  '特殊工艺回仓必须保留原 A/B footprint 顺序',
+)
+multiMapReturnedStates.forEach((state) => {
+  assert.equal(state.totalPieceQty, 20, '回仓后 A/B 每格都必须同步统一剩余数量')
+  assert.deepEqual(state.feiTicketIds, ['FT-MAP-001'], '回仓后 A/B 每格都必须同步统一菲票集合')
+  assert.deepEqual(
+    (state as unknown as { feiTicketQtyById?: Record<string, number> }).feiTicketQtyById,
+    { 'FT-MAP-001': 20 },
+    '回仓 5 片后票级剩余明细必须恢复为 20 片',
+  )
+  assert.deepEqual(
+    state.warehouseLocations.map((location) => location.locationId),
+    waitHandoverLocations.map((location) => location.locationId),
+    '回仓后 A/B 每格都必须指向同一完整 footprint',
+  )
+  assert.equal(state.warehouseLocations[0].locationNo, latestAreaARef.locationNo, '同 locationId 的库位编号快照必须以最新回仓事实覆盖')
+})
+assert.equal(
+  Math.max(...multiMapReturnedStates.map((state) => state.totalPieceQty)),
+  20,
+  '同一 footprint 的业务数量汇总只能计 20 片',
+)
+let footprintReadCount = 0
+const largeFootprint = Array.from({ length: 1_000 }, (_, index) => ({
+  ...waitHandoverLocations[index % waitHandoverLocations.length],
+  locationId: `LARGE-LOCATION-${index}`,
+  locationNo: `LARGE-${index}`,
+}))
+const largeStates = largeFootprint.map((locationRef, index) => ({
+  ...multiMapReturnedStates[index % multiMapReturnedStates.length],
+  locationRef,
+  get warehouseLocations() {
+    footprintReadCount += 1
+    return largeFootprint
+  },
+}))
+const refreshedFirstLocation = { ...largeFootprint[0], locationNo: 'LARGE-0-最新' }
+const mergedLargeFootprint = mergeWaitHandoverWarehouseLocations(largeStates, [refreshedFirstLocation])
+assert.equal(footprintReadCount, 1, 'N 格各带 N footprint 时只能读取一份可信完整 footprint')
+assert.equal(mergedLargeFootprint.length, 1_000, '线性合并不得丢失任一原库位')
+assert.equal(mergedLargeFootprint[0].locationNo, refreshedFirstLocation.locationNo, '回仓同 ID 最新快照必须覆盖且保持首次顺序')
+let firstFragmentFootprintReads = 0
+let secondFragmentFootprintReads = 0
+const fragmentedStates = [
+  {
+    ...multiMapReturnedStates[0],
+    locationRef: waitHandoverLocations[0],
+    get warehouseLocations() {
+      firstFragmentFootprintReads += 1
+      return [waitHandoverLocations[0]]
+    },
+  },
+  {
+    ...multiMapReturnedStates[1],
+    locationRef: waitHandoverLocations[1],
+    get warehouseLocations() {
+      secondFragmentFootprintReads += 1
+      return [waitHandoverLocations[1]]
+    },
+  },
+]
+const fragmentedLatestA = { ...waitHandoverLocations[0], locationNo: `${waitHandoverLocations[0].locationNo}-回仓新编号` }
+const mergedFragmentedFootprint = mergeWaitHandoverWarehouseLocations(fragmentedStates, [fragmentedLatestA])
+assert.equal(firstFragmentFootprintReads, 1, '历史碎片只能读取首个非空完整范围候选一次')
+assert.equal(secondFragmentFootprintReads, 0, '补齐历史碎片不得读取后续状态携带的重复完整范围')
+assert.deepEqual(mergedFragmentedFootprint.map((location) => location.locationId), waitHandoverLocations.map((location) => location.locationId), 'A/B 历史碎片必须按状态稳定顺序补齐为完整范围')
+assert.equal(mergedFragmentedFootprint[0].locationNo, fragmentedLatestA.locationNo, '碎片补齐后回仓同 ID 最新快照仍必须覆盖且保持首次顺序')
+assert.match(warehouseMapSource, /footprintId:\s*buildWaitHandoverStorageFootprintId\(state\)/, '待交出占用必须用包含仓库 scope 和使用周期的稳定 footprintId')
+assert.match(warehouseMapSource, /function buildWaitHandoverStorageFootprintId\(/, '必须集中构造待交出占用 footprintId')
+const firstCycleFootprintId = buildWaitHandoverStorageFootprintId(multiMapReturnedStates[0])
+const secondCycleFootprintId = buildWaitHandoverStorageFootprintId({
+  ...multiMapReturnedStates[0],
+  usageCycleId: `${multiMapReturnedStates[0].usageCycleId}:NEXT`,
+})
+assert.notEqual(firstCycleFootprintId, secondCycleFootprintId, '同袋不同活动周期必须形成两个独立占用摘要')
+assert.equal(new Set([firstCycleFootprintId, secondCycleFootprintId]).size, 2, '两个活动周期必须各自计数，不得按袋号合并')
+assert.match(warehouseMapSource, /pieceQty:\s*Number\(state\.feiTicketQtyById\[ticket!\.feiTicketId\]/, '占用详情的菲票片数必须读取运行时剩余票级数量')
+assert.match(warehouseMapSource, /filter\(\(ticketId\)\s*=>\s*Number\(state\.feiTicketQtyById\[ticketId\]/, '占用详情必须在解析票元数据前过滤剩余数量为0的菲票')
+assert.doesNotMatch(
+  readFileSync(new URL('../src/pages/process-factory/cutting/wait-handover-runtime.ts', import.meta.url), 'utf8')
+    .match(/if \(event\.eventType === '特殊工艺回仓'\)[\s\S]*?\n    }\n  }/)?.[0] || '',
+  /findIndex\(/,
+  '特殊工艺回仓 footprint 合并不得回退为 O(n²) 的 findIndex 扫描',
+)
+assert.doesNotMatch(
+  readFileSync(new URL('../src/pages/process-factory/cutting/wait-handover-runtime.ts', import.meta.url), 'utf8')
+    .match(/if \(event\.eventType === '特殊工艺回仓'\)[\s\S]*?\n    }\n  }/)?.[0] || '',
+  /currentStates\s*\.flatMap\(\(state\)\s*=>\s*state\.warehouseLocations/,
+  '特殊工艺回仓不得把每格重复携带的完整 footprint 再次全部展开',
+)
+const multiMapReturnWithoutLocationsEvent = structuredClone(multiMapPartialReturnEvent)
+multiMapReturnWithoutLocationsEvent.eventId = 'EVENT-MULTI-MAP-SPECIAL-RETURN-WITHOUT-LOCATIONS'
+multiMapReturnWithoutLocationsEvent.payload = {
+  ...(multiMapReturnWithoutLocationsEvent.payload as Record<string, unknown>),
+  warehouseLocations: undefined,
+}
+const multiMapStatesAfterLocationlessReturn = buildWaitHandoverLocationOccupancyStates([
+  multiMapBaggingEvent,
+  multiMapInboundEvent,
+  multiMapPartialHandoverEvent,
+  multiMapReturnWithoutLocationsEvent,
+])
+assert.equal(multiMapStatesAfterLocationlessReturn.length, 2, '回仓事实未带库位时必须沿用完整旧 footprint')
+multiMapStatesAfterLocationlessReturn.forEach((state) => {
+  assert.equal(state.totalPieceQty, 20, '沿用旧 footprint 回仓后每格数量必须统一')
+  assert.deepEqual(
+    state.warehouseLocations.map((location) => location.locationId),
+    waitHandoverLocations.map((location) => location.locationId),
+    '沿用旧 footprint 时不得退化为单格',
+  )
+})
+const scopedLocationF1 = {
+  ...waitHandoverLocations[0],
+  factoryId: 'FACTORY-SCOPE-F1',
+  warehouseId: 'WAREHOUSE-SCOPE-W1',
+  locationId: 'LOCATION-SCOPE-F1-A',
+  locationNo: 'F1-A-01',
+}
+const scopedLocationF2 = {
+  ...waitHandoverLocations[1],
+  factoryId: 'FACTORY-SCOPE-F2',
+  warehouseId: 'WAREHOUSE-SCOPE-W2',
+  locationId: 'LOCATION-SCOPE-F2-B',
+  locationNo: 'F2-B-01',
+}
+const scopedInboundF1 = structuredClone(multiMapInboundEvent)
+scopedInboundF1.eventId = 'EVENT-SCOPE-F1-INBOUND'
+scopedInboundF1.occurredAt = '2026-08-01 12:00'
+scopedInboundF1.payload = {
+  ...(scopedInboundF1.payload as Record<string, unknown>),
+  warehouseLocations: [scopedLocationF1],
+}
+const scopedInboundF2 = structuredClone(multiMapInboundEvent)
+scopedInboundF2.eventId = 'EVENT-SCOPE-F2-INBOUND'
+scopedInboundF2.occurredAt = '2026-08-01 12:01'
+scopedInboundF2.payload = {
+  ...(scopedInboundF2.payload as Record<string, unknown>),
+  warehouseLocations: [scopedLocationF2],
+}
+const scopedBaseEvents = [multiMapBaggingEvent, scopedInboundF1, scopedInboundF2]
+const scopedBaseStates = buildWaitHandoverLocationOccupancyStates(scopedBaseEvents)
+assert.equal(scopedBaseStates.length, 2, '双工厂同袋同周期必须先形成两个独立 scope 占用')
+const scopedReturnF1 = structuredClone(multiMapPartialReturnEvent)
+scopedReturnF1.eventId = 'EVENT-SCOPE-F1-SPECIAL-RETURN'
+scopedReturnF1.occurredAt = '2026-08-01 12:10'
+scopedReturnF1.payload = {
+  ...(scopedReturnF1.payload as Record<string, unknown>),
+  warehouseLocations: [scopedLocationF1],
+}
+const scopedStatesAfterF1Return = buildWaitHandoverLocationOccupancyStates([...scopedBaseEvents, scopedReturnF1])
+assert.equal(scopedStatesAfterF1Return.length, 2, '定向 F1 回仓不得吞并 F2 scope')
+const scopedStateF1 = scopedStatesAfterF1Return.find((state) => state.locationRef.factoryId === scopedLocationF1.factoryId)
+const scopedStateF2 = scopedStatesAfterF1Return.find((state) => state.locationRef.factoryId === scopedLocationF2.factoryId)
+assert(scopedStateF1 && scopedStateF2, '定向回仓后 F1/F2 scope 都必须保留')
+assert.equal(scopedStateF1.totalPieceQty, 25, '定向 F1 回仓 5 片只能使 F1 变为 25 片')
+assert.equal(scopedStateF2.totalPieceQty, 20, 'F2 不得被 F1 回仓事实改写')
+assert.deepEqual(scopedStateF1.warehouseLocations.map((location) => location.locationId), [scopedLocationF1.locationId])
+assert.deepEqual(scopedStateF2.warehouseLocations.map((location) => location.locationId), [scopedLocationF2.locationId])
+const normalizeScopedStates = (states: ReturnType<typeof buildWaitHandoverLocationOccupancyStates>) => states
+  .map((state) => ({
+    scope: `${state.locationRef.factoryId}:${state.locationRef.warehouseId}:${state.locationRef.warehouseKind}`,
+    qty: state.totalPieceQty,
+    tickets: state.feiTicketIds,
+    locations: state.warehouseLocations.map((location) => location.locationId),
+  }))
+  .sort((left, right) => left.scope.localeCompare(right.scope))
+const ambiguousLocationlessReturn = structuredClone(scopedReturnF1)
+ambiguousLocationlessReturn.eventId = 'EVENT-SCOPE-AMBIGUOUS-LOCATIONLESS-RETURN'
+ambiguousLocationlessReturn.payload = {
+  ...(ambiguousLocationlessReturn.payload as Record<string, unknown>),
+  warehouseLocations: undefined,
+}
+assert.deepEqual(
+  normalizeScopedStates(buildWaitHandoverLocationOccupancyStates([...scopedBaseEvents, ambiguousLocationlessReturn])),
+  normalizeScopedStates(scopedBaseStates),
+  '无库位回仓面对多 scope 歧义时必须忽略事件且不改写任一 scope',
+)
+const mixedScopeReturn = structuredClone(scopedReturnF1)
+mixedScopeReturn.eventId = 'EVENT-SCOPE-MIXED-RETURN'
+mixedScopeReturn.payload = {
+  ...(mixedScopeReturn.payload as Record<string, unknown>),
+  warehouseLocations: [scopedLocationF1, scopedLocationF2],
+}
+assert.deepEqual(
+  normalizeScopedStates(buildWaitHandoverLocationOccupancyStates([...scopedBaseEvents, mixedScopeReturn])),
+  normalizeScopedStates(scopedBaseStates),
+  '回仓 payload 混入不同 scope 时必须忽略整个事件且不改写任一 scope',
+)
+const multiMapFinalHandoverEvent: CuttingRuntimeEvent = {
+  ...structuredClone(multiMapInboundEvent),
+  eventId: 'EVENT-MULTI-MAP-FINAL-HANDOVER',
+  eventType: '新增交出记录',
+  occurredAt: '2026-08-01 11:30',
+  inventoryEffect: { ...multiMapInboundEvent.inventoryEffect!, direction: 'OUT', qty: 20 },
+  payload: {
+    transferBagCode: multiMapBagCode,
+    warehouseLocations: [latestAreaARef],
+  },
+}
+assert.equal(
+  buildWaitHandoverLocationOccupancyStates([
+    multiMapBaggingEvent,
+    multiMapInboundEvent,
+    multiMapPartialHandoverEvent,
+    multiMapPartialReturnEvent,
+    multiMapFinalHandoverEvent,
+  ]).length,
+  0,
+  '特殊工艺部分回仓后再整袋交出必须释放 A/B 全部库位',
+)
 const inboundBags = buildRuntimeInboundTempBagsFromWaitHandoverEvents([baggingEvent, inboundEvent], [])
 assert.equal(inboundBags.length, 1, '中转袋入仓后应形成一个在仓袋')
 assert.equal(inboundBags[0].bagCode, 'BAG-MAP-001')
@@ -925,11 +2263,11 @@ crossFactorySameBagEvent.eventId = 'EVENT-INBOUND-SAME-BAG-OTHER-FACTORY'
 crossFactorySameBagEvent.occurredAt = '2026-07-30 09:06'
 crossFactorySameBagEvent.payload = {
   ...(crossFactorySameBagEvent.payload as Record<string, unknown>),
-  locationRef: {
-    ...((crossFactorySameBagEvent.payload as Record<string, unknown>).locationRef as Record<string, unknown>),
+  warehouseLocations: ((inboundEvent.payload as Record<string, unknown>).warehouseLocations as Array<Record<string, unknown>>).map((location) => ({
+    ...location,
     factoryId: 'OTHER-FACTORY',
     warehouseId: 'OTHER-WAIT-HANDOVER',
-  },
+  })),
 }
 assert.equal(
   buildWaitHandoverLocationOccupancyStates([inboundEvent, crossFactorySameBagEvent]).length,
@@ -944,7 +2282,7 @@ const crossFactoryHandoverEvent = {
   inventoryEffect: { inventoryScope: '裁床待交出仓', direction: 'OUT' as const, qty: 100, unit: '片' as const },
   payload: {
     transferBagCode: 'BAG-MAP-001',
-    locationRef: (crossFactorySameBagEvent.payload as Record<string, unknown>).locationRef,
+    warehouseLocations: (crossFactorySameBagEvent.payload as Record<string, unknown>).warehouseLocations,
   },
 }
 const statesAfterOtherFactoryHandover = buildWaitHandoverLocationOccupancyStates([
@@ -958,15 +2296,82 @@ const secondCycleSameBagEvent = structuredClone(inboundEvent)
 secondCycleSameBagEvent.eventId = 'EVENT-INBOUND-SAME-BAG-CYCLE-2'
 secondCycleSameBagEvent.occurredAt = '2026-07-30 09:07'
 secondCycleSameBagEvent.refs = { ...secondCycleSameBagEvent.refs, usageCycleId: 'cycle:BAG-MAP-001:2' }
-secondCycleSameBagEvent.payload = { ...(secondCycleSameBagEvent.payload as Record<string, unknown>), usageCycleId: 'cycle:BAG-MAP-001:2' }
+secondCycleSameBagEvent.payload = {
+  ...(secondCycleSameBagEvent.payload as Record<string, unknown>),
+  usageCycleId: 'cycle:BAG-MAP-001:2',
+  warehouseLocations: [{
+    ...((inboundEvent.payload as { warehouseLocations: Array<Record<string, unknown>> }).warehouseLocations[0]),
+    locationId: secondLocation.locationId,
+    locationNo: secondLocation.locationNo,
+  }],
+}
 assert.equal(
   buildWaitHandoverLocationOccupancyStates([inboundEvent, secondCycleSameBagEvent]).length,
   2,
   '同一袋码不同使用周期必须保留独立占用状态',
 )
+const exactCycleConfirmEvent = {
+  ...structuredClone(inboundEvent),
+  eventId: 'EVENT-BAGGING-CONFIRM-EXACT-CYCLE',
+  eventType: '交出装袋确认' as const,
+  occurredAt: '2026-07-30 09:10',
+  refs: {
+    ...inboundEvent.refs,
+    transferBagCode: 'BAG-MAP-TARGET-EXACT',
+    usageCycleId: 'cycle:BAG-MAP-TARGET-EXACT:1',
+    feiTicketIds: ['FT-MAP-001'],
+  },
+  payload: {
+    sourceTempBagCode: 'BAG-MAP-001',
+    targetTransferBagCode: 'BAG-MAP-TARGET-EXACT',
+    containedFeiTicketIds: ['FT-MAP-001'],
+  },
+}
+const exactCycleStates = buildWaitHandoverLocationOccupancyStates([
+  inboundEvent,
+  secondCycleSameBagEvent,
+  exactCycleConfirmEvent,
+])
+assert.equal(exactCycleStates.length, 2, '同袋同票多周期确认只能迁移确认前最新的单一源周期')
+assert(exactCycleStates.some((state) =>
+  state.bagCode === 'BAG-MAP-001'
+  && state.usageCycleId === inboundEvent.refs.usageCycleId
+  && state.locationRef.locationId === firstLocation.locationId), 'C1 源周期必须保持原袋和完整 footprint')
+assert(exactCycleStates.some((state) =>
+  state.bagCode === 'BAG-MAP-TARGET-EXACT'
+  && state.usageCycleId === 'cycle:BAG-MAP-TARGET-EXACT:1'
+  && state.locationRef.locationId === secondLocation.locationId), '只允许把确认前最新 C2 完整 footprint 迁入目标袋')
+const declaredCycleConfirmEvent = {
+  ...structuredClone(exactCycleConfirmEvent),
+  eventId: 'EVENT-BAGGING-CONFIRM-DECLARED-C1',
+  refs: {
+    ...exactCycleConfirmEvent.refs,
+    transferBagCode: 'BAG-MAP-TARGET-DECLARED',
+    usageCycleId: 'cycle:BAG-MAP-TARGET-DECLARED:1',
+  },
+  payload: {
+    ...exactCycleConfirmEvent.payload,
+    targetTransferBagCode: 'BAG-MAP-TARGET-DECLARED',
+    sourceUsageCycleId: inboundEvent.refs.usageCycleId,
+  },
+}
+const declaredCycleStates = buildWaitHandoverLocationOccupancyStates([
+  inboundEvent,
+  secondCycleSameBagEvent,
+  declaredCycleConfirmEvent,
+])
+assert.equal(declaredCycleStates.length, 2, '显式源周期确认只能迁移声明周期的一份完整 footprint')
+assert(declaredCycleStates.some((state) =>
+  state.bagCode === 'BAG-MAP-TARGET-DECLARED'
+  && state.usageCycleId === 'cycle:BAG-MAP-TARGET-DECLARED:1'
+  && state.locationRef.locationId === firstLocation.locationId), '显式 sourceUsageCycleId=C1 必须只把 C1@L1 迁入目标袋 TC')
+assert(declaredCycleStates.some((state) =>
+  state.bagCode === 'BAG-MAP-001'
+  && state.usageCycleId === 'cycle:BAG-MAP-001:2'
+  && state.locationRef.locationId === secondLocation.locationId), '显式迁移 C1 后 C2@L2 必须保持源袋占用')
 assert.equal((inboundEvent.payload as Record<string, unknown>).idempotencyKey, 'temp-bag:BAG-MAP-001:INBOUND')
 assert.equal(
-  ((inboundEvent.payload as Record<string, unknown>).locationRef as { locationId?: string })?.locationId,
+  ((inboundEvent.payload as Record<string, unknown>).warehouseLocations as Array<{ locationId?: string }>)?.[0]?.locationId,
   firstLocation.locationId,
 )
 const baggingConfirmEvent = {
@@ -988,6 +2393,84 @@ const transferredStates = buildWaitHandoverLocationOccupancyStates([
 assert.equal(transferredStates.length, 1, '换袋后同一物理库位只能保留一个占用主体')
 assert.equal(transferredStates[0].bagCode, 'BAG-MAP-TARGET', '换袋后占用主体应变为目标中转袋')
 assert.equal(transferredStates[0].locationRef.locationId, firstLocation.locationId, '换袋应继承原物理库位')
+const historicalSnapshotStorage = createMemoryWarehouseLayoutStorage()
+const historicalSourceBag = 'BAG-HISTORY-SOURCE'
+const historicalTargetBag = 'BAG-HISTORY-TARGET'
+const historicalSourceCycle1 = appendWaitHandoverBaggingEvent({
+  source: 'WEB',
+  operator: { operatorName: '历史装袋员' },
+  bagCode: historicalSourceBag,
+  tickets: [runtimeTicket],
+  occurredAt: '2026-07-30 11:00',
+  storage: historicalSnapshotStorage,
+})
+appendCuttingRuntimeEvent({
+  eventType: '交出装袋确认',
+  eventSource: 'WEB',
+  eventStatus: '已同步',
+  occurredAt: '2026-07-30 11:10',
+  operatorName: '历史分拣确认员',
+  refs: {
+    transferBagCode: historicalTargetBag,
+    usageCycleId: 'cycle:BAG-HISTORY-TARGET:1',
+    feiTicketIds: [runtimeTicket.feiTicketId],
+    feiTicketNos: [runtimeTicket.feiTicketNo],
+  },
+  payload: {
+    sourceTempBagCode: historicalSourceBag,
+    targetTransferBagCode: historicalTargetBag,
+    containedFeiTicketIds: [runtimeTicket.feiTicketId],
+    bagUseId: 'cycle:BAG-HISTORY-TARGET:1',
+  },
+}, historicalSnapshotStorage)
+appendCuttingRuntimeEvent({
+  eventType: '菲票装袋',
+  eventSource: 'WEB',
+  eventStatus: '已同步',
+  occurredAt: '2026-07-30 12:00',
+  operatorName: '源袋复用装袋员',
+  refs: {
+    transferBagCode: historicalSourceBag,
+    usageCycleId: 'cycle:BAG-HISTORY-SOURCE:2',
+    feiTicketIds: [runtimeTicket.feiTicketId],
+    feiTicketNos: [runtimeTicket.feiTicketNo],
+  },
+  payload: {
+    bagCode: historicalSourceBag,
+    usageCycleId: 'cycle:BAG-HISTORY-SOURCE:2',
+    feiTicketItems: [{ ...runtimeTicket, pieceQty: 99 }],
+  },
+}, historicalSnapshotStorage)
+const historicalTargetSnapshot = resolveWaitHandoverBaggingSnapshot(historicalTargetBag, historicalSnapshotStorage)
+assert(historicalTargetSnapshot, '目标袋必须能从交出装袋确认建立历史快照')
+assert.equal(historicalTargetSnapshot.tickets[0]?.pieceQty, runtimeTicket.pieceQty, '源袋后续复用不得改写目标袋确认当时的历史快照')
+assert.notEqual(historicalTargetSnapshot.usageCycleId, historicalSourceCycle1.refs.usageCycleId, '目标袋必须保留自己的独立使用周期')
+const ringSnapshotStorage = createMemoryWarehouseLayoutStorage()
+for (const [sourceBagCode, targetBagCode, occurredAt] of [
+  ['BAG-RING-A', 'BAG-RING-B', '2026-07-30 13:00'],
+  ['BAG-RING-B', 'BAG-RING-A', '2026-07-30 13:10'],
+] as const) {
+  appendCuttingRuntimeEvent({
+    eventType: '交出装袋确认',
+    eventSource: 'WEB',
+    eventStatus: '已同步',
+    occurredAt,
+    operatorName: '环路防护验证员',
+    refs: {
+      transferBagCode: targetBagCode,
+      usageCycleId: `cycle:${targetBagCode}:ring`,
+      feiTicketIds: [runtimeTicket.feiTicketId],
+      feiTicketNos: [runtimeTicket.feiTicketNo],
+    },
+    payload: {
+      sourceTempBagCode: sourceBagCode,
+      targetTransferBagCode: targetBagCode,
+      containedFeiTicketIds: [runtimeTicket.feiTicketId],
+    },
+  }, ringSnapshotStorage)
+}
+assert.equal(resolveWaitHandoverBaggingSnapshot('BAG-RING-A', ringSnapshotStorage), null, '目标袋快照不得递归追溯环路 A→B→A')
+assert.equal(resolveWaitHandoverBaggingSnapshot('BAG-RING-B', ringSnapshotStorage), null, '目标袋快照不得递归追溯环路 B→A→B')
 const handoverEvent = {
   ...structuredClone(inboundEvent),
   eventId: 'EVENT-HANDOVER',
@@ -1034,7 +2517,7 @@ const partialSpecialCraftReturnEvent = {
     returnRecordId: 'RETURN-PARTIAL-001',
     returnedAt: '2026-07-30 09:30',
     returnedBy: '回仓员',
-    locationRef: (inboundEvent.payload as { locationRef: unknown }).locationRef,
+    warehouseLocations: (inboundEvent.payload as { warehouseLocations: unknown }).warehouseLocations,
   },
 }
 const partiallyReturnedStates = buildWaitHandoverLocationOccupancyStates([
@@ -1059,7 +2542,7 @@ const looseSpecialCraftReturnEvent = {
     returnRecordNo: 'SCR-LOOSE-001',
     returnedAt: '2026-07-30 10:00',
     returnedBy: '回仓员',
-    locationRef: (inboundEvent.payload as { locationRef: unknown }).locationRef,
+    warehouseLocations: (inboundEvent.payload as { warehouseLocations: unknown }).warehouseLocations,
   },
 }
 const looseReturnStates = buildWaitHandoverLocationOccupancyStates([looseSpecialCraftReturnEvent])

@@ -1,5 +1,6 @@
 import { mockFactories } from './factory-mock-data.ts'
 import type { Factory, FactoryType } from './factory-types.ts'
+import { buildCuttingWarehouseAreaList } from './cutting/warehouse-location-mock.ts'
 
 export type FactoryInternalWarehouseKind = 'WAIT_PROCESS' | 'WAIT_HANDOVER'
 export type FactoryWarehouseLocationStatus = 'AVAILABLE' | 'STOPPED'
@@ -8,6 +9,8 @@ export interface FactoryWarehouseLocation {
   locationId: string
   locationNo: string
   locationName: string
+  levelNo?: number
+  positionNo?: number
   status: FactoryWarehouseLocationStatus
   remark?: string
 }
@@ -16,6 +19,7 @@ export interface FactoryWarehouseShelf {
   shelfId: string
   shelfNo: string
   shelfName: string
+  shelfSequence?: number
   locationList: FactoryWarehouseLocation[]
   status: FactoryWarehouseLocationStatus
   remark?: string
@@ -24,6 +28,7 @@ export interface FactoryWarehouseShelf {
 export interface FactoryWarehouseArea {
   areaId: string
   areaName: string
+  code?: string
   shelfList: FactoryWarehouseShelf[]
   status: FactoryWarehouseLocationStatus
   remark?: string
@@ -172,12 +177,19 @@ export function buildCraftWarehouseAreas(): FactoryWarehouseArea[] {
   ]
 }
 
-function buildFactoryAreaList(factoryId: string): FactoryWarehouseArea[] {
+function buildFactoryAreaList(
+  factoryId: string,
+  factoryType: FactoryType,
+  warehouseKind: FactoryInternalWarehouseKind,
+): FactoryWarehouseArea[] {
   if (factoryId === 'FAC-AUX-CRAFT') {
     return buildCraftWarehouseAreas().filter((area) => area.areaId.startsWith('AUX-'))
   }
   if (factoryId === 'FAC-SPC-CRAFT') {
     return buildCraftWarehouseAreas().filter((area) => area.areaId.startsWith('SPC-'))
+  }
+  if (factoryType === 'CENTRAL_CUTTING') {
+    return buildCuttingWarehouseAreaList(warehouseKind)
   }
   return buildDefaultAreaList()
 }
@@ -206,7 +218,7 @@ export function buildDefaultFactoryInternalWarehouses(factories: Factory[] = moc
           warehouseShortName,
           isDefault: true,
           isEnabled: true,
-          areaList: buildFactoryAreaList(factory.id),
+          areaList: buildFactoryAreaList(factory.id, factory.factoryType, warehouseKind),
           createdAt,
           updatedAt,
         }
@@ -228,7 +240,7 @@ function buildOnboardingCuttingInternalWarehouses(): FactoryInternalWarehouse[] 
         warehouseShortName,
         isDefault: true,
         isEnabled: true,
-        areaList: buildDefaultAreaList(),
+        areaList: buildCuttingWarehouseAreaList(warehouseKind),
         createdAt: '2026-04-20 08:00:00',
         updatedAt: '2026-04-20 08:00:00',
       }

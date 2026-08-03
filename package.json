@@ -75,7 +75,7 @@
     "check:process-factory-warehouse-menu-consolidation": "tsx scripts/check-process-factory-warehouse-menu-consolidation.ts",
     "check:cutting-warehouse-management-switch": "tsx scripts/check-cutting-warehouse-management-switch.ts",
     "check:cutting-warehouse-location-map": "tsx scripts/check-cutting-warehouse-location-map.ts",
-    "check:cutting-warehouse-location-map-e2e": "npm run build && CUTTING_E2E_USE_PREVIEW=true PLAYWRIGHT_REUSE_EXISTING_SERVER=false CUTTING_E2E_PORT=43176 playwright test tests/cutting-warehouse-location-map.spec.ts",
+    "check:cutting-warehouse-location-map-e2e": "npm run build && CUTTING_E2E_USE_PREVIEW=false PLAYWRIGHT_REUSE_EXISTING_SERVER=false CUTTING_E2E_PORT=43176 playwright test tests/cutting-warehouse-location-map.spec.ts tests/cutting-wait-handover-web-modal.spec.ts --workers=1",
     "check:pda-cutting-wait-handover-entry-routing": "tsx scripts/check-pda-cutting-wait-handover-entry-routing.ts",
     "check:pda-cutting-wait-handover-route-integration": "tsx scripts/check-pda-cutting-wait-handover-route-integration.ts",
     "check:pda-cutting-inbound-workflow": "tsx scripts/check-pda-cutting-inbound-workflow.ts",
@@ -235,7 +235,7 @@
     "test:pda-handover-pickup-list-and-detail:e2e": "playwright test tests/pda-handover-pickup-list-and-detail.spec.ts",
     "test:pda-handover-pickup-confirm-and-dispute:e2e": "playwright test tests/pda-handover-pickup-confirm-and-dispute.spec.ts",
     "test:pda-handover-pickup-dispute-platform-resolution:e2e": "playwright test tests/pda-handover-pickup-dispute-platform-resolution.spec.ts",
-    "test:cutting:all:e2e": "playwright test tests/cutting-*.spec.ts",
+    "test:cutting:all:e2e": "npm run build && CUTTING_E2E_USE_PREVIEW=false PLAYWRIGHT_REUSE_EXISTING_SERVER=false CUTTING_E2E_PORT=43177 CUTTING_E2E_EXPECT_TIMEOUT=60000 CUTTING_E2E_TEST_TIMEOUT=300000 playwright test tests/cutting-*.spec.ts --workers=1",
     "check:process-factory-tabs-and-post-finishing": "tsx scripts/check-process-factory-tabs-and-post-finishing.ts",
     "test:process-factory-tabs-and-post-finishing:e2e": "playwright test tests/process-factory-tabs-and-post-finishing.spec.ts",
     "test:production-order-change-final:e2e": "playwright test --config=playwright.production-order-change.config.ts",
@@ -254,10 +254,10 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.4.20",
-    "postcss": "^8.5.3",
+    "postcss": "^8.5.25",
     "tailwindcss": "^4.1.7",
-    "tsx": "^4.20.6",
+    "tsx": "^4.23.1",
     "typescript": "^5.8.3",
-    "vite": "^6.2.0"
+    "vite": "^6.4.3"
   }
 }

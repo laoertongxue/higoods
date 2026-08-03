@@ -4,6 +4,8 @@ const host = process.env.CUTTING_E2E_HOST || '127.0.0.1'
 const port = process.env.CUTTING_E2E_PORT || '4173'
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || `http://${host}:${port}`
 const reuseExistingServer = !process.env.CI && process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER !== 'false'
+const expectTimeout = Number(process.env.CUTTING_E2E_EXPECT_TIMEOUT || '10000')
+const testTimeout = Number(process.env.CUTTING_E2E_TEST_TIMEOUT || '60000')
 const webServerCommand = process.env.CUTTING_E2E_USE_PREVIEW === 'true'
   ? `npm run preview -- --host ${host} --port ${port} --strictPort`
   : `npm run dev -- --host ${host} --port ${port} --strictPort`
@@ -14,9 +16,9 @@ export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 2 : undefined,
-  timeout: 60_000,
+  timeout: Number.isFinite(testTimeout) && testTimeout > 0 ? testTimeout : 60_000,
   expect: {
-    timeout: 10_000,
+    timeout: Number.isFinite(expectTimeout) && expectTimeout > 0 ? expectTimeout : 10_000,
   },
   reporter: process.env.CI
     ? [['list'], ['html', { open: 'never' }]]

@@ -332,10 +332,12 @@ function buildRow(
   )
   const styleCode = order.techPackSnapshot?.styleCode || order.demandSnapshot.spuCode || '暂无款式编号'
   const styleName = order.techPackSnapshot?.styleName || order.demandSnapshot.spuName || '暂无款式名称'
-  const styleImageUrl = order.techPackSnapshot?.imageSnapshot.styleImages[0]
-    || order.techPackSnapshot?.imageSnapshot.productImages?.[0]
-    || demand?.imageUrl
-    || '/placeholder.svg?height=80&width=80'
+  const styleImageUrl = [
+    order.techPackSnapshot?.imageSnapshot.styleImages[0],
+    order.techPackSnapshot?.imageSnapshot.productImages?.[0],
+    demand?.imageUrl,
+    cutting?.spuImageUrl,
+  ].find((imageUrl) => imageUrl && !imageUrl.includes('/placeholder.svg')) || '/tshirt-sample.jpg'
   const receiverFactoryNames = cutting?.receiverFactoryNames ?? []
   const orderQty = order.demandSnapshot.skuLines.reduce((total, line) => total + Math.max(0, line.qty || 0), 0)
 
