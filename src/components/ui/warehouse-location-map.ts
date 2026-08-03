@@ -41,6 +41,7 @@ export interface WarehouseLocationMapOptions {
   projection: WarehouseLocationMapProjection
   mode: WarehouseLocationMapMode
   factoryName: string
+  showOccupancySummary?: boolean
   selectedLocationIds?: string[]
   feedbackMessage?: string
   openLocationId?: string
@@ -482,7 +483,7 @@ export function renderWarehouseLocationMap(options: WarehouseLocationMapOptions)
         ${options.feedbackMessage ? `<div class="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800" role="status">${escapeHtml(options.feedbackMessage)}</div>` : ''}
       </div>
 
-      ${mode === 'SELECT' ? '' : renderWarehouseLocationMapSummarySection(projection)}
+      ${mode === 'SELECT' || options.showOccupancySummary === false ? '' : renderWarehouseLocationMapSummarySection(projection)}
 
       ${projection.areas.map((area) => `
         <article class="rounded-lg border bg-card">

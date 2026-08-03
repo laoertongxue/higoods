@@ -245,11 +245,29 @@ for (const apiName of ['reorderWarehouseAreas', 'reorderWarehouseShelves', 'reor
 }
 const viewSectionHtml = renderCuttingWarehouseLocationMapSection('WAIT_PROCESS', 'VIEW')
 const layoutSectionHtml = renderCuttingWarehouseLocationMapSection('WAIT_PROCESS', 'LAYOUT')
+for (const kind of ['WAIT_PROCESS', 'WAIT_HANDOVER'] as const) {
+  const current = buildCurrentCuttingWarehouseMapProjection(kind, { includeDemoOccupancies: true })
+  assert(current, `${kind} 库位图必须可生成默认 Mock 投影`)
+  assert.equal(
+    current.projection.occupiedLocationCount,
+    Math.ceil(current.projection.totalLocationCount / 2),
+    `${kind} 默认 Mock 数据必须让一半有效库位处于占用状态`,
+  )
+  const occupiedCells = listWarehouseLocationMapCells(current.projection).filter((cell) => cell.businessStatus === 'OCCUPIED')
+  assert(occupiedCells.every((cell) => cell.occupancies.length > 0), `${kind} 每个占用库位必须有可查看的占用对象`)
+  if (kind === 'WAIT_PROCESS') {
+    assert(occupiedCells.every((cell) => cell.occupancies[0].rollDetails?.length), '待加工仓占用 Mock 必须包含布卷明细')
+  } else {
+    assert(occupiedCells.every((cell) => cell.occupancies[0].bagCode && cell.occupancies[0].ticketDetails?.length), '待交出仓占用 Mock 必须包含中转袋和菲票明细')
+  }
+}
 assert.equal((viewSectionHtml.match(/>维护库位图<\/button>/g) || []).length, 1, '普通视图必须只有一个维护库位图入口')
 assert.match(viewSectionHtml, /data-warehouse-map-action="open-print-all-labels"/, '普通视图必须提供当前仓库标签打印入口')
 assert.match(viewSectionHtml, /data-warehouse-map-action="open-print-area-labels"/, '普通视图必须提供按库区批量打印入口')
 assert.match(viewSectionHtml, /data-warehouse-map-action="open-print-shelf-labels"/, '普通视图必须提供按货架批量打印入口')
 assert.match(viewSectionHtml, /data-warehouse-map-action="open-print-location-label"/, '普通视图必须提供单库位打印入口')
+assert.doesNotMatch(viewSectionHtml, /生产单占用摘要/, '待加工仓库位图不得展示生产单占用摘要')
+assert.doesNotMatch(renderCuttingWarehouseLocationMapSection('WAIT_HANDOVER', 'VIEW'), /生产单占用摘要/, '待交出仓库位图不得展示生产单占用摘要')
 assert.doesNotMatch(viewSectionHtml, />新增库区<|>新增库位<|>编排库位图</, '普通视图不得保留分散维护入口')
 assert.match(viewSectionHtml, /data-warehouse-map-action="enter-maintenance"[^>]+data-warehouse-kind="WAIT_PROCESS"/, '维护入口必须绑定当前 PFOS 仓库')
 assert.match(layoutSectionHtml, /data-warehouse-map-action="open-create-area"/, '维护模式必须可新增空库区')
