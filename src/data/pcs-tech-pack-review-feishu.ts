@@ -12,6 +12,7 @@ import type {
   TechnicalDataVersionRecord,
   TechnicalReviewNode,
   TechnicalReviewNodeKey,
+  TechnicalReviewDiffSnapshot,
   TechnicalReviewNotificationRecord,
   TechnicalReviewNotificationType,
 } from './pcs-technical-data-version-types.ts'
@@ -86,12 +87,16 @@ export function sendTechPackReviewFeishuNotification(input: {
   notificationType: TechnicalReviewNotificationType
   sentAt?: string
   createdBy?: string
+  diffSnapshot?: Pick<TechnicalReviewDiffSnapshot, 'snapshotId' | 'diffStatus' | 'summaryText'>
 }): TechnicalReviewNotificationRecord {
   const sentAt = input.sentAt || nowText()
   const record = getTechnicalDataVersionById(input.technicalVersionId)
   if (!record) throw new Error('未找到技术包版本，不能发送飞书提醒。')
   const node = getReviewNode(record, input.nodeKey)
-  const diff = buildTechPackReviewDiffSnapshot(record, input.nodeKey)
+  const builtDiff = buildTechPackReviewDiffSnapshot(record, input.nodeKey)
+  const diff = input.diffSnapshot
+    ? { ...builtDiff, ...input.diffSnapshot }
+    : builtDiff
   const failedReason = !node.assignedReviewerId
     ? '未指定审核人'
     : !node.assignedReviewerFeishuOpenId

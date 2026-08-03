@@ -101,6 +101,7 @@ function readProviderEvent(reference: string): {
       type?: unknown
       name?: unknown
       arguments?: unknown
+      input?: unknown
       call_id?: unknown
     }
   }
@@ -120,22 +121,23 @@ function readProviderEvent(reference: string): {
   const record = JSON.parse(line) as {
     timestamp?: unknown
     type?: unknown
-    payload?: {
-      type?: unknown
-      name?: unknown
-      arguments?: unknown
-      call_id?: unknown
-    }
+      payload?: {
+        type?: unknown
+        name?: unknown
+        arguments?: unknown
+        input?: unknown
+        call_id?: unknown
+      }
   }
   const callId = record.payload?.call_id
   const result = typeof callId === 'string'
     ? (() => {
         for (const candidate of lines) {
-          if (!candidate.includes('"function_call_output"')) continue
+          if (!candidate.includes('"function_call_output"') && !candidate.includes('"custom_tool_call_output"')) continue
           const payload = (JSON.parse(candidate) as {
             payload?: { type?: unknown; call_id?: unknown; output?: unknown }
           }).payload
-          if (payload?.type === 'function_call_output' && payload.call_id === callId) {
+          if ((payload?.type === 'function_call_output' || payload?.type === 'custom_tool_call_output') && payload.call_id === callId) {
             return payload
           }
         }
@@ -147,6 +149,44 @@ function readProviderEvent(reference: string): {
     record,
     result,
   }
+}
+
+function parseDesktopExecCommand(input: unknown): { cmd?: unknown; workdir?: unknown } {
+  assert(typeof input === 'string', '桌面 provider exec 输入不是字符串')
+  const match = /^\s*const\s+r\s*=\s*await\s+tools\.exec_command\(\s*\{([\s\S]*)\}\s*\)\s*;\s*text\(r\)\s*;\s*$/.exec(input)
+  assert(match, '桌面 provider exec 不是受支持的精确命令包装')
+  const jsonObject = `{${match[1].replace(/(^|,)\s*([A-Za-z_][A-Za-z0-9_]*)\s*:/g, '$1"$2":')}}`
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(jsonObject)
+  } catch {
+    throw new Error('桌面 provider exec 参数不是仅含 JSON 字面量的对象')
+  }
+  assert(parsed && typeof parsed === 'object' && !Array.isArray(parsed), '桌面 provider exec 参数格式无效')
+  const command = parsed as Record<string, unknown>
+  assert(
+    Object.keys(command).every((key) => ['cmd', 'workdir', 'yield_time_ms', 'max_output_tokens', 'login'].includes(key)),
+    '桌面 provider exec 包含未允许的参数',
+  )
+  return { cmd: command.cmd, workdir: command.workdir }
+}
+
+function desktopExecSucceeded(resultOutput: string): boolean {
+  if (!/^Script completed\n/.test(resultOutput)) return false
+  const outputMarker = '\nOutput:\n'
+  const outputIndex = resultOutput.indexOf(outputMarker)
+  assert(outputIndex >= 0, '桌面 provider exec 结果缺少 Output 段')
+  let nestedResult: unknown
+  try {
+    nestedResult = JSON.parse(resultOutput.slice(outputIndex + outputMarker.length))
+  } catch {
+    throw new Error('桌面 provider exec 结果未包含可审计的嵌套命令结果')
+  }
+  assert(nestedResult && typeof nestedResult === 'object' && !Array.isArray(nestedResult), '桌面 provider exec 嵌套命令结果格式无效')
+  const exitCode = (nestedResult as { exit_code?: unknown }).exit_code
+  assert(typeof exitCode === 'number' && Number.isInteger(exitCode), '桌面 provider exec 嵌套命令退出码无效')
+  assert.equal(exitCode, 0, '桌面 provider exec 嵌套命令退出码不是 0')
+  return true
 }
 
 export function providerEventTimestamp(reference: string): string {
@@ -168,8 +208,9 @@ function assertProviderSkillInvocation(
     '技能调用证据不在受信任的 provider session 根目录',
   )
   assert.equal(record.type, 'response_item', 'provider 证据不是响应事件')
-  assert.equal(record.payload?.type, 'function_call', 'provider 证据不是工具调用')
-  assert.equal(record.payload?.name, 'exec_command', 'provider 证据不是可审计的文件读取调用')
+  const isFunctionCall = record.payload?.type === 'function_call' && record.payload?.name === 'exec_command'
+  const isDesktopExec = record.payload?.type === 'custom_tool_call' && record.payload?.name === 'exec'
+  assert(isFunctionCall || isDesktopExec, 'provider 证据不是可审计的文件读取调用')
   assert.equal(record.timestamp, event.timestamp, '技能调用时间与 provider 事件不一致')
   const skillSource = event.skillSource?.trim() ?? ''
   assert(skillSource, '技能调用缺少 skillSource')
@@ -197,21 +238,33 @@ function assertProviderSkillInvocation(
   )
   const expectedSkillName = event.skill?.trim().split(':').at(-1)
   assert.equal(basename(dirname(resolvedSkillSource)), expectedSkillName, '技能名称不匹配：技能源目录错误')
-  assert.equal(result?.type, 'function_call_output', 'provider 工具调用缺少结果事件')
+  assert.equal(result?.type, isDesktopExec ? 'custom_tool_call_output' : 'function_call_output', 'provider 工具调用缺少结果事件')
   assert.equal(result?.call_id, record.payload?.call_id, 'provider 工具结果 call_id 不匹配')
-  const resultOutput = typeof result?.output === 'string' ? result.output : ''
-  const resultHeader = resultOutput.split(/\n(?:Final output|Output):/i, 1)[0]
-  const exitCodes = [
-    ...resultHeader.matchAll(/^Process exited with code\s+(\d+)\s*$/gm),
-  ].map((match) => Number(match[1]))
-  const succeeded = exitCodes.length === 1 && exitCodes[0] === 0
+  const resultOutput = typeof result?.output === 'string'
+    ? result.output
+    : Array.isArray(result?.output)
+      ? result.output.map((item) => item && typeof item === 'object' && typeof (item as { text?: unknown }).text === 'string' ? (item as { text: string }).text : '').join('')
+      : ''
+  const succeeded = isDesktopExec
+    ? desktopExecSucceeded(resultOutput)
+    : (() => {
+        const resultHeader = resultOutput.split(/\n(?:Final output|Output):/i, 1)[0]
+        const exitCodes = [
+          ...resultHeader.matchAll(/^Process exited with code\s+(\d+)\s*$/gm),
+        ].map((match) => Number(match[1]))
+        return exitCodes.length === 1 && exitCodes[0] === 0
+      })()
   let toolArguments: { cmd?: unknown; workdir?: unknown } = {}
-  try {
-    toolArguments = JSON.parse(
-      typeof record.payload?.arguments === 'string' ? record.payload.arguments : '',
-    ) as { cmd?: unknown; workdir?: unknown }
-  } catch {
-    throw new Error('provider 文件读取参数不是有效 JSON')
+  if (isDesktopExec) {
+    toolArguments = parseDesktopExecCommand(record.payload?.input)
+  } else {
+    try {
+      toolArguments = JSON.parse(
+        typeof record.payload?.arguments === 'string' ? record.payload.arguments : '',
+      ) as { cmd?: unknown; workdir?: unknown }
+    } catch {
+      throw new Error('provider 文件读取参数不是有效 JSON')
+    }
   }
   const input = typeof toolArguments.cmd === 'string' ? toolArguments.cmd : ''
   const commandCwd = typeof toolArguments.workdir === 'string'

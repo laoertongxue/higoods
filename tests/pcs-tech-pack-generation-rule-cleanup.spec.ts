@@ -24,8 +24,10 @@ assert.ok(!typeSource.includes(oldLinkedField), '技术包版本类型不得再�
 assert.ok(!archiveSource.includes(['新建', '技术包版本'].join('')), '款式档案页不得再出现旧直建入口')
 assert.ok(!archiveSource.includes(['复制为', '新版本'].join('')), '款式档案页不得再出现旧复制入口')
 assert.ok(!projectSource.includes(['新建', '技术包版本'].join('')), '商品项目页不得再出现旧直建入口')
-assert.ok(engineeringSource.includes('生成改版技术包版本'), '改版任务页必须显示新版本生成动作')
-assert.ok(engineeringSource.includes('写入技术包花型'), '花型任务页必须显示花型写入动作')
-assert.ok(engineeringSource.includes('生成花型新版本'), '花型任务页必须显示花型新版本动作')
+assert.ok(!engineeringSource.includes('生成改版技术包版本'), '改版专业任务页不得绕过工程来源门禁直接生成技术包版本')
+assert.ok(!engineeringSource.includes('写入技术包花型'), '花型专业任务页不得绕过工程来源门禁直接写入技术包')
+assert.ok(!engineeringSource.includes('生成花型新版本'), '花型专业任务页不得绕过工程来源门禁直接生成技术包新版本')
+assert.ok(generationSource.includes('resolveEngineeringMasterTechPackSource'), '专业任务成果转入技术包时必须解析工程主单权威来源')
+assert.ok(generationSource.includes('resolveEngineeringChangeTechPackSource'), '工程变更成果转入技术包时必须解析工程变更权威来源')
 
 console.log('pcs-tech-pack-generation-rule-cleanup.spec.ts PASS')

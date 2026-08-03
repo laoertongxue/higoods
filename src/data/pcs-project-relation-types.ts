@@ -51,9 +51,9 @@ export interface ProjectRelationRecord {
   projectRelationId: string
   projectId: string
   projectCode: string
-  projectNodeId: string | null
-  workItemTypeCode: string
-  workItemTypeName: string
+  projectNodeId?: string | null
+  stepCode?: string
+  stepName?: string
   relationRole: ProjectRelationRole
   sourceModule: ProjectRelationSourceModule
   sourceObjectType: ProjectRelationSourceObjectType
@@ -70,8 +70,6 @@ export interface ProjectRelationRecord {
   updatedAt: string
   updatedBy: string
   note: string
-  legacyRefType: string
-  legacyRefValue: string
 }
 
 export interface ProjectRelationPendingItem {
@@ -82,8 +80,6 @@ export interface ProjectRelationPendingItem {
   reason: string
   discoveredAt: string
   sourceTitle: string
-  legacyRefType: string
-  legacyRefValue: string
 }
 
 export interface ProjectRelationStoreSnapshot {

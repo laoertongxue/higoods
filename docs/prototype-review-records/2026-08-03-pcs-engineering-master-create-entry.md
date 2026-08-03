@@ -1,0 +1,92 @@
+# PCS 工程主单主动新建入口审查记录
+
+## 1. 基本信息
+
+| 项目 | 内容 |
+| --- | --- |
+| 审查日期 | 2026-08-03 |
+| 相关需求 / 任务 | 工程主单列表补充主动新建功能；新主单先由跟单确认系统建议任务 |
+| 涉及系统 | PCS |
+| 涉及页面路径 | `/pcs/engineering/masters`、`/pcs/engineering/masters/:masterOrderId` |
+| 端类型 | 管理端 |
+| 主要角色 | 跟单 |
+| 主要任务 | 选择已有款式档案创建草稿；确认系统建议的任务方案后一次性生成任务 |
+
+## 2. 适用规则
+
+- `docs/higood-indonesia-factory-product-design-guidelines.md`
+- `docs/higood-indonesia-factory-prototype-review-checklist.md`
+
+- 管理端标准列表保持高密度筛选、统计、分页和列设置能力。
+- 商品／款式档案必须先存在；首次正式生产且不存在未关闭主单时才允许创建。
+- 款式名称、SPU 与对应真实图片组合展示，避免选错款式。
+- 创建时不选择专业任务；进入草稿详情后，由跟单确认系统建议的适用任务。
+- 必做任务锁定，条件任务可勾选；固定依赖关系不可调整，确认后一次性生成完整任务骨架。
+
+## 3. 自查结论
+
+| 检查项 | 结论 | 说明 |
+| --- | --- | --- |
+| 角色匹配 | 通过 | 跟单从工程主单列表主动创建草稿。 |
+| 任务清晰度 | 通过 | 页面主动作命名为“新建工程主单”，提交动作命名为“创建草稿”。 |
+| 信息架构与导航 | 通过 | 新建入口位于列表标题右侧；创建成功进入主单详情。 |
+| 页面模式 | 通过 | 保持管理端标准列表，使用轻量表单弹窗。 |
+| 信息负荷 | 通过 | 创建弹窗仅填写款式和跟单；任务确认集中在草稿详情的首个业务动作。 |
+| 文案 | 通过 | 全部采用商品／款式档案、跟单负责人、创建草稿等中文业务语言。 |
+| 数量与状态 | 通过 | 新建结果明确为草稿；跟单确认任务方案后主单发布并一次性生成任务。 |
+| 扫码与识别 | 不适用 | 管理端创建动作不涉及现场扫码。 |
+| 防错 | 通过 | 已生产、已有未关闭主单、已归档或缺少主图的款式不可选；仓储层继续执行同样门禁。 |
+| UI 样式 | 通过 | 主动作使用蓝色，禁用候选使用中性色，阻断原因就地展示。 |
+| 组件交互 | 通过 | 复用标准按钮、表单和弹窗；款式搜索仅局部筛选候选 DOM。 |
+| 图片查看 | 通过 | 工程主单列表与详情页的款式缩略图均可点击打开大图，支持关闭按钮和遮罩关闭。 |
+| 协作关系 | 通过 | 跟单创建主单并确认系统建议，随后各专业团队按主单生成的任务执行。 |
+| 异常与追溯 | 通过 | 创建失败在弹窗内显示领域门禁原因，创建人沿用跟单负责人。 |
+| 现场设备可用性 | 通过 | 管理端按桌面列表使用，不影响现有表格横向滚动与分页。 |
+
+## 4. 问题标签
+
+- `选不对`
+- `协作断裂`
+
+## 5. 主要问题与处理
+
+| 问题 | 标签 | 影响角色 | 处理方式 | 是否仍有风险 |
+| --- | --- | --- | --- | --- |
+| 工程主单只有演示数据和查看入口，跟单无法主动创建 | 协作断裂 | 跟单 | 增加主动新建弹窗和创建草稿动作 | 否 |
+| 款式仅显示文字，款式多时容易选错 | 选不对 | 跟单 | 候选及列表同列展示真实款式图片、名称和 SPU | 否 |
+| 新主单直接生成全部任务，缺少跟单对适用任务的业务确认 | 协作断裂 | 跟单、专业团队 | 草稿详情先展示系统建议；必做任务锁定，条件任务由跟单确认，固定依赖不可编辑 | 否 |
+
+## 6. 最终结论
+
+结论：通过
+
+说明：人工创建与系统创建的新主单统一进入任务方案确认；没有新增任务模板、可调依赖或绕过工程主单的入口。
+
+## 7. 变更覆盖与验证
+
+### 受管文件
+
+- `src/pages/pcs-engineering-master-list.ts`
+- `src/pages/pcs-engineering-master-detail.ts`
+- `src/data/pcs-engineering-master-types.ts`
+- `src/data/pcs-engineering-master-repository.ts`
+- `src/data/pcs-engineering-master-view-model.ts`
+- `src/main-handlers/pcs-handlers.ts`
+
+### 页面路由
+
+- `/pcs/engineering/masters`
+- `/pcs/engineering/masters/:masterOrderId`
+
+### 验证命令
+
+- `npx tsx tests/pcs-engineering-master-create-entry.spec.ts`：通过
+- `npx tsx tests/pcs-engineering-master-image-preview.spec.ts`：通过
+- `npx tsx tests/pcs-engineering-master-task-plan-confirmation.spec.ts`：通过
+- `npm run check:list-page-governance`：通过
+- `npm run check:prototype-design-governance -- --all`：通过
+- `npm run check:pcs-engineering-master`：通过（16/16）
+
+### 例外
+
+- 无

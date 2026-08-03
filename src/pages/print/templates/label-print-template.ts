@@ -24,7 +24,6 @@ import {
 import {
   listSpreadingResultGeneratedFeiTickets,
 } from '../../../data/fcs/cutting/generated-fei-tickets.ts'
-import { listWoolFeiTicketPrintRecords } from '../../../data/fcs/wool-task-domain.ts'
 import { getCuttingCutOrderTaskPrintSourceById } from '../../../data/fcs/cutting-task-print-source.ts'
 import { buildBindingProcessOrders } from '../../process-factory/cutting/binding-strip-orders.ts'
 import { buildTransferBagsProjection } from '../../process-factory/cutting/transfer-bags-projection.ts'
@@ -207,11 +206,10 @@ function stripFeiTicketLabelPrefix(value: string): string {
 
 function listFeiRecords(documentType?: PrintDocumentType, bindingRecords = listBindingFeiRecords()): AnyFeiTicket[] {
   const generated = listSpreadingResultGeneratedFeiTickets().map(generatedTicketToRecord)
-  const wool = listWoolFeiTicketPrintRecords()
   const cuttingRecords = documentType === 'FEI_TICKET_LABEL'
     ? generated
     : [...((buildFeiTicketPrintProjection().ticketRecords || []) as AnyFeiTicket[]), ...generated]
-  return uniqueBy([...cuttingRecords, ...bindingRecords, ...wool], (item) => toText(item.ticketRecordId || item.feiTicketId || item.ticketNo || item.feiTicketNo, ''))
+  return uniqueBy([...cuttingRecords, ...bindingRecords], (item) => toText(item.ticketRecordId || item.feiTicketId || item.ticketNo || item.feiTicketNo, ''))
 }
 
 function findFeiRecordInRecords(records: AnyFeiTicket[], sourceId: string): AnyFeiTicket | null {
@@ -257,9 +255,6 @@ function listFeiRecordsForSource(sourceId: string, documentType?: PrintDocumentT
 
 function resolveFeiTicketTargetRoute(record: AnyFeiTicket): string {
   const id = toText(record.ticketRecordId || record.feiTicketId || record.ticketNo)
-  if (record.ticketSourceType === 'WOOL_PART_PANEL') {
-    return `/fcs/craft/wool/work-orders/${encodeURIComponent(toText(record.cutOrderId || id))}?tab=fei`
-  }
   return `/fcs/craft/cutting/fei-tickets?feiTicketId=${encodeURIComponent(id)}`
 }
 
@@ -300,11 +295,10 @@ function needsWideFeiLabel(item: PrintLabelItem): boolean {
 
 function buildFeiLabelItem(record: AnyFeiTicket, input: PrintDocumentBuildInput, mode: PrintMode): PrintLabelItem {
   const documentType = input.documentType
-  const isWoolTicket = record.ticketSourceType === 'WOOL_PART_PANEL'
   const isBindingTicket = record.ticketSourceType === 'BINDING_STRIP'
   const isReprint = documentType === 'FEI_TICKET_REPRINT_LABEL'
   const ticketNo = toText(record.ticketNo || record.feiTicketNo)
-  const title = isReprint ? '菲票补打标签' : isBindingTicket ? '捆条菲票' : isWoolTicket ? '毛织菲票' : '菲票'
+  const title = isReprint ? '菲票补打标签' : isBindingTicket ? '捆条菲票' : '菲票'
   const printProjection = buildFeiTicketLabelPrintProjection(record)
   const version = resolveFeiPrintVersion(record, mode)
   const maxCraftPrintLines = printProjection.templateSize === '15cm x 10cm' ? 4 : 2
@@ -345,7 +339,7 @@ function buildFeiLabelItem(record: AnyFeiTicket, input: PrintDocumentBuildInput,
         { label: '菲票标题', value: printProjection.titleLabel, emphasis: true },
         { label: '菲票号', value: printProjection.feiTicketNo || ticketNo, emphasis: true },
         { label: '生产单', value: printProjection.productionOrderNo },
-        { label: isWoolTicket ? '毛织单' : '裁片单', value: printProjection.cutOrderNo, emphasis: true },
+        { label: '裁片单', value: printProjection.cutOrderNo, emphasis: true },
         { label: 'SPU', value: printProjection.spuCode },
         { label: '面料', value: printProjection.materialDisplayLabel, emphasis: true },
         { label: '面料/颜色', value: printProjection.materialWithColorLabel, emphasis: true },
@@ -453,25 +447,22 @@ export function buildFeiTicketLabelPrintDocument(input: PrintDocumentBuildInput)
     : items.some(needsWideFeiLabel)
       ? 'LABEL_150_100'
       : 'LABEL_100_100'
-  const isWoolTicket = records.some((record) => record.ticketSourceType === 'WOOL_PART_PANEL')
   const isBindingTicket = records.some((record) => record.ticketSourceType === 'BINDING_STRIP')
   const bindingOrderId = toText(records.find((record) => record.ticketSourceType === 'BINDING_STRIP')?.bindingOrderId, '')
   const bindingRouteToken = bindingOrderId.startsWith('binding:') ? bindingOrderId : `binding:${bindingOrderId}`
   return buildBaseLabelDocument(input, {
-    title: isBindingTicket && mode === '首次打印' ? '捆条菲票标签' : isWoolTicket && mode === '首次打印' ? '毛织菲票标签' : mode === '补打' ? '菲票补打标签' : '菲票标签',
+    title: isBindingTicket && mode === '首次打印' ? '捆条菲票标签' : mode === '补打' ? '菲票补打标签' : '菲票标签',
     subtitle: mode === '补打'
       ? '补打标签'
         : isBindingTicket
           ? '捆条菲票。'
-        : isWoolTicket
-          ? '毛织菲票。'
-          : '菲票。',
+        : '菲票。',
     templateCode: TEMPLATE_BY_DOCUMENT[input.documentType] || 'FEI_TICKET_LABEL',
     sourceType: 'FEI_TICKET_RECORD',
     paperType,
     mode,
     labelItems: items,
-    returnHref: isBindingTicket && bindingOrderId ? `/fcs/craft/cutting/fei-tickets/${encodeURIComponent(bindingRouteToken)}` : isWoolTicket ? '/fcs/craft/wool/fei-tickets' : '/fcs/craft/cutting/fei-tickets',
+    returnHref: isBindingTicket && bindingOrderId ? `/fcs/craft/cutting/fei-tickets/${encodeURIComponent(bindingRouteToken)}` : '/fcs/craft/cutting/fei-tickets',
   })
 }
 

@@ -25,9 +25,7 @@ const {
   startTechPackReview,
   submitTechPackFirstStageReview,
 } = await import('../src/data/pcs-tech-pack-review.ts')
-const {
-  replaceTechnicalDataVersionStore,
-} = await import('../src/data/pcs-technical-data-version-repository.ts')
+const { installTechnicalDataVersionFixtures } = await import('./helpers/technical-data-version-fixtures.ts')
 const { renderTechPackPage } = await import('../src/pages/tech-pack.ts')
 
 const technicalVersionId = 'tdv_review_module_lock_001'
@@ -172,7 +170,7 @@ const content: TechnicalDataVersionContent = {
   },
 }
 
-replaceTechnicalDataVersionStore({
+installTechnicalDataVersionFixtures({
   version: 3,
   records: [record],
   contents: [content],
@@ -192,7 +190,8 @@ startTechPackReview(technicalVersionId, 'BUYER', '买手A')
 assert.equal(render('bom').includes('添加物料'), false, '买手审核中物料清单应隐藏添加入口')
 const lockedCostHtml = render('cost')
 assert.equal(lockedCostHtml.includes('添加成本项'), false, '买手审核中核价应隐藏添加成本项入口')
-assert.match(lockedCostHtml, /data-tech-field="material-price"[^>]*disabled/, '买手审核中核价单价输入应禁用')
+assert.equal(lockedCostHtml.includes('data-tech-field="bom-pricing-usage"'), false, '买手审核中 BOM 与价格用量应切换为只读展示')
+assert.ok(lockedCostHtml.includes('>只读</span>'), '买手审核中 BOM 与价格应显示只读状态')
 assert.ok(render('pattern').includes('添加纸样包'), '买手审核中不应锁定版师纸样模块')
 assert.ok(render('pattern').includes('按物料关联纸样'), '买手审核中不应锁定跟单物料&纸样关联模块')
 
@@ -214,7 +213,7 @@ returnTechPackReviewToFirstStage(technicalVersionId, '跟单复核发现问题�
 assert.ok(render('bom').includes('添加物料'), '跟单打回后买手模块应重新可编辑')
 assert.ok(render('pattern').includes('添加纸样包'), '跟单打回后版师模块应重新可编辑')
 assert.ok(render('pattern').includes('按物料关联纸样'), '跟单打回后物料&纸样关联应重新可编辑')
-assert.ok(render('cost').includes('添加成本项'), '跟单打回后核价应重新可编辑')
+assert.ok(render('cost').includes('添加费用'), '跟单打回后 BOM 与价格应重新可编辑')
 
 const eventSource = readFileSync('src/pages/tech-pack/events.ts', 'utf8')
 assert.ok(eventSource.includes('function getTechPackFieldModuleKey'), '事件层应按字段归属模块拦截')

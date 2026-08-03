@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 
 import {
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   listProjectNodes,
   listProjects,
   resetProjectRepository,
@@ -58,7 +58,7 @@ const project = listProjects().find((item) => item.projectName === '2026夏季�
 
 assert.ok(project, '应存在一个当前处于商品上架节点的演示商品项目')
 
-const listingNode = getProjectNodeRecordByWorkItemTypeCode(project!.projectId, 'CHANNEL_PRODUCT_LISTING')
+const listingNode = getProjectNodeRecordByStepCode(project!.projectId, 'CHANNEL_PRODUCT_LISTING')
 assert.ok(listingNode, '演示项目应存在商品上架节点')
 assert.equal(listingNode!.currentStatus, '进行中', '演示项目当前应处于商品上架节点')
 
@@ -72,17 +72,17 @@ const completedNodeCodes = [
   'SAMPLE_PRICING',
 ] as const
 
-completedNodeCodes.forEach((workItemTypeCode) => {
-  const node = getProjectNodeRecordByWorkItemTypeCode(project!.projectId, workItemTypeCode)
-  assert.ok(node, `${workItemTypeCode} 节点应存在`)
-  assert.equal(node!.currentStatus, '已完成', `${workItemTypeCode} 节点应已完成`)
+completedNodeCodes.forEach((stepCode) => {
+  const node = getProjectNodeRecordByStepCode(project!.projectId, stepCode)
+  assert.ok(node, `${stepCode} 节点应存在`)
+  assert.equal(node!.currentStatus, '已完成', `${stepCode} 节点应已完成`)
 })
 
 const nodes = listProjectNodes(project!.projectId).sort((left, right) => {
   if (left.phaseCode === right.phaseCode) return left.sequenceNo - right.sequenceNo
   return left.phaseCode.localeCompare(right.phaseCode)
 })
-const listingNodeIndex = nodes.findIndex((node) => node.workItemTypeCode === 'CHANNEL_PRODUCT_LISTING')
+const listingNodeIndex = nodes.findIndex((node) => node.stepCode === 'CHANNEL_PRODUCT_LISTING')
 
 assert.ok(listingNodeIndex > 0, '商品上架节点前应存在前序节点')
 assert.ok(

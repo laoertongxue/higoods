@@ -27,6 +27,7 @@ import {
 import {
   appendDownloadRecord,
   buildUploadRecordsFromFiles,
+  getPreparationRecordCapabilities,
   isBasePatternItem,
   loadPreparationRuntimeState,
   mergePreparationRuntimeRecords,
@@ -65,11 +66,30 @@ import {
   type ProductionPreparationItem,
   type ProductionPreparationRecord,
 } from '../../data/fcs/production-preparation-timing.ts'
+import { listEngineeringMasterOrders } from '../../data/pcs-engineering-master-repository.ts'
+import { projectEngineeringMastersToPreparation } from '../../data/pcs-engineering-preparation-projection.ts'
+import { listTechnicalDataVersions } from '../../data/pcs-technical-data-version-repository.ts'
 
 const PAGE_PATH = '/fcs/production/preparation-timing'
 const STATS_PAGE_PATH = '/fcs/production/preparation-timing-statistics'
 const DEFAULT_MONTH = '2026-03'
 const MONTHLY_STATS_PAGE_SIZE = 5
+
+function currentPreparationRecords(): ProductionPreparationRecord[] {
+  const formalTechPacks = listTechnicalDataVersions()
+    .filter((version) => version.createdFromTaskType === 'ENGINEERING_MASTER' && version.versionStatus === 'PUBLISHED')
+    .map((version) => ({
+      masterOrderId: version.sourceProjectId,
+      technicalVersionId: version.technicalVersionId,
+      versionLabel: version.versionLabel,
+      publishedAt: version.publishedAt,
+    }))
+  return projectEngineeringMastersToPreparation(
+    listEngineeringMasterOrders(),
+    productionPreparationRecords,
+    formalTechPacks,
+  )
+}
 
 function preparationActionContextId(action: 'confirm-items' | 'operate-item', recordId: string, itemId = ''): string {
   return [action, recordId, itemId].filter(Boolean).join(':')
@@ -439,7 +459,12 @@ function hasConfirmedWorkItems(record: ProductionPreparationRecord): boolean {
   return Boolean(record.workItemsConfirmedBy && record.workItemsConfirmedAt)
 }
 
-const hasCompletionEvidence = hasValidPreparationCompletionEvidence
+function hasCompletionEvidence(item: ProductionPreparationItem): boolean {
+  if (item.sourceObjectType === '工程主单') {
+    return item.reusedPriorResult === true || Boolean(item.effectiveFinishedAt || item.actualFinishAt)
+  }
+  return hasValidPreparationCompletionEvidence(item)
+}
 
 function canOperateItem(item: ProductionPreparationItem, record: ProductionPreparationRecord): boolean {
   return canWritePreparationItemRuntime(record, item)
@@ -575,7 +600,7 @@ function getDependencyOptions(params: URLSearchParams): {
 }
 
 function renderLedgerFilter(params: URLSearchParams, month: string): string {
-  const options = getProductionPreparationFilterOptions()
+  const options = getProductionPreparationFilterOptions(currentPreparationRecords())
   const startDate = valueOf(params, 'startDate') || startDateOfMonth(month)
   const endDate = valueOf(params, 'endDate') || endDateOfMonth(month)
   const dependencyOptions = getDependencyOptions(params)
@@ -614,7 +639,7 @@ function renderKpis(records: ProductionPreparationRecord[], month: string, filte
   const items = flattenProductionPreparationItems(records).filter(
     (item) => item.selectedByMerchandiser !== false && item.status !== '无需' && item.recordStatus !== '已关闭',
   )
-  const monthCompletedCount = buildMonthlyPreparationCompletionDetails(month, filter).length
+  const monthCompletedCount = buildMonthlyPreparationCompletionDetails(month, filter, records).length
   const todayKey = `${month}-10`
   const cards = [
     {
@@ -948,6 +973,16 @@ function renderLedgerActions(
   params: URLSearchParams,
 ): string {
   const detailHref = buildLedgerActionHref(params, month, { recordId: record.recordId })
+  const capabilities = getPreparationRecordCapabilities(record)
+  if (!capabilities.confirmItems) {
+    return `
+      <div class="flex min-w-[180px] flex-col items-start gap-2">
+        <button type="button" class="text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(detailHref)}">查看详情</button>
+        ${record.masterOrderHref ? `<button type="button" class="text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(record.masterOrderHref)}">查看工程主单</button>` : ''}
+        ${record.formalTechPackHref ? `<button type="button" class="text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(record.formalTechPackHref)}">查看正式技术包</button>` : ''}
+      </div>
+    `
+  }
   if (record.status === '已关闭') {
     return `
       <div class="flex min-w-[180px] flex-col items-start gap-2">
@@ -1142,13 +1177,15 @@ function renderLedgerTab(params: URLSearchParams, month: string): string {
   syncLedgerFilterContext(params, month)
   const filter = parseFilter(params)
   const runtime = loadPreparationRuntimeState()
-  const recordsWithRuntime = mergePreparationRuntimeRecords(productionPreparationRecords, runtime)
+  const recordsWithRuntime = mergePreparationRuntimeRecords(currentPreparationRecords(), runtime)
   const records = filterLedgerRecords(filter, month, recordsWithRuntime)
   const recordId = valueOf(params, 'recordId')
   const sourceFallbackRecord = recordId ? getProductionPreparationRecord(recordId) : null
   const fallbackRecord = recordId
     ? recordsWithRuntime.find((record) => record.recordId === recordId) ??
-      (sourceFallbackRecord ? mergePreparationRuntimeRecords([sourceFallbackRecord], runtime)[0] : null)
+      (sourceFallbackRecord
+        ? mergePreparationRuntimeRecords([sourceFallbackRecord], runtime)[0]
+        : null)
     : null
   const detailRecord = recordId
     ? records.find((record) => record.recordId === recordId) ??
@@ -1160,6 +1197,7 @@ function renderLedgerTab(params: URLSearchParams, month: string): string {
     ? detailRecord.items.find((item) => item.itemId === activeItemId) ?? null
     : null
   const action = valueOf(params, 'action')
+  const capabilities = detailRecord ? getPreparationRecordCapabilities(detailRecord) : null
   ledgerListState.records = records
   ledgerListState.month = month
   ledgerListState.params = new URLSearchParams(params)
@@ -1171,10 +1209,10 @@ function renderLedgerTab(params: URLSearchParams, month: string): string {
   `
   const businessOverlays = `
     ${detailRecord && !action ? renderDetailDrawer(detailRecord, params, month) : ''}
-    ${detailRecord ? renderConfirmItemsDialog(detailRecord, params, month) : ''}
-    ${detailRecord && activeItem ? renderDyeRequirementDialog(detailRecord, activeItem, params, month) : ''}
-    ${detailRecord && activeItem ? renderAccessoryOrderDialog(detailRecord, activeItem, params, month) : ''}
-    ${detailRecord && activeItem ? renderOperateItemDialog(detailRecord, activeItem, params, month) : ''}
+    ${detailRecord && capabilities?.confirmItems ? renderConfirmItemsDialog(detailRecord, params, month) : ''}
+    ${detailRecord && activeItem && capabilities?.maintainDyeRequirement ? renderDyeRequirementDialog(detailRecord, activeItem, params, month) : ''}
+    ${detailRecord && activeItem && capabilities?.modifyItems ? renderAccessoryOrderDialog(detailRecord, activeItem, params, month) : ''}
+    ${detailRecord && activeItem && capabilities?.uploadResult ? renderOperateItemDialog(detailRecord, activeItem, params, month) : ''}
     ${renderExternalMaterialsDialog(params, month)}
   `
 
@@ -1198,6 +1236,8 @@ function renderLedgerTab(params: URLSearchParams, month: string): string {
 function renderDetailDrawer(record: ProductionPreparationRecord, params: URLSearchParams, month: string): string {
   const activeItemId = valueOf(params, 'itemId')
   const closeHref = buildLedgerHrefFromParams(params, month)
+  const capabilities = getPreparationRecordCapabilities(record)
+  const engineeringSource = !capabilities.modifyItems
 
   return `
     <aside class="fixed inset-y-0 right-0 z-40 flex w-full max-w-3xl flex-col border-l bg-background shadow-2xl">
@@ -1210,9 +1250,9 @@ function renderDetailDrawer(record: ProductionPreparationRecord, params: URLSear
         <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-nav="${escapeHtml(closeHref)}">关闭</button>
       </div>
       <div class="flex-1 space-y-5 overflow-y-auto p-5">
-        ${renderSourceInfo(record)}
-        ${renderProductTypeConfirmation(record)}
-        ${renderConfirmationRequirementSection(record)}
+        ${engineeringSource ? renderEngineeringSourceLinks(record) : renderSourceInfo(record)}
+        ${engineeringSource ? '' : renderProductTypeConfirmation(record)}
+        ${engineeringSource ? '' : renderConfirmationRequirementSection(record)}
         ${renderPreparationSelection(record)}
         ${renderTimeline(record)}
         <section id="prep-items" class="rounded-xl border bg-card p-4">
@@ -1228,6 +1268,24 @@ function renderDetailDrawer(record: ProductionPreparationRecord, params: URLSear
         ${renderOperationLogs(record)}
       </div>
     </aside>
+  `
+}
+
+function renderEngineeringSourceLinks(record: ProductionPreparationRecord): string {
+  return `
+    <section class="rounded-xl border bg-card p-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 class="font-semibold">工程来源</h3>
+          <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.recordNo)}｜${escapeHtml(record.merchandiserName)}</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          ${record.masterOrderHref ? `<button type="button" class="rounded-md border px-3 py-2 text-sm text-blue-700 hover:bg-muted" data-nav="${escapeHtml(record.masterOrderHref)}">查看工程主单</button>` : ''}
+          ${record.formalTechPackHref ? `<button type="button" class="rounded-md border px-3 py-2 text-sm text-blue-700 hover:bg-muted" data-nav="${escapeHtml(record.formalTechPackHref)}">查看正式技术包</button>` : ''}
+          ${!record.formalTechPackHref && record.techPackHref ? `<button type="button" class="rounded-md border px-3 py-2 text-sm text-blue-700 hover:bg-muted" data-nav="${escapeHtml(record.techPackHref)}">查看技术包任务</button>` : ''}
+        </div>
+      </div>
+    </section>
   `
 }
 
@@ -1357,7 +1415,7 @@ function renderPreparationSelection(record: ProductionPreparationRecord): string
   `
   return `
     <section class="rounded-xl border bg-card p-4">
-      <h3 class="mb-3 font-semibold">准备项确认</h3>
+      <h3 class="mb-3 font-semibold">${record.sourceKind === '工程主单' ? '固定准备项' : '准备项确认'}</h3>
       <div class="grid gap-4 md:grid-cols-2">
         <div>
           <div class="mb-2 text-sm font-medium">必做项</div>
@@ -1403,8 +1461,13 @@ function dependencyText(record: ProductionPreparationRecord, item: ProductionPre
     .join('、') || '无前置准备项'
 }
 
+function renderReusedResultNotice(item: ProductionPreparationItem): string {
+  return `<p class="mt-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">前期成果复用 / 不计本次时效${item.evidenceSummary ? `｜${escapeHtml(item.evidenceSummary)}` : ''}</p>`
+}
+
 function renderItemCard(record: ProductionPreparationRecord, item: ProductionPreparationItem, active: boolean): string {
   const ownerRoleRule = preparationOwnerRoleRules.find((rule) => rule.ownerTeam === item.ownerTeam)
+  const engineeringItem = item.sourceObjectType === '工程主单'
   return `
     <article class="rounded-xl border p-4 ${active ? 'border-blue-300 bg-blue-50/40' : 'bg-background'}">
       <div class="flex items-start justify-between gap-3">
@@ -1415,16 +1478,23 @@ function renderItemCard(record: ProductionPreparationRecord, item: ProductionPre
         ${renderItemStatusBadge(item)}
       </div>
       <dl class="mt-3 grid grid-cols-2 gap-2 text-xs">
-        <div><dt class="text-muted-foreground">计划开始</dt><dd>${escapeHtml(item.plannedStartAt ? formatDateTime(item.plannedStartAt) : '-')}</dd></div>
-        <div><dt class="text-muted-foreground">计划完成</dt><dd>${escapeHtml(item.plannedFinishAt ? formatDateTime(item.plannedFinishAt) : '-')}</dd></div>
-        <div><dt class="text-muted-foreground">实际完成</dt><dd>${escapeHtml(item.actualFinishAt ? formatDateTime(item.actualFinishAt) : '-')}</dd></div>
+        <div><dt class="text-muted-foreground">${engineeringItem ? '实际开始' : '计划开始'}</dt><dd>${escapeHtml((engineeringItem ? item.actualStartAt : item.plannedStartAt) ? formatDateTime((engineeringItem ? item.actualStartAt : item.plannedStartAt) || '') : '-')}</dd></div>
+        <div><dt class="text-muted-foreground">${engineeringItem ? '首次完成' : '计划完成'}</dt><dd>${escapeHtml((engineeringItem ? item.firstFinishedAt : item.plannedFinishAt) ? formatDateTime((engineeringItem ? item.firstFinishedAt : item.plannedFinishAt) || '') : '-')}</dd></div>
+        <div><dt class="text-muted-foreground">${engineeringItem ? '当前有效完成' : '实际完成'}</dt><dd>${escapeHtml((engineeringItem ? item.effectiveFinishedAt : item.actualFinishAt) ? formatDateTime((engineeringItem ? item.effectiveFinishedAt : item.actualFinishAt) || '') : '-')}</dd></div>
         <div><dt class="text-muted-foreground">凭证类型</dt><dd>${escapeHtml(item.evidenceType || '-')}</dd></div>
       </dl>
       <div class="mt-3 rounded-lg border bg-muted/20 px-3 py-2 text-xs">
         <span class="text-muted-foreground">前置准备项：</span>${escapeHtml(dependencyText(record, item))}
       </div>
+      ${item.sourceObjectNo
+        ? `<div class="mt-2 text-xs"><span class="text-muted-foreground">来源：</span>${item.sourceHref
+            ? `<button type="button" class="text-blue-700 hover:underline" data-nav="${escapeHtml(item.sourceHref)}">${escapeHtml(item.sourceObjectNo)}</button>`
+            : escapeHtml(item.sourceObjectNo)}</div>`
+        : ''}
+      ${engineeringItem && item.taskHref ? `<div class="mt-2 text-xs"><button type="button" class="text-blue-700 hover:underline" data-nav="${escapeHtml(item.taskHref)}">查看专业任务</button>${item.purchaseOrderHref ? `<button type="button" class="ml-3 text-blue-700 hover:underline" data-nav="${escapeHtml(item.purchaseOrderHref)}">查看采购单</button>` : ''}</div>` : ''}
       ${
-        item.status === '已完成' && !hasCompletionEvidence(item)
+        item.reusedPriorResult ? renderReusedResultNotice(item)
+          : item.status === '已完成' && !hasCompletionEvidence(item)
           ? `<p class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">${item.itemType === '辅料下单' ? '异常：已完成但采购单号或逐单下单时间不完整，请补充登记。' : '异常：已完成但缺少上传文件、上传人或上传时间，请补传完成凭证。'}</p>`
           : ''
       }
@@ -1437,9 +1507,9 @@ function renderItemCard(record: ProductionPreparationRecord, item: ProductionPre
             </div>`
           : ''
       }
-      ${item.itemType === '数码印/DTF/DTG花型' ? renderPatternFields(item) : ''}
-      ${isDyeItem(item) || isDyeRequirementItem(item) ? renderDyeRequirementFields(item) : ''}
-      ${item.itemType === '辅料下单' ? renderAccessoryPurchaseOrderFields(item) : `<div class="mt-3">${renderItemUploadHistory(item)}</div>`}
+      ${!engineeringItem && item.itemType === '数码印/DTF/DTG花型' ? renderPatternFields(item) : ''}
+      ${!engineeringItem && (isDyeItem(item) || isDyeRequirementItem(item)) ? renderDyeRequirementFields(item) : ''}
+      ${item.itemType === '辅料下单' ? renderAccessoryPurchaseOrderFields(item) : engineeringItem ? '' : `<div class="mt-3">${renderItemUploadHistory(item)}</div>`}
     </article>
   `
 }
@@ -1879,7 +1949,7 @@ function renderOperationLogs(record: ProductionPreparationRecord): string {
 }
 
 function renderStatsFilter(params: URLSearchParams, month: string, activeTab: 'monthly' | 'detail'): string {
-  const options = getProductionPreparationFilterOptions()
+  const options = getProductionPreparationFilterOptions(currentPreparationRecords())
   const dependencyOptions = getDependencyOptions(params)
   return `
     <section data-prep-stats-filter-scope class="rounded-xl border bg-card p-3">
@@ -1905,20 +1975,21 @@ function renderStatsFilter(params: URLSearchParams, month: string, activeTab: 'm
 }
 
 function getStatsDetails(month: string, filter: ProductionPreparationFilter): MonthlyPreparationCompletionDetail[] {
-  return buildMonthlyPreparationCompletionDetails(month, filter)
+  return buildMonthlyPreparationCompletionDetails(month, filter, currentPreparationRecords())
 }
 
 function buildStatsRows(month: string, details: MonthlyPreparationCompletionDetail[]): StatsTableRow[] {
   return preparationItemTypes.map((itemType) => {
     const rows = details.filter((detail) => detail.itemType === itemType)
-    const durationTotal = rows.reduce((sum, row) => sum + row.durationHours, 0)
+    const timingRows = rows.filter((row) => row.timingDataComplete)
+    const durationTotal = timingRows.reduce((sum, row) => sum + row.durationHours, 0)
     const ownerTeamText = Array.from(new Set(rows.map((row) => row.ownerTeam).filter(Boolean))).join('、') || '-'
     return {
       itemType,
       completedCount: rows.length,
-      onTimeCompletedCount: rows.filter((row) => row.onTime).length,
-      overdueCompletedCount: rows.filter((row) => !row.onTime).length,
-      averageDurationHours: rows.length ? Number((durationTotal / rows.length).toFixed(1)) : 0,
+      onTimeCompletedCount: timingRows.filter((row) => row.onTime).length,
+      overdueCompletedCount: timingRows.filter((row) => !row.onTime).length,
+      averageDurationHours: timingRows.length ? Number((durationTotal / timingRows.length).toFixed(1)) : 0,
       latestFinishedAt: rows.reduce((latest, row) => (row.actualFinishAt > latest ? row.actualFinishAt : latest), ''),
       ownerTeamText,
       basisText: `${month} 实际完成，已关闭记录、无需项和未选择选填项不计入`,
@@ -1931,10 +2002,11 @@ function getGroupedCompletedCount(stats: StatsTableRow[], itemTypes: Preparation
 }
 
 function renderStatsSummary(details: MonthlyPreparationCompletionDetail[], stats: StatsTableRow[]): string {
-  const onTime = details.filter((detail) => detail.onTime).length
-  const overdue = details.length - onTime
-  const averageHours = details.length
-    ? Number((details.reduce((sum, detail) => sum + detail.durationHours, 0) / details.length).toFixed(1))
+  const timingDetails = details.filter((detail) => detail.timingDataComplete)
+  const onTime = timingDetails.filter((detail) => detail.onTime).length
+  const overdue = timingDetails.length - onTime
+  const averageHours = timingDetails.length
+    ? Number((timingDetails.reduce((sum, detail) => sum + detail.durationHours, 0) / timingDetails.length).toFixed(1))
     : 0
   const cards = [
     ['本月完成准备项', details.length, '项'],
@@ -2060,7 +2132,7 @@ function createDetailStatsColumns(month: string): StandardListColumn<MonthlyPrep
     { key: 'ownerName', title: '责任人', width: 120, sortable: true, sortValue: (row) => row.ownerName, render: (row) => escapeHtml(row.ownerName) },
     { key: 'plannedFinishAt', title: '计划完成时间', width: 180, sortable: true, sortValue: (row) => row.plannedFinishAt, render: (row) => escapeHtml(formatDateTime(row.plannedFinishAt)) },
     { key: 'actualFinishAt', title: '实际完成时间', width: 180, required: true, freezeable: true, sortable: true, sortValue: (row) => row.actualFinishAt, render: (row) => escapeHtml(formatDateTime(row.actualFinishAt)) },
-    { key: 'onTime', title: '是否超时', width: 110, sortable: true, sortValue: (row) => row.onTime ? 0 : 1, render: (row) => renderBadge(row.onTime ? '否' : '是', row.onTime ? 'green' : 'red') },
+    { key: 'onTime', title: '是否超时', width: 110, sortable: true, sortValue: (row) => row.timingDataComplete ? (row.onTime ? 0 : 1) : 2, render: (row) => row.timingDataComplete ? renderBadge(row.onTime ? '否' : '是', row.onTime ? 'green' : 'red') : '<span class="text-xs text-muted-foreground">数据缺失</span>' },
     { key: 'evidenceSummary', title: '证据摘要', width: 280, sortable: true, sortValue: (row) => row.evidenceSummary, render: (row) => `<span class="text-xs text-muted-foreground">${escapeHtml(row.evidenceSummary || '-')}</span>` },
   ]
 }
@@ -2276,8 +2348,12 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
   if (form.matches('[data-prep-confirm-items-form]')) {
     const recordId = String(formData.get('recordId') ?? '').trim()
     if (!recordId || !matchesTrustedPreparationActionContext(form, formData, 'confirm-items', false)) return true
-    const sourceRecord = productionPreparationRecords.find((record) => record.recordId === recordId)
-    if (!sourceRecord || sourceRecord.status === '已关闭') return true
+    const sourceRecord = currentPreparationRecords().find((record) => record.recordId === recordId)
+    if (
+      !sourceRecord ||
+      sourceRecord.status === '已关闭' ||
+      !getPreparationRecordCapabilities(sourceRecord).confirmItems
+    ) return true
     const confirmedProductPrepType = String(formData.get('confirmedProductPrepType') ?? '').trim() as ProductPrepType
     const selectedItemTypes = normalizeSelectedPreparationItemTypes(formData.getAll('selectedItemType')
       .map((itemType) => String(itemType).trim() as PreparationItemType)
@@ -2366,9 +2442,10 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
     if (!recordId || !itemId || !matchesTrustedPreparationActionContext(form, formData, 'operate-item', true)) return true
 
     const runtime = loadPreparationRuntimeState()
-    const record = mergePreparationRuntimeRecords(productionPreparationRecords, runtime)
+    const record = mergePreparationRuntimeRecords(currentPreparationRecords(), runtime)
       .find((item) => item.recordId === recordId)
     if (!record) return true
+    if (!getPreparationRecordCapabilities(record).maintainDyeRequirement) return true
     const item = record.items.find((candidate) => candidate.itemId === itemId)
     if (!item || !isDyeRequirementItem(item) || item.status === '已完成' || !canWritePreparationItemRuntime(record, item)) return true
     const maintainedAt = currentIsoMinute()
@@ -2433,9 +2510,10 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
     const completedAt = orderRows.map((row) => row.orderedAt).sort().at(-1)!
 
     const runtime = loadPreparationRuntimeState()
-    const record = mergePreparationRuntimeRecords(productionPreparationRecords, runtime)
+    const record = mergePreparationRuntimeRecords(currentPreparationRecords(), runtime)
       .find((item) => item.recordId === recordId)
     if (!record) return true
+    if (!getPreparationRecordCapabilities(record).modifyItems) return true
     const item = record.items.find((candidate) => candidate.itemId === itemId)
     if (!item || item.itemType !== '辅料下单' || !canWritePreparationItemRuntime(record, item)) return true
 
@@ -2462,9 +2540,10 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
   if (!recordId || !itemId || !matchesTrustedPreparationActionContext(form, formData, 'operate-item', true)) return true
 
   const runtime = loadPreparationRuntimeState()
-  const record = mergePreparationRuntimeRecords(productionPreparationRecords, runtime)
+  const record = mergePreparationRuntimeRecords(currentPreparationRecords(), runtime)
     .find((item) => item.recordId === recordId)
   if (!record) return true
+  if (!getPreparationRecordCapabilities(record).uploadResult) return true
   const item = record?.items.find((candidate) => candidate.itemId === itemId)
   if (!item || !canWritePreparationItemRuntime(record, item)) return true
 
@@ -3169,7 +3248,7 @@ export function handleProductionPreparationTimingEvent(target: HTMLElement, even
   ) return true
 
   const runtime = loadPreparationRuntimeState()
-  const mergedRecords = mergePreparationRuntimeRecords(productionPreparationRecords, runtime)
+  const mergedRecords = mergePreparationRuntimeRecords(currentPreparationRecords(), runtime)
   const upload = runtime.uploads.find((item) => item.uploadId === uploadId && item.recordId === actionRecordId && item.itemId === actionItemId) ??
     mergedRecords.flatMap((record) => record.items)
       .flatMap((item) => item.uploads ?? [])

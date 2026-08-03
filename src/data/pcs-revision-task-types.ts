@@ -12,9 +12,6 @@ export interface RevisionTaskRecord {
   projectId: string
   projectCode: string
   projectName: string
-  projectNodeId: string
-  workItemTypeCode: 'REVISION_TASK'
-  workItemTypeName: '改版任务'
   sourceType: RevisionTaskSourceType
   upstreamModule: string
   upstreamObjectType: string
@@ -80,8 +77,6 @@ export interface RevisionTaskRecord {
   updatedAt: string
   updatedBy: string
   note: string
-  legacyProjectRef: string
-  legacyUpstreamRef: string
 }
 
 export interface RevisionTaskStoreSnapshot {

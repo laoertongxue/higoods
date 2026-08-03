@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { getProjectWorkItemContract } from '../src/data/pcs-project-domain-contract.ts'
+import { getProjectStepDefinition } from '../src/data/pcs-project-domain-contract.ts'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 
@@ -20,27 +20,26 @@ function assertCheck(condition: boolean, message: string): void {
 const projectPageSource = read('src/pages/pcs-projects.ts')
 const channelRepoSource = read('src/data/pcs-channel-product-project-repository.ts')
 const decisionFlowSource = read('src/data/pcs-project-decision-flow-service.ts')
-const migrationSource = read('src/data/pcs-project-decision-migration.ts')
 const flowServiceSource = read('src/data/pcs-project-flow-service.ts')
 
-for (const workItemCode of ['FEASIBILITY_REVIEW', 'SAMPLE_CONFIRM', 'TEST_CONCLUSION']) {
-  const contract = getProjectWorkItemContract(workItemCode)
-  assertCheck(Boolean(contract), `工作项定义仍需包含 ${workItemCode}`)
+for (const stepDefinitionCode of ['FEASIBILITY_REVIEW', 'SAMPLE_CONFIRM', 'TEST_CONCLUSION']) {
+  const contract = getProjectStepDefinition(stepDefinitionCode)
+  assertCheck(Boolean(contract), `项目步骤定义仍需包含 ${stepDefinitionCode}`)
   const decisionField = contract.fieldDefinitions.find((field) =>
     ['reviewConclusion', 'confirmResult', 'conclusion'].includes(field.fieldKey),
   )
-  assertCheck(Boolean(decisionField), `${workItemCode} 必须存在决策字段`)
+  assertCheck(Boolean(decisionField), `${stepDefinitionCode} 必须存在决策字段`)
   const expectedOptions =
-    workItemCode === 'TEST_CONCLUSION'
-      ? ['通过', '不通过', '继续测试']
-      : workItemCode === 'FEASIBILITY_REVIEW'
-        ? ['进入测款', '样衣退回', '重新改版出样衣']
+    stepDefinitionCode === 'TEST_CONCLUSION'
+      ? ['通过', '不通过', '暂保留']
+      : stepDefinitionCode === 'FEASIBILITY_REVIEW'
+        ? ['进入测款', '样衣退回']
         : ['通过', '不通过']
   assertCheck(
     JSON.stringify((decisionField?.options || []).map((item) => item.value)) === JSON.stringify(expectedOptions),
-    `${workItemCode} 决策结果应为 ${expectedOptions.join(' / ')}`,
+    `${stepDefinitionCode} 决策结果应为 ${expectedOptions.join(' / ')}`,
   )
-  assertCheck(decisionField?.required === true, `${workItemCode} 决策字段必须必填`)
+  assertCheck(decisionField?.required === true, `${stepDefinitionCode} 决策字段必须必填`)
 }
 
 for (const legacyOption of ['>调整<', '>暂缓<', '>继续调整<', '>改版后重测<', '>继续开发<', '>终止<']) {
@@ -52,7 +51,7 @@ for (const legacyBranchFn of ['activateTestingAdjustBranchNodes', 'applyTestConc
 }
 
 assertCheck(!/测款结论.*改版任务/.test(channelRepoSource), '测款结论不应再自动触发改版任务文案或逻辑')
-const conclusionContract = getProjectWorkItemContract('TEST_CONCLUSION')
+const conclusionContract = getProjectStepDefinition('TEST_CONCLUSION')
 assertCheck(
   !conclusionContract.fieldDefinitions.some((field) => ['revisionTaskId', 'revisionTaskCode', 'projectTerminated', 'projectTerminatedAt'].includes(field.fieldKey)),
   '测款结论字段定义不应再包含旧分支字段',
@@ -61,11 +60,15 @@ assertCheck(
 assertCheck(decisionFlowSource.includes('completeDecisionNodeWithResult'), '统一决策流转服务必须存在 completeDecisionNodeWithResult')
 assertCheck(decisionFlowSource.includes('routeProjectToSampleReturnHandle'), '统一决策流转服务必须存在 routeProjectToSampleReturnHandle')
 assertCheck(decisionFlowSource.includes('SAMPLE_RETURN_HANDLE'), '不通过流转必须进入样衣退回处理')
-assertCheck(decisionFlowSource.includes('routeProjectToAdditionalTesting'), '继续测试流转必须回到测款执行补充数据')
+assertCheck(decisionFlowSource.includes('holdProjectDecisionForLater'), '暂保留必须保留当前事实并等待稍后再判断')
+assertCheck(!decisionFlowSource.includes('routeProjectToAdditionalTesting'), '暂保留不得回到测款执行或重启测试节点')
+assertCheck(!decisionFlowSource.includes('routeProjectToRevisionTask'), '商品测款可行性判断不得创建或查找改版任务')
+assertCheck(!decisionFlowSource.includes('重新改版出样衣'), '商品测款可行性判断不得包含重新改版出样衣分支')
 
 assertCheck(!/projectStatus:\s*'已终止'/.test(decisionFlowSource), '决策流转服务不应在不通过时直接把项目写为已终止')
-assertCheck(migrationSource.includes('LEGACY_DECISION_RESULTS'), '旧决策迁移函数必须存在')
-assertCheck(read('src/data/pcs-project-repository.ts').includes('migrateProjectDecisionSnapshot'), '项目仓储必须调用旧决策迁移函数')
+assertCheck(!fs.existsSync(path.join(root, 'src/data/pcs-project-decision-migration.ts')), '旧决策迁移模块必须删除')
+assertCheck(!read('src/data/pcs-project-repository.ts').includes('migrateProjectDecision'), '项目仓储不得再调用旧决策迁移')
+assertCheck(!read('src/data/pcs-project-inline-node-record-repository.ts').includes('migrateProjectDecision'), '项目节点记录仓储不得再调用旧决策迁移')
 
 if (process.exitCode && process.exitCode !== 0) {
   process.exit(process.exitCode)

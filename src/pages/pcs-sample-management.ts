@@ -266,7 +266,7 @@ function getFilteredSamples(): PcsSampleRecord[] {
         sample.name,
         sample.projectCode,
         sample.projectName,
-        sample.relatedWorkItemName,
+        sample.sourceStepName,
         sample.currentLocation,
         sample.transit?.trackingNo,
       ],
@@ -295,13 +295,13 @@ function renderSampleTable(samples: PcsSampleRecord[]): string {
     { key: 'sampleCode', title: '样衣编号/名称', minWidth: '260px', render: renderSampleCell },
     {
       key: 'projectCode',
-      title: '关联项目/工作项',
+      title: '商品项目 / 来源步骤',
       minWidth: '220px',
       render: (sample) => `
         <div>
           <button type="button" class="font-medium text-slate-900 hover:text-blue-700" data-nav="/pcs/projects/${escapeHtml(sample.projectId)}">${escapeHtml(sample.projectCode)}</button>
           <p class="mt-1 text-sm text-slate-500">${escapeHtml(sample.projectName)}</p>
-          <p class="mt-1 text-xs text-slate-400">${escapeHtml(sample.relatedWorkItemName)}</p>
+          <p class="mt-1 text-xs text-slate-400">${escapeHtml(sample.sourceStepName)}</p>
         </div>
       `,
     },
@@ -369,7 +369,7 @@ function renderInventoryFilters(): string {
   return `
     <section class="rounded-xl border bg-white px-4 py-4 shadow-sm">
       <div class="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_180px_180px_auto]">
-        ${renderTextInput('search', state.filters.search, '搜索样衣编号/名称/项目/工作项/运单号')}
+        ${renderTextInput('search', state.filters.search, '搜索样衣编号/名称/商品项目/来源步骤/运单号')}
         ${renderSelect('status', state.filters.status, ['全部', '在库可用', '预占锁定', '借出占用', '在途待签收', '维修中', '待处置', '已退货'])}
         ${renderSelect('site', state.filters.site, ['全部', '深圳样衣间', '雅加达样衣间'])}
         <button type="button" class="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-sample-action="reset-filters">重置</button>
@@ -405,8 +405,8 @@ function renderSampleDetailDrawer(): string {
               ${renderInfoItem('面料/模板', `${sample.material} · ${sample.templateType}`)}
               ${renderInfoItem('责任站点', sample.responsibleSite)}
               ${renderInfoItem('当前位置', `${sample.currentLocation} · ${sample.locationDetail}`)}
-              ${renderInfoItem('关联项目', `${sample.projectCode} · ${sample.projectName}`)}
-              ${renderInfoItem('工作项实例', sample.relatedWorkItemName)}
+              ${renderInfoItem('商品项目', `${sample.projectCode} · ${sample.projectName}`)}
+              ${renderInfoItem('来源步骤', sample.sourceStepName)}
               ${renderInfoItem('占用信息', sample.occupancyType === '无' ? '无占用' : `${sample.occupiedBy} · ${sample.occupiedFor} · 至 ${sample.occupiedUntil}`)}
               ${renderInfoItem('最近更新', `${sample.updatedAt} · ${sample.updatedBy}`)}
             </div>
@@ -502,7 +502,7 @@ function renderRequestTable(requests: PcsSampleUseRequest[]): string {
     { key: 'responsibleSite', title: '责任站点', width: '120px' },
     { key: 'sampleIds', title: '样衣数量', width: '90px', render: (request) => `<span class="font-medium">${escapeHtml(request.sampleIds.length)}</span>` },
     { key: 'expectedReturnAt', title: '预计归还', width: '150px' },
-    { key: 'projectName', title: '项目/工作项', minWidth: '220px', render: (request) => `<div><div class="font-medium text-slate-900">${escapeHtml(request.projectCode)}</div><div class="mt-1 text-sm text-slate-500">${escapeHtml(request.workItemName)}</div></div>` },
+    { key: 'projectName', title: '商品项目 / 来源步骤', minWidth: '220px', render: (request) => `<div><div class="font-medium text-slate-900">${escapeHtml(request.projectCode)}</div><div class="mt-1 text-sm text-slate-500">${escapeHtml(request.sourceStepName)}</div></div>` },
     { key: 'applicant', title: '申请人', width: '100px' },
     { key: 'keeper', title: '审批/仓管', width: '120px', render: (request) => `${escapeHtml(request.approver || '-')} / ${escapeHtml(request.keeper || '-')}` },
     { key: 'updatedAt', title: '更新时间', width: '150px' },
@@ -532,7 +532,7 @@ function renderRequestDrawer(): string {
         <div class="space-y-4 px-5 py-5">
           <section class="grid gap-3 sm:grid-cols-2">
             ${renderInfoItem('项目', `${request.projectCode} · ${request.projectName}`)}
-            ${renderInfoItem('工作项', request.workItemName)}
+            ${renderInfoItem('来源步骤', request.sourceStepName)}
             ${renderInfoItem('申请人', request.applicant)}
             ${renderInfoItem('审批人/仓管', `${request.approver || '-'} / ${request.keeper || '-'}`)}
             ${renderInfoItem('预计归还', request.expectedReturnAt)}
@@ -588,7 +588,7 @@ function renderCreateRequestDrawer(): string {
 export function renderPcsSampleApplicationPage(): string {
   const requests = listPcsSampleRequests().filter((request) => {
     if (state.filters.requestStatus !== '全部' && request.status !== state.filters.requestStatus) return false
-    return matchesKeyword([request.requestCode, request.projectCode, request.projectName, request.workItemName, request.applicant], state.filters.search)
+    return matchesKeyword([request.requestCode, request.projectCode, request.projectName, request.sourceStepName, request.applicant], state.filters.search)
   })
   const stats = {
     total: listPcsSampleRequests().length,
@@ -606,7 +606,7 @@ export function renderPcsSampleApplicationPage(): string {
     ])}
     <section class="rounded-xl border bg-white px-4 py-4 shadow-sm">
       <div class="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_180px_auto]">
-        ${renderTextInput('search', state.filters.search, '申请单号/样衣编号/项目/工作项/申请人')}
+        ${renderTextInput('search', state.filters.search, '申请单号/样衣编号/商品项目/来源步骤/申请人')}
         ${renderSelect('request-status', state.filters.requestStatus, ['全部', '草稿', '待审批', '已批准待领用', '使用中', '归还中', '已完成', '已驳回', '已取消'])}
         <button type="button" class="inline-flex h-10 items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-sample-action="open-create-request">新建申请</button>
       </div>
@@ -633,7 +633,7 @@ function renderTransferTable(records: PcsSampleTransferRecord[]): string {
     { key: 'fromEntity', title: 'From → To', minWidth: '220px', render: (record) => `<span>${escapeHtml(record.fromEntity)}</span><span class="px-2 text-slate-400">→</span><span>${escapeHtml(record.toEntity)}</span>` },
     { key: 'responsibleSite', title: '责任站点', width: '120px' },
     { key: 'trackingNo', title: '运单', width: '150px', render: (record) => record.trackingNo ? `${escapeHtml(record.carrier)}<br><span class="text-xs text-slate-500">${escapeHtml(record.trackingNo)}</span>` : '<span class="text-slate-400">无</span>' },
-    { key: 'projectCode', title: '关联项目', width: '140px' },
+    { key: 'projectCode', title: '商品项目', width: '140px' },
     { key: 'operator', title: '经办人', width: '90px' },
     { key: 'riskFlags', title: '风险', width: '120px', render: (record) => record.riskFlags.length ? record.riskFlags.map(renderRiskBadge).join('') : '<span class="text-sm text-slate-400">无</span>' },
     { key: 'transferId', title: '操作', width: '90px', align: 'right', render: (record) => `<button type="button" class="inline-flex h-8 items-center rounded-md border px-3 text-xs" data-pcs-sample-action="select-transfer" data-transfer-id="${escapeHtml(record.transferId)}">查看</button>` },
@@ -654,7 +654,7 @@ function renderTransferDrawer(): string {
       ['责任站点', record.responsibleSite],
       ['运单', record.trackingNo ? `${record.carrier} ${record.trackingNo}` : '无'],
       ['经办人', record.operator],
-      ['关联项目', record.projectCode],
+      ['商品项目', record.projectCode],
       ['备注', record.remark],
     ],
     record.riskFlags,
@@ -695,7 +695,7 @@ function renderReturnCaseTable(records: PcsSampleReturnCase[]): string {
     { key: 'sampleCode', title: '样衣', minWidth: '230px', render: (record) => `<div class="flex items-center gap-3"><img src="${escapeHtml(record.sampleImageUrl)}" alt="${escapeHtml(record.sampleName)}" class="h-12 w-12 rounded-lg border object-cover" /><div><div class="font-medium text-slate-900">${escapeHtml(record.sampleCode)}</div><div class="text-sm text-slate-500">${escapeHtml(record.sampleName)}</div></div></div>` },
     { key: 'inventoryStatusSnapshot', title: '样衣状态', width: '110px', render: (record) => renderStatusBadge(record.inventoryStatusSnapshot) },
     { key: 'reasonCategory', title: '原因', width: '110px' },
-    { key: 'projectCode', title: '关联项目', width: '140px' },
+    { key: 'projectCode', title: '商品项目', width: '140px' },
     { key: 'initiatedBy', title: '发起人', width: '90px' },
     { key: 'acceptedBy', title: '受理人', width: '90px' },
     { key: 'updatedAt', title: '更新时间', width: '150px' },
@@ -727,7 +727,7 @@ function renderReturnCaseDrawer(): string {
               ${renderInfoItem('样衣', `${record.sampleCode} · ${record.sampleName}`)}
               ${renderInfoItem('样衣状态快照', record.inventoryStatusSnapshot)}
               ${renderInfoItem('原因', `${record.reasonCategory} · ${record.reasonText}`)}
-              ${renderInfoItem('关联项目', record.projectCode)}
+              ${renderInfoItem('商品项目', record.projectCode)}
               ${renderInfoItem(record.caseType === '退货' ? '退回目标' : '处置结果', record.caseType === '退货' ? `${record.returnTarget} · ${record.returnMethod}` : record.dispositionResult)}
               ${record.caseType === '退货' ? renderInfoItem('物流证据', record.trackingNo ? `${record.carrier} ${record.trackingNo}${record.logisticsEvidence ? ` · ${record.logisticsEvidence}` : ''}` : record.logisticsEvidence || '未登记') : ''}
               ${renderInfoItem('更新时间', record.updatedAt)}
@@ -780,7 +780,7 @@ function renderLedgerTable(events: PcsSampleLedgerEvent[]): string {
     { key: 'fromLocation', title: '位置/去向', minWidth: '220px', render: (event) => `${escapeHtml(event.fromLocation)}<span class="px-2 text-slate-400">→</span>${escapeHtml(event.toLocation)}` },
     { key: 'holder', title: '持有人/目的方', width: '140px' },
     { key: 'sourceDoc', title: '来源单据', width: '140px' },
-    { key: 'projectCode', title: '项目/工作项', minWidth: '180px', render: (event) => `<div class="font-medium text-slate-900">${escapeHtml(event.projectCode)}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(event.workItemName)}</div>` },
+    { key: 'projectCode', title: '商品项目 / 来源步骤', minWidth: '180px', render: (event) => `<div class="font-medium text-slate-900">${escapeHtml(event.projectCode)}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(event.sourceStepName)}</div>` },
     { key: 'operator', title: '操作人', width: '90px' },
   ]
   return renderTable(columns, events, { emptyText: '暂无样衣台账事件', hoverable: true })
@@ -800,7 +800,7 @@ function renderLedgerDrawer(): string {
       ['位置变化', `${event.fromLocation} → ${event.toLocation}`],
       ['持有人/目的方', event.holder],
       ['来源单据', event.sourceDoc],
-      ['项目/工作项', `${event.projectCode} · ${event.workItemName}`],
+      ['商品项目 / 来源步骤', `${event.projectCode} · ${event.sourceStepName}`],
       ['操作人', event.operator],
       ['备注', event.remark],
     ],
@@ -811,7 +811,7 @@ function renderLedgerDrawer(): string {
 export function renderPcsSampleLedgerPage(): string {
   const events = listPcsSampleLedgerEvents().filter((event) => {
     if (state.filters.ledgerType !== '全部' && event.eventType !== state.filters.ledgerType) return false
-    return matchesKeyword([event.sampleCode, event.sampleName, event.summary, event.sourceDoc, event.projectCode, event.workItemName, event.operator], state.filters.search)
+    return matchesKeyword([event.sampleCode, event.sampleName, event.summary, event.sourceDoc, event.projectCode, event.sourceStepName, event.operator], state.filters.search)
   })
   const body = `
     ${renderMetricCards([
@@ -919,7 +919,7 @@ function renderSampleCards(samples: PcsSampleRecord[]): string {
             <div class="flex flex-wrap gap-2">${renderStatusBadge(sample.status)}${renderAvailabilityBadge(sample.availability)}${sample.anomaly ? renderRiskBadge(sample.anomaly.type) : ''}</div>
             <div class="space-y-1 text-sm text-slate-500">
               <p>${escapeHtml(sample.responsibleSite)} · ${escapeHtml(sample.currentLocation)}</p>
-              <p>${escapeHtml(sample.projectCode)} · ${escapeHtml(sample.relatedWorkItemName)}</p>
+              <p>${escapeHtml(sample.projectCode)} · ${escapeHtml(sample.sourceStepName)}</p>
               <p>${sample.occupiedUntil ? `预计归还：${escapeHtml(sample.occupiedUntil)}` : sample.transit ? `ETA：${escapeHtml(sample.transit.eta)}` : '无待归还/在途节点'}</p>
             </div>
           </div>
@@ -935,7 +935,7 @@ export function renderPcsSampleViewPage(): string {
     <section class="rounded-xl border bg-white px-4 py-4 shadow-sm">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="grid flex-1 gap-3 lg:grid-cols-[minmax(260px,1fr)_180px_180px]">
-          ${renderTextInput('search', state.filters.search, '搜索样衣/项目/工作项/位置')}
+          ${renderTextInput('search', state.filters.search, '搜索样衣/商品项目/来源步骤/位置')}
           ${renderSelect('status', state.filters.status, ['全部', '在库可用', '预占锁定', '借出占用', '在途待签收', '维修中', '待处置', '已退货'])}
           ${renderSelect('site', state.filters.site, ['全部', '深圳样衣间', '雅加达样衣间'])}
         </div>
@@ -1002,8 +1002,8 @@ export function renderPcsSampleDetailPage(sampleId: string): string {
             ${renderInfoItem('模板类型', sample.templateType)}
             ${renderInfoItem('责任站点', sample.responsibleSite)}
             ${renderInfoItem('当前位置', `${sample.currentLocation} · ${sample.locationDetail}`)}
-            ${renderInfoItem('关联项目', `${sample.projectCode} · ${sample.projectName}`)}
-            ${renderInfoItem('工作项实例', sample.relatedWorkItemName)}
+            ${renderInfoItem('商品项目', `${sample.projectCode} · ${sample.projectName}`)}
+            ${renderInfoItem('来源步骤', sample.sourceStepName)}
             ${renderInfoItem('占用/预占', sample.occupancyType === '无' ? '无占用' : `${sample.occupiedBy} · ${sample.occupiedFor} · 至 ${sample.occupiedUntil}`)}
             ${renderInfoItem('最近更新', `${sample.updatedAt} · ${sample.updatedBy}`)}
           </div>

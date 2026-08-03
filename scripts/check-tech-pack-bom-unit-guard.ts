@@ -51,9 +51,9 @@ const {
   getTechnicalDataVersionById,
   getTechnicalDataVersionContent,
   getTechnicalDataVersionStoreSnapshot,
-  replaceTechnicalDataVersionStore,
   resetTechnicalDataVersionRepository,
 } = await import('../src/data/pcs-technical-data-version-repository.ts')
+const { installTechnicalDataVersionFixtures } = await import('./helpers/technical-data-version-fixtures.ts')
 const { buildTechPackReviewDiffSnapshot } = await import('../src/data/pcs-tech-pack-review-diff.ts')
 const {
   listTechPackVersionLogsByVersionId,
@@ -163,7 +163,7 @@ const createReviewDraft = (suffix: string, unit: string, versionNo: number) => (
 })
 const reviewMeterDraft = createReviewDraft('meter', '米', 2)
 const reviewEmptyDraft = createReviewDraft('empty', '', 3)
-replaceTechnicalDataVersionStore({
+installTechnicalDataVersionFixtures({
   version: seeded.version,
   records: [
     normalVersion.record,

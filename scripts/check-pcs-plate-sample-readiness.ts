@@ -16,6 +16,7 @@ import {
   listPlateMakingTasks,
   replacePlateMakingTaskStore,
 } from '../src/data/pcs-plate-making-repository.ts'
+import { listProjectNodes } from '../src/data/pcs-project-repository.ts'
 
 const originalPlateTasks = listPlateMakingTasks()
 const originalPatternTasks = listPatternTasks()
@@ -37,9 +38,6 @@ try {
       projectId: plateWithExistingSample.projectId,
       projectCode: plateWithExistingSample.projectCode,
       projectName: plateWithExistingSample.projectName,
-      projectNodeId: plateWithExistingSample.projectNodeId,
-      workItemTypeCode: 'FIRST_SAMPLE',
-      workItemTypeName: '首版样衣打样',
       sourceType: '制版任务',
       upstreamModule: '制版任务',
       upstreamObjectType: '制版任务',
@@ -75,8 +73,6 @@ try {
       updatedAt: '2026-04-25 09:40:00',
       updatedBy: '验收脚本',
       note: '',
-      legacyProjectRef: plateWithExistingSample.projectCode,
-      legacyUpstreamRef: plateWithExistingSample.plateTaskCode,
     },
   ])
   const existingSample = evaluatePlateFirstSampleReadiness('PT-20260407-018')
@@ -98,12 +94,19 @@ try {
     task.upstreamObjectId !== 'PT-20260407-018' &&
     task.upstreamObjectCode !== 'PT-20260407-018'
   ))
+  const projectNodesBeforeCreate = listProjectNodes(plateWithExistingSample.projectId)
   const createdResult = createFirstSampleTaskFromPlate('PT-20260407-018', '验收脚本')
   assert.equal(createdResult.ok, true)
   assert.ok(createdResult.task, createdResult.message)
+  assert.equal('projectNodeId' in createdResult.task!, false, '真实制版入口创建的首版样衣不得绑定专业项目节点')
   assert.equal(createdResult.task?.sourceType, '制版任务')
   assert.equal(createdResult.task?.upstreamObjectId, 'PT-20260407-018')
   assert.equal(createdResult.task?.sourceTechPackVersionId, 'tdv_seed_project_018_base')
+  assert.deepEqual(
+    listProjectNodes(plateWithExistingSample.projectId),
+    projectNodesBeforeCreate,
+    '真实制版入口创建首版样衣前后不得改写商品项目固定节点',
+  )
 
   const createdTask = listFirstSampleTasks().find((task) => task.upstreamObjectId === 'PT-20260407-018')
   assert.ok(createdTask, '制版完成后应创建首版样衣打样任务')

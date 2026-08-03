@@ -4548,7 +4548,11 @@ function scrapInput(
   const occupancies = buildWaitHandoverLocationOccupancyStates(listCuttingRuntimeEvents(storage))
     .filter((item) => item.bagCode === seeded.bagCode)
   assert.equal(occupancies.length, 1, '特殊工艺带袋回仓必须且只能恢复一个库位占用')
-  assert.deepEqual(occupancies[0].locationRef, specialCraftReturnLocation('COMPLETE'))
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(occupancies[0].locationRef)),
+    specialCraftReturnLocation('COMPLETE'),
+    '特殊工艺回仓必须保留实际写入的库位快照，未提供的增强字段不得改变业务事实',
+  )
 }
 
 {

@@ -71,23 +71,7 @@ import {
   listPrintMachineOptions,
   type PrintWorkOrder,
 } from '../data/fcs/printing-task-domain.ts'
-import {
-  acceptWoolWorkOrder,
-  completeWoolPickupHead,
-  confirmWoolHandoverReceipt,
-  confirmWoolPickupRecord,
-  getWoolAllowedActions,
-  getWoolWorkOrderByTaskId,
-  getWoolWorkOrderKindLabel,
-  getWoolWorkOrderStatusLabel,
-  getWoolYarnUsageSummary,
-  markWoolFeiTicketsPrinted,
-  scheduleWoolMachines,
-  submitWoolHandover,
-  updateWoolWorkOrderNodeStatus,
-  type WoolNodeStatus,
-  type WoolWorkOrder,
-} from '../data/fcs/wool-task-domain.ts'
+import { getWoolWorkOrderByTaskId } from '../data/fcs/wool-task-domain.ts'
 import {
   executeDyeWaterSolublePdaAction,
   getDyeExecutionNodeRecord,
@@ -171,6 +155,7 @@ import {
   getMobileTaskProcessType,
   getMobileTaskAccessResult,
   listPdaMobileExecutionTasks,
+  validateWoolPdaTaskAccess,
 } from '../data/fcs/process-mobile-task-binding.ts'
 import { canFactoryAccessSpecialCraftPdaTask } from '../data/fcs/special-craft-pda-scope.ts'
 import { findFactoryPdaRoleById, getPdaSession } from '../data/fcs/store-domain-pda.ts'
@@ -194,6 +179,10 @@ import {
 } from '../data/fcs/water-soluble-pda-actor.ts'
 import { renderPdaCuttingTaskDetailPage } from './pda-cutting-task-detail'
 import { renderPdaFrame } from './pda-shell'
+import {
+  handlePdaWoolExecutionEvent,
+  renderPdaWoolExecutionContent,
+} from './pda-wool-fact-execution.ts'
 
 interface PdaExecDetailState {
   activeTaskId: string
@@ -1577,216 +1566,6 @@ function renderDyeingTaskCard(
   `
 }
 
-function renderWoolTaskCard(
-  task: TaskWithHandoverFields,
-  woolOrder: WoolWorkOrder,
-  handoverOrder: PdaHandoverHead | null,
-): string {
-  const isPartPanel = woolOrder.kind === 'PART_PANEL'
-  const milestone = getTaskMilestoneState(task)
-  const allowedActions = getWoolAllowedActions(woolOrder)
-  const preStartStatus = ['WAIT_ACCEPT', 'WAIT_PICKUP', 'PICKUP_IN_PROGRESS', 'WAIT_MACHINE_SCHEDULE', 'MACHINE_SCHEDULED'].includes(woolOrder.status)
-  const showPickupSection = woolOrder.status !== 'WAIT_ACCEPT'
-  const showNodeSection = !preStartStatus
-  const showExecutionMeta = !preStartStatus
-  const showPartPanelSection = isPartPanel && ['WAIT_FEI_TICKET', 'FEI_TICKET_PRINTED', 'WAIT_HANDOVER', 'HANDOVER_SUBMITTED', 'COMPLETED'].includes(woolOrder.status)
-  const renderAllowedActionButton = (action: ReturnType<typeof getWoolAllowedActions>[number]) => `
-    <button
-      type="button"
-      class="rounded-full ${action.tone === 'primary' ? 'border-primary bg-primary px-3 py-1 text-xs text-primary-foreground' : 'border px-3 py-1 text-xs'}"
-      data-pda-execd-action="wool-workflow"
-      data-wool-workflow-action="${escapeHtml(action.code)}"
-      data-wool-order-id="${escapeHtml(woolOrder.woolOrderId)}"
-      ${action.nodeName ? `data-node-name="${escapeHtml(action.nodeName)}"` : ''}
-    >${escapeHtml(action.label)}</button>
-  `
-  const yarnDiff = woolOrder.yarnReceipt.differenceWeightKg
-  const yarnStatusTone = woolOrder.yarnReceipt.receivedWeightKg <= 0
-    ? 'warning'
-    : yarnDiff !== 0
-      ? 'danger'
-      : 'success'
-  const yarnStatusText = woolOrder.yarnReceipt.receivedWeightKg <= 0
-    ? '待领料'
-    : yarnDiff !== 0
-      ? '领料有差异'
-      : '已领料'
-  const visibleNodes = woolOrder.nodes.filter((node) =>
-    node.status !== '未开始'
-    || allowedActions.some((action) => action.nodeName === node.nodeName),
-  )
-  const nodeRows = visibleNodes
-    .map(
-      (node) => `
-        <div class="grid grid-cols-[88px_1fr] gap-2 rounded-md border px-3 py-2 text-xs">
-          <div class="font-medium">${escapeHtml(node.nodeName)}</div>
-          <div class="space-y-1">
-            <div class="flex items-center justify-between gap-2">
-              <span>${escapeHtml(node.status)}</span>
-              <span>${node.completedQty} / ${node.plannedQty} ${escapeHtml(node.unit)}</span>
-            </div>
-            <div class="text-muted-foreground">开始：${escapeHtml(node.startedAt || '—')}；完成：${escapeHtml(node.finishedAt || '—')}</div>
-            ${
-              node.machineNos?.length
-                ? `<div class="text-muted-foreground">横机：${escapeHtml(node.machineNos.join(' / '))}</div>`
-                : ''
-            }
-            ${node.remark ? `<div class="text-muted-foreground">${escapeHtml(node.remark)}</div>` : ''}
-            <div class="mt-2 flex flex-wrap gap-2">
-              ${allowedActions.filter((action) => action.nodeName === node.nodeName).map(renderAllowedActionButton).join('') || '<span class="text-muted-foreground">当前节点不可操作</span>'}
-            </div>
-          </div>
-        </div>
-      `,
-    )
-    .join('')
-  const currentActionBar = ''
-  const partPanelRows = isPartPanel
-    ? woolOrder.partPanels
-        .map(
-          (panel) => `
-            <div class="rounded-md border px-3 py-2 text-xs">
-              <div class="flex items-center justify-between gap-2">
-                <span class="font-medium">${escapeHtml(panel.partName)} / ${escapeHtml(panel.sizeCode)}</span>
-                <span>${escapeHtml(panel.feiTicketStatus)}</span>
-              </div>
-              <div class="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-muted-foreground">
-                <span>颜色：${escapeHtml(panel.colorName)}</span>
-                <span>完成：${panel.completedPieces} / ${panel.plannedPieces} 片</span>
-                <span class="col-span-2">菲票：${escapeHtml(panel.feiTicketNo || '待打印')}</span>
-              </div>
-            </div>
-          `,
-        )
-        .join('')
-    : ''
-  const processNote = isPartPanel
-    ? '部位毛织只走横机成片和菲票流转，不进入缝盘、熨烫、包装；完成后交裁床待交出仓。'
-    : `整件毛织包含缝盘、熨烫；包装${woolOrder.needsPackaging ? '按本单要求执行' : '本单暂不要求'}，完成后交后道工厂。`
-  const handoverTargetText = isPartPanel ? '裁床待交出仓' : '后道工厂'
-  const yarnUsage = getWoolYarnUsageSummary(woolOrder)
-
-  return `
-    <article class="rounded-lg border bg-card">
-      <header class="border-b px-4 py-3">
-        <div class="flex items-center justify-between gap-2">
-          <h2 class="flex items-center gap-2 text-sm font-semibold">
-            <i data-lucide="factory" class="h-4 w-4"></i>
-            毛织任务
-          </h2>
-          ${renderPrintingStatusBadge(getWoolWorkOrderStatusLabel(woolOrder.status), woolOrder.status === 'COMPLETED' ? 'success' : woolOrder.status === 'WAIT_PICKUP' || woolOrder.status === 'PICKUP_IN_PROGRESS' || woolOrder.status === 'WAIT_MACHINE_SCHEDULE' || woolOrder.status === 'MACHINE_SCHEDULED' || woolOrder.status === 'WAIT_HANDOVER' || woolOrder.status === 'HANDOVER_SUBMITTED' ? 'warning' : 'info')}
-        </div>
-      </header>
-
-      <div class="space-y-4 p-4 text-sm">
-        <div class="grid grid-cols-2 gap-x-4 gap-y-1">
-          <span class="text-xs text-muted-foreground">毛织加工单</span>
-          <span class="text-xs font-medium">${escapeHtml(woolOrder.woolOrderNo)}</span>
-          <span class="text-xs text-muted-foreground">任务类型</span>
-          <span class="text-xs font-medium">${escapeHtml(getWoolWorkOrderKindLabel(woolOrder.kind))}</span>
-          <span class="text-xs text-muted-foreground">款式</span>
-          <span class="text-xs">${escapeHtml(woolOrder.styleNo)} / ${escapeHtml(woolOrder.styleName)}</span>
-          <span class="text-xs text-muted-foreground">颜色尺码</span>
-          <span class="text-xs">${escapeHtml(woolOrder.colorName)} / ${escapeHtml(woolOrder.sizeRange)}</span>
-          <span class="text-xs text-muted-foreground">计划数量</span>
-          <span class="text-xs">${woolOrder.plannedQty} ${escapeHtml(woolOrder.qtyUnit)}</span>
-          <span class="text-xs text-muted-foreground">开工领用纱线</span>
-          <span class="text-xs font-medium">${yarnUsage.processingUsageWeightKg} kg</span>
-          <span class="text-xs text-muted-foreground">缝盘损耗纱线</span>
-          <span class="text-xs font-medium">${yarnUsage.linkingLossWeightKg} kg</span>
-          <span class="text-xs text-muted-foreground">回收入仓纱线</span>
-          <span class="text-xs font-medium">${yarnUsage.recoveredWeightKg} kg</span>
-          <span class="text-xs text-muted-foreground">已完成</span>
-          <span class="text-xs">${woolOrder.completedQty} ${escapeHtml(woolOrder.qtyUnit)}</span>
-          <span class="text-xs text-muted-foreground">交出对象</span>
-          <span class="text-xs font-medium">${escapeHtml(handoverTargetText)}</span>
-          <span class="text-xs text-muted-foreground">交出单</span>
-          <span class="text-xs">${escapeHtml(handoverOrder?.handoverOrderNo || woolOrder.handoverOrderNo || '未生成')}</span>
-          ${
-            showExecutionMeta
-              ? `
-                <span class="text-xs text-muted-foreground">开工状态</span>
-                <span class="text-xs font-medium ${task.startedAt ? 'text-green-700' : 'text-amber-700'}">${task.startedAt ? `已开工 ${escapeHtml(task.startedAt)}` : '待开工'}</span>
-                <span class="text-xs text-muted-foreground">关键节点</span>
-                <span class="text-xs font-medium ${milestone.status === 'REPORTED' ? 'text-green-700' : 'text-amber-700'}">${milestone.status === 'REPORTED' ? '已上报' : '待上报'}</span>
-              `
-              : `
-                <span class="text-xs text-muted-foreground">当前动作</span>
-                <span class="text-xs font-medium">${escapeHtml(getWoolWorkOrderStatusLabel(woolOrder.status))}</span>
-              `
-          }
-        </div>
-        ${currentActionBar}
-
-        ${
-          showPickupSection
-            ? `
-              <section class="rounded-lg border bg-background p-3">
-                <div class="flex items-center justify-between gap-2">
-                  <h3 class="text-sm font-medium">领料确认</h3>
-                  ${renderPrintingStatusBadge(yarnStatusText, yarnStatusTone)}
-                </div>
-                <div class="mt-3 grid gap-x-4 gap-y-1 text-xs sm:grid-cols-2">
-                  <div><span class="text-muted-foreground">来源：</span>染厂/面料仓送料到厂</div>
-                  <div><span class="text-muted-foreground">纱线：</span>${escapeHtml(woolOrder.yarnReceipt.yarnSku)}</div>
-                  <div><span class="text-muted-foreground">计划重量：</span>${woolOrder.yarnReceipt.plannedWeightKg} kg</div>
-                  <div><span class="text-muted-foreground">实收重量：</span>${woolOrder.yarnReceipt.receivedWeightKg} kg</div>
-                  <div><span class="text-muted-foreground">差异重量：</span>${yarnDiff} kg</div>
-                  <div><span class="text-muted-foreground">确认人：</span>${escapeHtml(woolOrder.yarnReceipt.receiverName)}</div>
-                  <div class="sm:col-span-2"><span class="text-muted-foreground">照片视频：</span>${escapeHtml(woolOrder.yarnReceipt.evidenceText || (woolOrder.yarnReceipt.receivedWeightKg > 0 ? '已按领料记录留存' : '待毛织厂上传称重照片和到货视频'))}</div>
-                </div>
-              </section>
-            `
-            : ''
-        }
-
-        ${
-          preStartStatus && woolOrder.status !== 'WAIT_ACCEPT'
-            ? `
-              <section class="rounded-lg border bg-background p-3">
-                <h3 class="text-sm font-medium">开工前信息</h3>
-                <div class="mt-3 grid gap-x-4 gap-y-1 text-xs sm:grid-cols-2">
-                  <div><span class="text-muted-foreground">横机排产：</span>${escapeHtml(woolOrder.machineScheduleId ? '已排机' : '待排机')}</div>
-                  <div><span class="text-muted-foreground">计划机台：</span>${woolOrder.plannedMachineCount} 台</div>
-                  <div><span class="text-muted-foreground">计划开始：</span>${escapeHtml(woolOrder.scheduledStartAt)}</div>
-                  <div><span class="text-muted-foreground">计划完成：</span>${escapeHtml(woolOrder.scheduledEndAt)}</div>
-                </div>
-              </section>
-            `
-            : ''
-        }
-
-        ${
-          showNodeSection
-            ? `
-              <section class="rounded-lg border bg-background p-3">
-                <div class="flex items-center justify-between gap-2">
-                  <h3 class="text-sm font-medium">当前节点</h3>
-                  <span class="text-xs text-muted-foreground">${escapeHtml(processNote)}</span>
-                </div>
-                <div class="mt-3 space-y-2">${nodeRows || '<div class="text-xs text-muted-foreground">暂无当前可操作节点。</div>'}</div>
-              </section>
-            `
-            : ''
-        }
-
-        ${
-          showPartPanelSection
-            ? `
-                <section class="rounded-lg border bg-background p-3">
-                  <div class="flex items-center justify-between gap-2">
-                    <h3 class="text-sm font-medium">部位菲票</h3>
-                    <span class="text-xs text-muted-foreground">完成后按菲票交裁床待交出仓</span>
-                  </div>
-                  <div class="mt-3 space-y-2">${partPanelRows}</div>
-                </section>
-              `
-            : ''
-        }
-      </div>
-    </article>
-  `
-}
 
 function resolveTaskQtyDisplayMeta(task: ProcessTask, displayProcessName = getTaskProcessDisplayName(task)): { label: string; valueText: string } {
   const printOrder = getPrintWorkOrderByTaskId(task.taskId)
@@ -1812,9 +1591,11 @@ function resolveTaskQtyDisplayMeta(task: ProcessTask, displayProcessName = getTa
   if (woolOrder) {
     const isPartPanel = woolOrder.kind === 'PART_PANEL'
     const label = isPartPanel ? '本单毛织部位片数（片）' : '本单毛织整件数（件）'
+    const plannedQty = woolOrder.outputPlanLines.reduce((sum, line) => sum + line.plannedQty, 0)
+    const qtyUnit = woolOrder.outputPlanLines[0]?.qtyUnit || (isPartPanel ? '片' : '件')
     return {
       label,
-      valueText: `${label}：${woolOrder.plannedQty} ${woolOrder.qtyUnit}`,
+      valueText: `${label}：${plannedQty} ${qtyUnit}`,
     }
   }
 
@@ -2256,67 +2037,6 @@ function mutateFinishTask(taskId: string, by: string): void {
   ]
 }
 
-function getWoolOrderForTask(task: ProcessTask | null | undefined): WoolWorkOrder | undefined {
-  if (!task) return undefined
-  return getWoolWorkOrderByTaskId(task.taskId)
-}
-
-function promptWoolKgValue(label: string, currentValue = 0, allowZero = true): number | null {
-  const value = window.prompt(label, String(currentValue))?.trim()
-  if (value === undefined) return null
-  const qty = Number(value.replace(/kg|公斤/g, '').trim())
-  if (!Number.isFinite(qty) || qty < 0 || (!allowZero && qty <= 0)) {
-    showPdaExecDetailToast(allowZero ? '请输入大于或等于 0 的重量' : '请输入大于 0 的重量')
-    return null
-  }
-  return Math.round(qty * 100) / 100
-}
-
-function startWoolOrderFromMobile(task: ProcessTask, startTime: string, yarnUsageWeightKg?: number): boolean {
-  const woolOrder = getWoolOrderForTask(task)
-  if (!woolOrder) return false
-  updateWoolWorkOrderNodeStatus(woolOrder.woolOrderId, '横机成片', '进行中', '工厂端操作员', startTime, { yarnUsageWeightKg })
-  return true
-}
-
-function reportWoolMilestoneFromMobile(task: ProcessTask, reportAt: string): boolean {
-  const woolOrder = getWoolOrderForTask(task)
-  if (!woolOrder) return false
-  updateWoolWorkOrderNodeStatus(woolOrder.woolOrderId, '横机成片', '进行中', '工厂端操作员', reportAt)
-  return true
-}
-
-function finishWoolOrderFromMobile(task: ProcessTask): boolean {
-  const woolOrder = getWoolOrderForTask(task)
-  if (!woolOrder) return false
-  const operatedAt = nowTimestamp()
-  if (woolOrder.kind === 'PART_PANEL') {
-    updateWoolWorkOrderNodeStatus(woolOrder.woolOrderId, '横机成片', '已完成', '工厂端操作员', operatedAt)
-    return true
-  }
-  const linkingNode = woolOrder.nodes.find((node) => node.nodeName === '缝盘')
-  const yarnLossWeightKg = linkingNode && linkingNode.status !== '已完成'
-    ? promptWoolKgValue('请输入缝盘损耗纱线数量（kg）', getWoolYarnUsageSummary(woolOrder).linkingLossWeightKg, true)
-    : undefined
-  if (yarnLossWeightKg === null) return true
-  woolOrder.nodes.forEach((node) => {
-    if (node.nodeName === '包装' && !woolOrder.needsPackaging) {
-      updateWoolWorkOrderNodeStatus(woolOrder.woolOrderId, node.nodeName, '已跳过', '工厂端操作员', operatedAt)
-      return
-    }
-    if (node.status !== '已跳过') {
-      updateWoolWorkOrderNodeStatus(
-        woolOrder.woolOrderId,
-        node.nodeName,
-        '已完成',
-        '工厂端操作员',
-        operatedAt,
-        node.nodeName === '缝盘' ? { yarnLossWeightKg } : {},
-      )
-    }
-  })
-  return true
-}
 
 function isSpecialCraftExecutionTask(task: ProcessTask, displayProcessName = getTaskProcessDisplayName(task)): boolean {
   if (getWoolWorkOrderByTaskId(task.taskId)) return false
@@ -3569,6 +3289,18 @@ export function renderPdaExecDetailPage(taskId: string): string {
   syncMilestoneOverdueExceptions()
 
   const task = getTaskFactById(taskId)
+  if (task && getMobileTaskProcessType(task) === 'WOOL') {
+    const session = getPdaSession()
+    const woolAccess = validateWoolPdaTaskAccess({
+      taskId: task.taskId,
+      currentFactoryId: session?.factoryId,
+    })
+    return renderPdaFrame(
+      renderPdaWoolExecutionContent(task.taskId, woolAccess),
+      'exec',
+      { disableTodoAutoOpen: true },
+    )
+  }
 
   const waterSolubleOrder = task ? getWaterSolubleWorkOrderByTaskId(task.taskId) : null
   if (task && waterSolubleOrder) {
@@ -3732,19 +3464,6 @@ export function renderPdaExecDetailPage(taskId: string): string {
   const handoverOrder = getTaskHandoverOrder(task as TaskWithHandoverFields)
   const printWorkOrder = getPrintWorkOrderByTaskId(task.taskId)
   const dyeWorkOrder = getDyeWorkOrderByTaskId(task.taskId)
-  const woolOrder = getWoolWorkOrderByTaskId(task.taskId)
-  const isWoolPreStart = Boolean(
-    woolOrder
-    && ['WAIT_ACCEPT', 'WAIT_PICKUP', 'PICKUP_IN_PROGRESS', 'WAIT_MACHINE_SCHEDULE', 'MACHINE_SCHEDULED'].includes(woolOrder.status),
-  )
-  const isWoolBeforeStartReady = Boolean(
-    woolOrder
-    && ['WAIT_ACCEPT', 'WAIT_PICKUP', 'PICKUP_IN_PROGRESS', 'WAIT_MACHINE_SCHEDULE'].includes(woolOrder.status),
-  )
-  const woolWorkflowOperationActions =
-    woolOrder && isWoolBeforeStartReady
-      ? getWoolAllowedActions(woolOrder)
-      : []
   const activeDetailDialog = getCurrentSearchParams().get('action')
   const isStartDialogOpen = activeDetailDialog === 'start'
   const isMilestoneDialogOpen = activeDetailDialog === 'milestone'
@@ -3907,35 +3626,10 @@ export function renderPdaExecDetailPage(taskId: string): string {
       </section>
     </div>
   `
-  const renderWoolWorkflowOperationButtons = (): string =>
-    woolOrder && woolWorkflowOperationActions.length
-      ? `
-          <div class="${woolWorkflowOperationActions.length > 1 ? 'grid grid-cols-2 gap-2' : 'space-y-2'}">
-            ${woolWorkflowOperationActions
-              .map((action) => `
-                <button
-                  type="button"
-                  class="inline-flex h-9 w-full items-center justify-center rounded-md ${
-                    action.tone === 'primary'
-                      ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                      : 'border hover:bg-muted'
-                  } text-sm font-medium"
-                  data-pda-execd-action="wool-workflow"
-                  data-wool-workflow-action="${escapeHtml(action.code)}"
-                  data-wool-order-id="${escapeHtml(woolOrder.woolOrderId)}"
-                  ${action.nodeName ? `data-node-name="${escapeHtml(action.nodeName)}"` : ''}
-                >
-                  ${escapeHtml(action.label)}
-                </button>
-              `)
-              .join('')}
-          </div>
-        `
-      : ''
   const renderDetailAuxiliaryButtons = (): string => {
     const buttons: string[] = []
 
-    if (!isWoolBeforeStartReady && status !== 'NOT_STARTED') {
+    if (status !== 'NOT_STARTED') {
       buttons.push(`
         <button
           type="button"
@@ -3948,7 +3642,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
       `)
     }
 
-    if (!isWoolPreStart && milestone.required && (status === 'IN_PROGRESS' || milestone.status === 'REPORTED')) {
+    if (milestone.required && (status === 'IN_PROGRESS' || milestone.status === 'REPORTED')) {
       buttons.push(`
         <button
           type="button"
@@ -3961,7 +3655,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
       `)
     }
 
-    if (!isWoolPreStart && (status === 'IN_PROGRESS' || status === 'BLOCKED')) {
+    if (status === 'IN_PROGRESS' || status === 'BLOCKED') {
       buttons.push(`
         <button
           type="button"
@@ -4108,7 +3802,6 @@ export function renderPdaExecDetailPage(taskId: string): string {
       ${simpleFiveStepPanel}
       ${mobileTaskAccess.canOpenMobileExecution && printWorkOrder ? renderPrintingTaskCard(task as TaskWithHandoverFields, printWorkOrder, handoverOrder) : ''}
       ${mobileTaskAccess.canOpenMobileExecution && dyeWorkOrder ? renderDyeingTaskCard(task as TaskWithHandoverFields, dyeWorkOrder, handoverOrder) : ''}
-      ${mobileTaskAccess.canOpenMobileExecution && woolOrder ? renderWoolTaskCard(task as TaskWithHandoverFields, woolOrder, handoverOrder) : ''}
       ${specialCraftExecutionPanel}
 
       ${
@@ -4285,16 +3978,11 @@ export function renderPdaExecDetailPage(taskId: string): string {
           }
           ${
             mobileTaskAccess.canOpenMobileExecution
-              ? renderWoolWorkflowOperationButtons()
-              : ''
-          }
-          ${
-            mobileTaskAccess.canOpenMobileExecution
               ? renderDetailAuxiliaryButtons()
               : ''
           }
           ${
-            mobileTaskAccess.canOpenMobileExecution && !isSpecialCraftTaskForPda && woolWorkflowOperationActions.length === 0 && status === 'NOT_STARTED'
+            mobileTaskAccess.canOpenMobileExecution && !isSpecialCraftTaskForPda && status === 'NOT_STARTED'
               ? prereq.met
                 ? `
                     <button
@@ -4503,6 +4191,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
 }
 
 export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
+  if (handlePdaWoolExecutionEvent(target)) return true
   syncWaterActionScope(getCurrentExecDetailTaskId())
   const skuFieldNode = target.closest<HTMLInputElement>('[data-pda-execd-sku-field]')
   if (skuFieldNode instanceof HTMLInputElement) {
@@ -4973,71 +4662,6 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       button.disabled = false
       button.textContent = oldText
     }
-    return true
-  }
-
-  if (action === 'wool-workflow' && actionNode.dataset.woolOrderId && actionNode.dataset.woolWorkflowAction) {
-    const orderId = actionNode.dataset.woolOrderId
-    const workflowAction = actionNode.dataset.woolWorkflowAction
-    const operatedAt = nowTimestamp()
-    const woolOrder = getWoolWorkOrderByTaskId(orderId) || getWoolOrderForTask(getTaskFactById(orderId))
-    if (workflowAction === 'ACCEPT') acceptWoolWorkOrder(orderId, '工厂端操作员', operatedAt)
-    if (workflowAction === 'CONFIRM_PICKUP') confirmWoolPickupRecord(orderId, '工厂端操作员', operatedAt)
-    if (workflowAction === 'COMPLETE_PICKUP') completeWoolPickupHead(orderId, '工厂端操作员', operatedAt)
-    if (workflowAction === 'SCHEDULE_MACHINE') scheduleWoolMachines(orderId, '工厂端排产员', operatedAt)
-    if (workflowAction === 'START_FLAT') {
-      const defaultQty = woolOrder ? getWoolYarnUsageSummary(woolOrder).processingUsageWeightKg || woolOrder.yarnReceipt.receivedWeightKg || woolOrder.yarnReceipt.plannedWeightKg : 0
-      const yarnUsageWeightKg = promptWoolKgValue('请输入本次纱线加工领用数量（kg）', defaultQty, false)
-      if (yarnUsageWeightKg === null) return true
-      updateWoolWorkOrderNodeStatus(orderId, '横机成片', '进行中', '工厂端操作员', operatedAt, { yarnUsageWeightKg })
-    }
-    if (workflowAction === 'REPORT_FLAT_MILESTONE') updateWoolWorkOrderNodeStatus(orderId, '横机成片', '进行中', '工厂端操作员', operatedAt)
-    if (workflowAction === 'COMPLETE_FLAT') updateWoolWorkOrderNodeStatus(orderId, '横机成片', '已完成', '工厂端操作员', operatedAt)
-    if (workflowAction === 'START_LINKING') updateWoolWorkOrderNodeStatus(orderId, '缝盘', '进行中', '工厂端操作员', operatedAt)
-    if (workflowAction === 'COMPLETE_LINKING') {
-      const defaultQty = woolOrder ? getWoolYarnUsageSummary(woolOrder).linkingLossWeightKg : 0
-      const yarnLossWeightKg = promptWoolKgValue('请输入缝盘损耗纱线数量（kg）', defaultQty, true)
-      if (yarnLossWeightKg === null) return true
-      updateWoolWorkOrderNodeStatus(orderId, '缝盘', '已完成', '工厂端操作员', operatedAt, { yarnLossWeightKg })
-    }
-    if (workflowAction === 'START_IRONING') updateWoolWorkOrderNodeStatus(orderId, '熨烫', '进行中', '工厂端操作员', operatedAt)
-    if (workflowAction === 'COMPLETE_IRONING') updateWoolWorkOrderNodeStatus(orderId, '熨烫', '已完成', '工厂端操作员', operatedAt)
-    if (workflowAction === 'START_PACKING') updateWoolWorkOrderNodeStatus(orderId, '包装', '进行中', '工厂端操作员', operatedAt)
-    if (workflowAction === 'COMPLETE_PACKING') updateWoolWorkOrderNodeStatus(orderId, '包装', '已完成', '工厂端操作员', operatedAt)
-    if (workflowAction === 'SKIP_PACKING') updateWoolWorkOrderNodeStatus(orderId, '包装', '已跳过', '工厂端操作员', operatedAt)
-    if (workflowAction === 'PRINT_FEI_TICKET') markWoolFeiTicketsPrinted(orderId, '工厂端操作员', operatedAt)
-    if (workflowAction === 'SUBMIT_HANDOVER') submitWoolHandover(orderId, '工厂端操作员', operatedAt)
-    if (workflowAction === 'CONFIRM_HANDOVER_RECEIPT') confirmWoolHandoverReceipt(orderId, '接收仓库', operatedAt)
-    showPdaExecDetailToast('毛织任务状态已更新，Web端同步更新')
-    return true
-  }
-
-  if (
-    (action === 'wool-node-start' || action === 'wool-node-complete' || action === 'wool-node-skip')
-    && actionNode.dataset.woolOrderId
-    && actionNode.dataset.nodeName
-  ) {
-    const nextStatus: WoolNodeStatus =
-      action === 'wool-node-start' ? '进行中' : action === 'wool-node-complete' ? '已完成' : '已跳过'
-    const woolOrder = getWoolWorkOrderByTaskId(actionNode.dataset.woolOrderId) || getWoolOrderForTask(getTaskFactById(actionNode.dataset.woolOrderId))
-    if (nextStatus === '进行中' && actionNode.dataset.nodeName === '横机成片') {
-      const defaultQty = woolOrder ? getWoolYarnUsageSummary(woolOrder).processingUsageWeightKg || woolOrder.yarnReceipt.receivedWeightKg || woolOrder.yarnReceipt.plannedWeightKg : 0
-      const yarnUsageWeightKg = promptWoolKgValue('请输入本次纱线加工领用数量（kg）', defaultQty, false)
-      if (yarnUsageWeightKg === null) return true
-      updateWoolWorkOrderNodeStatus(actionNode.dataset.woolOrderId, actionNode.dataset.nodeName, nextStatus, '工厂端操作员', nowTimestamp(), { yarnUsageWeightKg })
-      showPdaExecDetailToast(`毛织节点已更新为${nextStatus}，Web端同步更新`)
-      return true
-    }
-    if (nextStatus === '已完成' && actionNode.dataset.nodeName === '缝盘') {
-      const defaultQty = woolOrder ? getWoolYarnUsageSummary(woolOrder).linkingLossWeightKg : 0
-      const yarnLossWeightKg = promptWoolKgValue('请输入缝盘损耗纱线数量（kg）', defaultQty, true)
-      if (yarnLossWeightKg === null) return true
-      updateWoolWorkOrderNodeStatus(actionNode.dataset.woolOrderId, actionNode.dataset.nodeName, nextStatus, '工厂端操作员', nowTimestamp(), { yarnLossWeightKg })
-      showPdaExecDetailToast(`毛织节点已更新为${nextStatus}，Web端同步更新`)
-      return true
-    }
-    updateWoolWorkOrderNodeStatus(actionNode.dataset.woolOrderId, actionNode.dataset.nodeName, nextStatus, '工厂端操作员', nowTimestamp())
-    showPdaExecDetailToast(`毛织节点已更新为${nextStatus}，Web端同步更新`)
     return true
   }
 
@@ -6202,35 +5826,14 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
     }
 
     const headcount = undefined
-    const woolOrderForStart = getWoolOrderForTask(task)
-    const yarnUsageWeightKg = woolOrderForStart
-      ? promptWoolKgValue(
-          '请输入本次纱线加工领用数量（kg）',
-          getWoolYarnUsageSummary(woolOrderForStart).processingUsageWeightKg
-            || woolOrderForStart.yarnReceipt.receivedWeightKg
-            || woolOrderForStart.yarnReceipt.plannedWeightKg,
-          false,
-        )
-      : undefined
-    if (yarnUsageWeightKg === null) return true
-
-    const isWoolTask = startWoolOrderFromMobile(task, startTime, yarnUsageWeightKg)
-    if (!isWoolTask) {
-      mutateStartTask(taskId, 'PDA', {
-        startTime,
-        headcount,
-        proofFiles: detailState.startProofFiles,
-      })
-      recordDyeWorkOrderPdaStart(taskId, getPdaSession()?.userName || '现场操作员', startTime)
-    }
+    mutateStartTask(taskId, 'PDA', {
+      startTime,
+      headcount,
+      proofFiles: detailState.startProofFiles,
+    })
+    recordDyeWorkOrderPdaStart(taskId, getPdaSession()?.userName || '现场操作员', startTime)
     let startToast = '开工成功'
     try {
-      if (isWoolTask) {
-        showPdaExecDetailToast('开工成功，毛织加工单已同步 Web 端')
-        syncPdaStartRiskAndExceptions()
-        syncMilestoneOverdueExceptions()
-        return true
-      }
       if (getDyeWorkOrderByTaskId(taskId)) {
         startToast = '开工成功'
       } else {
@@ -6279,11 +5882,6 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
             ? '请至少上传 1 项关键节点视频凭证'
             : '请至少上传 1 项关键节点凭证（图片或视频任选其一）'
       showPdaExecDetailToast(proofHint)
-      return true
-    }
-
-    if (reportWoolMilestoneFromMobile(task, reportAt)) {
-      showPdaExecDetailToast('关键节点已上报，毛织加工单已同步 Web 端')
       return true
     }
 
@@ -6407,11 +6005,6 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       detailState.specialCraftScrapQty = '0'
       detailState.specialCraftDamageQty = '0'
       showPdaExecDetailToast('特殊工艺加工填报已同步，请继续发起交出或完成加工单')
-      return true
-    }
-
-    if (finishWoolOrderFromMobile(task)) {
-      showPdaExecDetailToast('完工成功，毛织加工单已同步 Web 端')
       return true
     }
 

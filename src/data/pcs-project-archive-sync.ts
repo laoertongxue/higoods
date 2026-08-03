@@ -1,12 +1,14 @@
 import {
   getProjectById,
-  getProjectNodeRecordByWorkItemTypeCode,
   updateProjectRecord,
 } from './pcs-project-repository.ts'
 import { upsertProjectRelation } from './pcs-project-relation-repository.ts'
 import type { ProjectRelationRecord } from './pcs-project-relation-types.ts'
 import { getStyleArchiveById } from './pcs-style-archive-repository.ts'
-import { updateTechnicalDataVersionRecord } from './pcs-technical-data-version-repository.ts'
+import {
+  getTechnicalDataVersionById,
+  updateTechnicalDataVersionRecord,
+} from './pcs-technical-data-version-repository.ts'
 import {
   collectProjectArchiveAutoData,
   computeProjectArchiveMissingItems,
@@ -76,14 +78,10 @@ function buildPendingItem(projectCode: string, sourceCode: string, reason: strin
 }
 
 function buildRelation(archive: ProjectArchiveRecord, operatorName: string): ProjectRelationRecord {
-  const styleNode = getProjectNodeRecordByWorkItemTypeCode(archive.projectId, 'STYLE_ARCHIVE_CREATE')
   return {
     projectRelationId: `rel_archive_${archive.projectArchiveId}`,
     projectId: archive.projectId,
     projectCode: archive.projectCode,
-    projectNodeId: styleNode?.projectNodeId || null,
-    workItemTypeCode: styleNode ? 'STYLE_ARCHIVE_CREATE' : '',
-    workItemTypeName: styleNode?.workItemTypeName || '',
     relationRole: '产出对象',
     sourceModule: '项目资料归档',
     sourceObjectType: '项目资料归档',
@@ -100,8 +98,6 @@ function buildRelation(archive: ProjectArchiveRecord, operatorName: string): Pro
     updatedAt: archive.updatedAt,
     updatedBy: operatorName,
     note: '',
-    legacyRefType: '',
-    legacyRefValue: '',
   }
 }
 
@@ -150,12 +146,11 @@ function computeArchiveSnapshot(archive: ProjectArchiveRecord): {
   const dedupedManual = dedupeManualDocuments(existingManualDocuments, existingManualFiles)
   const nextDocuments = [...collected.documents, ...dedupedManual.documents]
   const nextFiles = [...collected.files, ...dedupedManual.files]
-  const styleNodeId = getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'STYLE_ARCHIVE_CREATE')?.projectNodeId || ''
   const missingItems = computeProjectArchiveMissingItems({
     archive,
     documents: nextDocuments,
     currentTechnicalVersion: collected.currentTechnicalVersion,
-    transferNodeId: styleNodeId,
+    transferNodeId: '',
   })
   const derived = deriveProjectArchiveState({
     archive,
@@ -187,6 +182,13 @@ function markCollectedTechnicalVersions(documents: ProjectArchiveDocumentRecord[
       .map((document) => document.sourceObjectId),
   )
   versionIds.forEach((technicalVersionId) => {
+    const version = getTechnicalDataVersionById(technicalVersionId)
+    if (
+      version?.versionStatus === 'PUBLISHED'
+      && ['REVISION', 'PLATE', 'ARTWORK', 'MANUAL'].includes(version.createdFromTaskType)
+    ) {
+      return
+    }
     updateTechnicalDataVersionRecord(technicalVersionId, {
       archiveCollectedFlag: true,
       archiveCollectedAt: timestamp,
@@ -308,7 +310,7 @@ export function createProjectArchive(projectId: string, operatorName = '商品�
   return {
     ok: true,
     existed: false,
-    message: '已建立项目资料归档，已写入项目关联，已更新项目节点。',
+    message: '已建立项目资料归档，并已写入商品项目关联。',
     archive,
   }
 }
@@ -425,9 +427,9 @@ export function uploadProjectArchiveManualDocument(
       projectArchiveId,
       projectId: archive.projectId,
       projectCode: archive.projectCode,
-      projectNodeId: getProjectNodeRecordByWorkItemTypeCode(archive.projectId, 'STYLE_ARCHIVE_CREATE')?.projectNodeId || '',
-      workItemTypeCode: 'STYLE_ARCHIVE_CREATE',
-      workItemTypeName: '生成款式档案',
+      projectNodeId: '',
+      stepCode: '',
+      stepName: '',
       sourceModule: '项目资料归档',
       sourceObjectType: groupLabelMap[input.documentGroup],
       sourceObjectId: projectArchiveId,

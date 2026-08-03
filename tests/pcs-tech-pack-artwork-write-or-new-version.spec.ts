@@ -5,7 +5,6 @@ import {
 } from '../src/data/pcs-project-relation-repository.ts'
 import {
   getProjectById,
-  getProjectNodeRecordByWorkItemTypeCode,
   resetProjectRepository,
   updateProjectRecord,
 } from '../src/data/pcs-project-repository.ts'
@@ -26,8 +25,10 @@ import {
 } from '../src/data/pcs-tech-pack-version-log-repository.ts'
 import {
   getTechnicalDataVersionContent,
+  getTechnicalDataVersionById,
   listTechnicalDataVersionsByStyleId,
-  replaceTechnicalDataVersionStore,
+  resetTechnicalDataVersionRepository,
+  updateTechnicalDataVersionRecord,
 } from '../src/data/pcs-technical-data-version-repository.ts'
 import {
   resetPlateMakingTaskRepository,
@@ -40,20 +41,21 @@ import {
 } from '../src/data/pcs-pattern-task-repository.ts'
 import type { PlateMakingTaskRecord } from '../src/data/pcs-plate-making-types.ts'
 import type { PatternTaskRecord } from '../src/data/pcs-pattern-task-types.ts'
+import {
+  createEngineeringMasterOrder,
+  publishEngineeringMasterOrder,
+  resetEngineeringMasterRepository,
+} from '../src/data/pcs-engineering-master-repository.ts'
 
 function resetScenario(): void {
   resetProjectRepository()
   resetStyleArchiveRepository()
-  replaceTechnicalDataVersionStore({
-    version: 2,
-    records: [],
-    contents: [],
-    pendingItems: [],
-  })
+  resetTechnicalDataVersionRepository()
   clearProjectRelationStore()
   resetTechPackVersionLogRepository()
   resetPlateMakingTaskRepository()
   resetPatternTaskRepository()
+  resetEngineeringMasterRepository()
 }
 
 function prepareProjectAndStyle() {
@@ -98,7 +100,6 @@ function prepareProjectAndStyle() {
 
 function createPlateTask(projectId: string, styleCode: string): PlateMakingTaskRecord {
   const project = getProjectById(projectId)!
-  const plateNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PATTERN_TASK')!
   return upsertPlateMakingTask({
     plateTaskId: 'plate_task_artwork_test',
     plateTaskCode: 'PT-TEST-ART-001',
@@ -106,16 +107,18 @@ function createPlateTask(projectId: string, styleCode: string): PlateMakingTaskR
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectName: project.projectName,
-    projectNodeId: plateNode.projectNodeId,
-    workItemTypeCode: 'PATTERN_TASK',
-    workItemTypeName: '制版任务',
-    sourceType: '项目模板阶段',
+    projectNodeId: '',
+    stepCode: 'PATTERN_TASK',
+    stepName: '制版任务',
+    sourceType: '商品项目',
     upstreamModule: '商品项目',
-    upstreamObjectType: '商品项目节点',
-    upstreamObjectId: plateNode.projectNodeId,
-    upstreamObjectCode: plateNode.workItemTypeCode,
+    upstreamObjectType: '商品项目',
+    upstreamObjectId: project.projectId,
+    upstreamObjectCode: project.projectCode,
     productStyleCode: styleCode,
     spuCode: styleCode,
+    productHistoryType: '未卖过',
+    patternArea: '深圳',
     patternType: '常规制版',
     sizeRange: 'S-XL',
     patternVersion: 'P1',
@@ -126,7 +129,7 @@ function createPlateTask(projectId: string, styleCode: string): PlateMakingTaskR
     linkedTechPackUpdatedAt: '',
     acceptedAt: '2026-04-20 10:10',
     confirmedAt: '2026-04-20 10:20',
-    status: '已完成',
+    status: '已确认',
     ownerId: project.ownerId,
     ownerName: project.ownerName,
     participantNames: ['制版师'],
@@ -144,7 +147,6 @@ function createPlateTask(projectId: string, styleCode: string): PlateMakingTaskR
 
 function createPatternTask(id: string, code: string, projectId: string, styleCode: string, artworkVersion: string): PatternTaskRecord {
   const project = getProjectById(projectId)!
-  const patternNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PATTERN_ARTWORK_TASK')!
   return upsertPatternTask({
     patternTaskId: id,
     patternTaskCode: code,
@@ -152,14 +154,14 @@ function createPatternTask(id: string, code: string, projectId: string, styleCod
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectName: project.projectName,
-    projectNodeId: patternNode.projectNodeId,
-    workItemTypeCode: 'PATTERN_ARTWORK_TASK',
-    workItemTypeName: '花型任务',
-    sourceType: '项目模板阶段',
+    projectNodeId: '',
+    stepCode: 'PATTERN_ARTWORK_TASK',
+    stepName: '花型任务',
+    sourceType: '商品项目',
     upstreamModule: '商品项目',
-    upstreamObjectType: '商品项目节点',
-    upstreamObjectId: patternNode.projectNodeId,
-    upstreamObjectCode: patternNode.workItemTypeCode,
+    upstreamObjectType: '商品项目',
+    upstreamObjectId: project.projectId,
+    upstreamObjectCode: project.projectCode,
     productStyleCode: styleCode,
     spuCode: styleCode,
     artworkType: '印花',
@@ -193,10 +195,27 @@ function createPatternTask(id: string, code: string, projectId: string, styleCod
 
 resetScenario()
 const { style, project } = prepareProjectAndStyle()
-const plateTask = createPlateTask(project.projectId, style.styleCode)
+const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
+  styleId: style.styleId,
+  styleCode: style.styleCode,
+  merchandiserName: '测试跟单',
+}).masterOrderId)
+const plateTask = upsertPlateMakingTask({
+  ...createPlateTask(project.projectId, style.styleCode),
+  upstreamModule: '生产工程管理',
+  upstreamObjectType: '工程专业任务',
+  upstreamObjectId: `${master.masterOrderId}-BASE_PATTERN_WOVEN`,
+  upstreamObjectCode: `${master.masterOrderCode}-BASE_PATTERN_WOVEN`,
+})
 const plateVersion = generateTechPackVersionFromPlateTask(plateTask.plateTaskId, '测试用户').record
 
-const patternTaskOne = createPatternTask('pattern_task_write_test', 'AT-TEST-WRITE-001', project.projectId, style.styleCode, 'ART-V1')
+const patternTaskOne = upsertPatternTask({
+  ...createPatternTask('pattern_task_write_test', 'AT-TEST-WRITE-001', project.projectId, style.styleCode, 'ART-V1'),
+  upstreamModule: '生产工程管理',
+  upstreamObjectType: '工程专业任务',
+  upstreamObjectId: `${master.masterOrderId}-PATTERN_ARTWORK`,
+  upstreamObjectCode: `${master.masterOrderCode}-PATTERN_ARTWORK`,
+})
 const firstResult = generateTechPackVersionFromPatternTask(patternTaskOne.patternTaskId, '测试用户')
 assert.equal(firstResult.action, 'WRITTEN', '当前技术包没有花型时，应直接写入当前版本')
 assert.equal(firstResult.record.technicalVersionId, plateVersion.technicalVersionId, '没有花型时不得生成新版本')
@@ -206,7 +225,13 @@ assert.ok(firstContent && firstContent.patternDesigns.length > 0, '第一次花�
 assert.equal(listTechnicalDataVersionsByStyleId(style.styleId).length, 1, '第一次花型写入不应新增技术包版本')
 assert.equal(listTechPackVersionLogsByVersionId(plateVersion.technicalVersionId)[0]?.logType, '花型写入技术包', '首次花型写入必须写日志')
 
-const patternTaskTwo = createPatternTask('pattern_task_new_version_test', 'AT-TEST-NEW-002', project.projectId, style.styleCode, 'ART-V2')
+const patternTaskTwo = upsertPatternTask({
+  ...createPatternTask('pattern_task_new_version_test', 'AT-TEST-NEW-002', project.projectId, style.styleCode, 'ART-V2'),
+  upstreamModule: '生产工程管理',
+  upstreamObjectType: '工程专业任务',
+  upstreamObjectId: `${master.masterOrderId}-PATTERN_ARTWORK`,
+  upstreamObjectCode: `${master.masterOrderCode}-PATTERN_ARTWORK`,
+})
 const secondResult = generateTechPackVersionFromPatternTask(patternTaskTwo.patternTaskId, '测试用户')
 assert.equal(secondResult.action, 'CREATED', '当前技术包已有花型时，必须生成新版本')
 assert.notEqual(secondResult.record.technicalVersionId, plateVersion.technicalVersionId, '已有花型时不得覆盖原版本')
@@ -230,5 +255,64 @@ assert.equal(getStyleArchiveById(style.styleId)?.currentTechPackVersionId, '', '
 const patternTaskAfter = getPatternTaskById(patternTaskTwo.patternTaskId)
 assert.equal(patternTaskAfter?.linkedTechPackVersionId, secondResult.record.technicalVersionId, '花型任务必须回写新技术包版本')
 assert.equal(listTechPackVersionLogsByVersionId(secondResult.record.technicalVersionId)[0]?.logType, '花型生成新版本', '花型新版本必须写日志')
+
+resetScenario()
+const legacyScenario = prepareProjectAndStyle()
+const legacyMaster = publishEngineeringMasterOrder(createEngineeringMasterOrder({
+  styleId: legacyScenario.style.styleId,
+  styleCode: legacyScenario.style.styleCode,
+  merchandiserName: '测试跟单',
+}).masterOrderId)
+const legacyPlateTask = upsertPlateMakingTask({
+  ...createPlateTask(legacyScenario.project.projectId, legacyScenario.style.styleCode),
+  plateTaskId: 'plate_task_legacy_published',
+  plateTaskCode: 'PT-LEGACY-PUBLISHED-001',
+  upstreamModule: '生产工程管理',
+  upstreamObjectType: '工程专业任务',
+  upstreamObjectId: `${legacyMaster.masterOrderId}-BASE_PATTERN_WOVEN`,
+  upstreamObjectCode: `${legacyMaster.masterOrderCode}-BASE_PATTERN_WOVEN`,
+})
+const legacyVersion = generateTechPackVersionFromPlateTask(legacyPlateTask.plateTaskId, '测试用户').record
+const legacyContentBefore = getTechnicalDataVersionContent(legacyVersion.technicalVersionId)
+updateTechnicalDataVersionRecord(legacyVersion.technicalVersionId, {
+  versionStatus: 'PUBLISHED',
+})
+const legacyRecordBefore = getTechnicalDataVersionById(legacyVersion.technicalVersionId)
+assert.ok(legacyRecordBefore)
+updateStyleArchive(legacyScenario.style.styleId, {
+  currentTechPackVersionId: legacyVersion.technicalVersionId,
+  currentTechPackVersionCode: legacyVersion.technicalVersionCode,
+  currentTechPackVersionLabel: legacyVersion.versionLabel,
+  currentTechPackVersionStatus: 'PUBLISHED',
+})
+const legacyPatternTask = upsertPatternTask({
+  ...createPatternTask(
+    'pattern_task_legacy_published',
+    'AT-LEGACY-PUBLISHED-001',
+    legacyScenario.project.projectId,
+    legacyScenario.style.styleCode,
+    'ART-LEGACY-NEW',
+  ),
+  upstreamModule: '生产工程管理',
+  upstreamObjectType: '工程专业任务',
+  upstreamObjectId: `${legacyMaster.masterOrderId}-PATTERN_ARTWORK`,
+  upstreamObjectCode: `${legacyMaster.masterOrderCode}-PATTERN_ARTWORK`,
+})
+const legacyPatternResult = generateTechPackVersionFromPatternTask(legacyPatternTask.patternTaskId, '测试用户')
+assert.equal(legacyPatternResult.action, 'CREATED', '旧已发布技术包即使没有花型也只能只读，必须新建工程来源草稿')
+assert.notEqual(legacyPatternResult.record.technicalVersionId, legacyVersion.technicalVersionId, '不得原位覆盖旧已发布技术包')
+assert.equal(legacyPatternResult.record.versionStatus, 'DRAFT', '从旧已发布版本承接花型时必须建立草稿')
+assert.equal(legacyPatternResult.record.createdFromTaskType, 'ENGINEERING_MASTER', '新草稿必须记录工程主单来源')
+assert.equal(legacyPatternResult.record.sourceProjectId, legacyMaster.masterOrderId, '新草稿必须归属明确关联的工程主单')
+assert.deepEqual(
+  getTechnicalDataVersionContent(legacyVersion.technicalVersionId),
+  legacyContentBefore,
+  '旧已发布技术包内容必须保持不变',
+)
+assert.deepEqual(
+  getTechnicalDataVersionById(legacyVersion.technicalVersionId),
+  legacyRecordBefore,
+  '归档同步也不得改写旧已发布技术包记录',
+)
 
 console.log('pcs-tech-pack-artwork-write-or-new-version.spec.ts PASS')

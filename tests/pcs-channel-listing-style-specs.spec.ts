@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 
 import {
-  getProjectWorkItemContract,
-  listProjectWorkItemFieldDefinitions,
+  getProjectStepDefinition,
+  listProjectStepFieldDefinitions,
 } from '../src/data/pcs-project-domain-contract.ts'
 import {
   createProjectChannelProductFromListingNode,
@@ -22,7 +22,7 @@ resetProjectChannelProductRepository()
 resetSkuArchiveRepository()
 resetProjectImageAssets()
 
-const projectInitFieldKeys = listProjectWorkItemFieldDefinitions('PROJECT_INIT')
+const projectInitFieldKeys = listProjectStepFieldDefinitions('PROJECT_INIT')
   .map((field) => field.fieldKey)
   .join('|')
 const forbiddenSpecPlanPattern = new RegExp(['规格计划', '预期颜色', '预期尺码', '预期花型'].join('|'))
@@ -32,7 +32,7 @@ assert.doesNotMatch(projectInitFieldKeys, /plannedColor|plannedSize|plannedPrint
 const createHtml = await renderPcsProjectCreatePage()
 assert.doesNotMatch(createHtml, forbiddenSpecPlanPattern, '商品项目创建页不应出现规格计划相关字段')
 
-const listingContract = getProjectWorkItemContract('CHANNEL_PRODUCT_LISTING')
+const listingContract = getProjectStepDefinition('CHANNEL_PRODUCT_LISTING')
 const listingFieldKeys = listingContract.fieldDefinitions.map((field) => field.fieldKey)
 
 assert.ok(listingFieldKeys.includes('listingBatchCode'), '商品上架应定义上架批次编码')
@@ -43,8 +43,8 @@ assert.ok(!listingFieldKeys.includes('skuId'), '商品上架不应再以 skuId �
 assert.ok(!listingFieldKeys.includes('skuCode'), '商品上架不应再以 skuCode 作为主字段')
 assert.ok(!listingFieldKeys.includes('skuName'), '商品上架不应再以 skuName 作为主字段')
 
-const project = listProjects().find((item) => item.projectCode === 'PRJ-20251216-015')
-assert.ok(project, '应存在 PRJ-20251216-015 演示项目')
+const project = listProjects().find((item) => item.projectCode === 'PRJ-202604-004')
+assert.ok(project, '应存在 PRJ-202604-004 演示项目')
 
 const [listingImage] = createProjectImageAssetRecords(
   project!,
@@ -95,8 +95,8 @@ const createResult = createProjectChannelProductFromListingNode(
     listingMainImageId: listingImage.imageId,
     listingImageIds: [listingImage.imageId],
     specLines: [
-      { colorName: '黑色', sizeName: 'M', priceAmount: 199, currencyCode: 'IDR', stockQty: 8 },
-      { colorName: '黑色', sizeName: 'L', priceAmount: 199, currencyCode: 'IDR', stockQty: 6 },
+      { productImageId: listingImage.imageId, colorName: '黑色', sizeName: 'M', priceAmount: 199, currencyCode: 'IDR', stockQty: 8 },
+      { productImageId: listingImage.imageId, colorName: '黑色', sizeName: 'L', priceAmount: 199, currencyCode: 'IDR', stockQty: 6 },
     ],
   },
   '测试用户',

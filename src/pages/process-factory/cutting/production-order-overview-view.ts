@@ -3,6 +3,7 @@ import { escapeHtml } from '../../../utils.ts'
 import { paginateItems, renderStickyFilterShell, renderStickyTableScroller, renderWorkbenchPagination } from './layout.helpers.ts'
 import type { ProductionOrderOverviewFactoryLine } from './production-order-overview-model.ts'
 import type { ProductionOrderOverviewRow } from './production-order-overview-projection.ts'
+import { buildProductionProgressProjection } from './production-progress-projection.ts'
 
 export interface ProductionOrderOverviewFilters {
   keyword: string
@@ -139,11 +140,24 @@ const STATUS_DETAIL_TAB: Record<StatusDetailKey, string> = {
   shipping: 'handover',
 }
 
-function buildStatusDetailPath(row: ProductionOrderOverviewRow, key: StatusDetailKey): string {
-  if (row.id === row.productionOrderId) {
-    return `/fcs/production/orders/${encodeURIComponent(row.productionOrderId)}`
+let productionProgressDetailIdByOrderId: Map<string, string> | null = null
+
+function findProductionProgressDetailId(row: ProductionOrderOverviewRow): string | null {
+  if (!productionProgressDetailIdByOrderId) {
+    productionProgressDetailIdByOrderId = new Map()
+    buildProductionProgressProjection().rows.forEach((detailRow) => {
+      if (!productionProgressDetailIdByOrderId!.has(detailRow.productionOrderId)) {
+        productionProgressDetailIdByOrderId!.set(detailRow.productionOrderId, detailRow.id)
+      }
+    })
   }
-  return `/fcs/craft/cutting/production-progress-detail/${encodeURIComponent(row.id)}?tab=${STATUS_DETAIL_TAB[key]}`
+  return productionProgressDetailIdByOrderId.get(row.productionOrderId) || null
+}
+
+function buildStatusDetailPath(row: ProductionOrderOverviewRow, key: StatusDetailKey): string {
+  const detailId = findProductionProgressDetailId(row)
+  if (!detailId) return `/fcs/production/orders/${encodeURIComponent(row.productionOrderId)}`
+  return `/fcs/craft/cutting/production-progress-detail/${encodeURIComponent(detailId)}?tab=${STATUS_DETAIL_TAB[key]}`
 }
 
 function renderStatus(row: ProductionOrderOverviewRow, status: string, key: StatusDetailKey): string {
@@ -169,7 +183,7 @@ function renderStyleCell(row: ProductionOrderOverviewRow): string {
         src="${escapeHtml(row.styleImageUrl)}"
         alt="${escapeHtml(row.styleName)}"
         class="h-16 w-16 shrink-0 rounded-md border bg-muted object-cover"
-        onerror="this.onerror=null;this.src='/placeholder.svg?height=80&width=80'"
+        onerror="this.onerror=null;this.src='/tshirt-sample.jpg'"
       />
       <div class="min-w-0 space-y-1 text-xs leading-5">
         <div class="font-semibold text-foreground">${escapeHtml(row.styleName)}</div>

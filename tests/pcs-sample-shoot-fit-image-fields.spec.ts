@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 
-import { getProjectWorkItemContract } from '../src/data/pcs-project-domain-contract.ts'
+import { getProjectStepDefinition } from '../src/data/pcs-project-domain-contract.ts'
 
-const contract = getProjectWorkItemContract('SAMPLE_SHOOT_FIT')
+const contract = getProjectStepDefinition('SAMPLE_SHOOT_FIT')
 const fieldMap = new Map(contract.fieldDefinitions.map((field) => [field.fieldKey, field]))
 
 assert.equal(fieldMap.get('shootPlan')?.label, '拍摄安排')

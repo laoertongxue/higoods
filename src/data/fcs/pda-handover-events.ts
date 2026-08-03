@@ -49,10 +49,13 @@ import {
   type PdaTaskMockPickupRecordSeed,
 } from './pda-task-mock-factory.ts'
 import {
-  getWoolHandoutRecordSeedsByHeadId,
-  getWoolPickupRecordSeedsByHeadId,
-  listWoolHandoverHeadSeeds,
+  confirmWoolDownstreamReceipt,
+  getWoolHandoverEffectiveQty,
   listWoolMobileProcessTasks,
+  readWoolStore,
+  type WoolHandoverRecord,
+  type WoolOutputPlanLine,
+  type WoolWorkOrder,
 } from './wool-task-domain.ts'
 import {
   FULL_CAPABILITY_FACTORY_ID,
@@ -89,6 +92,8 @@ import {
   validateWaterSolublePdaActor,
   type WaterSolublePdaActor,
 } from './water-soluble-pda-actor.ts'
+import { getPdaSession } from './store-domain-pda.ts'
+import { getFactoryInternalWarehouseRegistryReference } from './factory-internal-warehouse-locations.ts'
 
 export type HandoverAction = 'PICKUP' | 'HANDOUT'
 export type HandoverStatus = 'PENDING' | 'CONFIRMED'
@@ -433,6 +438,8 @@ export interface PdaHandoverRecord {
   sourceTaskId?: string
   sourceType?: PdaHandoverSourceType
   sourceSnapshot?: ProcessWorkOrderSourceSnapshot
+  sourceWoolHandoverId?: string
+  sourceWarehouseOutboundFlowId?: string
   productionOrderId?: string
   productionOrderNo?: string
   stockMaterialId?: string
@@ -1329,10 +1336,260 @@ function buildGenericHandoutRecord(seed: PdaTaskMockHandoutRecordSeed): PdaHando
   }, { handoverId: seed.handoverId })
 }
 
-const PDA_GENERIC_HANDOVER_HEADS = [
-  ...listPdaGenericHandoverHeadSeeds(),
-  ...listWoolHandoverHeadSeeds(),
-].map((seed) => buildGenericMockHead(seed))
+function buildWoolFactHandoverHeadId(handoverId: string): string {
+  return `HOH-WOOL-${normalizeIdSegment(handoverId)}`
+}
+
+function buildWoolFactHandoverRecordId(handoverId: string): string {
+  return `HOR-WOOL-${normalizeIdSegment(handoverId)}`
+}
+
+function getWoolFactHandoverContext(
+  handoverId: string,
+): {
+  order: WoolWorkOrder
+  handover: WoolHandoverRecord
+  output: WoolOutputPlanLine
+  effectiveQty: number
+  completed: boolean
+} | null {
+  const store = readWoolStore()
+  const handover = store.handovers.find((item) => item.handoverId === handoverId)
+  if (!handover) return null
+  const order = store.workOrders[handover.woolOrderId]
+  const output = order?.outputPlanLines.find((item) => item.outputSkuCode === handover.outputSkuCode)
+  if (!order || !output) return null
+  return {
+    order,
+    handover,
+    output,
+    effectiveQty: getWoolHandoverEffectiveQty(store, handover),
+    completed: store.completions.some((item) => item.woolOrderId === order.woolOrderId),
+  }
+}
+
+const CUTTING_WAIT_HANDOVER_RECEIVER_ALIASES = new Set([
+  'CUTTING-WAIT-HANDOVER',
+  'WH-CUTTING-WAIT-HANDOVER',
+  'WOOL-CUTTING-WAIT-HANDOVER',
+])
+const DEFAULT_CUTTING_WAIT_HANDOVER_WAREHOUSE_ID = 'FIW-ID-F004-WAIT_HANDOVER'
+
+export function resolveWoolReceiverExecutionFactoryId(
+  receiverType: WoolHandoverRecord['receiverType'],
+  receiverId: string,
+): string | undefined {
+  const normalizedReceiverId = receiverId.trim()
+  if (!normalizedReceiverId) return undefined
+  if (receiverType === 'DOWNSTREAM_FACTORY') return normalizedReceiverId
+
+  const warehouseRegistry = getFactoryInternalWarehouseRegistryReference()
+  const isCuttingWaitHandoverWarehouse = (warehouse: (typeof warehouseRegistry)[number]): boolean =>
+    warehouse.isEnabled
+    && warehouse.warehouseKind === 'WAIT_HANDOVER'
+    && warehouse.factoryKind === 'CENTRAL_CUTTING'
+  const exactWarehouse = warehouseRegistry.find((warehouse) =>
+    isCuttingWaitHandoverWarehouse(warehouse)
+    && warehouse.warehouseId === normalizedReceiverId,
+  )
+  if (exactWarehouse) return exactWarehouse.factoryId
+  if (!CUTTING_WAIT_HANDOVER_RECEIVER_ALIASES.has(normalizedReceiverId)) return undefined
+  return warehouseRegistry.find((warehouse) =>
+    isCuttingWaitHandoverWarehouse(warehouse)
+    && warehouse.warehouseId === DEFAULT_CUTTING_WAIT_HANDOVER_WAREHOUSE_ID,
+  )?.factoryId
+}
+
+function buildWoolFactHandoverHead(
+  order: WoolWorkOrder,
+  handover: WoolHandoverRecord,
+  output: WoolOutputPlanLine,
+  effectiveQty: number,
+  completed: boolean,
+): PdaHandoverHead {
+  const handoverId = buildWoolFactHandoverHeadId(handover.handoverId)
+  const confirmed = handover.downstreamReceipt?.status === 'CONFIRMED'
+  const receivedQty = confirmed ? handover.downstreamReceipt?.actualReceivedQty ?? 0 : 0
+  const targetKind: HandoverPartyKind = handover.receiverType === 'DOWNSTREAM_FACTORY' ? 'FACTORY' : 'WAREHOUSE'
+  return {
+    handoverId,
+    handoverOrderId: handoverId,
+    handoverOrderNo: buildHandoverOrderNo(handoverId),
+    headType: 'HANDOUT',
+    qrCodeValue: buildHandoverOrderQrValue(handoverId),
+    handoverOrderQrValue: buildHandoverOrderQrValue(handoverId),
+    taskId: order.taskId,
+    sourceTaskId: order.taskId,
+    taskNo: order.taskNo,
+    sourceTaskNo: order.taskNo,
+    sourceType: 'PRODUCTION_ORDER',
+    productionOrderId: order.productionOrderId,
+    productionOrderNo: order.productionOrderNo,
+    processName: '毛织',
+    sourceFactoryName: order.factoryName,
+    sourceFactoryId: order.factoryId,
+    targetName: handover.receiverName,
+    targetKind,
+    receiverKind: targetKind === 'FACTORY' ? 'MANAGED_POST_FACTORY' : 'WAREHOUSE',
+    receiverId: handover.receiverId,
+    receiverName: handover.receiverName,
+    qtyUnit: output.qtyUnit,
+    factoryId: resolveWoolReceiverExecutionFactoryId(handover.receiverType, handover.receiverId) || '',
+    taskStatus: completed ? 'DONE' : 'IN_PROGRESS',
+    summaryStatus: confirmed ? 'WRITTEN_BACK' : 'SUBMITTED',
+    handoverOrderStatus: confirmed ? 'WRITTEN_BACK' : 'WAIT_RECEIVER_WRITEBACK',
+    recordCount: 1,
+    pendingWritebackCount: confirmed ? 0 : 1,
+    submittedQtyTotal: effectiveQty,
+    writtenBackQtyTotal: receivedQty,
+    diffQtyTotal: confirmed ? receivedQty - effectiveQty : 0,
+    objectionCount: 0,
+    lastRecordAt: handover.downstreamReceipt?.receivedAt || handover.handedOverAt,
+    plannedQty: effectiveQty,
+    completionStatus: confirmed ? 'COMPLETED' : 'OPEN',
+    completedByWarehouseAt: handover.downstreamReceipt?.receivedAt,
+    receiverClosedAt: handover.downstreamReceipt?.receivedAt,
+    qtyExpectedTotal: effectiveQty,
+    qtyActualTotal: receivedQty,
+    qtyDiffTotal: confirmed ? effectiveQty - receivedQty : effectiveQty,
+    sourceDocId: handover.handoverId,
+    sourceDocNo: handover.warehouseOutboundFlowId,
+    materialCode: output.outputSkuCode,
+    materialName: [
+      output.colorName,
+      output.sizeCode,
+      output.woolPartName,
+    ].filter(Boolean).join(' / '),
+    scopeType: 'ORDER',
+    scopeKey: order.woolOrderId,
+    scopeLabel: `${output.outputSkuCode} / ${output.colorName} / ${output.sizeCode}${output.woolPartName ? ` / ${output.woolPartName}` : ''}`,
+    executorKind: 'WAREHOUSE_WORKSHOP',
+    transitionFromPrev: 'SAME_FACTORY_CONTINUE',
+    transitionToNext: 'RETURN_TO_WAREHOUSE',
+    stageCode: 'PROD',
+    stageName: '生产阶段',
+    processBusinessCode: 'WOOL',
+    processBusinessName: '毛织',
+    taskTypeCode: order.kind === 'PART_PANEL' ? 'WOOL_PART' : 'WOOL_WHOLE',
+    taskTypeLabel: order.kind === 'PART_PANEL' ? '部位毛织任务' : '整件毛织任务',
+    assignmentGranularity: 'ORDER',
+    assignmentGranularityLabel: '整单',
+    isSpecialCraft: false,
+  }
+}
+
+function buildWoolFactHandoverRecord(
+  head: PdaHandoverHead,
+  order: WoolWorkOrder,
+  handover: WoolHandoverRecord,
+  output: WoolOutputPlanLine,
+  effectiveQty: number,
+): PdaHandoverRecord {
+  const confirmed = handover.downstreamReceipt?.status === 'CONFIRMED'
+  const actualReceivedQty = handover.downstreamReceipt?.actualReceivedQty
+  const objectType: HandoverObjectType = output.outputObjectType === 'WOOL_PANEL'
+    ? 'CUT_PIECE'
+    : 'FINISHED_GARMENT'
+  const handoutObjectType: PdaHandoutObjectType = output.outputObjectType === 'WOOL_PANEL'
+    ? 'CUT_PIECE'
+    : 'GARMENT'
+  return hydrateHandoverRecordDomain({
+    recordId: buildWoolFactHandoverRecordId(handover.handoverId),
+    handoverRecordId: handover.handoverId,
+    handoverRecordNo: buildHandoverRecordNo(handover.handoverId),
+    handoverId: head.handoverId,
+    handoverOrderId: head.handoverOrderId,
+    taskId: order.taskId,
+    sourceTaskId: order.taskId,
+    sourceType: 'PRODUCTION_ORDER',
+    sourceWoolHandoverId: handover.handoverId,
+    sourceWarehouseOutboundFlowId: handover.warehouseOutboundFlowId,
+    productionOrderId: order.productionOrderId,
+    productionOrderNo: order.productionOrderNo,
+    sequenceNo: 1,
+    handoutObjectType,
+    objectType,
+    handoutItemLabel: [
+      output.outputSkuCode,
+      output.colorName,
+      output.sizeCode,
+      output.woolPartName,
+    ].filter(Boolean).join(' / '),
+    materialCode: output.outputSkuCode,
+    materialName: output.outputObjectType === 'WOOL_PANEL' ? '毛织裁片' : '毛织成衣',
+    skuCode: output.outputSkuCode,
+    skuColor: output.colorName,
+    skuSize: output.sizeCode,
+    pieceName: output.woolPartName,
+    recordLines: [{
+      lineId: `LINE-${buildWoolFactHandoverRecordId(handover.handoverId)}`,
+      handoverRecordId: handover.handoverId,
+      objectType,
+      garmentSkuId: output.garmentSkuCode,
+      garmentSkuCode: output.outputSkuCode,
+      garmentColor: output.colorName,
+      sizeCode: output.sizeCode,
+      partCode: output.woolPartCode,
+      partName: output.woolPartName,
+      submittedQty: effectiveQty,
+      receiverWrittenQty: actualReceivedQty,
+      qtyUnit: output.qtyUnit,
+    }],
+    plannedQty: effectiveQty,
+    submittedQty: effectiveQty,
+    qtyUnit: output.qtyUnit,
+    factorySubmittedAt: handover.handedOverAt,
+    factorySubmittedBy: handover.handedOverBy,
+    factorySubmittedByKind: 'FACTORY',
+    factoryRemark: handover.remark,
+    factoryProofFiles: [],
+    status: confirmed ? 'WRITTEN_BACK' : 'PENDING_WRITEBACK',
+    handoverRecordStatus: confirmed
+      ? actualReceivedQty === effectiveQty ? 'WRITTEN_BACK_MATCHED' : 'WRITTEN_BACK_DIFF'
+      : 'SUBMITTED_WAIT_WRITEBACK',
+    lifecycleUpdatedAt: handover.downstreamReceipt?.receivedAt || handover.updatedAt,
+    handoverRecordQrValue: buildHandoverRecordQrValue(handover.handoverId),
+    warehouseReturnNo: handover.warehouseOutboundFlowId,
+    warehouseWrittenQty: actualReceivedQty,
+    warehouseWrittenAt: handover.downstreamReceipt?.receivedAt,
+    receiverWrittenQty: actualReceivedQty,
+    receiverWrittenAt: handover.downstreamReceipt?.receivedAt,
+    receiverWrittenBy: handover.downstreamReceipt?.receivedBy,
+    diffQty: confirmed ? (actualReceivedQty ?? 0) - effectiveQty : undefined,
+  }, head)
+}
+
+function listWoolFactHandoverHeads(): PdaHandoverHead[] {
+  const store = readWoolStore()
+  return store.handovers.flatMap((handover): PdaHandoverHead[] => {
+    const order = store.workOrders[handover.woolOrderId]
+    const output = order?.outputPlanLines.find((item) => item.outputSkuCode === handover.outputSkuCode)
+    if (!order || !output) return []
+    return [buildWoolFactHandoverHead(
+      order,
+      handover,
+      output,
+      getWoolHandoverEffectiveQty(store, handover),
+      store.completions.some((item) => item.woolOrderId === order.woolOrderId),
+    )]
+  })
+}
+
+function getWoolFactHandoverRecordForHead(head: PdaHandoverHead): PdaHandoverRecord | null {
+  if (head.processBusinessCode !== 'WOOL' || !head.sourceDocId) return null
+  const context = getWoolFactHandoverContext(head.sourceDocId)
+  if (!context) return null
+  return buildWoolFactHandoverRecord(
+    head,
+    context.order,
+    context.handover,
+    context.output,
+    context.effectiveQty,
+  )
+}
+
+const PDA_GENERIC_HANDOVER_HEADS = listPdaGenericHandoverHeadSeeds()
+  .map((seed) => buildGenericMockHead(seed))
 const PDA_GENERIC_PICKUP_RECORDS = Object.fromEntries(
   PDA_GENERIC_HANDOVER_HEADS
     .filter((head) => head.headType === 'PICKUP')
@@ -1340,10 +1597,8 @@ const PDA_GENERIC_PICKUP_RECORDS = Object.fromEntries(
       (head) =>
         [
           head.handoverId,
-          [
-            ...getPdaGenericPickupRecordSeedsByHeadId(head.handoverId),
-            ...getWoolPickupRecordSeedsByHeadId(head.handoverId),
-          ].map((seed) => buildGenericPickupRecord(seed)),
+          getPdaGenericPickupRecordSeedsByHeadId(head.handoverId)
+            .map((seed) => buildGenericPickupRecord(seed)),
         ] as const,
     ),
 )
@@ -1354,10 +1609,8 @@ const PDA_GENERIC_HANDOUT_RECORDS = Object.fromEntries(
       (head) =>
         [
           head.handoverId,
-          [
-            ...getPdaGenericHandoutRecordSeedsByHeadId(head.handoverId),
-            ...getWoolHandoutRecordSeedsByHeadId(head.handoverId),
-          ].map((seed) => buildGenericHandoutRecord(seed)),
+          getPdaGenericHandoutRecordSeedsByHeadId(head.handoverId)
+            .map((seed) => buildGenericHandoutRecord(seed)),
         ] as const,
     ),
 )
@@ -3487,6 +3740,8 @@ function getPickupRecordsForHeadInternal(head: PdaHandoverHead): PdaPickupRecord
 }
 
 function getHandoutRecordsForHeadInternal(head: PdaHandoverHead): PdaHandoverRecord[] {
+  const woolFactRecord = getWoolFactHandoverRecordForHead(head)
+  if (woolFactRecord) return [cloneRecord(woolFactRecord)]
   const mockRecords = PDA_MOCK_HANDOUT_RECORDS[head.handoverId]?.map(cloneRecord) ?? []
   const taskBoardSeedRecords = buildTaskBoardHandoutRecordSeeds(head)
   const doc = head.sourceDocId ? (getWarehouseExecutionDocById(head.sourceDocId) as WarehouseReturnOrder | null) : null
@@ -3687,7 +3942,15 @@ function buildHeadsInternal(): PdaHandoverHead[] {
   if (!cachedBuiltHeads) {
     cachedBuiltHeads = recomputeHeadsInternal()
   }
-  return cachedBuiltHeads
+  return [
+    ...cachedBuiltHeads.filter((head) => head.processBusinessCode !== 'WOOL'),
+    ...listWoolFactHandoverHeads(),
+  ]
+}
+
+export function canPdaFactoryAccessHandoverHead(head: PdaHandoverHead, factoryId: string): boolean {
+  if (head.processBusinessCode !== 'WOOL') return head.factoryId === factoryId
+  return head.factoryId === factoryId
 }
 
 function recomputePostFinishingHeadsInternal(): PdaHandoverHead[] {
@@ -3719,7 +3982,7 @@ function buildPostFinishingHeadsInternal(): PdaHandoverHead[] {
 
 function listHeadsSorted(factoryId?: string): PdaHandoverHead[] {
   return buildHeadsInternal()
-    .filter((head) => !factoryId || head.factoryId === factoryId)
+    .filter((head) => !factoryId || canPdaFactoryAccessHandoverHead(head, factoryId))
     .sort((a, b) => {
       const bTime = parseDateMs(b.lastRecordAt || b.completedByWarehouseAt || '')
       const aTime = parseDateMs(a.lastRecordAt || a.completedByWarehouseAt || '')
@@ -4187,6 +4450,9 @@ export function canCompletePdaHandoutHead(handoverId: string): { ok: boolean; me
   const basisQty = getHandoutHeadCompletionBasisQty(handoverId)
   const effectiveQty = getHandoutHeadEffectiveCompletedQty(handoverId)
   if (!head) return { ok: false, message: '未找到交出单', basisQty, effectiveQty }
+  if (head.processBusinessCode === 'WOOL') {
+    return { ok: false, message: '毛织交出由加工单事实管理，不支持完成通用交出单', basisQty, effectiveQty }
+  }
   if (head.completionStatus === 'COMPLETED') return { ok: false, message: '该交出单已完成', basisQty, effectiveQty }
   const records = getPdaHandoverRecordsByHead(handoverId)
   if (records.length === 0) return { ok: false, message: '暂无交出记录，无法完成交出单', basisQty, effectiveQty }
@@ -4479,6 +4745,9 @@ export function createFactoryHandoverRecord(input: {
   const head = getHandoverOrderById(input.handoverOrderId)
   if (!head || head.headType !== 'HANDOUT') {
     throw new Error(`未找到交出单：${input.handoverOrderId}`)
+  }
+  if (head.processBusinessCode === 'WOOL') {
+    throw new Error('毛织交出记录由加工单发起交出事实生成，不允许新增通用交出记录')
   }
   if (head.completionStatus === 'COMPLETED') {
     throw new Error('交出单已完成，不允许新增交出记录')
@@ -4796,6 +5065,47 @@ export function writeBackHandoverRecord(input: {
   const factorySubmittedAtMs = parseStrictOperationDateTimeMs(current.factorySubmittedAt)
   if (factorySubmittedAtMs !== null && receiverWrittenAtMs < factorySubmittedAtMs) {
     throw new Error('实收时间不能早于交出时间')
+  }
+  if (current.sourceWoolHandoverId) {
+    const contextBeforeWrite = getWoolFactHandoverContext(current.sourceWoolHandoverId)
+    const currentPdaSession = getPdaSession()
+    if (!contextBeforeWrite) {
+      throw new Error(`未找到毛织交出事实：${current.sourceWoolHandoverId}`)
+    }
+    const receiverExecutionFactoryId = resolveWoolReceiverExecutionFactoryId(
+      contextBeforeWrite.handover.receiverType,
+      contextBeforeWrite.handover.receiverId,
+    )
+    if (!receiverExecutionFactoryId) {
+      throw new Error('该毛织交出接收方没有可用的 PDA 执行作用域')
+    }
+    if (!currentPdaSession || currentPdaSession.factoryId !== receiverExecutionFactoryId) {
+      throw new Error('该毛织交出不属于当前登录工厂，不能确认接收')
+    }
+    const updatedSource = confirmWoolDownstreamReceipt(current.sourceWoolHandoverId, {
+      commandId: `PDA-WOOL-RECEIVE-${current.sourceWoolHandoverId}`,
+      actualReceivedQty: input.receiverWrittenQty,
+      receivedAt: input.receiverWrittenAt,
+      receivedBy: input.receiverWrittenBy,
+    })
+    const context = getWoolFactHandoverContext(updatedSource.handoverId)
+    if (!context) {
+      throw new Error(`未找到毛织交出事实：${updatedSource.handoverId}`)
+    }
+    const updatedHead = buildWoolFactHandoverHead(
+      context.order,
+      context.handover,
+      context.output,
+      context.effectiveQty,
+      context.completed,
+    )
+    return cloneRecord(buildWoolFactHandoverRecord(
+      updatedHead,
+      context.order,
+      context.handover,
+      context.output,
+      context.effectiveQty,
+    ))
   }
   const head = findPdaHandoverHead(current.handoverId)
   if (!head) {

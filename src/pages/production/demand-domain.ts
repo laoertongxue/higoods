@@ -1206,7 +1206,7 @@ export function applyCreatedProductionOrderGroups(created: CreatedProductionOrde
       orderIdByDemandId.set(demand.demandId, item.order.productionOrderId)
     }
   }
-  state.orders = [...state.orders, ...created.map((item) => item.order)]
+  state.orders.push(...created.map((item) => item.order))
   state.demands = state.demands.map((demand) => {
     const productionOrderId = orderIdByDemandId.get(demand.demandId)
     if (!productionOrderId) return demand

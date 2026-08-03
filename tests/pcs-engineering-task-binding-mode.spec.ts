@@ -34,7 +34,7 @@ assert.equal(standalonePlate.ok, true, '独立制版任务应允许仅关联正�
 if (standalonePlate.ok) {
   assert.equal(standalonePlate.task.projectId, '', '独立制版任务不应强制关联商品项目')
   assert.equal(standalonePlate.task.styleId, style.styleId, '独立制版任务应写入正式款式档案')
-  assert.equal(standalonePlate.relation, null, '独立制版任务不应写项目关系')
+  assert.equal(standalonePlate.relation ?? null, null, '独立制版任务不应写项目关系')
 }
 
 const standalonePattern = createPatternTask({
@@ -58,7 +58,7 @@ assert.equal(standalonePattern.ok, true, '独立花型任务应允许仅关联�
 if (standalonePattern.ok) {
   assert.equal(standalonePattern.task.projectId, '', '独立花型任务不应强制关联商品项目')
   assert.equal(standalonePattern.task.styleId, style.styleId, '独立花型任务应写入正式款式档案')
-  assert.equal(standalonePattern.relation, null, '独立花型任务不应写项目关系')
+  assert.equal(standalonePattern.relation ?? null, null, '独立花型任务不应写项目关系')
 }
 
 const noStylePlate = createPlateMakingTask({

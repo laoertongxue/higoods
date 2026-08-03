@@ -3,10 +3,7 @@ export type ProjectManagementAcceptanceTask =
   | { kind: 'node-spec'; label: string; file: string }
 
 export const PCS_PROJECT_MANAGEMENT_READINESS_TASKS: ProjectManagementAcceptanceTask[] = [
-  { kind: 'npm-script', label: '工作项库只读化检查', command: 'check:pcs-work-item-library-readonly' },
-  { kind: 'npm-script', label: '工作项库元数据检查', command: 'check:pcs-work-item-library-meta' },
   { kind: 'npm-script', label: '商品项目领域契约检查', command: 'check:pcs-project-domain-contract' },
-  { kind: 'npm-script', label: '模板与项目入口契约检查', command: 'check:pcs-template-project-entry-contract' },
   { kind: 'npm-script', label: '节点默认布局检查', command: 'check:pcs-project-node-default-layout' },
   { kind: 'npm-script', label: '技术包关系检查', command: 'check:pcs-technical-version-relations' },
   { kind: 'npm-script', label: '逐节点覆盖检查', command: 'check:pcs-project-node-instance-coverage' },

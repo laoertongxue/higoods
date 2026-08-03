@@ -56,8 +56,8 @@ export interface ProjectArchiveDocumentRecord {
   projectId: string
   projectCode: string
   projectNodeId: string
-  workItemTypeCode: string
-  workItemTypeName: string
+  stepCode: string
+  stepName: string
   sourceModule: string
   sourceObjectType: string
   sourceObjectId: string
@@ -109,8 +109,8 @@ export interface ProjectArchiveMissingItemRecord {
   itemName: string
   requiredFlag: boolean
   projectNodeId: string
-  workItemTypeCode: string
-  workItemTypeName: string
+  stepCode: string
+  stepName: string
   reasonType: string
   reasonText: string
   status: string

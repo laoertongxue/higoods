@@ -105,7 +105,7 @@ export function listProjectStyleArchiveCandidateImageViewModels(
         return record.usageScopes.includes('款式档案') && record.imageStatus === '可用于款式档案'
       }
       if (record.imageType === '项目参考图') return true
-      if (record.sourceNodeCode === 'STYLE_ARCHIVE_CREATE' || record.imageType === '款式档案图') return true
+      if (record.sourceNodeCode === 'PROJECT_INIT' || record.imageType === '款式档案图') return true
       return record.usageScopes.includes('款式档案')
     })
     .map(toImageViewModel)

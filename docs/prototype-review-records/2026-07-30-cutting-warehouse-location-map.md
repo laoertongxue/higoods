@@ -1,147 +1,100 @@
-# 裁床待加工仓与待交出仓库位图原型审查记录
+# 裁床仓库层级库位图原型审查记录
 
-## 1. 基本信息
+## 审查范围
 
-| 项目 | 内容 |
-| --- | --- |
-| 审查日期 | 2026-07-30 |
-| 相关需求 / 任务 | 裁床待加工仓、待交出仓库位可视化、稳定编排及 PFOS/PDA 选位闭环 |
-| 涉及系统 | PFOS、PDA |
-| 端类型 | 管理查看端、现场执行端 |
-| 主要角色 | 裁床主管、仓库主管、办公室文员、待加工仓仓管、待交出仓工人 |
-| 管理端路径 | `/fcs/craft/cutting/warehouse-management/wait-process?tab=locations`、`/fcs/craft/cutting/warehouse-management/wait-handover?tab=locations` |
-| 现场端路径 | `/fcs/pda/warehouse/wait-process?scope=cutting&view=pickup`、`/fcs/pda/cutting/inbound/:taskId?action=inbound-location`、`/fcs/pda/cutting/handover/:taskId?action=special-craft-return` |
-| 主要任务 | 查看空闲/占用、查看占用对象、编排库区/货架/库位、连续多选存放范围、中转袋与特殊工艺回仓单选入仓 |
+- 页面：PFOS 裁床待加工仓、待交出仓库位图，以及对应 PDA 入仓、回仓、领料执行页。
+- 角色：PFOS 裁床主管／文员维护结构并查看占用；PDA 裁床仓管员只扫码、选位、取消、清空和确认。
+- 仓库边界：`WAIT_PROCESS` 与 `WAIT_HANDOVER` 分别保存布局、投影占用和释放事实，不共享库存身份。
 
-## 2. 参考规范
+## 当前业务结论
+
+- 结构固定为“仓库 → 库区 → 货架 → 库位”。库位完整编号按 `库区-R货架-L层-P层内位置` 生成；层按降序展示，层内位置按升序展示。
+- 普通查看模式只有“维护库位图”一个管理入口。进入维护模式后，新增库区和新增货架动作就近展示；没有查看模式直接新增库区／库位入口。
+- 库位业务状态仅为“空闲／占用”。库区、货架、库位停用是仓库主数据可用性，不是第三种库存状态。
+- 入仓允许跨库区、跨货架、跨层自由多选，可任意取消、清空或扫码追加，不要求相邻、连续，也没有固定数量上限。
+- 确认前必须用最新投影整组复核。任一位置不存在、跨仓、停用或已占用时，整次失败并列出完整编号，不写入部分成功事实。
+- 同一物料批次或中转袋占多个格时，每格都显示占用；生产单摘要按稳定 footprint 去重，袋、菲票、卷数和数量只汇总一次。
+- 中转袋整袋交出、特殊工艺整袋交出、加工领料或数量归零时，一次释放该对象当前完整 footprint。
+- 当前 Mock 与本地布局直接采用层级结构和 `warehouseLocations` 完整数组，不迁移旧布局／旧 Mock，不保留旧布局别名。历史单库位运行事件只作事实读取兼容，不由新动作双写。
+
+## 现场端与性能自查
+
+| 检查项 | 结论 | 证据 |
+| --- | --- | --- |
+| Web 角色边界 | 通过 | 查看模式单一维护入口；维护动作不出现在 PDA。 |
+| PDA 动作优先 | 通过 | 首屏突出扫码、选位、已选摘要和唯一确认动作。 |
+| 多选与原子防错 | 通过 | WAIT_PROCESS、WAIT_HANDOVER、PDA 入仓和特殊工艺均使用完整选择数组及最新投影复核。 |
+| 状态与数量 | 通过 | 空闲／占用与主数据启停分离；多格数量按 footprint 一次汇总。 |
+| 局部响应 | 通过 | 维护入口、预览、保存首次反馈、占用抽屉和首次选位 DOM 反馈均断言小于 200ms。 |
+| 局部刷新与滚动 | 通过 | 首次选位保留页面壳身份和非零页面滚动位置；只替换地图根；连续选位后用户主动滚动不被延迟回调拉回。 |
+| 分辨率 | 通过 | 1366×768、1280×720、1024×768、390×844 无页面级横向溢出；宽货架在内部横向滚动。 |
+| 中文化 | 通过 | 页面不展示英文状态码、稳定 ID、投影或迁移提示。 |
+
+## 浏览器验收覆盖
+
+- 1366×768 的真实 WAIT_PROCESS 页面在同一场景硬断言层 `L` 降序、位置 `P` 升序、完整编码、占用抽屉、维护新增库区／货架和无页面级横向溢出。
+- WAIT_PROCESS 真实 `warehouseAction=claim` 页面与生产 handler 完成跨区／架／层三选；并发追加真实占用后确认整组阻断，提示冲突完整编号，事件账只增加并发事实、不增加提交事实。
+- 1366×768 的 WAIT_HANDOVER 验收以生产事件账写入“生产分配／分拣确认”历史夹具（当前 Task 9 页面没有该确认 UI），页面候选和最终整袋交出均走真实生产 render／handler；严格选择声明的源使用周期与精确菲票集合，缺少源周期字段时才回退确认前最新严格集合。验收先完成三格迁移与释放，再以真实 L1／L2 验证同袋同票 C1／C2：显式确认 C1 后仅 TARGET／TC 占用 L1，SOURCE／C2 保持 L2，目标快照、页面占用和交出候选一致。
+- PDA 浏览器实证：真实生产 render／handler 覆盖跨库区、货架、层自由多选、任意取消与清空；特殊工艺回仓缺失扫码中文阻断；多候选“本次领料批次”默认不预选、未选阻断、选择后进入真实领料草稿。
+- 1280×720：宽货架页面无横向溢出、货架容器可横向滚动、维护入口可见可用。
+
+## 专业检查证据
+
+- `check:pda-cutting-inbound-workflow` 覆盖 PDA 正常扫码、缺失／停用／占用／跨仓阻断与选择数组不被异常扫码污染；这些属于专业脚本证据，不表述为浏览器逐项覆盖。
+- `check:cutting-special-craft-dispatch-return` 覆盖特殊工艺交出／回仓业务事实与数量边界。
+- `check:pda-cutting-transfer-bag-handover`、`check:cutting-wait-handover-transfer-bag-flow` 和 `check:web-cutting-transfer-bag-actions` 覆盖整袋交出、事件事实与 Web／PDA 共用边界。
+
+## 治理与例外
+
+- 依赖固定审计要求：0 个已知漏洞。
+- 正式浏览器命令使用独立开发服务器和 `workers=1`；最后一次完整复跑为 19/19 通过、退出码 0、总用时 16.7 分钟。
+- 必跑：完整 E2E、库位图专项、PDA 入仓／交出／特殊工艺专项、Web 流转专项、原型治理、列表治理、生产构建、CodeGraph 同步。
+- 产品设计例外：无。浏览器验收中的分拣确认是生产事件账历史夹具，不冒充 UI 操作；最终交出使用真实页面 handler。原型仍不模拟真实后端、跨设备数据库锁或正式角色鉴权。
+
+## 9. 2026-08-01 分层投影与自由多选审查
+
+- 当前分层投影按 L 降序、P 升序展示完整编号。
+- 入仓可跨库区、货架、层自由多选，支持任意顺序取消，不设置数量上限；确认时以最新投影整组复核。
+
+## 2. 规范依据
 
 - `docs/higood-indonesia-factory-product-design-guidelines.md`
 - `docs/higood-indonesia-factory-prototype-review-checklist.md`
-- `docs/superpowers/specs/2026-07-30-cutting-warehouse-location-map-design.md`
-- `docs/superpowers/plans/2026-07-30-cutting-warehouse-location-map-implementation-plan.md`
-- `docs/superpowers/reviews/2026-07-30-cutting-warehouse-location-map-implementation-audit.md`
 
 ## 3. 自查结论
 
-### 角色、设备与协作审查
+| 结论 | 说明 |
+| --- | --- |
+| 通过 | 角色、端类型、协作、页面模式、中文文案、状态、数量、防错、异常、局部响应和双分辨率要求均已覆盖。 |
 
-| 检查项 | 结论 | 说明 |
-| --- | --- | --- |
-| 角色匹配 | 通过 | PFOS 供主管、文员查看和编排；PDA 供现场仓管执行扫码、选位和确认。 |
-| 设备匹配 | 通过 | 固定电脑/iPad 承载完整库位图；PDA 承载高频单步扫码和选位；无需现场手写后二次录入。 |
-| 当前工厂 | 通过 | PFOS 明示并可切换当前裁床工厂；PDA 使用登录运行时 `factoryId`，不让一线重复选择。 |
-| 协作事实 | 通过 | PFOS 与 PDA 都写入裁床运行时事件账；库位图从共同库存和事件事实投影，不建立手工占用台账。 |
-| 业务动作边界 | 通过 | 菲票装袋、中转袋入仓、交出装袋确认、最终交出、特殊工艺交出和回仓保持为不同动作。 |
+## 6. 最终结论
 
-### 信息架构与页面模式审查
-
-| 检查项 | 结论 | 说明 |
-| --- | --- | --- |
-| 物理层级 | 通过 | 只使用“仓库—库区—货架—库位”，没有“库位组”。现场的一组物理区域由“库区”承接。 |
-| 路由与工作台 | 通过 | 保留原路由、页签和单页弹窗工作台，只把“库区库位”页签改为“库位图”。 |
-| 两态表达 | 通过 | 日常图只有“空闲、占用”；选中是临时效果，停用是主数据属性，不形成第三业务状态。 |
-| 空间关系 | 通过 | 库区按卡片排列，货架纵向排列，库位按保存顺序单行排列；仅货架行允许横向滚动。 |
-| 信息负荷 | 通过 | 格内只显示编号、状态及生产单/物料或袋摘要；完整字段进入占用详情。 |
-| 列表治理 | 通过 | 库位图是空间分组视图，不声明标准列表页；占用详情和未定位清单按 10 条分页。 |
-
-### 业务规则与防错审查
-
-| 检查项 | 结论 | 说明 |
-| --- | --- | --- |
-| 稳定身份 | 通过 | 顺序和占用关联稳定 ID；库区、货架、库位编号/名称可改，但不改变身份、位置或相邻关系。 |
-| 编排隔离 | 通过 | 编排按 `factoryId + warehouseKind` 隔离，有版本校验、损坏回退、变更记录和新节点提示。 |
-| 历史迁移 | 通过 | 依次按稳定 ID、完整当前路径、唯一当前编号、历史改号匹配；结果区分已匹配、待确认、无法匹配。 |
-| 连续多选 | 通过 | 待加工仓只允许同仓、同库区、同货架、按布局顺序连续的空闲库位；编号不参与相邻判断。 |
-| 选位交互 | 通过 | 支持端点扩展/缩短、中间断开阻断、清空重选、范围摘要；无效格禁用但仍显示原业务状态。 |
-| 多库位数量 | 通过 | 一批物料只保存一次总量和一个 `storageFootprint`，多个格只引用同一范围，不重复累计。 |
-| 部分领出 | 通过 | 有余量时默认保留原范围；“调整剩余存放范围”只写位置调整事实；余量为零释放全部范围。 |
-| 待交出生命周期 | 通过 | 装袋不占位、入仓才占位、换袋继承位置不双算、最终交出释放、特殊工艺部分交出按量扣减、回仓在新位置恢复。 |
-| 并发重校验 | 通过 | 确认前读取最新投影；冲突列出具体库位并保留仍有效的连续选择；不部分写入。 |
-| 写入顺序 | 通过 | 共享运行时事件先成功，本地 PDA 状态后更新；失败保留袋码、菲票和库位选择。 |
-| 幂等 | 通过 | 领料存放、中转袋入仓、装袋确认、最终交出、特殊工艺交出/回仓均有稳定幂等身份。 |
-| 二维码异常 | 通过 | 不存在、歧义、停用、未编排、非当前工厂和已占用分别阻断；袋码不作为物理库位。 |
-
-### 文案、UI、性能与适配审查
-
-| 检查项 | 结论 | 说明 |
-| --- | --- | --- |
-| 中文业务文案 | 通过 | 页面不显示英文状态码；错误提示说明具体对象和下一步。 |
-| 状态可辨识 | 通过 | 文字、边框、颜色和选中勾选共同表达，不只依赖颜色。 |
-| 触控与键盘 | 通过 | 库位按钮至少 44×44 像素；原生按钮支持 Enter/Space。 |
-| 局部刷新 | 通过 | 库位点击、编排和弹窗内选位只替换工具条、库位图根或弹窗地图，不重绘整页。 |
-| 响应时间 | 通过 | Playwright 对编排入口实测小于 200ms；局部操作不丢失所在页面和工作台。 |
-| Web 分辨率 | 通过 | 1366×768、1280×720、1024×768 均无页面级横向溢出。 |
-| PDA 小屏 | 通过 | 390×844 下库位图、字段和主动作无横向溢出。 |
-| 已知性能观察 | 非阻断观察 | 本仓库生产构建的全局 `app-shell` 体积较大，冷启动在当前验收环境明显偏慢；本任务未扩展到全局代码拆分，局部按钮响应仍满足门槛。 |
-
-## 4. 主要问题与处理
-
-| 问题 | 性质 | 修正 |
-| --- | --- | --- |
-| “库位组”仍出现在旧审查结论 | 文档错误 | 全部统一为“库区”，并在专项检查禁止“库位组”。 |
-| PFOS 待交出仓顶部入仓按钮被旧文本弹窗处理器抢先接管 | 真实代码接线遗漏 | 调整处理器顺序，并让真实页面处理器同时承接 `data-wait-handover-web-action`。 |
-| PDA 浏览器验收使用不存在的 `TASK-MAP` | 假验收 | 从当前裁床任务源取得真实 `taskId` 后进入中转袋入仓深链。 |
-| PDA 连续多选测试误选只有一个空闲格的货架 | 测试数据假设错误 | 先寻找同一货架的两个连续空闲格，再按稳定 ID 点击。 |
-| 旧特殊工艺检查仍要求“发料页/发料状态” | 检查契约滞后 | 按当前“特殊工艺交出/回仓”业务文案和页面结构更新，不恢复废弃模型。 |
-| 特殊工艺部分交出曾释放整袋、部分回仓覆盖原剩余 | 生命周期遗漏 | 按实交量扣减，部分回仓与原剩余合并，并补专项回归。 |
-| 标准列表真实 Chromium 检查的页面刷新仍使用 30 秒默认导航超时 | 验收脚本不稳定 | 与既有 120 秒冷启动门槛统一，保留全部真实列拖拽和 DOM 稳定性断言。 |
-
-## 5. 变更覆盖与验证
+结论：通过。当前实现与 2026-08-01 已确认业务规则一致。
 
 ### 受管文件
 
 - `src/components/ui/warehouse-location-map.ts`
+- `src/data/fcs/cutting/cutting-runtime-event-ledger.ts`
+- `src/data/fcs/cutting/warehouse-location-mock.ts`
+- `src/data/fcs/factory-internal-warehouse.ts`
+- `src/pages/process-factory/cutting/warehouse-hub.ts`
+- `src/pages/process-factory/cutting/wait-handover-runtime.ts`
 - `src/pages/process-factory/cutting/warehouse-location-layout-store.ts`
 - `src/pages/process-factory/cutting/warehouse-location-map-model.ts`
 - `src/pages/process-factory/cutting/warehouse-location-map.ts`
-- `src/pages/process-factory/cutting/warehouse-hub.ts`
-- `src/pages/process-factory/cutting/wait-handover-runtime.ts`
-- `src/pages/pda-warehouse-wait-process.ts`
 - `src/pages/pda-cutting-inbound.ts`
 - `src/pages/pda-cutting-handover.ts`
-- `src/main-handlers/fcs-handlers.ts`
-- `src/data/fcs/cutting/pickup-node-domain.ts`
-- `src/data/fcs/cutting/production-material-prep.ts`
-- `src/data/fcs/cutting/cutting-runtime-event-ledger.ts`
-- `scripts/check-cutting-warehouse-location-map.ts`
-- `scripts/check-standard-list-page-template.ts`
-- `scripts/check-pda-cutting-inbound-workflow.ts`
-- `scripts/check-special-craft-pda-warehouse-actions.ts`
-- `scripts/check-cutting-special-craft-dispatch-return.ts`
-- `tests/cutting-warehouse-location-map.spec.ts`
-- `package.json`
-- `playwright.config.ts`
-
-### 页面路由
-
-- `/fcs/craft/cutting/warehouse-management/wait-process?tab=locations`
-- `/fcs/craft/cutting/warehouse-management/wait-handover?tab=locations`
-- `/fcs/pda/warehouse/wait-process?scope=cutting&view=pickup`
-- `/fcs/pda/cutting/inbound/:taskId?action=inbound-location`
-- `/fcs/pda/cutting/handover/:taskId?action=special-craft-return`
-
-### 验证说明
-
-专项检查覆盖稳定编排、历史迁移、连续选择、多库位数量、剩余范围、待交出完整袋生命周期、幂等和真实处理器顺序。直接回归覆盖待加工仓、待交出仓、中转袋、特殊工艺和 PDA 既有链路。浏览器验收覆盖两张 PFOS 图、Web 入仓单选图、PDA 连续多选、PDA 中转袋入仓及四档分辨率。
-
-最终命令结果、CodeGraph 状态和任务收据记录在实施审计文档中，以最后一次完整验证结果为准。
+- `src/pages/pda-handover-detail.ts`
+- `src/pages/pda-warehouse-wait-process.ts`
 
 ### 验证命令
 
-- `npm run check:cutting-warehouse-location-map`：通过
-- `npm run check:cutting-warehouse-location-map-e2e`：通过（8/8）
-- `npm run check:list-page-governance`：通过
-- `npm run check:prototype-design-governance -- --all`：通过
-- `npm run build`：通过
+- `npm run check:cutting-warehouse-location-map-e2e`：通过，19/19、退出码 0、总用时 16.7 分钟；覆盖 WAIT_PROCESS，以及 1366×768 下由生产事件账历史确认夹具进入候选、再由真实最终交出 handler 收口的 WAIT_HANDOVER 场景。
+- `npm audit --audit-level=low`：通过，0 个已知漏洞。
+- `npm run check:prototype-design-governance -- --all`：通过。
+- `npm run check:list-page-governance`：通过。
+- `npm run check:cutting-warehouse-location-map`：通过。
 
 ### 例外
 
-- 编排快照使用浏览器本地存储，不接真实后端、权限、审批或数据库并发锁；这是原型仓库边界，不改变稳定 ID、版本校验、占用来源和现场防错。
-- 角色权限为页面演示规则，不构建真实鉴权体系。
-- 全局应用冷启动体积不在本任务改造范围；已保留为非阻断性能观察，库位图局部交互门槛仍按 200ms 验收。
-
-## 6. 最终结论
-
-结论：通过
-
-说明：设计、实现、逐项审计、专项、13 项直接回归、8 项库位图浏览器验收、生产总览两档分辨率浏览器复核、治理和构建均已通过。经用户授权，发布基线中的生产总览固定撑宽、面料图片、菲票普通场景、首次交出数量及特殊工艺成衣 BOM 追溯缺口均已从源头修复；最终以最后一次 CodeGraph 同步和机器收据为准。
+- 无

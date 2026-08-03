@@ -19,7 +19,7 @@ export interface EngineeringTaskNodeWritebackDescriptor {
 }
 
 export interface EngineeringTaskFieldPolicy {
-  workItemTypeCode: EngineeringTaskFieldPolicyCode
+  stepCode: EngineeringTaskFieldPolicyCode
   taskLabel: string
   createRequiredFields: EngineeringTaskFieldDescriptor[]
   detailEditableFields: EngineeringTaskFieldDescriptor[]
@@ -28,7 +28,7 @@ export interface EngineeringTaskFieldPolicy {
 }
 
 const REVISION_TASK_FIELD_POLICY: EngineeringTaskFieldPolicy = {
-  workItemTypeCode: 'REVISION_TASK',
+  stepCode: 'REVISION_TASK',
   taskLabel: '改版任务',
   createRequiredFields: [
     { fieldKey: 'title', label: '任务标题' },
@@ -67,7 +67,7 @@ const REVISION_TASK_FIELD_POLICY: EngineeringTaskFieldPolicy = {
     {
       phase: '完成后',
       resultType: '改版任务已完成',
-      resultText: '改版任务已完成，商品项目节点同步完成。',
+      resultText: '改版任务已完成，商品项目关系已更新。',
       pendingActionType: '',
       pendingActionText: '',
     },
@@ -75,7 +75,7 @@ const REVISION_TASK_FIELD_POLICY: EngineeringTaskFieldPolicy = {
 }
 
 const PLATE_TASK_FIELD_POLICY: EngineeringTaskFieldPolicy = {
-  workItemTypeCode: 'PATTERN_TASK',
+  stepCode: 'PATTERN_TASK',
   taskLabel: '制版任务',
   createRequiredFields: [
     { fieldKey: 'title', label: '任务标题' },
@@ -142,7 +142,7 @@ const PLATE_TASK_FIELD_POLICY: EngineeringTaskFieldPolicy = {
     {
       phase: '完成后',
       resultType: '制版任务已完成',
-      resultText: '制版任务已完成，商品项目节点同步完成。',
+      resultText: '制版任务已完成，商品项目关系已更新。',
       pendingActionType: '',
       pendingActionText: '',
     },
@@ -150,7 +150,7 @@ const PLATE_TASK_FIELD_POLICY: EngineeringTaskFieldPolicy = {
 }
 
 const PATTERN_TASK_FIELD_POLICY: EngineeringTaskFieldPolicy = {
-  workItemTypeCode: 'PATTERN_ARTWORK_TASK',
+  stepCode: 'PATTERN_ARTWORK_TASK',
   taskLabel: '花型任务',
   createRequiredFields: [
     { fieldKey: 'title', label: '任务标题' },
@@ -188,7 +188,7 @@ const PATTERN_TASK_FIELD_POLICY: EngineeringTaskFieldPolicy = {
     {
       phase: '完成后',
       resultType: '花型任务已完成',
-      resultText: '花型任务已完成，商品项目节点同步完成。',
+      resultText: '花型任务已完成，商品项目关系已更新。',
       pendingActionType: '',
       pendingActionText: '',
     },
@@ -202,9 +202,9 @@ const FIELD_POLICY_MAP: Record<EngineeringTaskFieldPolicyCode, EngineeringTaskFi
 }
 
 export function getEngineeringTaskFieldPolicy(
-  workItemTypeCode: EngineeringTaskFieldPolicyCode,
+  stepCode: EngineeringTaskFieldPolicyCode,
 ): EngineeringTaskFieldPolicy {
-  return FIELD_POLICY_MAP[workItemTypeCode]
+  return FIELD_POLICY_MAP[stepCode]
 }
 
 export function getRevisionTaskCompletionMissingFields(task: RevisionTaskRecord): string[] {

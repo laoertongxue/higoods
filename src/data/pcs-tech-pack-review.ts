@@ -1,9 +1,22 @@
 import {
   getTechnicalDataVersionById,
   getTechnicalDataVersionContent,
+  runTechnicalDataVersionRepositoryTransaction,
   updateTechnicalDataVersionRecord,
 } from './pcs-technical-data-version-repository.ts'
-import { appendTechPackVersionLog } from './pcs-tech-pack-version-log-repository.ts'
+export {
+  invalidateReviewForBomPriceChange,
+  type BomPriceReviewChange,
+  type BomPriceReviewChangeSource,
+  type InvalidateReviewForBomPriceChangeInput,
+} from './pcs-tech-pack-bom-price-review-invalidation.ts'
+import { assertTechnicalDataVersionBomCanSubmitForReview } from './pcs-engineering-bom-pricing.ts'
+import {
+  getEngineeringMasterOrderById,
+  runEngineeringMasterRepositoryTransaction,
+} from './pcs-engineering-master-repository.ts'
+import { reopenEngineeringMaterialTaskForTechPackReview } from './pcs-engineering-task-review.ts'
+import { getPatternTaskById } from './pcs-pattern-task-repository.ts'
 import {
   formatTechPackDesignRequirementBlockMessage,
   validateTechPackDesignRequirement,
@@ -14,8 +27,12 @@ import {
   getTechPackReviewerByName,
   type TechPackReviewer,
 } from './pcs-tech-pack-reviewer-directory.ts'
-import { buildTechPackReviewDiffSnapshot } from './pcs-tech-pack-review-diff.ts'
-import { sendTechPackReviewFeishuNotification } from './pcs-tech-pack-review-feishu.ts'
+import {
+  appendReviewLog,
+  sendReviewNotificationSafely,
+  sendReviewNotificationStrictly,
+  withReviewDiffSnapshot,
+} from './pcs-tech-pack-review-lifecycle.ts'
 import type {
   TechnicalDataVersionContent,
   TechnicalDataVersionRecord,
@@ -26,7 +43,6 @@ import type {
   TechnicalReviewRole,
   TechnicalReviewStage,
 } from './pcs-technical-data-version-types.ts'
-import type { TechPackVersionLogType } from './pcs-tech-pack-version-log-types.ts'
 
 export interface TechPackReviewOperator {
   id?: string
@@ -112,8 +128,6 @@ export const TECH_PACK_REVIEW_REWORK_MODULES: TechnicalModuleKey[] = [
   'DESIGN',
   'QUALITY',
 ]
-
-let reviewLogSequence = 0
 
 type ProcessRouteGate = Pick<
   TechnicalDataVersionContent,
@@ -253,19 +267,6 @@ function buildAssignedReviewNode(
     assignedReviewerFeishuOpenId: reviewer.feishuOpenId,
     assignedAt,
     assignedBy,
-  })
-}
-
-function withReviewDiffSnapshot(
-  record: TechnicalDataVersionRecord,
-  node: TechnicalReviewNode,
-): TechnicalReviewNode {
-  const diff = buildTechPackReviewDiffSnapshot(record, node.nodeKey)
-  return normalizeTechnicalReviewNode(node.nodeKey, {
-    ...node,
-    diffSnapshotId: diff.snapshotId,
-    diffStatus: diff.diffStatus,
-    diffSummaryText: diff.summaryText,
   })
 }
 
@@ -412,12 +413,11 @@ function deriveReviewStage(input: {
 }): TechnicalReviewStage {
   if (input.versionStatus === 'PUBLISHED') return '已发布'
   if (input.versionStatus === 'ARCHIVED') return '已发布'
-  if (input.merchandiserReview.status === '审核-已通过') return '待发布'
   if (
     isTechnicalReviewNodeComplete(input.buyerReview) &&
     isTechnicalReviewNodeComplete(input.patternMakerReview)
   ) {
-    return '跟单复核'
+    return input.merchandiserReview.status === '审核-已通过' ? '待发布' : '跟单复核'
   }
   if (
     input.reviewStage === '第一阶段并行审核' ||
@@ -491,16 +491,30 @@ export function canEditTechnicalModule(
   const unlockedModuleKeys = normalizeModuleKeys(record.reviewUnlockedModuleKeys)
   if (unlockedModuleKeys.length > 0 && !unlockedModuleKeys.includes(moduleKey)) return false
   const nodes = getTechnicalReviewNodes(record)
+  if (unlockedModuleKeys.length > 0) {
+    const owner = getTechnicalModuleReviewOwner(moduleKey)
+    return !isTechnicalReviewNodeLocked(nodes[owner].status)
+  }
   if (isTechnicalReviewNodeLocked(nodes.MERCHANDISER.status)) return false
   const owner = getTechnicalModuleReviewOwner(moduleKey)
   return !isTechnicalReviewNodeLocked(nodes[owner].status)
 }
 
 export function canPublishTechnicalVersionByReview(
-  record: Pick<TechnicalDataVersionRecord, 'versionStatus' | 'merchandiserReview'>,
+  record: Pick<TechnicalDataVersionRecord, 'versionStatus'> &
+    Partial<Pick<
+      TechnicalDataVersionRecord,
+      'buyerReview' | 'patternMakerReview' | 'merchandiserReview' | 'reviewUnlockedModuleKeys'
+    >>,
 ): boolean {
   const snapshot = normalizeTechnicalReviewSnapshot(record)
-  return record.versionStatus === 'DRAFT' && snapshot.merchandiserReview.status === '审核-已通过'
+  return (
+    record.versionStatus === 'DRAFT' &&
+    isTechnicalReviewNodeComplete(snapshot.buyerReview) &&
+    isTechnicalReviewNodeComplete(snapshot.patternMakerReview) &&
+    snapshot.merchandiserReview.status === '审核-已通过' &&
+    snapshot.reviewUnlockedModuleKeys.length === 0
+  )
 }
 
 export function getTechnicalReviewPendingRoles(
@@ -619,50 +633,6 @@ function getReviewNodeFromSnapshot(
   return snapshot.merchandiserReview
 }
 
-function appendReviewLog(input: {
-  record: TechnicalDataVersionRecord
-  logType: TechPackVersionLogType
-  changeText: string
-  operatorName: string
-  createdAt: string
-  logKey?: string
-}): void {
-  appendTechPackVersionLog({
-    logId: `tech_pack_review_${input.record.technicalVersionId}_${input.createdAt.replace(/[^0-9]/g, '')}_${Date.now()}_${++reviewLogSequence}_${input.logType}${input.logKey ? `_${input.logKey}` : ''}`,
-    technicalVersionId: input.record.technicalVersionId,
-    technicalVersionCode: input.record.technicalVersionCode,
-    versionLabel: input.record.versionLabel,
-    styleId: input.record.styleId,
-    styleCode: input.record.styleCode,
-    logType: input.logType,
-    sourceTaskType: '',
-    sourceTaskId: '',
-    sourceTaskCode: '',
-    sourceTaskName: '',
-    changeScope: '',
-    changeText: input.changeText,
-    beforeVersionId: input.record.baseTechnicalVersionId || '',
-    beforeVersionCode: input.record.baseTechnicalVersionCode || '',
-    afterVersionId: input.record.technicalVersionId,
-    afterVersionCode: input.record.technicalVersionCode,
-    createdAt: input.createdAt,
-    createdBy: input.operatorName,
-  })
-}
-
-function sendReviewNotificationSafely(input: {
-  technicalVersionId: string
-  nodeKey: TechnicalReviewNodeKey
-  notificationType: '提交审核' | '进入跟单复核' | '打回复审'
-  createdBy: string
-}): void {
-  try {
-    sendTechPackReviewFeishuNotification(input)
-  } catch {
-    // 原型环境下飞书提醒失败不阻断审核主流程，失败本身由通知账记录。
-  }
-}
-
 function assertDesignRequirementSatisfied(technicalVersionId: string, prefix: string): void {
   const content = getTechnicalDataVersionContent(technicalVersionId)
   if (!content) throw new Error('未找到技术包内容，无法校验花型设计。')
@@ -680,6 +650,7 @@ export function submitTechPackFirstStageReview(
 ): TechnicalDataVersionRecord {
   const record = requireDraftRecord(technicalVersionId)
   assertDesignRequirementSatisfied(technicalVersionId, '提交审核前请先补齐花型设计')
+  assertTechnicalDataVersionBomCanSubmitForReview(technicalVersionId)
   const legacyMode = typeof input === 'string'
   const operator = normalizeOperator(legacyMode ? input : input.operator, legacyMode ? input : '当前用户')
   const buyerReviewer = resolveReviewerForNode(
@@ -832,6 +803,7 @@ export function approveTechPackReview(
     throw new Error('买手和版师审核都通过后，才能进入跟单复核。')
   }
   if (nodeKey === 'MERCHANDISER') {
+    assertEngineeringReworkCompletedBeforeMerchandiserApproval(record)
     assertDesignRequirementSatisfied(technicalVersionId, '跟单无法审核通过')
     assertProcessRouteReadyForMerchandiserReview(technicalVersionId)
   }
@@ -850,6 +822,12 @@ export function approveTechPackReview(
   const nextPattern = nodeKey === 'PATTERN_MAKER' ? node : snapshot.patternMakerReview
   const firstStagePassed =
     isTechnicalReviewNodeComplete(nextBuyer) && isTechnicalReviewNodeComplete(nextPattern)
+  const completesSelectivePriceReview =
+    nodeKey === 'BUYER' &&
+    firstStagePassed &&
+    snapshot.merchandiserReview.status === '审核-已通过' &&
+    snapshot.reviewUnlockedModuleKeys.length > 0 &&
+    snapshot.reviewUnlockedModuleKeys.every((moduleKey) => moduleKey === 'BOM' || moduleKey === 'COST')
 
   const nextRecord = saveReviewPatch(technicalVersionId, {
     ...(nodeKey === 'BUYER'
@@ -859,6 +837,12 @@ export function approveTechPackReview(
       : { merchandiserReview: node }),
     ...(nodeKey === 'MERCHANDISER'
       ? { reviewStage: '待发布' as const, returnedFromMerchandiserFlag: false, reviewUnlockedModuleKeys: [] }
+      : completesSelectivePriceReview
+      ? {
+          reviewStage: '待发布' as const,
+          merchandiserReview: snapshot.merchandiserReview,
+          reviewUnlockedModuleKeys: [],
+        }
       : firstStagePassed
       ? {
           reviewStage: '跟单复核' as const,
@@ -883,7 +867,7 @@ export function approveTechPackReview(
     createdAt: reviewedAt,
     logKey: nodeKey,
   })
-  if (nodeKey !== 'MERCHANDISER' && firstStagePassed) {
+  if (nodeKey !== 'MERCHANDISER' && firstStagePassed && !completesSelectivePriceReview) {
     sendReviewNotificationSafely({
       technicalVersionId,
       nodeKey: 'MERCHANDISER',
@@ -1042,6 +1026,7 @@ function sendReworkNotifications(input: {
   technicalVersionId: string
   targetNodeKeys: TechnicalReviewNodeKey[]
   createdBy: string
+  strict?: boolean
 }): void {
   const targets = new Set(input.targetNodeKeys)
   const firstStageTargets = (['BUYER', 'PATTERN_MAKER'] as TechnicalReviewNodeKey[]).filter((nodeKey) =>
@@ -1049,13 +1034,126 @@ function sendReworkNotifications(input: {
   )
   const notifyTargets = firstStageTargets.length > 0 ? firstStageTargets : (['MERCHANDISER'] as TechnicalReviewNodeKey[])
   notifyTargets.forEach((nodeKey) => {
-    sendReviewNotificationSafely({
+    const sendNotification = input.strict ? sendReviewNotificationStrictly : sendReviewNotificationSafely
+    sendNotification({
       technicalVersionId: input.technicalVersionId,
       nodeKey,
       notificationType: '打回复审',
       createdBy: input.createdBy,
     })
   })
+}
+
+interface EngineeringTaskReworkTarget {
+  masterOrderId: string
+  taskId: string
+}
+
+function assertEngineeringTaskCanReopen(input: {
+  record: TechnicalDataVersionRecord
+  taskId: string
+  expectedTaskTypes: Array<'PATTERN_ARTWORK' | 'COLOR_YARN' | 'COLOR_FABRIC'>
+  taskLabel: string
+}): EngineeringTaskReworkTarget {
+  const masterOrder = getEngineeringMasterOrderById(input.record.sourceProjectId)
+  if (!masterOrder) {
+    throw new Error(`技术包来源工程主单不存在：${input.record.sourceProjectId}`)
+  }
+  const task = masterOrder.tasks.find((item) => item.taskId === input.taskId)
+  if (!task || !input.expectedTaskTypes.includes(task.taskType as typeof input.expectedTaskTypes[number])) {
+    throw new Error(`技术包绑定的原${input.taskLabel}不存在：${input.taskId}`)
+  }
+  if (task.status !== '已完成') {
+    throw new Error(`技术包绑定的原${input.taskLabel}当前不是已完成状态：${input.taskId}`)
+  }
+  const requirementType = task.taskType === 'PATTERN_ARTWORK' ? '印花' : '染色'
+  if (!task.materialLines.some((line) => line.status === '正常' && line.requirementType === requirementType)) {
+    throw new Error(`技术包绑定的原${input.taskLabel}没有可返工的有效物料行：${input.taskId}`)
+  }
+  return { masterOrderId: masterOrder.masterOrderId, taskId: task.taskId }
+}
+
+function resolveArtworkTasksForTechPackRework(record: TechnicalDataVersionRecord): EngineeringTaskReworkTarget[] {
+  if (!record.sourceProjectId.trim()) {
+    throw new Error('技术包缺少来源工程主单，无法重开原花型任务。')
+  }
+  if (record.linkedArtworkTaskIds.length === 0) {
+    throw new Error('技术包未绑定原花型任务，无法发起返工。')
+  }
+  const engineeringTaskIds = new Set<string>()
+  for (const patternTaskId of record.linkedArtworkTaskIds) {
+    const patternTask = getPatternTaskById(patternTaskId)
+    if (!patternTask) throw new Error(`技术包绑定的原花型任务不存在：${patternTaskId}`)
+    if (!patternTask.upstreamObjectId.trim()) {
+      throw new Error(`原花型任务未绑定工程主单专业任务：${patternTaskId}`)
+    }
+    engineeringTaskIds.add(patternTask.upstreamObjectId)
+  }
+  return [...engineeringTaskIds].map((taskId) => assertEngineeringTaskCanReopen({
+    record,
+    taskId,
+    expectedTaskTypes: ['PATTERN_ARTWORK'],
+    taskLabel: '花型任务',
+  }))
+}
+
+function resolveColorTasksForTechPackRework(record: TechnicalDataVersionRecord): EngineeringTaskReworkTarget[] {
+  if (!record.sourceProjectId.trim()) {
+    throw new Error('技术包缺少来源工程主单，无法重开原调色任务。')
+  }
+  const masterOrder = getEngineeringMasterOrderById(record.sourceProjectId)
+  if (!masterOrder) {
+    throw new Error(`技术包来源工程主单不存在：${record.sourceProjectId}`)
+  }
+  const taskIds = masterOrder.tasks
+    .filter((task) =>
+      (task.taskType === 'COLOR_YARN' || task.taskType === 'COLOR_FABRIC') &&
+      task.status === '已完成' &&
+      task.materialLines.some((line) => line.status === '正常' && line.requirementType === '染色'),
+    )
+    .map((task) => task.taskId)
+  if (taskIds.length === 0) {
+    throw new Error('技术包来源工程主单没有可返工的有效原调色任务。')
+  }
+  return taskIds.map((taskId) => assertEngineeringTaskCanReopen({
+    record,
+    taskId,
+    expectedTaskTypes: ['COLOR_YARN', 'COLOR_FABRIC'],
+    taskLabel: '调色任务',
+  }))
+}
+
+function assertAllValidColorTasksCompletedForTechPackReview(record: TechnicalDataVersionRecord): void {
+  if (!record.sourceProjectId.trim()) {
+    throw new Error('技术包缺少来源工程主单，无法检查原调色任务。')
+  }
+  const masterOrder = getEngineeringMasterOrderById(record.sourceProjectId)
+  if (!masterOrder) {
+    throw new Error(`技术包来源工程主单不存在：${record.sourceProjectId}`)
+  }
+  const tasks = masterOrder.tasks.filter((task) =>
+    (task.taskType === 'COLOR_YARN' || task.taskType === 'COLOR_FABRIC') &&
+    task.materialLines.some((line) => line.status === '正常' && line.requirementType === '染色'),
+  )
+  if (tasks.length === 0) {
+    throw new Error('技术包来源工程主单没有可复审的有效原调色任务。')
+  }
+  tasks.forEach((task) => assertEngineeringTaskCanReopen({
+    record,
+    taskId: task.taskId,
+    expectedTaskTypes: ['COLOR_YARN', 'COLOR_FABRIC'],
+    taskLabel: '调色任务',
+  }))
+}
+
+function assertEngineeringReworkCompletedBeforeMerchandiserApproval(record: TechnicalDataVersionRecord): void {
+  if (record.createdFromTaskType !== 'ENGINEERING_MASTER') return
+  if (record.reviewUnlockedModuleKeys.includes('DESIGN')) {
+    resolveArtworkTasksForTechPackRework(record)
+  }
+  if (record.reviewUnlockedModuleKeys.includes('COLOR_MATERIAL_MAPPING')) {
+    assertAllValidColorTasksCompletedForTechPackReview(record)
+  }
 }
 
 export function returnTechPackReviewByModules(
@@ -1072,34 +1170,56 @@ export function returnTechPackReviewByModules(
   assertAssignedReviewer(snapshot.merchandiserReview, operator)
   const unlockedModuleKeys = normalizeModuleKeys(moduleKeys)
   if (unlockedModuleKeys.length === 0) throw new Error('请选择需要重审的模块。')
+  const engineeringTaskTargets: EngineeringTaskReworkTarget[] = []
+  if (record.createdFromTaskType === 'ENGINEERING_MASTER') {
+    if (unlockedModuleKeys.includes('DESIGN')) {
+      engineeringTaskTargets.push(...resolveArtworkTasksForTechPackRework(record))
+    }
+    if (unlockedModuleKeys.includes('COLOR_MATERIAL_MAPPING')) {
+      engineeringTaskTargets.push(...resolveColorTasksForTechPackRework(record))
+    }
+  }
   const returnedAt = nowText()
   const targetNodeKeys = normalizeNodeKeys([
     ...resolveReviewNodeKeysByModules(unlockedModuleKeys),
     'MERCHANDISER',
   ])
-  const nextRecord = saveReviewPatch(technicalVersionId, {
-    ...buildReworkReviewPatch({
-      record,
-      snapshot,
-      targetNodeKeys,
-      unlockedModuleKeys,
-      returnedAt,
-      operatorName: operator.name,
-      opinion: reviewOpinion,
+  const nextRecord = runEngineeringMasterRepositoryTransaction(() =>
+    runTechnicalDataVersionRepositoryTransaction(() => {
+      const savedRecord = saveReviewPatch(technicalVersionId, {
+        ...buildReworkReviewPatch({
+          record,
+          snapshot,
+          targetNodeKeys,
+          unlockedModuleKeys,
+          returnedAt,
+          operatorName: operator.name,
+          opinion: reviewOpinion,
+        }),
+      })
+      for (const target of engineeringTaskTargets) {
+        reopenEngineeringMaterialTaskForTechPackReview({
+          masterOrderId: target.masterOrderId,
+          taskId: target.taskId,
+          reason: reviewOpinion,
+        })
+      }
+      appendReviewLog({
+        record: savedRecord,
+        logType: '跟单打回第一阶段',
+        changeText: `跟单复核打回${formatNodeRoles(targetNodeKeys)}重新审核，重审模块：${formatModuleLabels(unlockedModuleKeys)}。原因：${reviewOpinion}`,
+        operatorName: operator.name,
+        createdAt: returnedAt,
+      })
+      sendReworkNotifications({
+        technicalVersionId,
+        createdBy: operator.name,
+        targetNodeKeys,
+        strict: true,
+      })
+      return savedRecord
     }),
-  })
-  appendReviewLog({
-    record: nextRecord,
-    logType: '跟单打回第一阶段',
-    changeText: `跟单复核打回${formatNodeRoles(targetNodeKeys)}重新审核，重审模块：${formatModuleLabels(unlockedModuleKeys)}。原因：${reviewOpinion}`,
-    operatorName: operator.name,
-    createdAt: returnedAt,
-  })
-  sendReworkNotifications({
-    technicalVersionId,
-    createdBy: operator.name,
-    targetNodeKeys,
-  })
+  )
   return getTechnicalDataVersionById(technicalVersionId) || nextRecord
 }
 

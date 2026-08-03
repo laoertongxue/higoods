@@ -8,7 +8,7 @@ resetPatternTaskRepository()
 const task = savePatternTaskDraft({
   projectId: '',
   title: '设计师款花型需求',
-  sourceType: '项目模板阶段',
+  sourceType: '商品项目',
   demandSourceType: '设计师款',
   processType: '直喷',
   requestQty: 3,

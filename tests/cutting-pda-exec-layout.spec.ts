@@ -18,6 +18,9 @@ async function getAvailableExecTabs(page: Page): Promise<Array<{ index: number; 
 }
 
 async function ensureExecPageHasCards(page: Page): Promise<void> {
+  const currentTabs = (await getAvailableExecTabs(page)).filter((tab) => tab.count > 0)
+  if (currentTabs.length > 0) return
+
   const factorySelect = page.locator('[data-pda-exec-field="factoryId"]')
   const factoryValues = await factorySelect.locator('option').evaluateAll((options) =>
     options.map((option) => (option as HTMLOptionElement).value).filter(Boolean),
@@ -39,33 +42,36 @@ async function expectTabsGapAndCardFields(page: Page): Promise<void> {
   await expect(tabs).toBeVisible()
   await expect(firstCard).toBeVisible()
 
-  const tabsBox = await tabs.boundingBox()
-  const firstCardBox = await firstCard.boundingBox()
-  expect(tabsBox).not.toBeNull()
-  expect(firstCardBox).not.toBeNull()
-  expect(firstCardBox!.y - (tabsBox!.y + tabsBox!.height)).toBeGreaterThanOrEqual(8)
+  await expect.poll(async () => {
+    const tabsBox = await tabs.boundingBox()
+    const firstCardBox = await firstCard.boundingBox()
+    if (!tabsBox || !firstCardBox) return -1
+    return firstCardBox.y - (tabsBox.y + tabsBox.height)
+  }).toBeGreaterThanOrEqual(8)
 
   const cardText = await firstCard.innerText()
-  expect(cardText).toContain('生产单号')
-  expect(cardText).toContain('原始任务')
-  expect(cardText).toContain('当前工序')
-  expect(
-    cardText.includes('本单成衣件数（件）')
-      || cardText.includes('本单布卷数（卷）')
-      || cardText.includes('本单铺布层数（层）'),
-  ).toBeTruthy()
+  expect(cardText).toContain('执行：')
+  expect(cardText).toContain('下一步')
   expect(cardText).not.toContain('拆分组')
 }
 
 test('PDA 执行页 tab 与卡片之间有明确间距，且执行卡片不再显示拆分组', async ({ page }) => {
   const errors = collectPageErrors(page)
   await seedLocalStorage(page, {
-    fcs_pda_session: { userId: 'ID-F004_prod', factoryId: 'ID-F004' },
+    fcs_pda_session: {
+      userId: 'PDAU-FACTORY-ONBOARD-0034-ADMIN',
+      loginId: 'onboarding_34',
+      userName: '申请人34',
+      roleId: 'ROLE_ADMIN',
+      factoryId: 'FACTORY-ONBOARD-0034',
+      factoryName: '定向裁演示工厂34',
+      loggedAt: '2026-06-22 10:00:00',
+    },
   })
   await page.setViewportSize({ width: 360, height: 800 })
 
   await page.goto('/fcs/pda/exec')
-  await expect(page.getByRole('heading', { level: 1, name: '执行' })).toBeVisible()
+  await expect(page.getByTestId('pda-exec-page')).toBeVisible()
   await ensureExecPageHasCards(page)
 
   const availableTabs = (await getAvailableExecTabs(page)).filter((tab) => tab.count > 0)

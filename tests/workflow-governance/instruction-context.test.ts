@@ -23,8 +23,8 @@ import {
   type InstructionContextReceipt,
 } from '../../scripts/workflow-governance/instruction-context.ts'
 
-const CODEGRAPH_RULE = 'AGENTS.md::## 12. CodeGraph 使用规则'
-const RECEIPT_RULE = 'AGENTS.md::### 12.1 任务完成与交付收据'
+const CODEGRAPH_RULE = 'AGENTS.md::## 8. CodeGraph 与交付'
+const RECEIPT_RULE = 'AGENTS.md::### 8.1 任务收据与交付状态'
 const STAGE_TRACE_RULE = 'AGENTS.md::### 12.2 Superpowers 最小阶段轨迹'
 const AUTHORITATIVE_VERIFY_COMMAND =
   'npm run workflow:verify -- --output <临时目录>/task-receipt.json --task-boundary "<本次任务边界>"'
@@ -38,11 +38,11 @@ const CLI_PROBE_PATH = 'src/pages/fcs/craft/cutting/supplement-management.ts'
 const AGENTS_SOURCE = [
   '# AGENTS.md',
   '',
-  '## 12. CodeGraph 使用规则',
+  '## 8. CodeGraph 与交付',
   '',
   '先同步并核对 CodeGraph。',
   '',
-  '### 12.1 任务完成与交付收据',
+  '### 8.1 任务收据与交付状态',
   '',
   '任务完成前生成机器可读收据。',
   '',
@@ -162,7 +162,7 @@ function assertArgumentRejectedBeforeSideEffects(
   for (const path of receiptPaths) assert.equal(existsSync(path), false)
 }
 
-test('根 AGENTS 12.1 精确给出绑定任务边界的权威验证命令', () => {
+test('根 AGENTS 8.1 精确给出绑定任务边界的权威验证命令', () => {
   const source = readFileSync(join(process.cwd(), 'AGENTS.md'), 'utf8')
 
   assert.match(
@@ -442,12 +442,12 @@ test('任务边界 trim 后为空时拒绝采集', (t) => {
 test('根 AGENTS 缺少精确章节标题时拒绝采集', (t) => {
   const workspace = workspaceWithAgents(
     t,
-    AGENTS_SOURCE.replace('### 12.1 任务完成与交付收据', '### 12.1 任务完成和交付收据'),
+    AGENTS_SOURCE.replace('### 8.1 任务收据与交付状态', '### 8.1 任务收据和交付状态'),
   )
 
   assert.throws(
     () => captureInstructionContext({ workspace, taskBoundary: '执行任务 1' }),
-    /### 12\.1 任务完成与交付收据/,
+    /### 8\.1 任务收据与交付状态/,
   )
 })
 

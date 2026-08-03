@@ -6,8 +6,9 @@ test('旧 marker-spreading 已退场唛架视图且静态旧路由会回到 cano
   const errors = collectPageErrors(page)
 
   await page.goto('/fcs/craft/cutting/marker-spreading')
-  await expect(page.getByRole('heading', { name: '铺布记录' })).toBeVisible()
-  await expect(page.getByRole('button', { name: '新建铺布' }).first()).toBeVisible()
+  await expect(page.getByTestId('cutting-spreading-list-page')).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '铺布单' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '新增铺布单' }).first()).toBeVisible()
   await expect(page.getByRole('button', { name: '新建唛架' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '唛架记录' })).toHaveCount(0)
   await expect(page.getByText('当前筛选范围内暂无唛架记录')).toHaveCount(0)

@@ -1,6 +1,5 @@
-import { createBootstrapProjectRelationSnapshot } from './pcs-project-relation-bootstrap.ts'
 import { createTaskRelationBootstrapSnapshot } from './pcs-task-bootstrap.ts'
-import { createTestingRelationBootstrapSnapshot } from './pcs-testing-relation-bootstrap.ts'
+import { createProjectChannelProductRelationBootstrapSnapshot } from './pcs-channel-product-project-repository.ts'
 import {
   buildLiveProductLineProjectRelation,
   buildVideoRecordProjectRelation,
@@ -66,17 +65,34 @@ function seedSnapshot(): ProjectRelationStoreSnapshot {
       pendingItems: [],
     }
   }
-  const bootstrapSnapshot = createBootstrapProjectRelationSnapshot({
-    version: PROJECT_RELATION_STORE_VERSION,
-    projects: projectSnapshot.projects,
-    nodes: projectSnapshot.nodes,
-  })
   const taskSnapshot = createTaskRelationBootstrapSnapshot()
-  const testingSnapshot = createTestingRelationBootstrapSnapshot()
-  return cleanRemovedRetainReviewRelations({
+  const channelSnapshot = createProjectChannelProductRelationBootstrapSnapshot()
+  const currentTestingRelations = channelSnapshot.records.flatMap((record) => {
+    const relations: ProjectRelationRecord[] = []
+    if (record.linkedLiveLineId) {
+      const liveLine = getLiveProductLineById(record.linkedLiveLineId)
+      const liveResult = liveLine
+        ? buildLiveProductLineProjectRelation(liveLine, record.projectId)
+        : null
+      if (liveResult?.relation) relations.push(liveResult.relation)
+    }
+    if (record.linkedVideoRecordId) {
+      const videoRecord = getVideoTestRecordById(record.linkedVideoRecordId)
+      const videoResult = videoRecord
+        ? buildVideoRecordProjectRelation(videoRecord, record.projectId)
+        : null
+      if (videoResult?.relation) relations.push(videoResult.relation)
+    }
+    return relations
+  })
+  return normalizeRelationSnapshot({
     version: PROJECT_RELATION_STORE_VERSION,
-    relations: dedupeRelations([...bootstrapSnapshot.relations, ...taskSnapshot.relations, ...testingSnapshot.relations]),
-    pendingItems: dedupePendingItems([...bootstrapSnapshot.pendingItems, ...taskSnapshot.pendingItems, ...testingSnapshot.pendingItems]),
+    relations: dedupeRelations([
+      ...taskSnapshot.relations,
+      ...channelSnapshot.relations,
+      ...currentTestingRelations,
+    ]),
+    pendingItems: [],
   })
 }
 
@@ -142,11 +158,8 @@ function normalizeSourceObjectType(value: string | null | undefined): ProjectRel
 }
 
 function normalizeRelation(record: ProjectRelationRecord): ProjectRelationRecord {
-  return {
+  const normalized: ProjectRelationRecord = {
     ...cloneRelation(record),
-    projectNodeId: record.projectNodeId || null,
-    workItemTypeCode: record.workItemTypeCode || '',
-    workItemTypeName: record.workItemTypeName || '',
     relationRole: normalizeRole(record.relationRole),
     sourceModule: normalizeSourceModule(record.sourceModule),
     sourceObjectType: normalizeSourceObjectType(record.sourceObjectType),
@@ -163,9 +176,17 @@ function normalizeRelation(record: ProjectRelationRecord): ProjectRelationRecord
     updatedAt: record.updatedAt || record.businessDate || '',
     updatedBy: record.updatedBy || '系统初始化',
     note: record.note || '',
-    legacyRefType: record.legacyRefType || '',
-    legacyRefValue: record.legacyRefValue || '',
   }
+  if (Object.prototype.hasOwnProperty.call(record, 'projectNodeId')) {
+    normalized.projectNodeId = record.projectNodeId || null
+  }
+  if (Object.prototype.hasOwnProperty.call(record, 'stepCode')) {
+    normalized.stepCode = record.stepCode || ''
+  }
+  if (Object.prototype.hasOwnProperty.call(record, 'stepName')) {
+    normalized.stepName = record.stepName || ''
+  }
+  return normalized
 }
 
 function normalizePendingItem(item: ProjectRelationPendingItem): ProjectRelationPendingItem {
@@ -177,8 +198,6 @@ function normalizePendingItem(item: ProjectRelationPendingItem): ProjectRelation
     reason: item.reason || '未提供待补齐原因。',
     discoveredAt: item.discoveredAt || '',
     sourceTitle: item.sourceTitle || '',
-    legacyRefType: item.legacyRefType || '',
-    legacyRefValue: item.legacyRefValue || '',
   }
 }
 
@@ -211,7 +230,7 @@ function dedupePendingItems(items: ProjectRelationPendingItem[]): ProjectRelatio
   return Array.from(map.values()).sort((a, b) => b.discoveredAt.localeCompare(a.discoveredAt))
 }
 
-function cleanRemovedRetainReviewRelations(snapshot: ProjectRelationStoreSnapshot): ProjectRelationStoreSnapshot {
+function normalizeRelationSnapshot(snapshot: ProjectRelationStoreSnapshot): ProjectRelationStoreSnapshot {
   return {
     version: PROJECT_RELATION_STORE_VERSION,
     relations: dedupeRelations(snapshot.relations),
@@ -221,15 +240,16 @@ function cleanRemovedRetainReviewRelations(snapshot: ProjectRelationStoreSnapsho
 
 function mergeMissingSeedData(snapshot: ProjectRelationStoreSnapshot): ProjectRelationStoreSnapshot {
   const seeded = seedSnapshot()
-  return cleanRemovedRetainReviewRelations({
+  return normalizeRelationSnapshot({
     version: PROJECT_RELATION_STORE_VERSION,
-    relations: dedupeRelations([...snapshot.relations, ...seeded.relations]),
-    pendingItems: dedupePendingItems([...snapshot.pendingItems, ...seeded.pendingItems]),
+    // 同一业务关系时间相同时保留当前仓库中的显式写入，种子只补缺失数据。
+    relations: dedupeRelations([...seeded.relations, ...snapshot.relations]),
+    pendingItems: dedupePendingItems([...seeded.pendingItems, ...snapshot.pendingItems]),
   })
 }
 
 function hydrateSnapshot(snapshot: ProjectRelationStoreSnapshot): ProjectRelationStoreSnapshot {
-  return cleanRemovedRetainReviewRelations({
+  return normalizeRelationSnapshot({
     version: PROJECT_RELATION_STORE_VERSION,
     relations: dedupeRelations(Array.isArray(snapshot.relations) ? snapshot.relations : []),
     pendingItems: dedupePendingItems(Array.isArray(snapshot.pendingItems) ? snapshot.pendingItems.map(normalizePendingItem) : []),
@@ -307,15 +327,6 @@ export function listProjectRelationsByProject(projectId: string): ProjectRelatio
   return loadSnapshot()
     .relations
     .filter((record) => record.projectId === projectId)
-    .sort((a, b) => b.businessDate.localeCompare(a.businessDate))
-    .map(cloneRelation)
-}
-
-export function listProjectRelationsByProjectNode(projectId: string, projectNodeId: string): ProjectRelationRecord[] {
-  ensurePcsProjectFormalRelationSeedReady()
-  return loadSnapshot()
-    .relations
-    .filter((record) => record.projectId === projectId && record.projectNodeId === projectNodeId)
     .sort((a, b) => b.businessDate.localeCompare(a.businessDate))
     .map(cloneRelation)
 }
@@ -467,13 +478,28 @@ export function listProjectRelationsByTechnicalVersion(technicalVersionId: strin
 
 export function upsertProjectRelation(record: ProjectRelationRecord): ProjectRelationRecord {
   const snapshot = loadSnapshot()
-  const normalized = normalizeRelation({
+  const candidate = normalizeRelation({
     ...record,
     projectRelationId: record.projectRelationId || nextRelationId(),
   })
+  const candidateKey = buildRelationUniqueKey(candidate)
+  const existing = snapshot.relations.find(
+    (item) => buildRelationUniqueKey(normalizeRelation(item)) === candidateKey,
+  )
+  const normalized = normalizeRelation({
+    ...candidate,
+    projectRelationId: existing?.projectRelationId || candidate.projectRelationId,
+    createdAt: existing?.createdAt || candidate.createdAt,
+    createdBy: existing?.createdBy || candidate.createdBy,
+  })
   persistSnapshot({
     ...snapshot,
-    relations: [...snapshot.relations, normalized],
+    relations: [
+      ...snapshot.relations.filter(
+        (item) => buildRelationUniqueKey(normalizeRelation(item)) !== candidateKey,
+      ),
+      normalized,
+    ],
   })
   return cloneRelation(normalized)
 }

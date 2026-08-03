@@ -66,6 +66,19 @@ test('项目依赖清单单独变化仍升级构建', () => {
   assert(result.escalationReasons.some((reason) => reason.includes('项目依赖或命令')))
 })
 
+test('毛织事实流变更必须绑定专项静态检查和真实独立服务 E2E 退出结果', () => {
+  const result = routeAffectedChecks([
+    'src/pages/process-factory/wool/work-orders.ts',
+    'tests/wool-management-fact-workflow.spec.ts',
+  ])
+
+  assert(result.fastChecks.includes('npm run check:wool-fact-workflow'))
+  assert(result.fullChecks.includes(
+    'PLAYWRIGHT_REUSE_EXISTING_SERVER=false npm run test:wool-fact-workflow:e2e',
+  ))
+  assert(result.escalationReasons.some((reason) => reason.includes('毛织事实流')))
+})
+
 test('领域关键词不会吞掉路由、主处理器和治理脚本的结构性检查', () => {
   const result = routeAffectedChecks([
     'src/router/cutting.ts',

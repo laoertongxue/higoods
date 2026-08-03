@@ -16,7 +16,10 @@ test('菲票首次打印路由命中首次打印页而不是已打印页', async
   )
 
   await expect(page).toHaveURL(/\/fcs\/craft\/cutting\/fei-ticket-print\?/)
-  await expect(page.locator('body')).toContainText(/确认首次打印|当前存在缺少五维字段的菲票，不能打印/)
+  await expect(page.locator('body')).toContainText(/确认首打|当前存在缺少五维字段的菲票，不能打印/)
+  if (await page.locator('[data-cutting-fei-action="confirm-first-print"]').count()) {
+    await expect(page.locator('[data-cutting-fei-action="confirm-first-print"]')).toContainText('确认首打')
+  }
   await expect(page.locator('body')).not.toContainText('已打印菲票不能删除，如需取消请作废。')
 
   await expectNoPageErrors(errors)

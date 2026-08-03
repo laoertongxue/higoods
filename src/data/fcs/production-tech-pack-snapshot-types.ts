@@ -96,6 +96,12 @@ export interface TechPackImageSnapshot {
   artworkImages: string[]
 }
 
+export type TechnicalColorMaterialMappingOrigin = 'TECH_PACK' | 'DEMAND_FALLBACK'
+
+export interface ProductionTechPackColorMaterialMapping extends TechnicalColorMaterialMapping {
+  mappingOrigin: TechnicalColorMaterialMappingOrigin
+}
+
 export interface ProductionOrderTechPackSnapshot {
   snapshotId: string
   productionOrderId: string
@@ -119,7 +125,7 @@ export interface ProductionOrderTechPackSnapshot {
   processEntries: TechnicalProcessEntry[]
   sizeTable: TechnicalSizeRow[]
   sizeMeasurements: TechPackSizeMeasurementSnapshot[]
-  colorMaterialMappings: TechnicalColorMaterialMapping[]
+  colorMaterialMappings: ProductionTechPackColorMaterialMapping[]
   cutPieceParts: TechPackCutPiecePartSnapshot[]
   imageSnapshot: TechPackImageSnapshot
   patternDesigns: TechnicalPatternDesign[]

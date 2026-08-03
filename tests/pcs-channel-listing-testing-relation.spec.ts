@@ -10,7 +10,7 @@ import {
   upsertProjectImageAssets,
 } from '../src/data/pcs-project-image-repository.ts'
 import {
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   listProjects,
   resetProjectRepository,
 } from '../src/data/pcs-project-repository.ts'
@@ -26,8 +26,8 @@ resetProjectChannelProductRepository()
 resetProjectImageAssets()
 
 const project = listProjects().find((item) => {
-  const listingNode = getProjectNodeRecordByWorkItemTypeCode(item.projectId, 'CHANNEL_PRODUCT_LISTING')
-  const liveTestNode = getProjectNodeRecordByWorkItemTypeCode(item.projectId, 'LIVE_TEST')
+  const listingNode = getProjectNodeRecordByStepCode(item.projectId, 'CHANNEL_PRODUCT_LISTING')
+  const liveTestNode = getProjectNodeRecordByStepCode(item.projectId, 'LIVE_TEST')
   return (
     listingNode &&
     listingNode.currentStatus !== '未开始' &&
@@ -65,7 +65,7 @@ const [listingImage] = createProjectImageAssetRecords(
 )
 upsertProjectImageAssets([listingImage])
 
-const sampleCostReviewNode = getProjectNodeRecordByWorkItemTypeCode(project!.projectId, 'SAMPLE_COST_REVIEW')
+const sampleCostReviewNode = getProjectNodeRecordByStepCode(project!.projectId, 'SAMPLE_COST_REVIEW')
 assert.ok(sampleCostReviewNode, '应存在样衣核价节点')
 const sampleCostRecordCountBefore = listProjectInlineNodeRecordsByNode(sampleCostReviewNode!.projectNodeId).length
 

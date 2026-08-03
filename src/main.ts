@@ -1,15 +1,10 @@
 import './styles.css'
 import { hydrateRealQRCodes } from './components/real-qr'
 import { hydrateIcons, isStandalonePrintPath, renderAppShell, renderSidebar } from './components/shell'
-import { handleProductionObjectOverviewEvent } from './components/production-object-overview'
+import { handleProductionObjectFloatingEntryEvent } from './components/production-object-floating-entry'
 import { appStore } from './state/store'
 import { resolvePdaCuttingScanKeydownTarget } from './main-handlers/pda-cutting-keydown-routing'
 import { isPdaPageHandledLocally } from './main-handlers/pda-local-action-result'
-import { handlePdaCuttingInboundEvent } from './pages/pda-cutting-inbound'
-import { handlePdaCuttingHandoverEvent } from './pages/pda-cutting-handover'
-import { handlePdaCuttingTransferBagRepackEvent } from './pages/pda-cutting-transfer-bag-repack'
-import { handlePdaCuttingTransferBagRecoveryEvent } from './pages/pda-cutting-transfer-bag-recovery'
-import { handlePdaCuttingTransferBagScrapEvent } from './pages/pda-cutting-transfer-bag-scrap'
 
 type FcsHandlersModule = typeof import('./main-handlers/fcs-handlers')
 type PcsHandlersModule = typeof import('./main-handlers/pcs-handlers')
@@ -42,6 +37,9 @@ type ProcessWaterSolubleOrdersPageModule = typeof import('./pages/process-water-
 type CraftDyeingWaterSolubleOrdersPageModule = typeof import('./pages/process-factory/dyeing/water-soluble-orders')
 type SewingDispatchWorkbenchPageModule = typeof import('./pages/sewing-dispatch-workbench')
 type ContinuousDispatchPageModule = typeof import('./pages/continuous-dispatch')
+type ProductionObjectOverviewModule = typeof import('./components/production-object-overview')
+type PdaCuttingInboundModule = typeof import('./pages/pda-cutting-inbound')
+type PdaCuttingHandoverModule = typeof import('./pages/pda-cutting-handover')
 
 let fcsHandlersModulePromise: Promise<FcsHandlersModule> | null = null
 let pcsHandlersModulePromise: Promise<PcsHandlersModule> | null = null
@@ -74,12 +72,58 @@ let processWaterSolubleOrdersPageModulePromise: Promise<ProcessWaterSolubleOrder
 let craftDyeingWaterSolubleOrdersPageModulePromise: Promise<CraftDyeingWaterSolubleOrdersPageModule> | null = null
 let sewingDispatchWorkbenchPageModulePromise: Promise<SewingDispatchWorkbenchPageModule> | null = null
 let continuousDispatchPageModulePromise: Promise<ContinuousDispatchPageModule> | null = null
+let productionObjectOverviewModulePromise: Promise<ProductionObjectOverviewModule> | null = null
+let pdaCuttingInboundModulePromise: Promise<PdaCuttingInboundModule> | null = null
+let pdaCuttingHandoverModulePromise: Promise<PdaCuttingHandoverModule> | null = null
 type StoreRenderMode = 'full' | 'sidebar'
 
 let nextStoreRenderMode: StoreRenderMode = 'full'
 let pdaMainTabPreloadStarted = false
 let productionListPreloadStarted = false
 let fcsHandlersPreloadStarted = false
+
+function getProductionObjectOverviewModule(): Promise<ProductionObjectOverviewModule> {
+  if (!productionObjectOverviewModulePromise) {
+    productionObjectOverviewModulePromise = import('./components/production-object-overview').catch((error) => {
+      productionObjectOverviewModulePromise = null
+      throw error
+    })
+  }
+  return productionObjectOverviewModulePromise
+}
+
+function getPdaCuttingInboundModule(): Promise<PdaCuttingInboundModule> {
+  if (!pdaCuttingInboundModulePromise) {
+    pdaCuttingInboundModulePromise = import('./pages/pda-cutting-inbound').catch((error) => {
+      pdaCuttingInboundModulePromise = null
+      throw error
+    })
+  }
+  return pdaCuttingInboundModulePromise
+}
+
+function getPdaCuttingHandoverModule(): Promise<PdaCuttingHandoverModule> {
+  if (!pdaCuttingHandoverModulePromise) {
+    pdaCuttingHandoverModulePromise = import('./pages/pda-cutting-handover').catch((error) => {
+      pdaCuttingHandoverModulePromise = null
+      throw error
+    })
+  }
+  return pdaCuttingHandoverModulePromise
+}
+
+async function handleActivePdaCuttingEvent(target: HTMLElement, event?: Event): Promise<unknown> {
+  const pathname = appStore.getState().pathname
+  if (pathname.startsWith('/fcs/pda/cutting/inbound/')) {
+    const module = await getPdaCuttingInboundModule()
+    return module.handlePdaCuttingInboundEvent(target, event)
+  }
+  if (pathname.startsWith('/fcs/pda/cutting/handover/')) {
+    const module = await getPdaCuttingHandoverModule()
+    return module.handlePdaCuttingHandoverEvent(target, event)
+  }
+  return false
+}
 
 function getFcsHandlersModule(): Promise<FcsHandlersModule> {
   if (!fcsHandlersModulePromise) {
@@ -651,7 +695,7 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
   try {
     if (handlerSystem === 'pcs') {
       const pcsHandlers = await getPcsHandlersModule()
-      return pcsHandlers.dispatchPcsPageEvent(eventTarget)
+      return pcsHandlers.dispatchPcsPageEvent(eventTarget, event)
     }
     if (handlerSystem === 'fcs') {
       const fcsHandlers = await getFcsHandlersModule()
@@ -672,7 +716,7 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
       return true
     }
 
-    if (await pcsHandlers.dispatchPcsPageEvent(eventTarget)) {
+    if (await pcsHandlers.dispatchPcsPageEvent(eventTarget, event)) {
       return true
     }
 
@@ -1428,6 +1472,7 @@ function shouldBypassClickDispatch(target: Element): boolean {
 
 function shouldSkipInputRerender(target: Element): boolean {
   if (target.closest<HTMLElement>('[data-skip-page-rerender="true"]')) return true
+  if (target.closest<HTMLElement>('[data-review-ui-field]')) return true
 
   const techFieldNode = target.closest<HTMLElement>('[data-tech-field]')
   if (techFieldNode) {
@@ -1743,16 +1788,23 @@ root.addEventListener('dragend', dispatchListColumnDragEvent)
 root.addEventListener('click', async (event) => {
   const target = resolveEventElementTarget(event.target)
   if (!target) return
-  const skipPageRerender = Boolean(target.closest<HTMLElement>('[data-skip-page-rerender="true"]'))
+  const skipPageRerender = Boolean(target.closest<HTMLElement>('[data-skip-page-rerender="true"], [data-review-ui-action]'))
   const focusSnapshot = captureFocusSnapshot()
   const previousPathname = appStore.getState().pathname
 
   if (shouldBypassClickDispatch(target)) return
 
   const productionObjectActionNode = target.closest<HTMLElement>('[data-production-object-action]')
-  if (productionObjectActionNode && handleProductionObjectOverviewEvent(productionObjectActionNode)) {
-    event.preventDefault()
-    return
+  if (productionObjectActionNode) {
+    if (handleProductionObjectFloatingEntryEvent(productionObjectActionNode)) {
+      event.preventDefault()
+      return
+    }
+    const productionObjectOverview = await getProductionObjectOverviewModule()
+    if (productionObjectOverview.handleProductionObjectOverviewEvent(productionObjectActionNode)) {
+      event.preventDefault()
+      return
+    }
   }
 
   const shellActionNode = target.closest<HTMLElement>('[data-action]')
@@ -1773,7 +1825,8 @@ root.addEventListener('click', async (event) => {
   const pdaCutInboundActionNode = target.closest<HTMLElement>('[data-pda-cut-inbound-action]')
   if (pdaCutInboundActionNode) {
     event.preventDefault()
-    const inboundResult = handlePdaCuttingInboundEvent(pdaCutInboundActionNode)
+    const inboundModule = await getPdaCuttingInboundModule()
+    const inboundResult = inboundModule.handlePdaCuttingInboundEvent(pdaCutInboundActionNode)
     if (inboundResult) {
       if (isPdaPageHandledLocally(inboundResult)) return
       await renderWithFocusRestore(focusSnapshot)
@@ -1784,7 +1837,8 @@ root.addEventListener('click', async (event) => {
   const pdaCutHandoverActionNode = target.closest<HTMLElement>('[data-pda-cut-handover-action]')
   if (pdaCutHandoverActionNode) {
     event.preventDefault()
-    const handoverResult = handlePdaCuttingHandoverEvent(
+    const handoverModule = await getPdaCuttingHandoverModule()
+    const handoverResult = handoverModule.handlePdaCuttingHandoverEvent(
       pdaCutHandoverActionNode,
     )
     if (handoverResult) {
@@ -1873,13 +1927,13 @@ root.addEventListener('input', async (event) => {
   const previousPathname = appStore.getState().pathname
 
   const productionObjectActionNode = target.closest<HTMLElement>('[data-production-object-action]')
-  if (productionObjectActionNode && handleProductionObjectOverviewEvent(productionObjectActionNode)) {
-    return
+  if (productionObjectActionNode) {
+    if (handleProductionObjectFloatingEntryEvent(productionObjectActionNode)) return
+    const productionObjectOverview = await getProductionObjectOverviewModule()
+    if (productionObjectOverview.handleProductionObjectOverviewEvent(productionObjectActionNode)) return
   }
 
-  const pdaCuttingInputResult =
-    handlePdaCuttingInboundEvent(target, event) ||
-    handlePdaCuttingHandoverEvent(target, event)
+  const pdaCuttingInputResult = await handleActivePdaCuttingEvent(target, event)
   if (pdaCuttingInputResult) return
 
   if (await dispatchPcsInputEvent(target)) {
@@ -2003,12 +2057,7 @@ document.addEventListener('keydown', async (event) => {
   const target = resolveEventElementTarget(event.target)
   const cuttingScanTarget = resolvePdaCuttingScanKeydownTarget<HTMLElement>(target, event.key)
   if (cuttingScanTarget) {
-    const scanResult =
-      handlePdaCuttingInboundEvent(cuttingScanTarget, event) ||
-      handlePdaCuttingHandoverEvent(cuttingScanTarget, event) ||
-      handlePdaCuttingTransferBagRepackEvent(cuttingScanTarget, event) ||
-      handlePdaCuttingTransferBagRecoveryEvent(cuttingScanTarget, event) ||
-      handlePdaCuttingTransferBagScrapEvent(cuttingScanTarget, event)
+    const scanResult = await handleActivePdaCuttingEvent(cuttingScanTarget, event)
     if (scanResult) event.preventDefault()
     return
   }

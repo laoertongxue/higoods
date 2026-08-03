@@ -36,6 +36,7 @@ export interface StandardListTableConfig<T> {
   eventPrefix: string
   emptyText?: string
   headerGroups?: readonly StandardListHeaderGroup[]
+  skipPageRerender?: boolean
 }
 
 export interface StandardListColumnSettingsConfig<T> {
@@ -44,6 +45,7 @@ export interface StandardListColumnSettingsConfig<T> {
   preferences: Readonly<StandardListColumnPreferences>
   eventPrefix: string
   maxFrozenWidth: number
+  skipPageRerender?: boolean
 }
 
 function orderedColumns<T>(
@@ -138,9 +140,14 @@ function renderSortHeader<T>(
   column: StandardListColumn<T>,
   sort: StandardListSortState | null,
   eventPrefix: string,
+  skipPageRerender: boolean,
 ): string {
   const activeDirection = sort?.key === column.key ? sort.direction : null
-  const actionAttr = toActionAttr({ prefix: eventPrefix, action: 'sort-column' })
+  const actionAttr = toActionAttr({
+    prefix: eventPrefix,
+    action: 'sort-column',
+    skipPageRerender,
+  })
   const nextActionLabel = activeDirection === 'asc'
     ? `按${column.title}降序排列`
     : activeDirection === 'desc'
@@ -286,7 +293,7 @@ export function renderStandardListTable<T>(config: StandardListTableConfig<T>): 
         data-column-key="${escapeHtml(column.key)}"
         ${ariaSort ? `aria-sort="${ariaSort}"` : ''}
       >
-        ${column.sortable ? renderSortHeader(column, config.sort, config.eventPrefix) : escapeHtml(column.title)}
+        ${column.sortable ? renderSortHeader(column, config.sort, config.eventPrefix, Boolean(config.skipPageRerender)) : escapeHtml(column.title)}
       </th>
     `
   }).join('')
@@ -341,6 +348,7 @@ function renderSettingCheckbox(options: {
   eventPrefix: string
   action: string
   columnKey: string
+  skipPageRerender: boolean
 }): string {
   return `
     <label class="inline-flex items-center gap-1.5 text-xs ${options.disabled ? 'text-muted-foreground' : ''}">
@@ -349,7 +357,11 @@ function renderSettingCheckbox(options: {
         class="h-4 w-4 rounded border-input"
         ${options.checked ? 'checked' : ''}
         ${options.disabled ? 'disabled' : ''}
-        ${toActionAttr({ prefix: options.eventPrefix, action: options.action })}
+        ${toActionAttr({
+          prefix: options.eventPrefix,
+          action: options.action,
+          skipPageRerender: options.skipPageRerender,
+        })}
         data-${toDataPrefix(options.eventPrefix)}-column-key="${escapeHtml(options.columnKey)}"
       >
       <span>${options.label}</span>
@@ -390,6 +402,7 @@ export function renderStandardListColumnSettings<T>(
             class="flex min-h-12 items-center gap-3 rounded-md border px-3 py-2"
             data-standard-list-column-key="${escapeHtml(column.key)}"
             data-${prefix}-column-key="${escapeHtml(column.key)}"
+            ${config.skipPageRerender ? 'data-skip-page-rerender="true"' : ''}
             ${dragAttributes}
           >
             ${isAction ? '' : '<i data-lucide="grip-vertical" class="h-4 w-4 shrink-0 cursor-grab text-muted-foreground" aria-hidden="true"></i>'}
@@ -401,6 +414,7 @@ export function renderStandardListColumnSettings<T>(
               eventPrefix: config.eventPrefix,
               action: 'toggle-column-visibility',
               columnKey: column.key,
+              skipPageRerender: Boolean(config.skipPageRerender),
             })}
             ${isAction ? '' : renderSettingCheckbox({
               label: '冻结',
@@ -409,6 +423,7 @@ export function renderStandardListColumnSettings<T>(
               eventPrefix: config.eventPrefix,
               action: 'toggle-column-freeze',
               columnKey: column.key,
+              skipPageRerender: Boolean(config.skipPageRerender),
             })}
           </div>
         `
@@ -419,19 +434,28 @@ export function renderStandardListColumnSettings<T>(
   return renderDrawer(
     {
       title: config.title,
-      closeAction: { prefix: config.eventPrefix, action: 'close-column-settings' },
+      closeAction: {
+        prefix: config.eventPrefix,
+        action: 'close-column-settings',
+        skipPageRerender: config.skipPageRerender,
+      },
       width: 'sm',
     },
     content,
     {
       extra: renderSecondaryButton(
         '恢复默认',
-        { prefix: config.eventPrefix, action: 'restore-column-settings' },
+        {
+          prefix: config.eventPrefix,
+          action: 'restore-column-settings',
+          skipPageRerender: config.skipPageRerender,
+        },
       ),
       cancel: {
         prefix: config.eventPrefix,
         action: 'close-column-settings',
         label: '关闭',
+        skipPageRerender: config.skipPageRerender,
       },
     },
   )

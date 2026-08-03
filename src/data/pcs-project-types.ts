@@ -7,7 +7,7 @@ export type ProjectType = '商品开发' | '快反上新' | '改版开发' | '�
 export type ProjectSourceType = '企划提案' | '渠道反馈' | '测款沉淀' | '历史复用' | '外部灵感'
 export type SampleSourceType = '外采' | '委托打样'
 export type ProjectRiskStatus = '正常' | '延期'
-export type ProjectMarketTestWorkItemTypeCode = 'LIVE_TEST' | 'VIDEO_TEST'
+export type ProjectMarketTestStepCode = 'LIVE_TEST' | 'VIDEO_TEST'
 
 export const PROJECT_STATUS_TERMINATED: ProjectStatus = '已终止'
 export const PROJECT_PHASE_STATUS_TERMINATED: ProjectPhaseStatus = '已终止'
@@ -15,14 +15,14 @@ export const PROJECT_PHASE_STATUS_TERMINATED: ProjectPhaseStatus = '已终止'
 export interface PcsProjectRuntimeState {
   progressDone: number
   progressTotal: number
-  nextWorkItemName: string
-  nextWorkItemStatus: ProjectNodeStatus | '-'
+  nextStepName: string
+  nextStepStatus: ProjectNodeStatus | '-'
   pendingDecisionFlag: boolean
   blockedFlag: boolean
   blockedReason: string
   riskStatus: ProjectRiskStatus
   riskReason: string
-  riskWorkItem: string
+  riskStep: string
   riskDurationDays: number
 }
 
@@ -32,9 +32,6 @@ export interface PcsProjectRecord {
   projectName: string
   projectType: ProjectType
   projectSourceType: ProjectSourceType
-  templateId: string
-  templateName: string
-  templateVersion: string
   projectStatus: ProjectStatus
   currentPhaseCode: string
   currentPhaseName: string
@@ -121,9 +118,9 @@ export interface PcsProjectNodeRecord {
   projectId: string
   phaseCode: string
   phaseName: string
-  workItemId: string
-  workItemTypeCode: string
-  workItemTypeName: string
+  stepId: string
+  stepCode: string
+  stepName: string
   sequenceNo: number
   requiredFlag: boolean
   multiInstanceFlag: boolean
@@ -139,8 +136,6 @@ export interface PcsProjectNodeRecord {
   currentIssueText: string
   pendingActionType: string
   pendingActionText: string
-  sourceTemplateNodeId: string
-  sourceTemplateVersion: string
   updatedAt?: string
   lastEventId?: string
   lastEventType?: string
@@ -158,9 +153,9 @@ export interface ProjectNodeIdentityRef {
   projectId: string
   phaseCode: string
   phaseName: string
-  workItemId: string
-  workItemTypeCode: string
-  workItemTypeName: string
+  stepId: string
+  stepCode: string
+  stepName: string
 }
 
 export interface PcsProjectStoreSnapshot {
@@ -174,7 +169,6 @@ export interface PcsProjectCreateDraft {
   projectName: string
   projectType: ProjectType | ''
   projectSourceType: ProjectSourceType | ''
-  templateId: string
   categoryId: string
   categoryName: string
   subCategoryId: string

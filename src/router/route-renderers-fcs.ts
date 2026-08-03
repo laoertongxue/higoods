@@ -514,6 +514,10 @@ export const renderCraftWoolWorkOrderDetailPage = createAsyncRenderer(
   () => import('../pages/process-factory/wool/work-order-detail'),
   'renderCraftWoolWorkOrderDetailPage',
 )
+export const renderCraftWoolHandoverPrintPage = createAsyncRenderer(
+  () => import('../pages/process-factory/wool/handover-print'),
+  'renderCraftWoolHandoverPrintPage',
+)
 export const renderCraftWoolWaitProcessWarehousePage = createAsyncRenderer(
   () => import('../pages/process-factory/wool/warehouse'),
   'renderCraftWoolWaitProcessWarehousePage',
@@ -522,21 +526,13 @@ export const renderCraftWoolWaitHandoverWarehousePage = createAsyncRenderer(
   () => import('../pages/process-factory/wool/warehouse'),
   'renderCraftWoolWaitHandoverWarehousePage',
 )
-export const renderCraftWoolFeiTicketsPage = createAsyncRenderer(
-  () => import('../pages/process-factory/wool/fei-tickets'),
-  'renderCraftWoolFeiTicketsPage',
-)
-export const renderCraftWoolMachineSchedulePage = createAsyncRenderer(
-  () => import('../pages/process-factory/wool/machine-schedule'),
-  'renderCraftWoolMachineSchedulePage',
+export const renderCraftWoolMachineAssociationsPage = createAsyncRenderer(
+  () => import('../pages/process-factory/wool/machine-associations'),
+  'renderCraftWoolMachineAssociationsPage',
 )
 export const renderCraftWoolMachinesPage = createAsyncRenderer(
   () => import('../pages/process-factory/wool/machines'),
   'renderCraftWoolMachinesPage',
-)
-export const renderCraftWoolStatisticsPage = createAsyncRenderer(
-  () => import('../pages/process-factory/wool/statistics'),
-  'renderCraftWoolStatisticsPage',
 )
 export const renderPostFinishingWorkOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/post-finishing/work-orders'),

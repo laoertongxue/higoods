@@ -1,4 +1,4 @@
-import { createElement, icons as lucideIcons, type IconNode } from 'lucide'
+import { createElement, type IconNode } from 'lucide'
 import {
   getCurrentMenus,
   getCurrentSystem,
@@ -9,7 +9,7 @@ import { shellIcons } from '../icons/shell-icons'
 import type { MenuGroup, MenuItem } from '../data/app-shell-types'
 import { systems } from '../data/app-shell-config'
 import { escapeHtml, toClassName } from '../utils'
-import { renderProductionObjectFloatingEntry } from './production-object-overview'
+import { renderProductionObjectFloatingEntry } from './production-object-floating-entry'
 
 function toKebabCaseIcon(name: string): string {
   return name
@@ -370,7 +370,7 @@ function joinClassNames(...values: Array<string | undefined>): string {
     .join(' ')
 }
 
-const iconMap = { ...lucideIcons, ...shellIcons } as unknown as Record<string, IconNode>
+const iconMap = shellIcons as unknown as Record<string, IconNode>
 
 export function hydrateIcons(root: ParentNode = document): void {
   root.querySelectorAll('[data-lucide]').forEach((element) => {

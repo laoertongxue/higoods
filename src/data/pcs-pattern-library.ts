@@ -367,9 +367,10 @@ function nextId(prefix: string, store: PatternLibraryStoreSnapshot): string {
 }
 
 function requestRender(): void {
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new Event(APP_RENDER_EVENT))
-  }
+  if (typeof window === 'undefined') return
+  // PCS 数据水合只影响 PCS 页面展示；非 PCS 页面整页重渲染会覆盖输入与 DOM 属性，且无业务意义
+  if (!window.location.pathname.startsWith('/pcs/')) return
+  window.dispatchEvent(new Event(APP_RENDER_EVENT))
 }
 
 function seedStore(): PatternLibraryStoreSnapshot {

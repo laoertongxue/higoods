@@ -12,6 +12,7 @@ import {
 import {
   calculateOutputValueTotal,
   processTasks,
+  setProcessTasksMutatedListener,
   sumTaskOutputValueTotals,
   type AcceptanceStatus,
   type ProcessTask,
@@ -411,6 +412,28 @@ const runtimeReassignedTasks = new Map<string, RuntimeProcessTask>()
 const SEWING_DELIVERY_SLA_AUTO_ACCEPT_BY = '系统自动接单（含车缝直接派单）'
 let runtimeAuditSeq = 0
 let dispatchBoardSeedReady = false
+let runtimeTasksCache: RuntimeProcessTask[] | null = null
+
+function invalidateRuntimeTasksCache(): void {
+  runtimeTasksCache = null
+}
+
+// processTasks 可能被外部模块直接修改（如治理脚本模拟业务变更），通过变更钩子保持缓存一致。
+// 钩子必须惰性注册：模块顶层注册会因循环依赖在 process-tasks.ts 初始化完成前触发 TDZ。
+let processTasksMutationHookInstalled = false
+
+function installProcessTasksMutationHook(): void {
+  if (processTasksMutationHookInstalled) return
+  processTasksMutationHookInstalled = true
+  setProcessTasksMutatedListener(() => {
+    invalidateRuntimeTasksCache()
+  })
+}
+
+export function clearRuntimeProcessTasksCache(): void {
+  installProcessTasksMutationHook()
+  invalidateRuntimeTasksCache()
+}
 
 export function captureRuntimeDirectDispatchState(): RuntimeDirectDispatchState {
   return {
@@ -433,6 +456,7 @@ export function restoreRuntimeDirectDispatchState(state: RuntimeDirectDispatchSt
   productionOrders.splice(0, productionOrders.length, ...structuredClone(state.productionOrders))
   runtimeReassignedTasks.clear()
   state.reassignedTasks.forEach(([id, task]) => runtimeReassignedTasks.set(id, structuredClone(task)))
+  invalidateRuntimeTasksCache()
 }
 
 function nowTimestamp(date: Date = new Date()): string {
@@ -1431,6 +1455,7 @@ function patchRuntimeTask(taskId: string, patch: RuntimeTaskOverride): RuntimePr
 
   const override = runtimeTaskOverrides.get(taskId) ?? {}
   runtimeTaskOverrides.set(taskId, { ...override, ...patch })
+  invalidateRuntimeTasksCache()
   return { ...current, ...patch }
 }
 
@@ -1479,9 +1504,11 @@ function seedRuntimeTaskOverride(
     ...patch,
     auditLogs: auditLogs.length > 0 ? auditLogs : patch.auditLogs,
   })
+  invalidateRuntimeTasksCache()
 }
 
 function ensureDispatchBoardSeedData(): void {
+  installProcessTasksMutationHook()
   if (dispatchBoardSeedReady) return
   dispatchBoardSeedReady = true
 
@@ -1943,7 +1970,10 @@ function getOrderIdsFromTaskIds(taskIds: string[]): string[] {
 
 export function listRuntimeProcessTasks(): RuntimeProcessTask[] {
   ensureDispatchBoardSeedData()
-  return buildRuntimeProcessTasks()
+  if (!runtimeTasksCache) {
+    runtimeTasksCache = buildRuntimeProcessTasks()
+  }
+  return runtimeTasksCache
 }
 
 export function evaluateContinuousRuntimeTaskMerge(
@@ -1951,7 +1981,7 @@ export function evaluateContinuousRuntimeTaskMerge(
   runtimeTasks?: RuntimeProcessTask[],
 ): ContinuousRuntimeTaskMergeEvaluation {
   ensureDispatchBoardSeedData()
-  return evaluateContinuousRuntimeTaskMergeWithTasks(taskIds, runtimeTasks ?? buildRuntimeProcessTasks())
+  return evaluateContinuousRuntimeTaskMergeWithTasks(taskIds, runtimeTasks ?? listRuntimeProcessTasks())
 }
 
 export function mergeContinuousRuntimeTasks(taskIds: string[], by = '生产计划员'): RuntimeProcessTask | null {
@@ -1967,6 +1997,7 @@ export function mergeContinuousRuntimeTasks(taskIds: string[], by = '生产计�
     createdAt,
     createdBy: by,
   })
+  invalidateRuntimeTasksCache()
   return getRuntimeTaskById(mergedTaskId)
 }
 
@@ -2088,6 +2119,12 @@ export function isRuntimeTaskExecutionTask(task: RuntimeProcessTask): boolean {
   return task.executionEnabled !== false && task.isSplitSource !== true
 }
 
+export function isWoolRuntimeTask(
+  task: Pick<RuntimeProcessTask, 'processBusinessCode' | 'processCode'>,
+): boolean {
+  return task.processBusinessCode === 'WOOL' || task.processCode === 'WOOL'
+}
+
 export function listRuntimeExecutionTasks(): RuntimeProcessTask[] {
   return listRuntimeProcessTasks().filter((task) => isRuntimeTaskExecutionTask(task))
 }
@@ -2126,6 +2163,7 @@ function clearRuntimeTaskSplitPlan(sourceTaskId: string): void {
     runtimeTaskOverrides.delete(splitTask.taskId)
   }
   runtimeTaskSplitPlans.delete(sourceTaskId)
+  invalidateRuntimeTasksCache()
 }
 
 export function dispatchRuntimeTaskByDetailGroups(input: RuntimeDetailDispatchInput): {
@@ -2252,6 +2290,7 @@ export function dispatchRuntimeTaskByDetailGroups(input: RuntimeDetailDispatchIn
       assignedFactoryName: factory.factoryName,
     })),
   })
+  invalidateRuntimeTasksCache()
 
   const sourceAuditLogs = appendRuntimeAudit(
     task,
@@ -2295,6 +2334,7 @@ export function dispatchRuntimeTaskByDetailGroups(input: RuntimeDetailDispatchIn
       updatedAt: nowTimestamp(),
     })
   }
+  invalidateRuntimeTasksCache()
 
   recomputeRuntimeTransitionsForOrder(task.productionOrderId)
   return {
@@ -2456,6 +2496,7 @@ export function allocateRuntimeSewingTaskScope(input: RuntimeSewingScopeAllocati
       results: rebuiltResults.map((result, index) => ({ ...result, splitSeq: index + 1 })),
     }
     runtimeTaskSplitPlans.set(rootTaskId, ownerPlan)
+    invalidateRuntimeTasksCache()
     patchRuntimeTask(rootTaskId, {
       taskNo: sourceNo,
       rootTaskNo: rootNo,
@@ -2523,6 +2564,7 @@ export function createRuntimeTaskTenderByDetailGroups(input: RuntimeDetailTender
     createdBy: input.by,
     results: resultPlans,
   })
+  invalidateRuntimeTasksCache()
 
   patchRuntimeTask(task.taskId, {
     taskNo: sourceTaskNo,
@@ -2561,6 +2603,7 @@ export function createRuntimeTaskTenderByDetailGroups(input: RuntimeDetailTender
       updatedAt: eventAt,
     })
   }
+  invalidateRuntimeTasksCache()
 
   recomputeRuntimeTransitionsForOrder(task.productionOrderId)
   return {
@@ -3364,6 +3407,7 @@ export function reassignRuntimeSewingTask(
       taskQrStatus: 'ACTIVE',
     }
     runtimeReassignedTasks.set(newTaskId, newTask)
+    invalidateRuntimeTasksCache()
     const oldUpdated = updateRuntimeTaskWithAudit(
       source.taskId,
       { executionEnabled: false },
@@ -3484,6 +3528,7 @@ export function recomputeRuntimeTransitionsForOrder(productionOrderId: string): 
       transitionToNext: task.transitionToNext,
     })
   }
+  invalidateRuntimeTasksCache()
 
   return listRuntimeTasksByOrder(productionOrderId)
 }

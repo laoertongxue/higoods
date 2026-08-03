@@ -19,6 +19,12 @@ import {
   listFactoryWarehouseInboundRecords,
   listFactoryWarehouseOutboundRecords,
 } from '../src/data/fcs/factory-internal-warehouse.ts'
+import { listFactoryInternalWarehouses } from '../src/data/fcs/factory-internal-warehouse.ts'
+import { loadWarehouseLayoutSnapshot } from '../src/pages/process-factory/cutting/warehouse-location-layout-store.ts'
+import {
+  buildWarehouseLocationMapProjection,
+  listWarehouseLocationMapCells,
+} from '../src/pages/process-factory/cutting/warehouse-location-map-model.ts'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 
@@ -61,6 +67,91 @@ const waitProcessSource = read('src/pages/pda-warehouse-wait-process.ts')
 const waitHandoverSource = read('src/pages/pda-warehouse-wait-handover.ts')
 const inboundSource = read('src/pages/pda-warehouse-inbound-records.ts')
 const outboundSource = read('src/pages/pda-warehouse-outbound-records.ts')
+const pdaCuttingHandover = await import('../src/pages/pda-cutting-handover.ts') as Record<string, unknown>
+const pdaCuttingHandoverSource = read('src/pages/pda-cutting-handover.ts')
+assert.doesNotMatch(pdaCuttingHandoverSource, /来源记录|执行对象|投影|稳定\s*ID/, 'PDA 特殊工艺首屏不得展示技术词')
+
+assert.equal(
+  typeof pdaCuttingHandover.validatePdaSpecialCraftReturnLocationSelection,
+  'function',
+  'PDA 特殊工艺回仓必须导出可执行的多库位最新投影校验',
+)
+assert.equal(
+  typeof pdaCuttingHandover.applyPdaSpecialCraftReturnLocationScan,
+  'function',
+  'PDA 特殊工艺回仓必须导出动态扫码选位处理器',
+)
+assert.match(pdaCuttingHandoverSource, /applyPdaSpecialCraftReturnLocationScan\(/, '特殊工艺扫码事件必须调用统一动态处理器')
+const pdaWaitHandoverWarehouse = listFactoryInternalWarehouses().find((warehouse) =>
+  warehouse.factoryId === 'ID-F004' && warehouse.warehouseKind === 'WAIT_HANDOVER')
+assert(pdaWaitHandoverWarehouse, 'PDA 特殊工艺回仓多选检查缺少待交出仓')
+const pdaEmptyProjection = buildWarehouseLocationMapProjection(
+  pdaWaitHandoverWarehouse,
+  loadWarehouseLayoutSnapshot(pdaWaitHandoverWarehouse).snapshot,
+  [],
+)
+const pdaLocationCells = listWarehouseLocationMapCells(pdaEmptyProjection)
+const pdaCrossAreaLocations = [
+  pdaLocationCells[0],
+  pdaLocationCells.find((cell) => cell.areaId !== pdaLocationCells[0].areaId),
+].filter(Boolean) as typeof pdaLocationCells
+assert.equal(pdaCrossAreaLocations.length, 2, 'PDA 特殊工艺回仓多选检查缺少跨区空闲库位')
+const validatePdaReturnLocations = pdaCuttingHandover.validatePdaSpecialCraftReturnLocationSelection as (
+  ids: string[],
+  projection: typeof pdaEmptyProjection,
+) => { ok: boolean; selectedLocationIds: string[]; message: string }
+assert.deepEqual(
+  validatePdaReturnLocations(pdaCrossAreaLocations.map((cell) => cell.locationId), pdaEmptyProjection),
+  { ok: true, selectedLocationIds: pdaCrossAreaLocations.map((cell) => cell.locationId), message: '' },
+  'PDA 特殊工艺回仓必须允许跨区多选并保持选择顺序',
+)
+const pdaConflictProjection = buildWarehouseLocationMapProjection(
+  pdaWaitHandoverWarehouse,
+  loadWarehouseLayoutSnapshot(pdaWaitHandoverWarehouse).snapshot,
+  [{
+    occupancyId: 'PDA-SPECIAL-CONFLICT',
+    locationId: pdaCrossAreaLocations[1].locationId,
+    productionOrderNo: 'PO-PDA-CONFLICT', objectNo: 'BAG-PDA-CONFLICT', objectName: '并发占用',
+    qty: 1, unit: '片', inboundAt: '2026-08-01 10:00', inboundBy: '其他仓管',
+  }],
+)
+const pdaConflict = validatePdaReturnLocations(
+  pdaCrossAreaLocations.map((cell) => cell.locationId),
+  pdaConflictProjection,
+)
+assert.equal(pdaConflict.ok, false, 'PDA 特殊工艺回仓确认前必须整组阻断最新占用冲突')
+assert(pdaConflict.message.includes(pdaCrossAreaLocations[1].locationNo), '冲突提示必须列出完整库位编号')
+const applyPdaLocationScan = pdaCuttingHandover.applyPdaSpecialCraftReturnLocationScan as (
+  selectedIds: string[],
+  scanValue: string,
+  projection: typeof pdaEmptyProjection,
+) => { selectedLocationIds: string[]; message: string }
+const scanBase = pdaCrossAreaLocations[0]
+for (const [statusField, expectedMessage] of [
+  ['areaStatus', '库区已停用'],
+  ['shelfStatus', '货架已停用'],
+  ['status', '库位已停用'],
+] as const) {
+  const stoppedProjection = structuredClone(pdaEmptyProjection)
+  const stoppedCell = listWarehouseLocationMapCells(stoppedProjection).find((cell) => cell.locationId === scanBase.locationId)!
+  stoppedCell[statusField] = 'STOPPED'
+  const result = applyPdaLocationScan([], scanBase.locationNo, stoppedProjection)
+  assert.deepEqual(result.selectedLocationIds, [], `${statusField} 停用扫码不得加入数组`)
+  assert.match(result.message, new RegExp(expectedMessage), `${statusField} 停用必须给短中文提示`)
+}
+const occupiedScan = applyPdaLocationScan([], pdaCrossAreaLocations[1].locationNo, pdaConflictProjection)
+assert.deepEqual(occupiedScan.selectedLocationIds, [], '占用库位扫码不得加入数组')
+assert.match(occupiedScan.message, /已占用/)
+const missingScan = applyPdaLocationScan([], 'Z-R99-L99-P99', pdaEmptyProjection)
+assert.deepEqual(missingScan.selectedLocationIds, [], '不存在库位扫码不得加入数组')
+assert.match(missingScan.message, /不存在/)
+const otherWarehouseScan = applyPdaLocationScan(
+  [],
+  `OTHER-FACTORY|OTHER-WAREHOUSE|WAIT_HANDOVER|${scanBase.locationId}`,
+  pdaEmptyProjection,
+)
+assert.deepEqual(otherWarehouseScan.selectedLocationIds, [], '其他仓库稳定码不得加入数组')
+assert.match(otherWarehouseScan.message, /不属于当前仓库/)
 
 assertContains(packageSource, 'check:cutting-special-craft-dispatch-return', 'package.json 缺少裁床特殊工艺发料与回仓检查命令')
 

@@ -97,11 +97,11 @@ function instructionContext(options: {
     },
     ruleBindings: [
       {
-        ruleRef: 'AGENTS.md::## 12. CodeGraph 使用规则',
+        ruleRef: 'AGENTS.md::## 8. CodeGraph 与交付',
         evidenceFields: ['codegraph'],
       },
       {
-        ruleRef: 'AGENTS.md::### 12.1 任务完成与交付收据',
+        ruleRef: 'AGENTS.md::### 8.1 任务收据与交付状态',
         evidenceFields: ['revision', 'route', 'checks', 'codegraph'],
       },
       ...(options.requireStageTrace

@@ -1,14 +1,14 @@
 import type { PcsProjectStoreSnapshot } from './pcs-project-types.ts'
-import { listProjectTemplates, type ProjectTemplate } from './pcs-templates.ts'
 import {
-  buildProjectPhaseRecordsFromTemplate,
-  buildProjectNodeRecordsFromTemplate,
+  buildProjectPhases,
+  buildProjectNodes,
 } from './pcs-project-node-factory.ts'
+import { listProjectFlowStageContracts } from './pcs-project-domain-contract.ts'
 
 const DEMO_PROJECTS = [
   {
     projectCode: 'PRJ-202603-001', projectName: '法式碎花连衣裙',
-    templateId: 'TPL-001', projectType: '商品开发', projectSourceType: '企划提案',
+ projectType: '商品开发', projectSourceType: '企划提案',
     categoryName: '连衣裙', brandName: 'ASAYA', yearTag: '2026', seasonTags: ['春季'],
     styleTags: ['碎花', '优雅'], priceRangeLabel: '¥299-499',
     targetChannelCodes: ['TIKTOK_ID'], targetAudienceTags: ['都市白领'],
@@ -18,7 +18,7 @@ const DEMO_PROJECTS = [
   },
   {
     projectCode: 'PRJ-202603-002', projectName: '通勤直筒西裤',
-    templateId: 'TPL-001', projectType: '商品开发', projectSourceType: '企划提案',
+ projectType: '商品开发', projectSourceType: '企划提案',
     categoryName: '裤子', brandName: '品牌A', yearTag: '2026', seasonTags: ['春季'],
     styleTags: ['通勤', '简约'], priceRangeLabel: '¥199-399',
     targetChannelCodes: ['TIKTOK_ID'], targetAudienceTags: ['职场女性'],
@@ -28,7 +28,7 @@ const DEMO_PROJECTS = [
   },
   {
     projectCode: 'PRJ-202603-003', projectName: '春季休闲印花短袖T恤',
-    templateId: 'TPL-001', projectType: '快反上新', projectSourceType: '渠道反馈',
+ projectType: '快反上新', projectSourceType: '渠道反馈',
     categoryName: '上衣', brandName: '品牌B', yearTag: '2026', seasonTags: ['春季'],
     styleTags: ['休闲', '印花'], priceRangeLabel: '¥159-299',
     targetChannelCodes: ['SHOPEE'], targetAudienceTags: ['学生', '白领'],
@@ -38,7 +38,7 @@ const DEMO_PROJECTS = [
   },
   {
     projectCode: 'PRJ-202603-004', projectName: 'Polo Shirt Pique 男装',
-    templateId: 'TPL-001', projectType: '商品开发', projectSourceType: '测款沉淀',
+ projectType: '商品开发', projectSourceType: '测款沉淀',
     categoryName: '上衣', brandName: '品牌A', yearTag: '2026', seasonTags: ['春季'],
     styleTags: ['休闲', '商务'], priceRangeLabel: '¥199-299',
     targetChannelCodes: ['TIKTOK_ID', 'SHOPEE'], targetAudienceTags: ['商务男士'],
@@ -48,7 +48,7 @@ const DEMO_PROJECTS = [
   },
   {
     projectCode: 'PRJ-202603-005', projectName: 'Celana Jogger Pria 运动裤',
-    templateId: 'TPL-001', projectType: '快反上新', projectSourceType: '外部灵感',
+ projectType: '快反上新', projectSourceType: '外部灵感',
     categoryName: '裤子', brandName: '品牌B', yearTag: '2026', seasonTags: ['春季'],
     styleTags: ['运动', '街头'], priceRangeLabel: '¥159-299',
     targetChannelCodes: ['TIKTOK_VN'], targetAudienceTags: ['运动爱好者'],
@@ -58,7 +58,7 @@ const DEMO_PROJECTS = [
   },
   {
     projectCode: 'PRJ-202603-006', projectName: 'Kemeja Batik Pria Modern 现代蜡染衬衫',
-    templateId: 'TPL-001', projectType: '设计研发', projectSourceType: '企划提案',
+ projectType: '设计研发', projectSourceType: '企划提案',
     categoryName: '上衣', brandName: '品牌A', yearTag: '2026', seasonTags: ['春季'],
     styleTags: ['中式', '爵士'], priceRangeLabel: '¥299-499',
     targetChannelCodes: ['TIKTOK_ID', 'TIKTOK_VN'], targetAudienceTags: ['时尚人士'],
@@ -68,7 +68,7 @@ const DEMO_PROJECTS = [
   },
   {
     projectCode: 'PRJ-202603-007', projectName: 'Dress Wanita Casual 休闲连衣短裙',
-    templateId: 'TPL-001', projectType: '快反上新', projectSourceType: '渠道反馈',
+ projectType: '快反上新', projectSourceType: '渠道反馈',
     categoryName: '连衣裙', brandName: '品牌B', yearTag: '2026', seasonTags: ['夏季'],
     styleTags: ['休闲', '简约'], priceRangeLabel: '¥199-399',
     targetChannelCodes: ['SHOPEE'], targetAudienceTags: ['学生', '白领'],
@@ -78,7 +78,7 @@ const DEMO_PROJECTS = [
   },
   {
     projectCode: 'PRJ-202603-008', projectName: '男士休闲长裤',
-    templateId: 'TPL-001', projectType: '商品开发', projectSourceType: '历史复用',
+ projectType: '商品开发', projectSourceType: '历史复用',
     categoryName: '裤子', brandName: '品牌A', yearTag: '2026', seasonTags: ['春季'],
     styleTags: ['休闲', '通勤'], priceRangeLabel: '¥199-399',
     targetChannelCodes: ['TIKTOK_ID'], targetAudienceTags: ['职场男性'],
@@ -88,7 +88,7 @@ const DEMO_PROJECTS = [
   },
   {
     projectCode: 'PRJ-202603-009', projectName: 'Rok Mini Plisket 百褶短裙',
-    templateId: 'TPL-001', projectType: '快反上新', projectSourceType: '渠道反馈',
+ projectType: '快反上新', projectSourceType: '渠道反馈',
     categoryName: '短裙', brandName: '品牌B', yearTag: '2026', seasonTags: ['夏季'],
     styleTags: ['甜美', '青春'], priceRangeLabel: '¥159-299',
     targetChannelCodes: ['TIKTOK_ID', 'TIKTOK_VN'], targetAudienceTags: ['年轻女性'],
@@ -98,7 +98,7 @@ const DEMO_PROJECTS = [
   },
   {
     projectCode: 'PRJ-202603-010', projectName: 'Blazer Wanita Formal 女装正装外套',
-    templateId: 'TPL-001', projectType: '商品开发', projectSourceType: '企划提案',
+ projectType: '商品开发', projectSourceType: '企划提案',
     categoryName: '外套', brandName: '品牌A', yearTag: '2026', seasonTags: ['春季'],
     styleTags: ['通勤', '优雅'], priceRangeLabel: '¥399-699',
     targetChannelCodes: ['TIKTOK_ID', 'SHOPEE'], targetAudienceTags: ['职场女性'],
@@ -108,7 +108,7 @@ const DEMO_PROJECTS = [
   },
   {
     projectCode: 'PRJ-202603-011', projectName: 'Jaket Hoodie Unisex 连帽夹克',
-    templateId: 'TPL-001', projectType: '快反上新', projectSourceType: '外部灵感',
+ projectType: '快反上新', projectSourceType: '外部灵感',
     categoryName: '外套', brandName: '品牌B', yearTag: '2026', seasonTags: ['秋季'],
     styleTags: ['运动', '休闲'], priceRangeLabel: '¥299-499',
     targetChannelCodes: ['TIKTOK_VN'], targetAudienceTags: ['学生', '运动爱好者'],
@@ -118,7 +118,7 @@ const DEMO_PROJECTS = [
   },
   {
     projectCode: 'PRJ-202603-012', projectName: 'Kaos Polos Premium 高端纯色T恤',
-    templateId: 'TPL-001', projectType: '商品开发', projectSourceType: '测款沉淀',
+ projectType: '商品开发', projectSourceType: '测款沉淀',
     categoryName: '上衣', brandName: '品牌A', yearTag: '2026', seasonTags: ['夏季'],
     styleTags: ['简约', '休闲'], priceRangeLabel: '¥199-299',
     targetChannelCodes: ['TIKTOK_ID', 'SHOPEE'], targetAudienceTags: ['白领', '学生'],
@@ -128,7 +128,7 @@ const DEMO_PROJECTS = [
   },
   {
     projectCode: 'PRJ-202603-013', projectName: 'Celana Panjang Formal 正装西裤',
-    templateId: 'TPL-001', projectType: '商品开发', projectSourceType: '企划提案',
+ projectType: '商品开发', projectSourceType: '企划提案',
     categoryName: '裤子', brandName: '品牌A', yearTag: '2026', seasonTags: ['春季'],
     styleTags: ['商务', '通勤'], priceRangeLabel: '¥299-499',
     targetChannelCodes: ['TIKTOK_ID'], targetAudienceTags: ['职场男性'],
@@ -138,7 +138,7 @@ const DEMO_PROJECTS = [
   },
   {
     projectCode: 'PRJ-202604-001', projectName: '夏季棉麻度假裙',
-    templateId: 'TPL-001', projectType: '快反上新', projectSourceType: '渠道反馈',
+ projectType: '快反上新', projectSourceType: '渠道反馈',
     categoryName: '连衣裙', brandName: '品牌B', yearTag: '2026', seasonTags: ['夏季'],
     styleTags: ['度假', '棉麻'], priceRangeLabel: '¥199-399',
     targetChannelCodes: ['TIKTOK_VN', 'SHOPEE'], targetAudienceTags: ['年轻女性'],
@@ -148,7 +148,7 @@ const DEMO_PROJECTS = [
   },
   {
     projectCode: 'PRJ-202604-002', projectName: 'Kemeja Flanel Pria 格子衬衫',
-    templateId: 'TPL-001', projectType: '商品开发', projectSourceType: '企划提案',
+ projectType: '商品开发', projectSourceType: '企划提案',
     categoryName: '上衣', brandName: '品牌A', yearTag: '2026', seasonTags: ['秋季'],
     styleTags: ['休闲', '复古'], priceRangeLabel: '¥199-399',
     targetChannelCodes: ['TIKTOK_ID'], targetAudienceTags: ['时尚男士'],
@@ -158,7 +158,7 @@ const DEMO_PROJECTS = [
   },
   {
     projectCode: 'PRJ-202604-003', projectName: '秋冬重磅卫衣',
-    templateId: 'TPL-001', projectType: '快反上新', projectSourceType: '渠道反馈',
+ projectType: '快反上新', projectSourceType: '渠道反馈',
     categoryName: '卫衣', brandName: '品牌B', yearTag: '2026', seasonTags: ['冬季'],
     styleTags: ['休闲', '运动'], priceRangeLabel: '¥299-499',
     targetChannelCodes: ['TIKTOK_ID', 'TIKTOK_VN'], targetAudienceTags: ['学生', '运动爱好者'],
@@ -168,7 +168,7 @@ const DEMO_PROJECTS = [
   },
   {
     projectCode: 'PRJ-202604-004', projectName: '简约通勤A字裙',
-    templateId: 'TPL-001', projectType: '商品开发', projectSourceType: '测款沉淀',
+ projectType: '商品开发', projectSourceType: '测款沉淀',
     categoryName: '短裙', brandName: '品牌A', yearTag: '2026', seasonTags: ['春季'],
     styleTags: ['通勤', '简约'], priceRangeLabel: '¥199-399',
     targetChannelCodes: ['TIKTOK_ID'], targetAudienceTags: ['职场女性'],
@@ -178,7 +178,7 @@ const DEMO_PROJECTS = [
   },
   {
     projectCode: 'PRJ-202604-005', projectName: '蕾丝拼接晚宴裙',
-    templateId: 'TPL-001', projectType: '设计研发', projectSourceType: '企划提案',
+ projectType: '设计研发', projectSourceType: '企划提案',
     categoryName: '连衣裙', brandName: '品牌A', yearTag: '2026', seasonTags: ['夏季'],
     styleTags: ['优雅', '蕾丝'], priceRangeLabel: '¥399-699',
     targetChannelCodes: ['TIKTOK_ID'], targetAudienceTags: ['时尚人士'],
@@ -188,7 +188,7 @@ const DEMO_PROJECTS = [
   },
   {
     projectCode: 'PRJ-202604-006', projectName: '工装束脚口运动裤',
-    templateId: 'TPL-001', projectType: '快反上新', projectSourceType: '外部灵感',
+ projectType: '快反上新', projectSourceType: '外部灵感',
     categoryName: '裤子', brandName: '品牌B', yearTag: '2026', seasonTags: ['夏季'],
     styleTags: ['运动', '工装'], priceRangeLabel: '¥199-399',
     targetChannelCodes: ['TIKTOK_VN'], targetAudienceTags: ['学生', '运动爱好者'],
@@ -198,7 +198,7 @@ const DEMO_PROJECTS = [
   },
   {
     projectCode: 'PRJ-202604-007', projectName: '民族风刺绣连衣裙',
-    templateId: 'TPL-003', projectType: '设计研发', projectSourceType: '企划提案',
+ projectType: '设计研发', projectSourceType: '企划提案',
     categoryName: '连衣裙', brandName: '品牌A', yearTag: '2026', seasonTags: ['夏季'],
     styleTags: ['中式', '民族'], priceRangeLabel: '¥399-699',
     targetChannelCodes: ['TIKTOK_ID', 'SHOPEE'], targetAudienceTags: ['时尚人士'],
@@ -208,7 +208,7 @@ const DEMO_PROJECTS = [
   },
   {
     projectCode: 'PRJ-202604-008', projectName: '情侣款牛仔短裤',
-    templateId: 'TPL-001', projectType: '快反上新', projectSourceType: '渠道反馈',
+ projectType: '快反上新', projectSourceType: '渠道反馈',
     categoryName: '裤子', brandName: '品牌B', yearTag: '2026', seasonTags: ['夏季'],
     styleTags: ['牛仔', '休闲'], priceRangeLabel: '¥199-299',
     targetChannelCodes: ['TIKTOK_ID'], targetAudienceTags: ['学生', '年轻情侣'],
@@ -218,7 +218,7 @@ const DEMO_PROJECTS = [
   },
   {
     projectCode: 'PRJ-202604-009', projectName: '夏威夷风度假衬衫',
-    templateId: 'TPL-001', projectType: '商品开发', projectSourceType: '企划提案',
+ projectType: '商品开发', projectSourceType: '企划提案',
     categoryName: '上衣', brandName: '品牌A', yearTag: '2026', seasonTags: ['夏季'],
     styleTags: ['度假', '印花'], priceRangeLabel: '¥199-399',
     targetChannelCodes: ['TIKTOK_VN', 'TIKTOK_ID'], targetAudienceTags: ['时尚男士'],
@@ -228,7 +228,7 @@ const DEMO_PROJECTS = [
   },
   {
     projectCode: 'PRJ-202604-011', projectName: '通勤薄款针织开衫',
-    templateId: 'TPL-003', projectType: '商品开发', projectSourceType: '测款沉淀',
+ projectType: '商品开发', projectSourceType: '测款沉淀',
     categoryName: '外套', brandName: '品牌A', yearTag: '2026', seasonTags: ['春季'],
     styleTags: ['通勤', '针织'], priceRangeLabel: '¥299-499',
     targetChannelCodes: ['TIKTOK_ID'], targetAudienceTags: ['职场女性'],
@@ -238,7 +238,7 @@ const DEMO_PROJECTS = [
   },
   {
     projectCode: 'PRJ-202604-012', projectName: '秋冬加绒卫裤',
-    templateId: 'TPL-003', projectType: '快反上新', projectSourceType: '渠道反馈',
+ projectType: '快反上新', projectSourceType: '渠道反馈',
     categoryName: '裤子', brandName: '品牌B', yearTag: '2026', seasonTags: ['冬季'],
     styleTags: ['运动', '休闲'], priceRangeLabel: '¥199-399',
     targetChannelCodes: ['TIKTOK_VN'], targetAudienceTags: ['学生', '运动爱好者'],
@@ -248,7 +248,7 @@ const DEMO_PROJECTS = [
   },
   {
     projectCode: 'PRJ-202604-013', projectName: '镂空蕾丝拼接上衣',
-    templateId: 'TPL-003', projectType: '改版开发', projectSourceType: '企划提案',
+ projectType: '改版开发', projectSourceType: '企划提案',
     categoryName: '上衣', brandName: '品牌A', yearTag: '2026', seasonTags: ['夏季'],
     styleTags: ['蕾丝', '拼接'], priceRangeLabel: '¥299-499',
     targetChannelCodes: ['TIKTOK_ID'], targetAudienceTags: ['时尚女性'],
@@ -258,7 +258,7 @@ const DEMO_PROJECTS = [
   },
   {
     projectCode: 'PRJ-202604-014', projectName: '修身弹力牛仔裤',
-    templateId: 'TPL-003', projectType: '改版开发', projectSourceType: '测款沉淀',
+ projectType: '改版开发', projectSourceType: '测款沉淀',
     categoryName: '裤子', brandName: '品牌A', yearTag: '2026', seasonTags: ['春季'],
     styleTags: ['牛仔', '简约'], priceRangeLabel: '¥199-399',
     targetChannelCodes: ['TIKTOK_ID'], targetAudienceTags: ['年轻女性'],
@@ -289,23 +289,19 @@ function dateTimeText(year: number, month: number, day: number, hour = 9, minute
 }
 
 export function createBootstrapProjectSnapshot(version: number): PcsProjectStoreSnapshot {
-  const templates = listProjectTemplates()
-  const templateMap = new Map(templates.map((t) => [t.id, t]))
+  const projectSteps = listProjectFlowStageContracts()
 
   const projects: any[] = []
   const phases: any[] = []
   const nodes: any[] = []
 
   DEMO_PROJECTS.forEach((cfg, index) => {
-    const template = templateMap.get(cfg.templateId)
-    if (!template) return
-
     const projectId = `PRJ-${String(index + 1).padStart(3, '0')}`
     const createdYear = parseInt(cfg.projectCode.split('-')[1]) || 2026
     const createdMonth = parseInt(cfg.projectCode.split('-')[2]) || 3
     const dayBase = (index % 28) + 1
     const createdAt = dateTimeText(createdYear, createdMonth, dayBase)
-    const updatedAt = dateTimeText(2026, 6, (dayBase + template.stages.length * 3) % 28 + 1, 17, 30)
+    const updatedAt = dateTimeText(2026, 6, (dayBase + projectSteps.length * 3) % 28 + 1, 17, 30)
 
     const ownerId = USER_IDS[cfg.ownerName] || `user-${cfg.ownerName}`
     const teamId = TEAM_IDS[cfg.teamName] || `team-${cfg.teamName}`
@@ -321,12 +317,9 @@ export function createBootstrapProjectSnapshot(version: number): PcsProjectStore
       projectName: cfg.projectName,
       projectType: cfg.projectType,
       projectSourceType: cfg.projectSourceType,
-      templateId: cfg.templateId,
-      templateName: template.name,
-      templateVersion: template.updatedAt,
       projectStatus,
       currentPhaseCode: `PHASE_0${['PHASE_01', 'PHASE_02', 'PHASE_03', 'PHASE_04', 'PHASE_05'].indexOf(cfg.progressLevel) + 1}`,
-      currentPhaseName: ['立项与样衣获取', '样衣形成与商品准备', '市场测款与结论', '款式档案与开发推进', '项目收尾'][
+      currentPhaseName: projectSteps.map((step) => step.stepName)[
         ['PHASE_01', 'PHASE_02', 'PHASE_03', 'PHASE_04', 'PHASE_05'].indexOf(cfg.progressLevel)
       ],
       categoryId: `cat-${cfg.categoryName}`,
@@ -372,39 +365,37 @@ export function createBootstrapProjectSnapshot(version: number): PcsProjectStore
       updatedAt,
       updatedBy: cfg.ownerName,
       remark: '',
-      linkedStyleId: cfg.progressLevel === 'PHASE_04' || cfg.progressLevel === 'PHASE_05' ? `style_demand_${cfg.projectCode.replace(/-/g, '_')}` : '',
-      linkedStyleCode: cfg.progressLevel === 'PHASE_04' || cfg.progressLevel === 'PHASE_05' ? `STYLE-${cfg.projectCode}` : '',
-      linkedStyleName: cfg.progressLevel === 'PHASE_04' || cfg.progressLevel === 'PHASE_05' ? cfg.projectName : '',
-      linkedStyleGeneratedAt: cfg.progressLevel === 'PHASE_04' || cfg.progressLevel === 'PHASE_05' ? updatedAt : '',
-      linkedTechPackVersionId: cfg.progressLevel === 'PHASE_04' || cfg.progressLevel === 'PHASE_05' ? `tdv_demand_${cfg.projectCode.replace(/-/g, '_')}` : '',
-      linkedTechPackVersionCode: cfg.progressLevel === 'PHASE_04' || cfg.progressLevel === 'PHASE_05' ? `TDV-${cfg.projectCode}` : '',
-      linkedTechPackVersionLabel: cfg.progressLevel === 'PHASE_04' || cfg.progressLevel === 'PHASE_05' ? 'v1.0' : '',
-      linkedTechPackVersionStatus: cfg.progressLevel === 'PHASE_04' || cfg.progressLevel === 'PHASE_05' ? 'PUBLISHED' : '',
-      linkedTechPackVersionPublishedAt: cfg.progressLevel === 'PHASE_04' || cfg.progressLevel === 'PHASE_05' ? updatedAt : '',
-      projectArchiveId: cfg.progressLevel === 'PHASE_05' ? `archive-${projectId}` : '',
-      projectArchiveNo: cfg.progressLevel === 'PHASE_05' ? `ARC-${cfg.projectCode}` : '',
-      projectArchiveStatus: cfg.progressLevel === 'PHASE_05' ? 'FINALIZED' : '',
-      projectArchiveDocumentCount: cfg.progressLevel === 'PHASE_05' ? 8 : 0,
-      projectArchiveFileCount: cfg.progressLevel === 'PHASE_05' ? 12 : 0,
-      projectArchiveMissingItemCount: cfg.progressLevel === 'PHASE_05' ? 0 : 0,
-      projectArchiveUpdatedAt: cfg.progressLevel === 'PHASE_05' ? updatedAt : '',
-      projectArchiveFinalizedAt: cfg.progressLevel === 'PHASE_05' ? updatedAt : '',
+      linkedStyleId: `style_demand_${cfg.projectCode.replace(/-/g, '_')}`,
+      linkedStyleCode: `STYLE-${cfg.projectCode}`,
+      linkedStyleName: cfg.projectName,
+      linkedStyleGeneratedAt: createdAt,
+      linkedTechPackVersionId: '',
+      linkedTechPackVersionCode: '',
+      linkedTechPackVersionLabel: '',
+      linkedTechPackVersionStatus: '',
+      linkedTechPackVersionPublishedAt: '',
+      projectArchiveId: '',
+      projectArchiveNo: '',
+      projectArchiveStatus: '',
+      projectArchiveDocumentCount: 0,
+      projectArchiveFileCount: 0,
+      projectArchiveMissingItemCount: 0,
+      projectArchiveUpdatedAt: '',
+      projectArchiveFinalizedAt: '',
     })
 
-    const rawPhases = buildProjectPhaseRecordsFromTemplate({
+    const rawPhases = buildProjectPhases({
       projectId,
       ownerId,
       ownerName: cfg.ownerName,
       createdAt,
-      template,
     })
 
-    const rawNodes = buildProjectNodeRecordsFromTemplate({
+    const rawNodes = buildProjectNodes({
       projectId,
       ownerId,
       ownerName: cfg.ownerName,
       createdAt,
-      template,
     })
 
     const phaseOrderMax = ['PHASE_01', 'PHASE_02', 'PHASE_03', 'PHASE_04', 'PHASE_05'].indexOf(cfg.progressLevel) + 1
@@ -434,7 +425,7 @@ export function createBootstrapProjectSnapshot(version: number): PcsProjectStore
       } else if (phaseOrder > phaseOrderMax) {
         nodeStatus = '未开始'
       } else {
-        const isInit = node.workItemTypeCode === 'PROJECT_INIT'
+        const isInit = node.stepCode === 'PROJECT_INIT'
         const midpoint = Math.ceil(rawNodes.filter((n) => n.phaseCode === node.phaseCode).length / 2)
         if (isInit) nodeStatus = '已完成'
         else if (seq <= midpoint + (cfg.decisionPassed ? 1 : 0)) nodeStatus = '已完成'
@@ -442,6 +433,9 @@ export function createBootstrapProjectSnapshot(version: number): PcsProjectStore
         else nodeStatus = '未开始'
       }
 
+      if (node.stepCode === 'CHANNEL_PRODUCT_LISTING' && nodeStatus === '已完成') {
+        nodeStatus = '进行中'
+      }
       const completed = nodeStatus === '已完成'
       return {
         ...node,
@@ -449,19 +443,19 @@ export function createBootstrapProjectSnapshot(version: number): PcsProjectStore
         validInstanceCount: completed ? 1 : 0,
         latestInstanceId: completed ? `${projectId}-instance-${pad(seq)}` : '',
         latestInstanceCode: completed ? `${projectId}-实例-${pad(seq)}` : '',
-        latestResultType: completed ? (node.workItemTypeCode === 'PROJECT_INIT' ? '已创建项目' : '节点完成') : '',
-        latestResultText: completed ? (node.workItemTypeCode === 'PROJECT_INIT' ? '商品项目已创建，请补全并完成立项信息。' : `${node.workItemTypeName}已完成。`) : '',
+        latestResultType: completed ? (node.stepCode === 'PROJECT_INIT' ? '已创建项目' : '节点完成') : '',
+        latestResultText: completed ? (node.stepCode === 'PROJECT_INIT' ? '商品项目已创建，请补全并完成立项信息。' : `${node.stepName}已完成。`) : '',
         pendingActionType: nodeStatus === '进行中' ? '待执行' : nodeStatus === '未开始' ? '待开始' : '已完成',
-        pendingActionText: nodeStatus === '进行中' ? `当前请处理：${node.workItemTypeName}` : nodeStatus === '未开始' ? '待开始执行' : '节点已完成',
+        pendingActionText: nodeStatus === '进行中' ? `当前请处理：${node.stepName}` : nodeStatus === '未开始' ? '待开始执行' : '节点已完成',
       }
     })
 
     const listingNodeStarted = adjustedNodes.some(
-      (node) => node.workItemTypeCode === 'CHANNEL_PRODUCT_LISTING' && node.currentStatus !== '未开始',
+      (node) => node.stepCode === 'CHANNEL_PRODUCT_LISTING' && node.currentStatus !== '未开始',
     )
     if (listingNodeStarted) {
       adjustedNodes = adjustedNodes.map((node) => {
-        if (node.workItemTypeCode !== 'SAMPLE_COST_REVIEW' || node.currentStatus === '已完成') return node
+        if (node.stepCode !== 'SAMPLE_COST_REVIEW' || node.currentStatus === '已完成') return node
         return {
           ...node,
           currentStatus: '已完成',
@@ -469,7 +463,7 @@ export function createBootstrapProjectSnapshot(version: number): PcsProjectStore
           latestInstanceId: `${projectId}-instance-${pad(node.sequenceNo)}`,
           latestInstanceCode: `${projectId}-实例-${pad(node.sequenceNo)}`,
           latestResultType: '节点完成',
-          latestResultText: `${node.workItemTypeName}已完成。`,
+          latestResultText: `${node.stepName}已完成。`,
           pendingActionType: '已完成',
           pendingActionText: '节点已完成',
         }

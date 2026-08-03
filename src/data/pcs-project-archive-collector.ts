@@ -1,4 +1,4 @@
-import { getProjectNodeRecordByWorkItemTypeCode } from './pcs-project-repository.ts'
+import { getProjectNodeRecordByStepCode } from './pcs-project-repository.ts'
 import { listRevisionTasksByProject } from './pcs-revision-task-repository.ts'
 import { listPlateMakingTasksByProject } from './pcs-plate-making-repository.ts'
 import { listPatternTasksByProject } from './pcs-pattern-task-repository.ts'
@@ -54,39 +54,11 @@ export const PROJECT_ARCHIVE_GROUP_LABELS: Record<ProjectArchiveDocumentGroup, s
   OTHER_FILE: '其他说明资料',
 }
 
-function getTechnicalNodeBinding(projectId: string, version: TechnicalDataVersionRecord) {
-  if (version.createdFromTaskType === 'MANUAL') {
-    const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'STYLE_ARCHIVE_CREATE')
-    return {
-      projectNodeId: node?.projectNodeId || version.sourceProjectNodeId || '',
-      workItemTypeCode: 'STYLE_ARCHIVE_CREATE',
-      workItemTypeName: node?.workItemTypeName || '款式档案',
-    }
-  }
-
-  if (version.createdFromTaskType === 'PLATE') {
-    const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PATTERN_TASK')
-    return {
-      projectNodeId: node?.projectNodeId || version.sourceProjectNodeId || '',
-      workItemTypeCode: 'PATTERN_TASK',
-      workItemTypeName: node?.workItemTypeName || '制版任务',
-    }
-  }
-
-  if (version.createdFromTaskType === 'ARTWORK') {
-    const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PATTERN_ARTWORK_TASK')
-    return {
-      projectNodeId: node?.projectNodeId || version.sourceProjectNodeId || '',
-      workItemTypeCode: 'PATTERN_ARTWORK_TASK',
-      workItemTypeName: node?.workItemTypeName || '花型任务',
-    }
-  }
-
-  const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'REVISION_TASK')
+function getTechnicalNodeBinding() {
   return {
-    projectNodeId: node?.projectNodeId || version.sourceProjectNodeId || '',
-    workItemTypeCode: 'REVISION_TASK',
-    workItemTypeName: node?.workItemTypeName || '改版任务',
+    projectNodeId: '',
+    stepCode: '',
+    stepName: '',
   }
 }
 
@@ -201,8 +173,8 @@ function buildProjectBaseDocuments(
       projectId: project.projectId,
       projectCode: project.projectCode,
       projectNodeId: '',
-      workItemTypeCode: '',
-      workItemTypeName: '',
+      stepCode: '',
+      stepName: '',
       sourceModule: '商品项目',
       sourceObjectType: '商品项目基础资料',
       sourceObjectId: project.projectId,
@@ -302,9 +274,9 @@ function buildStyleArchiveDocument(
       projectArchiveId: archive.projectArchiveId,
       projectId: project.projectId,
       projectCode: project.projectCode,
-      projectNodeId: style.sourceProjectNodeId || '',
-      workItemTypeCode: 'STYLE_ARCHIVE_CREATE',
-      workItemTypeName: '生成款式档案',
+      projectNodeId: getProjectNodeRecordByStepCode(project.projectId, 'PROJECT_INIT')?.projectNodeId || '',
+      stepCode: 'PROJECT_INIT',
+      stepName: '商品项目立项',
       sourceModule: '款式档案',
       sourceObjectType: '款式档案',
       sourceObjectId: style.styleId,
@@ -358,8 +330,8 @@ function pushTechPackLogDocuments(
         projectId: project.projectId,
         projectCode: project.projectCode,
         projectNodeId: '',
-        workItemTypeCode: '',
-        workItemTypeName: '',
+        stepCode: '',
+        stepName: '',
         sourceModule: '技术包',
         sourceObjectType: '技术包版本日志',
         sourceObjectId: log.logId,
@@ -435,8 +407,8 @@ function pushPatternAssetDocuments(
         projectId: project.projectId,
         projectCode: project.projectCode,
         projectNodeId: '',
-        workItemTypeCode: asset.source_task_type || 'PATTERN_ARTWORK_TASK',
-        workItemTypeName: asset.source_task_type ? '花型任务' : '',
+        stepCode: '',
+        stepName: '',
         sourceModule: '花型库',
         sourceObjectType: '花型库资产',
         sourceObjectId: asset.id,
@@ -477,7 +449,7 @@ function buildTechnicalDocuments(
 ): TechnicalDataVersionRecord | null {
   const versions = listTechnicalDataVersionsByStyleId(style.styleId)
   versions.forEach((version) => {
-    const nodeBinding = getTechnicalNodeBinding(project.projectId, version)
+    const nodeBinding = getTechnicalNodeBinding()
     const documentId = buildDocumentId(
       archive.projectArchiveId,
       '技术包',
@@ -494,8 +466,8 @@ function buildTechnicalDocuments(
         projectId: project.projectId,
         projectCode: project.projectCode,
         projectNodeId: nodeBinding.projectNodeId,
-        workItemTypeCode: nodeBinding.workItemTypeCode,
-        workItemTypeName: nodeBinding.workItemTypeName,
+        stepCode: nodeBinding.stepCode,
+        stepName: nodeBinding.stepName,
         sourceModule: '技术包',
         sourceObjectType: '技术包版本',
         sourceObjectId: version.technicalVersionId,
@@ -567,8 +539,8 @@ function buildTechnicalDocuments(
           projectId: project.projectId,
           projectCode: project.projectCode,
           projectNodeId: nodeBinding.projectNodeId,
-          workItemTypeCode: nodeBinding.workItemTypeCode,
-          workItemTypeName: nodeBinding.workItemTypeName,
+          stepCode: nodeBinding.stepCode,
+          stepName: nodeBinding.stepName,
           sourceModule: '技术包',
           sourceObjectType: '纸样文件',
           sourceObjectId: version.technicalVersionId,
@@ -639,8 +611,8 @@ function buildTechnicalDocuments(
           projectId: project.projectId,
           projectCode: project.projectCode,
           projectNodeId: nodeBinding.projectNodeId,
-          workItemTypeCode: nodeBinding.workItemTypeCode,
-          workItemTypeName: nodeBinding.workItemTypeName,
+          stepCode: nodeBinding.stepCode,
+          stepName: nodeBinding.stepName,
           sourceModule: '技术包',
           sourceObjectType: '花型设计',
           sourceObjectId: version.technicalVersionId,
@@ -711,8 +683,8 @@ function buildTechnicalDocuments(
           projectId: project.projectId,
           projectCode: project.projectCode,
           projectNodeId: nodeBinding.projectNodeId,
-          workItemTypeCode: nodeBinding.workItemTypeCode,
-          workItemTypeName: nodeBinding.workItemTypeName,
+          stepCode: nodeBinding.stepCode,
+          stepName: nodeBinding.stepName,
           sourceModule: '技术包',
           sourceObjectType: '技术包附件',
           sourceObjectId: version.technicalVersionId,
@@ -831,9 +803,9 @@ function buildRevisionDocuments(
         projectArchiveId: archive.projectArchiveId,
         projectId: project.projectId,
         projectCode: project.projectCode,
-        projectNodeId: task.projectNodeId,
-        workItemTypeCode: task.workItemTypeCode,
-        workItemTypeName: task.workItemTypeName,
+        projectNodeId: '',
+        stepCode: '',
+        stepName: '',
         sourceModule: '改版任务',
         sourceObjectType: '改版任务',
         sourceObjectId: task.revisionTaskId,
@@ -858,7 +830,7 @@ function buildRevisionDocuments(
         createdBy: archive.createdBy,
         updatedAt: task.updatedAt,
         updatedBy: task.updatedBy,
-        legacySourceRef: task.legacyUpstreamRef,
+        legacySourceRef: task.upstreamObjectCode || task.upstreamObjectId,
       }),
       archiveFiles,
     )
@@ -941,9 +913,9 @@ function buildPatternTaskDocuments(
         projectArchiveId: archive.projectArchiveId,
         projectId: project.projectId,
         projectCode: project.projectCode,
-        projectNodeId: task.projectNodeId,
-        workItemTypeCode: task.workItemTypeCode,
-        workItemTypeName: task.workItemTypeName,
+        projectNodeId: '',
+        stepCode: '',
+        stepName: '',
         sourceModule: '制版任务',
         sourceObjectType: '制版任务',
         sourceObjectId: task.plateTaskId,
@@ -968,7 +940,7 @@ function buildPatternTaskDocuments(
         createdBy: archive.createdBy,
         updatedAt: task.updatedAt,
         updatedBy: task.updatedBy,
-        legacySourceRef: task.legacyUpstreamRef,
+        legacySourceRef: task.upstreamObjectCode || task.upstreamObjectId,
       }),
       plateFiles,
     )
@@ -1037,9 +1009,9 @@ function buildPatternTaskDocuments(
         projectArchiveId: archive.projectArchiveId,
         projectId: project.projectId,
         projectCode: project.projectCode,
-        projectNodeId: task.projectNodeId,
-        workItemTypeCode: task.workItemTypeCode,
-        workItemTypeName: task.workItemTypeName,
+        projectNodeId: '',
+        stepCode: '',
+        stepName: '',
         sourceModule: '花型任务',
         sourceObjectType: '花型任务',
         sourceObjectId: task.patternTaskId,
@@ -1064,7 +1036,7 @@ function buildPatternTaskDocuments(
         createdBy: archive.createdBy,
         updatedAt: task.updatedAt,
         updatedBy: task.updatedBy,
-        legacySourceRef: task.legacyUpstreamRef,
+        legacySourceRef: task.upstreamObjectCode || task.upstreamObjectId,
       }),
       patternTaskFiles,
     )
@@ -1079,7 +1051,7 @@ function buildSampleDocuments(
 ): void {
   const sampleShootImages = listProjectImageAssetsBySourceNode(project.projectId, 'SAMPLE_SHOOT_FIT')
   if (sampleShootImages.length > 0) {
-    const sampleShootNode = getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'SAMPLE_SHOOT_FIT')
+    const sampleShootNode = getProjectNodeRecordByStepCode(project.projectId, 'SAMPLE_SHOOT_FIT')
     const documentId = buildDocumentId(
       archive.projectArchiveId,
       '样衣拍摄与试穿',
@@ -1116,8 +1088,8 @@ function buildSampleDocuments(
         projectId: project.projectId,
         projectCode: project.projectCode,
         projectNodeId: sampleShootNode?.projectNodeId || '',
-        workItemTypeCode: sampleShootNode?.workItemTypeCode || 'SAMPLE_SHOOT_FIT',
-        workItemTypeName: sampleShootNode?.workItemTypeName || '样衣拍摄与试穿',
+        stepCode: sampleShootNode?.stepCode || 'SAMPLE_SHOOT_FIT',
+        stepName: sampleShootNode?.stepName || '样衣拍摄与试穿',
         sourceModule: '样衣拍摄与试穿',
         sourceObjectType: '样衣拍摄图片',
         sourceObjectId: project.projectId,
@@ -1156,9 +1128,9 @@ function buildSampleDocuments(
         projectArchiveId: archive.projectArchiveId,
         projectId: project.projectId,
         projectCode: project.projectCode,
-        projectNodeId: task.projectNodeId,
-        workItemTypeCode: task.workItemTypeCode,
-        workItemTypeName: task.workItemTypeName,
+        projectNodeId: '',
+        stepCode: '',
+        stepName: '',
         sourceModule: '首版样衣打样',
         sourceObjectType: '首版样衣打样任务',
         sourceObjectId: task.firstSampleTaskId,
@@ -1183,7 +1155,7 @@ function buildSampleDocuments(
         createdBy: archive.createdBy,
         updatedAt: task.updatedAt,
         updatedBy: task.updatedBy,
-        legacySourceRef: task.legacyUpstreamRef,
+        legacySourceRef: task.upstreamObjectCode || task.upstreamObjectId,
       }),
     )
   })
@@ -1197,9 +1169,9 @@ function buildSampleDocuments(
         projectArchiveId: archive.projectArchiveId,
         projectId: project.projectId,
         projectCode: project.projectCode,
-        projectNodeId: task.projectNodeId,
-        workItemTypeCode: task.workItemTypeCode,
-        workItemTypeName: task.workItemTypeName,
+        projectNodeId: '',
+        stepCode: '',
+        stepName: '',
         sourceModule: '首单样衣打样',
         sourceObjectType: '首单样衣打样任务',
         sourceObjectId: task.firstOrderSampleTaskId,
@@ -1224,7 +1196,7 @@ function buildSampleDocuments(
         createdBy: archive.createdBy,
         updatedAt: task.updatedAt,
         updatedBy: task.updatedBy,
-        legacySourceRef: task.legacyUpstreamRef,
+        legacySourceRef: task.upstreamObjectCode || task.upstreamObjectId,
       }),
     )
   })
@@ -1236,7 +1208,7 @@ function buildConclusionDocument(
   project: PcsProjectRecord,
   documents: ProjectArchiveDocumentRecord[],
 ): void {
-  const conclusionNode = getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'TEST_CONCLUSION')
+  const conclusionNode = getProjectNodeRecordByStepCode(project.projectId, 'TEST_CONCLUSION')
   if (!conclusionNode || !conclusionNode.latestResultText) return
   documents.push(
     createDocumentRecord({
@@ -1245,8 +1217,8 @@ function buildConclusionDocument(
       projectId: project.projectId,
       projectCode: project.projectCode,
       projectNodeId: conclusionNode.projectNodeId,
-      workItemTypeCode: conclusionNode.workItemTypeCode,
-      workItemTypeName: conclusionNode.workItemTypeName,
+      stepCode: conclusionNode.stepCode,
+      stepName: conclusionNode.stepName,
       sourceModule: '商品项目',
       sourceObjectType: '测款结论',
       sourceObjectId: project.projectId,
@@ -1316,7 +1288,6 @@ export function collectProjectArchiveAutoData(
 
 function buildMissingItem(
   archive: ProjectArchiveRecord,
-  transferNodeId: string,
   reasonCode: string,
   reasonText: string,
 ): ProjectArchiveMissingItemRecord {
@@ -1334,9 +1305,9 @@ function buildMissingItem(
     itemCode: reasonCode,
     itemName: labelMap[reasonCode] || reasonCode,
     requiredFlag: true,
-    projectNodeId: transferNodeId,
-    workItemTypeCode: 'STYLE_ARCHIVE_CREATE',
-    workItemTypeName: '生成款式档案',
+    projectNodeId: '',
+    stepCode: '',
+    stepName: '',
     reasonType: '资料缺失',
     reasonText,
     status: '待补齐',
@@ -1351,30 +1322,29 @@ export function computeProjectArchiveMissingItems(input: {
   currentTechnicalVersion: TechnicalDataVersionRecord | null
   transferNodeId: string
 }): ProjectArchiveMissingItemRecord[] {
-  const { archive, documents, currentTechnicalVersion, transferNodeId } = input
+  const { archive, documents, currentTechnicalVersion } = input
   const hasGroup = (group: ProjectArchiveDocumentGroup) => documents.some((item) => item.documentGroup === group)
   const hasCategory = (group: ProjectArchiveDocumentGroup, category: string) =>
     documents.some((item) => item.documentGroup === group && item.documentCategory === category)
 
   const missingItems: ProjectArchiveMissingItemRecord[] = []
   if (!hasGroup('PROJECT_BASE')) {
-    missingItems.push(buildMissingItem(archive, transferNodeId, 'PROJECT_BASE', '缺少项目基础资料，请补齐项目基础资料与参考附件。'))
+    missingItems.push(buildMissingItem(archive, 'PROJECT_BASE', '缺少项目基础资料，请补齐项目基础资料与参考附件。'))
   }
   if (!hasGroup('STYLE_ARCHIVE')) {
-    missingItems.push(buildMissingItem(archive, transferNodeId, 'STYLE_ARCHIVE', '缺少正式款式档案，请先生成款式档案壳。'))
+    missingItems.push(buildMissingItem(archive, 'STYLE_ARCHIVE', '缺少商品测款档案，请先完善商品测款档案。'))
   }
   if (!currentTechnicalVersion || currentTechnicalVersion.versionStatus !== 'PUBLISHED') {
     missingItems.push(
       buildMissingItem(
         archive,
-        transferNodeId,
         'TECHNICAL_VERSION',
         '缺少当前生效技术包版本，或当前版本尚未发布。',
       ),
     )
   }
   if (!hasGroup('SAMPLE_ASSET')) {
-    missingItems.push(buildMissingItem(archive, transferNodeId, 'SAMPLE_DATA', '缺少样衣资料，请补齐首版或首单样衣打样任务。'))
+    missingItems.push(buildMissingItem(archive, 'SAMPLE_DATA', '缺少样衣资料，请补齐首版或首单样衣打样任务。'))
   }
   const archivedPatternAssetIds = new Set(
     documents
@@ -1386,7 +1356,6 @@ export function computeProjectArchiveMissingItems(input: {
       missingItems.push(
         buildMissingItem(
           archive,
-          transferNodeId,
           `ARTWORK_ASSET_${assetId}`,
           '技术包已引用花型库资产，但项目资料归档尚未采集到对应花型库资产。',
         ),
@@ -1394,10 +1363,10 @@ export function computeProjectArchiveMissingItems(input: {
     }
   })
   if (!hasCategory('INSPECTION_FILE', '检测资料')) {
-    missingItems.push(buildMissingItem(archive, transferNodeId, 'INSPECTION_FILE', '缺少检测资料，请上传至少 1 份检测资料。'))
+    missingItems.push(buildMissingItem(archive, 'INSPECTION_FILE', '缺少检测资料，请上传至少 1 份检测资料。'))
   }
   if (!hasCategory('QUOTATION_FILE', '报价资料')) {
-    missingItems.push(buildMissingItem(archive, transferNodeId, 'QUOTATION_FILE', '缺少报价资料，请上传至少 1 份报价资料。'))
+    missingItems.push(buildMissingItem(archive, 'QUOTATION_FILE', '缺少报价资料，请上传至少 1 份报价资料。'))
   }
   return missingItems
 }

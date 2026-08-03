@@ -1,16 +1,44 @@
 import {
-  getProjectById,
-  getProjectNodeRecordByWorkItemTypeCode,
-  updateProjectNodeRecord,
+  getProjectStoreSnapshot,
+  replaceProjectStore,
   updateProjectRecord,
 } from './pcs-project-repository.ts'
+import {
+  getProjectArchiveStoreSnapshot,
+  replaceProjectArchiveStore,
+} from './pcs-project-archive-repository.ts'
 import { syncExistingProjectArchiveByProjectId } from './pcs-project-archive-sync.ts'
-import { upsertProjectRelation } from './pcs-project-relation-repository.ts'
-import { syncProjectNodeInstanceRuntime } from './pcs-project-node-instance-registry.ts'
-import { appendTechPackVersionLog } from './pcs-tech-pack-version-log-repository.ts'
-import { getStyleArchiveById, updateStyleArchive } from './pcs-style-archive-repository.ts'
-import { getTechnicalDataVersionById } from './pcs-technical-data-version-repository.ts'
-import type { TechPackSourceTaskType } from './pcs-technical-data-version-types.ts'
+import {
+  getProjectRelationStoreSnapshot,
+  replaceProjectRelationStore,
+  upsertProjectRelation,
+} from './pcs-project-relation-repository.ts'
+import {
+  appendTechPackVersionLog,
+  listTechPackVersionLogs,
+  replaceTechPackVersionLogStore,
+} from './pcs-tech-pack-version-log-repository.ts'
+import {
+  captureStyleArchiveRepositoryState,
+  getStyleArchiveById,
+  restoreStyleArchiveRepositoryState,
+  updateStyleArchive,
+} from './pcs-style-archive-repository.ts'
+import {
+  getTechnicalDataVersionById,
+  getTechnicalDataVersionContent,
+  runTechnicalDataVersionRepositoryTransaction,
+  updateTechnicalDataVersionContent,
+} from './pcs-technical-data-version-repository.ts'
+import { freezeTechnicalDataVersionBomPricingSnapshot } from './pcs-engineering-bom-pricing.ts'
+import { resolveTechnicalVersionProductProject } from './pcs-technical-data-version-project-source.ts'
+import {
+  getEngineeringMasterOrderById,
+  assertEngineeringTaskCanComplete,
+  runEngineeringMasterRepositoryTransaction,
+  updateEngineeringTaskRecord,
+} from './pcs-engineering-master-repository.ts'
+import type { TechnicalDataVersionRecord } from './pcs-technical-data-version-types.ts'
 
 function nowText(): string {
   const now = new Date()
@@ -18,40 +46,77 @@ function nowText(): string {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`
 }
 
-function getProjectNodeBindingByTaskType(projectId: string, taskType: TechPackSourceTaskType) {
-  if (taskType === 'MANUAL') {
-    const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'STYLE_ARCHIVE_CREATE')
-    return {
-      projectNodeId: node?.projectNodeId || null,
-      workItemTypeCode: 'STYLE_ARCHIVE_CREATE',
-      workItemTypeName: node?.workItemTypeName || '款式档案',
+export type TechPackActivationMutationStep =
+  | 'PRICING_SNAPSHOT'
+  | 'ENGINEERING_TASK'
+  | 'STYLE'
+  | 'PROJECT'
+  | 'RELATION'
+  | 'ARCHIVE'
+  | 'LOG'
+
+let failureStepForTesting: TechPackActivationMutationStep | null = null
+
+export function setTechPackActivationFailureStepForTesting(
+  step: TechPackActivationMutationStep | null,
+): void {
+  failureStepForTesting = step
+}
+
+function markActivationStepCompleted(step: TechPackActivationMutationStep): void {
+  if (failureStepForTesting === step) throw new Error(`模拟启用${step}写入失败`)
+}
+
+function completeSourceEngineeringTechPackTask(
+  record: TechnicalDataVersionRecord,
+  completedAt: string,
+): void {
+  if (record.createdFromTaskType !== 'ENGINEERING_MASTER') return
+  const master = getEngineeringMasterOrderById(record.sourceProjectId)
+  if (!master) throw new Error(`技术包来源工程主单不存在：${record.sourceProjectId}`)
+  const sourceTask = master.tasks.find((task) => task.taskId === record.createdFromTaskId)
+  if (!sourceTask || sourceTask.taskType !== 'TECH_PACK_CONFIRMATION') {
+    throw new Error('技术包来源任务不是同一工程主单的技术包确认任务，不能正式启用。')
+  }
+  assertEngineeringTaskCanComplete(master, sourceTask)
+  updateEngineeringTaskRecord(master.masterOrderId, sourceTask.taskId, (task) => {
+    task.status = '已完成'
+    if (!task.startedAt) task.startedAt = completedAt
+    task.submittedAt = completedAt
+    if (!task.firstCompletedAt) task.firstCompletedAt = completedAt
+    task.effectiveCompletedAt = completedAt
+    task.completedAt = completedAt
+  })
+}
+
+function restoreActivationStores(
+  snapshots: {
+    style: ReturnType<typeof captureStyleArchiveRepositoryState>
+    project: ReturnType<typeof getProjectStoreSnapshot>
+    relation: ReturnType<typeof getProjectRelationStoreSnapshot>
+    archive: ReturnType<typeof getProjectArchiveStoreSnapshot>
+    logs: ReturnType<typeof listTechPackVersionLogs>
+  },
+  originalError: unknown,
+): never {
+  const rollbackErrors: unknown[] = []
+  const restore = (action: () => void) => {
+    try {
+      action()
+    } catch (error) {
+      rollbackErrors.push(error)
     }
   }
-
-  if (taskType === 'PLATE') {
-    const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PATTERN_TASK')
-    return {
-      projectNodeId: node?.projectNodeId || null,
-      workItemTypeCode: 'PATTERN_TASK',
-      workItemTypeName: node?.workItemTypeName || '制版任务',
-    }
+  restore(() => replaceProjectStore(snapshots.project))
+  restore(() => replaceProjectRelationStore(snapshots.relation))
+  restore(() => replaceProjectArchiveStore(snapshots.archive))
+  restore(() => replaceTechPackVersionLogStore(snapshots.logs))
+  // 项目仓恢复会触发款式种子同步，款式仓必须最后精确恢复。
+  restore(() => restoreStyleArchiveRepositoryState(snapshots.style))
+  if (rollbackErrors.length > 0 && originalError instanceof Error) {
+    Object.assign(originalError, { rollbackErrors })
   }
-
-  if (taskType === 'ARTWORK') {
-    const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PATTERN_ARTWORK_TASK')
-    return {
-      projectNodeId: node?.projectNodeId || null,
-      workItemTypeCode: 'PATTERN_ARTWORK_TASK',
-      workItemTypeName: node?.workItemTypeName || '花型任务',
-    }
-  }
-
-  const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'REVISION_TASK')
-  return {
-    projectNodeId: node?.projectNodeId || null,
-    workItemTypeCode: 'REVISION_TASK',
-    workItemTypeName: node?.workItemTypeName || '改版任务',
-  }
+  throw originalError
 }
 
 export function activateTechPackVersionForStyle(
@@ -72,108 +137,111 @@ export function activateTechPackVersionForStyle(
     throw new Error('只有已发布技术包版本才能启用为当前生效版本。')
   }
 
+  const content = getTechnicalDataVersionContent(technicalVersionId)
+  if (!content) throw new Error('未找到技术包版本内容，不能启用为当前生效版本。')
   const activatedAt = nowText()
-  updateStyleArchive(styleId, {
-    archiveStatus: 'ACTIVE',
-    techPackStatus: '已启用',
-    currentTechPackVersionId: record.technicalVersionId,
-    currentTechPackVersionCode: record.technicalVersionCode,
-    currentTechPackVersionLabel: record.versionLabel,
-    currentTechPackVersionStatus: '已启用',
-    currentTechPackVersionActivatedAt: activatedAt,
-    currentTechPackVersionActivatedBy: operatorName,
-    updatedAt: activatedAt,
-    updatedBy: operatorName,
-  })
 
-  if (record.sourceProjectId) {
-    const project = getProjectById(record.sourceProjectId)
-    updateProjectRecord(
-      record.sourceProjectId,
-      {
-        linkedTechPackVersionId: record.technicalVersionId,
-        linkedTechPackVersionCode: record.technicalVersionCode,
-        linkedTechPackVersionLabel: record.versionLabel,
-        linkedTechPackVersionStatus: record.versionStatus,
-        linkedTechPackVersionPublishedAt: record.publishedAt || activatedAt,
-        updatedAt: activatedAt,
-      },
-      operatorName,
-    )
-
-    const sourceNode = getProjectNodeBindingByTaskType(record.sourceProjectId, record.createdFromTaskType)
-    if (sourceNode.projectNodeId) {
-      updateProjectNodeRecord(
-        record.sourceProjectId,
-        sourceNode.projectNodeId,
-        {
-          currentStatus: '进行中',
-          latestInstanceId: record.technicalVersionId,
-          latestInstanceCode: record.technicalVersionCode,
-          latestResultType: '已启用当前生效版本',
-          latestResultText: '已启用当前生效技术包版本，可供下游正式消费。',
-          pendingActionType: '等待生产消费',
-          pendingActionText: '后续生产需求转生产单时将消费当前生效技术包版本。',
-          updatedAt: activatedAt,
-        },
-        operatorName,
-      )
-      syncProjectNodeInstanceRuntime(record.sourceProjectId, sourceNode.projectNodeId, operatorName, activatedAt)
-    }
-
-    upsertProjectRelation({
-      projectRelationId: `rel_tech_pack_${record.technicalVersionId}`,
-      projectId: record.sourceProjectId,
-      projectCode: record.sourceProjectCode,
-      projectNodeId: sourceNode.projectNodeId ?? (record.sourceProjectNodeId || null),
-      workItemTypeCode: sourceNode.workItemTypeCode,
-      workItemTypeName: sourceNode.workItemTypeName,
-      relationRole: '产出对象',
-      sourceModule: '技术包',
-      sourceObjectType: '技术包版本',
-      sourceObjectId: record.technicalVersionId,
-      sourceObjectCode: record.technicalVersionCode,
-      sourceLineId: null,
-      sourceLineCode: null,
-      sourceTitle: `${record.styleName} ${record.versionLabel}`,
-      sourceStatus: record.versionStatus,
-      businessDate: activatedAt,
-      ownerName: operatorName,
-      createdAt: record.createdAt,
-      createdBy: record.createdBy,
-      updatedAt: activatedAt,
-      updatedBy: operatorName,
-      note: '',
-      legacyRefType: '',
-      legacyRefValue: '',
-    })
-
-    if (project) {
-      syncExistingProjectArchiveByProjectId(project.projectId, operatorName)
-    }
+  const snapshotsBeforeActivation = {
+    style: captureStyleArchiveRepositoryState(),
+    project: getProjectStoreSnapshot(),
+    relation: getProjectRelationStoreSnapshot(),
+    archive: getProjectArchiveStoreSnapshot(),
+    logs: listTechPackVersionLogs(),
   }
 
-  appendTechPackVersionLog({
-    logId: `tech_pack_log_activate_${record.technicalVersionId}_${activatedAt.replace(/[^0-9]/g, '')}`,
-    technicalVersionId: record.technicalVersionId,
-    technicalVersionCode: record.technicalVersionCode,
-    versionLabel: record.versionLabel,
-    styleId: record.styleId,
-    styleCode: record.styleCode,
-    logType: '启用当前生效版本',
-    sourceTaskType: '',
-    sourceTaskId: '',
-    sourceTaskCode: '',
-    sourceTaskName: '',
-    changeScope: '',
-    changeText: `已将 ${record.versionLabel} 启用为当前生效技术包版本。`,
-    beforeVersionId: style.currentTechPackVersionId || '',
-    beforeVersionCode: style.currentTechPackVersionCode || '',
-    afterVersionId: record.technicalVersionId,
-    afterVersionCode: record.technicalVersionCode,
-    createdAt: activatedAt,
-    createdBy: operatorName,
-  })
+  runTechnicalDataVersionRepositoryTransaction(() =>
+    runEngineeringMasterRepositoryTransaction(() => {
+      try {
+      // 规范构建与首次保存位于同一仓储原子入口，调用方不能注入任意快照。
+      freezeTechnicalDataVersionBomPricingSnapshot(technicalVersionId, activatedAt, operatorName)
+      markActivationStepCompleted('PRICING_SNAPSHOT')
+      completeSourceEngineeringTechPackTask(record, activatedAt)
+      markActivationStepCompleted('ENGINEERING_TASK')
+      const updatedStyle = updateStyleArchive(styleId, {
+        archiveStatus: 'ACTIVE',
+        techPackStatus: '已启用',
+        currentTechPackVersionId: record.technicalVersionId,
+        currentTechPackVersionCode: record.technicalVersionCode,
+        currentTechPackVersionLabel: record.versionLabel,
+        currentTechPackVersionStatus: '已启用',
+        currentTechPackVersionActivatedAt: activatedAt,
+        currentTechPackVersionActivatedBy: operatorName,
+        updatedAt: activatedAt,
+        updatedBy: operatorName,
+      })
+      if (!updatedStyle) throw new Error('更新款式当前生效技术包版本失败。')
+      markActivationStepCompleted('STYLE')
+
+      const source = resolveTechnicalVersionProductProject(record)
+      if (source) {
+        updateProjectRecord(
+          source.project.projectId,
+          {
+            linkedTechPackVersionId: record.technicalVersionId,
+            linkedTechPackVersionCode: record.technicalVersionCode,
+            linkedTechPackVersionLabel: record.versionLabel,
+            linkedTechPackVersionStatus: record.versionStatus,
+            linkedTechPackVersionPublishedAt: record.publishedAt || activatedAt,
+            updatedAt: activatedAt,
+          },
+          operatorName,
+        )
+        markActivationStepCompleted('PROJECT')
+
+        upsertProjectRelation({
+          projectRelationId: `rel_tech_pack_${record.technicalVersionId}`,
+          projectId: source.project.projectId,
+          projectCode: source.project.projectCode,
+          relationRole: '产出对象',
+          sourceModule: '技术包',
+          sourceObjectType: '技术包版本',
+          sourceObjectId: record.technicalVersionId,
+          sourceObjectCode: record.technicalVersionCode,
+          sourceLineId: null,
+          sourceLineCode: null,
+          sourceTitle: `${record.styleName} ${record.versionLabel}`,
+          sourceStatus: record.versionStatus,
+          businessDate: activatedAt,
+          ownerName: operatorName,
+          createdAt: record.createdAt,
+          createdBy: record.createdBy,
+          updatedAt: activatedAt,
+          updatedBy: operatorName,
+          note: '',
+        })
+        markActivationStepCompleted('RELATION')
+
+        syncExistingProjectArchiveByProjectId(source.project.projectId, operatorName)
+        markActivationStepCompleted('ARCHIVE')
+      }
+
+      appendTechPackVersionLog({
+        logId: `tech_pack_log_activate_${record.technicalVersionId}_${activatedAt.replace(/[^0-9]/g, '')}`,
+        technicalVersionId: record.technicalVersionId,
+        technicalVersionCode: record.technicalVersionCode,
+        versionLabel: record.versionLabel,
+        styleId: record.styleId,
+        styleCode: record.styleCode,
+        logType: '启用当前生效版本',
+        sourceTaskType: '',
+        sourceTaskId: '',
+        sourceTaskCode: '',
+        sourceTaskName: '',
+        changeScope: '',
+        changeText: `已将 ${record.versionLabel} 启用为当前生效技术包版本。`,
+        beforeVersionId: style.currentTechPackVersionId || '',
+        beforeVersionCode: style.currentTechPackVersionCode || '',
+        afterVersionId: record.technicalVersionId,
+        afterVersionCode: record.technicalVersionCode,
+        createdAt: activatedAt,
+        createdBy: operatorName,
+      })
+      markActivationStepCompleted('LOG')
+      } catch (error) {
+        restoreActivationStores(snapshotsBeforeActivation, error)
+      }
+    }),
+  )
 
   return getTechnicalDataVersionById(technicalVersionId) ?? record
 }

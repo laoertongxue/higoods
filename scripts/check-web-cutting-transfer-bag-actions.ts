@@ -253,6 +253,26 @@ for (const field of ['recoveryNode', 'recoveryLocation', 'operatorName']) {
   )
 }
 
+const specialCraftReturnSubmit = warehouseSource.match(
+  /function submitWaitHandoverSpecialCraftReturn[\s\S]*?\n}\n\nexport function handleCraftCuttingWaitHandoverEvent/,
+)?.[0] || ''
+assert(specialCraftReturnSubmit, '必须保留 Web 特殊工艺回仓提交入口')
+assert.match(
+  specialCraftReturnSubmit,
+  /revalidateWarehouseLocationSelection\([\s\S]*waitHandoverSelectedLocationIds/,
+  'Web 特殊工艺回仓提交前必须基于最新待交出仓投影一次复核全部所选库位',
+)
+assert.match(
+  specialCraftReturnSubmit,
+  /warehouseLocations,/,
+  'Web 特殊工艺回仓事件必须提交全部稳定库位引用',
+)
+assert.doesNotMatch(
+  specialCraftReturnSubmit,
+  /\blocationRef\s*:/,
+  'Web 特殊工艺回仓新事件不得双写旧单库位 locationRef',
+)
+
 const runtimeLedger = await import(
   '../src/data/fcs/cutting/cutting-runtime-event-ledger.ts'
 )
@@ -348,6 +368,98 @@ assert.deepEqual(
 assert.equal(
   runtime.buildWaitHandoverLifecycleByBagCode(bagCode, storage).flowStage,
   'INBOUND_STORED',
+)
+
+const multiStorage = createMemoryStorage()
+const multiBagCode = 'WEB-REAL-BAG-MULTI-001'
+const multiUsageCycleId = runtime.buildWaitHandoverUsageCycleId(
+  multiBagCode,
+  '2026-08-01 09:00',
+)
+const multiTicket = {
+  ...ticket,
+  sewingTaskId: 'WEB-MULTI-SEW-ID-001',
+  sewingTaskNo: 'WEB-MULTI-SEW-001',
+  receiverFactoryId: 'WEB-MULTI-FACTORY-ID-001',
+  receiverFactoryName: 'Web 多库位车缝厂',
+}
+runtime.appendWaitHandoverBaggingEvent({
+  source: 'WEB',
+  operator: { operatorName: 'Web 装袋员' },
+  bagCode: multiBagCode,
+  tickets: [multiTicket],
+  occurredAt: '2026-08-01 09:00',
+  usageCycleId: multiUsageCycleId,
+  storage: multiStorage,
+})
+const multiLocations = [
+  {
+    factoryId: 'CUTTING-CENTER', warehouseId: 'CUTTING-WAIT-HANDOVER', warehouseKind: 'WAIT_HANDOVER',
+    areaId: 'AREA-A', areaCode: 'A', areaName: 'A 区',
+    shelfId: 'SHELF-A-01', shelfSequence: 1, shelfNo: 'R01',
+    locationId: 'LOC-A-R01-L01-P01', locationNo: 'A-R01-L01-P01', locationName: 'A-R01-L01-P01',
+    levelNo: 1, positionNo: 1, areaStatus: 'AVAILABLE', shelfStatus: 'AVAILABLE', status: 'AVAILABLE', orderIndex: 0,
+  },
+  {
+    factoryId: 'CUTTING-CENTER', warehouseId: 'CUTTING-WAIT-HANDOVER', warehouseKind: 'WAIT_HANDOVER',
+    areaId: 'AREA-B', areaCode: 'B', areaName: 'B 区',
+    shelfId: 'SHELF-B-02', shelfSequence: 2, shelfNo: 'R02',
+    locationId: 'LOC-B-R02-L03-P02', locationNo: 'B-R02-L03-P02', locationName: 'B-R02-L03-P02',
+    levelNo: 3, positionNo: 2, areaStatus: 'AVAILABLE', shelfStatus: 'AVAILABLE', status: 'AVAILABLE', orderIndex: 1,
+  },
+] as const
+const multiInboundEvent = runtime.appendWaitHandoverInboundEvent({
+  source: 'WEB',
+  operator: { operatorName: 'Web 入仓员' },
+  bagCode: multiBagCode,
+  warehouseArea: multiLocations[0].areaName,
+  locationCode: multiLocations[0].locationNo,
+  locationRef: multiLocations[0],
+  warehouseLocations: multiLocations,
+  occurredAt: '2026-08-01 09:05',
+  usageCycleId: multiUsageCycleId,
+  storage: multiStorage,
+} as Parameters<typeof runtime.appendWaitHandoverInboundEvent>[0] & { warehouseLocations: typeof multiLocations })
+assert.deepEqual(
+  (multiInboundEvent.payload as { warehouseLocations?: unknown[] }).warehouseLocations,
+  multiLocations,
+  'Web 入仓事件必须一次保存全部稳定库位引用和提交时编号快照',
+)
+assert.equal(
+  (multiInboundEvent.payload as { locationRef?: unknown }).locationRef,
+  undefined,
+  '新入仓事实不得同时双写单库位 locationRef',
+)
+const multiStates = runtime.buildWaitHandoverLocationOccupancyStates([multiInboundEvent])
+assert.equal(multiStates.length, 2, '一个中转袋选择两个库位后必须投影两个占用格')
+assert.equal(new Set(multiStates.map((state: { bagCode: string }) => state.bagCode)).size, 1, '多库位占用的业务袋数量只能汇总一次')
+assert.equal(new Set(multiStates.flatMap((state: { feiTicketIds: string[] }) => state.feiTicketIds)).size, 1, '多库位占用的菲票数量只能汇总一次')
+operations.submitWholeBagHandover({
+  bagCode: multiBagCode,
+  usageCycleId: multiUsageCycleId,
+  handoverOrderId: 'WEB-MULTI-HO-ID-001',
+  handoverOrderNo: 'WEB-MULTI-HO-001',
+  handoverRecordId: 'WEB-MULTI-HR-ID-001',
+  handoverRecordNo: 'WEB-MULTI-HR-001',
+  assignments: [{
+    feiTicketId: multiTicket.feiTicketId,
+    feiTicketNo: multiTicket.feiTicketNo,
+    sewingTaskId: multiTicket.sewingTaskId,
+    sewingTaskNo: multiTicket.sewingTaskNo,
+    receiverFactoryId: multiTicket.receiverFactoryId,
+    receiverFactoryName: multiTicket.receiverFactoryName,
+  }],
+  submittedTicketSnapshot: [multiTicket],
+  operator: { operatorName: 'Web 多库位交出员' },
+  source: 'WEB',
+  occurredAt: '2026-08-01 09:10',
+}, multiStorage)
+assert.equal(
+  runtime.buildWaitHandoverLocationOccupancyStates(
+    runtimeLedger.listCuttingRuntimeEvents(multiStorage),
+  ).length,
+  0,
+  '整袋交出必须一次释放该袋全部库位',
 )
 
 assert.throws(

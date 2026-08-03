@@ -16,6 +16,9 @@ const STANDARD_LIST_CONTRACT = [
 ]
 const PAGE_PATTERN = /@page-pattern:\s*(list|detail|form|dashboard|pda)\b/
 const LIST_SIGNALS = [/<table\b/i, /render(?:Standard)?List/i, /renderTablePagination/i, /data-[\w-]*(?:list|table)/i]
+// 页面级渲染入口：render<页面名>Page（排除列表骨架公共组件，如 renderStandardListPage / renderEngineeringStandardListPage）
+const PAGE_ENTRY_EXPORT = /export\s+(?:async\s+)?function\s+(render\w+Page)\s*\(|export\s+const\s+(render\w+Page)\s*[=:]/g
+const PAGE_ENTRY_COMPONENT_SUFFIX = /(?:StandardList|EngineeringList)Page$/
 
 export function parsePagePattern(source: string): PagePattern | null {
   const match = PAGE_PATTERN.exec(source)
@@ -29,8 +32,23 @@ export function isListCandidate(source: string): boolean {
   return LIST_SIGNALS.filter((signal) => signal.test(source)).length >= 2
 }
 
+export function isPageEntry(source: string): boolean {
+  if (parsePagePattern(source)) return true
+  for (const match of source.matchAll(PAGE_ENTRY_EXPORT)) {
+    const name = match[1]
+    if (name && !PAGE_ENTRY_COMPONENT_SUFFIX.test(name)) return true
+  }
+  return false
+}
+
 export function hasStandardListContract(source: string): boolean {
   return STANDARD_LIST_CONTRACT.every((symbol) => source.includes(symbol))
+    || (
+      /import\s+\{[^}]*renderStandardListPage[^}]*\}\s+from\s+['"][^'"]*\/list-page\.ts['"]/.test(source)
+      && /import\s+\{[^}]*createProcessOrderListController[^}]*\}\s+from\s+['"][^'"]*\/process-order-list-controller\.ts['"]/.test(source)
+      && source.includes('renderStandardListPage({')
+      && source.includes('createProcessOrderListController({')
+    )
 }
 
 export function sha256(source: string): string {
@@ -142,7 +160,16 @@ function runSelfTest(): void {
   assert.equal(parsePagePattern('// @page-pattern: unknown'), null)
   assert.equal(isListCandidate('<table><tbody></tbody></table> renderTablePagination'), true)
   assert.equal(hasStandardListContract('renderStandardListPage renderStandardListTable renderTablePagination'), true)
+  assert.equal(hasStandardListContract(`
+    import { renderStandardListPage } from './ui/list-page.ts'
+    import { createProcessOrderListController } from './ui/process-order-list-controller.ts'
+    const controller = createProcessOrderListController({})
+    renderStandardListPage({})
+  `), true)
   assert.equal(hasStandardListContract('renderTable(<tbody>)'), false)
+  assert.equal(isPageEntry('// @page-pattern: list'), true)
+  assert.equal(isPageEntry('export function renderPcsRevisionTaskPage(): string { return "" }'), true)
+  assert.equal(isPageEntry('export function renderEngineeringStandardListPage(): string { return "" }'), false)
   assert.throws(() => validateBaselineIntegrity({ 'src/pages/old.ts': 'a'.repeat(64) }, { 'src/pages/old.ts': 'b'.repeat(64) }))
   assert.throws(() => validateBaselineIntegrity({ 'src/pages/new.ts': 'a'.repeat(64) }, {}))
   assert.doesNotThrow(() => validateBaselineIntegrity({}, { 'src/pages/migrated.ts': 'a'.repeat(64) }))
@@ -177,7 +204,9 @@ function main(): void {
   const { added, changed } = changedPagePaths()
   for (const absolutePath of paths) {
     const path = relative(ROOT, absolutePath)
-    assertPage(path, readFileSync(absolutePath, 'utf8'), baseline, changed, added)
+    const source = readFileSync(absolutePath, 'utf8')
+    if (!isPageEntry(source)) continue
+    assertPage(path, source, baseline, changed, added)
   }
   for (const path of Object.keys(baseline)) {
     assert(existsSync(join(ROOT, path)), `基线页面不存在：${path}`)

@@ -1,29 +1,20 @@
-import { findProjectByCode, findProjectNodeByWorkItemTypeCode, getProjectById } from './pcs-project-repository.ts'
+import { findProjectByCode, findProjectNodeByStepCode, getProjectById } from './pcs-project-repository.ts'
 import { buildProjectChannelProductChainSummary } from './pcs-channel-product-project-repository.ts'
 import type { ProjectRelationPendingItem, ProjectRelationRecord } from './pcs-project-relation-types.ts'
-import type { LiveProductLine, LiveSessionRecord } from './pcs-live-testing-types.ts'
+import type { LiveProductLine } from './pcs-live-testing-types.ts'
 import type { VideoTestRecord } from './pcs-video-testing-types.ts'
 
-type TestingWorkItemTypeCode = 'LIVE_TEST' | 'VIDEO_TEST'
+type TestingStepTypeCode = 'LIVE_TEST' | 'VIDEO_TEST'
 
 interface RelationBuildOptions {
   operatorName?: string
   note?: string
-  legacyRefType?: string
-  legacyRefValue?: string | null
-  skipTestingGate?: boolean
-  allowMissingProjectNode?: boolean
 }
 
 export interface TestingRelationBuildResult {
   relation: ProjectRelationRecord | null
   pendingItem: ProjectRelationPendingItem | null
   errorMessage: string | null
-}
-
-export interface TestingRelationBatchResult {
-  relations: ProjectRelationRecord[]
-  pendingItems: ProjectRelationPendingItem[]
 }
 
 function nowText(): string {
@@ -44,8 +35,6 @@ function buildPendingItem(input: {
   reason: string
   discoveredAt: string
   sourceTitle: string
-  legacyRefType: string
-  legacyRefValue: string
 }): ProjectRelationPendingItem {
   return {
     pendingRelationId: `pending_${input.sourceModule}_${input.sourceObjectCode}_${input.rawProjectCode || 'empty'}`
@@ -56,8 +45,6 @@ function buildPendingItem(input: {
     reason: input.reason,
     discoveredAt: input.discoveredAt,
     sourceTitle: input.sourceTitle,
-    legacyRefType: input.legacyRefType,
-    legacyRefValue: input.legacyRefValue,
   }
 }
 
@@ -70,10 +57,7 @@ function buildTestingGateFailure(input: {
   sourceModule: string
   sourceObjectCode: string
   sourceTitle: string
-  workItemLabel: string
   businessDate: string
-  legacyRefType: string
-  legacyRefValue: string
   reason: string
 }): TestingRelationBuildResult {
   const project = resolveProject(input.projectIdOrCode)
@@ -86,8 +70,6 @@ function buildTestingGateFailure(input: {
       reason: input.reason,
       discoveredAt: input.businessDate || nowText(),
       sourceTitle: input.sourceTitle,
-      legacyRefType: input.legacyRefType,
-      legacyRefValue: input.legacyRefValue,
     }),
     errorMessage: input.reason,
   }
@@ -98,10 +80,8 @@ function validateTestingGate(input: {
   sourceModule: '直播' | '短视频'
   sourceObjectCode: string
   sourceTitle: string
-  workItemLabel: string
+  stepDefinitionLabel: string
   businessDate: string
-  legacyRefType: string
-  legacyRefValue: string
 }): TestingRelationBuildResult | null {
   const project = resolveProject(input.projectIdOrCode)
   if (!project) return null
@@ -117,7 +97,7 @@ function validateTestingGate(input: {
   if (!chain || !chain.currentChannelProductId) {
     return buildTestingGateFailure({
       ...input,
-      reason: `当前项目未完成商品上架，不能建立正式${input.workItemLabel}关系。`,
+      reason: `当前项目未完成商品上架，不能建立正式${input.stepDefinitionLabel}关系。`,
     })
   }
 
@@ -129,25 +109,21 @@ function validateTestingGate(input: {
   if (channelProductStatus !== '已上架待测款') {
     const reason =
       channelProductStatus === '待上传' || channelProductStatus === '已上传待确认'
-        ? `当前项目未完成商品上架，不能建立正式${input.workItemLabel}关系。`
+        ? `当前项目未完成商品上架，不能建立正式${input.stepDefinitionLabel}关系。`
         : channelProductStatus === '已作废'
-          ? `当前渠道店铺商品已作废，不能建立正式${input.workItemLabel}关系。`
+          ? `当前渠道店铺商品已作废，不能建立正式${input.stepDefinitionLabel}关系。`
           : channelProductStatus === '已生效'
-            ? `当前渠道店铺商品已完成款式档案关联，不能再进入正式${input.workItemLabel}。`
-            : `当前渠道店铺商品状态为${channelProductStatus || '未知状态'}，只有“已上架待测款”的项目才允许建立正式${input.workItemLabel}关系。`
-    return buildTestingGateFailure({
-      ...input,
-      reason,
-    })
+            ? `当前渠道店铺商品已完成款式档案关联，不能再进入正式${input.stepDefinitionLabel}。`
+            : `当前渠道店铺商品状态为${channelProductStatus || '未知状态'}，只有“已上架待测款”的项目才允许建立正式${input.stepDefinitionLabel}关系。`
+    return buildTestingGateFailure({ ...input, reason })
   }
 
   if (!chain.currentUpstreamChannelProductCode) {
     return buildTestingGateFailure({
       ...input,
-      reason: `当前渠道店铺商品尚未取得上游渠道商品编码，不能进入正式${input.workItemLabel}。`,
+      reason: `当前渠道店铺商品尚未取得上游渠道商品编码，不能进入正式${input.stepDefinitionLabel}。`,
     })
   }
-
   return null
 }
 
@@ -163,14 +139,10 @@ function buildTestingRelationRecord(input: {
   sourceStatus: string
   businessDate: string
   ownerName: string
-  workItemTypeCode: TestingWorkItemTypeCode
-  workItemTypeNameHint: string
+  stepCode: TestingStepTypeCode
+  stepNameHint: string
   operatorName: string
   note: string
-  legacyRefType: string
-  legacyRefValue: string
-  skipTestingGate?: boolean
-  allowMissingProjectNode?: boolean
 }): TestingRelationBuildResult {
   const project = resolveProject(input.projectIdOrCode)
   if (!project) {
@@ -180,58 +152,50 @@ function buildTestingRelationRecord(input: {
         sourceModule: input.sourceModule,
         sourceObjectCode: input.sourceLineCode || input.sourceObjectCode,
         rawProjectCode: input.projectIdOrCode,
-        reason: '旧测款关系引用的商品项目不存在，当前未写入正式关系记录。',
+        reason: '当前商品项目不存在，未写入测款关系。',
         discoveredAt: input.businessDate || nowText(),
         sourceTitle: input.sourceTitle,
-        legacyRefType: input.legacyRefType,
-        legacyRefValue: input.legacyRefValue,
       }),
-      errorMessage: '当前项目不存在，未写入正式项目关系记录。',
+      errorMessage: '当前商品项目不存在，未写入测款关系。',
     }
   }
 
-  const node = findProjectNodeByWorkItemTypeCode(project.projectId, input.workItemTypeCode)
-  if (!node && !input.allowMissingProjectNode) {
+  const node = findProjectNodeByStepCode(project.projectId, input.stepCode)
+  if (!node) {
     return {
       relation: null,
       pendingItem: buildPendingItem({
         sourceModule: input.sourceModule,
         sourceObjectCode: input.sourceLineCode || input.sourceObjectCode,
         rawProjectCode: project.projectCode,
-        reason: '当前项目未配置对应测款工作项，请先检查项目模板与项目节点。',
+        reason: '当前项目未配置对应测款步骤，请先检查商品项目。',
         discoveredAt: input.businessDate || nowText(),
         sourceTitle: input.sourceTitle,
-        legacyRefType: input.legacyRefType,
-        legacyRefValue: input.legacyRefValue,
       }),
-      errorMessage: '当前项目未配置对应测款工作项，请先检查项目模板与项目节点。',
+      errorMessage: '当前项目未配置对应测款步骤，请先检查商品项目。',
     }
   }
 
-  if (!input.skipTestingGate) {
-    const gateFailure = validateTestingGate({
-      projectIdOrCode: project.projectId,
-      sourceModule: input.sourceModule,
-      sourceObjectCode: input.sourceLineCode || input.sourceObjectCode,
-      sourceTitle: input.sourceTitle,
-      workItemLabel: input.workItemTypeNameHint,
-      businessDate: input.businessDate,
-      legacyRefType: input.legacyRefType,
-      legacyRefValue: input.legacyRefValue,
-    })
-    if (gateFailure) return gateFailure
-  }
+  const gateFailure = validateTestingGate({
+    projectIdOrCode: project.projectId,
+    sourceModule: input.sourceModule,
+    sourceObjectCode: input.sourceLineCode || input.sourceObjectCode,
+    sourceTitle: input.sourceTitle,
+    stepDefinitionLabel: input.stepNameHint,
+    businessDate: input.businessDate,
+  })
+  if (gateFailure) return gateFailure
 
   const timestamp = input.businessDate || nowText()
   return {
     relation: {
-      projectRelationId: `rel_${project.projectId}_${node?.projectNodeId || input.workItemTypeCode}_${input.sourceLineCode || input.sourceObjectCode}`
+      projectRelationId: `rel_${project.projectId}_${node.projectNodeId}_${input.sourceLineCode || input.sourceObjectCode}`
         .replace(/[^a-zA-Z0-9]/g, '_'),
       projectId: project.projectId,
       projectCode: project.projectCode,
-      projectNodeId: node?.projectNodeId || null,
-      workItemTypeCode: input.workItemTypeCode,
-      workItemTypeName: node?.workItemTypeName || input.workItemTypeNameHint,
+      projectNodeId: node.projectNodeId,
+      stepCode: input.stepCode,
+      stepName: node.stepName,
       relationRole: '执行记录',
       sourceModule: input.sourceModule,
       sourceObjectType: input.sourceObjectType,
@@ -248,8 +212,6 @@ function buildTestingRelationRecord(input: {
       updatedAt: timestamp,
       updatedBy: input.operatorName,
       note: input.note,
-      legacyRefType: input.legacyRefType,
-      legacyRefValue: input.legacyRefValue,
     },
     pendingItem: null,
     errorMessage: null,
@@ -273,14 +235,10 @@ export function buildLiveProductLineProjectRelation(
     sourceStatus: line.sessionStatus,
     businessDate: line.businessDate,
     ownerName: line.ownerName,
-    workItemTypeCode: 'LIVE_TEST',
-    workItemTypeNameHint: '直播测款',
+    stepCode: 'LIVE_TEST',
+    stepNameHint: '直播测款',
     operatorName: options.operatorName || '系统初始化',
     note: options.note || '',
-    legacyRefType: options.legacyRefType || '',
-    legacyRefValue: options.legacyRefValue || '',
-    skipTestingGate: options.skipTestingGate,
-    allowMissingProjectNode: options.allowMissingProjectNode,
   })
 }
 
@@ -301,78 +259,9 @@ export function buildVideoRecordProjectRelation(
     sourceStatus: record.recordStatus,
     businessDate: record.businessDate,
     ownerName: record.ownerName,
-    workItemTypeCode: 'VIDEO_TEST',
-    workItemTypeNameHint: '短视频测款',
+    stepCode: 'VIDEO_TEST',
+    stepNameHint: '短视频测款',
     operatorName: options.operatorName || '系统初始化',
     note: options.note || '',
-    legacyRefType: options.legacyRefType || '',
-    legacyRefValue: options.legacyRefValue || '',
-    skipTestingGate: options.skipTestingGate,
-    allowMissingProjectNode: options.allowMissingProjectNode,
   })
-}
-
-export function buildHistoricalLiveProductLineProjectRelation(
-  line: LiveProductLine,
-  projectIdOrCode: string,
-  options: RelationBuildOptions = {},
-): TestingRelationBuildResult {
-  return buildLiveProductLineProjectRelation(line, projectIdOrCode, {
-    ...options,
-    skipTestingGate: true,
-  })
-}
-
-export function buildHistoricalVideoRecordProjectRelation(
-  record: VideoTestRecord,
-  projectIdOrCode: string,
-  options: RelationBuildOptions = {},
-): TestingRelationBuildResult {
-  return buildVideoRecordProjectRelation(record, projectIdOrCode, {
-    ...options,
-    skipTestingGate: true,
-  })
-}
-
-export function normalizeLegacyLiveSessionHeaderRelation(input: {
-  session: LiveSessionRecord
-  productLines: LiveProductLine[]
-  rawProjectCode: string
-  rawProjectId?: string | null
-  operatorName?: string
-  skipTestingGate?: boolean
-}): TestingRelationBatchResult {
-  if (input.productLines.length !== 1) {
-    return {
-      relations: [],
-      pendingItems: [
-        buildPendingItem({
-          sourceModule: '直播',
-          sourceObjectCode: input.session.liveSessionCode,
-          rawProjectCode: input.rawProjectCode,
-          reason: '历史直播场次头项目字段对应多条直播商品明细，当前未自动猜测下移。',
-          discoveredAt: input.session.businessDate || input.session.updatedAt || nowText(),
-          sourceTitle: input.session.sessionTitle,
-          legacyRefType: 'liveSession.projectRef',
-          legacyRefValue: input.rawProjectId || input.rawProjectCode,
-        }),
-      ],
-    }
-  }
-
-  const relationBuilder = input.skipTestingGate
-    ? buildHistoricalLiveProductLineProjectRelation
-    : buildLiveProductLineProjectRelation
-
-  const result = relationBuilder(input.productLines[0], input.rawProjectId || input.rawProjectCode, {
-    operatorName: input.operatorName || '系统初始化',
-    note: '历史场次头项目字段已下移到唯一直播商品明细。',
-    legacyRefType: 'liveSession.projectRef',
-    legacyRefValue: input.rawProjectId || input.rawProjectCode || '',
-  })
-
-  return {
-    relations: result.relation ? [result.relation] : [],
-    pendingItems: result.pendingItem ? [result.pendingItem] : [],
-  }
 }

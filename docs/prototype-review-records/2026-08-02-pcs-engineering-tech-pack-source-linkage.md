@@ -1,0 +1,150 @@
+# PCS 技术包工程来源收口审查记录
+
+## 1. 基本信息
+
+| 项目 | 内容 |
+| --- | --- |
+| 审查日期 | 2026-08-02 |
+| 相关需求 / 任务 | Task 10 阶段①：技术包来源类型与仓储门禁 |
+| 涉及系统 | PCS |
+| 涉及页面路径 | 生产单运行态事实读取、技术包保存链（无可见 UI 变化） |
+| 端类型 | 管理端 |
+| 主要角色 | 跟单、买手、版师 |
+| 主要任务 | 只允许工程主单或工程变更任务生成技术包新版本，并保留既有已发布版本查询 |
+
+## 2. 参考规范
+
+- `docs/higood-indonesia-factory-product-design-guidelines.md`
+- `docs/higood-indonesia-factory-prototype-review-checklist.md`
+
+### 本次业务事实
+
+- 技术包新版本只接受工程主单或工程变更任务两类权威来源。
+- 技术包来源校验直接读取工程主单权威仓储，不保留可公开注入或整体替换的旁路索引。
+- 首单门禁继续同时识别已转单需求和生产单运行态；生产单模块只有一份运行态数组，该数组在无页面依赖的运行态事实模块中初始化，页面和正式生产事实索引读取同一引用，不提供注册、替换或清空入口。
+- 工程主单仓和技术包仓不再公开任意快照替换；跨仓事务在调用回调前拒绝 `AsyncFunction`，同步回调返回 Promise 或 thenable 时恢复事务前快照并直接阻断，不同化 Promise，不调用 thenable 的 `then`。
+- 工程主单来源必须同时指向真实主单及其技术包确认任务，且款式一致。
+- 工程变更来源必须指向真实变更任务，来源对象、任务和款式一致。
+- `MANUAL`、`REVISION`、`PLATE`、`ARTWORK` 不再允许创建新版本；既有已发布旧记录仍可查询和查看。
+- 制版任务、花型任务必须通过 `upstreamObjectId` 明确关联工程主单中的对应专业任务，禁止按款式查找“最新主单”。
+- 普通改版任务不是工程变更事实源；只有明确关联真实工程变更任务后，才允许生成工程变更来源的技术包草稿。
+- 既有制版、花型、改版生成入口只映射权威工程来源，不再写入旧来源类型。
+- 已发布旧来源技术包只允许查询、查看和作为新草稿的基础版本；记录与内容均禁止原位更新。
+- 技术包创建后，款式编号、款式编码、款式名称、来源对象和来源任务身份均不可修改。
+- 技术包记录中的 `sourceProjectId` 表示工程主单或工程变更来源，不是商品项目 ID；需要回写商品项目、项目关系和项目归档时，统一沿“技术包版本 → 款式档案 → 款式来源商品项目”解析。
+- 检查脚本使用的领域夹具只允许放在 `scripts/helpers/`，通过正式创建接口生成工程主单和技术包草稿；生产源码不得引用该夹具，也不恢复任意替换技术包仓的公开旁路。
+
+## 3. 自查结论
+
+| 检查项 | 结论 | 说明 |
+| --- | --- | --- |
+| 角色匹配 | 通过 | 不改变既有角色职责，只收紧数据来源。 |
+| 任务清晰度 | 通过 | 技术包来源统一落到工程主单或工程变更任务。 |
+| 信息架构与导航 | 通过 | 页面只调整事实读取与保存边界，导航不变。 |
+| 页面模式 | 通过 | 无可见 UI 变化。 |
+| 信息负荷 | 通过 | 未增加说明文案。 |
+| 文案 | 通过 | 阻断信息使用中文业务文案。 |
+| 数量与状态 | 通过 | 不改变技术包版本状态。 |
+| 扫码与识别 | 通过 | 不涉及扫码。 |
+| 防错 | 通过 | 缺失、不存在、非技术包确认任务、未明确关联、跨对象或跨款式来源均在入仓前阻断。 |
+| UI 样式 | 通过 | 本阶段无 UI 变化。 |
+| 组件交互 | 通过 | 本阶段无交互变化。 |
+| 协作关系 | 通过 | 工程主单 / 工程变更为技术包来源事实源。 |
+| 异常与追溯 | 通过 | 旧记录只读兼容，新记录保存明确权威来源。 |
+| 现场设备可用性 | 通过 | 不涉及现场设备。 |
+
+## 4. 问题标签
+
+- `选不对`
+- `追溯不足`
+
+## 5. 主要问题与处理
+
+| 问题 | 标签 | 影响角色 | 处理方式 | 是否仍有风险 |
+| --- | --- | --- | --- | --- |
+| 旧入口直接写入制版、花型或改版来源，无法证明技术包来自权威工程对象 | 追溯不足 | 跟单、买手、版师 | 生成入口统一解析工程主单或工程变更任务，再写入技术包 | 否 |
+| 来源对象、来源任务或款式不一致时可能关联错误技术包 | 选不对 | 跟单、买手 | 入仓前逐项校验并阻断 | 否 |
+| 按款式选择最新工程主单会把专业成果挂错主单 | 选不对 | 跟单、版师、花型团队 | 制版、花型任务必须关联主单内具体专业任务，技术包来源再统一指向该主单的技术包确认任务 | 否 |
+| 旧已发布技术包缺少花型时可能被原位覆盖 | 追溯不足 | 买手、跟单 | 旧版本保持只读，基于旧内容创建工程来源草稿并写入花型 | 否 |
+| 更新接口可能通过改写来源字段绕过创建门禁 | 追溯不足 | 系统维护人员 | 来源对象与来源任务字段设为不可变，更新接口直接阻断 | 否 |
+| 可公开替换的技术包来源索引可能伪造工程对象 | 追溯不足 | 系统维护人员 | 移除旁路索引公开接口，来源校验直接读取工程主单权威仓储 | 否 |
+| 已发布旧来源技术包仍可通过记录或内容更新入口被改写 | 追溯不足 | 买手、跟单 | 两类更新入口统一识别已发布旧来源并以只读状态阻断，失败零写入 | 否 |
+| 项目归档同步仍尝试回写旧已发布技术包的归档标记 | 追溯不足 | 买手、跟单 | 归档同步识别只读旧版本并跳过回写，技术包记录保持完整不变 | 否 |
+| 创建后的款式身份被改写会使技术包与权威来源错配 | 选不对 | 买手、跟单 | 款式三字段与全部来源身份字段统一设为不可变 | 否 |
+| 技术包直接读取工程主单仓储时可能与生产单技术包初始化形成循环 | 追溯不足 | 跟单 | 正式生产事实改为轻量只读索引；普通生产单由已转单需求动态派生，无需求 Seed 的独立生产单与实际生产单共用同一事实记录 | 否 |
+| 正式生产状态另存静态副本会漏掉新建、状态变更和页面运行态恢复 | 追溯不足 | 跟单 | `productionOrders` 与页面 `state.orders` 共享唯一运行态数组；事实索引只读该数组，已转单需求仍作为补充事实 | 否 |
+| 冷启动只加载首单策略时，生产单页面数据尚未执行，可能将已正式生产款式误判为首单 | 选不对 | 跟单 | 唯一运行态 store 自身从无页面依赖的事实初始化；生产单完整记录继续复用该事实组装并原位写入同一数组 | 否 |
+| 页面持有技术包仓或工程主单仓快照并可整体回灌，可能绕过正常写入门禁 | 追溯不足 | 买手、跟单 | 删除两个公开 replace API；页面改用仓储内部捕获和回滚的事务回调 | 否 |
+| 事务回调为 `AsyncFunction` 或返回自定义 thenable 时，同化其结果会在回滚后再次触发写入 | 追溯不足 | 买手、跟单 | 两仓事务 API 在类型层拒绝 Promise 回调；运行时在调用前拒绝 `AsyncFunction`，对返回的 thenable 只恢复快照并抛错，不调用 `then` | 否 |
+| 来源专项测试仍用商品项目或受保护字段改写伪造来源，无法证明真实门禁 | 追溯不足 | 系统维护人员 | 制版、花型、版本日志及 BOM 页面夹具全部改用真实工程主单／工程变更来源 | 否 |
+| 技术包把工程来源 ID 当作商品项目 ID 回写，会形成孤立项目关系且真实商品项目、归档未更新 | 协作断裂 | 跟单、买手 | 增加统一商品项目来源解析器；生成、保存内容、保存元信息、发布和启用均经款式档案解析真实商品项目 | 否 |
+| 检查脚本依赖已删除的任意仓替换函数，会迫使生产仓重新暴露旁路 | 追溯不足 | 系统维护人员 | 11 个检查脚本迁移到仅脚本可用的正式领域夹具；静态门禁禁止脚本再次出现删除函数名，生产源码禁止导入夹具 | 否 |
+| thenable 被拒绝时事务分支和统一 catch 重复恢复同一仓，增加无意义二次写入 | 追溯不足 | 系统维护人员 | 只保留统一 catch 的一次快照恢复，并用计数型 localStorage 断言每仓只恢复一次 | 否 |
+
+## 6. 最终结论
+
+结论：通过。
+
+- 本阶段仅收紧领域来源与仓储门禁，不改变 UI、审核、正式快照或工程主单关闭逻辑。
+- 无产品设计规范例外。
+
+## 7. 变更覆盖与验证
+
+### 受管文件
+
+- `src/data/pcs-technical-data-version-types.ts`
+- `src/data/pcs-technical-data-version-repository.ts`
+- `src/data/pcs-project-archive-sync.ts`
+- `src/data/pcs-engineering-master-types.ts`
+- `src/data/pcs-engineering-master-repository.ts`
+- `src/data/pcs-engineering-master-store.ts`（删除公开写入旁路）
+- `src/data/pcs-engineering-first-production-policy.ts`
+- `src/data/pcs-engineering-tech-pack-authority-index.ts`（删除空旁路索引文件）
+- `src/data/fcs/production-order-formal-fact-index.ts`
+- `src/data/fcs/production-order-runtime-store.ts`
+- `src/data/fcs/production-orders.ts`
+- `src/pages/production/context.ts`
+- `src/pages/production/demand-domain.ts`
+- `src/pages/production/events.ts`
+- `src/pages/tech-pack/context.ts`
+- `src/data/pcs-tech-pack-version-activation.ts`
+- `src/data/pcs-tech-pack-task-generation.ts`
+- `src/data/pcs-technical-data-version-project-source.ts`
+- `src/data/pcs-project-technical-data-writeback.ts`
+- `src/data/pcs-project-relation-repository.ts`
+- `src/data/pcs-channel-product-project-repository.ts`
+
+### 页面路由
+
+- 页面路由和可见交互不变；仅调整运行态事实读取和跨仓保存边界。
+
+### 验证命令
+
+- `npx tsx tests/pcs-engineering-tech-pack-linkage.spec.ts`：通过。
+- 11 个技术包审核 / 页面检查脚本逐个运行：全部通过；夹具仅位于 `scripts/helpers/technical-data-version-fixtures.ts`，生产源码无引用。
+- `npx tsx scripts/check-pcs-tech-pack-generation-entry.ts`：通过；校验专业任务页不保留绕过工程来源的直建动作。
+- `npx tsx scripts/check-pcs-tech-pack-generation-rules.ts`：通过；校验工程主单 / 工程变更唯一来源及技术包确认任务入口。
+- `npx tsx scripts/check-tech-pack-pcs-cutover.ts`：通过。
+- `npm run check:tech-pack-garment-bom`：通过。
+- `npx tsx tests/pcs-engineering-master-domain.spec.ts`：通过；覆盖全部正式生产单以及无需求 Seed 的独立正式生产单仍必须判定为非首单。
+- `npx tsx tests/pcs-engineering-first-production-cold-start.spec.ts`：通过；覆盖独立子进程只导入首单策略时，`ASYSA26060310` 仍必须识别为已有正式生产事实。
+- `npx tsx tests/pcs-tech-pack-plate-primary-generation.spec.ts`：通过。
+- `npx tsx tests/pcs-tech-pack-artwork-write-or-new-version.spec.ts`：通过。
+- `npx tsx tests/pcs-tech-pack-revision-new-version.spec.ts`：通过。
+- `npx tsx tests/pcs-tech-pack-generation-entry.spec.ts`：通过。
+- `npx tsx tests/pcs-tech-pack-generation-rule-cleanup.spec.ts`：通过；旧专业任务页不得保留绕过工程来源的技术包生成动作。
+- `npx tsx tests/pcs-tech-pack-version-log.spec.ts`：通过。
+- `npx tsx tests/pcs-tech-pack-version-log-archive.spec.ts`：通过。
+- `npx tsx tests/pcs-repository-sync-transaction.spec.ts`：通过；覆盖 `AsyncFunction` 在调用前被拒绝，以及自定义 thenable 的 `then` 不被调用；等待微任务后两仓仍为零写入。
+- `npx tsx scripts/check-pcs-repository-sync-transactions.ts`：通过；类型层拒绝 Promise 回调。
+- `npx tsx tests/pcs-tech-pack-bom-review-activation-atomic.spec.ts`：通过；成功启用回写款式来源商品项目、项目关系与归档，且工程主单 ID 下无孤立关系；各失败点仍恢复六仓快照。
+- `npx tsx tests/pcs-engineering-bom-pricing.spec.ts`：通过。
+- `npx tsx tests/pcs-tech-pack-bom-pricing-page.spec.ts`：通过。
+- `npx tsx tests/pcs-engineering-bom-task-linkage.spec.ts`：通过。
+- `npx tsx tests/pcs-engineering-bom-task-linkage-page.spec.ts`：通过。
+- `npm run build`：通过。
+- `npm run check:prototype-design-governance -- --all`：通过。
+
+### 例外
+
+- 无。

@@ -30,8 +30,8 @@ const {
 } = await import('../src/data/pcs-tech-pack-review.ts')
 const {
   getTechnicalDataVersionById,
-  replaceTechnicalDataVersionStore,
 } = await import('../src/data/pcs-technical-data-version-repository.ts')
+const { installTechnicalDataVersionFixtures } = await import('./helpers/technical-data-version-fixtures.ts')
 const {
   listTechPackReviewNotificationsByNode,
   resetTechPackReviewNotificationRepository,
@@ -194,7 +194,7 @@ function createContent(technicalVersionId: string): TechnicalDataVersionContent 
 }
 
 resetTechPackReviewNotificationRepository()
-replaceTechnicalDataVersionStore({
+installTechnicalDataVersionFixtures({
   version: 3,
   records: [
     createRecord(publishedId, 1, 'PUBLISHED'),
@@ -213,7 +213,7 @@ assert.ok(submitDialogHtml.includes('版师审核 · 纸样池'), '提交审核�
 assert.equal((submitDialogHtml.match(/无需审核/g) || []).length >= 2, true, '买手和版师无差异时弹窗应标记无需审核')
 state.reviewSubmitDialogOpen = false
 
-replaceTechnicalDataVersionStore({
+installTechnicalDataVersionFixtures({
   version: 3,
   records: [
     createRecord(publishedId, 1, 'PUBLISHED'),

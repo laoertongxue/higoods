@@ -42,6 +42,9 @@ import {
   type ProcessWorkOrderGenerationInput,
 } from '../src/data/fcs/process-work-order-generation-service.ts'
 import { deriveFormalProductionOrderProcessSnapshots } from '../src/data/fcs/production-process-snapshot-derivation.ts'
+import { generateTaskArtifactsForAllOrders } from '../src/data/fcs/production-artifact-generation.ts'
+import { processTasks } from '../src/data/fcs/process-tasks.ts'
+import { listMilestoneConfigs } from '../src/data/fcs/milestone-configs.ts'
 
 const baseSnapshot = {
   orderedAt: '2026-07-15 18:30:00',
@@ -1426,5 +1429,64 @@ assert(
 )
 const atomicRetry = ensureProcessWorkOrders(atomicInput)
 assert(atomicRetry.dyeWorkOrderId && atomicRetry.printWorkOrderId, '原子回滚后必须可重试同时生成两张加工单')
+
+const woolTaskArtifacts = generateTaskArtifactsForAllOrders()
+  .filter((artifact) => artifact.processCode === 'WOOL')
+assert(woolTaskArtifacts.length > 0, '缺少毛织任务产物检查夹具')
+for (const artifact of woolTaskArtifacts) {
+  assert.equal(artifact.requiresFeiTicket, undefined, '毛织任务产物不得携带菲票要求')
+  assert.equal(artifact.packagingRequired, undefined, '毛织任务产物不得携带包装节点要求')
+}
+
+const generatedWoolTasks = processTasks.filter(
+  (task) => task.processBusinessCode === 'WOOL' || task.processCode === 'WOOL',
+)
+assert(generatedWoolTasks.length > 0, '缺少毛织生产任务检查夹具')
+for (const task of generatedWoolTasks) {
+  assert.equal(task.assignmentStatus, 'ASSIGNED', '毛织任务必须保留工厂分配协作')
+  assert.equal(task.acceptanceStatus, 'ACCEPTED', '毛织任务必须保留上游接单协作')
+  assert.equal(task.status, 'NOT_STARTED', '毛织任务生成不得默认开工')
+  assert.equal(task.startedAt, undefined, '毛织任务生成不得复制通用开工时间')
+  assert.equal(task.startProofFiles, undefined, '毛织任务生成不得生成旧开工凭证')
+  assert.equal(task.milestoneRequired, undefined, '毛织任务生成不得携带旧里程碑要求')
+  assert.equal(task.milestoneRuleType, undefined, '毛织任务生成不得携带旧里程碑规则')
+  assert.equal(task.milestoneStatus, undefined, '毛织任务生成不得默认上报旧里程碑')
+  assert.equal(task.requiresFeiTicket, undefined, '毛织任务生成不得携带菲票要求')
+  assert.equal(task.packagingRequired, undefined, '毛织任务生成不得携带包装节点要求')
+  assert.equal(task.yarnSku, undefined, '毛织任务不得把第一条物料复制成纱线事实')
+  assert.equal(task.yarnPlannedWeightKg, undefined, '毛织任务不得估算纱线计划重量')
+  assert.equal(task.yarnReceivedWeightKg, undefined, '毛织任务不得默认生成纱线接收数量')
+  assert.equal(task.mockExecutionSummary, undefined, '毛织任务不得保留旧节点执行说明')
+}
+assert.equal(
+  listMilestoneConfigs().some((config) => config.processCode === 'PROC_WOOL'),
+  false,
+  '里程碑配置不得再生成毛织横机首批节点',
+)
+
+const woolTaskGenerationSources = [
+  readFileSync(new URL('../src/data/fcs/process-tasks.ts', import.meta.url), 'utf8'),
+  readFileSync(new URL('../src/data/fcs/milestone-configs.ts', import.meta.url), 'utf8'),
+  readFileSync(new URL('../src/data/fcs/process-craft-dict.ts', import.meta.url), 'utf8'),
+].join('\n')
+for (const removedWoolText of [
+  '横机完成首批部位片',
+  '横机完成首批整件',
+  '整件毛织完成后交后道工厂，熨烫为必有节点，包装按单据要求决定',
+  '部位毛织按毛织部位打印菲票',
+]) {
+  assert.equal(woolTaskGenerationSources.includes(removedWoolText), false)
+}
+const taskExecutionAdapterSource = readFileSync(
+  new URL('../src/data/fcs/page-adapters/task-execution-adapter.ts', import.meta.url),
+  'utf8',
+)
+assert(taskExecutionAdapterSource.includes('isWoolRuntimeTask'))
+assert(taskExecutionAdapterSource.includes('getWoolProcessingStatus'))
+assert(taskExecutionAdapterSource.includes('delete task.standardPrice'))
+assert(taskExecutionAdapterSource.includes('delete task.dispatchPrice'))
+assert(taskExecutionAdapterSource.includes('delete task.priceDiffReason'))
+assert(taskExecutionAdapterSource.includes('task.standardPrice = runtimeTask.standardPrice'))
+assert(taskExecutionAdapterSource.includes('task.dispatchPrice = runtimeTask.dispatchPrice'))
 
 console.log('生产单自动生成加工单检查通过')

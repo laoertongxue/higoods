@@ -15,7 +15,7 @@ assert.ok(project, '必须存在商品项目演示数据')
 const task = savePatternTaskDraft({
   projectId: project.projectId,
   title: '花型任务归档图片采集',
-  sourceType: '项目模板阶段',
+  sourceType: '商品项目',
   productStyleCode: 'SPU-PATTERN-ARCHIVE',
   demandSourceType: '预售测款通过',
   processType: '数码印',
@@ -75,6 +75,9 @@ assert.ok(document, '项目资料归档必须采集花型任务记录')
 assert.equal(document?.fileCount, 5, '花型任务记录应采集完成图、花型文件、需求图和参考图')
 assert.equal(document?.previewUrl, 'mock://pattern-complete/archive-complete.png', '花型任务完成确认图片应作为归档预览')
 assert.equal(document?.primaryFileName, 'archive-complete.png', '花型任务完成确认图片应作为主文件')
+assert.equal(document?.projectNodeId, '', '独立花型任务成果只能归属商品项目，不能持久化项目步骤节点')
+assert.equal(document?.stepCode, '', '独立花型任务成果不能把专业任务编码伪装成商品项目步骤')
+assert.equal(document?.stepName, '', '独立花型任务成果不能持久化商品项目步骤名称')
 
 const files = collected.files.filter((item) => item.archiveDocumentId === document?.archiveDocumentId)
 assert.deepEqual(files.map((item) => item.fileType), ['完成确认图片', '花型文件', '需求图片', '直播参考图', '图片参考图'])

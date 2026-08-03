@@ -127,6 +127,8 @@ export interface TransferPickupPayload {
   hasDifference: boolean
   differenceReason?: string
   evidencePhotos?: string[]
+  warehouseLocations?: RuntimeWarehouseLocationRef[]
+  /** 旧事件只读兼容；新提交统一写 warehouseLocations。 */
   locationRefs?: RuntimeWarehouseLocationRef[]
   storageFootprint?: {
     footprintId: string
@@ -173,6 +175,10 @@ export interface WaitProcessIssuePayload {
   issuedBy: string
   issuedAt: string
   purpose: '铺布用料'
+  pickupSessionId?: string
+  sourceInboundEventIds?: string[]
+  warehouseLocations?: RuntimeWarehouseLocationRef[]
+  /** 旧事件只读兼容；新提交统一写 warehouseLocations。 */
   locationRef?: RuntimeWarehouseLocationRef
 }
 
@@ -191,6 +197,8 @@ export interface WaitProcessReturnPayload {
   returnedBy: string
   returnedAt: string
   reason: '铺布剩余' | '取消加工' | '其他'
+  warehouseLocations?: RuntimeWarehouseLocationRef[]
+  /** 旧事件只读兼容；新提交统一写 warehouseLocations。 */
   locationRefs?: RuntimeWarehouseLocationRef[]
   storageFootprint?: {
     footprintId: string
@@ -317,7 +325,7 @@ export interface FeiTicketInboundPayload {
   feiTicketItems: FeiTicketBagSnapshotItem[]
   totalPieceQty: number
   mixedFlag: boolean
-  locationRef?: RuntimeWarehouseLocationRef
+  warehouseLocations: RuntimeWarehouseLocationRef[]
   idempotencyKey?: string
 }
 
@@ -326,11 +334,20 @@ export interface RuntimeWarehouseLocationRef {
   warehouseId: string
   warehouseKind: 'WAIT_PROCESS' | 'WAIT_HANDOVER'
   areaId: string
+  areaCode?: string
   areaName: string
   shelfId: string
+  shelfSequence?: number
   shelfNo: string
   locationId: string
   locationNo: string
+  locationName?: string
+  levelNo?: number
+  positionNo?: number
+  areaStatus?: 'AVAILABLE' | 'STOPPED'
+  shelfStatus?: 'AVAILABLE' | 'STOPPED'
+  status?: 'AVAILABLE' | 'STOPPED'
+  orderIndex?: number
 }
 
 export interface HandoverBaggingConfirmPayload {
@@ -551,6 +568,8 @@ export interface SpecialCraftReturnPayload {
   }>
   warehouseArea: string
   locationCode: string
+  warehouseLocations?: RuntimeWarehouseLocationRef[]
+  /** 旧事件只读兼容；Web 新事件只写 warehouseLocations。 */
   locationRef?: RuntimeWarehouseLocationRef
   returnedAt: string
   returnedBy: string

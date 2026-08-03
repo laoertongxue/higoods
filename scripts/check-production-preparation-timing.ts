@@ -7,6 +7,7 @@ import {
   EMPTY_PREPARATION_RUNTIME_STATE,
   PREPARATION_RUNTIME_STORAGE_KEY,
   appendDownloadRecord,
+  getPreparationRecordCapabilities,
   isBasePatternItem,
   loadPreparationRuntimeState,
   mergePreparationRuntimeRecords,
@@ -88,6 +89,7 @@ for (const file of [
   'src/router/routes-fcs.ts',
   'src/router/route-renderers-fcs.ts',
   'src/router/route-renderers.ts',
+  'src/data/pcs-engineering-preparation-projection.ts',
 ] as const) {
   assert.ok(existsSync(file), `${file} 不存在`)
 }
@@ -3028,6 +3030,36 @@ assertHtmlIncludes(
 const pageSource = source('src/pages/production/preparation-timing.ts')
 const mainSource = source('src/main.ts')
 const productionEventsSource = source('src/pages/production/events.ts')
+const projectionSource = source('src/data/pcs-engineering-preparation-projection.ts')
+const runtimeSource = source('src/data/fcs/production-preparation-timing-runtime.ts')
+assert.equal(existsSync('src/data/pcs-engineering-preparation-timing-view.ts'), false, '两调色节点过渡投影必须删除')
+assert.ok(pageSource.includes('projectEngineeringMastersToPreparation'), '台账必须直接读取完整工程主单投影')
+assert.ok(!pageSource.includes('mergeEngineeringColorPreparationTimes'), '台账不得继续叠加两调色节点过渡投影')
+assert.ok(projectionSource.includes('listPreparationProjectionItems'), '11 项结构必须读取固定投影策略')
+assert.ok(projectionSource.includes("`${masterOrderId}:${task.taskId}:${roundNo}`"), '事件必须按 masterOrderId + taskId + roundNo 幂等')
+assert.ok(projectionSource.includes('includedInDurationStats: !reusedPriorResult'), '前期成果复用必须排除时长统计')
+assert.ok(projectionSource.includes('const firstMasterByStyle = new Map'), '同一 SPU 必须确定性选择唯一最初首单主单')
+assert.ok(projectionSource.includes("[master.createdAt, master.publishedAt, master.masterOrderId]"), '首单选择必须按创建、发布和主单 ID 稳定排序')
+assert.ok(projectionSource.includes("master.status === '已关闭' ? '已关闭'"), '已关闭首单必须保持已关闭记录状态')
+assert.ok(projectionSource.includes("const taskId = task?.taskId || ''"), '缺少真实专业任务时不得合成 taskId')
+assert.ok(projectionSource.includes("taskHref: taskId ? taskHref(definition.taskType, taskId) : ''"), '缺少真实专业任务时不得生成任务链接')
+assert.ok(projectionSource.includes('firstFinishedAt: times.first'), '返工投影必须保留首次完成时间')
+assert.ok(projectionSource.includes('effectiveFinishedAt: times.effective'), '返工投影必须保留当前有效完成时间')
+assert.ok(pageSource.includes('前期成果复用 / 不计本次时效'), '复用项必须显示不计本次时效，不能提示异常或补传')
+assert.ok(pageSource.includes('item.reusedPriorResult ? renderReusedResultNotice(item)'), '复用说明必须优先于旧凭证异常分支')
+assert.ok(source('src/data/fcs/production-preparation-timing.ts').includes('const completionItems = requiredItems.filter((item) => item.reusedPriorResult !== true)'), '完成率必须只排除复用成果，不得因缺开始时间少算普通完成项')
+assert.ok(source('src/data/fcs/production-preparation-timing.ts').includes('timingDataComplete'), '完成明细必须区分完成事实与时效数据完整性')
+assert.ok(pageSource.includes('getPreparationRecordCapabilities'), '页面必须按记录能力阻断工程来源编辑动作')
+assert.ok(
+  (pageSource.match(/getPreparationRecordCapabilities\(/g)?.length ?? 0) >= 6,
+  '页面渲染与确认、上传、染色要求、采购登记动作必须分别复核只读能力',
+)
+assert.ok(runtimeSource.includes('if (isEngineeringPreparationRecord(record)) return record'), 'runtime 合并必须忽略工程来源记录')
+assert.deepEqual(
+  getPreparationRecordCapabilities({ sourceKind: '工程主单', masterOrderId: 'EM-CHECK-001' }),
+  { confirmItems: false, modifyItems: false, uploadResult: false, maintainDyeRequirement: false, reviewResult: false },
+  '工程来源记录不得开放任何准备项编辑能力',
+)
 assert.ok(pageSource.includes('renderMultiSelectFilter'), '页面必须复用 renderMultiSelectFilter')
 assert.ok(!pageSource.includes(".replace('<details class='"), '生产准备多选不得字符串替换 details HTML')
 assert.ok(!pageSource.includes(".replace('<summary class='"), '生产准备多选不得字符串替换 summary HTML')

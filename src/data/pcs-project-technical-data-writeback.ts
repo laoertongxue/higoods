@@ -17,7 +17,6 @@ import {
   generateTechPackVersionFromPlateTask,
   generateTechPackVersionFromRevisionTask,
   syncProjectFromTechPackVersion,
-  syncProjectSourceNodeFromTechPackVersion,
   syncStyleArchiveFromTechPackVersion,
   writeProjectRelationFromTechPackVersion,
 } from './pcs-tech-pack-task-generation.ts'
@@ -38,6 +37,7 @@ import type {
   TechnicalDataVersionContent,
   TechnicalDataVersionRecord,
 } from './pcs-technical-data-version-types.ts'
+import { resolveTechnicalVersionProductProject } from './pcs-technical-data-version-project-source.ts'
 
 function nowText(): string {
   const now = new Date()
@@ -112,8 +112,8 @@ export function saveTechnicalDataVersionContent(
   writeProjectRelationFromTechPackVersion(nextRecord, operatorName)
   syncStyleArchiveFromTechPackVersion(nextRecord)
   syncProjectFromTechPackVersion(nextRecord)
-  syncProjectSourceNodeFromTechPackVersion(nextRecord, operatorName, 'WRITTEN')
-  syncExistingProjectArchiveByProjectId(nextRecord.sourceProjectId, operatorName)
+  const source = resolveTechnicalVersionProductProject(nextRecord)
+  if (source) syncExistingProjectArchiveByProjectId(source.project.projectId, operatorName)
   return nextRecord
 }
 
@@ -136,8 +136,8 @@ export function saveTechnicalDataVersionRecordMeta(
   writeProjectRelationFromTechPackVersion(nextRecord, operatorName)
   syncStyleArchiveFromTechPackVersion(nextRecord)
   syncProjectFromTechPackVersion(nextRecord)
-  syncProjectSourceNodeFromTechPackVersion(nextRecord, operatorName, 'WRITTEN')
-  syncExistingProjectArchiveByProjectId(nextRecord.sourceProjectId, operatorName)
+  const source = resolveTechnicalVersionProductProject(nextRecord)
+  if (source) syncExistingProjectArchiveByProjectId(source.project.projectId, operatorName)
   return nextRecord
 }
 
@@ -176,8 +176,8 @@ export function publishTechnicalDataVersion(
   writeProjectRelationFromTechPackVersion(nextRecord, operatorName)
   syncStyleArchiveFromTechPackVersion(nextRecord)
   syncProjectFromTechPackVersion(nextRecord)
-  syncProjectSourceNodeFromTechPackVersion(nextRecord, operatorName, 'WRITTEN')
-  syncExistingProjectArchiveByProjectId(nextRecord.sourceProjectId, operatorName)
+  const source = resolveTechnicalVersionProductProject(nextRecord)
+  if (source) syncExistingProjectArchiveByProjectId(source.project.projectId, operatorName)
   appendTechPackVersionLog({
     logId: `tech_pack_log_publish_${nextRecord.technicalVersionId}_${publishedAt.replace(/[^0-9]/g, '')}`,
     technicalVersionId: nextRecord.technicalVersionId,

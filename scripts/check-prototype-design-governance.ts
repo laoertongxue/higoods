@@ -9,8 +9,8 @@ import {
   getStagedChangedPaths,
 } from './workflow-governance/changed-paths.ts'
 
-const DESIGN_GUIDELINES = 'docs/higood-indonesia-factory-product-design-guidelines.md'
-const REVIEW_CHECKLIST = 'docs/higood-indonesia-factory-prototype-review-checklist.md'
+const LEGACY_DESIGN_GUIDELINES = 'docs/higood-indonesia-factory-product-design-guidelines.md'
+const LEGACY_REVIEW_CHECKLIST = 'docs/higood-indonesia-factory-prototype-review-checklist.md'
 const REVIEW_TEMPLATE = 'docs/prototype-review-record-template.md'
 const REVIEW_RECORD_DIR = 'docs/prototype-review-records/'
 const AGENTS = 'AGENTS.md'
@@ -25,10 +25,13 @@ const PROTOTYPE_PREFIXES = [
 
 const GOVERNANCE_PATHS = new Set([
   AGENTS,
-  DESIGN_GUIDELINES,
-  REVIEW_CHECKLIST,
+  LEGACY_DESIGN_GUIDELINES,
+  LEGACY_REVIEW_CHECKLIST,
   REVIEW_TEMPLATE,
   'scripts/check-prototype-design-governance.ts',
+  'scripts/workflow-governance/prototype-review.ts',
+  'tests/workflow-governance/prototype-review.test.ts',
+  '.agents/skills/higood-indonesia-factory-design/SKILL.md',
   'package.json',
 ])
 
@@ -57,15 +60,17 @@ function assertFileExists(path: string): void {
   assert(existsSync(path), `缺少必要治理文件：${path}`)
 }
 
-function assertAgentsReferences(): void {
+function assertAgentsContract(): void {
   const source = readFileSync(AGENTS, 'utf8')
-  for (const path of [DESIGN_GUIDELINES, REVIEW_CHECKLIST, REVIEW_TEMPLATE]) {
-    assert(source.includes(path), `AGENTS.md 未引用：${path}`)
+  for (const token of [
+    REVIEW_TEMPLATE,
+    '用户可见影响',
+    '无用户可见影响',
+    'npm run check:prototype-design-governance',
+    '款式与物料真实图片硬门禁',
+  ]) {
+    assert(source.includes(token), `AGENTS.md 缺少治理契约：${token}`)
   }
-  assert(
-    source.includes('npm run check:prototype-design-governance'),
-    'AGENTS.md 未要求运行 check:prototype-design-governance',
-  )
 }
 
 function runSelfTest(): void {
@@ -76,6 +81,7 @@ function runSelfTest(): void {
   assert.equal(isPrototypePath('docs/prototype-review-records/2026-07-03-pda.md'), false)
   assert.equal(isReviewRecordPath('docs/prototype-review-records/2026-07-03-pda.md'), true)
   assert.equal(isReviewRecordPath('docs/prototype-review-records/.gitkeep'), false)
+  assertAgentsContract()
 }
 
 function main(): void {
@@ -86,10 +92,8 @@ function main(): void {
     return
   }
 
-  for (const path of [DESIGN_GUIDELINES, REVIEW_CHECKLIST, REVIEW_TEMPLATE, AGENTS]) {
-    assertFileExists(path)
-  }
-  assertAgentsReferences()
+  for (const path of [REVIEW_TEMPLATE, AGENTS]) assertFileExists(path)
+  assertAgentsContract()
 
   const mode = args.has('--all') ? 'all' : 'staged'
   const baseIndex = process.argv.indexOf('--base')
@@ -97,7 +101,7 @@ function main(): void {
   const changedPaths = getGovernanceChangedPaths(mode, base)
   const prototypeChanges = changedPaths.filter(isPrototypePath)
   if (prototypeChanges.length === 0) {
-    console.log(`prototype design governance passed (${mode}): no prototype changes`)
+    console.log(`prototype design governance passed (${mode}): no governed prototype changes`)
     return
   }
 
@@ -109,7 +113,9 @@ function main(): void {
 
   console.log(
     `prototype design governance passed (${mode}): `
-    + `${result.coveredPaths.length} managed file(s), ${result.recordPaths.length} linked review record(s)`,
+    + `${result.userVisiblePaths.length} user-visible file(s), `
+    + `${result.technicalOnlyPaths.length} technical-only file(s), `
+    + `${result.recordPaths.length} linked governance record(s)`,
   )
 }
 

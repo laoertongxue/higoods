@@ -13,6 +13,7 @@ export type TechPackVersionLogType =
   | '技术包审核通过'
   | '技术包审核不通过'
   | '跟单打回第一阶段'
+  | 'BOM 与价格变化重新审核'
 
 export interface TechPackVersionLogRecord {
   logId: string

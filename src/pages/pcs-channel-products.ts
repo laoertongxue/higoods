@@ -1,3 +1,25 @@
+// @page-pattern: list
+
+import { renderSecondaryButton } from '../components/ui/button.ts'
+import { renderStandardListPage, renderStandardListStats } from '../components/ui/list-page.ts'
+import {
+  clearListColumnPreferences,
+  loadListColumnPreferences,
+  normalizeListColumnPreferences,
+  paginateStandardListRows,
+  resetStandardListEntryTransientStateOnRouteEntry,
+  saveListColumnPreferences,
+  sortStandardListRows,
+  type StandardListColumnPreferences,
+  type StandardListPageSlice,
+  type StandardListSortState,
+} from '../components/ui/list-table-model.ts'
+import {
+  renderStandardListColumnSettings,
+  renderStandardListTable,
+  type StandardListColumn,
+} from '../components/ui/list-table.ts'
+import { renderTablePagination } from '../components/ui/pagination.ts'
 import {
   getProjectChannelProductById,
   listProjectChannelProducts,
@@ -10,15 +32,15 @@ import {
 import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
 
 const PREFERRED_PROJECT_ORDER = [
-  'PRJ-20251216-015',
-  'PRJ-20251216-025',
-  'PRJ-20251216-024',
-  'PRJ-20251216-023',
-  'PRJ-20251216-014',
-  'PRJ-20251216-013',
-  'PRJ-20251216-022',
-  'PRJ-20251216-021',
-  'PRJ-20251216-011',
+  'PRJ-202603-002',
+  'PRJ-202603-003',
+  'PRJ-202603-004',
+  'PRJ-202603-005',
+  'PRJ-202603-008',
+  'PRJ-202603-010',
+  'PRJ-202603-011',
+  'PRJ-202603-012',
+  'PRJ-202603-013',
 ]
 
 interface ChannelStoreSpuRow {
@@ -33,6 +55,60 @@ interface ChannelStoreSpuRow {
   specLineCount: number
   uploadedSpecLineCount: number
   stockQty: number
+}
+
+interface ChannelProductListState {
+  search: string
+  channel: string
+  status: string
+  currentPage: number
+}
+
+const CHANNEL_PRODUCT_LIST_STORAGE_KEY = 'higood:list-page:/pcs/products/channel-products'
+const CHANNEL_PRODUCT_LIST_PAGE_SIZES = [10, 20, 50]
+const CHANNEL_PRODUCT_LIST_MAX_FROZEN_WIDTH = 520
+const CHANNEL_PRODUCT_LIST_COLUMN_RULES = [
+  { key: 'cover' },
+  { key: 'spu', required: true, freezeable: true },
+  { key: 'channelStore', freezeable: true },
+  { key: 'title' },
+  { key: 'upstreamId' },
+  { key: 'inventory' },
+  { key: 'price' },
+  { key: 'status', required: true, freezeable: true },
+  { key: 'linkage' },
+  { key: 'updated', freezeable: true },
+  { key: 'actions', required: true, actionColumn: true },
+]
+
+const channelProductListState: ChannelProductListState = {
+  search: '',
+  channel: '全部渠道',
+  status: '全部状态',
+  currentPage: 1,
+}
+
+const channelProductListUiState: {
+  sort: StandardListSortState | null
+  preferences: StandardListColumnPreferences
+  columnSettingsOpen: boolean
+  draggedColumnKey: string
+  preferencesLoaded: boolean
+} = {
+  sort: null,
+  preferences: normalizeListColumnPreferences(
+    CHANNEL_PRODUCT_LIST_COLUMN_RULES,
+    {
+      order: CHANNEL_PRODUCT_LIST_COLUMN_RULES.map((item) => item.key),
+      visibleKeys: CHANNEL_PRODUCT_LIST_COLUMN_RULES.map((item) => item.key),
+      frozenKeys: [],
+      pageSize: CHANNEL_PRODUCT_LIST_PAGE_SIZES[0]!,
+    },
+    CHANNEL_PRODUCT_LIST_PAGE_SIZES,
+  ),
+  columnSettingsOpen: false,
+  draggedColumnKey: '',
+  preferencesLoaded: false,
 }
 
 function resolveSpuCode(record: ProjectChannelProductRecord): string {
@@ -105,7 +181,7 @@ function getLinkageDescription(record: ProjectChannelProductRecord): string {
     return '测款通过，已关联款式档案并完成上游最终更新'
   }
   if (record.styleCode && record.upstreamSyncStatus === '待更新') {
-    return '测款通过，已生成款式档案，待启用技术包'
+    return '测款通过，已关联商品档案，待启用技术包'
   }
   if (record.channelProductStatus === '已上架待测款') {
     return '已完成上架，等待直播或短视频正式测款'
@@ -117,23 +193,9 @@ function renderBadge(text: string, className: string): string {
   return `<span class="${escapeHtml(toClassName('inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium', className))}">${escapeHtml(text)}</span>`
 }
 
-function renderChannelStatusBadge(status: ProjectChannelProductRecord['channelProductStatus']): string {
-  if (status === '已生效') return renderBadge(status, 'bg-emerald-100 text-emerald-700')
-  if (status === '已作废') return renderBadge(status, 'bg-rose-100 text-rose-700')
-  if (status === '已上架待测款') return renderBadge(status, 'bg-blue-100 text-blue-700')
-  if (status === '已上传待确认') return renderBadge(status, 'bg-amber-100 text-amber-700')
-  return renderBadge(status, 'bg-slate-100 text-slate-600')
-}
-
 function renderBusinessStatusBadge(record: ProjectChannelProductRecord): string {
   const rule = CHANNEL_PRODUCT_STATUS_RULES[resolveChannelProductBusinessStatus(record)]
   return renderBadge(rule.label, rule.className)
-}
-
-function renderUpstreamStatusBadge(status: ProjectChannelProductRecord['upstreamSyncStatus']): string {
-  if (status === '已更新') return renderBadge(status, 'bg-emerald-100 text-emerald-700')
-  if (status === '待更新') return renderBadge(status, 'bg-amber-100 text-amber-700')
-  return renderBadge(status, 'bg-slate-100 text-slate-600')
 }
 
 function renderDateTimeCell(value: string): string {
@@ -144,15 +206,6 @@ function renderDateTimeCell(value: string): string {
     <div class="text-sm text-slate-500">
       <div>${escapeHtml(dateText || '-')}</div>
       <div class="mt-0.5">${escapeHtml(timeText || '')}</div>
-    </div>
-  `
-}
-
-function renderSpecLineSummary(record: ProjectChannelProductRecord): string {
-  return `
-    <div class="space-y-1">
-      <div class="text-[15px] font-medium leading-6 text-slate-900">${escapeHtml(String(record.specLineCount || record.specLines.length || 0))} 条</div>
-      <div class="text-xs leading-5 text-slate-500">已上传 ${escapeHtml(String(record.uploadedSpecLineCount || 0))} 条</div>
     </div>
   `
 }
@@ -180,56 +233,318 @@ function getListingMainImage(record: ProjectChannelProductRecord): {
   return null
 }
 
-function renderListRow(row: ChannelStoreSpuRow): string {
-  const record = row.currentRecord
-  const detailHref = `/pcs/products/channel-products/${encodeURIComponent(record.channelProductId)}`
-  const projectHref = `/pcs/projects/${encodeURIComponent(record.projectId)}`
-  const mainImage = getListingMainImage(record)
+const CHANNEL_PRODUCT_LIST_COLUMNS: StandardListColumn<ChannelStoreSpuRow>[] = [
+  {
+    key: 'cover',
+    title: '商品图片',
+    width: 92,
+    render: (row) => {
+      const record = row.currentRecord
+      const detailHref = `/pcs/products/channel-products/${encodeURIComponent(record.channelProductId)}`
+      const mainImage = getListingMainImage(record)
+      return mainImage
+        ? `<button type="button" class="group block h-14 w-14 overflow-hidden rounded-md border border-slate-200 bg-slate-50" data-nav="${escapeHtml(detailHref)}"><img src="${escapeHtml(mainImage.url)}" alt="${escapeHtml(mainImage.title)}" class="h-full w-full object-cover transition group-hover:scale-105" /></button>`
+        : '<div class="flex h-14 w-14 items-center justify-center rounded-md border border-dashed border-slate-200 text-[11px] text-slate-400">暂无图片</div>'
+    },
+  },
+  {
+    key: 'spu',
+    title: 'SPU / 来源',
+    width: 230,
+    required: true,
+    freezeable: true,
+    sortable: true,
+    render: (row) => {
+      const record = row.currentRecord
+      return `
+        <button type="button" class="text-left text-sm font-semibold text-blue-700 hover:underline" data-nav="/pcs/products/channel-products/${encodeURIComponent(record.channelProductId)}">${escapeHtml(row.spuCode)}</button>
+        <div class="mt-1 text-xs text-slate-500">上架批次：${escapeHtml(record.listingBatchCode || record.channelProductCode)}</div>
+        <button type="button" class="mt-1 text-left text-xs font-medium text-blue-700 hover:underline" data-nav="/pcs/projects/${encodeURIComponent(record.projectId)}">${escapeHtml(record.projectCode)}</button>
+      `
+    },
+    sortValue: (row) => row.spuCode,
+  },
+  {
+    key: 'channelStore',
+    title: '渠道 / 店铺',
+    width: 220,
+    freezeable: true,
+    sortable: true,
+    render: (row) => `
+      <div class="font-medium text-slate-900">${escapeHtml(`${getChannelLabel(row.channelCode)} / ${row.storeName}`)}</div>
+      <div class="mt-1 text-xs text-slate-500">${escapeHtml(row.currentRecord.channelName || row.channelName)}</div>
+    `,
+    sortValue: (row) => `${row.channelName}|${row.storeName}`,
+  },
+  {
+    key: 'title',
+    title: '商品标题',
+    width: 270,
+    render: (row) => `<div class="line-clamp-2 leading-6">${escapeHtml(row.currentRecord.styleListingTitle || row.currentRecord.listingTitle || '-')}</div>`,
+  },
+  {
+    key: 'upstreamId',
+    title: '平台商品 ID',
+    width: 170,
+    sortable: true,
+    render: (row) => escapeHtml(row.currentRecord.upstreamProductId || row.currentRecord.upstreamChannelProductCode || '-'),
+    sortValue: (row) => row.currentRecord.upstreamProductId || row.currentRecord.upstreamChannelProductCode || '',
+  },
+  {
+    key: 'inventory',
+    title: '库存 / SKU',
+    width: 170,
+    sortable: true,
+    render: (row) => `
+      <div class="font-medium text-slate-900">${escapeHtml(String(row.stockQty))}</div>
+      <div class="mt-1 text-xs text-slate-500">规格 ${escapeHtml(String(row.specLineCount))} 条 / 已上传 ${escapeHtml(String(row.uploadedSpecLineCount))} 条</div>
+    `,
+    sortValue: (row) => row.stockQty,
+  },
+  {
+    key: 'price',
+    title: '默认售价',
+    width: 150,
+    sortable: true,
+    render: (row) => {
+      const record = row.currentRecord
+      return `
+        <div class="font-medium text-slate-900">${escapeHtml(`${record.defaultPriceAmount || record.listingPrice || '-'} ${record.currencyCode || record.currency || ''}`.trim())}</div>
+        <div class="mt-1 text-xs text-slate-500">默认售价</div>
+      `
+    },
+    sortValue: (row) => Number(row.currentRecord.defaultPriceAmount || row.currentRecord.listingPrice || 0),
+  },
+  {
+    key: 'status',
+    title: '业务状态',
+    width: 140,
+    required: true,
+    freezeable: true,
+    sortable: true,
+    render: (row) => renderBusinessStatusBadge(row.currentRecord),
+    sortValue: (row) => getViewLabel(row.currentRecord),
+  },
+  {
+    key: 'linkage',
+    title: '链路状态',
+    width: 260,
+    render: (row) => `<div class="line-clamp-3 text-xs leading-5 text-slate-500">${escapeHtml(getLinkageDescription(row.currentRecord))}</div>`,
+  },
+  {
+    key: 'updated',
+    title: '最近更新',
+    width: 150,
+    freezeable: true,
+    sortable: true,
+    render: (row) => renderDateTimeCell(row.currentRecord.updatedAt),
+    sortValue: (row) => row.currentRecord.updatedAt,
+  },
+  {
+    key: 'actions',
+    title: '操作',
+    width: 108,
+    required: true,
+    actionColumn: true,
+    align: 'right',
+    render: (row) => `
+      <div class="flex flex-col items-end gap-2">
+        <button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/products/channel-products/${encodeURIComponent(row.currentRecord.channelProductId)}">详情</button>
+        <button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/projects/${encodeURIComponent(row.currentRecord.projectId)}">项目</button>
+      </div>
+    `,
+  },
+]
 
+function getChannelProductListStorage(): Storage | null {
+  try {
+    return typeof window === 'undefined' ? null : window.localStorage
+  } catch {
+    return null
+  }
+}
+
+function normalizeChannelProductListPreferences(
+  raw: Partial<StandardListColumnPreferences> | null | undefined,
+): StandardListColumnPreferences {
+  const normalized = normalizeListColumnPreferences(
+    CHANNEL_PRODUCT_LIST_COLUMN_RULES,
+    raw,
+    CHANNEL_PRODUCT_LIST_PAGE_SIZES,
+  )
+  const columnsByKey = new Map(CHANNEL_PRODUCT_LIST_COLUMNS.map((column) => [column.key, column]))
+  const visibleKeys = new Set(normalized.visibleKeys)
+  const requestedFrozen = new Set(normalized.frozenKeys)
+  const frozen = normalized.order
+    .map((key) => columnsByKey.get(key))
+    .filter((column): column is StandardListColumn<ChannelStoreSpuRow> => Boolean(
+      column && column.freezeable && !column.actionColumn && visibleKeys.has(column.key) && requestedFrozen.has(column.key),
+    ))
+  let width = frozen.reduce((sum, column) => sum + Math.max(column.width, column.minWidth ?? 0), 0)
+  while (width > CHANNEL_PRODUCT_LIST_MAX_FROZEN_WIDTH && frozen.length > 0) {
+    const removed = frozen.pop()
+    if (removed) width -= Math.max(removed.width, removed.minWidth ?? 0)
+  }
+  return { ...normalized, frozenKeys: frozen.map((column) => column.key) }
+}
+
+function ensureChannelProductListPreferences(): void {
+  if (channelProductListUiState.preferencesLoaded) return
+  channelProductListUiState.preferencesLoaded = true
+  const storage = getChannelProductListStorage()
+  channelProductListUiState.preferences = storage
+    ? loadListColumnPreferences(
+        storage,
+        CHANNEL_PRODUCT_LIST_STORAGE_KEY,
+        CHANNEL_PRODUCT_LIST_COLUMN_RULES,
+        channelProductListUiState.preferences,
+        CHANNEL_PRODUCT_LIST_PAGE_SIZES,
+      )
+    : channelProductListUiState.preferences
+  channelProductListUiState.preferences = normalizeChannelProductListPreferences(
+    channelProductListUiState.preferences,
+  )
+}
+
+function saveChannelProductListPreferences(): void {
+  const storage = getChannelProductListStorage()
+  if (storage) {
+    saveListColumnPreferences(
+      storage,
+      CHANNEL_PRODUCT_LIST_STORAGE_KEY,
+      channelProductListUiState.preferences,
+    )
+  }
+}
+
+function withChannelProductLocalInteractions(html: string): string {
+  return html
+    .replace(/data-pcs-channel-product-list-action="([^"]+)"/g, (attribute) =>
+      `data-skip-page-rerender="true" data-pcs-channel-product-list-root="true" ${attribute}`)
+    .replace(/data-pcs-channel-product-list-field="([^"]+)"/g, (attribute) =>
+      `data-skip-page-rerender="true" data-pcs-channel-product-list-root="true" ${attribute}`)
+}
+
+function getFilteredChannelProductRows(): ChannelStoreSpuRow[] {
+  const keyword = channelProductListState.search.trim().toLowerCase()
+  return listDisplayRows().filter((row) => {
+    if (channelProductListState.channel !== '全部渠道' && row.channelName !== channelProductListState.channel) return false
+    if (channelProductListState.status !== '全部状态' && getViewLabel(row.currentRecord) !== channelProductListState.status) return false
+    if (!keyword) return true
+    const record = row.currentRecord
+    return [
+      row.spuCode,
+      row.channelName,
+      row.storeName,
+      record.projectCode,
+      record.projectName,
+      record.styleListingTitle,
+      record.listingTitle,
+      record.upstreamProductId,
+      record.upstreamChannelProductCode,
+    ].join('|').toLowerCase().includes(keyword)
+  })
+}
+
+function getChannelProductListView(): StandardListPageSlice<ChannelStoreSpuRow> {
+  ensureChannelProductListPreferences()
+  const sortedRows = sortStandardListRows(
+    getFilteredChannelProductRows(),
+    channelProductListUiState.sort,
+    (row, key) => CHANNEL_PRODUCT_LIST_COLUMNS.find((column) => column.key === key)?.sortValue?.(row),
+  )
+  const paging = paginateStandardListRows(
+    sortedRows,
+    channelProductListState.currentPage,
+    channelProductListUiState.preferences.pageSize,
+  )
+  channelProductListState.currentPage = paging.currentPage
+  return paging
+}
+
+function renderChannelProductListFilters(): string {
+  const allRows = listDisplayRows()
+  const channels = ['全部渠道', ...Array.from(new Set(allRows.map((row) => row.channelName))).sort()]
+  const statuses = ['全部状态', ...Array.from(new Set(allRows.map((row) => getViewLabel(row.currentRecord)))).sort()]
   return `
-    <tr class="border-t border-slate-200 align-top">
-      <td class="px-4 py-4">
-        ${
-          mainImage
-            ? `<button type="button" class="group block h-16 w-16 overflow-hidden rounded-md border border-slate-200 bg-slate-50" data-nav="${escapeHtml(detailHref)}"><img src="${escapeHtml(mainImage.url)}" alt="${escapeHtml(mainImage.title)}" class="h-full w-full object-cover transition group-hover:scale-105" /></button>`
-            : '<div class="flex h-16 w-16 items-center justify-center rounded-md border border-dashed border-slate-200 text-[11px] text-slate-400">暂无主图</div>'
-        }
-      </td>
-      <td class="px-4 py-4">
-        <div class="text-[15px] font-semibold leading-6 text-slate-900">${escapeHtml(row.spuCode)}</div>
-        <div class="mt-1 text-xs leading-5 text-slate-500">来源批次：${escapeHtml(record.listingBatchCode || record.channelProductCode)}</div>
-        <button type="button" class="mt-1 text-left text-xs font-medium text-blue-700 hover:underline" data-nav="${escapeHtml(projectHref)}">${escapeHtml(record.projectCode)}</button>
-      </td>
-      <td class="px-4 py-4">
-        <div class="text-[15px] font-medium leading-6 text-slate-900">${escapeHtml(`${getChannelLabel(row.channelCode)} / ${row.storeName}`)}</div>
-        <div class="mt-1 text-xs leading-5 text-slate-500">${escapeHtml(record.channelName || row.channelName)}</div>
-      </td>
-      <td class="px-4 py-4">
-        <div class="max-w-[260px] text-[15px] leading-6 text-slate-900">${escapeHtml(record.styleListingTitle || record.listingTitle || '-')}</div>
-      </td>
-      <td class="px-4 py-4 text-[15px] leading-6 text-slate-900">${escapeHtml(record.upstreamProductId || record.upstreamChannelProductCode || '-')}</td>
-      <td class="px-4 py-4">
-        <div class="text-[15px] font-medium leading-6 text-slate-900">${escapeHtml(String(row.stockQty))}</div>
-        <div class="mt-1 text-xs leading-5 text-slate-500">规格 ${escapeHtml(String(row.specLineCount))} 条 / 已上传 ${escapeHtml(String(row.uploadedSpecLineCount))} 条</div>
-      </td>
-      <td class="px-4 py-4">
-        <div class="text-[15px] font-medium leading-6 text-slate-900">${escapeHtml(`${record.defaultPriceAmount || record.listingPrice || '-'} ${record.currencyCode || record.currency || ''}`.trim())}</div>
-        <div class="mt-1 text-xs leading-5 text-slate-500">默认售价</div>
-      </td>
-      <td class="px-4 py-4">${renderBusinessStatusBadge(record)}</td>
-      <td class="px-4 py-4">
-        <div class="max-w-[200px] text-xs leading-5 text-slate-500">${escapeHtml(getLinkageDescription(record))}</div>
-      </td>
-      <td class="px-4 py-4">${renderDateTimeCell(record.updatedAt)}</td>
-      <td class="px-4 py-4">
-        <div class="flex flex-col items-end gap-2">
-          <button type="button" class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50" data-nav="${escapeHtml(detailHref)}">详情</button>
-          <button type="button" class="inline-flex h-8 items-center rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-medium text-blue-700 hover:bg-blue-100" data-nav="${escapeHtml(detailHref)}">查看SKU</button>
-          <button type="button" class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50" data-nav="${escapeHtml(projectHref)}">查看项目</button>
-        </div>
-      </td>
-    </tr>
+    <section class="rounded-lg border bg-white p-4">
+      <div class="grid gap-3 md:grid-cols-3">
+        <label class="space-y-1">
+          <span class="text-xs text-slate-500">搜索商品</span>
+          <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="搜索 SPU、标题、项目或平台商品 ID" value="${escapeHtml(channelProductListState.search)}" data-pcs-channel-product-list-field="search" />
+        </label>
+        <label class="space-y-1">
+          <span class="text-xs text-slate-500">渠道</span>
+          <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm" data-pcs-channel-product-list-field="channel">
+            ${channels.map((channel) => `<option value="${escapeHtml(channel)}" ${channelProductListState.channel === channel ? 'selected' : ''}>${escapeHtml(channel)}</option>`).join('')}
+          </select>
+        </label>
+        <label class="space-y-1">
+          <span class="text-xs text-slate-500">业务状态</span>
+          <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm" data-pcs-channel-product-list-field="status">
+            ${statuses.map((status) => `<option value="${escapeHtml(status)}" ${channelProductListState.status === status ? 'selected' : ''}>${escapeHtml(status)}</option>`).join('')}
+          </select>
+        </label>
+      </div>
+    </section>
   `
+}
+
+function renderChannelProductListTable(
+  paging: StandardListPageSlice<ChannelStoreSpuRow>,
+): string {
+  return withChannelProductLocalInteractions(renderStandardListTable({
+    columns: CHANNEL_PRODUCT_LIST_COLUMNS,
+    rows: paging.rows,
+    preferences: channelProductListUiState.preferences,
+    sort: channelProductListUiState.sort,
+    eventPrefix: 'pcs-channel-product-list',
+    emptyText: '暂无符合条件的渠道店铺商品',
+  }))
+}
+
+function renderChannelProductListPagination(
+  paging: StandardListPageSlice<ChannelStoreSpuRow>,
+): string {
+  return withChannelProductLocalInteractions(renderTablePagination({
+    total: paging.total,
+    from: paging.from,
+    to: paging.to,
+    currentPage: paging.currentPage,
+    totalPages: paging.totalPages,
+    pageSize: paging.pageSize,
+    actionPrefix: 'pcs-channel-product-list',
+    fieldPrefix: 'pcs-channel-product-list',
+    pageSizeOptions: CHANNEL_PRODUCT_LIST_PAGE_SIZES,
+  }))
+}
+
+function renderChannelProductColumnSettings(): string {
+  if (!channelProductListUiState.columnSettingsOpen) return ''
+  return withChannelProductLocalInteractions(renderStandardListColumnSettings({
+    title: '列设置',
+    columns: CHANNEL_PRODUCT_LIST_COLUMNS,
+    preferences: channelProductListUiState.preferences,
+    eventPrefix: 'pcs-channel-product-list',
+    maxFrozenWidth: CHANNEL_PRODUCT_LIST_MAX_FROZEN_WIDTH,
+  }))
+}
+
+function refreshChannelProductListRegions(options: { filters?: boolean; settings?: boolean } = {}): void {
+  if (typeof document === 'undefined') return
+  const paging = getChannelProductListView()
+  const tableHost = document.querySelector<HTMLElement>('[data-pcs-channel-product-list-region="table"]')
+  const paginationHost = document.querySelector<HTMLElement>('[data-pcs-channel-product-list-region="pagination"]')
+  if (tableHost) tableHost.innerHTML = renderChannelProductListTable(paging)
+  if (paginationHost) paginationHost.innerHTML = renderChannelProductListPagination(paging)
+  if (options.filters) {
+    const filtersHost = document.querySelector<HTMLElement>('[data-pcs-channel-product-list-region="filters"]')
+    if (filtersHost) filtersHost.innerHTML = withChannelProductLocalInteractions(renderChannelProductListFilters())
+  }
+  if (options.settings) {
+    const settingsHost = document.querySelector<HTMLElement>('[data-pcs-channel-product-list-region="column-settings"]')
+    if (settingsHost) settingsHost.innerHTML = renderChannelProductColumnSettings()
+  }
 }
 
 function renderDetailField(label: string, value: string): string {
@@ -272,52 +587,200 @@ function renderSpecLineRows(record: ProjectChannelProductRecord): string {
 }
 
 export function renderPcsChannelProductListPage(): string {
-  const rows = listDisplayRows()
+  ensureChannelProductListPreferences()
+  const transient = {
+    currentPage: channelProductListState.currentPage,
+    sort: channelProductListUiState.sort,
+  }
+  const hasMountedRoot = typeof document !== 'undefined'
+    && Boolean(document.querySelector('[data-pcs-channel-product-list-page]'))
+  resetStandardListEntryTransientStateOnRouteEntry(transient, hasMountedRoot)
+  channelProductListState.currentPage = transient.currentPage
+  channelProductListUiState.sort = transient.sort
 
-  return `
-    <div class="p-4">
-      <section class="rounded-[20px] border border-slate-200 bg-white shadow-sm">
-        <div class="border-b border-slate-200 px-5 py-4">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <h1 class="text-[22px] font-semibold text-slate-900">渠道店铺商品</h1>
-              <p class="mt-1 text-sm text-slate-500">按渠道、店铺、SPU 查看店铺商品、规格 SKU、库存、价格和上游回填结果。</p>
-            </div>
-            <div class="rounded-xl bg-slate-50 px-3 py-2 text-right">
-              <div class="text-xs text-slate-500">当前记录</div>
-              <div class="mt-1 text-[18px] font-semibold text-slate-900">${rows.length}</div>
-            </div>
-          </div>
-        </div>
-        <div class="overflow-x-auto">
-          <table class="min-w-[1600px] table-fixed">
-            <thead class="bg-slate-50 text-left text-[13px] font-semibold text-slate-500">
-              <tr>
-                <th class="w-[112px] px-4 py-3">Cover</th>
-                <th class="w-[240px] px-4 py-3">SPU / 来源</th>
-                <th class="w-[235px] px-4 py-3">渠道 / 店铺</th>
-                <th class="w-[280px] px-4 py-3">商品标题</th>
-                <th class="w-[180px] px-4 py-3">平台商品 ID</th>
-                <th class="w-[150px] px-4 py-3">库存 / SKU</th>
-                <th class="w-[150px] px-4 py-3">Price</th>
-                <th class="w-[130px] px-4 py-3">Status</th>
-                <th class="w-[260px] px-4 py-3">链路状态</th>
-                <th class="w-[130px] px-4 py-3">Push / Update Time</th>
-                <th class="w-[120px] px-4 py-3 text-right">OP</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${
-                rows.length === 0
-                  ? '<tr><td colspan="11" class="px-4 py-10 text-center text-sm text-slate-500">暂无渠道店铺商品</td></tr>'
-                  : rows.map((row) => renderListRow(row)).join('')
-              }
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </div>
-  `
+  const allRows = listDisplayRows()
+  const paging = getChannelProductListView()
+  const page = renderStandardListPage({
+    title: '渠道店铺商品',
+    filtersHtml: `<div data-pcs-channel-product-list-region="filters">${withChannelProductLocalInteractions(renderChannelProductListFilters())}</div>`,
+    statsHtml: renderStandardListStats([
+      { label: '渠道商品', value: allRows.length },
+      { label: '已上架待测款', value: allRows.filter((row) => getViewLabel(row.currentRecord) === '已上架待测款').length },
+      { label: '已生效', value: allRows.filter((row) => getViewLabel(row.currentRecord).startsWith('已生效')).length },
+      { label: '已作废', value: allRows.filter((row) => getViewLabel(row.currentRecord) === '已作废').length },
+    ]),
+    listTitle: '商品列表',
+    listActionsHtml: withChannelProductLocalInteractions(
+      renderSecondaryButton(
+        '列设置',
+        { prefix: 'pcs-channel-product-list', action: 'open-column-settings' },
+        'settings-2',
+      ),
+    ),
+    tableHtml: `<div data-pcs-channel-product-list-region="table">${renderChannelProductListTable(paging)}</div>`,
+    paginationHtml: `<div data-table-pagination data-pcs-channel-product-list-region="pagination">${renderChannelProductListPagination(paging)}</div>`,
+    overlaysHtml: `<div data-pcs-channel-product-list-region="column-settings">${renderChannelProductColumnSettings()}</div>`,
+    className: 'min-w-0 max-w-full',
+  })
+  return `<div class="min-w-0 max-w-full" data-pcs-channel-product-list-page>${page}</div>`
+}
+
+export function handlePcsChannelProductListInput(target: Element): boolean {
+  const fieldNode = target.closest<HTMLElement>('[data-pcs-channel-product-list-field]')
+  if (!fieldNode) return false
+  const field = fieldNode.dataset.pcsChannelProductListField
+  if (!field) return false
+
+  if (field === 'pageSize' && fieldNode instanceof HTMLSelectElement) {
+    channelProductListUiState.preferences = normalizeChannelProductListPreferences({
+      ...channelProductListUiState.preferences,
+      pageSize: Number(fieldNode.value),
+    })
+    channelProductListState.currentPage = 1
+    saveChannelProductListPreferences()
+    refreshChannelProductListRegions()
+    return true
+  }
+  if (field === 'search' && fieldNode instanceof HTMLInputElement) {
+    channelProductListState.search = fieldNode.value
+  } else if (field === 'channel' && fieldNode instanceof HTMLSelectElement) {
+    channelProductListState.channel = fieldNode.value
+  } else if (field === 'status' && fieldNode instanceof HTMLSelectElement) {
+    channelProductListState.status = fieldNode.value
+  } else {
+    return false
+  }
+  channelProductListState.currentPage = 1
+  refreshChannelProductListRegions()
+  return true
+}
+
+export function handlePcsChannelProductListEvent(target: HTMLElement, event?: Event): boolean {
+  const dragNode = target.closest<HTMLElement>('[data-standard-list-column-drag]')
+  if (dragNode && event && ['dragstart', 'dragover', 'drop', 'dragend'].includes(event.type)) {
+    const columnKey = dragNode.dataset.pcsChannelProductListColumnKey
+      || dragNode.dataset.dragSource
+      || dragNode.dataset.dropTarget
+      || ''
+    if (event.type === 'dragstart') {
+      channelProductListUiState.draggedColumnKey = columnKey
+      ;(event as DragEvent).dataTransfer?.setData('application/x-higood-list-column-key', columnKey)
+      return Boolean(columnKey)
+    }
+    if (event.type === 'dragend') {
+      channelProductListUiState.draggedColumnKey = ''
+      return true
+    }
+    const sourceKey = channelProductListUiState.draggedColumnKey
+    if (!sourceKey || !columnKey || sourceKey === columnKey) return false
+    if (event.type === 'dragover') {
+      event.preventDefault()
+      return true
+    }
+    event.preventDefault()
+    const order = channelProductListUiState.preferences.order.filter((key) => key !== sourceKey)
+    const targetIndex = order.indexOf(columnKey)
+    if (targetIndex < 0) return false
+    order.splice(targetIndex, 0, sourceKey)
+    channelProductListUiState.preferences = normalizeChannelProductListPreferences({
+      ...channelProductListUiState.preferences,
+      order,
+    })
+    channelProductListUiState.draggedColumnKey = ''
+    saveChannelProductListPreferences()
+    refreshChannelProductListRegions({ settings: true })
+    return true
+  }
+
+  const actionNode = target.closest<HTMLElement>('[data-pcs-channel-product-list-action]')
+  if (!actionNode) return false
+  const action = actionNode.dataset.pcsChannelProductListAction
+  if (!action) return false
+
+  if (action === 'sort-column') {
+    const columnKey = actionNode.dataset.columnKey || ''
+    const column = CHANNEL_PRODUCT_LIST_COLUMNS.find((item) => item.key === columnKey && item.sortable)
+    if (!column) return true
+    const currentSort = channelProductListUiState.sort
+    channelProductListUiState.sort = currentSort?.key !== columnKey
+      ? { key: columnKey, direction: 'asc' }
+      : currentSort.direction === 'asc'
+        ? { key: columnKey, direction: 'desc' }
+        : null
+    channelProductListState.currentPage = 1
+    refreshChannelProductListRegions()
+    return true
+  }
+  if (action === 'prev-page' || action === 'next-page') {
+    const totalPages = Math.max(
+      1,
+      Math.ceil(getFilteredChannelProductRows().length / channelProductListUiState.preferences.pageSize),
+    )
+    channelProductListState.currentPage = action === 'prev-page'
+      ? Math.max(1, channelProductListState.currentPage - 1)
+      : Math.min(totalPages, channelProductListState.currentPage + 1)
+    refreshChannelProductListRegions()
+    return true
+  }
+  if (action === 'open-column-settings' || action === 'close-column-settings') {
+    channelProductListUiState.columnSettingsOpen = action === 'open-column-settings'
+    refreshChannelProductListRegions({ settings: true })
+    return true
+  }
+  if (action === 'restore-column-settings') {
+    channelProductListUiState.preferences = normalizeChannelProductListPreferences({
+      order: CHANNEL_PRODUCT_LIST_COLUMNS.map((column) => column.key),
+      visibleKeys: CHANNEL_PRODUCT_LIST_COLUMNS.map((column) => column.key),
+      frozenKeys: [],
+      pageSize: CHANNEL_PRODUCT_LIST_PAGE_SIZES[0],
+    })
+    channelProductListUiState.sort = null
+    channelProductListState.currentPage = 1
+    const storage = getChannelProductListStorage()
+    if (storage) clearListColumnPreferences(storage, CHANNEL_PRODUCT_LIST_STORAGE_KEY)
+    refreshChannelProductListRegions({ settings: true })
+    return true
+  }
+  if (
+    (action === 'toggle-column-visibility' || action === 'toggle-column-freeze')
+    && (!event || event.type === 'change')
+  ) {
+    const columnKey = actionNode.dataset.pcsChannelProductListColumnKey
+      || actionNode.dataset.columnKey
+      || ''
+    const column = CHANNEL_PRODUCT_LIST_COLUMNS.find((item) => item.key === columnKey)
+    if (!column || column.actionColumn) return true
+    const visibleKeys = new Set(channelProductListUiState.preferences.visibleKeys)
+    const frozenKeys = new Set(channelProductListUiState.preferences.frozenKeys)
+    if (action === 'toggle-column-visibility' && !column.required) {
+      if (visibleKeys.has(columnKey)) {
+        visibleKeys.delete(columnKey)
+        frozenKeys.delete(columnKey)
+      } else {
+        visibleKeys.add(columnKey)
+      }
+      if (!visibleKeys.has(columnKey) && channelProductListUiState.sort?.key === columnKey) {
+        channelProductListUiState.sort = null
+      }
+    }
+    if (action === 'toggle-column-freeze' && column.freezeable) {
+      if (frozenKeys.has(columnKey)) frozenKeys.delete(columnKey)
+      else frozenKeys.add(columnKey)
+    }
+    channelProductListUiState.preferences = normalizeChannelProductListPreferences({
+      ...channelProductListUiState.preferences,
+      visibleKeys: [...visibleKeys],
+      frozenKeys: [...frozenKeys],
+    })
+    saveChannelProductListPreferences()
+    refreshChannelProductListRegions({ settings: true })
+    return true
+  }
+  return false
+}
+
+export function isPcsChannelProductListDialogOpen(): boolean {
+  return channelProductListUiState.columnSettingsOpen
 }
 
 export function renderPcsChannelProductDetailPage(channelProductId: string): string {
@@ -377,7 +840,7 @@ export function renderPcsChannelProductDetailPage(channelProductId: string): str
               ${renderDetailField('项目名称', record.projectName)}
               ${renderDetailField('SPU / 平台商品 ID', resolveSpuCode(record))}
               ${renderDetailField('来源商品上架批次', record.listingInstanceCode || record.channelProductCode)}
-              ${renderDetailField('来源工作项节点', record.projectNodeId)}
+              ${renderDetailField('来源项目步骤', record.projectNodeId)}
               ${renderDetailField('渠道 / 店铺', `${getChannelLabel(record.channelCode)} / ${getStoreLabel(record)}`)}
               ${renderDetailField('上架标题', record.styleListingTitle || record.listingTitle || '—')}
               ${renderDetailField('默认售价 / 币种', `${record.defaultPriceAmount || record.listingPrice || '—'} / ${record.currencyCode || record.currency || '—'}`)}

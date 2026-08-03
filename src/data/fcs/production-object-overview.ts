@@ -1025,7 +1025,7 @@ function findDemandById(value: string | undefined | null): ProductionDemand | nu
 
 function findIndexItem(value: string | undefined | null): ProductionObjectSearchIndex | null {
   if (!value) return null
-  return productionObjectSearchIndex.find((item) => item.id === value || item.primaryNo === value) ?? null
+  return getProductionObjectSearchIndex().find((item) => item.id === value || item.primaryNo === value) ?? null
 }
 
 function getDefaultTabForObjectType(objectType: ProductionObjectType): ProductionObjectDefaultTab {
@@ -1054,7 +1054,7 @@ export function resolveProductionObjectRequest({
   objectId: string
   relatedProductionOrderNo?: string | null
 }): ProductionObjectRequestResult {
-  const exactMatches = productionObjectSearchIndex.filter((item) => matchesRequestObject(item, objectType, objectId))
+  const exactMatches = getProductionObjectSearchIndex().filter((item) => matchesRequestObject(item, objectType, objectId))
   const contextMatches = relatedProductionOrderNo
     ? exactMatches.filter((item) => item.relatedProductionOrderNo === relatedProductionOrderNo)
     : exactMatches
@@ -1528,7 +1528,7 @@ export function searchMaterialResources(keyword: string): MaterialResourceOvervi
   const query = keyword.trim().toUpperCase()
   if (query.length < 2) return []
   const materialSkus = Array.from(new Set(
-    productionObjectSearchIndex
+    getProductionObjectSearchIndex()
       .filter((item) => item.objectType === 'MATERIAL')
       .filter((item) => `${item.primaryNo} ${item.displayTitle} ${item.keywords.join(' ')}`.toUpperCase().includes(query))
       .map((item) => item.primaryNo),
@@ -2924,7 +2924,11 @@ function buildSearchIndex(): ProductionObjectSearchIndex[] {
   return rows
 }
 
-export const productionObjectSearchIndex: ProductionObjectSearchIndex[] = buildSearchIndex()
+let productionObjectSearchIndexCache: ProductionObjectSearchIndex[] | null = null
+
+export function getProductionObjectSearchIndex(): ProductionObjectSearchIndex[] {
+  return productionObjectSearchIndexCache ??= buildSearchIndex()
+}
 
 function getSearchTexts(item: ProductionObjectSearchIndex): string[] {
   return unique([
@@ -2966,7 +2970,8 @@ function getUpdatedAtScore(value: string | undefined): number {
 }
 
 export function searchProductionObjects(keyword: string): ProductionObjectSearchIndex[] {
-  const matches = productionObjectSearchIndex
+  if (keyword.trim().length < 2) return []
+  const matches = getProductionObjectSearchIndex()
     .map((item) => {
       const match = getMatchedReason(item, keyword)
       return match ? { item, match } : null

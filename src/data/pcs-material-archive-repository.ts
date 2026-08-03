@@ -1,5 +1,8 @@
 import { buildTechnicalVersionListByStyle } from './pcs-technical-data-version-view-model.ts'
 import { listStyleArchives } from './pcs-style-archive-repository.ts'
+import { getTechPackReviewerById } from './pcs-tech-pack-reviewer-directory.ts'
+import { invalidateBomPriceReviewsForMaterialStandardPriceChange } from './pcs-tech-pack-bom-price-review-invalidation.ts'
+import { runTechnicalDataVersionRepositoryTransaction } from './pcs-technical-data-version-repository.ts'
 import type {
   MaterialArchiveKind,
   MaterialArchiveRecord,
@@ -91,11 +94,12 @@ function cloneRecord(record: MaterialArchiveRecord): MaterialArchiveRecord {
     processTags: Array.isArray(record.processTags) ? [...record.processTags] : [],
     auxiliaryUnits: Array.isArray(record.auxiliaryUnits) ? [...record.auxiliaryUnits] : [],
     galleryImageUrls: Array.isArray(record.galleryImageUrls) ? [...record.galleryImageUrls] : [],
+    unitConversions: Array.isArray(record.unitConversions) ? record.unitConversions.map((item) => ({ ...item })) : [],
   }
 }
 
 function cloneSkuRecord(record: MaterialSkuRecord): MaterialSkuRecord {
-  return { ...record }
+  return { ...record, unitConversions: Array.isArray(record.unitConversions) ? record.unitConversions.map((item) => ({ ...item })) : [] }
 }
 
 function cloneUsageRecord(record: MaterialUsageRecord): MaterialUsageRecord {
@@ -173,6 +177,11 @@ function normalizeRecord(record: MaterialArchiveRecord): MaterialArchiveRecord {
     pricingUnit: record.pricingUnit || 'PCS',
     mainUnit,
     auxiliaryUnits: resolveAuxiliaryUnits(record, mainUnit),
+    unitConversions: Array.isArray(record.unitConversions)
+      ? record.unitConversions
+          .filter((item) => item && item.fromUnit?.trim() && item.toUnit?.trim() && Number.isFinite(item.factor) && item.factor > 0)
+          .map((item) => ({ fromUnit: item.fromUnit.trim(), toUnit: item.toUnit.trim(), factor: item.factor }))
+      : [],
     remark: record.remark || '',
     createdAt: record.createdAt || record.updatedAt || nowText(),
     createdBy: record.createdBy || '系统初始化',
@@ -188,6 +197,8 @@ function normalizeSkuRecord(record: MaterialSkuRecord): MaterialSkuRecord {
     specName: record.specName || '-',
     sizeName: record.sizeName || '-',
     pricingUnit: record.pricingUnit || 'PCS',
+    unitConversions: Array.isArray(record.unitConversions) ? record.unitConversions.map((item) => ({ ...item })) : [],
+    costPrice: Number.isFinite(record.costPrice) && record.costPrice > 0 ? Number(record.costPrice.toFixed(4)) : 0,
     weightKg: Number.isFinite(record.weightKg) ? record.weightKg : 0,
     lengthCm: Number.isFinite(record.lengthCm) ? record.lengthCm : 0,
     widthCm: Number.isFinite(record.widthCm) ? record.widthCm : 0,
@@ -1104,6 +1115,74 @@ export function getMaterialSkuRecordById(materialSkuId: string): MaterialSkuReco
   return record ? cloneSkuRecord(record) : null
 }
 
+export function updateMaterialUnitConversions(
+  materialId: string,
+  conversions: MaterialArchiveRecord['unitConversions'],
+  operator: { id: string; name: string },
+): MaterialArchiveRecord {
+  const reviewer = getTechPackReviewerById(operator.id)
+  if (!reviewer?.roles.includes('买手')) {
+    throw new Error('只有买手可以维护单位换算。')
+  }
+  const operatorName = reviewer.reviewerName
+  const snapshot = loadSnapshot()
+  const material = snapshot.records.find((item) => item.materialId === materialId)
+  if (!material) throw new Error('未找到对应物料主档。')
+
+  const allowedUnits = new Set(uniqueUnits([material.mainUnit, ...material.auxiliaryUnits, material.pricingUnit]))
+  const seenPairs = new Set<string>()
+  const normalizedConversions = (conversions || []).map((item) => {
+    const fromUnit = normalizeUnitText(item.fromUnit)
+    const toUnit = normalizeUnitText(item.toUnit)
+    const factor = Number(item.factor)
+    if (!allowedUnits.has(fromUnit) || !allowedUnits.has(toUnit)) {
+      throw new Error('来源单位和目标单位只能选择该物料已维护的单位。')
+    }
+    if (fromUnit === toUnit) {
+      throw new Error('来源单位和目标单位不能相同。')
+    }
+    if (!Number.isFinite(factor) || factor <= 0) {
+      throw new Error('换算系数必须大于 0。')
+    }
+    const pairKey = `${fromUnit}\u0000${toUnit}`
+    if (seenPairs.has(pairKey)) {
+      throw new Error('单位换算关系不能重复。')
+    }
+    seenPairs.add(pairKey)
+    return { fromUnit, toUnit, factor }
+  })
+
+  const timestamp = nowText()
+  const updatedRecord = normalizeRecord({
+    ...material,
+    unitConversions: normalizedConversions,
+    updatedAt: timestamp,
+    updatedBy: operatorName,
+  })
+  const log = normalizeLogRecord({
+    logId: `${materialId}-log-unit-conversion-${Date.now()}`,
+    materialId,
+    operatorName,
+    title: '维护单位换算',
+    detail: normalizedConversions.length > 0
+      ? `已维护 ${normalizedConversions.length} 条单位换算关系。`
+      : '已清空单位换算关系。',
+    createdAt: timestamp,
+  })
+
+  persistSnapshot({
+    ...snapshot,
+    records: snapshot.records.map((item) => (item.materialId === materialId ? updatedRecord : item)),
+    skuRecords: snapshot.skuRecords.map((item) =>
+      item.materialId === materialId
+        ? normalizeSkuRecord({ ...item, unitConversions: normalizedConversions, updatedAt: timestamp, updatedBy: operatorName })
+        : item,
+    ),
+    logRecords: [log, ...snapshot.logRecords],
+  })
+  return cloneRecord(updatedRecord)
+}
+
 export function listMaterialUsageRecordsByMaterialId(materialId: string): MaterialUsageRecord[] {
   return loadSnapshot().usageRecords.filter((item) => item.materialId === materialId).map(cloneUsageRecord)
 }
@@ -1149,6 +1228,7 @@ export function createMaterialArchive(input: {
   pricingUnit: string
   mainUnit?: string
   auxiliaryUnits?: string[]
+  unitConversions?: MaterialArchiveRecord['unitConversions']
   mainImageUrl: string
   barcodeTemplateCode: string
   remark: string
@@ -1172,6 +1252,7 @@ export function createMaterialArchive(input: {
     pricingUnit: input.pricingUnit || 'PCS',
     mainUnit: input.mainUnit || input.pricingUnit || MATERIAL_UNIT_DEFAULTS[input.kind].mainUnit,
     auxiliaryUnits: input.auxiliaryUnits || MATERIAL_UNIT_DEFAULTS[input.kind].auxiliaryUnits,
+    unitConversions: input.unitConversions || [],
     mainImageUrl: input.mainImageUrl || '',
     galleryImageUrls: input.mainImageUrl ? [input.mainImageUrl] : [],
     status: 'ACTIVE',
@@ -1235,6 +1316,7 @@ export function createMaterialSkuRecord(materialId: string, input: MaterialSkuDr
     costPrice: normalizedInput.costPrice,
     freightCost: normalizedInput.freightCost,
     pricingUnit: material.pricingUnit,
+    unitConversions: material.unitConversions,
     weightKg: normalizedInput.weightKg,
     lengthCm: normalizedInput.lengthCm,
     widthCm: normalizedInput.widthCm,
@@ -1330,11 +1412,24 @@ export function updateMaterialSkuRecord(materialSkuId: string, input: MaterialSk
     createdAt: timestamp,
   })
 
-  persistSnapshot({
-    ...snapshot,
-    records: snapshot.records.map((item) => (item.materialId === material.materialId ? updatedRecord : item)),
-    skuRecords: snapshot.skuRecords.map((item) => (item.materialSkuId === materialSkuId ? updatedSkuRecord : item)),
-    logRecords: [log, ...snapshot.logRecords],
+  return runTechnicalDataVersionRepositoryTransaction(() => {
+    try {
+      persistSnapshot({
+        ...snapshot,
+        records: snapshot.records.map((item) => (item.materialId === material.materialId ? updatedRecord : item)),
+        skuRecords: snapshot.skuRecords.map((item) => (item.materialSkuId === materialSkuId ? updatedSkuRecord : item)),
+        logRecords: [log, ...snapshot.logRecords],
+      })
+      invalidateBomPriceReviewsForMaterialStandardPriceChange({
+        materialSkuId,
+        beforePriceCny: skuRecord.costPrice,
+        afterPriceCny: updatedSkuRecord.costPrice,
+        operator: '系统价格联动',
+      })
+      return cloneSkuRecord(updatedSkuRecord)
+    } catch (error) {
+      persistSnapshot(snapshot)
+      throw error
+    }
   })
-  return cloneSkuRecord(updatedSkuRecord)
 }

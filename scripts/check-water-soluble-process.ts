@@ -32,7 +32,7 @@ import {
   areRouteEntriesContinuous,
   normalizeProcessRouteEntries,
 } from '../src/data/tech-pack-process-route.ts'
-import { syncPreparationProcessesFromBom } from '../src/pages/tech-pack/bom-process-linkage.ts'
+import { syncTechPackProcessesFromBom } from '../src/pages/tech-pack/bom-process-linkage.ts'
 import { applyProcessRouteDraftAction } from '../src/pages/tech-pack/events.ts'
 import {
   WATER_SOLUBLE_STATUS_LABEL,
@@ -181,7 +181,7 @@ const allTypeBomRows = allBomMaterialTypes.map((type, index) => ({
   waterSolubleRequirement: '是',
   dyeRequirement: '无',
 }))
-const allTypeWaterTechnique = syncPreparationProcessesFromBom([], allTypeBomRows)
+const allTypeWaterTechnique = syncTechPackProcessesFromBom([], allTypeBomRows)
   .techniques.find((item) => item.processCode === 'WATER_SOLUBLE')
 assert(allTypeWaterTechnique, '所有 BOM 物料类型选择水溶后都必须生成水溶工序')
 assert.deepEqual(
@@ -190,7 +190,7 @@ assert.deepEqual(
   '面料、辅料、包装材料和其他物料必须全部可选择水溶，不得按物料类型过滤',
 )
 
-const syncResult = syncPreparationProcessesFromBom([], bomRows)
+const syncResult = syncTechPackProcessesFromBom([], bomRows)
 const waterTechnique = syncResult.techniques.find((item) => item.processCode === 'WATER_SOLUBLE')
 const dyeTechnique = syncResult.techniques.find((item) => item.processCode === 'DYE')
 
@@ -209,7 +209,7 @@ assert.deepEqual(
 assert(!waterTechnique.linkedBomItemIds?.includes('BOM-DYE'), '仅选择染色的物料不得误绑水溶工序')
 assert(!dyeTechnique.linkedBomItemIds?.includes('BOM-WATER'), '仅选择水溶的物料不得误绑染色工序')
 
-const resyncedWater = syncPreparationProcessesFromBom([
+const resyncedWater = syncTechPackProcessesFromBom([
   { ...waterTechnique, linkedBomItemIds: ['BOM-OLD'] },
 ], [{ id: 'BOM-BOTH', waterSolubleRequirement: '是' }])
 assert.deepEqual(
@@ -218,13 +218,13 @@ assert.deepEqual(
   '重新同步已有水溶工序时必须覆盖为最新 BOM 绑定',
 )
 
-const removedWater = syncPreparationProcessesFromBom([waterTechnique], [
+const removedWater = syncTechPackProcessesFromBom([waterTechnique], [
   { id: 'BOM-WATER', waterSolubleRequirement: '否' },
 ])
 assert(!removedWater.techniques.some((item) => item.processCode === 'WATER_SOLUBLE'), '取消水溶后无人工内容的自动工序必须移除')
 assert(removedWater.removedProcessCodes.includes('WATER_SOLUBLE'), '取消水溶必须记录 WATER_SOLUBLE 已移除')
 
-const pendingWater = syncPreparationProcessesFromBom([
+const pendingWater = syncTechPackProcessesFromBom([
   { ...waterTechnique, manualNotes: '保留人工备注', hasManualOverride: true },
 ], [{ id: 'BOM-WATER', waterSolubleRequirement: '否' }])
 const pendingWaterTechnique = pendingWater.techniques.find((item) => item.processCode === 'WATER_SOLUBLE')

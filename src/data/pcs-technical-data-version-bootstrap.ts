@@ -193,10 +193,13 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
     : isWoolScenario
       ? '毛织用纱线'
       : '主面料'
+  const mainBomMaterialCode = isWoolScenario
+    ? `YARN-${demand.spuCode.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').toUpperCase()}-MAIN`
+    : undefined
   const mainUsageProcessCodes = scenario === 'GARMENT_HEAT_TRANSFER'
     ? ['SPECIAL_CRAFT']
     : isWoolScenario
-      ? ['WOOL']
+      ? ['PROC_WOOL']
       : ['CUT_PANEL', 'SEW']
   const isWaterSolubleDyeDemo = demand.spuCode === 'SPU-TSHIRT-081'
   const waterSolubleDyeBomItemId = `${seed.technicalVersionId}-bom-water-soluble-dye`
@@ -221,15 +224,13 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
           isSpecialCraft: false,
           woolTaskType: 'WHOLE_GARMENT' as const,
           downstreamTarget: '后道工厂' as const,
-          requiresFeiTicket: false,
-          packagingRequired: true,
           materialIssueMode: 'WAREHOUSE_DELIVERY' as const,
           linkedBomItemIds: [bomItemId],
           linkedPatternIds: [patternId],
           outputValuePerUnit: 18,
           outputValueUnit: '产值/件',
           difficulty: 'HIGH' as const,
-          remark: '整件毛织完成后交后道工厂，熨烫必有，包装按本单要求执行。',
+          remark: '整件毛织完成后交后道工厂。',
         },
       ]
     : scenario === 'PART_WOOL'
@@ -252,15 +253,13 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
             isSpecialCraft: false,
             woolTaskType: 'PART_PANEL' as const,
             downstreamTarget: '裁床待交出仓' as const,
-            requiresFeiTicket: true,
-            packagingRequired: false,
             materialIssueMode: 'WAREHOUSE_DELIVERY' as const,
             linkedBomItemIds: [bomItemId],
             linkedPatternIds: [patternId],
             outputValuePerUnit: 2.5,
             outputValueUnit: '产值/件',
             difficulty: 'MEDIUM' as const,
-            remark: '部位毛织按部位、颜色、尺码生成明细并打印菲票，完成后交裁床待交出仓。',
+            remark: '部位毛织按部位、颜色、尺码生成明细，完成后交裁床待交出仓。',
           },
         ]
       : scenario === 'GARMENT_HEAT_TRANSFER'
@@ -417,6 +416,12 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
     : []
 
   const resolveColorMaterialInfo = (color: string, index: number) => {
+    if (isWoolScenario) {
+      return {
+        code: mainBomMaterialCode!,
+        name: mainBomName,
+      }
+    }
     const colorKey = color.trim().toLowerCase()
     if (demand.spuCode === 'SPU-2024-010') {
       const joggerMaterialMap: Record<string, { code: string; name: string }> = {
@@ -587,7 +592,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
     patternDesc: scenario === 'WHOLE_WOOL'
       ? '整件毛织技术包，生产单生成毛织加工单，完成后交后道工厂。'
       : scenario === 'PART_WOOL'
-        ? '部位毛织技术包，生产单生成部位毛织加工单和毛织菲票，完成后交裁床待交出仓。'
+        ? '部位毛织技术包，生产单按纸样部位生成部位毛织加工单，完成后交裁床待交出仓。'
         : scenario === 'GARMENT_HEAT_TRANSFER'
           ? '纯色 T-shirt 成衣烫画、直喷技术包，按成衣 BOM 适用 SKU 生成特殊工艺任务。'
           : '来源生产需求单当前生效技术包。',
@@ -610,6 +615,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
             ? `${colors.join(' / ') || '默认色'} 纱线，染厂/面料仓送料到厂`
             : `${colors.join(' / ') || '默认色'} 主面料`,
         colorLabel: colors.join(' / '),
+        materialCode: mainBomMaterialCode,
         unit: scenario === 'GARMENT_HEAT_TRANSFER' ? '件' : demand.spuCode === 'SPU-2024-010' ? '米' : undefined,
         ...(demand.spuCode === 'SPU-2024-010'
           ? { printRequirement: '数码印花', dyeRequirement: '匹染' }

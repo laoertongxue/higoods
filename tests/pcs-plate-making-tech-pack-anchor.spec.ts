@@ -5,7 +5,6 @@ import {
 } from '../src/data/pcs-project-relation-repository.ts'
 import {
   getProjectById,
-  getProjectNodeRecordByWorkItemTypeCode,
   resetProjectRepository,
   updateProjectRecord,
 } from '../src/data/pcs-project-repository.ts'
@@ -15,8 +14,14 @@ import {
   resetStyleArchiveRepository,
   updateStyleArchive,
 } from '../src/data/pcs-style-archive-repository.ts'
-import { replaceTechnicalDataVersionStore } from '../src/data/pcs-technical-data-version-repository.ts'
+import { resetTechnicalDataVersionRepository } from '../src/data/pcs-technical-data-version-repository.ts'
 import { resetTechPackVersionLogRepository } from '../src/data/pcs-tech-pack-version-log-repository.ts'
+import { assertFirstFormalProduction } from '../src/data/pcs-engineering-first-production-policy.ts'
+import {
+  createEngineeringMasterOrder,
+  publishEngineeringMasterOrder,
+  resetEngineeringMasterRepository,
+} from '../src/data/pcs-engineering-master-repository.ts'
 import {
   getPlateMakingTaskById,
   resetPlateMakingTaskRepository,
@@ -27,17 +32,24 @@ import { generateTechPackVersionFromPlateTask } from '../src/data/pcs-tech-pack-
 
 resetProjectRepository()
 resetStyleArchiveRepository()
-replaceTechnicalDataVersionStore({ version: 2, records: [], contents: [], pendingItems: [] })
+resetTechnicalDataVersionRepository()
 clearProjectRelationStore()
 resetTechPackVersionLogRepository()
 resetPlateMakingTaskRepository()
+resetEngineeringMasterRepository()
 
-const style = listStyleArchives().find((item) => item.sourceProjectId) || findStyleArchiveByProjectId('PRJ-20251216-004')
+const style = listStyleArchives().find((item) => {
+  if (!item.sourceProjectId) return false
+  try {
+    assertFirstFormalProduction(item.styleCode)
+    return true
+  } catch {
+    return false
+  }
+}) || findStyleArchiveByProjectId('PRJ-20251216-004')
 assert.ok(style, '必须存在款式档案演示数据')
 const project = getProjectById(style!.sourceProjectId)
 assert.ok(project, '款式档案必须有来源项目')
-const node = getProjectNodeRecordByWorkItemTypeCode(project!.projectId, 'PATTERN_TASK')
-assert.ok(node, '项目必须有制版任务节点')
 
 updateStyleArchive(style!.styleId, {
   techPackStatus: '未建立',
@@ -56,6 +68,12 @@ updateProjectRecord(project!.projectId, {
   linkedTechPackVersionStatus: '',
 }, '测试用户')
 
+const engineeringMaster = publishEngineeringMasterOrder(createEngineeringMasterOrder({
+  styleId: style!.styleId,
+  styleCode: style!.styleCode,
+  merchandiserName: '测试跟单',
+}).masterOrderId)
+
 const task: PlateMakingTaskRecord = upsertPlateMakingTask({
   plateTaskId: 'plate_anchor_test',
   plateTaskCode: 'PT-ANCHOR-001',
@@ -63,14 +81,14 @@ const task: PlateMakingTaskRecord = upsertPlateMakingTask({
   projectId: project!.projectId,
   projectCode: project!.projectCode,
   projectName: project!.projectName,
-  projectNodeId: node!.projectNodeId,
-  workItemTypeCode: 'PATTERN_TASK',
-  workItemTypeName: '制版任务',
-  sourceType: '项目模板阶段',
-  upstreamModule: '商品项目',
-  upstreamObjectType: '商品项目节点',
-  upstreamObjectId: node!.projectNodeId,
-  upstreamObjectCode: node!.workItemTypeCode,
+  projectNodeId: '',
+  stepCode: 'PATTERN_TASK',
+  stepName: '制版任务',
+  sourceType: '人工创建',
+  upstreamModule: '生产工程管理',
+  upstreamObjectType: '工程专业任务',
+  upstreamObjectId: `${engineeringMaster.masterOrderId}-BASE_PATTERN_WOVEN`,
+  upstreamObjectCode: `${engineeringMaster.masterOrderCode}-BASE_PATTERN_WOVEN`,
   productStyleCode: style!.styleCode,
   spuCode: style!.styleCode,
   productHistoryType: '未卖过',

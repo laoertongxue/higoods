@@ -12,8 +12,8 @@ import {
 } from '../src/data/pcs-tech-pack-review.ts'
 import {
   getTechnicalDataVersionById,
-  replaceTechnicalDataVersionStore,
 } from '../src/data/pcs-technical-data-version-repository.ts'
+import { installTechnicalDataVersionFixtures } from './helpers/technical-data-version-fixtures.ts'
 import {
   buildTechnicalVersionDetailViewModel,
   buildTechnicalVersionListByStyle,
@@ -116,8 +116,13 @@ const content: TechnicalDataVersionContent = {
       defaultDocType: 'TASK',
       taskTypeMode: 'CRAFT',
       isSpecialCraft: false,
+      routeStepNo: 1,
+      routeLaneNo: 1,
     },
   ],
+  processRouteStatus: 'CONFIRMED',
+  processRouteConfirmedBy: '跟单C',
+  processRouteConfirmedAt: '2026-05-25 10:00',
   sizeTable: [{ id: 'size-review-1', part: '胸围', S: 90, M: 94, L: 98, XL: 102, tolerance: 1 }],
   bomItems: [
     {
@@ -157,7 +162,7 @@ const content: TechnicalDataVersionContent = {
   },
 }
 
-replaceTechnicalDataVersionStore({
+installTechnicalDataVersionFixtures({
   version: 3,
   records: [record],
   contents: [content],

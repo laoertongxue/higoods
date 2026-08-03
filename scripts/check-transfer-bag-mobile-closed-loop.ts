@@ -51,8 +51,16 @@ assert(detailSource.includes('listCuttingRuntimeEvents'), '详情必须读取完
 for (const route of ['/fcs/pda/cutting/transfer-bag/recovery', '/fcs/pda/cutting/transfer-bag/scrap', '/fcs/pda/transfer-bag-detail']) {
   assert(routeSource.includes(route), `PDA 路由缺少：${route}`)
 }
-assert(handlerSource.includes('handlePdaCuttingTransferBagRecoveryEvent(target, event)'))
-assert(handlerSource.includes('handlePdaCuttingTransferBagScrapEvent(target, event)'))
+assert(
+  handlerSource.includes("exact('/fcs/pda/cutting/transfer-bag/recovery')")
+  && handlerSource.includes("exportName: 'handlePdaCuttingTransferBagRecoveryEvent'"),
+  'PDA 回收路由必须按需加载独立事件处理器',
+)
+assert(
+  handlerSource.includes("exact('/fcs/pda/cutting/transfer-bag/scrap')")
+  && handlerSource.includes("exportName: 'handlePdaCuttingTransferBagScrapEvent'"),
+  'PDA 报废路由必须按需加载独立事件处理器',
+)
 assert(keydownSource.includes('[data-pda-recovery-field="bagCode"]'))
 assert(keydownSource.includes('[data-pda-scrap-field="bagCode"]'))
 
