@@ -4133,9 +4133,9 @@ function buildWaitHandoverWorkbenchProjection(options: {
     .map((task) =>
       createWaitHandoverItemFromPickingTask(
         task,
-        '待交出装袋确认',
-        '去交出装袋确认',
-        buildHubTabHref('warehouse-management-wait-handover', 'handover-bagging'),
+        '待拆袋重装',
+        '前往拆袋重装',
+        '/fcs/craft/cutting/transfer-bags',
       ),
     )
     .concat(runtimeBaggingConfirmItems)
@@ -4179,8 +4179,8 @@ function buildWaitHandoverWorkbenchProjection(options: {
     { label: '待入仓确认裁片数量', value: formatPieceQty(pendingInboundItems.reduce((sum, item) => sum + item.pieceQty, 0)), hint: '已打印菲票进入裁后仓前确认', tone: 'text-blue-600' },
     { label: '中转袋数量', value: options.inboundTempBags.length, hint: `${formatPieceQty(inboundTempPieceQty)} 已入仓暂存`, tone: 'text-slate-700' },
     { label: '裁片库存数量', value: formatPieceQty(inventoryPieceQty), hint: `${inventoryItemCount} 条入仓 / 回仓库存记录`, tone: 'text-emerald-600' },
-    { label: '待交出装袋确认任务数量', value: pendingBaggingConfirmItems.length || options.handoverPickingProjection.pendingCount + options.handoverPickingProjection.sortingCount, hint: '车缝任务分配后触发', tone: 'text-amber-600' },
-    { label: '已装袋待交出数量', value: pendingHandoverRecordItems.length || options.handoverPickingProjection.packedCount, hint: '交出装袋确认后进入交出', tone: 'text-violet-600' },
+    { label: '待拆袋重装任务数量', value: pendingBaggingConfirmItems.length || options.handoverPickingProjection.pendingCount + options.handoverPickingProjection.sortingCount, hint: '按实际交出分配需要触发', tone: 'text-amber-600' },
+    { label: '待交出中转袋数量', value: pendingHandoverRecordItems.length || options.handoverPickingProjection.packedCount, hint: '直接交出或重装后交出', tone: 'text-violet-600' },
     { label: '待新增交出记录数量', value: pendingHandoverRecordItems.length, hint: '齐套不是交出前置条件', tone: 'text-blue-600' },
     { label: '接收差异数量', value: discrepancyAndShortageItems.length, hint: '接收回写和异议提示', tone: 'text-rose-600' },
     { label: '交出后缺口数量', value: shortageCount, hint: '缺口作为交出后结果展示', tone: 'text-orange-600' },
@@ -4618,7 +4618,7 @@ function renderSewingAllocationArea(projection: SewingTaskAllocationProjection):
                       <div class="sm:col-span-2"><span class="font-medium text-foreground">特殊工艺未回仓：</span>${escapeHtml(pendingPreview)}</div>
                     </div>
                     <div class="mt-3 flex flex-wrap gap-2">
-                      <button type="button" class="rounded-md border bg-card px-3 py-1.5 text-xs hover:bg-muted">生成交出装袋确认任务</button>
+                      <button type="button" class="rounded-md border bg-card px-3 py-1.5 text-xs hover:bg-muted" data-nav="/fcs/craft/cutting/transfer-bags">查看可直接交出或拆袋重装</button>
                       <button type="button" class="rounded-md border bg-card px-3 py-1.5 text-xs hover:bg-muted">查看分配后缺口</button>
                     </div>
                   </article>
@@ -4774,11 +4774,9 @@ function renderWaitHandoverWorkbench(projection: WaitHandoverWorkbenchProjection
       ${renderSewingAllocationArea(projection.sewingAllocationProjection)}
       ${renderSpecialCraftHandoverArea(projection.specialCraftHandoverGroups)}
       ${renderSpecialCraftReturnArea(projection.specialCraftReturnProjection)}
-      ${renderHandoverPickingArea(projection.handoverPickingProjection)}
       <section class="grid gap-4 xl:grid-cols-2">
         ${renderWaitHandoverWorkArea('待入仓确认', '已打印菲票进入裁床待交出仓前的确认入口。', projection.pendingInboundItems, '暂无待入仓确认菲票。')}
-        ${renderWaitHandoverWorkArea('待交出装袋确认', '车缝任务分配后，从中转袋按任务拣出裁片并装入中转袋。', projection.pendingBaggingConfirmItems, '暂无待交出装袋确认任务。')}
-        ${renderWaitHandoverWorkArea('待新增交出记录', '已装袋后新增交出记录；齐套和缺口在交出后计算。', projection.pendingHandoverRecordItems, '暂无待新增交出记录。')}
+        ${renderWaitHandoverWorkArea('待交出中转袋', '分配后可直接整袋交出；跨工厂或需要换袋时先拆袋重装，再独立确认交出。', projection.pendingHandoverRecordItems, '暂无待交出中转袋。')}
         <div class="xl:col-span-2">
           ${renderWaitHandoverWorkArea('接收差异 / 交出后缺口', '展示接收回写差异、异议和交出后缺口。', projection.discrepancyAndShortageItems, '暂无接收差异或交出后缺口。')}
         </div>

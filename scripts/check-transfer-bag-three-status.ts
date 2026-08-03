@@ -2850,8 +2850,8 @@ assert.deepEqual(
     },
     '已交出',
   ),
-  ['按袋确认', '按菲票确认'],
-  '已交出扫码详情只能展示下游接收确认，不得继续展示装袋或移除菲票',
+  [],
+  '已交出扫码详情只读展示受管事实，不得管理外部车缝工厂的收货或袋池动作',
 )
 assert.deepEqual(
   pdaTransferBagDetail.getPdaTransferBagVisibleActionLabels(
@@ -2878,26 +2878,23 @@ assert(
   '扫码详情必须读取统一中转袋生命周期投影',
 )
 assert(
-  pdaTransferBagDetailSource.includes('物理袋状态'),
-  '扫码详情必须明确展示物理袋状态',
+  pdaTransferBagDetailSource.includes('主状态'),
+  '扫码详情必须明确展示中转袋三主状态',
 )
 assert(
-  pdaTransferBagDetailSource.includes('流转阶段'),
-  '扫码详情必须明确展示流转阶段',
+  pdaTransferBagDetailSource.includes('当前阶段'),
+  '扫码详情必须明确展示当前流转阶段',
 )
 assert(
-  pdaTransferBagDetailSource.includes('接收回写状态'),
-  '扫码详情必须把下游状态明确标为接收回写状态',
+  pdaTransferBagDetailSource.includes('最近交出快照'),
+  '扫码详情必须展示系统可观察的最近交出事实',
 )
 assert.equal(
   pdaTransferBagDetailSource.includes('action=new-master'),
   false,
   '现场扫码详情不得长期展示新建中转袋主档入口',
 )
-assert(
-  pdaTransferBagDetailSource.includes('data-nav='),
-  '扫码详情展示的记录动作必须跳转到可执行记录页面，不得形成死按钮',
-)
+assert(!pdaTransferBagDetailSource.includes('确认收货'), '扫码详情不得管理外部车缝工厂收货')
 
 const masterQuickFilterSource = transferBagsPageSource.slice(
   transferBagsPageSource.indexOf('function renderMasterQuickFilterBar'),
