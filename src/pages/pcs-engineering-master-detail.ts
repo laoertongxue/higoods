@@ -12,6 +12,7 @@ import {
 } from '../data/pcs-engineering-master-view-model.ts'
 import {
   closeEngineeringMasterOrder,
+  confirmEngineeringMasterTaskPlan,
   getEngineeringMasterOrderById,
   submitEngineeringTaskResult,
   validateEngineeringMasterOrderClose,
@@ -19,6 +20,7 @@ import {
 import type {
   EngineeringMasterStatus,
   EngineeringTaskStatus,
+  EngineeringTaskType,
 } from '../data/pcs-engineering-master-types.ts'
 import { escapeHtml } from '../utils.ts'
 
@@ -67,11 +69,21 @@ const TASK_CARD_TONES: Record<EngineeringTaskStatus, string> = {
 interface DetailUiState {
   selectedTaskId: string
   drawerOpen: boolean
+  imagePreviewUrl: string
+  imagePreviewTitle: string
+  taskPlanMasterId: string
+  selectedConditionalTaskTypes: EngineeringTaskType[]
+  taskPlanError: string
 }
 
 const detailUiState: DetailUiState = {
   selectedTaskId: '',
   drawerOpen: false,
+  imagePreviewUrl: '',
+  imagePreviewTitle: '',
+  taskPlanMasterId: '',
+  selectedConditionalTaskTypes: [],
+  taskPlanError: '',
 }
 
 // 可提交成果的任务状态：待开始、进行中；待前置任务在依赖全部完成后也可提交。
@@ -102,6 +114,18 @@ function renderMasterHeader(model: EngineeringMasterDetailModel): string {
   return `
     <header class="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3">
       <div class="flex flex-wrap items-center gap-3">
+        ${model.styleImageUrl ? `
+          <button
+            type="button"
+            class="group block h-14 w-11 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-slate-50"
+            data-${DETAIL_EVENT_PREFIX}-action="open-style-image-preview"
+            data-image-url="${escapeHtml(model.styleImageUrl)}"
+            data-image-title="${escapeHtml(model.styleName)}"
+            aria-label="查看${escapeHtml(model.styleName)}大图"
+          >
+            <img src="${escapeHtml(model.styleImageUrl)}" alt="${escapeHtml(model.styleName)}" class="h-full w-full object-cover transition-transform group-hover:scale-105" />
+          </button>
+        ` : ''}
         <h1 class="text-lg font-semibold">${escapeHtml(model.masterOrderCode)}</h1>
         ${renderStatusBadge(model.status)}
         <span class="text-sm text-slate-500">${escapeHtml(model.styleName)}（${escapeHtml(model.styleCode)}）</span>
@@ -122,6 +146,24 @@ function renderMasterHeader(model: EngineeringMasterDetailModel): string {
   `
 }
 
+function renderStyleImagePreview(): string {
+  if (!detailUiState.imagePreviewUrl) return ''
+  return `
+    <div class="fixed inset-0 z-[60] flex items-center justify-center px-4 py-6" role="dialog" aria-modal="true" aria-label="款式大图预览">
+      <button type="button" class="absolute inset-0 bg-slate-950/70" data-${DETAIL_EVENT_PREFIX}-action="close-style-image-preview" aria-label="关闭款式大图预览"></button>
+      <section class="relative z-10 flex max-h-full w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+        <header class="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-3">
+          <h2 class="truncate text-base font-semibold text-slate-900">${escapeHtml(detailUiState.imagePreviewTitle || '款式图片')}</h2>
+          <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50" data-${DETAIL_EVENT_PREFIX}-action="close-style-image-preview" aria-label="关闭款式大图预览">×</button>
+        </header>
+        <div class="overflow-auto bg-slate-100 p-5">
+          <img src="${escapeHtml(detailUiState.imagePreviewUrl)}" alt="${escapeHtml(detailUiState.imagePreviewTitle || '款式图片')}" class="mx-auto max-h-[80vh] w-auto max-w-full rounded-lg border border-slate-200 bg-white object-contain shadow-sm" />
+        </div>
+      </section>
+    </div>
+  `
+}
+
 // ============ 前期输入区 ============
 
 function renderPriorReuseRegion(model: EngineeringMasterDetailModel): string {
@@ -137,6 +179,67 @@ function renderPriorReuseRegion(model: EngineeringMasterDetailModel): string {
           </div>
         `).join('')}
       </div>
+    </section>
+  `
+}
+
+function ensureTaskPlanState(model: EngineeringMasterDetailModel): void {
+  if (detailUiState.taskPlanMasterId === model.masterOrderId) return
+  detailUiState.taskPlanMasterId = model.masterOrderId
+  detailUiState.selectedConditionalTaskTypes = model.taskPlanSuggestions
+    .filter((item) => !item.required && item.suggestedSelected)
+    .map((item) => item.taskType)
+  detailUiState.taskPlanError = ''
+}
+
+function renderTaskPlanConfirmation(model: EngineeringMasterDetailModel): string {
+  const selected = new Set(detailUiState.selectedConditionalTaskTypes)
+  const selectedCount = model.taskPlanSuggestions.filter((item) => item.required || selected.has(item.taskType)).length
+  return `
+    <section class="overflow-hidden rounded-lg border bg-card" data-engineering-task-plan-confirmation>
+      <header class="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="text-base font-semibold text-slate-900">任务方案确认</h2>
+            <span class="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">系统建议</span>
+          </div>
+          <p class="mt-1 text-xs text-slate-500">跟单确认适用任务；固定依赖关系不能调整。</p>
+        </div>
+        <div class="text-sm text-slate-600">已选 ${selectedCount}/${model.taskPlanSuggestions.length} 项</div>
+      </header>
+      ${detailUiState.taskPlanError ? `<div class="mx-4 mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${escapeHtml(detailUiState.taskPlanError)}</div>` : ''}
+      <div class="divide-y">
+        ${model.taskPlanSuggestions.map((item) => {
+          const checked = item.required || selected.has(item.taskType)
+          return `
+            <label class="grid grid-cols-[28px_minmax(180px,1.2fr)_minmax(120px,.7fr)_minmax(180px,1fr)_minmax(220px,1.4fr)] items-center gap-3 px-4 py-3 text-sm ${item.required ? 'bg-slate-50/60' : 'hover:bg-blue-50/40'}">
+              <input
+                type="checkbox"
+                class="h-4 w-4 rounded border-slate-300 text-blue-600"
+                data-${DETAIL_EVENT_PREFIX}-action="toggle-task-plan-type"
+                data-task-type="${escapeHtml(item.taskType)}"
+                ${checked ? 'checked' : ''}
+                ${item.required ? 'disabled' : ''}
+              />
+              <span class="font-medium text-slate-900">${escapeHtml(item.taskName)}</span>
+              <span class="text-slate-600">${escapeHtml(item.ownerTeamName)}</span>
+              <span class="text-xs text-slate-500">前置：${escapeHtml(item.dependencyText)}</span>
+              <span class="flex items-center gap-2 text-xs">
+                <span class="rounded-full px-2 py-0.5 ${item.required ? 'bg-slate-200 text-slate-700' : item.suggestedSelected ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">${item.required ? '必做' : item.suggestedSelected ? '建议启用' : '按需启用'}</span>
+                <span class="text-slate-500">${escapeHtml(item.suggestionReason)}</span>
+              </span>
+            </label>
+          `
+        }).join('')}
+      </div>
+      <footer class="flex flex-wrap items-center justify-between gap-3 border-t bg-slate-50 px-4 py-3">
+        <p class="text-xs text-slate-500">确认后一次性生成任务；条件任务后续仍可由正式 BOM 要求启用。</p>
+        <button
+          type="button"
+          class="inline-flex h-9 items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700"
+          data-${DETAIL_EVENT_PREFIX}-action="confirm-task-plan"
+        >确认并生成任务</button>
+      </footer>
     </section>
   `
 }
@@ -407,6 +510,7 @@ export function renderPcsEngineeringMasterDetailPage(key: string): string {
   }
   detailUiState.drawerOpen = false
   detailUiState.selectedTaskId = ''
+  ensureTaskPlanState(model)
 
   const selectedTask = model.lanes
     .flatMap((lane) => lane.tasks)
@@ -420,8 +524,9 @@ export function renderPcsEngineeringMasterDetailPage(key: string): string {
       <div data-engineering-master-region="header">${withDetailLocalInteractions(renderMasterHeader(model))}</div>
       <div data-engineering-master-region="feedback"></div>
       ${renderPriorReuseRegion(model)}
-      <div data-engineering-master-region="lanes">${withDetailLocalInteractions(renderLaneGrid(model))}</div>
+      <div data-engineering-master-region="lanes">${withDetailLocalInteractions(model.status === '草稿' ? renderTaskPlanConfirmation(model) : renderLaneGrid(model))}</div>
       <div data-engineering-master-region="drawer">${withDetailLocalInteractions(drawerHtml)}</div>
+      <div data-engineering-master-region="image-preview">${withDetailLocalInteractions(renderStyleImagePreview())}</div>
     </div>
   `
 }
@@ -492,6 +597,13 @@ function refreshMasterHeader(model: EngineeringMasterDetailModel): void {
   headerHost.innerHTML = withDetailLocalInteractions(renderMasterHeader(model))
 }
 
+function refreshStyleImagePreview(): void {
+  if (typeof document === 'undefined') return
+  const previewHost = document.querySelector<HTMLElement>('[data-engineering-master-region="image-preview"]')
+  if (!previewHost) return
+  previewHost.innerHTML = withDetailLocalInteractions(renderStyleImagePreview())
+}
+
 function showDetailFeedback(message: string, ok: boolean): void {
   if (typeof document === 'undefined') return
   const feedbackHost = document.querySelector<HTMLElement>('[data-engineering-master-region="feedback"]')
@@ -517,6 +629,47 @@ export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): bool
   if (!actionNode) return false
   const action = actionNode.dataset.pcsEngineeringMasterAction
   if (!action) return false
+
+  if (action === 'open-style-image-preview') {
+    detailUiState.imagePreviewUrl = actionNode.dataset.imageUrl || ''
+    detailUiState.imagePreviewTitle = actionNode.dataset.imageTitle || '款式图片'
+    refreshStyleImagePreview()
+    return true
+  }
+  if (action === 'close-style-image-preview') {
+    detailUiState.imagePreviewUrl = ''
+    detailUiState.imagePreviewTitle = ''
+    refreshStyleImagePreview()
+    return true
+  }
+  if (action === 'toggle-task-plan-type') {
+    const taskType = actionNode.dataset.taskType as EngineeringTaskType
+    const checked = Boolean((actionNode as HTMLInputElement).checked)
+    const selected = new Set(detailUiState.selectedConditionalTaskTypes)
+    if (checked) selected.add(taskType)
+    else selected.delete(taskType)
+    detailUiState.selectedConditionalTaskTypes = [...selected]
+    detailUiState.taskPlanError = ''
+    return true
+  }
+  if (action === 'confirm-task-plan') {
+    const masterKey = currentMasterKey()
+    const model = buildEngineeringMasterDetailModel(masterKey)
+    if (!model) return true
+    try {
+      confirmEngineeringMasterTaskPlan(masterKey, {
+        confirmedBy: resolveEngineeringMasterDemoOperatorName(model),
+        selectedConditionalTaskTypes: detailUiState.selectedConditionalTaskTypes,
+      })
+      detailUiState.taskPlanError = ''
+      if (typeof window !== 'undefined') window.dispatchEvent(new Event('higood:request-render'))
+    } catch (error) {
+      detailUiState.taskPlanError = error instanceof Error ? error.message : '确认任务方案失败。'
+      const refreshedModel = buildEngineeringMasterDetailModel(masterKey)
+      if (refreshedModel) refreshLanesRegion(refreshedModel)
+    }
+    return true
+  }
 
   if (action === 'open-task-drawer') {
     const taskId = actionNode.dataset.taskId || ''
@@ -625,5 +778,5 @@ function currentMasterKey(): string {
 }
 
 export function isPcsEngineeringMasterDetailDialogOpen(): boolean {
-  return detailUiState.drawerOpen
+  return detailUiState.drawerOpen || Boolean(detailUiState.imagePreviewUrl)
 }

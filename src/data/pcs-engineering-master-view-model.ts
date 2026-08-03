@@ -96,6 +96,7 @@ export interface EngineeringMasterListRow {
   masterOrderCode: string
   styleCode: string
   styleName: string
+  styleImageUrl: string
   merchandiserName: string
   status: EngineeringMasterStatus
   currentStage: string
@@ -127,11 +128,15 @@ function deriveProgressText(record: EngineeringMasterOrderRecord): string {
 }
 
 export function buildEngineeringMasterListRows(): EngineeringMasterListRow[] {
+  const styles = new Map(listStyleArchives().map((style) => [style.styleId, style]))
   return listEngineeringMasterOrders().map((record) => ({
     masterOrderId: record.masterOrderId,
     masterOrderCode: record.masterOrderCode,
     styleCode: record.styleCode,
     styleName: record.styleName,
+    styleImageUrl: styles.get(record.styleId)?.mainImageUrl
+      || styles.get(record.styleId)?.galleryImageUrls[0]
+      || '',
     merchandiserName: record.merchandiserName,
     status: record.status,
     currentStage: deriveCurrentStage(record),
@@ -165,11 +170,22 @@ export interface EngineeringLaneModel {
   tasks: EngineeringTaskCardModel[]
 }
 
+export interface EngineeringTaskPlanSuggestion {
+  taskType: EngineeringTaskType
+  taskName: string
+  ownerTeamName: string
+  dependencyText: string
+  required: boolean
+  suggestedSelected: boolean
+  suggestionReason: string
+}
+
 export interface EngineeringMasterDetailModel {
   masterOrderId: string
   masterOrderCode: string
   styleCode: string
   styleName: string
+  styleImageUrl: string
   status: EngineeringMasterStatus
   merchandiserName: string
   createdBy: string
@@ -177,6 +193,52 @@ export interface EngineeringMasterDetailModel {
   publishedAt: string
   lanes: EngineeringLaneModel[]
   priorResultReuseLines: EngineeringPriorResultReuseLine[]
+  taskPlanSuggestions: EngineeringTaskPlanSuggestion[]
+}
+
+function buildTaskPlanSuggestions(
+  record: EngineeringMasterOrderRecord,
+  style: ReturnType<typeof listStyleArchives>[number] | undefined,
+): EngineeringTaskPlanSuggestion[] {
+  const styleText = [
+    record.styleName,
+    style?.categoryName,
+    style?.subCategoryName,
+    ...(style?.styleTags || []),
+    style?.sellingPointText,
+    style?.detailDescription,
+  ].filter(Boolean).join(' ').toLowerCase()
+  const priorReworkText = record.priorResultReuseLines
+    .filter((line) => line.decision === '重新执行')
+    .map((line) => `${line.resultType} ${line.resultLabel}`)
+    .join(' ')
+  const printSuggested = /印花|花型|print|dtf|dtg|刺绣/.test(`${styleText} ${priorReworkText}`)
+  const yarnColorSuggested = /毛织|针织|纱线|毛衣|knit|yarn/.test(`${styleText} ${priorReworkText}`)
+  const fabricColorSuggested = /染色|调色|色卡|面料染|dye/.test(`${styleText} ${priorReworkText}`)
+
+  return listEngineeringTaskDefinitions().map((definition) => {
+    const required = definition.conditionType === 'ALWAYS'
+    const suggestedSelected = required
+      || (definition.conditionType === 'PRINT' && printSuggested)
+      || (definition.conditionType === 'DYE_YARN' && yarnColorSuggested)
+      || (definition.conditionType === 'DYE_FABRIC' && fabricColorSuggested)
+    const conditionalReason = definition.conditionType === 'PRINT'
+      ? printSuggested ? '款式资料包含印花／花型需求' : 'BOM 存在印花需求时启用'
+      : definition.conditionType === 'DYE_YARN'
+        ? yarnColorSuggested ? '款式资料包含毛织／纱线需求' : 'BOM 存在纱线染色需求时启用'
+        : fabricColorSuggested ? '款式资料包含面料染色需求' : 'BOM 存在面料染色需求时启用'
+    return {
+      taskType: definition.taskType,
+      taskName: definition.taskName,
+      ownerTeamName: definition.ownerTeamName,
+      dependencyText: definition.dependsOn.length > 0
+        ? definition.dependsOn.map((taskType) => getEngineeringTaskDefinition(taskType).taskName).join('、')
+        : '无',
+      required,
+      suggestedSelected,
+      suggestionReason: required ? '首单工程固定任务' : conditionalReason,
+    }
+  })
 }
 
 function parseDateText(text: string): Date | null {
@@ -235,6 +297,7 @@ export function buildEngineeringMasterDetailModel(key: string): EngineeringMaste
     listEngineeringTaskDefinitions().map((definition) => [definition.taskType, definition]),
   )
   const taskById = new Map(record.tasks.map((task) => [task.taskId, task]))
+  const style = listStyleArchives().find((item) => item.styleId === record.styleId)
 
   const lanes: EngineeringLaneModel[] = ENGINEERING_LANES.map((lane) => {
     const tasks = lane.taskTypes
@@ -284,6 +347,7 @@ export function buildEngineeringMasterDetailModel(key: string): EngineeringMaste
     masterOrderCode: record.masterOrderCode,
     styleCode: record.styleCode,
     styleName: record.styleName,
+    styleImageUrl: style?.mainImageUrl || style?.galleryImageUrls[0] || '',
     status: record.status,
     merchandiserName: record.merchandiserName,
     createdBy: record.createdBy,
@@ -291,5 +355,6 @@ export function buildEngineeringMasterDetailModel(key: string): EngineeringMaste
     publishedAt: record.publishedAt,
     lanes,
     priorResultReuseLines: record.priorResultReuseLines.map((line) => ({ ...line })),
+    taskPlanSuggestions: buildTaskPlanSuggestions(record, style),
   }
 }

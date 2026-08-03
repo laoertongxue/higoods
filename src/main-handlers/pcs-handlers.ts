@@ -202,7 +202,11 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
     eventExport: 'handlePcsEngineeringMasterListEvent',
     inputExport: 'handlePcsEngineeringMasterListInput',
     dialogExport: 'isPcsEngineeringMasterListDialogOpen',
-    closeActions: [{ datasetKey: 'pcsEngineeringMasterAction', value: 'close-column-settings' }],
+    closeActions: [
+      { datasetKey: 'pcsEngineeringMasterAction', value: 'close-style-image-preview' },
+      { datasetKey: 'pcsEngineeringMasterAction', value: 'close-create-dialog' },
+      { datasetKey: 'pcsEngineeringMasterAction', value: 'close-column-settings' },
+    ],
   },
   {
     cacheKey: 'pcs-engineering-master-detail',
@@ -210,7 +214,10 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
     importModule: () => import('../pages/pcs-engineering-master-detail'),
     eventExport: 'handlePcsEngineeringMasterDetailEvent',
     dialogExport: 'isPcsEngineeringMasterDetailDialogOpen',
-    closeActions: [{ datasetKey: 'pcsEngineeringMasterAction', value: 'close-task-drawer' }],
+    closeActions: [
+      { datasetKey: 'pcsEngineeringMasterAction', value: 'close-style-image-preview' },
+      { datasetKey: 'pcsEngineeringMasterAction', value: 'close-task-drawer' },
+    ],
   },
   {
     cacheKey: 'pcs-engineering-tasks',

@@ -141,6 +141,9 @@ export interface EngineeringMasterOrderRecord {
   merchandiserName: string
   tasks: EngineeringTaskRecord[]
   priorResultReuseLines: EngineeringPriorResultReuseLine[]
+  taskPlanConfirmedAt?: string
+  taskPlanConfirmedBy?: string
+  confirmedTaskTypes?: EngineeringTaskType[]
   createdAt: string
   createdBy: string
   publishedAt: string

@@ -5,7 +5,6 @@ import {
   buildDependencyClosure,
   getEngineeringTaskDefinition,
   resolveEngineeringTaskSubmitStatus,
-  resolveInitialTaskStatus,
 } from './pcs-engineering-dependency-policy.ts'
 import type { EngineeringBomTaskLinkageRow } from './pcs-engineering-bom-types.ts'
 import { assertEngineeringBomPricingSnapshotValid } from './pcs-engineering-bom-pricing.ts'
@@ -69,6 +68,7 @@ function cloneRecord(record: EngineeringMasterOrderRecord): EngineeringMasterOrd
     ...record,
     tasks: record.tasks.map(cloneTask),
     priorResultReuseLines: record.priorResultReuseLines.map((line) => ({ ...line })),
+    confirmedTaskTypes: [...(record.confirmedTaskTypes || [])],
   }
 }
 
@@ -255,6 +255,9 @@ export function createEngineeringMasterOrder(input: CreateEngineeringMasterOrder
     merchandiserName: input.merchandiserName,
     tasks: [],
     priorResultReuseLines: [],
+    taskPlanConfirmedAt: '',
+    taskPlanConfirmedBy: '',
+    confirmedTaskTypes: [],
     createdAt: nowText(),
     createdBy: input.createdBy ?? '跟单',
     publishedAt: '',
@@ -268,33 +271,33 @@ export function createEngineeringMasterOrder(input: CreateEngineeringMasterOrder
   return cloneRecord(record)
 }
 
-// 发布主单：一次性生成完整任务骨架，后续不得另起一套同类型任务结构。
-export function publishEngineeringMasterOrder(masterOrderId: string): EngineeringMasterOrderRecord {
-  const snapshot = readSnapshot()
-  const record = snapshot.records.find((item) => item.masterOrderId === masterOrderId)
-  if (!record) throw new Error(`工程主单不存在：${masterOrderId}`)
-  if (record.status !== '草稿') throw new Error('仅草稿状态的工程主单可以发布。')
+const ENGINEERING_MASTER_TASK_TYPES: EngineeringTaskType[] = [
+  'BASE_PATTERN_WOVEN',
+  'BASE_PATTERN_KNIT',
+  'PRE_PRODUCTION_SAMPLE',
+  'SIZE_PATTERN_WOVEN',
+  'SIZE_PATTERN_KNIT',
+  'PATTERN_ARTWORK',
+  'COLOR_YARN',
+  'COLOR_FABRIC',
+  'ACCESSORY_PURCHASE',
+  'TECH_PACK_CONFIRMATION',
+]
 
-  const tasks: EngineeringTaskRecord[] = []
-  for (const taskType of [
-    'BASE_PATTERN_WOVEN',
-    'BASE_PATTERN_KNIT',
-    'PRE_PRODUCTION_SAMPLE',
-    'SIZE_PATTERN_WOVEN',
-    'SIZE_PATTERN_KNIT',
-    'PATTERN_ARTWORK',
-    'COLOR_YARN',
-    'COLOR_FABRIC',
-    'ACCESSORY_PURCHASE',
-    'TECH_PACK_CONFIRMATION',
-  ] as const) {
+function createConfirmedTaskSkeletons(
+  masterOrderId: string,
+  selectedTaskTypes: EngineeringTaskType[],
+): EngineeringTaskRecord[] {
+  const selected = new Set(selectedTaskTypes)
+  return ENGINEERING_MASTER_TASK_TYPES.map((taskType) => {
     const definition = getEngineeringTaskDefinition(taskType)
-    tasks.push({
+    const selectedStatus = definition.dependsOn.length > 0 ? '待前置' : '待开始'
+    return {
       taskId: `${masterOrderId}-${taskType}`,
       masterOrderId,
       taskType,
       taskName: definition.taskName,
-      status: resolveInitialTaskStatus(taskType),
+      status: selected.has(taskType) ? selectedStatus : '未启用',
       dependsOnTaskIds: definition.dependsOn.map((dependency) => `${masterOrderId}-${dependency}`),
       ownerTeamName: definition.ownerTeamName,
       materialLines: [],
@@ -312,14 +315,56 @@ export function publishEngineeringMasterOrder(masterOrderId: string): Engineerin
       colorRequirementConfirmedBy: '',
       colorRequirementConfirmedAt: '',
       colorResultCompletedAt: '',
-    })
-  }
+    }
+  })
+}
 
-  record.tasks = tasks
+export interface ConfirmEngineeringMasterTaskPlanInput {
+  confirmedBy: string
+  selectedConditionalTaskTypes: EngineeringTaskType[]
+}
+
+// 跟单确认系统建议后，一次性生成完整任务骨架；固定依赖不可调整。
+export function confirmEngineeringMasterTaskPlan(
+  masterOrderId: string,
+  input: ConfirmEngineeringMasterTaskPlanInput,
+): EngineeringMasterOrderRecord {
+  const snapshot = readSnapshot()
+  const record = snapshot.records.find((item) => item.masterOrderId === masterOrderId)
+  if (!record) throw new Error(`工程主单不存在：${masterOrderId}`)
+  if (record.status !== '草稿' || record.tasks.length > 0) {
+    throw new Error('仅未生成任务的草稿工程主单可以确认任务方案。')
+  }
+  const confirmedBy = input.confirmedBy.trim()
+  if (!confirmedBy || confirmedBy !== record.merchandiserName) {
+    throw new Error('只有工程主单跟单本人可以确认任务方案。')
+  }
+  const conditional = new Set(
+    input.selectedConditionalTaskTypes.filter((taskType) =>
+      getEngineeringTaskDefinition(taskType).conditionType !== 'ALWAYS'),
+  )
+  const required = ENGINEERING_MASTER_TASK_TYPES.filter((taskType) =>
+    getEngineeringTaskDefinition(taskType).conditionType === 'ALWAYS')
+  const confirmedTaskTypes = [...required, ...conditional]
+
+  record.tasks = createConfirmedTaskSkeletons(masterOrderId, confirmedTaskTypes)
+  record.confirmedTaskTypes = confirmedTaskTypes
+  record.taskPlanConfirmedBy = confirmedBy
+  record.taskPlanConfirmedAt = nowText()
   record.status = '已发布'
-  record.publishedAt = nowText()
+  record.publishedAt = record.taskPlanConfirmedAt
   writeSnapshot(snapshot)
   return cloneRecord(record)
+}
+
+// 兼容既有领域调用与演示种子；真实页面必须走“跟单确认任务方案”入口。
+export function publishEngineeringMasterOrder(masterOrderId: string): EngineeringMasterOrderRecord {
+  const record = getEngineeringMasterOrderById(masterOrderId)
+  if (!record) throw new Error(`工程主单不存在：${masterOrderId}`)
+  return confirmEngineeringMasterTaskPlan(masterOrderId, {
+    confirmedBy: record.merchandiserName,
+    selectedConditionalTaskTypes: [],
+  })
 }
 
 export function listEngineeringMasterOrders(): EngineeringMasterOrderRecord[] {

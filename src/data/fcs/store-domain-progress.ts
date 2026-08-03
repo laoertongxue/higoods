@@ -28,6 +28,7 @@ import {
   type MaterialRequestRecord,
 } from './material-request-drafts.ts'
 import {
+  buildWarehouseExecutionDocumentSnapshot,
   listWarehouseExecutionDocsByOrder,
   listWarehouseExecutionDocsByRuntimeTaskId,
   listWarehouseExecutionDocsByMaterialRequestNo,
@@ -1170,12 +1171,14 @@ function evaluateRuntimeStartReadiness(task: RuntimeProcessTask): ProgressFact['
 export function listProgressFacts(): ProgressFact[] {
   const pickupHeads = getPdaPickupHeads()
   const handoutHeads = getPdaHandoutHeads()
+  const runtimeTasks = listRuntimeExecutionTasks()
+  const warehouseExecutionSnapshot = buildWarehouseExecutionDocumentSnapshot(runtimeTasks)
   const sewingDeliverySlaByTaskId = new Map(
     listSewingDeliverySlaViews().map((view) => [view.runtimeTaskId, view] as const),
   )
 
-  return listRuntimeExecutionTasks().map((task) => {
-    const executionDocs = listWarehouseExecutionDocsByRuntimeTaskId(task.taskId)
+  return runtimeTasks.map((task) => {
+    const executionDocs = listWarehouseExecutionDocsByRuntimeTaskId(task.taskId, warehouseExecutionSnapshot)
     const requests = getRequestsByRuntimeTask(task)
     const sewingDeliverySla = sewingDeliverySlaByTaskId.get(task.taskId)
     return {

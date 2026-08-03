@@ -1,6 +1,8 @@
 // @page-pattern: list
 
-import { renderSecondaryButton } from '../components/ui/button.ts'
+import { renderPrimaryButton, renderSecondaryButton } from '../components/ui/button.ts'
+import { renderFormDialog } from '../components/ui/dialog.ts'
+import { renderLabeledInput } from '../components/ui/form.ts'
 import { renderStandardListPage, renderStandardListStats } from '../components/ui/list-page.ts'
 import {
   clearListColumnPreferences,
@@ -21,11 +23,18 @@ import {
 } from '../components/ui/list-table.ts'
 import { renderTablePagination } from '../components/ui/pagination.ts'
 import type { EngineeringMasterStatus } from '../data/pcs-engineering-master-types.ts'
+import { hasFormalProductionFact } from '../data/pcs-engineering-first-production-policy.ts'
+import {
+  createEngineeringMasterOrder,
+  listEngineeringMasterOrders,
+} from '../data/pcs-engineering-master-repository.ts'
 import {
   buildEngineeringMasterListRows,
   ensureEngineeringMasterDemoData,
   type EngineeringMasterListRow,
 } from '../data/pcs-engineering-master-view-model.ts'
+import { listStyleArchives } from '../data/pcs-style-archive-repository.ts'
+import type { StyleArchiveShellRecord } from '../data/pcs-style-archive-types.ts'
 import { escapeHtml } from '../utils.ts'
 
 const MASTER_LIST_STORAGE_KEY = 'higood-pcs-engineering-master-list-preferences-v1'
@@ -62,6 +71,13 @@ interface MasterListUiState {
   search: string
   statusFilter: string
   currentPage: number
+  createDialogOpen: boolean
+  createStyleSearch: string
+  selectedStyleId: string
+  merchandiserName: string
+  createError: string
+  imagePreviewUrl: string
+  imagePreviewTitle: string
 }
 
 const masterListUiState: MasterListUiState = {
@@ -78,6 +94,13 @@ const masterListUiState: MasterListUiState = {
   search: '',
   statusFilter: '',
   currentPage: 1,
+  createDialogOpen: false,
+  createStyleSearch: '',
+  selectedStyleId: '',
+  merchandiserName: '跟单-林晓',
+  createError: '',
+  imagePreviewUrl: '',
+  imagePreviewTitle: '',
 }
 
 const MASTER_LIST_COLUMN_RULES = [
@@ -116,8 +139,25 @@ const MASTER_LIST_COLUMNS: StandardListColumn<EngineeringMasterListRow>[] = [
     required: true,
     freezeable: true,
     render: (row) => `
-      <p class="font-medium">${escapeHtml(row.styleName)}</p>
-      <p class="mt-0.5 text-xs text-slate-500">${escapeHtml(row.styleCode)}</p>
+      <div class="flex items-center gap-2">
+        ${row.styleImageUrl ? `
+          <button
+            type="button"
+            class="group block h-12 w-9 shrink-0 overflow-hidden rounded border border-slate-200 bg-white"
+            data-skip-page-rerender="true"
+            data-${MASTER_EVENT_PREFIX}-action="open-style-image-preview"
+            data-image-url="${escapeHtml(row.styleImageUrl)}"
+            data-image-title="${escapeHtml(row.styleName)}"
+            aria-label="查看${escapeHtml(row.styleName)}大图"
+          >
+            <img src="${escapeHtml(row.styleImageUrl)}" alt="${escapeHtml(row.styleName)}" class="h-full w-full object-cover transition-transform group-hover:scale-105" />
+          </button>
+        ` : ''}
+        <div class="min-w-0">
+          <p class="truncate font-medium">${escapeHtml(row.styleName)}</p>
+          <p class="mt-0.5 text-xs text-slate-500">${escapeHtml(row.styleCode)}</p>
+        </div>
+      </div>
     `,
     sortValue: (row) => `${row.styleName} ${row.styleCode}`,
   },
@@ -356,6 +396,149 @@ function renderMasterListColumnSettings(): string {
   }))
 }
 
+interface CreateStyleCandidate {
+  style: StyleArchiveShellRecord
+  available: boolean
+  reason: string
+}
+
+function getCreateStyleCandidate(style: StyleArchiveShellRecord): CreateStyleCandidate {
+  const hasOpenMaster = listEngineeringMasterOrders().some((master) =>
+    master.styleId === style.styleId && master.status !== '已关闭' && master.status !== '已终止')
+  if (hasOpenMaster) return { style, available: false, reason: '已有未关闭工程主单' }
+  if (hasFormalProductionFact(style.styleCode)) return { style, available: false, reason: '已有正式生产记录' }
+  if (style.archiveStatus === 'ARCHIVED') return { style, available: false, reason: '款式档案已归档' }
+  if (!style.mainImageUrl && style.galleryImageUrls.length === 0) {
+    return { style, available: false, reason: '请先维护款式主图' }
+  }
+  return { style, available: true, reason: '可创建' }
+}
+
+function renderCreateStyleCandidate(candidate: CreateStyleCandidate): string {
+  const { style, available, reason } = candidate
+  const selected = masterListUiState.selectedStyleId === style.styleId
+  const imageUrl = style.mainImageUrl || style.galleryImageUrls[0] || ''
+  const searchText = [style.styleCode, style.styleName, style.brandName, style.categoryName]
+    .join(' ')
+    .toLowerCase()
+  const hidden = Boolean(masterListUiState.createStyleSearch.trim())
+    && !searchText.includes(masterListUiState.createStyleSearch.trim().toLowerCase())
+  return `
+    <button
+      type="button"
+      class="flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors ${selected ? 'border-blue-500 bg-blue-50' : 'border-slate-200'} ${available ? 'hover:border-blue-300 hover:bg-blue-50/50' : 'cursor-not-allowed bg-slate-50 opacity-70'}"
+      data-${MASTER_EVENT_PREFIX}-action="select-create-style"
+      data-style-id="${escapeHtml(style.styleId)}"
+      data-create-style-search-text="${escapeHtml(searchText)}"
+      ${hidden ? 'hidden' : ''}
+      ${available ? '' : 'disabled'}
+    >
+      ${imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(style.styleName)}" class="h-16 w-12 shrink-0 rounded border bg-white object-cover" />` : ''}
+      <span class="min-w-0 flex-1">
+        <span class="block truncate text-sm font-medium text-slate-900">${escapeHtml(style.styleName)}</span>
+        <span class="mt-1 block text-xs text-slate-500">${escapeHtml(style.styleCode)} · ${escapeHtml(style.brandName || '未设置品牌')}</span>
+      </span>
+      <span class="shrink-0 rounded-full px-2 py-1 text-xs ${available ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}">${escapeHtml(reason)}</span>
+    </button>
+  `
+}
+
+function renderCreateMasterDialog(): string {
+  if (!masterListUiState.createDialogOpen) return ''
+  const candidates = listStyleArchives().map(getCreateStyleCandidate)
+  const selected = candidates.find((candidate) =>
+    candidate.available && candidate.style.styleId === masterListUiState.selectedStyleId)
+  const content = `
+    <div class="space-y-4">
+      ${masterListUiState.createError ? `<div class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(masterListUiState.createError)}</div>` : ''}
+      ${renderLabeledInput('选择商品／款式档案', {
+        type: 'search',
+        value: masterListUiState.createStyleSearch,
+        placeholder: '搜索 SPU／款式名称',
+        prefix: MASTER_EVENT_PREFIX,
+        field: 'create-style-search',
+        icon: 'search',
+      }, true)}
+      <div class="max-h-72 space-y-2 overflow-y-auto pr-1" data-create-style-candidate-list>
+        ${candidates.map(renderCreateStyleCandidate).join('')}
+        <div class="hidden rounded-lg border border-dashed p-6 text-center text-sm text-slate-500" data-create-style-empty>没有匹配的款式档案</div>
+      </div>
+      ${renderLabeledInput('跟单负责人', {
+        value: masterListUiState.merchandiserName,
+        placeholder: '请输入跟单负责人',
+        prefix: MASTER_EVENT_PREFIX,
+        field: 'create-merchandiser',
+      }, true)}
+      ${selected ? `<div class="rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-700">将为 ${escapeHtml(selected.style.styleCode)} 创建草稿主单，发布时再生成固定专业任务。</div>` : ''}
+    </div>
+  `
+  return withMasterListLocalInteractions(renderFormDialog({
+    title: '新建工程主单',
+    description: '选择已有商品／款式档案，创建后进入草稿详情。',
+    closeAction: { prefix: MASTER_EVENT_PREFIX, action: 'close-create-dialog' },
+    submitAction: { prefix: MASTER_EVENT_PREFIX, action: 'create-master', label: '创建草稿' },
+    submitDisabled: !selected || !masterListUiState.merchandiserName.trim(),
+    width: 'lg',
+  }, content))
+}
+
+function renderStyleImagePreview(): string {
+  if (!masterListUiState.imagePreviewUrl) return ''
+  return `
+    <div class="fixed inset-0 z-[60] flex items-center justify-center px-4 py-6" role="dialog" aria-modal="true" aria-label="款式大图预览">
+      <button type="button" class="absolute inset-0 bg-slate-950/70" data-skip-page-rerender="true" data-${MASTER_EVENT_PREFIX}-action="close-style-image-preview" aria-label="关闭款式大图预览"></button>
+      <section class="relative z-10 flex max-h-full w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+        <header class="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-3">
+          <h2 class="truncate text-base font-semibold text-slate-900">${escapeHtml(masterListUiState.imagePreviewTitle || '款式图片')}</h2>
+          <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50" data-skip-page-rerender="true" data-${MASTER_EVENT_PREFIX}-action="close-style-image-preview" aria-label="关闭款式大图预览">×</button>
+        </header>
+        <div class="overflow-auto bg-slate-100 p-5">
+          <img src="${escapeHtml(masterListUiState.imagePreviewUrl)}" alt="${escapeHtml(masterListUiState.imagePreviewTitle || '款式图片')}" class="mx-auto max-h-[80vh] w-auto max-w-full rounded-lg border border-slate-200 bg-white object-contain shadow-sm" />
+        </div>
+      </section>
+    </div>
+  `
+}
+
+function refreshStyleImagePreview(): void {
+  if (typeof document === 'undefined') return
+  const previewHost = document.querySelector<HTMLElement>('[data-pcs-engineering-master-region="image-preview"]')
+  if (!previewHost) return
+  previewHost.innerHTML = renderStyleImagePreview()
+}
+
+function refreshCreateMasterDialog(): void {
+  if (typeof document === 'undefined') return
+  const host = document.querySelector<HTMLElement>('[data-pcs-engineering-master-region="create-dialog"]')
+  if (!host) return
+  host.innerHTML = renderCreateMasterDialog()
+  hydrateMasterListRegion(host)
+}
+
+function filterCreateStyleCandidates(keyword: string): void {
+  if (typeof document === 'undefined') return
+  const normalized = keyword.trim().toLowerCase()
+  const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-create-style-search-text]'))
+  let visibleCount = 0
+  cards.forEach((card) => {
+    const visible = !normalized || (card.dataset.createStyleSearchText || '').includes(normalized)
+    card.hidden = !visible
+    if (visible) visibleCount += 1
+  })
+  const empty = document.querySelector<HTMLElement>('[data-create-style-empty]')
+  if (empty) empty.classList.toggle('hidden', visibleCount > 0)
+}
+
+function updateCreateSubmitButtonState(): void {
+  if (typeof document === 'undefined') return
+  const submit = document.querySelector<HTMLButtonElement>(
+    `[data-${MASTER_EVENT_PREFIX}-action="create-master"]`,
+  )
+  if (submit) {
+    submit.disabled = !masterListUiState.selectedStyleId || !masterListUiState.merchandiserName.trim()
+  }
+}
+
 function refreshMasterListRegions(options: { settings?: boolean } = {}): void {
   if (typeof document === 'undefined') return
   const paging = getPagedMasterRows()
@@ -403,6 +586,11 @@ export function renderPcsEngineeringMasterListPage(): string {
   const paging = getPagedMasterRows()
   const page = renderStandardListPage({
     title: '工程主单',
+    primaryActionsHtml: withMasterListLocalInteractions(renderPrimaryButton(
+      '新建工程主单',
+      { prefix: MASTER_EVENT_PREFIX, action: 'open-create-dialog' },
+      'plus',
+    )),
     feedbackHtml: '',
     filtersHtml: `<div data-pcs-engineering-master-region="filters">${withMasterListLocalInteractions(renderMasterListFilters())}</div>`,
     statsHtml: `<div data-pcs-engineering-master-region="stats">${withMasterListLocalInteractions(renderMasterListStats())}</div>`,
@@ -416,7 +604,11 @@ export function renderPcsEngineeringMasterListPage(): string {
     ),
     tableHtml: `<div data-pcs-engineering-master-region="table">${renderMasterListTable(paging)}</div>`,
     paginationHtml: `<div data-table-pagination data-pcs-engineering-master-region="pagination">${renderMasterListPagination(paging)}</div>`,
-    overlaysHtml: `<div data-pcs-engineering-master-region="column-settings">${renderMasterListColumnSettings()}</div>`,
+    overlaysHtml: `
+      <div data-pcs-engineering-master-region="column-settings">${renderMasterListColumnSettings()}</div>
+      <div data-pcs-engineering-master-region="create-dialog">${renderCreateMasterDialog()}</div>
+      <div data-pcs-engineering-master-region="image-preview">${renderStyleImagePreview()}</div>
+    `,
     className: 'min-w-0 max-w-full',
   })
   return `<div class="min-w-0 max-w-full" data-pcs-engineering-master-list-page>${page}</div>`
@@ -463,6 +655,70 @@ export function handlePcsEngineeringMasterListEvent(target: HTMLElement, event?:
   if (!actionNode) return false
   const action = actionNode.dataset.pcsEngineeringMasterAction
   if (!action) return false
+
+  if (action === 'open-style-image-preview') {
+    masterListUiState.imagePreviewUrl = actionNode.dataset.imageUrl || ''
+    masterListUiState.imagePreviewTitle = actionNode.dataset.imageTitle || '款式图片'
+    refreshStyleImagePreview()
+    return true
+  }
+  if (action === 'close-style-image-preview') {
+    masterListUiState.imagePreviewUrl = ''
+    masterListUiState.imagePreviewTitle = ''
+    refreshStyleImagePreview()
+    return true
+  }
+
+  if (action === 'open-create-dialog') {
+    masterListUiState.createDialogOpen = true
+    masterListUiState.createStyleSearch = ''
+    masterListUiState.selectedStyleId = ''
+    masterListUiState.merchandiserName = '跟单-林晓'
+    masterListUiState.createError = ''
+    refreshCreateMasterDialog()
+    return true
+  }
+  if (action === 'close-create-dialog') {
+    masterListUiState.createDialogOpen = false
+    refreshCreateMasterDialog()
+    return true
+  }
+  if (action === 'select-create-style') {
+    masterListUiState.selectedStyleId = actionNode.dataset.styleId || ''
+    masterListUiState.createError = ''
+    refreshCreateMasterDialog()
+    return true
+  }
+  if (action === 'create-master') {
+    const style = listStyleArchives().find((item) => item.styleId === masterListUiState.selectedStyleId)
+    if (!style) {
+      masterListUiState.createError = '请选择可以创建工程主单的商品／款式档案。'
+      refreshCreateMasterDialog()
+      return true
+    }
+    if (!masterListUiState.merchandiserName.trim()) {
+      masterListUiState.createError = '请填写跟单负责人。'
+      refreshCreateMasterDialog()
+      return true
+    }
+    try {
+      const master = createEngineeringMasterOrder({
+        styleId: style.styleId,
+        styleCode: style.styleCode,
+        merchandiserName: masterListUiState.merchandiserName.trim(),
+        createdBy: masterListUiState.merchandiserName.trim(),
+      })
+      masterListUiState.createDialogOpen = false
+      if (typeof window !== 'undefined') {
+        window.history.pushState(window.history.state, '', `/pcs/engineering/masters/${master.masterOrderId}`)
+        window.dispatchEvent(new PopStateEvent('popstate'))
+      }
+    } catch (error) {
+      masterListUiState.createError = error instanceof Error ? error.message : '创建工程主单失败。'
+      refreshCreateMasterDialog()
+    }
+    return true
+  }
 
   if (action === 'sort-column') {
     const columnKey = actionNode.dataset.columnKey || ''
@@ -589,9 +845,21 @@ export function handlePcsEngineeringMasterListInput(target: Element): boolean {
     refreshMasterListRegions()
     return true
   }
+  if (field === 'create-style-search' && fieldNode instanceof HTMLInputElement) {
+    masterListUiState.createStyleSearch = fieldNode.value
+    filterCreateStyleCandidates(fieldNode.value)
+    return true
+  }
+  if (field === 'create-merchandiser' && fieldNode instanceof HTMLInputElement) {
+    masterListUiState.merchandiserName = fieldNode.value
+    updateCreateSubmitButtonState()
+    return true
+  }
   return false
 }
 
 export function isPcsEngineeringMasterListDialogOpen(): boolean {
   return masterListUiState.columnSettingsOpen
+    || masterListUiState.createDialogOpen
+    || Boolean(masterListUiState.imagePreviewUrl)
 }
