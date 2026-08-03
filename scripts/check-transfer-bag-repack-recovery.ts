@@ -49,6 +49,7 @@ import {
   buildWaitHandoverRuntimeProjection,
   listWaitHandoverLifecycleFacts,
 } from '../src/pages/process-factory/cutting/wait-handover-runtime.ts'
+import * as pdaRepack from '../src/pages/pda-cutting-transfer-bag-repack.ts'
 
 function createMemoryStorage(): BrowserStorageLike {
   const records = new Map<string, string>()
@@ -5172,6 +5173,85 @@ for (const [suffix, eventStatus, payload] of [
     /已经报废/,
     '已报废袋不得被特殊工艺回仓复活',
   )
+}
+
+{
+  const storage = createMemoryStorage()
+  const bagA = 'PDA-REPACK-SOURCE-A'
+  const bagB = 'PDA-REPACK-SOURCE-B'
+  const bagC = 'PDA-REPACK-RESULT-C'
+  const firstTicket = ticket('PDA-REPACK-01', 'PO-PDA-REPACK', 'FACTORY-PDA-REPACK', 12)
+  const secondTicket = ticket('PDA-REPACK-02', 'PO-PDA-REPACK', 'FACTORY-PDA-REPACK', 8)
+  appendBagging({ storage, bagCode: bagA, usageCycleId: 'usage:PDA-REPACK-A:1', tickets: [firstTicket] })
+  appendBagging({ storage, bagCode: bagB, usageCycleId: 'usage:PDA-REPACK-B:1', tickets: [secondTicket] })
+
+  let state = pdaRepack.createPdaTransferBagRepackState()
+  state = pdaRepack.scanRepackSourceBag(state, bagA, storage)
+  state = pdaRepack.scanRepackSourceBag(state, bagB, storage)
+  state = pdaRepack.assignRepackTicket(state, firstTicket.feiTicketId, bagA, storage)
+  state = pdaRepack.assignRepackTicket(state, secondTicket.feiTicketId, bagC, storage)
+  const summary = pdaRepack.buildPdaRepackConfirmation(state, storage)
+  assert.equal(summary.sourceBags.length, 2, 'PDA 重装必须支持多个来源袋')
+  assert.equal(summary.resultBags.length, 2, 'PDA 重装必须支持多个结果袋')
+  assert.equal(summary.totalSourceTicketCount, summary.totalResultTicketCount, 'PDA 重装前后菲票张数必须守恒')
+  assert.equal(summary.totalSourcePieceQty, summary.totalResultPieceQty, 'PDA 重装前后片数必须守恒')
+  assert.equal(summary.sourceBags.find((bag) => bag.bagCode === bagA)?.becomesIdle, false, '来源袋可继续作为结果袋')
+  assert.equal(summary.sourceBags.find((bag) => bag.bagCode === bagB)?.becomesIdle, true, '全部转出的来源袋必须变空闲')
+  assert.equal(summary.canSubmit, true, '多来源、多结果且守恒时必须允许 PDA 确认重装')
+  const submitted = pdaRepack.submitPdaTransferBagRepack(state, storage)
+  assert.equal(submitted.eventType, '中转袋拆袋重装', 'PDA 确认必须只写一条统一重装事实')
+  assert.equal(pdaRepack.submitPdaTransferBagRepack(state, storage).eventId, submitted.eventId, 'PDA 重复确认必须返回同一重装事实')
+  assert.equal(resolveTransferBagCurrentUse(bagA, storage).flowStage, 'READY_HANDOVER')
+  assert.equal(resolveTransferBagCurrentUse(bagB, storage).mainStatus, 'IDLE')
+  assert.equal(resolveTransferBagCurrentUse(bagC, storage).flowStage, 'READY_HANDOVER')
+}
+
+{
+  const storage = createMemoryStorage()
+  const sourceBagCode = 'PDA-REPACK-FORCE-SOURCE'
+  const targetBagCode = 'PDA-REPACK-FORCE-TARGET'
+  const sourceTicket = ticket('PDA-REPACK-FORCE-SOURCE-01', 'PO-PDA-REPACK-FORCE', 'FACTORY-PDA-REPACK')
+  const targetTicket = ticket('PDA-REPACK-FORCE-TARGET-01', 'PO-PDA-REPACK-OLD', 'FACTORY-PDA-REPACK')
+  appendBagging({ storage, bagCode: sourceBagCode, usageCycleId: 'usage:PDA-REPACK-FORCE-SOURCE:1', tickets: [sourceTicket] })
+  appendBagging({ storage, bagCode: targetBagCode, usageCycleId: 'usage:PDA-REPACK-FORCE-TARGET:1', tickets: [targetTicket] })
+  appendInbound({ storage, bagCode: targetBagCode, usageCycleId: 'usage:PDA-REPACK-FORCE-TARGET:1', tickets: [targetTicket] })
+  submitWholeBagHandover(
+    handoverInput(
+      targetBagCode,
+      'usage:PDA-REPACK-FORCE-TARGET:1',
+      targetTicket ? [targetTicket] : [],
+      [assignment(targetTicket, 'SEW-PDA-REPACK-OLD')],
+    ),
+    storage,
+  )
+  let state = pdaRepack.scanRepackSourceBag(
+    pdaRepack.createPdaTransferBagRepackState(),
+    sourceBagCode,
+    storage,
+  )
+  assert.throws(
+    () => pdaRepack.assignRepackTicket(state, sourceTicket.feiTicketId, targetBagCode, storage),
+    /尚未回收/,
+    '已交出待回收结果袋必须先确认强制回收',
+  )
+  state = pdaRepack.assignRepackTicket(
+    state,
+    sourceTicket.feiTicketId,
+    targetBagCode,
+    storage,
+    {
+      physicalBagReceived: true,
+      physicalBagEmpty: true,
+      recoveryNode: '裁床待交出仓',
+      recoveryLocation: '裁床空袋回收点',
+      reason: '后道退回空袋但线上未回收',
+      operator: { operatorName: 'PDA 仓务操作员' },
+      source: 'PDA',
+      occurredAt: '2026-08-01 10:10',
+    },
+  )
+  assert.equal(resolveTransferBagCurrentUse(targetBagCode, storage).mainStatus, 'IDLE', '结果袋强制回收后必须先进入空闲')
+  assert.equal(pdaRepack.buildPdaRepackConfirmation(state, storage).canSubmit, true, '强制回收结果袋后必须可用于重装')
 }
 
 console.log('PASS check-transfer-bag-repack-recovery')

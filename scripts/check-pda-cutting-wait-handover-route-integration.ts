@@ -69,7 +69,7 @@ function buildExpectedEntries(taskId: string) {
     {
       title: '拆袋重装',
       route: '/fcs/pda/cutting/transfer-bag/repack',
-      markers: ['拆袋重装', '1 扫中转袋', '确认重装'],
+      markers: ['拆袋重装', '1 扫来源中转袋', '加入来源袋'],
     },
     {
       title: '中转袋交出',

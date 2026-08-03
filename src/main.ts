@@ -7,6 +7,7 @@ import { resolvePdaCuttingScanKeydownTarget } from './main-handlers/pda-cutting-
 import { isPdaPageHandledLocally } from './main-handlers/pda-local-action-result'
 import { handlePdaCuttingInboundEvent } from './pages/pda-cutting-inbound'
 import { handlePdaCuttingHandoverEvent } from './pages/pda-cutting-handover'
+import { handlePdaCuttingTransferBagRepackEvent } from './pages/pda-cutting-transfer-bag-repack'
 
 type FcsHandlersModule = typeof import('./main-handlers/fcs-handlers')
 type PcsHandlersModule = typeof import('./main-handlers/pcs-handlers')
@@ -2002,7 +2003,8 @@ document.addEventListener('keydown', async (event) => {
   if (cuttingScanTarget) {
     const scanResult =
       handlePdaCuttingInboundEvent(cuttingScanTarget, event) ||
-      handlePdaCuttingHandoverEvent(cuttingScanTarget, event)
+      handlePdaCuttingHandoverEvent(cuttingScanTarget, event) ||
+      handlePdaCuttingTransferBagRepackEvent(cuttingScanTarget, event)
     if (scanResult) event.preventDefault()
     return
   }
