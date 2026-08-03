@@ -45,8 +45,8 @@ export interface AssertInstructionContextCurrentOptions {
   requireStageTrace?: boolean
 }
 
-const CODEGRAPH_RULE = 'AGENTS.md::## 12. CodeGraph 使用规则'
-const RECEIPT_RULE = 'AGENTS.md::### 12.1 任务完成与交付收据'
+const CODEGRAPH_RULE = 'AGENTS.md::## 8. CodeGraph 与交付'
+const RECEIPT_RULE = 'AGENTS.md::### 8.1 任务收据与交付状态'
 const STAGE_TRACE_RULE = 'AGENTS.md::### 12.2 Superpowers 最小阶段轨迹'
 
 const CORE_RULE_BINDINGS: readonly InstructionRuleBinding[] = [
