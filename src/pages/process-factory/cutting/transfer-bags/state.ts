@@ -4,6 +4,10 @@ import {
   CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY,
 } from '../../../../data/fcs/cutting/storage/fei-tickets-storage.ts'
 import {
+  CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY,
+  deserializeCuttingRuntimeEventLedgerStorage,
+} from '../../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
+import {
   buildCuttingTraceabilityId,
   encodeCarrierQr,
   parseCuttingTraceQr,
@@ -24,7 +28,6 @@ import {
   type CuttingNavigationTarget,
 } from '../navigation-context.ts'
 import {
-  buildRuntimeTransferBagLifecycleProjection,
   buildTransferBagsProjection,
 } from '../transfer-bags-projection.ts'
 import {
@@ -208,8 +211,8 @@ let projectionCache: { version: number; projection: TransferBagsProjection } | n
 let carrierManagementProjectionCache:
   | {
       version: number
+      runtimeLedgerSignature: string
       projection: TransferBagCarrierManagementProjection
-      masterRecordMap: Record<string, TransferBagCarrierMasterRecord>
     }
   | null = null
 
@@ -291,20 +294,23 @@ export function getViewModel() {
 }
 
 export function getCarrierManagementProjection() {
+  const runtimeLedgerSignature = localStorage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) || ''
+  if (
+    carrierManagementProjectionCache?.version === projectionVersion
+    && carrierManagementProjectionCache.runtimeLedgerSignature === runtimeLedgerSignature
+  ) return carrierManagementProjectionCache.projection
+
   const viewModel = getViewModel()
-  const runtimeLifecycleByBagCode =
-    buildRuntimeTransferBagLifecycleProjection(
-      viewModel.masters.map((master) => master.bagCode),
-    )
+  const runtimeEvents = deserializeCuttingRuntimeEventLedgerStorage(runtimeLedgerSignature).events
   const projection = buildTransferBagCarrierManagementProjection(
     state.store,
     viewModel,
-    runtimeLifecycleByBagCode,
+    runtimeEvents,
   )
   carrierManagementProjectionCache = {
     version: projectionVersion,
+    runtimeLedgerSignature,
     projection,
-    masterRecordMap: Object.fromEntries(projection.masterRecords.map((item) => [item.bagCode, item])),
   }
   return projection
 }

@@ -2329,10 +2329,13 @@ assert(
   transferBagProjectionSource.includes(
     'buildRuntimeTransferBagLifecycleProjection',
   )
-    && transferBagStateSource.includes(
-      'buildRuntimeTransferBagLifecycleProjection',
+    && transferBagModelSource.includes(
+      'resolveTransferBagCurrentUsesFromEvents',
+    )
+    && !transferBagStateSource.includes(
+      'buildRuntimeTransferBagLifecycleProjection(',
     ),
-  '主列表必须实时读取统一生命周期事实投影，不能只读旧 TransferBagStore',
+  '主列表必须从同一批运行事件生成当前事实，不得为每个中转袋重复读取和排序事件账',
 )
 assert(
   transferBagModelSource.includes(
@@ -2381,9 +2384,16 @@ assert.equal(
   '旧 Store 刷新只能维护历史派生数据，不得反写中转袋主档 current/latest 运行字段',
 )
 assert(
-  transferBagModelSource.includes('resolveTransferBagAuthoritativeCurrentLocation({')
+  transferBagModelSource.includes('resolveTransferBagAuthoritativeCurrentLocationFromChronologicalEvents({')
     && !transferBagModelSource.includes("currentLocation: master.currentLocation || '待命位'"),
   '主列表当前位置必须读取当前使用周期的权威运行位置，冲突时不得回退旧主档位置',
+)
+assert(
+  transferBagPageSource.includes('carrierRecord?.currentFeiTicketCount ?? item.packedTicketCount ?? 0')
+    && transferBagPageSource.includes('carrierRecord?.currentPieceQty ?? item.currentTotalPieceCount ?? 0')
+    && transferBagPageSource.includes('carrierRecordsByBagCode[item.bagCode]?.currentFeiTicketCount ?? item.packedTicketCount ?? 0')
+    && !transferBagPageSource.includes('carrierRecord?.currentFeiTicketCount || item.packedTicketCount'),
+  '权威当前装载为 0 时，列表和汇总都必须显示 0，不得回退旧 Store 的历史装载数量',
 )
 assert.equal(
   typeof transferBagModel.resolveTransferBagRuntimeCurrentFacts,
@@ -2399,6 +2409,8 @@ const resolveRuntimeCurrentFacts = transferBagModel.resolveTransferBagRuntimeCur
     mainStatus: 'IDLE' | 'IN_USE' | 'DISABLED'
     flowStage: 'PACKED' | 'INBOUND_STORED' | 'READY_HANDOVER' | 'HANDED_OVER_WAITING_RETURN' | null
     latestHandoverEventId: string | null
+    idleTransitionEventId?: string
+    idleTransitionType?: 'RECOVERY' | 'REPACK'
   },
   events: unknown[],
 ) => {
@@ -2415,6 +2427,8 @@ const recoveredCurrentFacts = resolveRuntimeCurrentFacts({
   mainStatus: 'IDLE',
   flowStage: null,
   latestHandoverEventId: null,
+  idleTransitionEventId: recoveryEvent.eventId,
+  idleTransitionType: 'RECOVERY',
 }, [recoveryEvent])
 assert.deepEqual(
   recoveredCurrentFacts,
@@ -2464,6 +2478,8 @@ assert.deepEqual(
     mainStatus: 'IDLE',
     flowStage: null,
     latestHandoverEventId: null,
+    idleTransitionEventId: recoveryEvent.eventId,
+    idleTransitionType: 'RECOVERY',
   }, [recoveryEvent, failedNewerRecoveryEvent, incompleteNewestRecoveryEvent]),
   recoveredCurrentFacts,
   '较新的同步失败或缺字段回收事件不得遮蔽较早的完整已同步回收位置事实',
@@ -2477,9 +2493,72 @@ assert.deepEqual(
     mainStatus: 'IDLE',
     flowStage: null,
     latestHandoverEventId: null,
+    idleTransitionEventId: incompleteNewestRecoveryEvent.eventId,
+    idleTransitionType: 'RECOVERY',
   }, [failedNewerRecoveryEvent, incompleteNewestRecoveryEvent]),
   { holderType: '—', holderName: '—', warehouseArea: '—', location: '—' },
   '全部回收事件都未通过权威完整性解析时，当前节点和位置必须显示横线',
+)
+assert.deepEqual(
+  resolveRuntimeCurrentFacts({
+    bagCode: 'BAG-RESULT-001',
+    usageCycleId: null,
+    productionOrderNo: '',
+    tickets: [],
+    mainStatus: 'IDLE',
+    flowStage: null,
+    latestHandoverEventId: null,
+    idleTransitionEventId: repackEvent.eventId,
+    idleTransitionType: 'REPACK',
+  }, [recoveryEvent, repackEvent]),
+  { holderType: '—', holderName: '—', warehouseArea: '—', location: '—' },
+  '拆袋重装清空来源袋后，不能串用该袋上一使用周期的回收节点和位置',
+)
+assert.equal(
+  typeof transferBagOperations.resolveTransferBagCurrentUsesFromEvents,
+  'function',
+  '主列表必须提供一次排序、多袋复用的当前使用事实解析入口',
+)
+const resolveCurrentUsesFromEvents = transferBagOperations.resolveTransferBagCurrentUsesFromEvents as unknown as (
+  bagCodes: string[],
+  events: unknown[],
+) => Map<string, {
+  mainStatus: 'IDLE' | 'IN_USE' | 'DISABLED'
+  idleTransitionEventId?: string
+  idleTransitionType?: 'RECOVERY' | 'REPACK'
+}>
+const repackSourceCurrent = resolveCurrentUsesFromEvents(['BAG-SOURCE-002'], [repackEvent]).get('BAG-SOURCE-002')
+assert.equal(repackSourceCurrent?.mainStatus, 'IDLE')
+assert.equal(repackSourceCurrent?.idleTransitionEventId, repackEvent.eventId)
+assert.equal(repackSourceCurrent?.idleTransitionType, 'REPACK')
+const performanceEvents = Array.from({ length: 5000 }, (_, index) => ({
+  ...repackEvent,
+  eventId: `cutting-event:PERF:${index}`,
+  eventNo: `PERF-${index}`,
+  idempotencyKey: `PERF-${index}`,
+  occurredAt: `2026-07-${String((index % 28) + 1).padStart(2, '0')} 08:00`,
+  createdAt: `2026-07-${String((index % 28) + 1).padStart(2, '0')} 08:00`,
+  refs: {
+    repackBatchId: `PERF-${index}`,
+    transferBagCodes: [`BAG-PERF-UNRELATED-${index}`],
+  },
+  payload: {
+    ...repackEvent.payload,
+    repackBatchId: `PERF-${index}`,
+    sourceBags: [],
+    resultBags: [],
+    movedTickets: [],
+  },
+}))
+const performanceStartedAt = performance.now()
+resolveCurrentUsesFromEvents(
+  Array.from({ length: 19 }, (_, index) => `BAG-PERF-TARGET-${index}`),
+  performanceEvents,
+)
+const performanceElapsedMs = performance.now() - performanceStartedAt
+assert(
+  performanceElapsedMs < 200,
+  `19 个中转袋读取 5000 条无关运行事件必须小于 200ms，当前 ${performanceElapsedMs.toFixed(1)}ms`,
 )
 const handedCurrentFacts = resolveRuntimeCurrentFacts({
   bagCode: 'BAG-CURRENT-TRANSFER-001',

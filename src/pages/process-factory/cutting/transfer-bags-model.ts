@@ -45,17 +45,17 @@ import {
   type SpreadingTraceAnchor,
 } from './marker-spreading-model.ts'
 import type { CutOrderRow } from './cut-orders-model.ts'
-import type {
-  TransferBagLifecycleView,
-} from '../../../data/fcs/cutting/transfer-bag-lifecycle.ts'
 import {
   listCuttingRuntimeEvents,
   type CuttingRuntimeEvent,
 } from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import {
+  compareCuttingRuntimeChronologyAscending,
+} from '../../../data/fcs/cutting/cutting-runtime-chronology.ts'
+import {
   parseCompleteRecoveryEvent,
-  resolveTransferBagCurrentUse,
-  resolveTransferBagAuthoritativeCurrentLocation,
+  resolveTransferBagAuthoritativeCurrentLocationFromChronologicalEvents,
+  resolveTransferBagCurrentUsesFromEvents,
   type TransferBagCurrentUse,
 } from '../../../data/fcs/cutting/transfer-bag-operations.ts'
 
@@ -71,6 +71,11 @@ export interface TransferBagRuntimeCurrentFacts {
   holderName: string
   warehouseArea: string
   location: string
+}
+
+interface TransferBagRuntimeFactContext {
+  chronologicalEvents: CuttingRuntimeEvent[]
+  eventById: Map<string, CuttingRuntimeEvent>
 }
 
 function runtimeEventPayload(event: CuttingRuntimeEvent): Record<string, unknown> {
@@ -100,33 +105,58 @@ function runtimeEventTouchesCurrentCycle(event: CuttingRuntimeEvent, current: Tr
     && (!current.usageCycleId || usageCycleId === current.usageCycleId)
 }
 
-export function resolveTransferBagRuntimeCurrentFacts(
-  current: TransferBagCurrentUse,
-  events: CuttingRuntimeEvent[] = listCuttingRuntimeEvents(),
-): TransferBagRuntimeCurrentFacts {
-  const relevantEvents = [...events]
+function buildTransferBagRuntimeFactContext(
+  events: readonly CuttingRuntimeEvent[],
+): TransferBagRuntimeFactContext {
+  const chronologicalEvents = [...events]
     .filter((event) => event.eventStatus !== '已取消')
-    .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt) || right.eventId.localeCompare(left.eventId))
+    .sort(compareCuttingRuntimeChronologyAscending)
+  return {
+    chronologicalEvents,
+    eventById: new Map(chronologicalEvents.map((event) => [event.eventId, event])),
+  }
+}
+
+function emptyTransferBagRuntimeCurrentFacts(): TransferBagRuntimeCurrentFacts {
+  return { holderType: '—', holderName: '—', warehouseArea: '—', location: '—' }
+}
+
+function resolveTransferBagRuntimeCurrentFactsFromContext(
+  current: TransferBagCurrentUse,
+  context: TransferBagRuntimeFactContext,
+): TransferBagRuntimeCurrentFacts {
   if (current.mainStatus === 'IDLE') {
-    const recovery = relevantEvents
-      .map(parseCompleteRecoveryEvent)
-      .filter((fact): fact is NonNullable<ReturnType<typeof parseCompleteRecoveryEvent>> => Boolean(fact))
-      .find((fact) => fact.payload.bagCode === current.bagCode)
+    if (current.idleTransitionType !== 'RECOVERY' || !current.idleTransitionEventId) {
+      return emptyTransferBagRuntimeCurrentFacts()
+    }
+    const recoveryEvent = context.eventById.get(current.idleTransitionEventId)
+    const recovery = recoveryEvent ? parseCompleteRecoveryEvent(recoveryEvent) : null
+    if (!recovery || recovery.payload.bagCode !== current.bagCode) {
+      return emptyTransferBagRuntimeCurrentFacts()
+    }
     return {
-      holderType: recovery ? '回收节点' : '—',
-      holderName: recovery?.payload.recoveryNode || '—',
+      holderType: '回收节点',
+      holderName: recovery.payload.recoveryNode,
       warehouseArea: '—',
-      location: recovery?.payload.recoveryLocation || '—',
+      location: recovery.payload.recoveryLocation,
     }
   }
   if (current.mainStatus !== 'IN_USE' || !current.usageCycleId) {
-    return { holderType: '—', holderName: '—', warehouseArea: '—', location: '—' }
+    return emptyTransferBagRuntimeCurrentFacts()
   }
   if (current.flowStage === 'HANDED_OVER_WAITING_RETURN') {
-    const handover = relevantEvents.find((event) =>
-      (event.eventType === '新增交出记录' || event.eventType === '特殊工艺交出')
-      && runtimeEventTouchesCurrentCycle(event, current)
-      && (!current.latestHandoverEventId || event.eventId === current.latestHandoverEventId))
+    let handover: CuttingRuntimeEvent | undefined
+    for (let index = context.chronologicalEvents.length - 1; index >= 0; index -= 1) {
+      const event = context.chronologicalEvents[index]
+      if (
+        (event.eventType === '新增交出记录' || event.eventType === '特殊工艺交出')
+        && runtimeEventTouchesCurrentCycle(event, current)
+        && (!current.latestHandoverEventId || event.eventId === current.latestHandoverEventId)
+      ) {
+        handover = event
+        break
+      }
+    }
     const payload = handover ? runtimeEventPayload(handover) : {}
     const specialCraftHolderType = [
       runtimeFactText(payload.craftCategory),
@@ -143,13 +173,13 @@ export function resolveTransferBagRuntimeCurrentFacts(
       location: '—',
     }
   }
-  const authoritativeLocation = resolveTransferBagAuthoritativeCurrentLocation({
+  const authoritativeLocation = resolveTransferBagAuthoritativeCurrentLocationFromChronologicalEvents({
     bagCode: current.bagCode,
     usageCycleId: current.usageCycleId,
-    events,
+    chronologicalEvents: context.chronologicalEvents,
   })
   if (!authoritativeLocation) {
-    return { holderType: '—', holderName: '—', warehouseArea: '—', location: '—' }
+    return emptyTransferBagRuntimeCurrentFacts()
   }
   return {
     holderType: '库区',
@@ -157,6 +187,16 @@ export function resolveTransferBagRuntimeCurrentFacts(
     warehouseArea: authoritativeLocation.warehouseArea,
     location: authoritativeLocation.locationCode,
   }
+}
+
+export function resolveTransferBagRuntimeCurrentFacts(
+  current: TransferBagCurrentUse,
+  events: readonly CuttingRuntimeEvent[] = listCuttingRuntimeEvents(),
+): TransferBagRuntimeCurrentFacts {
+  return resolveTransferBagRuntimeCurrentFactsFromContext(
+    current,
+    buildTransferBagRuntimeFactContext(events),
+  )
 }
 
 function normalizeTransferBagUsageStage(stage: string | undefined): TransferBagUsageStage {
@@ -3061,8 +3101,13 @@ function uniqueTransferBagScrapRecordsByBag(records: TransferBagScrapRecord[]): 
 export function buildTransferBagCarrierManagementProjection(
   store: TransferBagStore,
   viewModel: TransferBagViewModel,
-  _runtimeLifecycleByBagCode: Readonly<Record<string, TransferBagLifecycleView>> = {},
+  runtimeEvents: readonly CuttingRuntimeEvent[] = listCuttingRuntimeEvents(),
 ): TransferBagCarrierManagementProjection {
+  const runtimeFactContext = buildTransferBagRuntimeFactContext(runtimeEvents)
+  const currentUsesByBagCode = resolveTransferBagCurrentUsesFromEvents(
+    viewModel.masters.map((master) => master.bagCode),
+    runtimeEvents,
+  )
   const scrapRecords = buildTransferBagScrapRecordsFromStore(store, viewModel)
   const scrapCountByBag = scrapRecords.reduce<Record<string, number>>((result, record) => {
     result[record.bagCode] = (result[record.bagCode] || 0) + 1
@@ -3077,8 +3122,16 @@ export function buildTransferBagCarrierManagementProjection(
   const masterRecords: TransferBagMasterArchiveRecord[] = viewModel.masters.map((master) => {
     const relatedUsages = (usagesByBag[master.bagId] || []).slice().sort((left, right) => right.usageNo.localeCompare(left.usageNo, 'zh-CN'))
     const currentUsage = master.currentUsage
-    const current = resolveTransferBagCurrentUse(master.bagCode)
-    const currentFacts = resolveTransferBagRuntimeCurrentFacts(current)
+    const current = currentUsesByBagCode.get(master.bagCode) || {
+      bagCode: master.bagCode,
+      usageCycleId: null,
+      productionOrderNo: '',
+      tickets: [],
+      mainStatus: 'IDLE' as const,
+      flowStage: null,
+      latestHandoverEventId: '',
+    }
+    const currentFacts = resolveTransferBagRuntimeCurrentFactsFromContext(current, runtimeFactContext)
     const currentStatus: TransferBagCarrierCurrentStatus = current.mainStatus === 'DISABLED'
       ? '已报废'
       : current.mainStatus === 'IN_USE'

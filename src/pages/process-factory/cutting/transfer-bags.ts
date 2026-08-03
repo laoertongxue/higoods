@@ -659,7 +659,10 @@ function renderActiveListStats(): string {
   const idleCount = filteredItems.filter((item) => statusOf(item) === '空闲').length
   const inUseCount = filteredItems.filter((item) => statusOf(item) === '使用中').length
   const disabledCount = filteredItems.filter((item) => statusOf(item) === '已报废').length
-  const packedTicketCount = filteredItems.reduce((sum, item) => sum + (item.packedTicketCount || 0), 0)
+  const packedTicketCount = filteredItems.reduce(
+    (sum, item) => sum + (carrierRecordsByBagCode[item.bagCode]?.currentFeiTicketCount ?? item.packedTicketCount ?? 0),
+    0,
+  )
 
   return renderStandardListStats([
     { label: '中转袋', value: filteredItems.length },
@@ -1025,11 +1028,11 @@ const transferBagListColumns: StandardListColumn<TransferBagMasterListRow>[] = [
     width: 170,
     sortable: true,
     render: ({ item, carrierRecord }) => `
-      <div class="font-medium text-foreground">${escapeHtml(`${carrierRecord?.currentFeiTicketCount || item.packedTicketCount || 0} 张菲票`)}</div>
-      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(`${carrierRecord?.currentPieceQty || item.currentTotalPieceCount || 0} 片裁片`)}</div>
+      <div class="font-medium text-foreground">${escapeHtml(`${carrierRecord?.currentFeiTicketCount ?? item.packedTicketCount ?? 0} 张菲票`)}</div>
+      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(`${carrierRecord?.currentPieceQty ?? item.currentTotalPieceCount ?? 0} 片裁片`)}</div>
     `,
     sortValue: ({ item, carrierRecord }) =>
-      carrierRecord?.currentFeiTicketCount || item.packedTicketCount || 0,
+      carrierRecord?.currentFeiTicketCount ?? item.packedTicketCount ?? 0,
   },
   {
     key: 'recent',

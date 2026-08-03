@@ -37,6 +37,8 @@ export interface TransferBagCurrentUse {
   mainStatus: TransferBagMainStatusKey
   flowStage: TransferBagFlowStageKey | null
   latestHandoverEventId: string
+  idleTransitionEventId?: string
+  idleTransitionType?: 'RECOVERY' | 'REPACK'
   compatibilityBlockedReason?: string
 }
 
@@ -554,7 +556,11 @@ export function parseCompleteTransferBagRepackPayload(
 }
 
 function sortedRuntimeEvents(storage: BrowserStorageLike | null): CuttingRuntimeEvent[] {
-  return listCuttingRuntimeEvents(storage)
+  return sortRuntimeEventSnapshot(listCuttingRuntimeEvents(storage))
+}
+
+function sortRuntimeEventSnapshot(events: readonly CuttingRuntimeEvent[]): CuttingRuntimeEvent[] {
+  return [...events]
     .filter((event) => event.eventStatus !== '已取消')
     .sort(compareCuttingRuntimeChronologyAscending)
 }
@@ -992,7 +998,11 @@ function resolveTransferBagCurrentUseFromEvents(
           compatibilityBlockedReason: compatibilityReasonForTickets(tickets),
         }
       } else if (repackBag(event, 'sourceBags', bagCode)) {
-        state = emptyCurrentUse(bagCode)
+        state = {
+          ...emptyCurrentUse(bagCode),
+          idleTransitionEventId: event.eventId,
+          idleTransitionType: 'REPACK',
+        }
       }
       hasProcessedNewRepackFact = true
       continue
@@ -1113,7 +1123,13 @@ function resolveTransferBagCurrentUseFromEvents(
       if (
         state.flowStage === 'HANDED_OVER_WAITING_RETURN'
         && matchesCurrentCycle
-      ) state = emptyCurrentUse(bagCode)
+      ) {
+        state = {
+          ...emptyCurrentUse(bagCode),
+          idleTransitionEventId: event.eventId,
+          idleTransitionType: 'RECOVERY',
+        }
+      }
       continue
     }
 
@@ -1146,6 +1162,18 @@ export function resolveTransferBagCurrentUse(
     sortedRuntimeEvents(storage),
     true,
   )
+}
+
+export function resolveTransferBagCurrentUsesFromEvents(
+  bagCodes: readonly string[],
+  events: readonly CuttingRuntimeEvent[],
+): Map<string, TransferBagCurrentUse> {
+  const orderedEvents = sortRuntimeEventSnapshot(events)
+  const normalizedBagCodes = unique(bagCodes.map((bagCode) => bagCode.trim()))
+  return new Map(normalizedBagCodes.map((bagCode) => [
+    bagCode,
+    resolveTransferBagCurrentUseFromEvents(bagCode, orderedEvents, true),
+  ]))
 }
 
 function strictRuntimeEventPrefix(
@@ -1923,11 +1951,20 @@ export function resolveTransferBagAuthoritativeCurrentLocation(input: {
   usageCycleId: string
   events: CuttingRuntimeEvent[]
 }): TransferBagAuthoritativeLocationFact | null {
+  return resolveTransferBagAuthoritativeCurrentLocationFromChronologicalEvents({
+    bagCode: input.bagCode,
+    usageCycleId: input.usageCycleId,
+    chronologicalEvents: sortRuntimeEventSnapshot(input.events),
+  })
+}
+
+export function resolveTransferBagAuthoritativeCurrentLocationFromChronologicalEvents(input: {
+  bagCode: string
+  usageCycleId: string
+  chronologicalEvents: readonly CuttingRuntimeEvent[]
+}): TransferBagAuthoritativeLocationFact | null {
   let current: TransferBagAuthoritativeLocationFact | null = null
-  const events = [...input.events]
-    .filter((event) => event.eventStatus !== '已取消')
-    .sort(compareCuttingRuntimeChronologyAscending)
-  for (const event of events) {
+  for (const event of input.chronologicalEvents) {
     if (
       !eventTouchesTransferBag(event, input.bagCode)
       || eventUsageCycleId(event) !== input.usageCycleId
