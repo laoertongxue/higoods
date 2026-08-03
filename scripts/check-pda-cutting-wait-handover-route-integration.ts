@@ -74,17 +74,17 @@ function buildExpectedEntries(taskId: string) {
     {
       title: '中转袋交出',
       route: `/fcs/pda/cutting/handover/${taskId}?action=transfer-bag-handover`,
-      markers: ['中转袋交出', '2 扫车缝任务', '确认交出'],
+      markers: ['中转袋交出', '扫描或填写中转袋编号', '确认交出'],
     },
     {
       title: '中转袋回收',
       route: '/fcs/pda/cutting/transfer-bag/recovery',
-      markers: ['中转袋回收', '1 扫中转袋', '确认回收'],
+      markers: ['中转袋回收', '1 扫描或填写中转袋', '确认回收'],
     },
     {
       title: '中转袋报废',
       route: '/fcs/pda/cutting/transfer-bag/scrap',
-      markers: ['中转袋报废', '1 扫中转袋', '确认报废'],
+      markers: ['中转袋报废', '1 扫描或填写中转袋', '确认报废'],
     },
   ] as const
 }
