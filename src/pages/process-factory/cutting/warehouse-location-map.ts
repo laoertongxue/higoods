@@ -7,6 +7,13 @@ import {
 import { escapeHtml } from '../../../utils.ts'
 import { renderFormDialog } from '../../../components/ui/dialog.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
+import { hydrateRealQRCodes, renderRealQrPlaceholder } from '../../../components/real-qr.ts'
+import { renderCode128Barcode } from '../../../components/real-barcode.ts'
+import {
+  assertUniqueWarehouseLocationLabelCodes,
+  buildWarehouseLocationLabelCode,
+  buildWarehouseLocationQrValue,
+} from '../../../data/fcs/cutting/warehouse-location-label.ts'
 import {
   renderWarehouseLocationMap,
   handleWarehouseLocationMapViewportEvent,
@@ -17,6 +24,7 @@ import {
 } from '../../../components/ui/warehouse-location-map.ts'
 import {
   buildWarehouseLocationMapProjection,
+  listWarehouseLocationMapCells,
   listWarehouseLocationMapShelfCells,
   resolveStableWarehouseLocationRef,
   type WarehouseLocationMapProjection,
@@ -690,6 +698,7 @@ export function renderCuttingWarehouseLocationMapSection(
         <div class="flex gap-2">
           ${current.persistenceAvailable ? '' : '<span class="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">当前仅可查看，无法保存</span>'}
           ${current.warningMessage.includes('无法恢复') ? '<button type="button" class="min-h-11 rounded-md border border-amber-300 px-4 text-sm text-amber-800" data-skip-page-rerender="true" data-warehouse-map-action="reset-layout">恢复默认编排</button>' : ''}
+          ${mode === 'VIEW' ? '<button type="button" class="min-h-11 rounded-md border px-4 text-sm" data-skip-page-rerender="true" data-warehouse-map-action="open-print-all-labels">打印库位标签</button>' : ''}
           ${!current.persistenceAvailable ? '' : mode === 'LAYOUT'
             ? `<button type="button" class="min-h-11 rounded-md border px-4 text-sm" data-skip-page-rerender="true" data-warehouse-map-action="open-create-area">新增库区</button>
                <button type="button" class="min-h-11 rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-skip-page-rerender="true" data-warehouse-map-action="finish-maintenance">完成维护</button>`
@@ -704,6 +713,131 @@ export function renderCuttingWarehouseLocationMapSection(
       })}
     </section>
   `
+}
+
+const LOCATION_LABEL_PRINT_MODAL_ID = 'cutting-warehouse-location-label-print-modal'
+
+type LocationLabelPrintScope =
+  | { type: 'WAREHOUSE' }
+  | { type: 'AREA'; areaId: string }
+  | { type: 'SHELF'; shelfId: string }
+  | { type: 'LOCATION'; locationId: string }
+
+interface LocationLabelPrintRow {
+  warehouseName: string
+  areaName: string
+  shelfNo: string
+  locationNo: string
+  levelNo: number
+  positionNo: number
+  labelCode: string
+  qrValue: string
+}
+
+function removeLocationLabelPrintModal(): void {
+  if (typeof document === 'undefined') return
+  document.getElementById(LOCATION_LABEL_PRINT_MODAL_ID)?.remove()
+}
+
+function assertAllCuttingLocationLabelsUnique(): void {
+  const identities = (['WAIT_PROCESS', 'WAIT_HANDOVER'] as const).flatMap((kind) =>
+    listCuttingWarehouses(kind).flatMap((warehouse) => {
+      const snapshot = loadWarehouseLayoutSnapshot(warehouse).snapshot
+      return snapshot.areaList.flatMap((area) => area.shelfList.flatMap((shelf) =>
+        shelf.locationList.map((location) => ({ warehouseId: warehouse.warehouseId, locationId: location.locationId }))))
+    }))
+  assertUniqueWarehouseLocationLabelCodes(identities)
+}
+
+function buildLocationLabelPrintRows(
+  current: NonNullable<ReturnType<typeof buildCurrentCuttingWarehouseMapProjection>>,
+  scope: LocationLabelPrintScope,
+): LocationLabelPrintRow[] {
+  assertAllCuttingLocationLabelsUnique()
+  const allowedAreaIds = new Set(scope.type === 'AREA' ? [scope.areaId] : current.projection.areas.map((area) => area.areaId))
+  const allowedShelfIds = new Set(scope.type === 'SHELF' ? [scope.shelfId] : current.projection.areas.flatMap((area) => area.shelves.map((shelf) => shelf.shelfId)))
+  const allowedLocationIds = new Set(scope.type === 'LOCATION' ? [scope.locationId] : listWarehouseLocationMapCells(current.projection).map((cell) => cell.locationId))
+  return current.projection.areas.flatMap((area) => {
+    if (!allowedAreaIds.has(area.areaId)) return []
+    return area.shelves.flatMap((shelf) => {
+      if (!allowedShelfIds.has(shelf.shelfId)) return []
+      return listWarehouseLocationMapShelfCells(shelf)
+        .filter((cell) => allowedLocationIds.has(cell.locationId) && cell.areaStatus === 'AVAILABLE' && cell.shelfStatus === 'AVAILABLE' && cell.status === 'AVAILABLE')
+        .sort((left, right) => left.levelNo - right.levelNo || left.positionNo - right.positionNo)
+        .map((cell) => {
+          const labelCode = buildWarehouseLocationLabelCode(cell.warehouseId, cell.locationId)
+          return {
+            warehouseName: current.warehouse.warehouseShortName,
+            areaName: cell.areaName,
+            shelfNo: cell.shelfNo,
+            locationNo: cell.locationNo,
+            levelNo: cell.levelNo,
+            positionNo: cell.positionNo,
+            labelCode,
+            qrValue: buildWarehouseLocationQrValue(labelCode),
+          }
+        })
+    })
+  })
+}
+
+function locationLabelScopeTitle(scope: LocationLabelPrintScope, rows: LocationLabelPrintRow[]): string {
+  if (scope.type === 'LOCATION') return rows[0]?.locationNo || '单个库位'
+  if (scope.type === 'SHELF') return `${rows[0]?.areaName || ''} ${rows[0]?.shelfNo || ''}`.trim() || '当前货架'
+  if (scope.type === 'AREA') return rows[0]?.areaName || '当前库区'
+  return '当前仓库'
+}
+
+function renderLocationLabelPrintModal(
+  current: NonNullable<ReturnType<typeof buildCurrentCuttingWarehouseMapProjection>>,
+  scope: LocationLabelPrintScope,
+): string {
+  const rows = buildLocationLabelPrintRows(current, scope)
+  const title = locationLabelScopeTitle(scope, rows)
+  return `
+    <div id="${LOCATION_LABEL_PRINT_MODAL_ID}" class="fixed inset-0 z-[150] overflow-y-auto bg-black/50 p-4" data-location-label-print-modal>
+      <style>
+        @page { size: 70mm 50mm; margin: 0; }
+        @media print {
+          body * { visibility: hidden !important; }
+          #${LOCATION_LABEL_PRINT_MODAL_ID}, #${LOCATION_LABEL_PRINT_MODAL_ID} * { visibility: visible !important; }
+          #${LOCATION_LABEL_PRINT_MODAL_ID} { position: absolute !important; inset: 0 !important; overflow: visible !important; background: white !important; padding: 0 !important; }
+          #${LOCATION_LABEL_PRINT_MODAL_ID} [data-location-label-print-shell] { width: auto !important; max-width: none !important; border: 0 !important; box-shadow: none !important; }
+          #${LOCATION_LABEL_PRINT_MODAL_ID} [data-location-label-print-toolbar] { display: none !important; }
+          #${LOCATION_LABEL_PRINT_MODAL_ID} [data-location-label-print-grid] { display: block !important; padding: 0 !important; }
+          #${LOCATION_LABEL_PRINT_MODAL_ID} [data-location-label-card] { width: 70mm !important; height: 50mm !important; break-after: page; page-break-after: always; border: 0 !important; border-radius: 0 !important; margin: 0 !important; }
+          #${LOCATION_LABEL_PRINT_MODAL_ID} [data-location-label-card]:last-child { break-after: auto; page-break-after: auto; }
+        }
+      </style>
+      <section class="mx-auto max-w-6xl rounded-xl bg-white shadow-2xl" data-location-label-print-shell>
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b p-4" data-location-label-print-toolbar>
+          <div><h2 class="text-lg font-semibold">${escapeHtml(title)}库位标签</h2><p class="mt-1 text-sm text-muted-foreground">共 ${rows.length} 张；按货架、从下层到上层、每层从左到右打印。</p></div>
+          <div class="flex gap-2"><button type="button" class="min-h-11 rounded-md border px-4 text-sm" data-skip-page-rerender="true" data-warehouse-map-action="close-location-label-print">关闭</button><button type="button" class="min-h-11 rounded-md bg-blue-600 px-4 text-sm font-medium text-white disabled:opacity-50" data-skip-page-rerender="true" data-warehouse-map-action="print-location-labels" ${rows.length ? '' : 'disabled'}>打印 ${rows.length} 张标签</button></div>
+        </div>
+        <div class="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-3" data-location-label-print-grid>
+          ${rows.length ? rows.map((row) => `<article class="flex h-[50mm] w-[70mm] flex-col overflow-hidden rounded-lg border-2 border-slate-900 bg-white p-[3mm] text-slate-950" data-location-label-card data-label-code="${escapeHtml(row.labelCode)}">
+            <div class="flex items-start justify-between gap-2"><div><div class="text-[10px] font-semibold">${escapeHtml(row.warehouseName)}</div><div class="mt-0.5 font-mono text-[17px] font-black tracking-tight">${escapeHtml(row.locationNo)}</div><div class="text-[9px]">${escapeHtml(row.areaName)} · ${escapeHtml(row.shelfNo)} · 第 ${row.levelNo} 层 · 第 ${row.positionNo} 位</div></div>${renderRealQrPlaceholder({ value: row.qrValue, size: 76, title: `${row.locationNo} 库位二维码`, label: `${row.locationNo} 库位二维码`, className: 'shrink-0' })}</div>
+            <div class="mt-auto">${renderCode128Barcode(row.labelCode, `${row.locationNo} 库位条码`)}<div class="-mt-1 text-center font-mono text-[7px] tracking-tight">${escapeHtml(row.labelCode)}</div></div>
+          </article>`).join('') : '<div class="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">当前范围没有启用的库位，无法打印标签。</div>'}
+        </div>
+      </section>
+    </div>
+  `
+}
+
+function openLocationLabelPrintModal(kind: CuttingWarehouseMapKind, scope: LocationLabelPrintScope): void {
+  if (typeof document === 'undefined') return
+  const current = buildCurrentCuttingWarehouseMapProjection(kind)
+  if (!current) return
+  removeLocationLabelPrintModal()
+  const section = document.querySelector<HTMLElement>(`[data-cutting-warehouse-map-section][data-warehouse-kind="${kind}"]`)
+  try {
+    section?.insertAdjacentHTML('beforeend', renderLocationLabelPrintModal(current, scope))
+    const modal = document.getElementById(LOCATION_LABEL_PRINT_MODAL_ID)
+    if (modal) hydrateRealQRCodes(modal)
+  } catch (error) {
+    window.alert(error instanceof Error ? error.message : '库位标签无法生成，请联系主管。')
+  }
 }
 
 const CUTTING_WAREHOUSE_MODAL_ID = 'cutting-warehouse-location-map-modal'
@@ -1356,6 +1490,7 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
         const expectedVersion = Number(modal.dataset.layoutVersion)
         const occupiedIds = new Set(current.projection.areas.flatMap((area) => area.shelves.flatMap((shelf) => listWarehouseLocationMapShelfCells(shelf))).filter((cell) => cell.businessStatus === 'OCCUPIED').map((cell) => cell.locationId))
         let next = current.snapshot
+        let createdShelfId = ''
         const type = modal.dataset.maintenanceDialog
         if (type === 'create-area') {
           next = createWarehouseArea(next, {
@@ -1375,9 +1510,10 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
           const summary = parseShelfDraftSummary(draft)
           await assertMaintenanceResourceCapacity(current.snapshot, summary.totalCount, signal)
           const positionCounts = await collectShelfPositionCounts(draft, signal)
+          createdShelfId = `SHELF-${modal.dataset.areaId}-${Date.now()}`
           next = await createWarehouseShelfInBatches(next, {
             areaId: modal.dataset.areaId || '',
-            shelfId: `SHELF-${modal.dataset.areaId}-${Date.now()}`,
+            shelfId: createdShelfId,
             shelfSequence: sequence,
             positionCounts,
             remark: formValue(modal, 'remark'),
@@ -1402,6 +1538,7 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
         if (!isActive()) return
         removeCuttingWarehouseLocationMapModal(modal)
         refreshMapSection(kind)
+        if (createdShelfId) openLocationLabelPrintModal(kind, { type: 'SHELF', shelfId: createdShelfId })
       } catch (error) {
         if (signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return
         showError(maintenanceErrorMessage(error))
@@ -1418,6 +1555,30 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
   const viewportCurrent = buildCurrentCuttingWarehouseMapProjection(kind, { includeDemoOccupancies: getSearchParams().get('demo') === '1' })
   if (viewportCurrent && handleWarehouseLocationMapViewportEvent(node, viewportCurrent.projection)) return true
   const action = node.dataset.warehouseMapAction
+  if (action === 'open-print-all-labels') {
+    openLocationLabelPrintModal(kind, { type: 'WAREHOUSE' })
+    return true
+  }
+  if (action === 'open-print-area-labels') {
+    openLocationLabelPrintModal(kind, { type: 'AREA', areaId: node.dataset.areaId || '' })
+    return true
+  }
+  if (action === 'open-print-shelf-labels') {
+    openLocationLabelPrintModal(kind, { type: 'SHELF', shelfId: node.dataset.shelfId || '' })
+    return true
+  }
+  if (action === 'open-print-location-label') {
+    openLocationLabelPrintModal(kind, { type: 'LOCATION', locationId: node.dataset.locationId || '' })
+    return true
+  }
+  if (action === 'close-location-label-print') {
+    removeLocationLabelPrintModal()
+    return true
+  }
+  if (action === 'print-location-labels') {
+    window.print()
+    return true
+  }
   if (action === 'open-create-area') {
     openCuttingWarehouseLocationMapModal(kind, { type: 'create-area' })
     return true
