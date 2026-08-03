@@ -56,8 +56,8 @@ export async function dispatchPdaPageEvent(target: HTMLElement, event?: Event): 
       await handlePdaCuttingInboundEvent(target, event) ||
       await handlePdaCuttingHandoverEvent(target, event) ||
       await handlePdaCuttingTransferBagRepackEvent(target, event) ||
-      await handlePdaCuttingTransferBagRecoveryEvent(target) ||
-      await handlePdaCuttingTransferBagScrapEvent(target) ||
+      await handlePdaCuttingTransferBagRecoveryEvent(target, event) ||
+      await handlePdaCuttingTransferBagScrapEvent(target, event) ||
       await handlePdaSewingSelfReturnEvent(target) ||
       await handlePdaHandoverEvent(target) ||
       await handlePdaHandoverDetailEvent(target) ||

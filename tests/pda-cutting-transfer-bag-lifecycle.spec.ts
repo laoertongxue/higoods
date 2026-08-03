@@ -72,7 +72,7 @@ function buildRepackLedger(): string {
   return records.get(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) || '[]'
 }
 
-function buildHandoverLedger(): string {
+function buildHandoverLedger(bagCode = 'PDA-HANDOVER-BAG'): string {
   const records = new Map<string, string>()
   const storage: BrowserStorageLike = {
     getItem: (key) => records.get(key) ?? null,
@@ -104,33 +104,33 @@ function buildHandoverLedger(): string {
     eventType: '菲票装袋',
     eventSource: 'PDA',
     eventStatus: '已同步',
-    occurredAt: '2026-08-03 10:00',
+    occurredAt: '2026-08-03 00:00',
     operatorName: 'E2E 装袋员',
     refs: {
-      transferBagCode: 'PDA-HANDOVER-BAG',
-      usageCycleId: 'usage:PDA-HANDOVER-BAG:1',
+      transferBagCode: bagCode,
+      usageCycleId: `usage:${bagCode}:1`,
       productionOrderId: 'PO-ID-PDA-HANDOVER',
       productionOrderNo: 'PO-PDA-HANDOVER',
       feiTicketIds: tickets.map((item) => item.feiTicketId),
       feiTicketNos: tickets.map((item) => item.feiTicketNo),
     },
     payload: {
-      baggingRecordId: 'bagging:PDA-HANDOVER-BAG',
-      bagCode: 'PDA-HANDOVER-BAG',
+      baggingRecordId: `bagging:${bagCode}`,
+      bagCode,
       feiTicketItems: tickets,
       totalPieceQty: 20,
       mixedFlag: false,
       baggingBy: 'E2E 装袋员',
-      baggingAt: '2026-08-03 10:00',
+      baggingAt: '2026-08-03 00:00',
     },
   }, storage)
   appendWaitHandoverInboundEvent({
     source: 'PDA',
     operator: { operatorName: 'E2E 入仓员' },
-    bagCode: 'PDA-HANDOVER-BAG',
+    bagCode,
     warehouseArea: '裁床待交出仓',
     locationCode: 'CUT-A-01',
-    occurredAt: '2026-08-03 10:10',
+    occurredAt: '2026-08-03 00:10',
     storage,
   })
   return records.get(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) || '[]'
@@ -141,7 +141,7 @@ test.use({ viewport: { width: 390, height: 844 } })
 test('拆袋重装支持多来源、多结果和来源袋复用', async ({ page }) => {
   await page.addInitScript(({ session, ledger, key }) => {
     window.localStorage.setItem('fcs_pda_session', JSON.stringify(session))
-    window.localStorage.setItem(key, ledger)
+    if (!window.localStorage.getItem(key)) window.localStorage.setItem(key, ledger)
   }, {
     session: PDA_SESSION,
     ledger: buildRepackLedger(),
@@ -179,7 +179,7 @@ test('拆袋重装支持多来源、多结果和来源袋复用', async ({ page 
 test('中转袋交出只扫袋并支持同工厂多个车缝任务', async ({ page }) => {
   await page.addInitScript(({ session, ledger, key }) => {
     window.localStorage.setItem('fcs_pda_session', JSON.stringify(session))
-    window.localStorage.setItem(key, ledger)
+    if (!window.localStorage.getItem(key)) window.localStorage.setItem(key, ledger)
   }, {
     session: PDA_SESSION,
     ledger: buildHandoverLedger(),
@@ -200,4 +200,73 @@ test('中转袋交出只扫袋并支持同工厂多个车缝任务', async ({ pa
   await expect(page.locator('body')).toContainText('交出成功，等待实物袋回收')
   await expect(page.locator('body')).toContainText('当前阶段：已交出待回收')
   await expect(page.locator('body')).toContainText('PDA-HANDOVER-BAG')
+})
+
+async function handoverE2eBag(page: import('@playwright/test').Page, bagCode: string): Promise<void> {
+  await page.goto('/fcs/pda/cutting/handover/TASK-CUT-PDA-NO-PICKUP-0301?action=transfer-bag-handover')
+  const bagInput = page.getByPlaceholder('扫描或填写中转袋编号')
+  await bagInput.fill(bagCode)
+  await bagInput.press('Enter')
+  await page.getByRole('button', { name: '确认交出' }).click()
+  await expect(page.locator('body')).toContainText('交出成功，等待实物袋回收')
+}
+
+test('中转袋交出后可独立回收并在扫码详情显示空闲', async ({ page }) => {
+  const bagCode = 'PDA-RECOVERY-BAG'
+  await page.addInitScript(({ session, ledger, key }) => {
+    window.localStorage.setItem('fcs_pda_session', JSON.stringify(session))
+    if (!window.localStorage.getItem(key)) window.localStorage.setItem(key, ledger)
+  }, { session: PDA_SESSION, ledger: buildHandoverLedger(bagCode), key: CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY })
+  await handoverE2eBag(page, bagCode)
+
+  await page.goto('/fcs/pda/cutting/transfer-bag/recovery')
+  const recoveryBag = page.getByPlaceholder('扫描或填写中转袋编号')
+  await recoveryBag.fill(bagCode)
+  await recoveryBag.press('Enter')
+  await expect(page.locator('body')).toContainText('使用中 / 已交出待回收')
+  await expect(page.locator('body')).toContainText('最近交出')
+  await page.getByLabel('我已收到实物中转袋').check()
+  await page.getByLabel('我已确认实物袋内没有菲票或裁片').check()
+  await page.getByRole('button', { name: '确认回收' }).click()
+  await expect(page.locator('body')).toContainText('回收成功，中转袋已空闲')
+
+  await page.goto(`/fcs/pda/transfer-bag-detail?bagNo=${bagCode}`)
+  await expect(page.locator('body')).toContainText('主状态：空闲')
+  await expect(page.locator('body')).toContainText('中转袋回收')
+  await expect(page.locator('body')).not.toContainText('确认收货')
+})
+
+test('已交出袋报废依次记录回收和报废且永久阻断', async ({ page }) => {
+  const bagCode = 'PDA-SCRAP-BAG'
+  await page.addInitScript(({ session, ledger, key }) => {
+    window.localStorage.setItem('fcs_pda_session', JSON.stringify(session))
+    if (!window.localStorage.getItem(key)) window.localStorage.setItem(key, ledger)
+  }, { session: PDA_SESSION, ledger: buildHandoverLedger(bagCode), key: CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY })
+  await handoverE2eBag(page, bagCode)
+
+  await page.goto('/fcs/pda/cutting/transfer-bag/scrap')
+  const scrapBag = page.getByPlaceholder('扫描或填写中转袋编号')
+  await scrapBag.fill(bagCode)
+  await scrapBag.press('Enter')
+  await expect(page.locator('body')).toContainText('依次记录“回收为空闲”和“报废”')
+  await page.getByLabel('我已收到实物中转袋').check()
+  await page.getByLabel('我已确认实物袋内没有菲票或裁片').check()
+  await page.getByPlaceholder('例如：袋体破损，无法继续使用').fill('袋体破损，无法修复')
+  await page.getByPlaceholder('填写主管姓名').fill('裁床主管甲')
+  await page.getByLabel(/我确认报废后该袋永久不能再次装袋/).check()
+  await page.getByRole('button', { name: '确认报废' }).click()
+  await expect(page.locator('body')).toContainText('报废成功，中转袋已报废')
+  await expect(page.locator('body')).toContainText('先回收记录')
+  await expect(page.locator('body')).toContainText('报废记录')
+
+  await page.goto(`/fcs/pda/transfer-bag-detail?bagNo=${bagCode}`)
+  await expect(page.locator('body')).toContainText('主状态：已报废')
+  await expect(page.locator('body')).toContainText('中转袋回收')
+  await expect(page.locator('body')).toContainText('中转袋报废')
+
+  await page.goto('/fcs/pda/cutting/transfer-bag/recovery')
+  const blockedBag = page.getByPlaceholder('扫描或填写中转袋编号')
+  await blockedBag.fill(bagCode)
+  await blockedBag.press('Enter')
+  await expect(page.locator('body')).toContainText('已报废，不能回收')
 })

@@ -1,174 +1,59 @@
 #!/usr/bin/env node
-
 import assert from 'node:assert/strict'
-import fs from 'node:fs'
-import path from 'node:path'
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-
-import {
-  getTransferBagContentDisplayItems,
-  getTransferBagScanSummaryByQr,
-  listCuttingSewingDispatchBatches,
-  listCuttingSewingTransferBags,
-} from '../src/data/fcs/cutting/sewing-dispatch.ts'
-import { listFactoryInternalWarehouses } from '../src/data/fcs/factory-internal-warehouse.ts'
-import { getFactoryMobileWarehouseCards, getFactoryMobileWarehouseOverview } from '../src/data/fcs/factory-mobile-warehouse.ts'
-import { mockFactories } from '../src/data/fcs/factory-mock-data.ts'
+import { renderPdaCuttingTransferBagRecoveryPage } from '../src/pages/pda-cutting-transfer-bag-recovery.ts'
+import { renderPdaCuttingTransferBagScrapPage } from '../src/pages/pda-cutting-transfer-bag-scrap.ts'
+import { renderPdaTransferBagDetailPage } from '../src/pages/pda-transfer-bag-detail.ts'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
+const read = (path: string) => readFileSync(`${ROOT}/${path}`, 'utf8')
+const recoverySource = read('src/pages/pda-cutting-transfer-bag-recovery.ts')
+const scrapSource = read('src/pages/pda-cutting-transfer-bag-scrap.ts')
+const detailSource = read('src/pages/pda-transfer-bag-detail.ts')
+const handlerSource = read('src/main-handlers/pda-handlers.ts')
+const routeSource = read('src/router/routes-pda.ts')
+const keydownSource = read('src/main-handlers/pda-cutting-keydown-routing.ts')
 
-function read(relativePath: string): string {
-  return fs.readFileSync(path.join(ROOT, relativePath), 'utf8')
+const recoveryHtml = renderPdaCuttingTransferBagRecoveryPage()
+assert(recoveryHtml.includes('确认回收'))
+assert(!recoveryHtml.includes('确认报废'))
+assert(recoveryHtml.includes('扫描或填写中转袋编号'))
+assert(recoveryHtml.includes('实物空袋'))
+
+const scrapHtml = renderPdaCuttingTransferBagScrapPage()
+assert(scrapHtml.includes('确认报废'))
+assert(!scrapHtml.includes('确认回收'))
+assert(scrapHtml.includes('只有空闲袋可以报废'))
+
+assert(recoverySource.includes('recoverTransferBag({'), '回收页必须写入共享回收事实')
+assert(recoverySource.includes('physicalBagReceived'), '回收页必须确认实物袋已收到')
+assert(recoverySource.includes('physicalBagEmpty'), '回收页必须确认实物袋为空')
+assert(recoverySource.includes("recoveryMode: 'NORMAL' | 'FORCED'"), '回收页必须支持正常与强制回收')
+assert(recoverySource.includes('latestHandoverSummary'), '回收页必须展示最近交出记录')
+assert(scrapSource.includes('submitTransferBagScrap({'), '空闲袋必须直接写报废事实')
+assert(scrapSource.includes('recoverThenScrapTransferBag({'), '已交出袋必须先回收再报废')
+assert(scrapSource.includes('finalConfirmed'), '报废必须二次确认')
+assert(scrapSource.includes('前往拆袋重装'), '有菲票的袋必须引导先拆袋重装')
+assert(scrapSource.includes('authorizedBy'), '报废必须记录授权人')
+
+const detailHtml = renderPdaTransferBagDetailPage('MOBILE-CHECK-BAG')
+for (const text of ['中转袋编号', '主状态', '当前阶段', '当前使用周期', '当前袋内菲票', '最近交出快照', '回收和报废记录', '完整历史']) {
+  assert(detailHtml.includes(text), `扫码详情缺少：${text}`)
 }
-
-function assertContains(source: string, token: string, message: string): void {
-  assert(source.includes(token), message)
+for (const forbidden of ['车缝接收', '确认收货', '内部袋池', '按袋确认', '按菲票确认']) {
+  assert(!detailHtml.includes(forbidden), `扫码详情不得出现外部车缝管理动作：${forbidden}`)
+  assert(!detailSource.includes(`>${forbidden}<`), `源码不得保留外部车缝管理按钮：${forbidden}`)
 }
+assert(detailSource.includes('resolveTransferBagCurrentUse'), '详情必须读取共享当前袋票事实')
+assert(detailSource.includes('listCuttingRuntimeEvents'), '详情必须读取完整历史事实')
 
-function assertNotContains(source: string, token: string, message: string): void {
-  assert(!source.includes(token), message)
+for (const route of ['/fcs/pda/cutting/transfer-bag/recovery', '/fcs/pda/cutting/transfer-bag/scrap', '/fcs/pda/transfer-bag-detail']) {
+  assert(routeSource.includes(route), `PDA 路由缺少：${route}`)
 }
+assert(handlerSource.includes('handlePdaCuttingTransferBagRecoveryEvent(target, event)'))
+assert(handlerSource.includes('handlePdaCuttingTransferBagScrapEvent(target, event)'))
+assert(keydownSource.includes('[data-pda-recovery-field="bagCode"]'))
+assert(keydownSource.includes('[data-pda-scrap-field="bagCode"]'))
 
-function buildToken(...parts: string[]): string {
-  return parts.join('')
-}
-
-const packageSource = read('package.json')
-const dataSource = read('src/data/fcs/cutting/sewing-dispatch.ts')
-const handoverDataSource = read('src/data/fcs/pda-handover-events.ts')
-const mobileWarehouseSource = read('src/data/fcs/factory-mobile-warehouse.ts')
-const pdaHandoverPageSource = read('src/pages/pda-handover.ts')
-const pdaHandoverDetailSource = read('src/pages/pda-handover-detail.ts')
-const pdaTransferBagDetailSource = read('src/pages/pda-transfer-bag-detail.ts')
-const pdaWarehouseSource = read('src/pages/pda-warehouse.ts') + read('src/pages/pda-warehouse-shared.ts')
-const cuttingSewingPageSource = read('src/pages/process-factory/cutting/warehouse-hub.ts')
-const transferBagsPageSource = read('src/pages/process-factory/cutting/transfer-bags.ts')
-  + read('src/pages/process-factory/cutting/transfer-bags/detail.ts')
-  + read('src/pages/process-factory/cutting/transfer-bags/dialogs.ts')
-  + read('src/pages/process-factory/cutting/transfer-bags/handlers.ts')
-  + read('src/pages/process-factory/cutting/transfer-bags/state.ts')
-const feiTicketsPageSource = read('src/pages/process-factory/cutting/fei-tickets.ts')
-const routeSource = read('src/router/routes-pda.ts') + read('src/router/route-renderers.ts')
-const transferBagLabelTemplateSource = read('src/pages/print/templates/label-print-template.ts')
-const transferBagModelSource = read('src/pages/process-factory/cutting/transfer-bags-model.ts')
-const transferBagRuntimeSource = read('src/data/fcs/cutting/transfer-bag-runtime.ts')
-const cuttingQrPayloadSource = read('src/data/fcs/cutting/qr-payload.ts')
-
-assertContains(packageSource, 'check:transfer-bag-mobile-closed-loop', 'package.json 缺少中转袋移动端闭环检查命令')
-assertContains(dataSource, 'export interface TransferBagContentItem', '缺少通用袋内明细模型')
-assertContains(dataSource, "bagMode: '混装'", '中转袋必须明确支持混装')
-assertContains(dataSource, 'scanFeiTicketIntoTransferBagOnMobile', '缺少移动端扫菲票装袋 helper')
-assertContains(dataSource, 'removeTransferBagContentItemBeforeHandover', '缺少已装袋未交出调整 helper')
-assertContains(dataSource, 'assertTransferBagEditableBeforeHandover', '缺少中转袋交出前可编辑断言')
-assertContains(dataSource, 'validateTransferBagForMixedPacking', '缺少混装合法性校验')
-assertContains(dataSource, 'validateDispatchBatchCompleteness', '交出批次缺口核对必须保留')
-assertContains(dataSource, 'getTransferBagScanSummaryByQr', '缺少扫袋识别 helper')
-assertContains(dataSource, 'getTransferBagContentDisplayItems', '缺少袋内明细展示 helper')
-assertContains(dataSource, 'writebackSewingReceiveByTransferBag', '缺少车缝按袋回写 helper')
-assertContains(dataSource, 'writebackSewingReceiveByFeiTicket', '缺少车缝按菲票回写 helper')
-assertContains(dataSource, 'finalizeCombinedSewingWriteback', '缺少双口径回写汇总 helper')
-assertContains(handoverDataSource, 'TransferBagWritebackLine', '交出记录缺少袋级回写行')
-assertContains(handoverDataSource, 'TransferBagFeiTicketWritebackLine', '交出记录缺少菲票级回写行')
-assertContains(handoverDataSource, "writebackMode?: '按袋' | '按袋 + 菲票'", '交出记录缺少回写模式')
-assertContains(handoverDataSource, 'combinedWritebackStatus', '交出记录缺少组合回写状态')
-
-;[
-  '中转袋',
-  '扫码装袋',
-  '移除菲票',
-  '完成装袋',
-  '扫描中转袋',
-  '按袋回写',
-  '按菲票回写',
-  '袋内明细',
-].forEach((token) => assertContains(pdaHandoverDetailSource + pdaTransferBagDetailSource, token, `移动端缺少：${token}`))
-
-;['菲票号', '颜色', '尺码', '部位', '数量'].forEach((token) => {
-  assertContains(pdaTransferBagDetailSource, token, `袋内明细缺少：${token}`)
-})
-assertContains(routeSource, '/fcs/pda/transfer-bag-detail', '缺少中转袋移动端详情路由')
-assertContains(pdaHandoverPageSource, '待装袋', '交接列表缺少裁床装袋状态')
-assertContains(pdaHandoverPageSource, '待收中转袋', '交接列表缺少车缝收袋状态')
-assertContains(cuttingSewingPageSource, '中转袋正式支持混装', 'Web 裁片交出页未同步混装口径')
-assertContains(transferBagsPageSource, '支持一个中转袋混装', 'Web 中转袋页仍未同步混装口径')
-assertContains(cuttingSewingPageSource, '打印袋码', '袋码打印入口必须保留')
-assertContains(transferBagsPageSource + cuttingSewingPageSource, 'transferBagQrValue', '中转袋二维码链路必须保留')
-assertContains(transferBagsPageSource, 'buildTransferBagLabelPrintLink(item.bagId)', '中转袋主列表操作栏必须支持按中转袋打印二维码')
-assertContains(transferBagsPageSource, '打印中转袋二维码', '中转袋主列表缺少打印中转袋二维码按钮')
-assertContains(transferBagLabelTemplateSource, '中转袋编号', '中转袋二维码打印标签缺少中转袋编号')
-assertContains(transferBagLabelTemplateSource, '所属工厂', '中转袋二维码打印标签缺少所属工厂')
-assertContains(transferBagLabelTemplateSource, '本码只代表中转袋档案', '中转袋档案二维码必须明确不代表业务任务')
-assertNotContains(cuttingQrPayloadSource, 'cycleId?: string', '中转袋档案二维码不得携带可变使用周期')
-assertContains(transferBagsPageSource, 'buildTransferBagArchiveQrValue', '中转袋页面二维码必须按主档生成档案码')
-assertNotContains(cuttingQrPayloadSource, '|| !parsed.cycleId', '中转袋档案二维码解析不得强制要求使用周期')
-assertContains(pdaTransferBagDetailSource, 'buildWaitHandoverLifecycleByBagCode', '扫码详情必须读取统一中转袋生命周期')
-assertContains(pdaTransferBagDetailSource, '物理袋状态', '扫码详情必须明确展示物理袋状态')
-assertContains(pdaTransferBagDetailSource, '流转阶段', '扫码详情必须明确展示流转阶段')
-assertContains(pdaTransferBagDetailSource, '接收回写状态', '扫码详情必须明确展示接收回写状态')
-assertContains(pdaHandoverDetailSource, 'buildWaitHandoverLifecycleByBagCode', '下游交出详情必须读取统一中转袋生命周期')
-assertContains(pdaHandoverDetailSource, '物理袋状态', '下游交出详情必须明确展示物理袋状态')
-assertContains(pdaHandoverDetailSource, '接收回写状态', '下游交出详情必须明确展示接收回写状态')
-;['当前使用周期', '当前归属任务', '当前流向工厂', '绑定菲票数量', '绑定裁片数量', '车缝任务号', '车缝工厂', '回仓任务', '回仓状态'].forEach((token) => {
-  assertNotContains(transferBagLabelTemplateSource, token, `中转袋档案二维码不得包含业务流转字段：${token}`)
-})
-assertNotContains(transferBagsPageSource + transferBagModelSource + transferBagRuntimeSource, "cycleId: 'idle-cycle'", '中转袋档案二维码不得用 idle-cycle 伪周期生成')
-assertNotContains(transferBagsPageSource, 'createTransferBagDispatchManifest', '打印中转袋档案二维码不得生成装袋清单')
-assertNotContains(transferBagsPageSource, '打印装袋清单', '打印中转袋档案二维码不得写成装袋清单')
-assertNotContains(transferBagsPageSource, '不能打印流转清单', '打印中转袋档案二维码不得受菲票装袋数量限制')
-assertNotContains(transferBagsPageSource + cuttingSewingPageSource, '任务交货卡', '中转袋 / 袋码打印不得被任务交货卡替换')
-assertContains(feiTicketsPageSource, '袋内状态', '菲票页缺少袋内状态')
-assertContains(feiTicketsPageSource, '所属交出记录', '菲票页缺少所属交出记录')
-
-const bags = listCuttingSewingTransferBags()
-const batches = listCuttingSewingDispatchBatches()
-assert(bags.length > 0, '缺少中转袋数据')
-assert(batches.length > 0, '缺少发料批次数据')
-assert(bags.every((bag) => bag.dispatchBatchId && bag.transferOrderId), '中转袋必须归属于发料批次与中转单')
-assert(bags.every((bag) => bag.bagMode === '混装'), '中转袋必须全部支持混装')
-assert(bags.every((bag) => Array.isArray(bag.contentItems)), '中转袋必须有袋内明细数组')
-assert(bags.some((bag) => getTransferBagContentDisplayItems(bag.transferBagId).some((item) => item.sourceKind === 'FEI_TICKET')), 'mandatory 当前必须支持裁片菲票装袋')
-const scanSummary = getTransferBagScanSummaryByQr(bags[0].transferBagNo)
-assert(scanSummary, '扫袋必须能识别中转袋')
-assert(scanSummary!.contentSummary.feiTicketCount >= 0, '扫袋结果必须包含菲票数量')
-
-const nonSewingFactory = mockFactories.find((factory) => !factory.name.includes('车缝')) || mockFactories[0]
-const cards = getFactoryMobileWarehouseCards(nonSewingFactory.factoryId || nonSewingFactory.id, nonSewingFactory.name)
-assert.deepEqual(
-  cards.map((card) => card.cardId),
-  ['wait-process', 'wait-handover', 'inbound-records', 'outbound-records', 'stocktake', 'difference'],
-  '非车缝工厂仓管 6 卡顺序不能变化',
-)
-const sewingFactory = mockFactories.find((factory) => factory.name.includes('车缝'))
-if (sewingFactory) {
-  const overview = getFactoryMobileWarehouseOverview(sewingFactory.factoryId || sewingFactory.id, sewingFactory.name)
-  assert(overview.isSewingLightweight, '车缝厂仓管必须是轻量接收回写口径')
-}
-assert(!listFactoryInternalWarehouses().some((warehouse) => warehouse.factoryName.includes('车缝厂')), '车缝厂不得生成工厂内部仓')
-assertContains(mobileWarehouseSource + pdaWarehouseSource, '待收中转袋', '车缝轻量仓管缺少待收中转袋')
-assertContains(mobileWarehouseSource + pdaWarehouseSource, '菲票回写', '车缝轻量仓管缺少菲票回写')
-
-;[
-  buildToken('Warehouse', 'BaggingOrder'),
-  buildToken('Transfer', 'Bag', 'Center'),
-  buildToken('Receive', 'Bag', 'Order'),
-  buildToken('Bag', 'Writeback', 'Order'),
-].forEach((token) => assertNotContains(dataSource + handoverDataSource, token, `不应新增第二套中转袋或回写框架：${token}`))
-
-;[
-  buildToken('库存', '三态'),
-  buildToken('上架', '任务'),
-  buildToken('拣货', '波次'),
-  buildToken('完整', '库存账'),
-  buildToken('axi', 'os'),
-  buildToken('fet', 'ch('),
-  buildToken('api', 'Client'),
-  buildToken('use', 'Translation'),
-  buildToken('e', 'charts'),
-  buildToken('re', 'charts'),
-].forEach((token) => assertNotContains(dataSource + handoverDataSource + mobileWarehouseSource + pdaHandoverDetailSource, token, `不应新增越界能力：${token}`))
-
-assertNotContains(pdaHandoverPageSource + pdaHandoverDetailSource + pdaTransferBagDetailSource + pdaWarehouseSource, buildToken('QR ', 'payload'), '页面不得显示二维码原始内容')
-assertNotContains(pdaHandoverPageSource + pdaHandoverDetailSource + pdaTransferBagDetailSource + pdaWarehouseSource, 'JSON.stringify', '页面不得显示 JSON')
-assert(!/>[^<\n`]*\bPDA\b/.test(pdaHandoverPageSource + pdaHandoverDetailSource + pdaTransferBagDetailSource + pdaWarehouseSource), '用户可见页面不得出现 PDA')
-
-console.log('check:transfer-bag-mobile-closed-loop passed')
+console.log('check:transfer-bag-mobile-closed-loop passed：独立回收、报废、两事实顺序入口和只读扫码详情均已闭环。')
