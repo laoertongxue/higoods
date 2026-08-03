@@ -508,7 +508,11 @@ export function buildWaitHandoverStorageFootprintId(state: WaitHandoverLocationO
   return `bag:${scope}:${state.bagCode}:${state.usageCycleId || 'legacy-cycle'}`
 }
 
-function buildWaitHandoverOccupancies(warehouse: FactoryInternalWarehouse, includeDemoOccupancies: boolean): WarehouseLocationOccupancy[] {
+function buildWaitHandoverOccupancies(
+  warehouse: FactoryInternalWarehouse,
+  snapshot: FactoryWarehouseLayoutSnapshot,
+  includeDemoOccupancies: boolean,
+): WarehouseLocationOccupancy[] {
   const tickets = listSpreadingResultGeneratedFeiTickets()
   const ticketById = new Map(tickets.map((ticket) => [ticket.feiTicketId, ticket]))
   const occupancies = buildWaitHandoverLocationOccupancyStates(listWaitHandoverRuntimeEvents())
@@ -551,7 +555,9 @@ function buildWaitHandoverOccupancies(warehouse: FactoryInternalWarehouse, inclu
         unresolvedTicketCount: state.feiTicketIds.length - resolvedTickets.length,
       }
     })
-  return occupancies.length || !includeDemoOccupancies ? occupancies : buildWaitHandoverDemoOccupancies(warehouse)
+  if (!includeDemoOccupancies) return occupancies
+  const occupiedLocationIds = new Set(occupancies.map((occupancy) => occupancy.locationId))
+  return [...occupancies, ...buildWaitHandoverDemoOccupancies(warehouse, snapshot, occupiedLocationIds)]
 }
 
 function listDemoLocationRefs(warehouse: FactoryInternalWarehouse, snapshot?: FactoryWarehouseLayoutSnapshot) {
@@ -570,73 +576,80 @@ function buildWaitProcessDemoOccupancies(
   snapshot: FactoryWarehouseLayoutSnapshot,
   excludedLocationIds: Set<string> = new Set(),
 ): WarehouseLocationOccupancy[] {
-  const refs = listDemoLocationRefs(warehouse, snapshot)
+  const allRefs = listDemoLocationRefs(warehouse, snapshot)
+  const occupiedCount = allRefs.filter((ref) => excludedLocationIds.has(ref.location.locationId)).length
+  const refs = allRefs
     .filter((ref) => !excludedLocationIds.has(ref.location.locationId))
-    .slice(0, 2)
+    .slice(0, Math.max(0, Math.ceil(allRefs.length / 2) - occupiedCount))
   if (!refs.length) return []
-  const locationIds = refs.map((ref) => ref.location.locationId)
-  const rolls = [
-    { rollNo: 'ROLL-DEMO-001', yard: 120, meter: 109.73, locationNo: refs[0].location.locationNo },
-    { rollNo: 'ROLL-DEMO-002', yard: 98, meter: 89.61, locationNo: refs[0].location.locationNo },
-    { rollNo: 'ROLL-DEMO-003', yard: 86, meter: 78.64, locationNo: refs[1]?.location.locationNo || refs[0].location.locationNo },
-  ]
   return refs.map((ref, index) => ({
     occupancyId: `wait-process-demo:${warehouse.factoryId}:${ref.location.locationId}`,
-    footprintId: `wait-process-demo-footprint:${warehouse.factoryId}`,
+    footprintId: `wait-process-demo-footprint:${warehouse.factoryId}:${ref.location.locationId}`,
     locationId: ref.location.locationId,
-    productionOrderNo: 'PO-DEMO-CUTTING-001',
-    objectNo: 'FAB-DEMO-MAIN',
+    productionOrderNo: `PO-DEMO-CUTTING-${String((index % 4) + 1).padStart(3, '0')}`,
+    objectNo: `FAB-DEMO-${String(index + 1).padStart(3, '0')}`,
     objectName: '主身梭织面料',
-     qty: 304,
+    qty: 120 + index * 8,
     unit: 'yard',
     inboundAt: '2026-07-31 08:30',
     inboundBy: '演示仓管员',
     materialColor: '深海蓝',
     materialSpec: '150cm / 主面料',
-    footprintLocationNos: refs.map((item) => item.location.locationNo),
-    remainingQty: 304,
-    cutOrderNo: 'CUT-DEMO-001',
+    footprintLocationNos: [ref.location.locationNo],
+    remainingQty: 120 + index * 8,
+    cutOrderNo: `CUT-DEMO-${String((index % 4) + 1).padStart(3, '0')}`,
     styleName: '春季休闲印花短袖',
     styleImageUrl: '/pants-sample.jpg',
     materialImageUrl: '/materials/fabric-main.jpg',
-    rollDetails: rolls,
-    rollCount: rolls.length,
+    rollDetails: [{
+      rollNo: `ROLL-DEMO-${String(index + 1).padStart(3, '0')}`,
+      yard: 120 + index * 8,
+      meter: Number(((120 + index * 8) * 0.9144).toFixed(2)),
+      locationNo: ref.location.locationNo,
+    }],
+    rollCount: 1,
     rollDetailsAreDemo: true,
   }))
 }
 
-function buildWaitHandoverDemoOccupancies(warehouse: FactoryInternalWarehouse): WarehouseLocationOccupancy[] {
-  const refs = listDemoLocationRefs(warehouse).slice(0, 2)
+function buildWaitHandoverDemoOccupancies(
+  warehouse: FactoryInternalWarehouse,
+  snapshot: FactoryWarehouseLayoutSnapshot,
+  excludedLocationIds: Set<string> = new Set(),
+): WarehouseLocationOccupancy[] {
+  const allRefs = listDemoLocationRefs(warehouse, snapshot)
+  const occupiedCount = allRefs.filter((ref) => excludedLocationIds.has(ref.location.locationId)).length
+  const refs = allRefs
+    .filter((ref) => !excludedLocationIds.has(ref.location.locationId))
+    .slice(0, Math.max(0, Math.ceil(allRefs.length / 2) - occupiedCount))
   if (!refs.length) return []
-  const ticketDetails = [
-    { feiTicketNo: 'FEI-DEMO-001', partName: '前幅', size: 'M', pieceQty: 24 },
-    { feiTicketNo: 'FEI-DEMO-002', partName: '后幅', size: 'M', pieceQty: 24 },
-    { feiTicketNo: 'FEI-DEMO-003', partName: '袖子', size: 'M', pieceQty: 24 },
-  ]
-  const demoBags = [
-    { bagCode: 'BAG-DEMO-001', tickets: ticketDetails.slice(0, 2) },
-    { bagCode: 'BAG-DEMO-002', tickets: ticketDetails.slice(2) },
-  ]
-  return refs.map((ref, index) => ({
-    occupancyId: `wait-handover-demo:${warehouse.factoryId}:${ref.location.locationId}`,
-    footprintId: `bag:${warehouse.factoryId}:${demoBags[index]?.bagCode || `BAG-DEMO-${index + 1}`}`,
-    locationId: ref.location.locationId,
-    productionOrderNo: 'PO-DEMO-CUTTING-002',
-    objectNo: demoBags[index]?.bagCode || `BAG-DEMO-${index + 1}`,
-    objectName: '已装菲票中转袋',
-    qty: (demoBags[index]?.tickets || []).reduce((sum, ticket) => sum + ticket.pieceQty, 0),
-    unit: '片',
-    inboundAt: '2026-07-31 09:10',
-    inboundBy: '演示裁片仓管',
-    footprintLocationNos: [ref.location.locationNo],
-    remainingQty: (demoBags[index]?.tickets || []).reduce((sum, ticket) => sum + ticket.pieceQty, 0),
-    ticketNos: (demoBags[index]?.tickets || []).map((ticket) => ticket.feiTicketNo),
-    styleName: '户外轻量夹克',
-    styleImageUrl: '/jacket-sample.jpg',
-    bagCode: demoBags[index]?.bagCode || `BAG-DEMO-${index + 1}`,
-    packed: true,
-    ticketDetails: demoBags[index]?.tickets || [],
-  }))
+  return refs.map((ref, index) => {
+    const bagCode = `BAG-DEMO-${String(index + 1).padStart(3, '0')}`
+    const ticketDetails = [
+      { feiTicketNo: `FEI-DEMO-${String(index * 2 + 1).padStart(3, '0')}`, partName: '前幅', size: index % 2 ? 'L' : 'M', pieceQty: 24 },
+      { feiTicketNo: `FEI-DEMO-${String(index * 2 + 2).padStart(3, '0')}`, partName: '后幅', size: index % 2 ? 'L' : 'M', pieceQty: 24 },
+    ]
+    return {
+      occupancyId: `wait-handover-demo:${warehouse.factoryId}:${ref.location.locationId}`,
+      footprintId: `bag:${warehouse.factoryId}:${bagCode}`,
+      locationId: ref.location.locationId,
+      productionOrderNo: `PO-DEMO-CUTTING-${String((index % 4) + 1).padStart(3, '0')}`,
+      objectNo: bagCode,
+      objectName: '已装菲票中转袋',
+      qty: ticketDetails.reduce((sum, ticket) => sum + ticket.pieceQty, 0),
+      unit: '片',
+      inboundAt: '2026-07-31 09:10',
+      inboundBy: '演示裁片仓管',
+      footprintLocationNos: [ref.location.locationNo],
+      remainingQty: ticketDetails.reduce((sum, ticket) => sum + ticket.pieceQty, 0),
+      ticketNos: ticketDetails.map((ticket) => ticket.feiTicketNo),
+      styleName: '户外轻量夹克',
+      styleImageUrl: '/jacket-sample.jpg',
+      bagCode,
+      packed: true,
+      ticketDetails,
+    }
+  })
 }
 
 export function buildCurrentCuttingWarehouseMapProjection(
@@ -652,9 +665,10 @@ export function buildCurrentCuttingWarehouseMapProjection(
   const warehouse = getCurrentWarehouse(kind)
   if (!warehouse) return null
   const loaded = loadWarehouseLayoutSnapshot(warehouse)
+  const includeDemoOccupancies = options.includeDemoOccupancies === true
   const occupancies = kind === 'WAIT_PROCESS'
-    ? buildWaitProcessOccupancies(warehouse, loaded.snapshot, options.includeDemoOccupancies === true)
-    : buildWaitHandoverOccupancies(warehouse, options.includeDemoOccupancies === true)
+    ? buildWaitProcessOccupancies(warehouse, loaded.snapshot, includeDemoOccupancies)
+    : buildWaitHandoverOccupancies(warehouse, loaded.snapshot, includeDemoOccupancies)
   const applied = applyWarehouseLayoutSnapshot(warehouse, loaded.snapshot)
   return {
     warehouse,
@@ -682,7 +696,7 @@ export function renderCuttingWarehouseLocationMapSection(
   kind: CuttingWarehouseMapKind,
   requestedMode?: WarehouseLocationMapMode,
 ): string {
-  const current = buildCurrentCuttingWarehouseMapProjection(kind, { includeDemoOccupancies: getSearchParams().get('demo') === '1' })
+  const current = buildCurrentCuttingWarehouseMapProjection(kind, { includeDemoOccupancies: true })
   if (!current) {
     return '<div class="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">当前没有可用的裁床仓库库位主数据。</div>'
   }
@@ -711,6 +725,7 @@ export function renderCuttingWarehouseLocationMapSection(
         mode,
         factoryName: current.warehouse.factoryName,
         feedbackMessage: current.warningMessage,
+        showOccupancySummary: false,
       })}
     </section>
   `
@@ -828,7 +843,7 @@ function renderLocationLabelPrintModal(
 
 function openLocationLabelPrintModal(kind: CuttingWarehouseMapKind, scope: LocationLabelPrintScope): void {
   if (typeof document === 'undefined') return
-  const current = buildCurrentCuttingWarehouseMapProjection(kind)
+  const current = buildCurrentCuttingWarehouseMapProjection(kind, { includeDemoOccupancies: true })
   if (!current) return
   removeLocationLabelPrintModal()
   const section = document.querySelector<HTMLElement>(`[data-cutting-warehouse-map-section][data-warehouse-kind="${kind}"]`)
@@ -1022,7 +1037,7 @@ function renderEditLocationDialog(kind: CuttingWarehouseMapKind, current: NonNul
 }
 
 function renderCuttingWarehouseLocationMapModal(kind: CuttingWarehouseMapKind, dialog: MaintenanceDialog): string {
-  const current = buildCurrentCuttingWarehouseMapProjection(kind, { includeDemoOccupancies: getSearchParams().get('demo') === '1' })
+  const current = buildCurrentCuttingWarehouseMapProjection(kind, { includeDemoOccupancies: true })
   if (!current) return ''
   if (dialog.type === 'create-area') return renderCreateAreaDialog(kind, current.snapshot)
   if (dialog.type === 'create-shelf') return renderCreateShelfDialog(kind, current.snapshot, dialog.areaId)
@@ -1047,7 +1062,7 @@ export function openCuttingWarehouseLocationMapModal(kind: CuttingWarehouseMapKi
     modal.querySelectorAll<HTMLElement>('[data-warehouse-map-action]').forEach((item) => { item.dataset.skipPageRerender = 'true' })
     hydrateIcons(modal)
     if (dialog.type === 'create-shelf' || dialog.type === 'edit-shelf-locations') {
-      const current = dialog.type === 'edit-shelf-locations' ? buildCurrentCuttingWarehouseMapProjection(kind) : null
+      const current = dialog.type === 'edit-shelf-locations' ? buildCurrentCuttingWarehouseMapProjection(kind, { includeDemoOccupancies: true }) : null
       const shelf = current?.snapshot.areaList.flatMap((area) => area.shelfList).find((item) => item.shelfId === dialog.shelfId)
       const counts = shelf ? shelfPositionCounts(shelf) : []
       shelfDraftStates.set(modal, {
@@ -1240,7 +1255,7 @@ function replaceMaintenancePreviewError(modal: HTMLElement, message: string): vo
 }
 
 function updateMaintenancePreview(modal: HTMLElement, kind: CuttingWarehouseMapKind): void {
-  const current = buildCurrentCuttingWarehouseMapProjection(kind, { includeDemoOccupancies: getSearchParams().get('demo') === '1' })
+  const current = buildCurrentCuttingWarehouseMapProjection(kind, { includeDemoOccupancies: true })
   if (!current) return
   const type = modal.dataset.maintenanceDialog
   try {
@@ -1328,7 +1343,7 @@ function refreshOccupancyOverlay(kind: CuttingWarehouseMapKind): void {
   if (typeof document === 'undefined') return
   const currentMap = document.querySelector<HTMLElement>(`[data-cutting-warehouse-map-section][data-warehouse-kind="${kind}"] [data-warehouse-map-root]`)
   if (!currentMap) return
-  const current = buildCurrentCuttingWarehouseMapProjection(kind, { includeDemoOccupancies: getSearchParams().get('demo') === '1' })
+  const current = buildCurrentCuttingWarehouseMapProjection(kind, { includeDemoOccupancies: true })
   if (!current) return
   const template = document.createElement('template')
   template.innerHTML = renderWarehouseLocationMapOccupancyOverlay(current.projection).trim()
@@ -1340,7 +1355,7 @@ function refreshUnlocatedSection(kind: CuttingWarehouseMapKind): void {
   if (typeof document === 'undefined') return
   const currentMap = document.querySelector<HTMLElement>(`[data-cutting-warehouse-map-section][data-warehouse-kind="${kind}"] [data-warehouse-map-root]`)
   if (!currentMap) return
-  const current = buildCurrentCuttingWarehouseMapProjection(kind, { includeDemoOccupancies: getSearchParams().get('demo') === '1' })
+  const current = buildCurrentCuttingWarehouseMapProjection(kind, { includeDemoOccupancies: true })
   if (!current) return
   const template = document.createElement('template')
   template.innerHTML = renderWarehouseLocationMapUnlocatedSection(current.projection).trim()
@@ -1351,7 +1366,7 @@ function refreshSummarySection(kind: CuttingWarehouseMapKind): void {
   if (typeof document === 'undefined') return
   const currentMap = document.querySelector<HTMLElement>(`[data-cutting-warehouse-map-section][data-warehouse-kind="${kind}"] [data-warehouse-map-root]`)
   if (!currentMap) return
-  const current = buildCurrentCuttingWarehouseMapProjection(kind, { includeDemoOccupancies: getSearchParams().get('demo') === '1' })
+  const current = buildCurrentCuttingWarehouseMapProjection(kind, { includeDemoOccupancies: true })
   if (!current) return
   const template = document.createElement('template')
   template.innerHTML = renderWarehouseLocationMapSummarySection(current.projection).trim()
@@ -1371,7 +1386,7 @@ function persistSnapshot(
   kind: CuttingWarehouseMapKind,
   mutate: (snapshot: FactoryWarehouseLayoutSnapshot) => FactoryWarehouseLayoutSnapshot,
 ): void {
-  const current = buildCurrentCuttingWarehouseMapProjection(kind)
+  const current = buildCurrentCuttingWarehouseMapProjection(kind, { includeDemoOccupancies: true })
   if (!current) return
   if (!current.persistenceAvailable) {
     if (typeof window !== 'undefined') window.alert('当前仅可查看，无法保存。')
@@ -1542,7 +1557,7 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
       await yieldMaintenanceWork()
       try {
         abortMaintenanceIfNeeded(signal)
-        const current = buildCurrentCuttingWarehouseMapProjection(kind)
+        const current = buildCurrentCuttingWarehouseMapProjection(kind, { includeDemoOccupancies: true })
         if (!current) throw new Error('当前仓库库位图不可用，请刷新后重试。')
         const expectedVersion = Number(modal.dataset.layoutVersion)
         const occupiedIds = new Set(current.projection.areas.flatMap((area) => area.shelves.flatMap((shelf) => listWarehouseLocationMapShelfCells(shelf))).filter((cell) => cell.businessStatus === 'OCCUPIED').map((cell) => cell.locationId))
@@ -1622,7 +1637,7 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
   const section = node.closest<HTMLElement>('[data-cutting-warehouse-map-section]')
   const kind = section?.dataset.warehouseKind as CuttingWarehouseMapKind | undefined
   if (!kind) return false
-  const viewportCurrent = buildCurrentCuttingWarehouseMapProjection(kind, { includeDemoOccupancies: getSearchParams().get('demo') === '1' })
+  const viewportCurrent = buildCurrentCuttingWarehouseMapProjection(kind, { includeDemoOccupancies: true })
   if (viewportCurrent && handleWarehouseLocationMapViewportEvent(node, viewportCurrent.projection)) return true
   const action = node.dataset.warehouseMapAction
   if (action === 'open-print-all-labels') {
