@@ -7,6 +7,13 @@ import {
   buildCuttingWarehouseLocationNo,
 } from '../src/data/fcs/cutting/warehouse-location-mock.ts'
 import {
+  assertUniqueWarehouseLocationLabelCodes,
+  buildWarehouseLocationLabelCode,
+  buildWarehouseLocationQrValue,
+  parseWarehouseLocationLabelValue,
+} from '../src/data/fcs/cutting/warehouse-location-label.ts'
+import { renderCode128Barcode } from '../src/components/real-barcode.ts'
+import {
   adjustWarehouseLevelPositionCount,
   applyWarehouseLayoutSnapshot,
   buildInitialWarehouseLayoutSnapshot,
@@ -238,6 +245,10 @@ for (const apiName of ['reorderWarehouseAreas', 'reorderWarehouseShelves', 'reor
 const viewSectionHtml = renderCuttingWarehouseLocationMapSection('WAIT_PROCESS', 'VIEW')
 const layoutSectionHtml = renderCuttingWarehouseLocationMapSection('WAIT_PROCESS', 'LAYOUT')
 assert.equal((viewSectionHtml.match(/>维护库位图<\/button>/g) || []).length, 1, '普通视图必须只有一个维护库位图入口')
+assert.match(viewSectionHtml, /data-warehouse-map-action="open-print-all-labels"/, '普通视图必须提供当前仓库标签打印入口')
+assert.match(viewSectionHtml, /data-warehouse-map-action="open-print-area-labels"/, '普通视图必须提供按库区批量打印入口')
+assert.match(viewSectionHtml, /data-warehouse-map-action="open-print-shelf-labels"/, '普通视图必须提供按货架批量打印入口')
+assert.match(viewSectionHtml, /data-warehouse-map-action="open-print-location-label"/, '普通视图必须提供单库位打印入口')
 assert.doesNotMatch(viewSectionHtml, />新增库区<|>新增库位<|>编排库位图</, '普通视图不得保留分散维护入口')
 assert.match(viewSectionHtml, /data-warehouse-map-action="enter-maintenance"[^>]+data-warehouse-kind="WAIT_PROCESS"/, '维护入口必须绑定当前 PFOS 仓库')
 assert.match(layoutSectionHtml, /data-warehouse-map-action="open-create-area"/, '维护模式必须可新增空库区')
@@ -245,8 +256,22 @@ assert.match(layoutSectionHtml, /data-warehouse-map-action="open-create-shelf"/,
 assert.match(layoutSectionHtml, /data-warehouse-map-action="rename-area"/, '维护模式必须可编辑库区')
 assert.match(layoutSectionHtml, /data-warehouse-map-action="rename-shelf"/, '维护模式必须可编辑货架')
 assert.match(layoutSectionHtml, /data-warehouse-map-action="rename-location"/, '维护模式必须可编辑库位')
+assert.match(warehouseMapSource, /openLocationLabelPrintModal\(kind, \{ type: 'SHELF'/, '新增货架保存后必须直接打开新货架标签打印预览')
+assert.match(warehouseMapSource, /@page \{ size: 70mm 50mm/, '库位标签必须使用 70mm × 50mm 打印版式')
+assert.match(warehouseMapSource, /renderCode128Barcode/, '库位标签必须渲染真实 Code 128 条码')
+assert.match(warehouseMapSource, /renderRealQrPlaceholder/, '库位标签必须复用真实二维码组件')
 assert.match(warehouseMapSource, /persistenceAvailable/, '库位图页面必须消费持久化可用状态')
 assert.match(warehouseMapSource, /当前仅可查看，无法保存/, '持久化失败时必须向仓库主管展示可行动提示')
+
+const globalLocationIdentities = cuttingWarehouses.flatMap((warehouse) => warehouse.areaList.flatMap((area) => area.shelfList.flatMap((shelf) => shelf.locationList.map((location) => ({ warehouseId: warehouse.warehouseId, locationId: location.locationId })))))
+assert.doesNotThrow(() => assertUniqueWarehouseLocationLabelCodes(globalLocationIdentities), '全部裁床仓库的库位标签码必须全局唯一')
+const globalLabelCodes = globalLocationIdentities.map((identity) => buildWarehouseLocationLabelCode(identity.warehouseId, identity.locationId))
+assert.equal(new Set(globalLabelCodes).size, globalLabelCodes.length, '不同仓库中的库位不得共用标签码')
+const exampleLabelCode = globalLabelCodes[0]
+assert.match(exampleLabelCode, /^LC-[0-9A-Z]{26}$/, '库位标签码格式错误')
+assert.equal(parseWarehouseLocationLabelValue(exampleLabelCode), exampleLabelCode, '条码内容必须解析为库位标签码')
+assert.equal(parseWarehouseLocationLabelValue(buildWarehouseLocationQrValue(exampleLabelCode)), exampleLabelCode, '二维码内容必须解析为同一库位标签码')
+assert.match(renderCode128Barcode(exampleLabelCode), /data-real-barcode/, '库位标签必须生成真实 SVG 条码')
 
 const waitProcess = cuttingWarehouses.find((warehouse) => warehouse.warehouseKind === 'WAIT_PROCESS')
 assert(waitProcess, '缺少裁床待加工仓')

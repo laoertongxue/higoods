@@ -120,7 +120,7 @@ function renderCell(
           <button type="button" class="min-h-11 min-w-11 rounded border text-xs" aria-label="修改 ${escapeHtml(cell.locationNo)} 编号" data-skip-page-rerender="true" data-warehouse-map-action="rename-location" data-location-id="${escapeHtml(cell.locationId)}">改</button>
           <button type="button" class="min-h-11 min-w-11 rounded border text-xs" aria-label="${escapeHtml(cell.locationNo)} 右移" data-skip-page-rerender="true" data-warehouse-map-action="move-location-right" data-location-id="${escapeHtml(cell.locationId)}" data-shelf-id="${escapeHtml(cell.shelfId)}">→</button>
         </div>
-      ` : ''}
+      ` : mode === 'VIEW' ? `<button type="button" class="mt-1 min-h-11 w-full rounded border px-2 text-xs" data-skip-page-rerender="true" data-warehouse-map-action="open-print-location-label" data-location-id="${escapeHtml(cell.locationId)}">打印标签</button>` : ''}
     </div>
   `
 }
@@ -495,7 +495,7 @@ export function renderWarehouseLocationMap(options: WarehouseLocationMapOptions)
                 <button type="button" class="min-h-11 rounded-md border px-3 text-sm" data-skip-page-rerender="true" data-warehouse-map-action="open-create-shelf" data-area-id="${escapeHtml(area.areaId)}">新增货架</button>
                 <button type="button" class="min-h-11 rounded-md border px-3 text-sm" data-skip-page-rerender="true" data-warehouse-map-action="move-area-right" data-area-id="${escapeHtml(area.areaId)}">右移库区</button>
               </div>
-            ` : ''}
+            ` : mode === 'VIEW' ? `<button type="button" class="min-h-11 rounded-md border px-3 text-sm" data-skip-page-rerender="true" data-warehouse-map-action="open-print-area-labels" data-area-id="${escapeHtml(area.areaId)}">打印本库区标签</button>` : ''}
           </header>
           <div class="divide-y">
             ${area.shelves.length ? area.shelves.map((shelf) => {
@@ -517,7 +517,7 @@ export function renderWarehouseLocationMap(options: WarehouseLocationMapOptions)
                       <button type="button" class="min-h-11 min-w-11 rounded border text-xs" aria-label="修改 ${escapeHtml(shelf.shelfNo)} 编号" data-skip-page-rerender="true" data-warehouse-map-action="rename-shelf" data-shelf-id="${escapeHtml(shelf.shelfId)}">改</button>
                       <button type="button" class="min-h-11 min-w-11 rounded border text-xs" aria-label="${escapeHtml(shelf.shelfNo)} 下移" data-skip-page-rerender="true" data-warehouse-map-action="move-shelf-down" data-area-id="${escapeHtml(area.areaId)}" data-shelf-id="${escapeHtml(shelf.shelfId)}">↓</button>
                     </div>
-                  ` : ''}
+                  ` : mode === 'VIEW' ? `<button type="button" class="mt-2 min-h-11 rounded border px-3 text-xs" data-skip-page-rerender="true" data-warehouse-map-action="open-print-shelf-labels" data-shelf-id="${escapeHtml(shelf.shelfId)}">打印本货架</button>` : ''}
                 </div>
                 ${renderShelfViewport(shelf, mode, selectedIds, initialLevelPage, initialPositionPage)}
               </div>
