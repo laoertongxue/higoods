@@ -41,6 +41,7 @@ export interface WarehouseLocationMapOptions {
   projection: WarehouseLocationMapProjection
   mode: WarehouseLocationMapMode
   factoryName: string
+  showHeader?: boolean
   showOccupancySummary?: boolean
   selectedLocationIds?: string[]
   feedbackMessage?: string
@@ -457,7 +458,7 @@ export function renderWarehouseLocationMap(options: WarehouseLocationMapOptions)
   })
   return `
     <section class="space-y-4" data-warehouse-map-root data-warehouse-map-mode="${mode}" data-warehouse-id="${escapeHtml(projection.warehouseId)}" data-warehouse-kind="${escapeHtml(projection.warehouseKind)}">
-      <div class="rounded-lg border bg-card p-4">
+      ${options.showHeader === false ? '' : `<div class="rounded-lg border bg-card p-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div class="text-xs text-muted-foreground">${escapeHtml(options.factoryName)}</div>
@@ -481,7 +482,7 @@ export function renderWarehouseLocationMap(options: WarehouseLocationMapOptions)
           </div>
         ` : ''}
         ${options.feedbackMessage ? `<div class="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800" role="status">${escapeHtml(options.feedbackMessage)}</div>` : ''}
-      </div>
+      </div>`}
 
       ${mode === 'SELECT' || options.showOccupancySummary === false ? '' : renderWarehouseLocationMapSummarySection(projection)}
 

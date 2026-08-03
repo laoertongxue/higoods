@@ -679,19 +679,6 @@ export function buildCurrentCuttingWarehouseMapProjection(
   }
 }
 
-function renderFactorySelector(kind: CuttingWarehouseMapKind, current: FactoryInternalWarehouse): string {
-  return `
-    <label class="flex items-center gap-2 text-sm">
-      <span class="text-muted-foreground">裁床仓库</span>
-      <select class="h-10 rounded-md border bg-background px-3" data-skip-page-rerender="true" data-warehouse-map-action="change-factory" data-warehouse-kind="${kind}">
-        ${listCuttingWarehouses(kind).map((warehouse) => `
-          <option value="${escapeHtml(warehouse.warehouseId)}" data-factory-id="${escapeHtml(warehouse.factoryId)}" ${warehouse.warehouseId === current.warehouseId ? 'selected' : ''}>${escapeHtml(warehouse.factoryName)} / ${escapeHtml(warehouse.warehouseName)}</option>
-        `).join('')}
-      </select>
-    </label>
-  `
-}
-
 export function renderCuttingWarehouseLocationMapSection(
   kind: CuttingWarehouseMapKind,
   requestedMode?: WarehouseLocationMapMode,
@@ -705,19 +692,29 @@ export function renderCuttingWarehouseLocationMapSection(
     : 'VIEW'
   return `
     <section class="space-y-4" data-cutting-warehouse-map-section data-warehouse-kind="${kind}">
-      <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-4" data-warehouse-map-toolbar>
-        <div class="flex flex-wrap items-center gap-3">
-          ${renderFactorySelector(kind, current.warehouse)}
-          <span class="text-xs text-muted-foreground">编排版本 v${current.snapshot.layoutVersion} · ${escapeHtml(current.snapshot.updatedBy)} · ${escapeHtml(current.snapshot.updatedAt)}</span>
+      <div class="rounded-lg border bg-card p-4" data-warehouse-map-toolbar>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div class="text-xs text-muted-foreground">${escapeHtml(current.warehouse.factoryName)}</div>
+            <h2 class="mt-1 text-base font-semibold">${escapeHtml(current.warehouse.warehouseName)}库位图</h2>
+          </div>
+          <div class="flex flex-wrap gap-2 text-sm">
+            <span class="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">空闲 ${current.projection.emptyLocationCount}</span>
+            <span class="rounded-full bg-rose-50 px-3 py-1 text-rose-700">占用 ${current.projection.occupiedLocationCount}</span>
+            <span class="rounded-full bg-slate-100 px-3 py-1 text-slate-700">共 ${current.projection.totalLocationCount}</span>
+          </div>
         </div>
-        <div class="flex gap-2">
-          ${current.persistenceAvailable ? '' : '<span class="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">当前仅可查看，无法保存</span>'}
-          ${current.warningMessage.includes('无法恢复') ? '<button type="button" class="min-h-11 rounded-md border border-amber-300 px-4 text-sm text-amber-800" data-skip-page-rerender="true" data-warehouse-map-action="reset-layout">恢复默认编排</button>' : ''}
-          ${mode === 'VIEW' ? '<button type="button" class="min-h-11 rounded-md border px-4 text-sm" data-skip-page-rerender="true" data-warehouse-map-action="open-print-all-labels">打印库位标签</button>' : ''}
-          ${!current.persistenceAvailable ? '' : mode === 'LAYOUT'
-            ? `<button type="button" class="min-h-11 rounded-md border px-4 text-sm" data-skip-page-rerender="true" data-warehouse-map-action="open-create-area">新增库区</button>
-               <button type="button" class="min-h-11 rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-skip-page-rerender="true" data-warehouse-map-action="finish-maintenance">完成维护</button>`
-            : `<button type="button" class="min-h-11 rounded-md border px-4 text-sm" data-skip-page-rerender="true" data-warehouse-map-action="enter-maintenance" data-warehouse-kind="${kind}" data-warehouse-id="${escapeHtml(current.warehouse.warehouseId)}">维护库位图</button>`}
+        <div class="mt-3 flex flex-wrap items-center justify-between gap-3 border-t pt-3">
+          <span class="text-xs text-muted-foreground">编排版本 v${current.snapshot.layoutVersion} · ${escapeHtml(current.snapshot.updatedBy)} · ${escapeHtml(current.snapshot.updatedAt)}</span>
+          <div class="flex flex-wrap gap-2">
+            ${current.persistenceAvailable ? '' : '<span class="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">当前仅可查看，无法保存</span>'}
+            ${current.warningMessage.includes('无法恢复') ? '<button type="button" class="min-h-11 rounded-md border border-amber-300 px-4 text-sm text-amber-800" data-skip-page-rerender="true" data-warehouse-map-action="reset-layout">恢复默认编排</button>' : ''}
+            ${mode === 'VIEW' ? '<button type="button" class="min-h-11 rounded-md border px-4 text-sm" data-skip-page-rerender="true" data-warehouse-map-action="open-print-all-labels">打印库位标签</button>' : ''}
+            ${!current.persistenceAvailable ? '' : mode === 'LAYOUT'
+              ? `<button type="button" class="min-h-11 rounded-md border px-4 text-sm" data-skip-page-rerender="true" data-warehouse-map-action="open-create-area">新增库区</button>
+                 <button type="button" class="min-h-11 rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-skip-page-rerender="true" data-warehouse-map-action="finish-maintenance">完成维护</button>`
+              : `<button type="button" class="min-h-11 rounded-md border px-4 text-sm" data-skip-page-rerender="true" data-warehouse-map-action="enter-maintenance" data-warehouse-kind="${kind}" data-warehouse-id="${escapeHtml(current.warehouse.warehouseId)}">维护库位图</button>`}
+          </div>
         </div>
       </div>
       ${renderWarehouseLocationMap({
@@ -725,6 +722,7 @@ export function renderCuttingWarehouseLocationMapSection(
         mode,
         factoryName: current.warehouse.factoryName,
         feedbackMessage: current.warningMessage,
+        showHeader: false,
         showOccupancySummary: false,
       })}
     </section>
@@ -1674,13 +1672,6 @@ export function handleCuttingWarehouseLocationMapEvent(target: HTMLElement, even
   }
   if (action === 'open-edit-shelf-locations') {
     openCuttingWarehouseLocationMapModal(kind, { type: 'edit-shelf-locations', shelfId: node.dataset.shelfId || '' })
-    return true
-  }
-  if (action === 'change-factory' && target instanceof HTMLSelectElement) {
-    updateUrlParam('warehouseId', target.value)
-    updateUrlParam('factoryId', null)
-    updateUrlParam('locationId', null)
-    refreshMapSection(kind)
     return true
   }
   if (action === 'enter-maintenance' || action === 'finish-maintenance') {
