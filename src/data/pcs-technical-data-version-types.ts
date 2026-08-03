@@ -1,6 +1,10 @@
+import type { EngineeringBomCustomCostDraft, EngineeringBomPricingSnapshot } from './pcs-engineering-bom-types.ts'
+
 export type TechnicalVersionStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
 export type TechnicalDomainStatus = 'EMPTY' | 'DRAFT' | 'COMPLETE'
-export type TechPackSourceTaskType = 'REVISION' | 'PLATE' | 'ARTWORK' | 'MANUAL'
+export type TechPackSourceTaskType = 'ENGINEERING_MASTER' | 'ENGINEERING_CHANGE'
+export type LegacyTechPackSourceTaskType = 'REVISION' | 'PLATE' | 'ARTWORK' | 'MANUAL'
+export type StoredTechPackSourceTaskType = TechPackSourceTaskType | LegacyTechPackSourceTaskType
 export type TechPackVersionChangeScope = '制版生成' | '花型写入' | '花型替换' | '改版生成' | '手动新增'
 export type TechnicalGarmentDifficultyGrade = 'A' | 'A+' | 'A++' | 'B' | 'C' | 'D'
 export const TECHNICAL_GARMENT_DIFFICULTY_GRADES: TechnicalGarmentDifficultyGrade[] = ['A', 'A+', 'A++', 'B', 'C', 'D']
@@ -385,9 +389,11 @@ export interface TechnicalBomItem {
   name: string
   spec: string
   materialCode?: string
+  materialSkuId?: string
   unit?: string
   colorLabel?: string
   unitConsumption: number
+  sampleQuantity?: number
   lossRate: number
   supplier: string
   printRequirement?: string
@@ -485,7 +491,7 @@ export interface TechnicalDataVersionRecord {
   linkedRevisionTaskIds: string[]
   linkedPatternTaskIds: string[]
   linkedArtworkTaskIds: string[]
-  createdFromTaskType: TechPackSourceTaskType
+  createdFromTaskType: StoredTechPackSourceTaskType
   createdFromTaskId: string
   createdFromTaskCode: string
   baseTechnicalVersionId: string
@@ -551,6 +557,8 @@ export interface TechnicalDataVersionContent {
   processRouteChangeReason?: string
   sizeTable: TechnicalSizeRow[]
   bomItems: TechnicalBomItem[]
+  bomCustomCosts?: EngineeringBomCustomCostDraft[]
+  bomPricingSnapshot?: EngineeringBomPricingSnapshot
   qualityRules: TechnicalQualityRule[]
   colorMaterialMappings: TechnicalColorMaterialMapping[]
   patternDesigns: TechnicalPatternDesign[]

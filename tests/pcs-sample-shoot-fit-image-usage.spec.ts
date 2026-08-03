@@ -4,7 +4,6 @@ import {
   createEmptyProjectDraft,
   createProject,
   getProjectCreateCatalog,
-  listActiveProjectTemplates,
   resetProjectRepository,
 } from '../src/data/pcs-project-repository.ts'
 import { resetProjectImageAssets } from '../src/data/pcs-project-image-repository.ts'
@@ -18,7 +17,6 @@ import {
 function buildProjectDraft() {
   const draft = createEmptyProjectDraft()
   const catalog = getProjectCreateCatalog()
-  const template = listActiveProjectTemplates()[0]
   const category = catalog.categories[0]
   const subCategory = category.children[0]
   const brand = catalog.brands[0]
@@ -28,7 +26,6 @@ function buildProjectDraft() {
 
   draft.projectName = '样衣拍摄图片用途测试项目'
   draft.projectSourceType = catalog.projectSourceTypes[0]
-  draft.templateId = template.id
   draft.categoryId = category.id
   draft.categoryName = category.name
   draft.subCategoryId = subCategory?.id || ''
@@ -38,7 +35,7 @@ function buildProjectDraft() {
   draft.styleCodeId = styleCode.id
   draft.styleCodeName = styleCode.name
   draft.styleNumber = styleCode.name
-  draft.styleType = template.styleType[0]
+  draft.styleType = '基础款'
   draft.yearTag = catalog.yearTags[0]
   draft.priceRangeLabel = catalog.priceRanges[0]
   draft.targetChannelCodes = ['tiktok']

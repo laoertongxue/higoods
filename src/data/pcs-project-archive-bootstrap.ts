@@ -1,4 +1,4 @@
-import { getProjectNodeRecordByWorkItemTypeCode, listProjects } from './pcs-project-repository.ts'
+import { getProjectNodeRecordByStepCode, listProjects } from './pcs-project-repository.ts'
 import { getStyleArchiveById } from './pcs-style-archive-repository.ts'
 import type {
   ProjectArchivePendingItem,
@@ -83,7 +83,7 @@ export function createProjectArchiveBootstrapSnapshot(version: number): ProjectA
     }
 
     const collected = collectProjectArchiveAutoData(archive, project, style)
-    const styleNodeId = getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'STYLE_ARCHIVE_CREATE')?.projectNodeId || ''
+    const styleNodeId = getProjectNodeRecordByStepCode(project.projectId, 'PROJECT_INIT')?.projectNodeId || ''
     const missing = computeProjectArchiveMissingItems({
       archive,
       documents: collected.documents,

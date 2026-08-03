@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 
 import { listStyleArchives, resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
 import {
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   listProjects,
   resetProjectRepository,
 } from '../src/data/pcs-project-repository.ts'
@@ -12,7 +12,7 @@ import {
 } from '../src/pages/pcs-product-archives.ts'
 import {
   renderPcsProjectDetailPage,
-  renderPcsProjectWorkItemDetailPage,
+  renderPcsProjectStepDetailPage,
 } from '../src/pages/pcs-projects.ts'
 
 resetProjectRepository()
@@ -37,14 +37,14 @@ const projectHtml = await renderPcsProjectDetailPage(project!.projectId)
 assert.ok(!projectHtml.includes(legacyCreateLabel), '商品项目详情不应再显示旧直建入口')
 assert.ok(!projectHtml.includes(legacyCopyLabel), '商品项目详情不应再显示旧复制入口')
 
-const styleNode = getProjectNodeRecordByWorkItemTypeCode(project!.projectId, 'STYLE_ARCHIVE_CREATE')
-assert.ok(styleNode, '应存在生成款式档案节点')
+const styleNode = getProjectNodeRecordByStepCode(project!.projectId, 'PROJECT_INIT')
+assert.ok(styleNode, '应存在商品档案资料完善步骤')
 
-const projectWorkItemHtml = await renderPcsProjectWorkItemDetailPage(
+const projectStepHtml = await renderPcsProjectStepDetailPage(
   project!.projectId,
   styleNode!.projectNodeId,
 )
-assert.ok(!projectWorkItemHtml.includes(legacyCreateLabel), '项目节点详情不应再显示旧直建入口')
-assert.ok(!projectWorkItemHtml.includes(legacyCopyLabel), '项目节点详情不应再显示旧复制入口')
+assert.ok(!projectStepHtml.includes(legacyCreateLabel), '项目节点详情不应再显示旧直建入口')
+assert.ok(!projectStepHtml.includes(legacyCopyLabel), '项目节点详情不应再显示旧复制入口')
 
 console.log('pcs-remove-project-style-tech-pack-entry.spec.ts PASS')

@@ -46,7 +46,7 @@ function getImageSourceLabel(record: PcsProjectImageAssetRecord): string {
   if (record.sourceNodeCode === 'CHANNEL_PRODUCT_LISTING') return '商品上架图片'
   if (record.sourceNodeCode === 'SAMPLE_SHOOT_FIT') return '样衣拍摄图片'
   if (record.imageType === '项目参考图') return '项目参考图'
-  if (record.sourceNodeCode === 'STYLE_ARCHIVE_CREATE' || record.imageType === '款式档案图') return '档案补充图'
+  if (record.sourceNodeCode === 'PROJECT_INIT' || record.imageType === '款式档案图') return '档案补充图'
   return record.sourceType || '项目图片'
 }
 
@@ -54,7 +54,7 @@ function resolveImagePriority(record: PcsProjectImageAssetRecord, listingImageId
   if (listingImageIds.has(record.imageId) || record.sourceNodeCode === 'CHANNEL_PRODUCT_LISTING') return 1
   if (record.sourceNodeCode === 'SAMPLE_SHOOT_FIT') return 2
   if (record.imageType === '项目参考图') return 3
-  if (record.sourceNodeCode === 'STYLE_ARCHIVE_CREATE' || record.imageType === '款式档案图') return 4
+  if (record.sourceNodeCode === 'PROJECT_INIT' || record.imageType === '款式档案图') return 4
   return 9
 }
 
@@ -66,7 +66,7 @@ function canBeStyleArchiveCandidate(record: PcsProjectImageAssetRecord, listingI
     return record.usageScopes.includes('款式档案') && record.imageStatus === '可用于款式档案'
   }
   if (record.imageType === '项目参考图') return true
-  if (record.sourceNodeCode === 'STYLE_ARCHIVE_CREATE' || record.imageType === '款式档案图') return true
+  if (record.sourceNodeCode === 'PROJECT_INIT' || record.imageType === '款式档案图') return true
   return record.usageScopes.includes('款式档案')
 }
 

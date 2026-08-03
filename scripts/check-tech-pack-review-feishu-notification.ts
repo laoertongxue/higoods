@@ -30,8 +30,8 @@ const {
 } = await import('../src/data/pcs-tech-pack-review-notification-repository.ts')
 const {
   getTechnicalDataVersionById,
-  replaceTechnicalDataVersionStore,
 } = await import('../src/data/pcs-technical-data-version-repository.ts')
+const { installTechnicalDataVersionFixtures } = await import('./helpers/technical-data-version-fixtures.ts')
 const { replaceStyleArchiveStore } = await import('../src/data/pcs-style-archive-repository.ts')
 const {
   renderPcsStyleArchiveDetailPage,
@@ -208,7 +208,7 @@ const content: TechnicalDataVersionContent = {
 
 resetTechPackReviewNotificationRepository()
 replaceStyleArchiveStore({ version: 2, records: [style], pendingItems: [] })
-replaceTechnicalDataVersionStore({ version: 3, records: [record], contents: [content], pendingItems: [] })
+installTechnicalDataVersionFixtures({ version: 3, records: [record], contents: [content], pendingItems: [] })
 
 let current = submitTechPackFirstStageReview(technicalVersionId, {
   buyerReviewerId: 'BUYER-UNBOUND',

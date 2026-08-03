@@ -1,17 +1,45 @@
-import type { FieldConfig, WorkItemTemplateConfig, WorkItemNature, WorkItemRuntimeType } from './pcs-work-item-configs/types.ts'
 import type { ChannelListingSpecLineRecord } from './pcs-channel-listing-spec-types.ts'
 import type { ChannelListingImageRecord } from './pcs-channel-listing-image-types.ts'
 import type { ProjectNodeStatus } from './pcs-project-types.ts'
 
+export type PcsProjectFieldType =
+  | 'text'
+  | 'textarea'
+  | 'number'
+  | 'select'
+  | 'multi-select'
+  | 'date'
+  | 'datetime'
+  | 'image'
+  | 'image-list'
+  | 'file'
+  | 'file-list'
+  | 'table'
+  | 'boolean'
+  | 'cascade-select'
+  | 'single-select'
+  | 'user-select'
+  | 'user-multi-select'
+  | 'team-select'
+  | 'url'
+  | 'reference'
+  | 'reference-multi'
+  | 'system'
+export type PcsProjectTaskNature = '执行类' | '决策类' | '里程碑类' | '事实类'
+export type PcsProjectTaskRuntimeType = 'execute' | 'decision' | 'milestone' | 'fact'
+
 export type PcsProjectPhaseCode = 'PHASE_01' | 'PHASE_02' | 'PHASE_03' | 'PHASE_04' | 'PHASE_05'
-export type PcsProjectTemplateId = 'TPL-001' | 'TPL-003'
-export const DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID: PcsProjectTemplateId = 'TPL-001'
-export const WANLONG_REVISION_SAMPLE_TEMPLATE_ID: PcsProjectTemplateId = 'TPL-003'
+export type ProjectFlowStageCode =
+  | 'PROJECT_ARCHIVE'
+  | 'SAMPLE_PREPARATION'
+  | 'PRE_TEST_PREPARATION'
+  | 'MARKET_TESTING'
+  | 'TEST_DECISION_CLOSURE'
 export type PcsProjectSourceType = '企划提案' | '渠道反馈' | '测款沉淀' | '历史复用' | '外部灵感'
 export type PcsSampleSourceType = '外采' | '委托打样'
 export type PcsProjectPriorityLevel = '高' | '中' | '低'
 
-export type PcsProjectWorkItemCode =
+export type ProjectStepCode =
   | 'PROJECT_INIT'
   | 'SAMPLE_ACQUIRE'
   | 'SAMPLE_INBOUND_CHECK'
@@ -25,30 +53,77 @@ export type PcsProjectWorkItemCode =
   | 'LIVE_TEST'
   | 'TEST_DATA_SUMMARY'
   | 'TEST_CONCLUSION'
-  | 'STYLE_ARCHIVE_CREATE'
-  | 'REVISION_TASK'
-  | 'PATTERN_TASK'
-  | 'PATTERN_ARTWORK_TASK'
-  | 'FIRST_SAMPLE'
-  | 'FIRST_ORDER_SAMPLE'
   | 'SAMPLE_RETURN_HANDLE'
+
+export type PcsProjectTaskCarrierMode =
+  | 'PROJECT_RECORD'
+  | 'PROJECT_NODE'
+  | 'BUSINESS_MODULE'
+  | 'DOWNSTREAM_OBJECT'
+
+export interface PcsProjectTaskCarrierDefinition {
+  taskCode: ProjectStepCode
+  carrierMode: PcsProjectTaskCarrierMode
+  carrierLabel: string
+  moduleName: string
+  allowsMultipleInlineRecords: boolean
+}
+
+const PROJECT_NODE_MULTI_RECORD_TASKS = new Set<ProjectStepCode>([
+  'SAMPLE_ACQUIRE',
+  'SAMPLE_SHOOT_FIT',
+  'SAMPLE_RETURN_HANDLE',
+])
+
+const BUSINESS_MODULE_BY_TASK: Partial<Record<ProjectStepCode, string>> = {
+  CHANNEL_PRODUCT_LISTING: '渠道店铺商品',
+  VIDEO_TEST: '短视频测款',
+  LIVE_TEST: '直播测款',
+}
+
+export function getProjectTaskCarrierDefinition(
+  taskCode: ProjectStepCode,
+): PcsProjectTaskCarrierDefinition {
+  if (taskCode === 'PROJECT_INIT') {
+    return {
+      taskCode,
+      carrierMode: 'PROJECT_RECORD',
+      carrierLabel: '项目主记录承载',
+      moduleName: '商品项目',
+      allowsMultipleInlineRecords: false,
+    }
+  }
+
+  const businessModule = BUSINESS_MODULE_BY_TASK[taskCode]
+  if (businessModule) {
+    return {
+      taskCode,
+      carrierMode: 'BUSINESS_MODULE',
+      carrierLabel: '独立业务模块承载',
+      moduleName: businessModule,
+      allowsMultipleInlineRecords: false,
+    }
+  }
+
+  return {
+    taskCode,
+    carrierMode: 'PROJECT_NODE',
+    carrierLabel: '项目步骤承载',
+    moduleName: '商品项目',
+    allowsMultipleInlineRecords: PROJECT_NODE_MULTI_RECORD_TASKS.has(taskCode),
+  }
+}
 
 export type PcsProjectRelatedInstanceTypeCode =
   | 'LIVE_TESTING'
   | 'VIDEO_TESTING'
   | 'CHANNEL_PRODUCT'
-  | 'PATTERN_TASK'
-  | 'PATTERN_ARTWORK_TASK'
-  | 'REVISION_TASK'
-  | 'FIRST_SAMPLE'
-  | 'FIRST_ORDER_SAMPLE'
   | 'STYLE_ARCHIVE'
   | 'TECH_PACK_VERSION'
   | 'PROJECT_ARCHIVE'
 
 export type PcsProjectConfigSourceKind =
   | '配置工作台'
-  | '模板管理'
   | '渠道主数据'
   | '店铺主数据'
   | '样衣供应商主数据'
@@ -69,16 +144,13 @@ export type PcsProjectConfigSourceKind =
   | '技术包版本'
   | '项目资料归档'
 
-export interface PcsProjectPhaseContract {
+export interface ProjectFlowStageContract {
+  stepCode: ProjectFlowStageCode
+  stepName: string
+  sequence: number
   phaseCode: PcsProjectPhaseCode
-  phaseName: string
-  phaseOrder: number
   description: string
-  defaultOpenFlag: boolean
-  businessScenario: string
-  whyExists: string
-  entryConditions: string[]
-  exitConditions: string[]
+  stepCodes: readonly ProjectStepCode[]
 }
 
 export interface PcsProjectCommonInstanceField {
@@ -91,7 +163,7 @@ export interface PcsProjectCommonInstanceField {
 export interface PcsProjectNodeFieldDefinition {
   fieldKey: string
   label: string
-  type: FieldConfig['type']
+  type: PcsProjectFieldType
   sourceKind: PcsProjectConfigSourceKind
   sourceRef: string
   meaning: string
@@ -157,13 +229,13 @@ export interface PcsProjectMultiInstanceDefinition {
   projectDisplayRule: string
 }
 
-export interface PcsProjectWorkItemContract {
-  workItemId: string
-  workItemTypeCode: PcsProjectWorkItemCode
-  workItemTypeName: string
+export interface PcsProjectStepDefinition {
+  stepId: string
+  stepCode: ProjectStepCode
+  stepName: string
   phaseCode: PcsProjectPhaseCode
-  workItemNature: WorkItemNature
-  runtimeType: WorkItemRuntimeType
+  stepNature: PcsProjectTaskNature
+  runtimeType: PcsProjectTaskRuntimeType
   categoryName: string
   description: string
   scenario: string
@@ -184,24 +256,6 @@ export interface PcsProjectWorkItemContract {
   downstreamChanges: string[]
   businessRules: string[]
   systemConstraints: string[]
-}
-
-export interface PcsProjectTemplatePhaseSchema {
-  phaseCode: PcsProjectPhaseCode
-  whyExists: string
-  nodeCodes: PcsProjectWorkItemCode[]
-}
-
-export interface PcsProjectTemplateSchema {
-  templateId: PcsProjectTemplateId
-  templateName: string
-  creator: string
-  createdAt: string
-  updatedAt: string
-  status: 'active' | 'inactive'
-  scenario: string
-  description: string
-  phaseSchemas: PcsProjectTemplatePhaseSchema[]
 }
 
 export interface PcsProjectConfigSourceMapping {
@@ -277,7 +331,7 @@ export interface PcsProjectChannelProductRecord {
 interface ContractFieldSeed {
   key: string
   label: string
-  type: FieldConfig['type']
+  type: PcsProjectFieldType
   sourceKind: PcsProjectConfigSourceKind
   sourceRef: string
   meaning: string
@@ -325,7 +379,7 @@ function createMultiInstanceDefinition(
 }
 
 const PCS_PROJECT_MULTI_INSTANCE_DEFINITION_MAP: Partial<
-  Record<PcsProjectWorkItemCode, PcsProjectMultiInstanceDefinition>
+  Record<ProjectStepCode, PcsProjectMultiInstanceDefinition>
 > = {
   SAMPLE_ACQUIRE: createMultiInstanceDefinition({
     semanticKind: 'PROJECT_INLINE_RECORDS',
@@ -405,71 +459,6 @@ const PCS_PROJECT_MULTI_INSTANCE_DEFINITION_MAP: Partial<
     latestInstanceRule: '只以最近生成的测款汇总快照作为 latestInstance。',
     projectDisplayRule: '节点内展示当前汇总快照，同时说明其引用的直播、短视频和渠道店铺商品事实来源。',
   }),
-  REVISION_TASK: createMultiInstanceDefinition({
-    semanticKind: 'BUSINESS_OBJECTS',
-    semanticLabel: '正式业务对象',
-    primaryInstanceTypeName: '改版任务',
-    primarySourceKinds: ['RELATION_OBJECT'],
-    primarySourceLayers: ['正式业务对象'],
-    primaryRelationObjectTypes: ['改版任务'],
-    supportingRelationObjectTypes: [],
-    granularityLabel: '一条改版任务为一条实例',
-    validInstanceCountRule: '只按正式改版任务条数统计。',
-    latestInstanceRule: '只以最近更新的改版任务作为 latestInstance。',
-    projectDisplayRule: '项目节点展示任务摘要，正式实例列表统一在改版任务模块维护。',
-  }),
-  PATTERN_TASK: createMultiInstanceDefinition({
-    semanticKind: 'BUSINESS_OBJECTS',
-    semanticLabel: '正式业务对象',
-    primaryInstanceTypeName: '制版任务',
-    primarySourceKinds: ['RELATION_OBJECT'],
-    primarySourceLayers: ['正式业务对象'],
-    primaryRelationObjectTypes: ['制版任务'],
-    supportingRelationObjectTypes: [],
-    granularityLabel: '一条制版任务为一条实例',
-    validInstanceCountRule: '只按正式制版任务条数统计。',
-    latestInstanceRule: '只以最近更新的制版任务作为 latestInstance。',
-    projectDisplayRule: '项目节点展示任务摘要，正式实例列表统一在制版任务模块维护。',
-  }),
-  PATTERN_ARTWORK_TASK: createMultiInstanceDefinition({
-    semanticKind: 'BUSINESS_OBJECTS',
-    semanticLabel: '正式业务对象',
-    primaryInstanceTypeName: '花型任务',
-    primarySourceKinds: ['RELATION_OBJECT'],
-    primarySourceLayers: ['正式业务对象'],
-    primaryRelationObjectTypes: ['花型任务'],
-    supportingRelationObjectTypes: [],
-    granularityLabel: '一条花型任务为一条实例',
-    validInstanceCountRule: '只按正式花型任务条数统计。',
-    latestInstanceRule: '只以最近更新的花型任务作为 latestInstance。',
-    projectDisplayRule: '项目节点展示任务摘要，正式实例列表统一在花型任务模块维护。',
-  }),
-  FIRST_SAMPLE: createMultiInstanceDefinition({
-    semanticKind: 'BUSINESS_OBJECTS',
-    semanticLabel: '正式业务对象',
-    primaryInstanceTypeName: '首版样衣打样任务',
-    primarySourceKinds: ['RELATION_OBJECT'],
-    primarySourceLayers: ['正式业务对象'],
-    primaryRelationObjectTypes: ['首版样衣打样任务'],
-    supportingRelationObjectTypes: ['样衣结果'],
-    granularityLabel: '一条首版样衣打样任务为一条实例',
-    validInstanceCountRule: '只按正式首版样衣打样任务条数统计。',
-    latestInstanceRule: '只以最近更新的首版样衣打样任务作为 latestInstance。',
-    projectDisplayRule: '项目节点展示任务摘要，样衣结果作为伴随对象展示。',
-  }),
-  FIRST_ORDER_SAMPLE: createMultiInstanceDefinition({
-    semanticKind: 'BUSINESS_OBJECTS',
-    semanticLabel: '正式业务对象',
-    primaryInstanceTypeName: '首单样衣打样任务',
-    primarySourceKinds: ['RELATION_OBJECT'],
-    primarySourceLayers: ['正式业务对象'],
-    primaryRelationObjectTypes: ['首单样衣打样任务'],
-    supportingRelationObjectTypes: ['样衣结果'],
-    granularityLabel: '一条首单样衣打样任务为一条实例',
-    validInstanceCountRule: '只按正式首单样衣打样任务条数统计。',
-    latestInstanceRule: '只以最近更新的首单样衣打样任务作为 latestInstance。',
-    projectDisplayRule: '项目节点展示任务摘要，样衣结果作为伴随对象展示。',
-  }),
   SAMPLE_RETURN_HANDLE: createMultiInstanceDefinition({
     semanticKind: 'PROJECT_INLINE_RECORDS',
     semanticLabel: '项目内正式记录',
@@ -485,13 +474,13 @@ const PCS_PROJECT_MULTI_INSTANCE_DEFINITION_MAP: Partial<
   }),
 }
 
-function resolveProjectWorkItemMultiInstanceDefinition(
-  contract: Pick<PcsProjectWorkItemContract, 'workItemTypeCode' | 'capabilities'>,
+function resolveProjectStepMultiInstanceDefinition(
+  contract: Pick<PcsProjectStepDefinition, 'stepCode' | 'capabilities'>,
 ): PcsProjectMultiInstanceDefinition | null {
-  const found = PCS_PROJECT_MULTI_INSTANCE_DEFINITION_MAP[contract.workItemTypeCode]
+  const found = PCS_PROJECT_MULTI_INSTANCE_DEFINITION_MAP[contract.stepCode]
   if (!contract.capabilities.canMultiInstance) return null
   if (!found) {
-    throw new Error(`多实例工作项缺少统一实例语义定义：${contract.workItemTypeCode}`)
+    throw new Error(`多实例步骤缺少统一实例语义定义：${contract.stepCode}`)
   }
   return createMultiInstanceDefinition(found)
 }
@@ -532,77 +521,6 @@ function groupFields(group: ContractFieldGroupSeed): PcsProjectNodeFieldDefiniti
   }))
 }
 
-function buildStatusOptions(definition: PcsProjectWorkItemContract): NonNullable<WorkItemTemplateConfig['statusOptions']> {
-  return definition.statusDefinitions.map((status) => ({
-    value: status.statusName,
-    label: status.statusName,
-    description: status.businessMeaning,
-  }))
-}
-
-function buildFieldGroups(definition: PcsProjectWorkItemContract): WorkItemTemplateConfig['fieldGroups'] {
-  const groups = new Map<string, WorkItemTemplateConfig['fieldGroups'][number]>()
-  definition.fieldDefinitions.forEach((field) => {
-    if (!groups.has(field.groupId)) {
-      groups.set(field.groupId, {
-        id: field.groupId,
-        title: field.groupTitle,
-        description: field.groupDescription,
-        fields: [],
-      })
-    }
-    groups.get(field.groupId)?.fields.push({
-      id: field.fieldKey,
-      label: field.label,
-      type: field.type,
-      required: field.required,
-      readonly: field.readonly,
-      placeholder: field.placeholder,
-      options: field.options,
-      conditionalRequired: field.conditionalRequired,
-      description: `来源：${field.sourceKind} / ${field.sourceRef}；含义：${field.meaning}；业务逻辑：${field.businessLogic}`,
-    })
-  })
-  return Array.from(groups.values())
-}
-
-function createWorkItemConfig(definition: PcsProjectWorkItemContract): WorkItemTemplateConfig {
-  const phase = getProjectPhaseContract(definition.phaseCode)
-  return {
-    id: definition.workItemId,
-    workItemId: definition.workItemId,
-    code: definition.workItemTypeCode,
-    workItemTypeCode: definition.workItemTypeCode,
-    name: definition.workItemTypeName,
-    workItemTypeName: definition.workItemTypeName,
-    phaseCode: definition.phaseCode,
-    defaultPhaseName: phase.phaseName,
-    type: definition.runtimeType,
-    workItemNature: definition.workItemNature,
-    stage: phase.phaseName,
-    category: definition.categoryName,
-    categoryName: definition.categoryName,
-    role: definition.roleNames.join(' / '),
-    roleCodes: [...definition.roleNames],
-    roleNames: [...definition.roleNames],
-    description: definition.description,
-    isBuiltin: true,
-    isSelectable: true,
-    isSelectableForTemplate: true,
-    enabledFlag: true,
-    capabilities: { ...definition.capabilities },
-    fieldGroups: buildFieldGroups(definition),
-    businessRules: [...definition.businessRules],
-    systemConstraints: [...definition.systemConstraints],
-    attachments: [],
-    interactionNotes: definition.operationDefinitions.map((item) => item.actionName),
-    statusOptions: buildStatusOptions(definition),
-    rollbackRules: [],
-    createdAt: CONTRACT_TIMESTAMP,
-    updatedAt: CONTRACT_TIMESTAMP,
-  }
-}
-
 const projectInitFields = [
   ...groupFields({
     id: 'project-init-basic',
@@ -624,9 +542,9 @@ const projectInitFields = [
         label: '项目类型',
         type: 'select',
         sourceKind: '系统生成',
-        sourceRef: '项目模板 -> projectType 映射',
+        sourceRef: '固定商品测款流程',
         meaning: '项目开发类型快照',
-        logic: '项目类型由所选业务模板自动映射生成，保留到主记录和 PROJECT_INIT 合同中。',
+        logic: '项目类型由固定商品测款流程生成，保留到主记录和 PROJECT_INIT 合同中。',
         required: false,
         readonly: true,
         options: [
@@ -651,16 +569,6 @@ const projectInitFields = [
           { value: '历史复用', label: '历史复用' },
           { value: '外部灵感', label: '外部灵感' },
         ],
-      },
-      {
-        key: 'templateId',
-        label: '项目模板',
-        type: 'reference',
-        sourceKind: '模板管理',
-        sourceRef: '项目模板管理',
-        meaning: '决定项目阶段和节点矩阵的模板',
-        logic: '只能选择正式模板，不允许脱离模板自由拼装。',
-        placeholder: '请选择项目模板',
       },
     ],
   }),
@@ -729,7 +637,7 @@ const projectInitFields = [
         sourceKind: '配置工作台',
         sourceRef: 'brands',
         meaning: '立项时的品牌名称快照',
-        logic: '根据所选品牌自动回写名称，供项目主记录和工作项详情共用。',
+        logic: '根据所选品牌自动回写名称，供项目主记录和步骤详情共用。',
         required: false,
         readonly: true,
       },
@@ -755,6 +663,42 @@ const projectInitFields = [
         required: false,
         readonly: true,
       },
+      {
+        key: 'styleNumber',
+        label: '款式编号',
+        type: 'text',
+        sourceKind: '本地主数据',
+        sourceRef: '商品项目创建表单',
+        meaning: '项目创建时同步建立的商品测款档案款式编号',
+        logic: '业务创建商品项目时填写；该编号同步进入唯一商品测款档案。',
+        required: false,
+        placeholder: '请输入款式编号',
+      },
+    ],
+  }),
+  ...groupFields({
+    id: 'project-init-sample-source',
+    title: '样衣前置信息',
+    description: '立项时记录已知的样衣来源，后续样衣获取继续补充和核对。',
+    fields: [
+      {
+        key: 'sampleSourceType',
+        label: '样衣来源方式',
+        type: 'select',
+        sourceKind: '固定枚举',
+        sourceRef: '样衣来源方式',
+        meaning: '本次测款样衣的来源方式',
+        logic: '立项时可先选择外采或委托打样，后续样衣获取沿用并补充。',
+        required: false,
+        options: [
+          { value: '外采', label: '外采' },
+          { value: '委托打样', label: '委托打样' },
+        ],
+      },
+      { key: 'sampleSupplierId', label: '来源方', type: 'single-select', sourceKind: '样衣供应商主数据', sourceRef: '样衣供应商主数据', meaning: '样衣供应方标识', logic: '从样衣供应商主数据中选择。', required: false },
+      { key: 'sampleSupplierName', label: '来源方名称', type: 'text', sourceKind: '样衣供应商主数据', sourceRef: '样衣供应商主数据', meaning: '立项时的样衣来源方名称快照', logic: '根据来源方自动回写名称。', required: false, readonly: true },
+      { key: 'sampleLink', label: '采购地址 / 外采链接', type: 'url', sourceKind: '本地主数据', sourceRef: '商品项目创建表单', meaning: '采购样衣地址或外采链接', logic: '立项时可先记录已知链接，样衣获取阶段继续核对。', required: false },
+      { key: 'sampleUnitPrice', label: '样衣单价', type: 'number', sourceKind: '本地主数据', sourceRef: '商品项目创建表单', meaning: '样衣采购或委托打样单价', logic: '立项时可先记录已知价格，样衣获取阶段继续核对。', required: false },
     ],
   }),
   ...groupFields({
@@ -821,7 +765,7 @@ const projectInitFields = [
         sourceKind: '配置工作台',
         sourceRef: 'styles',
         meaning: '风格标签中文名称集合',
-        logic: '风格标签名称用于工作项详情、导出和审计的可读展示。',
+        logic: '风格标签名称用于步骤详情、导出和审计的可读展示。',
         required: false,
         readonly: true,
       },
@@ -1079,7 +1023,7 @@ const sampleAcquireFields = [
         sourceKind: '固定枚举',
         sourceRef: '样衣来源方式',
         meaning: '本次样衣的来源方式',
-        logic: '样衣来源方式由业务模板锁定：国内采购样衣测款固定外采，万隆改版出样衣测款固定委托打样。',
+        logic: '样衣来源方式由项目实际业务选择：外采或委托打样。',
         options: [
           { value: '外采', label: '外采' },
           { value: '委托打样', label: '委托打样' },
@@ -1131,15 +1075,14 @@ const feasibilityFields = [
         sourceKind: '固定枚举',
         sourceRef: '初步可行性结论',
         meaning: '收到样衣后的项目推进决策',
-        logic: '进入测款代表进入商品上架和市场测款；样衣退回代表不继续测款并进入样衣退回处理；重新改版出样衣代表回到工程开发与打样管理的改版任务重新出样。',
+        logic: '进入测款代表进入商品上架和市场测款；样衣退回代表不继续测款并进入样衣退回处理。需要改款或重新打样时，应在前期打样模块独立人工创建任务。',
         options: [
           { value: '进入测款', label: '进入测款' },
           { value: '样衣退回', label: '样衣退回' },
-          { value: '重新改版出样衣', label: '重新改版出样衣' },
         ],
         required: true,
       },
-      { key: 'reviewRisk', label: '判断说明', type: 'textarea', sourceKind: '本地主数据', sourceRef: '初步可行性判断', meaning: '判断补充说明', logic: '记录进入测款、样衣退回或重新改版出样衣的业务原因。', required: false },
+      { key: 'reviewRisk', label: '判断说明', type: 'textarea', sourceKind: '本地主数据', sourceRef: '初步可行性判断', meaning: '判断补充说明', logic: '记录进入测款或样衣退回的业务原因。', required: false },
     ],
   }),
 ]
@@ -1372,7 +1315,7 @@ const channelListingFields = [
       { key: 'listingBatchStatus', label: '上架批次状态', type: 'text', sourceKind: '系统生成', sourceRef: '渠道店铺商品主档', meaning: '款式上架批次当前状态', logic: '状态包含待上传、已上传待确认、已上架待测款、已作废、已生效。', readonly: true },
       { key: 'channelProductStatus', label: '渠道店铺商品状态', type: 'text', sourceKind: '系统生成', sourceRef: '渠道店铺商品主档', meaning: '兼容渠道店铺商品当前状态', logic: '兼容旧展示时由批次状态派生。', readonly: true },
       { key: 'upstreamSyncStatus', label: '上游更新状态', type: 'text', sourceKind: '系统生成', sourceRef: '渠道店铺商品主档', meaning: '上游最终更新状态', logic: '技术包启用后才允许更新为已更新。', readonly: true },
-      { key: 'linkedStyleCode', label: '关联款式档案编码', type: 'text', sourceKind: '上游实例回写', sourceRef: '款式档案生成回写', meaning: '测款通过后关联的款式档案编码', logic: '仅在生成款式档案后回填。', readonly: true },
+      { key: 'linkedStyleCode', label: '关联商品测款档案编码', type: 'text', sourceKind: '项目主记录', sourceRef: '商品项目创建回写', meaning: '创建商品项目时同步建立的商品测款档案编码', logic: '创建项目时同步回填，后续测款过程持续使用同一档案。', readonly: true },
       { key: 'invalidatedReason', label: '作废原因', type: 'textarea', sourceKind: '上游实例回写', sourceRef: '测款结论写回', meaning: '渠道店铺商品作废原因', logic: '测款结论不是通过时回填作废原因。', readonly: true, required: false },
     ],
   }),
@@ -1456,7 +1399,7 @@ const conclusionFields = [
   ...groupFields({
     id: 'test-conclusion-main',
     title: '测款结论',
-    description: '测款结论必须明确通过、不通过或继续测试，并决定是否进入大货准备、继续测款或收尾处理。',
+    description: '测款判断必须明确通过、不通过或暂保留，并决定是否进入大货准备、稍后再判断或收尾处理。',
     fields: [
       {
         key: 'conclusion',
@@ -1465,11 +1408,11 @@ const conclusionFields = [
         sourceKind: '固定枚举',
         sourceRef: '测款结论',
         meaning: '项目继续与否的正式结论',
-        logic: '通过时进入款式档案和后续开发；不通过时转入下架/样衣处理；继续测试时返回测款执行补充数据。',
+        logic: '通过时进入后续开发；不通过时转入下架/样衣处理；暂保留时保持当前事实，稍后再判断。',
         options: [
           { value: '通过', label: '通过' },
           { value: '不通过', label: '不通过' },
-          { value: '继续测试', label: '继续测试' },
+          { value: '暂保留', label: '暂保留' },
         ],
         required: true,
       },
@@ -1486,8 +1429,8 @@ const conclusionFields = [
         { value: 'E', label: 'E' },
         { value: 'F', label: 'F' },
       ] },
-      { key: 'continueTestFlag', label: '是否继续测试', type: 'boolean', sourceKind: '系统生成', sourceRef: '测款结论', meaning: '是否需要继续测款', logic: '当结论为继续测试时应为是，并要求填写下一轮测试计划。', required: false },
-      { key: 'downShelfFlag', label: '是否下架', type: 'boolean', sourceKind: '系统生成', sourceRef: '测款结论', meaning: '当前渠道店铺商品是否需要下架或作废', logic: '结论不通过时通常需要下架；继续测试时不应自动下架。', required: false },
+      { key: 'holdDecisionFlag', label: '是否暂保留', type: 'boolean', sourceKind: '系统生成', sourceRef: '测款判断', meaning: '当前是否暂不形成最终判断', logic: '当判断为暂保留时为是，不创建或重启测款计划。', required: false },
+      { key: 'downShelfFlag', label: '是否下架', type: 'boolean', sourceKind: '系统生成', sourceRef: '测款判断', meaning: '当前渠道店铺商品是否需要下架或作废', logic: '判断不通过时通常需要下架；暂保留时不自动下架。', required: false },
       { key: 'returnDestination', label: '退回去向', type: 'single-select', sourceKind: '固定枚举', sourceRef: '测款结论.退回去向', meaning: '不通过或收尾时样衣的建议去向', logic: '为后续 SAMPLE_RETURN_HANDLE 提供默认去向。', required: false, options: [
         { value: '退回供应商', label: '退回供应商' },
         { value: '退回版房', label: '退回版房' },
@@ -1495,45 +1438,21 @@ const conclusionFields = [
         { value: '清仓处理', label: '清仓处理' },
         { value: '报废处理', label: '报废处理' },
       ] },
-      { key: 'nextTestPlan', label: '下一轮测试计划', type: 'textarea', sourceKind: '本地主数据', sourceRef: '测款结论.继续测试', meaning: '继续测试时的下一步计划', logic: '结论为继续测试时必须说明测试渠道、测试方式和期望补充的数据。', required: false, conditionalRequired: 'conclusion=继续测试' },
+      { key: 'revisitDate', label: '再次判断日期', type: 'date', sourceKind: '本地主数据', sourceRef: '测款判断.暂保留', meaning: '暂保留后再次判断的约定日期', logic: '用于提醒过些天重新判断，不代表创建下一轮测款计划。', required: false, conditionalRequired: 'conclusion=暂保留' },
       { key: 'conclusionNote', label: '结论说明', type: 'textarea', sourceKind: '本地主数据', sourceRef: '测款结论', meaning: '测款结论说明', logic: '必须补充结论说明，供后续节点和回写使用。' },
       { key: 'linkedChannelProductCode', label: '来源渠道店铺商品编码', type: 'text', sourceKind: '项目来源', sourceRef: '商品上架实例', meaning: '当前测款结论对应的渠道店铺商品编码', logic: '从商品上架节点回读，只读。', readonly: true },
-      { key: 'invalidationPlanned', label: '是否计划作废', type: 'text', sourceKind: '系统生成', sourceRef: '测款结论计算', meaning: '结论是否触发渠道店铺商品作废', logic: '当结论为不通过时系统计算为 true；继续测试不直接作废。', readonly: true },
+      { key: 'invalidationPlanned', label: '是否计划作废', type: 'text', sourceKind: '系统生成', sourceRef: '测款判断计算', meaning: '判断是否触发渠道店铺商品作废', logic: '当判断为不通过时系统计算为 true；暂保留不直接作废。', readonly: true },
     ],
   }),
   ...groupFields({
     id: 'test-conclusion-effects',
     title: '结论后果',
-    description: '正式承接测款结论对渠道店铺商品、款式档案和下一工作项的影响。',
+    description: '正式承接测款结论对渠道店铺商品、款式档案和下一步骤的影响。',
     fields: [
-      { key: 'linkedStyleId', label: '关联款式档案ID', type: 'text', sourceKind: '上游实例回写', sourceRef: '款式档案关联回写', meaning: '测款通过后关联的款式档案ID', logic: '通过分支如已建立款式档案关系则回写 styleId，只读。', readonly: true, required: false },
-      { key: 'linkedStyleCode', label: '关联款式档案编码', type: 'text', sourceKind: '上游实例回写', sourceRef: '款式档案关联回写', meaning: '测款通过后关联的款式档案编码', logic: '通过分支如已建立款式档案关系则回写 styleCode，只读。', readonly: true, required: false },
+      { key: 'linkedStyleId', label: '关联商品测款档案ID', type: 'text', sourceKind: '项目主记录', sourceRef: '商品项目创建回写', meaning: '项目创建时建立的商品测款档案ID', logic: '读取项目已关联的唯一商品测款档案，只读。', readonly: true, required: false },
+      { key: 'linkedStyleCode', label: '关联商品测款档案编码', type: 'text', sourceKind: '项目主记录', sourceRef: '商品项目创建回写', meaning: '项目创建时建立的商品测款档案编码', logic: '读取项目已关联的唯一商品测款档案，只读。', readonly: true, required: false },
       { key: 'invalidatedChannelProductId', label: '作废渠道店铺商品ID', type: 'text', sourceKind: '上游实例回写', sourceRef: '渠道店铺商品作废回写', meaning: '本次测款结论直接作废的渠道店铺商品ID', logic: '当结论不是通过时，系统回写本次主作废渠道店铺商品ID，只读。', readonly: true, required: false },
-      { key: 'nextActionType', label: '后续动作类型', type: 'text', sourceKind: '系统生成', sourceRef: '测款结论分支流转', meaning: '本次测款结论后的下一步主动作', logic: '系统按结论自动计算，例如生成款式档案、返回测款执行或样衣退回处理，只读。', readonly: true },
-    ],
-  }),
-]
-
-const styleArchiveFields = [
-  ...groupFields({
-    id: 'style-archive-main',
-    title: '款式档案生成',
-    description: '测款通过后生成技术包待完善的款式档案壳，并确认档案主图和图册。',
-    fields: [
-      { key: 'styleId', label: '款式档案 ID', type: 'text', sourceKind: '系统生成', sourceRef: '款式档案仓储', meaning: '生成的款式档案主键', logic: '生成款式档案成功后系统回写。', readonly: true },
-      { key: 'styleCode', label: '款式档案编码', type: 'text', sourceKind: '系统生成', sourceRef: '款式档案仓储', meaning: '生成的款式档案编码', logic: '生成款式档案成功后系统回写。', readonly: true },
-      { key: 'styleName', label: '款式档案名称', type: 'text', sourceKind: '系统生成', sourceRef: '款式档案仓储', meaning: '生成的款式档案名称', logic: '默认继承项目名称，可由款式档案主记录维护。', readonly: true },
-      { key: 'archiveStatus', label: '档案状态', type: 'text', sourceKind: '系统生成', sourceRef: '款式档案仓储', meaning: '款式档案状态', logic: '创建成功后为技术包待完善，不会直接变为可生产。', readonly: true },
-      { key: 'styleMainImageId', label: '档案主图', type: 'image-list', sourceKind: '项目图片结果池', sourceRef: '商品上架图片 / 样衣拍摄图片 / 项目参考图 / 档案补充图', meaning: '本次生成款式档案确认的主图图片结果 ID', logic: '生成款式档案前必须先选择主图，主图来自项目图片结果池或当前节点补充上传图片。', required: true },
-      { key: 'styleGalleryImageIds', label: '档案图册', type: 'image-list', sourceKind: '项目图片结果池', sourceRef: '商品上架图片 / 样衣拍摄图片 / 项目参考图 / 档案补充图', meaning: '本次生成款式档案确认的图册图片结果 ID 集合', logic: '图册可为空；如果只选择主图，图册默认包含主图。', required: false },
-      { key: 'styleImageSource', label: '图片来源', type: 'text', sourceKind: '系统汇总', sourceRef: '项目图片结果池', meaning: '本次款式档案图片来源汇总', logic: '由系统根据所选图片来源自动生成，并在生成款式档案后回写。', required: true, readonly: true },
-      { key: 'styleImageConfirmedAt', label: '图片确认时间', type: 'datetime', sourceKind: '系统生成', sourceRef: '项目图片结果池 / 款式档案仓储', meaning: '档案图片确认时间', logic: '生成款式档案时由系统回写。', required: false, readonly: true },
-      { key: 'styleImageConfirmedBy', label: '图片确认人', type: 'text', sourceKind: '系统生成', sourceRef: '项目图片结果池 / 款式档案仓储', meaning: '档案图片确认人', logic: '生成款式档案时由系统回写。', required: false, readonly: true },
-      { key: 'linkedChannelProductCode', label: '来源渠道店铺商品编码', type: 'text', sourceKind: '项目来源', sourceRef: '商品上架实例', meaning: '来源渠道店铺商品编码', logic: '测款通过的渠道店铺商品编码，只读回带。', readonly: true },
-      { key: 'upstreamChannelProductCode', label: '来源上游渠道商品编码', type: 'text', sourceKind: '项目来源', sourceRef: '商品上架实例', meaning: '来源上游渠道商品编码', logic: '测款通过的上游渠道商品编码，只读回带。', readonly: true },
-      { key: 'currentTechnicalVersionId', label: '当前技术包版本', type: 'text', sourceKind: '技术包版本', sourceRef: '技术包版本.currentTechnicalVersionId', meaning: '款式档案当前生效技术包版本', logic: '由技术包启用链路回写，用于项目资料归档收口。', readonly: true, required: false },
-      { key: 'linkedPatternAssetIds', label: '关联花型库结果', type: 'reference-multi', sourceKind: '花型库', sourceRef: '技术包版本.linkedPatternAssetIds', meaning: '当前技术包引用的花型库结果', logic: '由花型任务写入技术包或花型库沉淀链路回写。', readonly: true, required: false },
-      { key: 'projectArchiveStatus', label: '项目资料归档状态', type: 'text', sourceKind: '项目资料归档', sourceRef: '项目资料归档正式对象.archiveStatus', meaning: '当前项目资料归档收口状态', logic: '由项目资料归档同步器采集技术包、花型库、样衣链路后回写。', readonly: true, required: false },
+      { key: 'nextActionType', label: '后续动作类型', type: 'text', sourceKind: '系统生成', sourceRef: '测款结论分支流转', meaning: '本次测款结论后的下一步主动作', logic: '系统按结论自动计算，例如进入后续开发、返回测款执行或样衣退回处理，只读。', readonly: true },
     ],
   }),
 ]
@@ -1977,61 +1896,53 @@ const returnHandleFields = [
 	  }),
 	]
 
-export const PCS_PROJECT_PHASE_CONTRACTS: PcsProjectPhaseContract[] = [
+export const PROJECT_FLOW_STAGE_CONTRACTS: readonly ProjectFlowStageContract[] = [
   {
+    stepCode: 'PROJECT_ARCHIVE',
+    stepName: '项目与档案建立',
+    sequence: 1,
     phaseCode: 'PHASE_01',
-    phaseName: '立项与样衣获取',
-    phaseOrder: 1,
-    description: '完成商品项目立项并明确样衣来源。',
-    defaultOpenFlag: true,
-    businessScenario: '完成项目立项并确认样衣来源，为后续采购样衣核对或改版任务出样提供正式输入。',
-    whyExists: '项目必须先完成立项并明确样衣来源，后续改版任务、样衣核对和测款才有真实输入。',
-    entryConditions: ['创建商品项目并选定正式模板。'],
-    exitConditions: ['样衣来源已登记；若是国内采购样衣，采购来源信息已记录；若是万隆改版样衣，来源已确认为改版任务出样。'],
+    description: '建立商品项目及处于商品测款状态的商品／款式档案。',
+    stepCodes: ['PROJECT_INIT'],
   },
   {
+    stepCode: 'SAMPLE_PREPARATION',
+    stepName: '样衣准备',
+    sequence: 2,
     phaseCode: 'PHASE_02',
-    phaseName: '样衣形成与商品准备',
-    phaseOrder: 2,
-    description: '承接采购样衣到样核对、改版任务出样和商品上架准备。',
-    defaultOpenFlag: true,
-    businessScenario: '两类项目都在本阶段完成样衣结果核对、初步可行性判断和商品上架准备；万隆改版样衣还需要先创建改版任务并产出样衣。',
-    whyExists: '测款前必须确认样衣真实存在，并通过初步可行性判断决定进入测款后，再完成渠道店铺商品准备。',
-    entryConditions: ['PHASE_01 已完成，样衣来源已确认。'],
-    exitConditions: ['样衣已完成结果核对；初步可行性判断已明确进入测款；渠道店铺商品已准备进入测款。'],
+    description: '完成样衣来源、工程出样、到样核对等样衣准备工作。',
+    stepCodes: ['SAMPLE_ACQUIRE', 'SAMPLE_INBOUND_CHECK'],
   },
   {
+    stepCode: 'PRE_TEST_PREPARATION',
+    stepName: '测款前准备',
+    sequence: 3,
     phaseCode: 'PHASE_03',
-    phaseName: '市场测款与结论',
-    phaseOrder: 3,
-    description: '执行直播测款和可选短视频测款，汇总数据并形成测款结论。',
-    defaultOpenFlag: true,
-    businessScenario: '结合直播测款和短视频测款事实形成订单、曝光、CTR、价格、测试标签等汇总，并产出通过、不通过或继续测试的正式结论。',
-    whyExists: '测款总归要有结果，否则无法决定能不能做大货、是否继续测试或是否下架处理。',
-    entryConditions: ['初步可行性判断已明确进入测款；渠道店铺商品已准备好或已上架。'],
-    exitConditions: ['测款数据已汇总；测款结论已产出。'],
+    description: '完成可行性、拍摄试穿、样衣确认、核价定价和渠道商品准备。',
+    stepCodes: [
+      'FEASIBILITY_REVIEW',
+      'SAMPLE_SHOOT_FIT',
+      'SAMPLE_CONFIRM',
+      'SAMPLE_COST_REVIEW',
+      'SAMPLE_PRICING',
+      'CHANNEL_PRODUCT_LISTING',
+    ],
   },
   {
+    stepCode: 'MARKET_TESTING',
+    stepName: '市场测款',
+    sequence: 4,
     phaseCode: 'PHASE_04',
-    phaseName: '款式档案与开发推进',
-    phaseOrder: 4,
-    description: '围绕款式档案、技术包、项目资料归档和开发任务推进。',
-    defaultOpenFlag: true,
-    businessScenario: '测款通过后生成款式档案壳，并继续推进技术包、归档、制版、花型和样衣开发。',
-    whyExists: '测款通过后必须生成款式档案，并围绕技术包、归档、制版、花型和样衣推进正式开发。',
-    entryConditions: ['PHASE_03 已给出通过的测款结论。'],
-    exitConditions: ['款式档案已建立；技术包与项目资料归档进入正式推进状态。'],
+    description: '执行直播或短视频测款，并汇总测款事实。',
+    stepCodes: ['LIVE_TEST', 'VIDEO_TEST', 'TEST_DATA_SUMMARY'],
   },
   {
+    stepCode: 'TEST_DECISION_CLOSURE',
+    stepName: '测款判断与收尾',
+    sequence: 5,
     phaseCode: 'PHASE_05',
-    phaseName: '项目收尾',
-    phaseOrder: 5,
-    description: '完成样衣退回处理和项目收尾资料确认。',
-    defaultOpenFlag: false,
-    businessScenario: '对项目样衣和收尾资料做最终处理，明确退回或处置结果。',
-    whyExists: '项目结束时需要明确样衣去向和收尾结果，保证项目闭环。',
-    entryConditions: ['款式档案与开发推进阶段的正式任务已完成或已明确停止。'],
-    exitConditions: ['样衣退回处理已形成正式结论。'],
+    description: '形成测款判断，完成样衣退回或处置后结束项目。',
+    stepCodes: ['TEST_CONCLUSION', 'SAMPLE_RETURN_HANDLE'],
   },
 ]
 
@@ -2042,8 +1953,8 @@ export const PCS_PROJECT_COMMON_INSTANCE_FIELDS: PcsProjectCommonInstanceField[]
   { fieldKey: 'projectCode', label: '商品项目编码', source: '来源项目', meaning: '所属商品项目编码' },
   { fieldKey: 'projectName', label: '商品项目名称', source: '来源项目', meaning: '所属商品项目名称' },
   { fieldKey: 'projectNodeId', label: '所属项目节点 ID', source: '来源项目节点', meaning: '所属项目节点 ID' },
-  { fieldKey: 'workItemTypeCode', label: '工作项类型编码', source: '来源节点定义', meaning: '节点定义编码' },
-  { fieldKey: 'workItemTypeName', label: '工作项名称', source: '来源节点定义', meaning: '节点定义名称' },
+  { fieldKey: 'stepCode', label: '步骤编码', source: '来源节点定义', meaning: '节点定义编码' },
+  { fieldKey: 'stepName', label: '步骤名称', source: '来源节点定义', meaning: '节点定义名称' },
   { fieldKey: 'ownerId', label: '责任人 ID', source: '节点创建操作或来源对象', meaning: '实例责任人 ID' },
   { fieldKey: 'ownerName', label: '责任人', source: '节点创建操作或来源对象', meaning: '实例责任人名称' },
   { fieldKey: 'status', label: '实例状态', source: '实例状态机', meaning: '实例当前状态' },
@@ -2057,17 +1968,17 @@ export const PCS_PROJECT_COMMON_INSTANCE_FIELDS: PcsProjectCommonInstanceField[]
   { fieldKey: 'note', label: '备注', source: '用户录入', meaning: '实例备注' },
 ]
 
-export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
+export const PCS_PROJECT_STEP_DEFINITIONS: PcsProjectStepDefinition[] = [
   {
-    workItemId: 'WI-001',
-    workItemTypeCode: 'PROJECT_INIT',
-    workItemTypeName: '商品项目立项',
+    stepId: 'PROJECT_INIT',
+    stepCode: 'PROJECT_INIT',
+    stepName: '商品项目立项',
     phaseCode: 'PHASE_01',
-    workItemNature: '里程碑类',
+    stepNature: '里程碑类',
     runtimeType: 'milestone',
     categoryName: '项目立项',
     description: '新建商品项目，完整承接创建草稿并生成正式项目主记录。',
-    scenario: '项目的唯一入口，承接模板、品类、品牌、风格、人群、渠道意图、样衣前置信息和组织协作字段。',
+    scenario: '项目的唯一入口，承接品类、品牌、风格、人群、渠道意图、样衣前置信息和组织协作字段。',
     keepReason: '商品项目必须从正式立项进入，不能从后续节点倒推生成。',
     roleNames: ['项目负责人', '商品负责人'],
     capabilities: { canReuse: false, canMultiInstance: false, canRollback: false, canParallel: false },
@@ -2076,9 +1987,9 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
       {
         actionKey: 'create-project',
         actionName: '创建项目',
-        preconditions: ['项目名称、模板、项目来源类型、品类、品牌、目标渠道、负责人、执行团队、优先级完整'],
-        effects: ['生成项目主记录', '生成阶段记录', '生成节点记录', '商品项目立项节点进入进行中'],
-        writebackRules: ['项目主记录写入模板版本', '项目阶段与项目节点全部基于正式模板矩阵生成'],
+        preconditions: ['项目名称、项目来源类型、品类、品牌、目标渠道、负责人、执行团队、优先级完整'],
+        effects: ['生成项目主记录', '同步建立唯一商品测款档案', '生成阶段记录', '生成节点记录', '商品项目立项节点进入进行中'],
+        writebackRules: ['项目主记录写入固定流程版本', '商品测款档案与项目建立唯一关联', '项目步骤与详细任务全部基于固定五步契约生成'],
       },
       {
         actionKey: 'complete-project-init',
@@ -2104,15 +2015,15 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     ],
     upstreamChanges: ['无上游实例，项目立项是唯一入口。'],
     downstreamChanges: ['生成项目主记录', '完成商品项目立项后解锁样衣获取节点'],
-    businessRules: ['项目模板必须来自正式模板管理', '配置工作台字段统一从正式 adapter 读取', 'PROJECT_INIT 字段集合必须与项目创建草稿和项目主记录保持一致'],
+    businessRules: ['商品项目统一使用固定五步流程', '配置工作台字段统一从正式 adapter 读取', 'PROJECT_INIT 字段集合必须与项目创建草稿和项目主记录保持一致'],
     systemConstraints: ['不允许绕过项目立项直接创建后续节点实例'],
   },
   {
-    workItemId: 'WI-002',
-    workItemTypeCode: 'SAMPLE_ACQUIRE',
-    workItemTypeName: '样衣获取',
+    stepId: 'SAMPLE_ACQUIRE',
+    stepCode: 'SAMPLE_ACQUIRE',
+    stepName: '样衣获取',
     phaseCode: 'PHASE_01',
-    workItemNature: '执行类',
+    stepNature: '执行类',
     runtimeType: 'execute',
     categoryName: '样衣准备',
     description: '为样衣评估阶段准备样衣来源。',
@@ -2139,14 +2050,14 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     upstreamChanges: ['继承商品项目主记录。'],
     downstreamChanges: ['为样衣结果核对提供来源上下文'],
     businessRules: ['国内采购样衣测款项目来源方式固定为外采；万隆改版出样衣测款项目来源方式固定为委托打样', '外采场景必须补齐外采链接或样衣单价之一'],
-    systemConstraints: ['来源方式由项目模板锁定，不允许在样衣获取节点自由切换来源类型'],
+    systemConstraints: ['样衣来源方式只允许选择外采或委托打样'],
   },
   {
-    workItemId: 'WI-003',
-    workItemTypeCode: 'SAMPLE_INBOUND_CHECK',
-    workItemTypeName: '样衣结果核对',
+    stepId: 'SAMPLE_INBOUND_CHECK',
+    stepCode: 'SAMPLE_INBOUND_CHECK',
+    stepName: '样衣结果核对',
     phaseCode: 'PHASE_02',
-    workItemNature: '执行类',
+    stepNature: '执行类',
     runtimeType: 'execute',
     categoryName: '样衣准备',
     description: '样衣真正到位后登记实收明细，并生成样衣管理可追踪的样衣编号。',
@@ -2176,16 +2087,16 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     systemConstraints: ['样衣未到位前不能进入初步可行性判断'],
   },
   {
-    workItemId: 'WI-004',
-    workItemTypeCode: 'FEASIBILITY_REVIEW',
-    workItemTypeName: '初步可行性判断',
+    stepId: 'FEASIBILITY_REVIEW',
+    stepCode: 'FEASIBILITY_REVIEW',
+    stepName: '初步可行性判断',
     phaseCode: 'PHASE_02',
-    workItemNature: '决策类',
+    stepNature: '决策类',
     runtimeType: 'decision',
     categoryName: '样衣评估',
-    description: '样衣已到位后，判断是进入测款、样衣退回，还是重新改版出新的样衣。',
+    description: '样衣已到位后，判断是进入测款还是样衣退回。',
     scenario: '样衣评估第一道业务关口，决定收到样衣后的项目走向。',
-    keepReason: '没有初步可行性判断，商品上架、样衣退回或重新改版就缺少明确决策依据。',
+    keepReason: '没有初步可行性判断，商品上架或样衣退回就缺少明确决策依据。',
     roleNames: ['商品负责人', '项目负责人'],
     capabilities: { canReuse: false, canMultiInstance: false, canRollback: true, canParallel: false },
     fieldDefinitions: feasibilityFields,
@@ -2195,7 +2106,7 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
         actionName: '提交可行性结论',
         preconditions: ['样衣已完成样衣结果核对'],
         effects: ['记录初步可行性结论', '记录判断说明', '按结论进入对应后续节点'],
-        writebackRules: ['进入测款时解锁商品上架', '样衣退回时进入样衣退回处理', '重新改版出样衣时回到改版任务'],
+        writebackRules: ['进入测款时解锁商品上架', '样衣退回时进入样衣退回处理'],
       },
     ],
     statusDefinitions: [
@@ -2205,16 +2116,16 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
       { statusName: '已取消', entryConditions: ['项目关闭或节点取消'], exitConditions: ['无'], businessMeaning: '该次判断已取消。' },
     ],
     upstreamChanges: ['读取样衣结果核对结果。'],
-    downstreamChanges: ['为商品上架、样衣退回处理或重新改版出样衣提供前置判断'],
-    businessRules: ['结论必须明确为进入测款、样衣退回或重新改版出样衣'],
+    downstreamChanges: ['为商品上架或样衣退回处理提供前置判断'],
+    businessRules: ['结论必须明确为进入测款或样衣退回', '需要改款或重新打样时，由前期打样模块独立人工创建任务'],
     systemConstraints: ['样衣未到位不能提交可行性结论'],
   },
   {
-    workItemId: 'WI-005',
-    workItemTypeCode: 'SAMPLE_SHOOT_FIT',
-    workItemTypeName: '样衣拍摄与试穿',
+    stepId: 'SAMPLE_SHOOT_FIT',
+    stepCode: 'SAMPLE_SHOOT_FIT',
+    stepName: '样衣拍摄与试穿',
     phaseCode: 'PHASE_02',
-    workItemNature: '执行类',
+    stepNature: '执行类',
     runtimeType: 'execute',
     categoryName: '样衣评估',
     description: '为样衣确认和内容测款准备上身、拍摄素材。',
@@ -2244,11 +2155,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     systemConstraints: ['允许多次执行，用于补拍或二次试穿'],
   },
   {
-    workItemId: 'WI-006',
-    workItemTypeCode: 'SAMPLE_CONFIRM',
-    workItemTypeName: '样衣确认',
+    stepId: 'SAMPLE_CONFIRM',
+    stepCode: 'SAMPLE_CONFIRM',
+    stepName: '样衣确认',
     phaseCode: 'PHASE_02',
-    workItemNature: '决策类',
+    stepNature: '决策类',
     runtimeType: 'decision',
     categoryName: '样衣评估',
     description: '正式确认样衣是否可进入市场测款。',
@@ -2278,11 +2189,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     systemConstraints: ['样衣未确认通过，不允许进入商品上架和测款'],
   },
   {
-    workItemId: 'WI-007',
-    workItemTypeCode: 'SAMPLE_COST_REVIEW',
-    workItemTypeName: '样衣核价',
+    stepId: 'SAMPLE_COST_REVIEW',
+    stepCode: 'SAMPLE_COST_REVIEW',
+    stepName: '样衣核价',
     phaseCode: 'PHASE_02',
-    workItemNature: '执行类',
+    stepNature: '执行类',
     runtimeType: 'execute',
     categoryName: '样衣评估',
     description: '承接商品核价功能，记录样衣成本明细、总成本、销售价格和毛利率。',
@@ -2312,11 +2223,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     systemConstraints: ['核价未完成或缺少 salesPrice 时不允许创建渠道店铺商品'],
   },
   {
-    workItemId: 'WI-008',
-    workItemTypeCode: 'SAMPLE_PRICING',
-    workItemTypeName: '样衣定价',
+    stepId: 'SAMPLE_PRICING',
+    stepCode: 'SAMPLE_PRICING',
+    stepName: '样衣定价',
     phaseCode: 'PHASE_02',
-    workItemNature: '决策类',
+    stepNature: '决策类',
     runtimeType: 'decision',
     categoryName: '样衣评估',
     description: '给测款渠道提供初始售价。',
@@ -2346,11 +2257,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     systemConstraints: ['定价未完成时不允许发起商品上架'],
   },
   {
-    workItemId: 'WI-009',
-    workItemTypeCode: 'CHANNEL_PRODUCT_LISTING',
-    workItemTypeName: '商品上架',
+    stepId: 'CHANNEL_PRODUCT_LISTING',
+    stepCode: 'CHANNEL_PRODUCT_LISTING',
+    stepName: '商品上架',
     phaseCode: 'PHASE_02',
-    workItemNature: '执行类',
+    stepNature: '执行类',
     runtimeType: 'execute',
     categoryName: '商品准备',
     description: '在测款前按渠道 / 店铺 / 款式批次 / 规格明细粒度生成多个款式上架批次，并完成上游渠道款式上传。',
@@ -2378,8 +2289,8 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
         actionKey: 'complete-listing',
         actionName: '标记商品上架完成',
         preconditions: ['当前批次已上传待确认', 'upstreamProductId 已回填', '每条规格明细都已回填 upstreamSkuId'],
-        effects: ['listingBatchStatus=已完成', 'channelProductStatus=已上架待测款', '商品上架节点 currentStatus=已完成', '项目进入模板中的下一个工作项'],
-        writebackRules: ['标记完成后才允许直播和短视频建立正式测款关系', '节点完成后必须按模板顺序推进，不得写死后续节点'],
+        effects: ['listingBatchStatus=已完成', 'channelProductStatus=已上架待测款', '商品上架节点 currentStatus=已完成', '项目进入固定流程中的下一项任务'],
+        writebackRules: ['标记完成后才允许直播和短视频建立正式测款关系', '节点完成后必须按固定流程顺序推进'],
       },
     ],
     statusDefinitions: CHANNEL_LISTING_NODE_STATUS_DEFINITIONS,
@@ -2388,19 +2299,19 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
       { statusName: '已上传待确认', entryConditions: ['上游渠道已生成款式商品编号且规格已回填'], exitConditions: ['标记商品上架完成或作废'], businessMeaning: '款式已上传到上游渠道，等待项目内人工确认并完成节点。' },
       { statusName: '已上架待测款', entryConditions: ['上游渠道已有商品'], exitConditions: ['测款通过生效或测款失败作废'], businessMeaning: '上游渠道已有商品，可被直播和短视频测款引用。' },
       { statusName: '已作废', entryConditions: ['测款结论不是通过'], exitConditions: ['无'], businessMeaning: '测款不通过，当前渠道店铺商品失效。' },
-      { statusName: '已生效', entryConditions: ['测款通过且已关联款式档案'], exitConditions: ['无'], businessMeaning: '测款通过且已关联款式档案，但上游最终更新是否完成要看 upstreamSyncStatus。' },
+      { statusName: '已生效', entryConditions: ['渠道店铺商品已确认生效'], exitConditions: ['无'], businessMeaning: '渠道店铺商品已生效；项目关联的商品测款档案在项目创建时已经存在。' },
     ],
     upstreamChanges: ['继承样衣确认、样衣核价销售价格和项目目标渠道池。'],
-    downstreamChanges: ['为直播测款和短视频测款提供正式款式上架批次引用', '测款通过后回写款式档案三码关联', '技术包启用后回写上游最终更新'],
+    downstreamChanges: ['为直播测款和短视频测款提供正式款式上架批次引用', '持续关联项目创建时建立的商品测款档案', '技术包启用后回写上游最终更新'],
     businessRules: ['商品上架默认售价和规格售价必须等于样衣核价销售价格', '直播测款和短视频测款必须引用已完成商品上架的款式上架批次', '一个项目可并行创建多个款式上架批次', '同一渠道可在多个店铺分别创建批次', '同一项目下同一渠道同一店铺只允许保留 1 条有效上架批次', '测款失败当前渠道店铺商品必须作废', '技术包启用后必须更新上游渠道商品'],
     systemConstraints: ['不允许再使用 CHANNEL_PRODUCT_PREP 旧编码', '不允许保留旧的渠道商品准备语义', '单批次只允许对应一个渠道、一个店铺和一组规格明细'],
   },
   {
-    workItemId: 'WI-010',
-    workItemTypeCode: 'VIDEO_TEST',
-    workItemTypeName: '短视频测款',
+    stepId: 'VIDEO_TEST',
+    stepCode: 'VIDEO_TEST',
+    stepName: '短视频测款',
     phaseCode: 'PHASE_03',
-    workItemNature: '事实类',
+    stepNature: '事实类',
     runtimeType: 'fact',
     categoryName: '市场测款',
     description: '通过短视频内容验证是否有流量和转化潜力。',
@@ -2430,11 +2341,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     systemConstraints: ['不允许存在未绑定项目的短视频测款记录', '同一条短视频测款记录只允许回写一个商品项目', '列表不展示发布时间缺失或核心指标为 0 的异常演示数据'],
   },
   {
-    workItemId: 'WI-011',
-    workItemTypeCode: 'LIVE_TEST',
-    workItemTypeName: '直播测款',
+    stepId: 'LIVE_TEST',
+    stepCode: 'LIVE_TEST',
+    stepName: '直播测款',
     phaseCode: 'PHASE_03',
-    workItemNature: '事实类',
+    stepNature: '事实类',
     runtimeType: 'fact',
     categoryName: '市场测款',
     description: '通过直播测款记录真实成交。',
@@ -2464,11 +2375,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     systemConstraints: ['不允许存在未绑定项目的直播测款记录', '同一条直播测款记录只允许回写一个商品项目', '列表不展示下播时间缺失或核心指标为 0 的异常演示数据'],
   },
   {
-    workItemId: 'WI-012',
-    workItemTypeCode: 'TEST_DATA_SUMMARY',
-    workItemTypeName: '测款数据汇总',
+    stepId: 'TEST_DATA_SUMMARY',
+    stepCode: 'TEST_DATA_SUMMARY',
+    stepName: '测款数据汇总',
     phaseCode: 'PHASE_03',
-    workItemNature: '事实类',
+    stepNature: '事实类',
     runtimeType: 'fact',
     categoryName: '市场测款',
     description: '将直播、短视频事实汇总为正式分析口径。',
@@ -2498,16 +2409,16 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     systemConstraints: ['聚合指标只读，不允许手工改写', '渠道、店铺、渠道店铺商品、测款来源和币种拆分全部由系统自动生成'],
   },
   {
-    workItemId: 'WI-013',
-    workItemTypeCode: 'TEST_CONCLUSION',
-    workItemTypeName: '测款结论判定',
+    stepId: 'TEST_CONCLUSION',
+    stepCode: 'TEST_CONCLUSION',
+    stepName: '测款结论判定',
     phaseCode: 'PHASE_03',
-    workItemNature: '决策类',
+    stepNature: '决策类',
     runtimeType: 'decision',
     categoryName: '市场测款',
     description: '决定项目是否继续推进，或转入样衣退回处理。',
-    scenario: '测款结论是项目是否生成款式档案和如何处理渠道店铺商品的总开关。',
-    keepReason: '没有正式测款结论，项目无法进入款式档案和开发推进链路。',
+    scenario: '测款结论是项目是否进入后续开发以及如何处理渠道店铺商品的总开关。',
+    keepReason: '没有正式测款结论，项目无法确定后续开发方向和渠道店铺商品处理方式。',
     roleNames: ['项目负责人', '商品负责人'],
     capabilities: { canReuse: false, canMultiInstance: false, canRollback: true, canParallel: false },
     fieldDefinitions: conclusionFields,
@@ -2516,8 +2427,8 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
         actionKey: 'submit-test-conclusion',
         actionName: '提交测款结论',
         preconditions: ['测款数据汇总已完成'],
-        effects: ['记录结论', '通过时解锁款式档案与后续开发', '不通过时下架或作废当前渠道店铺商品并转入样衣处理', '继续测试时返回测款执行补充数据', '正式回写款式档案、渠道店铺商品与后续动作字段'],
-        writebackRules: ['通过：进入款式档案创建，并回写 linkedStyleId、linkedStyleCode、nextActionType', '不通过：作废或下架当前渠道店铺商品，取消中间未完成节点，并回写 invalidatedChannelProductId、nextActionType=样衣退回处理', '继续测试：保留渠道店铺商品，回到直播测款或短视频测款补充测试记录，并回写 nextActionType=继续测试'],
+        effects: ['记录判断', '通过时进入后续开发', '不通过时下架或作废当前渠道店铺商品并转入样衣处理', '暂保留时保持当前事实并等待稍后再判断', '回写商品测款档案状态、渠道店铺商品与后续动作字段'],
+        writebackRules: ['通过：回写 linkedStyleId、linkedStyleCode、nextActionType', '不通过：作废或下架当前渠道店铺商品，取消中间未完成节点，并回写 invalidatedChannelProductId、nextActionType=样衣退回处理', '暂保留：保留渠道店铺商品和已完成测款事实，不创建或重启测款节点，回写 nextActionType=稍后再判断'],
       },
     ],
     statusDefinitions: [
@@ -2527,243 +2438,16 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
       { statusName: '已取消', entryConditions: ['节点取消'], exitConditions: ['无'], businessMeaning: '测款结论不再继续。' },
     ],
     upstreamChanges: ['读取测款数据汇总和商品上架实例。'],
-    downstreamChanges: ['通过时解锁款式档案创建', '不通过时回写渠道店铺商品作废或下架并转入样衣退回处理', '继续测试时回到测款执行补充数据'],
-    businessRules: ['结论必须明确为通过、不通过或继续测试', '测款结论正式记录必须承接款式档案、渠道店铺商品作废或继续测试和样衣退回处理等真实结果'],
-    systemConstraints: ['结论不通过时，当前渠道店铺商品必须作废或下架', '结论为继续测试时不得自动作废当前渠道店铺商品', 'nextActionType 以及各类后果字段均由系统按分支自动生成，不允许手工篡改'],
+    downstreamChanges: ['通过时进入后续开发', '不通过时回写渠道店铺商品作废或下架并转入样衣退回处理', '暂保留时等待稍后再判断且不重启测款'],
+    businessRules: ['判断必须明确为通过、不通过或暂保留', '测款判断正式记录必须承接款式档案、渠道店铺商品保留或作废和样衣退回处理等真实结果'],
+    systemConstraints: ['判断不通过时，当前渠道店铺商品必须作废或下架', '判断为暂保留时不得创建或重新激活直播、短视频测款节点', 'nextActionType 以及各类后果字段均由系统按分支自动生成，不允许手工篡改'],
   },
   {
-    workItemId: 'WI-014',
-    workItemTypeCode: 'STYLE_ARCHIVE_CREATE',
-    workItemTypeName: '生成款式档案',
-    phaseCode: 'PHASE_04',
-    workItemNature: '里程碑类',
-    runtimeType: 'milestone',
-    categoryName: '款式档案与转档',
-    description: '只有测款通过后，才有资格创建款式档案。',
-    scenario: '测款通过后生成技术包待完善的款式档案壳，并把渠道店铺商品正式生效。',
-    keepReason: '款式档案是技术包、项目资料归档和后续开发的唯一正式承接对象。',
-    roleNames: ['档案管理员', '商品负责人'],
-    capabilities: { canReuse: false, canMultiInstance: false, canRollback: false, canParallel: false },
-    fieldDefinitions: styleArchiveFields,
-    operationDefinitions: [
-      {
-        actionKey: 'generate-style-archive',
-        actionName: '生成款式档案',
-        preconditions: ['测款结论=通过'],
-        effects: ['生成 styleId、styleCode、styleName', 'archiveStatus=技术包待完善', '把渠道店铺商品置为已生效'],
-        writebackRules: ['测款不通过不能创建款式档案', '创建成功后必须形成 styleCode + channelProductCode + upstreamChannelProductCode 三码关联'],
-      },
-    ],
-    statusDefinitions: [
-      { statusName: '未开始', entryConditions: ['测款结论未通过前'], exitConditions: ['开始生成款式档案'], businessMeaning: '尚未开始创建款式档案。' },
-      { statusName: '进行中', entryConditions: ['开始生成款式档案'], exitConditions: ['生成完成或取消'], businessMeaning: '正在生成款式档案壳。' },
-      { statusName: '已完成', entryConditions: ['款式档案生成完成'], exitConditions: ['无'], businessMeaning: '款式档案壳已生成。' },
-      { statusName: '已取消', entryConditions: ['测款不通过或节点取消'], exitConditions: ['无'], businessMeaning: '不再生成款式档案。' },
-    ],
-    upstreamChanges: ['读取测款结论和商品上架实例。'],
-    downstreamChanges: ['回写款式档案主记录', '回写渠道店铺商品生效状态', '按模板顺序进入下一个工作项'],
-    businessRules: ['测款不通过不能创建款式档案', '创建成功后档案状态必须是技术包待完善', '正式建档完成后必须按模板顺序推进项目节点'],
-    systemConstraints: ['款式档案创建成功后必须把渠道店铺商品置为已生效'],
-  },
-  {
-    workItemId: 'WI-015A',
-    workItemTypeCode: 'REVISION_TASK',
-    workItemTypeName: '改版任务',
-    phaseCode: 'PHASE_04',
-    workItemNature: '执行类',
-    runtimeType: 'execute',
-    categoryName: '开发推进',
-    description: '改版触发后创建的正式改版推进任务，可用于测款结论返改、首版样衣返改、既有商品二次开发和人工改版需求。',
-    scenario: 'PHASE_02 中用于万隆改版出样衣的样衣前置动作，PHASE_04 中用于测款后或既有商品的继续开发推进，并继续承接制版、花型、打样和技术包下游动作。',
-    keepReason: '改版任务是正式改版链路的起点，没有改版任务就无法完整表达来源、产出确认、技术包新版本和后续样衣/花型/制版承接。',
-    roleNames: ['商品负责人', '工程负责人'],
-    capabilities: { canReuse: true, canMultiInstance: true, canRollback: true, canParallel: true },
-    fieldDefinitions: revisionTaskFields,
-    operationDefinitions: [
-      {
-        actionKey: 'create-revision-task',
-        actionName: '创建改版任务',
-        preconditions: ['来源任务或业务动作已明确触发改版'],
-        effects: ['生成改版任务', '回写项目关系和项目节点', '允许继续创建制版、花型、首版样衣与首单样下游任务'],
-        writebackRules: ['改版任务必须承接正式来源对象', '改版任务正式字段必须承接来源类型、上游对象、任务状态、技术包回写结果和负责人信息'],
-      },
-    ],
-    statusDefinitions: EXECUTE_NODE_STATUS_DEFINITIONS,
-    instanceStatusDefinitions: [
-      { statusName: '草稿', entryConditions: ['任务已建立但未启动'], exitConditions: ['转为未开始或取消'], businessMeaning: '改版任务草稿。' },
-      { statusName: '未开始', entryConditions: ['任务已确认但未执行'], exitConditions: ['开始执行'], businessMeaning: '改版任务待执行。' },
-      { statusName: '进行中', entryConditions: ['任务开始执行'], exitConditions: ['提交确认、异常待处理或取消'], businessMeaning: '改版任务进行中。' },
-      { statusName: '待确认', entryConditions: ['改版任务提交确认'], exitConditions: ['确认、回退或取消'], businessMeaning: '等待改版输出确认。' },
-      { statusName: '已确认', entryConditions: ['评审确认通过'], exitConditions: ['写入技术包、创建花型任务或完成'], businessMeaning: '已确认可作为后续开发和技术包输入。' },
-      { statusName: '异常待处理', entryConditions: ['任务推进中出现阻塞或异常'], exitConditions: ['恢复推进或取消'], businessMeaning: '改版任务存在异常待处理事项。' },
-      { statusName: '已生成技术包', entryConditions: ['已基于确认产出生成改版技术包版本'], exitConditions: ['完成任务或继续完善技术包'], businessMeaning: '改版任务产出已写入技术包新版本，等待最终收口。' },
-      { statusName: '已完成', entryConditions: ['改版任务完成'], exitConditions: ['无'], businessMeaning: '改版任务已完成。' },
-      { statusName: '已取消', entryConditions: ['任务取消'], exitConditions: ['无'], businessMeaning: '改版任务已取消。' },
-    ],
-    upstreamChanges: ['引用测款结论、当前渠道店铺商品和来源项目。'],
-    downstreamChanges: ['为制版任务、花型任务、首版样衣与首单样提供正式来源链', '为技术包版本写入改版任务来源链'],
-    businessRules: ['改版任务节点详情必须能解释来源对象、当前状态和技术包回写结果'],
-    systemConstraints: ['改版任务不能脱离正式项目链路存在', '来源对象、任务状态和技术包版本关联只能由正式任务对象回写'],
-  },
-  {
-    workItemId: 'WI-016',
-    workItemTypeCode: 'PATTERN_TASK',
-    workItemTypeName: '制版任务',
-    phaseCode: 'PHASE_04',
-    workItemNature: '执行类',
-    runtimeType: 'execute',
-    categoryName: '开发推进',
-    description: '测款通过后的制版推进。',
-    scenario: '围绕款式档案推进制版，并可写入技术包。',
-    keepReason: '制版任务是技术包版本生成和开发推进的重要正式来源。',
-    roleNames: ['版师', '商品负责人'],
-    capabilities: { canReuse: true, canMultiInstance: true, canRollback: true, canParallel: true },
-    fieldDefinitions: patternTaskFields,
-    operationDefinitions: [
-      {
-        actionKey: 'create-pattern-task',
-        actionName: '创建制版任务',
-        preconditions: ['已生成款式档案'],
-        effects: ['生成制版任务', '推进制版', '允许写入技术包'],
-        writebackRules: ['制版任务可在已确认或已完成时写入技术包', '制版任务正式字段必须承接来源类型、上游对象、任务状态、受理时间、确认时间和技术包回写结果'],
-      },
-    ],
-    statusDefinitions: EXECUTE_NODE_STATUS_DEFINITIONS,
-    instanceStatusDefinitions: [
-      { statusName: '草稿', entryConditions: ['任务已建立但未启动'], exitConditions: ['转为未开始或取消'], businessMeaning: '制版任务草稿。' },
-      { statusName: '未开始', entryConditions: ['任务已确认但未执行'], exitConditions: ['开始执行'], businessMeaning: '制版任务待执行。' },
-      { statusName: '进行中', entryConditions: ['任务开始执行'], exitConditions: ['提交确认或取消'], businessMeaning: '制版任务进行中。' },
-      { statusName: '待确认', entryConditions: ['制版任务提交确认'], exitConditions: ['确认、回退或取消'], businessMeaning: '等待制版输出确认。' },
-      { statusName: '已确认', entryConditions: ['评审确认通过'], exitConditions: ['写入技术包或完成'], businessMeaning: '已确认可作为技术包输入。' },
-      { statusName: '已完成', entryConditions: ['制版任务完成'], exitConditions: ['无'], businessMeaning: '制版任务已完成。' },
-      { statusName: '已取消', entryConditions: ['任务取消'], exitConditions: ['无'], businessMeaning: '制版任务已取消。' },
-    ],
-    upstreamChanges: ['引用款式档案和项目信息。'],
-    downstreamChanges: ['为技术包版本写入制版任务来源链', '为首版样衣打样提供纸样版本输入'],
-    businessRules: ['制版任务状态为已确认或已完成时才允许写入技术包', '制版任务节点详情必须能解释来源对象、当前状态和技术包回写结果'],
-    systemConstraints: ['制版任务不能脱离款式档案独立存在', '来源对象、任务状态、受理时间、确认时间和技术包版本关联只能由正式任务对象回写'],
-  },
-  {
-    workItemId: 'WI-017',
-    workItemTypeCode: 'PATTERN_ARTWORK_TASK',
-    workItemTypeName: '花型任务',
-    phaseCode: 'PHASE_04',
-    workItemNature: '执行类',
-    runtimeType: 'execute',
-    categoryName: '开发推进',
-    description: '设计款或印花类项目推进花型版本。',
-    scenario: '围绕设计研发项目推进花型版本，并可写入技术包。',
-    keepReason: '花型任务是设计款技术包来源链的重要正式输入。',
-    roleNames: ['花型设计师', '商品负责人'],
-    capabilities: { canReuse: true, canMultiInstance: true, canRollback: true, canParallel: true },
-    fieldDefinitions: artworkTaskFields,
-    operationDefinitions: [
-      {
-        actionKey: 'create-artwork-task',
-        actionName: '创建花型任务',
-        preconditions: ['已生成款式档案或已明确设计链路'],
-        effects: ['生成花型任务', '推进花型设计', '允许写入技术包'],
-        writebackRules: ['花型任务可在已确认或已完成时写入技术包', '花型任务正式字段必须承接来源类型、上游对象、任务状态、受理时间、确认时间和技术包回写结果'],
-      },
-    ],
-    statusDefinitions: EXECUTE_NODE_STATUS_DEFINITIONS,
-    instanceStatusDefinitions: [
-      { statusName: '草稿', entryConditions: ['任务已建立但未启动'], exitConditions: ['转为未开始或取消'], businessMeaning: '花型任务草稿。' },
-      { statusName: '未开始', entryConditions: ['任务已确认但未执行'], exitConditions: ['开始执行'], businessMeaning: '花型任务待执行。' },
-      { statusName: '进行中', entryConditions: ['任务开始执行'], exitConditions: ['提交确认或取消'], businessMeaning: '花型任务进行中。' },
-      { statusName: '待确认', entryConditions: ['任务提交确认'], exitConditions: ['确认、回退或取消'], businessMeaning: '等待花型输出确认。' },
-      { statusName: '已确认', entryConditions: ['评审确认通过'], exitConditions: ['写入技术包或完成'], businessMeaning: '已确认可作为技术包输入。' },
-      { statusName: '已完成', entryConditions: ['任务完成'], exitConditions: ['无'], businessMeaning: '花型任务已完成。' },
-      { statusName: '已取消', entryConditions: ['任务取消'], exitConditions: ['无'], businessMeaning: '花型任务已取消。' },
-    ],
-    upstreamChanges: ['引用款式档案和项目信息。'],
-    downstreamChanges: ['为技术包版本写入花型任务来源链', '为首版样衣和首单样提供花型版本输入'],
-    businessRules: ['花型任务状态为已确认或已完成时才允许写入技术包', '花型任务节点详情必须能解释来源对象、当前状态和技术包回写结果'],
-    systemConstraints: ['花型任务不能脱离正式项目链路存在', '来源对象、任务状态、受理时间、确认时间和技术包版本关联只能由正式任务对象回写'],
-  },
-  {
-    workItemId: 'WI-018',
-    workItemTypeCode: 'FIRST_SAMPLE',
-    workItemTypeName: '首版样衣打样',
-    phaseCode: 'PHASE_04',
-    workItemNature: '执行类',
-    runtimeType: 'execute',
-    categoryName: '开发推进',
-    description: '制版、花型、改版后的首版样衣验证。',
-    scenario: '围绕制版和花型结果推进首版样衣验证。',
-    keepReason: '首版样衣打样是开发推进的重要验证环节。',
-    roleNames: ['打样团队', '样衣专员'],
-    capabilities: { canReuse: true, canMultiInstance: true, canRollback: true, canParallel: true },
-    fieldDefinitions: firstSampleFields,
-    operationDefinitions: [
-      {
-        actionKey: 'create-first-sample',
-        actionName: '创建首版样衣任务',
-        preconditions: ['制版任务、花型任务或改版任务已明确输入'],
-        effects: ['创建首版样衣任务', '开始打样', '提交打样结果', '填写确认结论'],
-        writebackRules: ['首版确认通过后回写结果编号、确认结论和是否可作为首单依据'],
-      },
-    ],
-    statusDefinitions: EXECUTE_NODE_STATUS_DEFINITIONS,
-    instanceStatusDefinitions: [
-      { statusName: '草稿', entryConditions: ['任务已建立但未开始打样'], exitConditions: ['转为待处理或取消'], businessMeaning: '首版样衣任务草稿。' },
-      { statusName: '待处理', entryConditions: ['任务已确认待处理'], exitConditions: ['开始打样或取消'], businessMeaning: '等待处理。' },
-      { statusName: '打样中', entryConditions: ['已开始打样'], exitConditions: ['提交打样结果或取消'], businessMeaning: '样衣打样中。' },
-      { statusName: '待确认', entryConditions: ['已提交打样结果'], exitConditions: ['确认通过、需改版或取消'], businessMeaning: '样衣结果待确认。' },
-      { statusName: '已通过', entryConditions: ['确认通过'], exitConditions: ['无'], businessMeaning: '首版样衣确认通过。' },
-      { statusName: '需改版', entryConditions: ['确认结论要求改版'], exitConditions: ['创建改版任务或取消'], businessMeaning: '首版样衣需要进入改版。' },
-      { statusName: '已取消', entryConditions: ['任务取消'], exitConditions: ['无'], businessMeaning: '首版样衣任务已取消。' },
-    ],
-    upstreamChanges: ['引用制版、花型、改版结果。'],
-    downstreamChanges: ['为后续样衣评估和首单样确认提供反馈'],
-    businessRules: ['首版样衣打样必须明确来源任务、打样工厂、打样结果和确认结论'],
-    systemConstraints: ['首版样衣任务允许多次执行用于多轮验证', '来源对象、任务状态、确认时间和结果编号只能由正式首版样衣任务回写'],
-  },
-  {
-    workItemId: 'WI-019',
-    workItemTypeCode: 'FIRST_ORDER_SAMPLE',
-    workItemTypeName: '首单样衣打样',
-    phaseCode: 'PHASE_04',
-    workItemNature: '执行类',
-    runtimeType: 'execute',
-    categoryName: '开发推进',
-    description: '首单最终样确认。',
-    scenario: '围绕量产前首单最终样做正式确认。',
-    keepReason: '设计款链路需要首单样对纸样和花型做最终确认。',
-    roleNames: ['打样团队', '样衣专员'],
-    capabilities: { canReuse: true, canMultiInstance: true, canRollback: true, canParallel: true },
-    fieldDefinitions: firstOrderFields,
-    operationDefinitions: [
-      {
-        actionKey: 'create-first-order-sample',
-        actionName: '创建首单样任务',
-        preconditions: ['首版样衣或相关开发任务已形成输入'],
-        effects: ['创建首单样任务', '开始打样', '提交打样结果', '确认首单结论'],
-        writebackRules: ['首单确认通过后回写结果编号、最终参照说明和首单确认结论'],
-      },
-    ],
-    statusDefinitions: EXECUTE_NODE_STATUS_DEFINITIONS,
-    instanceStatusDefinitions: [
-      { statusName: '草稿', entryConditions: ['任务已建立但未开始打样'], exitConditions: ['转为待处理或取消'], businessMeaning: '首单样任务草稿。' },
-      { statusName: '待处理', entryConditions: ['任务已确认待处理'], exitConditions: ['开始打样或取消'], businessMeaning: '等待处理。' },
-      { statusName: '打样中', entryConditions: ['已开始打样'], exitConditions: ['提交打样结果或取消'], businessMeaning: '首单样衣打样中。' },
-      { statusName: '待确认', entryConditions: ['已提交打样结果'], exitConditions: ['确认通过、需改版、需补首单或取消'], businessMeaning: '首单样衣结果待确认。' },
-      { statusName: '已通过', entryConditions: ['确认通过'], exitConditions: ['无'], businessMeaning: '首单样衣确认通过。' },
-      { statusName: '需改版', entryConditions: ['确认结论要求改版'], exitConditions: ['创建改版任务或取消'], businessMeaning: '首单样衣需要进入改版。' },
-      { statusName: '需补首单', entryConditions: ['确认结论要求补首单'], exitConditions: ['重新开始打样或取消'], businessMeaning: '首单样衣需要补充确认。' },
-      { statusName: '已取消', entryConditions: ['任务取消'], exitConditions: ['无'], businessMeaning: '首单样任务已取消。' },
-    ],
-    upstreamChanges: ['引用制版任务和花型任务版本。'],
-    downstreamChanges: ['为量产前首单最终样确认提供输入'],
-    businessRules: ['首单样衣打样必须明确首单确认方式、样衣计划和最终确认结论'],
-    systemConstraints: ['首单样任务允许多次执行用于多轮确认', '来源对象、任务状态、首单确认时间和结果编号只能由正式首单样衣打样任务回写'],
-  },
-  {
-    workItemId: 'WI-021',
-    workItemTypeCode: 'SAMPLE_RETURN_HANDLE',
-    workItemTypeName: '样衣退回处理',
+    stepId: 'SAMPLE_RETURN_HANDLE',
+    stepCode: 'SAMPLE_RETURN_HANDLE',
+    stepName: '样衣退回处理',
     phaseCode: 'PHASE_05',
-    workItemNature: '执行类',
+    stepNature: '执行类',
     runtimeType: 'execute',
     categoryName: '项目收尾',
     description: '记录样衣退回、报废或处置结果。',
@@ -2794,47 +2478,9 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
   },
 ]
 
-export const PCS_PROJECT_TEMPLATE_SCHEMAS: PcsProjectTemplateSchema[] = [
-  {
-    templateId: DOMESTIC_PURCHASE_SAMPLE_TEMPLATE_ID,
-    templateName: '国内采购样衣测款项目',
-    creator: '系统管理员',
-    createdAt: '2026-06-04 09:00',
-    updatedAt: CONTRACT_TIMESTAMP,
-    status: 'active',
-    scenario: '业务从商品列表手动创建国内采购样衣测款项目，记录采购样衣来源，到样核对后先做初步可行性判断，再完成样衣核价并准备商品上架，通过直播测款和可选短视频测款形成结论。',
-    description: '覆盖手动立项、国内采购样衣获取、样衣结果核对、初步可行性判断、样衣核价、商品上架准备、市场测款、测款结论、款式档案和样衣处理。',
-    phaseSchemas: [
-      { phaseCode: 'PHASE_01', whyExists: '先手动创建商品项目，并记录采购样衣的供应商、采购地址、运费、收件人和采购规格及数量。', nodeCodes: ['PROJECT_INIT', 'SAMPLE_ACQUIRE'] },
-      { phaseCode: 'PHASE_02', whyExists: '采购样衣到样后先完成实物核对和样衣编号生成，再做初步可行性判断；判断进入测款后先完成样衣核价，再用核价销售价格准备渠道店铺商品。', nodeCodes: ['SAMPLE_INBOUND_CHECK', 'FEASIBILITY_REVIEW', 'SAMPLE_COST_REVIEW', 'CHANNEL_PRODUCT_LISTING'] },
-      { phaseCode: 'PHASE_03', whyExists: '直播测款是当前主测款方式，短视频测款作为可选补充，最终必须形成测款结论。', nodeCodes: ['LIVE_TEST', 'VIDEO_TEST', 'TEST_DATA_SUMMARY', 'TEST_CONCLUSION'] },
-      { phaseCode: 'PHASE_04', whyExists: '测款通过后沉淀款式档案，作为大货或后续开发的承接对象。', nodeCodes: ['STYLE_ARCHIVE_CREATE'] },
-      { phaseCode: 'PHASE_05', whyExists: '项目结束时要明确样衣退回和处置结果。', nodeCodes: ['SAMPLE_RETURN_HANDLE'] },
-    ],
-  },
-  {
-    templateId: WANLONG_REVISION_SAMPLE_TEMPLATE_ID,
-    templateName: '万隆改版出样衣测款项目',
-    creator: '系统管理员',
-    createdAt: '2026-06-04 09:00',
-    updatedAt: CONTRACT_TIMESTAMP,
-    status: 'active',
-    scenario: '业务基于旧款或参考款手动创建万隆改版出样衣测款项目，先确认样衣由改版任务出样，再通过改版任务、制版任务、花型任务、首版样衣和首单样衣打样承接工程出样，样衣核对、初步可行性判断和样衣核价后进入测款。',
-    description: '覆盖手动立项、样衣来源确认、改版任务、制版任务、花型任务、首版样衣、首单样衣打样、样衣结果核对、初步可行性判断、样衣核价、商品上架、市场测款、测款结论、款式档案和样衣处理。',
-    phaseSchemas: [
-      { phaseCode: 'PHASE_01', whyExists: '先手动创建商品项目，并确认该项目样衣来源为万隆改版任务出样。', nodeCodes: ['PROJECT_INIT', 'SAMPLE_ACQUIRE'] },
-      { phaseCode: 'PHASE_02', whyExists: '改版出样衣需求由改版任务承接，工程开发与打样管理通过制版、花型、首版和首单样衣形成可测样衣后，先核对实物到样，再做初步可行性判断；判断进入测款后先完成样衣核价，再用核价销售价格准备渠道店铺商品。', nodeCodes: ['REVISION_TASK', 'PATTERN_TASK', 'PATTERN_ARTWORK_TASK', 'FIRST_SAMPLE', 'FIRST_ORDER_SAMPLE', 'SAMPLE_INBOUND_CHECK', 'FEASIBILITY_REVIEW', 'SAMPLE_COST_REVIEW', 'CHANNEL_PRODUCT_LISTING'] },
-      { phaseCode: 'PHASE_03', whyExists: '商品上架准备完成后，再执行直播测款和可选短视频测款，并形成统一结论。', nodeCodes: ['LIVE_TEST', 'VIDEO_TEST', 'TEST_DATA_SUMMARY', 'TEST_CONCLUSION'] },
-      { phaseCode: 'PHASE_04', whyExists: '测款通过后沉淀款式档案，进入大货或后续开发承接。', nodeCodes: ['STYLE_ARCHIVE_CREATE'] },
-      { phaseCode: 'PHASE_05', whyExists: '项目结束时同样需要明确样衣退回、入库留样、清仓、寄回或报废处理。', nodeCodes: ['SAMPLE_RETURN_HANDLE'] },
-    ],
-  },
-]
-
 export const PCS_PROJECT_CONFIG_SOURCE_MAPPINGS: PcsProjectConfigSourceMapping[] = [
   { fieldKey: 'projectName', fieldLabel: '项目名称', sourceKind: '本地主数据', sourceRef: '商品项目创建表单', reason: '项目名称由当前页面表单录入，属于本地主数据。' },
-  { fieldKey: 'projectType', fieldLabel: '项目类型', sourceKind: '系统生成', sourceRef: '业务模板 -> projectType 映射', reason: '项目类型由所选业务模板自动映射生成，属于正式主记录字段而不是临时页面变量。' },
-  { fieldKey: 'templateId', fieldLabel: '项目模板', sourceKind: '模板管理', sourceRef: '项目模板管理', reason: '项目模板来自模板管理，不属于配置工作台。' },
+  { fieldKey: 'projectType', fieldLabel: '项目类型', sourceKind: '系统生成', sourceRef: '固定商品测款流程', reason: '项目类型由固定商品测款流程生成，属于正式主记录字段而不是临时页面变量。' },
   { fieldKey: 'projectSourceType', fieldLabel: '项目来源类型', sourceKind: '固定枚举', sourceRef: '项目来源类型', reason: '项目来源类型沿用当前可解释的固定业务枚举。' },
   { fieldKey: 'categoryId', fieldLabel: '品类', sourceKind: '配置工作台', sourceRef: 'categories', reason: '项目品类统一来自配置工作台品类维度。' },
   { fieldKey: 'categoryName', fieldLabel: '品类名称快照', sourceKind: '配置工作台', sourceRef: 'categories', reason: '品类名称快照由配置工作台品类名称回写，供详情和导出直接使用。' },
@@ -2844,6 +2490,12 @@ export const PCS_PROJECT_CONFIG_SOURCE_MAPPINGS: PcsProjectConfigSourceMapping[]
   { fieldKey: 'brandName', fieldLabel: '品牌名称快照', sourceKind: '配置工作台', sourceRef: 'brands', reason: '品牌名称快照由配置工作台品牌名称回写，供详情和导出直接使用。' },
   { fieldKey: 'styleCodeId', fieldLabel: '风格编号', sourceKind: '配置工作台', sourceRef: 'styleCodes', reason: '风格编号统一来自配置工作台风格编号维度，不再要求手填。' },
   { fieldKey: 'styleCodeName', fieldLabel: '风格编号名称快照', sourceKind: '配置工作台', sourceRef: 'styleCodes', reason: '风格编号名称快照由配置工作台 styleCodes 回写，供详情和导出直接使用。' },
+  { fieldKey: 'styleNumber', fieldLabel: '款式编号', sourceKind: '本地主数据', sourceRef: '商品项目创建表单', reason: '款式编号由创建表单录入，并同步进入唯一商品测款档案。' },
+  { fieldKey: 'sampleSourceType', fieldLabel: '样衣来源方式', sourceKind: '固定枚举', sourceRef: '样衣来源方式', reason: '样衣来源方式在立项时录入，并由样衣获取阶段继续核对。' },
+  { fieldKey: 'sampleSupplierId', fieldLabel: '来源方', sourceKind: '样衣供应商主数据', sourceRef: '样衣供应商主数据', reason: '样衣来源方从样衣供应商主数据选择。' },
+  { fieldKey: 'sampleSupplierName', fieldLabel: '来源方名称', sourceKind: '样衣供应商主数据', sourceRef: '样衣供应商主数据', reason: '样衣来源方名称由供应商主数据回写快照。' },
+  { fieldKey: 'sampleLink', fieldLabel: '采购地址 / 外采链接', sourceKind: '本地主数据', sourceRef: '商品项目创建表单', reason: '立项时记录已知的样衣采购或外采链接。' },
+  { fieldKey: 'sampleUnitPrice', fieldLabel: '样衣单价', sourceKind: '本地主数据', sourceRef: '商品项目创建表单', reason: '立项时记录已知的样衣采购或委托打样单价。' },
   { fieldKey: 'yearTag', fieldLabel: '年份', sourceKind: '系统生成', sourceRef: '当前年份默认值', reason: '年份字段由创建草稿默认写入当前年份，并回写项目主记录。' },
   { fieldKey: 'seasonTags', fieldLabel: '季节标签', sourceKind: '固定枚举', sourceRef: '季节标签', reason: '季节标签沿用当前项目创建表单固定枚举。' },
   { fieldKey: 'styleTags', fieldLabel: '风格标签快照', sourceKind: '配置工作台', sourceRef: 'styles', reason: 'styleTags 与 styleTagNames 统一由配置工作台风格维度沉淀，用于兼容不同页面读取口径。' },
@@ -2923,68 +2575,45 @@ export const PCS_PROJECT_RELATED_INSTANCE_TYPES: PcsProjectRelatedInstanceTypeDe
   { typeCode: 'REVISION_TASK', typeName: '改版任务', moduleName: '改版任务', businessMeaning: '改版触发后创建的正式改版任务。' },
   { typeCode: 'FIRST_SAMPLE', typeName: '首版样衣打样', moduleName: '首版样衣', businessMeaning: '开发推进中的首版样衣验证。' },
   { typeCode: 'FIRST_ORDER_SAMPLE', typeName: '首单样衣打样', moduleName: '首单样衣打样', businessMeaning: '量首单最终样确认。' },
-  { typeCode: 'STYLE_ARCHIVE', typeName: '款式档案', moduleName: '款式档案', businessMeaning: '测款通过后生成的正式款式档案壳。' },
+  { typeCode: 'STYLE_ARCHIVE', typeName: '商品测款档案', moduleName: '商品档案', businessMeaning: '创建商品项目时同步建立的唯一商品测款档案。' },
   { typeCode: 'TECH_PACK_VERSION', typeName: '技术包版本', moduleName: '技术包', businessMeaning: '围绕款式档案推进的技术包版本。' },
   { typeCode: 'PROJECT_ARCHIVE', typeName: '项目资料归档', moduleName: '项目资料归档', businessMeaning: '围绕商品项目沉淀的正式归档对象。' },
 ]
 
-export const PCS_PROJECT_WORK_ITEM_LEGACY_MAPPINGS: Array<{
-  legacyName?: string
-  legacyCode?: string
-  workItemTypeCode: PcsProjectWorkItemCode
-}> = [
-  { legacyName: '商品项目立项', workItemTypeCode: 'PROJECT_INIT' },
-  { legacyName: '样衣获取', workItemTypeCode: 'SAMPLE_ACQUIRE' },
-  { legacyName: '样衣获取（深圳前置打版）', workItemTypeCode: 'SAMPLE_ACQUIRE' },
-  { legacyName: '样衣结果核对', workItemTypeCode: 'SAMPLE_INBOUND_CHECK' },
-  { legacyName: '初步可行性判断', workItemTypeCode: 'FEASIBILITY_REVIEW' },
-  { legacyName: '样衣拍摄与试穿', workItemTypeCode: 'SAMPLE_SHOOT_FIT' },
-  { legacyName: '样衣确认', workItemTypeCode: 'SAMPLE_CONFIRM' },
-  { legacyName: '样衣核价', workItemTypeCode: 'SAMPLE_COST_REVIEW' },
-  { legacyName: '样衣定价', workItemTypeCode: 'SAMPLE_PRICING' },
-  { legacyName: '商品上架', legacyCode: 'CHANNEL_PRODUCT_PREP', workItemTypeCode: 'CHANNEL_PRODUCT_LISTING' },
-  { legacyName: '渠道商品准备', legacyCode: 'CHANNEL_PRODUCT_PREP', workItemTypeCode: 'CHANNEL_PRODUCT_LISTING' },
-  { legacyName: '短视频测款', workItemTypeCode: 'VIDEO_TEST' },
-  { legacyName: '直播测款', workItemTypeCode: 'LIVE_TEST' },
-  { legacyName: '测款数据汇总', workItemTypeCode: 'TEST_DATA_SUMMARY' },
-  { legacyName: '测款结论判定', workItemTypeCode: 'TEST_CONCLUSION' },
-  { legacyName: '生成商品档案', workItemTypeCode: 'STYLE_ARCHIVE_CREATE' },
-  { legacyName: '生成款式档案', workItemTypeCode: 'STYLE_ARCHIVE_CREATE' },
-  { legacyName: '改版任务', workItemTypeCode: 'REVISION_TASK' },
-  { legacyName: '制版准备·打版任务', workItemTypeCode: 'PATTERN_TASK' },
-  { legacyName: '制版任务', workItemTypeCode: 'PATTERN_TASK' },
-  { legacyName: '花型任务', workItemTypeCode: 'PATTERN_ARTWORK_TASK' },
-  { legacyName: '首版样衣打样', workItemTypeCode: 'FIRST_SAMPLE' },
-  { legacyName: '首单样衣打样', workItemTypeCode: 'FIRST_ORDER_SAMPLE' },
-  { legacyName: '样衣退货与处理', workItemTypeCode: 'SAMPLE_RETURN_HANDLE' },
-]
-
-const PHASE_MAP = new Map(PCS_PROJECT_PHASE_CONTRACTS.map((item) => [item.phaseCode, item]))
-const WORK_ITEM_MAP = new Map(PCS_PROJECT_WORK_ITEM_CONTRACTS.map((item) => [item.workItemTypeCode, item]))
-const WORK_ITEM_ID_MAP = new Map(PCS_PROJECT_WORK_ITEM_CONTRACTS.map((item) => [item.workItemId, item]))
-const TEMPLATE_MAP = new Map(PCS_PROJECT_TEMPLATE_SCHEMAS.map((item) => [item.templateId, item]))
+const STEP_DEFINITION_MAP = new Map(PCS_PROJECT_STEP_DEFINITIONS.map((item) => [item.stepCode, item]))
+const STEP_DEFINITION_ID_MAP = new Map(PCS_PROJECT_STEP_DEFINITIONS.map((item) => [item.stepId, item]))
 const CONFIG_SOURCE_MAP = new Map(PCS_PROJECT_CONFIG_SOURCE_MAPPINGS.map((item) => [item.fieldKey, item]))
 
-export function listProjectPhaseContracts(): PcsProjectPhaseContract[] {
-  return PCS_PROJECT_PHASE_CONTRACTS.map((item) => ({
-    ...item,
-    entryConditions: [...item.entryConditions],
-    exitConditions: [...item.exitConditions],
-  }))
+export function listProjectFlowStageContracts(): ProjectFlowStageContract[] {
+  return PROJECT_FLOW_STAGE_CONTRACTS
+    .slice()
+    .sort((left, right) => left.sequence - right.sequence)
+    .map((item) => ({
+      ...item,
+      stepCodes: [...item.stepCodes],
+    }))
 }
 
-export function getProjectPhaseContract(phaseCode: PcsProjectPhaseCode): PcsProjectPhaseContract {
-  const found = PHASE_MAP.get(phaseCode)
+export function getProjectFlowStageContract(stepCode: ProjectFlowStageCode): ProjectFlowStageContract {
+  const found = listProjectFlowStageContracts().find((item) => item.stepCode === stepCode)
   if (!found) {
-    throw new Error(`未找到项目阶段契约：${phaseCode}`)
+    throw new Error(`未找到商品项目步骤契约：${stepCode}`)
   }
-  return { ...found }
+  return found
 }
 
-export function listProjectWorkItemContracts(): PcsProjectWorkItemContract[] {
-  return PCS_PROJECT_WORK_ITEM_CONTRACTS.map((item) => ({
+export function getProjectFlowStageContractByPhaseCode(phaseCode: PcsProjectPhaseCode): ProjectFlowStageContract {
+  const found = listProjectFlowStageContracts().find((item) => item.phaseCode === phaseCode)
+  if (!found) {
+    throw new Error(`未找到商品项目步骤契约：${phaseCode}`)
+  }
+  return found
+}
+
+export function listProjectStepDefinitions(): PcsProjectStepDefinition[] {
+  return PCS_PROJECT_STEP_DEFINITIONS.map((item) => ({
     ...item,
-    multiInstanceDefinition: resolveProjectWorkItemMultiInstanceDefinition(item),
+    multiInstanceDefinition: resolveProjectStepMultiInstanceDefinition(item),
     roleNames: [...item.roleNames],
     fieldDefinitions: item.fieldDefinitions.map((field) => ({ ...field, options: field.options ? [...field.options] : undefined })),
     operationDefinitions: item.operationDefinitions.map((operation) => ({
@@ -3010,40 +2639,40 @@ export function listProjectWorkItemContracts(): PcsProjectWorkItemContract[] {
   }))
 }
 
-export function getProjectWorkItemContract(workItemTypeCode: PcsProjectWorkItemCode): PcsProjectWorkItemContract {
-  const found = WORK_ITEM_MAP.get(workItemTypeCode)
+export function getProjectStepDefinition(stepCode: ProjectStepCode): PcsProjectStepDefinition {
+  const found = STEP_DEFINITION_MAP.get(stepCode)
   if (!found) {
-    throw new Error(`未找到项目工作项契约：${workItemTypeCode}`)
+    throw new Error(`未找到商品项目定义：${stepCode}`)
   }
-  return listProjectWorkItemContracts().find((item) => item.workItemTypeCode === workItemTypeCode) as PcsProjectWorkItemContract
+  return listProjectStepDefinitions().find((item) => item.stepCode === stepCode) as PcsProjectStepDefinition
 }
 
-export function getProjectWorkItemMultiInstanceDefinition(
-  workItemTypeCode: PcsProjectWorkItemCode,
+export function getProjectStepMultiInstanceDefinition(
+  stepCode: ProjectStepCode,
 ): PcsProjectMultiInstanceDefinition | null {
-  return getProjectWorkItemContract(workItemTypeCode).multiInstanceDefinition ?? null
+  return getProjectStepDefinition(stepCode).multiInstanceDefinition ?? null
 }
 
-export function getProjectWorkItemContractById(workItemId: string): PcsProjectWorkItemContract | null {
-  const found = WORK_ITEM_ID_MAP.get(workItemId)
+export function getProjectStepDefinitionById(stepId: string): PcsProjectStepDefinition | null {
+  const found = STEP_DEFINITION_ID_MAP.get(stepId)
   if (!found) return null
-  return getProjectWorkItemContract(found.workItemTypeCode)
+  return getProjectStepDefinition(found.stepCode)
 }
 
-export function listProjectWorkItemFieldDefinitions(
-  workItemTypeCode: PcsProjectWorkItemCode,
+export function listProjectStepFieldDefinitions(
+  stepCode: ProjectStepCode,
 ): PcsProjectNodeFieldDefinition[] {
-  return getProjectWorkItemContract(workItemTypeCode).fieldDefinitions.map((field) => ({
+  return getProjectStepDefinition(stepCode).fieldDefinitions.map((field) => ({
     ...field,
     options: field.options ? [...field.options] : undefined,
   }))
 }
 
-export function listProjectWorkItemFieldGroups(
-  workItemTypeCode: PcsProjectWorkItemCode,
+export function listProjectStepFieldGroups(
+  stepCode: ProjectStepCode,
 ): PcsProjectNodeFieldGroupDefinition[] {
   const groups = new Map<string, PcsProjectNodeFieldGroupDefinition>()
-  listProjectWorkItemFieldDefinitions(workItemTypeCode).forEach((field) => {
+  listProjectStepFieldDefinitions(stepCode).forEach((field) => {
     if (!groups.has(field.groupId)) {
       groups.set(field.groupId, {
         groupId: field.groupId,
@@ -3057,21 +2686,6 @@ export function listProjectWorkItemFieldGroups(
   return Array.from(groups.values())
 }
 
-export function listProjectTemplateSchemas(): PcsProjectTemplateSchema[] {
-  return PCS_PROJECT_TEMPLATE_SCHEMAS.map((item) => ({
-    ...item,
-    phaseSchemas: item.phaseSchemas.map((phase) => ({ ...phase, nodeCodes: [...phase.nodeCodes] })),
-  }))
-}
-
-export function getProjectTemplateSchema(templateId: PcsProjectTemplateId): PcsProjectTemplateSchema {
-  const found = TEMPLATE_MAP.get(templateId)
-  if (!found) {
-    throw new Error(`未找到项目模板契约：${templateId}`)
-  }
-  return listProjectTemplateSchemas().find((item) => item.templateId === templateId) as PcsProjectTemplateSchema
-}
-
 export function listProjectConfigSourceMappings(): PcsProjectConfigSourceMapping[] {
   return PCS_PROJECT_CONFIG_SOURCE_MAPPINGS.map((item) => ({ ...item }))
 }
@@ -3083,106 +2697,4 @@ export function getProjectConfigSourceMapping(fieldKey: string): PcsProjectConfi
 
 export function listProjectRelatedInstanceTypes(): PcsProjectRelatedInstanceTypeDefinition[] {
   return PCS_PROJECT_RELATED_INSTANCE_TYPES.map((item) => ({ ...item }))
-}
-
-export function buildBuiltinProjectWorkItemConfigs(): WorkItemTemplateConfig[] {
-  return PCS_PROJECT_WORK_ITEM_CONTRACTS.map((item) => createWorkItemConfig(item))
-}
-
-function isOptionalProjectTemplateNode(workItemTypeCode: PcsProjectWorkItemCode): boolean {
-  return workItemTypeCode === 'VIDEO_TEST'
-}
-
-export function buildBuiltinProjectTemplateMatrix(): Array<{
-  templateId: PcsProjectTemplateId
-  templateName: string
-  creator: string
-  createdAt: string
-  updatedAt: string
-  status: 'active' | 'inactive'
-  description: string
-  scenario: string
-  stages: Array<{
-    templateStageId: string
-    phaseCode: PcsProjectPhaseCode
-    phaseName: string
-    phaseOrder: number
-    requiredFlag: boolean
-    description: string
-    whyExists: string
-  }>
-  nodes: Array<{
-    templateNodeId: string
-    templateStageId: string
-    phaseCode: PcsProjectPhaseCode
-    phaseName: string
-    workItemId: string
-    workItemTypeCode: PcsProjectWorkItemCode
-    workItemTypeName: string
-    sequenceNo: number
-    requiredFlag: boolean
-    multiInstanceFlag: boolean
-    note: string
-    sourceWorkItemUpdatedAt: string
-    upstreamChanges: string[]
-    downstreamChanges: string[]
-  }>
-}> {
-  return PCS_PROJECT_TEMPLATE_SCHEMAS.map((schema) => {
-    const stages = schema.phaseSchemas.map((phase) => {
-      const phaseContract = getProjectPhaseContract(phase.phaseCode)
-      return {
-        templateStageId: `${schema.templateId}-${phase.phaseCode}`,
-        phaseCode: phase.phaseCode,
-        phaseName: phaseContract.phaseName,
-        phaseOrder: phaseContract.phaseOrder,
-        requiredFlag: true,
-        description: phaseContract.description,
-        whyExists: phase.whyExists,
-      }
-    })
-    const nodes = schema.phaseSchemas.flatMap((phase) =>
-      phase.nodeCodes.map((code, index) => {
-        const workItem = getProjectWorkItemContract(code)
-        return {
-          templateNodeId: `${schema.templateId}-${phase.phaseCode}-NODE-${String(index + 1).padStart(2, '0')}`,
-          templateStageId: `${schema.templateId}-${phase.phaseCode}`,
-          phaseCode: phase.phaseCode,
-          phaseName: getProjectPhaseContract(phase.phaseCode).phaseName,
-          workItemId: workItem.workItemId,
-          workItemTypeCode: workItem.workItemTypeCode,
-          workItemTypeName: workItem.workItemTypeName,
-          sequenceNo: index + 1,
-          requiredFlag: !isOptionalProjectTemplateNode(workItem.workItemTypeCode),
-          multiInstanceFlag: workItem.capabilities.canMultiInstance,
-          note: workItem.scenario,
-          sourceWorkItemUpdatedAt: CONTRACT_TIMESTAMP,
-          upstreamChanges: [...workItem.upstreamChanges],
-          downstreamChanges: [...workItem.downstreamChanges],
-        }
-      }),
-    )
-    return {
-      templateId: schema.templateId,
-      templateName: schema.templateName,
-      creator: schema.creator,
-      createdAt: schema.createdAt,
-      updatedAt: schema.updatedAt,
-      status: schema.status,
-      description: schema.description,
-      scenario: schema.scenario,
-      stages,
-      nodes,
-    }
-  })
-}
-
-export function resolveLegacyProjectWorkItemCode(
-  legacyNameOrCode: string,
-): PcsProjectWorkItemCode | null {
-  const normalized = legacyNameOrCode.trim()
-  const matched = PCS_PROJECT_WORK_ITEM_LEGACY_MAPPINGS.find(
-    (item) => item.legacyName === normalized || item.legacyCode === normalized,
-  )
-  return matched?.workItemTypeCode ?? null
 }

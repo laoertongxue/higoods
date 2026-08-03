@@ -6,7 +6,7 @@ import {
 } from '../src/data/pcs-project-relation-repository.ts'
 import {
   getProjectById,
-  getProjectNodeRecordByWorkItemTypeCode,
+  listProjectNodes,
   resetProjectRepository,
   updateProjectRecord,
 } from '../src/data/pcs-project-repository.ts'
@@ -26,7 +26,7 @@ import {
 } from '../src/data/pcs-tech-pack-version-log-repository.ts'
 import {
   getTechnicalDataVersionContent,
-  replaceTechnicalDataVersionStore,
+  resetTechnicalDataVersionRepository,
 } from '../src/data/pcs-technical-data-version-repository.ts'
 import {
   resetPlateMakingTaskRepository,
@@ -34,19 +34,20 @@ import {
   upsertPlateMakingTask,
 } from '../src/data/pcs-plate-making-repository.ts'
 import type { PlateMakingTaskRecord } from '../src/data/pcs-plate-making-types.ts'
+import {
+  createEngineeringMasterOrder,
+  publishEngineeringMasterOrder,
+  resetEngineeringMasterRepository,
+} from '../src/data/pcs-engineering-master-repository.ts'
 
 function resetScenario(): void {
   resetProjectRepository()
   resetStyleArchiveRepository()
-  replaceTechnicalDataVersionStore({
-    version: 2,
-    records: [],
-    contents: [],
-    pendingItems: [],
-  })
+  resetTechnicalDataVersionRepository()
   clearProjectRelationStore()
   resetTechPackVersionLogRepository()
   resetPlateMakingTaskRepository()
+  resetEngineeringMasterRepository()
 }
 
 function prepareProjectAndStyle() {
@@ -91,8 +92,6 @@ function prepareProjectAndStyle() {
 
 function createPlateTask(projectId: string, styleCode: string): PlateMakingTaskRecord {
   const project = getProjectById(projectId)!
-  const plateNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PATTERN_TASK')
-  assert.ok(plateNode, '项目中必须存在制版任务节点')
 
   return upsertPlateMakingTask({
     plateTaskId: 'plate_task_primary_test',
@@ -101,16 +100,22 @@ function createPlateTask(projectId: string, styleCode: string): PlateMakingTaskR
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectName: project.projectName,
-    projectNodeId: plateNode!.projectNodeId,
-    workItemTypeCode: 'PATTERN_TASK',
-    workItemTypeName: '制版任务',
-    sourceType: '项目模板阶段',
+    projectNodeId: '',
+    stepCode: 'PATTERN_TASK',
+    stepName: '制版任务',
+    sourceType: '人工创建',
     upstreamModule: '商品项目',
-    upstreamObjectType: '商品项目节点',
-    upstreamObjectId: plateNode!.projectNodeId,
-    upstreamObjectCode: plateNode!.workItemTypeCode,
+    upstreamObjectType: '商品项目',
+    upstreamObjectId: project.projectId,
+    upstreamObjectCode: project.projectCode,
     productStyleCode: styleCode,
     spuCode: styleCode,
+    productHistoryType: '未卖过',
+    patternMakerId: 'maker_primary',
+    patternMakerName: '制版师',
+    sampleConfirmedAt: '2026-04-20 09:30',
+    urgentFlag: false,
+    patternArea: '深圳',
     patternType: '常规制版',
     sizeRange: 'S-XL',
     patternVersion: 'P1',
@@ -139,14 +144,39 @@ function createPlateTask(projectId: string, styleCode: string): PlateMakingTaskR
 
 resetScenario()
 const { style, project } = prepareProjectAndStyle()
+const projectNodesBefore = listProjectNodes(project.projectId)
 const plateTask = createPlateTask(project.projectId, style.styleCode)
+const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
+  styleId: style.styleId,
+  styleCode: style.styleCode,
+  merchandiserName: '测试跟单',
+}).masterOrderId)
+assert.throws(
+  () => generateTechPackVersionFromPlateTask(plateTask.plateTaskId, '测试用户'),
+  /明确关联工程主单.*制版任务/,
+  '未显式归属工程主单的制版任务不得按款式猜测来源',
+)
+upsertPlateMakingTask({
+  ...plateTask,
+  upstreamModule: '生产工程管理',
+  upstreamObjectType: '工程专业任务',
+  upstreamObjectId: `${master.masterOrderId}-BASE_PATTERN_WOVEN`,
+  upstreamObjectCode: `${master.masterOrderCode}-BASE_PATTERN_WOVEN`,
+})
 const result = generateTechPackVersionFromPlateTask(plateTask.plateTaskId, '测试用户')
 
 assert.equal(result.record.primaryPlateTaskId, plateTask.plateTaskId, '制版任务必须成为技术包主挂载入口')
 assert.equal(result.record.primaryPlateTaskCode, plateTask.plateTaskCode, '技术包版本必须记录主制版任务编号')
 assert.equal(result.record.primaryPlateTaskVersion, plateTask.patternVersion, '技术包版本必须记录主制版版本')
 assert.ok(result.record.linkedPatternTaskIds.includes(plateTask.plateTaskId), '技术包版本必须记录关联制版任务')
-assert.equal(result.record.createdFromTaskType, 'PLATE', '首个技术包版本应记录来源为制版任务')
+assert.equal(result.record.createdFromTaskType, 'ENGINEERING_MASTER', '首个技术包版本必须记录工程主单权威来源')
+assert.equal(result.record.sourceProjectId, master.masterOrderId, '技术包必须来自制版任务显式所属的工程主单')
+assert.equal(
+  result.record.createdFromTaskId,
+  `${master.masterOrderId}-TECH_PACK_CONFIRMATION`,
+  '工程主单技术包来源任务必须严格为技术包确认任务',
+)
+assert.equal(result.record.sourceProjectNodeId, '', '独立制版任务生成技术包不得绑定已移除的制版节点')
 assert.equal(result.logType, '制版生成技术包', '制版生成必须写对应日志类型')
 
 const content = getTechnicalDataVersionContent(result.record.technicalVersionId)
@@ -157,12 +187,15 @@ assert.ok(content!.sizeTable.length > 0, '制版生成的技术包必须带入�
 
 const relationList = listProjectRelationsByTechnicalVersion(result.record.technicalVersionId)
 assert.ok(relationList.length > 0, '制版生成技术包后必须写入项目关系')
-
-const plateNodeAfter = getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'PATTERN_TASK')
-assert.ok(plateNodeAfter, '制版生成技术包后项目仍应存在制版任务节点')
+assert.equal(relationList[0]?.projectId, project.projectId, '技术包产出关系应归属商品项目')
+assert.equal(relationList[0]?.projectNodeId, null, '技术包产出关系不能绑定商品项目步骤节点')
+assert.equal(relationList[0]?.stepCode, '', '技术包产出关系不能把立项步骤作为专业成果兜底')
+assert.equal(relationList[0]?.stepName, '', '技术包产出关系不能持久化商品项目步骤名称')
 
 const plateTaskAfter = getPlateMakingTaskById(plateTask.plateTaskId)
 assert.equal(plateTaskAfter?.linkedTechPackVersionId, result.record.technicalVersionId, '制版任务必须回写关联技术包版本')
+assert.equal(plateTaskAfter?.projectNodeId, '', '制版生成技术包不得反向占用商品项目节点')
+assert.deepEqual(listProjectNodes(project.projectId), projectNodesBefore, '制版生成技术包不得改写商品项目节点状态')
 
 const logs = listTechPackVersionLogsByVersionId(result.record.technicalVersionId)
 assert.equal(logs[0]?.logType, '制版生成技术包', '制版生成后必须落正式版本日志')

@@ -8,30 +8,32 @@ import {
   createEmptyProjectDraft,
   createProject,
   getProjectCreateCatalog,
-  getProjectNodeRecordByWorkItemTypeCode,
-  listActiveProjectTemplates,
+  getProjectNodeRecordByStepCode,
+  listProjectNodes,
+  listProjects,
   resetProjectRepository,
 } from '../src/data/pcs-project-repository.ts'
+import { listProjectFlowStageContracts } from '../src/data/pcs-project-domain-contract.ts'
 import { resetProjectRelationRepository } from '../src/data/pcs-project-relation-repository.ts'
 import { resetProjectInlineNodeRecordRepository } from '../src/data/pcs-project-inline-node-record-repository.ts'
 import { resetProjectChannelProductRepository } from '../src/data/pcs-channel-product-project-repository.ts'
-import { resetRevisionTaskRepository } from '../src/data/pcs-revision-task-repository.ts'
-import { resetPlateMakingTaskRepository } from '../src/data/pcs-plate-making-repository.ts'
-import { resetPatternTaskRepository } from '../src/data/pcs-pattern-task-repository.ts'
-import { resetFirstSampleTaskRepository } from '../src/data/pcs-first-sample-repository.ts'
-import { resetPreProductionSampleTaskRepository } from '../src/data/pcs-pre-production-sample-repository.ts'
+import { listRevisionTasks, resetRevisionTaskRepository } from '../src/data/pcs-revision-task-repository.ts'
+import { listPlateMakingTasks, resetPlateMakingTaskRepository } from '../src/data/pcs-plate-making-repository.ts'
+import { listPatternTasks, resetPatternTaskRepository } from '../src/data/pcs-pattern-task-repository.ts'
+import { listFirstSampleTasks, resetFirstSampleTaskRepository } from '../src/data/pcs-first-sample-repository.ts'
+import {
+  listFirstOrderSampleTasks,
+  resetFirstOrderSampleTaskRepository,
+} from '../src/data/pcs-first-order-sample-repository.ts'
 import { resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
 import { resetTechnicalDataVersionRepository } from '../src/data/pcs-technical-data-version-repository.ts'
 import { resetProjectArchiveRepository } from '../src/data/pcs-project-archive-repository.ts'
-import { resetSampleAssetRepository } from '../src/data/pcs-sample-asset-repository.ts'
-import { resetSampleLedgerRepository } from '../src/data/pcs-sample-ledger-repository.ts'
 import {
   auditPcsProjectDataConsistency,
   formatPcsProjectDataConsistencyReport,
   repairPcsProjectDataConsistency,
   validateProjectNodeCompletion,
 } from '../src/data/pcs-project-data-consistency.ts'
-import { syncExistingProjectEngineeringTaskNodes } from '../src/data/pcs-task-project-relation-writeback.ts'
 
 resetProjectRepository()
 resetProjectRelationRepository()
@@ -41,21 +43,58 @@ resetRevisionTaskRepository()
 resetPlateMakingTaskRepository()
 resetPatternTaskRepository()
 resetFirstSampleTaskRepository()
-resetPreProductionSampleTaskRepository()
+resetFirstOrderSampleTaskRepository()
 resetStyleArchiveRepository()
 resetTechnicalDataVersionRepository()
 resetProjectArchiveRepository()
-resetSampleAssetRepository()
-resetSampleLedgerRepository()
 
-syncExistingProjectEngineeringTaskNodes('测试同步')
 repairPcsProjectDataConsistency('测试修复')
 
 const report = auditPcsProjectDataConsistency()
 assert.equal(report.issueCount, 0, formatPcsProjectDataConsistencyReport(report))
 
+const expectedSteps = listProjectFlowStageContracts().map((step) => ({
+  phaseCode: step.phaseCode,
+  phaseName: step.stepName,
+}))
+const projects = listProjects()
+assert.ok(projects.length > 0, '一致性检查必须覆盖当前商品项目种子')
+projects.forEach((project) => {
+  const projectSteps = Array.from(
+    new Map(
+      listProjectNodes(project.projectId).map((node) => [
+        node.phaseCode,
+        { phaseCode: node.phaseCode, phaseName: node.phaseName },
+      ]),
+    ).values(),
+  )
+  assert.deepEqual(projectSteps, expectedSteps, `${project.projectCode} 的节点必须归属于当前固定五步`)
+})
+
+const professionalTasks = [
+  ...listRevisionTasks().map((task) => ({ moduleName: '改版任务', task })),
+  ...listPlateMakingTasks().map((task) => ({ moduleName: '制版任务', task })),
+  ...listPatternTasks().map((task) => ({ moduleName: '花型任务', task })),
+  ...listFirstSampleTasks().map((task) => ({ moduleName: '首版样衣', task })),
+  ...listFirstOrderSampleTasks().map((task) => ({ moduleName: '首单样衣', task })),
+]
+assert.ok(professionalTasks.some((item) => item.moduleName === '改版任务'), '应覆盖改版任务仓储')
+assert.ok(professionalTasks.some((item) => item.moduleName === '花型任务'), '应覆盖花型任务仓储')
+assert.ok(professionalTasks.some((item) => item.moduleName === '首版样衣'), '应覆盖首版样衣仓储')
+professionalTasks.forEach(({ moduleName, task }) => {
+  assert.equal('projectNodeId' in task, false, `${moduleName} 不得绑定商品项目节点`)
+  assert.equal('stepCode' in task, false, `${moduleName} 不得保存商品项目步骤编码`)
+  assert.equal('stepName' in task, false, `${moduleName} 不得保存商品项目步骤名称`)
+  if (!task.projectId) {
+    assert.equal(task.projectCode, '', `${moduleName} 未关联项目时不得残留项目编码`)
+    assert.equal(task.projectName, '', `${moduleName} 未关联项目时不得残留项目名称`)
+    return
+  }
+  const project = projects.find((item) => item.projectId === task.projectId)
+  assert.ok(project, `${moduleName} ${task.projectId} 必须关联当前真实商品项目`)
+})
+
 const catalog = getProjectCreateCatalog()
-const templateId = listActiveProjectTemplates()[0]?.id ?? '1'
 const category = catalog.categories[0]
 const subCategory = category?.children[0]
 const brand = catalog.brands[0]
@@ -69,7 +108,6 @@ const created = createProject(
     projectName: '商品项目数据核对测试项目',
     projectType: '商品开发',
     projectSourceType: '企划提案',
-    templateId,
     categoryId: category?.id || 'cat-top',
     categoryName: category?.name || '上衣',
     subCategoryId: subCategory?.id || '',
@@ -94,7 +132,7 @@ const projectId = created.project!.projectId
 const approveResult = approveProjectInitAndSync(projectId, '测试用户')
 assert.ok(approveResult.ok, '应允许通过立项审核')
 
-const sampleAcquireNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'SAMPLE_ACQUIRE')
+const sampleAcquireNode = getProjectNodeRecordByStepCode(projectId, 'SAMPLE_ACQUIRE')
 assert.ok(sampleAcquireNode, '应存在样衣获取节点')
 
 const validation = validateProjectNodeCompletion(projectId, sampleAcquireNode!.projectNodeId)

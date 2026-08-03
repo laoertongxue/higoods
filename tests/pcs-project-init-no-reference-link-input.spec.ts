@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict'
 
-import { getProjectWorkItemContract } from '../src/data/pcs-project-domain-contract.ts'
+import { getProjectStepDefinition } from '../src/data/pcs-project-domain-contract.ts'
 import { renderPcsProjectCreatePage } from '../src/pages/pcs-projects.ts'
 
 const createHtml = await renderPcsProjectCreatePage()
-const projectInitContract = getProjectWorkItemContract('PROJECT_INIT')
+const projectInitContract = getProjectStepDefinition('PROJECT_INIT')
 const albumField = projectInitContract.fieldDefinitions.find((field) => field.fieldKey === 'projectAlbumUrls')
 const legacyLinkPattern = new RegExp(['项目图册链接', '参考图片链接', '每行一个链接'].join('|'))
 

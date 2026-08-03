@@ -42,10 +42,29 @@ import {
 } from '../../data/fcs/tech-packs.ts'
 import { buildLegacyTechPackFromTechnicalVersion, buildTechnicalContentPatchFromLegacyTechPack } from '../../data/pcs-technical-data-fcs-adapter.ts'
 import { saveTechnicalDataVersionContent } from '../../data/pcs-project-technical-data-writeback.ts'
+import { compareBomPriceChanges } from '../../data/pcs-engineering-bom-pricing.ts'
+import { invalidateReviewForBomPriceChange } from '../../data/pcs-tech-pack-bom-price-review-invalidation.ts'
 import {
   getTechnicalDataVersionById,
   getTechnicalDataVersionContent,
+  runTechnicalDataVersionRepositoryTransaction,
 } from '../../data/pcs-technical-data-version-repository.ts'
+import {
+  getProjectStoreSnapshot,
+  replaceProjectStore,
+} from '../../data/pcs-project-repository.ts'
+import {
+  getProjectRelationStoreSnapshot,
+  replaceProjectRelationStore,
+} from '../../data/pcs-project-relation-repository.ts'
+import {
+  getProjectArchiveStoreSnapshot,
+  replaceProjectArchiveStore,
+} from '../../data/pcs-project-archive-repository.ts'
+import {
+  captureStyleArchiveRepositoryState,
+  restoreStyleArchiveRepositoryState,
+} from '../../data/pcs-style-archive-repository.ts'
 import {
   canEditTechnicalModule,
   getTechnicalProcessRouteGate,
@@ -84,12 +103,19 @@ import {
   bomRequirementOptions,
   bomTriggerFieldLabel,
   isBomDrivenPrepTechnique as isBomDrivenPrepTechniqueFromBom,
-  syncPreparationProcessesFromBom,
+  syncTechPackProcessesFromBom,
   type BomRequirementFlag,
   type BomTriggerField,
 } from './bom-process-linkage.ts'
 import { buildPatternSignature } from './pattern-duplicate-check.ts'
 import { normalizeProcessRouteEntries } from '../../data/tech-pack-process-route.ts'
+import {
+  applyBomRequirementsToEngineeringTasks,
+  listEngineeringMasterOrders,
+  runEngineeringMasterRepositoryTransaction,
+  validateBomRequirementsForEngineeringTasks,
+  type ApplyBomRequirementsToEngineeringTasksResult,
+} from '../../data/pcs-engineering-master-repository.ts'
 
 type TechPackTab =
   | 'pattern'
@@ -216,6 +242,7 @@ type BomItemRow = {
   type: '面料' | '辅料' | '包装材料' | '成衣' | '其他'
   colorLabel: string
   materialCode: string
+  materialSkuId?: string
   materialName: string
   spec: string
   unit: string
@@ -224,6 +251,7 @@ type BomItemRow = {
   applicableSkuCodes: string[]
   usageProcessCodes: string[]
   usage: number
+  sampleQuantity?: number
   lossRate: number
   printRequirement: string
   waterSolubleRequirement: BomRequirementFlag
@@ -2438,7 +2466,7 @@ function syncBomDrivenPrepTechniques(
   techniques: TechniqueItem[],
   bomItems: BomItemRow[],
 ): TechniqueItem[] {
-  const syncedTechniques = syncPreparationProcessesFromBom(techniques, bomItems).techniques
+  const syncedTechniques = syncTechPackProcessesFromBom(techniques, bomItems).techniques
   const hasMissingRoute = syncedTechniques.some((item) => {
     const routeFields = getRouteFields(item)
     return !isPositiveRouteNo(routeFields.routeStepNo) || !isPositiveRouteNo(routeFields.routeLaneNo)
@@ -2456,6 +2484,134 @@ function syncBomDrivenPrepTechniques(
         routeParallelAcceptanceMode: 'INDEPENDENT_ONLY',
       })),
     ),
+  )
+}
+
+function resolveEngineeringMasterForTechnicalVersion(technicalVersionId: string | null) {
+  if (!technicalVersionId) return null
+  const technicalVersion = getTechnicalDataVersionById(technicalVersionId)
+  if (!technicalVersion) return null
+  const masters = listEngineeringMasterOrders()
+  const projectMaster = technicalVersion.sourceProjectId
+    ? masters.find((item) => item.masterOrderId === technicalVersion.sourceProjectId) ?? null
+    : null
+  const taskMaster = technicalVersion.createdFromTaskId
+    ? masters.find((item) => item.tasks.some((task) => task.taskId === technicalVersion.createdFromTaskId)) ?? null
+    : null
+  if (projectMaster && taskMaster && projectMaster.masterOrderId !== taskMaster.masterOrderId) {
+    throw new Error('技术包工程来源不一致，无法同步 BOM 工艺任务。')
+  }
+  const master = projectMaster || taskMaster
+  if (!master || (master.status !== '已发布' && master.status !== '进行中')) return null
+  return master
+}
+
+function buildEngineeringBomTaskRows(bomItems: BomItemRow[]) {
+  return partitionBomItemsByType(bomItems).materialBomItems.map((item) => ({
+    bomItemId: item.id,
+    materialSkuId: item.materialSkuId || item.materialCode || item.id,
+    materialName: item.materialName,
+    materialType: item.type,
+    productColor: item.colorLabel,
+    printRequirement: item.printRequirement && item.printRequirement !== '无' ? '是' as const : '否' as const,
+    printProcess: item.printRequirement && item.printRequirement !== '无' ? item.printRequirement : undefined,
+    dyeRequirement: item.dyeRequirement && item.dyeRequirement !== '无' ? '是' as const : '否' as const,
+    shrinkRequirement: item.shrinkRequirement,
+    washRequirement: item.washRequirement,
+    waterSolubleRequirement: item.waterSolubleRequirement,
+  }))
+}
+
+function applyEngineeringTaskLinkageFromBomForTechnicalVersion(
+  technicalVersionId: string | null,
+  bomItems: BomItemRow[],
+): ApplyBomRequirementsToEngineeringTasksResult | null {
+  const master = resolveEngineeringMasterForTechnicalVersion(technicalVersionId)
+  if (!master) return null
+  const materialRows = buildEngineeringBomTaskRows(bomItems)
+  return applyBomRequirementsToEngineeringTasks(master.masterOrderId, materialRows)
+}
+
+interface TechnicalContentEngineeringLinkageOperations {
+  saveTechnicalContent?: typeof saveTechnicalDataVersionContent
+  applyEngineeringTasks?: typeof applyBomRequirementsToEngineeringTasks
+}
+
+interface TechnicalContentEngineeringLinkageSnapshots {
+  relation: ReturnType<typeof getProjectRelationStoreSnapshot>
+  style: ReturnType<typeof captureStyleArchiveRepositoryState>
+  project: ReturnType<typeof getProjectStoreSnapshot>
+  archive: ReturnType<typeof getProjectArchiveStoreSnapshot>
+}
+
+function captureTechnicalContentEngineeringLinkageSnapshots(): TechnicalContentEngineeringLinkageSnapshots {
+  return {
+    relation: getProjectRelationStoreSnapshot(),
+    style: captureStyleArchiveRepositoryState(),
+    project: getProjectStoreSnapshot(),
+    archive: getProjectArchiveStoreSnapshot(),
+  }
+}
+
+function restoreTechnicalContentEngineeringLinkageSnapshots(
+  snapshots: TechnicalContentEngineeringLinkageSnapshots,
+  originalError: unknown,
+): never {
+  const rollbackErrors: unknown[] = []
+  const restore = (action: () => void): void => {
+    try {
+      action()
+    } catch (error) {
+      rollbackErrors.push(error)
+    }
+  }
+  restore(() => replaceProjectStore(snapshots.project))
+  restore(() => replaceProjectRelationStore(snapshots.relation))
+  restore(() => replaceProjectArchiveStore(snapshots.archive))
+  // 商品项目仓恢复可能触发款式种子同步，因此款式仓最后精确恢复。
+  restore(() => restoreStyleArchiveRepositoryState(snapshots.style))
+  if (rollbackErrors.length > 0 && originalError instanceof Error) {
+    Object.assign(originalError, { rollbackErrors })
+  }
+  throw originalError
+}
+
+function saveTechnicalDataVersionContentWithEngineeringLinkage(
+  technicalVersionId: string,
+  bomItems: BomItemRow[],
+  patch: Partial<TechnicalDataVersionContent>,
+  operatorName: string,
+  operations: TechnicalContentEngineeringLinkageOperations = {},
+) {
+  const beforeContent = getTechnicalDataVersionContent(technicalVersionId)
+  if (!beforeContent) throw new Error('未找到技术包版本内容。')
+  const master = resolveEngineeringMasterForTechnicalVersion(technicalVersionId)
+  const engineeringRows = master ? buildEngineeringBomTaskRows(bomItems) : []
+  if (master) validateBomRequirementsForEngineeringTasks(master.masterOrderId, engineeringRows)
+  const snapshots = captureTechnicalContentEngineeringLinkageSnapshots()
+  const saveTechnicalContent = operations.saveTechnicalContent ?? saveTechnicalDataVersionContent
+  const applyEngineeringTasks = operations.applyEngineeringTasks ?? applyBomRequirementsToEngineeringTasks
+  return runTechnicalDataVersionRepositoryTransaction(() =>
+    runEngineeringMasterRepositoryTransaction(() => {
+      try {
+        const technicalVersion = saveTechnicalContent(technicalVersionId, patch, operatorName)
+        const afterContent = getTechnicalDataVersionContent(technicalVersionId)
+        if (!afterContent) throw new Error('未找到技术包版本内容。')
+        const bomPriceChanges = compareBomPriceChanges(beforeContent, afterContent)
+        if (bomPriceChanges.length > 0) {
+          invalidateReviewForBomPriceChange(technicalVersionId, {
+            changes: bomPriceChanges,
+            operator: operatorName,
+          })
+        }
+        const engineeringLinkage = master
+          ? applyEngineeringTasks(master.masterOrderId, engineeringRows)
+          : null
+        return { technicalVersion, engineeringLinkage }
+      } catch (error) {
+        restoreTechnicalContentEngineeringLinkageSnapshots(snapshots, error)
+      }
+    }),
   )
 }
 
@@ -4407,6 +4563,7 @@ function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {
       type: item.type as BomItemRow['type'],
       colorLabel: item.colorLabel || '',
       materialCode: item.materialCode || item.id || `MAT-${index + 1}`,
+      materialSkuId: item.materialSkuId,
       materialName: item.name,
       spec: item.spec,
       unit: item.unit || '',
@@ -4415,6 +4572,7 @@ function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {
       applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
       usageProcessCodes: [...(item.usageProcessCodes ?? [])],
       usage: item.unitConsumption,
+      sampleQuantity: item.sampleQuantity ?? 1,
       lossRate: item.lossRate,
       printRequirement: item.printRequirement ?? '无',
       waterSolubleRequirement: item.waterSolubleRequirement ?? '否',
@@ -5075,9 +5233,11 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
         name: item.materialName,
         spec: item.spec,
         materialCode: item.materialCode,
+        materialSkuId: item.materialSkuId,
         unit: item.unit,
         colorLabel: item.colorLabel || undefined,
         unitConsumption: Number(item.usage) || 0,
+        sampleQuantity: item.sampleQuantity ?? 1,
         lossRate: Number(item.lossRate) || 0,
         supplier: '-',
         printRequirement: item.printRequirement || '无',
@@ -5184,7 +5344,12 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
       processRouteUpdatedBy: state.processRouteUpdatedBy,
       processRouteUpdatedAt: state.processRouteUpdatedAt,
     }
-    saveTechnicalDataVersionContent(state.currentTechnicalVersionId, patch, currentUser.name)
+    saveTechnicalDataVersionContentWithEngineeringLinkage(
+      state.currentTechnicalVersionId,
+      state.bomItems,
+      patch,
+      currentUser.name,
+    )
   }
   return true
 }
@@ -5596,6 +5761,8 @@ export {
   toTechniqueItemFromEntry,
   buildTechniquesFromTechPack,
   syncBomDrivenPrepTechniques,
+  applyEngineeringTaskLinkageFromBomForTechnicalVersion,
+  saveTechnicalDataVersionContentWithEngineeringLinkage,
   normalizeTechniqueRoutes,
   markProcessRouteUnconfirmed,
   hasConfirmedProcessRoute,

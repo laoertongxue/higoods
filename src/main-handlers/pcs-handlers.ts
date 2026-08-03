@@ -128,6 +128,21 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
     closeActions: [{ datasetKey: 'pcsChannelStoreAction', value: 'close-dialogs' }],
   },
   {
+    cacheKey: 'pcs-channel-products',
+    matches: (pathname) =>
+      isAnyExactOrNestedPath(pathname, [
+        '/pcs/products/channel-products',
+        '/pcs/channels/products',
+      ]),
+    importModule: () => import('../pages/pcs-channel-products'),
+    eventExport: 'handlePcsChannelProductListEvent',
+    inputExport: 'handlePcsChannelProductListInput',
+    dialogExport: 'isPcsChannelProductListDialogOpen',
+    closeActions: [
+      { datasetKey: 'pcsChannelProductListAction', value: 'close-column-settings' },
+    ],
+  },
+  {
     cacheKey: 'pcs-product-archives',
     matches: (pathname) =>
       isAnyExactOrNestedPath(pathname, [
@@ -143,6 +158,15 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
     closeActions: [{ datasetKey: 'pcsProductArchiveAction', value: 'close-drawers' }],
   },
   {
+    cacheKey: 'pcs-material-archive-detail',
+    matches: (pathname) => /^\/pcs\/materials\/[^/]+\/[^/]+$/.test(pathname),
+    importModule: () => import('../pages/pcs-material-archive-detail'),
+    eventExport: 'handlePcsMaterialArchiveDetailEvent',
+    inputExport: 'handlePcsMaterialArchiveDetailInput',
+    dialogExport: 'isPcsMaterialArchiveDetailDialogOpen',
+    closeActions: [{ datasetKey: 'pcsMaterialArchiveAction', value: 'close-drawers' }],
+  },
+  {
     cacheKey: 'pcs-material-archives',
     matches: (pathname) => isExactOrNestedPath(pathname, '/pcs/materials'),
     importModule: () => import('../pages/pcs-material-archives'),
@@ -150,22 +174,6 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
     inputExport: 'handlePcsMaterialArchiveInput',
     dialogExport: 'isPcsMaterialArchiveDialogOpen',
     closeActions: [{ datasetKey: 'pcsMaterialArchiveAction', value: 'close-drawers' }],
-  },
-  {
-    cacheKey: 'pcs-templates',
-    matches: (pathname) => isExactOrNestedPath(pathname, '/pcs/templates'),
-    importModule: () => import('../pages/pcs-templates'),
-    eventExport: 'handlePcsTemplatesEvent',
-    inputExport: 'handlePcsTemplatesInput',
-    dialogExport: 'isPcsTemplatesDialogOpen',
-    closeActions: [{ datasetKey: 'pcsTemplateAction', value: 'close-dialogs' }],
-  },
-  {
-    cacheKey: 'pcs-work-items',
-    matches: (pathname) => isExactOrNestedPath(pathname, '/pcs/work-items'),
-    importModule: () => import('../pages/pcs-work-items'),
-    eventExport: 'handlePcsWorkItemsEvent',
-    inputExport: 'handlePcsWorkItemsInput',
   },
   {
     cacheKey: 'pcs-projects',
@@ -188,9 +196,34 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
     closeActions: [{ datasetKey: 'pcsSampleAction', value: 'close-drawers' }],
   },
   {
+    cacheKey: 'pcs-engineering-master-list',
+    matches: (pathname) => pathname === '/pcs/engineering/masters',
+    importModule: () => import('../pages/pcs-engineering-master-list'),
+    eventExport: 'handlePcsEngineeringMasterListEvent',
+    inputExport: 'handlePcsEngineeringMasterListInput',
+    dialogExport: 'isPcsEngineeringMasterListDialogOpen',
+    closeActions: [
+      { datasetKey: 'pcsEngineeringMasterAction', value: 'close-style-image-preview' },
+      { datasetKey: 'pcsEngineeringMasterAction', value: 'close-create-dialog' },
+      { datasetKey: 'pcsEngineeringMasterAction', value: 'close-column-settings' },
+    ],
+  },
+  {
+    cacheKey: 'pcs-engineering-master-detail',
+    matches: (pathname) => /^\/pcs\/engineering\/masters\/[^/]+$/.test(pathname),
+    importModule: () => import('../pages/pcs-engineering-master-detail'),
+    eventExport: 'handlePcsEngineeringMasterDetailEvent',
+    dialogExport: 'isPcsEngineeringMasterDetailDialogOpen',
+    closeActions: [
+      { datasetKey: 'pcsEngineeringMasterAction', value: 'close-style-image-preview' },
+      { datasetKey: 'pcsEngineeringMasterAction', value: 'close-task-drawer' },
+    ],
+  },
+  {
     cacheKey: 'pcs-engineering-tasks',
     matches: (pathname) =>
       isAnyExactOrNestedPath(pathname, [
+        '/pcs/engineering/color',
         '/pcs/patterns',
         '/pcs/samples/first-sample',
         '/pcs/samples/first-order',
@@ -248,14 +281,18 @@ async function loadHandlerModule(spec: PcsHandlerSpec): Promise<HandlerModule> {
   return modulePromise
 }
 
-export async function dispatchPcsPageEvent(target: HTMLElement): Promise<boolean> {
+export async function dispatchPcsPageEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   const spec = getActiveHandlerSpec()
   if (!spec?.eventExport) {
     return false
   }
 
   const module = await loadHandlerModule(spec)
-  return invokeBooleanExport(module, spec.eventExport, target)
+  const handler = module[spec.eventExport]
+  if (typeof handler !== 'function') {
+    return false
+  }
+  return Boolean((handler as (target: HTMLElement, event?: Event) => unknown)(target, event))
 }
 
 export async function dispatchPcsInputEvent(target: Element): Promise<boolean> {

@@ -31,8 +31,8 @@ const {
 const {
   getTechnicalDataVersionById,
   getTechnicalDataVersionContent,
-  replaceTechnicalDataVersionStore,
 } = await import('../src/data/pcs-technical-data-version-repository.ts')
+const { installTechnicalDataVersionFixtures } = await import('./helpers/technical-data-version-fixtures.ts')
 const { buildTechPackReviewDiffSnapshot } = await import('../src/data/pcs-tech-pack-review-diff.ts')
 const { renderTechPackPage } = await import('../src/pages/tech-pack.ts')
 const {
@@ -221,8 +221,13 @@ function buildContent(input: { technicalVersionId: string; markerLengthM: number
         taskTypeMode: 'CRAFT',
         isSpecialCraft: false,
         linkedPatternIds: [associationId],
+        routeStepNo: 1,
+        routeLaneNo: 1,
       },
     ],
+    processRouteStatus: 'CONFIRMED',
+    processRouteConfirmedBy: '跟单C',
+    processRouteConfirmedAt: '2026-06-01 10:00',
     sizeTable: [{ id: 'size-pattern-ownership-1', part: '胸围', S: 90, M: 94, L: 98, XL: 102, tolerance: 1 }],
     bomItems: [
       {
@@ -279,7 +284,7 @@ function buildContent(input: { technicalVersionId: string; markerLengthM: number
   }
 }
 
-replaceTechnicalDataVersionStore({
+installTechnicalDataVersionFixtures({
   version: 3,
   records: [
     buildRecord({

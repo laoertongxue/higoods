@@ -15,9 +15,10 @@ export const routes: RouteRegistry = {
     '/pcs/workspace/alerts': renderClearedPcsPage('商品中心预警'),
     '/pcs/projects': () => renderers.renderPcsProjectListPage(),
     '/pcs/projects/create': () => renderers.renderPcsProjectCreatePage(),
-    '/pcs/templates': () => renderers.renderPcsTemplateListPage(),
-    '/pcs/templates/new': () => renderers.renderPcsTemplateEditorPage(),
-    '/pcs/work-items': () => renderers.renderPcsWorkItemLibraryPage(),
+    '/pcs/engineering/masters': () => renderers.renderPcsEngineeringMasterListPage(),
+    '/pcs/engineering/color': () => renderers.renderPcsColorTaskPage(),
+    '/pcs/engineering/purchase': () => renderers.renderPcsPurchaseTaskPage(),
+    '/pcs/engineering/tech-pack': () => renderers.renderPcsTechPackTaskPage(),
     '/pcs/testing/live': () => renderers.renderPcsLiveTestingListPage(),
     '/pcs/testing/video': () => renderers.renderPcsVideoTestingListPage(),
     '/pcs/channels/products': () => renderers.renderPcsChannelProductListPage(),
@@ -70,8 +71,20 @@ export const routes: RouteRegistry = {
   },
   dynamicRoutes: [
     {
-      pattern: /^\/pcs\/projects\/([^/]+)\/work-items\/([^/]+)$/,
-      render: (match) => renderRouteRedirect(`/pcs/projects/${match[1]}`, '工作项已并入商品项目页内处理'),
+      pattern: /^\/pcs\/engineering\/masters\/([^/]+)$/,
+      render: (match) => renderers.renderPcsEngineeringMasterDetailPage(match[1]),
+    },
+    {
+      pattern: /^\/pcs\/engineering\/color\/([^/]+)$/,
+      render: (match) => renderers.renderPcsColorTaskDetailPage(match[1]),
+    },
+    {
+      pattern: /^\/pcs\/engineering\/purchase\/([^/]+)$/,
+      render: (match) => renderers.renderPcsPurchaseTaskDetailPage(match[1]),
+    },
+    {
+      pattern: /^\/pcs\/engineering\/tech-pack\/([^/]+)$/,
+      render: (match) => renderers.renderPcsTechPackTaskDetailPage(match[1]),
     },
     {
       pattern: /^\/pcs\/projects\/([^/]+)$/,
@@ -79,11 +92,11 @@ export const routes: RouteRegistry = {
     },
     {
       pattern: /^\/pcs\/testing\/live\/([^/]+)$/,
-      render: () => renderRouteRedirect('/pcs/testing/live', '直播测款已改为列表内查看'),
+      render: (match) => renderers.renderPcsLiveTestingDetailPage(match[1]),
     },
     {
       pattern: /^\/pcs\/testing\/video\/([^/]+)$/,
-      render: () => renderRouteRedirect('/pcs/testing/video', '短视频测款已改为列表内查看'),
+      render: (match) => renderers.renderPcsVideoTestingDetailPage(match[1]),
     },
     {
       pattern: /^\/pcs\/channels\/products\/([^/]+)$/,
@@ -96,18 +109,6 @@ export const routes: RouteRegistry = {
     {
       pattern: /^\/pcs\/channels\/stores\/([^/]+)$/,
       render: (match) => renderers.renderPcsChannelStoreDetailPage(match[1]),
-    },
-    {
-      pattern: /^\/pcs\/templates\/([^/]+)\/edit$/,
-      render: (match) => renderers.renderPcsTemplateEditorPage(match[1]),
-    },
-    {
-      pattern: /^\/pcs\/templates\/([^/]+)$/,
-      render: (match) => renderers.renderPcsTemplateDetailPage(match[1]),
-    },
-    {
-      pattern: /^\/pcs\/work-items\/([^/]+)$/,
-      render: (match) => renderers.renderPcsWorkItemDetailPage(match[1]),
     },
     {
       pattern: /^\/pcs\/patterns\/revision\/([^/]+)$/,

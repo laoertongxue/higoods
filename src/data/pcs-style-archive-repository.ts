@@ -1,7 +1,6 @@
 import { createStyleArchiveBootstrapSnapshot } from './pcs-style-archive-bootstrap.ts'
 import { buildStyleFixture } from './pcs-product-archive-fixtures.ts'
 import { normalizeStyleTechPackStatusText } from './pcs-product-lifecycle-governance.ts'
-import { getProjectNodeRecordByWorkItemTypeCode } from './pcs-project-repository.ts'
 import type {
   StyleArchivePendingItem,
   StyleArchiveShellRecord,
@@ -63,10 +62,6 @@ function normalizeBaseInfoStatus(status: string): string {
 
 function normalizeRecord(record: StyleArchiveShellRecord): StyleArchiveShellRecord {
   const fixture = buildStyleFixture(record.styleCode || record.styleId, record.styleName || record.styleCode)
-  const inferredSourceProjectNodeId =
-    !record.sourceProjectNodeId && record.sourceProjectId
-      ? getProjectNodeRecordByWorkItemTypeCode(record.sourceProjectId, 'STYLE_ARCHIVE_CREATE')?.projectNodeId || ''
-      : record.sourceProjectNodeId || ''
   return {
     ...cloneRecord(record),
     archiveStatus: record.archiveStatus === 'ACTIVE' || record.archiveStatus === 'ARCHIVED' ? record.archiveStatus : 'DRAFT',
@@ -94,7 +89,7 @@ function normalizeRecord(record: StyleArchiveShellRecord): StyleArchiveShellReco
     detailDescription: record.detailDescription || fixture.detailDescription,
     packagingInfo: record.packagingInfo || fixture.packagingInfo,
     remark: record.remark || '',
-    sourceProjectNodeId: inferredSourceProjectNodeId,
+    sourceProjectNodeId: record.sourceProjectNodeId || '',
     generatedAt: record.generatedAt || record.updatedAt || '',
     generatedBy: record.generatedBy || '系统初始化',
     updatedAt: record.updatedAt || record.generatedAt || '',
@@ -114,9 +109,20 @@ function normalizePendingItem(item: StyleArchivePendingItem): StyleArchivePendin
 }
 
 function hydrateSnapshot(snapshot: StyleArchiveStoreSnapshot): StyleArchiveStoreSnapshot {
+  const records = Array.isArray(snapshot.records) ? snapshot.records.map(normalizeRecord) : []
+  const styleIdCounts = new Map<string, number>()
+  records.forEach((record) => {
+    styleIdCounts.set(record.styleId, (styleIdCounts.get(record.styleId) || 0) + 1)
+  })
+  const duplicateStyleIds = Array.from(styleIdCounts.entries())
+    .filter(([, count]) => count > 1)
+    .map(([styleId]) => styleId)
+  if (duplicateStyleIds.length > 0) {
+    throw new Error(`款式档案 ID 重复冲突：${duplicateStyleIds.join('、')}。请先处理重复档案，原始数据未改写。`)
+  }
   return {
     version: STYLE_ARCHIVE_STORE_VERSION,
-    records: Array.isArray(snapshot.records) ? snapshot.records.map(normalizeRecord) : [],
+    records,
     pendingItems: Array.isArray(snapshot.pendingItems) ? snapshot.pendingItems.map(normalizePendingItem) : [],
   }
 }
@@ -191,21 +197,91 @@ function loadSnapshot(): StyleArchiveStoreSnapshot {
         pendingItems: parsed.pendingItems as StyleArchivePendingItem[],
       }),
     )
-    localStorage.setItem(STYLE_ARCHIVE_STORAGE_KEY, JSON.stringify(memorySnapshot))
     return cloneSnapshot(memorySnapshot)
-  } catch {
-    memorySnapshot = seedSnapshot()
-    if (canUseStorage()) {
-      localStorage.setItem(STYLE_ARCHIVE_STORAGE_KEY, JSON.stringify(memorySnapshot))
-    }
-    return cloneSnapshot(memorySnapshot)
+  } catch (error) {
+    memorySnapshot = null
+    throw error
   }
 }
 
 function persistSnapshot(snapshot: StyleArchiveStoreSnapshot): void {
-  memorySnapshot = hydrateSnapshot(snapshot)
+  const nextSnapshot = hydrateSnapshot(snapshot)
   if (canUseStorage()) {
-    localStorage.setItem(STYLE_ARCHIVE_STORAGE_KEY, JSON.stringify(memorySnapshot))
+    localStorage.setItem(STYLE_ARCHIVE_STORAGE_KEY, JSON.stringify(nextSnapshot))
+  }
+  memorySnapshot = nextSnapshot
+}
+
+export interface StyleArchiveRepositoryState {
+  rawSnapshot: string | null
+  memorySnapshot: StyleArchiveStoreSnapshot | null
+}
+
+export interface PreparedStyleArchiveRepositorySnapshot {
+  snapshot: StyleArchiveStoreSnapshot
+  writeRequired: boolean
+}
+
+export function captureStyleArchiveRepositoryState(): StyleArchiveRepositoryState {
+  return {
+    rawSnapshot: canUseStorage() ? localStorage.getItem(STYLE_ARCHIVE_STORAGE_KEY) : null,
+    memorySnapshot: memorySnapshot ? cloneSnapshot(memorySnapshot) : null,
+  }
+}
+
+export function prepareStyleArchiveRepositorySnapshot(
+  state: StyleArchiveRepositoryState,
+): PreparedStyleArchiveRepositorySnapshot {
+  if (state.memorySnapshot) {
+    return {
+      snapshot: cloneSnapshot(state.memorySnapshot),
+      writeRequired: state.rawSnapshot === null,
+    }
+  }
+  if (state.rawSnapshot === null) {
+    return {
+      snapshot: seedSnapshot(),
+      writeRequired: true,
+    }
+  }
+
+  const parsed = JSON.parse(state.rawSnapshot) as Partial<StyleArchiveStoreSnapshot>
+  if (!Array.isArray(parsed.records) || !Array.isArray(parsed.pendingItems)) {
+    return {
+      snapshot: seedSnapshot(),
+      writeRequired: true,
+    }
+  }
+  return {
+    snapshot: mergeMissingSeedData(
+      hydrateSnapshot({
+        version: STYLE_ARCHIVE_STORE_VERSION,
+        records: parsed.records as StyleArchiveShellRecord[],
+        pendingItems: parsed.pendingItems as StyleArchivePendingItem[],
+      }),
+    ),
+    writeRequired: false,
+  }
+}
+
+export function commitStyleArchiveStoreSnapshot(snapshot: StyleArchiveStoreSnapshot): void {
+  persistSnapshot(snapshot)
+}
+
+export function restoreStyleArchiveRepositoryState(
+  state: StyleArchiveRepositoryState,
+  restoreRawSnapshot = true,
+): void {
+  try {
+    if (restoreRawSnapshot && canUseStorage()) {
+      if (state.rawSnapshot === null) {
+        localStorage.removeItem(STYLE_ARCHIVE_STORAGE_KEY)
+      } else {
+        localStorage.setItem(STYLE_ARCHIVE_STORAGE_KEY, state.rawSnapshot)
+      }
+    }
+  } finally {
+    memorySnapshot = state.memorySnapshot ? cloneSnapshot(state.memorySnapshot) : null
   }
 }
 
@@ -250,7 +326,10 @@ export function createStyleArchiveShell(record: StyleArchiveShellRecord): StyleA
     !normalized.sourceProjectName ||
     !normalized.sourceProjectNodeId
   ) {
-    throw new Error('款式档案只能从商品项目 STYLE_ARCHIVE_CREATE 节点生成。')
+    throw new Error('商品／款式档案只能从商品项目“项目与档案建立”节点生成。')
+  }
+  if (snapshot.records.some((item) => item.styleId === normalized.styleId)) {
+    throw new Error(`款式档案 ID ${normalized.styleId} 已存在，不能重复创建或改绑到其他商品项目。`)
   }
   if (normalized.sourceProjectId && snapshot.records.some((item) => item.sourceProjectId === normalized.sourceProjectId)) {
     throw new Error('当前商品项目已存在正式款式档案主关联。')
@@ -271,6 +350,17 @@ export function updateStyleArchive(styleId: string, patch: Partial<StyleArchiveS
     ...snapshot.records[index],
     ...patch,
   })
+  if (snapshot.records.some((item, itemIndex) => itemIndex !== index && item.styleId === nextRecord.styleId)) {
+    throw new Error(`款式档案 ID ${nextRecord.styleId} 已存在，不能重复创建或改绑到其他商品项目。`)
+  }
+  if (
+    nextRecord.sourceProjectId &&
+    snapshot.records.some(
+      (item, itemIndex) => itemIndex !== index && item.sourceProjectId === nextRecord.sourceProjectId,
+    )
+  ) {
+    throw new Error('当前商品项目已存在正式款式档案主关联。')
+  }
   const nextRecords = [...snapshot.records]
   nextRecords.splice(index, 1, nextRecord)
   persistSnapshot({

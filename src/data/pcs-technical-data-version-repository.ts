@@ -1,12 +1,33 @@
 import { createTechnicalDataVersionBootstrapSnapshot } from './pcs-technical-data-version-bootstrap.ts'
+import { assertEngineeringBomPricingSnapshotValid } from './pcs-engineering-bom-snapshot-validation.ts'
+import { getLatestPcsExchangeRate } from './pcs-exchange-rate-config.ts'
+import { resolveEngineeringLinkedPartTemplateVersions } from './pcs-engineering-bom-snapshot-source.ts'
+import {
+  MATERIAL_STANDARD_PRICE_REQUIRED_MESSAGE,
+  resolveEngineeringBomMaterialLine,
+} from './pcs-engineering-bom-material-resolver.ts'
+import type { EngineeringBomPricingSnapshot } from './pcs-engineering-bom-types.ts'
+import {
+  getEngineeringChangeTaskById,
+  getEngineeringMasterOrderById,
+} from './pcs-engineering-master-repository.ts'
 import { getStyleArchiveById } from './pcs-style-archive-repository.ts'
 import {
   hasTechPackPrintRequirement,
   validateTechPackDesignRequirement,
 } from './pcs-tech-pack-design-requirement.ts'
 import { normalizeProcessRouteEntries } from './tech-pack-process-route.ts'
+import {
+  getTechPackVersionLogStoreSnapshot,
+  restoreTechPackVersionLogStoreSnapshot,
+} from './pcs-tech-pack-version-log-repository.ts'
+import {
+  getTechPackReviewNotificationStoreSnapshot,
+  restoreTechPackReviewNotificationStoreSnapshot,
+} from './pcs-tech-pack-review-notification-repository.ts'
 import type {
   TechPackSourceTaskType,
+  StoredTechPackSourceTaskType,
   TechPackVersionChangeScope,
   TechnicalAttachment,
   TechnicalBomItem,
@@ -166,6 +187,73 @@ function cloneRecord(record: TechnicalDataVersionRecord): TechnicalDataVersionRe
   }
 }
 
+function doesMaterialLineMatchBomItem(
+  line: EngineeringBomPricingSnapshot['materialLines'][number],
+  item: TechnicalBomItem,
+): boolean {
+  return (
+    line.materialSkuId.trim() === (item.materialSkuId || '').trim()
+    && line.usage === item.unitConsumption
+    && line.sampleQuantity === (item.sampleQuantity ?? 1)
+    && line.usageUnit.trim() === (item.unit || '').trim()
+    && line.lossRate === item.lossRate
+  )
+}
+
+function migrateLegacyMaterialPriceSnapshots(
+  snapshot: EngineeringBomPricingSnapshot,
+  bomItems: TechnicalBomItem[],
+): EngineeringBomPricingSnapshot['materialPriceSnapshots'] | null {
+  if (Array.isArray(snapshot.materialPriceSnapshots)) {
+    return snapshot.materialPriceSnapshots.map((item) => ({ ...item }))
+  }
+  if (snapshot.materialLines.length !== bomItems.length || bomItems.length === 0) return null
+  const availableBomItems = new Map(bomItems.map((item) => [item.id, item]))
+  if (availableBomItems.size !== bomItems.length || [...availableBomItems.keys()].some((id) => !id.trim())) return null
+
+  const migrated: EngineeringBomPricingSnapshot['materialPriceSnapshots'] = []
+  for (const line of snapshot.materialLines) {
+    const explicitBomItemId = line.bomItemId?.trim()
+    const candidates = explicitBomItemId
+      ? [availableBomItems.get(explicitBomItemId)].filter((item): item is TechnicalBomItem => Boolean(item))
+      : [...availableBomItems.values()].filter((item) => doesMaterialLineMatchBomItem(line, item))
+    if (candidates.length !== 1 || !doesMaterialLineMatchBomItem(line, candidates[0])) return null
+    const matched = candidates[0]
+    migrated.push({ ...line, bomItemId: matched.id })
+    availableBomItems.delete(matched.id)
+  }
+  return availableBomItems.size === 0 ? migrated : null
+}
+
+function normalizeBomPricingSnapshot(
+  content: TechnicalDataVersionContent,
+): EngineeringBomPricingSnapshot | undefined {
+  const snapshot = content.bomPricingSnapshot
+  if (!snapshot) return undefined
+  const bomItems = Array.isArray(snapshot.bomItems) && snapshot.bomItems.length > 0
+    ? cloneBomItems(snapshot.bomItems)
+    : cloneBomItems(content.bomItems)
+  const materialPriceSnapshots = migrateLegacyMaterialPriceSnapshots(snapshot, bomItems)
+  if (!materialPriceSnapshots) return undefined
+  return {
+    ...snapshot,
+    materialLines: snapshot.materialLines.map((item) => ({ ...item })),
+    customCosts: snapshot.customCosts.map((item) => ({ ...item })),
+    cost: { ...snapshot.cost },
+    bomItems,
+    materialPriceSnapshots,
+    customCostsIdr: Array.isArray(snapshot.customCostsIdr)
+      ? snapshot.customCostsIdr.map((item) => ({ ...item }))
+      : snapshot.customCosts.map((item) => ({ ...item })),
+    materialCostCny: snapshot.materialCostCny ?? snapshot.cost.materialCostCny,
+    comprehensiveCostCny: snapshot.comprehensiveCostCny ?? snapshot.cost.comprehensiveCostCny,
+    comprehensiveCostIdr: snapshot.comprehensiveCostIdr ?? snapshot.cost.comprehensiveCostIdr,
+    linkedPartTemplateVersions: Array.isArray(snapshot.linkedPartTemplateVersions)
+      ? snapshot.linkedPartTemplateVersions.map((item) => ({ ...item }))
+      : [],
+  }
+}
+
 function cloneContent(content: TechnicalDataVersionContent): TechnicalDataVersionContent {
   return {
     technicalVersionId: content.technicalVersionId,
@@ -180,6 +268,8 @@ function cloneContent(content: TechnicalDataVersionContent): TechnicalDataVersio
     processRouteChangeReason: content.processRouteChangeReason,
     sizeTable: cloneSizeTable(content.sizeTable),
     bomItems: cloneBomItems(content.bomItems),
+    bomCustomCosts: (content.bomCustomCosts ?? []).map((item) => ({ ...item })),
+    bomPricingSnapshot: normalizeBomPricingSnapshot(content),
     qualityRules: cloneQualityRules(content.qualityRules),
     colorMaterialMappings: cloneColorMappings(content.colorMaterialMappings),
     patternDesigns: clonePatternDesigns(content.patternDesigns),
@@ -228,12 +318,54 @@ function normalizeDomainStatus(value: string | null | undefined): TechnicalDomai
 function normalizeSourceTaskType(
   value: string | null | undefined,
   record?: Pick<TechnicalDataVersionRecord, 'linkedRevisionTaskIds' | 'linkedPatternTaskIds' | 'linkedArtworkTaskIds'>,
-): TechPackSourceTaskType {
+): StoredTechPackSourceTaskType {
+  if (value === 'ENGINEERING_MASTER' || value === 'ENGINEERING_CHANGE') return value
   if (value === 'REVISION' || value === 'PLATE' || value === 'ARTWORK' || value === 'MANUAL') return value
   if ((record?.linkedRevisionTaskIds?.length ?? 0) > 0) return 'REVISION'
   if ((record?.linkedPatternTaskIds?.length ?? 0) > 0) return 'PLATE'
   if ((record?.linkedArtworkTaskIds?.length ?? 0) > 0) return 'ARTWORK'
   return 'REVISION'
+}
+
+function validateTechnicalVersionCreationSource(record: TechnicalDataVersionRecord): void {
+  if (record.createdFromTaskType !== 'ENGINEERING_MASTER' && record.createdFromTaskType !== 'ENGINEERING_CHANGE') {
+    throw new Error('技术包新版本只能由工程主单或工程变更任务生成。')
+  }
+  if (!record.sourceProjectId.trim() || !record.createdFromTaskId.trim()) {
+    throw new Error('技术包必须同时记录来源对象和来源任务。')
+  }
+
+  if (record.createdFromTaskType === 'ENGINEERING_MASTER') {
+    const master = getEngineeringMasterOrderById(record.sourceProjectId)
+    if (!master) throw new Error(`工程主单不存在：${record.sourceProjectId}`)
+    const sourceTask = master.tasks.find((task) => task.taskId === record.createdFromTaskId)
+    if (!sourceTask) {
+      throw new Error(`工程主单任务不存在：${record.createdFromTaskId}`)
+    }
+    if (sourceTask.taskType !== 'TECH_PACK_CONFIRMATION') {
+      throw new Error('工程主单来源任务必须是技术包确认任务。')
+    }
+    if (master.styleId !== record.styleId) {
+      throw new Error('技术包款式与工程主单款式不一致。')
+    }
+    return
+  }
+
+  const changeTask = getEngineeringChangeTaskById(record.sourceProjectId)
+  if (!changeTask) throw new Error(`工程变更任务不存在：${record.sourceProjectId}`)
+  if (changeTask.engineeringChangeTaskId !== record.createdFromTaskId) {
+    throw new Error('技术包来源对象与工程变更任务不一致。')
+  }
+  if (changeTask.styleId !== record.styleId) {
+    throw new Error('技术包款式与工程变更任务款式不一致。')
+  }
+}
+
+function isPublishedLegacyTechnicalVersion(record: TechnicalDataVersionRecord | undefined): boolean {
+  return Boolean(
+    record?.versionStatus === 'PUBLISHED' &&
+    ['REVISION', 'PLATE', 'ARTWORK', 'MANUAL'].includes(record.createdFromTaskType),
+  )
 }
 
 function normalizeChangeScope(value: string | null | undefined): TechPackVersionChangeScope {
@@ -335,12 +467,11 @@ function deriveReviewStage(input: {
   merchandiserReview: TechnicalReviewNode
 }): TechnicalReviewStage {
   if (input.versionStatus === 'PUBLISHED' || input.versionStatus === 'ARCHIVED') return '已发布'
-  if (input.merchandiserReview.status === '审核-已通过') return '待发布'
   if (
     isFirstStageReviewComplete(input.buyerReview) &&
     isFirstStageReviewComplete(input.patternMakerReview)
   ) {
-    return '跟单复核'
+    return input.merchandiserReview.status === '审核-已通过' ? '待发布' : '跟单复核'
   }
   if (
     input.reviewStage === '第一阶段并行审核' ||
@@ -428,6 +559,8 @@ function normalizeContent(content: TechnicalDataVersionContent): TechnicalDataVe
     ...normalizeRouteFields(content),
     sizeTable: cloneSizeTable(Array.isArray(content.sizeTable) ? content.sizeTable : []),
     bomItems: cloneBomItems(Array.isArray(content.bomItems) ? content.bomItems : []),
+    bomCustomCosts: Array.isArray(content.bomCustomCosts) ? content.bomCustomCosts.map((item) => ({ ...item })) : [],
+    bomPricingSnapshot: normalizeBomPricingSnapshot(content),
     qualityRules: cloneQualityRules(Array.isArray(content.qualityRules) ? content.qualityRules : []),
     colorMaterialMappings: cloneColorMappings(
       Array.isArray(content.colorMaterialMappings) ? content.colorMaterialMappings : [],
@@ -948,10 +1081,27 @@ export function getCurrentTechPackVersionByStyleId(styleId: string): TechnicalDa
   return getTechnicalDataVersionById(style.currentTechPackVersionId)
 }
 
+function isNewEngineeringTechnicalVersion(
+  record: TechnicalDataVersionRecord | null | undefined,
+): record is TechnicalDataVersionRecord {
+  return record?.createdFromTaskType === 'ENGINEERING_MASTER' || record?.createdFromTaskType === 'ENGINEERING_CHANGE'
+}
+
+function assertCallerDidNotProvideEngineeringBomPricingSnapshot(
+  record: TechnicalDataVersionRecord | null | undefined,
+  snapshotWasProvided: boolean,
+): void {
+  if (isNewEngineeringTechnicalVersion(record) && snapshotWasProvided) {
+    throw new Error('新工程来源技术包正式 BOM/COST 快照属于正式字段，禁止修改或通过通用入口提供，必须使用规范固化入口。')
+  }
+}
+
 export function createTechnicalDataVersionDraft(
   record: TechnicalDataVersionRecord,
   content?: TechnicalDataVersionContent,
 ): TechnicalDataVersionRecord {
+  validateTechnicalVersionCreationSource(record)
+  assertCallerDidNotProvideEngineeringBomPricingSnapshot(record, content?.bomPricingSnapshot !== undefined)
   const snapshot = loadSnapshot()
   const normalizedContent = normalizeContent(content ?? createEmptyContent(record.technicalVersionId))
   const normalizedRecord = normalizeRecord(record, new Map([[record.technicalVersionId, normalizedContent]]))
@@ -971,6 +1121,24 @@ export function updateTechnicalDataVersionRecord(
   const snapshot = loadSnapshot()
   const index = snapshot.records.findIndex((item) => item.technicalVersionId === technicalVersionId)
   if (index < 0) return null
+  if (isPublishedLegacyTechnicalVersion(snapshot.records[index])) {
+    throw new Error('旧来源的已发布技术包仅供查询，处于只读状态，禁止修改。')
+  }
+  const immutableSourceKeys = [
+    'styleId',
+    'styleCode',
+    'styleName',
+    'sourceProjectId',
+    'sourceProjectCode',
+    'sourceProjectName',
+    'sourceProjectNodeId',
+    'createdFromTaskType',
+    'createdFromTaskId',
+    'createdFromTaskCode',
+  ] as const
+  if (immutableSourceKeys.some((key) => Object.prototype.hasOwnProperty.call(patch, key))) {
+    throw new Error('技术包来源身份字段禁止修改。')
+  }
   const content = snapshot.contents.find((item) => item.technicalVersionId === technicalVersionId) ?? createEmptyContent(technicalVersionId)
   const nextRecord = normalizeRecord(
     {
@@ -989,6 +1157,29 @@ export function updateTechnicalDataVersionRecord(
 }
 
 export function updateTechnicalDataVersionContent(
+  technicalVersionId: string,
+  patch: Partial<TechnicalDataVersionContent>,
+): TechnicalDataVersionContent | null {
+  const snapshot = loadSnapshot()
+  const targetRecord = snapshot.records.find((item) => item.technicalVersionId === technicalVersionId)
+  if (isPublishedLegacyTechnicalVersion(targetRecord)) {
+    throw new Error('旧来源的已发布技术包仅供查询，处于只读状态，禁止修改。')
+  }
+  assertCallerDidNotProvideEngineeringBomPricingSnapshot(
+    targetRecord,
+    Object.prototype.hasOwnProperty.call(patch, 'bomPricingSnapshot'),
+  )
+  if (
+    targetRecord?.versionStatus === 'PUBLISHED'
+    && isNewEngineeringTechnicalVersion(targetRecord)
+    && ['bomItems', 'bomCustomCosts'].some((key) => Object.prototype.hasOwnProperty.call(patch, key))
+  ) {
+    throw new Error('新工程来源的已发布技术包 BOM/COST 正式字段禁止修改。')
+  }
+  return persistTechnicalDataVersionContentPatch(technicalVersionId, patch)
+}
+
+function persistTechnicalDataVersionContentPatch(
   technicalVersionId: string,
   patch: Partial<TechnicalDataVersionContent>,
 ): TechnicalDataVersionContent | null {
@@ -1023,6 +1214,117 @@ export function updateTechnicalDataVersionContent(
   return cloneContent(nextContent)
 }
 
+function roundEngineeringBomCostCny(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100
+}
+
+function buildPublishedTechnicalDataVersionBomPricingSnapshot(
+  technicalVersionId: string,
+  frozenAt: string,
+  frozenBy: string,
+): EngineeringBomPricingSnapshot {
+  const snapshot = loadSnapshot()
+  const record = snapshot.records.find((item) => item.technicalVersionId === technicalVersionId)
+  if (
+    !record
+    || record.versionStatus !== 'PUBLISHED'
+    || record.reviewStage !== '已发布'
+    || (record.createdFromTaskType !== 'ENGINEERING_MASTER' && record.createdFromTaskType !== 'ENGINEERING_CHANGE')
+  ) {
+    throw new Error('只有已审核发布的新工程来源技术包可以形成正式 BOM/COST 快照。')
+  }
+  const content = snapshot.contents.find((item) => item.technicalVersionId === technicalVersionId)
+  if (!content) throw new Error('未找到目标技术包当前内容，不能形成正式 BOM/COST 快照。')
+  if (content?.bomPricingSnapshot) throw new Error('正式 BOM/COST 快照已存在，禁止覆盖。')
+
+  if (!content.bomItems.some((item) => Boolean(item.materialSkuId))) {
+    throw new Error('工程来源技术包缺少完整 BOM 定价字段，无法形成正式快照，不能启用。')
+  }
+  const materialPriceSnapshots = content.bomItems.map((item) => {
+    if (!item.materialSkuId) throw new Error(`BOM 行 ${item.name} 未关联物料 SKU，不能形成正式快照。`)
+    const resolved = resolveEngineeringBomMaterialLine({
+      bomItemId: item.id,
+      materialSkuId: item.materialSkuId,
+      usage: item.unitConsumption,
+      sampleQuantity: item.sampleQuantity ?? 1,
+      usageUnit: item.unit || '',
+      lossRate: item.lossRate,
+    })
+    if (resolved.standardUnitPriceCny === null || resolved.materialCostCny === null) {
+      throw new Error(MATERIAL_STANDARD_PRICE_REQUIRED_MESSAGE)
+    }
+    return {
+      ...resolved,
+      bomItemId: item.id,
+      standardUnitPriceCny: resolved.standardUnitPriceCny,
+      materialCostCny: resolved.materialCostCny,
+    }
+  })
+  const exchangeRateIdrPerCny = getLatestPcsExchangeRate().idrPerCny
+  const customCostsIdr = (content.bomCustomCosts ?? []).map((item) => ({ ...item, currency: 'IDR' as const }))
+  const rawMaterialCostCny = materialPriceSnapshots.reduce(
+    (total, line) => total
+      + line.usage
+      * line.sampleQuantity
+      * (1 + line.lossRate)
+      * line.conversionToPricingUnit
+      * line.standardUnitPriceCny,
+    0,
+  )
+  const customCostIdr = Math.round(customCostsIdr.reduce((total, item) => total + item.amountIdr, 0))
+  const materialCostCny = roundEngineeringBomCostCny(rawMaterialCostCny)
+  const comprehensiveCostCny = roundEngineeringBomCostCny(rawMaterialCostCny + customCostIdr / exchangeRateIdrPerCny)
+  const comprehensiveCostIdr = Math.round(rawMaterialCostCny * exchangeRateIdrPerCny + customCostIdr)
+  const linkedPartTemplateVersions = resolveEngineeringLinkedPartTemplateVersions(record.linkedPartTemplateIds)
+  const bomPricingSnapshot: EngineeringBomPricingSnapshot = {
+    snapshotVersion: 1,
+    frozenAt,
+    frozenBy,
+    exchangeRateIdrPerCny,
+    exchangeRateSource: '系统最新汇率',
+    materialLines: materialPriceSnapshots.map((item) => ({ ...item })),
+    customCosts: customCostsIdr.map((item) => ({ ...item })),
+    cost: {
+      materialCostCny,
+      customCostIdr,
+      comprehensiveCostCny,
+      comprehensiveCostIdr,
+      exchangeRateIdrPerCny,
+    },
+    bomItems: cloneBomItems(content.bomItems),
+    materialPriceSnapshots,
+    customCostsIdr,
+    materialCostCny,
+    comprehensiveCostCny,
+    comprehensiveCostIdr,
+    linkedPartTemplateVersions,
+  }
+  assertEngineeringBomPricingSnapshotValid(bomPricingSnapshot, {
+    bomItems: content.bomItems,
+    bomCustomCosts: content.bomCustomCosts ?? [],
+    exchangeRateIdrPerCny,
+    linkedPartTemplateVersions,
+    frozenAt,
+    frozenBy,
+  })
+  return bomPricingSnapshot
+}
+
+export function freezePublishedTechnicalDataVersionBomPricingSnapshot(
+  technicalVersionId: string,
+  frozenAt: string,
+  frozenBy: string,
+): EngineeringBomPricingSnapshot {
+  const bomPricingSnapshot = buildPublishedTechnicalDataVersionBomPricingSnapshot(
+    technicalVersionId,
+    frozenAt,
+    frozenBy,
+  )
+  const updated = persistTechnicalDataVersionContentPatch(technicalVersionId, { bomPricingSnapshot })
+  if (!updated) throw new Error('保存技术包 BOM 成本快照失败。')
+  return structuredClone(bomPricingSnapshot)
+}
+
 export function publishTechnicalDataVersionRecord(
   technicalVersionId: string,
   publishedAt: string,
@@ -1034,6 +1336,9 @@ export function publishTechnicalDataVersionRecord(
   const content =
     snapshot.contents.find((item) => item.technicalVersionId === technicalVersionId) ??
     createEmptyContent(technicalVersionId)
+  if (isNewEngineeringTechnicalVersion(target) && content.bomPricingSnapshot) {
+    throw new Error('新工程来源技术包存在预置正式 BOM/COST 快照，通用发布入口禁止发布。')
+  }
   const nextRecords = snapshot.records.map((item) =>
     item.technicalVersionId === technicalVersionId
       ? normalizeRecord(
@@ -1081,8 +1386,38 @@ export function pushTechnicalDataVersionPendingItem(item: TechnicalDataVersionPe
   })
 }
 
-export function replaceTechnicalDataVersionStore(snapshot: TechnicalDataVersionStoreSnapshot): void {
-  persistSnapshot(snapshot)
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+  if ((typeof value !== 'object' || value === null) && typeof value !== 'function') return false
+  return typeof (value as { then?: unknown }).then === 'function'
+}
+
+const ASYNC_FUNCTION_PROTOTYPE = Object.getPrototypeOf(async function () {})
+
+function isAsyncFunction(operation: () => unknown): boolean {
+  return Object.getPrototypeOf(operation) === ASYNC_FUNCTION_PROTOTYPE
+}
+
+export function runTechnicalDataVersionRepositoryTransaction<Operation extends () => unknown>(
+  operation: Operation & (ReturnType<Operation> extends PromiseLike<unknown> ? never : unknown),
+): ReturnType<Operation> {
+  if (isAsyncFunction(operation)) {
+    throw new Error('技术资料版本仓储事务仅支持同步操作，禁止传入 AsyncFunction。')
+  }
+  const snapshotBeforeOperation = loadSnapshot()
+  const reviewLogSnapshotBeforeOperation = getTechPackVersionLogStoreSnapshot()
+  const reviewNotificationSnapshotBeforeOperation = getTechPackReviewNotificationStoreSnapshot()
+  try {
+    const result = operation()
+    if (isThenable(result)) {
+      throw new Error('技术资料版本仓储事务仅支持同步操作，禁止返回 Promise 或 thenable。')
+    }
+    return result as ReturnType<Operation>
+  } catch (error) {
+    persistSnapshot(snapshotBeforeOperation)
+    restoreTechPackVersionLogStoreSnapshot(reviewLogSnapshotBeforeOperation)
+    restoreTechPackReviewNotificationStoreSnapshot(reviewNotificationSnapshotBeforeOperation)
+    throw error
+  }
 }
 
 export function resetTechnicalDataVersionRepository(): void {

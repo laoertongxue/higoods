@@ -11,12 +11,12 @@ import { syncProjectNodeInstanceRuntime } from './pcs-project-node-instance-regi
 import { validateProjectNodeCompletion } from './pcs-project-data-consistency.ts'
 import type { PcsProjectNodeRecord, PcsProjectViewRecord, ProjectNodeStatus } from './pcs-project-types.ts'
 
-const DECISION_WORK_ITEM_CODES = ['FEASIBILITY_REVIEW', 'SAMPLE_CONFIRM', 'TEST_CONCLUSION'] as const
-const TEST_DECISION_RESULT_OPTIONS = ['通过', '不通过', '继续测试'] as const
-const FEASIBILITY_DECISION_RESULT_OPTIONS = ['进入测款', '样衣退回', '重新改版出样衣'] as const
+const DECISION_STEP_CODES = ['FEASIBILITY_REVIEW', 'SAMPLE_CONFIRM', 'TEST_CONCLUSION'] as const
+const TEST_DECISION_RESULT_OPTIONS = ['通过', '不通过', '暂保留'] as const
+const FEASIBILITY_DECISION_RESULT_OPTIONS = ['进入测款', '样衣退回'] as const
 const DECISION_RESULT_OPTIONS = [...TEST_DECISION_RESULT_OPTIONS, ...FEASIBILITY_DECISION_RESULT_OPTIONS] as const
 
-export type ProjectDecisionWorkItemCode = (typeof DECISION_WORK_ITEM_CODES)[number]
+export type ProjectDecisionStepCode = (typeof DECISION_STEP_CODES)[number]
 export type ProjectDecisionResult = (typeof DECISION_RESULT_OPTIONS)[number]
 
 export interface ProjectDecisionFlowResult {
@@ -63,7 +63,7 @@ function syncProjectLifecycleAfterDecision(
   const currentPhaseCode = nextNode?.phaseCode ?? phases[phases.length - 1]?.phaseCode ?? project.currentPhaseCode
   const currentPhase = phases.find((item) => item.phaseCode === currentPhaseCode) ?? phases[0]
   const completedNonInitCount = nodes.filter(
-    (node) => node.workItemTypeCode !== 'PROJECT_INIT' && node.currentStatus === '已完成',
+    (node) => node.stepCode !== 'PROJECT_INIT' && node.currentStatus === '已完成',
   ).length
   const allClosed = nodes.every((node) => isClosedProjectNodeStatus(node.currentStatus))
 
@@ -121,13 +121,13 @@ function syncProjectLifecycleAfterDecision(
   }
 }
 
-export function isProjectDecisionWorkItemCode(workItemTypeCode: string): workItemTypeCode is ProjectDecisionWorkItemCode {
-  return (DECISION_WORK_ITEM_CODES as readonly string[]).includes(workItemTypeCode)
+export function isProjectDecisionStepCode(stepCode: string): stepCode is ProjectDecisionStepCode {
+  return (DECISION_STEP_CODES as readonly string[]).includes(stepCode)
 }
 
 function assertDecisionResult(result: string): asserts result is ProjectDecisionResult {
   if (!(DECISION_RESULT_OPTIONS as readonly string[]).includes(result)) {
-    throw new Error('决策结果只能是通过、不通过、继续测试、进入测款、样衣退回或重新改版出样衣')
+    throw new Error('决策结果只能是通过、不通过、暂保留、进入测款或样衣退回')
   }
 }
 
@@ -157,7 +157,7 @@ export function advanceDecisionNodePassed(
   const nodes = listProjectNodes(projectId)
   const currentIndex = nodes.findIndex((item) => item.projectNodeId === projectNodeId)
   const nextNode = nodes.slice(currentIndex + 1).find((item) => item.currentStatus === '未开始') ?? null
-  const resultText = buildResultText(node.workItemTypeName, passedResult, note)
+  const resultText = buildResultText(node.stepName, passedResult, note)
 
   updateProjectNodeRecord(
     projectId,
@@ -183,7 +183,7 @@ export function advanceDecisionNodePassed(
       {
         currentStatus: '进行中',
         pendingActionType: '待执行',
-        pendingActionText: `当前请处理：${nextNode.workItemTypeName}`,
+        pendingActionText: `当前请处理：${nextNode.stepName}`,
         updatedAt: timestamp,
       },
       operatorName,
@@ -194,7 +194,7 @@ export function advanceDecisionNodePassed(
 
   return {
     ok: true,
-    message: '当前工作项已完成，已进入下一工作项',
+    message: '当前步骤已完成，已进入下一步骤',
     project: getProjectById(projectId),
     node: getProjectNodeRecordById(projectId, projectNodeId),
     nextNode: nextNode ? getProjectNodeRecordById(projectId, nextNode.projectNodeId) : null,
@@ -225,12 +225,12 @@ export function routeProjectToSampleReturnHandle(
   }
 
   const nodes = listProjectNodes(projectId)
-  const sampleReturnNodes = nodes.filter((item) => item.workItemTypeCode === 'SAMPLE_RETURN_HANDLE')
+  const sampleReturnNodes = nodes.filter((item) => item.stepCode === 'SAMPLE_RETURN_HANDLE')
   if (sampleReturnNodes.length !== 1) {
-    throw new Error('当前项目缺少样衣退回处理工作项，请先修复项目模板或项目节点')
+    throw new Error('当前项目缺少样衣退回处理步骤，请先修复固定流程或项目步骤')
   }
   const sampleReturnNode = sampleReturnNodes[0]
-  const resultText = buildResultText(decisionNode.workItemTypeName, eliminatedResult, note)
+  const resultText = buildResultText(decisionNode.stepName, eliminatedResult, note)
 
   updateProjectNodeRecord(
     projectId,
@@ -249,12 +249,9 @@ export function routeProjectToSampleReturnHandle(
   )
   syncProjectNodeInstanceRuntime(projectId, decisionNodeId, operatorName, timestamp)
 
-  const decisionIndex = nodes.findIndex((item) => item.projectNodeId === decisionNodeId)
-  const sampleReturnIndex = nodes.findIndex((item) => item.projectNodeId === sampleReturnNode.projectNodeId)
-  nodes.forEach((node, index) => {
+  nodes.forEach((node) => {
     if (node.projectNodeId === decisionNodeId || node.projectNodeId === sampleReturnNode.projectNodeId) return
-    if (index <= decisionIndex) return
-    if (sampleReturnIndex >= 0 && index >= sampleReturnIndex) return
+    if (node.stepCode === 'PROJECT_INIT') return
     if (isClosedProjectNodeStatus(node.currentStatus)) return
     updateProjectNodeRecord(
       projectId,
@@ -294,7 +291,7 @@ export function routeProjectToSampleReturnHandle(
 
   return {
     ok: true,
-    message: '当前工作项已完成，已进入样衣退回处理',
+    message: '当前步骤已完成，已进入样衣退回处理',
     project: getProjectById(projectId),
     node: getProjectNodeRecordById(projectId, decisionNodeId),
     nextNode: getProjectNodeRecordById(projectId, sampleReturnNode.projectNodeId),
@@ -312,7 +309,7 @@ export function advanceDecisionNodeEliminated(
   return routeProjectToSampleReturnHandle(projectId, projectNodeId, operatorName, note, timestamp, eliminatedResult)
 }
 
-export function routeProjectToAdditionalTesting(
+export function holdProjectDecisionForLater(
   projectId: string,
   decisionNodeId: string,
   operatorName = '当前用户',
@@ -321,173 +318,36 @@ export function routeProjectToAdditionalTesting(
 ): ProjectDecisionFlowResult {
   const decisionNode = getProjectNodeRecordById(projectId, decisionNodeId)
   if (!decisionNode) {
-    throw new Error('未找到对应决策节点，不能执行继续测试流转。')
-  }
-  const validation = validateProjectNodeCompletion(projectId, decisionNodeId)
-  if (!validation.ok) {
-    return {
-      ok: false,
-      message: validation.message,
-      project: validation.project,
-      node: validation.node,
-      nextNode: null,
-    }
+    throw new Error('未找到对应决策节点，不能暂保留当前判断。')
   }
 
-  const nodes = listProjectNodes(projectId)
-  const nextTestingNode =
-    nodes.find((item) => item.workItemTypeCode === 'LIVE_TEST') ||
-    nodes.find((item) => item.workItemTypeCode === 'VIDEO_TEST') ||
-    null
-  if (!nextTestingNode) {
-    throw new Error('当前项目缺少直播测款或短视频测款工作项，不能回到继续测试。')
-  }
-
-  const resultText = buildResultText(decisionNode.workItemTypeName, '继续测试', note)
+  const resultText = buildResultText(decisionNode.stepName, '暂保留', note)
   updateProjectNodeRecord(
     projectId,
     decisionNodeId,
     {
-      currentStatus: '已完成',
-      latestResultType: '继续测试',
+      currentStatus: '待确认',
+      latestResultType: '暂保留',
       latestResultText: resultText,
-      pendingActionType: '已完成',
-      pendingActionText: '当前决策已完成',
+      pendingActionType: '稍后再判断',
+      pendingActionText: '当前暂不下结论，请按约定日期再次判断。',
       updatedAt: timestamp,
-      lastEventType: '继续测试',
+      lastEventType: '暂保留',
       lastEventTime: timestamp,
     },
     operatorName,
   )
   syncProjectNodeInstanceRuntime(projectId, decisionNodeId, operatorName, timestamp)
 
-  updateProjectNodeRecord(
-    projectId,
-    nextTestingNode.projectNodeId,
-    {
-      currentStatus: '进行中',
-      latestResultType: '继续测试',
-      latestResultText: note.trim() || '测款结论为继续测试，需补充测款数据。',
-      pendingActionType: '继续测试',
-      pendingActionText: '请补充直播测款或短视频测款数据后重新汇总。',
-      updatedAt: timestamp,
-      lastEventType: '继续测试',
-      lastEventTime: timestamp,
-    },
-    operatorName,
-  )
-  syncProjectNodeInstanceRuntime(projectId, nextTestingNode.projectNodeId, operatorName, timestamp)
-
   syncProjectLifecycleAfterDecision(projectId, operatorName, timestamp)
   updateProjectRecord(projectId, { projectStatus: '进行中', updatedAt: timestamp }, operatorName)
 
   return {
     ok: true,
-    message: '当前工作项已完成，已回到测款执行补充数据。',
+    message: '已暂保留当前判断；不会创建或重启测款计划，请过些天再判断。',
     project: getProjectById(projectId),
     node: getProjectNodeRecordById(projectId, decisionNodeId),
-    nextNode: getProjectNodeRecordById(projectId, nextTestingNode.projectNodeId),
-  }
-}
-
-export function routeProjectToRevisionTask(
-  projectId: string,
-  decisionNodeId: string,
-  operatorName = '当前用户',
-  note = '',
-  timestamp = nowText(),
-): ProjectDecisionFlowResult {
-  const decisionNode = getProjectNodeRecordById(projectId, decisionNodeId)
-  if (!decisionNode) {
-    throw new Error('未找到对应决策节点，不能执行重新改版出样衣流转。')
-  }
-  const validation = validateProjectNodeCompletion(projectId, decisionNodeId)
-  if (!validation.ok) {
-    return {
-      ok: false,
-      message: validation.message,
-      project: validation.project,
-      node: validation.node,
-      nextNode: null,
-    }
-  }
-
-  const nodes = listProjectNodes(projectId)
-  const revisionNode = nodes.find((item) => item.workItemTypeCode === 'REVISION_TASK')
-  if (!revisionNode) {
-    return {
-      ok: false,
-      message: '当前项目模板没有改版任务，不能选择重新改版出样衣。',
-      project: getProjectById(projectId),
-      node: decisionNode,
-      nextNode: null,
-    }
-  }
-  const sampleInboundNodes = nodes.filter((item) => item.workItemTypeCode === 'SAMPLE_INBOUND_CHECK')
-  const resultText = buildResultText(decisionNode.workItemTypeName, '重新改版出样衣', note)
-
-  updateProjectNodeRecord(
-    projectId,
-    decisionNodeId,
-    {
-      currentStatus: '未开始',
-      latestResultType: '重新改版出样衣',
-      latestResultText: resultText,
-      pendingActionType: '等待重新到样',
-      pendingActionText: '改版任务重新出样并完成样衣结果核对后，再次进行初步可行性判断。',
-      updatedAt: timestamp,
-      lastEventType: '重新改版出样衣',
-      lastEventTime: timestamp,
-    },
-    operatorName,
-  )
-  syncProjectNodeInstanceRuntime(projectId, decisionNodeId, operatorName, timestamp)
-
-  updateProjectNodeRecord(
-    projectId,
-    revisionNode.projectNodeId,
-    {
-      currentStatus: '进行中',
-      latestResultType: '重新改版出样衣',
-      latestResultText: note.trim() || '初步可行性判断要求重新改版出新的样衣。',
-      pendingActionType: '重新改版出样衣',
-      pendingActionText: '请在工程开发与打样管理中处理改版任务并重新出样。',
-      updatedAt: timestamp,
-      lastEventType: '重新改版出样衣',
-      lastEventTime: timestamp,
-    },
-    operatorName,
-  )
-  syncProjectNodeInstanceRuntime(projectId, revisionNode.projectNodeId, operatorName, timestamp)
-
-  sampleInboundNodes.forEach((sampleInboundNode) => {
-    updateProjectNodeRecord(
-      projectId,
-      sampleInboundNode.projectNodeId,
-      {
-        currentStatus: '未开始',
-        latestResultType: '等待重新到样',
-        latestResultText: '改版任务重新出样后，需要重新登记实际收到的样衣。',
-        pendingActionType: '等待重新到样',
-        pendingActionText: '等待改版任务完成后重新核对样衣。',
-        updatedAt: timestamp,
-        lastEventType: '重新改版出样衣',
-        lastEventTime: timestamp,
-      },
-      operatorName,
-    )
-    syncProjectNodeInstanceRuntime(projectId, sampleInboundNode.projectNodeId, operatorName, timestamp)
-  })
-
-  syncProjectLifecycleAfterDecision(projectId, operatorName, timestamp)
-  updateProjectRecord(projectId, { projectStatus: '进行中', updatedAt: timestamp }, operatorName)
-
-  return {
-    ok: true,
-    message: '已回到改版任务重新出样；重新到样后需要再次核对样衣并做初步可行性判断。',
-    project: getProjectById(projectId),
-    node: getProjectNodeRecordById(projectId, decisionNodeId),
-    nextNode: getProjectNodeRecordById(projectId, revisionNode.projectNodeId),
+    nextNode: null,
   }
 }
 
@@ -504,26 +364,23 @@ export function completeDecisionNodeWithResult(
   if (!node) {
     throw new Error('未找到对应决策节点，不能完成当前决策。')
   }
-  if (!isProjectDecisionWorkItemCode(node.workItemTypeCode)) {
-    throw new Error('当前节点不是决策工作项，不能使用决策流转服务。')
+  if (!isProjectDecisionStepCode(node.stepCode)) {
+    throw new Error('当前节点不是决策步骤，不能使用决策流转服务。')
   }
-  if (node.workItemTypeCode === 'FEASIBILITY_REVIEW') {
+  if (node.stepCode === 'FEASIBILITY_REVIEW') {
     if (result === '进入测款') {
       return advanceDecisionNodePassed(projectId, projectNodeId, operatorName, note, timestamp, '进入测款')
-    }
-    if (result === '重新改版出样衣') {
-      return routeProjectToRevisionTask(projectId, projectNodeId, operatorName, note, timestamp)
     }
     if (result === '样衣退回') {
       return advanceDecisionNodeEliminated(projectId, projectNodeId, operatorName, note, timestamp, '样衣退回')
     }
-    throw new Error('初步可行性判断只能选择进入测款、样衣退回或重新改版出样衣。')
+    throw new Error('初步可行性判断只能选择进入测款或样衣退回。')
   }
   if (result === '通过') {
     return advanceDecisionNodePassed(projectId, projectNodeId, operatorName, note, timestamp)
   }
-  if (result === '继续测试') {
-    return routeProjectToAdditionalTesting(projectId, projectNodeId, operatorName, note, timestamp)
+  if (result === '暂保留') {
+    return holdProjectDecisionForLater(projectId, projectNodeId, operatorName, note, timestamp)
   }
   return advanceDecisionNodeEliminated(projectId, projectNodeId, operatorName, note, timestamp)
 }

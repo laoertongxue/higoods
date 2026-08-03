@@ -62,14 +62,6 @@ export const renderPcsPatternLibraryConfigPage = createAsyncRenderer(
   () => import('../pages/pcs-pattern-library-config'),
   'renderPcsPatternLibraryConfigPage',
 )
-export const renderPcsWorkItemLibraryPage = createAsyncRenderer(
-  () => import('../pages/pcs-work-items'),
-  'renderPcsWorkItemLibraryPage',
-)
-export const renderPcsWorkItemDetailPage = createAsyncRenderer(
-  () => import('../pages/pcs-work-items'),
-  'renderPcsWorkItemDetailPage',
-)
 export const renderPcsLiveTestingListPage = createAsyncRenderer(
   () => import('../pages/pcs-live-testing'),
   'renderPcsLiveTestingListPage',
@@ -171,7 +163,7 @@ export const renderPcsPartsArchiveCreatePage = createAsyncRenderer(
   'renderPcsPartsArchiveCreatePage',
 )
 export const renderPcsMaterialArchiveDetailPage = createAsyncRenderer(
-  () => import('../pages/pcs-material-archives'),
+  () => import('../pages/pcs-material-archive-detail'),
   'renderPcsMaterialArchiveDetailPage',
 )
 export const renderPcsChannelProductListPage = createAsyncRenderer(
@@ -182,18 +174,6 @@ export const renderPcsChannelProductDetailPage = createAsyncRenderer(
   () => import('../pages/pcs-channel-products'),
   'renderPcsChannelProductDetailPage',
 )
-export const renderPcsTemplateListPage = createAsyncRenderer(
-  () => import('../pages/pcs-templates'),
-  'renderPcsTemplateListPage',
-)
-export const renderPcsTemplateDetailPage = createAsyncRenderer(
-  () => import('../pages/pcs-templates'),
-  'renderPcsTemplateDetailPage',
-)
-export const renderPcsTemplateEditorPage = createAsyncRenderer(
-  () => import('../pages/pcs-templates'),
-  'renderPcsTemplateEditorPage',
-)
 export const renderPcsConfigWorkspacePage = createAsyncRenderer(
   () => import('../pages/pcs-config-workspace'),
   'renderPcsConfigWorkspacePage',
@@ -202,6 +182,14 @@ export const renderPcsProjectListPage = createAsyncRenderer(
   () => import('../pages/pcs-projects-list'),
   'renderPcsProjectListPage',
 )
+export const renderPcsEngineeringMasterListPage = createAsyncRenderer(
+  () => import('../pages/pcs-engineering-master-list'),
+  'renderPcsEngineeringMasterListPage',
+)
+export const renderPcsEngineeringMasterDetailPage = createAsyncRenderer(
+  () => import('../pages/pcs-engineering-master-detail'),
+  'renderPcsEngineeringMasterDetailPage',
+)
 export const renderPcsProjectCreatePage = createAsyncRenderer(
   () => import('../pages/pcs-projects'),
   'renderPcsProjectCreatePage',
@@ -209,10 +197,6 @@ export const renderPcsProjectCreatePage = createAsyncRenderer(
 export const renderPcsProjectDetailPage = createAsyncRenderer(
   () => import('../pages/pcs-projects'),
   'renderPcsProjectDetailPage',
-)
-export const renderPcsProjectWorkItemDetailPage = createAsyncRenderer(
-  () => import('../pages/pcs-projects'),
-  'renderPcsProjectWorkItemDetailPage',
 )
 export const renderPcsRevisionTaskPage = createAsyncRenderer(
   () => import('../pages/pcs-engineering-tasks'),
@@ -237,6 +221,30 @@ export const renderPcsPatternTaskPage = createAsyncRenderer(
 export const renderPcsPatternTaskDetailPage = createAsyncRenderer(
   () => import('../pages/pcs-engineering-tasks'),
   'renderPcsPatternTaskDetailPage',
+)
+export const renderPcsColorTaskPage = createAsyncRenderer(
+  () => import('../pages/pcs-engineering-tasks'),
+  'renderPcsColorTaskPage',
+)
+export const renderPcsColorTaskDetailPage = createAsyncRenderer(
+  () => import('../pages/pcs-engineering-tasks'),
+  'renderPcsColorTaskDetailPage',
+)
+export const renderPcsPurchaseTaskPage = createAsyncRenderer(
+  () => import('../pages/pcs-engineering-tasks'),
+  'renderPcsPurchaseTaskPage',
+)
+export const renderPcsPurchaseTaskDetailPage = createAsyncRenderer(
+  () => import('../pages/pcs-engineering-tasks'),
+  'renderPcsPurchaseTaskDetailPage',
+)
+export const renderPcsTechPackTaskPage = createAsyncRenderer(
+  () => import('../pages/pcs-engineering-tasks'),
+  'renderPcsTechPackTaskPage',
+)
+export const renderPcsTechPackTaskDetailPage = createAsyncRenderer(
+  () => import('../pages/pcs-engineering-tasks'),
+  'renderPcsTechPackTaskDetailPage',
 )
 export const renderPcsFirstSampleTaskPage = createAsyncRenderer(
   () => import('../pages/pcs-engineering-tasks'),

@@ -2,105 +2,17 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 
-const ROOT = process.cwd()
+const read = (file: string): string => fs.readFileSync(path.join(process.cwd(), file), 'utf8')
+const dispatcher = read('src/pages/pcs-engineering-tasks.ts')
+const page = read('src/pages/pcs-engineering-tasks/pattern-task.ts')
+const common = read('src/pages/pcs-engineering-tasks/master-task-page.ts')
 
-function read(relativePath: string): string {
-  return fs.readFileSync(path.join(ROOT, relativePath), 'utf8')
-}
-
-function assertIncludes(source: string, pattern: string, message: string): void {
-  assert.ok(source.includes(pattern), message)
-}
-
-function assertNotIncludes(source: string, pattern: string, message: string): void {
-  assert.ok(!source.includes(pattern), message)
-}
-
-const patternTypes = read('src/data/pcs-pattern-task-types.ts')
-const teamConfig = read('src/data/pcs-pattern-task-team-config.ts')
-const flowService = read('src/data/pcs-pattern-task-flow-service.ts')
-const policy = read('src/data/pcs-engineering-task-field-policy.ts')
-const page = read('src/pages/pcs-engineering-tasks.ts')
-const libraryTypes = read('src/data/pcs-pattern-library-types.ts')
-const techPackGeneration = read('src/data/pcs-tech-pack-task-generation.ts')
-
-;[
-  'demandSourceType',
-  'processType',
-  'requestQty',
-  'fabricSku',
-  'fabricName',
-  'demandImageIds',
-  'patternSpuCode',
-  'colorDepthOption',
-  'difficultyGrade',
-  'assignedTeamCode',
-  'assignedMemberId',
-  'buyerReviewStatus',
-  'completionImageIds',
-  'patternFileIds',
-  'transferToTeamCode',
-].forEach((field) => {
-  assertIncludes(patternTypes, field, `花型任务类型缺少字段：${field}`)
-})
-
-;[
-  '中国团队',
-  '万隆团队',
-  '雅加达团队',
-  'bing bing',
-  '单单',
-  '关浩',
-  'ramzi adli',
-  'micin',
-  'Irfan',
-  'Usman',
-  'zaenal Abidin',
-  'Bandung',
-].forEach((value) => {
-  assertIncludes(teamConfig, value, `团队或成员配置缺少：${value}`)
-})
-
-;[
-  '待买手确认',
-  '买手已通过',
-  '买手已驳回',
-  'buyerReviewStatus',
-  'buyerReviewerName',
-].forEach((value) => {
-  assertIncludes(patternTypes + flowService + page, value, `买手审核流缺少：${value}`)
-})
-
-;[
-  'patternCategoryCode',
-  'patternStyleTags',
-  'hotSellerFlag',
-].forEach((field) => {
-  assertIncludes(patternTypes + page + libraryTypes, field, `花型库串联缺少字段：${field}`)
-})
-
-;[
-  '需求来源',
-  '工艺与面料',
-  '需求图片',
-  '团队与成员分配',
-  '难易程度',
-  '买手确认',
-  '完成确认图片',
-  '花型文件',
-  '提交买手确认',
-  '花型库沉淀',
-  '技术包写入',
-].forEach((label) => {
-  assertIncludes(page, label, `花型任务页面缺少区块：${label}`)
-})
-
-assertIncludes(policy, '买手已通过', '完成校验必须要求买手通过')
-assertIncludes(policy, 'completionImageIds', '完成校验必须要求完成确认图片')
-assertIncludes(policy, 'patternFileIds', '完成校验必须要求花型文件')
-assertIncludes(page, 'submit-pattern-buyer-review', '执行与颜色必须提供提交买手确认动作')
-assertIncludes(techPackGeneration, 'completionImageIds', '技术包花型写入应优先使用完成确认图片')
-assertNotIncludes(page, '温度设置', '花型任务页面不得把温度设置作为主字段')
-assertNotIncludes(page, 'temperatureSetting', '花型任务页面不得保留 temperatureSetting 主字段')
+assert.match(page, /createMasterTaskPage/, '花型任务必须使用工程主单任务页面骨架')
+assert.match(page, /PATTERN_ARTWORK/, '花型任务必须绑定工程主单的花型任务类型')
+assert.match(common, /listEngineeringTasksByType/, '花型任务必须从工程主单任务读取')
+assert.match(common, /renderTaskReworkRoundsCard/, '花型任务详情必须展示返工轮次')
+assert.ok(!dispatcher.includes('pcs-pattern-task-repository'), '任务入口不得回退读取旧花型仓储')
+assert.ok(!dispatcher.includes('submit-pattern-buyer-review'), '任务入口不得保留旧花型审核动作')
+assert.ok(!dispatcher.includes('pattern-master-task'), '任务入口不得保留花型第二页面')
 
 console.log('check-pcs-pattern-task-refactor PASS')

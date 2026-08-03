@@ -2,12 +2,24 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 
 import { renderPcsRevisionTaskDetailPage } from '../src/pages/pcs-engineering-tasks.ts'
-import { getProjectNodeRecordByWorkItemTypeCode, listProjects, resetProjectRepository } from '../src/data/pcs-project-repository.ts'
-import { resetProjectRelationRepository } from '../src/data/pcs-project-relation-repository.ts'
+import {
+  getProjectNodeRecordByStepCode,
+  listProjectNodes,
+  listProjects,
+  resetProjectRepository,
+} from '../src/data/pcs-project-repository.ts'
+import {
+  listProjectRelationsByTaskSource,
+  resetProjectRelationRepository,
+} from '../src/data/pcs-project-relation-repository.ts'
 import { resetRevisionTaskRepository, getRevisionTaskById, updateRevisionTask } from '../src/data/pcs-revision-task-repository.ts'
 import { resetPatternTaskRepository, listPatternTasks } from '../src/data/pcs-pattern-task-repository.ts'
 import { resetPlateMakingTaskRepository, listPlateMakingTasks } from '../src/data/pcs-plate-making-repository.ts'
-import { resetFirstSampleTaskRepository, listFirstSampleTasks } from '../src/data/pcs-first-sample-repository.ts'
+import {
+  resetFirstSampleTaskRepository,
+  listFirstSampleTasks,
+  upsertFirstSampleTask,
+} from '../src/data/pcs-first-sample-repository.ts'
 import { resetFirstOrderSampleTaskRepository, listFirstOrderSampleTasks } from '../src/data/pcs-first-order-sample-repository.ts'
 import { listStyleArchives, resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
 import {
@@ -17,7 +29,6 @@ import {
 } from '../src/data/pcs-task-source-normalizer.ts'
 import {
   completeRevisionTask,
-  completeRevisionTaskWithProjectRelationSync,
   confirmRevisionTaskOutput,
   createDownstreamTasksFromRevision,
   createRevisionTaskWithProjectRelation,
@@ -46,7 +57,6 @@ function assertIncludes(source: string, pattern: string, message: string): void 
 }
 
 resetAll()
-
 assert.deepEqual(REVISION_TASK_SOURCE_TYPE_LIST, ['测款结论返改', '首版样衣返改', '既有商品改款', '人工改版需求'])
 assert.equal(normalizeRevisionTaskSourceType('测款触发'), '测款结论返改')
 assert.equal(normalizeRevisionTaskSourceType('人工创建'), '人工改版需求')
@@ -56,10 +66,107 @@ pass('来源类型和新增状态使用中文业务口径')
 
 const style = listStyleArchives()[0]
 assert.ok(style, '应存在正式款式档案演示数据')
-const project = listProjects().find((item) =>
-  Boolean(getProjectNodeRecordByWorkItemTypeCode(item.projectId, 'REVISION_TASK')),
+const project = listProjects()[0]
+assert.ok(project, '应存在可作为测款结论来源的商品项目演示数据')
+const testConclusionNode = getProjectNodeRecordByStepCode(project.projectId, 'TEST_CONCLUSION')
+assert.ok(testConclusionNode, '测款结论返改来源项目应存在 TEST_CONCLUSION 节点')
+const directFirstSampleTask = upsertFirstSampleTask({
+  firstSampleTaskId: 'FS-DIRECT-001',
+  firstSampleTaskCode: 'FS-DIRECT-001',
+  title: '首版样衣返改正式来源',
+  projectId: project.projectId,
+  projectCode: project.projectCode,
+  projectName: project.projectName,
+  sourceType: '人工创建',
+  upstreamModule: '制版任务',
+  upstreamObjectType: '制版任务',
+  upstreamObjectId: 'PT-DIRECT-001',
+  upstreamObjectCode: 'PT-DIRECT-001',
+  sourceTechPackVersionId: 'TDV-DIRECT-001',
+  sourceTechPackVersionCode: 'TDV-DIRECT-001',
+  sourceTechPackVersionLabel: '首版样衣执行版',
+  sourceTaskType: '制版任务',
+  sourceTaskId: 'PT-DIRECT-001',
+  sourceTaskCode: 'PT-DIRECT-001',
+  factoryId: 'factory-direct-001',
+  factoryName: '深圳样衣间',
+  targetSite: '深圳',
+  sampleMaterialMode: '正确布',
+  samplePurpose: '首版确认',
+  sampleCode: 'SY-DIRECT-001',
+  sampleImageIds: ['mock://sample-result/direct-001'],
+  reuseAsFirstOrderBasisFlag: false,
+  reuseAsFirstOrderBasisConfirmedAt: '',
+  reuseAsFirstOrderBasisConfirmedBy: '',
+  reuseAsFirstOrderBasisNote: '',
+  fitConfirmationSummary: '肩宽偏窄，需要改版。',
+  artworkConfirmationSummary: '',
+  productionReadinessNote: '需改版后重新确认。',
+  confirmedAt: '2026-06-20 10:00',
+  status: '需改版',
+  ownerId: project.ownerId,
+  ownerName: project.ownerName,
+  priorityLevel: '中',
+  createdAt: '2026-06-20 09:00',
+  createdBy: '验收脚本',
+  updatedAt: '2026-06-20 10:00',
+  updatedBy: '验收脚本',
+  note: '',
+  legacyProjectRef: project.projectCode,
+  legacyUpstreamRef: 'PT-DIRECT-001',
+})
+const nodesBeforeFirstSampleRevision = listProjectNodes(project.projectId)
+const firstSampleRevision = createRevisionTaskWithProjectRelation({
+  projectId: project.projectId,
+  title: '首版样衣来源返改验收',
+  sourceType: '首版样衣返改',
+  upstreamModule: '首版样衣打样',
+  upstreamObjectType: '首版样衣打样任务',
+  upstreamObjectId: directFirstSampleTask.firstSampleTaskId,
+  upstreamObjectCode: directFirstSampleTask.firstSampleTaskCode,
+  ownerName: project.ownerName,
+  dueAt: '2026-06-30 18:00',
+  revisionScopeCodes: ['PATTERN'],
+  revisionScopeNames: ['版型结构'],
+  issueSummary: '首版样衣确认肩宽偏窄，需要返改。',
+  evidenceSummary: '正式首版样衣任务已记录需改版结论。',
+  operatorName: '验收脚本',
+})
+const missingFirstSampleRevision = createRevisionTaskWithProjectRelation({
+  projectId: project.projectId,
+  title: '不存在首版样衣来源的返改验收',
+  sourceType: '首版样衣返改',
+  upstreamModule: '首版样衣打样',
+  upstreamObjectType: '首版样衣打样任务',
+  upstreamObjectId: 'FS-NOT-EXISTS',
+  upstreamObjectCode: 'FS-NOT-EXISTS',
+  ownerName: project.ownerName,
+  dueAt: '2026-06-30 18:00',
+  revisionScopeCodes: ['PATTERN'],
+  revisionScopeNames: ['版型结构'],
+  issueSummary: '不存在的首版样衣任务不能成为返改来源。',
+  evidenceSummary: '验收脚本验证正式来源边界。',
+  operatorName: '验收脚本',
+})
+assert.deepEqual(
+  {
+    created: firstSampleRevision.ok,
+    upstreamObjectId: firstSampleRevision.ok ? firstSampleRevision.task.upstreamObjectId : '',
+    upstreamObjectCode: firstSampleRevision.ok ? firstSampleRevision.task.upstreamObjectCode : '',
+    hasProjectNodeId: firstSampleRevision.ok ? 'projectNodeId' in firstSampleRevision.task : true,
+    missingSourceAccepted: missingFirstSampleRevision.ok,
+    projectNodesChanged: JSON.stringify(listProjectNodes(project.projectId)) !== JSON.stringify(nodesBeforeFirstSampleRevision),
+  },
+  {
+    created: true,
+    upstreamObjectId: 'FS-DIRECT-001',
+    upstreamObjectCode: 'FS-DIRECT-001',
+    hasProjectNodeId: false,
+    missingSourceAccepted: false,
+    projectNodesChanged: false,
+  },
+  '首版样衣返改必须保留并校验正式首版样衣来源，且不得写项目节点',
 )
-assert.ok(project, '应存在带改版任务节点的商品项目演示数据')
 
 const projectRequired = createRevisionTaskWithProjectRelation({
   projectId: '',
@@ -153,6 +260,26 @@ assert.equal(standaloneCompleted.ok, true)
 assert.equal(standaloneCompleted.ok && standaloneCompleted.task.status, '已完成')
 pass('独立改版任务按独立任务语义展示，可创建花型下游并完成闭环')
 
+const maliciousUpstreamRevision = createRevisionTaskWithProjectRelation({
+  projectId: project.projectId,
+  title: '拒绝调用方覆盖来源节点的验收改版任务',
+  sourceType: '测款结论返改',
+  upstreamModule: '旧改版任务',
+  upstreamObjectType: '项目步骤',
+  upstreamObjectId: 'legacy-revision-node',
+  upstreamObjectCode: 'legacy-revision-node',
+  ownerName: project.ownerName,
+  dueAt: '2026-06-30 18:00',
+  revisionScopeCodes: ['PATTERN'],
+  revisionScopeNames: ['版型结构'],
+  issueSummary: '调用方携带旧改版节点时仍须以当前项目测款结论作为来源。',
+  evidenceSummary: '验收脚本模拟历史调用参数污染。',
+  operatorName: '验收脚本',
+})
+assert.equal(maliciousUpstreamRevision.ok, true)
+if (!maliciousUpstreamRevision.ok) throw new Error(maliciousUpstreamRevision.message)
+
+const sourceProjectNodesBeforeRevision = listProjectNodes(project.projectId)
 const created = createRevisionTaskWithProjectRelation({
   projectId: project.projectId,
   title: '验收改版任务',
@@ -167,15 +294,11 @@ const created = createRevisionTaskWithProjectRelation({
   operatorName: '验收脚本',
 })
 assert.equal(created.ok, true)
-assert.ok(created.ok && created.relation, '项目型改版任务应写入正式项目关系')
 assert.equal(created.ok && created.task.status, '进行中')
 if (!created.ok) throw new Error(created.message)
-
-const nodeAfterCreate = getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'REVISION_TASK')
-assert.equal(nodeAfterCreate?.currentStatus, '进行中')
-assert.equal(nodeAfterCreate?.latestInstanceId, created.task.revisionTaskId)
-assert.equal(nodeAfterCreate?.latestInstanceCode, created.task.revisionTaskCode)
-pass('创建后改版任务和商品项目节点同步为进行中')
+assert.equal(created.task.projectId, project.projectId)
+assert.equal(getRevisionTaskById(created.task.revisionTaskId)?.status, '进行中')
+pass('独立改版任务创建入口可直接承接测款结论来源并进入进行中')
 
 const suggestedTypes = inferDownstreamTypesFromRevisionTask(created.task)
 assert.deepEqual(suggestedTypes, ['PRINT', 'FIRST_SAMPLE'])
@@ -192,17 +315,32 @@ assert.equal(listPlateMakingTasks().filter((item) => item.upstreamObjectId === c
 const createdPatternDownstreams = listPatternTasks().filter((item) => item.upstreamObjectId === created.task.revisionTaskId)
 assert.equal(createdPatternDownstreams.length, 1)
 assert.equal(createdPatternDownstreams[0]?.projectId, project.projectId)
-assert.equal(createdPatternDownstreams[0]?.projectNodeId, '')
 const createdPatternDownstreamCode = createdPatternDownstreams[0]?.patternTaskCode || ''
 const createdFirstSampleDownstreams = listFirstSampleTasks().filter((item) => item.upstreamObjectId === created.task.revisionTaskId)
 assert.equal(createdFirstSampleDownstreams.length, 1)
 assert.equal(createdFirstSampleDownstreams[0]?.projectId, project.projectId)
 assert.equal(createdFirstSampleDownstreams[0]?.sourceTaskId, created.task.revisionTaskId)
 const createdFirstSampleDownstreamCode = createdFirstSampleDownstreams[0]?.firstSampleTaskCode || ''
+const createdPatternRelations = listProjectRelationsByTaskSource(
+  '花型任务',
+  createdPatternDownstreams[0]?.patternTaskId || '',
+)
+const createdFirstSampleRelations = listProjectRelationsByTaskSource(
+  '首版样衣打样',
+  createdFirstSampleDownstreams[0]?.firstSampleTaskId || '',
+)
+assert.equal(createdPatternRelations.length, 1)
+assert.equal(createdFirstSampleRelations.length, 1)
+;[createdPatternRelations[0], createdFirstSampleRelations[0]].forEach((relation) => {
+  assert.equal(relation?.projectId, project.projectId)
+  assert.equal(relation ? 'projectNodeId' in relation : true, false)
+  assert.equal(relation ? 'stepCode' in relation : true, false)
+  assert.equal(relation ? 'stepName' in relation : true, false)
+})
 assert.equal(listFirstOrderSampleTasks().filter((item) => item.upstreamObjectId === created.task.revisionTaskId).length, 0)
 pass('下游任务按改版范围推导，默认创建花型和产出样衣，不再默认创建制版任务')
 
-const wanlongProject = listProjects().find((item) => item.templateId === 'TPL-003' || item.templateName.includes('万隆改版'))
+const wanlongProject = listProjects().find((item) => item.sampleSourceType === '委托打样')
 assert.ok(wanlongProject, '应存在万隆改版出样衣测款项目演示数据')
 const wanlongRevision = createRevisionTaskWithProjectRelation({
   projectId: wanlongProject.projectId,
@@ -213,7 +351,7 @@ const wanlongRevision = createRevisionTaskWithProjectRelation({
   revisionScopeCodes: ['PATTERN'],
   revisionScopeNames: ['版型结构'],
   issueSummary: '万隆项目需要按改版任务出样衣。',
-  evidenceSummary: '项目模板已锁定样衣来源为委托打样。',
+  evidenceSummary: '商品项目已锁定样衣来源为委托打样。',
   sampleQty: 0,
   operatorName: '验收脚本',
 })
@@ -230,20 +368,20 @@ pass('万隆改版出样衣项目默认把改版任务产出样衣落到首版�
 const submitted = submitRevisionTaskForConfirmation(created.task.revisionTaskId, '验收脚本')
 assert.equal(submitted.ok, true)
 assert.equal(submitted.ok && submitted.task.status, '待确认')
-assert.equal(getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'REVISION_TASK')?.currentStatus, '待确认')
+assert.equal(getRevisionTaskById(created.task.revisionTaskId)?.status, '待确认')
 
 const confirmed = confirmRevisionTaskOutput(created.task.revisionTaskId, '验收脚本')
 assert.equal(confirmed.ok, true)
 assert.equal(confirmed.ok && confirmed.task.status, '已确认')
-assert.equal(getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'REVISION_TASK')?.pendingActionType, '生成改版技术包版本')
-pass('进行中到待确认到已确认的状态流转和项目节点写回正确')
+assert.equal(getRevisionTaskById(created.task.revisionTaskId)?.status, '已确认')
+pass('独立改版任务从进行中到待确认再到已确认')
 
 assert.equal(isTechPackGenerationAllowedStatus('进行中'), false)
 assert.equal(isTechPackGenerationAllowedStatus('待确认'), false)
 assert.equal(isTechPackGenerationAllowedStatus('已确认'), true)
 assert.equal(isTechPackGenerationAllowedStatus('已生成技术包'), true)
 
-const beforeTechPackComplete = completeRevisionTaskWithProjectRelationSync(created.task.revisionTaskId, '验收脚本')
+const beforeTechPackComplete = completeRevisionTask(created.task.revisionTaskId, '验收脚本')
 assert.equal(beforeTechPackComplete.ok, false)
 assert.ok(beforeTechPackComplete.message.includes('请先生成改版技术包版本'))
 
@@ -258,11 +396,33 @@ const generatedTask = updateRevisionTask(created.task.revisionTaskId, {
 })
 assert.ok(generatedTask, '应能写入已生成技术包状态')
 
-const completed = completeRevisionTaskWithProjectRelationSync(created.task.revisionTaskId, '验收脚本')
+const completed = completeRevisionTask(created.task.revisionTaskId, '验收脚本')
 assert.equal(completed.ok, true)
 assert.equal(completed.ok && completed.task.status, '已完成')
-assert.equal(getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'REVISION_TASK')?.currentStatus, '已完成')
-pass('完成任务必须以已生成技术包为前置，完成后回写项目节点')
+assert.equal(getRevisionTaskById(created.task.revisionTaskId)?.status, '已完成')
+const sourceProjectNodesAfterRevision = listProjectNodes(project.projectId)
+const independentBoundaryViolations = [
+  maliciousUpstreamRevision.task.upstreamObjectId === testConclusionNode.projectNodeId
+    ? ''
+    : `调用方覆盖了测款结论来源：${maliciousUpstreamRevision.task.upstreamObjectId}`,
+  createdPatternDownstreams[0]?.projectNodeId ? `花型下游绑定了项目节点：${createdPatternDownstreams[0].projectNodeId}` : '',
+  createdFirstSampleDownstreams[0]?.projectNodeId ? `首版样衣下游绑定了项目节点：${createdFirstSampleDownstreams[0].projectNodeId}` : '',
+  JSON.stringify(sourceProjectNodesAfterRevision) === JSON.stringify(sourceProjectNodesBeforeRevision)
+    ? ''
+    : '独立改版下游或闭环改写了来源商品项目节点',
+].filter(Boolean)
+assert.deepEqual(independentBoundaryViolations, [], '独立改版边界存在越界写回')
+assert.equal(maliciousUpstreamRevision.task.upstreamObjectId, testConclusionNode.projectNodeId)
+assert.equal(maliciousUpstreamRevision.task.upstreamObjectCode, testConclusionNode.projectNodeId)
+assert.equal('projectNodeId' in createdPatternDownstreams[0]!, false)
+assert.equal('projectNodeId' in createdFirstSampleDownstreams[0]!, false)
+assert.deepEqual(
+  sourceProjectNodesAfterRevision,
+  sourceProjectNodesBeforeRevision,
+  '独立改版任务完整闭环不得改写来源商品项目任何测款节点',
+)
+assert.equal('projectNodeId' in getRevisionTaskById(created.task.revisionTaskId)!, false)
+pass('完成独立改版任务必须以已生成技术包为前置')
 
 const detailTask = getRevisionTaskById(created.task.revisionTaskId)
 assert.ok(detailTask, '应能读取验收改版任务')
@@ -288,7 +448,7 @@ const detailHtml = renderPcsRevisionTaskDetailPage(created.task.revisionTaskId)
 ].forEach((label) => {
   assertIncludes(detailHtml, label, `改版详情页缺少：${label}`)
 })
-assert.ok(!detailHtml.includes('正式工作项'), '详情页右侧摘要不应再突出系统节点字段')
+assert.ok(!detailHtml.includes('正式步骤'), '详情页右侧摘要不应再突出系统节点字段')
 assert.ok(!detailHtml.includes('来源任务编号'), '详情页不应再用来源任务编号作为主阅读字段')
 assert.ok(!detailHtml.includes('技术包状态</p>'), '详情页不应重复展示旧版技术包状态字段')
 assert.ok(createdPatternDownstreamCode, '应存在可展示的花型任务编号')
@@ -298,6 +458,7 @@ assertIncludes(detailHtml, '2 个', '改版详情页默认视图应展示已生�
 pass('详情页内容结构聚焦业务推进、缺失项和下一动作')
 
 const pageSource = fs.readFileSync('src/pages/pcs-engineering-tasks.ts', 'utf8')
+const sharedSource = fs.readFileSync('src/pages/pcs-engineering-tasks/shared.ts', 'utf8')
 ;[
   'data-pcs-engineering-action="submit-revision-confirmation"',
   'data-pcs-engineering-action="confirm-revision-output"',
@@ -309,9 +470,10 @@ const pageSource = fs.readFileSync('src/pages/pcs-engineering-tasks.ts', 'utf8')
 })
 assertIncludes(pageSource, '创建建议下游', '下游页签缺少创建建议下游入口')
 assertIncludes(pageSource, 'sourceOptions: REVISION_TASK_SOURCE_TYPE_LIST', '列表来源筛选必须固定展示标准改版来源')
-assertIncludes(pageSource, "已确认: { label: '待生成技术包'", '已确认状态必须按待生成技术包展示')
-assertIncludes(pageSource, "已生成技术包: { label: '待完成'", '已生成技术包状态必须按待完成展示')
-assertIncludes(pageSource, "ENGINEERING_COMMON_FILTER_STATUS_OPTIONS = ['进行中', '待确认', '已确认', '已生成技术包', '已完成']", '工程任务状态筛选必须收敛为 5 个业务状态')
+assertIncludes(pageSource + sharedSource, "已确认: { label: '待生成技术包'", '已确认状态必须按待生成技术包展示')
+assertIncludes(pageSource + sharedSource, "已生成技术包: { label: '待完成'", '已生成技术包状态必须按待完成展示')
+assertIncludes(pageSource + sharedSource, "REVISION_FILTER_STATUS_OPTIONS = ['进行中', '待确认', '已确认', '已生成技术包', '已完成']", '改版任务状态筛选必须收敛为 5 个业务状态')
+assertIncludes(pageSource, 'statusOptions: REVISION_FILTER_STATUS_OPTIONS', '改版任务列表必须使用专用五状态筛选')
 assertIncludes(pageSource, "label: '产出样衣'", '改版详情页样衣页签必须表达为产出样衣')
 assertIncludes(pageSource, '当前改版任务暂未产出样衣', '产出样衣空状态必须按当前改版任务语义表达')
 assertIncludes(pageSource, "task.projectCode || '独立改版任务'", '独立改版任务标题信息不得继续显示未关联商品项目')
@@ -320,7 +482,12 @@ assert.ok(!pageSource.includes("if (!task.projectId) return '先补齐正式商�
 assert.ok(!pageSource.includes("missing.push('关联商品项目')"), '独立改版任务缺失项不得提示关联商品项目')
 assert.ok(!pageSource.includes("label: '关联样衣'"), '改版详情页不得继续使用关联样衣页签')
 assert.ok(!pageSource.includes("statusOptions: ['未开始', '进行中'"), '工程任务状态筛选不得继续展示未开始')
-assert.ok(!pageSource.includes("'异常待处理', '已取消']"), '工程任务状态筛选不得继续展示阻塞和已取消')
+const revisionFilterSource = sharedSource.slice(
+  sharedSource.indexOf('const REVISION_FILTER_STATUS_OPTIONS'),
+  sharedSource.indexOf('const SAMPLE_STATUS_META'),
+)
+assert.ok(!revisionFilterSource.includes('异常待处理'), '改版任务状态筛选不得继续展示阻塞状态')
+assert.ok(!revisionFilterSource.includes('已取消'), '改版任务状态筛选不得继续展示已取消')
 assert.ok(!pageSource.includes('py-6 text-center text-sm text-slate-500'), '上传空状态不应继续占用大块纵向空间')
 assert.ok((pageSource.match(/'面辅料变化'/g) || []).length >= 1, '仍需保留面辅料变化业务模块')
 assert.ok(pageSource.includes('明细编辑'), '面辅料编辑区应与面辅料变化汇总区区分命名')

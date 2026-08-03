@@ -14,7 +14,7 @@ import {
 } from '../src/data/pcs-project-image-repository.ts'
 import {
   getProjectById,
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   resetProjectRepository,
 } from '../src/data/pcs-project-repository.ts'
 
@@ -22,8 +22,8 @@ resetProjectRepository()
 resetProjectChannelProductRepository()
 resetProjectImageAssets()
 
-const project = getProjectById('prj_20251216_015')
-assert.ok(project, '应存在 PRJ-20251216-015 演示项目')
+const project = getProjectById('PRJ-008')
+assert.ok(project, '应存在 PRJ-202603-008 演示项目')
 
 const [listingImage] = createProjectImageAssetRecords(
   project!,
@@ -57,14 +57,14 @@ const createResult = createProjectChannelProductFromListingNode(
     listingMainImageId: listingImage.imageId,
     listingImageIds: [listingImage.imageId],
     specLines: [
-      { colorName: '米白', sizeName: 'M', priceAmount: 219, currencyCode: 'IDR', stockQty: 10 },
-      { colorName: '米白', sizeName: 'L', priceAmount: 219, currencyCode: 'IDR', stockQty: 8 },
+      { productImageId: listingImage.imageId, colorName: '米白', sizeName: 'M', priceAmount: 219, currencyCode: 'IDR', stockQty: 10 },
+      { productImageId: listingImage.imageId, colorName: '米白', sizeName: 'L', priceAmount: 219, currencyCode: 'IDR', stockQty: 8 },
     ],
   },
   '测试用户',
 )
 
-assert.equal(createResult.ok, true, '应能创建新的款式上架批次')
+assert.equal(createResult.ok, true, `应能创建新的款式上架批次：${createResult.message}`)
 assert.ok(createResult.record, '创建成功后应返回批次记录')
 
 const completeBeforeUpload = markProjectChannelProductListingCompleted(createResult.record!.channelProductId, '测试用户')
@@ -80,7 +80,7 @@ assert.equal(
   '上传成功后每条规格都应回填上游规格编号',
 )
 
-const listingNodeAfterUpload = getProjectNodeRecordByWorkItemTypeCode(project!.projectId, 'CHANNEL_PRODUCT_LISTING')
+const listingNodeAfterUpload = getProjectNodeRecordByStepCode(project!.projectId, 'CHANNEL_PRODUCT_LISTING')
 assert.equal(listingNodeAfterUpload?.currentStatus, '进行中', '上传成功后商品上架节点仍应保持进行中')
 
 const uploadedRecord = getProjectChannelProductById(createResult.record!.channelProductId)
@@ -93,10 +93,10 @@ const completedRecord = getProjectChannelProductById(createResult.record!.channe
 assert.equal(completedRecord?.listingBatchStatus, '已完成', '标记完成后批次状态应为已完成')
 assert.equal(completedRecord?.channelProductStatus, '已上架待测款', '标记完成后应进入已上架待测款状态')
 
-const listingNodeAfterComplete = getProjectNodeRecordByWorkItemTypeCode(project!.projectId, 'CHANNEL_PRODUCT_LISTING')
+const listingNodeAfterComplete = getProjectNodeRecordByStepCode(project!.projectId, 'CHANNEL_PRODUCT_LISTING')
 assert.equal(listingNodeAfterComplete?.currentStatus, '已完成', '标记完成后商品上架节点应写为已完成')
 
 const projectAfterComplete = getProjectById(project!.projectId)
-assert.equal(projectAfterComplete?.nextWorkItemName, '改版任务', '商品上架完成后应按模板顺序进入下一个工作项')
+assert.notEqual(projectAfterComplete?.nextStepName, '改版任务', '商品上架完成后不得进入已删除的专业项目节点')
 
 console.log('pcs-channel-listing-upload-complete.spec.ts PASS')

@@ -1,92 +1,82 @@
-import { getProjectTemplateVersion, type ProjectTemplate } from './pcs-templates.ts'
-import { getPcsWorkItemDefinition } from './pcs-work-items.ts'
+import {
+  getProjectStepDefinition,
+  listProjectFlowStageContracts,
+} from './pcs-project-domain-contract.ts'
 import type { PcsProjectNodeRecord, PcsProjectPhaseRecord, ProjectNodeStatus } from './pcs-project-types.ts'
 
-function buildPendingActionText(status: ProjectNodeStatus, workItemName: string): string {
+
+function buildPendingActionText(status: ProjectNodeStatus, stepDefinitionName: string): string {
   if (status === '已完成') return '节点已完成'
-  if (status === '进行中') return `当前请处理：${workItemName}`
-  if (status === '待确认') return `当前待确认：${workItemName}`
+  if (status === '进行中') return `当前请处理：${stepDefinitionName}`
+  if (status === '待确认') return `当前待确认：${stepDefinitionName}`
   if (status === '已取消') return '节点已取消'
   return '待开始执行'
 }
 
-function buildInitialNodeStatus(sequenceIndex: number, workItemTypeCode: string): ProjectNodeStatus {
-  if (sequenceIndex === 0 && workItemTypeCode === 'PROJECT_INIT') return '进行中'
+function buildInitialNodeStatus(sequenceIndex: number, stepCode: string): ProjectNodeStatus {
+  if (sequenceIndex === 0 && stepCode === 'PROJECT_INIT') return '进行中'
   return '未开始'
 }
 
-export function buildProjectPhaseRecordsFromTemplate(input: {
+export function buildProjectPhases(input: {
   projectId: string
   ownerId: string
   ownerName: string
   createdAt: string
-  template: ProjectTemplate
 }): PcsProjectPhaseRecord[] {
-  return input.template.stages
-    .slice()
-    .sort((a, b) => a.phaseOrder - b.phaseOrder)
-    .map((stage, index) => ({
-      projectPhaseId: `${input.projectId}-phase-${String(stage.phaseOrder).padStart(2, '0')}`,
-      projectId: input.projectId,
-      phaseCode: stage.phaseCode,
-      phaseName: stage.phaseName,
-      phaseOrder: stage.phaseOrder,
-      phaseStatus: index === 0 ? '进行中' : '未开始',
-      startedAt: index === 0 ? input.createdAt : '',
-      finishedAt: '',
-      ownerId: input.ownerId,
-      ownerName: input.ownerName,
-    }))
+  return listProjectFlowStageContracts().map((step, index) => ({
+    projectPhaseId: `${input.projectId}-phase-${String(step.sequence).padStart(2, '0')}`,
+    projectId: input.projectId,
+    phaseCode: step.phaseCode,
+    phaseName: step.stepName,
+    phaseOrder: step.sequence,
+    phaseStatus: index === 0 ? '进行中' : '未开始',
+    startedAt: index === 0 ? input.createdAt : '',
+    finishedAt: '',
+    ownerId: input.ownerId,
+    ownerName: input.ownerName,
+  }))
 }
 
-export function buildProjectNodeRecordsFromTemplate(input: {
+export function buildProjectNodes(input: {
   projectId: string
   ownerId: string
   ownerName: string
   createdAt: string
-  template: ProjectTemplate
 }): PcsProjectNodeRecord[] {
-  const templateVersion = getProjectTemplateVersion(input.template)
-  const orderedNodes = input.template.nodes
-    .filter((node) => node.enabledFlag !== false)
-    .slice()
-    .sort((a, b) => {
-      if (a.phaseCode === b.phaseCode) return a.sequenceNo - b.sequenceNo
-      return a.phaseCode.localeCompare(b.phaseCode)
-    })
+  let globalSequenceIndex = 0
 
-  return orderedNodes.map((node, index) => {
-    const workItem = getPcsWorkItemDefinition(node.workItemId)
-    const currentStatus = buildInitialNodeStatus(index, node.workItemTypeCode)
-    const latestCompleted = currentStatus === '已完成'
-    const isProjectInit = node.workItemTypeCode === 'PROJECT_INIT'
+  return listProjectFlowStageContracts().flatMap((step) =>
+    step.stepCodes.map((stepCode, stepIndex) => {
+      const stepDefinition = getProjectStepDefinition(stepCode)
+      const currentStatus = buildInitialNodeStatus(globalSequenceIndex, stepCode)
+      const isProjectInit = stepCode === 'PROJECT_INIT'
+      globalSequenceIndex += 1
 
-    return {
-      projectNodeId: `${input.projectId}-node-${node.phaseCode}-${String(node.sequenceNo).padStart(2, '0')}`,
-      projectId: input.projectId,
-      phaseCode: node.phaseCode,
-      phaseName: node.phaseName,
-      workItemId: node.workItemId,
-      workItemTypeCode: node.workItemTypeCode,
-      workItemTypeName: node.workItemTypeName,
-      sequenceNo: node.sequenceNo,
-      requiredFlag: node.requiredFlag,
-      multiInstanceFlag:
-        workItem?.capabilities.canMultiInstance === false ? false : node.multiInstanceFlag,
-      currentStatus,
-      currentOwnerId: input.ownerId,
-      currentOwnerName: input.ownerName,
-      validInstanceCount: latestCompleted ? 1 : 0,
-      latestInstanceId: latestCompleted ? `${input.projectId}-instance-001` : '',
-      latestInstanceCode: latestCompleted ? `${input.projectId}-实例-001` : '',
-      latestResultType: latestCompleted ? '节点完成' : isProjectInit ? '已创建项目' : '',
-      latestResultText: latestCompleted ? `${node.workItemTypeName}已完成。` : isProjectInit ? '商品项目已创建，请补全并完成立项信息。' : '',
-      currentIssueType: '',
-      currentIssueText: '',
-      pendingActionType: currentStatus === '待确认' ? '待确认' : currentStatus === '已取消' ? '已取消' : '待执行',
-      pendingActionText: buildPendingActionText(currentStatus, node.workItemTypeName),
-      sourceTemplateNodeId: node.templateNodeId,
-      sourceTemplateVersion: node.templateVersion || templateVersion,
-    }
-  })
+      return {
+        projectNodeId: `${input.projectId}-node-${step.stepCode}-${String(stepIndex + 1).padStart(2, '0')}`,
+        projectId: input.projectId,
+        phaseCode: step.phaseCode,
+        phaseName: step.stepName,
+        stepId: stepDefinition.stepId,
+        stepCode: stepDefinition.stepCode,
+        stepName: stepDefinition.stepName,
+        sequenceNo: stepIndex + 1,
+        requiredFlag: stepCode !== 'VIDEO_TEST',
+        multiInstanceFlag: stepDefinition.capabilities.canMultiInstance,
+        currentStatus,
+        currentOwnerId: input.ownerId,
+        currentOwnerName: input.ownerName,
+        validInstanceCount: 0,
+        latestInstanceId: '',
+        latestInstanceCode: '',
+        latestResultType: isProjectInit ? '已创建项目' : '',
+        latestResultText: isProjectInit ? '商品项目与商品／款式档案已建立，请补全立项信息。' : '',
+        currentIssueType: '',
+        currentIssueText: '',
+        pendingActionType: '待执行',
+        pendingActionText: buildPendingActionText(currentStatus, stepDefinition.stepName),
+      }
+    }),
+  )
 }

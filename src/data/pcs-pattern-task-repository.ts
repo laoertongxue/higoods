@@ -95,8 +95,6 @@ function normalizeTask(task: PatternTaskRecord): PatternTaskRecord {
     acceptedAt: task.acceptedAt || '',
     confirmedAt: task.confirmedAt || '',
     note: task.note || '',
-    legacyProjectRef: task.legacyProjectRef || '',
-    legacyUpstreamRef: task.legacyUpstreamRef || '',
   }
 }
 
@@ -156,13 +154,6 @@ export function getPatternTaskById(patternTaskId: string): PatternTaskRecord | n
 
 export function listPatternTasksByProject(projectId: string): PatternTaskRecord[] {
   return loadSnapshot().tasks.filter((item) => item.projectId === projectId).map(cloneTask)
-}
-
-export function listPatternTasksByProjectNode(projectId: string, projectNodeId: string): PatternTaskRecord[] {
-  return loadSnapshot()
-    .tasks
-    .filter((item) => item.projectId === projectId && item.projectNodeId === projectNodeId)
-    .map(cloneTask)
 }
 
 export function upsertPatternTask(task: PatternTaskRecord): PatternTaskRecord {

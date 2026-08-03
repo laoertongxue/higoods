@@ -27,8 +27,8 @@ const {
 const { buildTechPackReviewDiffSnapshot } = await import('../src/data/pcs-tech-pack-review-diff.ts')
 const {
   getTechnicalDataVersionById,
-  replaceTechnicalDataVersionStore,
 } = await import('../src/data/pcs-technical-data-version-repository.ts')
+const { installTechnicalDataVersionFixtures } = await import('./helpers/technical-data-version-fixtures.ts')
 
 const styleId = 'STYLE-REVIEW-ASSIGNEE-DIFF'
 const publishedId = 'tdv_review_assignee_diff_published'
@@ -155,7 +155,7 @@ function createContent(
   }
 }
 
-replaceTechnicalDataVersionStore({
+installTechnicalDataVersionFixtures({
   version: 3,
   records: [
     createRecord(publishedId, 1, 'PUBLISHED'),

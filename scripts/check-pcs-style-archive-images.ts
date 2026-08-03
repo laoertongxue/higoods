@@ -19,38 +19,29 @@ function assertNotIncludes(content: string, pattern: string, label: string): voi
   }
 }
 
-const contract = read('src/data/pcs-project-domain-contract.ts')
 const generation = read('src/data/pcs-project-style-archive-generation.ts')
 const selection = read('src/data/pcs-style-archive-image-selection.ts')
 const archiveTypes = read('src/data/pcs-style-archive-types.ts')
-const archiveCollector = read('src/data/pcs-project-archive-collector.ts')
-const projectsPage = read('src/pages/pcs-projects.ts')
 
-assertIncludes(contract, 'styleMainImageId', '生成款式档案主图字段')
-assertIncludes(contract, 'styleGalleryImageIds', '生成款式档案图册字段')
-assertIncludes(contract, 'styleImageSource', '生成款式档案图片来源字段')
-assertIncludes(contract, 'styleImageConfirmedAt', '生成款式档案确认时间字段')
-assertIncludes(contract, 'styleImageConfirmedBy', '生成款式档案确认人字段')
+assertIncludes(archiveTypes, 'mainImageId', '款式档案唯一主图资产字段')
+assertIncludes(archiveTypes, 'galleryImageIds', '款式档案唯一图册资产字段')
+assertIncludes(archiveTypes, 'imageSource', '款式档案唯一图片来源字段')
 
-assertIncludes(archiveTypes, 'mainImageId', '款式档案主图图片资产字段')
-assertIncludes(archiveTypes, 'galleryImageIds', '款式档案图册图片资产字段')
-assertIncludes(archiveTypes, 'imageSource', '款式档案图片来源字段')
-
-assertNotIncludes(generation, 'buildStyleFixture', '新生成款式档案默认 fixture 图片逻辑')
-assertNotIncludes(generation, 'fixture.mainImageUrl', '新生成款式档案默认主图')
-assertNotIncludes(generation, 'fixture.galleryImageUrls', '新生成款式档案默认图册')
-
-assertIncludes(selection, 'listingImageIds', '商品上架图片候选读取')
+assertIncludes(selection, 'listStyleArchiveImageCandidates', '款式档案候选图片读取')
+assertIncludes(selection, 'listingImageIds', '商品上架图片候选优先级')
 assertIncludes(selection, '项目参考图', '项目参考图候选')
 assertIncludes(selection, '款式档案图', '款式档案补充图候选')
-assertIncludes(selection, '可用于款式档案', '款式档案用途标记')
+assertIncludes(selection, 'resolveStyleArchiveImageSelection', '款式档案图片选择解析')
+assertIncludes(selection, 'mainImageId: mainImage.imageId', '主图资产回写结果')
+assertIncludes(selection, 'galleryImageIds: galleryAssets.map', '图册资产回写结果')
+assertIncludes(selection, 'imageSource,', '图片来源回写结果')
 
-assertIncludes(projectsPage, '需确认后使用', '项目参考图确认提示')
-assertIncludes(projectsPage, '确认可用于款式档案并加入', '参考图确认按钮')
-assertIncludes(projectsPage, 'style-archive-supplement-images', '档案补充图片上传字段')
-
-assertIncludes(archiveCollector, 'mainImageId', '项目资料归档采集款式主图资产')
-assertIncludes(archiveCollector, 'galleryImageIds', '项目资料归档采集款式图册资产')
-assertIncludes(archiveCollector, '款式档案图', '项目资料归档款式图片类型')
+assertIncludes(generation, 'applyStyleArchiveImageSelection', '款式档案图片唯一写入口')
+assertIncludes(generation, 'mainImageId: selection.mainImageId', '款式档案主图写回')
+assertIncludes(generation, 'galleryImageIds: selection.galleryImageIds', '款式档案图册写回')
+assertIncludes(generation, 'imageSource: selection.imageSource', '款式档案图片来源写回')
+assertNotIncludes(generation, 'buildStyleFixture', '旧 fixture 图片逻辑')
+assertNotIncludes(generation, 'styleMainImageId', '项目主记录图片兼容字段')
+assertNotIncludes(generation, 'styleGalleryImageIds', '项目主记录图册兼容字段')
 
 console.log('check-pcs-style-archive-images.ts PASS')

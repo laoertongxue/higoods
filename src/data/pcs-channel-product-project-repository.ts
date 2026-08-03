@@ -2,7 +2,7 @@ import {
   findProjectByCode,
   getChannelNamesByCodes,
   getProjectById,
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   listProjectNodes,
   listProjects,
   listProjectPhases,
@@ -26,7 +26,6 @@ import {
 } from './pcs-channel-store-master.ts'
 import {
   getTechnicalDataVersionById,
-  updateTechnicalDataVersionRecord,
 } from './pcs-technical-data-version-repository.ts'
 import {
   createProjectImageAssetRecords,
@@ -86,7 +85,7 @@ export type ProjectChannelProductScenario =
   | 'STYLE_ACTIVE'
   | 'HISTORY_INVALIDATED'
 
-export type ProjectTestingConclusion = '' | '通过' | '不通过' | '继续测试'
+export type ProjectTestingConclusion = '' | '通过' | '不通过' | '暂保留'
 export type UpstreamSyncResult = '待执行' | '成功' | '失败'
 
 export interface ProjectChannelProductRecord extends PcsProjectChannelProductRecord {
@@ -130,45 +129,8 @@ export interface ProjectChannelProductChainSummary {
   currentConclusion: ProjectTestingConclusion
   invalidatedReason: string
   linkedRevisionTaskCode: string
-  canGenerateStyleArchive: boolean
   summaryText: string
   channelProducts: ProjectChannelProductRecord[]
-}
-
-function getTechPackSourceNodeBinding(projectId: string, createdFromTaskType: string) {
-  if (createdFromTaskType === 'MANUAL') {
-    const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'STYLE_ARCHIVE_CREATE')
-    return {
-      projectNodeId: node?.projectNodeId || null,
-      workItemTypeCode: 'STYLE_ARCHIVE_CREATE',
-      workItemTypeName: node?.workItemTypeName || '款式档案',
-    }
-  }
-
-  if (createdFromTaskType === 'PLATE') {
-    const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PATTERN_TASK')
-    return {
-      projectNodeId: node?.projectNodeId || null,
-      workItemTypeCode: 'PATTERN_TASK',
-      workItemTypeName: node?.workItemTypeName || '制版任务',
-    }
-  }
-
-  if (createdFromTaskType === 'ARTWORK') {
-    const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PATTERN_ARTWORK_TASK')
-    return {
-      projectNodeId: node?.projectNodeId || null,
-      workItemTypeCode: 'PATTERN_ARTWORK_TASK',
-      workItemTypeName: node?.workItemTypeName || '花型任务',
-    }
-  }
-
-  const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'REVISION_TASK')
-  return {
-    projectNodeId: node?.projectNodeId || null,
-    workItemTypeCode: 'REVISION_TASK',
-    workItemTypeName: node?.workItemTypeName || '改版任务',
-  }
 }
 
 export interface ProjectChannelProductListingPayload {
@@ -247,10 +209,10 @@ export interface ProjectTestingConclusionPayload {
   note: string
   productPositioningConclusion?: string
   stockGrade?: string
-  continueTestFlag?: boolean
+  holdDecisionFlag?: boolean
   downShelfFlag?: boolean
   returnDestination?: string
-  nextTestPlan?: string
+  revisitDate?: string
 }
 
 export interface ProjectChannelProductWriteResult {
@@ -425,7 +387,7 @@ function buildTestingStatusText(seed: ChannelSeed): string {
   if (seed.scenario === 'FAILED_ADJUST') return '历史测款结论待重新确认，当前渠道店铺商品已作废'
   if (seed.scenario === 'FAILED_PAUSED') return '历史测款结论待重新确认，当前渠道店铺商品已作废'
   if (seed.scenario === 'FAILED_ELIMINATED') return '测款结论为不通过，当前渠道店铺商品已作废'
-  if (seed.scenario === 'STYLE_PENDING_TECH') return '测款通过，已生成款式档案，待启用技术包'
+  if (seed.scenario === 'STYLE_PENDING_TECH') return '测款通过，关联商品档案待完善技术包'
   if (seed.scenario === 'STYLE_ACTIVE') return '测款通过，已关联款式档案并完成上游最终更新'
   return '历史测款渠道店铺商品，已失效'
 }
@@ -730,19 +692,57 @@ function normalizeChannelProductRecord(record: ProjectChannelProductRecord): Pro
   }
 }
 
+const CHANNEL_SEED_PROJECT_CODE_MAP: Readonly<Record<string, string>> = {
+  'PRJ-20251216-001': 'PRJ-202603-001',
+  'PRJ-20251216-002': 'PRJ-202603-002',
+  'PRJ-20251216-005': 'PRJ-202603-005',
+  'PRJ-20251216-006': 'PRJ-202603-006',
+  'PRJ-20251216-007': 'PRJ-202603-007',
+  'PRJ-20251216-008': 'PRJ-202603-008',
+  'PRJ-20251216-011': 'PRJ-202603-011',
+  'PRJ-20251216-012': 'PRJ-202603-012',
+  'PRJ-20251216-013': 'PRJ-202603-013',
+  'PRJ-20251216-014': 'PRJ-202604-001',
+  'PRJ-20251216-015': 'PRJ-202604-002',
+  'PRJ-20251216-016': 'PRJ-202604-003',
+  'PRJ-20251216-017': 'PRJ-202604-004',
+  'PRJ-20251216-018': 'PRJ-202604-005',
+  'PRJ-20251216-019': 'PRJ-202604-006',
+  'PRJ-20251216-020': 'PRJ-202604-007',
+  'PRJ-20251216-021': 'PRJ-202604-008',
+  'PRJ-20251216-022': 'PRJ-202604-009',
+  'PRJ-20251216-023': 'PRJ-202604-011',
+  'PRJ-20251216-024': 'PRJ-202604-012',
+  'PRJ-20251216-025': 'PRJ-202604-013',
+}
+
+function buildSeedListingTitle(projectName: string, scenario: ProjectChannelProductScenario): string {
+  const suffixByScenario: Record<ProjectChannelProductScenario, string> = {
+    MEASURING: '测款款',
+    FAILED_ADJUST: '第一轮测款款',
+    FAILED_PAUSED: '暂保留款',
+    FAILED_ELIMINATED: '淘汰款',
+    HISTORY_INVALIDATED: '历史重测款',
+    STYLE_PENDING_TECH: '正式候选款',
+    STYLE_ACTIVE: '正式款',
+  }
+  return `${projectName}${suffixByScenario[scenario]}`
+}
+
 function buildSeedRecord(seed: ChannelSeed): ProjectChannelProductRecord | null {
-  const project = findProjectByCode(seed.projectCode)
+  const mappedProjectCode = CHANNEL_SEED_PROJECT_CODE_MAP[seed.projectCode] || seed.projectCode
+  const project = findProjectByCode(mappedProjectCode)
   const listingNode = project
-    ? getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'CHANNEL_PRODUCT_LISTING')
+    ? getProjectNodeRecordByStepCode(project.projectId, 'CHANNEL_PRODUCT_LISTING')
     : null
   if (!project || !listingNode) return null
   const channelMeta = getChannelMeta(seed.channelCode, seed.storeId)
-  const channelProductId = buildChannelProductId(seed.projectCode, seed.sequence)
-  const channelProductCode = buildChannelProductCode(seed.projectCode, seed.sequence)
+  const channelProductId = buildChannelProductId(project.projectCode, seed.sequence)
+  const channelProductCode = buildChannelProductCode(project.projectCode, seed.sequence)
   const upstreamProductId =
     seed.channelProductStatus === '待上传'
       ? ''
-      : buildUpstreamCode(seed.projectCode, seed.sequence)
+      : buildUpstreamCode(project.projectCode, seed.sequence)
   const sampleCostReviewPrice = getLatestSampleCostReviewSalesPrice(project.projectId)
   const listingPrice = sampleCostReviewPrice?.salesPrice ?? seed.listingPrice
   const currencyCode = sampleCostReviewPrice?.salesCurrency || resolvePcsStoreCurrency(seed.storeId, seed.channelCode) || seed.currency
@@ -794,8 +794,8 @@ function buildSeedRecord(seed: ChannelSeed): ProjectChannelProductRecord | null 
     channelName: channelMeta.channelName,
     storeId: seed.storeId,
     storeName: channelMeta.storeName,
-    styleListingTitle: seed.listingTitle,
-    listingTitle: seed.listingTitle,
+    styleListingTitle: buildSeedListingTitle(project.projectName, seed.scenario),
+    listingTitle: buildSeedListingTitle(project.projectName, seed.scenario),
     listingDescription: '',
     listingPrice,
     defaultPriceAmount: listingPrice,
@@ -823,9 +823,9 @@ function buildSeedRecord(seed: ChannelSeed): ProjectChannelProductRecord | null 
     skuId: primarySpec?.specLineId || '',
     skuCode: primarySpec?.sellerSku || '',
     skuName: [primarySpec?.colorName, primarySpec?.sizeName].filter(Boolean).join(' / '),
-    styleId: seed.styleId || '',
-    styleCode: seed.styleCode || '',
-    styleName: seed.styleName || '',
+    styleId: seed.styleId ? (project.linkedStyleId || '') : '',
+    styleCode: seed.styleId ? (project.linkedStyleCode || '') : '',
+    styleName: seed.styleId ? project.projectName : '',
     invalidatedReason: seed.invalidatedReason || '',
     createdAt: seed.createdAt,
     updatedAt: seed.updatedAt,
@@ -835,7 +835,7 @@ function buildSeedRecord(seed: ChannelSeed): ProjectChannelProductRecord | null 
     scenario: seed.scenario,
     conclusion: seed.conclusion || '',
     testingStatusText: buildTestingStatusText(seed),
-    listingInstanceCode: `LIST-${seed.projectCode.slice(-7).replace(/-/g, '')}-${seed.sequence}`,
+    listingInstanceCode: `LIST-${project.projectCode.slice(-10).replace(/-/g, '')}-${seed.sequence}`,
     linkedRevisionTaskId: seed.linkedRevisionTaskId || '',
     linkedRevisionTaskCode: seed.linkedRevisionTaskCode || '',
     linkedLiveLineId: seed.linkedLiveLineId || '',
@@ -1425,15 +1425,11 @@ function buildStyleRelation(
 ): ProjectRelationRecord | null {
   const project = getProjectById(projectId)
   const style = getStyleArchiveById(styleId)
-  const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'STYLE_ARCHIVE_CREATE')
-  if (!project || !style || !node) return null
+  if (!project || !style) return null
   return {
     projectRelationId: `rel_style_${style.styleId}`,
     projectId: project.projectId,
     projectCode: project.projectCode,
-    projectNodeId: node.projectNodeId,
-    workItemTypeCode: 'STYLE_ARCHIVE_CREATE',
-    workItemTypeName: '生成款式档案',
     relationRole: '产出对象',
     sourceModule: '款式档案',
     sourceObjectType: '款式档案',
@@ -1449,9 +1445,7 @@ function buildStyleRelation(
     createdBy: operatorName,
     updatedAt: style.updatedAt,
     updatedBy: operatorName,
-    note: '已建立款式档案与渠道店铺商品三码关联。',
-    legacyRefType: '',
-    legacyRefValue: '',
+    note: '商品项目创建时已建立关联款式档案，并与渠道店铺商品保持三码关联。',
   }
 }
 
@@ -1463,14 +1457,10 @@ function buildTechnicalVersionRelation(
   const project = getProjectById(projectId)
   const record = getTechnicalDataVersionById(technicalVersionId)
   if (!project || !record) return null
-  const node = getTechPackSourceNodeBinding(projectId, record.createdFromTaskType)
   return {
     projectRelationId: `rel_technical_version_${record.technicalVersionId}`,
     projectId: project.projectId,
     projectCode: project.projectCode,
-    projectNodeId: node.projectNodeId,
-    workItemTypeCode: node.workItemTypeCode,
-    workItemTypeName: node.workItemTypeName,
     relationRole: '产出对象',
     sourceModule: '技术包',
     sourceObjectType: '技术包版本',
@@ -1487,8 +1477,6 @@ function buildTechnicalVersionRelation(
     updatedAt: record.updatedAt,
     updatedBy: operatorName,
     note: '',
-    legacyRefType: '',
-    legacyRefValue: '',
   }
 }
 
@@ -1496,14 +1484,14 @@ function buildChannelProductRelation(
   record: ProjectChannelProductRecord,
   operatorName: string,
 ): ProjectRelationRecord {
-  const listingNode = getProjectNodeRecordByWorkItemTypeCode(record.projectId, 'CHANNEL_PRODUCT_LISTING')
+  const listingNode = getProjectNodeRecordByStepCode(record.projectId, 'CHANNEL_PRODUCT_LISTING')
   return {
     projectRelationId: `rel_channel_product_${record.channelProductId}`,
     projectId: record.projectId,
     projectCode: record.projectCode,
     projectNodeId: listingNode?.projectNodeId || null,
-    workItemTypeCode: 'CHANNEL_PRODUCT_LISTING',
-    workItemTypeName: '商品上架',
+    stepCode: 'CHANNEL_PRODUCT_LISTING',
+    stepName: '商品上架',
     relationRole: '产出对象',
     sourceModule: '渠道店铺商品',
     sourceObjectType: '渠道店铺商品',
@@ -1522,8 +1510,6 @@ function buildChannelProductRelation(
     note: record.styleCode
       ? `已形成款式档案 / 渠道店铺商品 / 上游编码串联：${record.styleCode} / ${record.channelProductCode} / ${record.upstreamChannelProductCode}`
       : record.invalidatedReason || record.testingStatusText,
-    legacyRefType: '',
-    legacyRefValue: '',
   }
 }
 
@@ -1532,14 +1518,10 @@ function buildUpstreamSyncRelation(
   operatorName: string,
 ): ProjectRelationRecord | null {
   if (!record.upstreamChannelProductCode || record.upstreamSyncStatus !== '已更新') return null
-  const styleNode = getProjectNodeRecordByWorkItemTypeCode(record.projectId, 'STYLE_ARCHIVE_CREATE')
   return {
     projectRelationId: `rel_upstream_sync_${record.channelProductId}`,
     projectId: record.projectId,
     projectCode: record.projectCode,
-    projectNodeId: styleNode?.projectNodeId || null,
-    workItemTypeCode: styleNode ? 'STYLE_ARCHIVE_CREATE' : '',
-    workItemTypeName: styleNode?.workItemTypeName || '',
     relationRole: '执行记录',
     sourceModule: '上游渠道商品同步',
     sourceObjectType: '上游渠道商品同步',
@@ -1556,8 +1538,6 @@ function buildUpstreamSyncRelation(
     updatedAt: record.lastUpstreamSyncAt || record.updatedAt,
     updatedBy: operatorName,
     note: record.upstreamSyncLog || record.upstreamSyncNote,
-    legacyRefType: '',
-    legacyRefValue: '',
   }
 }
 
@@ -1581,12 +1561,6 @@ function applyScenarioStyleLinks(): void {
     const style = getStyleArchiveById(record.styleId)
     const technicalVersionId = toTechnicalVersionId(record.styleId)
     const technicalVersion = technicalVersionId ? getTechnicalDataVersionById(technicalVersionId) : null
-    const styleNode = project
-      ? getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'STYLE_ARCHIVE_CREATE')
-      : null
-    const techPackNode = project && technicalVersion
-      ? getTechPackSourceNodeBinding(project.projectId, technicalVersion.createdFromTaskType)
-      : null
     if (!project || !style || !technicalVersion) return
 
     const activated = record.scenario === 'STYLE_ACTIVE'
@@ -1594,7 +1568,7 @@ function applyScenarioStyleLinks(): void {
       sourceProjectId: project.projectId,
       sourceProjectCode: project.projectCode,
       sourceProjectName: project.projectName,
-      sourceProjectNodeId: styleNode?.projectNodeId || '',
+      sourceProjectNodeId: '',
       archiveStatus: activated ? 'ACTIVE' : 'DRAFT',
       techPackStatus: activated ? '已启用' : '已发布待启用',
       channelProductCount: listProjectChannelProductsByProjectId(project.projectId).filter(
@@ -1608,13 +1582,6 @@ function applyScenarioStyleLinks(): void {
       currentTechPackVersionActivatedBy: activated ? '商品中心' : '',
       updatedAt: (activated ? technicalVersion.publishedAt : technicalVersion.updatedAt) || style.updatedAt,
       updatedBy: DEMO_OPERATOR,
-    })
-
-    updateTechnicalDataVersionRecord(technicalVersion.technicalVersionId, {
-      sourceProjectId: project.projectId,
-      sourceProjectCode: project.projectCode,
-      sourceProjectName: project.projectName,
-      sourceProjectNodeId: techPackNode?.projectNodeId || '',
     })
 
     updateProjectRecord(
@@ -1633,55 +1600,6 @@ function applyScenarioStyleLinks(): void {
       },
       DEMO_OPERATOR,
     )
-
-    if (styleNode) {
-      updateProjectNodeRecord(
-        project.projectId,
-        styleNode.projectNodeId,
-        {
-          currentStatus: '已完成',
-          latestInstanceId: style.styleId,
-          latestInstanceCode: style.styleCode,
-          latestResultType: '已生成款式档案',
-          latestResultText: activated
-            ? '测款通过后已生成正式款式档案，并建立三码关联。'
-            : '测款通过后已生成款式档案，当前状态为技术包待完善。',
-          pendingActionType: '启用技术包版本',
-          pendingActionText: activated ? '请保持当前生效技术包版本并等待生产消费。' : '请启用已发布技术包版本后同步上游商品。',
-          updatedAt: style.updatedAt,
-        },
-        DEMO_OPERATOR,
-      )
-      syncProjectNodeInstanceRuntime(project.projectId, styleNode.projectNodeId, DEMO_OPERATOR, style.updatedAt)
-    }
-
-    if (techPackNode?.projectNodeId) {
-      updateProjectNodeRecord(
-        project.projectId,
-        techPackNode.projectNodeId,
-        {
-          currentStatus: '进行中',
-          latestInstanceId: technicalVersion.technicalVersionId,
-          latestInstanceCode: technicalVersion.technicalVersionCode,
-          latestResultType: activated ? '已启用当前生效技术包' : '已建立技术包版本',
-          latestResultText: activated
-            ? '款式档案已可生产，上游商品已完成最终更新。'
-            : '款式档案已建立，状态为技术包待完善，上游商品待最终更新。',
-          pendingActionType: activated ? '等待生产消费' : '启用技术包版本',
-          pendingActionText: activated
-            ? '后续生产需求转生产单时将消费当前生效技术包版本。'
-            : '请启用当前已发布版本并完成上游最终更新。',
-          updatedAt: (activated ? technicalVersion.publishedAt : technicalVersion.updatedAt) || project.updatedAt,
-        },
-        DEMO_OPERATOR,
-      )
-      syncProjectNodeInstanceRuntime(
-        project.projectId,
-        techPackNode.projectNodeId,
-        DEMO_OPERATOR,
-        (activated ? technicalVersion.publishedAt : technicalVersion.updatedAt) || project.updatedAt,
-      )
-    }
   })
 }
 
@@ -1741,7 +1659,7 @@ function buildSummaryText(
   if (!currentRecord) return '当前项目尚未创建渠道店铺商品。'
   const multiInstancePrefix = activeCount > 1 ? `当前共有 ${activeCount} 个有效渠道店铺商品实例；` : ''
   if (currentRecord.conclusion === '通过' && !currentRecord.styleCode) {
-    return `${multiInstancePrefix}测款通过，待显式生成款式档案；当前最新用于测款的渠道店铺商品为 ${currentRecord.channelProductCode}`
+    return `${multiInstancePrefix}测款通过，关联商品档案待完善；当前最新用于测款的渠道店铺商品为 ${currentRecord.channelProductCode}`
   }
   if (!currentRecord.conclusion && currentRecord.channelProductStatus === '已作废') {
     return `${multiInstancePrefix}当前渠道店铺商品已作废，历史测款结论待重新确认。`
@@ -1866,21 +1784,9 @@ function getFormalTestingRelations(projectId: string): ProjectRelationRecord[] {
     .sort((a, b) => b.businessDate.localeCompare(a.businessDate))
 }
 
-function buildTestingLinkPatch(
-  relations: ProjectRelationRecord[],
-): Pick<ProjectChannelProductRecord, 'linkedLiveLineId' | 'linkedLiveLineCode' | 'linkedVideoRecordId' | 'linkedVideoRecordCode'> {
-  const latestLive = relations.find((item) => item.sourceObjectType === '直播商品明细')
-  const latestVideo = relations.find((item) => item.sourceObjectType === '短视频记录')
-  return {
-    linkedLiveLineId: latestLive?.sourceLineId || '',
-    linkedLiveLineCode: latestLive?.sourceLineCode || '',
-    linkedVideoRecordId: latestVideo?.sourceObjectId || '',
-    linkedVideoRecordCode: latestVideo?.sourceObjectCode || '',
-  }
-}
-
 interface TestingSummaryFactItem {
   relationId: string
+  relationCode: string
   sourceType: '直播' | '短视频'
   sourceCode: string
   channelCode: string
@@ -2021,16 +1927,12 @@ function buildTestingSummaryFacts(
               '',
           ),
         )
-        const relatedChannelProduct =
-          (liveLineId
-            ? findProjectChannelProductByLiveLine(projectId, liveLineId) ||
-              activeChannelProducts.find((item) => item.linkedLiveLineCode === relation.sourceLineCode)
-            : null) ||
-          (sourceChannel.channelCode
-            ? activeChannelProducts.find((item) => item.channelCode === sourceChannel.channelCode)
-            : null) ||
-          activeChannelProducts[0] ||
-          null
+        const relatedChannelProduct = liveLineId
+          ? findProjectChannelProductByLiveLine(projectId, liveLineId) ||
+            activeChannelProducts.find((item) => item.linkedLiveLineCode === relation.sourceLineCode) ||
+            null
+          : null
+        if (!relatedChannelProduct) return null
         const channelCode = relatedChannelProduct?.channelCode || sourceChannel.channelCode || String(meta.channelCode || '')
         const storeId = relatedChannelProduct?.storeId || String(meta.storeId || '')
         const channelName =
@@ -2054,6 +1956,7 @@ function buildTestingSummaryFacts(
           '未识别渠道店铺商品'
         return {
           relationId: relation.projectRelationId,
+          relationCode: relation.sourceLineCode || relation.sourceObjectCode,
           sourceType: '直播' as const,
           sourceCode:
             liveRecord?.liveLineCode ||
@@ -2085,16 +1988,12 @@ function buildTestingSummaryFacts(
             '',
         ),
       )
-      const relatedChannelProduct =
-        (videoRecordId
-          ? findProjectChannelProductByVideoRecord(projectId, videoRecordId) ||
-            activeChannelProducts.find((item) => item.linkedVideoRecordCode === relation.sourceObjectCode)
-          : null) ||
-        (sourceChannel.channelCode
-          ? activeChannelProducts.find((item) => item.channelCode === sourceChannel.channelCode)
-          : null) ||
-        activeChannelProducts[0] ||
-        null
+      const relatedChannelProduct = videoRecordId
+        ? findProjectChannelProductByVideoRecord(projectId, videoRecordId) ||
+          activeChannelProducts.find((item) => item.linkedVideoRecordCode === relation.sourceObjectCode) ||
+          null
+        : null
+      if (!relatedChannelProduct) return null
       const channelCode = relatedChannelProduct?.channelCode || sourceChannel.channelCode || String(meta.channelCode || '')
       const storeId = relatedChannelProduct?.storeId || String(meta.storeId || '')
       const channelName =
@@ -2118,6 +2017,7 @@ function buildTestingSummaryFacts(
         '未识别渠道店铺商品'
       return {
         relationId: relation.projectRelationId,
+        relationCode: relation.sourceObjectCode,
         sourceType: '短视频' as const,
         sourceCode:
           videoRecord?.videoRecordCode ||
@@ -2136,23 +2036,14 @@ function buildTestingSummaryFacts(
         gmvAmount: videoRecord?.gmvAmount ?? toMetricNumber(meta.gmv ?? meta.gmvAmount),
       }
     })
+    .filter((item): item is TestingSummaryFactItem => Boolean(item))
     .filter((item) => item.exposureQty > 0 || item.clickQty > 0 || item.orderQty > 0 || item.gmvAmount > 0 || item.sourceCode)
 
   return {
-    liveRelationIds: relations
-      .filter((relation) => relation.sourceObjectType === '直播商品明细')
-      .map((relation) => relation.projectRelationId),
-    liveRelationCodes: relations
-      .filter((relation) => relation.sourceObjectType === '直播商品明细')
-      .map((relation) => relation.sourceLineCode || relation.sourceObjectCode)
-      .filter(Boolean) as string[],
-    videoRelationIds: relations
-      .filter((relation) => relation.sourceObjectType === '短视频记录')
-      .map((relation) => relation.projectRelationId),
-    videoRelationCodes: relations
-      .filter((relation) => relation.sourceObjectType === '短视频记录')
-      .map((relation) => relation.sourceObjectCode)
-      .filter(Boolean) as string[],
+    liveRelationIds: facts.filter((item) => item.sourceType === '直播').map((item) => item.relationId),
+    liveRelationCodes: facts.filter((item) => item.sourceType === '直播').map((item) => item.relationCode).filter(Boolean),
+    videoRelationIds: facts.filter((item) => item.sourceType === '短视频').map((item) => item.relationId),
+    videoRelationCodes: facts.filter((item) => item.sourceType === '短视频').map((item) => item.relationCode).filter(Boolean),
     facts,
   }
 }
@@ -2208,8 +2099,8 @@ export function getProjectTestingSummaryAggregate(projectId: string): ProjectTes
   return buildProjectTestingSummaryAggregate(projectId)
 }
 
-function getProjectNodeOrMessage(projectId: string, workItemTypeCode: string, nodeName: string) {
-  const node = getProjectNodeRecordByWorkItemTypeCode(projectId, workItemTypeCode)
+function getProjectNodeOrMessage(projectId: string, stepCode: string, nodeName: string) {
+  const node = getProjectNodeRecordByStepCode(projectId, stepCode)
   if (!node) {
     return {
       node: null,
@@ -2244,9 +2135,14 @@ function buildTestingSummaryInlineRecord(
 ): void {
   const primaryChannelProduct = getCurrentChannelProduct(channelProducts) || channelProducts[0]
   if (!primaryChannelProduct) return
-  const liveRelations = relations.filter((item) => item.sourceObjectType === '直播商品明细')
-  const videoRelations = relations.filter((item) => item.sourceObjectType === '短视频记录')
   const aggregate = buildProjectTestingSummaryAggregate(project.projectId, relations, channelProducts)
+  const aggregatedRelationIds = new Set([...aggregate.liveRelationIds, ...aggregate.videoRelationIds])
+  const liveRelations = relations.filter(
+    (item) => item.sourceObjectType === '直播商品明细' && aggregatedRelationIds.has(item.projectRelationId),
+  )
+  const videoRelations = relations.filter(
+    (item) => item.sourceObjectType === '短视频记录' && aggregatedRelationIds.has(item.projectRelationId),
+  )
   const sourceDocCode = buildInlineRecordCode(project.projectCode, 'TEST-SUMMARY')
 
   upsertProjectInlineNodeRecord({
@@ -2256,8 +2152,8 @@ function buildTestingSummaryInlineRecord(
     projectCode: project.projectCode,
     projectName: project.projectName,
     projectNodeId,
-    workItemTypeCode: 'TEST_DATA_SUMMARY',
-    workItemTypeName: '测款数据汇总',
+    stepCode: 'TEST_DATA_SUMMARY',
+    stepName: '测款数据汇总',
     businessDate,
     recordStatus: '已完成',
     ownerId: project.ownerId,
@@ -2330,7 +2226,6 @@ function buildTestingSummaryInlineRecord(
     updatedAt: businessDate,
     updatedBy: operatorName,
     legacyProjectRef: null,
-    legacyWorkItemInstanceId: null,
   })
 }
 
@@ -2368,8 +2263,8 @@ function buildTestingConclusionInlineRecord(
     projectCode: project.projectCode,
     projectName: project.projectName,
     projectNodeId,
-    workItemTypeCode: 'TEST_CONCLUSION',
-    workItemTypeName: '测款结论判定',
+    stepCode: 'TEST_CONCLUSION',
+    stepName: '测款结论判定',
     businessDate,
     recordStatus: '已完成',
     ownerId: project.ownerId,
@@ -2385,10 +2280,10 @@ function buildTestingConclusionInlineRecord(
       nextActionType: branchDetail.nextActionType || '',
       productPositioningConclusion: payload.productPositioningConclusion || '',
       stockGrade: payload.stockGrade || '',
-      continueTestFlag: payload.continueTestFlag ?? payload.conclusion === '继续测试',
+      holdDecisionFlag: payload.holdDecisionFlag ?? payload.conclusion === '暂保留',
       downShelfFlag: payload.downShelfFlag ?? payload.conclusion === '不通过',
       returnDestination: payload.returnDestination || '',
-      nextTestPlan: payload.nextTestPlan || '',
+      revisitDate: payload.revisitDate || '',
     },
     detailSnapshot: {
       summaryRecordId: summaryRecord?.recordId || '',
@@ -2436,7 +2331,6 @@ function buildTestingConclusionInlineRecord(
     updatedAt: businessDate,
     updatedBy: operatorName,
     legacyProjectRef: null,
-    legacyWorkItemInstanceId: null,
   })
 }
 
@@ -2447,7 +2341,7 @@ function ensureListingPrerequisites(projectId: string): string | null {
   ] as const
 
   for (const item of prerequisites) {
-    const node = getProjectNodeRecordByWorkItemTypeCode(projectId, item.code)
+    const node = getProjectNodeRecordByStepCode(projectId, item.code)
     if (node && node.currentStatus !== '已完成') {
       return `${item.label}尚未完成，不能创建渠道店铺商品。`
     }
@@ -2471,26 +2365,19 @@ function replaceRecord(nextRecord: ProjectChannelProductRecord, operatorName = D
   if (upstreamRelation) upsertProjectRelation(upstreamRelation)
 }
 
-function updateStyleArchiveCreateNode(projectId: string, patch: Partial<Parameters<typeof updateProjectNodeRecord>[2]>) {
-  const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'STYLE_ARCHIVE_CREATE')
-  if (!node) return
-  updateProjectNodeRecord(projectId, node.projectNodeId, patch, DEMO_OPERATOR)
-  syncProjectNodeInstanceRuntime(projectId, node.projectNodeId, DEMO_OPERATOR, String(patch.updatedAt || nowText()))
-}
-
 function isClosedProjectNodeStatus(status: string): boolean {
   return status === '已完成' || status === '已取消'
 }
 
-function activateProjectNodeByWorkItemTypeCode(
+function activateProjectNodeByStepTypeCode(
   projectId: string,
-  workItemTypeCode: string,
+  stepCode: string,
   patch: Partial<Parameters<typeof updateProjectNodeRecord>[2]> & {
     currentStatus?: '进行中' | '待确认'
   },
   operatorName: string,
 ): void {
-  const node = getProjectNodeRecordByWorkItemTypeCode(projectId, workItemTypeCode)
+  const node = getProjectNodeRecordByStepCode(projectId, stepCode)
   if (!node || isClosedProjectNodeStatus(node.currentStatus)) return
   updateProjectNodeRecord(
     projectId,
@@ -2508,7 +2395,7 @@ function activateTestingConclusionDecisionNode(
   operatorName: string,
   timestamp: string,
 ): void {
-  activateProjectNodeByWorkItemTypeCode(
+  activateProjectNodeByStepTypeCode(
     projectId,
     'TEST_CONCLUSION',
     {
@@ -2516,7 +2403,7 @@ function activateTestingConclusionDecisionNode(
       pendingActionType: '结论判定',
       pendingActionText: '当前待确认：测款结论判定',
       latestResultType: '待结论判定',
-      latestResultText: '请确认测款结论：通过、不通过或继续测试。',
+      latestResultText: '请确认测款判断：通过、不通过或暂保留。',
       updatedAt: timestamp,
     },
     operatorName,
@@ -2567,7 +2454,7 @@ export function listProjectChannelProductsByProjectId(projectId: string): Projec
 
 export function repairChannelListingNodeInstanceConsistency(operatorName = '系统修复'): void {
   listProjects().forEach((project) => {
-    const listingNode = getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'CHANNEL_PRODUCT_LISTING')
+    const listingNode = getProjectNodeRecordByStepCode(project.projectId, 'CHANNEL_PRODUCT_LISTING')
     if (!listingNode || listingNode.currentStatus !== '进行中') {
       return
     }
@@ -2662,11 +2549,6 @@ export function buildProjectChannelProductChainSummary(projectId: string): Proje
     currentConclusion: currentRecord?.conclusion || '',
     invalidatedReason: currentRecord?.invalidatedReason || '',
     linkedRevisionTaskCode: currentRecord?.linkedRevisionTaskCode || '',
-    canGenerateStyleArchive: Boolean(
-      currentRecord &&
-        currentRecord.channelProductStatus !== '已作废' &&
-        currentRecord.conclusion === '通过',
-    ),
     summaryText: buildSummaryText(currentRecord, styleStatus, activeRecords.length),
     channelProducts: records,
   }
@@ -2696,14 +2578,6 @@ export function createProjectChannelProductFromListingNode(
   }
 
   const resolvedPayload = resolveListingPayload(projectId, payload)
-  const createSpecError = validateChannelListingSpecLinesForCreate(resolvedPayload.specLines)
-  if (createSpecError) {
-    return { ok: false, message: createSpecError, record: null }
-  }
-  const uploadSpecError = validateChannelListingSpecLinesForUpload(resolvedPayload.specLines)
-  if (uploadSpecError) {
-    return { ok: false, message: uploadSpecError, record: null }
-  }
   const sequence = nextChannelProductSequence(projectId)
   const channelProductId = buildChannelProductId(project.projectCode, sequence)
   const linkedStyle = project.linkedStyleId ? getStyleArchiveById(project.linkedStyleId) : null
@@ -2743,7 +2617,7 @@ export function createProjectChannelProductFromListingNode(
   const channelMeta = getChannelMeta(resolvedPayload.targetChannelCode, resolvedPayload.targetStoreId)
   const timestamp = nowText()
   const channelProductCode = buildChannelProductCode(project.projectCode, sequence)
-  const specLines = normalizeChannelListingSpecLines({
+  const normalizedSpecLines = normalizeChannelListingSpecLines({
     listingBatchId: channelProductId,
     listingBatchCode: channelProductCode,
     projectCode: project.projectCode,
@@ -2777,6 +2651,25 @@ export function createProjectChannelProductFromListingNode(
       : []
   if (migratedListingImages.length > 0) {
     upsertProjectImageAssets(migratedListingImages)
+  }
+  const defaultMigratedImage = migratedListingImages[0] || null
+  const specLines = normalizedSpecLines.map((item) =>
+    item.productImageId || !defaultMigratedImage
+      ? item
+      : {
+          ...item,
+          productImageId: defaultMigratedImage.imageId,
+          productImageUrl: defaultMigratedImage.imageUrl,
+          productImageName: defaultMigratedImage.imageName,
+        },
+  )
+  const createSpecError = validateChannelListingSpecLinesForCreate(specLines)
+  if (createSpecError) {
+    return { ok: false, message: createSpecError, record: null }
+  }
+  const uploadSpecError = validateChannelListingSpecLinesForUpload(specLines)
+  if (uploadSpecError) {
+    return { ok: false, message: uploadSpecError, record: null }
   }
   const listingImages = buildListingImagesFromPayload({
     listingBatchId: channelProductId,
@@ -2950,7 +2843,7 @@ export function launchProjectChannelProductListing(
   }
 
   replaceRecord(nextRecord, operatorName)
-  const listingNode = getProjectNodeRecordByWorkItemTypeCode(record.projectId, 'CHANNEL_PRODUCT_LISTING')
+  const listingNode = getProjectNodeRecordByStepCode(record.projectId, 'CHANNEL_PRODUCT_LISTING')
   if (listingNode) {
     updateProjectNodeRecord(
       record.projectId,
@@ -3022,7 +2915,7 @@ export function markProjectChannelProductListingCompleted(
   }
 
   replaceRecord(nextRecord, operatorName)
-  const listingNode = getProjectNodeRecordByWorkItemTypeCode(record.projectId, 'CHANNEL_PRODUCT_LISTING')
+  const listingNode = getProjectNodeRecordByStepCode(record.projectId, 'CHANNEL_PRODUCT_LISTING')
   if (listingNode) {
     updateProjectNodeRecord(
       record.projectId,
@@ -3031,7 +2924,7 @@ export function markProjectChannelProductListingCompleted(
         latestInstanceId: nextRecord.channelProductId,
         latestInstanceCode: nextRecord.channelProductCode,
         latestResultType: '商品上架已完成',
-        latestResultText: `款式上架批次 ${nextRecord.listingBatchCode} 已完成，已进入下一工作项。`,
+        latestResultText: `款式上架批次 ${nextRecord.listingBatchCode} 已完成，已进入下一步骤。`,
         pendingActionType: '',
         pendingActionText: '',
         updatedAt: timestamp,
@@ -3053,7 +2946,7 @@ export function markProjectChannelProductListingCompleted(
 
   return {
     ok: true,
-    message: '商品上架已完成，已进入下一工作项。',
+    message: '商品上架已完成，已进入下一步骤。',
     record: nextRecord,
   }
 }
@@ -3138,7 +3031,7 @@ export function completeProjectChannelListingNode(
 
   return {
     ok: true,
-    message: '商品上架已完成，已进入下一工作项。',
+    message: '商品上架已完成，已进入下一步骤。',
     record: latestRecord,
   }
 }
@@ -3164,22 +3057,26 @@ export function submitProjectTestingSummary(
   }
 
   const relations = getFormalTestingRelations(projectId)
-  if (relations.length === 0) {
-    return { ok: false, message: '当前项目尚未建立正式直播或短视频测款关系，不能提交测款汇总。', record: primaryRecord }
+  const aggregate = buildProjectTestingSummaryAggregate(projectId, relations, targetRecords)
+  const mappedRelationCount = new Set([...aggregate.liveRelationIds, ...aggregate.videoRelationIds]).size
+  if (mappedRelationCount === 0) {
+    return {
+      ok: false,
+      message: '当前项目尚无已明确关联渠道店铺商品的正式测款记录，不能提交测款汇总。',
+      record: primaryRecord,
+      relationCount: 0,
+    }
   }
 
-  const liveCount = relations.filter((item) => item.sourceObjectType === '直播商品明细').length
-  const videoCount = relations.filter((item) => item.sourceObjectType === '短视频记录').length
-  const aggregate = buildProjectTestingSummaryAggregate(projectId, relations, targetRecords)
+  const liveCount = aggregate.liveRelationIds.length
+  const videoCount = aggregate.videoRelationIds.length
   const summaryText =
     payload.summaryText?.trim() ||
-    `已汇总 ${relations.length} 条正式测款记录，其中直播 ${liveCount} 条，短视频 ${videoCount} 条，覆盖 ${aggregate.channelBreakdowns.length} 个渠道、${aggregate.storeBreakdowns.length} 个店铺、${targetRecords.length} 个渠道店铺商品实例。`
+    `已汇总 ${mappedRelationCount} 条正式测款记录，其中直播 ${liveCount} 条，短视频 ${videoCount} 条，覆盖 ${aggregate.channelBreakdowns.length} 个渠道、${aggregate.storeBreakdowns.length} 个店铺、${targetRecords.length} 个渠道店铺商品实例。`
   const timestamp = nowText()
-  const testingLinkPatch = buildTestingLinkPatch(relations)
   const nextRecords = targetRecords.map((record) => {
     const nextRecord: ProjectChannelProductRecord = {
       ...record,
-      ...testingLinkPatch,
       updatedAt: timestamp,
       testingStatusText: '已提交测款汇总，等待确认最终结论',
       upstreamSyncNote: summaryText,
@@ -3212,7 +3109,7 @@ export function submitProjectTestingSummary(
     ok: true,
     message: '已提交测款汇总。',
     record: latestRecord,
-    relationCount: relations.length,
+    relationCount: mappedRelationCount,
     summaryText,
   }
 }
@@ -3229,8 +3126,8 @@ export function submitProjectTestingConclusion(
   payload: ProjectTestingConclusionPayload,
   operatorName = '当前用户',
 ): ProjectChannelProductWriteResult {
-  if (!['通过', '不通过', '继续测试'].includes(payload.conclusion)) {
-    return { ok: false, message: '测款结论判定只允许选择通过、不通过或继续测试。', record: null }
+  if (!['通过', '不通过', '暂保留'].includes(payload.conclusion)) {
+    return { ok: false, message: '测款判断只允许选择通过、不通过或暂保留。', record: null }
   }
 
   const project = getProjectById(projectId)
@@ -3249,26 +3146,49 @@ export function submitProjectTestingConclusion(
   }
 
   const relations = getFormalTestingRelations(projectId)
-  if (relations.length === 0) {
-    return { ok: false, message: '当前项目尚未建立正式测款关系，不能提交测款结论。', record: primaryRecord }
+  const aggregate = buildProjectTestingSummaryAggregate(projectId, relations, targetRecords)
+  const mappedRelationCount = new Set([...aggregate.liveRelationIds, ...aggregate.videoRelationIds]).size
+  if (mappedRelationCount === 0) {
+    return {
+      ok: false,
+      message: '当前项目尚无已明确关联渠道店铺商品的正式测款记录，不能提交测款结论。',
+      record: primaryRecord,
+      relationCount: 0,
+    }
   }
 
   const note = payload.note.trim() || `测款结论为${payload.conclusion}。`
-  const testingLinkPatch = buildTestingLinkPatch(relations)
   const timestamp = nowText()
-  const summaryNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'TEST_DATA_SUMMARY')
+  const summaryNode = getProjectNodeRecordByStepCode(projectId, 'TEST_DATA_SUMMARY')
   const summaryRecord = summaryNode ? getLatestProjectInlineNodeRecord(summaryNode.projectNodeId) : null
 
   if (payload.conclusion === '通过') {
+    const linkedStyle = project.linkedStyleId
+      ? getStyleArchiveById(project.linkedStyleId)
+      : null
+    if (!linkedStyle) {
+      return {
+        ok: false,
+        message: '当前商品项目缺少创建时关联的商品测款档案，不能提交通过结论。',
+        record: primaryRecord,
+      }
+    }
+    updateStyleArchive(linkedStyle.styleId, {
+      archiveStatus: 'DRAFT',
+      updatedAt: timestamp,
+      updatedBy: operatorName,
+    })
     const nextRecords = targetRecords.map((record) => {
       const nextRecord: ProjectChannelProductRecord = {
         ...record,
-        ...testingLinkPatch,
         scenario: 'MEASURING',
         conclusion: '通过',
+        styleId: linkedStyle.styleId,
+        styleCode: linkedStyle.styleCode,
+        styleName: linkedStyle.styleName,
         invalidatedReason: '',
         updatedAt: timestamp,
-        testingStatusText: '测款通过，等待显式生成款式档案',
+        testingStatusText: '测款通过，关联商品测款档案待完善',
         upstreamSyncNote: note,
         upstreamSyncLog: `${timestamp} ${note}`,
       }
@@ -3285,26 +3205,14 @@ export function submitProjectTestingConclusion(
         latestInstanceCode: latestRecord.channelProductCode,
         latestResultType: '测款通过',
         latestResultText: note,
-        pendingActionType: '生成款式档案',
-        pendingActionText:
-          nextRecords.length > 1
-            ? `请显式执行生成款式档案操作，并为当前 ${nextRecords.length} 个渠道店铺商品实例建立三码关联。`
-            : '请显式执行生成款式档案操作，并建立三码关联。',
+        pendingActionType: '商品档案资料完善',
+        pendingActionText: '请继续完善项目创建时关联的商品测款档案和技术资料。',
         updatedAt: timestamp,
       },
       operatorName,
     )
-    updateStyleArchiveCreateNode(projectId, {
-      currentStatus: '进行中',
-      latestResultType: '等待生成款式档案',
-      latestResultText: '测款通过，已解锁款式档案生成。',
-      pendingActionType: '生成款式档案',
-      pendingActionText:
-        nextRecords.length > 1
-          ? `请确认后生成款式档案壳，并保留当前 ${nextRecords.length} 个渠道店铺商品实例链路。`
-          : '请确认后生成款式档案壳，并保留当前渠道店铺商品链路。',
-      updatedAt: timestamp,
-    })
+    const styleRelation = buildStyleRelation(projectId, linkedStyle.styleId, operatorName)
+    if (styleRelation) upsertProjectRelation(styleRelation)
     buildTestingConclusionInlineRecord(
       project,
       conclusionNode.projectNodeId,
@@ -3312,9 +3220,9 @@ export function submitProjectTestingConclusion(
       nextRecords,
       summaryRecord,
       {
-        linkedStyleId: latestRecord.styleId || project.linkedStyleId || '',
-        linkedStyleCode: latestRecord.styleCode || project.linkedStyleCode || '',
-        nextActionType: '生成款式档案',
+        linkedStyleId: linkedStyle.styleId,
+        linkedStyleCode: linkedStyle.styleCode,
+        nextActionType: '商品档案资料完善',
       },
       [],
       operatorName,
@@ -3333,24 +3241,24 @@ export function submitProjectTestingConclusion(
       ok: true,
       message:
         nextRecords.length > 1
-          ? `已提交测款通过结论，当前 ${nextRecords.length} 个渠道店铺商品实例可关联同一款式档案。`
-          : '已提交测款通过结论，当前可生成款式档案。',
+          ? `已提交测款通过结论，当前 ${nextRecords.length} 个渠道店铺商品实例已关联同一商品测款档案。`
+          : '已提交测款通过结论，已更新项目关联商品测款档案。',
       record: latestRecord,
+      relationCount: mappedRelationCount,
     }
   }
 
-  if (payload.conclusion === '继续测试') {
+  if (payload.conclusion === '暂保留') {
     const nextRecords = targetRecords.map((record) => {
       const nextRecord: ProjectChannelProductRecord = {
         ...record,
-        ...testingLinkPatch,
         scenario: 'MEASURING',
-        conclusion: '继续测试',
+        conclusion: '暂保留',
         invalidatedReason: '',
         channelProductStatus:
           record.channelProductStatus === '已生效' ? '已生效' : '已上架待测款',
         updatedAt: timestamp,
-        testingStatusText: '测款结论为继续测试，等待补充测款数据',
+        testingStatusText: '当前判断暂保留，等待约定日期再次判断',
         upstreamSyncNote: note,
         upstreamSyncLog: `${timestamp} ${note}`,
       }
@@ -3358,17 +3266,18 @@ export function submitProjectTestingConclusion(
       return nextRecord
     })
     const latestRecord = getCurrentChannelProduct(nextRecords) || nextRecords[0]
-    updateProjectCurrentPhase(projectId, 'PHASE_03', operatorName)
+    updateProjectCurrentPhase(projectId, 'PHASE_05', operatorName)
     updateProjectNodeRecord(
       projectId,
       conclusionNode.projectNodeId,
       {
         latestInstanceId: latestRecord.channelProductId,
         latestInstanceCode: latestRecord.channelProductCode,
-        latestResultType: '继续测试',
+        currentStatus: '待确认',
+        latestResultType: '暂保留',
         latestResultText: note,
-        pendingActionType: '继续测试',
-        pendingActionText: '请补充直播测款或短视频测款数据后重新汇总。',
+        pendingActionType: '稍后再判断',
+        pendingActionText: '当前暂不下结论，请按约定日期再次判断。',
         updatedAt: timestamp,
       },
       operatorName,
@@ -3380,14 +3289,14 @@ export function submitProjectTestingConclusion(
       nextRecords,
       summaryRecord,
       {
-        nextActionType: '继续测试',
+        nextActionType: '稍后再判断',
       },
       [],
       operatorName,
       timestamp,
     )
     try {
-      completeDecisionNodeWithResult(projectId, conclusionNode.projectNodeId, '继续测试', operatorName, note, timestamp)
+      completeDecisionNodeWithResult(projectId, conclusionNode.projectNodeId, '暂保留', operatorName, note, timestamp)
     } catch (error) {
       return {
         ok: false,
@@ -3397,14 +3306,15 @@ export function submitProjectTestingConclusion(
     }
     return {
       ok: true,
-      message: '已提交继续测试结论，当前渠道店铺商品保留，项目已回到测款执行补充数据。',
+      message: '已暂保留当前判断，渠道店铺商品和既有测款事实保持不变，等待稍后再判断。',
       record: latestRecord,
+      relationCount: mappedRelationCount,
     }
   }
 
   const nextRecords = targetRecords.map((record) =>
     invalidateChannelProductRecord(
-      { ...record, ...testingLinkPatch },
+      record,
       {
         scenario: 'FAILED_ELIMINATED',
         conclusion: '不通过',
@@ -3453,6 +3363,23 @@ export function submitProjectTestingConclusion(
   )
   try {
     completeDecisionNodeWithResult(projectId, conclusionNode.projectNodeId, '不通过', operatorName, note, timestamp)
+    const returnHandleNode = getProjectNodeRecordByStepCode(projectId, 'SAMPLE_RETURN_HANDLE')
+    if (returnHandleNode) {
+      updateProjectNodeRecord(
+        projectId,
+        returnHandleNode.projectNodeId,
+        {
+          currentStatus: '进行中',
+          startedAt: returnHandleNode.startedAt || timestamp,
+          latestResultType: '待退回',
+          latestResultText: '测款不通过，等待完成样衣退回。',
+          pendingActionType: '样衣退回处理',
+          pendingActionText: '请登记样衣退回结果。',
+          updatedAt: timestamp,
+        },
+        operatorName,
+      )
+    }
   } catch (error) {
     return {
       ok: false,
@@ -3467,6 +3394,7 @@ export function submitProjectTestingConclusion(
         ? `已提交不通过结论，已作废 ${nextRecords.length} 个渠道店铺商品实例，当前项目已进入样衣退回处理。`
         : '已提交不通过结论，当前项目已进入样衣退回处理。',
     record: latestRecord,
+    relationCount: mappedRelationCount,
   }
 }
 
@@ -3496,7 +3424,7 @@ export function invalidateProjectChannelProduct(
     },
     operatorName,
   )
-  const listingNode = getProjectNodeRecordByWorkItemTypeCode(record.projectId, 'CHANNEL_PRODUCT_LISTING')
+  const listingNode = getProjectNodeRecordByStepCode(record.projectId, 'CHANNEL_PRODUCT_LISTING')
   if (listingNode) {
     updateProjectNodeRecord(
       record.projectId,
@@ -3516,42 +3444,6 @@ export function invalidateProjectChannelProduct(
     syncProjectNodeInstanceRuntime(record.projectId, listingNode.projectNodeId, operatorName, nextRecord.updatedAt)
   }
   return { ok: true, message: `已作废渠道店铺商品 ${nextRecord.channelProductCode}。`, record: nextRecord }
-}
-
-export function bindStyleArchiveToProjectChannelProduct(
-  projectId: string,
-  input: {
-    styleId: string
-    styleCode: string
-    styleName: string
-  },
-  operatorName = '当前用户',
-): ProjectChannelProductRecord | null {
-  const targetRecords = listValidChannelProducts(listProjectChannelProductsByProjectId(projectId))
-  if (targetRecords.length === 0) return null
-  const timestamp = nowText()
-  const nextRecords = targetRecords.map((currentRecord) => {
-    const nextRecord: ProjectChannelProductRecord = {
-      ...currentRecord,
-      scenario: 'STYLE_PENDING_TECH',
-      conclusion: currentRecord.conclusion || '通过',
-      styleId: input.styleId,
-      styleCode: input.styleCode,
-      styleName: input.styleName,
-      channelProductStatus: '已生效',
-      upstreamSyncStatus: '待更新',
-      effectiveAt: timestamp,
-      updatedAt: timestamp,
-      testingStatusText: '测款通过，已生成款式档案，待启用技术包',
-      upstreamSyncNote: '款式档案已建立，待技术包启用后更新上游商品。',
-      upstreamSyncLog: '款式档案已建立，待技术包启用后更新上游商品。',
-    }
-    replaceRecord(nextRecord, operatorName)
-    return nextRecord
-  })
-  const styleRelation = buildStyleRelation(projectId, input.styleId, operatorName)
-  if (styleRelation) upsertProjectRelation(styleRelation)
-  return getCurrentChannelProduct(nextRecords) || nextRecords[0]
 }
 
 export function markProjectChannelProductConclusion(

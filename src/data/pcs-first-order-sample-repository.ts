@@ -46,7 +46,7 @@ function seedSnapshot(): FirstOrderSampleTaskStoreSnapshot {
 
 function normalizeTask(task: FirstOrderSampleTaskRecord): FirstOrderSampleTaskRecord {
   const sampleChainMode = task.sampleChainMode || '复用首版结论'
-  const sourceFirstSampleCode = task.sourceFirstSampleCode || (sampleChainMode === '复用首版结论' ? task.sampleCode || '' : '')
+  const sourceFirstSampleCode = task.sourceFirstSampleCode || ''
   return {
     ...cloneTask(task),
     note: task.note || '',
@@ -72,8 +72,6 @@ function normalizeTask(task: FirstOrderSampleTaskRecord): FirstOrderSampleTaskRe
     conclusionNote: task.conclusionNote || '',
     confirmedAt: task.confirmedAt || '',
     confirmedBy: task.confirmedBy || '',
-    legacyProjectRef: task.legacyProjectRef || '',
-    legacyUpstreamRef: task.legacyUpstreamRef || '',
   }
 }
 
@@ -155,24 +153,6 @@ export function getFirstOrderSampleTaskById(firstOrderSampleTaskId: string): Fir
 
 export function listFirstOrderSampleTasksByProject(projectId: string): FirstOrderSampleTaskRecord[] {
   return loadSnapshot().tasks.filter((item) => item.projectId === projectId).map(cloneTask)
-}
-
-export function listFirstOrderSampleTasksByProjectNode(
-  projectId: string,
-  projectNodeId: string,
-): FirstOrderSampleTaskRecord[] {
-  return loadSnapshot()
-    .tasks
-    .filter((item) => item.projectId === projectId && item.projectNodeId === projectNodeId)
-    .sort((a, b) => (b.updatedAt || b.createdAt).localeCompare(a.updatedAt || a.createdAt))
-    .map(cloneTask)
-}
-
-export function getLatestFirstOrderSampleTaskByProjectNode(
-  projectId: string,
-  projectNodeId: string,
-): FirstOrderSampleTaskRecord | null {
-  return listFirstOrderSampleTasksByProjectNode(projectId, projectNodeId)[0] ?? null
 }
 
 export function upsertFirstOrderSampleTask(task: FirstOrderSampleTaskRecord): FirstOrderSampleTaskRecord {

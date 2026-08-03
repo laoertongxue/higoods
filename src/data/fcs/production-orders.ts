@@ -14,17 +14,13 @@ import {
   cloneProductionOrderTechPackSnapshot,
 } from './production-tech-pack-snapshot-builder.ts'
 import type { ProductionOrderTechPackSnapshot } from './production-tech-pack-snapshot-types.ts'
+import {
+  productionOrderRuntimeStore,
+  RELEASE_TARGET_SUPPLEMENT_PRODUCTION_FACT,
+  type ProductionOrderRuntimeStatus,
+} from './production-order-runtime-store.ts'
 
-export type ProductionOrderStatus =
-  | 'DRAFT'
-  | 'WAIT_TECH_PACK_RELEASE'
-  | 'READY_FOR_BREAKDOWN'
-  | 'WAIT_ASSIGNMENT'
-  | 'ASSIGNING'
-  | 'EXECUTING'
-  | 'COMPLETED'
-  | 'CANCELLED'
-  | 'ON_HOLD'
+export type ProductionOrderStatus = ProductionOrderRuntimeStatus
 
 export type OwnerPartyType = 'FACTORY' | 'LEGAL_ENTITY'
 export type TechPackStatus = 'MISSING' | 'BETA' | 'RELEASED'
@@ -1469,6 +1465,8 @@ function buildReleaseMaterialSwatchImageUrl(materialCode: string, materialName: 
 }
 
 function buildReleaseTargetSupplementProductionOrder(base: ProductionOrder): ProductionOrder {
+  const formalFact = RELEASE_TARGET_SUPPLEMENT_PRODUCTION_FACT
+  const spuCode = formalFact.demandSnapshot.spuCode
   const baseSnapshot = cloneProductionOrderTechPackSnapshot(base.techPackSnapshot)
   if (!baseSnapshot) throw new Error('PO14671 补料检查生产单缺少技术包模板')
   const colors = ['Black', 'White', 'Navy', 'Red']
@@ -1480,7 +1478,7 @@ function buildReleaseTargetSupplementProductionOrder(base: ProductionOrder): Pro
     Red: { M: 170, L: 250, XL: 320 },
   }
   const skuLines = colors.flatMap((color) => sizes.map((size) => ({
-    skuCode: `ASYSA26060310-${color.toUpperCase()}-${size}`,
+    skuCode: `${spuCode}-${color.toUpperCase()}-${size}`,
     color,
     size,
     qty: qtyByColorSize[color][size],
@@ -1488,7 +1486,7 @@ function buildReleaseTargetSupplementProductionOrder(base: ProductionOrder): Pro
   const skuCodes = skuLines.map((line) => line.skuCode)
   const demandSnapshot: DemandSnapshot = {
     demandId: 'DEM-PO14671-SUPPLEMENT',
-    spuCode: 'ASYSA26060310',
+    spuCode,
     spuName: '女式基础圆领短袖',
     buyerName: '宋雨',
     merchandiserName: '林晓',
@@ -1544,13 +1542,13 @@ function buildReleaseTargetSupplementProductionOrder(base: ProductionOrder): Pro
     ...templatePattern,
     id: patternId,
     patternFileId: patternId,
-    patternName: 'ASYSA26060310 正式纸样',
-    patternFileName: 'ASYSA26060310-正式纸样.dxf',
-    fileName: 'ASYSA26060310-正式纸样.dxf',
+    patternName: `${spuCode} 正式纸样`,
+    patternFileName: `${spuCode}-正式纸样.dxf`,
+    fileName: `${spuCode}-正式纸样.dxf`,
     fileUrl: 'local://production-order/PO14671/pattern',
-    dxfFileName: 'ASYSA26060310-正式纸样.dxf',
-    rulFileName: 'ASYSA26060310-正式纸样.rul',
-    singlePatternFileName: 'ASYSA26060310-正式纸样.dxf',
+    dxfFileName: `${spuCode}-正式纸样.dxf`,
+    rulFileName: `${spuCode}-正式纸样.rul`,
+    singlePatternFileName: `${spuCode}-正式纸样.dxf`,
     selectedSizeCodes: [...sizes],
     sizeRange: sizes.join(' / '),
     rulSizeList: [...sizes],
@@ -1562,7 +1560,7 @@ function buildReleaseTargetSupplementProductionOrder(base: ProductionOrder): Pro
   const colorMaterialMappings = colors.map((color, colorIndex) => ({
     id: `${versionId}-mapping-${colorIndex + 1}`,
     mappingOrigin: 'TECH_PACK' as const,
-    spuCode: 'ASYSA26060310',
+    spuCode,
     colorCode: color,
     colorName: color,
     status: 'CONFIRMED' as const,
@@ -1574,7 +1572,7 @@ function buildReleaseTargetSupplementProductionOrder(base: ProductionOrder): Pro
       materialName: name,
       materialType: type,
       patternId,
-      patternName: 'ASYSA26060310 正式纸样',
+      patternName: `${spuCode} 正式纸样`,
       pieceId: `${patternId}-${pieceId}`,
       pieceName,
       pieceCountPerUnit: materialCode === 'B' ? 2 : 1,
@@ -1595,10 +1593,10 @@ function buildReleaseTargetSupplementProductionOrder(base: ProductionOrder): Pro
   }]
   const techPackSnapshot: ProductionOrderTechPackSnapshot = {
     snapshotId: 'snapshot-po-14671-v1',
-    productionOrderId: 'po-14671',
+    productionOrderId: formalFact.productionOrderId,
     productionOrderNo: 'PO14671',
-    styleId: 'STYLE-ASYSA26060310',
-    styleCode: 'ASYSA26060310',
+    styleId: `STYLE-${spuCode}`,
+    styleCode: spuCode,
     styleName: '女式基础圆领短袖',
     status: 'RELEASED',
     versionLabel: 'V1.0',
@@ -1610,7 +1608,7 @@ function buildReleaseTargetSupplementProductionOrder(base: ProductionOrder): Pro
     snapshotAt: '2026-06-03 07:30:00',
     snapshotBy: '系统',
     patternDesc: 'PO14671 裁片放行与补料专用冻结纸样。',
-    internalStyleCode: 'ASYSA26060310',
+    internalStyleCode: spuCode,
     bomItems,
     patternFiles,
     processEntries,
@@ -1649,7 +1647,8 @@ function buildReleaseTargetSupplementProductionOrder(base: ProductionOrder): Pro
   }
   return {
     ...structuredClone(base),
-    productionOrderId: 'po-14671',
+    productionOrderId: formalFact.productionOrderId,
+    status: formalFact.status,
     productionOrderNo: 'PO14671',
     demandId: demandSnapshot.demandId,
     sourceDemandIds: [demandSnapshot.demandId],
@@ -1667,10 +1666,11 @@ function buildReleaseTargetSupplementProductionOrder(base: ProductionOrder): Pro
 }
 
 const seededProductionOrders = productionOrderSeeds.map((seed) => buildProductionOrderFromSeed(seed))
-export const productionOrders: ProductionOrder[] = [
+productionOrderRuntimeStore.splice(0, productionOrderRuntimeStore.length,
   ...seededProductionOrders,
   buildReleaseTargetSupplementProductionOrder(seededProductionOrders[1]),
-]
+)
+export const productionOrders = productionOrderRuntimeStore as ProductionOrder[]
 
 export const productionOrderStatusConfig: Record<ProductionOrderStatus, { label: string; color: string }> = {
   DRAFT: { label: '草稿', color: 'bg-gray-100 text-gray-700' },

@@ -143,8 +143,6 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           icon: 'FolderKanban',
           children: [
             { key: 'pcs-project-list', title: '商品项目', icon: 'FolderKanban', href: '/pcs/projects' },
-            { key: 'pcs-template', title: '项目模板管理', icon: 'FileText', href: '/pcs/templates' },
-            { key: 'pcs-work-items', title: '工作项库', icon: 'CheckSquare', href: '/pcs/work-items' },
           ],
         },
         {
@@ -158,17 +156,21 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           ],
         },
         {
-          key: 'pcs-menu-pattern',
-          title: '工程开发与打样管理',
+          key: 'pcs-menu-engineering',
+          title: '生产工程管理',
           icon: 'Scissors',
           children: [
+            { key: 'pcs-engineering-masters', title: '工程主单', icon: 'FolderKanban', href: '/pcs/engineering/masters' },
+            { key: 'pcs-engineering-my-tasks', title: '我的工程任务', icon: 'ListChecks', href: '/pcs/patterns' },
             { key: 'pcs-revision-tasks', title: '改版任务', icon: 'FileText', href: '/pcs/patterns/revision' },
             { key: 'pcs-pattern-tasks', title: '制版任务', icon: 'Scissors', href: '/pcs/patterns' },
-            { key: 'pcs-part-template-library', title: '部位模板库', icon: 'Library', href: '/pcs/patterns/part-templates' },
             { key: 'pcs-color-tasks', title: '花型任务', icon: 'Palette', href: '/pcs/patterns/colors' },
+            { key: 'pcs-engineering-color-tasks', title: '调色任务', icon: 'Droplets', href: '/pcs/engineering/color' },
+            { key: 'pcs-engineering-purchase-tasks', title: '辅料下单任务', icon: 'ShoppingCart', href: '/pcs/engineering/purchase' },
+            { key: 'pcs-engineering-tech-pack-tasks', title: '技术包确认任务', icon: 'FileCheck', href: '/pcs/engineering/tech-pack' },
+            { key: 'pcs-first-sample', title: '产前版样衣任务', icon: 'Droplet', href: '/pcs/samples/first-sample' },
+            { key: 'pcs-part-template-library', title: '部位模板库', icon: 'Library', href: '/pcs/patterns/part-templates' },
             { key: 'pcs-pattern-library', title: '花型库', icon: 'Image', href: '/pcs/pattern-library' },
-            { key: 'pcs-first-sample', title: '首版样衣打样', icon: 'Droplet', href: '/pcs/samples/first-sample' },
-            { key: 'pcs-first-order', title: '首单样衣打样', icon: 'CheckSquare', href: '/pcs/samples/first-order' },
           ],
         },
         {

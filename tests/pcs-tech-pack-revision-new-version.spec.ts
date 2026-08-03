@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { clearProjectRelationStore } from '../src/data/pcs-project-relation-repository.ts'
 import {
   getProjectById,
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   resetProjectRepository,
   updateProjectRecord,
 } from '../src/data/pcs-project-repository.ts'
@@ -27,27 +27,32 @@ import {
 import {
   getCurrentTechPackVersionByStyleId,
   listTechnicalDataVersionsByStyleId,
-  replaceTechnicalDataVersionStore,
+  resetTechnicalDataVersionRepository,
+  updateTechnicalDataVersionContent,
   updateTechnicalDataVersionRecord,
 } from '../src/data/pcs-technical-data-version-repository.ts'
 import { resetPlateMakingTaskRepository, upsertPlateMakingTask } from '../src/data/pcs-plate-making-repository.ts'
 import { getRevisionTaskById, resetRevisionTaskRepository, upsertRevisionTask } from '../src/data/pcs-revision-task-repository.ts'
 import type { PlateMakingTaskRecord } from '../src/data/pcs-plate-making-types.ts'
 import type { RevisionTaskRecord } from '../src/data/pcs-revision-task-types.ts'
+import {
+  createEngineeringChangeTask,
+  createEngineeringMasterOrder,
+  publishEngineeringMasterOrder,
+  resetEngineeringMasterRepository,
+} from '../src/data/pcs-engineering-master-repository.ts'
+import { closeEngineeringMasterForFixture } from './helpers/pcs-engineering-master-close-fixture.ts'
+import { publishAndActivateEngineeringTechPackForFixture } from './helpers/pcs-engineering-tech-pack-activation-fixture.ts'
 
 function resetScenario(): void {
   resetProjectRepository()
   resetStyleArchiveRepository()
-  replaceTechnicalDataVersionStore({
-    version: 2,
-    records: [],
-    contents: [],
-    pendingItems: [],
-  })
+  resetTechnicalDataVersionRepository()
   clearProjectRelationStore()
   resetTechPackVersionLogRepository()
   resetPlateMakingTaskRepository()
   resetRevisionTaskRepository()
+  resetEngineeringMasterRepository()
 }
 
 function prepareProjectAndStyle() {
@@ -92,7 +97,6 @@ function prepareProjectAndStyle() {
 
 function createPlateTask(id: string, code: string, projectId: string, styleCode: string, patternVersion: string): PlateMakingTaskRecord {
   const project = getProjectById(projectId)!
-  const plateNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PATTERN_TASK')!
   return upsertPlateMakingTask({
     plateTaskId: id,
     plateTaskCode: code,
@@ -100,16 +104,18 @@ function createPlateTask(id: string, code: string, projectId: string, styleCode:
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectName: project.projectName,
-    projectNodeId: plateNode.projectNodeId,
-    workItemTypeCode: 'PATTERN_TASK',
-    workItemTypeName: '制版任务',
-    sourceType: '项目模板阶段',
+    projectNodeId: '',
+    stepCode: 'PATTERN_TASK',
+    stepName: '制版任务',
+    sourceType: '商品项目',
     upstreamModule: '商品项目',
-    upstreamObjectType: '商品项目节点',
-    upstreamObjectId: plateNode.projectNodeId,
-    upstreamObjectCode: plateNode.workItemTypeCode,
+    upstreamObjectType: '商品项目',
+    upstreamObjectId: project.projectId,
+    upstreamObjectCode: project.projectCode,
     productStyleCode: styleCode,
     spuCode: styleCode,
+    productHistoryType: '未卖过',
+    patternArea: '深圳',
     patternType: '常规制版',
     sizeRange: 'S-XL',
     patternVersion,
@@ -120,7 +126,7 @@ function createPlateTask(id: string, code: string, projectId: string, styleCode:
     linkedTechPackUpdatedAt: '',
     acceptedAt: '2026-04-20 12:10',
     confirmedAt: '2026-04-20 12:20',
-    status: '已完成',
+    status: '已确认',
     ownerId: project.ownerId,
     ownerName: project.ownerName,
     participantNames: ['制版师'],
@@ -138,7 +144,7 @@ function createPlateTask(id: string, code: string, projectId: string, styleCode:
 
 function createRevisionTask(projectId: string, styleId: string, styleCode: string, styleName: string): RevisionTaskRecord {
   const project = getProjectById(projectId)!
-  const upstreamNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'TEST_CONCLUSION')
+  const upstreamNode = getProjectNodeRecordByStepCode(projectId, 'TEST_CONCLUSION')
   assert.ok(upstreamNode, '项目中必须存在可挂接改版任务的节点')
 
   return upsertRevisionTask({
@@ -149,13 +155,13 @@ function createRevisionTask(projectId: string, styleId: string, styleCode: strin
     projectCode: project.projectCode,
     projectName: project.projectName,
     projectNodeId: upstreamNode!.projectNodeId,
-    workItemTypeCode: 'REVISION_TASK',
-    workItemTypeName: '改版任务',
+    stepCode: 'REVISION_TASK',
+    stepName: '改版任务',
     sourceType: '人工创建',
     upstreamModule: '商品项目',
     upstreamObjectType: '商品项目节点',
     upstreamObjectId: upstreamNode!.projectNodeId,
-    upstreamObjectCode: upstreamNode!.workItemTypeCode,
+    upstreamObjectCode: upstreamNode!.stepCode,
     styleId,
     styleCode,
     styleName,
@@ -194,48 +200,78 @@ function createRevisionTask(projectId: string, styleId: string, styleCode: strin
 
 resetScenario()
 const { style, project } = prepareProjectAndStyle()
+const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
+  styleId: style.styleId,
+  styleCode: style.styleCode,
+  merchandiserName: '测试跟单',
+}).masterOrderId)
 
-const plateTaskOne = createPlateTask('plate_task_revision_base', 'PT-TEST-REV-BASE', project.projectId, style.styleCode, 'P1')
-const baseVersion = generateTechPackVersionFromPlateTask(plateTaskOne.plateTaskId, '测试用户').record
-updateTechnicalDataVersionRecord(baseVersion.technicalVersionId, {
-  reviewStage: '待发布',
-  reviewSubmittedAt: '2026-04-20 12:30',
-  reviewSubmittedBy: '测试用户',
-  merchandiserReview: {
-    nodeKey: 'MERCHANDISER',
-    nodeName: '跟单审核',
-    status: '审核-已通过',
-    reviewerRole: '跟单',
-    assignedReviewerId: 'merchandiser-test',
-    assignedReviewerName: '测试跟单',
-    assignedReviewerRole: '跟单',
-    assignedReviewerFeishuOpenId: '',
-    assignedAt: '2026-04-20 12:30',
-    assignedBy: '测试用户',
-    reviewedBy: '测试跟单',
-    reviewedAt: '2026-04-20 12:40',
-    startedOpinion: '',
-    opinion: '确认发布',
-    diffSnapshotId: '',
-    diffStatus: '无差异',
-    diffSummaryText: '',
-    lastFeishuNotifyAt: '',
-    lastFeishuNotifyStatus: '未发送',
-    lastFeishuNotifyRecordId: '',
-    todayFeishuNotifiedFlag: false,
-  },
+const plateTaskOne = upsertPlateMakingTask({
+  ...createPlateTask('plate_task_revision_base', 'PT-TEST-REV-BASE', project.projectId, style.styleCode, 'P1'),
+  upstreamModule: '生产工程管理',
+  upstreamObjectType: '工程专业任务',
+  upstreamObjectId: `${master.masterOrderId}-BASE_PATTERN_WOVEN`,
+  upstreamObjectCode: `${master.masterOrderCode}-BASE_PATTERN_WOVEN`,
 })
-publishTechnicalDataVersion(baseVersion.technicalVersionId, '测试用户')
-activateTechPackVersionForStyle(style.styleId, baseVersion.technicalVersionId, '测试用户')
+const baseVersion = generateTechPackVersionFromPlateTask(plateTaskOne.plateTaskId, '测试用户').record
+updateTechnicalDataVersionContent(baseVersion.technicalVersionId, {
+  processEntries: [{
+    id: 'process_revision_base',
+    entryType: 'PROCESS_BASELINE',
+    stageCode: 'PROD',
+    stageName: '生产',
+    processCode: 'SEWING',
+    processName: '车缝',
+    assignmentGranularity: 'ORDER',
+    defaultDocType: 'TASK',
+    taskTypeMode: 'PROCESS',
+    isSpecialCraft: false,
+    routeStepNo: 1,
+    routeLaneNo: 1,
+  }],
+  processRouteStatus: 'CONFIRMED',
+  processRouteConfirmedBy: '测试用户',
+  processRouteConfirmedAt: '2026-04-20 12:25',
+})
+publishAndActivateEngineeringTechPackForFixture({
+  technicalVersionId: baseVersion.technicalVersionId,
+  masterOrderId: master.masterOrderId,
+  styleId: style.styleId,
+  operatorName: '测试用户',
+})
 
-const plateTaskTwo = createPlateTask('plate_task_revision_draft', 'PT-TEST-REV-DRAFT', project.projectId, style.styleCode, 'P2')
+const plateTaskTwo = upsertPlateMakingTask({
+  ...createPlateTask('plate_task_revision_draft', 'PT-TEST-REV-DRAFT', project.projectId, style.styleCode, 'P2'),
+  upstreamModule: '生产工程管理',
+  upstreamObjectType: '工程专业任务',
+  upstreamObjectId: `${master.masterOrderId}-SIZE_PATTERN_WOVEN`,
+  upstreamObjectCode: `${master.masterOrderCode}-SIZE_PATTERN_WOVEN`,
+})
 const draftVersion = generateTechPackVersionFromPlateTask(plateTaskTwo.plateTaskId, '测试用户').record
 assert.equal(draftVersion.versionStatus, 'DRAFT', '用于干扰校验的制版技术包应保持草稿状态')
 
 const revisionTask = createRevisionTask(project.projectId, style.styleId, style.styleCode, style.styleName)
-const revisionResult = generateTechPackVersionFromRevisionTask(revisionTask.revisionTaskId, '测试用户')
+assert.throws(
+  () => generateTechPackVersionFromRevisionTask(revisionTask.revisionTaskId, '测试用户'),
+  /未明确关联工程变更任务/,
+  '普通改版任务不得直接冒充工程变更来源',
+)
+closeEngineeringMasterForFixture(master.masterOrderId, master.merchandiserName)
+const engineeringChange = createEngineeringChangeTask({
+  sourceMasterOrderId: master.masterOrderId,
+  createdBy: '测试跟单',
+})
+const linkedRevisionTask = upsertRevisionTask({
+  ...revisionTask,
+  upstreamModule: '生产工程管理',
+  upstreamObjectType: '工程变更任务',
+  upstreamObjectId: engineeringChange.engineeringChangeTaskId,
+  upstreamObjectCode: engineeringChange.engineeringChangeTaskCode,
+})
+const revisionResult = generateTechPackVersionFromRevisionTask(linkedRevisionTask.revisionTaskId, '测试用户')
 
-assert.equal(revisionResult.record.createdFromTaskType, 'REVISION', '改版生成的新版本必须记录来源任务类型')
+assert.equal(revisionResult.record.createdFromTaskType, 'ENGINEERING_CHANGE', '改版生成的新版本必须记录真实工程变更来源')
+assert.equal(revisionResult.record.sourceProjectId, engineeringChange.engineeringChangeTaskId, '技术包必须绑定真实工程变更对象')
 assert.equal(revisionResult.record.baseTechnicalVersionId, baseVersion.technicalVersionId, '改版新版本必须基于当前生效技术包版本')
 assert.ok(revisionResult.record.linkedRevisionTaskIds.includes(revisionTask.revisionTaskId), '改版新版本必须记录改版任务链')
 assert.notEqual(revisionResult.record.technicalVersionId, draftVersion.technicalVersionId, '改版任务不得写入已有草稿版本')

@@ -22,14 +22,14 @@ export interface PcsProjectListRecord {
   updatedAt: string
   progressDone: number
   progressTotal: number
-  nextWorkItemName: string
-  nextWorkItemStatus: ProjectListNodeStatus
+  nextStepName: string
+  nextStepStatus: ProjectListNodeStatus
   pendingDecisionFlag: boolean
   riskStatus: ProjectListRiskStatus
   riskReason: string
 }
 
-interface ProjectSnapshotRecord extends Omit<PcsProjectListRecord, 'progressDone' | 'progressTotal' | 'nextWorkItemName' | 'nextWorkItemStatus' | 'pendingDecisionFlag' | 'riskStatus' | 'riskReason'> {
+interface ProjectSnapshotRecord extends Omit<PcsProjectListRecord, 'progressDone' | 'progressTotal' | 'nextStepName' | 'nextStepStatus' | 'pendingDecisionFlag' | 'riskStatus' | 'riskReason'> {
   currentPhaseCode?: string
   projectAlbumUrls?: string[]
 }
@@ -38,7 +38,7 @@ interface ProjectSnapshotNodeRecord {
   projectId: string
   projectNodeId: string
   phaseCode: string
-  workItemTypeName: string
+  stepName: string
   currentStatus: Exclude<ProjectListNodeStatus, '-'>
   sequenceNo: number
   currentIssueType?: string
@@ -147,7 +147,7 @@ function buildRuntimeRecord(project: ProjectSnapshotRecord, snapshot: ProjectSto
   const riskReason = blockedFlag
     ? blockedReason
     : delayedPendingDecision && pendingDecisionNode
-      ? `${pendingDecisionNode.workItemTypeName}已停留 ${delayedPendingDecisionDays} 天未判定，当前节点仍待确认。`
+      ? `${pendingDecisionNode.stepName}已停留 ${delayedPendingDecisionDays} 天未判定，当前节点仍待确认。`
       : ''
 
   return {
@@ -166,8 +166,8 @@ function buildRuntimeRecord(project: ProjectSnapshotRecord, snapshot: ProjectSto
     updatedAt: project.updatedAt || '',
     progressDone,
     progressTotal,
-    nextWorkItemName: nextNode?.workItemTypeName ?? '-',
-    nextWorkItemStatus: nextNode?.currentStatus ?? '-',
+    nextStepName: nextNode?.stepName ?? '-',
+    nextStepStatus: nextNode?.currentStatus ?? '-',
     pendingDecisionFlag: Boolean(pendingDecisionNode),
     riskStatus,
     riskReason,

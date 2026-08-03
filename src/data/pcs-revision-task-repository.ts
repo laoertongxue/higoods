@@ -109,8 +109,6 @@ function normalizeTask(task: RevisionTaskRecord): RevisionTaskRecord {
     generatedNewTechPackVersionFlag: Boolean(task.generatedNewTechPackVersionFlag),
     generatedNewTechPackVersionAt: task.generatedNewTechPackVersionAt || '',
     note: task.note || '',
-    legacyProjectRef: task.legacyProjectRef || '',
-    legacyUpstreamRef: task.legacyUpstreamRef || '',
   }
 }
 
@@ -170,13 +168,6 @@ export function getRevisionTaskById(revisionTaskId: string): RevisionTaskRecord 
 
 export function listRevisionTasksByProject(projectId: string): RevisionTaskRecord[] {
   return loadSnapshot().tasks.filter((item) => item.projectId === projectId).map(cloneTask)
-}
-
-export function listRevisionTasksByProjectNode(projectId: string, projectNodeId: string): RevisionTaskRecord[] {
-  return loadSnapshot()
-    .tasks
-    .filter((item) => item.projectId === projectId && item.projectNodeId === projectNodeId)
-    .map(cloneTask)
 }
 
 export function upsertRevisionTask(task: RevisionTaskRecord): RevisionTaskRecord {

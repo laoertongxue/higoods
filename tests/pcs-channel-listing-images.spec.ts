@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 
-import { getProjectWorkItemContract } from '../src/data/pcs-project-domain-contract.ts'
+import { getProjectStepDefinition } from '../src/data/pcs-project-domain-contract.ts'
 import {
   createProjectChannelProductFromListingNode,
   resetProjectChannelProductRepository,
@@ -18,7 +18,7 @@ resetProjectRepository()
 resetProjectChannelProductRepository()
 resetProjectImageAssets()
 
-const listingContract = getProjectWorkItemContract('CHANNEL_PRODUCT_LISTING')
+const listingContract = getProjectStepDefinition('CHANNEL_PRODUCT_LISTING')
 const listingFieldKeys = listingContract.fieldDefinitions.map((field) => field.fieldKey)
 
 assert.ok(listingFieldKeys.includes('listingMainImageId'), '商品上架字段应包含上架主图')
@@ -29,8 +29,8 @@ assert.ok(listingFieldKeys.includes('listingImageConfirmedBy'), '商品上架字
 assert.ok(!listingFieldKeys.includes('mainImageUrls'), '商品上架字段定义不应再把主图 URL 作为主输入')
 assert.ok(!listingFieldKeys.includes('detailImageUrls'), '商品上架字段定义不应再把详情图 URL 作为主输入')
 
-const project = getProjectById('prj_20251216_015')
-assert.ok(project, '应存在 PRJ-20251216-015 演示项目')
+const project = getProjectById('PRJ-017')
+assert.ok(project, '应存在 PRJ-202604-004 演示项目')
 
 const [referenceImage, supplementImage] = createProjectImageAssetRecords(
   project!,
@@ -81,14 +81,14 @@ const createResult = createProjectChannelProductFromListingNode(
     listingMainImageId: referenceImage.imageId,
     listingImageIds: [referenceImage.imageId, supplementImage.imageId],
     specLines: [
-      { colorName: '奶白', sizeName: 'M', priceAmount: 219, currencyCode: 'IDR', stockQty: 10 },
-      { colorName: '奶白', sizeName: 'L', priceAmount: 219, currencyCode: 'IDR', stockQty: 8 },
+      { productImageId: referenceImage.imageId, colorName: '奶白', sizeName: 'M', priceAmount: 219, currencyCode: 'IDR', stockQty: 10 },
+      { productImageId: referenceImage.imageId, colorName: '奶白', sizeName: 'L', priceAmount: 219, currencyCode: 'IDR', stockQty: 8 },
     ],
   },
   '测试用户',
 )
 
-assert.equal(createResult.ok, true, '补齐上架图片后应能创建款式上架批次')
+assert.equal(createResult.ok, true, `补齐上架图片后应能创建款式上架批次：${createResult.message}`)
 assert.equal(createResult.record?.listingMainImageId, referenceImage.imageId, '上架批次应记录主图图片资产编号')
 assert.deepEqual(
   createResult.record?.listingImageIds,

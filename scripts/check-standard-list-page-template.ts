@@ -41,8 +41,8 @@ const agentsSource = fs.readFileSync(new URL('../AGENTS.md', import.meta.url), '
 const supplementPageSource = fs.readFileSync(new URL('../src/pages/process-factory/cutting/supplement-management.ts', import.meta.url), 'utf8')
 
 function extractStandardListGovernanceSection(source: string): string {
-  const headingMatch = /^### 7\.3 标准列表页模板治理\s*$/m.exec(source)
-  assert(headingMatch, 'AGENTS.md 必须定义“### 7.3 标准列表页模板治理”章节')
+  const headingMatch = /^### 5\.2 标准管理列表页\s*$/m.exec(source)
+  assert(headingMatch, 'AGENTS.md 必须定义“### 5.2 标准管理列表页”章节')
   const sectionStart = headingMatch.index
   const contentStart = sectionStart + headingMatch[0].length
   const remainingSource = source.slice(contentStart)
@@ -54,94 +54,64 @@ function extractStandardListGovernanceSection(source: string): string {
 function assertStandardListGovernanceSection(section: string): void {
   assert.match(
     section,
-    /^标准列表页模板以补料管理页面 `\/fcs\/craft\/cutting\/supplement-management` 为验收基准。核心公共组件为 `src\/components\/ui\/list-page\.ts`，表格渲染与列偏好模型分别位于 `src\/components\/ui\/list-table\.ts`、`src\/components\/ui\/list-table-model\.ts`。$/m,
-    '标准列表治理章节必须在完整行写明模板路由和公共组件',
+    /^本节只适用于管理端 \/ 主管端桌面标准数据列表，不适用于 PDA、员工任务队列、固定摘要、步骤页和扫码结果页。$/m,
+    '标准列表治理章节必须明确适用范围',
   )
   assert.match(
     section,
-    /^- 后续所有新增列表页，以及被调整的既有列表页，都必须以该模板的样式、公共组件和交互为基准；调整既有列表页的结构、筛选、统计、表格或分页时同步向模板对齐。本任务不批量迁移其他既有页面。$/m,
-    '标准列表治理章节必须要求新增和被调整的既有列表页对齐模板，并限定本任务迁移范围',
+    /^- 新增或调整的标准列表页在页面顶部声明 `\/\/ @page-pattern: list`，通过 `npm run check:list-page-governance`，并使用 `renderStandardListPage`、`renderStandardListTable`、`renderTablePagination`。$/m,
+    '标准列表治理章节必须规定页面声明、治理命令和标准组件',
   )
   assert.match(
     section,
-    /^- 必须优先复用公共组件，不得复制页面模板；公共骨架或表格能力不足时，先在 `src\/components\/ui\/` 内补充最小通用能力，再由业务页面组合使用。$/m,
-    '标准列表治理章节必须优先复用公共组件且不得复制页面模板',
+    /^- 验收基准为 `\/fcs\/craft\/cutting\/supplement-management`；公共能力不足时扩展 `src\/components\/ui\/`，不得复制整套页面模板。$/m,
+    '标准列表治理章节必须规定验收基准并禁止复制页面模板',
   )
   assert.match(
     section,
-    /^- 标准列表摘要卡片必须采用 48px 单行布局，标签和值水平排列，不得使用上下两段造成额外垂直占用。$/m,
-    '标准列表治理章节必须规定 48px 单行摘要卡片',
+    /^- 摘要使用 48px 单行布局；列表必须分页，并明确当前页、每页条数和总数。$/m,
+    '标准列表治理章节必须规定摘要布局与分页口径',
   )
   assert.match(
     section,
-    /^- 所有可排序列必须显示未排序、升序和降序三态图标；图标必须由组件直接输出，局部刷新后仍保持可见。$/m,
-    '标准列表治理章节必须规定稳定可见的三态排序图标',
+    /^- 宽表支持列显示、顺序、排序和冻结；冻结普通列固定左侧，必需 \/ 防错列不可隐藏，操作列固定右侧。$/m,
+    '标准列表治理章节必须规定宽表列管理、冻结和必需列',
   )
   assert.match(
     section,
-    /^- 所有数据列表必须分页；即使当前只有少量 Mock 数据，也必须展示分页控件，并明确当前页、每页条数和总数口径。$/m,
-    '标准列表治理章节必须强制所有数据列表分页',
+    /^- 列显示、顺序、冻结和每页条数按路由持久化；当前页和排序不持久化。$/m,
+    '标准列表治理章节必须限定持久化与非持久化状态',
   )
   assert.match(
     section,
-    /^- 当列总宽超过表格可视区、需要横向滚动时，必须支持显示列选择、列顺序拖拽调整、普通冻结列固定左侧和数据排序。$/m,
-    '标准列表治理章节必须以横向滚动为触发条件要求完整列管理',
+    /^- 页面主体不得横向溢出，宽表在表格容器内部滚动；按第 4\.4 节分辨率验收。$/m,
+    '标准列表治理章节必须规定横向溢出与分辨率验收边界',
   )
   assert.match(
     section,
-    /^- 用户冻结的普通列必须立即进入表格最左侧固定区，从横向滚动开始到结束都不移动；多列冻结按用户列顺序排列，取消冻结后恢复普通列位置。$/m,
-    '标准列表治理章节必须定义真正的左侧冻结行为',
-  )
-  assert.match(
-    section,
-    /^- 必需列和业务防错列必须声明为不可隐藏的“必需列”（代码字段为 `required`）；操作列也必须保持可见。$/m,
-    '标准列表治理章节必须要求必需列和业务防错列声明为不可隐藏的必需列',
-  )
-  assert.match(
-    section,
-    /^- 操作列必须固定在右侧且不随横向滚动，并始终保持可见和可操作。$/m,
-    '标准列表治理章节必须要求操作列固定右侧且不随横向滚动',
-  )
-  assert.match(
-    section,
-    /^- 列显示、列顺序、冻结列和每页条数必须按路由持久化；当前页和数据排序不得持久化，刷新或重新进入页面时回到稳定默认状态。$/m,
-    '标准列表治理章节必须限定持久化和不持久化状态',
-  )
-  assert.match(
-    section,
-    /^- 任一模块不得出现无业务逻辑的说明性文案；允许展示真实业务状态、风险、异常和空态，以及完成当前任务所必需的操作反馈。$/m,
-    '标准列表治理章节必须禁止无业务逻辑说明文案并允许真实业务反馈',
-  )
-  assert.match(
-    section,
-    /^- 以 1366×768 为标准验收分辨率，1280×720 为最低可用分辨率；页面主体不得产生横向溢出，宽表必须在表格容器内部滚动。$/m,
-    '标准列表治理章节必须明确分辨率和横向溢出边界',
-  )
-  assert.match(
-    section,
-    /^- 任何无法遵循上述规则的业务例外，都必须在对应的 prototype review record 写明理由、影响范围和替代防错措施。$/m,
-    '标准列表治理章节必须要求例外写入审查记录',
+    /^- `scripts\/standard-list-page-baseline\.json` 只保留未迁移且未变化的历史页面哈希，不得修改基线或检查脚本绕过门禁；业务例外写入完整原型审查记录。$/m,
+    '标准列表治理章节必须保护基线并要求记录业务例外',
   )
 }
 
 const standardListGovernanceSection = extractStandardListGovernanceSection(agentsSource)
 assertStandardListGovernanceSection(standardListGovernanceSection)
 assert.match(agentsSource, /npm run check:list-page-governance/, 'AGENTS.md 必须要求统一列表页治理命令')
-assert.match(agentsSource, /基线.*哈希.*不得.*修改/, 'AGENTS.md 必须禁止修改历史列表页基线哈希')
+assert.match(agentsSource, /历史页面哈希.*不得修改基线/, 'AGENTS.md 必须禁止修改历史列表页基线哈希')
 assert.match(supplementPageSource, /@page-pattern:\s*list/, '补料管理页面必须声明列表页模式')
 
 const rejectedGovernanceVariants = [
-  standardListGovernanceSection.replace('所有数据列表必须分页', '所有数据列表不必分页'),
+  standardListGovernanceSection.replace('列表必须分页', '列表不必分页'),
   standardListGovernanceSection.replace(
-    '必须支持显示列选择、列顺序拖拽调整、普通冻结列固定左侧和数据排序',
-    '不必支持显示列选择、列顺序拖拽调整、普通冻结列固定左侧和数据排序',
+    '宽表支持列显示、顺序、排序和冻结',
+    '宽表不必支持列显示、顺序、排序和冻结',
   ),
-  standardListGovernanceSection.replace('不得出现无业务逻辑的说明性文案', '不禁止无业务逻辑的说明性文案'),
-  standardListGovernanceSection.replace('允许展示真实业务状态', '不允许展示真实业务状态'),
-  standardListGovernanceSection.replace('必须优先复用公共组件', '无需优先复用公共组件'),
-  standardListGovernanceSection.replace('必须采用 48px 单行布局', '不必采用 48px 单行布局'),
-  standardListGovernanceSection.replace('必须显示未排序、升序和降序三态图标', '不必显示未排序、升序和降序三态图标'),
-  standardListGovernanceSection.replace('从横向滚动开始到结束都不移动', '可以随横向滚动移动'),
+  standardListGovernanceSection.replace('不得复制整套页面模板', '可以复制整套页面模板'),
+  standardListGovernanceSection.replace('摘要使用 48px 单行布局', '摘要不使用 48px 单行布局'),
+  standardListGovernanceSection.replace('冻结普通列固定左侧', '冻结普通列不固定左侧'),
+  standardListGovernanceSection.replace('当前页和排序不持久化', '当前页和排序持久化'),
+  standardListGovernanceSection.replace('页面主体不得横向溢出', '页面主体允许横向溢出'),
+  standardListGovernanceSection.replace('不得修改基线或检查脚本绕过门禁', '可以修改基线或检查脚本绕过门禁'),
 ]
 for (const [index, rejectedVariant] of rejectedGovernanceVariants.entries()) {
   assert.notEqual(rejectedVariant, standardListGovernanceSection, `治理否定变体 ${index + 1} 必须实际改变章节内容`)

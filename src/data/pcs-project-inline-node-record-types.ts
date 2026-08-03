@@ -1,4 +1,4 @@
-export const PCS_PROJECT_INLINE_NODE_RECORD_WORK_ITEM_TYPES = [
+export const PCS_PROJECT_INLINE_STEP_RECORD_CODES = [
   'SAMPLE_ACQUIRE',
   'SAMPLE_INBOUND_CHECK',
   'FEASIBILITY_REVIEW',
@@ -11,10 +11,10 @@ export const PCS_PROJECT_INLINE_NODE_RECORD_WORK_ITEM_TYPES = [
   'SAMPLE_RETURN_HANDLE',
 ] as const
 
-export type PcsProjectInlineNodeRecordWorkItemTypeCode =
-  (typeof PCS_PROJECT_INLINE_NODE_RECORD_WORK_ITEM_TYPES)[number]
+export type PcsProjectInlineStepRecordCode =
+  (typeof PCS_PROJECT_INLINE_STEP_RECORD_CODES)[number]
 
-export type ProjectDecisionResult = '' | '通过' | '不通过' | '继续测试'
+export type ProjectDecisionResult = '' | '通过' | '不通过' | '暂保留'
 
 export interface PcsProjectInlineNodeRef {
   refModule: string
@@ -26,7 +26,7 @@ export interface PcsProjectInlineNodeRef {
 }
 
 export interface PcsProjectInlineNodeRecordBase<
-  TWorkItemTypeCode extends PcsProjectInlineNodeRecordWorkItemTypeCode,
+  TStepTypeCode extends PcsProjectInlineStepRecordCode,
   TPayload,
   TDetailSnapshot,
 > {
@@ -36,8 +36,8 @@ export interface PcsProjectInlineNodeRecordBase<
   projectCode: string
   projectName: string
   projectNodeId: string
-  workItemTypeCode: TWorkItemTypeCode
-  workItemTypeName: string
+  stepCode: TStepTypeCode
+  stepName: string
   businessDate: string
   recordStatus: string
   ownerId: string
@@ -55,7 +55,6 @@ export interface PcsProjectInlineNodeRecordBase<
   updatedAt: string
   updatedBy: string
   legacyProjectRef: string | null
-  legacyWorkItemInstanceId: string | null
 }
 
 export interface SampleAcquirePayload {
@@ -126,8 +125,6 @@ export interface SampleInboundCheckDetailSnapshot {
 export interface FeasibilityReviewPayload {
   reviewConclusion: ProjectDecisionResult
   reviewRisk: string
-  reviewConclusionLegacyValue?: string
-  migrationNote?: string
 }
 
 export interface FeasibilityReviewDetailSnapshot {
@@ -167,8 +164,6 @@ export interface SampleShootFitDetailSnapshot {
 export interface SampleConfirmPayload {
   confirmResult: ProjectDecisionResult
   confirmNote: string
-  confirmResultLegacyValue?: string
-  migrationNote?: string
 }
 
 export interface SampleConfirmDetailSnapshot {
@@ -305,8 +300,6 @@ export interface TestConclusionPayload {
   linkedStyleCode?: string
   invalidatedChannelProductId?: string
   nextActionType?: string
-  conclusionLegacyValue?: string
-  migrationNote?: string
 }
 
 export interface TestConclusionDetailSnapshot {
@@ -379,12 +372,12 @@ export interface PcsProjectInlineNodeRecordDetailSnapshotMap {
 }
 
 export type PcsProjectInlineNodePayload<
-  TWorkItemTypeCode extends PcsProjectInlineNodeRecordWorkItemTypeCode,
-> = PcsProjectInlineNodeRecordPayloadMap[TWorkItemTypeCode]
+  TStepTypeCode extends PcsProjectInlineStepRecordCode,
+> = PcsProjectInlineNodeRecordPayloadMap[TStepTypeCode]
 
 export type PcsProjectInlineNodeDetailSnapshot<
-  TWorkItemTypeCode extends PcsProjectInlineNodeRecordWorkItemTypeCode,
-> = PcsProjectInlineNodeRecordDetailSnapshotMap[TWorkItemTypeCode]
+  TStepTypeCode extends PcsProjectInlineStepRecordCode,
+> = PcsProjectInlineNodeRecordDetailSnapshotMap[TStepTypeCode]
 
 export type PcsProjectInlineNodeRecord =
   | PcsProjectInlineNodeRecordBase<'SAMPLE_ACQUIRE', SampleAcquirePayload, SampleAcquireDetailSnapshot>

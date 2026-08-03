@@ -45,7 +45,6 @@ function seedSnapshot(): FirstSampleTaskStoreSnapshot {
 }
 
 function normalizeFirstSampleStatus(status: string): FirstSampleTaskStatus {
-  if (status === '需补样' || status === '需补测') return '需改版'
   return FIRST_SAMPLE_TASK_STATUS_LIST.includes(status as FirstSampleTaskStatus)
     ? (status as FirstSampleTaskStatus)
     : '待处理'
@@ -82,8 +81,6 @@ function normalizeTask(task: FirstSampleTaskRecord): FirstSampleTaskRecord {
     artworkConfirmationSummary: task.artworkConfirmationSummary || '',
     productionReadinessNote: task.productionReadinessNote || '',
     confirmedAt: task.confirmedAt || '',
-    legacyProjectRef: task.legacyProjectRef || '',
-    legacyUpstreamRef: task.legacyUpstreamRef || '',
   }
 }
 
@@ -143,21 +140,6 @@ export function getFirstSampleTaskById(firstSampleTaskId: string): FirstSampleTa
 
 export function listFirstSampleTasksByProject(projectId: string): FirstSampleTaskRecord[] {
   return loadSnapshot().tasks.filter((item) => item.projectId === projectId).map(cloneTask)
-}
-
-export function listFirstSampleTasksByProjectNode(projectId: string, projectNodeId: string): FirstSampleTaskRecord[] {
-  return loadSnapshot()
-    .tasks
-    .filter((item) => item.projectId === projectId && item.projectNodeId === projectNodeId)
-    .map(cloneTask)
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-}
-
-export function getLatestFirstSampleTaskByProjectNode(
-  projectId: string,
-  projectNodeId: string,
-): FirstSampleTaskRecord | null {
-  return listFirstSampleTasksByProjectNode(projectId, projectNodeId)[0] || null
 }
 
 export function upsertFirstSampleTask(task: FirstSampleTaskRecord): FirstSampleTaskRecord {

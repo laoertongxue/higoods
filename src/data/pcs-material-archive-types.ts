@@ -1,6 +1,12 @@
 export type MaterialArchiveKind = 'fabric' | 'accessory' | 'yarn' | 'consumable' | 'packaging' | 'parts'
 export type MaterialArchiveStatus = 'ACTIVE' | 'INACTIVE' | 'ARCHIVED'
 
+export interface MaterialUnitConversion {
+  fromUnit: string
+  toUnit: string
+  factor: number
+}
+
 export interface MaterialArchiveRecord {
   materialId: string
   kind: MaterialArchiveKind
@@ -16,6 +22,7 @@ export interface MaterialArchiveRecord {
   pricingUnit: string
   mainUnit: string
   auxiliaryUnits: string[]
+  unitConversions?: MaterialUnitConversion[]
   mainImageUrl: string
   galleryImageUrls: string[]
   status: MaterialArchiveStatus
@@ -43,6 +50,7 @@ export interface MaterialSkuRecord {
   costPrice: number
   freightCost: number
   pricingUnit: string
+  unitConversions?: MaterialUnitConversion[]
   weightKg: number
   lengthCm: number
   widthCm: number

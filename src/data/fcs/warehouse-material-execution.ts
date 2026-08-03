@@ -195,13 +195,17 @@ function inferProcessCodeByTaskType(taskType: MaterialRequestRecord['taskType'])
   return 'PROC_SEW'
 }
 
-function resolveRuntimeTaskForRequest(request: MaterialRequestRecord): RuntimeProcessTask | null {
-  const direct = getRuntimeTaskById(request.taskId)
+function resolveRuntimeTaskForRequest(
+  request: MaterialRequestRecord,
+  runtimeTasks?: RuntimeProcessTask[],
+): RuntimeProcessTask | null {
+  const direct = runtimeTasks?.find((task) => task.taskId === request.taskId) ?? getRuntimeTaskById(request.taskId)
   if (direct && isRuntimeTaskExecutionTask(direct)) return direct
 
-  const byBase = listRuntimeTasksByBaseTaskId(request.taskId).filter((task) =>
-    isRuntimeTaskExecutionTask(task),
-  )
+  const byBase = (runtimeTasks
+    ? runtimeTasks.filter((task) => task.baseTaskId === request.taskId)
+    : listRuntimeTasksByBaseTaskId(request.taskId)
+  ).filter((task) => isRuntimeTaskExecutionTask(task))
   if (byBase.length === 0) return null
   if (byBase.length === 1) return byBase[0]
 
@@ -305,8 +309,9 @@ function deriveSkuScope(line: MaterialRequestDraftLine, task: RuntimeProcessTask
 
 function createIssueOrTransferFromRequest(
   request: MaterialRequestRecord,
+  runtimeTasks?: RuntimeProcessTask[],
 ): WarehouseIssueOrder | WarehouseInternalTransferOrder {
-  const task = resolveRuntimeTaskForRequest(request)
+  const task = resolveRuntimeTaskForRequest(request, runtimeTasks)
   const lines = getDraftLinesForRequest(request)
   const { warehouseId, warehouseName } = getWarehouseByOrder(request.productionOrderNo)
 
@@ -435,8 +440,11 @@ function deriveReturnStatus(task: RuntimeProcessTask): WarehouseExecutionStatus 
   return 'PLANNED'
 }
 
-function buildReturnOrdersForOrder(productionOrderId: string): WarehouseReturnOrder[] {
-  const runtimeTasks = listRuntimeExecutionTasks().filter((task) => task.productionOrderId === productionOrderId)
+function buildReturnOrdersForOrder(
+  productionOrderId: string,
+  allRuntimeTasks: RuntimeProcessTask[] = listRuntimeExecutionTasks(),
+): WarehouseReturnOrder[] {
+  const runtimeTasks = allRuntimeTasks.filter((task) => task.productionOrderId === productionOrderId)
   const { warehouseId, warehouseName } = getWarehouseByOrder(productionOrderId)
 
   return runtimeTasks
@@ -509,17 +517,21 @@ function buildReturnOrdersForOrder(productionOrderId: string): WarehouseReturnOr
     })
 }
 
-function buildExecutionDocuments(): {
+export interface WarehouseExecutionDocumentSnapshot {
   issueOrders: WarehouseIssueOrder[]
   returnOrders: WarehouseReturnOrder[]
   internalTransferOrders: WarehouseInternalTransferOrder[]
-} {
+}
+
+export function buildWarehouseExecutionDocumentSnapshot(
+  runtimeTasks: RuntimeProcessTask[] = listRuntimeExecutionTasks(),
+): WarehouseExecutionDocumentSnapshot {
   const requests = listMaterialRequests()
   const issueOrders: WarehouseIssueOrder[] = []
   const internalTransferOrders: WarehouseInternalTransferOrder[] = []
 
   requests.forEach((request) => {
-    const doc = createIssueOrTransferFromRequest(request)
+    const doc = createIssueOrTransferFromRequest(request, runtimeTasks)
     if (doc.docType === 'ISSUE') {
       issueOrders.push(doc)
     } else {
@@ -586,7 +598,7 @@ function buildExecutionDocuments(): {
     ]),
   )
 
-  const returnOrders = orderIds.flatMap((orderId) => buildReturnOrdersForOrder(orderId))
+  const returnOrders = orderIds.flatMap((orderId) => buildReturnOrdersForOrder(orderId, runtimeTasks))
 
   return {
     issueOrders: sortByUpdatedAtDesc(issueOrders),
@@ -596,7 +608,7 @@ function buildExecutionDocuments(): {
 }
 
 export function listWarehouseIssueOrders(): WarehouseIssueOrder[] {
-  return buildExecutionDocuments().issueOrders
+  return buildWarehouseExecutionDocumentSnapshot().issueOrders
 }
 
 export function listWarehouseIssueOrdersByOrder(productionOrderId: string): WarehouseIssueOrder[] {
@@ -608,7 +620,7 @@ export function listWarehouseIssueOrdersByRuntimeTaskId(runtimeTaskId: string): 
 }
 
 export function listWarehouseReturnOrders(): WarehouseReturnOrder[] {
-  return buildExecutionDocuments().returnOrders
+  return buildWarehouseExecutionDocumentSnapshot().returnOrders
 }
 
 export function listWarehouseReturnOrdersByOrder(productionOrderId: string): WarehouseReturnOrder[] {
@@ -620,7 +632,7 @@ export function listWarehouseReturnOrdersByRuntimeTaskId(runtimeTaskId: string):
 }
 
 export function listWarehouseInternalTransferOrders(): WarehouseInternalTransferOrder[] {
-  return buildExecutionDocuments().internalTransferOrders
+  return buildWarehouseExecutionDocumentSnapshot().internalTransferOrders
 }
 
 export function listWarehouseInternalTransferOrdersByOrder(
@@ -636,20 +648,24 @@ export function listWarehouseInternalTransferOrdersByRuntimeTaskId(
 }
 
 export function listWarehouseExecutionDocsByOrder(productionOrderId: string): WarehouseExecutionDoc[] {
+  const snapshot = buildWarehouseExecutionDocumentSnapshot()
   const docs = [
-    ...listWarehouseIssueOrdersByOrder(productionOrderId),
-    ...listWarehouseReturnOrdersByOrder(productionOrderId),
-    ...listWarehouseInternalTransferOrdersByOrder(productionOrderId),
+    ...snapshot.issueOrders.filter((order) => order.productionOrderId === productionOrderId),
+    ...snapshot.returnOrders.filter((order) => order.productionOrderId === productionOrderId),
+    ...snapshot.internalTransferOrders.filter((order) => order.productionOrderId === productionOrderId),
   ]
 
   return docs.sort((a, b) => toTimeNumber(b.updatedAt) - toTimeNumber(a.updatedAt))
 }
 
-export function listWarehouseExecutionDocsByRuntimeTaskId(runtimeTaskId: string): WarehouseExecutionDoc[] {
+export function listWarehouseExecutionDocsByRuntimeTaskId(
+  runtimeTaskId: string,
+  snapshot: WarehouseExecutionDocumentSnapshot = buildWarehouseExecutionDocumentSnapshot(),
+): WarehouseExecutionDoc[] {
   const docs = [
-    ...listWarehouseIssueOrdersByRuntimeTaskId(runtimeTaskId),
-    ...listWarehouseReturnOrdersByRuntimeTaskId(runtimeTaskId),
-    ...listWarehouseInternalTransferOrdersByRuntimeTaskId(runtimeTaskId),
+    ...snapshot.issueOrders.filter((order) => order.runtimeTaskId === runtimeTaskId),
+    ...snapshot.returnOrders.filter((order) => order.runtimeTaskId === runtimeTaskId),
+    ...snapshot.internalTransferOrders.filter((order) => order.runtimeTaskId === runtimeTaskId),
   ]
   return docs.sort((a, b) => toTimeNumber(b.updatedAt) - toTimeNumber(a.updatedAt))
 }

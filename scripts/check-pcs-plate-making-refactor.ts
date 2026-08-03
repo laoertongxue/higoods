@@ -2,113 +2,18 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 
-const ROOT = process.cwd()
+const read = (file: string): string => fs.readFileSync(path.join(process.cwd(), file), 'utf8')
+const dispatcher = read('src/pages/pcs-engineering-tasks.ts')
+const page = read('src/pages/pcs-engineering-tasks/plate-making-task.ts')
+const common = read('src/pages/pcs-engineering-tasks/master-task-page.ts')
 
-function read(relativePath: string): string {
-  return fs.readFileSync(path.join(ROOT, relativePath), 'utf8')
+assert.match(page, /createMasterTaskPage/, '制版任务必须使用工程主单任务页面骨架')
+for (const type of ['BASE_PATTERN_WOVEN', 'BASE_PATTERN_KNIT', 'SIZE_PATTERN_WOVEN', 'SIZE_PATTERN_KNIT']) {
+  assert.ok(page.includes(type), `制版任务必须覆盖工程任务类型：${type}`)
 }
-
-function assertIncludes(source: string, pattern: string, message: string): void {
-  assert.ok(source.includes(pattern), message)
-}
-
-const plateTypes = read('src/data/pcs-plate-making-types.ts')
-const plateRepository = read('src/data/pcs-plate-making-repository.ts')
-const fieldPolicy = read('src/data/pcs-engineering-task-field-policy.ts')
-const domainContract = read('src/data/pcs-project-domain-contract.ts')
-const techPackGeneration = read('src/data/pcs-tech-pack-task-generation.ts')
-const archiveCollector = read('src/data/pcs-project-archive-collector.ts')
-const page = read('src/pages/pcs-engineering-tasks.ts')
-
-;[
-  'productHistoryType',
-  'patternMakerId',
-  'patternMakerName',
-  'sampleConfirmedAt',
-  'urgentFlag',
-  'patternArea',
-  'colorRequirementText',
-  'newPatternSpuCode',
-  'flowerImageIds',
-  'materialRequirementLines',
-  'patternImageLineItems',
-  'patternPdfFileIds',
-  'patternDxfFileIds',
-  'patternRulFileIds',
-  'supportImageIds',
-  'supportVideoIds',
-  'partTemplateLinks',
-].forEach((field) => {
-  assertIncludes(plateTypes + plateRepository + page, field, `制版任务缺少正式字段：${field}`)
-})
-
-;[
-  '制版执行',
-  '面辅料与花色',
-  '纸样图片',
-  '纸样文件',
-  '模板关联',
-  '版师',
-  '打版区域',
-  '是否紧急',
-  '样板确认时间',
-].forEach((label) => {
-  assertIncludes(page, label, `制版任务详情页缺少区块或字段：${label}`)
-})
-
-;[
-  'PATTERN_TASK',
-  '产品历史属性',
-  '版师',
-  '打版区域',
-  '面辅料明细',
-  '花色需求',
-  'DXF 文件',
-  'RUL 文件',
-  '部位模板关联',
-  '关联技术包版本',
-].forEach((label) => {
-  assertIncludes(domainContract, label, `工作项库制版字段定义缺少：${label}`)
-})
-
-;[
-  'PATTERN_ARTWORK_TASK',
-  '需求来源',
-  '工艺类型',
-  '数量',
-  '面料',
-  '需求图片',
-  '分配团队',
-  '分配成员',
-  '买手确认状态',
-  '完成确认图片',
-  '中国团队',
-].forEach((label) => {
-  assertIncludes(domainContract, label, `工作项库花型字段定义缺少：${label}`)
-})
-
-;[
-  'primaryPlateTaskId',
-  'primaryPlateTaskCode',
-  'primaryPlateTaskVersion',
-  'primaryTechPackGeneratedFlag',
-].forEach((field) => {
-  assertIncludes(techPackGeneration + plateTypes, field, `技术包主挂载串联缺少：${field}`)
-})
-
-;[
-  'materialRequirementLines',
-  'patternImageLineItems',
-  'patternPdfFileIds',
-  'patternDxfFileIds',
-  'patternRulFileIds',
-  'supportImageIds',
-  'supportVideoIds',
-].forEach((field) => {
-  assertIncludes(archiveCollector, field, `项目资料归档采集缺少：${field}`)
-})
-
-assertIncludes(fieldPolicy, '纸样资料', '制版任务完成校验必须要求纸样资料')
-assertIncludes(fieldPolicy, 'patternMakerName', '制版任务完成校验必须要求版师')
+assert.match(common, /listEngineeringTasksByType/, '制版任务必须从工程主单任务读取')
+assert.match(common, /renderTaskDependencyCard/, '制版任务详情必须展示固定前置依赖')
+assert.ok(!dispatcher.includes('pcs-plate-making-repository'), '任务入口不得回退读取旧制版仓储')
+assert.ok(!dispatcher.includes('submit-plate-sample-review'), '任务入口不得保留旧样板确认动作')
 
 console.log('check-pcs-plate-making-refactor PASS')

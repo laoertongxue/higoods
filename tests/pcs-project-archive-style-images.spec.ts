@@ -4,7 +4,6 @@ import {
   createEmptyProjectDraft,
   createProject,
   getProjectCreateCatalog,
-  listActiveProjectTemplates,
   resetProjectRepository,
 } from '../src/data/pcs-project-repository.ts'
 import {
@@ -12,7 +11,11 @@ import {
   resetProjectImageAssets,
   upsertProjectImageAssets,
 } from '../src/data/pcs-project-image-repository.ts'
-import { createStyleArchiveShell, resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
+import {
+  findStyleArchiveByProjectId,
+  resetStyleArchiveRepository,
+  updateStyleArchive,
+} from '../src/data/pcs-style-archive-repository.ts'
 import { collectProjectArchiveAutoData } from '../src/data/pcs-project-archive-collector.ts'
 import type { ProjectArchiveRecord } from '../src/data/pcs-project-archive-types.ts'
 
@@ -21,7 +24,6 @@ resetProjectImageAssets()
 resetStyleArchiveRepository()
 
 const catalog = getProjectCreateCatalog()
-const template = listActiveProjectTemplates()[0]
 const category = catalog.categories[0]
 const subCategory = category?.children[0]
 const brand = catalog.brands[0]
@@ -30,7 +32,7 @@ const owner = catalog.owners[0]
 const team = catalog.teams[0]
 const channel = catalog.channelOptions[0]
 
-assert.ok(template && category && brand && styleCode && owner && team && channel)
+assert.ok(category && brand && styleCode && owner && team && channel)
 
 const created = createProject(
   {
@@ -38,7 +40,6 @@ const created = createProject(
     projectName: '项目归档采集款式图片项目',
     projectType: '商品开发',
     projectSourceType: '企划提案',
-    templateId: template.id,
     categoryId: category.id,
     categoryName: category.name,
     subCategoryId: subCategory?.id || '',
@@ -65,9 +66,9 @@ const [mainImage, galleryImage] = createProjectImageAssetRecords(
       imageUrl: 'mock://style-archive-main-file',
       imageName: '档案主图',
       imageType: '款式档案图',
-      sourceNodeCode: 'STYLE_ARCHIVE_CREATE',
+      sourceNodeCode: 'PROJECT_INIT',
       sourceRecordId: 'style_create_demo',
-      sourceType: '生成款式档案',
+      sourceType: '商品档案资料完善',
       usageScopes: ['款式档案', '项目资料归档'],
       imageStatus: '可用于款式档案',
       mainFlag: true,
@@ -77,9 +78,9 @@ const [mainImage, galleryImage] = createProjectImageAssetRecords(
       imageUrl: 'mock://style-archive-gallery-file',
       imageName: '档案图册图',
       imageType: '款式档案图',
-      sourceNodeCode: 'STYLE_ARCHIVE_CREATE',
+      sourceNodeCode: 'PROJECT_INIT',
       sourceRecordId: 'style_create_demo',
-      sourceType: '生成款式档案',
+      sourceType: '商品档案资料完善',
       usageScopes: ['款式档案', '项目资料归档'],
       imageStatus: '可用于款式档案',
       mainFlag: false,
@@ -90,59 +91,18 @@ const [mainImage, galleryImage] = createProjectImageAssetRecords(
 )
 upsertProjectImageAssets([mainImage, galleryImage])
 
-const style = createStyleArchiveShell({
-  styleId: 'style_archive_collect_demo',
-  styleCode: 'SPU-20260420-001',
-  styleName: '项目归档采集款式图片',
-  styleNameEn: '',
-  styleNumber: 'STYLE-20260420-001',
-  styleType: '基础款',
-  sourceProjectId: created.project.projectId,
-  sourceProjectCode: created.project.projectCode,
-  sourceProjectName: created.project.projectName,
-  sourceProjectNodeId: '',
-  categoryId: created.project.categoryId,
-  categoryName: created.project.categoryName,
-  subCategoryId: created.project.subCategoryId,
-  subCategoryName: created.project.subCategoryName,
-  brandId: created.project.brandId,
-  brandName: created.project.brandName,
-  yearTag: created.project.yearTag,
-  seasonTags: [...created.project.seasonTags],
-  styleTags: [...created.project.styleTags],
-  targetAudienceTags: [...created.project.targetAudienceTags],
-  targetChannelCodes: [...created.project.targetChannelCodes],
-  priceRangeLabel: created.project.priceRangeLabel,
-  archiveStatus: 'DRAFT',
-  baseInfoStatus: '待完善',
-  specificationStatus: '未建立',
-  techPackStatus: '未建立',
-  costPricingStatus: '未建立',
-  specificationCount: 0,
-  techPackVersionCount: 0,
-  costVersionCount: 0,
-  channelProductCount: 0,
-  currentTechPackVersionId: '',
-  currentTechPackVersionCode: '',
-  currentTechPackVersionLabel: '',
-  currentTechPackVersionStatus: '',
-  currentTechPackVersionActivatedAt: '',
-  currentTechPackVersionActivatedBy: '',
+const createdStyle = findStyleArchiveByProjectId(created.project.projectId)
+assert.ok(createdStyle, '创建商品项目时应同步建立商品／款式档案')
+const style = updateStyleArchive(createdStyle!.styleId, {
   mainImageId: mainImage.imageId,
   mainImageUrl: mainImage.imageUrl,
   galleryImageIds: [mainImage.imageId, galleryImage.imageId],
   galleryImageUrls: [mainImage.imageUrl, galleryImage.imageUrl],
   imageSource: '商品上架图片、档案补充图',
-  sellingPointText: '',
-  detailDescription: '',
-  packagingInfo: '',
-  remark: '',
-  generatedAt: '2026-04-20 13:00',
-  generatedBy: '测试用户',
   updatedAt: '2026-04-20 13:00',
   updatedBy: '测试用户',
-  legacyOriginProject: '',
 })
+assert.ok(style, '同步建立的商品／款式档案应支持补充图片')
 
 const archive: ProjectArchiveRecord = {
   projectArchiveId: 'archive_demo_001',

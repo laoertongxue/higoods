@@ -115,8 +115,6 @@ function normalizeTask(task: PlateMakingTaskRecord): PlateMakingTaskRecord {
     acceptedAt: task.acceptedAt || '',
     confirmedAt: task.confirmedAt || '',
     note: task.note || '',
-    legacyProjectRef: task.legacyProjectRef || '',
-    legacyUpstreamRef: task.legacyUpstreamRef || '',
   }
 }
 
@@ -195,13 +193,6 @@ export function getPlateMakingTaskById(plateTaskId: string): PlateMakingTaskReco
 
 export function listPlateMakingTasksByProject(projectId: string): PlateMakingTaskRecord[] {
   return loadSnapshot().tasks.filter((item) => item.projectId === projectId).map(cloneTask)
-}
-
-export function listPlateMakingTasksByProjectNode(projectId: string, projectNodeId: string): PlateMakingTaskRecord[] {
-  return loadSnapshot()
-    .tasks
-    .filter((item) => item.projectId === projectId && item.projectNodeId === projectNodeId)
-    .map(cloneTask)
 }
 
 export function upsertPlateMakingTask(task: PlateMakingTaskRecord): PlateMakingTaskRecord {

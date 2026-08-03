@@ -10,14 +10,14 @@ import {
   listProjectImageAssets,
   resetProjectImageAssets,
 } from '../src/data/pcs-project-image-repository.ts'
-import { getProjectById, resetProjectRepository } from '../src/data/pcs-project-repository.ts'
+import { findProjectByCode, resetProjectRepository } from '../src/data/pcs-project-repository.ts'
 
 resetProjectRepository()
 resetProjectChannelProductRepository()
 resetProjectImageAssets()
 
-const project = getProjectById('prj_20251216_015')
-assert.ok(project, '应存在 PRJ-20251216-015 演示项目')
+const project = findProjectByCode('PRJ-202603-008')
+assert.ok(project, '应存在处于商品上架阶段的演示项目')
 
 const createResult = createProjectChannelProductFromListingNode(
   project!.projectId,

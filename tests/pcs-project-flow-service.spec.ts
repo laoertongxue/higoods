@@ -13,9 +13,8 @@ import {
   createProject,
   getProjectCreateCatalog,
   getProjectById,
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   listProjectNodes,
-  listActiveProjectTemplates,
   resetProjectRepository,
 } from '../src/data/pcs-project-repository.ts'
 import { resetProjectRelationRepository } from '../src/data/pcs-project-relation-repository.ts'
@@ -46,7 +45,6 @@ const brand = catalog.brands[0]
 const styleCode = catalog.styleCodes[0] || catalog.styles[0]
 const owner = catalog.owners[0]
 const team = catalog.teams[0]
-const templateId = listActiveProjectTemplates()[0]?.id ?? '1'
 
 const created = createProject(
   {
@@ -54,7 +52,6 @@ const created = createProject(
     projectName: '推进服务线性流转验证项目',
     projectType: '商品开发',
     projectSourceType: '企划提案',
-    templateId,
     categoryId: category?.id || 'cat-top',
     categoryName: category?.name || '上衣',
     subCategoryId: subCategory?.id || '',
@@ -80,7 +77,7 @@ const approveResult = approveProjectInitAndSync(created.project!.projectId, '测
 assert.ok(approveResult.ok, '应能完成立项审核')
 
 const projectId = created.project!.projectId
-const sampleAcquireNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'SAMPLE_ACQUIRE')
+const sampleAcquireNode = getProjectNodeRecordByStepCode(projectId, 'SAMPLE_ACQUIRE')
 assert.ok(sampleAcquireNode, '应存在样衣获取节点')
 
 const saveResult = saveProjectNodeFormalRecord({
@@ -101,8 +98,8 @@ const saveResult = saveProjectNodeFormalRecord({
 })
 
 assert.ok(saveResult.ok, '执行类节点应能保存并线性流转')
-assert.equal(getProjectNodeRecordByWorkItemTypeCode(projectId, 'SAMPLE_ACQUIRE')?.currentStatus, '已完成')
-assert.equal(getProjectNodeRecordByWorkItemTypeCode(projectId, 'SAMPLE_INBOUND_CHECK')?.currentStatus, '进行中')
+assert.equal(getProjectNodeRecordByStepCode(projectId, 'SAMPLE_ACQUIRE')?.currentStatus, '已完成')
+assert.equal(getProjectNodeRecordByStepCode(projectId, 'SAMPLE_INBOUND_CHECK')?.currentStatus, '进行中')
 assert.equal(getProjectById(projectId)?.projectStatus, '进行中')
 assert.ok(listProjectNodes(projectId).some((node) => node.currentStatus === '进行中'))
 

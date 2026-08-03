@@ -3,7 +3,7 @@ import {
   getMaterialResourceOverview,
   getProductionObjectOverview,
   materialTypeLabel,
-  productionObjectSearchIndex,
+  getProductionObjectSearchIndex,
   purchaseArrivalStatusLabel,
   queryProductionObjectIssues,
   resolveProductionObjectRequest,
@@ -87,36 +87,6 @@ const MATERIAL_RESOURCE_TAB_ITEMS: Array<{ key: MaterialResourceTab; label: stri
 let activeTab: OverviewTab = 'overview'
 let activeMaterialResourceTab: MaterialResourceTab = 'supply-demand'
 let searchKeyword = ''
-
-function canShowProductionObjectEntry(pathname: string): boolean {
-  if (pathname.startsWith('/fcs/print/')) return false
-  if (pathname.startsWith('/fcs/task-print/')) return false
-  if (pathname.includes('confirmation-print')) return false
-  return (
-    pathname.startsWith('/fcs')
-    || pathname.startsWith('/pcs')
-    || pathname.startsWith('/pms')
-    || pathname.startsWith('/wls')
-  )
-}
-
-export function renderProductionObjectFloatingEntry(pathname: string): string {
-  if (!canShowProductionObjectEntry(pathname)) return ''
-
-  return `
-    <button
-      type="button"
-      class="production-object-floating-entry group"
-      data-production-object-action="toggle-search"
-      data-skip-page-rerender="true"
-      aria-label="查生产"
-    >
-      <i data-lucide="search" class="h-5 w-5"></i>
-      <span class="production-object-floating-entry__label">查生产</span>
-    </button>
-    <div data-production-object-overlay-root="true"></div>
-  `
-}
 
 function statusClass(text: string): string {
   if (text.includes('暂不能') || text.includes('未到仓') || text.includes('差异')) return 'border-red-200 bg-red-50 text-red-700'
@@ -205,7 +175,7 @@ function groupSearchResults(rows: ProductionObjectSearchIndex[]): Array<{ title:
 function withRelatedMainlineRows(rows: ProductionObjectSearchIndex[]): ProductionObjectSearchIndex[] {
   const ids = new Set(rows.map((item) => item.id))
   const relatedOrderNos = uniqueSearchTexts(rows.map((item) => item.relatedProductionOrderNo).filter(Boolean) as string[])
-  const mainlineRows = productionObjectSearchIndex
+  const mainlineRows = getProductionObjectSearchIndex()
     .filter((item) =>
       (item.objectType === 'PRODUCTION_ORDER' || item.objectType === 'DEMAND') &&
       !ids.has(item.id) &&
@@ -1715,5 +1685,5 @@ export function handleProductionObjectOverviewEvent(target: HTMLElement): boolea
 }
 
 export function hasProductionObjectIndexData(): boolean {
-  return productionObjectSearchIndex.length > 0
+  return getProductionObjectSearchIndex().length > 0
 }

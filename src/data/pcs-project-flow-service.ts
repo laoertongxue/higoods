@@ -2,7 +2,7 @@ import {
   getProjectById,
   getProjectNodeRecordById,
   getProjectNodeSequenceBlocker,
-  getProjectNodeRecordByWorkItemTypeCode,
+  getProjectNodeRecordByStepCode,
   listProjectNodes,
   listProjectPhases,
   updateProjectNodeRecord,
@@ -17,8 +17,8 @@ import type {
   ProjectNodeStatus,
 } from './pcs-project-types.ts'
 import {
-  PCS_PROJECT_INLINE_NODE_RECORD_WORK_ITEM_TYPES,
-  type PcsProjectInlineNodeRecordWorkItemTypeCode,
+  PCS_PROJECT_INLINE_STEP_RECORD_CODES,
+  type PcsProjectInlineStepRecordCode,
 } from './pcs-project-inline-node-record-types.ts'
 import {
   saveProjectInlineNodeFieldEntry,
@@ -31,7 +31,7 @@ import { syncProjectNodeInstanceRuntime } from './pcs-project-node-instance-regi
 import { validateProjectNodeCompletion } from './pcs-project-data-consistency.ts'
 import {
   completeDecisionNodeWithResult,
-  isProjectDecisionWorkItemCode,
+  isProjectDecisionStepCode,
   type ProjectDecisionResult,
 } from './pcs-project-decision-flow-service.ts'
 
@@ -57,8 +57,8 @@ function nowText(): string {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`
 }
 
-function canUseInlineRecords(workItemTypeCode: string): workItemTypeCode is PcsProjectInlineNodeRecordWorkItemTypeCode {
-  return (PCS_PROJECT_INLINE_NODE_RECORD_WORK_ITEM_TYPES as readonly string[]).includes(workItemTypeCode)
+function canUseInlineRecords(stepCode: string): stepCode is PcsProjectInlineStepRecordCode {
+  return (PCS_PROJECT_INLINE_STEP_RECORD_CODES as readonly string[]).includes(stepCode)
 }
 
 export function isClosedProjectNodeStatus(status: ProjectNodeStatus): boolean {
@@ -68,13 +68,13 @@ export function isClosedProjectNodeStatus(status: ProjectNodeStatus): boolean {
 function getSequenceBlockedResult(
   projectId: string,
   projectNodeId: string,
-  messagePrefix = '请先完成前序工作项',
+  messagePrefix = '请先完成前序步骤',
 ): ProjectFlowActionResult | null {
   const blocker = getProjectNodeSequenceBlocker(projectId, projectNodeId)
   if (!blocker) return null
   return {
     ok: false,
-    message: `${messagePrefix}：${blocker.workItemTypeName}。`,
+    message: `${messagePrefix}：${blocker.stepName}。`,
     project: getProjectById(projectId),
     node: getProjectNodeRecordById(projectId, projectNodeId),
     nextNode: blocker,
@@ -103,7 +103,7 @@ export function syncProjectLifecycle(
   const currentPhaseCode = nextNode?.phaseCode ?? phases[phases.length - 1]?.phaseCode ?? project.currentPhaseCode
   const currentPhase = phases.find((item) => item.phaseCode === currentPhaseCode) ?? phases[0]
   const completedNonInitCount = nodes.filter(
-    (node) => node.workItemTypeCode !== 'PROJECT_INIT' && node.currentStatus === '已完成',
+    (node) => node.stepCode !== 'PROJECT_INIT' && node.currentStatus === '已完成',
   ).length
   const allClosed = nodes.every((node) => isClosedProjectNodeStatus(node.currentStatus))
 
@@ -178,18 +178,8 @@ export function completeProjectNode(
 
   const operatorName = input.operatorName ?? '当前用户'
   const timestamp = input.timestamp ?? nowText()
-  const defaultResultType =
-    node.workItemTypeCode === 'FIRST_SAMPLE'
-      ? '首版样衣打样已完成'
-      : node.workItemTypeCode === 'FIRST_ORDER_SAMPLE'
-        ? '首单样衣打样已完成'
-        : '节点完成'
-  const defaultResultText =
-    node.workItemTypeCode === 'FIRST_SAMPLE'
-      ? '首版样衣打样已完成，商品项目节点同步完成。'
-      : node.workItemTypeCode === 'FIRST_ORDER_SAMPLE'
-        ? '首单样衣打样已完成，商品项目节点同步完成。'
-      : `${node.workItemTypeName}已完成。`
+  const defaultResultType = '节点完成'
+  const defaultResultText = `${node.stepName}已完成。`
 
   updateProjectNodeRecord(
     projectId,
@@ -237,7 +227,7 @@ export function activateProjectNode(
     {
       currentStatus: input.currentStatus ?? '进行中',
       pendingActionType: input.pendingActionType ?? '待执行',
-      pendingActionText: input.pendingActionText ?? `当前请处理：${node.workItemTypeName}`,
+      pendingActionText: input.pendingActionText ?? `当前请处理：${node.stepName}`,
       latestResultType: input.latestResultType ?? node.latestResultType,
       latestResultText: input.latestResultText ?? node.latestResultText,
       updatedAt: timestamp,
@@ -321,7 +311,7 @@ export function markProjectNodeCompletedAndUnlockNext(
       operatorName,
       timestamp,
       pendingActionType: '待执行',
-      pendingActionText: `当前请处理：${nextNode.workItemTypeName}`,
+      pendingActionText: `当前请处理：${nextNode.stepName}`,
     })
   }
 
@@ -329,7 +319,7 @@ export function markProjectNodeCompletedAndUnlockNext(
 
   return {
     ok: true,
-    message: `${node.workItemTypeName}已完成。`,
+    message: `${node.stepName}已完成。`,
     project: getProjectById(projectId),
     node: getProjectNodeRecordById(projectId, projectNodeId),
     nextNode: nextNode ? getProjectNodeRecordById(projectId, nextNode.projectNodeId) : null,
@@ -465,7 +455,7 @@ export function saveProjectNodeFormalRecord(input: ProjectFormalRecordFlowInput)
     }
   }
 
-  if (!canUseInlineRecords(node.workItemTypeCode)) {
+  if (!canUseInlineRecords(node.stepCode)) {
     return {
       ok: false,
       message: '当前节点不通过项目内正式记录承载字段，不能直接保存。',
@@ -475,14 +465,14 @@ export function saveProjectNodeFormalRecord(input: ProjectFormalRecordFlowInput)
     }
   }
 
-  const blockedResult = getSequenceBlockedResult(input.projectId, input.projectNodeId, '请填写并完成前序工作项')
+  const blockedResult = getSequenceBlockedResult(input.projectId, input.projectNodeId, '请填写并完成前序步骤')
   if (blockedResult) return blockedResult
 
   const values = input.payload.values || {}
   const detailSnapshot = input.payload.detailSnapshot
   const businessDate = input.payload.businessDate || nowText()
 
-  if (input.completeAfterSave && node.workItemTypeCode === 'TEST_DATA_SUMMARY') {
+  if (input.completeAfterSave && node.stepCode === 'TEST_DATA_SUMMARY') {
     const summaryResult = submitProjectTestingSummary(
       input.projectId,
       {
@@ -501,7 +491,7 @@ export function saveProjectNodeFormalRecord(input: ProjectFormalRecordFlowInput)
     }
 
     syncProjectLifecycle(input.projectId, operatorName, businessDate)
-    const decisionNode = getProjectNodeRecordByWorkItemTypeCode(input.projectId, 'TEST_CONCLUSION')
+    const decisionNode = getProjectNodeRecordByStepCode(input.projectId, 'TEST_CONCLUSION')
     return {
       ok: true,
       message: summaryResult.message,
@@ -546,17 +536,17 @@ export function saveProjectNodeFormalRecord(input: ProjectFormalRecordFlowInput)
     }
   }
 
-  if (isProjectDecisionWorkItemCode(node.workItemTypeCode)) {
+  if (isProjectDecisionStepCode(node.stepCode)) {
     const decisionValue =
-      node.workItemTypeCode === 'FEASIBILITY_REVIEW'
+      node.stepCode === 'FEASIBILITY_REVIEW'
         ? String(values.reviewConclusion || '').trim()
-        : node.workItemTypeCode === 'SAMPLE_CONFIRM'
+        : node.stepCode === 'SAMPLE_CONFIRM'
           ? String(values.confirmResult || '').trim()
           : String(values.conclusion || '').trim()
     const decisionNote =
-      node.workItemTypeCode === 'FEASIBILITY_REVIEW'
+      node.stepCode === 'FEASIBILITY_REVIEW'
         ? String(values.reviewRisk || '').trim()
-        : node.workItemTypeCode === 'SAMPLE_CONFIRM'
+        : node.stepCode === 'SAMPLE_CONFIRM'
           ? String(values.confirmNote || '').trim()
           : String(values.conclusionNote || '').trim()
     try {
@@ -588,13 +578,13 @@ export function saveProjectNodeFormalRecord(input: ProjectFormalRecordFlowInput)
       values.confirmNote ||
       values.returnResult ||
       values.retainNote ||
-      `${node.workItemTypeName}已完成。`,
+      `${node.stepName}已完成。`,
   ).trim()
 
   return markProjectNodeCompletedAndUnlockNext(input.projectId, input.projectNodeId, {
     operatorName,
     timestamp: businessDate,
     resultType: '节点完成',
-    resultText: summaryNote || `${node.workItemTypeName}已完成。`,
+    resultText: summaryNote || `${node.stepName}已完成。`,
   })
 }

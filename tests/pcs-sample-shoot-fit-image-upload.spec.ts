@@ -5,19 +5,17 @@ import {
   createEmptyProjectDraft,
   createProject,
   getProjectCreateCatalog,
-  getProjectNodeRecordByWorkItemTypeCode,
-  listActiveProjectTemplates,
+  getProjectNodeRecordByStepCode,
   resetProjectRepository,
 } from '../src/data/pcs-project-repository.ts'
 import { resetProjectInlineNodeRecordRepository } from '../src/data/pcs-project-inline-node-record-repository.ts'
 import { resetProjectImageAssets } from '../src/data/pcs-project-image-repository.ts'
 import { appendSampleShootImages, listSampleShootImageAssets } from '../src/data/pcs-sample-shoot-image-service.ts'
-import { renderPcsProjectWorkItemDetailPage } from '../src/pages/pcs-projects.ts'
+import { renderPcsProjectStepDetailPage } from '../src/pages/pcs-projects.ts'
 
 function buildProjectDraft() {
   const draft = createEmptyProjectDraft()
   const catalog = getProjectCreateCatalog()
-  const template = listActiveProjectTemplates().find((item) => item.styleType.includes('基础款')) || listActiveProjectTemplates()[0]
   const category = catalog.categories[0]
   const subCategory = category.children[0]
   const brand = catalog.brands[0]
@@ -27,7 +25,6 @@ function buildProjectDraft() {
 
   draft.projectName = '样衣拍摄图片上传测试项目'
   draft.projectSourceType = catalog.projectSourceTypes[0]
-  draft.templateId = template.id
   draft.categoryId = category.id
   draft.categoryName = category.name
   draft.subCategoryId = subCategory?.id || ''
@@ -37,7 +34,7 @@ function buildProjectDraft() {
   draft.styleCodeId = styleCode.id
   draft.styleCodeName = styleCode.name
   draft.styleNumber = styleCode.name
-  draft.styleType = template.styleType[0]
+  draft.styleType = '基础款'
   draft.yearTag = catalog.yearTags[0]
   draft.priceRangeLabel = catalog.priceRanges[0]
   draft.targetChannelCodes = ['tiktok']
@@ -48,9 +45,9 @@ function buildProjectDraft() {
   return draft
 }
 
-function saveNode(projectId: string, workItemTypeCode: string, values: Record<string, unknown>) {
-  const node = getProjectNodeRecordByWorkItemTypeCode(projectId, workItemTypeCode)
-  assert.ok(node, `应存在节点 ${workItemTypeCode}`)
+function saveNode(projectId: string, stepCode: string, values: Record<string, unknown>) {
+  const node = getProjectNodeRecordByStepCode(projectId, stepCode)
+  assert.ok(node, `应存在节点 ${stepCode}`)
   const result = saveProjectNodeFormalRecord({
     projectId,
     projectNodeId: node!.projectNodeId,
@@ -61,7 +58,7 @@ function saveNode(projectId: string, workItemTypeCode: string, values: Record<st
     completeAfterSave: true,
     operatorName: '测试用户',
   })
-  assert.ok(result.ok, `${workItemTypeCode} 应可完成`)
+  assert.ok(result.ok, `${stepCode} 应可完成`)
 }
 
 function advanceToSampleShoot(projectId: string) {
@@ -72,14 +69,18 @@ function advanceToSampleShoot(projectId: string) {
     sampleUnitPrice: '99',
   })
   saveNode(projectId, 'SAMPLE_INBOUND_CHECK', {
-    sampleCode: 'SAMPLE-001',
-    arrivalTime: '2026-04-20 11:00',
+    sampleInboundLines: JSON.stringify([
+      { colorName: '黑色', sizeName: 'M', plannedQty: 1, receivedQty: 1 },
+    ]),
+    receivedQty: 1,
+    receivedAt: '2026-04-20 11:00',
+    qualityCheckResult: '到样完整',
     checkResult: '已完成核对',
   })
-  const reviewNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'FEASIBILITY_REVIEW')
+  const reviewNode = getProjectNodeRecordByStepCode(projectId, 'FEASIBILITY_REVIEW')
   if (reviewNode) {
     saveNode(projectId, 'FEASIBILITY_REVIEW', {
-      reviewConclusion: '通过',
+      reviewConclusion: '进入测款',
       reviewRisk: '可继续进入样衣拍摄与试穿。',
     })
   }
@@ -107,7 +108,7 @@ assert.deepEqual(
   '样衣拍摄图片类型应按分组写入',
 )
 
-const sampleShootNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'SAMPLE_SHOOT_FIT')
+const sampleShootNode = getProjectNodeRecordByStepCode(projectId, 'SAMPLE_SHOOT_FIT')
 assert.ok(sampleShootNode, '应存在样衣拍摄与试穿节点')
 
 const saveResult = saveProjectNodeFormalRecord({
@@ -133,10 +134,10 @@ const saveResult = saveProjectNodeFormalRecord({
 
 assert.ok(saveResult.ok, '样衣拍摄与试穿应可保存并完成')
 
-const html = await renderPcsProjectWorkItemDetailPage(projectId, sampleShootNode!.projectNodeId)
-assert.match(html, /样衣平铺图/, '已完成工作项应展示样衣平铺图分组')
-assert.match(html, /试穿图/, '已完成工作项应展示试穿图分组')
-assert.match(html, /细节图/, '已完成工作项应展示细节图分组')
-assert.match(html, /open-image-preview/, '已完成工作项应支持图片预览')
+const html = await renderPcsProjectStepDetailPage(projectId, sampleShootNode!.projectNodeId)
+assert.match(html, /样衣平铺图/, '已完成项目步骤应展示样衣平铺图分组')
+assert.match(html, /试穿图/, '已完成项目步骤应展示试穿图分组')
+assert.match(html, /细节图/, '已完成项目步骤应展示细节图分组')
+assert.match(html, /open-image-preview/, '已完成项目步骤应支持图片预览')
 
 console.log('pcs-sample-shoot-fit-image-upload.spec.ts PASS')

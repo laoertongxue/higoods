@@ -984,7 +984,7 @@ function renderStyleHeader(): string {
       <div>
         <p class="text-xs text-slate-500">商品中心 / 商品档案</p>
         <h1 class="mt-1 text-2xl font-semibold text-slate-900">款式档案</h1>
-        <p class="mt-1 text-sm text-slate-500">款式档案只能从商品项目的“生成款式档案”节点发起，这里只负责查看、补齐资料和承接后续规格与技术包链路。</p>
+        <p class="mt-1 text-sm text-slate-500">款式档案在商品项目建立时同步创建；这里负责商品档案资料完善，并承接后续规格与技术包链路。</p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
         <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/projects">
@@ -1159,7 +1159,7 @@ function renderStyleFormalizationPanel(style: StyleArchiveShellRecord): string {
             <h2 class="text-base font-semibold text-slate-900">正式建档检查</h2>
             ${alreadyFormalized ? renderBadge('已完成正式建档', 'border-sky-200 bg-sky-50 text-sky-700') : ready ? renderBadge('可以正式建档', 'border-emerald-200 bg-emerald-50 text-emerald-700') : renderBadge(`缺 ${missingCount} 项`, 'border-amber-200 bg-amber-50 text-amber-700')}
           </div>
-          <p class="mt-1 text-sm text-slate-500">款式档案从项目节点生成后先进入草稿，补齐基础资料后才能进入正式建档。</p>
+          <p class="mt-1 text-sm text-slate-500">创建商品项目时同步建立“商品测款”款式档案，补齐基础资料后才能进入正式建档。</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="open-style-completion" data-style-id="${escapeHtml(style.styleId)}">完善款式资料</button>

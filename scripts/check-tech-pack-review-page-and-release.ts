@@ -28,8 +28,8 @@ const {
 const { publishTechnicalDataVersion } = await import('../src/data/pcs-project-technical-data-writeback.ts')
 const {
   getTechnicalDataVersionById,
-  replaceTechnicalDataVersionStore,
 } = await import('../src/data/pcs-technical-data-version-repository.ts')
+const { installTechnicalDataVersionFixtures } = await import('./helpers/technical-data-version-fixtures.ts')
 const { handleTechPackEvent, renderTechPackPage } = await import('../src/pages/tech-pack.ts')
 
 const technicalVersionId = 'tdv_review_page_001'
@@ -128,8 +128,13 @@ const content: TechnicalDataVersionContent = {
       defaultDocType: 'TASK',
       taskTypeMode: 'CRAFT',
       isSpecialCraft: false,
+      routeStepNo: 1,
+      routeLaneNo: 1,
     },
   ],
+  processRouteStatus: 'CONFIRMED',
+  processRouteConfirmedBy: '跟单C',
+  processRouteConfirmedAt: '2026-05-25 11:00',
   sizeTable: [{ id: 'size-review-page-1', part: '衣长', S: 60, M: 62, L: 64, XL: 66, tolerance: 1 }],
   bomItems: [
     {
@@ -169,7 +174,7 @@ const content: TechnicalDataVersionContent = {
   },
 }
 
-replaceTechnicalDataVersionStore({
+installTechnicalDataVersionFixtures({
   version: 3,
   records: [record],
   contents: [content],
