@@ -14,24 +14,34 @@ const CUTTING_FIXTURE_CUT_ORDER_NO = 'CUT-260304-008-01'
 function buildExpectedEntries(taskId: string) {
   return [
     {
+      key: 'fei-ticket-bagging',
       title: '菲票装袋',
       route: `/fcs/pda/cutting/inbound/${taskId}`,
     },
     {
+      key: 'transfer-bag-inbound',
       title: '中转袋入仓',
       route: `/fcs/pda/cutting/inbound/${taskId}?action=inbound-location`,
     },
     {
+      key: 'transfer-bag-repack',
+      title: '拆袋重装',
+      route: '/fcs/pda/cutting/transfer-bag/repack',
+    },
+    {
+      key: 'transfer-bag-handover',
       title: '中转袋交出',
       route: `/fcs/pda/cutting/handover/${taskId}?action=transfer-bag-handover`,
     },
     {
-      title: '特殊工艺回仓',
-      route: `/fcs/pda/cutting/handover/${taskId}?action=special-craft-return`,
+      key: 'transfer-bag-recovery',
+      title: '中转袋回收',
+      route: '/fcs/pda/cutting/transfer-bag/recovery',
     },
     {
-      title: '菲票打编号',
-      route: '/fcs/pda/cutting/fei-ticket-numbering',
+      key: 'transfer-bag-scrap',
+      title: '中转袋报废',
+      route: '/fcs/pda/cutting/transfer-bag/scrap',
     },
   ] as const
 }
@@ -54,7 +64,7 @@ assertContains(
 )
 assertContains(
   "const cuttingWaitHandoverBackHref = '/fcs/pda/warehouse/wait-handover?scope=cutting'",
-  '裁床交出与特殊工艺回仓必须返回五入口根页',
+  '裁床交出与特殊工艺回仓必须返回六入口根页',
 )
 assertNotContains(
   "const specialCraftReturnBackHref = '/fcs/pda/warehouse/wait-handover?scope=cutting&action=special-craft-return'",
@@ -97,9 +107,9 @@ const expectedEntries = buildExpectedEntries(taskFixture.taskId)
 const expectedLegacyRedirects = [
   { action: 'inbound', target: expectedEntries[0].route },
   { action: 'inbound-location', target: expectedEntries[1].route },
-  { action: 'handover-bagging-confirm', target: expectedEntries[2].route },
-  { action: 'special-craft-return', target: expectedEntries[3].route },
-  { action: 'numbering', target: expectedEntries[4].route },
+  { action: 'handover-bagging-confirm', target: expectedEntries[3].route },
+  { action: 'special-craft-return', target: expectedEntries[1].route },
+  { action: 'numbering', target: '/fcs/pda/cutting/fei-ticket-numbering' },
 ] as const
 const { routes: pdaRoutes } = await import('../src/router/routes-pda.ts')
 const {
@@ -120,24 +130,32 @@ assert(
 )
 assert(
   inboundSource.includes("backHref: '/fcs/pda/warehouse/wait-handover?scope=cutting'"),
-  '菲票装袋和中转袋入仓必须返回裁床待交出仓五入口根页',
+  '菲票装袋和中转袋入仓必须返回裁床待交出仓六入口根页',
 )
 
 assert(
   pdaRoutes.exactRoutes['/fcs/pda/warehouse/wait-handover'],
   'routes-pda 必须注册裁床待交出仓根路由',
 )
+for (const route of [
+  '/fcs/pda/cutting/transfer-bag/repack',
+  '/fcs/pda/cutting/transfer-bag/recovery',
+  '/fcs/pda/cutting/transfer-bag/scrap',
+]) {
+  assert(pdaRoutes.exactRoutes[route], `routes-pda 必须注册稳定动作路由 ${route}`)
+}
 assert(
   waitHandoverSource.includes('renderCuttingWaitHandoverActionCards(getPdaCuttingWaitHandoverActions())'),
-  '裁床待交出仓根页必须直接使用生产五入口契约',
+  '裁床待交出仓根页必须直接使用生产六入口契约',
 )
 const actualEntries = getPdaCuttingWaitHandoverActions()
-assert.equal(actualEntries.length, 5, '裁床待交出仓生产路由契约必须恰好提供五个动作入口')
+assert.equal(actualEntries.length, 6, '裁床待交出仓生产路由契约必须恰好提供六个动作入口')
 assert.deepEqual(
-  actualEntries.map(({ title, route }) => ({ title, route })),
-  expectedEntries.map(({ title, route }) => ({ title, route })),
-  '裁床待交出仓生产五入口必须使用稳定业务任务对应的固定深链',
+  actualEntries.map(({ key, title, route }) => ({ key, title, route })),
+  expectedEntries.map(({ key, title, route }) => ({ key, title, route })),
+  '裁床待交出仓生产六入口必须使用稳定业务任务对应的固定深链',
 )
+assert.equal(actualEntries.some((item) => item.title === '菲票打编号' || item.title === '特殊工艺回仓'), false)
 assert(
   waitHandoverSource.includes("renderCuttingWarehouseSwitch('wait-handover')"),
   '裁床待交出仓根页必须保留仓库切换',

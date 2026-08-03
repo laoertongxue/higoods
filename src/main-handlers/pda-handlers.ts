@@ -24,6 +24,9 @@ import { handlePdaCuttingExecutionUnitEvent } from '../pages/pda-cutting-executi
 import { handlePdaCuttingSpreadingEvent } from '../pages/pda-cutting-spreading'
 import { handlePdaCuttingInboundEvent } from '../pages/pda-cutting-inbound'
 import { handlePdaCuttingHandoverEvent } from '../pages/pda-cutting-handover'
+import { handlePdaCuttingTransferBagRepackEvent } from '../pages/pda-cutting-transfer-bag-repack'
+import { handlePdaCuttingTransferBagRecoveryEvent } from '../pages/pda-cutting-transfer-bag-recovery'
+import { handlePdaCuttingTransferBagScrapEvent } from '../pages/pda-cutting-transfer-bag-scrap'
 import { showPdaWarehouseActionToast } from '../pages/pda-warehouse-shared'
 import { normalizePdaPageEventResult } from './pda-local-action-result'
 
@@ -52,6 +55,9 @@ export async function dispatchPdaPageEvent(target: HTMLElement, event?: Event): 
       await handlePdaCuttingSpreadingEvent(target) ||
       await handlePdaCuttingInboundEvent(target, event) ||
       await handlePdaCuttingHandoverEvent(target, event) ||
+      await handlePdaCuttingTransferBagRepackEvent(target) ||
+      await handlePdaCuttingTransferBagRecoveryEvent(target) ||
+      await handlePdaCuttingTransferBagScrapEvent(target) ||
       await handlePdaSewingSelfReturnEvent(target) ||
       await handlePdaHandoverEvent(target) ||
       await handlePdaHandoverDetailEvent(target) ||

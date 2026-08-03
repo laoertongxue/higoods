@@ -327,7 +327,7 @@ for (const [name, path] of [
 
 // 3.1 PDA 待交出仓首页四动作入口
 const pdaWaitHandover = `${read(PDA_WAIT_HANDOVER)}\n${read(PDA_WAIT_HANDOVER_ACTIONS)}`
-for (const label of ['菲票装袋', '中转袋入仓', '中转袋交出', '特殊工艺回仓']) {
+for (const label of ['菲票装袋', '中转袋入仓', '拆袋重装', '中转袋交出', '中转袋回收', '中转袋报废']) {
   assertContains(pdaWaitHandover, label, `PDA_WAIT_HANDOVER 必须包含动作: ${label}`)
 }
 assertNotContains(pdaWaitHandover, OLD_MERGED, 'PDA_WAIT_HANDOVER 不得保留旧合并入口')

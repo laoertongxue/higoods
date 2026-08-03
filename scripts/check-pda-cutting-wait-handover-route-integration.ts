@@ -67,19 +67,24 @@ function buildExpectedEntries(taskId: string) {
       markers: ['中转袋入仓', '2 扫库区库位', '确认入仓'],
     },
     {
+      title: '拆袋重装',
+      route: '/fcs/pda/cutting/transfer-bag/repack',
+      markers: ['拆袋重装', '1 扫中转袋', '确认重装'],
+    },
+    {
       title: '中转袋交出',
       route: `/fcs/pda/cutting/handover/${taskId}?action=transfer-bag-handover`,
       markers: ['中转袋交出', '2 扫车缝任务', '确认交出'],
     },
     {
-      title: '特殊工艺回仓',
-      route: `/fcs/pda/cutting/handover/${taskId}?action=special-craft-return`,
-      markers: ['特殊工艺回仓', '特殊工艺回仓扫码', '确认特殊工艺回仓入仓'],
+      title: '中转袋回收',
+      route: '/fcs/pda/cutting/transfer-bag/recovery',
+      markers: ['中转袋回收', '1 扫中转袋', '确认回收'],
     },
     {
-      title: '菲票打编号',
-      route: '/fcs/pda/cutting/fei-ticket-numbering',
-      markers: ['菲票打编号', '菲票号 / 二维码', '完成打编号'],
+      title: '中转袋报废',
+      route: '/fcs/pda/cutting/transfer-bag/scrap',
+      markers: ['中转袋报废', '1 扫中转袋', '确认报废'],
     },
   ] as const
 }
@@ -208,9 +213,16 @@ try {
   const expectedLegacyRedirects = [
     { action: 'inbound', target: expectedEntries[0] },
     { action: 'inbound-location', target: expectedEntries[1] },
-    { action: 'handover-bagging-confirm', target: expectedEntries[2] },
-    { action: 'special-craft-return', target: expectedEntries[3] },
-    { action: 'numbering', target: expectedEntries[4] },
+    { action: 'handover-bagging-confirm', target: expectedEntries[3] },
+    { action: 'special-craft-return', target: expectedEntries[1] },
+    {
+      action: 'numbering',
+      target: {
+        title: '菲票打编号',
+        route: '/fcs/pda/cutting/fei-ticket-numbering',
+        markers: ['菲票打编号', '菲票号 / 二维码', '完成打编号'],
+      },
+    },
   ] as const
   const { resolvePage } = await import('../src/router/routes.ts')
 
@@ -218,8 +230,8 @@ try {
   const rootHtml = await resolvePage(CUTTING_WAIT_HANDOVER_ROOT)
   assert.equal(
     (rootHtml.match(/data-pda-cutting-wait-handover-entry=/g) || []).length,
-    5,
-    '裁床待交出仓真实根路由必须恰好渲染五个动作入口',
+    6,
+    '裁床待交出仓真实根路由必须恰好渲染六个动作入口',
   )
   for (const entry of expectedEntries) {
     assert.equal(

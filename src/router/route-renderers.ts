@@ -478,6 +478,18 @@ export const renderPdaCuttingHandoverPage = createAsyncRenderer(
   () => import('../pages/pda-cutting-handover'),
   'renderPdaCuttingHandoverPage',
 )
+export const renderPdaCuttingTransferBagRepackPage = createAsyncRenderer(
+  () => import('../pages/pda-cutting-transfer-bag-repack'),
+  'renderPdaCuttingTransferBagRepackPage',
+)
+export const renderPdaCuttingTransferBagRecoveryPage = createAsyncRenderer(
+  () => import('../pages/pda-cutting-transfer-bag-recovery'),
+  'renderPdaCuttingTransferBagRecoveryPage',
+)
+export const renderPdaCuttingTransferBagScrapPage = createAsyncRenderer(
+  () => import('../pages/pda-cutting-transfer-bag-scrap'),
+  'renderPdaCuttingTransferBagScrapPage',
+)
 export const renderPdaCuttingFeiTicketNumberingPage = createAsyncRenderer(
   () => import('../pages/pda-cutting-fei-ticket-numbering'),
   'renderPdaCuttingFeiTicketNumberingPage',
