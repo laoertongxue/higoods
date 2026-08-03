@@ -28,6 +28,7 @@ import {
   setWarehouseLocationEnabled,
   updateWarehouseArea,
   updateWarehouseLocation,
+  updateWarehouseShelfLocationStructure,
   updateWarehouseShelf,
 } from '../src/pages/process-factory/cutting/warehouse-location-layout-store.ts'
 import {
@@ -255,7 +256,10 @@ assert.match(layoutSectionHtml, /data-warehouse-map-action="open-create-area"/, 
 assert.match(layoutSectionHtml, /data-warehouse-map-action="open-create-shelf"/, '维护模式必须可在库区新增货架')
 assert.match(layoutSectionHtml, /data-warehouse-map-action="rename-area"/, '维护模式必须可编辑库区')
 assert.match(layoutSectionHtml, /data-warehouse-map-action="rename-shelf"/, '维护模式必须可编辑货架')
+assert.match(layoutSectionHtml, /data-warehouse-map-action="open-edit-shelf-locations"[^>]*>维护库位<\/button>/, '每个货架必须提供明确的维护库位入口')
 assert.match(layoutSectionHtml, /data-warehouse-map-action="rename-location"/, '维护模式必须可编辑库位')
+assert.match(warehouseMapSource, /type: 'edit-shelf-locations'/, '货架库位维护必须使用独立弹窗类型')
+assert.match(warehouseMapSource, /updateWarehouseShelfLocationStructure/, '货架库位维护保存必须调用原子结构更新能力')
 assert.match(warehouseMapSource, /openLocationLabelPrintModal\(kind, \{ type: 'SHELF'/, '新增货架保存后必须直接打开新货架标签打印预览')
 assert.match(warehouseMapSource, /@page \{ size: 70mm 50mm/, '库位标签必须使用 70mm × 50mm 打印版式')
 assert.match(warehouseMapSource, /renderCode128Barcode/, '库位标签必须渲染真实 Code 128 条码')
@@ -530,6 +534,28 @@ const levelReduced = adjustWarehouseLevelPositionCount(levelExpanded, {
   shelfId: 'SHELF-C-R01', levelNo: 2, positionCount: 2, updatedBy: '仓库主管',
 }, new Set())
 assert.deepEqual(positionCountsByLevel(levelReduced.areaList.find((area) => area.areaId === 'AREA-C')!.shelfList[0]), [2, 2, 1], '减少层位只能从最右端移除')
+
+const retainedLocationId = createdShelf.locationList.find((location) => location.levelNo === 1 && location.positionNo === 1)!.locationId
+const shelfStructureExpanded = updateWarehouseShelfLocationStructure(shelfAdded, {
+  shelfId: 'SHELF-C-R01', positionCounts: [3, 3, 1, 2], updatedBy: '仓库主管',
+}, new Set())
+const structureExpandedShelf = shelfStructureExpanded.areaList.find((area) => area.areaId === 'AREA-C')!.shelfList[0]
+assert.deepEqual(positionCountsByLevel(structureExpandedShelf), [3, 3, 1, 2], '维护货架库位必须能增加层并在既有层追加库位')
+assert.equal(structureExpandedShelf.locationList.find((location) => location.levelNo === 1 && location.positionNo === 1)?.locationId, retainedLocationId, '保留坐标的库位身份不得变化')
+assert.equal(new Set(structureExpandedShelf.locationList.map((location) => location.locationId)).size, 9, '结构调整后所有库位 ID 必须保持唯一')
+assert.strictEqual(updateWarehouseShelfLocationStructure(shelfAdded, {
+  shelfId: 'SHELF-C-R01', positionCounts: [2, 3, 1], updatedBy: '仓库主管',
+}, new Set()), shelfAdded, '结构未变化时不得生成无意义版本')
+const shelfStructureReduced = updateWarehouseShelfLocationStructure(shelfStructureExpanded, {
+  shelfId: 'SHELF-C-R01', positionCounts: [2, 2], updatedBy: '仓库主管',
+}, new Set())
+assert.deepEqual(positionCountsByLevel(shelfStructureReduced.areaList.find((area) => area.areaId === 'AREA-C')!.shelfList[0]), [2, 2], '减少层数或逐层数量时只能删除范围外的空闲库位')
+assert.throws(() => updateWarehouseShelfLocationStructure(shelfStructureExpanded, {
+  shelfId: 'SHELF-C-R01', positionCounts: [2, 2], updatedBy: '仓库主管',
+}, new Set([structureExpandedShelf.locationList.find((location) => location.levelNo === 4 && location.positionNo === 1)!.locationId])), /占用.*C-R01-L04-P01/, '被删除范围内存在占用库位时必须阻断并明确库位编号')
+assert.throws(() => updateWarehouseShelfLocationStructure(shelfAdded, {
+  shelfId: 'SHELF-C-R01', positionCounts: [], updatedBy: '仓库主管',
+}, new Set()), /至少需要保留一层/)
 
 const occupiedId = createdShelf.locationList.find((location) => location.levelNo === 2 && location.positionNo === 3)!.locationId
 assert.throws(
