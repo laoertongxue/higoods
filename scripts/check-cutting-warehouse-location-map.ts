@@ -262,6 +262,8 @@ for (const kind of ['WAIT_PROCESS', 'WAIT_HANDOVER'] as const) {
   }
 }
 assert.equal((viewSectionHtml.match(/>维护库位图<\/button>/g) || []).length, 1, '普通视图必须只有一个维护库位图入口')
+assert.doesNotMatch(viewSectionHtml, /data-warehouse-map-action="change-factory"|<select[^>]*data-warehouse-kind=/, '库位图必须跟随当前工厂，不得提供仓库切换下拉框')
+assert.equal((viewSectionHtml.match(/定位裁演示工厂35 · 待加工仓库位图/g) || []).length, 1, '工厂仓库名称与库位统计必须合并在同一头部卡片')
 assert.match(viewSectionHtml, /data-warehouse-map-action="open-print-all-labels"/, '普通视图必须提供当前仓库标签打印入口')
 assert.match(viewSectionHtml, /data-warehouse-map-action="open-print-area-labels"/, '普通视图必须提供按库区批量打印入口')
 assert.match(viewSectionHtml, /data-warehouse-map-action="open-print-shelf-labels"/, '普通视图必须提供按货架批量打印入口')
