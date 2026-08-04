@@ -358,6 +358,9 @@ const generatedCutOrders = listGeneratedCutOrderSourceRecords()
 const formalCuttingProductionOrders = listCuttingProductionOrdersWithFormalTechPack()
 
 function buildReleaseLifecycleMaterialLine(cutOrderId: string, cutOrderNo: string, materialLabel: string): CuttingMaterialLine {
+  const materialImageUrl = cutOrderNo === 'CUT14671-B'
+    ? '/materials/fabric-contrast.jpg'
+    : '/materials/fabric-main.jpg'
   return {
     cutOrderId,
     cutOrderNo,
@@ -365,6 +368,7 @@ function buildReleaseLifecycleMaterialLine(cutOrderId: string, cutOrderNo: strin
     materialSku: `RELEASE-${cutOrderNo}`,
     materialType: 'SOLID',
     materialLabel,
+    materialImageUrl,
     reviewStatus: 'APPROVED',
     configStatus: 'CONFIGURED',
     receiveStatus: 'RECEIVED',
@@ -386,7 +390,7 @@ const releaseLifecycleProgressRecords: CuttingOrderProgressRecord[] = [
     plannedShipDate: '', spuCode: 'ASYSA26060310', techPackSpuCode: 'ASYSA26060310', styleCode: 'ASYSA26060310', styleName: '女式基础圆领短袖',
     urgencyLevel: 'B', cuttingTaskNo: 'CUT-TASK-PO14671', assignedFactoryName: TEST_FACTORY_NAME, cuttingStage: '已开工',
     demandCreatedAt: '2026-06-03 08:00', productionOrderCreatedAt: '2026-06-03 08:30', cuttingTaskAssignedAt: '2026-06-03 09:00', cuttingTaskAcceptedAt: '2026-06-03 09:30',
-    markerPlanCreatedAt: '2026-06-03 10:00', spreadingStartedAt: '2026-06-03 11:00', completedAt: '', spuImageUrl: '/shirt-sample.jpg', riskFlags: [],
+    markerPlanCreatedAt: '2026-06-03 10:00', spreadingStartedAt: '2026-06-03 11:00', completedAt: '', spuImageUrl: '/tshirt-sample.jpg', riskFlags: [],
     lastPickupScanAt: '2026-06-03 09:30', lastFieldUpdateAt: '2026-06-03 14:00:00', lastOperatorName: '铺布操作员 阿迪', hasSpreadingRecord: true, hasInboundRecord: false,
     materialLines: [buildReleaseLifecycleMaterialLine('cut-14671-a', 'CUT14671-A', '物料 A、C、D')],
   },
@@ -396,7 +400,7 @@ const releaseLifecycleProgressRecords: CuttingOrderProgressRecord[] = [
     plannedShipDate: '', spuCode: 'ASYSA26060310', techPackSpuCode: 'ASYSA26060310', styleCode: 'ASYSA26060310', styleName: '女式基础圆领短袖',
     urgencyLevel: 'B', cuttingTaskNo: 'CUT-TASK-PO14671', assignedFactoryName: TEST_FACTORY_NAME, cuttingStage: '已关闭',
     demandCreatedAt: '2026-06-03 08:00', productionOrderCreatedAt: '2026-06-03 08:30', cuttingTaskAssignedAt: '2026-06-03 09:00', cuttingTaskAcceptedAt: '2026-06-03 09:30',
-    markerPlanCreatedAt: '2026-06-03 10:00', spreadingStartedAt: '2026-06-03 11:00', completedAt: '', spuImageUrl: '/shirt-sample.jpg',
+    markerPlanCreatedAt: '2026-06-03 10:00', spreadingStartedAt: '2026-06-03 11:00', completedAt: '', spuImageUrl: '/tshirt-sample.jpg',
     closeReasonCode: 'OTHER', closeReasonText: '其他原因', closedAt: '2026-06-03 14:00:00', closedBy: '裁床主管 王敏', closeReason: '已关闭，数据已冻结', riskFlags: [],
     lastPickupScanAt: '2026-06-03 09:30', lastFieldUpdateAt: '2026-06-03 14:00:00', lastOperatorName: '裁床主管 王敏', hasSpreadingRecord: true, hasInboundRecord: false,
     materialLines: [buildReleaseLifecycleMaterialLine('cut-14671-b', 'CUT14671-B', '物料 B')],

@@ -2634,16 +2634,6 @@ const seedClosedOrders: ProductionMaterialPrepWorkflowStore['closedOrders'] = [
 
 const seedPickupNodeSnapshots: PickupNodeSnapshotState[] = [
   {
-    nodeId: 'pickup-node:prep-order-po-202603-0007:1',
-    prepOrderId: 'prep-order-po-202603-0007',
-    sequence: 1,
-    version: 1,
-    fingerprint: 'INCOMPLETE_PICKABLE:seed-before-full-prep',
-    updatedAt: '2026-03-16 13:20',
-    nodeType: 'INCOMPLETE_PICKABLE',
-    readySource: null,
-  },
-  {
     nodeId: 'pickup-node:prep-order-po-202603-1103:2',
     prepOrderId: 'prep-order-po-202603-1103',
     sequence: 2,
@@ -4252,6 +4242,7 @@ export function closeMaterialPrepOrder(
 
 export interface PickupSupplementRecordFactInput {
   id: string
+  materialPrepDemandId: string
   recordNo: string
   status: string
   createdAt: string
@@ -4335,6 +4326,7 @@ export function buildPickupDemandFactsFromProjections(
   )
   const supplementDemands: PickupSupplementDemandInput[] = input.supplementRecords.map((record) => ({
     id: record.id,
+    materialPrepDemandId: record.materialPrepDemandId,
     recordNo: record.recordNo,
     status: record.status,
     createdAt: record.createdAt,

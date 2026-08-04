@@ -18,6 +18,7 @@ import {
   appendPickupSessionWithWarehouseFactsRuntime,
   bootstrapPickupManagementRuntimeMockData,
   listActivePickupNodesRuntime as listActivePickupNodes,
+  toPickupSupplementRecordFactInputs,
 } from '../src/runtime/fcs/cutting/pickup-management-runtime.ts'
 import { CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY } from '../src/data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import type {
@@ -48,6 +49,8 @@ import {
   listSupplementRecords,
   resetSupplementManagementMockDataForTest,
 } from '../src/pages/process-factory/cutting/supplement-management.ts'
+import { listActiveSupplementOrders } from '../src/data/fcs/cutting/supplement-order-registry.ts'
+import { getSupplementMaterialPrepDemand } from '../src/data/fcs/cutting/supplement-material-prep-demand-registry.ts'
 import {
   getCanonicalCuttingMeta,
   isCuttingAliasPath,
@@ -180,15 +183,15 @@ class MemoryStorage implements Storage {
 
 function assertGroupContract(group: PickupOrderGroup, listKind: PickupListKind): void {
   assert(group.listKind === listKind, `${group.productionOrderNo} 列表类型必须与查询类型一致`)
+  const expectedNormalGroupKey = `${listKind}:${group.productionOrderId}`
+  const expectedSupplementGroupPrefix = `${listKind}:SUPPLEMENT:`
   assert(
-    group.groupKey === `${listKind}:${group.productionOrderId}`,
+    group.groupKey === expectedNormalGroupKey || group.groupKey.startsWith(expectedSupplementGroupPrefix),
     `${group.productionOrderNo} 分组主键必须带列表类型前缀`,
   )
   assert(group.materialRows.length > 0, `${group.productionOrderNo} 必须直接携带物料需求行`)
   assert(
-    group.materialRows.every((row) =>
-      row.rowKey === `${listKind}:${group.productionOrderId}:${row.demandLineId}`
-    ),
+    group.materialRows.every((row) => row.rowKey === `${group.groupKey}:${row.demandLineId}`),
     `${group.productionOrderNo} 物料行主键必须带列表类型和生产单前缀`,
   )
 }
@@ -200,7 +203,7 @@ function roundQty(value: number): number {
 function assertRequiredQtyResolver(): void {
   assert(derivePickupProcessRoute({ upstreamSourceType: '无上游' }) === 'NONE', '无加工正常需求必须映射 NONE')
   assert(derivePickupProcessRoute({ upstreamSourceType: '染色' }) === 'DYE', '染色正常需求必须映射 DYE')
-  assert(derivePickupProcessRoute({ upstreamSourceType: '印花' }) === 'DYE_PRINT', '印花正常需求必须映射 DYE_PRINT')
+  assert(derivePickupProcessRoute({ upstreamSourceType: '印花' }) === 'PRINT', '只印花正常需求必须映射 PRINT')
   assert(derivePickupProcessRoute({ dyeRequired: true }) === 'DYE', '补料染色需求必须映射 DYE')
   assert(derivePickupProcessRoute({ dyeRequired: true, printRequired: true }) === 'DYE_PRINT', '补料印花需求必须映射 DYE_PRINT')
 
@@ -217,7 +220,7 @@ function assertRequiredQtyResolver(): void {
     processRoute: 'DYE',
     dyeResult: { completedObjectQty: 16.5, qtyUnit: 'yard', platformStatusCode: 'COMPLETED' },
   })
-  assert(completedDye.qty === 16.5, 'DYE 必须取染色最终完成量')
+  assert(completedDye.qty === 18 && completedDye.processComplete, 'DYE 必须保留批准需求量并另行标记加工完成')
   const processingDye = resolvePickupRequiredQty({
     plannedQty: 18,
     unit: 'yard',
@@ -225,8 +228,8 @@ function assertRequiredQtyResolver(): void {
     dyeResult: { completedObjectQty: 8, qtyUnit: 'yard', platformStatusCode: 'PROCESSING' },
   })
   assert(
-    processingDye.qty === 0 && processingDye.basisLabel.includes('等待染色一次性完成'),
-    '加工中累计完成量不得作为应配量，必须等待平台最终完成',
+    processingDye.qty === 18 && processingDye.basisLabel.includes('批准需求已形成'),
+    '加工中不得把批准需求量归零',
   )
   const waitingDye = resolvePickupRequiredQty({
     plannedQty: 18,
@@ -234,14 +237,14 @@ function assertRequiredQtyResolver(): void {
     processRoute: 'DYE',
     dyeResult: { completedObjectQty: 0, qtyUnit: 'yard', platformStatusCode: 'PROCESSING' },
   })
-  assert(waitingDye.qty === 0 && waitingDye.basisLabel.includes('等待染色一次性完成'), '染色完成量为 0 必须等待')
+  assert(waitingDye.qty === 18 && waitingDye.basisLabel.includes('批准需求已形成'), '染色完成量为 0 时批准需求仍须显示')
   const mismatchedDye = resolvePickupRequiredQty({
     plannedQty: 18,
     unit: 'yard',
     processRoute: 'DYE',
     dyeResult: { completedObjectQty: 16.5, qtyUnit: '米', platformStatusCode: 'COMPLETED' },
   })
-  assert(mismatchedDye.qty === 0 && mismatchedDye.basisLabel.includes('加工完成单位不一致'), '染色完成单位不一致必须阻断')
+  assert(mismatchedDye.qty === 18 && mismatchedDye.basisLabel.includes('加工完成单位不一致'), '染色完成单位不一致时批准需求不归零')
   const mismatchedWaitingDye = resolvePickupRequiredQty({
     plannedQty: 18,
     unit: 'yard',
@@ -249,7 +252,7 @@ function assertRequiredQtyResolver(): void {
     dyeResult: { completedObjectQty: 0, qtyUnit: '米', platformStatusCode: 'COMPLETED' },
   })
   assert(
-    mismatchedWaitingDye.qty === 0 && mismatchedWaitingDye.basisLabel.includes('加工完成单位不一致'),
+    mismatchedWaitingDye.qty === 18 && mismatchedWaitingDye.basisLabel.includes('加工完成单位不一致'),
     '已有加工结果但单位不一致时必须优先提示单位不一致',
   )
 
@@ -260,7 +263,7 @@ function assertRequiredQtyResolver(): void {
     dyeResult: { completedObjectQty: 17, qtyUnit: 'yard', platformStatusCode: 'COMPLETED' },
     printResult: { completedObjectQty: 15, qtyUnit: 'yard', platformStatusCode: 'COMPLETED' },
   })
-  assert(completedPrint.qty === 15, 'DYE_PRINT 必须取印花最终完成量')
+  assert(completedPrint.qty === 18 && completedPrint.processComplete, 'DYE_PRINT 必须保留批准需求量并另行标记印花完成')
   const waitingPrint = resolvePickupRequiredQty({
     plannedQty: 18,
     unit: 'yard',
@@ -269,8 +272,8 @@ function assertRequiredQtyResolver(): void {
     printResult: { completedObjectQty: 0, qtyUnit: 'yard', platformStatusCode: 'PROCESSING' },
   })
   assert(
-    waitingPrint.qty === 0 && waitingPrint.basisLabel.includes('等待印花一次性完成'),
-    '印花未完成时不得回退染色完成量',
+    waitingPrint.qty === 18 && waitingPrint.basisLabel.includes('批准需求已形成'),
+    '印花未完成时批准需求不得归零',
   )
 
   const invalidQty = resolvePickupRequiredQty({
@@ -279,14 +282,14 @@ function assertRequiredQtyResolver(): void {
     processRoute: 'DYE',
     dyeResult: { completedObjectQty: Number.NaN, qtyUnit: 'yard', platformStatusCode: 'COMPLETED' },
   })
-  assert(invalidQty.qty === 0 && invalidQty.basisLabel.includes('加工完成数量异常'), 'NaN 完成量必须阻断')
+  assert(invalidQty.qty === 18 && invalidQty.basisLabel.includes('加工完成数量异常'), 'NaN 完成量不得污染批准需求量')
   const negativeQty = resolvePickupRequiredQty({
     plannedQty: 18,
     unit: 'yard',
     processRoute: 'DYE_PRINT',
     printResult: { completedObjectQty: -1, qtyUnit: 'yard', platformStatusCode: 'COMPLETED' },
   })
-  assert(negativeQty.qty === 0 && negativeQty.basisLabel.includes('加工完成数量异常'), '负数完成量必须阻断')
+  assert(negativeQty.qty === 18 && negativeQty.basisLabel.includes('加工完成数量异常'), '负数完成量不得污染批准需求量')
 }
 
 assertRequiredQtyResolver()
@@ -309,7 +312,8 @@ function assertMaterialRowFacts(
     assert(materialRow.requiredQty === projectionLine.requiredQty, `${materialRow.demandLineId} 无加工时需求数量必须来自计划量`)
     assert(materialRow.processBasisLabel === '按计划数量', `${materialRow.demandLineId} 无加工时必须标记按计划数量`)
   } else {
-    assert(materialRow.requiredQty === 0, `${materialRow.demandLineId} 加工未形成一次性完成结果时应配数量必须为 0`)
+    assert(materialRow.requiredQty === projectionLine.requiredQty, `${materialRow.demandLineId} 加工未完成不得把批准需求量归零`)
+    assert(!materialRow.processComplete, `${materialRow.demandLineId} 加工未完成必须保留加工阻断事实`)
     assert(
       materialRow.processBasisLabel.includes('等待') || materialRow.processBasisLabel.includes('加工完成单位不一致'),
       `${materialRow.demandLineId} 加工未完成或单位不一致时必须说明阻断原因`,
@@ -412,7 +416,7 @@ const authoritativePickupSupplementIds = [
   'supplement-confirmed-0JFFBTA',
 ].sort()
 const listPo0002SupplementIds = () => listSupplementRecords()
-  .filter((record) => record.draft.productionOrderId === 'PO-202603-0002')
+  .filter((record) => record.productionOrderId === 'PO-202603-0002')
   .map((record) => record.id)
   .sort()
 
@@ -425,25 +429,33 @@ assert(
 )
 bootstrapSupplementManagementMockData()
 assert(
-  JSON.stringify(listPo0002SupplementIds()) === JSON.stringify(authoritativePickupSupplementIds),
-  '页面先 bootstrap 时必须先建立并保留 4 条权威 pickup supplement identity',
+  authoritativePickupSupplementIds.every((id) => listPo0002SupplementIds().includes(id))
+    && new Set(listPo0002SupplementIds()).size === listPo0002SupplementIds().length,
+  '页面先 bootstrap 时必须建立并保留 4 条权威 pickup supplement identity，且不得产生重复身份',
 )
 
 resetSupplementManagementMockDataForTest()
 bootstrapPickupManagementRuntimeMockData()
 assert(
-  JSON.stringify(listPo0002SupplementIds()) === JSON.stringify(authoritativePickupSupplementIds),
-  'runtime 先初始化时必须建立同一组 4 条权威 pickup supplement identity',
+  authoritativePickupSupplementIds.every((id) => listPo0002SupplementIds().includes(id))
+    && new Set(listPo0002SupplementIds()).size === listPo0002SupplementIds().length,
+  'runtime 先初始化时必须建立同一组 4 条权威 pickup supplement identity，且不得产生重复身份',
 )
 bootstrapSupplementManagementMockData()
 assert(
-  JSON.stringify(listPo0002SupplementIds()) === JSON.stringify(authoritativePickupSupplementIds),
-  'runtime 先初始化后页面 bootstrap 不得覆盖 4 条权威 pickup supplement identity',
+  authoritativePickupSupplementIds.every((id) => listPo0002SupplementIds().includes(id))
+    && new Set(listPo0002SupplementIds()).size === listPo0002SupplementIds().length,
+  'runtime 先初始化后页面 bootstrap 不得覆盖 4 条权威 pickup supplement identity 或产生重复身份',
 )
-const supplementRecords = listSupplementRecords().filter((record) => record.status === '已确认')
+const supplementRecords = listSupplementRecords().filter((record) => record.status === '未完成')
 const dyeResults = listPlatformDyeResultViews()
 const printResults = listPlatformPrintResultViews()
-assert(supplementRecords.length === 12, '补料页面与领料 runtime 必须共享单一的 12 条权威 Mock 初始化')
+assert(
+  JSON.stringify(supplementRecords.map((record) => record.id))
+    === JSON.stringify(listActiveSupplementOrders().map((order) => order.id)),
+  '补料页面与领料 runtime 必须共享同一批未完成补料权威 Mock',
+)
+assert(supplementRecords.length >= 22, '补料页面与领料 runtime 必须共享统一的补料 Mock 初始化')
 assert(
   new Set(supplementRecords.map((record) => record.id)).size === supplementRecords.length,
   '全部补料记录 id 必须唯一，不得跨生产单复用身份',
@@ -472,16 +484,16 @@ const supplementRowsByProductionOrder = buildSupplementMaterialRows(supplementRe
 })
 const supplementRows = Array.from(supplementRowsByProductionOrder.values()).flat()
 const expectedSupplementCount = supplementRecords.reduce(
-  (sum, record) => sum + record.draft.materialDemands.length,
+  (sum, record) => sum + record.materialDemands.length,
   0,
 )
-assert(supplementRows.length === expectedSupplementCount, '每条已确认补料物料需求必须独立投影')
+assert(supplementRows.length === expectedSupplementCount, '每条未完成补料物料需求必须独立投影')
 assert(
   new Set(supplementRows.map((row) => row.demandLineId)).size === supplementRows.length,
   '每条补料需求必须有稳定且唯一的 demandLineId',
 )
 for (const record of supplementRecords) {
-  const expectedRows = [...record.draft.materialDemands]
+  const expectedRows = [...record.materialDemands]
     .sort((left, right) => left.materialPatternMappingId.localeCompare(right.materialPatternMappingId, 'zh-CN'))
   expectedRows.forEach((demand) => {
     const demandLineId = `SUPPLEMENT:${record.id}:${demand.materialPatternMappingId}`
@@ -490,9 +502,9 @@ for (const record of supplementRecords) {
     assert(row.demandSource === 'SUPPLEMENT', `${demandLineId} 必须标记为 SUPPLEMENT`)
     assert(row.demandSourceNo === record.recordNo, `${demandLineId} 必须保留补料单号`)
     assert(row.demandCreatedAt === record.createdAt, `${demandLineId} 需求时间必须来自补料记录创建时间`)
-    assert(row.supplementReason.includes(record.draft.reason), `${demandLineId} 必须保留补料原因`)
+    assert(row.supplementReason.includes(record.reason), `${demandLineId} 必须保留补料原因`)
     assert(row.unit === demand.unit && Boolean(row.unit), `${demandLineId} 必须保留需求单位`)
-    assert(row.color === '' && row.spec === '', `${demandLineId} 不得虚构颜色或规格`)
+    assert(row.color === (demand.color || '') && row.spec === (demand.spec || ''), `${demandLineId} 必须只展示补料物料已保存的真实颜色和规格`)
     assert(
       [row.requiredQty, row.preparedQty, row.pickedQty, row.remainingPickupQty, row.currentAvailableQty]
         .every((qty) => Number.isFinite(qty) && qty >= 0),
@@ -509,12 +521,12 @@ for (const record of supplementRecords) {
 }
 for (const [productionOrderId, rows] of supplementRowsByProductionOrder) {
   const expectedIds = supplementRecords
-    .filter((record) => record.draft.productionOrderId === productionOrderId)
+    .filter((record) => record.productionOrderId === productionOrderId)
     .sort((left, right) =>
       left.createdAt.localeCompare(right.createdAt)
       || left.recordNo.localeCompare(right.recordNo, 'zh-CN')
     )
-    .flatMap((record) => [...record.draft.materialDemands]
+    .flatMap((record) => [...record.materialDemands]
       .sort((left, right) => left.materialPatternMappingId.localeCompare(right.materialPatternMappingId, 'zh-CN'))
       .map((demand) => `SUPPLEMENT:${record.id}:${demand.materialPatternMappingId}`))
   assert(
@@ -536,10 +548,10 @@ assert(
 )
 
 const dyePrintRecord = supplementRecords.find((record) =>
-  record.draft.materialDemands.some((demand) => demand.printRequired)
+  record.materialDemands.some((demand) => demand.printRequired)
 )
 assert(dyePrintRecord, '实际补料记录必须有染色后印花需求')
-const dyePrintDemand = dyePrintRecord.draft.materialDemands.find((demand) => demand.printRequired)
+const dyePrintDemand = dyePrintRecord.materialDemands.find((demand) => demand.printRequired)
 assert(dyePrintDemand, `${dyePrintRecord.recordNo} 必须有印花物料需求`)
 const dyeRef = dyePrintRecord.processWorkOrderRefs.find((ref) =>
   ref.processType === 'DYE' && ref.materialSku === dyePrintDemand.materialSku
@@ -551,7 +563,7 @@ const dyeView = dyeResults.find((view) => view.sourceId === dyeRef?.workOrderId)
 const printView = printResults.find((view) => view.sourceId === printRef?.workOrderId)
 assert(dyeView && printView, `${dyePrintRecord.recordNo} 必须能按加工单引用找到染色与印花平台结果`)
 const unrelatedPrintView = printResults.find((view) =>
-  view.productionOrderNo === dyePrintRecord.draft.productionOrderNo
+  view.productionOrderNo === dyePrintRecord.productionOrderNo
   && view.sourceId !== printRef.workOrderId
 )
 assert(unrelatedPrintView, `${dyePrintRecord.recordNo} 必须有同生产单的无关印花结果以验证精确匹配`)
@@ -576,31 +588,31 @@ const exactProcessRows = buildSupplementMaterialRows([dyePrintRecord], {
       platformStatusCode: 'COMPLETED',
     },
   ],
-}).get(dyePrintRecord.draft.productionOrderId) ?? []
+}).get(dyePrintRecord.productionOrderId) ?? []
 assert(
   exactProcessRows.find((row) =>
     row.demandLineId === `SUPPLEMENT:${dyePrintRecord.id}:${dyePrintDemand.materialPatternMappingId}`
-  )?.requiredQty === 9,
-  '同一补料的 DYE_PRINT 必须按 PRINT ref 精确取印花完成量，不得误用染色或同生产单其他结果',
+  )?.requiredQty === dyePrintDemand.requiredQty
+    && exactProcessRows.find((row) => row.demandLineId === `SUPPLEMENT:${dyePrintRecord.id}:${dyePrintDemand.materialPatternMappingId}`)?.processBasisLabel.includes('已完成 9'),
+  '同一补料的 DYE_PRINT 必须保留批准需求量，并按 PRINT ref 精确展示印花完成量',
 )
 
 const sharedMappingDemand = {
   ...dyePrintDemand,
+  key: `${dyePrintDemand.key}-SHARED`,
   materialPatternMappingId: `${dyePrintDemand.materialPatternMappingId}-SHARED`,
 }
 const sharedMappingRecord = {
   ...dyePrintRecord,
   id: `${dyePrintRecord.id}-SHARED`,
   recordNo: `${dyePrintRecord.recordNo}-SHARED`,
-  draft: {
-    ...dyePrintRecord.draft,
-    materialDemands: [dyePrintDemand, sharedMappingDemand],
-  },
+  materialDemands: [dyePrintDemand, sharedMappingDemand],
   processWorkOrderRefs: dyePrintRecord.processWorkOrderRefs
     .filter((ref) =>
       ref.materialSku === dyePrintDemand.materialSku
       && (ref.processType === 'DYE' || ref.processType === 'PRINT')
-    ),
+    )
+    .map((ref) => ({ ...ref, materialDemandIds: [...ref.materialDemandIds, sharedMappingDemand.key] })),
 }
 const sharedMappingRows = buildSupplementMaterialRows([sharedMappingRecord], {
   dyeResults: [{
@@ -615,14 +627,15 @@ const sharedMappingRows = buildSupplementMaterialRows([sharedMappingRecord], {
     qtyUnit: dyePrintDemand.unit as typeof printView.qtyUnit,
     platformStatusCode: 'COMPLETED',
   }],
-}).get(dyePrintRecord.draft.productionOrderId) ?? []
+}).get(dyePrintRecord.productionOrderId) ?? []
 assert(
   sharedMappingRows.length === 2
   && sharedMappingRows.every((row) =>
-    row.requiredQty === 0
-    && row.processBasisLabel.includes('加工结果归属不唯一')
+    row.requiredQty > 0
+    && row.processComplete
+    && !row.processBasisLabel.includes('归属不唯一')
   ),
-  '同一补料加工单覆盖同 SKU 多个花型映射时，所有关联需求必须阻断，不得重复使用整单完成量',
+  '同一补料加工单通过物料需求 ID 明确覆盖同 SKU 多个花型映射时，不得再按 SKU 误判归属不唯一',
 )
 
 const storage = new MemoryStorage()
@@ -702,168 +715,20 @@ unifiedFactStorage.setItem(
   PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
   serializeProductionMaterialPrepStore(createProductionMaterialPrepSeedStore()),
 )
-const po0002Node = listActivePickupNodes(unifiedFactStorage)
-  .find((node) => node.productionOrderId === 'PO-202603-0002')
-assert(po0002Node, 'PO-202603-0002 必须存在真实当前待领节点')
-const po0002SupplementItems = po0002Node.items.filter((item) =>
-  item.prepLineId.startsWith('SUPPLEMENT:')
-)
+const po0002SupplementGroups = listPickupOrderGroups('INCOMPLETE', unifiedFactStorage)
+  .filter((group) => group.groupKey.startsWith('INCOMPLETE:SUPPLEMENT:') && group.productionOrderId === 'PO-202603-0002')
 assert(
-  po0002SupplementItems.length === 4,
-  'PO-202603-0002 当前真实节点必须包含 4 条独立 SUPPLEMENT 需求，不能继续挂在正常物料行',
-)
-const po0002CurrentGroup = listPickupOrderGroups(
-  po0002Node.nodeType === 'READY_TO_PICKUP' ? 'READY' : 'INCOMPLETE',
-  unifiedFactStorage,
-).find((group) => group.productionOrderId === po0002Node.productionOrderId)
-assert(po0002CurrentGroup, 'PO-202603-0002 当前节点必须进入对应 Web 列表')
-const po0002HistoryBeforePickup = listPickupOrderGroups('HISTORY', unifiedFactStorage)
-  .find((group) => group.productionOrderId === po0002Node.productionOrderId)
-assert(
-  po0002HistoryBeforePickup?.finalResult === 'NEW_SUPPLEMENT_WAIT_PICKUP',
-  'PO-202603-0002 原需求领完后四条真实补料必须重新打开历史最终结果',
-)
-assert(
-  po0002HistoryBeforePickup.groupKey !== po0002CurrentGroup.groupKey
-  && po0002HistoryBeforePickup.materialRows.every((historyRow) =>
-    po0002CurrentGroup.materialRows.every((currentRow) => historyRow.rowKey !== currentRow.rowKey)
+  authoritativePickupSupplementIds.every((supplementId) =>
+    po0002SupplementGroups.some((group) => group.groupKey === `INCOMPLETE:SUPPLEMENT:${supplementId}`)
   ),
-  '真实补料重开后同一生产单跨列表的分组和物料行主键不得冲突',
+  '同一生产单的每张补料单必须形成独立中转仓需求组',
 )
-for (const item of po0002Node.items) {
-  const row = po0002CurrentGroup.materialRows.find((candidate) =>
-    candidate.demandLineId === item.prepLineId && candidate.unit === item.unit
-  )
-  assert(row, `${item.prepLineId} ${item.unit} 必须由同一需求事实生成 Web 行`)
-  assert(
-    row.currentAvailableQty === item.currentAvailableQty,
-    `${item.prepLineId} ${item.unit} Web 当前可领必须与节点一致`,
-  )
-  assert(
-    item.sourceLocations.reduce((sum, location) => sum + location.currentAvailableQty, 0)
-      === item.currentAvailableQty,
-    `${item.prepLineId} ${item.unit} 节点来源库位合计必须等于当前可领`,
-  )
-  if (po0002Node.carrierType === 'WAREHOUSE_LOCATIONS') {
-    assert(
-      row.currentLocations.reduce((sum, location) => sum + location.currentAvailableQty, 0)
-        === row.currentAvailableQty,
-      `${item.prepLineId} ${item.unit} Web 库位合计必须等于当前可领`,
-    )
-  } else {
-    assert(row.currentLocations.length === 0, 'READY 托盘节点不得继续显示已释放库位')
-  }
-}
-const po0002Session = appendPickupSessionFromNode({
-  pickupNodeId: po0002Node.nodeId,
-  pickupNodeVersion: po0002Node.version,
-  receiverName: '统一需求事实校验员',
-  warehouseArea: '待加工仓统一事实区',
-  locationCode: 'FAB-UNIFIED-01',
-  waitProcessLedgerEventId: `unified-demand:${po0002Node.nodeId}`,
-  idempotencyKey: `unified-demand:${po0002Node.nodeId}:v${po0002Node.version}`,
-}, unifiedFactStorage)
-const po0002AfterProjection = listMaterialPrepOrderProjections(unifiedFactStorage)
-  .find((projection) => projection.order.productionOrderId === po0002Node.productionOrderId)
-assert(po0002AfterProjection, 'PO-202603-0002 领料后必须保留配料投影')
-const po0002SessionRecords = po0002AfterProjection.pickupRecords.filter((record) =>
-  record.pickupSessionId === po0002Session.pickupSessionId
-)
-assert(
-  po0002SupplementItems.every((item) =>
-    po0002SessionRecords.some((record) =>
-      record.prepLineId === item.prepLineId && record.pickedQty === item.currentAvailableQty
-    )
-  ),
-  'PDA 真实确认必须为节点内每条补料需求生成同 lineId 数量的 PickupRecord',
-)
-const po0002History = listPickupOrderGroups('HISTORY', unifiedFactStorage)
-  .find((group) => group.productionOrderId === po0002Node.productionOrderId)
-assert(
-  po0002History?.finalResult === 'ALL_PICKED',
-  'PO-202603-0002 四条补料整节点领取后历史必须由统一事实回到全部领完',
-)
-const [partialSupplementPickup, fullSupplementPickup] = po0002SessionRecords
-  .filter((record) => record.prepLineId.startsWith('SUPPLEMENT:'))
-assert(partialSupplementPickup && fullSupplementPickup, '补料退回回归必须有至少两条真实补料领料明细')
-const partialAllocation = partialSupplementPickup.sourceAllocations?.[0]
-const fullAllocation = fullSupplementPickup.sourceAllocations?.[0]
-assert(partialAllocation && fullAllocation, '补料领料明细必须保留精确来源分摊')
-const partialReturnQty = Number((partialAllocation.pickedQty / 2).toFixed(2))
-const partialReturn = appendPickupReturnRecord({
-  pickupRecordId: partialSupplementPickup.pickupRecordId,
-  prepRecordId: partialAllocation.prepRecordId,
-  prepLineId: partialAllocation.prepLineId,
-  returnQty: partialReturnQty,
-  rollCount: partialAllocation.rollCount,
-  reason: '数量不符',
-  remark: '补料部分退回真实链回归',
-  imageNames: [],
-  returnedBy: '统一需求事实校验员',
-}, unifiedFactStorage)
-const fullReturn = appendPickupReturnRecord({
-  pickupRecordId: fullSupplementPickup.pickupRecordId,
-  prepRecordId: fullAllocation.prepRecordId,
-  prepLineId: fullAllocation.prepLineId,
-  returnQty: fullAllocation.pickedQty,
-  rollCount: fullAllocation.rollCount,
-  reason: '数量不符',
-  remark: '补料全部退回真实链回归',
-  imageNames: [],
-  returnedBy: '统一需求事实校验员',
-}, unifiedFactStorage)
-assert(
-  partialReturn.unit === partialAllocation.unit
-  && fullReturn.unit === fullAllocation.unit
-  && partialReturn.prepRecordId === partialAllocation.prepRecordId
-  && fullReturn.prepRecordId === fullAllocation.prepRecordId,
-  '补料退回必须按来源分摊解析单位和配料来源，不得按 SKU 猜测',
-)
-assert(
-  partialReturn.sourceWarehouseName === partialAllocation.sourceWarehouseName
-  && partialReturn.sourceWarehouseArea === partialAllocation.sourceWarehouseArea
-  && partialReturn.sourceLocationCode === partialAllocation.sourceLocationCode
-  && fullReturn.sourceWarehouseName === fullAllocation.sourceWarehouseName
-  && fullReturn.sourceWarehouseArea === fullAllocation.sourceWarehouseArea
-  && fullReturn.sourceLocationCode === fullAllocation.sourceLocationCode,
-  '补料退回必须保留精确来源仓、库区和库位',
-)
-const po0002ReturnedNode = listActivePickupNodes(unifiedFactStorage)
-  .find((node) => node.productionOrderId === po0002Node.productionOrderId)
-assert(po0002ReturnedNode, '补料部分/全部退回后当前待领节点必须重新出现')
-const partialReturnedItem = po0002ReturnedNode.items.find((item) =>
-  item.prepLineId === partialAllocation.prepLineId
-)
-const fullReturnedItem = po0002ReturnedNode.items.find((item) =>
-  item.prepLineId === fullAllocation.prepLineId
-)
-assert(
-  partialReturnedItem?.currentAvailableQty === partialReturnQty
-  && fullReturnedItem?.currentAvailableQty === fullAllocation.pickedQty,
-  '补料退回数量必须精确回到对应来源的当前可领数量',
-)
-const po0002ReturnedProjection = listMaterialPrepOrderProjections(unifiedFactStorage)
-  .find((projection) => projection.order.productionOrderId === po0002Node.productionOrderId)
-assert(po0002ReturnedProjection, '补料退回后必须保留生产单投影')
-const partialEffectiveRecord = po0002ReturnedProjection.pickupRecords.find((record) =>
-  record.pickupRecordId === partialSupplementPickup.pickupRecordId
-)
-const fullEffectiveRecord = po0002ReturnedProjection.pickupRecords.find((record) =>
-  record.pickupRecordId === fullSupplementPickup.pickupRecordId
-)
-assert(
-  partialEffectiveRecord?.returnQty === partialReturnQty
-  && fullEffectiveRecord?.returnQty === fullAllocation.pickedQty,
-  '补料退回后 PickupRecord 有效已领必须分别反映部分退回与全部退回',
-)
-const po0002ReturnedHistory = listPickupOrderGroups('HISTORY', unifiedFactStorage)
-  .find((group) => group.productionOrderId === po0002Node.productionOrderId)
-assert(
-  po0002ReturnedHistory?.finalResult === 'NOT_ALL_PICKED'
-  || po0002ReturnedHistory?.finalResult === 'NEW_SUPPLEMENT_WAIT_PICKUP',
-  '补料领取后发生退回，历史最终结果必须回到未领完或新增补料待领，不能仍是全部领完',
-)
-
+assert(po0002SupplementGroups.every((group) => group.materialRows.every((row) =>
+  row.requiredQty > 0 && row.currentAvailableQty === 0 && row.currentLocations.length === 0
+)), '尚未形成物理可领事实的补料需求必须展示批准量，但不得伪造可领数量或库位')
+assert(listActivePickupNodes(unifiedFactStorage).every((node) =>
+  node.items.every((item) => !item.prepLineId.startsWith('SUPPLEMENT:'))
+), '补料物料未实际可领前不得提前进入 PDA 活动节点')
 const versionStorage = new MemoryStorage()
 versionStorage.setItem(
   PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
@@ -872,7 +737,7 @@ versionStorage.setItem(
 const versionProjections = listMaterialPrepOrderProjections(versionStorage)
 const versionFacts = buildPickupDemandFactsFromProjections({
   projections: versionProjections,
-  supplementRecords,
+  supplementRecords: toPickupSupplementRecordFactInputs(supplementRecords),
   dyeResults,
   printResults,
 })
@@ -1074,10 +939,10 @@ const integrationRow = integrationGroups[0]?.materialRows.find((row) =>
   row.demandLineId === integrationLine.prepLineId
 )
 assert(
-  integrationRow?.requiredQty === 23
+  integrationRow?.requiredQty === integrationLine.requiredQty
   && integrationRow.unit === integrationLine.unit
-  && integrationRow.processBasisLabel === '按印花一次性完成数量',
-  '最终分组入口必须把精确完成的正常印花结果投影为应配数量、原单位和明确依据',
+  && integrationRow.processBasisLabel.includes('印花已完成 23'),
+  '最终分组入口必须保留正常印花批准需求量，并展示精确完成量、原单位和明确依据',
 )
 
 const sharedResultProjection = {
@@ -1107,18 +972,19 @@ const sharedResultRows = sharedResultGroups[0]?.materialRows ?? []
 assert(
   sharedResultRows.length === 2
   && sharedResultRows.every((row) =>
-    row.requiredQty === 0
+    row.requiredQty > 0
+    && !row.processComplete
     && row.processBasisLabel === '印花加工结果归属不唯一'
   ),
-  '同一正常加工结果命中两条需求时，所有关联需求必须阻断，不得重复使用整单完成量',
+  '同一正常加工结果命中两条需求时，批准需求保留但加工结果必须阻断，不得重复使用整单完成量',
 )
 
 for (const listKind of ['READY', 'INCOMPLETE', 'HISTORY'] as const) {
   const groups = listPickupOrderGroups(listKind, storage)
   assert(groups.length > 0, `${listKind} 列表必须有基础投影数据`)
   assert(
-    new Set(groups.map((group) => group.productionOrderId)).size === groups.length,
-    `${listKind} 列表内 productionOrderId 必须唯一`,
+    new Set(groups.map((group) => group.groupKey)).size === groups.length,
+    `${listKind} 列表内分组身份必须唯一；补料组不得按生产单合并`,
   )
   groups.forEach((group) => assertGroupContract(group, listKind))
   assert(
@@ -1152,7 +1018,27 @@ for (const group of readyGroups) {
 }
 
 const incompleteGroups = groupsByKind.get('INCOMPLETE') ?? []
+const completedSupplementWithOpenPrep = listSupplementRecords().find((record) =>
+  record.status === '已完成' && getSupplementMaterialPrepDemand(record.materialPrepDemandId)?.status !== '已结束'
+)
+assert(
+  !completedSupplementWithOpenPrep || incompleteGroups.some((group) =>
+    group.groupKey === `INCOMPLETE:SUPPLEMENT:${completedSupplementWithOpenPrep.id}`
+  ),
+  '补料主状态已完成但独立配料需求未结束时，仓库当前列表仍必须继续显示和执行',
+)
 for (const group of incompleteGroups) {
+  if (group.groupKey.startsWith('INCOMPLETE:SUPPLEMENT:')) {
+    assert(group.pickupNodeId === '', `${group.productionOrderNo} 补料配料需求不得虚构可领活动节点`)
+    assert(group.carrierType === 'WAREHOUSE_LOCATIONS', `${group.productionOrderNo} 补料配料需求必须等待仓库备料`)
+    assert(
+      group.materialRows.every((materialRow) =>
+        materialRow.demandSource === 'SUPPLEMENT' && materialRow.currentLocations.length === 0
+      ),
+      `${group.productionOrderNo} 尚未形成实物可领事实的补料行不得展示虚构库位`,
+    )
+    continue
+  }
   const node = activeNodes.find((candidate) => candidate.nodeId === group.pickupNodeId)
   assert(node?.nodeType === 'INCOMPLETE_PICKABLE', `${group.productionOrderNo} INCOMPLETE 分组必须来自未配齐活动节点`)
   assertCurrentAvailableFacts(group, node)
@@ -1173,6 +1059,7 @@ for (const group of incompleteGroups) {
 
 for (const groups of groupsByKind.values()) {
   for (const group of groups) {
+    if (group.groupKey.includes(':SUPPLEMENT:')) continue
     const projection = projections.find((candidate) => candidate.order.prepOrderId === group.prepOrderId)
     assert(projection, `${group.productionOrderNo} 必须能找到对应生产单配料投影`)
     const normalRows = group.materialRows.filter((materialRow) => materialRow.demandSource === 'NORMAL')
@@ -1185,10 +1072,15 @@ for (const groups of groupsByKind.values()) {
       new Set(normalRows.map((materialRow) => materialRow.demandLineId)).size === projection.lines.length,
       `${group.productionOrderNo} 每个 prepLineId 必须只输出一条需求行`,
     )
-    assert(
-      projectedSupplementRows.length === (supplementRowsByProductionOrder.get(group.productionOrderId)?.length ?? 0),
-      `${group.productionOrderNo} 必须追加该生产单全部有效补料需求`,
-    )
+    if (group.listKind !== 'HISTORY') {
+      const groupNode = activeNodes.find((node) => node.nodeId === group.pickupNodeId)
+      assert(
+        projectedSupplementRows.every((row) =>
+          groupNode?.items.some((item) => item.prepLineId === row.demandLineId && item.unit === row.unit)
+        ),
+        `${group.productionOrderNo} 正常配料分组只能追加已经形成同单位实物节点的补料需求`,
+      )
+    }
     assert(
       group.materialRows.every((row, index) => row.demandSequence === index + 1),
       `${group.productionOrderNo} NORMAL 在前且全部 demandSequence 必须连续`,
@@ -1310,7 +1202,7 @@ assert(
 
 const historyScenarioItemSource = integrationNodeSource.items[0]
 const supplementRecordSource = supplementRecords[0]
-const supplementDemandSource = supplementRecordSource?.draft.materialDemands[0]
+const supplementDemandSource = supplementRecordSource?.materialDemands[0]
 assert(
   historyScenarioItemSource && supplementRecordSource && supplementDemandSource,
   '历史结果注入验证必须有节点物料、补料记录和补料需求基础结构',
@@ -1555,20 +1447,18 @@ const newSupplementRecord = {
   id: 'SUPPLEMENT-HISTORY-REOPEN',
   recordNo: 'BL-HISTORY-REOPEN',
   createdAt: '2026-03-18 11:00',
-  draft: {
-    ...supplementRecordSource.draft,
-    productionOrderId: historyScenarioProductionOrderId,
-    productionOrderNo: historyScenarioProductionOrderNo,
-    materialDemands: [{
-      ...supplementDemandSource,
-      materialPatternMappingId: 'MAPPING-HISTORY-REOPEN',
-      materialSku: 'MAT-HISTORY-REOPEN',
-      requiredQty: 2,
-      unit: historyScenarioLineA.unit,
-      printRequired: false,
-      dyeRequired: false,
-    }],
-  },
+  status: '未完成',
+  productionOrderId: historyScenarioProductionOrderId,
+  productionOrderNo: historyScenarioProductionOrderNo,
+  materialDemands: [{
+    ...supplementDemandSource,
+    materialPatternMappingId: 'MAPPING-HISTORY-REOPEN',
+    materialSku: 'MAT-HISTORY-REOPEN',
+    requiredQty: 2,
+    unit: historyScenarioLineA.unit,
+    printRequired: false,
+    dyeRequired: false,
+  }],
   processWorkOrderRefs: [],
 }
 const reopenedProjection = buildHistoryScenarioProjection(
@@ -1714,14 +1604,11 @@ const sameTimeSupplementRecord = {
   id: 'SUPPLEMENT-SAME-TIME',
   recordNo: 'BL-SAME-TIME',
   createdAt: historyReadySession.pickedAt,
-  draft: {
-    ...newSupplementRecord.draft,
-    materialDemands: [{
-      ...newSupplementRecord.draft.materialDemands[0],
-      materialPatternMappingId: 'MAPPING-SAME-TIME',
-      requiredQty: 1,
-    }],
-  },
+  materialDemands: [{
+    ...newSupplementRecord.materialDemands[0],
+    materialPatternMappingId: 'MAPPING-SAME-TIME',
+    requiredQty: 1,
+  }],
 }
 assert(
   comparePickupDemandEventTime('2026-03-18 10:00', '2026-03-18 10:00:30') === 'UNKNOWN'

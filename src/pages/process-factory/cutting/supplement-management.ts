@@ -23,6 +23,10 @@ import {
 } from '../../../data/fcs/process-work-order-generation-service.ts'
 import { PROCESS_WORK_ORDER_SOURCE_LABEL, getProcessWorkOrderById } from '../../../data/fcs/process-work-order-domain.ts'
 import {
+  registerSupplementPrintPrerequisite,
+  removeSupplementPrintPrerequisites,
+} from '../../../data/fcs/supplement-print-prerequisite.ts'
+import {
   buildDyeingWorkOrderDetailLink,
   buildPrintingWorkOrderDetailLink,
 } from '../../../data/fcs/fcs-route-links.ts'
@@ -41,22 +45,31 @@ import {
   type SupplementPartShortage,
 } from '../../../data/fcs/cut-piece-release-domain.ts'
 import {
-  ensureSupplementRecordPickupSeeds,
-  listSupplementRecords as listSupplementRecordsFromStore,
-  prependSupplementRecord,
-  resetSupplementRecordsForTest,
-  type SupplementAbAnalysisRow,
-  type SupplementDraft,
-  type SupplementLine,
-  type SupplementManualSourceType,
+  ensureFixedSupplementOrderFixturesRegistered,
+} from '../../../data/fcs/cutting/cut-order-supplement-fixture.ts'
+import {
+  listSupplementOrders,
+  removeSupplementOrderForRollback,
+  registerSupplementOrder,
+  resetSupplementOrderRegistryForTesting,
   type SupplementMaterialDemand,
-  type SupplementMaterialPatternRef,
+  type SupplementOrderLifecycle,
   type SupplementProcessWorkOrderRef,
-  type SupplementRecord,
-  type SupplementRoleConfirmStatus,
-  type SupplementSizeColorRow,
-  type SupplementSourceType,
-} from '../../../data/fcs/cutting/supplement-records.ts'
+} from '../../../data/fcs/cutting/supplement-order-registry.ts'
+import {
+  buildSupplementSupplyDecisions,
+  type SupplementMaterialSupplyDecisionSnapshot,
+} from '../../../data/fcs/cutting/supplement-supply-domain.ts'
+import {
+  registerSupplementPurchaseOrder,
+  removeSupplementPurchaseOrders,
+  type SupplementCreatedPurchaseOrderRef,
+} from '../../../data/fcs/cutting/supplement-purchase-order-registry.ts'
+import {
+  registerSupplementMaterialPrepDemand,
+  removeSupplementMaterialPrepDemandForRollback,
+} from '../../../data/fcs/cutting/supplement-material-prep-demand-registry.ts'
+import { getSupplementMaterialNodeFacts, getSupplementNodeOverview } from '../../../data/fcs/cutting/supplement-node-facts.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderSecondaryButton } from '../../../components/ui/button.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
@@ -81,9 +94,108 @@ import {
 type SupplementFilterSourceType = 'ALL' | SupplementSourceType
 type SupplementProcessKind = '印花' | '染色'
 
+export type SupplementManualSourceType = 'production-order' | 'cut-order'
+export type SupplementSourceType = SupplementManualSourceType | 'release-snapshot'
+export type SupplementMaterialRole = '面料A' | '面料B' | '面料C' | '里布' | '衬' | '罗纹' | '辅料' | '包材' | '未识别'
+export type SupplementRoleSource = '物料-纸样关联别名' | '物料行继承别名' | '纸样辅助识别' | '顺序推断' | '未识别'
+export type SupplementRoleConfirmStatus = '已确认' | '待确认'
+
+export interface SupplementSizeColorRow {
+  key: string
+  skuCode: string
+  color: string
+  size: string
+  plannedQty: number
+  actualCutPieces: number
+  inboundPieces: number
+  completeSetQty: number
+  inboundSetQty: number
+  shortageQty: number
+  existingSupplementQty: number
+  suggestedSupplementQty: number
+  relatedCutOrderNos: string[]
+}
+
+export interface SupplementMaterialPatternRef {
+  materialPatternMappingId: string
+  techPackVersionId: string
+  materialSku: string
+  materialName: string
+  materialImageUrl: string
+  materialTypeLabel: string
+  materialAlias: string
+  materialRole: SupplementMaterialRole
+  roleSource: SupplementRoleSource
+  roleConfirmStatus: SupplementRoleConfirmStatus
+  patternId: string
+  patternName: string
+  cutOrderNo: string
+  line: CuttingMaterialLine
+  mappingLine?: TechnicalColorMaterialMappingLine
+  bomItem?: TechPackBomItemSnapshot
+}
+
+export interface SupplementAbAnalysisRow {
+  key: string
+  skuCode: string
+  color: string
+  size: string
+  plannedQty: number
+  benchmarkMaterial: SupplementMaterialPatternRef
+  shortageMaterial: SupplementMaterialPatternRef
+  benchmarkCutQty: number
+  currentRoleCutQty: number
+  differenceQty: number
+  shortageQty: number
+  existingSupplementQty: number
+  suggestedSupplementQty: number
+  relatedCutOrderNos: string[]
+  roleConfirmStatus: SupplementRoleConfirmStatus
+}
+
+export interface SupplementLine extends SupplementSizeColorRow {
+  supplementQty: number
+  basis: SupplementAbAnalysisRow
+  isManualAdjusted: boolean
+  adjustReason: string
+  actualMissingPieceQty?: number
+  piecesPerGarment?: number
+}
+
+export interface SupplementDraft {
+  candidateId: string
+  sourceType: SupplementSourceType
+  sourceNo: string
+  productionOrderId: string
+  productionOrderNo: string
+  styleName: string
+  spuCode: string
+  styleImageUrl?: string
+  styleImageAlt?: string
+  reason: string
+  reasonDetail: string
+  lines: SupplementLine[]
+  materialDemands: SupplementMaterialDemand[]
+  supplyRiskConfirmed?: boolean
+  confirmationIdentity?: string
+  releaseSnapshotId?: string
+  releaseMatrixVersion?: number
+  releaseTargetConfirmedAt?: string
+}
+
 interface SupplementFilters {
   sourceType: SupplementFilterSourceType
   keyword: string
+  recordNo: string
+  productionOrderNo: string
+  cutOrderNo: string
+  styleKeyword: string
+  status: 'ALL' | '未完成' | '已完成'
+  purchase: 'ALL' | '需要' | '不需要'
+  dye: 'ALL' | '需要' | '不需要'
+  print: 'ALL' | '需要' | '不需要'
+  currentNode: string
+  createdDate: string
 }
 
 interface SupplementSourcePickerState {
@@ -113,12 +225,10 @@ interface SupplementCandidate {
 }
 
 export type {
-  SupplementDraft,
-  SupplementLine,
   SupplementMaterialDemand,
   SupplementProcessWorkOrderRef,
-  SupplementRecord,
-} from '../../../data/fcs/cutting/supplement-records.ts'
+  SupplementOrderLifecycle,
+} from '../../../data/fcs/cutting/supplement-order-registry.ts'
 
 interface SupplementProcessLink {
   kind: SupplementProcessKind
@@ -149,13 +259,14 @@ interface SupplementManagementState {
   releaseSnapshotDraft: SupplementDraft | null
   releaseSnapshotError: string
   creationSourceKey: string
-  records: SupplementRecord[]
+  records: SupplementOrderLifecycle[]
   feedback: SupplementFeedback | null
   page: number
   sort: StandardListSortState | null
   columnPreferences: StandardListColumnPreferences
   columnSettingsOpen: boolean
   draggedColumnKey: string
+  imagePreview: { src: string; alt: string } | null
 }
 
 const supplementListPageSizes = [10, 20, 50]
@@ -166,7 +277,11 @@ const supplementListColumnRules: StandardListColumnRule[] = [
   { key: 'target', required: true, freezeable: true },
   { key: 'supplementQty', freezeable: true },
   { key: 'materialDemand' },
-  { key: 'processDemand' },
+  { key: 'inventory' },
+  { key: 'purchase' },
+  { key: 'dye' },
+  { key: 'print' },
+  { key: 'materialPrep', required: true, freezeable: true },
   { key: 'status', freezeable: true },
   { key: 'created', freezeable: true },
   { key: 'actions', required: true, actionColumn: true },
@@ -182,6 +297,8 @@ const state: SupplementManagementState = {
   filters: {
     sourceType: 'ALL',
     keyword: '',
+    recordNo: '', productionOrderNo: '', cutOrderNo: '', styleKeyword: '',
+    status: 'ALL', purchase: 'ALL', dye: 'ALL', print: 'ALL', currentNode: '', createdDate: '',
   },
   sourcePicker: {
     sourceType: 'production-order',
@@ -205,6 +322,7 @@ const state: SupplementManagementState = {
   ),
   columnSettingsOpen: false,
   draggedColumnKey: '',
+  imagePreview: null,
 }
 
 let mockSupplementOrdersSeeded = false
@@ -323,28 +441,34 @@ function getMaterialName(line: CuttingMaterialLine): string {
 function getSpuImageUrl(record: Pick<CuttingOrderProgressRecord, 'spuImageUrl' | 'styleName' | 'spuCode'>): string {
   const existing = normalizeText(record.spuImageUrl)
   if (existing && !existing.includes('placeholder') && !existing.startsWith('data:image/svg')) return existing
-  const text = `${record.styleName} ${record.spuCode}`.toLowerCase()
-  if (text.includes('jacket') || text.includes('夹克') || text.includes('外套')) return '/jacket-sample.jpg'
-  if (text.includes('dress') || text.includes('连衣裙')) return '/dress-sample-1.jpg'
-  if (text.includes('shirt') || text.includes('衬衫')) return '/shirt-sample.jpg'
-  if (text.includes('short')) return '/denim-shorts-sample.jpg'
-  if (text.includes('tshirt') || text.includes('t-shirt')) return '/tshirt-sample.jpg'
-  if (text.includes('cardigan') || text.includes('开衫')) return '/cardigan-sample.jpg'
-  return '/pants-sample.jpg'
+  return ''
 }
 
 function getMaterialImageUrl(line: CuttingMaterialLine): string {
   const existing = normalizeText(line.materialImageUrl || line.materialIdentity?.materialImageUrl)
   if (existing && !existing.includes('placeholder') && !existing.startsWith('data:image/svg')) return existing
-  const text = `${line.materialSku} ${line.materialType} ${line.materialCategory || ''} ${getMaterialName(line)}`.toLowerCase()
-  if (text.includes('lining') || text.includes('里布')) return '/materials/fabric-lining.jpg'
-  if (text.includes('contrast') || text.includes('拼接') || text.includes('配色')) return '/materials/fabric-contrast.jpg'
-  if (text.includes('button') || text.includes('纽扣')) return '/materials/accessory-button.jpg'
-  if (text.includes('zipper') || text.includes('拉链')) return '/materials/accessory-zipper.jpg'
-  if (text.includes('label') || text.includes('唛')) return '/materials/accessory-label.jpg'
-  if (text.includes('packing') || text.includes('包装')) return '/materials/packing-bag.jpg'
-  if (text.includes('yarn') || text.includes('纱线')) return '/materials/yarn-stitching.jpg'
-  return '/materials/fabric-main.jpg'
+  const explicitImageByIdentity: Record<string, string> = {
+    'RELEASE-A': '/materials/fabric-main.jpg',
+    'RELEASE-B': '/materials/fabric-contrast.jpg',
+    'RELEASE-C': '/materials/fabric-lining.jpg',
+    'RELEASE-D': '/materials/accessory-label.jpg',
+  }
+  if (explicitImageByIdentity[line.materialSku]) return explicitImageByIdentity[line.materialSku]
+  const explicitImageByMaterialType: Partial<Record<CuttingMaterialLine['materialType'], string>> = {
+    SOLID: '/materials/fabric-main.jpg',
+    DYE: '/materials/fabric-main.jpg',
+    PRINT: '/materials/fabric-contrast.jpg',
+    LINING: '/materials/fabric-lining.jpg',
+  }
+  return explicitImageByMaterialType[line.materialType] || ''
+}
+
+function renderSupplementBusinessImage(src: string, alt: string, className: string, preview = true): string {
+  if (!src) return `<span class="${className} flex items-center justify-center rounded border bg-muted px-1 text-center text-[9px] text-muted-foreground">图片未提供</span>`
+  const content = `<img class="h-full w-full object-cover" src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" data-business-image onload="this.nextElementSibling.classList.add('hidden')" onerror="this.classList.add('hidden');this.nextElementSibling.textContent='图片加载失败'"><span class="absolute inset-0 flex items-center justify-center bg-muted px-1 text-center text-[9px] text-muted-foreground">图片加载中</span>`
+  return preview
+    ? `<button type="button" class="relative ${className} overflow-hidden rounded border bg-muted" data-cutting-supplement-action="open-image-preview" data-image-preview-src="${escapeHtml(src)}" data-image-preview-alt="${escapeHtml(alt)}">${content}</button>`
+    : `<span class="relative ${className} block overflow-hidden rounded border bg-muted">${content}</span>`
 }
 
 type MappingLineWithSupplementRole = TechnicalColorMaterialMappingLine & {
@@ -579,11 +703,15 @@ function getMaterialRefActualGarmentQty(ref: SupplementMaterialPatternRef, row: 
   return benchmark
 }
 
+function asDraftLine(line: SupplementOrderLifecycle['lines'][number]): SupplementLine {
+  return line as SupplementLine
+}
+
 function getExistingSupplementQtyForBasis(record: CuttingOrderProgressRecord, row: Pick<SupplementAbAnalysisRow, 'skuCode' | 'color' | 'size' | 'shortageMaterial'>): number {
   return state.records
-    .filter((item) => item.status === '已确认')
-    .filter((item) => item.draft.productionOrderId === record.productionOrderId)
-    .flatMap((item) => item.draft.lines)
+    .filter((item) => item.productionOrderId === record.productionOrderId)
+    .flatMap((item) => item.lines)
+    .filter((line): line is SupplementLine => Boolean(asDraftLine(line).basis?.shortageMaterial))
     .filter((line) =>
       line.skuCode === row.skuCode &&
       line.color === row.color &&
@@ -595,10 +723,11 @@ function getExistingSupplementQtyForBasis(record: CuttingOrderProgressRecord, ro
 
 function getExistingSupplementQty(record: CuttingOrderProgressRecord, row: Pick<SupplementSizeColorRow, 'skuCode' | 'color' | 'size'>): number {
   return state.records
-    .filter((item) => item.status === '已确认')
-    .filter((item) => item.draft.productionOrderId === record.productionOrderId)
-    .flatMap((item) => item.draft.lines)
-    .filter((line) => line.skuCode === row.skuCode && line.color === row.color && line.size === row.size)
+    .filter((item) => item.productionOrderId === record.productionOrderId)
+    .flatMap((item) => item.lines)
+    .filter((line) =>
+      asDraftLine(line).skuCode === row.skuCode && line.color === row.color && line.size === row.size
+    )
     .reduce((sum, line) => sum + Number(line.supplementQty || 0), 0)
 }
 
@@ -953,6 +1082,11 @@ function buildReleaseSnapshotDraft(snapshot: CutPieceReleaseTargetSnapshot): Sup
   const fixture = releaseSnapshotDraftFixtureForTest
   const releaseRecords = (fixture?.releaseRecords || listCutPieceReleaseRecords())
     .filter((record) => record.productionOrderId === snapshot.productionOrderId)
+  const styleRecord = cuttingOrderProgressRecords.find((record) => (
+    record.productionOrderId === snapshot.productionOrderId && Boolean(getSpuImageUrl(record))
+  ))
+  const styleImageUrl = normalizeText(releaseRecords[0]?.styleImageUrl)
+    || (styleRecord ? getSpuImageUrl(styleRecord) : '')
   const frozenTechPack = fixture?.frozenTechPack || getProductionOrderTechPackSnapshot(snapshot.productionOrderId)
   const techPackVersionId = frozenTechPack?.sourceTechPackVersionId || ''
   const shortages = buildSupplementPartShortages(snapshot.matrixSnapshot, snapshot.targetPreview)
@@ -1013,29 +1147,42 @@ function buildReleaseSnapshotDraft(snapshot: CutPieceReleaseTargetSnapshot): Sup
       piecesPerGarment: shortage.piecesPerGarment,
     }
   })
-  const materialDemands = lines.map((line) => ({
-    key: line.basis.shortageMaterial.materialPatternMappingId,
-    materialPatternMappingId: line.basis.shortageMaterial.materialPatternMappingId,
-    sourceBomItemId: line.basis.shortageMaterial.bomItem?.id || '',
-    techPackVersionId,
-    materialSku: line.basis.shortageMaterial.materialSku,
-    materialName: line.basis.shortageMaterial.materialName,
-    materialTypeLabel: line.basis.shortageMaterial.materialTypeLabel,
-    materialImageUrl: line.basis.shortageMaterial.materialImageUrl,
-    materialAlias: line.basis.shortageMaterial.materialAlias,
-    materialRole: line.basis.shortageMaterial.materialRole,
-    roleSource: line.basis.shortageMaterial.roleSource,
-    roleConfirmStatus: line.basis.shortageMaterial.roleConfirmStatus,
-    patternId: line.basis.shortageMaterial.patternId,
-    patternName: line.basis.shortageMaterial.patternName,
-    requiredQty: line.actualMissingPieceQty || 0,
-    unit: '片',
-    printRequired: false,
-    dyeRequired: false,
-    processNote: '按裁片放行目标快照中的实际缺片数量预填',
-    originalCutOrderId: line.basis.shortageMaterial.line.cutOrderId || '',
-    originalCutOrderNo: line.basis.shortageMaterial.cutOrderNo,
-  }))
+  const materialDemandMap = new Map<string, SupplementMaterialDemand>()
+  lines.forEach((line) => {
+    const shortage = line.basis.shortageMaterial
+    const originalCutOrderId = shortage.line.cutOrderId || ''
+    const originalCutOrderNo = shortage.cutOrderNo
+    const aggregateKey = [shortage.materialPatternMappingId, originalCutOrderId, originalCutOrderNo].join('\u0000')
+    const existing = materialDemandMap.get(aggregateKey)
+    if (existing) {
+      existing.requiredQty += line.actualMissingPieceQty || 0
+      return
+    }
+    materialDemandMap.set(aggregateKey, {
+      key: `${shortage.materialPatternMappingId}:${originalCutOrderId || originalCutOrderNo}`,
+      materialPatternMappingId: shortage.materialPatternMappingId,
+      sourceBomItemId: shortage.bomItem?.id || '',
+      techPackVersionId,
+      materialSku: shortage.materialSku,
+      materialName: shortage.materialName,
+      materialTypeLabel: shortage.materialTypeLabel,
+      materialImageUrl: shortage.materialImageUrl,
+      materialAlias: shortage.materialAlias,
+      materialRole: shortage.materialRole,
+      roleSource: shortage.roleSource,
+      roleConfirmStatus: shortage.roleConfirmStatus,
+      patternId: shortage.patternId,
+      patternName: shortage.patternName,
+      requiredQty: line.actualMissingPieceQty || 0,
+      unit: '片',
+      printRequired: false,
+      dyeRequired: false,
+      processNote: '按裁片放行目标快照中的实际缺片数量预填',
+      originalCutOrderId,
+      originalCutOrderNo,
+    })
+  })
+  const materialDemands = [...materialDemandMap.values()]
   return structuredClone({
     candidateId: `release-snapshot:${snapshot.snapshotId}`,
     sourceType: 'release-snapshot',
@@ -1044,6 +1191,8 @@ function buildReleaseSnapshotDraft(snapshot: CutPieceReleaseTargetSnapshot): Sup
     productionOrderNo: snapshot.matrixSnapshot.productionOrderNo,
     styleName: releaseRecords[0]?.spuName || snapshot.matrixSnapshot.spuCode,
     spuCode: snapshot.matrixSnapshot.spuCode,
+    styleImageUrl,
+    styleImageAlt: `${releaseRecords[0]?.spuName || snapshot.matrixSnapshot.spuCode}（${snapshot.matrixSnapshot.spuCode}）款式图`,
     reason: '',
     reasonDetail: '',
     lines,
@@ -1056,6 +1205,50 @@ function buildReleaseSnapshotDraft(snapshot: CutPieceReleaseTargetSnapshot): Sup
 
 export function buildReleaseSnapshotDraftForTest(snapshot: CutPieceReleaseTargetSnapshot): SupplementDraft {
   return buildReleaseSnapshotDraft(snapshot)
+}
+
+interface ReleaseDraftOriginalCutOrder {
+  cutOrderId: string
+  cutOrderNo: string
+}
+
+function listReleaseDraftOriginalCutOrders(draft: SupplementDraft): ReleaseDraftOriginalCutOrder[] {
+  return [...new Map(draft.materialDemands.map((demand) => [
+    `${demand.originalCutOrderId.trim()}\u0000${demand.originalCutOrderNo.trim()}`,
+    { cutOrderId: demand.originalCutOrderId.trim(), cutOrderNo: demand.originalCutOrderNo.trim() },
+  ])).values()].sort((left, right) => left.cutOrderNo.localeCompare(right.cutOrderNo) || left.cutOrderId.localeCompare(right.cutOrderId))
+}
+
+function scopeReleaseSnapshotDraftToCutOrder(
+  draft: SupplementDraft,
+  cutOrderIdentity: string,
+): SupplementDraft | null {
+  const source = listReleaseDraftOriginalCutOrders(draft)
+    .find((item) => `${item.cutOrderId}::${item.cutOrderNo}` === cutOrderIdentity)
+  if (!source) return null
+  const materialDemands = draft.materialDemands.filter((demand) => (
+    demand.originalCutOrderId.trim() === source.cutOrderId
+    && demand.originalCutOrderNo.trim() === source.cutOrderNo
+  ))
+  const mappingIds = new Set(materialDemands.map((demand) => demand.materialPatternMappingId.trim()))
+  const lines = draft.lines.filter((line) => {
+    const shortage = line.basis.shortageMaterial
+    return mappingIds.has(shortage.materialPatternMappingId.trim())
+      && getCutOrderId(shortage.line) === source.cutOrderId
+      && getCutOrderNo(shortage.line) === source.cutOrderNo
+  })
+  if (!materialDemands.length || !lines.length) return null
+  return structuredClone({
+    ...draft,
+    candidateId: `${draft.candidateId}:cut-order:${source.cutOrderId || source.cutOrderNo}`,
+    confirmationIdentity: JSON.stringify({
+      releaseSnapshotId: draft.releaseSnapshotId || '',
+      originalCutOrderId: source.cutOrderId,
+      originalCutOrderNo: source.cutOrderNo,
+    }),
+    lines,
+    materialDemands,
+  })
 }
 
 function getCurrentReleaseSnapshotOrInvalidate(snapshotId: string): CutPieceReleaseTargetSnapshot | null {
@@ -1096,21 +1289,31 @@ function prepareReleaseSnapshotCreateState(): void {
   }
 }
 
-function getFilteredRecords(): SupplementRecord[] {
+function getFilteredRecords(): SupplementOrderLifecycle[] {
   const keyword = state.filters.keyword.trim().toLowerCase()
   return state.records
-    .filter((record) => state.filters.sourceType === 'ALL' || record.draft.sourceType === state.filters.sourceType)
+    .filter((record) => state.filters.sourceType === 'ALL' || record.draftMeta.sourceType === state.filters.sourceType)
+    .filter((record) => state.filters.status === 'ALL' || record.status === state.filters.status)
+    .filter((record) => state.filters.purchase === 'ALL' || (getSupplementNodeOverview(record).purchase === '不需要') !== (state.filters.purchase === '需要'))
+    .filter((record) => state.filters.dye === 'ALL' || record.materialDemands.some((item) => item.dyeRequired) === (state.filters.dye === '需要'))
+    .filter((record) => state.filters.print === 'ALL' || record.materialDemands.some((item) => item.printRequired) === (state.filters.print === '需要'))
+    .filter((record) => !state.filters.currentNode || getSupplementNodeOverview(record).currentNode.includes(state.filters.currentNode))
+    .filter((record) => !state.filters.createdDate || record.createdAt.startsWith(state.filters.createdDate))
+    .filter((record) => !state.filters.recordNo || record.recordNo.toLowerCase().includes(state.filters.recordNo.toLowerCase()))
+    .filter((record) => !state.filters.productionOrderNo || record.productionOrderNo.toLowerCase().includes(state.filters.productionOrderNo.toLowerCase()))
+    .filter((record) => !state.filters.cutOrderNo || record.cutOrderNo.toLowerCase().includes(state.filters.cutOrderNo.toLowerCase()))
+    .filter((record) => !state.filters.styleKeyword || `${record.draftMeta.styleName} ${record.draftMeta.spuCode}`.toLowerCase().includes(state.filters.styleKeyword.toLowerCase()))
     .filter((record) => {
       if (!keyword) return true
       return [
         record.recordNo,
-        record.draft.sourceNo,
-        record.draft.productionOrderNo,
-        record.draft.styleName,
-        record.draft.spuCode,
-        record.draft.reason,
-        record.draft.reasonDetail,
-        record.draft.materialDemands.map((item) => item.materialSku).join(' '),
+        record.draftMeta.sourceNo,
+        record.productionOrderNo,
+        record.draftMeta.styleName,
+        record.draftMeta.spuCode,
+        record.reason,
+        record.reasonDetail,
+        record.materialDemands.map((item) => item.materialSku).join(' '),
       ].join(' ').toLowerCase().includes(keyword)
     })
 }
@@ -1163,9 +1366,9 @@ function buildMaterialDemands(_candidate: SupplementCandidate, selectedLines: Su
     if (supplementQty <= 0) return
 
     const bomItem = ref.bomItem
-    const unitConsumption = Math.max(Number(bomItem?.unitConsumption || 0), shouldUseYard(materialLine, bomItem) ? 0.42 : 1)
+    const unitConsumption = Number(bomItem?.unitConsumption)
     const requiredQty = supplementQty * unitConsumption * (1 + normalizeLossRate(bomItem?.lossRate))
-    const unit = shouldUseYard(materialLine, bomItem) ? 'yard' : '件'
+    const unit = normalizeText(bomItem?.unit) || normalizeText(materialLine.materialIdentity?.materialUnit) || normalizeText(materialLine.unit)
     const printRequired = materialLine.materialType === 'PRINT' || hasProcessRequirement(bomItem?.printRequirement)
     const dyeRequired = materialLine.materialType === 'DYE' || hasProcessRequirement(bomItem?.dyeRequirement)
     const key = `${ref.materialPatternMappingId}::${unit}`
@@ -1180,6 +1383,7 @@ function buildMaterialDemands(_candidate: SupplementCandidate, selectedLines: Su
       materialName: ref.materialName,
       materialTypeLabel: ref.materialTypeLabel,
       materialImageUrl: ref.materialImageUrl,
+      materialImageAlt: `${ref.materialName}（${ref.materialSku}）实物图`,
       materialAlias: ref.materialAlias,
       materialRole: ref.materialRole,
       roleSource: ref.roleSource,
@@ -1196,6 +1400,9 @@ function buildMaterialDemands(_candidate: SupplementCandidate, selectedLines: Su
       ].filter(Boolean).join('；') || '无需印花染色',
       originalCutOrderId: current?.originalCutOrderId || getCutOrderId(materialLine),
       originalCutOrderNo: current?.originalCutOrderNo || getCutOrderNo(materialLine),
+      color: normalizeText(bomItem?.colorLabel) || normalizeText(materialLine.color),
+      spec: normalizeText(bomItem?.spec) || normalizeText(materialLine.spec),
+      patternPart: ref.patternName,
     })
   })
 
@@ -1227,7 +1434,7 @@ function renderStatChip(label: string, value: number): string {
 function renderFilterControls(): string {
   return `
     <section class="rounded-lg border bg-card p-4">
-      <div class="grid gap-3 md:grid-cols-[180px_minmax(240px,1fr)_auto_auto] md:items-end">
+      <div class="grid gap-3 md:grid-cols-4 md:items-end">
         <label class="space-y-1 text-sm">
           <span class="text-muted-foreground">补料对象</span>
           <select class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-cutting-supplement-field="sourceType">
@@ -1237,6 +1444,16 @@ function renderFilterControls(): string {
             <option value="release-snapshot"${state.filters.sourceType === 'release-snapshot' ? ' selected' : ''}>裁片放行目标快照</option>
           </select>
         </label>
+        <label class="space-y-1 text-sm"><span class="text-muted-foreground">主状态</span><select class="h-10 w-full rounded-md border bg-background px-3" data-cutting-supplement-field="status"><option value="ALL">全部</option><option value="未完成"${state.filters.status === '未完成' ? ' selected' : ''}>未完成</option><option value="已完成"${state.filters.status === '已完成' ? ' selected' : ''}>已完成</option></select></label>
+        <label class="space-y-1 text-sm"><span class="text-muted-foreground">采购</span><select class="h-10 w-full rounded-md border bg-background px-3" data-cutting-supplement-field="purchase"><option value="ALL">全部</option><option value="需要"${state.filters.purchase === '需要' ? ' selected' : ''}>需要采购</option><option value="不需要"${state.filters.purchase === '不需要' ? ' selected' : ''}>不需要采购</option></select></label>
+        <label class="space-y-1 text-sm"><span class="text-muted-foreground">染色</span><select class="h-10 w-full rounded-md border bg-background px-3" data-cutting-supplement-field="dye"><option value="ALL">全部</option><option value="需要"${state.filters.dye === '需要' ? ' selected' : ''}>需要染色</option><option value="不需要"${state.filters.dye === '不需要' ? ' selected' : ''}>不需要染色</option></select></label>
+        <label class="space-y-1 text-sm"><span class="text-muted-foreground">印花</span><select class="h-10 w-full rounded-md border bg-background px-3" data-cutting-supplement-field="print"><option value="ALL">全部</option><option value="需要"${state.filters.print === '需要' ? ' selected' : ''}>需要印花</option><option value="不需要"${state.filters.print === '不需要' ? ' selected' : ''}>不需要印花</option></select></label>
+        <label class="space-y-1 text-sm"><span class="text-muted-foreground">当前主要节点</span><input class="h-10 w-full rounded-md border bg-background px-3" data-cutting-supplement-field="currentNode" value="${escapeHtml(state.filters.currentNode)}" placeholder="采购、染色、印花、配料" /></label>
+        <label class="space-y-1 text-sm"><span class="text-muted-foreground">创建日期</span><input type="date" class="h-10 w-full rounded-md border bg-background px-3" data-cutting-supplement-field="createdDate" value="${escapeHtml(state.filters.createdDate)}" /></label>
+        <label class="space-y-1 text-sm"><span class="text-muted-foreground">补料单号</span><input class="h-10 w-full rounded-md border bg-background px-3" data-cutting-supplement-field="recordNo" value="${escapeHtml(state.filters.recordNo)}" /></label>
+        <label class="space-y-1 text-sm"><span class="text-muted-foreground">生产单</span><input class="h-10 w-full rounded-md border bg-background px-3" data-cutting-supplement-field="productionOrderNo" value="${escapeHtml(state.filters.productionOrderNo)}" /></label>
+        <label class="space-y-1 text-sm"><span class="text-muted-foreground">原裁片单</span><input class="h-10 w-full rounded-md border bg-background px-3" data-cutting-supplement-field="cutOrderNo" value="${escapeHtml(state.filters.cutOrderNo)}" /></label>
+        <label class="space-y-1 text-sm"><span class="text-muted-foreground">款式</span><input class="h-10 w-full rounded-md border bg-background px-3" data-cutting-supplement-field="styleKeyword" value="${escapeHtml(state.filters.styleKeyword)}" placeholder="款名或款号" /></label>
         <label class="space-y-1 text-sm">
           <span class="text-muted-foreground">关键词</span>
           <input class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-cutting-supplement-field="keyword" value="${escapeHtml(state.filters.keyword)}" placeholder="补料单、生产单、裁片单、SPU、物料SKU" />
@@ -1271,9 +1488,9 @@ function renderSourcePickerPage(): string {
     const actualCutQty = candidate.abAnalysisRows.reduce((sum, row) => sum + Number(row.currentRoleCutQty || 0), 0)
     const suggestedSupplementQty = candidate.abAnalysisRows.reduce((sum, row) => sum + Number(row.suggestedSupplementQty || 0), 0)
     const isSelected = state.sourcePicker.selectedCandidateId === candidate.id
-    const materialImages = candidate.materialLines.slice(0, 4).map((line) => `
-      <img class="h-8 w-8 rounded border object-cover" src="${escapeHtml(getMaterialImageUrl(line))}" alt="${escapeHtml(line.materialSku)}" />
-    `).join('')
+    const materialImages = candidate.materialLines.slice(0, 4).map((line) =>
+      renderSupplementBusinessImage(getMaterialImageUrl(line), `${getMaterialName(line)}（${line.materialSku}）实物图`, 'h-8 w-8', false)
+    ).join('')
     const relatedText = selectedSourceType === 'production-order'
       ? Array.from(new Set(candidate.materialLines.map(getCutOrderNo).filter(Boolean))).slice(0, 4).join('、') || '未关联'
       : candidate.record.productionOrderNo
@@ -1295,7 +1512,7 @@ function renderSourcePickerPage(): string {
         </td>
         <td class="px-4 py-4">
           <div class="flex items-start gap-3">
-            <img class="h-14 w-14 rounded-md border object-cover" src="${escapeHtml(spuImageUrl)}" alt="${escapeHtml(candidate.record.spuCode)}" />
+            ${renderSupplementBusinessImage(spuImageUrl, `${candidate.record.styleName}（${candidate.record.spuCode}）款式图`, 'h-14 w-14', false)}
             <div>
               <div class="font-semibold">${escapeHtml(candidate.record.styleName)}</div>
               <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(candidate.record.spuCode)} / ${escapeHtml(candidate.record.productionOrderNo)}</div>
@@ -1391,10 +1608,12 @@ function renderReleaseSnapshotTrace(draft: SupplementDraft): string {
 }
 
 function renderReleaseSnapshotCreatePage(draft: SupplementDraft): string {
+  const originalCutOrders = listReleaseDraftOriginalCutOrders(draft)
   const rows = draft.lines.map((line) => `
     <tr class="border-t align-top" data-release-snapshot-shortage-row data-release-snapshot-point-key="${escapeHtml(line.key)}">
       <td class="px-3 py-3 font-medium">${escapeHtml(line.color)}</td>
       <td class="px-3 py-3 font-medium">${escapeHtml(line.size)}</td>
+      <td class="px-3 py-3 font-medium">${escapeHtml(getCutOrderNo(line.basis.shortageMaterial.line) || '未识别')}</td>
       <td class="px-3 py-3">${escapeHtml(line.basis.shortageMaterial.materialName)}</td>
       <td class="px-3 py-3">${escapeHtml(line.basis.shortageMaterial.patternName)}</td>
       <td class="px-3 py-3 tabular-nums">目标 ${formatInteger(line.basis.benchmarkCutQty)} 件</td>
@@ -1412,10 +1631,18 @@ function renderReleaseSnapshotCreatePage(draft: SupplementDraft): string {
         </div>
         <div class="space-y-4 p-5">
           ${draft.lines.length ? `
+            <label class="block max-w-xl space-y-1 text-sm">
+              <span class="font-medium">本次补料对应的原裁片单</span>
+              <select class="h-10 w-full rounded-md border bg-background px-3" data-release-original-cut-order>
+                ${originalCutOrders.map((item) => `<option value="${escapeHtml(`${item.cutOrderId}::${item.cutOrderNo}`)}">${escapeHtml(item.cutOrderNo)}</option>`).join('')}
+              </select>
+              <span class="block text-xs text-muted-foreground">一张补料单只对应一张原裁片单；快照涉及多张裁片单时，请分别提交。</span>
+            </label>
             <div class="overflow-auto rounded-lg border">
-              <table class="min-w-[980px] text-left text-sm">
+              <table class="min-w-[1080px] text-left text-sm">
                 <thead class="bg-muted/50 text-xs text-muted-foreground"><tr>
                   <th class="px-3 py-2 font-medium">颜色</th><th class="px-3 py-2 font-medium">尺码</th>
+                  <th class="px-3 py-2 font-medium">原裁片单</th>
                   <th class="px-3 py-2 font-medium">物料</th><th class="px-3 py-2 font-medium">纸样/部位</th>
                   <th class="px-3 py-2 font-medium">目标数量</th><th class="px-3 py-2 font-medium">实际缺片</th>
                   <th class="px-3 py-2 font-medium">建议补料</th>
@@ -1476,7 +1703,7 @@ function renderSupplementMaterialInfo(ref: Pick<SupplementMaterialPatternRef | S
   return `
     <div class="min-w-[230px]">
       <div class="flex items-start gap-2">
-        <img class="h-10 w-10 rounded border object-cover" src="${escapeHtml(ref.materialImageUrl)}" alt="${escapeHtml(ref.materialSku)}" />
+        ${renderSupplementBusinessImage(ref.materialImageUrl, `${ref.materialName}（${ref.materialSku}）实物图`, 'h-10 w-10')}
         <div class="min-w-0">
           <div class="truncate font-medium">${escapeHtml(ref.materialName || '未命名物料')}</div>
           <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(ref.materialSku || '未维护编码')}</div>
@@ -1618,7 +1845,7 @@ function renderDemandTable(demands: SupplementMaterialDemand[]): string {
             <tr class="border-t">
               <td class="px-3 py-2">
                 <div class="flex items-center gap-3">
-                  <img class="h-10 w-10 rounded border object-cover" src="${escapeHtml(item.materialImageUrl)}" alt="${escapeHtml(item.materialSku)}" />
+                  ${renderSupplementBusinessImage(item.materialImageUrl, `${item.materialName}（${item.materialSku}）实物图`, 'h-10 w-10')}
                   <div>
                     <div class="font-medium">${escapeHtml(item.materialSku)}</div>
                     <div class="text-xs text-muted-foreground">${escapeHtml(item.materialName)}</div>
@@ -1631,8 +1858,9 @@ function renderDemandTable(demands: SupplementMaterialDemand[]): string {
               <td class="px-3 py-2 font-semibold tabular-nums">${formatDecimal(item.requiredQty)} ${escapeHtml(item.unit)}</td>
               <td class="px-3 py-2">
                 <div class="flex flex-wrap gap-1">
-                  ${item.printRequired ? '<span class="rounded-full bg-violet-50 px-2 py-1 text-xs text-violet-700">生成印花加工单</span>' : ''}
                   ${item.dyeRequired ? '<span class="rounded-full bg-sky-50 px-2 py-1 text-xs text-sky-700">生成染色加工单</span>' : ''}
+                  ${item.printRequired ? '<span class="rounded-full bg-violet-50 px-2 py-1 text-xs text-violet-700">生成印花加工单</span>' : ''}
+                  ${item.dyeRequired && item.printRequired ? '<span class="rounded-full bg-amber-50 px-2 py-1 text-xs text-amber-700">先染色，再印花</span>' : ''}
                   ${!item.printRequired && !item.dyeRequired ? '<span class="rounded-full bg-zinc-100 px-2 py-1 text-xs text-zinc-600">无需印染</span>' : ''}
                 </div>
                 <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.processNote)}</div>
@@ -1686,6 +1914,13 @@ function renderSupplementBasisTable(lines: SupplementLine[]): string {
 
 function renderConfirmDialog(draft: SupplementDraft | null): string {
   if (!draft) return ''
+  const supplyDecisions = buildSupplementSupplyDecisions({
+    demands: draft.materialDemands,
+    checkedAt: nowText(),
+    confirmUncovered: draft.supplyRiskConfirmed === true,
+  })
+  const riskRows = supplyDecisions.filter((decision) => decision.uncoveredQty > 0)
+  const hasUnconfirmedRisk = riskRows.length > 0 && draft.supplyRiskConfirmed !== true
   return `
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-6">
       <div class="w-full max-w-5xl rounded-xl bg-background shadow-xl">
@@ -1712,10 +1947,30 @@ function renderConfirmDialog(draft: SupplementDraft | null): string {
             <h3 class="mb-2 font-semibold">系统反算物料需求</h3>
             ${renderDemandTable(draft.materialDemands)}
           </section>
+          <section>
+            <h3 class="mb-2 font-semibold">供应情况</h3>
+            <div class="overflow-auto rounded-lg border">
+              <table class="min-w-[980px] text-left text-sm">
+                <thead class="bg-muted/50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">物料</th><th class="px-3 py-2">各仓库存</th><th class="px-3 py-2">采购在途</th><th class="px-3 py-2">需求与覆盖</th><th class="px-3 py-2">本次处理</th></tr></thead>
+                <tbody>${supplyDecisions.map((decision) => {
+                  const demand = draft.materialDemands.find((item) => item.key === decision.materialDemandId)!
+                  return `<tr class="border-t align-top">
+                    <td class="px-3 py-3"><strong>${escapeHtml(demand.materialName)}</strong><div class="text-xs text-muted-foreground">${escapeHtml(demand.materialSku)}</div></td>
+                    <td class="px-3 py-3">${decision.inventoryRows.map((row) => `${escapeHtml(row.warehouseName)}：总量 ${formatDecimal(row.totalQty)}、可用 ${formatDecimal(row.availableQty)}、占用/不可用 ${formatDecimal(row.unavailableQty)} ${escapeHtml(row.unit || '未记录')}（${escapeHtml(row.location)}；${escapeHtml(row.status)}；更新 ${escapeHtml(row.updatedAt)}）`).join('<br>')}</td>
+                    <td class="px-3 py-3">${decision.existingTransitRows.length ? decision.existingTransitRows.map((row) => `采购在途 ${formatDecimal(row.pendingQty)} ${escapeHtml(row.unit)} · ${escapeHtml(row.status)} · 预计到货 ${escapeHtml(row.estimatedArrivalAt)}${row.unitMatched ? '' : '<span class="text-amber-700">（单位不一致，不参与覆盖）</span>'}`).join('<br>') : '无采购在途'}</td>
+                    <td class="px-3 py-3">需求 ${formatDecimal(decision.requiredQty)} ${escapeHtml(decision.unit)}<br>库存覆盖 ${formatDecimal(decision.availableInventoryCoverageQty)}<br>在途覆盖 ${formatDecimal(decision.existingTransitCoverageQty)}<br><strong>未覆盖 ${formatDecimal(decision.uncoveredQty)} ${escapeHtml(decision.unit)}</strong></td>
+                    <td class="px-3 py-3"><strong class="${decision.recommendation === '不建议创建' ? 'text-amber-700' : 'text-emerald-700'}">${escapeHtml(decision.recommendation)}</strong><br>${decision.uncoveredQty > 0 ? `确认继续后采购 ${formatDecimal(decision.uncoveredQty)} ${escapeHtml(decision.unit)}` : '不新增采购'}${decision.warnings.map((warning) => `<div class="mt-1 text-xs text-amber-700">${escapeHtml(warning)}</div>`).join('')}</td>
+                  </tr>`
+                }).join('')}</tbody>
+              </table>
+            </div>
+            ${riskRows.length ? `<div class="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"><strong>不建议创建：</strong>存在无库存或在途未覆盖的物料。${draft.supplyRiskConfirmed ? '业务已决定继续，将按未覆盖缺口创建采购单。' : '可返回修改；如业务仍决定继续，请再次确认。'}</div>` : ''}
+          </section>
+          <section class="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900"><strong>中转仓补料配料需求：</strong>确认后立即按本张补料单形成 1 个独立需求组，共 ${draft.materialDemands.length} 条物料明细；物料尚未到仓时批准需求仍会显示，但不会提前生成 PDA 可领任务。</section>
         </div>
         <div class="flex justify-end gap-2 border-t px-5 py-4">
           <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-cutting-supplement-action="return-draft">返回修改</button>
-          <button type="button" class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700" data-cutting-supplement-action="confirm-supplement">确认生成补料单</button>
+          <button type="button" class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700" data-cutting-supplement-action="confirm-supplement">${hasUnconfirmedRisk ? '我已知悉风险，继续' : '确认生成补料单'}</button>
         </div>
       </div>
     </div>
@@ -1729,11 +1984,23 @@ function formatMaterialDemandSummary(demands: SupplementMaterialDemand[]): strin
     .join('、') || '无'
 }
 
-function getSupplementTotalQty(record: SupplementRecord): number {
-  return record.draft.lines.reduce((sum, line) => sum + Number(line.supplementQty || 0), 0)
+function getSupplementTotalQty(record: SupplementOrderLifecycle): number {
+  return record.lines.reduce((sum, line) => sum + Number(line.supplementQty || 0), 0)
 }
 
-const supplementListColumns: StandardListColumn<SupplementRecord>[] = [
+type SupplementNodeOverview = ReturnType<typeof getSupplementNodeOverview>
+let supplementListNodeOverviewCache: Map<string, SupplementNodeOverview> | null = null
+
+function getSupplementListNodeOverview(record: SupplementOrderLifecycle): SupplementNodeOverview {
+  if (!supplementListNodeOverviewCache) return getSupplementNodeOverview(record)
+  const cached = supplementListNodeOverviewCache.get(record.id)
+  if (cached) return cached
+  const overview = getSupplementNodeOverview(record)
+  supplementListNodeOverviewCache.set(record.id, overview)
+  return overview
+}
+
+const supplementListColumns: StandardListColumn<SupplementOrderLifecycle>[] = [
   {
     key: 'recordNo',
     title: '补料单号',
@@ -1751,15 +2018,14 @@ const supplementListColumns: StandardListColumn<SupplementRecord>[] = [
     required: true,
     freezeable: true,
     render: (record) => {
-      const sourceRecord = getCandidateById(record.draft.candidateId)?.record
-      const spuImageUrl = sourceRecord ? getSpuImageUrl(sourceRecord) : '/pants-sample.jpg'
+      const spuImageUrl = record.draftMeta.styleImageUrl
       return `
         <div class="flex items-center gap-3">
-          <img class="h-12 w-12 rounded-md border object-cover" src="${escapeHtml(spuImageUrl)}" alt="${escapeHtml(record.draft.spuCode)}" />
+          ${renderSupplementBusinessImage(spuImageUrl, record.draftMeta.styleImageAlt, 'h-12 w-12')}
           <div class="min-w-0">
-            <div class="truncate font-medium">${escapeHtml(sourceTypeLabels[record.draft.sourceType])} ${escapeHtml(record.draft.sourceNo)}</div>
-            <div class="truncate text-xs text-muted-foreground">${escapeHtml(record.draft.productionOrderNo)} / ${escapeHtml(record.draft.spuCode)}</div>
-            <div class="truncate text-xs text-muted-foreground">${escapeHtml(record.draft.styleName)}</div>
+            <div class="truncate font-medium">${escapeHtml(sourceTypeLabels[record.draftMeta.sourceType])} ${escapeHtml(record.draftMeta.sourceNo)}</div>
+            <div class="truncate text-xs text-muted-foreground">${escapeHtml(record.productionOrderNo)} / ${escapeHtml(record.draftMeta.spuCode)}</div>
+            <div class="truncate text-xs text-muted-foreground">${escapeHtml(record.draftMeta.styleName)}</div>
           </div>
         </div>
       `
@@ -1780,26 +2046,28 @@ const supplementListColumns: StandardListColumn<SupplementRecord>[] = [
     title: '物料需求',
     width: 300,
     render: (record) => {
-      const materialImages = record.draft.materialDemands.slice(0, 3).map((item) => `
-        <img class="h-8 w-8 rounded border object-cover" src="${escapeHtml(item.materialImageUrl)}" alt="${escapeHtml(item.materialSku)}" />
+      const materialImages = record.materialDemands.slice(0, 3).map((item) => `
+        ${renderSupplementBusinessImage(item.materialImageUrl, item.materialImageAlt, 'h-8 w-8')}
       `).join('')
       return `
         <div class="flex items-center gap-2">
           <div class="flex shrink-0 flex-wrap gap-1">${materialImages}</div>
           <div class="min-w-0">
-            <div class="truncate tabular-nums">${escapeHtml(formatMaterialDemandSummary(record.draft.materialDemands))}</div>
-            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(formatInteger(record.draft.materialDemands.length))} 种物料</div>
+            <div class="truncate tabular-nums">${escapeHtml(formatMaterialDemandSummary(record.materialDemands))}</div>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(formatInteger(record.materialDemands.length))} 种物料</div>
           </div>
         </div>
       `
     },
   },
-  {
-    key: 'processDemand',
-    title: '印染加工单',
-    width: 240,
-    render: (record) => `<span class="text-xs">${escapeHtml(record.processWorkOrderRefs.map((item) => item.workOrderNo).join('、') || '无需生成印染加工单')}</span>`,
-  },
+  { key: 'inventory', title: '库存', width: 180, render: (record) => `<span class="text-xs">${escapeHtml(getSupplementListNodeOverview(record).inventory)}</span>` },
+  { key: 'purchase', title: '采购', width: 180, render: (record) => `<span class="text-xs">${escapeHtml(getSupplementListNodeOverview(record).purchase)}</span>` },
+  { key: 'dye', title: '染色', width: 160, render: (record) => `<span class="text-xs">${escapeHtml(getSupplementListNodeOverview(record).dye)}</span>` },
+  { key: 'print', title: '印花', width: 160, render: (record) => `<span class="text-xs">${escapeHtml(getSupplementListNodeOverview(record).print)}</span>` },
+  { key: 'materialPrep', title: '中转仓配料', width: 180, required: true, freezeable: true, render: (record) => {
+    const overview = getSupplementListNodeOverview(record)
+    return `<span class="text-xs font-medium">${escapeHtml(overview.materialPrep)}</span><div class="mt-1 text-xs text-muted-foreground">当前：${escapeHtml(overview.currentNode)}</div>`
+  } },
   {
     key: 'status',
     title: '状态',
@@ -1842,7 +2110,7 @@ export function normalizeSupplementListPreferences(
   const requestedFrozenKeys = new Set(normalized.frozenKeys)
   const frozenColumns = normalized.order
     .map((key) => columnsByKey.get(key))
-    .filter((column): column is StandardListColumn<SupplementRecord> => Boolean(
+    .filter((column): column is StandardListColumn<SupplementOrderLifecycle> => Boolean(
       column
       && !column.actionColumn
       && column.freezeable
@@ -1865,8 +2133,8 @@ export function normalizeSupplementListPreferences(
 }
 
 interface SupplementListView {
-  filtered: SupplementRecord[]
-  paging: StandardListPageSlice<SupplementRecord>
+  filtered: SupplementOrderLifecycle[]
+  paging: StandardListPageSlice<SupplementOrderLifecycle>
 }
 
 function getSupplementListStorage(): Storage | null {
@@ -1924,26 +2192,31 @@ function withSkipPageRerender(html: string): string {
     .replaceAll('data-cutting-supplement-field=', 'data-skip-page-rerender="true" data-cutting-supplement-field=')
 }
 
-function renderListStats(records: SupplementRecord[]): string {
+function renderListStats(records: SupplementOrderLifecycle[]): string {
   return renderStandardListStats([
     { label: '补料单', value: records.length },
-    { label: '已确认', value: records.filter((record) => record.status === '已确认').length },
-    { label: '涉及生产单', value: new Set(records.map((record) => record.draft.productionOrderNo)).size },
+    { label: '未完成', value: records.filter((record) => record.status === '未完成').length },
+    { label: '涉及生产单', value: new Set(records.map((record) => record.productionOrderNo)).size },
   ])
 }
 
-function renderListTable(paging: StandardListPageSlice<SupplementRecord>): string {
-  return withSkipPageRerender(renderStandardListTable({
-    columns: supplementListColumns,
-    rows: paging.rows,
-    preferences: state.columnPreferences,
-    sort: state.sort,
-    eventPrefix: 'cutting-supplement',
-    emptyText: '暂无补料单。',
-  }))
+function renderListTable(paging: StandardListPageSlice<SupplementOrderLifecycle>): string {
+  supplementListNodeOverviewCache = new Map()
+  try {
+    return withSkipPageRerender(renderStandardListTable({
+      columns: supplementListColumns,
+      rows: paging.rows,
+      preferences: state.columnPreferences,
+      sort: state.sort,
+      eventPrefix: 'cutting-supplement',
+      emptyText: '暂无补料单。',
+    }))
+  } finally {
+    supplementListNodeOverviewCache = null
+  }
 }
 
-function renderListPagination(paging: StandardListPageSlice<SupplementRecord>): string {
+function renderListPagination(paging: StandardListPageSlice<SupplementOrderLifecycle>): string {
   return withSkipPageRerender(renderTablePagination({
     total: paging.total,
     from: paging.from,
@@ -1959,7 +2232,9 @@ function renderListPagination(paging: StandardListPageSlice<SupplementRecord>): 
 
 function renderListOverlay(): string {
   const activeRecord = state.activeRecordId ? getRecordById(state.activeRecordId) : undefined
-  if (activeRecord) return renderSupplementDetailDialog(activeRecord)
+  const preview = state.imagePreview ? `<div class="fixed inset-0 z-[70] flex items-center justify-center p-6" role="dialog" aria-modal="true" aria-label="${escapeHtml(state.imagePreview.alt)}"><button type="button" class="absolute inset-0 bg-black/75" data-skip-page-rerender="true" data-cutting-supplement-action="close-image-preview" aria-label="关闭大图"></button><div class="relative z-10 max-h-[90vh] max-w-[90vw] rounded-xl bg-background p-4 shadow-xl"><button type="button" class="absolute right-3 top-3 rounded border bg-background px-3 py-1" data-skip-page-rerender="true" data-cutting-supplement-action="close-image-preview" aria-label="关闭大图">关闭</button><img class="max-h-[82vh] max-w-[84vw] object-contain" src="${escapeHtml(state.imagePreview.src)}" alt="${escapeHtml(state.imagePreview.alt)}" onerror="this.classList.add('hidden');this.nextElementSibling.classList.remove('hidden')" /><div class="hidden px-10 py-20 text-sm text-red-700">图片加载失败，请核对素材。</div></div></div>` : ''
+  if (activeRecord) return `${renderSupplementDetailDialog(activeRecord)}${preview}`
+  if (preview) return preview
   if (!state.columnSettingsOpen) return ''
   return withSkipPageRerender(renderStandardListColumnSettings({
     title: '列设置',
@@ -2005,11 +2280,11 @@ function refreshSupplementOverlay(): void {
   setSupplementRegion('overlay', renderListOverlay())
 }
 
-function buildSupplementProcessLinks(record: SupplementRecord): SupplementProcessLink[] {
+function buildSupplementProcessLinks(record: SupplementOrderLifecycle): SupplementProcessLink[] {
   return record.processWorkOrderRefs.flatMap((ref) => {
     const workOrder = getProcessWorkOrderById(ref.workOrderId)
     if (!workOrder) return []
-    const demand = record.draft.materialDemands.find((item) =>
+    const demand = record.materialDemands.find((item) =>
       item.materialSku === ref.materialSku || item.materialName === ref.materialName,
     )
     return [{
@@ -2018,13 +2293,13 @@ function buildSupplementProcessLinks(record: SupplementRecord): SupplementProces
       workOrderNo: ref.workOrderNo,
       materialSku: ref.materialSku,
       materialName: ref.materialName,
-      materialImageUrl: demand?.materialImageUrl || '/materials/fabric-main.jpg',
+      materialImageUrl: demand?.materialImageUrl || '',
       requiredQty: ref.plannedQty,
       unit: ref.unit,
       workOrderStatus: workOrder.statusLabel,
       factoryName: workOrder.factoryName,
       createdAt: workOrder.createdAt,
-      linkedProductionOrderNo: record.draft.productionOrderNo,
+      linkedProductionOrderNo: record.productionOrderNo,
       processNote: demand?.processNote || `${ref.processType === 'PRINT' ? '印花' : '染色'}加工`,
       sourceLabel: PROCESS_WORK_ORDER_SOURCE_LABEL.CUT_PIECE_SUPPLEMENT,
       supplementRecordNo: workOrder.sourceSnapshot.supplementRecordNo || record.recordNo,
@@ -2034,7 +2309,7 @@ function buildSupplementProcessLinks(record: SupplementRecord): SupplementProces
   })
 }
 
-function renderProcessLinksTable(record: SupplementRecord): string {
+function renderProcessLinksTable(record: SupplementOrderLifecycle): string {
   const links = buildSupplementProcessLinks(record)
   if (!links.length) {
     return '<div class="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">无需生成印染加工单</div>'
@@ -2069,7 +2344,7 @@ function renderProcessLinksTable(record: SupplementRecord): string {
               </td>
               <td class="px-3 py-3">
                 <div class="flex items-center gap-3">
-                  <img class="h-10 w-10 rounded border object-cover" src="${escapeHtml(link.materialImageUrl)}" alt="${escapeHtml(link.materialSku)}" />
+                  ${renderSupplementBusinessImage(link.materialImageUrl, `${link.materialName}（${link.materialSku}）实物图`, 'h-10 w-10')}
                   <div>
                     <div class="font-medium">${escapeHtml(link.materialSku)}</div>
                     <div class="text-xs text-muted-foreground">${escapeHtml(link.materialName)}</div>
@@ -2094,12 +2369,64 @@ function renderProcessLinksTable(record: SupplementRecord): string {
   `
 }
 
-function renderSupplementDetailDialog(record: SupplementRecord | undefined): string {
+function renderSupplementDetailLinesTable(record: SupplementOrderLifecycle): string {
+  const basisLines = record.lines.filter((line): line is SupplementLine => Boolean(asDraftLine(line).basis?.shortageMaterial))
+  if (basisLines.length) {
+    return renderSupplementBasisTable(basisLines)
+  }
+  return `
+    <div class="overflow-auto rounded-lg border">
+      <table class="min-w-[420px] text-left text-sm">
+        <thead class="bg-muted/50 text-xs text-muted-foreground">
+          <tr>
+            <th class="px-3 py-2 font-medium">成衣颜色</th>
+            <th class="px-3 py-2 font-medium">尺码</th>
+            <th class="px-3 py-2 font-medium">本次补料件数</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${record.lines.map((line) => `
+            <tr class="border-t">
+              <td class="px-3 py-3">${escapeHtml(line.color)}</td>
+              <td class="px-3 py-3">${escapeHtml(line.size)}</td>
+              <td class="px-3 py-3 font-semibold tabular-nums">${formatInteger(line.supplementQty)} 件</td>
+            </tr>
+          `).join('') || '<tr><td class="px-3 py-6 text-center text-muted-foreground" colspan="3">暂无补料明细</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+  `
+}
+
+function renderNodeDocuments(documents: Array<{ documentNo: string; createdAt: string; plannedQty: number; completedQty: number; unit: string; status: string; owner: string; estimatedArrivalAt: string; sourceTrace: string }>): string {
+  if (!documents.length) return ''
+  return `<details class="mt-2"><summary class="cursor-pointer text-xs text-blue-700">展开 ${documents.length} 张单据</summary><div class="mt-2 space-y-2">${documents.map((document) => `<div class="rounded border bg-background p-2 text-xs"><strong>${escapeHtml(document.documentNo)}</strong><br>创建：${escapeHtml(document.createdAt)}<br>数量：${formatDecimal(document.plannedQty)} ${escapeHtml(document.unit)}；完成：${formatDecimal(document.completedQty)} ${escapeHtml(document.unit)}<br>状态：${escapeHtml(document.status)}；责任方：${escapeHtml(document.owner)}<br>预计到货：${escapeHtml(document.estimatedArrivalAt)}<br>投入/来源：${escapeHtml(document.sourceTrace)}</div>`).join('')}</div></details>`
+}
+
+function renderSupplementMaterialNodeTable(record: SupplementOrderLifecycle): string {
+  const rows = getSupplementMaterialNodeFacts(record)
+  return `<div class="overflow-auto rounded-lg border"><table class="min-w-[1500px] text-left text-sm">
+    <thead class="bg-muted/50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">补料物料</th><th class="px-3 py-2">库存</th><th class="px-3 py-2">采购</th><th class="px-3 py-2">染色</th><th class="px-3 py-2">印花</th><th class="px-3 py-2">中转仓配料</th></tr></thead>
+    <tbody>${rows.map((row) => `<tr class="border-t align-top">
+      <td class="px-3 py-3"><div class="flex gap-3">${renderSupplementBusinessImage(row.material.materialImageUrl, row.material.materialImageAlt, 'h-12 w-12')}<div><strong>${escapeHtml(row.material.materialName)}</strong><div class="text-xs text-muted-foreground">${escapeHtml(row.material.materialSku)}</div><div class="text-xs">${escapeHtml(row.material.color)} / ${escapeHtml(row.material.specification)} / ${escapeHtml(row.material.patternPart)}</div><div class="font-medium">需求 ${formatDecimal(row.material.requiredQty)} ${escapeHtml(row.material.unit)}</div></div></div></td>
+      <td class="px-3 py-3"><strong>${escapeHtml(row.inventory.status)}</strong><div class="mt-1 text-xs">${escapeHtml(row.inventory.summary)}</div><details class="mt-2"><summary class="cursor-pointer text-xs text-blue-700">查看各仓</summary>${row.inventory.rows.map((inventory) => `<div class="mt-1 text-xs">${escapeHtml(String(inventory.warehouseName))}：总量 ${escapeHtml(String(inventory.totalQty))}、可用 ${escapeHtml(String(inventory.availableQty))}、占用/不可用 ${escapeHtml(String(inventory.unavailableQty))} ${escapeHtml(String(inventory.unit))}；库区/库位 ${escapeHtml(String(inventory.location))}；${escapeHtml(String(inventory.status))}；更新 ${escapeHtml(String(inventory.updatedAt))}</div>`).join('')}</details></td>
+      <td class="px-3 py-3"><strong>${escapeHtml(row.purchase.status)}</strong><div class="mt-1 text-xs">${escapeHtml(row.purchase.summary)}</div>${renderNodeDocuments(row.purchase.documents)}</td>
+      <td class="px-3 py-3"><strong>${escapeHtml(row.dye.status)}</strong><div class="mt-1 text-xs">${escapeHtml(row.dye.summary)}</div>${renderNodeDocuments(row.dye.documents)}</td>
+      <td class="px-3 py-3"><strong>${escapeHtml(row.print.status)}</strong><div class="mt-1 text-xs">${escapeHtml(row.print.summary)}</div>${renderNodeDocuments(row.print.documents)}</td>
+      <td class="px-3 py-3"><strong>${escapeHtml(row.materialPrep.status)}</strong><div class="mt-1 text-xs">批准 ${formatDecimal(row.materialPrep.approvedRequiredQty)}；到仓 ${formatDecimal(row.materialPrep.arrivedQty)}；可配 ${formatDecimal(row.materialPrep.currentAvailableQty)}；已配 ${formatDecimal(row.materialPrep.preparedQty)}；已领 ${formatDecimal(row.materialPrep.pickedQty)}；剩余 ${formatDecimal(row.materialPrep.remainingQty)} ${escapeHtml(row.materialPrep.unit)}</div>${row.hasUnresolvedDifference ? '<div class="mt-1 text-xs font-medium text-red-700">存在未处理数量差异</div>' : ''}</td>
+    </tr>`).join('')}</tbody>
+  </table></div>`
+}
+
+function renderSupplementDetailDialog(record: SupplementOrderLifecycle | undefined): string {
   if (!record) return ''
-  const totalQty = record.draft.lines.reduce((sum, line) => sum + line.supplementQty, 0)
-  const processLinks = buildSupplementProcessLinks(record)
-  const sourceRecord = getCandidateById(record.draft.candidateId)?.record
-  const spuImageUrl = sourceRecord ? getSpuImageUrl(sourceRecord) : '/pants-sample.jpg'
+  const totalQty = record.lines.reduce((sum, line) => sum + line.supplementQty, 0)
+  const spuImageUrl = record.draftMeta.styleImageUrl
+  const snapshotTraceDraft = {
+    releaseSnapshotId: record.draftMeta.releaseSnapshotId,
+    releaseMatrixVersion: record.draftMeta.releaseMatrixVersion,
+    releaseTargetConfirmedAt: record.draftMeta.releaseTargetConfirmedAt,
+  } as SupplementDraft
 
   return `
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-6">
@@ -2107,52 +2434,41 @@ function renderSupplementDetailDialog(record: SupplementRecord | undefined): str
         <div class="flex items-start justify-between gap-4 border-b px-5 py-4">
           <div>
             <h2 class="text-lg font-semibold">补料单详情</h2>
-            <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.recordNo)} / ${escapeHtml(record.draft.productionOrderNo)} / ${escapeHtml(record.draft.styleName)}</p>
+            <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.recordNo)} / ${escapeHtml(record.productionOrderNo)} / ${escapeHtml(record.draftMeta.styleName)}</p>
           </div>
           <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-skip-page-rerender="true" data-cutting-supplement-action="close-detail">关闭</button>
         </div>
         <div class="flex-1 space-y-4 overflow-y-auto p-5">
-          ${renderReleaseSnapshotTrace(record.draft)}
+          ${renderReleaseSnapshotTrace(snapshotTraceDraft)}
           <section class="rounded-lg border p-4">
             <div class="flex flex-col gap-4 md:flex-row">
               <div class="w-full md:w-36">
-                <img class="h-36 w-full rounded-lg border object-cover" src="${escapeHtml(spuImageUrl)}" alt="${escapeHtml(record.draft.spuCode)}" />
+                ${renderSupplementBusinessImage(spuImageUrl, record.draftMeta.styleImageAlt, 'h-36 w-full')}
                 <div class="mt-2 text-xs text-muted-foreground">款式/SPU图</div>
               </div>
               <div class="grid flex-1 gap-4 md:grid-cols-4">
                 <div><div class="text-xs text-muted-foreground">补料单号</div><div class="mt-1 font-semibold">${escapeHtml(record.recordNo)}</div></div>
+                <div><div class="text-xs text-muted-foreground">补料次数</div><div class="mt-1 font-semibold">第 ${formatInteger(record.sequenceNo)} 次</div></div>
                 <div><div class="text-xs text-muted-foreground">状态</div><div class="mt-1"><span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">${escapeHtml(record.status)}</span></div></div>
-                <div><div class="text-xs text-muted-foreground">补料对象</div><div class="mt-1 font-semibold">${escapeHtml(sourceTypeLabels[record.draft.sourceType])} ${escapeHtml(record.draft.sourceNo)}</div></div>
+                <div><div class="text-xs text-muted-foreground">补料对象</div><div class="mt-1 font-semibold">${escapeHtml(sourceTypeLabels[record.draftMeta.sourceType])} ${escapeHtml(record.draftMeta.sourceNo)}</div></div>
                 <div><div class="text-xs text-muted-foreground">补料数量</div><div class="mt-1 font-semibold tabular-nums">${formatInteger(totalQty)} 件</div></div>
-                <div><div class="text-xs text-muted-foreground">生产单</div><div class="mt-1 font-semibold">${escapeHtml(record.draft.productionOrderNo)}</div></div>
-                <div><div class="text-xs text-muted-foreground">SPU</div><div class="mt-1 font-semibold">${escapeHtml(record.draft.spuCode)}</div></div>
-                <div><div class="text-xs text-muted-foreground">款式</div><div class="mt-1 font-semibold">${escapeHtml(record.draft.styleName)}</div></div>
+                <div><div class="text-xs text-muted-foreground">生产单</div><div class="mt-1 font-semibold">${escapeHtml(record.productionOrderNo)}</div></div>
+                <div><div class="text-xs text-muted-foreground">SPU</div><div class="mt-1 font-semibold">${escapeHtml(record.draftMeta.spuCode)}</div></div>
+                <div><div class="text-xs text-muted-foreground">款式</div><div class="mt-1 font-semibold">${escapeHtml(record.draftMeta.styleName)}</div></div>
                 <div><div class="text-xs text-muted-foreground">发起人</div><div class="mt-1 font-semibold">${escapeHtml(record.createdBy)}</div></div>
                 <div><div class="text-xs text-muted-foreground">创建时间</div><div class="mt-1 font-semibold">${escapeHtml(record.createdAt)}</div></div>
+                ${record.status === '已完成' ? `<div><div class="text-xs text-muted-foreground">完成人</div><div class="mt-1 font-semibold">${escapeHtml(record.completedBy || '未记录')}</div></div><div><div class="text-xs text-muted-foreground">完成时间</div><div class="mt-1 font-semibold">${escapeHtml(record.completedAt || '未记录')}</div></div>` : ''}
               </div>
             </div>
             <div class="mt-4 rounded-md bg-muted/40 px-3 py-2 text-sm">
-              <span class="font-medium">补料原因：</span>${escapeHtml(record.draft.reason)}
-              <span class="ml-3 text-muted-foreground">${escapeHtml(record.draft.reasonDetail)}</span>
+              <span class="font-medium">补料原因：</span>${escapeHtml(record.reason)}
+              <span class="ml-3 text-muted-foreground">${escapeHtml(record.reasonDetail)}</span>
             </div>
 	          </section>
 
           <section>
-            <h3 class="mb-2 font-semibold">补料明细与本次补料件数</h3>
-            ${renderSupplementBasisTable(record.draft.lines)}
-          </section>
-
-          <section>
-            <h3 class="mb-2 font-semibold">系统反算补料物料</h3>
-            ${renderDemandTable(record.draft.materialDemands)}
-          </section>
-
-          <section>
-            <div class="mb-2 flex items-center justify-between">
-              <h3 class="font-semibold">印花 / 染色加工单</h3>
-              <span class="text-xs text-muted-foreground">共 ${formatInteger(processLinks.length)} 张加工单</span>
-            </div>
-            ${renderProcessLinksTable(record)}
+            <h3 class="mb-2 font-semibold">各节点当前情况</h3>
+            ${renderSupplementMaterialNodeTable(record)}
           </section>
         </div>
       </div>
@@ -2164,7 +2480,7 @@ function getCandidateById(candidateId: string): SupplementCandidate | undefined 
   return buildCandidates().find((candidate) => candidate.id === candidateId)
 }
 
-function getRecordById(recordId: string): SupplementRecord | undefined {
+function getRecordById(recordId: string): SupplementOrderLifecycle | undefined {
   return state.records.find((record) => record.id === recordId)
 }
 
@@ -2249,6 +2565,8 @@ function buildDraftFromDialog(candidate: SupplementCandidate, container: HTMLEle
     productionOrderNo: candidate.record.productionOrderNo,
     styleName: candidate.record.styleName,
     spuCode: candidate.record.spuCode,
+    styleImageUrl: getSpuImageUrl(candidate.record),
+    styleImageAlt: `${candidate.record.styleName}（${candidate.record.spuCode}）款式图`,
     reason,
     reasonDetail,
     lines: selectedLines,
@@ -2256,8 +2574,24 @@ function buildDraftFromDialog(candidate: SupplementCandidate, container: HTMLEle
   }
 }
 
+const defaultSupplementNowProvider = (): string => {
+  const now = new Date()
+  const parts = new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(now)
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value || ''
+  return `${value('year')}-${value('month')}-${value('day')} ${value('hour')}:${value('minute')}`
+}
+let supplementNowProvider = defaultSupplementNowProvider
+
+export function setSupplementNowProviderForTesting(provider?: () => string): void {
+  supplementNowProvider = provider ?? defaultSupplementNowProvider
+}
+
 function nowText(): string {
-  return '2026-03-25 16:20'
+  return supplementNowProvider()
 }
 
 function roundProcessQty(value: number): number {
@@ -2442,48 +2776,81 @@ function resolveSupplementGeneratedWorkOrder(workOrderId: string) {
   return getProcessWorkOrderById(workOrderId)
 }
 
+function buildSupplementLineSummary(lines: SupplementLine[]): string {
+  const summary = lines
+    .slice(0, 4)
+    .map((line) => `${line.color}/${line.size}/${line.supplementQty}件`)
+    .join('；')
+  return summary.length > 80 ? `${summary.slice(0, 80)}…` : summary
+}
+
 function saveConfirmedSupplementRecord(input: {
   identity: { id: string; recordNo: string }
   draft: SupplementDraft
   createdBy: string
   processWorkOrderRefs: SupplementProcessWorkOrderRef[]
+  supplyDecisionSnapshots: SupplementMaterialSupplyDecisionSnapshot[]
+  createdPurchaseOrderRefs: SupplementCreatedPurchaseOrderRef[]
   confirmationKey: string
   requestFingerprint: string
-}): SupplementRecord {
+  createdAt: string
+}): SupplementOrderLifecycle {
   if (supplementRecordSaveFailureForTest) throw new Error('模拟补料记录保存失败')
-  const confirmedDraft = {
-    ...input.draft,
-    confirmationIdentity: buildSupplementConfirmationIdentity(input.draft),
-  }
-  const record: SupplementRecord = {
-    ...input.identity,
+  const originalCutOrderId = input.draft.materialDemands[0]?.originalCutOrderId?.trim() || ''
+  const originalCutOrderNo = input.draft.materialDemands[0]?.originalCutOrderNo?.trim() || ''
+  const record = registerSupplementOrder({
+    id: input.identity.id,
+    recordNo: input.identity.recordNo,
+    cutOrderId: originalCutOrderId || input.draft.candidateId || '',
+    cutOrderNo: originalCutOrderNo || input.draft.sourceNo || '',
+    productionOrderId: input.draft.productionOrderId,
+    productionOrderNo: input.draft.productionOrderNo,
+    reason: input.draft.reason,
+    reasonDetail: input.draft.reasonDetail,
+    totalQty: input.draft.lines.reduce((sum, line) => sum + Number(line.supplementQty || 0), 0),
+    lineSummary: buildSupplementLineSummary(input.draft.lines),
+    lines: input.draft.lines,
+    materialDemands: input.draft.materialDemands,
+    processWorkOrderRefs: input.processWorkOrderRefs,
     confirmationKey: input.confirmationKey,
     requestFingerprint: input.requestFingerprint,
-    status: '已确认',
-    createdAt: nowText(),
+    draftMeta: {
+      candidateId: input.draft.candidateId,
+      sourceType: input.draft.sourceType,
+      sourceNo: input.draft.sourceNo,
+      styleName: input.draft.styleName,
+      spuCode: input.draft.spuCode,
+      styleImageUrl: normalizeText(input.draft.styleImageUrl) || getSpuImageUrl(getCandidateById(input.draft.candidateId)!.record),
+      styleImageAlt: normalizeText(input.draft.styleImageAlt) || `${input.draft.styleName}（${input.draft.spuCode}）款式图`,
+      ...(input.draft.releaseSnapshotId ? { releaseSnapshotId: input.draft.releaseSnapshotId } : {}),
+      ...(input.draft.releaseMatrixVersion != null ? { releaseMatrixVersion: input.draft.releaseMatrixVersion } : {}),
+      ...(input.draft.releaseTargetConfirmedAt ? { releaseTargetConfirmedAt: input.draft.releaseTargetConfirmedAt } : {}),
+    },
+    supplyDecisionSnapshots: input.supplyDecisionSnapshots,
+    createdPurchaseOrderRefs: input.createdPurchaseOrderRefs,
+    materialPrepDemandId: `SUP-PREP:${input.identity.id}`,
+    createdAt: input.createdAt,
     createdBy: input.createdBy.trim() || '系统',
-    draft: structuredClone(confirmedDraft),
-    processWorkOrderRefs: structuredClone(input.processWorkOrderRefs),
-  }
-  state.records = [record, ...state.records]
-  return prependSupplementRecord(record)
+  })
+  state.records = listSupplementOrders()
+  return record
 }
 
 export function confirmSupplementAndGenerateProcessWorkOrders(
   draft: SupplementDraft,
   createdBy: string,
-): { ok: true; record: SupplementRecord } | { ok: false; message: string } {
+): { ok: true; record: SupplementOrderLifecycle } | { ok: false; message: string } {
   const confirmationKey = buildSupplementConfirmationIdentity(draft)
   const requestFingerprint = buildSupplementRequestFingerprint(draft)
   const identity = buildSupplementRecordIdentity(draft)
-  const existingByConfirmationKey = state.records.find((record) => record.confirmationKey === confirmationKey)
+  const existingByConfirmationKey = listSupplementOrders().find((record) => record.confirmationKey === confirmationKey)
   if (existingByConfirmationKey) {
     if (existingByConfirmationKey.requestFingerprint !== requestFingerprint) {
       return { ok: false, message: '同一确认键对应的补料请求已发生变化，请使用新的确认键。' }
     }
     return { ok: true, record: structuredClone(existingByConfirmationKey) }
   }
-  const idCollision = state.records.find((record) => record.id === identity.id)
+  const idCollision = listSupplementOrders().find((record) => record.id === identity.id)
   if (idCollision) return { ok: false, message: '补料确认键发生编号冲突，不得复用其他补料记录。' }
   if (!draft.lines.length) return { ok: false, message: '补料单至少需要一条补料明细。' }
   if (draft.lines.some((line) => !Number.isFinite(line.supplementQty) || line.supplementQty <= 0 || !Number.isInteger(line.supplementQty))) {
@@ -2491,6 +2858,25 @@ export function confirmSupplementAndGenerateProcessWorkOrders(
   }
   if (!draft.materialDemands.length) {
     return { ok: false, message: '补料单至少需要一条可追溯到原裁片单和冻结 BOM 的补料物料。' }
+  }
+  if (draft.materialDemands.some((demand) => !demand.unit.trim())) {
+    return { ok: false, message: '冻结 BOM 的物料单位必须维护，不能用默认单位生成补料需求。' }
+  }
+  if (draft.materialDemands.some((demand) => !Number.isFinite(demand.requiredQty) || demand.requiredQty <= 0)) {
+    return { ok: false, message: '冻结 BOM 的单耗和损耗必须有效，不能用默认值生成补料需求。' }
+  }
+  if (draft.materialDemands.some((demand) => !normalizeText(demand.materialImageUrl))) {
+    return { ok: false, message: '存在未配置对应实物图的补料物料，请补齐图片后再确认。' }
+  }
+  const originalCutOrderIdentities = new Set(draft.materialDemands.map((demand) => (
+    `${demand.originalCutOrderId.trim()}\u0000${demand.originalCutOrderNo.trim()}`
+  )))
+  if (originalCutOrderIdentities.size !== 1) {
+    return { ok: false, message: '一张补料单只能对应一张原裁片单，请按原裁片单分别创建。' }
+  }
+  const sourceRecord = getCandidateById(draft.candidateId)?.record
+  if (!normalizeText(draft.styleImageUrl) && (!sourceRecord || !getSpuImageUrl(sourceRecord))) {
+    return { ok: false, message: '当前款式缺少对应真实图片，请补齐图片后再确认。' }
   }
 
   const snapshot = getProductionOrderTechPackSnapshot(draft.productionOrderId)
@@ -2597,8 +2983,9 @@ export function confirmSupplementAndGenerateProcessWorkOrders(
   }
 
   const generationInputs: ProcessWorkOrderGenerationInput[] = []
+  const generationDemandIds: string[][] = []
   for (const group of processGroups.values()) {
-    const bomUnit = group.bomItem.unit?.trim() || ''
+    const bomUnit = group.bomItem.unit?.trim() || group.demands[0]?.unit?.trim() || ''
     const representativeDemand = group.demands[0]
     const materialCode = representativeDemand.materialSku.trim()
     if (!bomUnit || !materialCode) {
@@ -2647,10 +3034,42 @@ export function confirmSupplementAndGenerateProcessWorkOrders(
       requiredDeliveryDate: '',
       createdBy,
     })
+    generationDemandIds.push(group.demands.map((demand) => demand.key))
+  }
+
+  const createdAt = nowText()
+  const supplyDecisionSnapshots = buildSupplementSupplyDecisions({
+    demands: draft.materialDemands,
+    checkedAt: createdAt,
+    confirmUncovered: draft.supplyRiskConfirmed === true,
+  })
+  if (supplyDecisionSnapshots.some((decision) => decision.uncoveredQty > 0 && decision.businessDecision !== '确认继续')) {
+    return { ok: false, message: '存在库存和采购在途未覆盖的物料，请由业务确认是否继续。' }
   }
 
   let transaction: ReturnType<typeof prepareProcessWorkOrderBatch> | null = null
   try {
+    const createdPurchaseOrderRefs: SupplementCreatedPurchaseOrderRef[] = supplyDecisionSnapshots
+      .filter((decision) => decision.newPurchaseRequired)
+      .map((decision) => {
+        const demand = draft.materialDemands.find((item) => item.key === decision.materialDemandId)!
+        const purchase = registerSupplementPurchaseOrder({
+          supplementOrderId: identity.id,
+          materialDemandId: decision.materialDemandId,
+          materialSku: demand.materialSku,
+          purchaseQty: decision.uncoveredQty,
+          unit: decision.unit,
+          createdAt,
+        })
+        return {
+          purchaseOrderId: purchase.purchaseOrderId,
+          purchaseOrderNo: purchase.purchaseOrderNo,
+          materialDemandId: purchase.materialDemandId,
+          materialSku: purchase.materialSku,
+          purchaseQty: purchase.purchaseQty,
+          unit: purchase.unit,
+        }
+      })
     const processWorkOrderRefs: SupplementProcessWorkOrderRef[] = []
     transaction = prepareProcessWorkOrderBatch(generationInputs)
     const ensuredBatch = transaction.commit()
@@ -2670,23 +3089,55 @@ export function confirmSupplementAndGenerateProcessWorkOrders(
           workOrderNo: workOrder.workOrderNo,
           materialSku: workOrder.materialSku,
           materialName: workOrder.materialName,
+          materialDemandIds: [...(generationDemandIds[inputIndex] ?? [])],
           plannedQty: workOrder.plannedQty,
           unit: workOrder.plannedUnit,
         })
       })
     })
-    return {
-      ok: true,
-      record: saveConfirmedSupplementRecord({
+    for (const demand of draft.materialDemands.filter((item) => item.dyeRequired && item.printRequired)) {
+      const dyeRefs = processWorkOrderRefs.filter((ref) => ref.processType === 'DYE' && ref.materialDemandIds.includes(demand.key))
+      const printRefs = processWorkOrderRefs.filter((ref) => ref.processType === 'PRINT' && ref.materialDemandIds.includes(demand.key))
+      printRefs.forEach((printRef) => registerSupplementPrintPrerequisite({
+        supplementOrderId: identity.id,
+        printWorkOrderId: printRef.workOrderId,
+        materialSku: demand.materialSku,
+        expectedInputQty: printRef.plannedQty,
+        unit: printRef.unit,
+        dyeWorkOrderIds: dyeRefs.map((ref) => ref.workOrderId),
+      }))
+    }
+    const record = saveConfirmedSupplementRecord({
         identity,
         draft,
         createdBy,
         processWorkOrderRefs,
+        supplyDecisionSnapshots,
+        createdPurchaseOrderRefs,
         confirmationKey,
         requestFingerprint,
-      }),
-    }
+        createdAt,
+      })
+    registerSupplementMaterialPrepDemand({
+      supplementOrderId: record.id,
+      supplementOrderNo: record.recordNo,
+      productionOrderId: record.productionOrderId,
+      productionOrderNo: record.productionOrderNo,
+      cutOrderId: record.cutOrderId,
+      cutOrderNo: record.cutOrderNo,
+      sequenceNo: record.sequenceNo,
+      reason: [record.reason, record.reasonDetail].filter(Boolean).join('：'),
+      materialDemands: record.materialDemands,
+      supplyDecisionSnapshots: record.supplyDecisionSnapshots,
+      createdPurchaseOrderRefs: record.createdPurchaseOrderRefs,
+      createdAt,
+    })
+    return { ok: true, record }
   } catch (error) {
+    removeSupplementMaterialPrepDemandForRollback(identity.id)
+    removeSupplementOrderForRollback(identity.id, confirmationKey)
+    removeSupplementPurchaseOrders(identity.id)
+    removeSupplementPrintPrerequisites(identity.id)
     if (transaction) {
       try {
         transaction.rollback()
@@ -2696,12 +3147,12 @@ export function confirmSupplementAndGenerateProcessWorkOrders(
         return { ok: false, message: aggregate.message }
       }
     }
-    return { ok: false, message: error instanceof Error ? error.message : '补料印染加工单生成失败，请重试。' }
+    return { ok: false, message: error instanceof Error ? error.message : '补料确认未完成，请核对后重试。' }
   }
 }
 
-export function listSupplementRecords(): SupplementRecord[] {
-  return listSupplementRecordsFromStore()
+export function listSupplementRecords(): SupplementOrderLifecycle[] {
+  return listSupplementOrders()
 }
 
 function buildMockDraft(
@@ -2756,10 +3207,17 @@ function buildMockDraft(
   }
 }
 
+export function listSupplementDraftsForTesting(): SupplementDraft[] {
+  return buildCandidates()
+    .filter((candidate) => candidate.canInitiate)
+    .map((candidate) => buildMockDraft(candidate, '裁片损耗', '专项检查补料说明。'))
+    .filter((draft): draft is SupplementDraft => Boolean(draft))
+}
+
 function ensureMockSupplementOrders(): void {
   if (mockSupplementOrdersSeeded) return
   mockSupplementOrdersSeeded = true
-  state.records = listSupplementRecordsFromStore()
+  state.records = listSupplementOrders()
 
   const seedSourceOrder = [
     'CUT-260302-004-01',
@@ -2812,12 +3270,15 @@ function ensureMockSupplementOrders(): void {
       lines,
       materialDemands,
       confirmationIdentity: `supplement-page-seed-${index + 1}`,
+      supplyRiskConfirmed: true,
     }
     const existingSeed = state.records.find((record) =>
-      record.draft.productionOrderId === variedDraft.productionOrderId
-      && record.draft.sourceNo === variedDraft.sourceNo
-      && record.draft.materialDemands.length === variedDraft.materialDemands.length
-      && record.draft.materialDemands.every((demand) =>
+      record.lines.some((line) => Boolean(asDraftLine(line).basis?.shortageMaterial))
+      &&
+      record.productionOrderId === variedDraft.productionOrderId
+      && record.draftMeta.sourceNo === variedDraft.sourceNo
+      && record.materialDemands.length === variedDraft.materialDemands.length
+      && record.materialDemands.every((demand) =>
         variedDraft.materialDemands.some((candidateDemand) =>
           candidateDemand.materialPatternMappingId === demand.materialPatternMappingId
           && candidateDemand.materialSku === demand.materialSku
@@ -2829,45 +3290,43 @@ function ensureMockSupplementOrders(): void {
       coveredSeedCount += 1
       continue
     }
-    const hasProcessDemand = variedDraft.materialDemands.some((demand) => demand.printRequired || demand.dyeRequired)
-    const confirmed = hasProcessDemand
-      ? confirmSupplementAndGenerateProcessWorkOrders(variedDraft, creators[index % creators.length])
-      : {
-          ok: true as const,
-          record: saveConfirmedSupplementRecord({
-            identity: buildSupplementRecordIdentity(variedDraft),
-            draft: variedDraft,
-            createdBy: creators[index % creators.length],
-            processWorkOrderRefs: [],
-            confirmationKey: buildSupplementConfirmationIdentity(variedDraft),
-            requestFingerprint: buildSupplementRequestFingerprint(variedDraft),
-          }),
-        }
+    const confirmed = confirmSupplementAndGenerateProcessWorkOrders(variedDraft, creators[index % creators.length])
     if (!confirmed.ok) continue
     coveredSeedCount += 1
   }
 
-  state.records = listSupplementRecordsFromStore()
+  state.records = listSupplementOrders()
 }
 
-export function bootstrapSupplementManagementMockData(): SupplementRecord[] {
-  ensureSupplementRecordPickupSeeds()
+export function bootstrapSupplementManagementMockData(): SupplementOrderLifecycle[] {
+  ensureFixedSupplementOrderFixturesRegistered()
   ensureMockSupplementOrders()
-  return listSupplementRecordsFromStore()
+  return listSupplementOrders()
 }
 
 export function resetSupplementManagementMockDataForTest(): void {
   mockSupplementOrdersSeeded = false
   state.records = []
-  resetSupplementRecordsForTest()
+  resetSupplementOrderRegistryForTesting()
 }
 
 function setFiltersFromDom(): void {
   const sourceType = document.querySelector<HTMLSelectElement>('[data-cutting-supplement-field="sourceType"]')?.value
   const keyword = document.querySelector<HTMLInputElement>('[data-cutting-supplement-field="keyword"]')?.value
+  const value = (field: string) => document.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-cutting-supplement-field="${field}"]`)?.value || ''
   state.filters = {
     sourceType: sourceType === 'production-order' || sourceType === 'cut-order' || sourceType === 'release-snapshot' ? sourceType : 'ALL',
     keyword: normalizeText(keyword),
+    recordNo: normalizeText(value('recordNo')),
+    productionOrderNo: normalizeText(value('productionOrderNo')),
+    cutOrderNo: normalizeText(value('cutOrderNo')),
+    styleKeyword: normalizeText(value('styleKeyword')),
+    status: value('status') === '未完成' || value('status') === '已完成' ? value('status') as '未完成' | '已完成' : 'ALL',
+    purchase: value('purchase') === '需要' || value('purchase') === '不需要' ? value('purchase') as '需要' | '不需要' : 'ALL',
+    dye: value('dye') === '需要' || value('dye') === '不需要' ? value('dye') as '需要' | '不需要' : 'ALL',
+    print: value('print') === '需要' || value('print') === '不需要' ? value('print') as '需要' | '不需要' : 'ALL',
+    currentNode: normalizeText(value('currentNode')),
+    createdDate: normalizeText(value('createdDate')),
   }
 }
 
@@ -2890,7 +3349,7 @@ function clearSupplementCreateState(): void {
 }
 
 export function isCraftCuttingSupplementManagementDialogOpen(): boolean {
-  return Boolean(state.activeRecordId || state.pendingConfirmDraft)
+  return Boolean(state.activeRecordId || state.pendingConfirmDraft || state.imagePreview)
 }
 
 export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement, event?: Event): boolean {
@@ -2899,6 +3358,11 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
     higoodStandardListColumnDrag?: true
     higoodStandardListColumnKey?: string
   }) | undefined
+  if (event?.type === 'keydown' && (event as KeyboardEvent).key === 'Escape' && state.imagePreview) {
+    state.imagePreview = null
+    refreshSupplementOverlay()
+    return true
+  }
   if (event?.type === 'dragend') {
     if (!internalDragEvent?.higoodStandardListColumnDrag) return false
     state.draggedColumnKey = ''
@@ -2981,6 +3445,18 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
 
   const actionNode = target.closest<HTMLElement>('[data-cutting-supplement-action]')
   const action = actionNode?.dataset.cuttingSupplementAction
+  if (action === 'open-image-preview') {
+    const src = actionNode?.dataset.imagePreviewSrc || ''
+    if (!src) return true
+    state.imagePreview = { src, alt: actionNode?.dataset.imagePreviewAlt || '业务对象大图' }
+    refreshSupplementOverlay()
+    return true
+  }
+  if (action === 'close-image-preview') {
+    state.imagePreview = null
+    refreshSupplementOverlay()
+    return true
+  }
   if (!actionNode || !action) return false
 
   if (action === 'clear-feedback') {
@@ -2999,7 +3475,7 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
   }
 
   if (action === 'reset-filters') {
-    state.filters = { sourceType: 'ALL', keyword: '' }
+    state.filters = { sourceType: 'ALL', keyword: '', recordNo: '', productionOrderNo: '', cutOrderNo: '', styleKeyword: '', status: 'ALL', purchase: 'ALL', dye: 'ALL', print: 'ALL', currentNode: '', createdDate: '' }
     state.page = 1
     state.feedback = null
     refreshSupplementFeedback()
@@ -3264,7 +3740,13 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
       showDraftError(container, '补料说明必须填写。')
       return true
     }
-    state.pendingConfirmDraft = structuredClone({ ...baseDraft, reason, reasonDetail })
+    const originalCutOrderIdentity = container.querySelector<HTMLSelectElement>('[data-release-original-cut-order]')?.value || ''
+    const scopedDraft = scopeReleaseSnapshotDraftToCutOrder(baseDraft, originalCutOrderIdentity)
+    if (!scopedDraft) {
+      showDraftError(container, '请选择一张有补料明细的原裁片单。')
+      return true
+    }
+    state.pendingConfirmDraft = structuredClone({ ...scopedDraft, reason, reasonDetail })
     state.feedback = null
     return true
   }
@@ -3281,6 +3763,18 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
       state.pendingConfirmDraft.releaseSnapshotId
       && !getCurrentReleaseSnapshotOrInvalidate(state.pendingConfirmDraft.releaseSnapshotId)
     ) return true
+    const decisions = buildSupplementSupplyDecisions({
+      demands: state.pendingConfirmDraft.materialDemands,
+      checkedAt: nowText(),
+      confirmUncovered: state.pendingConfirmDraft.supplyRiskConfirmed === true,
+    })
+    if (decisions.some((decision) => decision.uncoveredQty > 0) && state.pendingConfirmDraft.supplyRiskConfirmed !== true) {
+      state.pendingConfirmDraft = { ...state.pendingConfirmDraft, supplyRiskConfirmed: true }
+      state.feedback = { tone: 'warning', message: '各仓库存和采购在途仍有未覆盖缺口。请核对本次采购数量后，再次确认是否继续。' }
+      refreshSupplementFeedback()
+      refreshSupplementOverlay()
+      return true
+    }
     const result = confirmSupplementAndGenerateProcessWorkOrders(state.pendingConfirmDraft, '裁床主管 周敏')
     if (!result.ok) {
       state.feedback = { tone: 'warning', message: result.message }
@@ -3298,6 +3792,11 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
   }
 
   if (action === 'close-overlay') {
+    if (state.imagePreview) {
+      state.imagePreview = null
+      refreshSupplementOverlay()
+      return true
+    }
     state.activeRecordId = ''
     state.columnSettingsOpen = false
     state.pendingConfirmDraft = null

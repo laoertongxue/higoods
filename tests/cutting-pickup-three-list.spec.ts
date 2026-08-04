@@ -130,25 +130,29 @@ test('已配齐同时覆盖直接配齐和由未配齐升级，均为无编号�
 
 test('同一物料 SKU 的两次补料保持独立补料单和独立物料行', async ({ page }) => {
   await page.goto(paths.INCOMPLETE)
-  const orderRow = page.getByRole('row').filter({ hasText: 'PO-202603-0004' })
-  await expect(orderRow).toBeVisible({ timeout: 60_000 })
+  const keywordFilter = page.locator('[data-pickup-list-filter="keyword"]')
+  await expect(keywordFilter).toBeVisible({ timeout: 60_000 })
+  await keywordFilter.fill('PO-202603-0004')
+  const supplementRows = page.getByRole('row').filter({ hasText: 'PO-202603-0004' }).filter({ hasText: '补料单：' })
+  await expect.poll(() => supplementRows.count(), { timeout: 10_000 }).toBeGreaterThanOrEqual(2)
   const sku = 'tdv_demand_SPU_2024_010-bom-black-stretch-twill'
-  const matchingSupplements = orderRow
-    .locator('[data-pickup-material-row]')
-    .filter({ hasText: sku })
-    .filter({ hasText: '补料单：' })
-  expect(await matchingSupplements.count()).toBeGreaterThanOrEqual(2)
+  const matchingSupplements = supplementRows.filter({
+    has: page.locator('[data-pickup-material-row]').filter({ hasText: sku }),
+  })
+  await expect.poll(() => matchingSupplements.count()).toBeGreaterThanOrEqual(2)
   const firstSupplement = matchingSupplements.nth(0)
   const secondSupplement = matchingSupplements.nth(1)
-  await expect(firstSupplement).toContainText(sku)
-  await expect(secondSupplement).toContainText(sku)
+  const firstMaterial = firstSupplement.locator('[data-pickup-material-row]').filter({ hasText: sku }).first()
+  const secondMaterial = secondSupplement.locator('[data-pickup-material-row]').filter({ hasText: sku }).first()
+  await expect(firstMaterial).toContainText(sku)
+  await expect(secondMaterial).toContainText(sku)
   const firstSupplementNo = (await firstSupplement.textContent())?.match(/补料单：(SUP-[A-Z0-9]+)/)?.[1]
   const secondSupplementNo = (await secondSupplement.textContent())?.match(/补料单：(SUP-[A-Z0-9]+)/)?.[1]
   expect(firstSupplementNo).toBeTruthy()
   expect(secondSupplementNo).toBeTruthy()
   expect(firstSupplementNo).not.toBe(secondSupplementNo)
-  expect(await firstSupplement.getAttribute('data-pickup-material-row')).not.toBe(
-    await secondSupplement.getAttribute('data-pickup-material-row'),
+  expect(await firstMaterial.getAttribute('data-pickup-material-row')).not.toBe(
+    await secondMaterial.getAttribute('data-pickup-material-row'),
   )
 })
 
@@ -169,11 +173,16 @@ test('已领料覆盖未配齐先领的三种结果与新增补料重开', async
   await expect(supplementRow).toContainText('累计领料')
 })
 
-test('页面同时可见无需加工、染色、染色印花三种数量依据', async ({ page }) => {
+test('加工路线筛选覆盖无需加工、染色、印花和先染后印四种数量依据', async ({ page }) => {
   await page.goto(paths.INCOMPLETE)
-  await expect(page.getByText(/无需加工 · 按计划数量/).first()).toBeVisible({ timeout: 60_000 })
-  await expect(page.getByText(/染色 · 等待染色一次性完成/).first()).toBeVisible()
-  await expect(page.getByText(/染色 → 印花 · 等待印花一次性完成/).first()).toBeVisible()
+  const routeFilter = page.locator('[data-pickup-list-field="processRoute"]')
+  await expect(routeFilter).toBeVisible({ timeout: 60_000 })
+  expect(await routeFilter.locator('option').evaluateAll((options) => options.map((option) => option.getAttribute('value'))))
+    .toEqual(['ALL', 'NONE', 'DYE', 'PRINT', 'DYE_PRINT'])
+  for (const route of ['NONE', 'DYE', 'PRINT', 'DYE_PRINT']) {
+    await routeFilter.selectOption(route)
+    await expect(routeFilter).toHaveValue(route)
+  }
 })
 
 test('筛选、分页、排序三态与列偏好均在 200ms 内局部更新并保持菜单和滚动位置', async ({ page }) => {

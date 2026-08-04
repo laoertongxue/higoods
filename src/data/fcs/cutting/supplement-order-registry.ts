@@ -1,3 +1,6 @@
+import type { SupplementCreatedPurchaseOrderRef } from './supplement-purchase-order-registry.ts'
+import type { SupplementMaterialSupplyDecisionSnapshot } from './supplement-supply-domain.ts'
+
 export type SupplementOrderStatus = '未完成' | '已完成'
 
 export interface SupplementOrderLineFact {
@@ -6,11 +9,57 @@ export interface SupplementOrderLineFact {
   readonly supplementQty: number
 }
 
-export interface SupplementOrderMaterialDemandFact {
-  readonly materialSku: string
-  readonly materialName: string
-  readonly requiredQty: number
-  readonly unit: string
+export type SupplementMaterialDemand = {
+  key: string
+  materialPatternMappingId: string
+  sourceBomItemId: string
+  techPackVersionId: string
+  materialSku: string
+  materialName: string
+  materialTypeLabel: string
+  materialImageUrl: string
+  materialImageAlt: string
+  materialAlias: string
+  materialRole: '面料A' | '面料B' | '面料C' | '里布' | '衬' | '罗纹' | '辅料' | '包材' | '未识别'
+  roleSource: string
+  roleConfirmStatus: '已确认' | '待确认'
+  patternId: string
+  patternName: string
+  requiredQty: number
+  unit: string
+  printRequired: boolean
+  dyeRequired: boolean
+  processNote: string
+  originalCutOrderId: string
+  originalCutOrderNo: string
+  color?: string
+  spec?: string
+  patternPart?: string
+}
+
+export interface SupplementProcessWorkOrderRef {
+  processType: 'PRINT' | 'DYE'
+  sourceType: 'CUT_PIECE_SUPPLEMENT'
+  workOrderId: string
+  workOrderNo: string
+  materialSku: string
+  materialName: string
+  materialDemandIds: string[]
+  plannedQty: number
+  unit: string
+}
+
+export interface SupplementDraftMeta {
+  readonly candidateId: string
+  readonly sourceType: 'production-order' | 'cut-order' | 'release-snapshot'
+  readonly sourceNo: string
+  readonly styleName: string
+  readonly spuCode: string
+  readonly styleImageUrl: string
+  readonly styleImageAlt: string
+  readonly releaseSnapshotId?: string
+  readonly releaseMatrixVersion?: number
+  readonly releaseTargetConfirmedAt?: string
 }
 
 export interface SupplementOrderLifecycle {
@@ -26,7 +75,14 @@ export interface SupplementOrderLifecycle {
   readonly totalQty: number
   readonly lineSummary: string
   readonly lines: ReadonlyArray<SupplementOrderLineFact>
-  readonly materialDemands: ReadonlyArray<SupplementOrderMaterialDemandFact>
+  readonly materialDemands: ReadonlyArray<SupplementMaterialDemand>
+  readonly supplyDecisionSnapshots: ReadonlyArray<SupplementMaterialSupplyDecisionSnapshot>
+  readonly processWorkOrderRefs: ReadonlyArray<SupplementProcessWorkOrderRef>
+  readonly createdPurchaseOrderRefs: ReadonlyArray<SupplementCreatedPurchaseOrderRef>
+  readonly materialPrepDemandId: string
+  readonly confirmationKey: string
+  readonly requestFingerprint: string
+  readonly draftMeta: SupplementDraftMeta
   readonly createdAt: string
   readonly createdBy: string
   readonly completedAt: string
@@ -39,8 +95,29 @@ type MutableSupplementOrderLifecycle = {
 
 export type RegisterSupplementOrderInput = Omit<
   SupplementOrderLifecycle,
-  'sequenceNo' | 'status' | 'completedAt' | 'completedBy'
->
+  | 'sequenceNo'
+  | 'status'
+  | 'completedAt'
+  | 'completedBy'
+  | 'productionOrderId'
+  | 'processWorkOrderRefs'
+  | 'supplyDecisionSnapshots'
+  | 'createdPurchaseOrderRefs'
+  | 'materialPrepDemandId'
+  | 'confirmationKey'
+  | 'requestFingerprint'
+  | 'draftMeta'
+> & Partial<Pick<
+  SupplementOrderLifecycle,
+  | 'productionOrderId'
+  | 'processWorkOrderRefs'
+  | 'supplyDecisionSnapshots'
+  | 'createdPurchaseOrderRefs'
+  | 'materialPrepDemandId'
+  | 'confirmationKey'
+  | 'requestFingerprint'
+  | 'draftMeta'
+>>
 
 const supplementOrders = new Map<string, MutableSupplementOrderLifecycle>()
 
@@ -51,6 +128,16 @@ function cloneSupplementOrder(
     ...order,
     lines: order.lines.map((line) => ({ ...line })),
     materialDemands: order.materialDemands.map((demand) => ({ ...demand })),
+    supplyDecisionSnapshots: order.supplyDecisionSnapshots.map((snapshot) => ({
+      ...snapshot,
+      inventoryRows: snapshot.inventoryRows.map((row) => ({ ...row })),
+      existingTransitSummary: snapshot.existingTransitSummary ? { ...snapshot.existingTransitSummary } : null,
+      existingTransitRows: (snapshot.existingTransitRows ?? []).map((row) => ({ ...row })),
+      warnings: [...snapshot.warnings],
+    })),
+    processWorkOrderRefs: order.processWorkOrderRefs.map((ref) => ({ ...ref, materialDemandIds: [...ref.materialDemandIds] })),
+    createdPurchaseOrderRefs: order.createdPurchaseOrderRefs.map((ref) => ({ ...ref })),
+    draftMeta: { ...order.draftMeta },
   }
 }
 
@@ -98,6 +185,25 @@ export function registerSupplementOrder(
     ...input,
     lines: input.lines.map((line) => ({ ...line })),
     materialDemands: input.materialDemands.map((demand) => ({ ...demand })),
+    supplyDecisionSnapshots: (input.supplyDecisionSnapshots ?? []).map((snapshot) => ({
+      ...snapshot,
+      inventoryRows: snapshot.inventoryRows.map((row) => ({ ...row })),
+      existingTransitSummary: snapshot.existingTransitSummary ? { ...snapshot.existingTransitSummary } : null,
+      existingTransitRows: (snapshot.existingTransitRows ?? []).map((row) => ({ ...row })),
+      warnings: [...snapshot.warnings],
+    })),
+    processWorkOrderRefs: (input.processWorkOrderRefs ?? []).map((ref) => ({
+      ...ref,
+      materialDemandIds: [...(ref.materialDemandIds ?? [])],
+    })),
+    createdPurchaseOrderRefs: (input.createdPurchaseOrderRefs ?? []).map((ref) => ({ ...ref })),
+    materialPrepDemandId: input.materialPrepDemandId ?? `SUP-PREP:${input.id}`,
+    draftMeta: input.draftMeta
+      ? { ...input.draftMeta }
+      : { candidateId: '', sourceType: 'cut-order', sourceNo: '', styleName: '', spuCode: '', styleImageUrl: '', styleImageAlt: '' },
+    productionOrderId: input.productionOrderId ?? '',
+    confirmationKey: input.confirmationKey ?? '',
+    requestFingerprint: input.requestFingerprint ?? '',
     sequenceNo: listSupplementOrdersByCutOrder(input.cutOrderId).length + 1,
     status: '未完成',
     completedAt: '',
@@ -111,6 +217,7 @@ export function completeSupplementOrder(input: {
   id: string
   completedAt: string
   completedBy: string
+  unresolvedDifferences?: ReadonlyArray<{ materialName: string; nodeName: string; quantity: number; unit: string }>
 }): SupplementOrderLifecycle {
   const existing = supplementOrders.get(input.id)
   if (!existing) {
@@ -118,6 +225,10 @@ export function completeSupplementOrder(input: {
   }
   if (existing.status === '已完成') {
     throw new Error('该补料单已完成，无需重复操作。')
+  }
+  if (input.unresolvedDifferences?.length) {
+    const first = input.unresolvedDifferences[0]
+    throw new Error(`${first.materialName}的${first.nodeName}仍有 ${first.quantity} ${first.unit} 未处理差异，暂不能完成补料。`)
   }
 
   const completed: MutableSupplementOrderLifecycle = {
@@ -132,4 +243,9 @@ export function completeSupplementOrder(input: {
 
 export function resetSupplementOrderRegistryForTesting(): void {
   supplementOrders.clear()
+}
+
+export function removeSupplementOrderForRollback(id: string, confirmationKey: string): void {
+  const existing = supplementOrders.get(id)
+  if (existing?.confirmationKey === confirmationKey && existing.status === '未完成') supplementOrders.delete(id)
 }

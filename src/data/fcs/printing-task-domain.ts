@@ -42,6 +42,7 @@ import {
 import { syncFactoryWarehouseHandoverSourceByTaskId } from './factory-internal-warehouse.ts'
 import { productionOrders, type ProductionOrder } from './production-orders.ts'
 import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
+import { assertPrintExecutionPrerequisite } from './supplement-print-prerequisite.ts'
 import type { ProductionOrderTechPackSnapshot } from './production-tech-pack-snapshot-types.ts'
 import { listActiveProcessCraftDefinitions, type ProcessCraftDefinition } from './process-craft-dict.ts'
 import {
@@ -2319,6 +2320,7 @@ export function hasDirectTransferToReviewTransition(): boolean {
 }
 
 export function startColorTest(printOrderId: string, operatorName = '印花工厂'): PrintExecutionNodeRecord {
+  assertPrintExecutionPrerequisite(printOrderId)
   const order = getMutableWorkOrder(printOrderId)
   upsertNodeRecord(printOrderId, 'COLOR_TEST', (current) => ({
     nodeRecordId: current?.nodeRecordId || createNodeRecordId(printOrderId, 'COLOR_TEST'),
@@ -2366,6 +2368,7 @@ export function startPrinting(
   printOrderId: string,
   input: { printerNo: string; operatorName?: string },
 ): PrintExecutionNodeRecord {
+  assertPrintExecutionPrerequisite(printOrderId)
   const validation = validatePrintStartPayload(input)
   if (!validation.ok) {
     throw new Error(validation.message)

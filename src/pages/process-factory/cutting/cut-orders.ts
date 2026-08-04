@@ -119,6 +119,12 @@ import {
   listSupplementOrdersByCutOrder,
   type SupplementOrderLifecycle,
 } from '../../../data/fcs/cutting/supplement-order-registry.ts'
+import {
+  getSupplementCompletionEligibility,
+  getSupplementMaterialNodeFacts,
+  getSupplementNodeOverview,
+} from '../../../data/fcs/cutting/supplement-node-facts.ts'
+import { listMaterialPrepOrderProjections } from '../../../data/fcs/cutting/production-material-prep.ts'
 import { ensureFixedSupplementOrderFixturesRegistered } from '../../../data/fcs/cutting/cut-order-supplement-fixture.ts'
 
 ensureFixedSupplementOrderFixturesRegistered()
@@ -170,6 +176,7 @@ interface CutOrdersPageState {
   pendingCompleteCutOrderId: string | null
   selectedIncompleteSupplementId: string | null
   confirmationSupplementId: string | null
+  imagePreview: { src: string; alt: string } | null
   supplementFeedback: { tone: 'warning' | 'success'; message: string } | null
   page: number
   sort: StandardListSortState | null
@@ -217,6 +224,15 @@ let supplementReturnFocus: HTMLElement | null = null
 let supplementReturnFocusIdentity: Record<string, string> | null = null
 let confirmationReturnFocus: HTMLElement | null = null
 let confirmationReturnFocusIdentity: Record<string, string> | null = null
+const defaultCutOrderSupplementNowProvider = (): string => new Date().toLocaleString('sv-SE', {
+  timeZone: 'Asia/Jakarta',
+  year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+}).replace(',', '')
+let cutOrderSupplementNowProvider = defaultCutOrderSupplementNowProvider
+
+export function setCutOrderSupplementNowProviderForTesting(provider?: () => string): void {
+  cutOrderSupplementNowProvider = provider ?? defaultCutOrderSupplementNowProvider
+}
 
 const state: CutOrdersPageState = {
   filters: { ...initialFilters },
@@ -225,6 +241,7 @@ const state: CutOrdersPageState = {
   pendingCompleteCutOrderId: null,
   selectedIncompleteSupplementId: null,
   confirmationSupplementId: null,
+  imagePreview: null,
   supplementFeedback: null,
   page: 1,
   sort: null,
@@ -803,7 +820,8 @@ function renderSupplementTags(row: CutOrderRow): string {
         const className = order.status === '已完成'
           ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
           : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
-        return `<button type="button" class="rounded-full border px-2 py-1 text-[11px] font-medium ${className}" aria-label="${escapeHtml(label)}" data-cutting-piece-action="open-supplement-detail" data-supplement-id="${escapeHtml(order.id)}">${escapeHtml(label)}</button>`
+        const quantityLabel = order.status === '未完成' ? ` · 未完成 ${order.totalQty} 件` : ` · ${order.totalQty} 件`
+        return `<button type="button" class="rounded-full border px-2 py-1 text-[11px] font-medium ${className}" aria-label="${escapeHtml(label)}" data-cutting-piece-action="open-supplement-detail" data-supplement-id="${escapeHtml(order.id)}">${escapeHtml(label)}${escapeHtml(quantityLabel)}</button>`
       }).join('')}
     </div>
   `
@@ -1373,6 +1391,13 @@ function renderCutOrderPagination(paging: StandardListPageSlice<CutOrderRow>): s
 }
 
 function renderSupplementDetail(order: SupplementOrderLifecycle): string {
+  const nodeRows = getSupplementMaterialNodeFacts(order)
+  const originalPrepProjections = listMaterialPrepOrderProjections().filter((projection) =>
+    projection.order.productionOrderId === order.productionOrderId
+  )
+  const renderImage = (src: string, alt: string, className: string) => src
+    ? `<button type="button" class="relative overflow-hidden rounded border bg-muted ${className}" data-cutting-piece-action="open-supplement-image" data-image-src="${escapeHtml(src)}" data-image-alt="${escapeHtml(alt)}"><img class="h-full w-full object-cover" src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" onload="this.nextElementSibling.classList.add('hidden')" onerror="this.classList.add('hidden');this.nextElementSibling.textContent='图片加载失败'"><span class="absolute inset-0 flex items-center justify-center bg-muted px-1 text-[9px] text-muted-foreground">图片加载中</span></button>`
+    : `<div class="flex items-center justify-center rounded border bg-muted text-[9px] text-muted-foreground ${className}">图片未提供</div>`
   return `
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" data-cutting-piece-supplement-detail>
       <section class="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-background shadow-xl" role="dialog" aria-modal="true" aria-labelledby="cut-order-supplement-detail-title">
@@ -1381,7 +1406,8 @@ function renderSupplementDetail(order: SupplementOrderLifecycle): string {
           <button type="button" class="rounded-md border px-3 py-1.5 text-sm" data-cutting-piece-action="close-supplement-overlay">关闭</button>
         </header>
         <div class="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
-          <div class="grid gap-4 sm:grid-cols-2">
+          <div class="grid gap-4 sm:grid-cols-[96px_1fr_1fr]">
+          <div class="sm:row-span-3">${renderImage(order.draftMeta.styleImageUrl, order.draftMeta.styleImageAlt, 'h-24 w-24')}</div>
           ${[
             ['补料单号', order.recordNo], ['裁片单', order.cutOrderNo], ['生产单', order.productionOrderNo],
             ['补料次数', `第 ${order.sequenceNo} 次`], ['状态', order.status], ['原因', order.reason],
@@ -1399,29 +1425,23 @@ function renderSupplementDetail(order: SupplementOrderLifecycle): string {
               </table>
             </div>
           </section>
-          <section>
-            <h3 class="text-sm font-semibold">物料需求</h3>
-            <div class="mt-2 max-h-64 overflow-auto rounded-lg border">
-              <table class="w-full min-w-[640px] text-left text-sm">
-                <thead class="sticky top-0 bg-muted/95 text-xs text-muted-foreground"><tr><th class="px-3 py-2">物料 SKU</th><th class="px-3 py-2">物料</th><th class="px-3 py-2 text-right">需求数量</th></tr></thead>
-                <tbody>${order.materialDemands.map((demand) => `<tr class="border-t"><td class="px-3 py-2 font-mono">${escapeHtml(demand.materialSku)}</td><td class="px-3 py-2">${escapeHtml(demand.materialName)}</td><td class="px-3 py-2 text-right tabular-nums">${escapeHtml(`${demand.requiredQty} ${demand.unit}`)}</td></tr>`).join('')}</tbody>
-              </table>
-            </div>
-          </section>
+          <section><h3 class="text-sm font-semibold">原配料与领料事实</h3><div class="mt-2 overflow-auto rounded-lg border"><table class="min-w-[900px] text-left text-sm"><thead class="bg-muted/95 text-xs text-muted-foreground"><tr><th class="px-3 py-2">配料单</th><th class="px-3 py-2">物料</th><th class="px-3 py-2">需求</th><th class="px-3 py-2">已配</th><th class="px-3 py-2">有效已领</th><th class="px-3 py-2">配料 / 领料状态</th></tr></thead><tbody>${originalPrepProjections.flatMap((projection) => projection.lines.map((line) => `<tr class="border-t"><td class="px-3 py-2">${escapeHtml(projection.order.prepOrderNo)}</td><td class="px-3 py-2">${escapeHtml(line.materialName)}<div class="text-xs text-muted-foreground">${escapeHtml(line.materialSku)}</div></td><td class="px-3 py-2">${line.requiredQty} ${escapeHtml(line.unit)}</td><td class="px-3 py-2">${line.confirmedPrepQty} ${escapeHtml(line.unit)}</td><td class="px-3 py-2">${Math.max(line.pickedQty - line.returnedQty, 0)} ${escapeHtml(line.unit)}</td><td class="px-3 py-2">${escapeHtml(line.linePrepStatus)} / ${escapeHtml(projection.order.pickupStatus)}</td></tr>`)).join('') || '<tr><td colspan="6" class="px-3 py-6 text-center text-muted-foreground">原配料与领料事实未形成</td></tr>'}</tbody></table></div></section>
+          <section><h3 class="text-sm font-semibold">布料业务详情</h3><div class="mt-2 overflow-auto rounded-lg border"><table class="min-w-[1300px] text-left text-sm"><thead class="bg-muted/95 text-xs text-muted-foreground"><tr><th class="px-3 py-2">补料物料</th><th class="px-3 py-2">库存</th><th class="px-3 py-2">采购</th><th class="px-3 py-2">染色</th><th class="px-3 py-2">印花</th><th class="px-3 py-2">中转仓配料</th></tr></thead><tbody>${nodeRows.map((row) => `<tr class="border-t align-top"><td class="px-3 py-2"><div class="flex gap-2">${renderImage(row.material.materialImageUrl, row.material.materialImageAlt, 'h-12 w-12 shrink-0')}<div><strong>${escapeHtml(row.material.materialName)}</strong><div class="text-xs">${escapeHtml(row.material.materialSku)} · ${row.material.requiredQty} ${escapeHtml(row.material.unit)}</div></div></div></td><td class="px-3 py-2">${escapeHtml(row.inventory.summary)}</td><td class="px-3 py-2">${escapeHtml(row.purchase.summary)}</td><td class="px-3 py-2">${escapeHtml(row.dye.summary)}</td><td class="px-3 py-2">${escapeHtml(row.print.summary)}</td><td class="px-3 py-2">${escapeHtml(row.materialPrep.summary)}${row.hasUnresolvedDifference ? '<div class="text-xs font-medium text-red-700">存在未处理差异</div>' : ''}</td></tr>`).join('')}</tbody></table></div></section>
         </div>
-        ${order.status === '未完成' ? `<footer class="flex justify-end border-t px-5 py-4"><button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-cutting-piece-action="request-complete-supplement" data-supplement-id="${escapeHtml(order.id)}">完成该补料单</button></footer>` : ''}
       </section>
     </div>
   `
 }
 
 function renderSupplementConfirmation(order: SupplementOrderLifecycle): string {
+  const overview = getSupplementNodeOverview(order)
+  const eligibility = getSupplementCompletionEligibility(order)
   return `
     <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/55 p-4" data-cutting-piece-supplement-confirm>
       <section class="w-full max-w-lg rounded-xl bg-background shadow-xl" role="alertdialog" aria-modal="true" aria-labelledby="cut-order-supplement-confirm-title">
         <header class="border-b px-5 py-4"><h2 id="cut-order-supplement-confirm-title" class="text-lg font-semibold">确认完成补料</h2></header>
-        <div class="space-y-2 p-5 text-sm"><p>确认完成当前补料单：</p><p class="font-semibold">${escapeHtml(order.recordNo)} · 第 ${order.sequenceNo} 次 · ${escapeHtml(order.cutOrderNo)} · 总补料数量 ${escapeHtml(`${order.totalQty} 件`)}</p><p class="text-muted-foreground">本次只完成这一张补料单，不改变裁片单主状态，也不影响其他补料单。</p></div>
-        <footer class="flex justify-end gap-2 border-t px-5 py-4"><button type="button" class="rounded-md border px-4 py-2 text-sm" data-cutting-piece-action="cancel-complete-supplement">取消</button><button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-cutting-piece-action="confirm-complete-supplement" data-supplement-id="${escapeHtml(order.id)}">确认完成</button></footer>
+        <div class="space-y-2 p-5 text-sm"><p>确认完成当前补料单：</p><p class="font-semibold">${escapeHtml(order.recordNo)} · 第 ${order.sequenceNo} 次 · ${escapeHtml(order.cutOrderNo)} · 总补料数量 ${escapeHtml(`${order.totalQty} 件`)}</p><div class="rounded-lg bg-muted/50 p-3">库存：${escapeHtml(overview.inventory)}<br>采购：${escapeHtml(overview.purchase)}<br>染色：${escapeHtml(overview.dye)}<br>印花：${escapeHtml(overview.print)}<br>中转仓配料：${escapeHtml(overview.materialPrep)}</div>${eligibility.allowed ? '' : `<div class="rounded-lg border border-red-200 bg-red-50 p-3 text-red-700">${escapeHtml(eligibility.reasons.join('；'))}</div>`}<p class="text-muted-foreground">本次只完成这一张补料单，不改变裁片单主状态，也不影响其他补料单。</p></div>
+        <footer class="flex justify-end gap-2 border-t px-5 py-4"><button type="button" class="rounded-md border px-4 py-2 text-sm" data-cutting-piece-action="cancel-complete-supplement">取消</button><button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50" data-cutting-piece-action="confirm-complete-supplement" data-supplement-id="${escapeHtml(order.id)}" ${eligibility.allowed ? '' : 'disabled'}>确认完成</button></footer>
       </section>
     </div>
   `
@@ -1452,10 +1472,12 @@ function renderSupplementFeedback(): string {
 }
 
 function renderCutOrderListOverlay(): string {
+  if (state.imagePreview) return `<div class="fixed inset-0 z-[80] flex items-center justify-center p-6" role="dialog" aria-modal="true" aria-label="${escapeHtml(state.imagePreview.alt)}"><button type="button" class="absolute inset-0 bg-black/75" data-cutting-piece-action="close-supplement-image" aria-label="关闭大图"></button><div class="relative z-10 max-h-[90vh] max-w-[90vw] rounded-xl bg-background p-4"><button type="button" class="absolute right-3 top-3 rounded border bg-background px-3 py-1" data-cutting-piece-action="close-supplement-image">关闭</button><img class="max-h-[82vh] max-w-[84vw] object-contain" src="${escapeHtml(state.imagePreview.src)}" alt="${escapeHtml(state.imagePreview.alt)}" onerror="this.classList.add('hidden');this.nextElementSibling.classList.remove('hidden')"><div class="hidden px-10 py-20 text-red-700">图片加载失败，请核对素材。</div></div></div>`
   const activeSupplement = state.activeSupplementId ? getSupplementOrder(state.activeSupplementId) : undefined
   const confirmation = state.confirmationSupplementId ? getSupplementOrder(state.confirmationSupplementId) : undefined
   const feedback = renderSupplementFeedback()
   if (activeSupplement) return `${renderSupplementDetail(activeSupplement)}${confirmation ? renderSupplementConfirmation(confirmation) : ''}${feedback}`
+  if (confirmation) return `${renderSupplementConfirmation(confirmation)}${feedback}`
   if (state.pendingCompleteCutOrderId) return `${renderSupplementPicker(state.pendingCompleteCutOrderId)}${feedback}`
   if (!state.columnSettingsOpen) return feedback
   return `${withSkipPageRerender(renderStandardListColumnSettings({
@@ -1639,7 +1661,8 @@ function ensureCutOrderListLocalEvents(): void {
     }
     if (event.key !== 'Escape') return
     let restoreConfirmationFocus = false
-    if (state.confirmationSupplementId) {
+    if (state.imagePreview) state.imagePreview = null
+    else if (state.confirmationSupplementId) {
       state.confirmationSupplementId = null
       restoreConfirmationFocus = true
     }
@@ -3205,6 +3228,10 @@ export function handleCraftCuttingCutOrdersEvent(target: Element, suppliedEvent?
     state.confirmationSupplementId = null
     state.supplementFeedback = null
     rememberSupplementTrigger(actionNode)
+    if (incomplete.length === 1) {
+      state.pendingCompleteCutOrderId = null
+      state.confirmationSupplementId = incomplete[0].id
+    }
     refreshCutOrderOverlay()
     focusTopSupplementOverlay()
     return true
@@ -3217,25 +3244,6 @@ export function handleCraftCuttingCutOrdersEvent(target: Element, suppliedEvent?
     if (!order || order.status !== '未完成' || order.cutOrderId !== state.pendingCompleteCutOrderId) return true
     state.selectedIncompleteSupplementId = supplementId
     refreshCutOrderOverlay()
-    return true
-  }
-
-  if (action === 'request-complete-supplement') {
-    const supplementId = actionNode.dataset.supplementId || ''
-    const order = getSupplementOrder(supplementId)
-    if (!order || order.status !== '未完成') {
-      state.supplementFeedback = {
-        tone: 'warning',
-        message: order ? '该补料单已完成，无需重复操作。' : '未找到对应补料单，请刷新后重试。',
-      }
-      state.confirmationSupplementId = null
-      refreshSupplementLinkage()
-      return true
-    }
-    rememberConfirmationTrigger(actionNode)
-    state.confirmationSupplementId = supplementId
-    refreshCutOrderOverlay()
-    focusTopSupplementOverlay()
     return true
   }
 
@@ -3252,9 +3260,13 @@ export function handleCraftCuttingCutOrdersEvent(target: Element, suppliedEvent?
       : state.selectedIncompleteSupplementId || ''
     let completedSupplementId = ''
     try {
+      const targetOrder = getSupplementOrder(supplementId)
+      if (!targetOrder) throw new Error('未找到对应补料单，请刷新后重试。')
+      const eligibility = getSupplementCompletionEligibility(targetOrder)
+      if (!eligibility.allowed) throw new Error(eligibility.reasons.join('；'))
       const completed = completeSupplementOrder({
         id: supplementId,
-        completedAt: '2026-07-22 14:30',
+        completedAt: cutOrderSupplementNowProvider(),
         completedBy: '裁床主管 王敏',
       })
       completedSupplementId = completed.id
@@ -3285,6 +3297,17 @@ export function handleCraftCuttingCutOrdersEvent(target: Element, suppliedEvent?
     state.supplementFeedback = null
     refreshCutOrderOverlay()
     restoreSupplementTriggerFocus()
+    return true
+  }
+
+  if (action === 'open-supplement-image') {
+    state.imagePreview = { src: actionNode.dataset.imageSrc || '', alt: actionNode.dataset.imageAlt || '业务图片' }
+    refreshCutOrderOverlay()
+    return true
+  }
+  if (action === 'close-supplement-image') {
+    state.imagePreview = null
+    refreshCutOrderOverlay()
     return true
   }
 

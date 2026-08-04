@@ -3,14 +3,31 @@ import {
   bootstrapSupplementManagementMockData,
   confirmSupplementAndGenerateProcessWorkOrders,
   listSupplementRecords,
+  listSupplementDraftsForTesting,
   setSupplementRecordSaveFailureForTest,
   setSupplementWorkOrderLookupFailureForTest,
+  type SupplementDraft,
+  type SupplementLine,
+  type SupplementOrderLifecycle,
 } from '../src/pages/process-factory/cutting/supplement-management.ts'
 import { cuttingOrderProgressRecords } from '../src/data/fcs/cutting/order-progress.ts'
 import { getProcessWorkOrderById, listProcessWorkOrders } from '../src/data/fcs/process-work-order-domain.ts'
 import { listPdaGenericProcessTasks } from '../src/data/fcs/pda-task-mock-factory.ts'
 import { getProductionOrderTechPackSnapshot } from '../src/data/fcs/production-order-tech-pack-runtime.ts'
 import { productionOrders } from '../src/data/fcs/production-orders.ts'
+import {
+  getPrintExecutionBlockReason,
+  getSupplementPrintActualInputs,
+  registerSupplementPrintPrerequisite,
+  resolveSupplementPrintPrerequisite,
+} from '../src/data/fcs/supplement-print-prerequisite.ts'
+import { getAvailablePrintWebActions } from '../src/data/fcs/process-web-status-actions.ts'
+import { startColorTest } from '../src/data/fcs/printing-task-domain.ts'
+import {
+  getDyeReviewRecordByOrderId,
+  listDyeExecutionNodeRecords,
+  listDyeWorkOrders,
+} from '../src/data/fcs/dyeing-task-domain.ts'
 import {
   prepareProcessWorkOrderBatch,
   resolveUniqueSupplementBomItem,
@@ -21,30 +38,56 @@ import {
 } from '../src/data/fcs/process-work-order-generation-service.ts'
 
 bootstrapSupplementManagementMockData()
+const qualifiedInput = { dyeWorkOrderId: 'DYE-1', dyeWorkOrderNo: 'RS-1', materialSku: 'FAB-1', qualifiedQty: 120, unit: '米', batchSource: '交接单-JJ-1' }
+assert.deepEqual(resolveSupplementPrintPrerequisite({ expectedInputQty: 100, unit: '米', upstream: [{ completed: true, hasDifference: false, fact: qualifiedInput }] }), { allowed: true, reason: '', actualInputs: [qualifiedInput] })
+assert.match(resolveSupplementPrintPrerequisite({ expectedInputQty: 121, unit: '米', upstream: [{ completed: true, hasDifference: false, fact: qualifiedInput }] }).reason, /超过染色合格输出/)
+assert.match(resolveSupplementPrintPrerequisite({ expectedInputQty: 100, unit: '码', upstream: [{ completed: true, hasDifference: false, fact: qualifiedInput }] }).reason, /单位/)
+assert.match(resolveSupplementPrintPrerequisite({ expectedInputQty: 100, unit: '米', upstream: [{ completed: true, hasDifference: true, fact: qualifiedInput }] }).reason, /差异/)
 const initialRecords = listSupplementRecords()
 assert(initialRecords.length > 0, '缺少补料检查数据')
 
+function isReconfirmableRecord(record: SupplementOrderLifecycle): boolean {
+  return record.lines.some((line) => Boolean((line as SupplementLine).basis?.shortageMaterial))
+}
+
+function buildDraftFromRecord(record: SupplementOrderLifecycle): SupplementDraft {
+  return {
+    candidateId: record.draftMeta.candidateId,
+    sourceType: record.draftMeta.sourceType,
+    sourceNo: record.draftMeta.sourceNo,
+    productionOrderId: record.productionOrderId,
+    productionOrderNo: record.productionOrderNo,
+    styleName: record.draftMeta.styleName,
+    spuCode: record.draftMeta.spuCode,
+    reason: record.reason,
+    reasonDetail: record.reasonDetail,
+    lines: record.lines as unknown as SupplementLine[],
+    materialDemands: [...record.materialDemands],
+    supplyRiskConfirmed: true,
+  }
+}
+
 const cloneProbe = listSupplementRecords()
 cloneProbe[0].createdBy = '不应写回页面状态'
-cloneProbe[0].draft.reason = '不应写回嵌套草稿'
+cloneProbe[0].reason = '不应写回统一存储主状态'
 if (cloneProbe[0].processWorkOrderRefs[0]) cloneProbe[0].processWorkOrderRefs[0].plannedQty = -1
 assert.notEqual(listSupplementRecords()[0].createdBy, cloneProbe[0].createdBy, '补料记录查询必须返回深拷贝')
-assert.notEqual(listSupplementRecords()[0].draft.reason, cloneProbe[0].draft.reason, '补料记录查询必须深拷贝嵌套草稿')
+assert.notEqual(listSupplementRecords()[0].reason, cloneProbe[0].reason, '补料记录查询必须深拷贝主状态')
 assert(listSupplementRecords()[0].processWorkOrderRefs.every((item) => item.plannedQty > 0), '补料记录查询必须深拷贝加工单引用')
 
 const seedRecord = initialRecords.find((record) =>
-  record.draft.sourceType === 'cut-order'
-  && record.draft.materialDemands.some((item) => item.printRequired && item.dyeRequired),
+  isReconfirmableRecord(record)
+  && record.draftMeta.sourceType === 'cut-order'
+  && record.materialDemands.some((item) => item.printRequired && item.dyeRequired),
 )
 assert(seedRecord, '缺少同一冻结 BOM 同时需要染色、印花的补料检查数据')
 
-const fixtureDraft = structuredClone(seedRecord.draft)
+const fixtureDraft = buildDraftFromRecord(seedRecord)
 fixtureDraft.confirmationIdentity = 'task8-positive-confirmation'
 const beforePositiveCount = listSupplementRecords().length
 const result = confirmSupplementAndGenerateProcessWorkOrders(fixtureDraft, '测试人员')
 assert.equal(result.ok, true)
 if (result.ok) {
-  assert.equal(result.record.draft.confirmationIdentity, fixtureDraft.confirmationIdentity, '补料记录必须冻结明确的确认标识')
   assert.equal(result.record.confirmationKey, fixtureDraft.confirmationIdentity, '补料记录必须保存未散列的稳定确认键')
   assert(result.record.requestFingerprint.length > 20, '补料记录必须保存完整业务请求指纹')
   assert.equal(result.record.processWorkOrderRefs.length, 2)
@@ -52,6 +95,11 @@ if (result.ok) {
   assert(result.record.processWorkOrderRefs.every((item) => item.workOrderId && item.workOrderNo))
   assert(result.record.processWorkOrderRefs.every((item) => item.sourceType === 'CUT_PIECE_SUPPLEMENT'))
   assert(result.record.processWorkOrderRefs.every((item) => Number.isFinite(item.plannedQty) && item.plannedQty > 0))
+  const printRef = result.record.processWorkOrderRefs.find((item) => item.processType === 'PRINT')!
+  assert.match(getPrintExecutionBlockReason(printRef.workOrderId), /等待染色/)
+  assert(getAvailablePrintWebActions(printRef.workOrderId).every((action) => action.disabledReason?.includes('等待染色')), 'Web 印花动作必须显示染色前置阻断')
+  assert.throws(() => startColorTest(printRef.workOrderId), /等待染色/, '直接调用印花域函数也必须阻断')
+  assert.deepEqual(getSupplementPrintActualInputs(printRef.workOrderId), [], '染色未完成前不得形成印花实际投入')
   const snapshot = getProductionOrderTechPackSnapshot(fixtureDraft.productionOrderId)
   assert(snapshot, '补料检查数据缺少冻结技术包')
   const sourceDemand = fixtureDraft.materialDemands[0]
@@ -97,12 +145,12 @@ const conflictingRetry = confirmSupplementAndGenerateProcessWorkOrders(conflicti
 assert.equal(conflictingRetry.ok, false, '相同确认键但业务请求不同必须明确冲突，不得复用旧记录')
 if (!conflictingRetry.ok) assert.match(conflictingRetry.message, /确认键|冲突|请求/)
 
-const noProcessSeed = initialRecords.find((record) =>
-  record.draft.sourceType === 'cut-order'
-  && record.draft.materialDemands.every((item) => !item.printRequired && !item.dyeRequired),
+const noProcessDraft = listSupplementDraftsForTesting().find((draft) =>
+  draft.sourceType === 'cut-order'
+  && draft.materialDemands.every((item) => !item.printRequired && !item.dyeRequired)
 )
-assert(noProcessSeed, '缺少无需印染加工的补料检查数据')
-const noProcessDraft = structuredClone(noProcessSeed.draft)
+assert(noProcessDraft, '缺少无需印染加工的补料检查数据')
+noProcessDraft.supplyRiskConfirmed = true
 noProcessDraft.confirmationIdentity = 'task8-no-process-confirmation'
 const noProcessResult = confirmSupplementAndGenerateProcessWorkOrders(noProcessDraft, '测试人员')
 assert.equal(noProcessResult.ok, true)
@@ -163,16 +211,16 @@ wrongNameDraft.materialDemands[0].materialName = '错误物料名称'
 assert.equal(confirmSupplementAndGenerateProcessWorkOrders(wrongNameDraft, '测试人员').ok, false, 'sourceBomItemId 命中时仍须核验物料名称')
 
 const anotherMaterialRecord = initialRecords.find((record) => (
-  record.draft.productionOrderId === fixtureDraft.productionOrderId
-  && record.draft.sourceType === 'cut-order'
-  && record.draft.sourceNo !== fixtureDraft.sourceNo
-  && record.draft.materialDemands[0]?.materialSku !== fixtureDraft.materialDemands[0]?.materialSku
+  record.productionOrderId === fixtureDraft.productionOrderId
+  && record.draftMeta.sourceType === 'cut-order'
+  && record.draftMeta.sourceNo !== fixtureDraft.sourceNo
+  && record.materialDemands[0]?.materialSku !== fixtureDraft.materialDemands[0]?.materialSku
 ))
 assert(anotherMaterialRecord, '缺少同生产单另一物料裁片单错配检查数据')
 const wrongCutMaterialDraft = structuredClone(fixtureDraft)
 wrongCutMaterialDraft.confirmationIdentity = 'task8-wrong-cut-material'
-wrongCutMaterialDraft.materialDemands[0].originalCutOrderId = anotherMaterialRecord.draft.materialDemands[0].originalCutOrderId
-wrongCutMaterialDraft.materialDemands[0].originalCutOrderNo = anotherMaterialRecord.draft.materialDemands[0].originalCutOrderNo
+wrongCutMaterialDraft.materialDemands[0].originalCutOrderId = anotherMaterialRecord.materialDemands[0].originalCutOrderId
+wrongCutMaterialDraft.materialDemands[0].originalCutOrderNo = anotherMaterialRecord.materialDemands[0].originalCutOrderNo
 assert.equal(confirmSupplementAndGenerateProcessWorkOrders(wrongCutMaterialDraft, '测试人员').ok, false, '同生产单另一物料的裁片单不得冒充当前 BOM 原裁片单')
 
 const recordsBeforeInvalid = listSupplementRecords().length
@@ -303,6 +351,61 @@ const assertTransactionCounts = (expected: ReturnType<typeof transactionBaseCoun
   assert.equal(listProcessWorkOrders().length, expected.workOrders, `${label}不得残留加工单`)
   assert.equal(listPdaGenericProcessTasks().length, expected.pdaTasks, `${label}不得残留 PDA 任务`)
 }
+
+const combinationCounts = transactionBaseCounts()
+const combinationTransaction = prepareProcessWorkOrderBatch([
+  buildTransactionInput('combination-dye', ['DYE']),
+  buildTransactionInput('combination-print', ['PRINT']),
+  buildTransactionInput('combination-both', ['DYE', 'PRINT']),
+])
+const combinationResults = combinationTransaction.commit()
+assert.deepEqual(
+  combinationResults.map((item) => [Boolean(item.dyeWorkOrderId), Boolean(item.printWorkOrderId)]),
+  [[true, false], [false, true], [true, true]],
+  '只染色、只印花、先染后印三种加工组合必须分别形成 1/1/2 张加工单；无加工组合已由补料确认零加工单契约覆盖',
+)
+const printOnlyResult = combinationResults[1]
+assert(printOnlyResult.printWorkOrderId, '只印花组合必须形成印花加工单')
+assert.equal(getPrintExecutionBlockReason(printOnlyResult.printWorkOrderId), '', '只印花组合不得被染色前置误阻断')
+combinationTransaction.rollback()
+assertTransactionCounts(combinationCounts, '四种加工组合检查回滚')
+
+const completedDyeOrder = listDyeWorkOrders().find((order) => order.status === 'COMPLETED')
+assert(completedDyeOrder, '缺少已完成染色单，无法验证染色合格输出放行印花')
+const completedDyeReview = getDyeReviewRecordByOrderId(completedDyeOrder.dyeOrderId)
+const completedDyeNode = listDyeExecutionNodeRecords(completedDyeOrder.dyeOrderId)
+  .filter((node) => node.finishedAt && Number(node.outputQty) > 0)
+  .at(-1)
+const completedDyeQualifiedQty = completedDyeReview?.receivedQty ?? completedDyeNode?.outputQty ?? 0
+assert(completedDyeQualifiedQty > 0, '已完成染色单必须有真实合格输出数量')
+const releaseTransaction = prepareProcessWorkOrderBatch([
+  { ...buildTransactionInput('release-print', ['PRINT']), plannedQty: Math.min(10, completedDyeQualifiedQty), qtyUnit: completedDyeOrder.qtyUnit },
+])
+const releaseResult = releaseTransaction.commit()[0]
+assert(releaseResult.printWorkOrderId, '染色完成放行检查必须形成原印花单')
+registerSupplementPrintPrerequisite({
+  supplementOrderId: 'SUP-CHECK-RELEASE',
+  printWorkOrderId: releaseResult.printWorkOrderId,
+  materialSku: completedDyeOrder.sourceSnapshot?.materialSku || completedDyeOrder.rawMaterialSku || completedDyeOrder.materialId,
+  expectedInputQty: Math.min(10, completedDyeQualifiedQty),
+  unit: completedDyeOrder.qtyUnit,
+  dyeWorkOrderIds: [completedDyeOrder.dyeOrderId],
+})
+assert.equal(getPrintExecutionBlockReason(releaseResult.printWorkOrderId), '', '染色最终完成且无差异后必须放行原印花单')
+startColorTest(releaseResult.printWorkOrderId)
+assert.deepEqual(
+  getSupplementPrintActualInputs(releaseResult.printWorkOrderId),
+  [{
+    dyeWorkOrderId: completedDyeOrder.dyeOrderId,
+    dyeWorkOrderNo: completedDyeOrder.dyeOrderNo,
+    materialSku: completedDyeOrder.sourceSnapshot?.materialSku || completedDyeOrder.rawMaterialSku || completedDyeOrder.materialId,
+    qualifiedQty: completedDyeQualifiedQty,
+    unit: completedDyeOrder.qtyUnit,
+    batchSource: completedDyeOrder.handoverOrderNo || completedDyeNode?.nodeRecordId || completedDyeOrder.taskNo || '未记录',
+  }],
+  '印花开始时必须冻结染色单、合格数量、单位和批次/交接来源',
+)
+releaseTransaction.rollback()
 
 const prepareFailureCounts = transactionBaseCounts()
 setProcessWorkOrderGenerationPrepareFailureForTest('DYE', 2)
@@ -483,29 +586,38 @@ sameCutProductionRecord.materialLines.splice(-2, 2)
 assert.equal(ambiguousSameCutResult.ok, false, '同一裁片单内当前物料身份匹配多条时必须拒绝')
 if (!ambiguousSameCutResult.ok) assert.match(ambiguousSameCutResult.message, /唯一|多条|明细/)
 
+const crossCutOrderResult = confirmSupplementAndGenerateProcessWorkOrders(multiBomDraft, '测试人员')
+assert.equal(crossCutOrderResult.ok, false, '一张补料单关联多张原裁片单时必须拒绝并要求拆单')
+if (!crossCutOrderResult.ok) assert.match(crossCutOrderResult.message, /一张原裁片单|分别创建/)
+
+const atomicMultiBomDraft = structuredClone(sameCutMultiMaterialDraft)
+atomicMultiBomDraft.confirmationIdentity = 'task8-atomic-same-cut-multi-material'
+sameCutProductionRecord.materialLines.push(sameCutSecondaryMaterialLine)
+
 const atomicCountsBefore = {
   records: listSupplementRecords().length,
   workOrders: listProcessWorkOrders().length,
   pdaTasks: listPdaGenericProcessTasks().length,
 }
 setProcessWorkOrderGenerationCommitFailureForTest('PRINT', 2)
-const multiBomFailed = confirmSupplementAndGenerateProcessWorkOrders(multiBomDraft, '测试人员')
+const multiBomFailed = confirmSupplementAndGenerateProcessWorkOrders(atomicMultiBomDraft, '测试人员')
 setProcessWorkOrderGenerationCommitFailureForTest(null)
 assert.equal(multiBomFailed.ok, false, '第二个 BOM 的印花加工单提交失败时，整批确认必须失败')
 assert.equal(listSupplementRecords().length, atomicCountsBefore.records, '整批失败不得保存补料记录')
 assert.equal(listProcessWorkOrders().length, atomicCountsBefore.workOrders, '整批失败不得残留任何加工单或幂等写入')
 assert.equal(listPdaGenericProcessTasks().length, atomicCountsBefore.pdaTasks, '整批失败不得残留任何 PDA 任务')
 
-const multiBomRetried = confirmSupplementAndGenerateProcessWorkOrders(multiBomDraft, '测试人员')
+const multiBomRetried = confirmSupplementAndGenerateProcessWorkOrders(atomicMultiBomDraft, '测试人员')
+sameCutProductionRecord.materialLines.pop()
 assert.equal(multiBomRetried.ok, true, '整批回滚后必须可以使用同一确认标识重试')
 if (multiBomRetried.ok) {
   assert.deepEqual(
     multiBomRetried.record.processWorkOrderRefs.map((item) => `${item.materialSku}:${item.processType}`),
     [
-      `${multiBomDraft.materialDemands[0].materialSku}:DYE`,
-      `${multiBomDraft.materialDemands[0].materialSku}:PRINT`,
-      `${secondaryDemand.materialSku}:DYE`,
-      `${secondaryDemand.materialSku}:PRINT`,
+      `${atomicMultiBomDraft.materialDemands[0].materialSku}:DYE`,
+      `${atomicMultiBomDraft.materialDemands[0].materialSku}:PRINT`,
+      `${atomicMultiBomDraft.materialDemands[1].materialSku}:DYE`,
+      `${atomicMultiBomDraft.materialDemands[1].materialSku}:PRINT`,
     ],
     '多 BOM 加工单引用必须按 BOM 输入顺序、同 BOM 先染色后印花稳定排序',
   )

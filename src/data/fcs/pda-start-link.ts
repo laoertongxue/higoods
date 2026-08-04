@@ -26,6 +26,7 @@ import {
   listWarehouseIssueOrdersByRuntimeTaskId,
   listWarehouseReturnOrdersByRuntimeTaskId,
 } from './warehouse-material-execution'
+import { getPrintExecutionBlockReason } from './supplement-print-prerequisite'
 import {
   getDefaultSubCategoryKeyFromReason,
   getUnifiedCategoryFromReason,
@@ -249,6 +250,18 @@ function getPrintStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo | n
   if (!order) return null
 
   const statusLabel = getPrintWorkOrderStatusLabel(order.status)
+  const supplementBlock = getPrintExecutionBlockReason(order.printOrderId)
+  if (supplementBlock) {
+    return {
+      met: false,
+      type: 'PICKUP',
+      conditionLabel: '染色合格完成',
+      summaryLabel: '等待染色完成',
+      statusLabel: supplementBlock,
+      blocker: supplementBlock,
+      hint: '染色合格完成且数量差异处理后，才可开始印花。',
+    }
+  }
   const preparationHintMap: Partial<Record<PrintWorkOrder["status"], string>> = {
     WAIT_ARTWORK: `印花加工单  可先开工做花型资料核对和试印准备；实际开始印花前必须确认领料到位`,
     WAIT_COLOR_TEST: `印花加工单  可先开工做调色测试和花型试印；实际开始印花前必须确认领料到位`,

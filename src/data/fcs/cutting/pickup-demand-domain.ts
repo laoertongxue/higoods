@@ -1,5 +1,5 @@
 export type PickupDemandSource = 'NORMAL' | 'SUPPLEMENT'
-export type PickupProcessRoute = 'NONE' | 'DYE' | 'DYE_PRINT'
+export type PickupProcessRoute = 'NONE' | 'DYE' | 'PRINT' | 'DYE_PRINT'
 
 export interface PickupProcessResultFact {
   sourceId: string
@@ -35,6 +35,7 @@ export interface PickupNormalDemandInput {
 
 export interface PickupSupplementDemandInput {
   id: string
+  materialPrepDemandId: string
   recordNo: string
   status: string
   createdAt: string
@@ -46,8 +47,10 @@ export interface PickupSupplementDemandInput {
     processType: 'PRINT' | 'DYE'
     workOrderId: string
     materialSku: string
+    materialDemandIds: string[]
   }>
   materialDemands: Array<{
+    key: string
     materialPatternMappingId: string
     materialSku: string
     materialName: string
@@ -114,7 +117,8 @@ export function derivePickupProcessRoute(input: {
   printRequired?: boolean
   dyeRequired?: boolean
 }): PickupProcessRoute {
-  if (input.upstreamSourceType === '印花' || input.printRequired) return 'DYE_PRINT'
+  if (input.printRequired && input.dyeRequired) return 'DYE_PRINT'
+  if (input.upstreamSourceType === '印花' || input.printRequired) return 'PRINT'
   if (input.upstreamSourceType === '染色' || input.dyeRequired) return 'DYE'
   return 'NONE'
 }
@@ -137,20 +141,20 @@ export function resolvePickupRequiredQty(input: {
   const processName = input.processRoute === 'DYE' ? '染色' : '印花'
   const result = input.processRoute === 'DYE' ? input.dyeResult : input.printResult
   if (!result || result.platformStatusCode !== 'COMPLETED') {
-    return { qty: 0, basisLabel: `等待${processName}一次性完成`, processComplete: false }
+    return { qty: roundQty(Math.max(input.plannedQty, 0)), basisLabel: `批准需求已形成，等待${processName}完成后可配`, processComplete: false }
   }
   if (!Number.isFinite(result.completedObjectQty) || result.completedObjectQty < 0) {
-    return { qty: 0, basisLabel: `${processName}加工完成数量异常`, processComplete: false }
+    return { qty: roundQty(Math.max(input.plannedQty, 0)), basisLabel: `${processName}加工完成数量异常`, processComplete: false }
   }
   if (result.qtyUnit !== input.unit) {
-    return { qty: 0, basisLabel: `${processName}加工完成单位不一致`, processComplete: false }
+    return { qty: roundQty(Math.max(input.plannedQty, 0)), basisLabel: `${processName}加工完成单位不一致`, processComplete: false }
   }
   if (result.completedObjectQty === 0) {
-    return { qty: 0, basisLabel: `等待${processName}一次性完成`, processComplete: false }
+    return { qty: roundQty(Math.max(input.plannedQty, 0)), basisLabel: `批准需求已形成，等待${processName}完成后可配`, processComplete: false }
   }
   return {
-    qty: roundQty(result.completedObjectQty),
-    basisLabel: `按${processName}一次性完成数量`,
+    qty: roundQty(Math.max(input.plannedQty, 0)),
+    basisLabel: `批准需求已形成；${processName}已完成 ${roundQty(result.completedObjectQty)} ${input.unit}`,
     processComplete: true,
   }
 }
@@ -202,9 +206,9 @@ export function resolveNormalProcessResult(
   const relevantDemands = allNormalDemands.filter((candidate) => {
     if (candidate.productionOrderNo !== demand.productionOrderNo) return false
     const candidateRoute = derivePickupProcessRoute({ upstreamSourceType: candidate.upstreamSourceType })
-    return processType === 'DYE' ? candidateRoute === 'DYE' : candidateRoute === 'DYE_PRINT'
+    return processType === 'DYE' ? candidateRoute === 'DYE' : candidateRoute === 'PRINT' || candidateRoute === 'DYE_PRINT'
   })
-  if ((processType === 'DYE' && route !== 'DYE') || (processType === 'PRINT' && route !== 'DYE_PRINT')) {
+  if ((processType === 'DYE' && route !== 'DYE') || (processType === 'PRINT' && route !== 'PRINT' && route !== 'DYE_PRINT')) {
     return { ambiguous: false }
   }
   const candidates = results.filter((view) =>
@@ -230,27 +234,29 @@ function resolveSupplementProcessResult(
   processType: 'DYE' | 'PRINT',
   results: PickupProcessResultFact[],
 ): ProcessResultResolution {
-  const relatedMappingIds = new Set(
-    record.materialDemands
-      .filter((candidate) =>
-        candidate.materialSku === demand.materialSku
-        && (processType === 'DYE' ? candidate.dyeRequired : candidate.printRequired)
-      )
-      .map((candidate) => candidate.materialPatternMappingId),
-  )
   const refs = record.processWorkOrderRefs.filter((ref) =>
-    ref.processType === processType && ref.materialSku === demand.materialSku
+    ref.processType === processType && ref.materialDemandIds.includes(demand.key)
   )
-  if (relatedMappingIds.size > 1 || refs.length > 1) return { ambiguous: true }
-  if (
-    relatedMappingIds.size !== 1
-    || !relatedMappingIds.has(demand.materialPatternMappingId)
-    || refs.length !== 1
-  ) return { ambiguous: false }
-  const matches = results.filter((view) => view.sourceId === refs[0].workOrderId)
-  return matches.length > 1
-    ? { ambiguous: true }
-    : { result: matches[0], ambiguous: false }
+  if (!refs.length) return { ambiguous: false }
+  const matchesByRef = refs.map((ref) => results.filter((view) => view.sourceId === ref.workOrderId))
+  if (matchesByRef.some((matches) => matches.length > 1)) return { ambiguous: true }
+  const matches = matchesByRef.flat()
+  if (!matches.length) return { ambiguous: false }
+  if (matches.length !== refs.length || new Set(matches.map((match) => match.qtyUnit)).size > 1) return { ambiguous: true }
+  if (matches.length === 1) return { result: matches[0], ambiguous: false }
+  return {
+    ambiguous: false,
+    result: {
+      sourceId: refs.map((ref) => ref.workOrderId).join('、'),
+      processType,
+      productionOrderNo: record.productionOrderNo,
+      workOrderNo: matches.map((match) => match.workOrderNo).join('、'),
+      mobileTaskLink: '',
+      platformStatusCode: matches.every((match) => match.platformStatusCode === 'COMPLETED') ? 'COMPLETED' : 'PROCESSING',
+      completedObjectQty: roundQty(matches.reduce((sum, match) => sum + Math.max(match.completedObjectQty, 0), 0)),
+      qtyUnit: matches[0].qtyUnit,
+    },
+  }
 }
 
 export function buildPickupDemandFacts(input: PickupDemandFactInput): PickupDemandFact[] {
@@ -262,7 +268,7 @@ export function buildPickupDemandFacts(input: PickupDemandFactInput): PickupDema
   )
   const normalFacts = input.normalDemands.map((demand): PickupDemandFact => {
     const processRoute = derivePickupProcessRoute({ upstreamSourceType: demand.upstreamSourceType })
-    const processType = processRoute === 'DYE' ? 'DYE' : processRoute === 'DYE_PRINT' ? 'PRINT' : null
+    const processType = processRoute === 'DYE' ? 'DYE' : processRoute === 'PRINT' || processRoute === 'DYE_PRINT' ? 'PRINT' : null
     const resolution = processType
       ? resolveNormalProcessResult(
           demand,
@@ -273,7 +279,7 @@ export function buildPickupDemandFacts(input: PickupDemandFactInput): PickupDema
       : { ambiguous: false }
     const processName = processType === 'DYE' ? '染色' : '印花'
     const required = resolution.ambiguous
-      ? { qty: 0, basisLabel: `${processName}加工结果归属不唯一`, processComplete: false }
+      ? { qty: roundQty(Math.max(demand.plannedQty, 0)), basisLabel: `${processName}加工结果归属不唯一`, processComplete: false }
       : resolvePickupRequiredQty({
           plannedQty: demand.plannedQty,
           unit: demand.unit,
@@ -294,7 +300,6 @@ export function buildPickupDemandFacts(input: PickupDemandFactInput): PickupDema
     }
   })
   const supplementFacts = input.supplementDemands
-    .filter((record) => record.status === '已确认')
     .sort((left, right) =>
       left.productionOrderId.localeCompare(right.productionOrderId, 'zh-CN')
       || left.createdAt.localeCompare(right.createdAt)
@@ -316,7 +321,7 @@ export function buildPickupDemandFacts(input: PickupDemandFactInput): PickupDema
           const finalResolution = processRoute === 'DYE' ? dyeResolution : printResolution
           const processName = processRoute === 'DYE' ? '染色' : '印花'
           const required = finalResolution.ambiguous
-            ? { qty: 0, basisLabel: `${processName}加工结果归属不唯一`, processComplete: false }
+            ? { qty: demand.requiredQty, basisLabel: `${processName}加工结果归属不唯一`, processComplete: false }
             : resolvePickupRequiredQty({
                 plannedQty: demand.requiredQty,
                 unit: demand.unit,
@@ -326,7 +331,7 @@ export function buildPickupDemandFacts(input: PickupDemandFactInput): PickupDema
                 noProcessBasisLabel: '按补料批准数量',
               })
           return {
-            prepOrderId: '',
+            prepOrderId: record.materialPrepDemandId,
             productionOrderId: record.productionOrderId,
             productionOrderNo: record.productionOrderNo,
             demandLineId,

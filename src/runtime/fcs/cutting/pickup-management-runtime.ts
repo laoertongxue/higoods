@@ -10,6 +10,7 @@ import {
   listMaterialPrepOrderProjections,
   PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
   type MaterialPrepOrderProjection,
+  type PickupSupplementRecordFactInput,
 } from '../../../data/fcs/cutting/production-material-prep.ts'
 import { CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY } from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import type {
@@ -25,13 +26,38 @@ import {
   listPlatformPrintResultViews,
 } from '../../../data/fcs/platform-process-result-view.ts'
 import {
-  ensureSupplementRecordPickupSeeds,
-  listSupplementRecords,
-  type SupplementRecord,
-} from '../../../data/fcs/cutting/supplement-records.ts'
+  ensureFixedSupplementOrderFixturesRegistered,
+} from '../../../data/fcs/cutting/cut-order-supplement-fixture.ts'
+import {
+  listSupplementOrders,
+  type SupplementOrderLifecycle,
+} from '../../../data/fcs/cutting/supplement-order-registry.ts'
 import { assertPickupNodeHasNoOpenDiscrepancy } from '../../../data/fcs/cutting/pickup-discrepancy.ts'
 
 export const PICKUP_WAREHOUSE_TRANSACTION_STORAGE_KEY = 'pickupWarehouseTransaction'
+
+export function toPickupSupplementRecordFactInputs(
+  records: SupplementOrderLifecycle[],
+): PickupSupplementRecordFactInput[] {
+  return records.map((record) => ({
+    id: record.id,
+    materialPrepDemandId: record.materialPrepDemandId,
+    recordNo: record.recordNo,
+    status: record.status,
+    createdAt: record.createdAt,
+    draft: {
+      productionOrderId: record.productionOrderId,
+      productionOrderNo: record.productionOrderNo,
+      reason: record.reason,
+      reasonDetail: record.reasonDetail,
+      materialDemands: [...record.materialDemands],
+    },
+    processWorkOrderRefs: record.processWorkOrderRefs.map((ref) => ({
+      ...ref,
+      materialDemandIds: [...ref.materialDemandIds],
+    })),
+  }))
+}
 
 interface PickupWarehouseTransactionJournal {
   status: 'PREPARING' | 'COMMITTED'
@@ -43,22 +69,23 @@ interface PickupWarehouseTransactionJournal {
 const PICKUP_WAREHOUSE_TRANSACTION_STALE_MS = 30_000
 
 export interface PickupRuntimeOverrides {
-  supplementRecords?: SupplementRecord[]
+  supplementRecords?: SupplementOrderLifecycle[]
   dyeResults?: PickupProcessResultFact[]
   printResults?: PickupProcessResultFact[]
 }
 
 export interface PickupRuntimeContext {
   projections: MaterialPrepOrderProjection[]
-  supplementRecords: SupplementRecord[]
+  supplementRecords: SupplementOrderLifecycle[]
   dyeResults: PickupProcessResultFact[]
   printResults: PickupProcessResultFact[]
   demandFacts: PickupDemandFact[]
   activeNodes: PickupNodeProjection[]
 }
 
-export function bootstrapPickupManagementRuntimeMockData(): SupplementRecord[] {
-  return ensureSupplementRecordPickupSeeds()
+export function bootstrapPickupManagementRuntimeMockData(): SupplementOrderLifecycle[] {
+  ensureFixedSupplementOrderFixturesRegistered()
+  return listSupplementOrders()
 }
 
 export function buildPickupRuntimeContext(
@@ -67,12 +94,12 @@ export function buildPickupRuntimeContext(
 ): PickupRuntimeContext {
   recoverPendingPickupWarehouseTransaction(storage)
   const projections = listMaterialPrepOrderProjections(storage)
-  const supplementRecords = overrides.supplementRecords ?? listSupplementRecords()
+  const supplementRecords = overrides.supplementRecords ?? listSupplementOrders()
   const dyeResults = overrides.dyeResults ?? listPlatformDyeResultViews()
   const printResults = overrides.printResults ?? listPlatformPrintResultViews()
   const demandFacts = buildPickupDemandFactsFromProjections({
     projections,
-    supplementRecords,
+    supplementRecords: toPickupSupplementRecordFactInputs(supplementRecords),
     dyeResults,
     printResults,
   })

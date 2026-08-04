@@ -33,6 +33,9 @@ import {
 import {
   listPickupOrderGroups,
 } from '../src/pages/process-factory/cutting/pickup-management-projection.ts'
+import {
+  listSupplementRecords,
+} from '../src/pages/process-factory/cutting/supplement-management.ts'
 
 bootstrapPickupManagementRuntimeMockData()
 
@@ -65,7 +68,7 @@ const routeRenderersFcs = read('src/router/route-renderers-fcs.ts')
 const pickupManagementListSource = read('src/pages/process-factory/cutting/pickup-management-list.ts')
 const pickupManagementProjectionSource = read('src/pages/process-factory/cutting/pickup-management-projection.ts')
 const pickupManagementRuntimeSource = read('src/runtime/fcs/cutting/pickup-management-runtime.ts')
-const supplementRecordSource = read('src/data/fcs/cutting/supplement-records.ts')
+const supplementRecordSource = read('src/data/fcs/cutting/supplement-order-registry.ts')
 const supplementManagementSource = read('src/pages/process-factory/cutting/supplement-management.ts')
 const pdaWaitProcessSource = read('src/pages/pda-warehouse-wait-process.ts')
 const warehouseHubSource = read('src/pages/process-factory/cutting/warehouse-hub.ts')
@@ -123,24 +126,24 @@ assert(
   '纯数据节点读取不得隐式读取加工结果，必须由 runtime 显式传入',
 )
 assert(
-  pickupManagementRuntimeSource.includes('const supplementRecords = overrides.supplementRecords ?? listSupplementRecords()')
+  pickupManagementRuntimeSource.includes('const supplementRecords = overrides.supplementRecords ?? listSupplementOrders()')
   && pickupManagementRuntimeSource.includes('export function bootstrapPickupManagementRuntimeMockData()')
   && pickupManagementRuntimeSource.includes('listPlatformDyeResultViews()')
   && pickupManagementRuntimeSource.includes('listPlatformPrintResultViews()'),
   '页面级 runtime list 必须纯读组装补料和加工结果事实，并提供显式 bootstrap',
 )
 assert(
-  supplementRecordSource.includes(`export function listSupplementRecords(): SupplementRecord[] {
-  return structuredClone(supplementRecords)
+  supplementRecordSource.includes(`export function listSupplementOrders(): ReadonlyArray<SupplementOrderLifecycle> {
+  return [...supplementOrders.values()].map(cloneSupplementOrder)
 }`),
   '补料记录纯查询不得隐式初始化 Mock 数据',
 )
 assert(
-  supplementManagementSource.includes(`export function listSupplementRecords(): SupplementRecord[] {
-  return listSupplementRecordsFromStore()
+  supplementManagementSource.includes(`export function listSupplementRecords(): SupplementOrderLifecycle[] {
+  return listSupplementOrders()
 }`)
-  && supplementManagementSource.includes(`export function bootstrapSupplementManagementMockData(): SupplementRecord[] {
-  ensureSupplementRecordPickupSeeds()`),
+  && supplementManagementSource.includes(`export function bootstrapSupplementManagementMockData(): SupplementOrderLifecycle[] {
+  ensureFixedSupplementOrderFixturesRegistered()`),
   '补料页面 list 查询必须保持纯读，Mock 初始化只能由显式 bootstrap/route-enter 触发',
 )
 assert(
@@ -262,8 +265,10 @@ const readyGroups = listPickupOrderGroups('READY', null)
 assert(incompleteGroups.length > 0, 'Mock 缺少未配齐领料分组')
 assert(incompleteGroups.every((group) =>
   group.carrierType === 'WAREHOUSE_LOCATIONS' &&
-  group.materialRows.some((row) => row.currentLocations.length > 0)
-), '未配齐分组必须由专属库位承载，且至少一项物料展示当前位置')
+  (group.materialRows.every((row) => row.demandSource === 'SUPPLEMENT')
+    ? group.materialRows.every((row) => row.currentLocations.length === 0 && row.requiredQty > 0)
+    : group.materialRows.some((row) => row.currentLocations.length > 0))
+), '正常未配齐分组必须展示当前位置；尚无实物的补料需求只展示批准需求，不得伪造库位')
 assert(readyGroups.length > 0, 'Mock 缺少已配齐待领分组')
 assert(readyGroups.every((group) =>
   group.carrierType === 'PALLET' &&
@@ -308,7 +313,10 @@ directReadyStorage.setItem(
   PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
   serializeProductionMaterialPrepStore(createProductionMaterialPrepSeedStore()),
 )
-const directReadyNode = listActivePickupNodesRuntime(directReadyStorage)
+const pickupSeedSupplementRecords = listSupplementRecords().filter((record) =>
+  ['supplement-confirmed-000TDWG', 'supplement-confirmed-00ASZLF', 'supplement-confirmed-0JPEXI9', 'supplement-confirmed-0JFFBTA'].includes(record.id)
+)
+const directReadyNode = listActivePickupNodesRuntime(directReadyStorage, { supplementRecords: pickupSeedSupplementRecords })
   .find((node) => node.nodeType === 'READY_TO_PICKUP')
 assert(directReadyNode?.readySource === 'DIRECT_READY', '首次直接配齐节点必须明确标记 DIRECT_READY')
 const serializedDirectReadyStore = directReadyStorage.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY)

@@ -2,6 +2,7 @@ import {
   PRINT_WORK_ORDER_STATUS_LABEL,
   getPrintWorkOrderById,
 } from './printing-task-domain.ts'
+import { getPrintExecutionBlockReason } from './supplement-print-prerequisite.ts'
 import {
   DYE_WORK_ORDER_STATUS_LABEL,
   getDyeWorkOrderById,
@@ -752,6 +753,8 @@ export function getAvailablePrintWebActions(printOrderId: string): ProcessWebAct
   const binding = isMobileBindingValid('PRINT_WORK_ORDER', printOrderId)
   const status = getPrintStatus(printOrderId)
   if (!status) return []
+  const prerequisiteBlock = getPrintExecutionBlockReason(printOrderId)
+  if (prerequisiteBlock) return listMatchingActions(PRINT_ACTIONS, status.status, prerequisiteBlock).map((action) => withPrintQuantityFields(action, printOrderId))
   if (!binding.ok) return [toAction(PRINT_ACTIONS[0], status.label, binding.reason)]
   return listMatchingActions(PRINT_ACTIONS, status.status).map((action) => withPrintQuantityFields(action, printOrderId))
 }

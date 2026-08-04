@@ -19,9 +19,14 @@ import {
   type PickupNormalDemandInput,
   type PickupProcessRoute,
 } from '../../../data/fcs/cutting/pickup-demand-domain.ts'
+import { getSupplementMaterialPrepDemand } from '../../../data/fcs/cutting/supplement-material-prep-demand-registry.ts'
+import { getSupplementNodeOverview } from '../../../data/fcs/cutting/supplement-node-facts.ts'
 import type { PlatformProcessResultView } from '../../../data/fcs/platform-process-result-view.ts'
-import type { SupplementRecord } from '../../../data/fcs/cutting/supplement-records.ts'
-import { buildPickupRuntimeContext } from '../../../runtime/fcs/cutting/pickup-management-runtime.ts'
+import type { SupplementOrderLifecycle } from '../../../data/fcs/cutting/supplement-order-registry.ts'
+import {
+  buildPickupRuntimeContext,
+  toPickupSupplementRecordFactInputs,
+} from '../../../runtime/fcs/cutting/pickup-management-runtime.ts'
 
 export type PickupListKind = 'READY' | 'INCOMPLETE' | 'HISTORY'
 export type { PickupDemandSource, PickupProcessRoute }
@@ -49,6 +54,8 @@ export interface PickupMaterialDemandRow {
   processBasisLabel: string
   processComplete: boolean
   requiredQty: number
+  processAvailableQty: number
+  arrivedQty: number
   preparedQty: number
   pickedQty: number
   remainingPickupQty: number
@@ -64,6 +71,10 @@ export interface PickupOrderGroup {
   productionOrderNo: string
   prepOrderId: string
   prepOrderNo: string
+  supplementOrderNo?: string
+  supplementSequenceNo?: number
+  originalCutOrderNo?: string
+  supplementReason?: string
   styleNo: string
   styleName: string
   spu: string
@@ -149,7 +160,7 @@ export function resolveNormalProcessResult(
 }
 
 export function buildSupplementMaterialRows(
-  records: SupplementRecord[],
+  records: SupplementOrderLifecycle[],
   processResults: PickupProcessResults,
   validatedSessionsByProductionOrder: ReadonlyMap<string, ValidatedPickupSession[]> = new Map(),
 ): Map<string, PickupMaterialDemandRow[]> {
@@ -164,15 +175,16 @@ export function buildSupplementMaterialRows(
     normalDemands: [],
     supplementDemands: records.map((record) => ({
       id: record.id,
+      materialPrepDemandId: record.materialPrepDemandId,
       recordNo: record.recordNo,
       status: record.status,
       createdAt: record.createdAt,
-      productionOrderId: record.draft.productionOrderId,
-      productionOrderNo: record.draft.productionOrderNo,
-      reason: record.draft.reason,
-      reasonDetail: record.draft.reasonDetail,
+      productionOrderId: record.productionOrderId,
+      productionOrderNo: record.productionOrderNo,
+      reason: record.reason,
+      reasonDetail: record.reasonDetail,
       processWorkOrderRefs: record.processWorkOrderRefs,
-      materialDemands: record.draft.materialDemands,
+      materialDemands: record.materialDemands,
     })),
     pickedFacts,
     dyeResults: processResults.dyeResults,
@@ -218,6 +230,8 @@ function buildPickupMaterialDemandRow(
     processBasisLabel: fact.processBasisLabel,
     processComplete: fact.processComplete,
     requiredQty: fact.requiredQty,
+    processAvailableQty: fact.processComplete ? fact.requiredQty : 0,
+    arrivedQty: roundQty(Math.max(nodeItem?.currentAvailableQty ?? 0, 0)),
     preparedQty: roundQty(Math.max(fact.pickedQty + (nodeItem?.currentAvailableQty ?? 0), 0)),
     pickedQty: fact.pickedQty,
     remainingPickupQty: roundQty(Math.max(fact.requiredQty - fact.pickedQty, 0)),
@@ -560,7 +574,7 @@ export interface PickupOrderGroupProjectionInput {
   listKind: PickupListKind
   projections: MaterialPrepOrderProjection[]
   activeNodes: PickupNodeProjection[]
-  supplementRecords: SupplementRecord[]
+  supplementRecords: SupplementOrderLifecycle[]
   processResults: PickupProcessResults
 }
 
@@ -577,7 +591,7 @@ export function buildPickupOrderGroups(
   const projectionsByProductionOrder = groupProjectionsByProductionOrder(projections)
   const demandFacts = buildPickupDemandFactsFromProjections({
     projections,
-    supplementRecords,
+    supplementRecords: toPickupSupplementRecordFactInputs(supplementRecords),
     dyeResults: processResults.dyeResults,
     printResults: processResults.printResults,
   })
@@ -613,7 +627,10 @@ export function buildPickupOrderGroups(
             listKind,
             node.productionOrderId,
             demandFacts
-              .filter((fact) => fact.productionOrderId === node.productionOrderId)
+              .filter((fact) => fact.productionOrderId === node.productionOrderId && (
+                fact.demandSource === 'NORMAL'
+                || node.items.some((item) => item.prepLineId === fact.demandLineId && item.unit === fact.unit)
+              ))
               .map((fact) => buildPickupMaterialDemandRow(
                 fact,
                 projection,
@@ -637,9 +654,70 @@ export function buildPickupOrderGroups(
           pickupNodeVersion: node.version,
         }]
       })
-    return sortGroups(Array.from(
-      new Map(groups.map((group) => [group.productionOrderId, group])).values(),
-    ))
+    const distinctNormalGroups = Array.from(new Map(groups.map((group) => [group.groupKey, group])).values())
+    if (listKind === 'INCOMPLETE') {
+      supplementRecords.forEach((record) => {
+        if (activeNodes.some((node) => node.items.some((item) => item.prepLineId.startsWith(`SUPPLEMENT:${record.id}:`)))) return
+        const prepDemand = getSupplementMaterialPrepDemand(record.materialPrepDemandId)
+        if (prepDemand?.status === '已结束') return
+        const projection = projectionsByProductionOrder.get(record.productionOrderId)?.[0]
+        const rows = scopeMaterialRows(
+          listKind,
+          `SUPPLEMENT:${record.id}`,
+          demandFacts
+            .filter((fact) => fact.demandSource === 'SUPPLEMENT' && fact.demandSourceNo === record.recordNo)
+            .map((fact) => {
+              const row = buildPickupMaterialDemandRow(fact, projection ?? null, null, false)
+              const mappingPrefix = `SUPPLEMENT:${record.id}:`
+              const mappingId = fact.demandLineId.startsWith(mappingPrefix) ? fact.demandLineId.slice(mappingPrefix.length) : ''
+              const materialDemandId = record.materialDemands.find((demand) => demand.materialPatternMappingId === mappingId)?.key
+              const prepLine = prepDemand?.lines.find((line) => line.materialDemandId === materialDemandId)
+              return prepLine ? {
+                ...row,
+                processAvailableQty: prepLine.processAvailableQty,
+                arrivedQty: prepLine.arrivedQty,
+                currentAvailableQty: prepLine.currentAvailableQty,
+                preparedQty: prepLine.preparedQty,
+                pickedQty: prepLine.pickedQty,
+                remainingPickupQty: prepLine.remainingQty,
+                afterCurrentPickupRemainingQty: Math.max(prepLine.remainingQty - prepLine.currentAvailableQty, 0),
+              } : row
+            }),
+        )
+        if (!rows.length) return
+        distinctNormalGroups.push({
+          groupKey: `${listKind}:SUPPLEMENT:${record.id}`,
+          productionOrderId: record.productionOrderId,
+          productionOrderNo: record.productionOrderNo,
+          prepOrderId: record.materialPrepDemandId,
+          prepOrderNo: `补料配料-${record.recordNo}`,
+          supplementOrderNo: record.recordNo,
+          supplementSequenceNo: record.sequenceNo,
+          originalCutOrderNo: record.cutOrderNo,
+          supplementReason: [record.reason, record.reasonDetail].filter(Boolean).join('：'),
+          styleNo: record.draftMeta.spuCode,
+          styleName: record.draftMeta.styleName,
+          spu: record.draftMeta.spuCode,
+          listKind,
+          materialRows: rows,
+          carrierType: 'WAREHOUSE_LOCATIONS',
+          palletId: '',
+          palletDisplayLabel: '',
+          readySource: null,
+          historyPath: null,
+          finalResult: null,
+          pickupSessionCount: 0,
+          pickupSessions: [],
+          latestPickerName: '',
+          latestPickedAt: '',
+          currentNodeUpdatedAt: prepDemand?.createdAt ?? record.createdAt,
+          currentNodeState: getSupplementNodeOverview(record).materialPrep || prepDemand?.status || '等待库存准备',
+          pickupNodeId: '',
+          pickupNodeVersion: 0,
+        })
+      })
+    }
+    return sortGroups(distinctNormalGroups)
   }
 
   const activeNodeByProductionOrder = new Map(

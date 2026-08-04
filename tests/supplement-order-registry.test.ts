@@ -14,6 +14,7 @@ import {
 } from '../src/data/fcs/cutting/supplement-order-registry.ts'
 import {
   fixedSupplementOrderFixtures,
+  pickupSeedSupplementFixtures,
   ensureFixedSupplementOrderFixturesRegistered,
 } from '../src/data/fcs/cutting/cut-order-supplement-fixture.ts'
 
@@ -50,27 +51,32 @@ function buildInput(
   }
 }
 
-test('固定补料 fixture 一次幂等初始化全部 15 条且每张裁片单序号稳定', () => {
+test('固定补料 fixture 一次幂等初始化全部 19 条且每张裁片单序号稳定', () => {
   ensureFixedSupplementOrderFixturesRegistered()
   ensureFixedSupplementOrderFixturesRegistered()
 
   assert.equal(fixedSupplementOrderFixtures.length, 15)
+  assert.equal(pickupSeedSupplementFixtures.length, 4)
+  const allFixtureIds = [...fixedSupplementOrderFixtures, ...pickupSeedSupplementFixtures].map((item) => item.id)
   const grouped = Map.groupBy(fixedSupplementOrderFixtures, (item) => item.cutOrderId)
   grouped.forEach((fixtures, cutOrderId) => {
+    const registeredFixtureIds = new Set(fixtures.map((item) => item.id))
     assert.deepEqual(
-      listSupplementOrdersByCutOrder(cutOrderId).map((item) => item.sequenceNo),
+      listSupplementOrdersByCutOrder(cutOrderId)
+        .filter((item) => registeredFixtureIds.has(item.id))
+        .map((item) => item.sequenceNo),
       fixtures.map((item) => item.sequenceNo),
     )
   })
   assert.equal(
-    fixedSupplementOrderFixtures
-      .map((fixture) => getSupplementOrder(fixture.id))
+    allFixtureIds
+      .map((id) => getSupplementOrder(id))
       .filter(Boolean).length,
-    15,
+    19,
   )
   assert.deepEqual(
     listSupplementOrders().map((item) => item.id),
-    fixedSupplementOrderFixtures.map((item) => item.id),
+    allFixtureIds,
   )
 })
 
@@ -368,4 +374,37 @@ test('同一 ID 使用不同生产单号时拒绝重放', () => {
     () => registerSupplementOrder(buildInput({ productionOrderNo: 'PO99999' })),
     { message: '补料单标识冲突，不能登记到不同业务对象。' },
   )
+})
+
+test('同一 confirmationKey 不能登记到不同补料单 id', () => {
+  registerSupplementOrder(buildInput({ confirmationKey: 'same-key' }))
+  assert.throws(
+    () => registerSupplementOrder(buildInput({ id: 'supplement-2', recordNo: 'BL20260722002', confirmationKey: 'same-key' })),
+    { message: '同一确认键已生成补料单，不能重复登记。' },
+  )
+})
+
+test('新字段缺省时注册对象使用防御性默认值', () => {
+  const registered = registerSupplementOrder(buildInput())
+  assert.equal(registered.productionOrderId, '')
+  assert.deepEqual(registered.processWorkOrderRefs, [])
+  assert.deepEqual(registered.supplyDecisionSnapshots, [])
+  assert.deepEqual(registered.createdPurchaseOrderRefs, [])
+  assert.equal(registered.materialPrepDemandId, `SUP-PREP:${registered.id}`)
+  assert.equal(registered.confirmationKey, '')
+  assert.equal(registered.requestFingerprint, '')
+  assert.equal(registered.draftMeta.candidateId, '')
+})
+
+test('补料主状态只有未完成和已完成，未处理数量差异阻断完成', () => {
+  const registered = registerSupplementOrder(buildInput())
+  assert.equal(registered.status, '未完成')
+  assert.throws(() => completeSupplementOrder({
+    id: registered.id,
+    completedAt: '2026-08-04 12:00',
+    completedBy: '裁床主管',
+    unresolvedDifferences: [{ materialName: '主面料', nodeName: '中转仓配料', quantity: 2, unit: 'yard' }],
+  }), /未处理差异/)
+  assert.equal(getSupplementOrder(registered.id)?.status, '未完成')
+  assert.equal(completeSupplementOrder({ id: registered.id, completedAt: '2026-08-04 12:01', completedBy: '裁床主管' }).status, '已完成')
 })

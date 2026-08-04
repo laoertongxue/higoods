@@ -90,6 +90,8 @@
     "check:process-work-order-unification": "tsx scripts/check-process-work-order-unification.ts",
     "check:production-process-work-order-generation": "tsx scripts/check-production-process-work-order-generation.ts",
     "check:cutting-supplement-process-work-orders": "tsx scripts/check-cutting-supplement-process-work-orders.ts",
+    "check:cutting-supplement-supply-decision": "tsx scripts/check-cutting-supplement-supply-decision.ts",
+    "check:cutting-supplement-node-facts": "tsx scripts/check-cutting-supplement-node-facts.ts",
     "check:process-work-order-generation-service-isolated": "tsx scripts/check-process-work-order-generation-service-isolated.ts",
     "check:tech-pack-pattern-and-images": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-tech-pack-pattern-and-images.ts",
     "check:pda-task-receive-scope": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pda-task-receive-scope.ts",
