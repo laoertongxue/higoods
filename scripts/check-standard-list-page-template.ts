@@ -23,6 +23,8 @@ import {
   renderStandardListTable,
   type StandardListColumn,
 } from '../src/components/ui/list-table.ts'
+import { listSupplementOrders } from '../src/data/fcs/cutting/supplement-order-registry.ts'
+import { getSupplementNodeOverview } from '../src/data/fcs/cutting/supplement-node-facts.ts'
 
 const slotMarkers = {
   title: 'UNIQUE_TITLE_SLOT',
@@ -1148,8 +1150,8 @@ assert.equal(
 )
 assert.deepEqual(
   supplementPage.normalizeSupplementListPreferences({
-    order: ['recordNo', 'target', 'supplementQty', 'materialDemand', 'processDemand', 'status', 'created', 'actions'],
-    visibleKeys: ['recordNo', 'target', 'supplementQty', 'materialDemand', 'processDemand', 'status', 'created', 'actions'],
+    order: ['recordNo', 'target', 'supplementQty', 'materialDemand', 'inventory', 'purchase', 'dye', 'print', 'materialPrep', 'status', 'created', 'actions'],
+    visibleKeys: ['recordNo', 'target', 'supplementQty', 'materialDemand', 'inventory', 'purchase', 'dye', 'print', 'materialPrep', 'status', 'created', 'actions'],
     frozenKeys: ['recordNo', 'target', 'supplementQty'],
     pageSize: 10,
   }).frozenKeys,
@@ -1180,29 +1182,38 @@ assert.match(
 )
 assert.equal(countRecordRows(supplementHtml), 10, '默认当前页必须只渲染 10 条补料记录')
 const supplementTotal = Number(supplementHtml.match(/共 (\d+) 条/)?.[1] ?? 0)
-assert(supplementTotal >= 12, '补料管理必须提供至少 12 条确定性记录')
-assert(/PH-\d/.test(supplementHtml) && /DY-\d/.test(supplementHtml), '补料列表必须展示真实印花、染色加工单号')
-assert(supplementHtml.includes('1 / 2'), '默认 10 条/页时必须可进入第 2 页')
+assert(supplementTotal >= 27, '补料管理必须提供至少 27 条确定性记录')
+assert(supplementHtml.includes('1 / 3'), '默认 10 条/页时必须可进入第 2 页')
 assertDefaultPageSize(supplementHtml, '补料管理默认必须为 10 条/页')
 assert(supplementHtml.includes('data-skip-page-rerender="true"'), '局部交互控件必须跳过整页重渲染')
+
+for (let pageIndex = 2; pageIndex <= 3; pageIndex += 1) {
+  supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('next-page'))
+}
+const supplementNodeOverviews = listSupplementOrders().map(getSupplementNodeOverview)
+assert(supplementNodeOverviews.some((overview) => overview.dye !== '不需要'), '补料列表必须展示染色节点总览')
+assert(supplementNodeOverviews.some((overview) => overview.print !== '不需要'), '补料列表必须展示印花节点总览')
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('prev-page'))
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('prev-page'))
+assert(supplementDom.regions.get('pagination')?.innerHTML.includes('1 / 3'), '返回后必须回到第 1 页')
 
 assert.equal(
   supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('next-page')),
   true,
   '下一页动作必须被页面处理',
 )
-assert(supplementDom.regions.get('pagination')?.innerHTML.includes('2 / 2'), '下一页必须局部刷新到第 2 页')
+assert(supplementDom.regions.get('pagination')?.innerHTML.includes('2 / 3'), '下一页必须局部刷新到第 2 页')
 assert((supplementDom.regions.get('table')?.innerHTML.match(/data-record-id=/g) ?? []).length >= 2, '第 2 页必须渲染剩余记录')
 supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('prev-page'))
-assert(supplementDom.regions.get('pagination')?.innerHTML.includes('1 / 2'), '上一页必须局部刷新回第 1 页')
+assert(supplementDom.regions.get('pagination')?.innerHTML.includes('1 / 3'), '上一页必须局部刷新回第 1 页')
 
 supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('next-page'))
 supplementDom.fields.get('keyword')!.value = 'SUP-'
 supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('apply-filters'))
-assert(supplementDom.regions.get('pagination')?.innerHTML.includes('1 / 2'), '筛选后必须回到第 1 页')
+assert(supplementDom.regions.get('pagination')?.innerHTML.includes('1 / 3'), '筛选后必须回到第 1 页')
 supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('next-page'))
 supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('reset-filters'))
-assert(supplementDom.regions.get('pagination')?.innerHTML.includes('1 / 2'), '重置筛选后必须回到第 1 页')
+assert(supplementDom.regions.get('pagination')?.innerHTML.includes('1 / 3'), '重置筛选后必须回到第 1 页')
 
 assert.equal(
   supplementPage.handleCraftCuttingSupplementManagementEvent(
@@ -1216,8 +1227,8 @@ supplementPage.handleCraftCuttingSupplementManagementEvent(
   supplementField('pageSize', '20'),
   supplementControlEvent('change'),
 )
-assert(supplementDom.regions.get('pagination')?.innerHTML.includes('1 / 1'), '切换每页条数后必须回到第 1 页')
-assert.equal((supplementDom.regions.get('table')?.innerHTML.match(/data-record-id=/g) ?? []).length, supplementTotal, '20 条/页必须展示全部补料记录')
+assert(supplementDom.regions.get('pagination')?.innerHTML.includes('1 / 2'), '切换每页条数后必须回到第 1 页')
+assert.equal((supplementDom.regions.get('table')?.innerHTML.match(/data-record-id=/g) ?? []).length, 20, '20 条/页第 1 页必须渲染 20 条补料记录')
 
 for (const expected of ['ascending', 'descending', 'none']) {
   supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('sort-column', { columnKey: 'recordNo' }))
@@ -1251,7 +1262,7 @@ assert.equal(drop.wasPrevented(), true, '合法放置必须阻止浏览器默认
 let draggedPreferences = JSON.parse(defaultSupplementStorage.read(supplementStorageKey) ?? '{}') as StandardListColumnPreferences
 assert.deepEqual(
   draggedPreferences.order,
-  ['created', 'recordNo', 'target', 'supplementQty', 'materialDemand', 'processDemand', 'status', 'actions'],
+  ['created', 'recordNo', 'target', 'supplementQty', 'materialDemand', 'inventory', 'purchase', 'dye', 'print', 'materialPrep', 'status', 'actions'],
   'drop 必须把源列移动到目标列之前并保持操作列最后',
 )
 assert(
@@ -1390,8 +1401,8 @@ supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('clo
 assert.equal(supplementDom.regions.get('overlay')?.innerHTML, '', '关闭详情必须清空覆盖层')
 
 const validPreferences = {
-  order: ['recordNo', 'target', 'supplementQty', 'materialDemand', 'processDemand', 'status', 'created', 'actions'],
-  visibleKeys: ['recordNo', 'target', 'supplementQty', 'materialDemand', 'processDemand', 'status', 'created', 'actions'],
+  order: ['recordNo', 'target', 'supplementQty', 'materialDemand', 'inventory', 'purchase', 'dye', 'print', 'materialPrep', 'status', 'created', 'actions'],
+  visibleKeys: ['recordNo', 'target', 'supplementQty', 'materialDemand', 'inventory', 'purchase', 'dye', 'print', 'materialPrep', 'status', 'created', 'actions'],
   frozenKeys: ['recordNo', 'target', 'supplementQty'],
   pageSize: 20,
 }
@@ -1400,7 +1411,7 @@ installSupplementBrowser(createMemoryStorageWithSeed({
 }))
 const storedSupplementPage = await import('../src/pages/process-factory/cutting/supplement-management.ts?standard-list-valid-storage')
 const storedSupplementHtml = storedSupplementPage.renderCraftCuttingSupplementManagementPage()
-assert.equal(countRecordRows(storedSupplementHtml), supplementTotal, '有效 localStorage 偏好必须加载 20 条/页')
+assert.equal(countRecordRows(storedSupplementHtml), Math.min(supplementTotal, 20), '有效 localStorage 偏好必须加载 20 条/页')
 assert.match(storedSupplementHtml, /<option value="20" selected>20 条\/页<\/option>/, '有效 localStorage 页大小必须生效')
 assert(tableHeader(storedSupplementHtml, 'recordNo').includes('sticky'), '超宽 Storage 加载后必须保留前序可用冻结列')
 assert(tableHeader(storedSupplementHtml, 'target').includes('sticky'), '超宽 Storage 加载后必须保留 520px 内的冻结列')
@@ -1602,7 +1613,7 @@ async function checkSupplementColumnDragInChromium(): Promise<void> {
     )
     assert.deepEqual(
       browserHeaderOrder,
-      ['created', 'recordNo', 'target', 'supplementQty', 'materialDemand', 'processDemand', 'status', 'actions'],
+      ['created', 'recordNo', 'target', 'supplementQty', 'materialDemand', 'inventory', 'purchase', 'dye', 'print', 'materialPrep', 'status', 'actions'],
       '真实 Chromium drop 必须局部更新列顺序并保持操作列最后',
     )
     const browserPreferences = await page.evaluate(

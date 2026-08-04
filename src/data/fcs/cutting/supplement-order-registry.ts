@@ -67,6 +67,7 @@ export interface SupplementOrderLifecycle {
   readonly recordNo: string
   readonly cutOrderId: string
   readonly cutOrderNo: string
+  readonly productionOrderId: string
   readonly productionOrderNo: string
   readonly sequenceNo: number
   readonly status: SupplementOrderStatus
@@ -165,6 +166,16 @@ export function listSupplementOrders(): ReadonlyArray<SupplementOrderLifecycle> 
   return [...supplementOrders.values()].map(cloneSupplementOrder)
 }
 
+export function listActiveSupplementOrders(): SupplementOrderLifecycle[] {
+  return listSupplementOrders().filter((order) => order.status === '未完成')
+}
+
+export function listSupplementOrdersByProductionOrder(
+  productionOrderId: string,
+): SupplementOrderLifecycle[] {
+  return listSupplementOrders().filter((order) => order.productionOrderId === productionOrderId)
+}
+
 export function getSupplementOrder(id: string): SupplementOrderLifecycle | undefined {
   const order = supplementOrders.get(id)
   return order ? cloneSupplementOrder(order) : undefined
@@ -179,6 +190,11 @@ export function registerSupplementOrder(
       throw new Error('补料单标识冲突，不能登记到不同业务对象。')
     }
     return cloneSupplementOrder(existing)
+  }
+  if (input.confirmationKey && [...supplementOrders.values()].some((order) =>
+    order.confirmationKey === input.confirmationKey && order.id !== input.id
+  )) {
+    throw new Error('同一确认键已生成补料单，不能重复登记。')
   }
 
   const order: MutableSupplementOrderLifecycle = {

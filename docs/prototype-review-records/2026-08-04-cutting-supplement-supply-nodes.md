@@ -46,6 +46,7 @@
 | 裁片放行快照创建时曾读取到通用占位款式图 | 选不对 | 裁床业务 | 改为从同一生产单中选择已配置的真实款式图，并在确认前执行图片硬校验 | 否 |
 | PDA 仓库待处理页缺少共享库位函数导入 | 协作断裂 | PDA 仓管 | 补齐共享事实函数导入并回归实际 PDA 路由 | 否 |
 | 旧页面自动化仍等待旧确认按钮与旧详情完成旁路 | 点错风险 | 裁床业务 | 按当前风险知悉和操作栏完成交互更新自动化契约 | 否 |
+| 合并主干时自动合并漏掉生产单身份与确认键防重判断 | 重复处理 | 裁床业务 | 恢复生产单身份、按生产单查询和确认键跨单防重，并在主干重跑 22 项生命周期检查 | 否 |
 
 ## 6. 最终结论
 
@@ -102,6 +103,7 @@
 - `npm run check:list-page-governance`：通过；静态规则、标准列表浏览器列拖拽及 20 个用户可见文件的原型治理记录均通过。
 - `npm run check:prototype-design-governance -- --all`：通过；由列表治理命令一并执行。
 - `npm run build`：通过。
+- 合并至 `main` 后重新执行补料生命周期、供应决策、节点事实、加工单、中转仓/PDA、列表治理和构建检查；主干冲突修复后的补料生命周期检查为 22/22 通过。
 - `npx playwright test tests/cut-order-supplement-linkage.spec.ts --grep '放行快照创建真实补料'`：通过，确认风险确认后生成真实补料单并回到对应裁片单。
 - `npx playwright test tests/cut-order-supplement-linkage.spec.ts --grep '补料详情只读|操作栏一次只完成'`：通过 2 项，确认裁片单详情只读且只能从操作栏逐单完成。
 - `npx playwright test tests/supplement-management-list-template.spec.ts --grep '放行目标快照直接预填多物料多部位缺口|快照补料确认后冻结来源与数量'`：通过 2 项，确认快照涉及多张裁片单时分别选择，创建后冻结所选原裁片单及数量。
