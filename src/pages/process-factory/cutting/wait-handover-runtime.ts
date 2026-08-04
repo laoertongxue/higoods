@@ -44,9 +44,13 @@ import {
   resolveTransferBagAuthoritativeCurrentLocation,
   resolveTransferBagCurrentUse,
   recoverTransferBag,
+  submitWholeBagHandover,
+  submitTransferBagRepack,
   submitSpecialCraftBagReturn,
   submitSpecialCraftTicketOnlyReturn,
   submitTransferBagScrap,
+  type SubmitTransferBagRepackInput,
+  type TransferBagHandoverTaskContext,
 } from '../../../data/fcs/cutting/transfer-bag-operations.ts'
 import {
   listSpreadingResultGeneratedFeiTickets,
@@ -499,6 +503,16 @@ function isWaitHandoverBagEventForCode(
 
 function getWaitHandoverRepackBag(
   event: CuttingRuntimeEvent,
+  key: 'sourceBags',
+  bagCode: string,
+): TransferBagRepackPayload['sourceBags'][number] | undefined
+function getWaitHandoverRepackBag(
+  event: CuttingRuntimeEvent,
+  key: 'resultBags',
+  bagCode: string,
+): TransferBagRepackPayload['resultBags'][number] | undefined
+function getWaitHandoverRepackBag(
+  event: CuttingRuntimeEvent,
   key: 'sourceBags' | 'resultBags',
   bagCode: string,
 ): TransferBagRepackPayload['sourceBags'][number]
@@ -533,7 +547,8 @@ function inferWaitHandoverEventCycleIds(
         || buildWaitHandoverUsageCycleId(bagCode, event.occurredAt)
     } else if (event.eventType === '中转袋拆袋重装') {
       const resultBag = getWaitHandoverRepackBag(event, 'resultBags', bagCode)
-      currentCycleId = resultBag ? declaredCycleId : ''
+      const sourceBag = getWaitHandoverRepackBag(event, 'sourceBags', bagCode)
+      currentCycleId = resultBag || sourceBag?.outcome === 'RETURN_INBOUND' ? declaredCycleId : ''
     } else if (declaredCycleId) {
       currentCycleId = declaredCycleId
     }
@@ -569,9 +584,12 @@ function toWaitHandoverLifecycleFact(
     && !isEffectiveTransferBagScrapEvent(event, events)
   ) return null
   if (event.eventType === '中转袋拆袋重装') {
+    const sourceBag = getWaitHandoverRepackBag(event, 'sourceBags', bagCode)
     const factType = getWaitHandoverRepackBag(event, 'resultBags', bagCode)
       ? 'REPACK_RESULT_CONFIRMED'
-      : getWaitHandoverRepackBag(event, 'sourceBags', bagCode)
+      : sourceBag?.outcome === 'RETURN_INBOUND'
+        ? 'REPACK_SOURCE_RETAINED'
+        : sourceBag
         ? 'REPACK_SOURCE_EMPTIED'
         : null
     return factType
@@ -662,6 +680,7 @@ function listWaitHandoverLifecycleCycles(
       .filter((event) =>
         event.eventType === '中转袋拆袋重装'
         && eventTouchesTransferBag(event, bagCode)
+        && getWaitHandoverRepackBag(event, 'sourceBags', bagCode)?.outcome !== 'RETURN_INBOUND'
         && runtimeString(getWaitHandoverRepackBag(event, 'sourceBags', bagCode)?.usageCycleId) === fact.usageCycleId
         && runtimeString(getWaitHandoverRepackBag(event, 'resultBags', bagCode)?.usageCycleId) !== fact.usageCycleId)
       .sort(compareCuttingRuntimeChronologyAscending)
@@ -1609,6 +1628,232 @@ export function appendWaitHandoverInboundEvent(input: {
     },
     payload,
   }, storage).event
+}
+
+export function submitWaitHandoverRepackWithSourceReturns(
+  input: SubmitTransferBagRepackInput,
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): {
+  repackEvent: CuttingRuntimeEvent<'中转袋拆袋重装'>
+  inboundEvents: CuttingRuntimeEvent[]
+} {
+  const retainedSources = input.retainedSources || []
+  const occupiedLocations = buildWaitHandoverLocationOccupancyStates(listCuttingRuntimeEvents(storage))
+  const selectedLocationIds = new Set<string>()
+  for (const retained of retainedSources) {
+    const locationId = retained.returnLocationRef.locationId
+    if (!locationId) throw new Error(`${retained.bagCode} 的回仓库位不完整。`)
+    if (selectedLocationIds.has(locationId)) throw new Error(`库位 ${retained.returnLocationRef.locationNo} 不能同时放入多个来源袋。`)
+    selectedLocationIds.add(locationId)
+    const occupiedByOtherBag = occupiedLocations.some((state) =>
+      state.locationRef.locationId === locationId && state.bagCode !== retained.bagCode)
+    if (occupiedByOtherBag) throw new Error(`库位 ${retained.returnLocationRef.locationNo} 已被其他中转袋占用。`)
+  }
+
+  const replay = (targetStorage: BrowserStorageLike | null) => {
+    const repackEvent = submitTransferBagRepack(input, targetStorage)
+    const payload = parseCompleteTransferBagRepackPayload(repackEvent)
+    if (!payload) throw new Error('拆袋重装事实不完整，不能继续来源袋入仓。')
+    const inboundEvents = payload.sourceBags
+      .filter((sourceBag) => sourceBag.outcome === 'RETURN_INBOUND')
+      .map((sourceBag) => {
+        if (!sourceBag.returnLocationRef) throw new Error(`${sourceBag.bagCode} 缺少回仓库位。`)
+        return appendWaitHandoverInboundEvent({
+          source: input.source,
+          operator: {
+            ...input.operator,
+            operatorRole: '裁片仓入仓员',
+          },
+          bagCode: sourceBag.bagCode,
+          warehouseArea: sourceBag.returnLocationRef.areaName,
+          locationCode: sourceBag.returnLocationRef.locationNo,
+          warehouseLocations: [{ ...sourceBag.returnLocationRef }],
+          usageCycleId: sourceBag.usageCycleId,
+          occurredAt: input.occurredAt,
+          idempotencyKey: `${sourceBag.usageCycleId}:REPACK_RETURN_INBOUND:${input.repackBatchId.trim()}`,
+          storage: targetStorage,
+        })
+      })
+    return { repackEvent, inboundEvents }
+  }
+
+  if (storage) {
+    const records = new Map<string, string>()
+    const ledgerValue = storage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY)
+    if (ledgerValue !== null) records.set(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, ledgerValue)
+    const temporaryStorage: BrowserStorageLike = {
+      getItem: (key) => records.get(key) ?? null,
+      setItem: (key, value) => { records.set(key, value) },
+      removeItem: (key) => { records.delete(key) },
+    }
+    replay(temporaryStorage)
+  }
+  return replay(storage)
+}
+
+export function submitWaitHandoverRepackWithSourceReturnsAndResultHandovers(
+  input: SubmitTransferBagRepackInput,
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): {
+  repackEvent: CuttingRuntimeEvent<'中转袋拆袋重装'>
+  inboundEvents: CuttingRuntimeEvent[]
+  handoverEvents: CuttingRuntimeEvent<'新增交出记录'>[]
+} {
+  const replay = (targetStorage: BrowserStorageLike | null) => {
+    const outcome = submitWaitHandoverRepackWithSourceReturns(input, targetStorage)
+    const payload = parseCompleteTransferBagRepackPayload(outcome.repackEvent)
+    if (!payload) throw new Error('拆袋重装事实不完整，不能继续交出结果袋。')
+    const handoverEvents = payload.resultBags.map((resultBag, index) => {
+      const current = resolveTransferBagCurrentUse(resultBag.bagCode, targetStorage)
+      if (!current.usageCycleId || current.usageCycleId !== resultBag.usageCycleId) {
+        throw new Error(`${resultBag.bagCode} 的使用周期不完整，不能交出。`)
+      }
+      const assignments = resultBag.tickets.map((ticket) => ({
+        feiTicketId: ticket.feiTicketId,
+        feiTicketNo: ticket.feiTicketNo,
+        sewingTaskId: ticket.sewingTaskId,
+        sewingTaskNo: ticket.sewingTaskNo,
+        receiverFactoryId: ticket.receiverFactoryId,
+        receiverFactoryName: ticket.receiverFactoryName,
+      }))
+      const recordKey = `${input.repackBatchId.trim()}:${resultBag.bagCode}`
+      return submitWholeBagHandover({
+        bagCode: resultBag.bagCode,
+        usageCycleId: resultBag.usageCycleId,
+        handoverOrderId: `REPACK-HO:${recordKey}`,
+        handoverOrderNo: `重装交出-${input.repackBatchId.trim()}-${index + 1}`,
+        handoverRecordId: `REPACK-HR:${recordKey}`,
+        handoverRecordNo: `重装交出记录-${input.repackBatchId.trim()}-${index + 1}`,
+        assignments,
+        submittedTicketSnapshot: resultBag.tickets,
+        operator: {
+          ...input.operator,
+          operatorRole: '裁片仓交出员',
+        },
+        source: input.source,
+        occurredAt: input.occurredAt,
+        ...(input.handoverContext ? { handoverContext: input.handoverContext } : {}),
+      }, targetStorage)
+    })
+    return { ...outcome, handoverEvents }
+  }
+
+  if (storage) {
+    const records = new Map<string, string>()
+    const ledgerValue = storage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY)
+    if (ledgerValue !== null) records.set(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, ledgerValue)
+    const temporaryStorage: BrowserStorageLike = {
+      getItem: (key) => records.get(key) ?? null,
+      setItem: (key, value) => { records.set(key, value) },
+      removeItem: (key) => { records.delete(key) },
+    }
+    replay(temporaryStorage)
+  }
+  return replay(storage)
+}
+
+export interface SubmitWaitHandoverTaskBatchInput {
+  handoverContext: TransferBagHandoverTaskContext
+  directBags: Array<{
+    bagCode: string
+    usageCycleId: string
+    assignments: Array<{
+      feiTicketId: string
+      feiTicketNo: string
+      sewingTaskId: string
+      sewingTaskNo: string
+      receiverFactoryId: string
+      receiverFactoryName: string
+    }>
+    submittedTicketSnapshot: TransferBagTicketFactSnapshot[]
+  }>
+  repack?: SubmitTransferBagRepackInput
+  operator: WaitHandoverRuntimeOperator
+  source: CuttingRuntimeEventSource
+  occurredAt?: string
+}
+
+export function submitWaitHandoverTaskBatch(
+  input: SubmitWaitHandoverTaskBatchInput,
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): {
+  repackEvent?: CuttingRuntimeEvent<'中转袋拆袋重装'>
+  inboundEvents: CuttingRuntimeEvent[]
+  handoverEvents: CuttingRuntimeEvent<'新增交出记录'>[]
+} {
+  const context = input.handoverContext
+  const replay = (targetStorage: BrowserStorageLike | null) => {
+    const repackOutcome = input.repack
+      ? submitWaitHandoverRepackWithSourceReturns({
+          ...input.repack,
+          handoverContext: context,
+          operator: input.operator,
+          source: input.source,
+          occurredAt: input.occurredAt || input.repack.occurredAt,
+        }, targetStorage)
+      : null
+    const repackPayload = repackOutcome
+      ? parseCompleteTransferBagRepackPayload(repackOutcome.repackEvent)
+      : null
+    if (repackOutcome && !repackPayload) {
+      throw new Error('拆袋重装事实不完整，不能继续本次交出。')
+    }
+    const handoverBags = [
+      ...input.directBags,
+      ...(repackPayload?.resultBags || []).map((bag) => ({
+        bagCode: bag.bagCode,
+        usageCycleId: bag.usageCycleId,
+        assignments: bag.tickets.map((ticket) => ({
+          feiTicketId: ticket.feiTicketId,
+          feiTicketNo: ticket.feiTicketNo,
+          sewingTaskId: ticket.sewingTaskId,
+          sewingTaskNo: ticket.sewingTaskNo,
+          receiverFactoryId: ticket.receiverFactoryId,
+          receiverFactoryName: ticket.receiverFactoryName,
+        })),
+        submittedTicketSnapshot: bag.tickets,
+      })),
+    ]
+    const duplicatedBag = handoverBags.find((bag, index) =>
+      handoverBags.findIndex((candidate) => candidate.bagCode === bag.bagCode) !== index)
+    if (duplicatedBag) throw new Error(`中转袋 ${duplicatedBag.bagCode} 在本次交出中重复。`)
+    if (!handoverBags.length) throw new Error('本次没有可交出的中转袋。')
+    const handoverEvents = handoverBags.map((bag, index) => {
+      const recordKey = `${context.handoverBatchId}:${bag.bagCode}`
+      return submitWholeBagHandover({
+        bagCode: bag.bagCode,
+        usageCycleId: bag.usageCycleId,
+        handoverOrderId: `TASK-HO:${context.handoverBatchId}`,
+        handoverOrderNo: `车缝任务交出-${context.sewingTaskNo}`,
+        handoverRecordId: `TASK-HR:${recordKey}`,
+        handoverRecordNo: `交出-${context.sewingTaskNo}-${index + 1}`,
+        assignments: bag.assignments,
+        submittedTicketSnapshot: bag.submittedTicketSnapshot,
+        handoverContext: context,
+        operator: { ...input.operator, operatorRole: '裁片仓交出员' },
+        source: input.source,
+        occurredAt: input.occurredAt,
+      }, targetStorage)
+    })
+    return {
+      ...(repackOutcome ? { repackEvent: repackOutcome.repackEvent } : {}),
+      inboundEvents: repackOutcome?.inboundEvents || [],
+      handoverEvents,
+    }
+  }
+
+  if (storage) {
+    const records = new Map<string, string>()
+    const ledgerValue = storage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY)
+    if (ledgerValue !== null) records.set(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, ledgerValue)
+    const temporaryStorage: BrowserStorageLike = {
+      getItem: (key) => records.get(key) ?? null,
+      setItem: (key, value) => { records.set(key, value) },
+      removeItem: (key) => { records.delete(key) },
+    }
+    replay(temporaryStorage)
+  }
+  return replay(storage)
 }
 
 export function appendWaitHandoverHandoverRecordEvent(input: {

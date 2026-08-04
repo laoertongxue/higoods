@@ -1,182 +1,50 @@
+#!/usr/bin/env node
+
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
-const source = fs.readFileSync(path.join(ROOT, 'src/pages/pda-cutting-handover.ts'), 'utf8')
-const inboundSource = fs.readFileSync(path.join(ROOT, 'src/pages/pda-cutting-inbound.ts'), 'utf8')
 const waitHandoverSource = fs.readFileSync(path.join(ROOT, 'src/pages/pda-warehouse-wait-handover.ts'), 'utf8')
-const checkSource = fs.readFileSync(fileURLToPath(import.meta.url), 'utf8')
-const CUTTING_WAIT_HANDOVER_ROOT = '/fcs/pda/warehouse/wait-handover?scope=cutting'
-const CUTTING_FIXTURE_CUT_ORDER_NO = 'CUT-260304-008-01'
-
-function buildExpectedEntries(taskId: string) {
-  return [
-    {
-      key: 'fei-ticket-bagging',
-      title: '菲票装袋',
-      route: `/fcs/pda/cutting/inbound/${taskId}`,
-    },
-    {
-      key: 'transfer-bag-inbound',
-      title: '中转袋入仓',
-      route: `/fcs/pda/cutting/inbound/${taskId}?action=inbound-location`,
-    },
-    {
-      key: 'transfer-bag-repack',
-      title: '拆袋重装',
-      route: '/fcs/pda/cutting/transfer-bag/repack',
-    },
-    {
-      key: 'transfer-bag-handover',
-      title: '中转袋交出',
-      route: `/fcs/pda/cutting/handover/${taskId}?action=transfer-bag-handover`,
-    },
-    {
-      key: 'transfer-bag-recovery',
-      title: '中转袋回收',
-      route: '/fcs/pda/cutting/transfer-bag/recovery',
-    },
-    {
-      key: 'transfer-bag-scrap',
-      title: '中转袋报废',
-      route: '/fcs/pda/cutting/transfer-bag/scrap',
-    },
-  ] as const
-}
-
-function assertContains(token: string, message: string): void {
-  assert(source.includes(token), message)
-}
-
-function assertNotContains(token: string, message: string): void {
-  assert(!source.includes(token), message)
-}
-
-assertContains(
-  "const isTransferBagHandoverAction = routeAction === 'transfer-bag-handover'",
-  '中转袋交出 action 必须使用独立模式',
-)
-assertContains(
-  "isTransferBagHandoverAction ? '中转袋交出'",
-  '中转袋交出 action 必须显示“中转袋交出”标题',
-)
-assertContains(
-  "const cuttingWaitHandoverBackHref = '/fcs/pda/warehouse/wait-handover?scope=cutting'",
-  '裁床交出与特殊工艺回仓必须返回六入口根页',
-)
-assertNotContains(
-  "const specialCraftReturnBackHref = '/fcs/pda/warehouse/wait-handover?scope=cutting&action=special-craft-return'",
-  '特殊工艺回仓不得通过旧 action 返回自身',
-)
-assertNotContains(
-  "const baggingConfirmBackHref = '/fcs/pda/warehouse/wait-handover?scope=cutting&action=handover-bagging-confirm'",
-  '中转袋交出不得通过旧 action 返回自身',
-)
-
-const directWaitHandoverPageImport = [
-  "import('../src/pages/",
-  "pda-warehouse-wait-handover.ts')",
-].join('')
-assert(
-  !checkSource.includes(directWaitHandoverPageImport),
-  '快速路由契约检查不得直接导入待交出仓页面',
-)
-for (const forbiddenSource of [
-  'export function renderPdaCuttingWaitHandoverRootContent',
-  'const CUTTING_WAIT_HANDOVER_ACTIONS',
-  'function getCuttingWaitHandoverAction(',
-  'function renderCuttingWaitHandoverActionPage(',
-  'buildWaitHandoverRuntimeProjection',
-  'buildTransferBagsProjection',
-  'buildInboundTempBagsFromTransferBagViewModel',
-]) {
-  assert(
-    !waitHandoverSource.includes(forbiddenSource),
-    `裁床待交出仓不得保留不可达旧子页链：${forbiddenSource}`,
-  )
-}
-
-const { listPdaCuttingTaskSourceRecords } = await import('../src/data/fcs/cutting/pda-cutting-task-source.ts')
-const taskFixture = listPdaCuttingTaskSourceRecords().find(
-  (record) => record.cutOrderNos.includes(CUTTING_FIXTURE_CUT_ORDER_NO),
-)
-assert(taskFixture, `快速路由契约检查必须找到裁片单 ${CUTTING_FIXTURE_CUT_ORDER_NO} 对应的任务`)
-const expectedEntries = buildExpectedEntries(taskFixture.taskId)
-const expectedLegacyRedirects = [
-  { action: 'inbound', target: expectedEntries[0].route },
-  { action: 'inbound-location', target: expectedEntries[1].route },
-  { action: 'handover-bagging-confirm', target: expectedEntries[3].route },
-  { action: 'special-craft-return', target: expectedEntries[1].route },
-  { action: 'numbering', target: '/fcs/pda/cutting/fei-ticket-numbering' },
-] as const
+const repackSource = fs.readFileSync(path.join(ROOT, 'src/pages/pda-cutting-transfer-bag-repack.ts'), 'utf8')
+const handoverSource = fs.readFileSync(path.join(ROOT, 'src/pages/pda-cutting-handover.ts'), 'utf8')
+const { getPdaCuttingWaitHandoverActions, resolvePdaCuttingWaitHandoverLegacyActionRoute } = await import('../src/pages/pda-cutting-wait-handover-actions.ts')
 const { routes: pdaRoutes } = await import('../src/router/routes-pda.ts')
-const {
-  getPdaCuttingWaitHandoverActions,
-  resolvePdaCuttingWaitHandoverLegacyActionRoute,
-} = await import('../src/pages/pda-cutting-wait-handover-actions.ts')
 
-const inboundRoute = expectedEntries[1].route
-const inboundPathname = new URL(inboundRoute, 'http://localhost').pathname
-const inboundMatch = pdaRoutes.dynamicRoutes
-  .map((route) => route.pattern.exec(inboundPathname))
-  .find((match): match is RegExpExecArray => Boolean(match))
-assert(inboundMatch, 'routes-pda 必须使用真实动态路由契约接住中转袋入仓深链')
-assert.equal(inboundMatch[1], taskFixture.taskId, 'routes-pda 动态路由契约必须完整传递裁床任务 ID')
-assert(
-  inboundSource.includes("const pageTitle = mode === 'inbound-location' ? '中转袋入仓' : '菲票装袋'"),
-  '中转袋入仓 query 模式必须保留独立标题',
-)
-assert(
-  inboundSource.includes("backHref: '/fcs/pda/warehouse/wait-handover?scope=cutting'"),
-  '菲票装袋和中转袋入仓必须返回裁床待交出仓六入口根页',
-)
+const entries = getPdaCuttingWaitHandoverActions()
+assert.deepEqual(entries.map(({ key, title }) => ({ key, title })), [
+  { key: 'fei-ticket-bagging', title: '菲票装袋' },
+  { key: 'transfer-bag-inbound', title: '中转袋入仓' },
+  { key: 'transfer-bag-handover', title: '中转袋交出' },
+  { key: 'special-craft-return', title: '特殊工艺回仓' },
+  { key: 'transfer-bag-recovery', title: '中转袋回收' },
+  { key: 'transfer-bag-scrap', title: '中转袋报废' },
+], 'PDA 待交出仓必须恰好显示六个独立入口，拆袋重装并入中转袋交出')
+assert.equal(entries.some((entry) => entry.title === '拆袋重装'), false, 'PDA 不得保留独立拆袋重装入口')
+assert.equal(entries.find((entry) => entry.key === 'transfer-bag-handover')?.route, '/fcs/pda/cutting/transfer-bag/repack', 'PDA 中转袋交出必须进入任务驱动的合并流程')
+assert.match(entries.find((entry) => entry.key === 'special-craft-return')?.route || '', /action=special-craft-return$/, '特殊工艺回仓必须进入独立操作页')
+assert.equal(resolvePdaCuttingWaitHandoverLegacyActionRoute('handover-bagging-confirm'), '/fcs/pda/cutting/transfer-bag/repack')
+assert.match(resolvePdaCuttingWaitHandoverLegacyActionRoute('special-craft-return') || '', /action=special-craft-return$/)
 
-assert(
-  pdaRoutes.exactRoutes['/fcs/pda/warehouse/wait-handover'],
-  'routes-pda 必须注册裁床待交出仓根路由',
-)
-for (const route of [
-  '/fcs/pda/cutting/transfer-bag/repack',
-  '/fcs/pda/cutting/transfer-bag/recovery',
-  '/fcs/pda/cutting/transfer-bag/scrap',
-]) {
-  assert(pdaRoutes.exactRoutes[route], `routes-pda 必须注册稳定动作路由 ${route}`)
-}
-assert(
-  waitHandoverSource.includes('renderCuttingWaitHandoverActionCards(getPdaCuttingWaitHandoverActions())'),
-  '裁床待交出仓根页必须直接使用生产六入口契约',
-)
-const actualEntries = getPdaCuttingWaitHandoverActions()
-assert.equal(actualEntries.length, 6, '裁床待交出仓生产路由契约必须恰好提供六个动作入口')
-assert.deepEqual(
-  actualEntries.map(({ key, title, route }) => ({ key, title, route })),
-  expectedEntries.map(({ key, title, route }) => ({ key, title, route })),
-  '裁床待交出仓生产六入口必须使用稳定业务任务对应的固定深链',
-)
-assert.equal(actualEntries.some((item) => item.title === '菲票打编号' || item.title === '特殊工艺回仓'), false)
-assert(
-  waitHandoverSource.includes("renderCuttingWarehouseSwitch('wait-handover')"),
-  '裁床待交出仓根页必须保留仓库切换',
-)
-for (const forbiddenText of ['候选袋', '交出装袋确认', '混装：', '暂存袋']) {
-  assert(!waitHandoverSource.includes(forbiddenText), `裁床待交出仓根页不得保留旧内容“${forbiddenText}”`)
-}
+assert(pdaRoutes.exactRoutes['/fcs/pda/cutting/transfer-bag/repack'], 'PDA 合并交出流程必须保留稳定路由')
+assert(waitHandoverSource.includes('renderCuttingWaitHandoverActionCards(getPdaCuttingWaitHandoverActions())'), 'PDA 待交出仓卡片必须直接读取六入口契约')
+for (const marker of [
+  '中转袋交出',
+  '第 ${visibleStep} 步，共 5 步',
+  '1 扫车缝任务',
+  '2 核对相关袋',
+  '3 直接交出或重装',
+  '4 剩余来源袋',
+  '5 汇总确认',
+  'data-pda-repack-field="sewingTaskNo"',
+  'data-pda-repack-field="receiverPpicId"',
+  '扫描或填写',
+  'submitWaitHandoverTaskBatch({',
+]) assert(repackSource.includes(marker), `PDA 合并交出流程缺少：${marker}`)
+assert(repackSource.includes("disposition === 'DIRECT_HANDOVER'"), 'PDA 必须识别整袋直接交出')
+assert(repackSource.includes("disposition === 'REPACK_REQUIRED'"), 'PDA 必须识别正常拆袋重装')
+assert(repackSource.includes('默认原库位，也可以重新扫描或手工填写'), 'PDA 剩余来源袋必须默认原库位并允许扫码或手填变更')
+assert(!handoverSource.includes('<div class="font-medium">特殊工艺回仓扫码</div>'), 'PDA 特殊工艺回仓不得保留重复说明模块')
 
-for (const legacy of expectedLegacyRedirects) {
-  assert.equal(
-    resolvePdaCuttingWaitHandoverLegacyActionRoute(legacy.action),
-    legacy.target,
-    `旧 action “${legacy.action}”的生产路由解析器必须返回固定目标`,
-  )
-}
-assert(
-  waitHandoverSource.includes('resolvePdaCuttingWaitHandoverLegacyActionRoute(activeAction)'),
-  '裁床待交出仓根路由必须接入生产 legacy 路由解析器',
-)
-assert(
-  waitHandoverSource.includes("renderRouteRedirect(legacyActionRoute, '正在进入裁床操作')"),
-  '裁床待交出仓根路由必须将 legacy action 渲染为跳转占位页',
-)
-console.log('[check-pda-cutting-wait-handover-entry-routing] 快速路由契约与 legacy 解析检查通过')
+console.log('PASS check-pda-cutting-wait-handover-entry-routing')

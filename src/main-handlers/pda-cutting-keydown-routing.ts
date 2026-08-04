@@ -9,8 +9,11 @@ const PDA_CUTTING_SCAN_KEYDOWN_SELECTOR = [
   '[data-pda-recovery-field="bagCode"]',
   '[data-pda-scrap-field="bagCode"]',
   '[data-pda-repack-field="sourceBag"]',
+  '[data-pda-repack-field="sewingTaskNo"]',
+  '[data-pda-repack-field="receiverPpicId"]',
   '[data-pda-repack-field="ticket"]',
   '[data-pda-repack-field="resultBag"]',
+  '[data-pda-repack-field="returnLocation"]',
   '[data-pda-cut-handover-field="specialCraftReturnLocationScan"]',
 ].join(', ')
 

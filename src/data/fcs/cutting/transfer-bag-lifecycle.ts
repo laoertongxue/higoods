@@ -29,6 +29,7 @@ export type TransferBagLifecycleFactType =
   | 'BAGGING_CONFIRMED'
   | 'INBOUND_CONFIRMED'
   | 'REPACK_RESULT_CONFIRMED'
+  | 'REPACK_SOURCE_RETAINED'
   | 'REPACK_SOURCE_EMPTIED'
   | 'HANDOVER_CONFIRMED'
   | 'SPECIAL_CRAFT_BAG_RETURNED'
@@ -101,6 +102,7 @@ const LIFECYCLE_STAGE_FACT_TYPES = new Set<TransferBagLifecycleFactType>([
   'BAGGING_CONFIRMED',
   'INBOUND_CONFIRMED',
   'REPACK_RESULT_CONFIRMED',
+  'REPACK_SOURCE_RETAINED',
   'HANDOVER_CONFIRMED',
   'SPECIAL_CRAFT_BAG_RETURNED',
 ])
@@ -167,6 +169,7 @@ function stageFromFact(
   if (fact.factType === 'REPACK_RESULT_CONFIRMED') {
     return 'READY_HANDOVER'
   }
+  if (fact.factType === 'REPACK_SOURCE_RETAINED') return 'PACKED'
   if (fact.factType === 'HANDOVER_CONFIRMED') {
     return 'HANDED_OVER_WAITING_RETURN'
   }

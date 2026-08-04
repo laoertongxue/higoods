@@ -80,6 +80,7 @@ import {
   submitWholeBagHandover,
   type TransferBagCurrentUse,
 } from '../../../data/fcs/cutting/transfer-bag-operations.ts'
+import { ensureTransferBagRepackMockEvents } from '../../../data/fcs/cutting/transfer-bag-repack-mock.ts'
 import { buildBindingProcessOrders } from './binding-strip-orders.ts'
 import {
   buildCurrentCuttingWarehouseMapProjection,
@@ -2878,7 +2879,9 @@ function renderWaitHandoverWebActionDialog(action: WaitHandoverWebAction, select
     'special-craft-return': '确认回仓入库',
   }
   const inboundTicketOptions = getWaitHandoverTicketOptions()
-  const selectedConfirm = selectedValue ? findWaitHandoverConfirmSelection(selectedValue) : null
+  const selectedConfirm = selectedValue
+    ? buildWaitHandoverConfirmSelections().find((item) => item.bagCode === selectedValue) || null
+    : null
   const specialCraftReturnOptions = getWaitHandoverSpecialCraftReturnOptions()
   const selectedSpecialCraftReturn = selectedValue ? findWaitHandoverSpecialCraftReturnSelection(selectedValue) : buildWaitHandoverSpecialCraftReturnSelections()[0] || null
   const actionContent = action === 'bagging'
@@ -2952,12 +2955,10 @@ function renderWaitHandoverWebActionDialog(action: WaitHandoverWebAction, select
     : action === 'handover'
       ? `
         <div class="space-y-3">
-          ${renderWaitHandoverWebStep(1, '选择已入仓中转袋', Boolean(selectedConfirm), true, `
+          ${renderWaitHandoverWebStep(1, '填写已入仓中转袋', Boolean(selectedConfirm), true, `
             <label class="space-y-2">
-              <span class="text-sm font-medium text-foreground">待交出整袋</span>
-              <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="handoverSelection">
-                ${buildWaitHandoverActionSelectOptions(getWaitHandoverRecordOptions(), '暂无完整归属同一接收任务的已入仓中转袋', selectedValue)}
-              </select>
+              <span class="text-sm font-medium text-foreground">中转袋编号</span>
+              <input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="handoverBagCode" value="${escapeHtml(selectedValue)}" placeholder="手工填写或粘贴中转袋编号" />
             </label>
             <div class="mt-3 rounded-lg border bg-background px-3 py-2 text-sm">
               <div><span class="text-muted-foreground">中转袋：</span><span class="font-medium text-foreground">${escapeHtml(selectedConfirm?.bagCode || '待选择')}</span></div>
@@ -3219,9 +3220,10 @@ function submitWaitHandoverInbound(dialog: HTMLElement): boolean {
 }
 
 function submitWaitHandoverRecord(dialog: HTMLElement): boolean {
-  const selection = findWaitHandoverConfirmSelection(readWaitHandoverWebField(dialog, 'handoverSelection'))
+  const bagCode = readWaitHandoverWebField(dialog, 'handoverBagCode')
+  const selection = buildWaitHandoverConfirmSelections().find((item) => item.bagCode === bagCode)
   if (!selection) {
-    window.alert('请选择可整袋交出的已入仓中转袋。')
+    window.alert(`${bagCode || '该中转袋'} 当前不能整袋交出，请核对袋号、袋内菲票分配和接收车缝工厂。`)
     return true
   }
   const lifecycle = buildWaitHandoverLifecycleByBagCode(selection.bagCode)
@@ -4678,6 +4680,14 @@ function buildRuntimeInboundTempBagsFromEvents(
     .filter((event) => event.eventType === '菲票装袋')
     .map((event) => {
       const payload = toRuntimeRecord(event.payload)
+      const bagCode = runtimeString(payload.bagCode) || event.refs.transferBagCode || '待补袋码'
+      const inboundEvent = runtimeEvents.find((candidate) =>
+        candidate.eventType === '中转袋入仓'
+        && candidate.eventStatus !== '已取消'
+        && candidate.refs.transferBagCode === bagCode
+        && (!event.refs.usageCycleId || candidate.refs.usageCycleId === event.refs.usageCycleId))
+      const inboundPayload = toRuntimeRecord(inboundEvent?.payload)
+      const effectiveInboundEvent = inboundEvent || event
       const rawItems = Array.isArray(payload.feiTicketItems) ? payload.feiTicketItems : []
       const containedFeiTickets = rawItems.map((rawItem) => {
         const item = toRuntimeRecord(rawItem)
@@ -4687,22 +4697,22 @@ function buildRuntimeInboundTempBagsFromEvents(
         return {
           feiTicketId: feiTicketId || ticket?.feiTicketId || event.refs.feiTicketIds?.[0] || '',
           feiTicketNo: feiTicketNo || ticket?.feiTicketNo || event.refs.feiTicketNos?.[0] || '',
-          productionOrderId: ticket?.productionOrderId || event.refs.productionOrderId || '',
-          productionOrderNo: ticket?.productionOrderNo || event.refs.productionOrderNo || '按菲票事件追踪',
+          productionOrderId: runtimeString(item.productionOrderId) || ticket?.productionOrderId || event.refs.productionOrderId || '',
+          productionOrderNo: runtimeString(item.productionOrderNo) || ticket?.productionOrderNo || event.refs.productionOrderNo || '按菲票事件追踪',
           cutOrderId: runtimeString(item.cutOrderId) || ticket?.cutOrderId || event.refs.cutOrderId || '',
           cutOrderNo: runtimeString(item.cutOrderNo) || ticket?.cutOrderNo || event.refs.cutOrderNo || '按菲票事件追踪',
           spreadingOrderNo: runtimeString(item.spreadingOrderNo) || ticket?.spreadingOrderNo || event.refs.spreadingOrderNo || '',
-          spuCode: ticket?.sourceTechPackSpuCode || ticket?.skuCode || '按菲票追踪',
-          color: ticket?.skuColor || ticket?.fabricColor || '未标记',
+          spuCode: runtimeString(item.spuCode) || ticket?.sourceTechPackSpuCode || ticket?.skuCode || '按菲票追踪',
+          color: runtimeString(item.color) || ticket?.skuColor || ticket?.fabricColor || '未标记',
           size: ticket?.skuSize || runtimeString(item.size) || '未标记',
           partName: ticket?.partName || runtimeString(item.partName) || '未标记',
           pieceQty: runtimeNumber(item.pieceQty) || ticket?.actualCutPieceQty || ticket?.qty || 0,
           pieceSequenceLabel: runtimeString(item.pieceSequenceLabel) || ticket?.pieceSequenceLabel || ticket?.pieceSetNoRange || '按菲票追踪',
           hasSpecialCraft: Boolean(item.hasSpecialCraft) || Boolean(ticket?.hasSpecialCraft),
-          specialCraftDisplay: getSpecialCraftDisplay(ticket),
-          receiverFactoryDisplay: getReceiverFactoryDisplay(ticket),
-          printStatus: getRuntimeTicketPrintStatus(ticket),
-          voidStatus: getRuntimeTicketVoidStatus(ticket),
+          specialCraftDisplay: runtimeString(item.specialCraftDisplay) || getSpecialCraftDisplay(ticket),
+          receiverFactoryDisplay: runtimeString(item.receiverFactoryDisplay) || runtimeString(item.receiverFactoryName) || getReceiverFactoryDisplay(ticket),
+          printStatus: runtimeString(item.printStatus) || getRuntimeTicketPrintStatus(ticket),
+          voidStatus: runtimeString(item.voidStatus) || getRuntimeTicketVoidStatus(ticket),
         } satisfies InboundTempBagContainedFeiTicket
       })
       const derivedMixedFlag =
@@ -4714,16 +4724,16 @@ function buildRuntimeInboundTempBagsFromEvents(
 
       return {
         tempBagUseId: runtimeString(payload.tempBagUseId) || event.eventId,
-        bagCode: runtimeString(payload.bagCode) || event.refs.transferBagCode || '待补袋码',
-        bagMasterId: runtimeString(payload.bagMasterId) || runtimeString(payload.bagCode) || event.refs.transferBagCode || event.eventId,
+        bagCode,
+        bagMasterId: runtimeString(payload.bagMasterId) || bagCode || event.eventId,
         useStage: '入仓暂存',
         warehouseId: 'cutting-wait-handover',
         warehouseName: '裁床待交出仓',
-        warehouseArea: runtimeString(payload.warehouseArea) || event.inventoryEffect?.toWarehouseArea || '裁床待交出仓',
-        locationCode: runtimeString(payload.locationCode) || event.inventoryEffect?.toLocationCode || '待补库位',
-        inboundStatus: event.eventStatus,
-        inboundAt: runtimeString(payload.inboundAt) || event.occurredAt,
-        inboundBy: runtimeString(payload.inboundBy) || event.operatorName,
+        warehouseArea: runtimeString(inboundPayload.warehouseArea) || inboundEvent?.inventoryEffect?.toWarehouseArea || '裁床待交出仓',
+        locationCode: runtimeString(inboundPayload.locationCode) || inboundEvent?.inventoryEffect?.toLocationCode || '待补库位',
+        inboundStatus: effectiveInboundEvent.eventStatus,
+        inboundAt: runtimeString(inboundPayload.inboundAt) || effectiveInboundEvent.occurredAt,
+        inboundBy: runtimeString(inboundPayload.inboundBy) || effectiveInboundEvent.operatorName,
         inboundSource: '菲票入仓',
         containedFeiTickets,
         totalPieceQty: runtimeNumber(payload.totalPieceQty) || containedFeiTickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0),
@@ -4731,7 +4741,7 @@ function buildRuntimeInboundTempBagsFromEvents(
         mixedSummary: buildInboundTempBagMixedSummaryFromTickets(containedFeiTickets),
         discrepancyRecords: [],
         nextSortingStatus: '未分配车缝任务，待分配后直接交出或拆袋重装',
-        remark: `${getWaitHandoverEventSourceText(event)} / ${getWaitHandoverEventStatusText(event)}`,
+        remark: `${getWaitHandoverEventSourceText(effectiveInboundEvent)} / ${getWaitHandoverEventStatusText(effectiveInboundEvent)}`,
       } satisfies InboundTempBag
     })
 }
@@ -5410,6 +5420,7 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
     return renderBindingInventoryQueryPage()
   }
 
+  ensureTransferBagRepackMockEvents()
   const generatedTickets = listSpreadingResultGeneratedFeiTickets()
   const runtimeWaitHandoverEvents = listRuntimeWaitHandoverEvents()
   const runtimeInboundTempBags = buildRuntimeInboundTempBagsFromEvents(runtimeWaitHandoverEvents, generatedTickets)
@@ -5565,25 +5576,6 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
     ${renderWaitHandoverHandoverRecordTable(handoverTableProjection.recordRows)}
   </section>`
   const specialCraftReturnContent = `<section class="space-y-4">
-    <article class="rounded-lg border bg-card p-4">
-      <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h2 class="text-base font-semibold text-foreground">特殊工艺回仓扫码</h2>
-          <p class="mt-1 text-sm text-muted-foreground">来源特殊工艺交出记录回仓时，有中转袋先扫中转袋，再扫菲票获取裁片部位，最后入具体库区库位。</p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <span class="inline-flex h-10 items-center rounded-md border bg-muted/20 px-4 text-sm text-muted-foreground">Web 回仓统一从“中转袋入仓”识别处理</span>
-          <button type="button" class="h-10 rounded-md border border-blue-200 bg-blue-50 px-4 text-sm font-medium text-blue-700 hover:bg-blue-100" data-nav="/fcs/pda/cutting/handover/${escapeHtml(firstTaskId)}?action=special-craft-return">PDA 回仓扫码</button>
-        </div>
-      </div>
-      <div class="mt-4 grid gap-3 md:grid-cols-4">
-        ${['扫来源交出记录', '有袋先扫中转袋', '扫菲票获取裁片部位', '扫库区库位入仓'].map((step, index) => `
-          <div class="rounded-md border bg-muted/10 px-3 py-2 text-sm">
-            <span class="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">${index + 1}</span>${escapeHtml(step)}
-          </div>
-        `).join('')}
-      </div>
-    </article>
     <div data-wait-handover-paged-list="special-craft-return-records">${renderHubTable(['回仓记录', '来源交出记录', '承接工厂', '工艺', '应回 / 实回', '回仓库位', '状态', '差异'], pagedSpecialCraftReturnRows.records, '暂无特殊工艺回仓记录。', renderWaitHandoverPagination('special-craft-return-records', pagedSpecialCraftReturnRows.total, pagedSpecialCraftReturnRows.page, pagedSpecialCraftReturnRows.pageSize))}</div>
   </section>`
   const locationContent = renderCuttingWarehouseLocationMapSection('WAIT_HANDOVER')

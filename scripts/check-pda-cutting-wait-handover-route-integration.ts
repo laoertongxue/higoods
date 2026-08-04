@@ -9,6 +9,10 @@ const fastCheckSource = fs.readFileSync(
   'utf8',
 )
 const integrationCheckSource = fs.readFileSync(fileURLToPath(import.meta.url), 'utf8')
+const repackPageSource = fs.readFileSync(
+  path.join(ROOT, 'src/pages/pda-cutting-transfer-bag-repack.ts'),
+  'utf8',
+)
 const deliveryCheckSource = fs.readFileSync(path.join(ROOT, 'scripts/check-cutting-p2-delivery.ts'), 'utf8')
 const packageJson = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')) as {
   scripts: Record<string, string>
@@ -50,6 +54,17 @@ assert(
   !integrationCheckSource.includes(singleMicrotaskWaitToken),
   'legacy 重定向不得只等待一个微任务，必须使用有界条件等待',
 )
+assert(
+  repackPageSource.includes('ensureTransferBagRepackMockEvents()'),
+  'PDA 拆袋重装入口必须初始化与 Web 共用的三只 Mock 来源袋',
+)
+assert(
+  repackPageSource.includes('确认本次交出')
+  && repackPageSource.includes('本次中转袋交出成功')
+  && repackPageSource.includes('已交出待回收')
+  && !repackPageSource.includes('继续中转袋交出'),
+  'PDA 合并交出必须在第 5 步完成直接袋和结果袋交出，不得跳转后二次确认',
+)
 
 const CUTTING_WAIT_HANDOVER_ROOT = '/fcs/pda/warehouse/wait-handover?scope=cutting'
 const CUTTING_FIXTURE_CUT_ORDER_NO = 'CUT-260304-008-01'
@@ -67,14 +82,14 @@ function buildExpectedEntries(taskId: string) {
       markers: ['中转袋入仓', '2 扫库区库位', '确认入仓'],
     },
     {
-      title: '拆袋重装',
+      title: '中转袋交出',
       route: '/fcs/pda/cutting/transfer-bag/repack',
-      markers: ['拆袋重装', '1 扫来源中转袋', '加入来源袋'],
+      markers: ['中转袋交出', '第 1 步，共 5 步', '1 扫车缝任务', '2 核对相关袋', '3 直接交出或重装', '4 剩余来源袋', '5 汇总确认'],
     },
     {
-      title: '中转袋交出',
-      route: `/fcs/pda/cutting/handover/${taskId}?action=transfer-bag-handover`,
-      markers: ['中转袋交出', '扫描或填写中转袋编号', '确认交出'],
+      title: '特殊工艺回仓',
+      route: `/fcs/pda/cutting/handover/${taskId}?action=special-craft-return`,
+      markers: ['特殊工艺回仓', '来源特殊工艺交出单', '确认特殊工艺回仓入仓'],
     },
     {
       title: '中转袋回收',
@@ -213,8 +228,8 @@ try {
   const expectedLegacyRedirects = [
     { action: 'inbound', target: expectedEntries[0] },
     { action: 'inbound-location', target: expectedEntries[1] },
-    { action: 'handover-bagging-confirm', target: expectedEntries[3] },
-    { action: 'special-craft-return', target: expectedEntries[1] },
+    { action: 'handover-bagging-confirm', target: expectedEntries[2] },
+    { action: 'special-craft-return', target: expectedEntries[3] },
     {
       action: 'numbering',
       target: {

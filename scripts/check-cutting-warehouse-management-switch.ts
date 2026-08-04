@@ -45,8 +45,8 @@ const pdaCuttingWaitHandoverActionsSource = read(pdaCuttingWaitHandoverActionsPa
 const pdaWaitHandoverRedirectSource = read('src/pages/pda-warehouse-wait-handover.ts')
 assert.deepEqual(
   [...pdaCuttingWaitHandoverActionsSource.matchAll(/title:\s*'([^']+)'/g)].map((match) => match[1]),
-  ['菲票装袋', '中转袋入仓', '中转袋交出', '特殊工艺回仓', '菲票打编号'],
-  'PDA 裁床待交出仓动作必须正好为指定 5 项并保持顺序',
+  ['菲票装袋', '中转袋入仓', '中转袋交出', '特殊工艺回仓', '中转袋回收', '中转袋报废'],
+  'PDA 裁床待交出仓动作必须正好为指定 6 项并保持顺序',
 )
 ;['desc:', 'subtitle:', 'pendingCount:'].forEach((item) =>
   assertNotIncludes(pdaCuttingWaitHandoverActionsSource, item, `PDA 裁床待交出仓动作配置不得包含：${item}`),
@@ -54,7 +54,7 @@ assert.deepEqual(
 ;[
   '`/fcs/pda/cutting/inbound/${firstTaskId}`',
   '`/fcs/pda/cutting/inbound/${firstTaskId}?action=inbound-location`',
-  '`/fcs/pda/cutting/handover/${firstTaskId}?action=transfer-bag-handover`',
+  "'/fcs/pda/cutting/transfer-bag/repack'",
 ].forEach((item) =>
   assertIncludes(pdaCuttingWaitHandoverActionsSource, item, `PDA 裁床待交出仓前三个动作未直达操作页：${item}`),
 )
@@ -190,7 +190,6 @@ const waitHandoverBaggingHtml = renderCraftCuttingWarehouseManagementWaitHandove
 ;[
   '中转袋交出',
   '交出记录',
-  '待接收回写',
 ].forEach((item) => assertIncludes(waitHandoverBaggingHtml, item, `中转袋交出页缺少整袋交出事实：${item}`))
 ;['交出装袋汇总', '交出确认记录汇总', '交出差异提示', 'data-wait-handover-action="open-handover-bagging-confirm"'].forEach((item) =>
   assertNotIncludes(waitHandoverBaggingHtml, item, `中转袋交出页不得保留旧交出装袋确认能力：${item}`),
@@ -198,12 +197,19 @@ const waitHandoverBaggingHtml = renderCraftCuttingWarehouseManagementWaitHandove
 
 appStore.syncFromBrowser('/fcs/craft/cutting/warehouse-management/wait-handover?tab=special-craft-return')
 const waitHandoverSpecialCraftReturnHtml = renderCraftCuttingWarehouseManagementWaitHandoverPage()
-;['特殊工艺回仓扫码', '有袋先扫中转袋', '扫菲票获取裁片部位', 'SCR-20260324-001', '模板工序专属工厂', '绣花专属工厂', '压褶专属工厂'].forEach((item) =>
+;['SCR-20260324-001', '模板工序专属工厂', '绣花专属工厂', '压褶专属工厂'].forEach((item) =>
   assertIncludes(waitHandoverSpecialCraftReturnHtml, item, `特殊工艺回仓缺少 mock 数据：${item}`),
+)
+;['特殊工艺回仓扫码', '有袋先扫中转袋', '扫菲票获取裁片部位'].forEach((item) =>
+  assertNotIncludes(waitHandoverSpecialCraftReturnHtml, item, `特殊工艺回仓记录页必须删除重复说明模块：${item}`),
 )
 assertNotIncludes(waitHandoverSpecialCraftReturnHtml, '特殊工艺回仓汇总', '特殊工艺回仓不应继续展示红框汇总块')
 
-const hubSource = read('src/pages/process-factory/cutting/warehouse-hub.ts')
+const hubSource = [
+  read('src/pages/process-factory/cutting/warehouse-hub.ts'),
+  read('src/pages/process-factory/cutting/wait-handover-actions.ts'),
+  read('src/pages/process-factory/cutting/wait-handover-runtime.ts'),
+].join('\n')
 ;[
   'type WaitHandoverTabKey',
   'renderWaitHandoverTabs',
@@ -245,12 +251,14 @@ assertNotIncludes(pdaWaitProcessSource, "title: '扫码入仓'", 'PDA 裁床待�
 
 const pdaWaitHandoverSource = read('src/pages/pda-warehouse-wait-handover.ts')
 const pdaCuttingHandoverSource = read('src/pages/pda-cutting-handover.ts')
+const pdaTransferBagHandoverSource = read('src/pages/pda-cutting-transfer-bag-repack.ts')
 ;['裁床待交出仓', 'getPdaCuttingWaitHandoverActions', 'special-craft-return'].forEach((item) =>
   assertIncludes(pdaWaitHandoverSource + pdaCuttingWaitHandoverActionsSource, item, `PDA 裁床待交出仓缺少动作：${item}`),
 )
 assertNotIncludes(pdaWaitHandoverSource, '待入仓菲票', 'PDA 裁床待交出仓不得展示菲票候选中间页')
 assertNotIncludes(pdaWaitHandoverSource, "title: '交出装袋确认'", 'PDA 裁床待交出仓不得保留“交出装袋确认”入口')
-assertIncludes(pdaCuttingHandoverSource, 'buildWaitHandoverRuntimeProjection', 'PDA 裁床中转袋交出必须读取同一事实账投影')
+assertIncludes(pdaTransferBagHandoverSource, 'resolveTransferBagCurrentUse', 'PDA 裁床中转袋交出必须读取同一事实账当前袋票关系')
+assertIncludes(pdaTransferBagHandoverSource, 'listCuttingRuntimeEvents', 'PDA 裁床中转袋交出必须读取同一事实账事件')
 ;['cutting-wh-sort', `action=${'reb'}${'agging'}`].forEach((item) =>
   assertNotIncludes(pdaWaitHandoverSource, item, `PDA 裁床待交出仓不得保留提示式假操作：${item}`),
 )

@@ -54,6 +54,7 @@ export interface CuttingRuntimeRefs {
   specialCraftId?: string
   usageCycleId?: string
   handoverLegId?: string
+  handoverBatchId?: string
   repackBatchId?: string
   transferBagCodes?: string[]
   sewingTaskIds?: string[]
@@ -396,10 +397,24 @@ export interface TransferBagTicketFactSnapshot {
 
 export interface TransferBagRepackPayload {
   repackBatchId: string
+  handoverBatchId?: string
+  productionOrderId?: string
+  productionOrderNo?: string
+  sewingTaskId?: string
+  sewingTaskNo?: string
+  receiverFactoryId?: string
+  receiverFactoryName?: string
+  receiverPpicId?: string
+  receiverPpicName?: string
+  targetFeiTicketIds?: string[]
   sourceBags: Array<{
     bagCode: string
     usageCycleId: string
     beforeTickets: TransferBagTicketFactSnapshot[]
+    afterTickets?: TransferBagTicketFactSnapshot[]
+    outcome?: 'RESULT_HANDOVER' | 'RETURN_INBOUND' | 'EMPTY_IDLE'
+    originalLocationRef?: RuntimeWarehouseLocationRef
+    returnLocationRef?: RuntimeWarehouseLocationRef
   }>
   resultBags: Array<{
     bagCode: string
@@ -457,6 +472,7 @@ interface LegacyTransferBagScrapPayload {
 }
 
 export interface HandoverRecordSubmitPayload {
+  handoverBatchId?: string
   handoverOrderId: string
   handoverOrderNo: string
   handoverRecordId: string
@@ -464,6 +480,9 @@ export interface HandoverRecordSubmitPayload {
   receiverType: '车缝厂' | '辅助工艺厂' | '特种工艺厂' | '仓库' | '其他对象'
   receiverId: string
   receiverName: string
+  receiverPpicId?: string
+  receiverPpicName?: string
+  targetFeiTicketIds?: string[]
   transferBagUses: Array<{
     bagUseId: string
     bagCode: string
@@ -719,6 +738,7 @@ function normalizeRefs(raw: unknown): CuttingRuntimeRefs {
     specialCraftId: toString(value.specialCraftId),
     usageCycleId: toString(value.usageCycleId),
     handoverLegId: toString(value.handoverLegId),
+    handoverBatchId: toString(value.handoverBatchId),
     repackBatchId: normalizeOptionalRepackBatchId(value.repackBatchId),
     transferBagCodes: toNormalizedStringArray(value.transferBagCodes),
     sewingTaskIds: toNormalizedStringArray(value.sewingTaskIds),

@@ -46,14 +46,14 @@ test('待交出仓保留原工作台，六个中转袋动作均局部打开并�
     timeout: 120_000,
   })
   await expect(page.getByRole('button', { name: '库存明细', exact: true })).toBeVisible()
-  await expect(page.locator('[data-wait-handover-action="open-special-craft-return"]')).toHaveCount(0)
+  await expect(page.locator('[data-wait-handover-action="open-special-craft-return"]')).toHaveCount(1)
   await expect(page.getByRole('button', { name: '库位图', exact: true })).toBeVisible()
   await expect(page.locator('[data-wait-handover-web-selector]')).toHaveCount(0)
   const actions = [
     { label: '菲票装袋', action: 'bagging' },
     { label: '中转袋入仓', action: 'inbound' },
-    { label: '拆袋重装', action: 'repack' },
     { label: '中转袋交出', action: 'handover' },
+    { label: '特殊工艺回仓', action: 'special-craft-return' },
     { label: '中转袋回收', action: 'recovery' },
     { label: '中转袋报废', action: 'scrap' },
   ] as const
@@ -68,12 +68,14 @@ test('待交出仓保留原工作台，六个中转袋动作均局部打开并�
     await expect(dialog.locator('[data-skip-page-rerender="true"]')).not.toHaveCount(0)
     expect(page.url()).toBe(urlBefore)
     expect(openDurationMs, `${item.label}弹窗响应必须低于 200ms`).toBeLessThan(200)
-    if (item.action === 'repack') {
-      for (const section of ['来源袋 / 菲票', '按接收车缝工厂分组', '结果袋 / 复用旧袋', '合计与确认']) {
-        await expect(dialog.getByText(section, { exact: true })).toBeVisible()
-      }
-      const width = await dialog.locator('section').first().evaluate((element) => element.getBoundingClientRect().width)
-      expect(width, '重装必须使用宽工作区').toBeGreaterThan(900)
+    if (item.action === 'handover') {
+      await expect(dialog.getByText('中转袋交出进度', { exact: true })).toBeVisible()
+      await expect(dialog.getByText('第 1 步，共 5 步', { exact: true })).toBeVisible()
+      await expect(dialog.getByRole('heading', { name: '1 确定生产单和车缝任务', exact: true })).toBeVisible()
+    }
+    if (item.action === 'special-craft-return') {
+      await expect(dialog.getByText('来源特殊工艺交出记录', { exact: true })).toBeVisible()
+      await expect(dialog.getByText('特殊工艺回仓扫码', { exact: true })).toHaveCount(0)
     }
     if (item.action === 'recovery') {
       await expect(dialog.getByText('普通回收', { exact: true })).toBeVisible()
@@ -81,7 +83,7 @@ test('待交出仓保留原工作台，六个中转袋动作均局部打开并�
     }
     if (item.action === 'scrap') {
       await expect(dialog.getByText(/二次确认/)).toBeVisible()
-      await expect(dialog.getByText(/先拆袋重装/)).toBeVisible()
+      await expect(dialog.getByText(/先通过中转袋交出完成菲票转移/)).toBeVisible()
     }
     await dialog.getByText('关闭', { exact: true }).click()
     await expect(dialog).toHaveCount(0)
@@ -118,13 +120,13 @@ test('待交出仓保留原工作台，六个中转袋动作均局部打开并�
   await expect(activeScrapDialog.locator('[data-wait-handover-bag-summary]')).toContainText('BAG-B-003')
   await expect(activeScrapDialog.locator('[data-wait-handover-bag-summary]')).toContainText(/张菲票/)
   await expect(activeScrapDialog.getByRole('button', { name: '确认报废', exact: true })).toBeDisabled()
-  await expect(activeScrapDialog.getByRole('button', { name: '去拆袋重装', exact: true })).toBeVisible()
-  await activeScrapDialog.getByRole('button', { name: '去拆袋重装', exact: true }).click()
-  const guidedRepackDialog = page.locator('[data-wait-handover-modal="repack"]')
+  await expect(activeScrapDialog.getByRole('button', { name: '去中转袋交出处理', exact: true })).toBeVisible()
+  await activeScrapDialog.getByRole('button', { name: '去中转袋交出处理', exact: true }).click()
+  const guidedRepackDialog = page.locator('[data-wait-handover-modal="handover"]')
   const guidedSourceSelect = guidedRepackDialog.locator('[data-wait-handover-field="sourceBagCodes"]')
   await expect(guidedRepackDialog).toBeVisible()
   await expect(guidedSourceSelect.locator('option:checked')).toHaveText(/BAG-B-003/)
-  await expect(guidedRepackDialog.locator('[data-wait-handover-repack-ticket-assignment]')).not.toHaveCount(0)
+  await expect(guidedRepackDialog.getByText('第 1 步，共 5 步', { exact: true })).toBeVisible()
   await guidedRepackDialog.getByText('关闭', { exact: true }).click()
 
   await page.evaluate(async () => {
@@ -287,87 +289,50 @@ test('待交出仓保留原工作台，六个中转袋动作均局部打开并�
   await page.locator('[data-wait-handover-action="open-handover"]').click()
   const handoverDialog = page.locator('[data-wait-handover-modal="handover"]')
   await expect(handoverDialog).toBeVisible()
-  await expect(handoverDialog).toContainText('一次只交出一个完整中转袋')
-  await expect(handoverDialog.locator('[data-wait-handover-field="handoverSelection"]')).toBeVisible()
+  await expect(handoverDialog.getByText('第 1 步，共 5 步', { exact: true })).toBeVisible()
+  await expect(handoverDialog.locator('[data-wait-handover-field="handoverTaskSelection"]')).toBeVisible()
+  await expect(handoverDialog.locator('[data-wait-handover-field="handoverPpicSelection"]')).toBeVisible()
   await expect(handoverDialog.locator('[data-wait-handover-field="ticketScanInput"]')).toHaveCount(0)
   await handoverDialog.getByText('关闭', { exact: true }).click()
   await expect(handoverDialog).toHaveCount(0)
 
-  const repackBagCode = `WEB-REPACK-${Date.now()}`
-  await page.evaluate(async ({ repackBagCode }) => {
-    const { appendCuttingRuntimeEvent } = await import('/src/data/fcs/cutting/cutting-runtime-event-ledger.ts')
-    const usageCycleId = `usage:${repackBagCode}:1`
-    const tickets = [1, 2, 3].map((index) => ({
-      feiTicketId: `${repackBagCode}-T${index}`,
-      feiTicketNo: `${repackBagCode}-菲票-${index}`,
-      productionOrderId: index === 3 ? 'WEB-REPACK-PO-ID-2' : 'WEB-REPACK-PO-ID-1',
-      productionOrderNo: index === 3 ? 'WEB-REPACK-PO-002' : 'WEB-REPACK-PO-001',
-      cutOrderId: 'WEB-REPACK-CUT-ID',
-      cutOrderNo: 'WEB-REPACK-CUT-001',
-      color: '黑色',
-      size: index === 1 ? 'M' : 'L',
-      partCode: 'FRONT',
-      partName: '前幅',
-      pieceQty: 6,
-      sewingTaskId: `WEB-REPACK-SEW-${index}`,
-      sewingTaskNo: `车缝任务-${index}`,
-      receiverFactoryId: 'WEB-REPACK-FACTORY',
-      receiverFactoryName: '雅加达车缝一厂',
-    }))
-    appendCuttingRuntimeEvent({
-      eventType: '菲票装袋', eventSource: 'WEB', eventStatus: '已同步', occurredAt: '2026-08-02 08:00', operatorName: '重装测试员',
-      refs: { transferBagCode: repackBagCode, usageCycleId, productionOrderId: 'WEB-REPACK-PO-ID-1', productionOrderNo: 'WEB-REPACK-PO-001', feiTicketIds: tickets.map((ticket) => ticket.feiTicketId), feiTicketNos: tickets.map((ticket) => ticket.feiTicketNo) },
-      payload: { baggingRecordId: `bagging:${repackBagCode}`, bagCode: repackBagCode, feiTicketItems: tickets, totalPieceQty: 18, mixedFlag: true, baggingBy: '重装测试员', baggingAt: '2026-08-02 08:00' },
-    } as never)
-    appendCuttingRuntimeEvent({
-      eventType: '中转袋入仓', eventSource: 'WEB', eventStatus: '已同步', occurredAt: '2026-08-02 08:10', operatorName: '重装测试员',
-      refs: { transferBagCode: repackBagCode, usageCycleId, productionOrderNo: 'WEB-REPACK-PO-001', feiTicketIds: tickets.map((ticket) => ticket.feiTicketId) },
-      inventoryEffect: { inventoryScope: '裁床待交出仓', direction: 'IN', qty: 18, unit: '片', toWarehouseArea: '重装测试区', toLocationCode: 'R-01' },
-      payload: { tempBagUseId: `temp:${repackBagCode}`, bagCode: repackBagCode, warehouseArea: '重装测试区', locationCode: 'R-01', inboundBy: '重装测试员', inboundAt: '2026-08-02 08:10', feiTicketItems: tickets, totalPieceQty: 18, mixedFlag: true },
-    } as never)
-  }, { repackBagCode })
-
-  await page.locator('[data-wait-handover-action="open-repack"]').click()
-  const repackDialog = page.locator('[data-wait-handover-modal="repack"]')
-  await expect(repackDialog).toBeVisible()
-  await repackDialog.locator('[data-wait-handover-field="sourceBagCodes"]').selectOption(repackBagCode)
-  await expect(repackDialog.locator('[data-wait-handover-repack-group-preview]')).toContainText('雅加达车缝一厂')
-  await expect(repackDialog.locator('[data-wait-handover-repack-result-row]')).toHaveCount(2)
-  await repackDialog.getByRole('button', { name: '新增结果袋', exact: true }).click()
-  const resultRows = repackDialog.locator('[data-wait-handover-repack-result-row]')
-  await expect(resultRows).toHaveCount(3)
-  const resultCodes = [`${repackBagCode}-A`, `${repackBagCode}-B`, repackBagCode]
-  const resultIds = await resultRows.evaluateAll((rows) => rows.map((row) => (row as HTMLElement).dataset.waitHandoverRepackResultRow || ''))
-  for (let index = 0; index < resultCodes.length; index += 1) {
-    await resultRows.nth(index).locator('[data-wait-handover-repack-result-bag-code]').fill(resultCodes[index])
-  }
-  await repackDialog.locator(`[data-wait-handover-repack-ticket-assignment][data-ticket-id="${repackBagCode}-T1"]`).selectOption(resultIds[0])
-  await repackDialog.locator(`[data-wait-handover-repack-ticket-assignment][data-ticket-id="${repackBagCode}-T2"]`).selectOption(resultIds[2])
-  await repackDialog.locator(`[data-wait-handover-repack-ticket-assignment][data-ticket-id="${repackBagCode}-T3"]`).selectOption(resultIds[1])
-  await resultRows.nth(2).getByRole('button', { name: '移除', exact: true }).click()
-  const unassignedTicket = repackDialog.locator(`[data-wait-handover-repack-ticket-assignment][data-ticket-id="${repackBagCode}-T2"]`)
-  await expect(unassignedTicket).toHaveValue('')
-  await expect(repackDialog.locator('[data-wait-handover-repack-total-preview]')).toContainText('待分配 1 张')
-  await expect(repackDialog.getByRole('button', { name: '确认重装', exact: true })).toBeDisabled()
-  await unassignedTicket.selectOption(resultIds[0])
-  await expect(repackDialog.locator('[data-wait-handover-repack-total-preview]')).toContainText('待分配 0 张')
-  await expect(repackDialog.getByRole('button', { name: '确认重装', exact: true })).toBeEnabled()
-  await repackDialog.getByRole('button', { name: '确认重装', exact: true }).dblclick()
-  await expect(repackDialog.getByText('重装成功，请继续交出。', { exact: true })).toBeVisible()
-  const repackFacts = await page.evaluate(() => JSON.parse(
-    window.localStorage.getItem('cuttingRuntimeEventLedger') || '{"events":[]}',
-  ).events.filter((event: { eventType: string }) => event.eventType === '中转袋拆袋重装'))
-  expect(repackFacts).toHaveLength(1)
-
-  await repackDialog.getByText('关闭', { exact: true }).click()
   await page.locator('[data-wait-handover-action="open-handover"]').click()
   const repackedHandoverDialog = page.locator('[data-wait-handover-modal="handover"]')
-  const repackedHandoverSelect = repackedHandoverDialog.locator('[data-wait-handover-field="handoverSelection"]')
-  const repackedHandoverOption = repackedHandoverSelect.locator(`option:has-text("${repackBagCode}-A")`)
-  await expect(repackedHandoverOption).toHaveCount(1)
-  await repackedHandoverSelect.selectOption(await repackedHandoverOption.getAttribute('value') || '')
-  await repackedHandoverDialog.getByRole('button', { name: '确认整袋交出', exact: true }).click()
-  await expect(repackedHandoverDialog).toContainText('交出成功')
+  await repackedHandoverDialog.locator('[data-wait-handover-field="handoverTaskSelection"]').selectOption('SEW-ID-REPACK-DEMO-001')
+  await repackedHandoverDialog.locator('[data-wait-handover-field="handoverPpicSelection"]').selectOption({ label: 'Ayu PPIC / 拆袋重装演示车缝厂' })
+  await repackedHandoverDialog.getByRole('button', { name: '下一步：核对相关中转袋', exact: true }).click()
+  await expect(repackedHandoverDialog).toContainText('BAG-REPACK-DEMO-01')
+  await expect(repackedHandoverDialog).toContainText('直接交出')
+  await expect(repackedHandoverDialog).toContainText('需要拆袋重装')
+  await repackedHandoverDialog.getByRole('button', { name: '下一步：处理交出袋', exact: true }).click()
+  await repackedHandoverDialog.getByRole('button', { name: '增加结果袋', exact: true }).click()
+  await repackedHandoverDialog.locator('[data-wait-handover-field="repackReuseSourceBag"]').selectOption('BAG-REPACK-DEMO-01')
+  const assignmentSelects = repackedHandoverDialog.locator('[data-wait-handover-repack-ticket-assignment]')
+  await expect(assignmentSelects).toHaveCount(10)
+  for (let index = 0; index < 5; index += 1) {
+    await repackedHandoverDialog.locator('select[data-wait-handover-repack-ticket-assignment]:has(option:checked[value=""])').first().selectOption('result-1')
+  }
+  await repackedHandoverDialog.getByRole('button', { name: '下一步：处理剩余来源袋', exact: true }).click()
+  await expect(repackedHandoverDialog.locator('[data-wait-handover-repack-source-return-row]')).toHaveCount(2)
+  await expect(repackedHandoverDialog.locator('[data-wait-handover-repack-return-location]').first()).toHaveValue('A-R01-L01-P03')
+  await repackedHandoverDialog.getByRole('button', { name: '下一步：汇总确认', exact: true }).click()
+  await expect(repackedHandoverDialog).toContainText('1 袋 · 10 张 · 198 片')
+  await expect(repackedHandoverDialog).toContainText('2 袋 · 5 张 · 102 片')
+  await repackedHandoverDialog.getByRole('button', { name: '确认本次交出', exact: true }).dblclick()
+  await expect(repackedHandoverDialog.locator('[data-wait-handover-feedback]')).toContainText('本次交出成功')
+  const submittedFacts = await page.evaluate(() => {
+    const events = JSON.parse(window.localStorage.getItem('cuttingRuntimeEventLedger') || '{"events":[]}').events as Array<{
+      eventType: string
+      idempotencyKey?: string
+      payload?: { handoverBatchId?: string }
+    }>
+    return {
+      batchEventTypes: events.filter((event) => event.payload?.handoverBatchId).map((event) => event.eventType),
+      sourceReturnCount: events.filter((event) => event.eventType === '中转袋入仓' && event.idempotencyKey?.includes('REPACK_RETURN_INBOUND')).length,
+    }
+  })
+  expect(submittedFacts.batchEventTypes).toEqual(expect.arrayContaining(['中转袋拆袋重装', '新增交出记录']))
+  expect(submittedFacts.sourceReturnCount).toBe(2)
 
   await expectNoPageErrors(errors)
 })
@@ -419,7 +384,7 @@ test('回收与已交出报废按当前袋状态和现场确认本地控制提�
   })
 
   for (const [state, bagCode, expected] of [
-    ['PACKED', bagCodes.packed, /去拆袋重装/],
+    ['PACKED', bagCodes.packed, /去中转袋交出处理/],
     ['IDLE', bagCodes.idle, /无需回收/],
     ['DISABLED', bagCodes.disabled, /不能回收/],
   ] as const) {

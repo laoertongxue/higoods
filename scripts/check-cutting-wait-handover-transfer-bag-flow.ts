@@ -381,7 +381,7 @@ for (const [name, path] of [
 
 // 3.1 PDA 待交出仓首页四动作入口
 const pdaWaitHandover = `${read(PDA_WAIT_HANDOVER)}\n${read(PDA_WAIT_HANDOVER_ACTIONS)}`
-for (const label of ['菲票装袋', '中转袋入仓', '拆袋重装', '中转袋交出', '中转袋回收', '中转袋报废']) {
+for (const label of ['菲票装袋', '中转袋入仓', '中转袋交出', '特殊工艺回仓', '中转袋回收', '中转袋报废']) {
   assertContains(pdaWaitHandover, label, `PDA_WAIT_HANDOVER 必须包含动作: ${label}`)
 }
 assertNotContains(pdaWaitHandover, OLD_MERGED, 'PDA_WAIT_HANDOVER 不得保留旧合并入口')
@@ -394,10 +394,11 @@ assertContains(pdaInbound, 'appendWaitHandoverBaggingEvent', 'PDA_INBOUND 必须
 assertMatch(pdaInbound, /appendWaitHandoverBaggingEvent\(/, 'PDA_INBOUND 确认菲票装袋必须真实调用 appendWaitHandoverBaggingEvent')
 assertNotContains(pdaInbound, OLD_MERGED, 'PDA_INBOUND 不得保留旧合并标题')
 
-// 3.3 PDA 交出页只保留整袋交出新入口，旧深链迁移到整袋交出
+// 3.3 PDA 交出页旧深链统一迁移到按车缝任务启动的五步交出流程
 const pdaHandover = read(PDA_HANDOVER)
 assertContains(pdaHandover, "action === 'handover-bagging-confirm' ? 'transfer-bag-handover'", 'PDA_HANDOVER 旧交出装袋确认深链必须迁移到整袋交出')
-assertContains(pdaHandover, '中转袋交出', 'PDA_HANDOVER 必须有整袋交出入口')
+assertContains(pdaHandover, 'renderPdaCuttingTransferBagRepackPage', 'PDA_HANDOVER 必须把旧整袋交出深链迁移到统一任务交出页')
+assertContains(pdaHandover, 'return renderPdaCuttingTransferBagRepackPage()', 'PDA_HANDOVER 旧深链必须直接渲染统一五步交出流程')
 assertNotContains(pdaHandover, 'data-pda-cut-handover-action="confirm-picking"', 'PDA_HANDOVER 不得继续提供交出装袋确认写入口')
 
 // 3.4 PDA 特殊工艺回仓按是否实际扫描物理袋写事实

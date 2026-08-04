@@ -28,6 +28,11 @@ import {
 } from '../src/data/fcs/cutting/transfer-bag-operations.ts'
 import type { FeiTicketSewingAssignment } from '../src/data/fcs/cutting/sewing-dispatch.ts'
 import {
+  TRANSFER_BAG_REPACK_MOCK_RESULT_BAG_CODE,
+  TRANSFER_BAG_REPACK_MOCK_SOURCE_BAG_CODES,
+  ensureTransferBagRepackMockEvents,
+} from '../src/data/fcs/cutting/transfer-bag-repack-mock.ts'
+import {
   createCarrierCycleRecord,
   deserializeTransferBagRuntimeStorage,
   type SewingTaskRefRecord,
@@ -48,6 +53,7 @@ import {
   buildWaitHandoverLifecycleByBagCode,
   buildWaitHandoverRuntimeProjection,
   listWaitHandoverLifecycleFacts,
+  submitWaitHandoverRepackWithSourceReturns,
 } from '../src/pages/process-factory/cutting/wait-handover-runtime.ts'
 import * as pdaRepack from '../src/pages/pda-cutting-transfer-bag-repack.ts'
 
@@ -57,6 +63,59 @@ function createMemoryStorage(): BrowserStorageLike {
     getItem: (key) => records.get(key) ?? null,
     setItem: (key, value) => records.set(key, value),
     removeItem: (key) => records.delete(key),
+  }
+}
+
+{
+  const storage = createMemoryStorage()
+  ensureTransferBagRepackMockEvents(storage)
+  assert.equal(
+    listCuttingRuntimeEvents(storage).length,
+    6,
+    '三只拆袋重装 Mock 来源袋必须各形成装袋和入仓两条事实',
+  )
+  for (const bagCode of TRANSFER_BAG_REPACK_MOCK_SOURCE_BAG_CODES) {
+    const current = resolveTransferBagCurrentUse(bagCode, storage)
+    assert.equal(current.flowStage, 'INBOUND_STORED', `${bagCode} 必须是已入仓来源袋`)
+    assert.equal(current.tickets.length, 5, `${bagCode} 必须包含 5 张菲票`)
+  }
+  ensureTransferBagRepackMockEvents(storage)
+  assert.equal(listCuttingRuntimeEvents(storage).length, 6, '重复初始化不得重复写入 Mock 事实')
+
+  let state = pdaRepack.preparePdaHandoverTask({
+    ...pdaRepack.createPdaTransferBagRepackState(),
+    sewingTaskNo: 'SEW-RP-DEMO-001',
+    receiverPpicId: 'CUTTING-PPIC-FACTORY-SEWING-REPACK-DEMO-1',
+  }, storage)
+  assert.deepEqual([...state.sourceBagCodes].sort(), [...TRANSFER_BAG_REPACK_MOCK_SOURCE_BAG_CODES].sort(), '按车缝任务必须自动找到三只相关来源袋')
+  const repackTargetIds = TRANSFER_BAG_REPACK_MOCK_SOURCE_BAG_CODES.slice(1).flatMap((bagCode) =>
+    resolveTransferBagCurrentUse(bagCode, storage).tickets
+      .filter((ticket) => ticket.sewingTaskNo === 'SEW-RP-DEMO-001')
+      .map((ticket) => ticket.feiTicketId))
+  for (const ticketId of repackTargetIds) {
+    state = pdaRepack.assignRepackTicket(
+      state,
+      ticketId,
+      TRANSFER_BAG_REPACK_MOCK_RESULT_BAG_CODE,
+      storage,
+    )
+  }
+  state = pdaRepack.beginPdaRepackSourceReturns(state, storage)
+  assert.equal(
+    pdaRepack.buildPdaRepackConfirmation(state, storage).canSubmit,
+    true,
+    '三只 Mock 来源袋必须允许其中一只复用为结果袋',
+  )
+  pdaRepack.submitPdaTransferBagRepack(state, storage)
+  assert.equal(
+    resolveTransferBagCurrentUse(TRANSFER_BAG_REPACK_MOCK_RESULT_BAG_CODE, storage).flowStage,
+    'HANDED_OVER_WAITING_RETURN',
+    '复用的 Mock 来源袋必须在重装确认后直接进入已交出待回收',
+  )
+  for (const bagCode of TRANSFER_BAG_REPACK_MOCK_SOURCE_BAG_CODES.slice(1)) {
+    const current = resolveTransferBagCurrentUse(bagCode, storage)
+    assert.equal(current.flowStage, 'INBOUND_STORED', `${bagCode} 保留其他菲票后必须重新入仓`)
+    assert(current.tickets.every((ticket) => ticket.sewingTaskNo !== 'SEW-RP-DEMO-001'), `${bagCode} 不得继续保留本次车缝任务菲票`)
   }
 }
 
@@ -5181,33 +5240,219 @@ for (const [suffix, eventStatus, payload] of [
 
 {
   const storage = createMemoryStorage()
+  const sourceBagCode = 'REPACK-RETAIN-SOURCE'
+  const resultBagCode = 'REPACK-RETAIN-RESULT'
+  const usageCycleId = 'usage:REPACK-RETAIN-SOURCE:1'
+  const movedTicket = ticket('REPACK-RETAIN-01', 'PO-REPACK-RETAIN', 'FACTORY-REPACK-RETAIN', 12)
+  const retainedTicket = ticket('REPACK-RETAIN-02', 'PO-REPACK-RETAIN', 'FACTORY-REPACK-RETAIN', 8)
+  appendBagging({ storage, bagCode: sourceBagCode, usageCycleId, tickets: [movedTicket, retainedTicket] })
+  appendInbound({ storage, bagCode: sourceBagCode, usageCycleId, tickets: [movedTicket, retainedTicket] })
+  const returnLocationRef = {
+    factoryId: 'FACTORY-CUTTING',
+    warehouseId: 'WAREHOUSE-WAIT-HANDOVER',
+    warehouseKind: 'WAIT_HANDOVER' as const,
+    areaId: 'AREA-A',
+    areaName: '待交出 A 区',
+    shelfId: 'SHELF-A',
+    shelfNo: 'A',
+    locationId: `LOCATION-${sourceBagCode}`,
+    locationNo: `A-${sourceBagCode}`,
+  }
+  const outcome = submitWaitHandoverRepackWithSourceReturns({
+    repackBatchId: 'REPACK-RETAIN-ORIGINAL-LOCATION',
+    sourceBagCodes: [sourceBagCode],
+    results: [{ bagCode: resultBagCode, feiTicketIds: [movedTicket.feiTicketId] }],
+    retainedSources: [{
+      bagCode: sourceBagCode,
+      feiTicketIds: [retainedTicket.feiTicketId],
+      returnLocationRef,
+    }],
+    operator,
+    source: 'WEB',
+    occurredAt: '2026-08-01 09:00',
+  }, storage)
+  assert.equal(outcome.inboundEvents.length, 1, '剩余来源袋必须写入一条重新入仓事实')
+  assert.equal(resolveTransferBagCurrentUse(sourceBagCode, storage).flowStage, 'INBOUND_STORED')
+  assert.deepEqual(
+    resolveTransferBagCurrentUse(sourceBagCode, storage).tickets.map((item) => item.feiTicketId),
+    [retainedTicket.feiTicketId],
+    '未转出的菲票必须继续保留在原来源袋',
+  )
+  assert.equal(resolveTransferBagCurrentUse(resultBagCode, storage).flowStage, 'READY_HANDOVER')
+  const occupancies = buildWaitHandoverLocationOccupancyStates(listCuttingRuntimeEvents(storage))
+  assert.equal(occupancies.find((item) => item.bagCode === sourceBagCode)?.locationRef.locationId, returnLocationRef.locationId)
+  assert.equal(occupancies.some((item) => item.bagCode === resultBagCode), false, '结果袋不得重新占用入仓库位')
+  const retry = submitWaitHandoverRepackWithSourceReturns({
+    repackBatchId: 'REPACK-RETAIN-ORIGINAL-LOCATION',
+    sourceBagCodes: [sourceBagCode],
+    results: [{ bagCode: resultBagCode, feiTicketIds: [movedTicket.feiTicketId] }],
+    retainedSources: [{ bagCode: sourceBagCode, feiTicketIds: [retainedTicket.feiTicketId], returnLocationRef }],
+    operator,
+    source: 'WEB',
+    occurredAt: '2026-08-01 09:00',
+  }, storage)
+  assert.equal(retry.repackEvent.eventId, outcome.repackEvent.eventId, '重复确认必须复用同一重装事实')
+  assert.equal(retry.inboundEvents[0]?.eventId, outcome.inboundEvents[0]?.eventId, '重复确认必须复用同一重新入仓事实')
+}
+
+{
+  const storage = createMemoryStorage()
   const bagA = 'PDA-REPACK-SOURCE-A'
   const bagB = 'PDA-REPACK-SOURCE-B'
   const bagC = 'PDA-REPACK-RESULT-C'
   const firstTicket = ticket('PDA-REPACK-01', 'PO-PDA-REPACK', 'FACTORY-PDA-REPACK', 12)
   const secondTicket = ticket('PDA-REPACK-02', 'PO-PDA-REPACK', 'FACTORY-PDA-REPACK', 8)
+  const retainedTicket = { ...ticket('PDA-REPACK-OTHER', 'PO-PDA-REPACK', 'FACTORY-PDA-REPACK', 6), sewingTaskId: 'SEW-OTHER-ID', sewingTaskNo: 'SEW-OTHER' }
   appendBagging({ storage, bagCode: bagA, usageCycleId: 'usage:PDA-REPACK-A:1', tickets: [firstTicket] })
-  appendBagging({ storage, bagCode: bagB, usageCycleId: 'usage:PDA-REPACK-B:1', tickets: [secondTicket] })
+  appendInbound({ storage, bagCode: bagA, usageCycleId: 'usage:PDA-REPACK-A:1', tickets: [firstTicket] })
+  appendBagging({ storage, bagCode: bagB, usageCycleId: 'usage:PDA-REPACK-B:1', tickets: [secondTicket, retainedTicket] })
+  appendInbound({ storage, bagCode: bagB, usageCycleId: 'usage:PDA-REPACK-B:1', tickets: [secondTicket, retainedTicket] })
+
+  let state = pdaRepack.preparePdaHandoverTask({
+    ...pdaRepack.createPdaTransferBagRepackState(),
+    sewingTaskNo: firstTicket.sewingTaskNo,
+    receiverPpicId: 'CUTTING-PPIC-FACTORY-PDA-REPACK-1',
+  }, storage)
+  state = pdaRepack.assignRepackTicket(state, secondTicket.feiTicketId, bagC, storage)
+  state = pdaRepack.beginPdaRepackSourceReturns(state, storage)
+  const summary = pdaRepack.buildPdaRepackConfirmation(state, storage)
+  assert.equal(summary.directBagCodes.length, 1, 'PDA 同批必须识别可直接交出的完整袋')
+  assert.equal(summary.resultBags.length, 1, 'PDA 同批必须支持重装结果袋')
+  assert.equal(summary.totalSourceTicketCount, summary.totalResultTicketCount + summary.totalRetainedTicketCount + 1, 'PDA 直接交出、重装和剩余来源必须守恒')
+  assert.equal(summary.canSubmit, true, '直接交出和重装并存且守恒时必须允许 PDA 确认')
+  const submitted = pdaRepack.submitPdaTransferBagRepack(state, storage)
+  assert.equal(submitted.repackEvent.eventType, '中转袋拆袋重装', 'PDA 确认必须写入一条统一重装事实')
+  assert.equal(submitted.inboundEvents.length, 1, '保留其他任务菲票的来源袋必须重新入仓')
+  assert.equal(submitted.handoverEvents.length, 2, 'PDA 重装确认必须逐只写入两个结果袋的整袋交出事实')
+  assert.equal(pdaRepack.submitPdaTransferBagRepack(state, storage).repackEvent.eventId, submitted.repackEvent.eventId, 'PDA 重复确认必须返回同一重装事实')
+  assert.equal(pdaRepack.submitPdaTransferBagRepack(state, storage).handoverEvents[0]?.eventId, submitted.handoverEvents[0]?.eventId, 'PDA 重复确认必须复用同一结果袋交出事实')
+  assert.equal(resolveTransferBagCurrentUse(bagA, storage).flowStage, 'HANDED_OVER_WAITING_RETURN')
+  assert.equal(resolveTransferBagCurrentUse(bagB, storage).flowStage, 'INBOUND_STORED')
+  assert.equal(resolveTransferBagCurrentUse(bagC, storage).flowStage, 'HANDED_OVER_WAITING_RETURN')
+}
+
+{
+  const storage = createMemoryStorage()
+  const sourceBagCode = 'REPACK-CHANGE-LOCATION-SOURCE'
+  const resultBagCode = 'REPACK-CHANGE-LOCATION-RESULT'
+  const usageCycleId = 'usage:REPACK-CHANGE-LOCATION:1'
+  const movedTicket = ticket('REPACK-CHANGE-01', 'PO-REPACK-CHANGE', 'FACTORY-REPACK-CHANGE', 12)
+  const retainedTicket = ticket('REPACK-CHANGE-02', 'PO-REPACK-CHANGE', 'FACTORY-REPACK-CHANGE', 8)
+  appendBagging({ storage, bagCode: sourceBagCode, usageCycleId, tickets: [movedTicket, retainedTicket] })
+  appendInbound({ storage, bagCode: sourceBagCode, usageCycleId, tickets: [movedTicket, retainedTicket] })
+  const changedLocationRef = {
+    factoryId: 'FACTORY-CUTTING', warehouseId: 'WAREHOUSE-WAIT-HANDOVER', warehouseKind: 'WAIT_HANDOVER' as const,
+    areaId: 'AREA-B', areaName: '待交出 B 区', shelfId: 'SHELF-B', shelfNo: 'B',
+    locationId: 'LOCATION-REPACK-CHANGE-TARGET', locationNo: 'B-02',
+  }
+  submitWaitHandoverRepackWithSourceReturns({
+    repackBatchId: 'REPACK-CHANGE-LOCATION',
+    sourceBagCodes: [sourceBagCode],
+    results: [{ bagCode: resultBagCode, feiTicketIds: [movedTicket.feiTicketId] }],
+    retainedSources: [{ bagCode: sourceBagCode, feiTicketIds: [retainedTicket.feiTicketId], returnLocationRef: changedLocationRef }],
+    operator,
+    source: 'WEB',
+    occurredAt: '2026-08-01 09:30',
+  }, storage)
+  assert.equal(
+    buildWaitHandoverLocationOccupancyStates(listCuttingRuntimeEvents(storage))
+      .find((item) => item.bagCode === sourceBagCode)?.locationRef.locationId,
+    changedLocationRef.locationId,
+    '剩余来源袋必须允许从原库位改到其他有效空库位',
+  )
+}
+
+{
+  const storage = createMemoryStorage()
+  const sourceBagCode = 'REPACK-OCCUPIED-SOURCE'
+  const occupiedBagCode = 'REPACK-OCCUPIED-OTHER'
+  const resultBagCode = 'REPACK-OCCUPIED-RESULT'
+  const sourceTicketA = ticket('REPACK-OCCUPIED-01', 'PO-REPACK-OCCUPIED', 'FACTORY-REPACK-OCCUPIED', 12)
+  const sourceTicketB = ticket('REPACK-OCCUPIED-02', 'PO-REPACK-OCCUPIED', 'FACTORY-REPACK-OCCUPIED', 8)
+  const occupiedTicket = ticket('REPACK-OCCUPIED-OTHER-01', 'PO-REPACK-OTHER', 'FACTORY-REPACK-OTHER', 5)
+  appendBagging({ storage, bagCode: sourceBagCode, usageCycleId: 'usage:REPACK-OCCUPIED-SOURCE:1', tickets: [sourceTicketA, sourceTicketB] })
+  appendInbound({ storage, bagCode: sourceBagCode, usageCycleId: 'usage:REPACK-OCCUPIED-SOURCE:1', tickets: [sourceTicketA, sourceTicketB] })
+  appendBagging({ storage, bagCode: occupiedBagCode, usageCycleId: 'usage:REPACK-OCCUPIED-OTHER:1', tickets: [occupiedTicket] })
+  appendInbound({ storage, bagCode: occupiedBagCode, usageCycleId: 'usage:REPACK-OCCUPIED-OTHER:1', tickets: [occupiedTicket] })
+  const occupiedLocationRef = {
+    factoryId: 'FACTORY-CUTTING', warehouseId: 'WAREHOUSE-WAIT-HANDOVER', warehouseKind: 'WAIT_HANDOVER' as const,
+    areaId: 'AREA-A', areaName: '待交出 A 区', shelfId: 'SHELF-A', shelfNo: 'A',
+    locationId: `LOCATION-${occupiedBagCode}`, locationNo: `A-${occupiedBagCode}`,
+  }
+  assertRejectedWithoutWriting(
+    storage,
+    () => submitWaitHandoverRepackWithSourceReturns({
+      repackBatchId: 'REPACK-OCCUPIED-LOCATION',
+      sourceBagCodes: [sourceBagCode],
+      results: [{ bagCode: resultBagCode, feiTicketIds: [sourceTicketA.feiTicketId] }],
+      retainedSources: [{ bagCode: sourceBagCode, feiTicketIds: [sourceTicketB.feiTicketId], returnLocationRef: occupiedLocationRef }],
+      operator,
+      source: 'WEB',
+      occurredAt: '2026-08-01 09:40',
+    }, storage),
+    /已被其他中转袋占用/,
+    '剩余来源袋不得回到已被其他中转袋占用的库位',
+  )
+}
+
+{
+  const storage = createMemoryStorage()
+  const sourceBagA = 'PDA-CONTINUOUS-SOURCE-A'
+  const sourceBagB = 'PDA-CONTINUOUS-SOURCE-B'
+  const resultBag = 'PDA-CONTINUOUS-RESULT'
+  const firstTicket = ticket('PDA-CONTINUOUS-01', 'PO-PDA-CONTINUOUS', 'FACTORY-PDA-CONTINUOUS', 12)
+  const secondTicket = ticket('PDA-CONTINUOUS-02', 'PO-PDA-CONTINUOUS', 'FACTORY-PDA-CONTINUOUS', 8)
+  appendBagging({ storage, bagCode: sourceBagA, usageCycleId: 'usage:PDA-CONTINUOUS-A:1', tickets: [firstTicket] })
+  appendBagging({ storage, bagCode: sourceBagB, usageCycleId: 'usage:PDA-CONTINUOUS-B:1', tickets: [secondTicket] })
 
   let state = pdaRepack.createPdaTransferBagRepackState()
-  state = pdaRepack.scanRepackSourceBag(state, bagA, storage)
-  state = pdaRepack.scanRepackSourceBag(state, bagB, storage)
-  state = pdaRepack.assignRepackTicket(state, firstTicket.feiTicketId, bagA, storage)
-  state = pdaRepack.assignRepackTicket(state, secondTicket.feiTicketId, bagC, storage)
+  state = pdaRepack.scanRepackSourceBag(state, sourceBagA, storage)
+  state = pdaRepack.scanRepackSourceBag(state, sourceBagB, storage)
+  const groups = pdaRepack.buildPdaRepackGroups(state, storage)
+  assert.equal(groups.length, 1, '同生产单同接收工厂必须形成一个 PDA 建议分组')
+  assert.equal(groups[0].remainingTicketCount, 2, '分组必须展示尚未装入结果袋的菲票数量')
+  state = pdaRepack.selectPdaRepackGroup(state, groups[0].groupKey, storage)
+  state = pdaRepack.activatePdaRepackResultBag(state, resultBag, storage)
+  assert.equal(state.activeResultBagCode, resultBag, '扫描结果袋后必须保持为当前结果袋')
+  state = pdaRepack.scanRepackTicketToActiveResult(state, firstTicket.feiTicketId, storage)
+  state = pdaRepack.scanRepackTicketToActiveResult(state, secondTicket.feiTicketId, storage)
+  assert.equal(state.activeResultBagCode, resultBag, '连续扫描菲票期间不得要求重复扫描结果袋')
+  state = pdaRepack.completePdaRepackResultBag(state, storage)
+  assert.equal(state.step, 'GROUPS', '结果袋完成后必须允许继续装袋或进入剩余来源袋处理')
   const summary = pdaRepack.buildPdaRepackConfirmation(state, storage)
-  assert.equal(summary.sourceBags.length, 2, 'PDA 重装必须支持多个来源袋')
-  assert.equal(summary.resultBags.length, 2, 'PDA 重装必须支持多个结果袋')
-  assert.equal(summary.totalSourceTicketCount, summary.totalResultTicketCount, 'PDA 重装前后菲票张数必须守恒')
-  assert.equal(summary.totalSourcePieceQty, summary.totalResultPieceQty, 'PDA 重装前后片数必须守恒')
-  assert.equal(summary.sourceBags.find((bag) => bag.bagCode === bagA)?.becomesIdle, false, '来源袋可继续作为结果袋')
-  assert.equal(summary.sourceBags.find((bag) => bag.bagCode === bagB)?.becomesIdle, true, '全部转出的来源袋必须变空闲')
-  assert.equal(summary.canSubmit, true, '多来源、多结果且守恒时必须允许 PDA 确认重装')
-  const submitted = pdaRepack.submitPdaTransferBagRepack(state, storage)
-  assert.equal(submitted.eventType, '中转袋拆袋重装', 'PDA 确认必须只写一条统一重装事实')
-  assert.equal(pdaRepack.submitPdaTransferBagRepack(state, storage).eventId, submitted.eventId, 'PDA 重复确认必须返回同一重装事实')
-  assert.equal(resolveTransferBagCurrentUse(bagA, storage).flowStage, 'READY_HANDOVER')
-  assert.equal(resolveTransferBagCurrentUse(bagB, storage).mainStatus, 'IDLE')
-  assert.equal(resolveTransferBagCurrentUse(bagC, storage).flowStage, 'READY_HANDOVER')
+  assert.equal(summary.canSubmit, true, 'PDA 结果袋优先连续扫码后必须满足统一重装校验')
+}
+
+{
+  const storage = createMemoryStorage()
+  const sourceBag = 'PDA-RETAIN-SOURCE'
+  const resultBag = 'PDA-RETAIN-RESULT'
+  const usageCycleId = 'usage:PDA-RETAIN-SOURCE:1'
+  const movedTicket = ticket('PDA-RETAIN-01', 'PO-PDA-RETAIN', 'FACTORY-PDA-RETAIN', 12)
+  const retainedTicket = ticket('PDA-RETAIN-02', 'PO-PDA-RETAIN', 'FACTORY-PDA-RETAIN', 8)
+  appendBagging({ storage, bagCode: sourceBag, usageCycleId, tickets: [movedTicket, retainedTicket] })
+  appendInbound({ storage, bagCode: sourceBag, usageCycleId, tickets: [movedTicket, retainedTicket] })
+  const serializedLedger = JSON.parse(storage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) || '{"events":[]}')
+  const inboundEvent = serializedLedger.events.find((event: { eventType?: string }) => event.eventType === '中转袋入仓')
+  assert(inboundEvent?.payload?.locationRef, '测试前置入仓事实必须包含原库位')
+  inboundEvent.payload.warehouseLocations = [{ ...inboundEvent.payload.locationRef }]
+  delete inboundEvent.payload.locationRef
+  storage.setItem?.(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, JSON.stringify(serializedLedger))
+  let state = pdaRepack.scanRepackSourceBag(pdaRepack.createPdaTransferBagRepackState(), sourceBag, storage)
+  state = pdaRepack.assignRepackTicket(state, movedTicket.feiTicketId, resultBag, storage)
+  state = pdaRepack.beginPdaRepackSourceReturns(state, storage)
+  assert.equal(state.step, 'SOURCE_RETURNS', 'PDA 结果袋完成后必须进入剩余来源袋处理')
+  assert.equal(
+    state.sourceReturnLocationByBagCode[sourceBag]?.locationNo,
+    `A-${sourceBag}`,
+    'PDA 剩余来源袋必须默认带出拆袋前原库位',
+  )
+  const summary = pdaRepack.buildPdaRepackConfirmation(state, storage)
+  assert.equal(summary.canSubmit, true, '默认原库位有效时 PDA 必须允许确认重装')
+  const outcome = pdaRepack.submitPdaTransferBagRepack(state, storage)
+  assert.equal(outcome.inboundEvents.length, 1, 'PDA 必须为仍有菲票的来源袋写入重新入仓事实')
+  assert.equal(resolveTransferBagCurrentUse(sourceBag, storage).flowStage, 'INBOUND_STORED')
+  assert.equal(resolveTransferBagCurrentUse(resultBag, storage).flowStage, 'HANDED_OVER_WAITING_RETURN')
 }
 
 {

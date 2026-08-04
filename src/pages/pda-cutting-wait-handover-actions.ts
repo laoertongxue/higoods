@@ -1,7 +1,7 @@
 import { listPdaCuttingTaskSourceRecords } from '../data/fcs/cutting/pda-cutting-task-source.ts'
 
 export interface PdaCuttingWaitHandoverAction {
-  key: 'fei-ticket-bagging' | 'transfer-bag-inbound' | 'transfer-bag-repack' | 'transfer-bag-handover' | 'transfer-bag-recovery' | 'transfer-bag-scrap'
+  key: 'fei-ticket-bagging' | 'transfer-bag-inbound' | 'transfer-bag-handover' | 'special-craft-return' | 'transfer-bag-recovery' | 'transfer-bag-scrap'
   title: string
   route: string
 }
@@ -21,14 +21,14 @@ export function getPdaCuttingWaitHandoverActions(): PdaCuttingWaitHandoverAction
       route: `/fcs/pda/cutting/inbound/${firstTaskId}?action=inbound-location`,
     },
     {
-      key: 'transfer-bag-repack',
-      title: '拆袋重装',
+      key: 'transfer-bag-handover',
+      title: '中转袋交出',
       route: '/fcs/pda/cutting/transfer-bag/repack',
     },
     {
-      key: 'transfer-bag-handover',
-      title: '中转袋交出',
-      route: `/fcs/pda/cutting/handover/${firstTaskId}?action=transfer-bag-handover`,
+      key: 'special-craft-return',
+      title: '特殊工艺回仓',
+      route: `/fcs/pda/cutting/handover/${firstTaskId}?action=special-craft-return`,
     },
     {
       key: 'transfer-bag-recovery',
@@ -54,7 +54,7 @@ export function resolvePdaCuttingWaitHandoverLegacyActionRoute(action?: string |
     case 'handover-bagging-confirm':
       return actions.find((item) => item.key === 'transfer-bag-handover')?.route || null
     case 'special-craft-return':
-      return actions.find((item) => item.key === 'transfer-bag-inbound')?.route || null
+      return actions.find((item) => item.key === 'special-craft-return')?.route || null
     case 'numbering':
       return '/fcs/pda/cutting/fei-ticket-numbering'
     default:

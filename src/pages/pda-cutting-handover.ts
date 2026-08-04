@@ -54,6 +54,7 @@ import {
   type PdaPageEventResult,
 } from '../main-handlers/pda-local-action-result'
 import { getCurrentFactoryWarehouseByKind } from './pda-warehouse-shared'
+import { renderPdaCuttingTransferBagRepackPage } from './pda-cutting-transfer-bag-repack.ts'
 import { loadWarehouseLayoutSnapshot } from './process-factory/cutting/warehouse-location-layout-store.ts'
 import {
   buildWarehouseLocationMapProjection,
@@ -889,20 +890,8 @@ function renderPdaSpecialCraftReturnFlow(
 
   return `
     <div class="space-y-3 text-xs" data-task-id="${escapeHtml(taskId)}">
-      <div class="rounded-xl border bg-violet-50 px-3 py-3 text-violet-900">
-        <div class="font-medium">特殊工艺回仓扫码</div>
-        <div class="mt-1 text-sm font-semibold">${escapeHtml(draft.handoverOrderNo)} / 本次回仓 ${escapeHtml(sourceRecord.handoverRecordNo)}</div>
-        <div class="mt-1">有中转袋时先扫中转袋，再扫菲票获取裁片部位，最后扫库区库位并确认入仓。</div>
-      </div>
       <div class="rounded-xl border px-3 py-3">
-        <div class="font-medium text-foreground">扫码顺序</div>
-        <div class="mt-2 grid grid-cols-2 gap-2 text-muted-foreground">
-          <div>1. 扫来源交出单</div>
-          <div>2. 扫回仓中转袋</div>
-          <div>3. 扫回仓菲票</div>
-          <div>4. 扫库区库位</div>
-        </div>
-        <div class="mt-3 grid gap-2">
+        <div class="grid gap-2">
           ${renderPdaScanInput('来源特殊工艺交出单', 'specialCraftOrderScan', form.specialCraftOrderScan, draft.handoverOrderNo)}
           ${renderPdaScanInput('回仓中转袋', 'specialCraftReturnBagScan', form.specialCraftReturnBagScan, sourceBag?.bagCode || '无中转袋则留空')}
           ${renderPdaScanInput('回仓菲票', 'specialCraftReturnFeiTicketScan', form.specialCraftReturnFeiTicketScan, ticket?.feiTicketNo || '扫回仓菲票')}
@@ -1069,36 +1058,19 @@ export function resolvePdaTransferBagHandoverConfirmFocus(
 }
 
 export function renderPdaCuttingHandoverPage(taskId: string): string {
-  const context = buildPdaCuttingExecutionContext(taskId, 'handover')
-  const detail = context.detail
   const routeAction = readPdaCuttingHandoverActionFromLocation()
   const isTransferBagHandoverAction = routeAction === 'transfer-bag-handover'
+  if (isTransferBagHandoverAction) {
+    return renderPdaCuttingTransferBagRepackPage()
+  }
+
+  const context = buildPdaCuttingExecutionContext(taskId, 'handover')
+  const detail = context.detail
   const isSpecialCraftReturnAction = routeAction === 'special-craft-return'
-  const pageTitle = isSpecialCraftReturnAction ? '特殊工艺回仓' : isTransferBagHandoverAction ? '中转袋交出' : '交出确认'
-  const pageActiveTab = isTransferBagHandoverAction || isSpecialCraftReturnAction ? 'warehouse' : 'handover'
+  const pageTitle = isSpecialCraftReturnAction ? '特殊工艺回仓' : '交出确认'
+  const pageActiveTab = isSpecialCraftReturnAction ? 'warehouse' : 'handover'
   const cuttingWaitHandoverBackHref = '/fcs/pda/warehouse/wait-handover?scope=cutting'
   const specialCraftReturnBackHref = cuttingWaitHandoverBackHref
-
-  if (isTransferBagHandoverAction) {
-    const transferState = getTransferBagHandoverState(
-      taskId,
-      context.selectedExecutionOrderId,
-      context.selectedExecutionOrderNo,
-    )
-    return renderPdaCuttingPageLayout({
-      taskId,
-      title: pageTitle,
-      subtitle: '',
-      activeTab: pageActiveTab,
-      body: renderPdaTransferBagHandoverWorkflow(
-        transferState,
-        taskId,
-        context.selectedExecutionOrderId || '',
-        context.selectedExecutionOrderNo || '',
-      ),
-      backHref: cuttingWaitHandoverBackHref,
-    })
-  }
 
   if (!detail) {
     return renderPdaCuttingPageLayout({
