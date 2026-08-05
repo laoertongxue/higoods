@@ -111,7 +111,7 @@ export function renderTaskWorkbenchHeader(
     </div>
     <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 px-5 py-4">
       <div><p class="text-xs font-medium text-slate-500">当前动作</p><p class="mt-1 text-sm text-slate-800">${escapeHtml(taskNextAction(task))}</p>${pendingDependencies.length ? `<p class="mt-1 text-xs text-amber-700">等待：${escapeHtml(pendingDependencies.map((item) => item.taskName).join('、'))}</p>` : ''}</div>
-      ${task.status === '待开始' && !['ACCESSORY_PURCHASE', 'TECH_PACK_CONFIRMATION'].includes(task.taskType) ? `<button type="button" class="h-10 rounded-md bg-blue-600 px-5 text-sm font-medium text-white hover:bg-blue-700" data-engineering-task-action="start" data-module="${escapeHtml(module)}" data-task-id="${escapeHtml(task.taskId)}">开始任务</button>` : ''}
+      ${task.status === '待开始' && !['ACCESSORY_PURCHASE', 'TECH_PACK_CONFIRMATION'].includes(task.taskType) ? `<button type="button" class="h-10 rounded-md bg-blue-600 px-5 text-sm font-medium text-white hover:bg-blue-700" data-engineering-task-action="start" data-skip-page-rerender="true" data-module="${escapeHtml(module)}" data-task-id="${escapeHtml(task.taskId)}">开始任务</button>` : ''}
     </div>
     <div data-engineering-task-feedback class="mx-5 mb-4 hidden rounded-md px-3 py-2 text-sm" role="alert"></div>
   </section>`

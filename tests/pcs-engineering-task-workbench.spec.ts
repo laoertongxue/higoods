@@ -7,6 +7,7 @@ import {
   publishEngineeringMasterOrder,
   resetEngineeringMasterRepository,
   submitEngineeringTaskResult,
+  updateEngineeringTaskRecord,
 } from '../src/data/pcs-engineering-master-repository.ts'
 import { renderPcsPlateMakingTaskDetailPage } from '../src/pages/pcs-engineering-tasks/plate-making-task.ts'
 import { startEngineeringTaskFromDetail } from '../src/pages/pcs-engineering-tasks/master-task-common.ts'
@@ -53,6 +54,7 @@ assert.ok(plateTask, '纯梭织主单应生成梭织基码纸样任务')
 const beforeStartHtml = renderPcsPlateMakingTaskDetailPage(plateTask.taskId)
 assert.match(beforeStartHtml, /当前动作/)
 assert.match(beforeStartHtml, /开始任务/)
+assert.match(beforeStartHtml, /data-engineering-task-action="start"[^>]*data-skip-page-rerender="true"/, '开始任务应局部刷新，不得被全页重绘覆盖结果或错误提示')
 assert.match(beforeStartHtml, new RegExp(style.mainImageUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), '任务头部应展示目标款式真实图片')
 assert.doesNotMatch(beforeStartHtml, /data-plate-form=/, '未开始前不得越过开始动作直接提交成果')
 assert.throws(
@@ -60,6 +62,10 @@ assert.throws(
   /请先点击“开始任务”/,
 )
 
+// 兼容当前原型中已持久化、但早于“生产准备类型”字段生成的已发布主单。
+updateEngineeringTaskRecord(master.masterOrderId, plateTask.taskId, (_task, storedMaster) => {
+  storedMaster.preparationType = ''
+})
 startEngineeringTaskFromDetail(plateTask.taskId)
 const startedTask = getEngineeringMasterOrderById(master.masterOrderId)?.tasks.find((task) => task.taskId === plateTask.taskId)
 assert.equal(startedTask?.status, '进行中')

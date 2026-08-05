@@ -1038,14 +1038,28 @@ function listTechPackOnlyProcesses(rows: EngineeringBomTaskLinkageRow[]): Engine
   return processes
 }
 
+function resolveDependencyPreparationType(master: EngineeringMasterOrderRecord): EngineeringPreparationType {
+  if (isEngineeringPreparationType(master.preparationType)) return master.preparationType
+
+  // 兼容当前原型中已持久化、但早于“生产准备类型”字段生成的工程主单。
+  // 这些主单已经保存了跟单确认后的任务结构，按已启用的基码任务还原原来的固定类型，
+  // 避免任务明明已发布却无法点击开始；新建主单仍必须在发布前由跟单明确确认类型。
+  const activeTaskTypes = new Set(master.tasks
+    .filter((task) => task.status !== '未启用' && task.status !== '因需求变更结束')
+    .map((task) => task.taskType))
+  const hasWovenPattern = activeTaskTypes.has('BASE_PATTERN_WOVEN') || activeTaskTypes.has('SIZE_PATTERN_WOVEN')
+  const hasKnitPattern = activeTaskTypes.has('BASE_PATTERN_KNIT') || activeTaskTypes.has('SIZE_PATTERN_KNIT')
+  if (hasWovenPattern && hasKnitPattern) return 'KNIT_WOVEN'
+  if (hasKnitPattern) return 'KNIT'
+  return 'PURE_WOVEN'
+}
+
 function canonicalDependencyIds(master: EngineeringMasterOrderRecord, taskType: EngineeringTaskType): string[] {
-  if (!isEngineeringPreparationType(master.preparationType)) {
-    throw new Error('工程主单缺少生产准备类型，无法校验固定依赖。')
-  }
+  const preparationType = resolveDependencyPreparationType(master)
   const enabledTaskTypes = master.tasks
     .filter((task) => task.status !== '未启用' && task.status !== '因需求变更结束')
     .map((task) => task.taskType)
-  return getEngineeringTaskDependencies(master.preparationType, taskType, enabledTaskTypes)
+  return getEngineeringTaskDependencies(preparationType, taskType, enabledTaskTypes)
     .map((dependency) => `${master.masterOrderId}-${dependency}`)
 }
 
