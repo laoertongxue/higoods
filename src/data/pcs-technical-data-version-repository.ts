@@ -638,7 +638,7 @@ function repairCompletedDesignRequirementContent(
     const bomItemId = item.id || `bom-${index + 1}`
     const nextItem: TechnicalBomItem = {
       ...item,
-      printSideMode: item.printSideMode === 'DOUBLE' ? 'DOUBLE' : 'SINGLE',
+      printSideMode: ['SINGLE', 'REVERSE', 'DOUBLE'].includes(item.printSideMode || '') ? item.printSideMode : 'SINGLE',
     }
 
     const normalizeDesignIds = (ids: unknown, legacyId: unknown): string[] => {
@@ -675,10 +675,15 @@ function repairCompletedDesignRequirementContent(
       return [repairedDesign.id]
     }
 
-    const frontPatternDesignIds = ensureDesign('FRONT')
-    nextItem.frontPatternDesignId = frontPatternDesignIds[0]
-    nextItem.frontPatternDesignIds = frontPatternDesignIds
-    if (nextItem.printSideMode === 'DOUBLE') {
+    if (nextItem.printSideMode !== 'REVERSE') {
+      const frontPatternDesignIds = ensureDesign('FRONT')
+      nextItem.frontPatternDesignId = frontPatternDesignIds[0]
+      nextItem.frontPatternDesignIds = frontPatternDesignIds
+    } else {
+      nextItem.frontPatternDesignId = undefined
+      nextItem.frontPatternDesignIds = undefined
+    }
+    if (nextItem.printSideMode === 'DOUBLE' || nextItem.printSideMode === 'REVERSE') {
       const insidePatternDesignIds = ensureDesign('INSIDE')
       nextItem.insidePatternDesignId = insidePatternDesignIds[0]
       nextItem.insidePatternDesignIds = insidePatternDesignIds

@@ -1,6 +1,8 @@
 // 工程主单领域类型：主单、专业任务、任务物料行、返工轮次与前期成果复用。
 // 工程主单是 PCS 生产工程管理的唯一任务编排事实源。
 
+import type { EngineeringBomCustomCostDraft, EngineeringBomMaterialLineDraft } from './pcs-engineering-bom-types.ts'
+
 export type EngineeringMasterStatus =
   | '草稿'
   | '已发布'
@@ -9,6 +11,59 @@ export type EngineeringMasterStatus =
   | '待关闭'
   | '已关闭'
   | '已终止'
+
+export type EngineeringPreparationType =
+  | 'PURE_WOVEN'
+  | 'HEAT_TRANSFER_DIRECT_PRINT'
+  | 'KNIT'
+  | 'KNIT_WOVEN'
+
+export type EngineeringMasterCreationMode = 'MANUAL' | 'SYSTEM'
+
+export type EngineeringTaskSourceType =
+  | 'INDEPENDENT_REVISION_SAMPLING'
+  | 'INDEPENDENT_DESIGN_SAMPLING'
+  | 'ENGINEERING_MASTER'
+  | 'ENGINEERING_CHANGE'
+
+export interface EngineeringFirstProductionQualificationFact {
+  styleCode: string
+  formalSaleStatus: 'NO_FORMAL_SALE' | 'HAS_FORMAL_SALE' | 'UNAVAILABLE' | 'CONFLICT'
+  formalProductionStatus: 'NO_FORMAL_PRODUCTION' | 'HAS_FORMAL_PRODUCTION' | 'UNAVAILABLE' | 'CONFLICT'
+  formalSaleSource: string
+  formalProductionSource: string
+  checkedAt: string
+}
+
+export interface EngineeringBulkProductionQualification {
+  basisType: 'TEST_APPROVED' | 'REVISION_READY' | 'DESIGN_READY' | 'OTHER_CONFIRMED'
+  triggerBusinessObjectType: string
+  triggerBusinessObjectId: string
+  thresholdQuantity: number | null
+  reachedQuantity: number | null
+  reachedAt: string
+  reason: string
+  uniqueTriggerKey: string
+}
+
+export interface EngineeringTaskEventTimes {
+  generatedAt: string
+  unlockedAt: string
+  startedAt: string
+  submittedAt: string
+  reviewedAt: string
+  firstCompletedAt: string
+  effectiveCompletedAt: string
+}
+
+export interface EngineeringTaskOperationLog {
+  operationType: string
+  operatorId: string
+  operatorName: string
+  operatedAt: string
+  note: string
+  roundNo: number
+}
 
 export type EngineeringTaskType =
   | 'BASE_PATTERN_WOVEN'
@@ -102,9 +157,34 @@ export interface EngineeringTaskRecord {
   masterOrderId: string
   taskType: EngineeringTaskType
   taskName: string
+  sourceType: EngineeringTaskSourceType
+  sourceId: string
+  targetStyleId: string
+  targetStyleCode: string
+  targetStyleName: string
   status: EngineeringTaskStatus
   dependsOnTaskIds: string[]
+  dependencySatisfaction: Array<{
+    dependencyTaskType: EngineeringTaskType
+    satisfactionType: 'TASK_COMPLETED' | 'PRIOR_RESULT_REUSED'
+    sourceId: string
+  }>
   ownerTeamName: string
+  assigneeId: string
+  assigneeName: string
+  assignedById: string
+  assignedByName: string
+  assignedAt: string
+  currentRoundNo: number
+  plannedStartAt: string
+  plannedCompleteAt: string
+  resultSummary: string
+  submittedById: string
+  submittedByName: string
+  reviewedById: string
+  reviewedByName: string
+  events: EngineeringTaskEventTimes
+  operationLogs: EngineeringTaskOperationLog[]
   materialLines: EngineeringTaskMaterialLine[]
   reworkRounds: EngineeringTaskReworkRound[]
   startedAt: string
@@ -127,8 +207,15 @@ export interface EngineeringPriorResultReuseLine {
   resultType: string
   resultLabel: string
   decision: '复用' | '重新执行' | '不采用'
+  sourceSamplingTaskId?: string
+  sourceSamplingTaskCode?: string
   sourceTaskId: string
   sourceTaskLabel: string
+  sourceResultVersion: string
+  sourceBomDraftVersionId?: string
+  confirmedById?: string
+  confirmedBy: string
+  confirmedAt: string
 }
 
 export interface EngineeringMasterOrderRecord {
@@ -138,7 +225,13 @@ export interface EngineeringMasterOrderRecord {
   styleCode: string
   styleName: string
   status: EngineeringMasterStatus
+  preparationType: EngineeringPreparationType | ''
+  creationMode: EngineeringMasterCreationMode
+  creationReason: string
+  qualificationFact: EngineeringFirstProductionQualificationFact
+  bulkProductionQualification: EngineeringBulkProductionQualification
   merchandiserName: string
+  merchandiserId: string
   tasks: EngineeringTaskRecord[]
   priorResultReuseLines: EngineeringPriorResultReuseLine[]
   taskPlanConfirmedAt?: string
@@ -146,8 +239,12 @@ export interface EngineeringMasterOrderRecord {
   confirmedTaskTypes?: EngineeringTaskType[]
   createdAt: string
   createdBy: string
+  createdById: string
+  qualificationReachedAt: string
   publishedAt: string
+  publishedBy: string
   closedAt: string
+  closedBy: string
   terminatedAt: string
   terminateReason: string
 }
@@ -173,4 +270,93 @@ export interface EngineeringMasterOrderSnapshot {
   version: number
   records: EngineeringMasterOrderRecord[]
   changeTasks?: EngineeringChangeTaskRecord[]
+}
+
+export type EngineeringIndependentSamplingType = 'REVISION' | 'DESIGN'
+export type EngineeringIndependentSamplingStatus = 'DRAFT' | 'IN_PROGRESS' | 'WAIT_CONFIRMATION' | 'COMPLETED'
+export type EngineeringIndependentProfessionalTaskType = 'BASE_PATTERN' | 'DISPLAY_SAMPLE' | 'PATTERN_ARTWORK' | 'COLOR_YARN' | 'COLOR_FABRIC'
+export type EngineeringIndependentProfessionalTaskStatus = 'WAIT_DEPENDENCY' | 'WAIT_START' | 'IN_PROGRESS' | 'WAIT_REVIEW' | 'REWORK' | 'COMPLETED'
+
+export interface EngineeringIndependentProfessionalResult {
+  resultId: string
+  title: string
+  imageUrl: string
+  status: 'WAIT_REVIEW' | 'APPROVED' | 'REJECTED'
+  rejectReason: string
+}
+
+export interface EngineeringIndependentProfessionalTask {
+  taskId: string
+  taskType: EngineeringIndependentProfessionalTaskType
+  taskName: string
+  ownerTeamName: string
+  status: EngineeringIndependentProfessionalTaskStatus
+  dependsOnTaskIds: string[]
+  plannedCompleteAt: string
+  startedAt: string
+  submittedAt: string
+  completedAt: string
+  pantoneColorCode: string
+  colorName: string
+  dyeColorCode: string
+  colorRequirementConfirmedBy: string
+  colorRequirementConfirmedAt: string
+  results: EngineeringIndependentProfessionalResult[]
+}
+
+export interface EngineeringIndependentSamplingLog {
+  logId: string
+  action: string
+  operatorId: string
+  operatorName: string
+  occurredAt: string
+  detail: string
+}
+
+export interface EngineeringIndependentSamplingRecord {
+  samplingTaskId: string
+  samplingTaskCode: string
+  samplingType: EngineeringIndependentSamplingType
+  sourceStyleId: string
+  sourceStyleCode: string
+  targetStyleId: string
+  targetStyleCode: string
+  targetStyleName: string
+  status: EngineeringIndependentSamplingStatus
+  merchandiserId: string
+  merchandiserName: string
+  relatedProfessionalTaskIds: string[]
+  professionalTasks: EngineeringIndependentProfessionalTask[]
+  bomDraftVersionId: string
+  bomMaterialLines: EngineeringBomMaterialLineDraft[]
+  bomCustomCosts: EngineeringBomCustomCostDraft[]
+  resultVersion: string
+  resultSummary: string
+  confirmedBy: string
+  confirmedAt: string
+  selectedTaskTypes: EngineeringIndependentProfessionalTaskType[]
+  sourceResultVersionId: string
+  reuseDecision: 'PENDING' | 'REUSE' | 'REDO' | 'IGNORE'
+  operationLogs: EngineeringIndependentSamplingLog[]
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface EngineeringIndependentReusableProfessionalResult {
+  samplingTaskId: string
+  samplingTaskCode: string
+  samplingType: EngineeringIndependentSamplingType
+  targetStyleId: string
+  targetStyleCode: string
+  professionalTaskId: string
+  professionalTaskType: EngineeringIndependentProfessionalTaskType
+  professionalTaskName: string
+  resultVersion: string
+  resultSummary: string
+  bomDraftVersionId: string
+  confirmedBy: string
+  confirmedAt: string
+  completedAt: string
+  resultImageUrls: string[]
 }

@@ -6,7 +6,6 @@ import {
 } from '../data/pcs-project-style-archive-generation.ts'
 import {
   activateTechPackVersionForStyle,
-  createManualTechnicalDataVersionDraftFromCurrent,
   publishTechnicalDataVersion,
 } from '../data/pcs-project-technical-data-writeback.ts'
 import {
@@ -129,10 +128,6 @@ interface ProductArchivePageState {
     open: boolean
     url: string
     title: string
-  }
-  manualTechPackVersion: {
-    open: boolean
-    styleId: string
   }
   versionLogDialog: {
     open: boolean
@@ -276,13 +271,6 @@ function createDefaultImagePreviewState(): ProductArchivePageState['imagePreview
   }
 }
 
-function createDefaultManualTechPackVersionState(): ProductArchivePageState['manualTechPackVersion'] {
-  return {
-    open: false,
-    styleId: '',
-  }
-}
-
 function createDefaultVersionLogDialogState(): ProductArchivePageState['versionLogDialog'] {
   return {
     open: false,
@@ -316,7 +304,6 @@ const state: ProductArchivePageState = {
   skuCreate: createDefaultSkuCreateState(),
   styleCompletion: createDefaultStyleCompletionState(),
   imagePreview: createDefaultImagePreviewState(),
-  manualTechPackVersion: createDefaultManualTechPackVersionState(),
   versionLogDialog: createDefaultVersionLogDialogState(),
 }
 
@@ -356,10 +343,6 @@ function resetImagePreviewState(): void {
   state.imagePreview = createDefaultImagePreviewState()
 }
 
-function resetManualTechPackVersionState(): void {
-  state.manualTechPackVersion = createDefaultManualTechPackVersionState()
-}
-
 function resetVersionLogDialogState(): void {
   state.versionLogDialog = createDefaultVersionLogDialogState()
 }
@@ -390,7 +373,6 @@ export function resetPcsProductArchiveState(): void {
   resetSkuCreateState()
   resetStyleCompletionState()
   resetImagePreviewState()
-  resetManualTechPackVersionState()
   resetVersionLogDialogState()
 }
 
@@ -1662,7 +1644,6 @@ function renderStyleDetailOverview(style: StyleArchiveShellRecord): string {
 
 function renderStyleDetailVersions(style: StyleArchiveShellRecord): string {
   const versions = buildTechnicalVersionListByStyle(style.styleId)
-  const hasCurrentTechPack = Boolean(style.currentTechPackVersionId && versions.some((item) => item.technicalVersionId === style.currentTechPackVersionId))
   const rows = versions
     .map(
       (item) => `
@@ -1702,7 +1683,6 @@ function renderStyleDetailVersions(style: StyleArchiveShellRecord): string {
     <section class="overflow-hidden rounded-lg border bg-white shadow-sm">
       <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
         <h2 class="text-sm font-medium text-slate-900">技术包版本</h2>
-        <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50 ${hasCurrentTechPack ? '' : 'opacity-60'}" data-pcs-product-archive-action="open-manual-tech-pack-version" data-style-id="${escapeHtml(style.styleId)}" title="${hasCurrentTechPack ? '基于当前生效技术包复制生成草稿版本' : '当前款式没有当前生效技术包，不能手动新增版本'}">手动新增版本</button>
       </div>
       <div class="overflow-x-auto">
         <table class="min-w-full text-left text-sm">
@@ -1726,31 +1706,6 @@ function renderStyleDetailVersions(style: StyleArchiveShellRecord): string {
       </div>
     </section>
   `
-}
-
-function renderManualTechPackVersionDrawer(): string {
-  if (!state.manualTechPackVersion.open) return ''
-  const style = state.manualTechPackVersion.styleId ? getStyleArchiveById(state.manualTechPackVersion.styleId) : null
-  if (!style) return ''
-  const currentVersion = style.currentTechPackVersionId
-    ? listTechnicalDataVersionsByStyleId(style.styleId).find((item) => item.technicalVersionId === style.currentTechPackVersionId) || null
-    : null
-  const body = !currentVersion
-    ? '<div class="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">当前款式没有当前生效技术包，不能手动新增版本。</div>'
-    : `
-      <div class="space-y-4">
-        ${renderFormField('所属款式', `<div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">${escapeHtml(`${style.styleCode} · ${style.styleName}`)}</div>`)}
-        ${renderFormField('当前生效版本', `<div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">${escapeHtml(`${currentVersion.versionLabel} · ${currentVersion.technicalVersionCode}`)}</div>`)}
-        <div class="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-          系统会复制当前生效版本的物料清单、纸样管理、工序工艺、放码规则、款色用料对应、花型设计和附件，生成新的草稿版本。草稿发布前可继续修改，发布后转为只读。
-        </div>
-      </div>
-    `
-  const footer = `
-    <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="close-drawers">取消</button>
-    <button type="button" class="inline-flex h-9 items-center rounded-md bg-slate-900 px-3 text-sm text-white hover:bg-slate-800 ${currentVersion ? '' : 'pointer-events-none opacity-50'}" data-pcs-product-archive-action="submit-manual-tech-pack-version">确认新增</button>
-  `
-  return renderDrawerShell('手动新增技术包版本', '基于当前生效版本生成草稿，发布前可继续维护。', body, footer)
 }
 
 function renderStyleDetailSpecifications(style: StyleArchiveShellRecord): string {
@@ -1979,7 +1934,6 @@ function renderStyleDetailPage(styleId: string): string {
       ${tabContent}
       ${renderSkuCreateDrawer()}
       ${renderStyleCompletionDrawer()}
-      ${renderManualTechPackVersionDrawer()}
       ${renderTechPackVersionLogDialog()}
       ${renderImagePreviewModal()}
     </div>
@@ -2490,30 +2444,6 @@ function submitSkuBatchCreate(): void {
   state.notice = `已批量生成 ${records.length} 条规格档案。`
 }
 
-function openManualTechPackVersionDrawer(style: StyleArchiveShellRecord): void {
-  state.manualTechPackVersion = {
-    open: true,
-    styleId: style.styleId,
-  }
-}
-
-function submitManualTechPackVersion(): void {
-  const style = state.manualTechPackVersion.styleId ? getStyleArchiveById(state.manualTechPackVersion.styleId) : null
-  if (!style) {
-    state.notice = '请选择款式。'
-    return
-  }
-  try {
-    const result = createManualTechnicalDataVersionDraftFromCurrent(style.styleId, '当前用户')
-    resetManualTechPackVersionState()
-    state.styleDetail.styleId = style.styleId
-    state.styleDetail.activeTab = 'versions'
-    state.notice = `已基于当前生效版本新增草稿技术包版本 ${result.record.technicalVersionCode}。`
-  } catch (error) {
-    state.notice = error instanceof Error ? error.message : '新增技术包版本失败。'
-  }
-}
-
 function resolveClosestNode(target: unknown, selector: string): HTMLElement | null {
   if (!target || typeof target !== 'object') return null
   const maybe = target as { closest?: (selector: string) => HTMLElement | null }
@@ -2700,7 +2630,6 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
     case 'close-drawers':
       resetSkuCreateState()
       resetStyleCompletionState()
-      resetManualTechPackVersionState()
       resetVersionLogDialogState()
       return true
     case 'open-tech-pack-version-logs': {
@@ -2796,19 +2725,6 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
       }
       return true
     }
-    case 'open-manual-tech-pack-version': {
-      const styleId = actionNode.dataset.styleId || state.styleDetail.styleId || ''
-      const style = styleId ? getStyleArchiveById(styleId) : null
-      if (!style) {
-        state.notice = '未找到对应款式档案。'
-        return true
-      }
-      openManualTechPackVersionDrawer(style)
-      return true
-    }
-    case 'submit-manual-tech-pack-version':
-      submitManualTechPackVersion()
-      return true
     case 'open-sku-create':
       resetSkuCreateState()
       state.skuCreate.open = true
@@ -2926,7 +2842,6 @@ export function isPcsProductArchiveDialogOpen(): boolean {
     state.skuCreate.open ||
     state.styleCompletion.open ||
     state.imagePreview.open ||
-    state.manualTechPackVersion.open ||
     state.versionLogDialog.open
   )
 }

@@ -158,12 +158,17 @@ function createReadyMaster(withPricingBom: boolean) {
   const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
     styleId: style.styleId,
     styleCode: style.styleCode,
+    merchandiserId: 'USER-M-LX',
     merchandiserName: '跟单-林晓',
+    createdById: 'USER-M-LX',
     createdBy: '跟单-林晓',
+    createdByRole: '跟单', preparationType: 'PURE_WOVEN',
+    qualificationFact: { styleCode: style.styleCode, formalSaleStatus: 'NO_FORMAL_SALE', formalProductionStatus: 'NO_FORMAL_PRODUCTION', formalSaleSource: '正式销售订单', formalProductionSource: '正式生产单', checkedAt: '2026-08-04 09:00:00' },
+    bulkProductionQualification: { basisType: 'TEST_APPROVED', triggerBusinessObjectType: '测款结果', triggerBusinessObjectId: `TEST-CLOSE-${withPricingBom}`, thresholdQuantity: 300, reachedQuantity: 320, reachedAt: '2026-08-04 09:00:00', reason: '已满足做大货要求', uniqueTriggerKey: `TEST-CLOSE-${withPricingBom}` }, creationReason: '跟单核实创建',
   }).masterOrderId)
   for (const task of master.tasks) {
     updateEngineeringTaskRecord(master.masterOrderId, task.taskId, (draft) => {
-      if (['PATTERN_ARTWORK', 'COLOR_YARN', 'COLOR_FABRIC'].includes(draft.taskType)) {
+      if (draft.status === '未启用') {
         draft.status = '因需求变更结束'
         return
       }
@@ -192,15 +197,18 @@ resetEngineeringMasterRepository()
 const missingSnapshotMaster = publishEngineeringMasterOrder(createEngineeringMasterOrder({
   styleId: style.styleId,
   styleCode: style.styleCode,
+  merchandiserId: 'USER-M-LX',
   merchandiserName: '跟单-林晓',
+  createdById: 'USER-M-LX',
   createdBy: '跟单-林晓',
+  createdByRole: '跟单', preparationType: 'PURE_WOVEN',
+  qualificationFact: { styleCode: style.styleCode, formalSaleStatus: 'NO_FORMAL_SALE', formalProductionStatus: 'NO_FORMAL_PRODUCTION', formalSaleSource: '正式销售订单', formalProductionSource: '正式生产单', checkedAt: '2026-08-04 09:00:00' },
+  bulkProductionQualification: { basisType: 'TEST_APPROVED', triggerBusinessObjectType: '测款结果', triggerBusinessObjectId: 'TEST-CLOSE-MISSING', thresholdQuantity: 300, reachedQuantity: 320, reachedAt: '2026-08-04 09:00:00', reason: '已满足做大货要求', uniqueTriggerKey: 'TEST-CLOSE-MISSING' }, creationReason: '跟单核实创建',
 }).masterOrderId)
 for (const task of missingSnapshotMaster.tasks) {
   updateEngineeringTaskRecord(missingSnapshotMaster.masterOrderId, task.taskId, (draft) => {
     if (draft.taskType === 'TECH_PACK_CONFIRMATION') return
-    draft.status = ['PATTERN_ARTWORK', 'COLOR_YARN', 'COLOR_FABRIC'].includes(draft.taskType)
-      ? '因需求变更结束'
-      : '已完成'
+    draft.status = draft.status === '未启用' ? '因需求变更结束' : '已完成'
   })
 }
 const missingSnapshotTaskId = `${missingSnapshotMaster.masterOrderId}-TECH_PACK_CONFIRMATION`
@@ -271,8 +279,10 @@ updateEngineeringTaskRecord(ready.masterOrderId, ready.confirmationTaskId, (task
 })
 assert.throws(() => validateEngineeringMasterOrderClose(ready.masterOrderId), /缺少固定前置|依赖/)
 updateEngineeringTaskRecord(ready.masterOrderId, ready.confirmationTaskId, (task) => {
-  task.dependsOnTaskIds = getEngineeringTaskDefinition('TECH_PACK_CONFIRMATION').dependsOn
-    .map((taskType) => `${ready.masterOrderId}-${taskType}`)
+  task.dependsOnTaskIds = getEngineeringMasterOrderById(ready.masterOrderId)!.tasks
+    .filter((candidate) => candidate.taskType !== 'TECH_PACK_CONFIRMATION')
+    .filter((candidate) => candidate.status !== '未启用' && candidate.status !== '因需求变更结束')
+    .map((candidate) => candidate.taskId)
 })
 
 // 因需求变更结束的非有效条件任务不阻断；生产需求、生产单和加工单不存在也不阻断。

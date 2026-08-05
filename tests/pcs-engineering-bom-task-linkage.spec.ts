@@ -19,7 +19,11 @@ function createPublishedMaster() {
   return publishEngineeringMasterOrder(createEngineeringMasterOrder({
     styleId: style.styleId,
     styleCode: style.styleCode,
+    merchandiserId: 'USER-M-A',
     merchandiserName: '跟单A',
+    createdById: 'USER-M-A', createdBy: '跟单A', createdByRole: '跟单', preparationType: 'PURE_WOVEN',
+    qualificationFact: { styleCode: style.styleCode, formalSaleStatus: 'NO_FORMAL_SALE', formalProductionStatus: 'NO_FORMAL_PRODUCTION', formalSaleSource: '正式销售订单', formalProductionSource: '正式生产单', checkedAt: '2026-08-04 09:00:00' },
+    bulkProductionQualification: { basisType: 'TEST_APPROVED', triggerBusinessObjectType: '测款结果', triggerBusinessObjectId: `TEST-${style.styleCode}`, thresholdQuantity: 300, reachedQuantity: 320, reachedAt: '2026-08-04 09:00:00', reason: '已满足做大货要求', uniqueTriggerKey: `TEST-${style.styleCode}` }, creationReason: '跟单核实创建',
   }).masterOrderId)
 }
 
@@ -161,7 +165,8 @@ const afterLastLineRemoval = applyBomRequirementsToEngineeringTasks(lastLineMast
   row('BOM-LAST-PRINT', { printRequirement: '否' }),
 ])
 const afterLastLineTask = afterLastLineRemoval.masterOrder.tasks.find((task) => task.taskType === 'PATTERN_ARTWORK')
-assert.equal(afterLastLineTask?.status, beforeLastLineTask.status, '移除唯一印花物料行不得结束整张花型任务')
+assert.equal(beforeLastLineTask.status, '待开始')
+assert.equal(afterLastLineTask?.status, '因需求变更结束', '未开始的条件任务在唯一需求移除后应保留历史并结束')
 assert.equal(afterLastLineTask?.materialLines[0]?.status, '因需求变更结束')
 
 const completedLastLineMaster = createPublishedMaster()

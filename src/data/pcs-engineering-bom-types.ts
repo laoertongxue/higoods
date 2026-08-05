@@ -16,6 +16,7 @@ export interface EngineeringBomTaskLinkageRow {
   colorName?: string
   dyeColorCode?: string
   dyeFactoryName?: string
+  purchaseRequirement?: EngineeringBomRequirementFlag
   shrinkRequirement?: EngineeringBomRequirementFlag
   washRequirement?: EngineeringBomRequirementFlag
   waterSolubleRequirement?: EngineeringBomRequirementFlag
@@ -24,20 +25,74 @@ export interface EngineeringBomTaskLinkageRow {
 export interface EngineeringBomMaterialLineDraft {
   bomItemId?: string
   materialSkuId: string
+  sequenceNo?: number
+  styleCode?: string
+  productColor?: string
+  materialType?: string
+  materialImageUrl?: string
+  specification?: string
   usage: number
   sampleQuantity: number
   usageUnit: string
   lossRate: number
+  applicableSkuIds?: string[]
+  printRequirement?: EngineeringBomRequirementFlag
+  printRequirementText?: string
+  dyeRequirement?: EngineeringBomRequirementFlag
+  dyeRequirementText?: string
+  purchaseRequirement?: EngineeringBomRequirementFlag
+  shrinkRequirementText?: string
+  washRequirementText?: string
+  waterSolubleRequirementText?: string
+  printSide?: '正面' | '反面' | '双面' | '无'
+  frontPatternResultId?: string
+  liningPatternResultId?: string
+  linkedPatternResultIds?: string[]
+  processCode?: string
+  remark?: string
 }
 
 export interface EngineeringBomCustomCostDraft {
+  customCostId?: string
   title: string
   amountIdr: number
+  note?: string
+  displayOrder?: number
+  maintainedBy?: string
+  maintainedAt?: string
 }
 
 export interface EngineeringBomDraft {
+  bomDraftVersionId?: string
+  versionStatus?: 'DRAFT' | 'COMPLETED_CONFIRMED' | 'PUBLISHED_SNAPSHOT'
+  styleCode?: string
+  productColor?: string
+  applicableSkuIds?: string[]
+  sourceVersionId?: string
+  copiedAt?: string
+  copiedBy?: string
+  completedConfirmedAt?: string
+  completedConfirmedBy?: string
+  lineDiffs?: Array<{
+    bomItemId: string
+    changeType: 'ADDED' | 'REMOVED' | 'CHANGED' | 'UNCHANGED'
+    changedFields: string[]
+  }>
+  customCostDiffs?: Array<{
+    customCostId: string
+    changeType: 'ADDED' | 'REMOVED' | 'CHANGED' | 'UNCHANGED'
+    changedFields: string[]
+  }>
   materialLines: EngineeringBomMaterialLineDraft[]
   customCosts: EngineeringBomCustomCostDraft[]
+}
+
+export interface EngineeringBomSkuScopeCatalog {
+  styleCode: string
+  colors: Array<{
+    productColor: string
+    skuIds: string[]
+  }>
 }
 
 export interface EngineeringBomResolvedMaterialLine extends EngineeringBomMaterialLineDraft {
@@ -50,6 +105,8 @@ export interface EngineeringBomResolvedMaterialLine extends EngineeringBomMateri
   standardUnitPriceCurrency: 'CNY'
   priceStatus: '有效' | '标准单价失效'
   materialCostCny: number | null
+  totalRequirementQuantity: number
+  technicalProcessSequence: Array<'水溶' | '染色'>
 }
 
 export interface EngineeringBomCostResult {

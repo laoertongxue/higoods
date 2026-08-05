@@ -5,6 +5,7 @@ import {
   getEngineeringMasterOrderById,
   updateEngineeringTaskRecord,
 } from './pcs-engineering-master-repository.ts'
+import { listTechnicalDataVersionsByProjectId } from './pcs-technical-data-version-repository.ts'
 
 export type EngineeringPurchaseOrderStatus = '待下单' | '已下单' | '部分到货' | '已完成' | '已作废' | '已取消'
 
@@ -262,16 +263,43 @@ export function bindAccessoryPurchaseOrder(masterOrderId: string, taskId: string
   return { ...result, purchaseOrders: purchaseOrders.map(toPurchaseOrderView), gate }
 }
 
-export function unbindAccessoryPurchaseOrder(masterOrderId: string, taskId: string, purchaseOrderNo: string) {
-  const { task } = assertPurchaseTask(masterOrderId, taskId)
+export function unbindAccessoryPurchaseOrder(input: {
+  masterOrderId: string
+  taskId: string
+  purchaseOrderNo: string
+  operatorId: string
+  operatorName: string
+  operatorRole: '采购人员'
+  reason: string
+}) {
+  const { master, task } = assertPurchaseTask(input.masterOrderId, input.taskId)
+  const purchaseOrderNo = input.purchaseOrderNo.trim()
+  const reason = input.reason.trim()
+  if (!input.operatorId.trim() || !input.operatorName.trim() || input.operatorRole !== '采购人员') {
+    throw new Error('只有采购人员可以解除采购单绑定。')
+  }
+  if (!reason) throw new Error('请填写解除绑定原因。')
+  if (master.status === '已关闭') throw new Error('工程主单已关闭，不能解除采购单绑定。')
+  if (listTechnicalDataVersionsByProjectId(master.masterOrderId).some((version) => version.versionStatus === 'PUBLISHED')) {
+    throw new Error('正式技术包已发布，不能解除采购单绑定。')
+  }
   const bound = task.boundPurchaseOrderNos || []
   if (!bound.some((item) => item === purchaseOrderNo)) throw new Error(`采购单尚未绑定：${purchaseOrderNo}`)
   const nextOrderNos = bound.filter((item) => item !== purchaseOrderNo)
   const purchaseOrders = listEngineeringPurchaseOrderFacts(nextOrderNos)
   const gate = evaluateAccessoryPurchaseCompletion({ requiredMaterialSkuIds: requiredMaterialSkuIds(task), purchaseOrders })
-  const result = updateEngineeringTaskRecord(masterOrderId, taskId, (current) => {
+  const operatedAt = new Date().toLocaleString('zh-CN', { hour12: false })
+  const result = updateEngineeringTaskRecord(input.masterOrderId, input.taskId, (current) => {
     current.boundPurchaseOrderNos = nextOrderNos
     applyGate(current, gate)
+    current.operationLogs.push({
+      operationType: '解除采购单绑定',
+      operatorId: input.operatorId,
+      operatorName: input.operatorName,
+      operatedAt,
+      note: `原采购单号：${purchaseOrderNo}；原因：${reason}`,
+      roundNo: current.reworkRounds.length,
+    })
   })
   return { ...result, purchaseOrders: purchaseOrders.map(toPurchaseOrderView), gate }
 }

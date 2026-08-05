@@ -89,12 +89,16 @@ assert.ok(style)
 const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
   styleId: style.styleId,
   styleCode: style.styleCode,
+  merchandiserId: 'USER-M-A',
   merchandiserName: '跟单A',
+  createdById: 'USER-M-A', createdBy: '跟单A', createdByRole: '跟单', preparationType: 'PURE_WOVEN',
+  qualificationFact: { styleCode: style.styleCode, formalSaleStatus: 'NO_FORMAL_SALE', formalProductionStatus: 'NO_FORMAL_PRODUCTION', formalSaleSource: '正式销售订单', formalProductionSource: '正式生产单', checkedAt: '2026-08-04 09:00:00' },
+  bulkProductionQualification: { basisType: 'TEST_APPROVED', triggerBusinessObjectType: '测款结果', triggerBusinessObjectId: 'TEST-PURCHASE', thresholdQuantity: 300, reachedQuantity: 320, reachedAt: '2026-08-04 09:00:00', reason: '已满足做大货要求', uniqueTriggerKey: 'TEST-PURCHASE' }, creationReason: '跟单核实创建',
 }).masterOrderId)
 const taskId = `${master.masterOrderId}-ACCESSORY_PURCHASE`
 const bomLinked = applyBomRequirementsToEngineeringTasks(master.masterOrderId, [
-  { bomItemId: 'BOM-ACC-A', materialSkuId: 'ACC-A', materialName: '拉链', materialType: '辅料' },
-  { bomItemId: 'BOM-ACC-B', materialSkuId: 'ACC-B', materialName: '纽扣', materialType: '辅料' },
+  { bomItemId: 'BOM-ACC-A', materialSkuId: 'ACC-A', materialName: '拉链', materialType: '辅料', purchaseRequirement: '是' },
+  { bomItemId: 'BOM-ACC-B', materialSkuId: 'ACC-B', materialName: '纽扣', materialType: '辅料', purchaseRequirement: '是' },
 ])
 assert.deepEqual(
   bomLinked.masterOrder.tasks.find((task) => task.taskId === taskId)?.materialLines.map((line) => line.materialSkuId),
@@ -206,7 +210,7 @@ assert.match(restoredHtml, /权限撤销后的秘密物料/)
 assert.match(restoredHtml, /987654321/)
 assert.match(restoredHtml, /2026-08-02 16:30:00/)
 
-const afterUnbind = unbindAccessoryPurchaseOrder(master.masterOrderId, taskId, 'PO-B')
+const afterUnbind = unbindAccessoryPurchaseOrder({ masterOrderId: master.masterOrderId, taskId, purchaseOrderNo: 'PO-B', operatorId: 'BUYER-1', operatorName: '采购员A', operatorRole: '采购人员', reason: '采购单绑定错误' })
 assert.equal(afterUnbind.gate.complete, false)
 assert.equal(afterUnbind.task.status, '进行中')
 assert.equal(afterUnbind.task.effectiveCompletedAt, '')
@@ -225,6 +229,7 @@ const host = { innerHTML: '' }
 const summaryHost = { innerHTML: '' }
 const feedback = { textContent: '' }
 const originalDocument = globalThis.document
+const originalWindow = globalThis.window
 Object.defineProperty(globalThis, 'document', {
   configurable: true,
   value: {
@@ -236,6 +241,10 @@ Object.defineProperty(globalThis, 'document', {
       return null
     },
   },
+})
+Object.defineProperty(globalThis, 'window', {
+  configurable: true,
+  value: { confirm: () => true, prompt: () => '重新选择采购单' },
 })
 const handled = handlePurchaseTaskEvent({
   closest(selector: string) {
@@ -268,9 +277,10 @@ handlePurchaseTaskEvent({
 assert.match(summaryHost.innerHTML, /进行中/)
 assert.doesNotMatch(summaryHost.innerHTML, /2026-08-02 16:30:00/)
 
-const unboundAll = unbindAccessoryPurchaseOrder(master.masterOrderId, taskId, 'PO-A')
+const unboundAll = unbindAccessoryPurchaseOrder({ masterOrderId: master.masterOrderId, taskId, purchaseOrderNo: 'PO-A', operatorId: 'BUYER-1', operatorName: '采购员A', operatorRole: '采购人员', reason: '重新选择采购单' })
 assert.equal(unboundAll.task.status, '待开始')
 assert.equal(unboundAll.task.startedAt, '')
 Object.defineProperty(globalThis, 'document', { configurable: true, value: originalDocument })
+Object.defineProperty(globalThis, 'window', { configurable: true, value: originalWindow })
 
 console.log('pcs-engineering-purchase-linkage.spec.ts PASS')

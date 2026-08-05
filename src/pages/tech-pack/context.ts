@@ -260,7 +260,7 @@ type BomItemRow = {
   dyeRequirement: string
   shrinkRequirement: BomRequirementFlag
   washRequirement: BomRequirementFlag
-  printSideMode: '' | 'SINGLE' | 'DOUBLE'
+  printSideMode: '' | 'SINGLE' | 'REVERSE' | 'DOUBLE'
   frontPatternDesignId: string
   frontPatternDesignIds: string[]
   insidePatternDesignId: string
@@ -1988,7 +1988,7 @@ interface TechPackPageState {
     dyeRequirement: string
     shrinkRequirement: BomRequirementFlag
     washRequirement: BomRequirementFlag
-    printSideMode: '' | 'SINGLE' | 'DOUBLE'
+    printSideMode: '' | 'SINGLE' | 'REVERSE' | 'DOUBLE'
     frontPatternDesignId: string
     frontPatternDesignIds: string[]
     insidePatternDesignId: string

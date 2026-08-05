@@ -895,7 +895,7 @@ function renderTestingCreateAction(
 }
 
 function renderProjectProfessionalTaskEntry(project: PcsProjectRecord): string {
-  return `<button type="button" class="inline-flex h-9 items-center rounded-md border border-blue-200 bg-blue-50 px-4 text-sm font-medium text-blue-700 hover:bg-blue-100" data-nav="/pcs/patterns/revision?projectId=${escapeHtml(project.projectId)}">进入工程任务</button>`
+  return `<button type="button" class="inline-flex h-9 items-center rounded-md border border-blue-200 bg-blue-50 px-4 text-sm font-medium text-blue-700 hover:bg-blue-100" data-nav="/pcs/engineering/revision-sampling?projectId=${escapeHtml(project.projectId)}">进入改款打样任务</button>`
 }
 
 const PROJECT_PROFESSIONAL_TASK_MODULES = new Set<ProjectRelationTaskSourceModule>([
@@ -908,7 +908,7 @@ const PROJECT_PROFESSIONAL_TASK_MODULES = new Set<ProjectRelationTaskSourceModul
 
 function getProjectProfessionalTaskRoute(relation: ProjectRelationRecord): string {
   const taskId = encodeURIComponent(relation.sourceObjectId)
-  if (relation.sourceModule === '改版任务') return `/pcs/patterns/revision/${taskId}`
+  if (relation.sourceModule === '改版任务') return `/pcs/engineering/revision-sampling/${taskId}`
   if (relation.sourceModule === '制版任务') return `/pcs/patterns/plate-making/${taskId}`
   if (relation.sourceModule === '花型任务') return `/pcs/patterns/colors/${taskId}`
   if (relation.sourceModule === '首版样衣打样') return `/pcs/samples/first-sample/${taskId}`

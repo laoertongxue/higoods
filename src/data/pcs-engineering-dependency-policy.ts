@@ -1,9 +1,28 @@
 // 工程主单固定依赖策略：10 类专业任务、11 个生产准备投影节点、固定依赖与自动补齐规则。
 // 依赖结构沿用与业务确认的固定规则，不允许人工调整；本模块不提供任何更新接口。
 
-import type { EngineeringTaskStatus, EngineeringTaskType } from './pcs-engineering-master-types.ts'
+import type {
+  EngineeringPreparationType,
+  EngineeringTaskStatus,
+  EngineeringTaskType,
+} from './pcs-engineering-master-types.ts'
 
-export type EngineeringTaskConditionType = 'ALWAYS' | 'PRINT' | 'DYE_YARN' | 'DYE_FABRIC'
+export type EngineeringTaskConditionType = 'ALWAYS' | 'PRINT' | 'DYE_YARN' | 'DYE_FABRIC' | 'PURCHASE_ACCESSORY'
+export type EngineeringTaskApplicability = 'REQUIRED' | 'CONDITIONAL' | 'NOT_APPLICABLE'
+
+export interface EngineeringBomTaskConditions {
+  hasPrintRequirement: boolean
+  hasYarnDyeRequirement: boolean
+  hasFabricDyeRequirement: boolean
+  hasAccessoryPurchaseRequirement: boolean
+}
+
+export interface EngineeringTaskPlanLine {
+  taskType: EngineeringTaskType
+  applicability: EngineeringTaskApplicability
+  enabled: boolean
+  dependsOn: EngineeringTaskType[]
+}
 
 export type EngineeringTaskStageType =
   | 'BOM_REQUIREMENT'
@@ -125,7 +144,7 @@ const ENGINEERING_TASK_DEFINITIONS: EngineeringTaskDefinition[] = [
     taskName: '辅料下单任务',
     ownerTeamName: '采购人员',
     dependsOn: [],
-    conditionType: 'ALWAYS',
+    conditionType: 'PURCHASE_ACCESSORY',
     reviewRequired: false,
     stages: [],
   },
@@ -149,6 +168,141 @@ const ENGINEERING_TASK_DEFINITIONS: EngineeringTaskDefinition[] = [
     stages: [],
   },
 ]
+
+const PREPARATION_TASK_APPLICABILITY: Record<
+  EngineeringPreparationType,
+  Record<EngineeringTaskType, EngineeringTaskApplicability>
+> = {
+  PURE_WOVEN: {
+    BASE_PATTERN_WOVEN: 'REQUIRED',
+    BASE_PATTERN_KNIT: 'NOT_APPLICABLE',
+    PRE_PRODUCTION_SAMPLE: 'REQUIRED',
+    SIZE_PATTERN_WOVEN: 'REQUIRED',
+    SIZE_PATTERN_KNIT: 'NOT_APPLICABLE',
+    PATTERN_ARTWORK: 'CONDITIONAL',
+    COLOR_YARN: 'CONDITIONAL',
+    COLOR_FABRIC: 'CONDITIONAL',
+    ACCESSORY_PURCHASE: 'CONDITIONAL',
+    TECH_PACK_CONFIRMATION: 'REQUIRED',
+  },
+  HEAT_TRANSFER_DIRECT_PRINT: {
+    BASE_PATTERN_WOVEN: 'NOT_APPLICABLE',
+    BASE_PATTERN_KNIT: 'NOT_APPLICABLE',
+    PRE_PRODUCTION_SAMPLE: 'NOT_APPLICABLE',
+    SIZE_PATTERN_WOVEN: 'NOT_APPLICABLE',
+    SIZE_PATTERN_KNIT: 'NOT_APPLICABLE',
+    PATTERN_ARTWORK: 'REQUIRED',
+    COLOR_YARN: 'CONDITIONAL',
+    COLOR_FABRIC: 'CONDITIONAL',
+    ACCESSORY_PURCHASE: 'CONDITIONAL',
+    TECH_PACK_CONFIRMATION: 'REQUIRED',
+  },
+  KNIT: {
+    BASE_PATTERN_WOVEN: 'NOT_APPLICABLE',
+    BASE_PATTERN_KNIT: 'REQUIRED',
+    PRE_PRODUCTION_SAMPLE: 'REQUIRED',
+    SIZE_PATTERN_WOVEN: 'NOT_APPLICABLE',
+    SIZE_PATTERN_KNIT: 'REQUIRED',
+    PATTERN_ARTWORK: 'CONDITIONAL',
+    COLOR_YARN: 'CONDITIONAL',
+    COLOR_FABRIC: 'CONDITIONAL',
+    ACCESSORY_PURCHASE: 'CONDITIONAL',
+    TECH_PACK_CONFIRMATION: 'REQUIRED',
+  },
+  KNIT_WOVEN: {
+    BASE_PATTERN_WOVEN: 'REQUIRED',
+    BASE_PATTERN_KNIT: 'REQUIRED',
+    PRE_PRODUCTION_SAMPLE: 'REQUIRED',
+    SIZE_PATTERN_WOVEN: 'REQUIRED',
+    SIZE_PATTERN_KNIT: 'REQUIRED',
+    PATTERN_ARTWORK: 'CONDITIONAL',
+    COLOR_YARN: 'CONDITIONAL',
+    COLOR_FABRIC: 'CONDITIONAL',
+    ACCESSORY_PURCHASE: 'CONDITIONAL',
+    TECH_PACK_CONFIRMATION: 'REQUIRED',
+  },
+}
+
+const EMPTY_BOM_CONDITIONS: EngineeringBomTaskConditions = {
+  hasPrintRequirement: false,
+  hasYarnDyeRequirement: false,
+  hasFabricDyeRequirement: false,
+  hasAccessoryPurchaseRequirement: false,
+}
+
+export const ENGINEERING_PREPARATION_TYPES: readonly EngineeringPreparationType[] = [
+  'PURE_WOVEN',
+  'HEAT_TRANSFER_DIRECT_PRINT',
+  'KNIT',
+  'KNIT_WOVEN',
+]
+
+export function isEngineeringPreparationType(value: unknown): value is EngineeringPreparationType {
+  return ENGINEERING_PREPARATION_TYPES.includes(value as EngineeringPreparationType)
+}
+
+export function getEngineeringTaskApplicability(
+  preparationType: EngineeringPreparationType,
+  taskType: EngineeringTaskType,
+): EngineeringTaskApplicability {
+  return PREPARATION_TASK_APPLICABILITY[preparationType][taskType]
+}
+
+function conditionSatisfied(
+  taskType: EngineeringTaskType,
+  conditions: EngineeringBomTaskConditions,
+): boolean {
+  if (taskType === 'PATTERN_ARTWORK') return conditions.hasPrintRequirement
+  if (taskType === 'COLOR_YARN') return conditions.hasYarnDyeRequirement
+  if (taskType === 'COLOR_FABRIC') return conditions.hasFabricDyeRequirement
+  if (taskType === 'ACCESSORY_PURCHASE') return conditions.hasAccessoryPurchaseRequirement
+  return true
+}
+
+export function getEngineeringTaskDependencies(
+  preparationType: EngineeringPreparationType,
+  taskType: EngineeringTaskType,
+  enabledTaskTypes: readonly EngineeringTaskType[] = [],
+): EngineeringTaskType[] {
+  if (taskType === 'PRE_PRODUCTION_SAMPLE') {
+    if (preparationType === 'PURE_WOVEN') return ['BASE_PATTERN_WOVEN']
+    if (preparationType === 'KNIT') return ['BASE_PATTERN_KNIT']
+    if (preparationType === 'KNIT_WOVEN') return ['BASE_PATTERN_WOVEN', 'BASE_PATTERN_KNIT']
+    return []
+  }
+  if (taskType === 'SIZE_PATTERN_WOVEN' || taskType === 'SIZE_PATTERN_KNIT') {
+    return ['PRE_PRODUCTION_SAMPLE']
+  }
+  if (taskType === 'TECH_PACK_CONFIRMATION') {
+    return enabledTaskTypes.filter((candidate) => candidate !== 'TECH_PACK_CONFIRMATION')
+  }
+  return []
+}
+
+export function buildEngineeringTaskPlan(
+  preparationType: EngineeringPreparationType,
+  conditions: EngineeringBomTaskConditions = EMPTY_BOM_CONDITIONS,
+  selectedConditionalTaskTypes: readonly EngineeringTaskType[] = [],
+): EngineeringTaskPlanLine[] {
+  const selected = new Set(selectedConditionalTaskTypes)
+  const enabledTaskTypes = ENGINEERING_TASK_DEFINITIONS
+    .map((definition) => definition.taskType)
+    .filter((taskType) => {
+      const applicability = getEngineeringTaskApplicability(preparationType, taskType)
+      if (applicability === 'REQUIRED') return true
+      if (applicability === 'NOT_APPLICABLE') return false
+      return conditionSatisfied(taskType, conditions) || selected.has(taskType)
+    })
+  return ENGINEERING_TASK_DEFINITIONS.map((definition) => {
+    const applicability = getEngineeringTaskApplicability(preparationType, definition.taskType)
+    return {
+      taskType: definition.taskType,
+      applicability,
+      enabled: enabledTaskTypes.includes(definition.taskType),
+      dependsOn: getEngineeringTaskDependencies(preparationType, definition.taskType, enabledTaskTypes),
+    }
+  })
+}
 
 const PREPARATION_PROJECTION_ITEMS: PreparationProjectionItem[] = [
   { itemType: '梭织基码纸样', itemLabel: '梭织基码纸样', taskType: 'BASE_PATTERN_WOVEN', stageType: '', completionType: 'TASK_SUBMIT', ownerTeamName: '版师' },
@@ -196,6 +350,23 @@ export function buildDependencyClosure(selectedTaskTypes: EngineeringTaskType[])
     for (const dependency of definition.dependsOn) visit(dependency)
   }
   for (const taskType of selectedTaskTypes) visit(taskType)
+  return [...closure]
+}
+
+export function buildPreparationDependencyClosure(
+  preparationType: EngineeringPreparationType,
+  selectedTaskTypes: EngineeringTaskType[],
+): EngineeringTaskType[] {
+  const closure = new Set<EngineeringTaskType>()
+  const visit = (taskType: EngineeringTaskType): void => {
+    if (closure.has(taskType)) return
+    if (getEngineeringTaskApplicability(preparationType, taskType) === 'NOT_APPLICABLE') {
+      throw new Error('所选任务不适用于当前生产准备类型。')
+    }
+    closure.add(taskType)
+    for (const dependency of getEngineeringTaskDependencies(preparationType, taskType)) visit(dependency)
+  }
+  selectedTaskTypes.forEach(visit)
   return [...closure]
 }
 

@@ -38,9 +38,20 @@ function task(taskType: EngineeringTaskType, patch: Partial<EngineeringTaskRecor
     masterOrderId: 'EM-TEST',
     taskType,
     taskName: taskType,
+    sourceType: 'ENGINEERING_MASTER',
+    sourceId: 'EM-TEST',
+    targetStyleId: 'STYLE-TEST',
+    targetStyleCode: 'SPU-TEST-001',
+    targetStyleName: '测试款式',
     status: '已完成',
     dependsOnTaskIds: [],
+    dependencySatisfaction: [],
     ownerTeamName: '测试团队',
+    assigneeId: '',
+    assigneeName: '',
+    assignedById: '',
+    assignedByName: '',
+    assignedAt: '',
     materialLines: [],
     reworkRounds: [],
     startedAt: '2026-07-30 08:00',
@@ -87,6 +98,24 @@ const second = projectEngineeringMasterToPreparation(master())
 assert.equal(first.items.length, 11, '工程主单必须完整投影 11 个固定准备项')
 assert.deepEqual(second, first, '重复投影必须幂等')
 assert.equal(new Set(first.items.map((item) => item.itemType)).size, 11, '重复任务事件不能重复累计准备项')
+const independentTaskContamination = projectEngineeringMasterToPreparation(master({
+  tasks: [
+    task('BASE_PATTERN_WOVEN', { sourceType: 'INDEPENDENT_REVISION_SAMPLING', sourceId: 'ES-R-001' }),
+    task('BASE_PATTERN_WOVEN', { taskId: 'EM-TEST-BASE-PATTERN-AUTHORITY', sourceType: 'ENGINEERING_MASTER', sourceId: 'EM-TEST' }),
+  ],
+}))
+assert.equal(
+  independentTaskContamination.items.find((item) => item.itemType === '梭织基码纸样')?.taskId,
+  'EM-TEST-BASE-PATTERN-AUTHORITY',
+  '独立改款／设计打样任务不得进入生产准备时效投影',
+)
+assert.ok(first.items.every((item) => item.plannedStartAt && item.plannedFinishAt), '适用准备项必须按固定依赖生成计划起止时间')
+assert.ok(first.expectedFinishAt, '准备记录必须汇总预计完成时间')
+assert.equal(
+  first.items.find((item) => item.itemType === '梭织基码纸样')?.plannedStartAt,
+  first.items.find((item) => item.itemType === '毛织基码纸样')?.plannedStartAt,
+  '混合款梭织与毛织基码必须并行开始',
+)
 
 const missingPredecessors = master({
   tasks: [task('SIZE_PATTERN_WOVEN')],
@@ -185,15 +214,10 @@ const illegalLaterActiveMaster = master({
     masterOrderId: 'EM-LATER-ACTIVE',
   })),
 })
-const sameStyleLegacy = structuredClone(first)
-sameStyleLegacy.recordId = 'legacy-same-style'
-sameStyleLegacy.sourceKind = undefined
-sameStyleLegacy.masterOrderId = undefined
 const uniqueFirstOrderRecords = projectEngineeringMastersToPreparation(
   [illegalLaterActiveMaster, originalClosedMaster],
-  [sameStyleLegacy],
 )
-assert.equal(uniqueFirstOrderRecords.length, 1, '同一 SPU 只能投影一张最初首单主单，legacy 也只能替换一次')
+assert.equal(uniqueFirstOrderRecords.length, 1, '新生产准备时效只允许投影工程主单，不得混入任何旧准备记录')
 assert.equal(uniqueFirstOrderRecords[0].masterOrderId, originalClosedMaster.masterOrderId, '后来非法 active 主单不得覆盖原始首单事实')
 assert.equal(uniqueFirstOrderRecords[0].status, '已关闭', '已关闭首单必须投影为已关闭记录')
 assert.equal(
@@ -239,6 +263,14 @@ assert.deepEqual(mergePreparationRuntimeRecords([first], maliciousRuntime), [fir
 const pageSource = readFileSync('src/pages/production/preparation-timing.ts', 'utf8')
 assert.ok(pageSource.includes('getPreparationRecordCapabilities'), '页面必须按记录能力阻断工程来源编辑入口')
 assert.ok(pageSource.includes('projectEngineeringMastersToPreparation'), '页面必须直接读取工程主单投影')
+assert.ok(
+  pageSource.includes('projectEngineeringMastersToPreparation(masters, formalTechPacks)'),
+  '页面必须明确忽略旧生产准备记录，只读投影新工程主单',
+)
+assert.ok(
+  pageSource.includes('只读 · 数据来源：工程主单'),
+  '页面必须明确展示只读来源，不得继续展示旧维护入口',
+)
 assert.ok(
   pageSource.includes('前期成果复用 / 不计本次时效'),
   '复用项必须显示只读复用说明，不得落入旧凭证异常提示',

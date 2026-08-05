@@ -1,7 +1,7 @@
 // @page-pattern: detail
 
-// 工程主单详情：全宽泳道工作台。
-// 横向按逻辑阶段排列，纵向按专业任务类型分泳道；任务卡点击后只局部更新右侧抽屉，不整页重绘。
+// 工程主单详情：按任务逐行展示的执行表格。
+// 表格保留阶段、专业类型、固定前置、负责人、计划/实际时间与状态；点击任务进入对应专业任务详情。
 
 import {
   ENGINEERING_LANES,
@@ -14,14 +14,15 @@ import {
   closeEngineeringMasterOrder,
   confirmEngineeringMasterTaskPlan,
   getEngineeringMasterOrderById,
-  submitEngineeringTaskResult,
   validateEngineeringMasterOrderClose,
+  type EngineeringMasterPriorResultDecisionInput,
 } from '../data/pcs-engineering-master-repository.ts'
 import type {
   EngineeringMasterStatus,
   EngineeringTaskStatus,
   EngineeringTaskType,
 } from '../data/pcs-engineering-master-types.ts'
+import { engineeringTaskHref } from '../data/pcs-engineering-preparation-projection.ts'
 import { escapeHtml } from '../utils.ts'
 
 const DETAIL_EVENT_PREFIX = 'pcs-engineering-master'
@@ -55,39 +56,28 @@ const TASK_STATUS_TONES: Record<EngineeringTaskStatus, string> = {
   因需求变更结束: 'bg-slate-200 text-slate-600',
 }
 
-const TASK_CARD_TONES: Record<EngineeringTaskStatus, string> = {
-  未启用: 'border-dashed border-slate-200 bg-slate-50 opacity-70',
-  待前置: 'border-slate-200 bg-slate-50',
-  待开始: 'border-slate-200 bg-white',
-  进行中: 'border-blue-200 bg-blue-50',
-  待审核: 'border-purple-200 bg-purple-50',
-  返工中: 'border-amber-200 bg-amber-50',
-  已完成: 'border-emerald-200 bg-emerald-50',
-  因需求变更结束: 'border-slate-200 bg-slate-100',
-}
-
 interface DetailUiState {
-  selectedTaskId: string
-  drawerOpen: boolean
   imagePreviewUrl: string
   imagePreviewTitle: string
   taskPlanMasterId: string
   selectedConditionalTaskTypes: EngineeringTaskType[]
   taskPlanError: string
+  priorResultSelections: Record<string, {
+    sourceSamplingTaskId: string
+    sourceProfessionalTaskId: string
+    sourceResultVersion: string
+    decision: '' | '复用' | '重新执行' | '不采用'
+  }>
 }
 
 const detailUiState: DetailUiState = {
-  selectedTaskId: '',
-  drawerOpen: false,
   imagePreviewUrl: '',
   imagePreviewTitle: '',
   taskPlanMasterId: '',
   selectedConditionalTaskTypes: [],
   taskPlanError: '',
+  priorResultSelections: {},
 }
-
-// 可提交成果的任务状态：待开始、进行中；待前置任务在依赖全部完成后也可提交。
-const SUBMITTABLE_STATUSES: EngineeringTaskStatus[] = ['待开始', '进行中', '待前置']
 
 function renderStatusBadge(status: EngineeringMasterStatus): string {
   const tone = MASTER_STATUS_TONES[status] ?? 'bg-slate-100 text-slate-700'
@@ -175,7 +165,8 @@ function renderPriorReuseRegion(model: EngineeringMasterDetailModel): string {
         ${model.priorResultReuseLines.map((line) => `
           <div class="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600" data-prior-reuse-card>
             <p class="font-medium text-slate-800">${escapeHtml(line.resultLabel)}</p>
-            <p class="mt-0.5">${escapeHtml(line.sourceTaskLabel)} · ${escapeHtml(line.decision)}</p>
+            <p class="mt-0.5">${escapeHtml(line.sourceSamplingTaskCode || line.sourceTaskLabel)} · ${escapeHtml(line.sourceResultVersion || '未标版本')} · ${escapeHtml(line.decision)}</p>
+            <p class="mt-0.5 text-slate-400">${escapeHtml(line.confirmedBy)} · ${escapeHtml(line.confirmedAt)}</p>
           </div>
         `).join('')}
       </div>
@@ -190,6 +181,45 @@ function ensureTaskPlanState(model: EngineeringMasterDetailModel): void {
     .filter((item) => !item.required && item.suggestedSelected)
     .map((item) => item.taskType)
   detailUiState.taskPlanError = ''
+  detailUiState.priorResultSelections = Object.fromEntries(model.priorResultCandidateGroups.map((group) => {
+    const recommended = group.candidates.find((candidate) => candidate.recommended) || group.candidates[0]
+    return [group.engineeringTaskType, {
+      sourceSamplingTaskId: recommended?.sourceSamplingTaskId || '',
+      sourceProfessionalTaskId: recommended?.sourceProfessionalTaskId || '',
+      sourceResultVersion: recommended?.sourceResultVersion || '',
+      decision: '',
+    }]
+  }))
+}
+
+function renderPriorResultChoices(model: EngineeringMasterDetailModel): string {
+  if (model.priorResultCandidateGroups.length === 0) return ''
+  return `
+    <section class="border-b bg-blue-50/30 px-4 py-3" data-prior-result-plan>
+      <div class="mb-3 flex items-center justify-between gap-3">
+        <div><h3 class="text-sm font-semibold text-slate-800">前期成果</h3><p class="mt-0.5 text-xs text-slate-500">默认推荐最近确认版本，可改选历史版本；每项选择复用、重新执行或不采用。</p></div>
+      </div>
+      <div class="space-y-2">
+        ${model.priorResultCandidateGroups.map((group) => {
+          const selection = detailUiState.priorResultSelections[group.engineeringTaskType]
+          return `
+            <div class="grid grid-cols-[minmax(140px,.7fr)_minmax(260px,1.5fr)_minmax(150px,.7fr)] items-center gap-3 rounded-md border border-slate-200 bg-white px-3 py-2">
+              <span class="text-sm font-medium text-slate-800">${escapeHtml(group.taskName)}</span>
+              <select class="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm" data-${DETAIL_EVENT_PREFIX}-action="select-prior-result-version" data-task-type="${escapeHtml(group.engineeringTaskType)}">
+                ${group.candidates.map((candidate) => `<option value="${escapeHtml(candidate.sourceProfessionalTaskId)}" ${selection?.sourceProfessionalTaskId === candidate.sourceProfessionalTaskId ? 'selected' : ''}>${escapeHtml(candidate.sourceSamplingTaskCode)} · ${escapeHtml(candidate.sourceResultVersion)} · ${escapeHtml(candidate.confirmedAt)}${candidate.recommended ? '（推荐）' : ''}</option>`).join('')}
+              </select>
+              <select class="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm" data-${DETAIL_EVENT_PREFIX}-action="select-prior-result-decision" data-task-type="${escapeHtml(group.engineeringTaskType)}">
+                <option value="" ${!selection?.decision ? 'selected' : ''}>请选择</option>
+                <option value="复用" ${selection?.decision === '复用' ? 'selected' : ''}>复用</option>
+                <option value="重新执行" ${selection?.decision === '重新执行' ? 'selected' : ''}>重新执行</option>
+                <option value="不采用" ${selection?.decision === '不采用' ? 'selected' : ''}>不采用</option>
+              </select>
+            </div>
+          `
+        }).join('')}
+      </div>
+    </section>
+  `
 }
 
 function renderTaskPlanConfirmation(model: EngineeringMasterDetailModel): string {
@@ -208,6 +238,7 @@ function renderTaskPlanConfirmation(model: EngineeringMasterDetailModel): string
         <div class="text-sm text-slate-600">已选 ${selectedCount}/${model.taskPlanSuggestions.length} 项</div>
       </header>
       ${detailUiState.taskPlanError ? `<div class="mx-4 mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${escapeHtml(detailUiState.taskPlanError)}</div>` : ''}
+      ${renderPriorResultChoices(model)}
       <div class="divide-y">
         ${model.taskPlanSuggestions.map((item) => {
           const checked = item.required || selected.has(item.taskType)
@@ -244,260 +275,54 @@ function renderTaskPlanConfirmation(model: EngineeringMasterDetailModel): string
   `
 }
 
-// ============ 任务卡 ============
+// ============ 任务表格 ============
 
-function renderTaskCard(task: EngineeringTaskCardModel): string {
-  const tone = TASK_CARD_TONES[task.status] ?? 'border-slate-200 bg-white'
+function renderTaskNameButton(task: EngineeringTaskCardModel): string {
   const dependsOnIdsAttr = task.dependsOnTaskIds.length > 0
     ? ` data-depends-on-ids="${escapeHtml(task.dependsOnTaskIds.join(' '))}"`
     : ''
   const requiredByIdsAttr = task.requiredByTaskIds.length > 0
     ? ` data-required-by-ids="${escapeHtml(task.requiredByTaskIds.join(' '))}"`
     : ''
-  const riskHtml = task.riskText
-    ? `<p class="mt-1.5 text-xs font-medium text-amber-700">${escapeHtml(task.riskText)}</p>`
-    : ''
   return `
     <button
       type="button"
-      class="block w-full rounded-lg border px-3 py-2 text-left shadow-sm transition-colors hover:shadow ${tone}"
+      class="rounded px-1 py-0.5 text-left text-sm font-medium text-blue-700 hover:bg-blue-50 hover:text-blue-800"
       data-engineering-task-card
       data-task-id="${escapeHtml(task.taskId)}"
-      data-${DETAIL_EVENT_PREFIX}-action="open-task-drawer"
+      data-nav="${escapeHtml(engineeringTaskHref(task.taskType, task.taskId))}"
       ${dependsOnIdsAttr}
       ${requiredByIdsAttr}
       aria-label="查看任务：${escapeHtml(task.taskName)}"
-    >
-      <div class="flex items-start justify-between gap-2">
-        <span class="min-w-0 truncate text-sm font-semibold text-slate-800">${escapeHtml(task.taskName)}</span>
-        ${renderTaskStatusBadge(task.status)}
-      </div>
-      <p class="mt-1 text-xs text-slate-500">负责人：${escapeHtml(task.ownerTeamName)}</p>
-      <p class="mt-0.5 text-xs text-slate-600">当前节点：${escapeHtml(task.currentNodeName)}</p>
-      <p class="mt-0.5 text-xs text-slate-500">${escapeHtml(task.plannedTimeText)} · ${escapeHtml(task.actualTimeText)}</p>
-      ${riskHtml}
-    </button>
+    >${escapeHtml(task.taskName)}</button>
   `
 }
 
-function renderLaneCell(laneIndex: number, phaseIndex: number, model: EngineeringMasterDetailModel): string {
-  const lane = ENGINEERING_LANES[laneIndex]
-  const phase = ENGINEERING_PHASES[phaseIndex]
-  const laneTaskTypes = new Set(lane.taskTypes)
-  const tasks = model.lanes
-    .find((item) => item.laneKey === lane.laneKey)
-    ?.tasks.filter((task) => phase.taskTypes.includes(task.taskType)) ?? []
-  const cards = tasks.map(renderTaskCard).join('')
-  return `<div class="min-h-24 space-y-2 p-2">${cards || '<span class="text-xs text-slate-300">—</span>'}</div>`
-}
-
-function renderLaneGrid(model: EngineeringMasterDetailModel): string {
-  const columnWidths = ENGINEERING_PHASES.map((phase) =>
-    Math.max(230, 80 + phase.taskTypes.length * 60),
-  ).join('px minmax(230px, 1fr) ')
-  const gridTemplate = `150px minmax(230px, 1fr) ${columnWidths}px`
-
-  const headerCells = [
-    `<div class="sticky left-0 z-20 flex items-center border-b border-r bg-slate-50 px-3 text-xs font-semibold text-slate-500">泳道 / 阶段</div>`,
-    ...ENGINEERING_PHASES.map(
-      (phase, phaseIndex) => `
-        <div class="flex items-center justify-center border-b border-r bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600" data-engineering-phase-head="${escapeHtml(phase.phaseKey)}">
-          ${escapeHtml(phase.phaseName)}
-        </div>
-      `,
+function renderTaskTable(model: EngineeringMasterDetailModel): string {
+  const rows = ENGINEERING_PHASES.flatMap((phase) =>
+    model.lanes.flatMap((lane) =>
+      lane.tasks
+        .filter((task) => phase.taskTypes.includes(task.taskType))
+        .map((task) => ({ task, phaseName: phase.phaseName, laneName: lane.laneName })),
     ),
-  ].join('')
-
-  const laneRows = ENGINEERING_LANES.map((lane, laneIndex) => {
-    const laneCell = `
-      <div class="sticky left-0 z-10 flex items-center border-b border-r bg-card px-3 text-sm font-semibold text-slate-700" data-engineering-lane-head="${escapeHtml(lane.laneKey)}">
-        ${escapeHtml(lane.laneName)}
-      </div>
-    `
-    const cells = ENGINEERING_PHASES.map((_phase, phaseIndex) =>
-      renderLaneCell(laneIndex, phaseIndex, model),
-    ).join('')
-    return `<div class="contents">${laneCell}${cells}</div>`
-  }).join('')
-
-  return `
-    <div class="overflow-x-auto rounded-lg border bg-card">
-      <div class="grid min-w-[1180px]" style="grid-template-columns: ${gridTemplate}">
-        ${headerCells}
-        ${laneRows}
-      </div>
-    </div>
-  `
-}
-
-// ============ 任务抽屉 ============
-
-function renderTaskDrawer(model: EngineeringMasterDetailModel, task: EngineeringTaskCardModel): string {
-  // 抽屉需要完整任务记录（时间、物料行、返工轮次），从仓库读取原始数据，不使用卡片视图模型。
-  const rawTask = getEngineeringMasterOrderById(model.masterOrderId)?.tasks.find(
-    (item) => item.taskId === task.taskId,
   )
-  if (!rawTask) return ''
-
-  const dependsOnHtml = task.dependsOnLabels.length > 0
-    ? `<p class="text-sm text-slate-700">${escapeHtml(task.dependsOnLabels.join('、'))}</p>`
-    : '<p class="text-sm text-slate-400">无前置依赖</p>'
-  const requiredByHtml = task.requiredByLabels.length > 0
-    ? `<p class="text-sm text-slate-700">${escapeHtml(task.requiredByLabels.join('、'))}</p>`
-    : '<p class="text-sm text-slate-400">无下游任务</p>'
-
-  const timingRows = [
-    ['开始时间', rawTask.startedAt || '—'],
-    ['提交时间', rawTask.submittedAt || '—'],
-    ['首次完成', rawTask.firstCompletedAt || '—'],
-    ['当前完成', rawTask.effectiveCompletedAt || '—'],
-  ]
-    .map(([label, value]) => `
-      <div class="flex items-center justify-between gap-3 border-b py-2 text-sm last:border-b-0">
-        <span class="text-slate-500">${escapeHtml(label)}</span>
-        <span class="text-slate-700">${escapeHtml(value)}</span>
-      </div>
-    `)
-    .join('')
-
-  const materialHtml = rawTask.materialLines?.length
-    ? rawTask.materialLines.map((line) => `
-        <div class="flex items-center justify-between gap-3 border-b py-2 text-sm last:border-b-0">
-          <span class="text-slate-700">${escapeHtml(line.materialName)}</span>
-          <span class="text-xs text-slate-500">${escapeHtml(line.requirementType)}</span>
-        </div>
-      `).join('')
-    : '<p class="text-sm text-slate-400">暂无物料明细</p>'
-
-  const reworkHtml = rawTask.reworkRounds?.length
-    ? rawTask.reworkRounds.map((round) => `
-        <div class="border-b py-2 text-sm last:border-b-0">
-          <p class="text-slate-700">第 ${round.roundNo} 轮返工</p>
-          <p class="mt-0.5 text-xs text-slate-500">${escapeHtml(round.reason)} · 提交 ${escapeHtml(round.submittedAt)}</p>
-        </div>
-      `).join('')
-    : '<p class="text-sm text-slate-400">暂无返工记录</p>'
-
-  const submittable = SUBMITTABLE_STATUSES.includes(rawTask.status) && rawTask.taskType !== 'ACCESSORY_PURCHASE'
-  const submitHint = submittable
-    ? task.reviewRequired
-      ? '提交成果后进入待审核，由买手逐项审核。'
-      : '提交成果后任务即完成，无需人工确认。'
-    : ''
-  const submitHtml = submittable && rawTask.taskType === 'PRE_PRODUCTION_SAMPLE'
-    ? `
-      <div class="space-y-3" data-pre-production-sample-result-form>
-        <label class="block text-sm text-slate-700">
-          <span class="mb-1 block font-medium">上传成果图片</span>
-          <input
-            type="text"
-            class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm"
-            placeholder="输入图片名称，多张用逗号分隔"
-            data-${DETAIL_EVENT_PREFIX}-field="sample-result-images"
-          />
-        </label>
-        <div class="grid grid-cols-2 gap-3">
-          <label class="block text-sm text-slate-700">
-            <span class="mb-1 block font-medium">制作数量</span>
-            <input
-              type="number"
-              min="1"
-              step="1"
-              class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm"
-              data-${DETAIL_EVENT_PREFIX}-field="sample-result-quantity"
-            />
-          </label>
-          <label class="block text-sm text-slate-700">
-            <span class="mb-1 block font-medium">提交人</span>
-            <input
-              type="text"
-              class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm"
-              data-${DETAIL_EVENT_PREFIX}-field="sample-result-submitted-by"
-            />
-          </label>
-        </div>
-        <button
-          type="button"
-          class="inline-flex h-9 w-full items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700"
-          data-${DETAIL_EVENT_PREFIX}-action="submit-pre-production-sample-result"
-          data-task-id="${escapeHtml(rawTask.taskId)}"
-        >提交样衣成果</button>
-        <p
-          class="hidden rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
-          data-pre-production-sample-result-error
-          role="alert"
-        ></p>
-        <p class="text-xs text-slate-500">成果完整提交后任务即完成。</p>
-      </div>
-    `
-    : submittable
-    ? `
-      <button
-        type="button"
-        class="inline-flex h-9 w-full items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700"
-        data-${DETAIL_EVENT_PREFIX}-action="submit-task-result"
-        data-task-id="${escapeHtml(rawTask.taskId)}"
-      >提交成果</button>
-      <p class="mt-2 text-xs text-slate-500">${escapeHtml(submitHint)}</p>
-    `
-    : rawTask.taskType === 'ACCESSORY_PURCHASE'
-      ? `<button type="button" class="inline-flex h-9 w-full items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-blue-700 hover:bg-slate-50" data-nav="/pcs/engineering/purchase/${escapeHtml(rawTask.taskId)}">绑定采购单</button>`
-      : `<p class="text-sm text-slate-500">当前状态：${escapeHtml(rawTask.status)}</p>`
-
   return `
-    <div class="fixed inset-0 z-50 flex justify-end bg-black/30" data-engineering-master-drawer-backdrop>
-      <aside class="flex h-full w-full max-w-md flex-col bg-white shadow-xl" role="dialog" aria-label="任务详情">
-        <header class="flex items-center justify-between gap-3 border-b px-4 py-3">
-          <div class="flex items-center gap-2">
-            <h2 class="text-base font-semibold">${escapeHtml(rawTask.taskName)}</h2>
-            ${renderTaskStatusBadge(rawTask.status)}
-          </div>
-          <button
-            type="button"
-            class="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100"
-            data-${DETAIL_EVENT_PREFIX}-action="close-task-drawer"
-            aria-label="关闭任务详情"
-          ><i data-lucide="x" class="h-4 w-4"></i></button>
-        </header>
-        <div class="flex-1 space-y-5 overflow-y-auto px-4 py-4">
-          <section>
-            <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">来源与款式</h3>
-            <div class="space-y-1.5 text-sm">
-              <p class="text-slate-700">主单：${escapeHtml(model.masterOrderCode)}</p>
-              <p class="text-slate-700">款式：${escapeHtml(model.styleName)}（${escapeHtml(model.styleCode)}）</p>
-              <p class="text-slate-700">责任团队：${escapeHtml(rawTask.ownerTeamName)}</p>
-            </div>
-          </section>
-          <section>
-            <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">当前阶段与依赖</h3>
-            <div class="space-y-1.5">
-              <p class="text-sm text-slate-700">当前节点：${escapeHtml(task.currentNodeName)}</p>
-              <div class="rounded-md bg-slate-50 px-3 py-2">
-                <p class="text-xs text-slate-500">前置依赖（只读）</p>
-                ${dependsOnHtml}
-              </div>
-              <div class="rounded-md bg-slate-50 px-3 py-2">
-                <p class="text-xs text-slate-500">下游任务</p>
-                ${requiredByHtml}
-              </div>
-            </div>
-          </section>
-          <section>
-            <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">时效节点</h3>
-            ${timingRows}
-          </section>
-          <section>
-            <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">物料明细</h3>
-            ${materialHtml}
-          </section>
-          <section>
-            <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">返工记录</h3>
-            ${reworkHtml}
-          </section>
-        </div>
-        <footer class="border-t px-4 py-3">${submitHtml}</footer>
-      </aside>
-    </div>
+    <section class="overflow-hidden rounded-lg border bg-card" data-engineering-task-table>
+      <header class="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+        <div><h2 class="text-base font-semibold text-slate-900">工程任务</h2><p class="mt-0.5 text-xs text-slate-500">共 ${rows.length} 项，按执行阶段排列</p></div>
+        <p class="text-xs text-slate-500">点击任务名称查看成果、物料和操作记录</p>
+      </header>
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[1180px] border-collapse text-sm">
+          <thead class="bg-slate-50 text-left text-xs font-medium text-slate-500">
+            <tr><th class="w-12 px-3 py-3 text-center">序号</th><th class="min-w-44 px-3 py-3">任务</th><th class="min-w-28 px-3 py-3">阶段</th><th class="min-w-28 px-3 py-3">专业类型</th><th class="min-w-28 px-3 py-3">负责人</th><th class="min-w-44 px-3 py-3">固定前置</th><th class="min-w-36 px-3 py-3">当前节点</th><th class="min-w-40 px-3 py-3">计划／实际</th><th class="min-w-24 px-3 py-3">状态</th></tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            ${rows.map(({ task, phaseName, laneName }, index) => `<tr class="align-top hover:bg-slate-50/70" data-engineering-task-row="${escapeHtml(task.taskId)}"><td class="px-3 py-3 text-center text-slate-400">${index + 1}</td><td class="px-3 py-3">${renderTaskNameButton(task)}</td><td class="px-3 py-3 text-slate-600">${escapeHtml(phaseName)}</td><td class="px-3 py-3 text-slate-600">${escapeHtml(laneName)}</td><td class="px-3 py-3 text-slate-700">${escapeHtml(task.ownerTeamName)}</td><td class="px-3 py-3 text-slate-600">${escapeHtml(task.dependsOnLabels.join('、') || '无')}</td><td class="px-3 py-3"><p class="text-slate-700">${escapeHtml(task.currentNodeName)}</p>${task.riskText ? `<p class="mt-1 text-xs font-medium text-amber-700">${escapeHtml(task.riskText)}</p>` : ''}</td><td class="px-3 py-3 text-xs text-slate-600"><p>${escapeHtml(task.plannedTimeText)}</p><p class="mt-1">${escapeHtml(task.actualTimeText)}</p></td><td class="px-3 py-3">${renderTaskStatusBadge(task.status)}</td></tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </section>
   `
 }
 
@@ -508,24 +333,14 @@ export function renderPcsEngineeringMasterDetailPage(key: string): string {
   if (!model) {
     return '<div class="p-6 text-sm text-slate-500">未找到工程主单。</div>'
   }
-  detailUiState.drawerOpen = false
-  detailUiState.selectedTaskId = ''
   ensureTaskPlanState(model)
-
-  const selectedTask = model.lanes
-    .flatMap((lane) => lane.tasks)
-    .find((task) => task.taskId === detailUiState.selectedTaskId) ?? null
-  const drawerHtml = detailUiState.drawerOpen && selectedTask
-    ? renderTaskDrawer(model, selectedTask)
-    : ''
 
   return `
     <div class="min-w-0 max-w-full space-y-3 p-4" data-pcs-engineering-master-detail-page>
       <div data-engineering-master-region="header">${withDetailLocalInteractions(renderMasterHeader(model))}</div>
       <div data-engineering-master-region="feedback"></div>
       ${renderPriorReuseRegion(model)}
-      <div data-engineering-master-region="lanes">${withDetailLocalInteractions(model.status === '草稿' ? renderTaskPlanConfirmation(model) : renderLaneGrid(model))}</div>
-      <div data-engineering-master-region="drawer">${withDetailLocalInteractions(drawerHtml)}</div>
+      <div data-engineering-master-region="lanes">${withDetailLocalInteractions(model.status === '草稿' ? renderTaskPlanConfirmation(model) : renderTaskTable(model))}</div>
       <div data-engineering-master-region="image-preview">${withDetailLocalInteractions(renderStyleImagePreview())}</div>
     </div>
   `
@@ -539,55 +354,16 @@ function withDetailLocalInteractions(html: string): string {
     `data-skip-page-rerender="true" ${attribute}`)
 }
 
-function highlightTaskDependencies(selectedTaskId: string): void {
-  if (typeof document === 'undefined') return
-  const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-engineering-task-card]'))
-  cards.forEach((card) => {
-    const isSelected = card.dataset.taskId === selectedTaskId
-    const dependsOnIds = (card.dataset.dependsOnIds ?? '').split(' ').filter(Boolean)
-    const requiredByIds = (card.dataset.requiredByIds ?? '').split(' ').filter(Boolean)
-    const isUpstream = dependsOnIds.includes(selectedTaskId)
-    const isDownstream = requiredByIds.includes(selectedTaskId)
-    card.classList.toggle('ring-2', isSelected)
-    card.classList.toggle('ring-blue-400', isSelected)
-    card.classList.toggle('ring-1', !isSelected && (isUpstream || isDownstream))
-    card.classList.toggle('ring-amber-300', !isSelected && (isUpstream || isDownstream))
-  })
-}
-
-function clearTaskCardHighlights(): void {
-  if (typeof document === 'undefined') return
-  document
-    .querySelectorAll<HTMLElement>('[data-engineering-task-card]')
-    .forEach((card) => {
-      card.classList.remove('ring-2', 'ring-blue-400', 'ring-1', 'ring-amber-300')
-    })
-}
-
-function refreshTaskDrawer(model: EngineeringMasterDetailModel, selectedTaskId: string): void {
-  if (typeof document === 'undefined') return
-  const drawerHost = document.querySelector<HTMLElement>('[data-engineering-master-region="drawer"]')
-  if (!drawerHost) return
-  const task = model.lanes
-    .flatMap((lane) => lane.tasks)
-    .find((item) => item.taskId === selectedTaskId) ?? null
-  drawerHost.innerHTML = detailUiState.drawerOpen && task
-    ? withDetailLocalInteractions(renderTaskDrawer(model, task))
-    : ''
-  void import('../components/shell.ts')
-    .then(({ hydrateIcons }) => hydrateIcons(drawerHost))
-    .catch(() => undefined)
-}
-
 function refreshLanesRegion(model: EngineeringMasterDetailModel): void {
   if (typeof document === 'undefined') return
   const lanesHost = document.querySelector<HTMLElement>('[data-engineering-master-region="lanes"]')
   if (!lanesHost) return
-  lanesHost.innerHTML = withDetailLocalInteractions(renderLaneGrid(model))
+  lanesHost.innerHTML = withDetailLocalInteractions(
+    model.status === '草稿' ? renderTaskPlanConfirmation(model) : renderTaskTable(model),
+  )
   void import('../components/shell.ts')
     .then(({ hydrateIcons }) => hydrateIcons(lanesHost))
     .catch(() => undefined)
-  if (detailUiState.selectedTaskId) highlightTaskDependencies(detailUiState.selectedTaskId)
 }
 
 function refreshMasterHeader(model: EngineeringMasterDetailModel): void {
@@ -613,15 +389,6 @@ function showDetailFeedback(message: string, ok: boolean): void {
       ${escapeHtml(message)}
     </section>
   `
-}
-
-function showPreProductionSampleResultError(message: string): void {
-  if (typeof document === 'undefined') return
-  const drawerHost = document.querySelector<HTMLElement>('[data-engineering-master-region="drawer"]')
-  const errorHost = drawerHost?.querySelector<HTMLElement>('[data-pre-production-sample-result-error]')
-  if (!errorHost) return
-  errorHost.textContent = message
-  errorHost.className = 'rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700'
 }
 
 export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): boolean {
@@ -652,14 +419,55 @@ export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): bool
     detailUiState.taskPlanError = ''
     return true
   }
+  if (action === 'select-prior-result-version') {
+    const model = buildEngineeringMasterDetailModel(currentMasterKey())
+    const taskType = actionNode.dataset.taskType as EngineeringTaskType
+    const candidate = model?.priorResultCandidateGroups
+      .find((group) => group.engineeringTaskType === taskType)?.candidates
+      .find((item) => item.sourceProfessionalTaskId === (actionNode as HTMLSelectElement).value)
+    if (candidate) {
+      const previous = detailUiState.priorResultSelections[taskType]
+      detailUiState.priorResultSelections[taskType] = {
+        sourceSamplingTaskId: candidate.sourceSamplingTaskId,
+        sourceProfessionalTaskId: candidate.sourceProfessionalTaskId,
+        sourceResultVersion: candidate.sourceResultVersion,
+        decision: previous?.decision || '',
+      }
+    }
+    detailUiState.taskPlanError = ''
+    return true
+  }
+  if (action === 'select-prior-result-decision') {
+    const taskType = actionNode.dataset.taskType as EngineeringTaskType
+    const selection = detailUiState.priorResultSelections[taskType]
+    if (selection) selection.decision = (actionNode as HTMLSelectElement).value as typeof selection.decision
+    detailUiState.taskPlanError = ''
+    return true
+  }
   if (action === 'confirm-task-plan') {
     const masterKey = currentMasterKey()
     const model = buildEngineeringMasterDetailModel(masterKey)
     if (!model) return true
     try {
+      const master = getEngineeringMasterOrderById(masterKey)
+      if (!master) throw new Error('工程主单不存在。')
+      const priorResultDecisions: EngineeringMasterPriorResultDecisionInput[] = model.priorResultCandidateGroups.map((group) => {
+        const selection = detailUiState.priorResultSelections[group.engineeringTaskType]
+        if (!selection?.decision) throw new Error(`请选择${group.taskName}成果的复用方式。`)
+        return {
+          engineeringTaskType: group.engineeringTaskType,
+          sourceSamplingTaskId: selection.sourceSamplingTaskId,
+          sourceProfessionalTaskId: selection.sourceProfessionalTaskId,
+          sourceResultVersion: selection.sourceResultVersion,
+          decision: selection.decision,
+        }
+      })
       confirmEngineeringMasterTaskPlan(masterKey, {
         confirmedBy: resolveEngineeringMasterDemoOperatorName(model),
+        confirmedById: master.merchandiserId,
+        confirmedByRole: '跟单',
         selectedConditionalTaskTypes: detailUiState.selectedConditionalTaskTypes,
+        priorResultDecisions,
       })
       detailUiState.taskPlanError = ''
       if (typeof window !== 'undefined') window.dispatchEvent(new Event('higood:request-render'))
@@ -671,84 +479,6 @@ export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): bool
     return true
   }
 
-  if (action === 'open-task-drawer') {
-    const taskId = actionNode.dataset.taskId || ''
-    if (!taskId) return true
-    const model = buildEngineeringMasterDetailModel(currentMasterKey())
-    if (!model) return true
-    detailUiState.selectedTaskId = taskId
-    detailUiState.drawerOpen = true
-    refreshTaskDrawer(model, taskId)
-    highlightTaskDependencies(taskId)
-    return true
-  }
-  if (action === 'close-task-drawer') {
-    detailUiState.drawerOpen = false
-    detailUiState.selectedTaskId = ''
-    const model = buildEngineeringMasterDetailModel(currentMasterKey())
-    if (model) refreshTaskDrawer(model, '')
-    clearTaskCardHighlights()
-    return true
-  }
-  if (action === 'submit-task-result') {
-    const taskId = actionNode.dataset.taskId || ''
-    const masterKey = currentMasterKey()
-    if (!taskId || !masterKey) return true
-    let message = ''
-    let ok = false
-    try {
-      const result = submitEngineeringTaskResult(masterKey, taskId)
-      message = `「${result.task.taskName}」已提交成果，当前状态：${result.task.status}。`
-      ok = true
-    } catch (error) {
-      message = error instanceof Error ? error.message : '提交成果失败。'
-    }
-    const model = buildEngineeringMasterDetailModel(masterKey)
-    if (model) {
-      refreshLanesRegion(model)
-      refreshTaskDrawer(model, detailUiState.selectedTaskId)
-    }
-    showDetailFeedback(message, ok)
-    return true
-  }
-  if (action === 'submit-pre-production-sample-result') {
-    const taskId = actionNode.dataset.taskId || ''
-    const masterKey = currentMasterKey()
-    if (!taskId || !masterKey) return true
-    const imageField = document.querySelector<HTMLInputElement>(`[data-${DETAIL_EVENT_PREFIX}-field="sample-result-images"]`)
-    const quantityField = document.querySelector<HTMLInputElement>(`[data-${DETAIL_EVENT_PREFIX}-field="sample-result-quantity"]`)
-    const submittedByField = document.querySelector<HTMLInputElement>(`[data-${DETAIL_EVENT_PREFIX}-field="sample-result-submitted-by"]`)
-    const resultImageIds = (imageField?.value ?? '')
-      .split(/[,，]/)
-      .map((item) => item.trim())
-      .filter(Boolean)
-    const resultQuantity = Number(quantityField?.value ?? 0)
-    const submittedBy = submittedByField?.value ?? ''
-    let message = ''
-    let ok = false
-    try {
-      const result = submitEngineeringTaskResult(masterKey, taskId, {
-        resultImageIds,
-        resultQuantity,
-        submittedBy,
-      })
-      message = `「${result.task.taskName}」成果已提交，任务已完成。`
-      ok = true
-    } catch (error) {
-      message = error instanceof Error ? error.message : '提交样衣成果失败。'
-    }
-    if (!ok) {
-      showPreProductionSampleResultError(message)
-      return true
-    }
-    const model = buildEngineeringMasterDetailModel(masterKey)
-    if (model) {
-      refreshLanesRegion(model)
-      refreshTaskDrawer(model, detailUiState.selectedTaskId)
-    }
-    showDetailFeedback(message, ok)
-    return true
-  }
   if (action === 'close-master-order') {
     const masterKey = currentMasterKey()
     if (!masterKey) return true
@@ -778,5 +508,5 @@ function currentMasterKey(): string {
 }
 
 export function isPcsEngineeringMasterDetailDialogOpen(): boolean {
-  return detailUiState.drawerOpen || Boolean(detailUiState.imagePreviewUrl)
+  return Boolean(detailUiState.imagePreviewUrl)
 }
