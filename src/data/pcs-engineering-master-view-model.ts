@@ -22,6 +22,7 @@ import {
 import type {
   EngineeringMasterOrderRecord,
   EngineeringMasterStatus,
+  EngineeringPreparationType,
   EngineeringPriorResultReuseLine,
   EngineeringTaskRecord,
   EngineeringTaskStatus,
@@ -448,6 +449,7 @@ export interface EngineeringTaskPlanSuggestion {
   ownerTeamName: string
   dependencyText: string
   required: boolean
+  notApplicable: boolean
   suggestedSelected: boolean
   suggestionReason: string
 }
@@ -463,6 +465,7 @@ export interface EngineeringMasterDetailModel {
   createdBy: string
   createdAt: string
   publishedAt: string
+  preparationType: EngineeringPreparationType | ''
   lanes: EngineeringLaneModel[]
   priorResultReuseLines: EngineeringPriorResultReuseLine[]
   priorResultCandidateGroups: EngineeringPriorResultCandidateGroup[]
@@ -491,30 +494,33 @@ export interface EngineeringPriorResultCandidateGroup {
 function buildTaskPlanSuggestions(
   record: EngineeringMasterOrderRecord,
   _style: ReturnType<typeof listStyleArchives>[number] | undefined,
+  preparationType: EngineeringPreparationType | '' = record.preparationType,
 ): EngineeringTaskPlanSuggestion[] {
-  if (!record.preparationType) return []
+  if (!preparationType) return []
   const conditions: EngineeringBomTaskConditions = {
     hasPrintRequirement: record.tasks.some((task) => task.materialLines.some((line) => line.requirementType === '印花' && line.status === '正常')),
     hasYarnDyeRequirement: record.tasks.some((task) => task.materialLines.some((line) => line.requirementType === '染色' && line.materialType === '纱线' && line.status === '正常')),
     hasFabricDyeRequirement: record.tasks.some((task) => task.materialLines.some((line) => line.requirementType === '染色' && line.materialType === '面料' && line.status === '正常')),
     hasAccessoryPurchaseRequirement: record.tasks.some((task) => task.materialLines.some((line) => line.requirementType === '辅料' && line.status === '正常')),
   }
-  const plan = new Map(buildEngineeringTaskPlan(record.preparationType, conditions).map((line) => [line.taskType, line]))
+  const plan = new Map(buildEngineeringTaskPlan(preparationType, conditions).map((line) => [line.taskType, line]))
   return listEngineeringTaskDefinitions().map((definition) => {
     const planLine = plan.get(definition.taskType)
     const required = planLine?.applicability === 'REQUIRED'
+    const notApplicable = planLine?.applicability === 'NOT_APPLICABLE'
     const suggestedSelected = planLine?.enabled === true
-    const conditionalReason = planLine?.applicability === 'NOT_APPLICABLE'
+    const conditionalReason = notApplicable
       ? '当前生产准备类型不适用'
       : planLine?.enabled ? '已由结构化 BOM 需求启用' : '当 BOM 存在对应需求时启用'
     return {
       taskType: definition.taskType,
       taskName: definition.taskName,
       ownerTeamName: definition.ownerTeamName,
-      dependencyText: definition.dependsOn.length > 0
-        ? definition.dependsOn.map((taskType) => getEngineeringTaskDefinition(taskType).taskName).join('、')
+      dependencyText: planLine && planLine.dependsOn.length > 0
+        ? planLine.dependsOn.map((taskType) => getEngineeringTaskDefinition(taskType).taskName).join('、')
         : '无',
       required,
+      notApplicable,
       suggestedSelected,
       suggestionReason: required ? '首单工程固定任务' : conditionalReason,
     }
@@ -566,7 +572,10 @@ function deriveRiskText(
   return ''
 }
 
-export function buildEngineeringMasterDetailModel(key: string): EngineeringMasterDetailModel | null {
+export function buildEngineeringMasterDetailModel(
+  key: string,
+  preparationTypeOverride: EngineeringPreparationType | '' = '',
+): EngineeringMasterDetailModel | null {
   ensureEngineeringMasterDemoData()
   const records = listEngineeringMasterOrders()
   const record =
@@ -578,14 +587,15 @@ export function buildEngineeringMasterDetailModel(key: string): EngineeringMaste
   )
   const taskById = new Map(record.tasks.map((task) => [task.taskId, task]))
   const style = listStyleArchives().find((item) => item.styleId === record.styleId)
-  const priorResultCandidateGroups = record.status === '草稿' && record.preparationType
+  const effectivePreparationType = preparationTypeOverride || record.preparationType
+  const priorResultCandidateGroups = record.status === '草稿' && effectivePreparationType
     ? [...new Set(
-        listEngineeringMasterPriorResultCandidates(record.styleCode, record.preparationType)
+        listEngineeringMasterPriorResultCandidates(record.styleCode, effectivePreparationType)
           .map((candidate) => candidate.engineeringTaskType),
       )].map((engineeringTaskType) => ({
         engineeringTaskType,
         taskName: getEngineeringTaskDefinition(engineeringTaskType).taskName,
-        candidates: listEngineeringMasterPriorResultCandidates(record.styleCode, record.preparationType)
+        candidates: listEngineeringMasterPriorResultCandidates(record.styleCode, effectivePreparationType)
           .filter((candidate) => candidate.engineeringTaskType === engineeringTaskType)
           .map((candidate) => ({
             engineeringTaskType,
@@ -656,9 +666,10 @@ export function buildEngineeringMasterDetailModel(key: string): EngineeringMaste
     createdBy: record.createdBy,
     createdAt: record.createdAt,
     publishedAt: record.publishedAt,
+    preparationType: effectivePreparationType,
     lanes,
     priorResultReuseLines: record.priorResultReuseLines.map((line) => ({ ...line })),
     priorResultCandidateGroups,
-    taskPlanSuggestions: buildTaskPlanSuggestions(record, style),
+    taskPlanSuggestions: buildTaskPlanSuggestions(record, style, effectivePreparationType),
   }
 }

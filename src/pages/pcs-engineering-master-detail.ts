@@ -19,6 +19,7 @@ import {
 } from '../data/pcs-engineering-master-repository.ts'
 import type {
   EngineeringMasterStatus,
+  EngineeringPreparationType,
   EngineeringTaskStatus,
   EngineeringTaskType,
 } from '../data/pcs-engineering-master-types.ts'
@@ -60,6 +61,7 @@ interface DetailUiState {
   imagePreviewUrl: string
   imagePreviewTitle: string
   taskPlanMasterId: string
+  selectedPreparationType: EngineeringPreparationType | ''
   selectedConditionalTaskTypes: EngineeringTaskType[]
   taskPlanError: string
   priorResultSelections: Record<string, {
@@ -74,6 +76,7 @@ const detailUiState: DetailUiState = {
   imagePreviewUrl: '',
   imagePreviewTitle: '',
   taskPlanMasterId: '',
+  selectedPreparationType: '',
   selectedConditionalTaskTypes: [],
   taskPlanError: '',
   priorResultSelections: {},
@@ -174,11 +177,17 @@ function renderPriorReuseRegion(model: EngineeringMasterDetailModel): string {
   `
 }
 
-function ensureTaskPlanState(model: EngineeringMasterDetailModel): void {
-  if (detailUiState.taskPlanMasterId === model.masterOrderId) return
-  detailUiState.taskPlanMasterId = model.masterOrderId
+const PREPARATION_TYPE_OPTIONS: Array<{ value: EngineeringPreparationType; label: string }> = [
+  { value: 'PURE_WOVEN', label: '纯梭织' },
+  { value: 'HEAT_TRANSFER_DIRECT_PRINT', label: '烫画／直喷' },
+  { value: 'KNIT', label: '毛织' },
+  { value: 'KNIT_WOVEN', label: '毛织＋梭织' },
+]
+
+function applyTaskPlanState(model: EngineeringMasterDetailModel): void {
+  detailUiState.selectedPreparationType = model.preparationType
   detailUiState.selectedConditionalTaskTypes = model.taskPlanSuggestions
-    .filter((item) => !item.required && item.suggestedSelected)
+    .filter((item) => !item.required && !item.notApplicable && item.suggestedSelected)
     .map((item) => item.taskType)
   detailUiState.taskPlanError = ''
   detailUiState.priorResultSelections = Object.fromEntries(model.priorResultCandidateGroups.map((group) => {
@@ -190,6 +199,12 @@ function ensureTaskPlanState(model: EngineeringMasterDetailModel): void {
       decision: '',
     }]
   }))
+}
+
+function ensureTaskPlanState(model: EngineeringMasterDetailModel): void {
+  if (detailUiState.taskPlanMasterId === model.masterOrderId) return
+  detailUiState.taskPlanMasterId = model.masterOrderId
+  applyTaskPlanState(model)
 }
 
 function renderPriorResultChoices(model: EngineeringMasterDetailModel): string {
@@ -224,7 +239,9 @@ function renderPriorResultChoices(model: EngineeringMasterDetailModel): string {
 
 function renderTaskPlanConfirmation(model: EngineeringMasterDetailModel): string {
   const selected = new Set(detailUiState.selectedConditionalTaskTypes)
-  const selectedCount = model.taskPlanSuggestions.filter((item) => item.required || selected.has(item.taskType)).length
+  const selectableSuggestions = model.taskPlanSuggestions.filter((item) => !item.notApplicable)
+  const selectedCount = selectableSuggestions.filter((item) => item.required || selected.has(item.taskType)).length
+  const hasPreparationType = Boolean(detailUiState.selectedPreparationType)
   return `
     <section class="overflow-hidden rounded-lg border bg-card" data-engineering-task-plan-confirmation>
       <header class="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
@@ -235,40 +252,53 @@ function renderTaskPlanConfirmation(model: EngineeringMasterDetailModel): string
           </div>
           <p class="mt-1 text-xs text-slate-500">跟单确认适用任务；固定依赖关系不能调整。</p>
         </div>
-        <div class="text-sm text-slate-600">已选 ${selectedCount}/${model.taskPlanSuggestions.length} 项</div>
+        <div class="text-sm text-slate-600">${hasPreparationType ? `已选 ${selectedCount}/${selectableSuggestions.length} 项` : '待选择准备类型'}</div>
       </header>
       ${detailUiState.taskPlanError ? `<div class="mx-4 mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${escapeHtml(detailUiState.taskPlanError)}</div>` : ''}
+      <div class="border-b bg-slate-50/60 px-4 py-3">
+        <label class="block max-w-sm text-sm font-medium text-slate-800">生产准备类型 <span class="text-red-500">*</span>
+          <select
+            class="mt-1 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+            data-${DETAIL_EVENT_PREFIX}-action="select-preparation-type"
+          >
+            <option value="">请选择生产准备类型</option>
+            ${PREPARATION_TYPE_OPTIONS.map((option) => `<option value="${option.value}" ${detailUiState.selectedPreparationType === option.value ? 'selected' : ''}>${option.label}</option>`).join('')}
+          </select>
+        </label>
+        <p class="mt-1 text-xs text-slate-500">系统根据已确认类型生成固定任务和依赖，不按款式名称猜测。</p>
+      </div>
       ${renderPriorResultChoices(model)}
-      <div class="divide-y">
+      ${hasPreparationType ? `<div class="divide-y">
         ${model.taskPlanSuggestions.map((item) => {
-          const checked = item.required || selected.has(item.taskType)
+          const checked = !item.notApplicable && (item.required || selected.has(item.taskType))
           return `
-            <label class="grid grid-cols-[28px_minmax(180px,1.2fr)_minmax(120px,.7fr)_minmax(180px,1fr)_minmax(220px,1.4fr)] items-center gap-3 px-4 py-3 text-sm ${item.required ? 'bg-slate-50/60' : 'hover:bg-blue-50/40'}">
+            <label class="grid grid-cols-[28px_minmax(180px,1.2fr)_minmax(120px,.7fr)_minmax(180px,1fr)_minmax(220px,1.4fr)] items-center gap-3 px-4 py-3 text-sm ${item.required ? 'bg-slate-50/60' : item.notApplicable ? 'bg-slate-50/40 text-slate-400' : 'hover:bg-blue-50/40'}">
               <input
                 type="checkbox"
                 class="h-4 w-4 rounded border-slate-300 text-blue-600"
                 data-${DETAIL_EVENT_PREFIX}-action="toggle-task-plan-type"
                 data-task-type="${escapeHtml(item.taskType)}"
                 ${checked ? 'checked' : ''}
-                ${item.required ? 'disabled' : ''}
+                ${item.required || item.notApplicable ? 'disabled' : ''}
               />
               <span class="font-medium text-slate-900">${escapeHtml(item.taskName)}</span>
               <span class="text-slate-600">${escapeHtml(item.ownerTeamName)}</span>
               <span class="text-xs text-slate-500">前置：${escapeHtml(item.dependencyText)}</span>
               <span class="flex items-center gap-2 text-xs">
-                <span class="rounded-full px-2 py-0.5 ${item.required ? 'bg-slate-200 text-slate-700' : item.suggestedSelected ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">${item.required ? '必做' : item.suggestedSelected ? '建议启用' : '按需启用'}</span>
+                <span class="rounded-full px-2 py-0.5 ${item.required ? 'bg-slate-200 text-slate-700' : item.notApplicable ? 'bg-slate-100 text-slate-500' : item.suggestedSelected ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">${item.required ? '必做' : item.notApplicable ? '不适用' : item.suggestedSelected ? '建议启用' : '按需启用'}</span>
                 <span class="text-slate-500">${escapeHtml(item.suggestionReason)}</span>
               </span>
             </label>
           `
         }).join('')}
-      </div>
+      </div>` : `<div class="px-4 py-8 text-center text-sm text-slate-500">选择生产准备类型后，系统将展示必做任务、条件任务和固定前置。</div>`}
       <footer class="flex flex-wrap items-center justify-between gap-3 border-t bg-slate-50 px-4 py-3">
         <p class="text-xs text-slate-500">确认后一次性生成任务；条件任务后续仍可由正式 BOM 要求启用。</p>
         <button
           type="button"
           class="inline-flex h-9 items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700"
           data-${DETAIL_EVENT_PREFIX}-action="confirm-task-plan"
+          ${hasPreparationType ? '' : 'disabled'}
         >确认并生成任务</button>
       </footer>
     </section>
@@ -329,11 +359,14 @@ function renderTaskTable(model: EngineeringMasterDetailModel): string {
 // ============ 页面组装 ============
 
 export function renderPcsEngineeringMasterDetailPage(key: string): string {
-  const model = buildEngineeringMasterDetailModel(key)
+  let model = buildEngineeringMasterDetailModel(key)
   if (!model) {
     return '<div class="p-6 text-sm text-slate-500">未找到工程主单。</div>'
   }
   ensureTaskPlanState(model)
+  if (model.status === '草稿' && detailUiState.selectedPreparationType && model.preparationType !== detailUiState.selectedPreparationType) {
+    model = buildEngineeringMasterDetailModel(key, detailUiState.selectedPreparationType) || model
+  }
 
   return `
     <div class="min-w-0 max-w-full space-y-3 p-4" data-pcs-engineering-master-detail-page>
@@ -419,8 +452,19 @@ export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): bool
     detailUiState.taskPlanError = ''
     return true
   }
+  if (action === 'select-preparation-type') {
+    const preparationType = (actionNode as HTMLSelectElement).value as EngineeringPreparationType | ''
+    detailUiState.selectedPreparationType = preparationType
+    detailUiState.taskPlanError = ''
+    const model = buildEngineeringMasterDetailModel(currentMasterKey(), preparationType)
+    if (model) {
+      applyTaskPlanState(model)
+      refreshLanesRegion(model)
+    }
+    return true
+  }
   if (action === 'select-prior-result-version') {
-    const model = buildEngineeringMasterDetailModel(currentMasterKey())
+    const model = buildEngineeringMasterDetailModel(currentMasterKey(), detailUiState.selectedPreparationType)
     const taskType = actionNode.dataset.taskType as EngineeringTaskType
     const candidate = model?.priorResultCandidateGroups
       .find((group) => group.engineeringTaskType === taskType)?.candidates
@@ -446,7 +490,7 @@ export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): bool
   }
   if (action === 'confirm-task-plan') {
     const masterKey = currentMasterKey()
-    const model = buildEngineeringMasterDetailModel(masterKey)
+    const model = buildEngineeringMasterDetailModel(masterKey, detailUiState.selectedPreparationType)
     if (!model) return true
     try {
       const master = getEngineeringMasterOrderById(masterKey)
@@ -466,6 +510,7 @@ export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): bool
         confirmedBy: resolveEngineeringMasterDemoOperatorName(model),
         confirmedById: master.merchandiserId,
         confirmedByRole: '跟单',
+        preparationType: detailUiState.selectedPreparationType || undefined,
         selectedConditionalTaskTypes: detailUiState.selectedConditionalTaskTypes,
         priorResultDecisions,
       })
@@ -473,7 +518,7 @@ export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): bool
       if (typeof window !== 'undefined') window.dispatchEvent(new Event('higood:request-render'))
     } catch (error) {
       detailUiState.taskPlanError = error instanceof Error ? error.message : '确认任务方案失败。'
-      const refreshedModel = buildEngineeringMasterDetailModel(masterKey)
+      const refreshedModel = buildEngineeringMasterDetailModel(masterKey, detailUiState.selectedPreparationType)
       if (refreshedModel) refreshLanesRegion(refreshedModel)
     }
     return true

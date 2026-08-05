@@ -57,6 +57,7 @@
 | 新草稿追加到仓库末尾后被演示生命周期误当成关闭场景，详情页初始化失败 | 协作断裂 | 跟单 | 演示生命周期只处理明确标识为 `BULK-DEMO` 的内置主单，人工新建草稿保持草稿状态并正常进入详情 | 否 |
 | 款式仅显示文字，款式多时容易选错 | 选不对 | 跟单 | 候选及列表同列展示真实款式图片、名称和 SPU | 否 |
 | 新主单直接生成全部任务，缺少跟单对适用任务的业务确认 | 协作断裂 | 跟单、专业团队 | 草稿详情先展示系统建议；必做任务锁定，条件任务由跟单确认，固定依赖不可编辑 | 否 |
+| 人工新建主单缺少生产准备类型，任务方案显示“已选 0/0 项”，无法确认实际任务 | 协作断裂 | 跟单、专业团队 | 草稿详情先要求跟单选择生产准备类型，再按固定矩阵展示必做、条件和不适用任务；不适用任务不可选择，确认后生成完整任务骨架 | 否 |
 
 ## 6. 最终结论
 
@@ -82,12 +83,19 @@
 
 ### 验证命令
 
-- `npx tsx tests/pcs-engineering-master-create-entry.spec.ts`：通过；覆盖打开弹窗、选择“可创建”款式、点击创建草稿以及仓库新增草稿主单
+- `npx tsx tests/pcs-engineering-master-create-entry.spec.ts`：通过；覆盖打开弹窗、选择“可创建”款式、点击创建草稿、选择生产准备类型以及任务方案即时生成
 - `npx tsx tests/pcs-engineering-master-image-preview.spec.ts`：通过
 - `npx tsx tests/pcs-engineering-master-task-plan-confirmation.spec.ts`：通过
 - `npm run check:list-page-governance`：通过
 - `npm run check:prototype-design-governance -- --all`：通过
-- `npm run check:pcs-engineering-master`：通过（16/16）
+- `npm run check:pcs-engineering-master`：通过（22/22）
+
+### 运行页面验收
+
+- 新建草稿未选择生产准备类型时，不再显示“已选 0/0 项”，确认按钮保持禁用。
+- 选择“纯梭织”后显示 4/8 项适用任务；毛织任务明确为“不适用”且不可选择。
+- “产前版样衣”的固定前置仅显示“梭织基码纸样”；技术包确认仅显示当前类型实际生效的固定前置。
+- 点击“确认并生成任务”后主单发布，工程任务表生成 10 条任务骨架，其中不适用和未满足 BOM 条件的任务保持“未启用”。
 
 ### 例外
 
