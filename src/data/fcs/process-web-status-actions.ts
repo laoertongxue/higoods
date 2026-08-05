@@ -750,20 +750,16 @@ function isMobileBindingValid(sourceType: ProcessWebSourceType, sourceId: string
 }
 
 export function getAvailablePrintWebActions(printOrderId: string): ProcessWebAction[] {
-  const binding = isMobileBindingValid('PRINT_WORK_ORDER', printOrderId)
   const status = getPrintStatus(printOrderId)
   if (!status) return []
   const prerequisiteBlock = getPrintExecutionBlockReason(printOrderId)
   if (prerequisiteBlock) return listMatchingActions(PRINT_ACTIONS, status.status, prerequisiteBlock).map((action) => withPrintQuantityFields(action, printOrderId))
-  if (!binding.ok) return [toAction(PRINT_ACTIONS[0], status.label, binding.reason)]
   return listMatchingActions(PRINT_ACTIONS, status.status).map((action) => withPrintQuantityFields(action, printOrderId))
 }
 
 export function getAvailableDyeWebActions(dyeOrderId: string): ProcessWebAction[] {
-  const binding = isMobileBindingValid('DYE_WORK_ORDER', dyeOrderId)
   const status = getDyeStatus(dyeOrderId)
   if (!status) return []
-  if (!binding.ok) return [toAction(DYE_ACTIONS[0], status.label, binding.reason)]
   return listMatchingActions(DYE_ACTIONS, status.status)
 }
 

@@ -2156,14 +2156,42 @@ function seedWorkOrders(): void {
     dyeFactoryName: 'PT Prima Printing Center',
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
-    status: 'WAIT_MATERIAL',
+    status: 'PACKING',
     taskId: 'TASK-DYE-000733',
     taskNo: 'TASK-DYE-000733',
-    waitingReason: '备货创建，等待坯布到厂',
+    waitingReason: '备货染色已完成打卷，正在包装',
     createdAt: '2026-03-29 09:00:00',
     updatedAt: '2026-03-29 10:05:00',
-    remark: '业务人员按备货创建，已分配染厂，等待原料面料',
+    remark: '业务人员按备货创建，染色与打卷已完成，待确认包装完成',
   })
+  setNodeRecords(DYE_WORK_ORDER_IDS[12], [
+    {
+      nodeRecordId: `${DYE_WORK_ORDER_IDS[12]}-ROLL`,
+      dyeOrderId: DYE_WORK_ORDER_IDS[12],
+      taskId: 'TASK-DYE-000733',
+      nodeCode: 'ROLL',
+      nodeName: DYE_NODE_LABEL.ROLL,
+      operatorUserId: 'USR-DYE-02',
+      operatorName: '染色工厂',
+      startedAt: '2026-03-29 14:20:00',
+      finishedAt: '2026-03-29 15:00:00',
+      outputQty: 940,
+      qtyUnit: '米',
+      remark: '打卷完成',
+    },
+    {
+      nodeRecordId: `${DYE_WORK_ORDER_IDS[12]}-PACK`,
+      dyeOrderId: DYE_WORK_ORDER_IDS[12],
+      taskId: 'TASK-DYE-000733',
+      nodeCode: 'PACK',
+      nodeName: DYE_NODE_LABEL.PACK,
+      operatorUserId: 'USR-DYE-02',
+      operatorName: '染色工厂',
+      startedAt: '2026-03-29 15:10:00',
+      qtyUnit: '米',
+      remark: '包装中',
+    },
+  ])
 
   if (primaryVat) {
     addVatSchedule({

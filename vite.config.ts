@@ -39,29 +39,23 @@ export default defineConfig({
     strictPort: true,
   },
   build: {
+    chunkSizeWarningLimit: 550,
     rollupOptions: {
       output: {
         onlyExplicitManualChunks: true,
         manualChunks(id) {
-          if (id.includes('/src/data/fcs/pda-handover-events.ts')) return 'pda-handover-events'
+          if (id.includes('/src/data/fcs/process-craft-dict.ts')) return 'process-craft-dict'
           if (id.includes('/src/data/fcs/post-finishing-domain.ts')) return 'post-finishing-execution-domain'
-          if (id.includes('/src/data/pcs-technical-data-version-repository.ts')) {
-            return 'pcs-technical-data-version-repository'
+          if (id.includes('/src/data/tech-pack-process-route.ts')) return 'tech-pack-process-route'
+          if (id.includes('/src/data/pcs-tech-pack-version-log-repository.ts')) return 'pcs-tech-pack-version-log-repository'
+          if (id.includes('/src/data/pcs-tech-pack-review-notification-repository.ts')) {
+            return 'pcs-tech-pack-review-notification-repository'
           }
           if (id.includes('/src/data/pcs-technical-data-version-bootstrap.ts')) {
             return 'pcs-tech-pack-bootstrap'
           }
           if (id.includes('/src/data/pcs-engineering-bom-snapshot-source.ts')) {
             return 'pcs-engineering-bom-snapshot-source'
-          }
-          if (id.includes('/src/data/pcs-engineering-bom-snapshot-validation.ts')) {
-            return 'pcs-engineering-bom-snapshot-validation'
-          }
-          if (id.includes('/src/data/pcs-engineering-bom-material-resolver.ts')) {
-            return 'pcs-engineering-bom-material-resolver'
-          }
-          if (id.includes('/src/data/pcs-material-archive-repository.ts')) {
-            return 'pcs-material-archive-repository'
           }
         },
       },

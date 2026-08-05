@@ -184,6 +184,7 @@
 - `src/data/fcs/third-party-factory-comprehensive-assessment.ts`
 - `src/data/fcs/third-party-factory-rating.ts`
 - `src/data/fcs/water-soluble-task-domain.ts`
+- `src/data/pcs-engineering-master-repository.ts`
 - `src/data/fcs/wool-task-domain.ts`
 - `src/data/pcs-tech-pack-task-generation.ts`
 - `src/data/pcs-technical-data-fcs-adapter.ts`
@@ -270,6 +271,8 @@
 - `/fcs/production/craft-dict`
 - `/fcs/process/print-orders`
 - `/fcs/process/dye-orders`
+- `/fcs/craft/printing/work-orders/:workOrderId`
+- `/fcs/craft/dyeing/work-orders/:workOrderId`
 - `/fcs/craft/dyeing/water-soluble-orders`
 - `/fcs/pda/task-receive`
 - `/fcs/pda/exec/:taskId`
@@ -284,6 +287,7 @@
 - `npm run check:fcs-unified-assignment-foundation`：通过
 - `npm run check:preparation-order-pda-closure`：通过
 - `npm run check:pda-task-receive-scope`：通过
+- `npx playwright test tests/print-dye-web-action-dialog-and-dispatch.spec.ts`：通过（6/6），覆盖 Web 动作二次弹窗、统一写回、染色详情直达、平台派单方式与价格展示、PDA 接单后执行。
 - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:4175 playwright test tests/pda-task-receive-pending-accept.spec.ts`：通过
 - `npm run check:water-soluble-process`：通过
 - `npm run check:water-soluble-pages`：通过

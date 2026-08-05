@@ -773,8 +773,14 @@ function validateBinding(sourceType: ProcessActionSourceType, sourceId: string, 
     binding.isTaskFound &&
     binding.isProcessTypeMatched &&
     binding.isAcceptedOrExecutable
+  const webCanUseBoundPreparationOrder =
+    sourceChannel === 'Web 端' &&
+    (sourceType === 'PRINT' || sourceType === 'DYE') &&
+    binding.isBound &&
+    binding.isTaskFound &&
+    binding.isProcessTypeMatched
   return {
-    ok: binding.canOpenMobileExecution || prototypeCanUseFactoryScopedSpecialCraft,
+    ok: binding.canOpenMobileExecution || prototypeCanUseFactoryScopedSpecialCraft || webCanUseBoundPreparationOrder,
     reason: binding.reasonLabel,
     taskId: binding.actualTaskId,
   }

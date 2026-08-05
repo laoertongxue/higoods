@@ -163,6 +163,8 @@ function renderDetail(selectedWorkOrderId = state.selectedWorkOrderId): string {
       <div class="mt-6 grid gap-4 rounded-lg border p-4 text-sm sm:grid-cols-2">
         ${renderSourceDetail(order)}
         <div><span class="text-muted-foreground">工厂：</span>${escapeHtml(order.factoryName)}</div>
+        <div><span class="text-muted-foreground">分配方式：</span>${escapeHtml(order.assignmentMode || '派单')}</div>
+        <div><span class="text-muted-foreground">派单价格：</span>${escapeHtml(order.dispatchPriceDisplay || '1200 IDR/Yard')}</div>
         <div><span class="text-muted-foreground">${escapeHtml(plannedQtyLabel)}：</span>${escapeHtml(formatQty(order.plannedFeedQty, order.unit))}</div>
         <div><span class="text-muted-foreground">计划完成：</span>${escapeHtml(order.plannedFinishAt)}</div>
         <div><span class="text-muted-foreground">平台加工单号：</span>${escapeHtml(order.workOrderNo || order.orderNo)}</div>
@@ -213,6 +215,8 @@ const listColumns: StandardListColumn<PrepProcessOrderFact>[] = [
   { key: 'orderNo', title: '平台加工单号', width: 180, required: true, freezeable: true, sortable: true, sortValue: (order) => order.workOrderNo || order.orderNo, render: (order) => `<span class="font-mono text-xs">${escapeHtml(order.workOrderNo || order.orderNo)}</span>` },
   { key: 'source', title: '来源', width: 210, required: true, freezeable: true, sortable: true, sortValue: (order) => order.sourceLabel, render: renderSource },
   { key: 'factory', title: '工厂', width: 180, sortable: true, sortValue: (order) => order.factoryName, render: (order) => escapeHtml(order.factoryName) },
+  { key: 'assignmentMode', title: '分配方式', width: 110, sortable: true, sortValue: (order) => order.assignmentMode || '派单', render: (order) => escapeHtml(order.assignmentMode || '派单') },
+  { key: 'dispatchPrice', title: '派单价格', width: 150, sortable: true, sortValue: (order) => order.dispatchPriceDisplay || '1200 IDR/Yard', render: (order) => escapeHtml(order.dispatchPriceDisplay || '1200 IDR/Yard') },
   { key: 'qty', title: '计划数量', width: 145, sortable: true, align: 'right', sortValue: (order) => order.plannedFeedQty, render: (order) => escapeHtml(formatQty(order.plannedFeedQty, order.unit)) },
   { key: 'finishAt', title: '计划完成', width: 165, sortable: true, sortValue: (order) => order.plannedFinishAt, render: (order) => escapeHtml(order.plannedFinishAt) },
   { key: 'status', title: '平台状态', width: 135, sortable: true, sortValue: (order) => order.platformStatusLabel, render: renderStatus },

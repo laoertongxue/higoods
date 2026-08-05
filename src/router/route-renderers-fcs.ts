@@ -472,6 +472,11 @@ export const renderCraftDyeingWorkOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/dyeing/work-orders'),
   'renderCraftDyeingWorkOrdersPage',
 )
+
+export const renderCraftDyeingWorkOrderDetailPage = createAsyncRenderer(
+  () => import('../pages/process-factory/dyeing/work-order-detail'),
+  'renderCraftDyeingWorkOrderDetailPage',
+)
 export const renderCraftCombinedDyeingPage = createAsyncRenderer(
   () => import('../pages/process-factory/dyeing/combined-dyeing'),
   'renderCraftCombinedDyeingPage',

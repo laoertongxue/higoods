@@ -3252,7 +3252,7 @@ function ensureMockSupplementOrders(): void {
   ]
   const creators = ['裁床主管 周敏', '裁床组长 林洁', '验片主管 陈玲', '裁床主管 王海']
   let coveredSeedCount = 0
-  for (let index = 0; index < candidates.length * 2 && coveredSeedCount < 12; index += 1) {
+  for (let index = 0; index < candidates.length * 2 && coveredSeedCount < 8; index += 1) {
     const candidate = candidates[index % candidates.length]
     const draft = buildMockDraft(
       candidate,
@@ -3272,20 +3272,8 @@ function ensureMockSupplementOrders(): void {
       confirmationIdentity: `supplement-page-seed-${index + 1}`,
       supplyRiskConfirmed: true,
     }
-    const existingSeed = state.records.find((record) =>
-      record.lines.some((line) => Boolean(asDraftLine(line).basis?.shortageMaterial))
-      &&
-      record.productionOrderId === variedDraft.productionOrderId
-      && record.draftMeta.sourceNo === variedDraft.sourceNo
-      && record.materialDemands.length === variedDraft.materialDemands.length
-      && record.materialDemands.every((demand) =>
-        variedDraft.materialDemands.some((candidateDemand) =>
-          candidateDemand.materialPatternMappingId === demand.materialPatternMappingId
-          && candidateDemand.materialSku === demand.materialSku
-          && candidateDemand.unit === demand.unit
-        )
-      )
-    )
+    const confirmationKey = buildSupplementConfirmationIdentity(variedDraft)
+    const existingSeed = state.records.find((record) => record.confirmationKey === confirmationKey)
     if (existingSeed) {
       coveredSeedCount += 1
       continue
@@ -3300,7 +3288,7 @@ function ensureMockSupplementOrders(): void {
             draft: variedDraft,
             createdBy: creators[index % creators.length],
             processWorkOrderRefs: [],
-            confirmationKey: buildSupplementConfirmationIdentity(variedDraft),
+            confirmationKey,
             requestFingerprint: buildSupplementRequestFingerprint(variedDraft),
           }),
         }
