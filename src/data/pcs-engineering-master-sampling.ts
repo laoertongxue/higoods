@@ -13,6 +13,14 @@ import type {
   EngineeringIndependentSamplingType,
 } from './pcs-engineering-master-types.ts'
 import { getStyleArchiveById, listStyleArchives } from './pcs-style-archive-repository.ts'
+import {
+  captureEngineeringBomRepositoryState,
+  confirmEngineeringBomVersion,
+  createEngineeringBomVersionsForOwner,
+  getEngineeringBomVersionById,
+  restoreEngineeringBomRepositoryState,
+  saveEngineeringBomVersion,
+} from './pcs-engineering-bom-repository.ts'
 
 const STORAGE_KEY = 'higood-pcs-independent-sampling-v5'
 const TASK_META: Record<EngineeringIndependentProfessionalTaskType, { name: string; team: string }> = {
@@ -53,12 +61,7 @@ function cloneRecord(record: EngineeringIndependentSamplingRecord): EngineeringI
     relatedProfessionalTaskIds: [...record.relatedProfessionalTaskIds],
     professionalTasks: record.professionalTasks.map(cloneTask),
     selectedTaskTypes: [...record.selectedTaskTypes],
-    bomMaterialLines: (record.bomMaterialLines || []).map((line) => ({
-      ...line,
-      applicableSkuIds: [...(line.applicableSkuIds || [])],
-      linkedPatternResultIds: [...(line.linkedPatternResultIds || [])],
-    })),
-    bomCustomCosts: (record.bomCustomCosts || []).map((item) => ({ ...item })),
+    bomVersionIds: [...(record.bomVersionIds || (record.bomDraftVersionId ? [record.bomDraftVersionId] : []))],
     operationLogs: record.operationLogs.map((log) => ({ ...log })),
   }
 }
@@ -71,10 +74,9 @@ function normalizeRecord(record: EngineeringIndependentSamplingRecord): Engineer
     selectedTaskTypes: Array.isArray(record.selectedTaskTypes) ? record.selectedTaskTypes : [],
     sourceResultVersionId: record.sourceResultVersionId || '',
     reuseDecision: record.reuseDecision || 'PENDING',
-    bomMaterialLines: Array.isArray(record.bomMaterialLines) && record.bomMaterialLines.length
-      ? record.bomMaterialLines.map((line) => ({ ...line, applicableSkuIds: [...(line.applicableSkuIds || [])], linkedPatternResultIds: [...(line.linkedPatternResultIds || [])] }))
-      : createDefaultBomLines(record.targetStyleCode),
-    bomCustomCosts: Array.isArray(record.bomCustomCosts) ? record.bomCustomCosts.map((item) => ({ ...item })) : [],
+    bomVersionIds: Array.isArray(record.bomVersionIds) && record.bomVersionIds.length
+      ? [...record.bomVersionIds]
+      : record.bomDraftVersionId ? [record.bomDraftVersionId] : [],
     operationLogs: Array.isArray(record.operationLogs) ? record.operationLogs.map((log) => ({ ...log })) : [],
   }
 }
@@ -131,7 +133,6 @@ function seedRecords(): EngineeringIndependentSamplingRecord[] {
       targetStyleId: target.styleId,
       merchandiser: actor,
       selectedTaskTypes: selected,
-      bomDraftVersionId: `BOM-SMP-${index + 1}-V1`,
       createdAt,
     }, `ES-${type === 'REVISION' ? 'R' : 'D'}-${String(index + 1).padStart(3, '0')}`)
     // STYLE-PRJ-202603-011 同时提供一条已完成且已确认的前期成果，供工程主单
@@ -173,6 +174,12 @@ function seedRecords(): EngineeringIndependentSamplingRecord[] {
       }
       if (record.status === 'COMPLETED') {
         record.resultVersion = 'v1.0'; record.resultSummary = '前期样衣与专业成果已完成并确认。'; record.confirmedBy = actor.userName; record.confirmedAt = createdAt
+        record.bomVersionIds.forEach((versionId) => {
+          const version = getEngineeringBomVersionById(versionId)
+          if (version?.versionStatus === 'DRAFT' && version.materialLines.length) {
+            confirmEngineeringBomVersion({ versionId, role: '买手', userId: 'U-BUYER-DEMO', userName: '买手-阿乐', confirmedAt: createdAt })
+          }
+        })
       }
     }
     return record
@@ -213,7 +220,6 @@ export interface CreateEngineeringIndependentSamplingInput {
   merchandiser: { role: string; userId: string; userName: string }
   selectedTaskTypes?: EngineeringIndependentProfessionalTaskType[]
   relatedProfessionalTaskIds?: string[]
-  bomDraftVersionId: string
   createdAt: string
 }
 
@@ -227,16 +233,36 @@ function buildRecord(input: CreateEngineeringIndependentSamplingInput, code: str
     if (source.styleId === target.styleId || source.styleCode === target.styleCode) throw new Error('改款打样的来源 SPU 与目标 SPU 不能相同。')
   }
   if (input.samplingType === 'DESIGN' && input.sourceStyleId) throw new Error('设计打样不应填写来源 SPU，请改用改款打样。')
-  if (!input.bomDraftVersionId.trim()) throw new Error('独立打样必须关联 BOM 与价格草稿版本。')
   if (!input.selectedTaskTypes?.length) throw new Error('创建独立打样时请至少选择一个专业任务。')
   const taskId = code.replace(/^ES-/, 'ES-ID-')
+  const bomVersions = createEngineeringBomVersionsForOwner({
+    ownerStage: 'INDEPENDENT_SAMPLING',
+    ownerId: taskId,
+    ownerCode: code,
+    styleId: target.styleId,
+    createdBy: input.merchandiser.userName,
+    createdAt: input.createdAt,
+  })
+  const defaultLines = createDefaultBomLines(target.styleCode)
+  if (defaultLines.length && bomVersions[0]) {
+    saveEngineeringBomVersion({
+      versionId: bomVersions[0].bomDraftVersionId,
+      role: '买手',
+      userId: 'U-BUYER-DEMO',
+      userName: '买手-阿乐',
+      materialLines: defaultLines,
+      customCosts: [],
+      updatedAt: input.createdAt,
+    })
+  }
   const record: EngineeringIndependentSamplingRecord = {
     samplingTaskId: taskId, samplingTaskCode: code, samplingType: input.samplingType,
     sourceStyleId: source?.styleId || '', sourceStyleCode: source?.styleCode || '',
     targetStyleId: target.styleId, targetStyleCode: target.styleCode, targetStyleName: target.styleName,
     status: 'DRAFT', merchandiserId: input.merchandiser.userId, merchandiserName: input.merchandiser.userName,
-    relatedProfessionalTaskIds: [], professionalTasks: [], bomDraftVersionId: input.bomDraftVersionId,
-    bomMaterialLines: createDefaultBomLines(target.styleCode), bomCustomCosts: [],
+    relatedProfessionalTaskIds: [], professionalTasks: [],
+    bomDraftVersionId: bomVersions[0]?.bomDraftVersionId || '',
+    bomVersionIds: bomVersions.map((version) => version.bomDraftVersionId),
     resultVersion: '', resultSummary: '', confirmedBy: '', confirmedAt: '',
     selectedTaskTypes: [...new Set(input.selectedTaskTypes || [])], sourceResultVersionId: '', reuseDecision: 'PENDING',
     operationLogs: [], createdBy: input.merchandiser.userName, createdAt: input.createdAt, updatedAt: input.createdAt,
@@ -248,9 +274,15 @@ function buildRecord(input: CreateEngineeringIndependentSamplingInput, code: str
 export function createEngineeringIndependentSampling(input: CreateEngineeringIndependentSamplingInput): EngineeringIndependentSamplingRecord {
   const records = readRecords()
   const code = `ES-${input.samplingType === 'REVISION' ? 'R' : 'D'}-${String(records.length + 1).padStart(3, '0')}`
-  const record = buildRecord(input, code)
-  writeRecords([...records, record])
-  return cloneRecord(record)
+  const bomSnapshot = captureEngineeringBomRepositoryState()
+  try {
+    const record = buildRecord(input, code)
+    writeRecords([...records, record])
+    return cloneRecord(record)
+  } catch (error) {
+    restoreEngineeringBomRepositoryState(bomSnapshot)
+    throw error
+  }
 }
 
 export function listEngineeringIndependentSamplingRecords(type?: EngineeringIndependentSamplingType): EngineeringIndependentSamplingRecord[] {
@@ -382,6 +414,8 @@ export function confirmEngineeringIndependentSamplingResult(input: { samplingTas
   if (!record) throw new Error('独立打样任务不存在。')
   if (record.merchandiserId !== input.actor.userId) throw new Error('只有任务跟单本人可以确认整张任务成果。')
   if (record.status !== 'WAIT_CONFIRMATION') throw new Error('全部专业任务完成后才能确认整张成果。')
+  const unfinishedBom = record.bomVersionIds.map(getEngineeringBomVersionById).find((version) => version?.versionStatus !== 'COMPLETED_CONFIRMED')
+  if (unfinishedBom) throw new Error(`BOM 与价格 ${unfinishedBom.versionCode} 尚未由买手确认。`)
   if (!input.resultVersion.trim() || !input.resultSummary.trim()) throw new Error('请完整填写成果版本和成果摘要。')
   record.status = 'COMPLETED'; record.resultVersion = input.resultVersion.trim(); record.resultSummary = input.resultSummary.trim(); record.confirmedBy = input.actor.userName; record.confirmedAt = input.confirmedAt
   addLog(record, '确认整张成果', input.actor, `成果版本 ${record.resultVersion} 已确认。`, input.confirmedAt); writeRecords(records); return cloneRecord(record)
@@ -435,39 +469,11 @@ export function setEngineeringIndependentSamplingReuseDecision(input: { sampling
   record.reuseDecision = input.decision; addLog(record, '工程主单成果选择', input.actor, `本次选择：${input.decision === 'REUSE' ? '复用' : input.decision === 'REDO' ? '重做' : '不采用'}。`, input.decidedAt || nowText()); writeRecords(records); return cloneRecord(record)
 }
 
-export function updateEngineeringIndependentSamplingBomLine(input: {
-  samplingTaskId: string
-  bomItemId: string
-  actor: { role: string; userId: string; userName: string }
-  usage: number
-  sampleQuantity: number
-  lossRate: number
-}): EngineeringIndependentSamplingRecord {
-  if (input.actor.role !== '买手' || !input.actor.userId.trim() || !input.actor.userName.trim()) {
-    throw new Error('只有买手可以维护 BOM 与价格。')
-  }
-  const records = readRecords()
-  const record = records.find((item) => item.samplingTaskId === input.samplingTaskId)
-  if (!record) throw new Error('独立打样任务不存在。')
-  if (record.status === 'COMPLETED') throw new Error('已确认完成的独立打样不能修改 BOM 与价格。')
-  const line = record.bomMaterialLines.find((item) => item.bomItemId === input.bomItemId)
-  if (!line) throw new Error('BOM 物料行不存在。')
-  const nextLine = {
-    ...line,
-    usage: input.usage,
-    sampleQuantity: input.sampleQuantity,
-    lossRate: input.lossRate,
-  }
-  // 共用 BOM 解析器校验单位用量、打样数量、损耗、标准单价和单位换算。
-  resolveEngineeringBomMaterialLine(nextLine)
-  record.bomMaterialLines = record.bomMaterialLines.map((item) => item.bomItemId === input.bomItemId ? nextLine : item)
-  addLog(record, '买手维护 BOM 与价格', input.actor, `已更新物料行 ${input.bomItemId} 的单位用量、打样数量和损耗率。`)
-  writeRecords(records)
-  return cloneRecord(record)
-}
-
 export function resolveEngineeringIndependentSamplingBomLines(record: EngineeringIndependentSamplingRecord) {
-  return record.bomMaterialLines.map((line) => resolveEngineeringBomMaterialLine(line))
+  return record.bomVersionIds
+    .map(getEngineeringBomVersionById)
+    .flatMap((version) => version?.materialLines || [])
+    .map((line) => resolveEngineeringBomMaterialLine(line))
 }
 
 export function calculateIndependentSamplingMaterialRequirement(input: { unitUsage: number; sampleQuantity: number; lossRate: number }): number {

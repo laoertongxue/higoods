@@ -14,8 +14,8 @@ import {
   reviewEngineeringIndependentProfessionalTask,
   startEngineeringIndependentProfessionalTask,
   submitEngineeringIndependentProfessionalTask,
-  updateEngineeringIndependentSamplingBomLine,
 } from '../src/data/pcs-engineering-master-sampling.ts'
+import { confirmEngineeringBomVersion, getEngineeringBomVersionById, saveEngineeringBomVersion } from '../src/data/pcs-engineering-bom-repository.ts'
 import { listStyleArchives, resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
 
 resetStyleArchiveRepository()
@@ -23,18 +23,33 @@ resetEngineeringIndependentSamplingRepository(false)
 const styles = listStyleArchives().filter((item) => item.mainImageUrl)
 assert.ok(styles.length >= 2)
 
-assert.throws(() => createEngineeringIndependentSampling({ samplingType: 'REVISION', sourceStyleId: styles[0].styleId, targetStyleId: styles[0].styleId, merchandiser: CURRENT_PCS_ENGINEERING_USER, selectedTaskTypes: [], bomDraftVersionId: 'BOM-DRAFT-1', createdAt: '2026-08-04 09:00:00' }), /不能相同/)
-assert.throws(() => createEngineeringIndependentSampling({ samplingType: 'DESIGN', sourceStyleId: styles[0].styleId, targetStyleId: styles[1].styleId, merchandiser: CURRENT_PCS_ENGINEERING_USER, selectedTaskTypes: [], bomDraftVersionId: 'BOM-DRAFT-1', createdAt: '2026-08-04 09:00:00' }), /不应填写来源/)
-assert.throws(() => createEngineeringIndependentSampling({ samplingType: 'DESIGN', targetStyleId: styles[1].styleId, merchandiser: CURRENT_PCS_ENGINEERING_USER, selectedTaskTypes: [], bomDraftVersionId: 'BOM-DRAFT-1', createdAt: '2026-08-04 09:00:00' }), /至少选择一个专业任务/)
+assert.throws(() => createEngineeringIndependentSampling({ samplingType: 'REVISION', sourceStyleId: styles[0].styleId, targetStyleId: styles[0].styleId, merchandiser: CURRENT_PCS_ENGINEERING_USER, selectedTaskTypes: [], createdAt: '2026-08-04 09:00:00' }), /不能相同/)
+assert.throws(() => createEngineeringIndependentSampling({ samplingType: 'DESIGN', sourceStyleId: styles[0].styleId, targetStyleId: styles[1].styleId, merchandiser: CURRENT_PCS_ENGINEERING_USER, selectedTaskTypes: [], createdAt: '2026-08-04 09:00:00' }), /不应填写来源/)
+assert.throws(() => createEngineeringIndependentSampling({ samplingType: 'DESIGN', targetStyleId: styles[1].styleId, merchandiser: CURRENT_PCS_ENGINEERING_USER, selectedTaskTypes: [], createdAt: '2026-08-04 09:00:00' }), /至少选择一个专业任务/)
 
-const record = createEngineeringIndependentSampling({ samplingType: 'REVISION', sourceStyleId: styles[0].styleId, targetStyleId: styles[1].styleId, merchandiser: CURRENT_PCS_ENGINEERING_USER, selectedTaskTypes: ['DISPLAY_SAMPLE', 'PATTERN_ARTWORK'], bomDraftVersionId: 'BOM-DRAFT-1', createdAt: '2026-08-04 09:00:00' })
+const record = createEngineeringIndependentSampling({ samplingType: 'REVISION', sourceStyleId: styles[0].styleId, targetStyleId: styles[1].styleId, merchandiser: CURRENT_PCS_ENGINEERING_USER, selectedTaskTypes: ['DISPLAY_SAMPLE', 'PATTERN_ARTWORK'], createdAt: '2026-08-04 09:00:00' })
 assert.equal(record.status, 'DRAFT')
 assert.equal(record.professionalTasks.length, 0, '跟单确认前不得生成真实专业任务')
-assert.equal(record.bomMaterialLines.length, 1, '独立打样必须关联可读取的 BOM 草稿物料行')
-const bomItemId = record.bomMaterialLines[0].bomItemId!
-assert.throws(() => updateEngineeringIndependentSamplingBomLine({ samplingTaskId: record.samplingTaskId, bomItemId, actor: CURRENT_PCS_ENGINEERING_USER, usage: 1.25, sampleQuantity: 3, lossRate: 0.1 }), /只有买手/)
-const bomUpdated = updateEngineeringIndependentSamplingBomLine({ samplingTaskId: record.samplingTaskId, bomItemId, actor: { role: '买手', userId: 'BUYER-1', userName: '买手-王明' }, usage: 1.25, sampleQuantity: 3, lossRate: 0.1 })
-const resolvedBomLine = resolveEngineeringIndependentSamplingBomLines(bomUpdated)[0]
+const independentBom = getEngineeringBomVersionById(record.bomVersionIds[0])!
+assert.equal(independentBom.materialLines.length, 1, '独立打样必须自动创建可读取的集中 BOM 草稿')
+const bomItemId = independentBom.materialLines[0].bomItemId!
+const nextBomLines = independentBom.materialLines.map((line) => line.bomItemId === bomItemId ? { ...line, usage: 1.25, sampleQuantity: 3, lossRate: 0.1 } : line)
+assert.throws(() => saveEngineeringBomVersion({ versionId: independentBom.bomDraftVersionId, role: '跟单', userId: CURRENT_PCS_ENGINEERING_USER.userId, userName: CURRENT_PCS_ENGINEERING_USER.userName, materialLines: nextBomLines, customCosts: [] }), /只有买手/)
+saveEngineeringBomVersion({ versionId: independentBom.bomDraftVersionId, role: '买手', userId: 'BUYER-1', userName: '买手-王明', materialLines: nextBomLines, customCosts: [] })
+confirmEngineeringBomVersion({ versionId: independentBom.bomDraftVersionId, role: '买手', userId: 'BUYER-1', userName: '买手-王明' })
+record.bomVersionIds.slice(1).forEach((versionId) => {
+  const version = getEngineeringBomVersionById(versionId)!
+  saveEngineeringBomVersion({
+    versionId,
+    role: '买手',
+    userId: 'BUYER-1',
+    userName: '买手-王明',
+    materialLines: nextBomLines.map((line, index) => ({ ...line, bomItemId: `${versionId}-LINE-${index + 1}`, applicableSkuIds: [...version.applicableSkuIds] })),
+    customCosts: [],
+  })
+  confirmEngineeringBomVersion({ versionId, role: '买手', userId: 'BUYER-1', userName: '买手-王明' })
+})
+const resolvedBomLine = resolveEngineeringIndependentSamplingBomLines(record)[0]
 assert.equal(resolvedBomLine.totalRequirementQuantity, 4.125, '总需求量必须按单位用量 × 打样数量 ×（1 + 损耗率）计算')
 assert.equal(resolvedBomLine.standardUnitPriceCurrency, 'CNY')
 assert.ok(resolvedBomLine.materialImageUrl, 'BOM 物料必须带真实对应图片')
@@ -71,7 +86,7 @@ confirmEngineeringIndependentSamplingResult({ samplingTaskId: record.samplingTas
 assert.equal(listReusableEngineeringIndependentSamplingResults(styles[1].styleCode)[0].samplingTaskId, record.samplingTaskId)
 assert.equal(listEngineeringIndependentSamplingRecords('DESIGN').length, 0)
 
-const colorRecord = createEngineeringIndependentSampling({ samplingType: 'DESIGN', targetStyleId: styles[0].styleId, merchandiser: CURRENT_PCS_ENGINEERING_USER, selectedTaskTypes: ['COLOR_FABRIC'], bomDraftVersionId: 'BOM-DRAFT-COLOR', createdAt: '2026-08-04 19:00:00' })
+const colorRecord = createEngineeringIndependentSampling({ samplingType: 'DESIGN', targetStyleId: styles[0].styleId, merchandiser: CURRENT_PCS_ENGINEERING_USER, selectedTaskTypes: ['COLOR_FABRIC'], createdAt: '2026-08-04 19:00:00' })
 const colorPlan = confirmEngineeringIndependentSamplingPlan({ samplingTaskId: colorRecord.samplingTaskId, actor: CURRENT_PCS_ENGINEERING_USER, selectedTaskTypes: ['COLOR_FABRIC'] })
 const colorTask = colorPlan.professionalTasks[0]
 const dyeFactory = { role: '染厂', userId: 'DYE-1', userName: '染厂-陈师傅' }

@@ -39,6 +39,12 @@ import {
   updateEngineeringTaskRecord,
 } from './pcs-engineering-master-repository.ts'
 import type { TechnicalDataVersionRecord } from './pcs-technical-data-version-types.ts'
+import {
+  captureEngineeringBomRepositoryState,
+  listEngineeringBomVersionsByOwner,
+  markEngineeringBomVersionsPublished,
+  restoreEngineeringBomRepositoryState,
+} from './pcs-engineering-bom-repository.ts'
 
 function nowText(): string {
   const now = new Date()
@@ -48,6 +54,7 @@ function nowText(): string {
 
 export type TechPackActivationMutationStep =
   | 'PRICING_SNAPSHOT'
+  | 'BOM_VERSION'
   | 'ENGINEERING_TASK'
   | 'STYLE'
   | 'PROJECT'
@@ -96,6 +103,7 @@ function restoreActivationStores(
     relation: ReturnType<typeof getProjectRelationStoreSnapshot>
     archive: ReturnType<typeof getProjectArchiveStoreSnapshot>
     logs: ReturnType<typeof listTechPackVersionLogs>
+    bom: ReturnType<typeof captureEngineeringBomRepositoryState>
   },
   originalError: unknown,
 ): never {
@@ -111,6 +119,7 @@ function restoreActivationStores(
   restore(() => replaceProjectRelationStore(snapshots.relation))
   restore(() => replaceProjectArchiveStore(snapshots.archive))
   restore(() => replaceTechPackVersionLogStore(snapshots.logs))
+  restore(() => restoreEngineeringBomRepositoryState(snapshots.bom))
   // 项目仓恢复会触发款式种子同步，款式仓必须最后精确恢复。
   restore(() => restoreStyleArchiveRepositoryState(snapshots.style))
   if (rollbackErrors.length > 0 && originalError instanceof Error) {
@@ -147,6 +156,7 @@ export function activateTechPackVersionForStyle(
     relation: getProjectRelationStoreSnapshot(),
     archive: getProjectArchiveStoreSnapshot(),
     logs: listTechPackVersionLogs(),
+    bom: captureEngineeringBomRepositoryState(),
   }
 
   runTechnicalDataVersionRepositoryTransaction(() =>
@@ -157,6 +167,17 @@ export function activateTechPackVersionForStyle(
       markActivationStepCompleted('PRICING_SNAPSHOT')
       completeSourceEngineeringTechPackTask(record, activatedAt)
       markActivationStepCompleted('ENGINEERING_TASK')
+      const linkedBomVersions = listEngineeringBomVersionsByOwner('TECH_PACK_DRAFT', technicalVersionId)
+      if (linkedBomVersions.length > 0) {
+        markEngineeringBomVersionsPublished({
+          ownerStage: 'TECH_PACK_DRAFT',
+          ownerId: technicalVersionId,
+          publishedSnapshotId: technicalVersionId,
+          publishedBy: operatorName,
+          publishedAt: activatedAt,
+        })
+      }
+      markActivationStepCompleted('BOM_VERSION')
       const updatedStyle = updateStyleArchive(styleId, {
         archiveStatus: 'ACTIVE',
         techPackStatus: '已启用',

@@ -1,7 +1,6 @@
 // 工程主单领域类型：主单、专业任务、任务物料行、返工轮次与前期成果复用。
 // 工程主单是 PCS 生产工程管理的唯一任务编排事实源。
 
-import type { EngineeringBomCustomCostDraft, EngineeringBomMaterialLineDraft } from './pcs-engineering-bom-types.ts'
 
 export type EngineeringMasterStatus =
   | '草稿'
@@ -232,6 +231,7 @@ export interface EngineeringMasterOrderRecord {
   bulkProductionQualification: EngineeringBulkProductionQualification
   merchandiserName: string
   merchandiserId: string
+  bomVersionIds: string[]
   tasks: EngineeringTaskRecord[]
   priorResultReuseLines: EngineeringPriorResultReuseLine[]
   taskPlanConfirmedAt?: string
@@ -328,8 +328,7 @@ export interface EngineeringIndependentSamplingRecord {
   relatedProfessionalTaskIds: string[]
   professionalTasks: EngineeringIndependentProfessionalTask[]
   bomDraftVersionId: string
-  bomMaterialLines: EngineeringBomMaterialLineDraft[]
-  bomCustomCosts: EngineeringBomCustomCostDraft[]
+  bomVersionIds: string[]
   resultVersion: string
   resultSummary: string
   confirmedBy: string

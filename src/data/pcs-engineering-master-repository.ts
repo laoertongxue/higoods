@@ -13,6 +13,16 @@ import {
   type EngineeringBomTaskConditions,
 } from './pcs-engineering-dependency-policy.ts'
 import type { EngineeringBomTaskLinkageRow } from './pcs-engineering-bom-types.ts'
+import {
+  buildEngineeringBomTaskRows,
+  captureEngineeringBomRepositoryState,
+  confirmEngineeringBomVersion,
+  createEngineeringBomVersionsForOwner,
+  getEngineeringBomVersionById,
+  restoreEngineeringBomRepositoryState,
+  saveEngineeringBomVersion,
+} from './pcs-engineering-bom-repository.ts'
+import type { EngineeringBomCustomCostDraft, EngineeringBomMaterialLineDraft, EngineeringBomOperatorRole } from './pcs-engineering-bom-types.ts'
 import { assertEngineeringBomPricingSnapshotValid } from './pcs-engineering-bom-pricing.ts'
 import { assertFirstProductionQualification } from './pcs-engineering-first-production-policy.ts'
 import { listReusableEngineeringIndependentProfessionalResults } from './pcs-engineering-master-sampling.ts'
@@ -84,6 +94,7 @@ function cloneTask(task: EngineeringTaskRecord): EngineeringTaskRecord {
 function cloneRecord(record: EngineeringMasterOrderRecord): EngineeringMasterOrderRecord {
   return {
     ...record,
+    bomVersionIds: [...(record.bomVersionIds || [])],
     tasks: record.tasks.map(cloneTask),
     priorResultReuseLines: record.priorResultReuseLines.map((line) => ({ ...line })),
     qualificationFact: { ...record.qualificationFact },
@@ -157,6 +168,7 @@ function normalizeRecord(record: EngineeringMasterOrderRecord): EngineeringMaste
     qualificationFact: record.qualificationFact || emptyQualification,
     bulkProductionQualification: record.bulkProductionQualification || emptyBulkQualification,
     merchandiserId: record.merchandiserId || '',
+    bomVersionIds: Array.isArray(record.bomVersionIds) ? record.bomVersionIds : [],
     createdById: record.createdById || '',
     qualificationReachedAt: record.qualificationReachedAt || '',
     publishedBy: record.publishedBy || '',
@@ -364,9 +376,20 @@ export function createEngineeringMasterOrder(input: CreateEngineeringMasterOrder
     throw new Error('该做大货资格已经创建过工程主单，禁止重复使用。')
   }
 
+  const masterOrderId = `EM-${Date.now().toString(36)}-${String(snapshot.records.length + 1).padStart(3, '0')}`
+  const masterOrderCode = nextMasterOrderCode(snapshot.records)
+  const bomRepositoryState = captureEngineeringBomRepositoryState()
+  const bomVersions = createEngineeringBomVersionsForOwner({
+    ownerStage: 'ENGINEERING_MASTER',
+    ownerId: masterOrderId,
+    ownerCode: masterOrderCode,
+    styleId: style.styleId,
+    createdBy: input.createdBy,
+  })
+
   const record: EngineeringMasterOrderRecord = {
-    masterOrderId: `EM-${Date.now().toString(36)}-${String(snapshot.records.length + 1).padStart(3, '0')}`,
-    masterOrderCode: nextMasterOrderCode(snapshot.records),
+    masterOrderId,
+    masterOrderCode,
     styleId: style.styleId,
     styleCode: style.styleCode,
     styleName: style.styleName,
@@ -378,6 +401,7 @@ export function createEngineeringMasterOrder(input: CreateEngineeringMasterOrder
     bulkProductionQualification: { ...input.bulkProductionQualification },
     merchandiserName: input.merchandiserName,
     merchandiserId: input.merchandiserId,
+    bomVersionIds: bomVersions.map((item) => item.bomDraftVersionId),
     tasks: [],
     priorResultReuseLines: [],
     taskPlanConfirmedAt: '',
@@ -396,7 +420,12 @@ export function createEngineeringMasterOrder(input: CreateEngineeringMasterOrder
   }
 
   snapshot.records.push(record)
-  writeSnapshot(snapshot)
+  try {
+    writeSnapshot(snapshot)
+  } catch (error) {
+    restoreEngineeringBomRepositoryState(bomRepositoryState)
+    throw error
+  }
   return cloneRecord(record)
 }
 
@@ -1255,6 +1284,44 @@ export function applyBomRequirementsToEngineeringTasks(
     createdTaskCount: 0,
     techPackOnlyProcesses: listTechPackOnlyProcesses(rows),
   }
+}
+
+export function saveEngineeringMasterBomVersion(input: {
+  versionId: string
+  role: EngineeringBomOperatorRole
+  userId: string
+  userName: string
+  materialLines: EngineeringBomMaterialLineDraft[]
+  customCosts: EngineeringBomCustomCostDraft[]
+}): ReturnType<typeof saveEngineeringBomVersion> {
+  const beforeBom = captureEngineeringBomRepositoryState()
+  const beforeMaster = readSnapshot()
+  try {
+    const saved = saveEngineeringBomVersion(input)
+    if (saved.ownerStage === 'ENGINEERING_MASTER') {
+      const master = getEngineeringMasterOrderById(saved.ownerId)
+      if (master?.tasks.length) {
+        const versions = master.bomVersionIds
+          .map((versionId) => getEngineeringBomVersionById(versionId))
+          .filter((item): item is NonNullable<typeof item> => Boolean(item))
+        applyBomRequirementsToEngineeringTasks(master.masterOrderId, buildEngineeringBomTaskRows(versions))
+      }
+    }
+    return saved
+  } catch (error) {
+    restoreEngineeringBomRepositoryState(beforeBom)
+    writeSnapshot(beforeMaster)
+    throw error
+  }
+}
+
+export function confirmEngineeringMasterBomVersion(input: {
+  versionId: string
+  role: EngineeringBomOperatorRole
+  userId: string
+  userName: string
+}): ReturnType<typeof confirmEngineeringBomVersion> {
+  return confirmEngineeringBomVersion(input)
 }
 
 export interface SubmitEngineeringTaskResultInput {

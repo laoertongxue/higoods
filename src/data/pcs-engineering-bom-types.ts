@@ -87,6 +87,39 @@ export interface EngineeringBomDraft {
   customCosts: EngineeringBomCustomCostDraft[]
 }
 
+export type EngineeringBomOwnerStage =
+  | 'INDEPENDENT_SAMPLING'
+  | 'ENGINEERING_MASTER'
+  | 'TECH_PACK_DRAFT'
+  | 'ENGINEERING_CHANGE'
+
+export interface EngineeringBomVersionRecord extends EngineeringBomDraft {
+  bomDraftVersionId: string
+  versionCode: string
+  versionStatus: 'DRAFT' | 'COMPLETED_CONFIRMED' | 'PUBLISHED_SNAPSHOT'
+  ownerStage: EngineeringBomOwnerStage
+  ownerId: string
+  ownerCode: string
+  styleId: string
+  styleCode: string
+  styleName: string
+  styleImageUrl: string
+  productColor: string
+  applicableSkuIds: string[]
+  buyerId: string
+  buyerName: string
+  createdAt: string
+  createdBy: string
+  updatedAt: string
+  updatedBy: string
+  publishedSnapshotId?: string
+}
+
+export interface EngineeringBomVersionStoreSnapshot {
+  version: number
+  records: EngineeringBomVersionRecord[]
+}
+
 export interface EngineeringBomSkuScopeCatalog {
   styleCode: string
   colors: Array<{

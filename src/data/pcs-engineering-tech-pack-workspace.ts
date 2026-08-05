@@ -15,6 +15,15 @@ import type {
   TechnicalModuleKey,
   TechnicalReviewNode,
 } from './pcs-technical-data-version-types'
+import {
+  captureEngineeringBomRepositoryState,
+  confirmEngineeringBomVersion,
+  createEngineeringBomVersionsForOwner,
+  listEngineeringBomVersionsByOwner,
+  restoreEngineeringBomRepositoryState,
+} from './pcs-engineering-bom-repository.ts'
+import { resolveEngineeringBomMaterialLine } from './pcs-engineering-bom-material-resolver.ts'
+import type { EngineeringBomVersionRecord } from './pcs-engineering-bom-types.ts'
 
 export const TECH_PACK_MODULE_LABELS: Record<TechnicalModuleKey, string> = {
   BOM: 'BOM',
@@ -32,6 +41,7 @@ export const TECH_PACK_MODULE_LABELS: Record<TechnicalModuleKey, string> = {
 function collectEngineeringOutputs(
   master: ReturnType<typeof getEngineeringMasterOrderById> extends infer T ? NonNullable<T> : never,
   technicalVersionId: string,
+  bomVersions: EngineeringBomVersionRecord[],
 ): TechnicalDataVersionContent {
   const patternFiles = master.tasks.flatMap((task) => {
     const result = listEngineeringPatternResultVersions(task.taskId)[0]
@@ -60,13 +70,44 @@ function collectEngineeringOutputs(
   const sampleImages = master.tasks
     .filter((task) => task.taskType === 'PRE_PRODUCTION_SAMPLE')
     .flatMap((task) => task.resultImageIds)
+  const bomItems = bomVersions.flatMap((version) => version.materialLines.map((line) => {
+    const resolved = resolveEngineeringBomMaterialLine(line)
+    const type = resolved.materialType === '面料' || resolved.materialType === '辅料' || resolved.materialType === '包装材料' || resolved.materialType === '成衣'
+      ? resolved.materialType
+      : '其他'
+    return {
+      id: resolved.bomItemId || `${version.bomDraftVersionId}-${resolved.materialSkuId}`,
+      type,
+      name: resolved.materialName,
+      spec: resolved.specification || '',
+      materialCode: resolved.materialCode,
+      materialSkuId: resolved.materialSkuId,
+      unit: resolved.usageUnit,
+      colorLabel: version.productColor,
+      unitConsumption: resolved.usage,
+      sampleQuantity: resolved.sampleQuantity,
+      lossRate: resolved.lossRate,
+      supplier: '',
+      printRequirement: resolved.printRequirementText || resolved.printRequirement || '否',
+      dyeRequirement: resolved.dyeRequirementText || resolved.dyeRequirement || '否',
+      shrinkRequirement: resolved.shrinkRequirementText && resolved.shrinkRequirementText !== '无' ? '是' as const : '否' as const,
+      washRequirement: resolved.washRequirementText && resolved.washRequirementText !== '无' ? '是' as const : '否' as const,
+      waterSolubleRequirement: resolved.waterSolubleRequirementText && resolved.waterSolubleRequirementText !== '无' ? '是' as const : '否' as const,
+      printSideMode: resolved.printSide === '双面' ? 'DOUBLE' as const : resolved.printSide === '反面' ? 'REVERSE' as const : resolved.printSide === '正面' ? 'SINGLE' as const : '' as const,
+      applicableSkuCodes: [...version.applicableSkuIds],
+      linkedPatternIds: [...(resolved.linkedPatternResultIds || [])],
+      usageProcessCodes: resolved.processCode ? [resolved.processCode] : [],
+      remark: resolved.remark || '',
+    }
+  }))
   return {
     technicalVersionId,
     patternFiles,
     patternDesc: patternFiles.length ? '由工程主单已完成制版成果自动汇总。' : '',
     processEntries: [],
     sizeTable: [],
-    bomItems: [],
+    bomItems,
+    bomCustomCosts: bomVersions.flatMap((version) => version.customCosts.map((item) => ({ ...item }))),
     qualityRules: [],
     patternDesigns: artworkLines.flatMap((line) => [...line.resultFileIds, ...line.effectImageIds].map((url, index) => ({
       id: `${line.materialLineId}-ART-${index + 1}`,
@@ -146,7 +187,9 @@ export function getEngineeringTechPackTaskView(masterOrderId: string): Engineeri
     && task.status !== '因需求变更结束'
     && task.status !== '已完成',
   )
-  const canGenerate = !latestVersion && pendingTasks.length === 0
+  const engineeringBomVersions = listEngineeringBomVersionsByOwner('ENGINEERING_MASTER', master.masterOrderId)
+  const unfinishedBomVersions = engineeringBomVersions.filter((version) => version.versionStatus !== 'COMPLETED_CONFIRMED' || version.materialLines.length === 0)
+  const canGenerate = !latestVersion && pendingTasks.length === 0 && engineeringBomVersions.length > 0 && unfinishedBomVersions.length === 0
   return {
     latestVersion,
     versions,
@@ -170,6 +213,10 @@ export function getEngineeringTechPackTaskView(masterOrderId: string): Engineeri
       ? '当前工程主单已存在技术包版本。'
       : pendingTasks.length > 0
         ? `以下任务尚未完成：${pendingTasks.map((task) => task.taskName).join('、')}`
+        : engineeringBomVersions.length === 0
+          ? '工程主单尚未建立 BOM 与价格版本。'
+          : unfinishedBomVersions.length > 0
+            ? `以下 BOM 与价格版本尚未由买手确认：${unfinishedBomVersions.map((version) => `${version.productColor} ${version.versionCode}`).join('、')}`
         : '',
   }
 }
@@ -190,11 +237,34 @@ export function createEngineeringMasterTechPackDraft(
   const version = getNextStyleVersionMeta(style.styleId)
   const confirmationTask = master.tasks.find((task) => task.taskType === 'TECH_PACK_CONFIRMATION')
   if (!confirmationTask) throw new Error('工程主单缺少技术包确认任务。')
-  const content = collectEngineeringOutputs(master, identity.technicalVersionId)
+  const bomSnapshot = captureEngineeringBomRepositoryState()
+  const engineeringBomVersions = listEngineeringBomVersionsByOwner('ENGINEERING_MASTER', master.masterOrderId)
+  const confirmedBuyer = engineeringBomVersions.find((item) => item.buyerId && item.buyerName)
+  const technicalBomVersions = createEngineeringBomVersionsForOwner({
+    ownerStage: 'TECH_PACK_DRAFT',
+    ownerId: identity.technicalVersionId,
+    ownerCode: identity.technicalVersionCode,
+    styleId: style.styleId,
+    buyerId: confirmedBuyer?.buyerId,
+    buyerName: confirmedBuyer?.buyerName,
+    createdBy: operator,
+    createdAt: identity.timestamp,
+  })
+  technicalBomVersions.forEach((version) => {
+    confirmEngineeringBomVersion({
+      versionId: version.bomDraftVersionId,
+      role: '买手',
+      userId: confirmedBuyer?.buyerId || 'BUYER-SYSTEM',
+      userName: confirmedBuyer?.buyerName || '买手确认',
+      confirmedAt: identity.timestamp,
+    })
+  })
+  const content = collectEngineeringOutputs(master, identity.technicalVersionId, technicalBomVersions)
   const hasPattern = content.patternFiles.length > 0
-  const missingItemCodes = ['BOM', ...(hasPattern ? [] : ['PATTERN']), 'PROCESS', 'SIZE', 'QUALITY']
-  const missingItemNames = ['BOM 与价格', ...(hasPattern ? [] : ['纸样']), '工艺', '尺码', '质量要求']
-  return createTechnicalDataVersionDraft({
+  const missingItemCodes = [...(hasPattern ? [] : ['PATTERN']), 'PROCESS', 'SIZE', 'QUALITY']
+  const missingItemNames = [...(hasPattern ? [] : ['纸样']), '工艺', '尺码', '质量要求']
+  try {
+    return createTechnicalDataVersionDraft({
     technicalVersionId: identity.technicalVersionId,
     technicalVersionCode: identity.technicalVersionCode,
     versionLabel: version.versionLabel,
@@ -228,13 +298,17 @@ export function createEngineeringMasterTechPackDraft(
     archiveCollectedAt: '',
     versionStatus: 'DRAFT',
     reviewStage: '未提交审核',
-    bomStatus: 'EMPTY', patternStatus: hasPattern ? 'COMPLETE' : 'EMPTY', processStatus: 'EMPTY', gradingStatus: 'EMPTY', qualityStatus: 'EMPTY',
+    bomStatus: 'COMPLETE', patternStatus: hasPattern ? 'COMPLETE' : 'EMPTY', processStatus: 'EMPTY', gradingStatus: 'EMPTY', qualityStatus: 'EMPTY',
     colorMaterialStatus: content.colorMaterialMappings.length ? 'COMPLETE' : 'EMPTY', designStatus: content.patternDesigns.length ? 'COMPLETE' : 'EMPTY', attachmentStatus: content.attachments.length ? 'COMPLETE' : 'EMPTY',
-    bomItemCount: 0, patternFileCount: content.patternFiles.length, processEntryCount: 0, gradingRuleCount: 0, qualityRuleCount: 0,
-    colorMaterialMappingCount: content.colorMaterialMappings.length, designAssetCount: content.patternDesigns.length, attachmentCount: content.attachments.length, completenessScore: hasPattern ? 20 : 0,
+    bomItemCount: content.bomItems.length, patternFileCount: content.patternFiles.length, processEntryCount: 0, gradingRuleCount: 0, qualityRuleCount: 0,
+    colorMaterialMappingCount: content.colorMaterialMappings.length, designAssetCount: content.patternDesigns.length, attachmentCount: content.attachments.length, completenessScore: (hasPattern ? 20 : 0) + 20,
     missingItemCodes,
     missingItemNames,
     publishedAt: '', publishedBy: '', createdAt: identity.timestamp, createdBy: operator,
     updatedAt: identity.timestamp, updatedBy: operator, note: '', legacySpuCode: '', legacyVersionLabel: '',
-  }, content)
+    }, content)
+  } catch (error) {
+    restoreEngineeringBomRepositoryState(bomSnapshot)
+    throw error
+  }
 }

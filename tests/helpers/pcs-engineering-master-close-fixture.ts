@@ -15,6 +15,11 @@ import {
   listTechnicalDataVersions,
 } from '../../src/data/pcs-technical-data-version-repository.ts'
 import { activateTechPackVersionForStyle } from '../../src/data/pcs-tech-pack-version-activation.ts'
+import {
+  confirmEngineeringBomVersion,
+  createEngineeringBomVersionsForOwner,
+  saveEngineeringBomVersion,
+} from '../../src/data/pcs-engineering-bom-repository.ts'
 import type {
   TechnicalDataVersionContent,
   TechnicalDataVersionRecord,
@@ -140,6 +145,43 @@ export function closeEngineeringMasterForFixture(masterOrderId: string, operator
     legacyCompatibleCostPayload: {},
   }
   createTechnicalDataVersionDraft(record, content)
+  const bomVersions = createEngineeringBomVersionsForOwner({
+    ownerStage: 'TECH_PACK_DRAFT',
+    ownerId: versionId,
+    ownerCode: record.technicalVersionCode,
+    styleId: master.styleId,
+    buyerId: 'BUYER-FIXTURE',
+    buyerName: '测试买手',
+    createdBy: operatorName,
+    createdAt: record.createdAt,
+  })
+  bomVersions.forEach((version) => {
+    saveEngineeringBomVersion({
+      versionId: version.bomDraftVersionId,
+      role: '买手',
+      userId: 'BUYER-FIXTURE',
+      userName: '测试买手',
+      materialLines: [{
+        bomItemId: `${version.bomDraftVersionId}-LINE-1`,
+        materialSkuId: sku.materialSkuId,
+        usage: 1,
+        sampleQuantity: 1,
+        usageUnit: sku.pricingUnit,
+        lossRate: 0,
+        applicableSkuIds: [...version.applicableSkuIds],
+        printRequirement: '否',
+        dyeRequirement: '否',
+        purchaseRequirement: '否',
+      }],
+      customCosts: [],
+    })
+    confirmEngineeringBomVersion({
+      versionId: version.bomDraftVersionId,
+      role: '买手',
+      userId: 'BUYER-FIXTURE',
+      userName: '测试买手',
+    })
+  })
   activateTechPackVersionForStyle(master.styleId, versionId, operatorName)
   closeEngineeringMasterOrder(masterOrderId, operatorName)
 }

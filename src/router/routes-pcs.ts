@@ -76,6 +76,10 @@ export const routes: RouteRegistry = {
   },
   dynamicRoutes: [
     {
+      pattern: /^\/pcs\/technical-data\/bom-pricing\/([^/]+)$/,
+      render: (match) => renderers.renderPcsTechnicalDataBomPricingDetailPage(match[1]),
+    },
+    {
       pattern: /^\/pcs\/engineering\/masters\/([^/]+)$/,
       render: (match) => renderers.renderPcsEngineeringMasterDetailPage(match[1]),
     },

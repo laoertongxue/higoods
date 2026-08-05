@@ -14,6 +14,7 @@ const checks = [
   'tests/pcs-engineering-material-review.spec.ts',
   'tests/pcs-engineering-bom-pricing.spec.ts',
   'tests/pcs-engineering-bom-task-linkage.spec.ts',
+  'tests/pcs-engineering-bom-version-workflow.spec.ts',
   'tests/pcs-engineering-purchase-linkage.spec.ts',
   'tests/pcs-engineering-tech-pack-linkage.spec.ts',
   'tests/pcs-engineering-preparation-projection.spec.ts',

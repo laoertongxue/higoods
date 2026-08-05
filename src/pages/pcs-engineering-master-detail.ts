@@ -24,6 +24,7 @@ import type {
   EngineeringTaskType,
 } from '../data/pcs-engineering-master-types.ts'
 import { engineeringTaskHref } from '../data/pcs-engineering-preparation-projection.ts'
+import { buildEngineeringBomTaskRows, listEngineeringBomVersionsByOwner } from '../data/pcs-engineering-bom-repository.ts'
 import { escapeHtml } from '../utils.ts'
 
 const DETAIL_EVENT_PREFIX = 'pcs-engineering-master'
@@ -293,7 +294,7 @@ function renderTaskPlanConfirmation(model: EngineeringMasterDetailModel): string
         }).join('')}
       </div>` : `<div class="px-4 py-8 text-center text-sm text-slate-500">选择生产准备类型后，系统将展示必做任务、条件任务和固定前置。</div>`}
       <footer class="flex flex-wrap items-center justify-between gap-3 border-t bg-slate-50 px-4 py-3">
-        <p class="text-xs text-slate-500">确认后一次性生成任务；条件任务后续仍可由正式 BOM 要求启用。</p>
+        <p class="text-xs text-slate-500">确认后生成固定任务；条件任务根据当前工程 BOM 与价格草稿自动启用。</p>
         <button
           type="button"
           class="inline-flex h-9 items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700"
@@ -303,6 +304,30 @@ function renderTaskPlanConfirmation(model: EngineeringMasterDetailModel): string
       </footer>
     </section>
   `
+}
+
+function renderBomSummary(model: EngineeringMasterDetailModel): string {
+  const summary = model.bomSummary
+  const firstVersionId = summary.versionIds[0] || ''
+  const conditionLabels = [
+    summary.conditions.hasPrintRequirement ? '印花' : '',
+    summary.conditions.hasYarnDyeRequirement ? '纱线染色' : '',
+    summary.conditions.hasFabricDyeRequirement ? '面料染色' : '',
+    summary.conditions.hasAccessoryPurchaseRequirement ? '辅料采购' : '',
+  ].filter(Boolean)
+  return `<section class="rounded-lg border bg-card p-4" data-engineering-bom-summary>
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div><div class="flex items-center gap-2"><h2 class="font-semibold">工程 BOM 与价格</h2><span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs">${escapeHtml(summary.statusText)}</span></div><p class="mt-1 text-xs text-slate-500">${escapeHtml(summary.versionCodes.join('、') || '随工程主单自动建立')}</p></div>
+      <a class="rounded border px-3 py-2 text-sm text-blue-700" href="${firstVersionId ? `/pcs/technical-data/bom-pricing/${escapeHtml(firstVersionId)}` : '/pcs/technical-data/bom-pricing'}">${firstVersionId ? '查看／维护' : '查看 BOM 列表'}</a>
+    </div>
+    <div class="mt-4 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-5">
+      <div><p class="text-xs text-slate-500">颜色版本</p><p class="mt-1 font-medium">${summary.colorCount} 个</p></div>
+      <div><p class="text-xs text-slate-500">物料行</p><p class="mt-1 font-medium">${summary.materialLineCount} 行</p></div>
+      <div><p class="text-xs text-slate-500">承接来源</p><p class="mt-1 font-medium">${summary.sourceVersionCount ? `${summary.sourceVersionCount} 个历史版本` : '空白创建'}</p></div>
+      <div><p class="text-xs text-slate-500">条件要求</p><p class="mt-1 font-medium">${escapeHtml(conditionLabels.join('、') || '暂无')}</p></div>
+      <div><p class="text-xs text-slate-500">买手／更新</p><p class="mt-1 font-medium">${escapeHtml(summary.buyerName)}</p><p class="text-xs text-slate-500">${escapeHtml(summary.updatedAt)}</p></div>
+    </div>
+  </section>`
 }
 
 // ============ 任务表格 ============
@@ -372,6 +397,7 @@ export function renderPcsEngineeringMasterDetailPage(key: string): string {
     <div class="min-w-0 max-w-full space-y-3 p-4" data-pcs-engineering-master-detail-page>
       <div data-engineering-master-region="header">${withDetailLocalInteractions(renderMasterHeader(model))}</div>
       <div data-engineering-master-region="feedback"></div>
+      <div data-engineering-master-region="bom">${renderBomSummary(model)}</div>
       ${renderPriorReuseRegion(model)}
       <div data-engineering-master-region="lanes">${withDetailLocalInteractions(model.status === '草稿' ? renderTaskPlanConfirmation(model) : renderTaskTable(model))}</div>
       <div data-engineering-master-region="image-preview">${withDetailLocalInteractions(renderStyleImagePreview())}</div>
@@ -512,6 +538,17 @@ export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): bool
         confirmedByRole: '跟单',
         preparationType: detailUiState.selectedPreparationType || undefined,
         selectedConditionalTaskTypes: detailUiState.selectedConditionalTaskTypes,
+        bomConditions: (() => {
+          const rows = buildEngineeringBomTaskRows(
+            listEngineeringBomVersionsByOwner('ENGINEERING_MASTER', masterKey),
+          )
+          return {
+            hasPrintRequirement: rows.some((line) => line.printRequirement === '是'),
+            hasYarnDyeRequirement: rows.some((line) => line.dyeRequirement === '是' && line.materialType === '纱线'),
+            hasFabricDyeRequirement: rows.some((line) => line.dyeRequirement === '是' && line.materialType === '面料'),
+            hasAccessoryPurchaseRequirement: rows.some((line) => line.purchaseRequirement === '是'),
+          }
+        })(),
         priorResultDecisions,
       })
       detailUiState.taskPlanError = ''

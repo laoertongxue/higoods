@@ -16,6 +16,8 @@ import {
   listEngineeringMasterOrders,
   listEngineeringMasterPriorResultCandidates,
   seedEngineeringMasterDemoLifecycleStatus,
+  saveEngineeringMasterBomVersion,
+  confirmEngineeringMasterBomVersion,
   setEngineeringMasterStatus,
   updateEngineeringTaskRecord,
 } from './pcs-engineering-master-repository.ts'
@@ -30,6 +32,7 @@ import type {
 } from './pcs-engineering-master-types.ts'
 import { listStyleArchives, updateStyleArchive } from './pcs-style-archive-repository.ts'
 import { createEngineeringMasterTechPackDraft } from './pcs-engineering-tech-pack-workspace.ts'
+import { listEngineeringBomVersionsByOwner, markEngineeringBomVersionsPublished } from './pcs-engineering-bom-repository.ts'
 import {
   listTechnicalDataVersionsByStyleId,
   updateTechnicalDataVersionRecord,
@@ -40,6 +43,10 @@ import {
   startEngineeringChangeTaskLine,
 } from './pcs-engineering-change-workspace.ts'
 import { CURRENT_PCS_ENGINEERING_USER } from './pcs-engineering-current-user.ts'
+import {
+  buildEngineeringBomTaskRows,
+  listEngineeringBomVersionsByOwner,
+} from './pcs-engineering-bom-repository.ts'
 
 // ============ 泳道与逻辑阶段（固定结构，只读） ============
 
@@ -157,10 +164,87 @@ export function ensureEngineeringMasterDemoData(): void {
       bomConditions,
       selectedConditionalTaskTypes: [],
     })
+    ensureEngineeringDemoBomVersions(published, bomConditions)
     ensureEngineeringDemoTaskMaterials([published])
     seedEngineeringMasterScenario(published.masterOrderId, scenarioNo)
   }
   ensureEngineeringLifecycleDemoData()
+}
+
+function ensureEngineeringDemoBomVersions(
+  master: EngineeringMasterOrderRecord,
+  conditions: EngineeringBomTaskConditions,
+): void {
+  const versions = listEngineeringBomVersionsByOwner('ENGINEERING_MASTER', master.masterOrderId)
+  versions.forEach((version) => {
+    if (version.versionStatus !== 'DRAFT') return
+    const base = {
+      usage: 1,
+      sampleQuantity: 1,
+      lossRate: 0,
+      applicableSkuIds: [...version.applicableSkuIds],
+      printRequirement: '否' as const,
+      dyeRequirement: '否' as const,
+      purchaseRequirement: '否' as const,
+      shrinkRequirementText: '无',
+      washRequirementText: '无',
+      waterSolubleRequirementText: '无',
+      printSide: '无' as const,
+      linkedPatternResultIds: [],
+    }
+    const materialLines = [{
+      ...base,
+      bomItemId: `${version.bomDraftVersionId}-BASE`,
+      materialSkuId: 'material_fabric_001_sku_001',
+      materialType: '面料',
+      usageUnit: 'Yard',
+      printRequirement: conditions.hasPrintRequirement ? '是' as const : '否' as const,
+      printRequirementText: conditions.hasPrintRequirement ? '数码印花' : '',
+    }]
+    if (conditions.hasFabricDyeRequirement) materialLines.push({
+      ...base,
+      bomItemId: `${version.bomDraftVersionId}-DYE-FABRIC`,
+      materialSkuId: 'material_fabric_002_sku_001',
+      materialType: '面料',
+      usageUnit: '米',
+      dyeRequirement: '是',
+      dyeRequirementText: '按潘通色号调色',
+      printRequirementText: '',
+    })
+    if (conditions.hasYarnDyeRequirement) materialLines.push({
+      ...base,
+      bomItemId: `${version.bomDraftVersionId}-DYE-YARN`,
+      materialSkuId: 'material_yarn_001_sku_001',
+      materialType: '纱线',
+      usageUnit: '卷',
+      dyeRequirement: '是',
+      dyeRequirementText: '按潘通色号调色',
+      printRequirementText: '',
+    })
+    if (conditions.hasAccessoryPurchaseRequirement) materialLines.push({
+      ...base,
+      bomItemId: `${version.bomDraftVersionId}-PURCHASE`,
+      materialSkuId: 'material_accessory_001_sku_001',
+      materialType: '辅料',
+      usageUnit: 'PCS',
+      purchaseRequirement: '是',
+      printRequirementText: '',
+    })
+    saveEngineeringMasterBomVersion({
+      versionId: version.bomDraftVersionId,
+      role: '买手',
+      userId: 'BUYER-DEMO',
+      userName: '买手-阿乐',
+      materialLines,
+      customCosts: [{ title: '车位费', amountIdr: 25000, note: '演示自定义费用' }],
+    })
+    confirmEngineeringMasterBomVersion({
+      versionId: version.bomDraftVersionId,
+      role: '买手',
+      userId: 'BUYER-DEMO',
+      userName: '买手-阿乐',
+    })
+  })
 }
 
 function ensureEngineeringDemoTaskMaterials(records: EngineeringMasterOrderRecord[]): void {
@@ -326,6 +410,18 @@ function ensureEngineeringLifecycleDemoData(): void {
     })
   }
   if (currentVersion) {
+    const technicalBomVersions = listEngineeringBomVersionsByOwner('TECH_PACK_DRAFT', currentVersion.technicalVersionId)
+    if (technicalBomVersions.length > 0 && technicalBomVersions.every((version) => version.versionStatus === 'COMPLETED_CONFIRMED')) {
+      markEngineeringBomVersionsPublished({
+        ownerStage: 'TECH_PACK_DRAFT',
+        ownerId: currentVersion.technicalVersionId,
+        publishedSnapshotId: currentVersion.technicalVersionId,
+        publishedBy: closedMaster.merchandiserName,
+        publishedAt: '2026-08-04 17:30:00',
+      })
+    }
+  }
+  if (currentVersion) {
     updateStyleArchive(closedMaster.styleId, {
       currentTechPackVersionId: currentVersion.technicalVersionId,
       currentTechPackVersionCode: currentVersion.technicalVersionCode,
@@ -470,6 +566,17 @@ export interface EngineeringMasterDetailModel {
   priorResultReuseLines: EngineeringPriorResultReuseLine[]
   priorResultCandidateGroups: EngineeringPriorResultCandidateGroup[]
   taskPlanSuggestions: EngineeringTaskPlanSuggestion[]
+  bomSummary: {
+    versionIds: string[]
+    versionCodes: string[]
+    colorCount: number
+    materialLineCount: number
+    sourceVersionCount: number
+    statusText: string
+    buyerName: string
+    updatedAt: string
+    conditions: EngineeringBomTaskConditions
+  }
 }
 
 export interface EngineeringPriorResultCandidateModel {
@@ -497,11 +604,14 @@ function buildTaskPlanSuggestions(
   preparationType: EngineeringPreparationType | '' = record.preparationType,
 ): EngineeringTaskPlanSuggestion[] {
   if (!preparationType) return []
+  const bomRows = buildEngineeringBomTaskRows(
+    listEngineeringBomVersionsByOwner('ENGINEERING_MASTER', record.masterOrderId),
+  )
   const conditions: EngineeringBomTaskConditions = {
-    hasPrintRequirement: record.tasks.some((task) => task.materialLines.some((line) => line.requirementType === '印花' && line.status === '正常')),
-    hasYarnDyeRequirement: record.tasks.some((task) => task.materialLines.some((line) => line.requirementType === '染色' && line.materialType === '纱线' && line.status === '正常')),
-    hasFabricDyeRequirement: record.tasks.some((task) => task.materialLines.some((line) => line.requirementType === '染色' && line.materialType === '面料' && line.status === '正常')),
-    hasAccessoryPurchaseRequirement: record.tasks.some((task) => task.materialLines.some((line) => line.requirementType === '辅料' && line.status === '正常')),
+    hasPrintRequirement: bomRows.some((line) => line.printRequirement === '是'),
+    hasYarnDyeRequirement: bomRows.some((line) => line.dyeRequirement === '是' && line.materialType === '纱线'),
+    hasFabricDyeRequirement: bomRows.some((line) => line.dyeRequirement === '是' && line.materialType === '面料'),
+    hasAccessoryPurchaseRequirement: bomRows.some((line) => line.purchaseRequirement === '是'),
   }
   const plan = new Map(buildEngineeringTaskPlan(preparationType, conditions).map((line) => [line.taskType, line]))
   return listEngineeringTaskDefinitions().map((definition) => {
@@ -655,6 +765,15 @@ export function buildEngineeringMasterDetailModel(
     return { laneKey: lane.laneKey, laneName: lane.laneName, tasks }
   })
 
+  const bomVersions = listEngineeringBomVersionsByOwner('ENGINEERING_MASTER', record.masterOrderId)
+  const bomRows = buildEngineeringBomTaskRows(bomVersions)
+  const bomConditions: EngineeringBomTaskConditions = {
+    hasPrintRequirement: bomRows.some((line) => line.printRequirement === '是'),
+    hasYarnDyeRequirement: bomRows.some((line) => line.dyeRequirement === '是' && line.materialType === '纱线'),
+    hasFabricDyeRequirement: bomRows.some((line) => line.dyeRequirement === '是' && line.materialType === '面料'),
+    hasAccessoryPurchaseRequirement: bomRows.some((line) => line.purchaseRequirement === '是'),
+  }
+
   return {
     masterOrderId: record.masterOrderId,
     masterOrderCode: record.masterOrderCode,
@@ -671,5 +790,18 @@ export function buildEngineeringMasterDetailModel(
     priorResultReuseLines: record.priorResultReuseLines.map((line) => ({ ...line })),
     priorResultCandidateGroups,
     taskPlanSuggestions: buildTaskPlanSuggestions(record, style, effectivePreparationType),
+    bomSummary: {
+      versionIds: bomVersions.map((item) => item.bomDraftVersionId),
+      versionCodes: bomVersions.map((item) => item.versionCode),
+      colorCount: bomVersions.length,
+      materialLineCount: bomVersions.reduce((sum, item) => sum + item.materialLines.length, 0),
+      sourceVersionCount: bomVersions.filter((item) => Boolean(item.sourceVersionId)).length,
+      statusText: bomVersions.length === 0
+        ? '未建立'
+        : bomVersions.every((item) => item.versionStatus === 'COMPLETED_CONFIRMED') ? '已完成且已确认' : '草稿',
+      buyerName: bomVersions.find((item) => item.buyerName && item.buyerName !== '待分配买手')?.buyerName || '待分配买手',
+      updatedAt: bomVersions.map((item) => item.updatedAt).sort().at(-1) || record.createdAt,
+      conditions: bomConditions,
+    },
   }
 }

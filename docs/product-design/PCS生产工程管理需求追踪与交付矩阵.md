@@ -539,6 +539,17 @@
 | PCS-BOM-076 | 18.6 | 来源 BOM 版本始终只读。 | WP05 | 编辑门禁 | C/U | 已验证 |
 | PCS-BOM-077 | 18.7 | 已审核通过成果在新增需求轮次中保持锁定。 | WP05 | 条件变更规则 | C/U | 已验证 |
 | PCS-BOM-078 | 18.7 | 正式技术包发布后的 BOM 变化必须走工程变更。 | WP08 | 变更门禁 | C/U | 已验证 |
+| PCS-BOM-079 | 18.0 | BOM 与价格不提供独立新建、手工编号或历史导入入口。 | WP05 | 列表动作与创建边界 | C/U/R | 已验证 |
+| PCS-BOM-080 | 18.0 | 创建工程主单时按目标款式有效颜色原子创建 BOM 草稿。 | WP05 | 主单与 BOM 原子事务 | C | 已验证 |
+| PCS-BOM-081 | 18.0 | 创建改款或设计打样时按目标款式有效颜色原子创建 BOM 草稿。 | WP05 | 独立打样与 BOM 原子事务 | C | 已验证 |
+| PCS-BOM-082 | 18.0 | 新草稿推荐同 SPU、同颜色最近已完成且已确认的 BOM 版本。 | WP05 | 版本推荐与复制 | C | 已验证 |
+| PCS-BOM-083 | 18.0 | 技术资料中的 BOM 与价格是唯一编辑入口。 | WP05 | 页面入口和写入收口 | U/R | 已验证 |
+| PCS-BOM-084 | 18.0 | 工程主单和独立打样只展示 BOM 摘要与维护链接。 | WP03 | 详情摘要 | U/B | 已验证 |
+| PCS-BOM-085 | 18.7 | 空 BOM 不阻断跟单确认固定任务方案。 | WP03 | 方案确认门禁 | C/U | 已验证 |
+| PCS-BOM-086 | 18.7 | 买手保存 BOM 后按印花、染色和采购要求启用条件任务。 | WP05 | 条件任务投影 | C/U | 已验证 |
+| PCS-BOM-087 | 18.7 | 专业任务中的物料明细只读取 BOM 投影，不形成第二套事实。 | WP06 | 任务物料投影 | C/U | 已验证 |
+| PCS-BOM-088 | 18.5 | 全部颜色 BOM 确认后才允许确认独立打样成果或生成技术包。 | WP07 | 完整性门禁 | C/U | 已验证 |
+| PCS-BOM-089 | 18.5 | 技术包草稿复制工程 BOM 并保留来源，发布时形成正式快照。 | WP07 | 复制来源与发布快照 | C/U | 已验证 |
 | PCS-TEC-029 | 19.1 | 技术包版本记录来源主单或工程变更任务。 | WP07 | 版本元数据 | C/U | 已验证 |
 | PCS-TEC-030 | 19.1 | 技术包版本记录目标 SPU 和基础版本。 | WP07 | 版本元数据 | C/U | 已验证 |
 | PCS-TEC-031 | 19.1 | 商品档案只查看技术包版本及来源。 | WP07 | 商品档案关联区 | U/B | 已验证 |
@@ -725,6 +736,15 @@
 | A9 · PCS-SMP-010～PCS-SMP-012 | `src/data/pcs-engineering-master-sampling.ts`、`src/pages/pcs-independent-sampling.ts` | `tests/pcs-independent-sampling.spec.ts` 验证买手权限、物料草稿行、真实图片及 `1.25 × 3 ×（1 + 10%）= 4.125` | `/pcs/engineering/revision-sampling/ES-ID-R-026` 由买手维护单位用量 `1.25`、打样数量 `3`、损耗率 `10%` 后保存；页面反馈成功并展示 `4.1250 PCS`、标准单价 `¥68.0000`、物料成本 `¥280.50`。 | 已验证 |
 | A9 · PCS-MOCK-011 | `src/data/pcs-engineering-master-sampling.ts`、`src/data/pcs-engineering-master-repository.ts` | `tests/pcs-engineering-prior-result-reuse.spec.ts` | 工程草稿 `EM-002` 详情（当前浏览器路由 `/pcs/engineering/masters/EM-msexp00b-002`）展示“前期成果”；花型与面料调色均推荐 `ES-D-002 · v1.0`，并可选择“复用／重新执行／不采用”。 | 已验证 |
 
+### 7.2 BOM 创建、集中维护与技术包快照证据回填（2026-08-05）
+
+| 需求 ID | 实际实现位置 | 自动检查证据 | 命名页面／业务场景证据 | 结论 |
+|---|---|---|---|---|
+| PCS-BOM-079～PCS-BOM-084 | `src/data/pcs-engineering-bom-repository.ts`、`src/data/pcs-engineering-master-repository.ts`、`src/data/pcs-engineering-master-sampling.ts`、`src/pages/pcs-technical-data.ts`、`src/pages/pcs-engineering-master-detail.ts`、`src/pages/pcs-independent-sampling.ts` | `tests/pcs-engineering-bom-version-workflow.spec.ts`、`tests/pcs-independent-sampling.spec.ts` | `/pcs/technical-data/bom-pricing` 无新增入口；主单与独立打样详情只显示按颜色的 BOM 摘要并跳转唯一详情页。 | 已验证 |
+| PCS-BOM-003～PCS-BOM-067 | `src/pages/pcs-technical-data.ts`、`src/data/pcs-engineering-bom-material-resolver.ts`、`src/data/pcs-engineering-bom-pricing.ts` | `tests/pcs-engineering-bom-version-workflow.spec.ts`、`tests/pcs-independent-sampling.spec.ts` | `/pcs/technical-data/bom-pricing/:versionId` 展示物料、用量、损耗、打样数量、印花／染色／采购、工艺要求、适用 SKU、标准价、自定义 IDR 费用、汇率与双币成本；写入由买手权限守卫。 | 已验证 |
+| PCS-BOM-085～PCS-BOM-087 | `src/data/pcs-engineering-master-repository.ts`、`src/data/pcs-engineering-bom-repository.ts`、工程任务投影 | `scripts/check-pcs-engineering-master.ts` | 主单草稿可先确认固定任务；保存 BOM 后启用花型、调色和辅料下单条件任务，任务物料读取同一 BOM 版本。 | 已验证 |
+| PCS-BOM-088～PCS-BOM-089 | `src/data/pcs-engineering-tech-pack-workspace.ts`、`src/data/pcs-tech-pack-version-activation.ts` | `tests/pcs-engineering-bom-version-workflow.spec.ts`、`tests/pcs-tech-pack-bom-review-activation-atomic.spec.ts` | 缺任一颜色确认时阻断；生成技术包时复制并记录来源，发布后状态为正式快照。 | 已验证 |
+
 ## 8. 最终交付门禁
 
 最终宣称“总体设计已经全部实现”前，必须同时满足：
@@ -749,7 +769,7 @@
 | WP02 | PCS-TPL-*、PCS-DEP-*、任务矩阵和 SLA | `src/data/pcs-engineering-first-production-policy.ts`、`src/data/pcs-engineering-dependency-policy.ts` | `scripts/check-pcs-engineering-master.ts` | 主单方案确认、固定依赖、并行阶段 | 已验证 |
 | WP03 | PCS-MST-*、PCS-PLAN-*、主单状态 | `src/data/pcs-engineering-master-repository.ts`、`src/data/pcs-engineering-master-view-model.ts`、`src/pages/pcs-engineering-tasks.ts` | `scripts/check-pcs-engineering-master.ts` | `/pcs/engineering/masters`、主单详情 | 已验证 |
 | WP04 | PCS-SMP-* 和前期成果复用 | `src/data/pcs-engineering-master-sampling.ts`、`src/pages/pcs-independent-sampling.ts` | `tests/pcs-independent-sampling.spec.ts`、`tests/pcs-independent-sampling-pages.spec.ts`、`tests/pcs-engineering-prior-result-reuse.spec.ts` | 改款任务、设计打样任务列表／详情／创建 | 已验证 |
-| WP05 | PCS-BOM-*、PCS-COST-*、价格和快照 | `src/data/pcs-engineering-bom-types.ts`、`src/data/pcs-engineering-bom-pricing.ts`、`src/data/pcs-engineering-bom-version.ts` | `scripts/check-pcs-engineering-master.ts` | BOM 与价格页、技术包正式快照 | 已验证 |
+| WP05 | PCS-BOM-*、PCS-COST-*、价格和快照 | `src/data/pcs-engineering-bom-types.ts`、`src/data/pcs-engineering-bom-repository.ts`、`src/data/pcs-engineering-bom-pricing.ts`、`src/data/pcs-engineering-master-repository.ts` | `tests/pcs-engineering-bom-version-workflow.spec.ts`、`tests/pcs-independent-sampling.spec.ts`、`scripts/check-pcs-engineering-master.ts` | BOM 与价格唯一编辑页、主单／独立打样摘要、技术包正式快照 | 已验证 |
 | WP06 | PCS-PAT-*、PCS-SAM-*、PCS-ART-*、PCS-COL-*、PCS-PUR-* | `src/pages/pcs-engineering-tasks/`、`src/data/pcs-engineering-pattern-result.ts`、`src/data/pcs-engineering-purchase-linkage.ts` | `scripts/check-pcs-engineering-master.ts` | 六类专业任务列表和详情 | 已验证 |
 | WP07 | PCS-TP-*、技术资料和审核发布 | `src/data/pcs-engineering-tech-pack-workspace.ts`、`src/pages/pcs-engineering-tasks/tech-pack-task.ts`、`src/pages/pcs-technical-data.ts` | `scripts/check-pcs-engineering-master.ts` | 技术包确认、技术包列表、BOM 与价格、模板库、花型库 | 已验证 |
 | WP08 | PCS-CLS-*、PCS-CHG-* | `src/data/pcs-engineering-change-workspace.ts`、`src/pages/pcs-engineering-change.ts` | `scripts/check-pcs-engineering-master.ts` | 工程变更列表／创建／详情 | 已验证 |
@@ -762,9 +782,9 @@
 
 | 项目 | 记录 |
 | --- | --- |
-| 工作树 | .worktrees/pcs-engineering-master-design |
-| 分支 | codex/pcs-engineering-master-design |
-| 基准 Git HEAD | d9134089628ecbdbad690b1fd1b097ab4f27b2f5 |
+| 工作树 | .worktrees/transfer-bag-repack-recovery |
+| 分支 | main |
+| 基准 Git HEAD | 6f8e7bd0 |
 | 验证范围 | 总体设计、实施计划、527 条原子需求、生产工程页面与领域规则 |
 | 验证人 | Codex |
 | 最终状态 | 以最后一次专项、浏览器、治理、构建、CodeGraph 和任务收据结果为准 |
