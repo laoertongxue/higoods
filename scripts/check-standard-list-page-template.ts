@@ -54,6 +54,17 @@ function extractStandardListGovernanceSection(source: string): string {
 }
 
 function assertStandardListGovernanceSection(section: string): void {
+  assert.match(section, /\/fcs\/craft\/cutting\/supplement-management/, '标准列表治理章节必须写明补料管理验收基准')
+  assert.match(section, /renderStandardListPage/, '标准列表治理章节必须要求使用标准列表公共骨架')
+  assert.match(section, /48px 单行布局/, '标准列表治理章节必须规定 48px 单行摘要')
+  assert.match(section, /列表必须分页/, '标准列表治理章节必须强制分页')
+  assert.match(section, /列显示、顺序、排序和冻结/, '标准列表治理章节必须要求完整列管理')
+  assert.match(section, /固定左侧/, '标准列表治理章节必须要求普通冻结列固定左侧')
+  assert.match(section, /不可隐藏/, '标准列表治理章节必须要求防错列不可隐藏')
+  assert.match(section, /操作列固定右侧/, '标准列表治理章节必须要求操作列固定右侧')
+  assert.match(section, /按路由持久化/, '标准列表治理章节必须要求列偏好按路由持久化')
+  assert.match(section, /页面主体不得横向溢出/, '标准列表治理章节必须规定页面横向溢出边界')
+  assert.match(section, /业务例外写入完整原型审查记录/, '标准列表治理章节必须要求业务例外写入审查记录')
   assert.match(
     section,
     /^本节只适用于管理端 \/ 主管端桌面标准数据列表，不适用于 PDA、员工任务队列、固定摘要、步骤页和扫码结果页。$/m,
@@ -114,6 +125,12 @@ const rejectedGovernanceVariants = [
   standardListGovernanceSection.replace('当前页和排序不持久化', '当前页和排序持久化'),
   standardListGovernanceSection.replace('页面主体不得横向溢出', '页面主体允许横向溢出'),
   standardListGovernanceSection.replace('不得修改基线或检查脚本绕过门禁', '可以修改基线或检查脚本绕过门禁'),
+  standardListGovernanceSection.replace('列显示、顺序、排序和冻结', '仅显示默认列'),
+  standardListGovernanceSection.replace('48px 单行布局', '普通卡片布局'),
+  standardListGovernanceSection.replace('固定左侧', '随表格滚动'),
+  standardListGovernanceSection.replace('不可隐藏', '可以隐藏'),
+  standardListGovernanceSection.replace('操作列固定右侧', '操作列不固定'),
+  standardListGovernanceSection.replace('按路由持久化', '不持久化'),
 ]
 for (const [index, rejectedVariant] of rejectedGovernanceVariants.entries()) {
   assert.notEqual(rejectedVariant, standardListGovernanceSection, `治理否定变体 ${index + 1} 必须实际改变章节内容`)
