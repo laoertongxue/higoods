@@ -307,6 +307,7 @@ function renderTabsBar(state: AppState): string {
 export function isStandalonePrintPath(pathname: string): boolean {
   return pathname.startsWith('/fcs/print/')
     || pathname.startsWith('/fcs/task-print/')
+    || pathname.startsWith('/fcs/contracts/print')
     || /^\/fcs\/production\/orders\/[^/]+\/confirmation-print/.test(pathname)
 }
 

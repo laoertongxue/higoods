@@ -61,11 +61,8 @@ type DistributionMode = 'BAG_AWARE' | 'FREE'
 type AssignMode = 'DIRECT' | 'BIDDING' | 'REASSIGN'
 
 type WorkbenchFilterKey =
-  | 'assignmentProgress' | 'assignmentMode' | 'stage' | 'process' | 'craft' | 'factory'
+  | 'assignmentProgress' | 'assignmentMode' | 'process' | 'craft' | 'factory'
   | 'priceStatus' | 'domesticTracker' | 'indonesiaTracker' | 'dispatchStart' | 'dispatchEnd'
-  | 'acceptanceStatus' | 'autoEligibility' | 'autoConfig' | 'autoResult' | 'readinessRisk' | 'baggingStatus'
-  | 'mergeMode' | 'contractStatus' | 'quantityMin' | 'quantityMax' | 'skuCountMin' | 'skuCountMax'
-  | 'taskDeadlineStart' | 'taskDeadlineEnd' | 'currency' | 'priceUnit'
 
 type WorkbenchFilters = Record<WorkbenchFilterKey, string>
 
@@ -79,7 +76,6 @@ interface DispatchDialogState {
   tenderDeadline: string
   reassignReason: string
   selectedSkuCodes: Set<string>
-  riskAcknowledged: boolean
   confirmStage: 1 | 2
   error: string
   baggingNotice: string
@@ -126,6 +122,7 @@ interface WorkbenchState {
   keyword: string
   page: number
   detailTaskId: string | null
+  detailMode: 'DETAIL' | 'LOG'
   dispatch: DispatchDialogState | null
   merge: MergeDialogState | null
   autoDispatch: AutoDispatchDialogState | null
@@ -138,11 +135,8 @@ interface WorkbenchState {
 }
 
 const DEFAULT_FILTERS: WorkbenchFilters = {
-  assignmentProgress: 'ALL', assignmentMode: 'ALL', stage: 'ALL', process: 'ALL', craft: 'ALL', factory: 'ALL',
+  assignmentProgress: 'ALL', assignmentMode: 'ALL', process: 'ALL', craft: 'ALL', factory: 'ALL',
   priceStatus: 'ALL', domesticTracker: 'ALL', indonesiaTracker: 'ALL', dispatchStart: '', dispatchEnd: '',
-  acceptanceStatus: 'ALL', autoEligibility: 'ALL', autoConfig: 'ALL', autoResult: 'ALL', readinessRisk: 'ALL', baggingStatus: 'ALL',
-  mergeMode: 'ALL', contractStatus: 'ALL', quantityMin: '', quantityMax: '', skuCountMin: '', skuCountMax: '',
-  taskDeadlineStart: '', taskDeadlineEnd: '', currency: 'ALL', priceUnit: 'ALL',
 }
 
 const state: WorkbenchState = {
@@ -150,6 +144,7 @@ const state: WorkbenchState = {
   keyword: '',
   page: 1,
   detailTaskId: null,
+  detailMode: 'DETAIL',
   dispatch: null,
   merge: null,
   autoDispatch: null,
@@ -298,7 +293,7 @@ function processNames(task: RuntimeProcessTask): string[] {
   const names = task.coveredProcesses?.length
     ? task.coveredProcesses.map((item) => item.processName)
     : [task.processNameZh]
-  return names
+  return Array.from(new Set(names.filter(Boolean)))
 }
 
 interface TaskListContext {
@@ -307,17 +302,11 @@ interface TaskListContext {
   spuName: string
   domesticTracker: string
   indonesiaTracker: string
-  stageCode: string
-  stageLabel: string
   processCode: string
   processLabel: string
   craftCode: string
   craftLabel: string
   priceStatus: string
-  contractStatus: string
-  autoConfigured: boolean
-  baggingStatus: string
-  readinessRisk: string
 }
 
 const INDONESIA_TRACKERS = ['Ayu', 'Dewi', 'Rina', 'Sari']
@@ -344,53 +333,24 @@ function taskPriceStatus(task: RuntimeProcessTask): string {
   return 'MATCH'
 }
 
-function taskContractStatus(task: RuntimeProcessTask): string {
-  const policy = classifyTaskFulfillmentPolicy(task)
-  if (!policy.contractRequired) return 'NOT_REQUIRED'
-  const contracts = listProductionContracts({ runtimeTaskId: task.taskId })
-  if (contracts.some((item) => item.status === 'GENERATION_FAILED')) return 'FAILED'
-  const effective = contracts.find((item) => item.status === 'EFFECTIVE')
-  if (!effective) return task.assignedFactoryId ? 'PENDING' : 'WAIT_FACTORY'
-  return effective.scans.length ? 'SIGNED_SCAN_UPLOADED' : 'EFFECTIVE'
-}
-
 function taskListContext(task: RuntimeProcessTask): TaskListContext {
   const order = findProductionOrder(task)
-  const policy = classifyTaskFulfillmentPolicy(task)
-  const stageCode = String(task.stageCode || task.stage || 'PROD')
-  const stageLabel = stageCode === 'POST' ? '后道阶段' : '生产阶段'
   const processCode = normalizeProductionExecutionProcessCode(task.processBusinessCode || task.processCode || task.processNameZh)
   const processLabel = task.processBusinessName || task.processNameZh
   const craftCode = task.craftCode || 'NO_CRAFT'
   const craftLabel = task.craftName || '无独立工艺'
   const trackerIndex = deterministicIndex(task.productionOrderId || task.taskId)
-  let baggingStatus = 'NOT_APPLICABLE'
-  let readinessRisk = 'NOT_APPLICABLE'
-  if (policy.requiresSewingReadinessContext) {
-    const snapshot = buildDispatchBaggingSnapshot(task)
-    if (snapshot.bags.some((bag) => bag.mixedProductionOrders)) baggingStatus = 'MIXED'
-    else if (!snapshot.bags.length) baggingStatus = 'NONE'
-    else if (snapshot.unbaggedQty == null || snapshot.unbaggedQty > 0) baggingStatus = 'PARTIAL'
-    else baggingStatus = 'COVERED'
-    readinessRisk = snapshot.warnings.length ? 'RISK' : 'NORMAL'
-  }
   return {
     order,
     spuCode: order?.demandSnapshot.spuCode || task.productionOrderNo || '待关联款式',
     spuName: order?.demandSnapshot.spuName || '款式信息待同步',
     domesticTracker: order?.demandSnapshot.merchandiserName || '未分配',
     indonesiaTracker: trackerIndex % 5 === 0 ? '未分配' : INDONESIA_TRACKERS[trackerIndex % INDONESIA_TRACKERS.length],
-    stageCode,
-    stageLabel,
     processCode,
     processLabel,
     craftCode,
     craftLabel,
     priceStatus: taskPriceStatus(task),
-    contractStatus: taskContractStatus(task),
-    autoConfigured: Boolean(autoDispatchConfigs.get(autoDispatchRuleKey(task))?.enabled),
-    baggingStatus,
-    readinessRisk,
   }
 }
 
@@ -416,15 +376,12 @@ function taskRows(): RuntimeProcessTask[] {
     .filter((task) => {
       const context = taskListContext(task)
       const filters = state.filters
-      const assignment = listCurrentEffectiveTaskAssignments(task.taskId)[0]
-      const skuCount = task.scopeSkuLines.length || 1
       if (keyword && ![
         context.spuCode, context.spuName, task.taskNo, task.taskId, task.productionOrderNo, task.productionOrderId,
         context.processLabel, context.craftLabel, task.assignedFactoryName, context.domesticTracker, context.indonesiaTracker,
       ].some((value) => String(value || '').toLowerCase().includes(keyword))) return false
       if (filters.assignmentProgress !== 'ALL' && task.assignmentStatus !== filters.assignmentProgress) return false
       if (filters.assignmentMode !== 'ALL' && assignmentModeValue(task) !== filters.assignmentMode) return false
-      if (filters.stage !== 'ALL' && context.stageCode !== filters.stage) return false
       if (filters.process !== 'ALL' && context.processCode !== filters.process) return false
       if (filters.craft !== 'ALL' && context.craftCode !== filters.craft) return false
       if (filters.factory !== 'ALL' && String(task.assignedFactoryId || '') !== filters.factory) return false
@@ -432,25 +389,6 @@ function taskRows(): RuntimeProcessTask[] {
       if (filters.domesticTracker !== 'ALL' && context.domesticTracker !== filters.domesticTracker) return false
       if (filters.indonesiaTracker !== 'ALL' && context.indonesiaTracker !== filters.indonesiaTracker) return false
       if (!dateInRange(task.businessAssignedAt || task.dispatchedAt, filters.dispatchStart, filters.dispatchEnd)) return false
-      if (filters.acceptanceStatus !== 'ALL' && String(task.acceptanceStatus || 'NOT_ACCEPTED') !== filters.acceptanceStatus) return false
-      if (filters.autoEligibility !== 'ALL' && (isAutoDispatchScopeTask(task) ? 'ELIGIBLE' : 'INELIGIBLE') !== filters.autoEligibility) return false
-      if (filters.autoConfig !== 'ALL' && (context.autoConfigured ? 'CONFIGURED' : 'NOT_CONFIGURED') !== filters.autoConfig) return false
-      if (filters.autoResult !== 'ALL') {
-        const autoAssigned = Boolean(assignment?.operatedBy.includes('自动分配'))
-        const autoResult = automaticDispatchFailures.has(task.taskId) ? 'FAILED' : autoAssigned ? 'SUCCEEDED' : 'NOT_EXECUTED'
-        if (autoResult !== filters.autoResult) return false
-      }
-      if (filters.readinessRisk !== 'ALL' && context.readinessRisk !== filters.readinessRisk) return false
-      if (filters.baggingStatus !== 'ALL' && context.baggingStatus !== filters.baggingStatus) return false
-      if (filters.mergeMode !== 'ALL' && String(task.mergedTaskType || 'INDEPENDENT') !== filters.mergeMode) return false
-      if (filters.contractStatus !== 'ALL' && context.contractStatus !== filters.contractStatus) return false
-      if (filters.quantityMin && task.scopeQty < Number(filters.quantityMin)) return false
-      if (filters.quantityMax && task.scopeQty > Number(filters.quantityMax)) return false
-      if (filters.skuCountMin && skuCount < Number(filters.skuCountMin)) return false
-      if (filters.skuCountMax && skuCount > Number(filters.skuCountMax)) return false
-      if (!dateInRange(task.taskDeadline, filters.taskDeadlineStart, filters.taskDeadlineEnd)) return false
-      if (filters.currency !== 'ALL' && String(task.dispatchPriceCurrency || task.standardPriceCurrency || 'IDR') !== filters.currency) return false
-      if (filters.priceUnit !== 'ALL' && String(task.dispatchPriceUnit || task.standardPriceUnit || '件') !== filters.priceUnit) return false
       return true
     })
 }
@@ -474,64 +412,52 @@ function currentContract(taskId: string) {
 
 const columns: StandardListColumn<RuntimeProcessTask>[] = [
   {
-    key: 'style', title: '款式 / SPU', width: 230, required: true, freezeable: true,
-    render: (task) => { const context = taskListContext(task); return `<div class="flex gap-3"><button data-unified-action="preview-image" data-image="${taskImage(task)}" data-label="${escapeHtml(context.spuCode)}"><img src="${taskImage(task)}" alt="${escapeHtml(context.spuCode)}款式实拍图" class="h-14 w-12 rounded border object-cover"/></button><div><b>${escapeHtml(context.spuCode)}</b><p class="mt-1 max-w-[150px] truncate text-xs text-muted-foreground">${escapeHtml(context.spuName)}</p></div></div>` },
-  },
-  {
-    key: 'identity', title: '生产单 / 任务', width: 220, required: true, freezeable: true,
-    render: (task) => `<b>${escapeHtml(task.productionOrderNo || task.productionOrderId || '未关联生产单')}</b><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.taskNo || task.taskId)}</p>`,
-  },
-  {
-    key: 'stage', title: '阶段', width: 110,
-    render: (task) => `<span class="rounded bg-slate-100 px-2 py-1 text-xs">${escapeHtml(taskListContext(task).stageLabel)}</span>`,
-  },
-  {
-    key: 'type', title: '任务类型 / 工序 / 工艺', width: 250, required: true,
-    render: (task) => { const context = taskListContext(task); return `<b>${escapeHtml(typeLabel(getTaskType(task)))}</b><p class="mt-1 text-xs">${escapeHtml(processNames(task).join(' → '))}</p><p class="text-xs text-muted-foreground">工艺：${escapeHtml(context.craftLabel)}</p>${task.mergeSourceTaskIds?.length ? `<span class="mt-1 inline-flex rounded bg-violet-50 px-2 py-0.5 text-xs text-violet-700">固定责任范围 · 已合并 ${task.mergeSourceTaskIds.length} 个任务</span>` : ''}` },
-  },
-  {
-    key: 'scope', title: '数量 / 分配颗粒度', width: 175,
+    key: 'taskObject', title: '任务对象', width: 300, required: true, freezeable: true,
     render: (task) => {
-      const policy = classifyTaskFulfillmentPolicy(task)
-      return `<b>${policy.assignmentGranularity === 'SKU' ? 'SKU（不可拆数量）' : '整任务'}</b><p class="mt-1 text-xs text-muted-foreground">${task.scopeSkuLines.length || 1} 个SKU · ${task.scopeQty.toLocaleString()}件</p>`
+      const context = taskListContext(task)
+      return `<div class="flex gap-3"><button class="relative flex h-16 w-14 shrink-0 items-center justify-center overflow-hidden rounded border bg-slate-50" aria-label="查看${escapeHtml(context.spuCode)}高清款式图" data-unified-action="preview-image" data-image="${escapeHtml(taskImage(task))}" data-label="${escapeHtml(context.spuCode)}"><img src="${escapeHtml(taskImage(task))}" alt="${escapeHtml(context.spuCode)}款式实拍图" class="h-full w-full object-cover" onerror="this.hidden=true;this.nextElementSibling.hidden=false"/><span hidden class="px-1 text-center text-[10px] text-red-600">图片加载失败</span></button><div class="min-w-0"><b>${escapeHtml(context.spuCode)}</b><p class="max-w-[190px] truncate text-xs text-muted-foreground">${escapeHtml(context.spuName)}</p><p class="mt-1 text-xs">生产单：${escapeHtml(task.productionOrderNo || task.productionOrderId || '未关联')}</p><p class="text-xs text-muted-foreground">任务：${escapeHtml(task.taskNo || task.taskId)}</p></div></div>`
     },
   },
   {
-    key: 'readiness', title: '生产准备', width: 230,
-    render: (task) => classifyTaskFulfillmentPolicy(task).requiresSewingReadinessContext
-      ? '<span class="rounded bg-amber-50 px-2 py-1 text-xs text-amber-700">可派单 · 准备事实仅作风险提示</span><p class="mt-2 text-xs">点击“准备情况”查看车缝辅料、裁片齐套/放行/目标数量</p>'
-      : '<span class="rounded bg-slate-100 px-2 py-1 text-xs">无车缝准备弹窗</span>',
+    key: 'taskContent', title: '任务内容', width: 250, required: true,
+    render: (task) => {
+      const context = taskListContext(task)
+      const responsibility = task.mergedTaskType ? getMergedProductionTaskDefinition(task.mergedTaskType).label : ''
+      return `<b>${escapeHtml(typeLabel(getTaskType(task)))}</b><p class="mt-1 text-xs">工序：${escapeHtml(processNames(task).join(' + '))}</p><p class="text-xs text-muted-foreground">工艺：${escapeHtml(context.craftLabel)}</p>${responsibility ? `<span class="mt-1 inline-flex rounded bg-violet-50 px-2 py-0.5 text-xs text-violet-700">固定责任范围：${escapeHtml(responsibility)}</span>` : ''}`
+    },
+  },
+  {
+    key: 'quantity', title: '数量', width: 130,
+    render: (task) => `<b>${(task.scopeSkuLines.length || 1).toLocaleString()} 个SKU</b><p class="mt-1 text-xs text-muted-foreground">${task.scopeQty.toLocaleString()}件</p>`,
   },
   {
     key: 'tracking', title: '跟单责任', width: 150,
     render: (task) => { const context = taskListContext(task); return `<b>国内：${escapeHtml(context.domesticTracker)}</b><p class="mt-1 text-xs text-muted-foreground">印尼：${escapeHtml(context.indonesiaTracker)}</p>` },
   },
   {
-    key: 'assignmentMode', title: '分配方式', width: 130,
-    render: (task) => { const assignment = listCurrentEffectiveTaskAssignments(task.taskId)[0]; const auto = assignment?.operatedBy.includes('自动分配'); return `<b>${assignmentModeValue(task) === 'BIDDING' ? '竞价' : '直接派单'}</b><p class="mt-1 text-xs text-muted-foreground">${auto ? '自动分配' : '人工处理'}</p>` },
-  },
-  {
-    key: 'factory', title: '承接工厂', width: 150,
-    render: (task) => `<b>${escapeHtml(task.assignedFactoryName || '尚未确定')}</b><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.acceptanceStatus === 'ACCEPTED' ? '已接单' : task.acceptanceStatus === 'REJECTED' ? '已拒绝' : task.assignedFactoryName ? '待接单' : '—')}</p>`,
+    key: 'assignment', title: '分配信息', width: 190,
+    render: (task) => {
+      const assignment = listCurrentEffectiveTaskAssignments(task.taskId)[0]
+      const mode = assignmentModeValue(task) === 'BIDDING' ? '竞价' : assignment?.operatedBy.includes('自动分配') ? '自动直接派单' : '人工直接派单'
+      const acceptance = task.acceptanceStatus === 'ACCEPTED' ? '已接单' : task.acceptanceStatus === 'REJECTED' ? '已拒绝' : task.assignedFactoryName ? '待接单' : '尚未进入接单'
+      return `<b>${escapeHtml(statusLabel(task))}</b><p class="mt-1 text-xs">${escapeHtml(mode)}</p><p class="text-xs text-muted-foreground">${escapeHtml(task.assignedFactoryName || '工厂未确定')} · ${escapeHtml(acceptance)}</p>`
+    },
   },
   {
     key: 'price', title: '价格', width: 210,
     render: (task) => { const status = taskPriceStatus(task); const currency = task.dispatchPriceCurrency || task.standardPriceCurrency || 'IDR'; const unit = task.dispatchPriceUnit || task.standardPriceUnit || '件'; const labels: Record<string, string> = { NO_STANDARD: '无标准价', PENDING: '待确认', ABOVE: '高于标准', BELOW: '低于标准', MATCH: '符合标准' }; return `<p>标准价：${task.standardPrice != null ? `${task.standardPrice.toLocaleString()} ${escapeHtml(currency)}/${escapeHtml(unit)}` : '—'}</p><p class="mt-1">派单价：${task.dispatchPrice != null ? `${task.dispatchPrice.toLocaleString()} ${escapeHtml(currency)}/${escapeHtml(unit)}` : '—'}</p><span class="mt-1 inline-flex rounded bg-slate-100 px-2 py-0.5 text-xs">${escapeHtml(labels[status])}${task.dispatchPrice != null ? ' · 已冻结' : ''}</span>` },
   },
   {
-    key: 'status', title: '任务状态', width: 150,
-    render: (task) => { const context = taskListContext(task); const contractLabels: Record<string, string> = { NOT_REQUIRED: '无需合同', WAIT_FACTORY: '待分配后生成', PENDING: '合同待生成', EFFECTIVE: '合同已生成', SIGNED_SCAN_UPLOADED: '已上传签订扫描图', FAILED: '合同生成失败' }; return `<b>${escapeHtml(statusLabel(task))}</b><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(contractLabels[context.contractStatus] || context.contractStatus)}</p>` },
-  },
-  {
-    key: 'actions', title: '操作', width: 270, required: true, actionColumn: true,
+    key: 'actions', title: '操作', width: 250, required: true, actionColumn: true,
     render: (task) => {
       const contract = currentContract(task.taskId)
       return `<div class="flex flex-wrap gap-x-3 gap-y-1 text-sm">
-        <button class="text-blue-600" data-unified-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">${classifyTaskFulfillmentPolicy(task).requiresSewingReadinessContext ? '准备情况' : '详情'}</button>
+        <button class="text-blue-600" data-unified-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">详情</button>
         ${task.assignmentStatus === 'UNASSIGNED' ? `<button class="text-blue-600" data-unified-action="open-direct" data-task-id="${escapeHtml(task.taskId)}">直接派单</button><button class="text-blue-600" data-unified-action="open-bidding" data-task-id="${escapeHtml(task.taskId)}">发起竞价</button>` : ''}
         ${['ASSIGNED', 'AWARDED'].includes(task.assignmentStatus) && classifyTaskFulfillmentPolicy(task).startsWithSewing ? `<button class="text-amber-700" data-unified-action="open-reassign" data-task-id="${escapeHtml(task.taskId)}">改派</button>` : ''}
         ${task.mergeSourceTaskIds?.length && task.assignmentStatus === 'UNASSIGNED' ? `<button class="text-red-600" data-unified-action="open-cancel-merge" data-task-id="${escapeHtml(task.taskId)}">撤销合并</button>` : ''}
-        ${contract ? `<a class="text-blue-600" href="/fcs/contracts/print?contractId=${encodeURIComponent(contract.contractId)}" target="_blank">查看/打印合同</a><button class="text-blue-600" data-unified-action="open-upload" data-contract-id="${escapeHtml(contract.contractId)}">上传签订扫描图</button>` : ''}
+        ${contract ? `<button class="text-blue-600" data-unified-action="open-contract" data-contract-id="${escapeHtml(contract.contractId)}">合同</button>` : ''}
+        <button class="text-slate-600" data-unified-action="open-log" data-task-id="${escapeHtml(task.taskId)}">日志</button>
       </div>`
     },
   },
@@ -540,7 +466,7 @@ const columns: StandardListColumn<RuntimeProcessTask>[] = [
 const preferences: StandardListColumnPreferences = {
   order: columns.filter((column) => !column.actionColumn).map((column) => column.key),
   visibleKeys: columns.map((column) => column.key),
-  frozenKeys: ['style', 'identity'],
+  frozenKeys: ['taskObject'],
   pageSize: 20,
 }
 
@@ -557,8 +483,8 @@ function filterSelect(key: WorkbenchFilterKey, label: string, options: Array<[st
   return `<label class="min-w-[148px] flex-1 text-xs text-muted-foreground"><span>${escapeHtml(label)}</span><select class="mt-1 h-9 w-full rounded border bg-white px-2 text-sm text-foreground" data-unified-filter="${key}">${options.map(([value, text]) => `<option value="${escapeHtml(value)}" ${state.filters[key] === value ? 'selected' : ''}>${escapeHtml(text)}</option>`).join('')}</select></label>`
 }
 
-function filterInput(key: WorkbenchFilterKey, label: string, type: 'date' | 'number', placeholder = ''): string {
-  return `<label class="min-w-[140px] flex-1 text-xs text-muted-foreground"><span>${escapeHtml(label)}</span><input type="${type}" min="0" class="mt-1 h-9 w-full rounded border px-2 text-sm text-foreground" data-unified-filter="${key}" value="${escapeHtml(state.filters[key])}" placeholder="${escapeHtml(placeholder)}"/></label>`
+function filterDateInput(key: 'dispatchStart' | 'dispatchEnd', label: string): string {
+  return `<label class="min-w-[140px] flex-1 text-xs text-muted-foreground"><span>${escapeHtml(label)}</span><input type="date" class="mt-1 h-9 w-full rounded border px-2 text-sm text-foreground" data-unified-filter="${key}" value="${escapeHtml(state.filters[key])}"/></label>`
 }
 
 function uniqueOptions(values: Array<[string, string]>): Array<[string, string]> {
@@ -571,26 +497,14 @@ function uniqueOptions(values: Array<[string, string]>): Array<[string, string]>
 }
 
 const FILTER_LABELS: Partial<Record<WorkbenchFilterKey, string>> = {
-  assignmentProgress: '分配进度', assignmentMode: '分配方式', stage: '阶段', process: '工序', craft: '工艺', factory: '承接工厂',
+  assignmentProgress: '分配进度', assignmentMode: '分配方式', process: '工序', craft: '工艺', factory: '承接工厂',
   priceStatus: '价格状态', domesticTracker: '国内跟单', indonesiaTracker: '印尼跟单', dispatchStart: '派单开始', dispatchEnd: '派单结束',
-  acceptanceStatus: '工厂接单状态', autoEligibility: '自动分配资格', autoConfig: '自动分配配置', autoResult: '自动分配结果', readinessRisk: '车缝准备风险',
-  baggingStatus: '菲票装袋', mergeMode: '合并模式', contractStatus: '合同状态', quantityMin: '最小数量', quantityMax: '最大数量',
-  skuCountMin: '最少SKU', skuCountMax: '最多SKU', taskDeadlineStart: '任务截止开始', taskDeadlineEnd: '任务截止结束', currency: '币种', priceUnit: '计价单位',
 }
 
 const FILTER_VALUE_LABELS: Partial<Record<WorkbenchFilterKey, Record<string, string>>> = {
   assignmentProgress: { UNASSIGNED: '待分配', ASSIGNING: '分配中', BIDDING: '竞价中', AWARDED: '已定标', ASSIGNED: '已直接派单' },
   assignmentMode: { DIRECT: '人工直接派单', BIDDING: '竞价', AUTO: '自动分配' },
-  stage: { PROD: '生产阶段', POST: '后道阶段' },
   priceStatus: { NO_STANDARD: '无标准价', PENDING: '派单价待确认', MATCH: '符合标准', ABOVE: '高于标准', BELOW: '低于标准' },
-  acceptanceStatus: { NOT_ACCEPTED: '尚未进入接单', PENDING: '待接单', ACCEPTED: '已接单', REJECTED: '已拒绝' },
-  autoEligibility: { ELIGIBLE: '可自动分配', INELIGIBLE: '不参与自动分配' },
-  autoConfig: { CONFIGURED: '已启用配置', NOT_CONFIGURED: '未启用配置' },
-  autoResult: { NOT_EXECUTED: '未自动执行', SUCCEEDED: '自动派单成功', FAILED: '自动派单失败' },
-  readinessRisk: { NORMAL: '无提示', RISK: '有风险提示', NOT_APPLICABLE: '不适用' },
-  baggingStatus: { NONE: '暂无装袋记录', PARTIAL: '部分覆盖/待换算', COVERED: '已覆盖', MIXED: '跨生产单混装异常', NOT_APPLICABLE: '不适用' },
-  mergeMode: { INDEPENDENT: '独立任务', SEWING_IRON_PACK: '车缝+烫包', CUTTING_SEWING_IRON_PACK: '裁剪+车缝+烫包' },
-  contractStatus: { NOT_REQUIRED: '无需合同', WAIT_FACTORY: '待分配后生成', PENDING: '待生成', EFFECTIVE: '合同已生成', SIGNED_SCAN_UPLOADED: '已上传签订扫描图', FAILED: '生成失败' },
 }
 
 function activeFilterValueLabel(key: WorkbenchFilterKey, value: string): string {
@@ -617,58 +531,41 @@ function renderActiveFilters(): string {
 function renderTaskFilters(rows: RuntimeProcessTask[]): string {
   const sourceTasks = listRuntimeProcessTasks().filter(isAssignableProductionExecutionTask)
   const sourceContexts = sourceTasks.map((task) => ({ task, context: taskListContext(task) }))
-  const stageScoped = sourceContexts.filter(({ context }) => state.filters.stage === 'ALL' || context.stageCode === state.filters.stage)
-  const processScoped = stageScoped.filter(({ context }) => state.filters.process === 'ALL' || context.processCode === state.filters.process)
-  const processOptions = uniqueOptions(stageScoped.map(({ context }) => [context.processCode, context.processLabel]))
+  const processScoped = sourceContexts.filter(({ context }) => state.filters.process === 'ALL' || context.processCode === state.filters.process)
+  const processOptions = uniqueOptions(sourceContexts.map(({ context }) => [context.processCode, context.processLabel]))
   const craftOptions = uniqueOptions(processScoped.map(({ context }) => [context.craftCode, context.craftLabel]))
   const factoryOptions = uniqueOptions(sourceTasks.filter((task) => task.assignedFactoryId).map((task) => [task.assignedFactoryId || '', task.assignedFactoryName || task.assignedFactoryId || '']))
   const domesticOptions = uniqueOptions(sourceContexts.map(({ context }) => [context.domesticTracker, context.domesticTracker]))
   const indonesiaOptions = uniqueOptions(sourceContexts.map(({ context }) => [context.indonesiaTracker, context.indonesiaTracker]))
-  const currencyOptions = uniqueOptions(sourceTasks.map((task) => [task.dispatchPriceCurrency || task.standardPriceCurrency || 'IDR', task.dispatchPriceCurrency || task.standardPriceCurrency || 'IDR']))
-  const unitOptions = uniqueOptions(sourceTasks.map((task) => [task.dispatchPriceUnit || task.standardPriceUnit || '件', task.dispatchPriceUnit || task.standardPriceUnit || '件']))
   const highFrequency = `<div class="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
     <label class="text-xs text-muted-foreground xl:col-span-2"><span>综合搜索</span><input class="mt-1 h-9 w-full rounded border px-3 text-sm text-foreground" placeholder="SPU / 生产单 / 任务 / 工序 / 工艺 / 工厂 / 跟单" data-unified-field="keyword" value="${escapeHtml(state.keyword)}"/></label>
     ${filterSelect('assignmentProgress', '分配进度', [['ALL', '全部'], ['UNASSIGNED', '待分配'], ['ASSIGNING', '分配中'], ['BIDDING', '竞价中'], ['AWARDED', '已定标'], ['ASSIGNED', '已直接派单']])}
     ${filterSelect('assignmentMode', '分配方式', [['ALL', '全部'], ['DIRECT', '人工直接派单'], ['BIDDING', '竞价'], ['AUTO', '自动分配']])}
-    ${filterSelect('stage', '阶段', [['ALL', '全部'], ['PROD', '生产阶段'], ['POST', '后道阶段']])}
     ${filterSelect('process', '工序', [['ALL', '全部'], ...processOptions])}
-    ${filterSelect('craft', '工艺', [['ALL', '全部'], ...craftOptions])}
     ${filterSelect('factory', '承接工厂', [['ALL', '全部'], ...factoryOptions])}
-    ${filterSelect('priceStatus', '价格状态', [['ALL', '全部'], ['NO_STANDARD', '无标准价'], ['PENDING', '派单价待确认'], ['MATCH', '符合标准'], ['ABOVE', '高于标准'], ['BELOW', '低于标准']])}
+    ${filterDateInput('dispatchStart', '派单日期（起）')}
+    ${filterDateInput('dispatchEnd', '派单日期（止）')}
+    <div class="flex items-end gap-2 xl:col-span-2" data-unified-filter-actions>
+      <button class="h-9 rounded border px-3 text-sm text-blue-700" data-unified-action="toggle-advanced-filters">${state.showAdvancedFilters ? '收起更多筛选' : '更多筛选'}</button>
+      <button class="h-9 px-3 text-sm text-blue-600" data-unified-action="reset-filters">重置筛选</button>
+    </div>
+  </div>`
+  const advanced = state.showAdvancedFilters ? `<div class="grid gap-2 border-t pt-3 md:grid-cols-2 xl:grid-cols-4" data-unified-advanced-filters>
+    ${state.filters.process !== 'ALL' ? filterSelect('craft', '工艺', [['ALL', '全部'], ...craftOptions]) : ''}
     ${filterSelect('domesticTracker', '国内跟单', [['ALL', '全部'], ...domesticOptions])}
     ${filterSelect('indonesiaTracker', '印尼跟单', [['ALL', '全部'], ...indonesiaOptions])}
-    ${filterInput('dispatchStart', '派单日期（起）', 'date')}
-    ${filterInput('dispatchEnd', '派单日期（止）', 'date')}
-  </div>`
-  const advanced = state.showAdvancedFilters ? `<div class="grid gap-2 border-t pt-3 md:grid-cols-2 xl:grid-cols-5" data-unified-advanced-filters>
-    ${filterSelect('acceptanceStatus', '工厂接单状态', [['ALL', '全部'], ['NOT_ACCEPTED', '尚未进入接单'], ['PENDING', '待接单'], ['ACCEPTED', '已接单'], ['REJECTED', '已拒绝']])}
-    ${filterSelect('autoEligibility', '自动分配资格', [['ALL', '全部'], ['ELIGIBLE', '可自动分配'], ['INELIGIBLE', '不参与自动分配']])}
-    ${filterSelect('autoConfig', '自动分配配置', [['ALL', '全部'], ['CONFIGURED', '已启用配置'], ['NOT_CONFIGURED', '未启用配置']])}
-    ${filterSelect('autoResult', '自动分配结果', [['ALL', '全部'], ['NOT_EXECUTED', '未自动执行'], ['SUCCEEDED', '自动派单成功'], ['FAILED', '自动派单失败']])}
-    ${filterSelect('readinessRisk', '车缝准备风险', [['ALL', '全部'], ['NORMAL', '无提示'], ['RISK', '有风险提示'], ['NOT_APPLICABLE', '不适用']])}
-    ${filterSelect('baggingStatus', '菲票装袋情况', [['ALL', '全部'], ['NONE', '暂无装袋记录'], ['PARTIAL', '部分覆盖/待换算'], ['COVERED', '已覆盖'], ['MIXED', '跨生产单混装异常'], ['NOT_APPLICABLE', '不适用']])}
-    ${filterSelect('mergeMode', '合并模式', [['ALL', '全部'], ['INDEPENDENT', '独立任务'], ['SEWING_IRON_PACK', '车缝+烫包'], ['CUTTING_SEWING_IRON_PACK', '裁剪+车缝+烫包']])}
-    ${filterSelect('contractStatus', '合同状态', [['ALL', '全部'], ['NOT_REQUIRED', '无需合同'], ['WAIT_FACTORY', '待分配后生成'], ['PENDING', '待生成'], ['EFFECTIVE', '合同已生成'], ['SIGNED_SCAN_UPLOADED', '已上传签订扫描图'], ['FAILED', '生成失败']])}
-    ${filterInput('quantityMin', '任务数量下限（件）', 'number', '0')}${filterInput('quantityMax', '任务数量上限（件）', 'number', '不限')}
-    ${filterInput('skuCountMin', 'SKU数下限', 'number', '0')}${filterInput('skuCountMax', 'SKU数上限', 'number', '不限')}
-    ${filterInput('taskDeadlineStart', '任务截止（起）', 'date')}${filterInput('taskDeadlineEnd', '任务截止（止）', 'date')}
-    ${filterSelect('currency', '币种', [['ALL', '全部'], ...currencyOptions])}${filterSelect('priceUnit', '计价单位', [['ALL', '全部'], ...unitOptions])}
+    ${filterSelect('priceStatus', '价格状态', [['ALL', '全部'], ['NO_STANDARD', '无标准价'], ['PENDING', '派单价待确认'], ['MATCH', '符合标准'], ['ABOVE', '高于标准'], ['BELOW', '低于标准']])}
   </div>` : ''
-  return `<div class="space-y-3 rounded-lg border bg-card p-3"><div class="flex flex-wrap gap-2">${renderTaskTabs(rows)}</div>${highFrequency}<div class="flex items-center justify-between gap-3"><button class="rounded border px-3 py-2 text-sm text-blue-700" data-unified-action="toggle-advanced-filters">${state.showAdvancedFilters ? '收起更多筛选' : '更多筛选'}</button><button class="text-sm text-blue-600" data-unified-action="reset-filters">重置筛选</button></div>${advanced}${renderActiveFilters()}</div>`
+  return `<div class="space-y-3 rounded-lg border bg-card p-3"><div class="flex flex-wrap gap-2">${renderTaskTabs(rows)}</div>${highFrequency}${advanced}${renderActiveFilters()}</div>`
 }
 
-function renderReadinessDialog(): string {
+function renderTaskDetailDialog(): string {
   const task = state.detailTaskId ? getRuntimeTaskById(state.detailTaskId) : null
   if (!task) return ''
-  const sewing = classifyTaskFulfillmentPolicy(task).requiresSewingReadinessContext
-  const bagging = buildDispatchBaggingSnapshot(task)
-  const skuRows = (task.scopeSkuLines.length ? task.scopeSkuLines : [{ skuCode: task.skuCode || 'SKU-ALL', color: task.skuColor || '混色', size: task.skuSize || '混码', qty: task.scopeQty }]).map((line, index) => `
-    <tr><td>${escapeHtml(line.skuCode)}</td><td>${escapeHtml(line.color)}</td><td>${escapeHtml(line.size)}</td><td>${line.qty}件</td><td>${index % 2 ? Math.ceil(line.qty * 0.7) : line.qty}件</td><td>${index % 2 ? '部分放行' : '已放行'}</td></tr>`).join('')
-  return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><button class="absolute inset-0 bg-slate-900/40" data-unified-action="close-detail"></button><section class="relative z-10 max-h-[90vh] w-full max-w-5xl overflow-auto rounded-lg bg-white shadow-xl"><header class="flex items-center justify-between border-b p-5"><div><h2 class="text-lg font-semibold">${sewing ? '车缝生产准备情况' : '任务详情'}</h2><p class="text-xs text-muted-foreground">${escapeHtml(task.taskNo || task.taskId)} · 信息不完善只提示风险，不阻断生产分配</p></div><button data-unified-action="close-detail">关闭</button></header>
-    <div class="grid gap-4 p-5 md:grid-cols-2">
-      <section class="rounded-lg border p-4"><h3 class="font-semibold">车缝的辅料配料情况以及库存情况</h3><div class="mt-3 grid grid-cols-3 gap-3 text-sm"><div><img src="/materials/accessory-button.jpg" alt="纽扣真实物料图" class="h-20 w-full rounded object-cover"/><p>纽扣：已配 ${Math.round(task.scopeQty * .8)}套</p><p>库存 ${task.scopeQty * 3}粒</p></div><div><img src="/materials/accessory-zipper.jpg" alt="拉链真实物料图" class="h-20 w-full rounded object-cover"/><p>拉链：已配 ${task.scopeQty}条</p><p>库存 ${task.scopeQty * 2}条</p></div><div><img src="/materials/accessory-label.jpg" alt="洗水标真实物料图" class="h-20 w-full rounded object-cover"/><p>洗水标：待补 ${Math.ceil(task.scopeQty * .1)}件</p><p>库存 ${task.scopeQty}件</p></div></div></section>
-      <section class="rounded-lg border p-4"><h3 class="font-semibold">裁片与菲票装袋</h3><dl class="mt-3 grid grid-cols-2 gap-3 text-sm"><div><dt class="text-muted-foreground">普通裁片齐套</dt><dd>${Math.ceil(task.scopeQty * .78)}件</dd></div><div><dt class="text-muted-foreground">辅助工艺裁片</dt><dd>${Math.ceil(task.scopeQty * .4)}件</dd></div><div><dt class="text-muted-foreground">特种工艺裁片</dt><dd>${Math.ceil(task.scopeQty * .25)}件</dd></div><div><dt class="text-muted-foreground">毛织片</dt><dd>${Math.ceil(task.scopeQty * .1)}件</dd></div><div><dt class="text-muted-foreground">裁床放行数量</dt><dd>${Math.ceil(task.scopeQty * .7)}件</dd></div><div><dt class="text-muted-foreground">裁床确认目标数量</dt><dd>${task.scopeQty}件</dd></div></dl><div class="mt-3 rounded bg-blue-50 p-2 text-xs text-blue-800"><b>${escapeHtml(bagging.source)}</b> · ${bagging.validBagCount} 个当前有效袋 · 已装 ${bagging.baggedPieceQty.toLocaleString()}片 · 未覆盖任务 ${bagging.unbaggedQty == null ? '待齐套换算' : `${bagging.unbaggedQty.toLocaleString()}件`}<br/>更新时间：${escapeHtml(bagging.updatedAt)}</div></section>
-    </div><div class="px-5 pb-5"><table class="w-full border-collapse text-sm"><thead><tr><th>SKU</th><th>颜色</th><th>尺码</th><th>目标</th><th>齐套</th><th>放行</th></tr></thead><tbody>${skuRows}</tbody></table></div></section></div>`
+  const context = taskListContext(task)
+  const skuRows = (task.scopeSkuLines.length ? task.scopeSkuLines : [{ skuCode: task.skuCode || 'SKU-ALL', color: task.skuColor || '混色', size: task.skuSize || '混码', qty: task.scopeQty }])
+  const logMode = state.detailMode === 'LOG'
+  return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><button class="absolute inset-0 bg-slate-900/40" data-unified-action="close-detail"></button><section class="relative z-10 max-h-[90vh] w-full max-w-4xl overflow-auto rounded-lg bg-white shadow-xl"><header class="flex items-center justify-between border-b p-5"><div><h2 class="text-lg font-semibold">${logMode ? '任务日志' : '任务详情'}</h2><p class="text-xs text-muted-foreground">${escapeHtml(task.productionOrderNo || task.productionOrderId)} · ${escapeHtml(task.taskNo || task.taskId)}</p></div><button data-unified-action="close-detail">关闭</button></header>${logMode ? `<div class="space-y-2 p-5">${[...(task.auditLogs || [])].reverse().map((log) => `<article class="rounded border p-3 text-sm"><div class="flex justify-between gap-3"><b>${escapeHtml(log.action)}</b><span class="text-xs text-muted-foreground">${escapeHtml(log.at)} · ${escapeHtml(log.by)}</span></div><p class="mt-1 text-muted-foreground">${escapeHtml(log.detail)}</p></article>`).join('') || '<p class="rounded border border-dashed p-6 text-center text-sm text-muted-foreground">暂无任务操作日志</p>'}</div>` : `<div class="grid gap-4 p-5 md:grid-cols-2"><section class="rounded border p-4 text-sm"><h3 class="font-semibold">任务对象</h3><dl class="mt-3 grid grid-cols-2 gap-3"><div><dt class="text-muted-foreground">SPU</dt><dd>${escapeHtml(context.spuCode)}</dd></div><div><dt class="text-muted-foreground">款式</dt><dd>${escapeHtml(context.spuName)}</dd></div><div><dt class="text-muted-foreground">任务类型</dt><dd>${escapeHtml(typeLabel(getTaskType(task)))}</dd></div><div><dt class="text-muted-foreground">工序/工艺</dt><dd>${escapeHtml(processNames(task).join(' + '))} / ${escapeHtml(context.craftLabel)}</dd></div></dl></section><section class="rounded border p-4 text-sm"><h3 class="font-semibold">当前分配</h3><dl class="mt-3 grid grid-cols-2 gap-3"><div><dt class="text-muted-foreground">分配进度</dt><dd>${escapeHtml(statusLabel(task))}</dd></div><div><dt class="text-muted-foreground">承接工厂</dt><dd>${escapeHtml(task.assignedFactoryName || '未确定')}</dd></div><div><dt class="text-muted-foreground">国内跟单</dt><dd>${escapeHtml(context.domesticTracker)}</dd></div><div><dt class="text-muted-foreground">印尼跟单</dt><dd>${escapeHtml(context.indonesiaTracker)}</dd></div></dl></section></div><div class="px-5 pb-5"><table class="w-full text-left text-sm"><thead class="bg-slate-50"><tr><th class="p-2">SKU</th><th class="p-2">颜色</th><th class="p-2">尺码</th><th class="p-2">数量</th></tr></thead><tbody>${skuRows.map((line) => `<tr class="border-t"><td class="p-2">${escapeHtml(line.skuCode)}</td><td class="p-2">${escapeHtml(line.color)}</td><td class="p-2">${escapeHtml(line.size)}</td><td class="p-2">${line.qty.toLocaleString()}件</td></tr>`).join('')}</tbody></table></div>`}</section></div>`
 }
 
 function renderBaggingOverview(snapshot: DispatchBaggingSnapshot): string {
@@ -678,6 +575,11 @@ function renderBaggingOverview(snapshot: DispatchBaggingSnapshot): string {
     ${snapshot.warnings.map((warning) => `<p class="mt-2 rounded bg-amber-50 p-2 text-xs text-amber-800">${escapeHtml(warning)}</p>`).join('')}
     <details class="mt-3"><summary class="cursor-pointer text-sm font-medium text-blue-700">查看 ${snapshot.bags.length} 个袋及菲票明细</summary><div class="mt-2 space-y-2">${snapshot.bags.map((bag) => `<article class="rounded border bg-white p-3 text-xs"><div class="flex flex-wrap justify-between gap-2"><b>${escapeHtml(bag.bagCode)} · ${escapeHtml(bag.status)}</b><span>${escapeHtml(bag.location)} · ${escapeHtml(bag.updatedAt)}</span></div>${bag.mixedProductionOrders ? '<p class="mt-1 font-semibold text-red-700">异常：跨生产单混装，已从推荐中排除</p>' : ''}${bag.handedOver ? '<p class="mt-1 font-semibold text-amber-700">已交出，不作为当前推荐依据</p>' : ''}<div class="mt-2 overflow-auto"><table class="w-full min-w-[640px] text-left"><thead><tr><th>菲票号</th><th>SKU</th><th>颜色/尺码</th><th>裁片</th><th>任务范围</th></tr></thead><tbody>${bag.tickets.map((ticket) => `<tr><td>${escapeHtml(ticket.feiTicketNo)}</td><td>${escapeHtml(ticket.skuCode || '未匹配')}</td><td>${escapeHtml(ticket.color)} / ${escapeHtml(ticket.size)}</td><td>${ticket.pieceQty.toLocaleString()}片</td><td>${ticket.inTaskScope ? '是' : '否'}</td></tr>`).join('')}</tbody></table></div></article>`).join('') || '<p class="rounded border bg-white p-3 text-xs text-muted-foreground">当前没有菲票装袋记录。</p>'}</div></details>
   </section>`
+}
+
+function renderSewingPreparationOverview(task: RuntimeProcessTask): string {
+  const materialImage = (src: string, alt: string) => `<span class="relative flex h-16 w-full items-center justify-center overflow-hidden rounded bg-slate-50"><img src="${src}" alt="${alt}" class="h-full w-full object-cover" onerror="this.hidden=true;this.nextElementSibling.hidden=false"/><span hidden class="px-1 text-center text-[10px] text-red-600">物料图加载失败</span></span>`
+  return `<section class="grid gap-3 md:grid-cols-2" data-unified-sewing-preparation><article class="rounded-lg border p-4"><h3 class="font-semibold">车缝的辅料配料情况以及库存情况</h3><div class="mt-3 grid grid-cols-3 gap-2 text-xs"><div>${materialImage('/materials/accessory-button.jpg', '纽扣真实物料图')}<p class="mt-1">纽扣：已配 ${Math.round(task.scopeQty * .8)}套</p><p>库存 ${task.scopeQty * 3}粒</p></div><div>${materialImage('/materials/accessory-zipper.jpg', '拉链真实物料图')}<p class="mt-1">拉链：已配 ${task.scopeQty}条</p><p>库存 ${task.scopeQty * 2}条</p></div><div>${materialImage('/materials/accessory-label.jpg', '洗水标真实物料图')}<p class="mt-1">洗水标：待补 ${Math.ceil(task.scopeQty * .1)}件</p><p>库存 ${task.scopeQty}件</p></div></div></article><article class="rounded-lg border p-4"><h3 class="font-semibold">裁片齐套、放行及目标</h3><dl class="mt-3 grid grid-cols-2 gap-2 text-sm"><div><dt class="text-muted-foreground">普通裁片齐套</dt><dd>${Math.ceil(task.scopeQty * .78)}件</dd></div><div><dt class="text-muted-foreground">辅助工艺裁片</dt><dd>${Math.ceil(task.scopeQty * .4)}件</dd></div><div><dt class="text-muted-foreground">特种工艺裁片</dt><dd>${Math.ceil(task.scopeQty * .25)}件</dd></div><div><dt class="text-muted-foreground">毛织片</dt><dd>${Math.ceil(task.scopeQty * .1)}件</dd></div><div><dt class="text-muted-foreground">裁床放行数量</dt><dd>${Math.ceil(task.scopeQty * .7)}件</dd></div><div><dt class="text-muted-foreground">裁床确认目标数量</dt><dd>${task.scopeQty}件</dd></div></dl></article></section>`
 }
 
 function renderBagAwareSelection(snapshot: DispatchBaggingSnapshot, dialog: DispatchDialogState): string {
@@ -714,17 +616,18 @@ function renderDispatchDialog(): string {
   const impact = evaluateDispatchBagSelection(bagging, dialog.selectedSkuCodes)
   const selectedQty = skuLines.filter((line) => dialog.selectedSkuCodes.has(line.skuCode)).reduce((sum, line) => sum + line.qty, 0)
   const isSecond = dialog.confirmStage === 2
-  return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><button class="absolute inset-0 bg-slate-900/40" data-unified-action="close-dispatch"></button><section class="relative z-10 max-h-[92vh] w-full max-w-6xl overflow-auto rounded-lg bg-white shadow-xl"><header class="border-b p-5"><h2 class="text-lg font-semibold">${dialog.mode === 'DIRECT' ? '直接派单' : dialog.mode === 'REASSIGN' ? '车缝任务改派' : '发起竞价'} · ${escapeHtml(task.taskNo || task.taskId)}</h2><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(policy.taskTypeLabel)} · 分配最小颗粒度：${policy.assignmentGranularity === 'SKU' ? 'SKU（不可拆数量）' : policy.assignmentGranularity}</p></header><div class="space-y-4 p-5">
+  return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><button class="absolute inset-0 bg-slate-900/40" data-unified-action="close-dispatch"></button><section class="relative z-10 max-h-[92vh] w-full max-w-6xl overflow-auto rounded-lg bg-white shadow-xl"><header class="border-b p-5"><h2 class="text-lg font-semibold">${dialog.mode === 'DIRECT' ? '直接派单' : dialog.mode === 'REASSIGN' ? '车缝任务改派' : '发起竞价'} · ${escapeHtml(task.taskNo || task.taskId)}</h2><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(policy.taskTypeLabel)}</p></header><div class="space-y-4 p-5">
     ${dialog.error ? `<div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">${escapeHtml(dialog.error)}</div>` : ''}
     ${isSecond && dialog.mode !== 'BIDDING' ? `<div class="rounded-lg border-2 border-amber-400 bg-amber-50 p-4"><h3 class="font-bold text-amber-900">二次确认${dialog.mode === 'REASSIGN' ? '改派' : '派单'}价格</h3><p class="mt-2 text-base font-semibold text-red-700">谨慎确认价格，一经提交确认不得修改。</p><p class="mt-3 text-sm">工厂：${escapeHtml(factories.find((item) => item.id === dialog.factoryId)?.name || '未选择')} · 数量：${selectedQty}件 · 派单价：${escapeHtml(dialog.price)} IDR/件</p>${policy.startsWithSewing ? `<p class="mt-2 text-sm">分配方式：${dialog.distributionMode === 'BAG_AWARE' ? '按菲票装袋推荐' : '自由分配'} · 可保持整袋 ${impact.intactBagCodes.length} 袋 · 受影响 ${impact.affectedBagCodes.length} 袋</p>` : ''}${dialog.mode === 'REASSIGN' ? `<p class="mt-2 text-sm">改派原因：${escapeHtml(dialog.reassignReason)}</p>` : ''}<p class="mt-2 text-xs text-amber-800">提交后价格冻结，结算只能读取本次有效分配的冻结价。</p></div>` : `
       ${policy.startsWithSewing ? `<fieldset><legend class="text-sm font-semibold">分配方式</legend><label class="mr-5 text-sm"><input type="radio" name="distributionMode" data-unified-field="distributionMode" value="BAG_AWARE" ${dialog.distributionMode === 'BAG_AWARE' ? 'checked' : ''}/> 按菲票装袋情况分配（默认）</label><label class="text-sm"><input type="radio" name="distributionMode" data-unified-field="distributionMode" value="FREE" ${dialog.distributionMode === 'FREE' ? 'checked' : ''}/> 自由分配</label><p class="mt-1 text-xs text-muted-foreground">自由分配不生成拆袋重装待办；PPIC实际领料时，裁床待交出仓读取最新车缝任务再决定是否拆袋重装。</p></fieldset>` : ''}
+      ${policy.startsWithSewing ? `<p class="rounded bg-blue-50 p-2 text-xs text-blue-800">信息不完善只提示风险，不阻断生产分配。</p>${renderSewingPreparationOverview(task)}` : ''}
       ${policy.startsWithSewing ? renderBaggingOverview(bagging) : ''}
       ${dialog.baggingNotice ? `<div class="rounded border border-blue-200 bg-blue-50 p-2 text-xs text-blue-700">${escapeHtml(dialog.baggingNotice)}</div>` : ''}
       ${policy.startsWithSewing ? (dialog.distributionMode === 'BAG_AWARE' ? renderBagAwareSelection(bagging, dialog) : renderFreeSelection(bagging, dialog)) : renderPlainSkuSelection(task, dialog)}
       <p class="text-xs">已选 ${dialog.selectedSkuCodes.size} 个SKU，共 ${selectedQty.toLocaleString()}件</p>
       ${dialog.mode !== 'BIDDING' ? `<label class="block text-sm">承接工厂<select class="mt-1 h-9 w-full rounded border px-3" data-unified-field="factoryId"><option value="">请选择工厂</option>${factories.map((factory) => `<option value="${escapeHtml(factory.id)}" ${dialog.factoryId === factory.id ? 'selected' : ''} ${dialog.mode === 'REASSIGN' && factory.id === task.assignedFactoryId ? 'disabled' : ''}>${escapeHtml(factory.name)}</option>`).join('')}</select></label><label class="block text-sm">派单价（IDR/件）<input type="number" min="1" class="mt-1 h-9 w-full rounded border px-3" data-unified-field="price" value="${escapeHtml(dialog.price)}"/></label>${dialog.mode === 'REASSIGN' ? `<label class="block text-sm">改派原因<textarea class="mt-1 min-h-20 w-full rounded border p-3" data-unified-field="reassignReason" placeholder="必填，说明本次改派原因">${escapeHtml(dialog.reassignReason)}</textarea></label>` : ''}` : `<label class="block text-sm">竞价截止时间<input type="datetime-local" class="mt-1 h-9 w-full rounded border px-3" data-unified-field="tenderDeadline" value="${escapeHtml(dialog.tenderDeadline)}"/></label>`}
       <label class="block text-sm">业务分配日期/时间<input type="datetime-local" class="mt-1 h-9 w-full rounded border px-3" data-unified-field="businessAssignedAt" value="${escapeHtml(dialog.businessAssignedAt)}"/><span class="mt-1 block text-xs text-muted-foreground">回货规则按日期计算，分配日期为第1个自然日；合同只打印日期，不打印具体时间。</span></label>
-      <div class="rounded bg-amber-50 p-3 text-sm text-amber-800">本次分配可能包含未完全齐套SKU、辅料库存风险和多个来源袋。以上信息不阻断派单。</div>${policy.startsWithSewing ? `<label class="flex items-start gap-2 rounded border p-3 text-sm"><input type="checkbox" data-unified-field="riskAcknowledged" ${dialog.riskAcknowledged ? 'checked' : ''}/><span><b>我已知悉上述生产准备风险</b><br/><span class="text-xs text-muted-foreground">风险知悉确认与价格二次确认相互独立。</span></span></label>` : ''}`}
+      ${policy.startsWithSewing ? '<div class="rounded bg-amber-50 p-3 text-sm text-amber-800">准备数据、库存风险、多个来源袋及混装袋只用于提示，不阻断派单或竞价。</div>' : ''}`}
     </div><footer class="flex justify-end gap-2 border-t p-4"><button class="rounded border px-4 py-2 text-sm" data-unified-action="${isSecond ? 'back-dispatch' : 'close-dispatch'}">${isSecond ? '返回修改' : '取消'}</button><button class="rounded bg-blue-600 px-4 py-2 text-sm text-white" data-unified-action="confirm-dispatch">${isSecond ? '确认提交并冻结价格' : dialog.mode === 'BIDDING' ? '确认发起竞价' : '下一步：二次确认价格'}</button></footer></section></div>`
 }
 
@@ -773,14 +676,14 @@ function renderMergeDialog(): string {
 function renderContractPrompt(): string {
   const contract = state.contractPromptId ? getProductionContract(state.contractPromptId) : undefined
   if (!contract) return ''
-  return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><button class="absolute inset-0 bg-slate-900/40" data-unified-action="close-contract-prompt"></button><section class="relative z-10 w-full max-w-md rounded-lg bg-white p-6 shadow-xl"><h2 class="text-lg font-semibold">生产合同已生成</h2><p class="mt-3 text-sm">${escapeHtml(contract.contractNo)} · ${escapeHtml(contract.factoryName)} · ${contract.assignedQty}件</p><p class="mt-2 text-xs text-muted-foreground">是否立即打印合同？未上传签订扫描图不会阻断生产，但会进入“待上传合同扫描图”待办。</p><div class="mt-5 flex justify-end gap-2"><button class="rounded border px-4 py-2" data-unified-action="close-contract-prompt">稍后打印</button><a class="rounded bg-blue-600 px-4 py-2 text-white" target="_blank" href="/fcs/contracts/print?contractId=${encodeURIComponent(contract.contractId)}">立即打印</a></div></section></div>`
+  return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><button class="absolute inset-0 bg-slate-900/40" data-unified-action="close-contract-prompt"></button><section class="relative z-10 w-full max-w-md rounded-lg bg-white p-6 shadow-xl"><h2 class="text-lg font-semibold">生产合同已生成</h2><p class="mt-3 text-sm">${escapeHtml(contract.contractNo)} · ${escapeHtml(contract.factoryName)} · ${contract.assignedQty}件</p><p class="mt-2 text-xs text-muted-foreground">是否立即打印合同？合同可查看/打印，也可上传签订后的合同扫描图；未上传扫描图不阻断生产。</p><div class="mt-5 flex flex-wrap justify-end gap-2"><button class="rounded border px-4 py-2" data-unified-action="close-contract-prompt">关闭</button><button class="rounded border border-blue-300 px-4 py-2 text-blue-700" data-unified-action="open-upload" data-contract-id="${escapeHtml(contract.contractId)}">上传扫描图</button><a class="rounded bg-blue-600 px-4 py-2 text-white" target="_blank" href="/fcs/contracts/print?contractId=${encodeURIComponent(contract.contractId)}">查看/打印合同</a></div></section></div>`
 }
 
 function renderUploadDialog(): string {
   const contract = state.uploadContractId ? getProductionContract(state.uploadContractId) : undefined
   if (!contract) return ''
   const failedNames = state.failedUploadNamesByContract[contract.contractId] || []
-  return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><button class="absolute inset-0 bg-slate-900/40" data-unified-action="close-upload"></button><section class="relative z-10 max-h-[88vh] w-full max-w-2xl overflow-auto rounded-lg bg-white shadow-xl"><header class="border-b p-5"><h2 class="text-lg font-semibold">签订合同扫描图</h2><p class="text-xs text-muted-foreground">${escapeHtml(contract.contractNo)} · 支持多张JPG/PNG，可预览、排序和删除</p></header><div class="p-5"><label class="block rounded-lg border-2 border-dashed p-5 text-center text-sm">选择扫描图片<input type="file" accept="image/jpeg,image/png" multiple class="mt-3 block w-full" data-unified-contract-files="${escapeHtml(contract.contractId)}"/></label>${failedNames.length ? `<div class="mt-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700"><b>${failedNames.length}张上传失败，其他成功图片已保留：</b>${failedNames.map(escapeHtml).join('、')}<button class="ml-3 text-blue-700 underline" data-unified-action="retry-failed-scan" data-contract-id="${escapeHtml(contract.contractId)}">只重试失败图片</button></div>` : ''}<div class="mt-4 grid gap-3 sm:grid-cols-2">${contract.scans.map((scan) => `<article class="rounded border p-2"><button data-unified-action="preview-image" data-image="${escapeHtml(scan.dataUrl)}" data-label="${escapeHtml(scan.fileName)}"><img src="${escapeHtml(scan.dataUrl)}" alt="合同扫描图${scan.sortOrder}" class="h-40 w-full object-contain"/></button><div class="mt-2 flex items-center justify-between gap-2 text-xs"><span>${scan.sortOrder}. ${escapeHtml(scan.fileName)}</span><span class="flex gap-2"><button class="text-blue-600" data-unified-action="reorder-scan" data-direction="UP" data-contract-id="${escapeHtml(contract.contractId)}" data-scan-id="${escapeHtml(scan.scanId)}">上移</button><button class="text-blue-600" data-unified-action="reorder-scan" data-direction="DOWN" data-contract-id="${escapeHtml(contract.contractId)}" data-scan-id="${escapeHtml(scan.scanId)}">下移</button><button class="text-red-600" data-unified-action="remove-scan" data-contract-id="${escapeHtml(contract.contractId)}" data-scan-id="${escapeHtml(scan.scanId)}">删除</button></span></div></article>`).join('') || '<p class="col-span-2 py-8 text-center text-sm text-muted-foreground">尚未上传签订扫描图</p>'}</div></div><footer class="flex justify-end border-t p-4"><button class="rounded bg-blue-600 px-4 py-2 text-white" data-unified-action="close-upload">完成</button></footer></section></div>`
+  return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><button class="absolute inset-0 bg-slate-900/40" data-unified-action="close-upload"></button><section class="relative z-10 max-h-[88vh] w-full max-w-2xl overflow-auto rounded-lg bg-white shadow-xl"><header class="border-b p-5"><h2 class="text-lg font-semibold">签订合同扫描图</h2><p class="text-xs text-muted-foreground">${escapeHtml(contract.contractNo)} · 支持多张JPG/PNG，可预览、排序和删除</p></header><div class="p-5"><label class="block rounded-lg border-2 border-dashed p-5 text-center text-sm">选择扫描图片<input type="file" accept="image/jpeg,image/png" multiple class="mt-3 block w-full" data-unified-contract-files="${escapeHtml(contract.contractId)}"/></label>${failedNames.length ? `<div class="mt-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700"><b>${failedNames.length}张上传失败，其他成功图片已保留：</b>${failedNames.map(escapeHtml).join('、')}<button class="ml-3 text-blue-700 underline" data-unified-action="retry-failed-scan" data-contract-id="${escapeHtml(contract.contractId)}">只重试失败图片</button></div>` : ''}<div class="mt-4 grid gap-3 sm:grid-cols-2">${contract.scans.map((scan) => `<article class="rounded border p-2"><button class="relative flex h-40 w-full items-center justify-center overflow-hidden bg-slate-50" data-unified-action="preview-image" data-image="${escapeHtml(scan.dataUrl)}" data-label="${escapeHtml(scan.fileName)}"><img src="${escapeHtml(scan.dataUrl)}" alt="合同扫描图${scan.sortOrder}" class="h-full w-full object-contain" onerror="this.hidden=true;this.nextElementSibling.hidden=false"/><span hidden class="text-sm text-red-600">扫描图加载失败</span></button><div class="mt-2 flex items-center justify-between gap-2 text-xs"><span>${scan.sortOrder}. ${escapeHtml(scan.fileName)}</span><span class="flex gap-2"><button class="text-blue-600" data-unified-action="reorder-scan" data-direction="UP" data-contract-id="${escapeHtml(contract.contractId)}" data-scan-id="${escapeHtml(scan.scanId)}">上移</button><button class="text-blue-600" data-unified-action="reorder-scan" data-direction="DOWN" data-contract-id="${escapeHtml(contract.contractId)}" data-scan-id="${escapeHtml(scan.scanId)}">下移</button><button class="text-red-600" data-unified-action="remove-scan" data-contract-id="${escapeHtml(contract.contractId)}" data-scan-id="${escapeHtml(scan.scanId)}">删除</button></span></div></article>`).join('') || '<p class="col-span-2 py-8 text-center text-sm text-muted-foreground">尚未上传签订扫描图</p>'}</div></div><footer class="flex justify-end border-t p-4"><button class="rounded bg-blue-600 px-4 py-2 text-white" data-unified-action="close-upload">完成</button></footer></section></div>`
 }
 
 function renderAutoDispatchDialog(): string {
@@ -870,7 +773,6 @@ export function renderUnifiedDispatchWorkbenchPage(): string {
   const pageRows = rows.slice((state.page - 1) * pageSize, state.page * pageSize)
   const all = listRuntimeProcessTasks().filter(isAssignableProductionExecutionTask)
   const assigned = all.filter((task) => ['ASSIGNED', 'AWARDED'].includes(task.assignmentStatus)).length
-  const contractCount = listProductionContracts().filter((item) => item.status === 'EFFECTIVE').length
   const failedContracts = listProductionContracts().filter((item) => item.status === 'GENERATION_FAILED')
   const content = renderStandardListPage({
     title: '任务分配工作台',
@@ -881,13 +783,12 @@ export function renderUnifiedDispatchWorkbenchPage(): string {
       { label: '全部可执行任务', value: all.length },
       { label: '待分配 / 竞价中', value: all.length - assigned },
       { label: '已确认工厂', value: assigned },
-      { label: '有效生产合同', value: contractCount },
     ]),
     listTitle: '统一任务列表',
     listActionsHtml: '<span class="text-xs text-muted-foreground">直接派单与竞价共用同一任务口径；价格在直接派单提交或竞价定标时二次确认并冻结</span>',
     tableHtml: renderStandardListTable({ columns, rows: pageRows, preferences, sort: null, eventPrefix: 'unified-dispatch', emptyText: '当前筛选下暂无任务' }),
     paginationHtml: renderTablePagination({ total: rows.length, from: rows.length ? (state.page - 1) * pageSize + 1 : 0, to: Math.min(state.page * pageSize, rows.length), currentPage: state.page, totalPages: pageCount, pageSize, actionPrefix: 'unified', fieldPrefix: 'unified', pageSizeOptions: [20] }),
-    overlaysHtml: `${renderReadinessDialog()}${renderDispatchDialog()}${renderMergeDialog()}${renderAutoDispatchDialog()}${renderContractPrompt()}${renderUploadDialog()}${renderImagePreview()}`,
+    overlaysHtml: `${renderTaskDetailDialog()}${renderDispatchDialog()}${renderMergeDialog()}${renderAutoDispatchDialog()}${renderContractPrompt()}${renderUploadDialog()}${renderImagePreview()}`,
   })
   return `<div data-unified-dispatch-page data-skip-page-rerender="true">${content}</div>`
 }
@@ -912,7 +813,6 @@ function openDispatch(taskId: string, mode: AssignMode): void {
     tenderDeadline: formatDateTimeLocal(now.slice(0, 10) + ' 18:00:00'),
     reassignReason: '',
     selectedSkuCodes: new Set(skuCodes),
-    riskAcknowledged: false,
     confirmStage: 1,
     error: '',
     baggingNotice: '',
@@ -938,7 +838,7 @@ function commitReassignment(dialog: DispatchDialogState): void {
     reason: dialog.reassignReason.trim(),
     by: '生产计划员',
     mainFactoryId: factory.id,
-    riskConfirmed: dialog.riskAcknowledged,
+    riskConfirmed: dialog.confirmStage === 2,
     supervisorAssigned: true,
     dispatchPrice: price,
     dispatchPriceCurrency: sourceTask.standardPriceCurrency || sourceTask.dispatchPriceCurrency || 'IDR',
@@ -1134,7 +1034,6 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
     const key = filterField.dataset.unifiedFilter as WorkbenchFilterKey | undefined
     if (!key || !(key in state.filters)) return true
     state.filters[key] = filterField.value
-    if (key === 'stage') { state.filters.process = 'ALL'; state.filters.craft = 'ALL' }
     if (key === 'process') state.filters.craft = 'ALL'
     state.page = 1
     refreshRoot()
@@ -1216,15 +1115,18 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
   if (action === 'clear-filter') {
     const key = actionNode.dataset.filterKey as WorkbenchFilterKey | undefined
     if (key && key in state.filters) state.filters[key] = DEFAULT_FILTERS[key]
-    if (key === 'stage') { state.filters.process = 'ALL'; state.filters.craft = 'ALL' }
     if (key === 'process') state.filters.craft = 'ALL'
     state.page = 1
     refreshRoot(); return true
   }
-  if (action === 'switch-type') { state.taskType = actionNode.dataset.taskType as WorkbenchTaskType; state.page = 1; refreshRoot(); return true }
+  if (action === 'switch-type') {
+    state.taskType = actionNode.dataset.taskType as WorkbenchTaskType
+    state.page = 1; refreshRoot(); return true
+  }
   if (action === 'previous-page' || action === 'prev-page') { state.page = Math.max(1, state.page - 1); refreshRoot(); return true }
   if (action === 'next-page') { state.page += 1; refreshRoot(); return true }
-  if (action === 'open-detail') { state.detailTaskId = taskId; refreshRoot(); return true }
+  if (action === 'open-detail') { state.detailTaskId = taskId; state.detailMode = 'DETAIL'; refreshRoot(); return true }
+  if (action === 'open-log') { state.detailTaskId = taskId; state.detailMode = 'LOG'; refreshRoot(); return true }
   if (action === 'close-detail') { state.detailTaskId = null; refreshRoot(); return true }
   if (action === 'open-direct' || action === 'open-bidding' || action === 'open-reassign') { openDispatch(taskId, action === 'open-direct' ? 'DIRECT' : action === 'open-reassign' ? 'REASSIGN' : 'BIDDING'); refreshRoot(); return true }
   if (action === 'close-dispatch') { state.dispatch = null; refreshRoot(); return true }
@@ -1269,7 +1171,6 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
         if (state.dispatch.selectedSkuCodes.size === 0) throw new Error('请至少选择一个完整SKU')
         const task = getRuntimeTaskById(state.dispatch.taskId)
         if (task && classifyTaskFulfillmentPolicy(task).startsWithSewing && state.dispatch.distributionMode === 'BAG_AWARE' && !selectionMatchesRecommendationGroups(buildDispatchBaggingSnapshot(task), state.dispatch.selectedSkuCodes)) throw new Error('按菲票装袋分配时必须整组选择；如需拆开组内SKU，请切换“自由分配”。')
-        if (task && classifyTaskFulfillmentPolicy(task).startsWithSewing && !state.dispatch.riskAcknowledged) throw new Error('请先确认已知悉生产准备风险')
         state.dispatch.confirmStage = 2
         if (state.dispatch.mode === 'REASSIGN' && !state.dispatch.reassignReason.trim()) throw new Error('请填写改派原因')
       } else if (state.dispatch.mode !== 'BIDDING') {
@@ -1287,7 +1188,6 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
         const selectedLines = sourceLines.filter((line) => state.dispatch?.selectedSkuCodes.has(line.skuCode))
         if (selectedLines.length === 0) throw new Error('请至少选择一个完整SKU')
         if (policy.startsWithSewing && state.dispatch.distributionMode === 'BAG_AWARE' && !selectionMatchesRecommendationGroups(buildDispatchBaggingSnapshot(sourceTask), state.dispatch.selectedSkuCodes)) throw new Error('按菲票装袋分配时必须整组选择；如需拆开组内SKU，请切换“自由分配”。')
-        if (policy.startsWithSewing && !state.dispatch.riskAcknowledged) throw new Error('请先确认已知悉生产准备风险')
         const tenderTask = policy.startsWithSewing && selectedLines.length < sourceLines.length
           ? allocateRuntimeSewingTaskScope({
               taskId: sourceTask.taskId,
@@ -1372,6 +1272,7 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
     refreshRoot(); return true
   }
   if (action === 'close-contract-prompt') { state.contractPromptId = null; refreshRoot(); return true }
+  if (action === 'open-contract') { state.contractPromptId = actionNode.dataset.contractId || null; refreshRoot(); return true }
   if (action === 'retry-contract') {
     try {
       const contract = retryProductionContractGeneration(actionNode.dataset.contractId || '', formatOperationLocalWallClock(), '生产计划员')
@@ -1380,7 +1281,7 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
     } catch (error) { state.feedback = error instanceof Error ? error.message : '合同重试失败' }
     refreshRoot(); return true
   }
-  if (action === 'open-upload') { state.uploadContractId = actionNode.dataset.contractId || null; refreshRoot(); return true }
+  if (action === 'open-upload') { state.contractPromptId = null; state.uploadContractId = actionNode.dataset.contractId || null; refreshRoot(); return true }
   if (action === 'close-upload') { state.uploadContractId = null; refreshRoot(); return true }
   if (action === 'remove-scan') {
     if (!confirm('删除扫描图片将改变合同证据，请再次确认。')) return true
@@ -1398,7 +1299,7 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
   }
   if (action === 'preview-image') {
     const host = document.querySelector<HTMLElement>('[data-unified-image-preview]')
-    if (host) host.innerHTML = `<div class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/80 p-6" data-unified-action="close-image"><button class="absolute right-6 top-6 rounded bg-white px-3 py-2">关闭</button><img src="${escapeHtml(actionNode.dataset.image || '')}" alt="${escapeHtml(actionNode.dataset.label || '高清预览')}" class="max-h-full max-w-full object-contain"/></div>`
+    if (host) host.innerHTML = `<div class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/80 p-6" data-unified-action="close-image"><button class="absolute right-6 top-6 rounded bg-white px-3 py-2">关闭</button><img src="${escapeHtml(actionNode.dataset.image || '')}" alt="${escapeHtml(actionNode.dataset.label || '高清预览')}" class="max-h-full max-w-full object-contain" onerror="this.hidden=true;this.nextElementSibling.hidden=false"/><p hidden class="rounded bg-white p-8 text-sm text-red-600">图片加载失败，请检查原图地址。</p></div>`
     return true
   }
   if (action === 'close-image') { document.querySelector<HTMLElement>('[data-unified-image-preview]')!.innerHTML = ''; return true }

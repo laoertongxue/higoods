@@ -1,6 +1,8 @@
 import type { EffectiveTaskAssignment } from './effective-task-assignments'
 import type { ProductionReturnRuleSnapshot } from './production-return-fulfillment'
 import type { TaskFulfillmentPolicy } from './task-fulfillment-policy'
+import { getFactoryMasterRecordById } from './factory-master-store'
+import { productionOrders } from './production-orders'
 
 export type ProductionContractStatus = 'EFFECTIVE' | 'INVALIDATED' | 'GENERATION_FAILED'
 
@@ -13,6 +15,27 @@ export interface SignedContractScan {
   sortOrder: number
   uploadedAt: string
   uploadedBy: string
+}
+
+export type ProductionContractTaskTypeId = 'NON-GABUNGAN' | 'GABUNGAN'
+export type ProductionContractProcessTypeId = 'JAHIT' | 'JAHIT-PACKING' | 'CUTTING-PACKING'
+
+export interface ProductionContractTaskDetailSnapshot {
+  spuNo: string
+  purchaseOrderNo: string
+  productionSpkNo: string
+  note: string
+  qty: number
+}
+
+export interface ProductionContractTemplateSnapshot {
+  ppicName: string
+  factoryPicName: string
+  pickupDate: string
+  taskTypeId: ProductionContractTaskTypeId
+  processTypeId: ProductionContractProcessTypeId
+  dayCalculationId: 'KALENDER'
+  taskDetails: ProductionContractTaskDetailSnapshot[]
 }
 
 export interface ProductionContract {
@@ -32,6 +55,7 @@ export interface ProductionContract {
   assignedQty: number
   assignmentDate: string
   returnRuleSnapshot: ProductionReturnRuleSnapshot
+  templateSnapshot: ProductionContractTemplateSnapshot
   status: ProductionContractStatus
   generatedAt: string
   generatedBy: string
@@ -91,6 +115,7 @@ function hydrateContractState(): void {
     value.contracts?.forEach((contract) => contracts.set(contract.contractId, {
       ...contract,
       lineageRuntimeTaskId: contract.lineageRuntimeTaskId || contract.runtimeTaskId,
+      templateSnapshot: contract.templateSnapshot || buildLegacyTemplateSnapshot(contract),
     }))
     contractAuditLogs.push(...(value.auditLogs || []))
     contractSeq = value.contractSeq || value.contracts?.length || 0
@@ -98,6 +123,67 @@ function hydrateContractState(): void {
     auditSeq = value.auditSeq || value.auditLogs?.length || 0
   } catch {
     window.localStorage.removeItem(STORAGE_KEY)
+  }
+}
+
+function resolveProcessTypeId(policy: TaskFulfillmentPolicy): ProductionContractProcessTypeId {
+  if (policy.fulfillmentRuleCode === 'CUTTING_TO_IRON_PACK') return 'CUTTING-PACKING'
+  if (policy.fulfillmentRuleCode === 'SEWING_TO_IRON_PACK') return 'JAHIT-PACKING'
+  return 'JAHIT'
+}
+
+function buildTemplateSnapshot(input: {
+  assignment: EffectiveTaskAssignment
+  policy: TaskFulfillmentPolicy
+}): ProductionContractTemplateSnapshot {
+  const order = productionOrders.find((item) => (
+    item.productionOrderId === input.assignment.productionOrderId
+    || item.productionOrderNo === input.assignment.productionOrderNo
+  ))
+  const factory = getFactoryMasterRecordById(input.assignment.factoryId)
+  return {
+    ppicName: order?.demandSnapshot.merchandiserName || 'PPIC belum ditentukan',
+    factoryPicName: factory?.contact || 'PIC belum ditentukan',
+    pickupDate: 'Belum diambil',
+    taskTypeId: input.policy.isIndependentTask ? 'NON-GABUNGAN' : 'GABUNGAN',
+    processTypeId: resolveProcessTypeId(input.policy),
+    dayCalculationId: 'KALENDER',
+    taskDetails: [{
+      spuNo: order?.demandSnapshot.spuCode || 'Tidak tersedia',
+      purchaseOrderNo: 'Tidak tersedia',
+      productionSpkNo: input.assignment.productionOrderNo || input.assignment.productionOrderId,
+      note: input.assignment.taskNo ? `Tugas ${input.assignment.taskNo}` : 'Tidak ada',
+      qty: input.assignment.assignedQty,
+    }],
+  }
+}
+
+function buildLegacyTemplateSnapshot(contract: Omit<ProductionContract, 'templateSnapshot'> & { templateSnapshot?: ProductionContractTemplateSnapshot }): ProductionContractTemplateSnapshot {
+  const fulfillmentRuleCode = contract.returnRuleSnapshot.fulfillmentRuleCode
+  const processTypeId: ProductionContractProcessTypeId = fulfillmentRuleCode === 'CUTTING_TO_IRON_PACK'
+    ? 'CUTTING-PACKING'
+    : fulfillmentRuleCode === 'SEWING_TO_IRON_PACK'
+      ? 'JAHIT-PACKING'
+      : 'JAHIT'
+  const order = productionOrders.find((item) => (
+    item.productionOrderId === contract.productionOrderId
+    || item.productionOrderNo === contract.productionOrderNo
+  ))
+  const factory = getFactoryMasterRecordById(contract.factoryId)
+  return {
+    ppicName: order?.demandSnapshot.merchandiserName || 'PPIC belum ditentukan',
+    factoryPicName: factory?.contact || 'PIC belum ditentukan',
+    pickupDate: 'Belum diambil',
+    taskTypeId: processTypeId === 'JAHIT' ? 'NON-GABUNGAN' : 'GABUNGAN',
+    processTypeId,
+    dayCalculationId: 'KALENDER',
+    taskDetails: [{
+      spuNo: order?.demandSnapshot.spuCode || 'Tidak tersedia',
+      purchaseOrderNo: 'Tidak tersedia',
+      productionSpkNo: contract.productionOrderNo || contract.productionOrderId,
+      note: contract.taskNo ? `Tugas ${contract.taskNo}` : 'Tidak ada',
+      qty: contract.assignedQty,
+    }],
   }
 }
 
@@ -159,6 +245,7 @@ export function generateProductionContract(input: {
     assignedQty: input.assignment.assignedQty,
     assignmentDate: input.assignment.businessAssignedAt.slice(0, 10),
     returnRuleSnapshot: structuredClone(input.returnRuleSnapshot),
+    templateSnapshot: buildTemplateSnapshot(input),
     status: 'EFFECTIVE',
     generatedAt: input.generatedAt,
     generatedBy: input.generatedBy,
@@ -199,6 +286,7 @@ export function recordProductionContractGenerationFailure(input: {
     assignedQty: input.assignment.assignedQty,
     assignmentDate: input.assignment.businessAssignedAt.slice(0, 10),
     returnRuleSnapshot: structuredClone(input.returnRuleSnapshot),
+    templateSnapshot: buildTemplateSnapshot(input),
     status: 'GENERATION_FAILED',
     generatedAt: input.generatedAt,
     generatedBy: input.generatedBy,

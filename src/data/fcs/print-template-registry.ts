@@ -60,6 +60,7 @@ import {
 } from '../../pages/print/templates/business-request-form-template.ts'
 import { renderDyeWorkOrderFlowCardTemplate } from '../../pages/print/templates/dye-work-order-flow-card-template.ts'
 import { buildProductionContractPrintDocument, renderProductionContractTemplate } from '../../pages/print/templates/production-contract-template.ts'
+import { PRODUCTION_CONTRACT_MASTER_TEMPLATE_CODE } from '../../pages/print/templates/production-contract-master-template.ts'
 
 export interface PrintTemplateRegistration {
   templateCode: string
@@ -72,8 +73,8 @@ export interface PrintTemplateRegistration {
 
 export const printTemplateRegistry: PrintTemplateRegistration[] = [
   {
-    templateCode: 'PRODUCTION_CONTRACT_V1',
-    templateName: '生产加工合同',
+    templateCode: PRODUCTION_CONTRACT_MASTER_TEMPLATE_CODE,
+    templateName: 'SPK & Komitmen Jadwal Pengembalian',
     documentType: 'PRODUCTION_CONTRACT',
     supportedSourceTypes: ['PRODUCTION_CONTRACT_RECORD'],
     buildDocument: buildProductionContractPrintDocument,
