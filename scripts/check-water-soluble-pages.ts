@@ -49,7 +49,7 @@ const hasCapabilityPair = (processCodes: string[]) => onboardingApplications.som
   const codes = new Set(application.selectedCapabilities.map((capability) => capability.processCode))
   return processCodes.every((code) => codes.has(code))
 })
-assert(hasCapabilityPair(['CUT_PANEL', 'POST_FINISHING']), '工厂入驻 Mock 必须保留定向裁 + 后道包装能力场景')
+assert(hasCapabilityPair(['CUT_PANEL', 'IRON_PACK']), '工厂入驻 Mock 必须保留定向裁 + 烫包能力场景')
 assert(hasCapabilityPair(['DYE', 'WATER_SOLUBLE']), '工厂入驻 Mock 必须通过独立记录保留染色 + 水溶能力场景')
 
 const inertTarget = { closest: () => null } as unknown as HTMLElement

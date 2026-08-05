@@ -20,6 +20,7 @@ export type PrintDocumentType =
   | 'PRODUCTION_QC_MASTER'
   | 'POST_FINISHING_QC_ORDER'
   | 'MASTER_DATA_CHANGE_REQUEST'
+  | 'PRODUCTION_CONTRACT'
 
 export type PrintSourceType =
   | TaskRouteCardSourceType
@@ -38,6 +39,7 @@ export type PrintSourceType =
   | 'QUALITY_DISPUTE_RECORD'
   | 'POST_FINISHING_QC_ORDER'
   | 'MASTER_DATA_CHANGE_REQUEST_RECORD'
+  | 'PRODUCTION_CONTRACT_RECORD'
 
 export type PrintPaperType = 'A4' | 'LABEL_80_50' | 'LABEL_100_60' | 'LABEL_100_100' | 'LABEL_150_100' | 'LABEL_60_40' | 'A4_LABEL_GRID'
 export type PrintOrientation = 'portrait'

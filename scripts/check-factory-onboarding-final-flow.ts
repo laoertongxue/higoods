@@ -59,7 +59,6 @@ import {
   findFactoryPdaUserByLoginId,
   setPdaSession,
 } from '../src/data/fcs/store-domain-pda.ts'
-import { listFactoryCapacityProfiles } from '../src/data/fcs/factory-capacity-profile-mock.ts'
 
 const SCRIPT_NAME = 'check-factory-onboarding-final-flow'
 const root = process.cwd()
@@ -179,7 +178,7 @@ const sampleFlowPath = 'src/data/fcs/factory-sample-verification-flow.ts'
 const onboardingFlowPath = 'src/data/fcs/factory-onboarding-flow.ts'
 const factoryMasterPath = 'src/data/fcs/factory-master-store.ts'
 const capacityPath = 'src/data/fcs/factory-capacity-profile-mock.ts'
-const dispatchBoardPath = 'src/pages/dispatch-board/context.ts'
+const dispatchWorkbenchPath = 'src/pages/unified-dispatch-workbench.ts'
 const dispatchTenderPath = 'src/pages/dispatch-tenders.ts'
 
 // 第一类：路由与菜单
@@ -270,7 +269,12 @@ assert(initialApplications.filter((item) => !item.assignedPpicId).length >= 3, '
 assert(initialApplications.filter((item) => item.ppicChangeLogs.length >= 2).length >= 3, '缺少平台手动修改 PPIC 的 mock 记录')
 const initialConverted = initialApplications.filter((item) => item.status === '已转正式合作')
 assert(initialConverted.filter((item) => item.createdFactoryId && listFactoryMasterRecords().some((factory) => factory.id === item.createdFactoryId)).length >= 3, '已转正式合作关联工厂档案少于 3 条')
-assert(initialConverted.filter((item) => item.createdFactoryId && listFactoryCapacityProfiles().some((profile) => profile.factoryId === item.createdFactoryId)).length >= 3, '已转正式合作关联产能档案少于 3 条')
+assert(initialConverted.filter((item) => {
+  const factory = item.createdFactoryId
+    ? listFactoryMasterRecords().find((candidate) => candidate.id === item.createdFactoryId)
+    : null
+  return Boolean(factory?.selectedCapabilities?.length && factory?.machines?.length)
+}).length >= 3, '已转正式合作工厂的工序工艺与设备档案少于 3 条')
 
 // 第四类：平台初审
 assertIncludes(platformPath, ['已通过', '未通过', 'factory-onboarding-review-button', 'factory-onboarding-review-dialog'])
@@ -517,10 +521,10 @@ assert((conversion.createdFactory.selectedCapabilities?.length || 0) > 0 && (con
 assert(conversion.createdFactory.effectiveWorkerCount === conversion.application.effectiveWorkerCount, 'FactoryProfile 缺少有效工人数量')
 const officialUser = findFactoryPdaUserByLoginId(conversion.application.adminAccount.loginId)
 assert(officialUser?.roleName === '工厂管理员' && officialUser.loginId === conversion.application.adminAccount.loginId && officialUser.isTemporary === false, '管理员账号未正确转正式')
-assert(conversion.capacityProfile.sourceApplicationId === conversion.application.applicationId, '产能档案缺少 sourceApplicationId')
-assert(conversion.capacityProfile.capabilityItems.length > 0 && conversion.capacityProfile.machineItems.length > 0, '产能档案缺少能力或机器明细')
-assert(conversion.capacityProfile.defaultDailyOutputValue === 0 && conversion.capacityProfile.calculationStatus === '待补充产能字段', '产能档案 产值 缺省规则不正确')
-assert(!('currentStatus' in conversion.capacityProfile) && !('dayShift' in conversion.capacityProfile) && !('nightShift' in conversion.capacityProfile) && !('weeklyDefaultSupply' in conversion.capacityProfile), '产能档案不应生成当前状态、班次或周默认供给')
+assert(conversion.capacityProfile.sourceApplicationId === conversion.application.applicationId, '工厂设备与人员档案缺少 sourceApplicationId')
+assert(conversion.capacityProfile.capabilityItems.length > 0 && conversion.capacityProfile.machineItems.length > 0, '工厂设备与人员档案缺少能力或机器明细')
+assert(!('defaultDailyOutputValue' in conversion.capacityProfile) && !('calculationStatus' in conversion.capacityProfile), '工厂设备与人员档案不应保留产值或计算状态')
+assert(!('currentStatus' in conversion.capacityProfile) && !('dayShift' in conversion.capacityProfile) && !('nightShift' in conversion.capacityProfile) && !('weeklyDefaultSupply' in conversion.capacityProfile), '工厂设备与人员档案不应生成当前状态、班次或周默认供给')
 
 // 第九类：平台与 PDA 权限
 logoutPdaAccess()
@@ -554,7 +558,7 @@ assertNoRegexInSrc(/未合作.*进入业务/, '不得出现未合作工厂进入
 assertNotIncludes(platformPath, ['PENDING', 'DONE', 'IN_PROGRESS', '空白占位页'])
 assertNotIncludes(pdaOnboardingPath, ['PENDING', 'DONE', 'IN_PROGRESS', '空白占位页'])
 assertIncludes(factoryMasterPath, ['listBusinessFactoryMasterRecords'])
-assertIncludes(dispatchBoardPath, ['listBusinessFactoryMasterRecords'])
+assertIncludes(dispatchWorkbenchPath, ['listBusinessFactoryMasterRecords'])
 assertIncludes(dispatchTenderPath, ['listBusinessFactoryMasterRecords'])
 
 // 第十二类：文档

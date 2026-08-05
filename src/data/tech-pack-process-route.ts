@@ -1,7 +1,5 @@
 import { getDefaultProcessRouteOrder } from './fcs/process-craft-dict.ts'
 
-type RouteParallelAcceptanceMode = 'INDEPENDENT_ONLY' | 'WHOLE_GROUP_ALLOWED'
-
 type RouteEntryBase = {
   id: string
   routeStepNo?: number
@@ -13,7 +11,6 @@ type NormalizableRouteEntry = RouteEntryBase & {
   processCode: string
   routeParallelGroupId?: string
   routeParallelGroupName?: string
-  routeParallelAcceptanceMode?: RouteParallelAcceptanceMode
   linkedBomItemIds?: string[]
 }
 
@@ -30,11 +27,6 @@ const STAGE_SORT: Record<string, number> = {
   PREP: 1,
   PROD: 2,
   POST: 3,
-}
-
-export type RouteContinuityResult = { allowed: boolean; reason: string }
-export interface RouteContinuityOptions {
-  canSingleFactoryCoverProcesses?: (processCodes: string[]) => boolean
 }
 
 function isPositiveStepNo(value: number | undefined): value is number {
@@ -217,60 +209,8 @@ export function normalizeProcessRouteEntries<T extends NormalizableRouteEntry>(e
       routeLaneNo: laneIndex + 1,
       routeParallelGroupId: groupId,
       routeParallelGroupName: group.forceIndependent ? undefined : group.groupNameOverride ?? existingGroupName,
-      routeParallelAcceptanceMode: group.forceIndependent
-        ? 'INDEPENDENT_ONLY'
-        : groupId
-          ? item.entry.routeParallelAcceptanceMode ?? 'INDEPENDENT_ONLY'
-          : item.entry.routeParallelAcceptanceMode,
     } as T))
   })
   assertWaterBeforeDyeInvariant(normalized)
   return normalized
-}
-
-export function areRouteEntriesContinuous(entries: Array<{
-  id: string
-  processCode?: string
-  routeStepNo?: number
-  routeParallelGroupId?: string
-  routeParallelAcceptanceMode?: RouteParallelAcceptanceMode
-}>, options: RouteContinuityOptions = {}): RouteContinuityResult {
-  if (entries.length <= 1) {
-    return { allowed: true, reason: '少于两个工序，无需连续合并判断' }
-  }
-
-  if (entries.some((entry) => !isPositiveStepNo(entry.routeStepNo))) {
-    return { allowed: false, reason: '存在未配置路线步骤的工序，不能合并连续工序任务' }
-  }
-
-  const stepGroups = new Map<number, typeof entries>()
-  for (const entry of entries) {
-    const stepNo = entry.routeStepNo as number
-    stepGroups.set(stepNo, [...(stepGroups.get(stepNo) ?? []), entry])
-  }
-
-  const steps = [...stepGroups.keys()].sort((left, right) => left - right)
-  for (let index = 1; index < steps.length; index += 1) {
-    const previous = steps[index - 1]
-    const current = steps[index]
-    if (current - previous !== 1) {
-      return { allowed: false, reason: `路线步骤不连续：第 ${previous} 步后缺少第 ${previous + 1} 步` }
-    }
-  }
-
-  for (const group of stepGroups.values()) {
-    const hasParallelMark = group.length > 1 || group.some((entry) => entry.routeParallelGroupId)
-    if (!hasParallelMark) continue
-    if (group.some((entry) => entry.routeParallelAcceptanceMode !== 'WHOLE_GROUP_ALLOWED')) {
-      return { allowed: false, reason: '并行工序默认分别承接，不能和前后工序合并为连续工序任务' }
-    }
-    if (options.canSingleFactoryCoverProcesses) {
-      const processCodes = Array.from(new Set(group.map((entry) => entry.processCode).filter(Boolean))) as string[]
-      if (processCodes.length > 1 && !options.canSingleFactoryCoverProcesses(processCodes)) {
-        return { allowed: false, reason: '同一工厂不具备并行组全部工序能力，不能整体承接该并行组' }
-      }
-    }
-  }
-
-  return { allowed: true, reason: '路线步骤连续，可合并为连续工序任务' }
 }

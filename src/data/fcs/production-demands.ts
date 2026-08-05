@@ -540,6 +540,28 @@ const seedProductionDemands: ProductionDemand[] = [
     ],
     hasProductionOrder: true, productionOrderId: 'PO-202603-088', createdAt: '2026-03-15 08:40:00', updatedAt: '2026-03-15 09:10:00',
   }),
+  createDemandSeed({
+    demandId: 'DEM-PO14671-SUPPLEMENT', legacyType: 'GOODS_PURCHASE', legacyOrderNo: 'PO14671-SUPPLEMENT', sourceSystem: 'NEW',
+    spuCode: 'ASYSA26060310', spuName: '女式基础圆领短袖', imageUrl: '/tshirt-sample.jpg',
+    category: 'Womens T-Shirt', marketScopes: ['ID'], buyerName: '宋雨', merchandiserName: '林晓', saleType: '备货',
+    priority: 'NORMAL', demandStatus: 'CONVERTED', techPackStatus: 'RELEASED', techPackVersionLabel: 'V1.0',
+    requiredDeliveryDate: '2026-06-30', constraintsNote: '裁片放行与补料链路专用冻结生产需求。',
+    skuLines: [
+      { skuCode: 'ASYSA26060310-BLACK-M', size: 'M', color: 'Black', qty: 215 },
+      { skuCode: 'ASYSA26060310-BLACK-L', size: 'L', color: 'Black', qty: 344 },
+      { skuCode: 'ASYSA26060310-BLACK-XL', size: 'XL', color: 'Black', qty: 482 },
+      { skuCode: 'ASYSA26060310-WHITE-M', size: 'M', color: 'White', qty: 190 },
+      { skuCode: 'ASYSA26060310-WHITE-L', size: 'L', color: 'White', qty: 280 },
+      { skuCode: 'ASYSA26060310-WHITE-XL', size: 'XL', color: 'White', qty: 340 },
+      { skuCode: 'ASYSA26060310-NAVY-M', size: 'M', color: 'Navy', qty: 180 },
+      { skuCode: 'ASYSA26060310-NAVY-L', size: 'L', color: 'Navy', qty: 270 },
+      { skuCode: 'ASYSA26060310-NAVY-XL', size: 'XL', color: 'Navy', qty: 350 },
+      { skuCode: 'ASYSA26060310-RED-M', size: 'M', color: 'Red', qty: 170 },
+      { skuCode: 'ASYSA26060310-RED-L', size: 'L', color: 'Red', qty: 250 },
+      { skuCode: 'ASYSA26060310-RED-XL', size: 'XL', color: 'Red', qty: 320 },
+    ],
+    hasProductionOrder: true, productionOrderId: 'po-14671', createdAt: '2026-06-03 07:00:00', updatedAt: '2026-06-03 07:30:00',
+  }),
 ]
 
 function normalizeReleasedVersionLabel(versionLabel: string): string {

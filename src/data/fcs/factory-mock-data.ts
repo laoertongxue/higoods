@@ -1,6 +1,5 @@
 import type {
   Factory,
-  FactoryPostCapacityNodeCode,
   FactoryProcessAbility,
   FactoryTier,
   FactoryType,
@@ -17,9 +16,7 @@ import {
 } from './process-craft-dict.ts'
 import { specialCraftDedicatedFactorySeeds } from './special-craft-dedicated-factories.ts'
 
-const POST_CAPACITY_NODE_CODES = ['BUTTONHOLE', 'BUTTON_ATTACH', 'IRONING', 'PACKAGING'] as const satisfies FactoryPostCapacityNodeCode[]
-const DEDICATED_POST_ACTION_NAMES = ['质检', '后道', '复检'] as const
-const BASIC_POST_ACTION_NAMES = ['后道'] as const
+const POST_STAGE_PROCESS_CODES = ['BUTTONHOLE', 'BUTTON_ATTACH', 'IRON_PACK'] as const
 export const TEST_FACTORY_ID = 'F090'
 export const TEST_FACTORY_CODE = 'F090'
 export const TEST_FACTORY_NAME = '全能力测试工厂'
@@ -72,8 +69,9 @@ const legacyTagProcessMap: Record<string, string[]> = {
   绣花: ['EMBROIDERY'],
   水洗: ['WASHING'],
   染色: ['DYE'],
+  水溶: ['WATER_SOLUBLE'],
   车缝: ['SEW'],
-  后整: ['POST_FINISHING'],
+  后整: [...POST_STAGE_PROCESS_CODES],
 }
 
 const factoryTypeProcessMap: Partial<Record<FactoryType, string[]>> = {
@@ -82,12 +80,12 @@ const factoryTypeProcessMap: Partial<Record<FactoryType, string[]>> = {
   CENTRAL_DYE: ['DYE'],
   CENTRAL_CUTTING: ['CUT_PANEL'],
   CENTRAL_SPECIAL: ['SPECIAL_CRAFT'],
-  CENTRAL_AUX: ['POST_FINISHING', 'SPECIAL_CRAFT'],
-  CENTRAL_LACE: ['POST_FINISHING'],
+  CENTRAL_AUX: [...POST_STAGE_PROCESS_CODES, 'SPECIAL_CRAFT'],
+  CENTRAL_LACE: [...POST_STAGE_PROCESS_CODES],
   CENTRAL_WOOL: ['SEW', 'PLEATING'],
   CENTRAL_DENIM_WASH: ['WASHING', 'SHRINKING'],
   SATELLITE_SEWING: ['SEW'],
-  SATELLITE_FINISHING: ['POST_FINISHING', 'PLEATING', 'SPECIAL_CRAFT'],
+  SATELLITE_FINISHING: [...POST_STAGE_PROCESS_CODES, 'PLEATING', 'SPECIAL_CRAFT'],
   THIRD_SEWING: ['SEW'],
 }
 
@@ -101,23 +99,6 @@ function createProcessAbility(
   const process = getProcessDefinitionByCode(processCode)
   if (!process || !process.isActive) return null
 
-  if (processCode === 'POST_FINISHING') {
-    const isDedicatedPostFactory = options?.factoryType === 'SATELLITE_FINISHING'
-    return {
-      processCode,
-      craftCodes: [],
-      capacityNodeCodes: [...POST_CAPACITY_NODE_CODES],
-      abilityId: `ABILITY_${processCode}`,
-      processName: process.processName,
-      craftNames: [...(isDedicatedPostFactory ? DEDICATED_POST_ACTION_NAMES : BASIC_POST_ACTION_NAMES)],
-      abilityName: process.processName,
-      abilityScope: 'PROCESS',
-      canReceiveTask: true,
-      capacityManaged: true,
-      status: 'ACTIVE',
-    }
-  }
-
   const crafts = listCraftsByProcessCode(processCode)
   const craftCodes = crafts.map((item) => item.craftCode)
   if (!craftCodes.length) return null
@@ -130,7 +111,7 @@ function createProcessAbility(
     craftNames: crafts.map((item) => item.craftName),
     abilityName: process.processName,
     abilityScope: craftCodes.length === 1 ? 'CRAFT' : 'PROCESS',
-    canReceiveTask: process.generatesExternalTask,
+    canReceiveTask: process.generatesExternalTask || process.processRole === 'PREPARATION_ORDER',
     capacityManaged: process.capacityEnabled,
     status: process.isActive ? 'ACTIVE' : 'DISABLED',
   }
@@ -152,7 +133,7 @@ function buildProcessAbilities(tags: string[], factoryType: FactoryType): Factor
 
 function buildAllProcessAbilitiesForTestFactory(): FactoryProcessAbility[] {
   const processCodes = listProcessDefinitions()
-    .filter((process) => process.isActive && (process.generatesExternalTask || process.processCode === 'POST_FINISHING'))
+    .filter((process) => process.isActive && (process.generatesExternalTask || process.processRole === 'PREPARATION_ORDER' || process.stageCode === 'POST'))
     .map((process) => process.processCode)
 
   return processCodes
@@ -161,7 +142,6 @@ function buildAllProcessAbilitiesForTestFactory(): FactoryProcessAbility[] {
     .map((item) => ({
       ...item,
       craftCodes: [...item.craftCodes],
-      capacityNodeCodes: item.capacityNodeCodes ? [...item.capacityNodeCodes] : undefined,
       craftNames: item.craftNames ? [...item.craftNames] : undefined,
       canReceiveTask: true,
       status: 'ACTIVE',
@@ -171,15 +151,7 @@ function buildAllProcessAbilitiesForTestFactory(): FactoryProcessAbility[] {
 function adjustProcessAbilitiesForFactory(factoryId: string, abilities: FactoryProcessAbility[]): FactoryProcessAbility[] {
   if (factoryId !== 'ID-F024') return abilities
 
-  return abilities.map((ability) => {
-    if (ability.processCode !== 'POST_FINISHING') return ability
-    const capacityNodeCodes: FactoryPostCapacityNodeCode[] = ['BUTTONHOLE', 'IRONING']
-    return {
-      ...ability,
-      capacityNodeCodes,
-      craftNames: [...BASIC_POST_ACTION_NAMES],
-    }
-  })
+  return abilities.filter((ability) => ability.processCode !== 'BUTTON_ATTACH')
 }
 
 function mapStatus(status: string): Factory['status'] {
@@ -304,9 +276,9 @@ const ownWoolFactory: Factory = {
   cooperationMode: 'exclusive',
   processAbilities: [
     {
-      processCode: 'PROC_WOOL',
-      craftCodes: ['WHOLE_GARMENT_WOOL', 'PART_PANEL_WOOL'],
-      abilityId: 'ABILITY_PROC_WOOL_OWN',
+      processCode: 'WOOL',
+      craftCodes: ['CRAFT_2000007', 'CRAFT_2000008'],
+      abilityId: 'ABILITY_WOOL_OWN',
       processName: '毛织',
       craftNames: ['整件毛织', '部位毛织'],
       abilityName: '毛织 / 整件与部位',
@@ -343,21 +315,9 @@ const dedicatedPostFactory: Factory = {
   phone: '+62 21 8800 2605',
   status: 'active',
   cooperationMode: 'exclusive',
-  processAbilities: [
-    {
-      processCode: 'POST_FINISHING',
-      craftCodes: [],
-      capacityNodeCodes: [...POST_CAPACITY_NODE_CODES],
-      abilityId: 'ABILITY_POST_FINISHING_DEDICATED',
-      processName: '后道',
-      craftNames: [...DEDICATED_POST_ACTION_NAMES],
-      abilityName: '后道',
-      abilityScope: 'PROCESS',
-      canReceiveTask: true,
-      capacityManaged: true,
-      status: 'ACTIVE',
-    },
-  ],
+  processAbilities: POST_STAGE_PROCESS_CODES
+    .map((processCode) => createProcessAbility(processCode, { tags: [], factoryType: 'SATELLITE_FINISHING' }))
+    .filter((item): item is FactoryProcessAbility => Boolean(item)),
   qualityScore: 93,
   deliveryScore: 91,
   createdAt: '2026-05-22 09:00:00',
@@ -374,7 +334,7 @@ const dedicatedPostFactory: Factory = {
   },
 }
 
-const kolGotoProcessCodes = ['CUT_PANEL', 'SEW', 'SPECIAL_CRAFT', 'POST_FINISHING'] as const
+const kolGotoProcessCodes = ['CUT_PANEL', 'SEW', 'SPECIAL_CRAFT', ...POST_STAGE_PROCESS_CODES] as const
 
 function normalizeKolGotoProcessAbility(ability: FactoryProcessAbility): FactoryProcessAbility {
   if (ability.processCode === 'SPECIAL_CRAFT') {
@@ -383,17 +343,6 @@ function normalizeKolGotoProcessAbility(ability: FactoryProcessAbility): Factory
       processName: '辅助工艺 / 特殊工艺',
       abilityName: '辅助工艺 / 特殊工艺',
       craftNames: Array.from(new Set(['辅助工艺', ...(ability.craftNames ?? []), '特殊工艺'])),
-    }
-  }
-
-  if (ability.processCode === 'POST_FINISHING') {
-    return {
-      ...ability,
-      processName: '后道 / 质检 / 复检 / 包装',
-      abilityName: '后道 / 质检 / 复检 / 包装',
-      craftNames: Array.from(new Set(['质检', '后道', '复检', ...(ability.craftNames ?? []), '包装'])),
-      capacityNodeCodes: [...POST_CAPACITY_NODE_CODES],
-      capacityManaged: true,
     }
   }
 
@@ -439,9 +388,9 @@ const kolGotoFactory: Factory = {
   },
   taskAcceptanceConfig: {
     singleProcessEnabled: true,
-    continuousProcessEnabled: false,
+    canAcceptSewingIronPack: true,
+    canAcceptCuttingSewingIronPack: false,
     wholeOrderEnabled: true,
-    continuousRules: [],
     wholeOrderRule: {
       enabled: true,
       applicableSaleTypes: ['KOL样衣', 'KOL样品小单'],
@@ -450,32 +399,34 @@ const kolGotoFactory: Factory = {
       allowRuleRecommendation: true,
       handoverReceiverKind: 'WAREHOUSE',
       handoverReceiverName: '仓库',
-      pdaStepTemplateCode: 'SIMPLE_FIVE_STEP',
+      pdaStepTemplateCode: 'WHOLE_ORDER_FIVE_STEP',
       remark: 'KOL 样衣和样品小单整单承接；印花、染色保持独立加工单链路。',
     },
   },
 }
 
-export const specialCraftDedicatedFactories: Factory[] = specialCraftDedicatedFactorySeeds.map((seed) => {
+export const specialCraftDedicatedFactories: Factory[] = [...new Set(specialCraftDedicatedFactorySeeds.map((seed) => seed.factoryId))].map((factoryId) => {
+  const seeds = specialCraftDedicatedFactorySeeds.filter((seed) => seed.factoryId === factoryId)
+  const seed = seeds[0]
   const processName = seed.managementDomain === 'AUXILIARY_CRAFT_FACTORY' ? '辅助工艺' : '特种工艺'
   return {
     id: seed.factoryId,
     code: seed.factoryCode,
     name: seed.factoryName,
-    factoryShortName: seed.craftName,
-    address: `印尼雅加达 ${seed.craftName}工艺园区`,
-    contact: `${seed.craftName}负责人`,
+    factoryShortName: seed.factoryName,
+    address: `印尼雅加达 ${processName}工艺园区`,
+    contact: `${processName}负责人`,
     phone: '+62 21 8800 0001',
     status: 'active',
     cooperationMode: 'exclusive',
     processAbilities: [
       {
         processCode: 'SPECIAL_CRAFT',
-        craftCodes: [seed.craftCode],
+        craftCodes: seeds.map((item) => item.craftCode),
         abilityId: `ABILITY_${seed.factoryId}`,
         processName,
-        craftNames: [seed.craftName],
-        abilityName: `${seed.craftName}专属加工`,
+        craftNames: seeds.map((item) => item.craftName),
+        abilityName: `${processName}集中加工`,
         abilityScope: 'CRAFT',
         canReceiveTask: true,
         capacityManaged: true,

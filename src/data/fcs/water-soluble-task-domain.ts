@@ -1,5 +1,8 @@
 import { getFactoryMasterRecordById } from './factory-master-store.ts'
-import { listGeneratedProductionTaskArtifacts, type GeneratedTaskArtifact } from './production-artifact-generation.ts'
+import {
+  listGeneratedProductionPreparationOrderArtifacts,
+  type GeneratedPreparationOrderArtifact,
+} from './production-artifact-generation.ts'
 import { productionOrders } from './production-orders.ts'
 import type { ProcessTask, QtyUnit } from './process-tasks.ts'
 import { buildTaskQrValue } from './task-qr.ts'
@@ -64,6 +67,9 @@ export interface WaterSolubleWorkOrder {
   qtyUnit: string
   factoryId?: string
   factoryName?: string
+  acceptanceStatus?: 'PENDING' | 'ACCEPTED' | 'REJECTED'
+  acceptedAt?: string
+  acceptedBy?: string
   status: WaterSolubleWorkOrderStatus
   taskId: string
   taskNo: string
@@ -147,13 +153,13 @@ export function buildWaterSolubleOrderNo(
   return `SRJG-${productionToken}-${String(materialSequence).padStart(3, '0')}`
 }
 
-type MaterialWaterSolubleTaskArtifact = GeneratedTaskArtifact & Required<Pick<GeneratedTaskArtifact,
+type MaterialWaterSolublePreparationArtifact = GeneratedPreparationOrderArtifact & Required<Pick<GeneratedPreparationOrderArtifact,
   'bomItemId' | 'materialCode' | 'materialName' | 'plannedQty' | 'plannedUnit' | 'linkedBomItemIds'
 >>
 
-function isMaterialWaterSolubleTaskArtifact(artifact: GeneratedTaskArtifact): artifact is MaterialWaterSolubleTaskArtifact {
+function isMaterialWaterSolublePreparationArtifact(artifact: GeneratedPreparationOrderArtifact): artifact is MaterialWaterSolublePreparationArtifact {
   return artifact.processCode === 'WATER_SOLUBLE'
-    && artifact.artifactType === 'TASK'
+    && artifact.artifactType === 'PREPARATION_ORDER'
     && !artifact.artifactId.startsWith('DICT-')
     && !artifact.sourceEntryId.startsWith('DICT-MOCK-')
     && Boolean(artifact.bomItemId?.trim())
@@ -166,7 +172,7 @@ function isMaterialWaterSolubleTaskArtifact(artifact: GeneratedTaskArtifact): ar
     && artifact.linkedBomItemIds[0] === artifact.bomItemId
 }
 
-function buildOrderFromArtifact(artifact: MaterialWaterSolubleTaskArtifact, materialSequence: number): WaterSolubleWorkOrder {
+function buildOrderFromArtifact(artifact: MaterialWaterSolublePreparationArtifact, materialSequence: number): WaterSolubleWorkOrder {
   const productionOrder = productionOrders.find((item) => item.productionOrderId === artifact.orderId)
   const productionOrderNo = productionOrder?.productionOrderNo ?? artifact.orderId
   const bomItemId = artifact.bomItemId
@@ -203,10 +209,10 @@ function buildOrderFromArtifact(artifact: MaterialWaterSolubleTaskArtifact, mate
 }
 
 function buildOrdersFromCurrentArtifacts(): WaterSolubleWorkOrder[] {
-  const artifacts = listGeneratedProductionTaskArtifacts()
-    .filter(isMaterialWaterSolubleTaskArtifact)
+  const artifacts = listGeneratedProductionPreparationOrderArtifacts()
+    .filter(isMaterialWaterSolublePreparationArtifact)
   const materialSequenceByGenerationKey = new Map<string, number>()
-  const artifactsByProductionOrder = new Map<string, MaterialWaterSolubleTaskArtifact[]>()
+  const artifactsByProductionOrder = new Map<string, MaterialWaterSolublePreparationArtifact[]>()
   artifacts.forEach((artifact) => {
     const group = artifactsByProductionOrder.get(artifact.orderId) ?? []
     group.push(artifact)
@@ -388,19 +394,37 @@ export function getWaterSolubleHandoverQtyUnit(qtyUnit: string): string {
   return unit
 }
 
+function ensureWaterSolubleAcceptanceFact(order: WaterSolubleWorkOrder): void {
+  if (order.acceptanceStatus) return
+  if (!order.factoryId) {
+    order.acceptanceStatus = 'PENDING'
+    return
+  }
+  const hasHistoricalExecution = order.status !== 'WAIT_MATERIAL'
+  order.acceptanceStatus = hasHistoricalExecution ? 'ACCEPTED' : 'PENDING'
+  order.acceptedAt = hasHistoricalExecution ? order.createdAt : undefined
+  order.acceptedBy = hasHistoricalExecution ? order.factoryName : undefined
+}
+
 export function listWaterSolubleWorkOrders(): WaterSolubleWorkOrder[] {
   return [...ensureStore().values()]
+    .map((order) => {
+      ensureWaterSolubleAcceptanceFact(order)
+      return order
+    })
     .sort((left, right) => left.generationKey.localeCompare(right.generationKey))
     .map(cloneOrder)
 }
 
 export function getWaterSolubleWorkOrderById(orderId: string): WaterSolubleWorkOrder | null {
   const order = findMutableOrder(orderId)
+  if (order) ensureWaterSolubleAcceptanceFact(order)
   return order ? cloneOrder(order) : null
 }
 
 export function getWaterSolubleWorkOrderByTaskId(taskId: string): WaterSolubleWorkOrder | null {
   const order = [...ensureStore().values()].find((item) => item.taskId === taskId)
+  if (order) ensureWaterSolubleAcceptanceFact(order)
   return order ? cloneOrder(order) : null
 }
 
@@ -424,9 +448,9 @@ export function listWaterSolubleMobileTasks(): WaterSolubleMobileTask[] {
     qcPoints: [],
     attachments: [],
     status: order.status === 'DONE' ? 'DONE' : order.status === 'WATER_SOLUBLE_IN_PROGRESS' ? 'IN_PROGRESS' : order.status === 'PRODUCTION_PAUSED' ? 'BLOCKED' : 'NOT_STARTED',
-    acceptanceStatus: order.factoryId ? 'ACCEPTED' : 'PENDING',
-    acceptedAt: order.factoryId ? order.updatedAt : undefined,
-    acceptedBy: order.factoryId ? order.factoryName : undefined,
+    acceptanceStatus: order.acceptanceStatus || 'PENDING',
+    acceptedAt: order.acceptedAt,
+    acceptedBy: order.acceptedBy,
     taskQrValue: order.taskQrValue,
     taskQrStatus: 'ACTIVE',
     sourceEntryType: 'CRAFT',
@@ -434,7 +458,7 @@ export function listWaterSolubleMobileTasks(): WaterSolubleMobileTask[] {
     stageName: '准备阶段',
     processBusinessCode: 'WATER_SOLUBLE',
     processBusinessName: '水溶',
-    defaultDocType: 'TASK',
+    defaultDocType: 'PREPARATION_ORDER',
     taskTypeMode: 'PROCESS',
     isSpecialCraft: false,
     createdAt: order.createdAt,
@@ -533,8 +557,39 @@ export function assignWaterSolubleFactory(orderId: string, factoryId: string): W
   const factory = getFactoryMasterRecordById(factoryId)!
   order.factoryId = factory.id
   order.factoryName = factory.name
+  order.acceptanceStatus = 'PENDING'
+  order.acceptedAt = undefined
+  order.acceptedBy = undefined
   order.status = 'WAIT_MATERIAL'
   return updateOrder(order, '分配染厂', `已分配至 ${factory.name}`)
+}
+
+export function acceptWaterSolubleWorkOrderPdaTask(taskId: string, acceptedBy: string): WaterSolubleActionResult {
+  const order = [...ensureStore().values()].find((item) => item.taskId === taskId)
+  if (!order) return failure('水溶加工单不存在。')
+  if (!order.factoryId) return failure('水溶加工单尚未分配染厂。')
+  if (order.acceptanceStatus === 'REJECTED') return failure('水溶加工单已拒绝，不能接单。')
+  if (order.acceptanceStatus === 'ACCEPTED') return { ok: true, message: '加工单已经接单', order: cloneOrder(order) }
+  order.acceptanceStatus = 'ACCEPTED'
+  const result = updateOrder(order, 'PDA 接单', `接单人：${acceptedBy}`)
+  order.acceptedAt = order.updatedAt
+  order.acceptedBy = acceptedBy
+  return { ...result, order: cloneOrder(order) }
+}
+
+export function rejectWaterSolubleWorkOrderPdaTask(taskId: string, rejectedBy: string, reason: string): WaterSolubleActionResult {
+  const order = [...ensureStore().values()].find((item) => item.taskId === taskId)
+  if (!order) return failure('水溶加工单不存在。')
+  if (!order.factoryId) return failure('水溶加工单尚未分配染厂。')
+  if (order.acceptanceStatus === 'REJECTED') return failure('水溶加工单已拒单，不可重复拒单。')
+  if (order.status !== 'WAIT_MATERIAL') return failure(`当前状态为“${WATER_SOLUBLE_STATUS_LABEL[order.status]}”，不能拒单。`)
+  order.acceptanceStatus = 'REJECTED'
+  order.acceptedAt = undefined
+  order.acceptedBy = undefined
+  order.factoryId = undefined
+  order.factoryName = undefined
+  order.status = 'WAIT_FACTORY_ASSIGNMENT'
+  return updateOrder(order, 'PDA 拒单', `拒单人：${rejectedBy}；原因：${reason}`)
 }
 
 export function markWaterSolubleMaterialReady(orderId: string): WaterSolubleActionResult {

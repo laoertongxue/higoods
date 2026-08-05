@@ -37,7 +37,7 @@ const DELIVERY_TITLE_BY_VARIANT: Record<DeliveryVariant, string> = {
   printing: '印花任务交货卡',
   dyeing: '染色任务交货卡',
   specialCraft: '特殊工艺任务交货卡',
-  postFinishing: '后道任务交货卡',
+  postFinishing: '后道阶段处理交货卡',
   cutting: '裁片任务交货卡',
   sewing: '车缝任务交货卡',
 }
@@ -298,7 +298,7 @@ function buildDocumentFromLegacyDoc(
           { label: '来源任务', value: doc.taskNo || '待确认' },
           { label: `计划${noun}`, value: qtyText(doc.submittedQty, doc.qtyUnit) },
           ...(variant === 'sewing' ? [
-            { label: '是否本厂完成后道', value: `${doc.title} ${doc.processName} ${doc.craftName || ''}`.includes('后道') ? '是' : '按任务要求确认' },
+            { label: '是否本厂完成实际工序', value: `${doc.title} ${doc.processName} ${doc.craftName || ''}`.includes('后道') ? '是' : '按任务要求确认' },
             { label: '后道完成成衣件数', value: qtyText(doc.submittedQty, doc.qtyUnit) },
             { label: '后道后流向', value: '交给后道工厂质检和复检' },
             { label: '关联后道单号', value: '待后道工厂接收后关联' },
@@ -391,7 +391,7 @@ function buildDocumentFromProcessHandover(
   const targetRoute = resolveTargetRoute(record)
 
   const postNote = postOrder
-    ? '后道交出只能来自复检完成后的后道交出仓；车缝厂完成后道后需交给后道工厂接收、质检、复检，不能直接生成后道交货卡。'
+    ? '后道交出只能来自复检完成后的后道交出仓；车缝厂完成任务链中的实际工序后需交给后道工厂接收、质检、复检，不能直接生成交货卡。'
     : undefined
 
   return {

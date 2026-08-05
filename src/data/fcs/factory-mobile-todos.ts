@@ -107,14 +107,18 @@ function getMobileTaskDisplayTitle(task: PdaTaskFlowMock, suffix: string): strin
   const taskUnitName =
     task.taskUnitType === 'WHOLE_ORDER_TASK'
       ? task.taskCategoryZh || task.processNameZh || '整单任务'
-      : task.taskUnitType === 'COMBINED_PROCESS_TASK'
-        ? task.taskCategoryZh || task.processNameZh || '组合工序任务'
+      : task.taskUnitType === 'MERGED_PRODUCTION_TASK'
+        ? task.taskCategoryZh || task.processNameZh || '合并任务'
         : task.processNameZh || '工序'
   return `${taskUnitName}${suffix}`
 }
 
-function isSimpleFiveStepTask(task: PdaTaskFlowMock): boolean {
-  return task.pdaStepTemplateCode === 'SIMPLE_FIVE_STEP'
+function isWholeOrderFiveStepTask(task: PdaTaskFlowMock): boolean {
+  return task.pdaStepTemplateCode === 'WHOLE_ORDER_FIVE_STEP'
+}
+
+function isFixedMergedTask(task: PdaTaskFlowMock): boolean {
+  return task.taskUnitType === 'MERGED_PRODUCTION_TASK'
 }
 
 function isWoolTask(task: PdaTaskFlowMock): boolean {
@@ -168,7 +172,7 @@ function buildPostFinishingTaskReceiveTodos(factoryId: string): FactoryMobileTod
       todoId: `todo-post-accept-${task.postTaskId}`,
       todoNo: `TD-PA-${String(index + 1).padStart(3, '0')}`,
       todoType: '待接单' as const,
-      todoTitle: `后道任务待接单`,
+      todoTitle: `后道阶段处理待接单`,
       todoSubtitle: `${task.productionOrderNo} · ${task.postTaskNo} · ${task.spuName}`,
       factoryId,
       factoryName: task.managedPostFactoryName,
@@ -197,8 +201,8 @@ function buildExecTodos(factoryId: string): FactoryMobileTodo[] {
       return {
       todoId: `todo-start-${task.taskId}`,
       todoNo: `TD-ST-${String(index + 1).padStart(3, '0')}`,
-      todoType: woolMeta?.todoType || (isSimpleFiveStepTask(task) ? '待领料' as const : '待开工' as const),
-      todoTitle: woolMeta?.title || getMobileTaskDisplayTitle(task, isSimpleFiveStepTask(task) ? '待领料' : '待开工'),
+      todoType: woolMeta?.todoType || (isWholeOrderFiveStepTask(task) ? '待领料' as const : '待开工' as const),
+      todoTitle: woolMeta?.title || getMobileTaskDisplayTitle(task, isWholeOrderFiveStepTask(task) ? '待领料' : '待开工'),
       todoSubtitle: `${task.productionOrderNo || task.productionOrderId} · ${task.taskNo || task.taskId}`,
       factoryId,
       factoryName: task.assignedFactoryName || task.assignedFactoryId || factoryId,
@@ -221,10 +225,12 @@ function buildExecTodos(factoryId: string): FactoryMobileTodo[] {
       return {
       todoId: `todo-finish-${task.taskId}`,
       todoNo: `TD-FN-${String(index + 1).padStart(3, '0')}`,
-      todoType: woolMeta?.todoType || (isSimpleFiveStepTask(task) ? '待交出' as const : '待完工' as const),
-      todoTitle: woolMeta?.title || (isSimpleFiveStepTask(task)
+      todoType: woolMeta?.todoType || (isWholeOrderFiveStepTask(task) || isFixedMergedTask(task) ? '待交出' as const : '待完工' as const),
+      todoTitle: woolMeta?.title || (isWholeOrderFiveStepTask(task)
         ? `${getMobileTaskDisplayTitle(task, '上传进度')}，交给${task.handoverReceiverName || '仓库'}后进入仓库待确认`
-        : getMobileTaskDisplayTitle(task, '待完工')),
+        : isFixedMergedTask(task)
+          ? `${getMobileTaskDisplayTitle(task, '待交出')}，交出即结束本次合并任务`
+          : getMobileTaskDisplayTitle(task, '待完工')),
       todoSubtitle: `${task.productionOrderNo || task.productionOrderId} · ${task.taskNo || task.taskId}`,
       factoryId,
       factoryName: task.assignedFactoryName || task.assignedFactoryId || factoryId,
@@ -284,7 +290,7 @@ function buildPostFinishingExecTodos(factoryId: string): FactoryMobileTodo[] {
         todoId: `todo-post-exec-${task.taskId}`,
         todoNo: `TD-PE-${String(index + 1).padStart(3, '0')}`,
         todoType,
-        todoTitle: `后道任务${todoType}`,
+        todoTitle: `后道阶段处理${todoType}`,
         todoSubtitle: `${task.productionOrderId} · ${task.taskNo || task.taskId}`,
         factoryId,
         factoryName: task.assignedFactoryName || factoryId,

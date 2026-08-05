@@ -5,7 +5,6 @@ import {
   escapeHtml,
   getTechniqueCraftOptions,
   getTechniqueProcessOptions,
-  getTechniqueReferenceMetaByCraftCode,
   getSelectedDraftMeta,
   isBomDrivenPrepTechnique,
   isPrepStage,
@@ -25,11 +24,6 @@ const routeSourceKindLabel: Record<TechniqueItem['routeSourceKind'], string> = {
   PATTERN_PACKAGE: '纸样资料推导',
   PIECE_CRAFT: '裁片部位工艺',
   MANUAL: '人工调整',
-}
-
-const routeParallelAcceptanceModeLabel: Record<TechniqueItem['routeParallelAcceptanceMode'], string> = {
-  INDEPENDENT_ONLY: '分别承接',
-  WHOLE_GROUP_ALLOWED: '并行组整体承接',
 }
 
 type ProcessRouteGroup = {
@@ -145,10 +139,6 @@ export function renderProcessTechniqueCard(item: TechniqueItem): string {
       </div>
     `
     : ''
-  const referenceValueText =
-    item.referenceOutputValueValue !== null && item.referenceOutputValueUnitLabel
-      ? `${item.referenceOutputValueValue} ${item.referenceOutputValueUnitLabel}`
-      : '暂无平台参考'
   const targetObjectText =
     item.isSpecialCraft && item.selectedTargetObject
       ? `<span class="rounded border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">作用对象：${escapeHtml(item.selectedTargetObject)}</span>`
@@ -163,7 +153,6 @@ export function renderProcessTechniqueCard(item: TechniqueItem): string {
             <span class="text-sm font-semibold">${escapeHtml(item.technique)}</span>
             <span class="rounded border border-slate-200 bg-background px-2 py-0.5 text-[11px] font-medium text-slate-700">${escapeHtml(item.process)}</span>
             ${targetObjectText}
-            <span class="rounded border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">当前款产值 基线</span>
           </div>
           ${autoSourceText}
           ${removalConfirm}
@@ -187,30 +176,10 @@ export function renderProcessTechniqueCard(item: TechniqueItem): string {
         </div>
       </div>
       ${woolRuleBlock}
-      <div class="rounded-md border border-blue-100 bg-blue-50/60 px-3 py-2">
-        <div class="grid gap-2 text-xs md:grid-cols-3">
-          <div>
-            <span class="text-muted-foreground">平台参考</span>
-            <p class="mt-1 font-medium text-slate-800">${escapeHtml(referenceValueText)}</p>
-          </div>
-          <div>
-            <span class="text-muted-foreground">默认推荐单位</span>
-            <p class="mt-1 font-medium text-slate-800">${escapeHtml(item.referenceOutputValueUnitLabel || item.outputValueUnit || '-')}</p>
-          </div>
-          <div>
-            <span class="text-muted-foreground">参考说明</span>
-            <p class="mt-1 leading-5 text-slate-700">${escapeHtml(item.referenceOutputValueNote)}</p>
-          </div>
-        </div>
-      </div>
       <div class="grid grid-cols-1 gap-3 text-sm md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
         ${
           readonly
             ? `
-              <div class="space-y-1">
-                <span class="text-xs text-muted-foreground">当前款产值 基线</span>
-                <p class="font-medium text-slate-800">${escapeHtml(String(item.outputValue || '-'))} ${escapeHtml(item.outputValueUnit || item.referenceOutputValueUnitLabel || '')}</p>
-              </div>
               <div class="space-y-1">
                 <span class="text-xs text-muted-foreground">难度辅助说明</span>
                 <p class="font-medium text-slate-800">${escapeHtml(item.difficulty || '-')}</p>
@@ -221,21 +190,6 @@ export function renderProcessTechniqueCard(item: TechniqueItem): string {
               </div>
             `
             : `
-              <label class="space-y-1">
-                <span class="text-xs text-muted-foreground">当前款产值 基线</span>
-                <div class="flex items-center gap-2">
-                  <input
-                    type="number"
-                    class="h-8 w-28 rounded-md border px-2 text-sm"
-                    value="${item.outputValue}"
-                    data-tech-field="tech-output-value"
-                    data-tech-id="${item.id}"
-                  />
-                  <span class="inline-flex h-8 items-center rounded-md border bg-background px-3 text-xs font-medium text-slate-700">
-                    ${escapeHtml(item.outputValueUnit || item.referenceOutputValueUnitLabel || '-')}
-                  </span>
-                </div>
-              </label>
               <label class="space-y-1">
                 <span class="text-xs text-muted-foreground">难度辅助说明</span>
                 <select class="mt-1 h-8 w-full rounded-md border px-2 text-sm" data-tech-field="tech-difficulty" data-tech-id="${item.id}">
@@ -274,7 +228,6 @@ function renderProcessRouteEditor(readonly: boolean): string {
       ${routeGroups
         .map((group) => {
           const isParallel = group.items.length > 1
-          const acceptanceMode = group.items[0]?.routeParallelAcceptanceMode ?? 'INDEPENDENT_ONLY'
           return `
             <article class="rounded-lg border bg-card">
               <header class="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
@@ -285,28 +238,7 @@ function renderProcessRouteEditor(readonly: boolean): string {
                       ? '<span class="rounded border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">并行处理</span>'
                       : '<span class="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-600">串行处理</span>'
                   }
-                  ${
-                    isParallel
-                      ? `<span class="text-xs text-muted-foreground">${escapeHtml(routeParallelAcceptanceModeLabel[acceptanceMode])}</span>`
-                      : ''
-                  }
                 </div>
-                ${
-                  isParallel && !readonly
-                    ? `<button
-                        type="button"
-                        class="inline-flex items-center rounded border px-2 py-1 text-xs hover:bg-muted"
-                        data-tech-action="toggle-parallel-group-acceptance"
-                        data-tech-id="${escapeHtml(group.items[0].id)}"
-                      >
-                        ${escapeHtml(
-                          acceptanceMode === 'WHOLE_GROUP_ALLOWED'
-                            ? '切换为分别承接'
-                            : '允许并行组整体承接',
-                        )}
-                      </button>`
-                    : ''
-                }
               </header>
               <div class="grid gap-3 p-4 ${isParallel ? 'md:grid-cols-2 xl:grid-cols-3' : ''}">
                 ${group.items.map((item) => renderProcessTechniqueCard(item)).join('')}
@@ -334,13 +266,12 @@ function renderProcessRouteBatchTable(): string {
               <th class="px-4 py-2 font-medium">来源</th>
               <th class="px-4 py-2 font-medium">步骤</th>
               <th class="px-4 py-2 font-medium">并行组</th>
-              <th class="px-4 py-2 font-medium">承接口径</th>
             </tr>
           </thead>
           <tbody class="divide-y">
             ${
               items.length === 0
-                ? `<tr><td colspan="5" class="px-4 py-6 text-center text-muted-foreground">暂无工序路线</td></tr>`
+                ? `<tr><td colspan="4" class="px-4 py-6 text-center text-muted-foreground">暂无工序路线</td></tr>`
                 : items
                     .map((item) => `
                       <tr>
@@ -351,7 +282,6 @@ function renderProcessRouteBatchTable(): string {
                         <td class="px-4 py-3">${escapeHtml(routeSourceKindLabel[item.routeSourceKind])}</td>
                         <td class="px-4 py-3">第 ${item.routeStepNo} 步</td>
                         <td class="px-4 py-3">${item.routeParallelGroupId ? `并行处理：第 ${item.routeStepNo} 步` : '无'}</td>
-                        <td class="px-4 py-3">${escapeHtml(routeParallelAcceptanceModeLabel[item.routeParallelAcceptanceMode])}</td>
                       </tr>
                     `)
                     .join('')
@@ -510,11 +440,6 @@ export function renderAddTechniqueDialog(): string {
   const garmentBomItems = partitionBomItemsByType(state.bomItems).garmentBomItems
   const isWoolCraft = selectedCraft?.processCode === 'WOOL'
   const woolDownstream = selectedCraft?.craftName === '部位毛织' ? '裁床待交出仓' : '后道工厂'
-  const draftReferenceMeta = getTechniqueReferenceMetaByCraftCode(state.newTechnique.craftCode)
-  const draftReferenceText =
-    draftReferenceMeta.referenceOutputValueValue !== null && draftReferenceMeta.referenceOutputValueUnitLabel
-      ? `${draftReferenceMeta.referenceOutputValueValue} ${draftReferenceMeta.referenceOutputValueUnitLabel}`
-      : '暂无平台参考'
 
   return `
     <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true" data-testid="tech-pack-technique-form-dialog">
@@ -615,37 +540,6 @@ export function renderAddTechniqueDialog(): string {
               `
               : ''
           }
-
-          <div class="rounded-md border border-blue-100 bg-blue-50/60 px-3 py-3">
-            <p class="text-xs font-medium text-blue-700">工艺理论标准（参考）</p>
-            <div class="mt-2 grid gap-2 text-xs md:grid-cols-3">
-              <div>
-                <span class="text-muted-foreground">平台参考</span>
-                <p class="mt-1 font-medium text-slate-800">${escapeHtml(draftReferenceText)}</p>
-              </div>
-              <div>
-                <span class="text-muted-foreground">默认推荐单位</span>
-                <p class="mt-1 font-medium text-slate-800">${escapeHtml(draftReferenceMeta.referenceOutputValueUnitLabel || '-')}</p>
-              </div>
-              <div>
-                <span class="text-muted-foreground">说明</span>
-                <p class="mt-1 leading-5 text-slate-700">${escapeHtml(draftReferenceMeta.referenceOutputValueNote)}</p>
-              </div>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-4">
-            <label class="space-y-1">
-              <span class="text-sm">当前款产值 基线</span>
-              <input type="number" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-technique-output-value" value="${escapeHtml(state.newTechnique.outputValue)}" placeholder="0" />
-            </label>
-            <label class="space-y-1">
-              <span class="text-sm">默认推荐产值单位</span>
-              <div class="w-full rounded-md border bg-muted/20 px-3 py-2 text-sm text-slate-700">
-                ${escapeHtml(state.newTechnique.outputValueUnit || draftReferenceMeta.referenceOutputValueUnitLabel || '-')}
-              </div>
-            </label>
-          </div>
 
           <label class="space-y-1">
             <span class="text-sm">难度辅助说明</span>

@@ -37,8 +37,8 @@ export const RETURN_INBOUND_QC_POLICY_LABEL: Record<ReturnInboundQcPolicy, strin
 }
 
 export const SEW_POST_PROCESS_MODE_LABEL: Record<SewPostProcessMode, string> = {
-  SEW_FACTORY_INCLUDES_POST: '车缝厂含后道',
-  MANAGED_POST_FACTORY_EXECUTES: '我方后道工厂执行后道',
+  SEW_FACTORY_INCLUDES_POST: '车缝厂已完成任务链实际工序',
+  MANAGED_POST_FACTORY_EXECUTES: '我方后道工厂执行实际工序',
 }
 
 export const INSPECTION_SCENE_LABEL: Record<InspectionScene, string> = {

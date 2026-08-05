@@ -5,7 +5,7 @@ import {
 import type { PdaCuttingExecutionObjectType } from './pda-cutting-mock-matrix.ts'
 
 export type PdaExecutionBindingState = 'BOUND' | 'UNBOUND'
-export type PdaCuttingReportMode = 'INDEPENDENT_CUTTING_EXECUTION' | 'CONTINUOUS_TASK_CUTTING_COMPLETION'
+export type PdaCuttingReportMode = 'INDEPENDENT_CUTTING_EXECUTION'
 
 export interface PdaCuttingExecutionSourceRecord {
   taskId: string

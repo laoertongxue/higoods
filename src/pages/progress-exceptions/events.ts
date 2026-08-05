@@ -247,12 +247,8 @@ function handleRowAction(action: string, actionNode: HTMLElement): boolean {
     const taskId = actionNode.dataset.taskId || ''
     const orderId = actionNode.dataset.orderId || ''
     const task = getTaskById(taskId)
-    const path = task?.taskUnitType === 'COMBINED_PROCESS_TASK'
-      ? `/fcs/dispatch/continuous?taskId=${encodeURIComponent(taskId)}&po=${encodeURIComponent(orderId)}&action=reassign`
-      : task && isRuntimeSewingTask(task)
-        ? `/fcs/dispatch/sewing?taskId=${encodeURIComponent(taskId)}&po=${encodeURIComponent(orderId)}&action=reassign`
-      : `/fcs/dispatch/non-sewing?taskId=${encodeURIComponent(taskId)}&po=${encodeURIComponent(orderId)}`
-    openLinkedPage(task?.taskUnitType === 'COMBINED_PROCESS_TASK' ? '连续工序任务分配' : task && isRuntimeSewingTask(task) ? '车缝分配工作台' : '非车缝任务分配', path)
+    const path = `/fcs/dispatch/workbench?taskId=${encodeURIComponent(taskId)}&po=${encodeURIComponent(orderId)}&action=reassign`
+    openLinkedPage(task && isRuntimeSewingTask(task) ? '统一任务分配（含车缝）' : '统一任务分配', path)
     state.rowActionMenuCaseId = null
     return true
   }

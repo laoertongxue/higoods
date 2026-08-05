@@ -1,3 +1,9 @@
+// @page-pattern: list
+
+import { renderStandardListPage } from '../../../components/ui/list-page.ts'
+import { renderStandardListTable, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import type { StandardListColumnPreferences } from '../../../components/ui/list-table-model.ts'
+import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { buildPostFinishingRecheckOrderDetailLink } from '../../../data/fcs/fcs-route-links.ts'
 import {
   completePostFinishingRecheckOrder,
@@ -20,17 +26,67 @@ import {
   renderPostAction,
   renderPostFilterPanel,
   renderPostFinishingPageHeader,
-  renderPostPagination,
   renderPostSection,
   renderPostStatusBadge,
   renderPostTable,
 } from './shared.ts'
 
+function displayRecheckSource(sourceType: PostFinishingRecheckOrder['sourceType']): string {
+  return sourceType === '后道单' ? '实际工序完成' : '质检完成'
+}
+
+const RECHECK_COLUMNS: StandardListColumn<PostFinishingRecheckOrder>[] = [
+  { key: 'recheckOrderNo', title: '复检单号', width: 150, required: true, freezeable: true, render: (record) => `<span class="font-mono text-xs">${escapeHtml(record.recheckOrderNo)}</span>` },
+  { key: 'source', title: '来源', width: 120, render: (record) => escapeHtml(displayRecheckSource(record.sourceType)) },
+  { key: 'qcOrderNo', title: '关联质检单', width: 140, render: (record) => `<span class="font-mono text-xs">${escapeHtml(record.qcOrderNo)}</span>` },
+  { key: 'postOrderNo', title: '关联实际工序单', width: 160, render: (record) => `<span class="font-mono text-xs">${escapeHtml(record.postOrderNo || '—')}</span>` },
+  { key: 'productionOrder', title: PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE, width: 180, required: true, freezeable: true, render: (record) => renderProductionOrderIdentityCell(record.productionOrderNo) },
+  { key: 'factory', title: '后道工厂', width: 150, render: (record) => escapeHtml(record.managedPostFactoryName) },
+  { key: 'spu', title: '款式衣服', width: 180, render: (record) => `<div class="font-semibold">${escapeHtml(record.spuCode)}</div><div class="text-xs text-muted-foreground">${escapeHtml(record.spuName)}</div>` },
+  { key: 'skuSummary', title: 'SKU 明细', width: 180, render: (record) => escapeHtml(record.skuSummary) },
+  { key: 'recheckedQty', title: '复检数量', width: 110, align: 'right', render: (record) => formatGarmentQty(record.recheckedGarmentQty) },
+  { key: 'passedQty', title: '合格数量', width: 110, align: 'right', render: (record) => formatGarmentQty(record.passedGarmentQty) },
+  { key: 'defectiveQty', title: '不合格数量', width: 110, align: 'right', render: (record) => formatGarmentQty(record.defectiveGarmentQty) },
+  { key: 'status', title: '复检状态', width: 120, render: (record) => renderPostStatusBadge(record.recheckStatus) },
+  { key: 'recheckedAt', title: '复检时间', width: 150, render: (record) => escapeHtml(record.recheckedAt || '—') },
+  { key: 'actions', title: '操作', width: 210, required: true, actionColumn: true, render: (record) => `<div class="flex flex-wrap gap-2">${renderPostAction('查看复检单详情', buildPostFinishingRecheckOrderDetailLink(record.recheckOrderId))}${record.recheckStatus !== '复检完成' ? `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-slate-50" onclick="window.__postCompleteRecheck('${escapeHtml(record.recheckOrderId)}')">完成复检</button>` : ''}</div>` },
+]
+
+const RECHECK_PREFERENCES: StandardListColumnPreferences = {
+  order: RECHECK_COLUMNS.filter((column) => !column.actionColumn).map((column) => column.key),
+  visibleKeys: RECHECK_COLUMNS.map((column) => column.key),
+  frozenKeys: ['recheckOrderNo', 'productionOrder'],
+  pageSize: 20,
+}
+
+function renderRecheckPagination(pagination: ReturnType<typeof paginatePostRows<PostFinishingRecheckOrder>>): string {
+  const toLink = (page: number): string => {
+    const params = typeof window === 'undefined' ? new URLSearchParams() : new URLSearchParams(window.location.search)
+    params.set('page', String(page))
+    params.set('pageSize', String(pagination.pageSize))
+    return `/fcs/craft/post-finishing/recheck-orders?${params.toString()}`
+  }
+  return renderTablePagination({
+    total: pagination.total,
+    from: pagination.start,
+    to: pagination.end,
+    currentPage: pagination.page,
+    totalPages: pagination.pageCount,
+    pageSize: pagination.pageSize,
+    actionPrefix: 'post-recheck-orders',
+    fieldPrefix: 'post-recheck-orders',
+    pageSizeOptions: [10, 20, 50],
+  })
+    .replace('data-post-recheck-orders-action="prev-page"', `data-nav="${escapeHtml(toLink(Math.max(1, pagination.page - 1)))}"`)
+    .replace('data-post-recheck-orders-action="next-page"', `data-nav="${escapeHtml(toLink(Math.min(pagination.pageCount, pagination.page + 1)))}"`)
+    .replace('data-post-recheck-orders-field="pageSize"', `onchange="var u=new URL(window.location.href);u.searchParams.set('page','1');u.searchParams.set('pageSize',this.value);window.location.href=u.pathname+'?'+u.searchParams.toString()"`)
+}
+
 function filterRows(records: PostFinishingRecheckOrder[], filters: ReturnType<typeof getPostListFilters>): PostFinishingRecheckOrder[] {
   return records.filter((record) => {
     if (filters.status !== '全部' && record.recheckStatus !== filters.status) return false
     if (filters.factory !== '全部' && record.managedPostFactoryName !== filters.factory) return false
-    if (filters.source !== '全部' && record.sourceType !== filters.source) return false
+    if (filters.source !== '全部' && displayRecheckSource(record.sourceType) !== filters.source) return false
     return postFilterTextMatches(filters.keyword, [
       record.recheckOrderId,
       record.recheckOrderNo,
@@ -125,9 +181,9 @@ export function renderPostFinishingRecheckOrderDetailPage(recheckOrderId: string
       ${renderPostSection('复检结果', `
         <div class="grid gap-3 md:grid-cols-4">
           ${renderDetailField('复检单号', record.recheckOrderNo)}
-          ${renderDetailField('来源', record.sourceType)}
+          ${renderDetailField('来源', displayRecheckSource(record.sourceType))}
           ${renderDetailField('关联质检单', record.qcOrderNo)}
-          ${renderDetailField('关联后道单', record.postOrderNo || '无后道单')}
+          ${renderDetailField('关联实际工序单', record.postOrderNo || '无实际工序单')}
           ${renderDetailField('生产单', record.productionOrderNo)}
           ${renderDetailField('来源任务', record.sourceTaskNo)}
           ${renderDetailField('后道工厂', record.managedPostFactoryName)}
@@ -155,40 +211,17 @@ export function renderPostFinishingRecheckOrdersPage(): string {
   const filters = getPostListFilters()
   const filteredRecords = filterRows(allRecords, filters)
   const pagination = paginatePostRows(filteredRecords, filters)
-  const rows = pagination.rows.map((record) => `
-    <tr class="align-top">
-      <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.recheckOrderNo)}</td>
-      <td class="px-3 py-3 text-sm">${escapeHtml(record.sourceType)}</td>
-      <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.qcOrderNo)}</td>
-      <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.postOrderNo || '—')}</td>
-      <td class="px-3 py-3">${renderProductionOrderIdentityCell(record.productionOrderNo)}</td>
-      <td class="px-3 py-3 text-sm">${escapeHtml(record.managedPostFactoryName)}</td>
-      <td class="px-3 py-3 text-sm"><div class="font-semibold">${escapeHtml(record.spuCode)}</div><div class="text-xs text-muted-foreground">${escapeHtml(record.spuName)}</div></td>
-      <td class="px-3 py-3 text-sm">${escapeHtml(record.skuSummary)}</td>
-      <td class="px-3 py-3 text-sm">${formatGarmentQty(record.recheckedGarmentQty)}</td>
-      <td class="px-3 py-3 text-sm">${formatGarmentQty(record.passedGarmentQty)}</td>
-      <td class="px-3 py-3 text-sm">${formatGarmentQty(record.defectiveGarmentQty)}</td>
-      <td class="px-3 py-3">${renderPostStatusBadge(record.recheckStatus)}</td>
-      <td class="px-3 py-3 text-sm">${escapeHtml(record.recheckedAt || '—')}</td>
-      <td class="px-3 py-3"><div class="flex flex-wrap gap-2">${renderPostAction('查看复检单详情', buildPostFinishingRecheckOrderDetailLink(record.recheckOrderId))}${record.recheckStatus !== '复检完成' ? `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-slate-50" onclick="window.__postCompleteRecheck('${escapeHtml(record.recheckOrderId)}')">完成复检</button>` : ''}</div></td>
-    </tr>
-  `).join('')
-
-  return `
-    <div class="space-y-4 p-4">
-      ${renderPostFinishingPageHeader('复检单')}
-      ${renderPostFilterPanel({
+  return renderStandardListPage({
+    title: '复检单',
+    filtersHtml: renderPostFilterPanel({
         filters,
         statusOptions: allRecords.map((record) => record.recheckStatus),
-        sourceOptions: allRecords.map((record) => record.sourceType),
+        sourceOptions: allRecords.map((record) => displayRecheckSource(record.sourceType)),
         factoryOptions: allRecords.map((record) => record.managedPostFactoryName),
-        keywordPlaceholder: '复检单 / 质检单 / 后道单 / 生产单 / SKU',
-      })}
-      ${renderPostSection('复检单列表', `${renderPostTable(
-        ['复检单号', '来源', '关联质检单', '关联后道单', PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE, '后道工厂', '款式衣服', 'SKU 明细', '复检数量', '合格数量', '不合格数量', '复检状态', '复检时间', '操作'],
-        rows || '<tr><td colspan="14" class="px-3 py-8 text-center text-sm text-muted-foreground">暂无复检单</td></tr>',
-        'min-w-[1500px]',
-      )}<div class="mt-4">${renderPostPagination(pagination)}</div>`)}
-    </div>
-  `
+        keywordPlaceholder: '复检单 / 质检单 / 实际工序单 / 生产单 / SKU',
+    }),
+    listTitle: '复检单列表',
+    tableHtml: renderStandardListTable({ columns: RECHECK_COLUMNS, rows: pagination.rows, preferences: { ...RECHECK_PREFERENCES, pageSize: pagination.pageSize }, sort: null, eventPrefix: 'post-recheck-orders', emptyText: '暂无复检单' }),
+    paginationHtml: renderRecheckPagination(pagination),
+  })
 }

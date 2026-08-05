@@ -9,10 +9,7 @@ export type PdaMobileProcessKey =
   | 'WOOL'
   | 'PRINTING'
   | 'DYEING'
-  | 'IRONING'
-  | 'PACKAGING'
-  | 'QC'
-  | 'FINISHING'
+  | 'IRON_PACK'
 
 export interface PdaMobileProcessDefinition {
   key: PdaMobileProcessKey
@@ -72,64 +69,14 @@ export const PDA_MOBILE_PROCESS_DEFINITIONS: PdaMobileProcessDefinition[] = [
     notes: '周哥毛织厂自有任务，整件毛织与部位毛织均按确认接收、加工填报、发起交出和人工完成加工单执行；缺少任一必需纱线的款色不可填报。',
   },
   {
-    key: 'PRINTING',
-    processCode: 'PROC_PRINT',
-    processNameZh: '印花',
-    stage: 'SPECIAL',
-    primaryFactoryIds: [TEST_FACTORY_ID],
-    preferredAssignmentMode: 'BIDDING',
-    supportsTaskMatrix: true,
-    notes: '印花专厂以报价、中标、执行、交接场景为主。',
-  },
-  {
-    key: 'DYEING',
-    processCode: 'PROC_DYE',
-    processNameZh: '染色',
-    stage: 'SPECIAL',
-    primaryFactoryIds: [TEST_FACTORY_ID],
-    preferredAssignmentMode: 'BIDDING',
-    supportsTaskMatrix: true,
-    notes: '染色专厂以招标承接和异常暂停场景为主。',
-  },
-  {
-    key: 'IRONING',
-    processCode: 'PROC_IRON',
-    processNameZh: '整烫',
+    key: 'IRON_PACK',
+    processCode: 'PROC_IRON_PACK',
+    processNameZh: '烫包',
     stage: 'POST',
     primaryFactoryIds: [TEST_FACTORY_ID],
     preferredAssignmentMode: 'DIRECT',
     supportsTaskMatrix: true,
-    notes: '后道常规工序，需覆盖待接单、执行中、待交出、已交接。',
-  },
-  {
-    key: 'PACKAGING',
-    processCode: 'PROC_PACK',
-    processNameZh: '包装',
-    stage: 'POST',
-    primaryFactoryIds: [TEST_FACTORY_ID],
-    preferredAssignmentMode: 'DIRECT',
-    supportsTaskMatrix: true,
-    notes: '普通成衣厂后道工序，需体现包装待领辅料与待交出。',
-  },
-  {
-    key: 'QC',
-    processCode: 'PROC_QC',
-    processNameZh: '质检',
-    stage: 'POST',
-    primaryFactoryIds: [TEST_FACTORY_ID],
-    preferredAssignmentMode: 'DIRECT',
-    supportsTaskMatrix: true,
-    notes: '工厂端移动应用已有质检/结算入口，任务链只补执行与交接 mock，不改结算业务事实。',
-  },
-  {
-    key: 'FINISHING',
-    processCode: 'PROC_FINISHING',
-    processNameZh: '后整理',
-    stage: 'POST',
-    primaryFactoryIds: [TEST_FACTORY_ID],
-    preferredAssignmentMode: 'DIRECT',
-    supportsTaskMatrix: true,
-    notes: '后整任务用于支撑普通成衣厂执行页不再被裁片任务主导。',
+    notes: '烫包是后道阶段的实际工序；质检与复检由回货流程承接，不生成独立工序任务。',
   },
 ]
 
@@ -137,9 +84,9 @@ export const PDA_MOBILE_FACTORY_PROFILES: PdaMobileFactoryProfile[] = [
   {
     factoryId: TEST_FACTORY_ID,
     label: TEST_FACTORY_NAME,
-    dominantProcesses: ['CUTTING', 'PRINTING', 'DYEING', 'SEWING', 'IRONING', 'PACKAGING', 'QC', 'FINISHING'],
+    dominantProcesses: ['CUTTING', 'PRINTING', 'DYEING', 'SEWING', 'IRON_PACK'],
     secondaryProcesses: [],
-    notes: '演示工厂统一为 F090，工厂端执行页可检索印花、染色、裁片和后续工序任务。',
+    notes: '演示工厂统一为 F090，工厂端执行页按实际工序检索任务。',
   },
   {
     factoryId: 'OWN_WOOL_FACTORY',

@@ -2,7 +2,6 @@ import {
   productionOrders,
   type ProductionOrder,
 } from './production-orders.ts'
-import { getFactoryMasterRecordById } from './factory-master-store.ts'
 import {
   getProductionOrderProcessEntries,
   getProductionOrderTechPackSnapshot,
@@ -16,7 +15,6 @@ import {
   getProcessCraftByCode,
   getProcessDefinitionByCode,
   getProcessStageByCode,
-  isPostCapacityNode,
   listActiveProcessCraftDefinitions,
   type CraftStageCode,
   type CapacityRollupMode,
@@ -40,7 +38,7 @@ import { selectProductionMaterialBomItems } from './production-material-bom.ts'
 type TechPackProcessEntry = TechnicalProcessEntry
 type TechPackProcessEntryType = TechnicalProcessEntry['entryType']
 
-export type ProductionArtifactType = 'DEMAND' | 'TASK'
+export type ProductionArtifactType = 'DEMAND' | 'TASK' | 'PREPARATION_ORDER'
 
 export interface GeneratedProductionArtifactBase {
   artifactId: string
@@ -81,7 +79,6 @@ export interface GeneratedProductionArtifactBase {
   routeLaneNo?: number
   routeParallelGroupId?: string
   routeParallelGroupName?: string
-  routeParallelAcceptanceMode?: 'INDEPENDENT_ONLY' | 'WHOLE_GROUP_ALLOWED'
   docTypeLabel: string
   generationSortKey?: string
   sortKey: string
@@ -102,15 +99,19 @@ export interface GeneratedTaskArtifact extends GeneratedProductionArtifactBase {
   taskScope: 'EXTERNAL_TASK' | 'POST_ROLLUP_TASK'
   rolledUpChildProcessCodes?: string[]
   rolledUpChildProcessNames?: string[]
-  outputValuePerUnit: number
-  outputValueUnit: string
-  outputValueDifficulty: 'LOW' | 'MEDIUM' | 'HIGH'
-  outputValueSource: 'TECH_PACK_PROCESS_ENTRY'
 }
 
-export type GeneratedProductionArtifact = GeneratedDemandArtifact | GeneratedTaskArtifact
+export interface GeneratedPreparationOrderArtifact extends GeneratedProductionArtifactBase {
+  artifactType: 'PREPARATION_ORDER'
+  preparationOrderTypeCode: string
+  preparationOrderTypeLabel: string
+  preparationScope: 'INTERNAL_PREPARATION_ORDER'
+}
+
+export type GeneratedProductionArtifact = GeneratedDemandArtifact | GeneratedTaskArtifact | GeneratedPreparationOrderArtifact
 export type ProductionDemandArtifact = GeneratedDemandArtifact
 export type ProductionTaskArtifact = GeneratedTaskArtifact
+export type ProductionPreparationOrderArtifact = GeneratedPreparationOrderArtifact
 
 export interface GeneratedProductionArtifactBundle {
   orderId: string
@@ -152,21 +153,17 @@ interface ResolvedEntryContext {
   defaultDocType: ProcessDocType
   taskTypeMode: TaskTypeMode
   isSpecialCraft: boolean
-  outputValuePerUnit: number
-  outputValueUnit: string
-  outputValueDifficulty: 'LOW' | 'MEDIUM' | 'HIGH'
-  outputValueSource: 'TECH_PACK_PROCESS_ENTRY'
   routeStepNo?: number
   routeLaneNo?: number
   routeParallelGroupId?: string
   routeParallelGroupName?: string
-  routeParallelAcceptanceMode?: 'INDEPENDENT_ONLY' | 'WHOLE_GROUP_ALLOWED'
   entryIndex: number
 }
 
 const DOC_TYPE_LABEL: Record<ProcessDocType, string> = {
   DEMAND: '需求单',
   TASK: '任务单',
+  PREPARATION_ORDER: '加工单',
 }
 
 export const DICTIONARY_CRAFT_MOCKS_PER_DEFINITION = 3
@@ -224,13 +221,6 @@ export function getDictionaryCraftMockSource(craftCode: string, mockIndex: numbe
   const craftIndex = listActiveProcessCraftDefinitions().findIndex((definition) => definition.craftCode === craftCode)
   if (craftIndex < 0) return null
   return getMockSourceForCraft(craftIndex, mockIndex)
-}
-
-function toOutputValueUnitLabel(unit: ProcessCraftDefinition['referenceOutputValueUnit']): string {
-  if (unit === 'VALUE_PER_BATCH') return '产值/批'
-  if (unit === 'VALUE_PER_METER') return '产值/米'
-  if (unit === 'VALUE_PER_DOZEN') return '产值/打'
-  return '产值/件'
 }
 
 function toCoverageSortKey(definition: ProcessCraftDefinition, mockIndex: number): string {
@@ -320,7 +310,9 @@ function buildDictionaryCoverageBase(
     linkedBomItemIds: linkedBomItem ? [linkedBomItem.id] : undefined,
     ...waterSolubleMaterialFields,
     linkedPatternIds: undefined,
-    docTypeLabel: definition.defaultDocType === 'DEMAND' ? `${definition.craftName}需求单` : DOC_TYPE_LABEL.TASK,
+    docTypeLabel: definition.defaultDocType === 'DEMAND'
+      ? `${definition.craftName}需求单`
+      : DOC_TYPE_LABEL[definition.defaultDocType],
     generationSortKey: sortKey,
     sortKey,
   }
@@ -357,10 +349,6 @@ function buildDictionaryCoverageTaskArtifact(
     taskTypeCode: definition.craftCode,
     taskTypeLabel: definition.craftName,
     taskScope: definition.processRole === 'INTERNAL_CAPACITY_NODE' ? 'POST_ROLLUP_TASK' : 'EXTERNAL_TASK',
-    outputValuePerUnit: definition.referenceOutputValueValue,
-    outputValueUnit: toOutputValueUnitLabel(definition.referenceOutputValueUnit),
-    outputValueDifficulty: 'MEDIUM',
-    outputValueSource: 'TECH_PACK_PROCESS_ENTRY',
   }
 }
 
@@ -380,7 +368,11 @@ function listDictionaryCoverageDemandArtifacts(): GeneratedDemandArtifact[] {
 function listDictionaryCoverageTaskArtifacts(): GeneratedTaskArtifact[] {
   return listActiveProcessCraftDefinitions()
     .flatMap((definition, craftIndex) => {
-      if (definition.defaultDocType !== 'TASK') return []
+      if (
+        definition.defaultDocType !== 'TASK'
+        || definition.stageCode === 'PREP'
+        || ['CUT_PANEL', 'SEW', 'BUTTONHOLE', 'BUTTON_ATTACH', 'IRON_PACK'].includes(definition.processCode)
+      ) return []
       return Array.from({ length: DICTIONARY_CRAFT_MOCKS_PER_DEFINITION }, (_, mockIndex) =>
         buildDictionaryCoverageTaskArtifact(definition, craftIndex, mockIndex),
       )
@@ -450,12 +442,6 @@ function resolveEntryContext(orderId: string, entry: TechPackProcessEntry, entry
           ? (['GARMENT_COLOR', 'MATERIAL_SKU'] as DetailSplitDimension[])
           : (['PATTERN', 'MATERIAL_SKU'] as DetailSplitDimension[])
   const resolvedRuleSource = entry.ruleSource || craftDefinition?.ruleSource || fallbackRuleSource
-  const outputValuePerUnit = Number.isFinite(entry.outputValuePerUnit)
-    ? Number(entry.outputValuePerUnit)
-    : 0
-  const outputValueUnit = entry.outputValueUnit?.trim() || '产值/件'
-  const outputValueDifficulty = entry.difficulty || 'MEDIUM'
-
   return {
     orderId,
     orderQty: resolveOrderQty(orderId),
@@ -492,15 +478,10 @@ function resolveEntryContext(orderId: string, entry: TechPackProcessEntry, entry
     defaultDocType: entry.defaultDocType || processDefinition?.defaultDocType || craftDefinition?.defaultDocType || 'TASK',
     taskTypeMode: entry.taskTypeMode || processDefinition?.taskTypeMode || craftDefinition?.taskTypeMode || 'PROCESS',
     isSpecialCraft: entry.isSpecialCraft ?? craftDefinition?.isSpecialCraft ?? false,
-    outputValuePerUnit,
-    outputValueUnit,
-    outputValueDifficulty,
-    outputValueSource: 'TECH_PACK_PROCESS_ENTRY',
     routeStepNo: entry.routeStepNo,
     routeLaneNo: entry.routeLaneNo,
     routeParallelGroupId: entry.routeParallelGroupId,
     routeParallelGroupName: entry.routeParallelGroupName,
-    routeParallelAcceptanceMode: entry.routeParallelAcceptanceMode,
     entryIndex,
   }
 }
@@ -549,7 +530,6 @@ function toDemandArtifact(context: ResolvedEntryContext): GeneratedDemandArtifac
     routeLaneNo: context.routeLaneNo,
     routeParallelGroupId: context.routeParallelGroupId,
     routeParallelGroupName: context.routeParallelGroupName,
-    routeParallelAcceptanceMode: context.routeParallelAcceptanceMode,
     docTypeLabel: demandTypeLabel,
     demandTypeCode: `DEMAND_${context.processCode}`,
     demandTypeLabel,
@@ -594,16 +574,50 @@ function toTaskArtifact(context: ResolvedEntryContext): GeneratedTaskArtifact {
     routeLaneNo: context.routeLaneNo,
     routeParallelGroupId: context.routeParallelGroupId,
     routeParallelGroupName: context.routeParallelGroupName,
-    routeParallelAcceptanceMode: context.routeParallelAcceptanceMode,
     docTypeLabel: DOC_TYPE_LABEL.TASK,
     generationSortKey: buildGenerationSortKey(context),
     taskTypeCode,
     taskTypeLabel,
     taskScope: 'EXTERNAL_TASK',
-    outputValuePerUnit: context.outputValuePerUnit,
-    outputValueUnit: context.outputValueUnit,
-    outputValueDifficulty: context.outputValueDifficulty,
-    outputValueSource: context.outputValueSource,
+    sortKey: buildSortKey(context),
+  }
+}
+
+function toPreparationOrderArtifact(context: ResolvedEntryContext): GeneratedPreparationOrderArtifact {
+  const typeLabel = `${context.processName}加工单`
+  return {
+    artifactId: `PREPART-${context.orderId}-${toArtifactKeySegment(context.sourceEntryId)}`,
+    artifactType: 'PREPARATION_ORDER',
+    orderId: context.orderId,
+    techPackId: context.techPackId,
+    orderQty: context.orderQty,
+    sourceEntryId: context.sourceEntryId,
+    sourceEntryType: context.sourceEntry.entryType,
+    stageCode: 'PREP',
+    stageName: context.stageName,
+    processCode: context.processCode,
+    processName: context.processName,
+    systemProcessCode: context.systemProcessCode,
+    craftCode: context.craftCode,
+    craftName: context.craftName,
+    assignmentGranularity: context.assignmentGranularity,
+    ruleSource: context.ruleSource,
+    detailSplitMode: context.detailSplitMode,
+    detailSplitDimensions: [...context.detailSplitDimensions],
+    defaultDocType: 'PREPARATION_ORDER',
+    taskTypeMode: context.taskTypeMode,
+    isSpecialCraft: false,
+    linkedBomItemIds: context.sourceEntry.linkedBomItemIds ? [...context.sourceEntry.linkedBomItemIds] : undefined,
+    linkedPatternIds: context.sourceEntry.linkedPatternIds ? [...context.sourceEntry.linkedPatternIds] : undefined,
+    routeStepNo: context.routeStepNo,
+    routeLaneNo: context.routeLaneNo,
+    routeParallelGroupId: context.routeParallelGroupId,
+    routeParallelGroupName: context.routeParallelGroupName,
+    docTypeLabel: typeLabel,
+    preparationOrderTypeCode: context.processCode,
+    preparationOrderTypeLabel: typeLabel,
+    preparationScope: 'INTERNAL_PREPARATION_ORDER',
+    generationSortKey: buildGenerationSortKey(context),
     sortKey: buildSortKey(context),
   }
 }
@@ -686,8 +700,8 @@ function generateBomDrivenPrepArtifactsForEntry(
 
     const requiresWaterSoluble = bomItem.waterSolubleRequirement === '是'
     const requiresDye = bomItem.dyeRequirement && bomItem.dyeRequirement !== '无'
-    // 同一面料同时需要水溶和染色时，由一张染色加工单在同一染厂连续执行；
-    // 这里只保留仅水溶场景的独立现场任务。
+    // 同一面料同时需要水溶和染色时，由一张染色加工单在同一染厂完成；
+    // 这里只保留仅水溶场景的独立生产准备加工单。
     if (!requiresWaterSoluble || requiresDye) return []
     if (!bomItem.unit?.trim()) {
       throw new Error(`BOM ${bomItem.id}（${bomItem.materialCode || bomItem.name || bomItem.id}）产物生成失败：BOM 数量单位不能为空`)
@@ -714,158 +728,27 @@ function generateBomDrivenPrepArtifactsForEntry(
     const bomSortSuffix = toArtifactKeySegment(bomItem.id)
 
     return [{
-      ...toTaskArtifact(context),
+      ...toPreparationOrderArtifact(context),
       ...materialFields,
-      artifactId: `TASKART-${artifactKey}`,
-      defaultDocType: 'TASK',
-      docTypeLabel: DOC_TYPE_LABEL.TASK,
-      taskTypeCode: 'WATER_SOLUBLE',
-      taskTypeLabel: '水溶',
-      taskScope: 'EXTERNAL_TASK',
+      artifactId: `PREPART-${artifactKey}`,
+      defaultDocType: 'PREPARATION_ORDER',
+      docTypeLabel: '水溶加工单',
+      preparationOrderTypeCode: 'WATER_SOLUBLE',
+      preparationOrderTypeLabel: '水溶加工单',
+      preparationScope: 'INTERNAL_PREPARATION_ORDER',
       generationSortKey: `${buildGenerationSortKey(context)}-${bomSortSuffix}`,
       sortKey: `${buildSortKey(context)}-${bomSortSuffix}`,
     }]
   })
 }
 
-function shouldGenerateWaterSolubleTask(
-  entry: TechPackProcessEntry,
-  context: ResolvedEntryContext,
-): boolean {
-  return (
-    entry.entryType === 'PROCESS_BASELINE'
-    && context.stageCode === 'PREP'
-    && context.defaultDocType === 'TASK'
-    && context.processCode === 'WATER_SOLUBLE'
-    && context.isActive
-  )
-}
-
-function isExternalTaskProcessCode(processCode: string): boolean {
-  return getProcessDefinitionByCode(processCode)?.generatesExternalTask ?? false
-}
-
 function shouldGenerateExternalTask(context: ResolvedEntryContext): boolean {
   if (!context.isActive) return false
+  if (context.stageCode === 'PREP') return false
   if (!context.generatesExternalTask) return false
   if (context.defaultDocType !== 'TASK') return false
   if (context.sourceEntry.entryType === 'CRAFT') return true
-  return context.processCode === 'POST_FINISHING' || shouldGenerateMergedBaselineTask(context)
-}
-
-function shouldGenerateMergedBaselineTask(context: ResolvedEntryContext): boolean {
-  if (context.sourceEntry.entryType !== 'PROCESS_BASELINE') return false
-
-  const order = productionOrders.find((item) => item.productionOrderId === context.orderId)
-  if (!order?.mainFactoryId || order.mainFactoryId === 'PENDING-SEWING-MAIN-FACTORY') return false
-
-  const config = getFactoryMasterRecordById(order.mainFactoryId)?.taskAcceptanceConfig
-  if (!config) return false
-
-  const saleType = order.demandSnapshot.saleType
-  const wholeOrderRule = config.wholeOrderRule
-  if (
-    config.wholeOrderEnabled
-    && wholeOrderRule?.enabled
-    && wholeOrderRule.applicableSaleTypes.includes(saleType)
-    && !wholeOrderRule.excludedProcessCodes.includes(context.processCode)
-  ) {
-    return true
-  }
-
-  return Boolean(
-    config.continuousProcessEnabled
-    && config.continuousRules.some((rule) =>
-      rule.enabled
-      && rule.applicableSaleTypes.includes(saleType)
-      && rule.coveredProcessCodes.includes(context.processCode)
-      && !rule.excludedProcessCodes.includes(context.processCode),
-    ),
-  )
-}
-
-function shouldRollupToPostFinishing(context: ResolvedEntryContext): boolean {
-  return context.isActive && isPostCapacityNode(context.processCode)
-}
-
-function mergeTaskDifficulty(
-  left: GeneratedTaskArtifact['outputValueDifficulty'],
-  right: GeneratedTaskArtifact['outputValueDifficulty'],
-): GeneratedTaskArtifact['outputValueDifficulty'] {
-  const score: Record<GeneratedTaskArtifact['outputValueDifficulty'], number> = {
-    LOW: 1,
-    MEDIUM: 2,
-    HIGH: 3,
-  }
-  return score[left] >= score[right] ? left : right
-}
-
-function createPostFinishingRollupArtifact(
-  baseContext: ResolvedEntryContext,
-  childContexts: ResolvedEntryContext[],
-  directPostArtifact?: GeneratedTaskArtifact,
-): GeneratedTaskArtifact {
-  const processDefinition = getProcessDefinitionByCode('POST_FINISHING')
-  if (!processDefinition) {
-    throw new Error('缺少后道工序定义，无法生成后道汇总任务')
-  }
-
-  const rolledUpChildren = childContexts.reduce<Array<{ code: string; name: string }>>((result, item) => {
-    const alreadyExists = result.some((current) => current.code === item.processCode)
-    if (!alreadyExists) {
-      result.push({ code: item.processCode, name: item.processName })
-    }
-    return result
-  }, [])
-
-  const outputValuePerUnit = childContexts.length > 0
-    ? childContexts.reduce((sum, item) => sum + Math.max(item.outputValuePerUnit, 0), 0)
-    : directPostArtifact?.outputValuePerUnit || baseContext.outputValuePerUnit
-
-  const outputValueDifficulty = childContexts.reduce<GeneratedTaskArtifact['outputValueDifficulty']>(
-    (level, item) => mergeTaskDifficulty(level, item.outputValueDifficulty),
-    directPostArtifact?.outputValueDifficulty || baseContext.outputValueDifficulty,
-  )
-
-  const postContext: ResolvedEntryContext = {
-    ...baseContext,
-    processCode: processDefinition.processCode,
-    processName: processDefinition.processName,
-    processSort: processDefinition.sort,
-    systemProcessCode: processDefinition.systemProcessCode,
-    craftCode: undefined,
-    craftName: undefined,
-    processRole: processDefinition.processRole,
-    parentProcessCode: processDefinition.parentProcessCode,
-    generatesExternalTask: processDefinition.generatesExternalTask,
-    requiresTaskQr: processDefinition.requiresTaskQr,
-    requiresHandoverOrder: processDefinition.requiresHandoverOrder,
-    capacityEnabled: processDefinition.capacityEnabled,
-    capacityRollupMode: processDefinition.capacityRollupMode,
-    factoryMobileExecutionMode: processDefinition.factoryMobileExecutionMode,
-    isActive: processDefinition.isActive,
-    assignmentGranularity: processDefinition.assignmentGranularity,
-    detailSplitMode: processDefinition.detailSplitMode,
-    detailSplitDimensions: [...processDefinition.detailSplitDimensions],
-    defaultDocType: processDefinition.defaultDocType,
-    taskTypeMode: processDefinition.taskTypeMode,
-    isSpecialCraft: false,
-    outputValuePerUnit,
-    outputValueUnit: directPostArtifact?.outputValueUnit || baseContext.outputValueUnit,
-    outputValueDifficulty,
-  }
-
-  return {
-    ...toTaskArtifact(postContext),
-    taskTypeCode: processDefinition.processCode,
-    taskTypeLabel: processDefinition.processName,
-    taskScope: 'POST_ROLLUP_TASK',
-    rolledUpChildProcessCodes: rolledUpChildren.map((item) => item.code),
-    rolledUpChildProcessNames: rolledUpChildren.map((item) => item.name),
-    outputValuePerUnit,
-    outputValueUnit: directPostArtifact?.outputValueUnit || baseContext.outputValueUnit,
-    outputValueDifficulty,
-  }
+  return context.sourceEntry.entryType === 'PROCESS_BASELINE'
 }
 
 function resolveTechPackEntriesByOrder(orderId: string): TechPackProcessEntry[] {
@@ -901,33 +784,20 @@ export function generateProductionArtifactsForOrder(orderId: string): GeneratedP
     const context = resolveEntryContext(orderId, entry, index)
     context.techPackId = techPackId
 
-    if (entry.processCode === 'WATER_SOLUBLE') {
-      if (shouldGenerateWaterSolubleTask(entry, context)) {
+    if (context.stageCode === 'PREP') {
+      if (context.processCode === 'WATER_SOLUBLE') {
         artifacts.push(...generateBomDrivenPrepArtifactsForEntry({ order, snapshot, entry, entryIndex: index }))
+      } else {
+        artifacts.push(toPreparationOrderArtifact(context))
       }
       return
     }
 
-    if (shouldRollupToPostFinishing(context) || shouldGenerateExternalTask(context)) {
+    if (shouldGenerateExternalTask(context)) {
       taskContexts.push(context)
     }
   })
-
-  const directTaskContexts = taskContexts.filter((item) => !shouldRollupToPostFinishing(item))
-  const postChildContexts = taskContexts.filter((item) => shouldRollupToPostFinishing(item))
-
-  const directTaskArtifacts = directTaskContexts.map((context) => toTaskArtifact(context))
-  const directPostArtifact = directTaskArtifacts.find((item) => item.processCode === 'POST_FINISHING')
-  const directNonPostArtifacts = directTaskArtifacts.filter((item) => item.processCode !== 'POST_FINISHING')
-
-  if (postChildContexts.length > 0 || directPostArtifact) {
-    const baseContext = directTaskContexts.find((item) => item.processCode === 'POST_FINISHING') || postChildContexts[0]
-    if (baseContext) {
-      artifacts.push(createPostFinishingRollupArtifact(baseContext, postChildContexts, directPostArtifact))
-    }
-  }
-
-  artifacts.push(...directNonPostArtifacts)
+  artifacts.push(...taskContexts.map((context) => toTaskArtifact(context)))
 
   return dedupeBomDrivenArtifacts(artifacts).sort((a, b) => a.sortKey.localeCompare(b.sortKey))
 }
@@ -958,7 +828,13 @@ export function generateDemandArtifactsForOrder(orderId: string): GeneratedDeman
 
 export function generateTaskArtifactsForOrder(orderId: string): GeneratedTaskArtifact[] {
   return generateProductionArtifactsForOrder(orderId).filter(
-    (item): item is GeneratedTaskArtifact => item.artifactType === 'TASK',
+    (item): item is GeneratedTaskArtifact => item.artifactType === 'TASK' && item.stageCode !== 'PREP',
+  )
+}
+
+export function generatePreparationOrderArtifactsForOrder(orderId: string): GeneratedPreparationOrderArtifact[] {
+  return generateProductionArtifactsForOrder(orderId).filter(
+    (item): item is GeneratedPreparationOrderArtifact => item.artifactType === 'PREPARATION_ORDER',
   )
 }
 
@@ -992,8 +868,12 @@ export function listGeneratedProductionDemandArtifacts(): GeneratedDemandArtifac
 }
 
 export function generateTaskArtifactsForAllOrders(): GeneratedTaskArtifact[] {
-  const generatedArtifacts = generateProductionArtifactsForAllOrders().filter((item): item is GeneratedTaskArtifact => item.artifactType === 'TASK')
-  const taskDefinitions = listActiveProcessCraftDefinitions().filter((definition) => definition.defaultDocType === 'TASK')
+  const generatedArtifacts = generateProductionArtifactsForAllOrders().filter((item): item is GeneratedTaskArtifact => item.artifactType === 'TASK' && item.stageCode !== 'PREP')
+  const taskDefinitions = listActiveProcessCraftDefinitions().filter((definition) => (
+    definition.defaultDocType === 'TASK'
+    && definition.stageCode !== 'PREP'
+    && !['CUT_PANEL', 'SEW', 'BUTTONHOLE', 'BUTTON_ATTACH', 'IRON_PACK'].includes(definition.processCode)
+  ))
   return ensureDictionaryCoverage(
     generatedArtifacts,
     listDictionaryCoverageTaskArtifacts(),
@@ -1003,6 +883,12 @@ export function generateTaskArtifactsForAllOrders(): GeneratedTaskArtifact[] {
 
 export function listGeneratedProductionTaskArtifacts(): GeneratedTaskArtifact[] {
   return generateTaskArtifactsForAllOrders()
+}
+
+export function listGeneratedProductionPreparationOrderArtifacts(): GeneratedPreparationOrderArtifact[] {
+  return generateProductionArtifactsForAllOrders().filter(
+    (item): item is GeneratedPreparationOrderArtifact => item.artifactType === 'PREPARATION_ORDER',
+  )
 }
 
 export function listGeneratedSpecialCraftTaskArtifacts(): SpecialCraftTaskOrder[] {

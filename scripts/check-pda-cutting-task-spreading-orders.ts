@@ -8,11 +8,12 @@ import {
 import { listGeneratedCutOrderSourceRecords } from '../src/data/fcs/cutting/generated-cut-orders.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from '../src/data/fcs/factory-mock-data.ts'
 import { productionOrders } from '../src/data/fcs/production-orders.ts'
-import { setPdaSession } from '../src/data/fcs/store-domain-pda.ts'
+import { getPdaSession, setPdaSession } from '../src/data/fcs/store-domain-pda.ts'
 import { shouldGenerateCutOrderForProductionOrder } from '../src/data/fcs/task-generation-boundaries.ts'
 import { getPdaCuttingTaskSnapshot } from '../src/data/fcs/pda-cutting-execution-source.ts'
 import { renderPdaCuttingTaskDetailPage } from '../src/pages/pda-cutting-task-detail.ts'
-import { renderPdaCuttingSpreadingPage } from '../src/pages/pda-cutting-spreading.ts'
+import { renderPdaExecDetailPage } from '../src/pages/pda-exec-detail.ts'
+import { listRuntimeProcessTasks } from '../src/data/fcs/runtime-process-tasks.ts'
 
 const targetTaskId = 'TASK-CUT-000201'
 const requiredStableCutOrderNos = [
@@ -27,16 +28,21 @@ const requiredStableCutOrderNos = [
 
 const generatedCutOrders = listGeneratedCutOrderSourceRecords()
 const generatedCutOrderByNo = new Map(generatedCutOrders.map((record) => [record.cutOrderNo, record] as const))
-const continuousClosedLoopSnippets = ['铺布单', '开始铺布', '完成铺布', '入仓', '待交出', '交出', '入待交出仓']
 requiredStableCutOrderNos.forEach((cutOrderNo) => {
   const record = generatedCutOrderByNo.get(cutOrderNo)
   assert.ok(record, `PDA 稳定裁片单 fixture 必须真实存在：${cutOrderNo}`)
   const order = productionOrders.find((item) => item.productionOrderId === record.productionOrderId)
   assert.ok(order, `PDA 稳定裁片单 ${cutOrderNo} 必须能回溯真实生产单`)
   assert.ok(shouldGenerateCutOrderForProductionOrder(order), `PDA 稳定裁片单 ${cutOrderNo} 必须绑定到合法裁片任务边界`)
-  assert.equal(record.cutOrderSourceLabel, '独立裁片任务', `PDA 稳定裁片单 ${cutOrderNo} 来源标签错误`)
-  assert.equal(record.cutReturnModeLabel, '回我方裁床待交出仓', `PDA 稳定裁片单 ${cutOrderNo} 回流方式标签错误`)
-  assert.equal(record.internalCraftOrderPolicyLabel, '回仓后生成我方加工单', `PDA 稳定裁片单 ${cutOrderNo} 我方加工单策略标签错误`)
+  if (record.cutOrderSourceType === 'CUTTING_SEWING_IRON_PACK_TASK') {
+    assert.equal(record.cutOrderSourceLabel, '保留三方裁剪执行所需裁片单和唛架依据', `PDA 固定合并任务裁片单 ${cutOrderNo} 来源标签错误`)
+    assert.equal(record.cutReturnModeLabel, '三方工厂上报裁片完成', `PDA 固定合并任务裁片单 ${cutOrderNo} 上报方式标签错误`)
+    assert.equal(record.internalCraftOrderPolicyLabel, '辅助/特种工艺随合并任务交三方，不生成中央加工单', `PDA 固定合并任务裁片单 ${cutOrderNo} 中央加工单策略标签错误`)
+  } else {
+    assert.equal(record.cutOrderSourceLabel, '独立裁剪任务', `PDA 稳定裁片单 ${cutOrderNo} 来源标签错误`)
+    assert.equal(record.cutReturnModeLabel, '回我方裁床待交出仓', `PDA 稳定裁片单 ${cutOrderNo} 回流方式标签错误`)
+    assert.equal(record.internalCraftOrderPolicyLabel, '按中央辅助/特种工艺要求生成加工单', `PDA 稳定裁片单 ${cutOrderNo} 我方加工单策略标签错误`)
+  }
 })
 
 const taskSource = listPdaCuttingTaskSourceRecords().find((item) => item.taskId === targetTaskId)
@@ -104,41 +110,17 @@ const execSource = readFileSync(new URL('../src/pages/pda-exec.ts', import.meta.
 assert.equal(execSource.includes('裁片执行单'), false, 'PDA 执行列表不应再显示裁片执行单')
 assert.equal(execSource.includes('铺布执行单'), false, 'PDA 执行列表不应再显示铺布执行单')
 
-const continuousCutOrder = generatedCutOrders.find((record) =>
-  record.cutOrderSourceType === 'CONTINUOUS_WITH_CUTTING_TASK'
+const mergedCutOrder = generatedCutOrders.find((record) =>
+  record.cutOrderSourceType === 'CUTTING_SEWING_IRON_PACK_TASK'
   && record.cutReturnMode === 'THIRD_PARTY_REPORT_ONLY'
 )
-assert.ok(continuousCutOrder, '必须存在当前生成的含裁片连续任务裁片单')
+assert.ok(mergedCutOrder, '必须存在当前生成的裁剪+车缝+烫包合并任务裁片单')
 
-const continuousTaskSource = listPdaCuttingTaskSourceRecords().find((item) =>
-  item.taskId === continuousCutOrder.cuttingTaskId
-  && item.cutOrderIds.includes(continuousCutOrder.cutOrderId)
+assert.equal(
+  listPdaCuttingTaskSourceRecords().some((item) => item.taskId === mergedCutOrder.cuttingTaskId),
+  false,
+  '固定合并任务不得再生成独立裁剪 PDA 执行来源',
 )
-assert.ok(continuousTaskSource, 'PDA 连续裁片任务必须从当前生成的连续裁片单动态派生')
-assert.deepEqual(continuousTaskSource.cutOrderNos, [continuousCutOrder.cutOrderNo])
-
-const continuousDetail = getPdaCuttingTaskSnapshot(continuousTaskSource.taskId)
-assert.ok(continuousDetail, 'PDA 连续裁片任务必须生成详情投影')
-assert.equal(continuousDetail.cuttingReportMode, 'CONTINUOUS_TASK_CUTTING_COMPLETION')
-assert.equal(continuousDetail.nextRecommendedAction, '上报裁片完成')
-assert.ok(continuousDetail.cutPieceOrders.every((line) => line.nextActionLabel === '上报裁片完成'), '连续裁片执行行下一步必须是上报裁片完成')
-assert.ok(continuousDetail.cutPieceOrders.every((line) => line.primaryExecutionRouteKey === 'spreading'), '连续裁片执行行走铺布入口但页面内切换为上报表单')
-assert.ok(continuousDetail.cutCompletionPartRows.length > 0, '连续裁片详情必须包含部位完成上报行')
-assert.ok(continuousDetail.cutCompletionPartRows.every((row) => row.partName && row.colorName && row.cutPieceQty > 0 && row.garmentAvailableQty > 0), '连续裁片完成上报行必须包含部位、颜色、裁出片数和可做成衣数')
-
-const continuousDetailHtml = renderPdaCuttingTaskDetailPage(continuousTaskSource.taskId)
-;[
-  '裁片完成上报',
-  '可做成衣数',
-  continuousCutOrder.cutOrderNo,
-  continuousCutOrder.productionOrderNo,
-].forEach((snippet) => {
-  assert.ok(continuousDetailHtml.includes(snippet), `PDA 连续裁片详情缺少：${snippet}`)
-})
-assert.equal(continuousDetailHtml.includes('裁片单与铺布单'), false, '连续裁片详情不应展示裁片单与铺布单分组')
-continuousClosedLoopSnippets.forEach((snippet) => {
-  assert.equal(continuousDetailHtml.includes(snippet), false, `连续裁片详情不应出现闭环动作词：${snippet}`)
-})
 
 const pdaStorage = new Map<string, string>()
 Object.defineProperty(globalThis, 'localStorage', {
@@ -159,23 +141,15 @@ setPdaSession({
   factoryName: TEST_FACTORY_NAME,
   loggedAt: '2026-03-18 08:00:00',
 })
-const continuousSpreadingHtml = renderPdaCuttingSpreadingPage(continuousTaskSource.taskId)
-assert.ok(continuousSpreadingHtml.includes('裁片完成上报'), '连续裁片铺布入口必须改为裁片完成上报')
-assert.ok(continuousSpreadingHtml.includes('可做成衣数'), '连续裁片铺布入口必须显示可做成衣数')
-assert.ok(continuousSpreadingHtml.includes('data-pda-cut-completion-feedback'), '连续裁片上报入口必须有局部反馈容器')
-continuousClosedLoopSnippets.forEach((snippet) => {
-  assert.equal(continuousSpreadingHtml.includes(snippet), false, `连续裁片铺布入口不应出现闭环动作词：${snippet}`)
+assert.ok(getPdaSession(), 'PDA 固定合并任务验收前必须建立有效工厂会话')
+const fixedMergedTask = listRuntimeProcessTasks().find((task) => task.mergedTaskType === 'CUTTING_SEWING_IRON_PACK')
+assert.ok(fixedMergedTask, '必须存在裁剪+车缝+烫包固定合并任务')
+const fixedMergedHtml = renderPdaExecDetailPage(fixedMergedTask.taskId)
+;['裁剪+车缝+烫包', '本厂责任范围', '完整 SKU', 'PDA 只负责接单、开始和交出', '开始生产'].forEach((snippet) => {
+  assert.ok(fixedMergedHtml.includes(snippet), `PDA 固定合并任务详情缺少：${snippet}`)
 })
-
-;[
-  '上报裁片完成',
-  'cuttingReportMode',
-].forEach((snippet) => {
-  assert.ok(execSource.includes(snippet), `PDA 执行列表缺少连续裁片入口守卫：${snippet}`)
+;['裁片完成上报', '开始铺布', '完成铺布', '开始裁剪', '完成裁剪', '上传进度', '>单独完工<'].forEach((snippet) => {
+  assert.equal(fixedMergedHtml.includes(snippet), false, `PDA 固定合并任务不得出现执行步骤：${snippet}`)
 })
-
-const spreadingSource = readFileSync(new URL('../src/pages/pda-cutting-spreading.ts', import.meta.url), 'utf8')
-assert.ok(spreadingSource.includes('data-pda-cut-completion-feedback'), '连续裁片上报页源码必须保留局部反馈容器')
-assert.ok(spreadingSource.includes('syncCutCompletionReportDom'), '连续裁片上报提交后必须走局部反馈同步')
 
 console.log('check-pda-cutting-task-spreading-orders PASS')

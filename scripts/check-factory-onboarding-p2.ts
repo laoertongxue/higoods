@@ -109,7 +109,7 @@ assert(requiredBlocked, '缺少业务必填字段时应被中文校验阻止')
 const cuttingCapability = createCapability('裁片', '定位裁')
 const printingCapability = createCapability('印花', '数码印')
 const dyeCapability = createCapability('染色', '匹染')
-const postCapability = createCapability('后道', '包装')
+const postCapability = createCapability('烫包', '烫包')
 const specialCapability = createCapability('特殊工艺', '打揽')
 
 assert(inferFactoryTypesFromCapabilities([cuttingCapability])[0]?.factoryTypeCode === 'CUTTING_FACTORY', '裁床能力应匹配裁床厂')

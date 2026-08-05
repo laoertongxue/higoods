@@ -429,11 +429,15 @@ function renderCoveredProcessSummary(task: ProcessTask): string {
   return `<div class="rounded-md border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs text-blue-700">覆盖工序：${escapeHtml(text)}</div>`
 }
 
-function isSimpleFiveStepTask(task: ProcessTask): boolean {
-  return task.pdaStepTemplateCode === 'SIMPLE_FIVE_STEP'
+function isWholeOrderFiveStepTask(task: ProcessTask): boolean {
+  return task.pdaStepTemplateCode === 'WHOLE_ORDER_FIVE_STEP'
 }
 
 function getTaskStatusLabel(task: ProcessTask): string {
+  const printOrder = getPrintWorkOrderByTaskId(task.taskId)
+  if (printOrder?.status === 'HANDOVER_WAIT_RECEIVE') return '待对方收货'
+  const dyeOrder = getDyeWorkOrderByTaskId(task.taskId)
+  if (dyeOrder?.status === 'HANDOVER_WAIT_RECEIVE') return '待对方收货'
   const postTask = getPostFinishingTaskById(task.taskId)
   if (postTask) return postTask.currentStatus
   const postOrder = getPostFinishingWorkOrderBySourceTaskId(task.taskId)
@@ -480,9 +484,6 @@ function getCuttingTaskDetail(task: ProcessTask): CuttingTaskDetail | null {
 
 function getCuttingTaskListSummary(detail: CuttingTaskDetail | null): string {
   if (!detail) return ''
-  if (detail.cuttingReportMode === 'CONTINUOUS_TASK_CUTTING_COMPLETION') {
-    return `${detail.cutOrderNos.length || 1} 张裁片单 · ${detail.cutCompletionPartRows.length} 行上报 · 下一步 上报裁片完成`
-  }
   return `${detail.cutOrderGroups.length} 张裁片单 · ${detail.cutPieceOrderCount} 张铺布单 · 下一步 ${detail.nextRecommendedAction}`
 }
 
@@ -505,11 +506,9 @@ function getNotStartedPrimaryAction(
 ): { label: string; icon: string; action: 'go-start' | 'go-prerequisite' | 'go-handover'; className: string } {
   if (prereq.met) {
     return {
-      label: isSimpleFiveStepTask(task)
+      label: isWholeOrderFiveStepTask(task)
         ? '确认领料 / 开始做'
-        : getCuttingTaskDetail(task)?.cuttingReportMode === 'CONTINUOUS_TASK_CUTTING_COMPLETION'
-          ? '上报裁片完成'
-          : isCuttingSpecialTask(task) ? '进入裁片任务' : '开工',
+        : isCuttingSpecialTask(task) ? '进入裁片任务' : '开工',
       icon: 'play',
       action: 'go-start',
       className: 'bg-primary text-primary-foreground hover:bg-primary/90',
@@ -525,7 +524,7 @@ function getNotStartedPrimaryAction(
     }
   }
 
-  if (isSimpleFiveStepTask(task) && /领料|收货|入仓|来料/.test(prereq.blocker)) {
+  if (isWholeOrderFiveStepTask(task) && /领料|收货|入仓|来料/.test(prereq.blocker)) {
     return {
       label: '去交接确认',
       icon: 'arrow-left-right',
@@ -795,8 +794,8 @@ function renderNotStartedCard(task: ProcessTask): string {
                   <div class="font-medium">${escapeHtml(displayProcessName)}</div>
                   <div class="text-muted-foreground">裁片单</div>
                   <div class="truncate font-medium">${escapeHtml(`${cuttingDetail.cutOrderGroups.length} 张`)}</div>
-                  <div class="text-muted-foreground">${escapeHtml(cuttingDetail.cuttingReportMode === 'CONTINUOUS_TASK_CUTTING_COMPLETION' ? '上报内容' : '铺布单')}</div>
-                  <div class="truncate font-medium">${escapeHtml(cuttingDetail.cuttingReportMode === 'CONTINUOUS_TASK_CUTTING_COMPLETION' ? `${cuttingDetail.cutCompletionPartRows.length} 行` : `${cuttingDetail.cutPieceOrderCount} 张`)}</div>
+                  <div class="text-muted-foreground">铺布单</div>
+                  <div class="truncate font-medium">${escapeHtml(`${cuttingDetail.cutPieceOrderCount} 张`)}</div>
                   <div class="text-muted-foreground">下一步</div>
                   <div class="truncate font-medium">${escapeHtml(cuttingDetail.nextRecommendedAction)}</div>
                   <div class="text-muted-foreground">面料</div>
@@ -917,8 +916,8 @@ function renderInProgressCard(task: ProcessTask): string {
                   <div class="truncate font-medium">${escapeHtml(cuttingDetail.productionOrderNo)}</div>
                   <div class="text-muted-foreground">裁片单</div>
                   <div class="truncate font-medium">${escapeHtml(`${cuttingDetail.cutOrderGroups.length} 张`)}</div>
-                  <div class="text-muted-foreground">${escapeHtml(cuttingDetail.cuttingReportMode === 'CONTINUOUS_TASK_CUTTING_COMPLETION' ? '上报内容' : '铺布单')}</div>
-                  <div class="font-medium">${escapeHtml(cuttingDetail.cuttingReportMode === 'CONTINUOUS_TASK_CUTTING_COMPLETION' ? `${cuttingDetail.cutCompletionPartRows.length} 行` : `${cuttingDetail.cutPieceOrderCount} 张`)}</div>
+                  <div class="text-muted-foreground">铺布单</div>
+                  <div class="font-medium">${escapeHtml(`${cuttingDetail.cutPieceOrderCount} 张`)}</div>
                   <div class="text-muted-foreground">下一步</div>
                   <div class="truncate font-medium">${escapeHtml(cuttingDetail.nextRecommendedAction)}</div>
                 `
@@ -1001,10 +1000,10 @@ function renderInProgressCard(task: ProcessTask): string {
                     data-task-id="${escapeHtml(task.taskId)}"
                   >
                     <i data-lucide="play" class="mr-1 h-3 w-3"></i>
-                    ${escapeHtml(cuttingDetail.cuttingReportMode === 'CONTINUOUS_TASK_CUTTING_COMPLETION' ? '上报裁片完成' : '进入裁片')}
+                    进入裁片
                   </button>
                 `
-              : isSimpleFiveStepTask(task)
+              : isWholeOrderFiveStepTask(task)
                 ? `
                   <button
                     class="inline-flex h-7 items-center rounded-md border border-blue-200 px-3 text-xs text-blue-700 hover:bg-blue-50"
@@ -1355,7 +1354,7 @@ export function handlePdaExecEvent(target: HTMLElement): boolean {
       showPdaExecToast('请进入任务详情按当前节点操作')
       return true
     }
-    if (isSimpleFiveStepTask(task)) {
+    if (isWholeOrderFiveStepTask(task)) {
       showPdaExecToast(`请先上传进度并交给${task.handoverReceiverName || '仓库'}，仓库待确认后才能完工`)
       appStore.navigate(resolvePdaExecCardDetailPath(taskId))
       return true

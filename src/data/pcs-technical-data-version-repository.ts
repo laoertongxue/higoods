@@ -130,7 +130,6 @@ function normalizeProcessEntries(items: TechnicalProcessEntry[]): TechnicalProce
   return normalizeProcessRouteEntries(cloneProcessEntries(items).map((item) => ({
     ...item,
     routeSourceKind: inferRouteSourceKind(item),
-    routeParallelAcceptanceMode: item.routeParallelAcceptanceMode ?? 'INDEPENDENT_ONLY',
   })))
 }
 

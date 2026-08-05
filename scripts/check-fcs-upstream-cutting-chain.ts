@@ -68,7 +68,9 @@ function ensureProductionOrderSeedsDoNotInlineSnapshots(): void {
   const content = readRepoFile('src/data/fcs/production-orders.ts')
   const seedSectionIndex = content.indexOf('const productionOrderSeeds')
   assert(seedSectionIndex >= 0, 'production-orders.ts 缺少 productionOrderSeeds')
-  const seedSection = content.slice(seedSectionIndex)
+  const seedSectionEnd = content.indexOf('\nfunction buildReleaseMaterialSwatchImageUrl', seedSectionIndex)
+  assert(seedSectionEnd > seedSectionIndex, 'production-orders.ts 无法识别 productionOrderSeeds 结束位置')
+  const seedSection = content.slice(seedSectionIndex, seedSectionEnd)
 
   assert(!seedSection.includes('demandSnapshot:'), 'production-orders.ts 仍在 seed 段手写 demandSnapshot')
   assert(!seedSection.includes('techPackSnapshot:'), 'production-orders.ts 仍在 seed 段手写 techPackSnapshot')
@@ -102,19 +104,19 @@ function ensureGeneratedCutOrdersTraceable(): void {
     assert(record.cutOrderSourceLabel, `裁片单 ${record.cutOrderNo} 缺少来源类型`)
     assert(record.cutReturnModeLabel, `裁片单 ${record.cutOrderNo} 缺少回流方式`)
     assert(record.internalCraftOrderPolicyLabel, `裁片单 ${record.cutOrderNo} 缺少我方加工单策略`)
-    if (record.cutOrderSourceType === 'CONTINUOUS_WITH_CUTTING_TASK') {
-      assert(record.cutOrderSourceLabel === '含裁片连续任务', `裁片单 ${record.cutOrderNo} 含裁片连续任务来源标签错误`)
-      assert(record.cutReturnMode === 'THIRD_PARTY_REPORT_ONLY', `裁片单 ${record.cutOrderNo} 含裁片连续任务回流方式错误`)
-      assert(record.cutReturnModeLabel === '三方上报裁片完成', `裁片单 ${record.cutOrderNo} 含裁片连续任务回流方式标签错误`)
-      assert(record.internalCraftOrderPolicy === 'DO_NOT_GENERATE', `含裁片连续任务裁片单 ${record.cutOrderNo} 不得生成我方加工单`)
-      assert(record.internalCraftOrderPolicyLabel === '不生成我方加工单', `裁片单 ${record.cutOrderNo} 含裁片连续任务我方加工单策略标签错误`)
+    if (record.cutOrderSourceType === 'CUTTING_SEWING_IRON_PACK_TASK') {
+      assert(record.cutOrderSourceLabel.includes('三方裁剪执行'), `裁片单 ${record.cutOrderNo} 合并任务来源标签错误`)
+      assert(record.cutReturnMode === 'THIRD_PARTY_REPORT_ONLY', `裁片单 ${record.cutOrderNo} 合并任务回流方式错误`)
+      assert(record.cutReturnModeLabel === '三方工厂上报裁片完成', `裁片单 ${record.cutOrderNo} 合并任务回流方式标签错误`)
+      assert(record.internalCraftOrderPolicy === 'DO_NOT_GENERATE', `合并任务裁片单 ${record.cutOrderNo} 不得生成中央辅助/特种工艺加工单`)
+      assert(record.internalCraftOrderPolicyLabel.includes('不生成中央加工单'), `裁片单 ${record.cutOrderNo} 合并任务中央加工单策略标签错误`)
     } else {
       assert(record.cutOrderSourceType === 'INDEPENDENT_CUTTING_TASK', `裁片单 ${record.cutOrderNo} 来源类型错误`)
-      assert(record.cutOrderSourceLabel === '独立裁片任务', `裁片单 ${record.cutOrderNo} 独立裁片任务来源标签错误`)
+      assert(record.cutOrderSourceLabel === '独立裁剪任务', `裁片单 ${record.cutOrderNo} 独立裁剪任务来源标签错误`)
       assert(record.cutReturnMode === 'RETURN_TO_OWN_CUTTING_WAREHOUSE', `裁片单 ${record.cutOrderNo} 独立裁片任务回流方式错误`)
       assert(record.cutReturnModeLabel === '回我方裁床待交出仓', `裁片单 ${record.cutOrderNo} 独立裁片任务回流方式标签错误`)
       assert(record.internalCraftOrderPolicy === 'GENERATE_AFTER_RETURN', `裁片单 ${record.cutOrderNo} 独立裁片任务我方加工单策略错误`)
-      assert(record.internalCraftOrderPolicyLabel === '回仓后生成我方加工单', `裁片单 ${record.cutOrderNo} 独立裁片任务我方加工单策略标签错误`)
+      assert(record.internalCraftOrderPolicyLabel === '按中央辅助/特种工艺要求生成加工单', `裁片单 ${record.cutOrderNo} 独立裁片任务我方加工单策略标签错误`)
     }
 
     const order = productionOrders.find((item) => item.productionOrderId === record.productionOrderId)

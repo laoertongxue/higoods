@@ -1057,6 +1057,30 @@ const processHandoverRecords: ProcessHandoverRecord[] = buildInitialHandoverReco
 const processHandoverDifferenceRecords: ProcessHandoverDifferenceRecord[] = buildInitialDifferenceRecords(processHandoverRecords)
 const processWarehouseReviewRecords: ProcessWarehouseReviewRecord[] = buildInitialReviewRecords(processHandoverRecords)
 
+export interface ProcessWarehouseMutationSnapshot {
+  warehouseRecords: ProcessWarehouseRecord[]
+  handoverRecords: ProcessHandoverRecord[]
+  differenceRecords: ProcessHandoverDifferenceRecord[]
+  reviewRecords: ProcessWarehouseReviewRecord[]
+}
+
+export function captureProcessWarehouseMutationState(): ProcessWarehouseMutationSnapshot {
+  return structuredClone({
+    warehouseRecords: processWarehouseRecords,
+    handoverRecords: processHandoverRecords,
+    differenceRecords: processHandoverDifferenceRecords,
+    reviewRecords: processWarehouseReviewRecords,
+  })
+}
+
+export function restoreProcessWarehouseMutationState(snapshot: ProcessWarehouseMutationSnapshot): void {
+  const restored = structuredClone(snapshot)
+  processWarehouseRecords.splice(0, processWarehouseRecords.length, ...restored.warehouseRecords)
+  processHandoverRecords.splice(0, processHandoverRecords.length, ...restored.handoverRecords)
+  processHandoverDifferenceRecords.splice(0, processHandoverDifferenceRecords.length, ...restored.differenceRecords)
+  processWarehouseReviewRecords.splice(0, processWarehouseReviewRecords.length, ...restored.reviewRecords)
+}
+
 processHandoverDifferenceRecords.forEach((difference) => {
   const handover = processHandoverRecords.find((record) => record.handoverRecordId === difference.handoverRecordId)
   if (handover) handover.relatedDifferenceRecordId = difference.differenceRecordId

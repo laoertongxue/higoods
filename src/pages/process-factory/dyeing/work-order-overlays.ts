@@ -45,7 +45,7 @@ function renderView(dyeOrderId: string): string {
       ${renderProductImage(row.productImageUrl)}
       <div class="grid flex-1 grid-cols-2 gap-3">${field('平台加工单号', row.workOrderNo)}${field('当前状态', row.status)}${field('生产单号', row.productionOrderNo)}${field('任务单号', row.taskNo)}</div>
     </div>
-    <div class="grid grid-cols-2 gap-4">${field('预计完成时间', row.plannedFinishAt)}${field('生产工厂', row.factoryName || '待分配工厂')}${field('面料接收人', row.receiverName)}${field('染色工艺', row.processName)}${field('深浅', row.shade)}${field('温度', row.temperature ? `${row.temperature}℃` : '')}</div>
+    <div class="grid grid-cols-2 gap-4">${field('预计完成时间', row.plannedFinishAt)}${field('生产工厂', row.factoryName || '待分配工厂')}${field('面料接收人', row.receiverName)}${field('染色工序', row.processName)}${field('深浅', row.shade)}${field('温度', row.temperature ? `${row.temperature}℃` : '')}</div>
     <div class="rounded-lg border p-4"><h3 class="mb-3 font-medium">原料与数量</h3><div class="grid grid-cols-2 gap-4">${field('原料/面料', `${row.materialName} · ${row.rawMaterialSku}`)}${field('染色色号', row.colorNo)}${field('计划数量', `${row.plannedQty} ${row.qtyUnit}`)}${field('原料数量', `${row.rawMaterialQty} ${row.qtyUnit}`)}${field('原料卷数', `${row.rawMaterialRollCount} 卷`)}${field('完成数量', `${row.completedQty} ${row.qtyUnit}`)}${field('损耗数量', `${row.lossQty} ${row.qtyUnit}`)}${field('备注', row.remark)}</div></div>
   </div>`
   return renderDialog({ title: `查看染色加工单 - ${row.workOrderNo}`, closeAction: { prefix: EVENT_PREFIX, action: 'close-overlay' }, width: 'lg' }, body, renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }))

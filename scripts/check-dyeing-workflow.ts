@@ -12,6 +12,7 @@ import {
   getDyeWorkOrderByTaskId,
   hasDirectPackingToReviewOrCompleteTransition,
   listDyeFormulaRecords,
+  listDyeMobileExecutionTasks,
   listDyeReportRows,
   listDyeReviewRecords,
   listDyeVatSchedules,
@@ -486,7 +487,7 @@ function main(): void {
   assert.equal(stockHandoverRecord?.sourceProductionOrderId, undefined, '备货染色交出回写不得保留空生产单 ID')
 
   const productionOrder = orders.find((order) => order.sourceType === 'PRODUCTION_ORDER')!
-  const productionTask = listPdaGenericProcessTasks().find((task) => task.taskId === productionOrder.taskId)
+  const productionTask = listDyeMobileExecutionTasks().find((task) => task.taskId === productionOrder.taskId)
   assert.equal(productionTask?.sourceType, 'PRODUCTION_ORDER', '生产单染色 PDA 任务来源必须是 PRODUCTION_ORDER')
   assert.equal(productionTask?.productionOrderId, productionOrder.sourceProductionOrderId, '生产单染色 PDA 任务必须保留生产单 ID')
   assert.equal(productionTask?.stockMaterialId, undefined, '生产单染色 PDA 任务不得携带备货来源')

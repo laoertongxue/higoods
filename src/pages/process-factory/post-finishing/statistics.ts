@@ -1,3 +1,5 @@
+// @page-pattern: dashboard
+
 import { getPostFinishingExecutionStatistics } from '../../../data/fcs/process-statistics-domain.ts'
 import {
   formatGarmentQty,
@@ -13,14 +15,14 @@ export function renderPostFinishingStatisticsPage(): string {
     <div class="space-y-4 p-4">
       ${renderPostFinishingPageHeader('后道统计')}
       <section class="grid gap-3 md:grid-cols-4 xl:grid-cols-8">
-        ${renderPostMetricCard('后道任务总数', String(statistics.workOrderCount), '生产单级主线')}
-        ${renderPostMetricCard('后道单总数', String(statistics.postOrderCount), '质检勾选后道动作生成')}
+        ${renderPostMetricCard('后道阶段处理总数', String(statistics.workOrderCount), '生产单级流程记录')}
+        ${renderPostMetricCard('实际工序单总数', String(statistics.postOrderCount), '质检勾选实际工序后生成')}
         ${renderPostMetricCard('待接收入仓任务数', String(statistics.waitReceiveTaskCount), '接收入仓')}
         ${renderPostMetricCard('已接收成衣件数', formatGarmentQty(statistics.receiveDoneGarmentQty), '接收入仓')}
         ${renderPostMetricCard('接收差异成衣件数', formatGarmentQty(statistics.receiveDiffGarmentQty), '接收入仓')}
-        ${renderPostMetricCard('待后道任务数', String(statistics.waitPostTaskCount), '状态分布')}
-        ${renderPostMetricCard('后道中任务数', String(statistics.postDoingTaskCount), '状态分布')}
-        ${renderPostMetricCard('后道完成任务数', String(statistics.postDoneTaskCount), '状态分布')}
+        ${renderPostMetricCard('待执行实际工序数', String(statistics.waitPostTaskCount), '状态分布')}
+        ${renderPostMetricCard('实际工序执行中数', String(statistics.postDoingTaskCount), '状态分布')}
+        ${renderPostMetricCard('实际工序完成数', String(statistics.postDoneTaskCount), '状态分布')}
         ${renderPostMetricCard('待质检任务数', String(statistics.waitQcTaskCount), '状态分布')}
         ${renderPostMetricCard('质检中任务数', String(statistics.qcDoingTaskCount), '状态分布')}
         ${renderPostMetricCard('质检完成任务数', String(statistics.qcDoneTaskCount), '状态分布')}
@@ -30,7 +32,7 @@ export function renderPostFinishingStatisticsPage(): string {
         ${renderPostMetricCard('待交出任务数', String(statistics.waitHandoverTaskCount), '复检完成后')}
         ${renderPostMetricCard('已交出任务数', String(statistics.handedOverTaskCount), '统一交出记录')}
         ${renderPostMetricCard('已完成任务数', String(statistics.completedTaskCount), '已回写或完成')}
-        ${renderPostMetricCard('待后道成衣件数', formatGarmentQty(statistics.waitPostGarmentQty), '统一待加工仓')}
+        ${renderPostMetricCard('待执行实际工序成衣件数', formatGarmentQty(statistics.waitPostGarmentQty), '统一待加工仓')}
         ${renderPostMetricCard('后道完成成衣件数', formatGarmentQty(statistics.postDoneGarmentQty), '后道记录')}
         ${renderPostMetricCard('待质检成衣件数', formatGarmentQty(statistics.waitQcGarmentQty), '统一待加工仓')}
         ${renderPostMetricCard('质检通过成衣件数', formatGarmentQty(statistics.qcPassGarmentQty), '质检记录')}
@@ -49,11 +51,11 @@ export function renderPostFinishingStatisticsPage(): string {
         ${renderPostMetricCard('待回写交出记录数', String(statistics.waitWritebackHandoverCount), '统一交出记录')}
         ${renderPostMetricCard('已回写交出记录数', String(statistics.writtenBackHandoverCount), '统一交出记录')}
         ${renderPostMetricCard('专门后道工厂任务数', String(statistics.dedicatedTaskCount), '后道工厂直管')}
-        ${renderPostMetricCard('后道工厂执行后道任务数', String(statistics.postFactoryExecutedTaskCount), '流程来源')}
-        ${renderPostMetricCard('车缝厂已完成后道任务数', String(statistics.sewingFactoryPostDoneTaskCount), '流程来源')}
+        ${renderPostMetricCard('后道工厂执行实际工序数', String(statistics.postFactoryExecutedTaskCount), '流程来源')}
+        ${renderPostMetricCard('车缝厂已完成实际工序数', String(statistics.sewingFactoryPostDoneTaskCount), '流程来源')}
         ${renderPostMetricCard('专门后道工厂待质检成衣件数', formatGarmentQty(statistics.dedicatedWaitQcGarmentQty), '后道工厂直管')}
         ${renderPostMetricCard('专门后道工厂待复检成衣件数', formatGarmentQty(statistics.dedicatedWaitRecheckGarmentQty), '后道工厂直管')}
-        ${renderPostMetricCard('非专门工厂已完成后道待交给后道工厂任务数', String(statistics.transferWaitManagedFactoryTaskCount), '车缝等工厂转入')}
+        ${renderPostMetricCard('非专门工厂已完成实际工序待交接数', String(statistics.transferWaitManagedFactoryTaskCount), '车缝等工厂转入')}
         ${renderPostMetricCard('非专门工厂转入后道工厂待质检成衣件数', formatGarmentQty(statistics.transferInWaitQcGarmentQty), '转入待处理')}
         ${renderPostMetricCard('非专门工厂转入后道工厂待复检成衣件数', formatGarmentQty(statistics.transferInWaitRecheckGarmentQty), '转入待处理')}
       </section>

@@ -27,10 +27,6 @@ function createAsyncRenderer<TArgs extends unknown[]>(
 
 export const renderTaskBreakdownPage = createAsyncRenderer(() => import('../pages/task-breakdown'), 'renderTaskBreakdownPage')
 export const renderCapabilityPage = createAsyncRenderer(() => import('../pages/capability'), 'renderCapabilityPage')
-export const renderFactoryCapacityProfilePage = createAsyncRenderer(
-  () => import('../pages/factory-capacity-profile'),
-  'renderFactoryCapacityProfilePage',
-)
 export const renderFactoryPerformancePage = createAsyncRenderer(
   () => import('../pages/factory-performance'),
   'renderFactoryPerformancePage',
@@ -48,23 +44,6 @@ export const renderThirdPartyFactoryComprehensiveAssessmentPage = createAsyncRen
 export const renderFactoryStatusPage = createAsyncRenderer(() => import('../pages/factory-status'), 'renderFactoryStatusPage')
 export const renderOverviewPage = createAsyncRenderer(() => import('../pages/workbench'), 'renderOverviewPage')
 export const renderTodosPage = createAsyncRenderer(() => import('../pages/workbench'), 'renderTodosPage')
-export const renderCapacityBottleneckPage = createAsyncRenderer(
-  () => import('../pages/capacity'),
-  'renderCapacityBottleneckPage',
-)
-export const renderCapacityConstraintsPage = createAsyncRenderer(
-  () => import('../pages/capacity'),
-  'renderCapacityConstraintsPage',
-)
-export const renderCapacityOverviewPage = createAsyncRenderer(
-  () => import('../pages/capacity'),
-  'renderCapacityOverviewPage',
-)
-export const renderCapacityPoliciesPage = createAsyncRenderer(
-  () => import('../pages/capacity'),
-  'renderCapacityPoliciesPage',
-)
-export const renderCapacityRiskPage = createAsyncRenderer(() => import('../pages/capacity'), 'renderCapacityRiskPage')
 export const renderProductionChangesPage = createAsyncRenderer(
   () => import('../pages/production'),
   'renderProductionChangesPage',
@@ -186,14 +165,9 @@ export const renderHistoryPage = createAsyncRenderer(() => import('../pages/hist
 export const renderPaymentSyncPage = createAsyncRenderer(() => import('../pages/payment-sync'), 'renderPaymentSyncPage')
 export const renderStatementsPage = createAsyncRenderer(() => import('../pages/statements'), 'renderStatementsPage')
 export const renderAdjustmentsPage = createAsyncRenderer(() => import('../pages/adjustments'), 'renderAdjustmentsPage')
-export const renderDispatchBoardPage = createAsyncRenderer(() => import('../pages/dispatch-board'), 'renderDispatchBoardPage')
-export const renderSewingDispatchWorkbenchPage = createAsyncRenderer(
-  () => import('../pages/sewing-dispatch-workbench'),
-  'renderSewingDispatchWorkbenchPage',
-)
-export const renderContinuousDispatchPage = createAsyncRenderer(
-  () => import('../pages/continuous-dispatch'),
-  'renderContinuousDispatchPage',
+export const renderUnifiedDispatchWorkbenchPage = createAsyncRenderer(
+  () => import('../pages/unified-dispatch-workbench'),
+  'renderUnifiedDispatchWorkbenchPage',
 )
 export const renderDispatchTendersPage = createAsyncRenderer(
   () => import('../pages/dispatch-tenders'),
@@ -202,6 +176,14 @@ export const renderDispatchTendersPage = createAsyncRenderer(
 export const renderDispatchAcceptanceSlaPage = createAsyncRenderer(
   () => import('../pages/dispatch-acceptance-sla'),
   'renderDispatchAcceptanceSlaPage',
+)
+export const renderProductionContractPrintPage = createAsyncRenderer(
+  () => import('../pages/production-contract-print'),
+  'renderProductionContractPrintPage',
+)
+export const renderProductionContractCenterPage = createAsyncRenderer(
+  () => import('../pages/production-contract-center'),
+  'renderProductionContractCenterPage',
 )
 export const renderFcsMaterialPrepListPage = createAsyncRenderer(
   () => import('../pages/fcs/material-prep/list'),
@@ -489,6 +471,11 @@ export const renderCraftDyeingReportsPage = createAsyncRenderer(
 export const renderCraftDyeingWorkOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/dyeing/work-orders'),
   'renderCraftDyeingWorkOrdersPage',
+)
+
+export const renderCraftDyeingWorkOrderDetailPage = createAsyncRenderer(
+  () => import('../pages/process-factory/dyeing/work-order-detail'),
+  'renderCraftDyeingWorkOrderDetailPage',
 )
 export const renderCraftCombinedDyeingPage = createAsyncRenderer(
   () => import('../pages/process-factory/dyeing/combined-dyeing'),

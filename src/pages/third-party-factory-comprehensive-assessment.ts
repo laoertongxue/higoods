@@ -69,7 +69,6 @@ export interface AssessmentEditorInput {
   categoryAbilities: readonly string[]
   machineCount: string
   workerCount: string
-  monthlyOutputValueTenThousandIdr: string
   grade: string
 }
 
@@ -85,7 +84,6 @@ const columnRules = [
   { key: 'categoryAbility', freezeable: true },
   { key: 'machineCount', freezeable: true },
   { key: 'workerCount', freezeable: true },
-  { key: 'monthlyOutputValue', freezeable: true },
   { key: 'deliveryCompleted', freezeable: true },
   { key: 'return30', freezeable: true },
   { key: 'return70', freezeable: true },
@@ -311,9 +309,6 @@ export function validateThirdPartyFactoryComprehensiveAssessmentInput(
   }
   if (!/^[1-9]\d*$/.test(input.machineCount)) errors.machineCount = '机器台数必须为正整数'
   if (!/^[1-9]\d*$/.test(input.workerCount)) errors.workerCount = '工人人数必须为正整数'
-  if (!/^\d+(?:\.\d{1,2})?$/.test(input.monthlyOutputValueTenThousandIdr) || Number(input.monthlyOutputValueTenThousandIdr) <= 0) {
-    errors.monthlyOutputValueTenThousandIdr = '月产值必须大于 0，最多保留 2 位小数'
-  }
   if (!['S', 'A', 'B', 'C'].includes(input.grade)) errors.grade = '请选择综合评级'
   return errors
 }
@@ -327,7 +322,7 @@ function renderEditorErrors(errors: AssessmentEditorErrors): string {
 
 function renderNumberEditorField(
   label: string,
-  field: 'machineCount' | 'workerCount' | 'monthlyOutputValueTenThousandIdr',
+  field: 'machineCount' | 'workerCount',
   value: number | null,
   suffix: string,
   step: string,
@@ -383,7 +378,7 @@ function renderAssessmentEditor(factoryId: string, errors: AssessmentEditorError
         <div class="mt-3 rounded-md border border-emerald-200 bg-emerald-50/50 px-3 py-2"><div class="text-xs text-emerald-700">工艺能力 · 工厂档案</div><div class="mt-1 text-sm font-medium">${escapeHtml(row.processAbilities.join('、') || '暂无')}</div><div class="mt-1 text-[11px] text-emerald-700">系统数据，只读</div></div>
         <div class="mt-3 rounded-md border border-sky-200 bg-sky-50/30 p-3"><div class="text-sm font-medium text-sky-800">品类能力 <span class="text-rose-500">*</span></div><div class="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">${categories}</div><p class="mt-2 text-xs text-sky-700">人工填写 · 至少选择 1 项</p></div>
       </section>
-      <section class="rounded-lg border p-4"><h3 class="text-sm font-semibold">产能</h3><p class="mt-1 text-xs text-sky-700">以下字段均为人工填写。</p><div class="mt-3 grid gap-4 sm:grid-cols-2">${renderNumberEditorField('机器台数', 'machineCount', row.machineCount, '台', '1')}${renderNumberEditorField('工人人数', 'workerCount', row.workerCount, '人', '1')}<div class="sm:col-span-2">${renderNumberEditorField('月产值', 'monthlyOutputValueTenThousandIdr', row.monthlyOutputValueTenThousandIdr, '万印尼盾／月', '0.01')}</div></div></section>
+      <section class="rounded-lg border p-4"><h3 class="text-sm font-semibold">人员与设备</h3><p class="mt-1 text-xs text-sky-700">以下字段均为人工填写。</p><div class="mt-3 grid gap-4 sm:grid-cols-2">${renderNumberEditorField('机器台数', 'machineCount', row.machineCount, '台', '1')}${renderNumberEditorField('工人人数', 'workerCount', row.workerCount, '人', '1')}</div></section>
       <section class="rounded-lg border p-4"><h3 class="text-sm font-semibold">时效</h3><p class="mt-1 text-xs text-emerald-700">系统计算，只读；沿用生产交付与回货节点口径。</p><div class="mt-3 grid grid-cols-2 gap-3">${renderReadonlyRate('交付完成', row.timeliness.deliveryOnTimeRate, '时效业务数据')}${renderReadonlyRate('30% 回货', row.timeliness.receipt30OnTimeRate, '时效业务数据')}${renderReadonlyRate('70% 回货', row.timeliness.receipt70OnTimeRate, '时效业务数据')}${renderReadonlyRate('100% 回货', row.timeliness.receipt100OnTimeRate, '时效业务数据')}</div></section>
       <section class="rounded-lg border p-4"><h3 class="text-sm font-semibold">品控</h3><p class="mt-1 text-xs text-emerald-700">系统计算，只读；沿用质检业务数据口径。</p><div class="mt-3 grid grid-cols-3 gap-3">${renderReadonlyRate('不良品率', row.quality.defectiveRate, '质检业务数据')}${renderReadonlyRate('瑕疵率', row.quality.defectRate, '质检业务数据')}${renderReadonlyRate('返工率', row.quality.reworkRate, '质检业务数据')}</div></section>
       <section class="rounded-lg border border-sky-200 bg-sky-50/30 p-4">${renderFormField({ label: '独立综合评级', required: true, hint: '人工填写 · 与三方工厂初评评级独立维护' }, gradeSelect)}</section>
@@ -414,7 +409,6 @@ const columns: readonly StandardListColumn<ThirdPartyFactoryComprehensiveAssessm
   { key: 'categoryAbility', title: '品类能力', width: 180, freezeable: true, sortable: true, render: (row) => renderManualValue(row.categoryAbilities.join('、') || null), sortValue: (row) => row.categoryAbilities.join('、') },
   { key: 'machineCount', title: '机器数', width: 110, freezeable: true, align: 'right', sortable: true, render: (row) => renderManualValue(row.machineCount, ' 台'), sortValue: (row) => row.machineCount },
   { key: 'workerCount', title: '工人数', width: 110, freezeable: true, align: 'right', sortable: true, render: (row) => renderManualValue(row.workerCount, ' 人'), sortValue: (row) => row.workerCount },
-  { key: 'monthlyOutputValue', title: '月产值', width: 160, freezeable: true, align: 'right', sortable: true, render: (row) => renderManualValue(row.monthlyOutputValueTenThousandIdr, ' 万印尼盾／月'), sortValue: (row) => row.monthlyOutputValueTenThousandIdr },
   { key: 'deliveryCompleted', title: '交期完成', width: 126, freezeable: true, align: 'right', sortable: true, render: (row) => renderSystemRate(row.timeliness.deliveryOnTimeRate), sortValue: (row) => row.timeliness.deliveryOnTimeRate },
   { key: 'return30', title: '回货 30%', width: 118, freezeable: true, align: 'right', sortable: true, render: (row) => renderSystemRate(row.timeliness.receipt30OnTimeRate), sortValue: (row) => row.timeliness.receipt30OnTimeRate },
   { key: 'return70', title: '回货 70%', width: 118, freezeable: true, align: 'right', sortable: true, render: (row) => renderSystemRate(row.timeliness.receipt70OnTimeRate), sortValue: (row) => row.timeliness.receipt70OnTimeRate },
@@ -429,7 +423,7 @@ const columns: readonly StandardListColumn<ThirdPartyFactoryComprehensiveAssessm
 const headerGroups = [
   { key: 'factory', title: '工厂信息', columnKeys: ['factory'], toneClass: 'bg-slate-50 text-slate-600' },
   { key: 'ability', title: '能力', columnKeys: ['craftAbility', 'categoryAbility'], toneClass: 'bg-emerald-50/70 text-emerald-700' },
-  { key: 'capacity', title: '产能', columnKeys: ['machineCount', 'workerCount', 'monthlyOutputValue'], toneClass: 'bg-sky-50/70 text-sky-700' },
+  { key: 'peopleEquipment', title: '人员与设备', columnKeys: ['machineCount', 'workerCount'], toneClass: 'bg-sky-50/70 text-sky-700' },
   { key: 'timeliness', title: '时效', columnKeys: ['deliveryCompleted', 'return30', 'return70', 'return100'], toneClass: 'bg-amber-50/70 text-amber-700' },
   { key: 'quality', title: '品控', columnKeys: ['defectiveRate', 'defectRate', 'reworkRate'], toneClass: 'bg-violet-50/70 text-violet-700' },
   { key: 'grade', title: '评级', columnKeys: ['grade'], toneClass: 'bg-slate-50 text-slate-600' },
@@ -539,7 +533,6 @@ function readEditorInput(root: ParentNode = document): AssessmentEditorInput | n
     categoryAbilities: [...editor.querySelectorAll<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="categoryAbilities"]:checked`)].map((item) => item.value),
     machineCount: read('machineCount').trim(),
     workerCount: read('workerCount').trim(),
-    monthlyOutputValueTenThousandIdr: read('monthlyOutputValueTenThousandIdr').trim(),
     grade: read('grade'),
   }
 }
@@ -620,7 +613,6 @@ function saveAssessmentEditor(form: HTMLFormElement): void {
       categoryAbilities: input.categoryAbilities as WomenswearCategory[],
       machineCount: Number(input.machineCount),
       workerCount: Number(input.workerCount),
-      monthlyOutputValueTenThousandIdr: Number(input.monthlyOutputValueTenThousandIdr),
       grade: input.grade as ComprehensiveAssessmentGrade,
       updatedBy: '当前登录用户',
       updatedAt: new Date().toISOString(),

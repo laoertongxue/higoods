@@ -25,15 +25,12 @@ import {
   getOrderById,
   getOrderTechPackInfo,
   getOrderRuntimeAssignmentSnapshot,
-  getOrderOutputValueSnapshot,
   getOrderTaskBreakdownSnapshot,
   getOrderMaterialIndicators,
   getMaterialRequestDraftSummaryByOrder,
   getOrderBusinessTechPackStatus,
   canOrderStartTaskBreakdown,
   getOrderTaskBreakdownDisabledReason,
-  formatOutputValue,
-  formatOutputValuePerUnit,
   renderSplitEventList,
   listMaterialRequestDraftsByOrder,
   getTaskTypeLabel,
@@ -302,7 +299,7 @@ function renderOrderPostFinishingMetricCard(order: ProductionOrder): string {
   if (!task) {
     return `
       <article class="rounded-lg border bg-card p-4">
-        <h3 class="mb-2 text-sm font-medium text-muted-foreground">后道任务</h3>
+        <h3 class="mb-2 text-sm font-medium text-muted-foreground">后道阶段处理</h3>
         ${renderBadge('未生成', 'bg-amber-100 text-amber-700')}
         <p class="mt-2 text-xs text-muted-foreground">生产单缺少后道主线任务</p>
       </article>
@@ -311,7 +308,7 @@ function renderOrderPostFinishingMetricCard(order: ProductionOrder): string {
 
   return `
     <article class="rounded-lg border bg-card p-4">
-      <h3 class="mb-2 text-sm font-medium text-muted-foreground">后道任务</h3>
+      <h3 class="mb-2 text-sm font-medium text-muted-foreground">后道阶段处理</h3>
       ${renderBadge(task.currentStatus, task.currentStatus.includes('完成') ? 'bg-green-100 text-green-700' : task.currentStatus.includes('中') ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700')}
       <p class="mt-2 font-mono text-xs">${escapeHtml(task.postTaskNo)}</p>
       <p class="text-xs text-muted-foreground">当前节点：${escapeHtml(task.currentNode)}</p>
@@ -325,8 +322,8 @@ function renderOrderPostFinishingTaskTab(order: ProductionOrder): string {
   if (!task) {
     return `
       <section class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-        <p class="font-medium">未找到生产单级后道任务</p>
-        <p class="mt-1">当前规则要求每个生产单都有一个后道任务，请检查生产单 Mock 数据与后道任务生成链路。</p>
+        <p class="font-medium">未找到生产单级后道阶段处理记录</p>
+        <p class="mt-1">请检查生产单 Mock 数据与后道阶段处理记录生成链路。</p>
       </section>
     `
   }
@@ -339,11 +336,11 @@ function renderOrderPostFinishingTaskTab(order: ProductionOrder): string {
     <section class="rounded-lg border bg-card p-4 space-y-4">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 class="text-base font-semibold">后道任务</h3>
-          <p class="mt-1 text-xs text-muted-foreground">后道任务是生产单级主线任务，质检单、后道单、复检单都归属到该任务下。</p>
+          <h3 class="text-base font-semibold">后道阶段处理</h3>
+          <p class="mt-1 text-xs text-muted-foreground">该记录串联收货、质检、实际工序、复检与交接；质检和复检不是生产工序。</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-nav="${escapeHtml(buildPostFinishingTaskLink(task.postTaskId))}">查看后道任务</button>
+          <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-nav="${escapeHtml(buildPostFinishingTaskLink(task.postTaskId))}">查看后道阶段处理</button>
           <button class="rounded-md border px-3 py-1.5 text-sm ${task.waitQcQty > 0 ? 'hover:bg-muted' : 'pointer-events-none opacity-50'}" data-nav="/fcs/craft/post-finishing/qc-orders?postTaskId=${escapeHtml(encodeURIComponent(task.postTaskId))}&createQc=1">创建质检单</button>
           <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-nav="${escapeHtml(buildTaskRouteCardPrintLink('POST_FINISHING_TASK', task.postTaskId))}">打印流转卡</button>
         </div>
@@ -351,7 +348,7 @@ function renderOrderPostFinishingTaskTab(order: ProductionOrder): string {
 
       <div class="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
         <article class="rounded-md border bg-muted/20 px-3 py-3">
-          <p class="text-xs text-muted-foreground">后道任务号</p>
+          <p class="text-xs text-muted-foreground">后道阶段处理编号</p>
           <p class="mt-1 font-mono text-xs font-semibold">${escapeHtml(task.postTaskNo)}</p>
           <p class="text-[11px] text-muted-foreground">${escapeHtml(task.postTaskId)}</p>
         </article>
@@ -504,7 +501,7 @@ function renderOrderDetailTabButtons(activeTab: OrderDetailTab): string {
     { key: 'demand-snapshot', label: '需求快照' },
     { key: 'tech-pack', label: '技术包快照' },
     { key: 'assignment', label: '分配概览' },
-    { key: 'post-finishing', label: '后道任务' },
+    { key: 'post-finishing', label: '后道阶段处理' },
     { key: 'handover', label: '交接链路' },
     { key: 'logs', label: '日志' },
   ]
@@ -683,7 +680,6 @@ function renderOrderDetailTabContent(order: ProductionOrder): string {
   const sourceDemandSnapshots = getOrderSourceDemandSnapshots(order)
   const sourceDemandIdsText = getOrderSourceDemandIdsText(order)
   const totalQty = order.demandSnapshot.skuLines.reduce((sum, sku) => sum + sku.qty, 0)
-  const outputValue = getOrderOutputValueSnapshot(order)
 
   if (state.detailTab === 'overview') {
     const mainFactoryPending = isProductionOrderMainFactoryPending(order)
@@ -787,61 +783,6 @@ function renderOrderDetailTabContent(order: ProductionOrder): string {
         </section>
       </div>
       ${renderOrderMaterialInfoSection(order)}
-      <section class="rounded-lg border bg-card p-4">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h3 class="text-base font-semibold">产值构成</h3>
-            <p class="mt-1 text-xs text-muted-foreground">生产单总产值来自当前生产单下最终执行任务的任务总产值聚合结果</p>
-          </div>
-          <div class="rounded-md bg-muted/40 px-3 py-2 text-right">
-            <p class="text-xs text-muted-foreground">生产单总产值</p>
-            <p class="text-sm font-semibold">${escapeHtml(formatOutputValue(outputValue.totalOutputValue))}</p>
-          </div>
-        </div>
-
-        <div class="mt-3 overflow-x-auto rounded-md border">
-          <table class="w-full text-sm">
-            <thead class="border-b bg-muted/30 text-xs text-muted-foreground">
-              <tr>
-                <th class="px-3 py-2 text-left font-medium">任务 / 工序工艺</th>
-                <th class="px-3 py-2 text-right font-medium">数量</th>
-                <th class="px-3 py-2 text-right font-medium">单位产值</th>
-                <th class="px-3 py-2 text-left font-medium">产值单位</th>
-                <th class="px-3 py-2 text-right font-medium">小计总产值</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${
-                outputValue.breakdownRows.length === 0
-                  ? renderEmptyRow(5, '暂无可用产值')
-                  : outputValue.breakdownRows
-                      .map(
-                        (row) => `
-                          <tr class="border-b last:border-0">
-                            <td class="px-3 py-2">
-                              <div class="text-sm">
-                                <div class="font-medium">${escapeHtml(row.taskLabel)}</div>
-                                <div class="text-xs text-muted-foreground">${escapeHtml(row.processLabel)}</div>
-                                <div class="text-[11px] text-muted-foreground">
-                                  ${escapeHtml(row.taskNo)}
-                                  ${row.isSplitResult ? ' · 拆分结果任务' : ''}
-                                  ${row.detailRowCount > 0 ? ` · 明细 ${row.detailRowCount} 行` : ''}
-                                </div>
-                              </div>
-                            </td>
-                            <td class="px-3 py-2 text-right">${row.qty.toLocaleString()}</td>
-                            <td class="px-3 py-2 text-right">${escapeHtml(formatOutputValuePerUnit(row.outputValuePerUnit))}</td>
-                            <td class="px-3 py-2">${escapeHtml(row.outputValueUnit || '--')}</td>
-                            <td class="px-3 py-2 text-right font-medium">${escapeHtml(formatOutputValue(row.totalOutputValue))}</td>
-                          </tr>
-                        `,
-                      )
-                      .join('')
-              }
-            </tbody>
-          </table>
-        </div>
-      </section>
       </div>
     `
   }
@@ -1105,7 +1046,6 @@ export function renderProductionOrderDetailPage(orderId: string): string {
   const techPack = getOrderTechPackInfo(order)
   const runtime = getOrderRuntimeAssignmentSnapshot(order)
   const breakdown = getOrderTaskBreakdownSnapshot(order)
-  const outputValue = getOrderOutputValueSnapshot(order)
 
   const canBreakdown = canOrderStartTaskBreakdown(order)
   const confirmationPreviewState = getDetailConfirmationPreviewState(order)
@@ -1243,12 +1183,6 @@ export function renderProductionOrderDetailPage(orderId: string): string {
         </article>
 
         ${renderOrderPostFinishingMetricCard(order)}
-
-        <article class="rounded-lg border bg-card p-4">
-          <h3 class="mb-2 text-sm font-medium text-muted-foreground">总产值</h3>
-          <p class="text-lg font-semibold">${escapeHtml(formatOutputValue(outputValue.totalOutputValue))}</p>
-          <p class="mt-2 text-xs text-muted-foreground">执行任务 ${outputValue.taskCount} 条</p>
-        </article>
 
         <article class="rounded-lg border bg-card p-4">
           <h3 class="mb-2 text-sm font-medium text-muted-foreground">分配进度</h3>

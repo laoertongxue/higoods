@@ -1,5 +1,6 @@
 import {
   PRINT_WORK_ORDER_STATUS_LABEL,
+  capturePrintProcessMutationState,
   completeColorTest,
   completePrinting,
   completeTransfer,
@@ -8,9 +9,11 @@ import {
   startPrinting,
   startTransfer,
   submitPrintHandover,
+  restorePrintProcessMutationState,
 } from './printing-task-domain.ts'
 import {
   DYE_WORK_ORDER_STATUS_LABEL,
+  captureDyeProcessMutationState,
   completeDyeMaterialReady,
   completeDyeMaterialWait,
   completeDyeNode,
@@ -23,6 +26,7 @@ import {
   startDyeSampleTest,
   startDyeing,
   submitDyeHandover,
+  restoreDyeProcessMutationState,
 } from './dyeing-task-domain.ts'
 import { cutPieceOrderRecords, updateCutPieceOrderWebStage } from './cutting/cut-piece-orders.ts'
 import { updateCuttingOrderProgressWebStage } from './cutting/order-progress.ts'
@@ -51,7 +55,9 @@ import {
 import {
   createProcessHandoverDifferenceRecord,
   createProcessHandoverRecord,
+  captureProcessWarehouseMutationState,
   listWaitProcessWarehouseRecords,
+  restoreProcessWarehouseMutationState,
 } from './process-warehouse-domain.ts'
 import { mapCraftStatusToPlatformStatus } from './process-platform-status-adapter.ts'
 import { listFactoryDyeVatCapacities, listFactoryPrintMachineCapacities } from './factory-capacity-profile-mock.ts'
@@ -71,8 +77,11 @@ import {
 import {
   advanceDyeWorkOrderOnlineStatus,
   assertDyeWorkOrderOnlineActionAllowed,
+  captureDyeOnlineMutationState,
   getDyeWorkOrderOnlineRecord,
+  restoreDyeOnlineMutationState,
 } from './dye-work-order-online-domain.ts'
+import { capturePdaHandoverState, restorePdaHandoverState } from './pda-handover-events.ts'
 import { markSpecialCraftFeiTicketBindingCompleted } from './cutting/special-craft-fei-ticket-flow.ts'
 
 export type ProcessActionSourceChannel = 'Web 端' | '移动端'
@@ -103,6 +112,7 @@ export interface ProcessActionPayload {
   remark?: string
   evidenceUrls?: string[]
   actor?: WaterSolublePdaActor
+  confirmationKey?: string
 }
 
 export interface ProcessActionWritebackResult {
@@ -182,6 +192,7 @@ interface StatusSnapshot {
 const DEFAULT_OPERATED_AT = '2026-04-28 10:00'
 
 const processActionOperationRecords: ProcessActionOperationRecord[] = []
+const processActionResultsByConfirmationKey = new Map<string, ProcessActionWritebackResult>()
 
 const ACTION_CODE_ALIASES: Record<string, string> = {
   CONFIRM_PRINT_ARTWORK: 'PRINT_PATTERN_READY',
@@ -573,7 +584,7 @@ export const PROCESS_ACTION_DEFINITIONS: ProcessActionDefinition[] = [
   },
   {
     actionCode: 'POST_PROCESS_START',
-    actionLabel: '开始后道',
+    actionLabel: '开始实际工序',
     sourceType: 'POST_FINISHING',
     fromStatuses: ['待后道'],
     toStatus: '后道中',
@@ -582,7 +593,7 @@ export const PROCESS_ACTION_DEFINITIONS: ProcessActionDefinition[] = [
   },
   {
     actionCode: 'POST_PROCESS_FINISH',
-    actionLabel: '完成后道',
+    actionLabel: '完成实际工序',
     sourceType: 'POST_FINISHING',
     fromStatuses: ['后道中'],
     toStatus: '待复检',
@@ -762,8 +773,14 @@ function validateBinding(sourceType: ProcessActionSourceType, sourceId: string, 
     binding.isTaskFound &&
     binding.isProcessTypeMatched &&
     binding.isAcceptedOrExecutable
+  const webCanUseBoundPreparationOrder =
+    sourceChannel === 'Web 端' &&
+    (sourceType === 'PRINT' || sourceType === 'DYE') &&
+    binding.isBound &&
+    binding.isTaskFound &&
+    binding.isProcessTypeMatched
   return {
-    ok: binding.canOpenMobileExecution || prototypeCanUseFactoryScopedSpecialCraft,
+    ok: binding.canOpenMobileExecution || prototypeCanUseFactoryScopedSpecialCraft || webCanUseBoundPreparationOrder,
     reason: binding.reasonLabel,
     taskId: binding.actualTaskId,
   }
@@ -873,8 +890,6 @@ function assertRequiredFields(payload: ProcessActionPayload, definition: Process
 export function validateProcessAction(payload: ProcessActionPayload): { ok: boolean; message: string; definition?: ProcessActionDefinition; snapshot?: StatusSnapshot } {
   const definition = getProcessActionDefinition(payload.sourceType, payload.actionCode)
   if (!definition) return { ok: false, message: '当前动作未注册，不能写回' }
-  const binding = validateBinding(payload.sourceType, payload.sourceId, payload.sourceChannel)
-  if (!binding.ok) return { ok: false, message: binding.reason || '加工单与移动端任务绑定无效' }
   const combinedMobileDyeOrder = payload.sourceChannel === '移动端'
     && payload.sourceType === 'DYE'
     && definition.actionCode === 'DYE_FINISH_DYEING'
@@ -893,6 +908,8 @@ export function validateProcessAction(payload: ProcessActionPayload): { ok: bool
       return { ok: false, message: '请填写大于或等于 0 的有效染色完成数量。' }
     }
   }
+  const binding = validateBinding(payload.sourceType, payload.sourceId, payload.sourceChannel)
+  if (!binding.ok) return { ok: false, message: binding.reason || '加工单与移动端任务绑定无效' }
   const snapshot = getProcessActionStatusSnapshot(payload.sourceType, payload.sourceId)
   if (!definition.fromStatuses.includes(snapshot.status)) {
     return { ok: false, message: `当前状态“${snapshot.label}”不能执行“${definition.actionLabel}”` }
@@ -1387,6 +1404,12 @@ export function executeProcessAction(payload: ProcessActionPayload): ProcessActi
     operatorName: payload.operatorName || (payload.sourceChannel === '移动端' ? '移动端操作员' : 'Web 端操作员'),
     operatedAt: payload.operatedAt || nowText(),
   }
+  const confirmationKey = canonicalPayload.confirmationKey?.trim()
+  const idempotencyKey = confirmationKey
+    ? `${canonicalPayload.sourceType}:${canonicalPayload.sourceId}:${normalizeActionCode(canonicalPayload.actionCode)}:${confirmationKey}`
+    : ''
+  const existingResult = idempotencyKey ? processActionResultsByConfirmationKey.get(idempotencyKey) : undefined
+  if (existingResult) return structuredClone(existingResult)
   if (canonicalPayload.sourceChannel === '移动端' && canonicalPayload.sourceType === 'DYE') {
     const onlineAction = canonicalPayload.actionCode === 'DYE_START_DYEING'
       ? getDyeWorkOrderOnlineRecord(canonicalPayload.sourceId).status === '染色中' ? null : '开工'
@@ -1461,6 +1484,28 @@ export function executeProcessAction(payload: ProcessActionPayload): ProcessActi
     skuQtyBySkuCode: hydratedPayload.skuQtyBySkuCode,
   })
   if (!warehousePreflight.success) throw new Error(warehousePreflight.message)
+  const rollbackPrepAction = (() => {
+    if (hydratedPayload.sourceType !== 'PRINT' && hydratedPayload.sourceType !== 'DYE') return () => undefined
+    const handoverSnapshot = capturePdaHandoverState()
+    const warehouseSnapshot = captureProcessWarehouseMutationState()
+    if (hydratedPayload.sourceType === 'PRINT') {
+      const processSnapshot = capturePrintProcessMutationState()
+      return () => {
+        restoreProcessWarehouseMutationState(warehouseSnapshot)
+        restorePdaHandoverState(handoverSnapshot)
+        restorePrintProcessMutationState(processSnapshot)
+      }
+    }
+    const processSnapshot = captureDyeProcessMutationState()
+    const onlineSnapshot = captureDyeOnlineMutationState()
+    return () => {
+      restoreProcessWarehouseMutationState(warehouseSnapshot)
+      restorePdaHandoverState(handoverSnapshot)
+      restoreDyeOnlineMutationState(onlineSnapshot)
+      restoreDyeProcessMutationState(processSnapshot)
+    }
+  })()
+  try {
   let partial: Partial<ProcessActionWritebackResult> = {}
   if (!warehouseFirstAction) partial = runAction()
   const actualNextStatus = partial.nextStatus || definition.toStatus
@@ -1537,7 +1582,7 @@ export function executeProcessAction(payload: ProcessActionPayload): ProcessActi
     affectedDifferenceRecordId: linkage.updatedDifferenceRecordId || linkage.createdDifferenceRecordId || partial.affectedDifferenceRecordId || '',
   }
   const operationRecord = createProcessActionOperationRecord(hydratedPayload, definition, snapshot.label, actualNextStatus, linkedPartial)
-  return {
+  const result: ProcessActionWritebackResult = {
     success: true,
     sourceChannel: hydratedPayload.sourceChannel,
     sourceType: hydratedPayload.sourceType,
@@ -1557,6 +1602,12 @@ export function executeProcessAction(payload: ProcessActionPayload): ProcessActi
     affectedDifferenceRecordId: linkedPartial.affectedDifferenceRecordId || '',
     platformStatusAfter,
     message: `${definition.actionLabel}已由${hydratedPayload.sourceChannel}写回，${linkage.message}，平台聚合状态为${platformStatusAfter}`,
+  }
+  if (idempotencyKey) processActionResultsByConfirmationKey.set(idempotencyKey, structuredClone(result))
+  return result
+  } catch (error) {
+    rollbackPrepAction()
+    throw error
   }
 }
 

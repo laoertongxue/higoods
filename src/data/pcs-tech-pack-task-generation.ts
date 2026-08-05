@@ -174,7 +174,6 @@ function withInitialRouteFields(items: TechnicalProcessEntry[]): TechnicalProces
   return normalizeProcessRouteEntries(cloneProcessEntries(items).map((item) => ({
     ...item,
     routeSourceKind: inferRouteSourceKind(item),
-    routeParallelAcceptanceMode: item.routeParallelAcceptanceMode ?? 'INDEPENDENT_ONLY',
   })))
 }
 
@@ -334,8 +333,6 @@ function createPlateProcessEntries(task: PlateMakingTaskRecord): TechnicalProces
       sourceType: 'MANUAL',
       routeSourceKind: 'PATTERN_PACKAGE',
       triggerSource: '制版任务',
-      outputValuePerUnit: 12,
-      outputValueUnit: '产值/件',
       difficulty: 'MEDIUM',
       remark: `${task.patternVersion || '当前版型'} 已完成核版。`,
     },
@@ -358,8 +355,6 @@ function createPlateProcessEntries(task: PlateMakingTaskRecord): TechnicalProces
       sourceType: 'MANUAL',
       routeSourceKind: 'PATTERN_PACKAGE',
       triggerSource: '制版任务',
-      outputValuePerUnit: 18,
-      outputValueUnit: '产值/件',
       difficulty: 'MEDIUM',
       remark: `按 ${task.patternType || '标准版型'} 输出执行。`,
     },
@@ -380,7 +375,7 @@ function createPlateQualityRules(task: PlateMakingTaskRecord): TechnicalQualityR
       id: `${task.plateTaskId}_quality_main`,
       checkItem: '版型对位',
       standardText: `按 ${task.patternVersion || '当前版型'} 检查前后片与腰节对位。`,
-      outputValueplingRule: '首件全检',
+      samplingRule: '首件全检',
       note: '制版输出要求',
     },
   ]

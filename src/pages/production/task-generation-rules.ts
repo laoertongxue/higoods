@@ -181,7 +181,7 @@ function renderRuleTable(rules: ProductionTaskGenerationRule[]): string {
                 </td>
                 <td class="px-3 py-3">${escapeHtml(formatProcessCodes(rule.independentProcessCodes))}</td>
                 <td class="px-3 py-3">
-                  <div>${escapeHtml(rule.pdaStepTemplateCode === 'SIMPLE_FIVE_STEP' ? '简化5步' : '默认任务步骤')}</div>
+                  <div>${escapeHtml(rule.pdaStepTemplateCode === 'WHOLE_ORDER_FIVE_STEP' ? '整单任务5步' : '默认任务步骤')}</div>
                   <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(rule.allowAutoDispatch ? '进入自动分配' : '不进入自动分配')}</div>
                   <div class="mt-1 text-xs text-muted-foreground">最终回货：${escapeHtml(rule.handoverReceiverName)}</div>
                 </td>
@@ -363,7 +363,7 @@ function buildNewRuleDraft(): ProductionTaskGenerationRule {
     taskNameTemplate: '',
     handoverReceiverKind: 'WAREHOUSE',
     handoverReceiverName: '工厂入库',
-    pdaStepTemplateCode: 'SIMPLE_FIVE_STEP',
+    pdaStepTemplateCode: 'WHOLE_ORDER_FIVE_STEP',
     allowAutoDispatch: false,
     createdAt: '',
     updatedAt: '',

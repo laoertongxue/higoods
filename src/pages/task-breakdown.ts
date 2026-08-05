@@ -1,1486 +1,222 @@
-import { productionOrders, type ProductionOrder } from '../data/fcs/production-orders.ts'
+// @page-pattern: list
+
+import { renderStandardListPage, renderStandardListStats } from '../components/ui/list-page.ts'
+import { renderStandardListTable, type StandardListColumn } from '../components/ui/list-table.ts'
+import type { StandardListColumnPreferences } from '../components/ui/list-table-model.ts'
+import { renderTablePagination } from '../components/ui/pagination.ts'
 import {
-  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
-  renderProductionOrderIdentityCell,
-} from '../data/fcs/production-order-identity.ts'
-import {
-  evaluateContinuousRuntimeTaskMerge,
-  isRuntimeTaskExecutionTask,
+  getRuntimeTaskById,
   listRuntimeProcessTasks,
-  listRuntimeTaskSplitGroupsByOrder,
-  mergeContinuousRuntimeTasks,
   type RuntimeProcessTask,
 } from '../data/fcs/runtime-process-tasks.ts'
-import {
-  resolveTaskOutputValueSnapshot,
-  sumTaskOutputValueTotals,
-} from '../data/fcs/process-tasks.ts'
-import { getTaskStartRuleState } from '../data/fcs/pda-start-link.ts'
-import { getTaskMilestoneState } from '../data/fcs/pda-exec-link.ts'
-import { listGeneratedProductionDemandArtifacts } from '../data/fcs/production-artifact-generation.ts'
-import { listGeneratedCutOrderSourceRecords } from '../data/fcs/cutting/generated-cut-orders.ts'
-import { getTaskTypeDisplayName } from '../data/fcs/page-adapters/task-execution-adapter.ts'
-import {
-  formatTaskDetailDimensionsText,
-  summarizeTaskDetailRows,
-} from '../data/fcs/task-detail-rows.ts'
-import { escapeHtml, toClassName } from '../utils.ts'
+import { classifyTaskFulfillmentPolicy } from '../data/fcs/task-fulfillment-policy.ts'
+import { isAssignableProductionExecutionTask } from '../data/fcs/merged-production-task.ts'
+import { escapeHtml } from '../utils.ts'
 
-type TaskBreakdownTab = 'by-order' | 'all'
-type TaskBreakdownPageScope = 'order' | 'all'
+type TaskListType = 'ALL' | 'SEWING' | 'NON_SEWING' | 'MERGED' | 'WHOLE_ORDER'
 
 interface TaskBreakdownState {
   keyword: string
-  activeTab: TaskBreakdownTab
-  chainDetailOrderId: string | null
+  type: TaskListType
+  status: 'ALL' | RuntimeProcessTask['assignmentStatus']
+  page: number
   detailTaskId: string | null
-  continuousMergeOrderId: string | null
-  selectedContinuousMergeTaskIds: string[]
-  continuousMergeError: string
-  orderPage: number
-  allTaskPage: number
-}
-
-interface OrderRow {
-  order: ProductionOrder
-  tasks: RuntimeProcessTask[]
-  sorted: RuntimeProcessTask[]
-  orderTotalOutputValue?: number
-  mainCount: number
-  subCount: number
-  dyeCount: number
-  materialCount: number
-  qcCount: number
-  splitGroupCount: number
-  splitResultCount: number
-  splitSourceCount: number
-  executionTaskCount: number
-  chain: string
-}
-
-interface CutOrderBoundarySummary {
-  cutOrderStatus: string
-  markerPlanStatus: string
-  garmentQtyText: string
-  internalCraftPolicyText: string
-  cutOrderSourceText: string
-  cutReturnModeText: string
-  cutOrderNosText: string
 }
 
 const state: TaskBreakdownState = {
   keyword: '',
-  activeTab: 'all',
-  chainDetailOrderId: null,
+  type: 'ALL',
+  status: 'ALL',
+  page: 1,
   detailTaskId: null,
-  continuousMergeOrderId: null,
-  selectedContinuousMergeTaskIds: [],
-  continuousMergeError: '',
-  orderPage: 1,
-  allTaskPage: 1,
 }
 
-const STAGE_ORDER = ['PREP', 'CUTTING', 'SEWING', 'SPECIAL', 'POST']
-const DEFAULT_POST_CHILD_TEXT = '开扣眼、装扣子、熨烫、包装'
-const TASK_BREAKDOWN_ORDER_PAGE_SIZE = 8
-const TASK_BREAKDOWN_ALL_TASK_PAGE_SIZE = 8
-const RULE_SOURCE_TEXT: Record<string, string> = {
-  INHERIT_PROCESS: '按技术包工序生成',
-  OVERRIDE_CRAFT: '按辅助/特种工艺生成',
+const TASK_IMAGES = ['/shirt-sample.jpg', '/dress-sample-1.jpg', '/cardigan-sample.jpg', '/tshirt-sample.jpg']
+
+function taskImage(task: RuntimeProcessTask): string {
+  const index = Math.abs([...task.productionOrderId].reduce((sum, char) => sum + char.charCodeAt(0), 0)) % TASK_IMAGES.length
+  return TASK_IMAGES[index]
 }
 
-function taskDisplayName(task: RuntimeProcessTask): string {
-  return getTaskTypeDisplayName(task)
+function taskType(task: RuntimeProcessTask): Exclude<TaskListType, 'ALL'> {
+  if (task.taskUnitType === 'WHOLE_ORDER_TASK') return 'WHOLE_ORDER'
+  const policy = classifyTaskFulfillmentPolicy(task)
+  if (policy.mergedTaskType) return 'MERGED'
+  if (policy.startsWithSewing) return 'SEWING'
+  return 'NON_SEWING'
 }
 
-function taskDisplayNo(task: RuntimeProcessTask): string {
-  return task.taskNo || task.taskId
-}
-
-function getTaskUnitTypeLabel(task: RuntimeProcessTask): string {
+function taskTypeLabel(task: RuntimeProcessTask): string {
   if (task.taskUnitType === 'WHOLE_ORDER_TASK') return '整单任务'
-  if (task.taskUnitType === 'COMBINED_PROCESS_TASK') return '组合工序任务'
-  if (task.taskUnitType === 'INDEPENDENT_WORK_ORDER_TASK') return '独立加工单任务'
-  return '单工序任务'
+  return classifyTaskFulfillmentPolicy(task).taskTypeLabel
 }
 
-function getCoveredProcessText(task: RuntimeProcessTask): string {
-  const processes = task.coveredProcesses ?? []
-  if (processes.length === 0) return task.processBusinessName || task.processNameZh || '—'
-  return processes
-    .map((item) => item.craftName ? `${item.processName}/${item.craftName}` : item.processName)
-    .join('、')
+function assignmentStatusLabel(status: RuntimeProcessTask['assignmentStatus']): string {
+  return ({
+    UNASSIGNED: '待分配',
+    DIRECT_ASSIGNED: '已直接派单',
+    BIDDING: '竞价中',
+    AWARDED: '已定标',
+    ASSIGNED: '已分配',
+    REJECTED: '已拒绝',
+  } as Record<string, string>)[status] || status
 }
 
-function getTaskRuleSourceText(task: RuntimeProcessTask): string {
-  if (task.generationRuleName) return task.generationRuleName
-  if (task.ruleSource) return RULE_SOURCE_TEXT[task.ruleSource] || task.ruleSource
-  return '默认任务生成规则'
+function processNames(task: RuntimeProcessTask): string[] {
+  const names = task.coveredProcesses?.length
+    ? task.coveredProcesses.map((item) => item.processName).filter(Boolean)
+    : [task.processNameZh]
+  return Array.from(new Set(names))
 }
 
-function getTaskAcceptanceModeText(task: RuntimeProcessTask): string {
-  if (task.acceptanceMode === 'WHOLE_ORDER') return '整单承接'
-  if (task.acceptanceMode === 'CONTINUOUS_PROCESS') return '连续工序承接'
-  return '单工序承接'
+function listRows(): RuntimeProcessTask[] {
+  const keyword = state.keyword.trim().toLowerCase()
+  return listRuntimeProcessTasks()
+    .filter(isAssignableProductionExecutionTask)
+    .filter((task) => state.type === 'ALL' || taskType(task) === state.type)
+    .filter((task) => state.status === 'ALL' || task.assignmentStatus === state.status)
+    .filter((task) => !keyword || [
+      task.productionOrderNo,
+      task.productionOrderId,
+      task.taskNo,
+      task.taskId,
+      task.processNameZh,
+      task.assignedFactoryName,
+    ].some((value) => String(value || '').toLowerCase().includes(keyword)))
 }
 
-function getTaskHandoverReceiverText(task: RuntimeProcessTask): string {
-  return task.handoverReceiverName || task.receiverName || '仓库'
+const columns: StandardListColumn<RuntimeProcessTask>[] = [
+  {
+    key: 'identity',
+    title: '生产单 / 任务',
+    width: 280,
+    required: true,
+    freezeable: true,
+    render: (task) => `<div class="flex gap-3"><button data-task-list-action="preview-image" data-image="${taskImage(task)}" data-label="${escapeHtml(task.productionOrderNo || task.productionOrderId)}"><img src="${taskImage(task)}" alt="${escapeHtml(task.productionOrderNo || task.productionOrderId)}款式实拍图" class="h-14 w-12 rounded border object-cover"/></button><div><b>${escapeHtml(task.productionOrderNo || task.productionOrderId)}</b><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.taskNo || task.taskId)}</p><p class="text-xs text-muted-foreground">${escapeHtml(task.scopeLabel)} · ${task.scopeQty.toLocaleString()}件</p></div></div>`,
+  },
+  {
+    key: 'type',
+    title: '任务类型',
+    width: 220,
+    required: true,
+    render: (task) => `<b>${escapeHtml(taskTypeLabel(task))}</b><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(processNames(task).join(' + '))}</p>`,
+  },
+  {
+    key: 'scope',
+    title: '任务范围',
+    width: 190,
+    render: (task) => {
+      const policy = classifyTaskFulfillmentPolicy(task)
+      return `<p>${policy.assignmentGranularity === 'SKU' ? '完整SKU' : policy.assignmentGranularity === 'ORDER' ? '整张任务' : escapeHtml(policy.assignmentGranularity)}</p><p class="mt-1 text-xs text-muted-foreground">${task.scopeSkuLines.length || 1}个SKU · ${task.scopeQty.toLocaleString()}件</p>`
+    },
+  },
+  {
+    key: 'status',
+    title: '状态 / 工厂',
+    width: 190,
+    render: (task) => `<b>${escapeHtml(assignmentStatusLabel(task.assignmentStatus))}</b><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.assignedFactoryName || '尚未确定工厂')}</p>`,
+  },
+  {
+    key: 'lineage',
+    title: '来源关系',
+    width: 220,
+    render: (task) => task.mergeSourceTaskIds?.length
+      ? `<span class="rounded bg-violet-50 px-2 py-1 text-xs text-violet-700">由${task.mergeSourceTaskIds.length}张源任务合并</span><p class="mt-2 text-xs text-muted-foreground">源任务保留历史，不能再单独分配</p>`
+      : '<span class="text-sm text-muted-foreground">独立生成</span>',
+  },
+  {
+    key: 'actions',
+    title: '操作',
+    width: 150,
+    required: true,
+    actionColumn: true,
+    render: (task) => `<div class="flex gap-3"><button class="text-blue-600" data-task-list-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">详情</button><a class="text-blue-600" href="/fcs/dispatch/workbench?keyword=${encodeURIComponent(task.taskNo || task.taskId)}">去分配</a></div>`,
+  },
+]
+
+const preferences: StandardListColumnPreferences = {
+  order: columns.filter((column) => !column.actionColumn).map((column) => column.key),
+  visibleKeys: columns.map((column) => column.key),
+  frozenKeys: ['identity'],
+  pageSize: 20,
 }
 
-function getTaskRouteText(task: RuntimeProcessTask): string {
-  if (!task.routeStepNo || !task.routeLaneNo) return '路线步骤：未冻结'
-  return `路线步骤：第 ${task.routeStepNo} 步 / 第 ${task.routeLaneNo} 并行线`
-}
-
-function getParallelAcceptanceText(task: RuntimeProcessTask): string {
-  return task.routeParallelAcceptanceMode === 'WHOLE_GROUP_ALLOWED' ? '整体承接' : '分别承接'
-}
-
-function getTaskParallelText(task: RuntimeProcessTask): string {
-  const groupName = task.routeParallelGroupName || task.routeParallelGroupId
-  return groupName
-    ? `并行组：${groupName} / ${getParallelAcceptanceText(task)}`
-    : `并行组：无 / ${getParallelAcceptanceText(task)}`
-}
-
-function isMergeableSingleTask(task: RuntimeProcessTask): boolean {
-  return isRuntimeTaskExecutionTask(task)
-    && task.defaultDocType !== 'DEMAND'
-    && task.taskUnitType === 'SINGLE_PROCESS_TASK'
-    && !task.isSplitSource
-    && !task.isSplitResult
-    && task.assignmentStatus === 'UNASSIGNED'
-    && task.status === 'NOT_STARTED'
-}
-
-function getContinuousMergeCandidates(tasks: RuntimeProcessTask[]): Array<{ taskIds: string[] }> {
-  const sorted = topoSort(tasks).filter(isMergeableSingleTask)
-  const candidates: Array<{ taskIds: string[] }> = []
-  for (let left = 0; left < sorted.length; left += 1) {
-    for (let right = left + 1; right < sorted.length; right += 1) {
-      const evaluation = evaluateContinuousRuntimeTaskMerge([sorted[left].taskId, sorted[right].taskId], tasks)
-      if (evaluation.ok) {
-        candidates.push({ taskIds: evaluation.tasks.map((task) => task.taskId) })
-      }
-    }
-  }
-  return candidates
-}
-
-function getInitialContinuousMergeSelection(tasks: RuntimeProcessTask[], preferredTaskId?: string): string[] {
-  const candidates = getContinuousMergeCandidates(tasks)
-  const matched = preferredTaskId
-    ? candidates.find((candidate) => candidate.taskIds.includes(preferredTaskId))
-    : candidates[0]
-  return matched?.taskIds ?? []
-}
-
-const splitTaskStatusLabel: Record<RuntimeProcessTask['status'], string> = {
-  NOT_STARTED: '待执行',
-  IN_PROGRESS: '进行中',
-  DONE: '已完成',
-  BLOCKED: '暂停',
-  CANCELLED: '已取消',
-}
-
-const taskAssignmentStatusLabel: Record<RuntimeProcessTask['assignmentStatus'], string> = {
-  UNASSIGNED: '待分配',
-  ASSIGNING: '分配中',
-  ASSIGNED: '已分配',
-  BIDDING: '招标中',
-  AWARDED: '已中标',
-}
-
-const taskExecutionStatusLabel: Record<RuntimeProcessTask['status'], string> = {
-  NOT_STARTED: '未开工',
-  IN_PROGRESS: '执行中',
-  DONE: '已完工',
-  BLOCKED: '暂停',
-  CANCELLED: '已取消',
-}
-
-function getTaskSaleTypeText(task: RuntimeProcessTask): string {
-  if (task.saleTypeSnapshot) return task.saleTypeSnapshot
-  const order = productionOrders.find((item) => item.productionOrderId === task.productionOrderId)
-  return order?.demandSnapshot.saleType ?? '—'
-}
-
-function getTaskPlanQtyText(task: RuntimeProcessTask): string {
-  const summary = summarizeTaskDetailRows(getTaskDetailRows(task), 0)
-  const qty = summary.count > 0 ? summary.totalQty : task.qty
-  if (!Number.isFinite(qty)) return '—'
-  return `${Number(qty).toLocaleString()}${task.qtyUnit === 'SET' ? '套' : '件'}`
-}
-
-function getTaskCurrentStepText(task: RuntimeProcessTask): string {
-  if (task.status === 'DONE') return '已完工'
-  if (task.status === 'CANCELLED') return '已取消'
-  if (task.status === 'BLOCKED') return '暂停待处理'
-  if (task.assignmentStatus === 'UNASSIGNED') return '待分配'
-
-  if (task.pdaStepTemplateCode === 'SIMPLE_FIVE_STEP') {
-    if (task.status === 'NOT_STARTED') return '待领料'
-    if (task.status === 'IN_PROGRESS') return '执行中 / 待交仓库'
-  }
-
-  if (task.status === 'NOT_STARTED') return '待开工'
-  if (task.status === 'IN_PROGRESS') return '执行中'
-  return taskExecutionStatusLabel[task.status]
-}
-
-function stageScore(task: RuntimeProcessTask): number {
-  const stageCode = task.stageCode || task.stage
-  const idx = STAGE_ORDER.findIndex((stage) => stage === stageCode)
-  return idx === -1 ? 99 : idx
-}
-
-function topoSort(tasks: RuntimeProcessTask[]): RuntimeProcessTask[] {
-  if (tasks.length === 0) return []
-
-  const ids = new Set(tasks.map((task) => task.taskId))
-  const indegree: Record<string, number> = {}
-
-  for (const task of tasks) {
-    indegree[task.taskId] = (task.dependsOnTaskIds ?? []).filter((id) => ids.has(id)).length
-  }
-
-  const queue = tasks
-    .filter((task) => indegree[task.taskId] === 0)
-    .sort((a, b) => stageScore(a) - stageScore(b))
-
-  const result: RuntimeProcessTask[] = []
-  const visited = new Set<string>()
-
-  while (queue.length > 0) {
-    const current = queue.shift()
-    if (!current || visited.has(current.taskId)) continue
-
-    visited.add(current.taskId)
-    result.push(current)
-
-    for (const next of tasks.filter((task) => (task.dependsOnTaskIds ?? []).includes(current.taskId))) {
-      indegree[next.taskId] = Math.max(0, indegree[next.taskId] - 1)
-      if (indegree[next.taskId] === 0) {
-        queue.push(next)
-      }
-    }
-  }
-
-  for (const task of tasks) {
-    if (!visited.has(task.taskId)) {
-      result.push(task)
-    }
-  }
-
-  return result
-}
-
-function getAllProcessTasks(): RuntimeProcessTask[] {
-  const runtimeTasks = listRuntimeProcessTasks()
-  const tasksByOrder = new Map<string, RuntimeProcessTask[]>()
-
-  for (const task of runtimeTasks) {
-    const current = tasksByOrder.get(task.productionOrderId) ?? []
-    current.push(task)
-    tasksByOrder.set(task.productionOrderId, current)
-  }
-
-  const result: RuntimeProcessTask[] = []
-  for (const tasks of tasksByOrder.values()) {
-    result.push(...tasks)
-  }
-
-  return result.filter((task) => {
-    if (task.defaultDocType === 'DEMAND') return false
-    return true
-  })
-}
-
-function getTaskMaterialSet(allTasks: RuntimeProcessTask[]): Set<string> {
-  const set = new Set<string>()
-
-  for (const task of allTasks) {
-    // 本页仅切换事实源，不改 UI 结构：领料需求按 runtime 任务字段判定，
-    // 不再读取旧 material issue seed。
-    if (
-      task.defaultDocType === 'TASK'
-      || Boolean(task.hasMaterialRequest)
-      || Boolean(task.materialRequestNo)
-    ) {
-      set.add(task.taskId)
-    }
-  }
-  return set
-}
-
-function getTaskQcSet(allTasks: RuntimeProcessTask[]): Set<string> {
-  const set = new Set<string>()
-
-  for (const task of allTasks) {
-    // 使用任务事实上下文（工序/阶段）推导质检挂接，不再依赖旧 PROC_* 编码判断。
-    if (
-      task.processBusinessCode === 'QC'
-      || task.stageCode === 'POST'
-      || task.stage === 'POST'
-    ) {
-      set.add(task.taskId)
-    }
-  }
-  return set
-}
-
-function getTaskDyeSet(allTasks: RuntimeProcessTask[]): Set<string> {
-  const set = new Set<string>()
-  const prepDemandOrderIds = new Set(
-    listGeneratedProductionDemandArtifacts()
-      .filter((artifact) => artifact.stageCode === 'PREP' && (artifact.processCode === 'PRINT' || artifact.processCode === 'DYE'))
-      .map((artifact) => artifact.orderId),
-  )
-
-  if (prepDemandOrderIds.size > 0) {
-    const orderFirstTask = new Map<string, RuntimeProcessTask>()
-    for (const task of allTasks) {
-      if (!prepDemandOrderIds.has(task.productionOrderId)) continue
-      const current = orderFirstTask.get(task.productionOrderId)
-      if (!current || task.seq < current.seq) {
-        orderFirstTask.set(task.productionOrderId, task)
-      }
-    }
-
-    for (const task of orderFirstTask.values()) {
-      set.add(task.taskId)
-    }
-  }
-
-  return set
-}
-
-function prevNames(task: RuntimeProcessTask, allTasks: RuntimeProcessTask[]): string {
-  const ids = task.dependsOnTaskIds ?? []
-  if (ids.length === 0) return '起始任务'
-  return ids
-    .map((id) => {
-      const matched = allTasks.find((item) => item.taskId === id)
-      return matched ? taskDisplayName(matched) : id
-    })
-    .join('、')
-}
-
-function nextNames(task: RuntimeProcessTask, allTasks: RuntimeProcessTask[]): string {
-  const downstream = allTasks.filter((item) => (item.dependsOnTaskIds ?? []).includes(task.taskId))
-  if (downstream.length === 0) return '末端任务'
-  return downstream.map((item) => taskDisplayName(item)).join('、')
-}
-
-function chainSummaryText(
-  sorted: RuntimeProcessTask[],
-  taskDyeSet: Set<string>,
-  materialTaskIds: Set<string>,
-  qcTaskIds: Set<string>,
-): string {
-  if (sorted.length === 0) return '—'
-
-  return sorted
-    .map((task) => {
-      let label = `${taskDisplayName(task)}（${getTaskRouteText(task).replace('路线步骤：', '')}）`
-
-      if (taskDyeSet.has(task.taskId)) {
-        label += '（相关流程）'
-      }
-
-      if (materialTaskIds.has(task.taskId)) {
-        label += '（需领料）'
-      }
-
-      if (qcTaskIds.has(task.taskId)) {
-        label += '（需质检）'
-      }
-
-      return label
-    })
-    .join(' → ')
-}
-
-function renderNeedBadge(need: boolean, className: string): string {
-  if (!need) {
-    return '<span class="text-xs text-muted-foreground">不需要</span>'
-  }
-  return `<span class="inline-flex rounded-md border px-2 py-0.5 text-[11px] ${className}">需要</span>`
-}
-
-function clampPage(page: number, total: number, pageSize: number): number {
-  const pageCount = Math.max(1, Math.ceil(total / pageSize))
-  return Math.min(Math.max(1, page), pageCount)
-}
-
-function renderTaskBreakdownPagination(
-  scope: TaskBreakdownPageScope,
-  total: number,
-  currentPage: number,
-  pageSize: number,
-): string {
-  const pageCount = Math.max(1, Math.ceil(total / pageSize))
-  const safePage = clampPage(currentPage, total, pageSize)
-  const startNo = total === 0 ? 0 : (safePage - 1) * pageSize + 1
-  const endNo = Math.min(total, safePage * pageSize)
-  const pages: number[] = []
-  const start = Math.max(1, safePage - 2)
-  const end = Math.min(pageCount, start + 4)
-
-  for (let page = start; page <= end; page += 1) {
-    pages.push(page)
-  }
-
-  return `
-    <div class="flex flex-wrap items-center justify-between gap-2 pt-3">
-      <div class="text-xs text-muted-foreground">显示 ${startNo}-${endNo} / 共 ${total} 条，第 ${safePage} / ${pageCount} 页</div>
-      <div class="flex flex-wrap items-center gap-1">
-        <button
-          class="h-8 rounded-md border px-2.5 text-xs ${safePage === 1 ? 'pointer-events-none opacity-50' : 'hover:bg-muted'}"
-          data-fast-page-render="true"
-          data-breakdown-action="change-page"
-          data-breakdown-page-scope="${scope}"
-          data-page="${safePage - 1}"
-        >上一页</button>
-        ${pages
-          .map((page) => `
-            <button
-              class="h-8 min-w-8 rounded-md border px-2.5 text-xs ${page === safePage ? 'border-blue-600 bg-blue-600 text-white' : 'hover:bg-muted'}"
-              data-fast-page-render="true"
-              data-breakdown-action="change-page"
-              data-breakdown-page-scope="${scope}"
-              data-page="${page}"
-            >${page}</button>
-          `)
-          .join('')}
-        <button
-          class="h-8 rounded-md border px-2.5 text-xs ${safePage >= pageCount ? 'pointer-events-none opacity-50' : 'hover:bg-muted'}"
-          data-fast-page-render="true"
-          data-breakdown-action="change-page"
-          data-breakdown-page-scope="${scope}"
-          data-page="${safePage + 1}"
-        >下一页</button>
-      </div>
-    </div>
-  `
-}
-
-function resetTaskBreakdownPages(): void {
-  state.orderPage = 1
-  state.allTaskPage = 1
-}
-
-function formatOutputValue(value: number | undefined): string {
-  if (!Number.isFinite(value) || Number(value) <= 0) return '--'
-  return `${Number(value).toLocaleString()} 产值`
-}
-
-function getTaskDetailRows(task: RuntimeProcessTask) {
-  if (task.scopeDetailRows && task.scopeDetailRows.length > 0) return task.scopeDetailRows
-  return task.detailRows ?? []
-}
-
-function getCutOrderBoundarySummary(productionOrderId: string): CutOrderBoundarySummary {
-  const records = listGeneratedCutOrderSourceRecords().filter((record) => record.productionOrderId === productionOrderId)
-  if (records.length === 0) {
-    return {
-      cutOrderStatus: '不生成裁片单',
-      markerPlanStatus: '不涉及唛架',
-      garmentQtyText: '—',
-      internalCraftPolicyText: '不生成我方加工单',
-      cutOrderSourceText: '—',
-      cutReturnModeText: '—',
-      cutOrderNosText: '—',
-    }
-  }
-
-  const skuQtyByKey = new Map<string, number>()
-  records.forEach((record) => {
-    record.skuScopeLines.forEach((line) => {
-      const key = `${line.skuCode || line.color}-${line.color}-${line.size}`
-      const qty = Number(line.plannedQty || 0)
-      skuQtyByKey.set(key, Math.max(skuQtyByKey.get(key) ?? 0, qty))
-    })
-  })
-  const garmentQty = Array.from(skuQtyByKey.values()).reduce((sum, qty) => sum + qty, 0)
-  const markerPlanCount = records.filter((record) => record.markerPlanNo).length
-  const markerPlanStatus =
-    markerPlanCount === 0
-      ? '待排唛架'
-      : markerPlanCount === records.length
-        ? '已排唛架'
-        : `${markerPlanCount}/${records.length} 张已排唛架`
-  const uniqueText = (values: string[], fallback: string): string => {
-    const uniqueValues = Array.from(new Set(values.filter(Boolean)))
-    return uniqueValues.length > 0 ? uniqueValues.join('、') : fallback
-  }
-  const cutOrderNos = records.map((record) => record.cutOrderNo || record.cutOrderId).filter(Boolean)
-  const cutOrderNosText =
-    cutOrderNos.length > 3
-      ? `${cutOrderNos.slice(0, 3).join('、')} 等 ${cutOrderNos.length} 张`
-      : cutOrderNos.join('、') || '—'
-
-  return {
-    cutOrderStatus: `${records.length} 张裁片单`,
-    markerPlanStatus,
-    garmentQtyText: garmentQty > 0 ? `${garmentQty.toLocaleString()} 件` : '—',
-    internalCraftPolicyText: uniqueText(records.map((record) => record.internalCraftOrderPolicyLabel), '—'),
-    cutOrderSourceText: uniqueText(records.map((record) => record.cutOrderSourceLabel), '—'),
-    cutReturnModeText: uniqueText(records.map((record) => record.cutReturnModeLabel), '—'),
-    cutOrderNosText,
-  }
-}
-
-function renderCutOrderBoundaryCompact(productionOrderId: string): string {
-  const summary = getCutOrderBoundarySummary(productionOrderId)
-  return `
-    <div class="space-y-0.5 text-xs">
-      <div><span class="text-muted-foreground">裁片单状态：</span><span class="font-medium">${escapeHtml(summary.cutOrderStatus)}</span></div>
-      <div><span class="text-muted-foreground">可做成衣数：</span><span>${escapeHtml(summary.garmentQtyText)}</span></div>
-      <div class="text-[10px] text-muted-foreground">唛架状态：${escapeHtml(summary.markerPlanStatus)} · 我方加工单策略：${escapeHtml(summary.internalCraftPolicyText)}</div>
-    </div>
-  `
-}
-
-function renderCutOrderBoundaryDetail(productionOrderId: string): string {
-  const summary = getCutOrderBoundarySummary(productionOrderId)
-  const items = [
-    ['裁片单状态', summary.cutOrderStatus],
-    ['唛架状态', summary.markerPlanStatus],
-    ['可做成衣数', summary.garmentQtyText],
-    ['我方加工单策略', summary.internalCraftPolicyText],
-    ['裁片单来源', summary.cutOrderSourceText],
-    ['回流方式', summary.cutReturnModeText],
-    ['裁片单号', summary.cutOrderNosText],
-  ]
-  return `
-    <div class="mt-4 rounded-md border p-4 text-sm">
-      <div class="font-medium">裁片边界信息</div>
-      <div class="mt-3 grid gap-3 sm:grid-cols-2">
-        ${items.map(([label, value]) => `
-          <div>
-            <div class="text-xs text-muted-foreground">${escapeHtml(label)}</div>
-            <div class="mt-1 font-medium">${escapeHtml(value)}</div>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-  `
-}
-
-function renderTaskExecutionRuleSummary(task: RuntimeProcessTask): string {
-  const startRule = getTaskStartRuleState(task)
-  const milestone = getTaskMilestoneState(task)
-  const milestoneText = milestone.required ? milestone.ruleLabel : '不要求关键节点上报'
-  const milestoneProofText = milestone.required ? milestone.proofRequirementLabel : '—'
-
-  return `
-    <p class="text-[11px] text-muted-foreground">开工：${escapeHtml(startRule.ruleLabel)}；开工凭证：${escapeHtml(startRule.proofRequirementLabel)}</p>
-    <p class="text-[11px] text-muted-foreground">关键节点：${escapeHtml(milestoneText)}；节点凭证：${escapeHtml(milestoneProofText)}</p>
-  `
-}
-
-function renderTaskDetailSummary(task: RuntimeProcessTask): string {
-  const detailRows = getTaskDetailRows(task)
-  const taskUnitText = getTaskUnitTypeLabel(task)
-  const coveredProcessText = getCoveredProcessText(task)
-  const ruleSourceText = getTaskRuleSourceText(task)
-  const rolledUpChildNames = task.rolledUpChildProcessNames?.length
-    ? task.rolledUpChildProcessNames.join('、')
-    : DEFAULT_POST_CHILD_TEXT
-  if (detailRows.length === 0) {
-    return `
-      <p class="mt-1 text-[11px] text-muted-foreground">任务类型：${escapeHtml(taskUnitText)}；覆盖工序：${escapeHtml(coveredProcessText)}；规则来源：${escapeHtml(ruleSourceText)}</p>
-      <p class="mt-1 text-[11px] text-muted-foreground">任务明细行：0 条</p>
-      ${renderTaskExecutionRuleSummary(task)}
-      ${
-        task.processBusinessCode === 'POST_FINISHING'
-          ? `<p class="text-[11px] text-muted-foreground">内含：${escapeHtml(rolledUpChildNames)}</p>`
-          : ''
-      }
-    `
-  }
-
-  const summary = summarizeTaskDetailRows(detailRows, 2)
-  const firstRowDimensions = formatTaskDetailDimensionsText(detailRows[0])
-  const previewText =
-    summary.previewText.length > 0
-      ? `${summary.previewText}${detailRows.length > 2 ? ' 等' : ''}`
-      : '-'
-
-  return `
-    <p class="mt-1 text-[11px] text-muted-foreground">任务类型：${escapeHtml(taskUnitText)}；覆盖工序：${escapeHtml(coveredProcessText)}；规则来源：${escapeHtml(ruleSourceText)}</p>
-    <p class="mt-1 text-[11px] text-muted-foreground">任务明细行：${summary.count} 条（合计 ${summary.totalQty}件）</p>
-    <p class="text-[11px] text-muted-foreground">${escapeHtml(previewText)}</p>
-    <p class="text-[11px] text-muted-foreground">维度：${escapeHtml(firstRowDimensions)}</p>
-    ${renderTaskExecutionRuleSummary(task)}
-    ${
-      task.processBusinessCode === 'POST_FINISHING'
-        ? `<p class="text-[11px] text-muted-foreground">内含：${escapeHtml(rolledUpChildNames)}</p>`
-        : ''
-    }
-  `
-}
-
-function getSplitResultTasks(task: RuntimeProcessTask, allTasks: RuntimeProcessTask[]): RuntimeProcessTask[] {
-  if (!task.splitGroupId) return []
-  return allTasks
-    .filter((item) => item.splitGroupId === task.splitGroupId && item.isSplitResult)
-    .sort((a, b) => (a.splitSeq ?? 0) - (b.splitSeq ?? 0))
-}
-
-function renderTaskSplitSummary(task: RuntimeProcessTask, allTasks: RuntimeProcessTask[]): string {
-  const splitGroup = task.splitGroupId || '-'
-
-  if (task.isSplitResult) {
-    const detailSummary = summarizeTaskDetailRows(getTaskDetailRows(task), 1)
-    const sourceTaskNo = task.splitFromTaskNo || task.rootTaskNo || '-'
-    const factoryName = task.assignedFactoryName || '-'
-    return `
-      <p class="text-[11px] text-muted-foreground">原始任务：${escapeHtml(sourceTaskNo)} · 拆分组：${escapeHtml(splitGroup)} · 拆分序号：${task.splitSeq ?? 0}</p>
-      <p class="text-[11px] text-muted-foreground">承接明细：${escapeHtml(detailSummary.previewText || '-')}（${detailSummary.count}条） · 工厂：${escapeHtml(factoryName)} · 状态：${escapeHtml(splitTaskStatusLabel[task.status])}</p>
-    `
-  }
-
-  if (task.isSplitSource) {
-    const splitResults = getSplitResultTasks(task, allTasks)
-    const splitResultText =
-      splitResults.length === 0
-        ? '暂无拆分结果'
-        : splitResults
-            .map((item) => `${taskDisplayNo(item)}（${item.assignedFactoryName || '-'}，${splitTaskStatusLabel[item.status]}）`)
-            .join('；')
-
-    return `
-      <p class="text-[11px] text-muted-foreground">拆分来源任务（不再执行） · 拆分组：${escapeHtml(splitGroup)}</p>
-      <p class="text-[11px] text-muted-foreground">拆分结果：${escapeHtml(splitResultText)}</p>
-    `
-  }
-
-  return '<p class="text-[11px] text-muted-foreground">拆分关系：未拆分</p>'
-}
-
-function renderChainDetailDialog(
-  chainDetailOrderId: string | null,
-  chainDetailOrder: ProductionOrder | null,
-  chainDetailTasks: RuntimeProcessTask[],
-  taskDyeSet: Set<string>,
-  taskMaterialSet: Set<string>,
-  taskQcSet: Set<string>,
-): string {
-  if (!chainDetailOrderId) return ''
-
-  const subtitle = chainDetailOrder
-    ? `${chainDetailOrder.productionOrderId}${
-        chainDetailOrder.mainFactorySnapshot?.name
-          ? `・${chainDetailOrder.mainFactorySnapshot.name}`
-          : ''
-      }`
-    : chainDetailOrderId
-
-  return `
-    <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
-      <button class="absolute inset-0 bg-black/45" data-breakdown-action="close-dialog" aria-label="关闭"></button>
-      <div class="absolute left-1/2 top-1/2 w-full max-h-[80vh] max-w-4xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-background p-6 shadow-2xl" data-dialog-panel="true">
-        <button class="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100" data-breakdown-action="close-dialog" aria-label="关闭">
-          <i data-lucide="x" class="h-4 w-4"></i>
-        </button>
-        <h3 class="text-lg font-semibold">
-          任务链详情
-          <span class="ml-2 text-sm font-normal text-muted-foreground">${escapeHtml(subtitle)}</span>
-        </h3>
-
-        <div class="rounded-md border mt-2">
-            <table class="w-full text-sm">
-              <thead>
-                <tr class="border-b bg-muted/40">
-                  <th class="w-10 px-3 py-2 text-left font-medium">序</th>
-                  <th class="px-3 py-2 text-left font-medium">任务类型</th>
-                  <th class="px-3 py-2 text-left font-medium">前置任务</th>
-                  <th class="px-3 py-2 text-left font-medium">后置任务</th>
-                  <th class="px-3 py-2 text-left font-medium">链路类型</th>
-                  <th class="px-3 py-2 text-center font-medium">染印承接</th>
-                  <th class="px-3 py-2 text-center font-medium">领料需求</th>
-                  <th class="px-3 py-2 text-center font-medium">质检标准</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${
-                  chainDetailTasks.length === 0
-                    ? '<tr><td colspan="8" class="py-8 text-center text-sm text-muted-foreground">暂无任务数据</td></tr>'
-                    : chainDetailTasks
-                        .map((task, idx) => {
-                          const hasDye = taskDyeSet.has(task.taskId)
-                          const hasMaterial = taskMaterialSet.has(task.taskId)
-                          const hasQc = taskQcSet.has(task.taskId)
-                          const chainTypeClass = hasDye
-                            ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                            : 'bg-slate-50 text-slate-700 border-slate-200'
-                          const chainTypeLabel = hasDye ? '相关流程' : '当前生产流程'
-                          return `
-                            <tr class="border-b last:border-0">
-                              <td class="px-3 py-2 text-xs text-muted-foreground">${idx + 1}</td>
-                              <td class="px-3 py-2 text-sm font-medium">
-                                <div class="space-y-0.5">
-                                  <p>${escapeHtml(taskDisplayName(task))}</p>
-                                  ${renderTaskDetailSummary(task)}
-                                  ${renderTaskSplitSummary(task, chainDetailTasks)}
-                                </div>
-                              </td>
-                              <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(prevNames(task, chainDetailTasks))}</td>
-                              <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(nextNames(task, chainDetailTasks))}</td>
-                              <td class="px-3 py-2">
-                                <span class="inline-flex rounded-md border px-2 py-0.5 text-xs ${chainTypeClass}">${chainTypeLabel}</span>
-                              </td>
-                              <td class="px-3 py-2 text-center">${renderNeedBadge(hasDye, 'bg-indigo-50 text-indigo-700 border-indigo-200')}</td>
-                              <td class="px-3 py-2 text-center">${renderNeedBadge(hasMaterial, 'bg-amber-50 text-amber-700 border-amber-200')}</td>
-                              <td class="px-3 py-2 text-center">${renderNeedBadge(hasQc, 'bg-cyan-50 text-cyan-700 border-cyan-200')}</td>
-                            </tr>
-                          `
-                        })
-                        .join('')
-                }
-              </tbody>
-            </table>
-          </div>
-      </div>
-    </div>
-  `
-}
-
-function renderTaskDetailDialog(
-  task: RuntimeProcessTask | null,
-  orderTasks: RuntimeProcessTask[],
-): string {
+function renderDetail(): string {
+  const task = state.detailTaskId ? getRuntimeTaskById(state.detailTaskId) : null
   if (!task) return ''
-
-  return `
-    <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
-      <button class="absolute inset-0 bg-black/45" data-breakdown-action="close-dialog" aria-label="关闭"></button>
-      <div class="absolute left-1/2 top-1/2 w-full max-h-[80vh] max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-background p-6 shadow-2xl" data-dialog-panel="true">
-        <button class="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100" data-breakdown-action="close-dialog" aria-label="关闭">
-          <i data-lucide="x" class="h-4 w-4"></i>
-        </button>
-        <h3 class="text-lg font-semibold">${escapeHtml(taskDisplayName(task))}</h3>
-        <p class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(taskDisplayNo(task))}</p>
-        <div class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-          <div class="rounded-md border p-3">
-            <div class="text-xs text-muted-foreground">生产单号</div>
-            <div class="mt-1 font-medium">${escapeHtml(task.productionOrderId || '—')}</div>
-          </div>
-          <div class="rounded-md border p-3">
-            <div class="text-xs text-muted-foreground">承接工厂</div>
-            <div class="mt-1 font-medium">${escapeHtml(task.assignedFactoryName || '待分配')}</div>
-          </div>
-        </div>
-        <div class="mt-4 rounded-md border p-4 text-sm">
-          ${renderTaskDetailSummary(task)}
-          ${renderTaskSplitSummary(task, orderTasks)}
-        </div>
-        ${renderCutOrderBoundaryDetail(task.productionOrderId)}
-      </div>
-    </div>
-  `
+  const policy = classifyTaskFulfillmentPolicy(task)
+  const sourceTasks = (task.mergeSourceTaskIds ?? []).map((id) => getRuntimeTaskById(id)).filter((item): item is RuntimeProcessTask => Boolean(item))
+  return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><button class="absolute inset-0 bg-slate-900/40" data-task-list-action="close-detail"></button><section class="relative z-10 max-h-[90vh] w-full max-w-3xl overflow-auto rounded-lg bg-white shadow-xl"><header class="flex items-start justify-between border-b p-5"><div><h2 class="text-lg font-semibold">${escapeHtml(taskTypeLabel(task))}</h2><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.taskNo || task.taskId)}</p></div><button data-task-list-action="close-detail">关闭</button></header><div class="grid gap-4 p-5 md:grid-cols-2"><section class="rounded border p-4"><h3 class="font-semibold">任务范围</h3><dl class="mt-3 space-y-2 text-sm"><div><dt class="text-muted-foreground">生产单</dt><dd>${escapeHtml(task.productionOrderNo || task.productionOrderId)}</dd></div><div><dt class="text-muted-foreground">工序责任</dt><dd>${escapeHtml(processNames(task).join(' + '))}</dd></div><div><dt class="text-muted-foreground">分配颗粒度</dt><dd>${policy.assignmentGranularity === 'SKU' ? '完整SKU' : '整张任务'}</dd></div><div><dt class="text-muted-foreground">目标数量</dt><dd>${task.scopeQty.toLocaleString()}件</dd></div></dl></section><section class="rounded border p-4"><h3 class="font-semibold">当前状态</h3><p class="mt-3 text-sm">${escapeHtml(assignmentStatusLabel(task.assignmentStatus))}</p><p class="mt-1 text-sm text-muted-foreground">${escapeHtml(task.assignedFactoryName || '尚未确定工厂')}</p></section>${sourceTasks.length ? `<section class="md:col-span-2 rounded border p-4"><h3 class="font-semibold">源任务留痕</h3><ul class="mt-3 divide-y text-sm">${sourceTasks.map((source) => `<li class="py-2">${escapeHtml(source.taskNo || source.taskId)} · ${escapeHtml(source.processNameZh)} · 已并入当前合并任务</li>`).join('')}</ul></section>` : ''}<section class="md:col-span-2 rounded border p-4"><h3 class="font-semibold">操作记录</h3><ul class="mt-3 space-y-2 text-sm">${task.auditLogs.slice().reverse().map((log) => `<li><span class="text-muted-foreground">${escapeHtml(log.at)}</span> · ${escapeHtml(log.detail)}</li>`).join('')}</ul></section></div></section></div>`
 }
 
-function renderContinuousMergeDialog(
-  mergeOrderId: string | null,
-  mergeOrder: ProductionOrder | null,
-  mergeTasks: RuntimeProcessTask[],
-): string {
-  if (!mergeOrderId) return ''
-  const mergeableTasks = topoSort(mergeTasks).filter(isMergeableSingleTask)
-  const mergeableTaskIds = new Set(mergeableTasks.map((task) => task.taskId))
-  const selectedContinuousMergeTaskIds = state.selectedContinuousMergeTaskIds.filter((taskId) => mergeableTaskIds.has(taskId))
-  const mergeEvaluation = evaluateContinuousRuntimeTaskMerge(selectedContinuousMergeTaskIds, mergeTasks)
-  const canMerge = mergeEvaluation.ok
-  const subtitle = mergeOrder
-    ? `${mergeOrder.productionOrderId}${mergeOrder.mainFactorySnapshot?.name ? `・${mergeOrder.mainFactorySnapshot.name}` : ''}`
-    : mergeOrderId
-
-  return `
-    <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
-      <button class="absolute inset-0 bg-black/45" data-breakdown-action="close-dialog" aria-label="关闭"></button>
-      <div class="absolute left-1/2 top-1/2 w-full max-h-[76vh] max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-background p-6 shadow-2xl" data-dialog-panel="true">
-        <button class="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100" data-breakdown-action="close-dialog" aria-label="关闭">
-          <i data-lucide="x" class="h-4 w-4"></i>
-        </button>
-        <h3 class="text-lg font-semibold">
-          合并连续工序
-          <span class="ml-2 text-sm font-normal text-muted-foreground">${escapeHtml(subtitle)}</span>
-        </h3>
-        <p class="mt-1 text-xs text-muted-foreground">勾选同一生产单下冻结路线连续的工序。连续工序任务不能按明细拆分，合并后只能整任务分配给一个承接工厂。</p>
-        <div class="mt-4 rounded-md border">
-          <table class="w-full text-sm">
-            <thead>
-              <tr class="border-b bg-muted/40">
-                <th class="w-12 px-3 py-2 text-left font-medium">选择</th>
-                <th class="px-3 py-2 text-left font-medium">工序任务</th>
-                <th class="px-3 py-2 text-left font-medium">路线依据</th>
-                <th class="px-3 py-2 text-left font-medium">并行组</th>
-                <th class="px-3 py-2 text-left font-medium">前置任务</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${
-                mergeableTasks.length === 0
-                  ? '<tr><td colspan="5" class="py-8 text-center text-sm text-muted-foreground">暂无可合并的工序任务</td></tr>'
-                  : mergeableTasks.map((task) => `
-                    <tr class="border-b last:border-0">
-                      <td class="px-3 py-2">
-                        <input
-                          type="checkbox"
-                          class="h-4 w-4 rounded border"
-                          data-fast-page-render="true"
-                          data-breakdown-field="continuous-merge-task"
-                          data-task-id="${escapeHtml(task.taskId)}"
-                          ${selectedContinuousMergeTaskIds.includes(task.taskId) ? 'checked' : ''}
-                        />
-                      </td>
-                      <td class="px-3 py-2">
-                        <div class="font-medium">${escapeHtml(taskDisplayName(task))}</div>
-                        <div class="font-mono text-xs text-muted-foreground">${escapeHtml(taskDisplayNo(task))}</div>
-                      </td>
-                      <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getTaskRouteText(task))}</td>
-                      <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getTaskParallelText(task))}</td>
-                      <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(prevNames(task, mergeTasks))}</td>
-                    </tr>
-                  `).join('')
-              }
-            </tbody>
-          </table>
-        </div>
-        <div class="mt-4 flex items-center justify-between gap-3">
-          <p class="text-xs ${canMerge ? 'text-muted-foreground' : 'text-amber-700'}">
-            ${escapeHtml(state.continuousMergeError || mergeEvaluation.message)}
-          </p>
-          <button
-            class="${toClassName(
-              'inline-flex h-9 items-center rounded-md border px-3 text-sm',
-              canMerge ? 'hover:bg-muted' : 'cursor-not-allowed opacity-50',
-            )}"
-            data-breakdown-action="confirm-continuous-merge"
-            ${canMerge ? '' : 'disabled'}
-          >合并所选工序</button>
-        </div>
-      </div>
-    </div>
-  `
-}
-
-function getOrderRows(
-  allTasks: RuntimeProcessTask[],
-  keyword: string,
-  taskDyeSet: Set<string>,
-  taskMaterialSet: Set<string>,
-  taskQcSet: Set<string>,
-): OrderRow[] {
-  return productionOrders
-    .filter((order) => {
-      if (!keyword) return true
-      return (
-        order.productionOrderId.toLowerCase().includes(keyword) ||
-        (order.mainFactorySnapshot?.name ?? '').includes(keyword)
-      )
-    })
-    .map((order) => {
-      const tasks = allTasks.filter((task) => task.productionOrderId === order.productionOrderId)
-      const executionTasks = tasks.filter((task) => isRuntimeTaskExecutionTask(task) && task.defaultDocType !== 'DEMAND')
-      const sorted = topoSort(tasks)
-      const mainCount = sorted.filter((task) => !taskDyeSet.has(task.taskId)).length
-      const subCount = sorted.filter((task) => taskDyeSet.has(task.taskId)).length
-      const dyeCount = tasks.filter((task) => taskDyeSet.has(task.taskId)).length
-      const materialCount = tasks.filter((task) => taskMaterialSet.has(task.taskId)).length
-      const qcCount = tasks.filter((task) => taskQcSet.has(task.taskId)).length
-      const splitGroupCount = listRuntimeTaskSplitGroupsByOrder(order.productionOrderId).length
-      const splitResultCount = tasks.filter((task) => task.isSplitResult).length
-      const splitSourceCount = tasks.filter((task) => task.isSplitSource).length
-      const executionTaskCount = tasks.filter((task) => isRuntimeTaskExecutionTask(task)).length
-      const chain = tasks.length > 0 ? chainSummaryText(sorted, taskDyeSet, taskMaterialSet, taskQcSet) : '—'
-
-      return {
-        order,
-        tasks,
-        sorted,
-        orderTotalOutputValue: sumTaskOutputValueTotals(executionTasks),
-        mainCount,
-        subCount,
-        dyeCount,
-        materialCount,
-        qcCount,
-        splitGroupCount,
-        splitResultCount,
-        splitSourceCount,
-        executionTaskCount,
-        chain,
-      }
-    })
-}
-
-function renderTaskBreakdownResultSummary(
-  orderRows: OrderRow[],
-  taskRows: RuntimeProcessTask[],
-  taskMaterialSet: Set<string>,
-): string {
-  const summaryItems = [
-    {
-      label: '生产单',
-      value: orderRows.length,
-      className: 'text-slate-900',
-    },
-    {
-      label: '任务总数',
-      value: taskRows.length,
-      className: 'text-blue-700',
-    },
-    {
-      label: '整单任务',
-      value: taskRows.filter((task) => task.taskUnitType === 'WHOLE_ORDER_TASK').length,
-      className: 'text-violet-700',
-    },
-    {
-      label: '连续工序任务',
-      value: taskRows.filter((task) => task.taskUnitType === 'COMBINED_PROCESS_TASK').length,
-      className: 'text-indigo-700',
-    },
-    {
-      label: '待分配',
-      value: taskRows.filter((task) => task.assignmentStatus === 'UNASSIGNED').length,
-      className: 'text-orange-600',
-    },
-    {
-      label: '需领料',
-      value: taskRows.filter((task) => taskMaterialSet.has(task.taskId)).length,
-      className: 'text-emerald-700',
-    },
-  ]
-
-  return `
-    <section class="rounded-2xl border bg-card p-2 shadow-sm" aria-label="搜索结果统计">
-      <div class="grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
-        ${summaryItems
-          .map((item) => `
-            <div class="flex min-h-12 items-center justify-between rounded-lg border bg-background px-3 py-2">
-              <span class="text-sm text-muted-foreground">${escapeHtml(item.label)}：</span>
-              <span class="text-lg font-semibold ${item.className}">${item.value}</span>
-            </div>
-          `)
-          .join('')}
-      </div>
-    </section>
-  `
-}
-
-function renderByOrderTable(orderRows: OrderRow[], totalRows: number, currentPage: number): string {
-  return `
-    <div class="space-y-3">
-      <div class="overflow-x-auto rounded-md border">
-        <table class="w-full min-w-[1320px] text-sm">
-          <thead>
-            <tr class="border-b bg-muted/40">
-              <th class="px-3 py-2 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
-              <th class="px-3 py-2 text-left font-medium">主工厂</th>
-              <th class="px-3 py-2 text-center font-medium">任务总数</th>
-              <th class="px-3 py-2 text-left font-medium">总产值</th>
-              <th class="px-3 py-2 text-center font-medium">当前生产流程</th>
-              <th class="px-3 py-2 text-center font-medium">相关流程</th>
-              <th class="min-w-[320px] px-3 py-2 text-left font-medium">任务流程</th>
-              <th class="px-3 py-2 text-left font-medium">开工准备</th>
-              <th class="sticky right-0 z-20 border-l bg-muted/40 px-3 py-2 text-left font-medium shadow-sm">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${
-              orderRows.length === 0
-                ? '<tr><td colspan="9" class="py-12 text-center text-sm text-muted-foreground">暂无任务清单数据</td></tr>'
-                : orderRows
-                    .map(({ order, tasks, orderTotalOutputValue, mainCount, subCount, dyeCount, materialCount, qcCount, splitGroupCount, splitResultCount, splitSourceCount, executionTaskCount, chain }) => {
-                      const continuousCandidates = getContinuousMergeCandidates(tasks)
-                      const prepSummary =
-                        tasks.length === 0
-                          ? '—'
-                          : [
-                              dyeCount > 0 ? '含染印' : null,
-                              materialCount > 0 ? `领料需求：${materialCount}个任务` : null,
-                              qcCount > 0 ? `质检标准：${qcCount}个任务` : null,
-                              splitGroupCount > 0 ? `拆分组：${splitGroupCount}` : '拆分组：0',
-                              splitResultCount > 0 ? `拆分结果任务：${splitResultCount}` : null,
-                              splitSourceCount > 0 ? `拆分来源任务：${splitSourceCount}` : null,
-                              `执行任务：${executionTaskCount}`,
-                            ]
-                              .filter(Boolean)
-                              .join('；') || '无执行准备挂载'
-
-                      return `
-                        <tr class="border-b last:border-0">
-                          <td class="px-3 py-3">${renderProductionOrderIdentityCell(order.productionOrderId)}</td>
-                          <td class="px-3 py-3 text-sm">${escapeHtml(order.mainFactorySnapshot?.name ?? '—')}</td>
-                          <td class="px-3 py-3 text-center text-sm">${tasks.length}</td>
-                          <td class="px-3 py-3 text-sm font-medium">${escapeHtml(formatOutputValue(orderTotalOutputValue))}</td>
-                          <td class="px-3 py-3 text-center">
-                            <span class="inline-flex rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-700">${mainCount}</span>
-                          </td>
-                          <td class="px-3 py-3 text-center">
-                            ${
-                              subCount > 0
-                                ? `<span class="inline-flex rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">${subCount}</span>`
-                                : '<span class="text-xs text-muted-foreground">—</span>'
-                            }
-                          </td>
-                          <td class="max-w-[360px] px-3 py-3">
-                            ${
-                              tasks.length === 0
-                                ? '<span class="text-xs italic text-muted-foreground">暂无任务</span>'
-                                : `
-                                    <div>
-                                      <p class="text-xs leading-relaxed text-muted-foreground">${escapeHtml(chain)}</p>
-                                      ${
-                                        dyeCount > 0 || materialCount > 0 || qcCount > 0 || splitGroupCount > 0
-                                          ? `
-                                              <div class="mt-1.5 flex flex-wrap gap-1">
-                                                ${
-                                                  dyeCount > 0
-                                                    ? `<span class="inline-flex rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0 text-[10px] text-indigo-700">染印×${dyeCount}</span>`
-                                                    : ''
-                                                }
-                                                ${
-                                                  materialCount > 0
-                                                    ? `<span class="inline-flex rounded-md border border-amber-200 bg-amber-50 px-2 py-0 text-[10px] text-amber-700">领料×${materialCount}</span>`
-                                                    : ''
-                                                }
-                                                ${
-                                                  qcCount > 0
-                                                    ? `<span class="inline-flex rounded-md border border-cyan-200 bg-cyan-50 px-2 py-0 text-[10px] text-cyan-700">质检×${qcCount}</span>`
-                                                    : ''
-                                                }
-                                                ${
-                                                  splitGroupCount > 0
-                                                    ? `<span class="inline-flex rounded-md border border-violet-200 bg-violet-50 px-2 py-0 text-[10px] text-violet-700">拆分组×${splitGroupCount}</span>`
-                                                    : ''
-                                                }
-                                              </div>
-                                            `
-                                          : ''
-                                      }
-                                    </div>
-                                  `
-                            }
-                          </td>
-                          <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(prepSummary)}</td>
-                          <td class="sticky right-0 z-10 border-l bg-background px-3 py-3 shadow-sm">
-                            <div class="flex min-w-[260px] gap-1.5">
-                              <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-fast-page-render="true" data-breakdown-action="open-chain-detail" data-order-id="${escapeHtml(order.productionOrderId)}">
-                                任务链详情
-                              </button>
-                              <button class="${toClassName(
-                                'inline-flex h-7 items-center rounded-md border px-2 text-xs',
-                                continuousCandidates.length > 0 ? 'hover:bg-muted' : 'cursor-not-allowed opacity-50',
-                              )}" data-fast-page-render="true" data-breakdown-action="open-continuous-merge" data-order-id="${escapeHtml(order.productionOrderId)}" ${continuousCandidates.length > 0 ? '' : 'disabled'}>
-                                合并连续工序
-                              </button>
-                              <button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/production/orders/${escapeHtml(order.productionOrderId)}">
-                                查看生产单
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      `
-                    })
-                    .join('')
-            }
-          </tbody>
-        </table>
-      </div>
-      ${renderTaskBreakdownPagination('order', totalRows, currentPage, TASK_BREAKDOWN_ORDER_PAGE_SIZE)}
-    </div>
-  `
-}
-
-function renderAllTasksTable(
-  allTaskRows: RuntimeProcessTask[],
-  allTasks: RuntimeProcessTask[],
-  taskDyeSet: Set<string>,
-  taskMaterialSet: Set<string>,
-  taskQcSet: Set<string>,
-  totalRows: number,
-  currentPage: number,
-): string {
-  return `
-    <div class="space-y-3">
-      <div class="overflow-x-auto rounded-md border">
-        <table class="w-full min-w-[1800px] text-sm">
-          <thead>
-            <tr class="border-b bg-muted/40">
-              <th class="px-3 py-2 text-left font-medium">任务号</th>
-              <th class="px-3 py-2 text-left font-medium">生产单号</th>
-              <th class="px-3 py-2 text-left font-medium">售卖类型</th>
-              <th class="px-3 py-2 text-left font-medium">任务类型</th>
-              <th class="px-3 py-2 text-left font-medium">任务名称</th>
-              <th class="px-3 py-2 text-left font-medium">覆盖工序</th>
-              <th class="px-3 py-2 text-left font-medium">承接方式</th>
-              <th class="px-3 py-2 text-left font-medium">承接工厂</th>
-              <th class="px-3 py-2 text-left font-medium">计划数量</th>
-              <th class="px-3 py-2 text-left font-medium">分配状态</th>
-              <th class="px-3 py-2 text-left font-medium">执行状态</th>
-              <th class="px-3 py-2 text-left font-medium">当前步骤</th>
-              <th class="px-3 py-2 text-left font-medium">交出对象</th>
-              <th class="px-3 py-2 text-left font-medium">规则来源</th>
-              <th class="px-3 py-2 text-left font-medium">裁片边界</th>
-              <th class="sticky right-0 z-20 border-l bg-muted/40 px-3 py-2 text-left font-medium shadow-sm">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${
-              allTaskRows.length === 0
-                ? '<tr><td colspan="16" class="py-12 text-center text-sm text-muted-foreground">暂无任务清单数据</td></tr>'
-                : allTaskRows
-                    .map((task) => {
-                      const hasDye = taskDyeSet.has(task.taskId)
-                      const hasMaterial = taskMaterialSet.has(task.taskId)
-                      const hasQc = taskQcSet.has(task.taskId)
-                      const orderTasks = allTasks.filter((item) => item.productionOrderId === task.productionOrderId)
-                      const continuousCandidates = getContinuousMergeCandidates(orderTasks)
-                      const hasContinuousMergeCandidate = continuousCandidates.some(
-                        (candidate) => candidate.taskIds.includes(task.taskId),
-                      )
-                      const displayName = taskDisplayName(task)
-                      const outputValue = resolveTaskOutputValueSnapshot(task)
-                      const isMergedDetailOutputValue = Boolean(
-                        task.isMergedTaskUnit && task.outputValueUnit === '按覆盖工序明细计算',
-                      )
-                      const outputValueText = task.isSplitSource
-                        ? '拆分来源任务'
-                        : outputValue.totalOutputValue
-                          ? formatOutputValue(outputValue.totalOutputValue)
-                          : isMergedDetailOutputValue
-                            ? '按覆盖工序明细计算'
-                            : formatOutputValue(outputValue.totalOutputValue)
-                      const outputValueHint = task.isSplitSource
-                        ? '以子任务重算结果为准'
-                        : isMergedDetailOutputValue
-                          ? '按覆盖工序明细计算，不取首个工序单价'
-                          : outputValue.outputValuePerUnit && outputValue.outputValueUnit
-                          ? `单位产值 ${outputValue.outputValuePerUnit.toLocaleString()} ${outputValue.outputValueUnit}`
-                          : '—'
-
-                      return `
-                        <tr class="border-b last:border-0">
-                          <td class="px-3 py-2 font-mono text-xs">
-                            <div>${escapeHtml(taskDisplayNo(task))}</div>
-                            ${
-                              taskDisplayNo(task) !== task.taskId
-                                ? `<div class="text-[10px] text-muted-foreground">${escapeHtml(task.taskId)}</div>`
-                              : ''
-                            }
-                          </td>
-                          <td class="px-3 py-2 text-xs font-medium">${escapeHtml(task.productionOrderId || '—')}</td>
-                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getTaskSaleTypeText(task))}</td>
-                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getTaskUnitTypeLabel(task))}</td>
-                          <td class="px-3 py-2 text-sm font-medium">
-                            <div class="space-y-0.5">
-                              <p>${escapeHtml(displayName)}</p>
-                              <p class="text-[11px] font-normal text-muted-foreground">${escapeHtml(getTaskRouteText(task))}</p>
-                              <p class="text-[11px] font-normal text-muted-foreground">${escapeHtml(getTaskParallelText(task))}</p>
-                            </div>
-                          </td>
-                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getCoveredProcessText(task))}</td>
-                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getTaskAcceptanceModeText(task))}</td>
-                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(task.assignedFactoryName || '待分配')}</td>
-                          <td class="px-3 py-2 text-xs text-muted-foreground">
-                            <div>${escapeHtml(getTaskPlanQtyText(task))}</div>
-                            <div class="text-[11px] text-muted-foreground">${escapeHtml(outputValueText)}</div>
-                            ${
-                              outputValueHint !== '—'
-                                ? `<div class="text-[10px] text-muted-foreground">${escapeHtml(outputValueHint)}</div>`
-                                : ''
-                            }
-                          </td>
-                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(taskAssignmentStatusLabel[task.assignmentStatus])}</td>
-                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(taskExecutionStatusLabel[task.status])}</td>
-                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getTaskCurrentStepText(task))}</td>
-                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getTaskHandoverReceiverText(task))}</td>
-                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getTaskRuleSourceText(task))}</td>
-                          <td class="px-3 py-2">${renderCutOrderBoundaryCompact(task.productionOrderId)}</td>
-                          <td class="sticky right-0 z-10 border-l bg-background px-3 py-2 shadow-sm">
-                            <div class="flex min-w-[260px] flex-wrap gap-1">
-                              <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-fast-page-render="true" data-breakdown-action="open-task-detail" data-task-id="${escapeHtml(task.taskId)}">查看任务</button>
-                              <button class="${toClassName(
-                                'inline-flex h-7 items-center rounded-md border px-2 text-xs',
-                                hasContinuousMergeCandidate ? 'hover:bg-muted' : 'cursor-not-allowed opacity-50',
-                              )}" data-fast-page-render="true" data-breakdown-action="open-continuous-merge" data-order-id="${escapeHtml(task.productionOrderId)}" data-task-id="${escapeHtml(task.taskId)}" ${hasContinuousMergeCandidate ? '' : 'disabled'}>合并连续工序</button>
-                              <button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/production/orders/${escapeHtml(task.productionOrderId)}">查看生产单</button>
-                              <button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/pda/exec/${escapeHtml(task.taskId)}">PDA预览</button>
-                              ${
-                                hasDye
-                                  ? '<button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/process/dye-orders">染印</button>'
-                                  : ''
-                              }
-                              ${
-                                hasMaterial
-                                  ? '<button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/process/material-issue">领料</button>'
-                                  : ''
-                              }
-                            </div>
-                            <div class="mt-1 flex flex-wrap gap-1">
-                              ${hasDye ? '<span class="inline-flex rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0 text-[10px] text-indigo-700">染印承接</span>' : ''}
-                              ${hasMaterial ? '<span class="inline-flex rounded-md border border-amber-200 bg-amber-50 px-2 py-0 text-[10px] text-amber-700">需领料</span>' : ''}
-                              ${hasQc ? '<span class="inline-flex rounded-md border border-cyan-200 bg-cyan-50 px-2 py-0 text-[10px] text-cyan-700">需质检</span>' : ''}
-                            </div>
-                          </td>
-                        </tr>
-                      `
-                    })
-                    .join('')
-            }
-          </tbody>
-        </table>
-      </div>
-      ${renderTaskBreakdownPagination('all', totalRows, currentPage, TASK_BREAKDOWN_ALL_TASK_PAGE_SIZE)}
-    </div>
-  `
+function renderImagePreview(): string {
+  return '<div data-task-list-image-preview></div>'
 }
 
 export function renderTaskBreakdownPage(): string {
-  const allTasks = getAllProcessTasks()
-  const taskMaterialSet = getTaskMaterialSet(allTasks)
-  const taskQcSet = getTaskQcSet(allTasks)
-  const taskDyeSet = getTaskDyeSet(allTasks)
-  const keyword = state.keyword.trim().toLowerCase()
+  const rows = listRows()
+  const all = listRuntimeProcessTasks().filter(isAssignableProductionExecutionTask)
+  const pageSize = 20
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize))
+  state.page = Math.min(Math.max(1, state.page), totalPages)
+  const pageRows = rows.slice((state.page - 1) * pageSize, state.page * pageSize)
+  const content = renderStandardListPage({
+    title: '任务清单',
+    description: '仅展示可执行生产任务。生产准备工序不进入任务清单，合并任务统一前往任务分配页面创建。',
+    primaryActionsHtml: '<a class="rounded bg-blue-600 px-4 py-2 text-sm text-white" href="/fcs/dispatch/workbench">前往任务分配</a>',
+    filtersHtml: `<div class="grid gap-3 rounded-lg border bg-card p-3 md:grid-cols-3"><input class="h-9 rounded border px-3 text-sm" placeholder="生产单 / 任务号 / 工序 / 工厂" data-task-list-field="keyword" value="${escapeHtml(state.keyword)}"/><select class="h-9 rounded border px-3 text-sm" data-task-list-field="type"><option value="ALL">全部任务</option><option value="SEWING" ${state.type === 'SEWING' ? 'selected' : ''}>独立车缝</option><option value="NON_SEWING" ${state.type === 'NON_SEWING' ? 'selected' : ''}>非车缝独立生产任务</option><option value="MERGED" ${state.type === 'MERGED' ? 'selected' : ''}>合并任务</option><option value="WHOLE_ORDER" ${state.type === 'WHOLE_ORDER' ? 'selected' : ''}>整单任务</option></select><select class="h-9 rounded border px-3 text-sm" data-task-list-field="status"><option value="ALL">全部分配状态</option><option value="UNASSIGNED" ${state.status === 'UNASSIGNED' ? 'selected' : ''}>待分配</option><option value="BIDDING" ${state.status === 'BIDDING' ? 'selected' : ''}>竞价中</option><option value="ASSIGNED" ${state.status === 'ASSIGNED' ? 'selected' : ''}>已分配</option><option value="AWARDED" ${state.status === 'AWARDED' ? 'selected' : ''}>已定标</option></select></div>`,
+    statsHtml: renderStandardListStats([
+      { label: '可执行任务', value: all.length },
+      { label: '独立车缝', value: all.filter((task) => taskType(task) === 'SEWING').length },
+      { label: '合并任务', value: all.filter((task) => taskType(task) === 'MERGED').length },
+      { label: '待分配', value: all.filter((task) => task.assignmentStatus === 'UNASSIGNED').length },
+    ]),
+    listTitle: '生产任务',
+    listActionsHtml: '<span class="text-xs text-muted-foreground">合并任务仅支持车缝+烫包、裁剪+车缝+烫包</span>',
+    tableHtml: renderStandardListTable({ columns, rows: pageRows, preferences, sort: null, eventPrefix: 'task-list', emptyText: '当前条件下没有可执行生产任务' }),
+    paginationHtml: renderTablePagination({ total: rows.length, from: rows.length ? (state.page - 1) * pageSize + 1 : 0, to: Math.min(state.page * pageSize, rows.length), currentPage: state.page, totalPages, pageSize, actionPrefix: 'task-list', fieldPrefix: 'task-list', pageSizeOptions: [20] }),
+    overlaysHtml: `${renderDetail()}${renderImagePreview()}`,
+  })
+  return `<div data-task-breakdown-page data-skip-page-rerender="true">${content}</div>`
+}
 
-  const allTaskRows = allTasks
-    .filter((task) => {
-      if (!keyword) return true
-      const displayName = taskDisplayName(task)
-      return (
-        task.taskId.toLowerCase().includes(keyword) ||
-        displayName.toLowerCase().includes(keyword) ||
-        task.productionOrderId.toLowerCase().includes(keyword)
-      )
-    })
-    .sort((a, b) =>
-      a.productionOrderId !== b.productionOrderId
-        ? a.productionOrderId.localeCompare(b.productionOrderId)
-        : a.seq - b.seq,
-    )
-
-  const orderRows = getOrderRows(allTasks, keyword, taskDyeSet, taskMaterialSet, taskQcSet)
-  const orderPage = clampPage(state.orderPage, orderRows.length, TASK_BREAKDOWN_ORDER_PAGE_SIZE)
-  const allTaskPage = clampPage(state.allTaskPage, allTaskRows.length, TASK_BREAKDOWN_ALL_TASK_PAGE_SIZE)
-  const pagedOrderRows = orderRows.slice(
-    (orderPage - 1) * TASK_BREAKDOWN_ORDER_PAGE_SIZE,
-    orderPage * TASK_BREAKDOWN_ORDER_PAGE_SIZE,
-  )
-  const pagedAllTaskRows = allTaskRows.slice(
-    (allTaskPage - 1) * TASK_BREAKDOWN_ALL_TASK_PAGE_SIZE,
-    allTaskPage * TASK_BREAKDOWN_ALL_TASK_PAGE_SIZE,
-  )
-
-  const chainDetailOrder = state.chainDetailOrderId
-    ? productionOrders.find((order) => order.productionOrderId === state.chainDetailOrderId) ?? null
-    : null
-  const chainDetailTasks = state.chainDetailOrderId
-    ? topoSort(allTasks.filter((task) => task.productionOrderId === state.chainDetailOrderId))
-    : []
-  const detailTask = state.detailTaskId
-    ? allTasks.find((task) => task.taskId === state.detailTaskId) ?? null
-    : null
-  const detailOrderTasks = detailTask
-    ? topoSort(allTasks.filter((task) => task.productionOrderId === detailTask.productionOrderId))
-    : []
-  const continuousMergeOrder = state.continuousMergeOrderId
-    ? productionOrders.find((order) => order.productionOrderId === state.continuousMergeOrderId) ?? null
-    : null
-  const continuousMergeTasks = state.continuousMergeOrderId
-    ? allTasks.filter((task) => task.productionOrderId === state.continuousMergeOrderId)
-    : []
-
-  return `
-    <div class="space-y-4">
-      <header>
-        <h1 class="text-2xl font-semibold text-foreground">任务清单</h1>
-        <p class="mt-1 text-sm text-muted-foreground">
-          展示生产单已有任务的组成与顺序关系。
-        </p>
-      </header>
-
-      <section class="flex gap-2">
-        <div class="relative max-w-xs flex-1">
-          <i data-lucide="search" class="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground"></i>
-          <input
-            data-breakdown-field="keyword"
-            data-fast-page-render="true"
-            value="${escapeHtml(state.keyword)}"
-            placeholder="生产单号 / 任务名称 / 关键词"
-            class="h-9 w-full rounded-md border bg-background pl-8 pr-3 text-sm"
-          />
-        </div>
-      </section>
-
-      ${renderTaskBreakdownResultSummary(orderRows, allTaskRows, taskMaterialSet)}
-
-      <section class="space-y-3">
-        <div class="inline-flex items-center rounded-md bg-muted p-1 text-sm">
-          <button
-            class="${toClassName(
-              'rounded-md px-3 py-1.5 text-sm',
-              state.activeTab === 'by-order'
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
-            )}"
-            data-breakdown-action="switch-tab"
-            data-fast-page-render="true"
-            data-tab="by-order"
-          >
-            按生产单汇总
-          </button>
-          <button
-            class="${toClassName(
-              'rounded-md px-3 py-1.5 text-sm',
-              state.activeTab === 'all'
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
-            )}"
-            data-breakdown-action="switch-tab"
-            data-fast-page-render="true"
-            data-tab="all"
-          >
-            全部任务
-          </button>
-        </div>
-
-        ${state.activeTab === 'by-order' ? renderByOrderTable(pagedOrderRows, orderRows.length, orderPage) : ''}
-        ${state.activeTab === 'all' ? renderAllTasksTable(pagedAllTaskRows, allTasks, taskDyeSet, taskMaterialSet, taskQcSet, allTaskRows.length, allTaskPage) : ''}
-      </section>
-
-      ${renderChainDetailDialog(
-        state.chainDetailOrderId,
-        chainDetailOrder,
-        chainDetailTasks,
-        taskDyeSet,
-        taskMaterialSet,
-        taskQcSet,
-      )}
-      ${renderTaskDetailDialog(detailTask, detailOrderTasks)}
-      ${renderContinuousMergeDialog(state.continuousMergeOrderId, continuousMergeOrder, continuousMergeTasks)}
-    </div>
-  `
+function refresh(): void {
+  const root = document.querySelector<HTMLElement>('[data-task-breakdown-page]')
+  if (root) root.outerHTML = renderTaskBreakdownPage()
 }
 
 export function handleTaskBreakdownEvent(target: HTMLElement): boolean {
-  const fieldNode = target.closest<HTMLElement>('[data-breakdown-field]')
-  if (fieldNode && 'value' in fieldNode) {
-    const field = fieldNode.dataset.breakdownField
-    if (field === 'keyword') {
-      state.keyword = String(fieldNode.value)
-      resetTaskBreakdownPages()
-      return true
-    }
-    if (field === 'continuous-merge-task') {
-      const taskId = fieldNode.dataset.taskId
-      if (!taskId) return true
-      state.selectedContinuousMergeTaskIds = Boolean((fieldNode as HTMLInputElement).checked)
-        ? Array.from(new Set([...state.selectedContinuousMergeTaskIds, taskId]))
-        : state.selectedContinuousMergeTaskIds.filter((id) => id !== taskId)
-      state.continuousMergeError = ''
-      return true
-    }
+  const field = target.closest<HTMLInputElement | HTMLSelectElement>('[data-task-list-field]')
+  if (field) {
+    const name = field.dataset.taskListField
+    if (name === 'keyword') state.keyword = field.value
+    if (name === 'type') state.type = field.value as TaskListType
+    if (name === 'status') state.status = field.value as TaskBreakdownState['status']
+    state.page = 1
+    refresh()
+    return true
   }
-
-  const actionNode = target.closest<HTMLElement>('[data-breakdown-action]')
+  const actionNode = target.closest<HTMLElement>('[data-task-list-action], [data-task-list-pagination-action]')
   if (!actionNode) return false
-
-  const action = actionNode.dataset.breakdownAction
-  if (!action) return false
-
-  if (action === 'switch-tab') {
-    const tab = actionNode.dataset.tab as TaskBreakdownTab | undefined
-    if (tab === 'by-order' || tab === 'all') {
-      state.activeTab = tab
-      return true
-    }
-    return false
-  }
-
-  if (action === 'change-page') {
-    const pageScope = actionNode.dataset.breakdownPageScope as TaskBreakdownPageScope | undefined
-    const page = Number(actionNode.dataset.page || '1')
-    const safePage = Number.isFinite(page) ? Math.max(1, page) : 1
-    if (pageScope === 'order') {
-      state.orderPage = safePage
-      return true
-    }
-    if (pageScope === 'all') {
-      state.allTaskPage = safePage
-      return true
-    }
-    return false
-  }
-
-  if (action === 'open-chain-detail') {
-    const orderId = actionNode.dataset.orderId
-    if (!orderId) return true
-    state.chainDetailOrderId = orderId
-    state.detailTaskId = null
-    state.continuousMergeOrderId = null
-    state.selectedContinuousMergeTaskIds = []
-    state.continuousMergeError = ''
+  const action = actionNode.dataset.taskListAction || actionNode.dataset.taskListPaginationAction
+  if (action === 'open-detail') state.detailTaskId = actionNode.dataset.taskId || null
+  if (action === 'close-detail') state.detailTaskId = null
+  if (action === 'previous-page' || action === 'prev-page') state.page = Math.max(1, state.page - 1)
+  if (action === 'next-page') state.page += 1
+  if (action === 'preview-image') {
+    const host = document.querySelector<HTMLElement>('[data-task-list-image-preview]')
+    if (host) host.innerHTML = `<div class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/80 p-6" data-task-list-action="close-image"><button class="absolute right-6 top-6 rounded bg-white px-3 py-2">关闭</button><img src="${escapeHtml(actionNode.dataset.image || '')}" alt="${escapeHtml(actionNode.dataset.label || '高清预览')}" class="max-h-full max-w-full object-contain"/></div>`
     return true
   }
-
-  if (action === 'open-task-detail') {
-    const taskId = actionNode.dataset.taskId
-    if (!taskId) return true
-    state.detailTaskId = taskId
-    state.chainDetailOrderId = null
-    state.continuousMergeOrderId = null
-    state.selectedContinuousMergeTaskIds = []
-    state.continuousMergeError = ''
+  if (action === 'close-image') {
+    const host = document.querySelector<HTMLElement>('[data-task-list-image-preview]')
+    if (host) host.innerHTML = ''
     return true
   }
-
-  if (action === 'open-continuous-merge') {
-    const orderId = actionNode.dataset.orderId
-    if (!orderId) return true
-    const preferredTaskId = actionNode.dataset.taskId
-    const orderTasks = getAllProcessTasks().filter((task) => task.productionOrderId === orderId)
-    state.continuousMergeOrderId = orderId
-    state.selectedContinuousMergeTaskIds = getInitialContinuousMergeSelection(orderTasks, preferredTaskId)
-    state.continuousMergeError = ''
-    state.chainDetailOrderId = null
-    state.detailTaskId = null
-    return true
-  }
-
-  if (action === 'confirm-continuous-merge') {
-    const evaluation = evaluateContinuousRuntimeTaskMerge(state.selectedContinuousMergeTaskIds)
-    if (!evaluation.ok) {
-      state.continuousMergeError = evaluation.message
-      return true
-    }
-    const merged = mergeContinuousRuntimeTasks(state.selectedContinuousMergeTaskIds, '生产计划员')
-    if (!merged) {
-      state.continuousMergeError = evaluation.message
-      return true
-    }
-    state.continuousMergeOrderId = null
-    state.selectedContinuousMergeTaskIds = []
-    state.continuousMergeError = ''
-    return true
-  }
-
-  if (action === 'close-dialog') {
-    state.chainDetailOrderId = null
-    state.detailTaskId = null
-    state.continuousMergeOrderId = null
-    state.selectedContinuousMergeTaskIds = []
-    state.continuousMergeError = ''
-    return true
-  }
-
-  return false
+  refresh()
+  return true
 }
 
 export function isTaskBreakdownDialogOpen(): boolean {
-  return state.chainDetailOrderId !== null || state.detailTaskId !== null || state.continuousMergeOrderId !== null
+  return state.detailTaskId !== null
 }

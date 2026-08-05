@@ -135,28 +135,28 @@ test('操作记录合并 Web 端与移动端来源', async ({ page }) => {
   await expect(page.locator('body')).not.toContainText('Web 端操作记录')
 })
 
-test('印花和染色任务不进入接单报价链路，进入移动端执行列表', async ({ page }) => {
+test('印花和染色加工单先接单再进入移动端执行列表', async ({ page }) => {
   await setPdaSession(page)
 
   await page.goto('/fcs/pda/task-receive?tab=pending-accept')
-  await page.locator('[data-pda-tr-field="keyword"]').fill('PH-20260328-001')
-  await expect(page.locator('body')).toContainText(/暂无待接单任务|当前筛选条件暂无待接单任务|暂无/)
-  await expect(page.locator('body')).not.toContainText('TASK-PRINT-000716')
+  await page.locator('[data-pda-tr-field="keyword"]').fill('TASK-PRINT-000716')
+  const printCard = page.locator('article').filter({ hasText: 'TASK-PRINT-000716' })
+  await expect(printCard).toContainText('印花')
+  await printCard.getByRole('button', { name: '接单', exact: true }).click()
+  await page.getByRole('button', { name: '确认接单', exact: true }).click()
+  await expect(page.locator('body')).toContainText('接单成功')
 
-  await page.goto('/fcs/pda/exec?tab=NOT_STARTED&keyword=PH-20260328-001')
+  await page.getByRole('button', { name: '执行', exact: true }).click()
+  await expect(page).toHaveURL(/\/fcs\/pda\/exec$/)
   await page.locator('[data-pda-todo-modal="true"]').evaluateAll((nodes) => nodes.forEach((node) => node.remove()))
-  await expect(page.locator('[data-pda-exec-field="searchKeyword"]')).toHaveValue('PH-20260328-001')
+  await page.locator('[data-pda-exec-field="searchKeyword"]').fill('TASK-PRINT-000716')
   await expect(page.locator('body')).toContainText('TASK-PRINT-000716')
-  await expect(page.locator('body')).toContainText(DEMO_FACTORY_LABEL)
+  await expect(page.locator('body')).toContainText('全能力测试工厂')
 
-  await page.goto('/fcs/pda/task-receive?tab=pending-accept')
-  await page.locator('[data-pda-tr-field="keyword"]').fill('DYE-20260328-006')
-  await expect(page.locator('body')).not.toContainText('TASK-DYE-000726')
-
-  await page.goto('/fcs/pda/exec?tab=NOT_STARTED&keyword=TASK-DYE-000726')
-  await page.locator('[data-pda-todo-modal="true"]').evaluateAll((nodes) => nodes.forEach((node) => node.remove()))
-  await expect(page.locator('body')).toContainText('TASK-DYE-000726')
-  await expect(page.locator('body')).toContainText(DEMO_FACTORY_LABEL)
+  await page.getByRole('button', { name: '接单', exact: true }).click()
+  await expect(page).toHaveURL(/\/fcs\/pda\/task-receive/)
+  await page.locator('[data-pda-tr-field="keyword"]').fill('TASK-DYE-000721')
+  await expect(page.locator('article').filter({ hasText: 'TASK-DYE-000721' })).toContainText('匹染')
 })
 
 test('平台侧按派单和执行聚合口径展示印花染色', async ({ page }) => {

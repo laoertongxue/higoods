@@ -16,7 +16,7 @@ import {
 import { appStore } from '../src/state/store.ts'
 
 const FACTORY_ID = 'ID-F021'
-const TASK_ID = 'TASKGEN-202603-083-002__ORDER'
+const TASK_ID = 'PDA-SEW-AWARDED-DEMO-001'
 const PRODUCTION_ORDER_ID = 'PO-202603-083'
 
 const storageValues = new Map<string, string>()

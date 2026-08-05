@@ -353,17 +353,10 @@ export interface TechnicalProcessEntry {
   manualFieldsTouched?: boolean
   requiresRemovalConfirmation?: boolean
   linkageStatus?: '已生成' | '待确认'
-  outputValuePerUnit?: number
-  outputValueUnit?: string
-  referenceOutputValueValue?: number
-  referenceOutputValueUnit?: string
-  referenceOutputValueUnitLabel?: string
-  referenceOutputValueNote?: string
   routeStepNo?: number
   routeLaneNo?: number
   routeParallelGroupId?: string
   routeParallelGroupName?: string
-  routeParallelAcceptanceMode?: 'INDEPENDENT_ONLY' | 'WHOLE_GROUP_ALLOWED'
   routeSourceKind?: 'DICT_DEFAULT' | 'GARMENT_CATEGORY' | 'BOM_REQUIREMENT' | 'PATTERN_PACKAGE' | 'PIECE_CRAFT' | 'MANUAL'
   routeUpdatedBy?: string
   routeUpdatedAt?: string
@@ -469,7 +462,7 @@ export interface TechnicalQualityRule {
   id: string
   checkItem: string
   standardText: string
-  outputValueplingRule: string
+  samplingRule: string
   note: string
 }
 

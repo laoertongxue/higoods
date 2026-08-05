@@ -27,21 +27,22 @@ export interface PostProcessRoute {
   requiresReceivingQc: boolean
   requiresPostExecution: boolean
   requiresFinalRecheck: boolean
+  requiredPostProcessCodes?: Array<'BUTTONHOLE' | 'BUTTON_ATTACH' | 'IRON_PACK'>
   currentNode: PostRouteCurrentNode
   createdAt: string
   updatedAt: string
 }
 
 export const POST_EXECUTION_MODE_LABEL: Record<PostExecutionMode, string> = {
-  SEW_FACTORY_INCLUDES_POST: '车缝厂含后道',
-  MANAGED_POST_FACTORY_EXECUTES: '我方后道工厂执行后道',
+  SEW_FACTORY_INCLUDES_POST: '车缝厂同时完成后道阶段所需工序',
+  MANAGED_POST_FACTORY_EXECUTES: '我方后道工厂执行实际所需工序',
 }
 
 export const POST_ROUTE_NODE_LABEL: Record<PostRouteCurrentNode, string> = {
   WAIT_SEW_HANDOVER: '待交出',
   WAIT_RECEIVER_WRITEBACK: '待接收方回写',
   WAIT_RECEIVING_QC: '待回货质检',
-  WAIT_POST_EXECUTION: '待后道',
+  WAIT_POST_EXECUTION: '待执行实际工序',
   WAIT_FINAL_RECHECK: '待复检',
   WAIT_WAREHOUSE_HANDOVER: '待交成衣仓',
   CLOSED: '已关闭',
@@ -196,18 +197,27 @@ const ROUTE_SEEDS: PostProcessRoute[] = [
   },
 ]
 
+function clonePostProcessRoute(item: PostProcessRoute): PostProcessRoute {
+  return {
+    ...item,
+    requiredPostProcessCodes: [...(item.requiredPostProcessCodes ?? ['BUTTONHOLE', 'BUTTON_ATTACH', 'IRON_PACK'])],
+  }
+}
+
 export function listPostProcessRoutes(): PostProcessRoute[] {
-  return ROUTE_SEEDS.map((item) => ({ ...item }))
+  return ROUTE_SEEDS.map(clonePostProcessRoute)
 }
 
 export function getPostProcessRouteByProductionOrderId(productionOrderId?: string): PostProcessRoute | null {
   if (!productionOrderId) return null
-  return ROUTE_SEEDS.find((item) => item.productionOrderId === productionOrderId) ?? null
+  const item = ROUTE_SEEDS.find((route) => route.productionOrderId === productionOrderId)
+  return item ? clonePostProcessRoute(item) : null
 }
 
 export function getPostProcessRouteByTaskId(taskId?: string): PostProcessRoute | null {
   if (!taskId) return null
-  return ROUTE_SEEDS.find((item) => item.sewingTaskId === taskId || item.postTaskId === taskId) ?? null
+  const item = ROUTE_SEEDS.find((route) => route.sewingTaskId === taskId || route.postTaskId === taskId)
+  return item ? clonePostProcessRoute(item) : null
 }
 
 export function getPostExecutionModeLabel(mode?: PostExecutionMode): string {
@@ -216,6 +226,28 @@ export function getPostExecutionModeLabel(mode?: PostExecutionMode): string {
 
 export function getPostRouteNodeLabel(node?: PostRouteCurrentNode): string {
   return node ? POST_ROUTE_NODE_LABEL[node] : '未配置'
+}
+
+export function buildPostStageExecutionSequence(route: PostProcessRoute): Array<{
+  code: 'ARRIVAL_CONFIRM' | 'QC' | 'BUTTONHOLE' | 'BUTTON_ATTACH' | 'IRON_PACK' | 'RECHECK' | 'HANDOVER'
+  name: string
+  kind: 'FLOW_NODE' | 'PROCESS'
+}> {
+  const processName: Record<'BUTTONHOLE' | 'BUTTON_ATTACH' | 'IRON_PACK', string> = {
+    BUTTONHOLE: '开扣眼',
+    BUTTON_ATTACH: '装扣子',
+    IRON_PACK: '烫包',
+  }
+  const requiredProcesses = route.requiresPostExecution
+    ? (route.requiredPostProcessCodes?.length ? route.requiredPostProcessCodes : ['IRON_PACK'] as const)
+    : []
+  return [
+    { code: 'ARRIVAL_CONFIRM', name: '到货确认', kind: 'FLOW_NODE' },
+    ...(route.requiresReceivingQc ? [{ code: 'QC' as const, name: '质检', kind: 'FLOW_NODE' as const }] : []),
+    ...requiredProcesses.map((code) => ({ code, name: processName[code], kind: 'PROCESS' as const })),
+    ...(route.requiresFinalRecheck ? [{ code: 'RECHECK' as const, name: '复检', kind: 'FLOW_NODE' as const }] : []),
+    { code: 'HANDOVER', name: '后续交接', kind: 'FLOW_NODE' },
+  ]
 }
 
 function hasReached(node: PostRouteCurrentNode, target: PostRouteCurrentNode): boolean {
@@ -242,15 +274,15 @@ export function getPostRouteProgress(route: PostProcessRoute) {
       ? hasReached(route.currentNode, 'WAIT_FINAL_RECHECK')
         ? '已完成'
         : route.currentNode === 'WAIT_POST_EXECUTION'
-          ? '待后道'
+          ? '待执行实际工序'
           : '待回货质检'
-      : '车缝厂含后道',
+      : '车缝厂已完成任务链实际工序',
     finalRecheckLabel: hasReached(route.currentNode, 'WAIT_WAREHOUSE_HANDOVER') || route.currentNode === 'CLOSED'
       ? '已完成'
       : route.currentNode === 'WAIT_FINAL_RECHECK'
         ? '待复检'
         : route.requiresPostExecution
-          ? '待后道'
+          ? '待执行实际工序'
           : '待回货质检',
     warehouseHandoverLabel: route.currentNode === 'CLOSED'
       ? '已关闭'

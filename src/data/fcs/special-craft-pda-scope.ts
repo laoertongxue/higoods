@@ -122,7 +122,7 @@ export function resolveSpecialCraftOperationForPdaTask(
 
 export function isSpecialCraftPdaTask(task: SpecialCraftPdaTaskLike | null | undefined): boolean {
   if (!task) return false
-  if (task.taskUnitType === 'WHOLE_ORDER_TASK' || task.taskUnitType === 'COMBINED_PROCESS_TASK') return false
+  if (task.taskUnitType === 'WHOLE_ORDER_TASK' || task.taskUnitType === 'MERGED_PRODUCTION_TASK') return false
   if (resolveSpecialCraftOperationForPdaTask(task)) return true
   const text = uniqueValues([
     task.processCode,

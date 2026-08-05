@@ -1,6 +1,12 @@
+// @page-pattern: list
+
 import { escapeHtml } from '../../../utils.ts'
+import { renderStandardListPage } from '../../../components/ui/list-page.ts'
+import { renderStandardListTable, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import type { StandardListColumnPreferences } from '../../../components/ui/list-table-model.ts'
+import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderMaterialIdentityBlock } from './material-identity.ts'
-import { getCanonicalCuttingMeta, renderCuttingPageHeader } from './meta.ts'
+import { getCanonicalCuttingMeta } from './meta.ts'
 import { renderCompactKpiCard, renderCompactKpiGroup } from './layout.helpers.ts'
 import {
   buildBindingProcessOrders as buildProjectedBindingProcessOrders,
@@ -36,6 +42,8 @@ const bindingListFilters: BindingListFilters = {
   materialKeyword: '',
   differenceStatus: '全部',
 }
+let bindingListPage = 1
+let bindingListPageSize = 20
 
 const statusToneMap: Record<BindingProcessStatus, string> = {
   待加工: 'border-slate-200 bg-slate-50 text-slate-700',
@@ -226,6 +234,7 @@ function applyBindingListFiltersFromDom(): void {
   bindingListFilters.printStatus = printStatus as BindingListFilters['printStatus']
   bindingListFilters.materialKeyword = materialKeyword.trim()
   bindingListFilters.differenceStatus = differenceStatus as BindingListFilters['differenceStatus']
+  bindingListPage = 1
 }
 
 function resetBindingListFilters(): void {
@@ -234,6 +243,7 @@ function resetBindingListFilters(): void {
   bindingListFilters.printStatus = '全部'
   bindingListFilters.materialKeyword = ''
   bindingListFilters.differenceStatus = '全部'
+  bindingListPage = 1
 }
 
 function filterBindingProcessOrders(rows: BindingProcessOrder[]): BindingProcessOrder[] {
@@ -383,19 +393,31 @@ function renderOrderActions(row: BindingProcessOrder): string {
   `
 }
 
-function renderOrderTableRow(row: BindingProcessOrder): string {
-  return `
-    <tr class="hover:bg-muted/20">
-      <td class="px-4 py-3 align-top">
+const bindingListColumns: StandardListColumn<BindingProcessOrder>[] = [
+  {
+    key: 'workOrder',
+    title: '加工单',
+    width: 210,
+    required: true,
+    freezeable: true,
+    render: (row) => `
+      <div>
         <a href="/fcs/craft/cutting/special-processes/${encodeURIComponent(row.bindingOrderId)}" data-nav="/fcs/craft/cutting/special-processes/${encodeURIComponent(row.bindingOrderId)}" class="font-medium text-blue-600 hover:underline">${escapeHtml(row.bindingOrderNo)}</a>
         <div class="mt-2 flex flex-wrap gap-1.5">
           ${renderBadge(row.status, statusToneMap[row.status])}
           ${renderBadge(row.sufficiencyStatus, sufficiencyToneMap[row.sufficiencyStatus])}
           ${renderBadge(row.differenceStatus, differenceToneMap[row.differenceStatus])}
         </div>
-      </td>
-      <td class="px-4 py-3 align-top">${renderSourceSummary(row)}</td>
-      <td class="px-4 py-3 align-top">
+      </div>`,
+  },
+  { key: 'source', title: '来源对象', width: 230, render: renderSourceSummary },
+  {
+    key: 'material',
+    title: '物料',
+    width: 230,
+    required: true,
+    render: (row) => `
+      <div>
         ${renderMaterialIdentityBlock(
           {
             materialSku: row.materialIdentity.materialSku,
@@ -406,71 +428,59 @@ function renderOrderTableRow(row: BindingProcessOrder): string {
           { compact: true, imageSizeClass: 'h-9 w-9' },
         )}
         <p class="mt-1 text-xs text-muted-foreground">颜色：${escapeHtml(row.materialIdentity.materialColor)}</p>
-      </td>
-      <td class="px-4 py-3 align-top">${renderPatternSummary(row)}</td>
-      <td class="px-4 py-3 align-top">${renderProcessSummary(row)}</td>
-      <td class="px-4 py-3 align-top">${renderFlowSummary(row)}</td>
-      <td class="px-4 py-3 align-top">${renderDifferenceSummary(row)}</td>
-      <td class="px-4 py-3 align-top">${renderOrderActions(row)}</td>
-    </tr>
-  `
-}
+      </div>
+    `,
+  },
+  { key: 'pattern', title: '纸样', width: 230, render: renderPatternSummary },
+  { key: 'details', title: '捆条明细', width: 310, render: renderProcessSummary },
+  { key: 'flow', title: '菲票 / 入仓 / 交出', width: 240, render: renderFlowSummary },
+  { key: 'difference', title: '差异', width: 180, render: renderDifferenceSummary },
+  { key: 'actions', title: '操作', width: 210, required: true, actionColumn: true, render: renderOrderActions },
+]
 
-function renderOrderTable(rows: BindingProcessOrder[]): string {
-  if (!rows.length) {
-    return '<section class="rounded-lg border border-dashed bg-card px-4 py-10 text-center text-sm text-muted-foreground">当前筛选范围内暂无捆条加工单。</section>'
+function bindingListPreferences(): StandardListColumnPreferences {
+  return {
+    order: bindingListColumns.filter((column) => !column.actionColumn).map((column) => column.key),
+    visibleKeys: bindingListColumns.map((column) => column.key),
+    frozenKeys: ['workOrder'],
+    pageSize: bindingListPageSize,
   }
-
-  return `
-    <section class="rounded-lg border bg-card" data-testid="cutting-binding-list-table">
-      <div class="flex items-center justify-between gap-3 border-b px-4 py-3">
-        <h2 class="text-sm font-semibold">捆条加工单</h2>
-        <div class="text-xs text-muted-foreground">共 ${formatCount(rows.length)} 条加工单</div>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="w-full min-w-[1480px] text-sm">
-          <thead class="sticky top-0 z-10 border-b bg-muted/95 text-muted-foreground backdrop-blur">
-            <tr>
-              <th class="px-4 py-3 text-left font-medium">加工单</th>
-              <th class="px-4 py-3 text-left font-medium">来源对象</th>
-              <th class="px-4 py-3 text-left font-medium">物料</th>
-              <th class="px-4 py-3 text-left font-medium">纸样</th>
-              <th class="px-4 py-3 text-left font-medium">捆条明细</th>
-              <th class="px-4 py-3 text-left font-medium">菲票 / 入仓 / 交出</th>
-              <th class="px-4 py-3 text-left font-medium">差异</th>
-              <th class="px-4 py-3 text-left font-medium">操作</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y">
-            ${rows.map(renderOrderTableRow).join('')}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  `
 }
 
 export function renderCraftCuttingSpecialProcessesPage(): string {
   const rows = filterBindingProcessOrders(buildBindingProcessOrders())
   const meta = getCanonicalCuttingMeta('/fcs/craft/cutting/special-processes', 'special-processes')
-
-  return `
-    <section class="space-y-3 p-4">
-      ${renderCuttingPageHeader(meta, {
-        actionsHtml: `
-          <div class="flex flex-wrap gap-2">
-            <a href="/fcs/craft/cutting/binding-fei-tickets" data-nav="/fcs/craft/cutting/binding-fei-tickets" class="inline-flex min-h-10 items-center rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">打印捆条菲票</a>
-            <a href="/fcs/craft/cutting/warehouse-management/wait-handover?inventoryType=binding" data-nav="/fcs/craft/cutting/warehouse-management/wait-handover?inventoryType=binding" class="inline-flex min-h-10 items-center rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">查捆条库存</a>
-            <button type="button" class="inline-flex min-h-10 items-center rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50" data-skip-page-rerender="true" data-cutting-binding-action="refresh">刷新</button>
-          </div>
-        `,
-      })}
-      <p class="mt-1 text-sm text-muted-foreground">只展示我方内部加工对象；三方连续任务内部工艺不生成我方加工单。</p>
-      ${renderListFilters()}
-      ${renderListStats(rows)}
-      ${renderOrderTable(rows)}
-    </section>
-  `
+  const totalPages = Math.max(1, Math.ceil(rows.length / bindingListPageSize))
+  bindingListPage = Math.min(Math.max(1, bindingListPage), totalPages)
+  const fromIndex = (bindingListPage - 1) * bindingListPageSize
+  const pageRows = rows.slice(fromIndex, fromIndex + bindingListPageSize)
+  return renderStandardListPage({
+    title: meta.pageTitle,
+    feedbackHtml: `<p class="text-sm text-muted-foreground">${escapeHtml(meta.shortDescription || meta.pageSubtitle || '')}</p><p class="rounded border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-800">只展示我方内部加工对象；裁剪+车缝+烫包合并任务内的辅助工艺、特种工艺不生成我方加工单。</p>`,
+    primaryActionsHtml: `<div class="flex flex-wrap gap-2"><a href="/fcs/craft/cutting/binding-fei-tickets" data-nav="/fcs/craft/cutting/binding-fei-tickets" class="inline-flex min-h-10 items-center rounded-md border bg-white px-3 text-sm font-medium">打印捆条菲票</a><a href="/fcs/craft/cutting/warehouse-management/wait-handover?inventoryType=binding" data-nav="/fcs/craft/cutting/warehouse-management/wait-handover?inventoryType=binding" class="inline-flex min-h-10 items-center rounded-md border bg-white px-3 text-sm font-medium">查捆条库存</a><button type="button" class="inline-flex min-h-10 items-center rounded-md border bg-white px-3 text-sm font-medium" data-skip-page-rerender="true" data-cutting-binding-action="refresh">刷新</button></div>`,
+    filtersHtml: renderListFilters(),
+    statsHtml: renderListStats(rows),
+    listTitle: '捆条加工单',
+    listActionsHtml: `<span class="text-xs text-muted-foreground">共 ${formatCount(rows.length)} 条加工单</span>`,
+    tableHtml: renderStandardListTable({
+      columns: bindingListColumns,
+      rows: pageRows,
+      preferences: bindingListPreferences(),
+      sort: null,
+      eventPrefix: 'cutting-binding',
+      emptyText: '当前筛选范围内暂无捆条加工单',
+    }),
+    paginationHtml: renderTablePagination({
+      total: rows.length,
+      from: rows.length ? fromIndex + 1 : 0,
+      to: Math.min(fromIndex + bindingListPageSize, rows.length),
+      currentPage: bindingListPage,
+      totalPages,
+      pageSize: bindingListPageSize,
+      actionPrefix: 'cutting-binding',
+      pageSizeOptions: [10, 20, 50],
+    }),
+  })
 }
 
 function renderDetailMetric(label: string, value: string): string {
@@ -923,6 +933,14 @@ function openBindingActionModal(row: BindingProcessOrder, action: 'record-cuttin
 }
 
 export function handleCraftCuttingSpecialProcessesEvent(target: HTMLElement): boolean {
+  const pageSizeField = target.closest<HTMLSelectElement>('[data-cutting-binding-field="pageSize"]')
+  if (pageSizeField) {
+    const pageSize = Number(pageSizeField.value)
+    if ([10, 20, 50].includes(pageSize)) bindingListPageSize = pageSize
+    bindingListPage = 1
+    return true
+  }
+
   const button = target.closest<HTMLElement>('[data-cutting-binding-action]')
   if (!button) return false
 
@@ -951,6 +969,14 @@ export function handleCraftCuttingSpecialProcessesEvent(target: HTMLElement): bo
   }
   if (action === 'reset-list-filters') {
     resetBindingListFilters()
+    return true
+  }
+  if (action === 'prev-page') {
+    bindingListPage = Math.max(1, bindingListPage - 1)
+    return true
+  }
+  if (action === 'next-page') {
+    bindingListPage += 1
     return true
   }
   if (action === 'record-cutting') {

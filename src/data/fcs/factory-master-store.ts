@@ -13,15 +13,9 @@ function cloneTaskAcceptanceConfig(config: Factory['taskAcceptanceConfig']): Fac
   if (!config) return undefined
   return {
     singleProcessEnabled: config.singleProcessEnabled,
-    continuousProcessEnabled: config.continuousProcessEnabled,
+    canAcceptSewingIronPack: config.canAcceptSewingIronPack,
+    canAcceptCuttingSewingIronPack: config.canAcceptCuttingSewingIronPack,
     wholeOrderEnabled: config.wholeOrderEnabled,
-    continuousRules: config.continuousRules.map((rule) => ({
-      ...rule,
-      coveredProcessCodes: [...rule.coveredProcessCodes],
-      coveredCraftCodes: rule.coveredCraftCodes ? [...rule.coveredCraftCodes] : undefined,
-      applicableSaleTypes: [...rule.applicableSaleTypes],
-      excludedProcessCodes: [...rule.excludedProcessCodes],
-    })),
     wholeOrderRule: config.wholeOrderRule
       ? {
           ...config.wholeOrderRule,
@@ -63,9 +57,9 @@ function withDefaultTaskAcceptanceConfig(factory: Factory): Factory {
       ...factory,
       taskAcceptanceConfig: {
         singleProcessEnabled: true,
-        continuousProcessEnabled: false,
+        canAcceptSewingIronPack: false,
+        canAcceptCuttingSewingIronPack: false,
         wholeOrderEnabled: true,
-        continuousRules: [],
         wholeOrderRule: {
           enabled: true,
           applicableSaleTypes: ['KOL样衣', 'KOL样品小单'],
@@ -74,7 +68,7 @@ function withDefaultTaskAcceptanceConfig(factory: Factory): Factory {
           allowRuleRecommendation: true,
           handoverReceiverKind: 'WAREHOUSE',
           handoverReceiverName: '仓库',
-          pdaStepTemplateCode: 'SIMPLE_FIVE_STEP',
+          pdaStepTemplateCode: 'WHOLE_ORDER_FIVE_STEP',
           remark: 'KOL 样衣和样品小单整单承接；印花、染色保持独立加工单链路。',
         },
       },
@@ -85,20 +79,9 @@ function withDefaultTaskAcceptanceConfig(factory: Factory): Factory {
       ...factory,
       taskAcceptanceConfig: {
         singleProcessEnabled: true,
-        continuousProcessEnabled: true,
+        canAcceptSewingIronPack: true,
+        canAcceptCuttingSewingIronPack: true,
         wholeOrderEnabled: false,
-        continuousRules: [{
-          combinationId: 'combo-sew-post',
-          combinationName: '车缝+后道',
-          enabled: true,
-          coveredProcessCodes: ['SEW', 'POST_FINISHING'],
-          applicableSaleTypes: ['虾皮样品', 'JKT复购'],
-          excludedProcessCodes: ['PRINT', 'DYE'],
-          defaultTaskName: '车缝+后道组合任务',
-          handoverReceiverKind: 'WAREHOUSE',
-          handoverReceiverName: '仓库',
-          pdaStepTemplateCode: 'SIMPLE_FIVE_STEP',
-        }],
       },
     }
   }
@@ -106,9 +89,9 @@ function withDefaultTaskAcceptanceConfig(factory: Factory): Factory {
     ...factory,
     taskAcceptanceConfig: {
       singleProcessEnabled: true,
-      continuousProcessEnabled: false,
+      canAcceptSewingIronPack: false,
+      canAcceptCuttingSewingIronPack: false,
       wholeOrderEnabled: false,
-      continuousRules: [],
     },
   }
 }
@@ -152,7 +135,7 @@ function createOnboardingOfficialSeedFactories(): Factory[] {
     const craftName = index === 0 ? '定向裁' : index === 1 ? '定位裁' : '数码印'
     const processName = index === 2 ? '印花' : '裁片'
     const processCode = index === 2 ? 'PRINT' : 'CUT_PANEL'
-    const craftCode = index === 2 ? 'DIGITAL_PRINT' : index === 0 ? 'DIRECTIONAL_CUT' : 'POSITION_CUT'
+    const craftCode = index === 2 ? 'CRAFT_2000002' : index === 0 ? 'CRAFT_000016' : 'CRAFT_000001'
     const factoryId = `FACTORY-ONBOARD-${String(seed).padStart(4, '0')}`
     const applicationNo = `FON-${String(20260500 + seed).padStart(8, '0')}`
     const capability = {

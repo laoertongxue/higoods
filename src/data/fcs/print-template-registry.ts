@@ -59,6 +59,7 @@ import {
   renderSettlementChangeRequestTemplate,
 } from '../../pages/print/templates/business-request-form-template.ts'
 import { renderDyeWorkOrderFlowCardTemplate } from '../../pages/print/templates/dye-work-order-flow-card-template.ts'
+import { buildProductionContractPrintDocument, renderProductionContractTemplate } from '../../pages/print/templates/production-contract-template.ts'
 
 export interface PrintTemplateRegistration {
   templateCode: string
@@ -70,6 +71,14 @@ export interface PrintTemplateRegistration {
 }
 
 export const printTemplateRegistry: PrintTemplateRegistration[] = [
+  {
+    templateCode: 'PRODUCTION_CONTRACT_V1',
+    templateName: '生产加工合同',
+    documentType: 'PRODUCTION_CONTRACT',
+    supportedSourceTypes: ['PRODUCTION_CONTRACT_RECORD'],
+    buildDocument: buildProductionContractPrintDocument,
+    render: renderProductionContractTemplate,
+  },
   {
     templateCode: 'SETTLEMENT_CHANGE_REQUEST',
     templateName: '结算信息变更申请单',
@@ -192,7 +201,7 @@ export const printTemplateRegistry: PrintTemplateRegistration[] = [
   },
   {
     templateCode: 'POST_FINISHING_ROUTE_CARD',
-    templateName: '后道任务流转卡',
+    templateName: '后道阶段处理流转卡',
     documentType: 'TASK_ROUTE_CARD',
     supportedSourceTypes: ['POST_FINISHING_WORK_ORDER'],
     buildDocument: buildPostFinishingRouteCardPrintDocument,
@@ -200,7 +209,7 @@ export const printTemplateRegistry: PrintTemplateRegistration[] = [
   },
   {
     templateCode: 'POST_FINISHING_TASK_ROUTE_CARD',
-    templateName: '后道任务流转卡',
+    templateName: '后道阶段处理流转卡',
     documentType: 'TASK_ROUTE_CARD',
     supportedSourceTypes: ['POST_FINISHING_TASK'],
     buildDocument: buildPostFinishingTaskRouteCardPrintDocument,
@@ -312,6 +321,7 @@ export function renderPrintDocument(document: PrintDocument): string {
 }
 
 export const requiredPrintDocumentTypes: PrintDocumentType[] = [
+  'PRODUCTION_CONTRACT',
   'TASK_ROUTE_CARD',
   'TASK_DELIVERY_CARD',
   'MATERIAL_PREP_SLIP',

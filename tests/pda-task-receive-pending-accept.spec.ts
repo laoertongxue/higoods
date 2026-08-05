@@ -21,7 +21,7 @@ const REMOVED_PENDING_ACCEPT_LABELS = [
   '异常裁片单',
 ] as const
 
-test('接单页待接单卡片字段统一且 4 个 Tab 继续排除印花', async ({ page }) => {
+test('接单页待接单卡片字段统一，生产准备加工单只进入接单与执行链路', async ({ page }) => {
   const errors = collectPageErrors(page)
   await seedLocalStorage(page, {
     fcs_pda_factory_id: 'F090',
@@ -37,7 +37,7 @@ test('接单页待接单卡片字段统一且 4 个 Tab 继续排除印花', asy
   })
 
   await page.goto('/fcs/pda/task-receive?tab=pending-accept')
-  await expect(page.locator('[data-pda-tr-action="switch-tab"][data-tab="pending-accept"]')).toBeVisible()
+  await expect(page.getByRole('button', { name: /待接单任务/ })).toBeVisible()
 
   const ordinaryCard = page
     .locator('article')
@@ -54,11 +54,19 @@ test('接单页待接单卡片字段统一且 4 个 Tab 继续排除印花', asy
     await expect(ordinaryCard).not.toContainText(label)
   }
 
+  await expect(page.locator('article').filter({ hasText: 'TASK-PRINT-000716' })).toContainText('印花')
+
   const pageBody = page.locator('body')
-  for (const tab of ['pending-accept', 'pending-quote', 'quoted', 'awarded'] as const) {
-    await page.goto(`/fcs/pda/task-receive?tab=${tab}`)
-    await expect(page.locator(`[data-pda-tr-action="switch-tab"][data-tab="${tab}"]`)).toBeVisible()
-    await expect(pageBody).not.toContainText('印花')
+  for (const [tab, label] of [
+    ['pending-quote', '待报价招标单'],
+    ['quoted', '已报价招标单'],
+    ['awarded', '已中标任务'],
+  ] as const) {
+    const tabButton = page.getByRole('button', { name: new RegExp(label) })
+    await expect(tabButton).toBeVisible()
+    await tabButton.click()
+    await expect(page).toHaveURL(new RegExp(`tab=${tab}`))
+    await expect(pageBody).not.toContainText('TASK-PRINT-000716')
   }
 
   await expectNoPageErrors(errors)

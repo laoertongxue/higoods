@@ -4,8 +4,11 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 
-import { generateProductionArtifactsForOrder } from '../src/data/fcs/production-artifact-generation.ts'
-import { listProcessCraftDictRows } from '../src/data/fcs/process-craft-dict.ts'
+import {
+  generateProductionArtifactsForOrder,
+  listGeneratedProductionPreparationOrderArtifacts,
+} from '../src/data/fcs/production-artifact-generation.ts'
+import { listProcessCraftDictRows, listProcessDefinitions } from '../src/data/fcs/process-craft-dict.ts'
 import {
   assertNoRemovedLegacyTerm,
   removedLegacyCraftNames,
@@ -18,9 +21,7 @@ import {
 } from '../src/pages/production-craft-dict.ts'
 
 function assert(condition: unknown, message: string): asserts condition {
-  if (!condition) {
-    throw new Error(message)
-  }
+  if (!condition) throw new Error(message)
 }
 
 function readSource(relativePath: string): string {
@@ -32,185 +33,132 @@ function includesAll(source: string, terms: string[], message: string): void {
   assert(missing.length === 0, `${message}：缺少 ${missing.join('、')}`)
 }
 
-function excludesAll(source: string, terms: string[], message: string): void {
-  const hit = terms.find((term) => source.includes(term))
-  assert(!hit, `${message}：${hit}`)
-}
-
 ;(globalThis as typeof globalThis & { HTMLInputElement?: unknown }).HTMLInputElement ??= class {}
 ;(globalThis as typeof globalThis & { HTMLSelectElement?: unknown }).HTMLSelectElement ??= class {}
 
 try {
   const craftDictPageSource = readSource('src/pages/production-craft-dict.ts')
-  const mainSource = readSource('src/main.ts')
   const taskBreakdownSource = readSource('src/pages/task-breakdown.ts')
 
   includesAll(
     craftDictPageSource,
-    ['工序名称', '工艺名称', '阶段', '任务口径', '是否出任务', '状态', '可用', '历史停用'],
-    '工序工艺字典页面字段口径不完整',
+    [
+      '阶段', '工序', '工艺', '作用对象', '任务口径', '是否出生产任务', '状态',
+      'data-craft-dict-field="keyword"', 'data-craft-dict-field="stage"', 'data-craft-dict-field="status"',
+    ],
+    '工序工艺字典页面字段或筛选不完整',
   )
   includesAll(
     craftDictPageSource,
-    ['data-craft-dict-field="filterStatus"', '任务口径', '是否出任务'],
-    '工序工艺字典页面缺少状态与任务口径筛选',
+    [
+      '准备阶段只生成对应加工单',
+      '不进入生产任务清单、任务分配或合并任务',
+      '质检、复检是回货流程节点，不是工序',
+      '后道阶段仅包含开扣眼、装扣子、烫包',
+      '不作为任务合并判断条件',
+    ],
+    '工序工艺字典页面缺少阶段与任务边界',
   )
-  excludesAll(
-    craftDictPageSource,
-    ['>EXTERNAL_TASK<', '>INTERNAL_CAPACITY_NODE<', '>deprecated<', '>HISTORICAL_ONLY<'],
-    '工序工艺字典页面仍直接渲染研发枚举',
-  )
+  assert(!craftDictPageSource.includes('产值计算'), '工序工艺字典不得保留产值计算逻辑')
+  assert(!craftDictPageSource.includes('连续型'), '工序工艺字典不得保留连续型逻辑')
 
   includesAll(
     taskBreakdownSource,
-    ['内含：', '开扣眼、装扣子、熨烫、包装', "processBusinessCode === 'POST_FINISHING'"],
-    '任务分解页未按后道父任务口径收口',
+    [
+      '生产准备工序不进入任务清单',
+      '合并任务仅支持车缝+烫包、裁剪+车缝+烫包',
+      'isAssignableProductionExecutionTask',
+    ],
+    '任务清单未按当前任务边界收口',
   )
-  excludesAll(
-    taskBreakdownSource,
-    ['后道内部记录', '折叠区'],
-    '任务分解页出现越界后道详情结构',
-  )
+  assert(!taskBreakdownSource.includes('POST_FINISHING'), '任务清单不得再引入通用“后道任务”')
 
+  const processDefinitions = listProcessDefinitions()
   const activeRows = listProcessCraftDictRows()
   const historicalRows = listProcessCraftDictRows(true).filter((row) => !row.isActive)
   const removedCraftNameSet = new Set(removedLegacyCraftNames)
   const pageHtml = renderProductionCraftDictPage()
 
-  includesAll(
-    craftDictPageSource,
-    [
-      'showRouteOrder',
-      'renderProcessRouteOrderDialog',
-      'data-craft-dict-action="open-route-order"',
-      'data-craft-dict-action="close-route-order"',
-      'data-testid="craft-route-order-dialog"',
-      'data-testid="craft-route-order-card"',
-    ],
-    '工序工艺字典缺少完整顺序可视化入口或弹窗结构',
-  )
-  assert(pageHtml.includes('查看完整工序顺序'), '页面缺少查看完整工序顺序入口')
-  assert(!pageHtml.includes('data-testid="craft-route-order-dialog"'), '默认页面不应直接展开完整顺序弹窗')
-
-  assert(activeRows.every((row) => row.isActive), '默认工序工艺字典列表应只包含可用项')
+  assert(pageHtml.includes('查看基础工序顺序'), '页面缺少基础工序顺序入口')
+  assert(!pageHtml.includes('产值计算'), '渲染结果不得暴露产值计算')
+  assert(activeRows.every((row) => row.isActive), '默认字典只应包含可用项')
   removedLegacyProcessCodes.forEach((processCode) => {
-    assert(!activeRows.some((row) => row.processCode === processCode), '默认字典中不应出现已删除旧编码')
+    assert(!activeRows.some((row) => row.processCode === processCode), '默认字典不应出现已删除旧编码')
   })
-  assert(!activeRows.some((row) => removedCraftNameSet.has(row.craftName)), '默认字典中不应显示已删除旧项')
-
-  const washRow = activeRows.find((row) => row.craftName === '洗水')
-  assert(washRow, '默认字典中缺少洗水工艺')
-  assert(washRow.processCode === 'WASHING', '洗水必须挂在准备阶段洗水工序下')
-  assert(washRow.processName === '洗水', '洗水工艺所属工序名称必须为洗水')
-  assert(washRow.taskScopeLabel === '对外任务', '洗水必须按对外任务展示')
-  assert(washRow.generatesExternalTaskLabel === '是', '洗水必须生成对外任务')
-
-  const buttonholeRows = activeRows.filter((item) => item.processCode === 'BUTTONHOLE')
-  assert(buttonholeRows.length > 0, '默认字典缺少开扣眼产能节点')
-  buttonholeRows.forEach((row) => {
-    assert(row.stageName === '后道阶段', '开扣眼必须位于后道阶段')
-    assert(row.taskScopeLabel === '产能节点', '开扣眼必须按产能节点展示')
-    assert(row.generatesExternalTaskLabel === '否', '开扣眼不得生成独立任务')
-  })
-
-  const buttonAttachRows = activeRows.filter((item) => item.processCode === 'BUTTON_ATTACH')
-  assert(buttonAttachRows.length > 0, '默认字典缺少装扣子产能节点')
-  buttonAttachRows.forEach((row) => {
-    assert(row.processName === '装扣子', '装扣子主业务名称必须统一')
-    assert(row.stageName === '后道阶段', '装扣子必须位于后道阶段')
-    assert(row.taskScopeLabel === '产能节点', '装扣子必须按产能节点展示')
-    assert(row.generatesExternalTaskLabel === '否', '装扣子不得生成独立任务')
-  })
-
-  for (const craftName of ['熨烫', '包装']) {
-    const row = activeRows.find((item) => item.craftName === craftName)
-    assert(row, `默认字典缺少后道产能节点 ${craftName}`)
-    assert(row.stageName === '后道阶段', `${craftName} 必须位于后道阶段`)
-    assert(row.taskScopeLabel === '产能节点', `${craftName} 必须按产能节点展示`)
-    assert(row.generatesExternalTaskLabel === '否', `${craftName} 不得生成独立任务`)
-  }
-
+  assert(!activeRows.some((row) => removedCraftNameSet.has(row.craftName)), '默认字典不应显示已删除旧项')
   assert(!historicalRows.some((row) => removedCraftNameSet.has(row.craftName)), '历史停用区不应保留已删除旧项')
-  assertNoRemovedLegacyTerm(craftDictPageSource, assert, '工序工艺字典页面源码不应保留已删除旧项')
 
-  const craftDictDispatchIndex = mainSource.indexOf("pathname.startsWith('/fcs/production/craft-dict')")
-  const productionRouteDispatchIndex = mainSource.indexOf('if (isProductionRoutePath(pathname))')
-  assert(craftDictDispatchIndex >= 0, '主点击分发必须为工序工艺字典路由保留专用入口')
+  const prepProcesses = processDefinitions.filter((item) => item.stageCode === 'PREP')
+  assert(prepProcesses.length > 0, '缺少生产准备阶段工序')
+  prepProcesses.forEach((processDefinition) => {
+    assert(processDefinition.processRole === 'PREPARATION_ORDER', `${processDefinition.processName} 必须定义为生产准备单`)
+    assert(!processDefinition.generatesExternalTask, `${processDefinition.processName} 不得生成对外任务`)
+    assert(processDefinition.defaultDocType === 'PREPARATION_ORDER', `${processDefinition.processName} 默认单据必须是加工单`)
+  })
+  activeRows.filter((row) => row.stageCode === 'PREP').forEach((row) => {
+    assert(row.taskScopeLabel === '生产准备加工单', `${row.craftName} 的任务口径错误`)
+    assert(row.generatesExternalTaskLabel === '否', `${row.craftName} 不得生成生产任务`)
+    assert(row.defaultDocType === 'PREPARATION_ORDER', `${row.craftName} 默认单据必须是加工单`)
+  })
+
+  const activePostProcessCodes = processDefinitions
+    .filter((item) => item.stageCode === 'POST' && item.isActive)
+    .map((item) => item.processCode)
   assert(
-    productionRouteDispatchIndex < 0 || craftDictDispatchIndex < productionRouteDispatchIndex,
-    '工序工艺字典点击事件必须先于泛化生产单路由分发，否则查看完整顺序不会响应',
+    JSON.stringify(activePostProcessCodes) === JSON.stringify(['BUTTONHOLE', 'BUTTON_ATTACH', 'IRON_PACK']),
+    '后道阶段必须且只能包含开扣眼、装扣子、烫包',
   )
+  for (const processCode of ['BUTTONHOLE', 'BUTTON_ATTACH']) {
+    activeRows.filter((row) => row.processCode === processCode).forEach((row) => {
+      assert(row.taskScopeLabel === '产能节点', `${row.processName} 必须作为后道阶段内部节点`)
+      assert(row.generatesExternalTaskLabel === '否', `${row.processName} 不得生成独立任务`)
+    })
+  }
+  const activeIronPackRows = activeRows.filter((row) => row.processCode === 'IRON_PACK')
+  assert(activeIronPackRows.length === 1 && activeIronPackRows[0].craftName === '烫包', '当前口径只能保留烫包，熨烫/包装只能作为历史归一映射')
+  assert(activeIronPackRows[0].generatesExternalTaskLabel === '是', '独立烫包必须可生成生产任务')
+  assert(!activeRows.some((row) => ['熨烫', '包装'].includes(row.craftName)), '可用字典不得暴露熨烫/包装旧名称')
+  assert(!processDefinitions.some((item) => ['QUALITY_INSPECTION', 'RECHECK'].includes(item.processCode)), '质检、复检不得进入工序字典')
+  assertNoRemovedLegacyTerm(craftDictPageSource, assert, '工序工艺字典页面源码不应保留已删除旧项')
 
   const openHandled = handleProductionCraftDictEvent({
     closest(selector: string) {
       if (selector === '[data-craft-dict-field]') return null
-      if (selector === '[data-craft-dict-action]') {
-        return {
-          dataset: {
-            craftDictAction: 'open-route-order',
-          },
-        }
-      }
+      if (selector === '[data-craft-dict-action]') return { dataset: { craftDictAction: 'open-route-order' } }
       return null
     },
   } as unknown as HTMLElement)
-  assert(openHandled === true, '查看完整顺序入口点击事件必须可达')
-  assert(isProductionCraftDictDialogOpen(), '打开完整顺序弹窗后应标记存在弹窗')
-
+  assert(openHandled && isProductionCraftDictDialogOpen(), '基础工序顺序弹窗必须可打开')
   const routeDialogHtml = renderProductionCraftDictPage()
-  assert(routeDialogHtml.includes('完整工序工艺顺序'), '完整顺序弹窗缺少标题')
-  assert(routeDialogHtml.includes('基础路线顺序仅作为技术包路线默认参考'), '完整顺序弹窗缺少口径说明')
-  assert(routeDialogHtml.includes('未配置顺序'), '完整顺序弹窗必须有未配置顺序区域')
-  const routeDialogStart = routeDialogHtml.indexOf('data-testid="craft-route-order-dialog"')
-  assert(routeDialogStart >= 0, '完整顺序弹窗 DOM 不存在')
-  const routeDialogOnlyHtml = routeDialogHtml.slice(routeDialogStart)
-  assert(!routeDialogOnlyHtml.includes('CRAFT_'), '完整顺序弹窗不应展示工艺编码')
-
-  const routeCardCount = routeDialogOnlyHtml.match(/data-testid="craft-route-order-card"/g)?.length ?? 0
-  assert(routeCardCount === activeRows.length, `完整顺序弹窗应展示全部 ${activeRows.length} 条可用工序工艺`)
-
-  const closeHandled = handleProductionCraftDictEvent({
+  assert(routeDialogHtml.includes('基础工序顺序'), '基础工序顺序弹窗缺少标题')
+  assert(routeDialogHtml.includes('不作为任务合并判断条件'), '基础顺序不得恢复为连续工序合并规则')
+  handleProductionCraftDictEvent({
     closest(selector: string) {
       if (selector === '[data-craft-dict-field]') return null
-      if (selector === '[data-craft-dict-action]') {
-        return {
-          dataset: {
-            craftDictAction: 'close-route-order',
-          },
-        }
-      }
+      if (selector === '[data-craft-dict-action]') return { dataset: { craftDictAction: 'close-route-order' } }
       return null
     },
   } as unknown as HTMLElement)
-  assert(closeHandled === true, '关闭完整顺序弹窗事件必须可达')
-  assert(!isProductionCraftDictDialogOpen(), '关闭完整顺序弹窗后不应标记存在弹窗')
+  assert(!isProductionCraftDictDialogOpen(), '基础工序顺序弹窗必须可关闭')
 
-  const orderIds = ['PO-202603-0002', 'PO-202603-0015']
-  const artifacts = orderIds.flatMap((orderId) => generateProductionArtifactsForOrder(orderId))
+  const artifacts = ['PO-202603-0002', 'PO-202603-0015']
+    .flatMap((orderId) => generateProductionArtifactsForOrder(orderId))
   const taskArtifacts = artifacts.filter((item) => item.artifactType === 'TASK')
+  const preparationOrderArtifacts = listGeneratedProductionPreparationOrderArtifacts()
+  assert(preparationOrderArtifacts.length > 0, '生产准备工序必须生成加工单')
+  assert(preparationOrderArtifacts.every((item) => item.stageCode === 'PREP'), '生产准备单必须归准备阶段')
+  assert(taskArtifacts.every((item) => item.stageCode !== 'PREP'), '生产准备工序不得生成生产任务')
+  assert(!taskArtifacts.some((item) => ['BUTTONHOLE', 'BUTTON_ATTACH'].includes(item.processCode)), '开扣眼、装扣子不得生成独立任务')
+  assert(!taskArtifacts.some((item) => item.processCode === 'POST_FINISHING'), '不得生成通用“后道任务”')
 
-  const postTask = taskArtifacts.find((item) => item.processCode === 'POST_FINISHING')
-  assert(postTask, '任务生成结果中必须存在后道父任务')
-  assert(postTask.taskScope === 'POST_ROLLUP_TASK', '后道父任务必须按后道汇总任务生成')
-  assert(
-    !taskArtifacts.some((item) => ['BUTTONHOLE', 'BUTTON_ATTACH', 'IRONING', 'PACKAGING'].includes(item.processCode)),
-    '任务生成结果中不应包含后道产能节点独立任务',
-  )
-
-  console.log(
-    JSON.stringify(
-      {
-        页面字段口径: '已校验',
-        默认可用工艺数: activeRows.length,
-        历史停用工艺数: historicalRows.length,
-        后道父任务生成: '已校验',
-      },
-      null,
-      2,
-    ),
-  )
+  console.log(JSON.stringify({
+    页面字段口径: '已校验',
+    生产准备单边界: '已校验',
+    默认可用工艺数: activeRows.length,
+    历史停用工艺数: historicalRows.length,
+    后道阶段三工序: '已校验',
+  }, null, 2))
 } catch (error) {
-  const message = error instanceof Error ? error.message : String(error)
-  console.error(message)
+  console.error(error instanceof Error ? error.message : String(error))
   process.exitCode = 1
 }

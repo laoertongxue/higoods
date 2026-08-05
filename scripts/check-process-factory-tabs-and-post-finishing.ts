@@ -6,6 +6,7 @@ import {
   listPostFinishingWaitHandoverWarehouseRecords,
   listPostFinishingWorkOrders,
 } from '../src/data/fcs/post-finishing-domain.ts'
+import { listFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
 
 const root = process.cwd()
 
@@ -38,7 +39,7 @@ const routes = read('src/router/routes-fcs.ts')
 const renderers = read('src/router/route-renderers-fcs.ts')
 const factoryProfile = read('src/pages/factory-profile.ts')
 const factoryMock = read('src/data/fcs/factory-mock-data.ts')
-const factoryMaster = read('src/data/fcs/factory-master-store.ts')
+const mergedTaskDomain = read('src/data/fcs/merged-production-task.ts')
 
 assertNotIncludes(printingList, 'renderViewTabs', '印花加工单列表页不应再调用 renderViewTabs')
 assertNotIncludes(printingList, 'renderViewHint', '印花加工单列表页不应再展示视图说明卡')
@@ -53,7 +54,7 @@ assertNotIncludes(specialCraftShared, 'subNavItems', '特殊工艺页面布局�
 ;['base', 'sample', 'execution', 'formula', 'handover', 'review', 'statistics', 'exception'].forEach((tab) => {
   assertIncludes(dyeingDetail, `'${tab}'`, `染色详情页缺少 tab=${tab}`)
 })
-;['overview', 'demand', 'warehouse', 'exceptions', 'events'].forEach((tab) => {
+;['overview', 'demand', 'warehouse', 'events'].forEach((tab) => {
   assertIncludes(specialCraftDetail, `'${tab}'`, `特殊工艺任务详情页缺少 tab=${tab}`)
 })
 
@@ -63,18 +64,25 @@ assertIncludes(appShell, '染色统计', '染厂菜单必须出现染色统计')
   assertNotIncludes(read(path), '染色报表', `${path} 不应出现用户可见的染色报表`)
 })
 
-;[factoryProfile, factoryMock, factoryMaster].forEach((source, index) => {
-  const label = ['factory-profile.ts', 'factory-mock-data.ts', 'factory-master-store.ts'][index]
-  ;['开扣眼', '装扣子', '熨烫', '包装'].forEach((term) => {
-    assertNotIncludes(source, term, `${label} 的工厂档案接单能力不应展示 ${term}`)
-  })
-})
-assertIncludes(factoryProfile, '后道', '工厂档案必须保留后道能力')
-assertIncludes(factoryProfile, '质检', '后道工厂能力必须包含质检')
-assertIncludes(factoryProfile, '复检', '后道工厂能力必须包含复检')
+assertIncludes(factoryProfile, '合并任务只允许车缝+烫包、裁剪+车缝+烫包两种固定范围', '工厂档案缺少固定合并任务边界')
+const activeFactoryAbilities = listFactoryMasterRecords()
+  .flatMap((factory) => factory.processAbilities)
+  .filter((ability) => (ability.status ?? 'ACTIVE') !== 'DISABLED')
+for (const [processCode, processName] of [['BUTTONHOLE', '开扣眼'], ['BUTTON_ATTACH', '装扣子'], ['IRON_PACK', '烫包']] as const) {
+  assert(activeFactoryAbilities.some((ability) => ability.processCode === processCode && ability.processName === processName), `工厂能力数据缺少后道阶段实际工序 ${processName}`)
+}
+for (const legacyProcessCode of ['POST_FINISHING', 'QC', 'RECHECK', 'IRONING', 'PACKAGING']) {
+  assert(!activeFactoryAbilities.some((ability) => ability.processCode === legacyProcessCode), `工厂能力数据不得保留 ${legacyProcessCode}`)
+}
+assertNotIncludes(factoryMock, "'熨烫'", '工厂 Mock 不得继续使用熨烫旧工序')
+assertNotIncludes(factoryMock, "'包装'", '工厂 Mock 不得继续使用包装旧工序')
+assertNotIncludes(factoryProfile, "craftName: '质检'", '质检是回货后的流程节点，不得作为工厂实际工序能力')
+assertNotIncludes(factoryProfile, "craftName: '复检'", '复检是回货后的流程节点，不得作为工厂实际工序能力')
+assertIncludes(mergedTaskDomain, '车缝+烫包', '合并任务规则必须使用实际工序名称烫包')
+assertNotIncludes(mergedTaskDomain, '车缝+后道', '合并任务规则不得把阶段名当作实际工序')
 
-;['后道工厂管理', '后道单', '质检单', '复检单', '后道待加工仓', '后道交出仓', '后道统计'].forEach((label) => {
-  assertIncludes(appShell, label, `后道工厂菜单缺少 ${label}`)
+;['后道阶段管理', '阶段任务', '实际工序单', '质检单', '复检单', '阶段待加工仓', '阶段待交出仓'].forEach((label) => {
+  assertIncludes(appShell, label, `后道阶段菜单缺少 ${label}`)
 })
 ;[
   'renderPostFinishingWorkOrdersPage',
@@ -101,11 +109,11 @@ const postCounts = new Map<string, number>()
 listPostFinishingActionRecords().forEach((record) => {
   postCounts.set(record.actionType, (postCounts.get(record.actionType) || 0) + 1)
 })
-;['后道', '质检', '复检'].forEach((actionType) => {
-  assert((postCounts.get(actionType) || 0) >= 3, `后道 mock 数据中 ${actionType} 记录不足 3 行`)
+;[['扫码收货', 3], ['后道', 3], ['质检', 3], ['复检', 2]].forEach(([actionType, minimum]) => {
+  assert((postCounts.get(String(actionType)) || 0) >= Number(minimum), `后道阶段 mock 数据中 ${actionType} 记录不足 ${minimum} 行`)
 })
 
-const handoverRecordIds = new Set(listPostFinishingWaitHandoverWarehouseRecords().map((record) => record.recheckActionId))
+const handoverRecordIds = new Set(listPostFinishingWaitHandoverWarehouseRecords().map((record) => record.recheckOrderId))
 listPostFinishingRecheckOrders()
   .filter((record) => record.status.includes('完成'))
   .forEach((record) => {

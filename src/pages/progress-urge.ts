@@ -31,6 +31,7 @@ import {
   listTaskChainTasks,
   listTaskChainTenders,
 } from '../data/fcs/page-adapters/task-chain-pages-adapter'
+import { generateAndSaveProductionReturnReminders, listProductionReturnRuleSnapshots } from '../data/fcs/production-return-fulfillment'
 
 type UrgeTab = 'inbox' | 'outbox'
 type TargetTypeWithoutTechPack = Exclude<TargetType, 'TECH_PACK'>
@@ -355,6 +356,27 @@ function recomputeAutoNotifications(): number {
   }
 
   const handoverRows = getHandoverLedgerRows()
+
+  // 回货节点提醒：截止前1天、截止当天、逾期后；同一节点提醒由履约域幂等保存。
+  const returnReminders = generateAndSaveProductionReturnReminders({
+    snapshots: listProductionReturnRuleSnapshots({ activeOnly: true }),
+    today: nowStr.slice(0, 10),
+  })
+  returnReminders.forEach((reminder) => {
+    const snapshot = listProductionReturnRuleSnapshots({ assignmentId: reminder.assignmentId })[0]
+    if (!snapshot) return
+    const notification: Omit<Notification, 'notificationId' | 'createdAt'> = {
+      level: reminder.reminderType === 'OVERDUE' ? 'CRITICAL' : 'WARN',
+      title: reminder.reminderType === 'DUE_TOMORROW' ? '阶段回货明日到期' : reminder.reminderType === 'DUE_TODAY' ? '阶段回货今日到期' : '阶段回货逾期警告',
+      content: reminder.message,
+      recipientType: 'INTERNAL_USER', recipientId: 'U002', recipientName: '跟单A',
+      targetType: 'ORDER', targetId: snapshot.productionOrderId,
+      related: { productionOrderId: snapshot.productionOrderId, taskId: snapshot.runtimeTaskId },
+      deepLink: { path: '/fcs/progress/production-orders', query: { keyword: snapshot.productionOrderId } },
+      createdBy: 'SYSTEM',
+    }
+    if (shouldAdd(notification)) newNotifications.push({ ...notification, notificationId: generateNotificationId(), createdAt: nowStr })
+  })
 
   // A. 交出后待接收方回写超过 24 小时（示例规则）
   const warehouseOverdueByTask = new Map<string, (typeof handoverRows)[number]>()

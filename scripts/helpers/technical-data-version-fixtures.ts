@@ -93,8 +93,32 @@ export function installTechnicalDataVersionFixtures(input: {
       master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
         styleId: record.styleId,
         styleCode: record.styleCode,
+        merchandiserId: 'CHECK-MERCHANDISER',
         merchandiserName: record.updatedBy || '检查脚本',
+        createdById: 'CHECK-SYSTEM',
         createdBy: '检查脚本',
+        createdByRole: '系统',
+        creationMode: 'SYSTEM',
+        preparationType: 'PURE_WOVEN',
+        qualificationFact: {
+          styleCode: record.styleCode,
+          formalSaleStatus: 'NO_FORMAL_SALE',
+          formalProductionStatus: 'NO_FORMAL_PRODUCTION',
+          formalSaleSource: '专项检查固定事实',
+          formalProductionSource: '专项检查固定事实',
+          checkedAt: record.createdAt,
+        },
+        bulkProductionQualification: {
+          basisType: 'TEST_APPROVED',
+          triggerBusinessObjectType: '专项检查',
+          triggerBusinessObjectId: `CHECK-${record.styleId}`,
+          thresholdQuantity: 1,
+          reachedQuantity: 1,
+          reachedAt: record.createdAt,
+          reason: '专项检查构造技术包来源',
+          uniqueTriggerKey: `TECHNICAL-VERSION-FIXTURE-${record.styleId}`,
+        },
+        creationReason: '专项检查构造技术包来源',
       }).masterOrderId)
       sourceByStyleId.set(record.styleId, master)
     }

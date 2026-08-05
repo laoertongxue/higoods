@@ -35,8 +35,11 @@ export function isReceiveEligibleProcessName(processName?: string, processCode?:
 
 export function isReceiveEligibleTask(task: ProcessTask | null | undefined, selectedFactoryId?: string): boolean {
   if (!task) return false
+  const canAccess = !selectedFactoryId || canFactoryAccessSpecialCraftPdaTask(selectedFactoryId, task)
+  if (!canAccess) return false
+  // 生产准备加工单不进入通用任务体系，但已分配加工单仍必须在 PDA 完成接单、执行和交出。
+  if (task.defaultDocType === 'PREPARATION_ORDER') return true
   return isReceiveEligibleProcessName(task.processNameZh, task.processCode)
-    && (!selectedFactoryId || canFactoryAccessSpecialCraftPdaTask(selectedFactoryId, task))
 }
 
 export function isReceiveEligibleTender(
@@ -44,6 +47,7 @@ export function isReceiveEligibleTender(
   task: ProcessTask | null,
   selectedFactoryId?: string,
 ): boolean {
+  if (task?.defaultDocType === 'PREPARATION_ORDER') return false
   if (task) return isReceiveEligibleTask(task, selectedFactoryId)
   return isReceiveEligibleProcessName(tender.processName, tender.processCode)
     && (!selectedFactoryId || canFactoryAccessSpecialCraftPdaTask(selectedFactoryId, tender))

@@ -227,8 +227,6 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
           materialIssueMode: 'WAREHOUSE_DELIVERY' as const,
           linkedBomItemIds: [bomItemId],
           linkedPatternIds: [patternId],
-          outputValuePerUnit: 18,
-          outputValueUnit: '产值/件',
           difficulty: 'HIGH' as const,
           remark: '整件毛织完成后交后道工厂。',
         },
@@ -256,8 +254,6 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
             materialIssueMode: 'WAREHOUSE_DELIVERY' as const,
             linkedBomItemIds: [bomItemId],
             linkedPatternIds: [patternId],
-            outputValuePerUnit: 2.5,
-            outputValueUnit: '产值/件',
             difficulty: 'MEDIUM' as const,
             remark: '部位毛织按部位、颜色、尺码生成明细，完成后交裁床待交出仓。',
           },
@@ -286,8 +282,6 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
               supportedTargetObjects: ['CUT_PIECE', 'SEMI_FINISHED_GARMENT'] as const,
               supportedTargetObjectLabels: ['已裁部位', '成衣'] as const,
               linkedBomItemIds: [bomItemId],
-              outputValuePerUnit: 0.7,
-              outputValueUnit: '产值/件',
               difficulty: 'MEDIUM' as const,
               remark: '在纯色 T-shirt 成衣上烫画，按成衣 BOM 适用 SKU 件数生成特殊工艺任务。',
             },
@@ -313,8 +307,6 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
               supportedTargetObjects: ['CUT_PIECE', 'SEMI_FINISHED_GARMENT'] as const,
               supportedTargetObjectLabels: ['已裁部位', '成衣'] as const,
               linkedBomItemIds: [bomItemId],
-              outputValuePerUnit: 0.8,
-              outputValueUnit: '产值/件',
               difficulty: 'MEDIUM' as const,
               remark: '在纯色 T-shirt 成衣上直喷，按成衣 BOM 适用 SKU 件数生成特殊工艺任务。',
             },
@@ -331,8 +323,6 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
               defaultDocType: 'TASK' as const,
               taskTypeMode: 'PROCESS' as const,
               isSpecialCraft: false,
-              outputValuePerUnit: 8,
-              outputValueUnit: '产值/件',
             },
             {
               id: `${seed.technicalVersionId}-process-sew`,
@@ -345,8 +335,6 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
               defaultDocType: 'TASK' as const,
               taskTypeMode: 'PROCESS' as const,
               isSpecialCraft: false,
-              outputValuePerUnit: 12,
-              outputValueUnit: '产值/件',
             },
           ]
 
@@ -384,8 +372,8 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
       : []
   const internalGarmentPrintProcessEntries = demand.spuCode === 'SPU-2024-005'
     ? [
-        { craftCode: 'CRAFT_008192', craftName: '烫画', outputValuePerUnit: 0.7 },
-        { craftCode: 'CRAFT_016384', craftName: '直喷', outputValuePerUnit: 0.8 },
+        { craftCode: 'CRAFT_008192', craftName: '烫画' },
+        { craftCode: 'CRAFT_016384', craftName: '直喷' },
       ].map((craft) => ({
         id: `${seed.technicalVersionId}-process-${craft.craftCode.toLowerCase()}`,
         entryType: 'CRAFT' as const,
@@ -408,11 +396,29 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
         supportedTargetObjects: ['CUT_PIECE', 'SEMI_FINISHED_GARMENT'] as const,
         supportedTargetObjectLabels: ['已裁部位', '成衣'] as const,
         linkedBomItemIds: [garmentBomItemId],
-        outputValuePerUnit: craft.outputValuePerUnit,
-        outputValueUnit: '产值/件',
         difficulty: 'MEDIUM' as const,
         remark: `在成衣上${craft.craftName}，按成衣 BOM 适用 SKU 件数生成特殊工艺任务。`,
       }))
+    : []
+  const joggerPostProcessEntries = demand.spuCode === 'SPU-2024-010'
+    ? [
+        {
+          id: `${seed.technicalVersionId}-process-iron-pack`,
+          entryType: 'CRAFT' as const,
+          stageCode: 'POST' as const,
+          stageName: '后道阶段',
+          processCode: 'IRON_PACK',
+          processName: '烫包',
+          craftCode: 'CRAFT_2000010',
+          craftName: '烫包',
+          assignmentGranularity: 'SKU' as const,
+          ruleSource: 'INHERIT_PROCESS' as const,
+          defaultDocType: 'TASK' as const,
+          taskTypeMode: 'CRAFT' as const,
+          isSpecialCraft: false,
+          remark: 'Jogger 技术包明确要求烫包；可与车缝，或与裁剪、车缝一起形成固定合并任务。',
+        },
+      ]
     : []
 
   const resolveColorMaterialInfo = (color: string, index: number) => {
@@ -596,7 +602,12 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
         : scenario === 'GARMENT_HEAT_TRANSFER'
           ? '纯色 T-shirt 成衣烫画、直喷技术包，按成衣 BOM 适用 SKU 生成特殊工艺任务。'
           : '来源生产需求单当前生效技术包。',
-    processEntries: [...processEntries, ...internalGarmentPrintProcessEntries, ...waterSolubleDyeProcessEntries],
+    processEntries: [
+      ...processEntries,
+      ...internalGarmentPrintProcessEntries,
+      ...joggerPostProcessEntries,
+      ...waterSolubleDyeProcessEntries,
+    ],
     processRouteStatus: 'CONFIRMED',
     processRouteConfirmedBy: '系统初始化',
     processRouteConfirmedAt: demand.updatedAt,
@@ -971,8 +982,6 @@ function buildProject018Content(technicalVersionId: string): TechnicalDataVersio
         isSpecialCraft: false,
         linkedBomItemIds: [bomItemId],
         linkedPatternIds: [patternId],
-        outputValuePerUnit: 9,
-        outputValueUnit: '产值/件',
         difficulty: 'MEDIUM',
         remark: '按连体裤纸样完成裁片。',
       },
@@ -988,8 +997,6 @@ function buildProject018Content(technicalVersionId: string): TechnicalDataVersio
         defaultDocType: 'TASK',
         taskTypeMode: 'PROCESS',
         isSpecialCraft: false,
-        outputValuePerUnit: 16,
-        outputValueUnit: '产值/件',
         difficulty: 'HIGH',
         remark: '重点关注腰节拼接和裤脚展开角度。',
       },
@@ -1048,7 +1055,7 @@ function buildProject018Content(technicalVersionId: string): TechnicalDataVersio
         id: `${technicalVersionId}-quality-1`,
         checkItem: '印花对位与腰节拼接',
         standardText: '花型主视觉居中，腰节拼接左右误差不超过 0.5cm。',
-        outputValueplingRule: '首件确认后按批次抽检',
+        samplingRule: '首件确认后按批次抽检',
         note: '来源于制版确认意见。',
       },
     ],

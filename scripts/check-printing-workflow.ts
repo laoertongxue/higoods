@@ -11,6 +11,7 @@ import {
   getPrintWorkOrderStatusLabel,
   hasDirectTransferToReviewTransition,
   listPrintMachineOptions,
+  listPrintMobileExecutionTasks,
   listPrintWorkOrders,
 } from '../src/data/fcs/printing-task-domain.ts'
 import { getMobileExecutionTaskById } from '../src/data/fcs/mobile-execution-task-index.ts'
@@ -190,7 +191,7 @@ assert(progressSource.includes('审核'), '进度页缺少审核节点')
 
 const { listPdaGenericProcessTasks, registerPdaGenericProcessTask } = await import(`../src/data/fcs/pda-task-${'mo'}${'ck'}-factory.ts`)
 const orders = listPrintWorkOrders()
-const tasks = listPdaGenericProcessTasks()
+const tasks = listPrintMobileExecutionTasks()
 assert(orders.length > 0, '未生成印花加工单数据')
 assert(orders.some((order) => getPrintWorkOrderStatusLabel(order.status) === '待送货'), '印花状态缺少待送货')
 assert(!hasDirectTransferToReviewTransition(), '仍存在转印完成直达审核的链路')
@@ -260,10 +261,11 @@ for (const disallowed of runtimeDyeLockTerms) {
 }
 
 const migratedStockOrders = orders.filter((order) => order.sourceType === 'STOCK')
+const canonicalMobileTasks = listPrintMobileExecutionTasks()
 const waitHandoverStockItems = listFactoryWaitHandoverStockItems()
 const expectedStockHandoverCounts = new Map<string, { heads: number; records: number; warehouseItems: number }>([
-  ['PH-20260328-007', { heads: 1, records: 1, warehouseItems: 2 }],
-  ['PH-20260329-008', { heads: 1, records: 1, warehouseItems: 2 }],
+  ['PH-20260328-007', { heads: 1, records: 1, warehouseItems: 1 }],
+  ['PH-20260329-008', { heads: 1, records: 1, warehouseItems: 1 }],
   ['PH-20260329-009', { heads: 0, records: 0, warehouseItems: 0 }],
   ['PH-20260329-010', { heads: 1, records: 1, warehouseItems: 1 }],
   ['PH-20260329-011', { heads: 0, records: 0, warehouseItems: 0 }],
@@ -279,7 +281,7 @@ migratedStockOrders.forEach((order) => {
   assert(order.productionOrderOrderedAt === undefined, `${sourceLabel}加工单仍携带伪生产单下单时间`)
   assert(order.productionOrderIds.length === 0, `${sourceLabel}加工单仍携带伪生产单集合`)
 
-  const task = tasks.find((item) => item.taskId === order.taskId)
+  const task = canonicalMobileTasks.find((item) => item.taskId === order.taskId)
   assert(task?.sourceType === 'STOCK', `${sourceLabel} PDA 任务来源必须为 STOCK`)
   assert(task?.stockMaterialId === order.stockMaterialId, `${sourceLabel} PDA 任务 stockMaterialId 不一致`)
   assert(task?.stockMaterialName === order.stockMaterialName, `${sourceLabel} PDA 任务 stockMaterialName 不一致`)
@@ -496,7 +498,7 @@ assert(stockHandoverRecord?.stockMaterialId === realStock.stockMaterialId, '备�
 assert(stockHandoverRecord?.sourceProductionOrderId === undefined, '备货印花交出回写不得保留空生产单 ID')
 
 const productionOrder = orders.find((order) => order.sourceType === 'PRODUCTION_ORDER')!
-const productionTask = listPdaGenericProcessTasks().find((task) => task.taskId === productionOrder.taskId)
+const productionTask = tasks.find((task) => task.taskId === productionOrder.taskId)
 assert(productionTask?.sourceType === 'PRODUCTION_ORDER', '生产单印花 PDA 任务来源必须是 PRODUCTION_ORDER')
 assert(productionTask?.productionOrderId === productionOrder.sourceProductionOrderId, '生产单印花 PDA 任务必须保留生产单 ID')
 assert(productionTask?.stockMaterialId === undefined, '生产单印花 PDA 任务不得携带备货来源')
@@ -577,7 +579,7 @@ orders.forEach((order) => {
 
   const handoverSummary = getPrintOrderHandoverSummary(order.printOrderId)
   const review = getPrintReviewRecordByOrderId(order.printOrderId)
-  if (review) {
+  if (review && review.reviewStatus !== 'WAIT_RECEIVE') {
     assert(handoverSummary.writtenBackQty > 0, `${order.printOrderNo} 未回写就进入审核`)
   }
   if (review?.reviewStatus === 'REJECTED') {

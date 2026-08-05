@@ -73,8 +73,8 @@ export type ProcessWebActionType =
   | '确认收货入库'
   | '开始质检'
   | '完成质检'
-  | '开始后道'
-  | '完成后道'
+  | '开始实际工序'
+  | '完成实际工序'
   | '开始复检'
   | '完成复检'
 
@@ -550,7 +550,7 @@ const POST_FINISHING_ACTIONS: ActionDefinition[] = [
   },
   {
     actionCode: 'POST_PROCESS_START',
-    actionLabel: '开始后道',
+    actionLabel: '开始实际工序',
     processType: 'POST_FINISHING',
     fromStatuses: ['待后道'],
     toStatus: '后道中',
@@ -559,7 +559,7 @@ const POST_FINISHING_ACTIONS: ActionDefinition[] = [
   },
   {
     actionCode: 'POST_PROCESS_FINISH',
-    actionLabel: '完成后道',
+    actionLabel: '完成实际工序',
     processType: 'POST_FINISHING',
     fromStatuses: ['后道中'],
     toStatus: '待复检',
@@ -750,20 +750,16 @@ function isMobileBindingValid(sourceType: ProcessWebSourceType, sourceId: string
 }
 
 export function getAvailablePrintWebActions(printOrderId: string): ProcessWebAction[] {
-  const binding = isMobileBindingValid('PRINT_WORK_ORDER', printOrderId)
   const status = getPrintStatus(printOrderId)
   if (!status) return []
   const prerequisiteBlock = getPrintExecutionBlockReason(printOrderId)
   if (prerequisiteBlock) return listMatchingActions(PRINT_ACTIONS, status.status, prerequisiteBlock).map((action) => withPrintQuantityFields(action, printOrderId))
-  if (!binding.ok) return [toAction(PRINT_ACTIONS[0], status.label, binding.reason)]
   return listMatchingActions(PRINT_ACTIONS, status.status).map((action) => withPrintQuantityFields(action, printOrderId))
 }
 
 export function getAvailableDyeWebActions(dyeOrderId: string): ProcessWebAction[] {
-  const binding = isMobileBindingValid('DYE_WORK_ORDER', dyeOrderId)
   const status = getDyeStatus(dyeOrderId)
   if (!status) return []
-  if (!binding.ok) return [toAction(DYE_ACTIONS[0], status.label, binding.reason)]
   return listMatchingActions(DYE_ACTIONS, status.status)
 }
 

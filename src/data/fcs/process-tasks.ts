@@ -46,7 +46,6 @@ export type TaskAssignmentStatus = 'UNASSIGNED' | 'ASSIGNING' | 'ASSIGNED' | 'BI
 export type TaskStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'DONE' | 'BLOCKED' | 'CANCELLED'
 export type QtyUnit = 'PIECE' | 'BUNDLE' | 'METER'
 export type TaskDifficulty = 'EASY' | 'MEDIUM' | 'HARD'
-export type OutputValueDifficulty = 'LOW' | 'MEDIUM' | 'HIGH'
 export type BlockReason = 'MATERIAL' | 'CAPACITY' | 'QUALITY' | 'TECH' | 'EQUIPMENT' | 'OTHER' | 'ALLOCATION_GATE'
 export type AcceptanceStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED'
 export type MilestoneStatus = 'PENDING' | 'REPORTED'
@@ -71,12 +70,6 @@ export type TaskHandoverStatus =
   | 'CLOSED'
 
 export type ProcessTaskSourceType = ProcessWorkOrderSourceType
-
-export interface TaskOutputValueSnapshot {
-  outputValuePerUnit?: number
-  outputValueUnit?: string
-  totalOutputValue?: number
-}
 
 export interface TaskAuditLog {
   id: string
@@ -122,13 +115,7 @@ export interface ProcessTask {
   assignedFactoryId?: string
   tenderId?: string
   qcPoints: string[]
-  taskOutputValue?: number
   difficulty?: TaskDifficulty
-  outputValuePerUnit?: number
-  outputValueUnit?: string
-  outputValueTotal?: number
-  outputValueDifficulty?: OutputValueDifficulty
-  outputValueSource?: 'TECH_PACK_PROCESS_ENTRY'
   attachments: TaskAttachment[]
   status: TaskStatus
   // 直接派单信息
@@ -209,7 +196,6 @@ export interface ProcessTask {
   routeLaneNo?: number
   routeParallelGroupId?: string
   routeParallelGroupName?: string
-  routeParallelAcceptanceMode?: 'INDEPENDENT_ONLY' | 'WHOLE_GROUP_ALLOWED'
   blockNoteZh?: string            // 开始条件中文原因（ALLOCATION_GATE 时写入）
   // 领料需求挂接（生产单管理确认后写入）
   hasMaterialRequest?: boolean
@@ -385,11 +371,6 @@ export function buildRouteTaskDependencyIds<T extends {
   return result
 }
 const PROCESS_TASK_MOCK_PRODUCTION_ORDER_IDS = ['PO-202603-0001', 'PO-202603-0005', 'PO-202603-084']
-const DEFAULT_OUTPUT_VALUE_UNIT_BY_QTY_UNIT: Record<QtyUnit, string> = {
-  PIECE: '产值/件',
-  BUNDLE: '产值/打',
-  METER: '产值/米',
-}
 
 export interface TaskGenerationRuntimeRecord {
   productionOrderId: string
@@ -418,148 +399,6 @@ function pickProcessTaskMocks(tasks: ProcessTask[]): ProcessTask[] {
       ...task,
       seq: index + 1,
     }))
-}
-
-function roundOutputValue(value: number): number {
-  if (!Number.isFinite(value) || value <= 0) return 0
-  return Math.round(value * 1000) / 1000
-}
-
-function normalizeOutputValueValue(value: number | undefined): number | undefined {
-  const normalized = Number(value)
-  if (!Number.isFinite(normalized) || normalized <= 0) return undefined
-  return roundOutputValue(normalized)
-}
-
-export function resolveOutputValueMeasureQty(input: {
-  qty: number
-  detailRows?: TaskDetailRow[]
-  outputValueUnit?: string
-}): number {
-  const qty = Math.max(input.qty, 0)
-  const detailRows = input.detailRows ?? []
-  const normalizedUnit = input.outputValueUnit?.trim() || '产值/件'
-  const detailQty = roundOutputValue(
-    detailRows.reduce((sum, row) => sum + (Number.isFinite(row.qty) ? row.qty : 0), 0),
-  )
-
-  if (normalizedUnit === '产值/打') {
-    return roundOutputValue(qty / 12)
-  }
-
-  if (normalizedUnit === '产值/米') {
-    return detailQty > 0 ? detailQty : roundOutputValue(qty)
-  }
-
-  if (normalizedUnit === '产值/批') {
-    if (detailRows.length > 0) return detailRows.length
-    return qty > 0 ? 1 : 0
-  }
-
-  return roundOutputValue(qty)
-}
-
-export function calculateOutputValueTotal(input: {
-  qty: number
-  detailRows?: TaskDetailRow[]
-  outputValuePerUnit?: number
-  outputValueUnit?: string
-}): number {
-  const outputValuePerUnit = Number.isFinite(input.outputValuePerUnit)
-    ? Number(input.outputValuePerUnit)
-    : 0
-  if (outputValuePerUnit <= 0) return 0
-  const measureQty = resolveOutputValueMeasureQty(input)
-  return roundOutputValue(measureQty * outputValuePerUnit)
-}
-
-export function resolveTaskOutputValueSnapshot(task: Pick<
-  ProcessTask,
-  'qty' | 'detailRows' | 'taskOutputValue' | 'outputValuePerUnit' | 'outputValueUnit' | 'outputValueTotal'
->): TaskOutputValueSnapshot {
-  const outputValuePerUnit = normalizeOutputValueValue(
-    Number.isFinite(task.outputValuePerUnit) ? Number(task.outputValuePerUnit) : task.taskOutputValue,
-  )
-  const outputValueUnit = outputValuePerUnit ? task.outputValueUnit?.trim() || '产值/件' : undefined
-  const fallbackTotal =
-    outputValuePerUnit && outputValueUnit
-      ? calculateOutputValueTotal({
-          qty: Math.max(task.qty, 0),
-          detailRows: task.detailRows,
-          outputValuePerUnit: outputValuePerUnit,
-          outputValueUnit: outputValueUnit,
-        })
-      : undefined
-
-  return {
-    outputValuePerUnit,
-    outputValueUnit,
-    totalOutputValue: normalizeOutputValueValue(task.outputValueTotal) ?? normalizeOutputValueValue(fallbackTotal),
-  }
-}
-
-export function sumTaskOutputValueTotals(
-  tasks: Array<
-    Pick<
-      ProcessTask,
-      'qty' | 'detailRows' | 'taskOutputValue' | 'outputValuePerUnit' | 'outputValueUnit' | 'outputValueTotal'
-    >
-  >,
-): number | undefined {
-  let total = 0
-  let hasValue = false
-
-  for (const task of tasks) {
-    const snapshot = resolveTaskOutputValueSnapshot(task)
-    if (snapshot.totalOutputValue === undefined) continue
-    total += snapshot.totalOutputValue
-    hasValue = true
-  }
-
-  return hasValue ? roundOutputValue(total) : undefined
-}
-
-function mapOutputValueDifficultyToTaskDifficulty(value: OutputValueDifficulty): TaskDifficulty {
-  if (value === 'LOW') return 'EASY'
-  if (value === 'HIGH') return 'HARD'
-  return 'MEDIUM'
-}
-
-function mapTaskDifficultyToOutputValueDifficulty(value: TaskDifficulty | undefined): OutputValueDifficulty {
-  if (value === 'EASY') return 'LOW'
-  if (value === 'HARD') return 'HIGH'
-  return 'MEDIUM'
-}
-
-export function ensureProcessTaskOutputValue(task: ProcessTask): ProcessTask {
-  const outputValuePerUnit = Number.isFinite(task.outputValuePerUnit)
-    ? Number(task.outputValuePerUnit)
-    : Number.isFinite(task.taskOutputValue)
-      ? Number(task.taskOutputValue)
-      : 0
-  const outputValueUnit = task.outputValueUnit?.trim()
-    || DEFAULT_OUTPUT_VALUE_UNIT_BY_QTY_UNIT[task.qtyUnit]
-    || '产值/件'
-  const outputValueDifficulty = task.outputValueDifficulty || mapTaskDifficultyToOutputValueDifficulty(task.difficulty)
-  const calculatedOutputValueTotal = calculateOutputValueTotal({
-    qty: Math.max(task.qty, 0),
-    detailRows: task.detailRows,
-    outputValuePerUnit,
-    outputValueUnit,
-  })
-  const outputValueTotal =
-    calculatedOutputValueTotal > 0
-      ? calculatedOutputValueTotal
-      : normalizeOutputValueValue(task.outputValueTotal) ?? 0
-
-  task.taskOutputValue = outputValuePerUnit
-  task.outputValuePerUnit = outputValuePerUnit
-  task.outputValueUnit = outputValueUnit
-  task.outputValueTotal = outputValueTotal
-  task.outputValueDifficulty = outputValueDifficulty
-  task.difficulty = task.difficulty || mapOutputValueDifficultyToTaskDifficulty(outputValueDifficulty)
-
-  return task
 }
 
 function mapArtifactToTaskStage(artifact: GeneratedTaskArtifact): ProcessStage {
@@ -659,12 +498,12 @@ function resolveWoolTaskType(artifact: GeneratedTaskArtifact): 'WHOLE_GARMENT' |
 }
 
 function isMergedTaskUnit(unit: GeneratedTaskUnitPreview | undefined): boolean {
-  return unit?.taskUnitType === 'COMBINED_PROCESS_TASK' || unit?.taskUnitType === 'WHOLE_ORDER_TASK'
+  return unit?.taskUnitType === 'MERGED_PRODUCTION_TASK' || unit?.taskUnitType === 'WHOLE_ORDER_TASK'
 }
 
 function resolveTaskUnitAcceptanceMode(unitType: ProductionTaskUnitType): FactoryAcceptanceMode {
   if (unitType === 'WHOLE_ORDER_TASK') return 'WHOLE_ORDER'
-  if (unitType === 'COMBINED_PROCESS_TASK') return 'CONTINUOUS_PROCESS'
+  if (unitType === 'MERGED_PRODUCTION_TASK') return 'MERGED_PRODUCTION_TASK'
   return 'SINGLE_PROCESS'
 }
 
@@ -706,37 +545,15 @@ function getMergedTaskUnitPlannedQty(orderId: string, artifacts: GeneratedTaskAr
   return Math.max(...artifacts.map((artifact) => Math.max(artifact.orderQty, 0)), 0)
 }
 
-function getMergedTaskUnitOutputValueTotal(artifacts: GeneratedTaskArtifact[]): number {
-  if (artifacts.length === 0) return 0
-
-  return roundOutputValue(artifacts.reduce((sum, artifact) => {
-    const artifactRows = generateTaskDetailRowsForArtifact({
-      taskId: `MERGED-VALUE-${artifact.artifactId}`,
-      artifact,
-    })
-    const total = calculateOutputValueTotal({
-      qty: Math.max(artifact.orderQty, 0),
-      detailRows: artifactRows,
-      outputValuePerUnit: artifact.outputValuePerUnit,
-      outputValueUnit: artifact.outputValueUnit,
-    })
-    return sum + total
-  }, 0))
-}
-
 function getMergedTaskUnitStageName(unit: GeneratedTaskUnitPreview | undefined, artifactStageName?: string): string | undefined {
   if (unit?.taskUnitType === 'WHOLE_ORDER_TASK') return '整单任务'
-  if (unit?.taskUnitType === 'COMBINED_PROCESS_TASK') return '组合工序任务'
+  if (unit?.taskUnitType === 'MERGED_PRODUCTION_TASK') return '合并任务'
   return artifactStageName
-}
-
-function getMergedTaskUnitOutputValueUnit(unit: GeneratedTaskUnitPreview | undefined, artifactOutputValueUnit?: string): string {
-  return isMergedTaskUnit(unit) ? '按覆盖工序明细计算' : artifactOutputValueUnit || '产值/件'
 }
 
 function resolveTaskUnitProcessCode(unit: GeneratedTaskUnitPreview | undefined, artifact: GeneratedTaskArtifact): string {
   if (unit?.taskUnitType === 'WHOLE_ORDER_TASK') return 'WHOLE_ORDER_TASK'
-  if (unit?.taskUnitType === 'COMBINED_PROCESS_TASK') return 'COMBINED_PROCESS_TASK'
+  if (unit?.taskUnitType === 'MERGED_PRODUCTION_TASK') return 'MERGED_PRODUCTION_TASK'
   return artifact.systemProcessCode
 }
 
@@ -799,7 +616,7 @@ function compareTaskArtifactsForRoute(left: TaskEmissionArtifactLike, right: Tas
 }
 
 function isMergedTaskEmissionUnit(unit: TaskEmissionUnitLike | undefined): boolean {
-  return unit?.taskUnitType === 'COMBINED_PROCESS_TASK' || unit?.taskUnitType === 'WHOLE_ORDER_TASK'
+  return unit?.taskUnitType === 'MERGED_PRODUCTION_TASK' || unit?.taskUnitType === 'WHOLE_ORDER_TASK'
 }
 
 function isStandaloneWaterSolubleTaskArtifact(artifact: TaskEmissionArtifactLike): boolean {
@@ -924,18 +741,7 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
       const directFactoryAssigned = Boolean(unit && !unit.allowAutoDispatch && unit.assignmentTargetFactoryId)
       const detailRows = buildTaskUnitDetailRows(taskId, unitSourceArtifacts)
       const isMerged = isMergedTaskUnit(unit)
-      const outputValuePerUnit = isMerged ? undefined : artifact.outputValuePerUnit
-      const outputValueUnit = getMergedTaskUnitOutputValueUnit(unit, artifact.outputValueUnit)
-      const outputValueDifficulty = artifact.outputValueDifficulty
       const qty = isMerged ? getMergedTaskUnitPlannedQty(orderId, unitSourceArtifacts) : Math.max(artifact.orderQty, 0)
-      const outputValueTotal = isMerged
-        ? getMergedTaskUnitOutputValueTotal(unitSourceArtifacts)
-        : calculateOutputValueTotal({
-            qty,
-            detailRows,
-            outputValuePerUnit,
-            outputValueUnit,
-          })
       const isWool = artifact.processCode === 'WOOL'
       const woolTaskType = isWool ? resolveWoolTaskType(artifact) : undefined
       const woolKindLabel = woolTaskType === 'PART_PANEL' ? '部位毛织' : woolTaskType === 'WHOLE_GARMENT' ? '整件毛织' : undefined
@@ -966,13 +772,7 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
         assignedFactoryId: directFactoryAssigned ? unit?.assignmentTargetFactoryId : isWool ? OWN_WOOL_FACTORY_ID : undefined,
         assignedFactoryName: directFactoryAssigned ? unit?.assignmentTargetFactoryName : isWool ? OWN_WOOL_FACTORY_NAME : undefined,
         qcPoints: [],
-        taskOutputValue: outputValuePerUnit,
-        difficulty: mapOutputValueDifficultyToTaskDifficulty(outputValueDifficulty),
-        outputValuePerUnit,
-        outputValueUnit,
-        outputValueTotal,
-        outputValueDifficulty,
-        outputValueSource: artifact.outputValueSource,
+        difficulty: 'MEDIUM',
         attachments: [],
         status: 'NOT_STARTED',
         acceptanceStatus: directFactoryAssigned ? 'PENDING' : isWool ? 'ACCEPTED' : undefined,
@@ -996,7 +796,6 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
         routeLaneNo: artifact.routeLaneNo,
         routeParallelGroupId: artifact.routeParallelGroupId,
         routeParallelGroupName: artifact.routeParallelGroupName,
-        routeParallelAcceptanceMode: artifact.routeParallelAcceptanceMode,
         taskKind: 'NORMAL',
         taskCategoryZh: unit?.taskName || artifact.taskTypeLabel,
         taskUnitType,
@@ -1006,7 +805,7 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
         coveredProcesses,
         isMergedTaskUnit: isMerged,
         allowAutoDispatch: unit?.allowAutoDispatch ?? true,
-        pdaStepTemplateCode: isMerged ? 'SIMPLE_FIVE_STEP' : 'DEFAULT_PROCESS_TASK',
+        pdaStepTemplateCode: isMerged ? 'WHOLE_ORDER_FIVE_STEP' : 'DEFAULT_PROCESS_TASK',
         handoverReceiverKind: unit?.handoverReceiverKind,
         handoverReceiverName: unit?.handoverReceiverName,
         saleTypeSnapshot: productionOrder?.demandSnapshot.saleType || '',
@@ -1049,7 +848,7 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
         yarnReceivedWeightKg: undefined,
         mockReceiveSummary: undefined,
         mockExecutionSummary: isMerged
-          ? `按${coveredProcesses.map((item) => item.processName).join('、')}连续执行，PDA 使用领料、开工、关键节点上报、交出、完工 5 步。`
+          ? `整单承接范围：${coveredProcesses.map((item) => item.processName).join('、')}；PDA 按整单任务既有流程执行。`
           : undefined,
         mockHandoverSummary: isWool ? undefined : unit ? `完成后交${unit.handoverReceiverName}` : undefined,
         mockStartPrerequisiteMet: undefined,
@@ -1083,7 +882,7 @@ function createInitialProcessTasks(): ProcessTask[] {
   // processTasks 仅作为“任务单兼容层”，主来源必须是统一生成引擎的 TASK 产物。
   // 字典中每个活跃工艺至少保留 3 条由生产单 + 技术包快照派生的 mock。
   if (!generatedTasks.length) return []
-  return generatedTasks.map((task) => ensureProcessTaskOutputValue(task))
+  return generatedTasks
 }
 
 export const processTasks: ProcessTask[] = createInitialProcessTasks()
@@ -1115,24 +914,13 @@ function buildTaskFromRuntimePreviewUnit(
   const isMerged = isMergedTaskUnit(unit)
   const assignmentMode: AssignmentMode = unit.allowAutoDispatch ? 'DIRECT' : 'DIRECT'
   const directFactoryAssigned = Boolean(!unit.allowAutoDispatch && unit.assignmentTargetFactoryId)
-  const outputValuePerUnit = isMerged ? undefined : primaryArtifact?.outputValuePerUnit
-  const outputValueUnit = getMergedTaskUnitOutputValueUnit(unit, primaryArtifact?.outputValueUnit)
-  const outputValueDifficulty = primaryArtifact?.outputValueDifficulty ?? 'MEDIUM'
   const qty = isMerged ? getMergedTaskUnitPlannedQty(preview.productionOrderId, artifacts) : Math.max(primaryArtifact?.orderQty ?? getOrderQty(preview.productionOrderId), 0)
-  const outputValueTotal = isMerged
-    ? getMergedTaskUnitOutputValueTotal(artifacts)
-    : calculateOutputValueTotal({
-        qty,
-        detailRows,
-        outputValuePerUnit,
-        outputValueUnit,
-      })
   const receiver = resolveTaskUnitReceiver(unit, primaryArtifact ?? {
     processCode: unit.taskUnitType,
     processName: unit.taskName,
   } as GeneratedTaskArtifact)
 
-  return ensureProcessTaskOutputValue({
+  return {
     taskId,
     taskNo: taskId,
     productionOrderId: preview.productionOrderId,
@@ -1154,13 +942,7 @@ function buildTaskFromRuntimePreviewUnit(
     assignedFactoryId: directFactoryAssigned ? unit.assignmentTargetFactoryId : undefined,
     assignedFactoryName: directFactoryAssigned ? unit.assignmentTargetFactoryName : undefined,
     qcPoints: [],
-    taskOutputValue: outputValuePerUnit,
-    difficulty: mapOutputValueDifficultyToTaskDifficulty(outputValueDifficulty),
-    outputValuePerUnit,
-    outputValueUnit,
-    outputValueTotal,
-    outputValueDifficulty,
-    outputValueSource: primaryArtifact?.outputValueSource,
+    difficulty: 'MEDIUM',
     attachments: [],
     status: 'NOT_STARTED',
     acceptanceStatus: directFactoryAssigned ? 'PENDING' : undefined,
@@ -1178,7 +960,6 @@ function buildTaskFromRuntimePreviewUnit(
     routeLaneNo: primaryArtifact?.routeLaneNo,
     routeParallelGroupId: primaryArtifact?.routeParallelGroupId,
     routeParallelGroupName: primaryArtifact?.routeParallelGroupName,
-    routeParallelAcceptanceMode: primaryArtifact?.routeParallelAcceptanceMode,
     taskKind: 'NORMAL',
     taskCategoryZh: unit.taskName,
     taskUnitType: unit.taskUnitType,
@@ -1188,7 +969,7 @@ function buildTaskFromRuntimePreviewUnit(
     coveredProcesses: cloneCoveredProcesses(unit.coveredProcesses),
     isMergedTaskUnit: isMerged,
     allowAutoDispatch: unit.allowAutoDispatch,
-    pdaStepTemplateCode: isMerged ? 'SIMPLE_FIVE_STEP' : 'DEFAULT_PROCESS_TASK',
+    pdaStepTemplateCode: isMerged ? 'WHOLE_ORDER_FIVE_STEP' : 'DEFAULT_PROCESS_TASK',
     handoverReceiverKind: unit.handoverReceiverKind,
     handoverReceiverName: unit.handoverReceiverName,
     saleTypeSnapshot: preview.saleType,
@@ -1218,7 +999,7 @@ function buildTaskFromRuntimePreviewUnit(
     taskTypeMode: primaryArtifact?.taskTypeMode,
     isSpecialCraft: primaryArtifact?.isSpecialCraft,
     mockReceiveSummary: isMerged ? `${unit.taskName}已生成，覆盖工序只展示不拆分。` : undefined,
-    mockExecutionSummary: isMerged ? '按领料、开工、关键节点上报、交出、完工 5 步执行。' : undefined,
+    mockExecutionSummary: isMerged ? '按整单任务既有流程执行。' : undefined,
     mockHandoverSummary: `完成后交${unit.handoverReceiverName}`,
     mockStartPrerequisiteMet: isMerged,
     ...receiver,
@@ -1233,7 +1014,7 @@ function buildTaskFromRuntimePreviewUnit(
         by: '系统',
       },
     ],
-  })
+  }
 }
 
 export function recordTaskGenerationPreview(preview: ProductionTaskGenerationPreview): TaskGenerationRuntimeRecord {
@@ -1317,12 +1098,12 @@ export function generateTaskId(orderId: string, seq: number): string {
 
 // 添加任务
 export function addTask(task: ProcessTask): void {
-  processTasks.push(ensureProcessTaskOutputValue(task))
+  processTasks.push(task)
   notifyProcessTasksMutated()
 }
 
 // 批量添加任务
 export function addTasks(tasks: ProcessTask[]): void {
-  processTasks.push(...tasks.map((task) => ensureProcessTaskOutputValue(task)))
+  processTasks.push(...tasks)
   notifyProcessTasksMutated()
 }

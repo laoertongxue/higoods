@@ -645,7 +645,7 @@ function renderPostFinishingWaitHandoverDetailDrawer(): string {
             { label: '仓库记录', value: row.warehouseRecordNo },
             { label: '复检单', value: row.recheckOrderNo },
             { label: '生产单', value: row.sourceProductionOrderNo },
-            { label: '后道任务', value: row.sourceTaskNo },
+            { label: '后道阶段处理记录', value: row.sourceTaskNo },
             { label: '款式', value: `${row.spuCode} / ${row.spuName}` },
             { label: 'SKU', value: row.skuSummary },
             { label: '待交出', value: `${row.waitHandoverGarmentQty} ${row.qtyUnit}` },

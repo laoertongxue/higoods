@@ -36,6 +36,58 @@ import {
   listCuttingSpecialCraftFeiTicketBindingsForProjection,
   type CuttingSpecialCraftFeiTicketBinding,
 } from './special-craft-fei-ticket-flow.ts'
+import { listCurrentEffectiveTaskAssignments } from '../effective-task-assignments.ts'
+
+export interface PpicPickupLatestAssignmentProjection {
+  runtimeTaskId: string
+  assignmentIds: string[]
+  receiverFactories: Array<{ factoryId: string; factoryName: string; skuCodes: string[]; qty: number }>
+  requiresRepackAtPickup: boolean
+  mixedProductionOrderBagCodes: string[]
+  blockedBagCodes: string[]
+  ruleNotes: string[]
+}
+
+/**
+ * 仅在 PPIC 持车缝任务单/生产单实际领料时调用。
+ * 分配或改派时不创建拆袋重装待办；此处读取最新有效分配，再核对袋内菲票。
+ */
+export function buildPpicPickupLatestAssignmentProjection(input: {
+  runtimeTaskId: string
+  bagLines: Array<{ bagCode: string; productionOrderId: string; skuCode: string; feiTicketNo: string }>
+}): PpicPickupLatestAssignmentProjection {
+  const assignments = listCurrentEffectiveTaskAssignments(input.runtimeTaskId)
+  if (assignments.length === 0) throw new Error('实际领料前未找到最新有效任务分配，请PPIC先确认任务分配结果')
+  const allowedSkuCodes = new Set(assignments.flatMap((assignment) => assignment.skuLines.map((line) => line.skuCode)))
+  const productionOrdersByBag = new Map<string, Set<string>>()
+  for (const line of input.bagLines) {
+    const orderIds = productionOrdersByBag.get(line.bagCode) ?? new Set<string>()
+    orderIds.add(line.productionOrderId)
+    productionOrdersByBag.set(line.bagCode, orderIds)
+  }
+  const mixedProductionOrderBagCodes = [...productionOrdersByBag]
+    .filter(([, orderIds]) => orderIds.size > 1)
+    .map(([bagCode]) => bagCode)
+  const blockedBagCodes = [...new Set(input.bagLines.filter((line) => !allowedSkuCodes.has(line.skuCode)).map((line) => line.bagCode))]
+  return {
+    runtimeTaskId: input.runtimeTaskId,
+    assignmentIds: assignments.map((assignment) => assignment.assignmentId),
+    receiverFactories: assignments.map((assignment) => ({
+      factoryId: assignment.factoryId,
+      factoryName: assignment.factoryName,
+      skuCodes: assignment.skuLines.map((line) => line.skuCode),
+      qty: assignment.assignedQty,
+    })),
+    requiresRepackAtPickup: mixedProductionOrderBagCodes.length > 0 || assignments.length > 1,
+    mixedProductionOrderBagCodes,
+    blockedBagCodes,
+    ruleNotes: [
+      '任务分配和改派不生成拆袋重装待办。',
+      'PPIC实际领料时读取最新有效分配；需要按工厂拆分或出现混装袋时，裁床待交出仓现场拆袋重装。',
+      '混装袋不影响任务分配，但袋内存在不属于最新分配SKU的菲票时必须阻断交出。',
+    ],
+  }
+}
 
 export type CuttingSewingDispatchOrderStatus =
   | '草稿'

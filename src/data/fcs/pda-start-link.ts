@@ -393,7 +393,7 @@ export function getStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo {
   const hint = met
     ? '已满足开工前置，工厂可开始本工序'
     : blocked?.code === 'WAIT_PREV_DONE'
-      ? '同厂连续工序无需重复领料，待上一工序完成后可直接开工'
+      ? '同厂衔接无需重复领料，待上一工序完成后可直接开工'
       : blocked?.code === 'WAIT_INTERNAL_TRANSFER'
         ? '当前工序由仓内后道执行，需等待仓内流转到位后开工'
         : '外部工厂需先完成仓库发料领料后才能开工'

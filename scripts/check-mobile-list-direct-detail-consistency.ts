@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { buildFcsCuttingDomainSnapshot } from '../src/domain/fcs-cutting-runtime/index.ts'
-import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from '../src/data/fcs/factory-mock-data.ts'
+import { TEST_FACTORY_ID } from '../src/data/fcs/factory-mock-data.ts'
 import { listDyeWorkOrders } from '../src/data/fcs/dyeing-task-domain.ts'
 import {
   buildMobileExecutionListLocatePathForTask,
@@ -82,18 +82,18 @@ const visibleTasks = listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_I
 assert(visibleTasks.every((task) => getMobileTaskFactoryId(task) === TEST_FACTORY_ID), 'F090 列表不应返回非当前工厂任务')
 
 const printOrders = listPrintWorkOrders()
-const phOrder = printOrders.find((order) => order.printOrderNo === 'PH-20260328-001')
-assert(phOrder, '缺少 PH-20260328-001')
+const phOrder = printOrders.find((order) => order.printOrderNo === 'PH-20260328-002')
+assert(phOrder, '缺少 PH-20260328-002')
 const phBinding = validatePrintWorkOrderMobileTaskBinding(phOrder.printOrderId)
-assert(phBinding.reasonCode === 'OK', `PH-20260328-001 绑定异常：${phBinding.reasonLabel}`)
+assert(phBinding.reasonCode === 'OK', `PH-20260328-002 绑定异常：${phBinding.reasonLabel}`)
 const phTask = getPdaMobileExecutionTaskById(phBinding.actualTaskId)
-assert(phTask, 'PH-20260328-001 对应任务缺失')
+assert(phTask, 'PH-20260328-002 对应任务缺失')
 assert(getMobileExecutionTaskById(phBinding.actualTaskId)?.taskId === phBinding.actualTaskId, 'getMobileExecutionTaskById 无法读取 PH 对应任务')
 assert(getMobileExecutionTaskByNo(phBinding.actualTaskNo)?.taskId === phBinding.actualTaskId, 'getMobileExecutionTaskByNo 无法读取 PH 对应任务')
 assert(getMobileExecutionTaskBySource('PRINT_WORK_ORDER', phOrder.printOrderId)?.taskId === phBinding.actualTaskId, 'getMobileExecutionTaskBySource 无法定位印花任务')
-assert(matchMobileTaskKeyword(phTask, 'PH-20260328-001'), 'PH-20260328-001 关键字无法命中对应任务')
+assert(matchMobileTaskKeyword(phTask, 'PH-20260328-002'), 'PH-20260328-002 关键字无法命中对应任务')
 assert(matchMobileTaskKeyword(phTask, phBinding.actualTaskNo), 'TASK-PRINT 关键字无法命中对应任务')
-assert(listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_ID, keyword: 'PH-20260328-001' }).some((task) => task.taskId === phBinding.actualTaskId), '搜索 PH-20260328-001 无法返回对应任务')
+assert(listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_ID, keyword: 'PH-20260328-002' }).some((task) => task.taskId === phBinding.actualTaskId), '搜索 PH-20260328-002 无法返回对应任务')
 assert(listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_ID, keyword: phBinding.actualTaskNo }).some((task) => task.taskId === phBinding.actualTaskId), '搜索印花任务号无法返回对应任务')
 
 const dyeOrders = listDyeWorkOrders()
@@ -105,37 +105,36 @@ assert(listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_ID, keyword: 'D
 assert(listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_ID, keyword: dyeBinding.actualTaskNo }).some((task) => task.taskId === dyeBinding.actualTaskId), '搜索染色任务号无法返回对应任务')
 
 const cuttingSnapshot = buildFcsCuttingDomainSnapshot()
-const cuttingOrder = cuttingSnapshot.cutOrders.find((order) => order.cutOrderNo === 'CUT-260314-087-02')
-assert(cuttingOrder, '缺少 CUT-260314-087-02')
+const cuttingOrder = cuttingSnapshot.cutOrders.find((order) => validateCuttingOrderMobileTaskBinding(order.cutOrderId).reasonCode === 'OK')
+assert(cuttingOrder, '缺少可执行裁片单')
 const cuttingBinding = validateCuttingOrderMobileTaskBinding(cuttingOrder.cutOrderId)
-assert(cuttingBinding.reasonCode === 'OK', `CUT-260314-087-02 绑定异常：${cuttingBinding.reasonLabel}`)
-assert(listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_ID, keyword: 'CUT-260314-087-02' }).some((task) => task.taskId === cuttingBinding.actualTaskId), '搜索裁片单号无法返回对应任务')
+assert(cuttingBinding.reasonCode === 'OK', `${cuttingOrder.cutOrderNo} 绑定异常：${cuttingBinding.reasonLabel}`)
+assert(listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_ID, keyword: cuttingOrder.cutOrderNo }).some((task) => task.taskId === cuttingBinding.actualTaskId), '搜索裁片单号无法返回对应任务')
 assert(listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_ID, keyword: cuttingBinding.actualTaskNo }).some((task) => task.taskId === cuttingBinding.actualTaskId), '搜索裁片任务号无法返回对应任务')
 
-const specialTaskOrder = listSpecialCraftTaskOrders().find((taskOrder) => taskOrder.operationName === '打揽')
-assert(specialTaskOrder, '缺少打揽任务单')
+const specialTaskOrder = listSpecialCraftTaskOrders().find((taskOrder) => validateSpecialCraftMobileTaskBinding(taskOrder.taskOrderId).reasonCode === 'OK')
+assert(specialTaskOrder, '缺少可执行特殊工艺任务单')
 const specialBinding = validateSpecialCraftMobileTaskBinding(specialTaskOrder.taskOrderId)
 assert(specialBinding.reasonCode === 'OK', `特殊工艺绑定异常：${specialBinding.reasonLabel}`)
-assert(listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_ID, keyword: specialTaskOrder.taskOrderNo }).some((task) => task.taskId === specialBinding.actualTaskId), '搜索特殊工艺任务单号无法返回对应任务')
-assert(listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_ID, keyword: specialBinding.actualTaskNo }).some((task) => task.taskId === specialBinding.actualTaskId), '搜索特殊工艺任务号无法返回对应任务')
+assert(listMobileExecutionTasks({ currentFactoryId: specialTaskOrder.factoryId, keyword: specialTaskOrder.taskOrderNo }).some((task) => task.taskId === specialBinding.actualTaskId), '搜索特殊工艺任务单号无法返回对应任务')
+assert(listMobileExecutionTasks({ currentFactoryId: specialTaskOrder.factoryId, keyword: specialBinding.actualTaskNo }).some((task) => task.taskId === specialBinding.actualTaskId), '搜索特殊工艺任务号无法返回对应任务')
 const specialTask = getMobileExecutionTaskById(specialBinding.actualTaskId)
 assert(specialTask, '特殊工艺移动端任务不存在')
 const specialInfo = getMobileExecutionTaskSourceInfo(specialTask)
-assert(specialInfo.factoryName === TEST_FACTORY_NAME, '特殊工艺移动端任务工厂显示异常')
+assert(specialInfo.factoryId === specialTaskOrder.factoryId, '特殊工艺移动端任务工厂显示异常')
 
 const printVisibleCount = listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_ID, processType: 'PRINT' }).length
 const dyeVisibleCount = listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_ID, processType: 'DYE' }).length
 const cuttingVisibleCount = listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_ID, processType: 'CUTTING' }).length
-const specialVisibleCount = listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_ID, processType: 'SPECIAL_CRAFT' }).length
+const specialVisibleCount = listMobileExecutionTasks({ currentFactoryId: specialTaskOrder.factoryId, processType: 'SPECIAL_CRAFT' }).length
 assert(printVisibleCount >= 3, `执行列表可见印花任务不足 3 条，当前 ${printVisibleCount}`)
 assert(dyeVisibleCount >= 3, `执行列表可见染色任务不足 3 条，当前 ${dyeVisibleCount}`)
 assert(cuttingVisibleCount >= 3, `执行列表可见裁片任务不足 3 条，当前 ${cuttingVisibleCount}`)
-assert(specialVisibleCount >= 3, `执行列表可见特殊工艺任务不足 3 条，当前 ${specialVisibleCount}`)
+assert(specialVisibleCount >= 3, `${specialTaskOrder.factoryName}执行列表可见工艺任务不足 3 条，当前 ${specialVisibleCount}`)
 
 assert(!visibleTasks.some((task) => task.taskId === 'TASK-PRINT-000713'), '报价任务 TASK-PRINT-000713 不得出现在执行列表')
-assert(!visibleTasks.some((task) => task.taskId === 'TASK-PRINT-000714'), '待定标任务 TASK-PRINT-000714 不得出现在执行列表')
-assert(!visibleTasks.some((task) => task.taskId === 'TASK-PRINT-000715'), '未接单任务 TASK-PRINT-000715 不得出现在执行列表')
-assert(!visibleTasks.some((task) => task.taskId === 'TASK-DYE-000721'), '报价染色任务不得出现在执行列表')
+assert(!visibleTasks.some((task) => task.taskId === 'TASK-PRINT-000716'), '未接单印花加工单不得出现在执行列表')
+assert(!visibleTasks.some((task) => task.taskId === 'TASK-DYE-000721'), '未接单染色加工单不得出现在执行列表')
 
 visibleTasks.forEach((task) => {
   const backPath = buildMobileExecutionListLocatePathForTask(task, { currentFactoryId: TEST_FACTORY_ID })

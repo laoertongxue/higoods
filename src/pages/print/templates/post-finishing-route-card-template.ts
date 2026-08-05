@@ -45,21 +45,21 @@ function isPlaceholderImage(sourceLabel: string): boolean {
 function getPostActionFields(order: PostFinishingWorkOrder): PrintField[] {
   if (order.isPostDoneBySewingFactory) {
     return [
-      { label: '后道状态', value: '后道已由车缝厂完成', emphasis: true },
+      { label: '实际工序状态', value: '实际工序已由车缝厂完成', emphasis: true },
       { label: '车缝工厂', value: order.sourceSewingFactoryName },
       { label: '车缝任务号', value: order.sourceSewingTaskNo },
-      { label: '车缝厂后道完成成衣件数', value: formatPrintQty(order.postAction.completedPostGarmentQty ?? order.postAction.acceptedGarmentQty, order.postAction.qtyUnit), emphasis: true },
-      { label: '后道完成时间', value: valueOrDash(order.postAction.finishedAt) },
-      { label: '流转说明', value: order.postAction.skipReason || '质检后不需要后道时直接进入复检' },
+      { label: '车缝厂完成实际工序成衣件数', value: formatPrintQty(order.postAction.completedPostGarmentQty ?? order.postAction.acceptedGarmentQty, order.postAction.qtyUnit), emphasis: true },
+      { label: '实际工序完成时间', value: valueOrDash(order.postAction.finishedAt) },
+      { label: '流转说明', value: order.postAction.skipReason || '质检后无需执行实际工序时直接进入复检' },
     ]
   }
 
   return [
-    { label: '后道状态', value: order.postAction.status },
-    { label: '待后道成衣件数', value: formatPrintQty(order.qcAction.acceptedGarmentQty, order.qcAction.qtyUnit), emphasis: true },
-    { label: '后道完成成衣件数', value: actionQty(order.postAction, order.postAction.completedPostGarmentQty), emphasis: true },
-    { label: '后道操作人', value: valueOrDash(order.postAction.operatorName) },
-    { label: '后道完成时间', value: valueOrDash(order.postAction.finishedAt) },
+    { label: '实际工序状态', value: order.postAction.status },
+    { label: '待执行实际工序成衣件数', value: formatPrintQty(order.qcAction.acceptedGarmentQty, order.qcAction.qtyUnit), emphasis: true },
+    { label: '实际工序完成成衣件数', value: actionQty(order.postAction, order.postAction.completedPostGarmentQty), emphasis: true },
+    { label: '实际工序操作人', value: valueOrDash(order.postAction.operatorName) },
+    { label: '实际工序完成时间', value: valueOrDash(order.postAction.finishedAt) },
     { label: '备注', value: valueOrDash(order.postAction.remark) },
   ]
 }
@@ -72,7 +72,7 @@ function buildRouteRows(order: PostFinishingWorkOrder): string[][] {
 
   if (!order.isPostDoneBySewingFactory) {
     rows.push({
-      node: '后道',
+      node: '实际工序',
       action: order.postAction,
       qty: actionQty(order.postAction, order.postAction.completedPostGarmentQty ?? order.postAction.acceptedGarmentQty),
     })
@@ -145,7 +145,7 @@ function renderSection(section: PrintSection): string {
 export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBuildInput): PrintDocument {
   const order = getPostFinishingWorkOrderById(input.sourceId)
   if (!order) {
-    throw new Error(`未找到后道单：${input.sourceId}`)
+    throw new Error(`未找到实际工序单：${input.sourceId}`)
   }
 
   const printAt = getPrintGeneratedAt()
@@ -171,7 +171,7 @@ export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBui
   }).toString()
 
   const headerFields: PrintField[] = [
-    { label: '后道单号', value: order.postOrderNo, emphasis: true },
+    { label: '实际工序单号', value: order.postOrderNo, emphasis: true },
     { label: '生产单', value: order.sourceProductionOrderNo, emphasis: true },
     { label: '来源任务', value: order.sourceTaskNo },
     { label: '来源车缝任务', value: order.sourceSewingTaskNo },
@@ -191,7 +191,7 @@ export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBui
   ]
 
   const baseFields: PrintField[] = [
-    { label: '后道单号', value: order.postOrderNo },
+    { label: '实际工序单号', value: order.postOrderNo },
     { label: '生产单', value: order.sourceProductionOrderNo },
     { label: '来源任务', value: order.sourceTaskNo },
     { label: '来源车缝任务', value: order.sourceSewingTaskNo },
@@ -200,7 +200,7 @@ export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBui
     { label: '是否专门后道工厂', value: order.isDedicatedPostFactory ? '是' : '否' },
     { label: '后道是否已由车缝厂完成', value: order.isPostDoneBySewingFactory ? '是' : '否' },
     { label: '计划成衣件数', value: formatPrintQty(order.plannedGarmentQty, order.plannedGarmentQtyUnit), emphasis: true },
-    { label: '已完成后道成衣件数', value: formatPrintQty(order.postAction.completedPostGarmentQty ?? order.postAction.acceptedGarmentQty, order.postAction.qtyUnit), emphasis: true },
+    { label: '已完成实际工序成衣件数', value: formatPrintQty(order.postAction.completedPostGarmentQty ?? order.postAction.acceptedGarmentQty, order.postAction.qtyUnit), emphasis: true },
     { label: '待质检成衣件数', value: formatPrintQty(order.receiveAction.acceptedGarmentQty, order.receiveAction.qtyUnit), emphasis: true },
     { label: '待复检成衣件数', value: formatPrintQty(order.qcAction.acceptedGarmentQty, order.qcAction.qtyUnit), emphasis: true },
     { label: '待交出成衣件数', value: formatPrintQty(waitHandoverRecord?.availableObjectQty ?? order.recheckAction.acceptedGarmentQty, '件'), emphasis: true },
@@ -239,10 +239,10 @@ export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBui
     },
     {
       sectionId: 'post',
-      title: '后道区',
+      title: '实际工序区',
       fields: getPostActionFields(order),
       note: order.isPostDoneBySewingFactory
-        ? '质检后不需要后道时直接进入复检。'
+        ? '质检后无需执行实际工序时直接进入复检。'
         : '',
     },
     {
@@ -287,13 +287,13 @@ export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBui
   return {
     printDocumentId: createPrintDocumentId(input, 'POST_FINISHING_ROUTE_CARD'),
     documentType: 'TASK_ROUTE_CARD',
-    documentTitle: '后道任务流转卡',
+    documentTitle: '后道阶段处理流转卡',
     sourceType: 'POST_FINISHING_WORK_ORDER',
     sourceId: order.postOrderId,
     templateCode: 'POST_FINISHING_ROUTE_CARD',
     paperType: 'A4',
     orientation: 'portrait',
-    printTitle: '后道任务流转卡',
+    printTitle: '后道阶段处理流转卡',
     printSubtitle: `${sourceLabel}｜${flowText}`,
     headerFields,
     imageBlocks: [
@@ -309,7 +309,7 @@ export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBui
       {
         title: '任务二维码',
         value: qrValue,
-        description: '扫码进入工厂端后道任务详情',
+        description: '扫码进入工厂端后道阶段处理详情',
         sizeMm: 30,
       },
     ],
@@ -319,7 +319,7 @@ export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBui
     signatureBlocks: [
       { label: '接收人签字', signerRole: '接收人' },
       { label: '质检人签字', signerRole: '质检人' },
-      { label: order.isPostDoneBySewingFactory ? '车缝厂后道签字' : '后道人签字', signerRole: order.isPostDoneBySewingFactory ? '车缝后道人' : '后道人' },
+      { label: order.isPostDoneBySewingFactory ? '车缝厂实际工序签字' : '实际工序操作人签字', signerRole: '实际工序操作人' },
       { label: '复检人签字', signerRole: '复检人' },
       { label: '交出人签字', signerRole: '交出人' },
       { label: '接收方签字', signerRole: '接收方' },
@@ -395,7 +395,7 @@ export function renderPostFinishingRouteCardTemplate(doc: PrintDocument): string
                 label: qr.title,
               }) : ''}
             </div>
-            <div class="print-note">${escapeHtml(qr?.description || '扫码进入工厂端后道任务详情')}</div>
+            <div class="print-note">${escapeHtml(qr?.description || '扫码进入工厂端后道阶段处理详情')}</div>
           </section>
         </div>
 

@@ -108,6 +108,12 @@ export interface PrintWorkOrder {
   dispatchPriceDisplay: string
   printFactoryId: string
   printFactoryName: string
+  acceptanceStatus?: 'PENDING' | 'ACCEPTED' | 'REJECTED'
+  acceptedAt?: string
+  acceptedBy?: string
+  rejectedAt?: string
+  rejectedBy?: string
+  rejectionReason?: string
   sourceWarehouseId?: string
   targetTransferWarehouseId: string
   targetTransferWarehouseName: string
@@ -248,8 +254,32 @@ const reviewRecordStore = new Map<string, MutableReviewRecord>()
 
 let seeded = false
 
+export interface PrintProcessMutationSnapshot {
+  workOrders: Array<[string, MutablePrintWorkOrder]>
+  nodeRecords: Array<[string, MutableNodeRecord[]]>
+  reviewRecords: Array<[string, MutableReviewRecord]>
+}
+
+export function capturePrintProcessMutationState(): PrintProcessMutationSnapshot {
+  return structuredClone({
+    workOrders: Array.from(workOrderStore.entries()),
+    nodeRecords: Array.from(nodeRecordStore.entries()),
+    reviewRecords: Array.from(reviewRecordStore.entries()),
+  })
+}
+
+export function restorePrintProcessMutationState(snapshot: PrintProcessMutationSnapshot): void {
+  const restored = structuredClone(snapshot)
+  workOrderStore.clear()
+  nodeRecordStore.clear()
+  reviewRecordStore.clear()
+  restored.workOrders.forEach(([id, order]) => workOrderStore.set(id, order))
+  restored.nodeRecords.forEach(([id, records]) => nodeRecordStore.set(id, records))
+  restored.reviewRecords.forEach(([id, record]) => reviewRecordStore.set(id, record))
+}
+
 const GENERATED_PRINT_CRAFTS = listActiveProcessCraftDefinitions()
-  .filter((definition) => definition.processCode === 'PRINT' && definition.defaultDocType === 'TASK')
+  .filter((definition) => definition.processCode === 'PRINT' && definition.defaultDocType === 'PREPARATION_ORDER')
 
 interface GeneratedPrintContext {
   productionOrder: ProductionOrder
@@ -527,7 +557,7 @@ function buildFreshPrintMobileTask(input: {
     qcPoints: [],
     attachments: [],
     status: 'NOT_STARTED',
-    acceptanceStatus: hasFactory ? 'ACCEPTED' : 'PENDING',
+    acceptanceStatus: 'PENDING',
     dispatchRemark: hasFactory ? '印花加工单已分配，待工厂接收。' : '正式生产单已生成加工单，待分配工厂。',
     dispatchedAt: hasFactory ? input.createdAt : undefined,
     dispatchedBy: hasFactory ? '平台自动生成' : undefined,
@@ -542,13 +572,13 @@ function buildFreshPrintMobileTask(input: {
     processBusinessCode: 'PRINT',
     processBusinessName: input.processName,
     mockProcessKey: 'PRINTING',
-    mockOrigin: hasFactory ? 'EXEC_NOT_STARTED' : 'DIRECT_PENDING',
+    mockOrigin: 'DIRECT_PENDING',
     handoutStatus: 'PENDING',
     createdAt: input.createdAt,
     updatedAt: input.createdAt,
     auditLogs: [],
     mockReceiveSummary: hasFactory ? '印花加工单已分配，待工厂接收。' : '印花加工单待分配工厂。',
-    mockExecutionSummary: '按正式技术包印花工艺执行。',
+    mockExecutionSummary: '按正式技术包印花工序执行。',
     mockHandoverSummary: '完成印花后统一交出。',
   }
 }
@@ -741,20 +771,20 @@ function addSeedWorkOrder(input: Omit<
     const hasFactory = Boolean(input.printFactoryId)
     task.assignmentMode = 'DIRECT'
     task.assignmentStatus = hasFactory ? 'ASSIGNED' : 'UNASSIGNED'
-    task.acceptanceStatus = hasFactory ? 'ACCEPTED' : 'PENDING'
+    task.acceptanceStatus = 'PENDING'
     task.assignedFactoryId = hasFactory ? input.printFactoryId : undefined
     task.assignedFactoryName = hasFactory ? input.printFactoryName : '待分配工厂'
     task.tenderId = undefined
     task.awardedAt = undefined
     task.dispatchedBy = hasFactory ? '平台派单' : undefined
-    task.dispatchRemark = hasFactory ? '印花加工单派单后直接进入执行待加工' : '正式生产单已生成加工单，待分配工厂。'
+    task.dispatchRemark = hasFactory ? '印花加工单已分配，待工厂接单。' : '正式生产单已生成加工单，待分配工厂。'
     task.dispatchPrice = input.dispatchPrice ?? 1200
     task.dispatchPriceCurrency = 'IDR'
     task.dispatchPriceUnit = 'Yard'
     task.standardPriceCurrency = 'IDR'
     task.standardPriceUnit = 'Yard'
-    task.mockOrigin = 'DIRECT_ASSIGNED_EXECUTION'
-    task.mockReceiveSummary = '印花加工单已派单，直接进入执行待加工。'
+    task.mockOrigin = 'DIRECT_PENDING'
+    task.mockReceiveSummary = hasFactory ? '印花加工单已分配，待工厂接单。' : '印花加工单待分配工厂。'
   }
 
   workOrderStore.set(input.printOrderId, {
@@ -774,6 +804,30 @@ function addSeedWorkOrder(input: Omit<
 }
 
 function seedWorkOrders(): void {
+  const seededExecutionProjections = [
+    { taskId: 'TASK-PRINT-000716', productionOrderId: 'PO-20260328-071', qty: 920, createdAt: '2026-03-27 08:00:00' },
+    { taskId: 'TASK-PRINT-000717', productionOrderId: 'PO-20260328-074', qty: 872, createdAt: '2026-03-27 09:00:00' },
+    { taskId: 'TASK-PRINT-000718', productionOrderId: 'PO-20260328-075', qty: 808, createdAt: '2026-03-27 10:00:00' },
+    { taskId: 'TASK-PRINT-000719', productionOrderId: 'PO-20260328-076', qty: 1044, createdAt: '2026-03-27 11:00:00' },
+    { taskId: 'TASK-PRINT-000720', productionOrderId: 'PO-20260328-077', qty: 468, createdAt: '2026-03-27 11:30:00' },
+    { taskId: 'TASK-PRINT-000721', productionOrderId: 'PO-20260329-078', qty: 624, createdAt: '2026-03-28 08:00:00' },
+    { taskId: 'TASK-PRINT-000724', productionOrderId: 'PO-20260329-079', qty: 1010, createdAt: '2026-03-28 09:00:00' },
+    { taskId: 'TASK-PRINT-000712', productionOrderId: 'PO-20260329-080', qty: 740, createdAt: '2026-03-28 10:00:00' },
+  ]
+  seededExecutionProjections.forEach((projection) => {
+    if (getPrintingTaskById(projection.taskId)) return
+    registerPdaGenericProcessTask(buildFreshPrintMobileTask({
+      ...projection,
+      taskNo: projection.taskId,
+      spuCode: `PRINT-${projection.taskId}`,
+      spuName: '印花加工物料',
+      requiredDeliveryDate: '2026-03-31',
+      factoryId: TEST_FACTORY_ID,
+      factoryName: TEST_FACTORY_NAME,
+      qtyDisplayUnit: '片',
+      processName: '印花',
+    }))
+  })
   const printingTask = getPrintingTaskById('TASK-PRINT-000717')
   const transferTask = getPrintingTaskById('TASK-PRINT-000718')
   const handoverTask = getPrintingTaskById('TASK-PRINT-000719')
@@ -786,12 +840,14 @@ function seedWorkOrders(): void {
   syncLinkedTaskState('TASK-PRINT-000718', {
     status: 'IN_PROGRESS',
     acceptanceStatus: 'ACCEPTED',
+    startedAt: transferTask?.startedAt || '2026-03-28 11:00:00',
     blockReason: undefined,
     blockRemark: undefined,
   })
   syncLinkedTaskState('TASK-PRINT-000719', {
     status: 'IN_PROGRESS',
     acceptanceStatus: 'ACCEPTED',
+    startedAt: handoverTask?.startedAt || '2026-03-28 12:30:00',
     finishedAt: undefined,
     blockReason: undefined,
     blockRemark: undefined,
@@ -829,6 +885,11 @@ function seedWorkOrders(): void {
     receiverWrittenAt: '2026-03-29 16:50:00',
     diffReason: '',
   })
+  const handoverSeed = ensureSeededHandoverRecord({
+    taskId: 'TASK-PRINT-000719',
+    submittedQty: 1044,
+    submittedAt: '2026-03-28 18:20:00',
+  })
   syncLinkedTaskState('TASK-PRINT-000716', {
     status: 'IN_PROGRESS',
     startedAt: '2026-03-28 13:20:00',
@@ -854,7 +915,9 @@ function seedWorkOrders(): void {
     receiverRemark: '中转区域发现局部花位偏差',
     diffReason: '局部花位偏差，需退回补送',
   })
-  const handoverHead = getPrimaryHandoverOrder('TASK-PRINT-000719')
+  const handoverHead = handoverSeed.handoverOrderId
+    ? getHandoverOrderById(handoverSeed.handoverOrderId)
+    : getPrimaryHandoverOrder('TASK-PRINT-000719')
 
   addSeedWorkOrder({
     printOrderId: PRINT_WORK_ORDER_IDS.WAIT_ARTWORK,
@@ -1815,12 +1878,16 @@ export function getPrintReviewStatusLabel(status: PrintReviewStatus): string {
 
 export function listPrintWorkOrders(): PrintWorkOrder[] {
   syncDerivedWorkflow()
-  return listGeneratedPrintWorkOrders().map((order) => cloneWorkOrder(order))
+  return listGeneratedPrintWorkOrders().map((order) => {
+    ensurePrintAcceptanceFact(order)
+    return cloneWorkOrder(order)
+  })
 }
 
 export function getPrintWorkOrderById(printOrderId: string): PrintWorkOrder | undefined {
   syncDerivedWorkflow()
   const canonical = workOrderStore.get(printOrderId)
+  if (canonical) ensurePrintAcceptanceFact(canonical)
   const order = listGeneratedPrintWorkOrders().find((item) => item.printOrderId === printOrderId)
   return order && canonical
     ? cloneWorkOrder({
@@ -1829,6 +1896,12 @@ export function getPrintWorkOrderById(printOrderId: string): PrintWorkOrder | un
         printOrderNo: canonical.printOrderNo,
         taskId: canonical.taskId,
         taskNo: canonical.taskNo,
+        acceptanceStatus: canonical.acceptanceStatus,
+        acceptedAt: canonical.acceptedAt,
+        acceptedBy: canonical.acceptedBy,
+        rejectedAt: canonical.rejectedAt,
+        rejectedBy: canonical.rejectedBy,
+        rejectionReason: canonical.rejectionReason,
       })
     : undefined
 }
@@ -1837,6 +1910,7 @@ export function getPrintWorkOrderByTaskId(taskId: string): PrintWorkOrder | unde
   syncDerivedWorkflow()
   const canonical = Array.from(workOrderStore.values()).find((item) => item.taskId === taskId)
   if (!canonical) return undefined
+  ensurePrintAcceptanceFact(canonical)
   const order = listGeneratedPrintWorkOrders().find((item) => item.printOrderId === canonical.printOrderId)
   return order
     ? cloneWorkOrder({
@@ -1845,8 +1919,125 @@ export function getPrintWorkOrderByTaskId(taskId: string): PrintWorkOrder | unde
         printOrderNo: canonical.printOrderNo,
         taskId: canonical.taskId,
         taskNo: canonical.taskNo,
+        acceptanceStatus: canonical.acceptanceStatus,
+        acceptedAt: canonical.acceptedAt,
+        acceptedBy: canonical.acceptedBy,
+        rejectedAt: canonical.rejectedAt,
+        rejectedBy: canonical.rejectedBy,
+        rejectionReason: canonical.rejectionReason,
       })
     : undefined
+}
+
+function ensurePrintAcceptanceFact(order: MutablePrintWorkOrder): void {
+  if (order.acceptanceStatus) return
+  const hasStarted = (nodeRecordStore.get(order.printOrderId) ?? []).some((node) => Boolean(node.startedAt))
+  const hasHistoricalExecution = hasStarted || order.status !== 'WAIT_ARTWORK'
+  order.acceptanceStatus = hasHistoricalExecution ? 'ACCEPTED' : 'PENDING'
+  order.acceptedAt = hasHistoricalExecution ? order.createdAt : undefined
+  order.acceptedBy = hasHistoricalExecution ? order.printFactoryName : undefined
+}
+
+function derivePrintMobileStatus(order: PrintWorkOrder): PdaGenericTaskMock['status'] {
+  if (order.status === 'REJECTED' || order.status === 'HANDOVER_DIFFERENCE') return 'BLOCKED'
+  if (['HANDOVER_WAIT_RECEIVE', 'PARTIAL_HANDOVER', 'FULL_HANDOVER', 'COMPLETED'].includes(order.status)) return 'DONE'
+  const hasStarted = (nodeRecordStore.get(order.printOrderId) ?? []).some((node) => Boolean(node.startedAt))
+  return hasStarted ? 'IN_PROGRESS' : 'NOT_STARTED'
+}
+
+function derivePrintMobileOrigin(order: PrintWorkOrder, status: PdaGenericTaskMock['status']): PdaGenericTaskMock['mockOrigin'] {
+  if (order.acceptanceStatus === 'REJECTED') return 'DIRECT_REJECTED'
+  if (order.acceptanceStatus !== 'ACCEPTED') return 'DIRECT_PENDING'
+  if (status === 'DONE') return 'EXEC_DONE'
+  if (status === 'BLOCKED') return 'EXEC_BLOCKED'
+  if (status === 'IN_PROGRESS') return 'EXEC_IN_PROGRESS'
+  if (status === 'CANCELLED') return 'EXEC_CANCELLED'
+  return 'EXEC_NOT_STARTED'
+}
+
+export function listPrintMobileExecutionTasks(): PdaGenericTaskMock[] {
+  syncDerivedWorkflow()
+  return Array.from(workOrderStore.values()).flatMap((order) => {
+    ensurePrintAcceptanceFact(order)
+    const baseTask = getPrintingTaskById(order.taskId) ?? buildFreshPrintMobileTask({
+      taskId: order.taskId,
+      taskNo: order.taskNo,
+      sourceType: order.sourceType,
+      sourceSnapshot: order.sourceSnapshot,
+      productionOrderId: order.sourceProductionOrderId || order.productionOrderIds[0],
+      productionOrderNo: order.sourceProductionOrderNo,
+      stockMaterialId: order.stockMaterialId,
+      stockMaterialName: order.stockMaterialName,
+      spuCode: order.materialSku,
+      spuName: order.materialColor || order.materialSku,
+      requiredDeliveryDate: order.plannedFinishAt || '',
+      factoryId: order.printFactoryId,
+      factoryName: order.printFactoryName,
+      qty: order.plannedQty,
+      qtyDisplayUnit: order.qtyUnit,
+      processName: '印花',
+      createdAt: order.createdAt,
+    })
+    const nodes = nodeRecordStore.get(order.printOrderId) ?? []
+    const startedAt = nodes.map((node) => node.startedAt).filter((value): value is string => Boolean(value)).sort()[0]
+    const status = derivePrintMobileStatus(order)
+    return [{
+      ...structuredClone(baseTask),
+      qty: order.plannedQty,
+      qtyDisplayUnit: order.qtyUnit,
+      assignedFactoryId: order.printFactoryId || undefined,
+      assignedFactoryName: order.printFactoryName || undefined,
+      assignmentStatus: order.printFactoryId ? 'ASSIGNED' : 'UNASSIGNED',
+      acceptanceStatus: order.acceptanceStatus,
+      mockOrigin: derivePrintMobileOrigin(order, status),
+      acceptedAt: order.acceptedAt,
+      acceptedBy: order.acceptedBy,
+      status,
+      startedAt,
+      finishedAt: status === 'DONE' ? order.updatedAt : undefined,
+      handoutStatus: ['HANDOVER_WAIT_RECEIVE', 'PARTIAL_HANDOVER', 'FULL_HANDOVER', 'COMPLETED'].includes(order.status) ? 'HANDED_OUT' : 'PENDING',
+      defaultDocType: 'PREPARATION_ORDER',
+      stage: 'PREP',
+      stageCode: 'PREP',
+      updatedAt: order.updatedAt,
+    }]
+  })
+}
+
+export function acceptPrintWorkOrderPdaTask(taskId: string, acceptedBy: string, acceptedAt = nowTimestamp()): PrintWorkOrder {
+  const order = Array.from(workOrderStore.values()).find((item) => item.taskId === taskId)
+  if (!order) throw new Error('印花加工单不存在')
+  if (!order.printFactoryId) throw new Error('印花加工单尚未分配工厂')
+  ensurePrintAcceptanceFact(order)
+  if (order.acceptanceStatus === 'REJECTED') throw new Error('印花加工单已拒绝，不能接单')
+  if (order.acceptanceStatus !== 'ACCEPTED') {
+    order.acceptanceStatus = 'ACCEPTED'
+    order.acceptedAt = acceptedAt
+    order.acceptedBy = acceptedBy
+    updateOrderTimestamp(order, acceptedAt)
+  }
+  return cloneWorkOrder(order)
+}
+
+export function rejectPrintWorkOrderPdaTask(taskId: string, rejectedBy: string, reason: string, rejectedAt = nowTimestamp()): PrintWorkOrder {
+  const order = Array.from(workOrderStore.values()).find((item) => item.taskId === taskId)
+  if (!order) throw new Error('印花加工单不存在')
+  if (!order.printFactoryId) throw new Error('印花加工单尚未分配工厂')
+  ensurePrintAcceptanceFact(order)
+  if (order.acceptanceStatus === 'REJECTED') throw new Error('印花加工单已拒单，不可重复拒单')
+  if ((nodeRecordStore.get(order.printOrderId) ?? []).some((node) => Boolean(node.startedAt))) {
+    throw new Error('印花加工单已经开工，不能拒单')
+  }
+  order.acceptanceStatus = 'REJECTED'
+  order.acceptedAt = undefined
+  order.acceptedBy = undefined
+  order.rejectedAt = rejectedAt
+  order.rejectedBy = rejectedBy
+  order.rejectionReason = reason
+  order.printFactoryId = ''
+  order.printFactoryName = '待分配工厂'
+  updateOrderTimestamp(order, rejectedAt)
+  return cloneWorkOrder(order)
 }
 
 export function registerFormalProductionOrderPrintWorkOrder(input: FormalProductionOrderProcessSnapshot & {
@@ -2122,8 +2313,17 @@ export function prepareFormalProductionOrderPrintWorkOrderSync(
   next.plannedQty = snapshot.plannedQty
   next.qtyUnit = snapshot.qtyUnit
   if (snapshot.factoryId !== undefined) {
+    const factoryChanged = next.printFactoryId !== snapshot.factoryId
     next.printFactoryId = snapshot.factoryId
     next.printFactoryName = snapshot.factoryName || snapshot.factoryId || '待分配工厂'
+    if (factoryChanged) {
+      next.acceptanceStatus = 'PENDING'
+      next.acceptedAt = undefined
+      next.acceptedBy = undefined
+      next.rejectedAt = undefined
+      next.rejectedBy = undefined
+      next.rejectionReason = undefined
+    }
   }
   next.formalProductionOrderSnapshot = structuredClone(after)
   next.updatedAt = options.recordedAt
@@ -2207,7 +2407,7 @@ export function createPrintWorkOrderFromStock(input: {
     return { ok: false, message: `计划数量超过可用库存，当前最多可用 ${stockMaterial.availableQty} ${stockMaterial.qtyUnit}。` }
   }
   if (!isValidProcessWorkOrderPlannedFinishAt(plannedFinishAt)) return { ok: false, message: '请填写有效的计划完成时间。' }
-  if (!processName) return { ok: false, message: '请填写印花工艺。' }
+  if (!processName) return { ok: false, message: '请填写印花工序。' }
   const factory = getFactoryMasterRecordById(input.factoryId)
   const canReceivePrint = factory?.status === 'active'
     && factory.eligibility.allowDispatch
@@ -2227,7 +2427,7 @@ export function createPrintWorkOrderFromStock(input: {
     materialId: materialSku,
     materialName: stockMaterialName,
     materialItems: [{ sourceBomItemId: stockMaterialId, materialId: materialSku, materialName: stockMaterialName }],
-    targetColor: '按印花工艺执行',
+    targetColor: '按印花工序执行',
     plannedQty: input.plannedQty,
     qtyUnit,
     printProcessName: processName,
@@ -2493,13 +2693,24 @@ export function submitPrintHandover(
   input: { handoverQty?: number; handoverPerson?: string; handoverAt?: string; remark?: string } = {},
 ): { handoverOrderId?: string; recordIds: string[] } {
   const order = getMutableWorkOrder(printOrderId)
+  if (order.status !== 'WAIT_HANDOVER') {
+    throw new Error(`当前状态为“${PRINT_WORK_ORDER_STATUS_LABEL[order.status]}”，不能重复交出。`)
+  }
+  const completedQty = getPrintCompletedQty(order)
+  const submittedQty = listHandoverOrdersByTaskId(order.taskId).reduce((sum, head) => sum + (head.submittedQtyTotal ?? 0), 0)
+  const requestedQty = Number.isFinite(input.handoverQty) ? Number(input.handoverQty) : completedQty
+  const availableQty = Math.max(completedQty - submittedQty, 0)
+  if (!Number.isFinite(requestedQty) || requestedQty <= 0) throw new Error('交出数量必须大于 0。')
+  if (requestedQty > availableQty + 0.000001) {
+    throw new Error(`交出数量不能超过已完工未交出数量 ${availableQty} ${order.qtyUnit}。`)
+  }
   const now = input.handoverAt || nowTimestamp()
   if (!order.handoverOrderId) {
     order.handoverOrderId = ensureStartedTaskHandover(order.taskId)
   }
   const result = ensureSeededHandoverRecord({
     taskId: order.taskId,
-    submittedQty: Number.isFinite(input.handoverQty) ? Number(input.handoverQty) : order.plannedQty,
+    submittedQty: requestedQty,
     submittedAt: now,
     objectType: order.qtyUnit === '米' ? 'FABRIC' : 'CUT_PIECE',
   })

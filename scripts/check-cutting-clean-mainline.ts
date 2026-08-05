@@ -42,7 +42,10 @@ import {
 } from '../src/pages/process-factory/cutting/transfer-bags-model.ts'
 import { buildTransferBagsProjection } from '../src/pages/process-factory/cutting/transfer-bags-projection.ts'
 import { productionOrders } from '../src/data/fcs/production-orders.ts'
-import { shouldGenerateCutOrderForProductionOrder } from '../src/data/fcs/task-generation-boundaries.ts'
+import {
+  resolveProductionOrderTaskBoundary,
+  shouldGenerateCutOrderForProductionOrder,
+} from '../src/data/fcs/task-generation-boundaries.ts'
 
 const ROOT = process.cwd()
 
@@ -160,9 +163,10 @@ function assertFeiTicketChain(): void {
     const order = productionOrders.find((item) => item.productionOrderId === record.productionOrderId)
     assert.ok(order, `菲票稳定裁片单 ${cutOrderNo} 必须能回溯真实生产单`)
     assert.ok(shouldGenerateCutOrderForProductionOrder(order), `菲票稳定裁片单 ${cutOrderNo} 必须绑定到合法裁片任务边界`)
-    assert.equal(record.cutOrderSourceLabel, '独立裁片任务', `菲票稳定裁片单 ${cutOrderNo} 来源标签错误`)
-    assert.equal(record.cutReturnModeLabel, '回我方裁床待交出仓', `菲票稳定裁片单 ${cutOrderNo} 回流方式标签错误`)
-    assert.equal(record.internalCraftOrderPolicyLabel, '回仓后生成我方加工单', `菲票稳定裁片单 ${cutOrderNo} 我方加工单策略标签错误`)
+    const boundary = resolveProductionOrderTaskBoundary(order)
+    assert.equal(record.cutOrderSourceLabel, boundary.cutOrderSourceLabel, `菲票稳定裁片单 ${cutOrderNo} 来源标签错误`)
+    assert.equal(record.cutReturnModeLabel, boundary.cutReturnModeLabel, `菲票稳定裁片单 ${cutOrderNo} 回流方式标签错误`)
+    assert.equal(record.internalCraftOrderPolicyLabel, boundary.internalCraftPolicyLabel, `菲票稳定裁片单 ${cutOrderNo} 我方加工单策略标签错误`)
   })
 
   const outputs = listCuttingActualOutputs()

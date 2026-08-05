@@ -175,7 +175,7 @@ const columns: StandardListColumn<CombinedDyeingTask>[] = [
   { key: 'factory', title: '染厂', width: 170, required: true, freezeable: true, sortable: true, render: (task) => escapeHtml(task.dyeFactoryName), sortValue: (task) => task.dyeFactoryName },
   { key: 'material', title: '面料', width: 210, required: true, freezeable: true, sortable: true, render: (task) => `<div><div>${escapeHtml(task.materialName)}</div><div class="text-xs text-muted-foreground">${escapeHtml(task.rawMaterialSku)}</div></div>`, sortValue: (task) => task.materialName },
   { key: 'color', title: '目标颜色', width: 120, sortable: true, render: (task) => escapeHtml(task.targetColor), sortValue: (task) => task.targetColor },
-  { key: 'process', title: '染色工艺', width: 120, sortable: true, render: (task) => escapeHtml(task.dyeProcessName), sortValue: (task) => task.dyeProcessName },
+  { key: 'process', title: '染色工序', width: 120, sortable: true, render: (task) => escapeHtml(task.dyeProcessName), sortValue: (task) => task.dyeProcessName },
   { key: 'members', title: '成员数', width: 90, align: 'right', sortable: true, render: (task) => String(task.members.length), sortValue: (task) => task.members.length },
   { key: 'required', title: '需求合计', width: 130, align: 'right', sortable: true, render: (task) => quantity(sumRequired(task), task.qtyUnit), sortValue: sumRequired },
   { key: 'input', title: '实际投入', width: 130, align: 'right', sortable: true, render: (task) => quantity(task.actualInputQty, task.qtyUnit), sortValue: (task) => task.actualInputQty },
@@ -340,7 +340,7 @@ export function getCombinedDyeingCandidateReason(input: {
   if (order.dyeFactoryId !== selectedFirst.dyeFactoryId) return '染厂不同'
   if (order.materialId !== selectedFirst.materialId) return '面料不同'
   if (order.targetColor !== selectedFirst.targetColor) return '目标颜色不同'
-  if (order.dyeProcessCode !== selectedFirst.dyeProcessCode || order.dyeProcessName !== selectedFirst.dyeProcessName) return '染色工艺不同'
+  if (order.dyeProcessCode !== selectedFirst.dyeProcessCode || order.dyeProcessName !== selectedFirst.dyeProcessName) return '染色工序不同'
   return ''
 }
 
@@ -394,7 +394,7 @@ function renderCreateDrawer(): string {
         <div><span class="text-muted-foreground">已选加工单：</span><strong>${selectedOrders.length} 张</strong></div>
         <div><span class="text-muted-foreground">需求合计：</span><strong>${quantity(selectedQty, first?.qtyUnit || 'Yard')}</strong></div>
       </div>
-      <p class="text-sm text-muted-foreground">首张加工单确定染厂、面料、目标颜色和染色工艺；其他不兼容项会明确原因并禁选。创建后成员立即锁定，不能增删。</p>
+      <p class="text-sm text-muted-foreground">首张加工单确定染厂、面料、目标颜色和染色工序；其他不兼容项会明确原因并禁选。创建后成员立即锁定，不能增删。</p>
       ${state.overlayError ? `<p class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(state.overlayError)}</p>` : ''}
       <div data-combined-dyeing-page-scope="candidates" class="rounded-lg border">
         <div class="max-h-[46vh] overflow-auto">${table}</div>
@@ -469,7 +469,7 @@ function renderDetailDrawerContent(task: CombinedDyeingTask): string {
         <div><span class="text-muted-foreground">染厂：</span>${escapeHtml(task.dyeFactoryName)}</div>
         <div><span class="text-muted-foreground">面料：</span>${escapeHtml(task.materialName)}</div>
         <div><span class="text-muted-foreground">目标颜色：</span>${escapeHtml(task.targetColor)}</div>
-        <div><span class="text-muted-foreground">染色工艺：</span>${escapeHtml(task.dyeProcessName)}</div>
+        <div><span class="text-muted-foreground">染色工序：</span>${escapeHtml(task.dyeProcessName)}</div>
       </section>
       <section><h3 class="mb-2 font-semibold">成员与自动分配</h3><div class="overflow-auto rounded-lg border">${renderMemberTable(task)}</div></section>
       <section class="grid gap-3 rounded-lg border p-4 text-sm sm:grid-cols-3">

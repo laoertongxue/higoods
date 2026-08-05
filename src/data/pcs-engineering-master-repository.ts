@@ -23,7 +23,7 @@ import {
   saveEngineeringBomVersion,
 } from './pcs-engineering-bom-repository.ts'
 import type { EngineeringBomCustomCostDraft, EngineeringBomMaterialLineDraft, EngineeringBomOperatorRole } from './pcs-engineering-bom-types.ts'
-import { assertEngineeringBomPricingSnapshotValid } from './pcs-engineering-bom-pricing.ts'
+import { assertEngineeringBomPricingSnapshotValid } from './pcs-engineering-bom-snapshot-validation.ts'
 import { assertFirstProductionQualification } from './pcs-engineering-first-production-policy.ts'
 import { listReusableEngineeringIndependentProfessionalResults } from './pcs-engineering-master-sampling.ts'
 import {

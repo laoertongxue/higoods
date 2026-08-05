@@ -80,7 +80,6 @@ import { listPartTemplateRecords, type PartTemplateRecord } from '../../data/pcs
 import {
   DETAIL_SPLIT_DIMENSION_LABEL,
   DETAIL_SPLIT_MODE_LABEL,
-  OUTPUT_VALUE_UNIT_LABEL,
   PROCESS_ASSIGNMENT_GRANULARITY_LABEL,
   PROCESS_DOC_TYPE_LABEL,
   RULE_SOURCE_LABEL,
@@ -127,7 +126,6 @@ type TechPackTab =
   | 'cost'
 type DifficultyLevel = 'LOW' | 'MEDIUM' | 'HIGH'
 type ProcessRouteStatus = NonNullable<TechnicalDataVersionContent['processRouteStatus']>
-type RouteParallelAcceptanceMode = 'INDEPENDENT_ONLY' | 'WHOLE_GROUP_ALLOWED'
 type RouteSourceKind =
   | 'DICT_DEFAULT'
   | 'GARMENT_CATEGORY'
@@ -140,7 +138,6 @@ type RouteFields = {
   routeLaneNo?: number
   routeParallelGroupId?: string
   routeParallelGroupName?: string
-  routeParallelAcceptanceMode?: RouteParallelAcceptanceMode
   routeSourceKind?: RouteSourceKind
   routeUpdatedBy?: string
   routeUpdatedAt?: string
@@ -173,12 +170,6 @@ type TechniqueItem = {
   linkedBomItemIds?: string[]
   linkedPatternIds?: string[]
   triggerSource: string
-  outputValue: number
-  outputValueUnit: string
-  referenceOutputValueValue: number | null
-  referenceOutputValueUnit: string
-  referenceOutputValueUnitLabel: string
-  referenceOutputValueNote: string
   difficulty: '简单' | '中等' | '困难'
   remark: string
   source: '字典引用'
@@ -195,7 +186,6 @@ type TechniqueItem = {
   routeLaneNo: number
   routeParallelGroupId?: string
   routeParallelGroupName?: string
-  routeParallelAcceptanceMode: RouteParallelAcceptanceMode
   routeSourceKind: RouteSourceKind
   routeUpdatedBy?: string
   routeUpdatedAt?: string
@@ -231,10 +221,6 @@ type CraftOption = {
   isSpecialCraft: boolean
   supportedTargetObjects?: SpecialCraftSupportedTargetObject[]
   supportedTargetObjectLabels?: SpecialCraftTargetObjectLabel[]
-  referenceOutputValueValue: number
-  referenceOutputValueUnit: string
-  referenceOutputValueUnitLabel: string
-  referenceOutputValueNote: string
 }
 
 type BomItemRow = {
@@ -948,10 +934,6 @@ const craftOptions: CraftOption[] = listProcessCraftDefinitions()
       supportedTargetObjectLabels: item.isSpecialCraft
         ? getSpecialCraftSupportedTargetObjectLabels(item.supportedTargetObjects)
         : undefined,
-      referenceOutputValueValue: item.referenceOutputValueValue,
-      referenceOutputValueUnit: item.referenceOutputValueUnit,
-      referenceOutputValueUnitLabel: OUTPUT_VALUE_UNIT_LABEL[item.referenceOutputValueUnit],
-      referenceOutputValueNote: item.referenceOutputValueNote,
     }
   })
   .sort((a, b) => a.craftName.localeCompare(b.craftName, 'zh-Hans-CN'))
@@ -1791,18 +1773,11 @@ const DEFAULT_TECHNIQUES: TechniqueItem[] = [
     taskTypeMode: 'PROCESS',
     isSpecialCraft: false,
     triggerSource: 'BOM上存在印花要求',
-    outputValue: 10,
-    outputValueUnit: '产值/件',
-    referenceOutputValueValue: null,
-    referenceOutputValueUnit: '',
-    referenceOutputValueUnitLabel: '',
-    referenceOutputValueNote: '工序级准备项',
     difficulty: '中等',
     remark: '',
     source: '字典引用',
     routeStepNo: 1,
     routeLaneNo: 1,
-    routeParallelAcceptanceMode: 'INDEPENDENT_ONLY',
     routeSourceKind: 'BOM_REQUIREMENT',
   },
   {
@@ -1822,18 +1797,11 @@ const DEFAULT_TECHNIQUES: TechniqueItem[] = [
     taskTypeMode: 'PROCESS',
     isSpecialCraft: false,
     triggerSource: '',
-    outputValue: 6,
-    outputValueUnit: '产值/件',
-    referenceOutputValueValue: 0.6,
-    referenceOutputValueUnit: 'VALUE_PER_PIECE',
-    referenceOutputValueUnitLabel: '产值/件',
-    referenceOutputValueNote: '普通复杂度',
     difficulty: '简单',
     remark: '',
     source: '字典引用',
     routeStepNo: 2,
     routeLaneNo: 1,
-    routeParallelAcceptanceMode: 'INDEPENDENT_ONLY',
     routeSourceKind: 'DICT_DEFAULT',
   },
   {
@@ -1853,29 +1821,22 @@ const DEFAULT_TECHNIQUES: TechniqueItem[] = [
     taskTypeMode: 'PROCESS',
     isSpecialCraft: false,
     triggerSource: '',
-    outputValue: 12,
-    outputValueUnit: '产值/件',
-    referenceOutputValueValue: 1.4,
-    referenceOutputValueUnit: 'VALUE_PER_PIECE',
-    referenceOutputValueUnitLabel: '产值/件',
-    referenceOutputValueNote: '普通复杂度',
     difficulty: '中等',
     remark: '',
     source: '字典引用',
     routeStepNo: 3,
     routeLaneNo: 1,
-    routeParallelAcceptanceMode: 'INDEPENDENT_ONLY',
     routeSourceKind: 'DICT_DEFAULT',
   },
   {
-    id: 'tech-default-post-finishing',
-    entryType: 'PROCESS_BASELINE',
+    id: 'tech-default-iron-pack',
+    entryType: 'CRAFT',
     stageCode: 'POST',
     stage: '后道阶段',
-    processCode: 'POST_FINISHING',
-    process: '后道',
-    craftCode: '',
-    technique: '后道',
+    processCode: 'IRON_PACK',
+    process: '烫包',
+    craftCode: 'CRAFT_2000010',
+    technique: '烫包',
     assignmentGranularity: 'SKU',
     ruleSource: 'INHERIT_PROCESS',
     detailSplitMode: 'COMPOSITE',
@@ -1883,19 +1844,12 @@ const DEFAULT_TECHNIQUES: TechniqueItem[] = [
     defaultDocType: 'TASK',
     taskTypeMode: 'PROCESS',
     isSpecialCraft: false,
-    triggerSource: '技术包默认后道工序',
-    outputValue: 0,
-    outputValueUnit: '产值/件',
-    referenceOutputValueValue: null,
-    referenceOutputValueUnit: '',
-    referenceOutputValueUnitLabel: '',
-    referenceOutputValueNote: '工序级后道项',
+    triggerSource: '技术包默认烫包工序',
     difficulty: '中等',
-    remark: '所有生产单默认包含后道工序，质检完成后由质检人员判断是否生成后道单。',
+    remark: '后道阶段只记录开扣眼、装扣子、烫包三个实际工序；质检与复检是回货流程节点。',
     source: '字典引用',
     routeStepNo: 4,
     routeLaneNo: 1,
-    routeParallelAcceptanceMode: 'INDEPENDENT_ONLY',
     routeSourceKind: 'DICT_DEFAULT',
   },
 ]
@@ -2005,8 +1959,6 @@ interface TechPackPageState {
     assignmentGranularity: TechPackAssignmentGranularity
     detailSplitMode: TechPackDetailSplitMode
     detailSplitDimensions: TechPackDetailSplitDimension[]
-    outputValue: string
-    outputValueUnit: string
     difficulty: TechniqueItem['difficulty']
     remark: string
   }
@@ -2115,8 +2067,6 @@ const state: TechPackPageState = {
     assignmentGranularity: 'ORDER',
     detailSplitMode: 'COMPOSITE',
     detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
-    outputValue: '',
-    outputValueUnit: '产值/件',
     difficulty: '中等',
     remark: '',
   },
@@ -2181,7 +2131,6 @@ function withRouteDefaults(item: TechniqueItem, fallbackIndex: number): Techniqu
     routeLaneNo: isPositiveRouteNo(routeFields.routeLaneNo) ? routeFields.routeLaneNo : 1,
     routeParallelGroupId: routeFields.routeParallelGroupId || undefined,
     routeParallelGroupName: routeFields.routeParallelGroupName || undefined,
-    routeParallelAcceptanceMode: routeFields.routeParallelAcceptanceMode ?? 'INDEPENDENT_ONLY',
     routeSourceKind: getRouteSourceKind(item, routeFields),
     routeUpdatedBy: routeFields.routeUpdatedBy,
     routeUpdatedAt: routeFields.routeUpdatedAt,
@@ -2201,7 +2150,6 @@ function normalizeTechniqueRoutes(items: TechniqueItem[]): TechniqueItem[] {
         ...item,
         routeParallelGroupId: undefined,
         routeParallelGroupName: undefined,
-        routeParallelAcceptanceMode: 'INDEPENDENT_ONLY',
       }
     }
     const groupId = item.routeParallelGroupId || `route-step-${item.routeStepNo}`
@@ -2209,7 +2157,6 @@ function normalizeTechniqueRoutes(items: TechniqueItem[]): TechniqueItem[] {
       ...item,
       routeParallelGroupId: groupId,
       routeParallelGroupName: item.routeParallelGroupName || `第 ${item.routeStepNo} 步并行组`,
-      routeParallelAcceptanceMode: item.routeParallelAcceptanceMode ?? 'INDEPENDENT_ONLY',
     }
   })
 }
@@ -2223,7 +2170,6 @@ function getProcessRouteSignature(items: TechniqueItem[]): string {
       item.routeStepNo,
       item.routeLaneNo,
       item.routeParallelGroupId || '',
-      item.routeParallelAcceptanceMode,
     ].join('|'))
     .join('||')
 }
@@ -2481,7 +2427,6 @@ function syncBomDrivenPrepTechniques(
         routeLaneNo: undefined,
         routeParallelGroupId: undefined,
         routeParallelGroupName: undefined,
-        routeParallelAcceptanceMode: 'INDEPENDENT_ONLY',
       })),
     ),
   )
@@ -2650,39 +2595,6 @@ function getWoolEntryMeta(craftName: string): Pick<
     }
   }
   return {}
-}
-
-function getTechniqueReferenceMetaByCraftCode(craftCode: string): Pick<
-  TechniqueItem,
-  | 'referenceOutputValueValue'
-  | 'referenceOutputValueUnit'
-  | 'referenceOutputValueUnitLabel'
-  | 'referenceOutputValueNote'
-> {
-  const craft = craftCode ? getProcessCraftByCode(craftCode) : undefined
-  if (!craft) {
-    return {
-      referenceOutputValueValue: null,
-      referenceOutputValueUnit: '',
-      referenceOutputValueUnitLabel: '',
-      referenceOutputValueNote: '工序级准备项',
-    }
-  }
-
-  return {
-    referenceOutputValueValue: craft.referenceOutputValueValue,
-    referenceOutputValueUnit: craft.referenceOutputValueUnit,
-    referenceOutputValueUnitLabel: OUTPUT_VALUE_UNIT_LABEL[craft.referenceOutputValueUnit],
-    referenceOutputValueNote: normalizeReferenceOutputValueNote(craft.referenceOutputValueNote),
-  }
-}
-
-function normalizeReferenceOutputValueNote(value: string | null | undefined): string {
-  const normalized = String(value || '').trim()
-  if (!normalized) return ''
-  if (normalized.includes('平台理论参考值')) return '普通复杂度'
-  if (normalized.includes('工序级准备项')) return '工序级准备项'
-  return normalized
 }
 
 function getSelectedDraftMeta():
@@ -4592,9 +4504,6 @@ function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {
 function toTechniqueItemFromEntry(entry: TechPackProcessEntry, fallbackIndex: number): TechniqueItem {
   const normalizedEntry = resolveTechPackProcessEntryRule(entry)
   const routeFields = getRouteFields(entry)
-  const referenceMeta = normalizedEntry.craftCode
-    ? getTechniqueReferenceMetaByCraftCode(normalizedEntry.craftCode)
-    : getTechniqueReferenceMetaByCraftCode('')
   return {
     id: normalizedEntry.id || `tech-${fallbackIndex + 1}`,
     entryType: normalizedEntry.entryType,
@@ -4632,23 +4541,6 @@ function toTechniqueItemFromEntry(entry: TechPackProcessEntry, fallbackIndex: nu
     linkedBomItemIds: normalizedEntry.linkedBomItemIds ? [...normalizedEntry.linkedBomItemIds] : undefined,
     linkedPatternIds: normalizedEntry.linkedPatternIds ? [...normalizedEntry.linkedPatternIds] : undefined,
     triggerSource: normalizedEntry.triggerSource || '',
-    outputValue: Number.isFinite(normalizedEntry.outputValuePerUnit)
-      ? Number(normalizedEntry.outputValuePerUnit)
-      : 0,
-    outputValueUnit:
-      normalizedEntry.referenceOutputValueUnitLabel ||
-      normalizedEntry.outputValueUnit ||
-      '产值/件',
-    referenceOutputValueValue:
-      normalizedEntry.referenceOutputValueValue ?? referenceMeta.referenceOutputValueValue,
-    referenceOutputValueUnit:
-      normalizedEntry.referenceOutputValueUnit ?? referenceMeta.referenceOutputValueUnit,
-    referenceOutputValueUnitLabel:
-      normalizedEntry.referenceOutputValueUnitLabel ??
-      referenceMeta.referenceOutputValueUnitLabel,
-    referenceOutputValueNote: normalizeReferenceOutputValueNote(
-      normalizedEntry.referenceOutputValueNote ?? referenceMeta.referenceOutputValueNote,
-    ),
     difficulty: mapDifficultyToZh(normalizedEntry.difficulty || 'MEDIUM'),
     remark: normalizedEntry.remark || '',
     source: '字典引用',
@@ -4667,7 +4559,6 @@ function toTechniqueItemFromEntry(entry: TechPackProcessEntry, fallbackIndex: nu
     routeLaneNo: isPositiveRouteNo(routeFields.routeLaneNo) ? routeFields.routeLaneNo : 1,
     routeParallelGroupId: routeFields.routeParallelGroupId || undefined,
     routeParallelGroupName: routeFields.routeParallelGroupName || undefined,
-    routeParallelAcceptanceMode: routeFields.routeParallelAcceptanceMode ?? 'INDEPENDENT_ONLY',
     routeSourceKind: getRouteSourceKind(normalizedEntry, routeFields),
     routeUpdatedBy: routeFields.routeUpdatedBy,
     routeUpdatedAt: routeFields.routeUpdatedAt,
@@ -4709,7 +4600,6 @@ function buildTechniquesFromTechPack(
       const craft = listProcessCraftDefinitions().find((craftItem) => craftItem.craftName === item.name)
       if (craft) {
         const processDef = getProcessDefinitionByCode(craft.processCode)
-        const referenceMeta = getTechniqueReferenceMetaByCraftCode(craft.craftCode)
         const supportedTargetObjectLabels = craft.isSpecialCraft
           ? getSpecialCraftSupportedTargetObjectLabels(craft.supportedTargetObjects)
           : undefined
@@ -4738,18 +4628,11 @@ function buildTechniquesFromTechPack(
           supportedTargetObjects: craft.isSpecialCraft ? [...craft.supportedTargetObjects] : undefined,
           supportedTargetObjectLabels,
           triggerSource: '',
-          outputValue: item.outputValue,
-          outputValueUnit: referenceMeta.referenceOutputValueUnitLabel || '产值/件',
-          referenceOutputValueValue: referenceMeta.referenceOutputValueValue,
-          referenceOutputValueUnit: referenceMeta.referenceOutputValueUnit,
-          referenceOutputValueUnitLabel: referenceMeta.referenceOutputValueUnitLabel,
-          referenceOutputValueNote: referenceMeta.referenceOutputValueNote,
           difficulty: mapDifficultyToZh(item.difficulty),
           remark: '',
           source: '字典引用',
           routeStepNo: index + 1,
           routeLaneNo: 1,
-          routeParallelAcceptanceMode: 'INDEPENDENT_ONLY',
           routeSourceKind: getRouteSourceKind({ isSpecialCraft: craft.isSpecialCraft }),
         }
       }
@@ -4775,18 +4658,11 @@ function buildTechniquesFromTechPack(
           taskTypeMode: processDef.taskTypeMode,
           isSpecialCraft: false,
           triggerSource: processDef.triggerSource || '',
-          outputValue: item.outputValue,
-          outputValueUnit: '产值/件',
-          referenceOutputValueValue: null,
-          referenceOutputValueUnit: '',
-          referenceOutputValueUnitLabel: '',
-          referenceOutputValueNote: '工序级准备项',
           difficulty: mapDifficultyToZh(item.difficulty),
           remark: '',
           source: '字典引用',
           routeStepNo: index + 1,
           routeLaneNo: 1,
-          routeParallelAcceptanceMode: 'INDEPENDENT_ONLY',
           routeSourceKind: 'DICT_DEFAULT',
         }
       }
@@ -4808,18 +4684,11 @@ function buildTechniquesFromTechPack(
         taskTypeMode: 'PROCESS',
         isSpecialCraft: false,
         triggerSource: '',
-        outputValue: item.outputValue,
-        outputValueUnit: '产值/件',
-        referenceOutputValueValue: null,
-        referenceOutputValueUnit: '',
-        referenceOutputValueUnitLabel: '',
-        referenceOutputValueNote: '工序级准备项',
         difficulty: mapDifficultyToZh(item.difficulty),
         remark: '',
         source: '字典引用',
         routeStepNo: index + 1,
         routeLaneNo: 1,
-        routeParallelAcceptanceMode: 'INDEPENDENT_ONLY',
         routeSourceKind: 'DICT_DEFAULT',
       }
     }),
@@ -5170,7 +5039,6 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
       id: item.id,
       seq: index + 1,
       name: item.technique,
-      outputValue: Number(item.outputValue) || 0,
       difficulty: mapDifficultyToEnum(item.difficulty),
       qcPoint: '',
     })),
@@ -5201,8 +5069,6 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
       supportedTargetObjects: item.supportedTargetObjects ? [...item.supportedTargetObjects] : undefined,
       supportedTargetObjectLabels: item.supportedTargetObjectLabels ? [...item.supportedTargetObjectLabels] : undefined,
       triggerSource: item.triggerSource || undefined,
-      outputValuePerUnit: Number(item.outputValue) || 0,
-      outputValueUnit: item.outputValueUnit,
       difficulty: mapDifficultyToEnum(item.difficulty),
       remark: item.remark || undefined,
       sourceType: item.sourceType,
@@ -5218,7 +5084,6 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
       routeLaneNo: item.routeLaneNo,
       routeParallelGroupId: item.routeParallelGroupId,
       routeParallelGroupName: item.routeParallelGroupName,
-      routeParallelAcceptanceMode: item.routeParallelAcceptanceMode,
       routeSourceKind: item.routeSourceKind,
       routeUpdatedBy: item.routeUpdatedBy,
       routeUpdatedAt: item.routeUpdatedAt,
@@ -5508,8 +5373,6 @@ function resetTechniqueForm(): void {
     assignmentGranularity: 'ORDER',
     detailSplitMode: 'COMPOSITE',
     detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
-    outputValue: '',
-    outputValueUnit: '产值/件',
     difficulty: '中等',
     remark: '',
   }
@@ -5694,7 +5557,6 @@ export {
   getStageName,
   getBaselineProcessByCode,
   getCraftOptionByCode,
-  getTechniqueReferenceMetaByCraftCode,
   getSelectedDraftMeta,
   canEditTechnique,
   dedupeStrings,

@@ -43,15 +43,19 @@ function main(): void {
     assert(route.finishedWarehouseName === '成衣仓交接点', `${route.postRouteId} 成衣仓交接点口径错误`)
 
     if (route.postExecutionMode === 'SEW_FACTORY_INCLUDES_POST') {
-      assert(route.requiresPostExecution === false, `${route.postRouteId} 车缝厂含后道不应再执行我方后道任务`)
-      assert(getPostExecutionModeLabel(route.postExecutionMode) === '车缝厂含后道', `${route.postRouteId} 路由标签错误`)
+      assert(route.requiresPostExecution === false, `${route.postRouteId} 车缝厂已完成后道阶段实际工序时不应重复执行`)
+      assert(getPostExecutionModeLabel(route.postExecutionMode) === '车缝厂同时完成后道阶段所需工序', `${route.postRouteId} 路由标签错误`)
     }
 
     if (route.postExecutionMode === 'MANAGED_POST_FACTORY_EXECUTES') {
-      assert(route.requiresPostExecution === true, `${route.postRouteId} 我方后道工厂执行模式必须要求后道任务`)
-      assert(Boolean(route.postTaskId), `${route.postRouteId} 缺少后道任务`)
-      assert(getPostExecutionModeLabel(route.postExecutionMode) === '我方后道工厂执行后道', `${route.postRouteId} 路由标签错误`)
+      assert(route.requiresPostExecution === true, `${route.postRouteId} 我方后道工厂执行模式必须要求实际工序`)
+      assert(Boolean(route.postTaskId), `${route.postRouteId} 缺少历史处理记录关联`)
+      assert(getPostExecutionModeLabel(route.postExecutionMode) === '我方后道工厂执行实际所需工序', `${route.postRouteId} 路由标签错误`)
     }
+    assert(
+      route.requiredPostProcessCodes?.every((code) => ['BUTTONHOLE', 'BUTTON_ATTACH', 'IRON_PACK'].includes(code)),
+      `${route.postRouteId} 出现后道阶段三工序以外的工序`,
+    )
   }
 
   const qcRecords = returnInboundChainQualityInspections.filter(

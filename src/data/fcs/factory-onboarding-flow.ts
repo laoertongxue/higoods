@@ -55,7 +55,11 @@ import {
   getPdaSession,
   upsertOfficialFactoryAdminFromOnboarding,
 } from './store-domain-pda.ts'
-import { getActiveCraftOptionsByProcess, getActiveProcessOptions } from './process-craft-dict.ts'
+import {
+  getActiveCraftOptionsByProcess,
+  getActiveProcessOptions,
+  getProcessDefinitionByCode,
+} from './process-craft-dict.ts'
 import { upsertFactoryMasterRecord } from './factory-master-store.ts'
 import {
   getSampleVerificationByApplicationId,
@@ -368,7 +372,7 @@ function resolveFactoryTypeMatchCode(capability: FactoryOnboardingSelectedCapabi
   if (capability.processCode === 'CUT_PANEL' || ['普通裁', '激光定位裁', '定向裁', '定位裁'].includes(capability.craftName)) return 'CUTTING_FACTORY'
   if (capability.processCode === 'PRINT') return 'PRINTING_FACTORY'
   if (capability.processCode === 'DYE') return 'DYEING_FACTORY'
-  if (capability.processCode === 'POST_FINISHING' || ['质检', '复检', '包装', '熨烫'].includes(capability.craftName)) return 'POST_FINISHING_FACTORY'
+  if (['BUTTONHOLE', 'BUTTON_ATTACH', 'IRON_PACK'].includes(capability.processCode)) return 'POST_FINISHING_FACTORY'
   if (capability.processCode === 'SEW') return 'SEWING_FACTORY'
   if (capability.processCode === 'SPECIAL_CRAFT' || capability.processCode === 'EMBROIDERY' || capability.processCode === 'PLEATING' || SPECIAL_CRAFT_NAMES.has(capability.craftName)) {
     return 'SPECIAL_CRAFT_FACTORY'
@@ -412,7 +416,10 @@ export function buildFactoryTypeMatchReason(matchResults: FactoryTypeMatchResult
 function isSelectableCraft(processCode: string, craftCode: string): boolean {
   const craft = getActiveCraftOptionsByProcess(processCode).find((item) => item.craftCode === craftCode)
   if (!craft) return false
-  return craft.isExternalTask || craft.isCapacityNode || processCode === 'POST_FINISHING'
+  const process = getProcessDefinitionByCode(processCode)
+  return craft.isExternalTask
+    || craft.isCapacityNode
+    || process?.processRole === 'PREPARATION_ORDER'
 }
 
 function unique<T>(values: T[]): T[] {

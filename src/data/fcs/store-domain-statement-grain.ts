@@ -2,6 +2,7 @@ import { getFactoryByCode, getFactoryById } from './indonesia-factories.ts'
 import { processTasks } from './process-tasks.ts'
 import { getSettlementEffectiveInfoByFactory } from './settlement-change-requests.ts'
 import { cycleTypeConfig, type CycleType } from './settlement-types.ts'
+import { listCurrentEffectiveTaskAssignments } from './effective-task-assignments.ts'
 
 export type StatementPricingSourceType = 'DISPATCH' | 'BIDDING' | 'NONE'
 
@@ -137,6 +138,17 @@ export function deriveTaskPricingFields(taskId: string | undefined, qty: number)
     }
   }
 
+  const effectiveAssignments = listCurrentEffectiveTaskAssignments(taskId)
+  if (effectiveAssignments.length === 1) {
+    const assignment = effectiveAssignments[0]
+    return {
+      pricingSourceType: assignment.source === 'TENDER_AWARD' ? 'BIDDING' : 'DISPATCH',
+      pricingSourceRefId: assignment.assignmentId,
+      settlementUnitPrice: assignment.frozenPrice,
+      earningAmount: Number((assignment.frozenPrice * qty).toFixed(2)),
+    }
+  }
+
   const task = processTasks.find((item) => item.taskId === taskId)
   if (!task) {
     return {
@@ -146,7 +158,8 @@ export function deriveTaskPricingFields(taskId: string | undefined, qty: number)
     }
   }
 
-  const settlementUnitPrice = task.dispatchPrice ?? task.standardPrice
+  // 存量兼容只读取已提交派单/中标价；标准价不是有效分配冻结价，不能作为结算价兜底。
+  const settlementUnitPrice = task.dispatchPrice
   if (!settlementUnitPrice) {
     return {
       pricingSourceType: 'NONE',

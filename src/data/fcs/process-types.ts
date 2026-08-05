@@ -34,7 +34,7 @@ export interface ProcessType {
   defaultQcPoints: string[]
   defaultParamKeys: string[]
   processCode?: string
-  defaultDocType?: 'DEMAND' | 'TASK'
+  defaultDocType?: 'DEMAND' | 'TASK' | 'PREPARATION_ORDER'
   taskTypeMode?: 'PROCESS' | 'CRAFT'
   isSpecialCraft?: boolean
   ruleSource?: RuleSource
@@ -56,10 +56,8 @@ const processAssignmentGranularityOverrides: Partial<Record<string, ProcessAssig
   PROC_PRINT: 'COLOR',
   PROC_DYE: 'COLOR',
   PROC_SEW: 'SKU',
-  PROC_FINISHING: 'SKU',
   PROC_IRON: 'SKU',
   PROC_PACK: 'SKU',
-  PROC_QC: 'SKU',
 }
 
 function mapToLegacyStage(processCode: string, systemProcessCode: string, stageCode: 'PREP' | 'PROD' | 'POST'): ProcessStage {
@@ -67,7 +65,7 @@ function mapToLegacyStage(processCode: string, systemProcessCode: string, stageC
   if (stageCode === 'POST') return 'POST'
 
   if (processCode === 'CUT_PANEL') return 'CUTTING'
-  if (processCode === 'SPECIAL_CRAFT' || processCode === 'EMBROIDERY' || processCode === 'SHRINKING') {
+  if (processCode === 'SPECIAL_CRAFT' || processCode === 'EMBROIDERY') {
     return 'SPECIAL'
   }
   if (systemProcessCode === 'PROC_PRINT' || systemProcessCode === 'PROC_DYE') return 'SPECIAL'
@@ -77,8 +75,6 @@ function mapToLegacyStage(processCode: string, systemProcessCode: string, stageC
 function getRecommendedOwnerTypes(stage: ProcessStage, processCode: string, taskVisibility: 'EXTERNAL' | 'INTERNAL'): string[] {
   if (taskVisibility === 'INTERNAL' && stage === 'POST') return ['FINISHING']
   if (processCode === 'PRINT' || processCode === 'DYE') return ['PRINTING', 'DYEING']
-  if (processCode === 'SHRINKING' || processCode === 'WASHING') return ['DYEING', 'SPECIAL_PROCESS']
-  if (processCode === 'POST_FINISHING') return ['FINISHING', 'WAREHOUSE']
   if (stage === 'CUTTING') return ['CUTTING', 'SEWING']
   if (stage === 'POST') return ['FINISHING', 'WAREHOUSE']
   if (stage === 'SPECIAL') return ['SPECIAL_PROCESS', 'SEWING']
@@ -185,12 +181,11 @@ for (const craftDef of listActiveProcessCraftDefinitions()) {
 const compatibilitySeeds: ProcessType[] = [
   {
     code: 'PROC_IRON',
-    nameZh: '熨烫',
+    nameZh: '熨烫（历史兼容）',
     stage: 'POST',
     taskVisibility: 'INTERNAL',
     processRole: 'INTERNAL_CAPACITY_NODE',
-    parentProcessCode: 'POST_FINISHING',
-    isActive: true,
+    isActive: false,
     assignmentGranularity: 'SKU',
     canOutsource: false,
     isExternalConstraint: false,
@@ -209,12 +204,11 @@ const compatibilitySeeds: ProcessType[] = [
   },
   {
     code: 'PROC_PACK',
-    nameZh: '包装',
+    nameZh: '包装（历史兼容）',
     stage: 'POST',
     taskVisibility: 'INTERNAL',
     processRole: 'INTERNAL_CAPACITY_NODE',
-    parentProcessCode: 'POST_FINISHING',
-    isActive: true,
+    isActive: false,
     assignmentGranularity: 'SKU',
     canOutsource: false,
     isExternalConstraint: false,
@@ -224,48 +218,6 @@ const compatibilitySeeds: ProcessType[] = [
     defaultQcPoints: [],
     defaultParamKeys: [],
     processCode: 'PACKAGING',
-    defaultDocType: 'TASK',
-    taskTypeMode: 'PROCESS',
-    isSpecialCraft: false,
-    ruleSource: 'INHERIT_PROCESS',
-    detailSplitMode: 'COMPOSITE',
-    detailSplitDimensions: ['GARMENT_SKU'],
-  },
-  {
-    code: 'PROC_QC',
-    nameZh: '质检',
-    stage: 'POST',
-    taskVisibility: 'EXTERNAL',
-    assignmentGranularity: 'SKU',
-    canOutsource: false,
-    isExternalConstraint: false,
-    recommendedAssignmentMode: 'DIRECT',
-    recommendedOwnerTier: 'ANY',
-    recommendedOwnerTypes: ['FINISHING', 'WAREHOUSE'],
-    defaultQcPoints: [],
-    defaultParamKeys: [],
-    processCode: 'POST',
-    defaultDocType: 'TASK',
-    taskTypeMode: 'PROCESS',
-    isSpecialCraft: false,
-    ruleSource: 'INHERIT_PROCESS',
-    detailSplitMode: 'COMPOSITE',
-    detailSplitDimensions: ['GARMENT_SKU'],
-  },
-  {
-    code: 'PROC_FINISHING',
-    nameZh: '后道',
-    stage: 'POST',
-    taskVisibility: 'EXTERNAL',
-    assignmentGranularity: 'SKU',
-    canOutsource: false,
-    isExternalConstraint: false,
-    recommendedAssignmentMode: 'DIRECT',
-    recommendedOwnerTier: 'ANY',
-    recommendedOwnerTypes: ['FINISHING', 'WAREHOUSE'],
-    defaultQcPoints: [],
-    defaultParamKeys: [],
-    processCode: 'POST_FINISHING',
     defaultDocType: 'TASK',
     taskTypeMode: 'PROCESS',
     isSpecialCraft: false,

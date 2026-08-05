@@ -325,13 +325,6 @@ export interface PdaCuttingRecentAction {
   summary: string
 }
 
-export interface PdaCuttingCompletionPartRow {
-  partName: string
-  colorName: string
-  cutPieceQty: number
-  garmentAvailableQty: number
-}
-
 export interface PdaCuttingTaskDetailData {
   taskId: string
   taskNo: string
@@ -419,7 +412,6 @@ export interface PdaCuttingTaskDetailData {
   inboundRecords: PdaCuttingInboundRecord[]
   handoverRecords: PdaCuttingHandoverRecord[]
   cuttingReportMode: PdaCuttingReportMode
-  cutCompletionPartRows: PdaCuttingCompletionPartRow[]
   latestSyncStatus: string
   latestSyncSummary: string
 }
@@ -538,39 +530,6 @@ function buildActualReceivedQtyText(input: {
     return `卷数 ${input.receivedRollCount || 0} 卷 / 长度 ${input.receivedLength || 0} 米`
   }
   return '待扫码回写'
-}
-
-function isContinuousCuttingCompletionMode(mode?: PdaCuttingReportMode): boolean {
-  return mode === 'CONTINUOUS_TASK_CUTTING_COMPLETION'
-}
-
-function buildCutCompletionPartRows(record: GeneratedCutOrderSourceRecord | null): PdaCuttingCompletionPartRow[] {
-  if (!record) return []
-  const scopeLines = record.skuScopeLines.length
-    ? record.skuScopeLines
-    : record.colorScope.map((color) => ({ skuCode: color, color, size: '', plannedQty: record.requiredQty }))
-  const rows = new Map<string, PdaCuttingCompletionPartRow>()
-
-  record.pieceRows.forEach((piece) => {
-    const applicableSkuCodes = new Set((piece.applicableSkuCodes || []).filter(Boolean))
-    scopeLines.forEach((scope) => {
-      if (applicableSkuCodes.size > 0 && !applicableSkuCodes.has(scope.skuCode)) return
-      const colorName = scope.color || record.materialColor || '默认颜色'
-      const key = `${piece.partName}::${colorName}`
-      const garmentQty = Math.max(Number(scope.plannedQty || 0), 0)
-      const existing = rows.get(key) || {
-        partName: piece.partName,
-        colorName,
-        cutPieceQty: 0,
-        garmentAvailableQty: 0,
-      }
-      existing.garmentAvailableQty += garmentQty
-      existing.cutPieceQty += garmentQty * Math.max(Number(piece.pieceCountPerUnit || 0), 1)
-      rows.set(key, existing)
-    })
-  })
-
-  return Array.from(rows.values()).filter((row) => row.partName && row.cutPieceQty > 0 && row.garmentAvailableQty > 0)
 }
 
 function getSnapshot(snapshot?: CuttingDomainSnapshot): CuttingDomainSnapshot {
@@ -1504,7 +1463,6 @@ function buildTaskOrderLine(
 ): PdaCuttingTaskOrderLine {
   const scenario = getPdaCuttingTaskScenarioByTaskId(execution.taskId)
   const cuttingReportMode = execution.cuttingReportMode || 'INDEPENDENT_CUTTING_EXECUTION'
-  const isContinuousCompletion = isContinuousCuttingCompletionMode(cuttingReportMode)
   const progressLine = getProgressLine(snapshot, execution)
   const originalRecord = getCutOrderRecord(execution)
   const latestPickup = getLatestPickup(snapshot, execution)
@@ -1520,9 +1478,7 @@ function buildTaskOrderLine(
   const hasDownstreamWarehouseSignal = hasInbound || hasHandover
   const useExplicitPickupEvent = isPdaSequenceMockTask(execution.taskId)
   const currentReceiveStatus =
-    isContinuousCompletion
-      ? '连续任务自带裁片'
-      : pickupDispute && pickupDispute.status !== 'COMPLETED' && pickupDispute.status !== 'REJECTED'
+    pickupDispute && pickupDispute.status !== 'COMPLETED' && pickupDispute.status !== 'REJECTED'
       ? '来料异议处理中'
       : latestPickup?.resultLabel
         || (useExplicitPickupEvent
@@ -1531,8 +1487,7 @@ function buildTaskOrderLine(
             ? '来料已入仓'
             : mapReceiveStatusLabel(progressLine?.receiveStatus))
   const hasPickupSuccess =
-    isContinuousCompletion
-    || Boolean(latestPickup)
+    Boolean(latestPickup)
     || (!useExplicitPickupEvent && (
       progressLine?.receiveStatus === 'RECEIVED'
       || hasDownstreamWarehouseSignal
@@ -1557,9 +1512,7 @@ function buildTaskOrderLine(
     || mobileStage === 'CUTTING'
     || mobileStage === 'CUT_DONE'
   const currentExecutionStatus =
-    isContinuousCompletion
-      ? (scenario?.taskStatus === 'DONE' ? '已上报裁片完成' : '待上报裁片完成')
-      : execution.bindingState === 'UNBOUND'
+    execution.bindingState === 'UNBOUND'
       ? '待绑定裁片单'
       : mobileStage === 'WAIT_PICKUP'
         ? '待领料'
@@ -1578,21 +1531,19 @@ function buildTaskOrderLine(
                   : mobileStage === 'CUTTING'
                     ? '裁剪中'
                     : '已裁剪'
-  const currentInboundStatus = isContinuousCompletion ? '不走我方仓' : latestInbound ? '已入仓' : '待入仓扫码'
-  const currentHandoverStatus = isContinuousCompletion ? '由连续任务承接' : latestHandover ? '已交接' : '待交接扫码'
+  const currentInboundStatus = latestInbound ? '已入仓' : '待入仓扫码'
+  const currentHandoverStatus = latestHandover ? '已交接' : '待交接扫码'
   const hasException =
     currentReceiveStatus.includes('异议')
     || currentReceiveStatus.includes('差异')
     || execution.bindingState === 'UNBOUND'
     || currentExecutionStatus.includes('暂停')
     || currentExecutionStatus.includes('中止')
-  const currentStepCode = isContinuousCompletion ? 'SPREADING' : resolveCurrentStepCode({
+  const currentStepCode = resolveCurrentStepCode({
     mobileStage,
   })
-  const currentStepLabel = isContinuousCompletion ? '裁片完成上报' : resolveMobileStageLabel(mobileStage)
-  const currentStateLabel = isContinuousCompletion
-    ? (scenario?.taskStatus === 'DONE' ? '已上报' : '待上报')
-    : resolveCurrentState({
+  const currentStepLabel = resolveMobileStageLabel(mobileStage)
+  const currentStateLabel = resolveCurrentState({
     bindingState: execution.bindingState,
     taskStatus: scenario?.taskStatus || 'NOT_STARTED',
     currentExecutionStatus,
@@ -1602,7 +1553,7 @@ function buildTaskOrderLine(
     hasHandover,
     hasException,
   })
-  const primaryExecutionRouteKey = isContinuousCompletion ? 'spreading' : resolvePrimaryExecutionRouteKey({
+  const primaryExecutionRouteKey = resolvePrimaryExecutionRouteKey({
     bindingState: execution.bindingState,
     taskStatus: scenario?.taskStatus || 'NOT_STARTED',
     currentStepCode,
@@ -1636,7 +1587,7 @@ function buildTaskOrderLine(
     currentStepCode,
     currentStepLabel,
     primaryExecutionRouteKey,
-    nextActionLabel: isContinuousCompletion ? '上报裁片完成' : resolveNextAction({
+    nextActionLabel: resolveNextAction({
       mobileStage,
       taskStatus: scenario?.taskStatus || 'NOT_STARTED',
       hasException,
@@ -1647,10 +1598,7 @@ function buildTaskOrderLine(
     latestSyncSummary,
     qrCodeValue: buildQrCodeValue(execution.cutOrderNo || execution.executionOrderNo),
     pickupSlipNo: buildPickupSlipNo(execution.cutOrderNo || execution.executionOrderNo),
-    isDone:
-      (isContinuousCompletion && scenario?.taskStatus === 'DONE')
-      || mobileStage === 'CUT_DONE'
-      || scenario?.taskStatus === 'DONE',
+    isDone: mobileStage === 'CUT_DONE' || scenario?.taskStatus === 'DONE',
     hasException,
     sortOrder,
   }
@@ -2037,7 +1985,7 @@ function buildRecentActions(input: {
 }
 
 function buildTaskProgressLabel(completedCount: number, totalCount: number, mode: PdaCuttingReportMode = 'INDEPENDENT_CUTTING_EXECUTION'): string {
-  if (isContinuousCuttingCompletionMode(mode)) return completedCount > 0 ? '裁片完成已上报' : '待上报裁片完成'
+  void mode
   if (!totalCount) return '暂无铺布单'
   return `${completedCount}/${totalCount} 张铺布单已完成`
 }
@@ -2053,18 +2001,6 @@ function resolveTaskStateLabel(completedCount: number, totalCount: number, excep
 
 function resolveTaskSummary(executions: PdaCuttingTaskOrderLine[]): PdaTaskSummary {
   const first = executions[0]
-  if (isContinuousCuttingCompletionMode(first?.cuttingReportMode)) {
-    return {
-      currentStage: first?.currentStateLabel || '待上报',
-      materialSku: first?.materialSku,
-      materialTypeLabel: first?.materialTypeLabel || '',
-      pickupSlipNo: '',
-      qrCodeValue: first?.qrCodeValue || '',
-      receiveSummary: '不走我方裁床仓',
-      executionSummary: '待上报裁片完成',
-      handoverSummary: '连续任务继续承接',
-    }
-  }
   const completedCount = executions.filter((item) => item.isDone).length
   const blockedCount = executions.filter((item) => item.currentExecutionStatus.includes('暂停')).length
   const cancelledCount = executions.filter((item) => item.currentExecutionStatus.includes('中止')).length
@@ -2234,7 +2170,6 @@ export function getPdaCuttingTaskSnapshot(
   const selectedLine = executionRows.find((line) => line.executionOrderId === selectedExecutionRecord.executionOrderId) ?? executionRows[0]
   if (!selectedLine) return null
   const cuttingReportMode = selectedLine.cuttingReportMode || 'INDEPENDENT_CUTTING_EXECUTION'
-  const isContinuousCompletion = isContinuousCuttingCompletionMode(cuttingReportMode)
   const cutOrderGroups = buildTaskCutOrderGroups(executionRows, selectedExecutionRecord.executionOrderId)
 
   const originalRecord = getCutOrderRecord(selectedExecutionRecord)
@@ -2252,22 +2187,16 @@ export function getPdaCuttingTaskSnapshot(
   const pickupDispute = selectedExecutionRecord.cutOrderNo
     ? getLatestClaimDisputeByCutOrderNo(selectedExecutionRecord.cutOrderNo)
     : null
-  const riskTips = isContinuousCompletion
-    ? []
-    : listRiskTips({
-        disputeSummary: pickupDispute && pickupDispute.status !== 'COMPLETED' && pickupDispute.status !== 'REJECTED'
-          ? `${pickupDispute.disputeReason}，待平台处理`
-          : undefined,
-        hasInbound: selectedLine.currentInboundStatus === '已入仓',
-        hasHandover: selectedLine.currentHandoverStatus === '已交接',
-      })
+  const riskTips = listRiskTips({
+    disputeSummary: pickupDispute && pickupDispute.status !== 'COMPLETED' && pickupDispute.status !== 'REJECTED'
+      ? `${pickupDispute.disputeReason}，待平台处理`
+      : undefined,
+    hasInbound: selectedLine.currentInboundStatus === '已入仓',
+    hasHandover: selectedLine.currentHandoverStatus === '已交接',
+  })
   const receiveSummary = selectedLine.currentReceiveStatus
-  const executionSummary = isContinuousCompletion
-    ? '待上报裁片完成'
-    : spreadingRecords.length > 0 ? `已有 ${spreadingRecords.length} 条铺布记录` : '待开始铺布'
-  const handoverSummary = isContinuousCompletion
-    ? '连续任务继续承接'
-    : handoverRecords.length > 0 ? '交接扫码已完成' : '待交接扫码'
+  const executionSummary = spreadingRecords.length > 0 ? `已有 ${spreadingRecords.length} 条铺布记录` : '待开始铺布'
+  const handoverSummary = handoverRecords.length > 0 ? '交接扫码已完成' : '待交接扫码'
   const configuredQtyText = buildConfiguredQtyText(
     originalRecord ?? {
       cutOrderId: selectedExecutionRecord.cutOrderId,
@@ -2375,9 +2304,7 @@ export function getPdaCuttingTaskSnapshot(
     qrVersionNote: '二维码主码已绑定裁片单',
     currentStage: selectedLine.currentStateLabel,
     currentActionHint:
-      isContinuousCompletion
-        ? `当前裁片单 ${selectedLine.cutOrderNo} 只需要上报裁片完成数量。`
-        : selectedLine.bindingState === 'UNBOUND'
+      selectedLine.bindingState === 'UNBOUND'
         ? `当前铺布单 ${selectedLine.executionOrderNo} 尚未绑定裁片单，请先处理绑定异常。`
         : `当前铺布单 ${selectedLine.executionOrderNo} 绑定裁片单 ${selectedLine.cutOrderNo}。`,
     nextRecommendedAction: selectedLine.nextActionLabel,
@@ -2403,7 +2330,7 @@ export function getPdaCuttingTaskSnapshot(
     actualReceivedQtyText,
     discrepancyNote: latestPickup?.note || pickupDispute?.disputeNote || '当前无差异',
     photoProofCount: latestPickup?.photoProofCount || pickupDispute?.evidenceCount || 0,
-    markerSummary: isContinuousCompletion ? '待上报裁片完成' : spreadingRecords.length > 0 ? `${spreadingRecords.length} 条铺布记录` : '待铺布录入',
+    markerSummary: spreadingRecords.length > 0 ? `${spreadingRecords.length} 条铺布记录` : '待铺布录入',
     hasMarkerImage: spreadingRecords.length > 0,
     latestSpreadingAt: latestSpreading?.enteredAt || '-',
     latestSpreadingBy: latestSpreading?.enteredBy || latestOperatorName,
@@ -2424,7 +2351,6 @@ export function getPdaCuttingTaskSnapshot(
     inboundRecords,
     handoverRecords,
     cuttingReportMode,
-    cutCompletionPartRows: isContinuousCompletion ? buildCutCompletionPartRows(originalRecord) : [],
     latestSyncStatus: selectedLine.latestSyncStatus,
     latestSyncSummary: selectedLine.latestSyncSummary,
   }
