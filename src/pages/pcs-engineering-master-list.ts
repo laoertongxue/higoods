@@ -23,7 +23,11 @@ import {
 } from '../components/ui/list-table.ts'
 import { renderTablePagination } from '../components/ui/pagination.ts'
 import type { EngineeringMasterStatus } from '../data/pcs-engineering-master-types.ts'
-import { hasFormalProductionFact } from '../data/pcs-engineering-first-production-policy.ts'
+import { CURRENT_PCS_ENGINEERING_USER } from '../data/pcs-engineering-current-user.ts'
+import {
+  buildFirstProductionQualificationFact,
+  hasFormalProductionFact,
+} from '../data/pcs-engineering-first-production-policy.ts'
 import {
   createEngineeringMasterOrder,
   listEngineeringMasterOrders,
@@ -414,6 +418,38 @@ function getCreateStyleCandidate(style: StyleArchiveShellRecord): CreateStyleCan
   return { style, available: true, reason: '可创建' }
 }
 
+function createManualMasterForStyle(style: StyleArchiveShellRecord) {
+  const checkedAt = new Date().toISOString().replace('T', ' ').slice(0, 19)
+  const triggerKey = `MANUAL-BULK-${style.styleCode}-${Date.now()}`
+  return createEngineeringMasterOrder({
+    styleId: style.styleId,
+    styleCode: style.styleCode,
+    merchandiserId: CURRENT_PCS_ENGINEERING_USER.userId,
+    merchandiserName: CURRENT_PCS_ENGINEERING_USER.userName,
+    createdById: CURRENT_PCS_ENGINEERING_USER.userId,
+    createdBy: CURRENT_PCS_ENGINEERING_USER.userName,
+    createdByRole: CURRENT_PCS_ENGINEERING_USER.role,
+    qualificationFact: buildFirstProductionQualificationFact({
+      styleCode: style.styleCode,
+      hasFormalSale: false,
+      formalSaleSource: '正式销售订单事实',
+      formalProductionSource: '正式生产单事实',
+      checkedAt,
+    }),
+    bulkProductionQualification: {
+      basisType: 'OTHER_CONFIRMED',
+      triggerBusinessObjectType: '跟单人工确认',
+      triggerBusinessObjectId: triggerKey,
+      thresholdQuantity: 0,
+      reachedQuantity: 0,
+      reachedAt: checkedAt,
+      reason: '跟单已确认满足做大货要求',
+      uniqueTriggerKey: triggerKey,
+    },
+    creationReason: '跟单核实后人工创建',
+  })
+}
+
 function renderCreateStyleCandidate(candidate: CreateStyleCandidate): string {
   const { style, available, reason } = candidate
   const selected = masterListUiState.selectedStyleId === style.styleId
@@ -468,6 +504,7 @@ function renderCreateMasterDialog(): string {
         placeholder: '请输入跟单负责人',
         prefix: MASTER_EVENT_PREFIX,
         field: 'create-merchandiser',
+        readonly: true,
       }, true)}
       ${selected ? `<div class="rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-700">将为 ${escapeHtml(selected.style.styleCode)} 创建草稿主单，发布时再生成固定专业任务。</div>` : ''}
     </div>
@@ -673,7 +710,7 @@ export function handlePcsEngineeringMasterListEvent(target: HTMLElement, event?:
     masterListUiState.createDialogOpen = true
     masterListUiState.createStyleSearch = ''
     masterListUiState.selectedStyleId = ''
-    masterListUiState.merchandiserName = '跟单-林晓'
+    masterListUiState.merchandiserName = CURRENT_PCS_ENGINEERING_USER.userName
     masterListUiState.createError = ''
     refreshCreateMasterDialog()
     return true
@@ -702,12 +739,7 @@ export function handlePcsEngineeringMasterListEvent(target: HTMLElement, event?:
       return true
     }
     try {
-      const master = createEngineeringMasterOrder({
-        styleId: style.styleId,
-        styleCode: style.styleCode,
-        merchandiserName: masterListUiState.merchandiserName.trim(),
-        createdBy: masterListUiState.merchandiserName.trim(),
-      })
+      const master = createManualMasterForStyle(style)
       masterListUiState.createDialogOpen = false
       if (typeof window !== 'undefined') {
         window.history.pushState(window.history.state, '', `/pcs/engineering/masters/${master.masterOrderId}`)

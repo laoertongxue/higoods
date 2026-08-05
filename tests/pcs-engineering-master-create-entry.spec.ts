@@ -1,11 +1,19 @@
 import assert from 'node:assert/strict'
 
-import { resetEngineeringMasterRepository } from '../src/data/pcs-engineering-master-repository.ts'
-import { resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
+import { hasFormalProductionFact } from '../src/data/pcs-engineering-first-production-policy.ts'
+import {
+  listEngineeringMasterOrders,
+  resetEngineeringMasterRepository,
+} from '../src/data/pcs-engineering-master-repository.ts'
+import {
+  listStyleArchives,
+  resetStyleArchiveRepository,
+} from '../src/data/pcs-style-archive-repository.ts'
 import {
   handlePcsEngineeringMasterListEvent,
   renderPcsEngineeringMasterListPage,
 } from '../src/pages/pcs-engineering-master-list.ts'
+import { renderPcsEngineeringMasterDetailPage } from '../src/pages/pcs-engineering-master-detail.ts'
 
 resetStyleArchiveRepository()
 resetEngineeringMasterRepository()
@@ -38,6 +46,46 @@ assert.match(dialogHtml, /搜索 SPU／款式名称/, '款式较多时必须支�
 assert.match(dialogHtml, /跟单负责人/, '新建时必须明确工程主单跟单')
 assert.match(dialogHtml, /<img[^>]+src=/, '款式候选必须展示对应款式图片')
 assert.match(dialogHtml, /创建草稿/, '新建动作必须明确只创建草稿')
+
+const beforeCreate = listEngineeringMasterOrders()
+const usedStyleIds = new Set(beforeCreate.map((master) => master.styleId))
+const candidate = listStyleArchives().find((style) =>
+  !usedStyleIds.has(style.styleId)
+  && !hasFormalProductionFact(style.styleCode)
+  && style.archiveStatus !== 'ARCHIVED'
+  && Boolean(style.mainImageUrl || style.galleryImageUrls[0]),
+)
+assert.ok(candidate, '默认 Mock 必须存在可创建工程主单的款式')
+
+const selected = handlePcsEngineeringMasterListEvent({
+  closest(selector: string) {
+    if (selector !== '[data-pcs-engineering-master-action]') return null
+    return {
+      dataset: {
+        pcsEngineeringMasterAction: 'select-create-style',
+        styleId: candidate.styleId,
+      },
+    }
+  },
+} as unknown as HTMLElement)
+assert.equal(selected, true, '选择可创建款式必须由工程主单列表处理')
+
+const created = handlePcsEngineeringMasterListEvent({
+  closest(selector: string) {
+    if (selector !== '[data-pcs-engineering-master-action]') return null
+    return {
+      dataset: { pcsEngineeringMasterAction: 'create-master' },
+    }
+  },
+} as unknown as HTMLElement)
+assert.equal(created, true, '点击创建草稿必须由工程主单列表处理')
+const createdMaster = listEngineeringMasterOrders().find((master) => master.styleId === candidate.styleId)
+assert.ok(createdMaster, '选择标记为可创建的款式后必须真正生成工程主单')
+assert.equal(createdMaster.status, '草稿', '主动新建的工程主单必须先进入草稿')
+assert.doesNotThrow(
+  () => renderPcsEngineeringMasterDetailPage(createdMaster.masterOrderId),
+  '新建草稿跳转详情时不得被演示生命周期初始化误判为待关闭主单',
+)
 
 Object.defineProperty(globalThis, 'document', { configurable: true, value: originalDocument })
 

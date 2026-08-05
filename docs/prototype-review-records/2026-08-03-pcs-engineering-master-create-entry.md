@@ -53,6 +53,8 @@
 | 问题 | 标签 | 影响角色 | 处理方式 | 是否仍有风险 |
 | --- | --- | --- | --- | --- |
 | 工程主单只有演示数据和查看入口，跟单无法主动创建 | 协作断裂 | 跟单 | 增加主动新建弹窗和创建草稿动作 | 否 |
+| 候选显示“可创建”，但提交时缺少首单资格、做大货资格和当前跟单身份，导致所有候选均创建失败 | 协作断裂 | 跟单 | 候选选择与提交共用同一款式事实；提交时补齐当前跟单身份、首单资格和人工确认做大货资格，并用真实创建事件回归 | 否 |
+| 新草稿追加到仓库末尾后被演示生命周期误当成关闭场景，详情页初始化失败 | 协作断裂 | 跟单 | 演示生命周期只处理明确标识为 `BULK-DEMO` 的内置主单，人工新建草稿保持草稿状态并正常进入详情 | 否 |
 | 款式仅显示文字，款式多时容易选错 | 选不对 | 跟单 | 候选及列表同列展示真实款式图片、名称和 SPU | 否 |
 | 新主单直接生成全部任务，缺少跟单对适用任务的业务确认 | 协作断裂 | 跟单、专业团队 | 草稿详情先展示系统建议；必做任务锁定，条件任务由跟单确认，固定依赖不可编辑 | 否 |
 
@@ -80,7 +82,7 @@
 
 ### 验证命令
 
-- `npx tsx tests/pcs-engineering-master-create-entry.spec.ts`：通过
+- `npx tsx tests/pcs-engineering-master-create-entry.spec.ts`：通过；覆盖打开弹窗、选择“可创建”款式、点击创建草稿以及仓库新增草稿主单
 - `npx tsx tests/pcs-engineering-master-image-preview.spec.ts`：通过
 - `npx tsx tests/pcs-engineering-master-task-plan-confirmation.spec.ts`：通过
 - `npm run check:list-page-governance`：通过

@@ -286,7 +286,9 @@ function seedEngineeringMasterScenario(masterOrderId: string, scenarioNo: number
 }
 
 function ensureEngineeringLifecycleDemoData(): void {
-  const records = listEngineeringMasterOrders()
+  // 只允许初始化内置 BULK-DEMO 主单；人工新建草稿不得因追加到仓库末尾而被改写生命周期。
+  const records = listEngineeringMasterOrders().filter((record) =>
+    record.bulkProductionQualification.triggerBusinessObjectId.startsWith('BULK-DEMO-'))
   const closingMaster = records.at(-2)
   const closedMaster = records.at(-1)
   if (closingMaster && closingMaster.status !== '待关闭' && closingMaster.status !== '已关闭') {
