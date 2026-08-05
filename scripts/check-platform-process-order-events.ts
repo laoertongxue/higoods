@@ -51,6 +51,7 @@ async function checkFactoryPrintingPage(page: Page, port: number): Promise<void>
   await page.evaluate(() => localStorage.removeItem('/fcs/craft/printing/work-orders:list-columns'))
   await page.reload()
   await page.locator(factoryRoot).waitFor({ timeout: 90_000 })
+  await page.locator('[data-printing-work-orders-field="sourceType"]').selectOption('STOCK')
 
   await page.evaluate(({ factoryRoot }) => {
     const workspace = document.querySelector(`${factoryRoot} [data-printing-work-orders-workspace]`)
@@ -135,23 +136,35 @@ const vite = await createServer({
 await vite.listen()
 const browser = await chromium.launch({ headless: true })
 const page = await browser.newPage({ viewport: { width: 1366, height: 768 } })
+page.setDefaultNavigationTimeout(90_000)
 page.on('pageerror', (error) => console.error(`[check-platform-process-order-events] pageerror: ${error.message}`))
 
 try {
-  await page.goto(`http://127.0.0.1:${port}${config.path}`)
+  await page.goto(`http://127.0.0.1:${port}${config.path}`, { waitUntil: 'domcontentloaded', timeout: 90_000 })
+  await page.locator(config.root).waitFor({ timeout: 90_000 })
   await page.evaluate((key) => localStorage.removeItem(key), config.preferenceKey)
   await page.reload()
+  await page.locator(config.root).waitFor({ timeout: 90_000 })
+  await page.waitForLoadState('networkidle')
+  await page.waitForTimeout(100)
 
-  const main = page.locator('main')
-  await main.evaluate((node) => { node.dataset.platformProcessDomMarker = 'stable' })
+  const sourceFilter = page.locator(`[data-${config.fieldPrefix}-field="sourceFilter"]`)
+  await sourceFilter.selectOption('STOCK')
+  await page.waitForFunction(({ root }) => document.querySelectorAll(`${root} [data-standard-list-table-section] tbody tr`).length > 0, { root: config.root })
+  await sourceFilter.selectOption('')
+  await page.waitForFunction(({ root }) => document.querySelectorAll(`${root} [data-standard-list-table-section] tbody tr`).length > 0, { root: config.root })
+  await page.waitForTimeout(100)
+  await page.evaluate(() => {
+    const main = document.querySelector('main')
+    if (!main) throw new Error('缺少平台加工单主内容区域')
+    ;(window as typeof window & { __platformProcessStableMain?: Element }).__platformProcessStableMain = main
+  })
   const assertStableMain = async (step: string) => {
-    assert.equal(await main.getAttribute('data-platform-process-dom-marker'), 'stable', `${processKind} 平台${step}不得整页重绘`)
+    const stable = await page.evaluate(() => document.querySelector('main') === (window as typeof window & { __platformProcessStableMain?: Element }).__platformProcessStableMain)
+    assert.equal(stable, true, `${processKind} 平台${step}不得整页重绘`)
   }
 
-  await page.locator(`[data-${config.fieldPrefix}-field="sourceFilter"]`).evaluate((node: HTMLSelectElement) => {
-    node.value = 'STOCK'
-    node.dispatchEvent(new Event('change', { bubbles: true }))
-  })
+  await sourceFilter.selectOption('STOCK')
   await page.waitForFunction(({ root }) => {
     const rows = [...document.querySelectorAll(`${root} [data-standard-list-table-section] tbody tr`)]
     return rows.length > 0 && rows.every((row) => row.textContent?.includes('备货手动创建'))
@@ -161,10 +174,7 @@ try {
   assert.ok(stockRows.every((text) => text.includes('备货手动创建')), `${processKind} 平台 STOCK 筛选不得混入其他来源`)
   await assertStableMain('筛选')
 
-  await page.locator(`[data-${config.fieldPrefix}-field="sourceFilter"]`).evaluate((node: HTMLSelectElement) => {
-    node.value = ''
-    node.dispatchEvent(new Event('change', { bubbles: true }))
-  })
+  await sourceFilter.selectOption('')
   await assertStableMain('清空筛选')
   const pageSizeField = page.locator(`[data-${config.listPrefix}-field="pageSize"]`)
   await pageSizeField.selectOption('20')

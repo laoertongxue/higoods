@@ -86,7 +86,7 @@ function checkCombinedDyeingWorkspaceWiring(): void {
   for (const label of ['创建合并染色', '完成染色', '更正染色结果', '删除任务', '查看已删除任务']) {
     assertIncludes(page, label, `合并染色页面缺少操作：${label}`)
   }
-  for (const label of ['合并染色任务号', '染厂', '面料', '目标颜色', '染色工艺', '成员数', '需求合计', '实际产出', '未满足数量', '超出数量', '状态', '创建时间', '完成时间']) {
+  for (const label of ['合并染色任务号', '染厂', '面料', '目标颜色', '染色工序', '成员数', '需求合计', '实际产出', '未满足数量', '超出数量', '状态', '创建时间', '完成时间']) {
     assertIncludes(page, label, `合并染色列表缺少列：${label}`)
   }
   assertIncludes(page, '平台加工单号', '创建抽屉必须只读显示平台加工单号')
@@ -441,7 +441,7 @@ function checkCombinedDyeingLifecycle(): void {
   assert.throws(() => createCombinedDyeingTask({ dyeWorkOrderIds: [baseA.dyeOrderId, otherFactory.dyeOrderId], createdBy: '计划员' }), /染厂/, '不同染厂必须拒绝')
   assert.throws(() => createCombinedDyeingTask({ dyeWorkOrderIds: [baseA.dyeOrderId, otherMaterial.dyeOrderId], createdBy: '计划员' }), /面料/, '同名但 materialId 不同必须拒绝')
   assert.throws(() => createCombinedDyeingTask({ dyeWorkOrderIds: [baseA.dyeOrderId, otherColor.dyeOrderId], createdBy: '计划员' }), /目标颜色/, '不同目标颜色必须拒绝')
-  assert.throws(() => createCombinedDyeingTask({ dyeWorkOrderIds: [baseA.dyeOrderId, otherProcess.dyeOrderId], createdBy: '计划员' }), /染色工艺/, '不同染色工艺必须拒绝')
+  assert.throws(() => createCombinedDyeingTask({ dyeWorkOrderIds: [baseA.dyeOrderId, otherProcess.dyeOrderId], createdBy: '计划员' }), /染色工序/, '不同染色工序必须拒绝')
   assert.throws(() => createCombinedDyeingTask({ dyeWorkOrderIds: [baseA.dyeOrderId, missingMaterial.dyeOrderId], createdBy: '计划员' }), /面料标识不能为空/, '缺少稳定 materialId 必须拒绝')
 
   const sameMaterialDifferentName = registerLifecycleWorkOrder({ plannedQty: 40, materialName: '同 ID 的新展示名称', orderedAt: '2026-07-16 09:30:00' })

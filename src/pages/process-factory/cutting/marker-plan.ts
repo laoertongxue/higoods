@@ -4159,7 +4159,7 @@ function renderStats(viewModel = getViewModel(), plans = viewModel.plans): strin
 function renderThirdPartyMarkerBoundaryNotice(): string {
   return `
     <div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-      三方连续任务用唛架：仅用于给三方工厂裁片依据，不进入我方铺布/入仓闭环。
+      裁剪+车缝+烫包合并任务用唛架：仅用于给三方工厂裁剪依据，不进入我方铺布/入仓闭环。
     </div>
   `
 }

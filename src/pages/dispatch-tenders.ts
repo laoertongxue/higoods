@@ -21,7 +21,10 @@ import {
   formatOperationLocalWallClock,
   restoreSewingDeliverySlaSnapshotStore,
 } from '../data/fcs/sewing-delivery-sla.ts'
-import { state as dispatchBoardState } from './dispatch-board/context.ts'
+import { classifyTaskFulfillmentPolicy } from '../data/fcs/task-fulfillment-policy.ts'
+import { createEffectiveTaskAssignment } from '../data/fcs/effective-task-assignments.ts'
+import { createProductionReturnRuleSnapshot } from '../data/fcs/production-return-fulfillment.ts'
+import { generateProductionContract, getProductionContract } from '../data/fcs/production-contracts.ts'
 
 type TenderStatus = 'BIDDING' | 'AWAIT_AWARD' | 'AWARDED'
 
@@ -292,6 +295,8 @@ interface TendersPageState {
   viewAwardReason: string
   viewAwardRiskConfirmedByFactoryId: Record<string, boolean>
   viewAwardSupervisorAssignedByFactoryId: Record<string, boolean>
+  viewAwardSecondConfirm: boolean
+  awardContractId: string | null
 }
 
 const state: TendersPageState = {
@@ -307,6 +312,8 @@ const state: TendersPageState = {
   viewAwardReason: '',
   viewAwardRiskConfirmedByFactoryId: {},
   viewAwardSupervisorAssignedByFactoryId: {},
+  viewAwardSecondConfirm: false,
+  awardContractId: null,
 }
 
 function genTenderId(): string {
@@ -570,6 +577,7 @@ function openViewDrawer(tenderId: string, now = formatOperationLocalWallClock())
   state.viewAwardReason = award?.awardReason ?? ''
   state.viewAwardRiskConfirmedByFactoryId = {}
   state.viewAwardSupervisorAssignedByFactoryId = {}
+  state.viewAwardSecondConfirm = false
 }
 
 function closeViewDrawer(): void {
@@ -577,12 +585,14 @@ function closeViewDrawer(): void {
   state.viewAwardFactoryId = ''
   state.viewAwardReason = ''
   state.viewAwardRiskConfirmedByFactoryId = {}
+  state.viewAwardSecondConfirm = false
   state.viewAwardSupervisorAssignedByFactoryId = {}
 }
 
 function closeDialogs(): void {
   closeCreateDrawer()
   closeViewDrawer()
+  state.awardContractId = null
 }
 
 function showTenderToast(message: string): void {
@@ -722,6 +732,11 @@ function confirmAwardInView(now = formatOperationLocalWallClock()): void {
     return
   }
 
+  if (!state.viewAwardSecondConfirm) {
+    state.viewAwardSecondConfirm = true
+    return
+  }
+
   const taskIds = tender.taskIds?.length ? tender.taskIds : [tender.taskId]
   const awardResult = awardRuntimeTenderTasks({
     taskIds,
@@ -739,6 +754,51 @@ function confirmAwardInView(now = formatOperationLocalWallClock()): void {
     return
   }
 
+  const generatedContractIds: string[] = []
+  for (const awardedTask of awardResult.tasks ?? []) {
+    const policy = classifyTaskFulfillmentPolicy(awardedTask)
+    const skuLines = awardedTask.scopeSkuLines.length
+      ? awardedTask.scopeSkuLines.map((line) => ({ skuCode: line.skuCode, color: line.color, size: line.size, qty: line.qty }))
+      : [{ skuCode: awardedTask.skuCode || 'SKU-ALL', color: awardedTask.skuColor || '混色', size: awardedTask.skuSize || '混码', qty: awardedTask.scopeQty }]
+    const assignment = createEffectiveTaskAssignment({
+      runtimeTaskId: awardedTask.taskId,
+      productionOrderId: awardedTask.productionOrderId || tender.productionOrderId,
+      productionOrderNo: awardedTask.productionOrderNo,
+      taskNo: awardedTask.taskNo,
+      factoryId: selectedQuote.factoryId,
+      factoryName: selectedQuote.factoryName,
+      source: 'TENDER_AWARD',
+      assignedQty: skuLines.reduce((sum, line) => sum + line.qty, 0),
+      skuLines,
+      processCodes: policy.normalizedProcessCodes,
+      frozenPrice: selectedQuote.quotePrice,
+      priceCurrency: tender.currency,
+      priceUnit: tender.unit,
+      businessAssignedAt: now,
+      operatedAt: now,
+      operatedBy: '平台定标员',
+    })
+    const returnRuleSnapshot = createProductionReturnRuleSnapshot({
+      assignmentId: assignment.assignmentId,
+      runtimeTaskId: assignment.runtimeTaskId,
+      productionOrderId: assignment.productionOrderId,
+      factoryId: assignment.factoryId,
+      factoryName: assignment.factoryName,
+      assignedQty: assignment.assignedQty,
+      businessAssignedAt: now,
+      policy,
+    })
+    const contract = generateProductionContract({
+      assignment,
+      policy,
+      returnRuleSnapshot,
+      processNames: awardedTask.coveredProcesses?.map((item) => item.processName) || [awardedTask.processNameZh],
+      generatedAt: now,
+      generatedBy: '平台定标员',
+    })
+    if (contract) generatedContractIds.push(contract.contractId)
+  }
+
   state.localAwards = {
     ...state.localAwards,
     [tender.tenderId]: {
@@ -753,6 +813,13 @@ function confirmAwardInView(now = formatOperationLocalWallClock()): void {
     `定标完成：${selectedQuote.factoryName}，中标价 ${selectedQuote.quotePrice.toLocaleString()} ${tender.currency}/${tender.unit}`,
   )
   closeViewDrawer()
+  state.awardContractId = generatedContractIds[0] || null
+}
+
+function renderAwardContractPrompt(): string {
+  const contract = state.awardContractId ? getProductionContract(state.awardContractId) : undefined
+  if (!contract) return ''
+  return `<div class="fixed inset-0 z-[70] flex items-center justify-center p-4"><button class="absolute inset-0 bg-black/45" data-tender-action="close-award-contract"></button><section class="relative z-10 w-full max-w-md rounded-lg bg-white p-6 shadow-xl"><h2 class="text-lg font-semibold">中标分配及合同已生成</h2><p class="mt-3 text-sm">${escapeHtml(contract.contractNo)} · ${escapeHtml(contract.factoryName)} · ${contract.assignedQty}件</p><p class="mt-2 text-xs text-muted-foreground">是否立即打印合同？稍后可从生产合同管理、任务分配工作台或生产单进度跟踪再次查看。</p><div class="mt-5 flex justify-end gap-2"><button class="rounded border px-4 py-2" data-tender-action="close-award-contract">稍后打印</button><a class="rounded bg-blue-600 px-4 py-2 text-white" target="_blank" href="/fcs/contracts/print?contractId=${encodeURIComponent(contract.contractId)}">立即打印</a></div></section></div>`
 }
 
 function renderViewTenderSheet(tender: TenderRow | null): string {
@@ -1079,6 +1146,7 @@ function renderViewTenderSheet(tender: TenderRow | null): string {
                         <textarea class="w-full rounded-md border bg-background px-3 py-2 text-sm" rows="3" placeholder="请填写定标理由，如报价低于限价或高于限价时须填写说明…" data-tender-field="view.awardReason">${escapeHtml(state.viewAwardReason)}</textarea>
                       </div>
 
+                      ${state.viewAwardSecondConfirm && selectedQuote ? `<div class="rounded-lg border-2 border-amber-400 bg-amber-50 p-3"><p class="font-semibold text-red-700">谨慎确认价格，一经提交确认不得修改。</p><p class="mt-1 text-xs text-amber-800">中标工厂：${escapeHtml(selectedQuote.factoryName)} · 中标价：${selectedQuote.quotePrice?.toLocaleString()} ${escapeHtml(tender.currency)}/${escapeHtml(tender.unit)}。提交后冻结并作为结算唯一价格来源。</p></div>` : ''}
                       <div class="flex items-center justify-between pt-1">
                         <p class="text-xs text-muted-foreground">${
                           selectedQuote
@@ -1086,7 +1154,7 @@ function renderViewTenderSheet(tender: TenderRow | null): string {
                             : '请选择中标工厂'
                         }</p>
                         <button class="inline-flex h-8 items-center rounded-md bg-purple-600 px-3 text-sm font-medium text-white hover:bg-purple-700 ${canConfirm ? '' : 'pointer-events-none opacity-50'}" data-tender-action="confirm-award">
-                          <i data-lucide="check-circle-2" class="mr-1 h-3.5 w-3.5"></i>确认定标
+                          <i data-lucide="check-circle-2" class="mr-1 h-3.5 w-3.5"></i>${state.viewAwardSecondConfirm ? '二次确认并冻结中标价' : '确认定标'}
                         </button>
                       </div>
                     </div>`
@@ -1426,6 +1494,7 @@ export function renderDispatchTendersPage(now = formatOperationLocalWallClock())
 
       ${renderCreateTenderSheet()}
       ${renderViewTenderSheet(viewTender)}
+      ${renderAwardContractPrompt()}
     </div>
   `
 }
@@ -1625,11 +1694,17 @@ export function handleDispatchTendersEvent(
     if (!factoryId) return true
 
     state.viewAwardFactoryId = factoryId
+    state.viewAwardSecondConfirm = false
     return true
   }
 
   if (action === 'confirm-award') {
     confirmAwardInView(now)
+    return true
+  }
+
+  if (action === 'close-award-contract') {
+    state.awardContractId = null
     return true
   }
 
@@ -1642,5 +1717,5 @@ export function handleDispatchTendersEvent(
 }
 
 export function isDispatchTendersDialogOpen(): boolean {
-  return state.createOpen || state.viewTenderId !== null
+  return state.createOpen || state.viewTenderId !== null || state.awardContractId !== null
 }

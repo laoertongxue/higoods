@@ -1,4 +1,3 @@
-import { getFactoryCapacityProfileByFactoryId } from './factory-capacity-profile-mock.ts'
 import { listFactoryMasterRecords } from './factory-master-store.ts'
 import {
   getLatestEffectiveThirdPartyFactoryTrialAssessmentRecord,
@@ -515,18 +514,6 @@ export function resolveThirdPartyFactorySewingSeatCount(
   const masterSeatCount = toPositiveInteger(factory?.sewingSeatCount)
   if (masterSeatCount) {
     return { seatCount: masterSeatCount, sourceLabel: '工厂档案 / 产能资料' }
-  }
-
-  if (factory) {
-    try {
-      const profile = getFactoryCapacityProfileByFactoryId(factory.id)
-      const profileSeatCount = toPositiveInteger(profile.sewingSeatCount)
-      if (profileSeatCount) {
-        return { seatCount: profileSeatCount, sourceLabel: '工厂档案 / 产能资料' }
-      }
-    } catch {
-      // 评级快照仍保留兜底，避免单个产能档案异常影响列表可见性。
-    }
   }
 
   return { seatCount: fallbackSeatCount ?? 0, sourceLabel: '评级快照' }

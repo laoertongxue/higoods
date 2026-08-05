@@ -437,7 +437,6 @@ function renderProcessTab(rows: TechnicalProcessEntry[]): string {
             <th class="px-3 py-2 text-left font-medium">作用对象</th>
             <th class="px-3 py-2 text-left font-medium">完成交出</th>
             <th class="px-3 py-2 text-left font-medium">执行要求</th>
-            <th class="px-3 py-2 text-left font-medium">产值</th>
           </tr>
         </thead>
         <tbody>
@@ -454,7 +453,6 @@ function renderProcessTab(rows: TechnicalProcessEntry[]): string {
                 <td class="px-3 py-2 text-xs text-muted-foreground">${[
                   row.materialIssueMode === 'WAREHOUSE_DELIVERY' ? '染厂/面料仓送料到厂' : '',
                 ].filter(Boolean).map((item) => escapeHtml(item)).join(' / ') || '—'}</td>
-                <td class="px-3 py-2">${row.outputValuePerUnit ? `${escapeHtml(String(row.outputValuePerUnit))} ${escapeHtml(row.outputValueUnit || '产值/件')}` : '暂无数据'}</td>
               </tr>
             `)
             .join('')}

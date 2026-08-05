@@ -543,7 +543,7 @@ if (originalHtmlTextAreaElement) {
 const existingValidTicketForm = {
   ...workflow.createPdaCuttingInboundFormState(),
   carrierCode: 'BAG-001',
-  bagProductionOrderNo: 'PO-202603-0004',
+  bagProductionOrderNo: knownTicketCandidate.productionOrderNo,
   scannedTicketNos: [demoTicketNos[1]],
   inboundQty: '195',
   scanCode: 'UNKNOWN-PENDING-001',

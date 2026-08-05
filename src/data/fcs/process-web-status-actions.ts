@@ -73,8 +73,8 @@ export type ProcessWebActionType =
   | '确认收货入库'
   | '开始质检'
   | '完成质检'
-  | '开始后道'
-  | '完成后道'
+  | '开始实际工序'
+  | '完成实际工序'
   | '开始复检'
   | '完成复检'
 
@@ -550,7 +550,7 @@ const POST_FINISHING_ACTIONS: ActionDefinition[] = [
   },
   {
     actionCode: 'POST_PROCESS_START',
-    actionLabel: '开始后道',
+    actionLabel: '开始实际工序',
     processType: 'POST_FINISHING',
     fromStatuses: ['待后道'],
     toStatus: '后道中',
@@ -559,7 +559,7 @@ const POST_FINISHING_ACTIONS: ActionDefinition[] = [
   },
   {
     actionCode: 'POST_PROCESS_FINISH',
-    actionLabel: '完成后道',
+    actionLabel: '完成实际工序',
     processType: 'POST_FINISHING',
     fromStatuses: ['后道中'],
     toStatus: '待复检',

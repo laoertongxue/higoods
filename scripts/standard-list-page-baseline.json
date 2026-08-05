@@ -1,10 +1,6 @@
 {
   "src/pages/adjustments.ts": "88a7494e5b76ae6ebb5d73e1ae32305efb9d8ebd44dd3bf8d5238ef4b20141e5",
-  "src/pages/capacity.ts": "d227679ae629142e4df8c8264bd25e4ec01f5c788685186aee21d4a3452d38ed",
-  "src/pages/continuous-dispatch.ts": "53a4e4e144cd4ee1fd92be735e2af6bd365bb4e2185a7ed706cff5cd1b504f2e",
   "src/pages/dispatch-acceptance-sla.ts": "ab18788faf639fad41e407592421c35ed1815fe185a6d80b610f839ac03e932b",
-  "src/pages/dispatch-board/board-domain.ts": "5fcf87ddf1a1b7d683c6980c48cd15a89e53eff8c9ff2decc9206c1a7742c2bc",
-  "src/pages/dispatch-board/core.ts": "39f3f696165b709a05c65ac231ddf71e5794f7c593c94695de63dbf5d7b2e9bf",
   "src/pages/pcs-channel-products.ts": "e3dcd42c6697bde89049e204a4ee438d124be46b99ce3786d9c0a038cd4096b3",
   "src/pages/pcs-engineering-tasks.ts": "d54288b0b2897ae9f9348b271b2682b210108a8e2a2eb6b9b26ad372375214a0",
   "src/pages/pcs-live-testing.ts": "01115af880efce4a6d3592fa536b7dfbcbe76a5d1bc978a98bac876eacb1b1f1",

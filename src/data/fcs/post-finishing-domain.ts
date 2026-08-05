@@ -8,7 +8,7 @@ export type PostFinishingRouteMode = '需要后道加工' | '无需后道加工'
 export type PostFinishingActionType = '扫码收货' | '质检' | '后道' | '复检'
 export type PostFinishingSourceFactoryType = '车缝厂' | '毛织厂' | '特殊工艺厂' | '未关联任务'
 export type PostFinishingQcResult = '全数合规' | '部分不合格' | '全数不合格'
-export type PostFinishingNeedFlag = '开扣眼' | '装扣子' | '熨烫' | '包装'
+export type PostFinishingNeedFlag = '开扣眼' | '装扣子' | '烫包'
 export type PostFinishingButtonAttachMode = '人工装扣' | '机器装扣'
 export type PostFinishingTaskStatus = '待上游交出' | '待收货' | '待质检' | '质检中' | '待后道' | '后道中' | '待复检' | '待交出' | '已完成'
 export type PostFinishingTaskAcceptanceStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED'
@@ -1007,24 +1007,21 @@ function postFlags(qc: Pick<PostFinishingQcOrder, 'needButtonhole' | 'needButton
   const fromSku = (qc.qcSkuResults || [])
     .flatMap((result) => result.postProjectJudgements)
     .filter((judgement) => judgement.needed && judgement.qty > 0)
-    .map((judgement) => judgement.projectName)
+    .map((judgement) => judgement.projectName === ('熨烫' as PostFinishingNeedFlag) || judgement.projectName === ('包装' as PostFinishingNeedFlag) ? '烫包' : judgement.projectName)
   if (fromSku.length) {
-    const next = new Set(fromSku)
+    const next = new Set<PostFinishingNeedFlag>(fromSku)
     if (next.has('开扣眼') || next.has('装扣子')) {
-      next.add('熨烫')
-      next.add('包装')
+      next.add('烫包')
     }
     return Array.from(next)
   }
   const next = new Set([
     qc.needButtonhole ? '开扣眼' : '',
     qc.needButton ? '装扣子' : '',
-    qc.needIroning ? '熨烫' : '',
-    qc.needPackaging ? '包装' : '',
+    qc.needIroning || qc.needPackaging ? '烫包' : '',
   ].filter(Boolean) as PostFinishingNeedFlag[])
   if (next.has('开扣眼') || next.has('装扣子')) {
-    next.add('熨烫')
-    next.add('包装')
+    next.add('烫包')
   }
   return Array.from(next)
 }
@@ -1043,7 +1040,7 @@ function normalizePostProjectJudgements(items: PostFinishingQcPostProjectJudgeme
     .filter((item) => item.needed && (item.projectName === '开扣眼' || item.projectName === '装扣子'))
     .reduce((max, item) => Math.max(max, item.qty), 0)
   if (triggerQty <= 0) return next
-  ;(['熨烫', '包装'] as const).forEach((projectName) => {
+  ;(['烫包'] as const).forEach((projectName) => {
     const existing = next.find((item) => item.projectName === projectName)
     if (existing) {
       existing.needed = true
@@ -1068,8 +1065,7 @@ function postProjectJudgementsFromFlags(input: {
   const pairs: Array<[PostFinishingNeedFlag, boolean | undefined]> = [
     ['开扣眼', needButtonhole],
     ['装扣子', needButton],
-    ['熨烫', input.needIroning || needButtonhole || needButton],
-    ['包装', input.needPackaging || needButtonhole || needButton],
+    ['烫包', input.needIroning || input.needPackaging || needButtonhole || needButton],
   ]
   return normalizePostProjectJudgements(pairs
     .filter(([, needed]) => Boolean(needed))
@@ -1425,7 +1421,7 @@ export function buildPostFinishingTaskId(productionOrderId: string): string {
 }
 
 export function buildPostFinishingTaskNo(productionOrderNo: string): string {
-  return `后道任务-${productionOrderNo.replace(/^PO-/, '')}`
+  return `后道阶段处理-${productionOrderNo.replace(/^PO-/, '')}`
 }
 
 function sumProductionOrderQty(order: Pick<ProductionOrder, 'demandSnapshot'>): number {
@@ -2583,6 +2579,7 @@ function buildPendingRecheckFromQc(qc: PostFinishingQcOrder, index: number, post
 
 let recheckOrders: PostFinishingRecheckOrder[] = [
   qcOrders.find((item) => item.qcOrderNo === 'QC-POST-2026-001'),
+  qcOrders.find((item) => item.qcOrderNo === 'QC-POST-2026-005'),
 ].flatMap((qc, index) => qc ? [buildDirectRecheckFromQc(qc, index + 1)] : [])
 
 qcOrders = qcOrders.map((qc, index) => {
@@ -2742,11 +2739,11 @@ function cloneRecheck(order: PostFinishingRecheckOrder): PostFinishingRecheckOrd
 
 export function getPostFinishingSourceLabel(order: Pick<PostFinishingWorkOrder, 'sourceFactoryType' | 'requiresPostFinishing'>): string {
   if (order.sourceFactoryType === '未关联任务') return '手动质检'
-  return order.requiresPostFinishing ? '质检后生成后道' : '质检后直接复检'
+  return order.requiresPostFinishing ? '质检后执行实际工序' : '质检后直接复检'
 }
 
 export function getPostFinishingFlowText(order: Pick<PostFinishingWorkOrder, 'requiresPostFinishing'>): string {
-  return order.requiresPostFinishing ? '扫码收货 -> 质检 -> 后道 -> 复检 -> 交出' : '扫码收货 -> 质检 -> 复检 -> 交出'
+  return order.requiresPostFinishing ? '扫码收货 -> 质检 -> 实际工序 -> 复检 -> 交出' : '扫码收货 -> 质检 -> 复检 -> 交出'
 }
 
 export function listPostFinishingSourceStyleOptions(): PostFinishingSourceContext[] {
@@ -2984,7 +2981,7 @@ export function createPostFinishingQcOrder(input: {
   inspectorName?: string
 }): PostFinishingQcOrder {
   const targetTask = input.postTaskId ? getPostFinishingTaskById(input.postTaskId) : undefined
-  if (input.postTaskId && !targetTask) throw new Error('未找到后道任务，不能创建质检单。')
+  if (input.postTaskId && !targetTask) throw new Error('未找到后道阶段处理记录，不能创建质检单。')
   const waitItems = listPostFinishingWaitQcSkuItems({ postTaskId: input.postTaskId })
   const selected = input.allocations
     .map((allocationInput) => {
@@ -2995,7 +2992,7 @@ export function createPostFinishingQcOrder(input: {
     .filter((item): item is { item: PostFinishingWaitQcSkuItem; qcQty: number } => Boolean(item))
   if (!selected.length) throw new Error('请至少选择一个待质检 SKU。')
   const first = selected[0].item
-  if (targetTask && first.productionOrderNo !== targetTask.productionOrderNo) throw new Error('只能在当前后道任务下创建质检单。')
+  if (targetTask && first.productionOrderNo !== targetTask.productionOrderNo) throw new Error('只能在当前后道阶段处理记录下创建质检单。')
   const notSameOrder = selected.find(({ item }) => item.productionOrderNo !== first.productionOrderNo || item.spuId !== first.spuId)
   if (notSameOrder) throw new Error('一次质检单只能选择同一生产单下的同一款式 SKU。')
   const invalidQty = selected.find(({ item, qcQty }) => qcQty > item.waitQcQty)
@@ -3195,8 +3192,8 @@ export function completePostFinishingQcOrder(input: {
   const nextNeeds = postFlags({ ...qc, qcSkuResults: nextQcSkuResults })
   qc.needButtonhole = nextNeeds.includes('开扣眼')
   qc.needButton = nextNeeds.includes('装扣子')
-  qc.needIroning = nextNeeds.includes('熨烫')
-  qc.needPackaging = nextNeeds.includes('包装')
+  qc.needIroning = nextNeeds.includes('烫包')
+  qc.needPackaging = nextNeeds.includes('烫包')
   qc.defectItems = hasDefect ? [defect(`PF-DEF-${pad(nextQcIndex())}`, qc.defectiveGarmentQty)] : []
   qc.evidenceAssets = hasDefect ? qc.evidenceAssets : []
   qc.inspectedAt = nowText()
@@ -3265,8 +3262,8 @@ export function submitPostFinishingPdaQcResult(input: {
   const nextNeeds = postFlags({ ...qc, qcSkuResults: nextQcSkuResults })
   qc.needButtonhole = nextNeeds.includes('开扣眼')
   qc.needButton = nextNeeds.includes('装扣子')
-  qc.needIroning = nextNeeds.includes('熨烫')
-  qc.needPackaging = nextNeeds.includes('包装')
+  qc.needIroning = nextNeeds.includes('烫包')
+  qc.needPackaging = nextNeeds.includes('烫包')
   qc.defectItems = [defect(`PF-DEF-${pad(nextQcIndex())}`, defectiveQty)]
   qc.inspectedAt = nowText()
   qc.updatedAt = nowText()
@@ -3315,21 +3312,21 @@ export function getSewingFactoryPostTaskById(taskId: string): SewingFactoryPostT
 
 export function startSewingFactoryPostTask(taskId: string): SewingFactoryPostTask {
   const task = sewingFactoryPostTasks.find((item) => item.taskId === taskId || item.postTaskId === taskId)
-  if (!task) throw new Error(`未找到上游后道任务：${taskId}`)
+  if (!task) throw new Error(`未找到上游后道阶段处理记录：${taskId}`)
   task.status = '后道中'
   return { ...task, skuLines: task.skuLines.map(cloneSkuLine) }
 }
 
 export function finishSewingFactoryPostTask(taskId: string): SewingFactoryPostTask {
   const task = sewingFactoryPostTasks.find((item) => item.taskId === taskId || item.postTaskId === taskId)
-  if (!task) throw new Error(`未找到上游后道任务：${taskId}`)
+  if (!task) throw new Error(`未找到上游后道阶段处理记录：${taskId}`)
   task.status = '后道完成'
   return { ...task, skuLines: task.skuLines.map(cloneSkuLine) }
 }
 
 export function transferSewingFactoryPostTaskToManagedFactory(taskId: string): SewingFactoryPostTask {
   const task = sewingFactoryPostTasks.find((item) => item.taskId === taskId || item.postTaskId === taskId)
-  if (!task) throw new Error(`未找到上游后道任务：${taskId}`)
+  if (!task) throw new Error(`未找到上游后道阶段处理记录：${taskId}`)
   task.status = '已交后道工厂'
   return { ...task, skuLines: task.skuLines.map(cloneSkuLine) }
 }

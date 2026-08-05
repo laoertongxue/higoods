@@ -16,6 +16,7 @@ import {
   listPdaQuotedTendersByFactoryId,
 } from '../src/data/fcs/pda-mobile-mock.ts'
 import type { ProcessTask } from '../src/data/fcs/process-tasks.ts'
+import { listPdaMobileExecutionTasks } from '../src/data/fcs/process-mobile-task-binding.ts'
 import {
   PDA_RECEIVE_EXCLUDED_PROCESS_NAMES,
   createInitialPdaReceiveSubmittedTenderIds,
@@ -103,6 +104,7 @@ function getTaskFactById(taskFacts: ProcessTask[], taskId: string): ProcessTask 
 }
 
 const taskFacts = [
+  ...listPdaMobileExecutionTasks(),
   ...listPdaGenericProcessTasks(),
   ...buildCuttingReceiveTaskFacts(),
 ]
@@ -137,8 +139,10 @@ const factorySummary = factoryIds.map((factoryId) => {
     )
 
   assertNoExcludedProcess(
-    pendingAcceptTasks.map((task) => getTaskProcessDisplayName(task)),
-    `${factoryId} 的待接单任务`,
+    pendingAcceptTasks
+      .filter((task) => task.defaultDocType !== 'PREPARATION_ORDER')
+      .map((task) => getTaskProcessDisplayName(task)),
+    `${factoryId} 的非加工单待接单任务`,
   )
   assertNoExcludedProcess(
     activeBiddingTenders.map((item) => item.processName),
@@ -154,7 +158,9 @@ const factorySummary = factoryIds.map((factoryId) => {
   )
 
   const processOptions = Array.from(
-    new Set(pendingAcceptTasks.map((task) => getTaskProcessDisplayName(task))),
+    new Set(pendingAcceptTasks
+      .filter((task) => task.defaultDocType !== 'PREPARATION_ORDER')
+      .map((task) => getTaskProcessDisplayName(task))),
   )
   assertNoExcludedProcess(processOptions, `${factoryId} 的接单页工序筛选项`)
 
@@ -168,14 +174,23 @@ const factorySummary = factoryIds.map((factoryId) => {
   }
 })
 
-const genericExecutionProcessNames = new Set(
-  listPdaGenericProcessTasks()
+const preparationPendingTasks = factoryIds.flatMap((factoryId) => filterReceivePendingAcceptTasks(taskFacts, factoryId))
+  .filter((task) => task.defaultDocType === 'PREPARATION_ORDER')
+if (!preparationPendingTasks.some((task) => getTaskProcessDisplayName(task).includes('印花'))) {
+  fail('已分配待接单印花加工单没有进入 PDA 接单链路')
+}
+if (!preparationPendingTasks.some((task) => getTaskProcessDisplayName(task).includes('染色') || (task.processCode || '').includes('DYE'))) {
+  fail('已分配待接单染色加工单没有进入 PDA 接单链路')
+}
+
+const executionProcessNames = new Set(
+  listPdaMobileExecutionTasks()
     .filter((task) => task.acceptanceStatus === 'ACCEPTED')
     .map((task) => getTaskProcessDisplayName(task)),
 )
 
 PDA_RECEIVE_EXCLUDED_PROCESS_NAMES.forEach((processName) => {
-  if (!genericExecutionProcessNames.has(processName)) {
+  if (!executionProcessNames.has(processName)) {
     fail(`执行链已找不到 ${processName} 任务，说明接单范围过滤误伤了其他 PDA 模块`)
   }
 })

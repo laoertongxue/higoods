@@ -255,108 +255,21 @@ const PROCESS_PROFILES: GenericProcessProfile[] = [
     blockedRemark: '后道锁眼机待维护，当前主线暂缓切换。',
   },
   {
-    key: 'IRONING',
-    taskPrefix: 'IRON',
-    processCode: 'PROC_IRON',
-    processNameZh: '整烫',
+    key: 'IRON_PACK',
+    taskPrefix: 'IRON-PACK',
+    processCode: 'PROC_IRON_PACK',
+    processNameZh: '烫包',
     factoryId: 'ID-F001',
     qtyBase: 680,
     priceBase: 1.9,
-    spuName: '夹克后整批次',
-    materialSummary: '成衣包 / 熨烫辅料',
+    spuName: '夹克烫包批次',
+    materialSummary: '成衣包 / 烫包辅料',
     handoverTargetName: '一号成衣仓',
     handoverTargetKind: 'WAREHOUSE',
     handoverSourceName: 'PT Sinar Garment Indonesia',
-    receiveHint: '整烫批次待接单，需预留后整线体。',
+    receiveHint: '烫包批次待接单，需预留烫包线体。',
     blockedReason: 'EQUIPMENT',
-    blockedRemark: '蒸汽整烫设备温控报警，待机修确认。',
-  },
-  {
-    key: 'PACKAGING',
-    taskPrefix: 'PACK',
-    processCode: 'PROC_PACK',
-    processNameZh: '包装',
-    factoryId: 'ID-F001',
-    qtyBase: 720,
-    priceBase: 1.3,
-    spuName: '成衣包装批次',
-    materialSummary: '包装袋 / 吊牌 / 外箱',
-    handoverTargetName: '一号成衣仓',
-    handoverTargetKind: 'WAREHOUSE',
-    handoverSourceName: 'PT Sinar Garment Indonesia',
-    receiveHint: '包装待接单，需先确认包材批次。',
-    blockedReason: 'MATERIAL',
-    blockedRemark: '吊牌追加到料延迟，包装线暂停切入。',
-  },
-  {
-    key: 'QC',
-    taskPrefix: 'QC',
-    processCode: 'PROC_QC',
-    processNameZh: '质检',
-    factoryId: 'ID-F001',
-    qtyBase: 560,
-    priceBase: 0.9,
-    spuName: '尾部质检抽检批',
-    materialSummary: '成衣抽检包 / 抽检标签',
-    handoverTargetName: '一号成衣仓',
-    handoverTargetKind: 'WAREHOUSE',
-    handoverSourceName: 'PT Sinar Garment Indonesia',
-    receiveHint: '质检批次待接单，需确认抽检比例。',
-    blockedReason: 'QUALITY',
-    blockedRemark: '抽检发现色差争议，暂停放行。',
-  },
-  {
-    key: 'FINISHING',
-    taskPrefix: 'FIN',
-    processCode: 'PROC_FINISHING',
-    processNameZh: '后整理',
-    factoryId: 'ID-F001',
-    qtyBase: 640,
-    priceBase: 1.6,
-    spuName: '后整理返修批',
-    materialSummary: '成衣返修包 / 追加附件',
-    handoverTargetName: '一号成衣仓',
-    handoverTargetKind: 'WAREHOUSE',
-    handoverSourceName: 'PT Sinar Garment Indonesia',
-    receiveHint: '后整理返修批待接单，需安排返修工位。',
-    blockedReason: 'QUALITY',
-    blockedRemark: '返修工艺意见未统一，暂缓放量。',
-  },
-  {
-    key: 'PRINTING',
-    taskPrefix: 'PRINT',
-    processCode: 'PROC_PRINT',
-    processNameZh: '印花',
-    factoryId: TEST_FACTORY_ID,
-    qtyBase: 860,
-    priceBase: 3.8,
-    spuName: '满版印花款',
-    materialSummary: '印花片 / 色浆 / 网版',
-    handoverTargetName: '中转区域',
-    handoverTargetKind: 'WAREHOUSE',
-    handoverSourceName: TEST_FACTORY_NAME,
-    receiveHint: '印花招标单待报价，需确认网版切换窗口。',
-    blockedReason: 'TECH',
-    blockedRemark: '花位确认未回传，印花线暂停开机。',
-    biddingFactoryPoolCount: 4,
-  },
-  {
-    key: 'DYEING',
-    taskPrefix: 'DYE',
-    processCode: 'PROC_DYE',
-    processNameZh: '染色',
-    factoryId: TEST_FACTORY_ID,
-    qtyBase: 910,
-    priceBase: 4.2,
-    spuName: '大货染色批',
-    materialSummary: '坯布 / 染化料 / 色卡',
-    handoverTargetName: '中转区域',
-    handoverTargetKind: 'WAREHOUSE',
-    handoverSourceName: TEST_FACTORY_NAME,
-    receiveHint: '染色招标单待报价，需确认缸位与交期。',
-    blockedReason: 'CAPACITY',
-    blockedRemark: '染缸排期冲突，当前批次暂停插单。',
-    biddingFactoryPoolCount: 3,
+    blockedRemark: '蒸汽烫包设备温控报警，待机修确认。',
   },
 ]
 
@@ -369,23 +282,20 @@ function getProcessDef(profile: GenericProcessProfile) {
   return PROCESS_DEFINITION_BY_KEY.get(profile.key)
 }
 
-function isExternalMockProcess(profile: GenericProcessProfile): boolean {
-  return profile.key !== 'IRONING' && profile.key !== 'PACKAGING'
+function isExternalMockProcess(_profile: GenericProcessProfile): boolean {
+  return true
 }
 
 function resolveMockBusinessProcessCode(profile: GenericProcessProfile): string {
   if (profile.key === 'SEWING') return 'SEW'
   if (profile.key === 'PRINTING') return 'PRINT'
   if (profile.key === 'DYEING') return 'DYE'
-  if (profile.key === 'FINISHING') return 'POST_FINISHING'
-  if (profile.key === 'QC') return 'QC'
-  if (profile.key === 'IRONING') return 'IRONING'
-  if (profile.key === 'PACKAGING') return 'PACKAGING'
+  if (profile.key === 'IRON_PACK') return 'IRON_PACK'
   return profile.processCode
 }
 
 function resolveMockStageCode(profile: GenericProcessProfile): 'PREP' | 'PROD' | 'POST' {
-  if (profile.key === 'FINISHING' || profile.key === 'QC' || profile.key === 'IRONING' || profile.key === 'PACKAGING') {
+  if (profile.key === 'IRON_PACK') {
     return 'POST'
   }
   return profile.key === 'PRINTING' || profile.key === 'DYEING' ? 'PREP' : 'PROD'
@@ -409,14 +319,6 @@ function resolveMockTaskReceiver(profile: GenericProcessProfile): Pick<
       receiverKind: 'MANAGED_POST_FACTORY',
       receiverId: 'POST-FACTORY-OWN',
       receiverName: '我方后道工厂',
-    }
-  }
-
-  if (profile.key === 'FINISHING' || profile.key === 'QC') {
-    return {
-      receiverKind: 'WAREHOUSE',
-      receiverId: 'WH-GARMENT-HANDOFF',
-      receiverName: '成衣仓交接点',
     }
   }
 
@@ -1615,45 +1517,8 @@ function buildHandoverSeeds(
   }
 }
 
-const directTasks = PROCESS_PROFILES
-  .filter((profile) => profile.key !== 'PRINTING' && profile.key !== 'DYEING')
+const PDA_GENERIC_PROCESS_TASKS: PdaGenericTaskMock[] = PROCESS_PROFILES
   .flatMap((profile, index) => buildDirectTaskSet(profile, index + 51))
-
-const biddingTasks = PROCESS_PROFILES
-  .filter((profile) => profile.key === 'PRINTING' || profile.key === 'DYEING')
-  .flatMap((profile, index) => buildBiddingTaskSet(profile, index + 71))
-
-const PDA_GENERIC_PROCESS_TASKS: PdaGenericTaskMock[] = [...directTasks, ...biddingTasks]
-
-function cloneProcessTaskForStatistics(
-  sourceTaskId: string,
-  nextTaskId: string,
-  productionOrderNo: string,
-  qty: number,
-): PdaGenericTaskMock {
-  const source = PDA_GENERIC_PROCESS_TASKS.find((task) => task.taskId === sourceTaskId)
-  if (!source) {
-    throw new Error(`缺少统计补充任务来源：${sourceTaskId}`)
-  }
-  return {
-    ...source,
-    taskId: nextTaskId,
-    taskNo: nextTaskId,
-    productionOrderId: productionOrderNo,
-    productionOrderNo,
-    tenderId: source.tenderId ? `${source.tenderId}-STATS-${nextTaskId}` : undefined,
-    qty,
-    taskQrValue: buildTaskQrValue(nextTaskId),
-    taskSummaryNote: `${source.processNameZh}统计样本任务`,
-    mockReceiveSummary: `${source.processNameZh}统计样本已接单，支撑统计与大屏真实取数。`,
-    mockExecutionSummary: `${source.processNameZh}统计样本执行中`,
-    mockHandoverSummary: '统计样本待交接',
-    auditLogs: source.auditLogs.map((log, index) => ({
-      ...log,
-      id: `${log.id}-STATS-${nextTaskId}-${index + 1}`,
-    })),
-  }
-}
 
 function cloneProcessTaskForTaskGenerationDemo(sourceTaskId: string, nextTaskId: string): PdaGenericTaskMock {
   const source = PDA_GENERIC_PROCESS_TASKS.find((task) => task.taskId === sourceTaskId)
@@ -1713,21 +1578,21 @@ function cloneProcessTaskForTaskGenerationDemo(sourceTaskId: string, nextTaskId:
         sourceArtifactIds: ['PDA-KOL-081-SEW'],
       },
       {
-        processCode: 'POST_FINISHING',
-        processName: '后道',
-        sourceArtifactIds: ['PDA-KOL-081-POST_FINISHING'],
+        processCode: 'IRON_PACK',
+        processName: '烫包',
+        sourceArtifactIds: ['PDA-KOL-081-IRON_PACK'],
       },
     ],
     isMergedTaskUnit: true,
     allowAutoDispatch: false,
-    pdaStepTemplateCode: 'SIMPLE_FIVE_STEP',
+    pdaStepTemplateCode: 'WHOLE_ORDER_FIVE_STEP',
     handoverReceiverKind: 'WAREHOUSE',
     handoverReceiverName: '工厂入库',
     saleTypeSnapshot: 'KOL样衣',
     processBusinessCode: 'WHOLE_ORDER_TASK',
     processBusinessName: 'KOL整单任务',
     mockOrigin: 'EXEC_IN_PROGRESS',
-    mockReceiveSummary: 'KOL 整单任务由 kol goto 接单，PDA 展示覆盖裁片、车缝、后道的合并范围。',
+    mockReceiveSummary: 'KOL 整单任务由 kol goto 接单，PDA 展示覆盖裁片、车缝、烫包的承接范围。',
     mockExecutionSummary: '按确认领料、开始做、上传进度、交出、入库确认 5 步执行。',
     mockHandoverSummary: '交出后直接进入工厂入库。',
     mockStartPrerequisiteMet: true,
@@ -1745,10 +1610,6 @@ function cloneProcessTaskForTaskGenerationDemo(sourceTaskId: string, nextTaskId:
 
 PDA_GENERIC_PROCESS_TASKS.push(
   cloneProcessTaskForTaskGenerationDemo('TASK-SEW-000513', 'TASK-KOL-WHOLE-000081'),
-  cloneProcessTaskForStatistics('TASK-PRINT-000717', 'TASK-PRINT-000722', 'PO-202604-PRINT-011', 1460),
-  cloneProcessTaskForStatistics('TASK-PRINT-000717', 'TASK-PRINT-000723', 'PO-202604-PRINT-012', 1380),
-  cloneProcessTaskForStatistics('TASK-DYE-000726', 'TASK-DYE-000732', 'PO-202604-DYE-012', 1320),
-  cloneProcessTaskForStatistics('TASK-DYE-000726', 'TASK-DYE-000733', 'PO-202604-DYE-013', 940),
 )
 const PDA_TEST_FACTORY_PROCESS_TASKS: PdaGenericTaskMock[] = PDA_GENERIC_PROCESS_TASKS
   .slice(0, 4)

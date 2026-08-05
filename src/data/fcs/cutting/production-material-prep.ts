@@ -662,7 +662,7 @@ const taskMetaByType: Record<MaterialPrepTaskType, {
   印花任务: { code: 'PRT', name: '印花任务', processCode: 'PRINT', preferredFactoryIds: ['ID-F002'], preferredFactoryTypes: ['CENTRAL_PRINT'] },
   染色任务: { code: 'DYE', name: '染色任务', processCode: 'DYE', preferredFactoryIds: ['ID-F002'], preferredFactoryTypes: ['CENTRAL_DYE', 'CENTRAL_PRINT'] },
   车缝任务: { code: 'SEW', name: '车缝任务', processCode: 'SEW', preferredFactoryIds: ['ID-F001'], preferredFactoryTypes: ['CENTRAL_GARMENT', 'SATELLITE_SEWING', 'THIRD_SEWING'] },
-  包装任务: { code: 'PKG', name: '包装任务', processCode: 'POST_FINISHING', capacityNodeCode: 'PACKAGING', preferredFactoryIds: ['PF-DEDICATED-001'], preferredFactoryTypes: ['SATELLITE_FINISHING', 'CENTRAL_AUX'] },
+  包装任务: { code: 'PKG', name: '烫包任务', processCode: 'IRON_PACK', capacityNodeCode: 'IRON_PACK', preferredFactoryIds: ['PF-DEDICATED-001'], preferredFactoryTypes: ['SATELLITE_FINISHING', 'CENTRAL_AUX'] },
 }
 
 const materialPrepTaskFactoryCache = new Map<MaterialPrepTaskType, Factory | null>()

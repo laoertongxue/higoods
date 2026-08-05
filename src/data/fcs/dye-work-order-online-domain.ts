@@ -7,7 +7,6 @@ import {
   type DyeWorkOrder,
   type DyeWorkOrderStatus,
 } from './dyeing-task-domain.ts'
-import { listPdaGenericProcessTasks } from './pda-task-mock-factory.ts'
 
 export const DYE_WORK_ORDER_ONLINE_STATUSES = [
   '等待处理',
@@ -98,6 +97,25 @@ const records = new Map<string, DyeWorkOrderOnlineRecord>()
 const logs = new Map<string, DyeWorkOrderOnlineLog[]>()
 let logSequence = 0
 
+export interface DyeOnlineMutationSnapshot {
+  records: Array<[string, DyeWorkOrderOnlineRecord]>
+  logs: Array<[string, DyeWorkOrderOnlineLog[]]>
+  logSequence: number
+}
+
+export function captureDyeOnlineMutationState(): DyeOnlineMutationSnapshot {
+  return structuredClone({ records: Array.from(records.entries()), logs: Array.from(logs.entries()), logSequence })
+}
+
+export function restoreDyeOnlineMutationState(snapshot: DyeOnlineMutationSnapshot): void {
+  const restored = structuredClone(snapshot)
+  records.clear()
+  logs.clear()
+  restored.records.forEach(([id, record]) => records.set(id, record))
+  restored.logs.forEach(([id, rows]) => logs.set(id, rows))
+  logSequence = restored.logSequence
+}
+
 const STATUS_RANK: Record<DyeWorkOrderOnlineStatus, number> = {
   等待处理: 0,
   取消: 99,
@@ -132,7 +150,6 @@ function cloneLog(log: DyeWorkOrderOnlineLog): DyeWorkOrderOnlineLog {
 
 function makeInitialRecord(order: DyeWorkOrder): DyeWorkOrderOnlineRecord {
   const status = mapExecutionStatus(order.status)
-  const task = listPdaGenericProcessTasks().find((item) => item.taskId === order.taskId)
   const nodes = listDyeExecutionNodeRecords(order.dyeOrderId)
   const dyeInputQty = nodes.find((node) => node.nodeCode === 'DYE')?.inputQty || 0
   const completedNode = [...nodes]
@@ -146,7 +163,7 @@ function makeInitialRecord(order: DyeWorkOrder): DyeWorkOrderOnlineRecord {
     dyeOrderId: order.dyeOrderId,
     workOrderNo: order.dyeOrderNo,
     status,
-    accepted: Boolean(order.dyeFactoryId && (task?.acceptanceStatus === 'ACCEPTED' || status !== '等待处理')),
+    accepted: Boolean(order.dyeFactoryId && (order.acceptanceStatus === 'ACCEPTED' || status !== '等待处理')),
     version: 1,
     plannedFinishAt: order.plannedFinishAt || '',
     factoryId: order.dyeFactoryId,
@@ -163,6 +180,28 @@ function makeInitialRecord(order: DyeWorkOrder): DyeWorkOrderOnlineRecord {
     deliveredAt: status === '待审核' || status === '部分入库' || status === '已完成' ? order.updatedAt : '',
     updatedAt: order.updatedAt,
   }
+}
+
+function syncOnlineRecordFromCanonicalWorkOrder(record: DyeWorkOrderOnlineRecord, order: DyeWorkOrder): void {
+  const nodes = listDyeExecutionNodeRecords(order.dyeOrderId)
+  const dyeNode = nodes.find((node) => node.nodeCode === 'DYE')
+  const completedNode = [...nodes].reverse().find((node) => node.finishedAt && typeof node.outputQty === 'number')
+  const status = mapExecutionStatus(order.status)
+  const rawMaterialQty = dyeNode?.inputQty || record.rawMaterialQty
+  const completedQty = completedNode?.outputQty ?? record.completedQty
+  record.workOrderNo = order.dyeOrderNo
+  record.status = status
+  record.accepted = order.acceptanceStatus === 'ACCEPTED' || status !== '等待处理'
+  record.plannedFinishAt = order.plannedFinishAt || record.plannedFinishAt
+  record.factoryId = order.dyeFactoryId
+  record.factoryName = order.dyeFactoryName
+  record.receiverName = order.receiverName
+  record.rawMaterialQty = rawMaterialQty
+  record.completedQty = completedQty
+  record.lossQty = Math.max(Number((rawMaterialQty - completedQty).toFixed(2)), 0)
+  record.completedAt = ['染色完成', '待审核', '部分入库', '已完成'].includes(status) ? order.updatedAt : record.completedAt
+  record.deliveredAt = ['待审核', '部分入库', '已完成'].includes(status) ? order.updatedAt : record.deliveredAt
+  record.updatedAt = order.updatedAt
 }
 
 function getMutableRecord(dyeOrderId: string): DyeWorkOrderOnlineRecord {
@@ -213,7 +252,10 @@ function statusChange(before: DyeWorkOrderOnlineStatus, after: DyeWorkOrderOnlin
 }
 
 export function getDyeWorkOrderOnlineRecord(dyeOrderId: string): DyeWorkOrderOnlineRecord {
-  return cloneRecord(getMutableRecord(dyeOrderId))
+  const record = getMutableRecord(dyeOrderId)
+  const order = getDyeWorkOrderById(dyeOrderId)
+  if (order) syncOnlineRecordFromCanonicalWorkOrder(record, order)
+  return cloneRecord(record)
 }
 
 export function listDyeWorkOrderOnlineLogs(dyeOrderId: string): DyeWorkOrderOnlineLog[] {
@@ -275,6 +317,10 @@ export function updateDyeWorkOrderFromPfos(
   input: DyeWorkOrderPfosEditInput,
 ): DyeWorkOrderOnlineRecord {
   const record = getMutableRecord(dyeOrderId)
+  const canonicalOrder = getDyeWorkOrderById(dyeOrderId)
+  if (!canonicalOrder) throw new Error('染色加工单不存在')
+  const canonicalStatus = mapExecutionStatus(canonicalOrder.status)
+  if (input.status !== canonicalStatus) throw new Error('加工状态由接单、开工、完工、交出和入库事实自动生成，不能手工修改')
   if (input.expectedVersion !== record.version) throw new Error('加工单已被其他操作更新，请重新打开后再保存')
   if (record.status === '已完成' && input.status !== '已完成') throw new Error('已完成加工单不能修改状态')
   assertNonNegative('原料数量', input.rawMaterialQty)

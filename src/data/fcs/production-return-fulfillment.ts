@@ -1,0 +1,340 @@
+import type { FulfillmentRuleCode, TaskFulfillmentPolicy } from './task-fulfillment-policy'
+import { getEffectiveTaskAssignment, listEffectiveTaskAssignments } from './effective-task-assignments'
+
+export type ReturnMilestoneStatus = 'UPCOMING' | 'DUE_TODAY' | 'REACHED' | 'OVERDUE'
+export type ReturnReminderType = 'DUE_TOMORROW' | 'DUE_TODAY' | 'OVERDUE'
+
+export interface ProductionReturnMilestoneSnapshot {
+  ratio: 0.3 | 0.7 | 1
+  naturalDay: number
+  targetQty: number
+  deadlineDate: string
+}
+
+export interface ProductionReturnRuleSnapshot {
+  snapshotId: string
+  assignmentId: string
+  runtimeTaskId: string
+  productionOrderId: string
+  factoryId: string
+  factoryName: string
+  assignedQty: number
+  assignmentDate: string
+  fulfillmentRuleCode: Exclude<FulfillmentRuleCode, 'NO_STAGED_RETURN_RULE'>
+  milestones: ProductionReturnMilestoneSnapshot[]
+  active: boolean
+  invalidatedAt?: string
+  invalidatedReason?: string
+  replacedBySnapshotId?: string
+}
+
+export interface ProductionReturnReceiptFact {
+  receiptId: string
+  assignmentId: string
+  factoryId: string
+  confirmedQty: number
+  confirmedDate: string
+  confirmed: boolean
+  voided?: boolean
+}
+
+export interface ProductionReturnMilestoneProjection extends ProductionReturnMilestoneSnapshot {
+  confirmedQtyByDeadline: number
+  shortageQty: number
+  reachedDate?: string
+  status: ReturnMilestoneStatus
+}
+
+export interface ProductionReturnProjection {
+  snapshot: ProductionReturnRuleSnapshot
+  confirmedReturnedQty: number
+  remainingQty: number
+  highestRiskStatus: ReturnMilestoneStatus
+  milestones: ProductionReturnMilestoneProjection[]
+}
+
+export interface ProductionReturnReminder {
+  reminderId: string
+  assignmentId: string
+  factoryId: string
+  deadlineDate: string
+  milestoneRatio: 0.3 | 0.7 | 1
+  reminderType: ReturnReminderType
+  generatedDate: string
+  targetQty: number
+  confirmedQty: number
+  shortageQty: number
+  message: string
+}
+
+export type ReturnReceiptAssignmentResolution =
+  | { resolution: 'MATCHED'; assignmentId: string; reason: string }
+  | { resolution: 'MANUAL_REVIEW'; candidateAssignmentIds: string[]; reason: string }
+  | { resolution: 'NOT_FOUND'; reason: string }
+
+export function resolveReturnReceiptAssignment(input: {
+  productionOrderId: string
+  factoryId: string
+  skuCodes: string[]
+  confirmedDate: string
+}): ReturnReceiptAssignmentResolution {
+  const confirmedDate = assertDate(input.confirmedDate, '到货确认日期')
+  const skuSet = new Set(input.skuCodes)
+  const candidates = listEffectiveTaskAssignments()
+    .filter((assignment) => assignment.productionOrderId === input.productionOrderId && assignment.factoryId === input.factoryId)
+    .filter((assignment) => assignment.businessAssignedAt.slice(0, 10) <= confirmedDate)
+    .filter((assignment) => assignment.skuLines.some((line) => skuSet.has(line.skuCode)))
+    .sort((a, b) => b.businessAssignedAt.localeCompare(a.businessAssignedAt))
+  if (candidates.length === 0) return { resolution: 'NOT_FOUND', reason: '未找到同生产单、同加工厂且包含回货SKU的分配记录' }
+  const effective = candidates.filter((item) => item.status === 'EFFECTIVE')
+  if (effective.length === 1) return { resolution: 'MATCHED', assignmentId: effective[0].assignmentId, reason: '已按生产单、加工厂、SKU和到货日期匹配当前有效分配' }
+  if (effective.length > 1) return { resolution: 'MANUAL_REVIEW', candidateAssignmentIds: effective.map((item) => item.assignmentId), reason: '同一工厂存在多条可匹配有效分配，禁止系统猜测，转人工确认' }
+  const historical = candidates.filter((item) => item.status !== 'CANCELLED')
+  if (historical.length === 1) return { resolution: 'MATCHED', assignmentId: historical[0].assignmentId, reason: '回货发生在改派后，但按工厂和SKU匹配到原分配，计入原工厂履约' }
+  return { resolution: 'MANUAL_REVIEW', candidateAssignmentIds: historical.map((item) => item.assignmentId), reason: '历史分配归属存在歧义，必须人工选择原分配，不得计入新工厂' }
+}
+
+let snapshotSeq = 0
+const reminderLogs = new Map<string, ProductionReturnReminder>()
+const receiptFacts = new Map<string, ProductionReturnReceiptFact>()
+const returnRuleSnapshots = new Map<string, ProductionReturnRuleSnapshot>()
+
+function assertDate(value: string, fieldName: string): string {
+  const dateText = value.slice(0, 10)
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateText)
+  if (!match) throw new Error(`${fieldName}必须包含有效的YYYY-MM-DD日期`)
+  const [, yearText, monthText, dayText] = match
+  const date = new Date(Date.UTC(Number(yearText), Number(monthText) - 1, Number(dayText)))
+  if (
+    date.getUTCFullYear() !== Number(yearText)
+    || date.getUTCMonth() !== Number(monthText) - 1
+    || date.getUTCDate() !== Number(dayText)
+  ) throw new Error(`${fieldName}不是有效日期`)
+  return dateText
+}
+
+function dateToEpochDay(value: string): number {
+  const dateText = assertDate(value, '日期')
+  return Math.floor(Date.parse(`${dateText}T00:00:00Z`) / 86_400_000)
+}
+
+export function addNaturalDays(dateValue: string, days: number): string {
+  if (!Number.isInteger(days)) throw new Error('自然日偏移必须为整数')
+  const epochDay = dateToEpochDay(dateValue) + days
+  return new Date(epochDay * 86_400_000).toISOString().slice(0, 10)
+}
+
+export function calculateNaturalDayDeadline(assignmentDate: string, naturalDay: number): string {
+  if (!Number.isInteger(naturalDay) || naturalDay < 1) throw new Error('回货节点自然日必须大于等于1')
+  // 分配日期即第1自然日，所以第N自然日只增加N-1天。
+  return addNaturalDays(assignmentDate, naturalDay - 1)
+}
+
+export function createProductionReturnRuleSnapshot(input: {
+  assignmentId: string
+  runtimeTaskId: string
+  productionOrderId: string
+  factoryId: string
+  factoryName: string
+  assignedQty: number
+  businessAssignedAt: string
+  policy: TaskFulfillmentPolicy
+}): ProductionReturnRuleSnapshot | null {
+  if (input.policy.fulfillmentRuleCode === 'NO_STAGED_RETURN_RULE') return null
+  if (!Number.isFinite(input.assignedQty) || input.assignedQty <= 0) throw new Error('分配数量必须大于0')
+  const assignmentDate = assertDate(input.businessAssignedAt, '业务分配时间')
+  snapshotSeq += 1
+  const snapshot: ProductionReturnRuleSnapshot = {
+    snapshotId: `RET-SLA-${String(snapshotSeq).padStart(6, '0')}`,
+    assignmentId: input.assignmentId,
+    runtimeTaskId: input.runtimeTaskId,
+    productionOrderId: input.productionOrderId,
+    factoryId: input.factoryId,
+    factoryName: input.factoryName,
+    assignedQty: input.assignedQty,
+    assignmentDate,
+    fulfillmentRuleCode: input.policy.fulfillmentRuleCode,
+    milestones: input.policy.milestones.map((milestone) => ({
+      ...milestone,
+      targetQty: Math.ceil(input.assignedQty * milestone.ratio),
+      deadlineDate: calculateNaturalDayDeadline(assignmentDate, milestone.naturalDay),
+    })),
+    active: true,
+  }
+  const nextAssignment = getEffectiveTaskAssignment(input.assignmentId)
+  for (const previous of returnRuleSnapshots.values()) {
+    if (!previous.active || previous.runtimeTaskId !== input.runtimeTaskId) continue
+    const previousAssignment = getEffectiveTaskAssignment(previous.assignmentId)
+    const sharesSku = !nextAssignment || !previousAssignment || previousAssignment.skuLines.some((oldLine) => nextAssignment.skuLines.some((newLine) => newLine.skuCode === oldLine.skuCode))
+    if (!sharesSku) continue
+    previous.active = false
+    previous.invalidatedAt = input.businessAssignedAt
+    previous.invalidatedReason = '任务分配事实发生变化，旧回货规则失效留痕'
+    previous.replacedBySnapshotId = snapshot.snapshotId
+  }
+  returnRuleSnapshots.set(snapshot.snapshotId, structuredClone(snapshot))
+  return structuredClone(snapshot)
+}
+
+export function listProductionReturnRuleSnapshots(input: { runtimeTaskId?: string; assignmentId?: string; activeOnly?: boolean } = {}): ProductionReturnRuleSnapshot[] {
+  return [...returnRuleSnapshots.values()]
+    .filter((item) => !input.runtimeTaskId || item.runtimeTaskId === input.runtimeTaskId)
+    .filter((item) => !input.assignmentId || item.assignmentId === input.assignmentId)
+    .filter((item) => !input.activeOnly || item.active)
+    .map((item) => structuredClone(item))
+}
+
+function receiptsForSnapshot(
+  snapshot: ProductionReturnRuleSnapshot,
+  receipts: ProductionReturnReceiptFact[],
+): ProductionReturnReceiptFact[] {
+  return receipts
+    .filter((item) => (
+      item.assignmentId === snapshot.assignmentId
+      && item.factoryId === snapshot.factoryId
+      && item.confirmed
+      && !item.voided
+      && item.confirmedQty > 0
+    ))
+    .sort((a, b) => a.confirmedDate.localeCompare(b.confirmedDate))
+}
+
+export function projectProductionReturnFulfillment(input: {
+  snapshot: ProductionReturnRuleSnapshot
+  receipts: ProductionReturnReceiptFact[]
+  today: string
+}): ProductionReturnProjection {
+  const today = assertDate(input.today, '查询日期')
+  const effectiveReceipts = receiptsForSnapshot(input.snapshot, input.receipts)
+  const confirmedReturnedQty = effectiveReceipts.reduce((sum, item) => sum + item.confirmedQty, 0)
+  const milestones = input.snapshot.milestones.map<ProductionReturnMilestoneProjection>((milestone) => {
+    const byDeadline = effectiveReceipts.filter((item) => item.confirmedDate <= milestone.deadlineDate)
+    const confirmedQtyByDeadline = byDeadline.reduce((sum, item) => sum + item.confirmedQty, 0)
+    const reachedDate = (() => {
+      let accumulated = 0
+      for (const receipt of effectiveReceipts) {
+        accumulated += receipt.confirmedQty
+        if (accumulated >= milestone.targetQty) return receipt.confirmedDate
+      }
+      return undefined
+    })()
+    let status: ReturnMilestoneStatus = 'UPCOMING'
+    if (confirmedQtyByDeadline >= milestone.targetQty) status = 'REACHED'
+    else if (today > milestone.deadlineDate) status = 'OVERDUE'
+    else if (today === milestone.deadlineDate) status = 'DUE_TODAY'
+    return {
+      ...milestone,
+      confirmedQtyByDeadline,
+      shortageQty: Math.max(0, milestone.targetQty - confirmedQtyByDeadline),
+      reachedDate,
+      status,
+    }
+  })
+  const statusRank: Record<ReturnMilestoneStatus, number> = { UPCOMING: 0, REACHED: 1, DUE_TODAY: 2, OVERDUE: 3 }
+  const highestRiskStatus = milestones.reduce<ReturnMilestoneStatus>(
+    (highest, item) => statusRank[item.status] > statusRank[highest] ? item.status : highest,
+    'UPCOMING',
+  )
+  return {
+    snapshot: { ...input.snapshot, milestones: input.snapshot.milestones.map((item) => ({ ...item })) },
+    confirmedReturnedQty,
+    remainingQty: Math.max(0, input.snapshot.assignedQty - confirmedReturnedQty),
+    highestRiskStatus,
+    milestones,
+  }
+}
+
+export function buildProductionReturnReminders(projection: ProductionReturnProjection, todayValue: string): ProductionReturnReminder[] {
+  const today = assertDate(todayValue, '提醒日期')
+  return projection.milestones.flatMap((milestone) => {
+    if (milestone.status === 'REACHED') return []
+    const daysToDeadline = dateToEpochDay(milestone.deadlineDate) - dateToEpochDay(today)
+    let reminderType: ReturnReminderType | null = null
+    if (daysToDeadline === 1) reminderType = 'DUE_TOMORROW'
+    else if (daysToDeadline === 0) reminderType = 'DUE_TODAY'
+    else if (daysToDeadline === -1) reminderType = 'OVERDUE'
+    if (!reminderType) return []
+    const dayLabel = reminderType === 'DUE_TOMORROW'
+      ? '明日到期'
+      : reminderType === 'DUE_TODAY'
+        ? '今日到期'
+        : '已逾期1天，触发本节点唯一一次逾期警告'
+    return [{
+      reminderId: [projection.snapshot.assignmentId, milestone.ratio, reminderType, today].join('::'),
+      assignmentId: projection.snapshot.assignmentId,
+      factoryId: projection.snapshot.factoryId,
+      deadlineDate: milestone.deadlineDate,
+      milestoneRatio: milestone.ratio,
+      reminderType,
+      generatedDate: today,
+      targetQty: milestone.targetQty,
+      confirmedQty: milestone.confirmedQtyByDeadline,
+      shortageQty: milestone.shortageQty,
+      message: `${projection.snapshot.productionOrderId} ${projection.snapshot.factoryName} ${Math.round(milestone.ratio * 100)}%回货节点${dayLabel}，应回${milestone.targetQty}件，按期已回${milestone.confirmedQtyByDeadline}件，尚差${milestone.shortageQty}件。`,
+    }]
+  })
+}
+
+export function recordProductionReturnReceipt(fact: ProductionReturnReceiptFact): ProductionReturnReceiptFact {
+  if (!fact.receiptId.trim()) throw new Error('回货确认记录号不能为空')
+  if (!fact.assignmentId.trim() || !fact.factoryId.trim()) throw new Error('回货确认必须关联分配记录和加工厂')
+  if (!Number.isFinite(fact.confirmedQty) || fact.confirmedQty <= 0) throw new Error('回货确认数量必须大于0')
+  assertDate(fact.confirmedDate, '到货确认日期')
+  const saved = { ...fact }
+  receiptFacts.set(fact.receiptId, saved)
+  return { ...saved }
+}
+
+export function listProductionReturnReceipts(input: { assignmentId?: string; factoryId?: string } = {}): ProductionReturnReceiptFact[] {
+  return [...receiptFacts.values()]
+    .filter((item) => !input.assignmentId || item.assignmentId === input.assignmentId)
+    .filter((item) => !input.factoryId || item.factoryId === input.factoryId)
+    .map((item) => ({ ...item }))
+}
+
+export function generateAndSaveProductionReturnReminders(input: {
+  snapshots: ProductionReturnRuleSnapshot[]
+  today: string
+}): ProductionReturnReminder[] {
+  const saved: ProductionReturnReminder[] = []
+  for (const snapshot of input.snapshots.filter((item) => item.active)) {
+    const projection = projectProductionReturnFulfillment({
+      snapshot,
+      receipts: listProductionReturnReceipts({ assignmentId: snapshot.assignmentId, factoryId: snapshot.factoryId }),
+      today: input.today,
+    })
+    for (const reminder of buildProductionReturnReminders(projection, input.today)) {
+      if (!reminderLogs.has(reminder.reminderId)) reminderLogs.set(reminder.reminderId, reminder)
+      saved.push({ ...reminderLogs.get(reminder.reminderId)! })
+    }
+  }
+  return saved
+}
+
+export function listProductionReturnReminderLogs(input: { assignmentId?: string; factoryId?: string } = {}): ProductionReturnReminder[] {
+  return [...reminderLogs.values()]
+    .filter((item) => !input.assignmentId || item.assignmentId === input.assignmentId)
+    .filter((item) => !input.factoryId || item.factoryId === input.factoryId)
+    .map((item) => ({ ...item }))
+}
+
+export function invalidateProductionReturnRuleSnapshot(
+  snapshot: ProductionReturnRuleSnapshot,
+  input: { invalidatedAt: string; reason: string; replacedBySnapshotId?: string },
+): ProductionReturnRuleSnapshot {
+  return {
+    ...snapshot,
+    milestones: snapshot.milestones.map((item) => ({ ...item })),
+    active: false,
+    invalidatedAt: input.invalidatedAt,
+    invalidatedReason: input.reason,
+    replacedBySnapshotId: input.replacedBySnapshotId,
+  }
+}
+
+export function resetProductionReturnSnapshotSequenceForTests(): void {
+  snapshotSeq = 0
+  reminderLogs.clear()
+  receiptFacts.clear()
+  returnRuleSnapshots.clear()
+}

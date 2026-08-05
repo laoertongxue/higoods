@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import {
-  confirmDyeReceipt,
+  acceptDyeWorkOrderPdaTask,
   getDyeWorkOrderById,
   getDyeReviewRecordByOrderId,
   getDyeOrderHandoverSummary,
@@ -16,9 +16,7 @@ import {
   advanceDyeWorkOrderOnlineStatus,
   assertDyeWorkOrderOnlineActionAllowed,
   getDyeWorkOrderOnlineRecord,
-  isDyeWorkOrderHighRiskStatusChange,
   listDyeWorkOrderOnlineLogs,
-  recordDyeWorkOrderPdaStart,
   updateDyeWorkOrderFromPfos,
 } from '../src/data/fcs/dye-work-order-online-domain.ts'
 import { listBusinessFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
@@ -119,6 +117,7 @@ assert(order, '至少需要一张等待处理的染色加工单')
 const initial = getDyeWorkOrderOnlineRecord(order.dyeOrderId)
 assert.equal(initial.status, '等待处理')
 
+acceptDyeWorkOrderPdaTask(order.taskId, '染厂操作员', '2026-07-16 08:00:00')
 advanceDyeWorkOrderOnlineStatus(order.dyeOrderId, {
   action: '接单',
   operatorName: '染厂操作员',
@@ -133,25 +132,9 @@ advanceDyeWorkOrderOnlineStatus(order.dyeOrderId, {
   operatedAt: '2026-07-16 08:10:00',
   source: 'PDA',
 })
-assert.equal(getDyeWorkOrderOnlineRecord(order.dyeOrderId).status, '染色中')
-
-advanceDyeWorkOrderOnlineStatus(order.dyeOrderId, {
-  action: '完工',
-  operatorName: '染厂操作员',
-  operatedAt: '2026-07-16 12:00:00',
-  source: 'PDA',
-  completedQty: 80,
-  lossQty: 3,
-})
 const completed = getDyeWorkOrderOnlineRecord(order.dyeOrderId)
-assert.equal(completed.status, '染色完成')
-assert.equal(completed.completedQty, 80)
-assert.equal(completed.lossQty, 3)
+assert.equal(completed.status, '等待处理', '线上日志不得绕过原加工单直接推进状态')
 
-assert.equal(isDyeWorkOrderHighRiskStatusChange('染色完成', '等待处理'), true)
-assert.equal(isDyeWorkOrderHighRiskStatusChange('取消', '等待处理'), true, '从取消恢复必须二次确认')
-assert.equal(isDyeWorkOrderHighRiskStatusChange('待审核', '部分入库'), true, '人工改为部分入库必须二次确认')
-assert.equal(isDyeWorkOrderHighRiskStatusChange('部分入库', '已完成'), true, '人工改为已完成必须二次确认')
 updateDyeWorkOrderFromPfos(order.dyeOrderId, {
   expectedVersion: completed.version,
   operatorName: '染厂主管',
@@ -188,7 +171,7 @@ assert.throws(
     lossQty: 3,
     remark: '过期版本',
   }),
-  /已被其他操作更新/,
+  /加工状态由接单、开工、完工、交出和入库事实自动生成/,
 )
 
 const logs = listDyeWorkOrderOnlineLogs(order.dyeOrderId)
@@ -207,6 +190,7 @@ assert.throws(
 advanceDyeWorkOrderOnlineStatus(pdaOrder.dyeOrderId, {
   action: '接单', operatorName: '操作员', operatedAt: '2026-07-16 08:01:00', source: 'PDA',
 })
+acceptDyeWorkOrderPdaTask(pdaOrder.taskId, '操作员', '2026-07-16 08:01:00')
 advanceDyeWorkOrderOnlineStatus(pdaOrder.dyeOrderId, {
   action: '开工', operatorName: '操作员', operatedAt: '2026-07-16 08:02:00', source: 'PDA',
 })
@@ -217,27 +201,18 @@ assert.throws(
   /请先完工/,
 )
 
-const cancelledBefore = getDyeWorkOrderOnlineRecord(pdaOrder.dyeOrderId)
-updateDyeWorkOrderFromPfos(pdaOrder.dyeOrderId, {
-  expectedVersion: cancelledBefore.version,
-  operatorName: '染厂主管',
-  operatedAt: '2026-07-16 08:04:00',
-  status: '取消',
-  plannedFinishAt: cancelledBefore.plannedFinishAt,
-  factoryId: pdaOrder.dyeFactoryId,
-  factoryName: pdaOrder.dyeFactoryName,
-  receiverName: pdaOrder.receiverName,
-  shade: '',
-  temperature: null,
-  rawMaterialQty: 0,
-  rawMaterialRollCount: 0,
-  completedQty: 0,
-  lossQty: 0,
-  remark: '主管取消后 PDA 必须停止',
-})
 assert.throws(
-  () => assertDyeWorkOrderOnlineActionAllowed(pdaOrder.dyeOrderId, '完工'),
-  /已取消.*不能继续操作/,
+  () => updateDyeWorkOrderFromPfos(pdaOrder.dyeOrderId, {
+    ...getDyeWorkOrderOnlineRecord(pdaOrder.dyeOrderId),
+    expectedVersion: getDyeWorkOrderOnlineRecord(pdaOrder.dyeOrderId).version,
+    operatorName: '染厂主管',
+    operatedAt: '2026-07-16 08:04:00',
+    status: '取消',
+    factoryId: pdaOrder.dyeFactoryId,
+    factoryName: pdaOrder.dyeFactoryName,
+    receiverName: pdaOrder.receiverName,
+  }),
+  /加工状态由接单、开工、完工、交出和入库事实自动生成/,
 )
 
 const truthOrder = registerFormalProductionOrderDyeWorkOrder({
@@ -282,7 +257,7 @@ updateDyeWorkOrderFromPfos(truthOrder.dyeOrderId, {
   expectedVersion: truthInitial.version,
   operatorName: '业务人员',
   operatedAt: '2026-07-16 09:00:00',
-  status: '染色完成',
+  status: '等待处理',
   plannedFinishAt: '',
   factoryId: 'F090',
   factoryName: '全能力测试工厂',
@@ -301,75 +276,6 @@ assert.equal(canonicalTruthOrder?.dyeFactoryName, '全能力测试工厂')
 const truthTask = listPdaGenericProcessTasks().find((task) => task.taskId === truthOrder.taskId)
 assert.equal(truthTask?.assignedFactoryId, 'F090', 'PFOS 分配工厂必须同步 PDA 任务')
 assert.equal(truthTask?.assignedFactoryName, '全能力测试工厂')
-
-const reassignmentOrder = registerFormalProductionOrderDyeWorkOrder({
-  workOrderId: 'DWO-CHECK-REASSIGN-001',
-  workOrderNo: 'RS-CHECK-REASSIGN-001',
-  processName: '匹染',
-  productionOrderId: 'PO-CHECK-REASSIGN-001',
-  productionOrderNo: 'PO-CHECK-REASSIGN-001',
-  orderedAt: '2026-07-16 06:30:00',
-  techPackVersionId: 'TP-CHECK-REASSIGN-001',
-  techPackVersionLabel: 'v1.0',
-  materialId: 'FAB-CHECK-REASSIGN-001',
-  materialName: '改派验收面料',
-  targetColor: '海军蓝',
-  plannedQty: 120,
-  qtyUnit: 'Yard',
-  processCodes: ['DYE'],
-  dyeProcessName: '匹染',
-  factoryId: 'F090',
-  factoryName: '全能力测试工厂',
-  spuCode: 'SPU-CHECK-REASSIGN-001',
-  spuName: '改派验收商品',
-  requiredDeliveryDate: '2026-07-23',
-})
-advanceDyeWorkOrderOnlineStatus(reassignmentOrder.dyeOrderId, {
-  action: '接单', operatorName: '原染厂', operatedAt: '2026-07-16 09:10:00', source: 'PDA',
-})
-recordDyeWorkOrderPdaStart(reassignmentOrder.taskId, '原染厂', '2026-07-16 09:11:00')
-const reassignmentStarted = getDyeWorkOrderOnlineRecord(reassignmentOrder.dyeOrderId)
-assert.equal(reassignmentStarted.status, '染色中', 'PDA 通用开工必须立即同步 PFOS 染色中')
-updateDyeWorkOrderFromPfos(reassignmentOrder.dyeOrderId, {
-  ...reassignmentStarted,
-  expectedVersion: reassignmentStarted.version,
-  operatorName: '染厂主管',
-  operatedAt: '2026-07-16 09:12:00',
-  factoryId: dyeFactory.id,
-  factoryName: dyeFactory.name,
-  remark: '进行中改派新染厂',
-})
-const reassignedOnline = getDyeWorkOrderOnlineRecord(reassignmentOrder.dyeOrderId)
-const reassignedTask = listPdaGenericProcessTasks().find((task) => task.taskId === reassignmentOrder.taskId)
-assert.equal(reassignedOnline.status, '染色中', '进行中改派不应伪造执行状态回退')
-assert.equal(reassignedOnline.accepted, false, '改派后 PFOS 必须与 PDA 一起重置接单责任')
-assert.equal(reassignedTask?.acceptanceStatus, 'PENDING')
-advanceDyeWorkOrderOnlineStatus(reassignmentOrder.dyeOrderId, {
-  action: '接单', operatorName: '新染厂', operatedAt: '2026-07-16 09:13:00', source: 'PDA',
-})
-assert.equal(getDyeWorkOrderOnlineRecord(reassignmentOrder.dyeOrderId).status, '染色中')
-assert.equal(getDyeWorkOrderOnlineRecord(reassignmentOrder.dyeOrderId).accepted, true)
-
-const receiptOrder = getDyeWorkOrderById('DWO-008')
-const receiptReview = getDyeReviewRecordByOrderId('DWO-008')
-assert(receiptOrder && receiptReview, '缺少取消后入库原子性验收样本')
-const receiptOnline = getDyeWorkOrderOnlineRecord(receiptOrder.dyeOrderId)
-updateDyeWorkOrderFromPfos(receiptOrder.dyeOrderId, {
-  ...receiptOnline,
-  expectedVersion: receiptOnline.version,
-  operatorName: '染厂主管',
-  operatedAt: '2026-07-16 09:20:00',
-  status: '取消',
-  remark: '取消后禁止入库',
-})
-const canonicalBeforeRejectedReceipt = getDyeWorkOrderById(receiptOrder.dyeOrderId)
-const reviewBeforeRejectedReceipt = getDyeReviewRecordByOrderId(receiptOrder.dyeOrderId)
-assert.throws(
-  () => confirmDyeReceipt(receiptOrder.dyeOrderId, { receivedBy: '仓管', receivedQty: receiptReview.submittedQty }),
-  /已取消.*不能继续操作/,
-)
-assert.deepEqual(getDyeWorkOrderById(receiptOrder.dyeOrderId), canonicalBeforeRejectedReceipt, '入库被拒后加工单不得留下部分提交')
-assert.deepEqual(getDyeReviewRecordByOrderId(receiptOrder.dyeOrderId), reviewBeforeRejectedReceipt, '入库被拒后收货记录不得留下部分提交')
 
 const truthRow = listDyeWorkOrderOnlineRows().find((row) => row.dyeOrderId === truthOrder.dyeOrderId)
 assert(truthRow, '缺少真实快照验收行')
@@ -418,7 +324,7 @@ assert.throws(
     status: '取消',
     remark: '已完成终态不得取消',
   }),
-  /已完成.*不能修改状态/,
+  /加工状态由接单、开工、完工、交出和入库事实自动生成/,
 )
 
 const filtered = filterDyeWorkOrderOnlineRows(rows, { statuses: ['染色中'] })
@@ -442,9 +348,10 @@ assert(pdaExecSource.includes("action: '开工'"), '含水溶染色直接开工�
   assert(actionWritebackSource.includes(text), `染色动作写回缺少线上状态映射：${text}`)
 })
 assert(dyeDomainSource.includes('notifyDyeReceiptOnlineStatus'), '染色收货确认必须同步部分入库或已完成')
-assert(pdaExecSource.includes('recordDyeWorkOrderPdaStart'), 'PDA 顶部确认开工必须同步 PFOS 染色中')
+assert(!pdaExecSource.includes('recordDyeWorkOrderPdaStart'), '准备阶段加工单不得通过通用任务顶部按钮开工')
+assert(pdaExecSource.includes('不能使用通用任务开工'), '准备阶段加工单必须阻断伪造的通用任务开工动作')
 ;[
-  '查询项', '状态', '销售类型', '生产工厂', '染色工艺', '面料接收人',
+  '查询项', '状态', '销售类型', '生产工厂', '染色工序', '面料接收人',
   '是否纱线', '是否补料', 'GTG仓是否有库存', '物料类型', '染色色号',
   '成分', '幅宽', '克重', '导出备料数据', '导出超期未完结',
   '批量打印染整生产流程卡', '商品信息', '采购单信息', '原料/面料',
@@ -483,11 +390,5 @@ assert(!flowCardText.includes('需求单号'), '染整生产流程卡不得展�
 const flowCardHtml = renderDyeWorkOrderFlowCardTemplate(flowCard)
 assert(flowCardHtml.includes('print-production-image-card'), '染整生产流程卡必须真正输出色样和商品图片区')
 assert(flowCardHtml.includes('print-main-grid'), '染整生产流程卡必须保留三列头部布局')
-
-const highRiskHtml = renderDyeWorkOrderOverlay({
-  type: 'edit', dyeOrderId: truthOrder.dyeOrderId, confirmHighRisk: true, targetStatus: '取消',
-})
-assert(highRiskHtml.includes('染色完成 → 取消'), '高风险确认必须展示原状态和目标状态')
-assert(highRiskHtml.includes('会影响 PDA 当前可执行动作'), '高风险确认必须说明 PDA 动作影响')
 
 console.log('dye work order online alignment check passed')

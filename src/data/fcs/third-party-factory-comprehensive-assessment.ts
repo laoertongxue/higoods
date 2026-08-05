@@ -49,7 +49,6 @@ export interface ManualAssessmentSnapshot {
   categoryAbilities: WomenswearCategory[]
   machineCount: number | null
   workerCount: number | null
-  monthlyOutputValueTenThousandIdr: number | null
   grade: ComprehensiveAssessmentGrade | null
   updatedBy: string | null
   updatedAt: string | null
@@ -78,7 +77,6 @@ export interface ThirdPartyFactoryComprehensiveAssessment extends ManualAssessme
     categoryAbilities: string
     machineCount: string
     workerCount: string
-    monthlyOutputValueTenThousandIdr: string
     grade: string
     updatedBy: string
     updatedAt: string
@@ -103,17 +101,17 @@ const dayByTaskKind: Record<TimelinessTaskKind, Record<30 | 70 | 100, number>> =
 }
 
 const manualAssessmentSeed: ManualAssessmentSnapshot[] = [
-  { factoryId: 'KOL-GOTO-001', categoryAbilities: ['衬衫', 'T 恤', '连衣裙'], machineCount: 56, workerCount: 118, monthlyOutputValueTenThousandIdr: 680, grade: 'S', updatedBy: '陈慧', updatedAt: '2026-07-20T09:00:00.000Z' },
-  { factoryId: 'ID-F021', categoryAbilities: ['T 恤', '背心', '裤子'], machineCount: 42, workerCount: 86, monthlyOutputValueTenThousandIdr: 420, grade: 'A', updatedBy: '陈慧', updatedAt: '2026-07-20T09:05:00.000Z' },
-  { factoryId: 'ID-F022', categoryAbilities: ['衬衫'], machineCount: null, workerCount: null, monthlyOutputValueTenThousandIdr: null, grade: 'B', updatedBy: '陈慧', updatedAt: '2026-07-20T09:10:00.000Z' },
-  { factoryId: 'ID-F023', categoryAbilities: [], machineCount: 18, workerCount: 34, monthlyOutputValueTenThousandIdr: 150, grade: 'B', updatedBy: '陈慧', updatedAt: '2026-07-20T09:15:00.000Z' },
-  { factoryId: 'ID-F024', categoryAbilities: ['马甲', '休闲套装'], machineCount: 20, workerCount: 42, monthlyOutputValueTenThousandIdr: 180, grade: 'A', updatedBy: '陈慧', updatedAt: '2026-07-20T09:20:00.000Z' },
-  { factoryId: 'ID-F025', categoryAbilities: ['裤子', '半裙'], machineCount: 16, workerCount: 28, monthlyOutputValueTenThousandIdr: 120, grade: 'B', updatedBy: '陈慧', updatedAt: '2026-07-20T09:25:00.000Z' },
-  { factoryId: 'ID-F026', categoryAbilities: ['T 恤', '背心'], machineCount: 24, workerCount: 48, monthlyOutputValueTenThousandIdr: 210, grade: 'B', updatedBy: '陈慧', updatedAt: '2026-07-20T09:30:00.000Z' },
-  { factoryId: 'ID-F027', categoryAbilities: ['西装连体裤', '西装套装'], machineCount: 26, workerCount: 52, monthlyOutputValueTenThousandIdr: 250, grade: 'B', updatedBy: '陈慧', updatedAt: '2026-07-20T09:35:00.000Z' },
-  { factoryId: 'ID-F028', categoryAbilities: ['连衣裙', '休闲连体裤'], machineCount: 30, workerCount: 62, monthlyOutputValueTenThousandIdr: 300, grade: null, updatedBy: '陈慧', updatedAt: '2026-07-20T09:40:00.000Z' },
-  { factoryId: 'ID-F029', categoryAbilities: ['衬衫', '马甲'], machineCount: 14, workerCount: 26, monthlyOutputValueTenThousandIdr: 110, grade: 'C', updatedBy: '陈慧', updatedAt: '2026-07-20T09:45:00.000Z' },
-  { factoryId: 'ID-F030', categoryAbilities: ['休闲套装'], machineCount: 12, workerCount: 20, monthlyOutputValueTenThousandIdr: 90, grade: 'A', updatedBy: '陈慧', updatedAt: '2026-07-20T09:50:00.000Z' },
+  { factoryId: 'KOL-GOTO-001', categoryAbilities: ['衬衫', 'T 恤', '连衣裙'], machineCount: 56, workerCount: 118, grade: 'S', updatedBy: '陈慧', updatedAt: '2026-07-20T09:00:00.000Z' },
+  { factoryId: 'ID-F021', categoryAbilities: ['T 恤', '背心', '裤子'], machineCount: 42, workerCount: 86, grade: 'A', updatedBy: '陈慧', updatedAt: '2026-07-20T09:05:00.000Z' },
+  { factoryId: 'ID-F022', categoryAbilities: ['衬衫'], machineCount: null, workerCount: null, grade: 'B', updatedBy: '陈慧', updatedAt: '2026-07-20T09:10:00.000Z' },
+  { factoryId: 'ID-F023', categoryAbilities: [], machineCount: 18, workerCount: 34, grade: 'B', updatedBy: '陈慧', updatedAt: '2026-07-20T09:15:00.000Z' },
+  { factoryId: 'ID-F024', categoryAbilities: ['马甲', '休闲套装'], machineCount: 20, workerCount: 42, grade: 'A', updatedBy: '陈慧', updatedAt: '2026-07-20T09:20:00.000Z' },
+  { factoryId: 'ID-F025', categoryAbilities: ['裤子', '半裙'], machineCount: 16, workerCount: 28, grade: 'B', updatedBy: '陈慧', updatedAt: '2026-07-20T09:25:00.000Z' },
+  { factoryId: 'ID-F026', categoryAbilities: ['T 恤', '背心'], machineCount: 24, workerCount: 48, grade: 'B', updatedBy: '陈慧', updatedAt: '2026-07-20T09:30:00.000Z' },
+  { factoryId: 'ID-F027', categoryAbilities: ['西装连体裤', '西装套装'], machineCount: 26, workerCount: 52, grade: 'B', updatedBy: '陈慧', updatedAt: '2026-07-20T09:35:00.000Z' },
+  { factoryId: 'ID-F028', categoryAbilities: ['连衣裙', '休闲连体裤'], machineCount: 30, workerCount: 62, grade: null, updatedBy: '陈慧', updatedAt: '2026-07-20T09:40:00.000Z' },
+  { factoryId: 'ID-F029', categoryAbilities: ['衬衫', '马甲'], machineCount: 14, workerCount: 26, grade: 'C', updatedBy: '陈慧', updatedAt: '2026-07-20T09:45:00.000Z' },
+  { factoryId: 'ID-F030', categoryAbilities: ['休闲套装'], machineCount: 12, workerCount: 20, grade: 'A', updatedBy: '陈慧', updatedAt: '2026-07-20T09:50:00.000Z' },
 ]
 
 const timelinessFacts: FactoryTimelinessFact[] = [
@@ -204,10 +202,10 @@ export function calculateFactoryQualityMetrics(facts: FactoryQualityFact[]): Fac
 
 export function getAssessmentCompletion(input: Pick<
   ThirdPartyFactoryComprehensiveAssessment,
-  'categoryAbilities' | 'processAbilities' | 'machineCount' | 'workerCount' | 'monthlyOutputValueTenThousandIdr' | 'grade' | 'timeliness' | 'quality'
+  'categoryAbilities' | 'processAbilities' | 'machineCount' | 'workerCount' | 'grade' | 'timeliness' | 'quality'
 >): AssessmentCompletion {
   const ability = input.categoryAbilities.length > 0 && input.processAbilities.length > 0
-  const capacity = (input.machineCount ?? 0) > 0 && (input.workerCount ?? 0) > 0 && (input.monthlyOutputValueTenThousandIdr ?? 0) > 0
+  const capacity = (input.machineCount ?? 0) > 0 && (input.workerCount ?? 0) > 0
   const timeliness = Object.values(input.timeliness).every((value) => value !== null)
   const quality = Object.values(input.quality).every((value) => value !== null)
   const grade = input.grade !== null
@@ -233,11 +231,6 @@ function normalizeCategoryAbilities(value: unknown): WomenswearCategory[] | unde
 function normalizePositiveIntegerOrNull(value: unknown): number | null | undefined {
   if (value === null) return null
   return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : undefined
-}
-
-function normalizePositiveNumberOrNull(value: unknown): number | null | undefined {
-  if (value === null) return null
-  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined
 }
 
 function normalizeGrade(value: unknown): ComprehensiveAssessmentGrade | null | undefined {
@@ -267,7 +260,6 @@ function createCurrentMasterManualAssessmentsByFactoryId(): Map<string, ManualAs
         categoryAbilities: [],
         machineCount: null,
         workerCount: null,
-        monthlyOutputValueTenThousandIdr: null,
         grade: null,
         updatedBy: null,
         updatedAt: null,
@@ -291,14 +283,12 @@ function normalizeStoredManualAssessments(value: unknown): ManualAssessmentSnaps
     const categoryAbilities = normalizeCategoryAbilities(raw.categoryAbilities)
     const machineCount = normalizePositiveIntegerOrNull(raw.machineCount)
     const workerCount = normalizePositiveIntegerOrNull(raw.workerCount)
-    const monthlyOutputValueTenThousandIdr = normalizePositiveNumberOrNull(raw.monthlyOutputValueTenThousandIdr)
     const grade = normalizeGrade(raw.grade)
     const updatedBy = normalizeStringOrNull(raw.updatedBy)
     const updatedAt = normalizeStringOrNull(raw.updatedAt)
     if (categoryAbilities !== undefined) next.categoryAbilities = categoryAbilities
     if (machineCount !== undefined) next.machineCount = machineCount
     if (workerCount !== undefined) next.workerCount = workerCount
-    if (monthlyOutputValueTenThousandIdr !== undefined) next.monthlyOutputValueTenThousandIdr = monthlyOutputValueTenThousandIdr
     if (grade !== undefined) next.grade = grade
     if (updatedBy !== undefined) next.updatedBy = updatedBy
     if (updatedAt !== undefined) next.updatedAt = updatedAt
@@ -343,7 +333,7 @@ function getAssessmentProcessAbilities(factory: ReturnType<typeof listFactoryMas
 function getManualAssessment(factoryId: string): ManualAssessmentSnapshot {
   const existing = manualAssessments.find((item) => item.factoryId === factoryId)
   return existing ? cloneManual(existing) : {
-    factoryId, categoryAbilities: [], machineCount: null, workerCount: null, monthlyOutputValueTenThousandIdr: null,
+    factoryId, categoryAbilities: [], machineCount: null, workerCount: null,
     grade: null, updatedBy: null, updatedAt: null,
   }
 }
@@ -363,7 +353,7 @@ function buildAssessment(factory: ReturnType<typeof listFactoryMasterRecords>[nu
     completion: getAssessmentCompletion({ ...manual, processAbilities, timeliness, quality }),
     fieldSources: {
       factoryName: '工厂主档', factoryCode: '工厂主档', processAbilities: '工厂主档工艺能力映射',
-      categoryAbilities: '人工快照', machineCount: '人工快照', workerCount: '人工快照', monthlyOutputValueTenThousandIdr: '人工快照', grade: '人工快照', updatedBy: '人工快照', updatedAt: '人工快照',
+      categoryAbilities: '人工快照', machineCount: '人工快照', workerCount: '人工快照', grade: '人工快照', updatedBy: '人工快照', updatedAt: '人工快照',
       timeliness: '系统时效事实聚合', deliveryOnTimeRate: '系统时效事实聚合', receipt30OnTimeRate: '系统时效事实聚合', receipt70OnTimeRate: '系统时效事实聚合', receipt100OnTimeRate: '系统时效事实聚合',
       quality: '系统品控事实聚合', defectiveRate: '系统品控事实聚合', defectRate: '系统品控事实聚合', reworkRate: '系统品控事实聚合',
     },
@@ -388,10 +378,6 @@ function validateManualAssessmentUpdate(update: ManualAssessmentUpdate): void {
   for (const [label, value] of [['机器台数', update.machineCount], ['工人人数', update.workerCount]] as const) {
     if (value !== undefined && value !== null && (!Number.isInteger(value) || value <= 0)) throw new Error(`${label}必须为大于 0 的正整数`)
   }
-  const output = update.monthlyOutputValueTenThousandIdr
-  if (output !== undefined && output !== null && (
-    !Number.isFinite(output) || output <= 0 || Math.abs(output * 100 - Math.round(output * 100)) > 1e-8
-  )) throw new Error('月产值必须大于 0 且最多保留 2 位小数')
   if (update.grade !== undefined && update.grade !== null && !['S', 'A', 'B', 'C'].includes(update.grade)) {
     throw new Error('综合评级必须为 S、A、B、C 之一')
   }
@@ -407,7 +393,6 @@ export function updateThirdPartyFactoryManualAssessment(factoryId: string, updat
     categoryAbilities: update.categoryAbilities ? [...update.categoryAbilities] : current.categoryAbilities,
     machineCount: update.machineCount === undefined ? current.machineCount : update.machineCount,
     workerCount: update.workerCount === undefined ? current.workerCount : update.workerCount,
-    monthlyOutputValueTenThousandIdr: update.monthlyOutputValueTenThousandIdr === undefined ? current.monthlyOutputValueTenThousandIdr : update.monthlyOutputValueTenThousandIdr,
     grade: update.grade === undefined ? current.grade : update.grade,
     updatedBy: update.updatedBy === undefined ? current.updatedBy : update.updatedBy,
     updatedAt: update.updatedAt === undefined ? current.updatedAt : update.updatedAt,

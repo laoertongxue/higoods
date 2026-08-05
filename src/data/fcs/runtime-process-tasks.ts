@@ -10,13 +10,10 @@ import {
   type ProcessAssignmentGranularity,
 } from './process-types.ts'
 import {
-  calculateOutputValueTotal,
   processTasks,
   setProcessTasksMutatedListener,
-  sumTaskOutputValueTotals,
   type AcceptanceStatus,
   type ProcessTask,
-  type OutputValueDifficulty,
   type TaskAssignmentStatus,
   type TaskAuditLog,
 } from './process-tasks.ts'
@@ -24,6 +21,7 @@ import { buildTaskQrValue } from './task-qr.ts'
 import {
   KOL_GOTO_FACTORY_ID,
   KOL_GOTO_FACTORY_NAME,
+  specialCraftDedicatedFactories,
   TEST_FACTORY_ID,
   TEST_FACTORY_NAME,
 } from './factory-mock-data.ts'
@@ -47,7 +45,6 @@ import {
   type DispatchAcceptanceSlaRuleSource,
 } from './dispatch-acceptance-sla.ts'
 import { listBusinessFactoryMasterRecords, listFactoryMasterRecords } from './factory-master-store.ts'
-import type { Factory, FactoryProcessAbility } from './factory-types.ts'
 import {
   evaluateThirdPartyFactoryDispatchPolicy,
   getThirdPartyFactoryRatingSnapshot,
@@ -67,6 +64,15 @@ import {
   saveSewingDeliverySlaSnapshot,
   type SewingDeliverySlaSnapshot,
 } from './sewing-delivery-sla.ts'
+import { classifyTaskFulfillmentPolicy } from './task-fulfillment-policy.ts'
+import {
+  getMergedProductionTaskDefinition,
+  isAssignableProductionExecutionTask,
+  normalizeProductionExecutionProcessCode,
+  resolveMergedProductionTaskType,
+  type AuxiliarySpecialExecutorMode,
+  type MergedProductionTaskType,
+} from './merged-production-task.ts'
 
 export type RuntimeTaskScopeType = ProcessAssignmentGranularity
 export type RuntimeExecutorKind = 'EXTERNAL_FACTORY' | 'WAREHOUSE_WORKSHOP'
@@ -109,18 +115,15 @@ export interface RuntimeProcessTask extends Omit<ProcessTask, 'taskId' | 'depend
   isSplitSource?: boolean
   executionEnabled?: boolean
   mergeSourceTaskIds?: string[]
+  mergedIntoTaskId?: string
+  mergedTaskType?: MergedProductionTaskType
+  auxiliarySpecialExecutorMode?: AuxiliarySpecialExecutorMode
   mergeCreatedAt?: string
   mergeCreatedBy?: string
+  distributionMode?: 'BAG_AWARE' | 'FREE'
 }
 
-export interface ResolvedRuntimeOutputValue {
-  outputValuePerUnit?: number
-  outputValueUnit?: string
-  outputValueTotal?: number
-  outputValueDifficulty?: OutputValueDifficulty
-}
-
-export type RuntimeTaskAllocatableGroup = TaskAllocatableGroup & ResolvedRuntimeOutputValue
+export type RuntimeTaskAllocatableGroup = TaskAllocatableGroup
 export type RuntimeTaskAllocatableGroupAssignment = TaskAllocatableGroupAssignment
 
 interface RuntimeTaskOverride {
@@ -128,10 +131,6 @@ interface RuntimeTaskOverride {
   assignmentMode?: ProcessTask['assignmentMode']
   assignmentStatus?: TaskAssignmentStatus
   status?: ProcessTask['status']
-  outputValuePerUnit?: number
-  outputValueUnit?: string
-  outputValueTotal?: number
-  outputValueDifficulty?: OutputValueDifficulty
   assignedFactoryId?: string
   assignedFactoryName?: string
   startDueAt?: string
@@ -180,6 +179,7 @@ interface RuntimeTaskOverride {
   isSplitResult?: boolean
   isSplitSource?: boolean
   executionEnabled?: boolean
+  distributionMode?: 'BAG_AWARE' | 'FREE'
 }
 
 interface RuntimeSplitResultPlan {
@@ -272,10 +272,11 @@ export interface RuntimeTaskSplitGroupSnapshot {
   factorySummary: string
 }
 
-export interface ContinuousRuntimeTaskMergeEvaluation {
+export interface FixedMergedTaskEvaluation {
   ok: boolean
   message: string
   tasks: RuntimeProcessTask[]
+  mergedTaskType: MergedProductionTaskType | null
 }
 
 export interface RuntimeBatchDispatchInput {
@@ -286,9 +287,9 @@ export interface RuntimeBatchDispatchInput {
   taskDeadline: string
   remark: string
   by: string
-  dispatchPrice: number
-  dispatchPriceCurrency: string
-  dispatchPriceUnit: string
+  dispatchPrice?: number
+  dispatchPriceCurrency?: string
+  dispatchPriceUnit?: string
   priceDiffReason: string
   autoAccept?: boolean
   businessAssignedAt?: string
@@ -312,10 +313,6 @@ export interface RuntimeDirectDispatchMetaInput {
   operatedAt?: string
   autoAccept?: boolean
   acceptanceSla?: DispatchAcceptanceSlaResolution
-  outputValuePerUnit?: number
-  outputValueUnit?: string
-  outputValueTotal?: number
-  outputValueDifficulty?: OutputValueDifficulty
   writeBackMainFactory?: boolean
 }
 
@@ -343,6 +340,13 @@ export interface PreparedRuntimeDirectDispatchMeta {
 export interface RuntimeDirectDispatchState {
   taskOverrides: Array<[string, RuntimeTaskOverride]>
   splitPlans: Array<[string, RuntimeTaskSplitPlan]>
+  mergedPlans: Array<[string, {
+    taskIds: string[]
+    mergedTaskId: string
+    mergedTaskType: MergedProductionTaskType
+    createdAt: string
+    createdBy: string
+  }]>
   auditSeq: number
   dispatchBoardSeedReady: boolean
   productionOrders: Array<(typeof productionOrders)[number]>
@@ -395,6 +399,9 @@ export interface RuntimeSewingTaskReassignmentInput {
   mainFactoryId?: string
   riskConfirmed?: boolean
   supervisorAssigned?: boolean
+  dispatchPrice: number
+  dispatchPriceCurrency: string
+  dispatchPriceUnit: string
 }
 
 export interface RuntimeSewingTaskReassignmentResult {
@@ -407,7 +414,13 @@ export interface RuntimeSewingTaskReassignmentResult {
 
 const runtimeTaskOverrides = new Map<string, RuntimeTaskOverride>()
 const runtimeTaskSplitPlans = new Map<string, RuntimeTaskSplitPlan>()
-const runtimeContinuousMergePlans = new Map<string, { taskIds: string[]; mergedTaskId: string; createdAt: string; createdBy: string }>()
+const runtimeMergedTaskPlans = new Map<string, {
+  taskIds: string[]
+  mergedTaskId: string
+  mergedTaskType: MergedProductionTaskType
+  createdAt: string
+  createdBy: string
+}>()
 const runtimeReassignedTasks = new Map<string, RuntimeProcessTask>()
 const SEWING_DELIVERY_SLA_AUTO_ACCEPT_BY = '系统自动接单（含车缝直接派单）'
 let runtimeAuditSeq = 0
@@ -439,6 +452,7 @@ export function captureRuntimeDirectDispatchState(): RuntimeDirectDispatchState 
   return {
     taskOverrides: Array.from(runtimeTaskOverrides.entries()).map(([taskId, override]) => [taskId, structuredClone(override)]),
     splitPlans: Array.from(runtimeTaskSplitPlans.entries()).map(([taskId, plan]) => [taskId, structuredClone(plan)]),
+    mergedPlans: Array.from(runtimeMergedTaskPlans.entries()).map(([taskId, plan]) => [taskId, structuredClone(plan)]),
     auditSeq: runtimeAuditSeq,
     dispatchBoardSeedReady,
     productionOrders: structuredClone(productionOrders),
@@ -449,8 +463,10 @@ export function captureRuntimeDirectDispatchState(): RuntimeDirectDispatchState 
 export function restoreRuntimeDirectDispatchState(state: RuntimeDirectDispatchState): void {
   runtimeTaskOverrides.clear()
   runtimeTaskSplitPlans.clear()
+  runtimeMergedTaskPlans.clear()
   state.taskOverrides.forEach(([taskId, override]) => runtimeTaskOverrides.set(taskId, structuredClone(override)))
   state.splitPlans.forEach(([taskId, plan]) => runtimeTaskSplitPlans.set(taskId, structuredClone(plan)))
+  state.mergedPlans.forEach(([taskId, plan]) => runtimeMergedTaskPlans.set(taskId, structuredClone(plan)))
   runtimeAuditSeq = state.auditSeq
   dispatchBoardSeedReady = state.dispatchBoardSeedReady
   productionOrders.splice(0, productionOrders.length, ...structuredClone(state.productionOrders))
@@ -509,7 +525,7 @@ function resolveExecutorKindByFactoryId(factoryId?: string): RuntimeExecutorKind
 
 type RuntimeSewingTaskLike =
   Pick<RuntimeProcessTask, 'processCode' | 'processNameZh'>
-  & Partial<Pick<RuntimeProcessTask, 'processBusinessCode' | 'coveredProcesses' | 'acceptanceMode' | 'taskUnitType'>>
+  & Partial<Pick<RuntimeProcessTask, 'processBusinessCode' | 'coveredProcesses' | 'acceptanceMode' | 'taskUnitType' | 'mergedTaskType'>>
 
 export function isRuntimeSewingTask(task: RuntimeSewingTaskLike): boolean {
   if (task.processCode === 'SEW' || task.processBusinessCode === 'SEW' || task.processNameZh === '车缝') return true
@@ -519,9 +535,8 @@ export function isRuntimeSewingTask(task: RuntimeSewingTaskLike): boolean {
 export function isRuntimeIndependentSewingTask(task: RuntimeSewingTaskLike): boolean {
   if (!isRuntimeSewingTask(task)) return false
   if (
-    task.taskUnitType === 'COMBINED_PROCESS_TASK'
-    || task.processBusinessCode === 'COMBINED_PROCESS_TASK'
-    || task.acceptanceMode === 'CONTINUOUS_PROCESS'
+    task.taskUnitType === 'MERGED_PRODUCTION_TASK'
+    || Boolean(task.mergedTaskType)
   ) return false
   return task.processBusinessCode === 'SEW' || task.processCode === 'SEW' || task.processNameZh === '车缝'
 }
@@ -605,98 +620,6 @@ function cloneTaskDetailRows(rows: TaskDetailRow[] | undefined): TaskDetailRow[]
 
 function getTaskDetailRows(baseTask: ProcessTask): TaskDetailRow[] {
   return cloneTaskDetailRows(baseTask.detailRows).sort((a, b) => a.sortKey.localeCompare(b.sortKey))
-}
-
-type RuntimeOutputValueTaskLike = Pick<
-  ProcessTask,
-  'qty' | 'detailRows' | 'outputValuePerUnit' | 'outputValueUnit' | 'outputValueTotal' | 'outputValueDifficulty'
-> &
-  Partial<Pick<RuntimeProcessTask, 'scopeQty' | 'scopeDetailRows'>>
-
-function normalizeOutputValueNumber(value: number | undefined): number | undefined {
-  const normalized = Number(value)
-  if (!Number.isFinite(normalized) || normalized <= 0) return undefined
-  return normalized
-}
-
-function resolveRuntimeTaskOutputValueQty(task: RuntimeOutputValueTaskLike): number {
-  if (Number.isFinite(task.scopeQty)) {
-    return Math.max(Number(task.scopeQty), 0)
-  }
-  return Math.max(Number(task.qty), 0)
-}
-
-function resolveRuntimeTaskOutputValueDetailRows(task: RuntimeOutputValueTaskLike): TaskDetailRow[] {
-  if (task.scopeDetailRows && task.scopeDetailRows.length > 0) {
-    return cloneTaskDetailRows(task.scopeDetailRows)
-  }
-  return cloneTaskDetailRows(task.detailRows)
-}
-
-export function resolveRuntimeTaskOutputValue(task: RuntimeOutputValueTaskLike): ResolvedRuntimeOutputValue {
-  const outputValuePerUnit = normalizeOutputValueNumber(task.outputValuePerUnit)
-  const outputValueUnit = task.outputValueUnit?.trim() || undefined
-  const outputValueDifficulty = task.outputValueDifficulty
-  const detailRows = resolveRuntimeTaskOutputValueDetailRows(task)
-  const fallbackTotal =
-    outputValuePerUnit && outputValueUnit
-      ? calculateOutputValueTotal({
-          qty: resolveRuntimeTaskOutputValueQty(task),
-          detailRows,
-          outputValuePerUnit,
-          outputValueUnit,
-        })
-      : 0
-
-  return {
-    outputValuePerUnit,
-    outputValueUnit,
-    outputValueTotal: normalizeOutputValueNumber(task.outputValueTotal) ?? normalizeOutputValueNumber(fallbackTotal),
-    outputValueDifficulty,
-  }
-}
-
-export function resolveRuntimeAllocatableGroupOutputValue(
-  task: RuntimeOutputValueTaskLike,
-  group: Pick<TaskAllocatableGroup, 'qty' | 'detailRowKeys'>,
-): ResolvedRuntimeOutputValue {
-  const base = resolveRuntimeTaskOutputValue(task)
-  if (!base.outputValuePerUnit || !base.outputValueUnit) {
-    return {
-      ...base,
-      outputValueTotal: undefined,
-    }
-  }
-
-  const detailRows = resolveRuntimeTaskOutputValueDetailRows(task)
-  const detailRowKeySet = new Set(group.detailRowKeys ?? [])
-  const scopedDetailRows =
-    detailRowKeySet.size > 0 ? detailRows.filter((row) => detailRowKeySet.has(row.rowKey)) : detailRows
-
-  return {
-    ...base,
-    outputValueTotal: normalizeOutputValueNumber(
-      calculateOutputValueTotal({
-        qty: Math.max(Number(group.qty), 0),
-        detailRows: scopedDetailRows,
-        outputValuePerUnit: base.outputValuePerUnit,
-        outputValueUnit: base.outputValueUnit,
-      }),
-    ),
-  }
-}
-
-function recalculateRuntimeTaskOutputValueTotal(
-  task: Pick<ProcessTask, 'outputValuePerUnit' | 'outputValueUnit'>,
-  scopeQty: number,
-  detailRows: TaskDetailRow[],
-): number {
-  return calculateOutputValueTotal({
-    qty: scopeQty,
-    detailRows,
-    outputValuePerUnit: task.outputValuePerUnit,
-    outputValueUnit: task.outputValueUnit,
-  })
 }
 
 function filterDetailRowsByScope(
@@ -802,7 +725,6 @@ function applyRuntimeSplitPlans(tasks: RuntimeProcessTask[]): RuntimeProcessTask
       isSplitSource: true,
       executionEnabled: false,
       assignmentStatus: 'ASSIGNED',
-      outputValueTotal: recalculateRuntimeTaskOutputValueTotal(task, task.scopeQty, sourceDetailRows),
       updatedAt: plan.createdAt,
     })
 
@@ -841,7 +763,6 @@ function applyRuntimeSplitPlans(tasks: RuntimeProcessTask[]): RuntimeProcessTask
         scopeSkuLines,
         scopeDetailRows: scopedDetailRows,
         detailRows: cloneTaskDetailRows(scopedDetailRows),
-        outputValueTotal: recalculateRuntimeTaskOutputValueTotal(task, scopeQty, scopedDetailRows),
         updatedAt: plan.createdAt,
       })
     }
@@ -880,7 +801,6 @@ function buildOrderScopeTask(baseTask: ProcessTask, skuLines: RuntimeTaskSkuLine
     scopeQty: baseTask.qty,
     scopeSkuLines: skuLines,
     scopeDetailRows: detailRows,
-    outputValueTotal: recalculateRuntimeTaskOutputValueTotal(baseTask, baseTask.qty, detailRows),
   }
 }
 
@@ -915,7 +835,6 @@ function buildColorScopeTasks(baseTask: ProcessTask, skuLines: RuntimeTaskSkuLin
       scopeQty: qty,
       scopeSkuLines: lines,
       scopeDetailRows: detailRows,
-      outputValueTotal: recalculateRuntimeTaskOutputValueTotal(baseTask, qty, detailRows),
     }
   })
 }
@@ -945,7 +864,6 @@ function buildSkuScopeTasks(baseTask: ProcessTask, skuLines: RuntimeTaskSkuLine[
       skuColor: line.color,
       skuSize: line.size,
       scopeDetailRows: detailRows,
-      outputValueTotal: recalculateRuntimeTaskOutputValueTotal(baseTask, line.qty, detailRows),
     }
   })
 }
@@ -1026,10 +944,6 @@ function applyRuntimeOverrides(tasks: RuntimeProcessTask[]): RuntimeProcessTask[
   })
 }
 
-function isPositiveRouteNo(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0
-}
-
 function compareRuntimeRouteTask(a: RuntimeProcessTask, b: RuntimeProcessTask): number {
   const stepCompare = (a.routeStepNo ?? Number.MAX_SAFE_INTEGER) - (b.routeStepNo ?? Number.MAX_SAFE_INTEGER)
   if (stepCompare !== 0) return stepCompare
@@ -1038,135 +952,20 @@ function compareRuntimeRouteTask(a: RuntimeProcessTask, b: RuntimeProcessTask): 
   return compareRuntimeTask(a, b)
 }
 
-function isContinuousMergeSourceTask(task: RuntimeProcessTask): boolean {
-  return task.defaultDocType !== 'DEMAND'
+function isFixedMergeSourceTask(task: RuntimeProcessTask): boolean {
+  return isAssignableProductionExecutionTask(task)
     && task.taskUnitType === 'SINGLE_PROCESS_TASK'
     && !task.isSplitSource
     && !task.isSplitResult
+    && !task.mergedIntoTaskId
     && task.assignmentStatus === 'UNASSIGNED'
     && task.status === 'NOT_STARTED'
 }
 
-function formatRouteStepRange(tasks: RuntimeProcessTask[]): string {
-  const steps = tasks
-    .map((task) => task.routeStepNo)
-    .filter(isPositiveRouteNo)
-    .sort((left, right) => left - right)
-  if (steps.length === 0) return '未配置路线'
-  const first = steps[0]
-  const last = steps[steps.length - 1]
-  return first === last ? `第 ${first} 步` : `第 ${first}-${last} 步`
-}
-
-function canFactoryReceiveProcessAbility(ability: FactoryProcessAbility, processCode: string): boolean {
-  if (ability.status && ability.status !== 'ACTIVE') return false
-  if (ability.canReceiveTask === false) return false
-  return ability.processCode === processCode
-    || ability.parentProcessCode === processCode
-    || ability.craftCodes.includes(processCode)
-}
-
-function getRuntimeTaskFactoryAbilityCodes(task: RuntimeProcessTask): string[] {
-  const codes = new Set<string>()
-  if (task.processCode) codes.add(task.processCode)
-  if (task.craftCode) codes.add(task.craftCode)
-  for (const coveredProcess of task.coveredProcesses ?? []) {
-    if (coveredProcess.processCode) codes.add(coveredProcess.processCode)
-    if (coveredProcess.craftCode) codes.add(coveredProcess.craftCode)
-  }
-  return Array.from(codes)
-}
-
-function getRuntimeTaskProcessLabel(task: RuntimeProcessTask): string {
-  const coveredNames = (task.coveredProcesses ?? [])
-    .map((coveredProcess) => coveredProcess.processName || coveredProcess.craftName)
-    .filter(Boolean)
-  return coveredNames.length > 0
-    ? Array.from(new Set(coveredNames)).join('、')
-    : task.processNameZh || task.processCode
-}
-
-function canFactoryReceiveAllRuntimeTasks(factory: Factory, tasks: RuntimeProcessTask[]): boolean {
-  return tasks.every((task) => {
-    const abilityCodes = getRuntimeTaskFactoryAbilityCodes(task)
-    if (abilityCodes.length === 0) return false
-    return abilityCodes.some((processCode) =>
-      factory.processAbilities.some((ability) => canFactoryReceiveProcessAbility(ability, processCode)),
-    )
-  })
-}
-
-function findFactoryCoveringAllRuntimeTasks(tasks: RuntimeProcessTask[]): Factory | undefined {
-  if (tasks.length === 0) return undefined
-  return listBusinessFactoryMasterRecords({ includeTestFactories: false })
-    .find((factory) => canFactoryReceiveAllRuntimeTasks(factory, tasks))
-}
-
-function evaluateSingleFactoryCoverageForParallelGroup(groupTasks: RuntimeProcessTask[]): string | null {
-  if (findFactoryCoveringAllRuntimeTasks(groupTasks)) return null
-
-  const [firstTask] = groupTasks
-  const processText = Array.from(new Set(groupTasks.map(getRuntimeTaskProcessLabel))).join('、')
-  return `同一工厂不具备并行组全部工序能力：第 ${firstTask?.routeStepNo ?? '—'} 步「${firstTask?.routeParallelGroupName || firstTask?.routeParallelGroupId || '并行组'}」需要同一工厂覆盖 ${processText}。`
-}
-
-function evaluateSingleFactoryCoverageForContinuousMerge(sourceTasks: RuntimeProcessTask[]): string | null {
-  if (findFactoryCoveringAllRuntimeTasks(sourceTasks)) return null
-
-  const processText = Array.from(new Set(sourceTasks.map(getRuntimeTaskProcessLabel))).join('、')
-  return `同一工厂不具备连续工序全部工序能力：冻结路线${formatRouteStepRange(sourceTasks)}需要同一工厂覆盖 ${processText}。`
-}
-
-function evaluateSelectedParallelGroups(
-  selectedTasks: RuntimeProcessTask[],
-  orderTasks: RuntimeProcessTask[],
-): string | null {
-  const selectedIds = new Set(selectedTasks.map((task) => task.taskId))
-  const selectedSteps = new Map<number, RuntimeProcessTask[]>()
-  const checkedParallelGroupIds = new Set<string>()
-  for (const task of selectedTasks) {
-    if (!isPositiveRouteNo(task.routeStepNo)) continue
-    selectedSteps.set(task.routeStepNo, [...(selectedSteps.get(task.routeStepNo) ?? []), task])
-  }
-
-  for (const task of selectedTasks) {
-    if ((task.routeLaneNo ?? 1) > 1 && !task.routeParallelGroupId) {
-      return `并行组未选择完整：第 ${task.routeStepNo} 步第 ${task.routeLaneNo} 并行线缺少并行组信息。`
-    }
-    if (!task.routeParallelGroupId) continue
-    const groupTasks = orderTasks.filter((item) => item.routeParallelGroupId === task.routeParallelGroupId)
-    const missing = groupTasks.filter((item) => !selectedIds.has(item.taskId))
-    if (missing.length > 0) {
-      return `并行组未选择完整：第 ${task.routeStepNo} 步「${task.routeParallelGroupName || task.routeParallelGroupId}」需整体选择。`
-    }
-    if (groupTasks.some((item) => item.routeParallelAcceptanceMode !== 'WHOLE_GROUP_ALLOWED')) {
-      return `该并行组未允许整体承接：第 ${task.routeStepNo} 步仍为分别承接。`
-    }
-    if (!checkedParallelGroupIds.has(task.routeParallelGroupId)) {
-      checkedParallelGroupIds.add(task.routeParallelGroupId)
-      const factoryCoverageMessage = evaluateSingleFactoryCoverageForParallelGroup(groupTasks)
-      if (factoryCoverageMessage) return factoryCoverageMessage
-    }
-  }
-
-  for (const [stepNo, stepTasks] of selectedSteps) {
-    if (stepTasks.length <= 1) continue
-    const groupIds = new Set(stepTasks.map((task) => task.routeParallelGroupId || ''))
-    if (groupIds.size !== 1 || groupIds.has('')) {
-      return `并行组未选择完整：第 ${stepNo} 步不能混选不同并行线。`
-    }
-    if (stepTasks.some((task) => task.routeParallelAcceptanceMode !== 'WHOLE_GROUP_ALLOWED')) {
-      return `该并行组未允许整体承接：第 ${stepNo} 步仍为分别承接。`
-    }
-  }
-
-  return null
-}
-
-function evaluateContinuousRuntimeTaskMergeWithTasks(
+function evaluateFixedMergedTaskWithTasks(
   taskIds: string[],
   runtimeTasks: RuntimeProcessTask[],
-): ContinuousRuntimeTaskMergeEvaluation {
+): FixedMergedTaskEvaluation {
   const selectedIds = Array.from(new Set(taskIds.filter(Boolean)))
   const sourceTasks = selectedIds
     .map((taskId) => runtimeTasks.find((task) => task.taskId === taskId))
@@ -1174,141 +973,180 @@ function evaluateContinuousRuntimeTaskMergeWithTasks(
     .sort(compareRuntimeRouteTask)
 
   if (sourceTasks.length !== selectedIds.length) {
-    return { ok: false, message: '所选任务已变化，请刷新任务清单后重新选择。', tasks: sourceTasks }
+    return { ok: false, message: '所选任务已变化，请刷新后重新选择。', tasks: sourceTasks, mergedTaskType: null }
   }
-  if (sourceTasks.length < 2) {
-    return { ok: false, message: '请选择至少两个工序任务。', tasks: sourceTasks }
+  if (sourceTasks.length !== 2 && sourceTasks.length !== 3) {
+    return { ok: false, message: '只能选择“车缝+烫包”或“裁剪+车缝+烫包”对应的完整源任务。', tasks: sourceTasks, mergedTaskType: null }
   }
 
   const productionOrderId = sourceTasks[0].productionOrderId
   if (!sourceTasks.every((task) => task.productionOrderId === productionOrderId)) {
-    return { ok: false, message: '只能合并同一生产单下的连续工序任务。', tasks: sourceTasks }
+    return { ok: false, message: '只能合并同一生产单下的任务。', tasks: sourceTasks, mergedTaskType: null }
   }
-  if (sourceTasks.some((task) => !isContinuousMergeSourceTask(task))) {
-    return { ok: false, message: '只能合并未分配、未开工、未拆分的单工序任务。', tasks: sourceTasks }
-  }
-  if (sourceTasks.some((task) => !isPositiveRouteNo(task.routeStepNo) || !isPositiveRouteNo(task.routeLaneNo))) {
-    return { ok: false, message: '所选任务缺少冻结路线步骤或并行线，不能合并连续工序任务。', tasks: sourceTasks }
+  if (sourceTasks.some((task) => !isFixedMergeSourceTask(task))) {
+    return { ok: false, message: '只能选择未分配、未开工、未拆分且未被其他合并任务吸收的生产任务。', tasks: sourceTasks, mergedTaskType: null }
   }
 
-  const orderRuntimeTasks = runtimeTasks
-    .filter((task) => task.productionOrderId === productionOrderId)
-    .sort(compareRuntimeRouteTask)
-  const parallelMessage = evaluateSelectedParallelGroups(sourceTasks, orderRuntimeTasks)
-  if (parallelMessage) return { ok: false, message: parallelMessage, tasks: sourceTasks }
-
-  const steps = Array.from(new Set(sourceTasks.map((task) => task.routeStepNo as number))).sort((left, right) => left - right)
-  for (let index = 1; index < steps.length; index += 1) {
-    const prev = steps[index - 1]
-    const next = steps[index]
-    if (next - prev !== 1) {
-      return { ok: false, message: `中间缺少第 ${prev + 1} 步，不能合并连续工序任务。`, tasks: sourceTasks }
+  const mergedTaskType = resolveMergedProductionTaskType(sourceTasks)
+  if (!mergedTaskType) {
+    return {
+      ok: false,
+      message: '所选任务不符合固定模式。只允许“车缝+烫包”或“裁剪+车缝+烫包”。',
+      tasks: sourceTasks,
+      mergedTaskType: null,
     }
   }
 
-  const factoryCoverageMessage = evaluateSingleFactoryCoverageForContinuousMerge(sourceTasks)
-  if (factoryCoverageMessage) return { ok: false, message: factoryCoverageMessage, tasks: sourceTasks }
-
+  const definition = getMergedProductionTaskDefinition(mergedTaskType)
   return {
     ok: true,
-    message: `已选择冻结路线${formatRouteStepRange(sourceTasks)}，可合并；连续工序任务不能按明细拆分。`,
+    message: `已识别为“${definition.label}”。${definition.responsibilityLabel}。`,
     tasks: sourceTasks,
+    mergedTaskType,
   }
 }
 
-function buildContinuousMergedTask(sourceTasks: RuntimeProcessTask[], mergedTaskId: string, createdAt: string, createdBy: string): RuntimeProcessTask | null {
+function buildFixedMergedTask(
+  sourceTasks: RuntimeProcessTask[],
+  mergedTaskId: string,
+  mergedTaskType: MergedProductionTaskType,
+  createdAt: string,
+  createdBy: string,
+): RuntimeProcessTask | null {
   if (sourceTasks.length < 2) return null
   const [source] = sourceTasks
   const target = sourceTasks[sourceTasks.length - 1]
+  const definition = getMergedProductionTaskDefinition(mergedTaskType)
   const sourceTaskNos = sourceTasks.map((task) => task.taskNo || task.taskId)
-  const routeRangeText = formatRouteStepRange(sourceTasks)
-  const processName = `${sourceTasks.map((task) => task.processNameZh).join('+')}组合任务`
+  const processName = definition.label
   const mergedTask: RuntimeProcessTask = {
     ...target,
     seq: source.seq,
     taskId: mergedTaskId,
     taskNo: mergedTaskId.replace('__ORDER', ''),
     processNameZh: processName,
-    processBusinessCode: 'COMBINED_PROCESS_TASK',
+    processBusinessCode: mergedTaskType,
     processBusinessName: processName,
-    stageName: '组合工序任务',
+    stageCode: source.stageCode,
+    stageName: source.stageName,
     taskCategoryZh: processName,
-    taskUnitType: 'COMBINED_PROCESS_TASK',
-    acceptanceMode: 'CONTINUOUS_PROCESS',
-    assignmentGranularity: 'ORDER',
+    taskUnitType: 'MERGED_PRODUCTION_TASK',
+    acceptanceMode: 'MERGED_PRODUCTION_TASK',
+    assignmentGranularity: definition.assignmentGranularity,
     detailSplitMode: undefined,
     detailSplitDimensions: [],
-    scopeType: 'ORDER',
-    scopeKey: 'ORDER',
-    scopeLabel: '整任务',
+    scopeType: definition.assignmentGranularity,
+    scopeKey: definition.assignmentGranularity,
+    scopeLabel: definition.assignmentGranularity === 'SKU' ? '完整SKU' : '整张合并任务',
     routeStepNo: source.routeStepNo,
     routeLaneNo: source.routeLaneNo,
     routeParallelGroupId: source.routeParallelGroupId,
     routeParallelGroupName: source.routeParallelGroupName,
-    routeParallelAcceptanceMode: source.routeParallelAcceptanceMode,
     generationRuleId: undefined,
-    generationRuleName: '任务清单人工合并',
-    coveredProcesses: sourceTasks.flatMap((task) => task.coveredProcesses ?? []),
+    generationRuleName: '任务分配固定模式人工合并',
+    coveredProcesses: sourceTasks.map((task) => ({
+      processCode: normalizeProductionExecutionProcessCode(task.processBusinessCode || task.processCode, task.processNameZh),
+      processName: task.processNameZh,
+      sourceArtifactIds: [task.sourceArtifactId || task.taskId],
+    })),
     isMergedTaskUnit: true,
     allowAutoDispatch: false,
-    pdaStepTemplateCode: 'SIMPLE_FIVE_STEP',
-    outputValuePerUnit: undefined,
-    outputValueUnit: '按覆盖工序明细计算',
-    outputValueTotal: sumTaskOutputValueTotals(sourceTasks),
+    pdaStepTemplateCode: 'MERGED_TASK_START_HANDOVER',
     detailRows: sourceTasks.flatMap((task) => task.detailRows ?? []),
     scopeDetailRows: sourceTasks.flatMap((task) => task.scopeDetailRows ?? []),
     dependsOnTaskIds: [...source.dependsOnTaskIds],
     baseDependsOnTaskIds: [...source.baseDependsOnTaskIds],
     mergeSourceTaskIds: sourceTasks.map((task) => task.taskId),
+    mergedTaskType,
+    auxiliarySpecialExecutorMode: definition.auxiliarySpecialExecutorMode,
     mergeCreatedAt: createdAt,
     mergeCreatedBy: createdBy,
-    mockExecutionSummary: `任务清单人工合并冻结路线${routeRangeText}后，工厂按整任务执行。`,
+    mockExecutionSummary: `${definition.responsibilityLabel}；PDA仅接受、开始和交出。`,
     mockHandoverSummary: target.handoverReceiverName ? `完成后交${target.handoverReceiverName}` : target.mockHandoverSummary,
     auditLogs: [
       ...target.auditLogs,
-      buildSeedAuditLog(mergedTaskId, 'MERGE_CONTINUOUS_PROCESS', `任务清单合并 ${sourceTaskNos.join('、')}`, createdBy, createdAt),
+      buildSeedAuditLog(mergedTaskId, 'CREATE_FIXED_MERGED_TASK', `创建${definition.label}：${sourceTaskNos.join('、')}`, createdBy, createdAt),
     ],
   }
   return mergedTask
 }
 
-function applyContinuousMergePlan(tasks: RuntimeProcessTask[], plan: { taskIds: string[]; mergedTaskId: string; createdAt: string; createdBy: string }): RuntimeProcessTask[] {
+function applyFixedMergedTaskPlan(tasks: RuntimeProcessTask[], plan: {
+  taskIds: string[]
+  mergedTaskId: string
+  mergedTaskType: MergedProductionTaskType
+  createdAt: string
+  createdBy: string
+}): RuntimeProcessTask[] {
   const sourceTasks = plan.taskIds
     .map((taskId) => tasks.find((task) => task.taskId === taskId))
     .filter((task): task is RuntimeProcessTask => Boolean(task))
-  const mergedTask = buildContinuousMergedTask(sourceTasks, plan.mergedTaskId, plan.createdAt, plan.createdBy)
+  const mergedTask = buildFixedMergedTask(sourceTasks, plan.mergedTaskId, plan.mergedTaskType, plan.createdAt, plan.createdBy)
   if (!mergedTask) return tasks
 
-  return tasks
-    .filter((task) => !plan.taskIds.includes(task.taskId))
-    .concat(mergedTask)
+  const definition = getMergedProductionTaskDefinition(plan.mergedTaskType)
+  const sameOrderImplicitProcessCodes = plan.mergedTaskType === 'CUTTING_SEWING_IRON_PACK'
+    ? new Set(['SEWING', 'BUTTONHOLE', 'BUTTON_ATTACH', 'EMBROIDERY', 'PLEATING', 'SPECIAL_CRAFT'])
+    : new Set(['SEWING', 'BUTTONHOLE', 'BUTTON_ATTACH'])
+  const absorbedTaskIds = new Set([
+    ...plan.taskIds,
+    ...tasks
+      .filter((task) => task.productionOrderId === sourceTasks[0]?.productionOrderId)
+      .filter((task) => sameOrderImplicitProcessCodes.has(normalizeProductionExecutionProcessCode(
+        task.processBusinessCode || task.processCode,
+        task.processNameZh,
+      )))
+      .map((task) => task.taskId),
+  ])
+  const retainedSources = tasks.map((task) => absorbedTaskIds.has(task.taskId)
+    ? {
+        ...task,
+        executionEnabled: false,
+        mergedIntoTaskId: plan.mergedTaskId,
+        updatedAt: plan.createdAt,
+        auditLogs: [
+          ...task.auditLogs,
+          buildSeedAuditLog(task.taskId, 'ABSORBED_BY_MERGED_TASK', `已并入${definition.label} ${plan.mergedTaskId}`, plan.createdBy, plan.createdAt),
+        ],
+      }
+    : task)
+  return retainedSources.concat(mergedTask)
 }
 
-function applyManualContinuousMergeDemo(tasks: RuntimeProcessTask[]): RuntimeProcessTask[] {
-  const pleatKnittingDemo = applyContinuousMergePlan(tasks, {
-    taskIds: ['TASKGEN-202603-0006-001__ORDER', 'TASKGEN-202603-0006-002__ORDER'],
-    mergedTaskId: 'TASKGEN-202603-0006-002__ORDER',
-    createdAt: '2026-03-20 10:00:00',
-    createdBy: '生产计划员',
-  })
-  const cuttingSewingDemo = applyContinuousMergePlan(pleatKnittingDemo, {
-    taskIds: ['TASKGEN-202603-082-002__ORDER', 'TASKGEN-202603-082-003__ORDER'],
-    mergedTaskId: 'TASKGEN-202603-082-002__ORDER',
-    createdAt: '2026-03-20 10:20:00',
-    createdBy: '生产计划员',
-  })
-  return applyContinuousMergePlan(cuttingSewingDemo, {
-    taskIds: ['TASKGEN-202603-083-003__ORDER', 'TASKGEN-202603-083-005__ORDER'],
-    mergedTaskId: 'CONT-SEW-POST-UNASSIGNED',
+function applyFixedMergedTaskDemo(tasks: RuntimeProcessTask[]): RuntimeProcessTask[] {
+  const sewingAwardedPdaDemoSource = tasks.find((task) => task.taskId === 'TASKGEN-202603-083-004__ORDER')
+  const cuttingSewingIronPackSourceIds = ['CUTTING', 'SEWING', 'IRON_PACK']
+    .map((processCode) => tasks.find((task) =>
+      task.productionOrderId === 'PO-202603-0102'
+      && isFixedMergeSourceTask(task)
+      && normalizeProductionExecutionProcessCode(
+        task.processBusinessCode || task.processCode,
+        task.processNameZh,
+      ) === processCode,
+    )?.taskId)
+    .filter((taskId): taskId is string => Boolean(taskId))
+  const cuttingSewingIronPackDemo = applyFixedMergedTaskPlan(tasks, {
+    taskIds: cuttingSewingIronPackSourceIds,
+    mergedTaskId: 'MERGED-CUT-SEW-IRON-PACK-DEMO-001',
+    mergedTaskType: 'CUTTING_SEWING_IRON_PACK',
     createdAt: '2026-07-13 09:00:00',
     createdBy: '生产计划员',
   })
+  if (!sewingAwardedPdaDemoSource) return cuttingSewingIronPackDemo
+  return cuttingSewingIronPackDemo.concat({
+    ...structuredClone(sewingAwardedPdaDemoSource),
+    taskId: 'PDA-SEW-AWARDED-DEMO-001',
+    taskNo: 'PDA-SEW-AWARDED-DEMO-001',
+    rootTaskNo: 'PDA-SEW-AWARDED-DEMO-001',
+    sourceTaskId: sewingAwardedPdaDemoSource.taskId,
+    auditLogs: sewingAwardedPdaDemoSource.auditLogs.map((log) => ({ ...log, id: `PDA-SEW-AWARDED-DEMO-001-${log.id}` })),
+  })
 }
 
-function applyRuntimeContinuousMergePlans(tasks: RuntimeProcessTask[]): RuntimeProcessTask[] {
+function applyRuntimeMergedTaskPlans(tasks: RuntimeProcessTask[]): RuntimeProcessTask[] {
   let next = tasks
-  for (const plan of runtimeContinuousMergePlans.values()) {
-    next = applyContinuousMergePlan(next, plan)
+  for (const plan of runtimeMergedTaskPlans.values()) {
+    next = applyFixedMergedTaskPlan(next, plan)
   }
   return next
 }
@@ -1391,7 +1229,7 @@ function compareRuntimeTask(a: RuntimeProcessTask, b: RuntimeProcessTask): numbe
 function buildRuntimeBaseTasksFromTaskFacts(): ProcessTask[] {
   // 第二轮整改：runtime 层不再重复构建基础任务事实，统一从 processTasks 兼容层派生。
   return processTasks
-    .filter((task) => task.defaultDocType !== 'DEMAND')
+    .filter((task) => task.defaultDocType === 'TASK')
     .map((task) => ({
       ...task,
       dependsOnTaskIds: [...(task.dependsOnTaskIds ?? [])],
@@ -1428,7 +1266,7 @@ function buildRuntimeProcessTasks(): RuntimeProcessTask[] {
     Array.from(runtimeReassignedTasks.values()).map((task) => structuredClone(task)),
   ))
   const withSplit = applyRuntimeSplitPlans(baseWithOverrides)
-  const mergedTasks = applyRuntimeContinuousMergePlans(applyManualContinuousMergeDemo(applyRuntimeOverrides(withSplit)))
+  const mergedTasks = applyRuntimeMergedTaskPlans(applyFixedMergedTaskDemo(applyRuntimeOverrides(withSplit)))
   const withOverrides = applyRuntimeOverrides(mergedTasks)
   const grouped = new Map<string, RuntimeProcessTask[]>()
   for (const task of withOverrides) {
@@ -1512,12 +1350,13 @@ function ensureDispatchBoardSeedData(): void {
   if (dispatchBoardSeedReady) return
   dispatchBoardSeedReady = true
 
+  const centralSpecialFactory = specialCraftDedicatedFactories[0] ?? { id: TEST_FACTORY_ID, name: TEST_FACTORY_NAME }
   const directFactorySeeds = {
     cut: { id: TEST_FACTORY_ID, name: TEST_FACTORY_NAME },
     sew: { id: 'ID-F003', name: '万隆车缝厂' },
     kolGoto: { id: KOL_GOTO_FACTORY_ID, name: KOL_GOTO_FACTORY_NAME },
     button: { id: TEST_FACTORY_ID, name: TEST_FACTORY_NAME },
-    special: { id: TEST_FACTORY_ID, name: TEST_FACTORY_NAME },
+    special: { id: centralSpecialFactory.id, name: centralSpecialFactory.name },
     wash: { id: 'ID-F007', name: '玛琅精工车缝' },
   } as const
 
@@ -1535,9 +1374,6 @@ function ensureDispatchBoardSeedData(): void {
       dispatchPrice: 15200,
       dispatchPriceCurrency: 'IDR',
       dispatchPriceUnit: '件',
-      outputValuePerUnit: undefined,
-      outputValueUnit: '按覆盖工序明细计算',
-      outputValueTotal: 76000000,
       acceptanceStatus: 'PENDING',
       dispatchRemark: '待工厂确认',
     },
@@ -1589,8 +1425,8 @@ function ensureDispatchBoardSeedData(): void {
     {
       assignmentMode: 'DIRECT',
       assignmentStatus: 'ASSIGNED',
-      assignedFactoryId: directFactorySeeds.button.id,
-      assignedFactoryName: directFactorySeeds.button.name,
+      assignedFactoryId: directFactorySeeds.special.id,
+      assignedFactoryName: directFactorySeeds.special.name,
       acceptDeadline: '2026-06-03 12:00:00',
       taskDeadline: '2026-06-09 18:00:00',
       dispatchedAt: '2026-03-19 11:00:00',
@@ -1604,7 +1440,7 @@ function ensureDispatchBoardSeedData(): void {
     [
       ...getSeedBaseAuditLogs('TASKGEN-202603-0002-003__ORDER'),
       buildSeedAuditLog('TASKGEN-202603-0002-003__ORDER', 'DISPATCH', '已发起直接派单，待工厂确认', '跟单A', '2026-03-19 11:00:00'),
-      buildSeedAuditLog('TASKGEN-202603-0002-003__ORDER', 'ACCEPT', '工厂已确认接单', directFactorySeeds.button.name, '2026-03-19 14:00:00'),
+      buildSeedAuditLog('TASKGEN-202603-0002-003__ORDER', 'ACCEPT', '工厂已确认接单', directFactorySeeds.special.name, '2026-03-19 14:00:00'),
     ],
   )
 
@@ -1623,8 +1459,6 @@ function ensureDispatchBoardSeedData(): void {
       dispatchPrice: 7350,
       dispatchPriceCurrency: 'IDR',
       dispatchPriceUnit: '件',
-      outputValuePerUnit: 3.6,
-      outputValueTotal: 9000,
       acceptanceStatus: 'ACCEPTED',
       dispatchRemark: '辅料线体可承接，但窗口余量不足 20%，保留一条紧张样例。',
     },
@@ -1749,9 +1583,6 @@ function ensureDispatchBoardSeedData(): void {
       assignmentMode: 'BIDDING',
       assignmentStatus: 'BIDDING',
       tenderId: 'TENDER-TASKGEN0009001-1001',
-      outputValuePerUnit: undefined,
-      outputValueUnit: '按覆盖工序明细计算',
-      outputValueTotal: 28000,
       biddingDeadline: '2026-03-22 18:00:00',
       taskDeadline: '2026-04-14 18:00:00',
     },
@@ -1768,9 +1599,6 @@ function ensureDispatchBoardSeedData(): void {
       assignmentMode: 'BIDDING',
       assignmentStatus: 'ASSIGNING',
       tenderId: 'TENDER-TASKGEN0015001-1001',
-      outputValuePerUnit: undefined,
-      outputValueUnit: '按覆盖工序明细计算',
-      outputValueTotal: 16800,
       biddingDeadline: '2026-03-21 10:00:00',
       taskDeadline: '2026-04-01 18:00:00',
     },
@@ -1875,11 +1703,11 @@ function ensureDispatchBoardSeedData(): void {
   )
 
   seedRuntimeTaskOverride(
-    'TASKGEN-202603-083-002__ORDER',
+    'PDA-SEW-AWARDED-DEMO-001',
     {
       assignmentMode: 'BIDDING',
       assignmentStatus: 'AWARDED',
-      tenderId: 'TENDER-TASKGEN0083002-1001',
+      tenderId: 'TENDER-PDA-SEW-AWARDED-DEMO-001',
       assignedFactoryId: 'ID-F021',
       assignedFactoryName: 'CV Micro Sewing Jakarta Pusat',
       businessAssignedAt: '2026-07-01 09:00:00',
@@ -1896,13 +1724,13 @@ function ensureDispatchBoardSeedData(): void {
       acceptDeadline: '2026-07-02 12:00:00',
     },
     [
-      ...getSeedBaseAuditLogs('TASKGEN-202603-083-002__ORDER'),
-      buildSeedAuditLog('TASKGEN-202603-083-002__ORDER', 'BIDDING_START', '发起车缝任务竞价 TENDER-TASKGEN0083002-1001', '跟单A', '2026-07-01 10:00:00'),
-      buildSeedAuditLog('TASKGEN-202603-083-002__ORDER', 'TENDER_AWARD', '已定标给 CV Micro Sewing Jakarta Pusat，等待工厂确认接单', '运营A', '2026-07-01 12:00:00'),
+      ...getSeedBaseAuditLogs('PDA-SEW-AWARDED-DEMO-001'),
+      buildSeedAuditLog('PDA-SEW-AWARDED-DEMO-001', 'BIDDING_START', '发起车缝任务竞价 TENDER-PDA-SEW-AWARDED-DEMO-001', '跟单A', '2026-07-01 10:00:00'),
+      buildSeedAuditLog('PDA-SEW-AWARDED-DEMO-001', 'TENDER_AWARD', '已定标给 CV Micro Sewing Jakarta Pusat，等待工厂确认接单', '运营A', '2026-07-01 12:00:00'),
     ],
   )
 
-  const delayedReceiptDemoTaskId = 'TASKGEN-202603-0015-001__ORDER'
+  const delayedReceiptDemoTaskId = 'TASKGEN-202603-0015-002__ORDER'
   const delayedReceiptDemoAcceptedAt = '2026-07-01 09:00:00'
   const delayedReceiptDemoFactoryId = 'ID-F021'
   const delayedReceiptDemoFactoryName = 'CV Micro Sewing Jakarta Pusat'
@@ -1976,29 +1804,81 @@ export function listRuntimeProcessTasks(): RuntimeProcessTask[] {
   return runtimeTasksCache
 }
 
-export function evaluateContinuousRuntimeTaskMerge(
+export function evaluateFixedMergedTask(
   taskIds: string[],
   runtimeTasks?: RuntimeProcessTask[],
-): ContinuousRuntimeTaskMergeEvaluation {
+): FixedMergedTaskEvaluation {
   ensureDispatchBoardSeedData()
-  return evaluateContinuousRuntimeTaskMergeWithTasks(taskIds, runtimeTasks ?? listRuntimeProcessTasks())
+  return evaluateFixedMergedTaskWithTasks(taskIds, runtimeTasks ?? listRuntimeProcessTasks())
 }
 
-export function mergeContinuousRuntimeTasks(taskIds: string[], by = '生产计划员'): RuntimeProcessTask | null {
-  const evaluation = evaluateContinuousRuntimeTaskMerge(taskIds)
-  if (!evaluation.ok) return null
+function buildFixedMergedTaskIdentity(sourceTasks: RuntimeProcessTask[]): string {
+  const sourceKey = sourceTasks.map((task) => task.taskId).sort().join('|')
+  let hash = 2166136261
+  for (let index = 0; index < sourceKey.length; index += 1) {
+    hash ^= sourceKey.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return (hash >>> 0).toString(36).toUpperCase().padStart(7, '0')
+}
+
+export function createFixedMergedTask(taskIds: string[], by = '生产计划员'): RuntimeProcessTask | null {
+  const evaluation = evaluateFixedMergedTask(taskIds)
+  if (!evaluation.ok || !evaluation.mergedTaskType) return null
   const sourceTasks = evaluation.tasks
 
-  const mergedTaskId = sourceTasks[sourceTasks.length - 1].taskId
+  const typeToken = evaluation.mergedTaskType === 'SEWING_IRON_PACK' ? 'SEW-IRON' : 'CUT-SEW-IRON'
+  const mergedTaskId = `MERGED-${typeToken}-${sourceTasks[0].productionOrderId.replace(/[^A-Z0-9]+/gi, '-')}-${buildFixedMergedTaskIdentity(sourceTasks)}`
   const createdAt = nowTimestamp()
-  runtimeContinuousMergePlans.set(mergedTaskId, {
+  runtimeMergedTaskPlans.set(mergedTaskId, {
     taskIds: sourceTasks.map((task) => task.taskId),
     mergedTaskId,
+    mergedTaskType: evaluation.mergedTaskType,
     createdAt,
     createdBy: by,
   })
   invalidateRuntimeTasksCache()
+  const order = productionOrders.find((item) => item.productionOrderId === sourceTasks[0].productionOrderId)
+  if (order) {
+    order.taskBreakdownSummary.mergedTaskType = evaluation.mergedTaskType
+    order.taskBreakdownSummary.mergedProductionTaskCount = 1
+    order.taskBreakdownSummary.coveredProcessNames = [...getMergedProductionTaskDefinition(evaluation.mergedTaskType).requiredSourceProcessCodes]
+  }
   return getRuntimeTaskById(mergedTaskId)
+}
+
+export function cancelFixedMergedTask(
+  mergedTaskId: string,
+  by = '生产计划员',
+): { ok: boolean; message: string; sourceTaskIds: string[] } {
+  const plan = runtimeMergedTaskPlans.get(mergedTaskId)
+  if (!plan) return { ok: false, message: '未找到可撤销的合并任务记录', sourceTaskIds: [] }
+  const mergedTask = getRuntimeTaskById(mergedTaskId)
+  if (mergedTask && mergedTask.assignmentStatus !== 'UNASSIGNED') {
+    return { ok: false, message: '合并任务已进入分配流程，不能撤销合并', sourceTaskIds: [...plan.taskIds] }
+  }
+  runtimeMergedTaskPlans.delete(mergedTaskId)
+  const definition = getMergedProductionTaskDefinition(plan.mergedTaskType)
+  const order = productionOrders.find((item) => item.productionOrderId === mergedTask?.productionOrderId)
+  if (order) {
+    order.taskBreakdownSummary.mergedTaskType = undefined
+    order.taskBreakdownSummary.mergedProductionTaskCount = 0
+  }
+  for (const sourceTaskId of plan.taskIds) {
+    const source = getRuntimeTaskById(sourceTaskId)
+    if (!source) continue
+    runtimeTaskOverrides.set(sourceTaskId, {
+      ...runtimeTaskOverrides.get(sourceTaskId),
+      auditLogs: appendRuntimeAudit(
+        source,
+        'CANCEL_FIXED_MERGED_TASK',
+        `已撤销${definition.label}；合并记录保留审计`,
+        by,
+      ),
+      updatedAt: nowTimestamp(),
+    })
+  }
+  return { ok: true, message: `已撤销${definition.label}，原任务恢复为可分配`, sourceTaskIds: [...plan.taskIds] }
 }
 
 export function listRuntimeTasksByOrder(productionOrderId: string): RuntimeProcessTask[] {
@@ -2006,9 +1886,7 @@ export function listRuntimeTasksByOrder(productionOrderId: string): RuntimeProce
 }
 
 export function listRuntimeExecutionTasksByOrder(productionOrderId: string): RuntimeProcessTask[] {
-  return listRuntimeTasksByOrder(productionOrderId).filter(
-    (task) => isRuntimeTaskExecutionTask(task) && task.defaultDocType !== 'DEMAND',
-  )
+  return listRuntimeTasksByOrder(productionOrderId).filter(isAssignableProductionExecutionTask)
 }
 
 export function getRuntimeTaskById(taskId: string): RuntimeProcessTask | null {
@@ -2116,7 +1994,7 @@ export function listRuntimeTaskSplitGroupsByOrder(productionOrderId: string): Ru
 }
 
 export function isRuntimeTaskExecutionTask(task: RuntimeProcessTask): boolean {
-  return task.executionEnabled !== false && task.isSplitSource !== true
+  return task.isSplitSource !== true && isAssignableProductionExecutionTask(task)
 }
 
 export function isWoolRuntimeTask(
@@ -2149,10 +2027,7 @@ export function listRuntimeTaskAllocatableGroups(taskId: string): RuntimeTaskAll
     fallbackQty: task.scopeQty,
     fallbackScopeLabel: task.scopeLabel || '整任务',
     scopeSkuLines: task.scopeSkuLines,
-  }).map((group) => ({
-    ...group,
-    ...resolveRuntimeAllocatableGroupOutputValue(task, group),
-  }))
+  })
 }
 
 function clearRuntimeTaskSplitPlan(sourceTaskId: string): void {
@@ -2178,10 +2053,6 @@ export function dispatchRuntimeTaskByDetailGroups(input: RuntimeDetailDispatchIn
     allocationUnitId?: string
     allocationUnitLabel?: string
     detailRowKeys?: string[]
-    outputValuePerUnit?: number
-    outputValueUnit?: string
-    outputValueTotal?: number
-    outputValueDifficulty?: OutputValueDifficulty
   }>
 } {
   const task = getRuntimeTaskById(input.taskId)
@@ -2241,8 +2112,6 @@ export function dispatchRuntimeTaskByDetailGroups(input: RuntimeDetailDispatchIn
     }
 
     recomputeRuntimeTransitionsForOrder(task.productionOrderId)
-    const resolvedTask = getRuntimeTaskById(task.taskId)
-    const outputValue = resolvedTask ? resolveRuntimeTaskOutputValue(resolvedTask) : {}
     return {
       ok: true,
       mode: 'SINGLE_FACTORY',
@@ -2254,10 +2123,6 @@ export function dispatchRuntimeTaskByDetailGroups(input: RuntimeDetailDispatchIn
         allocationUnitId: group.groupKey,
         allocationUnitLabel: group.groupLabel,
         detailRowKeys: [...group.detailRowKeys],
-        outputValuePerUnit: outputValue.outputValuePerUnit,
-        outputValueUnit: outputValue.outputValueUnit,
-        outputValueTotal: resolveRuntimeAllocatableGroupOutputValue(resolvedTask ?? task, group).outputValueTotal,
-        outputValueDifficulty: outputValue.outputValueDifficulty,
       })),
     }
   }
@@ -2345,8 +2210,6 @@ export function dispatchRuntimeTaskByDetailGroups(input: RuntimeDetailDispatchIn
       groups
         .filter((group) => factory.allocatableGroupKeys.includes(group.groupKey))
         .map((group) => {
-          const resolvedTask = getRuntimeTaskById(factory.taskId) ?? task
-          const groupOutputValue = resolveRuntimeAllocatableGroupOutputValue(resolvedTask, group)
           return {
             taskId: factory.taskId,
             factoryId: factory.factoryId,
@@ -2354,10 +2217,6 @@ export function dispatchRuntimeTaskByDetailGroups(input: RuntimeDetailDispatchIn
             allocationUnitId: group.groupKey,
             allocationUnitLabel: group.groupLabel,
             detailRowKeys: [...group.detailRowKeys],
-            outputValuePerUnit: groupOutputValue.outputValuePerUnit,
-            outputValueUnit: groupOutputValue.outputValueUnit,
-            outputValueTotal: groupOutputValue.outputValueTotal,
-            outputValueDifficulty: groupOutputValue.outputValueDifficulty,
           }
         }),
     ),
@@ -2372,15 +2231,16 @@ export interface RuntimeSewingScopeAllocationInput {
 }
 
 /**
- * 把独立车缝任务按完整 SKU 原子分区为“本次分配范围 + 剩余范围”。
+ * 把独立车缝任务或两种固定合并任务按完整 SKU 原子分区为“本次分配范围 + 剩余范围”。
  * 同一个 SKU 不允许再按数量拆分；分区继续使用既有 split plan，
  * 因此下游依赖会等待全部 SKU 分区任务完成。
  */
 export function allocateRuntimeSewingTaskScope(input: RuntimeSewingScopeAllocationInput): RuntimeProcessTask {
   const task = getRuntimeTaskById(input.taskId)
   if (!task) throw new Error(`任务 ${input.taskId} 不存在或已被移除`)
-  if (!isRuntimeTaskExecutionTask(task) || !isRuntimeIndependentSewingTask(task)) {
-    throw new Error(`任务 ${input.taskId} 不是可分配的独立车缝执行任务`)
+  const policy = classifyTaskFulfillmentPolicy(task)
+  if (!isRuntimeTaskExecutionTask(task) || !policy.startsWithSewing) {
+    throw new Error(`任务 ${input.taskId} 不是可按SKU分配的车缝或固定合并任务`)
   }
   if (task.assignmentStatus !== 'UNASSIGNED') throw new Error(`任务 ${input.taskId} 已进入分配流程，不可重复分区`)
   if (!input.by.trim()) throw new Error('分区操作人不能为空')
@@ -2658,10 +2518,7 @@ export function upsertRuntimeTaskTender(
     assignmentOperatedAt?: string
     mainFactoryId?: string
     mainFactoryName?: string
-    outputValuePerUnit?: number
-    outputValueUnit?: string
-    outputValueTotal?: number
-    outputValueDifficulty?: OutputValueDifficulty
+    distributionMode?: 'BAG_AWARE' | 'FREE'
   },
   by: string,
 ): RuntimeProcessTask | null {
@@ -2683,12 +2540,11 @@ export function upsertRuntimeTaskTender(
     throw new Error(`含车缝任务 ${taskId} 已有有效分配结果，不可通过普通入口发起新竞价，请走改派`)
   }
   if (
-    task.taskUnitType === 'COMBINED_PROCESS_TASK'
-    && task.acceptanceMode === 'CONTINUOUS_PROCESS'
+    classifyTaskFulfillmentPolicy(task).mergedTaskType
     && !isReleasedRejectedTenderUpdate
     && (task.assignmentStatus !== 'UNASSIGNED' || Boolean(task.tenderId))
   ) {
-    throw new Error(`连续工序任务 ${taskId} 已有有效分配结果，不可重复发起竞价`)
+    throw new Error(`合并任务 ${taskId} 已有有效分配结果，不可重复发起竞价`)
   }
   const assignmentOperatedAt = payload.assignmentOperatedAt ?? formatOperationLocalWallClock()
   const businessAssignedAt = payload.businessAssignedAt ?? assignmentOperatedAt
@@ -2706,10 +2562,7 @@ export function upsertRuntimeTaskTender(
       taskDeadline: payload.taskDeadline,
       businessAssignedAt,
       assignmentOperatedAt,
-      outputValuePerUnit: payload.outputValuePerUnit ?? task.outputValuePerUnit,
-      outputValueUnit: payload.outputValueUnit ?? task.outputValueUnit,
-      outputValueTotal: payload.outputValueTotal ?? task.outputValueTotal,
-      outputValueDifficulty: payload.outputValueDifficulty ?? task.outputValueDifficulty,
+      distributionMode: payload.distributionMode,
     },
     'BIDDING_START',
     `发起竞价 ${payload.tenderId}`,
@@ -3061,8 +2914,6 @@ export function batchDispatchRuntimeTasks(input: RuntimeBatchDispatchInput): {
   let preparations: PreparedRuntimeDirectDispatchMeta[]
   try {
     preparations = input.taskIds.map((taskId) => {
-      const task = getRuntimeTaskById(taskId)
-      const outputValue = task ? resolveRuntimeTaskOutputValue(task) : {}
       return prepareRuntimeDirectDispatchMeta({
         taskId,
         factoryId: input.factoryId,
@@ -3078,7 +2929,6 @@ export function batchDispatchRuntimeTasks(input: RuntimeBatchDispatchInput): {
         operatedAt,
         businessAssignedAt,
         autoAccept: input.autoAccept,
-        ...outputValue,
       })
     })
   } catch (error) {
@@ -3127,8 +2977,7 @@ export function prepareRuntimeDirectDispatchMeta(
     throw new Error(`含车缝任务 ${input.taskId} 已有有效分配结果，不可通过普通入口覆盖，请走改派`)
   }
   if (
-    originalTask.taskUnitType === 'COMBINED_PROCESS_TASK'
-    && originalTask.acceptanceMode === 'CONTINUOUS_PROCESS'
+    classifyTaskFulfillmentPolicy(originalTask).mergedTaskType
     && (
       originalTask.assignmentStatus !== 'UNASSIGNED'
       || Boolean(originalTask.assignedFactoryId?.trim())
@@ -3136,7 +2985,7 @@ export function prepareRuntimeDirectDispatchMeta(
       || Boolean(originalTask.tenderId?.trim())
     )
   ) {
-    throw new Error(`连续工序任务 ${input.taskId} 已有有效分配结果，不可通过普通入口覆盖`)
+    throw new Error(`合并任务 ${input.taskId} 已有有效分配结果，不可通过普通入口覆盖`)
   }
 
   const operatedAt = input.operatedAt ?? input.dispatchedAt ?? formatOperationLocalWallClock()
@@ -3243,10 +3092,6 @@ function commitPreparedRuntimeDirectDispatchMeta(
       dispatchAcceptanceSlaRuleSource: acceptanceSla.ruleSource,
       dispatchAcceptanceTimeoutHours: acceptanceSla.acceptTimeoutHours ?? undefined,
       dispatchAcceptanceSlaLabel: describeDispatchAcceptanceSlaResolution(acceptanceSla),
-      outputValuePerUnit: input.outputValuePerUnit,
-      outputValueUnit: input.outputValueUnit,
-      outputValueTotal: input.outputValueTotal,
-      outputValueDifficulty: input.outputValueDifficulty,
     },
     'DISPATCH',
     auditDetail,
@@ -3319,6 +3164,8 @@ export function reassignRuntimeSewingTask(
     return reject('目标工厂不能与原工厂相同')
   }
   if (!input.reason.trim() || !input.by.trim()) return reject('请填写改派原因和操作人')
+  const reassignmentPrice = input.dispatchPrice ?? source.dispatchPrice
+  if (!Number.isFinite(reassignmentPrice) || Number(reassignmentPrice) <= 0) return reject('请确认大于0的改派价格')
   if (compareSewingDeliveryDateTimes(input.businessAssignedAt, input.operatedAt) > 0) {
     return reject('业务分配时间不能晚于当前操作时间')
   }
@@ -3377,6 +3224,9 @@ export function reassignRuntimeSewingTask(
       assignmentOperatedAt: input.operatedAt,
       dispatchedAt: input.operatedAt,
       dispatchedBy: input.by,
+      dispatchPrice: Number(reassignmentPrice),
+      dispatchPriceCurrency: input.dispatchPriceCurrency || source.dispatchPriceCurrency || 'IDR',
+      dispatchPriceUnit: input.dispatchPriceUnit || source.dispatchPriceUnit || '件',
       deliverySlaSnapshotId: replacement.snapshotId,
       taskDeadline: replacement.milestones.at(-1)?.deadlineAt,
       auditLogs: appendRuntimeAudit(source, 'REASSIGN_IN', auditDetail, input.by),
@@ -3588,10 +3438,6 @@ export function getRuntimeAssignmentSummaryByOrder(productionOrderId: string): R
 
 export function getRuntimeTaskCountByOrder(productionOrderId: string): number {
   return getRuntimeAssignmentSummaryByOrder(productionOrderId).totalTasks
-}
-
-export function getRuntimeOrderOutputValueTotal(productionOrderId: string): number | undefined {
-  return sumTaskOutputValueTotals(listRuntimeExecutionTasksByOrder(productionOrderId))
 }
 
 export function getRuntimeTaskSummaryByOrder(productionOrderId: string): RuntimeTaskSummaryByOrder {

@@ -2498,22 +2498,6 @@ export function handleProductionEvent(target: HTMLElement, event?: Event): boole
     return true
   }
 
-  if (action === 'open-orders-dispatch-center') {
-    const orderId = actionNode.dataset.orderId
-    if (!orderId) return true
-    state.ordersActionMenuId = null
-    openAppRoute(`/fcs/dispatch/non-sewing?po=${orderId}`, `dispatch-center-${orderId}`, '非车缝任务分配')
-    return true
-  }
-
-  if (action === 'open-orders-dispatch-board') {
-    const orderId = actionNode.dataset.orderId
-    if (!orderId) return true
-    state.ordersActionMenuId = null
-    openAppRoute(`/fcs/dispatch/sewing?po=${orderId}`, `dispatch-sewing-${orderId}`, '车缝分配工作台')
-    return true
-  }
-
   if (action === 'orders-refresh') {
     state.ordersActionMenuId = null
     if (typeof window !== 'undefined') window.location.reload()

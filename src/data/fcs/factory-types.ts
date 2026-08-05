@@ -1,4 +1,3 @@
-import type { OutputValueCurrentFieldKey } from './process-craft-dict'
 import type {
   FactoryInferredTypeCode,
   FactoryOnboardingIdentityFile,
@@ -49,7 +48,7 @@ export interface FactoryEligibility {
 
 export type FactoryAbilityScope = 'PROCESS' | 'CRAFT'
 export type FactoryAbilityStatus = 'ACTIVE' | 'PAUSED' | 'DISABLED'
-export type FactoryPostCapacityNodeCode = 'BUTTONHOLE' | 'BUTTON_ATTACH' | 'IRONING' | 'PACKAGING'
+export type FactoryPostCapacityNodeCode = 'BUTTONHOLE' | 'BUTTON_ATTACH' | 'IRON_PACK'
 export type FactoryCapacityEquipmentStatus = 'AVAILABLE' | 'IN_USE' | 'MAINTENANCE' | 'STOPPED' | 'FROZEN'
 export type FactoryEquipmentStatus = FactoryCapacityEquipmentStatus
 
@@ -68,27 +67,11 @@ export interface FactoryProcessAbility {
   parentProcessCode?: string
 }
 
-export type FactoryCapacityFieldValue = number | string
-
-export interface FactoryTaskAcceptanceCombinationRule {
-  combinationId: string
-  combinationName: string
-  enabled: boolean
-  coveredProcessCodes: string[]
-  coveredCraftCodes?: string[]
-  applicableSaleTypes: string[]
-  excludedProcessCodes: string[]
-  defaultTaskName: string
-  handoverReceiverKind: 'WAREHOUSE'
-  handoverReceiverName: string
-  pdaStepTemplateCode: PdaStepTemplateCode
-}
-
 export interface FactoryTaskAcceptanceConfig {
   singleProcessEnabled: boolean
-  continuousProcessEnabled: boolean
+  canAcceptSewingIronPack: boolean
+  canAcceptCuttingSewingIronPack: boolean
   wholeOrderEnabled: boolean
-  continuousRules: FactoryTaskAcceptanceCombinationRule[]
   wholeOrderRule?: {
     enabled: boolean
     applicableSaleTypes: string[]
@@ -182,13 +165,6 @@ export interface FactoryFormData {
   taskAcceptanceConfig?: FactoryTaskAcceptanceConfig
 }
 
-export interface FactoryCapacityEntry {
-  processCode: string
-  craftCode: string
-  values: Partial<Record<OutputValueCurrentFieldKey, FactoryCapacityFieldValue>>
-  note: string
-}
-
 export interface FactoryCapacityProfile {
   capacityProfileId: string
   factoryId: string
@@ -217,12 +193,8 @@ export interface FactoryCapacityProfile {
     linkedCraftName: string
     condition: string
   }>
-  defaultDailyOutputValue: number
-  calculationStatus: string
-  calculationNotes: string
   createdAt: string
   updatedAt: string
-  entries: FactoryCapacityEntry[]
 }
 
 export interface FactoryCapacityEquipmentAbility {
@@ -253,7 +225,7 @@ export interface FactoryCapacityEquipment {
 export interface FactoryPostCapacityNode {
   capacityNodeId: string
   factoryId: string
-  parentProcessCode: 'POST_FINISHING'
+  stageCode: 'POST'
   nodeCode: FactoryPostCapacityNodeCode
   nodeName: string
   machineType?: string

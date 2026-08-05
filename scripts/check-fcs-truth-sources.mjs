@@ -310,7 +310,7 @@ function classifyPageCategory(pagePath) {
   if (pagePath.includes('process-print') || pagePath.includes('process-dye')) return '准备阶段页面'
   if (pagePath.includes('pda-')) return 'PDA 页面'
   if (pagePath.includes('progress-exceptions') || pagePath.includes('material-issue') || pagePath.includes('material-statements') || pagePath.includes('progress-material')) return '进度/异常/台账页'
-  if (pagePath.includes('production/core') || pagePath.includes('task-breakdown') || pagePath.includes('dispatch-board')) return '核心执行页'
+  if (pagePath.includes('production/core') || pagePath.includes('task-breakdown') || pagePath.includes('unified-dispatch-workbench')) return '核心执行页'
   return '长尾页面'
 }
 

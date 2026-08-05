@@ -8,10 +8,6 @@ import {
   isFactoryOnboardingDialogOpen,
 } from '../pages/factory-onboarding'
 import {
-  handleFactoryCapacityProfileEvent,
-  isFactoryCapacityProfileDialogOpen,
-} from '../pages/factory-capacity-profile'
-import {
   handleCapabilityEvent,
   handleCapabilitySubmit,
   isCapabilityDialogOpen,
@@ -37,7 +33,6 @@ import {
   handleSettlementSubmit,
   isSettlementDialogOpen,
 } from '../pages/settlement'
-import { handleCapacityEvent } from '../pages/capacity'
 import {
   handleProductionEvent,
   handleProductionSubmit,
@@ -98,18 +93,9 @@ import {
   handleDispatchAcceptanceSlaEvent,
   isDispatchAcceptanceSlaDialogOpen,
 } from '../pages/dispatch-acceptance-sla'
-import {
-  handleDispatchBoardEvent,
-  isDispatchBoardDialogOpen,
-} from '../pages/dispatch-board'
-import {
-  handleSewingDispatchWorkbenchEvent,
-  isSewingDispatchWorkbenchDialogOpen,
-} from '../pages/sewing-dispatch-workbench'
-import {
-  handleContinuousDispatchEvent,
-  isContinuousDispatchDialogOpen,
-} from '../pages/continuous-dispatch'
+import { handleUnifiedDispatchWorkbenchEvent, isUnifiedDispatchWorkbenchDialogOpen } from '../pages/unified-dispatch-workbench'
+import { handleProductionContractCenterEvent } from '../pages/production-contract-center'
+import { handleProductionContractPrintEvent } from '../pages/production-contract-print'
 import {
   handleDispatchTendersEvent,
   isDispatchTendersDialogOpen,
@@ -250,6 +236,15 @@ const CUTTING_PICKUP_LIST_PATHS = new Set([
 
 export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
+  if (pathname.startsWith('/fcs/dispatch/workbench')) {
+    return handleUnifiedDispatchWorkbenchEvent(target, event)
+  }
+  if (pathname === '/fcs/contracts') {
+    return handleProductionContractCenterEvent(target)
+  }
+  if (pathname === '/fcs/contracts/print') {
+    return handleProductionContractPrintEvent(target)
+  }
   const isSupplementManagementRoute = pathname.startsWith('/fcs/craft/cutting/supplement-management')
   const isCutPieceReleaseRoute = pathname.startsWith('/fcs/craft/cutting/cut-piece-release')
   if (pathname.startsWith('/fcs/craft/cutting/pickup-management')) {
@@ -274,12 +269,6 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
   }
   if (pathname.startsWith('/fcs/dispatch/acceptance-sla')) {
     return handleDispatchAcceptanceSlaEvent(target)
-  }
-  if (pathname.startsWith('/fcs/dispatch/continuous')) {
-    return handleContinuousDispatchEvent(target, event)
-  }
-  if (pathname.startsWith('/fcs/dispatch/sewing')) {
-    return handleSewingDispatchWorkbenchEvent(target, event)
   }
   if (pathname.startsWith('/fcs/material-prep/list')) {
     return handleFcsMaterialPrepListEvent(target)
@@ -330,7 +319,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
   }
   if (
     pathname.startsWith('/fcs/craft/cutting/special-processes')
-    && target.closest('[data-cutting-binding-action]')
+    && target.closest('[data-cutting-binding-action], [data-cutting-binding-field]')
   ) {
     return handleCraftCuttingSpecialProcessesEvent(target)
   }
@@ -419,12 +408,10 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     await handleCraftCuttingCutOrdersEvent(target) ||
     await handleFactoryOnboardingEvent(target) ||
     await handleFactoryPageEvent(target) ||
-    await handleFactoryCapacityProfileEvent(target) ||
     await handleCapabilityEvent(target) ||
     await handleFactoryStatusEvent(target) ||
     await handleFactoryPerformanceEvent(target) ||
     await handleSettlementEvent(target) ||
-    await handleCapacityEvent(target) ||
     await handleProductionEvent(target) ||
     await handleProductionCraftDictEvent(target) ||
     await handleTechPackEvent(target) ||
@@ -439,9 +426,6 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     await handlePaymentSyncEvent(target) ||
     await handleHistoryEvent(target) ||
     await handleDispatchAcceptanceSlaEvent(target) ||
-    await handleSewingDispatchWorkbenchEvent(target, event) ||
-    await handleContinuousDispatchEvent(target, event) ||
-    await handleDispatchBoardEvent(target) ||
     await handleDispatchTendersEvent(target) ||
     await handleProgressBoardEvent(target) ||
     await handleProgressExceptionsEvent(target) ||
@@ -512,13 +496,6 @@ export function closeFcsDialogsOnEscape(): boolean {
   }
 
   if (closeFactoryWarehouseSharedDialogs()) {
-    return true
-  }
-
-  if (isFactoryCapacityProfileDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.capacityAction = 'close-detail'
-    handleFactoryCapacityProfileEvent(fakeButton)
     return true
   }
 
@@ -632,13 +609,6 @@ export function closeFcsDialogsOnEscape(): boolean {
     return true
   }
 
-  if (isDispatchBoardDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.dispatchAction = 'close-dialog'
-    handleDispatchBoardEvent(fakeButton)
-    return true
-  }
-
   if (isDispatchAcceptanceSlaDialogOpen()) {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.acceptanceSlaAction = 'close-dialog'
@@ -646,16 +616,10 @@ export function closeFcsDialogsOnEscape(): boolean {
     return true
   }
 
-  if (isSewingDispatchWorkbenchDialogOpen()) {
+  if (isUnifiedDispatchWorkbenchDialogOpen()) {
     const fakeButton = document.createElement('button')
-    fakeButton.dataset.sewingDispatchAction = 'close-detail'
-    handleSewingDispatchWorkbenchEvent(fakeButton)
-    fakeButton.dataset.sewingDispatchAction = 'close-dispatch'
-    handleSewingDispatchWorkbenchEvent(fakeButton)
-    return true
-  }
-
-  if (isContinuousDispatchDialogOpen()) {
+    fakeButton.dataset.unifiedAction = 'close-all'
+    handleUnifiedDispatchWorkbenchEvent(fakeButton)
     return true
   }
 

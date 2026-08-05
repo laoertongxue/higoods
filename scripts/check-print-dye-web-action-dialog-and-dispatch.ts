@@ -7,7 +7,6 @@ import { getPlatformProcessResultView } from '../src/data/fcs/platform-process-r
 import {
   getMobileTaskAcceptanceState,
   getMobileTaskBiddingState,
-  getMobileTaskExecutionState,
   isTaskVisibleInMobileExecutionList,
   validateDyeWorkOrderMobileTaskBinding,
   validatePrintWorkOrderMobileTaskBinding,
@@ -117,33 +116,41 @@ const visibleExecutionTasks = listMobileExecutionTasks({ currentFactoryId: 'F090
 
 for (const order of listPrintWorkOrders()) {
   const binding = validatePrintWorkOrderMobileTaskBinding(order.printOrderId)
-  assert(binding.canOpenMobileExecution, `${order.printOrderNo} 绑定移动端任务必须可打开执行页：${binding.reasonLabel}`)
   const task = getMobileExecutionTaskById(binding.actualTaskId)
   assert(task, `${order.printOrderNo} 绑定任务不存在：${binding.actualTaskId}`)
   assert(task!.assignmentMode !== 'BIDDING', `${order.printOrderNo} 绑定任务不得为 BIDDING`)
   assert(getMobileTaskBiddingState(task) === '非报价任务', `${order.printOrderNo} 绑定任务不得为报价或待定标`)
-  assert(getMobileTaskAcceptanceState(task) === '已接单', `${order.printOrderNo} 绑定任务必须是已分配可执行状态`)
-  assert(!['待接单', '待报价', '已报价', '待定标'].includes(getMobileTaskExecutionState(task)), `${order.printOrderNo} 绑定任务不得进入接单/竞价口径`)
-  assert(isTaskVisibleInMobileExecutionList(task, 'F090'), `${order.printOrderNo} 绑定任务必须出现在执行列表`)
-  assert(visibleExecutionTasks.some((item) => item.taskId === task!.taskId), `${order.printOrderNo} 执行列表检索不到绑定任务`)
+  if (order.acceptanceStatus === 'ACCEPTED') {
+    assert(binding.canOpenMobileExecution, `${order.printOrderNo} 已接单后必须可打开执行页：${binding.reasonLabel}`)
+    assert(getMobileTaskAcceptanceState(task) === '已接单', `${order.printOrderNo} 已接单状态没有同步`)
+    assert(isTaskVisibleInMobileExecutionList(task, 'F090'), `${order.printOrderNo} 已接单后必须出现在执行列表`)
+    assert(visibleExecutionTasks.some((item) => item.taskId === task!.taskId), `${order.printOrderNo} 执行列表检索不到已接单加工单`)
+  } else if (order.acceptanceStatus === 'PENDING') {
+    assert(getMobileTaskAcceptanceState(task) === '待接单', `${order.printOrderNo} 待接单状态没有同步`)
+    assert(!isTaskVisibleInMobileExecutionList(task, 'F090'), `${order.printOrderNo} 接单前不得进入执行列表`)
+  }
 }
 
 for (const order of listDyeWorkOrders()) {
   const binding = validateDyeWorkOrderMobileTaskBinding(order.dyeOrderId)
-  assert(binding.canOpenMobileExecution, `${order.dyeOrderNo} 绑定移动端任务必须可打开执行页：${binding.reasonLabel}`)
   const task = getMobileExecutionTaskById(binding.actualTaskId)
   assert(task, `${order.dyeOrderNo} 绑定任务不存在：${binding.actualTaskId}`)
   assert(task!.assignmentMode !== 'BIDDING', `${order.dyeOrderNo} 绑定任务不得为 BIDDING`)
   assert(getMobileTaskBiddingState(task) === '非报价任务', `${order.dyeOrderNo} 绑定任务不得为报价或待定标`)
-  assert(getMobileTaskAcceptanceState(task) === '已接单', `${order.dyeOrderNo} 绑定任务必须是已分配可执行状态`)
-  assert(!['待接单', '待报价', '已报价', '待定标'].includes(getMobileTaskExecutionState(task)), `${order.dyeOrderNo} 绑定任务不得进入接单/竞价口径`)
-  assert(isTaskVisibleInMobileExecutionList(task, 'F090'), `${order.dyeOrderNo} 绑定任务必须出现在执行列表`)
-  assert(visibleExecutionTasks.some((item) => item.taskId === task!.taskId), `${order.dyeOrderNo} 执行列表检索不到绑定任务`)
+  if (order.acceptanceStatus === 'ACCEPTED') {
+    assert(binding.canOpenMobileExecution, `${order.dyeOrderNo} 已接单后必须可打开执行页：${binding.reasonLabel}`)
+    assert(getMobileTaskAcceptanceState(task) === '已接单', `${order.dyeOrderNo} 已接单状态没有同步`)
+    assert(isTaskVisibleInMobileExecutionList(task, 'F090'), `${order.dyeOrderNo} 已接单后必须出现在执行列表`)
+    assert(visibleExecutionTasks.some((item) => item.taskId === task!.taskId), `${order.dyeOrderNo} 执行列表检索不到已接单加工单`)
+  } else if (order.acceptanceStatus === 'PENDING') {
+    assert(getMobileTaskAcceptanceState(task) === '待接单', `${order.dyeOrderNo} 待接单状态没有同步`)
+    assert(!isTaskVisibleInMobileExecutionList(task, 'F090'), `${order.dyeOrderNo} 接单前不得进入执行列表`)
+  }
 }
 
-assertIncludes('src/data/fcs/pda-receive-scope.ts', "['印花', '染色']", '接单模块必须排除印花/染色')
-assertIncludes('src/data/fcs/pda-receive-scope.ts', "'PRINT'", '接单模块必须按工艺编码排除印花')
-assertIncludes('src/data/fcs/pda-receive-scope.ts', "'DYE'", '接单模块必须按工艺编码排除染色')
+assertIncludes('src/data/fcs/pda-receive-scope.ts', "task.defaultDocType === 'PREPARATION_ORDER'", '生产准备加工单必须进入 PDA 接单链路')
+assertIncludes('src/data/fcs/pda-receive-scope.ts', "task?.defaultDocType === 'PREPARATION_ORDER'", '生产准备加工单不得进入通用竞价链路')
+assertIncludes('src/data/fcs/pda-receive-scope.ts', "'PRINT'", '脱离加工单的通用印花任务仍需排除')
 
 const printPlatformView = getPlatformProcessResultView('PRINT', 'PWO-PRINT-001')
 const dyePlatformView = getPlatformProcessResultView('DYE', 'DWO-001')

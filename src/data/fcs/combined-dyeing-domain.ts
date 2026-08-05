@@ -430,8 +430,8 @@ function buildTaskMember(workOrder: CanonicalDyeWorkOrder): CombinedDyeingTaskMe
     rawMaterialSku: requireText(workOrder.rawMaterialSku, `染色加工单 ${workOrder.dyeOrderNo} 的面料编码`),
     materialName: requireText(workOrder.composition || workOrder.rawMaterialSku, `染色加工单 ${workOrder.dyeOrderNo} 的面料名称`),
     targetColor: requireText(workOrder.targetColor, `染色加工单 ${workOrder.dyeOrderNo} 的目标颜色`),
-    dyeProcessCode: requireText(workOrder.dyeProcessCode, `染色加工单 ${workOrder.dyeOrderNo} 的染色工艺编码`),
-    dyeProcessName: requireText(workOrder.dyeProcessName, `染色加工单 ${workOrder.dyeOrderNo} 的染色工艺`),
+    dyeProcessCode: requireText(workOrder.dyeProcessCode, `染色加工单 ${workOrder.dyeOrderNo} 的染色工序编码`),
+    dyeProcessName: requireText(workOrder.dyeProcessName, `染色加工单 ${workOrder.dyeOrderNo} 的染色工序`),
   }
 }
 
@@ -444,7 +444,7 @@ function assertSameMergeIdentity(members: readonly CombinedDyeingTaskMemberSnaps
     }
     if (member.targetColor !== first.targetColor) throw new Error('合并染色成员必须使用同一目标颜色')
     if (member.dyeProcessCode !== first.dyeProcessCode || member.dyeProcessName !== first.dyeProcessName) {
-      throw new Error('合并染色成员必须使用同一染色工艺')
+      throw new Error('合并染色成员必须使用同一染色工序')
     }
     if (member.qtyUnit !== first.qtyUnit) throw new Error('合并染色成员数量单位必须一致')
   }

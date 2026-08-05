@@ -71,7 +71,7 @@ export interface GeneratedCutOrderSourceRecord {
   skuScopeLines: GeneratedCutOrderSkuScopeLine[]
   pieceRows: GeneratedCutOrderPieceRow[]
   pieceSummary: string
-  cutOrderSourceType: 'INDEPENDENT_CUTTING_TASK' | 'CONTINUOUS_WITH_CUTTING_TASK'
+  cutOrderSourceType: 'INDEPENDENT_CUTTING_TASK' | 'CUTTING_SEWING_IRON_PACK_TASK'
   cutOrderSourceLabel: string
   cutReturnMode: 'RETURN_TO_OWN_CUTTING_WAREHOUSE' | 'THIRD_PARTY_REPORT_ONLY'
   cutReturnModeLabel: string
@@ -572,17 +572,17 @@ function buildRecordsForOrder(order: ProductionOrder): GeneratedCutOrderSourceRe
           ? resolvedPieceRows.map((item) => `${item.partName}×${item.pieceCountPerUnit}`).join('、')
           : '待补纸样裁片映射',
       cutOrderSourceType:
-        boundary.kind === 'CONTINUOUS_WITH_CUTTING'
-          ? 'CONTINUOUS_WITH_CUTTING_TASK'
+        boundary.kind === 'CUTTING_SEWING_IRON_PACK'
+          ? 'CUTTING_SEWING_IRON_PACK_TASK'
           : 'INDEPENDENT_CUTTING_TASK',
       cutOrderSourceLabel: boundary.cutOrderSourceLabel,
       cutReturnMode:
-        boundary.kind === 'CONTINUOUS_WITH_CUTTING'
+        boundary.kind === 'CUTTING_SEWING_IRON_PACK'
           ? 'THIRD_PARTY_REPORT_ONLY'
           : 'RETURN_TO_OWN_CUTTING_WAREHOUSE',
       cutReturnModeLabel: boundary.cutReturnModeLabel,
       internalCraftOrderPolicy:
-        boundary.kind === 'CONTINUOUS_WITH_CUTTING'
+        boundary.kind === 'CUTTING_SEWING_IRON_PACK'
           ? 'DO_NOT_GENERATE'
           : 'GENERATE_AFTER_RETURN',
       internalCraftOrderPolicyLabel: boundary.internalCraftPolicyLabel,

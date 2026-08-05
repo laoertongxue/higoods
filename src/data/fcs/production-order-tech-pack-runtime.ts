@@ -59,7 +59,6 @@ function cloneProcessEntries(items: TechnicalProcessEntry[]): TechnicalProcessEn
     routeLaneNo: item.routeLaneNo,
     routeParallelGroupId: item.routeParallelGroupId,
     routeParallelGroupName: item.routeParallelGroupName,
-    routeParallelAcceptanceMode: item.routeParallelAcceptanceMode,
     routeSourceKind: item.routeSourceKind,
     routeUpdatedBy: item.routeUpdatedBy,
     routeUpdatedAt: item.routeUpdatedAt,

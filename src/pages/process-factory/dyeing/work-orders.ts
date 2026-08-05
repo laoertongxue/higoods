@@ -234,7 +234,7 @@ function renderFilters(rows: DyeWorkOrderOnlineRow[]): string {
       ${selectField('状态', 'status', ['', ...DYE_WORK_ORDER_ONLINE_STATUSES], filters.statuses[0] || '', 'min-w-[8rem]')}
       ${selectField('销售类型', 'salesType', uniqueValues(rows, (row) => row.salesType), filters.salesType)}
       ${selectField('生产工厂', 'factoryName', uniqueValues(rows, (row) => row.factoryName), filters.factoryName)}
-      ${selectField('染色工艺', 'processName', uniqueValues(rows, (row) => row.processName), filters.processName)}
+      ${selectField('染色工序', 'processName', uniqueValues(rows, (row) => row.processName), filters.processName)}
       ${selectField('面料接收人', 'receiverName', uniqueValues(rows, (row) => row.receiverName), filters.receiverName)}
       ${sourceTypeSelectField(filters.sourceType)}
     </div>

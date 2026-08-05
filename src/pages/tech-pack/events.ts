@@ -81,7 +81,6 @@ import {
   getPatternById,
   getPatternPieceById,
   getSizeCodeOptionsFromSizeRules,
-  getTechniqueReferenceMetaByCraftCode,
   isBomDrivenPrepTechnique,
   isPrepStage,
   getSelectedDraftMeta,
@@ -231,7 +230,6 @@ const TECH_PACK_ACTION_MODULE_MAP: Record<string, TechnicalModuleKey> = {
   'move-technique-route-down': 'PROCESS',
   'make-techniques-parallel': 'PROCESS',
   'remove-technique-from-parallel': 'PROCESS',
-  'toggle-parallel-group-acceptance': 'PROCESS',
   'confirm-process-route': 'PROCESS',
   'keep-bom-prep-process': 'PROCESS',
   'remove-bom-prep-process': 'PROCESS',
@@ -385,7 +383,6 @@ export type ProcessRouteDraftAction =
   | { type: 'move-up' | 'move-down'; techniqueId: string }
   | { type: 'make-parallel-previous' | 'make-parallel-next'; techniqueId: string }
   | { type: 'remove-from-parallel'; techniqueId: string }
-  | { type: 'toggle-parallel-group-acceptance'; techniqueId: string }
 
 function getTechniqueRouteGroupsFrom(techniques: TechniqueItem[]): TechniqueRouteGroup[] {
   const normalized = normalizeTechniqueRoutes(techniques)
@@ -409,18 +406,12 @@ function flattenTechniqueRouteGroups(
     const isParallel = group.items.length > 1
     const groupId = isParallel ? `route-step-${groupIndex + 1}` : undefined
     const groupName = isParallel ? `第 ${groupIndex + 1} 步并行组` : undefined
-    const groupAcceptanceMode: TechniqueItem['routeParallelAcceptanceMode'] = isParallel
-      ? group.items.find((item) => item.routeParallelAcceptanceMode === 'WHOLE_GROUP_ALLOWED')
-        ? 'WHOLE_GROUP_ALLOWED'
-        : 'INDEPENDENT_ONLY'
-      : 'INDEPENDENT_ONLY'
     return group.items.map((item, laneIndex) => ({
       ...item,
       routeStepNo: groupIndex + 1,
       routeLaneNo: laneIndex + 1,
       routeParallelGroupId: groupId,
       routeParallelGroupName: groupName,
-      routeParallelAcceptanceMode: groupAcceptanceMode,
       routeSourceKind: 'MANUAL',
       routeUpdatedBy: operatorName,
       routeUpdatedAt: updatedAt,
@@ -455,7 +446,6 @@ function getProcessRouteDraftSignature(draft: ProcessRouteDraftState): string {
       item.routeStepNo,
       item.routeLaneNo,
       item.routeParallelGroupId || '',
-      item.routeParallelAcceptanceMode,
     ].join('|')).join('||'),
   ].join('::')
 }
@@ -604,22 +594,7 @@ export function applyProcessRouteDraftAction(
     return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt, onInvalidDyePrintOrder)
   }
 
-  const group = groups[index]
-  if (group.items.length <= 1) return normalizeRouteDraft(input)
-  const nextMode = group.items[0].routeParallelAcceptanceMode === 'WHOLE_GROUP_ALLOWED'
-    ? 'INDEPENDENT_ONLY'
-    : 'WHOLE_GROUP_ALLOWED'
-  const nextGroups = [...groups]
-  nextGroups[index] = {
-    items: group.items.map((item) => ({
-      ...item,
-      routeParallelAcceptanceMode: nextMode,
-      routeSourceKind: 'MANUAL',
-      routeUpdatedBy: operatorName,
-      routeUpdatedAt: operatedAt,
-    })),
-  }
-  return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt, onInvalidDyePrintOrder)
+  return normalizeRouteDraft(input)
 }
 
 function moveTechniqueRoute(techId: string, direction: 'up' | 'down'): void {
@@ -635,10 +610,6 @@ function makeTechniqueParallel(techId: string, direction: 'previous' | 'next'): 
 
 function removeTechniqueFromParallel(techId: string): void {
   applyProcessRouteActionToState({ type: 'remove-from-parallel', techniqueId: techId })
-}
-
-function toggleParallelGroupAcceptance(techId: string): void {
-  applyProcessRouteActionToState({ type: 'toggle-parallel-group-acceptance', techniqueId: techId })
 }
 
 function confirmProcessRoute(): void {
@@ -2489,9 +2460,8 @@ function handleTechPackField(
       assignmentGranularity: 'ORDER',
       detailSplitMode: 'COMPOSITE',
       detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
-      outputValue: '',
-      outputValueUnit: '产值/件',
       difficulty: '中等',
+      packagingRequired: false,
       remark: '',
     }
     return true
@@ -2502,6 +2472,7 @@ function handleTechPackField(
       processCode: value,
       craftCode: '',
       selectedTargetObject: '',
+      packagingRequired: false,
     }
     return true
   }
@@ -2514,8 +2485,6 @@ function handleTechPackField(
       assignmentGranularity: option?.assignmentGranularity ?? 'ORDER',
       detailSplitMode: option?.detailSplitMode ?? 'COMPOSITE',
       detailSplitDimensions: [...(option?.detailSplitDimensions ?? ['PATTERN', 'MATERIAL_SKU'])],
-      outputValue: option?.processCode === 'DYE' ? '10' : option ? '12' : '',
-      outputValueUnit: option?.processCode === 'DYE' ? '产值/件' : '产值/件',
       difficulty: option?.processCode === 'DYE' ? '中等' : option ? '中等' : state.newTechnique.difficulty,
     }
     return true
@@ -2531,8 +2500,7 @@ function handleTechPackField(
       craftCode: value,
       selectedTargetObject,
       linkedBomItemIds: [],
-      outputValue: craft ? String(craft.referenceOutputValueValue) : state.newTechnique.outputValue,
-      outputValueUnit: craft ? craft.referenceOutputValueUnitLabel : state.newTechnique.outputValueUnit,
+      packagingRequired: craft?.craftName === '整件毛织' ? state.newTechnique.packagingRequired : false,
     }
     refreshTechniqueFormDialogDom()
     return true
@@ -2576,14 +2544,6 @@ function handleTechPackField(
       current.delete(dimension)
     }
     state.newTechnique.detailSplitDimensions = Array.from(current)
-    return true
-  }
-  if (field === 'new-technique-output-value') {
-    state.newTechnique.outputValue = value
-    return true
-  }
-  if (field === 'new-technique-output-value-unit') {
-    state.newTechnique.outputValueUnit = value
     return true
   }
   if (field === 'new-technique-difficulty') {
@@ -2667,21 +2627,6 @@ function handleTechPackField(
     return true
   }
 
-  if (field === 'tech-output-value') {
-    const techId = node.dataset.techId
-    if (!techId) return true
-    updateTechnique(techId, (item) => ({
-      ...item,
-      outputValue: Number.parseFloat(value) || 0,
-    }))
-    return true
-  }
-  if (field === 'tech-output-value-unit') {
-    const techId = node.dataset.techId
-    if (!techId) return true
-    updateTechnique(techId, (item) => ({ ...item, outputValueUnit: value }))
-    return true
-  }
   if (field === 'tech-difficulty') {
     const techId = node.dataset.techId
     if (!techId) return true
@@ -4350,8 +4295,6 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       assignmentGranularity: target.assignmentGranularity,
       detailSplitMode: target.detailSplitMode,
       detailSplitDimensions: [...target.detailSplitDimensions],
-      outputValue: String(target.outputValue || ''),
-      outputValueUnit: target.outputValueUnit,
       difficulty: target.difficulty,
       remark: target.remark,
     }
@@ -4388,12 +4331,6 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     const techId = actionNode.dataset.techId
     if (!techId) return true
     removeTechniqueFromParallel(techId)
-    return true
-  }
-  if (action === 'toggle-parallel-group-acceptance') {
-    const techId = actionNode.dataset.techId
-    if (!techId) return true
-    toggleParallelGroupAcceptance(techId)
     return true
   }
   if (action === 'confirm-process-route') {
@@ -4464,7 +4401,6 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
           routeLaneNo: editingTarget.routeLaneNo,
           routeParallelGroupId: editingTarget.routeParallelGroupId,
           routeParallelGroupName: editingTarget.routeParallelGroupName,
-          routeParallelAcceptanceMode: editingTarget.routeParallelAcceptanceMode,
           routeSourceKind: editingTarget.routeSourceKind,
           routeUpdatedBy: editingTarget.routeUpdatedBy,
           routeUpdatedAt: editingTarget.routeUpdatedAt,
@@ -4474,14 +4410,12 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
           routeLaneNo: 1,
           routeParallelGroupId: undefined,
           routeParallelGroupName: undefined,
-          routeParallelAcceptanceMode: 'INDEPENDENT_ONLY' as const,
           routeSourceKind: 'MANUAL' as const,
           routeUpdatedBy: currentUser.name,
           routeUpdatedAt,
         }
 
     const nextItem: TechniqueItem = {
-      ...getTechniqueReferenceMetaByCraftCode(effectiveMeta.craftCode),
       id: state.editTechniqueId || `tech-${Date.now()}`,
       entryType: effectiveMeta.entryType,
       stageCode: effectiveMeta.stageCode,
@@ -4510,8 +4444,6 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       supportedTargetObjects: effectiveMeta.supportedTargetObjects ? [...effectiveMeta.supportedTargetObjects] : undefined,
       supportedTargetObjectLabels: effectiveMeta.supportedTargetObjectLabels ? [...effectiveMeta.supportedTargetObjectLabels] : undefined,
       triggerSource: effectiveMeta.triggerSource,
-      outputValue: Number.parseFloat(state.newTechnique.outputValue) || 0,
-      outputValueUnit: state.newTechnique.outputValueUnit,
       difficulty: state.newTechnique.difficulty,
       remark: state.newTechnique.remark,
       source: '字典引用',

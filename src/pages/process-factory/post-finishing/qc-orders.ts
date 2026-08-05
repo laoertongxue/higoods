@@ -1,3 +1,5 @@
+// @page-pattern: dashboard
+
 import {
   POST_FINISHING_QC_DEFECT_REASONS,
   buildPostFinishingQcDeductionRecord,
@@ -215,7 +217,7 @@ function renderQcFilterPanel(options: {
       <div data-qc-filter-row class="grid items-end gap-3 ${options.activeTab === 'qc' ? 'grid-cols-[minmax(140px,1.3fr)_repeat(5,minmax(96px,.75fr))_auto]' : 'grid-cols-[minmax(180px,1fr)_minmax(120px,.8fr)_minmax(120px,.8fr)_minmax(140px,.8fr)_auto]'}">
         <label class="min-w-0 space-y-1 text-sm">
           <span class="whitespace-nowrap text-xs text-muted-foreground">关键词</span>
-          <input class="h-9 w-full min-w-0 rounded-md border bg-background px-3 text-sm" name="keyword" value="${escapeHtml(options.filters.keyword)}" placeholder="质检单 / 后道单 / 生产单 / 质检台 / SKU" />
+          <input class="h-9 w-full min-w-0 rounded-md border bg-background px-3 text-sm" name="keyword" value="${escapeHtml(options.filters.keyword)}" placeholder="质检单 / 实际工序单 / 生产单 / 质检台 / SKU" />
         </label>
         <label class="min-w-0 space-y-1 text-sm">
           <span class="whitespace-nowrap text-xs text-muted-foreground">当前状态</span>

@@ -578,15 +578,15 @@ function renderOrderTaskGenerationSummary(order: ProductionOrder): string {
   const method =
     (summary.wholeOrderTaskCount ?? 0) > 0
       ? '整单承接'
-      : (summary.combinedProcessTaskCount ?? 0) > 0
-        ? '连续工序承接'
+      : (summary.mergedProductionTaskCount ?? 0) > 0
+        ? '固定模式合并承接'
         : (summary.independentWorkOrderTaskCount ?? 0) > 0
           ? '独立工艺单 + 单工序'
           : '单工序承接'
   const taskUnitCount =
     summary.generatedTaskUnitCount ??
     Math.max(0, summary.singleProcessTaskCount ?? 0) +
-      Math.max(0, summary.combinedProcessTaskCount ?? 0) +
+      Math.max(0, summary.mergedProductionTaskCount ?? 0) +
       Math.max(0, summary.wholeOrderTaskCount ?? 0)
   const coveredText =
     summary.coveredProcessNames?.length

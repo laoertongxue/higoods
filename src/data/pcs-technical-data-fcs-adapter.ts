@@ -57,7 +57,6 @@ export function buildLegacyTechPackFromTechnicalVersion(
       id: item.id,
       seq: index + 1,
       name: item.craftName || item.processName,
-      outputValue: item.outputValuePerUnit || 0,
       difficulty: item.difficulty || 'MEDIUM',
       qcPoint: '',
     })),

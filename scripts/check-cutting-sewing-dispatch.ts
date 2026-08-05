@@ -44,11 +44,6 @@ function read(relativePath: string): string {
   return fs.readFileSync(resolveRepoPath(relativePath), 'utf8')
 }
 
-function readIfExists(relativePath: string): string {
-  const absolutePath = resolveRepoPath(relativePath)
-  return fs.existsSync(absolutePath) ? fs.readFileSync(absolutePath, 'utf8') : ''
-}
-
 function ensureExists(relativePath: string): void {
   assert(fs.existsSync(resolveRepoPath(relativePath)), `缺少文件：${relativePath}`)
 }
@@ -78,8 +73,6 @@ const orderDetailSource = read('src/pages/production/detail-domain.ts')
 const handoverSource = read('src/pages/pda-handover.ts') + read('src/pages/pda-handover-detail.ts')
 const linkageSource = read('src/data/fcs/factory-warehouse-linkage.ts')
 const progressStatisticsSource = read('src/data/fcs/progress-statistics-linkage.ts')
-const finalAcceptanceSource = read('scripts/check-fcs-final-acceptance.ts')
-const followupSource = readIfExists('scripts/check-followup-cleanup.ts')
 const sewingDispatchPageAndMetaSource = sewingDispatchPageSource + cuttingMetaSource
 
 function wholeBagTicket(index: number): TransferBagTicketFactSnapshot {
@@ -783,7 +776,6 @@ assert(summary.remainingGarmentQty >= 0, '交出汇总必须包含剩余未交�
 })
 
 assertContains(cuttingMetaSource, 'sewing-dispatch', '裁片交出页面缺少裁床菜单元信息')
-assertContains(finalAcceptanceSource, 'check:cutting-sewing-dispatch', '最终验收检查缺少裁片交出命令')
 assertContains(progressStatisticsSource, 'buildSewingDispatchProgressSnapshot', '统计与进度联动缺少裁片交出进度聚合')
 assertContains(progressStatisticsSource, 'getCuttingSewingDispatchProgressByProductionOrder', '裁片交出进度必须被统计联动消费')
 assertContains(dataSource, '交出后缺口', '裁片缺口必须在交出记录中保留为结果信息')

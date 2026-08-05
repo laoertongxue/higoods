@@ -211,32 +211,6 @@ export const routingTemplates: RoutingTemplate[] = [
     updatedAt: '2024-03-10 15:00:00',
     updatedBy: 'Admin',
   },
-  // 7. 牛仔含洗水
-  {
-    templateId: 'RT-202603-0007',
-    name: '牛仔款（含洗水）',
-    status: 'ACTIVE',
-    version: 'v1.0',
-    description: '适用于需要洗水的牛仔款式，洗水环节建议竞价',
-    tags: ['牛仔', '洗水', 'DENIM'],
-    applicableCategory: '牛仔',
-    matchRule: {
-      mode: 'AUTO',
-      requiredProcessCodes: ['PROC_CUT', 'PROC_SEW', 'PROC_WASH', 'PROC_FINISHING'],
-      optionalProcessCodes: [],
-      keywords: ['牛仔', '洗水', 'denim', '水洗', '做旧'],
-    },
-    steps: [
-      { seq: 1, processCode: 'PROC_CUT', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' } },
-      { seq: 2, processCode: 'PROC_SEW', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [1] },
-      { seq: 3, processCode: 'PROC_WASH', craftName: '洗水', assignmentMode: 'BIDDING', ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTier: 'THIRD_PARTY', recommendedTypes: ['DYEING', 'DENIM'] }, dependsOnSeq: [2] },
-      { seq: 4, processCode: 'PROC_FINISHING', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [3] },
-    ],
-    createdAt: '2024-02-15 11:00:00',
-    createdBy: '系统',
-    updatedAt: '2024-03-15 10:00:00',
-    updatedBy: 'Admin',
-  },
   // 8. 复杂特种（多SPECIAL，混合）
   {
     templateId: 'RT-202603-0008',
@@ -319,7 +293,7 @@ export const routingTemplates: RoutingTemplate[] = [
 // 模板审计日志
 export const templateAuditLogs: TemplateAuditLog[] = [
   { id: 'TAL-001', templateId: 'RT-202603-0001', action: 'CREATE', detail: '创建基础款模板', at: '2024-01-15 10:00:00', by: '系统' },
-  { id: 'TAL-002', templateId: 'RT-202603-0001', action: 'UPDATE', detail: '添加后道工序', at: '2024-03-01 14:30:00', by: 'Admin' },
+  { id: 'TAL-002', templateId: 'RT-202603-0001', action: 'UPDATE', detail: '调整后道阶段安排', at: '2024-03-01 14:30:00', by: 'Admin' },
   { id: 'TAL-003', templateId: 'RT-202603-0010', action: 'STATUS_CHANGE', detail: '状态从ACTIVE变更为INACTIVE', at: '2024-01-10 09:00:00', by: 'Admin' },
 ]
 

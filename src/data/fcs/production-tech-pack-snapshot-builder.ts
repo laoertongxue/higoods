@@ -199,7 +199,6 @@ function cloneProcessEntries(items: TechnicalProcessEntry[]): TechnicalProcessEn
     routeLaneNo: item.routeLaneNo,
     routeParallelGroupId: item.routeParallelGroupId,
     routeParallelGroupName: item.routeParallelGroupName,
-    routeParallelAcceptanceMode: item.routeParallelAcceptanceMode,
     routeSourceKind: item.routeSourceKind,
     routeUpdatedBy: item.routeUpdatedBy,
     routeUpdatedAt: item.routeUpdatedAt,
@@ -221,43 +220,10 @@ function inferRouteSourceKind(item: TechnicalProcessEntry): NonNullable<Technica
   return 'DICT_DEFAULT'
 }
 
-function buildDefaultPostFinishingProcessEntry(snapshotId: string): TechnicalProcessEntry {
-  return {
-    id: `${snapshotId}-process-post-finishing`,
-    entryType: 'PROCESS_BASELINE',
-    stageCode: 'POST',
-    stageName: '后道阶段',
-    processCode: 'POST_FINISHING',
-    processName: '后道',
-    assignmentGranularity: 'SKU',
-    ruleSource: 'INHERIT_PROCESS',
-    detailSplitMode: 'COMPOSITE',
-    detailSplitDimensions: ['GARMENT_SKU'],
-    defaultDocType: 'TASK',
-    taskTypeMode: 'PROCESS',
-    isSpecialCraft: false,
-    sourceType: 'DICT',
-    routeSourceKind: 'DICT_DEFAULT',
-    routeParallelAcceptanceMode: 'INDEPENDENT_ONLY',
-    triggerSource: '技术包默认后道工序',
-    outputValuePerUnit: 0,
-    outputValueUnit: '产值/件',
-    difficulty: 'MEDIUM',
-    remark: '所有生产单默认包含后道工序，质检完成后由质检人员判断是否生成后道单。',
-  }
-}
-
-function ensurePostFinishingProcessEntry(items: TechnicalProcessEntry[], snapshotId: string): TechnicalProcessEntry[] {
-  const entries = cloneProcessEntries(items)
-  if (entries.some((item) => item.processCode === 'POST_FINISHING')) return entries
-  return [...entries, buildDefaultPostFinishingProcessEntry(snapshotId)]
-}
-
-function freezeProcessEntries(items: TechnicalProcessEntry[], snapshotId: string): TechnicalProcessEntry[] {
-  return normalizeProcessRouteEntries(ensurePostFinishingProcessEntry(items, snapshotId).map((item) => ({
+function freezeProcessEntries(items: TechnicalProcessEntry[], _snapshotId: string): TechnicalProcessEntry[] {
+  return normalizeProcessRouteEntries(cloneProcessEntries(items).map((item) => ({
     ...item,
     routeSourceKind: inferRouteSourceKind(item),
-    routeParallelAcceptanceMode: item.routeParallelAcceptanceMode ?? 'INDEPENDENT_ONLY',
   })))
 }
 

@@ -294,7 +294,7 @@ function resolveFactoryTypeCode(capability: FactoryOnboardingSelectedCapability)
   if (capability.processCode === 'CUT_PANEL' || ['普通裁', '激光定位裁', '定向裁', '定位裁'].includes(capability.craftName)) return 'CUTTING_FACTORY'
   if (capability.processCode === 'PRINT') return 'PRINTING_FACTORY'
   if (capability.processCode === 'DYE' || capability.processCode === 'WATER_SOLUBLE') return 'DYEING_FACTORY'
-  if (capability.processCode === 'POST_FINISHING' || ['质检', '复检', '包装', '熨烫'].includes(capability.craftName)) return 'POST_FINISHING_FACTORY'
+  if (['BUTTONHOLE', 'BUTTON_ATTACH', 'IRON_PACK'].includes(capability.processCode)) return 'POST_FINISHING_FACTORY'
   if (capability.processCode === 'SEW') return 'SEWING_FACTORY'
   if (capability.processCode === 'SPECIAL_CRAFT' || capability.processCode === 'EMBROIDERY' || capability.processCode === 'PLEATING' || SPECIAL_CRAFT_NAMES.has(capability.craftName)) return 'SPECIAL_CRAFT_FACTORY'
   return null
@@ -744,7 +744,7 @@ function createBasePayload(
   } else if (machineScenario === 'missingCraft') {
     machines.push(createMachine({ seed: seed * 10 + 2, capability: baseCapability, condition, linkedCraftCode: '', linkedCraftName: '', remark: '待补充工艺信息' }))
   } else if (machineScenario === 'capabilityMismatch') {
-    const mismatchCapability = selectedCapabilities.some((item) => item.processCode === 'POST_FINISHING') ? createCapability('印花', '数码印', '异常演示能力') : createCapability('后道', '包装', '异常演示能力')
+    const mismatchCapability = selectedCapabilities.some((item) => item.processCode === 'IRON_PACK') ? createCapability('印花', '数码印', '异常演示能力') : createCapability('烫包', '烫包', '异常演示能力')
     machines.push(createMachine({ seed: seed * 10 + 2, capability: mismatchCapability, condition, remark: '当前机器关联能力未纳入接单能力' }))
   } else if (selectedCapabilities[1]) {
     machines.push(createMachine({ seed: seed * 10 + 2, capability: selectedCapabilities[1], condition }))
@@ -1102,15 +1102,15 @@ const CAPABILITY_SETS: Array<Array<[string, string]>> = [
   [['裁片', '定位裁']],
   [['印花', '数码印']],
   [['染色', '匹染']],
-  [['后道', '包装']],
+  [['烫包', '烫包']],
   [['特殊工艺', '打揽']],
   [['裁片', '定位裁'], ['印花', '数码印'], ['染色', '匹染']],
   [['印花', '丝网印']],
   [['染色', '色织']],
   [['特殊工艺', '打条']],
   [['绣花', '绣花']],
-  [['后道', '包装']],
-  [['裁片', '定向裁'], ['后道', '包装']],
+  [['烫包', '烫包']],
+  [['裁片', '定向裁'], ['烫包', '烫包']],
 ]
 
 function createSeedApplications(): FactoryOnboardingApplication[] {

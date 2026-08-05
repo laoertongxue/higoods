@@ -441,8 +441,8 @@ function buildSameFactoryContinueRow(task: RuntimeProcessTask): HandoverLedgerRo
     sourceModuleLabel: '运行时任务流转',
     nextActionHint:
       task.status === 'DONE'
-        ? '连续工序已完成，按后续工序流转'
-        : '同厂同 SKU 连续工序，中间无需回仓再领料',
+        ? '同厂衔接已完成，按后续工序流转'
+        : '同厂同 SKU 直接衔接，中间无需回仓再领料',
     handoverId: `RTC-${task.taskId}`,
   }
 }
@@ -577,8 +577,8 @@ function deriveProcessSectionStatus(events: HandoverLedgerRow[]): {
       label: '厂内连续流转',
       tone: statusCodes.has('SAME_FACTORY_DONE') ? 'success' : 'info',
       nextActionHint: statusCodes.has('SAME_FACTORY_DONE')
-        ? '同厂连续工序已完成'
-        : '同厂同 SKU 连续工序，中间无需回仓',
+        ? '同厂衔接已完成'
+        : '同厂同 SKU 直接衔接，中间无需回仓',
     }
   }
 

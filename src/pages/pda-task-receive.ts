@@ -51,6 +51,9 @@ import {
   filterReceivePendingAcceptTasks,
   filterReceiveQuotedTenders,
 } from '../data/fcs/pda-receive-scope.ts'
+import { acceptPrintWorkOrderPdaTask, rejectPrintWorkOrderPdaTask } from '../data/fcs/printing-task-domain.ts'
+import { acceptDyeWorkOrderPdaTask, rejectDyeWorkOrderPdaTask } from '../data/fcs/dyeing-task-domain.ts'
+import { acceptWaterSolubleWorkOrderPdaTask, rejectWaterSolubleWorkOrderPdaTask } from '../data/fcs/water-soluble-task-domain.ts'
 import {
   assertDyeWorkOrderPdaAcceptanceAllowed,
   recordDyeWorkOrderPdaAcceptance,
@@ -334,6 +337,20 @@ export function acceptPdaTaskWithRuntimeFallback(
 ): ProcessTask {
   const task = getTaskFactById(taskId)
   if (!task) throw new Error('任务不存在或已被移除')
+  const processType = getMobileTaskProcessType(task)
+  if (processType === 'PRINT') {
+    acceptPrintWorkOrderPdaTask(taskId, by, acceptedAt)
+    return getTaskFactById(taskId) ?? task
+  }
+  if (processType === 'DYE') {
+    acceptDyeWorkOrderPdaTask(taskId, by, acceptedAt)
+    return getTaskFactById(taskId) ?? task
+  }
+  if (processType === 'WATER_SOLUBLE') {
+    const result = acceptWaterSolubleWorkOrderPdaTask(taskId, by)
+    if (!result.ok) throw new Error(result.message)
+    return getTaskFactById(taskId) ?? task
+  }
   if (task.processBusinessCode === 'POST_FINISHING' || task.processCode === 'POST_FINISHING' || task.processNameZh === '后道') {
     acceptPostFinishingTask(taskId, by, acceptedAt)
     return getTaskFactById(taskId) ?? task
@@ -361,6 +378,22 @@ export function rejectPdaTaskWithRuntimeFallback(taskId: string, factoryId: stri
   if (classifySewingDeliverySla(task) !== null) throw new Error('任务尚未进入统一运行时任务仓，请联系主管处理')
   if (task.assignedFactoryId && task.assignedFactoryId !== factoryId) throw new Error('当前登录工厂与任务归属不一致，无权拒单')
   if (task.acceptanceStatus === 'REJECTED') throw new Error('任务已拒单，不可重复拒单')
+  const processType = getMobileTaskProcessType(task)
+  if (processType === 'PRINT') {
+    rejectPrintWorkOrderPdaTask(taskId, rejectedBy, reason, rejectedAt)
+    return getTaskFactById(taskId) ?? task
+  }
+  if (processType === 'DYE') {
+    rejectDyeWorkOrderPdaTask(taskId, rejectedBy, reason, rejectedAt)
+    return getTaskFactById(taskId) ?? task
+  }
+  if (processType === 'WATER_SOLUBLE') {
+    const result = rejectWaterSolubleWorkOrderPdaTask(taskId, rejectedBy, reason)
+    if (!result.ok) throw new Error(result.message)
+    const refreshed = getTaskFactById(taskId)
+    if (!refreshed) throw new Error('水溶加工单拒单后投影失败')
+    return refreshed
+  }
   if (task.processBusinessCode === 'POST_FINISHING' || task.processCode === 'POST_FINISHING' || task.processNameZh === '后道') {
     rejectPostFinishingTask(taskId, reason, rejectedBy, rejectedAt)
   }
@@ -541,7 +574,10 @@ function getPendingAcceptTasks(selectedFactoryId: string): ProcessTask[] {
     selectedFactoryId,
   )
   if (!isPostFinishingDirectOnlyFactory(selectedFactoryId)) return tasks
-  return tasks.filter((task) => ['POST_FINISHING', 'DYE'].includes(getMobileTaskProcessType(task)))
+  return tasks.filter((task) => (
+    task.defaultDocType === 'PREPARATION_ORDER'
+    || ['POST_FINISHING', 'DYE'].includes(getMobileTaskProcessType(task))
+  ))
 }
 
 function getFilteredPendingTasks(pendingAcceptTasks: ProcessTask[]): ProcessTask[] {
@@ -585,12 +621,12 @@ function renderCoveredProcessSummary(task: ProcessTask): string {
   `
 }
 
-function isSimpleFiveStepTask(task: ProcessTask): boolean {
-  return task.pdaStepTemplateCode === 'SIMPLE_FIVE_STEP'
+function isWholeOrderFiveStepTask(task: ProcessTask): boolean {
+  return task.pdaStepTemplateCode === 'WHOLE_ORDER_FIVE_STEP'
 }
 
-function renderSimpleFiveStepHint(task: ProcessTask): string {
-  if (!isSimpleFiveStepTask(task)) return ''
+function renderWholeOrderFiveStepHint(task: ProcessTask): string {
+  if (!isWholeOrderFiveStepTask(task)) return ''
   return `
     <div class="rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-700">
       接单后按确认领料 → 开始做 → 上传进度 → 交给${escapeHtml(task.handoverReceiverName || '仓库')} → 仓库待确认执行，不直接完工。
@@ -739,7 +775,7 @@ function renderPendingAcceptCuttingTask(task: PdaTaskFlowMock, factoryName: stri
 
         ${renderPendingAcceptFieldGrid(task)}
         ${renderCoveredProcessSummary(task)}
-        ${renderSimpleFiveStepHint(task)}
+        ${renderWholeOrderFiveStepHint(task)}
         <div class="rounded bg-muted/40 px-2 py-1 text-xs text-muted-foreground">
           当前工厂：<span class="font-medium text-foreground">${escapeHtml(factoryName)}</span>
         </div>

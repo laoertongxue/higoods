@@ -1,3 +1,5 @@
+// @page-pattern: list
+
 import {
   state,
   TASK_RISK_LABEL,
@@ -30,7 +32,10 @@ import {
   type ProcessTask,
   type TaskTabKey,
 } from './context.ts'
-import { resolveTaskOutputValueSnapshot } from '../../data/fcs/process-tasks.ts'
+import { renderStandardListPage } from '../../components/ui/list-page.ts'
+import { renderStandardListTable, type StandardListColumn } from '../../components/ui/list-table.ts'
+import type { StandardListColumnPreferences } from '../../components/ui/list-table-model.ts'
+import { renderTablePagination } from '../../components/ui/pagination.ts'
 import {
   buildTaskDeliveryCardPrintLink,
   buildTaskRouteCardPrintLink,
@@ -166,16 +171,6 @@ export function renderSewingDeliveryResponsibilityReviewDialog(): string {
       </section>
     </div>
   `
-}
-
-function formatOutputValue(value: number | undefined): string {
-  if (!Number.isFinite(value) || Number(value) <= 0) return '--'
-  return `${Number(value).toLocaleString()} 产值`
-}
-
-function formatOutputValuePerUnit(value: number | undefined): string {
-  if (!Number.isFinite(value) || Number(value) <= 0) return '--'
-  return Number(value).toLocaleString()
 }
 
 function formatQtyUnit(unit: ProcessTask['qtyUnit']): string {
@@ -617,133 +612,94 @@ function renderTaskListView(filteredTasks: ProcessTask[]): string {
     listSewingDeliverySlaViews(undefined, visibleTasks.map((task) => task.taskId))
       .map((view) => [view.runtimeTaskId, view]),
   )
+  const columns: StandardListColumn<ProcessTask>[] = [
+    {
+      key: 'task',
+      title: `任务 / ${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}`,
+      width: 260,
+      required: true,
+      freezeable: true,
+      render: (task) => {
+        const order = getOrderById(task.productionOrderId)
+        return `<div class="space-y-1 text-xs"><div class="flex items-center gap-1"><a class="font-mono font-medium text-primary hover:underline" href="/fcs/progress/board/tasks/${encodeURIComponent(task.taskId)}" data-nav="/fcs/progress/board/tasks/${encodeURIComponent(task.taskId)}">${escapeHtml(task.taskId)}</a><button class="inline-flex h-5 items-center rounded px-1 text-[11px] text-primary hover:bg-muted" data-progress-action="copy-task-id" data-task-id="${escapeAttr(task.taskId)}" data-progress-stop="true" data-skip-page-rerender="true">复制</button></div><div class="cursor-pointer text-primary hover:underline" data-progress-action="task-action-open-order" data-po-id="${escapeAttr(task.productionOrderId)}" data-progress-stop="true">${renderProductionOrderIdentityCell(task.productionOrderId)}</div><div class="max-w-[200px] truncate text-muted-foreground">${escapeHtml(getOrderSpuCode(order, '-'))} / ${escapeHtml(getOrderSpuName(order) || '-')}</div></div>`
+      },
+    },
+    {
+      key: 'process',
+      title: '工序',
+      width: 230,
+      render: (task) => {
+        const qtyUnit = formatQtyUnit(task.qtyUnit)
+        return `<div class="space-y-1 text-xs"><div class="font-medium">${escapeHtml(getTaskDisplayName(task))}</div><div class="text-muted-foreground">${escapeHtml(PROCESS_STAGE_GROUP_LABEL[getTaskStageGroup(task.stage)])} · ${task.qty} ${escapeHtml(qtyUnit)}</div>${task.historicalAssignment ? `<div>${renderBadge('已改派（历史）', 'border-slate-300 bg-slate-100 text-slate-700')}</div><div class="text-muted-foreground">改派至：${escapeHtml(task.replacedByRuntimeTaskId || '新任务待核对')} · ${escapeHtml(task.reassignedAt || '时间待核对')}</div>` : ''}<div class="text-muted-foreground">工序节点：${escapeHtml(stageLabels[task.stage])}</div><div class="flex flex-wrap gap-1">${task.assignmentMode === 'DIRECT' ? renderBadge('派单', 'border-slate-200 bg-slate-100 text-slate-700') : renderBadge('竞价', 'border-blue-200 bg-blue-100 text-blue-700')}${renderBadge(ASSIGNMENT_STATUS_LABEL[task.assignmentStatus], ASSIGNMENT_STATUS_COLOR_CLASS[task.assignmentStatus])}</div></div>`
+      },
+    },
+    { key: 'platform', title: '平台状态', width: 190, render: (task) => task.historicalAssignment ? renderBadge('历史只读', 'border-slate-300 bg-slate-100 text-slate-700') : renderPlatformStatusCell(task) },
+    {
+      key: 'risk',
+      title: '风险',
+      width: 190,
+      render: (task) => {
+        const platformSummary = getTaskPlatformSummary(task, false)
+        return `<div class="space-y-1 text-xs"><div>${escapeHtml(task.historicalAssignment ? '不参与当前风险判断' : platformSummary.riskLabel)}</div>${task.historicalAssignment ? '' : renderTaskRiskBadges(getTaskRisks(task))}</div>`
+      },
+    },
+    {
+      key: 'nextAction',
+      title: '下一步动作',
+      width: 210,
+      render: (task) => {
+        const platformSummary = getTaskPlatformSummary(task, false)
+        return `<div class="max-w-[190px] space-y-1 text-xs"><div class="font-medium">${escapeHtml(task.historicalAssignment ? '查看历史履约' : platformSummary.actionHint)}</div>${renderTaskFollowUpAction(task, platformSummary.followUpActionLabel)}</div>`
+      },
+    },
+    {
+      key: 'owner',
+      title: '责任方',
+      width: 180,
+      render: (task) => {
+        const platformSummary = getTaskPlatformSummary(task, false)
+        const factory = task.assignedFactoryId ? getFactoryById(task.assignedFactoryId) : null
+        return `<div class="max-w-[170px] space-y-1 text-xs"><div>${escapeHtml(platformSummary.ownerHint)}</div><div class="truncate text-muted-foreground">${escapeHtml(task.assignedFactoryName ?? factory?.name ?? (task.assignmentStatus === 'BIDDING' ? '待定标' : '-'))}</div></div>`
+      },
+    },
+    {
+      key: 'results',
+      title: '关键结果',
+      width: 240,
+      render: (task) => {
+        const platformSummary = getTaskPlatformSummary(task, false)
+        return `<div class="max-w-[220px] space-y-1 text-xs"><a class="inline-flex w-full items-center justify-between rounded border px-2 py-1 text-left hover:bg-muted" href="/fcs/progress/board/tasks/${encodeURIComponent(task.taskId)}?tab=pickup" data-nav="/fcs/progress/board/tasks/${encodeURIComponent(task.taskId)}?tab=pickup"><span>领料情况</span><span class="text-muted-foreground">&gt;</span></a><a class="inline-flex w-full items-center justify-between rounded border px-2 py-1 text-left hover:bg-muted" href="/fcs/progress/board/tasks/${encodeURIComponent(task.taskId)}?tab=handover" data-nav="/fcs/progress/board/tasks/${encodeURIComponent(task.taskId)}?tab=handover"><span>交出情况</span><span class="text-muted-foreground">&gt;</span></a><div class="text-muted-foreground">同步：${escapeHtml(platformSummary.linkedResult)}</div>${platformSummary.quantityText ? `<div class="truncate text-muted-foreground">${escapeHtml(platformSummary.quantityText)}</div>` : ''}</div>`
+      },
+    },
+    { key: 'sla', title: '交付时效', width: 300, render: (task) => renderSewingDeliverySlaListCell(sewingDeliverySlaByTaskId.get(task.taskId), formatQtyUnit(task.qtyUnit)) },
+    { key: 'actions', title: '操作', width: 80, required: true, actionColumn: true, align: 'right', render: renderTaskActionMenu },
+  ]
+  const preferences: StandardListColumnPreferences = {
+    order: columns.filter((column) => !column.actionColumn).map((column) => column.key),
+    visibleKeys: columns.map((column) => column.key),
+    frozenKeys: ['task'],
+    pageSize,
+  }
 
-  return `
-    <section class="rounded-lg border bg-card" data-progress-task-list="true">
-      <div class="overflow-x-auto">
-        <table class="w-full min-w-[1240px] text-sm">
-          <thead>
-            <tr class="border-b bg-muted/40 text-left">
-              <th class="px-3 py-2 font-medium">任务 / ${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
-              <th class="px-3 py-2 font-medium">工序</th>
-              <th class="px-3 py-2 font-medium">平台状态</th>
-              <th class="px-3 py-2 font-medium">风险</th>
-              <th class="px-3 py-2 font-medium">下一步动作</th>
-              <th class="px-3 py-2 font-medium">责任方</th>
-              <th class="px-3 py-2 font-medium">关键结果</th>
-              <th class="px-3 py-2 font-medium">交付时效</th>
-              <th class="px-3 py-2 text-right font-medium">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${
-              filteredTasks.length === 0
-                ? `
-                  <tr>
-                    <td colspan="9" class="px-3 py-10 text-center text-muted-foreground">暂无数据</td>
-                  </tr>
-                `
-                : visibleTasks
-                    .map((task) => {
-                      const order = getOrderById(task.productionOrderId)
-                      const factory = task.assignedFactoryId ? getFactoryById(task.assignedFactoryId) : null
-                      const risks = getTaskRisks(task)
-                      const platformSummary = getTaskPlatformSummary(task, false)
-                      const qtyUnit = formatQtyUnit(task.qtyUnit)
-
-                      return `
-                        <tr class="cursor-pointer border-b hover:bg-muted/50" data-nav="/fcs/progress/board/tasks/${encodeURIComponent(task.taskId)}">
-                          <td class="px-3 py-2">
-                            <div class="space-y-1 text-xs">
-                              <div class="flex items-center gap-1">
-                                <span class="font-mono font-medium">${escapeHtml(task.taskId)}</span>
-                                <button class="inline-flex h-5 items-center rounded px-1 text-[11px] text-primary hover:bg-muted" data-progress-action="copy-task-id" data-task-id="${escapeAttr(task.taskId)}" data-progress-stop="true" data-skip-page-rerender="true">复制</button>
-                              </div>
-                              <div class="cursor-pointer text-primary hover:underline" data-progress-action="task-action-open-order" data-po-id="${escapeAttr(task.productionOrderId)}" data-progress-stop="true">
-                                ${renderProductionOrderIdentityCell(task.productionOrderId)}
-                              </div>
-                              <div class="max-w-[180px] truncate text-muted-foreground">${escapeHtml(getOrderSpuCode(order, '-'))} / ${escapeHtml(getOrderSpuName(order) || '-')}</div>
-                            </div>
-                          </td>
-                          <td class="px-3 py-2">
-                            <div class="space-y-1 text-xs">
-                              <div class="font-medium">${escapeHtml(getTaskDisplayName(task))}</div>
-                              <div class="text-muted-foreground">${escapeHtml(PROCESS_STAGE_GROUP_LABEL[getTaskStageGroup(task.stage)])} · ${task.qty} ${escapeHtml(qtyUnit)}</div>
-                              ${task.historicalAssignment ? `<div>${renderBadge('已改派（历史）', 'border-slate-300 bg-slate-100 text-slate-700')}</div><div class="text-muted-foreground">改派至：${escapeHtml(task.replacedByRuntimeTaskId || '新任务待核对')} · ${escapeHtml(task.reassignedAt || '时间待核对')}</div>` : ''}
-                              <div class="text-muted-foreground">工序节点：${escapeHtml(stageLabels[task.stage])}</div>
-                              <div class="flex flex-wrap gap-1">
-                                ${
-                                  task.assignmentMode === 'DIRECT'
-                                    ? renderBadge('派单', 'border-slate-200 bg-slate-100 text-slate-700')
-                                    : renderBadge('竞价', 'border-blue-200 bg-blue-100 text-blue-700')
-                                }
-                                ${renderBadge(ASSIGNMENT_STATUS_LABEL[task.assignmentStatus], ASSIGNMENT_STATUS_COLOR_CLASS[task.assignmentStatus])}
-                              </div>
-                            </div>
-                          </td>
-                          <td class="px-3 py-2">${task.historicalAssignment ? renderBadge('历史只读', 'border-slate-300 bg-slate-100 text-slate-700') : renderPlatformStatusCell(task)}</td>
-                          <td class="px-3 py-2">
-                            <div class="space-y-1 text-xs">
-                              <div>${escapeHtml(task.historicalAssignment ? '不参与当前风险判断' : platformSummary.riskLabel)}</div>
-                              ${task.historicalAssignment ? '' : renderTaskRiskBadges(risks)}
-                            </div>
-                          </td>
-                          <td class="px-3 py-2">
-                            <div class="max-w-[180px] space-y-1 text-xs">
-                              <div class="font-medium">${escapeHtml(task.historicalAssignment ? '查看历史履约' : platformSummary.actionHint)}</div>
-                              ${renderTaskFollowUpAction(task, platformSummary.followUpActionLabel)}
-                            </div>
-                          </td>
-                          <td class="px-3 py-2">
-                            <div class="max-w-[160px] space-y-1 text-xs">
-                              <div>${escapeHtml(platformSummary.ownerHint)}</div>
-                              <div class="truncate text-muted-foreground">${escapeHtml(task.assignedFactoryName ?? factory?.name ?? (task.assignmentStatus === 'BIDDING' ? '待定标' : '-'))}</div>
-                            </div>
-                          </td>
-                          <td class="px-3 py-2">
-                            <div class="max-w-[220px] space-y-1 text-xs">
-                              <button class="inline-flex w-full items-center justify-between rounded border px-2 py-1 text-left hover:bg-muted" data-nav="/fcs/progress/board/tasks/${encodeURIComponent(task.taskId)}?tab=pickup" data-progress-stop="true">
-                                <span>领料情况</span>
-                                <span class="text-muted-foreground">&gt;</span>
-                              </button>
-                              <button class="inline-flex w-full items-center justify-between rounded border px-2 py-1 text-left hover:bg-muted" data-nav="/fcs/progress/board/tasks/${encodeURIComponent(task.taskId)}?tab=handover" data-progress-stop="true">
-                                <span>交出情况</span>
-                                <span class="text-muted-foreground">&gt;</span>
-                              </button>
-                              <div class="text-muted-foreground">同步：${escapeHtml(platformSummary.linkedResult)}</div>
-                              ${platformSummary.quantityText ? `<div class="truncate text-muted-foreground">${escapeHtml(platformSummary.quantityText)}</div>` : ''}
-                            </div>
-                          </td>
-                          <td class="px-3 py-2">${renderSewingDeliverySlaListCell(sewingDeliverySlaByTaskId.get(task.taskId), qtyUnit)}</td>
-                          <td class="px-3 py-2 text-right" data-progress-stop="true">${renderTaskActionMenu(task)}</td>
-                        </tr>
-                      `
-                    })
-                    .join('')
-            }
-          </tbody>
-        </table>
-      </div>
-      ${
-        filteredTasks.length > 0
-          ? `
-            <footer class="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm" data-progress-task-pagination="true">
-              <span class="text-muted-foreground">共 ${filteredTasks.length} 条 · 第 ${currentPage} / ${totalPages} 页 · 每页 ${pageSize} 条</span>
-              <div class="flex items-center gap-2">
-                <label class="flex items-center gap-2 text-xs text-muted-foreground">调整每页
-                  <select class="h-8 rounded-md border bg-background px-2" data-progress-field="pageSize" data-fast-page-render="true">
-                    ${[10, 20, 50].map((size) => `<option value="${size}" ${pageSize === size ? 'selected' : ''}>${size}</option>`).join('')}
-                  </select>
-                </label>
-                <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50" data-progress-action="task-page-prev" data-fast-page-render="true" ${currentPage <= 1 ? 'disabled' : ''}>上一页</button>
-                <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50" data-progress-action="task-page-next" data-fast-page-render="true" ${currentPage >= totalPages ? 'disabled' : ''}>下一页</button>
-              </div>
-            </footer>
-          `
-          : ''
-      }
-    </section>
-  `
+  return renderStandardListPage({
+    title: '任务清单',
+    primaryActionsHtml: `<span class="text-sm text-muted-foreground">共 ${filteredTasks.length} 个任务</span>`,
+    filtersHtml: '',
+    listTitle: '任务执行进度',
+    listActionsHtml: `<span class="text-xs text-muted-foreground">第 ${currentPage} / ${totalPages} 页</span>`,
+    tableHtml: renderStandardListTable({ columns, rows: visibleTasks, preferences, sort: null, eventPrefix: 'progress', emptyText: '暂无数据' }),
+    paginationHtml: renderTablePagination({
+      total: filteredTasks.length,
+      from: filteredTasks.length ? pageStart + 1 : 0,
+      to: Math.min(pageStart + pageSize, filteredTasks.length),
+      currentPage,
+      totalPages,
+      pageSize,
+      actionPrefix: 'progress',
+      pageSizeOptions: [10, 20, 50],
+    }),
+    className: '!p-0',
+  })
 }
 
 function renderTaskDimension(filteredTasks: ProcessTask[]): string {
@@ -905,7 +861,6 @@ function renderProgressTaskDetailPage(taskIdParam = ''): string {
   const tender = taskTenderId ? getTenderById(taskTenderId) : undefined
   const taskRisks = getTaskRisks(task)
   const taskHandoverSummary = getTaskHandoverSummary(task.taskId)
-  const outputValue = resolveTaskOutputValueSnapshot(task)
   const platformStatus = getPlatformStatusForRuntimeTask(task)
   const activeTab = resolveDetailTab(task)
   const historicalSlaView = task.historicalAssignment ? getSewingDeliverySlaView(task.taskId) : null
@@ -989,18 +944,6 @@ function renderProgressTaskDetailPage(taskIdParam = ''): string {
                   <div>
                     <p class="text-xs text-muted-foreground">分配方式</p>
                     <p>${task.assignmentMode === 'DIRECT' ? '派单' : '竞价'}</p>
-                  </div>
-                  <div>
-                    <p class="text-xs text-muted-foreground">单位产值</p>
-                    <p>${escapeHtml(formatOutputValuePerUnit(outputValue.outputValuePerUnit))}</p>
-                  </div>
-                  <div>
-                    <p class="text-xs text-muted-foreground">产值单位</p>
-                    <p>${escapeHtml(outputValue.outputValueUnit || '--')}</p>
-                  </div>
-                  <div>
-                    <p class="text-xs text-muted-foreground">任务总产值</p>
-                    <p>${escapeHtml(formatOutputValue(outputValue.totalOutputValue))}</p>
                   </div>
                   ${
                     task.difficulty

@@ -113,29 +113,14 @@ function assertFactoryListModel(): void {
   assert(fullFactory.abilityCount > 3, '全能力测试工厂没有展示多工序工艺能力')
   const fullFactoryAbilities = listDispatchAcceptanceSlaFactoryAbilityRows(fullFactory.factoryId)
   assert(fullFactoryAbilities.length === fullFactory.abilityCount, '工厂明细能力数与主列表不一致')
-  assert(fullFactoryAbilities.some((row) => row.processName === '印花'), '工厂明细缺少印花能力')
   assert(fullFactoryAbilities.some((row) => row.processName === '裁片'), '工厂明细缺少裁片能力')
+  assert(!fullFactoryAbilities.some((row) => ['印花', '染色', '水溶', '缩水', '洗水'].includes(row.processName)), '生产准备工序不得进入任务接单时效配置')
 }
 
 function assertRuleResolutionAndPriority(): void {
-  const printAuto = resolveDispatchAcceptanceSlaForTask(
-    {
-      processCode: 'PRINT',
-      processNameZh: '印花',
-      craftCode: 'CRAFT_2000001',
-      craftName: '丝网印',
-    },
-    'F090',
-    '全能力测试工厂',
-    '2026-06-09 09:00:00',
-  )
-  assert(printAuto.acceptTimeoutHours === 0, '指定工厂规则未保持最高优先级')
-  assert(printAuto.autoAccept, '0 小时规则未识别为派单后自动接单')
-  assert(printAuto.acceptDeadline === '2026-06-09 09:00:00', '0 小时规则接单截止应等于派单时间')
-
   const fullFactory = listDispatchAcceptanceSlaFactoryRows().find((row) => row.factoryId === 'F090')
   assert(fullFactory, '缺少全能力测试工厂，无法校验 0 小时新增规则')
-  const zeroAbility = fullFactory.abilityRows.find((row) => row.processCode !== 'PRINT') || fullFactory.abilityRows[0]
+  const zeroAbility = fullFactory.abilityRows.find((row) => row.processCode === 'CUT_PANEL') || fullFactory.abilityRows[0]
   assert(zeroAbility, '全能力测试工厂缺少可用于 0 小时验收的工序工艺能力')
   saveDispatchAcceptanceSlaRule({
     ruleName: '验收：0 小时自动接单规则',
@@ -169,10 +154,11 @@ function assertRuleResolutionAndPriority(): void {
 
   const ruleOptions = listDispatchAcceptanceSlaRuleProcessCraftOptions()
   assert(ruleOptions.some((option) => option.craftCode === DISPATCH_ACCEPTANCE_SLA_ALL_CRAFTS_CODE), '规则维护缺少全部工艺选项')
+  assert(!ruleOptions.some((option) => ['PRINT', 'DYE', 'WATER_SOLUBLE', 'SHRINKING', 'WASHING'].includes(option.processCode)), '生产准备工序不得进入任务接单时效选项')
   const impact = previewDispatchAcceptanceSlaRuleImpact({
     processScopeType: 'PROCESS_ALL_CRAFTS',
-    processCode: 'PRINT',
-    processName: '印花',
+    processCode: zeroAbility.processCode,
+    processName: zeroAbility.processName,
     craftName: DISPATCH_ACCEPTANCE_SLA_ALL_CRAFTS_NAME,
     factoryScopeType: 'FACTORY_TIER',
     factoryTier: 'CENTRAL',
@@ -184,10 +170,10 @@ function assertRuleResolutionAndPriority(): void {
   assert(impact.matchedAbilityCount >= impact.effectiveAbilityCount, '影响预览统计异常')
 
   saveDispatchAcceptanceSlaRule({
-    ruleName: '验收：中央工厂印花全部工艺',
+    ruleName: `验收：中央工厂${zeroAbility.processName}全部工艺`,
     processScopeType: 'PROCESS_ALL_CRAFTS',
-    processCode: 'PRINT',
-    processName: '印花',
+    processCode: zeroAbility.processCode,
+    processName: zeroAbility.processName,
     craftName: DISPATCH_ACCEPTANCE_SLA_ALL_CRAFTS_NAME,
     factoryScopeType: 'FACTORY_TIER',
     factoryTier: 'CENTRAL',
@@ -199,10 +185,10 @@ function assertRuleResolutionAndPriority(): void {
   })
   const stillSpecific = resolveDispatchAcceptanceSlaForTask(
     {
-      processCode: 'PRINT',
-      processNameZh: '印花',
-      craftCode: 'CRAFT_2000001',
-      craftName: '丝网印',
+      processCode: zeroAbility.processCode,
+      processNameZh: zeroAbility.processName,
+      craftCode: zeroAbility.craftCode,
+      craftName: zeroAbility.craftName,
     },
     'F090',
     '全能力测试工厂',
@@ -335,14 +321,10 @@ function assertPageStructure(): void {
 }
 
 function assertUpstreamDownstreamWiring(): void {
-  const dispatchDomain = readProjectFile('src/pages/dispatch-board/dispatch-domain.ts')
-  const dispatchContext = readProjectFile('src/pages/dispatch-board/context.ts')
-  const sewingDomain = readProjectFile('src/data/fcs/sewing-dispatch-workbench.ts')
+  const dispatchWorkbench = readProjectFile('src/pages/unified-dispatch-workbench.ts')
   const runtimeTasks = readProjectFile('src/data/fcs/runtime-process-tasks.ts')
   const pdaDetail = readProjectFile('src/pages/pda-task-receive-detail.ts')
-  assert(dispatchDomain.includes('resolveDispatchAcceptanceSlaForTask'), '非车缝派单未接入接单时效解析')
-  assert(dispatchContext.includes('resolveDispatchAcceptanceSlaForTask'), '非车缝派单预览未接入接单时效解析')
-  assert(sewingDomain.includes('resolveDispatchAcceptanceSlaForTask'), '车缝派单未接入接单时效解析')
+  assert(dispatchWorkbench.includes('applyRuntimeDirectDispatchMeta'), '统一任务分配工作台未接入运行时分配')
   assert(runtimeTasks.includes('resolveDispatchAcceptanceSlaForTask'), '自动接单运行态未接入接单时效解析')
   assert(pdaDetail.includes('系统自动接单') || pdaDetail.includes('DISPATCH_ACCEPTANCE_SLA_AUTO_ACCEPT_BY'), 'PDA 接单详情缺少系统自动接单展示')
 }

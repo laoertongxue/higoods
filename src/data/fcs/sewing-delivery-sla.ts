@@ -16,6 +16,7 @@ export interface SewingDeliverySlaTaskLike {
   processCode: string
   processBusinessCode?: string
   processNameZh: string
+  mergedTaskType?: 'SEW_IRON' | 'CUT_SEW_IRON'
   coveredProcesses?: SewingDeliveryCoveredProcess[]
 }
 
@@ -95,10 +96,10 @@ export interface SewingDeliveryResponsibilityReview {
   readonly reviewedAt: string
 }
 
-const RULE_HOURS: Record<SewingDeliverySlaKind, [number, number, number]> = {
-  INDEPENDENT_SEWING: [96, 192, 216],
-  SEWING_TO_PACKAGING: [120, 216, 240],
-  CUTTING_TO_PACKAGING: [144, 216, 288],
+const RULE_NATURAL_DAYS: Record<SewingDeliverySlaKind, [number, number, number]> = {
+  INDEPENDENT_SEWING: [4, 8, 9],
+  SEWING_TO_PACKAGING: [5, 9, 10],
+  CUTTING_TO_PACKAGING: [6, 9, 12],
 }
 
 const MILESTONE_RATIOS = [0.3, 0.7, 1] as const
@@ -124,25 +125,6 @@ function assertNonNegativeFiniteNumber(value: number, fieldName: string): void {
   }
 }
 
-function isSewingProcess(process: { processCode: string; processName: string }): boolean {
-  return process.processCode === 'SEW' || process.processName === '车缝'
-}
-
-function isCuttingProcess(process: { processCode: string; processName: string }): boolean {
-  return process.processCode === 'CUT'
-    || process.processCode === 'CUTTING'
-    || process.processName === '裁片'
-    || process.processName === '裁剪'
-}
-
-function isPostOrPackagingProcess(process: { processCode: string; processName: string }): boolean {
-  return process.processCode === 'POST'
-    || process.processCode === 'PACK'
-    || process.processCode === 'PACKAGING'
-    || process.processName === '后道'
-    || process.processName === '包装'
-}
-
 export function classifySewingDeliverySla(task: SewingDeliverySlaTaskLike): SewingDeliverySlaKind | null {
   if (
     (task.taskUnitType === 'PROCESS_TASK' || task.taskUnitType === 'SINGLE_PROCESS_TASK')
@@ -155,15 +137,9 @@ export function classifySewingDeliverySla(task: SewingDeliverySlaTaskLike): Sewi
     return 'INDEPENDENT_SEWING'
   }
 
-  if (task.taskUnitType !== 'COMBINED_PROCESS_TASK') return null
-
-  const firstProcess = task.coveredProcesses?.[0]
-  const lastProcess = task.coveredProcesses?.[task.coveredProcesses.length - 1]
-  if (!firstProcess || !lastProcess || !isPostOrPackagingProcess(lastProcess)) return null
-  if (!task.coveredProcesses?.some(isSewingProcess)) return null
-
-  if (isSewingProcess(firstProcess)) return 'SEWING_TO_PACKAGING'
-  if (isCuttingProcess(firstProcess)) return 'CUTTING_TO_PACKAGING'
+  if (task.taskUnitType !== 'MERGED_PRODUCTION_TASK') return null
+  if (task.mergedTaskType === 'SEW_IRON') return 'SEWING_TO_PACKAGING'
+  if (task.mergedTaskType === 'CUT_SEW_IRON') return 'CUTTING_TO_PACKAGING'
   return null
 }
 
@@ -433,15 +409,22 @@ export function createSewingDeliverySlaSnapshot(input: {
   slaKind: SewingDeliverySlaKind
 }): SewingDeliverySlaSnapshot {
   assertPositiveFiniteInteger(input.assignedQty, '分配数量')
-  const ruleHours = RULE_HOURS[input.slaKind]
+  const ruleDays = RULE_NATURAL_DAYS[input.slaKind]
+  const assignmentDate = parseDateTime(input.acceptedAt, '业务分配时间')
   return cloneAndFreezeSnapshot({
     snapshotId: `SEWING-DELIVERY-SLA-${input.runtimeTaskId.length}:${input.runtimeTaskId}-${input.assignmentId.length}:${input.assignmentId}`,
     ...input,
     milestones: MILESTONE_RATIOS.map((ratio, index) => ({
       ratio,
-      hoursAfterAcceptance: ruleHours[index],
+      // 保留历史字段供旧页面兼容；当前业务含义是第N个自然日，不是滚动N×24小时。
+      hoursAfterAcceptance: ruleDays[index] * 24,
       targetQty: Math.ceil(input.assignedQty * ratio),
-      deadlineAt: addHours(input.acceptedAt, ruleHours[index], '接单时间'),
+      deadlineAt: (() => {
+        const deadline = new Date(assignmentDate)
+        deadline.setUTCDate(deadline.getUTCDate() + ruleDays[index] - 1)
+        deadline.setUTCHours(23, 59, 59, 0)
+        return formatDateTime(deadline)
+      })(),
     })),
     active: true,
   })

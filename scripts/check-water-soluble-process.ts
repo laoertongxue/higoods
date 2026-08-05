@@ -7,10 +7,6 @@ import {
   getProcessCraftDictRowByCode,
 } from '../src/data/fcs/process-craft-dict.ts'
 import {
-  getFactorySupplyFormulaGuide,
-  getFactorySupplyFormulaTemplate,
-} from '../src/data/fcs/process-craft-output-value-explainer.ts'
-import {
   buildProductionOrderTechPackSnapshot,
   cloneProductionOrderTechPackSnapshot,
 } from '../src/data/fcs/production-tech-pack-snapshot-builder.ts'
@@ -24,14 +20,13 @@ import { getProcessTaskQtyDisplayUnit } from '../src/data/fcs/process-tasks.ts'
 import { buildTaskQrValue } from '../src/data/fcs/task-qr.ts'
 import type { ProductionOrderTechPackSnapshot } from '../src/data/fcs/production-tech-pack-snapshot-types.ts'
 import {
+  getTechnicalDataVersionById,
   getTechnicalDataVersionContent,
   resetTechnicalDataVersionRepository,
   updateTechnicalDataVersionContent,
 } from '../src/data/pcs-technical-data-version-repository.ts'
-import {
-  areRouteEntriesContinuous,
-  normalizeProcessRouteEntries,
-} from '../src/data/tech-pack-process-route.ts'
+import { installTechnicalDataVersionFixtures } from './helpers/technical-data-version-fixtures.ts'
+import { normalizeProcessRouteEntries } from '../src/data/tech-pack-process-route.ts'
 import { syncTechPackProcessesFromBom } from '../src/pages/tech-pack/bom-process-linkage.ts'
 import { applyProcessRouteDraftAction } from '../src/pages/tech-pack/events.ts'
 import {
@@ -85,10 +80,6 @@ import {
 } from '../src/data/fcs/dyeing-task-domain.ts'
 import { listFactoryOnboardingApplications } from '../src/data/fcs/factory-onboarding-store.ts'
 import { listProcessWorkOrderStockMaterials } from '../src/data/fcs/process-work-order-stock.ts'
-import {
-  getFactoryCapacityProfileByFactoryId,
-  listFactoryCapacityEquipments,
-} from '../src/data/fcs/factory-capacity-profile-mock.ts'
 
 const printProcess = getProcessDefinitionByCode('PRINT')
 const waterProcess = getProcessDefinitionByCode('WATER_SOLUBLE')
@@ -111,13 +102,13 @@ assert.equal(waterProcess.stageCode, 'PREP', '水溶必须属于准备阶段')
 assert.equal(waterProcess.sort, 10, '水溶排序必须固定为 10')
 assert(waterProcess.sort < dyeProcess.sort, '水溶排序必须早于染色')
 assert(dyeProcess.sort < printProcess.sort, '同一物料路线必须保持先染色后印花')
-assert.equal(waterProcess.processRole, 'EXTERNAL_TASK', '水溶必须是对外任务')
-assert.equal(waterProcess.generatesExternalTask, true, '水溶必须生成对外任务')
+assert.equal(waterProcess.processRole, 'PREPARATION_ORDER', '水溶必须是生产准备加工单')
+assert.equal(waterProcess.generatesExternalTask, false, '水溶不得生成通用生产任务')
 assert.equal(waterProcess.requiresTaskQr, true, '水溶必须生成任务二维码')
 assert.equal(waterProcess.requiresHandoverOrder, true, '水溶必须生成交接单')
 assert.equal(waterProcess.capacityEnabled, true, '水溶必须启用产能配置')
 assert.equal(waterProcess.capacityRollupMode, 'SELF', '水溶产能必须按自身汇总')
-assert.equal(waterProcess.defaultDocType, 'TASK', '水溶必须默认生成任务单')
+assert.equal(waterProcess.defaultDocType, 'PREPARATION_ORDER', '水溶必须默认生成生产准备加工单')
 assert.equal(waterProcess.factoryMobileExecutionMode, 'FULL_TASK', '水溶必须支持工厂移动端完整任务执行')
 assert.equal(waterProcess.isActive, true, '水溶工序必须启用')
 assert.equal(waterProcess.description, '由 BOM 物料上的水溶要求触发', '水溶工序说明错误')
@@ -130,24 +121,16 @@ assert.deepEqual(waterProcess.detailSplitDimensions, ['MATERIAL_SKU'], '水溶�
 assert(waterCraft, '工序工艺字典缺少 legacyValue 2000009 水溶定义')
 assert.equal(waterCraft.processCode, 'WATER_SOLUBLE', '水溶工艺必须归属 WATER_SOLUBLE')
 assert.equal(waterCraft.craftName, '水溶', '水溶工艺名称错误')
-assert.equal(waterCraft.defaultDocType, 'TASK', '水溶工艺必须默认生成任务单')
+assert.equal(waterCraft.defaultDocType, 'PREPARATION_ORDER', '水溶工艺必须默认生成生产准备加工单')
 assert.equal(waterCraft.isActive, true, '水溶工艺必须启用')
 assert.equal(waterCraft.isSpecialCraft, false, '水溶不得归入特殊工艺')
 assert.equal(waterCraft.systemProcessCode, 'PROC_WATER_SOLUBLE', '水溶工艺系统编码错误')
 assert.equal(waterCraft.carrySuggestion, '染色厂优先', '水溶必须由染色厂优先承接')
 assert.equal(waterCraft.targetObject, 'BOM_MATERIAL', '水溶目标对象必须为 BOM 物料')
 assert.equal(waterCraft.targetObjectName, 'BOM物料', '水溶目标对象名称错误')
-assert.equal(waterCraft.referenceOutputValueValue, 70, '水溶理论参考产值必须为 70')
-assert.equal(waterCraft.referenceOutputValueUnit, 'VALUE_PER_BATCH', '水溶理论参考产值必须按批')
-
 const waterCraftRow = getProcessCraftDictRowByCode(waterCraft.craftCode)
-assert.equal(waterCraftRow?.referenceOutputValueUnitLabel, '产值/批', '水溶理论参考产值单位中文标签错误')
-
-assert.equal(getFactorySupplyFormulaTemplate('水溶'), 'D', '水溶必须复用批次型模板 D')
-const waterGuide = getFactorySupplyFormulaGuide('水溶')
-assert.equal(waterGuide.template, 'D', '水溶公共产值指南必须返回模板 D')
-assert(waterGuide.currentFieldKeys.includes('batchLoadCapacity'), '水溶批次型模板必须包含单次有效装载量')
-assert(waterGuide.currentFieldKeys.includes('cycleMinutes'), '水溶批次型模板必须包含单次循环分钟')
+assert(waterCraftRow, '工序工艺字典必须可查询到水溶行')
+assert(!('outputValueCalcMode' in waterCraftRow), '水溶工艺不得保留产值计算模式')
 
 const bomRows = [
   {
@@ -259,7 +242,7 @@ const parallelPartner = {
   linkedBomItemIds: ['BOM-PRINT'],
 }
 const sharedParallelRoute = normalizeProcessRouteEntries([
-  { ...waterTechnique, routeStepNo: 1, routeLaneNo: 1, routeParallelGroupId: 'GROUP-1', routeParallelAcceptanceMode: 'WHOLE_GROUP_ALLOWED' },
+  { ...waterTechnique, routeStepNo: 1, routeLaneNo: 1, routeParallelGroupId: 'GROUP-1' },
   { ...dyeTechnique, routeStepNo: 1, routeLaneNo: 2, routeParallelGroupId: 'GROUP-1' },
   { ...parallelPartner, routeStepNo: 1, routeLaneNo: 3, routeParallelGroupId: 'GROUP-1' },
 ])
@@ -270,7 +253,6 @@ assert(parallelWater && parallelDye && normalizedPartner, '并行路线归一化
 assert.equal(parallelWater.routeStepNo, 1, '共享 BOM 的并行水溶必须拆为前一独立步骤')
 assert.equal(parallelWater.routeLaneNo, 1, '拆出的水溶必须为独立路线 lane 1')
 assert.equal(parallelWater.routeParallelGroupId, undefined, '拆出的水溶不得保留并行组')
-assert.equal(parallelWater.routeParallelAcceptanceMode, 'INDEPENDENT_ONLY', '拆出的水溶必须恢复独立承接模式')
 assert.equal(parallelDye.routeStepNo, 2, '共享 BOM 的染色必须保留在后一组')
 assert.equal(normalizedPartner.routeStepNo, 2, '染色原并行伙伴必须保留在后一组')
 assert.deepEqual(
@@ -386,7 +368,6 @@ const pairOnlyParallelRoute = normalizeProcessRouteEntries([
     routeLaneNo: 1,
     routeParallelGroupId: 'PAIR-GROUP',
     routeParallelGroupName: '水溶染色并行组',
-    routeParallelAcceptanceMode: 'WHOLE_GROUP_ALLOWED',
   },
   {
     ...dyeTechnique,
@@ -396,7 +377,6 @@ const pairOnlyParallelRoute = normalizeProcessRouteEntries([
     routeLaneNo: 2,
     routeParallelGroupId: 'PAIR-GROUP',
     routeParallelGroupName: '水溶染色并行组',
-    routeParallelAcceptanceMode: 'WHOLE_GROUP_ALLOWED',
   },
 ])
 const pairOnlyWater = pairOnlyParallelRoute.find((item) => item.id === 'WATER-PAIR-ONLY')
@@ -407,13 +387,7 @@ assert.equal(pairOnlyDye.routeStepNo, 2, '仅两项并行拆分后染色必须�
 for (const item of [pairOnlyWater, pairOnlyDye]) {
   assert.equal(item.routeParallelGroupId, undefined, '拆分后的单项步骤不得残留并行组 ID')
   assert.equal(item.routeParallelGroupName, undefined, '拆分后的单项步骤不得残留并行组名称')
-  assert.equal(item.routeParallelAcceptanceMode, 'INDEPENDENT_ONLY', '拆分后的单项步骤必须恢复独立承接')
 }
-assert.equal(
-  areRouteEntriesContinuous(pairOnlyParallelRoute).allowed,
-  true,
-  '仅水溶与染色拆分后的连续路线必须允许连续承接',
-)
 const guardedRouteDraft = applyProcessRouteDraftAction({
   techniques: normalizedRoute,
   processRouteStatus: 'UNCONFIRMED',
@@ -465,41 +439,59 @@ assert(confirmedParallelWater.routeStepNo < confirmedParallelDye.routeStepNo, '�
 assert.equal(waterTechnique.triggerField, 'waterSolubleRequirement', '水溶必须由 waterSolubleRequirement 触发')
 assert.equal(waterTechnique.targetObject, 'BOM_MATERIAL', '水溶目标对象必须为 BOM 物料')
 assert.equal(waterTechnique.targetObjectName, 'BOM物料', '水溶目标对象名称错误')
-assert.equal(waterTechnique.defaultDocType, 'TASK', '水溶必须默认生成任务单')
+assert.equal(waterTechnique.defaultDocType, 'PREPARATION_ORDER', '水溶必须默认生成生产准备加工单')
 assert.equal(waterTechnique.sourceType, 'BOM', '水溶必须标记为 BOM 来源')
 
 resetTechnicalDataVersionRepository()
-const technicalVersionId = 'tdv_demand_SPU_2024_001'
-const baseContent = getTechnicalDataVersionContent(technicalVersionId)
+const legacyTechnicalVersionId = 'tdv_demand_SPU_2024_001'
+const baseRecord = getTechnicalDataVersionById(legacyTechnicalVersionId)
+const baseContent = getTechnicalDataVersionContent(legacyTechnicalVersionId)
+assert(baseRecord, '正式技术包测试记录不存在')
 assert(baseContent, '正式技术包测试基线不存在')
+const technicalVersionId = `${legacyTechnicalVersionId}_water_check_draft`
 const processEntries = normalizedRoute.map((item) => ({
   ...item,
   stageName: item.stage,
   processName: item.process,
   craftName: item.technique,
-  outputValuePerUnit: item.outputValue,
 }))
-updateTechnicalDataVersionContent(technicalVersionId, {
-  processRouteStatus: 'CONFIRMED',
-  bomItems: bomRows.map((item) => ({
-    ...item,
-    type: '辅料',
-    name: item.materialCode,
-    spec: '测试规格',
-    unitConsumption: 1,
-    lossRate: 0,
-    supplier: '测试供应商',
-    applicableSkuCodes: ['SKU-WATER-S'],
-    linkedPatternIds: ['PATTERN-WATER'],
-    usageProcessCodes: ['WATER_SOLUBLE', 'DYE'],
-  })),
-  processEntries,
+installTechnicalDataVersionFixtures({
+  records: [{
+    ...baseRecord,
+    technicalVersionId,
+    technicalVersionCode: `${baseRecord.technicalVersionCode}-WATER-CHECK`,
+    versionLabel: '水溶专项检查版本',
+    styleId: 'STYLE-WATER-SOLUBLE-CHECK',
+    styleCode: 'SPU-WATER-SOLUBLE-CHECK',
+    styleName: '水溶专项检查款式',
+    versionStatus: 'PUBLISHED',
+    publishedAt: '2026-07-11 11:30:00',
+    publishedBy: '水溶专项检查',
+  }],
+  contents: [{
+    ...baseContent,
+    technicalVersionId,
+    processRouteStatus: 'CONFIRMED',
+    bomItems: bomRows.map((item) => ({
+      ...item,
+      type: '辅料',
+      name: item.materialCode,
+      spec: '测试规格',
+      unitConsumption: 1,
+      lossRate: 0,
+      supplier: '测试供应商',
+      applicableSkuCodes: ['SKU-WATER-S'],
+      linkedPatternIds: ['PATTERN-WATER'],
+      usageProcessCodes: ['WATER_SOLUBLE', 'DYE'],
+    })),
+    processEntries,
+  }],
 })
 
 const formalSnapshot = buildProductionOrderTechPackSnapshot({
   productionOrderId: 'PO-WATER-SNAPSHOT',
   productionOrderNo: 'PO-WATER-SNAPSHOT',
-  demand: { spuCode: 'SPU-2024-001' },
+  demand: { spuCode: 'SPU-WATER-SOLUBLE-CHECK' },
   technicalVersionId,
   snapshotAt: '2026-07-11 12:00:00',
   snapshotBy: '水溶专项检查',
@@ -519,7 +511,7 @@ assert.deepEqual(
   '正式快照必须保留工序关联的 BOM 行',
 )
 
-updateTechnicalDataVersionContent(technicalVersionId, {
+assert.throws(() => updateTechnicalDataVersionContent(technicalVersionId, {
   bomItems: baseContent.bomItems.map((item) => ({
     ...item,
     materialCode: 'MAT-SOURCE-CHANGED',
@@ -531,11 +523,11 @@ updateTechnicalDataVersionContent(technicalVersionId, {
     ...item,
     linkedBomItemIds: ['BOM-SOURCE-CHANGED'],
   })),
-})
-assert.equal(snapshotBomBoth.materialCode, 'MAT-BOTH-001', '修改源 content 后既有正式快照物料编码不得变化')
-assert.equal(snapshotBomBoth.unit, '米', '修改源 content 后既有正式快照单位不得变化')
-assert.equal(snapshotBomBoth.waterSolubleRequirement, '是', '修改源 content 后既有正式快照水溶要求不得变化')
-assert.deepEqual(snapshotWaterProcess?.linkedBomItemIds, ['BOM-WATER', 'BOM-BOTH'], '修改源 content 后快照工序绑定不得变化')
+}), /已发布技术包 BOM\/COST 正式字段禁止修改/, '已发布技术包正式字段必须保持只读')
+assert.equal(snapshotBomBoth.materialCode, 'MAT-BOTH-001', '阻断源 content 修改后既有正式快照物料编码不得变化')
+assert.equal(snapshotBomBoth.unit, '米', '阻断源 content 修改后既有正式快照单位不得变化')
+assert.equal(snapshotBomBoth.waterSolubleRequirement, '是', '阻断源 content 修改后既有正式快照水溶要求不得变化')
+assert.deepEqual(snapshotWaterProcess?.linkedBomItemIds, ['BOM-WATER', 'BOM-BOTH'], '阻断源 content 修改后快照工序绑定不得变化')
 
 const runtimeCopyOne = cloneProductionOrderTechPackSnapshot(formalSnapshot)
 const runtimeCopyTwo = cloneProductionOrderTechPackSnapshot(formalSnapshot)
@@ -699,18 +691,24 @@ const bomArtifacts = generateArtifactFixture()
 const waterArtifacts = bomArtifacts.filter((item) => item.processCode === 'WATER_SOLUBLE')
 const dyeArtifacts = bomArtifacts.filter((item) => item.processCode === 'DYE')
 assert.equal(waterArtifacts.filter((item) => item.artifactType === 'DEMAND').length, 0, '水溶不得生成需求单')
-assert.equal(waterArtifacts.length, 1, '仅水溶 BOM 行必须恰好生成一个独立 WATER_SOLUBLE TASK')
-assert.equal(waterArtifacts[0]?.artifactType, 'TASK', '仅水溶产物必须是 TASK')
-assert.equal(waterArtifacts[0]?.bomItemId, 'ONLY-WATER', '水溶任务必须绑定仅水溶 BOM 行')
-assert.equal(waterArtifacts[0]?.taskTypeCode, 'WATER_SOLUBLE', '水溶任务类型编码错误')
-assert.equal(waterArtifacts[0]?.taskTypeLabel, '水溶', '水溶任务类型名称错误')
-assert.equal(waterArtifacts[0]?.taskScope, 'EXTERNAL_TASK', '水溶任务必须为外部任务')
-assert.equal(dyeArtifacts.length, 0, '染色不得再生成已取消的需求产物')
-assert.equal(waterArtifacts.filter((item) => item.bomItemId === 'BOTH').length, 0, '水溶染色同一 BOM 行不得另生成水溶任务')
+assert.equal(waterArtifacts.length, 1, '仅水溶 BOM 行必须恰好生成一个水溶加工单来源')
+assert.equal(waterArtifacts[0]?.artifactType, 'PREPARATION_ORDER', '仅水溶产物必须是生产准备加工单')
+assert.equal(waterArtifacts[0]?.bomItemId, 'ONLY-WATER', '水溶加工单来源必须绑定仅水溶 BOM 行')
+assert.equal(waterArtifacts[0]?.preparationOrderTypeCode, 'WATER_SOLUBLE', '水溶加工单类型编码错误')
+assert.equal(waterArtifacts[0]?.preparationOrderTypeLabel, '水溶加工单', '水溶加工单类型名称错误')
+assert.equal(waterArtifacts[0]?.preparationScope, 'INTERNAL_PREPARATION_ORDER', '水溶必须是内部生产准备加工单')
+assert.equal(dyeArtifacts.length, 1, '染色必须生成内部生产准备加工单来源')
+assert.equal(dyeArtifacts[0]?.artifactType, 'PREPARATION_ORDER', '染色不得生成生产任务')
+assert.equal(waterArtifacts.filter((item) => item.bomItemId === 'BOTH').length, 0, '水溶染色同一 BOM 行不得另生成独立水溶加工单')
 assert.equal(bomArtifacts.filter((item) => item.bomItemId === 'NONE').length, 0, '均未选择的 BOM 行不得生成准备产物')
 
 const expectedByBomId = new Map(artifactBomRows.map((item) => [item.id, item]))
 for (const artifact of bomArtifacts) {
+  if (!artifact.bomItemId) {
+    assert.equal(artifact.artifactType, 'PREPARATION_ORDER', `准备阶段产物 ${artifact.artifactId} 不得进入生产任务`)
+    assert((artifact.linkedBomItemIds ?? []).length > 0, `准备阶段产物 ${artifact.artifactId} 必须保留 BOM 关联`)
+    continue
+  }
   const bomItem = expectedByBomId.get(artifact.bomItemId ?? '')
   assert(bomItem, `产物 ${artifact.artifactId} 必须精确对应当前 BOM 行`)
   assert.equal(artifact.materialCode, bomItem.materialCode, '产物物料编码必须来自当前 BOM 行')
@@ -718,7 +716,7 @@ for (const artifact of bomArtifacts) {
   assert.equal(artifact.plannedUnit, bomItem.unit, '产物计划单位必须保留当前 BOM 单位')
   assert.deepEqual(artifact.linkedBomItemIds, [bomItem.id], '产物只能绑定当前 BOM 行，不得跨物料组合')
 }
-assert.equal(waterArtifacts[0]?.plannedQty, 1050, '全部 SKU 1000 件、单耗 1、损耗率 5% 时计划数量必须为 1050 米')
+assert.equal(waterArtifacts[0]?.plannedQty, 1050, '全部 SKU 1000 件、单耗 1、损耗率 5% 时水溶加工数量必须为 1050 米')
 
 const repeatedBomArtifacts = generateArtifactFixture()
 assert.deepEqual(
@@ -748,7 +746,7 @@ const craftDyeArtifacts = generateWithProcessEntries([{
   linkedBomItemIds: ['ONLY-DYE'],
 }])
 assert.equal(craftDyeArtifacts.filter((item) => item.processCode === 'DYE' && item.artifactType === 'DEMAND').length, 0, 'CRAFT DYE 不得生成中间需求产物')
-assert.equal(craftDyeArtifacts.filter((item) => item.processCode === 'DYE' && item.artifactType === 'TASK').length, 1, 'CRAFT DYE 必须生成真实加工任务')
+assert.equal(craftDyeArtifacts.filter((item) => item.processCode === 'DYE' && item.artifactType === 'PREPARATION_ORDER').length, 1, 'CRAFT DYE 也只能生成生产准备加工单')
 
 const nonPrepDyeArtifacts = generateWithProcessEntries([{
   ...dyeArtifactEntry,
@@ -765,14 +763,14 @@ const taskDyeArtifacts = generateWithProcessEntries([{
   defaultDocType: 'TASK',
   linkedBomItemIds: ['ONLY-DYE'],
 }])
-assert.equal(taskDyeArtifacts.filter((item) => item.processCode === 'DYE').length, 0, 'defaultDocType TASK 的 DYE 不得生成 BOM 染色需求')
+assert.equal(taskDyeArtifacts.filter((item) => item.processCode === 'DYE' && item.artifactType === 'PREPARATION_ORDER').length, 1, 'PREP 阶段 DYE 即使残留 TASK 配置也必须归一为生产准备加工单')
 
 const validDyeArtifacts = generateWithProcessEntries([{
   ...dyeArtifactEntry,
   id: 'ENTRY-DYE-VALID',
   linkedBomItemIds: ['ONLY-DYE'],
 }])
-assert.equal(validDyeArtifacts.filter((item) => item.processCode === 'DYE').length, 0, '合法 DYE 也必须直接进入统一染色加工单，不再生成需求产物')
+assert.equal(validDyeArtifacts.filter((item) => item.processCode === 'DYE' && item.artifactType === 'PREPARATION_ORDER').length, 1, '合法 DYE 必须生成统一染色加工单来源')
 
 const duplicateArtifacts = generateWithProcessEntries([
   { ...waterArtifactEntry, id: 'ENTRY-WATER-FIRST', linkedBomItemIds: ['ONLY-WATER'] },
@@ -782,9 +780,10 @@ const duplicateArtifacts = generateWithProcessEntries([
 ])
 const dedupedWaterArtifacts = duplicateArtifacts.filter((item) => item.processCode === 'WATER_SOLUBLE')
 const dedupedDyeArtifacts = duplicateArtifacts.filter((item) => item.processCode === 'DYE')
-assert.equal(dedupedWaterArtifacts.length, 1, '同一 BOM 的多条合法 WATER entry 最终只能生成一张任务')
+assert.equal(dedupedWaterArtifacts.length, 1, '同一 BOM 的多条合法 WATER entry 最终只能生成一张生产准备加工单')
 assert.equal(dedupedWaterArtifacts[0]?.sourceEntryId, 'ENTRY-WATER-FIRST', '重复 WATER 必须稳定保留第一条路线 entry')
-assert.equal(dedupedDyeArtifacts.length, 0, 'DYE 路线不得生成已取消的需求产物')
+assert.equal(dedupedDyeArtifacts.length, 2, '不同 DYE 路线入口必须各自保留生产准备加工单来源')
+assert(dedupedDyeArtifacts.every((item) => item.artifactType === 'PREPARATION_ORDER'), 'DYE 路线不得生成生产任务')
 
 const printEntry = {
   ...dyeArtifactEntry,
@@ -798,23 +797,23 @@ const legacyDyeEntry = {
   id: 'ENTRY-DYE-LEGACY',
   linkedBomItemIds: undefined,
 }
-const postEntry = {
+const ironPackEntry = {
   ...waterArtifactEntry,
-  id: 'ENTRY-POST-LEGACY',
+  id: 'ENTRY-IRON-PACK',
   stageCode: 'POST',
   stageName: '后道阶段',
-  processCode: 'POST_FINISHING',
-  processName: '后道',
+  processCode: 'IRON_PACK',
+  processName: '烫包',
   defaultDocType: 'TASK',
   linkedBomItemIds: undefined,
 }
-const legacyArtifacts = generateWithProcessEntries([printEntry, legacyDyeEntry, postEntry])
+const legacyArtifacts = generateWithProcessEntries([printEntry, legacyDyeEntry, ironPackEntry])
 assert.equal(
-  legacyArtifacts.filter((item) => item.processCode === 'PRINT' || item.processCode === 'DYE').length,
-  0,
-  '历史 PRINT / DYE 入口不得再生成已取消的需求产物',
+  legacyArtifacts.filter((item) => item.processCode === 'PRINT' || item.processCode === 'DYE').every((item) => item.artifactType === 'PREPARATION_ORDER'),
+  true,
+  '历史 PRINT / DYE 入口也必须归一为生产准备加工单',
 )
-assert(legacyArtifacts.some((item) => item.artifactType === 'TASK' && item.processCode === 'POST_FINISHING'), '其他工序入口必须继续生成原任务产物')
+assert(legacyArtifacts.some((item) => item.artifactType === 'TASK' && item.processCode === 'IRON_PACK'), '烫包工序入口必须继续生成实际工序任务')
 
 const collisionBomB = { ...artifactBomRows[1], id: 'B', materialCode: 'MAT-B' }
 const collisionBomAB = { ...artifactBomRows[1], id: 'A-B', materialCode: 'MAT-A-B' }
@@ -827,7 +826,8 @@ const collisionSnapshot = {
   ],
 }
 const collisionArtifacts = generateArtifactFixture(collisionSnapshot)
-assert.equal(collisionArtifacts.length, 0, 'DYE 路线不得生成可发生编号碰撞的旧需求产物')
+assert.equal(collisionArtifacts.length, 2, '不同 DYE 路线必须生成两张稳定生产准备加工单来源')
+assert.equal(new Set(collisionArtifacts.map((item) => item.artifactId)).size, 2, 'DYE 生产准备加工单来源编号不得碰撞')
 
 const slashBom = { ...artifactBomRows[1], id: 'BOM/A', materialCode: 'MAT-SLASH' }
 const colonBom = { ...artifactBomRows[1], id: 'BOM:A', materialCode: 'MAT-COLON' }
@@ -836,7 +836,8 @@ const punctuationArtifacts = generateArtifactFixture({
   bomItems: [slashBom, colonBom],
   processEntries: [{ ...dyeArtifactEntry, id: 'ENTRY-DYE-PUNCTUATION', linkedBomItemIds: ['BOM/A', 'BOM:A'] }],
 })
-assert.equal(punctuationArtifacts.length, 0, 'DYE 路线不得再生成 BOM 级旧需求产物')
+assert.equal(punctuationArtifacts.length, 1, 'DYE 路线应生成一张生产准备加工单来源')
+assert.equal(punctuationArtifacts[0]?.artifactType, 'PREPARATION_ORDER', 'DYE 路线不得生成生产任务')
 
 const invalidNoneBom = {
   ...artifactBomRows[3],
@@ -856,14 +857,15 @@ assert.doesNotThrow(() => {
   })
 }, '残留关联的 NONE BOM 即使数量字段无效也不得阻断正式拆解')
 assert.equal(ignoredNoneArtifacts.filter((item) => item.bomItemId === 'NONE').length, 0, 'NONE BOM 必须保持 0 产物')
-assert.equal(ignoredNoneArtifacts.filter((item) => item.bomItemId === 'ONLY-WATER').length, 1, 'NONE BOM 不得影响其他合法水溶任务')
-assert.equal(ignoredNoneArtifacts.filter((item) => item.bomItemId === 'ONLY-DYE').length, 0, 'NONE BOM 不得重新生成染色需求产物')
+assert.equal(ignoredNoneArtifacts.filter((item) => item.bomItemId === 'ONLY-WATER').length, 1, 'NONE BOM 不得影响其他合法水溶加工单')
+assert.equal(ignoredNoneArtifacts.filter((item) => item.processCode === 'DYE').length, 1, 'NONE BOM 不得影响染色生产准备加工单来源')
 const zeroLossArtifacts = generateArtifactFixture({
   ...artifactSnapshot,
   bomItems: [{ ...artifactBomRows[1], id: 'ZERO-LOSS', lossRate: 0 }],
   processEntries: [{ ...dyeArtifactEntry, id: 'ENTRY-DYE-ZERO-LOSS', linkedBomItemIds: ['ZERO-LOSS'] }],
 })
-assert.equal(zeroLossArtifacts.length, 0, 'DYE 物料的数量计算应由统一染色加工单负责')
+assert.equal(zeroLossArtifacts.length, 1, 'DYE 物料必须保留统一染色加工单来源')
+assert.equal(zeroLossArtifacts[0]?.artifactType, 'PREPARATION_ORDER', 'DYE 物料不得生成生产任务')
 
 const expectedWaterStatuses = {
   WAIT_FACTORY_ASSIGNMENT: '待分配染厂',
@@ -878,16 +880,16 @@ const expectedWaterStatuses = {
 } as const
 assert.deepEqual(WATER_SOLUBLE_STATUS_LABEL, expectedWaterStatuses, '水溶加工单状态中文标签必须完整且稳定')
 
-const allGeneratedWaterTaskArtifacts = productionArtifactGeneration.listGeneratedProductionTaskArtifacts().filter(
-  (item) => item.artifactType === 'TASK' && item.processCode === 'WATER_SOLUBLE',
+const allGeneratedWaterPreparationArtifacts = productionArtifactGeneration.listGeneratedProductionPreparationOrderArtifacts().filter(
+  (item) => item.artifactType === 'PREPARATION_ORDER' && item.processCode === 'WATER_SOLUBLE',
 )
 const isDictionaryCoverageArtifact = (artifact: { artifactId: string; sourceEntryId: string }) =>
   artifact.artifactId.startsWith('DICT-') || artifact.sourceEntryId.startsWith('DICT-MOCK-')
-const generatedWaterTaskArtifacts = allGeneratedWaterTaskArtifacts.filter(
+const generatedWaterPreparationArtifacts = allGeneratedWaterPreparationArtifacts.filter(
   (artifact) => !isDictionaryCoverageArtifact(artifact),
 )
-assert(generatedWaterTaskArtifacts.length > 0, '必须存在来自正式技术包 BOM 的非 DICT WATER_SOLUBLE TASK 演示产物')
-generatedWaterTaskArtifacts.forEach((artifact) => {
+assert(generatedWaterPreparationArtifacts.length > 0, '必须存在来自正式技术包 BOM 的水溶生产准备加工单来源')
+generatedWaterPreparationArtifacts.forEach((artifact) => {
   assert(artifact.bomItemId, `水溶产物 ${artifact.artifactId} 缺少 BOM 行`)
   assert(artifact.materialCode?.trim(), `水溶产物 ${artifact.artifactId} 缺少物料编码`)
   assert(artifact.materialName?.trim(), `水溶产物 ${artifact.artifactId} 缺少物料名称`)
@@ -941,16 +943,16 @@ assert.equal(
 
 resetWaterSolubleDomainForChecks()
 const firstWaterOrders = listWaterSolubleWorkOrders()
-assert.equal(firstWaterOrders.length, generatedWaterTaskArtifacts.length, '每条有效 WATER_SOLUBLE TASK 产物必须投影且不得追加伪造加工单')
+assert.equal(firstWaterOrders.length, generatedWaterPreparationArtifacts.length, '每条有效水溶生产准备产物必须投影且不得追加伪造加工单')
 assert(
   firstWaterOrders.every((item) => !isDictionaryCoverageArtifact({
     artifactId: item.sourceArtifactId,
-    sourceEntryId: allGeneratedWaterTaskArtifacts.find((artifact) => artifact.artifactId === item.sourceArtifactId)?.sourceEntryId ?? '',
+    sourceEntryId: allGeneratedWaterPreparationArtifacts.find((artifact) => artifact.artifactId === item.sourceArtifactId)?.sourceEntryId ?? '',
   })),
   '水溶加工单的 sourceArtifactId 必须全部来自非 DICT 正式产物',
 )
 assert(firstWaterOrders.every((item) => item.sourceDemandIds.length === 0), '水溶加工单不得生成或关联需求单')
-assert(firstWaterOrders.every((item) => item.processCode === 'WATER_SOLUBLE'), '水溶加工单必须只消费 WATER_SOLUBLE TASK 产物')
+assert(firstWaterOrders.every((item) => item.processCode === 'WATER_SOLUBLE'), '水溶加工单必须只消费水溶生产准备加工单来源')
 assert(
   firstWaterOrders.every((item) => /^SRJG-\d{9,}-\d{3,}$/.test(item.waterOrderNo)),
   '水溶加工单必须使用 SRJG-年月生产序号-物料序号 的短业务编号',
@@ -966,8 +968,8 @@ assert(
 )
 assert(firstWaterOrders.every((item) => item.taskNo === item.waterOrderNo), 'PDA 任务号必须复用平台水溶加工单号，不得生成平行编号')
 firstWaterOrders.forEach((order) => {
-  const artifact = generatedWaterTaskArtifacts.find((item) => item.artifactId === order.sourceArtifactId)
-  assert(artifact, `加工单 ${order.waterOrderId} 缺少来源 WATER_SOLUBLE TASK 产物`)
+  const artifact = generatedWaterPreparationArtifacts.find((item) => item.artifactId === order.sourceArtifactId)
+  assert(artifact, `加工单 ${order.waterOrderId} 缺少水溶生产准备来源`)
   assert.equal(order.bomItemId, artifact.bomItemId, '加工单 BOM 行必须原样复制来源产物')
   assert.equal(order.materialCode, artifact.materialCode, '加工单物料编码必须原样复制来源产物')
   assert.equal(order.materialName, artifact.materialName, '加工单物料名称必须原样复制来源产物')
@@ -1082,14 +1084,6 @@ try {
 } finally {
   capabilityFactoryIds.forEach(removeFactoryMasterRecord)
 }
-const waterFactoryProfile = getFactoryCapacityProfileByFactoryId('F090')
-assert(waterFactoryProfile.capabilityItems.some((item) => item.processCode === 'WATER_SOLUBLE'), '水溶能力必须投影到工厂产能档案 capabilityItems')
-const waterEquipment = listFactoryCapacityEquipments('F090').find((item) =>
-  item.abilityList.some((ability) => ability.processCode === 'WATER_SOLUBLE'),
-)
-assert(waterEquipment, '水溶能力必须生成产能设备能力档案')
-assert.equal(waterEquipment.equipmentType, 'GENERAL', '水溶不得新增专用设备类型')
-assert(waterEquipment.abilityList.some((item) => item.processCode === 'WATER_SOLUBLE' && item.efficiencyUnit === '批/分钟'), '水溶产能参考单位必须为批/分钟')
 const waterOnboarding = listFactoryOnboardingApplications().find((item) =>
   item.selectedCapabilities.some((capability) => capability.processCode === 'WATER_SOLUBLE'),
 )
@@ -1374,7 +1368,7 @@ const beforeUnknownDecision = getDyeWorkOrderById(combined.dyeOrderId)
 assert.equal(resolveDyeWaterSolublePause(combined.dyeOrderId, 'UNKNOWN' as never, '主管').ok, false, '未知暂停决定必须拦截')
 assert.deepEqual(getDyeWorkOrderById(combined.dyeOrderId), beforeUnknownDecision, '未知暂停决定不得改写加工单')
 assert.equal(resolveDyeWaterSolublePause(combined.dyeOrderId, 'CONTINUE_PROCESSING', '主管').order?.status, 'WAIT_WATER_SOLUBLE', '继续补做必须返回待水溶')
-assert.equal(getMobileExecutionTaskById(combined.taskId)?.status, 'NOT_STARTED', '继续补做后 PDA 必须回到待执行')
+assert.equal(getMobileExecutionTaskById(combined.taskId)?.status, 'IN_PROGRESS', '继续补做后 PDA 必须保持加工中并等待继续水溶')
 startDyeWaterSolubleNode(combined.dyeOrderId, '操作员')
 const beforeRollback = getDyeWorkOrderById(combined.dyeOrderId)
 assert.equal(completeDyeWaterSolubleNode(combined.dyeOrderId, combined.plannedQty - 3, '错误回退').ok, false, '累计水溶数量不得回退')

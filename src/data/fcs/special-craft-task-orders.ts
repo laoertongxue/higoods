@@ -382,6 +382,17 @@ const LINKED_DEMO_ABNORMALS: SpecialCraftTaskAbnormalStatus[] = [
   '无异常',
 ]
 let specialCraftTaskStore: SpecialCraftTaskStore | null = null
+const invalidatedMergedTaskOrderLogs: Array<{
+  taskOrderId: string
+  productionOrderId: string
+  mergedTaskId: string
+  invalidatedAt: string
+  invalidatedBy: string
+  reason: string
+  restoredAt?: string
+  restoredBy?: string
+  restoreReason?: string
+}> = []
 
 function formatDay(offsetDays = 0): string {
   const date = new Date(Date.UTC(2026, 3, 23 + offsetDays, 9, 0, 0))
@@ -678,7 +689,12 @@ function buildLinkedDemoTaskSeed(input: {
   const taskOrderId = `${taskPrefix}-TASK-${order.productionOrderId.replace(/[^A-Za-z0-9]/g, '')}-${operation.operationId.slice(-4)}-${variantNo}-${seedKey.slice(0, 8)}`
   const taskOrderNo = `${taskPrefix}-${order.productionOrderNo.replace(/^PO-/, '')}-${craftShortCode}-${variantNo}`
   const sourceTaskNo = `TASK-${taskOrderNo}`
-  const status = LINKED_DEMO_STATUSES[variantIndex % LINKED_DEMO_STATUSES.length]
+  // PO-202603-0101 是任务分配页的“未合并来源任务”演示单；在用户决定是否创建
+  // 裁剪+车缝+烫包之前，中央辅助/特种工艺加工单必须保持未领料，不能用轮转
+  // Mock 伪造已经开工的事实，否则会错误阻断固定合并任务创建。
+  const status = order.productionOrderId === 'PO-202603-0101'
+    ? '待领料'
+    : LINKED_DEMO_STATUSES[variantIndex % LINKED_DEMO_STATUSES.length]
   const abnormalStatus = LINKED_DEMO_ABNORMALS[variantIndex % LINKED_DEMO_ABNORMALS.length]
   const targetObject = operation.targetObject
   const pieceCountPerGarment = targetObject === '成衣' ? 1 : patternContext.pieceCountPerGarment
@@ -1906,7 +1922,58 @@ export function getSpecialCraftWarehouseView(
 }
 
 export function listSpecialCraftTaskOrders(): SpecialCraftTaskOrder[] {
-  return [...ensureStore().taskOrders]
+  const invalidatedIds = new Set(invalidatedMergedTaskOrderLogs.filter((item) => !item.restoredAt).map((item) => item.taskOrderId))
+  return ensureStore().taskOrders.filter((item) => !invalidatedIds.has(item.taskOrderId))
+}
+
+export function listBlockingSpecialCraftTaskOrdersForMergedTask(productionOrderId: string): SpecialCraftTaskOrder[] {
+  return listSpecialCraftTaskOrders().filter((taskOrder) =>
+    taskOrder.productionOrderId === productionOrderId && taskOrder.status !== '待领料',
+  )
+}
+
+export function invalidateUnstartedSpecialCraftTaskOrdersForMergedTask(input: {
+  productionOrderId: string
+  mergedTaskId: string
+  invalidatedAt: string
+  invalidatedBy: string
+  reason: string
+}): string[] {
+  const candidates = listSpecialCraftTaskOrders().filter((taskOrder) =>
+    taskOrder.productionOrderId === input.productionOrderId && taskOrder.status === '待领料',
+  )
+  for (const taskOrder of candidates) {
+    invalidatedMergedTaskOrderLogs.push({
+      taskOrderId: taskOrder.taskOrderId,
+      productionOrderId: input.productionOrderId,
+      mergedTaskId: input.mergedTaskId,
+      invalidatedAt: input.invalidatedAt,
+      invalidatedBy: input.invalidatedBy,
+      reason: input.reason,
+    })
+  }
+  return candidates.map((item) => item.taskOrderId)
+}
+
+export function listMergedTaskSpecialCraftInvalidationLogs(): typeof invalidatedMergedTaskOrderLogs {
+  return invalidatedMergedTaskOrderLogs.map((item) => ({ ...item }))
+}
+
+export function restoreSpecialCraftTaskOrdersAfterMergedTaskCancellation(input: {
+  mergedTaskId: string
+  restoredAt: string
+  restoredBy: string
+  reason: string
+}): string[] {
+  const restoredIds: string[] = []
+  for (const log of invalidatedMergedTaskOrderLogs) {
+    if (log.mergedTaskId !== input.mergedTaskId || log.restoredAt) continue
+    log.restoredAt = input.restoredAt
+    log.restoredBy = input.restoredBy
+    log.restoreReason = input.reason
+    restoredIds.push(log.taskOrderId)
+  }
+  return restoredIds
 }
 
 export function listAuxiliaryCraftTaskOrders(): SpecialCraftTaskOrder[] {

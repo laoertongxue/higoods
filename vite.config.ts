@@ -29,41 +29,6 @@ function ensureStaticPlaceholderPlugin(): Plugin {
   }
 }
 
-function normalizeId(id: string): string {
-  return id.replace(/\\/g, '/')
-}
-
-function resolveManualChunk(id: string): string | undefined {
-  const normalized = normalizeId(id)
-
-  if (normalized.includes('/node_modules/')) {
-    if (normalized.includes('/lucide')) return 'vendor-lucide'
-    return 'vendor'
-  }
-
-  if (
-    normalized.includes('/src/components/shell.ts')
-    || normalized.includes('/src/main.ts')
-  ) {
-    return 'app-shell'
-  }
-
-  if (normalized.includes('/src/router/routes.ts')) {
-    return 'app-routes'
-  }
-  if (normalized.includes('/src/router/routes-fcs.ts')) {
-    return 'app-routes-fcs'
-  }
-  if (normalized.includes('/src/router/routes-pcs.ts')) {
-    return 'app-routes-pcs'
-  }
-  if (normalized.includes('/src/router/routes-pda.ts')) {
-    return 'app-routes-pda'
-  }
-
-  return undefined
-}
-
 export default defineConfig({
   plugins: [ensureStaticPlaceholderPlugin()],
   resolve: {
@@ -74,10 +39,31 @@ export default defineConfig({
     strictPort: true,
   },
   build: {
-    chunkSizeWarningLimit: 3200,
     rollupOptions: {
       output: {
-        manualChunks: resolveManualChunk,
+        onlyExplicitManualChunks: true,
+        manualChunks(id) {
+          if (id.includes('/src/data/fcs/pda-handover-events.ts')) return 'pda-handover-events'
+          if (id.includes('/src/data/fcs/post-finishing-domain.ts')) return 'post-finishing-execution-domain'
+          if (id.includes('/src/data/pcs-technical-data-version-repository.ts')) {
+            return 'pcs-technical-data-version-repository'
+          }
+          if (id.includes('/src/data/pcs-technical-data-version-bootstrap.ts')) {
+            return 'pcs-tech-pack-bootstrap'
+          }
+          if (id.includes('/src/data/pcs-engineering-bom-snapshot-source.ts')) {
+            return 'pcs-engineering-bom-snapshot-source'
+          }
+          if (id.includes('/src/data/pcs-engineering-bom-snapshot-validation.ts')) {
+            return 'pcs-engineering-bom-snapshot-validation'
+          }
+          if (id.includes('/src/data/pcs-engineering-bom-material-resolver.ts')) {
+            return 'pcs-engineering-bom-material-resolver'
+          }
+          if (id.includes('/src/data/pcs-material-archive-repository.ts')) {
+            return 'pcs-material-archive-repository'
+          }
+        },
       },
     },
   },

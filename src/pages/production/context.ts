@@ -35,7 +35,6 @@ import {
 import {
   getRuntimeAssignmentSummaryByOrder,
   getRuntimeBiddingSummaryByOrder,
-  getRuntimeOrderOutputValueTotal,
   getRuntimeTaskById,
   getRuntimeTaskCountByOrder,
   listRuntimeExecutionTasksByOrder,
@@ -46,7 +45,6 @@ import {
 } from '../../data/fcs/runtime-process-tasks'
 import {
   recordTaskGenerationPreview,
-  resolveTaskOutputValueSnapshot,
 } from '../../data/fcs/process-tasks'
 import { summarizeTaskDetailRows } from '../../data/fcs/task-detail-rows'
 import {
@@ -700,25 +698,6 @@ interface OrderTaskBreakdownSnapshot {
   lastBreakdownBy: string
 }
 
-interface OrderOutputValueBreakdownRow {
-  taskId: string
-  taskNo: string
-  taskLabel: string
-  processLabel: string
-  qty: number
-  detailRowCount: number
-  outputValuePerUnit?: number
-  outputValueUnit?: string
-  totalOutputValue?: number
-  isSplitResult: boolean
-}
-
-interface OrderOutputValueSnapshot {
-  totalOutputValue?: number
-  taskCount: number
-  breakdownRows: OrderOutputValueBreakdownRow[]
-}
-
 function getRuntimeTaskTypeLabel(task: RuntimeProcessTask): string {
   if (task.taskCategoryZh) return task.taskCategoryZh
   if (task.isSpecialCraft) return task.craftName || task.processBusinessName || task.processNameZh
@@ -728,50 +707,6 @@ function getRuntimeTaskTypeLabel(task: RuntimeProcessTask): string {
 function getTaskDetailRows(task: RuntimeProcessTask) {
   if (task.scopeDetailRows && task.scopeDetailRows.length > 0) return task.scopeDetailRows
   return task.detailRows ?? []
-}
-
-function formatOutputValue(value: number | undefined): string {
-  if (!Number.isFinite(value) || Number(value) <= 0) return '--'
-  return `${Number(value).toLocaleString()} 产值`
-}
-
-function formatOutputValuePerUnit(value: number | undefined): string {
-  if (!Number.isFinite(value) || Number(value) <= 0) return '--'
-  return Number(value).toLocaleString()
-}
-
-function getOrderOutputValueSnapshot(order: ProductionOrder): OrderOutputValueSnapshot {
-  const runtimeTasks = listRuntimeExecutionTasksByOrder(order.productionOrderId)
-    .sort((a, b) => {
-      if (a.seq !== b.seq) return a.seq - b.seq
-      return (a.taskNo || a.taskId).localeCompare(b.taskNo || b.taskId)
-    })
-
-  const breakdownRows = runtimeTasks.map<OrderOutputValueBreakdownRow>((task) => {
-    const outputValue = resolveTaskOutputValueSnapshot(task)
-    const processLabel = task.isSpecialCraft && task.craftName
-      ? `${task.processBusinessName || task.processNameZh} / ${task.craftName}`
-      : task.processBusinessName || task.processNameZh || task.processCode
-
-    return {
-      taskId: task.taskId,
-      taskNo: task.taskNo || task.taskId,
-      taskLabel: getRuntimeTaskTypeLabel(task),
-      processLabel,
-      qty: task.scopeQty || task.qty,
-      detailRowCount: getTaskDetailRows(task).length,
-      outputValuePerUnit: outputValue.outputValuePerUnit,
-      outputValueUnit: outputValue.outputValueUnit,
-      totalOutputValue: outputValue.totalOutputValue,
-      isSplitResult: Boolean(task.isSplitResult),
-    }
-  })
-
-  return {
-    totalOutputValue: getRuntimeOrderOutputValueTotal(order.productionOrderId),
-    taskCount: breakdownRows.length,
-    breakdownRows,
-  }
 }
 
 function getOrderTaskBreakdownSnapshot(order: ProductionOrder): OrderTaskBreakdownSnapshot {
@@ -1015,7 +950,7 @@ function applyOrderTaskBreakdown(orderIds: string[]): number {
         singleProcessTaskCount: preview.generatedUnits.filter((unit) => unit.taskUnitType === 'SINGLE_PROCESS_TASK').length,
         independentWorkOrderTaskCount: runtimeRecord.independentWorkOrderCount,
         independentWorkOrderCount: runtimeRecord.independentWorkOrderCount,
-        combinedProcessTaskCount: preview.generatedUnits.filter((unit) => unit.taskUnitType === 'COMBINED_PROCESS_TASK').length,
+        mergedProductionTaskCount: preview.generatedUnits.filter((unit) => unit.taskUnitType === 'MERGED_PRODUCTION_TASK').length,
         wholeOrderTaskCount: preview.generatedUnits.filter((unit) => unit.taskUnitType === 'WHOLE_ORDER_TASK').length,
         coveredProcessNames,
         previewStatus: preview.status,
@@ -1919,14 +1854,12 @@ export {
   legalEntities,
   getRuntimeAssignmentSummaryByOrder,
   getRuntimeBiddingSummaryByOrder,
-  getRuntimeOrderOutputValueTotal,
   getRuntimeTaskById,
   getRuntimeTaskCountByOrder,
   listRuntimeExecutionTasksByOrder,
   listRuntimeTaskSplitGroupsByOrder,
   listRuntimeTasksByOrder,
   summarizeTaskDetailRows,
-  resolveTaskOutputValueSnapshot,
   initialDeductionBasisItems,
   initialAllocationByTaskId,
   initialStatementDrafts,
@@ -1974,9 +1907,6 @@ export {
   getRuntimeTaskTypeLabel,
   getTaskDetailRows,
   getOrderTaskBreakdownSnapshot,
-  formatOutputValue,
-  formatOutputValuePerUnit,
-  getOrderOutputValueSnapshot,
   renderStatCard,
   renderEmptyRow,
   parseOrderSuffix,

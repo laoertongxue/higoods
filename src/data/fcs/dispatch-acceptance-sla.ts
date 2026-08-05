@@ -460,30 +460,6 @@ function addHours(base: string, hours: number): string {
 
 const presetConfigs: DispatchAcceptanceSlaConfig[] = [
   {
-    configId: 'DAS-PRINT-SCREEN',
-    processCode: 'PRINT',
-    processName: '印花',
-    craftCode: 'CRAFT_2000001',
-    craftName: '丝网印',
-    enabled: true,
-    defaultAcceptTimeoutHours: 4,
-    updatedBy: '生产计划主管',
-    updatedAt: '2026-06-09 09:20:00',
-    remark: '印花加工单派出后，常规工厂需在半天内确认接单。',
-    factoryOverrides: [
-      {
-        overrideId: 'DAS-PRINT-SCREEN-FULL',
-        factoryId: 'F090',
-        factoryName: '全能力测试工厂',
-        acceptTimeoutHours: 0,
-        enabled: true,
-        updatedBy: '生产计划主管',
-        updatedAt: '2026-06-09 09:30:00',
-        remark: '联调工厂默认派单即接单。',
-      },
-    ],
-  },
-  {
     configId: 'DAS-SEW-BASIC',
     processCode: 'SEW',
     processName: '车缝',
@@ -801,7 +777,10 @@ function summarizeBy<T>(rows: T[], getLabel: (row: T) => string): Array<{ label:
 }
 
 export function listDispatchAcceptanceSlaFactoryRows(): DispatchAcceptanceSlaFactoryPageRow[] {
-  return listBusinessFactoryMasterRecords({ includeTestFactories: true })
+  const factories = Array.from(
+    new Map(listBusinessFactoryMasterRecords({ includeTestFactories: true }).map((factory) => [factory.id, factory])).values(),
+  )
+  return factories
     .map((factory) => {
       const abilityRows = resolveFactoryAbilityRows(factory.id)
       const latestRule = abilityRows

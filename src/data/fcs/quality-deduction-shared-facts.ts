@@ -105,7 +105,7 @@ const PROCESS_LABEL: Record<ReturnInboundProcessType, string> = {
 
 const SEW_MODE_LABEL: Record<string, string> = {
   SEW_FACTORY_INCLUDES_POST: '车缝厂含后道',
-  MANAGED_POST_FACTORY_EXECUTES: '我方后道工厂执行后道',
+  MANAGED_POST_FACTORY_EXECUTES: '我方后道工厂执行实际工序',
 }
 
 const PROCESSING_FEE_RATE: Record<ReturnInboundProcessType, number> = {

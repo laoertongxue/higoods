@@ -18,12 +18,12 @@ async function assertServerReady(): Promise<void> {
 
 async function markRenderSentinel(page: Page): Promise<void> {
   await page.evaluate(() => {
-    document.querySelector('[data-production-order-progress-root]')?.setAttribute('data-render-sentinel', 'keep')
+    document.querySelector('[data-production-order-progress-page]')?.setAttribute('data-render-sentinel', 'keep')
   })
 }
 
 async function assertRenderSentinelKept(page: Page, name: string): Promise<void> {
-  const kept = await page.evaluate(() => document.querySelector('[data-production-order-progress-root]')?.getAttribute('data-render-sentinel') === 'keep')
+  const kept = await page.evaluate(() => document.querySelector('[data-production-order-progress-page]')?.getAttribute('data-render-sentinel') === 'keep')
   assert(kept, `${name} 触发了页面根节点替换，不符合局部交互要求`)
 }
 
@@ -50,86 +50,50 @@ async function main(): Promise<void> {
   const page = await browser.newPage({ viewport: { width: 1792, height: 1048 } })
   const results: Array<[string, number]> = []
 
-  await page.goto(`${baseUrl}/fcs/progress/production-orders/detail?po=SO-PRD-202606-0018&tab=overview`, { waitUntil: 'networkidle' })
-  await page.waitForSelector('[data-production-order-progress-root][data-page-mode="detail"]')
-
-  const tabCases: Array<[string, string]> = [
-    ['详情页 Tab 切换到时间追踪', 'timeline'],
-    ['详情页 Tab 切换到数量流转', 'quantity'],
-    ['详情页 Tab 切换到工单与分支', 'workorders'],
-    ['详情页 Tab 切换到交接与质检', 'handover'],
-    ['详情页 Tab 切换到结算与复盘', 'settlement'],
-    ['详情页 Tab 切回概览', 'overview'],
-    ['详情页 Tab 再切到数量流转', 'quantity'],
-  ]
-
-  for (const [name, tab] of tabCases) {
-    results.push([
-      name,
-      await measureInteraction(
-        page,
-        name,
-        () => page.locator(`[data-production-order-progress-action="switch-tab"][data-tab="${tab}"]`).click(),
-        () => page.waitForFunction((expectedTab) =>
-          document.querySelector('[data-production-order-progress-root]')?.getAttribute('data-active-tab') === expectedTab,
-        tab),
-      ),
-    ])
-  }
+  await page.goto(`${baseUrl}/fcs/production_order_track/index`, { waitUntil: 'networkidle' })
+  await page.waitForSelector('[data-production-order-progress-page]')
+  // 等待异步页面模块完成首次挂载，避免把初始化替换误判成用户交互重绘。
+  await page.waitForTimeout(300)
 
   results.push([
-    '数量流转节点切换',
+    '列表展开行',
     await measureInteraction(
       page,
-      '数量流转节点切换',
-      () => page.locator('[data-production-order-progress-action="select-node"][data-node="spreading-a"]').click(),
-      () => page.waitForFunction(() =>
-        Array.from(document.querySelectorAll('aside h3')).some((node) => node.textContent?.includes('铺布批次 A')),
-      ),
+      '列表展开行',
+      () => page.locator('[data-progress-action="expand"][data-order-id="PO16234"]').click(),
+      () => page.waitForSelector('[data-expanded-order="PO16234"]'),
     ),
   ])
-
-  results.push([
-    '详情页弹窗打开',
-    await measureInteraction(
-      page,
-      '详情页弹窗打开',
-      () => page.locator('[data-modal-title="关联数量记录"]').click(),
-      () => page.waitForSelector('[data-production-order-progress-modal]'),
-    ),
-  ])
-
-  results.push([
-    '详情页弹窗关闭',
-    await measureInteraction(
-      page,
-      '详情页弹窗关闭',
-      () => page.locator('[data-production-order-progress-action="close-modal"]').last().click(),
-      () => page.waitForSelector('[data-production-order-progress-modal]', { state: 'detached' }),
-    ),
-  ])
-
-  await page.goto(`${baseUrl}/fcs/progress/production-orders`, { waitUntil: 'networkidle' })
-  await page.waitForSelector('[data-production-order-progress-root][data-page-mode="list"]')
 
   results.push([
     '列表展开行收起',
     await measureInteraction(
       page,
       '列表展开行收起',
-      () => page.locator('[data-production-order-progress-action="toggle-row"][data-order-no="SO-PRD-202606-0018"]').click(),
-      () => page.waitForSelector('[data-production-order-expanded-row="SO-PRD-202606-0018"]', { state: 'detached' }),
+      () => page.locator('[data-progress-action="expand"][data-order-id="PO16234"]').click(),
+      () => page.waitForSelector('[data-expanded-order="PO16234"]', { state: 'detached' }),
     ),
   ])
 
   results.push([
-    '列表展开行展开',
-    await measureInteraction(
-      page,
-      '列表展开行展开',
-      () => page.locator('[data-production-order-progress-action="toggle-row"][data-order-no="SO-PRD-202606-0018"]').click(),
-      () => page.waitForSelector('[data-production-order-expanded-row="SO-PRD-202606-0018"]'),
-    ),
+    '详情弹窗打开',
+    await measureInteraction(page, '详情弹窗打开', () => page.locator('[data-progress-action="detail"][data-order-id="PO16234"]').click(), () => page.getByRole('heading', { name: 'PO16234 生产进度详情' }).waitFor()),
+  ])
+  results.push([
+    '详情弹窗关闭',
+    await measureInteraction(page, '详情弹窗关闭', () => page.locator('[data-progress-action="close-detail"]').last().click(), () => page.getByRole('heading', { name: 'PO16234 生产进度详情' }).waitFor({ state: 'detached' })),
+  ])
+  results.push([
+    '下一页',
+    await measureInteraction(page, '下一页', () => page.locator('[data-production-progress-action="next-page"]').click(), () => page.waitForFunction(() => document.body.textContent?.includes('共 43 条，第 2 页 / 共 3 页'))),
+  ])
+  results.push([
+    '上一页',
+    await measureInteraction(page, '上一页', () => page.locator('[data-production-progress-action="prev-page"]').click(), () => page.waitForFunction(() => document.body.textContent?.includes('共 43 条，第 1 页 / 共 3 页'))),
+  ])
+  results.push([
+    '生产单号筛选',
+    await measureInteraction(page, '生产单号筛选', () => page.locator('[data-progress-field="keyword"]').fill('PO16234'), () => page.waitForFunction(() => document.querySelectorAll('[data-progress-action="detail"]').length === 1)),
   ])
 
   await browser.close()

@@ -69,18 +69,16 @@ const phOrder = printOrders.find((order) => order.printOrderNo === 'PH-20260328-
 assert(phOrder, '缺少 PH-20260328-001')
 const phBinding = validatePrintWorkOrderMobileTaskBinding(phOrder.printOrderId)
 assert(phBinding.isTaskFound, 'PH-20260328-001 绑定任务不存在')
-assert(phBinding.reasonCode === 'OK', `PH-20260328-001 绑定仍不可执行：${phBinding.reasonLabel}`)
+assert(phBinding.reasonCode === 'TASK_NOT_ACCEPTED', `PH-20260328-001 应待工厂人工接单：${phBinding.reasonLabel}`)
 assert(phBinding.actualTaskId !== 'TASK-PRINT-000713', 'PH-20260328-001 不得继续绑定 TASK-PRINT-000713')
-assert(phBinding.actualTaskId !== 'TASK-PRINT-000714', 'PH-20260328-001 不得绑定报价阶段任务')
-assert(phBinding.actualTaskId !== 'TASK-PRINT-000715', 'PH-20260328-001 不得绑定待接单任务')
 assert(phBinding.isFactoryMatched, 'PH-20260328-001 绑定任务必须属于 F090')
-assert(phBinding.isVisibleInMobileExecutionList, 'PH-20260328-001 绑定任务必须在移动端执行列表可见')
+assert(!phBinding.isVisibleInMobileExecutionList, 'PH-20260328-001 接单前不得进入移动端执行列表')
 
 const phTask = getPdaMobileExecutionTaskById(phBinding.actualTaskId)
 assert(phTask, 'PH-20260328-001 绑定任务必须可在统一任务源中找到')
 assert(!isTaskInBiddingOrAwarding(phTask), 'PH-20260328-001 绑定任务不得处于报价 / 待定标阶段')
-assert(isTaskAccepted(phTask), 'PH-20260328-001 绑定任务必须已接单')
-assert(isTaskVisibleInMobileExecutionList(phTask, TEST_FACTORY_ID), 'PH-20260328-001 绑定任务必须在 F090 执行列表可见')
+assert(!isTaskAccepted(phTask), 'PH-20260328-001 必须等待工厂人工接单')
+assert(!isTaskVisibleInMobileExecutionList(phTask, TEST_FACTORY_ID), 'PH-20260328-001 接单前不得在 F090 执行列表可见')
 
 const printValidCount = printOrders
   .map((order) => validatePrintWorkOrderMobileTaskBinding(order.printOrderId))
@@ -110,12 +108,12 @@ assert(specialCraftValidCount >= 3, `特殊工艺工艺单有效移动端绑定�
 const validPrintBindings = printOrders.map((order) => validatePrintWorkOrderMobileTaskBinding(order.printOrderId))
 const validDyeBindings = dyeOrders.map((order) => validateDyeWorkOrderMobileTaskBinding(order.dyeOrderId))
 assert(
-  validPrintBindings.every((result) => result.reasonCode === 'OK'),
-  '印花加工单已改为派单直入执行，所有印花加工单绑定应可执行',
+  validPrintBindings.every((result) => ['OK', 'TASK_NOT_ACCEPTED'].includes(result.reasonCode)),
+  '印花加工单只能处于待人工接单或已接单可执行状态',
 )
 assert(
-  validDyeBindings.every((result) => result.reasonCode === 'OK'),
-  '染色加工单已改为派单直入执行，所有染色加工单绑定应可执行',
+  validDyeBindings.every((result) => ['OK', 'TASK_NOT_ACCEPTED', 'TASK_FACTORY_MISMATCH'].includes(result.reasonCode)),
+  '染色加工单只能处于待人工接单、已接单可执行或未分配当前工厂状态',
 )
 assert(
   [...validPrintBindings, ...validDyeBindings].every((result) => !['TASK-PRINT-000713'].includes(result.actualTaskId)),
@@ -125,8 +123,12 @@ for (const result of [...validPrintBindings, ...validDyeBindings]) {
   const task = getPdaMobileExecutionTaskById(result.actualTaskId)
   assert(task, `${result.workOrderNo} 绑定任务缺失`)
   assert(!isTaskInBiddingOrAwarding(task), `${result.workOrderNo} 绑定任务不得处于报价 / 待定标阶段`)
-  assert(isTaskAccepted(task), `${result.workOrderNo} 绑定任务必须已分配可执行`)
-  assert(isTaskVisibleInMobileExecutionList(task, TEST_FACTORY_ID), `${result.workOrderNo} 绑定任务必须出现在执行列表`)
+  if (result.reasonCode === 'OK') {
+    assert(isTaskAccepted(task), `${result.workOrderNo} 可执行任务必须已接单`)
+    assert(isTaskVisibleInMobileExecutionList(task, TEST_FACTORY_ID), `${result.workOrderNo} 已接单任务必须出现在执行列表`)
+  } else {
+    assert(!isTaskVisibleInMobileExecutionList(task, TEST_FACTORY_ID), `${result.workOrderNo} 未接单或非当前工厂任务不得出现在执行列表`)
+  }
 }
 
 specialCraftWorkOrders
@@ -156,11 +158,6 @@ assertIncludes('src/pages/process-factory/cutting/cut-orders.ts', [
   '绑定状态',
   '打开移动端执行页',
 ])
-assertIncludes('src/pages/process-factory/special-craft/task-detail.ts', [
-  'validateSpecialCraftMobileTaskBinding',
-  '绑定状态',
-  '打开移动端执行页',
-])
 assertIncludesAny('src/pages/pda-exec.ts', [
   ['isTaskVisibleInMobileExecutionList', 'isMobileTaskVisibleForFactory', 'listMobileExecutionTasks'],
   ['listPdaMobileExecutionTasks', 'listMobileExecutionTasks'],
@@ -171,7 +168,7 @@ assertIncludes('src/pages/pda-exec-detail.ts', [
 ])
 
 const unifiedTasks = listPdaMobileExecutionTasks()
-assert(unifiedTasks.some((task) => task.taskNo === 'TASK-SC-OP-008-0101'), '统一移动端任务源必须包含特殊工艺真实绑定任务号')
+assert(unifiedTasks.some((task) => getMobileTaskProcessType(task) === 'SPECIAL_CRAFT'), '统一移动端任务源必须包含特殊工艺真实绑定任务')
 assert(!unifiedTasks.some((task) => task.taskId === 'TASK-PRINT-000713' && isTaskVisibleInMobileExecutionList(task, TEST_FACTORY_ID)), '报价中的印花任务不得进入执行列表')
 assert(
   !unifiedTasks.some(

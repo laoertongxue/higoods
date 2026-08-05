@@ -4,6 +4,7 @@ import { listGeneratedCutOrderSourceRecords } from './cutting/generated-cut-orde
 import {
   getDyeWorkOrderById,
   getDyeWorkOrderByTaskId,
+  listDyeMobileExecutionTasks,
   listDyeWorkOrders,
   type DyeWorkOrder,
 } from './dyeing-task-domain.ts'
@@ -18,7 +19,6 @@ import {
   listWoolWorkOrders,
   type WoolWorkOrder,
 } from './wool-task-domain.ts'
-import { listPdaGenericTasksByProcess } from './pda-task-mock-factory.ts'
 import {
   getPostFinishingWorkOrderById,
   getPostFinishingTaskById,
@@ -29,6 +29,7 @@ import type { ProcessTask } from './process-tasks.ts'
 import {
   getPrintWorkOrderById,
   getPrintWorkOrderByTaskId,
+  listPrintMobileExecutionTasks,
   listPrintWorkOrders,
   type PrintWorkOrder,
 } from './printing-task-domain.ts'
@@ -38,7 +39,7 @@ import {
   listSpecialCraftTaskOrders,
   type SpecialCraftTaskOrder,
 } from './special-craft-task-orders.ts'
-import { applyPendingDispatchAutoAcceptance } from './runtime-process-tasks.ts'
+import { applyPendingDispatchAutoAcceptance, getRuntimeTaskById, listRuntimeProcessTasks } from './runtime-process-tasks.ts'
 import {
   getWaterSolubleWorkOrderById,
   getWaterSolubleWorkOrderByTaskId,
@@ -201,7 +202,7 @@ function mapPostFinishingTaskToTask(task: PostFinishingTaskView, seq: number): P
     acceptedBy: task.acceptedBy,
     dispatchedAt: task.createdAt,
     dispatchedBy: '系统',
-    dispatchRemark: '生产单级后道任务同步到工厂端移动应用执行',
+    dispatchRemark: '生产单级后道阶段处理记录同步到工厂端移动应用执行',
     acceptDeadline: task.createdAt,
     taskDeadline: task.updatedAt,
     receiverKind: 'MANAGED_POST_FACTORY',
@@ -218,7 +219,7 @@ function mapPostFinishingTaskToTask(task: PostFinishingTaskView, seq: number): P
       {
         id: `AL-${task.postTaskId}-DISPATCH`,
         action: 'DISPATCH',
-        detail: 'Web 后道任务派单到后道工厂',
+        detail: 'Web 后道阶段实际工序安排到后道工厂',
         at: task.createdAt,
         by: '系统',
       },
@@ -396,15 +397,23 @@ export function listPdaMobileExecutionTasks(): ProcessTask[] {
     return coveredProcess.sourceArtifactIds.length === 1
       && waterSolubleArtifactIds.has(coveredProcess.sourceArtifactIds[0])
   }
+  const canonicalPrintTasks = listPrintMobileExecutionTasks()
+  const canonicalDyeTasks = listDyeMobileExecutionTasks()
+  const canonicalPreparationTaskIds = new Set([
+    ...canonicalPrintTasks.map((task) => task.taskId),
+    ...canonicalDyeTasks.map((task) => task.taskId),
+    ...waterSolubleTasks.map((task) => task.taskId),
+  ])
   const baseTasks = listPdaTaskFlowTasks().filter((task) =>
     !isSpecialCraftTask(task)
     && getMobileTaskProcessType(task) !== 'WOOL'
+    && !canonicalPreparationTaskIds.has(task.taskId)
     && !isSupersededWaterSolubleTask(task),
-  )
+  ).map((task) => structuredClone(getRuntimeTaskById(task.taskId) || task) as ProcessTask)
   const existingTaskIds = new Set(baseTasks.map((task) => task.taskId))
   const genericProcessTasks = [
-    ...listPdaGenericTasksByProcess('PRINTING'),
-    ...listPdaGenericTasksByProcess('DYEING'),
+    ...canonicalPrintTasks,
+    ...canonicalDyeTasks,
   ].filter((task) => !existingTaskIds.has(task.taskId) && !isSupersededWaterSolubleTask(task))
   const existingWithGeneric = new Set([...existingTaskIds, ...genericProcessTasks.map((task) => task.taskId)])
   const standaloneWaterSolubleTasks = waterSolubleTasks.filter((task) => !existingWithGeneric.has(task.taskId))
@@ -419,7 +428,11 @@ export function listPdaMobileExecutionTasks(): ProcessTask[] {
     .filter((task) => !existingWithSpecial.has(task.taskId))
   const existingWithPost = new Set([...existingWithSpecial, ...postTasks.map((task) => task.taskId)])
   const thirdPartyCuttingTasks = listThirdPartyCuttingMarkerPreconditionTasks(existingWithPost)
-  return [...baseTasks, ...genericProcessTasks, ...standaloneWaterSolubleTasks, ...woolTasks, ...specialCraftTasks, ...postTasks, ...thirdPartyCuttingTasks]
+  const existingWithAllSpecialized = new Set([...existingWithPost, ...thirdPartyCuttingTasks.map((task) => task.taskId)])
+  const runtimeTasks = listRuntimeProcessTasks()
+    .filter((task) => task.executionEnabled !== false && !existingWithAllSpecialized.has(task.taskId))
+    .map((task) => structuredClone(task) as ProcessTask)
+  return [...baseTasks, ...genericProcessTasks, ...standaloneWaterSolubleTasks, ...woolTasks, ...specialCraftTasks, ...postTasks, ...thirdPartyCuttingTasks, ...runtimeTasks]
 }
 
 export function getPdaMobileExecutionTaskById(taskId: string): ProcessTask | null {
@@ -481,7 +494,7 @@ export function getMobileTaskProcessType(task: ProcessTask | null | undefined): 
   const coveredType = classifyCoveredProcesses(task)
   if (coveredType) return coveredType
 
-  if (task.taskUnitType === 'WHOLE_ORDER_TASK' || task.taskUnitType === 'COMBINED_PROCESS_TASK') return 'UNKNOWN'
+  if (task.taskUnitType === 'WHOLE_ORDER_TASK' || task.taskUnitType === 'MERGED_PRODUCTION_TASK') return 'UNKNOWN'
 
   const explicitFields = [
     task.processNameZh,

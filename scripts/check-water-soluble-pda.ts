@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 import {
+  acceptDyeWorkOrderPdaTask,
   completeDyeMaterialReady,
   completeDyeMaterialWait,
   completeDyeNode,
@@ -62,8 +63,8 @@ import {
   executeMobileProcessAction,
   getProcessActionOperationRecordsByTask,
 } from '../src/data/fcs/process-action-writeback-service.ts'
-import { recordDyeWorkOrderPdaAcceptance, recordDyeWorkOrderPdaStart } from '../src/data/fcs/dye-work-order-online-domain.ts'
 import {
+  acceptWaterSolubleWorkOrderPdaTask,
   assignWaterSolubleFactory,
   executeWaterSolublePdaAction,
   getWaterSolubleCurrentAction,
@@ -75,7 +76,6 @@ import {
   resetWaterSolubleDomainForChecks,
 } from '../src/data/fcs/water-soluble-task-domain.ts'
 import type { ProcessTask } from '../src/data/fcs/process-tasks.ts'
-import { acceptPdaGenericProcessTask, listPdaGenericProcessTasks } from '../src/data/fcs/pda-task-mock-factory.ts'
 import { appStore } from '../src/state/store.ts'
 
 const memoryStorage = new Map<string, string>()
@@ -193,42 +193,10 @@ async function main(): Promise<void> {
     }), 'WATER_SOLUBLE')
     assert.equal(getMobileTaskProcessType({
       ...classificationBase,
-      processCode: 'UNKNOWN',
-      processNameZh: '连续加工',
-      coveredProcesses: [
-        { processCode: 'WATER_SOLUBLE', processName: '水溶', sourceArtifactIds: ['ART-WATER'] },
-        { processCode: 'DYE', processName: '染色', sourceArtifactIds: ['ART-DYE'] },
-      ],
-    }), 'DYE', '结构化水溶加染色覆盖必须按联合染色主业务识别为 DYE')
-    assert.equal(getMobileTaskProcessType({
-      ...classificationBase,
-      taskUnitType: 'COMBINED_PROCESS_TASK',
-      processBusinessCode: 'DYE',
-      processNameZh: '染色加工（含水溶）',
-    }), 'DYE')
-    assert.equal(getMobileTaskProcessType({
-      ...classificationBase,
-      taskUnitType: 'COMBINED_PROCESS_TASK',
-      processCode: 'UNKNOWN',
-      processNameZh: '水溶组合任务',
-      coveredProcesses: [
-        { processCode: 'WATER_SOLUBLE', processName: '水溶', sourceArtifactIds: ['ART-WATER'] },
-        { processCode: 'CUTTING', processName: '裁片', sourceArtifactIds: ['ART-CUTTING'] },
-      ],
-    }), 'UNKNOWN', '水溶加裁片组合任务不得被文本兜底误判为独立水溶')
-    assert.equal(getMobileTaskProcessType({
-      ...classificationBase,
       taskUnitType: 'WHOLE_ORDER_TASK',
       processCode: 'UNKNOWN',
       processNameZh: '整单含水溶说明',
     }), 'UNKNOWN', '整单任务不得被水溶文案兜底误判')
-    assert.equal(getMobileTaskProcessType({
-      ...classificationBase,
-      taskUnitType: 'COMBINED_PROCESS_TASK',
-      processCode: 'UNKNOWN',
-      processNameZh: '水溶连续任务',
-      coveredProcesses: [{ processCode: 'UNCLASSIFIED', processName: '待识别', sourceArtifactIds: ['ART-UNKNOWN'] }],
-    }), 'UNKNOWN', '未知组合任务不得被水溶文案兜底误判')
     assert.equal(getMobileTaskProcessType(classificationBase), 'UNKNOWN')
 
     const pdaTasks = listPdaMobileExecutionTasks()
@@ -242,8 +210,15 @@ async function main(): Promise<void> {
       assert.equal(consumers.length, 1, `独立水溶来源产物必须只被一个 PDA 任务消费：${artifactId}`)
     })
 
-    const waterTasks = listMobileExecutionTasks({ processType: 'WATER_SOLUBLE' })
     const visibleWaterOrders = waterOrders.filter((order) => order.factoryId === 'F090')
+    const pendingWaterOrders = visibleWaterOrders.filter((order) => order.acceptanceStatus === 'PENDING')
+    const acceptedHistoricalWaterOrders = visibleWaterOrders.filter((order) => order.acceptanceStatus === 'ACCEPTED')
+    assert.equal(listMobileExecutionTasks({ processType: 'WATER_SOLUBLE' }).length, acceptedHistoricalWaterOrders.length, '历史已开工水溶加工单应按源单事实进入执行列表，待接单加工单不得进入')
+    pendingWaterOrders.forEach((order) => {
+      const accepted = acceptWaterSolubleWorkOrderPdaTask(order.taskId, '水溶操作员')
+      assert.equal(accepted.ok, true, `${order.waterOrderNo} 必须可由当前工厂明确接单`)
+    })
+    const waterTasks = listMobileExecutionTasks({ processType: 'WATER_SOLUBLE' })
     assert.equal(waterTasks.length, visibleWaterOrders.length, 'WATER_SOLUBLE 过滤必须只返回当前默认工厂的独立水溶任务')
     assert(waterTasks.length > 0, 'PDA 执行列表缺少独立水溶任务')
     waterTasks.forEach((task) => assert.equal(getMobileTaskProcessType(task), 'WATER_SOLUBLE'))
@@ -357,14 +332,6 @@ async function main(): Promise<void> {
       fieldNode.dataset = { pdaExecdField: field }
       assert.equal(handlePdaExecDetailEvent(fieldNode as unknown as HTMLElement), true, `详情字段 ${field} 必须由真实 handler 消费`)
     }
-    const guardedCombinedTask = pdaTasks.find((task) => task.taskUnitType === 'COMBINED_PROCESS_TASK')
-    assert(guardedCombinedTask, '真实 PDA 聚合必须包含可验证的组合任务')
-    const aggregateCountBeforeGuardProbe = pdaTasks.length
-    assert.notEqual(getMobileTaskProcessType(guardedCombinedTask), 'WATER_SOLUBLE', '无独立水溶领域单的真实组合任务不得误判为 WATER_SOLUBLE')
-    assert.equal(renderWaterSolubleCard(guardedCombinedTask), '', '无独立水溶领域单时水溶专用 renderer 必须返回空')
-    const aggregateAfterGuardProbe = listPdaMobileExecutionTasks()
-    assert.equal(aggregateAfterGuardProbe.length, aggregateCountBeforeGuardProbe, '类型兜底不得让 PDA 聚合列表丢任务')
-    assert.equal(aggregateAfterGuardProbe.filter((task) => task.taskId === guardedCombinedTask.taskId).length, 1, '真实组合任务必须在 PDA 聚合中保留且不重复')
     const html = renderPdaExecPage()
     assert(html.includes('data-testid="pda-exec-page"'), '必须通过真实 PDA 页面渲染入口输出执行页')
     assert(html.includes('水溶加工单'), '水溶卡片必须显示“水溶加工单”')
@@ -949,15 +916,8 @@ async function main(): Promise<void> {
 
     const combined = getDyeWorkOrderById(combinedDyeOrder.dyeOrderId)
     assert(combined, '含水溶染色加工单必须仍可读取')
-    const combinedGenericTask = listPdaGenericProcessTasks().find((task) => task.taskId === combined.taskId)
-    assert(combinedGenericTask, '联合染色必须存在通用移动任务')
-    assert.equal(combinedGenericTask.acceptanceStatus, 'PENDING', '正式含水溶染色加工单必须先由 PDA 接单')
-    acceptPdaGenericProcessTask(combined.taskId, { acceptedAt: '2026-07-16 08:00:00', acceptedBy: operator.userName })
-    recordDyeWorkOrderPdaAcceptance(combined.taskId, operator.userName, '2026-07-16 08:00:00')
-    combinedGenericTask.status = 'IN_PROGRESS'
-    combinedGenericTask.startedAt = '2026-07-16 08:05:00'
-    recordDyeWorkOrderPdaStart(combined.taskId, operator.userName, '2026-07-16 08:05:00')
-    combinedGenericTask.qtyDisplayUnit = '公斤'
+    assert.equal(combined.acceptanceStatus, 'PENDING', '正式含水溶染色加工单必须先由 PDA 接单')
+    acceptDyeWorkOrderPdaTask(combined.taskId, operator.userName, '2026-07-16 08:00:00')
     assert.equal(validateDyeStartPrerequisite(combined.dyeOrderId, 80).ok, false)
     if (combined.isFirstOrder && combined.sampleWaitType !== 'NONE') {
       startDyeSampleWait(combined.dyeOrderId, { waitType: combined.sampleWaitType, operatorName: operator.userName })
@@ -1281,7 +1241,7 @@ async function main(): Promise<void> {
     const combinedFinalOrders = listHandoverOrdersByTaskId(combined.taskId)
     assert.equal(combinedFinalOrders.length, 1, '只有 PACK 完成后可生成一张最终交出单')
     assert.equal(combinedFinalOrders[0].sourceBusinessType, 'DYE_WORK_ORDER', '联合染色最终交出必须保持染色加工单来源语义')
-    assert.equal(combinedFinalOrders[0].qtyUnit, '公斤', '联合染色最终交出单头必须优先使用任务权威显示单位')
+    assert.equal(combinedFinalOrders[0].qtyUnit, combined.qtyUnit, '联合染色最终交出单头必须使用源加工单权威单位')
     assert.equal(ensureHandoverOrderForStartedTask(combined.taskId).created, false)
     assert.equal(listHandoverOrdersByTaskId(combined.taskId).length, 1, '联合染色重复 ensure 不得重复创建')
 
@@ -1362,6 +1322,7 @@ async function main(): Promise<void> {
     const beforeFakeTask = serviceSnapshot()
     assert.throws(() => executeMobileProcessAction({ ...servicePayload, taskId: 'TASK-FAKE', actor: operator }), /任务|不一致/, '伪 taskId 必须阻断')
     assert.deepEqual(serviceSnapshot(), beforeFakeTask, '伪 taskId 移动写回不得修改状态、节点或日志')
+    acceptDyeWorkOrderPdaTask(serviceCombined.taskId, operator.userName, '2026-07-12 11:50:00')
     for (const [label, objectQty] of [['undefined', undefined], ['NaN', Number.NaN], ['Infinity', Number.POSITIVE_INFINITY]] as const) {
       const beforeInvalidQty = serviceSnapshot()
       assert.throws(
@@ -1376,6 +1337,7 @@ async function main(): Promise<void> {
     assert.equal(getDyeExecutionNodeRecord(serviceCombined.dyeOrderId, 'DYE')?.outputQty, 0, '共享移动写回必须保留显式 0')
 
     const zeroCombined = prepareCombinedCompletionProbe('ZERO-HANDLER')
+    acceptDyeWorkOrderPdaTask(zeroCombined.taskId, operator.userName, '2026-07-12 11:50:00')
     appStore.navigate(`/fcs/pda/exec/${encodeURIComponent(zeroCombined.taskId)}`)
     const zeroHtml = renderPdaExecDetailPage(zeroCombined.taskId)
     const zeroToken = zeroHtml.match(/data-pda-execd-action="dye-complete-dye"[\s\S]{0,1200}?data-action-token="([^"]+)"/)

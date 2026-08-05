@@ -55,7 +55,7 @@ export function deriveFormalProductionOrderProcessSnapshots(
       && bomItems.some((item) => item.waterSolubleRequirement === '是')
       && bomItems.some((item) => item.waterSolubleRequirement !== '是')
     ) {
-      throw new Error(`生产单 ${order.productionOrderNo} 的染色工艺绑定的 BOM 水溶属性不一致，请先统一并修正正式 BOM 工艺属性`)
+      throw new Error(`生产单 ${order.productionOrderNo} 的染色工序绑定的 BOM 水溶属性不一致，请先统一并修正正式 BOM 工艺属性`)
     }
 
     const units = [...new Set(bomItems.map((item) => item.unit?.trim()).filter((unit): unit is string => Boolean(unit)))]

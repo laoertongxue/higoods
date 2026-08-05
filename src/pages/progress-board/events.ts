@@ -213,12 +213,12 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'task-page-prev') {
+  if (action === 'task-page-prev' || action === 'prev-page') {
     state.page = Math.max(1, state.page - 1)
     return true
   }
 
-  if (action === 'task-page-next') {
+  if (action === 'task-page-next' || action === 'next-page') {
     state.page += 1
     return true
   }

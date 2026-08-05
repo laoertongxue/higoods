@@ -57,7 +57,6 @@ function buildProcessEntry(craftName: string, selectedTargetObject: SpecialCraft
     supportedTargetObjectLabels: [...craft.supportedTargetObjectLabels],
     detailSplitDimensions: [],
     assignmentGranularity: 'ORDER',
-    outputValuePerUnit: 1,
     difficulty: 'MEDIUM',
     qcPoint: '',
     remark: '',
@@ -130,8 +129,8 @@ assert(heatTransfer, '工序工艺字典缺少烫画')
 assert(directPrint, '工序工艺字典缺少直喷')
 assert.deepEqual(heatTransfer.supportedTargetObjectLabels, expectedGarmentCraftTargets)
 assert.deepEqual(directPrint.supportedTargetObjectLabels, expectedGarmentCraftTargets)
-assert.equal(getProcessDefinitionByCode('PRINT')?.defaultDocType, 'TASK', '印花默认产物必须是任务单')
-assert.equal(getProcessDefinitionByCode('DYE')?.defaultDocType, 'TASK', '染色默认产物必须是任务单')
+assert.equal(getProcessDefinitionByCode('PRINT')?.defaultDocType, 'PREPARATION_ORDER', '印花默认产物必须是生产准备加工单')
+assert.equal(getProcessDefinitionByCode('DYE')?.defaultDocType, 'PREPARATION_ORDER', '染色默认产物必须是生产准备加工单')
 assert.deepEqual(
   getSpecialCraftSupportedTargetObjectLabels(selectableSpecialCrafts.find((item) => item.craftName === '捆条')?.supportedTargetObjects ?? []),
   ['已裁部位'],
@@ -139,7 +138,7 @@ assert.deepEqual(
 )
 const washing = getProcessDefinitionByCode('WASHING')
 assert.equal(washing?.stageCode, 'PREP', '洗水必须是准备阶段面料工序，而非特殊工艺')
-assert.equal(washing?.defaultDocType, 'TASK', '洗水默认产物必须是任务单')
+assert.equal(washing?.defaultDocType, 'PREPARATION_ORDER', '洗水默认产物必须是生产准备加工单')
 assert(!selectableSpecialCrafts.some((craft) => craft.craftName === '洗水'), '洗水不得作为可选特殊工艺')
 assert(
   selectableSpecialCrafts.some((craft) => getSpecialCraftSupportedTargetObjectLabels(craft.supportedTargetObjects).length > 1),

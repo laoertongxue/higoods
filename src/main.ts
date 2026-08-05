@@ -10,7 +10,6 @@ type FcsHandlersModule = typeof import('./main-handlers/fcs-handlers')
 type PcsHandlersModule = typeof import('./main-handlers/pcs-handlers')
 type PdaHandlersModule = typeof import('./main-handlers/pda-handlers')
 type DispatchAcceptanceSlaPageModule = typeof import('./pages/dispatch-acceptance-sla')
-type DispatchBoardPageModule = typeof import('./pages/dispatch-board')
 type FactoryProfilePageModule = typeof import('./pages/factory-profile')
 type CraftCuttingMarkerPlanPageModule = typeof import('./pages/process-factory/cutting/marker-plan')
 type CraftCuttingMarkerSpreadingPageModule = typeof import('./pages/process-factory/cutting/marker-spreading')
@@ -35,8 +34,6 @@ type TaskBreakdownPageModule = typeof import('./pages/task-breakdown')
 type WlsFabricDemandBoardPageModule = typeof import('./pages/wls-fabric-demand-board')
 type ProcessWaterSolubleOrdersPageModule = typeof import('./pages/process-water-soluble-orders')
 type CraftDyeingWaterSolubleOrdersPageModule = typeof import('./pages/process-factory/dyeing/water-soluble-orders')
-type SewingDispatchWorkbenchPageModule = typeof import('./pages/sewing-dispatch-workbench')
-type ContinuousDispatchPageModule = typeof import('./pages/continuous-dispatch')
 type ProductionObjectOverviewModule = typeof import('./components/production-object-overview')
 type PdaCuttingInboundModule = typeof import('./pages/pda-cutting-inbound')
 type PdaCuttingHandoverModule = typeof import('./pages/pda-cutting-handover')
@@ -45,7 +42,6 @@ let fcsHandlersModulePromise: Promise<FcsHandlersModule> | null = null
 let pcsHandlersModulePromise: Promise<PcsHandlersModule> | null = null
 let pdaHandlersModulePromise: Promise<PdaHandlersModule> | null = null
 let dispatchAcceptanceSlaPageModulePromise: Promise<DispatchAcceptanceSlaPageModule> | null = null
-let dispatchBoardPageModulePromise: Promise<DispatchBoardPageModule> | null = null
 let factoryProfilePageModulePromise: Promise<FactoryProfilePageModule> | null = null
 let craftCuttingMarkerPlanPageModulePromise: Promise<CraftCuttingMarkerPlanPageModule> | null = null
 let craftCuttingMarkerSpreadingPageModulePromise: Promise<CraftCuttingMarkerSpreadingPageModule> | null = null
@@ -70,8 +66,6 @@ let taskBreakdownPageModulePromise: Promise<TaskBreakdownPageModule> | null = nu
 let wlsFabricDemandBoardPageModulePromise: Promise<WlsFabricDemandBoardPageModule> | null = null
 let processWaterSolubleOrdersPageModulePromise: Promise<ProcessWaterSolubleOrdersPageModule> | null = null
 let craftDyeingWaterSolubleOrdersPageModulePromise: Promise<CraftDyeingWaterSolubleOrdersPageModule> | null = null
-let sewingDispatchWorkbenchPageModulePromise: Promise<SewingDispatchWorkbenchPageModule> | null = null
-let continuousDispatchPageModulePromise: Promise<ContinuousDispatchPageModule> | null = null
 let productionObjectOverviewModulePromise: Promise<ProductionObjectOverviewModule> | null = null
 let pdaCuttingInboundModulePromise: Promise<PdaCuttingInboundModule> | null = null
 let pdaCuttingHandoverModulePromise: Promise<PdaCuttingHandoverModule> | null = null
@@ -168,26 +162,6 @@ function getCraftDyeingWaterSolubleOrdersPageModule(): Promise<CraftDyeingWaterS
   return craftDyeingWaterSolubleOrdersPageModulePromise
 }
 
-function getSewingDispatchWorkbenchPageModule(): Promise<SewingDispatchWorkbenchPageModule> {
-  if (!sewingDispatchWorkbenchPageModulePromise) {
-    sewingDispatchWorkbenchPageModulePromise = import('./pages/sewing-dispatch-workbench').catch((error) => {
-      sewingDispatchWorkbenchPageModulePromise = null
-      throw error
-    })
-  }
-  return sewingDispatchWorkbenchPageModulePromise
-}
-
-function getContinuousDispatchPageModule(): Promise<ContinuousDispatchPageModule> {
-  if (!continuousDispatchPageModulePromise) {
-    continuousDispatchPageModulePromise = import('./pages/continuous-dispatch').catch((error) => {
-      continuousDispatchPageModulePromise = null
-      throw error
-    })
-  }
-  return continuousDispatchPageModulePromise
-}
-
 function getPcsHandlersModule(): Promise<PcsHandlersModule> {
   if (!pcsHandlersModulePromise) {
     pcsHandlersModulePromise = import('./main-handlers/pcs-handlers').catch((error) => {
@@ -216,16 +190,6 @@ function getDispatchAcceptanceSlaPageModule(): Promise<DispatchAcceptanceSlaPage
     })
   }
   return dispatchAcceptanceSlaPageModulePromise
-}
-
-function getDispatchBoardPageModule(): Promise<DispatchBoardPageModule> {
-  if (!dispatchBoardPageModulePromise) {
-    dispatchBoardPageModulePromise = import('./pages/dispatch-board').catch((error) => {
-      dispatchBoardPageModulePromise = null
-      throw error
-    })
-  }
-  return dispatchBoardPageModulePromise
 }
 
 function getTaskBreakdownPageModule(): Promise<TaskBreakdownPageModule> {
@@ -608,18 +572,6 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
     return dispatchAcceptanceSlaPage.handleDispatchAcceptanceSlaEvent(eventTarget)
   }
 
-  if (pathname.startsWith('/fcs/dispatch/board')) {
-    const dispatchBoardPage = await getDispatchBoardPageModule()
-    return dispatchBoardPage.handleDispatchBoardEvent(eventTarget)
-  }
-  if (pathname.startsWith('/fcs/dispatch/sewing')) {
-    const sewingDispatchWorkbenchPage = await getSewingDispatchWorkbenchPageModule()
-    return sewingDispatchWorkbenchPage.handleSewingDispatchWorkbenchEvent(eventTarget, event)
-  }
-  if (pathname.startsWith('/fcs/dispatch/continuous')) {
-    const continuousDispatchPage = await getContinuousDispatchPageModule()
-    return continuousDispatchPage.handleContinuousDispatchEvent(eventTarget, event)
-  }
   if (pathname.startsWith('/fcs/process/task-breakdown')) {
     const taskBreakdownPage = await getTaskBreakdownPageModule()
     return taskBreakdownPage.handleTaskBreakdownEvent(eventTarget)
@@ -632,7 +584,7 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
     const page = await getCraftDyeingWaterSolubleOrdersPageModule()
     return page.handleCraftDyeingWaterSolubleOrdersEvent(eventTarget)
   }
-  if (pathname.startsWith('/fcs/progress/production-orders')) {
+  if (pathname.startsWith('/fcs/progress/production-orders') || pathname.startsWith('/fcs/production_order_track/index')) {
     const productionOrderProgressTrackingPage = await getProductionOrderProgressTrackingPageModule()
     return productionOrderProgressTrackingPage.handleProductionOrderProgressEvent(eventTarget)
   }

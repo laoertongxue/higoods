@@ -11,12 +11,12 @@ import { getFactoryMasterRecordById, listFactoryMasterRecords } from './factory-
 export type ProductionTaskUnitType =
   | 'SINGLE_PROCESS_TASK'
   | 'INDEPENDENT_WORK_ORDER_TASK'
-  | 'COMBINED_PROCESS_TASK'
+  | 'MERGED_PRODUCTION_TASK'
   | 'WHOLE_ORDER_TASK'
 
 export type FactoryAcceptanceMode =
   | 'SINGLE_PROCESS'
-  | 'CONTINUOUS_PROCESS'
+  | 'MERGED_PRODUCTION_TASK'
   | 'WHOLE_ORDER'
 
 export type FactoryConditionMode =
@@ -26,12 +26,12 @@ export type FactoryConditionMode =
 
 export type RemainingProcessStrategy =
   | 'GENERATE_BY_PROCESS'
-  | 'MERGE_TO_COMBINED_TASK'
   | 'MERGE_TO_WHOLE_ORDER_TASK'
 
 export type PdaStepTemplateCode =
   | 'DEFAULT_PROCESS_TASK'
-  | 'SIMPLE_FIVE_STEP'
+  | 'MERGED_TASK_START_HANDOVER'
+  | 'WHOLE_ORDER_FIVE_STEP'
 
 export interface CoveredProcessScope {
   processCode: string
@@ -120,7 +120,7 @@ export interface ProductionTaskGenerationPreview {
   warnings: string[]
 }
 
-const SIMPLE_FIVE_STEP: GeneratedTaskUnitPreview['pdaSteps'] = ['领料', '开工', '关键节点上报', '交出', '完工']
+const WHOLE_ORDER_FIVE_STEP: GeneratedTaskUnitPreview['pdaSteps'] = ['领料', '开工', '关键节点上报', '交出', '完工']
 const DEFAULT_PROCESS_STEPS: GeneratedTaskUnitPreview['pdaSteps'] = ['接单', '备料', '开工', '上报进度', '交出']
 
 const RULES: ProductionTaskGenerationRule[] = [
@@ -143,7 +143,7 @@ const RULES: ProductionTaskGenerationRule[] = [
     taskNameTemplate: 'KOL整单任务',
     handoverReceiverKind: 'WAREHOUSE',
     handoverReceiverName: '工厂入库',
-    pdaStepTemplateCode: 'SIMPLE_FIVE_STEP',
+    pdaStepTemplateCode: 'WHOLE_ORDER_FIVE_STEP',
     allowAutoDispatch: false,
     createdAt: '2026-06-29 09:00',
     updatedAt: '2026-06-29 09:00',
@@ -166,7 +166,7 @@ const RULE_LOGS: ProductionTaskGenerationRuleLog[] = RULES.flatMap((rule) => [
     operatedAt: rule.updatedAt,
     operator: rule.updatedBy,
     action: rule.enabled ? '启用规则' : '停用规则',
-    detail: `${rule.enabled ? '启用' : '停用'}规则，独立拆出工序 ${rule.independentProcessCodes.join('、') || '无'}，其余工序${rule.remainingProcessStrategy === 'MERGE_TO_WHOLE_ORDER_TASK' ? '合并为整单任务' : rule.remainingProcessStrategy === 'MERGE_TO_COMBINED_TASK' ? '合并为组合任务' : '默认按工序生成'}。`,
+    detail: `${rule.enabled ? '启用' : '停用'}规则，独立拆出工序 ${rule.independentProcessCodes.join('、') || '无'}，其余工序${rule.remainingProcessStrategy === 'MERGE_TO_WHOLE_ORDER_TASK' ? '合并为整单任务' : '默认按工序生成'}。`,
   },
 ])
 
@@ -203,13 +203,6 @@ function factorySupports(rule: ProductionTaskGenerationRule, order: ProductionOr
       && rule.independentProcessCodes.every((processCode) => wholeOrderRule.excludedProcessCodes.includes(processCode)),
     )
   }
-  if (rule.requiredAcceptanceMode === 'CONTINUOUS_PROCESS' && config?.continuousProcessEnabled) {
-    return config.continuousRules.some((continuousRule) =>
-      continuousRule.enabled
-      && continuousRule.applicableSaleTypes.includes(order.demandSnapshot.saleType)
-      && rule.independentProcessCodes.every((processCode) => continuousRule.excludedProcessCodes.includes(processCode)),
-    )
-  }
   if (rule.requiredAcceptanceMode === 'SINGLE_PROCESS' && config?.singleProcessEnabled !== false) return true
   return rule.factoryIds.includes(order.mainFactoryId)
 }
@@ -242,16 +235,6 @@ function resolveRuleFactoryIds(rule: ProductionTaskGenerationRule): string[] {
         sourceIds.add(factory.id)
       }
       continue
-    }
-    if (
-      rule.requiredAcceptanceMode === 'CONTINUOUS_PROCESS'
-      && config.continuousProcessEnabled
-      && config.continuousRules.some((continuousRule) =>
-        continuousRule.enabled
-        && rule.saleTypes.some((saleType) => continuousRule.applicableSaleTypes.includes(saleType)),
-      )
-    ) {
-      sourceIds.add(factory.id)
     }
   }
   return [...sourceIds]
@@ -319,7 +302,7 @@ function buildUnitFromArtifacts(input: {
   const processNames = [...new Set(coveredProcesses.map((item) => item.processName))]
   const comboName = processNames.length > 0 ? `${processNames.join('+')}组合任务` : input.rule.taskNameTemplate
   const taskName = input.rule.taskNameTemplate.includes('{工序组合}')
-    ? input.rule.taskNameTemplate.replace('{工序组合}', processNames.join('+') || '连续工序')
+    ? input.rule.taskNameTemplate.replace('{工序组合}', processNames.join('+') || '工序组合')
     : input.rule.taskNameTemplate.includes('{工序}')
       ? input.rule.taskNameTemplate.replace('{工序}', processNames[0] || '工序')
       : input.rule.taskNameTemplate || comboName
@@ -335,7 +318,7 @@ function buildUnitFromArtifacts(input: {
     coveredProcesses,
     independentProcessCodes: [...input.rule.independentProcessCodes],
     sourceArtifactIds: input.taskArtifacts.map((artifact) => artifact.artifactId),
-    pdaSteps: input.rule.pdaStepTemplateCode === 'SIMPLE_FIVE_STEP' ? [...SIMPLE_FIVE_STEP] : [...DEFAULT_PROCESS_STEPS],
+    pdaSteps: input.rule.pdaStepTemplateCode === 'WHOLE_ORDER_FIVE_STEP' ? [...WHOLE_ORDER_FIVE_STEP] : [...DEFAULT_PROCESS_STEPS],
     handoverReceiverKind: input.rule.handoverReceiverKind,
     handoverReceiverName: input.rule.handoverReceiverName,
   }
@@ -362,26 +345,6 @@ function buildDefaultUnits(
   )
 }
 
-function isStandaloneWaterSolubleTaskArtifact(artifact: GeneratedTaskArtifact): boolean {
-  return artifact.artifactType === 'TASK'
-    && artifact.defaultDocType === 'TASK'
-    && artifact.processCode === 'WATER_SOLUBLE'
-}
-
-function resolveMergeProcessCodes(rule: ProductionTaskGenerationRule, order: ProductionOrder): Set<string> | null {
-  if (rule.mergeProcessCodes === 'ALL_EXCEPT_INDEPENDENT') return null
-  if (rule.requiredAcceptanceMode !== 'CONTINUOUS_PROCESS' || !order.mainFactoryId) {
-    return new Set(rule.mergeProcessCodes)
-  }
-
-  const factory = getFactoryMasterRecordById(order.mainFactoryId)
-  const continuousRule = factory?.taskAcceptanceConfig?.continuousRules.find((item) =>
-    item.enabled && item.applicableSaleTypes.includes(order.demandSnapshot.saleType),
-  )
-  if (!continuousRule) return new Set(rule.mergeProcessCodes)
-  return new Set(continuousRule.coveredProcessCodes)
-}
-
 // 任务兼容层只需要由 TASK 产物生成的任务单元，不读取或展示独立加工单事实。
 // 独立加工单必须通过 buildTaskGenerationPreview 的显式输入提供给上层页面。
 export function buildTaskGenerationUnits(orderId: string): GeneratedTaskUnitPreview[] {
@@ -393,12 +356,8 @@ export function buildTaskGenerationUnits(orderId: string): GeneratedTaskUnitPrev
 
   const taskArtifacts = listGeneratedProductionTaskArtifacts().filter((artifact) => artifact.orderId === orderId)
   const independentSet = new Set(matchedRule.independentProcessCodes)
-  const mergeProcessSet = resolveMergeProcessCodes(matchedRule, order)
-  const standaloneTaskArtifacts = taskArtifacts.filter(isStandaloneWaterSolubleTaskArtifact)
   const mergeCandidates = taskArtifacts.filter((artifact) =>
-    !isStandaloneWaterSolubleTaskArtifact(artifact)
-    && !independentSet.has(artifact.processCode)
-    && (!mergeProcessSet || mergeProcessSet.has(artifact.processCode)),
+    !independentSet.has(artifact.processCode),
   )
 
   return matchedRule.remainingProcessStrategy === 'GENERATE_BY_PROCESS'
@@ -407,7 +366,6 @@ export function buildTaskGenerationUnits(orderId: string): GeneratedTaskUnitPrev
         ...(mergeCandidates.length > 0
           ? [buildUnitFromArtifacts({ order, rule: matchedRule, taskArtifacts: mergeCandidates, index: 1 })]
           : []),
-        ...buildDefaultUnits(order, standaloneTaskArtifacts, matchedRule, mergeCandidates.length > 0 ? 1 : 0),
       ]
 }
 

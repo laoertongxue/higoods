@@ -30,7 +30,7 @@ for (const path of [
   'src/pages/process-factory/dyeing/work-orders.ts',
 ]) {
   const source = readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
-  assert.match(source, /export function renderCraft[^\n]+Page\(\): string \{\s+resetStandardListEntryTransientStateOnRouteEntry\(state, Boolean\(rootElement\(\)\)\)/, `${path} 的真实路由 renderer 必须按页面根节点是否已挂载判断重新进入`)
+  assert.match(source, /export function renderCraft[^\n]+Page\([^\n]*\): string \{\s+resetStandardListEntryTransientStateOnRouteEntry\(state, Boolean\(rootElement\(\)\)\)/, `${path} 的真实路由 renderer 必须按页面根节点是否已挂载判断重新进入`)
   const refreshSource = /function refreshWorkspace\(\): void \{([\s\S]*?)\n\}/.exec(source)?.[1] || ''
   assert(!refreshSource.includes('resetStandardListEntryTransientStateOnRouteEntry'), `${path} 的局部 refresh 不得重置页码或排序`)
 }

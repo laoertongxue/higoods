@@ -21,7 +21,6 @@ import type {
   TechnicalDataVersionRecord,
 } from '../src/data/pcs-technical-data-version-types.ts'
 import {
-  areRouteEntriesContinuous,
   normalizeProcessRouteEntries,
   sortProcessRouteEntries,
 } from '../src/data/tech-pack-process-route.ts'
@@ -40,7 +39,6 @@ type CheckRouteEntry = {
   routeStepNo?: number
   routeLaneNo?: number
   routeParallelGroupId?: string
-  routeParallelAcceptanceMode?: 'INDEPENDENT_ONLY' | 'WHOLE_GROUP_ALLOWED'
 }
 
 function ids(entries: Array<{ id: string }>): string[] {
@@ -65,18 +63,11 @@ function buildCheckTechnique(id: string, routeStepNo: number): TechniqueItem {
     taskTypeMode: 'PROCESS',
     isSpecialCraft: false,
     triggerSource: '检查脚本',
-    outputValue: 0,
-    outputValueUnit: '产值/件',
-    referenceOutputValueValue: null,
-    referenceOutputValueUnit: '',
-    referenceOutputValueUnitLabel: '',
-    referenceOutputValueNote: '',
     difficulty: '中等',
     remark: '',
     source: '字典引用',
     routeStepNo,
     routeLaneNo: 1,
-    routeParallelAcceptanceMode: 'INDEPENDENT_ONLY',
     routeSourceKind: 'DICT_DEFAULT',
   }
 }
@@ -121,52 +112,6 @@ assert.deepEqual(
   ['z-last-id', 'a-first-id'],
   '相同排序键时 normalizeProcessRouteEntries 必须保留原数组顺序',
 )
-
-assert.equal(
-  areRouteEntriesContinuous([
-    { id: 'step-1', routeStepNo: 1 },
-    { id: 'step-2', routeStepNo: 2 },
-  ]).allowed,
-  true,
-  '串行相邻步骤应允许连续判断',
-)
-
-assert.equal(
-  areRouteEntriesContinuous([
-    { id: 'step-1', routeStepNo: 1 },
-    { id: 'step-3', routeStepNo: 3 },
-  ]).allowed,
-  false,
-  '路线步骤断档时不允许连续判断',
-)
-
-assert.equal(
-  areRouteEntriesContinuous([
-    { id: 'parallel-a', routeStepNo: 2, routeParallelGroupId: 'G1' },
-    { id: 'parallel-b', routeStepNo: 2, routeParallelGroupId: 'G1' },
-  ]).allowed,
-  false,
-  '同一步并行默认不允许连续判断',
-)
-
-assert.equal(
-  areRouteEntriesContinuous([
-    { id: 'parallel-a', processCode: 'SEW', routeStepNo: 2, routeParallelGroupId: 'G1', routeParallelAcceptanceMode: 'WHOLE_GROUP_ALLOWED' },
-    { id: 'parallel-b', processCode: 'POST_FINISHING', routeStepNo: 2, routeParallelGroupId: 'G1', routeParallelAcceptanceMode: 'WHOLE_GROUP_ALLOWED' },
-  ]).allowed,
-  true,
-  '同一步并行且允许整体承接时，本批内部连续判断应允许',
-)
-
-const noSingleFactoryCoverageResult = areRouteEntriesContinuous(
-  [
-    { id: 'parallel-a', processCode: 'CUT_PANEL', routeStepNo: 2, routeParallelGroupId: 'G1', routeParallelAcceptanceMode: 'WHOLE_GROUP_ALLOWED' },
-    { id: 'parallel-b', processCode: 'DYE', routeStepNo: 2, routeParallelGroupId: 'G1', routeParallelAcceptanceMode: 'WHOLE_GROUP_ALLOWED' },
-  ],
-  { canSingleFactoryCoverProcesses: () => false },
-)
-assert.equal(noSingleFactoryCoverageResult.allowed, false, '同一步并行整体承接必须支持同一工厂能力校验')
-assert.match(noSingleFactoryCoverageResult.reason, /同一工厂.*全部工序能力/, '能力不足时必须返回中文原因')
 
 const pageRouteDraft: ProcessRouteDraftState = {
   techniques: [
@@ -363,19 +308,10 @@ const confirmedParallelDraft = applyProcessRouteDraftAction(
   'Budi Santoso',
   '2026-07-07 10:23',
 )
-const toggledDraft = applyProcessRouteDraftAction(
-  confirmedParallelDraft,
-  { type: 'toggle-parallel-group-acceptance', techniqueId: 'page-tech-a' },
-  'Budi Santoso',
-  '2026-07-07 10:24',
-)
-assert.equal(toggledDraft.processRouteStatus, 'UNCONFIRMED', '并行承接方式变更后应自动取消确认')
-assert.equal(toggledDraft.processRouteConfirmedBy, '', '并行承接方式变更后应清空确认人')
-assert.equal(toggledDraft.processRouteConfirmedAt, '', '并行承接方式变更后应清空确认时间')
 assert.equal(
-  toggledDraft.techniques.find((item) => item.id === 'page-tech-a')?.routeParallelAcceptanceMode,
-  'WHOLE_GROUP_ALLOWED',
-  '并行承接方式应能切换为整体承接',
+  techPackEventsSource.includes('toggle-parallel-group-acceptance') || techPackEventsSource.includes('routeParallelAcceptanceMode'),
+  false,
+  '技术包路线只描述先后或并行关系，不得继续提供整体承接或连续任务入口',
 )
 
 const splitDraft = applyProcessRouteDraftAction(
@@ -483,7 +419,6 @@ function buildRouteGateContent(id: string, routeConfirmed: boolean): TechnicalDa
       routeLaneNo: 1,
       routeParallelGroupId: 'ROUTE-GROUP-1',
       routeParallelGroupName: '路线克隆验证并行组',
-      routeParallelAcceptanceMode: 'INDEPENDENT_ONLY',
       routeSourceKind: 'DICT_DEFAULT',
       supportedTargetObjects: ['CUT_PIECE'],
       supportedTargetObjectLabels: ['已裁部位'],

@@ -3290,7 +3290,20 @@ function ensureMockSupplementOrders(): void {
       coveredSeedCount += 1
       continue
     }
-    const confirmed = confirmSupplementAndGenerateProcessWorkOrders(variedDraft, creators[index % creators.length])
+    const hasProcessDemand = variedDraft.materialDemands.some((demand) => demand.printRequired || demand.dyeRequired)
+    const confirmed = hasProcessDemand
+      ? confirmSupplementAndGenerateProcessWorkOrders(variedDraft, creators[index % creators.length])
+      : {
+          ok: true as const,
+          record: saveConfirmedSupplementRecord({
+            identity: buildSupplementRecordIdentity(variedDraft),
+            draft: variedDraft,
+            createdBy: creators[index % creators.length],
+            processWorkOrderRefs: [],
+            confirmationKey: buildSupplementConfirmationIdentity(variedDraft),
+            requestFingerprint: buildSupplementRequestFingerprint(variedDraft),
+          }),
+        }
     if (!confirmed.ok) continue
     coveredSeedCount += 1
   }

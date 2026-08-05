@@ -113,7 +113,7 @@ export const PDA_CUTTING_TASK_MOCK_MATRIX: PdaCuttingTaskMockMatrixItem[] = [
     acceptedBy: '裁床组长',
     dispatchedAt: '2026-03-18 08:00:00',
     dispatchedBy: '裁床计划员',
-    executions: [execution('CPO-PDA-0301', 'CUT-260304-008-01')],
+    executions: [execution('CPO-PDA-0301', 'CUT-260307-102-01')],
   },
   {
     taskId: 'TASK-CUT-PDA-PICKED-NOT-STARTED-0302',
@@ -555,6 +555,6 @@ export const PDA_CUTTING_TASK_MOCK_MATRIX: PdaCuttingTaskMockMatrixItem[] = [
     biddingDeadline: '2026-03-19 10:00:00',
     tenderStatusLabel: '待报价',
     tenderRemark: '报价任务仅用于接单流程。',
-    executions: [execution('CPO-20260318-E1', 'CUT-260304-008-01')],
+    executions: [execution('CPO-20260318-E1', 'CUT-260307-102-01')],
   },
 ]

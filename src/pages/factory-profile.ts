@@ -7,7 +7,6 @@ import {
 import {
   cooperationModeConfig,
   factoryStatusConfig,
-  type FactoryPostCapacityNodeCode,
   factoryTierConfig,
   factoryTypeConfig,
   type FactoryProcessAbility,
@@ -47,13 +46,6 @@ import { escapeHtml } from '../utils'
 import { renderConfirmDialog } from '../components/ui/dialog'
 
 const PAGE_SIZE = 10
-const POST_CAPACITY_NODE_CODES = ['BUTTONHOLE', 'BUTTON_ATTACH', 'IRONING', 'PACKAGING'] as const satisfies FactoryPostCapacityNodeCode[]
-const POST_BUSINESS_ACTIONS = [
-  { craftCode: 'POST_FINISHING', craftName: '后道' },
-  { craftCode: 'POST_QC', craftName: '质检' },
-  { craftCode: 'POST_RECHECK', craftName: '复检' },
-] as const
-
 type SortField = 'code' | 'name' | 'status' | 'tier'
 
 function cloneProcessAbility(item: FactoryProcessAbility): FactoryProcessAbility {
@@ -71,21 +63,6 @@ function cloneProcessAbility(item: FactoryProcessAbility): FactoryProcessAbility
     status: item.status,
     parentProcessCode: item.parentProcessCode,
   }
-}
-
-function getPostCapacityNodeOptions() {
-  return POST_CAPACITY_NODE_CODES.map((processCode) => {
-    const process = getProcessDefinitionByCode(processCode)
-    return {
-      processCode,
-      processName: process?.processName ?? processCode,
-    }
-  })
-}
-function getPostBusinessActionOptions(factoryType: FactoryType) {
-  return factoryType === 'SATELLITE_FINISHING'
-    ? [...POST_BUSINESS_ACTIONS]
-    : [POST_BUSINESS_ACTIONS[0]]
 }
 
 function isDedicatedPostFactoryType(factoryType: FactoryType): boolean {
@@ -167,9 +144,9 @@ const DEFAULT_FORM_DATA: FactoryFormData = {
   },
   taskAcceptanceConfig: {
     singleProcessEnabled: true,
-    continuousProcessEnabled: false,
+    canAcceptSewingIronPack: false,
+    canAcceptCuttingSewingIronPack: false,
     wholeOrderEnabled: false,
-    continuousRules: [],
   },
 }
 
@@ -276,22 +253,16 @@ function cloneTaskAcceptanceConfig(config: FactoryTaskAcceptanceConfig | undefin
   if (!config) {
     return {
       singleProcessEnabled: true,
-      continuousProcessEnabled: false,
+      canAcceptSewingIronPack: false,
+      canAcceptCuttingSewingIronPack: false,
       wholeOrderEnabled: false,
-      continuousRules: [],
     }
   }
   return {
     singleProcessEnabled: config.singleProcessEnabled,
-    continuousProcessEnabled: config.continuousProcessEnabled,
+    canAcceptSewingIronPack: config.canAcceptSewingIronPack,
+    canAcceptCuttingSewingIronPack: config.canAcceptCuttingSewingIronPack,
     wholeOrderEnabled: config.wholeOrderEnabled,
-    continuousRules: config.continuousRules.map((rule) => ({
-      ...rule,
-      coveredProcessCodes: [...rule.coveredProcessCodes],
-      coveredCraftCodes: rule.coveredCraftCodes ? [...rule.coveredCraftCodes] : undefined,
-      applicableSaleTypes: [...rule.applicableSaleTypes],
-      excludedProcessCodes: [...rule.excludedProcessCodes],
-    })),
     wholeOrderRule: config.wholeOrderRule
       ? {
           ...config.wholeOrderRule,
@@ -351,49 +322,31 @@ function normalizeSewingSeatCount(data: FactoryFormData): number | undefined {
   return Number.isFinite(data.sewingSeatCount) && (data.sewingSeatCount ?? 0) > 0 ? Math.floor(data.sewingSeatCount ?? 0) : undefined
 }
 
-function getSelectedCapacityNodeCodes(
-  processAbilities: FactoryProcessAbility[],
-  processCode: string,
-): FactoryPostCapacityNodeCode[] {
-  return processAbilities.find((item) => item.processCode === processCode)?.capacityNodeCodes ?? []
-}
-
 function upsertProcessAbility(
   processAbilities: FactoryProcessAbility[],
   processCode: string,
   craftCodes: string[],
-  capacityNodeCodes?: FactoryPostCapacityNodeCode[],
 ): FactoryProcessAbility[] {
   const nextCraftCodes = [...new Set(craftCodes)]
-  const nextCapacityNodeCodes = capacityNodeCodes ? [...new Set(capacityNodeCodes)] : undefined
   const nextAbilities = processAbilities
     .filter((item) => item.processCode !== processCode)
     .map((item) => cloneProcessAbility(item))
 
-  if (nextCraftCodes.length > 0 || (nextCapacityNodeCodes?.length ?? 0) > 0) {
+  if (nextCraftCodes.length > 0) {
     const process = getProcessDefinitionByCode(processCode)
     nextAbilities.push({
       processCode,
       craftCodes: nextCraftCodes,
-      capacityNodeCodes: nextCapacityNodeCodes,
       abilityId: `ABILITY_${processCode}`,
       processName: process?.processName ?? processCode,
-      craftNames:
-        processCode === 'POST_FINISHING'
-          ? nextCapacityNodeCodes?.map((nodeCode) => getProcessDefinitionByCode(nodeCode)?.processName ?? nodeCode)
-          : listCraftsByProcessCode(processCode)
-              .filter((item) => nextCraftCodes.includes(item.craftCode))
-              .map((item) => item.craftName),
+      craftNames: listCraftsByProcessCode(processCode)
+        .filter((item) => nextCraftCodes.includes(item.craftCode))
+        .map((item) => item.craftName),
       abilityName:
         processCode === 'SPECIAL_CRAFT' && nextCraftCodes.length === 1
           ? `特殊工艺 - ${listCraftsByProcessCode(processCode).find((item) => item.craftCode === nextCraftCodes[0])?.craftName ?? nextCraftCodes[0]}`
           : process?.processName ?? processCode,
-      abilityScope:
-        processCode === 'POST_FINISHING'
-          ? 'PROCESS'
-          : nextCraftCodes.length === 1
-            ? 'CRAFT'
-            : 'PROCESS',
+      abilityScope: nextCraftCodes.length === 1 ? 'CRAFT' : 'PROCESS',
       canReceiveTask: process?.generatesExternalTask ?? true,
       capacityManaged: process?.capacityEnabled ?? true,
       status: process?.isActive ? 'ACTIVE' : 'DISABLED',
@@ -408,21 +361,6 @@ function ensureTaskAcceptanceConfig(config: FactoryTaskAcceptanceConfig | undefi
   return cloneTaskAcceptanceConfig(config)
 }
 
-function getPrimaryContinuousRule(config: FactoryTaskAcceptanceConfig): FactoryTaskAcceptanceConfig['continuousRules'][number] {
-  return config.continuousRules[0] ?? {
-    combinationId: 'combo-cut-sew-post',
-    combinationName: '裁片+车缝+后道',
-    enabled: true,
-    coveredProcessCodes: ['CUT_PANEL', 'SEW', 'POST_FINISHING'],
-    applicableSaleTypes: ['KOL样品小单'],
-    excludedProcessCodes: ['PRINT', 'DYE'],
-    defaultTaskName: '裁片+车缝+后道组合任务',
-    handoverReceiverKind: 'WAREHOUSE',
-    handoverReceiverName: '仓库',
-    pdaStepTemplateCode: 'SIMPLE_FIVE_STEP',
-  }
-}
-
 function getWholeOrderRule(config: FactoryTaskAcceptanceConfig): NonNullable<FactoryTaskAcceptanceConfig['wholeOrderRule']> {
   return config.wholeOrderRule ?? {
     enabled: true,
@@ -432,26 +370,26 @@ function getWholeOrderRule(config: FactoryTaskAcceptanceConfig): NonNullable<Fac
     allowRuleRecommendation: true,
     handoverReceiverKind: 'WAREHOUSE',
     handoverReceiverName: '仓库',
-    pdaStepTemplateCode: 'SIMPLE_FIVE_STEP',
+    pdaStepTemplateCode: 'WHOLE_ORDER_FIVE_STEP',
     remark: '',
   }
 }
 
 function renderTaskAcceptanceConfigSection(draft: FactoryFormData): string {
   const config = ensureTaskAcceptanceConfig(draft.taskAcceptanceConfig)
-  const continuousRule = getPrimaryContinuousRule(config)
   const wholeOrderRule = getWholeOrderRule(config)
 
   return `
     <section class="space-y-4">
       <div>
         <h4 class="text-sm font-semibold">任务承接方式</h4>
-        <p class="mt-1 text-xs text-muted-foreground">接单能力表示工厂会做什么；任务承接方式表示工厂是分开接、连续接，还是整单接。</p>
+        <p class="mt-1 text-xs text-muted-foreground">接单能力表示工厂会做什么；合并任务只允许车缝+烫包、裁剪+车缝+烫包两种固定范围。</p>
       </div>
       <div class="grid gap-3 md:grid-cols-3">
         ${[
           ['singleProcessEnabled', '单工序承接', config.singleProcessEnabled],
-          ['continuousProcessEnabled', '连续工序承接', config.continuousProcessEnabled],
+          ['canAcceptSewingIronPack', '可承接车缝+烫包', config.canAcceptSewingIronPack],
+          ['canAcceptCuttingSewingIronPack', '可承接裁剪+车缝+烫包', config.canAcceptCuttingSewingIronPack],
           ['wholeOrderEnabled', '整单承接', config.wholeOrderEnabled],
         ].map(([field, label, checked]) => `
           <label class="flex items-center gap-3 rounded-md border bg-muted/10 px-3 py-2">
@@ -460,38 +398,6 @@ function renderTaskAcceptanceConfigSection(draft: FactoryFormData): string {
           </label>
         `).join('')}
       </div>
-
-      ${config.continuousProcessEnabled ? `
-        <div class="rounded-lg border bg-muted/10 p-4">
-          <div class="mb-3 text-sm font-medium">连续工序承接配置</div>
-          <div class="grid gap-3 md:grid-cols-2">
-            <label class="space-y-1.5">
-              <span class="text-xs text-muted-foreground">组合名称</span>
-              <input class="w-full rounded-md border bg-background px-3 py-2 text-sm" data-factory-task-acceptance-input="continuous.combinationName" value="${escapeHtml(continuousRule.combinationName)}" />
-            </label>
-            <label class="space-y-1.5">
-              <span class="text-xs text-muted-foreground">默认任务名称</span>
-              <input class="w-full rounded-md border bg-background px-3 py-2 text-sm" data-factory-task-acceptance-input="continuous.defaultTaskName" value="${escapeHtml(continuousRule.defaultTaskName)}" />
-            </label>
-            <label class="space-y-1.5">
-              <span class="text-xs text-muted-foreground">覆盖工序</span>
-              <input class="w-full rounded-md border bg-background px-3 py-2 text-sm" data-factory-task-acceptance-input="continuous.coveredProcessCodes" value="${escapeHtml(continuousRule.coveredProcessCodes.join('、'))}" />
-            </label>
-            <label class="space-y-1.5">
-              <span class="text-xs text-muted-foreground">适用售卖类型</span>
-              <input class="w-full rounded-md border bg-background px-3 py-2 text-sm" data-factory-task-acceptance-input="continuous.applicableSaleTypes" value="${escapeHtml(continuousRule.applicableSaleTypes.join('、'))}" />
-            </label>
-            <label class="space-y-1.5">
-              <span class="text-xs text-muted-foreground">不并入工序</span>
-              <input class="w-full rounded-md border bg-background px-3 py-2 text-sm" data-factory-task-acceptance-input="continuous.excludedProcessCodes" value="${escapeHtml(continuousRule.excludedProcessCodes.join('、'))}" />
-            </label>
-            <label class="space-y-1.5">
-              <span class="text-xs text-muted-foreground">交出对象 / PDA步骤</span>
-              <input class="w-full rounded-md border bg-muted px-3 py-2 text-sm text-muted-foreground" disabled value="仓库 / 简化5步" />
-            </label>
-          </div>
-        </div>
-      ` : ''}
 
       ${config.wholeOrderEnabled ? `
         <div class="rounded-lg border bg-muted/10 p-4">
@@ -1649,7 +1555,9 @@ function renderFactoryDrawer(): string {
               <div class="space-y-4">
                 ${listProcessStages()
                   .map((stage) => {
-                    const processes = listProcessesByStageCode(stage.stageCode).filter((process) => process.generatesExternalTask)
+                    const processes = listProcessesByStageCode(stage.stageCode).filter(
+                      (process) => process.generatesExternalTask || stage.stageCode === 'POST',
+                    )
                     return `
                       <div class="rounded-lg border bg-muted/20 p-4">
                         <div class="mb-3">
@@ -1658,18 +1566,10 @@ function renderFactoryDrawer(): string {
                         <div class="space-y-3">
                           ${processes
                             .map((process) => {
-                              const crafts = process.processCode === 'POST_FINISHING'
-                                ? getPostBusinessActionOptions(draft.factoryType)
-                                : listCraftsByProcessCode(process.processCode)
+                              const crafts = listCraftsByProcessCode(process.processCode)
                               const selectedCraftCodes = getSelectedCraftCodes(draft.processAbilities, process.processCode)
-                              const selectedNodeCodes = getSelectedCapacityNodeCodes(draft.processAbilities, process.processCode)
-                              const hasPostAbility = process.processCode === 'POST_FINISHING' && selectedNodeCodes.length > 0
-                              const selectedCodes = process.processCode === 'POST_FINISHING'
-                                ? hasPostAbility
-                                  ? crafts.map((craft) => craft.craftCode)
-                                  : []
-                                : selectedCraftCodes
-                              const fixedPostAbility = process.processCode === 'POST_FINISHING' && isDedicatedPostFactoryType(draft.factoryType)
+                              const selectedCodes = selectedCraftCodes
+                              const fixedPostAbility = stage.stageCode === 'POST' && isDedicatedPostFactoryType(draft.factoryType)
                               const checked = fixedPostAbility || (crafts.length > 0 && selectedCodes.length === crafts.length)
                               return `
                                 <div class="rounded-md border bg-background p-3">
@@ -1691,12 +1591,10 @@ function renderFactoryDrawer(): string {
                                           <label class="inline-flex items-center gap-2 text-sm">
                                             <input
                                               type="checkbox"
-                                              ${process.processCode === 'POST_FINISHING'
-                                                ? ''
-                                                : `data-factory-craft-toggle="${craft.craftCode}"`}
+                                              data-factory-craft-toggle="${craft.craftCode}"
                                               data-factory-process-code="${process.processCode}"
                                               ${craftChecked ? 'checked' : ''}
-                                              ${process.processCode === 'POST_FINISHING' ? 'disabled' : ''}
+                                              ${fixedPostAbility ? 'disabled' : ''}
                                               class="h-4 w-4 rounded border"
                                             />
                                             <span>${escapeHtml(craft.craftName)}</span>
@@ -2082,7 +1980,7 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
   if (taskAcceptanceToggle instanceof HTMLInputElement && state.formDraft) {
     const field = taskAcceptanceToggle.dataset.factoryTaskAcceptance as keyof Pick<
       FactoryTaskAcceptanceConfig,
-      'singleProcessEnabled' | 'continuousProcessEnabled' | 'wholeOrderEnabled'
+      'singleProcessEnabled' | 'canAcceptSewingIronPack' | 'canAcceptCuttingSewingIronPack' | 'wholeOrderEnabled'
     > | undefined
     if (!field) return true
 
@@ -2091,7 +1989,6 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
       const nextConfig: FactoryTaskAcceptanceConfig = {
         ...config,
         [field]: taskAcceptanceToggle.checked,
-        continuousRules: config.continuousRules.length > 0 ? config.continuousRules : [getPrimaryContinuousRule(config)],
         wholeOrderRule: getWholeOrderRule(config),
       }
       return { ...prev, taskAcceptanceConfig: nextConfig }
@@ -2106,14 +2003,8 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
 
     setDraft((prev) => {
       const config = ensureTaskAcceptanceConfig(prev.taskAcceptanceConfig)
-      const continuousRule = getPrimaryContinuousRule(config)
       const wholeOrderRule = getWholeOrderRule(config)
 
-      if (field === 'continuous.combinationName') continuousRule.combinationName = taskAcceptanceInput.value
-      if (field === 'continuous.defaultTaskName') continuousRule.defaultTaskName = taskAcceptanceInput.value
-      if (field === 'continuous.coveredProcessCodes') continuousRule.coveredProcessCodes = splitConfigText(taskAcceptanceInput.value)
-      if (field === 'continuous.applicableSaleTypes') continuousRule.applicableSaleTypes = splitConfigText(taskAcceptanceInput.value)
-      if (field === 'continuous.excludedProcessCodes') continuousRule.excludedProcessCodes = splitConfigText(taskAcceptanceInput.value)
       if (field === 'whole.applicableSaleTypes') wholeOrderRule.applicableSaleTypes = splitConfigText(taskAcceptanceInput.value)
       if (field === 'whole.excludedProcessCodes') wholeOrderRule.excludedProcessCodes = splitConfigText(taskAcceptanceInput.value)
       if (field === 'whole.defaultTaskName') wholeOrderRule.defaultTaskName = taskAcceptanceInput.value
@@ -2123,7 +2014,6 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
         ...prev,
         taskAcceptanceConfig: {
           ...config,
-          continuousRules: [continuousRule],
           wholeOrderRule,
         },
       }
@@ -2136,23 +2026,13 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
     const processCode = processToggleField.dataset.factoryProcessToggle
     if (!processCode) return true
 
-    const craftCodes = processCode === 'POST_FINISHING'
-      ? []
-      : processToggleField.checked
-        ? listCraftsByProcessCode(processCode).map((item) => item.craftCode)
-        : []
-    const capacityNodeCodes = processCode === 'POST_FINISHING' && processToggleField.checked
-      ? [...POST_CAPACITY_NODE_CODES]
+    const craftCodes = processToggleField.checked
+      ? listCraftsByProcessCode(processCode).map((item) => item.craftCode)
       : []
 
     setDraft((prev) => ({
       ...prev,
-      processAbilities: upsertProcessAbility(
-        prev.processAbilities,
-        processCode,
-        craftCodes,
-        processCode === 'POST_FINISHING' ? capacityNodeCodes : undefined,
-      ),
+      processAbilities: upsertProcessAbility(prev.processAbilities, processCode, craftCodes),
     }))
 
     return true
@@ -2173,27 +2053,6 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
       return {
         ...prev,
         processAbilities: upsertProcessAbility(prev.processAbilities, processCode, nextCraftCodes),
-      }
-    })
-
-    return true
-  }
-
-  const nodeToggleField = target.closest<HTMLElement>('[data-factory-node-toggle]')
-  if (nodeToggleField instanceof HTMLInputElement && state.formDraft) {
-    const processCode = nodeToggleField.dataset.factoryProcessCode
-    const nodeCode = nodeToggleField.dataset.factoryNodeToggle as FactoryPostCapacityNodeCode | undefined
-    if (!processCode || !nodeCode) return true
-
-    setDraft((prev) => {
-      const selectedNodeCodes = getSelectedCapacityNodeCodes(prev.processAbilities, processCode)
-      const nextNodeCodes = nodeToggleField.checked
-        ? [...selectedNodeCodes, nodeCode]
-        : selectedNodeCodes.filter((item) => item !== nodeCode)
-
-      return {
-        ...prev,
-        processAbilities: upsertProcessAbility(prev.processAbilities, processCode, [], nextNodeCodes),
       }
     })
 

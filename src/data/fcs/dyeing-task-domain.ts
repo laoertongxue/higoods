@@ -143,6 +143,12 @@ export interface DyeWorkOrder {
   dispatchPriceDisplay: string
   dyeFactoryId: string
   dyeFactoryName: string
+  acceptanceStatus?: 'PENDING' | 'ACCEPTED' | 'REJECTED'
+  acceptedAt?: string
+  acceptedBy?: string
+  rejectedAt?: string
+  rejectedBy?: string
+  rejectionReason?: string
   sourceWarehouseId?: string
   targetTransferWarehouseId: string
   targetTransferWarehouseName: string
@@ -377,8 +383,40 @@ const formulaStore = new Map<string, MutableDyeFormulaRecord>()
 
 let seeded = false
 
+export interface DyeProcessMutationSnapshot {
+  workOrders: Array<[string, MutableDyeWorkOrder]>
+  nodeRecords: Array<[string, MutableDyeExecutionNodeRecord[]]>
+  reviewRecords: Array<[string, MutableDyeReviewRecord]>
+  vatSchedules: Array<[string, MutableDyeVatSchedule]>
+  formulas: Array<[string, MutableDyeFormulaRecord]>
+}
+
+export function captureDyeProcessMutationState(): DyeProcessMutationSnapshot {
+  return structuredClone({
+    workOrders: Array.from(workOrderStore.entries()),
+    nodeRecords: Array.from(nodeRecordStore.entries()),
+    reviewRecords: Array.from(reviewRecordStore.entries()),
+    vatSchedules: Array.from(vatScheduleStore.entries()),
+    formulas: Array.from(formulaStore.entries()),
+  })
+}
+
+export function restoreDyeProcessMutationState(snapshot: DyeProcessMutationSnapshot): void {
+  const restored = structuredClone(snapshot)
+  workOrderStore.clear()
+  nodeRecordStore.clear()
+  reviewRecordStore.clear()
+  vatScheduleStore.clear()
+  formulaStore.clear()
+  restored.workOrders.forEach(([id, order]) => workOrderStore.set(id, order))
+  restored.nodeRecords.forEach(([id, records]) => nodeRecordStore.set(id, records))
+  restored.reviewRecords.forEach(([id, record]) => reviewRecordStore.set(id, record))
+  restored.vatSchedules.forEach(([id, record]) => vatScheduleStore.set(id, record))
+  restored.formulas.forEach(([id, record]) => formulaStore.set(id, record))
+}
+
 const GENERATED_DYE_CRAFTS = listActiveProcessCraftDefinitions()
-  .filter((definition) => definition.processCode === 'DYE' && definition.defaultDocType === 'TASK')
+  .filter((definition) => definition.processCode === 'DYE' && definition.defaultDocType === 'PREPARATION_ORDER')
 
 interface GeneratedDyeContext {
   productionOrder: ProductionOrder
@@ -1153,21 +1191,28 @@ function seedWorkOrders(): void {
   const cancelledReceivedQty = scaleSeedQty(9, 860, 842)
   const completedSubmittedQty = scaleSeedQty(10, 1180, 1172)
   const partialTaskId = 'TASK-DYE-000734'
-  const partialTaskTemplate = getDyeingTaskById('TASK-DYE-000729')
-  if (partialTaskTemplate && !getDyeingTaskById(partialTaskId)) {
-    registerPdaGenericProcessTask({
-      ...structuredClone(partialTaskTemplate),
-      taskId: partialTaskId,
-      taskNo: partialTaskId,
-      taskQrValue: buildTaskQrValue(partialTaskId),
-      handoverOrderId: undefined,
-      handoverStatus: 'NOT_CREATED',
-      auditLogs: partialTaskTemplate.auditLogs.map((log, index) => ({
-        ...log,
-        id: `AL-${partialTaskId}-${index + 1}`,
-      })),
-    })
-  }
+  const seededExecutionProjections = [
+    { taskId: 'TASK-DYE-000727', productionOrderId: 'PO-20260328-414', qty: 1100, createdAt: '2026-03-28 10:10:00' },
+    { taskId: 'TASK-DYE-000728', productionOrderId: 'PO-20260328-415', qty: 910, createdAt: '2026-03-28 10:50:00' },
+    { taskId: partialTaskId, productionOrderId: 'PO-20260328-416', qty: 980, createdAt: '2026-03-27 14:50:00' },
+    { taskId: 'TASK-DYE-000730', productionOrderId: 'PO-20260328-417', qty: 860, createdAt: '2026-03-27 15:00:00' },
+    { taskId: 'TASK-DYE-000731', productionOrderId: 'PO-20260328-418', qty: 1180, createdAt: '2026-03-28 07:00:00' },
+  ]
+  seededExecutionProjections.forEach((projection) => {
+    if (getDyeingTaskById(projection.taskId)) return
+    registerPdaGenericProcessTask(buildFreshDyeMobileTask({
+      ...projection,
+      taskNo: projection.taskId,
+      factoryId: TEST_FACTORY_ID,
+      factoryName: TEST_FACTORY_NAME,
+      qtyDisplayUnit: '米',
+      processName: '染色',
+      dispatchedBy: '平台加工单',
+      receiveSummary: '染色加工单已分配，待工厂接收。',
+      executionSummary: '按染色加工单当前节点执行。',
+      handoverSummary: '完成染色及后处理后统一交出。',
+    }))
+  })
 
   syncLinkedTaskState('TASK-DYE-000726', {
     status: 'IN_PROGRESS',
@@ -2680,7 +2725,19 @@ export function getDyeReviewStatusLabel(status: DyeReviewStatus): string {
 
 export function listDyeWorkOrders(): DyeWorkOrder[] {
   syncDerivedWorkflow()
-  return listGeneratedDyeWorkOrders().map((order) => cloneWorkOrder(order))
+  return listGeneratedDyeWorkOrders().map((order) => {
+    const canonical = workOrderStore.get(order.dyeOrderId) ?? order
+    ensureDyeAcceptanceFact(canonical)
+    return cloneWorkOrder({
+      ...order,
+      acceptanceStatus: canonical.acceptanceStatus,
+      acceptedAt: canonical.acceptedAt,
+      acceptedBy: canonical.acceptedBy,
+      rejectedAt: canonical.rejectedAt,
+      rejectedBy: canonical.rejectedBy,
+      rejectionReason: canonical.rejectionReason,
+    })
+  })
 }
 
 export function listCreatedDyeWorkOrders(): DyeWorkOrder[] {
@@ -2696,6 +2753,7 @@ registerCreatedDyeWorkOrderReader(listCreatedDyeWorkOrders)
 export function getDyeWorkOrderById(dyeOrderId: string): DyeWorkOrder | undefined {
   syncDerivedWorkflow()
   const canonical = workOrderStore.get(dyeOrderId)
+  if (canonical) ensureDyeAcceptanceFact(canonical)
   const order = listGeneratedDyeWorkOrders().find((item) => item.dyeOrderId === dyeOrderId)
   return order && canonical
     ? cloneWorkOrder({
@@ -2704,6 +2762,12 @@ export function getDyeWorkOrderById(dyeOrderId: string): DyeWorkOrder | undefine
         dyeOrderNo: canonical.dyeOrderNo,
         taskId: canonical.taskId,
         taskNo: canonical.taskNo,
+        acceptanceStatus: canonical.acceptanceStatus,
+        acceptedAt: canonical.acceptedAt,
+        acceptedBy: canonical.acceptedBy,
+        rejectedAt: canonical.rejectedAt,
+        rejectedBy: canonical.rejectedBy,
+        rejectionReason: canonical.rejectionReason,
       })
     : undefined
 }
@@ -2714,6 +2778,7 @@ export function getDyeWorkOrderByTaskId(taskId: string): DyeWorkOrder | undefine
   syncDerivedWorkflow()
   const canonical = Array.from(workOrderStore.values()).find((item) => item.taskId === taskId)
   if (!canonical) return undefined
+  ensureDyeAcceptanceFact(canonical)
   const order = listGeneratedDyeWorkOrders().find((item) => item.dyeOrderId === canonical.dyeOrderId)
   return order
     ? cloneWorkOrder({
@@ -2722,8 +2787,135 @@ export function getDyeWorkOrderByTaskId(taskId: string): DyeWorkOrder | undefine
         dyeOrderNo: canonical.dyeOrderNo,
         taskId: canonical.taskId,
         taskNo: canonical.taskNo,
+        acceptanceStatus: canonical.acceptanceStatus,
+        acceptedAt: canonical.acceptedAt,
+        acceptedBy: canonical.acceptedBy,
+        rejectedAt: canonical.rejectedAt,
+        rejectedBy: canonical.rejectedBy,
+        rejectionReason: canonical.rejectionReason,
       })
     : undefined
+}
+
+function ensureDyeAcceptanceFact(order: MutableDyeWorkOrder): void {
+  if (order.acceptanceStatus) return
+  if (!order.dyeFactoryId) {
+    order.acceptanceStatus = 'PENDING'
+    order.acceptedAt = undefined
+    order.acceptedBy = undefined
+    return
+  }
+  const hasStarted = (nodeRecordStore.get(order.dyeOrderId) ?? []).some((node) => Boolean(node.startedAt))
+  const hasHistoricalExecution = hasStarted || !['WAIT_SAMPLE', 'WAIT_MATERIAL'].includes(order.status)
+  order.acceptanceStatus = hasHistoricalExecution ? 'ACCEPTED' : 'PENDING'
+  order.acceptedAt = hasHistoricalExecution ? order.createdAt : undefined
+  order.acceptedBy = hasHistoricalExecution ? order.dyeFactoryName : undefined
+}
+
+function deriveDyeMobileStatus(order: DyeWorkOrder): PdaGenericTaskMock['status'] {
+  if (order.status === 'REJECTED' || order.status === 'HANDOVER_DIFFERENCE' || order.status === 'PRODUCTION_PAUSED') return 'BLOCKED'
+  if (['HANDOVER_WAIT_RECEIVE', 'PARTIAL_HANDOVER', 'FULL_HANDOVER', 'COMPLETED'].includes(order.status)) return 'DONE'
+  const hasStarted = (nodeRecordStore.get(order.dyeOrderId) ?? []).some((node) => Boolean(node.startedAt))
+  return hasStarted ? 'IN_PROGRESS' : 'NOT_STARTED'
+}
+
+function deriveDyeMobileOrigin(order: DyeWorkOrder, status: PdaGenericTaskMock['status']): PdaGenericTaskMock['mockOrigin'] {
+  if (order.acceptanceStatus === 'REJECTED') return 'DIRECT_REJECTED'
+  if (order.acceptanceStatus !== 'ACCEPTED') return 'DIRECT_PENDING'
+  if (status === 'DONE') return 'EXEC_DONE'
+  if (status === 'BLOCKED') return 'EXEC_BLOCKED'
+  if (status === 'IN_PROGRESS') return 'EXEC_IN_PROGRESS'
+  if (status === 'CANCELLED') return 'EXEC_CANCELLED'
+  return 'EXEC_NOT_STARTED'
+}
+
+export function listDyeMobileExecutionTasks(): PdaGenericTaskMock[] {
+  syncDerivedWorkflow()
+  return Array.from(workOrderStore.values()).flatMap((order) => {
+    ensureDyeAcceptanceFact(order)
+    const baseTask = getDyeingTaskById(order.taskId) ?? buildFreshDyeMobileTask({
+      taskId: order.taskId,
+      taskNo: order.taskNo,
+      sourceType: order.sourceType,
+      sourceSnapshot: order.sourceSnapshot,
+      productionOrderId: order.sourceProductionOrderId || order.productionOrderIds?.[0],
+      productionOrderNo: order.sourceProductionOrderNo,
+      stockMaterialId: order.stockMaterialId,
+      stockMaterialName: order.stockMaterialName,
+      spuCode: order.rawMaterialSku,
+      spuName: `${order.rawMaterialSku} / ${order.targetColor}`,
+      requiredDeliveryDate: order.plannedFinishAt || '',
+      factoryId: order.dyeFactoryId,
+      factoryName: order.dyeFactoryName,
+      qty: order.plannedQty,
+      qtyDisplayUnit: order.qtyUnit,
+      processName: order.dyeProcessName,
+      createdAt: order.createdAt,
+      dispatchedBy: '平台加工单',
+      receiveSummary: order.dyeFactoryId ? '染色加工单已分配，待工厂接收。' : '染色加工单待分配工厂。',
+      executionSummary: '按染色加工单当前节点执行。',
+      handoverSummary: '完成染色及后处理后统一交出。',
+    })
+    const nodes = nodeRecordStore.get(order.dyeOrderId) ?? []
+    const startedAt = nodes.map((node) => node.startedAt).filter((value): value is string => Boolean(value)).sort()[0]
+    const status = deriveDyeMobileStatus(order)
+    return [{
+      ...structuredClone(baseTask),
+      qty: order.plannedQty,
+      qtyDisplayUnit: order.qtyUnit,
+      assignedFactoryId: order.dyeFactoryId || undefined,
+      assignedFactoryName: order.dyeFactoryName || undefined,
+      assignmentStatus: order.dyeFactoryId ? 'ASSIGNED' : 'UNASSIGNED',
+      acceptanceStatus: order.acceptanceStatus,
+      mockOrigin: deriveDyeMobileOrigin(order, status),
+      acceptedAt: order.acceptedAt,
+      acceptedBy: order.acceptedBy,
+      status,
+      startedAt,
+      finishedAt: status === 'DONE' ? order.updatedAt : undefined,
+      handoutStatus: ['HANDOVER_WAIT_RECEIVE', 'PARTIAL_HANDOVER', 'FULL_HANDOVER', 'COMPLETED'].includes(order.status) ? 'HANDED_OUT' : 'PENDING',
+      defaultDocType: 'PREPARATION_ORDER',
+      stage: 'PREP',
+      stageCode: 'PREP',
+      updatedAt: order.updatedAt,
+    }]
+  })
+}
+
+export function acceptDyeWorkOrderPdaTask(taskId: string, acceptedBy: string, acceptedAt = nowTimestamp()): DyeWorkOrder {
+  const order = Array.from(workOrderStore.values()).find((item) => item.taskId === taskId)
+  if (!order) throw new Error('染色加工单不存在')
+  if (!order.dyeFactoryId) throw new Error('染色加工单尚未分配工厂')
+  ensureDyeAcceptanceFact(order)
+  if (order.acceptanceStatus === 'REJECTED') throw new Error('染色加工单已拒绝，不能接单')
+  if (order.acceptanceStatus !== 'ACCEPTED') {
+    order.acceptanceStatus = 'ACCEPTED'
+    order.acceptedAt = acceptedAt
+    order.acceptedBy = acceptedBy
+    updateOrderTimestamp(order, acceptedAt)
+  }
+  return cloneWorkOrder(order)
+}
+
+export function rejectDyeWorkOrderPdaTask(taskId: string, rejectedBy: string, reason: string, rejectedAt = nowTimestamp()): DyeWorkOrder {
+  const order = Array.from(workOrderStore.values()).find((item) => item.taskId === taskId)
+  if (!order) throw new Error('染色加工单不存在')
+  if (!order.dyeFactoryId) throw new Error('染色加工单尚未分配工厂')
+  ensureDyeAcceptanceFact(order)
+  if (order.acceptanceStatus === 'REJECTED') throw new Error('染色加工单已拒单，不可重复拒单')
+  if ((nodeRecordStore.get(order.dyeOrderId) ?? []).some((node) => Boolean(node.startedAt))) {
+    throw new Error('染色加工单已经开工，不能拒单')
+  }
+  order.acceptanceStatus = 'REJECTED'
+  order.acceptedAt = undefined
+  order.acceptedBy = undefined
+  order.rejectedAt = rejectedAt
+  order.rejectedBy = rejectedBy
+  order.rejectionReason = reason
+  order.dyeFactoryId = ''
+  order.dyeFactoryName = '待分配工厂'
+  updateOrderTimestamp(order, rejectedAt)
+  return cloneWorkOrder(order)
 }
 
 export interface DyeReceiptOnlineStatusEvent {
@@ -2934,6 +3126,14 @@ export function assignDyeWorkOrderFactory(
 
   order.dyeFactoryId = factoryId
   order.dyeFactoryName = factoryName
+  if (changed) {
+    order.acceptanceStatus = 'PENDING'
+    order.acceptedAt = undefined
+    order.acceptedBy = undefined
+    order.rejectedAt = undefined
+    order.rejectedBy = undefined
+    order.rejectionReason = undefined
+  }
   order.updatedAt = input.assignedAt
 
   const task = getDyeingTaskById(order.taskId)
@@ -3343,7 +3543,7 @@ export function createDyeWorkOrderFromStock(input: {
     return { ok: false, message: `计划数量超过可用库存，当前最多可用 ${stockMaterial.availableQty} ${stockMaterial.qtyUnit}。` }
   }
   if (!isValidProcessWorkOrderPlannedFinishAt(plannedFinishAt)) return { ok: false, message: '请填写有效的计划完成时间。' }
-  if (!input.processName.trim()) return { ok: false, message: '请填写染色工艺。' }
+  if (!input.processName.trim()) return { ok: false, message: '请填写染色工序。' }
   const factoryAssignmentError = getDyeFactoryAssignmentError(input.factoryId, false)
   if (factoryAssignmentError) return { ok: false, message: factoryAssignmentError }
   const factory = getFactoryMasterRecordById(input.factoryId)!
@@ -3988,13 +4188,21 @@ export function submitDyeHandover(
   if (order.status !== 'WAIT_HANDOVER') {
     throw new Error('请先完成染色及全部后处理，包装完成后再交出。')
   }
+  const completedQty = getCurrentOutputQty(order)
+  const submittedQty = listHandoverOrdersByTaskId(order.taskId).reduce((sum, head) => sum + (head.submittedQtyTotal ?? 0), 0)
+  const requestedQty = Number.isFinite(input.handoverQty) ? Number(input.handoverQty) : completedQty
+  const availableQty = Math.max(completedQty - submittedQty, 0)
+  if (!Number.isFinite(requestedQty) || requestedQty <= 0) throw new Error('交出数量必须大于 0。')
+  if (requestedQty > availableQty + 0.000001) {
+    throw new Error(`交出数量不能超过已完工未交出数量 ${availableQty} ${order.qtyUnit}。`)
+  }
   const now = input.handoverAt || nowTimestamp()
   if (!order.handoverOrderId) {
     order.handoverOrderId = ensureStartedTaskHandover(order.taskId)
   }
   const result = ensureSeededHandoverRecord({
     taskId: order.taskId,
-    submittedQty: Number.isFinite(input.handoverQty) ? Number(input.handoverQty) : order.plannedQty,
+    submittedQty: requestedQty,
     submittedAt: now,
   })
   order.handoverOrderId = result.handoverOrderId || order.handoverOrderId

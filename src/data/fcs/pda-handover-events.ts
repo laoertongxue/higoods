@@ -1034,7 +1034,7 @@ function buildPostFinishingPickupHeads(): PdaHandoverHead[] {
       processBusinessCode: 'POST_FINISHING',
       processBusinessName: '后道',
       taskTypeCode: 'POST_FINISHING',
-      taskTypeLabel: '后道任务',
+      taskTypeLabel: '后道阶段处理',
       assignmentGranularity: 'ORDER',
       assignmentGranularityLabel: '整单',
       isSpecialCraft: false,
@@ -1087,7 +1087,7 @@ function buildPostFinishingSewingSelfReturnPickupHeads(): PdaHandoverHead[] {
         processBusinessCode: 'POST_FINISHING',
         processBusinessName: '后道',
         taskTypeCode: 'POST_FINISHING',
-        taskTypeLabel: '后道任务',
+        taskTypeLabel: '后道阶段处理',
         assignmentGranularity: 'ORDER',
         assignmentGranularityLabel: '整单',
         isSpecialCraft: false,
@@ -1242,7 +1242,7 @@ function buildPostFinishingHandoutHeads(): PdaHandoverHead[] {
       processBusinessCode: 'POST_FINISHING',
       processBusinessName: '后道',
       taskTypeCode: 'POST_FINISHING',
-      taskTypeLabel: '后道任务',
+      taskTypeLabel: '后道阶段处理',
       assignmentGranularity: 'ORDER',
       assignmentGranularityLabel: '整单',
       isSpecialCraft: false,
@@ -1627,8 +1627,8 @@ const PDA_MOCK_HANDOVER_HEADS: PdaHandoverHead[] = [
     headType: 'HANDOUT',
     qrCodeValue: buildHandoutHeadQrCodeValue('HOH-SLA-DELAY-DEMO-001'),
     handoverOrderQrValue: buildHandoverOrderQrValue('HOH-SLA-DELAY-DEMO-001'),
-    taskId: 'TASKGEN-202603-0015-001__ORDER',
-    sourceTaskId: 'TASKGEN-202603-0015-001__ORDER',
+    taskId: 'TASKGEN-202603-0015-002__ORDER',
+    sourceTaskId: 'TASKGEN-202603-0015-002__ORDER',
     taskNo: 'TASKGEN-202603-0015-001',
     sourceTaskNo: 'TASKGEN-202603-0015-001',
     productionOrderNo: 'PO-202603-0015',
@@ -1656,7 +1656,7 @@ const PDA_MOCK_HANDOVER_HEADS: PdaHandoverHead[] = [
     qtyExpectedTotal: 1400,
     qtyActualTotal: 420,
     qtyDiffTotal: 980,
-    runtimeTaskId: 'TASKGEN-202603-0015-001__ORDER',
+    runtimeTaskId: 'TASKGEN-202603-0015-002__ORDER',
     sourceDocNo: 'SLA-DELAY-DEMO-001',
     scopeLabel: '车缝成衣交出',
     executorKind: 'EXTERNAL_FACTORY',
@@ -2312,8 +2312,8 @@ const PDA_MOCK_HANDOUT_RECORDS: Record<string, PdaHandoverRecord[]> = {
       handoverRecordNo: 'SLA-DEMO-RECEIVER-DELAY-001',
       handoverId: 'HOH-SLA-DELAY-DEMO-001',
       handoverOrderId: 'HOH-SLA-DELAY-DEMO-001',
-      taskId: 'TASKGEN-202603-0015-001__ORDER',
-      sourceTaskId: 'TASKGEN-202603-0015-001__ORDER',
+      taskId: 'TASKGEN-202603-0015-002__ORDER',
+      sourceTaskId: 'TASKGEN-202603-0015-002__ORDER',
       sequenceNo: 1,
       handoutObjectType: 'GARMENT',
       objectType: 'GARMENT',
@@ -2321,15 +2321,15 @@ const PDA_MOCK_HANDOUT_RECORDS: Record<string, PdaHandoverRecord[]> = {
       plannedQty: 420,
       submittedQty: 420,
       qtyUnit: '件',
-      factorySubmittedAt: '2026-07-05 08:00:00',
+      factorySubmittedAt: '2026-07-04 22:00:00',
       factorySubmittedBy: 'CV Micro Sewing Jakarta Pusat 操作员',
       factorySubmittedByKind: 'FACTORY',
       factoryProofFiles: [],
       status: 'WRITTEN_BACK',
       handoverRecordStatus: 'WRITTEN_BACK_MATCHED',
-      lifecycleUpdatedAt: '2026-07-05 12:00:00',
+      lifecycleUpdatedAt: '2026-07-05 02:00:00',
       receiverWrittenQty: 420,
-      receiverWrittenAt: '2026-07-05 12:00:00',
+      receiverWrittenAt: '2026-07-05 02:00:00',
       receiverWrittenBy: '成衣仓收货员',
       receiverProofFiles: [],
       diffQty: 0,
@@ -4056,7 +4056,9 @@ function isTaskEligibleForHandover(task: {
   if (!processCode) return false
   if (isPostCapacityNode(processCode)) return false
   const definition = getProcessDefinitionByCode(processCode)
-  if (definition) return definition.generatesExternalTask
+  if (definition) {
+    return definition.generatesExternalTask || definition.defaultDocType === 'PREPARATION_ORDER'
+  }
   return isExternalTaskProcess(processCode)
 }
 

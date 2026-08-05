@@ -1,3 +1,5 @@
+// @page-pattern: detail
+
 import { buildUnifiedPrintPreviewRouteLink } from '../../../data/fcs/fcs-route-links.ts'
 import {
   completePostFinishingProjectLine,
@@ -22,7 +24,7 @@ type PostFinishingDetailTab = 'base' | 'sku' | 'items' | 'result'
 const DETAIL_TABS: Array<{ key: PostFinishingDetailTab; label: string }> = [
   { key: 'base', label: '基本信息' },
   { key: 'sku', label: 'SKU 明细' },
-  { key: 'items', label: '后道项目' },
+  { key: 'items', label: '实际工序' },
   { key: 'result', label: '执行结果' },
 ]
 
@@ -97,9 +99,9 @@ function renderActionBar(order: PostFinishingWorkOrder): string {
     <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-white p-3">
       ${renderTabs(order.postOrderId, getCurrentTab())}
       <div class="flex flex-wrap gap-2">
-        ${renderPostAction('返回后道单列表', '/fcs/craft/post-finishing/work-orders')}
+        ${renderPostAction('返回实际工序单列表', '/fcs/craft/post-finishing/work-orders')}
         <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" onclick="window.__reportPostFinishingWorkOrderException('${escapeHtml(order.postOrderNo)}')">上报异常</button>
-        ${renderPostAction('打印后道单', buildUnifiedPrintPreviewRouteLink({ documentType: 'TASK_ROUTE_CARD', sourceType: 'POST_FINISHING_WORK_ORDER', sourceId: order.postOrderId }))}
+        ${renderPostAction('打印实际工序单', buildUnifiedPrintPreviewRouteLink({ documentType: 'TASK_ROUTE_CARD', sourceType: 'POST_FINISHING_WORK_ORDER', sourceId: order.postOrderId }))}
       </div>
     </div>
   `
@@ -129,13 +131,13 @@ function renderPostItemRows(order: PostFinishingWorkOrder): string {
       <td class="px-3 py-3 text-sm">${escapeHtml(line.finishedAt || '—')}</td>
       <td class="px-3 py-3">
         <div class="flex flex-wrap gap-2">
-          ${line.status === '待开始' ? `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-slate-50" onclick="window.__startPostFinishingProjectLine('${escapeHtml(order.postOrderId)}','${escapeHtml(line.projectLineId)}')">开始后道</button>` : ''}
-          ${line.status !== '已完成' ? `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-slate-50" onclick="window.__completePostFinishingProjectLine('${escapeHtml(order.postOrderId)}','${escapeHtml(line.projectLineId)}',${line.plannedQty})">完成后道</button>` : ''}
+          ${line.status === '待开始' ? `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-slate-50" onclick="window.__startPostFinishingProjectLine('${escapeHtml(order.postOrderId)}','${escapeHtml(line.projectLineId)}')">开始${escapeHtml(line.projectName)}</button>` : ''}
+          ${line.status !== '已完成' ? `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-slate-50" onclick="window.__completePostFinishingProjectLine('${escapeHtml(order.postOrderId)}','${escapeHtml(line.projectLineId)}',${line.plannedQty})">完成${escapeHtml(line.projectName)}</button>` : ''}
         </div>
       </td>
     </tr>
   `).join('')
-  return rows || renderEmptyRow(8, '暂无后道项目')
+  return rows || renderEmptyRow(8, '暂无实际工序')
 }
 
 function renderResultRows(order: PostFinishingWorkOrder): string {
@@ -158,37 +160,37 @@ function renderTabBody(order: PostFinishingWorkOrder): string {
   const activeTab = getCurrentTab()
   if (activeTab === 'sku') {
     return renderPostSection('SKU 明细', renderPostTable(
-      ['SKU', '款式衣服', '颜色', '尺码', '后道数量'],
+      ['SKU', '款式衣服', '颜色', '尺码', '待处理数量'],
       renderSkuRows(order) || renderEmptyRow(5, '暂无 SKU 明细'),
       'min-w-[980px]',
     ))
   }
   if (activeTab === 'items') {
-    return renderPostSection('后道项目', renderPostTable(
-      ['SKU', '后道项目', '计划数量', '完成数量', '状态', '开始时间', '完成时间', '操作'],
+    return renderPostSection('实际工序', renderPostTable(
+      ['SKU', '实际工序', '计划数量', '完成数量', '状态', '开始时间', '完成时间', '操作'],
       renderPostItemRows(order),
       'min-w-[1180px]',
     ))
   }
   if (activeTab === 'result') {
     return renderPostSection('执行结果', renderPostTable(
-      ['后道状态', '操作人', '开始时间', '完成时间', '后道数量', '完成数量', '异常数量', '备注'],
+      ['执行状态', '操作人', '开始时间', '完成时间', '待处理数量', '完成数量', '异常数量', '备注'],
       renderResultRows(order),
       'min-w-[1160px]',
     ))
   }
 
   const baseRows: Array<[string, string]> = [
-    ['后道单号', order.postOrderNo],
+    ['实际工序单号', order.postOrderNo],
     ['来源质检单', order.qcOrderNo],
     ['生产单', order.sourceProductionOrderNo],
     ['来源任务', order.sourceTaskNo],
     ['来源工厂', order.sourceSewingFactoryName],
     ['后道工厂', order.currentFactoryName],
     ['款式 / SPU', `${order.spuCode} / ${order.spuName}`],
-    ['后道来源', getPostFinishingSourceLabel(order)],
-    ['后道数量', formatGarmentQty(order.plannedGarmentQty, order.plannedGarmentQtyUnit)],
-    ['后道状态', order.postStatus],
+    ['阶段来源', getPostFinishingSourceLabel(order)],
+    ['待处理数量', formatGarmentQty(order.plannedGarmentQty, order.plannedGarmentQtyUnit)],
+    ['阶段状态', order.postStatus],
     ['创建时间', order.createdAt],
     ['最近更新', order.updatedAt],
   ]
@@ -201,11 +203,11 @@ export function renderPostFinishingWorkOrderDetailPage(postOrderId: string): str
   if (!order) {
     return `
       <div class="space-y-4 p-4">
-        ${renderPostFinishingPageHeader('后道单详情')}
-        ${renderPostSection('未找到后道单', `
+        ${renderPostFinishingPageHeader('实际工序单详情')}
+        ${renderPostSection('未找到实际工序单', `
           <div class="space-y-3 text-sm text-muted-foreground">
-            <p>未找到后道单：${escapeHtml(postOrderId)}</p>
-            ${renderPostAction('返回后道单列表', '/fcs/craft/post-finishing/work-orders')}
+            <p>未找到实际工序单：${escapeHtml(postOrderId)}</p>
+            ${renderPostAction('返回实际工序单列表', '/fcs/craft/post-finishing/work-orders')}
           </div>
         `)}
       </div>
@@ -214,7 +216,7 @@ export function renderPostFinishingWorkOrderDetailPage(postOrderId: string): str
 
   return `
     <div class="space-y-4 p-4">
-      ${renderPostFinishingPageHeader('后道单详情', `${order.postOrderNo} / ${order.currentFactoryName}`)}
+      ${renderPostFinishingPageHeader('实际工序单详情', `${order.postOrderNo} / ${order.currentFactoryName}`)}
       ${renderActionBar(order)}
       ${renderTabBody(order)}
     </div>

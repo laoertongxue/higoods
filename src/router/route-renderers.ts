@@ -26,10 +26,6 @@ function createAsyncRenderer<TArgs extends unknown[]>(
 }
 
 export const renderFactoryProfilePage = createAsyncRenderer(() => import('../pages/factory-profile'), 'renderFactoryProfilePage')
-export const renderFactoryCapacityProfilePage = createAsyncRenderer(
-  () => import('../pages/factory-capacity-profile'),
-  'renderFactoryCapacityProfilePage',
-)
 export const renderOverviewPage = createAsyncRenderer(() => import('../pages/workbench'), 'renderOverviewPage')
 export const renderTodosPage = createAsyncRenderer(() => import('../pages/workbench'), 'renderTodosPage')
 export const renderPcsResetPlaceholderPage = createAsyncRenderer(
@@ -344,11 +340,6 @@ export const renderFactoryPerformancePage = createAsyncRenderer(() => import('..
 export const renderSettlementDetailPage = createAsyncRenderer(() => import('../pages/settlement'), 'renderSettlementDetailPage')
 export const renderSettlementInitPage = createAsyncRenderer(() => import('../pages/settlement'), 'renderSettlementInitPage')
 export const renderSettlementListPage = createAsyncRenderer(() => import('../pages/settlement'), 'renderSettlementListPage')
-export const renderCapacityOverviewPage = createAsyncRenderer(() => import('../pages/capacity'), 'renderCapacityOverviewPage')
-export const renderCapacityRiskPage = createAsyncRenderer(() => import('../pages/capacity'), 'renderCapacityRiskPage')
-export const renderCapacityBottleneckPage = createAsyncRenderer(() => import('../pages/capacity'), 'renderCapacityBottleneckPage')
-export const renderCapacityConstraintsPage = createAsyncRenderer(() => import('../pages/capacity'), 'renderCapacityConstraintsPage')
-export const renderCapacityPoliciesPage = createAsyncRenderer(() => import('../pages/capacity'), 'renderCapacityPoliciesPage')
 export const renderProductionDemandInboxPage = createAsyncRenderer(
   () => import('../pages/production/demand-domain'),
   'renderProductionDemandInboxPage',
@@ -421,7 +412,6 @@ export const renderCuttingSettlementInputPage = createAsyncRenderer(
   () => import('../pages/settlement-cutting-input'),
   'renderCuttingSettlementInputPage',
 )
-export const renderDispatchBoardPage = createAsyncRenderer(() => import('../pages/dispatch-board'), 'renderDispatchBoardPage')
 export const renderDispatchTendersPage = createAsyncRenderer(() => import('../pages/dispatch-tenders'), 'renderDispatchTendersPage')
 export const renderProgressBoardPage = createAsyncRenderer(() => import('../pages/progress-board'), 'renderProgressBoardPage')
 export const renderProgressExceptionsPage = createAsyncRenderer(() => import('../pages/progress-exceptions'), 'renderProgressExceptionsPage')

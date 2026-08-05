@@ -1,5 +1,4 @@
 import {
-  OUTPUT_VALUE_UNIT_LABEL,
   getSpecialCraftSupportedTargetObjectLabels,
   getSpecialCraftTargetObjectLabel,
   getProcessCraftByCode,
@@ -8,7 +7,6 @@ import {
   listPreparationProcesses,
   normalizeSpecialCraftTargetObjectLabel,
   listProcessCraftDefinitions,
-  type OutputValueUnit,
   type DetailSplitDimension,
   type DetailSplitMode,
   type RuleSource,
@@ -253,7 +251,6 @@ export interface TechPackProcess {
   id: string
   seq: number
   name: string
-  outputValue: number
   difficulty: 'LOW' | 'MEDIUM' | 'HIGH'
   qcPoint: string
 }
@@ -305,12 +302,6 @@ export interface TechPackProcessEntry {
   manualFieldsTouched?: boolean
   requiresRemovalConfirmation?: boolean
   linkageStatus?: '已生成' | '待确认'
-  outputValuePerUnit?: number
-  outputValueUnit?: string
-  referenceOutputValueValue?: number
-  referenceOutputValueUnit?: OutputValueUnit
-  referenceOutputValueUnitLabel?: string
-  referenceOutputValueNote?: string
   difficulty?: 'LOW' | 'MEDIUM' | 'HIGH'
   remark?: string
 }
@@ -534,62 +525,6 @@ const STAGE_NAME_BY_CODE: Record<TechPackProcessEntry['stageCode'], string> = {
 const processCraftByName = new Map(
   listProcessCraftDefinitions().map((item) => [item.craftName, item]),
 )
-
-function createCraftProcessEntry(
-  id: string,
-  craftName: string,
-  outputValuePerUnit: number,
-  difficulty: NonNullable<TechPackProcessEntry['difficulty']>,
-  remark?: string,
-  selectedTargetObject?: TechPackSpecialCraftTargetObject,
-): TechPackProcessEntry {
-  const craft = processCraftByName.get(craftName)
-  if (!craft) {
-    throw new Error(`未找到可用工艺定义：${craftName}`)
-  }
-  const process = getProcessDefinitionByCode(craft.processCode)
-  if (!process) {
-    throw new Error(`未找到工序定义：${craft.processCode}`)
-  }
-  const supportedTargetObjectLabels = getSpecialCraftSupportedTargetObjectLabels(craft.supportedTargetObjects)
-  const normalizedTargetObject = normalizeSpecialCraftTargetObjectLabel(selectedTargetObject)
-  const resolvedSelectedTargetObject =
-    craft.isSpecialCraft
-      ? normalizedTargetObject && supportedTargetObjectLabels.includes(normalizedTargetObject)
-        ? normalizedTargetObject
-        : supportedTargetObjectLabels[0]
-      : undefined
-
-  return {
-    id,
-    entryType: 'CRAFT',
-    stageCode: craft.stageCode,
-    stageName: STAGE_NAME_BY_CODE[craft.stageCode],
-    processCode: craft.processCode,
-    processName: process.processName,
-    craftCode: craft.craftCode,
-    craftName: craft.craftName,
-    assignmentGranularity: craft.assignmentGranularity,
-    ruleSource: craft.ruleSource,
-    detailSplitMode: craft.detailSplitMode,
-    detailSplitDimensions: [...craft.detailSplitDimensions],
-    defaultDocType: craft.defaultDocType,
-    taskTypeMode: craft.taskTypeMode,
-    isSpecialCraft: craft.isSpecialCraft,
-    selectedTargetObject: resolvedSelectedTargetObject,
-    supportedTargetObjects: craft.isSpecialCraft ? [...craft.supportedTargetObjects] : undefined,
-    supportedTargetObjectLabels: craft.isSpecialCraft ? [...supportedTargetObjectLabels] : undefined,
-    visibleFactoryTypes: craft.isSpecialCraft ? [...craft.visibleFactoryTypes] : undefined,
-    outputValuePerUnit,
-    outputValueUnit: OUTPUT_VALUE_UNIT_LABEL[craft.referenceOutputValueUnit],
-    referenceOutputValueValue: craft.referenceOutputValueValue,
-    referenceOutputValueUnit: craft.referenceOutputValueUnit,
-    referenceOutputValueUnitLabel: OUTPUT_VALUE_UNIT_LABEL[craft.referenceOutputValueUnit],
-    referenceOutputValueNote: craft.referenceOutputValueNote,
-    difficulty,
-    remark,
-  }
-}
 
 function createPatternPieceSpecialCraft(craftName: string): TechPackPatternPieceSpecialCraft {
   const craft = processCraftByName.get(craftName)
@@ -900,10 +835,6 @@ export function resolveTechPackProcessEntryRule(entry: TechPackProcessEntry): Te
   const craftDef = entry.craftCode ? getProcessCraftByCode(entry.craftCode) : undefined
   const dictionaryFields = resolveProcessEntryDictionaryFields(entry)
   const processDef = getProcessDefinitionByCode(dictionaryFields.processCode)
-  const referenceOutputValueUnitLabel = craftDef
-    ? OUTPUT_VALUE_UNIT_LABEL[craftDef.referenceOutputValueUnit]
-    : undefined
-
   const inheritedGranularity = (processDef?.assignmentGranularity ??
     entry.assignmentGranularity ??
     'ORDER') as TechPackAssignmentGranularity
@@ -965,14 +896,6 @@ export function resolveTechPackProcessEntryRule(entry: TechPackProcessEntry): Te
     ruleSource: resolvedRuleSource,
     detailSplitMode: resolvedSplitMode,
     detailSplitDimensions: resolvedSplitDimensions,
-    outputValueUnit:
-      entry.entryType === 'CRAFT' && referenceOutputValueUnitLabel
-        ? referenceOutputValueUnitLabel
-        : entry.outputValueUnit,
-    referenceOutputValueValue: craftDef?.referenceOutputValueValue,
-    referenceOutputValueUnit: craftDef?.referenceOutputValueUnit,
-    referenceOutputValueUnitLabel,
-    referenceOutputValueNote: craftDef?.referenceOutputValueNote,
     selectedTargetObject,
     supportedTargetObjects,
     supportedTargetObjectLabels,

@@ -2153,8 +2153,8 @@ function buildRelationshipEdges(order: ProductionOrder, materials: ProductionMat
     { from: firstMaterial, to: firstPrep, relationText: '仓库配料来源' },
     { from: firstPrep, to: firstIssue, relationText: '配料后发料' },
     { from: order.productionOrderNo, to: cutDoc, relationText: '裁片工艺执行' },
-    { from: order.productionOrderNo, to: printDoc, relationText: '印花工艺执行' },
-    { from: order.productionOrderNo, to: dyeDoc, relationText: '染色工艺执行' },
+    { from: order.productionOrderNo, to: printDoc, relationText: '印花工序执行' },
+    { from: order.productionOrderNo, to: dyeDoc, relationText: '染色工序执行' },
     { from: cutDoc, to: handoverDoc, relationText: '裁片完成与交接来源' },
     { from: issue, to: order.productionOrderNo, relationText: '异常影响生产单' },
   ]

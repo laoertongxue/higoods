@@ -58,7 +58,7 @@ const pdaPath = 'src/pages/pda-onboarding.ts'
 const pdaRoutesPath = 'src/router/routes-pda.ts'
 const factoryMasterPath = 'src/data/fcs/factory-master-store.ts'
 const capacityPath = 'src/data/fcs/factory-capacity-profile-mock.ts'
-const dispatchBoardContextPath = 'src/pages/dispatch-board/context.ts'
+const dispatchWorkbenchPath = 'src/pages/unified-dispatch-workbench.ts'
 const dispatchTenderPath = 'src/pages/dispatch-tenders.ts'
 
 assertIncludes(flowPath, [
@@ -91,15 +91,14 @@ assertIncludes(platformPath, [
 assertIncludes(flowPath, ['已转正式合作'])
 assertIncludes(pdaPath, ['已转正式合作', '进入执行'])
 assertIncludes(factoryMasterPath, ['listBusinessFactoryMasterRecords', 'allowDispatch'])
-assertIncludes(dispatchBoardContextPath, ['listBusinessFactoryMasterRecords'])
+assertIncludes(dispatchWorkbenchPath, ['listBusinessFactoryMasterRecords'])
 assertIncludes(dispatchTenderPath, ['listBusinessFactoryMasterRecords'])
 assertIncludes(capacityPath, [
   'sourceApplicationId',
   'capabilityItems',
   'machineItems',
-  'defaultDailyOutputValue: 0',
-  "calculationStatus: '待补充产能字段'",
 ])
+assertNotIncludes(capacityPath, ['defaultDailyOutputValue', 'calculationStatus', 'outputValue'])
 assertNotIncludes(pdaRoutesPath, ["'/fcs/pda/login'", '"/fcs/pda/login"'])
 assertNotIncludes(platformPath, ['平台初审通过直接转正式', '发放样衣后直接转正式', '待平台审核样衣直接转正式'])
 assertNotIncludes(platformPath, ['PENDING', 'DONE', 'IN_PROGRESS'])
@@ -147,8 +146,8 @@ assert(result.createdFactory.effectiveWorkerCount === target.effectiveWorkerCoun
 assert(result.capacityProfile.sourceApplicationId === target.applicationId, '产能档案必须包含 sourceApplicationId')
 assert(result.capacityProfile.capabilityItems.length > 0, '产能档案必须包含 capabilityItems')
 assert(result.capacityProfile.machineItems.length > 0, '产能档案必须包含 machineItems')
-assert(result.capacityProfile.defaultDailyOutputValue === 0, '缺字段时 defaultDailyOutputValue 必须为 0')
-assert(result.capacityProfile.calculationStatus === '待补充产能字段', '缺字段时 calculationStatus 必须为待补充产能字段')
+assert(!('defaultDailyOutputValue' in result.capacityProfile), '转档后档案不得保留默认日产值')
+assert(!('calculationStatus' in result.capacityProfile), '转档后档案不得保留产值计算状态')
 assert(!('currentStatus' in result.capacityProfile), '不得生成产能当前状态')
 assert(!('dayShift' in result.capacityProfile), '不得生成白班')
 assert(!('nightShift' in result.capacityProfile), '不得生成夜班')
