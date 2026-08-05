@@ -755,6 +755,7 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
       const receiver = resolveTaskUnitReceiver(unit, artifact)
       const processName = resolveTaskUnitProcessName(unit, artifact)
       const processCode = resolveTaskUnitProcessCode(unit, artifact)
+      const standardPrice = resolveGeneratedTaskStandardPrice(processCode)
 
       const task: ProcessTask = {
         taskId,
@@ -775,6 +776,9 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
         difficulty: 'MEDIUM',
         attachments: [],
         status: 'NOT_STARTED',
+        standardPrice,
+        standardPriceCurrency: 'IDR',
+        standardPriceUnit: '件',
         acceptanceStatus: directFactoryAssigned ? 'PENDING' : isWool ? 'ACCEPTED' : undefined,
         acceptedAt: isWool ? '2026-05-09 08:20' : undefined,
         acceptedBy: isWool ? OWN_WOOL_FACTORY_NAME : undefined,
@@ -902,6 +906,25 @@ function getOrderQty(orderId: string): number {
   return order?.demandSnapshot.skuLines.reduce((sum, line) => sum + line.qty, 0) ?? 0
 }
 
+function resolveGeneratedTaskStandardPrice(processCode: string): number | undefined {
+  const prices: Record<string, number> = {
+    PROC_CUT: 1000,
+    PROC_IRON_PACK: 2000,
+    PROC_LASER_CUT: 1600,
+    PROC_SPECIAL_CRAFT: 1800,
+    PROC_KUNTIAO: 1500,
+    PROC_DALAN: 1600,
+    PROC_TANHUA: 1700,
+    PROC_DIRECT_PRINT: 2200,
+    PROC_DATIAO: 1600,
+    PROC_EMBROIDER: 2400,
+    PROC_SHELL_EMBROIDER: 2600,
+    PROC_PLEAT: 2100,
+    PROC_WOOL: 3000,
+  }
+  return prices[processCode]
+}
+
 function buildTaskFromRuntimePreviewUnit(
   preview: ProductionTaskGenerationPreview,
   unit: GeneratedTaskUnitPreview,
@@ -919,15 +942,16 @@ function buildTaskFromRuntimePreviewUnit(
     processCode: unit.taskUnitType,
     processName: unit.taskName,
   } as GeneratedTaskArtifact)
+  const processCode = resolveTaskUnitProcessCode(unit, primaryArtifact ?? {
+    systemProcessCode: unit.taskUnitType,
+  } as GeneratedTaskArtifact)
 
   return {
     taskId,
     taskNo: taskId,
     productionOrderId: preview.productionOrderId,
     seq: index + 1,
-    processCode: resolveTaskUnitProcessCode(unit, primaryArtifact ?? {
-      systemProcessCode: unit.taskUnitType,
-    } as GeneratedTaskArtifact),
+    processCode,
     processNameZh: unit.taskName,
     stage: resolveTaskUnitStage(unit, primaryArtifact ?? {
       processCode: unit.taskUnitType,
@@ -945,6 +969,9 @@ function buildTaskFromRuntimePreviewUnit(
     difficulty: 'MEDIUM',
     attachments: [],
     status: 'NOT_STARTED',
+    standardPrice: resolveGeneratedTaskStandardPrice(processCode),
+    standardPriceCurrency: 'IDR',
+    standardPriceUnit: '件',
     acceptanceStatus: directFactoryAssigned ? 'PENDING' : undefined,
     acceptDeadline: directFactoryAssigned ? '2026-07-01 18:00' : undefined,
     taskDeadline: directFactoryAssigned ? '2026-07-08 18:00' : undefined,
