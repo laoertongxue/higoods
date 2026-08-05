@@ -10,6 +10,32 @@ function roundCny(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100
 }
 
+export function calculateEngineeringBomTotalRequirement(input: {
+  usage: number
+  sampleQuantity: number
+  lossRate: number
+  conversionToPricingUnit?: number
+}): number {
+  if (!Number.isFinite(input.usage) || input.usage <= 0) throw new Error('单位用量必须大于 0。')
+  if (!Number.isFinite(input.sampleQuantity) || input.sampleQuantity <= 0) throw new Error('打样数量必须大于 0。')
+  if (!Number.isFinite(input.lossRate) || input.lossRate < 0 || input.lossRate >= 1) {
+    throw new Error('损耗率必须在 0（含）到 1（不含）之间。')
+  }
+  const conversion = input.conversionToPricingUnit ?? 1
+  if (!Number.isFinite(conversion) || conversion <= 0) throw new Error('单位换算系数必须大于 0。')
+  return input.usage * conversion * input.sampleQuantity * (1 + input.lossRate)
+}
+
+export function resolveEngineeringBomTechnicalProcessSequence(
+  line: Pick<EngineeringBomMaterialLineDraft, 'waterSolubleRequirementText' | 'dyeRequirement'>,
+): Array<'水溶' | '染色'> {
+  const sequence: Array<'水溶' | '染色'> = []
+  const waterSolubleText = line.waterSolubleRequirementText?.trim()
+  if (waterSolubleText && !['无', '否', '不需要'].includes(waterSolubleText)) sequence.push('水溶')
+  if (line.dyeRequirement === '是') sequence.push('染色')
+  return sequence
+}
+
 export function resolveEngineeringBomConversion(
   materialSkuId: string,
   usageUnit: string,
@@ -39,10 +65,12 @@ export function resolveEngineeringBomMaterialLine(
     if (priceValid) throw error
   }
   const rawCost = priceValid
-    ? line.usage * line.sampleQuantity * (1 + line.lossRate) * conversion * sku.costPrice
+    ? calculateEngineeringBomTotalRequirement({ ...line, conversionToPricingUnit: conversion }) * sku.costPrice
     : null
   return {
     ...line,
+    applicableSkuIds: [...(line.applicableSkuIds || [])],
+    linkedPatternResultIds: [...(line.linkedPatternResultIds || [])],
     materialCode: sku.materialCode,
     materialSkuCode: sku.materialSkuCode,
     materialName: sku.materialName,
@@ -52,5 +80,7 @@ export function resolveEngineeringBomMaterialLine(
     standardUnitPriceCurrency: 'CNY',
     priceStatus: priceValid ? '有效' : '标准单价失效',
     materialCostCny: rawCost === null ? null : roundCny(rawCost),
+    totalRequirementQuantity: calculateEngineeringBomTotalRequirement({ ...line, conversionToPricingUnit: conversion || 1 }),
+    technicalProcessSequence: resolveEngineeringBomTechnicalProcessSequence(line),
   }
 }

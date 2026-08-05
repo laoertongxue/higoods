@@ -22,17 +22,12 @@ import {
 } from './pcs-tech-pack-task-generation.ts'
 import { syncExistingProjectArchiveByProjectId } from './pcs-project-archive-sync.ts'
 import {
-  createTechnicalDataVersionDraft,
-  getCurrentTechPackVersionByStyleId,
-  getNextStyleVersionMeta,
-  getNextTechnicalVersionIdentity,
   getTechnicalDataVersionById,
   getTechnicalDataVersionContent,
   updateTechnicalDataVersionContent,
   updateTechnicalDataVersionRecord,
   publishTechnicalDataVersionRecord,
 } from './pcs-technical-data-version-repository.ts'
-import { getStyleArchiveById } from './pcs-style-archive-repository.ts'
 import type {
   TechnicalDataVersionContent,
   TechnicalDataVersionRecord,
@@ -65,21 +60,6 @@ function mergeLegacyPayloadWithRouteGate(
     if (patch[key] !== undefined) legacyPayload[key] = patch[key]
   })
   return legacyPayload
-}
-
-function rebaseTechnicalVersionContent(
-  content: TechnicalDataVersionContent,
-  baseTechnicalVersionId: string,
-  nextTechnicalVersionId: string,
-): TechnicalDataVersionContent {
-  const serialized = JSON.stringify(content)
-  const rebased = baseTechnicalVersionId
-    ? JSON.parse(serialized.split(baseTechnicalVersionId).join(nextTechnicalVersionId))
-    : JSON.parse(serialized)
-  return {
-    ...rebased,
-    technicalVersionId: nextTechnicalVersionId,
-  }
 }
 
 export {
@@ -200,88 +180,4 @@ export function publishTechnicalDataVersion(
     createdBy: operatorName,
   })
   return nextRecord
-}
-
-export function createManualTechnicalDataVersionDraftFromCurrent(
-  styleId: string,
-  operatorName = '当前用户',
-): { action: 'CREATED'; record: TechnicalDataVersionRecord; content: TechnicalDataVersionContent; logType: '手动新增技术包版本'; actionText: string } {
-  const style = getStyleArchiveById(styleId)
-  if (!style) throw new Error('未找到正式款式档案，不能手动新增技术包版本。')
-
-  const baseRecord = getCurrentTechPackVersionByStyleId(styleId)
-  if (!baseRecord) throw new Error('当前款式没有当前生效技术包，不能手动新增版本。')
-
-  const baseContent = getTechnicalDataVersionContent(baseRecord.technicalVersionId)
-  if (!baseContent) throw new Error('当前生效技术包缺少内容，不能作为新版本初始化来源。')
-
-  const identity = getNextTechnicalVersionIdentity()
-  const versionMeta = getNextStyleVersionMeta(styleId)
-  const sourceProjectNodeId = style.sourceProjectNodeId || baseRecord.sourceProjectNodeId || ''
-  const nextRecord: TechnicalDataVersionRecord = {
-    ...baseRecord,
-    technicalVersionId: identity.technicalVersionId,
-    technicalVersionCode: identity.technicalVersionCode,
-    versionLabel: versionMeta.versionLabel,
-    versionNo: versionMeta.versionNo,
-    sourceProjectNodeId,
-    linkedRevisionTaskIds: [],
-    linkedPatternTaskIds: [],
-    linkedArtworkTaskIds: [],
-    createdFromTaskType: 'MANUAL',
-    createdFromTaskId: '',
-    createdFromTaskCode: '',
-    baseTechnicalVersionId: baseRecord.technicalVersionId,
-    baseTechnicalVersionCode: baseRecord.technicalVersionCode,
-    changeScope: '手动新增',
-    changeSummary: `手动新增版本，初始化复制当前生效版本 ${baseRecord.versionLabel} 的技术包内容。`,
-    archiveCollectedFlag: false,
-    archiveCollectedAt: '',
-    versionStatus: 'DRAFT',
-    reviewStage: '未提交审核',
-    buyerReview: undefined,
-    patternMakerReview: undefined,
-    merchandiserReview: undefined,
-    reviewSubmittedAt: '',
-    reviewSubmittedBy: '',
-    returnedFromMerchandiserFlag: false,
-    publishedAt: '',
-    publishedBy: '',
-    createdAt: identity.timestamp,
-    createdBy: operatorName,
-    updatedAt: identity.timestamp,
-    updatedBy: operatorName,
-    note: '',
-  }
-  const nextContent = rebaseTechnicalVersionContent(baseContent, baseRecord.technicalVersionId, nextRecord.technicalVersionId)
-  const createdRecord = createTechnicalDataVersionDraft(nextRecord, nextContent)
-  syncStyleArchiveFromTechPackVersion(createdRecord)
-  appendTechPackVersionLog({
-    logId: `tech_pack_log_manual_${createdRecord.technicalVersionId}_${identity.timestamp.replace(/[^0-9]/g, '')}`,
-    technicalVersionId: createdRecord.technicalVersionId,
-    technicalVersionCode: createdRecord.technicalVersionCode,
-    versionLabel: createdRecord.versionLabel,
-    styleId: createdRecord.styleId,
-    styleCode: createdRecord.styleCode,
-    logType: '手动新增技术包版本',
-    sourceTaskType: '',
-    sourceTaskId: '',
-    sourceTaskCode: '',
-    sourceTaskName: '',
-    changeScope: '手动新增',
-    changeText: `已基于当前生效版本 ${baseRecord.versionLabel} 复制生成草稿技术包版本 ${createdRecord.versionLabel}。`,
-    beforeVersionId: baseRecord.technicalVersionId,
-    beforeVersionCode: baseRecord.technicalVersionCode,
-    afterVersionId: createdRecord.technicalVersionId,
-    afterVersionCode: createdRecord.technicalVersionCode,
-    createdAt: identity.timestamp,
-    createdBy: operatorName,
-  })
-  return {
-    action: 'CREATED',
-    record: createdRecord,
-    content: nextContent,
-    logType: '手动新增技术包版本',
-    actionText: '已手动新增草稿技术包版本',
-  }
 }

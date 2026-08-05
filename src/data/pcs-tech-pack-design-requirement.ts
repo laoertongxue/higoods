@@ -8,7 +8,7 @@ export interface TechPackDesignRequirementBomItem {
   materialName?: string
   colorLabel?: string
   printRequirement?: string
-  printSideMode?: '' | 'SINGLE' | 'DOUBLE'
+  printSideMode?: '' | 'SINGLE' | 'REVERSE' | 'DOUBLE'
   frontPatternDesignId?: string
   frontPatternDesignIds?: string[]
   insidePatternDesignId?: string
@@ -136,7 +136,7 @@ export function validateTechPackDesignRequirement(input: {
       return
     }
 
-    if (item.printSideMode !== 'SINGLE' && item.printSideMode !== 'DOUBLE') {
+    if (!['SINGLE', 'REVERSE', 'DOUBLE'].includes(item.printSideMode)) {
       issues.push(buildIssue(item, index, 'MODE', '印花面别无效'))
       return
     }
@@ -144,8 +144,13 @@ export function validateTechPackDesignRequirement(input: {
     const frontDesigns = findDesigns(designById, item.frontPatternDesignIds, item.frontPatternDesignId, 'FRONT')
     const insideDesigns = findDesigns(designById, item.insidePatternDesignIds, item.insidePatternDesignId, 'INSIDE')
 
-    if (item.printSideMode === 'SINGLE' && frontDesigns.length === 0 && insideDesigns.length === 0) {
-      issues.push(buildIssue(item, index, 'FRONT', '未绑定已上传的正面或里面花型图'))
+    if (item.printSideMode === 'SINGLE' && frontDesigns.length === 0) {
+      issues.push(buildIssue(item, index, 'FRONT', '未绑定已上传的正面花型图'))
+      return
+    }
+
+    if (item.printSideMode === 'REVERSE' && insideDesigns.length === 0) {
+      issues.push(buildIssue(item, index, 'INSIDE', '未绑定已上传的反面花型图'))
       return
     }
 

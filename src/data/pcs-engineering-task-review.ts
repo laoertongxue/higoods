@@ -85,8 +85,8 @@ export function submitEngineeringMaterialResults(input: SubmitEngineeringMateria
   const task = getReviewableTask(input.masterOrderId, input.taskId)
   const submittedBy = input.submittedBy.trim()
   if (!submittedBy) throw new Error('请填写成果提交人。')
-  if (task.status !== '返工中' && task.status !== '进行中' && task.status !== '待开始') {
-    throw new Error('当前任务状态不能提交逐项成果。')
+  if (task.status !== '返工中' && task.status !== '进行中') {
+    throw new Error(task.status === '待开始' ? '请先点击“开始任务”，再提交成果。' : '当前任务状态不能提交逐项成果。')
   }
 
   assertUniqueLineIds(input.results, '提交')

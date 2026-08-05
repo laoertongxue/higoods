@@ -22,15 +22,38 @@ assert.ok(style, '必须存在款式档案演示数据')
 const draft = createEngineeringMasterOrder({
   styleId: style.styleId,
   styleCode: style.styleCode,
+  merchandiserId: 'USER-M-LX',
   merchandiserName: '跟单-林晓',
+  createdById: 'USER-M-LX',
   createdBy: '跟单-林晓',
+  createdByRole: '跟单',
+  preparationType: 'PURE_WOVEN',
+  qualificationFact: {
+    styleCode: style.styleCode,
+    formalSaleStatus: 'NO_FORMAL_SALE',
+    formalProductionStatus: 'NO_FORMAL_PRODUCTION',
+    formalSaleSource: '正式销售订单事实',
+    formalProductionSource: '正式生产单事实',
+    checkedAt: '2026-08-04 09:00:00',
+  },
+  bulkProductionQualification: {
+    basisType: 'MANUAL_CONFIRMED',
+    triggerBusinessObjectType: '人工确认',
+    triggerBusinessObjectId: `MANUAL-${style.styleCode}`,
+    thresholdQuantity: 0,
+    reachedQuantity: 0,
+    reachedAt: '2026-08-04 09:00:00',
+    reason: '跟单确认满足做大货要求',
+    uniqueTriggerKey: `MANUAL-${style.styleCode}`,
+  },
+  creationReason: '跟单核实后人工创建',
 })
 
 const draftHtml = renderPcsEngineeringMasterDetailPage(draft.masterOrderId)
 assert.match(draftHtml, /任务方案确认/, '草稿工程主单首屏必须是任务方案确认')
 assert.match(draftHtml, /系统建议/, '任务方案必须展示系统建议')
 assert.match(draftHtml, /固定依赖/, '任务方案必须说明固定依赖不可调整')
-assert.doesNotMatch(draftHtml, /data-engineering-lane-head=/, '确认前不能进入正式任务泳道')
+assert.doesNotMatch(draftHtml, /data-engineering-task-table/, '确认前不能进入正式任务表格')
 
 const originalWindow = globalThis.window
 const originalDocument = globalThis.document

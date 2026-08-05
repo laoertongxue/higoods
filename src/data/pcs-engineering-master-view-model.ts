@@ -2,15 +2,22 @@
 // 演示种子只在本模块内部维护，页面渲染前调用 ensureEngineeringMasterDemoData()。
 
 import {
+  buildEngineeringTaskPlan,
   getEngineeringTaskDefinition,
   listEngineeringTaskDefinitions,
   type EngineeringTaskDefinition,
+  type EngineeringBomTaskConditions,
 } from './pcs-engineering-dependency-policy.ts'
 import { hasFormalProductionFact } from './pcs-engineering-first-production-policy.ts'
 import {
   createEngineeringMasterOrder,
+  confirmEngineeringMasterTaskPlan,
+  applyBomRequirementsToEngineeringTasks,
   listEngineeringMasterOrders,
-  publishEngineeringMasterOrder,
+  listEngineeringMasterPriorResultCandidates,
+  seedEngineeringMasterDemoLifecycleStatus,
+  setEngineeringMasterStatus,
+  updateEngineeringTaskRecord,
 } from './pcs-engineering-master-repository.ts'
 import type {
   EngineeringMasterOrderRecord,
@@ -20,7 +27,18 @@ import type {
   EngineeringTaskStatus,
   EngineeringTaskType,
 } from './pcs-engineering-master-types.ts'
-import { listStyleArchives } from './pcs-style-archive-repository.ts'
+import { listStyleArchives, updateStyleArchive } from './pcs-style-archive-repository.ts'
+import { createEngineeringMasterTechPackDraft } from './pcs-engineering-tech-pack-workspace.ts'
+import {
+  listTechnicalDataVersionsByStyleId,
+  updateTechnicalDataVersionRecord,
+} from './pcs-technical-data-version-repository.ts'
+import {
+  createEngineeringChangeWorkspace,
+  listEngineeringChangeWorkspaceViews,
+  startEngineeringChangeTaskLine,
+} from './pcs-engineering-change-workspace.ts'
+import { CURRENT_PCS_ENGINEERING_USER } from './pcs-engineering-current-user.ts'
 
 // ============ 泳道与逻辑阶段（固定结构，只读） ============
 
@@ -72,21 +90,256 @@ const PLAN_OFFSET_DAYS: Record<EngineeringTaskType, number> = {
 // 仓库为空时创建演示主单：首张发布为 EM-001，第二张保持草稿，用于展示不同状态。
 export function ensureEngineeringMasterDemoData(): void {
   const records = listEngineeringMasterOrders()
-  if (records.length > 0) return
+  if (records.length >= 12) {
+    ensureEngineeringDemoTaskMaterials(records)
+    ensureEngineeringLifecycleDemoData()
+    return
+  }
   const styles = listStyleArchives()
-  const candidates = styles.filter((style) => !hasFormalProductionFact(style.styleCode)).slice(0, 2)
-  if (candidates.length === 0) return
+  const usedStyleIds = new Set(records.map((record) => record.styleId))
+  const candidates = styles
+    .filter((style) => !usedStyleIds.has(style.styleId))
+    .filter((style) => !hasFormalProductionFact(style.styleCode))
+    .filter((style) => Boolean(style.mainImageUrl || style.galleryImageUrls[0]))
+    .slice(0, Math.max(0, 12 - records.length))
+  if (candidates.length === 0) {
+    ensureEngineeringDemoTaskMaterials(records)
+    ensureEngineeringLifecycleDemoData()
+    return
+  }
+  const preparationTypes = ['PURE_WOVEN', 'KNIT', 'KNIT_WOVEN', 'HEAT_TRANSFER_DIRECT_PRINT'] as const
   for (const [index, style] of candidates.entries()) {
+    const scenarioNo = records.length + index
+    const preparationType = preparationTypes[scenarioNo % preparationTypes.length]
     const record = createEngineeringMasterOrder({
       styleId: style.styleId,
       styleCode: style.styleCode,
+      merchandiserId: `USER-M-${(scenarioNo % 3) + 1}`,
       merchandiserName: '跟单-林晓',
+      createdById: `USER-M-${(scenarioNo % 3) + 1}`,
       createdBy: '跟单-林晓',
+      createdByRole: '跟单',
+      preparationType,
+      qualificationFact: {
+        styleCode: style.styleCode,
+        formalSaleStatus: 'NO_FORMAL_SALE',
+        formalProductionStatus: 'NO_FORMAL_PRODUCTION',
+        formalSaleSource: '正式销售订单事实',
+        formalProductionSource: '正式生产单事实',
+        checkedAt: `2026-08-${String((scenarioNo % 4) + 1).padStart(2, '0')} 09:00:00`,
+      },
+      bulkProductionQualification: {
+        basisType: scenarioNo % 3 === 0 ? 'TEST_APPROVED' : scenarioNo % 3 === 1 ? 'REVISION_READY' : 'DESIGN_READY',
+        triggerBusinessObjectType: '做大货资格',
+        triggerBusinessObjectId: `BULK-DEMO-${scenarioNo + 1}`,
+        thresholdQuantity: 300,
+        reachedQuantity: 320 + scenarioNo * 10,
+        reachedAt: `2026-08-${String((scenarioNo % 4) + 1).padStart(2, '0')} 09:00:00`,
+        reason: '已满足做大货要求',
+        uniqueTriggerKey: `BULK-DEMO-${style.styleCode}`,
+      },
+      creationReason: '跟单核实后人工创建',
     })
-    if (index === 0) {
-      publishEngineeringMasterOrder(record.masterOrderId)
+    // 保留一张草稿用于演示“待确认任务方案”，其余主单进入可执行场景。
+    if (scenarioNo === 1) continue
+    const bomConditions: EngineeringBomTaskConditions = {
+      hasPrintRequirement: scenarioNo % 3 === 0,
+      hasYarnDyeRequirement: preparationType === 'KNIT' || preparationType === 'KNIT_WOVEN',
+      hasFabricDyeRequirement: scenarioNo % 4 === 2,
+      hasAccessoryPurchaseRequirement: scenarioNo % 2 === 0,
     }
+    const published = confirmEngineeringMasterTaskPlan(record.masterOrderId, {
+      confirmedBy: record.merchandiserName,
+      confirmedById: record.merchandiserId,
+      confirmedByRole: '跟单',
+      preparationType,
+      bomConditions,
+      selectedConditionalTaskTypes: [],
+    })
+    ensureEngineeringDemoTaskMaterials([published])
+    seedEngineeringMasterScenario(published.masterOrderId, scenarioNo)
   }
+  ensureEngineeringLifecycleDemoData()
+}
+
+function ensureEngineeringDemoTaskMaterials(records: EngineeringMasterOrderRecord[]): void {
+  for (const master of records) {
+    if (!master.bulkProductionQualification.triggerBusinessObjectId.startsWith('BULK-DEMO-')) continue
+    if (!['已发布', '进行中'].includes(master.status)) continue
+    const emptyActiveTaskTypes = new Set(master.tasks
+      .filter((task) => ['待开始', '进行中', '返工中'].includes(task.status) && task.materialLines.length === 0)
+      .map((task) => task.taskType))
+    const rows = []
+    if (emptyActiveTaskTypes.has('PATTERN_ARTWORK')) {
+      rows.push(
+        {
+          bomItemId: `${master.masterOrderId}-PRINT-BLUE`,
+          materialSkuId: 'material_fabric_001_sku_002',
+          materialName: '经编8坑-C2813',
+          materialType: '面料',
+          productColor: '宝蓝色',
+          printRequirement: '是',
+          printProcess: '数码印花',
+        },
+        {
+          bomItemId: `${master.masterOrderId}-PRINT-WHITE`,
+          materialSkuId: 'material_fabric_001_sku_001',
+          materialName: '经编8坑-C2813',
+          materialType: '面料',
+          productColor: '米白色',
+          printRequirement: '是',
+          printProcess: '定位印花',
+        },
+      )
+    }
+    if (emptyActiveTaskTypes.has('COLOR_FABRIC')) {
+      rows.push({
+        bomItemId: `${master.masterOrderId}-DYE-FABRIC`,
+        materialSkuId: 'material_fabric_002_sku_001',
+        materialName: '纯棉毛织布 180g',
+        materialType: '面料',
+        productColor: '番茄红',
+        dyeRequirement: '是',
+      })
+    }
+    if (emptyActiveTaskTypes.has('COLOR_YARN')) {
+      rows.push({
+        bomItemId: `${master.masterOrderId}-DYE-YARN`,
+        materialSkuId: 'material_yarn_001_sku_001',
+        materialName: '精梳棉纱线',
+        materialType: '纱线',
+        productColor: '经典蓝',
+        dyeRequirement: '是',
+      })
+    }
+    if (emptyActiveTaskTypes.has('ACCESSORY_PURCHASE')) {
+      rows.push(
+        {
+          bomItemId: `${master.masterOrderId}-ACC-FLOWER`,
+          materialSkuId: 'material_accessory_001_sku_001',
+          materialName: '欧根纱刺绣蕾丝小花',
+          materialType: '辅料',
+          productColor: '蓝色',
+          purchaseRequirement: '是',
+        },
+        {
+          bomItemId: `${master.masterOrderId}-ACC-BUTTON`,
+          materialSkuId: 'material_accessory_002_sku_001',
+          materialName: '树脂四眼纽扣',
+          materialType: '辅料',
+          productColor: '本色',
+          purchaseRequirement: '是',
+        },
+      )
+    }
+    if (rows.length > 0) applyBomRequirementsToEngineeringTasks(master.masterOrderId, rows)
+  }
+}
+
+function seedEngineeringMasterScenario(masterOrderId: string, scenarioNo: number): void {
+  const master = listEngineeringMasterOrders().find((record) => record.masterOrderId === masterOrderId)
+  if (!master) return
+  const enabled = master.tasks.filter((task) => task.status !== '未启用')
+  const baseTime = `2026-08-${String((scenarioNo % 4) + 1).padStart(2, '0')}`
+  const completeTask = (taskId: string, offset: number) => updateEngineeringTaskRecord(masterOrderId, taskId, (task) => {
+    const startedAt = `${baseTime} ${String(9 + offset).padStart(2, '0')}:00:00`
+    const completedAt = `${baseTime} ${String(10 + offset).padStart(2, '0')}:30:00`
+    task.status = '已完成'
+    task.assigneeId = `USER-E-${offset + 1}`
+    task.assigneeName = `${task.ownerTeamName}-${offset + 1}`
+    task.startedAt = startedAt
+    task.submittedAt = completedAt
+    task.firstCompletedAt = completedAt
+    task.effectiveCompletedAt = completedAt
+    task.completedAt = completedAt
+    task.events.startedAt = startedAt
+    task.events.submittedAt = completedAt
+    task.events.firstCompletedAt = completedAt
+    task.events.effectiveCompletedAt = completedAt
+  })
+  const primary = enabled.filter((task) => task.taskType !== 'TECH_PACK_CONFIRMATION')
+  const seedTechPackDraft = scenarioNo === 3 || scenarioNo === 7 || scenarioNo === 11
+  const completedPrimaryTasks = seedTechPackDraft
+    ? primary
+    : primary.slice(0, Math.min(primary.length, scenarioNo % 4))
+  completedPrimaryTasks.forEach((task, offset) => completeTask(task.taskId, offset))
+  const refreshed = listEngineeringMasterOrders().find((record) => record.masterOrderId === masterOrderId)
+  const active = refreshed?.tasks.filter((task) => task.status !== '未启用' && task.status !== '已完成') || []
+  active.slice(0, scenarioNo % 3 === 0 ? 2 : 1).forEach((task, offset) => {
+    updateEngineeringTaskRecord(masterOrderId, task.taskId, (stored) => {
+      const desiredStatus = scenarioNo % 5 === 0 ? '待审核' : scenarioNo % 5 === 1 ? '返工中' : '进行中'
+      const reviewRequired = getEngineeringTaskDefinition(stored.taskType).reviewRequired
+      stored.status = reviewRequired && stored.materialLines.length > 0 ? desiredStatus : '进行中'
+      stored.assigneeId = `USER-A-${scenarioNo}-${offset}`
+      stored.assigneeName = `${stored.ownerTeamName}负责人`
+      stored.startedAt = `${baseTime} 11:00:00`
+      stored.events.startedAt = stored.startedAt
+      if (stored.status === '待审核') {
+        stored.submittedAt = `${baseTime} 15:00:00`
+        stored.events.submittedAt = stored.submittedAt
+      }
+      if (stored.status === '返工中') stored.reworkRounds = [{ roundNo: 1, reason: '成果需要调整', startedAt: `${baseTime} 16:00:00`, submittedAt: '', passedAt: '' }]
+    })
+  })
+  if (scenarioNo >= 2) setEngineeringMasterStatus(masterOrderId, scenarioNo >= 10 ? '技术包审核中' : '进行中')
+  if (seedTechPackDraft) createEngineeringMasterTechPackDraft(masterOrderId, master.merchandiserName)
+}
+
+function ensureEngineeringLifecycleDemoData(): void {
+  const records = listEngineeringMasterOrders()
+  const closingMaster = records.at(-2)
+  const closedMaster = records.at(-1)
+  if (closingMaster && closingMaster.status !== '待关闭' && closingMaster.status !== '已关闭') {
+    seedEngineeringMasterDemoLifecycleStatus(closingMaster.masterOrderId, '待关闭')
+  }
+  if (!closedMaster) return
+  let versions = listTechnicalDataVersionsByStyleId(closedMaster.styleId)
+    .filter((version) => version.createdFromTaskType === 'ENGINEERING_MASTER')
+  if (versions.length === 0) {
+    for (const task of closedMaster.tasks) {
+      if (task.status === '未启用') continue
+      updateEngineeringTaskRecord(closedMaster.masterOrderId, task.taskId, (stored) => {
+        stored.status = '已完成'
+        stored.startedAt ||= '2026-08-04 09:00:00'
+        stored.submittedAt ||= '2026-08-04 15:00:00'
+        stored.firstCompletedAt ||= stored.submittedAt
+        stored.effectiveCompletedAt ||= stored.submittedAt
+        stored.completedAt ||= stored.submittedAt
+      })
+    }
+    createEngineeringMasterTechPackDraft(closedMaster.masterOrderId, closedMaster.merchandiserName)
+    versions = listTechnicalDataVersionsByStyleId(closedMaster.styleId)
+      .filter((version) => version.createdFromTaskType === 'ENGINEERING_MASTER')
+  }
+  const currentVersion = versions[0]
+  if (currentVersion && currentVersion.versionStatus !== 'PUBLISHED') {
+    updateTechnicalDataVersionRecord(currentVersion.technicalVersionId, {
+      versionStatus: 'PUBLISHED',
+      reviewStage: '已发布',
+      publishedAt: '2026-08-04 17:30:00',
+      publishedBy: closedMaster.merchandiserName,
+      updatedAt: '2026-08-04 17:30:00',
+      updatedBy: closedMaster.merchandiserName,
+    })
+  }
+  if (currentVersion) {
+    updateStyleArchive(closedMaster.styleId, {
+      currentTechPackVersionId: currentVersion.technicalVersionId,
+      currentTechPackVersionCode: currentVersion.technicalVersionCode,
+    })
+  }
+  if (closedMaster.status !== '已关闭') {
+    seedEngineeringMasterDemoLifecycleStatus(closedMaster.masterOrderId, '已关闭')
+  }
+  if (listEngineeringChangeWorkspaceViews().length > 0) return
+  const changeView = createEngineeringChangeWorkspace({
+    sourceMasterOrderId: closedMaster.masterOrderId,
+    changeReason: '直播反馈领口版型需要调整，同时更新齐码纸样。',
+    affectedModules: ['PATTERN', 'DESIGN'],
+    actor: CURRENT_PCS_ENGINEERING_USER,
+  })
+  const firstLine = changeView.workspace.taskLines[0]
+  if (firstLine) startEngineeringChangeTaskLine(changeView.change.engineeringChangeTaskId, firstLine.lineId, CURRENT_PCS_ENGINEERING_USER)
 }
 
 // ============ 列表视图模型 ============
@@ -105,26 +358,43 @@ export interface EngineeringMasterListRow {
 }
 
 function deriveCurrentStage(record: EngineeringMasterOrderRecord): string {
-  const active = record.tasks.find(
-    (task) =>
-      task.status !== '未启用' &&
-      task.status !== '已完成' &&
-      task.status !== '因需求变更结束',
-  )
-  if (active) return active.taskName
-  if (record.status === '草稿') return '待发布'
+  if (record.status === '草稿') return '待确认任务方案'
   if (record.status === '已关闭') return '已关闭'
   if (record.status === '已终止') return '已终止'
+  if (record.status === '待关闭') return '待关闭'
+  if (record.status === '技术包审核中') return '技术包审核中'
+  const active = record.tasks.filter((task) =>
+    ['待开始', '进行中', '待审核', '返工中'].includes(task.status),
+  )
+  if (active.length > 1) return `并行准备（${active.length} 项）`
+  if (active.length === 1) return active[0].taskName
+  const waiting = record.tasks.find((task) => task.status === '待前置')
+  if (waiting) return waiting.taskName
   return '全部就绪'
 }
 
 function deriveProgressText(record: EngineeringMasterOrderRecord): string {
   if (record.status === '草稿') return '未发布'
-  const applicable = record.tasks.filter((task) => task.status !== '未启用')
-  const done = record.tasks.filter(
-    (task) => task.status === '已完成' || task.status === '因需求变更结束',
-  ).length
+  const applicable = record.tasks.filter((task) => task.status !== '未启用' && task.status !== '因需求变更结束')
+  const done = applicable.filter((task) => task.status === '已完成').length
   return `${done}/${applicable.length}`
+}
+
+function deriveUpdatedAt(record: EngineeringMasterOrderRecord): string {
+  return [
+    record.createdAt,
+    record.taskPlanConfirmedAt || '',
+    record.publishedAt,
+    record.closedAt,
+    record.terminatedAt,
+    ...record.tasks.flatMap((task) => [
+      task.events.startedAt,
+      task.events.submittedAt,
+      task.events.reviewedAt,
+      task.events.effectiveCompletedAt,
+      ...task.operationLogs.map((log) => log.operatedAt),
+    ]),
+  ].filter(Boolean).sort().at(-1) || record.createdAt
 }
 
 export function buildEngineeringMasterListRows(): EngineeringMasterListRow[] {
@@ -141,7 +411,7 @@ export function buildEngineeringMasterListRows(): EngineeringMasterListRow[] {
     status: record.status,
     currentStage: deriveCurrentStage(record),
     progressText: deriveProgressText(record),
-    updatedAt: record.publishedAt || record.createdAt,
+    updatedAt: deriveUpdatedAt(record),
   }))
 }
 
@@ -193,40 +463,48 @@ export interface EngineeringMasterDetailModel {
   publishedAt: string
   lanes: EngineeringLaneModel[]
   priorResultReuseLines: EngineeringPriorResultReuseLine[]
+  priorResultCandidateGroups: EngineeringPriorResultCandidateGroup[]
   taskPlanSuggestions: EngineeringTaskPlanSuggestion[]
+}
+
+export interface EngineeringPriorResultCandidateModel {
+  engineeringTaskType: EngineeringTaskType
+  sourceSamplingTaskId: string
+  sourceSamplingTaskCode: string
+  sourceProfessionalTaskId: string
+  sourceTaskLabel: string
+  sourceResultVersion: string
+  sourceBomDraftVersionId: string
+  confirmedBy: string
+  confirmedAt: string
+  recommended: boolean
+}
+
+export interface EngineeringPriorResultCandidateGroup {
+  engineeringTaskType: EngineeringTaskType
+  taskName: string
+  candidates: EngineeringPriorResultCandidateModel[]
 }
 
 function buildTaskPlanSuggestions(
   record: EngineeringMasterOrderRecord,
-  style: ReturnType<typeof listStyleArchives>[number] | undefined,
+  _style: ReturnType<typeof listStyleArchives>[number] | undefined,
 ): EngineeringTaskPlanSuggestion[] {
-  const styleText = [
-    record.styleName,
-    style?.categoryName,
-    style?.subCategoryName,
-    ...(style?.styleTags || []),
-    style?.sellingPointText,
-    style?.detailDescription,
-  ].filter(Boolean).join(' ').toLowerCase()
-  const priorReworkText = record.priorResultReuseLines
-    .filter((line) => line.decision === '重新执行')
-    .map((line) => `${line.resultType} ${line.resultLabel}`)
-    .join(' ')
-  const printSuggested = /印花|花型|print|dtf|dtg|刺绣/.test(`${styleText} ${priorReworkText}`)
-  const yarnColorSuggested = /毛织|针织|纱线|毛衣|knit|yarn/.test(`${styleText} ${priorReworkText}`)
-  const fabricColorSuggested = /染色|调色|色卡|面料染|dye/.test(`${styleText} ${priorReworkText}`)
-
+  if (!record.preparationType) return []
+  const conditions: EngineeringBomTaskConditions = {
+    hasPrintRequirement: record.tasks.some((task) => task.materialLines.some((line) => line.requirementType === '印花' && line.status === '正常')),
+    hasYarnDyeRequirement: record.tasks.some((task) => task.materialLines.some((line) => line.requirementType === '染色' && line.materialType === '纱线' && line.status === '正常')),
+    hasFabricDyeRequirement: record.tasks.some((task) => task.materialLines.some((line) => line.requirementType === '染色' && line.materialType === '面料' && line.status === '正常')),
+    hasAccessoryPurchaseRequirement: record.tasks.some((task) => task.materialLines.some((line) => line.requirementType === '辅料' && line.status === '正常')),
+  }
+  const plan = new Map(buildEngineeringTaskPlan(record.preparationType, conditions).map((line) => [line.taskType, line]))
   return listEngineeringTaskDefinitions().map((definition) => {
-    const required = definition.conditionType === 'ALWAYS'
-    const suggestedSelected = required
-      || (definition.conditionType === 'PRINT' && printSuggested)
-      || (definition.conditionType === 'DYE_YARN' && yarnColorSuggested)
-      || (definition.conditionType === 'DYE_FABRIC' && fabricColorSuggested)
-    const conditionalReason = definition.conditionType === 'PRINT'
-      ? printSuggested ? '款式资料包含印花／花型需求' : 'BOM 存在印花需求时启用'
-      : definition.conditionType === 'DYE_YARN'
-        ? yarnColorSuggested ? '款式资料包含毛织／纱线需求' : 'BOM 存在纱线染色需求时启用'
-        : fabricColorSuggested ? '款式资料包含面料染色需求' : 'BOM 存在面料染色需求时启用'
+    const planLine = plan.get(definition.taskType)
+    const required = planLine?.applicability === 'REQUIRED'
+    const suggestedSelected = planLine?.enabled === true
+    const conditionalReason = planLine?.applicability === 'NOT_APPLICABLE'
+      ? '当前生产准备类型不适用'
+      : planLine?.enabled ? '已由结构化 BOM 需求启用' : '当 BOM 存在对应需求时启用'
     return {
       taskType: definition.taskType,
       taskName: definition.taskName,
@@ -298,6 +576,29 @@ export function buildEngineeringMasterDetailModel(key: string): EngineeringMaste
   )
   const taskById = new Map(record.tasks.map((task) => [task.taskId, task]))
   const style = listStyleArchives().find((item) => item.styleId === record.styleId)
+  const priorResultCandidateGroups = record.status === '草稿' && record.preparationType
+    ? [...new Set(
+        listEngineeringMasterPriorResultCandidates(record.styleCode, record.preparationType)
+          .map((candidate) => candidate.engineeringTaskType),
+      )].map((engineeringTaskType) => ({
+        engineeringTaskType,
+        taskName: getEngineeringTaskDefinition(engineeringTaskType).taskName,
+        candidates: listEngineeringMasterPriorResultCandidates(record.styleCode, record.preparationType)
+          .filter((candidate) => candidate.engineeringTaskType === engineeringTaskType)
+          .map((candidate) => ({
+            engineeringTaskType,
+            sourceSamplingTaskId: candidate.source.samplingTaskId,
+            sourceSamplingTaskCode: candidate.source.samplingTaskCode,
+            sourceProfessionalTaskId: candidate.source.professionalTaskId,
+            sourceTaskLabel: candidate.source.professionalTaskName,
+            sourceResultVersion: candidate.source.resultVersion,
+            sourceBomDraftVersionId: candidate.source.bomDraftVersionId,
+            confirmedBy: candidate.source.confirmedBy,
+            confirmedAt: candidate.source.confirmedAt,
+            recommended: candidate.recommended,
+          })),
+      }))
+    : []
 
   const lanes: EngineeringLaneModel[] = ENGINEERING_LANES.map((lane) => {
     const tasks = lane.taskTypes
@@ -355,6 +656,7 @@ export function buildEngineeringMasterDetailModel(key: string): EngineeringMaste
     publishedAt: record.publishedAt,
     lanes,
     priorResultReuseLines: record.priorResultReuseLines.map((line) => ({ ...line })),
+    priorResultCandidateGroups,
     taskPlanSuggestions: buildTaskPlanSuggestions(record, style),
   }
 }

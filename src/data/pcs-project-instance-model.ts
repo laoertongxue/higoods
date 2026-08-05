@@ -396,7 +396,7 @@ function resolveRevisionTaskRelationObject(relation: ProjectRelationRecord): Res
     businessDate: relation.businessDate,
     updatedAt: task?.updatedAt || relation.updatedAt,
     summaryText: buildSummaryFromFields(fields, relation.sourceTitle),
-    targetRoute: task ? `/pcs/patterns/revision/${encodeURIComponent(task.revisionTaskId)}` : '/pcs/patterns/revision',
+    targetRoute: task ? `/pcs/engineering/revision-sampling/${encodeURIComponent(task.revisionTaskId)}` : '/pcs/engineering/revision-sampling',
     fields,
   }
 }

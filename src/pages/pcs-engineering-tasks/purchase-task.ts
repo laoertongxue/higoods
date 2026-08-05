@@ -33,8 +33,8 @@ import {
   listEngineeringTasksByType,
   renderTaskDependencyCard,
   renderTaskLogsCard,
-  renderTaskMasterCard,
   renderTaskMaterialLinesCard,
+  renderTaskWorkbenchHeader,
 } from './master-task-common.ts'
 
 const PURCHASE_TASK_TYPES = ['ACCESSORY_PURCHASE'] as const
@@ -42,6 +42,7 @@ const PURCHASE_LIST_PATH = '/pcs/engineering/purchase'
 const PURCHASE_DETAIL_PAGE_SIZE = 5
 const PURCHASE_FILTER_STATUS_OPTIONS = ['待开始', '进行中', '已完成']
 const purchaseDetailPages = new Map<string, number>()
+const CURRENT_PURCHASE_OPERATOR = { operatorId: 'U-PURCHASE-AHAO', operatorName: '采购人员-阿昊', operatorRole: '采购人员' as const }
 
 function renderPurchaseOrderRow(
   order: AccessoryPurchaseTaskLinkage['purchaseOrders'][number],
@@ -143,7 +144,17 @@ export function handlePurchaseTaskEvent(target: HTMLElement, event?: Event): boo
       return true
     }
     if (action === 'unbind-order') {
-      unbindAccessoryPurchaseOrder(masterOrderId, taskId, node.dataset.purchaseOrderNo || '')
+      const purchaseOrderNo = node.dataset.purchaseOrderNo || ''
+      if (!window.confirm(`确认解除采购单 ${purchaseOrderNo} 的绑定？解除后将重新计算物料覆盖和任务状态。`)) return true
+      const reason = window.prompt('请输入解除绑定原因')?.trim() || ''
+      if (!reason) throw new Error('请填写解除绑定原因。')
+      unbindAccessoryPurchaseOrder({
+        masterOrderId,
+        taskId,
+        purchaseOrderNo,
+        ...CURRENT_PURCHASE_OPERATOR,
+        reason,
+      })
       reconcileAndRefreshPurchaseTaskRegions(masterOrderId, taskId)
       return true
     }
@@ -277,18 +288,10 @@ function renderPurchaseDetailPage(taskId: string): string {
   const detail = getEngineeringTaskDetail(taskId)
   if (!detail) return renderEmptyDetail('辅料下单任务', PURCHASE_LIST_PATH)
   const { task, master } = detail
-  const definition = getEngineeringTaskDefinition(task.taskType)
-  const header = renderHeaderMeta(
-    `${definition.taskName} · ${task.taskId}`,
-    `${master.masterOrderCode} · ${master.styleCode} · ${master.styleName}`,
-    renderStatusBadge(task.status),
-    `<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="${PURCHASE_LIST_PATH}">返回列表</button>`,
-  )
   return `
-    <div class="space-y-5 p-4">
-      ${header}
+    <div class="space-y-5 p-4" data-engineering-task-detail="purchase:${escapeHtml(task.taskId)}">
+      ${renderTaskWorkbenchHeader(task, master, 'purchase', PURCHASE_LIST_PATH)}
       ${renderPurchaseSummaryRegion(linkage)}
-      ${renderTaskMasterCard(master)}
       ${renderTaskMaterialLinesCard(task)}
       ${renderPurchaseLinkageRegion(master.masterOrderId, task.taskId, linkage)}
       ${renderTaskDependencyCard(task)}

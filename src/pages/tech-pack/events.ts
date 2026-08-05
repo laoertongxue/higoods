@@ -863,13 +863,23 @@ function applyBomPrintRequirementChange(nextRequirement: string): void {
   }
 }
 
-function applyBomPrintSideModeChange(nextMode: '' | 'SINGLE' | 'DOUBLE'): void {
+function applyBomPrintSideModeChange(nextMode: '' | 'SINGLE' | 'REVERSE' | 'DOUBLE'): void {
   state.newBomItem.printSideMode = nextMode
   if (nextMode === '') {
     state.newBomItem.frontPatternDesignId = ''
     state.newBomItem.frontPatternDesignIds = []
     state.newBomItem.insidePatternDesignId = ''
     state.newBomItem.insidePatternDesignIds = []
+    return
+  }
+  if (nextMode === 'SINGLE') {
+    state.newBomItem.insidePatternDesignId = ''
+    state.newBomItem.insidePatternDesignIds = []
+    return
+  }
+  if (nextMode === 'REVERSE') {
+    state.newBomItem.frontPatternDesignId = ''
+    state.newBomItem.frontPatternDesignIds = []
   }
 }
 
@@ -2394,7 +2404,7 @@ function handleTechPackField(
     return true
   }
   if (field === 'new-bom-print-side-mode') {
-    applyBomPrintSideModeChange((value === 'SINGLE' || value === 'DOUBLE' ? value : '') as '' | 'SINGLE' | 'DOUBLE')
+    applyBomPrintSideModeChange((value === 'SINGLE' || value === 'REVERSE' || value === 'DOUBLE' ? value : '') as '' | 'SINGLE' | 'REVERSE' | 'DOUBLE')
     return true
   }
   if (field === 'new-bom-front-pattern-design-id') {
@@ -4006,9 +4016,16 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       state.newBomItem.printRequirement !== '无'
       && state.newBomItem.printSideMode === 'SINGLE'
       && frontPatternDesignIds.length === 0
+    ) {
+      window.alert('正面印必须选择正面花型')
+      return true
+    }
+    if (
+      state.newBomItem.printRequirement !== '无'
+      && state.newBomItem.printSideMode === 'REVERSE'
       && insidePatternDesignIds.length === 0
     ) {
-      window.alert('请至少选择一个正面或里面花型')
+      window.alert('反面印必须选择里面花型')
       return true
     }
     if (

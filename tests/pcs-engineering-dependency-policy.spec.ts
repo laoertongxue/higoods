@@ -46,10 +46,11 @@ assert.deepEqual(
   ['BOM_REQUIREMENT', 'COLOR_REQUIREMENT_CONFIRMATION', 'FACTORY_COLORING', 'BUYER_REVIEW'],
 )
 
-// 花型、调色为条件任务；制版、样衣、辅料、技术包确认为常驻任务
+// 花型、调色和辅料下单均由结构化 BOM 条件启用。
 assert.equal(definitions.find((item) => item.taskType === 'PATTERN_ARTWORK')?.conditionType, 'PRINT')
 assert.equal(definitions.find((item) => item.taskType === 'COLOR_YARN')?.conditionType, 'DYE_YARN')
 assert.equal(definitions.find((item) => item.taskType === 'COLOR_FABRIC')?.conditionType, 'DYE_FABRIC')
+assert.equal(definitions.find((item) => item.taskType === 'ACCESSORY_PURCHASE')?.conditionType, 'PURCHASE_ACCESSORY')
 assert.equal(definitions.find((item) => item.taskType === 'BASE_PATTERN_WOVEN')?.conditionType, 'ALWAYS')
 
 // 只有花型与调色需要审核
@@ -81,7 +82,7 @@ for (const code of ['BASE_PATTERN_WOVEN', 'BASE_PATTERN_KNIT', 'PRE_PRODUCTION_S
 
 // 初始状态派生：无前置待开始、有前置待前置、条件任务未启用
 assert.equal(resolveInitialTaskStatus('BASE_PATTERN_WOVEN'), '待开始')
-assert.equal(resolveInitialTaskStatus('ACCESSORY_PURCHASE'), '待开始')
+assert.equal(resolveInitialTaskStatus('ACCESSORY_PURCHASE'), '未启用')
 assert.equal(resolveInitialTaskStatus('PRE_PRODUCTION_SAMPLE'), '待前置')
 assert.equal(resolveInitialTaskStatus('TECH_PACK_CONFIRMATION'), '待前置')
 assert.equal(resolveInitialTaskStatus('PATTERN_ARTWORK'), '未启用')

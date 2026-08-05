@@ -79,7 +79,9 @@ export function confirmEngineeringColorRequirements(
   const confirmedBy = input.confirmedBy.trim()
   if (!confirmedBy || confirmedBy !== merchandiserName) throw new Error('仅主单跟单可以确认染色要求。')
   if (task.status === '未启用') throw new Error('调色任务未启用，不能确认染色要求。')
-  if (!['待开始', '进行中'].includes(task.status)) throw new Error(`调色任务处于${task.status}，不能确认染色要求。`)
+  if (task.status !== '进行中') {
+    throw new Error(task.status === '待开始' ? '请先点击“开始任务”，再确认染色要求。' : `调色任务处于${task.status}，不能确认染色要求。`)
+  }
   if (task.colorRequirementConfirmedAt) throw new Error('当前染色要求已经整批确认。')
 
   assertUniqueLineIds(input.requirements)

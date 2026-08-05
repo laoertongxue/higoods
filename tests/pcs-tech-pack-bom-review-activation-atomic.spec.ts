@@ -136,7 +136,11 @@ resetEngineeringMasterRepository()
 const engineeringMaster = publishEngineeringMasterOrder(createEngineeringMasterOrder({
   styleId: style.styleId,
   styleCode: style.styleCode,
+  merchandiserId: 'USER-M-A',
   merchandiserName: '跟单甲',
+  createdById: 'USER-M-A', createdBy: '跟单甲', createdByRole: '跟单', preparationType: 'PURE_WOVEN',
+  qualificationFact: { styleCode: style.styleCode, formalSaleStatus: 'NO_FORMAL_SALE', formalProductionStatus: 'NO_FORMAL_PRODUCTION', formalSaleSource: '正式销售订单', formalProductionSource: '正式生产单', checkedAt: '2026-08-04 09:00:00' },
+  bulkProductionQualification: { basisType: 'TEST_APPROVED', triggerBusinessObjectType: '测款结果', triggerBusinessObjectId: 'TEST-ATOMIC', thresholdQuantity: 300, reachedQuantity: 320, reachedAt: '2026-08-04 09:00:00', reason: '已满足做大货要求', uniqueTriggerKey: 'TEST-ATOMIC' }, creationReason: '跟单核实创建',
 }).masterOrderId)
 const engineeringSourceTaskId = `${engineeringMaster.masterOrderId}-TECH_PACK_CONFIRMATION`
 
@@ -145,7 +149,7 @@ function completeActivationPrerequisites(): void {
   for (const dependencyType of dependencyTypes) {
     const taskId = `${engineeringMaster.masterOrderId}-${dependencyType}`
     updateEngineeringTaskRecord(engineeringMaster.masterOrderId, taskId, (task) => {
-      task.status = dependencyType === 'COLOR_YARN' || dependencyType === 'COLOR_FABRIC'
+      task.status = task.status === '未启用'
         ? '因需求变更结束'
         : '已完成'
       task.firstCompletedAt = '2026-08-01 09:00'
@@ -320,7 +324,7 @@ clonedMasterWithMissingDependency.tasks = clonedMasterWithMissingDependency.task
 )
 assert.throws(
   () => assertEngineeringTaskCanComplete(clonedMasterWithMissingDependency, clonedSourceTask),
-  /固定依赖不存在|依赖不存在/,
+  /缺少固定前置依赖|固定依赖不存在|依赖不存在/,
   '依赖记录缺失必须独立阻断',
 )
 assert.throws(

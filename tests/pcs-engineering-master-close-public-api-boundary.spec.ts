@@ -17,8 +17,13 @@ assert.ok(style)
 const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
   styleId: style.styleId,
   styleCode: style.styleCode,
+  merchandiserId: 'USER-M-LX',
   merchandiserName: '跟单-林晓',
+  createdById: 'USER-M-LX',
   createdBy: '跟单-林晓',
+  createdByRole: '跟单', preparationType: 'PURE_WOVEN',
+  qualificationFact: { styleCode: style.styleCode, formalSaleStatus: 'NO_FORMAL_SALE', formalProductionStatus: 'NO_FORMAL_PRODUCTION', formalSaleSource: '正式销售订单', formalProductionSource: '正式生产单', checkedAt: '2026-08-04 09:00:00' },
+  bulkProductionQualification: { basisType: 'TEST_APPROVED', triggerBusinessObjectType: '测款结果', triggerBusinessObjectId: 'TEST-CLOSE-PUBLIC', thresholdQuantity: 300, reachedQuantity: 320, reachedAt: '2026-08-04 09:00:00', reason: '已满足做大货要求', uniqueTriggerKey: 'TEST-CLOSE-PUBLIC' }, creationReason: '跟单核实创建',
 }).masterOrderId)
 for (const task of master.tasks) {
   updateEngineeringTaskRecord(master.masterOrderId, task.taskId, (draft) => {

@@ -2,13 +2,20 @@
 // 任务骨架在发布时一次性生成，依赖只从固定策略复制，不提供任何更新依赖的接口。
 
 import {
+  buildEngineeringTaskPlan,
   buildDependencyClosure,
+  buildPreparationDependencyClosure,
+  getEngineeringTaskDependencies,
   getEngineeringTaskDefinition,
+  getEngineeringTaskApplicability,
+  isEngineeringPreparationType,
   resolveEngineeringTaskSubmitStatus,
+  type EngineeringBomTaskConditions,
 } from './pcs-engineering-dependency-policy.ts'
 import type { EngineeringBomTaskLinkageRow } from './pcs-engineering-bom-types.ts'
 import { assertEngineeringBomPricingSnapshotValid } from './pcs-engineering-bom-pricing.ts'
-import { assertFirstFormalProduction } from './pcs-engineering-first-production-policy.ts'
+import { assertFirstProductionQualification } from './pcs-engineering-first-production-policy.ts'
+import { listReusableEngineeringIndependentProfessionalResults } from './pcs-engineering-master-sampling.ts'
 import {
   getStyleArchiveById,
   findStyleArchiveByCode,
@@ -19,6 +26,11 @@ import type {
   EngineeringMasterOrderSnapshot,
   EngineeringTaskRecord,
   EngineeringTaskType,
+  EngineeringBulkProductionQualification,
+  EngineeringFirstProductionQualificationFact,
+  EngineeringPreparationType,
+  EngineeringIndependentProfessionalTaskType,
+  EngineeringIndependentReusableProfessionalResult,
 } from './pcs-engineering-master-types.ts'
 import {
   getTechnicalDataVersionById,
@@ -41,13 +53,19 @@ function canUseStorage(): boolean {
 }
 
 function nowText(): string {
-  return new Date().toLocaleString('zh-CN', { hour12: false })
+  const now = new Date()
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate())
+    + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds())
 }
 
 function cloneTask(task: EngineeringTaskRecord): EngineeringTaskRecord {
   return {
     ...task,
     dependsOnTaskIds: [...task.dependsOnTaskIds],
+    dependencySatisfaction: (task.dependencySatisfaction || []).map((item) => ({ ...item })),
+    events: { ...task.events },
+    operationLogs: (task.operationLogs || []).map((item) => ({ ...item })),
     materialLines: task.materialLines.map((line) => ({
       ...line,
       resultFileIds: [...(line.resultFileIds || [])],
@@ -68,6 +86,8 @@ function cloneRecord(record: EngineeringMasterOrderRecord): EngineeringMasterOrd
     ...record,
     tasks: record.tasks.map(cloneTask),
     priorResultReuseLines: record.priorResultReuseLines.map((line) => ({ ...line })),
+    qualificationFact: { ...record.qualificationFact },
+    bulkProductionQualification: { ...record.bulkProductionQualification },
     confirmedTaskTypes: [...(record.confirmedTaskTypes || [])],
   }
 }
@@ -111,18 +131,89 @@ function readSnapshot(): EngineeringMasterOrderSnapshot {
 }
 
 function normalizeRecord(record: EngineeringMasterOrderRecord): EngineeringMasterOrderRecord {
+  const emptyQualification: EngineeringFirstProductionQualificationFact = {
+    styleCode: record.styleCode || '',
+    formalSaleStatus: 'UNAVAILABLE',
+    formalProductionStatus: 'UNAVAILABLE',
+    formalSaleSource: '',
+    formalProductionSource: '',
+    checkedAt: '',
+  }
+  const emptyBulkQualification: EngineeringBulkProductionQualification = {
+    basisType: 'OTHER_CONFIRMED',
+    triggerBusinessObjectType: '',
+    triggerBusinessObjectId: '',
+    thresholdQuantity: null,
+    reachedQuantity: null,
+    reachedAt: '',
+    reason: '',
+    uniqueTriggerKey: '',
+  }
   return cloneRecord({
     ...record,
+    preparationType: isEngineeringPreparationType(record.preparationType) ? record.preparationType : '',
+    creationMode: record.creationMode === 'SYSTEM' ? 'SYSTEM' : 'MANUAL',
+    creationReason: record.creationReason || '',
+    qualificationFact: record.qualificationFact || emptyQualification,
+    bulkProductionQualification: record.bulkProductionQualification || emptyBulkQualification,
+    merchandiserId: record.merchandiserId || '',
+    createdById: record.createdById || '',
+    qualificationReachedAt: record.qualificationReachedAt || '',
+    publishedBy: record.publishedBy || '',
+    closedBy: record.closedBy || '',
     tasks: Array.isArray(record.tasks)
-      ? record.tasks.map((task) => ({
+      ? record.tasks.map((task) => {
+          const impossibleNoReviewAudit = task.status === '待审核'
+            && !getEngineeringTaskDefinition(task.taskType).reviewRequired
+          const storedEvents = task.events || {
+            generatedAt: record.taskPlanConfirmedAt || record.createdAt || '',
+            unlockedAt: '',
+            startedAt: task.startedAt || '',
+            submittedAt: task.submittedAt || '',
+            reviewedAt: '',
+            firstCompletedAt: task.firstCompletedAt || '',
+            effectiveCompletedAt: task.effectiveCompletedAt || '',
+          }
+          return ({
           ...task,
+          sourceType: task.sourceType || 'ENGINEERING_MASTER',
+          status: impossibleNoReviewAudit ? '进行中' : task.status,
+          sourceId: task.sourceId || record.masterOrderId,
+          targetStyleId: task.targetStyleId || record.styleId,
+          targetStyleCode: task.targetStyleCode || record.styleCode,
+          targetStyleName: task.targetStyleName || record.styleName,
+          dependencySatisfaction: Array.isArray(task.dependencySatisfaction) ? task.dependencySatisfaction : [],
+          assigneeId: task.assigneeId || '',
+          assigneeName: task.assigneeName || '',
+          assignedById: task.assignedById || '',
+          assignedByName: task.assignedByName || '',
+          assignedAt: task.assignedAt || '',
+          currentRoundNo: Number(task.currentRoundNo || 1),
+          plannedStartAt: task.plannedStartAt || '',
+          plannedCompleteAt: task.plannedCompleteAt || '',
+          resultSummary: task.resultSummary || '',
+          submittedById: task.submittedById || '',
+          submittedByName: task.submittedByName || task.resultSubmittedBy || '',
+          reviewedById: task.reviewedById || '',
+          reviewedByName: task.reviewedByName || '',
+          submittedAt: impossibleNoReviewAudit ? '' : task.submittedAt,
+          firstCompletedAt: impossibleNoReviewAudit ? '' : task.firstCompletedAt,
+          effectiveCompletedAt: impossibleNoReviewAudit ? '' : task.effectiveCompletedAt,
+          events: {
+            ...storedEvents,
+            submittedAt: impossibleNoReviewAudit ? '' : storedEvents.submittedAt,
+            reviewedAt: impossibleNoReviewAudit ? '' : storedEvents.reviewedAt,
+            firstCompletedAt: impossibleNoReviewAudit ? '' : storedEvents.firstCompletedAt,
+            effectiveCompletedAt: impossibleNoReviewAudit ? '' : storedEvents.effectiveCompletedAt,
+          },
+          operationLogs: Array.isArray(task.operationLogs) ? task.operationLogs : [],
           resultImageIds: Array.isArray(task.resultImageIds) ? [...task.resultImageIds] : [],
           resultQuantity: Number(task.resultQuantity || 0),
           resultSubmittedBy: task.resultSubmittedBy || '',
           colorRequirementConfirmedBy: task.colorRequirementConfirmedBy || '',
           colorRequirementConfirmedAt: task.colorRequirementConfirmedAt || '',
           colorResultCompletedAt: task.colorResultCompletedAt || '',
-          completedAt: task.completedAt || task.effectiveCompletedAt || '',
+          completedAt: impossibleNoReviewAudit ? '' : (task.completedAt || task.effectiveCompletedAt || ''),
           boundPurchaseOrderNos: Array.isArray(task.boundPurchaseOrderNos) ? task.boundPurchaseOrderNos : [],
           materialReviewRounds: Array.isArray(task.materialReviewRounds) ? task.materialReviewRounds : [],
           materialLines: Array.isArray(task.materialLines)
@@ -138,7 +229,8 @@ function normalizeRecord(record: EngineeringMasterOrderRecord): EngineeringMaste
                 reviewedAt: line.reviewedAt || '',
               }))
             : [],
-        }))
+          })
+        })
       : [],
     priorResultReuseLines: Array.isArray(record.priorResultReuseLines) ? record.priorResultReuseLines : [],
   })
@@ -176,7 +268,15 @@ export interface CreateEngineeringMasterOrderInput {
   styleId: string
   styleCode: string
   merchandiserName: string
-  createdBy?: string
+  merchandiserId: string
+  createdBy: string
+  createdById: string
+  createdByRole: string
+  preparationType?: EngineeringPreparationType
+  qualificationFact: EngineeringFirstProductionQualificationFact
+  bulkProductionQualification: EngineeringBulkProductionQualification
+  creationReason: string
+  creationMode?: 'MANUAL' | 'SYSTEM'
 }
 
 export interface CreateEngineeringChangeTaskInput {
@@ -233,8 +333,24 @@ export function createEngineeringMasterOrder(input: CreateEngineeringMasterOrder
     throw new Error('无商品／款式档案，禁止创建工程主单。请先创建商品／款式档案。')
   }
 
-  // 首次工程准备：已正式生产过的款式禁止创建工程主单。
-  assertFirstFormalProduction(input.styleCode)
+  assertFirstProductionQualification(style.styleCode, input.qualificationFact)
+  if (!input.merchandiserId.trim() || !input.merchandiserName.trim()) {
+    throw new Error('工程主单必须选择跟单负责人。')
+  }
+  if (!input.createdById.trim() || !input.createdBy.trim()) throw new Error('工程主单缺少创建身份。')
+  const creationMode = input.creationMode === 'SYSTEM' ? 'SYSTEM' : 'MANUAL'
+  if (creationMode === 'MANUAL' && input.createdByRole !== '跟单') throw new Error('只有当前登录的跟单可以人工创建工程主单。')
+  if (creationMode === 'SYSTEM' && input.createdByRole !== '系统') throw new Error('自动创建工程主单必须使用系统身份。')
+  if (!input.creationReason.trim() || !input.bulkProductionQualification.reason.trim()) {
+    throw new Error('请填写做大货依据和创建原因。')
+  }
+  if (!input.bulkProductionQualification.uniqueTriggerKey.trim()) {
+    throw new Error('做大货资格缺少唯一触发标识。')
+  }
+  const duplicateTrigger = snapshot.records.find(
+    (record) => record.bulkProductionQualification.uniqueTriggerKey === input.bulkProductionQualification.uniqueTriggerKey.trim(),
+  )
+  if (duplicateTrigger && creationMode === 'SYSTEM') return cloneRecord(duplicateTrigger)
 
   // 同一款式只允许存在一张未关闭的工程主单。
   const hasOpenMaster = snapshot.records.some(
@@ -244,6 +360,9 @@ export function createEngineeringMasterOrder(input: CreateEngineeringMasterOrder
   if (hasOpenMaster) {
     throw new Error('该款式已存在未关闭的工程主单，禁止重复创建。')
   }
+  if (duplicateTrigger) {
+    throw new Error('该做大货资格已经创建过工程主单，禁止重复使用。')
+  }
 
   const record: EngineeringMasterOrderRecord = {
     masterOrderId: `EM-${Date.now().toString(36)}-${String(snapshot.records.length + 1).padStart(3, '0')}`,
@@ -252,16 +371,26 @@ export function createEngineeringMasterOrder(input: CreateEngineeringMasterOrder
     styleCode: style.styleCode,
     styleName: style.styleName,
     status: '草稿',
+    preparationType: input.preparationType || '',
+    creationMode,
+    creationReason: input.creationReason.trim(),
+    qualificationFact: { ...input.qualificationFact },
+    bulkProductionQualification: { ...input.bulkProductionQualification },
     merchandiserName: input.merchandiserName,
+    merchandiserId: input.merchandiserId,
     tasks: [],
     priorResultReuseLines: [],
     taskPlanConfirmedAt: '',
     taskPlanConfirmedBy: '',
     confirmedTaskTypes: [],
     createdAt: nowText(),
-    createdBy: input.createdBy ?? '跟单',
+    createdBy: input.createdBy,
+    createdById: input.createdById,
+    qualificationReachedAt: input.bulkProductionQualification.reachedAt,
     publishedAt: '',
+    publishedBy: '',
     closedAt: '',
+    closedBy: '',
     terminatedAt: '',
     terminateReason: '',
   }
@@ -269,6 +398,18 @@ export function createEngineeringMasterOrder(input: CreateEngineeringMasterOrder
   snapshot.records.push(record)
   writeSnapshot(snapshot)
   return cloneRecord(record)
+}
+
+export function createSystemEngineeringMasterOrder(
+  input: Omit<CreateEngineeringMasterOrderInput, 'createdBy' | 'createdById' | 'createdByRole' | 'creationMode'>,
+): EngineeringMasterOrderRecord {
+  return createEngineeringMasterOrder({
+    ...input,
+    createdBy: '系统',
+    createdById: 'SYSTEM',
+    createdByRole: '系统',
+    creationMode: 'SYSTEM',
+  })
 }
 
 const ENGINEERING_MASTER_TASK_TYPES: EngineeringTaskType[] = [
@@ -285,21 +426,52 @@ const ENGINEERING_MASTER_TASK_TYPES: EngineeringTaskType[] = [
 ]
 
 function createConfirmedTaskSkeletons(
-  masterOrderId: string,
-  selectedTaskTypes: EngineeringTaskType[],
+  master: EngineeringMasterOrderRecord,
+  plan: ReturnType<typeof buildEngineeringTaskPlan>,
 ): EngineeringTaskRecord[] {
-  const selected = new Set(selectedTaskTypes)
+  const generatedAt = nowText()
   return ENGINEERING_MASTER_TASK_TYPES.map((taskType) => {
     const definition = getEngineeringTaskDefinition(taskType)
-    const selectedStatus = definition.dependsOn.length > 0 ? '待前置' : '待开始'
+    const planLine = plan.find((item) => item.taskType === taskType)
+    if (!planLine) throw new Error(`缺少工程任务方案：${taskType}`)
+    const selectedStatus = planLine.dependsOn.length > 0 ? '待前置' : '待开始'
     return {
-      taskId: `${masterOrderId}-${taskType}`,
-      masterOrderId,
+      taskId: `${master.masterOrderId}-${taskType}`,
+      masterOrderId: master.masterOrderId,
       taskType,
       taskName: definition.taskName,
-      status: selected.has(taskType) ? selectedStatus : '未启用',
-      dependsOnTaskIds: definition.dependsOn.map((dependency) => `${masterOrderId}-${dependency}`),
+      sourceType: 'ENGINEERING_MASTER',
+      sourceId: master.masterOrderId,
+      targetStyleId: master.styleId,
+      targetStyleCode: master.styleCode,
+      targetStyleName: master.styleName,
+      status: planLine.enabled ? selectedStatus : '未启用',
+      dependsOnTaskIds: planLine.dependsOn.map((dependency) => `${master.masterOrderId}-${dependency}`),
+      dependencySatisfaction: [],
       ownerTeamName: definition.ownerTeamName,
+      assigneeId: '',
+      assigneeName: '',
+      assignedById: '',
+      assignedByName: '',
+      assignedAt: '',
+      currentRoundNo: 1,
+      plannedStartAt: '',
+      plannedCompleteAt: '',
+      resultSummary: '',
+      submittedById: '',
+      submittedByName: '',
+      reviewedById: '',
+      reviewedByName: '',
+      events: {
+        generatedAt,
+        unlockedAt: planLine.enabled && planLine.dependsOn.length === 0 ? generatedAt : '',
+        startedAt: '',
+        submittedAt: '',
+        reviewedAt: '',
+        firstCompletedAt: '',
+        effectiveCompletedAt: '',
+      },
+      operationLogs: [],
       materialLines: [],
       reworkRounds: [],
       startedAt: '',
@@ -321,7 +493,160 @@ function createConfirmedTaskSkeletons(
 
 export interface ConfirmEngineeringMasterTaskPlanInput {
   confirmedBy: string
+  confirmedById: string
+  confirmedByRole: string
+  preparationType?: EngineeringPreparationType
+  bomConditions?: EngineeringBomTaskConditions
   selectedConditionalTaskTypes: EngineeringTaskType[]
+  priorResultDecisions?: EngineeringMasterPriorResultDecisionInput[]
+}
+
+export interface EngineeringMasterPriorResultDecisionInput {
+  engineeringTaskType: EngineeringTaskType
+  sourceSamplingTaskId: string
+  sourceProfessionalTaskId: string
+  sourceResultVersion: string
+  decision: '复用' | '重新执行' | '不采用'
+}
+
+const INDEPENDENT_TO_ENGINEERING_TASK: Record<
+  Exclude<EngineeringIndependentProfessionalTaskType, 'BASE_PATTERN'>,
+  EngineeringTaskType
+> = {
+  DISPLAY_SAMPLE: 'PRE_PRODUCTION_SAMPLE',
+  PATTERN_ARTWORK: 'PATTERN_ARTWORK',
+  COLOR_YARN: 'COLOR_YARN',
+  COLOR_FABRIC: 'COLOR_FABRIC',
+}
+
+function candidateEngineeringTaskTypes(
+  candidate: EngineeringIndependentReusableProfessionalResult,
+  preparationType: EngineeringPreparationType,
+): EngineeringTaskType[] {
+  if (candidate.professionalTaskType !== 'BASE_PATTERN') {
+    return [INDEPENDENT_TO_ENGINEERING_TASK[candidate.professionalTaskType]]
+  }
+  if (preparationType === 'PURE_WOVEN') return ['BASE_PATTERN_WOVEN']
+  if (preparationType === 'KNIT') return ['BASE_PATTERN_KNIT']
+  if (preparationType === 'KNIT_WOVEN') return ['BASE_PATTERN_WOVEN', 'BASE_PATTERN_KNIT']
+  return []
+}
+
+export interface EngineeringMasterPriorResultCandidate {
+  engineeringTaskType: EngineeringTaskType
+  source: EngineeringIndependentReusableProfessionalResult
+  recommended: boolean
+}
+
+export function listEngineeringMasterPriorResultCandidates(
+  targetStyleCode: string,
+  preparationType: EngineeringPreparationType,
+): EngineeringMasterPriorResultCandidate[] {
+  const seenRecommended = new Set<EngineeringTaskType>()
+  return listReusableEngineeringIndependentProfessionalResults(targetStyleCode).flatMap((source) =>
+    candidateEngineeringTaskTypes(source, preparationType)
+      .filter((engineeringTaskType) => getEngineeringTaskApplicability(preparationType, engineeringTaskType) !== 'NOT_APPLICABLE')
+      .map((engineeringTaskType) => {
+      const recommended = !seenRecommended.has(engineeringTaskType)
+      seenRecommended.add(engineeringTaskType)
+      return { engineeringTaskType, source: { ...source, resultImageUrls: [...source.resultImageUrls] }, recommended }
+      }),
+  )
+}
+
+function resolvePriorResultDecisions(
+  record: EngineeringMasterOrderRecord,
+  preparationType: EngineeringPreparationType,
+  input: ConfirmEngineeringMasterTaskPlanInput,
+): Array<{ input: EngineeringMasterPriorResultDecisionInput; source: EngineeringIndependentReusableProfessionalResult }> {
+  if (!input.priorResultDecisions) return []
+  const candidates = listEngineeringMasterPriorResultCandidates(record.styleCode, preparationType)
+  const relevantTaskTypes = [...new Set(candidates.map((candidate) => candidate.engineeringTaskType))]
+  const decisions = input.priorResultDecisions
+  if (new Set(decisions.map((decision) => decision.engineeringTaskType)).size !== decisions.length) {
+    throw new Error('同一工程任务只能选择一项前期成果。')
+  }
+  const missingDecision = relevantTaskTypes.find((taskType) =>
+    !decisions.some((decision) => decision.engineeringTaskType === taskType),
+  )
+  if (missingDecision) throw new Error(`请逐项选择${getEngineeringTaskDefinition(missingDecision).taskName}成果的复用方式。`)
+  return decisions.map((decision) => {
+    const matched = candidates.find((candidate) =>
+      candidate.engineeringTaskType === decision.engineeringTaskType
+      && candidate.source.samplingTaskId === decision.sourceSamplingTaskId
+      && candidate.source.professionalTaskId === decision.sourceProfessionalTaskId
+      && candidate.source.resultVersion === decision.sourceResultVersion,
+    )
+    if (!matched) throw new Error('所选前期成果未完成整单确认、专业任务未完成，或版本已失效，不能采用。')
+    return { input: decision, source: matched.source }
+  })
+}
+
+function applyPriorResultDecisions(
+  record: EngineeringMasterOrderRecord,
+  decisions: ReturnType<typeof resolvePriorResultDecisions>,
+  confirmedBy: string,
+  confirmedById: string,
+  confirmedAt: string,
+): void {
+  record.priorResultReuseLines = decisions.map(({ input, source }) => ({
+    resultType: input.engineeringTaskType,
+    resultLabel: getEngineeringTaskDefinition(input.engineeringTaskType).taskName,
+    decision: input.decision,
+    sourceSamplingTaskId: source.samplingTaskId,
+    sourceSamplingTaskCode: source.samplingTaskCode,
+    sourceTaskId: source.professionalTaskId,
+    sourceTaskLabel: source.professionalTaskName,
+    sourceResultVersion: source.resultVersion,
+    sourceBomDraftVersionId: source.bomDraftVersionId,
+    confirmedById,
+    confirmedBy,
+    confirmedAt,
+  }))
+
+  const reusedTaskTypes = new Set<EngineeringTaskType>()
+  decisions.forEach(({ input, source }) => {
+    const task = record.tasks.find((item) => item.taskType === input.engineeringTaskType)
+    if (!task) throw new Error(`工程任务不存在：${input.engineeringTaskType}`)
+    if (input.decision === '不采用') {
+      if (task.status !== '未启用') throw new Error(`${task.taskName}属于本次工程任务，不能选择不采用；请选择复用或重新执行。`)
+      return
+    }
+    if (input.decision === '重新执行') {
+      task.resultSummary = `参考前期成果 ${source.samplingTaskCode} / ${source.resultVersion}，本次重新执行。`
+      return
+    }
+    reusedTaskTypes.add(task.taskType)
+    task.status = '已完成'
+    task.currentRoundNo = 0
+    task.resultSummary = `复用前期成果 ${source.samplingTaskCode} / ${source.resultVersion}`
+    task.resultImageIds = [...source.resultImageUrls]
+    task.operationLogs.push({
+      operationType: '复用前期成果',
+      operatorId: confirmedById,
+      operatorName: confirmedBy,
+      operatedAt: confirmedAt,
+      note: `${source.professionalTaskName} ${source.resultVersion}`,
+      roundNo: 0,
+    })
+  })
+
+  record.tasks.forEach((task) => {
+    if (task.status === '未启用' || reusedTaskTypes.has(task.taskType)) return
+    const reusedDependencies = task.dependsOnTaskIds
+      .map((dependencyTaskId) => record.tasks.find((candidate) => candidate.taskId === dependencyTaskId))
+      .filter((dependency): dependency is EngineeringTaskRecord => Boolean(dependency && reusedTaskTypes.has(dependency.taskType)))
+    task.dependencySatisfaction = reusedDependencies.map((dependency) => ({
+      dependencyTaskType: dependency.taskType,
+      satisfactionType: 'PRIOR_RESULT_REUSED',
+      sourceId: record.priorResultReuseLines.find((line) => line.resultType === dependency.taskType)?.sourceTaskId || '',
+    }))
+    const dependenciesSatisfied = task.dependsOnTaskIds.every((dependencyTaskId) =>
+      record.tasks.find((candidate) => candidate.taskId === dependencyTaskId)?.status === '已完成',
+    )
+    task.status = task.dependsOnTaskIds.length === 0 || dependenciesSatisfied ? '待开始' : '待前置'
+    task.events.unlockedAt = task.status === '待开始' ? confirmedAt : ''
+  })
 }
 
 // 跟单确认系统建议后，一次性生成完整任务骨架；固定依赖不可调整。
@@ -336,23 +661,47 @@ export function confirmEngineeringMasterTaskPlan(
     throw new Error('仅未生成任务的草稿工程主单可以确认任务方案。')
   }
   const confirmedBy = input.confirmedBy.trim()
-  if (!confirmedBy || confirmedBy !== record.merchandiserName) {
+  if (
+    input.confirmedByRole !== '跟单'
+    || !confirmedBy
+    || confirmedBy !== record.merchandiserName
+    || input.confirmedById.trim() !== record.merchandiserId
+  ) {
     throw new Error('只有工程主单跟单本人可以确认任务方案。')
   }
-  const conditional = new Set(
-    input.selectedConditionalTaskTypes.filter((taskType) =>
-      getEngineeringTaskDefinition(taskType).conditionType !== 'ALWAYS'),
+  const preparationType = input.preparationType || record.preparationType
+  if (!isEngineeringPreparationType(preparationType)) {
+    throw new Error('请跟单选择已确认的生产准备类型。')
+  }
+  const priorResultDecisions = resolvePriorResultDecisions(record, preparationType, input)
+  const decisionEnabledTaskTypes = priorResultDecisions
+    .filter(({ input: decision }) => decision.decision !== '不采用')
+    .map(({ input: decision }) => decision.engineeringTaskType)
+  const selectedConditionalTaskTypes = [...input.selectedConditionalTaskTypes, ...decisionEnabledTaskTypes].filter((taskType) =>
+    getEngineeringTaskApplicability(preparationType, taskType) === 'CONDITIONAL')
+  const selectedWithPrerequisites = buildPreparationDependencyClosure(preparationType, selectedConditionalTaskTypes)
+  const plan = buildEngineeringTaskPlan(
+    preparationType,
+    input.bomConditions,
+    selectedWithPrerequisites,
   )
-  const required = ENGINEERING_MASTER_TASK_TYPES.filter((taskType) =>
-    getEngineeringTaskDefinition(taskType).conditionType === 'ALWAYS')
-  const confirmedTaskTypes = [...required, ...conditional]
+  const confirmedTaskTypes = plan.filter((item) => item.enabled).map((item) => item.taskType)
 
-  record.tasks = createConfirmedTaskSkeletons(masterOrderId, confirmedTaskTypes)
+  record.preparationType = preparationType
+  record.tasks = createConfirmedTaskSkeletons(record, plan)
   record.confirmedTaskTypes = confirmedTaskTypes
   record.taskPlanConfirmedBy = confirmedBy
   record.taskPlanConfirmedAt = nowText()
+  applyPriorResultDecisions(
+    record,
+    priorResultDecisions,
+    confirmedBy,
+    input.confirmedById.trim(),
+    record.taskPlanConfirmedAt,
+  )
   record.status = '已发布'
   record.publishedAt = record.taskPlanConfirmedAt
+  record.publishedBy = confirmedBy
   writeSnapshot(snapshot)
   return cloneRecord(record)
 }
@@ -363,6 +712,8 @@ export function publishEngineeringMasterOrder(masterOrderId: string): Engineerin
   if (!record) throw new Error(`工程主单不存在：${masterOrderId}`)
   return confirmEngineeringMasterTaskPlan(masterOrderId, {
     confirmedBy: record.merchandiserName,
+    confirmedById: record.merchandiserId,
+    confirmedByRole: '跟单',
     selectedConditionalTaskTypes: [],
   })
 }
@@ -446,6 +797,39 @@ export function setEngineeringMasterStatus(
   return cloneRecord(record)
 }
 
+// 仅供本地高保真原型种子构造“待关闭／已关闭”完整场景；真实业务仍必须走关闭领域入口。
+export function seedEngineeringMasterDemoLifecycleStatus(
+  masterOrderId: string,
+  status: '待关闭' | '已关闭',
+): EngineeringMasterOrderRecord {
+  const snapshot = readSnapshot()
+  const record = snapshot.records.find((item) => item.masterOrderId === masterOrderId)
+  if (!record) throw new Error(`工程主单不存在：${masterOrderId}`)
+  if (!record.bulkProductionQualification.uniqueTriggerKey.startsWith('BULK-DEMO-')) {
+    throw new Error('只能设置本地演示工程主单。')
+  }
+  const at = nowText()
+  for (const task of record.tasks) {
+    if (task.status === '未启用') continue
+    task.status = '已完成'
+    task.startedAt ||= at
+    task.submittedAt ||= at
+    task.firstCompletedAt ||= at
+    task.effectiveCompletedAt ||= at
+    task.completedAt ||= at
+    task.events.startedAt ||= task.startedAt
+    task.events.submittedAt ||= task.submittedAt
+    task.events.firstCompletedAt ||= task.firstCompletedAt
+    task.events.effectiveCompletedAt ||= task.effectiveCompletedAt
+  }
+  record.status = status
+  record.updatedAt = at
+  record.closedAt = status === '已关闭' ? at : ''
+  record.closedBy = status === '已关闭' ? record.merchandiserName : ''
+  writeSnapshot(snapshot)
+  return cloneRecord(record)
+}
+
 export interface EngineeringMasterOrderCloseValidation {
   canClose: true
   masterOrderId: string
@@ -453,7 +837,7 @@ export interface EngineeringMasterOrderCloseValidation {
 }
 
 export function assertFixedTaskDependenciesSatisfied(master: EngineeringMasterOrderRecord, task: EngineeringTaskRecord): void {
-  const expected = canonicalDependencyIds(master.masterOrderId, task.taskType)
+  const expected = canonicalDependencyIds(master, task.taskType)
   const actual = [...task.dependsOnTaskIds]
   if (
     expected.length !== actual.length
@@ -556,8 +940,60 @@ export function updateEngineeringTaskRecord(
   const task = master.tasks.find((item) => item.taskId === taskId)
   if (!task) throw new Error(`工程任务不存在：${taskId}`)
   update(task, master)
+  refreshWaitingEngineeringTasks(master)
   writeSnapshot(snapshot)
   return { masterOrder: cloneRecord(master), task: cloneTask(task) }
+}
+
+function refreshWaitingEngineeringTasks(master: EngineeringMasterOrderRecord): void {
+  const occurredAt = nowText()
+  master.tasks.forEach((task) => {
+    if (task.status !== '待前置') return
+    const dependenciesSatisfied = task.dependsOnTaskIds.every((dependencyTaskId) => {
+      const dependency = master.tasks.find((candidate) => candidate.taskId === dependencyTaskId)
+      return dependency?.status === '已完成' || dependency?.status === '因需求变更结束'
+    })
+    if (!dependenciesSatisfied) return
+    task.status = '待开始'
+    task.events.unlockedAt = task.events.unlockedAt || occurredAt
+    task.operationLogs.push({
+      operationType: '前置完成自动解锁',
+      operatorId: 'SYSTEM',
+      operatorName: '系统',
+      operatedAt: occurredAt,
+      note: '固定前置任务均已完成。',
+      roundNo: task.currentRoundNo,
+    })
+  })
+}
+
+export function startEngineeringTask(input: {
+  masterOrderId: string
+  taskId: string
+  operatorId: string
+  operatorName: string
+}): { masterOrder: EngineeringMasterOrderRecord; task: EngineeringTaskRecord } {
+  return updateEngineeringTaskRecord(input.masterOrderId, input.taskId, (task, master) => {
+    if (!input.operatorId.trim() || !input.operatorName.trim()) throw new Error('缺少当前登录用户身份。')
+    if (task.status !== '待开始') throw new Error(`工程任务当前为${task.status}，不能开始。`)
+    assertFixedTaskDependenciesSatisfied(master, task)
+    if (task.assigneeId && task.assigneeId !== input.operatorId) throw new Error('仅任务负责人可以开始任务。')
+    const occurredAt = nowText()
+    task.status = '进行中'
+    task.assigneeId = task.assigneeId || input.operatorId
+    task.assigneeName = task.assigneeName || input.operatorName
+    task.startedAt = task.startedAt || occurredAt
+    task.events.startedAt = task.events.startedAt || occurredAt
+    task.operationLogs.push({
+      operationType: '开始任务',
+      operatorId: input.operatorId,
+      operatorName: input.operatorName,
+      operatedAt: occurredAt,
+      note: '',
+      roundNo: task.currentRoundNo,
+    })
+    if (master.status === '已发布') master.status = '进行中'
+  })
 }
 
 export type EngineeringTechPackOnlyProcess = '缩水' | '洗水' | '水溶'
@@ -581,8 +1017,12 @@ export function validateBomRequirementsForEngineeringTasks(
   }
   const requiredTaskTypes: EngineeringTaskType[] = []
   if (rows.some((row) => hasBomRequirement(row.printRequirement))) requiredTaskTypes.push('PATTERN_ARTWORK')
-  if (rows.some((row) => hasBomRequirement(row.dyeRequirement))) requiredTaskTypes.push('COLOR_FABRIC')
-  if (rows.some((row) => row.materialType === '辅料')) requiredTaskTypes.push('ACCESSORY_PURCHASE')
+  if (rows.some((row) => hasBomRequirement(row.dyeRequirement) && row.materialType === '纱线')) requiredTaskTypes.push('COLOR_YARN')
+  if (rows.some((row) => hasBomRequirement(row.dyeRequirement) && row.materialType === '面料')) requiredTaskTypes.push('COLOR_FABRIC')
+  if (rows.some((row) => hasBomRequirement(row.dyeRequirement) && !['纱线', '面料'].includes(row.materialType || ''))) {
+    throw new Error('需要染色的 BOM 物料行必须通过结构化物料类型明确为纱线或面料。')
+  }
+  if (rows.some((row) => hasBomRequirement(row.purchaseRequirement))) requiredTaskTypes.push('ACCESSORY_PURCHASE')
   assertTaskSkeletonsExist(master, requiredTaskTypes)
 }
 
@@ -598,8 +1038,15 @@ function listTechPackOnlyProcesses(rows: EngineeringBomTaskLinkageRow[]): Engine
   return processes
 }
 
-function canonicalDependencyIds(masterOrderId: string, taskType: EngineeringTaskType): string[] {
-  return getEngineeringTaskDefinition(taskType).dependsOn.map((dependency) => `${masterOrderId}-${dependency}`)
+function canonicalDependencyIds(master: EngineeringMasterOrderRecord, taskType: EngineeringTaskType): string[] {
+  if (!isEngineeringPreparationType(master.preparationType)) {
+    throw new Error('工程主单缺少生产准备类型，无法校验固定依赖。')
+  }
+  const enabledTaskTypes = master.tasks
+    .filter((task) => task.status !== '未启用' && task.status !== '因需求变更结束')
+    .map((task) => task.taskType)
+  return getEngineeringTaskDependencies(master.preparationType, taskType, enabledTaskTypes)
+    .map((dependency) => `${master.masterOrderId}-${dependency}`)
 }
 
 function assertTaskSkeletonsExist(
@@ -625,7 +1072,7 @@ function enableTaskAndFixedPrerequisites(
   if (!task) {
     throw new Error(`工程主单缺少${definition.taskName}骨架，无法根据 BOM 启用。`)
   }
-  task.dependsOnTaskIds = canonicalDependencyIds(master.masterOrderId, taskType)
+  task.dependsOnTaskIds = canonicalDependencyIds(master, taskType)
   if (task.status !== '未启用' && task.status !== '因需求变更结束') return task
   const hasPendingDependency = task.dependsOnTaskIds.some((dependencyId) => {
     const dependency = master.tasks.find((item) => item.taskId === dependencyId)
@@ -668,7 +1115,7 @@ function createBomMaterialLine(
 
 function syncTaskMaterialLines(
   master: EngineeringMasterOrderRecord,
-  taskType: 'PATTERN_ARTWORK' | 'COLOR_FABRIC' | 'ACCESSORY_PURCHASE',
+  taskType: 'PATTERN_ARTWORK' | 'COLOR_YARN' | 'COLOR_FABRIC' | 'ACCESSORY_PURCHASE',
   rows: EngineeringBomTaskLinkageRow[],
   requirementType: '印花' | '染色' | '辅料',
 ): void {
@@ -677,13 +1124,16 @@ function syncTaskMaterialLines(
     const taskName = getEngineeringTaskDefinition(taskType).taskName
     throw new Error(`工程主单缺少${taskName}骨架，无法根据 BOM 启用。`)
   }
-  const statusBeforeSync = taskBeforeSync.status
   const task = enableTaskAndFixedPrerequisites(master, taskType)
   const activeBomItemIds = new Set(rows.map((row) => row.bomItemId))
   const hadSubmittedResult = task.status === '已完成'
     || task.status === '待审核'
     || Boolean(task.submittedAt)
     || task.materialLines.some((line) => Boolean(line.resultSubmittedAt) || line.resultFileIds.length > 0)
+  const hadStarted = hadSubmittedResult
+    || task.status === '进行中'
+    || task.status === '返工中'
+    || Boolean(task.startedAt)
   let addedOrReactivated = false
 
   for (const line of task.materialLines) {
@@ -719,7 +1169,17 @@ function syncTaskMaterialLines(
     (line) => line.requirementType === requirementType && line.status === '正常',
   )
   if (activeLines.length === 0) {
-    task.status = statusBeforeSync
+    // 只有尚未开始的条件任务才随需求消失而结束；已开始或已提交的任务保留原状态与成果历史。
+    if (hadStarted) return
+    task.status = '因需求变更结束'
+    task.operationLogs.push({
+      operationType: '需求变更结束',
+      operatorId: '',
+      operatorName: '系统 BOM 联动',
+      operatedAt: nowText(),
+      note: '对应 BOM 条件已消失',
+      roundNo: task.currentRoundNo,
+    })
     return
   }
   if (hadSubmittedResult && addedOrReactivated) {
@@ -754,15 +1214,20 @@ export function applyBomRequirementsToEngineeringTasks(
   if (!master) throw new Error(`工程主单不存在：${masterOrderId}`)
 
   const printRows = rows.filter((row) => hasBomRequirement(row.printRequirement))
-  const dyeRows = rows.filter((row) => hasBomRequirement(row.dyeRequirement))
-  const accessoryRows = rows.filter((row) => row.materialType === '辅料')
+  const yarnDyeRows = rows.filter((row) => hasBomRequirement(row.dyeRequirement) && row.materialType === '纱线')
+  const fabricDyeRows = rows.filter((row) => hasBomRequirement(row.dyeRequirement) && row.materialType === '面料')
+  const accessoryRows = rows.filter((row) => hasBomRequirement(row.purchaseRequirement))
   const patternTask = master.tasks.find((task) => task.taskType === 'PATTERN_ARTWORK')
   if (patternTask && (printRows.length > 0 || patternTask.materialLines.some((line) => line.requirementType === '印花'))) {
     syncTaskMaterialLines(master, 'PATTERN_ARTWORK', printRows, '印花')
   }
-  const colorTask = master.tasks.find((task) => task.taskType === 'COLOR_FABRIC')
-  if (colorTask && (dyeRows.length > 0 || colorTask.materialLines.some((line) => line.requirementType === '染色'))) {
-    syncTaskMaterialLines(master, 'COLOR_FABRIC', dyeRows, '染色')
+  const yarnColorTask = master.tasks.find((task) => task.taskType === 'COLOR_YARN')
+  if (yarnColorTask && (yarnDyeRows.length > 0 || yarnColorTask.materialLines.some((line) => line.requirementType === '染色'))) {
+    syncTaskMaterialLines(master, 'COLOR_YARN', yarnDyeRows, '染色')
+  }
+  const fabricColorTask = master.tasks.find((task) => task.taskType === 'COLOR_FABRIC')
+  if (fabricColorTask && (fabricDyeRows.length > 0 || fabricColorTask.materialLines.some((line) => line.requirementType === '染色'))) {
+    syncTaskMaterialLines(master, 'COLOR_FABRIC', fabricDyeRows, '染色')
   }
   const purchaseTask = master.tasks.find((task) => task.taskType === 'ACCESSORY_PURCHASE')
   if (purchaseTask && (accessoryRows.length > 0 || purchaseTask.materialLines.some((line) => line.requirementType === '辅料'))) {
@@ -804,6 +1269,7 @@ export function submitEngineeringTaskResult(
     throw new Error('辅料下单任务只能通过绑定采购单自动完成，不能手动提交成果。')
   }
   if (task.status === '未启用') throw new Error('任务未启用，不能提交成果。')
+  if (!task.startedAt || !task.events.startedAt) throw new Error('请先点击“开始任务”，再提交成果。')
   if (task.status === '待审核') throw new Error('任务已提交成果，等待审核。')
   if (task.status === '返工中') throw new Error('任务处于返工中，不能提交成果。')
   if (task.status === '已完成') throw new Error('任务已完成，不能重复提交成果。')
@@ -840,15 +1306,27 @@ export function submitEngineeringTaskResult(
   const submittedAt = nowText()
   const targetStatus = resolveEngineeringTaskSubmitStatus(task.taskType)
   task.status = targetStatus
-  if (!task.startedAt) task.startedAt = submittedAt
   task.submittedAt = submittedAt
+  task.events.submittedAt = submittedAt
   if (input.resultImageIds) task.resultImageIds = [...input.resultImageIds]
   if (input.resultQuantity !== undefined) task.resultQuantity = Math.max(0, Number(input.resultQuantity || 0))
   if (input.submittedBy !== undefined) task.resultSubmittedBy = input.submittedBy.trim()
+  task.submittedByName = input.submittedBy?.trim() || task.assigneeName
   if (targetStatus === '已完成') {
-    task.firstCompletedAt = submittedAt
+    task.firstCompletedAt = task.firstCompletedAt || submittedAt
     task.effectiveCompletedAt = submittedAt
+    task.events.firstCompletedAt = task.events.firstCompletedAt || submittedAt
+    task.events.effectiveCompletedAt = submittedAt
   }
+  task.operationLogs.push({
+    operationType: '提交成果',
+    operatorId: task.submittedById,
+    operatorName: task.submittedByName,
+    operatedAt: submittedAt,
+    note: task.resultSummary,
+    roundNo: task.currentRoundNo,
+  })
+  refreshWaitingEngineeringTasks(record)
   writeSnapshot(snapshot)
   return { masterOrder: cloneRecord(record), task: cloneTask(task) }
 }

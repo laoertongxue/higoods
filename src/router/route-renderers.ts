@@ -190,6 +190,30 @@ export const renderPcsEngineeringMasterDetailPage = createAsyncRenderer(
   () => import('../pages/pcs-engineering-master-detail'),
   'renderPcsEngineeringMasterDetailPage',
 )
+export const renderPcsEngineeringChangeListPage = createAsyncRenderer(
+  () => import('../pages/pcs-engineering-change'),
+  'renderPcsEngineeringChangeListPage',
+)
+export const renderPcsEngineeringChangeCreatePage = createAsyncRenderer(
+  () => import('../pages/pcs-engineering-change'),
+  'renderPcsEngineeringChangeCreatePage',
+)
+export const renderPcsEngineeringChangeDetailPage = createAsyncRenderer(
+  () => import('../pages/pcs-engineering-change'),
+  'renderPcsEngineeringChangeDetailPage',
+)
+export const renderPcsTechnicalDataTechPackListPage = createAsyncRenderer(
+  () => import('../pages/pcs-technical-data'),
+  'renderPcsTechnicalDataTechPackListPage',
+)
+export const renderPcsTechnicalDataBomPricingPage = createAsyncRenderer(
+  () => import('../pages/pcs-technical-data'),
+  'renderPcsTechnicalDataBomPricingPage',
+)
+export const renderPcsTechnicalDataTemplateLibraryPage = createAsyncRenderer(
+  () => import('../pages/pcs-technical-data'),
+  'renderPcsTechnicalDataTemplateLibraryPage',
+)
 export const renderPcsProjectCreatePage = createAsyncRenderer(
   () => import('../pages/pcs-projects'),
   'renderPcsProjectCreatePage',
@@ -205,6 +229,22 @@ export const renderPcsRevisionTaskPage = createAsyncRenderer(
 export const renderPcsRevisionTaskDetailPage = createAsyncRenderer(
   () => import('../pages/pcs-engineering-tasks'),
   'renderPcsRevisionTaskDetailPage',
+)
+export const renderPcsRevisionSamplingListPage = createAsyncRenderer(
+  () => import('../pages/pcs-independent-sampling'),
+  'renderPcsRevisionSamplingListPage',
+)
+export const renderPcsDesignSamplingListPage = createAsyncRenderer(
+  () => import('../pages/pcs-independent-sampling'),
+  'renderPcsDesignSamplingListPage',
+)
+export const renderPcsIndependentSamplingDetailPage = createAsyncRenderer(
+  () => import('../pages/pcs-independent-sampling'),
+  'renderPcsIndependentSamplingDetailPage',
+)
+export const renderPcsIndependentSamplingProfessionalTaskPage = createAsyncRenderer(
+  () => import('../pages/pcs-independent-sampling'),
+  'renderPcsIndependentSamplingProfessionalTaskPage',
 )
 export const renderPcsPlateMakingTaskPage = createAsyncRenderer(
   () => import('../pages/pcs-engineering-tasks'),

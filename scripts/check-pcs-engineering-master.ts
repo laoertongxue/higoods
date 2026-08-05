@@ -8,6 +8,8 @@ const checks = [
   'tests/pcs-engineering-master-domain.spec.ts',
   'tests/pcs-engineering-dependency-policy.spec.ts',
   'tests/pcs-engineering-master-pages.spec.ts',
+  'tests/pcs-engineering-task-workbench.spec.ts',
+  'tests/pcs-engineering-pre-production-sample-submit.spec.ts',
   'tests/pcs-engineering-task-status.spec.ts',
   'tests/pcs-engineering-material-review.spec.ts',
   'tests/pcs-engineering-bom-pricing.spec.ts',
@@ -20,6 +22,10 @@ const checks = [
   'tests/pcs-engineering-master-close-public-api-boundary.spec.ts',
   'tests/pcs-technical-data-version-snapshot-compat.spec.ts',
   'tests/pcs-engineering-preparation-color-projection.spec.ts',
+  'tests/pcs-engineering-navigation-removal.spec.ts',
+  'tests/pcs-independent-sampling.spec.ts',
+  'tests/pcs-independent-sampling-pages.spec.ts',
+  'tests/pcs-engineering-technical-data-and-change.spec.ts',
 ] as const
 
 for (const check of checks) {

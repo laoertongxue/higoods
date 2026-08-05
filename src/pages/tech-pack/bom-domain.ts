@@ -20,6 +20,7 @@ function renderTextValue(value: string): string {
 
 function renderPrintSideModeLabel(mode: BomItemRow['printSideMode']): string {
   if (mode === 'SINGLE') return '单面印'
+  if (mode === 'REVERSE') return '反面印'
   if (mode === 'DOUBLE') return '双面印'
   return '-'
 }
@@ -425,7 +426,7 @@ export function renderBomFormDialog(): string {
   const frontDesignOptions = getPatternDesignOptionsBySide('FRONT')
   const insideDesignOptions = getPatternDesignOptionsBySide('INSIDE')
   const hasPrintDemand = state.newBomItem.printRequirement !== '无'
-  const showDesignPickers = hasPrintDemand && (state.newBomItem.printSideMode === 'SINGLE' || state.newBomItem.printSideMode === 'DOUBLE')
+  const showDesignPickers = hasPrintDemand && ['SINGLE', 'REVERSE', 'DOUBLE'].includes(state.newBomItem.printSideMode)
   const selectedFrontDesignIds = getBomPatternDesignIds(state.newBomItem, 'FRONT')
   const selectedInsideDesignIds = getBomPatternDesignIds(state.newBomItem, 'INSIDE')
 
@@ -580,6 +581,7 @@ export function renderBomFormDialog(): string {
                     <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-print-side-mode">
                       <option value="" ${state.newBomItem.printSideMode === '' ? 'selected' : ''}>请选择</option>
                       <option value="SINGLE" ${state.newBomItem.printSideMode === 'SINGLE' ? 'selected' : ''}>单面印</option>
+                      <option value="REVERSE" ${state.newBomItem.printSideMode === 'REVERSE' ? 'selected' : ''}>反面印</option>
                       <option value="DOUBLE" ${state.newBomItem.printSideMode === 'DOUBLE' ? 'selected' : ''}>双面印</option>
                     </select>
                   </label>

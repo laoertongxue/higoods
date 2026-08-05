@@ -60,6 +60,70 @@ function getBomMaterialIdentity(item: TechnicalDataVersionContent['bomItems'][nu
   return item.materialSkuId?.trim() || item.materialCode?.trim() || item.id
 }
 
+function requirementFlag(value: string | undefined): '是' | '否' | undefined {
+  const normalized = value?.trim()
+  if (!normalized) return undefined
+  return normalized === '无' || normalized === '否' || normalized === '不需要' ? '否' : '是'
+}
+
+function technicalPrintSideToDraft(value: TechnicalDataVersionContent['bomItems'][number]['printSideMode']): EngineeringBomMaterialLineDraft['printSide'] {
+  if (value === 'DOUBLE') return '双面'
+  if (value === 'REVERSE') return '反面'
+  if (value === 'SINGLE') return '正面'
+  return '无'
+}
+
+function draftPrintSideToTechnical(value: EngineeringBomMaterialLineDraft['printSide']): TechnicalDataVersionContent['bomItems'][number]['printSideMode'] {
+  if (value === '双面') return 'DOUBLE'
+  if (value === '反面') return 'REVERSE'
+  if (value === '正面') return 'SINGLE'
+  return ''
+}
+
+function requirementTextToTechnicalFlag(value: string | undefined): '是' | '否' {
+  return requirementFlag(value) === '是' ? '是' : '否'
+}
+
+function technicalBomItemToEngineeringLine(
+  item: TechnicalDataVersionContent['bomItems'][number],
+  styleCode = '',
+): EngineeringBomMaterialLineDraft {
+  if (!item.materialSkuId) throw new Error(`BOM 行 ${item.name} 未关联物料 SKU，不能提交技术包审核。`)
+  const linkedPatternResultIds = [...new Set([
+    ...(item.linkedPatternIds || []),
+    ...(item.frontPatternDesignIds || []),
+    ...(item.insidePatternDesignIds || []),
+    item.frontPatternDesignId || '',
+    item.insidePatternDesignId || '',
+  ].map((value) => value.trim()).filter(Boolean))]
+  return {
+    bomItemId: item.id,
+    materialSkuId: item.materialSkuId,
+    styleCode,
+    productColor: item.colorLabel?.trim() || '',
+    materialType: item.type,
+    specification: item.spec,
+    usage: item.unitConsumption,
+    sampleQuantity: item.sampleQuantity ?? 1,
+    usageUnit: item.unit || '',
+    lossRate: item.lossRate,
+    applicableSkuIds: [...(item.applicableSkuCodes || [])],
+    printRequirement: requirementFlag(item.printRequirement),
+    printRequirementText: item.printRequirement || '',
+    dyeRequirement: requirementFlag(item.dyeRequirement),
+    dyeRequirementText: item.dyeRequirement || '',
+    shrinkRequirementText: item.shrinkRequirement || '',
+    washRequirementText: item.washRequirement || '',
+    waterSolubleRequirementText: item.waterSolubleRequirement || '',
+    printSide: technicalPrintSideToDraft(item.printSideMode),
+    frontPatternResultId: item.frontPatternDesignId || item.frontPatternDesignIds?.[0] || '',
+    liningPatternResultId: item.insidePatternDesignId || item.insidePatternDesignIds?.[0] || '',
+    linkedPatternResultIds,
+    processCode: item.usageProcessCodes?.[0] || '',
+    remark: item.remark || '',
+  }
+}
+
 export function compareBomPriceChanges(
   beforeContent: Pick<TechnicalDataVersionContent, 'bomItems' | 'bomCustomCosts'>,
   afterContent: Pick<TechnicalDataVersionContent, 'bomItems' | 'bomCustomCosts'>,
@@ -147,6 +211,7 @@ export function buildEngineeringBomMaterialLine(
   if (!Number.isFinite(sku.costPrice) || sku.costPrice <= 0) throw new Error(MATERIAL_STANDARD_PRICE_REQUIRED_MESSAGE)
   resolveEngineeringBomConversion(sku.materialSkuId, input.usageUnit, sku.pricingUnit)
   return {
+    ...input,
     materialSkuId: sku.materialSkuId,
     usage: input.usage,
     sampleQuantity: input.sampleQuantity,
@@ -215,7 +280,14 @@ export function resolveEngineeringBomDraft(draft: EngineeringBomDraft): Engineer
   })
   return {
     materialLines,
-    customCosts: draft.customCosts.map((item) => ({ ...item, currency: 'IDR' })),
+    customCosts: draft.customCosts.map((item) => ({
+      ...item,
+      note: item.note || '',
+      displayOrder: Number(item.displayOrder || 0),
+      maintainedBy: item.maintainedBy || '',
+      maintainedAt: item.maintainedAt || '',
+      currency: 'IDR',
+    })),
     cost,
   }
 }
@@ -239,18 +311,15 @@ export function buildTechnicalDataVersionBomDraft(
   // 一旦任一行进入新 BOM 定价模型，则所有行都必须具备可追溯的物料 SKU。
   if (!content.bomItems.some((item) => Boolean(item.materialSkuId))) return null
 
+  const record = getTechnicalDataVersionById(technicalVersionId)
+  const colors = [...new Set(content.bomItems.map((item) => item.colorLabel?.trim()).filter(Boolean))]
+  const skuScope = [...new Set(content.bomItems.flatMap((item) => item.applicableSkuCodes || []))]
+
   return {
-    materialLines: content.bomItems.map((item) => {
-      if (!item.materialSkuId) throw new Error(`BOM 行 ${item.name} 未关联物料 SKU，不能提交技术包审核。`)
-      return {
-        bomItemId: item.id,
-        materialSkuId: item.materialSkuId,
-        usage: item.unitConsumption,
-        sampleQuantity: item.sampleQuantity ?? 1,
-        usageUnit: item.unit || '',
-        lossRate: item.lossRate,
-      }
-    }),
+    styleCode: record?.styleCode || '',
+    productColor: colors.length === 1 ? colors[0] : '',
+    applicableSkuIds: skuScope,
+    materialLines: content.bomItems.map((item) => technicalBomItemToEngineeringLine(item, record?.styleCode || '')),
     customCosts: content.bomCustomCosts ?? [],
   }
 }
@@ -280,10 +349,34 @@ export function saveTechnicalDataVersionBomMaterialLine(
     if (!materialSkuId) throw new Error('BOM 物料行未关联物料 SKU。')
     const nextLine = buildEngineeringBomMaterialLine({
       materialSkuId,
+      bomItemId,
+      styleCode: patch.styleCode,
+      sequenceNo: patch.sequenceNo,
+      productColor: patch.productColor ?? item.colorLabel,
+      materialType: patch.materialType ?? item.type,
+      materialImageUrl: patch.materialImageUrl,
+      specification: patch.specification ?? item.spec,
       usage: patch.usage ?? item.unitConsumption,
       sampleQuantity: patch.sampleQuantity ?? item.sampleQuantity ?? 1,
       usageUnit: patch.usageUnit ?? item.unit ?? '',
       lossRate: patch.lossRate ?? item.lossRate,
+      applicableSkuIds: patch.applicableSkuIds ?? item.applicableSkuCodes,
+      printRequirement: patch.printRequirement ?? requirementFlag(item.printRequirement),
+      printRequirementText: patch.printRequirementText
+        ?? (patch.printRequirement === undefined ? item.printRequirement : patch.printRequirement === '是' ? '需要印花' : '无'),
+      dyeRequirement: patch.dyeRequirement ?? requirementFlag(item.dyeRequirement),
+      dyeRequirementText: patch.dyeRequirementText
+        ?? (patch.dyeRequirement === undefined ? item.dyeRequirement : patch.dyeRequirement === '是' ? '需要染色' : '无'),
+      purchaseRequirement: patch.purchaseRequirement,
+      shrinkRequirementText: patch.shrinkRequirementText ?? item.shrinkRequirement,
+      washRequirementText: patch.washRequirementText ?? item.washRequirement,
+      waterSolubleRequirementText: patch.waterSolubleRequirementText ?? item.waterSolubleRequirement,
+      printSide: patch.printSide ?? technicalPrintSideToDraft(item.printSideMode),
+      frontPatternResultId: patch.frontPatternResultId ?? item.frontPatternDesignId,
+      liningPatternResultId: patch.liningPatternResultId ?? item.insidePatternDesignId,
+      linkedPatternResultIds: patch.linkedPatternResultIds ?? item.linkedPatternIds,
+      processCode: patch.processCode ?? item.usageProcessCodes?.[0],
+      remark: patch.remark ?? item.remark,
     }, role)
     const sku = getMaterialSkuRecordById(nextLine.materialSkuId)
     if (!sku) throw new Error('未找到可用的物料 SKU，无法加入 BOM。')
@@ -298,6 +391,19 @@ export function saveTechnicalDataVersionBomMaterialLine(
           unitConsumption: nextLine.usage,
           sampleQuantity: nextLine.sampleQuantity,
           lossRate: nextLine.lossRate,
+          colorLabel: nextLine.productColor || '',
+          applicableSkuCodes: [...(nextLine.applicableSkuIds || [])],
+          printRequirement: nextLine.printRequirementText || (nextLine.printRequirement === '是' ? '需要印花' : '无'),
+          dyeRequirement: nextLine.dyeRequirementText || (nextLine.dyeRequirement === '是' ? '需要染色' : '无'),
+          shrinkRequirement: requirementTextToTechnicalFlag(nextLine.shrinkRequirementText),
+          washRequirement: requirementTextToTechnicalFlag(nextLine.washRequirementText),
+          waterSolubleRequirement: requirementTextToTechnicalFlag(nextLine.waterSolubleRequirementText),
+          printSideMode: draftPrintSideToTechnical(nextLine.printSide),
+          frontPatternDesignId: nextLine.frontPatternResultId || '',
+          insidePatternDesignId: nextLine.liningPatternResultId || '',
+          linkedPatternIds: [...(nextLine.linkedPatternResultIds || [])],
+          usageProcessCodes: nextLine.processCode ? [nextLine.processCode] : [],
+          remark: nextLine.remark || '',
         }
       : candidate)
     const changes = compareBomPriceChanges(content, { ...content, bomItems: nextItems })
@@ -325,7 +431,15 @@ export function saveTechnicalDataVersionBomCustomCosts(
       materialLines: [],
       customCosts,
     })
-    const nextCustomCosts = customCosts.map((item) => ({ title: item.title.trim(), amountIdr: item.amountIdr }))
+    const nextCustomCosts = customCosts.map((item, index) => ({
+      ...item,
+      title: item.title.trim(),
+      amountIdr: item.amountIdr,
+      note: item.note?.trim() || '',
+      displayOrder: Number.isFinite(item.displayOrder) ? Number(item.displayOrder) : index + 1,
+      maintainedBy: item.maintainedBy?.trim() || '',
+      maintainedAt: item.maintainedAt?.trim() || '',
+    }))
     const contentChanged = JSON.stringify(nextCustomCosts) !== JSON.stringify(beforeContent.bomCustomCosts ?? [])
     if (contentChanged) updateTechnicalDataVersionContent(technicalVersionId, { bomCustomCosts: nextCustomCosts })
     const changes = compareBomPriceChanges(beforeContent, { ...beforeContent, bomCustomCosts: nextCustomCosts })

@@ -98,7 +98,11 @@ assert.ok(masterStyle)
 const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
   styleId: masterStyle.styleId,
   styleCode: masterStyle.styleCode,
+  merchandiserId: 'USER-M-A',
   merchandiserName: '跟单A',
+  createdById: 'USER-M-A', createdBy: '跟单A', createdByRole: '跟单', preparationType: 'PURE_WOVEN',
+  qualificationFact: { styleCode: masterStyle.styleCode, formalSaleStatus: 'NO_FORMAL_SALE', formalProductionStatus: 'NO_FORMAL_PRODUCTION', formalSaleSource: '正式销售订单', formalProductionSource: '正式生产单', checkedAt: '2026-08-04 09:00:00' },
+  bulkProductionQualification: { basisType: 'TEST_APPROVED', triggerBusinessObjectType: '测款结果', triggerBusinessObjectId: 'TEST-TECH', thresholdQuantity: 300, reachedQuantity: 320, reachedAt: '2026-08-04 09:00:00', reason: '已满足做大货要求', uniqueTriggerKey: 'TEST-TECH' }, creationReason: '跟单核实创建',
 }).masterOrderId)
 const masterTask = master.tasks.find((task) => task.taskType === 'TECH_PACK_CONFIRMATION')
 assert.ok(masterTask)

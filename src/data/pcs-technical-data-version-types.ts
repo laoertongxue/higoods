@@ -401,7 +401,7 @@ export interface TechnicalBomItem {
   shrinkRequirement?: '是' | '否'
   washRequirement?: '是' | '否'
   waterSolubleRequirement?: '是' | '否'
-  printSideMode?: '' | 'SINGLE' | 'DOUBLE'
+  printSideMode?: '' | 'SINGLE' | 'REVERSE' | 'DOUBLE'
   frontPatternDesignId?: string
   frontPatternDesignIds?: string[]
   insidePatternDesignId?: string

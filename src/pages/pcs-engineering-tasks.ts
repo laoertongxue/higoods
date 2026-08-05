@@ -2,6 +2,7 @@
 
 import { resetRevisionTaskRepository } from '../data/pcs-revision-task-repository.ts'
 import { clearListColumnPreferences } from '../components/ui/list-table-model.ts'
+import { escapeHtml } from '../utils.ts'
 import {
   ENGINEERING_LIST_PAGE_SIZES,
   ENGINEERING_LIST_STORAGE_KEYS,
@@ -28,12 +29,17 @@ import {
   resetRevisionTaskPageState,
 } from './pcs-engineering-tasks/revision-task.ts'
 import {
+  handleFirstSampleTaskEvent,
+  handleFirstSampleTaskInput,
   renderPcsFirstSampleTaskDetailPage,
   renderPcsFirstSampleTaskPage,
 } from './pcs-engineering-tasks/first-sample-task.ts'
-import { handlePatternTaskEvent, handlePatternTaskInput } from './pcs-engineering-tasks/pattern-task.ts'
-import { handleColorTaskEvent, handleColorTaskInput } from './pcs-engineering-tasks/color-task.ts'
-import { handlePurchaseTaskEvent } from './pcs-engineering-tasks/purchase-task.ts'
+import { handlePlateMakingTaskEvent, handlePlateMakingTaskInput, renderPcsPlateMakingTaskDetailPage } from './pcs-engineering-tasks/plate-making-task.ts'
+import { handlePatternTaskEvent, handlePatternTaskInput, renderPcsPatternTaskDetailPage } from './pcs-engineering-tasks/pattern-task.ts'
+import { handleColorTaskEvent, handleColorTaskInput, renderPcsColorTaskDetailPage } from './pcs-engineering-tasks/color-task.ts'
+import { handlePurchaseTaskEvent, renderPcsPurchaseTaskDetailPage } from './pcs-engineering-tasks/purchase-task.ts'
+import { handleTechPackTaskEvent, handleTechPackTaskInput, renderPcsTechPackTaskDetailPage } from './pcs-engineering-tasks/tech-pack-task.ts'
+import { startEngineeringTaskFromDetail } from './pcs-engineering-tasks/master-task-common.ts'
 
 export { renderPcsRevisionTaskDetailPage, renderPcsRevisionTaskPage } from './pcs-engineering-tasks/revision-task.ts'
 export { renderPcsPlateMakingTaskDetailPage, renderPcsPlateMakingTaskPage } from './pcs-engineering-tasks/plate-making-task.ts'
@@ -45,6 +51,53 @@ export { renderPcsFirstSampleTaskDetailPage, renderPcsFirstSampleTaskPage }
 export { renderPcsColorTaskDetailPage, renderPcsColorTaskPage } from './pcs-engineering-tasks/color-task.ts'
 export { renderPcsPurchaseTaskDetailPage, renderPcsPurchaseTaskPage } from './pcs-engineering-tasks/purchase-task.ts'
 export { renderPcsTechPackTaskDetailPage, renderPcsTechPackTaskPage } from './pcs-engineering-tasks/tech-pack-task.ts'
+
+const engineeringTaskDetailRenderers = {
+  plate: renderPcsPlateMakingTaskDetailPage,
+  pattern: renderPcsPatternTaskDetailPage,
+  color: renderPcsColorTaskDetailPage,
+  purchase: renderPcsPurchaseTaskDetailPage,
+  techPack: renderPcsTechPackTaskDetailPage,
+  firstSample: renderPcsFirstSampleTaskDetailPage,
+} as const
+
+function handleEngineeringTaskWorkbenchAction(target: HTMLElement): boolean {
+  const node = target.closest<HTMLElement>('[data-engineering-task-action]')
+  if (!node) return false
+  const action = node.dataset.engineeringTaskAction || ''
+  if (action === 'preview-image') {
+    const overlay = document.createElement('div')
+    overlay.className = 'fixed inset-0 z-[100] flex items-center justify-center p-6'
+    overlay.dataset.engineeringTaskImagePreview = 'true'
+    const imageTitle = node.dataset.imageTitle || '图片预览'
+    overlay.innerHTML = `<button type="button" class="absolute inset-0 bg-slate-950/70" data-engineering-task-action="close-preview" aria-label="关闭大图预览"></button><section class="relative z-10 flex max-h-full w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl"><header class="flex items-center justify-between border-b px-5 py-3"><h2 class="font-semibold text-slate-900">${escapeHtml(imageTitle)}</h2><button type="button" class="h-8 w-8 rounded-md border" data-engineering-task-action="close-preview" aria-label="关闭大图预览">×</button></header><div class="overflow-auto bg-slate-100 p-5"><img src="${escapeHtml(node.dataset.imageUrl || '')}" alt="${escapeHtml(imageTitle)}" class="mx-auto max-h-[80vh] max-w-full object-contain" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><p hidden class="p-12 text-sm text-rose-700">图片加载失败，请检查原图地址。</p></div></section>`
+    document.body.appendChild(overlay)
+    return true
+  }
+  if (action === 'close-preview') {
+    document.querySelector('[data-engineering-task-image-preview]')?.remove()
+    return true
+  }
+  if (action !== 'start') return false
+  const taskId = node.dataset.taskId || ''
+  const module = node.dataset.module as keyof typeof engineeringTaskDetailRenderers
+  const feedback = node.closest<HTMLElement>('[data-engineering-task-workbench]')?.querySelector<HTMLElement>('[data-engineering-task-feedback]')
+  try {
+    const renderer = engineeringTaskDetailRenderers[module]
+    if (!renderer) throw new Error('未找到当前任务页面。')
+    startEngineeringTaskFromDetail(taskId)
+    const host = document.querySelector<HTMLElement>(`[data-engineering-task-detail="${CSS.escape(`${module}:${taskId}`)}"]`)
+    if (host) host.outerHTML = renderer(taskId)
+    return true
+  } catch (error) {
+    if (feedback) {
+      feedback.hidden = false
+      feedback.className = 'mx-5 mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700'
+      feedback.textContent = error instanceof Error ? error.message : '任务开始失败，请重试。'
+    }
+    return true
+  }
+}
 
 // 仅为旧路由渲染器保留函数名；页面和文案均统一为产前版样衣。
 export const renderPcsFirstOrderSampleTaskPage = renderPcsFirstSampleTaskPage
@@ -167,11 +220,26 @@ function handleListAction(module: NonNullable<ListModule>, action: string, node:
 }
 
 export function handlePcsEngineeringTaskInput(target: Element): boolean {
-  return handlePatternTaskInput(target) || handleColorTaskInput(target) || handleRevisionTaskInput(target) || handleListInput(target)
+  return handlePatternTaskInput(target)
+    || handleColorTaskInput(target)
+    || handlePlateMakingTaskInput(target)
+    || handleFirstSampleTaskInput(target)
+    || handleTechPackTaskInput(target)
+    || handleRevisionTaskInput(target)
+    || handleListInput(target)
 }
 
 export function handlePcsEngineeringTaskEvent(target: HTMLElement, event?: Event): boolean {
-  if (handlePatternTaskEvent(target) || handleColorTaskEvent(target) || handlePurchaseTaskEvent(target, event)) return true
+  if (
+    handleEngineeringTaskWorkbenchAction(target)
+    ||
+    handlePatternTaskEvent(target)
+    || handleColorTaskEvent(target)
+    || handlePlateMakingTaskEvent(target)
+    || handleFirstSampleTaskEvent(target)
+    || handleTechPackTaskEvent(target)
+    || handlePurchaseTaskEvent(target, event)
+  ) return true
   const module = getEngineeringListModule(target)
   if (module && handleListDrag(module, target, event)) return true
   const node = target.closest<HTMLElement>('[data-pcs-engineering-action]')
@@ -180,12 +248,12 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement, event?: Event
   if (module && handleListAction(module, action, node, event)) return true
   if (action === 'close-notice') { clearNotice(); return true }
   if (action === 'refresh-page') { setNotice('已刷新当前任务页面。'); return true }
-  if (action === 'close-all-engineering-dialogs') { resetRevisionTaskPageState(); return true }
+  if (action === 'close-all-engineering-dialogs') { resetRevisionTaskPageState(); document.querySelector('[data-engineering-task-image-preview]')?.remove(); return true }
   return handleRevisionTaskEvent(node)
 }
 
 export function isPcsEngineeringTaskDialogOpen(): boolean {
-  return isRevisionTaskDialogOpen()
+  return isRevisionTaskDialogOpen() || Boolean(document.querySelector('[data-engineering-task-image-preview]'))
 }
 
 export function resetPcsEngineeringTaskState(): void {

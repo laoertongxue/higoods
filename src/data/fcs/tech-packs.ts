@@ -345,7 +345,7 @@ export interface TechPackBomItem {
   dyeRequirement?: string
   shrinkRequirement?: '是' | '否'
   washRequirement?: '是' | '否'
-  printSideMode?: '' | 'SINGLE' | 'DOUBLE'
+  printSideMode?: '' | 'SINGLE' | 'REVERSE' | 'DOUBLE'
   frontPatternDesignId?: string
   frontPatternDesignIds?: string[]
   insidePatternDesignId?: string

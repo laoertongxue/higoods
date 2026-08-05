@@ -41,7 +41,6 @@ import {
   filterProductionPreparationRecords,
   flattenProductionPreparationItems,
   getProductionPreparationFilterOptions,
-  getProductionPreparationRecord,
   hasValidPreparationCompletionEvidence,
   isPatternCompletionImageFile,
   isPatternSourceFile,
@@ -51,7 +50,6 @@ import {
   preparationItemOwnerTeamMap,
   preparationItemTypes,
   preparationTypeDefaultItems,
-  productionPreparationRecords,
   type MonthlyPreparationCompletionDetail,
   type MonthlyPreparationStatRow,
   type ExternalPreparationMaterial,
@@ -67,15 +65,23 @@ import {
   type ProductionPreparationRecord,
 } from '../../data/fcs/production-preparation-timing.ts'
 import { listEngineeringMasterOrders } from '../../data/pcs-engineering-master-repository.ts'
+import { ensureEngineeringMasterDemoData } from '../../data/pcs-engineering-master-view-model.ts'
 import { projectEngineeringMastersToPreparation } from '../../data/pcs-engineering-preparation-projection.ts'
 import { listTechnicalDataVersions } from '../../data/pcs-technical-data-version-repository.ts'
 
 const PAGE_PATH = '/fcs/production/preparation-timing'
 const STATS_PAGE_PATH = '/fcs/production/preparation-timing-statistics'
-const DEFAULT_MONTH = '2026-03'
+const currentDate = new Date()
+const DEFAULT_MONTH = currentDate.getFullYear() + '-' + String(currentDate.getMonth() + 1).padStart(2, '0')
 const MONTHLY_STATS_PAGE_SIZE = 5
 
+let preparationProjectionCacheKey = ''
+let preparationProjectionCache: ProductionPreparationRecord[] = []
+let preparationImagePreview: { imageUrl: string; title: string } | null = null
+
 function currentPreparationRecords(): ProductionPreparationRecord[] {
+  ensureEngineeringMasterDemoData()
+  const masters = listEngineeringMasterOrders()
   const formalTechPacks = listTechnicalDataVersions()
     .filter((version) => version.createdFromTaskType === 'ENGINEERING_MASTER' && version.versionStatus === 'PUBLISHED')
     .map((version) => ({
@@ -84,11 +90,12 @@ function currentPreparationRecords(): ProductionPreparationRecord[] {
       versionLabel: version.versionLabel,
       publishedAt: version.publishedAt,
     }))
-  return projectEngineeringMastersToPreparation(
-    listEngineeringMasterOrders(),
-    productionPreparationRecords,
-    formalTechPacks,
-  )
+  const cacheKey = JSON.stringify({ masters, formalTechPacks })
+  if (cacheKey !== preparationProjectionCacheKey) {
+    preparationProjectionCacheKey = cacheKey
+    preparationProjectionCache = projectEngineeringMastersToPreparation(masters, formalTechPacks)
+  }
+  return preparationProjectionCache
 }
 
 function preparationActionContextId(action: 'confirm-items' | 'operate-item', recordId: string, itemId = ''): string {
@@ -510,11 +517,8 @@ export function buildProductionPreparationCsvDataUri(rows: string[][]): string {
   return `data:text/csv;charset=utf-8,${encodeURIComponent(`\uFEFF${lines.join('\n')}`)}`
 }
 
-function renderHeaderActions(params: URLSearchParams, month: string): string {
-  const externalMaterialsHref = buildLedgerActionHref(params, month, { action: 'external-materials' })
-  return `
-    <button type="button" class="inline-flex h-9 items-center rounded-md border bg-card px-4 text-sm hover:bg-muted" data-nav="${escapeHtml(externalMaterialsHref)}">维护非系统内物料</button>
-  `
+function renderHeaderActions(): string {
+  return '<span class="inline-flex h-9 items-center rounded-md border bg-muted/40 px-3 text-sm text-muted-foreground">只读 · 数据来源：工程主单</span>'
 }
 
 function renderStatsHeader(activeTab: 'monthly' | 'detail', month: string, params: URLSearchParams): string {
@@ -1027,9 +1031,16 @@ function renderLedgerActions(
 
 function renderLedgerProductCell(record: ProductionPreparationRecord): string {
   const confirmed = hasConfirmedWorkItems(record)
+  const thresholdText = record.largeGoodsThresholdQty > 0 ? `${record.largeGoodsThresholdQty} 件` : '待补充'
+  const reachedText = record.largeGoodsReachedQty > 0 ? `${record.largeGoodsReachedQty} 件` : '待补充'
   return `
     <div class="flex min-w-[260px] gap-3">
-      <img src="${escapeHtml(record.imageUrl)}" alt="${escapeHtml(record.spuName)}" class="h-14 w-14 rounded-md border object-cover" />
+      ${record.imageUrl ? `
+        <button type="button" class="group h-14 w-14 shrink-0 overflow-hidden rounded-md border bg-card" data-prep-action="open-image-preview" data-image-url="${escapeHtml(record.imageUrl)}" data-image-title="${escapeHtml(record.spuName)}" aria-label="查看${escapeHtml(record.spuName)}大图">
+          <img src="${escapeHtml(record.imageUrl)}" alt="${escapeHtml(record.spuName)}" class="h-full w-full object-cover group-hover:scale-105" onerror="this.hidden=true;this.nextElementSibling.hidden=false" />
+          <span hidden class="flex h-full w-full items-center justify-center px-1 text-center text-[10px] text-muted-foreground">图片加载失败</span>
+        </button>
+      ` : '<span class="flex h-14 w-14 shrink-0 items-center justify-center rounded-md border bg-muted/30 px-1 text-center text-[10px] text-muted-foreground">暂无真实图片</span>'}
       <div>
         <div class="font-medium text-foreground">${escapeHtml(record.spuName)}</div>
         <div class="mt-1">${renderProductTypeCell(record, confirmed)}</div>
@@ -1037,7 +1048,7 @@ function renderLedgerProductCell(record: ProductionPreparationRecord): string {
         <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.recordNo)}｜${escapeHtml(record.sourceReason)}</div>
         <div class="mt-2 space-y-0.5 text-xs text-muted-foreground">
           <div>达到做大货要求：${escapeHtml(formatDateTime(record.largeGoodsReachedAt))}</div>
-          <div>阈值 ${record.largeGoodsThresholdQty} 件 / 达到 ${record.largeGoodsReachedQty} 件 / ${record.largeGoodsReachedDays} 天</div>
+          <div>阈值 ${escapeHtml(thresholdText)} / 达到 ${escapeHtml(reachedText)}</div>
         </div>
       </div>
     </div>
@@ -1176,16 +1187,11 @@ function renderLedgerTab(params: URLSearchParams, month: string): string {
   ensureLedgerPreferences()
   syncLedgerFilterContext(params, month)
   const filter = parseFilter(params)
-  const runtime = loadPreparationRuntimeState()
-  const recordsWithRuntime = mergePreparationRuntimeRecords(currentPreparationRecords(), runtime)
+  const recordsWithRuntime = currentPreparationRecords()
   const records = filterLedgerRecords(filter, month, recordsWithRuntime)
   const recordId = valueOf(params, 'recordId')
-  const sourceFallbackRecord = recordId ? getProductionPreparationRecord(recordId) : null
   const fallbackRecord = recordId
-    ? recordsWithRuntime.find((record) => record.recordId === recordId) ??
-      (sourceFallbackRecord
-        ? mergePreparationRuntimeRecords([sourceFallbackRecord], runtime)[0]
-        : null)
+    ? recordsWithRuntime.find((record) => record.recordId === recordId) ?? null
     : null
   const detailRecord = recordId
     ? records.find((record) => record.recordId === recordId) ??
@@ -1213,12 +1219,12 @@ function renderLedgerTab(params: URLSearchParams, month: string): string {
     ${detailRecord && activeItem && capabilities?.maintainDyeRequirement ? renderDyeRequirementDialog(detailRecord, activeItem, params, month) : ''}
     ${detailRecord && activeItem && capabilities?.modifyItems ? renderAccessoryOrderDialog(detailRecord, activeItem, params, month) : ''}
     ${detailRecord && activeItem && capabilities?.uploadResult ? renderOperateItemDialog(detailRecord, activeItem, params, month) : ''}
-    ${renderExternalMaterialsDialog(params, month)}
+    <div data-prep-list-region="image-preview">${renderPreparationImagePreview()}</div>
   `
 
   return renderStandardListPage({
     title: '生产准备时效',
-    primaryActionsHtml: renderHeaderActions(params, month),
+    primaryActionsHtml: renderHeaderActions(),
     filtersHtml: renderLedgerFilter(params, month),
     statsHtml: renderKpis(records, month, filter),
     listTitle: '准备台账',
@@ -1268,6 +1274,25 @@ function renderDetailDrawer(record: ProductionPreparationRecord, params: URLSear
         ${renderOperationLogs(record)}
       </div>
     </aside>
+  `
+}
+
+function renderPreparationImagePreview(): string {
+  if (!preparationImagePreview) return ''
+  return `
+    <div class="fixed inset-0 z-[70] flex items-center justify-center px-4 py-6" role="dialog" aria-modal="true" aria-label="款式大图预览">
+      <button type="button" class="absolute inset-0 bg-slate-950/70" data-prep-action="close-image-preview" aria-label="关闭款式大图预览"></button>
+      <section class="relative z-10 flex max-h-full w-full max-w-5xl flex-col overflow-hidden rounded-xl border bg-background shadow-2xl">
+        <header class="flex items-center justify-between gap-3 border-b px-5 py-3">
+          <h2 class="truncate font-semibold">${escapeHtml(preparationImagePreview.title)}</h2>
+          <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-md border" data-prep-action="close-image-preview" aria-label="关闭款式大图预览">×</button>
+        </header>
+        <div class="overflow-auto bg-muted/30 p-5">
+          <img src="${escapeHtml(preparationImagePreview.imageUrl)}" alt="${escapeHtml(preparationImagePreview.title)}" class="mx-auto max-h-[80vh] w-auto max-w-full rounded-lg border bg-background object-contain" onerror="this.hidden=true;this.nextElementSibling.hidden=false" />
+          <div hidden class="mx-auto flex h-64 max-w-xl items-center justify-center rounded-lg border bg-background text-sm text-muted-foreground">图片加载失败，请检查原图地址。</div>
+        </div>
+      </section>
+    </div>
   `
 }
 
@@ -1467,7 +1492,7 @@ function renderReusedResultNotice(item: ProductionPreparationItem): string {
 
 function renderItemCard(record: ProductionPreparationRecord, item: ProductionPreparationItem, active: boolean): string {
   const ownerRoleRule = preparationOwnerRoleRules.find((rule) => rule.ownerTeam === item.ownerTeam)
-  const engineeringItem = item.sourceObjectType === '工程主单'
+  const engineeringItem = Boolean(item.masterOrderId)
   return `
     <article class="rounded-xl border p-4 ${active ? 'border-blue-300 bg-blue-50/40' : 'bg-background'}">
       <div class="flex items-start justify-between gap-3">
@@ -1494,8 +1519,10 @@ function renderItemCard(record: ProductionPreparationRecord, item: ProductionPre
       ${engineeringItem && item.taskHref ? `<div class="mt-2 text-xs"><button type="button" class="text-blue-700 hover:underline" data-nav="${escapeHtml(item.taskHref)}">查看专业任务</button>${item.purchaseOrderHref ? `<button type="button" class="ml-3 text-blue-700 hover:underline" data-nav="${escapeHtml(item.purchaseOrderHref)}">查看采购单</button>` : ''}</div>` : ''}
       ${
         item.reusedPriorResult ? renderReusedResultNotice(item)
+          : engineeringItem && item.status === '已完成' && !item.actualStartAt
+          ? '<p class="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">时效数据不完整：缺少实际开始时间，本项不计入用时统计。</p>'
           : item.status === '已完成' && !hasCompletionEvidence(item)
-          ? `<p class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">${item.itemType === '辅料下单' ? '异常：已完成但采购单号或逐单下单时间不完整，请补充登记。' : '异常：已完成但缺少上传文件、上传人或上传时间，请补传完成凭证。'}</p>`
+          ? `<p class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">${item.itemType === '辅料下单' ? '已完成但采购单号或逐单下单时间不完整。' : '已完成但成果凭证不完整。'}</p>`
           : ''
       }
       <p class="mt-3 text-xs text-muted-foreground">${escapeHtml(item.evidenceSummary || item.remark || '暂无说明')}</p>
@@ -2323,6 +2350,8 @@ function closePreparationDialog(): void {
 }
 
 export async function handleProductionPreparationTimingSubmit(form: HTMLFormElement): Promise<boolean> {
+  // 新生产准备时效只读展示工程主单事实，不接受任何本页写入。
+  if (form) return false
   const formData = new FormData(form)
 
   if (form.matches('[data-prep-external-material-form]')) {
@@ -3180,11 +3209,36 @@ export function handleProductionPreparationTimingEvent(target: HTMLElement, even
   if (handleLedgerListEvent(target, event)) return true
   if (handleStatsListEvent(target, event)) return true
 
+  if (event?.type === 'keydown' && (event as KeyboardEvent).key === 'Escape' && preparationImagePreview) {
+    preparationImagePreview = null
+    setLedgerRegion('image-preview', '')
+    return true
+  }
+
   const filterCheckbox = target.closest<HTMLInputElement>('[data-prep-filter-checkbox]')
   if (filterCheckbox) {
     syncPreparationFilterDependencies(filterCheckbox)
     return false
   }
+
+  const readonlyAction = target.closest<HTMLElement>('[data-prep-action]')?.dataset.prepAction
+  if (readonlyAction === 'open-image-preview') {
+    const node = target.closest<HTMLElement>('[data-prep-action="open-image-preview"]')
+    const imageUrl = node?.dataset.imageUrl || ''
+    if (imageUrl) {
+      preparationImagePreview = { imageUrl, title: node?.dataset.imageTitle || '款式图片' }
+      setLedgerRegion('image-preview', renderPreparationImagePreview())
+    }
+    return true
+  }
+  if (readonlyAction === 'close-image-preview') {
+    preparationImagePreview = null
+    setLedgerRegion('image-preview', '')
+    return true
+  }
+
+  // 生产准备时效不再承载确认、上传、维护物料等写动作。
+  return false
 
   const materialSourceSelect = target.closest<HTMLSelectElement>('[data-prep-material-source]')
   if (materialSourceSelect) {
