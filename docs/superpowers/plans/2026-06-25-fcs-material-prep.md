@@ -156,7 +156,7 @@ export function confirmMaterialPrepRecord(
 
 - [ ] **步骤 6：更新 `appendPickupRecordFromPrepRecord` 的前置条件**
 
-将第 2550 行附近的检查从 `recordStatus !== 'CONFIRMED'` 保持不变（REJECTED 也不可领料，DRAFT/PICKED/STAGED 更不可领料）。这个无需修改。
+将第 2550 行附近的检查从 `recordStatus !== 'CONFIRMED'` 保持不变（REJECTED 也不可接收，DRAFT/PICKED/STAGED 更不可接收）。这个无需修改。
 
 - [ ] **步骤 7：更新 `deriveOrderPrepStatus` 中 REJECTED 的判断**
 
@@ -713,7 +713,7 @@ function renderPrepRecordActions(record: MaterialPrepRecord): string {
     case 'STAGED':
       return `<button data-fcs-material-prep-action="confirm-record" data-prep-record-id="${record.prepRecordId}" class="...">确认配料完成</button>`
     case 'CONFIRMED':
-      return `<span class="...text-emerald-700">整条记录已进入领料管理</span>`
+      return `<span class="...text-emerald-700">整条记录已进入接收管理</span>`
     case 'REJECTED':
       return `<span class="...text-rose-700">被打回重配</span><button data-fcs-material-prep-action="stage-record" data-prep-record-id="${record.prepRecordId}" class="...">重新入暂存区</button>`
   }
@@ -1059,7 +1059,7 @@ npm run dev -- --host 0.0.0.0 --port 5173
 
 **文件：**
 - 删除：`src/pages/wls/transfer-material-prep.ts`（逻辑已迁移到 cutting.ts 等）
-- 保留：`src/pages/process-factory/cutting/pickup-management.ts`（FCS 裁床领料管理仍需要）
+- 保留：`src/pages/process-factory/cutting/pickup-management.ts`（FCS 裁床接收管理仍需要）
 
 - [ ] **步骤 1：删除旧 WLS 配料页面（可选，也可保留以备回退）**
 

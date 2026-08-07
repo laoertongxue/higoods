@@ -52,7 +52,7 @@
   <li><a href="#s5">物料供应链拓扑（面料、辅料、包材）</a></li>
   <li><a href="#s6">配料记录生命周期（5 态状态机）</a></li>
   <li><a href="#s7">配料单状态机（6 态）</a></li>
-  <li><a href="#s8">领料单状态机（5 态）</a></li>
+  <li><a href="#s8">接收单状态机（5 态）</a></li>
   <li><a href="#s9">配料数量计算规则</a></li>
   <li><a href="#s10">车缝配料与裁片放行约束</a></li>
   <li><a href="#s11">暂存区管理</a></li>
@@ -71,7 +71,7 @@
 <h3>1.1 背景</h3>
 <p>
   印尼供应链团队中分出一个专门的<span class="highlight">配料小组</span>，统一负责所有物料的配料操作。
-  配料小组按照生产单中的 BOM（物料清单），从各仓库中挑出物料、拣货、放入暂存区、确认配料完成，然后通知下游来领料或配送。
+  配料小组按照生产单中的 BOM（物料清单），从各仓库中挑出物料、拣货、放入暂存区、确认配料完成，然后通知下游来接收或配送。
 </p>
 <p>
   核心业务规则：<strong>先配料，再分配任务</strong>。配料阶段只跟生产单的 BOM 走，不绑定具体工厂；
@@ -90,7 +90,7 @@
 <!-- ====== 第2节 ====== -->
 <h2 id="s2">2. 配料管理整体架构</h2>
 
-<p>配料管理是 FCS 下的一个独立菜单模块。向上承接生产单的 BOM，向下驱动下游工厂的领料与配送。</p>
+<p>配料管理是 FCS 下的一个独立菜单模块。向上承接生产单的 BOM，向下驱动下游工厂的接收与配送。</p>
 
 <div class="mermaid">
 flowchart LR
@@ -130,11 +130,11 @@ flowchart LR
     P --> PC
     FC -->|调拨| DWH
     FC -->|调拨| PWH
-    DWH --> DP -->|加工领料| DWF
-    PWH --> PP -->|加工领料| PWF
+    DWH --> DP -->|加工接收| DWF
+    PWH --> PP -->|加工接收| PWF
     DWF -->|染色完成回仓| TWC
     PWF -->|印花完成回仓| TWC
-    TWC -->|裁片配料| CP -->|裁片工厂领料| CUT
+    TWC -->|裁片配料| CP -->|裁片工厂接收| CUT
     AC --> SP -->|配送| SEW
     YC --> SP -->|配送| SEW
     PC --> OP -->|配送| FIN
@@ -150,12 +150,12 @@ flowchart LR
   <tr><td><strong>仓库操作员</strong></td><td>按配料记录从货架拣货、更新拣货状态</td><td>FCS 配料管理 / PDA</td></tr>
   <tr><td><strong>跟单人员</strong></td><td>核实拣货结果、将物料放入指定暂存区域</td><td>FCS 配料管理</td></tr>
   <tr><td><strong>裁床主管</strong></td><td>做裁片放行判断（影响车缝配料数量约束）</td><td>FCS 裁片放行管理</td></tr>
-  <tr><td><strong>各工厂操作员</strong></td><td>领料 / 加工领料 / 打回配料记录</td><td>FCS 各工厂模块</td></tr>
+  <tr><td><strong>各工厂操作员</strong></td><td>接收 / 加工接收 / 打回配料记录</td><td>FCS 各工厂模块</td></tr>
 </table>
 
 <blockquote>
   <strong>三方裁片仓角色的灵活性：</strong>一个裁片工厂可能只做裁片，也可能兼做裁片+车缝，甚至裁片+车缝+后道。
-  在配料阶段，裁片配料总是由裁片工厂来领料，无论该工厂后续是否兼做车缝。辅料（车缝配料）的配送目的地
+  在配料阶段，裁片配料总是由裁片工厂来接收，无论该工厂后续是否兼做车缝。辅料（车缝配料）的配送目的地
   在任务分配后确定——可能配送给独立车缝厂，也可能配送给裁片+车缝一体厂。
 </blockquote>
 
@@ -167,9 +167,9 @@ flowchart LR
 
 <table>
   <tr><th>配料类型</th><th>物料筛选条件</th><th>配货仓库</th><th>下一步动作</th><th>工厂确定性</th></tr>
-  <tr><td><strong>染色配料</strong></td><td>面料 + 需要染色加工</td><td>染色厂待加工仓</td><td>染色厂加工领料</td><td><span class="badge badge-success">工艺绑定</span></td></tr>
-  <tr><td><strong>印花配料</strong></td><td>面料 + 需要印花加工</td><td>印花厂待加工仓</td><td>印花厂加工领料</td><td><span class="badge badge-success">工艺绑定</span></td></tr>
-  <tr><td><strong>裁片配料</strong></td><td>面料 + 不需要印花/染色</td><td>中转仓</td><td>裁片工厂领料</td><td><span class="badge badge-success">工艺绑定</span></td></tr>
+  <tr><td><strong>染色配料</strong></td><td>面料 + 需要染色加工</td><td>染色厂待加工仓</td><td>染色厂加工接收</td><td><span class="badge badge-success">工艺绑定</span></td></tr>
+  <tr><td><strong>印花配料</strong></td><td>面料 + 需要印花加工</td><td>印花厂待加工仓</td><td>印花厂加工接收</td><td><span class="badge badge-success">工艺绑定</span></td></tr>
+  <tr><td><strong>裁片配料</strong></td><td>面料 + 不需要印花/染色</td><td>中转仓</td><td>裁片工厂接收</td><td><span class="badge badge-success">工艺绑定</span></td></tr>
   <tr><td><strong>车缝配料</strong></td><td>辅料 / 纱线</td><td>辅料仓 / 纱线仓</td><td>配送至车缝厂</td><td><span class="badge badge-warning">分配决定</span></td></tr>
   <tr><td><strong>其他配料</strong></td><td>包材</td><td>包材仓</td><td>配送至承接厂</td><td><span class="badge badge-warning">分配决定</span></td></tr>
 </table>
@@ -188,12 +188,12 @@ flowchart LR
 flowchart LR
     FC[面料仓] -->|调拨| DWH[染色厂待加工仓]
     FC -->|调拨| PWH[印花厂待加工仓]
-    DWH --> DP[染色配料] -->|加工领料| DWF[染色厂]
-    PWH --> PP[印花配料] -->|加工领料| PWF[印花厂]
+    DWH --> DP[染色配料] -->|加工接收| DWF[染色厂]
+    PWH --> PP[印花配料] -->|加工接收| PWF[印花厂]
     DWF -->|染色完成回仓| TWC[中转仓]
     PWF -->|印花完成回仓| TWC
     FC -->|不需印染的面料\n直接调拨| TWC
-    TWC --> CP[裁片配料] -->|领料| CUT[裁片工厂]
+    TWC --> CP[裁片配料] -->|接收| CUT[裁片工厂]
 </div>
 <p><strong>关键点：</strong>中转仓接收的是印花/染色加工完成的成品面料，而不是直接从面料仓调拨的原始面料。中转仓是裁片配料的物料来源。不需要印染的面料由面料仓直接调拨到中转仓。</p>
 
@@ -234,7 +234,7 @@ flowchart LR
   <tr><td><strong>DRAFT</strong></td><td>待拣货</td><td>配料小组 → 仓库操作员</td><td>配料记录刚创建，等待仓库拣货</td><td><span class="badge badge-neutral">灰色</span></td></tr>
   <tr><td><strong>PICKED</strong></td><td>已拣货</td><td>仓库操作员 → 跟单人员</td><td>仓库已从货架取出实物，待核实</td><td><span class="badge badge-info">蓝色</span></td></tr>
   <tr><td><strong>STAGED</strong></td><td>已入暂存区</td><td>跟单人员 → 配料小组</td><td>已核实数量质量，放入指定暂存区域</td><td><span class="badge badge-warning">橙色</span></td></tr>
-  <tr><td><strong>CONFIRMED</strong></td><td>已确认</td><td>配料小组</td><td>配料完成，下游可领料/加工领料</td><td><span class="badge badge-success">绿色</span></td></tr>
+  <tr><td><strong>CONFIRMED</strong></td><td>已确认</td><td>配料小组</td><td>配料完成，下游可接收/加工接收</td><td><span class="badge badge-success">绿色</span></td></tr>
   <tr><td><strong>REJECTED</strong></td><td>已打回</td><td>下游工厂操作员</td><td>下游打回，需仓库重新处理</td><td><span class="badge badge-danger">红色</span></td></tr>
 </table>
 
@@ -247,7 +247,7 @@ stateDiagram-v2
     STAGED --> CONFIRMED : 配料小组确认配料完成
     CONFIRMED --> REJECTED : 下游打回
     REJECTED --> STAGED : 跟单重新核实入暂存区
-    CONFIRMED --> [*] : 领料/配送完成后关闭
+    CONFIRMED --> [*] : 接收/配送完成后关闭
 </div>
 
 <h3>6.4 各状态下可执行的操作</h3>
@@ -256,7 +256,7 @@ stateDiagram-v2
   <tr><td>DRAFT</td><td>确认拣货</td><td>仓库操作员</td><td>PICKED</td></tr>
   <tr><td>PICKED</td><td>确认入暂存区（需输入暂存区域名称）</td><td>跟单人员</td><td>STAGED</td></tr>
   <tr><td>STAGED</td><td>确认配料完成</td><td>配料小组</td><td>CONFIRMED</td></tr>
-  <tr><td>CONFIRMED</td><td>领料 / 加工领料</td><td>下游工厂操作员</td><td>—</td></tr>
+  <tr><td>CONFIRMED</td><td>接收 / 加工接收</td><td>下游工厂操作员</td><td>—</td></tr>
   <tr><td>CONFIRMED</td><td>打回配料记录（需填写原因）</td><td>下游工厂操作员</td><td>REJECTED</td></tr>
   <tr><td>REJECTED</td><td>重新入暂存区</td><td>跟单人员</td><td>STAGED</td></tr>
 </table>
@@ -300,16 +300,16 @@ stateDiagram-v2
 <p>配料单的状态由系统根据其下属所有配料记录的状态和物料行的完成度自动派生计算，不需要手工切换。</p>
 
 <!-- ====== 第8节 ====== -->
-<h2 id="s8">8. 领料单状态机（5 态）</h2>
+<h2 id="s8">8. 接收单状态机（5 态）</h2>
 
-<p>配料确认后，下游工厂可以进行领料。领料也有自己的状态流转：</p>
+<p>配料确认后，下游工厂可以进行接收。接收也有自己的状态流转：</p>
 
 <div class="mermaid">
 stateDiagram-v2
     NOT_PICKABLE : 暂不可领
-    WAIT_PICKUP : 待领料
+    WAIT_PICKUP : 待接收
     REJECTED_WAIT : 打回待仓库处理
-    PICKUP_DONE : 已领料完结
+    PICKUP_DONE : 已接收完结
     ACTUAL_CLOSED : 按实完结
 
     NOT_PICKABLE --> WAIT_PICKUP : 配料记录确认
@@ -320,8 +320,8 @@ stateDiagram-v2
 </div>
 
 <blockquote>
-  <strong>领料规则：</strong>只有"已确认"状态的配料记录才能被领料。领料按整条记录一次性进行，不按物料行零散领取。
-  领料后物料进入工厂待加工仓，同时写入物料台账。
+  <strong>接收规则：</strong>只有"已确认"状态的配料记录才能被接收。接收按整条记录一次性进行，不按物料行零散领取。
+  接收后物料进入工厂待加工仓，同时写入物料台账。
 </blockquote>
 
 <!-- ====== 第9节 ====== -->
@@ -421,7 +421,7 @@ sequenceDiagram
   <li>一个仓库可以有一个或多个暂存区</li>
   <li>不同配料类型可以共用或分用暂存区</li>
   <li>放入暂存区后，物料不能再被其他配料单占用</li>
-  <li>领料完成后暂存区清空</li>
+  <li>接收完成后暂存区清空</li>
   <li>每次入暂存区都生成独立的暂存记录，完整保留审计追溯</li>
 </ul>
 
@@ -432,14 +432,14 @@ sequenceDiagram
 
 <table>
   <tr><th>配料类型</th><th>事件类型</th><th>通知对象</th><th>通知目的</th></tr>
-  <tr><td>裁片配料</td><td>中转仓配料完成通知</td><td>裁片工厂</td><td>通知来中转仓领料</td></tr>
-  <tr><td>染色配料</td><td>染色厂配料完成通知</td><td>染色厂</td><td>通知来加工领料</td></tr>
-  <tr><td>印花配料</td><td>印花厂配料完成通知</td><td>印花厂</td><td>通知来加工领料</td></tr>
+  <tr><td>裁片配料</td><td>中转仓配料完成通知</td><td>裁片工厂</td><td>通知来中转仓接收</td></tr>
+  <tr><td>染色配料</td><td>染色厂配料完成通知</td><td>染色厂</td><td>通知来加工接收</td></tr>
+  <tr><td>印花配料</td><td>印花厂配料完成通知</td><td>印花厂</td><td>通知来加工接收</td></tr>
   <tr><td>车缝配料</td><td>配料完成通知</td><td>不直接通知</td><td>等待任务分配后配送</td></tr>
   <tr><td>其他配料</td><td>配料完成通知</td><td>不直接通知</td><td>等待任务分配后配送</td></tr>
 </table>
 
-<p>通知事件写入运行时事件账本，下游各工厂模块订阅对应事件类型展示待领料列表。</p>
+<p>通知事件写入运行时事件账本，下游各工厂模块订阅对应事件类型展示待接收列表。</p>
 
 <!-- ====== 第13节 ====== -->
 <h2 id="s13">13. 完整业务流程时序</h2>
@@ -482,7 +482,7 @@ sequenceDiagram
 
     配料小组->>配料小组: 创建车缝/其他配料记录并确认
 
-    Note over 配料小组,分配系统: 工艺绑定的直接领料，分配决定的等分配
+    Note over 配料小组,分配系统: 工艺绑定的直接接收，分配决定的等分配
     配料小组->>分配系统: 车缝/其他配料完成，等待任务分配
     分配系统->>分配系统: 任务分配确定具体工厂
     分配系统->>配料小组: 回写工厂信息到配料记录
@@ -556,7 +556,7 @@ sequenceDiagram
   <tr><td><strong>库存信息与上游进度</strong></td><td>每行物料所在仓库、库存可用量、可配数量、缺口数量、上游进度状态（已到仓可配/采购中/印花中/染色中等）、预计到仓时间</td></tr>
   <tr><td><strong>按任务查看</strong></td><td>按关联任务聚合展示：每个任务下的物料和对应的配料记录数量，工艺绑定任务展示已确定的工厂信息</td></tr>
   <tr><td><strong>配料记录</strong></td><td>每条配料记录卡片：批次号、状态徽章、配料数量、操作人、操作时间、暂存区名称（如有）、打回原因（如有）、操作按钮（拣货/暂存/确认）+ 新增配料记录按钮 + 关闭配料单按钮</td></tr>
-  <tr><td><strong>领料记录</strong></td><td>该配料单的所有领料记录 + 打回记录，双列展示。领料记录含：领料人、数量、仓库区域、库位、领料时间；打回记录含：打回人、原因、打回前状态</td></tr>
+  <tr><td><strong>接收记录</strong></td><td>该配料单的所有接收记录 + 打回记录，双列展示。接收记录含：接收人、数量、仓库区域、库位、接收时间；打回记录含：打回人、原因、打回前状态</td></tr>
 </table>
 
 <h4>新增配料记录弹窗</h4>
@@ -588,7 +588,7 @@ sequenceDiagram
 <!-- ====== 第16节 ====== -->
 <h2 id="s16">16. 与上下游模块的数据交互</h2>
 
-<p>配料管理模块位于整个生产协同系统的中间环节，向上承接生产单的物料需求，向下驱动工厂的领料与生产。它与以下模块存在数据交互：</p>
+<p>配料管理模块位于整个生产协同系统的中间环节，向上承接生产单的物料需求，向下驱动工厂的接收与生产。它与以下模块存在数据交互：</p>
 
 <h3>16.1 交互关系全景</h3>
 <div class="mermaid">
@@ -598,7 +598,7 @@ flowchart LR
     D[印染回仓入库] -->|成品面料回中转仓| B
     E[仓库库存] -->|可用库存量决定配料上限| B
     F[裁片放行管理] -->|放行件数约束车缝配料| B
-    B -->|确认后通知领料| G[工厂待加工仓]
+    B -->|确认后通知接收| G[工厂待加工仓]
     B -->|触发车缝任务分配| H[任务分配]
     H -->|分配完成回写工厂信息| B
     B -->|生成台账事件| I[物料台账]
@@ -615,7 +615,7 @@ flowchart LR
   <tr><td><strong>仓库库存</strong></td><td>库存 → 配料</td><td>每个物料的可用库存量 = 配料的最大数量上限</td></tr>
   <tr><td><strong>裁片放行管理</strong></td><td>放行 → 车缝配料</td><td>裁床主管判断"可以做 N 件"，决定车缝配料的最大数量</td></tr>
   <tr><td><strong>任务分配</strong></td><td>配料 → 分配 → 配料</td><td>配料完成后触发车缝/包装任务分配；分配完成后回写工厂信息到配料记录</td></tr>
-  <tr><td><strong>工厂待加工仓</strong></td><td>配料 → 领料</td><td>确认配料完成后通知下游工厂领料或加工领料</td></tr>
+  <tr><td><strong>工厂待加工仓</strong></td><td>配料 → 接收</td><td>确认配料完成后通知下游工厂接收或加工接收</td></tr>
   <tr><td><strong>物料台账</strong></td><td>配料 → 台账</td><td>配料确认时生成物料台账事件记录</td></tr>
   <tr><td><strong>运行时事件账本</strong></td><td>配料 → 事件</td><td>配料确认时生成不同类型的通知事件（中转仓/染色厂/印花厂/配料完成通知）</td></tr>
 </table>
@@ -624,7 +624,7 @@ flowchart LR
 <h2 id="s17">17. 数据存储与缓存策略</h2>
 
 <h3>17.1 存储方式</h3>
-<p>配料管理的数据以键值对形式存储在浏览器本地存储中，包含：所有配料单的种子数据及其物料行、所有配料记录（含拣货人、暂存区、确认人等信息）、所有领料记录、所有打回记录、所有暂存区记录、已关闭的配料单列表。</p>
+<p>配料管理的数据以键值对形式存储在浏览器本地存储中，包含：所有配料单的种子数据及其物料行、所有配料记录（含拣货人、暂存区、确认人等信息）、所有接收记录、所有打回记录、所有暂存区记录、已关闭的配料单列表。</p>
 
 <h3>17.2 数据投影</h3>
 <p>页面展示的"配料单投影"是一个聚合视图，每次读取时从本地存储水合原始数据，再结合运行时任务列表、运行时事件账本、物料台账等外部数据构建而成。写入操作后立即持久化并触发页面重渲染。</p>
@@ -648,8 +648,8 @@ flowchart LR
 </div>
 
 <div class="card">
-<h4>领料前置条件</h4>
-<p>只有"已确认"状态的配料记录才能被领料。DRAFT/PICKED/STAGED/REJECTED 状态的记录均不可领料。</p>
+<h4>接收前置条件</h4>
+<p>只有"已确认"状态的配料记录才能被接收。DRAFT/PICKED/STAGED/REJECTED 状态的记录均不可接收。</p>
 </div>
 
 <div class="card">

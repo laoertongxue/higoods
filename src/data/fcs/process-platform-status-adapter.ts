@@ -384,8 +384,8 @@ const CUTTING_STATUS_MAP: Record<string, PlatformProcessStatusCode> = {
   待配料: 'PREPARING',
   部分配料: 'PREPARING',
   已配料: 'PREPARING',
-  待领料: 'PREPARING',
-  已领料: 'PREPARING',
+  待接收: 'PREPARING',
+  已接收: 'PREPARING',
   待唛架: 'PREPARING',
   待铺布: 'PREPARING',
   SPREADING: 'PROCESSING',
@@ -436,7 +436,6 @@ const SPECIAL_CRAFT_STATUS_MAP: Record<string, PlatformProcessStatusCode> = {
   待接收: 'PREPARING',
   已接收: 'PREPARING',
   待加工: 'PREPARING',
-  待领料: 'PREPARING',
   已入待加工仓: 'PREPARING',
   PROCESSING: 'PROCESSING',
   PROCESS_DONE: 'PROCESSING',
@@ -606,7 +605,7 @@ const SPECIFIC_HINTS: Record<string, Partial<Record<PlatformProcessStatusCode, P
   },
   CUTTING: {
     PREPARING: {
-      riskLabel: '配料、领料或唛架铺布准备未完成',
+      riskLabel: '配料、接收或唛架铺布准备未完成',
       actionHint: '跟进仓库配料和裁床准备',
       ownerHint: '仓库 / 裁床',
     },

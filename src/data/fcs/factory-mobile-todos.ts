@@ -26,7 +26,7 @@ import { resolveFactoryMobileTodoActionRoute } from './factory-mobile-todo-route
 
 export type FactoryMobileTodoType =
   | '待接单'
-  | '待领料'
+  | '待接收'
   | '待开工'
   | '待完工'
   | '待确认接收'
@@ -201,8 +201,8 @@ function buildExecTodos(factoryId: string): FactoryMobileTodo[] {
       return {
       todoId: `todo-start-${task.taskId}`,
       todoNo: `TD-ST-${String(index + 1).padStart(3, '0')}`,
-      todoType: woolMeta?.todoType || (isWholeOrderFiveStepTask(task) ? '待领料' as const : '待开工' as const),
-      todoTitle: woolMeta?.title || getMobileTaskDisplayTitle(task, isWholeOrderFiveStepTask(task) ? '待领料' : '待开工'),
+      todoType: woolMeta?.todoType || (isWholeOrderFiveStepTask(task) ? '待接收' as const : '待开工' as const),
+      todoTitle: woolMeta?.title || getMobileTaskDisplayTitle(task, isWholeOrderFiveStepTask(task) ? '待接收' : '待开工'),
       todoSubtitle: `${task.productionOrderNo || task.productionOrderId} · ${task.taskNo || task.taskId}`,
       factoryId,
       factoryName: task.assignedFactoryName || task.assignedFactoryId || factoryId,
@@ -310,8 +310,8 @@ function buildPickupTodos(factoryId: string): FactoryMobileTodo[] {
   return getPdaPickupHeads(factoryId).map((head, index) => ({
     todoId: `todo-pickup-${head.handoverId}`,
     todoNo: `TD-PU-${String(index + 1).padStart(3, '0')}`,
-    todoType: '待领料',
-    todoTitle: `${head.processName}待领料`,
+    todoType: '待接收',
+    todoTitle: `${head.processName}待接收`,
     todoSubtitle: `${head.productionOrderNo || head.productionOrderId} · ${head.objectSummary}`,
     factoryId,
     factoryName: head.factoryName || factoryId,
@@ -332,7 +332,7 @@ function buildPostFinishingPickupTodos(factoryId: string): FactoryMobileTodo[] {
     .map((head, index) => ({
       todoId: `todo-post-pickup-${head.handoverId}`,
       todoNo: `TD-PP-${String(index + 1).padStart(3, '0')}`,
-      todoType: '待领料' as const,
+      todoType: '待接收' as const,
       todoTitle: `后道待接收上游交出`,
       todoSubtitle: `${head.productionOrderNo || '-'} · ${head.sourceDocNo || head.objectSummary || head.scopeLabel || ''}`,
       factoryId,

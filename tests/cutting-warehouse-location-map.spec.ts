@@ -104,7 +104,7 @@ async function openControlledPdaPickup(page: Page): Promise<void> {
     pda.setPdaSession(pda.createPdaSessionFromUser(user))
     const runtime = await import('/src/runtime/fcs/cutting/pickup-management-runtime.ts')
     const node = runtime.listActivePickupNodesRuntime()[0]
-    if (!node) throw new Error('缺少受控领料节点')
+    if (!node) throw new Error('缺少受控接收节点')
     window.history.replaceState({}, '', `/fcs/pda/warehouse/wait-process?scope=cutting&action=pickup&pickupNodeId=${encodeURIComponent(node.nodeId)}&version=${node.version}`)
     const module = await import('/src/pages/pda-warehouse-wait-process.ts')
     document.body.innerHTML = module.renderPdaWarehouseWaitProcessPage()
@@ -159,7 +159,7 @@ async function openControlledPdaIssueWithMultipleBatches(page: Page): Promise<vo
     ).slice(0, 2)
     if (refs.length < 2) throw new Error('缺少多批次受控库位')
     refs.forEach((ref, index) => ledger.appendCuttingRuntimeEvent({
-      eventType: '中转仓领料', operatorName: '浏览器验收仓管', occurredAt: `2026-08-02 10:0${index}`,
+      eventType: '中转仓接收', operatorName: '浏览器验收仓管', occurredAt: `2026-08-02 10:0${index}`,
       refs: { cutOrderNo: row.cutOrderNo, productionOrderNo: row.productionOrderNo, handoverRecordId: `E2E-BATCH-${index + 1}:LINE` },
       material: { materialSku: row.materialIdentity.materialSku, materialName: row.materialIdentity.materialName, materialColor: row.materialIdentity.materialColor },
       inventoryEffect: { inventoryScope: '裁床待加工仓', direction: 'IN', qty: 10 + index, unit: 'yard', rollCount: 1, toWarehouseArea: ref.areaName, toLocationCode: ref.locationNo },
@@ -637,8 +637,8 @@ test('两张库位图占用详情分别展示物料卷和袋内菲票', async ({
     }))
     localStorage.setItem('cuttingRuntimeEventLedger', JSON.stringify({ events: [{
       eventId: 'EVENT-E2E-ROLL-PAGE',
-      eventNo: '领料-E2E-分页',
-      eventType: '中转仓领料',
+      eventNo: '接收-E2E-分页',
+      eventType: '中转仓接收',
       eventSource: 'PDA',
       eventStatus: '已同步',
       occurredAt: '2026-07-31 10:00',
@@ -770,7 +770,7 @@ test('1366 真实待加工仓同场景完成排序占用维护并由生产 handl
       .find((cell) => cell.locationId === locationId)
     if (!ref) throw new Error('缺少并发占用目标库位')
     ledger.appendCuttingRuntimeEvent({
-      eventType: '中转仓领料', eventSource: 'PDA', eventStatus: '已同步',
+      eventType: '中转仓接收', eventSource: 'PDA', eventStatus: '已同步',
       occurredAt: '2026-08-02 12:00:00', operatorName: '并发入仓仓管',
       refs: { productionOrderNo: 'PO-CONCURRENT-E2E', handoverRecordId: 'CONCURRENT-E2E:LINE' },
       material: { materialSku: 'MAT-CONCURRENT-E2E', materialName: '并发占用测试面料', unit: 'yard' },
@@ -795,7 +795,7 @@ test('1366 真实待加工仓同场景完成排序占用维护并由生产 handl
     .toBe(eventCountBeforeConflict + 1)
 })
 
-test('PDA 中转仓领料支持跨区货架层自由多选、任意取消、逐项摘要和清空', async ({ page }) => {
+test('PDA 中转仓接收支持跨区货架层自由多选、任意取消、逐项摘要和清空', async ({ page }) => {
   await openControlledPdaPickup(page)
   const map = page.locator('[data-pda-cutting-pickup-location-map] [data-warehouse-map-root]')
   await expect(map).toBeVisible({ timeout: 300_000 })
@@ -909,7 +909,7 @@ test('PDA 中转仓领料支持跨区货架层自由多选、任意取消、逐�
   await expect(selectionSummary).toContainText('已选 0 个库位')
 })
 
-test('PDA 扫码异常、特殊工艺回仓和多候选领料批次均走真实页面处理器', async ({ page }) => {
+test('PDA 扫码异常、特殊工艺回仓和多候选接收批次均走真实页面处理器', async ({ page }) => {
   await openControlledPdaSpecialCraftReturn(page, PDA_CUTTING_TASK_ID)
   const specialMap = page.locator('[data-pda-special-craft-return-location-map] [data-warehouse-map-root]')
   await expect(specialMap).toBeVisible()
@@ -936,7 +936,7 @@ test('PDA 扫码异常、特殊工艺回仓和多候选领料批次均走真实�
   expect(labels.filter((label) => label.includes('入仓')).length).toBeGreaterThanOrEqual(2)
   expect(labels.join(' ')).not.toMatch(/E2E-BATCH|EVENT-|pickupSessionId|sourceEventId/)
   page.once('dialog', async (dialog) => {
-    expect(dialog.message()).toBe('请选择本次领料批次。')
+    expect(dialog.message()).toBe('请选择本次接收批次。')
     await dialog.accept()
   })
   await page.locator('[data-pda-warehouse-action="cutting-wp-issue"]').click()
@@ -947,7 +947,7 @@ test('PDA 扫码异常、特殊工艺回仓和多候选领料批次均走真实�
   await confirmIssue.click()
   await expect.poll(() => page.evaluate(async () => {
     const ledger = await import('/src/data/fcs/cutting/cutting-runtime-event-ledger.ts')
-    return ledger.listCuttingRuntimeEventsByType('待加工仓加工领料').length
+    return ledger.listCuttingRuntimeEventsByType('待加工仓加工接收').length
   })).toBeGreaterThan(0)
 
   // 本测试使用只挂载业务模块 handler 的受控页面，不包含 main.ts 的 data-nav 路由分发；

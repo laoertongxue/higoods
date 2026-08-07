@@ -86,7 +86,7 @@ type RuntimeStartReadiness =
 function isCuttingReceiveReady(status: string): boolean {
   return [
     '来料已入仓',
-    '已领料入仓',
+    '已接收入仓',
     '来料已入待加工仓',
     '已入待加工仓',
     '已回执',
@@ -129,11 +129,11 @@ function getCuttingStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo |
     return {
       met: false,
       type: 'PICKUP',
-      conditionLabel: '裁床已领料入待加工仓',
-      summaryLabel: waitingReceiveRow.currentReceiveStatus || '待裁床领料',
-      statusLabel: '裁床领料未完成，暂不可开工',
-      blocker: '裁床领料未完成，暂不可开工',
-      hint: `${waitingReceiveRow.executionOrderNo} 需要先在交接模块完成领料入仓确认`,
+      conditionLabel: '裁床已接收入待加工仓',
+      summaryLabel: waitingReceiveRow.currentReceiveStatus || '待裁床接收',
+      statusLabel: '裁床接收未完成，暂不可开工',
+      blocker: '裁床接收未完成，暂不可开工',
+      hint: `${waitingReceiveRow.executionOrderNo} 需要先在交接模块完成接收入仓确认`,
     }
   }
 
@@ -226,22 +226,22 @@ function getSpecialCraftStartPrerequisite(task: ProcessTask): StartPrerequisiteI
     return {
       met: false,
       type: 'PICKUP',
-      conditionLabel: '特殊工艺领料已入仓',
-      summaryLabel: '领料记录待补',
-      statusLabel: '特殊工艺领料未完成，暂不可开工',
-      blocker: '特殊工艺领料未完成，暂不可开工',
-      hint: '请先在交接模块完成领料入仓，再开始特殊工艺加工',
+      conditionLabel: '特殊工艺接收已入仓',
+      summaryLabel: '接收记录待补',
+      statusLabel: '特殊工艺接收未完成，暂不可开工',
+      blocker: '特殊工艺接收未完成，暂不可开工',
+      hint: '请先在交接模块完成接收入仓，再开始特殊工艺加工',
     }
   }
 
   return {
     met: true,
     type: 'PICKUP',
-    conditionLabel: '特殊工艺领料已满足',
+    conditionLabel: '特殊工艺接收已满足',
     summaryLabel: '前置已满足',
     statusLabel: '已满足开工前置，可开工',
     blocker: '已满足开工前置',
-    hint: `${specialCraftTask.operationName} 领料已入待加工仓，可开工执行`,
+    hint: `${specialCraftTask.operationName} 接收已入待加工仓，可开工执行`,
   }
 }
 
@@ -263,8 +263,8 @@ function getPrintStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo | n
     }
   }
   const preparationHintMap: Partial<Record<PrintWorkOrder["status"], string>> = {
-    WAIT_ARTWORK: `印花加工单  可先开工做花型资料核对和试印准备；实际开始印花前必须确认领料到位`,
-    WAIT_COLOR_TEST: `印花加工单  可先开工做调色测试和花型试印；实际开始印花前必须确认领料到位`,
+    WAIT_ARTWORK: `印花加工单  可先开工做花型资料核对和试印准备；实际开始印花前必须确认接收到位`,
+    WAIT_COLOR_TEST: `印花加工单  可先开工做调色测试和花型试印；实际开始印花前必须确认接收到位`,
   }
 
   return {
@@ -272,11 +272,11 @@ function getPrintStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo | n
     type: "PICKUP",
     conditionLabel: "印花加工单已接单，可先开工准备",
     summaryLabel: statusLabel,
-    statusLabel: "可先开工准备，实际开始印花前需确认领料到位",
+    statusLabel: "可先开工准备，实际开始印花前需确认接收到位",
     blocker: "已满足开工前置",
     hint:
       preparationHintMap[order.status] ||
-      `印花加工单  已同步到 PDA，可先开工准备；实际开始印花前必须确认领料到位`,
+      `印花加工单  已同步到 PDA，可先开工准备；实际开始印花前必须确认接收到位`,
   }
 }
 
@@ -372,7 +372,7 @@ export function getStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo {
     ? '仓内流转已到位'
     : hasSameFactoryContinue
       ? '上一工序连续流转已完成'
-      : '已有领料记录'
+      : '已有接收记录'
 
   const statusLabel = met
     ? '已满足开工前置，可开工'
@@ -380,7 +380,7 @@ export function getStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo {
       ? '上一工序未完成连续流转，暂不可开工'
       : blocked?.code === 'WAIT_INTERNAL_TRANSFER'
         ? '仓内流转尚未就绪，暂不可开工'
-        : '尚无领料记录，暂不可开工'
+        : '尚无接收记录，暂不可开工'
 
   const blocker = met
     ? '已满足开工前置'
@@ -388,15 +388,15 @@ export function getStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo {
       ? '上一工序未完成连续流转，暂不可开工'
       : blocked?.code === 'WAIT_INTERNAL_TRANSFER'
         ? '仓内流转尚未就绪，暂不可开工'
-        : '尚无领料记录，暂不可开工'
+        : '尚无接收记录，暂不可开工'
 
   const hint = met
     ? '已满足开工前置，工厂可开始本工序'
     : blocked?.code === 'WAIT_PREV_DONE'
-      ? '同厂衔接无需重复领料，待上一工序完成后可直接开工'
+      ? '同厂衔接无需重复接收，待上一工序完成后可直接开工'
       : blocked?.code === 'WAIT_INTERNAL_TRANSFER'
         ? '当前工序由仓内后道执行，需等待仓内流转到位后开工'
-        : '外部工厂需先完成仓库发料领料后才能开工'
+        : '外部工厂需先完成仓库发料接收后才能开工'
 
   const summaryLabel = met ? '前置已满足' : blocked?.label ?? '前置未满足'
 
@@ -492,7 +492,7 @@ function evaluateRuntimeStartReadiness(task: RuntimeProcessTask): { code: Runtim
     return records.some((record) => record.status === 'RECEIVED')
   })
 
-  return hasReadyPickup ? { code: 'READY', label: '领料记录已满足' } : { code: 'WAIT_PICKUP', label: '领料记录待补' }
+  return hasReadyPickup ? { code: 'READY', label: '接收记录已满足' } : { code: 'WAIT_PICKUP', label: '接收记录待补' }
 }
 
 export function getStartDueBase(task: ProcessTask): { baseAt?: string; source?: StartDueSource } {

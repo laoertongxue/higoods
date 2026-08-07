@@ -20,7 +20,7 @@ export interface CuttingExceptionFilters {
 }
 
 export const cuttingExceptionTypeMeta: Record<CuttingExceptionType, { label: string; className: string }> = {
-  RECEIVE_DISCREPANCY: { label: '领料差异', className: 'bg-rose-50 text-rose-700' },
+  RECEIVE_DISCREPANCY: { label: '接收差异', className: 'bg-rose-50 text-rose-700' },
   MISSING_EVIDENCE: { label: '无照片凭证', className: 'bg-orange-50 text-orange-700' },
   MARKER_NOT_MAINTAINED: { label: '唛架未维护', className: 'bg-amber-50 text-amber-700' },
   SPREADING_DATA_INSUFFICIENT: { label: '铺布数据不足', className: 'bg-sky-50 text-sky-700' },
@@ -54,7 +54,7 @@ export const cuttingExceptionSourcePageLabels: Record<CuttingExceptionSourcePage
   MATERIAL_PREP: '仓库配料',
   CUT_PIECE_ORDER: '裁片单',
   WAREHOUSE: '仓库管理',
-  PDA_PICKUP: '扫码领料',
+  PDA_PICKUP: '扫码接收',
   PDA_SPREADING: '铺布录入',
   PDA_INBOUND: '入仓扫码',
   PDA_HANDOVER: '交接扫码',

@@ -65,7 +65,7 @@ const waitProcessStocks = listFactoryWaitProcessStockItems()
 assert(waitProcessStocks.length >= 2, '缺少多 SKU 成衣待加工库存')
 const [selectedWaitProcess, secondWaitProcess] = waitProcessStocks
 const waitProcessHtml = renderPdaWarehouseWaitProcessPage()
-assert(waitProcessHtml.includes('来源仓：') && waitProcessHtml.includes('下一动作：加工领料'), '待加工仓必须展示来源仓和真实下一动作')
+assert(waitProcessHtml.includes('来源仓：') && waitProcessHtml.includes('下一动作：加工接收'), '待加工仓必须展示来源仓和真实下一动作')
 assert.match(
   waitProcessHtml,
   new RegExp(`data-pda-warehouse-action="special-craft-wait-process-issue"[^>]*data-stock-item-id="${selectedWaitProcess.stockItemId}"[^>]*data-task-order-id="${taskOrder.taskOrderId}"[^>]*data-sku-code="${selectedWaitProcess.materialSku}"`),

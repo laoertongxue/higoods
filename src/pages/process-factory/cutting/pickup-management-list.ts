@@ -119,7 +119,7 @@ function renderMaterialIdentity(row: PickupMaterialDemandRow): string {
         <div><span class="text-muted-foreground">加工可供</span><strong class="ml-1 tabular-nums">${formatQty(row.processAvailableQty, row.unit)}</strong></div>
         <div><span class="text-muted-foreground">已到仓</span><strong class="ml-1 tabular-nums">${formatQty(row.arrivedQty, row.unit)}</strong></div>
         <div><span class="text-muted-foreground">当前配料</span><strong class="ml-1 tabular-nums">${formatQty(row.preparedQty, row.unit)}</strong></div>
-        <div><span class="text-muted-foreground">累计领料</span><strong class="ml-1 tabular-nums">${formatQty(row.pickedQty, row.unit)}</strong></div>
+        <div><span class="text-muted-foreground">累计接收</span><strong class="ml-1 tabular-nums">${formatQty(row.pickedQty, row.unit)}</strong></div>
         <div><span class="text-muted-foreground">本轮可领</span><strong class="ml-1 tabular-nums">${formatQty(row.currentAvailableQty, row.unit)}</strong></div>
         <div><span class="text-muted-foreground">领后仍缺</span><strong class="ml-1 tabular-nums">${formatQty(row.afterCurrentPickupRemainingQty, row.unit)}</strong></div>
         ${row.overageQty > 0 ? `<div class="col-span-3 text-amber-700">超配异常：${formatQty(row.overageQty, row.unit)}</div>` : ''}
@@ -179,8 +179,8 @@ function renderStyleCell(group: PickupOrderGroup): string {
 function renderCurrentNodeCell(group: PickupOrderGroup): string {
   return `<div class="space-y-1 text-sm">
     <div class="font-medium">${escapeHtml(group.currentNodeState)}</div>
-    <div class="text-xs text-muted-foreground">最近领料人：${escapeHtml(group.latestPickerName || '暂无')}</div>
-    <div class="text-xs text-muted-foreground">最近领料时间：${escapeHtml(group.latestPickedAt || '暂无')}</div>
+    <div class="text-xs text-muted-foreground">最近接收人：${escapeHtml(group.latestPickerName || '暂无')}</div>
+    <div class="text-xs text-muted-foreground">最近接收时间：${escapeHtml(group.latestPickedAt || '暂无')}</div>
   </div>`
 }
 
@@ -188,9 +188,9 @@ function renderPickupAction(group: PickupOrderGroup): string {
   const href = `/fcs/pda/warehouse/wait-process?scope=cutting&action=pickup&pickupNodeId=${encodeURIComponent(group.pickupNodeId)}&version=${group.pickupNodeVersion}`
   const differenceHref = `${href}&difference=1`
   return `<div class="space-y-1.5">
-    <a href="${escapeHtml(href)}" class="inline-flex rounded-md bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700">去领料</a>
-    <button type="button" class="block text-left text-xs text-blue-700 hover:underline" data-pickup-list-action="open-pickup-records" data-group-key="${escapeHtml(group.groupKey)}">查看领料记录</button>
-    <a href="${escapeHtml(differenceHref)}" class="block text-xs text-amber-700 hover:underline">上报领料差异</a>
+    <a href="${escapeHtml(href)}" class="inline-flex rounded-md bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700">去接收</a>
+    <button type="button" class="block text-left text-xs text-blue-700 hover:underline" data-pickup-list-action="open-pickup-records" data-group-key="${escapeHtml(group.groupKey)}">查看接收记录</button>
+    <a href="${escapeHtml(differenceHref)}" class="block text-xs text-amber-700 hover:underline">上报接收差异</a>
     <div class="max-w-[150px] text-xs leading-5 text-muted-foreground">一次领取本节点全部物料</div>
   </div>`
 }
@@ -204,12 +204,12 @@ function renderReadyCarrier(group: PickupOrderGroup): string {
 }
 
 function renderHistoryResult(group: PickupOrderGroup): string {
-  const pathLabel = group.historyPath === 'INCOMPLETE_PICKUP' ? '未配齐先领' : '已配齐后领料'
+  const pathLabel = group.historyPath === 'INCOMPLETE_PICKUP' ? '未配齐先领' : '已配齐后接收'
   const resultLabel = group.finalResult === 'ALL_PICKED'
     ? '全部领完'
     : group.finalResult === 'NEW_SUPPLEMENT_WAIT_PICKUP'
       ? '新增补料待领'
-      : '未完成全部领料'
+      : '未完成全部接收'
   return `<div class="space-y-1 text-sm">
     <div>${escapeHtml(pathLabel)}</div>
     <div class="${group.finalResult === 'ALL_PICKED' ? 'text-emerald-700' : 'text-amber-700'}">${escapeHtml(resultLabel)}</div>
@@ -238,7 +238,7 @@ function renderHistoryMaterials(group: PickupOrderGroup): string {
           <div>加工可供 <strong>${formatQty(row.processAvailableQty, row.unit)}</strong></div>
           <div>已到仓 <strong>${formatQty(row.arrivedQty, row.unit)}</strong></div>
           <div>当前配料 <strong>${formatQty(row.preparedQty, row.unit)}</strong></div>
-          <div>累计领料 <strong>${formatQty(row.pickedQty, row.unit)}</strong></div>
+          <div>累计接收 <strong>${formatQty(row.pickedQty, row.unit)}</strong></div>
           <div>剩余 <strong>${formatQty(row.remainingPickupQty, row.unit)}</strong></div>
         </div>
         ${row.overageQty > 0 ? `<div class="mt-1 text-amber-700">超配异常：${formatQty(row.overageQty, row.unit)}</div>` : ''}
@@ -310,16 +310,16 @@ const INCOMPLETE_COLUMNS: StandardListColumn<PickupOrderGroup>[] = [
 const HISTORY_COLUMNS: StandardListColumn<PickupOrderGroup>[] = [
   { key: 'productionOrder', title: '生产单', width: 230, required: true, freezeable: true, sortable: true, render: renderOrderCell, sortValue: (row) => row.productionOrderNo },
   { key: 'historyStyle', title: '款式 / SPU', width: 220, freezeable: true, sortable: true, render: renderStyleCell, sortValue: (row) => `${row.styleNo}:${row.spu}` },
-  { key: 'materials', title: '物料领料结果（全部需求）', width: 620, required: true, freezeable: true, render: renderHistoryMaterials },
+  { key: 'materials', title: '物料接收结果（全部需求）', width: 620, required: true, freezeable: true, render: renderHistoryMaterials },
   { key: 'result', title: '领取路径 / 最终结果', width: 190, required: true, freezeable: true, sortable: true, render: renderHistoryResult, sortValue: (row) => `${row.historyPath}:${row.finalResult}` },
-  { key: 'sessions', title: '领取次数 / 最近领料人 / 时间', width: 230, freezeable: true, sortable: true, render: (row) => `<div class="text-sm"><div>${row.pickupSessionCount} 次</div><div class="text-xs text-muted-foreground">${escapeHtml(row.latestPickerName || '—')}</div><div class="text-xs text-muted-foreground">${escapeHtml(row.latestPickedAt || '—')}</div></div>`, sortValue: (row) => row.latestPickedAt },
+  { key: 'sessions', title: '领取次数 / 最近接收人 / 时间', width: 230, freezeable: true, sortable: true, render: (row) => `<div class="text-sm"><div>${row.pickupSessionCount} 次</div><div class="text-xs text-muted-foreground">${escapeHtml(row.latestPickerName || '—')}</div><div class="text-xs text-muted-foreground">${escapeHtml(row.latestPickedAt || '—')}</div></div>`, sortValue: (row) => row.latestPickedAt },
   { key: 'nodeState', title: '当前节点状态', width: 190, freezeable: true, sortable: true, render: renderCurrentNodeCell, sortValue: (row) => row.currentNodeState },
   { key: 'actions', title: '操作', width: 170, required: true, actionColumn: true, render: (row) => {
     const pendingHref = row.pickupNodeId
       ? `/fcs/pda/warehouse/wait-process?scope=cutting&action=pickup&pickupNodeId=${encodeURIComponent(row.pickupNodeId)}&version=${row.pickupNodeVersion}`
       : ''
     return `<div class="space-y-1.5">
-      <button type="button" class="inline-flex rounded-md bg-blue-600 px-3 py-2 text-xs font-medium text-white" data-pickup-list-action="open-pickup-records" data-group-key="${escapeHtml(row.groupKey)}">领料记录</button>
+      <button type="button" class="inline-flex rounded-md bg-blue-600 px-3 py-2 text-xs font-medium text-white" data-pickup-list-action="open-pickup-records" data-group-key="${escapeHtml(row.groupKey)}">接收记录</button>
       ${pendingHref ? `<a href="${escapeHtml(pendingHref)}" class="block text-xs text-blue-700 hover:underline">去处理当前待领</a>` : ''}
     </div>`
   } },
@@ -332,9 +332,9 @@ function columnsFor(kind: PickupListKind): StandardListColumn<PickupOrderGroup>[
 }
 
 function titleFor(kind: PickupListKind): string {
-  if (kind === 'READY') return '已配齐待领料'
+  if (kind === 'READY') return '已配齐待接收'
   if (kind === 'INCOMPLETE') return '未配齐配料'
-  return '已领料'
+  return '已接收'
 }
 
 function getState(kind: PickupListKind): PickupListState {
@@ -452,13 +452,13 @@ function renderStats(kind: PickupListKind, groups: PickupOrderGroup[]): string {
     return renderStandardListStats([
       { label: '未配齐生产单', value: `${groups.length} 个` },
       { label: '当前占用库位', value: `${new Set(groups.flatMap(currentLocationKeys)).size} 个` },
-      { label: '可整批领料生产单', value: `${groups.filter((group) => group.materialRows.some((row) => row.currentAvailableQty > 0)).length} 个` },
+      { label: '可整批接收生产单', value: `${groups.filter((group) => group.materialRows.some((row) => row.currentAvailableQty > 0)).length} 个` },
       { label: '含补料生产单', value: `${groups.filter((group) => group.materialRows.some((row) => row.demandSource === 'SUPPLEMENT')).length} 个` },
     ])
   }
   return renderStandardListStats([
-    { label: '有领料记录生产单', value: `${groups.length} 个` },
-    { label: '已配齐后领料', value: `${groups.filter((group) => group.historyPath === 'READY_PICKUP').length} 个` },
+    { label: '有接收记录生产单', value: `${groups.length} 个` },
+    { label: '已配齐后接收', value: `${groups.filter((group) => group.historyPath === 'READY_PICKUP').length} 个` },
     { label: '未配齐先领', value: `${groups.filter((group) => group.historyPath === 'INCOMPLETE_PICKUP').length} 个` },
     { label: '尚未全部领完', value: `${groups.filter((group) => group.finalResult === 'NOT_ALL_PICKED').length} 个` },
     { label: '新增补料待领', value: `${groups.filter((group) => group.finalResult === 'NEW_SUPPLEMENT_WAIT_PICKUP').length} 个` },
@@ -489,9 +489,9 @@ function renderFilters(kind: PickupListKind, state: PickupListState): string {
       ? `<label class="space-y-1 text-sm"><span class="font-medium">库区 / 库位</span><input class="h-10 w-full rounded-md border bg-background px-3" value="${escapeHtml(state.locationKeyword)}" placeholder="输入库区或库位" data-skip-page-rerender="true" data-pickup-list-filter="locationKeyword"></label>
          ${renderSelect('仍缺物料', 'shortageOnly', state.shortageOnly, [['ALL', '全部'], ['SHORTAGE', '有缺料']])}
          <label class="space-y-1 text-sm"><span class="font-medium">最近配料时间</span><input type="date" class="h-10 w-full rounded-md border bg-background px-3" value="${escapeHtml(state.recentDate)}" data-skip-page-rerender="true" data-pickup-list-filter="recentDate"></label>`
-      : `${renderSelect('领料路径', 'historyPath', state.historyPath, [['ALL', '全部'], ['READY_PICKUP', '已配齐后领料'], ['INCOMPLETE_PICKUP', '未配齐先领']])}
+      : `${renderSelect('接收路径', 'historyPath', state.historyPath, [['ALL', '全部'], ['READY_PICKUP', '已配齐后接收'], ['INCOMPLETE_PICKUP', '未配齐先领']])}
          ${renderSelect('最终结果', 'finalResult', state.finalResult, [['ALL', '全部'], ['ALL_PICKED', '全部领完'], ['NOT_ALL_PICKED', '尚未全部领完'], ['NEW_SUPPLEMENT_WAIT_PICKUP', '新增补料待领']])}
-         <label class="space-y-1 text-sm"><span class="font-medium">最近领料时间</span><input type="date" class="h-10 w-full rounded-md border bg-background px-3" value="${escapeHtml(state.recentDate)}" data-skip-page-rerender="true" data-pickup-list-filter="recentDate"></label>`
+         <label class="space-y-1 text-sm"><span class="font-medium">最近接收时间</span><input type="date" class="h-10 w-full rounded-md border bg-background px-3" value="${escapeHtml(state.recentDate)}" data-skip-page-rerender="true" data-pickup-list-filter="recentDate"></label>`
   return `<section class="rounded-lg border bg-card p-3">
     <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
       <label class="space-y-1 text-sm">
@@ -534,14 +534,14 @@ function renderPickupRecordsDrawer(kind: PickupListKind): string {
     <section class="h-full w-full max-w-2xl overflow-y-auto bg-background shadow-xl">
       <div class="sticky top-0 z-10 flex items-start justify-between border-b bg-background px-5 py-4">
         <div>
-          <div class="text-lg font-semibold">领料记录</div>
+          <div class="text-lg font-semibold">接收记录</div>
           <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(group.productionOrderNo)} · ${escapeHtml(group.prepOrderNo)}</div>
         </div>
         <button type="button" class="rounded-md border px-3 py-2 text-sm" data-pickup-list-action="close-pickup-records">关闭</button>
       </div>
       <div class="space-y-3 p-5">
         ${groupDiscrepancies.length ? `<section class="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
-          <div class="text-sm font-semibold text-amber-800">领料差异与主管处理</div>
+          <div class="text-sm font-semibold text-amber-800">接收差异与主管处理</div>
           ${groupDiscrepancies.map((record) => `<div class="rounded-md bg-white p-3 text-xs">
             <div class="font-medium">${escapeHtml(record.materialName)} · 差异 ${formatQty(record.differenceQty, record.unit)}</div>
             <div class="mt-1 text-muted-foreground">${escapeHtml(record.carrierLabel)} · ${escapeHtml(record.operatorName)} ${escapeHtml(record.reportedAt)}</div>
@@ -585,7 +585,7 @@ function renderPickupRecordsDrawer(kind: PickupListKind): string {
                 : '<span class="text-muted-foreground">无</span>'}
             </div>
           </article>`
-        }).join('') : '<div class="rounded-lg border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">当前生产单尚无领料记录。</div>'}
+        }).join('') : '<div class="rounded-lg border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">当前生产单尚无接收记录。</div>'}
       </div>
     </section>
   </div>`

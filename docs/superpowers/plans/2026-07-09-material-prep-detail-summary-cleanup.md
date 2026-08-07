@@ -95,7 +95,7 @@ try {
     const html = withWindow(item.pathname, baseSearch, item.render)
     assert(html.includes('生产需求信息'), `${item.label} 详情必须保留 Tab`)
     const summaryBeforeTabs = beforeTabs(html)
-    ;['配料状态', '领料状态', '物料行', '缺料缺口', 'BOM 来源', '暂存区台账', '仓库拣货进度', '完成通知', '分配回写'].forEach((text) => {
+    ;['配料状态', '接收状态', '物料行', '缺料缺口', 'BOM 来源', '暂存区台账', '仓库拣货进度', '完成通知', '分配回写'].forEach((text) => {
       assert(!summaryBeforeTabs.includes(text), `${item.label} Tab 上方不能再展示摘要字段：${text}`)
     })
 
@@ -113,8 +113,8 @@ try {
     assert(tasksHtml.includes('分配回写'), `${item.label} 按任务查看 Tab 必须展示分配回写`)
 
     const pickupHtml = withWindow(item.pathname, `${baseSearch}&detailTab=pickup`, item.render)
-    assert(pickupHtml.includes('领料状态'), `${item.label} 领料记录 Tab 必须展示领料状态`)
-    assert(pickupHtml.includes('仓库拣货进度'), `${item.label} 领料记录 Tab 必须展示仓库拣货进度`)
+    assert(pickupHtml.includes('接收状态'), `${item.label} 接收记录 Tab 必须展示接收状态`)
+    assert(pickupHtml.includes('仓库拣货进度'), `${item.label} 接收记录 Tab 必须展示仓库拣货进度`)
   }
 } finally {
   if (originalWindow === undefined) {
@@ -167,7 +167,7 @@ git commit -m "test: cover material prep detail summary cleanup"
 ```ts
 <section class="grid gap-3 md:grid-cols-4">
   ${renderKpi('配料状态', ...)}
-  ${renderKpi('领料状态', ...)}
+  ${renderKpi('接收状态', ...)}
   ${renderKpi('物料行', ...)}
   ${renderKpi('缺料缺口', ...)}
 </section>
@@ -192,7 +192,7 @@ ${showCloseModal && !projection.order.isClosed ? renderClosePrepOrderModal(proje
 ```ts
 <div class="mt-3 grid gap-3 text-sm lg:grid-cols-4">
   <div><div class="text-xs text-muted-foreground">配料状态</div><div class="font-medium">${escapeHtml(materialPrepStatusLabelMap[projection.order.overallPrepStatus])}</div></div>
-  <div><div class="text-xs text-muted-foreground">领料状态</div><div class="font-medium">${escapeHtml(pickupStatusLabelMap[projection.order.pickupStatus])}</div></div>
+  <div><div class="text-xs text-muted-foreground">接收状态</div><div class="font-medium">${escapeHtml(pickupStatusLabelMap[projection.order.pickupStatus])}</div></div>
   <div><div class="text-xs text-muted-foreground">BOM 来源</div><div class="font-medium">${escapeHtml(projection.order.bomSourceLabel)}</div></div>
   <div><div class="text-xs text-muted-foreground">BOM 展开时间</div><div class="font-medium">${escapeHtml(projection.order.bomExpandedAt || '暂无')}</div></div>
 </div>
@@ -260,16 +260,16 @@ const pendingTaskCount = Math.max(projection.order.assignedTaskCount - projectio
 </div>
 ```
 
-- [ ] **步骤 6：迁移领料状态和仓库拣货进度到领料记录 Tab**
+- [ ] **步骤 6：迁移接收状态和仓库拣货进度到接收记录 Tab**
 
 在四个文件的 `renderPickupRecords(...)` 顶部补：
 
 ```ts
 const pickText = projection.order.pickupStatus === 'PICKUP_DONE'
-  ? '已领料完结'
+  ? '已接收完结'
   : projection.pickupRecords.length
-    ? `已有领料记录 ${projection.pickupRecords.length} 条`
-    : '暂无领料记录'
+    ? `已有接收记录 ${projection.pickupRecords.length} 条`
+    : '暂无接收记录'
 ```
 
 并渲染：
@@ -277,7 +277,7 @@ const pickText = projection.order.pickupStatus === 'PICKUP_DONE'
 ```ts
 <div class="mb-3 grid gap-3 text-sm lg:grid-cols-2">
   <div class="rounded-md border bg-muted/20 px-3 py-2">
-    <div class="text-xs text-muted-foreground">领料状态</div>
+    <div class="text-xs text-muted-foreground">接收状态</div>
     <div class="mt-1 font-medium">${escapeHtml(pickupStatusLabelMap[projection.order.pickupStatus])}</div>
     <div class="mt-1 text-xs text-muted-foreground">已领 ${formatQty(projection.totalPickedQty)} / 可领 ${formatQty(projection.totalAvailableToPickupQty)}</div>
   </div>
@@ -343,13 +343,13 @@ npm run check:material-prep-detail-summary-cleanup
 
 ## 范围
 
-本次只处理配料详情页 Tab 上方摘要区。列表页统计区、配料状态模型、领料状态模型、仓储后续流程不在范围内。
+本次只处理配料详情页 Tab 上方摘要区。列表页统计区、配料状态模型、接收状态模型、仓储后续流程不在范围内。
 
 ## 自查结论
 
 - 角色匹配：通过。
 - 信息架构：通过，详情页首屏从“摘要卡片 + Tab”调整为“标题 + Tab + 当前内容”。
-- 信息迁移：通过，配料状态、领料状态、物料行、缺料缺口、BOM 来源、暂存台账、拣货进度、完成通知、分配回写已迁入对应 Tab。
+- 信息迁移：通过，配料状态、接收状态、物料行、缺料缺口、BOM 来源、暂存台账、拣货进度、完成通知、分配回写已迁入对应 Tab。
 - 文案中文化：通过。
 - 数量与状态：通过，未新增英文状态码。
 - 性能：通过构建和专项脚本验证。

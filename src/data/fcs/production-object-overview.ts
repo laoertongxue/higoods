@@ -587,7 +587,7 @@ const OBJECT_TYPE_LABEL: Record<ProductionObjectType, string> = {
   PROCESS_DOC: '工艺单据',
   MATERIAL_PREP_ORDER: '配料单',
   MATERIAL_PREP_RECORD: '配料记录',
-  MATERIAL_PICKUP_RECORD: '发料/领料记录',
+  MATERIAL_PICKUP_RECORD: '发料/接收记录',
   CUT_ORDER: '裁片单',
   FEI_TICKET: '菲票',
   SPREADING_ORDER: '铺布单',
@@ -673,10 +673,10 @@ const p1DocumentMocks: P1DocumentMock[] = [
   {
     objectType: 'MATERIAL_PICKUP_RECORD',
     docGroup: '面辅料',
-    docType: '发料/领料记录',
+    docType: '发料/接收记录',
     docNo: 'PICK-202603-0001',
     secondaryNo: 'MPR-202603-0001',
-    displayTitle: '定制银扣领料记录',
+    displayTitle: '定制银扣接收记录',
     relatedProductionOrderNo: 'PO-202603-0001',
     sourceDomain: 'WMS',
     statusText: '待确认',
@@ -1277,7 +1277,7 @@ function buildMaterialPrepLines(order: ProductionOrder): ProductionMaterialLine[
         sourceMaterialRequestNo: projection.order.prepOrderNo,
         sourceIssueDocNo: projection.pickupRecords.find((record) => record.prepLineId === line.prepLineId)?.pickupRecordId,
         ownerRole: pickedQty >= requiredQty ? '工厂' as const : '仓库' as const,
-        nextActionText: pickedQty >= requiredQty ? '工厂按已领物料继续生产' : '仓库确认配料并安排工厂领料',
+        nextActionText: pickedQty >= requiredQty ? '工厂按已领物料继续生产' : '仓库确认配料并安排工厂接收',
         routePath,
       }
     }))
@@ -1298,8 +1298,8 @@ function getMaterialSearchStatus(line: ProductionMaterialLine): string {
   }
   if (line.warehouseExecutionStatus === 'NO_PREP' || line.warehouseExecutionStatus === 'TO_PREPARE') return '待配料'
   if (line.warehouseExecutionStatus === 'PARTIAL_PREPARED') return '部分配料'
-  if (line.warehouseExecutionStatus === 'READY_TO_ISSUE') return '待领料'
-  if (line.warehouseExecutionStatus === 'ISSUED') return '部分领料'
+  if (line.warehouseExecutionStatus === 'READY_TO_ISSUE') return '待接收'
+  if (line.warehouseExecutionStatus === 'ISSUED') return '部分接收'
   if (line.warehouseExecutionStatus === 'RECEIVED' || line.warehouseExecutionStatus === 'CLOSED') return '已领齐'
   return warehouseExecutionStatusLabel[line.warehouseExecutionStatus]
 }
@@ -1577,7 +1577,7 @@ function buildProgressNodes(order: ProductionOrder, facts: ProgressFact[]): Prod
     plannedAt: '-',
     actualAt: '-',
     relatedDocNo: fact.taskNo || fact.runtimeTaskId,
-    quantityText: `${fact.materialRequests.length} 张领料需求 / ${fact.executionDocs.length} 张执行单`,
+    quantityText: `${fact.materialRequests.length} 张接收需求 / ${fact.executionDocs.length} 张执行单`,
     description: fact.assignedFactoryName || fact.scopeLabel || '待确认执行方',
   }))
 }
@@ -1637,7 +1637,7 @@ function buildRuntimeRelatedDocuments(order: ProductionOrder): RelatedDocument[]
       const line = projection.lines.find((item) => item.prepLineId === record.prepLineId)
       documents.push({
         docGroup: '面辅料',
-        docType: '领料记录',
+        docType: '接收记录',
         docNo: record.pickupRecordId,
         objectType: 'MATERIAL_PICKUP_RECORD',
         sourceDomain: 'WMS',
@@ -2489,8 +2489,8 @@ function buildMaterialIndexes(order: ProductionOrder): ProductionObjectSearchInd
       warehouseExecutionStatusLabel[line.warehouseExecutionStatus],
       line.nextActionText,
       line.shortageQty > 0 ? '缺料' : undefined,
-      line.warehouseExecutionStatus === 'READY_TO_ISSUE' ? '待领料' : undefined,
-      line.warehouseExecutionStatus === 'ISSUED' || line.warehouseExecutionStatus === 'RECEIVED' ? '已领料' : undefined,
+      line.warehouseExecutionStatus === 'READY_TO_ISSUE' ? '待接收' : undefined,
+      line.warehouseExecutionStatus === 'ISSUED' || line.warehouseExecutionStatus === 'RECEIVED' ? '已接收' : undefined,
       order.productionOrderNo,
       order.demandId,
       order.demandSnapshot.spuCode,
@@ -2620,7 +2620,7 @@ function buildMaterialPrepIndexes(): ProductionObjectSearchIndex[] {
         objectType: 'MATERIAL_PICKUP_RECORD',
         primaryNo: record.pickupRecordId,
         secondaryNo: record.prepRecordId,
-        displayTitle: `${line?.materialName || '领料记录'}｜${projection.order.styleName}`,
+        displayTitle: `${line?.materialName || '接收记录'}｜${projection.order.styleName}`,
         keywords: unique([
           record.pickupRecordId,
           record.prepRecordId,
@@ -2958,7 +2958,7 @@ function getMatchedReason(item: ProductionObjectSearchIndex, keyword: string): {
 
 function getSearchBusinessPriority(item: ProductionObjectSearchIndex): number {
   const text = getSearchTexts(item).join(' ')
-  if (['缺料', '未到仓', '待领料', '待确认', '差异', '部分'].some((value) => text.includes(value))) return 0
+  if (['缺料', '未到仓', '待接收', '待确认', '差异', '部分'].some((value) => text.includes(value))) return 0
   if (item.objectType === 'PRODUCTION_ORDER' || item.objectType === 'DEMAND') return 1
   return 2
 }

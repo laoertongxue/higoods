@@ -83,7 +83,7 @@ assert(cuttingGroup, 'PFOS 缺少裁床厂管理菜单组')
 
 assert.deepEqual(
   cuttingGroup.items.map((item) => item.title),
-  ['裁床总览', '裁前准备', '领料管理', '铺布执行', '裁后处理', '裁床仓库管理', '裁床统计'],
+  ['裁床总览', '裁前准备', '接收管理', '铺布执行', '裁后处理', '裁床仓库管理', '裁床统计'],
   '裁床厂管理一级菜单顺序不正确',
 )
 
@@ -138,10 +138,10 @@ assert(!fs.existsSync(repoPath('src/pages/process-factory/cutting/warehouse-mana
 assert(!fs.existsSync(repoPath('src/pages/process-factory/cutting/warehouse-management.helpers.ts')), '不得复活旧 warehouse-management.helpers.ts')
 
 const waitProcessHtml = renderCraftCuttingWarehouseManagementWaitProcessPage()
-;['库存明细', '中转仓领料', '加工领料', '回收入仓', '库位图'].forEach((item) =>
+;['库存明细', '中转仓接收', '加工接收', '回收入仓', '库位图'].forEach((item) =>
   assertIncludes(waitProcessHtml, item, `裁床待加工仓缺少仓库页签或动作：${item}`),
 )
-;['待领料', '待交出仓裁片库存', '回写差异', '新增交出记录'].forEach((item) =>
+;['待接收', '待交出仓裁片库存', '回写差异', '新增交出记录'].forEach((item) =>
   assertNotIncludes(waitProcessHtml, item, `裁床待加工仓不得承接待交出仓内容：${item}`),
 )
 
@@ -231,21 +231,21 @@ const hubSource = [
 )
 
 const pdaWarehouseSource = read('src/pages/pda-warehouse.ts')
-;["title: '中转仓领料'", 'getPdaCuttingWaitHandoverActions'].forEach((item) =>
+;["title: '中转仓接收'", 'getPdaCuttingWaitHandoverActions'].forEach((item) =>
   assertIncludes(pdaWarehouseSource, item, `PDA 仓管首页缺少统一仓管入口：${item}`),
 )
 assertNotIncludes(pdaWarehouseSource + pdaCuttingWaitHandoverActionsSource, '菲票装袋 / 中转袋入仓', 'PDA 仓管首页不得保留合并动作标题')
 assertNotIncludes(pdaWarehouseSource + pdaCuttingWaitHandoverActionsSource, "title: '交出装袋确认'", 'PDA 仓管首页不得保留“交出装袋确认”入口')
-;["title: '待领料'", "title: '扫码入仓'", "title: '菲票入仓'", "title: '交出'", "title: '接收回写'"].forEach((item) =>
+;["title: '待接收'", "title: '扫码入仓'", "title: '菲票入仓'", "title: '交出'", "title: '接收回写'"].forEach((item) =>
   assertNotIncludes(pdaWarehouseSource, item, `PDA 仓管首页不得继续展示旧入口：${item}`),
 )
 
 const pdaWaitProcessSource = read('src/pages/pda-warehouse-wait-process.ts')
-;["title: '中转仓领料'", "'处理中转仓领料、加工领料和回收入仓。'", 'data-pda-cutting-pickup-location-map', "mode: 'SELECT'", 'toLocationRefs: selectedRefs.map'].forEach((item) =>
+;["title: '中转仓接收'", "'处理中转仓接收、加工接收和回收入仓。'", 'data-pda-cutting-pickup-location-map', "mode: 'SELECT'", 'toLocationRefs: selectedRefs.map'].forEach((item) =>
   assertIncludes(pdaWaitProcessSource, item, `PDA 裁床待加工仓缺少统一仓管文案：${item}`),
 )
 ;['data-pda-warehouse-field="cutting-pickup-area"', 'data-pda-warehouse-field="cutting-pickup-location"'].forEach((item) =>
-  assertNotIncludes(pdaWaitProcessSource, item, `PDA 中转仓领料不得继续使用固定库区库位下拉：${item}`),
+  assertNotIncludes(pdaWaitProcessSource, item, `PDA 中转仓接收不得继续使用固定库区库位下拉：${item}`),
 )
 assertNotIncludes(pdaWaitProcessSource, "title: '扫码入仓'", 'PDA 裁床待加工仓不得继续展示“扫码入仓”入口')
 

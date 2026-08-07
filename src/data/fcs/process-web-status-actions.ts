@@ -59,7 +59,7 @@ export type ProcessWebActionType =
   | '完成定型'
   | '完成打卷'
   | '完成包装'
-  | '确认领料'
+  | '确认接收'
   | '开始铺布'
   | '完成铺布'
   | '开始裁剪'
@@ -217,7 +217,7 @@ const PRINT_ACTIONS: ActionDefinition[] = [
     processType: 'PRINT',
     fromStatuses: ['PRINT_DONE', 'WAIT_TRANSFER'],
     toStatus: 'TRANSFERRING',
-    requiredFields: ['操作人', '开始时间', '领料记录'],
+    requiredFields: ['操作人', '开始时间', '接收记录'],
     writebackHandler: 'startTransfer',
   },
   {
@@ -376,11 +376,11 @@ const DYE_ACTIONS: ActionDefinition[] = [
 const CUTTING_ACTIONS: ActionDefinition[] = [
   {
     actionCode: 'CUTTING_CONFIRM_PICKUP',
-    actionLabel: '确认领料',
+    actionLabel: '确认接收',
     processType: 'CUTTING',
-    fromStatuses: ['待领料'],
+    fromStatuses: ['待接收'],
     toStatus: '待铺布',
-    requiredFields: ['领料人', '领料时间', '实领面料米数', '备注'],
+    requiredFields: ['接收人', '接收时间', '实领面料米数', '备注'],
     writebackHandler: 'cuttingWebStageAdapter',
   },
   {
@@ -455,7 +455,7 @@ const SPECIAL_CRAFT_ACTIONS: ActionDefinition[] = [
     actionCode: 'SPECIAL_CRAFT_CONFIRM_RECEIVE',
     actionLabel: '确认接收',
     processType: 'SPECIAL_CRAFT',
-    fromStatuses: ['待领料', '加工中'],
+    fromStatuses: ['待接收', '加工中'],
     toStatus: '加工中',
     requiredFields: ['接收人', '接收时间'],
     optionalFields: ['备注'],
@@ -624,7 +624,7 @@ function toAction(definition: ActionDefinition, currentStatus: string, disabledR
 }
 
 function normalizeCuttingStatus(status: string): string {
-  if (status === '已领料') return '待铺布'
+  if (status === '已接收') return '待铺布'
   if (status === '裁片执行中') return '裁剪中'
   if (status === '待维护唛架') return '待铺布'
   if (status === '已入仓') return '待交出'

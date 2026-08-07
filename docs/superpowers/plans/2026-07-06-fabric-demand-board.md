@@ -642,7 +642,7 @@ function renderProcessQty(label: string, qty: { waitPickupQty: number; processin
   return `
     <div class="space-y-1 text-xs">
       <div class="font-medium text-foreground">${escapeHtml(label)}</div>
-      <div>待领料：${escapeHtml(formatFabricDemandQty(qty.waitPickupQty))}</div>
+      <div>待接收：${escapeHtml(formatFabricDemandQty(qty.waitPickupQty))}</div>
       <div>${escapeHtml(label)}中：${escapeHtml(formatFabricDemandQty(qty.processingQty))}</div>
       <div>待入库：${escapeHtml(formatFabricDemandQty(qty.waitInboundQty))}</div>
     </div>

@@ -64,7 +64,7 @@ test('后道工厂菜单页面可访问且数据串联', async ({ page }) => {
   await expect(page.getByText('后道单列表')).toBeVisible()
   await expect(page.getByRole('columnheader', { name: '后道来源' })).toBeVisible()
   await expect(page.getByRole('columnheader', { name: '当前流程' })).toBeVisible()
-  await expect(page.getByRole('columnheader', { name: '接收领料状态' })).toBeVisible()
+  await expect(page.getByRole('columnheader', { name: '接收接收状态' })).toBeVisible()
   await expect(page.getByText('后道工厂执行').first()).toBeVisible()
   await expect(page.getByText('车缝厂已完成后道').first()).toBeVisible()
 

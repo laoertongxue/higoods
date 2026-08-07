@@ -40,7 +40,7 @@ function formatFactoryCell(factoryName?: string, factoryId?: string): string {
 function buildWaitProcessFlowLines(item: DyeingWarehouseView['waitProcessItems'][number]): FactoryWarehouseFlowLine[] {
   const lines: FactoryWarehouseFlowLine[] = [
     {
-      flowType: '领料入仓',
+      flowType: '接收入仓',
       qtyText: formatQty(item.receivedQty, item.unit),
       sourceNo: item.sourceRecordNo,
       operatedAt: item.receivedAt,
@@ -339,10 +339,10 @@ function renderDyeingWarehousePage(mode: DyeingWarehouseMode): string {
     mode === 'wait-process'
       ? [
           renderMetricCard('待加工仓记录数', String(view.waitProcessItems.length), '待加工仓记录'),
-          renderMetricCard('领料记录', String(view.inboundRecords.length), '近 30 天'),
+          renderMetricCard('接收记录', String(view.inboundRecords.length), '近 30 天'),
           renderMetricCard('加工用料记录', String(view.waitProcessItems.length), '按库存推演'),
           renderMetricCard('库区库位', String(view.nodeRows.length), '支持新增、编辑、删除'),
-          renderMetricCard('领料差异记录数', String(inboundDifferenceCount), '领料差异'),
+          renderMetricCard('接收差异记录数', String(inboundDifferenceCount), '接收差异'),
         ].join('')
       : [
           renderMetricCard('待交出仓记录数', String(view.waitHandoverItems.length), '待交出仓记录'),
@@ -363,15 +363,15 @@ function renderDyeingWarehousePage(mode: DyeingWarehouseMode): string {
           },
           {
             key: 'receipts',
-            label: '领料记录',
+            label: '接收记录',
             count: view.inboundRecords.length,
-            content: renderTable(['领料单号', '工厂', '待加工仓', '染色加工单号', '所属任务', '原料面料 SKU', '计划数量', '确认入仓数量', '差异数量', '库位', '操作人', '操作时间', '状态', '操作'], renderInboundRows(view), 'min-w-[1680px]'),
+            content: renderTable(['接收单号', '工厂', '待加工仓', '染色加工单号', '所属任务', '原料面料 SKU', '计划数量', '确认入仓数量', '差异数量', '库位', '操作人', '操作时间', '状态', '操作'], renderInboundRows(view), 'min-w-[1680px]'),
           },
           {
             key: 'usage',
             label: '加工用料记录',
             count: view.waitProcessItems.length,
-            content: renderTable(['所属任务', '工厂', '类型', '物料', '用料数量', '来源领料单', '用料时间', '状态'], renderUsageRows(view), 'min-w-[1120px]'),
+            content: renderTable(['所属任务', '工厂', '类型', '物料', '用料数量', '来源接收单', '用料时间', '状态'], renderUsageRows(view), 'min-w-[1120px]'),
           },
           {
             key: 'locations',

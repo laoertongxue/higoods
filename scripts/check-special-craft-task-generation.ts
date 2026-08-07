@@ -536,7 +536,7 @@ assert(firstResult.taskOrders.every((task) => task.isManualCreated === false), '
 assert(firstResult.taskOrders.every((task) => Array.isArray(task.demandLines) && task.demandLines.length > 0), '特殊工艺任务必须包含任务明细')
 assert(firstResult.taskOrders.every((task) => task.demandLines!.every((line) => line.taskOrderId === task.taskOrderId)), '任务明细必须回写所属任务号')
 assert(firstResult.taskOrders.every((task) => task.assignmentStatusLabel === '待分配' || task.assignmentStatusLabel === '已分配'), '任务必须包含分配状态')
-assert(firstResult.taskOrders.every((task) => task.executionStatusLabel === '待领料'), '新产出任务执行状态必须初始化为待领料')
+assert(firstResult.taskOrders.every((task) => task.executionStatusLabel === '待接收'), '新产出任务执行状态必须初始化为待接收')
 assert(firstResult.taskOrders.every((task) => !removedLegacyCraftNames.includes(task.craftName)), '不得生成已删除旧工艺任务')
 assert(firstResult.taskOrders.every((task) => {
   const operation = getSpecialCraftOperationById(task.operationId)

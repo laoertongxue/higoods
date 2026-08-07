@@ -46,7 +46,7 @@ export function buildCraftClaimDisputeSummary(record: ClaimDisputeRecord): strin
 }
 
 export function buildPlatformClaimDisputeSummary(record: ClaimDisputeRecord): string {
-  return `裁片领料长度异议｜${record.cutOrderNo}｜${record.materialSku}｜差异 ${formatClaimQty(record.discrepancyQty)}`
+  return `裁片接收长度异议｜${record.cutOrderNo}｜${record.materialSku}｜差异 ${formatClaimQty(record.discrepancyQty)}`
 }
 
 export function buildClaimDisputeWritebackSummary(record: ClaimDisputeRecord): string {

@@ -87,7 +87,7 @@ function compareDateTime(left: string, right: string): number {
 
 function toResultLabel(status: PlatformPickupResultStatus): string {
   if (status === 'MATCHED') return '扫码领取成功'
-  if (status === 'RECHECK_REQUIRED') return '领料差异待复核'
+  if (status === 'RECHECK_REQUIRED') return '接收差异待复核'
   if (status === 'PHOTO_SUBMITTED') return '已提交照片凭证'
   return '未扫码回写'
 }
@@ -139,14 +139,14 @@ function buildQrCodeValue(cutOrderId: string, cutOrderNo: string): string {
 
 function buildResultSummaryText(group: PrepGroupProjection): string {
   const parts = [
-    `最近领料结果：${group.latestResultLabel}`,
+    `最近接收结果：${group.latestResultLabel}`,
     `回执状态：${group.receiptStatusLabel}`,
   ]
   if (group.latestScannedAt !== '-') {
     parts.push(`最近确认 ${group.latestScannedAt} · ${group.latestScannedBy}`)
   }
   if (group.needsRecheck) {
-    parts.push('当前存在领料差异，需复核配置和领取结果')
+    parts.push('当前存在接收差异，需复核配置和领取结果')
   }
   if (group.hasPhotoEvidence) {
     parts.push(`已提交 ${group.photoProofCount} 张照片凭证`)
@@ -269,7 +269,7 @@ function buildAggregate(groups: PrepGroupProjection[], record: CuttingOrderProgr
     photoSubmittedCount,
     latestReceiveAt: latestGroup?.latestScannedAt || '-',
     latestReceiveBy: latestGroup?.latestScannedBy || '-',
-    materialReceiveSummaryText: `配料 ${configuredCount}/${totalCount} · 领料成功 ${receiveSuccessCount}/${totalCount}`,
+    materialReceiveSummaryText: `配料 ${configuredCount}/${totalCount} · 接收成功 ${receiveSuccessCount}/${totalCount}`,
     resultSummaryText:
       latestGroup?.resultSummaryText
       || (record.materialLines.length > 0 ? '当前尚未形成正式扫码回执。' : '当前生产单下暂无可汇总的配料行。'),
@@ -304,9 +304,9 @@ function buildSummary(groups: PrepGroupProjection[], aggregate: PlatformCuttingP
       latestScannedAt: '-',
       printVersionSummaryText: '当前尚无打印版本',
       qrBindingSummaryText: '当前尚未生成二维码绑定对象',
-      resultSummaryText: '当前尚无正式领料回写。',
+      resultSummaryText: '当前尚无正式接收回写。',
       evidenceSummaryText: '当前无照片凭证',
-      summaryText: '当前没有领料回执摘要。',
+      summaryText: '当前没有接收回执摘要。',
     }
   }
 
@@ -327,7 +327,7 @@ function buildSummary(groups: PrepGroupProjection[], aggregate: PlatformCuttingP
     receiptStatusLabel: representative.receiptStatusLabel,
     latestScannedAt: representative.latestScannedAt,
     printVersionSummaryText: representative.printed
-      ? `当前共打印 ${aggregate.printedSlipCount} 张领料单，最新版本 ${representative.latestPrintVersionNo}`
+      ? `当前共打印 ${aggregate.printedSlipCount} 张接收单，最新版本 ${representative.latestPrintVersionNo}`
       : '当前尚无打印版本',
     qrBindingSummaryText: representative.qrBindingSummaryText,
     resultSummaryText: representative.resultSummaryText,

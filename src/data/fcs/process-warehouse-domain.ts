@@ -419,7 +419,7 @@ function buildSeedProcessWarehouseRecords(): ProcessWarehouseRecord[] {
       createdAt: '2026-05-11 09:20:00',
       updatedAt: '2026-05-11 09:20:00',
       relatedFeiTicketIds: [],
-      remark: '印花加工单完成领料后进入待加工仓',
+      remark: '印花加工单完成接收后进入待加工仓',
     },
     {
       recordType: 'WAIT_PROCESS',
@@ -445,13 +445,13 @@ function buildSeedProcessWarehouseRecords(): ProcessWarehouseRecord[] {
       receivedObjectQty: 872,
       availableObjectQty: 872,
       qtyUnit: '片',
-      currentActionName: '待转印领料',
+      currentActionName: '待转印接收',
       status: '已入仓',
       inboundAt: '2026-05-11 10:00:00',
       createdAt: '2026-05-11 10:00:00',
       updatedAt: '2026-05-11 10:00:00',
       relatedFeiTicketIds: ['FT-PRINT-20260328-004-01'],
-      remark: '印花加工单完成领料后进入待加工仓',
+      remark: '印花加工单完成接收后进入待加工仓',
     },
     {
       recordType: 'WAIT_PROCESS',
@@ -482,7 +482,7 @@ function buildSeedProcessWarehouseRecords(): ProcessWarehouseRecord[] {
       inboundAt: '2026-05-11 08:30:00',
       createdAt: '2026-05-11 08:30:00',
       updatedAt: '2026-05-11 08:30:00',
-      remark: '染色加工单完成领料后进入待加工仓',
+      remark: '染色加工单完成接收后进入待加工仓',
     },
     {
       recordType: 'WAIT_PROCESS',
@@ -513,7 +513,7 @@ function buildSeedProcessWarehouseRecords(): ProcessWarehouseRecord[] {
       inboundAt: '2026-05-11 09:10:00',
       createdAt: '2026-05-11 09:10:00',
       updatedAt: '2026-05-11 09:10:00',
-      remark: '染色加工单完成领料后进入待加工仓',
+      remark: '染色加工单完成接收后进入待加工仓',
     },
     {
       recordType: 'WAIT_HANDOVER',
@@ -701,7 +701,7 @@ function buildSpecialCraftWarehouseRecords(taskOrders: SpecialCraftTaskOrder[]):
       updatedAt: taskOrder.updatedAt || taskOrder.createdAt,
     }
     if (
-      ['待领料', '已入待加工仓', '加工中'].includes(taskOrder.status)
+      ['待接收', '已入待加工仓', '加工中'].includes(taskOrder.status)
       && (flow.objectType !== '成衣' || taskOrder.receivedQty > 0)
     ) {
       const location = resolveLocation(taskOrder.operationName, 'WAIT_PROCESS', taskOrder.taskOrderNo)

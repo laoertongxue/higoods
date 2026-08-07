@@ -170,7 +170,7 @@ export const cuttingMaterialPrepGroups: CuttingMaterialPrepGroup[] = [
         discrepancyNote: '实领 8 卷，少于本次打印 10 卷，仓库已发起核对。',
         photoProofCount: 0,
         issueFlags: ['待核对', '待复核'],
-        latestActionText: '部分领料：第 3 批来料已入待加工仓，8 卷待核对。',
+        latestActionText: '部分接收：第 3 批来料已入待加工仓，8 卷待核对。',
         configBatches: [
           {
             batchNo: 'CFG-018-01',
@@ -213,7 +213,7 @@ export const cuttingMaterialPrepGroups: CuttingMaterialPrepGroup[] = [
             receivedAt: '2026-03-20 14:12',
             resultStatus: 'RECHECK',
             photoProofCount: 0,
-            note: '部分领料：现场扫码后发现少 2 卷，已驳回仓库复核。',
+            note: '部分接收：现场扫码后发现少 2 卷，已驳回仓库复核。',
           },
         ],
       },
@@ -316,7 +316,7 @@ export const cuttingMaterialPrepGroups: CuttingMaterialPrepGroup[] = [
         discrepancyNote: '尚未形成中转仓配料数量。',
         photoProofCount: 0,
         issueFlags: ['待配置'],
-        latestActionText: '等待中转仓配料与裁床领料入待加工仓。',
+        latestActionText: '等待中转仓配料与裁床接收入待加工仓。',
         configBatches: [],
         receiveRecords: [],
       },

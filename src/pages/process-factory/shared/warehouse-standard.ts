@@ -170,7 +170,7 @@ function openFlowModal(title: string, flows: FactoryWarehouseFlowLine[]): void {
       <div class="flex items-center justify-between border-b px-4 py-3">
         <div>
           <h2 class="text-base font-semibold">${escapeHtml(title || '库存流水')}</h2>
-          <p class="mt-1 text-xs text-muted-foreground">按入仓、领料、加工用料、加工入仓、交出等动作形成流水。</p>
+          <p class="mt-1 text-xs text-muted-foreground">按入仓、接收、加工用料、加工入仓、交出等动作形成流水。</p>
         </div>
         <button type="button" class="rounded-md border px-2 py-1 text-sm hover:bg-muted" data-warehouse-flow-action="close">关闭</button>
       </div>

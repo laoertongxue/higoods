@@ -2898,7 +2898,7 @@ function getSpreadingMaterialReadinessOptions(): Array<{ value: SpreadingMateria
   return [
     { value: 'ALL', label: '全部' },
     { value: 'READY', label: '可铺布' },
-    { value: 'NOT_CLAIMED', label: '未领料' },
+    { value: 'NOT_CLAIMED', label: '未接收' },
     { value: 'SHORTAGE', label: '物料不足' },
   ]
 }

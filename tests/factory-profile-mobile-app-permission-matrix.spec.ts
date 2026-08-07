@@ -25,7 +25,7 @@ test('工厂档案权限矩阵按真实工厂端移动应用功能分组展示',
   await expect(form.getByRole('cell', { name: '关键节点上报', exact: true })).toBeVisible()
   await expect(form.getByRole('cell', { name: '提交报价', exact: true })).toBeVisible()
   await expect(form.getByRole('cell', { name: '查看报价结果', exact: true })).toBeVisible()
-  await expect(form.getByRole('cell', { name: '提交领料长度异议', exact: true })).toBeVisible()
+  await expect(form.getByRole('cell', { name: '提交接收长度异议', exact: true })).toBeVisible()
   await expect(form.getByRole('cell', { name: '保存铺布记录', exact: true })).toBeVisible()
   await expect(form.getByRole('cell', { name: '提交交出数量异议', exact: true })).toBeVisible()
   await expect(form.getByRole('cell', { name: '确认处理质量扣款', exact: true })).toBeVisible()

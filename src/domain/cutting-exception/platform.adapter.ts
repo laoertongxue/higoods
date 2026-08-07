@@ -160,7 +160,7 @@ function buildExceptionsForRow(row: PlatformCuttingOverviewRow): CuttingExceptio
       buildCommonException(row, 'RECEIVE_DISCREPANCY', rows.length + 1, recheckView || latestView, {
         triggerSummary: `最新扫码结果为${row.pickupSummary.latestResultLabel}，实领与配置摘要存在差异。`,
         evidenceSummary: row.pickupSummary.hasPhotoEvidence ? '已提交照片凭证，待平台复核。' : '当前仅有扫码差异回写，尚未形成照片凭证。',
-        latestActionSummary: '工厂端已提交领料差异回写',
+        latestActionSummary: '工厂端已提交接收差异回写',
         latestActionAt: row.pickupSummary.latestScannedAt,
         latestActionBy: row.pickupSummary.latestScannedBy,
         suggestedAction: '优先回仓库配料页核对配置数量、实领数量和差异说明。',
@@ -171,7 +171,7 @@ function buildExceptionsForRow(row: PlatformCuttingOverviewRow): CuttingExceptio
   if (row.hasReceiveRecheck && !row.hasPhotoEvidence) {
     rows.push(
       buildCommonException(row, 'MISSING_EVIDENCE', rows.length + 1, recheckView || latestView, {
-        triggerSummary: '当前领料差异需要凭证留痕，但统一回执中未检测到照片凭证。',
+        triggerSummary: '当前接收差异需要凭证留痕，但统一回执中未检测到照片凭证。',
         evidenceSummary: 'photoProofCount = 0，需补齐现场照片或备注说明。',
         latestActionSummary: '差异回写已到平台，但凭证仍缺失',
         latestActionAt: row.pickupSummary.latestScannedAt,

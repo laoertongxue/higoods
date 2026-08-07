@@ -169,12 +169,12 @@ async function seedPickupForPdaTask(page: Page, taskId: string): Promise<void> {
 
   expect(context.cutOrderNo).not.toBe('')
   await appendRuntimeEventForTest(page, {
-    eventType: '中转仓领料',
+    eventType: '中转仓接收',
     eventSource: 'PDA',
     eventStatus: '已同步',
     occurredAt: '2026-05-25 09:01',
-    operatorName: '裁床领料员-测试',
-    operatorRole: '裁床领料员',
+    operatorName: '裁床接收员-测试',
+    operatorRole: '裁床接收员',
     refs: {
       productionOrderId: context.productionOrderId,
       productionOrderNo: context.productionOrderNo,
@@ -201,7 +201,7 @@ async function seedPickupForPdaTask(page: Page, taskId: string): Promise<void> {
       unit: '米',
       rollCount: 2,
       rollNos: [`ROLL-${taskId}-01`, `ROLL-${taskId}-02`],
-      pickupBy: '裁床领料员-测试',
+      pickupBy: '裁床接收员-测试',
       pickupAt: '2026-05-25 09:01',
       hasDifference: false,
     },
@@ -466,9 +466,9 @@ async function getPdaHandoverScanData(page: Page): Promise<{
   return scanData
 }
 
-// 加工领料与回收入仓的真实表单确认和事件写入由
-// cutting-warehouse-location-map.spec.ts 的“PDA 扫码异常、特殊工艺回仓和多候选领料批次均走真实页面处理器”覆盖。
-test('PDA 中转仓领料按待领节点选位确认，并在 Web 裁床待加工仓回查同一事件账', async ({ page }) => {
+// 加工接收与回收入仓的真实表单确认和事件写入由
+// cutting-warehouse-location-map.spec.ts 的“PDA 扫码异常、特殊工艺回仓和多候选接收批次均走真实页面处理器”覆盖。
+test('PDA 中转仓接收按待领节点选位确认，并在 Web 裁床待加工仓回查同一事件账', async ({ page }) => {
   const errors = collectPageErrors(page)
   await seedCuttingPdaSession(page)
   const pickupSession = {
@@ -492,8 +492,8 @@ test('PDA 中转仓领料按待领节点选位确认，并在 Web 裁床待加�
   })
 
   await page.goto('/fcs/craft/cutting/pickup-management/ready')
-  const pickupLink = page.getByRole('row').filter({ hasText: '去领料' }).first()
-    .getByRole('link', { name: '去领料', exact: true })
+  const pickupLink = page.getByRole('row').filter({ hasText: '去接收' }).first()
+    .getByRole('link', { name: '去接收', exact: true })
   const pickupHref = await pickupLink.getAttribute('href')
   expect(pickupHref).toBeTruthy()
   await page.evaluate(async () => {
@@ -513,7 +513,7 @@ test('PDA 中转仓领料按待领节点选位确认，并在 Web 裁床待加�
   await page.locator('[data-pda-warehouse-action="confirm-cutting-wp-pickup"]').click()
   await expectRuntimeEvent(
     page,
-    '中转仓领料',
+    '中转仓接收',
     (event) => Number((event.payload as any)?.pickupQty || 0) > 0,
   )
 
@@ -521,7 +521,7 @@ test('PDA 中转仓领料按待领节点选位确认，并在 Web 裁床待加�
     page,
     '/fcs/craft/cutting/warehouse-management/wait-process',
     '流水记录',
-    '中转仓领料',
+    '中转仓接收',
     (event) => Number((event.payload as any)?.pickupQty || 0) > 0,
   )
 

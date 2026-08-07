@@ -83,7 +83,7 @@ export {
   renderProductionChangeFormSteps,
 }
 
-const progressFilterOptions = ['未开始', '已配料', '已领料', '印花中', '染色中', '裁片中', '车缝中', '工艺中']
+const progressFilterOptions = ['未开始', '已配料', '已接收', '印花中', '染色中', '裁片中', '车缝中', '工艺中']
 
 type ProductionOrderChangeOrderView = ReturnType<typeof listProductionOrderChangeOrders>[number]
 type ProductionChangeRecordView = ProductionChangeRecord
@@ -230,11 +230,11 @@ function buildVersionChangeEffectPreviewRows(
 
   const modules = new Set(diffItems.map((item) => item.module))
   const futureDocuments: Record<TechPackChangeModule, string[]> = {
-    BOM: ['后续配料任务', '后续领料单', '后续裁片单物料读取'],
+    BOM: ['后续配料任务', '后续接收单', '后续裁片单物料读取'],
     PATTERN: ['后续唛架方案', '后续铺布单', '后续菲票打印'],
     PROCESS: ['后续印花 / 染色 / 工艺任务'],
     SIZE: ['后续尺码放码', '后续裁片编号', '后续菲票数量'],
-    COLOR_MATERIAL_MAPPING: ['后续款色用料对应', '后续颜色维度领料'],
+    COLOR_MATERIAL_MAPPING: ['后续款色用料对应', '后续颜色维度接收'],
     COST: ['后续核价明细', '后续结算口径'],
     DESIGN: ['后续印花工单', '后续染色要求', '后续花型版本读取'],
   }
@@ -570,8 +570,8 @@ const productionPatchOptionGroups = {
 
 function renderProductionPatchTypeCards(currentType: ProductionPatchType): string {
   const typeDescriptions: Record<ProductionPatchType, string> = {
-    MATERIAL_REPLACEMENT: '替换后续领料或裁片使用的物料',
-    MATERIAL_USAGE_ADJUSTMENT: '调整后续配料 / 领料用量',
+    MATERIAL_REPLACEMENT: '替换后续接收或裁片使用的物料',
+    MATERIAL_USAGE_ADJUSTMENT: '调整后续配料 / 接收用量',
     PATTERN_OVERRIDE: '覆盖后续唛架、铺布、菲票纸样',
     PROCESS_OVERRIDE: '调整后续工序节点、参数或承接工厂',
     SIZE_RULE_OVERRIDE: '调整后续放码和菲票数量口径',
@@ -927,11 +927,11 @@ function findModuleLandingById(
 function getModuleLandingRuleRows(landing: ProductionChangeModuleLanding): Array<[string, string]> {
   const commonRows: Array<[string, string]> = [
     ['读取优先级', '生产单补丁覆盖规则 > 版本关系目标版本 > 生产单冻结快照'],
-    ['生效边界', '只影响后续新建或未开始对象，已发生的配料、领料、裁剪、交出、结算记录不回写'],
+    ['生效边界', '只影响后续新建或未开始对象，已发生的配料、接收、裁剪、交出、结算记录不回写'],
   ]
   const moduleRows: Record<TechPackChangeModule, Array<[string, string]>> = {
     BOM: [
-      ['模块落点', '配料任务、领料单、裁片单物料读取；中转仓和工厂仓管按该标识识别用料口径'],
+      ['模块落点', '配料任务、接收单、裁片单物料读取；中转仓和工厂仓管按该标识识别用料口径'],
       ['执行关注', '已配未领需确认是否作废重建；已领或已加工对象保留原物料快照'],
     ],
     PATTERN: [
@@ -947,8 +947,8 @@ function getModuleLandingRuleRows(landing: ProductionChangeModuleLanding): Array
       ['执行关注', '已生成菲票或已铺布对象不回算，后续新建对象才读取新放码规则'],
     ],
     COLOR_MATERIAL_MAPPING: [
-      ['模块落点', '款色用料对应、颜色维度领料；影响颜色与物料 SKU 的映射'],
-      ['执行关注', '已领料颜色保持原映射，后续颜色批次按补丁或目标版本读取'],
+      ['模块落点', '款色用料对应、颜色维度接收；影响颜色与物料 SKU 的映射'],
+      ['执行关注', '已接收颜色保持原映射，后续颜色批次按补丁或目标版本读取'],
     ],
     COST: [
       ['模块落点', '核价明细、结算口径、工厂对账；财务按标识识别后续结算版本'],

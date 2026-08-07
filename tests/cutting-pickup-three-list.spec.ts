@@ -6,7 +6,7 @@ const paths = {
   HISTORY: '/fcs/craft/cutting/pickup-management/history',
 } as const
 
-// 冷启动会初始化完整补料、加工结果与领料节点；交互性能仍由 measureDomAction 单独按 200ms 门禁校验。
+// 冷启动会初始化完整补料、加工结果与接收节点；交互性能仍由 measureDomAction 单独按 200ms 门禁校验。
 test.setTimeout(300_000)
 
 type MeasuredDomAction = {
@@ -81,9 +81,9 @@ test.beforeEach(async ({ page }) => {
 })
 
 for (const [kind, heading] of [
-  ['READY', '已配齐待领料'],
+  ['READY', '已配齐待接收'],
   ['INCOMPLETE', '未配齐配料'],
-  ['HISTORY', '已领料'],
+  ['HISTORY', '已接收'],
 ] as const) {
   test(`${heading}规范路由按生产单展示全部物料事实且无需进入详情`, async ({ page }) => {
     await page.goto(paths[kind])
@@ -94,12 +94,12 @@ for (const [kind, heading] of [
     await expect(firstMaterial).toContainText(/主面料|斜纹|帆布|半成品/)
     await expect(firstMaterial).toContainText(/tdv_demand_/)
     await expect(firstMaterial).toContainText('应配')
-    await expect(firstMaterial).toContainText('累计领料')
+    await expect(firstMaterial).toContainText('累计接收')
     await expect(page.getByText('查看详情', { exact: true })).toHaveCount(0)
   })
 }
 
-test('未配齐稳定组精确展示同物料两个当前位置并可去领料', async ({ page }) => {
+test('未配齐稳定组精确展示同物料两个当前位置并可去接收', async ({ page }) => {
   await page.goto(paths.INCOMPLETE)
   const orderRow = page.getByRole('row').filter({ hasText: 'PO-202603-0101' })
   await expect(orderRow).toBeVisible({ timeout: 60_000 })
@@ -107,14 +107,14 @@ test('未配齐稳定组精确展示同物料两个当前位置并可去领料',
     hasText: 'Black 弹力斜纹主面料',
   })
   await expect(blackMaterial).toContainText('应配')
-  await expect(blackMaterial).toContainText('累计领料')
+  await expect(blackMaterial).toContainText('累计接收')
   const blackLocations = orderRow.locator('article').filter({
     hasText: 'Black 弹力斜纹主面料 · tdv_demand_SPU_2024_010-bom-black-stretch-twill',
   }).filter({ hasText: 'TR-A-010' })
   await expect(blackLocations).toContainText('TR-A-010')
   await expect(blackLocations).toContainText('TR-A-012')
   await expect(blackLocations.getByText(/TR-A-0(10|12)/)).toHaveCount(2)
-  await expect(orderRow.getByRole('link', { name: '去领料', exact: true })).toHaveAttribute(
+  await expect(orderRow.getByRole('link', { name: '去接收', exact: true })).toHaveAttribute(
     'href',
     /pickupNodeId=.*version=/,
   )
@@ -156,21 +156,21 @@ test('同一物料 SKU 的两次补料保持独立补料单和独立物料行', 
   )
 })
 
-test('已领料覆盖未配齐先领的三种结果与新增补料重开', async ({ page }) => {
+test('已接收覆盖未配齐先领的三种结果与新增补料重开', async ({ page }) => {
   await page.goto(paths.HISTORY)
   await expect(page.locator('[data-pickup-material-row]').first()).toBeVisible({ timeout: 120_000 })
   const resultBody = page.locator('[data-standard-list-scroll] tbody')
   const resultHeader = page.getByRole('button', { name: '按领取路径 / 最终结果升序排列' })
   await expect(resultHeader).toBeAttached()
   await resultHeader.evaluate((element) => element.scrollIntoView({ block: 'nearest', inline: 'center' }))
-  for (const label of ['未配齐先领', '全部领完', '未完成全部领料', '新增补料待领']) {
+  for (const label of ['未配齐先领', '全部领完', '未完成全部接收', '新增补料待领']) {
     const result = resultBody.getByText(label, { exact: true }).first()
     await expect(result).toBeVisible()
   }
   const supplementRow = page.locator('[data-pickup-material-row]').filter({ hasText: '补料单：SUP-000TDWG' })
   await expect(supplementRow).toBeVisible()
   await expect(supplementRow).toContainText('应配')
-  await expect(supplementRow).toContainText('累计领料')
+  await expect(supplementRow).toContainText('累计接收')
 })
 
 test('加工路线筛选覆盖无需加工、染色、印花和先染后印四种数量依据', async ({ page }) => {
@@ -188,13 +188,13 @@ test('加工路线筛选覆盖无需加工、染色、印花和先染后印四�
 test('筛选、分页、排序三态与列偏好均在 200ms 内局部更新并保持菜单和滚动位置', async ({ page }) => {
   await page.goto(paths.HISTORY)
   await expect(page).toHaveURL(/\/fcs\/craft\/cutting\/pickup-management\/history$/, { timeout: 60_000 })
-  await expect(page.getByRole('heading', { name: '已领料', exact: true })).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByRole('heading', { name: '已接收', exact: true })).toBeVisible({ timeout: 60_000 })
   const root = page.locator('[data-pickup-list-root="HISTORY"]')
   await expect(root).toBeVisible({ timeout: 60_000 })
   await root.evaluate((element) => {
     ;(window as typeof window & { __pickupListRoot?: Element }).__pickupListRoot = element
   })
-  const menu = page.getByText('领料管理', { exact: true }).first()
+  const menu = page.getByText('接收管理', { exact: true }).first()
   await expect(menu).toBeVisible()
 
   const keywordFilterElapsed = await measureDomAction(page, {
@@ -207,7 +207,7 @@ test('筛选、分页、排序三态与列偏好均在 200ms 内局部更新并�
     keywordFilterElapsed,
     '筛选输入到 DOM 总耗时必须在 200ms 门槛内保留至少 30ms 余量',
   ).toBeLessThan(170)
-  console.log(`领料列表筛选输入到 DOM 总耗时：${keywordFilterElapsed.toFixed(1)}ms`)
+  console.log(`接收列表筛选输入到 DOM 总耗时：${keywordFilterElapsed.toFixed(1)}ms`)
   await expect(page.getByRole('row').filter({ hasText: 'PO-202603-0001' })).toBeVisible()
   await measureDomAction(page, {
     type: 'input',
@@ -226,7 +226,7 @@ test('筛选、分页、排序三态与列偏好均在 200ms 内局部更新并�
     triggerSelector: 'button[data-pickup-list-action="open-column-settings"]',
     observeSelector: '[data-pickup-list-region="overlay"]',
   })
-  await expect(page.getByRole('heading', { name: '已领料列设置', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '已接收列设置', exact: true })).toBeVisible()
   const sessionsSetting = page.locator('[data-standard-list-column-key="sessions"]')
   await expect(sessionsSetting).toBeVisible()
   await measureDomAction(page, {
@@ -234,13 +234,13 @@ test('筛选、分页、排序三态与列偏好均在 200ms 内局部更新并�
     triggerSelector: '[data-standard-list-column-key="sessions"] input[data-pickup-list-action="toggle-column-visibility"]',
     observeSelector: '[data-pickup-list-region="table"]',
   })
-  await expect(page.getByRole('columnheader', { name: '领取次数 / 最近领料人 / 时间' })).toHaveCount(0)
+  await expect(page.getByRole('columnheader', { name: '领取次数 / 最近接收人 / 时间' })).toHaveCount(0)
   await measureDomAction(page, {
     type: 'click',
     triggerSelector: '[data-standard-list-column-key="sessions"] input[data-pickup-list-action="toggle-column-visibility"]',
     observeSelector: '[data-pickup-list-region="table"]',
   })
-  await expect(page.getByRole('columnheader', { name: '领取次数 / 最近领料人 / 时间' })).toBeVisible()
+  await expect(page.getByRole('columnheader', { name: '领取次数 / 最近接收人 / 时间' })).toBeVisible()
   await measureDomAction(page, {
     type: 'click',
     triggerSelector: '[data-standard-list-column-key="sessions"] input[data-pickup-list-action="toggle-column-freeze"]',
@@ -308,9 +308,9 @@ test('筛选、分页、排序三态与列偏好均在 200ms 内局部更新并�
   expect(stored.order[0]).toBe('sessions')
 
   await page.reload()
-  await expect(page.getByRole('heading', { name: '已领料', exact: true })).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByRole('heading', { name: '已接收', exact: true })).toBeVisible({ timeout: 60_000 })
   await expect(page.locator('select[data-pickup-list-field="pageSize"]')).toHaveValue('20')
-  await expect(page.getByRole('columnheader', { name: '领取次数 / 最近领料人 / 时间' })).toBeVisible()
+  await expect(page.getByRole('columnheader', { name: '领取次数 / 最近接收人 / 时间' })).toBeVisible()
   await expect(
     page.locator('button[data-pickup-list-action="sort-column"][data-column-key="productionOrder"]'),
   ).toHaveAttribute('aria-label', /按生产单升序排列/)
@@ -338,8 +338,8 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 1280, height: 720
       await expect(firstMaterial).toContainText(/主面料|斜纹|帆布/)
       await expect(firstMaterial).toContainText(/tdv_demand_/)
       await expect(firstMaterial).toContainText('应配')
-      await expect(firstMaterial).toContainText('累计领料')
-      await expect(page.getByRole('link', { name: '去领料', exact: true }).first()).toBeVisible()
+      await expect(firstMaterial).toContainText('累计接收')
+      await expect(page.getByRole('link', { name: '去接收', exact: true }).first()).toBeVisible()
     }
   })
 }

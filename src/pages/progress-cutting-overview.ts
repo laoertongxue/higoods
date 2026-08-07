@@ -157,7 +157,7 @@ function renderSummaryCards(): string {
     <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
       ${buildSummaryCard('进行中的裁片任务数', summary.inProgressCount, '仍处于现场执行或待确认阶段', 'text-slate-900')}
       ${buildSummaryCard('高风险裁片任务数', summary.highRiskCount, '优先关注差异和交期问题', 'text-rose-600')}
-      ${buildSummaryCard('待领料任务数', summary.pendingPickupCount, '裁片单主码领料仍未完成', 'text-sky-600')}
+      ${buildSummaryCard('待接收任务数', summary.pendingPickupCount, '裁片单主码接收仍未完成', 'text-sky-600')}
       ${buildSummaryCard('待入仓 / 待交接任务数', summary.pendingWarehouseOrHandoverCount, '仓务处理仍未完成', 'text-amber-600')}
       ${buildSummaryCard('需复核 / 有照片凭证任务数', summary.recheckOrPhotoCount, '需要核对差异和凭证', 'text-fuchsia-600')}
     </section>
@@ -193,7 +193,7 @@ function renderFocusSection(): string {
                       <p class="mt-2 text-sm text-muted-foreground">${escapeHtml(row.mainIssueTitle)}</p>
                       <p class="mt-2 text-xs text-muted-foreground">${escapeHtml(row.suggestedActionText)}</p>
                       <div class="mt-3 flex flex-wrap gap-2">
-                        ${row.hasReceiveRecheck ? renderBadge('领料差异待复核', 'bg-amber-50 text-amber-700') : ''}
+                        ${row.hasReceiveRecheck ? renderBadge('接收差异待复核', 'bg-amber-50 text-amber-700') : ''}
                         ${row.hasPhotoEvidence ? renderBadge('已提交照片凭证', 'bg-blue-50 text-blue-700') : ''}
                         ${row.hasPendingInbound ? renderBadge('待入仓', 'bg-violet-50 text-violet-700') : ''}
                         ${row.hasPendingHandover ? renderBadge('待交接', 'bg-fuchsia-50 text-fuchsia-700') : ''}
@@ -237,7 +237,7 @@ function renderFilterSection(): string {
         ])}
         ${renderFilterSelect('当前阶段', 'stage', state.filters.stage, [
           { value: 'ALL', label: '全部' },
-          { value: 'PENDING_PICKUP', label: '待领料' },
+          { value: 'PENDING_PICKUP', label: '待接收' },
           { value: 'EXECUTING', label: '执行中' },
           { value: 'PENDING_INBOUND', label: '待入仓' },
           { value: 'PENDING_HANDOVER', label: '待交接' },
@@ -249,7 +249,7 @@ function renderFilterSection(): string {
           { value: 'MEDIUM', label: '中风险' },
           { value: 'LOW', label: '低风险' },
         ])}
-        ${renderFilterSelect('领料结果', 'pickupResult', state.filters.pickupResult, [
+        ${renderFilterSelect('接收结果', 'pickupResult', state.filters.pickupResult, [
           { value: 'ALL', label: '全部' },
           { value: 'MATCHED', label: '正常领取' },
           { value: 'RECHECK_REQUIRED', label: '需复核' },
@@ -295,7 +295,7 @@ function renderMainTable(): string {
                     <th class="px-3 py-3">裁片任务号</th>
                     <th class="px-3 py-3">分配工厂</th>
                     <th class="px-3 py-3">当前阶段</th>
-                    <th class="px-3 py-3">领料摘要</th>
+                    <th class="px-3 py-3">接收摘要</th>
                     <th class="px-3 py-3">执行摘要</th>
                     <th class="px-3 py-3">入仓 / 交接摘要</th>
                     <th class="px-3 py-3">风险 / 问题数</th>
@@ -325,7 +325,7 @@ function renderMainTable(): string {
                           </td>
                           <td class="px-3 py-4">
                             <div class="font-medium text-foreground">${escapeHtml(row.assignedFactoryName)}</div>
-                            <div class="mt-1 text-xs text-muted-foreground">领料单：${escapeHtml(row.pickupSlipNo)}</div>
+                            <div class="mt-1 text-xs text-muted-foreground">接收单：${escapeHtml(row.pickupSlipNo)}</div>
                           </td>
                           <td class="px-3 py-4">
                             ${renderBadge(platformCuttingStageMeta[row.currentStage].label, platformCuttingStageMeta[row.currentStage].className)}
@@ -426,10 +426,10 @@ function renderSummaryDrawer(): string {
         </section>
 
         <section class="rounded-lg border p-4">
-          <h3 class="font-semibold text-foreground">领料摘要</h3>
+          <h3 class="font-semibold text-foreground">接收摘要</h3>
           <div class="mt-4 grid gap-4 md:grid-cols-2">
             <div class="rounded-lg border bg-muted/20 p-4">
-              <p class="text-xs text-muted-foreground">领料单号 / 打印版本</p>
+              <p class="text-xs text-muted-foreground">接收单号 / 打印版本</p>
               <p class="mt-1 font-medium text-foreground">${escapeHtml(row.pickupSummary.pickupSlipNo)}</p>
               <p class="mt-2 text-xs text-muted-foreground">最新打印版本：${escapeHtml(row.pickupSummary.latestPrintVersionNo)}</p>
               <p class="mt-1 text-xs text-muted-foreground">已打印次数：${row.pickupSummary.printCopyCount}</p>

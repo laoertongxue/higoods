@@ -12,7 +12,7 @@ async function openProgressBoard(page: import('@playwright/test').Page): Promise
   await expect(page.locator('[data-progress-task-list="true"]')).toBeVisible({ timeout: 120_000 })
 }
 
-test('任务列表新增领料情况与交出情况两列，且位于执行状态后、风险前', async ({ page }) => {
+test('任务列表新增接收情况与交出情况两列，且位于执行状态后、风险前', async ({ page }) => {
   test.slow()
   const errors = collectPageErrors(page)
 
@@ -22,7 +22,7 @@ test('任务列表新增领料情况与交出情况两列，且位于执行状�
 
   const headerTexts = normalizeHeaderTexts(await taskList.locator('thead th').allTextContents())
   const executionStatusIndex = headerTexts.indexOf('执行状态')
-  const pickupIndex = headerTexts.indexOf('领料情况')
+  const pickupIndex = headerTexts.indexOf('接收情况')
   const handoverIndex = headerTexts.indexOf('交出情况')
   const riskIndex = headerTexts.indexOf('风险')
 

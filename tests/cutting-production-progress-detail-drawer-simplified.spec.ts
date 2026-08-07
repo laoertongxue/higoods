@@ -6,7 +6,7 @@ import { collectPageErrors, expectNoPageErrors } from './helpers/seed-cutting-ru
 
 const detailTabs = [
   '裁片单',
-  '配料 / 领料',
+  '配料 / 接收',
   '唛架 / 铺布',
   '裁剪产出 / 菲票',
   '待交出仓 / 中转袋',
@@ -49,8 +49,8 @@ test('生产单进度状态入口进入简化事实详情页', async ({ page }) 
   for (const tab of detailTabs) {
     await expect(tabNavigation.getByRole('button', { name: tab, exact: true })).toBeVisible()
   }
-  await expect(tabNavigation.getByRole('button', { name: '配料 / 领料', exact: true })).toHaveAttribute('aria-current', 'page')
-  await expect(detail.getByRole('heading', { name: '配料 / 领料记录' })).toBeVisible()
+  await expect(tabNavigation.getByRole('button', { name: '配料 / 接收', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(detail.getByRole('heading', { name: '配料 / 接收记录' })).toBeVisible()
 
   await tabNavigation.getByRole('button', { name: '裁片单', exact: true }).click()
   await expect(page).toHaveURL(new RegExp(`/fcs/craft/cutting/production-progress-detail/${encodedDetailId}\\?tab=cut-orders$`))

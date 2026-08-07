@@ -2,20 +2,20 @@ import { expect, test } from '@playwright/test'
 
 import { collectPageErrors, expectNoPageErrors, seedLocalStorage } from './helpers/seed-cutting-runtime-state'
 
-test('仓库已交付待工厂确认的记录可确认领料', async ({ page }) => {
+test('仓库已交付待工厂确认的记录可确认接收', async ({ page }) => {
   const errors = collectPageErrors(page)
   await seedLocalStorage(page, { fcs_pda_factory_id: 'ID-F001' })
 
   await page.goto('/fcs/pda/handover/PKH-MOCK-SEW-400')
   await expect(page.getByText('当前记录处理区')).toBeVisible()
-  await expect(page.getByRole('button', { name: '确认本次领料', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: '确认本次接收', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: '数量有差异', exact: true })).toBeVisible()
   await expect(page.locator('[data-pda-handoverd-field="pickupConfirmQty"]')).toHaveCount(0)
 
-  await page.getByRole('button', { name: '确认本次领料', exact: true }).click()
-  await expect(page.getByText('本次领料已确认完成').first()).toBeVisible()
+  await page.getByRole('button', { name: '确认本次接收', exact: true }).click()
+  await expect(page.getByText('本次接收已确认完成').first()).toBeVisible()
   await expect(page.getByText('已确认数量').first()).toBeVisible()
-  await expect(page.getByRole('button', { name: '确认本次领料', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '确认本次接收', exact: true })).toHaveCount(0)
 
   await expectNoPageErrors(errors)
 })

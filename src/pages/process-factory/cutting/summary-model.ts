@@ -418,9 +418,9 @@ export const cuttingSummaryRiskMetaMap: Record<CuttingSummaryRiskLevel, CuttingS
 export const cuttingSummaryIssueMetaMap: Record<CuttingSummaryIssueType, CuttingSummaryIssueMeta> = {
   MATERIAL_PREP: {
     key: 'MATERIAL_PREP',
-    label: '领料问题',
+    label: '接收问题',
     className: 'bg-amber-100 text-amber-700 border border-amber-200',
-    detailText: '领料数量不足或领料差异。',
+    detailText: '接收数量不足或接收差异。',
     actionHint: '去待加工仓',
   },
   SPREADING: {
@@ -509,14 +509,14 @@ function summarizeBagUsageStatus(usages: TransferBagUsageItem[], returnUsages: T
 }
 
 function summarizeMaterialPrep(rows: MaterialPrepRow[]): string {
-  if (!rows.length) return '未进入配料/领料'
+  if (!rows.length) return '未进入配料/接收'
   const configured = rows.filter((row) => row.materialPrepStatus.key === 'CONFIGURED').length
   const partial = rows.filter((row) => row.materialPrepStatus.key === 'PARTIAL').length
   const claimException = rows.filter((row) => row.materialClaimStatus.key === 'EXCEPTION').length
   return [
     `有配料数量 ${configured}/${rows.length}`,
     partial ? `配料数量不足 ${partial}` : '',
-    claimException ? `领料异常 ${claimException}` : '',
+    claimException ? `接收异常 ${claimException}` : '',
   ]
     .filter(Boolean)
     .join(' / ')

@@ -200,19 +200,19 @@ const warehouseWaitProcessSource = read('src/pages/pda-warehouse-wait-process.ts
 const warehouseInboundSource = read('src/pages/pda-warehouse-inbound-records.ts')
 
 if (!handoverDetailSource.includes('confirm-pickup-record')) {
-  fail('待领料确认主流程不在原交接详情页')
+  fail('待接收确认主流程不在原交接详情页')
 }
 if (
   warehouseWaitProcessSource.includes('confirm-pickup-record')
-  || warehouseWaitProcessSource.includes('待领料确认主流程')
+  || warehouseWaitProcessSource.includes('待接收确认主流程')
 ) {
-  fail('待加工仓页面不应替代待领料确认主流程')
+  fail('待加工仓页面不应替代待接收确认主流程')
 }
 if (
   warehouseInboundSource.includes(buildToken('手动', '入库'))
   || warehouseInboundSource.includes(buildToken('新增', '入库记录'))
 ) {
-  fail('入库记录页面不应替代待领料入库主流程')
+  fail('入库记录页面不应替代待接收入库主流程')
 }
 
 console.log('[check-pda-task-receive-scope] 接单模块范围过滤通过')

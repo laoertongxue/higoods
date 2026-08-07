@@ -59,7 +59,7 @@
 {
   actionCode: 'SPECIAL_CRAFT_CONFIRM_RECEIVE',
   actionLabel: '确认接收',
-  fromStatuses: ['待领料'],
+  fromStatuses: ['待接收'],
   toStatus: '加工中',
   requiredFields: ['接收人', '接收时间'],
   optionalFields: ['备注'],

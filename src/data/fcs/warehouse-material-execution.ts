@@ -562,7 +562,7 @@ export function buildWarehouseExecutionDocumentSnapshot(
       warehouseName: WAREHOUSE_SEEDS[0].name,
       createdAt: '2026-04-23 09:00:00',
       updatedAt: '2026-04-23 09:30:00',
-      remark: '演示领料记录',
+      remark: '演示接收记录',
       lines: [
         {
           lineId: 'WIE-FALLBACK-001-L01',

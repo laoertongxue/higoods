@@ -53,7 +53,7 @@ try {
     const html = withWindow(item.pathname, baseSearch, item.render)
     assert(html.includes('生产需求信息'), `${item.label} 详情必须保留 Tab`)
     const summaryBeforeTabs = beforeDetailTabs(html, item.label)
-    ;['配料状态', '领料状态', '物料行', '缺料缺口', 'BOM 来源', '暂存区台账', '仓库拣货进度', '完成通知', '分配回写'].forEach((text) => {
+    ;['配料状态', '接收状态', '物料行', '缺料缺口', 'BOM 来源', '暂存区台账', '仓库拣货进度', '完成通知', '分配回写'].forEach((text) => {
       assert(!summaryBeforeTabs.includes(text), `${item.label} Tab 上方不能再展示摘要字段：${text}`)
     })
 
@@ -71,8 +71,8 @@ try {
     assert(tasksHtml.includes('分配回写'), `${item.label} 按任务查看 Tab 必须展示分配回写`)
 
     const pickupHtml = withWindow(item.pathname, `${baseSearch}&detailTab=pickup`, item.render)
-    assert(pickupHtml.includes('领料状态'), `${item.label} 领料记录 Tab 必须展示领料状态`)
-    assert(pickupHtml.includes('仓库拣货进度'), `${item.label} 领料记录 Tab 必须展示仓库拣货进度`)
+    assert(pickupHtml.includes('接收状态'), `${item.label} 接收记录 Tab 必须展示接收状态`)
+    assert(pickupHtml.includes('仓库拣货进度'), `${item.label} 接收记录 Tab 必须展示仓库拣货进度`)
   }
 } finally {
   if (originalWindow === undefined) {

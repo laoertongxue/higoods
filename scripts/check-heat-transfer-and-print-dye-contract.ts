@@ -133,7 +133,7 @@ assert(garmentHeat.planQty > 0, '成衣烫画加工单计划件数必须大于 0
 assert.deepEqual(garmentHeat.feiTicketNos, [], '成衣烫画加工单不得生成菲票')
 const garmentWaitProcess = getWarehouseRecordsByWorkOrderId(garmentHeat.taskOrderId)
   .find((item) => item.recordType === 'WAIT_PROCESS')
-assert.equal(garmentHeat.status, '待领料', '契约样例必须从尚未出库的成衣加工单开始')
+assert.equal(garmentHeat.status, '待接收', '契约样例必须从尚未出库的成衣加工单开始')
 assert.equal(garmentWaitProcess, undefined, '成衣仓尚未出库且辅助工艺尚未收货时不得投影待加工仓')
 const garmentSkuLines = (getSpecialCraftTaskOrderById(garmentHeat.taskOrderId)?.demandLines ?? [])
 assert(garmentSkuLines.length > 1, '成衣加工单必须包含真实 SKU 明细')
@@ -259,13 +259,13 @@ assert(!directPdaWithoutSession.includes('data-pda-execd-action="special-garment
 const outboundCountBeforeDeniedActions = listFactoryWarehouseOutboundRecords()
   .filter((record) => record.sourceTaskId === garmentDirect.taskOrderId).length
 handlePdaExecDetailEvent(buildPdaActionTarget('special-garment-warehouse-outbound', garmentDirectMobileTask.taskId))
-assert.equal(getSpecialCraftTaskOrderById(garmentDirect.taskOrderId)?.status, '待领料', '无登录会话直接触发 handler 不得推进加工单')
+assert.equal(getSpecialCraftTaskOrderById(garmentDirect.taskOrderId)?.status, '待接收', '无登录会话直接触发 handler 不得推进加工单')
 
 setPdaSession(createPdaSessionFromUser(directAuxiliaryPdaUser))
 const directPdaAsAuxiliaryFactory = renderPdaExecDetailPage(garmentDirectMobileTask.taskId)
 assert(!directPdaAsAuxiliaryFactory.includes('data-pda-execd-action="special-garment-warehouse-outbound"'), '辅助工艺厂账号不得看到成衣仓出库按钮')
 handlePdaExecDetailEvent(buildPdaActionTarget('special-garment-warehouse-outbound', garmentDirectMobileTask.taskId))
-assert.equal(getSpecialCraftTaskOrderById(garmentDirect.taskOrderId)?.status, '待领料', '辅助工艺厂账号不得执行成衣仓出库')
+assert.equal(getSpecialCraftTaskOrderById(garmentDirect.taskOrderId)?.status, '待接收', '辅助工艺厂账号不得执行成衣仓出库')
 assert.equal(
   listFactoryWarehouseOutboundRecords().filter((record) => record.sourceTaskId === garmentDirect.taskOrderId).length,
   outboundCountBeforeDeniedActions,
@@ -757,7 +757,7 @@ const cutPieceReceive = applySpecialCraftWarehouseLinkageAfterAction({
   sourceId: cutPieceHeat.taskOrderId,
   taskId: cutPieceHeat.taskOrderId,
   actionCode: 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES',
-  previousStatus: '待领料',
+  previousStatus: '待接收',
   nextStatus: '已入待加工仓',
   objectType: '裁片',
   objectQty: cutPieceHeat.planQty,
@@ -840,7 +840,7 @@ writeSpecialCraftTaskListPreference(preferenceStorage, heatSlug, {
 writeSpecialCraftTaskListPreference(preferenceStorage, directSlug, {
   keyword: 'direct-only',
   factoryId: 'FAC-AUX-DIRECT-PRINT',
-  status: '待领料',
+  status: '待接收',
   abnormalStatus: '全部',
   timeRange: '30D',
   page: 6,
@@ -953,7 +953,7 @@ assert(factoryInternalWarehouseSource.includes('sourceSnapshot?: ProcessWorkOrde
 for (const forbidden of ['prerequisiteWorkOrderId', 'lockedByDyeWorkOrderId', 'unlockStatus']) {
   assert(!processWorkOrderDomainSource.includes(forbidden), `印染加工单不得引入运行时互锁字段 ${forbidden}`)
 }
-assert(!factoryInternalWarehouseSource.includes('pickupFallbackFactories'), '领料入库不得以任意非车缝工厂兜底主体')
+assert(!factoryInternalWarehouseSource.includes('pickupFallbackFactories'), '接收入库不得以任意非车缝工厂兜底主体')
 assert(!factoryInternalWarehouseSource.includes('fallbackType?: FactoryType'), '工厂名称解析不得按工厂类型兜底主体')
 assert(!factoryInternalWarehouseSource.includes('factory.factoryType === fallbackType'), '工厂名称解析缺少精确主体时必须失败关闭')
 assert(routeSource.includes('buildSpecialCraftTaskOrdersPath(operation)'), '动态路由必须按 operation 生成独立列表入口')

@@ -466,7 +466,7 @@ function renderRuleFormPage(rule: ProductionTaskGenerationRule, mode: 'new' | 'e
         <fieldset class="space-y-3 rounded-lg border bg-card p-4 xl:col-span-2">
           <legend class="px-1 text-sm font-medium">PDA执行设置</legend>
           <div class="grid gap-3 text-sm md:grid-cols-5">
-            ${['领料', '开工', '关键节点上报', '交出', '完工'].map((step) => `
+            ${['接收', '开工', '关键节点上报', '交出', '完工'].map((step) => `
               <label class="flex items-center gap-2 rounded-md border bg-background px-3 py-2">
                 <input type="checkbox" checked disabled class="h-4 w-4 rounded border" />
                 ${escapeHtml(step)}
@@ -558,7 +558,7 @@ function renderRuleDetailPage(rule: ProductionTaskGenerationRule): string {
         <div class="space-y-3 rounded-lg border bg-card p-4 xl:col-span-2">
           <h2 class="text-base font-semibold">PDA执行设置</h2>
           <div class="flex flex-wrap gap-2">
-            ${['领料', '开工', '关键节点上报', '交出', '完工'].map((step) => renderBadge(step, 'blue')).join('')}
+            ${['接收', '开工', '关键节点上报', '交出', '完工'].map((step) => renderBadge(step, 'blue')).join('')}
           </div>
         </div>
       </section>

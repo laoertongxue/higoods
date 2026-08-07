@@ -533,7 +533,7 @@ export function renderAddTechniqueDialog(): string {
                   <div class="font-medium text-emerald-800">毛织任务规则</div>
                   <div class="mt-2 grid gap-2 text-xs text-slate-700 md:grid-cols-2">
                     <div>任务类型：${escapeHtml(selectedCraft?.craftName || '-')}</div>
-                    <div>领料方式：染厂/面料仓送料到厂</div>
+                    <div>接收方式：染厂/面料仓送料到厂</div>
                     <div>完成交出：${escapeHtml(woolDownstream)}</div>
                   </div>
                 </div>

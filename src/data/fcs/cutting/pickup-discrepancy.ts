@@ -89,7 +89,7 @@ export function reportPickupDiscrepancy(
   resolveActiveNode?: PickupActiveNodeResolver,
 ): PickupDiscrepancyRecord {
   if (!input.pickupNodeId || input.pickupNodeVersion <= 0) {
-    throw new Error('当前待领节点或版本无效，请重新进入领料任务。')
+    throw new Error('当前待领节点或版本无效，请重新进入接收任务。')
   }
   if (!input.demandLineId || !input.materialSku || !input.unit) {
     throw new Error('请选择存在差异的物料。')
@@ -102,9 +102,9 @@ export function reportPickupDiscrepancy(
   }
   if (!resolveActiveNode) throw new Error('缺少当前待领节点解析器，不能上报差异。')
   const activeNode = resolveActiveNode(input.pickupNodeId)
-  if (!activeNode) throw new Error('当前待领节点已失效，请重新进入领料任务。')
+  if (!activeNode) throw new Error('当前待领节点已失效，请重新进入接收任务。')
   if (activeNode.nodeId !== input.pickupNodeId) {
-    throw new Error('当前待领节点身份不一致，请重新进入领料任务。')
+    throw new Error('当前待领节点身份不一致，请重新进入接收任务。')
   }
   if (activeNode.version !== input.pickupNodeVersion) {
     throw new Error('当前待领节点版本已更新，请重新核对后再上报差异。')
@@ -184,6 +184,6 @@ export function assertPickupNodeHasNoOpenDiscrepancy(
     && record.status === '待主管处理'
   )
   if (discrepancy) {
-    throw new Error(`当前节点存在领料差异待主管处理（${discrepancy.materialName}），不可确认领料。`)
+    throw new Error(`当前节点存在接收差异待主管处理（${discrepancy.materialName}），不可确认接收。`)
   }
 }

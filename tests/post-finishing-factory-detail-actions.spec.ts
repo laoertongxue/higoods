@@ -27,9 +27,9 @@ test('后道单列表工厂名称、详情和操作入口可用', async ({ page 
   await expect(page.getByText('计划成衣件数')).toBeVisible()
   await expect(page.getByText('当前状态')).toBeVisible()
 
-  for (const tab of ['接收领料', '质检记录', '后道记录', '复检记录', '交出记录', '流转记录']) {
+  for (const tab of ['接收接收', '质检记录', '后道记录', '复检记录', '交出记录', '流转记录']) {
     await page.getByRole('button', { name: tab, exact: true }).click()
-    await expect(page).toHaveURL(new RegExp(`tab=${tab === '接收领料' ? 'receive' : tab === '后道记录' ? 'post' : tab === '质检记录' ? 'qc' : tab === '复检记录' ? 'recheck' : tab === '交出记录' ? 'handover' : 'events'}`))
+    await expect(page).toHaveURL(new RegExp(`tab=${tab === '接收接收' ? 'receive' : tab === '后道记录' ? 'post' : tab === '质检记录' ? 'qc' : tab === '复检记录' ? 'recheck' : tab === '交出记录' ? 'handover' : 'events'}`))
     await expect(page.getByRole('heading', { name: tab })).toBeVisible()
   }
 
@@ -78,7 +78,7 @@ test('质检单、复检单和移动端后道任务使用同一工厂与同一�
   await expect(page.getByText('HD-2026-001')).toBeVisible()
   await expect(page.getByText(FULL_FACTORY_NAME).first()).toBeVisible()
   await expect(page.getByText('计划成衣件数')).toBeVisible()
-  await expect(page.getByRole('button', { name: '确认接收领料' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '确认接收接收' })).toBeVisible()
 
   await page.goto('/fcs/pda/exec/TASK-POST-002')
   await expect(page.getByRole('button', { name: '开始质检' })).toBeVisible()

@@ -92,7 +92,7 @@ export interface PlatformCuttingOverviewRow {
   sampleSummaryText: string
   recentFactoryActionAt: string
   recentFactoryActionBy: string
-  recentFactoryActionSource: '领料回写' | '铺布录入' | '入仓回写' | '样衣流转' | '暂无回写'
+  recentFactoryActionSource: '接收回写' | '铺布录入' | '入仓回写' | '样衣流转' | '暂无回写'
   mainIssueTitle: string
   mainIssueDescription: string
   mainIssueSourceLabel: string
@@ -403,7 +403,7 @@ function buildLatestFactoryAction(
     {
       at: pickupSummary.latestScannedAt === '-' ? '' : pickupSummary.latestScannedAt,
       by: pickupSummary.latestScannedBy,
-      source: '领料回写' as const,
+      source: '接收回写' as const,
       updatedSource: 'FACTORY_APP' as const,
     },
     {
@@ -453,10 +453,10 @@ function buildIssues(options: {
     issues.push({
       issueType: 'RECEIVE_DISCREPANCY',
       level: options.pickupSummary.hasPhotoEvidence ? 'HIGH' : 'MEDIUM',
-      title: '领料结果待复核',
+      title: '接收结果待复核',
       description: options.pickupSummary.resultSummaryText,
       sourcePage: 'MATERIAL_PREP',
-      suggestedAction: '回待加工仓核对 WMS 领料入仓结果、扫码结果和差异说明。',
+      suggestedAction: '回待加工仓核对 WMS 接收入仓结果、扫码结果和差异说明。',
       suggestedRoute: defaultRoutes.materialPrep,
     })
   }
@@ -538,7 +538,7 @@ function buildIssues(options: {
 
 function buildPlatformStageSummary(currentStage: PlatformCuttingOverviewStage, truth: ProductionPieceTruthResult, issue: PlatformRuntimeIssue | null): string {
   const stageLabelMap: Record<PlatformCuttingOverviewStage, string> = {
-    PENDING_PICKUP: '待领料',
+    PENDING_PICKUP: '待接收',
     EXECUTING: '执行中',
     PENDING_INBOUND: '待入仓',
     PENDING_HANDOVER: '待交接',

@@ -2095,7 +2095,7 @@ export function handleProductionEvent(target: HTMLElement, event?: Event): boole
       return true
     }
 
-    showPlanMessage(`领料需求已创建：${result.request.materialRequestNo}`)
+    showPlanMessage(`接收需求已创建：${result.request.materialRequestNo}`)
     return true
   }
 

@@ -169,7 +169,7 @@ function renderTodoModal(): string {
         <div class="flex items-center justify-between gap-3">
           <div>
             <h2 class="text-base font-semibold text-foreground">当前待办</h2>
-            <p class="mt-1 text-xs text-muted-foreground">优先处理待接单、待领料、待交出和差异项。</p>
+            <p class="mt-1 text-xs text-muted-foreground">优先处理待接单、待接收、待交出和差异项。</p>
           </div>
           <button
             type="button"

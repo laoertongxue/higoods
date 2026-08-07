@@ -16,10 +16,10 @@ import type {
 } from './types.ts'
 
 export const pickupScenarioTypeLabels: Record<PickupScenarioType, string> = {
-  COMMON: '通用领料',
-  CUTTING: '裁片领料',
-  PRINTING: '面料领料',
-  DYEING: '面料领料',
+  COMMON: '通用接收',
+  CUTTING: '裁片接收',
+  PRINTING: '面料接收',
+  DYEING: '面料接收',
 }
 
 export const pickupBoundObjectTypeLabels: Record<PickupBoundObjectType, string> = {

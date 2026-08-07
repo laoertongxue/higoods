@@ -110,7 +110,7 @@ import {
 import { loadWarehouseLayoutSnapshot } from './process-factory/cutting/warehouse-location-layout-store.ts'
 import { buildWaitProcessRuntimeOccupancies } from './process-factory/cutting/warehouse-location-map.ts'
 
-type WaitProcessFilter = '全部' | '待领料' | '已入待加工仓' | '差异待处理'
+type WaitProcessFilter = '全部' | '待接收' | '已入待加工仓' | '差异待处理'
 
 export function revalidatePdaCuttingFootprintAdjustmentSelection(
   projection: WarehouseLocationMapProjection,
@@ -259,7 +259,7 @@ let cuttingPickupNodeSnapshot: PickupNodeProjection | null = null
 
 const FILTERS: Array<{ value: WaitProcessFilter; label: string }> = [
   { value: '全部', label: '全部' },
-  { value: '待领料', label: '中转仓领料' },
+  { value: '待接收', label: '中转仓接收' },
   { value: '已入待加工仓', label: '已入待加工仓' },
   { value: '差异待处理', label: '差异待处理' },
 ]
@@ -342,11 +342,11 @@ function renderGarmentWaitProcessCard(row: FactoryWaitProcessStockItem): string 
         <div>应收 / 实收件数：${row.expectedQty} / ${row.receivedQty} 件</div>
         <div>当前仓：${escapeHtml(row.warehouseName)} · ${escapeHtml(row.locationText)}</div>
         <div>本单领用进度：${issuedSkuCount} / ${taskRows.length} SKU</div>
-        <div>下一动作：加工领料</div>
+        <div>下一动作：加工接收</div>
       </div>
       <div class="mt-4 flex gap-2">
         <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-fast-page-render data-pda-warehouse-action="open-wait-process-detail" data-stock-item-id="${escapeAttr(row.stockItemId)}">查看</button>
-        <button type="button" class="rounded-full bg-primary px-3 py-1.5 text-xs text-primary-foreground" data-pda-warehouse-action="special-craft-wait-process-issue" data-stock-item-id="${escapeAttr(row.stockItemId)}" data-task-order-id="${escapeAttr(row.taskId || '')}" data-sku-code="${escapeAttr(row.materialSku || '')}">加工领料</button>
+        <button type="button" class="rounded-full bg-primary px-3 py-1.5 text-xs text-primary-foreground" data-pda-warehouse-action="special-craft-wait-process-issue" data-stock-item-id="${escapeAttr(row.stockItemId)}" data-task-order-id="${escapeAttr(row.taskId || '')}" data-sku-code="${escapeAttr(row.materialSku || '')}">加工接收</button>
       </div>
     </article>
   `
@@ -386,7 +386,7 @@ function ensureAuxiliaryWaitProcessDraft(action: AuxiliaryWaitProcessAction): Fa
 function renderAuxiliaryWaitProcessActionCards(activeAction?: AuxiliaryWaitProcessAction | null): string {
   const actions: Array<{ key: AuxiliaryWaitProcessAction; title: string; desc: string }> = [
     { key: 'receive', title: '接收入仓', desc: '扫交接单或加工单，确认数量和库位。' },
-    { key: 'issue', title: '加工领料', desc: '从待加工仓领出给工序使用。' },
+    { key: 'issue', title: '加工接收', desc: '从待加工仓领出给工序使用。' },
     { key: 'return', title: '回收入仓', desc: '未加工完或退回物回到库位。' },
   ]
   return `
@@ -496,7 +496,7 @@ function updateAuxiliaryWaitProcessLocation(action: AuxiliaryWaitProcessAction, 
 function renderAuxiliaryWaitProcessActionPage(action: AuxiliaryWaitProcessAction): string {
   const sample = ensureAuxiliaryWaitProcessDraft(action)
   const runtimeLabel = getCraftWarehouseRuntimeLabel() || '工艺'
-  const title = action === 'receive' ? '接收入仓' : action === 'issue' ? '加工领料' : '回收入仓'
+  const title = action === 'receive' ? '接收入仓' : action === 'issue' ? '加工接收' : '回收入仓'
   const scanValue = action === 'receive'
     ? state.auxiliaryReceiveScan
     : action === 'issue'
@@ -508,7 +508,7 @@ function renderAuxiliaryWaitProcessActionPage(action: AuxiliaryWaitProcessAction
       ? state.auxiliaryIssueQty
       : state.auxiliaryReturnQty
   const scanLabel = action === 'receive' ? '交接单 / 加工单' : action === 'issue' ? '库存记录 / 加工单' : '回收来源'
-  const qtyLabel = action === 'receive' ? '接收数量' : action === 'issue' ? '领料数量' : '回收数量'
+  const qtyLabel = action === 'receive' ? '接收数量' : action === 'issue' ? '接收数量' : '回收数量'
   return `
     <div class="space-y-4 px-4 pb-5 pt-4">
       <section class="flex items-start justify-between gap-3">
@@ -540,7 +540,7 @@ function renderAuxiliaryWaitProcessActionPage(action: AuxiliaryWaitProcessAction
 function renderAuxiliaryWaitProcessPage(): string {
   const activeAction = getAuxiliaryWaitProcessAction(getMobileWarehouseSearchParams().get('action'))
   if (activeAction) {
-    const title = activeAction === 'receive' ? '接收入仓' : activeAction === 'issue' ? '加工领料' : '回收入仓'
+    const title = activeAction === 'receive' ? '接收入仓' : activeAction === 'issue' ? '加工接收' : '回收入仓'
     return renderPdaFrame(renderAuxiliaryWaitProcessActionPage(activeAction), 'warehouse', { headerTitle: title, disableTodoAutoOpen: true })
   }
   const runtime = getMobileWarehouseRuntimeContext()
@@ -548,7 +548,7 @@ function renderAuxiliaryWaitProcessPage(): string {
   const rows = getAuxiliaryWaitProcessRows()
   const content = `
     <div class="space-y-4 px-4 pb-5 pt-4">
-      ${runtime ? renderWarehouseSummaryHeader(`${runtimeLabel}待加工仓`, '接收入仓后进入待加工仓，加工领料扣减，退回物走回收入仓。', runtime.overview) : ''}
+      ${runtime ? renderWarehouseSummaryHeader(`${runtimeLabel}待加工仓`, '接收入仓后进入待加工仓，加工接收扣减，退回物走回收入仓。', runtime.overview) : ''}
       ${renderAuxiliaryWaitProcessActionCards()}
       ${renderSectionFilterChips(state.status, FILTERS, 'wait-process-status')}
       <section class="space-y-3">
@@ -579,7 +579,7 @@ function renderAuxiliaryWaitProcessPage(): string {
                 </div>
                 <div class="mt-4 flex flex-wrap gap-2">
                   <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-pda-warehouse-action="open-wait-process-detail" data-stock-item-id="${escapeAttr(row.stockItemId)}">查看</button>
-                  <button type="button" class="rounded-full ${isGarment ? 'bg-primary text-primary-foreground' : 'border'} px-3 py-1.5 text-xs" data-nav="/fcs/pda/warehouse/wait-process?action=issue">加工领料</button>
+                  <button type="button" class="rounded-full ${isGarment ? 'bg-primary text-primary-foreground' : 'border'} px-3 py-1.5 text-xs" data-nav="/fcs/pda/warehouse/wait-process?action=issue">加工接收</button>
                   ${isGarment ? '' : `
                     <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-nav="/fcs/pda/warehouse/wait-process?action=return">回收入仓</button>
                     <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-pda-warehouse-action="open-wait-process-location" data-stock-item-id="${escapeAttr(row.stockItemId)}">调整位置</button>
@@ -664,7 +664,7 @@ function runtimeNumber(value: unknown): number {
 
 function listCuttingWaitProcessRuntimeEvents(): CuttingRuntimeEvent[] {
   const events = [
-    ...listCuttingRuntimeEventsByType('中转仓领料'),
+    ...listCuttingRuntimeEventsByType('中转仓接收'),
     ...listCuttingRuntimeEventsByInventoryScope('裁床待加工仓'),
   ]
   const seen = new Set<string>()
@@ -719,9 +719,9 @@ function getCuttingRuntimeEventRollCount(event: CuttingRuntimeEvent): number {
 
 function getCuttingRuntimeEventSourceText(event: CuttingRuntimeEvent): string {
   const payload = runtimeRecord(event.payload)
-  if (event.eventType === '中转仓领料') return `中转仓领料：${runtimeString(payload.pickupRecordNo) || event.refs.cutOrderNo || event.eventNo}`
-  if (event.eventType === '待加工仓扫码入仓') return `中转仓领料入库：${runtimeString(payload.inboundRecordNo) || event.refs.cutOrderNo || event.eventNo}`
-  if (event.eventType === '待加工仓加工领料') return `加工领料：${runtimeString(payload.issueRecordNo) || event.refs.spreadingOrderNo || event.eventNo}`
+  if (event.eventType === '中转仓接收') return `中转仓接收：${runtimeString(payload.pickupRecordNo) || event.refs.cutOrderNo || event.eventNo}`
+  if (event.eventType === '待加工仓扫码入仓') return `中转仓接收入库：${runtimeString(payload.inboundRecordNo) || event.refs.cutOrderNo || event.eventNo}`
+  if (event.eventType === '待加工仓加工接收') return `加工接收：${runtimeString(payload.issueRecordNo) || event.refs.spreadingOrderNo || event.eventNo}`
   if (event.eventType === '待加工仓回收入仓') return `回收入仓：${runtimeString(payload.returnRecordNo) || event.refs.spreadingOrderNo || event.eventNo}`
   return event.eventType
 }
@@ -756,7 +756,7 @@ function getCuttingWaitProcessLocationLabel(row: MaterialLedgerProjection): stri
     (event) => event.eventType === '待加工仓扫码入仓' || event.eventType === '待加工仓回收入仓',
   )
   if (latestInbound) return getCuttingRuntimeEventLocationLabel(latestInbound)
-  const latestIssue = findLatestCuttingRuntimeEvent(row, (event) => event.eventType === '待加工仓加工领料')
+  const latestIssue = findLatestCuttingRuntimeEvent(row, (event) => event.eventType === '待加工仓加工接收')
   if (latestIssue && row.availableQty <= 0) return '已领出加工'
   return '待入仓确认'
 }
@@ -769,7 +769,7 @@ function getCuttingWaitProcessLatestSourceText(row: MaterialLedgerProjection): s
     return `${getCuttingRuntimeEventSourceText(latestEvent)} · ${qty} ${latestEvent.inventoryEffect?.unit || normalizeCuttingRuntimeQtyUnit(row.unit)} / ${rollCount} 卷 · ${latestEvent.occurredAt}`
   }
   return row.latestClaimEvent
-    ? `领料记录：${row.latestClaimEvent.occurredAt} / ${row.latestClaimEvent.operatorName}`
+    ? `接收记录：${row.latestClaimEvent.occurredAt} / ${row.latestClaimEvent.operatorName}`
     : '暂无流水'
 }
 
@@ -812,7 +812,7 @@ function buildCuttingRollNos(sourceNo: string, rollCount: number): string[] {
 
 function listCuttingPendingPickupRows(rows: MaterialLedgerProjection[]): MaterialLedgerProjection[] {
   const pickedCutOrders = new Set(
-    listCuttingRuntimeEventsByType('中转仓领料')
+    listCuttingRuntimeEventsByType('中转仓接收')
       .map((event) => event.refs.cutOrderNo)
       .filter(Boolean),
   )
@@ -853,7 +853,7 @@ function renderCuttingPendingPickupList(rows: MaterialLedgerProjection[]): strin
                 </div>
               </button>
             `).join('')
-          : '<div class="rounded-xl bg-muted/60 px-3 py-3 text-xs text-muted-foreground">暂无中转仓领料通知。</div>'}
+          : '<div class="rounded-xl bg-muted/60 px-3 py-3 text-xs text-muted-foreground">暂无中转仓接收通知。</div>'}
       </div>
     </section>
   `
@@ -861,8 +861,8 @@ function renderCuttingPendingPickupList(rows: MaterialLedgerProjection[]): strin
 
 function getCuttingWaitProcessActions() {
   return [
-    { key: 'pickup', action: 'cutting-wp-pickup', title: '中转仓领料', desc: '按生产单待领节点核对全部实物，并确认入库库区库位。' },
-    { key: 'issue', action: 'cutting-wp-issue', title: '加工领料', desc: '扫铺布单，从指定库区库位领走面料。' },
+    { key: 'pickup', action: 'cutting-wp-pickup', title: '中转仓接收', desc: '按生产单待领节点核对全部实物，并确认入库库区库位。' },
+    { key: 'issue', action: 'cutting-wp-issue', title: '加工接收', desc: '扫铺布单，从指定库区库位领走面料。' },
     { key: 'return', action: 'cutting-wp-return', title: '回收入仓', desc: '铺布剩余面料扫码回收，写回库区库位。' },
   ]
 }
@@ -944,9 +944,9 @@ function renderCuttingWaitProcessSingleAction(activeAction: string, rows: Materi
     <section class="space-y-3" ${activeAction === 'issue' ? `data-cutting-issue-start data-source-no="${escapeAttr(row?.cutOrderNo || '')}"` : ''}>
       ${sourceGroups.length > 1 ? `
         <label class="block space-y-1.5">
-          <span class="text-sm font-semibold text-foreground">本次领料批次</span>
+          <span class="text-sm font-semibold text-foreground">本次接收批次</span>
           <select class="h-11 w-full rounded-xl border bg-background px-3 text-sm" data-cutting-issue-batch>
-            <option value="">请选择本次领料批次</option>
+            <option value="">请选择本次接收批次</option>
             ${sourceGroups.map((group) => `
               <option value="${escapeAttr(group.sourceKey)}">入仓 ${escapeHtml(formatWarehouseDateTime(group.inboundAt))} · 剩余 ${escapeHtml(formatCuttingWaitProcessQty(group.remainingQty, group.unit))} · 库位 ${escapeHtml(group.cells.map((entry) => entry.cell.locationNo).join('、'))}</option>
             `).join('')}
@@ -965,15 +965,15 @@ function renderCuttingWaitProcessSingleAction(activeAction: string, rows: Materi
 }
 
 function getCuttingWaitProcessActionEventType(activeAction: string): string {
-  if (activeAction === 'pickup') return '中转仓领料'
-  if (activeAction === 'issue') return '待加工仓加工领料'
+  if (activeAction === 'pickup') return '中转仓接收'
+  if (activeAction === 'issue') return '待加工仓加工接收'
   if (activeAction === 'return') return '待加工仓回收入仓'
   return ''
 }
 
 function getCuttingWaitProcessActionResultTitle(activeAction: string): string {
-  if (activeAction === 'pickup') return '中转仓领料后结果'
-  if (activeAction === 'issue') return '加工领料后结果'
+  if (activeAction === 'pickup') return '中转仓接收后结果'
+  if (activeAction === 'issue') return '加工接收后结果'
   if (activeAction === 'return') return '回收入仓后结果'
   return '操作后结果'
 }
@@ -990,7 +990,7 @@ function openCuttingPickupDraft(pickupNodeId: string, pickupNodeVersion: string)
     return
   }
   if (String(node.version) !== pickupNodeVersion) {
-    window.alert('当前待领物料已更新，请重新核对全部物料后再确认领料。')
+    window.alert('当前待领物料已更新，请重新核对全部物料后再确认接收。')
     return
   }
   state.cuttingPickupNodeId = pickupNodeId
@@ -1084,7 +1084,7 @@ function findPickupSessionById(pickupSessionId: string): PickupSession | null {
 function openCuttingFootprintAdjustment(pickupSessionId: string): void {
   const session = findPickupSessionById(pickupSessionId)
   if (!session?.storageFootprint) {
-    window.alert('当前领料记录没有可调整的存放库位。')
+    window.alert('当前接收记录没有可调整的存放库位。')
     return
   }
   state.cuttingAdjustFootprintSessionId = pickupSessionId
@@ -1126,7 +1126,7 @@ function renderCuttingFootprintAdjustmentPage(): string {
   const session = findPickupSessionById(state.cuttingAdjustFootprintSessionId)
   if (!session?.storageFootprint) {
     clearCuttingFootprintAdjustment()
-    return '<div class="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">领料记录已更新，请返回重新选择。</div>'
+    return '<div class="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">接收记录已更新，请返回重新选择。</div>'
   }
   return `
     <div class="space-y-4 px-4 pb-5 pt-4">
@@ -1195,7 +1195,7 @@ function syncCuttingPickupSessionRuntimeFacts(
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): void {
   const nodeSnapshot = session.pickupNodeSnapshot
-  if (!nodeSnapshot) throw new Error('领料节点快照缺失，无法补写待加工仓流水。')
+  if (!nodeSnapshot) throw new Error('接收节点快照缺失，无法补写待加工仓流水。')
   let pickupRecordIndex = 0
   for (const item of nodeSnapshot.items) {
     const runtimeUnit = (
@@ -1204,7 +1204,7 @@ function syncCuttingPickupSessionRuntimeFacts(
     const pickupRecordId = session.pickupRecordIds[pickupRecordIndex] || ''
     pickupRecordIndex += 1
     appendCuttingRuntimeEvent({
-      eventType: '中转仓领料',
+      eventType: '中转仓接收',
       operatorName: session.receiverName,
       operatorRole: 'PDA 仓管',
       occurredAt: session.pickedAt,
@@ -1277,7 +1277,7 @@ function renderCuttingPickupDifference(node: PickupNodeProjection): string {
   return `
     ${discrepancies.length ? `
       <section class="space-y-2 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-4 text-sm">
-        <div class="font-semibold text-amber-800">差异待主管处理，已阻断领料确认</div>
+        <div class="font-semibold text-amber-800">差异待主管处理，已阻断接收确认</div>
         ${discrepancies.map((record) => `
           <div class="rounded-xl bg-white/70 px-3 py-2 text-xs text-amber-900">
             <div>${escapeHtml(record.materialName)}：差异 ${formatCuttingWaitProcessQty(record.differenceQty, record.unit)}</div>
@@ -1292,7 +1292,7 @@ function renderCuttingPickupDifference(node: PickupNodeProjection): string {
       </section>
     ` : ''}
     <section class="space-y-3 rounded-2xl border px-4 py-4">
-      <button type="button" class="w-full rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800" data-pda-warehouse-action="toggle-cutting-pickup-difference">上报领料差异</button>
+      <button type="button" class="w-full rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800" data-pda-warehouse-action="toggle-cutting-pickup-difference">上报接收差异</button>
       ${state.cuttingPickupDifferenceOpen ? `
         <div class="space-y-3">
           <label class="block space-y-1.5">
@@ -1373,13 +1373,13 @@ function renderCuttingPickupDraftPage(): string {
 
       <div class="space-y-3 px-1">
         <div>
-          <div class="text-base font-semibold text-foreground">确认全部领料</div>
+          <div class="text-base font-semibold text-foreground">确认全部接收</div>
           <div class="mt-1 text-xs leading-5 text-muted-foreground">确认后当前节点${node.itemCount}项物料将全部领入裁床待加工仓，不可部分领取。</div>
         </div>
         <div data-pda-cutting-pickup-location-map>${renderCuttingPickupLocationMap()}</div>
         <div class="grid grid-cols-2 gap-2 pt-1">
           <button type="button" class="rounded-xl border bg-background px-4 py-3 text-sm font-medium text-foreground" data-pda-warehouse-action="cancel-cutting-wp-pickup">重新选择</button>
-          <button type="button" class="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50" data-pda-warehouse-action="confirm-cutting-wp-pickup" ${listPickupDiscrepancies().some((record) => record.pickupNodeId === node.nodeId && record.pickupNodeVersion === node.version && record.status === '待主管处理') ? 'disabled' : ''}>确认全部领料</button>
+          <button type="button" class="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50" data-pda-warehouse-action="confirm-cutting-wp-pickup" ${listPickupDiscrepancies().some((record) => record.pickupNodeId === node.nodeId && record.pickupNodeVersion === node.version && record.status === '待主管处理') ? 'disabled' : ''}>确认全部接收</button>
         </div>
       </div>
     </section>
@@ -1430,7 +1430,7 @@ function renderCuttingIssueDraftPage(): string {
   const sourceNo = row?.cutOrderNo || state.cuttingIssueSourceNo
   const materialText = row
     ? `${row.materialIdentity.materialSku} · ${row.materialIdentity.materialName} / ${row.materialIdentity.materialColor || '待补颜色'}`
-    : '请重新扫码确认领料对象'
+    : '请重新扫码确认接收对象'
   const availableQty = row ? formatCuttingWaitProcessQty(row.availableQty, row.unit) : '-'
   const latestLocation = row ? getCuttingWaitProcessLocationLabel(row) : '-'
   const options = getCuttingIssueLocationOptions()
@@ -1451,24 +1451,24 @@ function renderCuttingIssueDraftPage(): string {
 
       <div class="space-y-3 px-1">
         <div>
-          <div class="text-base font-semibold text-foreground">确认加工领料</div>
+          <div class="text-base font-semibold text-foreground">确认加工接收</div>
           <div class="mt-1 text-xs leading-5 text-muted-foreground">从待加工仓指定库区库位领走面料，用于铺布或加工。</div>
         </div>
         <label class="block space-y-1.5">
-          <span class="text-xs font-medium text-muted-foreground">领料库区</span>
+          <span class="text-xs font-medium text-muted-foreground">接收库区</span>
           <select class="h-11 w-full rounded-xl border bg-background px-3 text-sm" data-pda-warehouse-field="cutting-issue-area">
             ${options.areaOptions.map((area) => `<option value="${escapeAttr(area)}" ${area === state.cuttingIssueWarehouseArea ? 'selected' : ''}>${escapeHtml(area)}</option>`).join('')}
           </select>
         </label>
         <label class="block space-y-1.5">
-          <span class="text-xs font-medium text-muted-foreground">领料库位</span>
+          <span class="text-xs font-medium text-muted-foreground">接收库位</span>
           <select class="h-11 w-full rounded-xl border bg-background px-3 text-sm" data-pda-warehouse-field="cutting-issue-location">
             ${options.locationOptions.map((location) => `<option value="${escapeAttr(location)}" ${location === state.cuttingIssueLocationCode ? 'selected' : ''}>${escapeHtml(location)}</option>`).join('')}
           </select>
         </label>
         <div class="grid grid-cols-2 gap-2">
           <label class="block space-y-1.5">
-            <span class="text-xs font-medium text-muted-foreground">领料数量（yard）</span>
+            <span class="text-xs font-medium text-muted-foreground">接收数量（yard）</span>
             <input class="h-11 w-full rounded-xl border bg-background px-3 text-sm" inputmode="decimal" value="${escapeAttr(state.cuttingIssueQty)}" data-pda-warehouse-field="cutting-issue-qty" />
           </label>
           <label class="block space-y-1.5">
@@ -1478,7 +1478,7 @@ function renderCuttingIssueDraftPage(): string {
         </div>
         <div class="grid grid-cols-2 gap-2 pt-1">
           <button type="button" class="rounded-xl border bg-background px-4 py-3 text-sm font-medium text-foreground" data-pda-warehouse-action="cancel-cutting-wp-issue">重新扫码</button>
-          <button type="button" class="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground" data-pda-warehouse-action="confirm-cutting-wp-issue">确认领料</button>
+          <button type="button" class="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground" data-pda-warehouse-action="confirm-cutting-wp-issue">确认接收</button>
         </div>
       </div>
     </section>
@@ -1660,9 +1660,9 @@ function renderCuttingWaitProcessFallbackResult(activeAction: string, rows: Mate
     ? availableLocations[1] || availableLocations[0] || '待选择库位'
     : availableLocations[0] || '待选择库位'
   const sourceText = activeAction === 'pickup'
-      ? `中转仓领料：${row.cutOrderNo}`
+      ? `中转仓接收：${row.cutOrderNo}`
       : activeAction === 'issue'
-        ? `加工领料：${row.cutOrderNo}`
+        ? `加工接收：${row.cutOrderNo}`
         : `回收入仓：${row.cutOrderNo}`
   return `
     <div class="space-y-1.5 py-3 text-xs text-muted-foreground">
@@ -1695,7 +1695,7 @@ function renderCuttingWaitProcessActionResult(activeAction: string, rows: Materi
 function renderCuttingWaitProcessNextActions(activeAction: string): string {
   const actions = activeAction === 'pickup'
     ? [
-        { label: '去加工领料', route: '/fcs/pda/warehouse/wait-process?scope=cutting&action=issue' },
+        { label: '去加工接收', route: '/fcs/pda/warehouse/wait-process?scope=cutting&action=issue' },
         { label: '查看待加工仓库存', route: '/fcs/pda/warehouse/wait-process?scope=cutting' },
       ]
     : activeAction === 'issue'
@@ -1748,7 +1748,7 @@ function renderCuttingPickupTaskPage(rows: MaterialLedgerProjection[]): string {
   if (state.cuttingPickupSourceNo) {
     return `
       <div class="space-y-4 px-4 pb-5 pt-4">
-        ${renderCuttingWaitProcessSubpageHeader('中转仓领料', '只读核对生产单当前待领节点的全部实物，选择库位后一次性确认全部领取。')}
+        ${renderCuttingWaitProcessSubpageHeader('中转仓接收', '只读核对生产单当前待领节点的全部实物，选择库位后一次性确认全部领取。')}
         ${renderCuttingPickupDraftPage()}
       </div>
     `
@@ -1758,11 +1758,11 @@ function renderCuttingPickupTaskPage(rows: MaterialLedgerProjection[]): string {
     .filter((session) => session.warehouseSyncStatus === '回写异常待重试')
   return `
     <div class="space-y-4 px-4 pb-5 pt-4">
-      ${renderCuttingWaitProcessSubpageHeader('中转仓领料', '中转仓确认配料后，裁床仓管按生产单待领节点核对并一次性领取全部实物。')}
+      ${renderCuttingWaitProcessSubpageHeader('中转仓接收', '中转仓确认配料后，裁床仓管按生产单待领节点核对并一次性领取全部实物。')}
       ${renderCuttingPendingPickupList(rows)}
       ${failedSessions.length ? `
         <section class="space-y-2">
-          <div class="text-sm font-semibold text-amber-700">领料已完成，待补写入仓流水</div>
+          <div class="text-sm font-semibold text-amber-700">接收已完成，待补写入仓流水</div>
           ${failedSessions.map((session) => `
             <div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-xs">
               <div class="font-medium">${escapeHtml(session.pickupSessionNo)}</div>
@@ -1780,7 +1780,7 @@ function renderCuttingPickupTaskPage(rows: MaterialLedgerProjection[]): string {
 
 function renderCuttingWaitProcessActionPage(activeAction: string): string {
   const actions = [
-    { key: 'issue', title: '加工领料', desc: '铺布或加工前从待加工仓领走面料，必须记录来源库区库位。' },
+    { key: 'issue', title: '加工接收', desc: '铺布或加工前从待加工仓领走面料，必须记录来源库区库位。' },
     { key: 'return', title: '回收入仓', desc: '铺布剩余面料回收入仓，必须写回库区库位。' },
   ]
   const current = actions.find((item) => item.key === activeAction)
@@ -1854,7 +1854,7 @@ function renderCuttingWaitProcessPage(): string {
     state.cuttingPickupDifferenceOpen = params.get('difference') === '1'
   }
   if (activeView === 'pickup' || activeAction === 'pickup') {
-    return renderPdaFrame(renderCuttingPickupTaskPage(rows), 'warehouse', { headerTitle: '中转仓领料', disableTodoAutoOpen: true })
+    return renderPdaFrame(renderCuttingPickupTaskPage(rows), 'warehouse', { headerTitle: '中转仓接收', disableTodoAutoOpen: true })
   }
   if (activeAction && ['issue', 'return'].includes(activeAction)) {
     return renderPdaFrame(renderCuttingWaitProcessActionPage(activeAction), 'warehouse', { headerTitle: '裁床待加工仓', disableTodoAutoOpen: true })
@@ -1862,12 +1862,12 @@ function renderCuttingWaitProcessPage(): string {
   const stockedRows = rows.filter((row) => row.cuttingClaimedQty > 0 || row.availableQty >= 0)
   const content = `
     <div class="space-y-4 px-4 pb-5 pt-4">
-      ${renderCuttingWaitProcessSubpageHeader('裁床待加工仓', '处理中转仓领料、加工领料和回收入仓。')}
+      ${renderCuttingWaitProcessSubpageHeader('裁床待加工仓', '处理中转仓接收、加工接收和回收入仓。')}
       ${renderCuttingWaitProcessActionCards(null)}
       <section class="space-y-3">
         ${stockedRows.length
           ? stockedRows.slice(0, 8).map((row) => renderCuttingWaitProcessRow(row)).join('')
-          : renderMobilePageEmptyState('暂无裁床待加工库存', '中转仓领料确认后会形成裁床待加工仓库存。')}
+          : renderMobilePageEmptyState('暂无裁床待加工库存', '中转仓接收确认后会形成裁床待加工仓库存。')}
       </section>
     </div>
   `
@@ -1916,7 +1916,7 @@ function renderDetailDrawer(): string {
               { label: '来源仓', value: row.sourceObjectName || '成衣仓' },
               { label: '应收 / 实收', value: `${row.expectedQty} / ${row.receivedQty} 件` },
               { label: '当前仓', value: `${row.warehouseName} · ${row.locationText}` },
-              { label: '下一动作', value: '加工领料' },
+              { label: '下一动作', value: '加工接收' },
             ])}
           </div>
         </section>
@@ -2649,7 +2649,7 @@ export function renderPdaWarehouseWaitProcessPage(): string {
   const rows = getRows()
   const content = `
     <div class="space-y-4 px-4 pb-5 pt-4">
-      ${renderWarehouseSummaryHeader('待加工仓', '中转仓领料确认后进入待加工仓，并承接入库记录。', runtime.overview)}
+      ${renderWarehouseSummaryHeader('待加工仓', '中转仓接收确认后进入待加工仓，并承接入库记录。', runtime.overview)}
       ${renderSectionFilterChips(state.status, FILTERS, 'wait-process-status')}
       <section class="space-y-3">
         ${
@@ -2708,7 +2708,7 @@ export function renderPdaWarehouseWaitProcessPage(): string {
                   `,
                 )
                 .join('')
-            : renderMobilePageEmptyState('暂无待加工仓记录', '中转仓领料确认后，会自动生成入库记录并进入待加工仓。')
+            : renderMobilePageEmptyState('暂无待加工仓记录', '中转仓接收确认后，会自动生成入库记录并进入待加工仓。')
         }
       </section>
       ${renderDetailDrawer()}
@@ -2792,11 +2792,11 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     const session = findPickupSessionById(state.cuttingAdjustFootprintSessionId)
     const projection = buildCuttingPickupMapProjection(state.cuttingAdjustFootprintSessionId)
     if (!session?.storageFootprint || !projection) {
-      window.alert('领料记录或库位图已更新，请返回重试。')
+      window.alert('接收记录或库位图已更新，请返回重试。')
       return true
     }
     if (JSON.stringify(session.storageFootprint) !== state.cuttingAdjustFootprintFingerprint) {
-      window.alert('领料记录已被其他页面更新，请退出后重新调整。')
+      window.alert('接收记录已被其他页面更新，请退出后重新调整。')
       return true
     }
     const remainingByUnit = session.storageFootprint.unitSummaries.map((summary) => ({
@@ -2954,9 +2954,9 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
         photoName: state.cuttingPickupDifferencePhotoName,
       }, undefined, (nodeId) => listActivePickupNodes().find((candidate) => candidate.nodeId === nodeId) ?? null)
       state.cuttingPickupDifferenceOpen = false
-      window.alert('领料差异已上报，已阻断本节点领料确认，请等待主管处理。')
+      window.alert('接收差异已上报，已阻断本节点接收确认，请等待主管处理。')
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : '领料差异上报失败。')
+      window.alert(error instanceof Error ? error.message : '接收差异上报失败。')
     }
     return true
   }
@@ -2972,7 +2972,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     recoverPendingPickupWarehouseTransaction()
     const pickupNodeId = state.cuttingPickupNodeId
     if (!pickupNodeId) {
-      window.alert('请先选择中转仓领料节点。')
+      window.alert('请先选择中转仓接收节点。')
       return true
     }
     const pickupNodeVersion = Number(state.cuttingPickupNodeVersion)
@@ -2994,7 +2994,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     try {
       assertPickupNodeHasNoOpenDiscrepancy(pickupNodeId, pickupNodeVersion)
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : '当前节点存在领料差异，不可确认领料。')
+      window.alert(error instanceof Error ? error.message : '当前节点存在接收差异，不可确认接收。')
       return true
     }
     let session = getPickupSessionByNodeId(pickupNodeId)
@@ -3002,7 +3002,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
       if (!session) {
         const node = listActivePickupNodes().find((item) => item.nodeId === pickupNodeId)
         if (!node || node.version !== pickupNodeVersion) {
-          window.alert('当前待领物料已更新，请重新核对全部物料后再确认领料。')
+          window.alert('当前待领物料已更新，请重新核对全部物料后再确认接收。')
           clearCuttingPickupDraft()
           return true
         }
@@ -3036,7 +3036,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
       }
       window.history.replaceState({}, '', '/fcs/pda/warehouse/wait-process?scope=cutting&action=pickup')
     } catch (e) {
-      window.alert(e instanceof Error ? `领料流水写入失败：${e.message}。当前选择已保留，可直接重试。` : '领料流水写入失败，当前选择已保留，可直接重试。')
+      window.alert(e instanceof Error ? `接收流水写入失败：${e.message}。当前选择已保留，可直接重试。` : '接收流水写入失败，当前选择已保留，可直接重试。')
       return true
     }
     clearCuttingPickupDraft()
@@ -3070,7 +3070,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     const selectedBatch = startContainer
       ?.querySelector<HTMLSelectElement>('[data-cutting-issue-batch]')?.value || ''
     if (sourceGroups.length > 1 && !selectedBatch) {
-      window.alert('请选择本次领料批次。')
+      window.alert('请选择本次接收批次。')
       return true
     }
     const sourceKey = sourceGroups.length === 1 ? sourceGroups[0].sourceKey : selectedBatch
@@ -3084,14 +3084,14 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
   if (action === 'confirm-cutting-wp-issue') {
     const sourceNo = state.cuttingIssueSourceNo.trim()
     if (!sourceNo) {
-      window.alert('请先扫码确认加工领料对象。')
+      window.alert('请先扫码确认加工接收对象。')
       return true
     }
     const row = findCuttingWaitProcessLedgerRow(sourceNo)
     const issuedQty = Number(state.cuttingIssueQty)
     const rollCount = Number(state.cuttingIssueRollCount)
     if (!Number.isFinite(issuedQty) || issuedQty <= 0) {
-      window.alert('请输入大于 0 的领料数量。')
+      window.alert('请输入大于 0 的接收数量。')
       return true
     }
     if (!Number.isFinite(rollCount) || rollCount <= 0) {
@@ -3108,7 +3108,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     const selectedGroup = sourceGroups.find((group) => group.sourceKey === selectedSourceKey)
     const warehouseLocations = selectedGroup?.cells.map((entry) => entry.cell) || []
     if (!warehouseLocations.length) {
-      window.alert('来源库位已更新，请重新选择加工领料对象。')
+      window.alert('来源库位已更新，请重新选择加工接收对象。')
       return true
     }
     const warehouseArea = warehouseLocations[0].areaName
@@ -3130,7 +3130,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
       fromLocationCode: locationCode,
     }
     appendCuttingRuntimeEvent({
-      eventType: '待加工仓加工领料',
+      eventType: '待加工仓加工接收',
       operatorName: '裁床仓管',
       operatorRole: 'PDA 仓管',
       occurredAt,
@@ -3140,7 +3140,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
       inventoryEffect,
       payload: {
         issueRecordId: `wp-out:${sourceNo}:${occurredAt}`,
-        issueRecordNo: `加工领料-${sourceNo}`,
+        issueRecordNo: `加工接收-${sourceNo}`,
         spreadingOrderId: sourceNo,
         spreadingOrderNo: sourceNo,
         materialSku: row?.materialIdentity.materialSku || sourceNo,
@@ -3369,7 +3369,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
       return true
     }
     if (!Number.isFinite(qty) || qty <= 0) {
-      window.alert('请输入大于 0 的领料重量。')
+      window.alert('请输入大于 0 的接收重量。')
       return true
     }
     try {
@@ -3464,7 +3464,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
       window.alert('请选择库区库位。')
       return true
     }
-    const actionLabel = actionKey === 'receive' ? '接收入仓' : actionKey === 'issue' ? '加工领料' : '回收入仓'
+    const actionLabel = actionKey === 'receive' ? '接收入仓' : actionKey === 'issue' ? '加工接收' : '回收入仓'
     window.alert(`${actionLabel}已记录为演示数据。`)
     window.location.href = '/fcs/pda/warehouse/wait-process'
     return true

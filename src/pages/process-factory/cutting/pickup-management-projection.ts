@@ -500,7 +500,7 @@ function parseBusinessEventTimeRange(value: string): { start: number; end: numbe
 }
 
 /**
- * 补料与领料域没有共享的单调事件序列，且旧事实可能只有分钟精度。
+ * 补料与接收域没有共享的单调事件序列，且旧事实可能只有分钟精度。
  * 因此只有两个时间区间完全分离时才能证明先后，重叠一律保守为 UNKNOWN。
  */
 export function comparePickupDemandEventTime(

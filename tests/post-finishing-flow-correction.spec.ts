@@ -20,20 +20,20 @@ const PDA_SEWING_SESSION = {
   loggedAt: '2026-04-25 10:00:00',
 }
 
-test('Web 专门后道工厂完整流程按接收领料、质检、后道、复检、交出展示', async ({ page }) => {
+test('Web 专门后道工厂完整流程按接收接收、质检、后道、复检、交出展示', async ({ page }) => {
   await page.goto('/fcs/craft/post-finishing/work-orders')
   const row = page.locator('tr', { hasText: 'HD-2026-001' })
   await expect(row).toContainText('后道工厂执行')
-  await expect(row).toContainText('接收领料 -> 质检 -> 后道 -> 复检 -> 交出')
+  await expect(row).toContainText('接收接收 -> 质检 -> 后道 -> 复检 -> 交出')
   await expect(row).not.toContainText('后道 -> 质检 -> 复检')
 
   await row.getByRole('button', { name: '查看详情' }).click()
   await expect(page).toHaveURL(/\/fcs\/craft\/post-finishing\/work-orders\/POST-WO-001/)
   await expect(page.getByText('后道来源').first()).toBeVisible()
   await expect(page.getByText('当前流程').first()).toBeVisible()
-  await expect(page.getByText('接收领料 -> 质检 -> 后道 -> 复检 -> 交出').first()).toBeVisible()
+  await expect(page.getByText('接收接收 -> 质检 -> 后道 -> 复检 -> 交出').first()).toBeVisible()
 
-  for (const tab of ['接收领料', '质检记录', '后道记录', '复检记录', '交出记录', '流转记录']) {
+  for (const tab of ['接收接收', '质检记录', '后道记录', '复检记录', '交出记录', '流转记录']) {
     await page.getByRole('button', { name: tab, exact: true }).click()
     await expect(page.getByRole('heading', { name: tab })).toBeVisible()
   }
@@ -43,8 +43,8 @@ test('Web 车缝厂已做后道流程不再让后道工厂执行后道', async (
   await page.goto('/fcs/craft/post-finishing/work-orders')
   const row = page.locator('tr', { hasText: 'HD-2026-102' })
   await expect(row).toContainText('车缝厂已完成后道')
-  await expect(row).toContainText('接收领料 -> 质检 -> 复检 -> 交出')
-  await expect(row).not.toContainText('接收领料 -> 质检 -> 后道 -> 复检 -> 交出')
+  await expect(row).toContainText('接收接收 -> 质检 -> 复检 -> 交出')
+  await expect(row).not.toContainText('接收接收 -> 质检 -> 后道 -> 复检 -> 交出')
 
   await row.getByRole('button', { name: '查看详情' }).click()
   await expect(page).toHaveURL(/\/fcs\/craft\/post-finishing\/work-orders\/POST-WO-102/)
@@ -59,7 +59,7 @@ test('Web 车缝厂已做后道流程不再让后道工厂执行后道', async (
 test('后道待加工仓和交出仓按新流程展示', async ({ page }) => {
   await page.goto('/fcs/craft/post-finishing/wait-process-warehouse')
   await expect(page.getByRole('heading', { name: '后道待加工仓' })).toBeVisible()
-  await expect(page.getByText('待接收领料').first()).toBeVisible()
+  await expect(page.getByText('待接收接收').first()).toBeVisible()
   await expect(page.getByText('待质检').first()).toBeVisible()
   await expect(page.getByText('待后道').first()).toBeVisible()
   await expect(page.getByText('待复检').first()).toBeVisible()
@@ -82,14 +82,14 @@ test('工厂端移动应用区分专门后道流程和车缝厂已做后道流�
 
   await page.goto('/fcs/pda/exec/TASK-POST-001')
   await expect(page.getByRole('heading', { name: '后道任务执行' })).toBeVisible()
-  await expect(page.getByText('接收领料 -> 质检 -> 后道 -> 复检 -> 交出')).toBeVisible()
-  await expect(page.getByRole('button', { name: '确认接收领料' })).toBeVisible()
+  await expect(page.getByText('接收接收 -> 质检 -> 后道 -> 复检 -> 交出')).toBeVisible()
+  await expect(page.getByRole('button', { name: '确认接收接收' })).toBeVisible()
 
   await page.goto('/fcs/pda/exec/TASK-POST-003')
   await expect(page.getByRole('button', { name: '开始后道' })).toBeVisible()
 
   await page.goto('/fcs/pda/exec/TASK-POST-101')
-  await expect(page.getByText('接收领料 -> 质检 -> 复检 -> 交出')).toBeVisible()
+  await expect(page.getByText('接收接收 -> 质检 -> 复检 -> 交出')).toBeVisible()
   await expect(page.getByText('后道已由车缝厂完成').first()).toBeVisible()
   await expect(page.getByRole('button', { name: '开始后道' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '完成后道' })).toHaveCount(0)

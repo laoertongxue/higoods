@@ -300,7 +300,7 @@ const focusedProductionOrderChangeOrders: ProductionOrderChangeOrder[] = [
     changeModules: ['BOM'],
     reason: '原黑色弹力斜纹布不再到货，客户确认改用炭灰色弹力斜纹布。',
     expectedEffectiveMode: 'FROM_NEXT_PICKUP',
-    effectiveDescription: '从下一次领料开始',
+    effectiveDescription: '从下一次接收开始',
     changeResult: 'PRODUCTION_PATCH',
     executionStrategy: 'AFTER_APPROVAL',
     lockStatus: 'IMPACT_SCOPE_LOCKED',
@@ -315,14 +315,14 @@ const focusedProductionOrderChangeOrders: ProductionOrderChangeOrder[] = [
     reviewer: '生产主管',
     latestLog: '旧料已领未用，需要仓库确认退料。',
     stage: 'STARTED_NOT_HANDOVER',
-    stageText: '已领料，还没使用',
+    stageText: '已接收，还没使用',
     workSummary: '先退回旧料，再领新料。',
     materialReplacement: {
       originalMaterial: 'FAB-A01 弹力斜纹布 / 黑色 / 280g',
       replacementMaterial: 'FAB-B02 弹力斜纹布 / 炭灰色 / 280g',
       colors: ['黑色'],
       sizes: ['M', 'L'],
-      effectiveFromText: '从下一次领料开始',
+      effectiveFromText: '从下一次接收开始',
     },
     actionItems: [
       {
@@ -336,7 +336,7 @@ const focusedProductionOrderChangeOrders: ProductionOrderChangeOrder[] = [
       },
       {
         id: 'ACT-BG-MAT-001-02',
-        ownerRole: '领料负责人',
+        ownerRole: '接收负责人',
         ownerName: 'Agus',
         actionText: '新物料需要补领 36 米。',
         stage: 'STARTED_NOT_HANDOVER',
@@ -552,7 +552,7 @@ function renderMaterialReplacementFields(form: typeof state.productionChangeForm
         <span class="font-medium">从哪里开始用新物料</span>
         <select data-prod-field="productionChangeFormEffectiveMode" class="w-full rounded-md border px-3 py-2">
           ${renderSelectOption('FROM_NEXT_PREP', '从下一次配料开始', form.effectiveMode)}
-          ${renderSelectOption('FROM_NEXT_PICKUP', '从下一次领料开始', form.effectiveMode)}
+          ${renderSelectOption('FROM_NEXT_PICKUP', '从下一次接收开始', form.effectiveMode)}
           ${renderSelectOption('FROM_NEXT_MARKER', '从下一次裁剪准备开始', form.effectiveMode)}
         </select>
       </label>

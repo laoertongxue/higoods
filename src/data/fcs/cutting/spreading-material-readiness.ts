@@ -84,7 +84,7 @@ function getRuntimeWaitProcessQty(event: CuttingRuntimeEvent): number {
 
 function listRuntimeWaitProcessEvents(): CuttingRuntimeEvent[] {
   const events = [
-    ...listCuttingRuntimeEventsByType('中转仓领料'),
+    ...listCuttingRuntimeEventsByType('中转仓接收'),
     ...listCuttingRuntimeEventsByInventoryScope('裁床待加工仓'),
   ]
   const seen = new Set<string>()
@@ -136,11 +136,11 @@ function buildRuntimeAdjustedLedgerRows(): MaterialLedgerProjection[] {
     matchedEvents.forEach((event) => {
       const qty = getRuntimeWaitProcessQty(event)
       if (qty <= 0) return
-      if (event.eventType === '中转仓领料') {
+      if (event.eventType === '中转仓接收') {
         cuttingClaimedQty += qty
         availableQty += qty
       }
-      if (event.eventType === '待加工仓加工领料') {
+      if (event.eventType === '待加工仓加工接收') {
         spreadingConsumedQty += qty
         availableQty -= qty
       }
@@ -193,7 +193,7 @@ function buildReasonText(input: {
   const available = `${input.availableQty.toFixed(2)} ${input.unit}`
   const shortage = `${input.shortageQty.toFixed(2)} ${input.unit}`
   if (input.statusKey === 'READY') return `计划用量 ${planned}，当前可用 ${available}，可开始铺布。`
-  if (input.statusKey === 'NOT_CLAIMED') return '来源裁片单尚未完成裁床领料，不能开始铺布。'
+  if (input.statusKey === 'NOT_CLAIMED') return '来源裁片单尚未完成裁床接收，不能开始铺布。'
   if (input.plannedUsageQty <= 0) return '铺布单缺少计划用量，不能开始铺布。'
   if (input.statusKey === 'SHORTAGE') return `计划用量 ${planned}，当前可用 ${available}，缺口 ${shortage}，不能开始铺布。`
   return ''
@@ -217,7 +217,7 @@ export function resolveSpreadingMaterialReadiness(
 
   const meta: Record<SpreadingMaterialReadinessStatusKey, { label: string; className: string }> = {
     READY: { label: '可铺布', className: READY_CLASS },
-    NOT_CLAIMED: { label: '未领料', className: WARNING_CLASS },
+    NOT_CLAIMED: { label: '未接收', className: WARNING_CLASS },
     SHORTAGE: { label: '物料不足', className: DANGER_CLASS },
   }
   const reasonText = buildReasonText({ statusKey, plannedUsageQty, availableQty, shortageQty, unit })

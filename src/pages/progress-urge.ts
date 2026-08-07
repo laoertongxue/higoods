@@ -686,7 +686,7 @@ function getAvailableUrgeTypes(targetType: TargetTypeWithoutTechPack): UrgeType[
 }
 
 function isMaterialRelated(title: string, content: string, tags?: string[]): boolean {
-  const keywords = ['领料', '物料', '配料', '缺口', '齐套', 'material', 'picking']
+  const keywords = ['接收', '物料', '配料', '缺口', '齐套', 'material', 'picking']
   const text = `${title} ${content} ${(tags || []).join(' ')}`.toLowerCase()
   return keywords.some((keyword) => text.includes(keyword))
 }
@@ -1049,7 +1049,7 @@ function renderNotificationActionMenu(notification: Notification): string {
                 showMaterialAction
                   ? `
                     <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-urge-action="notification-view-material" data-po="${escapeAttr(po)}">
-                      <i data-lucide="package" class="mr-2 h-4 w-4"></i>查看领料进度
+                      <i data-lucide="package" class="mr-2 h-4 w-4"></i>查看接收进度
                     </button>
                   `
                   : ''
@@ -1101,7 +1101,7 @@ function renderUrgeActionMenu(urge: UrgeLog): string {
                 showMaterialAction
                   ? `
                     <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-urge-action="urge-view-material" data-po="${escapeAttr(po)}">
-                      <i data-lucide="package" class="mr-2 h-4 w-4"></i>查看领料进度
+                      <i data-lucide="package" class="mr-2 h-4 w-4"></i>查看接收进度
                     </button>
                   `
                   : ''
@@ -1704,7 +1704,7 @@ function renderNewUrgeDrawer(): string {
               state.formTargetType === 'ORDER' && state.formTargetId
                 ? `
                   <button class="inline-flex items-center rounded px-0 py-1 text-sm text-teal-700 hover:underline" data-urge-action="new-urge-view-material" data-po="${escapeAttr(state.formTargetId)}">
-                    <i data-lucide="package" class="mr-1 h-3.5 w-3.5"></i>查看领料进度（新标签）
+                    <i data-lucide="package" class="mr-1 h-3.5 w-3.5"></i>查看接收进度（新标签）
                   </button>
                 `
                 : ''
@@ -1982,7 +1982,7 @@ function updateField(field: string, node: HTMLElement): void {
 }
 
 function openMaterialPage(po: string): void {
-  const title = po ? `领料进度-${po}` : '领料进度'
+  const title = po ? `接收进度-${po}` : '接收进度'
   const href = `/fcs/progress/material${po ? `?po=${encodeURIComponent(po)}` : ''}`
   openLinkedPage(title, href)
 }

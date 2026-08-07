@@ -4,22 +4,22 @@ import { collectPageErrors, expectNoPageErrors, seedLocalStorage } from './helpe
 
 const GENERIC_PICKUP_HEAD_ID = 'PKH-MOCK-SEW-400'
 
-test('待领料详情的记录卡改成核心字段加场景补充，追溯信息默认收起', async ({ page }) => {
+test('待接收详情的记录卡改成核心字段加场景补充，追溯信息默认收起', async ({ page }) => {
   const errors = collectPageErrors(page)
   await seedLocalStorage(page, { fcs_pda_factory_id: 'ID-F001' })
 
   await page.goto(`/fcs/pda/handover/${GENERIC_PICKUP_HEAD_ID}`)
 
-  const recordListSection = page.locator('article').filter({ has: page.getByRole('heading', { name: '仓库已生成的领料记录' }) }).first()
+  const recordListSection = page.locator('article').filter({ has: page.getByRole('heading', { name: '仓库已生成的接收记录' }) }).first()
   const recordCard = recordListSection.locator('article').first()
   const recordCardText = await recordCard.textContent()
 
   expect(recordCardText).toContain('第 ')
-  expect(recordCardText).toContain('领料方式')
+  expect(recordCardText).toContain('接收方式')
   expect(recordCardText).toContain('物料说明')
   expect(recordCardText).toContain('本次应领数量')
   expect(recordCardText).toContain('仓库交付数量')
-  expect(recordCardText).toContain('领料记录二维码')
+  expect(recordCardText).toContain('接收记录二维码')
 
   expect(recordCardText).not.toContain('物料名称：')
   expect(recordCardText).not.toContain('物料规格：')
@@ -46,7 +46,7 @@ test('待领料详情的记录卡改成核心字段加场景补充，追溯信�
   await expect(traceability.getByText('拆分来源')).toBeVisible()
 
   const currentRecordSection = page.locator('article').filter({ has: page.getByRole('heading', { name: '当前记录处理区' }) }).first()
-  await expect(currentRecordSection.getByRole('button', { name: /确认本次领料|发起数量差异|去异常定位与处理/ }).first()).toBeVisible()
+  await expect(currentRecordSection.getByRole('button', { name: /确认本次接收|发起数量差异|去异常定位与处理/ }).first()).toBeVisible()
 
   await expectNoPageErrors(errors)
 })

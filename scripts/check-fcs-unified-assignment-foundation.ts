@@ -168,7 +168,7 @@ assert.equal(mergeCandidateEvaluation.ok, true)
 assert.equal(mergeCandidateEvaluation.mergedTaskType, 'CUTTING_SEWING_IRON_PACK')
 const mergeCandidateCentralCraftOrders = listSpecialCraftTaskOrders().filter((taskOrder) => taskOrder.productionOrderId === 'PO-202603-0101')
 assert(mergeCandidateCentralCraftOrders.length > 0)
-assert(mergeCandidateCentralCraftOrders.every((taskOrder) => taskOrder.status === '待领料'))
+assert(mergeCandidateCentralCraftOrders.every((taskOrder) => taskOrder.status === '待接收'))
 assert.equal(listBlockingSpecialCraftTaskOrdersForMergedTask('PO-202603-0101').length, 0)
 
 // 3. 中央辅助/特种工艺加工单是否生成，由合并责任范围唯一决定。

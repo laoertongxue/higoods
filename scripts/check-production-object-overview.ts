@@ -180,7 +180,7 @@ assert.equal(materialResource.sourceContext?.sourceObjectId, order.productionOrd
 assert.ok(materialResource.businessAllocations.length >= 1, '物料资源总览必须展示业务占用')
 assert.ok(materialResource.businessAllocations.some((item) => item.isSourceContext), '来源生产单占用必须置顶高亮')
 assert.ok(materialResource.supplyDemandSummary.totalRequiredQty > 0, '物料资源总览必须展示总需求')
-assert.ok(materialResource.materialExecutionLines.length > 0, '物料资源总览必须展示配料/领料/发料履约')
+assert.ok(materialResource.materialExecutionLines.length > 0, '物料资源总览必须展示配料/接收/发料履约')
 assert.ok(materialResource.masterData.materialSku === 'FLSZ260617009', '物料档案区必须保留静态主数据')
 
 const materialResources = searchMaterialResources('FLSZ260617009')
@@ -188,13 +188,13 @@ assert.ok(materialResources.some((item) => item.materialSku === 'FLSZ260617009')
 
 for (const [keyword, message] of [
   ['未到仓', '异常线索：未到仓必须可搜索'],
-  ['待领料', '异常线索：待领料必须可搜索'],
+  ['待接收', '异常线索：待接收必须可搜索'],
   ['缺料', '异常线索：缺料必须可搜索'],
   ['待确认', '异常线索：待确认必须可搜索'],
 ] as const) {
   assert.ok(searchProductionObjects(keyword).length > 0, message)
 }
-assert.ok(searchProductionObjects('待领料')[0].statusText?.includes('待领料'), '待领料搜索结果必须直接展示待领料状态')
+assert.ok(searchProductionObjects('待接收')[0].statusText?.includes('待接收'), '待接收搜索结果必须直接展示待接收状态')
 
 const warehouseSearch = searchProductionObjects('ISS')
 assert.ok(warehouseSearch.some((item) => item.objectType === 'WAREHOUSE_DOC'), '仓库执行单必须可搜索')
@@ -202,7 +202,7 @@ assert.ok(warehouseSearch.some((item) => item.objectType === 'WAREHOUSE_DOC'), '
 const p1SearchCases: Array<[string, string, string]> = [
   ['MPO-202603-0001', 'MATERIAL_PREP_ORDER', '配料单必须可搜索并定位生产单'],
   ['MPR-202603-0001', 'MATERIAL_PREP_RECORD', '配料记录必须可搜索并定位生产单'],
-  ['PICK-202603-0001', 'MATERIAL_PICKUP_RECORD', '发料/领料记录必须可搜索并定位生产单'],
+  ['PICK-202603-0001', 'MATERIAL_PICKUP_RECORD', '发料/接收记录必须可搜索并定位生产单'],
   ['CUT-260306-101-01', 'CUT_ORDER', '裁片单必须可搜索并定位生产单'],
   ['FEI-260306-101-01-S-BLK-001', 'FEI_TICKET', '菲票号必须可搜索并定位生产单'],
   ['SPR-260306-101-01', 'SPREADING_ORDER', '铺布单必须可搜索并定位生产单'],
@@ -221,7 +221,7 @@ for (const [keyword, objectType, message] of p1SearchCases) {
 
 const defaultTabCases: Array<[string, string, string, string]> = [
   ['MPO-202603-0001', 'MATERIAL_PREP_ORDER', 'materials', '配料单默认打开物料 Tab'],
-  ['PICK-202603-0001', 'MATERIAL_PICKUP_RECORD', 'materials', '领料记录默认打开物料 Tab'],
+  ['PICK-202603-0001', 'MATERIAL_PICKUP_RECORD', 'materials', '接收记录默认打开物料 Tab'],
   ['CUT-260306-101-01', 'CUT_ORDER', 'progress', '裁片单默认打开任务 Tab'],
   ['PRINT-WO-202603-0001', 'PRINT_WORK_ORDER', 'progress', '印花工单默认打开任务 Tab'],
   ['DYE-WO-202603-0001', 'DYE_WORK_ORDER', 'progress', '染色工单默认打开任务 Tab'],
@@ -238,7 +238,7 @@ for (const [keyword, objectType, tab, message] of defaultTabCases) {
 const realPrepProjection = listMaterialPrepOrderProjections()[0]
 assert.ok(realPrepProjection, '必须存在真实配料单 Mock 数据')
 const realPickupProjection = listMaterialPrepOrderProjections().find((item) => item.pickupRecords.length > 0)
-assert.ok(realPickupProjection, '必须存在真实领料记录 Mock 数据')
+assert.ok(realPickupProjection, '必须存在真实接收记录 Mock 数据')
 const realPrintWorkOrder = listPrintWorkOrders()[0]
 assert.ok(realPrintWorkOrder, '必须存在真实印花工单 Mock 数据')
 const realDyeWorkOrder = listDyeWorkOrders()[0]
@@ -247,7 +247,7 @@ assert.ok(realDyeWorkOrder, '必须存在真实染色工单 Mock 数据')
 const realP1SearchCases: Array<[string, string, string]> = [
   [realPrepProjection.order.prepOrderNo, 'MATERIAL_PREP_ORDER', '真实配料单号必须可搜索并打开总览'],
   [realPrepProjection.prepRecords[0]?.prepRecordId || '', 'MATERIAL_PREP_RECORD', '真实配料记录号必须可搜索并打开总览'],
-  [realPickupProjection.pickupRecords[0]?.pickupRecordId || '', 'MATERIAL_PICKUP_RECORD', '真实领料记录号必须可搜索并打开总览'],
+  [realPickupProjection.pickupRecords[0]?.pickupRecordId || '', 'MATERIAL_PICKUP_RECORD', '真实接收记录号必须可搜索并打开总览'],
   [realPrintWorkOrder.printOrderNo, 'PRINT_WORK_ORDER', '真实印花工单号必须可搜索并打开总览'],
   [realDyeWorkOrder.dyeOrderNo, 'DYE_WORK_ORDER', '真实染色工单号必须可搜索并打开总览'],
 ]
@@ -308,7 +308,7 @@ assert.ok(overview.executionOverview.keyTimes.length > 0, '总览必须包含关
 assert.ok(overview.executionOverview.quantityQuality.length > 0, '总览必须包含关键数量信息')
 assert.ok(overview.materials.some((line) => dataModule.materialTypeLabel[line.materialType] === '纱线'), '总览物料必须能区分纱线类型')
 assert.ok(overview.materials.some((line) => Number(line.preparedQty || 0) > 0), '总览物料必须包含配料数量')
-assert.ok(overview.materials.some((line) => Number(line.issuedQty || 0) > 0 || Number(line.factoryReceivedQty || 0) > 0), '总览物料必须包含领料数据')
+assert.ok(overview.materials.some((line) => Number(line.issuedQty || 0) > 0 || Number(line.factoryReceivedQty || 0) > 0), '总览物料必须包含接收数据')
 assert.ok(overview.progressNodes.length > 0, '总览必须包含生产进度节点')
 assert.ok(overview.relatedDocuments.length > 0, '总览必须包含关联单据')
 assert.ok(overview.sourceSnapshots.length > 0, '总览必须包含来源摘要')
@@ -398,7 +398,7 @@ const pageEntryExpectations: Array<[string, string, string]> = [
   ['src/pages/production/orders-domain.ts', 'renderProductionOrderIdentityCell', '生产单列表必须通过生产单号 / 需求单号打开总览'],
   ['src/pages/production/demand-domain.ts', 'data-object-type="DEMAND"', '生产需求列表的需求单号本身必须打开需求总览'],
   ['src/pages/production-order-progress-tracking.ts', 'renderProductionOrderIdentityCell', '生产单进度列表必须通过生产单号 / 需求单号打开总览'],
-  ['src/pages/progress-material.ts', 'renderProductionOrderIdentityCell', '领料进度必须通过生产单号 / 需求单号打开总览'],
+  ['src/pages/progress-material.ts', 'renderProductionOrderIdentityCell', '接收进度必须通过生产单号 / 需求单号打开总览'],
 ]
 for (const [page, text, message] of pageEntryExpectations) {
   assertIncludes(page, text, message)
@@ -442,7 +442,7 @@ for (const page of [
   assertIncludes(page, '生产总览', `${page} 标题区必须有生产总览入口`)
   assertIncludes(page, 'MATERIAL_PREP_ORDER', `${page} 配料单号必须能打开生产对象总览`)
   assertIncludes(page, 'MATERIAL_PREP_RECORD', `${page} 配料记录必须能打开关联生产`)
-  assertIncludes(page, 'MATERIAL_PICKUP_RECORD', `${page} 领料记录必须能打开关联生产`)
+  assertIncludes(page, 'MATERIAL_PICKUP_RECORD', `${page} 接收记录必须能打开关联生产`)
 }
 
 for (const group of ['生产', '面辅料', '裁片', '印花', '染色', '仓库']) {
@@ -470,7 +470,7 @@ const materialTypeSearchPanel = uiModule.renderProductionObjectSearchPanel('面�
 const orderSearchPanel = uiModule.renderProductionObjectSearchPanel(order.productionOrderNo)
 assert.ok(materialSearchPanel.includes('生产全局搜索'), '搜索面板标题错误')
 assert.ok(materialSearchPanel.includes('面料 / 辅料 / 纱线'), '搜索提示必须包含物料类型')
-assert.ok(materialSearchPanel.includes('配料单 / 领料单 / 发料单'), '搜索提示必须包含配领仓储对象')
+assert.ok(materialSearchPanel.includes('配料单 / 接收单 / 发料单'), '搜索提示必须包含配领仓储对象')
 assert.ok(materialSearchPanel.includes('裁片单'), '搜索提示必须包含裁片单')
 assert.ok(materialSearchPanel.includes('菲票'), '搜索提示必须包含菲票')
 assert.ok(materialSearchPanel.includes('印花工单'), '搜索提示必须包含印花工单')
@@ -490,7 +490,7 @@ for (const group of ['最佳匹配', '当前卡点', '生产主线', '关联执�
 assert.ok(!hasSearchGroup(orderSearchPanel, '物料资源'), '搜索业务单据号不应进入物料资源分组')
 assertNoDuplicateSearchObjects(materialSearchPanel, ['相关生产对象', '相关采购与仓储', '异常线索'])
 assert.ok(countMaterialSearchCards(materialSearchPanel) <= 6, '搜索物料编码时物料资源卡片不得超过 6 张')
-for (const keyword of ['缺料', '待领料'] as const) {
+for (const keyword of ['缺料', '待接收'] as const) {
   assert.ok(countMaterialSearchCards(uiModule.renderProductionObjectSearchPanel(keyword)) <= 6, `${keyword} 搜索物料资源卡片不得超过 6 张`)
 }
 for (const text of ['关联生产对象', '当前卡点', '责任方', '最近更新', '查看来源']) {
@@ -554,7 +554,7 @@ for (const text of [
   '供需总览',
   '业务占用',
   '库存与在途',
-  '配料 / 领料 / 发料',
+  '配料 / 接收 / 发料',
   '异常与档案',
   '当前判断',
   '来源',
@@ -587,7 +587,7 @@ for (const text of [
   '关键证据',
   '需求',
   '已配料',
-  '已领料',
+  '已接收',
   '缺口',
   '计划',
   '裁片完成',

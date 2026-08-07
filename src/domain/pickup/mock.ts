@@ -63,8 +63,8 @@ function buildFallbackCuttingDetail(taskId: string): PdaCuttingTaskDetailData {
     actualReceivedQtyText: '卷数 0 卷 / 长度 0 米',
     discrepancyNote: '当前无差异',
     photoProofCount: 0,
-    scanResultLabel: '待领料确认',
-    currentReceiveStatus: '待领料确认',
+    scanResultLabel: '待接收确认',
+    currentReceiveStatus: '待接收确认',
     latestReceiveAt: '-',
     latestPickupScanAt: '-',
     latestPickupRecordNo: '',
@@ -215,7 +215,7 @@ export const commonPickupPrintVersions: PickupPrintVersion[] = [
     printedAt: '2026-03-20 08:32:00',
     printedBy: '仓库管理员 梁晓雯',
     printCopyCount: 2,
-    snapshotSummary: '车缝任务辅料 280 件，首次打印纸质领料单。',
+    snapshotSummary: '车缝任务辅料 280 件，首次打印纸质接收单。',
     isLatestVersion: true,
   },
   {
@@ -224,7 +224,7 @@ export const commonPickupPrintVersions: PickupPrintVersion[] = [
     printedAt: '2026-03-21 09:15:00',
     printedBy: '仓库管理员 梁晓雯',
     printCopyCount: 2,
-    snapshotSummary: '车缝任务车线与辅料合并领料，首次打印。',
+    snapshotSummary: '车缝任务车线与辅料合并接收，首次打印。',
     isLatestVersion: true,
   },
 ]
@@ -316,7 +316,7 @@ export const cuttingPickupPrintVersions: PickupPrintVersion[] = [
     printedAt: '2026-03-20 09:20:00',
     printedBy: '仓库主管 陈明秋',
     printCopyCount: 2,
-    snapshotSummary: '裁片单补打最新领料单，沿用同一裁片单二维码。',
+    snapshotSummary: '裁片单补打最新接收单，沿用同一裁片单二维码。',
     isLatestVersion: true,
   },
   {
@@ -325,7 +325,7 @@ export const cuttingPickupPrintVersions: PickupPrintVersion[] = [
     printedAt: '2026-03-19 09:25:00',
     printedBy: '仓库主管 陈明秋',
     printCopyCount: 1,
-    snapshotSummary: '面料裁片单首次打印领料单。',
+    snapshotSummary: '面料裁片单首次打印接收单。',
     isLatestVersion: false,
   },
   {
@@ -412,7 +412,7 @@ export const pickupScenarioDifferenceSummaries: PickupScenarioDifferenceSummary[
   buildPickupScenarioDifferenceSummary({
     scenarioType: 'COMMON',
     boundObjectType: 'TASK',
-    qrMeaning: '通用任务领料对象绑定',
+    qrMeaning: '通用任务接收对象绑定',
     discrepancySupport: '支持扫码后直接复核或记录手工说明',
     followUpActions: '后续仍走通用执行与交接能力',
   }),
@@ -421,7 +421,7 @@ export const pickupScenarioDifferenceSummaries: PickupScenarioDifferenceSummary[
     boundObjectType: 'CUT_PIECE_ORDER',
     qrMeaning: '裁片单级绑定，同一裁片单多次配料和重打印继续复用同一二维码',
     discrepancySupport: '强语义支持照片凭证、差异回执与后续专项动作摘要',
-    followUpActions: '后续进入领料、铺布、入仓、交接专项能力',
+    followUpActions: '后续进入接收、铺布、入仓、交接专项能力',
   }),
 ]
 

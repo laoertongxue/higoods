@@ -89,15 +89,15 @@
 | 横机设备 | `src/pages/process-factory/wool/machines.ts` 全文 | 设备档案页混有“查看横机排产”语义 | 保留设备档案职责；关联维护统一进入“横机生产关联” |
 | 毛织菲票 | `src/pages/process-factory/wool/fei-tickets.ts` 全文 | 页面只服务于毛织菲票打印状态和打印操作 | 删除页面、菜单、路由和渲染器 |
 | 毛织统计 | `src/pages/process-factory/wool/statistics.ts` 全文 | 所有统计都依赖旧节点和菲票打印状态 | 删除页面、菜单、路由、渲染器、Mock 数据和专项检查，不在列表增加统计卡片 |
-| 毛织仓库 | `src/pages/process-factory/wool/warehouse.ts` 全文 | Web 仓库包含领料入仓、加工领料、回收入仓、完工入仓、交出确认，并调用加工单文件里的弹窗 | 仓库仅表达物理库存和流转事实；不得自动推进加工单状态 |
+| 毛织仓库 | `src/pages/process-factory/wool/warehouse.ts` 全文 | Web 仓库包含接收入仓、加工接收、回收入仓、完工入仓、交出确认，并调用加工单文件里的弹窗 | 仓库仅表达物理库存和流转事实；不得自动推进加工单状态 |
 | PDA 执行 | `src/pages/pda-exec-detail.ts` 毛织渲染、前置判断和事件处理相关段落 | PDA 仍按接单、开工、横机里程碑、缝盘、熨烫、包装、菲票和自动完工运行 | 改为与 Web 同源的确认接收、加工填报、发起交出和人工完成 |
 | PDA 接单 | `src/pages/pda-task-receive.ts:330-342, 1459-1492` | 毛织任务“确认接单”调用 `acceptWoolWorkOrder`，与本次“确认接收纱线”语义冲突 | 毛织加工单不再用接单状态门禁；毛织任务接收页不得把接单写成纱线接收 |
-| PDA 待加工仓 | `src/pages/pda-warehouse-wait-process.ts` 毛织动作相关段落 | “加工领料”会自动完成领料、排机并启动横机成片 | 删除自动推进；仓库领用/退回即使保留，也只能形成独立库存事实 |
+| PDA 待加工仓 | `src/pages/pda-warehouse-wait-process.ts` 毛织动作相关段落 | “加工接收”会自动完成接收、排机并启动横机成片 | 删除自动推进；仓库领用/退回即使保留，也只能形成独立库存事实 |
 | PDA 待交出仓 | `src/pages/pda-warehouse-wait-handover.ts` 毛织动作相关段落 | “完工入仓”会循环完成所有旧节点；“交出确认”会自动打印菲票 | 删除自动完成旧节点和自动打印菲票 |
 | PDA 仓管首页 | `src/pages/pda-warehouse.ts:36-38, 46-63, 172-189, 203-247` | 毛织快捷入口仍写“给横机使用”“完工入仓”“交出确认” | 改成与事实模型一致的仓库入口，不再表达加工节点 |
 | 移动任务绑定 | `src/data/fcs/process-mobile-task-binding.ts:393-416, 740-846, 927-986` | 毛织任务被合入统一移动执行列表，并按加工单任务号校验绑定 | 保留任务绑定，但更换状态和动作投影 |
 | 移动任务索引 | `src/data/fcs/mobile-execution-task-index.ts:225-244, 417-443` | 只投影单一 `yarnReceipt.yarnSku`，并投影菲票号 | 改为多纱线摘要；删除毛织菲票字段及投影 |
-| PDA 交接事件 | `src/data/fcs/pda-handover-events.ts:1332-1363, 3746-3783` | 毛织领料和交出以静态种子并入通用交接头、明细 | 改为从多次接收记录和多次交出记录生成 |
+| PDA 交接事件 | `src/data/fcs/pda-handover-events.ts:1332-1363, 3746-3783` | 毛织接收和交出以静态种子并入通用交接头、明细 | 改为从多次接收记录和多次交出记录生成 |
 | 工厂仓库概览 | `src/data/fcs/factory-mobile-warehouse.ts:93-124` | 以单一纱线收货、旧完工入仓和交出记录计算毛织仓库概览 | 改为按接收行与交出行汇总，避免按加工单数冒充物料行数 |
 | 技术包类型 | `src/data/pcs-technical-data-version-types.ts:315-345` | 毛织工艺含 `requiresFeiTicket`、`packagingRequired` 等旧执行要求 | 删除毛织专属的菲票打印和包装节点配置；保留任务类型、交出对象等仍有效字段 |
 | 技术包快照构建 | `src/data/fcs/production-tech-pack-snapshot-builder.ts:739-807, 1018-1048` | `alignSnapshotWithDemandSkuLines()` 会把首条款色用料关系复制给没有明确关系的颜色，且改写适用 SKU | 保留快照对生产单 SKU 的对齐能力，但必须标记“技术包原始关系/需求兜底关系”；毛织齐料只认技术包原始关系，不认兜底复制 |
@@ -119,9 +119,9 @@
 | 主事件分发 | `src/main-handlers/fcs-handlers.ts:213-215, 392-399` | 分别分发加工单、横机排产和设备事件 | 替换为加工单、横机生产关联、设备事件 |
 | 毛织价格投影 | `src/data/fcs/wool-task-domain.ts:1049-1059, 2447-2453`、`src/data/fcs/page-adapters/task-execution-adapter.ts:308-313` | 价格由横机、缝盘、熨烫和包装分钟估算，并投影为标准价和派工价 | 删除毛织价格结构、估价、页面展示、移动任务投影和结算投影；不以 0 或“待维护”占位 |
 | 横机状态 | `src/data/fcs/wool-task-domain.ts:52, 1657-1688`、`src/pages/process-factory/wool/machines.ts` | 包含空闲、已排产、生产中、维修、停用，并允许设备编辑页直接选择任一状态 | 删除“已排产”；生产中由当前关联派生，维修或停用生产中设备时二次确认并自动解除关联 |
-| 毛织旧完工入仓 | `src/pages/process-factory/wool/work-orders.ts:939-1124` | `advanceWoolOrderToWarehouseInbound()` 会自动接单、领料、排机并循环完成旧节点 | 删除函数、完工入仓弹窗、按钮和事件；加工填报直接写入毛织待交出仓默认库位 |
+| 毛织旧完工入仓 | `src/pages/process-factory/wool/work-orders.ts:939-1124` | `advanceWoolOrderToWarehouseInbound()` 会自动接单、接收、排机并循环完成旧节点 | 删除函数、完工入仓弹窗、按钮和事件；加工填报直接写入毛织待交出仓默认库位 |
 | 专项检查 | `scripts/check-wool-internal-style-code.ts` 全文 | 仍强制列表渲染紧凑统计卡片 | 改为校验筛选联动的三类 Tab 数量，不再要求统计卡片 |
-| 专项检查 | `scripts/check-wool-warehouse-unified-model.ts` 全文 | 强制存在加工领料、完工入仓、交出确认和对应 PDA 自动动作 | 按事实模型重写，禁止旧节点自动推进 |
+| 专项检查 | `scripts/check-wool-warehouse-unified-model.ts` 全文 | 强制存在加工接收、完工入仓、交出确认和对应 PDA 自动动作 | 按事实模型重写，禁止旧节点自动推进 |
 | 列表治理 | `scripts/standard-list-page-baseline.json` | 毛织加工单仍在历史基线中 | 列表完成标准化后删除该基线条目，不得更新哈希绕过治理 |
 
 ### 2.3 当前实现与目标需求的根本冲突
@@ -147,7 +147,7 @@
 
 #### 冲突四：仓库动作会篡改加工事实
 
-当前 Web/PDA 的“加工领料”和“完工入仓”会自动接单、自动确认领料、自动排机、自动完成所有节点。物理仓库事实和加工履约事实被混成同一个状态推进器。
+当前 Web/PDA 的“加工接收”和“完工入仓”会自动接单、自动确认接收、自动排机、自动完成所有节点。物理仓库事实和加工履约事实被混成同一个状态推进器。
 
 #### 冲突五：上游默认把新单做成已开工
 
@@ -163,7 +163,7 @@
 
 #### 冲突八：旧完工入仓会自动推进全部节点
 
-当前 `advanceWoolOrderToWarehouseInbound()` 会从接单、领料、排机开始循环推进，直到完成横机、缝盘、熨烫、包装或菲票节点。新模型中加工填报本身即形成待交出仓入库事实，该旧函数及入口不能保留。
+当前 `advanceWoolOrderToWarehouseInbound()` 会从接单、接收、排机开始循环推进，直到完成横机、缝盘、熨烫、包装或菲票节点。新模型中加工填报本身即形成待交出仓入库事实，该旧函数及入口不能保留。
 
 #### 冲突九：通用任务明细中的纱线身份不能作为开工来源
 

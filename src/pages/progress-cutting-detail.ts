@@ -148,7 +148,7 @@ function renderChainProgress(recordId: string): string {
       <div class="flex items-center justify-between gap-3">
         <div>
           <h2 class="text-base font-semibold text-foreground">链路进度摘要</h2>
-          <p class="mt-1 text-sm text-muted-foreground">按平台视角拆解配料 / 领料、裁片执行、仓务和样衣摘要。</p>
+          <p class="mt-1 text-sm text-muted-foreground">按平台视角拆解配料 / 接收、裁片执行、仓务和样衣摘要。</p>
         </div>
         <span class="text-sm text-muted-foreground">${escapeHtml(detail.latestFactoryActionText)}</span>
       </div>
@@ -188,10 +188,10 @@ function renderPickupSection(recordId: string): string {
 
   return `
     <section class="rounded-lg border bg-card p-5">
-      <h2 class="text-base font-semibold text-foreground">领料与单据摘要</h2>
+      <h2 class="text-base font-semibold text-foreground">接收与单据摘要</h2>
       <div class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3 text-sm">
         <article class="rounded-lg border bg-muted/20 p-4">
-          <p class="text-xs text-muted-foreground">领料单号</p>
+          <p class="text-xs text-muted-foreground">接收单号</p>
           <p class="mt-1 font-medium text-foreground">${escapeHtml(row.pickupSummary.pickupSlipNo)}</p>
           <p class="mt-2 text-xs text-muted-foreground">最新打印版本：${escapeHtml(row.pickupSummary.latestPrintVersionNo)}</p>
           <p class="mt-1 text-xs text-muted-foreground">已打印次数：${row.pickupSummary.printCopyCount}</p>

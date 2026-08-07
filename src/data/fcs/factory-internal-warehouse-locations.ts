@@ -122,7 +122,7 @@ function buildDefaultLocations(areaName: string): FactoryWarehouseLocation[] {
       locationNo: `${prefix}-01-01`,
       locationName: `${prefix}-01-01`,
       status: 'AVAILABLE',
-      remark: areaName === '异常区' ? '用于差异与破损暂存' : areaName === '待确认区' ? '待领料或待确认明细' : '',
+      remark: areaName === '异常区' ? '用于差异与破损暂存' : areaName === '待确认区' ? '待接收或待确认明细' : '',
     },
     {
       locationId: `LOC-${prefix}-01-02`,

@@ -406,7 +406,7 @@ const SEED_SESSION_MATRIX: SeedSessionProfile[][] = [
       cuttingStatus: 'CUTTING_DONE',
       plannedLayerCount: 40,
       actualLayerCounts: [24, 16],
-      scenarioNote: '第二次领料后继续排唛架，继续按可用领料余额铺布裁剪。',
+      scenarioNote: '第二次接收后继续排唛架，继续按可用接收余额铺布裁剪。',
     },
   ],
   [
@@ -1302,7 +1302,7 @@ function isMaterialPrepRowReadyForSpreadingSeed(row: MaterialPrepRow): boolean {
 
 function createEmptyMarkerSpreadingCounts(row?: MaterialPrepRow) {
   const stageLabel = row?.currentStage.label || '配料数量待补'
-  const suggestedAction = row?.currentStage.key === 'WAITING_CLAIM' ? '等待裁床领料' : '等待裁床领料'
+  const suggestedAction = row?.currentStage.key === 'WAITING_CLAIM' ? '等待裁床接收' : '等待裁床接收'
   return {
     markerCount: 0,
     sessionCount: 0,

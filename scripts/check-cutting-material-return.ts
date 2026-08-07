@@ -57,7 +57,7 @@ const node = nodes.find((n) =>
   n.nodeType === 'READY_TO_PICKUP'
   && n.items.some((item) => !item.prepLineId.startsWith('SUPPLEMENT:'))
 )
-assert(node, '必须存在已配齐待领节点用于领料')
+assert(node, '必须存在已配齐待领节点用于接收')
 assert(node.items.length > 0, '节点必须包含可领物料明细')
 
 const session = appendPickupSessionFromNode({
@@ -68,16 +68,16 @@ const session = appendPickupSessionFromNode({
   locationCode: 'CUT-A-001',
   waitProcessLedgerEventId: 'wait-process:test:return',
 }, storage)
-assert(session.pickupRecordIds.length === node.items.length, '领料主记录必须包含节点全部物料明细')
+assert(session.pickupRecordIds.length === node.items.length, '接收主记录必须包含节点全部物料明细')
 
 const firstItem = node.items.find((item) => !item.prepLineId.startsWith('SUPPLEMENT:'))!
 const context = getMaterialPrepRecordContext(firstItem.sourcePrepRecordIds[0], firstItem.prepLineId, storage)
-assert(context?.record.recordStatus === 'CONFIRMED', '领料后配料记录仍必须保持已确认')
+assert(context?.record.recordStatus === 'CONFIRMED', '接收后配料记录仍必须保持已确认')
 
 const pickupRecord = context.projection.pickupRecords.find((record) =>
   record.prepLineId === firstItem.prepLineId && record.pickupSessionId === session.pickupSessionId,
 )
-assert(pickupRecord, '必须生成领料明细记录')
+assert(pickupRecord, '必须生成接收明细记录')
 
 assertThrows(() => appendPickupReturnRecord({
   pickupRecordId: pickupRecord.pickupRecordId,
@@ -109,7 +109,7 @@ assert(listPickupReturnRecords(storage).length === initialReturnCount + 1, '必�
 const returnedContext = getMaterialPrepRecordContext(firstItem.sourcePrepRecordIds[0], firstItem.prepLineId, storage)
 assert(returnedContext?.record.recordStatus === 'CONFIRMED', '退回不能改写配料记录状态')
 const returnedPickup = returnedContext.projection.pickupRecords.find((record) => record.pickupRecordId === pickupRecord.pickupRecordId)
-assert(returnedPickup?.returnStatus === '部分退回', '部分退回后领料记录必须派生为部分退回')
+assert(returnedPickup?.returnStatus === '部分退回', '部分退回后接收记录必须派生为部分退回')
 assert(returnedPickup.returnQty === 10, '已退数量必须等于退回数量')
 assert(returnedPickup.waitProcessAvailableQty === Number(returnedPickup.pickedQty || 0) - 10, '待加工仓剩余数量必须扣减退回数量')
 
@@ -141,7 +141,7 @@ appendPickupReturnRecord({
 
 const fullyReturnedContext = getMaterialPrepRecordContext(firstItem.sourcePrepRecordIds[0], firstItem.prepLineId, storage)
 const fullyReturnedPickup = fullyReturnedContext?.projection.pickupRecords.find((record) => record.pickupRecordId === pickupRecord.pickupRecordId)
-assert(fullyReturnedPickup?.returnStatus === '全部退回', '全部退完后领料记录必须派生为全部退回')
+assert(fullyReturnedPickup?.returnStatus === '全部退回', '全部退完后接收记录必须派生为全部退回')
 assert(fullyReturnedPickup.waitProcessAvailableQty === 0, '全部退回后待加工仓剩余数量必须为 0')
 
 console.log('裁床物料退回中转仓检查通过')

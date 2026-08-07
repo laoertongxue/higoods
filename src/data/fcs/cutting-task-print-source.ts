@@ -73,9 +73,9 @@ const CONFIG_STATUS_LABEL: Record<CuttingConfigStatus, string> = {
 }
 
 const RECEIVE_STATUS_LABEL: Record<CuttingReceiveStatus, string> = {
-  NOT_RECEIVED: '待领料',
-  PARTIAL: '部分领料',
-  RECEIVED: '已领料',
+  NOT_RECEIVED: '待接收',
+  PARTIAL: '部分接收',
+  RECEIVED: '已接收',
 }
 
 const URGENCY_LABEL: Record<CuttingOrderProgressRecord['urgencyLevel'], string> = {
@@ -156,7 +156,7 @@ function buildCutOrderNodeRows(input: {
     },
     {
       rowId: `${source.cutOrderId}-claim`,
-      node: '领料',
+      node: '接收',
       startedAt: '—',
       finishedAt: '—',
       completedQty: numberText(line?.receivedLength, unit),

@@ -47,10 +47,10 @@ assert.ok(
 )
 
 const materialDrafts = listMaterialRequestDraftsByOrder(order!.productionOrderId)
-assert.ok(materialDrafts.length > 0, '领料草稿必须仍能从生产单快照 BOM 生成')
+assert.ok(materialDrafts.length > 0, '接收草稿必须仍能从生产单快照 BOM 生成')
 assert.ok(
   read('src/data/fcs/material-request-drafts.ts').includes('来源技术包快照BOM'),
-  '领料草稿生成逻辑必须明确从技术包快照 BOM 取数',
+  '接收草稿生成逻辑必须明确从技术包快照 BOM 取数',
 )
 
 ;[

@@ -86,7 +86,7 @@ assertContains(
   assertContains(linkageSource, token, `联动适配层缺少：${token}`)
 })
 
-assertContains(handoverDetailSource, 'linkPickupConfirmToInboundRecord', '交接详情未复用待领料到入库联动')
+assertContains(handoverDetailSource, 'linkPickupConfirmToInboundRecord', '交接详情未复用待接收到入库联动')
 assertContains(handoverDetailSource, 'linkHandoverReceiveToInboundRecord', '交接详情未复用交出接收到入库联动')
 assertContains(handoverDetailSource, 'linkHandoverRecordToOutboundRecord', '交接详情未复用交出到出库联动')
 assertContains(handoverDetailSource, 'syncReceiverWritebackToOutboundRecord', '交接详情未复用回写同步联动')
@@ -95,9 +95,9 @@ assertContains(handoverDetailSource, '已入待加工仓', '交接详情缺少�
 assertContains(handoverDetailSource, '已入待加工仓 · 差异待处理', '交接详情缺少差异入库提示')
 assertContains(handoverDetailSource, '已驳回', '交接详情缺少驳回提示')
 assertContains(handoverDetailSource, '已生成出库记录', '交接详情缺少出库联动提示')
-assertContains(handoverDetailSource, '完成领料单', '交接详情缺少完成领料单按钮')
+assertContains(handoverDetailSource, '完成接收单', '交接详情缺少完成接收单按钮')
 assertContains(handoverDetailSource, '完成交出单', '交接详情缺少完成交出单按钮')
-assertContains(pdaHandoverDataSource, '领料单已完成，不允许新增领料记录', '完成领料单后必须禁止新增领料记录')
+assertContains(pdaHandoverDataSource, '接收单已完成，不允许新增接收记录', '完成接收单后必须禁止新增接收记录')
 assertContains(pdaHandoverDataSource, '交出单已完成，不允许新增交出记录', '完成交出单后必须禁止新增交出记录')
 assertContains(pdaHandoverDataSource, 'receiverClosedAt: head.receiverClosedAt', '交出单完成后接收方回写闭合必须保留独立语义')
 assertNotContains(pdaHandoverDataSource, '仍有待接收方回写记录', '完成交出单不得依赖全部回写')
@@ -132,31 +132,31 @@ const confirmedPickup = pickupRecords.find(
     record.status === 'RECEIVED'
     && Boolean(findFactoryWarehouseInboundRecordBySourceRecordId(record.recordId)),
 )
-assert(confirmedPickup, '缺少待领料确认成功样例')
+assert(confirmedPickup, '缺少待接收确认成功样例')
 const confirmedInbound = findFactoryWarehouseInboundRecordBySourceRecordId(confirmedPickup!.record.recordId)
-assert(confirmedInbound, '待领料确认成功后未生成入库记录')
-assert(confirmedInbound!.status === '已入库', '待领料确认成功后的入库记录状态应为已入库')
+assert(confirmedInbound, '待接收确认成功后未生成入库记录')
+assert(confirmedInbound!.status === '已入库', '待接收确认成功后的入库记录状态应为已入库')
 const confirmedWaitProcess = findFactoryWaitProcessStockItemBySourceRecordId(confirmedPickup!.record.recordId)
-assert(confirmedWaitProcess, '待领料确认成功后未生成待加工仓明细')
-assert(confirmedWaitProcess!.status === '已入待加工仓', '待领料确认成功后的待加工仓状态应为已入待加工仓')
+assert(confirmedWaitProcess, '待接收确认成功后未生成待加工仓明细')
+assert(confirmedWaitProcess!.status === '已入待加工仓', '待接收确认成功后的待加工仓状态应为已入待加工仓')
 
 const diffPickup = pickupRecords.find(
   ({ record }) =>
     ['OBJECTION_REPORTED', 'OBJECTION_PROCESSING', 'OBJECTION_RESOLVED'].includes(record.status)
     && Boolean(findFactoryWarehouseInboundRecordBySourceRecordId(record.recordId)),
 )
-assert(diffPickup, '缺少待领料差异样例')
+assert(diffPickup, '缺少待接收差异样例')
 const diffInbound = findFactoryWarehouseInboundRecordBySourceRecordId(diffPickup!.record.recordId)
-assert(diffInbound, '待领料差异后未生成入库记录')
-assert(diffInbound!.status === '差异待处理', '待领料差异后的入库记录状态应为差异待处理')
+assert(diffInbound, '待接收差异后未生成入库记录')
+assert(diffInbound!.status === '差异待处理', '待接收差异后的入库记录状态应为差异待处理')
 const diffWaitProcess = findFactoryWaitProcessStockItemBySourceRecordId(diffPickup!.record.recordId)
-assert(diffWaitProcess, '待领料差异后未生成待加工仓明细')
-assert(diffWaitProcess!.status === '差异待处理', '待领料差异后的待加工仓状态应为差异待处理')
+assert(diffWaitProcess, '待接收差异后未生成待加工仓明细')
+assert(diffWaitProcess!.status === '差异待处理', '待接收差异后的待加工仓状态应为差异待处理')
 
 const rejectedPickup = pickupRecords.find(({ record }) => record.status === 'REJECTED')
-assert(rejectedPickup, '缺少待领料驳回样例')
-assert(!findFactoryWarehouseInboundRecordBySourceRecordId(rejectedPickup!.record.recordId), '待领料驳回后不应生成入库记录')
-assert(!findFactoryWaitProcessStockItemBySourceRecordId(rejectedPickup!.record.recordId), '待领料驳回后不应进入待加工仓')
+assert(rejectedPickup, '缺少待接收驳回样例')
+assert(!findFactoryWarehouseInboundRecordBySourceRecordId(rejectedPickup!.record.recordId), '待接收驳回后不应生成入库记录')
+assert(!findFactoryWaitProcessStockItemBySourceRecordId(rejectedPickup!.record.recordId), '待接收驳回后不应进入待加工仓')
 
 const handoverReceiveInbound = listFactoryWarehouseInboundRecords().find((record) => record.sourceRecordType === 'HANDOVER_RECEIVE')
 assert(handoverReceiveInbound, '缺少交出接收生成的入库记录')
@@ -222,7 +222,7 @@ assert(
 )
 
 ;[
-  buildToken('确认', '领料'),
+  buildToken('确认', '接收'),
   buildToken('手动', '入库'),
   buildToken('新增', '库存'),
   buildToken('新增', '入库'),
@@ -234,7 +234,7 @@ assert(
   assertNotContains(specialCraftWarehouseSource, token, `特殊工艺仓库管理不应提供主操作：${token}`)
 })
 ;[
-  buildToken('确认', '领料'),
+  buildToken('确认', '接收'),
   buildToken('新增', '交出记录'),
   buildToken('新建', '交出'),
   buildToken('手动', '出库'),
@@ -254,7 +254,7 @@ assert(
   buildToken('Factory', 'OutboundOrder'),
   'FactoryDeliveryOrder',
   'WarehouseDeliveryOrder',
-  buildToken('仓库', '领料单'),
+  buildToken('仓库', '接收单'),
   buildToken('仓库', '交出单'),
   buildToken('create', 'Warehouse', 'Handover'),
   'createWarehousePickup',

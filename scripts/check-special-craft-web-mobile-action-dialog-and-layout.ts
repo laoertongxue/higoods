@@ -129,10 +129,10 @@ includesAll(platformSource, [
 assert(!`${detailSource}\n${taskDetailSource}\n${taskOrdersSource}\n${warehouseSource}`.match(/开扣眼|装扣子|熨烫|包装/), '特殊工艺页面出现后道或染色包装动作文案')
 
 const taskOrders = listSpecialCraftTaskOrders()
-const waitReceive = taskOrders.find((item) => item.status === '待领料')
+const waitReceive = taskOrders.find((item) => item.status === '待接收')
 const processing = taskOrders.find((item) => item.status === '加工中')
 const completed = taskOrders.find((item) => item.status === '已完结')
-assert(waitReceive, '缺少待领料特殊工艺演示工艺单')
+assert(waitReceive, '缺少待接收特殊工艺演示工艺单')
 assert(processing, '缺少加工中特殊工艺演示工艺单')
 assert(completed, '缺少已完结特殊工艺演示工艺单')
 assert(listPlatformSpecialCraftResultViews().some((view) => view.sourceId === processing!.taskOrderId), '干净态平台侧找不到加工中特殊工艺结果')
@@ -147,7 +147,7 @@ function assertThrows(action: () => unknown, message: string): void {
 }
 
 const receiveBinding = validateSpecialCraftMobileTaskBinding(waitReceive!.taskOrderId)
-assert(receiveBinding.canOpenMobileExecution, '待领料特殊工艺工艺单未绑定可执行移动端任务')
+assert(receiveBinding.canOpenMobileExecution, '待接收特殊工艺工艺单未绑定可执行移动端任务')
 assertThrows(() => executeProcessWebAction({
   sourceType: 'SPECIAL_CRAFT',
   sourceId: waitReceive!.taskOrderId,

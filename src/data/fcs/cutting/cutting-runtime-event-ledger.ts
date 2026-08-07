@@ -17,9 +17,9 @@ export type CuttingRuntimeQtyUnit = 'yard' | '片' | '件' | '条' | '粒' | '�
 
 export type CuttingRuntimeEventType =
   | '中转仓配料完成通知'
-  | '中转仓领料'
+  | '中转仓接收'
   | '待加工仓扫码入仓'
-  | '待加工仓加工领料'
+  | '待加工仓加工接收'
   | '待加工仓回收入仓'
   | '待加工仓位置调整'
   | '裁片单开工'
@@ -95,7 +95,7 @@ export interface TransferPrepReadyPayload {
   prepNoticeNo: string
   prepOrderNo: string
   sourceWarehouseName: '中转仓'
-  receiveStatus: '待领料' | '已领料待入仓' | '已入仓' | '已取消'
+  receiveStatus: '待接收' | '已接收待入仓' | '已入仓' | '已取消'
   materialLines: Array<{
     lineId: string
     materialSku: string
@@ -833,9 +833,9 @@ function normalizeInventoryEffect(raw: unknown): RuntimeInventoryEffect | undefi
 function isRuntimeEventType(value: string): value is CuttingRuntimeEventType {
   return [
     '中转仓配料完成通知',
-    '中转仓领料',
+    '中转仓接收',
     '待加工仓扫码入仓',
-    '待加工仓加工领料',
+    '待加工仓加工接收',
     '待加工仓回收入仓',
     '待加工仓位置调整',
     '裁片单开工',
@@ -913,9 +913,9 @@ function compactDate(value: string): string {
 function eventTypeCode(eventType: CuttingRuntimeEventType): string {
   const map: Record<CuttingRuntimeEventType, string> = {
     中转仓配料完成通知: 'PREP',
-    中转仓领料: 'PICKUP',
+    中转仓接收: 'PICKUP',
     待加工仓扫码入仓: 'WP-IN',
-    待加工仓加工领料: 'WP-OUT',
+    待加工仓加工接收: 'WP-OUT',
     待加工仓回收入仓: 'WP-RETURN',
     待加工仓位置调整: 'WP-ADJUST',
     裁片单开工: 'START',
@@ -1310,9 +1310,9 @@ function pickupEventRecordFromEvent(event: CuttingRuntimeEvent): PdaPickupEventR
       taskId: payload.prepNoticeId || event.refs.cutOrderId || event.eventId,
       taskNo: payload.prepOrderNo || event.refs.cutOrderNo || event.eventNo,
     }),
-    resultLabel: '已完成中转仓领料',
+    resultLabel: '已完成中转仓接收',
     actualReceivedQtyText: formatRuntimeQtyText(pickupQty, unit, toNumber(payload.rollCount)),
-    discrepancyNote: payload.hasDifference ? payload.differenceReason || '存在领料差异' : '当前无差异',
+    discrepancyNote: payload.hasDifference ? payload.differenceReason || '存在接收差异' : '当前无差异',
     photoProofCount: toArray(payload.evidencePhotos).length,
     claimDisputeId: '',
     claimDisputeNo: '',
@@ -1369,7 +1369,7 @@ export function listPdaPickupEvents(
 ): PdaPickupEventRecord[] {
   return sortRuntimeEventRecords(
     uniqueRuntimeEventRecords(
-      listCuttingRuntimeEventsByType('中转仓领料', storage)
+      listCuttingRuntimeEventsByType('中转仓接收', storage)
         .map((event) => pickupEventRecordFromEvent(event))
         .filter((record): record is PdaPickupEventRecord => Boolean(record)),
     ),

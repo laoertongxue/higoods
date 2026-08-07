@@ -317,7 +317,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'progress-exceptions', title: '异常定位与处理', icon: 'Search', href: '/fcs/progress/exceptions' },
             { key: 'progress-urge', title: '催办与通知', icon: 'BellRing', href: '/fcs/progress/urge' },
             { key: 'progress-handover', title: '交接链路追踪', icon: 'ScanLine', href: '/fcs/progress/handover' },
-            { key: 'progress-material', title: '领料进度跟踪', icon: 'PackageSearch', href: '/fcs/progress/material' },
+            { key: 'progress-material', title: '接收进度跟踪', icon: 'PackageSearch', href: '/fcs/progress/material' },
             { key: 'progress-milestone-config', title: '节点上报配置', icon: 'Flag', href: '/fcs/progress/milestone-config' },
             { key: 'progress-cutting-overview', title: '裁片任务总览', icon: 'Scissors', href: '/fcs/progress/cutting-overview' },
             { key: 'progress-cutting-exception-center', title: '裁片专项异常中心', icon: 'AlertTriangle', href: '/fcs/progress/cutting-exception-center' },
@@ -339,7 +339,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           children: [
             { key: 'settlement-statements', title: '对账单', icon: 'FileText', href: '/fcs/settlement/statements' },
             { key: 'settlement-adjustments', title: '预结算流水', icon: 'SlidersHorizontal', href: '/fcs/settlement/adjustments' },
-            { key: 'settlement-material-statements', title: '车缝领料对账', icon: 'ClipboardSignature', href: '/fcs/settlement/material-statements' },
+            { key: 'settlement-material-statements', title: '车缝接收对账', icon: 'ClipboardSignature', href: '/fcs/settlement/material-statements' },
             { key: 'settlement-batches', title: '预付款批次', icon: 'Layers', href: '/fcs/settlement/batches' },
           ],
         },
@@ -428,12 +428,12 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
         },
         {
           key: 'pfos-cutting-pickup',
-          title: '领料管理',
+          title: '接收管理',
           icon: 'PackageCheck',
           children: [
-            { key: 'pfos-cutting-pickup-ready', title: '已配齐待领料', icon: 'PackageCheck', href: '/fcs/craft/cutting/pickup-management/ready' },
+            { key: 'pfos-cutting-pickup-ready', title: '已配齐待接收', icon: 'PackageCheck', href: '/fcs/craft/cutting/pickup-management/ready' },
             { key: 'pfos-cutting-pickup-incomplete', title: '未配齐配料', icon: 'MapPin', href: '/fcs/craft/cutting/pickup-management/incomplete' },
-            { key: 'pfos-cutting-pickup-history', title: '已领料', icon: 'History', href: '/fcs/craft/cutting/pickup-management/history' },
+            { key: 'pfos-cutting-pickup-history', title: '已接收', icon: 'History', href: '/fcs/craft/cutting/pickup-management/history' },
           ],
         },
         {

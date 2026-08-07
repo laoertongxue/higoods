@@ -521,7 +521,7 @@ function buildUnifiedWaitProcessFlowLines(item: FactoryWaitProcessStockItem): Fa
   ]
   if (item.receivedQty > 0) {
     lines.push({
-      flowType: '加工领料',
+      flowType: '加工接收',
       qtyText: `-${formatQty(Math.max(item.receivedQty - Math.abs(item.differenceQty || 0), 0))} ${item.unit}`,
       sourceNo: item.taskNo || item.sourceRecordNo,
       operatedAt: item.receivedAt,
@@ -627,7 +627,7 @@ function renderAuxiliaryWarehouseTabs(
 function renderAuxiliaryWaitProcessHeaderActions(domainSlug: string): string {
   const actions: Array<{ action: AuxiliaryWarehouseAction; label: string; primary?: boolean }> = [
     { action: 'receive', label: '接收入仓', primary: true },
-    { action: 'process-issue', label: '加工领料' },
+    { action: 'process-issue', label: '加工接收' },
     { action: 'return', label: '回收入仓' },
   ]
   return `
@@ -733,7 +733,7 @@ function renderAuxiliaryWarehouseActionDialog(input: {
       badge: '形成接收入仓记录',
       submitLabel: '确认接收入仓',
       actionLabel: '接收入仓',
-      eventText: '从交接接收或外部领料回来后，确认数量并放入待加工仓库位。',
+      eventText: '从交接接收或外部接收回来后，确认数量并放入待加工仓库位。',
       fields: [
         renderAuxiliaryActionTextField('扫描交接单 / 加工单', '扫交接单、加工单或物料码'),
         renderAuxiliaryActionSelect('接收记录', inboundOptions),
@@ -744,17 +744,17 @@ function renderAuxiliaryWarehouseActionDialog(input: {
       ],
     },
     'process-issue': {
-      title: '加工领料',
-      badge: '形成加工领料记录',
-      submitLabel: '确认加工领料',
-      actionLabel: '加工领料',
+      title: '加工接收',
+      badge: '形成加工接收记录',
+      submitLabel: '确认加工接收',
+      actionLabel: '加工接收',
       eventText: '从待加工仓领出给工序现场使用，并扣减待加工仓库存。',
       fields: [
         renderAuxiliaryActionTextField('扫描加工单 / 库存记录', '扫加工单或库存二维码'),
         renderAuxiliaryActionSelect('库存记录', waitProcessOptions),
         renderAuxiliaryActionSelect('来源库区', areaOptions),
         renderAuxiliaryActionSelect('来源库位', locationOptions),
-        renderAuxiliaryActionTextField('领料数量', '例如 80'),
+        renderAuxiliaryActionTextField('接收数量', '例如 80'),
         renderAuxiliaryActionTextField('加工用途', '例如 绣花工序领用'),
       ],
     },
@@ -889,7 +889,7 @@ function renderInboundRecordRows(records: FactoryWarehouseInboundRecord[]): stri
 }
 
 function renderIssueRecordRows(items: FactoryWaitProcessStockItem[]): string {
-  if (!items.length) return `<tr><td colspan="8" class="py-10 text-center text-muted-foreground">暂无加工领料记录。</td></tr>`
+  if (!items.length) return `<tr><td colspan="8" class="py-10 text-center text-muted-foreground">暂无加工接收记录。</td></tr>`
   return items.map((item) => {
     const issueQty = Math.max(item.receivedQty - Math.abs(item.differenceQty || 0), 0)
     return `
@@ -901,7 +901,7 @@ function renderIssueRecordRows(items: FactoryWaitProcessStockItem[]): string {
         <td class="px-3 py-3 font-semibold tabular-nums">${formatNumber(issueQty)} ${escapeHtml(item.unit)}</td>
         <td class="px-3 py-3">${escapeHtml(item.areaName)} / ${escapeHtml(item.shelfNo)} / ${escapeHtml(item.locationNo)}</td>
         <td class="px-3 py-3">${renderStatusBadge(item.status === '差异待处理' ? '待复核' : '已领用')}</td>
-        <td class="px-3 py-3">${renderWarehouseFlowButton(`${item.taskNo || item.sourceRecordNo} 加工领料流水`, buildUnifiedWaitProcessFlowLines(item), '查看流水')}</td>
+        <td class="px-3 py-3">${renderWarehouseFlowButton(`${item.taskNo || item.sourceRecordNo} 加工接收流水`, buildUnifiedWaitProcessFlowLines(item), '查看流水')}</td>
       </tr>
     `
   }).join('')
@@ -1281,7 +1281,7 @@ function renderSpecialCraftDomainWarehousePageByMode(
       const tabs = [
         { key: 'inventory', label: '库存明细' },
         { key: 'receive', label: '接收入仓' },
-        { key: 'issue', label: '加工领料' },
+        { key: 'issue', label: '加工接收' },
         { key: 'return', label: '回收入仓' },
         { key: 'locations', label: '库区库位' },
       ]
@@ -1304,12 +1304,12 @@ function renderSpecialCraftDomainWarehousePageByMode(
         rowHtml: renderInboundRecordRows,
       }))
       const issueContent = renderFilteredTable(renderPaginatedTable({
-        title: '加工领料记录',
+        title: '加工接收记录',
         rows: auxiliaryWaitProcessItems,
         state,
         domainSlug,
         mode,
-        headers: ['领料记录', '工艺', '加工任务', '库存对象', '领料数量', '库区库位', '状态', '操作'],
+        headers: ['接收记录', '工艺', '加工任务', '库存对象', '接收数量', '库区库位', '状态', '操作'],
         rowHtml: renderIssueRecordRows,
       }))
       const returnContent = renderFilteredTable(renderPaginatedTable({

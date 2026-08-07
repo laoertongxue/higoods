@@ -328,7 +328,7 @@ function pickLedgerAttentionRow<T extends { status: string }>(rows: T[]): T | un
 function getProductionLedgerMaterialSummary(details: ProductionLedgerDetails): ProductionExecutionSummaryBlock {
   const row = details.materialIssues.find((item) => item.shortageQty && !item.shortageQty.startsWith('0')) ?? pickLedgerAttentionRow(details.materialIssues)
   return {
-    title: '1）配料 / 领料',
+    title: '1）配料 / 接收',
     statusText: row?.status ?? '暂无',
     primaryText: row ? `${row.materialName}｜缺口 ${row.shortageQty}` : '暂无配料记录',
     secondaryText: row ? `预计到仓：${row.expectedArrival}` : '等待配料计划',
@@ -820,7 +820,7 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
         { taskType: '打揽', taskNo: 'PROC-143660', factory: '打揽 (360)', factoryType: '工艺厂', status: '等待处理', plannedDoneAt: '2026-07-01', actualDoneAt: '-', completedQty: '0', issue: '等待工厂处理', action: '查看' },
         { taskType: '装扣子', taskNo: 'PROC-143661', factory: '待分配', factoryType: '工艺厂', status: '等待处理', plannedDoneAt: '2026-07-01', actualDoneAt: '-', completedQty: '0', issue: '任务未分配', action: '分配任务' },
         { taskType: '捆条', taskNo: 'PROC-143662', factory: 'sea cutting (59)', factoryType: '工艺厂', status: '等待处理', plannedDoneAt: '2026-07-02', actualDoneAt: '-', completedQty: '0', issue: '等待处理', action: '查看' },
-        { taskType: '车缝', taskNo: 'SEW-143663', factory: 'alwi collection (504)', factoryType: '车缝厂', status: '等待处理', plannedDoneAt: '2026-07-04', actualDoneAt: '-', completedQty: '0', issue: '等待领料', action: '查看' },
+        { taskType: '车缝', taskNo: 'SEW-143663', factory: 'alwi collection (504)', factoryType: '车缝厂', status: '等待处理', plannedDoneAt: '2026-07-04', actualDoneAt: '-', completedQty: '0', issue: '等待接收', action: '查看' },
         { taskType: '烫包', taskNo: 'PACK-143664', factory: 'alwi collection (504)', factoryType: '后道厂', status: '等待处理', plannedDoneAt: '2026-07-04', actualDoneAt: '-', completedQty: '0', issue: '前序未完成', action: '查看' },
         { taskType: '质检', taskNo: 'QC-143665', factory: 'alwi collection (504)', factoryType: '质检点', status: '等待处理', plannedDoneAt: '2026-07-04', actualDoneAt: '-', completedQty: '0', issue: '等待回货', action: '查看' },
       ],

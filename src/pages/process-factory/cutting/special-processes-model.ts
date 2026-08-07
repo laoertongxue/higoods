@@ -52,7 +52,7 @@ export type BindingProcessHandoverStatus = '未装袋' | '已装袋待交出' | 
 export type BindingProcessDifferenceStatus = '无差异' | '有差异'
 export type BindingStripCuttingMethod = '斜切' | '直切' | '横切'
 export type BindingStripSufficiencyStatus = '待记录' | '充足' | '捆条不足' | '有差异'
-export type BindingStripMaterialReceiveStatus = '未领料' | '已领料'
+export type BindingStripMaterialReceiveStatus = '未接收' | '已接收'
 
 export interface BindingProcessMaterialIdentity {
   materialSku: string

@@ -75,8 +75,8 @@ export interface HandoverPreviewStats {
 
 export type HandoverTimelineProcessStatusLabel =
   | '暂无事件'
-  | '待领料'
-  | '已领料待交出'
+  | '待接收'
+  | '已接收待交出'
   | '已交出待接收方确认'
   | '有异议'
   | '异议处理中'
@@ -166,34 +166,34 @@ function formatQtyDiff(diff: number, unit: string): string {
 
 function buildPickupHeadRow(head: PdaHandoverHead): HandoverLedgerRow {
   let statusCode = 'PICKUP_PENDING'
-  let statusLabel = '待领料'
+  let statusLabel = '待接收'
   let statusGroup: HandoverLedgerStatusGroup = 'PENDING'
   let statusTone: HandoverLedgerStatusTone = 'warning'
   let nextActionHint = '查看来料记录'
 
   if (head.summaryStatus === 'SUBMITTED') {
     statusCode = 'PICKUP_SUBMITTED'
-    statusLabel = '已发起领料'
+    statusLabel = '已发起接收'
     statusGroup = 'IN_PROGRESS'
     statusTone = 'info'
   } else if (head.summaryStatus === 'PARTIAL_WRITTEN_BACK') {
     statusCode = 'PICKUP_PARTIAL'
-    statusLabel = '部分已领料'
+    statusLabel = '部分已接收'
     statusGroup = 'IN_PROGRESS'
     statusTone = 'info'
   } else if (head.summaryStatus === 'WRITTEN_BACK') {
     statusCode = 'PICKUP_WRITTEN'
-    statusLabel = '已领料确认'
+    statusLabel = '已接收确认'
     statusGroup = 'DONE'
     statusTone = 'success'
-    nextActionHint = '领料记录已满足，等待仓库发起完成'
+    nextActionHint = '接收记录已满足，等待仓库发起完成'
   }
 
   return {
     rowId: `PKH-${head.handoverId}`,
     sourceType: 'PICKUP_HEAD',
     eventTypeCode: 'PICKUP_HEAD',
-    eventTypeLabel: '领料单',
+    eventTypeLabel: '接收单',
     productionOrderId: head.productionOrderNo,
     taskId: head.taskId,
     taskNo: head.taskNo,
@@ -205,7 +205,7 @@ function buildPickupHeadRow(head: PdaHandoverHead): HandoverLedgerRow {
     statusGroup,
     statusTone,
     occurredAt: head.lastRecordAt || head.completedByWarehouseAt || '',
-    sourceModuleLabel: '领料单',
+    sourceModuleLabel: '接收单',
     nextActionHint,
     handoverId: head.handoverId,
     qtyDiff: head.qtyDiffTotal,
@@ -217,7 +217,7 @@ function buildPickupRecordRow(head: PdaHandoverHead, record: PdaPickupRecord): H
   let statusLabel = '待仓库发出'
   let statusGroup: HandoverLedgerStatusGroup = 'PENDING'
   let statusTone: HandoverLedgerStatusTone = 'warning'
-  let nextActionHint = '等待仓库发出后可继续领料'
+  let nextActionHint = '等待仓库发出后可继续接收'
 
   if (record.status === 'PENDING_FACTORY_PICKUP') {
     statusCode = 'PICKUP_RECORD_PENDING_PICKUP'
@@ -227,10 +227,10 @@ function buildPickupRecordRow(head: PdaHandoverHead, record: PdaPickupRecord): H
     nextActionHint = '工厂可按计划到仓自提'
   } else if (record.status === 'RECEIVED') {
     statusCode = 'PICKUP_RECORD_RECEIVED'
-    statusLabel = '已领料确认'
+    statusLabel = '已接收确认'
     statusGroup = 'DONE'
     statusTone = 'success'
-    nextActionHint = '本次领料已确认'
+    nextActionHint = '本次接收已确认'
   }
 
   const actualText = typeof record.qtyActual === 'number' ? `${record.qtyActual}` : '待确认'
@@ -239,7 +239,7 @@ function buildPickupRecordRow(head: PdaHandoverHead, record: PdaPickupRecord): H
     rowId: `PKR-${record.recordId}`,
     sourceType: 'PICKUP_RECORD',
     eventTypeCode: 'PICKUP_RECORD',
-    eventTypeLabel: '领料记录',
+    eventTypeLabel: '接收记录',
     productionOrderId: head.productionOrderNo,
     taskId: head.taskId,
     taskNo: head.taskNo,
@@ -251,7 +251,7 @@ function buildPickupRecordRow(head: PdaHandoverHead, record: PdaPickupRecord): H
     statusGroup,
     statusTone,
     occurredAt: record.submittedAt,
-    sourceModuleLabel: '领料记录',
+    sourceModuleLabel: '接收记录',
     nextActionHint,
     handoverId: head.handoverId,
     recordId: record.recordId,
@@ -402,7 +402,7 @@ function buildCompletedHeadRow(head: PdaHandoverHead): HandoverLedgerRow {
     rowId: `CMP-${head.handoverId}`,
     sourceType: 'COMPLETED_HEAD',
     eventTypeCode: head.headType === 'PICKUP' ? 'PICKUP_COMPLETED' : 'HANDOUT_COMPLETED',
-    eventTypeLabel: head.headType === 'PICKUP' ? '领料完成' : '交出完成',
+    eventTypeLabel: head.headType === 'PICKUP' ? '接收完成' : '交出完成',
     productionOrderId: head.productionOrderNo,
     taskId: head.taskId,
     taskNo: head.taskNo,
@@ -414,8 +414,8 @@ function buildCompletedHeadRow(head: PdaHandoverHead): HandoverLedgerRow {
     statusGroup: 'DONE',
     statusTone: 'success',
     occurredAt: head.completedByWarehouseAt || head.lastRecordAt || '',
-    sourceModuleLabel: head.headType === 'PICKUP' ? '领料完成' : '交出单闭环',
-    nextActionHint: head.headType === 'PICKUP' ? '领料单已完成' : head.receiverClosedAt ? '交出单已闭合' : '交出单已完成，接收方收货确认可继续',
+    sourceModuleLabel: head.headType === 'PICKUP' ? '接收完成' : '交出单闭环',
+    nextActionHint: head.headType === 'PICKUP' ? '接收单已完成' : head.receiverClosedAt ? '交出单已闭合' : '交出单已完成，接收方收货确认可继续',
     handoverId: head.handoverId,
     qtyDiff: head.qtyDiffTotal,
   }
@@ -442,7 +442,7 @@ function buildSameFactoryContinueRow(task: RuntimeProcessTask): HandoverLedgerRo
     nextActionHint:
       task.status === 'DONE'
         ? '同厂衔接已完成，按后续工序流转'
-        : '同厂同 SKU 直接衔接，中间无需回仓再领料',
+        : '同厂同 SKU 直接衔接，中间无需回仓再接收',
     handoverId: `RTC-${task.taskId}`,
   }
 }
@@ -555,7 +555,7 @@ function deriveProcessSectionStatus(events: HandoverLedgerRow[]): {
     return {
       label: '暂无事件',
       tone: 'muted',
-      nextActionHint: '当前工序暂无领料或交出事件',
+      nextActionHint: '当前工序暂无接收或交出事件',
     }
   }
 
@@ -621,7 +621,7 @@ function deriveProcessSectionStatus(events: HandoverLedgerRow[]): {
 
   if (statusCodes.has('HANDOUT_PENDING') || statusCodes.has('HANDOUT_SUBMITTED')) {
     return {
-      label: '已领料待交出',
+      label: '已接收待交出',
       tone: 'info',
       nextActionHint: '当前等待工厂交出',
     }
@@ -633,9 +633,9 @@ function deriveProcessSectionStatus(events: HandoverLedgerRow[]): {
     statusCodes.has('PICKUP_RECORD_PENDING_PICKUP')
   ) {
     return {
-      label: '待领料',
+      label: '待接收',
       tone: 'warning',
-      nextActionHint: '当前等待工厂领料',
+      nextActionHint: '当前等待工厂接收',
     }
   }
 
@@ -648,7 +648,7 @@ function deriveProcessSectionStatus(events: HandoverLedgerRow[]): {
   }
 
   return {
-    label: '已领料待交出',
+    label: '已接收待交出',
     tone: 'info',
     nextActionHint: '当前等待工厂交出',
   }
@@ -662,9 +662,9 @@ function getSectionPriority(label: HandoverTimelineProcessStatusLabel): number {
       return 2
     case '已交出待接收方确认':
       return 3
-    case '已领料待交出':
+    case '已接收待交出':
       return 4
-    case '待领料':
+    case '待接收':
       return 5
     case '仓内处理':
       return 5
@@ -680,8 +680,8 @@ function getSectionPriority(label: HandoverTimelineProcessStatusLabel): number {
 }
 
 function resolveFocusByStatusLabel(label: string): HandoverFocus | undefined {
-  if (label === '待领料') return 'pickup'
-  if (label === '已领料待交出') return 'handout'
+  if (label === '待接收') return 'pickup'
+  if (label === '已接收待交出') return 'handout'
   if (label === '已交出待接收方确认') return 'warehouse-confirm'
   if (label === '有异议' || label === '异议处理中') return 'objection'
   return undefined
@@ -849,7 +849,7 @@ export function getTaskHandoverSummary(
       processName: '未识别工序',
       relatedProductionOrderId: '',
       processStatusLabel: '暂无事件',
-      nextActionHint: '当前任务暂无交接记录，请先查看领料与交出',
+      nextActionHint: '当前任务暂无交接记录，请先查看接收与交出',
       latestOccurredAt: '',
       hasOpenIssue: false,
     }
@@ -865,7 +865,7 @@ export function getTaskHandoverSummary(
       processName: task.processNameZh,
       relatedProductionOrderId: task.productionOrderId,
       processStatusLabel: '暂无事件',
-      nextActionHint: '当前工序暂无交接记录，请先推进领料或交出',
+      nextActionHint: '当前工序暂无交接记录，请先推进接收或交出',
       latestOccurredAt: '',
       hasOpenIssue: false,
     }

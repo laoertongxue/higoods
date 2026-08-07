@@ -270,7 +270,7 @@ export const PROCESS_ACTION_DEFINITIONS: ProcessActionDefinition[] = [
     sourceType: 'PRINT',
     fromStatuses: ['PRINT_DONE', 'WAIT_TRANSFER'],
     toStatus: 'TRANSFERRING',
-    requiredFields: ['操作人', '开始时间', '领料记录'],
+    requiredFields: ['操作人', '开始时间', '接收记录'],
     writebackHandler: 'executePrintAction.startTransfer',
   },
   {
@@ -423,11 +423,11 @@ export const PROCESS_ACTION_DEFINITIONS: ProcessActionDefinition[] = [
   },
   {
     actionCode: 'CUTTING_CONFIRM_PICKUP',
-    actionLabel: '确认领料',
+    actionLabel: '确认接收',
     sourceType: 'CUTTING',
-    fromStatuses: ['待领料'],
+    fromStatuses: ['待接收'],
     toStatus: '待铺布',
-    requiredFields: ['领料人', '领料时间', '实领面料米数', '备注'],
+    requiredFields: ['接收人', '接收时间', '实领面料米数', '备注'],
     writebackHandler: 'executeCuttingAction.updateCutPieceOrderWebStage',
   },
   {
@@ -508,7 +508,7 @@ export const PROCESS_ACTION_DEFINITIONS: ProcessActionDefinition[] = [
     actionCode: 'SPECIAL_CRAFT_CONFIRM_RECEIVE',
     actionLabel: '确认接收',
     sourceType: 'SPECIAL_CRAFT',
-    fromStatuses: ['待领料', '加工中'],
+    fromStatuses: ['待接收', '加工中'],
     toStatus: '加工中',
     requiredFields: ['接收人', '接收时间'],
     optionalFields: ['备注'],
@@ -672,7 +672,7 @@ function getDefaultF090DyeVatNo(): string {
 }
 
 function normalizeCuttingStatus(status: string): string {
-  if (status === '已领料') return '待铺布'
+  if (status === '已接收') return '待铺布'
   if (status === '裁片执行中') return '裁剪中'
   if (status === '待维护唛架') return '待铺布'
   if (status === '已入仓') return '待交出'
@@ -821,7 +821,7 @@ function assertPrintTransferPickupReady(printOrderId: string): void {
     sourceTaskOrderId: printOrderId,
   })
   const hasPickup = pickupRecords.some((record) => record.receivedObjectQty > 0 || record.availableObjectQty > 0)
-  if (!hasPickup) throw new Error('开始转印前必须先在交接模块完成本单领料记录')
+  if (!hasPickup) throw new Error('开始转印前必须先在交接模块完成本单接收记录')
 }
 
 function assertActionSpecificFields(payload: ProcessActionPayload, definition: ProcessActionDefinition): void {
@@ -852,7 +852,7 @@ function assertRequiredFields(payload: ProcessActionPayload, definition: Process
     if (
       field === '操作人' ||
       field === '交出人' ||
-      field === '领料人' ||
+      field === '接收人' ||
       field === '接收人' ||
       field === '入仓人' ||
       field === '上报人' ||
@@ -875,7 +875,7 @@ function assertRequiredFields(payload: ProcessActionPayload, definition: Process
       if (!payload.qtyUnit?.trim()) throw new Error('请填写单位')
       continue
     }
-    if (field === '领料记录') {
+    if (field === '接收记录') {
       continue
     }
     const looseKey = field

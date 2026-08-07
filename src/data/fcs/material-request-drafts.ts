@@ -765,8 +765,8 @@ function applyTaskBinding(request: MaterialRequestRecord): void {
 
 function buildInitialDrafts(): MaterialRequestDraft[] {
   const list: MaterialRequestDraft[] = []
-  // 执行链路口径：领料草稿仅挂到“当前实际执行任务”。
-  // 未拆分时是原任务，已拆分时是拆分结果任务，拆分来源任务不再生成执行用领料草稿。
+  // 执行链路口径：接收草稿仅挂到“当前实际执行任务”。
+  // 未拆分时是原任务，已拆分时是拆分结果任务，拆分来源任务不再生成执行用接收草稿。
   const runtimeTasks = listRuntimeExecutionTasks()
     .slice()
     .sort((a, b) => {
@@ -827,14 +827,14 @@ function markDraftNotApplicable(taskId: string, operatorName = '跟单员', oper
 
   draft.needMaterial = false
   draft.draftStatus = 'not_applicable'
-  draft.remark = '跟单员确认当前任务不需要领料'
+  draft.remark = '跟单员确认当前任务不需要接收'
   draft.lines = draft.lines.map((line) => ({ ...line, selected: false, confirmedQty: 0 }))
   touchDraft(draft, operatorName, operateAt)
   appendMaterialDraftOperationLog({
     productionOrderId: draft.productionOrderId,
     taskId: draft.taskId,
-    action: '领料草稿更新',
-    detail: `跟单员将任务「${draft.taskName}」标记为无需领料`,
+    action: '接收草稿更新',
+    detail: `跟单员将任务「${draft.taskName}」标记为无需接收`,
     at: operateAt,
     by: operatorName,
   })
@@ -895,8 +895,8 @@ function seedCreatedDraft(taskId: string, mode: MaterialMode, createdAt: string,
   appendMaterialDraftOperationLog({
     productionOrderId: draft.productionOrderId,
     taskId: draft.taskId,
-    action: '确认领料',
-    detail: `跟单员确认领料，正式创建领料需求 ${materialRequestNo}（${draft.taskName}）`,
+    action: '确认接收',
+    detail: `跟单员确认接收，正式创建接收需求 ${materialRequestNo}（${draft.taskName}）`,
     at: createdAt,
     by: createdBy,
   })
@@ -931,8 +931,8 @@ function seedSystemAutoDraftLogs(): void {
     const order = productionOrders.find((item) => item.productionOrderId === orderId)
     appendMaterialDraftOperationLog({
       productionOrderId: orderId,
-      action: '系统创建领料草稿',
-      detail: `系统根据任务与BOM自动生成领料草稿（${count}条）`,
+      action: '系统创建接收草稿',
+      detail: `系统根据任务与BOM自动生成接收草稿（${count}条）`,
       at: order?.updatedAt ?? '2026-03-10 09:00:00',
       by: '系统',
     })
@@ -1044,12 +1044,12 @@ export function getMaterialDraftIndicatorsByOrder(orderId: string): MaterialDraf
   if (summary.status === 'partial_created') materialDraftSummaryStatus = 'partial_confirmed'
   if (summary.status === 'created') materialDraftSummaryStatus = 'confirmed'
 
-  let materialDraftHintText = '暂无领料草稿'
+  let materialDraftHintText = '暂无接收草稿'
   if (materialDraftSummaryStatus === 'none') {
     if (summary.totalDraftCount > 0 && summary.notApplicableCount === summary.totalDraftCount) {
       materialDraftHintText = `不涉及 ${summary.notApplicableCount}`
     } else {
-      materialDraftHintText = order?.taskBreakdownSummary.isBrokenDown ? '需生成领料草稿' : '待拆任务后生成'
+      materialDraftHintText = order?.taskBreakdownSummary.isBrokenDown ? '需生成接收草稿' : '待拆任务后生成'
     }
   } else if (materialDraftSummaryStatus === 'pending') {
     materialDraftHintText = `草稿 ${summary.totalDraftCount} / 待确认 ${summary.pendingCount}`
@@ -1080,15 +1080,15 @@ export function setMaterialDraftNeedMaterial(draftId: string, needMaterial: bool
 
   if (!needMaterial) {
     draft.draftStatus = 'not_applicable'
-    draft.remark = '跟单员确认当前任务不需要领料'
+    draft.remark = '跟单员确认当前任务不需要接收'
     draft.lines = draft.lines.map((line) => ({ ...line, selected: false, confirmedQty: 0 }))
     const now = toTimestamp()
     touchDraft(draft, operatorName, now)
     appendMaterialDraftOperationLog({
       productionOrderId: draft.productionOrderId,
       taskId: draft.taskId,
-      action: '领料草稿更新',
-      detail: `跟单员将任务「${draft.taskName}」标记为无需领料`,
+      action: '接收草稿更新',
+      detail: `跟单员将任务「${draft.taskName}」标记为无需接收`,
       at: now,
       by: operatorName,
     })
@@ -1097,7 +1097,7 @@ export function setMaterialDraftNeedMaterial(draftId: string, needMaterial: bool
 
   const now = toTimestamp()
   draft.draftStatus = 'pending'
-  draft.remark = draft.remark || '已改为需要领料，待确认创建'
+  draft.remark = draft.remark || '已改为需要接收，待确认创建'
   if (draft.lines.length > 0 && draft.lines.every((line) => !line.selected)) {
     draft.lines = draft.lines.map((line) => ({ ...line, selected: true, confirmedQty: normalizeQty(line.suggestedQty) }))
   }
@@ -1105,8 +1105,8 @@ export function setMaterialDraftNeedMaterial(draftId: string, needMaterial: bool
   appendMaterialDraftOperationLog({
     productionOrderId: draft.productionOrderId,
     taskId: draft.taskId,
-    action: '领料草稿更新',
-    detail: `跟单员将任务「${draft.taskName}」改为需要领料`,
+    action: '接收草稿更新',
+    detail: `跟单员将任务「${draft.taskName}」改为需要接收`,
     at: now,
     by: operatorName,
   })
@@ -1124,8 +1124,8 @@ export function setMaterialDraftMode(draftId: string, materialMode: MaterialMode
   appendMaterialDraftOperationLog({
     productionOrderId: draft.productionOrderId,
     taskId: draft.taskId,
-    action: '领料草稿更新',
-    detail: `跟单员修改领料方式为「${draft.materialModeLabel}」`,
+    action: '接收草稿更新',
+    detail: `跟单员修改接收方式为「${draft.materialModeLabel}」`,
     at: now,
     by: operatorName,
   })
@@ -1164,7 +1164,7 @@ export function toggleMaterialDraftLine(
   appendMaterialDraftOperationLog({
     productionOrderId: draft.productionOrderId,
     taskId: draft.taskId,
-    action: '领料草稿更新',
+    action: '接收草稿更新',
     detail: `${selected ? '勾选' : '取消'}物料「${targetLine.materialName}」`,
     at: now,
     by: operatorName,
@@ -1200,7 +1200,7 @@ export function setMaterialDraftLineConfirmedQty(
   appendMaterialDraftOperationLog({
     productionOrderId: draft.productionOrderId,
     taskId: draft.taskId,
-    action: '领料草稿更新',
+    action: '接收草稿更新',
     detail: `修改物料「${targetLine.materialName}」确认数量：${targetLine.confirmedQty}${targetLine.unit} → ${nextLine.confirmedQty}${nextLine.unit}`,
     at: now,
     by: operatorName,
@@ -1222,7 +1222,7 @@ export function restoreMaterialDraftSuggestion(draftId: string, operatorName = '
   appendMaterialDraftOperationLog({
     productionOrderId: draft.productionOrderId,
     taskId: draft.taskId,
-    action: '领料草稿更新',
+    action: '接收草稿更新',
     detail: `恢复任务「${draft.taskName}」的系统建议`,
     at: now,
     by: operatorName,
@@ -1298,7 +1298,7 @@ export function addMaterialToDraft(draftId: string, optionKeys: string[], operat
   appendMaterialDraftOperationLog({
     productionOrderId: draft.productionOrderId,
     taskId: draft.taskId,
-    action: '领料草稿更新',
+    action: '接收草稿更新',
     detail: `补充物料 ${appended.length} 条（任务：${draft.taskName}）`,
     at: now,
     by: operatorName,
@@ -1313,21 +1313,21 @@ export function confirmMaterialRequestDraft(
 ): { ok: true; request: MaterialRequestRecord } | { ok: false; reason: string } {
   const draft = getDraftById(draftId)
   if (!draft) {
-    return { ok: false, reason: '未找到领料需求草稿' }
+    return { ok: false, reason: '未找到接收需求草稿' }
   }
 
   if (draft.draftStatus === 'created') {
-    return { ok: false, reason: '当前草稿已创建正式领料需求' }
+    return { ok: false, reason: '当前草稿已创建正式接收需求' }
   }
 
   if (!draft.needMaterial) {
     draft.draftStatus = 'not_applicable'
-    return { ok: false, reason: '当前任务已标记为不需要领料' }
+    return { ok: false, reason: '当前任务已标记为不需要接收' }
   }
 
   const selectedLines = draft.lines.filter((line) => line.selected)
   if (selectedLines.length === 0) {
-    return { ok: false, reason: '请至少勾选1条领料物料' }
+    return { ok: false, reason: '请至少勾选1条接收物料' }
   }
 
   if (selectedLines.some((line) => !Number.isFinite(line.confirmedQty) || line.confirmedQty <= 0)) {
@@ -1335,7 +1335,7 @@ export function confirmMaterialRequestDraft(
   }
 
   if (!draft.materialMode) {
-    return { ok: false, reason: '请选择领料方式' }
+    return { ok: false, reason: '请选择接收方式' }
   }
 
   const now = toTimestamp()
@@ -1376,8 +1376,8 @@ export function confirmMaterialRequestDraft(
   appendMaterialDraftOperationLog({
     productionOrderId: draft.productionOrderId,
     taskId: draft.taskId,
-    action: '确认领料',
-    detail: `跟单员确认领料，正式创建领料需求 ${materialRequestNo}（${draft.taskName}）`,
+    action: '确认接收',
+    detail: `跟单员确认接收，正式创建接收需求 ${materialRequestNo}（${draft.taskName}）`,
     at: now,
     by: operator.name,
   })

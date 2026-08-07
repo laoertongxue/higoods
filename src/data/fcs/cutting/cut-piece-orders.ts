@@ -161,7 +161,7 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     latestSpreadingBy: '郑海燕',
     hasInboundRecord: false,
     currentStage: '裁片执行中',
-    notes: '部分领料后先按现有面料铺布裁剪，仍需跟进剩余 2 卷来料差异。',
+    notes: '部分接收后先按现有面料铺布裁剪，仍需跟进剩余 2 卷来料差异。',
     markerInfo: {
       sizeMix: [
         { size: 'S', qty: 30 },
@@ -211,9 +211,9 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
       },
     ],
     linkedDocuments: [
-      { docType: 'PICKUP_SLIP', docNo: 'PK-202603-018-01', status: '已打印', createdAt: '2026-03-20 09:30', summaryText: '领料单含批次 CFG-018-03 和裁片单二维码。' },
+      { docType: 'PICKUP_SLIP', docNo: 'PK-202603-018-01', status: '已打印', createdAt: '2026-03-20 09:30', summaryText: '接收单含批次 CFG-018-03 和裁片单二维码。' },
       { docType: 'CONFIG_BATCH', docNo: 'CFG-018-03', status: '待齐套', createdAt: '2026-03-20 08:45', summaryText: '本次配料 4 卷 / 220 米。' },
-      { docType: 'PICKUP_RECORD', docNo: 'RCV-018-01', status: '驳回核对', createdAt: '2026-03-20 14:12', summaryText: '部分领料少 2 卷，等待仓库复核。' },
+      { docType: 'PICKUP_RECORD', docNo: 'RCV-018-01', status: '驳回核对', createdAt: '2026-03-20 14:12', summaryText: '部分接收少 2 卷，等待仓库复核。' },
       { docType: 'INBOUND', docNo: '—', status: '未入仓', createdAt: '-', summaryText: '裁片执行中，尚未形成入仓记录。' },
     ],
   },
@@ -266,7 +266,7 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     spreadingRecords: [],
     linkedDocuments: [
       { docType: 'PICKUP_SLIP', docNo: '—', status: '未生成', createdAt: '-', summaryText: '尚未进入待加工仓。' },
-      { docType: 'CONFIG_BATCH', docNo: '—', status: '未配置', createdAt: '-', summaryText: '等待中转仓配料与裁床领料入待加工仓。' },
+      { docType: 'CONFIG_BATCH', docNo: '—', status: '未配置', createdAt: '-', summaryText: '等待中转仓配料与裁床接收入待加工仓。' },
       { docType: 'PICKUP_RECORD', docNo: '—', status: '暂无', createdAt: '-', summaryText: '尚无扫码领取回写。' },
       { docType: 'INBOUND', docNo: '—', status: '未入仓', createdAt: '-', summaryText: '尚未形成裁片入仓。' },
     ],
@@ -334,9 +334,9 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
       },
     ],
     linkedDocuments: [
-      { docType: 'PICKUP_SLIP', docNo: 'PK-202603-024-01', status: '已打印', createdAt: '2026-03-21 15:40', summaryText: '领料单已完成第二次打印。' },
+      { docType: 'PICKUP_SLIP', docNo: 'PK-202603-024-01', status: '已打印', createdAt: '2026-03-21 15:40', summaryText: '接收单已完成第二次打印。' },
       { docType: 'CONFIG_BATCH', docNo: 'CFG-024-02', status: '已完成', createdAt: '2026-03-21 14:40', summaryText: '补齐剩余 6 卷 / 320 米。' },
-      { docType: 'PICKUP_RECORD', docNo: 'RCV-024-01', status: '匹配', createdAt: '2026-03-21 18:10', summaryText: '裁床领料与待加工仓一致。' },
+      { docType: 'PICKUP_RECORD', docNo: 'RCV-024-01', status: '匹配', createdAt: '2026-03-21 18:10', summaryText: '裁床接收与待加工仓一致。' },
       { docType: 'INBOUND', docNo: 'INB-CP-024-01', status: '待确认', createdAt: '2026-03-22 11:05', summaryText: '已提交裁片入仓预登记。' },
     ],
   },
@@ -367,7 +367,7 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     latestSpreadingBy: '',
     hasInboundRecord: false,
     currentStage: '待维护排唛架方案',
-    notes: '里布待中转仓配料、裁床领料后再铺布，先维护排唛架方案和样衣参考。',
+    notes: '里布待中转仓配料、裁床接收后再铺布，先维护排唛架方案和样衣参考。',
     markerInfo: {
       sizeMix: [
         { size: 'S', qty: 12 },
@@ -388,9 +388,9 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     },
     spreadingRecords: [],
     linkedDocuments: [
-      { docType: 'PICKUP_SLIP', docNo: '—', status: '未生成', createdAt: '-', summaryText: '里布尚未完成配置，领料单尚未生成。' },
+      { docType: 'PICKUP_SLIP', docNo: '—', status: '未生成', createdAt: '-', summaryText: '里布尚未完成配置，接收单尚未生成。' },
       { docType: 'CONFIG_BATCH', docNo: '—', status: '待中转仓配料', createdAt: '-', summaryText: '等待仓库配齐里布配置卷数。' },
-      { docType: 'PICKUP_RECORD', docNo: '—', status: '暂无', createdAt: '-', summaryText: '尚无裁床领料记录。' },
+      { docType: 'PICKUP_RECORD', docNo: '—', status: '暂无', createdAt: '-', summaryText: '尚无裁床接收记录。' },
       { docType: 'INBOUND', docNo: '—', status: '未入仓', createdAt: '-', summaryText: '尚未形成入仓动作。' },
     ],
   },
@@ -542,7 +542,7 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     linkedDocuments: [
       { docType: 'PICKUP_SLIP', docNo: 'PK-202603-031-02', status: '已打印', createdAt: '2026-03-22 09:25', summaryText: '整单发齐，二维码已回写。' },
       { docType: 'CONFIG_BATCH', docNo: 'CFG-031-03', status: '已完成', createdAt: '2026-03-22 09:00', summaryText: '整单一次发齐。' },
-      { docType: 'PICKUP_RECORD', docNo: 'RCV-031-02', status: '匹配', createdAt: '2026-03-22 13:10', summaryText: '裁床领料无差异。' },
+      { docType: 'PICKUP_RECORD', docNo: 'RCV-031-02', status: '匹配', createdAt: '2026-03-22 13:10', summaryText: '裁床接收无差异。' },
       { docType: 'INBOUND', docNo: 'INB-CP-031-02', status: '已入仓', createdAt: '2026-03-22 15:20', summaryText: '裁片已入裁片仓，待后续汇总。' },
     ],
   },

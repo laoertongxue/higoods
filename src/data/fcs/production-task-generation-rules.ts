@@ -120,7 +120,7 @@ export interface ProductionTaskGenerationPreview {
   warnings: string[]
 }
 
-const WHOLE_ORDER_FIVE_STEP: GeneratedTaskUnitPreview['pdaSteps'] = ['领料', '开工', '关键节点上报', '交出', '完工']
+const WHOLE_ORDER_FIVE_STEP: GeneratedTaskUnitPreview['pdaSteps'] = ['接收', '开工', '关键节点上报', '交出', '完工']
 const DEFAULT_PROCESS_STEPS: GeneratedTaskUnitPreview['pdaSteps'] = ['接单', '备料', '开工', '上报进度', '交出']
 
 const RULES: ProductionTaskGenerationRule[] = [

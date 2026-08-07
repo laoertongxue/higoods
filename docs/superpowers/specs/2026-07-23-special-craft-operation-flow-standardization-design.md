@@ -48,7 +48,7 @@
 
 | 动作 | 原对应动作 | fromStatus | toStatus | 成衣执行逻辑 | 裁片执行逻辑 |
 |------|-----------|------------|----------|-------------|-------------|
-| **确认接收** | 合并 成衣仓出库 + 确认接收裁片 + 开始加工 | `待领料` | `加工中` | 从 `demandLines` 解析 SKU（`colorName × sizeCode`），逐行 `window.prompt` 确认实收件数 | 从 `demandLines.feiTicketNos` 获取关联菲票列表，按菲票确认接收数量（默认=菲票 `qty`） |
+| **确认接收** | 合并 成衣仓出库 + 确认接收裁片 + 开始加工 | `待接收` | `加工中` | 从 `demandLines` 解析 SKU（`colorName × sizeCode`），逐行 `window.prompt` 确认实收件数 | 从 `demandLines.feiTicketNos` 获取关联菲票列表，按菲票确认接收数量（默认=菲票 `qty`） |
 | **完成加工** | 原 完成加工 | `加工中` | `待交出` | 逐 SKU 确认完工数量（默认=已收件数，可修改） | 逐菲票确认完工数量（默认=已收，可修改）；完工后更新 `CuttingSpecialCraftFeiTicketBinding.completedOperationNames` 追加工艺名 + 记录完工数量 |
 | **发起交出** | 原 发起交出 | `待交出` | `已交出` | 逐 SKU 确认交出数量 | 逐菲票确认交出数量 |
 | **上报差异** | 原 上报差异 | `加工中`、`待交出` | `差异` | 不变 | 不变 |

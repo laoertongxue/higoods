@@ -106,8 +106,8 @@ function deriveMaterialPrepLineStatus(input: {
 }): SupplementMaterialPrepStatus {
   if (input.storedStatus === '已结束') return '已结束'
   if (input.unresolvedDifferenceQty > 0) return '存在差异'
-  if (input.pickedQty >= input.approvedQty) return '已领料'
-  if (input.pickedQty > 0) return '部分领料'
+  if (input.pickedQty >= input.approvedQty) return '已接收'
+  if (input.pickedQty > 0) return '部分接收'
   if (input.preparedQty >= input.approvedQty) return '已配料'
   if (input.preparedQty > 0) return '部分配料'
   if (input.currentAvailableQty >= input.approvedQty) return '可配料'

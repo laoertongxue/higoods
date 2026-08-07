@@ -90,7 +90,7 @@ interface ProgressHandoverState {
   ordersKeyword: string
   ordersBottleneckFilter:
     | 'ALL'
-    | '待领料'
+    | '待接收'
     | '待交出'
     | '待接收方确认'
     | '有异议'
@@ -154,7 +154,7 @@ const state: ProgressHandoverState = {
 
 const LEDGER_EVENT_FILTER_OPTIONS: Array<{ value: LedgerEventTypeFilter; label: string }> = [
   { value: 'ALL', label: '事件类型' },
-  { value: 'PICKUP', label: '领料' },
+  { value: 'PICKUP', label: '接收' },
   { value: 'HANDOUT', label: '交出' },
   { value: 'WAREHOUSE', label: '接收方确认' },
   { value: 'OBJECTION', label: '数量异议' },
@@ -163,7 +163,7 @@ const LEDGER_EVENT_FILTER_OPTIONS: Array<{ value: LedgerEventTypeFilter; label: 
 
 const LEDGER_STATUS_FILTER_OPTIONS: Array<{ value: LedgerStatusFilter; label: string }> = [
   { value: 'ALL', label: '当前状态' },
-  { value: 'PENDING_PICKUP', label: '待领料' },
+  { value: 'PENDING_PICKUP', label: '待接收' },
   { value: 'PENDING_HANDOUT', label: '待交出' },
   { value: 'PENDING_WAREHOUSE', label: '待接收方确认' },
   { value: 'HAS_OBJECTION', label: '有异议' },
@@ -175,7 +175,7 @@ const LEDGER_STATUS_FILTER_OPTIONS: Array<{ value: LedgerStatusFilter; label: st
 const ORDER_BOTTLENECK_FILTER_OPTIONS: Array<{
   value:
     | 'ALL'
-    | '待领料'
+    | '待接收'
     | '待交出'
     | '待接收方确认'
     | '有异议'
@@ -185,7 +185,7 @@ const ORDER_BOTTLENECK_FILTER_OPTIONS: Array<{
   label: string
 }> = [
   { value: 'ALL', label: '当前交接卡点' },
-  { value: '待领料', label: '待领料' },
+  { value: '待接收', label: '待接收' },
   { value: '待交出', label: '待交出' },
   { value: '待接收方确认', label: '待接收方确认' },
   { value: '有异议', label: '有异议' },
@@ -256,7 +256,7 @@ function isHandoverFocus(value: string | null): value is HandoverFocus {
 }
 
 function getFocusLabel(focus: HandoverFocus): string {
-  if (focus === 'pickup') return '待领料'
+  if (focus === 'pickup') return '待接收'
   if (focus === 'handout') return '待交出'
   if (focus === 'warehouse-confirm') return '待接收方确认'
   return '异议处理'
@@ -532,8 +532,8 @@ function renderSourceFacts(row: HandoverLedgerRow): string {
     const pickupModeLabel = firstPickupRecord?.pickupModeLabel || '-'
     return `
       <div class="space-y-1 text-sm">
-        <p><span class="text-muted-foreground">事实来源：</span>领料单</p>
-        <p><span class="text-muted-foreground">领料方式：</span>${escapeHtml(pickupModeLabel)}</p>
+        <p><span class="text-muted-foreground">事实来源：</span>接收单</p>
+        <p><span class="text-muted-foreground">接收方式：</span>${escapeHtml(pickupModeLabel)}</p>
         <p><span class="text-muted-foreground">记录数：</span>${head.recordCount} 次</p>
         <p><span class="text-muted-foreground">累计已领：</span>${head.qtyActualTotal} ${escapeHtml(head.qtyUnit)}</p>
         <p><span class="text-muted-foreground">待完成记录：</span>${head.pendingWritebackCount} 条</p>
@@ -544,12 +544,12 @@ function renderSourceFacts(row: HandoverLedgerRow): string {
   if (row.sourceType === 'PICKUP_RECORD' && row.recordId) {
     const pickupRecord = getPdaPickupRecordsByHead(row.handoverId).find((record) => record.recordId === row.recordId)
     if (!pickupRecord) {
-      return `<p class="text-sm text-muted-foreground">当前未找到对应领料记录，请刷新后重试。</p>`
+      return `<p class="text-sm text-muted-foreground">当前未找到对应接收记录，请刷新后重试。</p>`
     }
 
     return `
       <div class="space-y-1 text-sm">
-        <p><span class="text-muted-foreground">事实来源：</span>领料记录</p>
+        <p><span class="text-muted-foreground">事实来源：</span>接收记录</p>
         <p><span class="text-muted-foreground">记录编号：</span>${escapeHtml(pickupRecord.recordId)}</p>
         <p><span class="text-muted-foreground">计划数量：</span>${pickupRecord.qtyExpected} ${escapeHtml(pickupRecord.qtyUnit)}</p>
         <p><span class="text-muted-foreground">实际数量：</span>${
@@ -611,7 +611,7 @@ function renderCurrentStatusText(row: HandoverLedgerRow): string {
   if (row.statusCode === 'HANDOUT_OBJECTION_REPORTED') return '工厂已发起异议，待平台跟进。'
   if (row.statusCode === 'HANDOUT_OBJECTION_PROCESSING') return '平台正在跟进异议，等待处理结论。'
   if (row.statusCode === 'HANDOUT_OBJECTION_RESOLVED') return '异议已处理完成，可继续关注是否完成。'
-  if (row.statusCode === 'PICKUP_PENDING') return '当前任务还没开始领料，先推进领料。'
+  if (row.statusCode === 'PICKUP_PENDING') return '当前任务还没开始接收，先推进接收。'
   if (row.statusCode === 'HANDOUT_PENDING') return '当前任务还没发起交出记录，先推进交出。'
   if (row.statusCode === 'HEAD_COMPLETED') return '当前交接已关闭，这条链路无需额外处理。'
   return '当前状态正常，按下一步建议继续跟进。'
@@ -726,7 +726,7 @@ function renderEventsPreviewCards(rows: HandoverLedgerRow[]): string {
       >
         <p class="inline-flex items-center gap-2 text-sm text-muted-foreground">
           <i data-lucide="package" class="h-4 w-4 text-amber-500"></i>
-          待领料
+          待接收
         </p>
         <p class="mt-2 text-2xl font-bold">${stats.pendingPickupHeads}</p>
       </button>
@@ -863,7 +863,7 @@ function renderRowActionMenu(row: HandoverLedgerRow): string {
   } else if (canMarkPickupComplete) {
     primaryAction = `<button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-handover-action="mark-pickup-complete" data-handover-id="${escapeAttr(
       row.handoverId,
-    )}"><i data-lucide="check-check" class="mr-2 h-4 w-4"></i>标记领料完成</button>`
+    )}"><i data-lucide="check-check" class="mr-2 h-4 w-4"></i>标记接收完成</button>`
   } else if (canMarkHandoutComplete) {
     primaryAction = `<button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-handover-action="mark-handout-complete" data-handover-id="${escapeAttr(
       row.handoverId,
@@ -1230,8 +1230,8 @@ function isTimelineSectionFocused(view: HandoverOrderTimelineView, section: Hand
   const focus = state.timelineAnchorFocus
   if (!focus) return false
 
-  if (focus === 'pickup') return section.processStatusLabel === '待领料'
-  if (focus === 'handout') return section.processStatusLabel === '待交出' || section.processStatusLabel === '已领料待交出'
+  if (focus === 'pickup') return section.processStatusLabel === '待接收'
+  if (focus === 'handout') return section.processStatusLabel === '待交出' || section.processStatusLabel === '已接收待交出'
   if (focus === 'warehouse-confirm') return section.processStatusLabel === '待接收方确认'
   if (focus === 'objection') return section.processStatusLabel === '有异议' || section.processStatusLabel === '异议处理中'
   return false
@@ -1255,7 +1255,7 @@ function renderTimelineSection(view: HandoverOrderTimelineView, section: Handove
 
       ${
         section.events.length === 0
-          ? '<div class="mt-3 rounded-md border border-dashed px-3 py-3 text-xs text-muted-foreground">当前工序暂无领料或交出事件</div>'
+          ? '<div class="mt-3 rounded-md border border-dashed px-3 py-3 text-xs text-muted-foreground">当前工序暂无接收或交出事件</div>'
           : `
             <div class="mt-3 space-y-2">
               ${section.events
@@ -1398,7 +1398,7 @@ function renderOrderBottleneckBadge(label: string): string {
         ? 'bg-orange-100 text-orange-700 border-orange-200'
         : label === '待接收方确认'
           ? 'bg-amber-100 text-amber-700 border-amber-200'
-          : label === '待交出' || label === '待领料'
+          : label === '待交出' || label === '待接收'
             ? 'bg-blue-100 text-blue-700 border-blue-200'
             : label === '已完成'
               ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
@@ -1609,9 +1609,9 @@ function renderDetailDrawer(rows: HandoverLedgerRow[]): string {
   const headType: PdaHandoverHeadType | null = row.sourceType === 'PICKUP_HEAD' ? 'PICKUP' : row.sourceType === 'HANDOUT_HEAD' ? 'HANDOUT' : null
   const sourceTypeLabel =
     row.sourceType === 'PICKUP_HEAD'
-      ? '领料单'
+      ? '接收单'
       : row.sourceType === 'PICKUP_RECORD'
-        ? '领料记录'
+        ? '接收记录'
         : row.sourceType === 'HANDOUT_HEAD'
           ? '交出单'
           : row.sourceType === 'HANDOUT_RECORD'
@@ -1637,7 +1637,7 @@ function renderDetailDrawer(rows: HandoverLedgerRow[]): string {
     directActions.push(
       `<button class="inline-flex h-8 items-center rounded-md border border-emerald-200 bg-emerald-50 px-3 text-sm text-emerald-700 hover:bg-emerald-100" data-handover-action="mark-pickup-complete" data-handover-id="${escapeAttr(
         row.handoverId,
-      )}">标记领料完成</button>`,
+      )}">标记接收完成</button>`,
     )
   }
   if (headType === 'HANDOUT') {
@@ -2138,7 +2138,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     const handoverId = actionNode.dataset.handoverId
     if (handoverId) {
       const head = findPdaHeadByHandoverId(handoverId)
-      const detailTitle = head?.headType === 'PICKUP' ? `领料详情 ${handoverId}` : `交出单详情 ${handoverId}`
+      const detailTitle = head?.headType === 'PICKUP' ? `接收详情 ${handoverId}` : `交出单详情 ${handoverId}`
       openLinkedPage(detailTitle, buildHandoverOrderLink(handoverId))
     }
     return true
@@ -2152,7 +2152,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
       showProgressHandoverToast(result.message, 'error')
       return true
     }
-    showProgressHandoverToast(`仓库已发起领料完成：${handoverId}`)
+    showProgressHandoverToast(`仓库已发起接收完成：${handoverId}`)
     return true
   }
 

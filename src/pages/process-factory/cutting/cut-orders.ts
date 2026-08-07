@@ -577,7 +577,7 @@ function buildStatsCards(rows: CutOrderRow[]): string {
     { label: '唛架方案占用数', value: stats.inBatchCount },
     { label: '有可用余额数', value: stats.availableBalanceCount },
     { label: '已关闭数', value: stats.closedCount },
-    { label: '未产生领料记录数', value: stats.noClaimRecordCount },
+    { label: '未产生接收记录数', value: stats.noClaimRecordCount },
   ])
 }
 
@@ -1061,7 +1061,7 @@ function renderCutOrderClosePage(): string {
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 class="text-lg font-semibold">关闭裁片单：${escapeHtml(row.cutOrderNo)}</h2>
-            <p class="mt-1 text-sm text-muted-foreground">关闭后不再要求继续配料或领料；历史记录保留追溯。</p>
+            <p class="mt-1 text-sm text-muted-foreground">关闭后不再要求继续配料或接收；历史记录保留追溯。</p>
           </div>
           <div class="flex flex-wrap gap-2">
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildRouteWithQuery(getCanonicalCuttingPath('cut-orders'), { cutOrderId: row.cutOrderId, cutOrderNo: row.cutOrderNo }))}">返回裁片单</button>
@@ -1425,7 +1425,7 @@ function renderSupplementDetail(order: SupplementOrderLifecycle): string {
               </table>
             </div>
           </section>
-          <section><h3 class="text-sm font-semibold">原配料与领料事实</h3><div class="mt-2 overflow-auto rounded-lg border"><table class="min-w-[900px] text-left text-sm"><thead class="bg-muted/95 text-xs text-muted-foreground"><tr><th class="px-3 py-2">配料单</th><th class="px-3 py-2">物料</th><th class="px-3 py-2">需求</th><th class="px-3 py-2">已配</th><th class="px-3 py-2">有效已领</th><th class="px-3 py-2">配料 / 领料状态</th></tr></thead><tbody>${originalPrepProjections.flatMap((projection) => projection.lines.map((line) => `<tr class="border-t"><td class="px-3 py-2">${escapeHtml(projection.order.prepOrderNo)}</td><td class="px-3 py-2">${escapeHtml(line.materialName)}<div class="text-xs text-muted-foreground">${escapeHtml(line.materialSku)}</div></td><td class="px-3 py-2">${line.requiredQty} ${escapeHtml(line.unit)}</td><td class="px-3 py-2">${line.confirmedPrepQty} ${escapeHtml(line.unit)}</td><td class="px-3 py-2">${Math.max(line.pickedQty - line.returnedQty, 0)} ${escapeHtml(line.unit)}</td><td class="px-3 py-2">${escapeHtml(line.linePrepStatus)} / ${escapeHtml(projection.order.pickupStatus)}</td></tr>`)).join('') || '<tr><td colspan="6" class="px-3 py-6 text-center text-muted-foreground">原配料与领料事实未形成</td></tr>'}</tbody></table></div></section>
+          <section><h3 class="text-sm font-semibold">原配料与接收事实</h3><div class="mt-2 overflow-auto rounded-lg border"><table class="min-w-[900px] text-left text-sm"><thead class="bg-muted/95 text-xs text-muted-foreground"><tr><th class="px-3 py-2">配料单</th><th class="px-3 py-2">物料</th><th class="px-3 py-2">需求</th><th class="px-3 py-2">已配</th><th class="px-3 py-2">有效已领</th><th class="px-3 py-2">配料 / 接收状态</th></tr></thead><tbody>${originalPrepProjections.flatMap((projection) => projection.lines.map((line) => `<tr class="border-t"><td class="px-3 py-2">${escapeHtml(projection.order.prepOrderNo)}</td><td class="px-3 py-2">${escapeHtml(line.materialName)}<div class="text-xs text-muted-foreground">${escapeHtml(line.materialSku)}</div></td><td class="px-3 py-2">${line.requiredQty} ${escapeHtml(line.unit)}</td><td class="px-3 py-2">${line.confirmedPrepQty} ${escapeHtml(line.unit)}</td><td class="px-3 py-2">${Math.max(line.pickedQty - line.returnedQty, 0)} ${escapeHtml(line.unit)}</td><td class="px-3 py-2">${escapeHtml(line.linePrepStatus)} / ${escapeHtml(projection.order.pickupStatus)}</td></tr>`)).join('') || '<tr><td colspan="6" class="px-3 py-6 text-center text-muted-foreground">原配料与接收事实未形成</td></tr>'}</tbody></table></div></section>
           <section><h3 class="text-sm font-semibold">布料业务详情</h3><div class="mt-2 overflow-auto rounded-lg border"><table class="min-w-[1300px] text-left text-sm"><thead class="bg-muted/95 text-xs text-muted-foreground"><tr><th class="px-3 py-2">补料物料</th><th class="px-3 py-2">库存</th><th class="px-3 py-2">采购</th><th class="px-3 py-2">染色</th><th class="px-3 py-2">印花</th><th class="px-3 py-2">中转仓配料</th></tr></thead><tbody>${nodeRows.map((row) => `<tr class="border-t align-top"><td class="px-3 py-2"><div class="flex gap-2">${renderImage(row.material.materialImageUrl, row.material.materialImageAlt, 'h-12 w-12 shrink-0')}<div><strong>${escapeHtml(row.material.materialName)}</strong><div class="text-xs">${escapeHtml(row.material.materialSku)} · ${row.material.requiredQty} ${escapeHtml(row.material.unit)}</div></div></div></td><td class="px-3 py-2">${escapeHtml(row.inventory.summary)}</td><td class="px-3 py-2">${escapeHtml(row.purchase.summary)}</td><td class="px-3 py-2">${escapeHtml(row.dye.summary)}</td><td class="px-3 py-2">${escapeHtml(row.print.summary)}</td><td class="px-3 py-2">${escapeHtml(row.materialPrep.summary)}${row.hasUnresolvedDifference ? '<div class="text-xs font-medium text-red-700">存在未处理差异</div>' : ''}</td></tr>`).join('')}</tbody></table></div></section>
         </div>
       </section>
@@ -1540,7 +1540,7 @@ function restoreSupplementTriggerFocusWithFallback(completedSupplementId: string
   supplementReturnFocus = null
   supplementReturnFocusIdentity = null
   if (typeof window === 'undefined') return
-  window.requestAnimationFrame(() => {
+  const focusTarget = () => {
     const exactTarget = originalTarget?.isConnected
       ? originalTarget
       : [...document.querySelectorAll<HTMLElement>('[data-cutting-piece-action]')].find((candidate) =>
@@ -1549,7 +1549,11 @@ function restoreSupplementTriggerFocusWithFallback(completedSupplementId: string
     const completedTag = [...document.querySelectorAll<HTMLElement>('[data-supplement-id]')]
       .find((candidate) => candidate.dataset.supplementId === completedSupplementId)
     const completionFilter = document.querySelector<HTMLElement>('[data-cutting-piece-field="supplementCompletion"]')
-    ;(exactTarget || completedTag || completionFilter)?.focus()
+    ;(exactTarget || completedTag || completionFilter)?.focus({ preventScroll: true })
+  }
+  focusTarget()
+  window.requestAnimationFrame(() => {
+    if (document.activeElement === document.body || !document.activeElement) focusTarget()
   })
 }
 
@@ -2080,7 +2084,7 @@ function renderCutOrderDetailPanel(row: CutOrderRow, viewModel = getViewModel())
               ${
                 canEnterFeiTickets
                   ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>`
-                  : '<span class="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">当前未完成领料 / 铺布，不生成菲票主码</span>'
+                  : '<span class="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">当前未完成接收 / 铺布，不生成菲票主码</span>'
               }
             </div>
           </div>
@@ -2233,7 +2237,7 @@ type CutOrderDetailTabKey =
 
 const cutOrderDetailTabs: Array<{ key: CutOrderDetailTabKey; label: string; description: string }> = [
   { key: 'overview', label: '概览', description: '当前事实' },
-  { key: 'material-flow', label: '配料领料', description: '多次配料 / 领料 / 入仓' },
+  { key: 'material-flow', label: '配料接收', description: '多次配料 / 接收 / 入仓' },
   { key: 'marker-plans', label: '唛架方案', description: '多次排唛架与锁定' },
   { key: 'spreading', label: '铺布裁剪', description: '多张铺布单与实裁' },
   { key: 'tickets-warehouse', label: '菲票入仓交出', description: '实际裁剪后的追踪' },
@@ -2544,7 +2548,7 @@ function renderCutOrderOverviewTab(view: ReturnType<typeof buildCutOrderDetailVi
 function renderCutOrderMaterialFlowTab(view: ReturnType<typeof buildCutOrderDetailView>): string {
   const eventGroups = [
     { title: '中转仓配料记录', types: ['TRANSFER_WAREHOUSE_ALLOCATED'], empty: '暂无中转仓配料记录。' },
-    { title: '裁床领料记录', types: ['CUTTING_CLAIMED'], empty: '暂无裁床领料记录。' },
+    { title: '裁床接收记录', types: ['CUTTING_CLAIMED'], empty: '暂无裁床接收记录。' },
     { title: '扫码入仓记录', types: ['CUTTING_WAIT_PROCESS_INBOUNDED'], empty: '暂无扫码入仓记录。' },
     { title: '加工用料 / 铺布消耗', types: ['SPREADING_ACTUAL_CONSUMED'], empty: '暂无加工用料或铺布消耗记录。' },
     { title: '回收入仓 / 调整', types: ['CUTTING_RETURNED', 'LEDGER_ADJUSTED'], empty: '暂无回收入仓或调整记录。' },
@@ -2994,7 +2998,7 @@ function navigateToRecordTarget(
   const row = getViewModel().rowsById[recordId]
   if (!row) return false
   if ((target === 'markerPlan' || target === 'spreadingList') && !isCutOrderInExecutionStage(row)) {
-    setFeedback('warning', '当前裁片单尚未完成领料，不能进入唛架或铺布执行。')
+    setFeedback('warning', '当前裁片单尚未完成接收，不能进入唛架或铺布执行。')
     return true
   }
   if (target === 'feiTickets' && !isPrintableSourceRow(row)) {
@@ -3282,8 +3286,7 @@ export function handleCraftCuttingCutOrdersEvent(target: Element, suppliedEvent?
       if (action === 'complete-selected-supplement') state.pendingCompleteCutOrderId = null
     }
     refreshSupplementLinkage()
-    if (action === 'confirm-complete-supplement') focusSupplementDetailFallback()
-    else restoreSupplementTriggerFocusWithFallback(completedSupplementId)
+    restoreSupplementTriggerFocusWithFallback(completedSupplementId)
     return true
   }
 

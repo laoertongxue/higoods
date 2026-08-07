@@ -35,7 +35,7 @@ export const RESOLVE_RULE_LABEL: Record<ResolveRuleCode, string> = {
   EXEC_RESUMED: '生产暂停已恢复执行',
   EXEC_ALLOW_CONTINUE: '平台允许继续',
   TECH_PACK_RELEASED: '技术包已可用',
-  MATERIAL_SATISFIED: '领料需求已满足',
+  MATERIAL_SATISFIED: '接收需求已满足',
   HANDOUT_ISSUE_CLOSED: '交出差异/异议已闭环',
 }
 

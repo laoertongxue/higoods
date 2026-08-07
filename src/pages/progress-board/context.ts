@@ -482,9 +482,9 @@ function getTaskPickupSummary(taskId: string): TaskPickupSummary {
   if (!task || (!draftRows.length && !requestRows.length && !executionRows.length && !pickupHeads.length && !pickupRecords.length)) {
     const summary = {
       statusKey: 'NOT_INVOLVED',
-      statusLabel: '不涉及领料',
+      statusLabel: '不涉及接收',
       tone: 'slate',
-      hintText: '当前任务暂无独立领料链路',
+      hintText: '当前任务暂无独立接收链路',
       latestOccurredAt: '',
       hasException: false,
       draftRows,
@@ -503,7 +503,7 @@ function getTaskPickupSummary(taskId: string): TaskPickupSummary {
   if (hasDifference) {
     const summary = {
       statusKey: 'DIFFERENCE',
-      statusLabel: '领料差异',
+      statusLabel: '接收差异',
       tone: 'red',
       hintText: '数量不一致，待处理',
       latestOccurredAt,
@@ -524,9 +524,9 @@ function getTaskPickupSummary(taskId: string): TaskPickupSummary {
   if (finalReceivedCount > 0 && finalReceivedCount === pickupRecords.length && pickupRecords.length > 0) {
     const summary = {
       statusKey: 'RECEIVED',
-      statusLabel: '已领料',
+      statusLabel: '已接收',
       tone: 'green',
-      hintText: `已领 ${finalReceivedCount} 张领料单`,
+      hintText: `已领 ${finalReceivedCount} 张接收单`,
       latestOccurredAt,
       hasException: false,
       draftRows,
@@ -587,7 +587,7 @@ function getTaskPickupSummary(taskId: string): TaskPickupSummary {
   if (waitingConfirmCount > 0 || (finalReceivedCount > 0 && finalReceivedCount < pickupRecords.length)) {
     const summary = {
       statusKey: 'WAIT_PICKUP',
-      statusLabel: '领料记录待补',
+      statusLabel: '接收记录待补',
       tone: 'blue',
       hintText: `${Math.max(waitingConfirmCount, pickupHeads.length || pickupRecords.length)} 张发料单 / 待工厂确认`,
       latestOccurredAt,

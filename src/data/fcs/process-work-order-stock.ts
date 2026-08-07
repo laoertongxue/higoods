@@ -11,7 +11,7 @@ export interface ProcessWorkOrderStockMaterial {
   factoryName: string
   processCode?: string
   processName?: string
-  status: '待领料' | '已入待加工仓' | '差异待处理'
+  status: '待接收' | '已入待加工仓' | '差异待处理'
   differenceQty: number
 }
 

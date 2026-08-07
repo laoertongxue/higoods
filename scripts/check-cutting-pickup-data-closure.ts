@@ -107,7 +107,7 @@ try {
   appendPickupSessionFromNode({
     pickupNodeId: initialNode.nodeId,
     pickupNodeVersion: initialNode.version,
-    receiverName: '裁床 领料员',
+    receiverName: '裁床 接收员',
     warehouseArea: '待加工仓 A 区',
     locationCode: 'FAB-A-09',
     waitProcessLedgerEventId: 'check-stale-node',
@@ -122,16 +122,16 @@ const beforePickupStore = hydrateProductionMaterialPrepStore(storage)
 const session = appendPickupSessionFromNode({
   pickupNodeId: mergedNode.nodeId,
   pickupNodeVersion: mergedNode.version,
-  receiverName: '裁床 领料员',
+  receiverName: '裁床 接收员',
   warehouseArea: '待加工仓 A 区',
   locationCode: 'FAB-A-09',
   waitProcessLedgerEventId: 'check-current-node',
   idempotencyKey: 'check-current-node',
 }, storage)
 const afterPickupStore = hydrateProductionMaterialPrepStore(storage)
-assert(afterPickupStore.pickupSessions.length === beforePickupStore.pickupSessions.length + 1, '一次确认必须原子新增一条领料主记录')
-assert(afterPickupStore.pickupRecords.length === beforePickupStore.pickupRecords.length + mergedNode.items.length, '一次确认必须为节点全部物料生成 N 条领料明细')
-assert(session.pickupRecordIds.length === mergedNode.items.length, '领料主记录必须关联节点全部明细')
+assert(afterPickupStore.pickupSessions.length === beforePickupStore.pickupSessions.length + 1, '一次确认必须原子新增一条接收主记录')
+assert(afterPickupStore.pickupRecords.length === beforePickupStore.pickupRecords.length + mergedNode.items.length, '一次确认必须为节点全部物料生成 N 条接收明细')
+assert(session.pickupRecordIds.length === mergedNode.items.length, '接收主记录必须关联节点全部明细')
 for (const item of mergedNode.items) {
   const detail = afterPickupStore.pickupRecords.find((record) =>
     record.pickupSessionId === session.pickupSessionId && record.prepLineId === item.prepLineId
@@ -143,14 +143,14 @@ const mergedDetail = afterPickupStore.pickupRecords.find((record) =>
   record.pickupSessionId === session.pickupSessionId &&
   record.prepLineId === mergedItem!.prepLineId
 )
-assert(mergedDetail?.sourceAllocations?.length === mergedItem!.sourceAllocations.length, '领料明细必须保留全部来源配料记录分摊')
+assert(mergedDetail?.sourceAllocations?.length === mergedItem!.sourceAllocations.length, '接收明细必须保留全部来源配料记录分摊')
 assert(
   mergedDetail.sourceAllocations.reduce((sum, allocation) => sum + allocation.pickedQty, 0) === mergedDetail.pickedQty,
-  '来源配料记录分摊数量之和必须等于领料明细数量',
+  '来源配料记录分摊数量之和必须等于接收明细数量',
 )
 assert(
   mergedDetail.sourceAllocations.reduce((sum, allocation) => sum + allocation.rollCount, 0) === mergedDetail.rollCount,
-  '来源配料记录分摊卷数之和必须等于领料明细卷数',
+  '来源配料记录分摊卷数之和必须等于接收明细卷数',
 )
 assert(
   mergedDetail.sourceAllocations.every((allocation) =>
@@ -168,27 +168,27 @@ for (const sourcePrepRecordId of mergedItem!.sourcePrepRecordIds) {
   assert(sourceContext, `来源配料记录必须可追溯：${sourcePrepRecordId}`)
   assert(
     sourceContext.pickedQty === sourceContext.item.preparedQty,
-    `合并领料后必须准确扣减来源配料记录：${sourcePrepRecordId}，已领 ${sourceContext.pickedQty} / 配料 ${sourceContext.item.preparedQty}`,
+    `合并接收后必须准确扣减来源配料记录：${sourcePrepRecordId}，已领 ${sourceContext.pickedQty} / 配料 ${sourceContext.item.preparedQty}`,
   )
   assert(
     sourceContext.availableToPickupQty === 0,
-    `合并领料后来源配料记录不得继续显示可领：${sourcePrepRecordId}`,
+    `合并接收后来源配料记录不得继续显示可领：${sourcePrepRecordId}`,
   )
 }
 
 const duplicate = appendPickupSessionFromNode({
   pickupNodeId: mergedNode.nodeId,
   pickupNodeVersion: mergedNode.version,
-  receiverName: '裁床 领料员',
+  receiverName: '裁床 接收员',
   warehouseArea: '待加工仓 A 区',
   locationCode: 'FAB-A-09',
   waitProcessLedgerEventId: 'check-current-node-retry',
   idempotencyKey: 'check-current-node',
 }, storage)
-assert(duplicate.pickupSessionId === session.pickupSessionId, '重复幂等键必须返回原领料主记录')
+assert(duplicate.pickupSessionId === session.pickupSessionId, '重复幂等键必须返回原接收主记录')
 const afterDuplicateStore = hydrateProductionMaterialPrepStore(storage)
-assert(afterDuplicateStore.pickupSessions.length === afterPickupStore.pickupSessions.length, '重复确认不得新增领料主记录')
-assert(afterDuplicateStore.pickupRecords.length === afterPickupStore.pickupRecords.length, '重复确认不得新增领料明细')
+assert(afterDuplicateStore.pickupSessions.length === afterPickupStore.pickupSessions.length, '重复确认不得新增接收主记录')
+assert(afterDuplicateStore.pickupRecords.length === afterPickupStore.pickupRecords.length, '重复确认不得新增接收明细')
 
 recordPickupSessionWarehouseSyncResult(session.pickupSessionId, {
   status: '回写异常待重试',
@@ -196,12 +196,12 @@ recordPickupSessionWarehouseSyncResult(session.pickupSessionId, {
 }, storage)
 recordPickupSessionWarehouseSyncResult(session.pickupSessionId, { status: '已回写' }, storage)
 const afterSyncRetryStore = hydrateProductionMaterialPrepStore(storage)
-assert(afterSyncRetryStore.pickupSessions.length === afterPickupStore.pickupSessions.length, '仓储同步重试不得新增领料主记录')
-assert(afterSyncRetryStore.pickupRecords.length === afterPickupStore.pickupRecords.length, '仓储同步重试不得新增领料明细')
+assert(afterSyncRetryStore.pickupSessions.length === afterPickupStore.pickupSessions.length, '仓储同步重试不得新增接收主记录')
+assert(afterSyncRetryStore.pickupRecords.length === afterPickupStore.pickupRecords.length, '仓储同步重试不得新增接收明细')
 assert(afterSyncRetryStore.pickupSessions.find((item) => item.pickupSessionId === session.pickupSessionId)?.warehouseSyncStatus === '已回写', '仓储同步重试只应更新同步结果')
 
 const afterFirstPickup = getMaterialPrepOrderProjection(initialNode.prepOrderId, storage)
-assert(afterFirstPickup, '领料后配料单必须持续有效')
+assert(afterFirstPickup, '接收后配料单必须持续有效')
 const completedProcessLineIds = new Set(
   listPickupDemandFacts(storage)
     .filter((fact) => fact.prepOrderId === initialNode.prepOrderId && fact.processComplete)
@@ -238,7 +238,7 @@ try {
   appendPickupSessionFromNode({
     pickupNodeId: nextIncompleteNode.nodeId,
     pickupNodeVersion: nextIncompleteNode.version,
-    receiverName: '裁床 领料员',
+    receiverName: '裁床 接收员',
     warehouseArea: '待加工仓 A 区',
     locationCode: 'FAB-A-09',
     waitProcessLedgerEventId: 'check-cross-node-idempotency',
@@ -247,11 +247,11 @@ try {
 } catch (error) {
   crossNodeIdempotencyConflict = (error as Error).message.includes('幂等键')
 }
-assert(crossNodeIdempotencyConflict, '同一幂等键不得跨待领节点返回旧领料主记录')
+assert(crossNodeIdempotencyConflict, '同一幂等键不得跨待领节点返回旧接收主记录')
 appendPickupSessionFromNode({
   pickupNodeId: nextIncompleteNode.nodeId,
   pickupNodeVersion: nextIncompleteNode.version,
-  receiverName: '裁床 领料员',
+  receiverName: '裁床 接收员',
   warehouseArea: '待加工仓 A 区',
   locationCode: 'FAB-A-09',
   waitProcessLedgerEventId: 'check-next-incomplete',
@@ -259,7 +259,7 @@ appendPickupSessionFromNode({
 }, storage)
 
 const beforeClosingNode = getMaterialPrepOrderProjection(initialNode.prepOrderId, storage)
-assert(beforeClosingNode, '第二轮领料后配料单必须持续有效')
+assert(beforeClosingNode, '第二轮接收后配料单必须持续有效')
 for (const line of beforeClosingNode.lines) {
   const effectivePickedQty = Math.max(line.pickedQty - line.returnedQty, 0)
   const shortageQty = Math.max(line.requiredQty - effectivePickedQty, 0)

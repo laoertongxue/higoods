@@ -275,7 +275,7 @@ export const routes: RouteRegistry = {
     '/fcs/craft/cutting/cut-orders': () => renderCraftCuttingCutOrdersPage(),
     '/fcs/craft/cutting/cut-order-close': () => renderCraftCuttingCutOrderClosePage(),
     '/fcs/craft/cutting/pickup-management': () =>
-      renderRouteRedirect('/fcs/craft/cutting/pickup-management/ready', '正在跳转到已配齐待领料'),
+      renderRouteRedirect('/fcs/craft/cutting/pickup-management/ready', '正在跳转到已配齐待接收'),
     '/fcs/craft/cutting/pickup-management/ready': () => {
       bootstrapSupplementManagementMockData()
       bootstrapPickupManagementRuntimeMockData()

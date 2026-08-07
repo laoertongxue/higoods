@@ -85,8 +85,8 @@ const DEMO_STAGE_PROFILES: CuttingDemoStageProfile[] = [
     cutRatio: 0,
     inboundRatio: 0,
     riskFlags: [],
-    latestActionText: '裁床已领料并开工，可新建唛架方案。',
-    lastOperatorName: '裁床领料员',
+    latestActionText: '裁床已接收并开工，可新建唛架方案。',
+    lastOperatorName: '裁床接收员',
   },
   {
     stageLabel: '已开工',

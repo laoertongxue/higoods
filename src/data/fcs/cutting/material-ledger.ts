@@ -15,7 +15,7 @@ export type CuttingMaterialLedgerEventType =
 
 export const cuttingMaterialLedgerEventTypeLabels: Record<CuttingMaterialLedgerEventType, string> = {
   TRANSFER_WAREHOUSE_ALLOCATED: '中转仓配料',
-  CUTTING_CLAIMED: '裁床领料',
+  CUTTING_CLAIMED: '裁床接收',
   CUTTING_WAIT_PROCESS_INBOUNDED: '扫码入仓',
   SPREADING_ACTUAL_CONSUMED: '铺布实际消耗',
   CUTTING_RETURNED: '裁床退料',
@@ -157,8 +157,8 @@ function buildProgressDrivenEvents(record: GeneratedCutOrderSourceRecord): Cutti
       sourceObjectType: 'PDA_PICKUP_RECORD',
       sourceObjectId: `pickup:${record.cutOrderId}`,
       occurredAt: '2026-03-11 10:30',
-      operatorName: '裁床领料员',
-      remark: '按当前裁片单生成裁床领料数量账。',
+      operatorName: '裁床接收员',
+      remark: '按当前裁片单生成裁床接收数量账。',
     }))
   }
 
@@ -183,7 +183,7 @@ function buildPrompt2ScenarioEvents(record: GeneratedCutOrderSourceRecord): Cutt
         sourceObjectId: 'PDA-PICK-260306-101-03-01',
         occurredAt: '2026-03-12 11:05',
         operatorName: '裁床 李明',
-        remark: '口袋布纸样首次领料。',
+        remark: '口袋布纸样首次接收。',
       }),
       buildEvent(record, 'SPREADING_ACTUAL_CONSUMED', 80, {
         eventId: `ledger:${record.cutOrderId}:consume:001`,
@@ -220,7 +220,7 @@ function buildPrompt2ScenarioEvents(record: GeneratedCutOrderSourceRecord): Cutt
         sourceObjectId: 'PDA-PICK-260306-101-01-01',
         occurredAt: '2026-03-10 11:10',
         operatorName: '裁床 李明',
-        remark: '第一次领料用于首轮唛架。',
+        remark: '第一次接收用于首轮唛架。',
       }),
       buildEvent(record, 'CUTTING_CLAIMED', 420, {
         eventId: `ledger:${record.cutOrderId}:claim:002`,
@@ -228,7 +228,7 @@ function buildPrompt2ScenarioEvents(record: GeneratedCutOrderSourceRecord): Cutt
         sourceObjectId: 'PDA-PICK-260306-101-01-02',
         occurredAt: '2026-03-14 11:30',
         operatorName: '裁床 李明',
-        remark: '第二次领料用于继续排唛架。',
+        remark: '第二次接收用于继续排唛架。',
       }),
       buildEvent(record, 'SPREADING_ACTUAL_CONSUMED', 180, {
         eventId: `ledger:${record.cutOrderId}:consume:001`,
@@ -273,7 +273,7 @@ function buildPrompt2ScenarioEvents(record: GeneratedCutOrderSourceRecord): Cutt
         sourceObjectId: 'PDA-PICK-260306-101-04-01',
         occurredAt: '2026-03-12 10:35',
         operatorName: '裁床 李明',
-        remark: '155cm 幅宽版本首次领料。',
+        remark: '155cm 幅宽版本首次接收。',
       }),
     ]
   }
@@ -294,7 +294,7 @@ function buildPrompt2ScenarioEvents(record: GeneratedCutOrderSourceRecord): Cutt
         sourceObjectId: 'PDA-PICK-260307-102-01-01',
         occurredAt: '2026-03-13 10:20',
         operatorName: '裁床 李明',
-        remark: '已领料并开工，但本次可用余额后续被实际消耗完。',
+        remark: '已接收并开工，但本次可用余额后续被实际消耗完。',
       }),
       buildEvent(record, 'SPREADING_ACTUAL_CONSUMED', 240, {
         eventId: `ledger:${record.cutOrderId}:consume:001`,
@@ -323,7 +323,7 @@ function buildPrompt2ScenarioEvents(record: GeneratedCutOrderSourceRecord): Cutt
         sourceObjectId: 'PDA-PICK-260306-101-02-01',
         occurredAt: '2026-03-08 11:20',
         operatorName: '裁床 李明',
-        remark: '历史唛架前领料。',
+        remark: '历史唛架前接收。',
       }),
       buildEvent(record, 'SPREADING_ACTUAL_CONSUMED', 350, {
         eventId: `ledger:${record.cutOrderId}:consume:001`,
@@ -339,7 +339,7 @@ function buildPrompt2ScenarioEvents(record: GeneratedCutOrderSourceRecord): Cutt
         sourceObjectId: 'PDA-PICK-260306-101-02-02',
         occurredAt: '2026-03-15 10:15',
         operatorName: '裁床 李明',
-        remark: '后续再次领料，重新形成可用余额。',
+        remark: '后续再次接收，重新形成可用余额。',
       }),
       buildEvent(record, 'CUTTING_RETURNED', 50, {
         eventId: `ledger:${record.cutOrderId}:return:001`,
@@ -427,7 +427,7 @@ function buildWaitProcessInboundEvents(events: CuttingMaterialLedgerEvent[]): Cu
       eventType: 'CUTTING_WAIT_PROCESS_INBOUNDED' as const,
       sourceObjectType: 'WAIT_PROCESS_INBOUND_RECORD' as const,
       sourceObjectId: `wait-process-inbound:${event.sourceObjectId}`,
-      remark: '裁床完成中转仓领料后，扫码确认进入裁床待加工仓库区库位。',
+      remark: '裁床完成中转仓接收后，扫码确认进入裁床待加工仓库区库位。',
     }))
 }
 

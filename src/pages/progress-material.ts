@@ -362,7 +362,7 @@ function renderCuttingMaterialProgressSection(poId?: string | null): string {
       <div class="flex items-center justify-between gap-3">
         <div>
           <h2 class="text-base font-semibold">配料进度</h2>
-          <p class="text-xs text-muted-foreground">按裁片单汇总中转仓配料数量、裁床领料数量和差异</p>
+          <p class="text-xs text-muted-foreground">按裁片单汇总中转仓配料数量、裁床接收数量和差异</p>
         </div>
         <span class="text-xs text-muted-foreground">共 ${rows.length} 条</span>
       </div>
@@ -376,7 +376,7 @@ function renderCuttingMaterialProgressSection(poId?: string | null): string {
           <p class="mt-2 text-xl font-semibold">${configuredLengthTotal}</p>
         </article>
         <article class="rounded-lg border bg-muted/20 px-3 py-3">
-          <p class="text-xs text-muted-foreground">有领料数量</p>
+          <p class="text-xs text-muted-foreground">有接收数量</p>
           <p class="mt-2 text-xl font-semibold">${claimedLineCount}</p>
         </article>
         <article class="rounded-lg border bg-muted/20 px-3 py-3">
@@ -398,8 +398,8 @@ function renderCuttingMaterialProgressSection(poId?: string | null): string {
               <th class="px-3 py-2 font-medium">面料类型</th>
               <th class="px-3 py-2 font-medium">中转仓配料卷数</th>
               <th class="px-3 py-2 font-medium">中转仓配料长度</th>
-              <th class="px-3 py-2 font-medium">裁床领料卷数</th>
-              <th class="px-3 py-2 font-medium">裁床领料长度</th>
+              <th class="px-3 py-2 font-medium">裁床接收卷数</th>
+              <th class="px-3 py-2 font-medium">裁床接收长度</th>
               <th class="px-3 py-2 font-medium">差异</th>
               <th class="px-3 py-2 font-medium">裁片单二维码</th>
               <th class="px-3 py-2 text-right font-medium">操作</th>
@@ -461,7 +461,7 @@ function renderMaterialRequestSection(rows: MaterialRequestRecord[]): string {
     <section class="rounded-lg border bg-card">
       <header class="flex items-center justify-between px-4 pb-3 pt-4">
         <div>
-          <h2 class="text-base font-semibold">正式领料需求跟踪</h2>
+          <h2 class="text-base font-semibold">正式接收需求跟踪</h2>
           <p class="text-xs text-muted-foreground">正式需求已联动仓库执行对象，按执行范围展示进度</p>
         </div>
         <span class="text-xs text-muted-foreground">共 ${rows.length} 条</span>
@@ -474,8 +474,8 @@ function renderMaterialRequestSection(rows: MaterialRequestRecord[]): string {
               <th class="px-3 py-2 font-medium">任务名称</th>
               <th class="px-3 py-2 font-medium">执行范围</th>
               <th class="px-3 py-2 font-medium">执行方</th>
-              <th class="px-3 py-2 font-medium">领料需求编号</th>
-              <th class="px-3 py-2 font-medium">领料方式</th>
+              <th class="px-3 py-2 font-medium">接收需求编号</th>
+              <th class="px-3 py-2 font-medium">接收方式</th>
               <th class="px-3 py-2 font-medium">物料说明</th>
               <th class="px-3 py-2 font-medium">仓库执行状态</th>
               <th class="px-3 py-2 font-medium">最近更新时间</th>
@@ -486,7 +486,7 @@ function renderMaterialRequestSection(rows: MaterialRequestRecord[]): string {
               rows.length === 0
                 ? `
                     <tr>
-                      <td colspan="9" class="px-3 py-8 text-center text-muted-foreground">暂无已创建领料需求</td>
+                      <td colspan="9" class="px-3 py-8 text-center text-muted-foreground">暂无已创建接收需求</td>
                     </tr>
                   `
                 : rows
@@ -631,15 +631,15 @@ function renderMaterialListView(): string {
         <div>
           <h1 class="flex items-center gap-2 text-xl font-semibold">
             <i data-lucide="package-search" class="h-5 w-5"></i>
-            领料/配料进度
+            接收/配料进度
           </h1>
-          <p class="text-sm text-muted-foreground">汇总裁床配料、领料和差异状态</p>
+          <p class="text-sm text-muted-foreground">汇总裁床配料、接收和差异状态</p>
         </div>
       </div>
 
       <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         <article class="rounded-lg border bg-card p-4">
-          <p class="text-xs text-muted-foreground">正式领料需求数</p>
+          <p class="text-xs text-muted-foreground">正式接收需求数</p>
           <p class="mt-2 text-2xl font-semibold">${summary.requestCount}</p>
         </article>
         <article class="rounded-lg border bg-card p-4">
@@ -986,7 +986,7 @@ function renderMaterialDetailView(poId: string, docIdFromQuery: string | null): 
           </button>
           <h1 class="flex items-center gap-2 text-xl font-semibold">
             <i data-lucide="package-search" class="h-5 w-5"></i>
-            领料/配料进度
+            接收/配料进度
           </h1>
         </div>
       </div>
@@ -1066,7 +1066,7 @@ function renderMaterialDetailView(poId: string, docIdFromQuery: string | null): 
 
       <section class="rounded-lg border bg-card">
         <header class="px-4 pb-3 pt-4">
-          <h2 class="text-base font-semibold">该生产单已创建领料需求</h2>
+          <h2 class="text-base font-semibold">该生产单已创建接收需求</h2>
         </header>
         <div class="overflow-x-auto">
           <table class="w-full min-w-[1120px] text-sm">
@@ -1075,8 +1075,8 @@ function renderMaterialDetailView(poId: string, docIdFromQuery: string | null): 
                 <th class="px-3 py-2 font-medium">任务名称</th>
                 <th class="px-3 py-2 font-medium">任务类型</th>
                 <th class="px-3 py-2 font-medium">执行范围</th>
-                <th class="px-3 py-2 font-medium">领料需求编号</th>
-                <th class="px-3 py-2 font-medium">领料方式</th>
+                <th class="px-3 py-2 font-medium">接收需求编号</th>
+                <th class="px-3 py-2 font-medium">接收方式</th>
                 <th class="px-3 py-2 font-medium">仓库执行状态</th>
                 <th class="px-3 py-2 font-medium">最近更新时间</th>
               </tr>
@@ -1086,7 +1086,7 @@ function renderMaterialDetailView(poId: string, docIdFromQuery: string | null): 
                 materialRequests.length === 0
                   ? `
                       <tr>
-                        <td colspan="7" class="px-3 py-8 text-center text-muted-foreground">暂无已创建领料需求</td>
+                        <td colspan="7" class="px-3 py-8 text-center text-muted-foreground">暂无已创建接收需求</td>
                       </tr>
                     `
                   : materialRequests

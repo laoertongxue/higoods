@@ -43,7 +43,7 @@ function isInboundCompleted(status: string): boolean {
 
 function resolveCurrentStepLabel(stepCode: PdaCuttingCurrentStepCode): string {
   if (stepCode === 'START') return '待开工'
-  if (stepCode === 'PICKUP') return '交接领料'
+  if (stepCode === 'PICKUP') return '交接接收'
   if (stepCode === 'SPREADING') return '按唛架方案铺布'
   if (stepCode === 'INBOUND') return '入裁片待交出仓'
   if (stepCode === 'HANDOVER') return '发起交出'

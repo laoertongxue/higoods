@@ -178,7 +178,7 @@
 <h3>1.1 背景</h3>
 <p>
   印尼供应链团队（含生产团队）中分出一个专门的小组——<span class="highlight">配料小组</span>，统一负责所有物料的配料操作。
-  配料小组按照生产单 BOM（物料清单），从各个仓库中挑出物料、拣货、放入暂存区、确认配料完成，然后通知下游来领料或配送。
+  配料小组按照生产单 BOM（物料清单），从各个仓库中挑出物料、拣货、放入暂存区、确认配料完成，然后通知下游来接收或配送。
 </p>
 <p>
   配料完成后，系统再执行<span class="highlight">任务分配</span>（即确定由哪个工厂承接该工序），这与当前"先分配再配料"的代码逻辑完全相反。
@@ -242,12 +242,12 @@ flowchart LR
 
     FC -->|调拨| DWH
     FC -->|调拨| PWH
-    DWH --> DP -->|加工领料| DWF
-    PWH --> PP -->|加工领料| PWF
+    DWH --> DP -->|加工接收| DWF
+    PWH --> PP -->|加工接收| PWF
     DWF -->|染色完成<br/>回仓| TWC
     PWF -->|印花完成<br/>回仓| TWC
 
-    TWC -->|裁片配料| CP -->|裁床领料| CUT
+    TWC -->|裁片配料| CP -->|裁床接收| CUT
     AC --> SP -->|配送| SEW
     YC --> SP -->|配送| SEW
     PC --> OP -->|配送| FIN
@@ -282,14 +282,14 @@ flowchart LR
   </tr>
   <tr>
     <td><strong>各工厂操作员</strong></td>
-    <td>领料 / 加工领料</td>
+    <td>接收 / 加工接收</td>
     <td>FCS 各工厂模块</td>
   </tr>
 </table>
 
 <blockquote>
   <strong>三方裁片仓的角色的灵活性：</strong>一个裁片工厂可能只做裁片，也可能兼做裁片+车缝，甚至裁片+车缝+后道。
-  在配料阶段，裁片配料总是由裁片工厂来领料，无论该工厂后续是否兼做车缝。辅料（车缝配料）的配送目的地
+  在配料阶段，裁片配料总是由裁片工厂来接收，无论该工厂后续是否兼做车缝。辅料（车缝配料）的配送目的地
   在任务分配后确定——可能配送给独立车缝厂，也可能配送给裁片+车缝一体厂。
 </blockquote>
 
@@ -308,21 +308,21 @@ flowchart LR
     <td><strong>染色配料</strong></td>
     <td>面料 + upstreamSourceType='染色'</td>
     <td>染色厂待加工仓</td>
-    <td>加工领料</td>
+    <td>加工接收</td>
     <td><span class="badge badge-success">工艺绑定</span></td>
   </tr>
   <tr>
     <td><strong>印花配料</strong></td>
     <td>面料 + upstreamSourceType='印花'</td>
     <td>印花厂待加工仓</td>
-    <td>加工领料</td>
+    <td>加工接收</td>
     <td><span class="badge badge-success">工艺绑定</span></td>
   </tr>
   <tr>
     <td><strong>裁片配料</strong></td>
     <td>面料 + upstreamSourceType='中转仓库存'</td>
     <td>中转仓</td>
-    <td>裁床领料</td>
+    <td>裁床接收</td>
     <td><span class="badge badge-success">工艺绑定</span></td>
   </tr>
   <tr>
@@ -357,7 +357,7 @@ flowchart LR
   <li><strong>裁片 + 车缝 + 后道</strong>：工厂做全流程，从裁片到包装都在同一厂完成</li>
 </ul>
 <p>
-  这对于<strong>裁片配料</strong>的影响是：裁片配料在中转仓完成并确认后，下游的领料工厂可能是一个纯裁片厂，
+  这对于<strong>裁片配料</strong>的影响是：裁片配料在中转仓完成并确认后，下游的接收工厂可能是一个纯裁片厂，
   也可能是一个裁片+车缝一体厂。但无论该工厂后续是否兼做车缝，裁片配料阶段的操作不发生变化——
   配料小组只管把成品面料从中转仓配好，交给裁片工厂领走。其余的辅料（车缝配料）仍然由配料小组在辅料仓/纱线仓独立操作。
 </p>
@@ -380,8 +380,8 @@ flowchart TD
     D -->|辅料/纱线| H[车缝配料]
     D -->|包材| I[其他配料]
 
-    E --> E1[面料仓→染色厂待加工仓→配料→加工领料→染色生产]
-    F --> F1[面料仓→印花厂待加工仓→配料→加工领料→印花生产]
+    E --> E1[面料仓→染色厂待加工仓→配料→加工接收→染色生产]
+    F --> F1[面料仓→印花厂待加工仓→配料→加工接收→印花生产]
     E1 --> J[染色完成→回中转仓]
     F1 --> J1[印花完成→回中转仓]
 
@@ -398,8 +398,8 @@ flowchart TD
     M --> N[配料小组确认 → CONFIRMED]
 
     N --> O{工艺绑定?}
-    O -->|是 裁片| P[通知裁片工厂领料]
-    O -->|是 染/印| Q[通知染/印厂加工领料]
+    O -->|是 裁片| P[通知裁片工厂接收]
+    O -->|是 染/印| Q[通知染/印厂加工接收]
     O -->|否 车缝/其他| R[等待任务分配]
 
     R --> S[任务分配确定工厂]
@@ -412,8 +412,8 @@ flowchart TD
   <li><strong>配料小组创建配料记录：</strong>按生产单 BOM 计算面料需求量，创建 DRAFT 记录</li>
   <li><strong>仓库拣货：</strong>仓库操作员从染色厂待加工仓货架取出面料实物，状态变为 PICKED</li>
   <li><strong>跟单入暂存区：</strong>跟单核实后放入染色厂暂存区，状态变为 STAGED</li>
-  <li><strong>配料确认完成：</strong>配料小组确认 CONFIRMED → 触发染色厂加工领料通知</li>
-  <li><strong>染色厂加工领料：</strong>染色工厂操作员领取面料，进行染色生产</li>
+  <li><strong>配料确认完成：</strong>配料小组确认 CONFIRMED → 触发染色厂加工接收通知</li>
+  <li><strong>染色厂加工接收：</strong>染色工厂操作员领取面料，进行染色生产</li>
   <li><strong>加工完成回中转仓：</strong>染色完成的成品面料回转中转仓，等待进入裁片配料环节</li>
 </ol>
 
@@ -427,8 +427,8 @@ flowchart TD
   <li><strong>配料小组创建配料记录：</strong>按生产单 BOM 计算裁片所需面料量，创建 DRAFT 记录</li>
   <li><strong>仓库拣货：</strong>仓库操作员从中转仓货架取出成品面料，PICKED</li>
   <li><strong>跟单入暂存区：</strong>放入中转仓暂存区，STAGED</li>
-  <li><strong>配料确认完成：</strong>CONFIRMED → 通知裁片工厂可领料</li>
-  <li><strong>裁片工厂领料：</strong>裁片工厂操作员到中转仓领料，入裁片工厂待加工仓</li>
+  <li><strong>配料确认完成：</strong>CONFIRMED → 通知裁片工厂可接收</li>
+  <li><strong>裁片工厂接收：</strong>裁片工厂操作员到中转仓接收，入裁片工厂待加工仓</li>
 </ol>
 
 <h3>4.4 车缝配料详细流程</h3>
@@ -474,7 +474,7 @@ stateDiagram-v2
     REJECTED --> STAGED: 仅需重新核实
     REJECTED --> CONFIRMED: 配料小组重新确认
 
-    CONFIRMED --> [*]: 领料/配送完成后关闭
+    CONFIRMED --> [*]: 接收/配送完成后关闭
 </div>
 
 <h3>5.2 配料单状态机</h3>
@@ -504,13 +504,13 @@ stateDiagram-v2
     CLOSED --> [*]
 </div>
 
-<h3>5.3 领料单状态机</h3>
+<h3>5.3 接收单状态机</h3>
 <div class="mermaid">
 stateDiagram-v2
     NOT_PICKABLE: 暂不可领（无已确认配料记录）
-    WAIT_PICKUP: 待领料（已有已确认配料记录）
+    WAIT_PICKUP: 待接收（已有已确认配料记录）
     REJECTED_WAIT_WLS: 打回待仓库处理
-    PICKUP_DONE: 已领料完结
+    PICKUP_DONE: 已接收完结
     ACTUAL_CLOSED: 按实完结
 
     NOT_PICKABLE --> WAIT_PICKUP: 配料记录确认
@@ -554,7 +554,7 @@ sequenceDiagram
     WH->>PREP: 拣货完成 (PICKED)
     PREP->>CS: 通知核实入暂存区
     CS->>PREP: 已入暂存区 (STAGED)
-    PREP->>PREP: 确认 (CONFIRMED) → 通知印染厂加工领料
+    PREP->>PREP: 确认 (CONFIRMED) → 通知印染厂加工接收
     PRINT->>PRINT: 印染生产
     PRINT->>PREP: 印染完成 → 成品面料回中转仓
 
@@ -563,12 +563,12 @@ sequenceDiagram
     WH->>PREP: 拣货完成 (PICKED)
     PREP->>CS: 通知核实入暂存区
     CS->>PREP: 已入暂存区 (STAGED)
-    PREP->>PREP: 确认 (CONFIRMED) → 通知裁片工厂领料
+    PREP->>PREP: 确认 (CONFIRMED) → 通知裁片工厂接收
 
     PREP->>PREP: 创建车缝配料记录 (DRAFT) → PICKED → STAGED → CONFIRMED
     PREP->>PREP: 创建其他配料记录 (DRAFT) → PICKED → STAGED → CONFIRMED
 
-    Note over PREP,DISP: 工艺绑定的直接领料，分配决定的等待分配
+    Note over PREP,DISP: 工艺绑定的直接接收，分配决定的等待分配
     PREP->>DISP: 配料全部完成，等待车缝/其他任务分配
     DISP->>DISP: 执行车缝/包装任务分配 → 确定工厂
     DISP->>PREP: 回写工厂信息到配料记录
@@ -665,8 +665,8 @@ sequenceDiagram
 
 <table>
   <tr><th>配料类型</th><th>配货仓库</th><th>暂存区位置</th><th>通知对象</th></tr>
-  <tr><td>染色配料</td><td>染色厂待加工仓</td><td>染色厂暂存区</td><td>染色厂（加工领料）</td></tr>
-  <tr><td>印花配料</td><td>印花厂待加工仓</td><td>印花厂暂存区</td><td>印花厂（加工领料）</td></tr>
+  <tr><td>染色配料</td><td>染色厂待加工仓</td><td>染色厂暂存区</td><td>染色厂（加工接收）</td></tr>
+  <tr><td>印花配料</td><td>印花厂待加工仓</td><td>印花厂暂存区</td><td>印花厂（加工接收）</td></tr>
   <tr><td>裁片配料</td><td>中转仓（印染成品面料存放处）</td><td>中转仓暂存区</td><td>裁片工厂</td></tr>
   <tr><td>车缝配料</td><td>辅料仓 / 纱线仓</td><td>辅料仓暂存区 / 纱线仓暂存区</td><td>待分配后确定</td></tr>
   <tr><td>其他配料</td><td>包材仓</td><td>包材仓暂存区</td><td>待分配后确定</td></tr>
@@ -695,7 +695,7 @@ sequenceDiagram
     Note over PREP: 状态 → CONFIRMED<br/>触发"配料完成通知"事件
 
     alt 工艺绑定类型
-        PREP->>PREP: 发送下游领料通知
+        PREP->>PREP: 发送下游接收通知
     else 分配决定类型
         PREP->>PREP: 进入"待分配"队列
     end
@@ -705,7 +705,7 @@ sequenceDiagram
 <ul>
   <li>确认对象是<strong>整条配料记录</strong>（非逐行确认）</li>
   <li>只有 <strong>STAGED</strong> 状态可确认</li>
-  <li>确认后该配料记录进入 <strong>CONFIRMED</strong>，下游立即可见（领料列表）</li>
+  <li>确认后该配料记录进入 <strong>CONFIRMED</strong>，下游立即可见（接收列表）</li>
   <li>确认时生成 <strong>"配料完成通知"</strong> 运行时事件</li>
   <li>确认后配料记录不可修改，只能由下游打回后重新确认</li>
 </ul>
@@ -722,7 +722,7 @@ flowchart TD
     PREP -->|读取库存| INV[仓库库存]
     PREP -->|读取调拨| TRANS[面料仓调拨单]
     PREP -->|车缝约束| CR[裁片放行管理]
-    PREP -->|通知领料| WAIT[工厂待加工仓]
+    PREP -->|通知接收| WAIT[工厂待加工仓]
     PREP -->|回写工厂| DISP[任务分配]
     PREP -->|写入台账| LEDGER[物料台账]
 
@@ -771,7 +771,7 @@ flowchart TD
   <tr>
     <td>工厂待加工仓</td>
     <td>配料 → 待加工仓</td>
-    <td>确认配料完成后通知下游领料，领料后入待加工仓</td>
+    <td>确认配料完成后通知下游接收，接收后入待加工仓</td>
   </tr>
   <tr>
     <td>物料台账</td>
@@ -848,7 +848,7 @@ sequenceDiagram
   <tr><td><strong>DRAFT</strong></td><td>待拣货</td><td>配料小组</td><td>配料记录刚创建，等待仓库拣货</td></tr>
   <tr><td><strong>PICKED</strong></td><td>已拣货</td><td>仓库操作员</td><td>仓库操作员已按记录取出物料</td></tr>
   <tr><td><strong>STAGED</strong></td><td>已入暂存区</td><td>跟单人员</td><td>实物已核实并放入指定暂存区域</td></tr>
-  <tr><td><strong>CONFIRMED</strong></td><td>已确认</td><td>配料小组</td><td>配料完成，下游可领料</td></tr>
+  <tr><td><strong>CONFIRMED</strong></td><td>已确认</td><td>配料小组</td><td>配料完成，下游可接收</td></tr>
   <tr><td><strong>REJECTED</strong></td><td>已打回</td><td>下游工厂</td><td>下游打回，需仓库重新处理</td></tr>
 </table>
 
@@ -947,25 +947,25 @@ sequenceDiagram
 
 <div class="card">
 <h4>染色配料 / 印花配料</h4>
-<p>面料仓 → 染色/印花厂待加工仓 的配料操作。下游下一步是加工领料。</p>
+<p>面料仓 → 染色/印花厂待加工仓 的配料操作。下游下一步是加工接收。</p>
 <ul>
   <li>配料单列表（按状态 Tab）</li>
   <li>配料详情（生产需求信息 / 库存与调拨进度 / 配料记录 / 拣货状态 / 暂存区）</li>
   <li>新增配料记录弹窗</li>
   <li>拣货确认 / 入暂存区确认 / 配料完成确认</li>
-  <li>加工领料通知</li>
+  <li>加工接收通知</li>
 </ul>
 </div>
 
 <div class="card">
 <h4>裁片配料</h4>
-<p>面料仓 → 中转仓 的配料操作。下游下一步是裁床领料。与当前 WLS 配料管理逻辑最接近。</p>
+<p>面料仓 → 中转仓 的配料操作。下游下一步是裁床接收。与当前 WLS 配料管理逻辑最接近。</p>
 <ul>
   <li>配料单列表（按状态 Tab）</li>
-  <li>配料详情（5 个 Tab：需求 / 库存 / 任务 / 记录 / 领料）</li>
+  <li>配料详情（5 个 Tab：需求 / 库存 / 任务 / 记录 / 接收）</li>
   <li>新增配料记录弹窗</li>
   <li>确认配料记录（DRAFT → PICKED → STAGED → CONFIRMED）</li>
-  <li>裁床领料通知</li>
+  <li>裁床接收通知</li>
 </ul>
 </div>
 

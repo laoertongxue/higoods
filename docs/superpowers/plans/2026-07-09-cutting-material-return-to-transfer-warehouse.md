@@ -2,9 +2,9 @@
 
 > **面向 AI 代理的工作者：** 必需子技能：使用 superpowers:subagent-driven-development（推荐）或 superpowers:executing-plans 逐任务实现此计划。步骤使用复选框（`- [ ]`）语法来跟踪进度。
 
-**目标：** 仅在配料和领料两个模块内，支持裁床已领入待加工仓的物料按物料行部分退回中转仓，并保留原配料记录 `已确认` 的历史事实。
+**目标：** 仅在配料和接收两个模块内，支持裁床已领入待加工仓的物料按物料行部分退回中转仓，并保留原配料记录 `已确认` 的历史事实。
 
-**架构：** 在 `production-material-prep.ts` 增加“领料后退回”事实和待加工仓剩余数量派生，不把退回复用为配料阶段打回。领料管理页面负责发起退回和展示退回追溯；仓储收回、待质检判定、换料重配、无法补料等仓储/质检处理不在本次范围。
+**架构：** 在 `production-material-prep.ts` 增加“接收后退回”事实和待加工仓剩余数量派生，不把退回复用为配料阶段打回。接收管理页面负责发起退回和展示退回追溯；仓储收回、待质检判定、换料重配、无法补料等仓储/质检处理不在本次范围。
 
 **技术栈：** Vite、TypeScript、Vanilla TypeScript 字符串模板、本地 Mock 数据、Playwright 检查脚本。
 
@@ -15,15 +15,15 @@
 - 修改：`src/data/fcs/cutting/production-material-prep.ts`
   - 增加退回原因、退回状态、退回记录类型。
   - 在 workflow store 中持久化 `pickupReturnRecords`。
-  - 增加退回新增、退回数量汇总、领料记录派生状态。
+  - 增加退回新增、退回数量汇总、接收记录派生状态。
 - 修改：`src/pages/process-factory/cutting/pickup-management.ts`
-  - 在领料详情 `待加工仓入库记录` 中展示退回入口。
+  - 在接收详情 `待加工仓入库记录` 中展示退回入口。
   - 增加退回弹窗、原因必填校验、图片凭证选填。
-  - 增加 `退回处理` 明细页签，只展示配料/领料侧退回事实，不提供仓储处理按钮。
+  - 增加 `退回处理` 明细页签，只展示配料/接收侧退回事实，不提供仓储处理按钮。
 - 修改：`src/pages/fcs/material-prep/cutting.ts`
-  - 在配料详情的领料记录区域展示已退数量、待加工仓剩余数量和退回状态。
+  - 在配料详情的接收记录区域展示已退数量、待加工仓剩余数量和退回状态。
 - 创建：`scripts/check-cutting-material-return.ts`
-  - 自检配料记录不回退、退回数量扣减待加工仓、领料记录派生 `部分退回` / `全部退回`。
+  - 自检配料记录不回退、退回数量扣减待加工仓、接收记录派生 `部分退回` / `全部退回`。
 - 修改：`package.json`
   - 增加 `check:cutting-material-return`。
 - 创建：`docs/prototype-review-records/2026-07-09-cutting-material-return.md`
@@ -93,7 +93,7 @@ const storage = new MemoryStorage()
 storage.setItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY, JSON.stringify(createProductionMaterialPrepSeedStore()))
 
 const candidate = listPickupCandidates(storage).find((item) => item.prepRecordId === 'prep-rec-po-0007-main-001')
-assert(candidate, '必须存在可领料配料记录')
+assert(candidate, '必须存在可接收配料记录')
 const line = candidate.items[0]
 assert(line, '必须存在可退回物料行')
 
@@ -109,11 +109,11 @@ appendPickupRecordFromPrepRecord({
 }, storage)
 
 const pickedContext = getMaterialPrepRecordContext(candidate.prepRecordId, line.prepLineId, storage)
-assert(pickedContext?.record.recordStatus === 'CONFIRMED', '领料后配料记录仍必须保持已确认')
-assert(pickedContext.availableToPickupQty === 0, '已全部领料后不可重复领')
+assert(pickedContext?.record.recordStatus === 'CONFIRMED', '接收后配料记录仍必须保持已确认')
+assert(pickedContext.availableToPickupQty === 0, '已全部接收后不可重复领')
 
 const pickupRecord = pickedContext.projection.pickupRecords.find((record) => record.prepLineId === line.prepLineId)
-assert(pickupRecord, '必须生成领料记录')
+assert(pickupRecord, '必须生成接收记录')
 
 const returnRecord = appendPickupReturnRecord({
   pickupRecordId: pickupRecord.pickupRecordId,
@@ -133,10 +133,10 @@ assert(listPickupReturnRecords(storage).length === 1, '必须保存退回记录'
 const returnedContext = getMaterialPrepRecordContext(candidate.prepRecordId, line.prepLineId, storage)
 assert(returnedContext?.record.recordStatus === 'CONFIRMED', '退回不能改写配料记录状态')
 const returnedPickup = returnedContext.projection.pickupRecords.find((record) => record.pickupRecordId === pickupRecord.pickupRecordId)
-assert(returnedPickup?.returnStatus === '部分退回', '部分退回后领料记录必须派生为部分退回')
+assert(returnedPickup?.returnStatus === '部分退回', '部分退回后接收记录必须派生为部分退回')
 assert(returnedPickup.returnQty === 10, '已退数量必须等于退回数量')
 assert(returnedPickup.waitProcessAvailableQty === Number(returnedPickup.pickedQty || 0) - 10, '待加工仓剩余数量必须扣减退回数量')
-assert(!listPickupCandidates(storage).some((item) => item.prepRecordId === candidate.prepRecordId), '配料/领料模块内不自动生成仓储处理后的补领候选')
+assert(!listPickupCandidates(storage).some((item) => item.prepRecordId === candidate.prepRecordId), '配料/接收模块内不自动生成仓储处理后的补领候选')
 
 appendPickupReturnRecord({
   pickupRecordId: pickupRecord.pickupRecordId,
@@ -152,7 +152,7 @@ appendPickupReturnRecord({
 
 const fullyReturnedContext = getMaterialPrepRecordContext(candidate.prepRecordId, line.prepLineId, storage)
 const fullyReturnedPickup = fullyReturnedContext?.projection.pickupRecords.find((record) => record.pickupRecordId === pickupRecord.pickupRecordId)
-assert(fullyReturnedPickup?.returnStatus === '全部退回', '全部退完后领料记录必须派生为全部退回')
+assert(fullyReturnedPickup?.returnStatus === '全部退回', '全部退完后接收记录必须派生为全部退回')
 assert(fullyReturnedPickup.waitProcessAvailableQty === 0, '全部退回后待加工仓剩余数量必须为 0')
 
 console.log('裁床物料退回中转仓检查通过')
@@ -176,7 +176,7 @@ npm run check:cutting-material-return
 
 预期：FAIL，报错包含 `appendPickupReturnRecord` 未导出。
 
-- [ ] **步骤 4：增加退回类型、领料派生字段和 store 字段**
+- [ ] **步骤 4：增加退回类型、接收派生字段和 store 字段**
 
 在 `src/data/fcs/cutting/production-material-prep.ts` 的 `PickupRecord` 附近增加：
 
@@ -285,7 +285,7 @@ export function appendPickupReturnRecord(
   if (input.returnQty <= 0) throw new Error('退回数量必须大于 0')
   const store = hydrateProductionMaterialPrepStore(storage)
   const pickup = store.pickupRecords.find((record) => record.pickupRecordId === input.pickupRecordId)
-  if (!pickup) throw new Error(`领料记录不存在：${input.pickupRecordId}`)
+  if (!pickup) throw new Error(`接收记录不存在：${input.pickupRecordId}`)
   const returnedQty = getPickupReturnQty(store.pickupReturnRecords || [], pickup.pickupRecordId)
   if (roundQty(returnedQty + input.returnQty) > pickup.pickedQty) throw new Error('退回数量不能超过待加工仓可用数量')
   const occurredAt = nowText()
@@ -341,7 +341,7 @@ git add src/data/fcs/cutting/production-material-prep.ts scripts/check-cutting-m
 git commit -m "feat: add cutting material return facts"
 ```
 
-## 任务 2：领料管理页面展示和退回操作
+## 任务 2：接收管理页面展示和退回操作
 
 **文件：**
 - 修改：`src/pages/process-factory/cutting/pickup-management.ts`
@@ -461,14 +461,14 @@ ${renderPickupReturnModal(activeProjection)}
 
 - [ ] **步骤 5：新增退回列表**
 
-新增 `renderPickupReturns(projection)`，只展示配料/领料侧事实：
+新增 `renderPickupReturns(projection)`，只展示配料/接收侧事实：
 
 ```typescript
 function renderPickupReturns(projection: MaterialPrepOrderProjection): string {
   return `
     <section class="rounded-lg border bg-card p-4">
       <h3 class="text-base font-semibold">退回处理</h3>
-      <p class="mt-1 text-sm text-muted-foreground">这里仅展示裁床退回到中转仓的配料/领料侧记录；中转仓收回、质检判定和后续处理不在本次范围。</p>
+      <p class="mt-1 text-sm text-muted-foreground">这里仅展示裁床退回到中转仓的配料/接收侧记录；中转仓收回、质检判定和后续处理不在本次范围。</p>
       <div class="mt-3 space-y-3">
         ${projection.pickupReturnRecords.length ? projection.pickupReturnRecords.map((record) => {
           const line = projection.lines.find((item) => item.prepLineId === record.prepLineId)
@@ -548,7 +548,7 @@ git commit -m "feat: show cutting material returns"
 **文件：**
 - 修改：`src/pages/fcs/material-prep/cutting.ts`
 
-- [ ] **步骤 1：调整领料记录渲染函数签名**
+- [ ] **步骤 1：调整接收记录渲染函数签名**
 
 把 `renderPickupRecords()` 改为接收退回记录：
 
@@ -569,7 +569,7 @@ function renderPickupRecords(
 
 - [ ] **步骤 2：展示已退和待加工仓剩余**
 
-在每条领料记录 map 内加入：
+在每条接收记录 map 内加入：
 
 ```typescript
 const relatedReturns = returnRecords.filter((item) => item.pickupRecordId === record.pickupRecordId)
@@ -614,21 +614,21 @@ git commit -m "feat: trace material returns in prep detail"
 
 - [ ] **步骤 1：扩展 Playwright 性能检查**
 
-在 `scripts/check-material-prep-performance.ts` 增加领料退回入口检查，目标只是打开退回弹窗，不测试仓储处理：
+在 `scripts/check-material-prep-performance.ts` 增加接收退回入口检查，目标只是打开退回弹窗，不测试仓储处理：
 
 ```typescript
 await page.goto(`${baseUrl}/fcs/craft/cutting/pickup-management?tab=PICKUP_DONE`, { waitUntil: 'domcontentloaded' })
-await page.waitForFunction(() => document.body.innerText.includes('领料管理'), undefined, { timeout: 10_000 })
+await page.waitForFunction(() => document.body.innerText.includes('接收管理'), undefined, { timeout: 10_000 })
 
-const openReturnDuration = await measure('领料详情打开退回入口', async () => {
+const openReturnDuration = await measure('接收详情打开退回入口', async () => {
   await page.locator('[data-nav*="pickup-management-detail"]').first().click()
   await page.waitForFunction(() => location.pathname.includes('pickup-management-detail'), undefined, { timeout: 10_000 })
   await page.getByRole('button', { name: /待加工仓入库记录/ }).first().click()
   await page.getByRole('button', { name: '退回物料' }).first().click()
   await page.waitForFunction(() => document.body.innerText.includes('退回物料到中转仓'), undefined, { timeout: 10_000 })
 })
-results.push(['领料详情打开退回入口', openReturnDuration, routeThresholdMs])
-assert(openReturnDuration <= routeThresholdMs, `领料详情打开退回入口耗时 ${openReturnDuration.toFixed(1)}ms，超过 ${routeThresholdMs}ms`)
+results.push(['接收详情打开退回入口', openReturnDuration, routeThresholdMs])
+assert(openReturnDuration <= routeThresholdMs, `接收详情打开退回入口耗时 ${openReturnDuration.toFixed(1)}ms，超过 ${routeThresholdMs}ms`)
 ```
 
 - [ ] **步骤 2：新增原型审查记录**
@@ -646,7 +646,7 @@ assert(openReturnDuration <= routeThresholdMs, `领料详情打开退回入口�
 
 ## 范围
 
-本次只关心配料和领料两个模块。中转仓收回、待质检判定、换料重配、无法补料等仓储/质检处理不在本次范围。
+本次只关心配料和接收两个模块。中转仓收回、待质检判定、换料重配、无法补料等仓储/质检处理不在本次范围。
 
 ## 角色
 
@@ -656,9 +656,9 @@ assert(openReturnDuration <= routeThresholdMs, `领料详情打开退回入口�
 ## 自查结论
 
 - 角色匹配：通过。
-- 任务清晰度：通过，退回入口挂在已入待加工仓的领料记录上。
+- 任务清晰度：通过，退回入口挂在已入待加工仓的接收记录上。
 - 信息负载：通过，只要求退回数量、原因和选填凭证。
-- 异常追溯：通过，保留配料记录已确认事实，新增领料后退回事实。
+- 异常追溯：通过，保留配料记录已确认事实，新增接收后退回事实。
 - 文案中文化：通过。
 - 性能要求：通过 `check:material-prep-performance` 验证。
 

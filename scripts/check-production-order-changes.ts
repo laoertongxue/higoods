@@ -526,7 +526,7 @@ const materialDraft: ProductionChangeDraft = {
     followingOrders: [
       {
         productionOrderId: 'PO-202603-005',
-        progressText: '已领料，尚未裁剪',
+        progressText: '已接收，尚未裁剪',
         started: true,
         suggestedMode: 'REMAINING',
         confirmedMode: 'REMAINING',
@@ -588,7 +588,7 @@ assert.ok(
       fullCurrentPreview.autoItems.some((item) => item.affectedDocumentNo === documentNo) &&
       fullCurrentPreview.lockObjectIds.includes(documentNo),
   ),
-  '备料、领料、铺布和裁剪真实关联单据必须进入自动计划与锁定对象',
+  '备料、接收、铺布和裁剪真实关联单据必须进入自动计划与锁定对象',
 )
 assert.ok(
   !fullCurrentPreview.affectedOrderIds.some((orderId) => orderId !== materialDraft.productionOrderId),
@@ -612,7 +612,7 @@ const followingOrdersDraft: ProductionChangeDraft = {
       },
       {
         productionOrderId: 'PO-202603-007',
-        progressText: '已领料，尚未裁剪',
+        progressText: '已接收，尚未裁剪',
         started: true,
         suggestedMode: 'REMAINING',
         confirmedMode: 'REMAINING',
@@ -659,7 +659,7 @@ const noOldMaterialFollowingPreview = buildProductionChangePreview({
     followingOrders: [
       {
         productionOrderId: 'PO-202603-0102',
-        progressText: '任务已建立但尚未领料',
+        progressText: '任务已建立但尚未接收',
         started: true,
         suggestedMode: 'FULL',
         confirmedMode: 'FULL',
@@ -678,7 +678,7 @@ assert.ok(
   '后续生产单没有旧料、裁片或完成数量时不得制造实物去向判断',
 )
 const followingTraceDecisionValues = {
-  'following-order-mode-PO-202603-007': { value: 'REMAINING', reason: '按已领料事实只处理剩余数量。' },
+  'following-order-mode-PO-202603-007': { value: 'REMAINING', reason: '按已接收事实只处理剩余数量。' },
 }
 const followingTraceRecord = buildProductionChangeRecord(
   'BG-CHECK-FOLLOWING-TRACE',
@@ -815,7 +815,7 @@ const confirmedModePreview = buildProductionChangePreview({
     followingOrders: [
       {
         productionOrderId: 'PO-202603-009',
-        progressText: '已领料，尚未裁剪',
+        progressText: '已接收，尚未裁剪',
         started: true,
         suggestedMode: 'REMAINING',
         confirmedMode: 'FULL',
@@ -844,7 +844,7 @@ const fullCurrentWithRemainingFollowingDraft: ProductionChangeDraft = {
     followingOrders: [
       {
         productionOrderId: 'PO-202603-010',
-        progressText: '已领料，尚未裁剪',
+        progressText: '已接收，尚未裁剪',
         started: true,
         suggestedMode: 'FULL',
         confirmedMode: 'FULL',
@@ -1138,7 +1138,7 @@ assert.deepEqual(
   '局部环节已完成不得排除整张生产单，且应视为已开工',
 )
 assert.deepEqual(
-  resolveFollowingOrderStateFromProgressFallback(['配料：已配 20%', '领料：未开始']),
+  resolveFollowingOrderStateFromProgressFallback(['配料：已配 20%', '接收：未开始']),
   { changeable: true, started: true },
   '已配进度必须保守视为已开工',
 )
@@ -2569,7 +2569,7 @@ const convertedUnitRecord = buildProductionChangeRecord(
   {
     productionOrderId: 'PO-202603-0101',
     changeType: 'QUANTITY_CHANGE',
-    reason: '验证领料单单位换算后的新计划',
+    reason: '验证接收单单位换算后的新计划',
     quantityLines: convertedUnitLines,
     materialReplacement: null,
     decisionValues: {},
@@ -3221,7 +3221,7 @@ const startedPlan = suggestedDecisionForm.materialReplacement.followingOrders.fi
 assert.ok(startedPlan, '第三步判断渲染需要已开工后续生产单')
 const followingDecisionId = `following-order-mode-${startedPlan.productionOrderId}`
 const suggestedDecisionHtml = renderProductionChangeFormBody('handling', suggestedDecisionForm)
-;['PO-202603-0101', 'WLS-PL-260306-101', 'CUT-260306-101-01', '部分领料', '部分裁剪'].forEach((text) => {
+;['PO-202603-0101', 'WLS-PL-260306-101', 'CUT-260306-101-01', '部分接收', '部分裁剪'].forEach((text) => {
   assert.ok(suggestedDecisionHtml.includes(text), `第三步必须展示后续生产单真实进度和数量「${text}」`)
 })
 assert.ok(

@@ -26,7 +26,7 @@
   - 增强库位卡片摘要、生产单摘要区和详情抽屉；保持公共组件不读取业务 Store。
 - `src/pages/process-factory/cutting/warehouse-hub.ts`
   - 为待加工仓和待交出仓提供完整占用明细所需的生产单、图片、物料卷、菲票数据。
-  - 保持现有领料、回收入仓、装袋、入仓和交出事实链路不变。
+  - 保持现有接收、回收入仓、装袋、入仓和交出事实链路不变。
 - `src/data/fcs/cutting/cutting-runtime-event-ledger.ts`
   - 仅在新增的卷明细字段需要进入事件 payload 时扩展兼容字段；不改变既有事件类型语义。
 - `src/data/fcs/factory-internal-warehouse.ts`

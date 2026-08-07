@@ -17,7 +17,7 @@ export const urgencyMeta: Record<CuttingUrgencyLevel, { label: string; className
 }
 
 export const summaryStatusMeta: Record<CuttingSummaryStatus, { label: string; className: string }> = {
-  PENDING_PREP_CLOSURE: { label: '领料入仓待确认', className: 'bg-slate-100 text-slate-700' },
+  PENDING_PREP_CLOSURE: { label: '接收入仓待确认', className: 'bg-slate-100 text-slate-700' },
   PENDING_EXECUTION_CLOSURE: { label: '待执行确认', className: 'bg-sky-50 text-sky-700' },
   PENDING_WAREHOUSE_HANDOVER: { label: '待入仓交接', className: 'bg-violet-50 text-violet-700' },
   PENDING_SAMPLE_RETURN: { label: '待样衣归还', className: 'bg-amber-50 text-amber-700' },
@@ -130,7 +130,7 @@ export function hasSummaryFilters(filters: CuttingSummaryFilters): boolean {
 }
 
 export function buildMaterialReceiveText(record: CuttingSummaryRecord): string {
-  return `有配料数量 ${record.materialSummary.fullyConfiguredCount} / ${record.cutPieceOrderCount} · 有领料记录 ${record.receiveSummary.receivedSuccessCount}`
+  return `有配料数量 ${record.materialSummary.fullyConfiguredCount} / ${record.cutPieceOrderCount} · 有接收记录 ${record.receiveSummary.receivedSuccessCount}`
 }
 
 export function buildExecutionText(record: CuttingSummaryRecord): string {

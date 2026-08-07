@@ -99,7 +99,7 @@ export interface PickupSession {
   warehouseSyncStatus: '已回写' | '回写异常待重试'
   warehouseSyncMessage?: string
   idempotencyKey?: string
-  migrationEvidence?: '按累计领料逐行齐套推导' | '旧事实不足，保守按未配齐'
+  migrationEvidence?: '按累计接收逐行齐套推导' | '旧事实不足，保守按未配齐'
   pickupNodeSnapshot?: PickupNodeProjection
 }
 
@@ -108,7 +108,7 @@ export function adjustPickupSessionStorageFootprint(
   locationRefs: PickupStorageLocationRef[],
   remainingByUnit: Array<{ unit: string; remainingQty: number }>,
 ): PickupSession {
-  if (!session.storageFootprint) throw new Error('当前领料记录没有可调整的存放范围。')
+  if (!session.storageFootprint) throw new Error('当前接收记录没有可调整的存放范围。')
   const remainingMap = new Map(remainingByUnit.map((item) => [item.unit, Number(item.remainingQty)]))
   const unitSummaries = session.storageFootprint.unitSummaries.map((summary) => {
     const remainingQty = remainingMap.has(summary.unit)

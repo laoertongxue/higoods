@@ -145,7 +145,7 @@ function assertCutOrderAndMaterialLedger(): void {
 	  ].forEach((type) => assertIncludes(eventTypes, type, '数量账事件类型不完整'))
 
 	  const projections = listMaterialLedgerProjections()
-	  assert(projections.some((row) => row.cuttingClaimedQty > 0), '数量账缺少裁床领料事实')
+	  assert(projections.some((row) => row.cuttingClaimedQty > 0), '数量账缺少裁床接收事实')
 	  assert(projections.some((row) => row.spreadingConsumedQty > 0), '数量账缺少实际消耗事实')
 	  projections.forEach((row) => {
 	    const expected = Math.max(row.cuttingClaimedQty - row.spreadingConsumedQty - row.returnedQty + row.adjustmentQty, 0)

@@ -27,9 +27,9 @@ export const configMeta: Record<CuttingConfigStatus, { label: string; className:
 }
 
 export const receiveMeta: Record<CuttingReceiveStatus, { label: string; className: string }> = {
-  NOT_RECEIVED: { label: '无领料记录', className: 'bg-slate-100 text-slate-700' },
-  PARTIAL: { label: '领料数量不足', className: 'bg-orange-100 text-orange-700' },
-  RECEIVED: { label: '有领料记录', className: 'bg-emerald-100 text-emerald-700' },
+  NOT_RECEIVED: { label: '无接收记录', className: 'bg-slate-100 text-slate-700' },
+  PARTIAL: { label: '接收数量不足', className: 'bg-orange-100 text-orange-700' },
+  RECEIVED: { label: '有接收记录', className: 'bg-emerald-100 text-emerald-700' },
 }
 
 export const printMeta: Record<CuttingPrintSlipStatus, { label: string; className: string }> = {
@@ -225,14 +225,14 @@ export function buildGroupConfigSummary(group: CuttingMaterialPrepGroup): string
 export function buildGroupReceiveSummary(group: CuttingMaterialPrepGroup): string {
   const received = group.materialLines.filter((line) => line.receiveStatus === 'RECEIVED').length
   const partial = group.materialLines.filter((line) => line.receiveStatus === 'PARTIAL').length
-  return `有领料记录 ${received} 条 · 领料数量不足 ${partial} 条`
+  return `有接收记录 ${received} 条 · 接收数量不足 ${partial} 条`
 }
 
 export function buildGroupRiskFlags(group: CuttingMaterialPrepGroup): string[] {
   const flags = new Set<string>()
   group.materialLines.forEach((line) => {
     if (line.configStatus === 'PARTIAL') flags.add('配料数量不足')
-    if (line.receiveStatus !== 'RECEIVED') flags.add('领料记录待补')
+    if (line.receiveStatus !== 'RECEIVED') flags.add('接收记录待补')
     if (line.discrepancyStatus === 'RECHECK_REQUIRED') flags.add('待核对')
     if (line.discrepancyStatus === 'PHOTO_SUBMITTED') flags.add('已提交照片')
     if (line.issueFlags.includes('待复核')) flags.add('待复核')

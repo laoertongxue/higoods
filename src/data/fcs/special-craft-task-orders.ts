@@ -44,7 +44,7 @@ import {
 import { shouldGenerateInternalCraftOrderForProductionOrder } from './task-generation-boundaries.ts'
 
 export type SpecialCraftTaskStatus =
-  | '待领料'
+  | '待接收'
   | '加工中'
   | '已完结'
 
@@ -326,7 +326,7 @@ interface TaskSeedContext {
   dueAt: string
   receiverName: string
   receiverKind: FactoryWaitHandoverStockItem['receiverKind']
-  sourceAction: '领料确认' | '交出接收'
+  sourceAction: '接收确认' | '交出接收'
   sourceRecordType: FactoryWarehouseInboundRecord['sourceRecordType']
   sourceRecordNo: string
   sourceObjectName: string
@@ -360,7 +360,7 @@ interface SpecialCraftTaskStore {
 const PART_NAMES = ['前片', '后片', '袖片', '领片', '门襟', '裤身片', '侧片']
 const MIN_TASK_ORDER_COUNT_PER_OPERATION = 9
 const LINKED_DEMO_STATUSES: SpecialCraftTaskStatus[] = [
-  '待领料',
+  '待接收',
   '加工中',
   '加工中',
   '已完结',
@@ -630,7 +630,7 @@ function stableDemoHash(input: string): string {
 }
 
 function mapTaskStatusToExecutionStatus(status: SpecialCraftTaskStatus): SpecialCraftTaskExecutionStatus {
-  if (status === '待领料') return 'WAIT_PICKUP'
+  if (status === '待接收') return 'WAIT_PICKUP'
   if (status === '加工中') return 'PROCESSING'
   return 'COMPLETED'
 }
@@ -690,16 +690,16 @@ function buildLinkedDemoTaskSeed(input: {
   const taskOrderNo = `${taskPrefix}-${order.productionOrderNo.replace(/^PO-/, '')}-${craftShortCode}-${variantNo}`
   const sourceTaskNo = `TASK-${taskOrderNo}`
   // PO-202603-0101 是任务分配页的“未合并来源任务”演示单；在用户决定是否创建
-  // 裁剪+车缝+烫包之前，中央辅助/特种工艺加工单必须保持未领料，不能用轮转
+  // 裁剪+车缝+烫包之前，中央辅助/特种工艺加工单必须保持未接收，不能用轮转
   // Mock 伪造已经开工的事实，否则会错误阻断固定合并任务创建。
   const status = order.productionOrderId === 'PO-202603-0101'
-    ? '待领料'
+    ? '待接收'
     : LINKED_DEMO_STATUSES[variantIndex % LINKED_DEMO_STATUSES.length]
   const abnormalStatus = LINKED_DEMO_ABNORMALS[variantIndex % LINKED_DEMO_ABNORMALS.length]
   const targetObject = operation.targetObject
   const pieceCountPerGarment = targetObject === '成衣' ? 1 : patternContext.pieceCountPerGarment
   const planQty = roundQty(orderLine.qty * pieceCountPerGarment)
-  const receivedQty = status === '待领料' ? 0 : roundQty(planQty)
+  const receivedQty = status === '待接收' ? 0 : roundQty(planQty)
   const completedQty = status === '已完结'
     ? receivedQty
     : status === '加工中'
@@ -787,7 +787,7 @@ function buildLinkedDemoTaskSeed(input: {
     dueAt: order.demandSnapshot.requiredDeliveryDate || order.updatedAt,
     receiverName: getReceiverName(targetObject),
     receiverKind: getReceiverKind(targetObject),
-    sourceAction: targetObject === '成衣' ? '交出接收' : '领料确认',
+    sourceAction: targetObject === '成衣' ? '交出接收' : '接收确认',
     sourceRecordType: targetObject === '成衣' ? 'HANDOVER_RECEIVE' : 'MATERIAL_PICKUP',
     sourceRecordNo: `${targetObject === '成衣' ? 'JS' : 'LL'}-${taskOrderNo}`,
     sourceObjectName: resolveAuxiliaryWarehouseFlow(targetObject).sourceObjectName,
@@ -807,7 +807,7 @@ function buildLinkedDemoTaskSeed(input: {
 }
 
 function shouldCreateInboundRecord(status: SpecialCraftTaskStatus): boolean {
-  return status !== '待领料'
+  return status !== '待接收'
 }
 
 function shouldCreateWaitProcessRecord(status: SpecialCraftTaskStatus): boolean {
@@ -1091,10 +1091,10 @@ function buildNodeRecords(seed: TaskSeedContext, artifacts: WarehouseArtifacts):
 
   rows.push(
     createNodeRecord(seed, rows.length, {
-      nodeName: '待领料',
+      nodeName: '待接收',
       actionName: '来源生产单',
-      beforeStatus: '待领料',
-      afterStatus: '待领料',
+      beforeStatus: '待接收',
+      afterStatus: '待接收',
       qty: seed.planQty,
       unit: seed.unit,
       operatorName: '系统',
@@ -1111,7 +1111,7 @@ function buildNodeRecords(seed: TaskSeedContext, artifacts: WarehouseArtifacts):
       createNodeRecord(seed, rows.length, {
         nodeName: '加工中',
         actionName: seed.sourceAction,
-        beforeStatus: '待领料',
+        beforeStatus: '待接收',
         afterStatus: '加工中',
         qty: seed.receivedQty,
         unit: seed.unit,
@@ -1125,12 +1125,12 @@ function buildNodeRecords(seed: TaskSeedContext, artifacts: WarehouseArtifacts):
     )
   }
 
-  if (seed.status !== '待领料') {
+  if (seed.status !== '待接收') {
     rows.push(
       createNodeRecord(seed, rows.length, {
         nodeName: '加工中',
         actionName: '开工',
-        beforeStatus: '待领料',
+        beforeStatus: '待接收',
         afterStatus: '加工中',
         qty: seed.receivedQty,
         unit: seed.unit,
@@ -1233,7 +1233,7 @@ function buildTaskOrder(seed: TaskSeedContext, artifacts: WarehouseArtifacts): S
     sourceTriggerLabel: seed.sourceTriggerLabel || '生产单生成',
     assignmentStatus: seed.assignmentStatus || 'ASSIGNED',
     assignmentStatusLabel: seed.assignmentStatusLabel || '已分配',
-    executionStatus: seed.executionStatus || (seed.status === '待领料'
+    executionStatus: seed.executionStatus || (seed.status === '待接收'
         ? 'WAIT_PICKUP'
         : seed.status === '加工中'
           ? 'PROCESSING'
@@ -1453,7 +1453,7 @@ function ensureSpecialTypeUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTask
           taskId: taskOrder.sourceTaskId,
           taskNo: taskOrder.sourceTaskNo,
           status: differenceQty !== 0 ? '差异待处理' : '已入待加工仓',
-          remark: taskOrder.status === '加工中' ? '加工领料中' : '特种工艺待加工库存',
+          remark: taskOrder.status === '加工中' ? '加工接收中' : '特种工艺待加工库存',
         })
       }
     }
@@ -1830,7 +1830,7 @@ export function updateSpecialCraftTaskOrderWebStatus(
     currentQty: progressSummary ? progressSummary.currentQty : Number.isFinite(payload.completedQty) ? Number(payload.completedQty) : current.currentQty,
     lineProgress,
     executionStatus:
-      payload.status === '待领料'
+      payload.status === '待接收'
         ? 'WAIT_PICKUP'
         : payload.status === '加工中'
           ? 'PROCESSING'
@@ -1928,7 +1928,7 @@ export function listSpecialCraftTaskOrders(): SpecialCraftTaskOrder[] {
 
 export function listBlockingSpecialCraftTaskOrdersForMergedTask(productionOrderId: string): SpecialCraftTaskOrder[] {
   return listSpecialCraftTaskOrders().filter((taskOrder) =>
-    taskOrder.productionOrderId === productionOrderId && taskOrder.status !== '待领料',
+    taskOrder.productionOrderId === productionOrderId && taskOrder.status !== '待接收',
   )
 }
 
@@ -1940,7 +1940,7 @@ export function invalidateUnstartedSpecialCraftTaskOrdersForMergedTask(input: {
   reason: string
 }): string[] {
   const candidates = listSpecialCraftTaskOrders().filter((taskOrder) =>
-    taskOrder.productionOrderId === input.productionOrderId && taskOrder.status === '待领料',
+    taskOrder.productionOrderId === input.productionOrderId && taskOrder.status === '待接收',
   )
   for (const taskOrder of candidates) {
     invalidatedMergedTaskOrderLogs.push({

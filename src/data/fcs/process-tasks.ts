@@ -197,7 +197,7 @@ export interface ProcessTask {
   routeParallelGroupId?: string
   routeParallelGroupName?: string
   blockNoteZh?: string            // 开始条件中文原因（ALLOCATION_GATE 时写入）
-  // 领料需求挂接（生产单管理确认后写入）
+  // 接收需求挂接（生产单管理确认后写入）
   hasMaterialRequest?: boolean
   materialRequestNo?: string
   materialMode?: 'warehouse_delivery' | 'factory_pickup'

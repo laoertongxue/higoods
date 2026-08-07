@@ -71,10 +71,10 @@ function buildExceptionCase(record: ClaimDisputeRecord): ExceptionCase {
   const existing = record.platformCaseId ? getProgressExceptionById(record.platformCaseId) : undefined
   const createdAt = existing?.createdAt || record.submittedAt
   const actions = existing?.actions ?? [
-    createAction(`ACT-${record.disputeId}-CREATE`, 'SUBMIT_DISPUTE', '移动端已提交裁片领料长度异议。', record.submittedAt, record.submittedBy),
+    createAction(`ACT-${record.disputeId}-CREATE`, 'SUBMIT_DISPUTE', '移动端已提交裁片接收长度异议。', record.submittedAt, record.submittedBy),
   ]
   const auditLogs = existing?.auditLogs ?? [
-    createAudit(`AUD-${record.disputeId}-CREATE`, 'CREATE', '移动端提交裁片领料长度异议', record.submittedAt, record.submittedBy),
+    createAudit(`AUD-${record.disputeId}-CREATE`, 'CREATE', '移动端提交裁片接收长度异议', record.submittedAt, record.submittedBy),
   ]
 
   return {
@@ -85,7 +85,7 @@ function buildExceptionCase(record: ClaimDisputeRecord): ExceptionCase {
     unifiedCategory: 'MATERIAL',
     subCategoryKey: 'MATERIAL_QTY_SHORT',
     reasonCode: 'MATERIAL_NOT_READY',
-    reasonLabel: '裁片领料长度异议',
+    reasonLabel: '裁片接收长度异议',
     sourceType: 'TASK',
     sourceId: record.relatedClaimRecordNo || record.sourceTaskNo || record.sourceTaskId,
     sourceSystem: 'RUNTIME_FLOW',
@@ -124,7 +124,7 @@ function buildExceptionCase(record: ClaimDisputeRecord): ExceptionCase {
     tags: Array.from(
       new Set([
         '裁片',
-        '领料异议',
+        '接收异议',
         record.materialSku,
         getClaimDisputeStatusLabel(record.status),
         record.writtenBackToCraft ? '已回写工艺端' : '待回写工艺端',
@@ -165,10 +165,10 @@ function getSeedDisputes(): ClaimDisputeRecord[] {
       actualClaimQty: 589,
       disputeReason: '现场实领少 1 卷',
       disputeNote: '少 1 卷面料，已上传现场照片待仓库复核。',
-      submittedBy: '现场领料员',
+      submittedBy: '现场接收员',
       submittedAt: '2026-03-22 10:18:00',
       imageFiles: [
-        { fileId: 'IMG-1', fileType: 'IMAGE', fileName: '领料口照片-01.jpg', uploadedAt: '2026-03-22 10:18:00' },
+        { fileId: 'IMG-1', fileType: 'IMAGE', fileName: '接收口照片-01.jpg', uploadedAt: '2026-03-22 10:18:00' },
         { fileId: 'IMG-2', fileType: 'IMAGE', fileName: '卷码照片-02.jpg', uploadedAt: '2026-03-22 10:18:00' },
       ],
       videoFiles: [

@@ -52,8 +52,8 @@ function renderClaimDisputeSourcePanel(detailCase: ExceptionCase): string {
   if (!dispute) {
     return `
       <div class="space-y-3 rounded-lg border border-teal-200 bg-teal-50 p-4">
-        <p class="text-sm font-medium text-teal-700">裁片领料长度异议来源明细</p>
-        <p class="text-xs text-teal-700">未找到共享异议对象，请回到移动端或工艺端检查是否已写入裁片领料异议 ledger。</p>
+        <p class="text-sm font-medium text-teal-700">裁片接收长度异议来源明细</p>
+        <p class="text-xs text-teal-700">未找到共享异议对象，请回到移动端或工艺端检查是否已写入裁片接收异议 ledger。</p>
       </div>
     `
   }
@@ -69,7 +69,7 @@ function renderClaimDisputeSourcePanel(detailCase: ExceptionCase): string {
   return `
     <div class="space-y-3 rounded-lg border border-teal-200 bg-teal-50 p-4">
       <div class="flex items-center justify-between gap-3">
-        <p class="text-sm font-medium text-teal-700">裁片领料长度异议来源明细</p>
+        <p class="text-sm font-medium text-teal-700">裁片接收长度异议来源明细</p>
         <span class="inline-flex items-center rounded-full border px-2.5 py-1 ${statusMeta.className}">${escapeHtml(statusMeta.label)}</span>
       </div>
       <div class="grid grid-cols-2 gap-2">
@@ -133,7 +133,7 @@ function renderClaimDisputeActionPanel(detailCase: ExceptionCase): string {
 
   return `
     <div class="rounded-md border border-teal-200 bg-teal-50 p-3">
-      <p class="text-sm font-medium text-teal-700">裁片领料长度异议处理区</p>
+      <p class="text-sm font-medium text-teal-700">裁片接收长度异议处理区</p>
       <div class="mt-3 grid grid-cols-2 gap-3">
         <label class="space-y-1">
           <span class="text-xs text-muted-foreground">处理状态</span>
@@ -168,8 +168,8 @@ function renderPdaPickupDisputeSourcePanel(detailCase: ExceptionCase): string {
   if (!dispute) {
     return `
       <div class="space-y-3 rounded-lg border border-teal-200 bg-teal-50 p-4">
-        <p class="text-sm font-medium text-teal-700">通用待领料长度差异来源明细</p>
-        <p class="text-xs text-teal-700">未找到对应领料记录，请回到移动端确认是否仍存在该条待领料记录。</p>
+        <p class="text-sm font-medium text-teal-700">通用待接收长度差异来源明细</p>
+        <p class="text-xs text-teal-700">未找到对应接收记录，请回到移动端确认是否仍存在该条待接收记录。</p>
       </div>
     `
   }
@@ -186,16 +186,16 @@ function renderPdaPickupDisputeSourcePanel(detailCase: ExceptionCase): string {
   return `
     <div class="space-y-3 rounded-lg border border-teal-200 bg-teal-50 p-4">
       <div class="flex items-center justify-between gap-3">
-        <p class="text-sm font-medium text-teal-700">通用待领料长度差异来源明细</p>
+        <p class="text-sm font-medium text-teal-700">通用待接收长度差异来源明细</p>
         <span class="inline-flex items-center rounded-full border border-teal-200 bg-background px-2.5 py-1 text-xs text-teal-700">${escapeHtml(getSubCategoryLabel(detailCase))}</span>
       </div>
       <div class="grid grid-cols-2 gap-2">
-        ${renderKv('领料单', head.handoverId)}
-        ${renderKv('领料记录', record.recordId)}
+        ${renderKv('接收单', head.handoverId)}
+        ${renderKv('接收记录', record.recordId)}
         ${renderKv('生产单号', head.productionOrderNo)}
         ${renderKv('任务号', head.taskNo)}
         ${renderKv('当前工序', head.processName)}
-        ${renderKv('领料方式', record.pickupModeLabel)}
+        ${renderKv('接收方式', record.pickupModeLabel)}
         ${renderKv('物料说明', record.materialSummary)}
         ${renderKv('二维码', record.qrCodeValue ? '已绑定二维码' : '未生成')}
         ${renderKv('本次应领', `${record.qtyExpected} ${record.qtyUnit}`)}
@@ -215,7 +215,7 @@ function renderPdaPickupDisputeSourcePanel(detailCase: ExceptionCase): string {
       </div>
       <div class="rounded-md border bg-background p-3 text-xs text-muted-foreground">
         <p>证据份数：${record.objectionProofFiles?.length || 0} 个</p>
-        <p class="mt-1">仓库扫码交付与工厂确认已拆分，平台裁定结果会回写到同一条领料记录。</p>
+        <p class="mt-1">仓库扫码交付与工厂确认已拆分，平台裁定结果会回写到同一条接收记录。</p>
       </div>
     </div>
   `
@@ -228,7 +228,7 @@ function renderPdaPickupDisputeActionPanel(detailCase: ExceptionCase): string {
   const record = dispute.record
   return `
     <div class="rounded-md border border-teal-200 bg-teal-50 p-3">
-      <p class="text-sm font-medium text-teal-700">待领料长度差异处理区</p>
+      <p class="text-sm font-medium text-teal-700">待接收长度差异处理区</p>
       <div class="mt-3 grid grid-cols-2 gap-3">
         <label class="space-y-1">
           <span class="text-xs text-muted-foreground">处理状态</span>
@@ -415,7 +415,7 @@ export function renderRelatedTab(detailCase: ExceptionCase): string {
           }
           ${
             firstOrderId
-              ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pe-action="drawer-view-material" data-order-id="${escapeAttr(firstOrderId)}"><i data-lucide="package" class="mr-1 h-4 w-4"></i>领料进度</button>`
+              ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pe-action="drawer-view-material" data-order-id="${escapeAttr(firstOrderId)}"><i data-lucide="package" class="mr-1 h-4 w-4"></i>接收进度</button>`
               : ''
           }
         </div>
@@ -558,12 +558,12 @@ export function renderSourceTab(detailCase: ExceptionCase): string {
     const totalIssued = materialRows.reduce((sum, row) => sum + row.issuedQty, 0)
     return `
       <div class="space-y-3 rounded-lg border border-teal-200 bg-teal-50 p-4">
-        <p class="text-sm font-medium text-teal-700">领料异常来源明细</p>
+        <p class="text-sm font-medium text-teal-700">接收异常来源明细</p>
         <div class="grid grid-cols-2 gap-2">
           ${renderKv('生产单号', firstOrderId)}
           ${renderKv('任务号', firstTaskId)}
           ${renderKv('异常类型', getSubCategoryLabel(detailCase))}
-          ${renderKv('领料记录数', String(materialRows.length))}
+          ${renderKv('接收记录数', String(materialRows.length))}
           ${renderKv('累计需求数量', `${totalRequested || 0}`)}
           ${renderKv('累计已领数量', `${totalIssued || 0}`)}
         </div>
@@ -578,7 +578,7 @@ export function renderSourceTab(detailCase: ExceptionCase): string {
                 ${materialRows.length > 3 ? `<p class="text-xs text-muted-foreground">还有 ${materialRows.length - 3} 条记录</p>` : ''}
               </div>
             `
-            : '<p class="text-xs text-muted-foreground">暂无领料记录，当前异常由任务链路自动沉淀。</p>'
+            : '<p class="text-xs text-muted-foreground">暂无接收记录，当前异常由任务链路自动沉淀。</p>'
         }
       </div>
     `
@@ -851,7 +851,7 @@ export function renderActionsTab(detailCase: ExceptionCase): string {
         <div class="flex items-center gap-2">
           <i data-lucide="package" class="h-5 w-5 text-teal-600"></i>
           <div>
-            <p class="font-medium">查看领料进度</p>
+            <p class="font-medium">查看接收进度</p>
             <p class="text-xs text-muted-foreground">联动物料齐套状态与缺口</p>
           </div>
         </div>
@@ -862,8 +862,8 @@ export function renderActionsTab(detailCase: ExceptionCase): string {
         <div class="flex items-center gap-2">
           <i data-lucide="list" class="h-5 w-5 text-teal-600"></i>
           <div>
-            <p class="font-medium">查看领料详情</p>
-            <p class="text-xs text-muted-foreground">查看领料记录与未闭合项</p>
+            <p class="font-medium">查看接收详情</p>
+            <p class="text-xs text-muted-foreground">查看接收记录与未闭合项</p>
           </div>
         </div>
       </button>

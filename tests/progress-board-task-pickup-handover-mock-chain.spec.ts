@@ -12,14 +12,14 @@ async function openProgressBoard(page: import('@playwright/test').Page): Promise
   await expect(page.locator('[data-progress-task-list="true"]')).toBeVisible({ timeout: 120_000 })
 }
 
-test('任务列表与抽屉中的领料/交出链路使用同一套上下游事实', async ({ page }) => {
+test('任务列表与抽屉中的接收/交出链路使用同一套上下游事实', async ({ page }) => {
   test.slow()
   const errors = collectPageErrors(page)
 
   await openProgressBoard(page)
 
   const receivedRow = getTaskRow(page, 'TASKGEN-202603-0004-001__ORDER')
-  await expect(receivedRow.locator('[data-progress-task-cell="pickup"]')).toContainText('已领料')
+  await expect(receivedRow.locator('[data-progress-task-cell="pickup"]')).toContainText('已接收')
   await receivedRow.locator('[data-progress-task-cell="pickup"] button').click()
   const drawer = page.locator('[data-progress-task-drawer="true"]')
   await expect(drawer.locator('[data-progress-task-tab-panel="pickup"]')).toBeVisible()
@@ -43,7 +43,7 @@ test('任务列表与抽屉中的领料/交出链路使用同一套上下游事�
   await expect(handoverDrawer).toHaveCount(0)
 
   const diffRow = getTaskRow(page, 'TASKGEN-202603-0005-001__ORDER')
-  await expect(diffRow.locator('[data-progress-task-cell="pickup"]')).toContainText('领料差异')
+  await expect(diffRow.locator('[data-progress-task-cell="pickup"]')).toContainText('接收差异')
   await diffRow.locator('[data-progress-task-cell="pickup"] button').click()
   const diffDrawer = page.locator('[data-progress-task-drawer="true"]')
   await expect(diffDrawer.locator('[data-progress-task-tab-panel="pickup"]')).toBeVisible()

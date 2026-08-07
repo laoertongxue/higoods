@@ -739,7 +739,7 @@ function buildHandoverRouteRows(taskId: string): TaskRouteCardRecordRow[] {
       if (head.headType === 'PICKUP') {
         return getPdaPickupRecordsByHead(head.handoverId).map((record) => ({
           rowId: record.recordId,
-          node: `领料第 ${record.sequenceNo} 次`,
+          node: `接收第 ${record.sequenceNo} 次`,
           startedAt: record.submittedAt,
           finishedAt: record.receivedAt || record.factoryConfirmedAt || record.finalResolvedAt || '',
           completedQty: typeof record.factoryConfirmedQty === 'number' || typeof record.finalResolvedQty === 'number'
@@ -1067,7 +1067,7 @@ function buildRouteCardFromDyeWorkOrder(sourceId: string): TaskRouteCardBuildRes
 
 function mapSpecialCraftNodeRecord(record: SpecialCraftTaskNodeRecord): TaskRouteCardRecordRow {
   const nodeText = `${record.nodeName} ${record.actionName} ${record.afterStatus}`
-  const node = nodeText.includes('领料') || nodeText.includes('接收') || nodeText.includes('绑定菲票')
+  const node = nodeText.includes('接收') || nodeText.includes('接收') || nodeText.includes('绑定菲票')
     ? '确认接收'
     : nodeText.includes('交出')
       ? '发起交出'
@@ -1373,7 +1373,7 @@ function buildRouteCardFromCuttingCutOrder(sourceId: string): TaskRouteCardBuild
         { label: '关联摘要', value: source.relationSummary },
         { label: '最近动作', value: source.latestActionText },
       ],
-      routeRecords: ensureRouteRecordNodes(source.nodeRows, ['配料', '领料', '唛架', '铺布', '裁剪', '菲票', '入裁片仓', '交出']),
+      routeRecords: ensureRouteRecordNodes(source.nodeRows, ['配料', '接收', '唛架', '铺布', '裁剪', '菲票', '入裁片仓', '交出']),
     },
   }
 }

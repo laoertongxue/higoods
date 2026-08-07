@@ -582,17 +582,17 @@ function renderOrderMaterialInfoSection(order: ProductionOrder): string {
   const statusDisplay = getOrderMaterialStatusDisplay(order)
   const actionLabel =
     summary.pendingCount > 0
-      ? '去确认领料'
+      ? '去确认接收'
       : summary.createdCount > 0
-        ? '查看领料详情'
-        : '查看领料草稿'
+        ? '查看接收详情'
+        : '查看接收草稿'
 
   return `
     <section class="rounded-lg border bg-card p-4">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 class="text-base font-semibold">领料信息</h3>
-          <p class="mt-1 text-xs text-muted-foreground">按任务查看领料草稿与确认创建情况</p>
+          <h3 class="text-base font-semibold">接收信息</h3>
+          <p class="mt-1 text-xs text-muted-foreground">按任务查看接收草稿与确认创建情况</p>
         </div>
         <button
           class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted"
@@ -603,7 +603,7 @@ function renderOrderMaterialInfoSection(order: ProductionOrder): string {
 
       <div class="mt-3 grid gap-3 md:grid-cols-5">
         <article class="rounded-md border bg-muted/20 px-3 py-2">
-          <p class="text-xs text-muted-foreground">领料状态</p>
+          <p class="text-xs text-muted-foreground">接收状态</p>
           <div class="mt-1">${renderBadge(statusDisplay.label, statusDisplay.badgeClass)}</div>
           <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(statusDisplay.hint)}</p>
         </article>
@@ -621,15 +621,15 @@ function renderOrderMaterialInfoSection(order: ProductionOrder): string {
               <th class="px-3 py-2 text-left font-medium">任务类型</th>
               <th class="px-3 py-2 text-left font-medium">草稿状态</th>
               <th class="px-3 py-2 text-left font-medium">确认状态</th>
-              <th class="px-3 py-2 text-left font-medium">领料方式</th>
-              <th class="px-3 py-2 text-left font-medium">领料需求编号</th>
+              <th class="px-3 py-2 text-left font-medium">接收方式</th>
+              <th class="px-3 py-2 text-left font-medium">接收需求编号</th>
               <th class="px-3 py-2 text-left font-medium">最近操作时间</th>
             </tr>
           </thead>
           <tbody>
             ${
               drafts.length === 0
-                ? renderEmptyRow(7, '未建草稿，可进入领料需求草稿处理视图')
+                ? renderEmptyRow(7, '未建草稿，可进入接收需求草稿处理视图')
                 : drafts
                     .map((draft) => {
                       const isConfirmed = draft.draftStatus === 'created'
@@ -1196,7 +1196,7 @@ export function renderProductionOrderDetailPage(orderId: string): string {
         </article>
 
         <article class="rounded-lg border bg-card p-4">
-          <h3 class="mb-2 text-sm font-medium text-muted-foreground">领料状态</h3>
+          <h3 class="mb-2 text-sm font-medium text-muted-foreground">接收状态</h3>
           ${renderBadge(detailMaterialStatus.label, detailMaterialStatus.badgeClass)}
           <p class="mt-2 text-xs text-muted-foreground">${escapeHtml(detailMaterialStatus.hint)}</p>
           <p class="text-xs text-muted-foreground">草稿 ${detailMaterialSummary.totalDraftCount} · 已确认 ${detailMaterialSummary.createdCount}</p>
@@ -1204,7 +1204,7 @@ export function renderProductionOrderDetailPage(orderId: string): string {
             class="mt-2 inline-flex h-7 items-center rounded-md border px-2.5 text-xs hover:bg-muted"
             data-prod-action="open-material-draft-drawer"
             data-order-id="${escapeHtml(order.productionOrderId)}"
-          >${detailMaterialSummary.pendingCount > 0 ? '去确认领料' : '查看领料草稿'}</button>
+          >${detailMaterialSummary.pendingCount > 0 ? '去确认接收' : '查看接收草稿'}</button>
         </article>
       </section>
 
