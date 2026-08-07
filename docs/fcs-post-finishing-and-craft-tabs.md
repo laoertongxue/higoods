@@ -32,7 +32,7 @@ flowchart LR
 ```mermaid
 flowchart LR
   A[生产单] --> B[后道单]
-  B --> C[接收领料]
+  B --> C[接收接收]
   C --> D[质检]
   D --> E[后道]
   E --> F[复检]
@@ -49,7 +49,7 @@ flowchart LR
   A[车缝任务] --> B[车缝完成]
   B --> C[车缝厂完成后道]
   C --> D[交给后道工厂]
-  D --> E[后道工厂接收领料]
+  D --> E[后道工厂接收接收]
   E --> F[后道工厂质检]
   F --> G[后道工厂复检]
   G --> H[后道交出仓]
@@ -108,7 +108,7 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  A[待接收领料] --> B[接收中]
+  A[待接收接收] --> B[接收中]
   B --> C[已接收]
   C --> D[待质检]
   D --> E[质检中]
@@ -129,7 +129,7 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  A[待接收领料] --> B[接收中]
+  A[待接收接收] --> B[接收中]
   B --> C[已接收]
   C --> D[待质检]
   D --> E[质检中]

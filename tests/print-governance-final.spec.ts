@@ -87,7 +87,7 @@ test('打印治理共同规则和前六步能力不回退', async ({ page }) => 
     ['/fcs/print/preview?documentType=TASK_ROUTE_CARD&sourceType=PRINTING_WORK_ORDER&sourceId=PWO-PRINT-001', '印花任务流转卡'],
     ['/fcs/print/preview?documentType=TASK_DELIVERY_CARD&handoverRecordId=HOH-MOCK-PRINT-410-001', '印花任务交货卡'],
     ['/fcs/print/preview?documentType=MATERIAL_PREP_SLIP&sourceId=material-prep%3ACUT-260302-001-01', '配料单'],
-    ['/fcs/print/preview?documentType=PICKUP_SLIP&sourceId=pickup%3ATASK-CUT-000087', '领料单'],
+    ['/fcs/print/preview?documentType=PICKUP_SLIP&sourceId=pickup%3ATASK-CUT-000087', '接收单'],
     ['/fcs/print/preview?documentType=FEI_TICKET_LABEL&sourceType=FEI_TICKET_RECORD&sourceId=CUT-260226-014-01%3A%3A001', '菲票'],
     ['/fcs/print/preview?documentType=PRODUCTION_CONFIRMATION&sourceType=PRODUCTION_ORDER&sourceId=PO-202603-0004', '生产确认单'],
     ['/fcs/print/preview?documentType=MAKE_GOODS_CONFIRMATION&sourceType=PRODUCTION_ORDER&sourceId=PO-202603-0004', '做货确认单'],

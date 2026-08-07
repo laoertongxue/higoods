@@ -100,7 +100,7 @@ const actionLabelMap: Record<CuttingNavigationTarget, string> = {
 }
 
 const blockerSectionLabelMap: Record<string, string> = {
-  MATERIAL_PREP: '配料/领料入仓',
+  MATERIAL_PREP: '配料/接收入仓',
   SPREADING: '铺布',
   FEI_TICKETS: '打印菲票',
   WAREHOUSE_HANDOFF: '仓务交接',
@@ -108,7 +108,7 @@ const blockerSectionLabelMap: Record<string, string> = {
 }
 
 const issueTypeLabelMap: Record<string, string> = {
-  MATERIAL_PREP: '配料/领料入仓',
+  MATERIAL_PREP: '配料/接收入仓',
   SPREADING_VARIANCE: '铺布差异',
   TICKET_QR: '打印菲票',
   WAREHOUSE_HANDOFF: '仓务交接',

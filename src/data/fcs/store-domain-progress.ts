@@ -66,7 +66,7 @@ export type ReasonCode =
   | 'TECH_PACK_NOT_RELEASED'
   // 工厂风险
   | 'FACTORY_BLACKLISTED'
-  // 交接/领料
+  // 交接/接收
   | 'HANDOVER_DIFF' | 'MATERIAL_NOT_READY'
   // 执行
   | 'START_OVERDUE'
@@ -470,9 +470,9 @@ const COVERAGE_SEED_DEFINITIONS: CoverageSeedDefinition[] = [
     reasonCode: 'MATERIAL_NOT_READY',
     severity: 'S2',
     sourceType: 'TASK',
-    summary: (context) => `${context.processLabel}领料记录不足`,
+    summary: (context) => `${context.processLabel}接收记录不足`,
     detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）在开工前仍缺少核心物料，当前不可开工。`,
-    tags: ['领料异常', '领料记录不足', '覆盖补齐'],
+    tags: ['接收异常', '接收记录不足', '覆盖补齐'],
   },
   {
     subCategoryKey: 'MATERIAL_PREP_PENDING',
@@ -483,8 +483,8 @@ const COVERAGE_SEED_DEFINITIONS: CoverageSeedDefinition[] = [
     sourceType: 'TASK',
     caseStatus: 'IN_PROGRESS',
     summary: (context) => `${context.processLabel}配料未完成`,
-    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）已创建领料需求，但仓库仍处于配料处理中。`,
-    tags: ['领料异常', '配料未完成', '覆盖补齐'],
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）已创建接收需求，但仓库仍处于配料处理中。`,
+    tags: ['接收异常', '配料未完成', '覆盖补齐'],
   },
   {
     subCategoryKey: 'MATERIAL_QTY_SHORT',
@@ -495,7 +495,7 @@ const COVERAGE_SEED_DEFINITIONS: CoverageSeedDefinition[] = [
     sourceType: 'TASK',
     summary: (context) => `${context.processLabel}配料数量不足`,
     detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）存在实际发料对象数量不足，当前需要复核发料。`,
-    tags: ['领料异常', '配料数量不足', '覆盖补齐'],
+    tags: ['接收异常', '配料数量不足', '覆盖补齐'],
   },
   {
     subCategoryKey: 'MATERIAL_PICKUP_QTY_DIFF',
@@ -504,9 +504,9 @@ const COVERAGE_SEED_DEFINITIONS: CoverageSeedDefinition[] = [
     reasonCode: 'MATERIAL_NOT_READY',
     severity: 'S2',
     sourceType: 'TASK',
-    summary: (context) => `${context.processLabel}领料对象数量差异待处理`,
-    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）在领料确认环节出现数量差异，平台需复点裁定。`,
-    tags: ['领料异常', '领料对象数量差异', '覆盖补齐'],
+    summary: (context) => `${context.processLabel}接收对象数量差异待处理`,
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）在接收确认环节出现数量差异，平台需复点裁定。`,
+    tags: ['接收异常', '接收对象数量差异', '覆盖补齐'],
   },
   {
     subCategoryKey: 'MATERIAL_MULTI_OPEN',
@@ -515,9 +515,9 @@ const COVERAGE_SEED_DEFINITIONS: CoverageSeedDefinition[] = [
     reasonCode: 'MATERIAL_NOT_READY',
     severity: 'S3',
     sourceType: 'TASK',
-    summary: (context) => `${context.processLabel}多次领料未闭合`,
-    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）存在多张未闭合领料单据，当前需先收口再继续。`,
-    tags: ['领料异常', '多次领料未闭合', '覆盖补齐'],
+    summary: (context) => `${context.processLabel}多次接收未闭合`,
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）存在多张未闭合接收单据，当前需先收口再继续。`,
+    tags: ['接收异常', '多次接收未闭合', '覆盖补齐'],
   },
   {
     subCategoryKey: 'HANDOUT_DIFF',
@@ -1164,8 +1164,8 @@ function evaluateRuntimeStartReadiness(task: RuntimeProcessTask): ProgressFact['
   })
 
   return ready
-    ? { canStart: true, reasonCode: 'READY', reasonText: '仓库发料已领料，可开工' }
-    : { canStart: false, reasonCode: 'WAIT_PICKUP', reasonText: '待工厂领料' }
+    ? { canStart: true, reasonCode: 'READY', reasonText: '仓库发料已接收，可开工' }
+    : { canStart: false, reasonCode: 'WAIT_PICKUP', reasonText: '待工厂接收' }
 }
 
 export function listProgressFacts(): ProgressFact[] {
@@ -1386,7 +1386,7 @@ function createProgressExceptionCandidates(): ProgressExceptionCandidate[] {
           relatedOrderIds,
           relatedTaskIds,
           linkedFactoryName,
-          summary: '领料记录不足，暂不可开工',
+          summary: '接收记录不足，暂不可开工',
           detail: `${fact.processNameZh}（${fact.scopeLabel}）当前卡点：${fact.startReadiness.reasonText}`,
           closureReady: runtimeTask.status === 'DONE' || runtimeTask.status === 'CANCELLED',
           eventAt,
@@ -1427,10 +1427,10 @@ function createProgressExceptionCandidates(): ProgressExceptionCandidate[] {
           relatedOrderIds,
           relatedTaskIds,
           linkedFactoryName,
-          summary: '领料对象数量存在缺口',
+          summary: '接收对象数量存在缺口',
           detail: shortageLine
             ? `${fact.processNameZh}（${fact.scopeLabel}）物料 ${shortageLine.materialName} 缺口 ${shortageLine.shortQty}${shortageLine.unit}`
-            : `${fact.processNameZh}（${fact.scopeLabel}）存在领料对象数量缺口`,
+            : `${fact.processNameZh}（${fact.scopeLabel}）存在接收对象数量缺口`,
           closureReady: !hasDocShortage(issueOrTransferDocs),
           eventAt,
         })
@@ -1454,7 +1454,7 @@ function createProgressExceptionCandidates(): ProgressExceptionCandidate[] {
           relatedOrderIds,
           relatedTaskIds,
           linkedFactoryName,
-          summary: '同任务存在多张未闭合领料执行单',
+          summary: '同任务存在多张未闭合接收执行单',
           detail: `${fact.processNameZh}（${fact.scopeLabel}）存在多张活跃执行单，请先收口后继续`,
           closureReady: !hasMultiOpen,
           eventAt,

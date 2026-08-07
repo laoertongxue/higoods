@@ -34,7 +34,7 @@ export const CATEGORY_LABEL: Record<UnifiedCategory, string> = {
   ASSIGNMENT: '分配异常',
   EXECUTION: '执行异常',
   TECH_PACK: '技术包异常',
-  MATERIAL: '领料异常',
+  MATERIAL: '接收异常',
   HANDOUT: '交出异常',
 }
 
@@ -57,11 +57,11 @@ export const SUB_CATEGORY_LABEL: Record<SubCategoryKey, string> = {
   TECH_PACK_NOT_RELEASED: '技术包未发布',
   TECH_PACK_MISSING: '技术包缺失',
   TECH_PACK_PENDING_CONFIRM: '技术资料待确认',
-  MATERIAL_NOT_READY: '领料记录不足',
+  MATERIAL_NOT_READY: '接收记录不足',
   MATERIAL_PREP_PENDING: '配料数量待补',
   MATERIAL_QTY_SHORT: '配料数量不足',
-  MATERIAL_PICKUP_QTY_DIFF: '领料对象数量差异',
-  MATERIAL_MULTI_OPEN: '多次领料未闭合',
+  MATERIAL_PICKUP_QTY_DIFF: '接收对象数量差异',
+  MATERIAL_MULTI_OPEN: '多次接收未闭合',
   HANDOUT_DIFF: '仓库登记数量差异',
   HANDOUT_OBJECTION: '数量异议',
   HANDOUT_MIXED: '混批',
@@ -95,11 +95,11 @@ export const SUB_CATEGORY_OPTIONS: Record<UnifiedCategory, Array<{ key: SubCateg
     { key: 'TECH_PACK_PENDING_CONFIRM', label: '技术资料待确认' },
   ],
   MATERIAL: [
-    { key: 'MATERIAL_NOT_READY', label: '领料记录不足' },
+    { key: 'MATERIAL_NOT_READY', label: '接收记录不足' },
     { key: 'MATERIAL_PREP_PENDING', label: '配料数量待补' },
     { key: 'MATERIAL_QTY_SHORT', label: '配料数量不足' },
-    { key: 'MATERIAL_PICKUP_QTY_DIFF', label: '领料对象数量差异' },
-    { key: 'MATERIAL_MULTI_OPEN', label: '多次领料未闭合' },
+    { key: 'MATERIAL_PICKUP_QTY_DIFF', label: '接收对象数量差异' },
+    { key: 'MATERIAL_MULTI_OPEN', label: '多次接收未闭合' },
   ],
   HANDOUT: [
     { key: 'HANDOUT_DIFF', label: '仓库登记数量差异' },

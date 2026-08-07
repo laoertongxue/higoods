@@ -2133,8 +2133,8 @@ function getSpecialCraftPdaAllowedActions(input: {
     actions.push({ action: 'special-confirm-receive', label: '确认接收', primary: true })
     return actions
   }
-  if (['WAITING', 'TODO', '待接收', '待领料'].includes(currentStatus)) {
-    if (input.objectLabel === '成衣' && currentStatus === '待领料') {
+  if (['WAITING', 'TODO', '待接收', '待接收'].includes(currentStatus)) {
+    if (input.objectLabel === '成衣' && currentStatus === '待接收') {
       if (input.canGarmentWarehouseOutbound) {
         actions.push({ action: 'special-confirm-receive', label: '逐 SKU 确认接收', primary: true })
       }
@@ -2171,7 +2171,7 @@ function canCurrentPdaSessionExecuteGarmentWarehouseOutbound(task: ProcessTask):
     && role?.status === 'ACTIVE'
     && role.permissionKeys.includes('HANDOUT_CREATE')
     && workOrder?.targetObject === '成衣'
-    && workOrder.status === '待领料'
+    && workOrder.status === '待接收'
 }
 
 function getCurrentPdaProcessActionAudit() {
@@ -2251,7 +2251,7 @@ function getSpecialCraftGarmentSkuDrafts(workOrderId: string, status: string) {
 function renderSpecialCraftGarmentSkuExecution(workOrderId: string, status: string, canGarmentWarehouseOutbound: boolean): string {
   const { lines, drafts } = getSpecialCraftGarmentSkuDrafts(workOrderId, status)
   if (!lines.length) return '<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">暂无成衣 SKU 明细</div>'
-  const canOutbound = status === '待领料' && canGarmentWarehouseOutbound
+  const canOutbound = status === '待接收' && canGarmentWarehouseOutbound
   const canReceive = status === '成衣仓已出库待收货'
   const canFinish = status === '加工中'
   return `
@@ -3543,12 +3543,12 @@ export function renderPdaExecDetailPage(taskId: string): string {
           <div class="flex items-center justify-between gap-3">
             <div>
               <h2 class="font-semibold">${escapeHtml(task.taskCategoryZh || displayProcessName)}五步执行</h2>
-              <p class="mt-1 text-xs">确认领料 → 开始做 → 上传进度 → 交给${escapeHtml(task.handoverReceiverName || '仓库')} → 仓库待确认后完工</p>
+              <p class="mt-1 text-xs">确认接收 → 开始做 → 上传进度 → 交给${escapeHtml(task.handoverReceiverName || '仓库')} → 仓库待确认后完工</p>
             </div>
             <span class="rounded-full bg-white px-2 py-1 text-xs font-medium text-blue-700">不直接完工</span>
           </div>
           <div class="mt-3 grid grid-cols-5 gap-1 text-center text-[11px]">
-            ${['确认领料', '开始做', '上传进度', `交给${task.handoverReceiverName || '仓库'}`, '仓库待确认'].map((step, index) => `
+            ${['确认接收', '开始做', '上传进度', `交给${task.handoverReceiverName || '仓库'}`, '仓库待确认'].map((step, index) => `
               <div class="rounded-md bg-white px-1 py-2 ${index <= (status === 'NOT_STARTED' ? 0 : status === 'IN_PROGRESS' ? 2 : status === 'DONE' ? 4 : 1) ? 'font-semibold text-blue-700' : 'text-muted-foreground'}">
                 ${escapeHtml(step)}
               </div>
@@ -4057,7 +4057,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
                       ${canStart ? '' : 'disabled'}
                     >
                       <i data-lucide="play" class="mr-2 h-4 w-4"></i>
-                      ${isSimpleFiveStepExecution ? '确认领料 / 开始做' : '开工'}
+                      ${isSimpleFiveStepExecution ? '确认接收 / 开始做' : '开工'}
                     </button>
                   `
                 : `

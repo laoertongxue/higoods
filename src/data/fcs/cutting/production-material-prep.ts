@@ -267,7 +267,7 @@ export interface PickupRecord {
   waitProcessLedgerEventId: string
   differenceQty: number
   differenceReason: string
-  pickupStatus: '已领料' | '差异领料' | '已入待加工仓'
+  pickupStatus: '已接收' | '差异接收' | '已入待加工仓'
   remark: string
   returnQty?: number
   waitProcessAvailableQty?: number
@@ -545,9 +545,9 @@ export const materialPrepStatusLabelMap: Record<MaterialPrepOrderStatus, string>
 
 export const pickupStatusLabelMap: Record<PickupOrderStatus, string> = {
   NOT_PICKABLE: '暂不可领',
-  WAIT_PICKUP: '待领料',
+  WAIT_PICKUP: '待接收',
   REJECTED_WAIT_WLS: '打回待仓库处理',
-  PICKUP_DONE: '已领料完结',
+  PICKUP_DONE: '已接收完结',
   ACTUAL_CLOSED: '按实完结',
 }
 
@@ -1268,7 +1268,7 @@ const baseMaterialPrepSeedOrders: MaterialPrepSeedOrder[] = [
         upstreamSourceType: '无上游',
         upstreamProgressStatus: '无需跟进',
         expectedAvailableAt: '',
-        upstreamProgressDetail: '已配齐并领料完结。',
+        upstreamProgressDetail: '已配齐并接收完结。',
       },
     ],
   },
@@ -1301,7 +1301,7 @@ const baseMaterialPrepSeedOrders: MaterialPrepSeedOrder[] = [
         upstreamSourceType: '中转仓库存',
         upstreamProgressStatus: '已到仓可配',
         expectedAvailableAt: '2026-03-16 16:00',
-        upstreamProgressDetail: '裁床领料端打回首批配料，仓库需复核批次与颜色。',
+        upstreamProgressDetail: '裁床接收端打回首批配料，仓库需复核批次与颜色。',
       },
     ],
   },
@@ -1803,9 +1803,9 @@ const explicitSeedPrepRecords: MaterialPrepRecord[] = [
     confirmedBy: '',
     rejectedAt: '2026-03-16 09:38',
     rejectedBy: '裁床 李明',
-    rejectReason: '卷标缺失，领料端要求补拍实物标签后再确认。',
+    rejectReason: '卷标缺失，接收端要求补拍实物标签后再确认。',
     sourceStockEventId: 'ledger:cut-order:po-202603-0004:black:prep:draft:002',
-    remark: '领料端预审打回，尚未确认，不进入可领数量。',
+    remark: '接收端预审打回，尚未确认，不进入可领数量。',
     items: [
       {
         prepRecordItemId: 'prep-item-po-0004-main-draft-002',
@@ -1815,7 +1815,7 @@ const explicitSeedPrepRecords: MaterialPrepRecord[] = [
         warehouseArea: '中转仓 A 区',
         locationCode: 'TR-A-022',
         sourceStockEventId: 'ledger:cut-order:po-202603-0004:black:prep:draft:002',
-        remark: '该明细被领料端预审打回，重新确认仍以整条配料记录为对象。',
+        remark: '该明细被接收端预审打回，重新确认仍以整条配料记录为对象。',
       },
     ],
   },
@@ -1915,7 +1915,7 @@ const explicitSeedPrepRecords: MaterialPrepRecord[] = [
     rejectedBy: '',
     rejectReason: '',
     sourceStockEventId: 'ledger:po-202603-0004:package:prep:draft:004',
-    remark: '辅料与包材先做小批量配料记录，确认后推给裁床待领料。',
+    remark: '辅料与包材先做小批量配料记录，确认后推给裁床待接收。',
     items: [
       {
         prepRecordItemId: 'prep-item-po-0004-package-draft-004-label',
@@ -2147,7 +2147,7 @@ const explicitSeedPrepRecords: MaterialPrepRecord[] = [
     rejectedBy: '裁床 李明',
     rejectReason: '色号与生产单需求不一致，需重新核对。',
     sourceStockEventId: 'ledger:cut-order:po-202603-0002:grey:prep:001',
-    remark: '领料端打回，暂不计入可领。',
+    remark: '接收端打回，暂不计入可领。',
   },
   {
     prepRecordId: 'prep-rec-po-0006-main-001',
@@ -2187,7 +2187,7 @@ const explicitSeedPrepRecords: MaterialPrepRecord[] = [
     rejectedBy: '',
     rejectReason: '',
     sourceStockEventId: 'ledger:cut-order:po-202603-0007:navy:prep:001',
-    remark: '已确认但裁床尚未领料，用于待领料工作台。',
+    remark: '已确认但裁床尚未接收，用于待接收工作台。',
     items: [
       {
         prepRecordItemId: 'prep-item-po-0007-main-001',
@@ -2201,7 +2201,7 @@ const explicitSeedPrepRecords: MaterialPrepRecord[] = [
         warehouseArea: '中转仓 A 区',
         locationCode: 'TR-A-018',
         sourceStockEventId: 'ledger:cut-order:po-202603-0007:navy:prep:001',
-        remark: '领料端可领明细，来源确认对象是整条配料记录。',
+        remark: '接收端可领明细，来源确认对象是整条配料记录。',
       },
       {
         prepRecordItemId: 'prep-item-po-0007-contrast-001',
@@ -2406,9 +2406,9 @@ const explicitSeedPickupRecords: PickupRecord[] = [
     locationCode: 'FAB-PRECHECK',
     waitProcessLedgerEventId: 'ledger:po-0004:black:claim:preview:001',
     differenceQty: -280,
-    differenceReason: '裁床领料前核对发现卷标缺失，未实际入待加工仓，已打回中转仓补资料。',
-    pickupStatus: '差异领料',
-    remark: '用于展示领料端打回链路，未形成待加工仓可用库存。',
+    differenceReason: '裁床接收前核对发现卷标缺失，未实际入待加工仓，已打回中转仓补资料。',
+    pickupStatus: '差异接收',
+    remark: '用于展示接收端打回链路，未形成待加工仓可用库存。',
   },
   {
     pickupRecordId: 'pickup-rec-po-0101-black-001',
@@ -2498,7 +2498,7 @@ const explicitSeedPickupRecords: PickupRecord[] = [
     differenceQty: 0,
     differenceReason: '',
     pickupStatus: '已入待加工仓',
-    remark: '已领料完结。',
+    remark: '已接收完结。',
   },
   {
     pickupRecordId: 'pickup-rec-po-0006-main-001',
@@ -2554,7 +2554,7 @@ const seedPickupReturnRecords: MaterialPickupReturnRecord[] = [
     rollCount: 1,
     unit: 'yard',
     reason: '卷号 / 批次不符',
-    remark: '同一领料记录二次验布发现卷号不一致。',
+    remark: '同一接收记录二次验布发现卷号不一致。',
     imageNames: [],
     returnedBy: '裁床 李明',
     returnedAt: '2026-03-16 15:05',
@@ -2571,7 +2571,7 @@ const seedPickupReturnRecords: MaterialPickupReturnRecord[] = [
     rollCount: 5,
     unit: 'yard',
     reason: '色差 / 缸差',
-    remark: '整卷色差明显，本次领料全部退回。',
+    remark: '整卷色差明显，本次接收全部退回。',
     imageNames: [],
     returnedBy: '裁床 李明',
     returnedAt: '2026-03-16 12:05',
@@ -2603,7 +2603,7 @@ const seedRejectRecords: PrepRejectRecord[] = [
     prepOrderId: 'prep-order-po-202603-0004',
     prepLineId: 'prep-line-po-0004-main',
     rejectReason: '卷标缺失',
-    rejectDetail: '裁床领料前预审发现该卷缺少中转仓卷标照片，暂不接收，要求中转仓补齐标签信息后重新确认。',
+    rejectDetail: '裁床接收前预审发现该卷缺少中转仓卷标照片，暂不接收，要求中转仓补齐标签信息后重新确认。',
     rejectedBy: '裁床 李明',
     rejectedAt: '2026-03-16 09:38',
     beforeStatus: 'DRAFT',
@@ -2615,7 +2615,7 @@ const seedRejectRecords: PrepRejectRecord[] = [
     prepOrderId: 'prep-order-po-202603-0002',
     prepLineId: 'prep-line-po-0002-main',
     rejectReason: '色号不符',
-    rejectDetail: '领料核对发现实物色号偏深，与生产单 Grey 色要求不一致。',
+    rejectDetail: '接收核对发现实物色号偏深，与生产单 Grey 色要求不一致。',
     rejectedBy: '裁床 李明',
     rejectedAt: '2026-03-16 11:10',
     beforeStatus: 'CONFIRMED',
@@ -2801,7 +2801,7 @@ function migratePickupSessions(
       ?.productionOrderNo || first.productionOrderId
     const session: PickupSession = {
       pickupSessionId,
-      pickupSessionNo: `领料-${productionOrderNo}-${String(sequence).padStart(2, '0')}`,
+      pickupSessionNo: `接收-${productionOrderNo}-${String(sequence).padStart(2, '0')}`,
       pickupNodeId,
       pickupNodeVersion: 1,
       prepOrderId: first.prepOrderId,
@@ -2859,7 +2859,7 @@ function migratePickupSessions(
         return roundQty(Math.max(grossPickedQty - returnedQty, 0)) >= line.requiredQty
       })
       session.nodeType = complete ? 'READY_TO_PICKUP' : 'INCOMPLETE_PICKABLE'
-      session.migrationEvidence = '按累计领料逐行齐套推导'
+      session.migrationEvidence = '按累计接收逐行齐套推导'
     }
   }
 
@@ -3044,7 +3044,7 @@ export function listPickupReturnRecords(
 }
 
 function listRuntimePickupRecords(storage: BrowserStorageLike | null): PickupRecord[] {
-  return listCuttingRuntimeEventsByType('中转仓领料', storage).flatMap((event) => {
+  return listCuttingRuntimeEventsByType('中转仓接收', storage).flatMap((event) => {
     const payload = event.payload && typeof event.payload === 'object' ? event.payload as Record<string, unknown> : {}
     const prepRecordId = typeof payload.prepRecordId === 'string' ? payload.prepRecordId : ''
     const prepOrderId = typeof payload.prepOrderId === 'string' ? payload.prepOrderId : ''
@@ -3066,8 +3066,8 @@ function listRuntimePickupRecords(storage: BrowserStorageLike | null): PickupRec
       waitProcessLedgerEventId: event.eventId,
       differenceQty: Number(payload.differenceQty || 0),
       differenceReason: String(payload.differenceReason || ''),
-      pickupStatus: payload.hasDifference ? '差异领料' : '已入待加工仓',
-      remark: '待加工仓中转仓领料执行回写。',
+      pickupStatus: payload.hasDifference ? '差异接收' : '已入待加工仓',
+      remark: '待加工仓中转仓接收执行回写。',
     }]
   })
 }
@@ -4025,7 +4025,7 @@ export function appendManualPrepRecord(
     rejectedBy: '',
     rejectReason: '',
     sourceStockEventId: '',
-    remark: input.remark || '手动新增配料记录，待确认后进入领料管理。',
+    remark: input.remark || '手动新增配料记录，待确认后进入接收管理。',
     items: [
       {
         prepRecordItemId: `prep-item:${input.prepLineId}:${occurredAt.replace(/[^0-9]/g, '')}`,
@@ -4786,17 +4786,17 @@ export function appendPickupSessionFromNode(
   const nodes = listActivePickupNodes(storage, demandFacts)
   const node = nodes.find((n) => n.nodeId === input.pickupNodeId)
   if (!node) throw new Error(`待领节点不存在：${input.pickupNodeId}`)
-  if (node.status === 'CLOSED') throw new Error('当前待领节点已关闭，不可重复确认领料')
+  if (node.status === 'CLOSED') throw new Error('当前待领节点已关闭，不可重复确认接收')
   if (node.version !== input.pickupNodeVersion) {
-    throw new Error('当前待领物料已更新，请重新核对全部物料后再确认领料。')
+    throw new Error('当前待领物料已更新，请重新核对全部物料后再确认接收。')
   }
   // listActivePickupNodes 会在物料事实变化时持久化节点快照；提交前重新读取，
-  // 避免随后保存领料事实时用旧 Store 覆盖刚刚递增的节点版本。
+  // 避免随后保存接收事实时用旧 Store 覆盖刚刚递增的节点版本。
   store = hydrateProductionMaterialPrepStore(storage)
 
   const occurredAt = nowText()
   const pickupSessionId = `pickup-session:${node.nodeId}`
-  const sessionNo = `领料-${node.productionOrderNo}-${String(node.sequence).padStart(2, '0')}`
+  const sessionNo = `接收-${node.productionOrderNo}-${String(node.sequence).padStart(2, '0')}`
   const toLocationRefs = Array.from(
     new Map((input.toLocationRefs ?? []).map((location) => [location.locationId, cloneRecord(location)])).values(),
   )
@@ -4844,7 +4844,7 @@ export function appendPickupSessionFromNode(
       differenceQty: 0,
       differenceReason: '',
       pickupStatus: '已入待加工仓',
-      remark: '按待领节点一次性领料入待加工仓。',
+      remark: '按待领节点一次性接收入待加工仓。',
       pickupSessionId,
       pickupNodeId: node.nodeId,
       sourcePrepRecordIds: [...item.sourcePrepRecordIds],
@@ -4888,7 +4888,7 @@ export function appendPickupSessionFromNode(
       : undefined,
     status: '本轮已领完',
     warehouseSyncStatus: input.warehouseSyncDeferred ? '回写异常待重试' : '已回写',
-    warehouseSyncMessage: input.warehouseSyncDeferred ? '领料事实已保存，待写入裁床待加工仓流水。' : undefined,
+    warehouseSyncMessage: input.warehouseSyncDeferred ? '接收事实已保存，待写入裁床待加工仓流水。' : undefined,
     idempotencyKey: input.idempotencyKey,
     pickupNodeSnapshot: cloneRecord(node),
   }
@@ -4935,7 +4935,7 @@ export function updatePickupSessionStorageFootprint(
   const store = hydrateProductionMaterialPrepStore(storage)
   const index = store.pickupSessions.findIndex((session) =>
     session.pickupSessionId === input.pickupSessionId)
-  if (index < 0) throw new Error('领料记录不存在，无法调整存放范围。')
+  if (index < 0) throw new Error('接收记录不存在，无法调整存放范围。')
   const adjusted = adjustPickupSessionStorageFootprint(
     store.pickupSessions[index],
     input.locationRefs,
@@ -4977,7 +4977,7 @@ export function appendPickupReturnRecord(
   const store = hydrateProductionMaterialPrepStore(storage)
   const pickupRecord = store.pickupRecords.find((record) => record.pickupRecordId === input.pickupRecordId)
   if (!pickupRecord) {
-    throw new Error(`领料记录不存在：${input.pickupRecordId}`)
+    throw new Error(`接收记录不存在：${input.pickupRecordId}`)
   }
   const prepRecord = store.prepRecords.find((record) => record.prepRecordId === input.prepRecordId)
   const prepRecordItem = prepRecord
@@ -5018,7 +5018,7 @@ export function appendPickupReturnRecord(
   const normalizedRollCount = Math.max(Math.round(input.rollCount || 1), 1)
   if (pickupRecord.sourceAllocations?.length) {
     if (!sourceAllocations.length) {
-      throw new Error('退回物料行不属于该领料记录的来源分摊')
+      throw new Error('退回物料行不属于该接收记录的来源分摊')
     }
     const sourcePickedQty = roundQty(
       sourceAllocations.reduce((sum, allocation) => sum + Number(allocation.pickedQty || 0), 0),
@@ -5044,7 +5044,7 @@ export function appendPickupReturnRecord(
       throw new Error(`退回卷件数不能超过该来源可退卷件数 ${sourceAvailableRollCount}`)
     }
   } else if (pickupRecord.prepRecordId !== input.prepRecordId || pickupRecord.prepLineId !== input.prepLineId) {
-    throw new Error('退回物料行与领料记录不一致')
+    throw new Error('退回物料行与接收记录不一致')
   }
   const returnedFromPickupQty = roundQty(store.pickupReturnRecords
     .filter((record) => record.pickupRecordId === pickupRecord.pickupRecordId)

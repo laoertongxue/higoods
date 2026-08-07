@@ -341,7 +341,7 @@ function buildMaterialPrepSection(options: CuttingCheckBuildOptions): {
           productionOrderNo: options.productionRow.productionOrderNo,
           sectionKey: 'MATERIAL_PREP',
           severity: 'HIGH',
-          title: `${row.cutOrderNo} 领料数量不足`,
+          title: `${row.cutOrderNo} 接收数量不足`,
           sourceType: 'CUT_ORDER',
           sourceId: row.cutOrderId,
           sourceNo: row.cutOrderNo,
@@ -362,7 +362,7 @@ function buildMaterialPrepSection(options: CuttingCheckBuildOptions): {
           productionOrderNo: options.productionRow.productionOrderNo,
           sectionKey: 'MATERIAL_PREP',
           severity: row.materialClaimStatus.key === 'EXCEPTION' ? 'HIGH' : 'MEDIUM',
-          title: `${row.cutOrderNo} 领料记录未闭环`,
+          title: `${row.cutOrderNo} 接收记录未闭环`,
           sourceType: 'CUT_ORDER',
           sourceId: row.cutOrderId,
           sourceNo: row.cutOrderNo,
@@ -415,10 +415,10 @@ function buildMaterialPrepSection(options: CuttingCheckBuildOptions): {
       doneCount: Math.max(doneCount, 0),
       totalCount: options.materialPrepRows.length,
       detailText: !options.materialPrepRows.length
-        ? '当前缺少领料对象，无法核查。'
+        ? '当前缺少接收对象，无法核查。'
         : blockers.length
-          ? `当前有 ${blockers.length} 个领料对象未闭环。`
-          : '当前领料链路已通过。',
+          ? `当前有 ${blockers.length} 个接收对象未闭环。`
+          : '当前接收链路已通过。',
       navigationTarget: 'materialPrep',
       navigationPayload: options.navigationPayload.materialPrep,
       defaultActionLabel: '去待加工仓',

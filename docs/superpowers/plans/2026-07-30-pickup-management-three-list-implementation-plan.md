@@ -1,10 +1,10 @@
-# 领料管理三列表实现计划
+# 接收管理三列表实现计划
 
 > **面向 AI 代理的工作者：** 必需子技能：使用 `superpowers-zh:subagent-driven-development`（推荐）或 `superpowers-zh:executing-plans` 逐任务实现此计划。步骤使用复选框（`- [ ]`）语法来跟踪进度。
 
-**目标：** 将 PFOS 的“领料管理”提升为一级菜单，落地“已配齐待领料、未配齐配料、已领料”三个独立标准列表页，并让列表直接表达物料、加工完成量、补料、库位/托盘、累计领料及最终是否全部领完。
+**目标：** 将 PFOS 的“接收管理”提升为一级菜单，落地“已配齐待接收、未配齐配料、已接收”三个独立标准列表页，并让列表直接表达物料、加工完成量、补料、库位/托盘、累计接收及最终是否全部领完。
 
-**架构：** 保留现有生产单级配料单、活动领料节点、领料会话和 PDA 统一领料入口；新增一个只读的“领料管理展示投影”，统一组合正常物料需求、补料记录、染色/印花结果、当前活动节点和历史领料会话。三个页面只筛选同一投影，不各自计算业务口径。当前原型继续使用 Vanilla TypeScript 字符串模板和本地 Mock 数据，不引入后端、React、状态管理或新的基础设施。
+**架构：** 保留现有生产单级配料单、活动接收节点、接收会话和 PDA 统一接收入口；新增一个只读的“接收管理展示投影”，统一组合正常物料需求、补料记录、染色/印花结果、当前活动节点和历史接收会话。三个页面只筛选同一投影，不各自计算业务口径。当前原型继续使用 Vanilla TypeScript 字符串模板和本地 Mock 数据，不引入后端、React、状态管理或新的基础设施。
 
 **技术栈：** Vite、TypeScript、Tailwind CSS、Vanilla TypeScript 字符串模板、现有标准列表页组件、Node.js 断言检查、Playwright、CodeGraph。
 
@@ -17,17 +17,17 @@
 ### 新建文件
 
 - `src/pages/process-factory/cutting/pickup-management-projection.ts`
-  - 定义领料管理的物料需求行、生产单分组、当前承载位置、领料路径和最终结果。
-  - 组合正常需求、补料记录、加工结果、活动节点与历史领料记录。
+  - 定义接收管理的物料需求行、生产单分组、当前承载位置、接收路径和最终结果。
+  - 组合正常需求、补料记录、加工结果、活动节点与历史接收记录。
   - 输出三个列表共用的只读投影。
 - `src/pages/process-factory/cutting/pickup-management-list.ts`
   - 使用现有标准列表页组件渲染三个独立页面。
   - 负责筛选、排序、按生产单分页、列设置和局部更新。
-  - 不重新计算应配数量、累计领料或最终完成状态。
+  - 不重新计算应配数量、累计接收或最终完成状态。
 - `scripts/check-cutting-pickup-three-list.ts`
   - 自动验证菜单、路由、三列表、业务投影、补料、加工口径、库位/托盘和历史最终状态。
 - `tests/cutting-pickup-three-list.spec.ts`
-  - 在浏览器中验证三个菜单入口、生产单分组、物料行直接可见、未配齐领料入口和已领料结果标签。
+  - 在浏览器中验证三个菜单入口、生产单分组、物料行直接可见、未配齐接收入口和已接收结果标签。
 - `docs/prototype-review-records/2026-07-30-pickup-management-three-list.md`
   - 记录印尼工厂产品设计规范与原型审查清单的自查结果。
 
@@ -42,20 +42,20 @@
 - `src/pages/process-factory/cutting/pickup-management.ts`
   - 保留详情页与统一事件入口。
   - 将三个列表页渲染和列表交互委托给新列表模块。
-  - 旧入口兼容跳转到“已配齐待领料”。
+  - 旧入口兼容跳转到“已配齐待接收”。
 - `src/pages/process-factory/cutting/supplement-management.ts`
-  - 仅补充面向领料投影的只读导出类型，不改补料确认、加工单生成和现有页面交互。
+  - 仅补充面向接收投影的只读导出类型，不改补料确认、加工单生成和现有页面交互。
 - `src/pages/process-factory/cutting/meta.ts`
-  - 增加三个领料列表页元数据，保留详情页和旧入口别名。
+  - 增加三个接收列表页元数据，保留详情页和旧入口别名。
 - `src/data/app-shell-config.ts`
-  - 从“裁前准备”移除旧的“领料管理”子菜单。
-  - 在“裁床厂管理”下新增独立一级“领料管理”，包含三个二级菜单。
+  - 从“裁前准备”移除旧的“接收管理”子菜单。
+  - 在“裁床厂管理”下新增独立一级“接收管理”，包含三个二级菜单。
 - `src/router/route-renderers-fcs.ts`
   - 注册三个异步页面渲染器。
 - `src/router/routes-fcs.ts`
-  - 注册三个规范路由，并让旧路由跳转到“已配齐待领料”。
+  - 注册三个规范路由，并让旧路由跳转到“已配齐待接收”。
 - `src/main-handlers/fcs-handlers.ts`
-  - 让三个规范路由共用领料管理事件处理器，并删除重复分支。
+  - 让三个规范路由共用接收管理事件处理器，并删除重复分支。
 - `scripts/check-material-prep-pickup-management.ts`
   - 更新旧检查：未配齐节点必须有当前库位；已配齐节点必须显示托盘承载，不能再强制要求当前库位。
 - `scripts/check-cutting-pickup-node-domain.ts`
@@ -67,14 +67,14 @@
 - `scripts/check-cutting-pickup-ui-closure.ts`
   - 更新页面标题、列表列名、菜单和路由静态闭环检查。
 - `tests/cutting-pickup-node-flow.spec.ts`
-  - 保留 PDA 统一领料流程，更新从新列表进入 PDA 的入口断言。
+  - 保留 PDA 统一接收流程，更新从新列表进入 PDA 的入口断言。
 - `package.json`
   - 增加三列表专项检查和 Playwright 命令。
 
 ### 明确不修改
 
-- 不改变 PDA 的统一“领料任务”入口。
-- 不把三个 Web 列表拆成三套活动节点或领料会话数据。
+- 不改变 PDA 的统一“接收任务”入口。
+- 不把三个 Web 列表拆成三套活动节点或接收会话数据。
 - 不新增托盘编号必填规则；当前展示“待领托盘（暂未编号）”。
 - 不修改补料的确认规则、冻结技术包校验或染色/印花加工单事务。
 - 不做数据库、接口、权限或状态管理体系设计。
@@ -149,7 +149,7 @@ export interface PickupOrderGroup {
 - 同一生产单可以有多个库位；同一物料可以分布在多个库位。
 - 已配齐列表的当前承载方式必须是托盘；无编号时显示“待领托盘（暂未编号）”。
 - 从未配齐升级已配齐后，旧库位不再作为当前位置展示。
-- 一次领料必须领取活动节点全部物料、全部数量和全部当前库位，不提供行级、数量级或库位级勾选。
+- 一次接收必须领取活动节点全部物料、全部数量和全部当前库位，不提供行级、数量级或库位级勾选。
 - 历史列表按生产单分组；分页对象是生产单，不能把一个生产单的物料行拆到两页。
 - 历史路径和最终结果是两个不同字段：“未配齐先领”可以最终“全部领完”。
 - 新增有效补料后，即使原需求已全部领完，生产单最终结果也要重开为“新增补料待领”。
@@ -186,9 +186,9 @@ const readyGroups = listPickupOrderGroups('READY')
 const incompleteGroups = listPickupOrderGroups('INCOMPLETE')
 const historyGroups = listPickupOrderGroups('HISTORY')
 
-assert(readyGroups.length > 0, '必须存在已配齐待领料生产单')
+assert(readyGroups.length > 0, '必须存在已配齐待接收生产单')
 assert(incompleteGroups.length > 0, '必须存在未配齐可领生产单')
-assert(historyGroups.length > 0, '必须存在已领料生产单')
+assert(historyGroups.length > 0, '必须存在已接收生产单')
 assert(
   [...readyGroups, ...incompleteGroups, ...historyGroups]
     .every((group: PickupOrderGroup) => group.materialRows.length > 0),
@@ -215,13 +215,13 @@ export function listPickupOrderGroups(
 }
 ```
 
-- [ ] 1.5 只接入现有 `listMaterialPrepOrderProjections()`、`listActivePickupNodes()` 和领料会话，先让三类分组有稳定主键：
+- [ ] 1.5 只接入现有 `listMaterialPrepOrderProjections()`、`listActivePickupNodes()` 和接收会话，先让三类分组有稳定主键：
 
 ```ts
 const groupKey = (productionOrderId: string) => productionOrderId
 ```
 
-禁止用领料会话号作为历史列表行主键，否则同一生产单会出现多组。
+禁止用接收会话号作为历史列表行主键，否则同一生产单会出现多组。
 
 - [ ] 1.6 运行专项检查，确认基础分组断言通过。
 
@@ -229,7 +229,7 @@ const groupKey = (productionOrderId: string) => productionOrderId
 
 ```bash
 git add package.json scripts/check-cutting-pickup-three-list.ts src/pages/process-factory/cutting/pickup-management-projection.ts
-git commit -m "test: 建立领料三列表投影契约"
+git commit -m "test: 建立接收三列表投影契约"
 ```
 
 ---
@@ -349,7 +349,7 @@ function resolveRequiredQty(input: {
 }
 ```
 
-`formatQty()` 必须保留单位；如果结果视图单位与需求单位不一致，投影将该行标记为异常并阻止领料，不能换算或静默使用。
+`formatQty()` 必须保留单位；如果结果视图单位与需求单位不一致，投影将该行标记为异常并阻止接收，不能换算或静默使用。
 
 - [ ] 2.5 将每一条已确认补料记录映射为独立需求行：
 
@@ -405,7 +405,7 @@ npm run check:cutting-supplement-process-work-orders
 
 ```bash
 git add src/pages/process-factory/cutting/pickup-management-projection.ts src/pages/process-factory/cutting/supplement-management.ts scripts/check-cutting-pickup-three-list.ts
-git commit -m "feat: 统一领料应配数量与补料投影"
+git commit -m "feat: 统一接收应配数量与补料投影"
 ```
 
 ---
@@ -491,7 +491,7 @@ function derivePickupNodeCarrier(input: {
 }
 ```
 
-- [ ] 3.4 保留 `sourceLocations` 作为领料追溯来源快照，但投影只在 `carrierType === 'WAREHOUSE_LOCATIONS'` 时把它作为“当前位置”输出。已配齐托盘节点的 `currentLocations` 必须为空。
+- [ ] 3.4 保留 `sourceLocations` 作为接收追溯来源快照，但投影只在 `carrierType === 'WAREHOUSE_LOCATIONS'` 时把它作为“当前位置”输出。已配齐托盘节点的 `currentLocations` 必须为空。
 
 - [ ] 3.5 增加库位归属检查：
 
@@ -588,7 +588,7 @@ assert(
     group.historyPath === 'READY_PICKUP'
     && group.finalResult === 'ALL_PICKED'
   ),
-  '历史必须覆盖已配齐后领料且全部领完',
+  '历史必须覆盖已配齐后接收且全部领完',
 )
 assert(
   historyGroups.some((group) =>
@@ -606,7 +606,7 @@ assert(
 )
 ```
 
-- [ ] 4.2 历史路径按生产单所有有效领料会话派生：
+- [ ] 4.2 历史路径按生产单所有有效接收会话派生：
 
 ```ts
 function deriveHistoryPath(sessions: PickupSession[]): PickupHistoryPath | null {
@@ -641,7 +641,7 @@ function deriveFinalResult(
 - [ ] 4.4 同一生产单有历史会话且仍有当前节点时：
 
 - 历史列表保留该生产单，表达已经领过的事实。
-- 已配齐待领料或未配齐配料列表同时保留该生产单，表达当前仍需执行的任务。
+- 已配齐待接收或未配齐配料列表同时保留该生产单，表达当前仍需执行的任务。
 - 两处都使用相同的 `productionOrderId`，但页面行主键分别加上列表类型前缀。
 
 - [ ] 4.5 增加补料重开断言：
@@ -678,13 +678,13 @@ npm run check:cutting-pickup-data-closure
 npm run check:cutting-pickup-three-list
 ```
 
-预期：已配齐领料、未配齐领料、最终全部领完、尚未全部领完和补料重开全部有样例且断言通过。
+预期：已配齐接收、未配齐接收、最终全部领完、尚未全部领完和补料重开全部有样例且断言通过。
 
 - [ ] 4.8 提交：
 
 ```bash
 git add src/pages/process-factory/cutting/pickup-management-projection.ts scripts/check-cutting-pickup-three-list.ts scripts/check-cutting-pickup-data-closure.ts
-git commit -m "feat: 派生领料路径与最终完成结果"
+git commit -m "feat: 派生接收路径与最终完成结果"
 ```
 
 ---
@@ -710,12 +710,12 @@ const READY_PATH = '/fcs/craft/cutting/pickup-management/ready'
 const INCOMPLETE_PATH = '/fcs/craft/cutting/pickup-management/incomplete'
 const HISTORY_PATH = '/fcs/craft/cutting/pickup-management/history'
 
-assert(appShellConfig.includes("title: '已配齐待领料'"), '缺少已配齐待领料菜单')
+assert(appShellConfig.includes("title: '已配齐待接收'"), '缺少已配齐待接收菜单')
 assert(appShellConfig.includes("title: '未配齐配料'"), '缺少未配齐配料菜单')
-assert(appShellConfig.includes("title: '已领料'"), '缺少已领料菜单')
-assert(routesFcs.includes(READY_PATH), '缺少已配齐待领料路由')
+assert(appShellConfig.includes("title: '已接收'"), '缺少已接收菜单')
+assert(routesFcs.includes(READY_PATH), '缺少已配齐待接收路由')
 assert(routesFcs.includes(INCOMPLETE_PATH), '缺少未配齐配料路由')
-assert(routesFcs.includes(HISTORY_PATH), '缺少已领料路由')
+assert(routesFcs.includes(HISTORY_PATH), '缺少已接收路由')
 ```
 
 - [ ] 5.2 在 `app-shell-config.ts` 删除“裁前准备”中的旧子菜单，并在“裁床厂管理”的 `items` 中新增：
@@ -723,12 +723,12 @@ assert(routesFcs.includes(HISTORY_PATH), '缺少已领料路由')
 ```ts
 {
   key: 'pfos-cutting-pickup',
-  title: '领料管理',
+  title: '接收管理',
   icon: 'PackageCheck',
   children: [
     {
       key: 'pfos-cutting-pickup-ready',
-      title: '已配齐待领料',
+      title: '已配齐待接收',
       icon: 'PackageCheck',
       href: '/fcs/craft/cutting/pickup-management/ready',
     },
@@ -740,7 +740,7 @@ assert(routesFcs.includes(HISTORY_PATH), '缺少已领料路由')
     },
     {
       key: 'pfos-cutting-pickup-history',
-      title: '已领料',
+      title: '已接收',
       icon: 'History',
       href: '/fcs/craft/cutting/pickup-management/history',
     },
@@ -756,7 +756,7 @@ assert(routesFcs.includes(HISTORY_PATH), '缺少已领料路由')
 | 'pickup-history'
 ```
 
-三者 `menuGroupTitle` 都是“领料管理”，标题分别与菜单一致。旧 `pickup-management` 只保留详情或兼容入口，不再作为菜单页面。
+三者 `menuGroupTitle` 都是“接收管理”，标题分别与菜单一致。旧 `pickup-management` 只保留详情或兼容入口，不再作为菜单页面。
 
 - [ ] 5.4 在 `pickup-management-list.ts` 顶部声明：
 
@@ -838,7 +838,7 @@ const COMMON_COLUMNS: StandardListColumn<PickupOrderGroup>[] = [
 ]
 ```
 
-- [ ] 5.9 物料列一行一个需求行，直接展示缩略图、名称、编码、来源/补料单号、加工标记、应配数量、当前配料数量、累计领料数量和单位：
+- [ ] 5.9 物料列一行一个需求行，直接展示缩略图、名称、编码、来源/补料单号、加工标记、应配数量、当前配料数量、累计接收数量和单位：
 
 ```ts
 function renderMaterialRowsCell(group: PickupOrderGroup): string {
@@ -850,7 +850,7 @@ function renderMaterialRowsCell(group: PickupOrderGroup): string {
 
 不使用“仅显示前三项”或“进入详情查看全部”的收起方式。
 
-- [ ] 5.10 “未配齐配料”增加必需列“中转仓库位”，每个物料行列出所有库位及各自数量；操作列提供“去领料”：
+- [ ] 5.10 “未配齐配料”增加必需列“中转仓库位”，每个物料行列出所有库位及各自数量；操作列提供“去接收”：
 
 ```ts
 const pdaHref = `/fcs/pda/warehouse/wait-process?scope=cutting&action=pickup&pickupNodeId=${encodeURIComponent(group.pickupNodeId)}&version=${group.pickupNodeVersion}`
@@ -858,19 +858,19 @@ const pdaHref = `/fcs/pda/warehouse/wait-process?scope=cutting&action=pickup&pic
 
 按钮文案必须明确“一次领取本节点全部物料”，页面不出现复选框和数量输入框。
 
-- [ ] 5.11 “已配齐待领料”显示：
+- [ ] 5.11 “已配齐待接收”显示：
 
 - `直接配齐` 或 `由未配齐升级`
 - `待领托盘（暂未编号）`
 - 不显示已释放的旧中转仓库位
-- “去领料”仍进入同一 PDA 领料入口
+- “去接收”仍进入同一 PDA 接收入口
 
-- [ ] 5.12 “已领料”同时显示：
+- [ ] 5.12 “已接收”同时显示：
 
-- 领料路径：`已配齐后领料`、`未配齐先领`
-- 最终结果：`全部领完`、`未完成全部领料`、`新增补料待领`
-- 领料次数和最近领料时间
-- 每个物料需求行的应配数量、累计领料数量和剩余待领数量
+- 接收路径：`已配齐后接收`、`未配齐先领`
+- 最终结果：`全部领完`、`未完成全部接收`、`新增补料待领`
+- 接收次数和最近接收时间
+- 每个物料需求行的应配数量、累计接收数量和剩余待领数量
 
 - [ ] 5.13 在 `routes-fcs.ts` 注册三个页面；旧路由使用已有 `renderRouteRedirect()`：
 
@@ -878,7 +878,7 @@ const pdaHref = `/fcs/pda/warehouse/wait-process?scope=cutting&action=pickup&pic
 '/fcs/craft/cutting/pickup-management': () =>
   renderRouteRedirect(
     '/fcs/craft/cutting/pickup-management/ready',
-    '正在进入已配齐待领料',
+    '正在进入已配齐待接收',
   ),
 ```
 
@@ -911,7 +911,7 @@ npm run check:prototype-design-governance
 
 ```bash
 git add src/pages/process-factory/cutting/pickup-management-list.ts src/pages/process-factory/cutting/pickup-management.ts src/pages/process-factory/cutting/meta.ts src/data/app-shell-config.ts src/router/route-renderers-fcs.ts src/router/routes-fcs.ts src/main-handlers/fcs-handlers.ts scripts/check-cutting-pickup-three-list.ts scripts/check-cutting-pickup-ui-closure.ts
-git commit -m "feat: 拆分领料管理三个独立列表"
+git commit -m "feat: 拆分接收管理三个独立列表"
 ```
 
 ---
@@ -931,12 +931,12 @@ git commit -m "feat: 拆分领料管理三个独立列表"
 | 场景 | 必须展示的事实 |
 | --- | --- |
 | 直接一次配齐 | 已配齐待领、直接配齐、无编号托盘、无当前库位 |
-| 未配齐可领 | 至少两个当前库位、可进入领料 |
+| 未配齐可领 | 至少两个当前库位、可进入接收 |
 | 同一物料多库位 | 每个库位分别显示数量和同一单位 |
 | 由未配齐升级配齐 | 升级来源、无编号托盘、旧库位已释放 |
 | 已配齐后全部领完 | 路径和最终结果同时显示 |
-| 未配齐先领且全部领完 | 多次领料、累计数量逐行满足 |
-| 未配齐先领但尚未领完 | 有历史领料且仍有当前任务 |
+| 未配齐先领且全部领完 | 多次接收、累计数量逐行满足 |
+| 未配齐先领但尚未领完 | 有历史接收且仍有当前任务 |
 | 多次补料 | 相同 SKU 的两次补料分别成行 |
 | 原需求领完后新增补料 | 历史显示新增补料待领，当前任务列表同时出现 |
 | 无加工、只染色、染色后印花 | 应配依据分别正确 |
@@ -945,13 +945,13 @@ git commit -m "feat: 拆分领料管理三个独立列表"
 
 ```ts
 await page.goto('/fcs/craft/cutting/pickup-management/ready')
-await expect(page.getByRole('heading', { name: '已配齐待领料' })).toBeVisible()
+await expect(page.getByRole('heading', { name: '已配齐待接收' })).toBeVisible()
 
 await page.goto('/fcs/craft/cutting/pickup-management/incomplete')
 await expect(page.getByRole('heading', { name: '未配齐配料' })).toBeVisible()
 
 await page.goto('/fcs/craft/cutting/pickup-management/history')
-await expect(page.getByRole('heading', { name: '已领料' })).toBeVisible()
+await expect(page.getByRole('heading', { name: '已接收' })).toBeVisible()
 ```
 
 - [ ] 6.3 验证列表直接看到物料，不进入详情：
@@ -964,14 +964,14 @@ await expect(page.locator('[data-pickup-required-qty]').first()).not.toHaveText(
 await expect(page.locator('[data-pickup-picked-qty]').first()).not.toHaveText('')
 ```
 
-- [ ] 6.4 验证未配齐列表直接展示多个库位并可领料：
+- [ ] 6.4 验证未配齐列表直接展示多个库位并可接收：
 
 ```ts
 const incompleteGroup = page.locator('[data-pickup-order-group]').filter({
   has: page.locator('[data-pickup-location]'),
 }).first()
 await expect(incompleteGroup.locator('[data-pickup-location]')).toHaveCount(2)
-await expect(incompleteGroup.getByRole('link', { name: '去领料' })).toBeVisible()
+await expect(incompleteGroup.getByRole('link', { name: '去接收' })).toBeVisible()
 ```
 
 若 Mock 中该组超过两个位置，改用 `toHaveCount()` 对应实际稳定数量，不使用大于判断掩盖缺项。
@@ -988,11 +988,11 @@ await expect(page.getByText(/托盘码：TP-/)).toHaveCount(0)
 ```ts
 await expect(page.getByText('未配齐先领').first()).toBeVisible()
 await expect(page.getByText('全部领完').first()).toBeVisible()
-await expect(page.getByText('未完成全部领料').first()).toBeVisible()
+await expect(page.getByText('未完成全部接收').first()).toBeVisible()
 await expect(page.getByText('新增补料待领').first()).toBeVisible()
 ```
 
-- [ ] 6.7 更新原 PDA 流程用例：从“未配齐配料”或“已配齐待领料”点击“去领料”，继续断言 PDA 确认的是同一个 `pickupNodeId` 和版本，且按钮仍为“确认全部领料”。
+- [ ] 6.7 更新原 PDA 流程用例：从“未配齐配料”或“已配齐待接收”点击“去接收”，继续断言 PDA 确认的是同一个 `pickupNodeId` 和版本，且按钮仍为“确认全部接收”。
 
 - [ ] 6.8 浏览器验证交互响应：
 
@@ -1005,7 +1005,7 @@ await expect(page.getByText('新增补料待领').first()).toBeVisible()
 
 - [ ] 6.9 按模板填写审查记录，逐项写明：
 
-- 主要角色：裁床仓管、裁床领料人员、裁床主管。
+- 主要角色：裁床仓管、裁床接收人员、裁床主管。
 - 管理端与 PDA 的分工。
 - 未配齐可领的防错方式。
 - 无编号托盘是当前现场事实，不是系统缺失。
@@ -1028,7 +1028,7 @@ npm run check:prototype-design-governance
 
 ```bash
 git add src/data/fcs/cutting/production-material-prep.ts src/pages/process-factory/cutting/pickup-management-projection.ts tests/cutting-pickup-three-list.spec.ts tests/cutting-pickup-node-flow.spec.ts docs/prototype-review-records/2026-07-30-pickup-management-three-list.md
-git commit -m "test: 覆盖领料三列表现场场景"
+git commit -m "test: 覆盖接收三列表现场场景"
 ```
 
 ---
@@ -1040,7 +1040,7 @@ git commit -m "test: 覆盖领料三列表现场场景"
 - 修改：仅修复本任务验证发现的直接相关问题。
 - 生成：临时目录中的验证收据，不提交临时文件。
 
-- [ ] 7.1 运行领料主链路检查：
+- [ ] 7.1 运行接收主链路检查：
 
 ```bash
 npm run check:cutting-pickup-three-list
@@ -1117,7 +1117,7 @@ npm run workflow:verify -- \
 - [ ] 7.8 如果验证产生必要修正，先用 `git diff --name-only` 核对文件，再只从第 1 节列出的本任务文件中逐个执行 `git add`，提交：
 
 ```bash
-git commit -m "chore: 收口领料三列表验证"
+git commit -m "chore: 收口接收三列表验证"
 ```
 
 禁止使用 `git add .` 或 `git add -A`。只有确有验证修正且已经逐个暂存时才创建该提交；没有修正时不创建空提交。
@@ -1128,23 +1128,23 @@ git commit -m "chore: 收口领料三列表验证"
 
 ### 规格覆盖
 
-- [ ] “领料管理”已从“裁前准备”移出并成为独立一级菜单。
+- [ ] “接收管理”已从“裁前准备”移出并成为独立一级菜单。
 - [ ] 三个二级菜单是三个独立路由，不是页签伪装。
-- [ ] 未配齐配料列表可以去领料。
+- [ ] 未配齐配料列表可以去接收。
 - [ ] 未配齐配料列表显示当前中转仓库位及各库位数量。
 - [ ] 一个库位只属于一个生产单；一个生产单可以有多个库位。
-- [ ] 列表物料一行一个需求行，直接显示缩略图、名称、编码、应配、配料、累计领料和单位。
+- [ ] 列表物料一行一个需求行，直接显示缩略图、名称、编码、应配、配料、累计接收和单位。
 - [ ] 正常需求和多次补料分行展示，相同 SKU 不合并。
 - [ ] 染色、印花标记和应配数量来源清晰。
 - [ ] 染色后印花固定以印花最终完成量为应配数量。
 - [ ] 已配齐直接配齐和由未配齐升级两种来源都可识别。
 - [ ] 当前无编号托盘显示“待领托盘（暂未编号）”，没有虚构托盘码。
 - [ ] 升级已配齐后不再显示已释放库位。
-- [ ] 已领料列表同时展示领料路径和最终完成结果。
+- [ ] 已接收列表同时展示接收路径和最终完成结果。
 - [ ] 未配齐先领可以最终显示全部领完。
 - [ ] 原需求领完后新增补料会重开当前任务和最终状态。
 - [ ] 历史列表按生产单分页，生产单物料组不跨页。
-- [ ] PDA 仍只有一个统一领料入口，并使用同一活动节点。
+- [ ] PDA 仍只有一个统一接收入口，并使用同一活动节点。
 
 ### 页面与性能
 
@@ -1162,8 +1162,8 @@ git commit -m "chore: 收口领料三列表验证"
 ### 数据与防错
 
 - [ ] 不同单位不相加、不抵消。
-- [ ] 物料、数量、单位、库位、节点版本不一致时阻止领料。
-- [ ] 不存在部分物料、部分数量、部分库位领料入口。
+- [ ] 物料、数量、单位、库位、节点版本不一致时阻止接收。
+- [ ] 不存在部分物料、部分数量、部分库位接收入口。
 - [ ] 无效或尚未最终完成的染色/印花结果不会产生可领应配数量。
 - [ ] 作废补料保留历史但不计入有效应配数量。
 - [ ] 同一生产单可以同时有历史记录和当前待领任务。
@@ -1171,7 +1171,7 @@ git commit -m "chore: 收口领料三列表验证"
 ### 交付证据
 
 - [ ] 专项检查通过。
-- [ ] 原领料链路回归检查通过。
+- [ ] 原接收链路回归检查通过。
 - [ ] 标准列表治理通过。
 - [ ] 原型设计治理通过。
 - [ ] 构建通过。

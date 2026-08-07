@@ -1309,13 +1309,13 @@ export function renderPdaCuttingSpreadingPage(taskId: string): string {
   const pageBackHref = form.backHrefOverride || context.backHref
   const actionLabel = getPrimaryActionLabel(detail)
 
-  if (actionLabel === '去领料' || actionLabel === '开工') {
-    const isPickup = actionLabel === '去领料'
+  if (actionLabel === '去接收' || actionLabel === '开工') {
+    const isPickup = actionLabel === '去接收'
     const body = `
       <section class="space-y-2">
         <section class="rounded-xl border bg-card px-3 py-3 text-sm">
           <div class="text-lg font-semibold text-foreground">${escapeHtml(actionLabel)}</div>
-          <div class="mt-2 text-xs text-muted-foreground">${escapeHtml(isPickup ? '没有领料记录，不能开工、铺布或裁剪。' : '已有领料记录，开工后才能进入铺布。')}</div>
+          <div class="mt-2 text-xs text-muted-foreground">${escapeHtml(isPickup ? '没有接收记录，不能开工、铺布或裁剪。' : '已有接收记录，开工后才能进入铺布。')}</div>
         </section>
         <button class="inline-flex min-h-10 w-full items-center justify-center rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground" ${isPickup ? `data-nav="${escapeHtml(`/fcs/pda/handover?tab=pickup&focusTaskId=${encodeURIComponent(taskId)}&returnTo=${encodeURIComponent(pageBackHref)}`)}"` : `data-pda-cut-spreading-action="start-work" data-task-id="${escapeHtml(taskId)}"`}>
           ${escapeHtml(actionLabel)}

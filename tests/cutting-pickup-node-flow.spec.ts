@@ -45,8 +45,8 @@ async function navigateWithinApp(page: Page, path: string): Promise<void> {
 test('READY 只显示未编号托盘，INCOMPLETE 显示库位；现场差异阻断确认并留下主管证据', async ({ page }, testInfo) => {
   testInfo.setTimeout(300_000)
   await page.goto(readyPath)
-  const readyLink = page.getByRole('row').filter({ hasText: '去领料' }).first()
-    .getByRole('link', { name: '去领料', exact: true })
+  const readyLink = page.getByRole('row').filter({ hasText: '去接收' }).first()
+    .getByRole('link', { name: '去接收', exact: true })
   const readyHref = await readyLink.getAttribute('href')
   expect(readyHref).toBeTruthy()
   await warmPickupExecutionModule(page)
@@ -56,8 +56,8 @@ test('READY 只显示未编号托盘，INCOMPLETE 显示库位；现场差异阻
   await expect(readyTask).not.toContainText('来源库位：')
 
   await page.goto(incompletePath)
-  const incompleteLink = page.getByRole('row').filter({ hasText: '去领料' }).first()
-    .getByRole('link', { name: '去领料', exact: true })
+  const incompleteLink = page.getByRole('row').filter({ hasText: '去接收' }).first()
+    .getByRole('link', { name: '去接收', exact: true })
   const incompleteHref = await incompleteLink.getAttribute('href')
   expect(incompleteHref).toBeTruthy()
   await navigateWithinApp(page, `${incompleteHref!}&difference=1`)
@@ -78,13 +78,13 @@ test('READY 只显示未编号托盘，INCOMPLETE 显示库位；现场差异阻
   })
   await expect(task).toContainText('已选择：现场差异.jpg')
   const photoFeedbackDuration = await page.evaluate((startedAt) => performance.now() - startedAt, photoFeedbackStartedAt)
-  console.log(`领料差异照片反馈耗时：${photoFeedbackDuration.toFixed(1)}ms`)
+  console.log(`接收差异照片反馈耗时：${photoFeedbackDuration.toFixed(1)}ms`)
   expect(photoFeedbackDuration).toBeLessThan(200)
   expect(await taskHandle!.evaluate((node) => node.isConnected)).toBe(true)
   expect(await differencePhotoHandle!.evaluate((node) => node.isConnected)).toBe(true)
   page.once('dialog', (dialog) => dialog.accept())
   await task.locator('[data-pda-warehouse-action="report-cutting-pickup-difference"]').click()
-  await expect(task).toContainText('差异待主管处理，已阻断领料确认')
+  await expect(task).toContainText('差异待主管处理，已阻断接收确认')
   await expect(task.locator('[data-pda-warehouse-action="confirm-cutting-wp-pickup"]')).toBeDisabled()
   page.once('dialog', (dialog) => dialog.accept())
   await task.locator('[data-pda-warehouse-action="call-cutting-pickup-supervisor"]').click()
@@ -108,13 +108,13 @@ for (const [label, path] of [
   ['已配齐', readyPath],
   ['未配齐', incompletePath],
 ] as const) {
-  test(`${label}列表与 PDA 实际消费同一节点 ID 和版本，并明确确认全部领料`, async ({ page }) => {
+  test(`${label}列表与 PDA 实际消费同一节点 ID 和版本，并明确确认全部接收`, async ({ page }) => {
     await page.goto(path)
-    const row = page.getByRole('row').filter({ hasText: '去领料' }).first()
+    const row = page.getByRole('row').filter({ hasText: '去接收' }).first()
     await expect(row).toBeVisible({ timeout: 60_000 })
     const productionOrderNo = (await row.textContent())?.match(/PO-\d{6}-\d{4}/)?.[0]
     expect(productionOrderNo).toBeTruthy()
-    const pickupLink = row.getByRole('link', { name: '去领料', exact: true })
+    const pickupLink = row.getByRole('link', { name: '去接收', exact: true })
     const href = await pickupLink.getAttribute('href')
     expect(href).toBeTruthy()
     const target = new URL(href!, 'http://127.0.0.1')
@@ -137,7 +137,7 @@ for (const [label, path] of [
     await expect(pdaTask).toHaveAttribute('data-cutting-pickup-node-version', String(linkedNode.version))
     await expect(pdaTask).toContainText(`节点版本：V${linkedNode.version}`)
     await expect(pdaTask.locator('button[data-pda-warehouse-action="confirm-cutting-wp-pickup"]')).toContainText(
-      '确认全部领料',
+      '确认全部接收',
     )
   })
 }
@@ -145,7 +145,7 @@ for (const [label, path] of [
 test('PDA 混合单位确认形成 1 Session + N Detail，重复 API 幂等', async ({ page }) => {
   await page.goto(incompletePath)
   const pickupLink = page.getByRole('row').filter({ hasText: 'PO-202603-0101' })
-    .getByRole('link', { name: '去领料', exact: true })
+    .getByRole('link', { name: '去接收', exact: true })
   const href = await pickupLink.getAttribute('href')
   expect(href).toBeTruthy()
   await warmPickupExecutionModule(page)
@@ -178,7 +178,7 @@ test('PDA 混合单位确认形成 1 Session + N Detail，重复 API 幂等', as
       waitProcessLedgerEventId: 'duplicate',
       idempotencyKey: session.idempotencyKey,
     })
-    const events = runtime.listCuttingRuntimeEventsByType('中转仓领料').filter((event) =>
+    const events = runtime.listCuttingRuntimeEventsByType('中转仓接收').filter((event) =>
       (event.payload as Record<string, unknown>).pickupSessionId === session.pickupSessionId
     )
     return {
@@ -232,7 +232,7 @@ test('同步失败 Session 可从 PDA 补写且不重复主明细和流水', asy
       status: session.warehouseSyncStatus,
       sessions: projection.pickupSessions.filter((item) => item.pickupSessionId === sessionId).length,
       details: projection.pickupRecords.filter((item) => item.pickupSessionId === sessionId).length,
-      events: runtime.listCuttingRuntimeEventsByType('中转仓领料').filter((event) =>
+      events: runtime.listCuttingRuntimeEventsByType('中转仓接收').filter((event) =>
         (event.payload as Record<string, unknown>).pickupSessionId === sessionId
       ).length,
     }

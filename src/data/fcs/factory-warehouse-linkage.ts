@@ -68,13 +68,13 @@ function resolveWarehouse(factoryId: string, warehouseKind: FactoryInternalWareh
 
 function pickWarehousePosition(
   warehouse: FactoryInternalWarehouse,
-  status: '待领料' | '已入待加工仓' | '差异待处理' | '待交出' | '已交出' | '已回写' | '差异' | '异议中',
+  status: '待接收' | '已入待加工仓' | '差异待处理' | '待交出' | '已交出' | '已回写' | '差异' | '异议中',
   seed: string,
 ): { areaName: string; shelfNo: string; locationNo: string; locationText: string } {
   const preferredAreaName =
     status === '差异待处理' || status === '差异' || status === '异议中'
       ? '异常区'
-      : status === '待领料' || status === '已交出'
+      : status === '待接收' || status === '已交出'
         ? '待确认区'
         : NORMAL_AREA_NAMES[hashCode(seed) % NORMAL_AREA_NAMES.length]
   const area = warehouse.areaList.find((item) => item.areaName === preferredAreaName) || warehouse.areaList[0]
@@ -135,7 +135,7 @@ export function linkPickupConfirmToInboundRecord(input: {
 } {
   const pickupRecord = findPdaPickupRecord(input.pickupRecordId)
   if (!pickupRecord) {
-    throw new Error(`未找到待领料记录：${input.pickupRecordId}`)
+    throw new Error(`未找到待接收记录：${input.pickupRecordId}`)
   }
   const pickupHead = findPdaPickupHead(pickupRecord.handoverId)
   const factory = resolveFactory({
@@ -191,7 +191,7 @@ export function linkPickupConfirmToInboundRecord(input: {
       status,
       abnormalReason: input.abnormalReason,
       photoList: [...(input.photoList || [])],
-      remark: '由领料记录生成',
+      remark: '由接收记录生成',
     } satisfies FactoryWarehouseInboundRecord)
   const position = pickWarehousePosition(warehouse, status === '已入库' ? '已入待加工仓' : '差异待处理', pickupRecord.recordId)
   const inboundRecord: FactoryWarehouseInboundRecord = {
@@ -233,7 +233,7 @@ export function linkPickupConfirmToInboundRecord(input: {
         ? input.abnormalReason || pickupRecord.objectionReason || '数量不符'
         : undefined,
     photoList: [...(input.photoList || pickupRecord.objectionProofFiles?.map((file) => file.name) || [])],
-    remark: '由领料记录生成',
+    remark: '由接收记录生成',
   }
   const savedInbound = upsertFactoryWarehouseInboundRecord(inboundRecord)
   const waitProcessStockItem = upsertFactoryWaitProcessStockItem({

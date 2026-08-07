@@ -22,9 +22,9 @@
 - `src/pages/production/orders-domain.ts` — 生产单管理代表页面，确保生产单、需求单、SPU、相关单据编号统一可点击。
 - `src/pages/production/demand-domain.ts` — 生产需求代表页面，确保需求号和已生成生产单号统一可点击。
 - `src/pages/production-order-progress-tracking.ts` — 进度代表页面，确保生产单、物料需求、裁片、车缝、交接等编号统一可点击。
-- `src/pages/fcs/material-prep/shared.ts` — FCS 配料代表页面，确保配料单、配料记录、领料记录、生产单、物料 SKU 可点击。
+- `src/pages/fcs/material-prep/shared.ts` — FCS 配料代表页面，确保配料单、配料记录、接收记录、生产单、物料 SKU 可点击。
 - `src/pages/process-factory/cutting/cut-orders.ts` — PFOS 裁片代表页面，确保裁片单、生产单、飞票、铺布相关编号可点击。
-- `src/pages/process-factory/cutting/pickup-management.ts` — PFOS 领料代表页面，确保领料、配料、生产单、物料 SKU 可点击。
+- `src/pages/process-factory/cutting/pickup-management.ts` — PFOS 接收代表页面，确保接收、配料、生产单、物料 SKU 可点击。
 - `src/pages/process-factory/printing/work-orders.ts` — PFOS 印花代表页面，确保印花工单和生产单可点击。
 - `src/pages/process-factory/dyeing/work-orders.ts` — PFOS 染色代表页面，确保染色工单和生产单可点击。
 - `src/pages/process-factory/post-finishing/qc-orders.ts` — 后道质检代表页面，确保质检总单、质检单、复检、生产单可点击。
@@ -81,7 +81,7 @@ for (const item of universalIndexedItems) {
 ```typescript
 const defaultTabCases: Array<[string, string, string]> = [
   ['MPO-202603-0001', 'materials', '配料单默认打开物料 Tab'],
-  ['PICK-202603-0001', 'materials', '领料记录默认打开物料 Tab'],
+  ['PICK-202603-0001', 'materials', '接收记录默认打开物料 Tab'],
   ['CUT-260306-101-01', 'progress', '裁片单默认打开任务 Tab'],
   ['PRINT-WO-202603-0001', 'progress', '印花工单默认打开任务 Tab'],
   ['DYE-WO-202603-0001', 'progress', '染色工单默认打开任务 Tab'],
@@ -798,7 +798,7 @@ renderProductionObjectCodeButton({ objectType: 'CUT_ORDER', objectId: order.cutO
 renderProductionObjectCodeButton({ objectType: 'MATERIAL_PREP_ORDER', objectId: order.materialRequestNo, relatedProductionOrderNo: order.no, defaultTab: 'materials' })
 ```
 
-- [ ] **步骤 4：FCS 配料共享页面替换配料/领料编号**
+- [ ] **步骤 4：FCS 配料共享页面替换配料/接收编号**
 
 在 `src/pages/fcs/material-prep/shared.ts` 中导入统一按钮：
 
@@ -818,7 +818,7 @@ renderProductionObjectCodeButton({
 })
 ```
 
-领料记录：
+接收记录：
 
 ```typescript
 renderProductionObjectCodeButton({
@@ -879,9 +879,9 @@ renderProductionObjectCodeButton({
 })
 ```
 
-- [ ] **步骤 2：裁片领料页面接入**
+- [ ] **步骤 2：裁片接收页面接入**
 
-在 `pickup-management.ts` 中，领料记录、配料单、生产单和物料 SKU 使用统一按钮。领料记录示例：
+在 `pickup-management.ts` 中，接收记录、配料单、生产单和物料 SKU 使用统一按钮。接收记录示例：
 
 ```typescript
 renderProductionObjectCodeButton({

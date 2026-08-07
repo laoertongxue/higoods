@@ -145,7 +145,7 @@ for (const removedText of [
   '库位管理',
   '完工入仓',
   '损耗回收',
-  '加工领料',
+  '加工接收',
   '回收入仓',
   '交出确认',
   'listWoolWarehouseAreas',

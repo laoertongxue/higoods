@@ -493,7 +493,7 @@ function joinDisplayParts(parts: Array<string | undefined | null>): string {
 
 function getStartConditionLabel(prereq: ReturnType<typeof getStartPrerequisite>): string {
   if (prereq.met) return '可开工'
-  if (/领料|收货|入仓|来料/.test(prereq.blocker)) return '待领料确认'
+  if (/接收|收货|入仓|来料/.test(prereq.blocker)) return '待接收确认'
   if (/绑定/.test(prereq.blocker)) return '待绑定裁片单'
   if (/执行明细|同步/.test(prereq.blocker)) return '待执行明细同步'
   if (/上游|连续流转/.test(prereq.blocker)) return '待前置完成'
@@ -507,7 +507,7 @@ function getNotStartedPrimaryAction(
   if (prereq.met) {
     return {
       label: isWholeOrderFiveStepTask(task)
-        ? '确认领料 / 开始做'
+        ? '确认接收 / 开始做'
         : isCuttingSpecialTask(task) ? '进入裁片任务' : '开工',
       icon: 'play',
       action: 'go-start',
@@ -515,7 +515,7 @@ function getNotStartedPrimaryAction(
     }
   }
 
-  if (isCuttingSpecialTask(task) && /领料|入仓|来料/.test(prereq.blocker)) {
+  if (isCuttingSpecialTask(task) && /接收|入仓|来料/.test(prereq.blocker)) {
     return {
       label: '去交接确认',
       icon: 'arrow-left-right',
@@ -524,7 +524,7 @@ function getNotStartedPrimaryAction(
     }
   }
 
-  if (isWholeOrderFiveStepTask(task) && /领料|收货|入仓|来料/.test(prereq.blocker)) {
+  if (isWholeOrderFiveStepTask(task) && /接收|收货|入仓|来料/.test(prereq.blocker)) {
     return {
       label: '去交接确认',
       icon: 'arrow-left-right',
@@ -556,7 +556,7 @@ function getNotStartedSortRank(task: ProcessTask): number {
   if (prereq.met && startInfo.startRiskStatus === 'OVERDUE') return 0
   if (prereq.met && startInfo.startRiskStatus === 'DUE_SOON') return 1
   if (prereq.met) return 2
-  if (/领料|收货|入仓|来料/.test(prereq.blocker)) return 3
+  if (/接收|收货|入仓|来料/.test(prereq.blocker)) return 3
   if (/绑定/.test(prereq.blocker)) return 4
   return 5
 }

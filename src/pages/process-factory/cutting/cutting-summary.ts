@@ -1000,7 +1000,7 @@ function buildCuttingResultCheckItems(
         handoverOrderId: '',
         handoverRecordId: '',
         problemText: `裁片单已关闭，关闭原因：${cutOrder.closeReasonText || cutOrder.closeReason || '未填写'}`,
-        impactText: '关闭后不再要求继续配料或领料；历史菲票、库存和交出记录仍可追溯。',
+        impactText: '关闭后不再要求继续配料或接收；历史菲票、库存和交出记录仍可追溯。',
         suggestedAction: '查看关闭记录',
         actionRoute: buildCheckRoute(row, 'cutOrders', { cutOrderId: cutOrder.cutOrderId, cutOrderNo: cutOrder.cutOrderNo }),
         handlingStatus: '待处理',

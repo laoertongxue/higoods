@@ -2954,7 +2954,7 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 class="text-base font-semibold">${editingDraft ? '继续编辑草稿' : '新建对账单'}</h2>
-          <p class="mt-1 text-sm text-muted-foreground">业务人员自定义时间段生成对账单；工厂档案结算周期仅作参考。当前阶段车缝领料对账暂不进入对账单生成。</p>
+          <p class="mt-1 text-sm text-muted-foreground">业务人员自定义时间段生成对账单；工厂档案结算周期仅作参考。当前阶段车缝接收对账暂不进入对账单生成。</p>
         </div>
         <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-stm-action="back-to-list">
           返回列表

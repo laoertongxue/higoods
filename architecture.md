@@ -78,7 +78,7 @@ domain/cutting-exception/     ← 异常处理
 domain/cutting-warehouse-writeback/  ← 仓库回写桥接
 domain/fcs-cutting-runtime/   ← 运行时数据 & 快照
 domain/fcs-cutting-piece-truth/ ← 裁片真相数据
-domain/pickup/                ← 领料适配器
+domain/pickup/                ← 接收适配器
 ```
 
 关键设计模式：

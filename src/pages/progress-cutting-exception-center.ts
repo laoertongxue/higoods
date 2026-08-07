@@ -308,7 +308,7 @@ function renderSummaryCards(): string {
       <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         ${buildSummaryCard('未关闭异常总数', summary.openCount, '平台当前仍需继续跟进', 'text-slate-900')}
         ${buildSummaryCard('高风险异常数', summary.highRiskCount, '优先处理差异和仓务阻断', 'text-rose-600')}
-        ${buildSummaryCard('领料差异异常数', summary.receiveDiscrepancyCount, '需核对领料结果和配置差异', 'text-amber-600')}
+        ${buildSummaryCard('接收差异异常数', summary.receiveDiscrepancyCount, '需核对接收结果和配置差异', 'text-amber-600')}
         ${buildSummaryCard('未入仓 / 未分区异常数', summary.warehouseRiskCount, '仓内节奏和查找效率待补齐', 'text-violet-600')}
         ${buildSummaryCard('样衣超期异常数', summary.sampleOverdueCount, '样衣归还和可调用状态待核对', 'text-sky-600')}
       </div>
@@ -372,7 +372,7 @@ function renderFocusSection(): string {
         <span class="text-sm text-muted-foreground">当前重点 ${topRows.length} 项</span>
       </div>
       <div class="mt-4 grid gap-4 xl:grid-cols-3">
-        ${renderFocusColumn('高风险领料 / 凭证异常', '优先核对差异、领料结果与照片凭证。', buckets.receiveRiskRows, '当前无高风险领料或凭证异常。')}
+        ${renderFocusColumn('高风险接收 / 凭证异常', '优先核对差异、接收结果与照片凭证。', buckets.receiveRiskRows, '当前无高风险接收或凭证异常。')}
         ${renderFocusColumn('仓务待处理', '关注未入仓、未分区和待交接等仓务阻断。', buckets.warehouseRows, '当前无仓务待处理异常。')}
         ${renderFocusColumn('样衣风险', '关注样衣待归还、超期和可调用风险。', buckets.sampleRows, '当前无样衣风险异常。')}
       </div>
@@ -395,7 +395,7 @@ function renderFilterSection(): string {
         </label>
         ${renderFilterSelect('异常类型', 'exceptionType', state.filters.exceptionType, [
           { value: 'ALL', label: '全部' },
-          { value: 'RECEIVE_DISCREPANCY', label: '领料差异' },
+          { value: 'RECEIVE_DISCREPANCY', label: '接收差异' },
           { value: 'MISSING_EVIDENCE', label: '无照片凭证' },
           { value: 'MARKER_NOT_MAINTAINED', label: '唛架未维护' },
           { value: 'SPREADING_DATA_INSUFFICIENT', label: '铺布数据不足' },
@@ -650,9 +650,9 @@ function renderDetailDrawer(): string {
           <h3 class="font-semibold text-foreground">关联摘要</h3>
           <div class="mt-4 grid gap-4 md:grid-cols-2">
             <article class="rounded-lg border bg-muted/20 p-4">
-              <p class="text-xs text-muted-foreground">领料与裁片单二维码摘要</p>
+              <p class="text-xs text-muted-foreground">接收与裁片单二维码摘要</p>
               <p class="mt-1 text-sm text-foreground">${escapeHtml(row.pickupSummaryText)}</p>
-              <p class="mt-2 text-xs text-muted-foreground">领料单号 ${escapeHtml(row.pickupSlipNo)} · 打印版本 ${escapeHtml(row.latestPrintVersionNo)} · 裁片单二维码已绑定</p>
+              <p class="mt-2 text-xs text-muted-foreground">接收单号 ${escapeHtml(row.pickupSlipNo)} · 打印版本 ${escapeHtml(row.latestPrintVersionNo)} · 裁片单二维码已绑定</p>
               <div class="mt-2 flex flex-wrap gap-2">
                 ${row.needsRecheck ? renderBadge('需复核', 'bg-amber-50 text-amber-700') : renderBadge('无需复核', 'bg-emerald-50 text-emerald-700')}
                 ${row.hasPhotoEvidence ? renderBadge('有照片凭证', 'bg-blue-50 text-blue-700') : renderBadge('无照片凭证', 'bg-slate-100 text-slate-700')}

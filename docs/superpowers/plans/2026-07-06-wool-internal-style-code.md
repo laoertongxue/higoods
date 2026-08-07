@@ -434,8 +434,8 @@ function renderCompactSummaryTags(orders: WoolWorkOrder[]): string {
   const tags = [
     ['加工单', `${summary.total}`],
     ['未接单', `${summary.waitAcceptCount}`],
-    ['待领料', `${summary.waitPickupCount}`],
-    ['领料中', `${summary.pickupInProgressCount}`],
+    ['待接收', `${summary.waitPickupCount}`],
+    ['接收中', `${summary.pickupInProgressCount}`],
     ['待排机', `${summary.waitMachineScheduleCount}`],
     ['横机中', `${summary.flatWoolCount}`],
     ['待打印菲票', `${summary.waitFeiTicketCount}`],

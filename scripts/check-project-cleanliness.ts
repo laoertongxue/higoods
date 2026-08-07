@@ -66,7 +66,7 @@ function listCuttingLegacyTermMatches(): string[] {
     '来源类型',
     '来料单',
     '配料状态',
-    '领料状态',
+    '接收状态',
   ]
   const matches: string[] = []
   scanTargets

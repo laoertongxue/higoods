@@ -149,6 +149,7 @@ async function openReleaseSnapshotCandidateFixture(page: Page, kind: ReleaseSnap
     }
 
     pageModule.setReleaseSnapshotDraftFixtureForTest({ releaseRecords, frozenTechPack })
+    pageModule.bootstrapSupplementManagementMockData()
     const before = {
       records: pageModule.listSupplementRecords().length,
       workOrders: workOrderDomain.listProcessWorkOrders().length,
@@ -369,7 +370,7 @@ test('快照草稿填写期间过期时直接提交会被即时阻断', async ({
     const { appStore } = await import('/src/state/store.ts')
     appStore.navigate('/fcs/craft/cutting/supplement-management?mode=create&releaseSnapshotId=cpr-target-po-14671-v9&submitCheck=1')
   })
-  await expect(page.getByRole('heading', { name: '二次确认补料' })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: '确认创建补料单' })).toHaveCount(0)
   await expect(page.getByText('来源：裁片放行目标快照')).toHaveCount(0)
   await expect(page.getByText('目标依据已过期，请回裁片放行重新确认。')).toBeVisible()
   await page.evaluate(async () => {
@@ -389,7 +390,7 @@ test('快照草稿二次确认期间过期时最终确认不生成补料单', as
   await page.locator('[data-supplement-reason]').selectOption('尺码齐套不足')
   await page.locator('[data-supplement-reason-detail]').fill('二次确认前制造目标过期。')
   await page.getByRole('button', { name: '提交补料' }).click()
-  await expect(page.getByRole('heading', { name: '二次确认补料' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '确认创建补料单' })).toBeVisible()
 
   await page.evaluate(async () => {
     const repository = await import('/src/data/fcs/cut-piece-release.ts')
@@ -403,9 +404,9 @@ test('快照草稿二次确认期间过期时最终确认不生成补料单', as
       reason: '补料二次确认前目标过期',
     })
   })
-  await page.getByRole('button', { name: '确认生成补料单' }).click()
+  await page.getByRole('button', { name: '确认创建补料单' }).click()
 
-  await expect(page.getByRole('heading', { name: '二次确认补料' })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: '确认创建补料单' })).toHaveCount(0)
   await expect(page.getByRole('heading', { name: '补料单详情' })).toHaveCount(0)
   await expect(page.getByText('目标依据已过期，请回裁片放行重新确认。')).toBeVisible()
   await page.getByRole('button', { name: '返回独立创建' }).click()
@@ -427,6 +428,72 @@ test('独立新增补料仍只提供按生产单和按裁片单两种人工入�
   await expect(page.getByText('裁片单搜索')).toBeVisible()
   await page.getByRole('button', { name: /按生产单选择/ }).click()
   await expect(page.getByText('生产单搜索')).toBeVisible()
+})
+
+test('补料管理筛选条件连同筛选重置在标准分辨率固定为两行', async ({ page }) => {
+  for (const viewport of [{ width: 1366, height: 768 }, { width: 1280, height: 720 }]) {
+    await page.setViewportSize(viewport)
+    await openList(page)
+    const rows = page.locator('[data-supplement-filter-row]')
+    await expect(rows).toHaveCount(2)
+    await expect(rows.nth(0).locator(':scope > *')).toHaveCount(7)
+    await expect(rows.nth(1).locator(':scope > *')).toHaveCount(7)
+    const layout = await rows.evaluateAll((elements) => elements.map((element) => {
+      const childBottoms = [...element.children].map((child) => Math.round(child.getBoundingClientRect().bottom))
+      return { uniqueBottoms: [...new Set(childBottoms)], width: element.getBoundingClientRect().width }
+    }))
+    expect(layout.map((row) => row.uniqueBottoms.length)).toEqual([1, 1])
+    expect(layout.every((row) => row.width > 0)).toBe(true)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+  }
+})
+
+test('新增补料对象选择区删除重复说明和最外层线框但保留完整操作', async ({ page }) => {
+  await page.goto(`${route}?mode=create`)
+  const picker = page.locator('[data-supplement-source-picker]')
+  await expect(picker).toBeVisible()
+  await expect(picker.getByRole('heading', { name: '选择补料对象' })).toHaveCount(0)
+  await expect(picker.getByText('先选择生产单或裁片单')).toHaveCount(0)
+  await expect(picker).not.toHaveClass(/\bborder\b/)
+  await expect(picker.getByRole('button', { name: /按生产单选择/ })).toBeVisible()
+  await expect(picker.getByRole('button', { name: /按裁片单选择/ })).toBeVisible()
+  await expect(picker.getByRole('button', { name: '搜索' })).toBeVisible()
+  await expect(picker.getByRole('button', { name: '重置' })).toBeVisible()
+  await expect(picker.getByRole('table')).toBeVisible()
+  await expect(picker.getByText('图片未提供')).toHaveCount(0)
+  await expect(picker.getByRole('button', { name: '下一步' })).toBeDisabled()
+})
+
+test('补料确认改为页面总表且返回修改保留全部填写内容', async ({ page }) => {
+  await openReleaseSnapshotCreate(page)
+  await page.locator('[data-release-original-cut-order]').selectOption({ label: 'CUT14671-B' })
+  await page.locator('[data-supplement-reason]').selectOption('尺码齐套不足')
+  await page.locator('[data-supplement-reason-detail]').fill('确认页面返回修改保留验收。')
+  await page.getByRole('button', { name: '提交补料' }).click()
+
+  const confirmation = page.locator('[data-supplement-confirm-page]')
+  await expect(confirmation).toBeVisible()
+  await expect(confirmation.getByRole('heading', { name: '确认创建补料单' })).toBeVisible()
+  await expect(confirmation.locator('[data-supplement-confirm-table]')).toHaveCount(1)
+  await expect(confirmation.getByText('补料确认总表')).toBeVisible()
+  await expect(confirmation.getByRole('columnheader', { name: '本次补料构成' })).toBeVisible()
+  await expect(confirmation.getByRole('columnheader', { name: '各仓库存' })).toBeVisible()
+  await expect(confirmation.getByRole('columnheader', { name: '采购情况' })).toBeVisible()
+  await expect(confirmation.getByRole('columnheader', { name: '染色' })).toBeVisible()
+  await expect(confirmation.getByRole('columnheader', { name: '印花' })).toBeVisible()
+  await expect(confirmation.getByRole('columnheader', { name: '中转仓配料' })).toBeVisible()
+  await expect(confirmation.getByRole('columnheader', { name: '本次处理' })).toBeVisible()
+  await expect(page.locator('[role="dialog"]')).toHaveCount(0)
+  await expect(page.getByText('风险提示')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /已知悉风险/ })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '确认创建补料单' })).toBeVisible()
+
+  await page.getByRole('button', { name: '返回修改' }).click()
+  await expect(page.getByText('未找到对应的补料对象，请重新选择。')).toHaveCount(0)
+  await expect(page.locator('[data-release-snapshot-create]')).toBeVisible()
+  await expect(page.locator('[data-release-original-cut-order]')).toHaveValue('cut-14671-b::CUT14671-B')
+  await expect(page.locator('[data-supplement-reason]')).toHaveValue('尺码齐套不足')
+  await expect(page.locator('[data-supplement-reason-detail]')).toHaveValue('确认页面返回修改保留验收。')
 })
 
 test('无效放行快照给出中文错误并可返回独立创建', async ({ page }) => {
@@ -452,14 +519,7 @@ test('快照补料确认后冻结来源与数量且创建补料不改变放行�
   await page.locator('[data-supplement-reason]').selectOption('尺码齐套不足')
   await page.locator('[data-supplement-reason-detail]').fill('按已确认放行目标补齐裁片。')
   await page.getByRole('button', { name: '提交补料' }).click()
-  const riskConfirmation = page.getByRole('button', { name: '我已知悉风险，继续' })
-  const finalConfirmation = page.getByRole('button', { name: '确认生成补料单' })
-  await Promise.race([
-    riskConfirmation.waitFor({ state: 'visible', timeout: 60_000 }),
-    finalConfirmation.waitFor({ state: 'visible', timeout: 60_000 }),
-  ])
-  if (await riskConfirmation.isVisible()) await riskConfirmation.click()
-  await finalConfirmation.click()
+  await page.getByRole('button', { name: '确认创建补料单' }).click()
 
   await expect(page.getByRole('heading', { name: '补料单详情' })).toBeVisible()
   await expect(page.getByText(`快照编号 ${snapshotId}`)).toBeVisible()
@@ -497,16 +557,16 @@ test('创建来源切换会清理旧快照确认草稿与覆盖层', async ({ pa
   await page.locator('[data-supplement-reason]').selectOption('尺码齐套不足')
   await page.locator('[data-supplement-reason-detail]').fill('待切换来源的旧快照草稿。')
   await page.getByRole('button', { name: '提交补料' }).click()
-  await expect(page.getByRole('heading', { name: '二次确认补料' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '确认创建补料单' })).toBeVisible()
 
   await page.evaluate(async () => {
     const { appStore } = await import('/src/state/store.ts')
     appStore.navigate('/fcs/craft/cutting/supplement-management?mode=create')
   })
   await expect(page).toHaveURL(/supplement-management\?mode=create$/)
-  await expect(page.getByRole('heading', { name: '二次确认补料' })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: '确认创建补料单' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: /按生产单选择/ })).toBeVisible()
-  await expect(page.getByRole('button', { name: '确认生成补料单' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '确认创建补料单' })).toHaveCount(0)
 })
 
 test('快照A切到快照B会清理A草稿并只显示B的结果', async ({ page }) => {
@@ -514,14 +574,14 @@ test('快照A切到快照B会清理A草稿并只显示B的结果', async ({ page
   await page.locator('[data-supplement-reason]').selectOption('尺码齐套不足')
   await page.locator('[data-supplement-reason-detail]').fill('快照A旧草稿。')
   await page.getByRole('button', { name: '提交补料' }).click()
-  await expect(page.getByRole('heading', { name: '二次确认补料' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '确认创建补料单' })).toBeVisible()
 
   await page.evaluate(async () => {
     const { appStore } = await import('/src/state/store.ts')
     appStore.navigate('/fcs/craft/cutting/supplement-management?mode=create&releaseSnapshotId=missing-B')
   })
   await expect(page.getByText('目标依据已过期，请回裁片放行重新确认。')).toBeVisible()
-  await expect(page.getByRole('heading', { name: '二次确认补料' })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: '确认创建补料单' })).toHaveCount(0)
   await expect(page.getByText('快照A旧草稿。')).toHaveCount(0)
 })
 
@@ -530,13 +590,13 @@ test('同一创建来源保留确认态，离开页面再返回则清理旧草�
   await page.locator('[data-supplement-reason]').selectOption('尺码齐套不足')
   await page.locator('[data-supplement-reason-detail]').fill('同一来源应保留，离开后应清理。')
   await page.getByRole('button', { name: '提交补料' }).click()
-  await expect(page.getByRole('heading', { name: '二次确认补料' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '确认创建补料单' })).toBeVisible()
 
   await page.evaluate(async (id) => {
     const { appStore } = await import('/src/state/store.ts')
     appStore.navigate(`/fcs/craft/cutting/supplement-management?mode=create&releaseSnapshotId=${encodeURIComponent(id)}&from=matrix`)
   }, snapshotId)
-  await expect(page.getByRole('heading', { name: '二次确认补料' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '确认创建补料单' })).toBeVisible()
 
   await page.evaluate(async () => {
     const { appStore } = await import('/src/state/store.ts')
@@ -551,7 +611,7 @@ test('同一创建来源保留确认态，离开页面再返回则清理旧草�
   await expect(page.locator('[data-release-snapshot-create]')).toBeVisible()
   await expect(page.locator('[data-release-snapshot-trace]')).toHaveCount(1)
   await expect(page.locator('[data-release-snapshot-trace]').getByText('来源：裁片放行目标快照')).toBeVisible()
-  await expect(page.getByRole('heading', { name: '二次确认补料' })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: '确认创建补料单' })).toHaveCount(0)
   await expect(page.getByText('同一来源应保留，离开后应清理。')).toHaveCount(0)
 })
 
@@ -1000,8 +1060,8 @@ test('列设置与每页条数一次用户操作只写入并刷新一次', async
       .observe(overlay, { childList: true })
   }, storageKey)
 
-  await settingRow(page, 'processDemand').getByLabel('显示').uncheck()
-  await expect(page.locator('th[data-column-key="processDemand"]')).toHaveCount(0)
+  await settingRow(page, 'inventory').getByLabel('显示').uncheck()
+  await expect(page.locator('th[data-column-key="inventory"]')).toHaveCount(0)
   await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())))
   expect(await page.evaluate(() => {
     const state = (window as typeof window & { __supplementSingleDispatch?: Record<string, number> })
@@ -1022,8 +1082,12 @@ test('列设置与每页条数一次用户操作只写入并刷新一次', async
     state?.reset()
     resolve()
   })))
+  const totalRecords = await page.evaluate(async () => {
+    const supplement = await import('/src/pages/process-factory/cutting/supplement-management.ts')
+    return supplement.listSupplementRecords().length
+  })
   await page.locator('[data-cutting-supplement-field="pageSize"]').selectOption('20')
-  await expect(page.locator('[data-standard-list-table-section] tbody tr')).toHaveCount(12)
+  await expect(page.locator('[data-standard-list-table-section] tbody tr')).toHaveCount(Math.min(totalRecords, 20))
   await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())))
   expect(await page.evaluate(() => {
     const state = (window as typeof window & { __supplementSingleDispatch?: Record<string, number> })
@@ -1039,15 +1103,19 @@ test('列设置与每页条数一次用户操作只写入并刷新一次', async
 
 test('SPA 离开补料管理后返回重置页码和排序但保留列偏好', async ({ page }) => {
   await openList(page)
+  const totalPages = await page.evaluate(async () => {
+    const supplement = await import('/src/pages/process-factory/cutting/supplement-management.ts')
+    return Math.ceil(supplement.listSupplementRecords().length / 10)
+  })
   await openColumnSettings(page)
-  await settingRow(page, 'processDemand').getByLabel('显示').uncheck()
+  await settingRow(page, 'inventory').getByLabel('显示').uncheck()
   await page.getByRole('button', { name: '关闭', exact: true }).click()
 
   const quantityHeader = page.locator('th[data-column-key="supplementQty"]')
   await quantityHeader.getByRole('button').click()
   await expect(quantityHeader).toHaveAttribute('aria-sort', 'ascending')
   await page.getByRole('button', { name: '下一页' }).click()
-  await expect(page.getByText('2 / 2', { exact: true })).toBeVisible()
+  await expect(page.getByText(`2 / ${totalPages}`, { exact: true })).toBeVisible()
 
   const spaNavigate = async (pathname: string) => {
     await page.evaluate((nextPathname) => {
@@ -1064,9 +1132,9 @@ test('SPA 离开补料管理后返回重置页码和排序但保留列偏好', a
   await expect(page).toHaveURL(/\/fcs\/craft\/cutting\/supplement-management$/)
   await waitForList(page)
 
-  await expect(page.getByText('1 / 2', { exact: true })).toBeVisible()
+  await expect(page.getByText(`1 / ${totalPages}`, { exact: true })).toBeVisible()
   await expect(page.locator('th[data-column-key="supplementQty"]')).toHaveAttribute('aria-sort', 'none')
-  await expect(page.locator('th[data-column-key="processDemand"]')).toHaveCount(0)
+  await expect(page.locator('th[data-column-key="inventory"]')).toHaveCount(0)
 })
 
 test('冻结中间列立即进入左侧固定区，多列冻结不重叠且取消后恢复普通位置', async ({ page }) => {
@@ -1077,7 +1145,7 @@ test('冻结中间列立即进入左侧固定区，多列冻结不重叠且取�
   await page.getByRole('button', { name: '关闭', exact: true }).click()
 
   expect(await headerOrder(page)).toEqual([
-    'supplementQty', 'recordNo', 'target', 'materialDemand', 'processDemand', 'status', 'created', 'actions',
+    'supplementQty', 'recordNo', 'target', 'materialDemand', 'inventory', 'purchase', 'dye', 'print', 'materialPrep', 'status', 'created', 'actions',
   ])
 
   const scroll = page.locator('[data-standard-list-scroll]')
@@ -1107,14 +1175,14 @@ test('冻结中间列立即进入左侧固定区，多列冻结不重叠且取�
   await settingRow(page, 'supplementQty').getByLabel('冻结').uncheck()
   await page.getByRole('button', { name: '关闭', exact: true }).click()
   expect(await headerOrder(page)).toEqual([
-    'recordNo', 'target', 'supplementQty', 'materialDemand', 'processDemand', 'status', 'created', 'actions',
+    'recordNo', 'target', 'supplementQty', 'materialDemand', 'inventory', 'purchase', 'dye', 'print', 'materialPrep', 'status', 'created', 'actions',
   ])
 })
 
 test('恢复默认清除列偏好并保持 main 节点', async ({ page }) => {
   await openList(page)
   await openColumnSettings(page)
-  await settingRow(page, 'processDemand').getByLabel('显示').uncheck()
+  await settingRow(page, 'inventory').getByLabel('显示').uncheck()
   await settingRow(page, 'created').dragTo(settingRow(page, 'recordNo'))
   await settingRow(page, 'recordNo').getByLabel('冻结').check()
   await page.getByRole('button', { name: '关闭', exact: true }).click()
@@ -1123,9 +1191,9 @@ test('恢复默认清除列偏好并保持 main 节点', async ({ page }) => {
 
   await openColumnSettings(page)
   await page.getByRole('button', { name: '恢复默认' }).click()
-  await expect(page.locator('th[data-column-key="processDemand"]')).toBeVisible()
+  await expect(page.locator('th[data-column-key="inventory"]')).toBeVisible()
   expect(await headerOrder(page)).toEqual([
-    'recordNo', 'target', 'supplementQty', 'materialDemand', 'processDemand', 'status', 'created', 'actions',
+    'recordNo', 'target', 'supplementQty', 'materialDemand', 'inventory', 'purchase', 'dye', 'print', 'materialPrep', 'status', 'created', 'actions',
   ])
   await expect(page.locator('th[data-column-key="recordNo"]')).not.toHaveClass(/sticky/)
   await expect(page.locator('[data-cutting-supplement-field="pageSize"]')).toHaveValue('10')

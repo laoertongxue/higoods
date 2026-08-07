@@ -688,7 +688,7 @@ function buildCutOrderDimensionRows(rows: ProductionProgressRow[]): CutOrderDime
       const markerSourceDetailText = isClosed
         ? closeReasonText || closeReason || '该裁片单已关闭'
         : quantityLedger.cuttingClaimedQty <= 0
-          ? '尚未形成裁床领料数量账'
+          ? '尚未形成裁床接收数量账'
           : row.currentStage.label !== '已开工'
             ? '未开工'
             : quantityLedger.availableQty <= 0
@@ -787,7 +787,7 @@ type ProductionProgressDetailTabKey =
 
 const PRODUCTION_PROGRESS_DETAIL_TABS: Array<{ key: ProductionProgressDetailTabKey; label: string }> = [
   { key: 'cut-orders', label: '裁片单' },
-  { key: 'material-flow', label: '配料 / 领料' },
+  { key: 'material-flow', label: '配料 / 接收' },
   { key: 'marker-spreading', label: '唛架 / 铺布' },
   { key: 'fei-tickets', label: '裁剪产出 / 菲票' },
   { key: 'warehouse-bags', label: '待交出仓 / 中转袋' },
@@ -870,7 +870,7 @@ function getDisplayRows(): ProductionProgressRow[] {
 function getQuickFilterLabel(filter: ProductionProgressQuickFilterExtended | null): string | null {
   if (filter === 'URGENT_ONLY') return '当前条件：临近发货'
   if (filter === 'PREP_DELAY') return '当前条件：配料异常'
-  if (filter === 'CLAIM_EXCEPTION') return '当前条件：领料差异'
+  if (filter === 'CLAIM_EXCEPTION') return '当前条件：接收差异'
   if (filter === 'CUTTING_ACTIVE') return '当前条件：已开工'
   if (filter === 'INCOMPLETE_ONLY') return '当前条件：未完成生产单'
   if (filter === 'GAP_ONLY') return '当前条件：有部位缺口'
@@ -904,7 +904,7 @@ function getFilterLabels(): string[] {
   }
   if (state.filters.completionState !== 'ALL') labels.push(`完成状态：${completionLabelMap[state.filters.completionState]}`)
   if (state.filters.configStatus !== 'ALL') labels.push(`中转仓配料：${configMeta[state.filters.configStatus].label}`)
-  if (state.filters.receiveStatus !== 'ALL') labels.push(`裁床领料：${receiveMeta[state.filters.receiveStatus].label}`)
+  if (state.filters.receiveStatus !== 'ALL') labels.push(`裁床接收：${receiveMeta[state.filters.receiveStatus].label}`)
   if (state.filters.riskFilter !== 'ALL') {
     labels.push(state.filters.riskFilter === 'ANY' ? '风险：只看有风险' : `风险：${riskMeta[state.filters.riskFilter].label}`)
   }
@@ -938,7 +938,7 @@ function renderStatsCards(rows: ProductionProgressRow[]): string {
       ${renderProductionProgressStatCard('生产单', summary.totalCount, '当前筛选范围内的生产单总数', 'text-slate-900')}
       ${renderProductionProgressStatCard('临近发货', summary.urgentCount, 'AA/A 紧急生产单', 'text-rose-600')}
       ${renderProductionProgressStatCard('配料异常', summary.prepExceptionCount, '中转仓配料未完成或不足', 'text-amber-600')}
-      ${renderProductionProgressStatCard('领料差异', summary.claimExceptionCount, '未领料或领料存在差异', 'text-orange-600')}
+      ${renderProductionProgressStatCard('接收差异', summary.claimExceptionCount, '未接收或接收存在差异', 'text-orange-600')}
       ${renderProductionProgressStatCard('待处理差异', pendingDifferenceCount, '铺布或裁剪差异待处理', pendingDifferenceCount ? 'text-rose-600' : 'text-emerald-600')}
       ${renderProductionProgressStatCard('已关闭裁片单', closedCutOrderCount, '已记录关闭原因的裁片单', closedCutOrderCount ? 'text-zinc-700' : 'text-slate-500')}
       ${renderProductionProgressStatCard('已开工', summary.cuttingCount + summary.doneCount, '已进入铺布、裁剪、入仓或后续环节', 'text-violet-600')}
@@ -979,7 +979,7 @@ function renderFullChainOverviewCards(rows: ProductionProgressRow[]): string {
   return `
     <section class="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
       ${renderCompactKpiCard('中转仓配料', `${countBy((row) => row.materialPrepSummary.key === 'CONFIGURED')}/${total}`, '有配料数量生产单', 'text-slate-900')}
-      ${renderCompactKpiCard('裁床领料', `${countBy((row) => row.materialClaimSummary.key === 'RECEIVED')}/${total}`, '有领料记录生产单', 'text-blue-600')}
+      ${renderCompactKpiCard('裁床接收', `${countBy((row) => row.materialClaimSummary.key === 'RECEIVED')}/${total}`, '有接收记录生产单', 'text-blue-600')}
       ${renderCompactKpiCard('裁片单', rows.reduce((sum, row) => sum + row.cutOrderCount, 0), '当前筛选范围', 'text-slate-900')}
       ${renderCompactKpiCard('唛架方案', `${markerPlanCount} 个`, '已确认并生成铺布单', 'text-violet-600')}
       ${renderCompactKpiCard('铺布单', `${spreadingOrders.length} 张`, `待铺布 ${waitingSpreadingCount} / 铺布中 ${activeSpreadingCount} / 已裁剪 ${cutDoneCount}`, 'text-violet-600')}
@@ -1120,20 +1120,20 @@ function renderProgressStatisticsLinkageCards(rows: ProductionProgressRow[]): st
       <div class="flex items-center justify-between gap-3">
         <div>
           <div class="text-sm font-semibold text-foreground">裁床进度联动</div>
-          <div class="mt-1 text-xs text-muted-foreground">按生产单汇总配料数量、领料数量、裁剪、菲票、特殊工艺回仓、裁片交出和差异风险。</div>
+          <div class="mt-1 text-xs text-muted-foreground">按生产单汇总配料数量、接收数量、裁剪、菲票、特殊工艺回仓、裁片交出和差异风险。</div>
         </div>
         <div class="text-sm font-medium text-amber-600">交出后风险提示：${blockingReasons.length ? `${blockingReasons.length} 项` : '无'}</div>
       </div>
       <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         ${renderCompactKpiCard('配料数量', countBy((item) => item.materialPrepProgress.status === '已配置'), `共 ${snapshots.length} 单`, 'text-slate-900')}
-        ${renderCompactKpiCard('领料数量', countBy((item) => item.pickupProgress.status === '已入待加工仓'), `差异 ${countBy((item) => item.pickupProgress.status === '差异待处理')} 单`, 'text-blue-600')}
+        ${renderCompactKpiCard('接收数量', countBy((item) => item.pickupProgress.status === '已入待加工仓'), `差异 ${countBy((item) => item.pickupProgress.status === '差异待处理')} 单`, 'text-blue-600')}
         ${renderCompactKpiCard('裁剪进度', countBy((item) => item.cuttingProgress.status === '已裁剪'), `共 ${snapshots.length} 单`, 'text-violet-600')}
         ${renderCompactKpiCard('菲票进度', countBy((item) => item.feiTicketProgress.status === '已生成'), `部分 / 未生成 ${countBy((item) => item.feiTicketProgress.status !== '已生成')} 单`, 'text-cyan-600')}
         ${renderCompactKpiCard('特殊工艺回仓', countBy((item) => item.specialCraftReturnProgress.status === '已回仓' || item.specialCraftReturnProgress.status === '不需要回仓'), `特殊工艺未回仓 ${countBy((item) => item.specialCraftReturnProgress.status.includes('未回仓'))} 单`, 'text-emerald-600')}
         ${renderCompactKpiCard('裁片交出', snapshots.reduce((sum, item) => sum + item.sewingDispatchProgress.completedQty, 0), '累计已交出件数', 'text-blue-600')}
         ${renderCompactKpiCard('特殊工艺当前数量', formatQty(snapshots.reduce((sum, item) => sum + item.specialCraftCurrentQty, 0)), '已回仓后当前可用数量', 'text-blue-600')}
         ${renderCompactKpiCard('特殊工艺报废 / 货损', `${formatQty(snapshots.reduce((sum, item) => sum + item.specialCraftScrapQty, 0))} / ${formatQty(snapshots.reduce((sum, item) => sum + item.specialCraftDamageQty, 0))}`, '报废 / 货损', 'text-rose-600')}
-        ${renderCompactKpiCard('领料单已完成', countBy((item) => item.pickupOrderCompleted), '工厂侧完成裁床领料', 'text-emerald-600')}
+        ${renderCompactKpiCard('接收单已完成', countBy((item) => item.pickupOrderCompleted), '工厂侧完成裁床接收', 'text-emerald-600')}
         ${renderCompactKpiCard('交出单已完成', countBy((item) => item.handoutOrderCompleted), '工厂侧完成交出单', 'text-emerald-600')}
         ${renderCompactKpiCard('装袋 / 回写', countBy((item) => item.transferBagPackStatus === '已装袋' || item.transferBagPackStatus === '已交出'), `部分回写 ${countBy((item) => item.transferBagCombinedWritebackStatus === '部分回写')}`, 'text-blue-600')}
         ${renderCompactKpiCard('袋级 / 菲票级差异', `${snapshots.reduce((sum, item) => sum + item.transferBagBagDifferenceCount, 0)} / ${snapshots.reduce((sum, item) => sum + item.transferBagFeiTicketDifferenceCount, 0)}`, '中转袋差异 / 菲票差异', 'text-rose-600')}
@@ -1412,7 +1412,7 @@ function renderFullChainDetailSection(row: ProductionProgressRow): string {
       tone: row.materialPrepSummary.className,
     },
     {
-      label: '裁床领料',
+      label: '裁床接收',
       value: row.materialClaimSummary.label,
       detail: row.materialClaimSummary.detailText,
       tone: row.materialClaimSummary.className,
@@ -1669,7 +1669,7 @@ function renderStageOverview(rows: ProductionProgressRow[]): string {
 
   const cards = [
     { label: '中转仓配料', value: `${configuredCount}/${total} 有配料数量` },
-    { label: '裁床领料', value: `${claimedCount}/${total} 有领料记录` },
+    { label: '裁床接收', value: `${claimedCount}/${total} 有接收记录` },
     { label: '唛架方案', value: `${markerCount} 个已确认` },
     { label: '铺布单', value: `${spreadingCount} 张，待铺布 ${waitingSpreadingCount} / 铺布中 ${activeSpreadingCount} / 已裁剪 ${cutDoneCount}` },
     { label: '菲票', value: `${ticketCount}/${total} 已生成` },
@@ -1858,7 +1858,7 @@ function renderProductionChainCutOrdersTab(row: ProductionProgressRow, chain: Pr
 function renderProductionChainMaterialFlowTab(chain: ProductionOrderChain): string {
   return `
     <section class="rounded-lg border bg-card p-4">
-      <h3 class="text-sm font-semibold">配料 / 领料记录</h3>
+      <h3 class="text-sm font-semibold">配料 / 接收记录</h3>
       <div class="mt-4 space-y-3">
         ${
           chain.cutOrders.length
@@ -1872,14 +1872,14 @@ function renderProductionChainMaterialFlowTab(chain: ProductionOrderChain): stri
                         ${renderLedgerEventList(item.prepEvents, '暂无中转仓配料记录。')}
                       </div>
                       <div>
-                        <div class="mb-2 text-sm font-medium">裁床领料记录</div>
-                        ${renderLedgerEventList(item.claimEvents, '暂无裁床领料记录。')}
+                        <div class="mb-2 text-sm font-medium">裁床接收记录</div>
+                        ${renderLedgerEventList(item.claimEvents, '暂无裁床接收记录。')}
                       </div>
                     </div>
                   </article>
                 `)
                 .join('')
-            : renderChainEmpty('当前生产单暂无配料 / 领料记录。')
+            : renderChainEmpty('当前生产单暂无配料 / 接收记录。')
         }
       </div>
     </section>
@@ -1912,7 +1912,7 @@ function renderProductionChainMarkerSpreadingTab(chain: ProductionOrderChain): s
                     <div class="mt-3 grid gap-3 lg:grid-cols-2">
                       <div>
                         <div class="mb-2 text-sm font-medium">唛架方案记录</div>
-                        ${item.markerPlanNos.length ? renderStackedLines(item.markerPlanNos.map((no) => escapeHtml(no)), '暂无唛架方案') : renderChainEmpty('已开工未排唛架时，这里只保留配料和领料记录。')}
+                        ${item.markerPlanNos.length ? renderStackedLines(item.markerPlanNos.map((no) => escapeHtml(no)), '暂无唛架方案') : renderChainEmpty('已开工未排唛架时，这里只保留配料和接收记录。')}
                       </div>
                       <div>
                         <div class="mb-2 text-sm font-medium">铺布单记录</div>

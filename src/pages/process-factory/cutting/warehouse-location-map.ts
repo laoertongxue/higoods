@@ -238,7 +238,7 @@ export function buildWaitProcessRuntimeOccupancies(
   const allSourceEvents = events
     .filter((event) =>
       event.eventStatus !== '已取消'
-      && (event.eventType === '中转仓领料' || event.eventType === '待加工仓回收入仓')
+      && (event.eventType === '中转仓接收' || event.eventType === '待加工仓回收入仓')
       && event.inventoryEffect?.direction === 'IN',
     )
   const sourceEvents = allSourceEvents

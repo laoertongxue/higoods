@@ -93,7 +93,7 @@ function verifyPickupThreeListSceneStoreMigration(): void {
   assert(
     migrated.pickupRecords.some((record) => record.prepOrderId === 'prep-order-po-202603-0002')
       && migrated.pickupRecords.some((record) => record.prepOrderId === 'prep-order-po-202603-1103'),
-    '旧 Store 必须补齐 PO0002 与 PO1103 的 seed 领料事实',
+    '旧 Store 必须补齐 PO0002 与 PO1103 的 seed 接收事实',
   )
   assert(
     migrated.pickupSessions.some((session) =>
@@ -159,7 +159,7 @@ function verifyLegacyPickupSessionMigration(): void {
   const groupedRecords = legacyStore.pickupRecords
     .filter((record) => record.prepOrderId === 'prep-order-po-202603-0101')
     .slice(0, 2)
-  assert(groupedRecords.length === 2, '旧存储测试必须存在两条同单领料明细')
+  assert(groupedRecords.length === 2, '旧存储测试必须存在两条同单接收明细')
   groupedRecords.forEach((record) => {
     record.pickupSessionId = 'pickup-session:legacy-grouped'
     record.pickupNodeId = 'pickup-node:prep-order-po-202603-0101:1'
@@ -178,10 +178,10 @@ function verifyLegacyPickupSessionMigration(): void {
   const groupedSession = migrated.pickupSessions.find((session) =>
     session.pickupSessionId === 'pickup-session:legacy-grouped'
   )
-  assert(groupedSession, '旧领料明细已有 pickupSessionId 时必须补建历史领料主记录')
+  assert(groupedSession, '旧接收明细已有 pickupSessionId 时必须补建历史接收主记录')
   assert(
     groupedRecords.every((record) => groupedSession.pickupRecordIds.includes(record.pickupRecordId)),
-    '同一旧 pickupSessionId 的明细必须归入同一历史领料主记录',
+    '同一旧 pickupSessionId 的明细必须归入同一历史接收主记录',
   )
 
   const noSessionRecord = migrated.pickupRecords.find((record) =>
@@ -193,18 +193,18 @@ function verifyLegacyPickupSessionMigration(): void {
   )
   assert(
     JSON.stringify(migratedAgain.pickupSessions) === JSON.stringify(migrated.pickupSessions),
-    '历史领料主记录迁移必须幂等且 ID 稳定',
+    '历史接收主记录迁移必须幂等且 ID 稳定',
   )
 
   const projection = getMaterialPrepOrderProjection('prep-order-po-202603-0101', storage)
-  assert(projection?.pickupSessions.some((session) => session.pickupSessionId === groupedSession.pickupSessionId), '迁移后的历史领料主记录必须在配料单投影可见')
+  assert(projection?.pickupSessions.some((session) => session.pickupSessionId === groupedSession.pickupSessionId), '迁移后的历史接收主记录必须在配料单投影可见')
   const activeNode = listActivePickupNodes(storage).find((node) =>
     node.prepOrderId === 'prep-order-po-202603-0101'
   )
   assert(activeNode, '有退回或后续可领物料时必须恢复活动节点')
   assert(
     activeNode.sequence === (projection?.pickupSessions.length || 0) + 1,
-    '新活动节点序号必须接续迁移后的历史领料主记录',
+    '新活动节点序号必须接续迁移后的历史接收主记录',
   )
 
   const closingStore = createProductionMaterialPrepSeedStore()
@@ -224,7 +224,7 @@ function verifyLegacyPickupSessionMigration(): void {
       productionOrderId: closingProjection.productionOrderId,
       pickedQty: firstRoundQty,
       rollCount: 1,
-      receiverName: '裁床 历史领料员',
+      receiverName: '裁床 历史接收员',
       pickedAt: '2026-03-16 08:00',
       warehouseArea: '待加工仓历史区',
       locationCode: 'LEGACY-CUT-01',
@@ -242,7 +242,7 @@ function verifyLegacyPickupSessionMigration(): void {
       productionOrderId: closingProjection.productionOrderId,
       pickedQty: closingRoundQty,
       rollCount: 1,
-      receiverName: '裁床 历史领料员',
+      receiverName: '裁床 历史接收员',
       pickedAt: '2026-03-17 08:00',
       warehouseArea: '待加工仓历史区',
       locationCode: 'LEGACY-CUT-01',
@@ -265,7 +265,7 @@ function verifyLegacyPickupSessionMigration(): void {
   const closingSessions = closingMigration.pickupSessions
     .filter((session) => session.prepOrderId === closingOrderId)
     .sort((left, right) => left.pickedAt.localeCompare(right.pickedAt))
-  assert(closingSessions.length === 2, '历史两轮领料必须迁移为两条主记录')
+  assert(closingSessions.length === 2, '历史两轮接收必须迁移为两条主记录')
   assert(closingSessions[0].nodeType === 'INCOMPLETE_PICKABLE', '历史首轮累计未齐必须标记未配齐可领')
   assert(closingSessions[1].nodeType === 'READY_TO_PICKUP', '历史收尾轮累计逐行齐套必须标记已配齐待领')
 
@@ -278,7 +278,7 @@ function verifyLegacyPickupSessionMigration(): void {
     productionOrderId: 'legacy-unknown-production-order',
     pickedQty: 10,
     rollCount: 1,
-    receiverName: '裁床 历史领料员',
+    receiverName: '裁床 历史接收员',
     pickedAt: '2026-03-18 08:00',
     warehouseArea: '待加工仓历史区',
     locationCode: 'LEGACY-CUT-02',
@@ -472,7 +472,7 @@ function verifySourceAccurateReturnRecovery(): void {
     imageNames: [],
     returnedBy: '裁床 测试员',
   }, legacyStorage)
-  assert(legacyReturn.returnQty === 10, '没有 sourceAllocations 的旧领料记录必须继续兼容原退回口径')
+  assert(legacyReturn.returnQty === 10, '没有 sourceAllocations 的旧接收记录必须继续兼容原退回口径')
 }
 
 function verifyHistoryUsesCurrentActiveCarrier(): void {
@@ -521,7 +521,7 @@ function verifyHistoryUsesCurrentActiveCarrier(): void {
   assert(historyGroup.historyPath === 'INCOMPLETE_PICKUP', '历史路径必须继续保留首轮未配齐领取事实')
   assert(
     historyGroup.pickupSessionCount === existingSessionCount + 1,
-    '历史分组必须保留新增的未配齐领料会话',
+    '历史分组必须保留新增的未配齐接收会话',
   )
   assert(historyGroup.carrierType === activeCurrentNode.carrierType, '历史分组当前承载必须与当前活动节点一致')
   assert(historyGroup.carrierType === 'WAREHOUSE_LOCATIONS', '加工阻断的当前节点必须继续显示生产单专属库位')
@@ -623,7 +623,7 @@ function verifyMixedUnitPrepRecords(): void {
 const failures: string[] = []
 for (const [name, verify] of [
   ['三列表旧 Store 场景迁移', verifyPickupThreeListSceneStoreMigration],
-  ['旧存储领料主记录迁移', verifyLegacyPickupSessionMigration],
+  ['旧存储接收主记录迁移', verifyLegacyPickupSessionMigration],
   ['来源级退回恢复', verifySourceAccurateReturnRecovery],
   ['历史分组当前承载事实', verifyHistoryUsesCurrentActiveCarrier],
   ['配料记录多单位汇总', verifyMixedUnitPrepRecords],
@@ -636,4 +636,4 @@ for (const [name, verify] of [
 }
 assert(!failures.length, failures.join('\n'))
 
-console.log('裁床领料 Important 回归检查通过')
+console.log('裁床接收 Important 回归检查通过')

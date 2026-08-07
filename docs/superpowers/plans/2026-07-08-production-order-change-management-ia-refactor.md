@@ -264,9 +264,9 @@ const created = submitProductionOrderChangeOrder({
   productionOrderId: relation.productionOrderId,
   source: 'MATERIAL_SHORTAGE',
   changeModules: ['BOM'],
-  reason: '自动检查：主面料短缺，指定后续领料改用替代料。',
+  reason: '自动检查：主面料短缺，指定后续接收改用替代料。',
   expectedEffectiveMode: 'FROM_NEXT_PICKUP',
-  effectiveDescription: '从下一次领料开始',
+  effectiveDescription: '从下一次接收开始',
   changeResult: 'PRODUCTION_PATCH',
   executionStrategy: 'AFTER_APPROVAL',
   operatorName: '自动检查',
@@ -1118,7 +1118,7 @@ function renderProductionChangeFormBody(): string {
     return `
       <section class="rounded-lg border bg-background p-4">
         <h2 class="text-base font-semibold">系统计算影响</h2>
-        <p class="mt-2 text-sm text-muted-foreground">系统按当前生产进度、已生成单据、已领料、已消耗和已结算事实生成影响范围。</p>
+        <p class="mt-2 text-sm text-muted-foreground">系统按当前生产进度、已生成单据、已接收、已消耗和已结算事实生成影响范围。</p>
         ${renderProductionImpactTable([])}
       </section>
     `

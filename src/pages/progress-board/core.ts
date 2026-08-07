@@ -57,7 +57,7 @@ function renderProductionProgressLinkage(): string {
         <table class="w-full min-w-[1480px] text-sm">
           <thead class="border-b bg-muted/40 text-left text-xs text-muted-foreground">
             <tr>
-              ${[PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE, '款式', '生产数量', '交期', '紧急程度', '面料配置', '裁床领料', '裁剪', '菲票', '特殊工艺回仓', '交出单', '车缝回写', '风险与差异', '下一步', '操作']
+              ${[PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE, '款式', '生产数量', '交期', '紧急程度', '面料配置', '裁床接收', '裁剪', '菲票', '特殊工艺回仓', '交出单', '车缝回写', '风险与差异', '下一步', '操作']
                 .map((item) => `<th class="px-3 py-2 font-medium">${item}</th>`)
                 .join('')}
             </tr>

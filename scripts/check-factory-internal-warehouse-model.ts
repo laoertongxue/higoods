@@ -273,7 +273,7 @@ assert(
   outboundRecords.every((item) => item.warehouseName.includes('待交出仓') || item.remark?.includes('盘亏审核通过')),
   '出库记录未关联待交出仓或盘亏库存调整',
 )
-assert(inboundRecords.some((item) => item.sourceRecordType === 'MATERIAL_PICKUP'), '入库记录缺少领料转单来源')
+assert(inboundRecords.some((item) => item.sourceRecordType === 'MATERIAL_PICKUP'), '入库记录缺少接收转单来源')
 assert(inboundRecords.some((item) => item.sourceRecordType === 'HANDOVER_RECEIVE'), '入库记录缺少交出接收转单来源')
 assert(
   outboundRecords
@@ -283,14 +283,14 @@ assert(
 )
 
 const pickupDoc = listWarehouseIssueOrders().find((doc) => doc.lines.length > 0)
-assert(pickupDoc, '缺少可校验的领料记录样例')
+assert(pickupDoc, '缺少可校验的接收记录样例')
 const pickupFactory = nonSewingFactories[0]
-assert(pickupFactory && !SEWING_FACTORY_TYPES.has(pickupFactory.factoryType), '领料转单样例未指向非车缝工厂')
+assert(pickupFactory && !SEWING_FACTORY_TYPES.has(pickupFactory.factoryType), '接收转单样例未指向非车缝工厂')
 const pickupWarehouse = defaultWarehouses.find((item) => item.factoryId === pickupFactory?.id && item.warehouseKind === 'WAIT_PROCESS')
-assert(pickupWarehouse, '领料转单样例缺少待加工仓')
+assert(pickupWarehouse, '接收转单样例缺少待加工仓')
 const inboundFromPickup = buildInboundRecordFromPickup(pickupDoc!, pickupDoc!.lines[0], pickupFactory!, pickupWarehouse!, 0)
-assert(inboundFromPickup.warehouseId === pickupWarehouse?.warehouseId, '领料转单未进入待加工仓')
-assert(inboundFromPickup.remark === '由领料记录生成', '领料转单来源文案不正确')
+assert(inboundFromPickup.warehouseId === pickupWarehouse?.warehouseId, '接收转单未进入待加工仓')
+assert(inboundFromPickup.remark === '由接收记录生成', '接收转单来源文案不正确')
 
 const handoverHead = listPdaHandoverHeads().find(
   (head) =>
@@ -309,10 +309,10 @@ const outboundFromHandover = buildOutboundRecordFromHandoverRecord(handoverHead!
 assert(outboundFromHandover.warehouseId === handoverWarehouse?.warehouseId, '交出转单未进入待交出仓')
 assert(outboundFromHandover.remark === '由交出记录生成', '交出转单来源文案不正确')
 
-assertContains(dataSource, 'buildInboundRecordFromPickup', '缺少领料转单 helper')
+assertContains(dataSource, 'buildInboundRecordFromPickup', '缺少接收转单 helper')
 assertContains(dataSource, 'buildInboundRecordFromHandoverReceive', '缺少接收转单 helper')
 assertContains(dataSource, 'buildOutboundRecordFromHandoverRecord', '缺少交出转单 helper')
-assertContains(linkageSource, 'linkPickupConfirmToInboundRecord', '缺少待领料确认到入库联动 helper')
+assertContains(linkageSource, 'linkPickupConfirmToInboundRecord', '缺少待接收确认到入库联动 helper')
 assertContains(linkageSource, 'linkHandoverReceiveToInboundRecord', '缺少交出接收到入库联动 helper')
 assertContains(linkageSource, 'linkHandoverRecordToOutboundRecord', '缺少交出到出库联动 helper')
 assertContains(linkageSource, 'syncReceiverWritebackToOutboundRecord', '缺少回写同步出库联动 helper')

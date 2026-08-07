@@ -74,7 +74,7 @@ function main(): void {
   )
   assert(
     !generatedSourceTypes.includes('MATERIAL_STATEMENT' as never) && !activeSourceTypes.includes('MATERIAL_STATEMENT' as never),
-    '车缝领料对账仍进入了正式流水来源项',
+    '车缝接收对账仍进入了正式流水来源项',
   )
 
   const lineGrainTypes = new Set(

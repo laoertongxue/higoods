@@ -241,10 +241,10 @@ export const materialPrepMeta: Record<CuttingConfigStatus, { label: string; clas
 }
 
 export const materialClaimMeta: Record<MaterialPrepClaimAggregateKey, { label: string; className: string }> = {
-  NOT_RECEIVED: { label: '无领料记录', className: 'bg-slate-100 text-slate-700' },
-  PARTIAL: { label: '领料数量不足', className: 'bg-orange-100 text-orange-700' },
-  RECEIVED: { label: '有领料记录', className: 'bg-emerald-100 text-emerald-700' },
-  EXCEPTION: { label: '领料异常', className: 'bg-rose-100 text-rose-700' },
+  NOT_RECEIVED: { label: '无接收记录', className: 'bg-slate-100 text-slate-700' },
+  PARTIAL: { label: '接收数量不足', className: 'bg-orange-100 text-orange-700' },
+  RECEIVED: { label: '有接收记录', className: 'bg-emerald-100 text-emerald-700' },
+  EXCEPTION: { label: '接收异常', className: 'bg-rose-100 text-rose-700' },
 }
 
 export const materialSchedulingMeta: Record<MaterialPrepSchedulingKey, { label: string; className: string }> = {
@@ -264,7 +264,7 @@ export const materialPrepStageMeta: Record<MaterialPrepStageKey, { label: string
 
 export const materialPrepRiskMeta: Record<MaterialPrepRiskKey, { label: string; className: string }> = {
   PREP_DELAY: { label: '中转仓滞后', className: 'bg-orange-100 text-orange-700 border border-orange-200' },
-  CLAIM_EXCEPTION: { label: '领料异常', className: 'bg-rose-100 text-rose-700 border border-rose-200' },
+  CLAIM_EXCEPTION: { label: '接收异常', className: 'bg-rose-100 text-rose-700 border border-rose-200' },
   SHIP_URGENT: { label: '临近发货', className: 'bg-red-100 text-red-700 border border-red-200' },
   DATE_MISSING: { label: '日期缺失', className: 'bg-slate-100 text-slate-700 border border-slate-200' },
   STATUS_CONFLICT: { label: '数量差异', className: 'bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200' },
@@ -343,7 +343,7 @@ export function deriveMaterialPrepStatus(lineItems: MaterialPrepLineItem[]): Mat
 
 export function deriveMaterialClaimStatus(lineItems: MaterialPrepLineItem[]): MaterialPrepSummaryMeta<MaterialPrepClaimAggregateKey> {
   if (lineItems.some((item) => item.hasClaimException)) {
-    return buildSummaryMeta('EXCEPTION', materialClaimMeta.EXCEPTION.label, materialClaimMeta.EXCEPTION.className, '当前存在领料差异，待仓库复核。')
+    return buildSummaryMeta('EXCEPTION', materialClaimMeta.EXCEPTION.label, materialClaimMeta.EXCEPTION.className, '当前存在接收差异，待仓库复核。')
   }
 
   const total = lineItems.length
@@ -358,7 +358,7 @@ export function deriveMaterialClaimStatus(lineItems: MaterialPrepLineItem[]): Ma
     return buildSummaryMeta('PARTIAL', materialClaimMeta.PARTIAL.label, materialClaimMeta.PARTIAL.className, `裁床已领 ${receivedCount + partialCount}/${total} 项，仍有余量待补齐。`)
   }
 
-  return buildSummaryMeta('NOT_RECEIVED', materialClaimMeta.NOT_RECEIVED.label, materialClaimMeta.NOT_RECEIVED.className, `当前共 ${total} 项面料未形成领料记录。`)
+  return buildSummaryMeta('NOT_RECEIVED', materialClaimMeta.NOT_RECEIVED.label, materialClaimMeta.NOT_RECEIVED.className, `当前共 ${total} 项面料未形成接收记录。`)
 }
 
 export function deriveSchedulingStatus(assignedCuttingGroup: string): MaterialPrepSummaryMeta<MaterialPrepSchedulingKey> {
@@ -393,10 +393,10 @@ function deriveCurrentStage(
     return buildSummaryMeta('WAITING_PREP', materialPrepStageMeta.WAITING_PREP.label, materialPrepStageMeta.WAITING_PREP.className, '当前仍未形成完整中转仓配料数量。')
   }
   if (row.materialClaimStatus.key === 'NOT_RECEIVED' || row.materialClaimStatus.key === 'PARTIAL' || row.materialClaimStatus.key === 'EXCEPTION') {
-    return buildSummaryMeta('WAITING_CLAIM', materialPrepStageMeta.WAITING_CLAIM.label, materialPrepStageMeta.WAITING_CLAIM.className, '当前仍未形成完整裁床领料数量。')
+    return buildSummaryMeta('WAITING_CLAIM', materialPrepStageMeta.WAITING_CLAIM.label, materialPrepStageMeta.WAITING_CLAIM.className, '当前仍未形成完整裁床接收数量。')
   }
   if (row.schedulingStatus.key === 'UNASSIGNED') {
-    return buildSummaryMeta('WAITING_SCHEDULING', materialPrepStageMeta.WAITING_SCHEDULING.label, materialPrepStageMeta.WAITING_SCHEDULING.className, '领料已到位，等待分配裁床组。')
+    return buildSummaryMeta('WAITING_SCHEDULING', materialPrepStageMeta.WAITING_SCHEDULING.label, materialPrepStageMeta.WAITING_SCHEDULING.className, '接收已到位，等待分配裁床组。')
   }
   return buildSummaryMeta('ASSIGNED', materialPrepStageMeta.ASSIGNED.label, materialPrepStageMeta.ASSIGNED.className, '当前已具备进入唛架铺布的执行准备。')
 }
@@ -416,14 +416,14 @@ function buildInitialClaimRecords(
       claimRecordId: `${cutOrderId}-claim-seed`,
       cutOrderId,
       claimedAt: record.lastPickupScanAt || record.lastFieldUpdateAt || '',
-      claimedBy: record.lastOperatorName || '仓库领料员',
+      claimedBy: record.lastOperatorName || '仓库接收员',
       result,
       summary:
         result === 'SUCCESS'
           ? `已回写 ${formatQty(lineItem.claimedQty)} 米。`
           : result === 'PARTIAL'
-            ? `已回写领料数量 ${formatQty(lineItem.claimedQty)} 米。`
-            : '领料存在差异，待仓库复核。',
+            ? `已回写接收数量 ${formatQty(lineItem.claimedQty)} 米。`
+            : '接收存在差异，待仓库复核。',
       note: lineItem.latestActionText,
     },
   ].filter((item) => item.claimedAt)
@@ -442,7 +442,7 @@ function buildPdaPickupClaimSummary(record: PdaPickupEventRecord): string {
   if (!isPickupEventSuccess(record.resultLabel)) {
     return `${record.resultLabel}：${record.discrepancyNote || '待仓库复核'}`
   }
-  return `已记录 ${record.actualReceivedQtyText || '领料结果'}。`
+  return `已记录 ${record.actualReceivedQtyText || '接收结果'}。`
 }
 
 function applyPdaPickupEventsToRow(
@@ -725,7 +725,7 @@ function createRow(
     latestClaimDispute: null,
     hasClaimDispute: false,
     claimDisputeStatusLabel: '暂无异议',
-    claimDisputeSummary: '当前暂无领料长度异议。',
+    claimDisputeSummary: '当前暂无接收长度异议。',
     claimDisputeDiscrepancyText: '差异 0 米',
     claimDisputeEvidenceCount: 0,
     claimDisputeHandleSummary: '待平台处理结果',
@@ -780,7 +780,7 @@ export function recalculateMaterialPrepRow(
           : buildSummaryMeta('NOT_CONFIGURED', materialPrepMeta.NOT_CONFIGURED.label, materialPrepMeta.NOT_CONFIGURED.className, '当前尚未形成配料数量。')
 
     const nextClaimStatus = item.hasClaimException
-      ? buildSummaryMeta('EXCEPTION', materialClaimMeta.EXCEPTION.label, materialClaimMeta.EXCEPTION.className, '领料存在差异，需复核。')
+      ? buildSummaryMeta('EXCEPTION', materialClaimMeta.EXCEPTION.label, materialClaimMeta.EXCEPTION.className, '接收存在差异，需复核。')
       : item.claimedQty >= item.requiredQty
         ? buildSummaryMeta('RECEIVED', materialClaimMeta.RECEIVED.label, materialClaimMeta.RECEIVED.className, `裁床已领 ${formatQty(item.claimedQty)} 米。`)
         : item.claimedQty > 0
@@ -813,7 +813,7 @@ export function recalculateMaterialPrepRow(
     row.latestClaimDispute = null
     row.hasClaimDispute = false
     row.claimDisputeStatusLabel = '暂无异议'
-    row.claimDisputeSummary = '当前暂无领料长度异议。'
+    row.claimDisputeSummary = '当前暂无接收长度异议。'
     row.claimDisputeDiscrepancyText = '差异 0 米'
     row.claimDisputeEvidenceCount = 0
     row.claimDisputeHandleSummary = '待平台处理结果'
@@ -823,7 +823,7 @@ export function recalculateMaterialPrepRow(
     row.latestClaimDispute = getLatestClaimDisputeByCutOrderNo(row.cutOrderNo)
     row.hasClaimDispute = Boolean(row.latestClaimDispute)
     row.claimDisputeStatusLabel = row.latestClaimDispute ? getClaimDisputeStatusLabel(row.latestClaimDispute.status) : '暂无异议'
-    row.claimDisputeSummary = row.latestClaimDispute ? buildCraftClaimDisputeSummary(row.latestClaimDispute) : '当前暂无领料长度异议。'
+    row.claimDisputeSummary = row.latestClaimDispute ? buildCraftClaimDisputeSummary(row.latestClaimDispute) : '当前暂无接收长度异议。'
     row.claimDisputeDiscrepancyText = row.latestClaimDispute ? `差异 ${formatDisputeQty(row.latestClaimDispute.discrepancyQty)}` : '差异 0 米'
     row.claimDisputeEvidenceCount = row.latestClaimDispute?.evidenceCount ?? 0
     row.claimDisputeHandleSummary = row.latestClaimDispute

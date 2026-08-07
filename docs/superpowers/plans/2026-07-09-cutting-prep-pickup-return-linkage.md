@@ -1,10 +1,10 @@
-# 裁片配料与领料退回可视化联动实现计划
+# 裁片配料与接收退回可视化联动实现计划
 
 > **面向 AI 代理的工作者：** 必需子技能：使用 superpowers:subagent-driven-development（推荐）或 superpowers:executing-plans 逐任务实现此计划。步骤使用复选框（`- [ ]`）语法来跟踪进度。
 
-**目标：** 让裁片配料和裁前准备 - 领料管理基于同一套配料、领料、退回 mock 数据展示，并让退回事实在列表、详情、筛选和跳转中可见。
+**目标：** 让裁片配料和裁前准备 - 接收管理基于同一套配料、接收、退回 mock 数据展示，并让退回事实在列表、详情、筛选和跳转中可见。
 
-**架构：** 只扩展现有 `src/data/fcs/cutting/production-material-prep.ts` 投影，不新增数据源。裁片配料页和领料管理页都读取 `MaterialPrepOrderProjection`，页面只做展示、筛选和导航。退回仍是领料后的物料行事实，不新增配料主状态。
+**架构：** 只扩展现有 `src/data/fcs/cutting/production-material-prep.ts` 投影，不新增数据源。裁片配料页和接收管理页都读取 `MaterialPrepOrderProjection`，页面只做展示、筛选和导航。退回仍是接收后的物料行事实，不新增配料主状态。
 
 **技术栈：** Vite、TypeScript、Vanilla TypeScript 字符串模板、现有本地 mock/localStorage、Playwright 检查脚本。
 
@@ -19,16 +19,16 @@
 - 修改：`src/pages/fcs/material-prep/cutting.ts`
   - 列表增加 `只看有退回` 筛选。
   - 列表展示 `已退回` 物料行数和已退数量。
-  - 详情移除 Tab 外摘要，把 Tab 改成 `领料 / 退回记录` 并展示退回明细。
+  - 详情移除 Tab 外摘要，把 Tab 改成 `接收 / 退回记录` 并展示退回明细。
 - 修改：`src/pages/process-factory/cutting/pickup-management.ts`
-  - 退回处理记录补配料单、配料记录、领料记录。
+  - 退回处理记录补配料单、配料记录、接收记录。
   - 增加跳转到裁片配料同一配料单的入口。
 - 创建：`scripts/check-cutting-prep-pickup-return-linkage.ts`
   - 检查同一套数据、12 条 mock 场景、退回筛选、跨页可见。
 - 修改：`package.json`
   - 增加 `check:cutting-prep-pickup-return-linkage`。
 - 创建：`docs/prototype-review-records/2026-07-09-cutting-prep-pickup-return-linkage.md`
-  - 记录本次配料/领料可视化联动的原型审查。
+  - 记录本次配料/接收可视化联动的原型审查。
 
 ## 任务 1：补齐同源 mock 和退回投影
 
@@ -78,7 +78,7 @@ const fullReturn = rows.find((row) => row.pickupRecords.some((record) => record.
 assert(fullReturn, '必须覆盖全部退回场景')
 
 const multiReturn = rows.find((row) => row.pickupReturnRecords.filter((record) => record.pickupRecordId === row.pickupReturnRecords[0]?.pickupRecordId).length >= 2)
-assert(multiReturn, '必须覆盖同一领料记录多次部分退回场景')
+assert(multiReturn, '必须覆盖同一接收记录多次部分退回场景')
 
 for (const row of returnedRows) {
   const projection = getMaterialPrepOrderProjection(row.order.prepOrderId, storage)
@@ -88,7 +88,7 @@ for (const row of returnedRows) {
   assert(projection.latestOperatedAt === projection.pickupReturnRecords[0].returnedAt || projection.pickupReturnRecords.some((record) => record.returnedAt === projection.latestOperatedAt), `最近操作必须能取到退回时间：${row.order.prepOrderNo}`)
 }
 
-console.log('裁片配料与领料退回联动数据检查通过')
+console.log('裁片配料与接收退回联动数据检查通过')
 ```
 
 - [ ] **步骤 2：增加 npm 脚本并运行，确认失败**
@@ -152,7 +152,7 @@ returnedLineCount: lines.filter((line) => line.returnedQty > 0).length,
 
 - [ ] **步骤 4：补 seed 退回记录**
 
-在 `seedPickupRecords` 下方新增 `seedPickupReturnRecords: MaterialPickupReturnRecord[]`，引用现有真实领料记录 ID。至少包含：
+在 `seedPickupRecords` 下方新增 `seedPickupReturnRecords: MaterialPickupReturnRecord[]`，引用现有真实接收记录 ID。至少包含：
 
 ```ts
 {
@@ -225,7 +225,7 @@ npm run check:cutting-prep-pickup-return-linkage
 预期：PASS，输出：
 
 ```text
-裁片配料与领料退回联动数据检查通过
+裁片配料与接收退回联动数据检查通过
 ```
 
 - [ ] **步骤 7：Commit**
@@ -272,7 +272,7 @@ const returnedOrder = returnedRows[0]
   removeEventListener() {},
 }
 const detailHtml = renderFcsCuttingPrepPage()
-assert(detailHtml.includes('领料 / 退回记录'), '裁片配料详情 Tab 必须改为领料 / 退回记录')
+assert(detailHtml.includes('接收 / 退回记录'), '裁片配料详情 Tab 必须改为接收 / 退回记录')
 assert(detailHtml.includes('已退'), '裁片配料详情必须展示已退数量')
 assert(detailHtml.includes('已退回待中转仓处理'), '裁片配料详情必须展示退回状态')
 
@@ -287,7 +287,7 @@ assert(detailHtml.includes('已退回待中转仓处理'), '裁片配料详情�
 npm run check:cutting-prep-pickup-return-linkage
 ```
 
-预期：FAIL，报错 `只看有退回` 或 `领料 / 退回记录`。
+预期：FAIL，报错 `只看有退回` 或 `接收 / 退回记录`。
 
 - [ ] **步骤 3：增加列表筛选**
 
@@ -320,7 +320,7 @@ if (filters.hasReturn && row.returnedLineCount <= 0) return false
 <div class="${row.returnedLineCount > 0 ? 'font-medium text-amber-700' : 'text-muted-foreground'}">已退回：${row.returnedLineCount}</div>
 ```
 
-在领料状态区域增加：
+在接收状态区域增加：
 
 ```html
 ${row.totalReturnedQty > 0 ? `<div class="mt-1 text-xs text-amber-700">已退：${formatQty(row.totalReturnedQty)}</div>` : ''}
@@ -332,10 +332,10 @@ ${row.totalReturnedQty > 0 ? `<div class="mt-1 text-xs text-amber-700">含退回
 把 `renderDetailTabs(...)` 中 pickup 标签改为：
 
 ```ts
-{ key: 'pickup', label: '领料 / 退回记录', count: `${projection.pickupRecords.filter((record) => lineIds.has(record.prepLineId)).length + projection.pickupReturnRecords.filter((record) => lineIds.has(record.prepLineId)).length} 条` },
+{ key: 'pickup', label: '接收 / 退回记录', count: `${projection.pickupRecords.filter((record) => lineIds.has(record.prepLineId)).length + projection.pickupReturnRecords.filter((record) => lineIds.has(record.prepLineId)).length} 条` },
 ```
 
-在 `renderPickupRecords(...)` 中每条领料记录展示：
+在 `renderPickupRecords(...)` 中每条接收记录展示：
 
 ```html
 <div class="mt-1 text-xs text-muted-foreground">已退：${formatQty(returnedQty)} / 待加工仓剩余：${formatQty(remainingQty)}</div>
@@ -382,13 +382,13 @@ git add src/pages/fcs/material-prep/cutting.ts scripts/check-cutting-prep-pickup
 git commit -m "feat: show returns in cutting prep"
 ```
 
-## 任务 3：领料管理增加反向定位
+## 任务 3：接收管理增加反向定位
 
 **文件：**
 - 修改：`src/pages/process-factory/cutting/pickup-management.ts`
 - 修改：`scripts/check-cutting-prep-pickup-return-linkage.ts`
 
-- [ ] **步骤 1：扩展检查脚本覆盖领料详情**
+- [ ] **步骤 1：扩展检查脚本覆盖接收详情**
 
 在检查脚本增加导入：
 
@@ -406,10 +406,10 @@ import { renderCraftCuttingPickupManagementDetailPage } from '../src/pages/proce
   removeEventListener() {},
 }
 const pickupDetailHtml = renderCraftCuttingPickupManagementDetailPage()
-assert(pickupDetailHtml.includes('查看裁片配料'), '领料退回处理必须提供查看裁片配料入口')
-assert(pickupDetailHtml.includes(returnedOrder.order.prepOrderNo), '领料退回处理必须展示配料单')
-assert(pickupDetailHtml.includes(returnedOrder.pickupReturnRecords[0].prepRecordId), '领料退回处理必须展示配料记录')
-assert(pickupDetailHtml.includes(returnedOrder.pickupReturnRecords[0].pickupRecordId), '领料退回处理必须展示领料记录')
+assert(pickupDetailHtml.includes('查看裁片配料'), '接收退回处理必须提供查看裁片配料入口')
+assert(pickupDetailHtml.includes(returnedOrder.order.prepOrderNo), '接收退回处理必须展示配料单')
+assert(pickupDetailHtml.includes(returnedOrder.pickupReturnRecords[0].prepRecordId), '接收退回处理必须展示配料记录')
+assert(pickupDetailHtml.includes(returnedOrder.pickupReturnRecords[0].pickupRecordId), '接收退回处理必须展示接收记录')
 ```
 
 - [ ] **步骤 2：运行检查确认失败**
@@ -442,7 +442,7 @@ function buildCuttingPrepPickupHref(prepOrderId: string): string {
 ```html
 <div class="mt-1 text-xs text-muted-foreground">配料单：${renderPrepOrderCode(projection.order.prepOrderNo, projection.order.productionOrderNo)}</div>
 <div class="mt-1 text-xs text-muted-foreground">配料记录：${renderPrepRecordCode(record.prepRecordId, projection.order.productionOrderNo)}</div>
-<div class="mt-1 text-xs text-muted-foreground">领料记录：${renderPickupRecordCode(record.pickupRecordId, projection.order.productionOrderNo)}</div>
+<div class="mt-1 text-xs text-muted-foreground">接收记录：${renderPickupRecordCode(record.pickupRecordId, projection.order.productionOrderNo)}</div>
 <button type="button" data-nav="${escapeHtml(buildCuttingPrepPickupHref(record.prepOrderId))}" class="mt-2 rounded-md border border-blue-200 px-3 py-1.5 text-xs text-blue-700 hover:bg-blue-50">查看裁片配料</button>
 ```
 
@@ -491,7 +491,7 @@ assert(returnFilterDuration <= actionThresholdMs, `裁片配料只看有退回�
 创建 `docs/prototype-review-records/2026-07-09-cutting-prep-pickup-return-linkage.md`：
 
 ```md
-# 裁片配料与领料退回可视化联动原型审查记录
+# 裁片配料与接收退回可视化联动原型审查记录
 
 ## 审查对象
 
@@ -501,14 +501,14 @@ assert(returnFilterDuration <= actionThresholdMs, `裁片配料只看有退回�
 
 ## 范围
 
-本次只处理配料和领料模块。中转仓收回确认、待质检判定、换料重配、无法补料后续不在范围内。
+本次只处理配料和接收模块。中转仓收回确认、待质检判定、换料重配、无法补料后续不在范围内。
 
 ## 自查结论
 
 - 角色匹配：通过。
 - 信息层级：通过，裁片配料详情不再把摘要放在 Tab 外。
-- 数据联动：通过，裁片配料和领料管理读取同一套配料、领料、退回投影。
-- 退回可见性：通过，列表、详情、筛选、领料反向跳转均能定位退回事实。
+- 数据联动：通过，裁片配料和接收管理读取同一套配料、接收、退回投影。
+- 退回可见性：通过，列表、详情、筛选、接收反向跳转均能定位退回事实。
 - 文案中文化：通过。
 - 性能要求：通过专项脚本验证。
 ```

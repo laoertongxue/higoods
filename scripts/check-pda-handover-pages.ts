@@ -156,7 +156,7 @@ function legacyMobileCopy(...parts: string[]): string {
 
 function checkForbiddenCopy(): void {
   const forbiddenTerms = [
-    legacyMobileCopy('领料', '头'),
+    legacyMobileCopy('接收', '头'),
     legacyMobileCopy('交出', '头'),
     '仓库自动回写',
     '工厂只查看',
@@ -188,7 +188,7 @@ function checkPageSignals(): void {
     assert(listPage.includes(term), `pda-handover.ts 缺少列表关键信号：${term}`)
   })
 
-  ;['交出单二维码', '交出记录二维码', '新增交出记录', '完成领料单', '完成交出单', '确认收货', '发起异议', '接受差异', '入库记录', '出库记录', '已入待加工仓', '已生成出库记录', '已驳回'].forEach((term) => {
+  ;['交出单二维码', '交出记录二维码', '新增交出记录', '完成接收单', '完成交出单', '确认收货', '发起异议', '接受差异', '入库记录', '出库记录', '已入待加工仓', '已生成出库记录', '已驳回'].forEach((term) => {
     assert(detailPage.includes(term), `pda-handover-detail.ts 缺少详情关键信号：${term}`)
   })
   ;['中转袋', '扫码装袋', '移除菲票', '完成装袋', '扫描中转袋', '按袋确认', '按菲票确认', '袋内明细'].forEach((term) => {
@@ -205,7 +205,7 @@ function checkPageSignals(): void {
   assert(detailPage.includes('createFactoryHandoverRecord'), 'pda-handover-detail.ts 未接入新增交出记录 helper')
   assert(detailPage.includes('writeBackHandoverRecord'), 'pda-handover-detail.ts 未接入接收方收货确认 helper')
   assert(detailPage.includes('receiverWrittenQty') || detailPage.includes('getRecordReceiverWrittenQty'), 'pda-handover-detail.ts 未切换到 receiverWritten 主口径')
-  assert(detailPage.includes('linkPickupConfirmToInboundRecord'), 'pda-handover-detail.ts 未接入待领料到入库联动 helper')
+  assert(detailPage.includes('linkPickupConfirmToInboundRecord'), 'pda-handover-detail.ts 未接入待接收到入库联动 helper')
   assert(detailPage.includes('linkHandoverRecordToOutboundRecord'), 'pda-handover-detail.ts 未接入交出到出库联动 helper')
   assert(detailPage.includes('syncReceiverWritebackToOutboundRecord'), 'pda-handover-detail.ts 未接入回写同步出库 helper')
   assert(detailPage.includes('syncQuantityObjectionToOutboundRecord'), 'pda-handover-detail.ts 未接入异议同步出库 helper')
@@ -228,7 +228,7 @@ function checkDataSignals(): void {
   const pickupHeads = heads.filter((head) => head.headType === 'PICKUP')
 
   assert(handoutHeads.length > 0, '缺少交出单样例')
-  assert(pickupHeads.length > 0, 'pickup 领料样例丢失')
+  assert(pickupHeads.length > 0, 'pickup 接收样例丢失')
 
   handoutHeads.forEach((head) => {
     const records = getPdaHandoverRecordsByHead(head.handoverId)

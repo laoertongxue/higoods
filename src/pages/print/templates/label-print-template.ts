@@ -555,13 +555,13 @@ export function buildCuttingOrderQrLabelPrintDocument(input: PrintDocumentBuildI
       { label: '当前唛架方案', value: source?.latestMarkerPlanNo || '未进入唛架方案' },
     ]),
     labelWarnings: ['菲票永远回落裁片单，唛架方案只作为执行上下文。'],
-    qrCode: { title: '裁片单二维码', value: qrValue, description: '扫码查看裁片单配料与领料信息', sizeMm: 32 },
+    qrCode: { title: '裁片单二维码', value: qrValue, description: '扫码查看裁片单配料与接收信息', sizeMm: 32 },
     barcode: { title: '裁片单条码', value: buildPrintBarcodePayload({ documentType: 'CUTTING_ORDER_QR_LABEL', sourceType: 'CUTTING_ORDER_RECORD', sourceId, businessNo }), description: businessNo },
     printMode: '普通打印',
   }
   return buildBaseLabelDocument(input, {
     title: '裁片单二维码',
-    subtitle: '用于配料、领料、裁床现场查询。',
+    subtitle: '用于配料、接收、裁床现场查询。',
     templateCode: 'CUTTING_ORDER_QR_LABEL',
     sourceType: 'CUTTING_ORDER_RECORD',
     paperType: 'LABEL_100_60',

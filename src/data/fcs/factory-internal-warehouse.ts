@@ -62,7 +62,7 @@ export type FactoryWarehouseSourceObjectKind =
   | '后道工厂'
   | '上游工厂仓'
 export type FactoryWarehouseItemKind = '面料' | '辅料' | '裁片' | '成衣' | '其他半成品'
-export type FactoryWaitProcessStockStatus = '待领料' | '已入待加工仓' | '差异待处理' | '已领用'
+export type FactoryWaitProcessStockStatus = '待接收' | '已入待加工仓' | '差异待处理' | '已领用'
 export type FactoryWaitHandoverStockStatus = '待交出' | '已交出' | '已回写' | '差异' | '异议中'
 export type FactoryInboundRecordStatus = '待确认' | '已入库' | '差异待处理' | '已作废'
 export type FactoryOutboundRecordStatus = '已出库' | '已回写' | '差异' | '异议中' | '已作废'
@@ -769,7 +769,7 @@ function pickWarehouseLocation(
   const preferredAreaName =
     status === '差异待处理' || status === '差异' || status === '异议中'
       ? '异常区'
-      : status === '待领料' || status === '待确认'
+      : status === '待接收' || status === '待确认'
         ? '待确认区'
         : NORMAL_AREA_NAMES[hashCode(seed) % NORMAL_AREA_NAMES.length]
 
@@ -795,7 +795,7 @@ function resolvePickupRecordStatus(doc: WarehouseIssueOrder, line: WarehouseIssu
 function resolveWaitProcessStockStatus(record: FactoryWarehouseInboundRecord): FactoryWaitProcessStockStatus {
   if (record.status === '差异待处理') return '差异待处理'
   if (record.status === '已入库') return '已入待加工仓'
-  return '待领料'
+  return '待接收'
 }
 
 function resolveHandoutStatus(record: PdaHandoverRecord): FactoryOutboundRecordStatus {
@@ -917,7 +917,7 @@ function buildInboundRecordFromPickupInput(input: {
     status,
     abnormalReason: differenceQty !== 0 ? '数量不符' : undefined,
     photoList: differenceQty !== 0 ? ['/placeholder.svg'] : [],
-    remark: '由领料记录生成',
+    remark: '由接收记录生成',
   }
 }
 
@@ -1009,7 +1009,7 @@ function buildInboundRecordFromPickupRecordInput(input: {
       differenceQty !== 0
         ? ((record.objectionProofFiles?.length || 0) > 0 ? record.objectionProofFiles!.map(() => '/placeholder.svg') : ['/placeholder.svg'])
         : [],
-    remark: '由领料记录生成',
+    remark: '由接收记录生成',
   }
 }
 
@@ -1695,7 +1695,7 @@ function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
       locationNo: location.locationNo,
       status: '已入库',
       photoList: [],
-      remark: '由领料记录生成',
+      remark: '由接收记录生成',
     })
   }
 
@@ -1812,7 +1812,7 @@ function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
         locationNo: location.locationNo,
         status: '已入库',
         photoList: [],
-        remark: 'PDA 领料入仓演示数据',
+        remark: 'PDA 接收入仓演示数据',
       })
     })
   })
@@ -2599,14 +2599,14 @@ export function getFactoryWarehouseAdjustmentOrder(adjustmentOrderId: string): F
 }
 
 export function getFactoryWarehouseSourceRecordTypeLabel(sourceRecordType: FactoryWarehouseSourceRecordType): string {
-  if (sourceRecordType === 'MATERIAL_PICKUP') return '领料记录'
+  if (sourceRecordType === 'MATERIAL_PICKUP') return '接收记录'
   if (sourceRecordType === 'HANDOVER_RECEIVE') return '交出接收'
   if (sourceRecordType === 'STOCKTAKE_ADJUSTMENT') return '盘点调整'
   return '转入接收'
 }
 
 export function getFactoryWarehouseInboundSourceLabel(sourceRecordType: FactoryWarehouseSourceRecordType): string {
-  if (sourceRecordType === 'MATERIAL_PICKUP') return '由领料记录生成'
+  if (sourceRecordType === 'MATERIAL_PICKUP') return '由接收记录生成'
   if (sourceRecordType === 'HANDOVER_RECEIVE') return '由交出接收生成'
   if (sourceRecordType === 'STOCKTAKE_ADJUSTMENT') return '由盘点调整生成'
   return '由转入接收生成'
@@ -3437,7 +3437,7 @@ export function getFactoryWarehouseSummary(input: {
 export function getFactoryWarehouseFilterStatusOptions(): Array<{ value: string; label: string }> {
   return [
     { value: 'ALL', label: '全部' },
-    { value: '待领料', label: '待领料' },
+    { value: '待接收', label: '待接收' },
     { value: '已入待加工仓', label: '已入待加工仓' },
     { value: '差异待处理', label: '差异待处理' },
     { value: '待交出', label: '待交出' },

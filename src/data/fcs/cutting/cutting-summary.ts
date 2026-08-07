@@ -281,7 +281,7 @@ function buildPlatformStageSummary(args: {
 }): string {
   if (args.warehouseSummary.cutPiecePendingInboundCount > 0 || args.warehouseSummary.unassignedZoneCount > 0) return '裁片仓入仓 / 分区仍待收口。'
   if (args.sampleSummary.sampleWaitingReturnCount > 0) return '样衣流转尚未收口，需继续回仓。'
-  if (args.receiveSummary.receivedPartialCount > 0 || args.receiveSummary.notReceivedCount > 0) return '裁床领料入待加工仓仍在执行中。'
+  if (args.receiveSummary.receivedPartialCount > 0 || args.receiveSummary.notReceivedCount > 0) return '裁床接收入待加工仓仍在执行中。'
   if (args.spreadingSummary.pendingSpreadingCount > 0) return '铺布执行记录尚未完全回流。'
   return '正式裁片主链已进入稳定执行或收口阶段。'
 }
@@ -313,10 +313,10 @@ function buildIssues(args: {
     issues.push({
       issueType: 'PREP_PENDING',
       level: args.productionOrderNo.endsWith('081') ? 'HIGH' : 'MEDIUM',
-      title: '中转仓配料或裁床领料仍待收口',
-      description: '当前仍有中转仓配料数量不足或裁床领料记录未完成的裁片单。',
+      title: '中转仓配料或裁床接收仍待收口',
+      description: '当前仍有中转仓配料数量不足或裁床接收记录未完成的裁片单。',
       sourcePage: 'MATERIAL_PREP',
-      suggestedAction: '优先核对中转仓配料数量与裁床领料记录。',
+      suggestedAction: '优先核对中转仓配料数量与裁床接收记录。',
       suggestedRoute: '/fcs/craft/cutting/warehouse-management/wait-process',
     })
   }
@@ -416,9 +416,9 @@ function buildLinkedPageSummary(args: {
     },
     {
       pageKey: 'MATERIAL_PREP',
-      pageLabel: '中转仓配料 / 裁床领料',
+      pageLabel: '中转仓配料 / 裁床接收',
       route: '/fcs/craft/cutting/warehouse-management/wait-process',
-      summaryText: `有配料数量 ${args.materialSummary.fullyConfiguredCount}，有领料记录 ${args.receiveSummary.receivedSuccessCount}`,
+      summaryText: `有配料数量 ${args.materialSummary.fullyConfiguredCount}，有接收记录 ${args.receiveSummary.receivedSuccessCount}`,
     },
     {
       pageKey: 'CUT_PIECE_ORDER',

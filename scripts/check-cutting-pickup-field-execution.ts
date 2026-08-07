@@ -129,10 +129,10 @@ const pda = readFileSync(new URL('../src/pages/pda-warehouse-wait-process.ts', i
 const runtime = readFileSync(new URL('../src/runtime/fcs/cutting/pickup-management-runtime.ts', import.meta.url), 'utf8')
 assert(
   runtime.includes('assertPickupNodeHasNoOpenDiscrepancy(input.pickupNodeId, input.pickupNodeVersion, storage)'),
-  '统一领料写入口必须阻断未处理差异，不能只依赖 PDA',
+  '统一接收写入口必须阻断未处理差异，不能只依赖 PDA',
 )
 for (const text of [
-  '上报领料差异',
+  '上报接收差异',
   '叫主管处理',
   '现场照片',
   '现场说明',
@@ -146,13 +146,13 @@ assert(pda.includes("node.carrierType === 'PALLET'"), 'PDA 必须按承载方式
 const listPage = readFileSync(new URL('../src/pages/process-factory/cutting/pickup-management-list.ts', import.meta.url), 'utf8')
 for (const text of [
   '款式 / SPU',
-  '最近领料人',
+  '最近接收人',
   '当前节点状态',
   '本轮可领',
   '领后仍缺',
-  '查看领料记录',
-  '上报领料差异',
-  '领料记录',
+  '查看接收记录',
+  '上报接收差异',
+  '接收记录',
   '去处理当前待领',
   '异常证据',
   '主管处理完成',
@@ -164,16 +164,16 @@ for (const text of [
   '库区 / 库位',
   '仍缺物料',
   '最近配料时间',
-  '领料路径',
+  '接收路径',
   '最终结果',
-  '最近领料时间',
+  '最近接收时间',
   '一次直接配齐',
   '从未配齐升级',
   '当前未编号托盘',
   '当前占用库位',
-  '可整批领料生产单',
+  '可整批接收生产单',
   '含补料生产单',
-  '已配齐后领料',
+  '已配齐后接收',
   '未配齐先领',
   '尚未全部领完',
   '新增补料待领',
@@ -187,4 +187,4 @@ for (const key of ['readyStyle', 'incompleteStyle', 'historyStyle']) {
   assert(listPage.includes(`key: '${key}'`), `列表列键必须唯一：${key}`)
 }
 
-console.log('✓ 领料现场差异、PDA 承载方式、列表字段与领料记录检查通过')
+console.log('✓ 接收现场差异、PDA 承载方式、列表字段与接收记录检查通过')

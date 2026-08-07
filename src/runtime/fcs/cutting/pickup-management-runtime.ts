@@ -155,7 +155,7 @@ export function recoverPendingPickupWarehouseTransaction(
   try {
     journal = JSON.parse(raw) as PickupWarehouseTransactionJournal
   } catch {
-    throw new Error('领料原子事务日志损坏，请联系系统管理员处理。')
+    throw new Error('接收原子事务日志损坏，请联系系统管理员处理。')
   }
   if (
     (journal.status !== 'PREPARING' && journal.status !== 'COMMITTED')
@@ -164,11 +164,11 @@ export function recoverPendingPickupWarehouseTransaction(
     || (journal.prepBefore !== null && typeof journal.prepBefore !== 'string')
     || (journal.ledgerBefore !== null && typeof journal.ledgerBefore !== 'string')
   ) {
-    throw new Error('领料原子事务日志格式无效，请联系系统管理员处理。')
+    throw new Error('接收原子事务日志格式无效，请联系系统管理员处理。')
   }
   if (journal.status === 'PREPARING') {
     if (Date.now() - Date.parse(journal.createdAt) < PICKUP_WAREHOUSE_TRANSACTION_STALE_MS) {
-      throw new Error('领料确认正在提交，请稍后重试。')
+      throw new Error('接收确认正在提交，请稍后重试。')
     }
     restoreStorageValue(storage, PRODUCTION_MATERIAL_PREP_STORAGE_KEY, journal.prepBefore)
     restoreStorageValue(storage, CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, journal.ledgerBefore)
@@ -178,8 +178,8 @@ export function recoverPendingPickupWarehouseTransaction(
 }
 
 /**
- * 原型内的跨事实原子边界：领料会话/明细与裁床待加工仓流水要么共同写入，
- * 要么恢复确认前的两份本地事实，不能留下“领料已保存、流水待重试”的中间态。
+ * 原型内的跨事实原子边界：接收会话/明细与裁床待加工仓流水要么共同写入，
+ * 要么恢复确认前的两份本地事实，不能留下“接收已保存、流水待重试”的中间态。
  */
 export function appendPickupSessionWithWarehouseFactsRuntime(
   input: Omit<Parameters<typeof appendPickupSessionFromNode>[0], 'warehouseSyncDeferred'>,
@@ -191,7 +191,7 @@ export function appendPickupSessionWithWarehouseFactsRuntime(
   overrides: PickupRuntimeOverrides = {},
 ): PickupSession {
   if (!storage?.setItem || !storage.removeItem) {
-    throw new Error('当前存储不支持原子领料确认，请刷新后重试。')
+    throw new Error('当前存储不支持原子接收确认，请刷新后重试。')
   }
   recoverPendingPickupWarehouseTransaction(storage)
   assertPickupNodeHasNoOpenDiscrepancy(input.pickupNodeId, input.pickupNodeVersion, storage)

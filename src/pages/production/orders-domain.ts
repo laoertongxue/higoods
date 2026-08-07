@@ -960,7 +960,7 @@ function getOrderIssueProgress(order: ProductionOrder, prepLines: MaterialPrepLi
   const hasConfirmedPrepRecord = prepLines.some((line) => line.confirmedPrepQty > 0)
   if (!hasConfirmedPrepRecord) {
     return {
-      badgeLabel: '领料未开放',
+      badgeLabel: '接收未开放',
       badgeClassName: 'bg-slate-100 text-slate-700',
       mainText: '待配料记录形成',
       pickupText: '仓库拣货：未开放',
@@ -977,12 +977,12 @@ function getOrderIssueProgress(order: ProductionOrder, prepLines: MaterialPrepLi
     const pendingQty = collectDraftLineQty(pendingDrafts)
     const pendingText = formatQtyBucket(pendingQty)
     return {
-      badgeLabel: pendingDrafts.length > 0 ? '待确认领料' : '待生成领料',
+      badgeLabel: pendingDrafts.length > 0 ? '待确认接收' : '待生成接收',
       badgeClassName: 'bg-amber-100 text-amber-700',
       mainText: pendingDrafts.length > 0
         ? `草稿应领 ${pendingText} / 已领 0 / 待确认 ${pendingText}`
         : '应领 0 / 已领 0 / 待领 0',
-      pickupText: pendingDrafts.length > 0 ? '仓库拣货：待领料草稿确认' : '仓库拣货：待生成领料草稿',
+      pickupText: pendingDrafts.length > 0 ? '仓库拣货：待接收草稿确认' : '仓库拣货：待生成接收草稿',
       extraText: pendingDrafts.length > 0 ? `草稿 ${pendingDrafts.length} / 待确认 ${pendingDrafts.length}` : '',
     }
   }
@@ -1016,11 +1016,11 @@ function getOrderIssueProgress(order: ProductionOrder, prepLines: MaterialPrepLi
   const hasPendingDrafts = pendingDrafts.length > 0
   const badge =
     expectedTotal <= 0
-      ? { label: '待生成领料', className: 'bg-amber-100 text-amber-700' }
+      ? { label: '待生成接收', className: 'bg-amber-100 text-amber-700' }
       : issuedTotal >= expectedTotal
       ? { label: '已领齐', className: 'bg-green-100 text-green-700' }
       : issuedTotal > 0
-      ? { label: '部分领料', className: 'bg-blue-100 text-blue-700' }
+      ? { label: '部分接收', className: 'bg-blue-100 text-blue-700' }
       : pickedTotal > 0
       ? { label: '可领未领', className: 'bg-cyan-100 text-cyan-700' }
       : { label: '待仓库拣货', className: 'bg-amber-100 text-amber-700' }
@@ -1183,7 +1183,7 @@ function renderMaterialDraftTaskCard(draft: MaterialRequestDraft): string {
 
       <div class="mt-3 grid gap-3 md:grid-cols-3">
         <label class="space-y-1">
-          <span class="text-xs text-muted-foreground">是否需要领料</span>
+          <span class="text-xs text-muted-foreground">是否需要接收</span>
           <label class="inline-flex items-center gap-2 text-sm">
             <input
               type="checkbox"
@@ -1192,11 +1192,11 @@ function renderMaterialDraftTaskCard(draft: MaterialRequestDraft): string {
               ${draft.needMaterial ? 'checked' : ''}
               ${isCreated ? 'disabled' : ''}
             />
-            需要领料
+            需要接收
           </label>
         </label>
         <label class="space-y-1">
-          <span class="text-xs text-muted-foreground">领料方式</span>
+          <span class="text-xs text-muted-foreground">接收方式</span>
           <select
             data-prod-field="materialDraftMode:${escapeHtml(draft.draftId)}"
             class="h-9 w-full rounded-md border px-3 text-sm"
@@ -1213,7 +1213,7 @@ function renderMaterialDraftTaskCard(draft: MaterialRequestDraft): string {
             value="${escapeHtml(draft.remark)}"
             class="h-9 w-full rounded-md border px-3 text-sm"
             ${isCreated ? 'disabled' : ''}
-            placeholder="可填写领料说明"
+            placeholder="可填写接收说明"
           />
         </label>
       </div>
@@ -1282,7 +1282,7 @@ function renderMaterialDraftTaskCard(draft: MaterialRequestDraft): string {
         isCreated
           ? `
             <div class="mt-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
-              <div>正式领料需求编号：${renderProductionObjectCodeButton({
+              <div>正式接收需求编号：${renderProductionObjectCodeButton({
                 objectType: 'MATERIAL_PREP_ORDER',
                 objectId: draft.createdMaterialRequestNo,
                 label: draft.createdMaterialRequestNo,
@@ -1415,8 +1415,8 @@ function renderMaterialDraftDrawer(): string {
         <header class="sticky top-0 z-10 border-b bg-background px-5 py-4">
           <div class="flex items-start justify-between gap-3">
             <div>
-              <h3 class="text-lg font-semibold">配料 / 领料草稿</h3>
-              <p class="mt-1 text-xs text-muted-foreground">按配料记录和任务生成系统建议草稿，确认后创建正式领料需求并挂接到任务</p>
+              <h3 class="text-lg font-semibold">配料 / 接收草稿</h3>
+              <p class="mt-1 text-xs text-muted-foreground">按配料记录和任务生成系统建议草稿，确认后创建正式接收需求并挂接到任务</p>
             </div>
             <button class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted" data-prod-action="close-material-draft-drawer" aria-label="关闭">
               <i data-lucide="x" class="h-4 w-4"></i>
@@ -1465,7 +1465,7 @@ function renderMaterialDraftDrawer(): string {
             drafts.length === 0
               ? `
                 <section class="rounded-lg border bg-card p-8 text-center text-sm text-muted-foreground">
-                  当前生产单暂无可识别领料任务，配料记录形成并进入分配后会自动生成建议草稿。
+                  当前生产单暂无可识别接收任务，配料记录形成并进入分配后会自动生成建议草稿。
                 </section>
               `
               : drafts.map((draft) => renderMaterialDraftTaskCard(draft)).join('')
@@ -1650,7 +1650,7 @@ export function renderProductionOrdersPage(): string {
           </div>
 
           <div>
-            <span class="text-xs text-muted-foreground">是否创建领料草稿</span>
+            <span class="text-xs text-muted-foreground">是否创建接收草稿</span>
             <select data-prod-field="ordersHasMaterialDraftFilter" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">
               <option value="ALL" ${state.ordersHasMaterialDraftFilter === 'ALL' ? 'selected' : ''}>全部</option>
               <option value="YES" ${state.ordersHasMaterialDraftFilter === 'YES' ? 'selected' : ''}>是</option>
@@ -1659,7 +1659,7 @@ export function renderProductionOrdersPage(): string {
           </div>
 
           <div>
-            <span class="text-xs text-muted-foreground">是否确认领料</span>
+            <span class="text-xs text-muted-foreground">是否确认接收</span>
             <select data-prod-field="ordersHasConfirmedMaterialRequestFilter" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">
               <option value="ALL" ${state.ordersHasConfirmedMaterialRequestFilter === 'ALL' ? 'selected' : ''}>全部</option>
               <option value="YES" ${state.ordersHasConfirmedMaterialRequestFilter === 'YES' ? 'selected' : ''}>是</option>
@@ -1738,7 +1738,7 @@ export function renderProductionOrdersPage(): string {
                             title: confirmationPreviewState.title,
                           }),
                           renderOrderTextActionButton({
-                            label: '领料草稿',
+                            label: '接收草稿',
                             action: 'open-material-draft-drawer',
                             orderId: order.productionOrderId,
                           }),

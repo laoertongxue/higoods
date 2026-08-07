@@ -14,7 +14,7 @@
 
 - 修改：`src/data/fcs/production-tech-pack-change-domain.ts`
   - 新增生产单当前事实类型、mock 数据和 `getProductionOrderChangeCurrentFacts(productionOrderId)`。
-  - 数据覆盖：生产单需求数量、物料配料 / 领料、裁剪 / 铺布 / 裁片、印花 / 染色 / 特殊工艺、车缝 / 后道 / 交出、结算 / 成本、历史变更 / 锁定。
+  - 数据覆盖：生产单需求数量、物料配料 / 接收、裁剪 / 铺布 / 裁片、印花 / 染色 / 特殊工艺、车缝 / 后道 / 交出、结算 / 成本、历史变更 / 锁定。
 - 修改：`src/pages/production/changes-domain.ts`
   - 导入当前事实读取函数。
   - 替换 `renderProductionChangeCurrentFacts()` 内部粗略摘要渲染。
@@ -120,7 +120,7 @@ export interface ProductionOrderChangeCurrentFacts {
 
 同文件新增 `productionOrderChangeCurrentFacts`。至少覆盖 3 张生产单：
 
-- `PO-202603-0004`：已有配料、领料、铺布，需求数量可减少。
+- `PO-202603-0004`：已有配料、接收、铺布，需求数量可减少。
 - `PO-202603-0018`：已有印花 / 染色单，需求数量或色码结构可调整。
 - `PO-202603-0013`：已有车缝交出和部分结算，减量只能追溯或补差。
 
@@ -221,7 +221,7 @@ ${renderProductionChangeFactCard(
   ),
 )}
 ${renderProductionChangeFactCard(
-  '物料配料 / 领料事实',
+  '物料配料 / 接收事实',
   renderProductionChangeFactTable(
     ['物料', '应配', '已配', '已领', '剩余可改', '单据来源', '事实说明'],
     (facts?.materialFacts ?? []).map((row) => [
@@ -233,7 +233,7 @@ ${renderProductionChangeFactCard(
       row.sourceDocument,
       row.note,
     ]),
-    '暂无物料配料 / 领料事实',
+    '暂无物料配料 / 接收事实',
   ),
 )}
 ```
@@ -280,7 +280,7 @@ git commit -m "feat: show production change current facts"
 在 `主要任务` 或 `数量与状态` 自查说明中补充：
 
 ```markdown
-新增页第 1 步展示生产单需求数量、色码需求数量、物料配料 / 领料、裁剪、印染、车缝交出、结算和历史锁定事实；数量带单位，系统直接展示已生成、已执行、未执行数量，避免业务人员靠百分比或手算判断。
+新增页第 1 步展示生产单需求数量、色码需求数量、物料配料 / 接收、裁剪、印染、车缝交出、结算和历史锁定事实；数量带单位，系统直接展示已生成、已执行、未执行数量，避免业务人员靠百分比或手算判断。
 ```
 
 - [ ] **步骤 2：运行治理检查**
@@ -365,6 +365,6 @@ codegraph status
 
 ## 自检
 
-- 规格覆盖：覆盖了生产单需求数量、物料配料 / 领料、裁剪 / 铺布 / 裁片、印花 / 染色 / 特殊工艺、车缝 / 后道 / 交出、结算 / 成本、历史变更 / 补丁 / 锁定。
+- 规格覆盖：覆盖了生产单需求数量、物料配料 / 接收、裁剪 / 铺布 / 裁片、印花 / 染色 / 特殊工艺、车缝 / 后道 / 交出、结算 / 成本、历史变更 / 补丁 / 锁定。
 - 页面边界：第 1 步只展示事实，不选择处理方式；第 3 步继续负责影响范围和处理建议。
 - 简化项：不接真实后端，不引入新依赖，不新增快捷路径，不重写 4 步主流程。

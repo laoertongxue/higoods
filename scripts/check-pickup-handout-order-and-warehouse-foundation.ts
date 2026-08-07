@@ -46,9 +46,9 @@ function joinText(parts: string[]): string {
   return parts.join('')
 }
 
-const oldPickupHead = joinText(['领料', '头'])
+const oldPickupHead = joinText(['接收', '头'])
 const oldHandoutHead = joinText(['交出', '头'])
-const oldPickupHeadPhrase = joinText(['领料信息（', '领料', '头）'])
+const oldPickupHeadPhrase = joinText(['接收信息（', '接收', '头）'])
 const legacyWarehouseA = joinText(['来', '料仓'])
 const legacyWarehouseB = joinText(['半成品', '仓'])
 const forbiddenWmsTerms = [
@@ -96,38 +96,38 @@ const stocktakePageSource = read('src/pages/pda-warehouse-stocktake.ts')
 const packageSource = read('package.json')
 
 for (const { file, source } of pageSources) {
-  assertNotIncludes(source, oldPickupHead, `${file} 仍显示旧领料口径`)
+  assertNotIncludes(source, oldPickupHead, `${file} 仍显示旧接收口径`)
   assertNotIncludes(source, oldHandoutHead, `${file} 仍显示旧交出口径`)
-  assertNotIncludes(source, oldPickupHeadPhrase, `${file} 仍显示旧领料标题`)
+  assertNotIncludes(source, oldPickupHeadPhrase, `${file} 仍显示旧接收标题`)
   assertNotIncludes(source, legacyWarehouseA, `${file} 仍显示旧仓库文案`)
   assertNotIncludes(source, legacyWarehouseB, `${file} 仍显示旧仓库文案`)
 }
 
 assertIncludes(packageSource, 'check:pickup-handout-order-and-warehouse-foundation', 'package.json 缺少 Step 3 检查命令')
-assert.equal(getPdaHandoverHeadBusinessLabel('PICKUP'), '领料单', 'PICKUP head 必须展示为领料单')
+assert.equal(getPdaHandoverHeadBusinessLabel('PICKUP'), '接收单', 'PICKUP head 必须展示为接收单')
 assert.equal(getPdaHandoverHeadBusinessLabel('HANDOUT'), '交出单', 'HANDOUT head 必须展示为交出单')
 
-assertIncludes(read('src/pages/pda-handover-detail.ts'), '完成领料单', '详情页缺少完成领料单按钮')
+assertIncludes(read('src/pages/pda-handover-detail.ts'), '完成接收单', '详情页缺少完成接收单按钮')
 assertIncludes(read('src/pages/pda-handover-detail.ts'), '完成交出单', '详情页缺少完成交出单按钮')
-assertIncludes(dataSource, 'basisQty * 0.8', '领料单 / 交出单完成未使用 80% 下限')
-assertIncludes(dataSource, 'basisQty * 1.2', '领料单 / 交出单完成未使用 120% 上限')
+assertIncludes(dataSource, 'basisQty * 0.8', '接收单 / 交出单完成未使用 80% 下限')
+assertIncludes(dataSource, 'basisQty * 1.2', '接收单 / 交出单完成未使用 120% 上限')
 assertNotIncludes(dataSource, '仍有待接收方回写记录', '交出单完成不应依赖全部回写')
 assertNotIncludes(dataSource, '仍有未处理完成的数量异议', '交出单完成不应依赖异议关闭')
-assertIncludes(dataSource, '领料单已完成，不允许新增领料记录', '完成领料单后缺少新增领料记录拦截')
+assertIncludes(dataSource, '接收单已完成，不允许新增接收记录', '完成接收单后缺少新增接收记录拦截')
 assertIncludes(dataSource, '交出单已完成，不允许新增交出记录', '完成交出单后缺少新增交出记录拦截')
 assertIncludes(dataSource, 'receiverClosedAt: head.receiverClosedAt', '交出单完成语义不能直接覆盖接收方闭合时间')
 
 const pickupHeads = listPdaHandoverHeads().filter((head) => head.headType === 'PICKUP')
 const handoutHeads = listPdaHandoverHeads().filter((head) => head.headType === 'HANDOUT')
-assert(pickupHeads.length > 0, '缺少领料单样例')
+assert(pickupHeads.length > 0, '缺少接收单样例')
 assert(handoutHeads.length > 0, '缺少交出单样例')
-assert(pickupHeads.some((head) => getPdaPickupRecordsByHead(head.handoverId).length > 0), '领料单必须有领料记录')
+assert(pickupHeads.some((head) => getPdaPickupRecordsByHead(head.handoverId).length > 0), '接收单必须有接收记录')
 assert(handoutHeads.some((head) => getPdaHandoverRecordsByHead(head.handoverId).length > 0), '交出单必须有交出记录')
-assert(canCompletePdaPickupHead(pickupHeads[0].handoverId).message.includes('领料单'), '领料单完成校验必须返回业务文案')
+assert(canCompletePdaPickupHead(pickupHeads[0].handoverId).message.includes('接收单'), '接收单完成校验必须返回业务文案')
 assert(canCompletePdaHandoutHead(handoutHeads[0].handoverId).message.includes('交出单'), '交出单完成校验必须返回业务文案')
 
-assertNotIncludes(read('src/pages/pda-handover-detail.ts'), '目标工厂', '领料记录详情不应展示目标工厂字段')
-assertNotIncludes(read('src/pages/pda-handover.ts'), '目标工厂', '领料记录卡片不应展示目标工厂字段')
+assertNotIncludes(read('src/pages/pda-handover-detail.ts'), '目标工厂', '接收记录详情不应展示目标工厂字段')
+assertNotIncludes(read('src/pages/pda-handover.ts'), '目标工厂', '接收记录卡片不应展示目标工厂字段')
 
 ;['A区', 'B区', 'C区', 'D区', 'E区', 'F区', '异常区', '待确认区'].forEach((areaName) => {
   assertIncludes(warehouseSource, areaName, `默认库区缺少 ${areaName}`)

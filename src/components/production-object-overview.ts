@@ -60,7 +60,7 @@ const OBJECT_TYPE_LABEL: Record<ProductionObjectType, string> = {
   PROCESS_DOC: '工艺单据',
   MATERIAL_PREP_ORDER: '配料单',
   MATERIAL_PREP_RECORD: '配料记录',
-  MATERIAL_PICKUP_RECORD: '发料/领料记录',
+  MATERIAL_PICKUP_RECORD: '发料/接收记录',
   CUT_ORDER: '裁片单',
   FEI_TICKET: '菲票',
   SPREADING_ORDER: '铺布单',
@@ -80,7 +80,7 @@ const MATERIAL_RESOURCE_TAB_ITEMS: Array<{ key: MaterialResourceTab; label: stri
   { key: 'supply-demand', label: '供需总览' },
   { key: 'allocations', label: '业务占用' },
   { key: 'inventory', label: '库存与在途' },
-  { key: 'execution', label: '配料 / 领料 / 发料' },
+  { key: 'execution', label: '配料 / 接收 / 发料' },
   { key: 'issues-master', label: '异常与档案' },
 ]
 
@@ -124,7 +124,7 @@ function formatQty(value: number | undefined, unit: string): string {
 }
 
 function renderSearchEmpty(keyword: string): string {
-  if (!keyword) return '<div class="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">输入生产单、需求单、SPU、SKU、面料 / 辅料 / 纱线、配料单 / 领料单 / 发料单、裁片单、菲票、印花工单或染色工单，快速查看生产全貌。</div>'
+  if (!keyword) return '<div class="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">输入生产单、需求单、SPU、SKU、面料 / 辅料 / 纱线、配料单 / 接收单 / 发料单、裁片单、菲票、印花工单或染色工单，快速查看生产全貌。</div>'
   if (keyword.trim().length < 2) return '<div class="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">请至少输入 2 个字符。</div>'
   return '<div class="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">没有找到匹配对象。请确认编号是否完整，或换用 SPU / SKU / 生产单号搜索。</div>'
 }
@@ -137,7 +137,7 @@ function isSearchRiskItem(item: ProductionObjectSearchIndex): boolean {
 
 function getSearchBlockerText(item: ProductionObjectSearchIndex): string {
   const matchedText = item.matchedReason?.replace(/^命中：/, '') || ''
-  if (['缺料', '未到仓', '待领料', '待确认', '差异'].some((value) => matchedText.includes(value))) return matchedText
+  if (['缺料', '未到仓', '待接收', '待确认', '差异'].some((value) => matchedText.includes(value))) return matchedText
   if (isSearchRiskItem(item)) return item.statusText || '需要确认'
   return '无明显卡点'
 }
@@ -204,7 +204,7 @@ function isExplicitBusinessObjectSearch(keyword: string, rows: ProductionObjectS
 function shouldUseMaterialResourceSearch(keyword: string, rows: ProductionObjectSearchIndex[], materialResources: MaterialResourceOverview[]): boolean {
   const query = keyword.trim()
   if (!query) return false
-  if (['缺料', '待领料', '未到仓'].some((word) => query.includes(word))) return materialResources.length > 0
+  if (['缺料', '待接收', '未到仓'].some((word) => query.includes(word))) return materialResources.length > 0
   if (materialResources.length === 0) return false
   return !isExplicitBusinessObjectSearch(query, rows)
 }
@@ -343,7 +343,7 @@ export function renderProductionObjectSearchPanel(keyword = searchKeyword): stri
         <header class="flex items-center justify-between gap-3 border-b px-4 py-3">
           <div>
             <h2 class="text-base font-semibold">生产全局搜索</h2>
-            <p class="mt-1 text-xs text-muted-foreground">小提示：支持生产单、生产需求、SPU、SKU、面料 / 辅料 / 纱线、配料单 / 领料单 / 发料单、裁片单、菲票、印花工单、染色工单</p>
+            <p class="mt-1 text-xs text-muted-foreground">小提示：支持生产单、生产需求、SPU、SKU、面料 / 辅料 / 纱线、配料单 / 接收单 / 发料单、裁片单、菲票、印花工单、染色工单</p>
           </div>
           <button class="h-8 w-8 rounded-md text-lg text-muted-foreground hover:bg-muted" data-production-object-action="close" data-skip-page-rerender="true" aria-label="关闭">×</button>
         </header>
@@ -351,7 +351,7 @@ export function renderProductionObjectSearchPanel(keyword = searchKeyword): stri
           <div class="relative">
             <input
               class="h-10 w-full rounded-md border bg-background px-3 pr-10 text-sm outline-none focus:border-blue-500"
-              placeholder="输入生产单 / 需求单 / SPU / SKU / 物料SKU / 配料单 / 领料单 / 发料单 / 裁片单 / 菲票 / 印花工单 / 染色工单"
+              placeholder="输入生产单 / 需求单 / SPU / SKU / 物料SKU / 配料单 / 接收单 / 发料单 / 裁片单 / 菲票 / 印花工单 / 染色工单"
               value="${escapedKeyword}"
               data-production-object-action="search"
               data-skip-page-rerender="true"
@@ -656,15 +656,15 @@ function getMaterialPickupStatus(line: ProductionMaterialLine): string {
   if (line.purchaseArrivalStatus === 'PURCHASED_NOT_ARRIVED' || line.purchaseArrivalStatus === 'PARTIAL_ARRIVED') return '待到仓'
   if (preparedQty <= 0) return '待配料'
   if (preparedQty < line.requiredQty) return '部分配料'
-  if (pickupQty <= 0) return '待领料'
-  if (pickupQty < line.requiredQty) return '部分领料'
+  if (pickupQty <= 0) return '待接收'
+  if (pickupQty < line.requiredQty) return '部分接收'
   return '已领齐'
 }
 
 function getMaterialPickupPriority(line: ProductionMaterialLine): number {
   const status = getMaterialPickupStatus(line)
   if (getMaterialPickupGap(line) > 0 && status !== '已领齐') return 0
-  if (status === '待领料' || status === '部分领料') return 1
+  if (status === '待接收' || status === '部分接收') return 1
   if (line.materialType === 'FABRIC') return 2
   if (line.materialType === 'ACCESSORY' || line.materialType === 'YARN') return 3
   return 4
@@ -691,7 +691,7 @@ function renderMaterialPickupSummary(materials: ProductionMaterialLine[]): strin
           <div class="mt-2 grid grid-cols-2 gap-x-2 gap-y-1 text-muted-foreground">
             <div><span class="text-foreground">需求：</span>${formatQty(line.requiredQty, line.unit)}</div>
             <div><span class="text-foreground">已配料：</span>${formatQty(line.preparedQty, line.unit)}</div>
-            <div><span class="text-foreground">已领料：</span>${formatQty(pickupQty, line.unit)}</div>
+            <div><span class="text-foreground">已接收：</span>${formatQty(pickupQty, line.unit)}</div>
             <div><span class="text-foreground">缺口：</span>${formatQty(gapQty, line.unit)}</div>
           </div>
         </div>
@@ -1268,7 +1268,7 @@ function renderMaterialAllocationsTab(resource: MaterialResourceOverview): strin
             <div class="break-words"><span class="text-foreground">优先级：</span>${escapeHtml(item.priority)}</div>
             <div><span class="text-foreground">需求：</span>${formatMaterialResourceQty(item.requiredQty, resource.unit)}</div>
             <div><span class="text-foreground">已配料：</span>${formatMaterialResourceQty(item.preparedQty, resource.unit)}</div>
-            <div><span class="text-foreground">已领料：</span>${formatMaterialResourceQty(item.pickedQty, resource.unit)}</div>
+            <div><span class="text-foreground">已接收：</span>${formatMaterialResourceQty(item.pickedQty, resource.unit)}</div>
             <div><span class="text-foreground">缺口：</span>${formatMaterialResourceQty(item.shortageQty, resource.unit)}</div>
           </div>
         </article>
@@ -1326,8 +1326,8 @@ function renderMaterialExecutionTab(resource: MaterialResourceOverview): string 
             <div>需求：${formatMaterialResourceQty(item.requiredQty, item.unit)}</div>
             <div>已配料：${formatMaterialResourceQty(item.preparedQty, item.unit)}</div>
             <div>待配料：${formatMaterialResourceQty(item.pendingPrepareQty, item.unit)}</div>
-            <div>已领料：${formatMaterialResourceQty(item.pickedQty, item.unit)}</div>
-            <div>待领料：${formatMaterialResourceQty(item.pendingPickQty, item.unit)}</div>
+            <div>已接收：${formatMaterialResourceQty(item.pickedQty, item.unit)}</div>
+            <div>待接收：${formatMaterialResourceQty(item.pendingPickQty, item.unit)}</div>
             <div>已发料：${formatMaterialResourceQty(item.issuedQty, item.unit)}</div>
             <div>待发料：${formatMaterialResourceQty(item.pendingIssueQty, item.unit)}</div>
             <div>缺口：${formatMaterialResourceQty(item.shortageQty, item.unit)}</div>

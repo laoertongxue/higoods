@@ -154,7 +154,7 @@ function getWaitProcessSourceText(item: {
   sourceObjectKind: string
   sourceObjectName: string
 }): string {
-  if (item.sourceRecordType === 'MATERIAL_PICKUP') return `领料记录 · 来自${item.sourceObjectKind}`
+  if (item.sourceRecordType === 'MATERIAL_PICKUP') return `接收记录 · 来自${item.sourceObjectKind}`
   if (item.sourceRecordType === 'HANDOVER_RECEIVE') return `接收入仓 · 来自${item.sourceObjectKind}`
   if (item.sourceRecordType === 'TRANSFER_RECEIVE') return `流转入仓 · 来自${item.sourceObjectKind}`
   if (item.sourceRecordType === 'STOCKTAKE_ADJUSTMENT') return '盘点调整 · 库存调整单'
@@ -410,7 +410,7 @@ function renderInventorySearchPanel(mode: WarehouseToolMode): string {
       ${
         rows.length
           ? rows.map((row, index) => renderInventoryQueryResultCard(row, mode, index)).join('')
-          : renderMobilePageEmptyState('暂无库存记录', '中转仓领料、回收入仓或交出装袋确认后会在这里显示。')
+          : renderMobilePageEmptyState('暂无库存记录', '中转仓接收、回收入仓或交出装袋确认后会在这里显示。')
       }
     </section>
     ${renderInventoryFlowDialog(rows)}

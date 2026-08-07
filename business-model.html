@@ -182,7 +182,7 @@ flowchart TD
 
     subgraph Phase3["阶段三：工序派单"]
         G["🏭 工序任务<br/>ProcessTask<br/>直派 DIRECTION / 竞价 BIDDING"]
-        H["👷 PDA执行<br/>领料→铺布→交接→入仓"]
+        H["👷 PDA执行<br/>接收→铺布→交接→入仓"]
     end
 
     A -->|"验证技术包已发布<br/>validDemandTechPackOrderLink"| B
@@ -191,7 +191,7 @@ flowchart TD
     D -->|"同SPU的多个裁单<br/>按纸样分组建唛架"| E
     E -->|"回写 markerPlanId 到裁单<br/>生成裁片单"| F
     C -->|"按工艺工序<br/>生成任务"| G
-    F -->|"PDA用户接收任务<br/>领料确认→铺布→入仓"| H
+    F -->|"PDA用户接收任务<br/>接收确认→铺布→入仓"| H
     G -->|"驱动"| H
 
     style Phase1 fill:#e6f4ff,stroke:#1677ff
@@ -309,7 +309,7 @@ flowchart LR
         cp_mp["markerPlanId"]
         cp_stage["currentStage"]
         cp_config["configStatus 配料状态"]
-        cp_receive["receiveStatus 领料状态"]
+        cp_receive["receiveStatus 接收状态"]
         cp_spread["spreadingRecords 铺布记录"]
     end
 
@@ -364,13 +364,13 @@ sequenceDiagram
     participant D as 🗄️ 数据层
     participant T as 📦 AppStore
 
-    Note over W,T: 阶段一：领料
+    Note over W,T: 阶段一：接收
     W->>S: 扫描裁片单二维码
     S->>D: 查询 CutPieceOrder (by cutPieceOrderNo)
     D-->>S: 裁片单详情(物料/裁单/唛架)
-    W->>S: 确认领料 + 录入长度
+    W->>S: 确认接收 + 录入长度
     S->>D: PICKUP_CONFIRM<br/>更新 receiveStatus
-    D-->>S: 领料完成
+    D-->>S: 接收完成
 
     Note over W,T: 阶段二：铺布
     W->>S: 录入铺布记录(层数/实际长度)
@@ -445,7 +445,7 @@ flowchart TD
       <tr><th>风险标记</th><th>含义</th><th>触发条件</th></tr>
       <tr><td><span class="tag tag-orange">PENDING_REVIEW</span></td><td>待审核</td><td>铺布记录需要审核</td></tr>
       <tr><td><span class="tag tag-orange">PARTIAL_CONFIG</span></td><td>部分配置</td><td>配料尚未完成</td></tr>
-      <tr><td><span class="tag tag-red">RECEIVE_DIFF</span></td><td>领料差异</td><td>实际领料与需求不一致</td></tr>
+      <tr><td><span class="tag tag-red">RECEIVE_DIFF</span></td><td>接收差异</td><td>实际接收与需求不一致</td></tr>
       <tr><td><span class="tag tag-red">INBOUND_PENDING</span></td><td>入仓待处理</td><td>裁剪完成但未确认入仓</td></tr>
       <tr><td><span class="tag tag-red">SHIP_URGENT</span></td><td>出货紧急</td><td>生产进度落后于出货计划</td></tr>
     </table>

@@ -302,8 +302,8 @@ function renderSourceSummary(row: BindingProcessOrder): string {
       <p><span class="text-foreground">生产单：</span>${escapeHtml(row.sourceProductionOrderNo)}</p>
       <p><span class="text-foreground">裁片单：</span>${escapeHtml(row.sourceCutOrderNo)}</p>
       <p><span class="text-foreground">唛架方案：</span>${escapeHtml(row.sourceMarkerPlanNo || '待确认后生成')}</p>
-      <p><span class="text-foreground">领料状态：</span>${escapeHtml(row.materialReceiveStatus)}</p>
-      <p><span class="text-foreground">货架位置：</span>${escapeHtml(row.materialShelfLocation || '待领料后回写')}</p>
+      <p><span class="text-foreground">接收状态：</span>${escapeHtml(row.materialReceiveStatus)}</p>
+      <p><span class="text-foreground">货架位置：</span>${escapeHtml(row.materialShelfLocation || '待接收后回写')}</p>
     </div>
   `
 }
@@ -664,8 +664,8 @@ export function renderCraftCuttingSpecialProcessDetailPage(bindingOrderId?: stri
           ${renderDetailMetric('来源生产单', row.sourceProductionOrderNo)}
           ${renderDetailMetric('来源裁片单', row.sourceCutOrderNo)}
           ${renderDetailMetric('来源唛架方案', row.sourceMarkerPlanNo || '待确认后生成')}
-          ${renderDetailMetric('是否领料', row.materialReceiveStatus)}
-          ${renderDetailMetric('货架位置', row.materialShelfLocation || '待领料后回写')}
+          ${renderDetailMetric('是否接收', row.materialReceiveStatus)}
+          ${renderDetailMetric('货架位置', row.materialShelfLocation || '待接收后回写')}
         </div>`,
       )}
 
@@ -768,7 +768,7 @@ function renderRecordCuttingDialog(row: BindingProcessOrder): string {
         <div class="max-h-[70vh] overflow-y-auto px-5 py-4">
           <div class="grid gap-3 md:grid-cols-4">
             ${renderDetailMetric('来源裁片单', row.sourceCutOrderNo)}
-            ${renderDetailMetric('货架位置', row.materialShelfLocation || '待领料后回写')}
+            ${renderDetailMetric('货架位置', row.materialShelfLocation || '待接收后回写')}
             ${renderDetailMetric('捆条需要长度', formatLength(row.plannedTotalLength))}
             ${renderDetailMetric('需要布料长度', formatLength(row.requiredMaterialLength))}
           </div>

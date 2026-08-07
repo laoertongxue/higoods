@@ -243,7 +243,7 @@ function updateMaterialIssueSheet(
 ): { ok: boolean; message?: string } {
   const { issueId, materialSummaryZh, requestedQty, issuedQty, remark } = input
   const sheet = getMutableSheetById(issueId)
-  if (!sheet) return { ok: false, message: `领料需求单 ${issueId} 不存在` }
+  if (!sheet) return { ok: false, message: `接收需求单 ${issueId} 不存在` }
 
   if (requestedQty !== undefined && requestedQty <= 0) {
     return { ok: false, message: '需求数量必须大于 0' }
@@ -285,11 +285,11 @@ function updateMaterialIssueStatus(
 ): { ok: boolean; message?: string } {
   const { issueId, nextStatus, remark } = input
   const sheet = getMutableSheetById(issueId)
-  if (!sheet) return { ok: false, message: `领料需求单 ${issueId} 不存在` }
+  if (!sheet) return { ok: false, message: `接收需求单 ${issueId} 不存在` }
   if (!nextStatus) return { ok: false, message: '目标状态不能为空' }
 
   if (!NEXT_STATUS[sheet.status].includes(nextStatus)) {
-    return { ok: false, message: '当前领料状态不允许切换到目标状态' }
+    return { ok: false, message: '当前接收状态不允许切换到目标状态' }
   }
 
   sheet.status = nextStatus
@@ -311,7 +311,7 @@ function renderCreateDialog(): string {
           <i data-lucide="x" class="h-4 w-4"></i>
         </button>
 
-        <h3 class="text-lg font-semibold">新建领料需求</h3>
+        <h3 class="text-lg font-semibold">新建接收需求</h3>
 
         <div class="mt-4 space-y-4">
           <div class="space-y-1.5">
@@ -382,7 +382,7 @@ function renderEditDialog(editSheet: MaterialIssueSheet | null): string {
           <i data-lucide="x" class="h-4 w-4"></i>
         </button>
 
-        <h3 class="text-lg font-semibold">编辑领料需求</h3>
+        <h3 class="text-lg font-semibold">编辑接收需求</h3>
 
         <div class="mt-4 space-y-4">
           <div class="space-y-1.5">
@@ -446,7 +446,7 @@ function renderStatusDialog(statusSheet: MaterialIssueSheet | null): string {
           <i data-lucide="x" class="h-4 w-4"></i>
         </button>
 
-        <h3 class="text-lg font-semibold">变更领料状态</h3>
+        <h3 class="text-lg font-semibold">变更接收状态</h3>
 
         <div class="mt-4 space-y-4">
           <div class="space-y-1.5">
@@ -522,11 +522,11 @@ export function renderMaterialIssuePage(): string {
           <h1 class="text-2xl font-semibold">用料清单下发</h1>
           <p class="mt-0.5 text-sm text-muted-foreground">共 ${sheets.length} 条</p>
         </div>
-        <button class="inline-flex h-9 items-center rounded-md bg-blue-600 px-3 text-sm font-medium text-white hover:bg-blue-700" data-mis-action="open-create">新建领料需求</button>
+        <button class="inline-flex h-9 items-center rounded-md bg-blue-600 px-3 text-sm font-medium text-white hover:bg-blue-700" data-mis-action="open-create">新建接收需求</button>
       </div>
 
       <section class="rounded-md bg-muted px-4 py-2 text-sm text-muted-foreground">
-        用料清单下发用于记录任务级领料需求；原型阶段仅做台账管理，不联动仓储执行与 BOM 明细
+        用料清单下发用于记录任务级接收需求；原型阶段仅做台账管理，不联动仓储执行与 BOM 明细
       </section>
 
       <section class="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -553,7 +553,7 @@ export function renderMaterialIssuePage(): string {
           class="h-9 w-72 rounded-md border bg-background px-3 text-sm"
           data-mis-filter="keyword"
           value="${escapeHtml(state.keyword)}"
-          placeholder="关键词（领料单号/生产单号/任务ID/用料说明）"
+          placeholder="关键词（接收单号/生产单号/任务ID/用料说明）"
         />
         <select class="h-9 w-36 rounded-md border bg-background px-3 text-sm" data-mis-filter="status">
           <option value="ALL" ${state.filterStatus === 'ALL' ? 'selected' : ''}>全部</option>
@@ -569,7 +569,7 @@ export function renderMaterialIssuePage(): string {
           <table class="w-full text-sm">
             <thead>
               <tr class="border-b bg-muted/40 text-left">
-                <th class="px-4 py-2 font-medium">领料单号</th>
+                <th class="px-4 py-2 font-medium">接收单号</th>
                 <th class="px-4 py-2 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
                 <th class="px-4 py-2 font-medium">任务ID</th>
                 <th class="px-4 py-2 font-medium">用料说明</th>
@@ -584,7 +584,7 @@ export function renderMaterialIssuePage(): string {
             <tbody>
               ${
                 filtered.length === 0
-                  ? '<tr><td colspan="9" class="py-10 text-center text-sm text-muted-foreground">暂无领料需求数据</td></tr>'
+                  ? '<tr><td colspan="9" class="py-10 text-center text-sm text-muted-foreground">暂无接收需求数据</td></tr>'
                   : filtered
                       .map((sheet) => {
                         const canStatus = NEXT_STATUS[sheet.status].length > 0
@@ -765,7 +765,7 @@ export function handleMaterialIssueEvent(target: HTMLElement): boolean {
       return true
     }
 
-    showMaterialIssueToast(`领料需求已创建：${result.issueId}`)
+    showMaterialIssueToast(`接收需求已创建：${result.issueId}`)
     state.createOpen = false
     state.createForm = emptyCreateForm()
     return true
@@ -806,7 +806,7 @@ export function handleMaterialIssueEvent(target: HTMLElement): boolean {
       return true
     }
 
-    showMaterialIssueToast('领料需求已更新')
+    showMaterialIssueToast('接收需求已更新')
     state.editIssueId = null
     state.editForm = emptyEditForm()
     return true
@@ -845,7 +845,7 @@ export function handleMaterialIssueEvent(target: HTMLElement): boolean {
       return true
     }
 
-    showMaterialIssueToast('领料状态已更新')
+    showMaterialIssueToast('接收状态已更新')
     state.statusIssueId = null
     state.nextStatus = ''
     state.statusRemark = ''

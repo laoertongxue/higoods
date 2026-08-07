@@ -621,11 +621,11 @@ function buildContextClaimStatusLabel(
   cutOrderRows: Array<Pick<CutOrderRow, 'materialClaimStatus'>>,
 ): string {
   const claimKeys = uniqueStrings(cutOrderRows.map((row) => row.materialClaimStatus.key))
-  if (!claimKeys.length) return '无领料记录'
-  if (claimKeys.length === 1) return cutOrderRows[0]?.materialClaimStatus.label || '无领料记录'
-  if (claimKeys.includes('NOT_RECEIVED')) return '无领料记录'
-  if (claimKeys.includes('PARTIAL')) return '领料数量不足'
-  return '有领料记录'
+  if (!claimKeys.length) return '无接收记录'
+  if (claimKeys.length === 1) return cutOrderRows[0]?.materialClaimStatus.label || '无接收记录'
+  if (claimKeys.includes('NOT_RECEIVED')) return '无接收记录'
+  if (claimKeys.includes('PARTIAL')) return '接收数量不足'
+  return '有接收记录'
 }
 
 function buildContextPrepClaimSummaryText(
@@ -633,7 +633,7 @@ function buildContextPrepClaimSummaryText(
 ): string {
   const prepLabel = buildContextPrepStatusLabel(cutOrderRows)
   const claimLabel = buildContextClaimStatusLabel(cutOrderRows)
-  return `配料：${prepLabel} / 领料：${claimLabel}`
+  return `配料：${prepLabel} / 接收：${claimLabel}`
 }
 
 function buildCutOrderContextCandidate(input: {

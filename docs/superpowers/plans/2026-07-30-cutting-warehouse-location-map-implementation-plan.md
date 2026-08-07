@@ -72,7 +72,7 @@
   - 只增加不扩大领域边界的稳定路径查找/节点读取 helper；如非必要不改接口。
   - 不增加必填 `displayOrder`，不增加全局 `unassignedLocationList`。
 - `src/data/fcs/cutting/production-material-prep.ts`
-  - 领料会话、领料记录和运行时事件写入存放范围及完整稳定路径。
+  - 接收会话、接收记录和运行时事件写入存放范围及完整稳定路径。
 - `src/data/fcs/cutting/cutting-runtime-event-ledger.ts`
   - 在兼容 payload 中允许稳定库位路径和幂等键。
 - `src/pages/process-factory/cutting/wait-handover-runtime.ts`
@@ -219,7 +219,7 @@ export interface WarehouseLocationOccupancy {
 
 ### 3.5 幂等与确认顺序
 
-- 领料存放幂等键：领料会话 ID + 节点版本。
+- 接收存放幂等键：接收会话 ID + 节点版本。
 - 中转袋入仓幂等键：袋使用 ID + `INBOUND`。
 - 特殊工艺回仓幂等键：回仓记录 ID + 菲票 ID + 特殊工艺 ID。
 - 确认前重新读取最新投影并校验所有目标库位。
@@ -294,8 +294,8 @@ npm run check:factory-internal-warehouse-model
   - 部分领出保守保持原范围。
   - 调整剩余存放范围后释放被移除的端部库位。
   - 剩余量为零后释放全部范围。
-- [x] 2.2 为领料会话和运行时事件增加 `storageFootprint` 与稳定路径快照；保留原文本字段兼容既有表格。
-- [x] 2.3 确认领料前重新读取投影，整组校验后一次写入。
+- [x] 2.2 为接收会话和运行时事件增加 `storageFootprint` 与稳定路径快照；保留原文本字段兼容既有表格。
+- [x] 2.3 确认接收前重新读取投影，整组校验后一次写入。
 - [x] 2.4 增加“调整剩余存放范围”领域函数；只允许当前范围的连续子区间或重新选择的连续空闲范围。
 - [x] 2.5 运行：
 
@@ -379,7 +379,7 @@ npm run check:cutting-special-craft-dispatch-return
   - 临时未编排项归入货架。
   - 修改库位编号和名称显示覆盖。
   - 保存前版本校验。
-- [x] 5.5 待加工 PFOS 领料/回收入仓动作使用同一库位解析；需要多个库位时复用连续选择。
+- [x] 5.5 待加工 PFOS 接收/回收入仓动作使用同一库位解析；需要多个库位时复用连续选择。
 - [x] 5.6 待交出 PFOS“中转袋入仓”和“特殊工艺回仓”使用稳定库位选择；“菲票装袋”继续不展示库位输入。
 - [x] 5.7 点击库位、切换详情、调整顺序仅刷新 `[data-warehouse-map-root]` 或详情容器；不得整页 `root.innerHTML`。
 - [x] 5.8 局部插入后只 hydrate 新区域图标。
@@ -397,18 +397,18 @@ npm run check:cutting-warehouse-location-map
 
 - 修改 `pda-warehouse-wait-process.ts`
 - 修改 `pda-warehouse-shared.ts`
-- 修改专项及现有领料检查
+- 修改专项及现有接收检查
 
 - [x] 6.1 删除裁床专用 `CUTTING_RECEIVE_LOCATIONS` 硬编码来源，改为按当前 `factoryId` 读取待加工仓。
 - [x] 6.2 保持 PDA 首屏顺序：
-  1. 当前领料节点。
+  1. 当前接收节点。
   2. 本次全部物料。
   3. 选择存放库位。
-  4. 唯一主按钮“确认全部领料”。
+  4. 唯一主按钮“确认全部接收”。
 - [x] 6.3 实现端点扩展/缩短、清空重选、不可选提示和已选范围摘要。
 - [x] 6.4 确认前重新投影；冲突时列出具体库位并保留其他有效选择。
 - [x] 6.5 新写入会话保存完整稳定路径和一次性存放范围，兼容文本取第一库位摘要。
-- [x] 6.6 领料后提供“调整剩余存放范围”入口，只修改位置关联，不手工改业务状态。
+- [x] 6.6 接收后提供“调整剩余存放范围”入口，只修改位置关联，不手工改业务状态。
 - [x] 6.7 输入和库位点击只局部更新，目标响应不超过 200ms。
 - [x] 6.8 运行：
 

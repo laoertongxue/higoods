@@ -105,23 +105,23 @@ function assertThreeListRouteAndMenuContract(): void {
     '/fcs/craft/cutting/pickup-management/incomplete',
     '/fcs/craft/cutting/pickup-management/history',
   ]) {
-    assert(routeSource.includes(`'${path}'`), `缺少独立领料列表路由 ${path}`)
-    assert(menuSource.includes(`href: '${path}'`), `缺少独立领料子菜单 ${path}`)
+    assert(routeSource.includes(`'${path}'`), `缺少独立接收列表路由 ${path}`)
+    assert(menuSource.includes(`href: '${path}'`), `缺少独立接收子菜单 ${path}`)
   }
   assert(
     routeSource.includes("'/fcs/craft/cutting/pickup-management': () =>")
       && routeSource.includes("renderRouteRedirect('/fcs/craft/cutting/pickup-management/ready'"),
-    '旧领料管理路由必须重定向到规范的已配齐待领料路由',
+    '旧接收管理路由必须重定向到规范的已配齐待接收路由',
   )
   const legacyPath = '/fcs/craft/cutting/pickup-management'
   const legacyMeta = getCanonicalCuttingMeta(legacyPath)
-  assert(legacyMeta.key === 'pickup-management', '旧领料路径必须唯一归属兼容入口元数据')
-  assert(legacyMeta.canonicalPath === legacyPath, '旧领料路径必须保留唯一 canonical 语义')
-  assert(!isCuttingAliasPath(legacyPath), '旧领料路径不得同时被识别为新列表 alias')
+  assert(legacyMeta.key === 'pickup-management', '旧接收路径必须唯一归属兼容入口元数据')
+  assert(legacyMeta.canonicalPath === legacyPath, '旧接收路径必须保留唯一 canonical 语义')
+  assert(!isCuttingAliasPath(legacyPath), '旧接收路径不得同时被识别为新列表 alias')
   assert(
     (metaSource.match(/canonicalPath: '\/fcs\/craft\/cutting\/pickup-management'/g) ?? []).length === 1
       && !metaSource.includes("aliases: ['/fcs/craft/cutting/pickup-management']"),
-    '旧领料路径不得存在重复 path ownership',
+    '旧接收路径不得存在重复 path ownership',
   )
   for (const deprecatedPath of [
     '/fcs/craft/cutting/pickup-ready',
@@ -132,22 +132,22 @@ function assertThreeListRouteAndMenuContract(): void {
     assert(!menuSource.includes(`'${deprecatedPath}'`), `菜单不得使用缩写路由 ${deprecatedPath}`)
     assert(!listSource.includes(deprecatedPath), `列表源码不得使用缩写路由 ${deprecatedPath}`)
   }
-  assert(menuSource.includes("title: '领料管理'"), '领料管理必须作为独立一级菜单')
-  for (const title of ['已配齐待领料', '未配齐配料', '已领料']) {
+  assert(menuSource.includes("title: '接收管理'"), '接收管理必须作为独立一级菜单')
+  for (const title of ['已配齐待接收', '未配齐配料', '已接收']) {
     assert(menuSource.includes(`title: '${title}'`), `菜单必须使用完整文案：${title}`)
     assert(metaSource.includes(`pageTitle: '${title}'`), `页面元数据必须使用完整文案：${title}`)
     assert(listSource.includes(`return '${title}'`), `页面标题必须使用完整文案：${title}`)
   }
   assert(
     !/title: '裁前准备'[\s\S]*?href: '\/fcs\/craft\/cutting\/pickup-management'/.test(menuSource),
-    '裁前准备不得保留旧领料管理菜单',
+    '裁前准备不得保留旧接收管理菜单',
   )
   for (const key of ['pickup-ready', 'pickup-incomplete', 'pickup-history']) {
     assert(metaSource.includes(`'${key}'`), `页面元数据缺少 ${key}`)
   }
   assert(
-    (metaSource.match(/menuGroupTitle: '领料管理'/g) ?? []).length >= 3,
-    '三个新页面元数据必须归属领料管理',
+    (metaSource.match(/menuGroupTitle: '接收管理'/g) ?? []).length >= 3,
+    '三个新页面元数据必须归属接收管理',
   )
 }
 
@@ -323,7 +323,7 @@ function assertMaterialRowFacts(
   assert(materialRow.pickedQty === effectivePickedQty, `${materialRow.demandLineId} 已领数量必须扣除退回数量`)
   assert(
     materialRow.preparedQty === roundQty(materialRow.pickedQty + materialRow.currentAvailableQty),
-    `${materialRow.demandLineId} 累计有效配料必须等于历史有效领料加当前节点可领量`,
+    `${materialRow.demandLineId} 累计有效配料必须等于历史有效接收加当前节点可领量`,
   )
   assert(
     materialRow.overageQty === roundQty(Math.max(
@@ -453,9 +453,9 @@ const printResults = listPlatformPrintResultViews()
 assert(
   JSON.stringify(supplementRecords.map((record) => record.id))
     === JSON.stringify(listActiveSupplementOrders().map((order) => order.id)),
-  '补料页面与领料 runtime 必须共享同一批未完成补料权威 Mock',
+  '补料页面与接收 runtime 必须共享同一批未完成补料权威 Mock',
 )
-assert(supplementRecords.length >= 22, '补料页面与领料 runtime 必须共享统一的补料 Mock 初始化')
+assert(supplementRecords.length >= 22, '补料页面与接收 runtime 必须共享统一的补料 Mock 初始化')
 assert(
   new Set(supplementRecords.map((record) => record.id)).size === supplementRecords.length,
   '全部补料记录 id 必须唯一，不得跨生产单复用身份',
@@ -515,7 +515,7 @@ for (const record of supplementRecords) {
       && row.pickedQty === 0
       && row.currentAvailableQty === 0
       && row.currentLocations.length === 0,
-      `${demandLineId} 不得借用相同 SKU 正常需求的配料、领料或库位事实`,
+      `${demandLineId} 不得借用相同 SKU 正常需求的配料、接收或库位事实`,
     )
   })
 }
@@ -651,7 +651,7 @@ atomicRollbackStorage.setItem(
 )
 atomicRollbackStorage.setItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, '{"events":[]}')
 const atomicRollbackNode = listActivePickupNodes(atomicRollbackStorage)[0]
-assert(atomicRollbackNode, '原子领料回滚测试必须存在活动节点')
+assert(atomicRollbackNode, '原子接收回滚测试必须存在活动节点')
 const prepBeforeAtomicFailure = atomicRollbackStorage.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY)
 const ledgerBeforeAtomicFailure = atomicRollbackStorage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY)
 let atomicFailureBlocked = false
@@ -671,11 +671,11 @@ try {
 } catch (error) {
   atomicFailureBlocked = error instanceof Error && error.message.includes('模拟待加工仓流水写入失败')
 }
-assert(atomicFailureBlocked, '待加工仓流水写入失败必须将整次领料确认为失败')
+assert(atomicFailureBlocked, '待加工仓流水写入失败必须将整次接收确认为失败')
 assert(
   atomicRollbackStorage.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY) === prepBeforeAtomicFailure
   && atomicRollbackStorage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) === ledgerBeforeAtomicFailure,
-  '领料会话、领料明细和待加工仓流水必须一起回滚，不得留下中间状态',
+  '接收会话、接收明细和待加工仓流水必须一起回滚，不得留下中间状态',
 )
 
 const atomicSuccessStorage = new MemoryStorage()
@@ -685,7 +685,7 @@ atomicSuccessStorage.setItem(
 )
 atomicSuccessStorage.setItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, '{"events":[]}')
 const atomicSuccessNode = listActivePickupNodes(atomicSuccessStorage)[0]
-assert(atomicSuccessNode, '原子领料成功测试必须存在活动节点')
+assert(atomicSuccessNode, '原子接收成功测试必须存在活动节点')
 const atomicSession = appendPickupSessionWithWarehouseFactsRuntime({
   pickupNodeId: atomicSuccessNode.nodeId,
   pickupNodeVersion: atomicSuccessNode.version,
@@ -703,7 +703,7 @@ const atomicSession = appendPickupSessionWithWarehouseFactsRuntime({
 assert(
   atomicSuccessStorage.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY)?.includes(atomicSession.pickupSessionId)
   && atomicSuccessStorage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY)?.includes(atomicSession.pickupSessionId),
-  '领料会话、领料明细和待加工仓流水必须在同一次确认中共同形成',
+  '接收会话、接收明细和待加工仓流水必须在同一次确认中共同形成',
 )
 
 const projections = listMaterialPrepOrderProjections(storage)
@@ -1101,14 +1101,14 @@ assert(
 )
 
 const historyGroups = groupsByKind.get('HISTORY') ?? []
-assert(derivePickupHistoryPath([]) === null, '没有领料会话时不得派生历史路径')
+assert(derivePickupHistoryPath([]) === null, '没有接收会话时不得派生历史路径')
 assert(
   derivePickupHistoryPath(['READY_TO_PICKUP', 'INCOMPLETE_PICKABLE']) === 'INCOMPLETE_PICKUP',
-  '混合领料会话只要出现未配齐领取，历史路径必须是未配齐领取',
+  '混合接收会话只要出现未配齐领取，历史路径必须是未配齐领取',
 )
 assert(
   derivePickupHistoryPath(['READY_TO_PICKUP', 'READY_TO_PICKUP']) === 'READY_PICKUP',
-  '只有全部领料会话均来自已配齐节点，历史路径才是已配齐领取',
+  '只有全部接收会话均来自已配齐节点，历史路径才是已配齐领取',
 )
 function hasReliableNewSupplementEvidence(
   group: PickupOrderGroup,
@@ -1161,7 +1161,7 @@ for (const group of historyGroups) {
   const matchingProjections = projections
     .filter((projection) => projection.order.productionOrderId === group.productionOrderId)
   const sessions = matchingProjections.flatMap((projection) => projection.pickupSessions)
-  assert(sessions.length > 0, `${group.productionOrderNo} HISTORY 分组必须有领料会话`)
+  assert(sessions.length > 0, `${group.productionOrderNo} HISTORY 分组必须有接收会话`)
   const activeNode = activeNodes.find((node) => node.productionOrderId === group.productionOrderId)
   if (activeNode) {
     assertCurrentAvailableFacts(group, activeNode)
@@ -1193,7 +1193,7 @@ for (const group of historyGroups) {
 const mixedSessionProjection = projections.find((projection) =>
   new Set(projection.pickupSessions.map((session) => session.nodeType)).size > 1
 )
-assert(mixedSessionProjection, '种子数据必须保留同一生产单混合节点类型的领料会话')
+assert(mixedSessionProjection, '种子数据必须保留同一生产单混合节点类型的接收会话')
 assert(
   historyGroups.find((group) => group.productionOrderId === mixedSessionProjection.order.productionOrderId)?.historyPath
     === 'INCOMPLETE_PICKUP',
@@ -1295,7 +1295,7 @@ function buildHistoryScenarioRecord(
     waitProcessLedgerEventId: `LEDGER-${session.pickupSessionId}`,
     differenceQty: 0,
     differenceReason: '',
-    pickupStatus: '已领料',
+    pickupStatus: '已接收',
     remark: '',
     pickupSessionId: session.pickupSessionId,
     pickupNodeId: session.pickupNodeId,
@@ -1596,7 +1596,7 @@ assert(
     ?.pickedQty === 1
   && returnedSupplementHistory.materialRows.find((row) => row.demandLineId === supplementDemandLineId)
     ?.remainingPickupQty === 1,
-  '补料真实领料发生全部退回后必须按 waitProcessAvailableQty 重新形成缺口',
+  '补料真实接收发生全部退回后必须按 waitProcessAvailableQty 重新形成缺口',
 )
 
 const sameTimeSupplementRecord = {
@@ -1614,7 +1614,7 @@ assert(
   comparePickupDemandEventTime('2026-03-18 10:00', '2026-03-18 10:00:30') === 'UNKNOWN'
   && comparePickupDemandEventTime('2026-03-18 10:01', '2026-03-18 10:00:59') === 'AFTER'
   && comparePickupDemandEventTime('2026-03-18 09:59:59', '2026-03-18 10:00') === 'BEFORE',
-  '补料与领料跨域时间必须按 BEFORE / AFTER / UNKNOWN 三态比较，精度重叠不得猜先后',
+  '补料与接收跨域时间必须按 BEFORE / AFTER / UNKNOWN 三态比较，精度重叠不得猜先后',
 )
 const sameTimeUnpickedHistory = buildPickupOrderGroups({
   listKind: 'HISTORY',
@@ -1629,7 +1629,7 @@ const sameTimeUnpickedHistory = buildPickupOrderGroups({
 })[0]
 assert(
   sameTimeUnpickedHistory?.finalResult === 'NOT_ALL_PICKED',
-  '补料与领料时间区间重叠且补料未领时顺序证据不足，必须保守 NOT_ALL_PICKED',
+  '补料与接收时间区间重叠且补料未领时顺序证据不足，必须保守 NOT_ALL_PICKED',
 )
 const sameTimeDemandLineId = `SUPPLEMENT:${sameTimeSupplementRecord.id}:MAPPING-SAME-TIME`
 const sameTimeSupplementLine = {
@@ -1662,7 +1662,7 @@ assert(
   sameTimePickedHistory?.materialRows.find((row) => row.demandLineId === sameTimeDemandLineId)
     ?.pickedQty === 1
   && sameTimePickedHistory.finalResult === 'ALL_PICKED',
-  '补料与领料等时但真实逐行记录已覆盖需求时，应按领取事实判为 ALL_PICKED',
+  '补料与接收等时但真实逐行记录已覆盖需求时，应按领取事实判为 ALL_PICKED',
 )
 
 const fakeIncompleteSession = buildHistoryScenarioSession({

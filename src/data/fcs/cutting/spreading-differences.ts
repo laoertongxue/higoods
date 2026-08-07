@@ -17,7 +17,7 @@ export type SpreadingDifferenceSourceType =
   | 'PDA 铺布记录'
   | 'PDA 裁剪记录'
   | 'Web 处理'
-  | '领料差异延续'
+  | '接收差异延续'
   | '系统计算'
 
 export type SpreadingDifferenceType =
@@ -370,7 +370,7 @@ function buildDifferencesFromOrders(orders: SpreadingOrder[], sessions: Spreadin
     const abnormalRolls = session?.rolls.filter((roll) =>
       !roll.rollNo ||
       Number(roll.actualLength || 0) > Number(roll.labeledLength || 0) ||
-      /异常|漏扫|不在本次领料/.test(roll.note || roll.handoverNotes || ''),
+      /异常|漏扫|不在本次接收/.test(roll.note || roll.handoverNotes || ''),
     ) || []
     if (abnormalRolls.length) {
       differences.push(createDifference(order, session, {
@@ -626,10 +626,10 @@ function buildSeedDifferences(orders: SpreadingOrder[]): SpreadingDifference[] {
       plannedValue: 1,
       actualValue: 0,
       unit: '卷',
-      summary: '扫描布卷不在本次领料记录中。',
+      summary: '扫描布卷不在本次接收记录中。',
       operatorName: '铺布员',
       occurredAt: '2026-03-18 17:25',
-      note: '布卷 R-ABN-01 未匹配本次领料记录。',
+      note: '布卷 R-ABN-01 未匹配本次接收记录。',
     }),
     createDifference(order, null, {
       suffix: 'seed-field-feedback',
@@ -647,16 +647,16 @@ function buildSeedDifferences(orders: SpreadingOrder[]): SpreadingDifference[] {
     }),
     createDifference(order, null, {
       suffix: 'seed-claim-diff-carry',
-      sourceType: '领料差异延续',
+      sourceType: '接收差异延续',
       differenceType: '面料余额不足',
       differenceLevel: '需处理',
       plannedValue: 180,
       actualValue: 120,
       unit: order.plannedMaterialUsageUnit || '米',
-      summary: '领料时少领 60 米，差异仍影响后续用料。',
-      operatorName: '裁床领料员',
+      summary: '接收时少领 60 米，差异仍影响后续用料。',
+      operatorName: '裁床接收员',
       occurredAt: '2026-03-18 17:32',
-      note: '由领料差异延续到铺布阶段，需裁床管理判断后续动作。',
+      note: '由接收差异延续到铺布阶段，需裁床管理判断后续动作。',
     }),
     ...(pb2440Order ? [
       createDifference(pb2440Order, null, {

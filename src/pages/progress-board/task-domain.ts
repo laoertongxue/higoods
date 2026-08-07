@@ -419,12 +419,12 @@ function renderTaskDeliveryCardAction(recordId: string | undefined): string {
 function renderPickupTab(task: ProcessTask): string {
   const hasMaterialRequest = Boolean(task.hasMaterialRequest || task.materialRequestNo)
   const requestStatus = task.materialRequestStatus || (hasMaterialRequest ? '待配料' : '未生成')
-  const requestNo = task.materialRequestNo || (hasMaterialRequest ? '草稿待确认' : '暂无领料需求')
+  const requestNo = task.materialRequestNo || (hasMaterialRequest ? '草稿待确认' : '暂无接收需求')
   const materialModeLabel = task.materialModeLabel || '按任务配置'
   const canStart = task.mockStartPrerequisiteMet === true || task.status === 'IN_PROGRESS' || task.status === 'DONE'
   const readinessReason = canStart
-    ? '领料前置条件已满足，任务可继续开工或执行。'
-    : task.blockNoteZh || (hasMaterialRequest ? '仍需完成领料确认后再开工。' : '当前任务暂未生成领料需求。')
+    ? '接收前置条件已满足，任务可继续开工或执行。'
+    : task.blockNoteZh || (hasMaterialRequest ? '仍需完成接收确认后再开工。' : '当前任务暂未生成接收需求。')
   const requestRows = hasMaterialRequest
     ? [[
         escapeHtml(requestNo),
@@ -443,15 +443,15 @@ function renderPickupTab(task: ProcessTask): string {
           <p class="mt-1 font-mono">${escapeHtml(task.taskId)}</p>
         </div>
         <div>
-          <p class="text-xs text-muted-foreground">领料状态</p>
-          <div class="mt-1">${renderBadge(canStart ? '可开工' : '待领料确认', canStart ? 'border-green-200 bg-green-100 text-green-700' : 'border-amber-200 bg-amber-100 text-amber-700')}</div>
+          <p class="text-xs text-muted-foreground">接收状态</p>
+          <div class="mt-1">${renderBadge(canStart ? '可开工' : '待接收确认', canStart ? 'border-green-200 bg-green-100 text-green-700' : 'border-amber-200 bg-amber-100 text-amber-700')}</div>
         </div>
         <div>
-          <p class="text-xs text-muted-foreground">领料需求</p>
+          <p class="text-xs text-muted-foreground">接收需求</p>
           <p class="mt-1 font-semibold">${hasMaterialRequest ? '1 张' : '0 张'}</p>
         </div>
         <div>
-          <p class="text-xs text-muted-foreground">领料方式</p>
+          <p class="text-xs text-muted-foreground">接收方式</p>
           <p class="mt-1 font-semibold">${escapeHtml(materialModeLabel)}</p>
         </div>
         <div class="col-span-4">
@@ -460,20 +460,20 @@ function renderPickupTab(task: ProcessTask): string {
         </div>
       </section>
       ${renderDrawerSectionTable(
-        '领料需求',
-        ['领料需求单号', '物料 / 面料概况', '领料方式', '当前状态', '更新时间'],
+        '接收需求',
+        ['接收需求单号', '物料 / 面料概况', '接收方式', '当前状态', '更新时间'],
         requestRows,
-        '当前任务暂无领料需求或仍处于草稿阶段。',
+        '当前任务暂无接收需求或仍处于草稿阶段。',
         'data-progress-task-pickup-section=\"requests\"',
       )}
       <section class="rounded-md border p-4 text-sm">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h4 class="font-medium">领料记录明细</h4>
-            <p class="mt-1 text-xs text-muted-foreground">详细领料记录、仓库发料执行、差异和异议统一进入领料/配料进度页查看。</p>
+            <h4 class="font-medium">接收记录明细</h4>
+            <p class="mt-1 text-xs text-muted-foreground">详细接收记录、仓库发料执行、差异和异议统一进入接收/配料进度页查看。</p>
           </div>
           <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="task-action-material" data-po-id="${escapeAttr(task.productionOrderId)}">
-            <i data-lucide="package" class="mr-2 h-4 w-4"></i>查看领料/配料进度
+            <i data-lucide="package" class="mr-2 h-4 w-4"></i>查看接收/配料进度
           </button>
         </div>
       </section>
@@ -581,7 +581,7 @@ function renderTaskActionMenu(task: ProcessTask): string {
                 <i data-lucide="scan-line" class="mr-2 h-4 w-4"></i>交接链路
               </button>
               <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-progress-action="task-action-material" data-po-id="${escapeAttr(po)}" data-progress-stop="true">
-                <i data-lucide="package" class="mr-2 h-4 w-4"></i>领料进度
+                <i data-lucide="package" class="mr-2 h-4 w-4"></i>接收进度
               </button>
               <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-progress-action="task-action-print-route-card" data-task-id="${escapeAttr(task.taskId)}" data-progress-stop="true">
                 <i data-lucide="printer" class="mr-2 h-4 w-4"></i>打印任务流转卡
@@ -668,7 +668,7 @@ function renderTaskListView(filteredTasks: ProcessTask[]): string {
       width: 240,
       render: (task) => {
         const platformSummary = getTaskPlatformSummary(task, false)
-        return `<div class="max-w-[220px] space-y-1 text-xs"><a class="inline-flex w-full items-center justify-between rounded border px-2 py-1 text-left hover:bg-muted" href="/fcs/progress/board/tasks/${encodeURIComponent(task.taskId)}?tab=pickup" data-nav="/fcs/progress/board/tasks/${encodeURIComponent(task.taskId)}?tab=pickup"><span>领料情况</span><span class="text-muted-foreground">&gt;</span></a><a class="inline-flex w-full items-center justify-between rounded border px-2 py-1 text-left hover:bg-muted" href="/fcs/progress/board/tasks/${encodeURIComponent(task.taskId)}?tab=handover" data-nav="/fcs/progress/board/tasks/${encodeURIComponent(task.taskId)}?tab=handover"><span>交出情况</span><span class="text-muted-foreground">&gt;</span></a><div class="text-muted-foreground">同步：${escapeHtml(platformSummary.linkedResult)}</div>${platformSummary.quantityText ? `<div class="truncate text-muted-foreground">${escapeHtml(platformSummary.quantityText)}</div>` : ''}</div>`
+        return `<div class="max-w-[220px] space-y-1 text-xs"><a class="inline-flex w-full items-center justify-between rounded border px-2 py-1 text-left hover:bg-muted" href="/fcs/progress/board/tasks/${encodeURIComponent(task.taskId)}?tab=pickup" data-nav="/fcs/progress/board/tasks/${encodeURIComponent(task.taskId)}?tab=pickup"><span>接收情况</span><span class="text-muted-foreground">&gt;</span></a><a class="inline-flex w-full items-center justify-between rounded border px-2 py-1 text-left hover:bg-muted" href="/fcs/progress/board/tasks/${encodeURIComponent(task.taskId)}?tab=handover" data-nav="/fcs/progress/board/tasks/${encodeURIComponent(task.taskId)}?tab=handover"><span>交出情况</span><span class="text-muted-foreground">&gt;</span></a><div class="text-muted-foreground">同步：${escapeHtml(platformSummary.linkedResult)}</div>${platformSummary.quantityText ? `<div class="truncate text-muted-foreground">${escapeHtml(platformSummary.quantityText)}</div>` : ''}</div>`
       },
     },
     { key: 'sla', title: '交付时效', width: 300, render: (task) => renderSewingDeliverySlaListCell(sewingDeliverySlaByTaskId.get(task.taskId), formatQtyUnit(task.qtyUnit)) },
@@ -827,7 +827,7 @@ export function renderProgressTaskDetailTabs(task: ProcessTask, activeTab: TaskT
   return `
     <nav class="flex flex-wrap gap-1 rounded-lg border bg-card p-1 text-sm" data-progress-task-tabs="true">
       <button class="rounded px-2 py-1 ${activeTab === 'basic' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="basic" data-fast-page-render="true">基本信息</button>
-      ${task.historicalAssignment ? '' : `<button class="rounded px-2 py-1 ${activeTab === 'assignment' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="assignment" data-fast-page-render="true">分配信息</button><button class="rounded px-2 py-1 ${activeTab === 'progress' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="progress" data-fast-page-render="true">进度操作</button><button class="rounded px-2 py-1 ${activeTab === 'pickup' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="pickup" data-fast-page-render="true">领料情况</button>`}
+      ${task.historicalAssignment ? '' : `<button class="rounded px-2 py-1 ${activeTab === 'assignment' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="assignment" data-fast-page-render="true">分配信息</button><button class="rounded px-2 py-1 ${activeTab === 'progress' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="progress" data-fast-page-render="true">进度操作</button><button class="rounded px-2 py-1 ${activeTab === 'pickup' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="pickup" data-fast-page-render="true">接收情况</button>`}
       <button class="rounded px-2 py-1 ${activeTab === 'handover' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="handover" data-fast-page-render="true">交出情况</button>
       ${!task.historicalAssignment && task.status === 'BLOCKED' ? `<button class="rounded px-2 py-1 ${activeTab === 'block' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="block" data-fast-page-render="true">生产暂停信息</button>` : ''}
       <button class="rounded px-2 py-1 ${activeTab === 'logs' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="logs" data-fast-page-render="true">审计日志</button>
@@ -1053,7 +1053,7 @@ function renderProgressTaskDetailPage(taskIdParam = ''): string {
                     <i data-lucide="send" class="mr-2 h-4 w-4"></i>去任务分配
                   </button>
                   <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="task-action-material" data-po-id="${escapeAttr(task.productionOrderId)}">
-                    <i data-lucide="package" class="mr-2 h-4 w-4"></i>领料进度
+                    <i data-lucide="package" class="mr-2 h-4 w-4"></i>接收进度
                   </button>
                 </div>
               `

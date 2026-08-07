@@ -117,7 +117,7 @@ for (const status of ['待交出', '已交出', '已回写', '差异', '异议�
 
 appStore.navigate('/fcs/process-factory/special-craft/special-type/wait-process-warehouse')
 const waitProcessHtml = renderSpecialCraftDomainWaitProcessWarehousePage('special-type')
-for (const label of ['特种工艺待加工仓', '库存明细', '接收入仓', '加工领料', '回收入仓', '库区库位', 'PDA 现场扫码']) {
+for (const label of ['特种工艺待加工仓', '库存明细', '接收入仓', '加工接收', '回收入仓', '库区库位', 'PDA 现场扫码']) {
   assert.ok(waitProcessHtml.includes(label), `Web 特种工艺待加工仓缺少：${label}`)
 }
 assert.ok(!waitProcessHtml.includes('操作规则'), 'Web 特种工艺待加工仓不应保留旧的操作规则面板')
@@ -126,7 +126,7 @@ assert.ok(!waitProcessHtml.includes('入仓记录</button>'), 'Web 特种工艺�
 
 for (const [action, label] of [
   ['receive', '确认接收入仓'],
-  ['process-issue', '确认加工领料'],
+  ['process-issue', '确认加工接收'],
   ['return', '确认回收入仓'],
 ] as const) {
   appStore.navigate(`/fcs/process-factory/special-craft/special-type/wait-process-warehouse?warehouseAction=${action}`)
@@ -160,7 +160,7 @@ for (const [action, label] of [
 }
 
 const pdaWarehouseSource = src('src/pages/pda-warehouse.ts')
-for (const label of ['CENTRAL_SPECIAL', '接收入仓', '加工领料', '回收入仓', '完工入仓', '交出确认']) {
+for (const label of ['CENTRAL_SPECIAL', '接收入仓', '加工接收', '回收入仓', '完工入仓', '交出确认']) {
   assert.ok(pdaWarehouseSource.includes(label), `PDA 仓管首页缺少特种工艺入口：${label}`)
 }
 
@@ -227,7 +227,7 @@ const { renderPdaWarehouseWaitProcessPage } = await import('../src/pages/pda-war
 const { renderPdaWarehouseWaitHandoverPage } = await import('../src/pages/pda-warehouse-wait-handover.ts')
 
 const pdaHomeHtml = renderPdaWarehousePage()
-for (const label of ['模板工序专属工厂', '接收入仓', '加工领料', '回收入仓', '完工入仓', '交出确认']) {
+for (const label of ['模板工序专属工厂', '接收入仓', '加工接收', '回收入仓', '完工入仓', '交出确认']) {
   assert.ok(pdaHomeHtml.includes(label), `PDA 特种工艺首页渲染缺少：${label}`)
 }
 
@@ -241,8 +241,8 @@ for (const label of ['接收入仓', '接收数量', '库区', '货架', '库位
 pdaWindow.location.pathname = '/fcs/pda/warehouse/wait-process'
 pdaWindow.location.search = '?action=issue'
 const pdaIssueHtml = renderPdaWarehouseWaitProcessPage()
-for (const label of ['加工领料', '领料数量', '库区', '货架', '库位', '确认加工领料']) {
-  assert.ok(pdaIssueHtml.includes(label), `PDA 特种工艺加工领料页渲染缺少：${label}`)
+for (const label of ['加工接收', '接收数量', '库区', '货架', '库位', '确认加工接收']) {
+  assert.ok(pdaIssueHtml.includes(label), `PDA 特种工艺加工接收页渲染缺少：${label}`)
 }
 
 pdaWindow.location.pathname = '/fcs/pda/warehouse/wait-handover'

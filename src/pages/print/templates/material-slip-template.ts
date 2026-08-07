@@ -35,7 +35,7 @@ const TEMPLATE_BY_KIND: Record<MaterialSlipKind, string> = {
 
 const TITLE_BY_KIND: Record<MaterialSlipKind, string> = {
   prep: '配料单',
-  pickup: '领料单',
+  pickup: '接收单',
   issue: '发料单',
 }
 
@@ -194,7 +194,7 @@ export function buildMaterialPrepSlipPrintDocument(input: PrintDocumentBuildInpu
     kind: 'prep',
     sourceId: row.id,
     title: '配料单',
-    subtitle: '用于仓库按裁片单准备面料、复核配料缺口并衔接裁床领料。',
+    subtitle: '用于仓库按裁片单准备面料、复核配料缺口并衔接裁床接收。',
     headerFields: mapFields([
       { label: '配料单号', value: slipNo, emphasis: true },
       { label: '来源生产单', value: row.productionOrderNo },
@@ -250,11 +250,11 @@ export function buildMaterialPrepSlipPrintDocument(input: PrintDocumentBuildInpu
         tableId: 'cut-order-qr',
         title: '裁片单二维码区',
         headers: ['二维码对象', '二维码说明', '二维码值'],
-        rows: [['裁片单二维码', '扫码查看裁片单配料与领料信息', row.qrCodeValue || row.cutOrderQrValue]],
+        rows: [['裁片单二维码', '扫码查看裁片单配料与接收信息', row.qrCodeValue || row.cutOrderQrValue]],
         minRows: 1,
       },
     ],
-    qrDescription: '扫码查看裁片单配料与领料信息',
+    qrDescription: '扫码查看裁片单配料与接收信息',
     qrValue: makeQrValue({
       documentType: 'MATERIAL_PREP_SLIP',
       sourceId: row.id,
@@ -265,7 +265,7 @@ export function buildMaterialPrepSlipPrintDocument(input: PrintDocumentBuildInpu
     signatureBlocks: [
       { label: '配料人签字', signerRole: '配料人' },
       { label: '复核人签字', signerRole: '复核人' },
-      { label: '领料人签字', signerRole: '领料人' },
+      { label: '接收人签字', signerRole: '接收人' },
       { label: '备注', signerRole: '现场备注' },
     ],
     footerFields: [
@@ -283,7 +283,7 @@ function allPickupSlips(): PickupSlip[] {
 export function buildPickupSlipPrintDocument(input: PrintDocumentBuildInput): PrintDocument {
   const slip = allPickupSlips().find((item) => item.pickupSlipNo === input.sourceId || item.sourceTaskNo === input.sourceId || item.boundObjectNo === input.sourceId)
     || allPickupSlips()[0]
-  if (!slip) throw new Error('缺少领料单来源数据')
+  if (!slip) throw new Error('缺少接收单来源数据')
 
   const printVersion = [...commonPickupPrintVersions, ...cuttingPickupPrintVersions]
     .find((item) => item.pickupSlipNo === slip.pickupSlipNo && item.isLatestVersion)
@@ -299,15 +299,15 @@ export function buildPickupSlipPrintDocument(input: PrintDocumentBuildInput): Pr
     buildInput: input,
     kind: 'pickup',
     sourceId: slip.pickupSlipNo,
-    title: '领料单',
+    title: '接收单',
     subtitle: '用于工厂或裁床从仓库领取面料、裁片、辅料或成衣，并完成扫码确认。',
     headerFields: mapFields([
-      { label: '领料单号', value: slip.pickupSlipNo, emphasis: true },
+      { label: '接收单号', value: slip.pickupSlipNo, emphasis: true },
       { label: '来源生产单', value: slip.productionOrderNo },
       { label: '来源任务', value: slip.sourceTaskNo },
-      { label: '领料工厂', value: slip.factoryName },
+      { label: '接收工厂', value: slip.factoryName },
       { label: '发料仓库', value: '仓库发料区' },
-      { label: '裁床领料', value: slip.currentStatus === 'READY_TO_PICKUP' ? '待领料' : slip.currentStatus === 'RECEIVED' ? '已领料' : '待复核' },
+      { label: '裁床接收', value: slip.currentStatus === 'READY_TO_PICKUP' ? '待接收' : slip.currentStatus === 'RECEIVED' ? '已接收' : '待复核' },
       { label: '打印版本', value: printVersion?.printVersionNo || slip.latestPrintVersionNo },
       { label: '打印时间', value: printVersion?.printedAt || now() },
       { label: '打印人', value: printVersion?.printedBy || '仓库管理员' },
@@ -320,8 +320,8 @@ export function buildPickupSlipPrintDocument(input: PrintDocumentBuildInput): Pr
           { label: '款号', value: '随生产单' },
           { label: '商品名称', value: slip.sourceTaskType || '生产任务物料' },
           { label: '工序 / 工艺', value: slip.sourceTaskType },
-          { label: '领料对象类型', value: noun.replace('数量', '').replace('米数', '面料').replace('件数', '成衣') },
-          { label: '计划领料对象数量', value: objectQtyText(slip.plannedQtySummary, noun) },
+          { label: '接收对象类型', value: noun.replace('数量', '').replace('米数', '面料').replace('件数', '成衣') },
+          { label: '计划接收对象数量', value: objectQtyText(slip.plannedQtySummary, noun) },
           { label: '已领对象数量', value: actualQty },
           { label: '差异对象数量', value: objectQtyDiff(slip.configuredQtySummary, slip.receivedQtySummary, noun) },
           { label: `应领${noun}`, value: expectedQty },
@@ -333,7 +333,7 @@ export function buildPickupSlipPrintDocument(input: PrintDocumentBuildInput): Pr
     tables: [
       {
         tableId: 'pickup-lines',
-        title: '领料明细表',
+        title: '接收明细表',
         headers: ['对象类型', '物料 / 裁片 / 辅料说明', '编码 / SKU', '颜色', '尺码', '部位', '批次号', '卷号 / 菲票号 / 包号', '应领对象数量', '实领对象数量', '差异对象数量', '单位', '备注'],
         rows: [[
           noun,
@@ -348,12 +348,12 @@ export function buildPickupSlipPrintDocument(input: PrintDocumentBuildInput): Pr
           actualQty,
           objectQtyDiff(slip.configuredQtySummary, slip.receivedQtySummary, noun),
           slip.plannedQtySummary.unitLabel,
-          scanRecord?.note || '扫码确认领料',
+          scanRecord?.note || '扫码确认接收',
         ]],
         minRows: 5,
       },
     ],
-    qrDescription: '扫码确认领料',
+    qrDescription: '扫码确认接收',
     qrValue: makeQrValue({
       documentType: 'PICKUP_SLIP',
       sourceId: slip.pickupSlipNo,
@@ -363,12 +363,12 @@ export function buildPickupSlipPrintDocument(input: PrintDocumentBuildInput): Pr
     }),
     signatureBlocks: [
       { label: '发料人签字', signerRole: '发料人' },
-      { label: '领料人签字', signerRole: '领料人' },
+      { label: '接收人签字', signerRole: '接收人' },
       { label: '复核人签字', signerRole: '复核人' },
       { label: '备注', signerRole: '现场备注' },
     ],
     footerFields: [
-      { label: '领料单号', value: slip.pickupSlipNo },
+      { label: '接收单号', value: slip.pickupSlipNo },
       { label: '打印版本', value: printVersion?.printVersionNo || slip.latestPrintVersionNo },
     ],
     returnHref: targetRoute,

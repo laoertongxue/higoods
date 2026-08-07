@@ -4,14 +4,14 @@ import { collectPageErrors, expectNoPageErrors, seedLocalStorage } from './helpe
 
 const PICKUP_HEAD_ID = 'PKH-MOCK-SEW-400'
 
-test('待领料记录卡压成单主卡并保留关键字段与结果区', async ({ page }) => {
+test('待接收记录卡压成单主卡并保留关键字段与结果区', async ({ page }) => {
   const errors = collectPageErrors(page)
   await seedLocalStorage(page, { fcs_pda_factory_id: 'ID-F001' })
 
   await page.goto(`/fcs/pda/handover/${PICKUP_HEAD_ID}`)
 
   const recordListSection = page.locator('article').filter({
-    has: page.getByRole('heading', { name: '仓库已生成的领料记录' }),
+    has: page.getByRole('heading', { name: '仓库已生成的接收记录' }),
   }).first()
   await expect(recordListSection).toBeVisible()
 
@@ -20,10 +20,10 @@ test('待领料记录卡压成单主卡并保留关键字段与结果区', async
   }).first()
   await expect(pendingConfirmCard).toBeVisible()
   await expect(pendingConfirmCard.getByText(`${PICKUP_HEAD_ID}-003`).first()).toBeVisible()
-  await expect(pendingConfirmCard.getByText('领料方式')).toBeVisible()
+  await expect(pendingConfirmCard.getByText('接收方式')).toBeVisible()
   await expect(pendingConfirmCard.getByText('本次应领数量')).toBeVisible()
   await expect(pendingConfirmCard.getByText('仓库交付数量')).toBeVisible()
-  await expect(pendingConfirmCard.getByText('领料记录二维码')).toBeVisible()
+  await expect(pendingConfirmCard.getByText('接收记录二维码')).toBeVisible()
   await expect(pendingConfirmCard.getByTestId('pickup-record-qr')).toBeVisible()
   await expect(pendingConfirmCard.locator('div.rounded-md.border')).toHaveCount(0)
 

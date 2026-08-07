@@ -72,7 +72,7 @@ test('工厂档案默认只显示管理员与操作工，并按真实移动应�
   await expect(form.getByText('待办', { exact: true })).toHaveCount(0)
   await expect(form.getByRole('cell', { name: '关键节点上报', exact: true })).toBeVisible()
   await expect(form.getByRole('cell', { name: '提交报价', exact: true })).toBeVisible()
-  await expect(form.getByRole('cell', { name: '提交领料长度异议', exact: true })).toBeVisible()
+  await expect(form.getByRole('cell', { name: '提交接收长度异议', exact: true })).toBeVisible()
   await expect(form.getByRole('cell', { name: '提交交出数量异议', exact: true })).toBeVisible()
   await expect(form.getByRole('cell', { name: '申请修改结算资料', exact: true })).toBeVisible()
   await expect(form.getByText('创建质检')).toHaveCount(0)

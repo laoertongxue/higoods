@@ -4,7 +4,7 @@
 
 **目标：** 在现有 `生产对象总览 / 生产全局搜索` 浮层中新增 `物料资源总览`，让点击物料编码进入物料全局资源视角，同时保留生产对象内的本单物料切片。
 
-**架构：** 复用当前 `src/data/fcs/production-object-overview.ts` 和 `src/components/production-object-overview.ts`。数据层从现有 `ProductionMaterialLine`、生产单、配料/领料 mock 里派生物料资源视图；UI 层复用现有生产对象浮层，不新增路由、不新增后端、不引入依赖。
+**架构：** 复用当前 `src/data/fcs/production-object-overview.ts` 和 `src/components/production-object-overview.ts`。数据层从现有 `ProductionMaterialLine`、生产单、配料/接收 mock 里派生物料资源视图；UI 层复用现有生产对象浮层，不新增路由、不新增后端、不引入依赖。
 
 **技术栈：** Vite，TypeScript，Vanilla 字符串模板渲染，Tailwind CSS，本地 mock 数据。
 
@@ -64,7 +64,7 @@ assert.equal(materialResource.sourceContext?.sourceObjectId, order.productionOrd
 assert.ok(materialResource.businessAllocations.length >= 1, '物料资源总览必须展示业务占用')
 assert.ok(materialResource.businessAllocations.some((item) => item.isSourceContext), '来源生产单占用必须置顶高亮')
 assert.ok(materialResource.supplyDemandSummary.totalRequiredQty > 0, '物料资源总览必须展示总需求')
-assert.ok(materialResource.materialExecutionLines.length > 0, '物料资源总览必须展示配料/领料/发料履约')
+assert.ok(materialResource.materialExecutionLines.length > 0, '物料资源总览必须展示配料/接收/发料履约')
 assert.ok(materialResource.masterData.materialSku === 'FLSZ260617009', '物料档案区必须保留静态主数据')
 
 const materialResources = searchMaterialResources('FLSZ260617009')
@@ -101,7 +101,7 @@ for (const text of [
   '供需总览',
   '业务占用',
   '库存与在途',
-  '配料 / 领料 / 发料',
+  '配料 / 接收 / 发料',
   '异常与档案',
   '当前判断',
   '来源',
@@ -606,7 +606,7 @@ const MATERIAL_RESOURCE_TAB_ITEMS: Array<{ key: MaterialResourceTab; label: stri
   { key: 'supply-demand', label: '供需总览' },
   { key: 'allocations', label: '业务占用' },
   { key: 'inventory', label: '库存与在途' },
-  { key: 'execution', label: '配料 / 领料 / 发料' },
+  { key: 'execution', label: '配料 / 接收 / 发料' },
   { key: 'issues-master', label: '异常与档案' },
 ]
 
@@ -798,7 +798,7 @@ function renderMaterialAllocationsTab(resource: MaterialResourceOverview): strin
             <div><span class="text-foreground">优先级：</span>${escapeHtml(item.priority)}</div>
             <div><span class="text-foreground">需求：</span>${formatMaterialResourceQty(item.requiredQty, resource.unit)}</div>
             <div><span class="text-foreground">已配料：</span>${formatMaterialResourceQty(item.preparedQty, resource.unit)}</div>
-            <div><span class="text-foreground">已领料：</span>${formatMaterialResourceQty(item.pickedQty, resource.unit)}</div>
+            <div><span class="text-foreground">已接收：</span>${formatMaterialResourceQty(item.pickedQty, resource.unit)}</div>
             <div><span class="text-foreground">缺口：</span>${formatMaterialResourceQty(item.shortageQty, resource.unit)}</div>
           </div>
         </article>
@@ -862,8 +862,8 @@ function renderMaterialExecutionTab(resource: MaterialResourceOverview): string 
             <div>需求：${formatMaterialResourceQty(item.requiredQty, item.unit)}</div>
             <div>已配料：${formatMaterialResourceQty(item.preparedQty, item.unit)}</div>
             <div>待配料：${formatMaterialResourceQty(item.pendingPrepareQty, item.unit)}</div>
-            <div>已领料：${formatMaterialResourceQty(item.pickedQty, item.unit)}</div>
-            <div>待领料：${formatMaterialResourceQty(item.pendingPickQty, item.unit)}</div>
+            <div>已接收：${formatMaterialResourceQty(item.pickedQty, item.unit)}</div>
+            <div>待接收：${formatMaterialResourceQty(item.pendingPickQty, item.unit)}</div>
             <div>已发料：${formatMaterialResourceQty(item.issuedQty, item.unit)}</div>
             <div>待发料：${formatMaterialResourceQty(item.pendingIssueQty, item.unit)}</div>
             <div>缺口：${formatMaterialResourceQty(item.shortageQty, item.unit)}</div>
@@ -1085,10 +1085,10 @@ function renderSearchResults(keyword: string): string {
 
 - [ ] **步骤 4：让异常关键词命中物料资源**
 
-如果 `searchMaterialResources('缺料')`、`searchMaterialResources('待领料')`、`searchMaterialResources('未到仓')` 返回为空，在数据层 `searchMaterialResources()` 里追加异常关键词分支：
+如果 `searchMaterialResources('缺料')`、`searchMaterialResources('待接收')`、`searchMaterialResources('未到仓')` 返回为空，在数据层 `searchMaterialResources()` 里追加异常关键词分支：
 
 ```typescript
-  if (['缺料', '待领料', '未到仓'].some((word) => keyword.includes(word))) {
+  if (['缺料', '待接收', '未到仓'].some((word) => keyword.includes(word))) {
     return Array.from(new Set(
       productionObjectSearchIndex
         .filter((item) => item.objectType === 'MATERIAL')
@@ -1180,7 +1180,7 @@ await page.goto('http://127.0.0.1:5174/fcs/production/orders')
 await page.getByText('查生产').click()
 await page.locator('[data-production-object-action="search"]').fill('FLSZ260617009')
 await page.getByText('查看物料资源').first().click()
-for (const text of ['物料资源总览', '供需总览', '业务占用', '库存与在途', '配料 / 领料 / 发料', '异常与档案']) {
+for (const text of ['物料资源总览', '供需总览', '业务占用', '库存与在途', '配料 / 接收 / 发料', '异常与档案']) {
   if (!(await page.getByText(text).first().isVisible())) throw new Error(`missing ${text}`)
 }
 const overflowX = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)

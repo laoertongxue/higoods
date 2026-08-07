@@ -3610,7 +3610,7 @@ export function buildSpreadingVarianceSummary(
   })
   const shortageIndicator = coreMetrics.shortageGarmentQty > 0
 
-  let varianceHint = '当前铺布数据与领料数据基本匹配。'
+  let varianceHint = '当前铺布数据与接收数据基本匹配。'
   if (!session || !session.rolls.length) {
     varianceHint = '当前尚未录入铺布卷数据，差异判断仍需补录后确认。'
   } else if (shortageIndicator) {
@@ -3749,7 +3749,7 @@ export function buildVariancePreview(summary: SpreadingVarianceSummary | null): 
     return {
       level: 'WATCH',
       label: '建议继续观察',
-      detailText: '当前可用长度与仓库领料长度接近，建议在继续流转前复核后续损耗。',
+      detailText: '当前可用长度与仓库接收长度接近，建议在继续流转前复核后续损耗。',
       shortageIndicator: false,
     }
   }

@@ -196,22 +196,22 @@ function generateMaterialStatementDraft(
 ): { ok: boolean; materialStatementId?: string; message?: string } {
   const { productionOrderId, issueIds, remark } = input
   if (!productionOrderId.trim()) return { ok: false, message: '生产单号不能为空' }
-  if (!issueIds.length) return { ok: false, message: '至少选择一条领料事实' }
+  if (!issueIds.length) return { ok: false, message: '至少选择一条接收事实' }
 
   for (const issueId of issueIds) {
     const issue = getIssueById(issueId)
-    if (!issue) return { ok: false, message: `领料事实 ${issueId} 不存在` }
+    if (!issue) return { ok: false, message: `接收事实 ${issueId} 不存在` }
     if (issue.productionOrderId !== productionOrderId) {
-      return { ok: false, message: `领料事实 ${issueId} 不属于生产单 ${productionOrderId}` }
+      return { ok: false, message: `接收事实 ${issueId} 不属于生产单 ${productionOrderId}` }
     }
     if (issue.status !== 'PARTIAL' && issue.status !== 'ISSUED') {
-      return { ok: false, message: `领料事实 ${issueId} 状态不符` }
+      return { ok: false, message: `接收事实 ${issueId} 状态不符` }
     }
   }
 
   const occupiedIds = getOccupiedIssueIds()
   for (const issueId of issueIds) {
-    if (occupiedIds.has(issueId)) return { ok: false, message: '存在已纳入未关闭来源对象的领料事实' }
+    if (occupiedIds.has(issueId)) return { ok: false, message: '存在已纳入未关闭来源对象的接收事实' }
   }
 
   const timestamp = nowTimestamp()
@@ -253,7 +253,7 @@ function generateMaterialStatementDraft(
 
 function confirmMaterialStatementDraft(materialStatementId: string, by: string): { ok: boolean; message?: string } {
   const draft = getMutableMaterialStatementDraftForSettlement(materialStatementId)
-  if (!draft) return { ok: false, message: `领料对账对象 ${materialStatementId} 不存在` }
+  if (!draft) return { ok: false, message: `接收对账对象 ${materialStatementId} 不存在` }
   if (draft.status === 'CONFIRMED') return { ok: true }
   if (draft.status === 'CLOSED') return { ok: false, message: '已关闭的对象不允许确认' }
   draft.status = 'CONFIRMED'
@@ -264,7 +264,7 @@ function confirmMaterialStatementDraft(materialStatementId: string, by: string):
 
 function closeMaterialStatementDraft(materialStatementId: string, by: string): { ok: boolean; message?: string } {
   const draft = getMutableMaterialStatementDraftForSettlement(materialStatementId)
-  if (!draft) return { ok: false, message: `领料对账对象 ${materialStatementId} 不存在` }
+  if (!draft) return { ok: false, message: `接收对账对象 ${materialStatementId} 不存在` }
   if (draft.status === 'CLOSED') return { ok: true }
   draft.status = 'CLOSED'
   draft.updatedAt = nowTimestamp()
@@ -315,8 +315,8 @@ function renderDetailDialog(detailDraft: MaterialStatementDraft | null): string 
         </button>
 
         <header class="mb-4">
-          <h3 class="text-lg font-semibold">车缝领料对账对象 — ${escapeHtml(detailDraft.materialStatementId)}</h3>
-          <p class="mt-1 text-xs text-muted-foreground">这里查看正式领料对账对象，当前用于领料事实与对账对象管理，暂不计入本期应付结算生成。</p>
+          <h3 class="text-lg font-semibold">车缝接收对账对象 — ${escapeHtml(detailDraft.materialStatementId)}</h3>
+          <p class="mt-1 text-xs text-muted-foreground">这里查看正式接收对账对象，当前用于接收事实与对账对象管理，暂不计入本期应付结算生成。</p>
         </header>
 
         <div class="grid gap-4 md:grid-cols-4">
@@ -334,7 +334,7 @@ function renderDetailDialog(detailDraft: MaterialStatementDraft | null): string 
           <table class="w-full min-w-[880px] text-sm">
             <thead>
               <tr class="border-b bg-muted/40 text-left">
-                <th class="px-4 py-2 font-medium">领料单号</th>
+                <th class="px-4 py-2 font-medium">接收单号</th>
                 <th class="px-4 py-2 font-medium">任务ID</th>
                 <th class="px-4 py-2 font-medium">用料说明</th>
                 <th class="px-4 py-2 text-center font-medium">需求数量</th>
@@ -353,7 +353,7 @@ function renderDetailDialog(detailDraft: MaterialStatementDraft | null): string 
                       <td class="px-4 py-3 text-center">${item.requestedQty}</td>
                       <td class="px-4 py-3 text-center">${item.issuedQty}</td>
                       <td class="px-4 py-3">
-                        <button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/process/material-issue">查看领料事实</button>
+                        <button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/process/material-issue">查看接收事实</button>
                       </td>
                     </tr>
                   `,
@@ -450,13 +450,13 @@ export function renderMaterialStatementsPage(): string {
     <div class="flex flex-col gap-6 p-6">
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-2xl font-semibold">车缝领料对账</h1>
+          <h1 class="text-2xl font-semibold">车缝接收对账</h1>
           <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(pageBoundary.pageIntro)}</p>
         </div>
       </div>
 
       <section class="rounded-md bg-muted px-4 py-2 text-sm text-muted-foreground">
-        领料事实发生在仓交接和执行链路，这里只沉淀正式对账对象和材料应收口径；当前阶段暂不进入对账单待生成来源项。
+        接收事实发生在仓交接和执行链路，这里只沉淀正式对账对象和材料应收口径；当前阶段暂不进入对账单待生成来源项。
       </section>
 
       <section class="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -504,13 +504,13 @@ export function renderMaterialStatementsPage(): string {
                 <thead>
                   <tr class="border-b bg-muted/40 text-left">
                     <th class="w-10 px-4 py-2"></th>
-                    <th class="px-4 py-2 font-medium">领料单号</th>
+                    <th class="px-4 py-2 font-medium">接收单号</th>
                     <th class="px-4 py-2 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
                     <th class="px-4 py-2 font-medium">任务ID</th>
                     <th class="px-4 py-2 font-medium">用料说明</th>
                     <th class="px-4 py-2 text-center font-medium">需求数量</th>
                     <th class="px-4 py-2 text-center font-medium">已下发数量</th>
-                    <th class="px-4 py-2 font-medium">领料状态</th>
+                    <th class="px-4 py-2 font-medium">接收状态</th>
                     <th class="px-4 py-2 font-medium">更新时间</th>
                     <th class="px-4 py-2 font-medium">操作</th>
                   </tr>
@@ -518,7 +518,7 @@ export function renderMaterialStatementsPage(): string {
                 <tbody>
                   ${
                     filteredPool.length === 0
-                      ? `<tr><td colspan="10" class="py-10 text-center text-sm text-muted-foreground">暂无可生成车缝领料对账对象的领料事实</td></tr>`
+                      ? `<tr><td colspan="10" class="py-10 text-center text-sm text-muted-foreground">暂无可生成车缝接收对账对象的接收事实</td></tr>`
                       : filteredPool
                           .map(
                             (issue) => `
@@ -534,7 +534,7 @@ export function renderMaterialStatementsPage(): string {
                                 <td class="px-4 py-3 text-center">${issue.issuedQty}</td>
                                 <td class="px-4 py-3"><span class="inline-flex rounded-md border px-2 py-0.5 text-xs">${escapeHtml(ISSUE_STATUS_LABEL[issue.status] ?? issue.status)}</span></td>
                                 <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(issue.updatedAt ?? '—')}</td>
-                                <td class="px-4 py-3"><button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/process/material-issue">查看领料事实</button></td>
+                                <td class="px-4 py-3"><button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/process/material-issue">查看接收事实</button></td>
                               </tr>
                             `,
                           )
@@ -547,7 +547,7 @@ export function renderMaterialStatementsPage(): string {
             <section class="flex max-w-lg flex-col gap-2">
               <textarea rows="2" class="w-full rounded-md border bg-background px-3 py-2 text-sm" data-mst-field="remark" placeholder="备注（可选）">${escapeHtml(state.remark)}</textarea>
               <button class="inline-flex h-9 items-center justify-center rounded-md bg-blue-600 px-3 text-sm font-medium text-white hover:bg-blue-700 ${state.selected.length === 0 ? 'pointer-events-none opacity-50' : ''}" data-mst-action="generate">
-                生成车缝领料对账草稿
+                生成车缝接收对账草稿
               </button>
             </section>
           `
@@ -574,7 +574,7 @@ export function renderMaterialStatementsPage(): string {
                 <tbody>
                   ${
                     currentObjects.length === 0
-                      ? `<tr><td colspan="9" class="py-10 text-center text-sm text-muted-foreground">当前视图暂无车缝领料对账对象</td></tr>`
+                      ? `<tr><td colspan="9" class="py-10 text-center text-sm text-muted-foreground">当前视图暂无车缝接收对账对象</td></tr>`
                       : currentObjects
                           .map(
                             (draft) => `
@@ -675,7 +675,7 @@ export function handleMaterialStatementsEvent(target: HTMLElement): boolean {
   if (action === 'generate') {
     const selectedOrder = getSelectedOrder()
     if (state.selected.length === 0) {
-      showMaterialStatementsToast('请至少选择一条领料事实', 'error')
+      showMaterialStatementsToast('请至少选择一条接收事实', 'error')
       return true
     }
     if (!selectedOrder) {
@@ -690,7 +690,7 @@ export function handleMaterialStatementsEvent(target: HTMLElement): boolean {
       showMaterialStatementsToast(result.message ?? '生成失败', 'error')
       return true
     }
-    showMaterialStatementsToast('已生成车缝领料对账草稿')
+    showMaterialStatementsToast('已生成车缝接收对账草稿')
     state.selected = []
     state.remark = ''
     state.activeView = 'DRAFT'
@@ -702,7 +702,7 @@ export function handleMaterialStatementsEvent(target: HTMLElement): boolean {
     const result = confirmMaterialStatementDraft(materialStatementId, '管理员')
     if (result.ok) {
       state.activeView = 'CONFIRMED'
-      showMaterialStatementsToast('车缝领料对账对象已确认')
+      showMaterialStatementsToast('车缝接收对账对象已确认')
     } else showMaterialStatementsToast(result.message ?? '操作失败', 'error')
     return true
   }
@@ -712,7 +712,7 @@ export function handleMaterialStatementsEvent(target: HTMLElement): boolean {
     const result = closeMaterialStatementDraft(materialStatementId, '管理员')
     if (result.ok) {
       state.activeView = 'CLOSED'
-      showMaterialStatementsToast('车缝领料对账对象已关闭')
+      showMaterialStatementsToast('车缝接收对账对象已关闭')
     } else showMaterialStatementsToast(result.message ?? '操作失败', 'error')
     return true
   }

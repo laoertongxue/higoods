@@ -108,7 +108,7 @@ function checkNoDuplicateWarehouseFlowModels(): void {
     buildToken('Factory', 'OutboundOrder'),
     'FactoryDeliveryOrder',
     'WarehouseDeliveryOrder',
-    buildToken('仓库', '领料单'),
+    buildToken('仓库', '接收单'),
     buildToken('仓库', '交出单'),
     buildToken('create', 'Warehouse', 'Handover'),
     'createWarehousePickup',
@@ -120,7 +120,7 @@ function checkNoDuplicateWarehouseFlowModels(): void {
     .join('\n')
 
   bannedTokens.forEach((token) => {
-    assert(!source.includes(token), `不应新增并行领料/交出主模型：${token}`)
+    assert(!source.includes(token), `不应新增并行接收/交出主模型：${token}`)
   })
 }
 
@@ -258,13 +258,13 @@ function checkRequiredScenarios(): void {
 
 function checkPickupCompatibility(): void {
   const pickupHeads = listPdaHandoverHeads().filter((head) => head.headType === 'PICKUP')
-  assert(pickupHeads.length > 0, 'pickup 领料样例丢失')
+  assert(pickupHeads.length > 0, 'pickup 接收样例丢失')
 }
 
 function checkPickupAndHandoutCompletionSemantics(): void {
   const pickupHeads = listPdaHandoverHeads().filter((head) => head.headType === 'PICKUP')
   const handoutHeads = listPdaHandoverHeads().filter((head) => head.headType === 'HANDOUT')
-  assert(pickupHeads.some((head) => canCompletePdaPickupHead(head.handoverId).message.includes('领料单')), '领料单完成校验必须返回业务文案')
+  assert(pickupHeads.some((head) => canCompletePdaPickupHead(head.handoverId).message.includes('接收单')), '接收单完成校验必须返回业务文案')
   assert(handoutHeads.some((head) => canCompletePdaHandoutHead(head.handoverId).message.includes('交出单')), '交出单完成校验必须返回业务文案')
   handoutHeads.forEach((head) => {
     const result = canCompletePdaHandoutHead(head.handoverId)

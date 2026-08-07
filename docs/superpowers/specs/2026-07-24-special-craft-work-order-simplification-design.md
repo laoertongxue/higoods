@@ -13,7 +13,7 @@
 ```
 src/data/fcs/special-craft-task-orders.ts:46-57
 
- 待领料 → 成衣仓已出库待收货 → 已入待加工仓 → 加工中 → 已完成 → 待交出 → 已交出 → 已回写
+ 待接收 → 成衣仓已出库待收货 → 已入待加工仓 → 加工中 → 已完成 → 待交出 → 已交出 → 已回写
                                                                     ↓                ↓
                                                               差异 / 异议中 / 异常
 ```
@@ -27,7 +27,7 @@ src/data/fcs/special-craft-task-orders.ts:46-57
 
 | actionCode | label | fromStatuses | toStatus |
 |------------|-------|--------------|----------|
-| `SPECIAL_CRAFT_CONFIRM_RECEIVE` | 确认接收 | `待领料` | `加工中` |
+| `SPECIAL_CRAFT_CONFIRM_RECEIVE` | 确认接收 | `待接收` | `加工中` |
 | `SPECIAL_CRAFT_FINISH_PROCESS` | 完成加工 | `加工中` | `待交出` |
 | `SPECIAL_CRAFT_REPORT_DIFFERENCE` | 上报差异 | `已接收/已入待加工仓/加工中/加工完成/待交出` | `差异` |
 | `SPECIAL_CRAFT_SUBMIT_HANDOVER` | 发起交出 | `待交出` | `已交出` |
@@ -88,11 +88,11 @@ src/data/fcs/special-craft-task-orders.ts:46-57
 
 ```typescript
 const TASK_STATUS_OPTIONS = [
-  '全部', '待领料', '待加工', '加工中', '待交出', '已完成', '差异'
+  '全部', '待接收', '待加工', '加工中', '待交出', '已完成', '差异'
 ]
 ```
 
-统计卡片（`renderStats:338-346`）：加工单数、待领料、加工中、待交出、差异/异常
+统计卡片（`renderStats:338-346`）：加工单数、待接收、加工中、待交出、差异/异常
 
 ---
 
@@ -109,7 +109,7 @@ const TASK_STATUS_OPTIONS = [
         ┌─────────────────┼─────────────────┐
         ▼                 ▼                 ▼
 ┌───────────┐    ┌─────────────┐    ┌───────────┐
-│  待领料    │───→│   加工中     │───→│  已完结   │
+│  待接收    │───→│   加工中     │───→│  已完结   │
 │ PENDING   │ 确认│ PROCESSING  │完成│ COMPLETED │
 │           │ 接收│             │加工│ (只读)    │
 └───────────┘    └─────────────┘    └───────────┘
@@ -121,7 +121,7 @@ const TASK_STATUS_OPTIONS = [
 
 | 状态值 | 含义 | 可执行操作 |
 |--------|------|-----------|
-| `待领料` | 加工单已生成，等待工厂接收物料 | 确认接收 |
+| `待接收` | 加工单已生成，等待工厂接收物料 | 确认接收 |
 | `加工中` | 物料已入库待加工仓，正在执行加工 | 确认接收、加工填报、发起交出 |
 | `已完结` | 加工单已完成所有操作并结单 | 无（仅查看） |
 
@@ -129,7 +129,7 @@ const TASK_STATUS_OPTIONS = [
 
 | 触发 | 条件 | 动作 |
 |------|------|------|
-| `待领料 → 加工中` | 用户点击"确认接收"，弹窗填入实收数量 | 物料入库到待加工仓指定库区库位 + 自动开工 |
+| `待接收 → 加工中` | 用户点击"确认接收"，弹窗填入实收数量 | 物料入库到待加工仓指定库区库位 + 自动开工 |
 | `加工中 → 已完结` | 用户点击"完成加工单"，弹窗只读确认 | 结单，所有操作禁用 |
 | `加工中 → 加工中` | 确认接收/加工填报/发起交出（不含完成加工单）| 状态保持不变，仅更新数量 |
 
@@ -137,7 +137,7 @@ const TASK_STATUS_OPTIONS = [
 
 | 操作 | actionCode | label | fromStatus | toStatus | 弹窗类型 |
 |------|-----------|-------|-----------|----------|---------|
-| 确认接收 | `SPECIAL_CRAFT_CONFIRM_RECEIVE` | 确认接收 | `待领料` / `加工中` | `加工中` | 逐行表格（可编辑实收数） |
+| 确认接收 | `SPECIAL_CRAFT_CONFIRM_RECEIVE` | 确认接收 | `待接收` / `加工中` | `加工中` | 逐行表格（可编辑实收数） |
 | 加工填报 | `SPECIAL_CRAFT_PROCESS_REPORT` | 加工填报 | `加工中` | `加工中` | 逐行表格（可编辑完工数） |
 | 发起交出 | `SPECIAL_CRAFT_SUBMIT_HANDOVER` | 发起交出 | `加工中` | `加工中` | 逐行表格（可编辑交出数） |
 | 完成加工单 | `SPECIAL_CRAFT_COMPLETE_ORDER` | 完成加工单 | `加工中` | `已完结` | 逐行表格（全部只读） |
@@ -199,7 +199,7 @@ const TASK_STATUS_OPTIONS = [
  │              │             │               │ 入库到待加工仓 │
  │              │             │               │──────────────→│
  │              │             │               │ 自动开工      │
- │              │             │               │ (待领料→加工中)│
+ │              │             │               │ (待接收→加工中)│
  │              │             │               │               │
  │              │             │  返回结果     │               │
  │              │             │←──────────────│               │
@@ -334,7 +334,7 @@ const TASK_STATUS_OPTIONS = [
 ### 4.3 状态流转规则
 
 ```
-待领料:
+待接收:
   ├── 确认接收 → 加工中 (每次执行 status 不变或变为 加工中)
   
 加工中:
@@ -359,7 +359,7 @@ const TASK_STATUS_OPTIONS = [
 
 **修改**：
 - `getFastSpecialCraftWebActions`：
-  - `SPECIAL_CRAFT_CONFIRM_RECEIVE` 的 `fromStatuses` 改为 `['待领料', '加工中']`
+  - `SPECIAL_CRAFT_CONFIRM_RECEIVE` 的 `fromStatuses` 改为 `['待接收', '加工中']`
   - 重命名 `SPECIAL_CRAFT_FINISH_PROCESS` → `SPECIAL_CRAFT_PROCESS_REPORT`，label 改为"加工填报"
   - `SPECIAL_CRAFT_SUBMIT_HANDOVER` 的 `fromStatuses` 改为 `['加工中']`，`toStatus` 改为 `加工中`
   - 新增 `SPECIAL_CRAFT_COMPLETE_ORDER`，`fromStatuses: ['加工中']`，`toStatus: '已完结'`
@@ -386,7 +386,7 @@ const TASK_STATUS_OPTIONS = [
 ### 5.3 `src/pages/process-factory/special-craft/task-orders.ts`
 
 **修改**：
-- `TASK_STATUS_OPTIONS`：删除 '待加工'、'待交出'、'已完成'、'差异'，改为 `['全部', '待领料', '加工中', '已完结']`
+- `TASK_STATUS_OPTIONS`：删除 '待加工'、'待交出'、'已完成'、'差异'，改为 `['全部', '待接收', '加工中', '已完结']`
 - `renderStats`：删除差异/异常统计，增加已完结统计
 - 操作列（`actions` 的 render）：继续复用 `getFastSpecialCraftWebActions`，自动获得 3 按钮
 
@@ -397,7 +397,7 @@ const TASK_STATUS_OPTIONS = [
 - 以下状态值：`成衣仓已出库待收货`、`已入待加工仓`、`已完成`、`待交出`、`已交出`、`已回写`、`差异`、`异议中`、`异常`
 
 **修改**：
-- `SpecialCraftTaskStatus` 改为 `'待领料' | '加工中' | '已完结'`
+- `SpecialCraftTaskStatus` 改为 `'待接收' | '加工中' | '已完结'`
 - `SpecialCraftTaskExecutionStatus` 对应精简
 - `SpecialCraftTaskAbnormalStatus` 删除或用 `'无异常'` 占位
 - `SpecialCraftTaskOrder` 接口：
@@ -422,7 +422,7 @@ const TASK_STATUS_OPTIONS = [
 - `SPECIAL_CRAFT_FINISH_PROCESS` → `SPECIAL_CRAFT_PROCESS_REPORT`，label "加工填报"
 - `SPECIAL_CRAFT_SUBMIT_HANDOVER`：`fromStatuses` 改为 `['加工中']`，`toStatus` 改为 `加工中`
 - 新增 `SPECIAL_CRAFT_COMPLETE_ORDER`：`fromStatuses: ['加工中']`，`toStatus: '已完结'`
-- `SPECIAL_CRAFT_CONFIRM_RECEIVE`：`fromStatuses` 改为 `['待领料', '加工中']`
+- `SPECIAL_CRAFT_CONFIRM_RECEIVE`：`fromStatuses` 改为 `['待接收', '加工中']`
 - 写回 handler 中 `returnedQty` 赋值改为累加而非覆盖
 
 ### 5.6 `src/data/fcs/process-warehouse-linkage-service.ts`
@@ -452,9 +452,9 @@ const TASK_STATUS_OPTIONS = [
 
 ## 六、自检清单
 
-- [ ] `SpecialCraftTaskStatus` 仅含 3 个值：待领料、加工中、已完结
+- [ ] `SpecialCraftTaskStatus` 仅含 3 个值：待接收、加工中、已完结
 - [ ] `getFastSpecialCraftWebActions` 仅返回 4 个 action（根据状态过滤）
-- [ ] 待领料状态仅显示"确认接收"按钮
+- [ ] 待接收状态仅显示"确认接收"按钮
 - [ ] 加工中状态显示"确认接收""加工填报""发起交出"三个按钮
 - [ ] 已完结状态不显示操作按钮，详情页只读
 - [ ] 确认接收弹窗：逐行计划数+实收数，实收数可改

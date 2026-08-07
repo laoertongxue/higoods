@@ -216,7 +216,7 @@ function createOrUpdateExceptionFromSignal(signal: {
     TECH_PACK_NOT_RELEASED: '技术包未发布',
     FACTORY_BLACKLISTED: '工厂黑名单',
     HANDOVER_DIFF: '交接差异',
-    MATERIAL_NOT_READY: '领料记录不足',
+    MATERIAL_NOT_READY: '接收记录不足',
     START_OVERDUE: '开工逾期',
     MILESTONE_NOT_REPORTED: '关键节点未上报',
   }

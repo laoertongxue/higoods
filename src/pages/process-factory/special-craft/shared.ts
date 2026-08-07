@@ -44,7 +44,7 @@ export function formatSpecialCraftFactoryLabel(factoryName?: string, factoryId?:
 
 export function renderStatusBadge(label: string): string {
   const tone =
-    label.includes('待领料')
+    label.includes('待接收')
       ? 'amber'
       : label.includes('加工中')
         ? 'blue'
@@ -231,7 +231,7 @@ export function getFastSpecialCraftWebActions(taskOrder: SpecialCraftTaskOrder):
     {
       actionCode: 'SPECIAL_CRAFT_CONFIRM_RECEIVE',
       actionLabel: '确认接收',
-      fromStatuses: ['待领料', '加工中'],
+      fromStatuses: ['待接收', '加工中'],
       toStatus: '加工中',
       requiredFields: ['接收人', '接收时间'],
       optionalFields: ['备注'],

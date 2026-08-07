@@ -27,7 +27,7 @@ const state: NotifyState = {
 const FILTERS: Array<{ value: TodoFilter; label: string }> = [
   { value: '全部', label: '全部' },
   { value: '待接单', label: '待接单' },
-  { value: '待领料', label: '待领料' },
+  { value: '待接收', label: '待接收' },
   { value: '待开工', label: '待开工' },
   { value: '待完工', label: '待完工' },
   { value: '待交出', label: '待交出' },

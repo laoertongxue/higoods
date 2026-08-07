@@ -145,7 +145,7 @@ assert.doesNotMatch(`${pdaWaitProcessSource}\n${pdaInboundSource}\n${pdaHandover
 assert.match(pdaWaitProcessSource, /调整剩余存放库位/)
 assert.match(pdaWaitProcessSource, /revalidatePdaCuttingFootprintAdjustmentSelection/, '剩余存放调整确认必须走最新投影整组重校验')
 assert.doesNotMatch(pdaWaitProcessSource, /存放范围|原范围/, 'PDA 选位文案不得继续使用范围摘要表达')
-assert.match(pdaWaitProcessSource, /}, syncCuttingPickupSessionRuntimeFacts\)/, '领料必须通过原子运行时入口写共享事件与本地会话')
+assert.match(pdaWaitProcessSource, /}, syncCuttingPickupSessionRuntimeFacts\)/, '接收必须通过原子运行时入口写共享事件与本地会话')
 assert.match(pdaInboundSource, /data-pda-inbound-location-map/)
 assert.doesNotMatch(pdaInboundSource, /selectionLimit/, 'PDA 单选业务状态不得继续泄漏为共享地图数量限制 API')
 assert.match(pdaInboundSource, /selectedLocationIds: form\.selectedLocationIds/, 'PDA 中转袋入仓地图必须直接投影数组选位事实')
@@ -162,7 +162,7 @@ assert.match(warehouseHubSource, /toggleWarehouseLocationSelection\([\s\S]*waitH
 assert.match(warehouseHubSource, /warehouseLocations,\s*usageCycleId: snapshot\.usageCycleId/, 'Web 待交出入仓必须把全部稳定库位引用作为唯一事实提交')
 assert.doesNotMatch(warehouseHubSource.match(/function submitWaitHandoverInbound[\s\S]*?\n}\n\nfunction submitWaitHandoverRecord/)?.[0] || '', /locationRef:/, 'Web 待交出新提交不得双写单库位事实')
 assert.match(warehouseHubSource, /dataset\.waitHandoverWebAction/, '待交出仓真实页面处理器必须承接顶部 Web 动作按钮')
-assert.equal((pdaWaitProcessSource.match(/handleWarehouseLocationMapOccupancyEvent\(/g) || []).length, 1, 'PDA 待加工仓的领料与调整两个 SELECT 地图必须由同一事件入口接入共享占用详情处理器')
+assert.equal((pdaWaitProcessSource.match(/handleWarehouseLocationMapOccupancyEvent\(/g) || []).length, 1, 'PDA 待加工仓的接收与调整两个 SELECT 地图必须由同一事件入口接入共享占用详情处理器')
 assert.match(fcsHandlersSource, /handleCraftCuttingWaitHandoverEvent\(target\)/, '待交出仓真实页面处理器必须接入主处理链')
 assert.doesNotMatch(fcsHandlersSource, /handleCraftCuttingWaitHandoverWebActionsEvent/, '不得保留旧文本弹窗处理器')
 assert.match(warehouseMapSource, /renderFormDialog\(/, '库位图维护必须复用 renderFormDialog')
@@ -1399,8 +1399,8 @@ assert.deepEqual(released.footprint?.locationIds, [])
 const footprintRefs = listStableWarehouseLocationRefs(selectionWarehouse, selectionSnapshot).slice(0, 3)
 const runtimePickupEvent: CuttingRuntimeEvent = {
   eventId: 'EVENT-PICKUP-FOOTPRINT',
-  eventNo: '领料-001',
-  eventType: '中转仓领料',
+  eventNo: '接收-001',
+  eventType: '中转仓接收',
   eventSource: 'PDA',
   eventStatus: '已同步',
   occurredAt: '2026-07-30 08:00',
@@ -1435,7 +1435,7 @@ const runtimeFootprintOccupancies = buildWaitProcessRuntimeOccupancies(
   selectionSnapshot,
   [runtimePickupEvent],
 )
-assert.equal(runtimeFootprintOccupancies.length, 3, '多库位领料应占用全部所选库位')
+assert.equal(runtimeFootprintOccupancies.length, 3, '多库位接收应占用全部所选库位')
 assert(runtimeFootprintOccupancies.every((occupancy) => occupancy.qty === 300), '每个关联库位详情都应显示同一批物料总量')
 assert(runtimeFootprintOccupancies.every((occupancy) => occupancy.footprintLocationNos?.length === 3))
 assert.equal(runtimeFootprintOccupancies[0].rollDetails?.length, 9, '演示卷行必须使用运行时事实中的 rollCount')
@@ -1444,7 +1444,7 @@ const afterIssueOccupancies = buildWaitProcessRuntimeOccupancies(selectionWareho
   {
     ...structuredClone(runtimePickupEvent),
     eventId: 'EVENT-PROCESS-ISSUE',
-    eventType: '待加工仓加工领料',
+    eventType: '待加工仓加工接收',
     occurredAt: '2026-07-30 08:20',
     inventoryEffect: { inventoryScope: '裁床待加工仓', direction: 'OUT', qty: 100, unit: 'yard' },
     payload: {
@@ -1455,7 +1455,7 @@ const afterIssueOccupancies = buildWaitProcessRuntimeOccupancies(selectionWareho
     },
   },
 ])
-assert(afterIssueOccupancies.every((occupancy) => occupancy.qty === 200), '加工领料 OUT 后必须扣减当前待加工仓占用量')
+assert(afterIssueOccupancies.every((occupancy) => occupancy.qty === 200), '加工接收 OUT 后必须扣减当前待加工仓占用量')
 const sameSkuSessionOne: CuttingRuntimeEvent = {
   ...structuredClone(runtimePickupEvent),
   eventId: 'EVENT-SAME-SKU-SESSION-1',
@@ -1480,7 +1480,7 @@ const sameSkuSessionTwo: CuttingRuntimeEvent = {
 const sessionOnePartialOut: CuttingRuntimeEvent = {
   ...structuredClone(sameSkuSessionOne),
   eventId: 'EVENT-SAME-SKU-SESSION-1-OUT-40',
-  eventType: '待加工仓加工领料',
+  eventType: '待加工仓加工接收',
   occurredAt: '2026-07-30 08:20',
   inventoryEffect: { inventoryScope: '裁床待加工仓', direction: 'OUT', qty: 40, unit: 'yard' },
   payload: {
@@ -1710,7 +1710,7 @@ const appendHandlerInbound = (
   locationRef: typeof footprintRefs[number],
   qty: number,
 ) => appendCuttingRuntimeEvent({
-  eventType: '中转仓领料',
+  eventType: '中转仓接收',
   operatorName: '真实处理器测试',
   occurredAt: `2026-07-30 10:${String(listCuttingRuntimeEvents(globalLayoutStorage).length).padStart(2, '0')}`,
   refs: { cutOrderNo: sourceNo, productionOrderNo, handoverRecordId: `${pickupSessionId}:LINE` },
@@ -1728,7 +1728,7 @@ const appendHandlerInbound = (
 const handlerLedgerRows = listMaterialLedgerProjections()
 const handlerLedgerRow = handlerLedgerRows.find((row) => row.availableQty > 0)
   || handlerLedgerRows.find((row) => row.cutOrderNo && row.materialIdentity.materialSku)
-assert(handlerLedgerRow, '真实处理器测试必须取得一个当前加工领料对象')
+assert(handlerLedgerRow, '真实处理器测试必须取得一个当前加工接收对象')
 const handlerWarehouse = getCurrentFactoryWarehouseByKind('WAIT_PROCESS')
 assert(handlerWarehouse, '真实处理器测试必须取得当前 PDA 工厂待加工仓')
 const handlerWarehouseSnapshot = loadWarehouseLayoutSnapshot(handlerWarehouse, globalLayoutStorage).snapshot
@@ -1748,25 +1748,25 @@ assert.equal(waitProcessHandler(buildIssueTarget('cancel-cutting-wp-issue')), tr
 const otherTargetSessionInbound = appendHandlerInbound(explicitSourceNo, explicitMaterialSku, explicitProductionOrderNo, 'SESSION-HANDLER-2', handlerFootprintRefs[1], 100)
 const multiBatchHtml = (pdaWaitProcessModule.renderPdaWarehouseWaitProcessPage as () => string)()
 const batchSelectHtml = multiBatchHtml.match(/<select[^>]*data-cutting-issue-batch[^>]*>([\s\S]*?)<\/select>/)?.[1] || ''
-assert(batchSelectHtml, '多候选真实页面必须渲染“本次领料批次”选择控件')
-assert.match(multiBatchHtml, /本次领料批次/)
-assert.match(batchSelectHtml, /value=""[^>]*>请选择本次领料批次</, '多候选默认不得误选')
+assert(batchSelectHtml, '多候选真实页面必须渲染“本次接收批次”选择控件')
+assert.match(multiBatchHtml, /本次接收批次/)
+assert.match(batchSelectHtml, /value=""[^>]*>请选择本次接收批次</, '多候选默认不得误选')
 assert.match(batchSelectHtml, /入仓[^<]*剩余[^<]*yard[^<]*库位/, '批次选项只显示入仓时间、剩余数量、单位和完整库位')
 const visibleBatchText = batchSelectHtml.replace(/<[^>]+>/g, ' ')
 assert.doesNotMatch(visibleBatchText, /SESSION-HANDLER|EVENT-|pickupSessionId|sourceEventId/, '现场选项不得显示会话 ID、事件 ID 或技术词')
 const countBeforeNoSelection = listCuttingRuntimeEvents(globalLayoutStorage).length
 assert.equal(waitProcessHandler(buildIssueTarget('cutting-wp-issue')), true)
 assert.equal(listCuttingRuntimeEvents(globalLayoutStorage).length, countBeforeNoSelection, '多候选未选批次不得追加 OUT')
-assert.equal(handlerAlerts.at(-1), '请选择本次领料批次。')
+assert.equal(handlerAlerts.at(-1), '请选择本次接收批次。')
 assert.equal(waitProcessHandler(buildIssueTarget('cutting-wp-issue', 'SESSION-HANDLER-1')), true)
 assert.equal(waitProcessHandler(buildIssueTarget('confirm-cutting-wp-issue')), true)
 const explicitOut = listCuttingRuntimeEvents(globalLayoutStorage).find((event) =>
-  event.eventType === '待加工仓加工领料'
+  event.eventType === '待加工仓加工接收'
   && (event.payload as Record<string, unknown>).spreadingOrderNo === explicitSourceNo)
-assert(explicitOut, `真实加工领料 handler 必须追加 OUT 事件；提示：${handlerAlerts.join(' / ')}`)
+assert(explicitOut, `真实加工接收 handler 必须追加 OUT 事件；提示：${handlerAlerts.join(' / ')}`)
 assert.deepEqual((explicitOut.payload as Record<string, unknown>).sourceInboundEventIds, [explicitInbound.eventId], '显式会话只能写本会话入仓事件')
 assert.equal((explicitOut.payload as Record<string, unknown>).pickupSessionId, 'SESSION-HANDLER-1', '显式会话必须稳定写入 OUT')
-assert.equal((explicitOut.payload as { warehouseLocations?: unknown[] }).warehouseLocations?.length, 1, '同库位其他 occupancy 不得混入领料来源库位')
+assert.equal((explicitOut.payload as { warehouseLocations?: unknown[] }).warehouseLocations?.length, 1, '同库位其他 occupancy 不得混入接收来源库位')
 const explicitProjected = buildWaitProcessRuntimeOccupancies(handlerWarehouse, handlerWarehouseSnapshot, listCuttingRuntimeEvents(globalLayoutStorage))
 assert.equal(explicitProjected.find((item) => item.sourceEventId === otherSameCellInbound.eventId)?.qty, 77, '同格其他物料 occupancy 必须保持不变')
 assert.equal(explicitProjected.find((item) => item.sourceEventId === otherTargetSessionInbound.eventId)?.qty, 100, '同物料订单其他会话必须保持不变')
@@ -1820,8 +1820,8 @@ const nonLengthOccupancies = buildWaitProcessRuntimeOccupancies(
   selectionSnapshot,
   [{
     eventId: 'EVENT-PICKUP-WEIGHT',
-    eventNo: '领料-重量-001',
-    eventType: '中转仓领料',
+    eventNo: '接收-重量-001',
+    eventType: '中转仓接收',
     eventSource: 'PDA',
     eventStatus: '已同步',
     occurredAt: '2026-07-30 08:10',
@@ -1853,7 +1853,7 @@ assert.equal(partialRollOccupancies[0]?.rollDetails?.length, 0, '部分卷明细
 assert.equal(partialRollOccupancies[0]?.rollCount, 3, '部分卷明细缺失时仍须保留事实卷数')
 const adjustedPickupSession = adjustPickupSessionStorageFootprint({
   pickupSessionId: 'SESSION-001',
-  pickupSessionNo: '领料-001',
+  pickupSessionNo: '接收-001',
   pickupNodeId: 'NODE-001',
   pickupNodeVersion: 1,
   prepOrderId: 'PREP-001',

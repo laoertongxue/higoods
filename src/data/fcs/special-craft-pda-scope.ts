@@ -143,7 +143,7 @@ export function isGarmentWarehouseOutboundPdaTaskForFactory(
   const workOrder = findTaskWorkOrder(task)
   return factory?.factoryType === 'CENTRAL_GARMENT'
     && workOrder?.targetObject === '成衣'
-    && workOrder.status === '待领料'
+    && workOrder.status === '待接收'
 }
 
 export function canFactoryAccessSpecialCraftPdaTask(

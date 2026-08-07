@@ -360,7 +360,7 @@ export interface ProductionOrderMaterialFact {
 
 export interface ProductionOrderDocumentFact {
   id: string
-  group: '配料/领料' | '裁剪/铺布/裁片' | '印花/染色/特殊工艺' | '车缝/后道/交出' | '结算/成本'
+  group: '配料/接收' | '裁剪/铺布/裁片' | '印花/染色/特殊工艺' | '车缝/后道/交出' | '结算/成本'
   documentNo: string
   demandFactIds?: string[]
   quantityPerDemandUnit?: number
@@ -679,7 +679,7 @@ export const productionPatchTypeLabels: Record<ProductionPatchType, string> = {
 export const effectiveModeLabels: Record<ChangeEffectiveMode, string> = {
   IMMEDIATE_AFTER_APPROVAL: '审核通过后立即生效',
   FROM_NEXT_PREP: '从下一次配料开始',
-  FROM_NEXT_PICKUP: '从下一次领料开始',
+  FROM_NEXT_PICKUP: '从下一次接收开始',
   FROM_NEXT_MARKER: '从下一次唛架开始',
   FROM_NEXT_PROCESS_ORDER: '从下一张工艺单开始',
   FROM_SPECIFIED_DATE: '从指定时间开始',
@@ -729,7 +729,7 @@ export const productionOrderChangeOrderStatusLabels: Record<ProductionOrderChang
 
 export const productionOrderChangeDocumentTypeLabels: Record<ProductionOrderChangeDocumentType, string> = {
   MATERIAL_PREPARATION: '配料单',
-  PICKING: '领料单',
+  PICKING: '接收单',
   CUTTING: '裁剪单',
   PRINTING: '印花单',
   DYEING: '染色单',
@@ -758,7 +758,7 @@ export const productionOrderChangeCostTypeLabels: Record<ProductionOrderChangeCo
 
 export const productionOrderChangeTimingNodeLabels: Record<ProductionOrderChangeTimingNode, string> = {
   MATERIAL_PREPARATION: '配料',
-  PICKING: '领料',
+  PICKING: '接收',
   CUTTING: '裁剪',
   PRINTING: '印花',
   DYEING: '染色',
@@ -770,7 +770,7 @@ export const productionOrderChangeTimingNodeLabels: Record<ProductionOrderChange
 export const patchEffectivePointLabels: Record<PatchEffectivePoint, string> = {
   FROM_NOW: '从现在开始',
   FROM_NEXT_MATERIAL_PREP: '从下一次配料开始',
-  FROM_NEXT_PICKUP: '从下一次领料开始',
+  FROM_NEXT_PICKUP: '从下一次接收开始',
   FROM_NEXT_PRINTING: '从下一次印花开始',
   FROM_NEXT_DYEING: '从下一次染色开始',
   FROM_NEXT_CUTTING: '从下一次裁片开始',
@@ -805,18 +805,18 @@ const moduleLandingOwners: Record<TechPackChangeModule, { role: string; name: st
 }
 
 const moduleLandingObjects: Record<TechPackChangeModule, string> = {
-  BOM: '配料任务、领料单、裁片单物料读取',
+  BOM: '配料任务、接收单、裁片单物料读取',
   PATTERN: '唛架方案、铺布单、菲票打印',
   PROCESS: '印花 / 染色 / 辅助工艺 / 特种工艺任务',
   SIZE: '尺码放码、裁片编号、菲票数量',
-  COLOR_MATERIAL_MAPPING: '款色用料对应、颜色维度领料',
+  COLOR_MATERIAL_MAPPING: '款色用料对应、颜色维度接收',
   COST: '核价明细、结算口径、工厂对账',
   DESIGN: '花型版本、印花工单、染色要求',
 }
 
 const productionOrderChangeDocumentTypeNames: Record<ProductionOrderChangeDocumentType, string> = {
   MATERIAL_PREPARATION: '配料单',
-  PICKING: '领料单',
+  PICKING: '接收单',
   CUTTING: '裁剪单',
   PRINTING: '印花单',
   DYEING: '染色单',
@@ -838,8 +838,8 @@ const productionOrderChangeDocumentOwners: Record<ProductionOrderChangeDocumentT
 
 const productionOrderChangeScenarioTitles = [
   '技术包发布新正式版，生产单未开始，整单切换新版本。',
-  '技术包发布新正式版，已生成配料单，未领料，配料单改配后切换。',
-  '技术包发布新正式版，已部分领料，未裁剪，未领部分切换，已领部分按旧或退料。',
+  '技术包发布新正式版，已生成配料单，未接收，配料单改配后切换。',
+  '技术包发布新正式版，已部分接收，未裁剪，未领部分切换，已领部分按旧或退料。',
   '技术包发布新正式版，已铺布未裁剪，裁剪单需暂停确认。',
   '技术包发布新正式版，已裁剪未印花，未加工工序切换，已裁部分保留。',
   '技术包发布新正式版，印花工单已生成未开工，印花单取消重开。',
@@ -849,7 +849,7 @@ const productionOrderChangeScenarioTitles = [
   '技术包发布新正式版，菲票已打印未交出，作废重打菲票。',
   '技术包发布新正式版，车缝已交出部分，只记录影响并通知后道。',
   '技术包发布新正式版，已产生结算草稿，审核通过后追加结算差异。',
-  '主面料短缺，未领料范围替代料，生产单层补丁。',
+  '主面料短缺，未接收范围替代料，生产单层补丁。',
   '主面料短缺，已领旧料未裁，退旧领新，生产单层补丁。',
   '主面料短缺，已裁旧料，剩余色码替代料，生产单层补丁。',
   '里布短缺，指定尺码替代料，生产单层补丁。',
@@ -882,7 +882,7 @@ const productionOrderChangeScenarioTitles = [
   '尺码唛信息错误，菲票和尺码唛补打。',
   '颜色名称修正，只影响单据展示，不影响生产。',
   '款色用料对应错误，指定颜色换用料。',
-  '款色用料对应新增颜色，新增配料和领料单。',
+  '款色用料对应新增颜色，新增配料和接收单。',
   '花型确认晚于生产准备节点，印花未开工补丁生效。',
   '花型确认后买手改图，印花单取消重开。',
   '花型版权问题，指定颜色停止加工。',
@@ -907,7 +907,7 @@ const productionOrderChangeScenarioTitles = [
   '质量抽检发现车缝错误，指定扎号返工。',
   '质检扣款确认，只影响结算，不改生产。',
   '工厂报废裁片，补裁并追加材料损耗。',
-  '仓库发错料，退错料并重新领料。',
+  '仓库发错料，退错料并重新接收。',
   '仓库少发料，补发并记录时效影响。',
   '工厂误用旧工艺，追回未完成范围并记录责任。',
   '工厂已按旧版本完成，买手接受，仅记录影响。',
@@ -970,7 +970,7 @@ function getScenarioExpectedResult(index: number, title: string): ProductionOrde
 
 function getScenarioDocuments(title: string, result: ProductionOrderChangeResult): ProductionOrderChangeDocumentType[] {
   const documents: ProductionOrderChangeDocumentType[] = []
-  if (/配料|用料|物料|面料|里布|辅料|纽扣|拉链|仓库|领料|补料/.test(title)) {
+  if (/配料|用料|物料|面料|里布|辅料|纽扣|拉链|仓库|接收|补料/.test(title)) {
     documents.push('MATERIAL_PREPARATION', 'PICKING')
   }
   if (/裁|铺布|纸样|排版|唛架|尺码|菲票|扎号/.test(title)) documents.push('CUTTING', 'BUNDLE_TICKET')
@@ -997,7 +997,7 @@ function getScenarioCostImpact(title: string, source: ProductionOrderChangeSourc
 function getScenarioTimingNodes(title: string): ProductionOrderChangeTimingNode[] {
   const nodes: ProductionOrderChangeTimingNode[] = []
   if (/配料|用料|物料|面料|辅料|补料/.test(title)) nodes.push('MATERIAL_PREPARATION')
-  if (/领料|仓库|退料|补发/.test(title)) nodes.push('PICKING')
+  if (/接收|仓库|退料|补发/.test(title)) nodes.push('PICKING')
   if (/裁|铺布|纸样|排版|裁片/.test(title)) nodes.push('CUTTING')
   if (/印花|花型|制版/.test(title)) nodes.push('PRINTING')
   if (/染色|缸号|色差/.test(title)) nodes.push('DYEING')
@@ -1015,7 +1015,7 @@ function getScenarioRiskLevel(title: string): 'LOW' | 'MEDIUM' | 'HIGH' {
 
 function getScenarioModules(title: string): TechPackChangeModule[] {
   const modules: TechPackChangeModule[] = []
-  if (/配料|领料|物料|面料|里布|辅料|纽扣|拉链|用料|门幅|克重|仓库|补料/.test(title)) modules.push('BOM')
+  if (/配料|接收|物料|面料|里布|辅料|纽扣|拉链|用料|门幅|克重|仓库|补料/.test(title)) modules.push('BOM')
   if (/纸样|裁|铺布|排版|补裁/.test(title)) modules.push('PATTERN')
   if (/尺码|放码|尺码唛|菲票|扎号/.test(title)) modules.push('SIZE')
   if (/颜色|款色|缸号/.test(title)) modules.push('COLOR_MATERIAL_MAPPING')
@@ -1298,7 +1298,7 @@ function buildDefaultProductionOrderChangeActionItems(
       actionText:
         changeType === 'QUANTITY_CHANGE'
           ? '按变更单记录核对配料数量，确认原数量和新数量差异。'
-          : '核对旧料库存和新物料到料，确认未领料范围改用替代物料。',
+          : '核对旧料库存和新物料到料，确认未接收范围改用替代物料。',
       stage,
       statusText:
         stage === 'SETTLED'
@@ -1343,7 +1343,7 @@ function buildDefaultProductionOrderChangeDocumentTraces(
       documentNo: `配料单-${documentSuffix}-001`,
       traceText: `变更单留痕：本单已按变更单 ${orderId} 调整配料口径。`,
       beforeText: changeType === 'QUANTITY_CHANGE' ? '原数量按生产单原始需求配料。' : '原物料按冻结技术包配料。',
-      afterText: changeType === 'QUANTITY_CHANGE' ? '新数量按色码明细重新计算配料。' : '替代物料从未领料范围开始使用。',
+      afterText: changeType === 'QUANTITY_CHANGE' ? '新数量按色码明细重新计算配料。' : '替代物料从未接收范围开始使用。',
       confirmedBy: '物料计划主管',
       confirmedAt: stage === 'NO_DOCUMENT' ? '' : '2026-03-12 10:20',
       reason,
@@ -1398,7 +1398,7 @@ function buildProductionOrderChangeDomainFields(input: {
           replacementMaterial: '替代物料高密弹力斜纹布 300g',
           colors: ['黑色', '藏青色'],
           sizes: ['M', 'L', 'XL'],
-          effectiveFromText: '从哪里开始用新物料：从下一次领料和未开裁裁剪单开始',
+          effectiveFromText: '从哪里开始用新物料：从下一次接收和未开裁裁剪单开始',
         }
       : undefined
 
@@ -1554,13 +1554,13 @@ function buildProductionOrderChangeImpactRow(
       affectedColor: '黑色',
       affectedSize: 'M',
       affectedBatch: '第 2 批',
-      affectedProcess: '裁剪前未领料范围',
+      affectedProcess: '裁剪前未接收范围',
       affectedQuantity: 180,
       doneQuantity: 0,
       changeableQuantity: 180,
       irreversibleQuantity: 0,
       riskLevel: 'MEDIUM',
-      impactSummary: '黑色 M 码第 2 批尚未领料，可直接改用替代主面料。',
+      impactSummary: '黑色 M 码第 2 批尚未接收，可直接改用替代主面料。',
     }
   }
 
@@ -1817,7 +1817,7 @@ let relations: ProductionOrderTechPackRelation[] = [
       { module: 'PROCESS', count: 0 },
       { module: 'DESIGN', count: 1 },
     ],
-    progressSummary: ['配料：已配 60%', '领料：已领 40%', '裁片：已开工 / 已铺布 2 张', '车缝：未交出'],
+    progressSummary: ['配料：已配 60%', '接收：已领 40%', '裁片：已开工 / 已铺布 2 张', '车缝：未交出'],
     restrictionSummary: ['已生成菲票', '已交出部分裁片'],
   },
   {
@@ -1853,7 +1853,7 @@ let relations: ProductionOrderTechPackRelation[] = [
       { module: 'PATTERN', count: 0 },
       { module: 'DESIGN', count: 0 },
     ],
-    progressSummary: ['配料：已配 86%', '领料：已领 71%', '裁片：已开工 120 件', '车缝：未交出'],
+    progressSummary: ['配料：已配 86%', '接收：已领 71%', '裁片：已开工 120 件', '车缝：未交出'],
     restrictionSummary: ['已领旧料和部分裁片需保留追溯'],
   },
   {
@@ -1889,7 +1889,7 @@ let relations: ProductionOrderTechPackRelation[] = [
       { module: 'PATTERN', count: 0 },
       { module: 'DESIGN', count: 0 },
     ],
-    progressSummary: ['配料：未开始', '领料：未开始', '裁片：未开始', '车缝：未交出'],
+    progressSummary: ['配料：未开始', '接收：未开始', '裁片：未开始', '车缝：未交出'],
     restrictionSummary: ['无限制项'],
   },
   {
@@ -1961,7 +1961,7 @@ let relations: ProductionOrderTechPackRelation[] = [
       { module: 'PATTERN', count: 0 },
       { module: 'DESIGN', count: 0 },
     ],
-    progressSummary: ['配料：未开始', '领料：未开始', '裁片：未开始', '车缝：未交出'],
+    progressSummary: ['配料：未开始', '接收：未开始', '裁片：未开始', '车缝：未交出'],
     restrictionSummary: ['无限制项'],
   },
   {
@@ -1997,7 +1997,7 @@ let relations: ProductionOrderTechPackRelation[] = [
       { module: 'SIZE', count: 1 },
       { module: 'COST', count: 1 },
     ],
-    progressSummary: ['配料：已完成', '领料：已完成', '裁片：已裁剪', '辅助工艺：1 项待回仓'],
+    progressSummary: ['配料：已完成', '接收：已完成', '裁片：已裁剪', '辅助工艺：1 项待回仓'],
     restrictionSummary: ['旧物料已消耗', '已完成部分结算'],
   },
   {
@@ -2033,7 +2033,7 @@ let relations: ProductionOrderTechPackRelation[] = [
       { module: 'SIZE', count: 1 },
       { module: 'DESIGN', count: 1 },
     ],
-    progressSummary: ['配料：已完成', '领料：已完成', '菲票：已打印 24 张', '车缝：已交出 35%'],
+    progressSummary: ['配料：已完成', '接收：已完成', '菲票：已打印 24 张', '车缝：已交出 35%'],
     restrictionSummary: ['已打印菲票', '已交出车缝厂'],
   },
   {
@@ -2069,8 +2069,8 @@ let relations: ProductionOrderTechPackRelation[] = [
       { module: 'PATTERN', count: 0 },
       { module: 'DESIGN', count: 0 },
     ],
-    progressSummary: ['配料：已配 35%', '领料：已领 20%', '印花：未开始', '裁片：未开始'],
-    restrictionSummary: ['已生成配料任务但未领料完成'],
+    progressSummary: ['配料：已配 35%', '接收：已领 20%', '印花：未开始', '裁片：未开始'],
+    restrictionSummary: ['已生成配料任务但未接收完成'],
   },
 ]
 
@@ -2085,7 +2085,7 @@ function buildTechPackDiffItemsForRelation(relation: ProductionOrderTechPackRela
       targetValue: '炭灰色 / 克重 300g / 用量 1.18m',
       impactScope: 'Black 色 / 主面料 / 后续裁片单',
       involvedOccurredBusiness: relation.productionOrderId === 'PO-202603-0006' ? '否' : '是',
-      relatedObjects: ['配料单 MR-202603-010', '领料单 MI-202603-006'],
+      relatedObjects: ['配料单 MR-202603-010', '接收单 MI-202603-006'],
     },
     {
       diffItemId: `DIFF-${relation.productionOrderId}-BOM-2`,
@@ -2094,7 +2094,7 @@ function buildTechPackDiffItemsForRelation(relation: ProductionOrderTechPackRela
       objectName: '腰头松紧带',
       currentValue: '黑色 / 4.0cm / 用量 0.82m',
       targetValue: '黑色 / 4.5cm / 用量 0.86m',
-      impactScope: 'Black 色 / 腰头部位 / 后续领料',
+      impactScope: 'Black 色 / 腰头部位 / 后续接收',
       involvedOccurredBusiness: relation.productionOrderId === 'PO-202603-0006' ? '否' : '是',
       relatedObjects: ['配料单 MR-202603-010', '裁片单 CUT-202603-004'],
     },
@@ -2145,12 +2145,12 @@ let progressSnapshots: ProductionProgressSnapshot[] = relations.map((relation) =
   sections: [
     {
       sectionId: 'material',
-      sectionName: '配料 / 领料',
+      sectionName: '配料 / 接收',
       statusText: relation.progressSummary[0] ?? '未开始',
       rows: [
         { label: '配料任务数', value: relation.productionOrderId === 'PO-202603-0006' ? '0 个' : '4 个' },
         { label: '已配数量', value: relation.productionOrderId === 'PO-202603-0006' ? '0 米' : '2,460 米', highlight: relation.hasNewerPublishedVersion },
-        { label: '已领数量', value: relation.progressSummary.find((item) => item.includes('领料'))?.replace('领料：', '') ?? '未开始' },
+        { label: '已领数量', value: relation.progressSummary.find((item) => item.includes('接收'))?.replace('接收：', '') ?? '未开始' },
         { label: '相关仓库', value: '面料仓 / 辅料仓 / 中转仓' },
       ],
     },
@@ -2249,7 +2249,7 @@ export let productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFacts[
         generatedDocumentQty: 840,
         executedQty: 540,
         pendingQty: 300,
-        note: '已生成配料、领料和铺布单，未铺布范围可直接减量。',
+        note: '已生成配料、接收和铺布单，未铺布范围可直接减量。',
       },
       {
         id: 'DQF-PO-202603-0004-NVY-L',
@@ -2278,7 +2278,7 @@ export let productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFacts[
         preparedQty: '980 米',
         pickedQty: '620 米',
         changeableQty: '360 米',
-        sourceDocument: '配料单 MR-202603-010 / 领料单 MI-202603-006',
+        sourceDocument: '配料单 MR-202603-010 / 接收单 MI-202603-006',
         note: '已领部分未全部裁剪，可按退料确认后减少。',
       },
       {
@@ -2324,7 +2324,7 @@ export let productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFacts[
         changeOrderNo: 'CHANGE-PO-202603-0004-001',
         result: '生产单层补丁',
         status: '已通过',
-        affectedScope: '黑色 M/L 未领料范围',
+        affectedScope: '黑色 M/L 未接收范围',
         lockStatus: '影响范围锁定',
         note: '上一笔替代主面料补丁已生效，当前减量需避开已领范围。',
       },
@@ -2466,7 +2466,7 @@ export let productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFacts[
         preparedQty: '2,120 米',
         pickedQty: '2,080 米',
         changeableQty: '40 米',
-        sourceDocument: '配料单 MR-202603-083 / 领料单 MI-202603-052',
+        sourceDocument: '配料单 MR-202603-083 / 接收单 MI-202603-052',
         note: '大部分已领并投入，剩余可改量很低。',
       },
       {
@@ -2533,7 +2533,7 @@ export let productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFacts[
         generatedDocumentQty: 900,
         executedQty: 120,
         pendingQty: 780,
-        note: '已领料并完成部分裁剪，未执行部分可按确认方案替换。',
+        note: '已接收并完成部分裁剪，未执行部分可按确认方案替换。',
       },
     ],
     materialFacts: [
@@ -2548,20 +2548,20 @@ export let productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFacts[
         preparedQty: '1,080 米',
         pickedQty: '900 米',
         changeableQty: '180 米',
-        sourceDocument: '领料单 WLS-PL-260306-101',
+        sourceDocument: '接收单 WLS-PL-260306-101',
         note: '已领旧料及已裁裁片需要在全部替换时确认去向。',
       },
     ],
     documentFacts: [
       {
         id: 'DOC-PO-202603-0101-WLS-001',
-        group: '配料/领料',
+        group: '配料/接收',
         documentNo: 'WLS-PL-260306-101',
         demandFactIds: ['DQF-PO-202603-0101-ALL'],
         quantityPerDemandUnit: 1.26,
         planUnit: '米',
         generatedAt: '2026-03-06 08:30',
-        status: '部分领料',
+        status: '部分接收',
         plannedQty: '1,260 米',
         doneQty: '900 米',
         pendingQty: '360 米',
@@ -2748,7 +2748,7 @@ let patches: ProductionOrderPatch[] = [
     approvedAt: '2026-05-29 09:40',
     effectiveAt: '2026-05-29 10:00',
     expiredAt: '',
-    linkedObjects: ['领料单 MI-202603-006', '裁片单 CUT-202603-004'],
+    linkedObjects: ['接收单 MI-202603-006', '裁片单 CUT-202603-004'],
     notifyBatchId: 'NTB-PATCH-0004-001',
     createdAt: '2026-05-29 09:10',
   },
@@ -2875,7 +2875,7 @@ let operationLogs: ProductionChangeOperationLog[] = [
     operationObject: 'PATCH-PO-202603-0004-001',
     beforeText: '无生产单级覆盖',
     afterText: '新增物料替代补丁',
-    remark: '面料短缺，后续领料改用替代物料。',
+    remark: '面料短缺，后续接收改用替代物料。',
   },
   {
     logId: 'LOG-TP-0005-001',

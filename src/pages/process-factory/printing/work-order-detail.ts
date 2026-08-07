@@ -430,7 +430,7 @@ export function renderCraftPrintingWorkOrderDetailPage(printOrderId: string): st
           ${renderField('不可执行原因', mobileBindingReasonLabel)}
           ${renderField('开工准备状态', startPrerequisite?.statusLabel || '按加工单状态判断')}
           ${renderField('开工前置口径', startPrerequisite?.conditionLabel || '印花加工单已接单')}
-          ${renderField('实际印花前要求', '必须确认领料到位')}
+          ${renderField('实际印花前要求', '必须确认接收到位')}
           ${renderField('移动端交出记录引用', order.handoverOrderNo || order.handoverOrderId || '未生成')}
         </div>
       `,

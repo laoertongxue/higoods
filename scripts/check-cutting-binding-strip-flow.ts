@@ -107,7 +107,7 @@ function main(): void {
     '捆条加工单计划长度必须承接 4m 起算规则',
   )
   assert(orders.some((order) => order.bindingDetails.some((detail) => detail.rawRequiredLength >= 4 && !detail.minRequiredLengthApplied && detail.requiredLength === detail.rawRequiredLength)), '捆条加工单计划长度必须覆盖不触发 4m 起算的场景')
-  assert(orders.every((order) => ['未领料', '已领料'].includes(order.materialReceiveStatus) && order.materialShelfLocation), '捆条加工单必须展示领料状态和货架位置')
+  assert(orders.every((order) => ['未接收', '已接收'].includes(order.materialReceiveStatus) && order.materialShelfLocation), '捆条加工单必须展示接收状态和货架位置')
   assert(orders.some((order) => order.receivedMaterialLength > 0 && order.actualTotalLength > 0 && order.actualRollCount > 0), '捆条加工单必须累计接收布料、实际完成长度和实切卷数')
   assert(orders.some((order) => order.sufficiencyStatus === '捆条不足' && order.shortageLength > 0), '缺少捆条不足和缺口长度判断')
   assert(orders.some((order) => new Set(order.bindingDetails.map((detail) => detail.bindingWidth)).size > 1), '缺少同一加工单多规格捆条明细')
@@ -208,7 +208,7 @@ function main(): void {
   assertNotIncludes(specialProcessPage, 'data-testid="cutting-binding-list-overview"', '捆条加工单页面顶部汇总块已要求删除')
   assertNotIncludes(specialProcessPage, '捆条加工单列表', '捆条加工单页面顶部说明标题已要求删除')
   assertIncludes(specialProcessPage, '不足 4m 按 4m', '捆条加工单页面缺少 4m 起算提示')
-  assertIncludes(specialProcessPage, '领料状态', '捆条加工单页面缺少是否领料展示')
+  assertIncludes(specialProcessPage, '接收状态', '捆条加工单页面缺少是否接收展示')
   assertIncludes(specialProcessPage, '货架位置', '捆条加工单页面缺少货架位置展示')
   assertIncludes(specialProcessPage, '切割方式', '捆条加工单页面缺少切割方式展示')
   assertIncludes(specialProcessPage, '捆条需要长度', '捆条加工单页面缺少捆条需要长度展示')

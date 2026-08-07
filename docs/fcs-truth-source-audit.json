@@ -452,7 +452,7 @@
       "severity": "LOW",
       "file": "src/pages/pda-exec-detail.ts",
       "line": 2456,
-      "content": "&& workOrder.status === '待领料'",
+      "content": "&& workOrder.status === '待接收'",
       "hint": "页面内通过文案状态直接推断业务判断"
     },
     {
@@ -461,7 +461,7 @@
       "severity": "LOW",
       "file": "src/pages/pda-exec-detail.ts",
       "line": 2536,
-      "content": "const canOutbound = status === '待领料' && canGarmentWarehouseOutbound",
+      "content": "const canOutbound = status === '待接收' && canGarmentWarehouseOutbound",
       "hint": "页面内通过文案状态直接推断业务判断"
     },
     {

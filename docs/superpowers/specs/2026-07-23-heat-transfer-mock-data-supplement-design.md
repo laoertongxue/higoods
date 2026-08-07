@@ -6,11 +6,11 @@
 
 ## 背景
 
-烫画加工单（AUX-OP-HEAT-TRANSFER）当前 mock 数据仅从生产单 pipeline 生成，所有任务状态均为 `待领料`，缺少多种业务状态和异常场景的演示数据。
+烫画加工单（AUX-OP-HEAT-TRANSFER）当前 mock 数据仅从生产单 pipeline 生成，所有任务状态均为 `待接收`，缺少多种业务状态和异常场景的演示数据。
 
 ## 现状
 
-`src/data/fcs/special-craft-task-orders.ts` 中 `buildLinkedSupplementTaskOrders` 函数为除烫画和直喷外的所有特殊工艺运营生成 9 条全流程 demo 数据（覆盖 待领料 → 已回写 等全部状态）。
+`src/data/fcs/special-craft-task-orders.ts` 中 `buildLinkedSupplementTaskOrders` 函数为除烫画和直喷外的所有特殊工艺运营生成 9 条全流程 demo 数据（覆盖 待接收 → 已回写 等全部状态）。
 
 烫画在第 1432 行被显式排除：
 ```typescript
@@ -36,7 +36,7 @@ if (operation.operationName === '直喷' || operation.operationName === '烫画'
 
 | variantIndex | status | abnormalStatus | 场景 |
 |---|---|---|---|
-| 0 | 待领料 | 无异常 | 成衣烫画加工单待领料 |
+| 0 | 待接收 | 无异常 | 成衣烫画加工单待接收 |
 | 1 | 已入待加工仓 | 无异常 | 成衣已入后道待加工仓 |
 | 2 | 加工中 | 设备异常 | 加工进行中 + 设备异常登记 |
 | 3 | 已完成 | 无异常 | 烫画加工已完成 |
@@ -48,7 +48,7 @@ if (operation.operationName === '直喷' || operation.operationName === '烫画'
 
 每条自动附带：
 - 成衣仓 → 后道待加工仓 仓储流转
-- 流转节点记录（待领料 → 入仓 → 开工 → 完工 → 待交出 → 交出 → 回写/差异/异议）
+- 流转节点记录（待接收 → 入仓 → 开工 → 完工 → 待交出 → 交出 → 回写/差异/异议）
 - 异常记录（设备异常、数量差异）
 - 出入库记录、待加工仓/待交出仓库存
 

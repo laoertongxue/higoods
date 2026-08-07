@@ -20,7 +20,7 @@ export const platformCuttingUrgencyMeta: Record<CuttingUrgencyLevel, { label: st
 }
 
 export const platformCuttingStageMeta: Record<PlatformCuttingOverviewStage, { label: string; className: string }> = {
-  PENDING_PICKUP: { label: '待领料', className: 'bg-slate-100 text-slate-700' },
+  PENDING_PICKUP: { label: '待接收', className: 'bg-slate-100 text-slate-700' },
   EXECUTING: { label: '执行中', className: 'bg-sky-50 text-sky-700' },
   PENDING_INBOUND: { label: '待入仓', className: 'bg-violet-50 text-violet-700' },
   PENDING_HANDOVER: { label: '待交接', className: 'bg-fuchsia-50 text-fuchsia-700' },

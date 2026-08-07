@@ -42,9 +42,9 @@
 | 第 9 节：多格占用、业务数量只汇总一次 | `WarehouseStorageFootprint` 和待交出占用状态按稳定 footprint／袋／菲票去重；每个位置仍单独投影 | 同对象占 3 格仍只累计一次；不同单位不相加；WAIT_HANDOVER 袋／票／数量断言 | 已覆盖 |
 | 第 10 节：当前仓库和三层启停防错 | `classifyWarehouseLocationSelectability()` 同时校验 factory、warehouse、kind、area/shelf/location status 和业务占用 | 缺失、跨仓、库区停用、货架停用、库位停用、占用扫码中文阻断专项 | 已覆盖 |
 | 第 11 节：Web 可维护、PDA 只执行 | PFOS 页面提供维护；PDA 页面只有扫码、点选、取消、清空、确认，不渲染维护入口 | 页面源码门禁、PDA E2E 和两份原型审查记录 | 已覆盖 |
-| 第 11 节：PDA 动作优先与多批次防错 | PDA 使用 `selectedLocationIds` 和完整 `warehouseLocations`；多个待加工入仓批次必须显式选择“本次领料批次”，单批次自动绑定 | `check:pda-cutting-inbound-workflow`、真实 render/handler 浏览器用例 | 已覆盖 |
+| 第 11 节：PDA 动作优先与多批次防错 | PDA 使用 `selectedLocationIds` 和完整 `warehouseLocations`；多个待加工入仓批次必须显式选择“本次接收批次”，单批次自动绑定 | `check:pda-cutting-inbound-workflow`、真实 render/handler 浏览器用例 | 已覆盖 |
 | 第 7、9、11 节：Web/PDA 写入完整稳定引用 | WAIT_PROCESS、WAIT_HANDOVER、特殊工艺回仓新动作统一写 `warehouseLocations`；历史单值只读兼容，不双写 | 新事件无 `locationRef` 双写门禁；Web/PDA/特殊工艺专项 | 已覆盖 |
-| 第 9、11 节：全部位置释放与运行周期隔离 | WAIT_PROCESS 以 `pickupSessionId/sourceInboundEventIds` 绑定入仓事实；WAIT_HANDOVER 以 `usageCycleId/sourceUsageCycleId` 和精确菲票集合迁移／释放 | 加工领料、整袋交出、特殊工艺、同袋同票 C1/C2 浏览器及专项断言 | 已覆盖 |
+| 第 9、11 节：全部位置释放与运行周期隔离 | WAIT_PROCESS 以 `pickupSessionId/sourceInboundEventIds` 绑定入仓事实；WAIT_HANDOVER 以 `usageCycleId/sourceUsageCycleId` 和精确菲票集合迁移／释放 | 加工接收、整袋交出、特殊工艺、同袋同票 C1/C2 浏览器及专项断言 | 已覆盖 |
 | 第 10、13 节：局部刷新和 200 ms | 地图点击、占用抽屉、摘要、维护保存局部替换；保留页面壳和滚动；图标只 hydrate 新节点 | 弹窗／预览／首次保存反馈／首次选位低于 200 ms；滚动与 DOM 身份 E2E | 已覆盖 |
 | 第 12 节：v3 完整快照、旧缓存直接失效 | `FactoryWarehouseLayoutSnapshot.schemaVersion = 3`；非 v3 不迁移，恢复当前 Mock；保留版本冲突与变更历史 | v1/v2/损坏缓存、只读存储、原子布局+历史写入、失败回滚断言 | 已覆盖 |
 | 第 12.2、13.5 节：依赖安全 | Vite/PostCSS/tsx 在当前主版本安全升级；esbuild/picomatch 由依赖树安全解析；未使用强制修复或忽略 | `npm audit --audit-level=low` 为 0 项漏洞；依赖树检查和生产构建退出码均为 0 | 已覆盖 |
@@ -62,7 +62,7 @@
 | 5 共享分层矩阵 | `41b86e9f` 至 `9d7fd7d4` | 共享 Web/PDA 消费 `levels`；占用详情包含停用占用格；轻交互走局部事件链。 |
 | 6 PFOS 维护 | `9d49ee09` 至 `48ace7be` | 单一入口、正式表单、逐层预览、编辑启停、动态资源预算、分页、取消隔离和视窗闭环。 |
 | 7 Web 写回 | `7df873b7` 至 `cf740b16` | 双仓多库位数组、原子冲突、footprint 去重、整组释放、特殊工艺范围隔离和历史碎片恢复。 |
-| 8 PDA 写回 | `21fe4956` 至 `1021b57e` | PDA 多选／扫码／取消、三层启停、完整稳定引用、领料批次绑定和会话级扣减闭环。 |
+| 8 PDA 写回 | `21fe4956` 至 `1021b57e` | PDA 多选／扫码／取消、三层启停、完整稳定引用、接收批次绑定和会话级扣减闭环。 |
 | 9 浏览器验收 | `d1c337d9` 至 `810ceb23` | 真实 WAIT_PROCESS、WAIT_HANDOVER、PDA、双分辨率、性能、滚动、使用周期和真实 handler 收口；记录为 19/19。 |
 
 ## 5. 字面残留与边界核查
@@ -78,7 +78,7 @@
 ### 5.1 全量裁床回归发现与修复
 
 - 唛架、铺布、菲票、PDA 任务详情和生产进度的部分旧 E2E 仍断言已下线的按钮、页签或 CSS 结构。逐项对照当前 canonical 路由、页面真实可达入口和当前业务对象后，已把测试契约更新为真实点击与业务结果断言，没有为通过旧测试恢复已下线 UI。
-- PDA 领料差异照片与数量／备注输入存在异步整页重绘竞争，文件控件会脱离 DOM，导致照片名偶发丢失。修复后这些高频输入跳过整页重绘，照片名只在当前领料节点局部更新；完整领料节点 E2E fresh 复跑 7/7 通过，照片选择反馈为 133.1 ms。
+- PDA 接收差异照片与数量／备注输入存在异步整页重绘竞争，文件控件会脱离 DOM，导致照片名偶发丢失。修复后这些高频输入跳过整页重绘，照片名只在当前接收节点局部更新；完整接收节点 E2E fresh 复跑 7/7 通过，照片选择反馈为 133.1 ms。
 - 生产单总览的款式图片可能落到占位 SVG。投影现在只选择非占位图片候选，无有效候选时使用仓库既有样衣图，并在图片加载失败时使用同一兜底图。
 - 生产单状态入口原以 `overview row id === productionOrderId` 推断是否具有裁床详情，导致真实裁床事实可能错误回到生产单台账，或无裁床事实进入“未找到详情”。现改为查询裁床进度投影：存在真实详情行时进入该行对应的 8 页签详情；不存在时明确回到生产单台账，不补假 Mock。
 - 源码仍保留旧铺布弹窗和旧生产进度抽屉的不可达渲染函数，属于后续可清理的技术债；本任务不恢复旧入口，也不在最终验收中把不可达模板当作业务覆盖。

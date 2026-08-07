@@ -291,10 +291,10 @@ export const configMeta: Record<CuttingConfigStatus, { label: string; className:
 }
 
 export const receiveMeta: Record<ProductionProgressReceiveKey, { label: string; className: string }> = {
-  NOT_RECEIVED: { label: '未产生领料记录', className: 'bg-slate-100 text-slate-700' },
-  PARTIAL: { label: '领料数量不足', className: 'bg-orange-100 text-orange-700' },
-  RECEIVED: { label: '有领料记录', className: 'bg-emerald-100 text-emerald-700' },
-  EXCEPTION: { label: '领料差异', className: 'bg-rose-100 text-rose-700' },
+  NOT_RECEIVED: { label: '未产生接收记录', className: 'bg-slate-100 text-slate-700' },
+  PARTIAL: { label: '接收数量不足', className: 'bg-orange-100 text-orange-700' },
+  RECEIVED: { label: '有接收记录', className: 'bg-emerald-100 text-emerald-700' },
+  EXCEPTION: { label: '接收差异', className: 'bg-rose-100 text-rose-700' },
 }
 
 export const stageMeta: Record<ProductionProgressStageKey, { label: string; className: string }> = {
@@ -494,7 +494,7 @@ function buildReceiveSummary(lines: CuttingMaterialLine[]): ProductionProgressSu
   }
 
   const meta = receiveMeta.NOT_RECEIVED
-  return { key: 'NOT_RECEIVED', label: meta.label, className: meta.className, detailText: `领料记录待补 ${total} 项` }
+  return { key: 'NOT_RECEIVED', label: meta.label, className: meta.className, detailText: `接收记录待补 ${total} 项` }
 }
 
 function buildCurrentStage(
@@ -511,7 +511,7 @@ function buildCurrentStage(
     key = 'WAITING_INBOUND'
   } else if (record.hasSpreadingRecord || /裁片中|裁剪中|来料完成/.test(record.cuttingStage)) {
     key = 'CUTTING'
-  } else if (claimSummary.key !== 'NOT_RECEIVED' || record.cuttingStage.includes('领料') || isLegacyClaimStage) {
+  } else if (claimSummary.key !== 'NOT_RECEIVED' || record.cuttingStage.includes('接收') || isLegacyClaimStage) {
     key = 'WAITING_CLAIM'
   } else if (prepSummary.key === 'PARTIAL' || record.cuttingStage.includes('配料') || /中转仓处理中/.test(record.cuttingStage)) {
     key = 'PREPPING'
@@ -759,7 +759,7 @@ function buildProgressStateLabel(options: {
   hasReceivedQty: boolean
 }): string {
   if (!options.hasConfiguredQty && !options.hasReceivedQty && options.actualCutQty <= 0 && options.inboundQty <= 0) {
-    return '配料 / 领料待补'
+    return '配料 / 接收待补'
   }
   if (options.actualCutQty <= 0) {
     return '待铺布'
@@ -775,7 +775,7 @@ function buildProgressStateLabel(options: {
 
 function resolveProgressStateClassName(label: string): string {
   if (label === '无缺口') return 'text-emerald-700'
-  if (label === '配料 / 领料待补' || label === '待铺布') return 'text-amber-700'
+  if (label === '配料 / 接收待补' || label === '待铺布') return 'text-amber-700'
   return 'text-orange-700'
 }
 

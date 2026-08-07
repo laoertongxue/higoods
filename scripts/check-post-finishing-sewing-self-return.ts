@@ -214,13 +214,13 @@ assert(!webWaitProcessWarehouseHtml.includes(mockRecords[0].recordNo), '管理�
 const webPendingSelfReturnHtml = renderWaitProcessWarehouseWithQuery('?tab=pending-self-return')
 assert(webPendingSelfReturnHtml.includes('车缝自助回货') && webPendingSelfReturnHtml.includes(mockRecords[0].recordNo), '管理端待确认自助回货 tab 必须展示待确认记录')
 assert(webPendingSelfReturnHtml.includes('确认入库') && webPendingSelfReturnHtml.includes('open-self-return-confirm') && webPendingSelfReturnHtml.includes('待后道确认'), '管理端待确认自助回货 tab 必须支持直接确认入库')
-assert(!webPendingSelfReturnHtml.includes('去 PDA 待领料确认'), '管理端待确认自助回货 tab 不应再跳转到 PDA 确认')
+assert(!webPendingSelfReturnHtml.includes('去 PDA 待接收确认'), '管理端待确认自助回货 tab 不应再跳转到 PDA 确认')
 const pdaPostFinishingPickupHeads = getPdaPostFinishingPickupHeads()
 const selfReturnPickupHead = pdaPostFinishingPickupHeads.find((head) => head.pickupSourceType === 'SEWING_SELF_RETURN')
-assert(selfReturnPickupHead, 'PDA 后道待领料列表必须包含车缝自助回货领料单')
+assert(selfReturnPickupHead, 'PDA 后道待接收列表必须包含车缝自助回货接收单')
 const selfReturnPickupRecords = selfReturnPickupHead ? getPdaPickupRecordsByHead(selfReturnPickupHead.handoverId) : []
-assert(selfReturnPickupRecords.length >= mockRecords[0].items.length, 'PDA 后道待领料自助回货领料单必须包含 SKU 级记录')
-assert(selfReturnPickupRecords.every((record) => record.qrCodeValue.startsWith('POST_FINISHING_SELF_RETURN_PICKUP|')), 'PDA 自助回货领料记录必须有独立识别标记')
+assert(selfReturnPickupRecords.length >= mockRecords[0].items.length, 'PDA 后道待接收自助回货接收单必须包含 SKU 级记录')
+assert(selfReturnPickupRecords.every((record) => record.qrCodeValue.startsWith('POST_FINISHING_SELF_RETURN_PICKUP|')), 'PDA 自助回货接收记录必须有独立识别标记')
 
 activatePdaSewingSelfReturnMode({
   factoryId: FULL_CAPABILITY_FACTORY_ID,
@@ -252,10 +252,10 @@ assert(pdaRendererSource.includes('renderPdaSewingSelfReturnPage'), '路由渲�
 assert(pdaHandlerSource.includes('handlePdaSewingSelfReturnEvent'), 'PDA 事件分发必须接入锁定页')
 assert(handoverPageSource.includes('车缝现场交货登记模式') && handoverPageSource.includes('车缝自助回货记录'), '正常交接页必须有入口和记录概览')
 assert(handoverPageSource.includes('ensurePostFinishingSewingSelfReturnMockRecords'), '正常交接页必须注入车缝自助回货 mock 数据')
-assert(handoverPageSource.includes('canManageSewingSelfReturnMode && state.activeTab') && handoverPageSource.includes("runtime.roleId === 'ROLE_ADMIN'"), '车缝自助回货模式入口只能由后道管理员在待领料 tab 看到')
-assert(handoverPageSource.includes('车缝自助回货') && handoverPageSource.includes('正常领料') && handoverPageSource.includes('确认回货'), 'PDA 待领料列表必须区分正常领料和车缝自助回货')
+assert(handoverPageSource.includes('canManageSewingSelfReturnMode && state.activeTab') && handoverPageSource.includes("runtime.roleId === 'ROLE_ADMIN'"), '车缝自助回货模式入口只能由后道管理员在待接收 tab 看到')
+assert(handoverPageSource.includes('车缝自助回货') && handoverPageSource.includes('正常接收') && handoverPageSource.includes('确认回货'), 'PDA 待接收列表必须区分正常接收和车缝自助回货')
 assert(!handoverPageSource.includes('后道管理员开启后，公共 PDA 只保留车缝厂扫码回货和管理员退出；下方保留车缝自助回货记录。'), '正常交接页不得展示占高度的模式说明长文案')
-assert(handoverPageSource.includes('来源车缝厂') && handoverPageSource.includes('后道工厂'), '后道领料卡片必须展示为车缝厂到后道工厂')
+assert(handoverPageSource.includes('来源车缝厂') && handoverPageSource.includes('后道工厂'), '后道接收卡片必须展示为车缝厂到后道工厂')
 assert(webWarehousePageSource.includes('ensurePostFinishingSewingSelfReturnMockRecords'), '管理端后道待加工仓必须注入车缝自助回货 mock 数据')
 assert(webWarehousePageSource.includes('pending-self-return') && webWarehousePageSource.includes('车缝自助回货'), '管理端后道待加工仓必须有待确认自助回货独立 tab')
 assert(webWarehousePageSource.includes('getInventoryRecords') && webWarehousePageSource.includes('getVisibleFlowRecords') && webWarehousePageSource.includes("flow.flowType === '后道确认入库'"), '管理端库存和流水必须只接收确认后的自助回货数量')
@@ -264,12 +264,12 @@ assert(webWarehouseEventSource.includes('openPostFinishingSelfReturnConfirmDialo
 assert(
   handoverDetailSource.includes('来源车缝厂')
     && handoverDetailSource.includes('车缝厂交付数量')
-    && handoverDetailSource.includes('车缝厂送达的领料记录')
-    && handoverDetailSource.includes('后道确认对象固定为领料记录'),
-  '后道领料详情必须展示为车缝厂交付口径',
+    && handoverDetailSource.includes('车缝厂送达的接收记录')
+    && handoverDetailSource.includes('后道确认对象固定为接收记录'),
+  '后道接收详情必须展示为车缝厂交付口径',
 )
-assert(handoverDetailSource.includes('confirmPostFinishingSewingSelfReturnWarehouseRecord') && handoverDetailSource.includes('POST_FINISHING_SELF_RETURN_PICKUP'), 'PDA 领料确认必须能回写车缝自助回货入库记录')
-assert(handoverEventsSource.includes('车缝厂送达到厂') && handoverEventsSource.includes('SEWING_SELF_RETURN') && handoverEventsSource.includes('POST_FINISHING_SELF_RETURN_PICKUP'), '后道 PDA 待领料必须生成车缝自助回货记录投影')
+assert(handoverDetailSource.includes('confirmPostFinishingSewingSelfReturnWarehouseRecord') && handoverDetailSource.includes('POST_FINISHING_SELF_RETURN_PICKUP'), 'PDA 接收确认必须能回写车缝自助回货入库记录')
+assert(handoverEventsSource.includes('车缝厂送达到厂') && handoverEventsSource.includes('SEWING_SELF_RETURN') && handoverEventsSource.includes('POST_FINISHING_SELF_RETURN_PICKUP'), '后道 PDA 待接收必须生成车缝自助回货记录投影')
 assert(!lockedPageSource.includes('当前 PDA 已锁定为车缝厂自助回货，只保留扫码提交和管理员退出'), '锁定页不得再展示顶部锁定提示文案')
 assert(lockedPageSource.includes("runtime.roleId !== 'ROLE_ADMIN'") && lockedPageSource.includes('只有当前后道工厂管理员可以开启'), '锁定页直接访问也必须校验后道管理员身份')
 assert(!lockedPageSource.includes('仅支持纸质生产确认单二维码，其他单据会被拦截'), '扫码区不得再展示占高度的提示文案')

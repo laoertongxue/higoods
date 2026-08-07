@@ -135,7 +135,7 @@ function buildOperatorSummary(row: PlatformCuttingOverviewRow): OperatorContribu
       operatorName: row.pickupSummary.latestScannedBy,
       latestActionAt: row.pickupSummary.latestScannedAt,
       key: 'pickup' as const,
-      latestActionSummary: row.pickupSummary.latestScannedAt ? '最近负责领料回写' : '',
+      latestActionSummary: row.pickupSummary.latestScannedAt ? '最近负责接收回写' : '',
     },
     {
       operatorName: row.record.spreadingSummary.latestSpreadingBy,

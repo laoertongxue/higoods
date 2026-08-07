@@ -12,7 +12,7 @@ async function openProgressBoard(page: import('@playwright/test').Page): Promise
   await expect(page.locator('[data-progress-task-list="true"]')).toBeVisible({ timeout: 120_000 })
 }
 
-test('点击领料情况或交出情况列会复用现有任务详情抽屉并切到对应 tab', async ({ page }) => {
+test('点击接收情况或交出情况列会复用现有任务详情抽屉并切到对应 tab', async ({ page }) => {
   test.slow()
   const errors = collectPageErrors(page)
 
@@ -29,7 +29,7 @@ test('点击领料情况或交出情况列会复用现有任务详情抽屉并�
   await expect(drawer.getByRole('button', { name: '分配信息' })).toBeVisible()
   await expect(drawer.getByRole('button', { name: '进度操作' })).toBeVisible()
   await expect(drawer.getByRole('button', { name: '审计日志' })).toBeVisible()
-  await expect(drawer.getByRole('button', { name: '领料情况' })).toHaveClass(/bg-primary/)
+  await expect(drawer.getByRole('button', { name: '接收情况' })).toHaveClass(/bg-primary/)
 
   await drawer.getByLabel('关闭').click()
   await expect(drawer).toHaveCount(0)

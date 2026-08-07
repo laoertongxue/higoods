@@ -55,14 +55,14 @@ for (const status of ['待交出', '已交出', '已回写', '差异', '异议�
 
 appStore.navigate('/fcs/process-factory/special-craft/auxiliary/wait-process-warehouse')
 const waitProcessHtml = renderSpecialCraftDomainWaitProcessWarehousePage('auxiliary')
-for (const label of ['库存明细', '接收入仓', '加工领料', '回收入仓', '库区库位']) {
+for (const label of ['库存明细', '接收入仓', '加工接收', '回收入仓', '库区库位']) {
   assert.ok(waitProcessHtml.includes(label), `Web 辅助工艺待加工仓缺少：${label}`)
 }
 assert.ok(!waitProcessHtml.includes('操作规则'), 'Web 辅助工艺待加工仓不应保留旧的操作规则面板')
 
 for (const [action, label] of [
   ['receive', '确认接收入仓'],
-  ['process-issue', '确认加工领料'],
+  ['process-issue', '确认加工接收'],
   ['return', '确认回收入仓'],
 ] as const) {
   appStore.navigate(`/fcs/process-factory/special-craft/auxiliary/wait-process-warehouse?warehouseAction=${action}`)
@@ -92,7 +92,7 @@ for (const [action, label] of [
 }
 
 const pdaWarehouseSource = src('src/pages/pda-warehouse.ts')
-for (const label of ['isCraftWarehouseRuntime', 'CENTRAL_AUX', '接收入仓', '加工领料', '回收入仓', '完工入仓', '交出确认']) {
+for (const label of ['isCraftWarehouseRuntime', 'CENTRAL_AUX', '接收入仓', '加工接收', '回收入仓', '完工入仓', '交出确认']) {
   assert.ok(pdaWarehouseSource.includes(label), `PDA 仓管首页缺少辅助工艺入口：${label}`)
 }
 
@@ -157,7 +157,7 @@ const { renderPdaWarehouseWaitProcessPage } = await import('../src/pages/pda-war
 const { renderPdaWarehouseWaitHandoverPage } = await import('../src/pages/pda-warehouse-wait-handover.ts')
 
 const pdaHomeHtml = renderPdaWarehousePage()
-for (const label of ['绣花专属工厂', '接收入仓', '加工领料', '回收入仓', '完工入仓', '交出确认']) {
+for (const label of ['绣花专属工厂', '接收入仓', '加工接收', '回收入仓', '完工入仓', '交出确认']) {
   assert.ok(pdaHomeHtml.includes(label), `PDA 辅助工艺首页渲染缺少：${label}`)
 }
 

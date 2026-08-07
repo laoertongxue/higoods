@@ -1,10 +1,10 @@
-# 裁床待领节点与多次领料关系实现计划
+# 裁床待领节点与多次接收关系实现计划
 
 > **面向 AI 代理的工作者：** 必需子技能：使用 `superpowers-zh:subagent-driven-development`（推荐）或 `superpowers-zh:executing-plans` 逐任务实现此计划。步骤使用复选框（`- [ ]`）跟踪进度。
 
-**目标：** 将领料管理从“每条已确认配料记录一条待领通知”调整为“每个生产单一个当前待领节点”，并让裁床一次确认生成一条领料主记录及多条物料明细。
+**目标：** 将接收管理从“每条已确认配料记录一条待领通知”调整为“每个生产单一个当前待领节点”，并让裁床一次确认生成一条接收主记录及多条物料明细。
 
-**架构：** 保留现有生产单级裁床配料单和物料行数据，不改中转仓内部页面。新增纯函数待领节点模型，以现有已确认未领物料和历史有效已领事实派生唯一活动节点；新增领料主记录，现有行级 `PickupRecord` 保留为主记录下的领料明细，减少对退回、配料详情和其他工艺页面的影响。PC 领料管理和 PDA 领料入仓统一读取待领节点，并通过同一个幂等确认函数完成主记录、明细和节点关闭。
+**架构：** 保留现有生产单级裁床配料单和物料行数据，不改中转仓内部页面。新增纯函数待领节点模型，以现有已确认未领物料和历史有效已领事实派生唯一活动节点；新增接收主记录，现有行级 `PickupRecord` 保留为主记录下的接收明细，减少对退回、配料详情和其他工艺页面的影响。PC 接收管理和 PDA 接收入仓统一读取待领节点，并通过同一个幂等确认函数完成主记录、明细和节点关闭。
 
 **技术栈：** Vite、TypeScript、Vanilla TypeScript 字符串模板、Tailwind CSS、项目标准列表页组件、Node 检查脚本、Playwright。
 
@@ -25,14 +25,14 @@
 
 | 文件 | 动作 | 单一职责 |
 | --- | --- | --- |
-| `src/data/fcs/cutting/pickup-node-domain.ts` | 创建 | 定义待领节点、领料主记录类型和累计齐套纯函数 |
-| `src/data/fcs/cutting/production-material-prep.ts` | 修改 | 派生活动节点，持久化领料主记录，提供幂等确认入口 |
+| `src/data/fcs/cutting/pickup-node-domain.ts` | 创建 | 定义待领节点、接收主记录类型和累计齐套纯函数 |
+| `src/data/fcs/cutting/production-material-prep.ts` | 修改 | 派生活动节点，持久化接收主记录，提供幂等确认入口 |
 | `src/pages/process-factory/cutting/pickup-management.ts` | 修改 | 按待领节点重做标准列表、详情和历史主记录展示 |
-| `src/pages/pda-warehouse-wait-process.ts` | 修改 | 按节点展示全部物料并执行“确认全部领料” |
+| `src/pages/pda-warehouse-wait-process.ts` | 修改 | 按节点展示全部物料并执行“确认全部接收” |
 | `scripts/check-cutting-pickup-node-domain.ts` | 创建 | 验证累计齐套、节点升级和节点顺序 |
 | `scripts/check-material-prep-pickup-management.ts` | 修改 | 将旧记录级断言改为节点级、主记录级断言 |
 | `scripts/check-pda-pickup-flow.ts` | 修改 | 验证 PDA 不允许部分领取当前节点 |
-| `scripts/check-cutting-prep-pickup-return-linkage.ts` | 修改 | 验证行级领料明细继续承接退回关系 |
+| `scripts/check-cutting-prep-pickup-return-linkage.ts` | 修改 | 验证行级接收明细继续承接退回关系 |
 | `tests/cutting-pickup-node-flow.spec.ts` | 创建 | 浏览器验证列表、确认、幂等和响应时间 |
 | `package.json` | 修改 | 注册新增检查命令 |
 | `docs/prototype-review-records/2026-07-22-cutting-pickup-node-relationship.md` | 创建 | 记录原型审查结论 |
@@ -326,8 +326,8 @@ const session = appendPickupSessionFromNode({
   locationCode: 'FAB-A-09',
   waitProcessLedgerEventId: 'check-node-session',
 }, storage)
-assert(session.status === '本轮已领完', '领料主记录状态错误')
-assert(session.pickupRecordIds.length === node.items.length, '节点每条物料必须形成一条领料明细')
+assert(session.status === '本轮已领完', '接收主记录状态错误')
+assert(session.pickupRecordIds.length === node.items.length, '节点每条物料必须形成一条接收明细')
 assert(!listActivePickupNodes(storage).some((item) => item.nodeId === node.nodeId), '确认后节点必须关闭')
 
 const duplicate = appendPickupSessionFromNode({
@@ -344,7 +344,7 @@ assert(duplicate.pickupSessionId === session.pickupSessionId, '重复确认必�
 另用旧节点版本提交，断言错误文本为：
 
 ```text
-当前待领物料已更新，请重新核对全部物料后再确认领料。
+当前待领物料已更新，请重新核对全部物料后再确认接收。
 ```
 
 - [ ] **步骤 2：运行检查并确认 `appendPickupSessionFromNode` 不存在**
@@ -383,7 +383,7 @@ export function appendPickupSessionFromNode(
 ```ts
 const session: PickupSession = {
   pickupSessionId: `pickup-session:${node.nodeId}`,
-  pickupSessionNo: `领料-${node.productionOrderNo}-${String(node.sequence).padStart(2, '0')}`,
+  pickupSessionNo: `接收-${node.productionOrderNo}-${String(node.sequence).padStart(2, '0')}`,
   pickupNodeId: node.nodeId,
   pickupNodeVersion: node.version,
   prepOrderId: node.prepOrderId,
@@ -420,10 +420,10 @@ npm run check:cutting-prep-pickup-return-linkage
 
 ```bash
 git add src/data/fcs/cutting/production-material-prep.ts scripts/check-material-prep-pickup-management.ts scripts/check-cutting-prep-pickup-return-linkage.ts
-git commit -m "feat(裁床): 一次确认生成领料主记录与明细"
+git commit -m "feat(裁床): 一次确认生成接收主记录与明细"
 ```
 
-## 5. 任务 4：将领料管理迁移为待领节点标准列表
+## 5. 任务 4：将接收管理迁移为待领节点标准列表
 
 **文件：**
 
@@ -433,16 +433,16 @@ git commit -m "feat(裁床): 一次确认生成领料主记录与明细"
 - [ ] **步骤 1：先写标准列表和业务文案失败断言**
 
 ```ts
-assertIncludes(pickupManagementSource, '// @page-pattern: list', '领料管理必须声明标准列表页')
+assertIncludes(pickupManagementSource, '// @page-pattern: list', '接收管理必须声明标准列表页')
 assertIncludes(pickupManagementSource, 'renderStandardListPage', '缺少标准列表骨架')
 assertIncludes(pickupManagementSource, 'renderStandardListTable', '缺少标准列表表格')
 assertIncludes(pickupManagementSource, 'renderTablePagination', '缺少标准分页')
 assertIncludes(pickupPageHtml, '未配齐清单', '页面必须区分未配齐可领节点')
 assertIncludes(pickupPageHtml, '已配齐待领', '页面必须区分收尾节点')
 assertIncludes(pickupPageHtml, '历史有效已领', '页面缺少累计已领口径')
-assertNotIncludes(pickupPageHtml, '一条已确认配料记录对应一条裁床待领料通知', '不得保留旧口径')
+assertNotIncludes(pickupPageHtml, '一条已确认配料记录对应一条裁床待接收通知', '不得保留旧口径')
 assertNotIncludes(pickupPageHtml, '暂不领', '等待不能成为裁床操作')
-assertNotIncludes(pickupPageHtml, '标记部分领料', '裁床不得选择上游汇总状态')
+assertNotIncludes(pickupPageHtml, '标记部分接收', '裁床不得选择上游汇总状态')
 ```
 
 - [ ] **步骤 2：运行专项和列表门禁并确认失败**
@@ -480,7 +480,7 @@ const pickupListPageSizes = [10, 20, 50]
 
 ```ts
 const pickupNodeColumns: Array<StandardListColumn<PickupNodeProjection>> = [
-  { key: 'nodeType', title: '当前领料节点', width: 150, required: true, sortable: true, render: renderNodeTypeCell },
+  { key: 'nodeType', title: '当前接收节点', width: 150, required: true, sortable: true, render: renderNodeTypeCell },
   { key: 'productionOrder', title: PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE, width: 220, required: true, sortable: true, render: renderNodeOrderCell },
   { key: 'materials', title: '当前节点全部物料', width: 420, required: true, render: renderNodeMaterialsCell },
   { key: 'picked', title: '历史有效已领', width: 180, sortable: true, render: renderEffectivePickedCell },
@@ -495,7 +495,7 @@ const pickupNodeColumns: Array<StandardListColumn<PickupNodeProjection>> = [
 
 - [ ] **步骤 5：实现节点统计、筛选和操作**
 
-48px 单行统计：未配齐清单、已配齐待领、当前可领节点。筛选保留关键词、物料关键词并增加节点类型。操作仅保留：查看当前节点、办理领料入库、查看生产单领料历史。
+48px 单行统计：未配齐清单、已配齐待领、当前可领节点。筛选保留关键词、物料关键词并增加节点类型。操作仅保留：查看当前节点、办理接收入库、查看生产单接收历史。
 
 - [ ] **步骤 6：实现局部刷新**
 
@@ -514,10 +514,10 @@ npm run check:list-page-governance
 
 ```bash
 git add src/pages/process-factory/cutting/pickup-management.ts scripts/check-material-prep-pickup-management.ts
-git commit -m "feat(裁床): 按待领节点重做领料管理列表"
+git commit -m "feat(裁床): 按待领节点重做接收管理列表"
 ```
 
-## 6. 任务 5：改造节点详情与历史领料主记录
+## 6. 任务 5：改造节点详情与历史接收主记录
 
 **文件：**
 
@@ -532,9 +532,9 @@ assertIncludes(detailHtml, '当前节点全部物料', '详情必须按节点展
 assertIncludes(detailHtml, '历史有效已领', '详情缺少累计口径')
 assertIncludes(detailHtml, '仍缺物料', '未配齐节点必须展示缺口')
 assertIncludes(detailHtml, '本轮全部领取', '主动作必须表达领取整个节点')
-assertIncludes(historyHtml, '领料主记录', '历史必须按一次交接展示')
-assertIncludes(historyHtml, '领料明细', '主记录必须可展开明细')
-assertNotIncludes(detailHtml, '请输入领料数量', '不得要求裁床决定部分领取数量')
+assertIncludes(historyHtml, '接收主记录', '历史必须按一次交接展示')
+assertIncludes(historyHtml, '接收明细', '主记录必须可展开明细')
+assertNotIncludes(detailHtml, '请输入接收数量', '不得要求裁床决定部分领取数量')
 ```
 
 - [ ] **步骤 2：运行检查并确认失败**
@@ -545,11 +545,11 @@ assertNotIncludes(detailHtml, '请输入领料数量', '不得要求裁床决定
 
 详情参数改为 `pickupNodeId`。展示节点类型、版本、生产单、配料单、全部物料、每条需求/历史有效已领/当前可领/领后剩余、来源位置和裁床接收位置。
 
-未配齐节点显示仍缺物料但无“暂不领”；已配齐节点显示“本轮为收尾领料”。现有打回入口按来源配料记录保留，不扩展新异常规则。
+未配齐节点显示仍缺物料但无“暂不领”；已配齐节点显示“本轮为收尾接收”。现有打回入口按来源配料记录保留，不扩展新异常规则。
 
 - [ ] **步骤 4：历史按主记录展开行级明细**
 
-使用 `projection.pickupSessions` 渲染领料主记录；通过 `session.pickupRecordIds` 找行级明细。主记录显示“本轮已领完”和仓储回写状态；回写异常显示“回写异常待重试”，但不得重新执行领料。行级明细继续提供现有退回入口。
+使用 `projection.pickupSessions` 渲染接收主记录；通过 `session.pickupRecordIds` 找行级明细。主记录显示“本轮已领完”和仓储回写状态；回写异常显示“回写异常待重试”，但不得重新执行接收。行级明细继续提供现有退回入口。
 
 - [ ] **步骤 5：运行详情与退回检查**
 
@@ -564,10 +564,10 @@ npm run check:cutting-prep-pickup-return-linkage
 
 ```bash
 git add src/pages/process-factory/cutting/pickup-management.ts scripts/check-material-prep-pickup-management.ts scripts/check-cutting-prep-pickup-return-linkage.ts
-git commit -m "feat(裁床): 补齐节点详情与领料主记录"
+git commit -m "feat(裁床): 补齐节点详情与接收主记录"
 ```
 
-## 7. 任务 6：把 PDA 领料改为“确认当前节点全部领取”
+## 7. 任务 6：把 PDA 接收改为“确认当前节点全部领取”
 
 **文件：**
 
@@ -582,8 +582,8 @@ git commit -m "feat(裁床): 补齐节点详情与领料主记录"
 ```ts
 assertIncludes(pageSource, 'pickupNodeId', 'PC 到 PDA 必须传待领节点标识')
 assertIncludes(pageSource, 'pickupNodeVersion', 'PC 到 PDA 必须传节点版本')
-assertIncludes(pageSource, 'appendPickupSessionFromNode', '确认动作必须创建节点级领料主记录')
-assertIncludes(pdaHtml, '确认全部领料', '主动作必须明确领取当前节点全部物料')
+assertIncludes(pageSource, 'appendPickupSessionFromNode', '确认动作必须创建节点级接收主记录')
+assertIncludes(pdaHtml, '确认全部接收', '主动作必须明确领取当前节点全部物料')
 assertNotIncludes(pdaHtml, '请输入实领数量', '不得让裁床决定部分领取数量')
 ```
 
@@ -607,11 +607,11 @@ productionOrderId: node.productionOrderId,
 materialPrepOrderId: node.materialPrepOrderId,
 ```
 
-保留来源配料记录 ID 仅用于追溯，不再作为领料操作主键。
+保留来源配料记录 ID 仅用于追溯，不再作为接收操作主键。
 
 - [ ] **步骤 4：PDA 展示只读的整节点物料清单**
 
-按节点展示生产单、节点类型、来源货位，以及每条物料的当前可领数量。物料数量、卷件数均不可编辑；仅保留裁床待加工仓库区域、货位等现有接收位置字段。主按钮统一为“确认全部领料”。
+按节点展示生产单、节点类型、来源货位，以及每条物料的当前可领数量。物料数量、卷件数均不可编辑；仅保留裁床待加工仓库区域、货位等现有接收位置字段。主按钮统一为“确认全部接收”。
 
 - [ ] **步骤 5：确认时原子创建主记录与明细**
 
@@ -628,7 +628,7 @@ appendPickupSessionFromNode({
 })
 ```
 
-成功后运行时事件记录 `pickupSessionId`、`pickupNodeId`、`pickupRecordIds` 和 `warehouseSyncStatus`；不得根据表单输入重新计算领料数量。版本冲突时显示“当前待领物料已更新，请重新核对全部物料后再确认领料。”
+成功后运行时事件记录 `pickupSessionId`、`pickupNodeId`、`pickupRecordIds` 和 `warehouseSyncStatus`；不得根据表单输入重新计算接收数量。版本冲突时显示“当前待领物料已更新，请重新核对全部物料后再确认接收。”
 
 - [ ] **步骤 6：运行 PDA 与节点检查**
 
@@ -643,7 +643,7 @@ npm run check:material-prep-pickup-management
 
 ```bash
 git add src/pages/pda-warehouse-wait-process.ts src/pages/process-factory/cutting/pickup-management.ts scripts/check-pda-pickup-flow.ts scripts/check-material-prep-pickup-management.ts
-git commit -m "feat(裁床): 按待领节点确认全部领料"
+git commit -m "feat(裁床): 按待领节点确认全部接收"
 ```
 
 ## 8. 任务 7：补充端到端浏览器验收
@@ -661,9 +661,9 @@ git commit -m "feat(裁床): 按待领节点确认全部领料"
 test('同一生产单任何时刻最多一个可操作节点', async ({ page }) => {})
 test('仍未配齐时形成新的未配齐节点并一次全部领取', async ({ page }) => {})
 test('累计已配齐时直接形成已配齐待领节点', async ({ page }) => {})
-test('确认节点生成一条领料主记录和多条物料明细', async ({ page }) => {})
+test('确认节点生成一条接收主记录和多条物料明细', async ({ page }) => {})
 test('重复确认同一节点不会生成第二条主记录', async ({ page }) => {})
-test('仓储回写失败只标记异常且重试不重复领料', async ({ page }) => {})
+test('仓储回写失败只标记异常且重试不重复接收', async ({ page }) => {})
 ```
 
 每个场景必须同时断言页面结果与持久化 Mock store 结果，不能只断言按钮可点击。
@@ -676,7 +676,7 @@ test('仓储回写失败只标记异常且重试不重复领料', async ({ page 
 - 操作列横向滚动后仍固定右侧；用户冻结列保持固定左侧。
 - 排序、显示列、冻结列和分页可用；只有列偏好与每页条数被持久化。
 - 筛选、分页、列设置不替换页面根节点，不造成整页闪烁或滚动位置丢失。
-- 打开节点详情、进入 PDA、确认领料等关键点击到反馈均低于 200ms。
+- 打开节点详情、进入 PDA、确认接收等关键点击到反馈均低于 200ms。
 
 - [ ] **步骤 3：注册测试脚本**
 
@@ -754,9 +754,9 @@ npm run build
 4. 后续到货后累计仍未配齐，出现新的未配齐节点。
 5. 再次确认后形成第二条独立主记录。
 6. 最后一批到货使累计数量配齐，直接出现“已配齐待领”节点，不经过未配齐货架。
-7. 最终确认后页面呈现“全部配齐、全部领料”；历史中可展开三次主记录的物料明细。
-8. 整个过程中页面不存在“暂不领”动作，也不存在可编辑的部分领料数量。
-9. 模拟仓储清位回写失败后，原领料主记录标记“回写异常待重试”；重试成功只更新同步状态，不新增主记录或领料明细。
+7. 最终确认后页面呈现“全部配齐、全部接收”；历史中可展开三次主记录的物料明细。
+8. 整个过程中页面不存在“暂不领”动作，也不存在可编辑的部分接收数量。
+9. 模拟仓储清位回写失败后，原接收主记录标记“回写异常待重试”；重试成功只更新同步状态，不新增主记录或接收明细。
 
 - [ ] **步骤 5：检查改动边界**
 
@@ -791,9 +791,9 @@ git commit -m "docs(裁床): 记录待领节点原型审查"
 - 未领取节点遇到后续到货时合并更新，不重复生成可操作节点。
 - 已领取后再次到货，先按物料行计算“历史有效已领 + 当前可领”是否达到需求。
 - 累计仍未配齐才形成新的未配齐节点；累计已配齐直接形成已配齐待领节点。
-- 裁床确认必定领取当前节点全部物料，一次确认对应一条领料主记录和多条物料明细。
-- 裁床页面只表达“本轮已领完”；“部分领料”仅作为 WLS 整张配料单的派生汇总状态。
-- 最后一轮确认后同时满足“全部配齐”和“全部领料”。
+- 裁床确认必定领取当前节点全部物料，一次确认对应一条接收主记录和多条物料明细。
+- 裁床页面只表达“本轮已领完”；“部分接收”仅作为 WLS 整张配料单的派生汇总状态。
+- 最后一轮确认后同时满足“全部配齐”和“全部接收”。
 - PC、PDA、历史、退回链路、标准列表、治理检查、端到端测试和构建均通过。
-- 仓储清位/回写异常只改变既有领料主记录的同步状态，重试不会重复领料。
+- 仓储清位/回写异常只改变既有接收主记录的同步状态，重试不会重复接收。
 - 中转仓配料算法及其操作页面没有被纳入本仓库的实现范围。

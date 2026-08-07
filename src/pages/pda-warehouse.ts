@@ -109,18 +109,18 @@ function buildPendingTone(count: number, tone: WarehouseActionTone = 'primary'):
 }
 
 function renderWaitProcessActions(runtime: NonNullable<ReturnType<typeof getMobileWarehouseRuntimeContext>>): string {
-  const pickupCount = getActiveTodoCount(runtime, ['待领料'])
+  const pickupCount = getActiveTodoCount(runtime, ['待接收'])
   let waitProcessActions: WarehouseShortcut[]
   if (isCuttingWarehouseRuntime(runtime)) {
     waitProcessActions = [
         {
-          title: '中转仓领料',
+          title: '中转仓接收',
           subtitle: '从中转仓领取待加工物并确认库位。',
           route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-process', runtime, { view: 'pickup' }),
           ...buildPendingTone(pickupCount),
         },
         {
-          title: '加工领料',
+          title: '加工接收',
           subtitle: '从待加工仓领出使用。',
           route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-process', runtime, { action: 'issue' }),
         },
@@ -139,7 +139,7 @@ function renderWaitProcessActions(runtime: NonNullable<ReturnType<typeof getMobi
         ...buildPendingTone(pickupCount),
       },
       {
-        title: '加工领料',
+        title: '加工接收',
         subtitle: '从待加工仓领出给工序使用。',
         route: resolveWarehouseRoute('/fcs/pda/warehouse/wait-process', runtime, { action: 'issue' }),
       },

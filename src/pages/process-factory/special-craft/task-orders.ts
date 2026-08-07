@@ -66,7 +66,7 @@ interface ExpandedTaskOrderRow {
 
 const TASK_STATUS_OPTIONS: Array<{ value: string; label: string }> = [
   { value: '全部', label: '全部任务' },
-  { value: '待领料', label: '待领料' },
+  { value: '待接收', label: '待接收' },
   { value: '加工中', label: '加工中' },
   { value: '已完结', label: '已完结' },
 ]
@@ -348,7 +348,7 @@ function renderFilters(state: TaskListState): string {
 function renderStats(taskOrders: SpecialCraftTaskOrder[]): string {
   return renderStandardListStats([
     { label: '加工单数', value: String(taskOrders.length) },
-    { label: '待领料', value: String(taskOrders.filter((t) => t.status === '待领料').length) },
+    { label: '待接收', value: String(taskOrders.filter((t) => t.status === '待接收').length) },
     { label: '加工中', value: String(taskOrders.filter((t) => t.status === '加工中').length) },
     { label: '已完结', value: String(taskOrders.filter((t) => t.status === '已完结').length) },
   ])

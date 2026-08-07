@@ -17,7 +17,7 @@ import {
 // ─── 招标单台账 ──────────────────────────────
 export type TenderOrderStatus = 'DRAFT' | 'OPEN' | 'CLOSED' | 'VOID'
 
-// ─── 领料对账单 ──────────────────────────────
+// ─── 接收对账单 ──────────────────────────────
 export type MaterialStatementStatus = 'DRAFT' | 'CONFIRMED' | 'CLOSED'
 
 export interface MaterialStatementItem {
@@ -49,7 +49,7 @@ export interface MaterialStatementDraft {
   updatedBy?: string
 }
 
-// ─── 领料需求单 ──────────────────────────────
+// ─── 接收需求单 ──────────────────────────────
 export type MaterialIssueStatus = 'DRAFT' | 'TO_ISSUE' | 'PARTIAL' | 'ISSUED'
 
 export interface MaterialIssueSheet {
@@ -426,7 +426,7 @@ export function extendTenderDeadlineFromRuntime(
 export const initialTenders: Tender[] = buildLegacyTendersFromRuntime()
 export const initialTenderOrders: TenderOrder[] = listTenderOrdersFromRuntime()
 
-// ─── 历史领料单快照（兼容读取，非主真相） ───────────────
+// ─── 历史接收单快照（兼容读取，非主真相） ───────────────
 // 主流程请使用 listMaterialIssueSheetsFromRuntime 获取实时映射。
 export const legacyMaterialIssueSheetsSnapshot: MaterialIssueSheet[] = buildLegacyMaterialIssueSheetsFromRuntime()
 

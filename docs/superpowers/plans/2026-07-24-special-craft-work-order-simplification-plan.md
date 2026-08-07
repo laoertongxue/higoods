@@ -35,7 +35,7 @@
 
 ```typescript
 export type SpecialCraftTaskStatus =
-  | '待领料'
+  | '待接收'
   | '加工中'
   | '已完结'
 ```
@@ -155,7 +155,7 @@ git commit -m "refactor: 精简特殊工艺状态模型为3状态，删除差异
 
 ### 步骤 2.4：修改 `SPECIAL_CRAFT_CONFIRM_RECEIVE` 定义
 
-- [ ] 确认接收的 `fromStatuses` 改为 `['待领料', '加工中']`，`toStatus` 改为 `'加工中'`
+- [ ] 确认接收的 `fromStatuses` 改为 `['待接收', '加工中']`，`toStatus` 改为 `'加工中'`
 
 ### 步骤 2.5：删除差异写回 handler 逻辑
 
@@ -277,7 +277,7 @@ export function getFastSpecialCraftWebActions(taskOrder: SpecialCraftTaskOrder):
     {
       actionCode: 'SPECIAL_CRAFT_CONFIRM_RECEIVE',
       actionLabel: '确认接收',
-      fromStatuses: ['待领料', '加工中'],
+      fromStatuses: ['待接收', '加工中'],
       toStatus: '加工中',
       requiredFields: ['接收人', '接收时间'],
       optionalFields: ['备注'],
@@ -338,7 +338,7 @@ export function renderStatusBadge(label: string): string {
   const tone =
     label.includes('差异') || label.includes('异议') || label.includes('异常')
       ? 'red'
-      : label.includes('待领料')
+      : label.includes('待接收')
         ? 'amber'
         : label.includes('加工中')
           ? 'blue'
@@ -556,7 +556,7 @@ git commit -m "feat: 重写特殊工艺详情页为4操作，删除差异异常T
 ```typescript
 const TASK_STATUS_OPTIONS: Array<{ value: string; label: string }> = [
   { value: '全部', label: '全部任务' },
-  { value: '待领料', label: '待领料' },
+  { value: '待接收', label: '待接收' },
   { value: '加工中', label: '加工中' },
   { value: '已完结', label: '已完结' },
 ]
@@ -570,7 +570,7 @@ const TASK_STATUS_OPTIONS: Array<{ value: string; label: string }> = [
 function renderStats(taskOrders: SpecialCraftTaskOrder[]): string {
   return renderStandardListStats([
     { label: '加工单数', value: String(taskOrders.length) },
-    { label: '待领料', value: String(taskOrders.filter((t) => t.status === '待领料').length) },
+    { label: '待接收', value: String(taskOrders.filter((t) => t.status === '待接收').length) },
     { label: '加工中', value: String(taskOrders.filter((t) => t.status === '加工中').length) },
     { label: '已完结', value: String(taskOrders.filter((t) => t.status === '已完结').length) },
   ])

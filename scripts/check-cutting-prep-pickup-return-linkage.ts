@@ -54,7 +54,7 @@ const multiReturn = rows.find((row) =>
     row.pickupReturnRecords.filter((record) => record.pickupRecordId === pickup.pickupRecordId).length >= 2,
   ),
 )
-assert(multiReturn, '必须覆盖同一领料记录多次部分退回场景')
+assert(multiReturn, '必须覆盖同一接收记录多次部分退回场景')
 
 for (const row of returnedRows) {
   const projection = getMaterialPrepOrderProjection(row.order.prepOrderId, storage)
@@ -66,7 +66,7 @@ for (const row of returnedRows) {
   )
   for (const returnRecord of row.pickupReturnRecords) {
     const pickupRecord = row.pickupRecords.find((record) => record.pickupRecordId === returnRecord.pickupRecordId)
-    assert(pickupRecord, `退回记录必须能找到对应领料记录：${returnRecord.returnRecordId}`)
+    assert(pickupRecord, `退回记录必须能找到对应接收记录：${returnRecord.returnRecordId}`)
     assert(returnRecord.prepRecordId === pickupRecord.prepRecordId, `退回记录配料记录归属必须一致：${returnRecord.returnRecordId}`)
     assert(returnRecord.prepLineId === pickupRecord.prepLineId, `退回记录物料行归属必须一致：${returnRecord.returnRecordId}`)
     assert(returnRecord.prepOrderId === pickupRecord.prepOrderId, `退回记录配料单归属必须一致：${returnRecord.returnRecordId}`)
@@ -123,8 +123,8 @@ try {
 
   const returnedOrder = returnedRows[0]
   const detailHtml = renderCuttingPrepPage(`?prepOrderId=${encodeURIComponent(returnedOrder.order.prepOrderId)}&detailTab=pickup&hasReturn=1&keyword=PO-202603`)
-  assert(detailHtml.includes('领料 / 退回记录'), '裁片配料详情 pickup Tab 必须展示领料 / 退回记录')
-  assert(detailHtml.includes('已退'), '裁片配料详情领料记录必须展示已退数量')
+  assert(detailHtml.includes('接收 / 退回记录'), '裁片配料详情 pickup Tab 必须展示接收 / 退回记录')
+  assert(detailHtml.includes('已退'), '裁片配料详情接收记录必须展示已退数量')
   assert(detailHtml.includes('已退回待中转仓处理'), '裁片配料详情退回明细必须展示退回状态')
 
   const khakiReturnRow = rows.find((row) => row.pickupReturnRecords.some((record) => record.prepLineId === 'prep-line-po-0102-khaki'))
@@ -141,12 +141,12 @@ try {
   assert(allNodes.length > 0, '必须存在活动节点')
 
   const pickupListHtml = renderPickupReadyPage()
-  assert(pickupListHtml.includes('已配齐待领'), '领料管理列表必须展示已配齐待领分组')
-  assert(pickupListHtml.includes('去领料'), '领料管理列表必须提供去领料入口')
-  assert(pickupListHtml.includes('一次领取本节点全部物料'), 'PC 去领料入口必须明确一次领取本节点全部物料')
+  assert(pickupListHtml.includes('已配齐待领'), '接收管理列表必须展示已配齐待领分组')
+  assert(pickupListHtml.includes('去接收'), '接收管理列表必须提供去接收入口')
+  assert(pickupListHtml.includes('一次领取本节点全部物料'), 'PC 去接收入口必须明确一次领取本节点全部物料')
   
   const detailPickupNode = allNodes.find((n) => n.nodeType === 'READY_TO_PICKUP')
-  assert(detailPickupNode, '必须存在已配齐待领节点用于领料会话验证')
+  assert(detailPickupNode, '必须存在已配齐待领节点用于接收会话验证')
   
   const pickupSession = appendPickupSessionFromNode({
     pickupNodeId: detailPickupNode.nodeId,
@@ -156,15 +156,15 @@ try {
     locationCode: 'FAB-A-09',
     waitProcessLedgerEventId: 'check-linkage-pickup',
   }, storage)
-  assert(pickupSession.pickupRecordIds.length > 0, '必须生成领料明细')
+  assert(pickupSession.pickupRecordIds.length > 0, '必须生成接收明细')
 
   const pickupProjection = listMaterialPrepOrderProjections(storage).find((p) => p.order.prepOrderId === detailPickupNode.prepOrderId)
-  assert(pickupProjection?.pickupSessions.length, '确认后配料单投影必须包含领料主记录')
+  assert(pickupProjection?.pickupSessions.length, '确认后配料单投影必须包含接收主记录')
   assert(pickupProjection.pickupSessions[0].status === '本轮已领完', '主记录状态必须是本轮已领完')
-  assert(pickupProjection.pickupRecords.some((r) => r.pickupSessionId === pickupSession.pickupSessionId), '领料明细必须关联到主记录')
+  assert(pickupProjection.pickupRecords.some((r) => r.pickupSessionId === pickupSession.pickupSessionId), '接收明细必须关联到主记录')
 
 } finally {
   restoreWindow()
 }
 
-console.log('裁片配料与领料退回联动数据检查通过')
+console.log('裁片配料与接收退回联动数据检查通过')

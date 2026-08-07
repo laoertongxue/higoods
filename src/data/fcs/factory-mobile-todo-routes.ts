@@ -16,7 +16,7 @@ export function resolveFactoryMobileTodoActionRoute(todo: FactoryMobileTodoRoute
         return `/fcs/pda/exec/${todo.relatedTaskId}`
       }
       return todo.relatedHandoverOrderId ? `/fcs/pda/handover/${todo.relatedHandoverOrderId}` : '/fcs/pda/handover'
-    case '待领料':
+    case '待接收':
       return todo.relatedHandoverOrderId ? `/fcs/pda/handover/${todo.relatedHandoverOrderId}` : '/fcs/pda/handover'
     case '待开工':
     case '待完工':

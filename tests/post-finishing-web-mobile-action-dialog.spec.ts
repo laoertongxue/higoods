@@ -42,7 +42,7 @@ test('后道 Web 操作必须先弹窗，取消不写回，确认后生成 Web �
   await expect(page.getByText('接收中').first()).toBeVisible()
 
   await openActionDialog(page, 'POST_RECEIVE_FINISH')
-  await expect(page.getByTestId('process-web-status-action-title')).toContainText(/完成接收领料|确认接收领料/)
+  await expect(page.getByTestId('process-web-status-action-title')).toContainText(/完成接收接收|确认接收接收/)
   await expect(page.locator('[data-process-web-status-action-field="操作人"]')).toBeVisible()
   await expect(page.locator('[data-process-web-status-action-field="完成时间"]')).toBeVisible()
   await expect(page.locator('[data-process-web-status-action-field="接收成衣件数"]')).toBeVisible()
@@ -60,7 +60,7 @@ test('后道 Web 操作必须先弹窗，取消不写回，确认后生成 Web �
   await expect(page.locator('body')).toContainText('待质检')
   await page.getByRole('button', { name: '流转记录' }).click()
   await expect(page.locator('body')).toContainText('操作记录')
-  await expect(page.locator('[data-testid="operation-record-row"]').first()).toContainText(/Web 端|完成接收领料/)
+  await expect(page.locator('[data-testid="operation-record-row"]').first()).toContainText(/Web 端|完成接收接收/)
   await expect(page.locator('body')).not.toContainText('Web 端操作记录')
 })
 

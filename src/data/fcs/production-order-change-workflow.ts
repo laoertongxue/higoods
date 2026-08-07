@@ -177,7 +177,7 @@ const PRODUCTION_CHANGE_FOLLOWING_ORDER_SCENARIO_SEEDS: Record<string, Following
   'PO-202603-0004': [
     {
       productionOrderId: 'PO-202603-0101',
-      progressText: '已领料 900 yard；已裁剪 120 件',
+      progressText: '已接收 900 yard；已裁剪 120 件',
       orderStatus: 'EXECUTING',
       affectedDocumentNos: ['WLS-PL-260306-101', 'CUT-260306-101-01'],
     },
@@ -418,7 +418,7 @@ export function resolveFollowingOrderStateFromProgressFallback(progressTexts: st
     (text) =>
       ['已配', '已领', '已裁', '加工中', '已加工', '已交出', '已生成', '已铺布'].some((marker) =>
         text.includes(marker),
-      ) || /(配料|领料|裁片|印花|染色|加工|车缝|后道).*已完成/.test(text),
+      ) || /(配料|接收|裁片|印花|染色|加工|车缝|后道).*已完成/.test(text),
   )
   return { changeable: true, started: hasStartedFact }
 }
@@ -1116,7 +1116,7 @@ function buildMaterialPlan(draft: ProductionChangeDraft, replacement: MaterialRe
     ...buildDocumentPlanItems(
       'material-current-document',
       '同步当前生产单关联单据',
-      '系统按当前领料、裁剪、加工和库存事实调整未执行部分，已发生事实保持不变。',
+      '系统按当前接收、裁剪、加工和库存事实调整未执行部分，已发生事实保持不变。',
       affectedDocumentNos,
     ),
   )
@@ -1450,7 +1450,7 @@ function getDocumentTypeLabel(documentNo: string, fact?: ProductionOrderChangeCu
   if (documentNo.startsWith('PO-')) return '生产单'
   if (documentNo.startsWith('CUT-')) return '裁剪单'
   if (documentNo.startsWith('SP-')) return '铺布单'
-  if (documentNo.startsWith('WLS-') || documentNo.startsWith('MR-') || documentNo.startsWith('MI-')) return '配料/领料单'
+  if (documentNo.startsWith('WLS-') || documentNo.startsWith('MR-') || documentNo.startsWith('MI-')) return '配料/接收单'
   if (documentNo.startsWith('DY-')) return '染色加工单'
   if (documentNo.startsWith('PR-')) return '印花加工单'
   if (documentNo.startsWith('SEW-')) return '车缝加工单'

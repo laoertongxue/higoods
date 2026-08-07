@@ -1212,7 +1212,7 @@ assert(warehouseSource.includes('库存转移'))
 
 运行：`npm run check:wool-warehouse-unified-model`
 
-预期：FAIL，旧检查或页面仍要求加工领料自动排机、完工入仓、交出确认或位置 CRUD。
+预期：FAIL，旧检查或页面仍要求加工接收自动排机、完工入仓、交出确认或位置 CRUD。
 
 - [ ] **步骤 3：实现待加工仓**
 

@@ -33,13 +33,13 @@ export function buildPlatformChainSections(row: PlatformCuttingOverviewRow): Pla
   return [
     {
       key: 'pickup',
-      title: '配料 / 领料',
+      title: '配料 / 接收',
       statusLabel: row.pickupSummary.needsRecheck
-        ? '领料需复核'
+        ? '接收需复核'
         : row.currentStage === 'PENDING_PICKUP'
-          ? '待领料'
+          ? '待接收'
           : row.pickupAggregate.receiveSuccessCount > 0
-            ? '已完成领料'
+            ? '已完成接收'
             : '已进入准备',
       summaryText: row.pickupSummaryText,
       latestActionText:
@@ -107,7 +107,7 @@ export function buildPlatformAttentionItems(row: PlatformCuttingOverviewRow): Pl
       level: row.hasPhotoEvidence ? 'HIGH' : 'MEDIUM',
       description: row.hasPhotoEvidence
         ? '当前已提交照片凭证，平台需要尽快核对差异是否影响后续裁片与交期。'
-        : '当前扫码结果需复核，建议回到仓库配料页核对领料差异。',
+        : '当前扫码结果需复核，建议回到仓库配料页核对接收差异。',
       suggestedFollowUp: '优先回仓库配料页核对扫码结果、凭证和差异说明。',
     })
   }

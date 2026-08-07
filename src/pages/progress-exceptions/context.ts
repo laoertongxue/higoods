@@ -498,11 +498,11 @@ export function getResolveJudgeResult(exc: ExceptionCase): ResolveJudgeResult {
     const resolved = rows.length > 0 && isSatisfied
     return {
       resolved,
-      ruleText: '领料记录满足或领料链路闭合后，系统自动判定为已解决。',
+      ruleText: '接收记录满足或接收链路闭合后，系统自动判定为已解决。',
       currentResultText: resolved
-        ? '当前已满足：领料记录已满足，可进入关闭流程。'
-        : '当前未满足：仍有领料缺口或未闭合记录，请继续推进领料。',
-      resolvedDetail: '领料记录已满足并闭合，系统自动判定为已解决',
+        ? '当前已满足：接收记录已满足，可进入关闭流程。'
+        : '当前未满足：仍有接收缺口或未闭合记录，请继续推进接收。',
+      resolvedDetail: '接收记录已满足并闭合，系统自动判定为已解决',
       resolvedRuleCode: 'MATERIAL_SATISFIED',
     }
   }

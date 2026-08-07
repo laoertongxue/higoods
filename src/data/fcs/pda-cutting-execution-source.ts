@@ -472,9 +472,9 @@ function mapExecutionObjectTypeLabel(type: PdaCuttingExecutionSourceRecord['exec
 }
 
 function mapReceiveStatusLabel(status: string | undefined): string {
-  if (status === 'RECEIVED') return '已领料入仓'
-  if (status === 'PARTIAL') return '领料数量不足'
-  return '待裁床领料确认'
+  if (status === 'RECEIVED') return '已接收入仓'
+  if (status === 'PARTIAL') return '接收数量不足'
+  return '待裁床接收确认'
 }
 
 function buildPickupSlipNo(cutOrderNo: string): string {
@@ -1189,7 +1189,7 @@ function resolveCurrentStepCode(input: {
 }
 
 function resolveMobileStageLabel(stage: PdaCuttingMobileStage): string {
-  if (stage === 'WAIT_PICKUP') return '待领料'
+  if (stage === 'WAIT_PICKUP') return '待接收'
   if (stage === 'WAIT_START') return '待开工'
   if (stage === 'WAIT_SPREADING') return '待铺布'
   if (stage === 'SPREADING') return '铺布中'
@@ -1204,7 +1204,7 @@ function resolveNextAction(line: {
   hasException: boolean
 }): string {
   if (line.taskStatus === 'CANCELLED' || line.taskStatus === 'BLOCKED') return '查看提交结果'
-  if (line.mobileStage === 'WAIT_PICKUP') return '去领料'
+  if (line.mobileStage === 'WAIT_PICKUP') return '去接收'
   if (line.mobileStage === 'WAIT_START') return '开工'
   if (line.mobileStage === 'WAIT_SPREADING') return '开始铺布'
   if (line.mobileStage === 'SPREADING') return '完成铺布'
@@ -1226,8 +1226,8 @@ function resolveCurrentState(line: {
   if (line.bindingState === 'UNBOUND') return '待绑定'
   if (line.taskStatus === 'CANCELLED') return '已中止'
   if (line.taskStatus === 'BLOCKED' && line.currentExecutionStatus.includes('暂停')) return '执行暂停'
-  if (line.hasException && !line.pickupSuccess) return '领料差异待处理'
-  if (!line.pickupSuccess) return '待裁床领料'
+  if (line.hasException && !line.pickupSuccess) return '接收差异待处理'
+  if (!line.pickupSuccess) return '待裁床接收'
   if (line.taskStatus === 'NOT_STARTED') return '待开工'
   if (line.currentExecutionStatus === '待铺布') return '待铺布'
   if (line.currentExecutionStatus === '铺布中') return '铺布中'
@@ -1482,7 +1482,7 @@ function buildTaskOrderLine(
       ? '来料异议处理中'
       : latestPickup?.resultLabel
         || (useExplicitPickupEvent
-          ? '待裁床领料'
+          ? '待裁床接收'
           : hasDownstreamWarehouseSignal
             ? '来料已入仓'
             : mapReceiveStatusLabel(progressLine?.receiveStatus))
@@ -1515,7 +1515,7 @@ function buildTaskOrderLine(
     execution.bindingState === 'UNBOUND'
       ? '待绑定裁片单'
       : mobileStage === 'WAIT_PICKUP'
-        ? '待领料'
+        ? '待接收'
         : mobileStage === 'WAIT_START'
         ? '待开工'
         : scenario?.taskStatus === 'CANCELLED'
@@ -1560,7 +1560,7 @@ function buildTaskOrderLine(
     hasException,
   })
   const latestSyncStatus = latestStageAction?.syncStatus || (latestPickup ? '已同步' : '暂无提交')
-  const latestSyncSummary = latestStageAction ? buildSyncSummary(latestStageAction) : (latestPickup ? `已同步：领料 / ${latestPickup.submittedAt}` : '暂无提交')
+  const latestSyncSummary = latestStageAction ? buildSyncSummary(latestStageAction) : (latestPickup ? `已同步：接收 / ${latestPickup.submittedAt}` : '暂无提交')
   return {
     executionOrderId: execution.executionOrderId,
     executionOrderNo: execution.executionOrderNo,

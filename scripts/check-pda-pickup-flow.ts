@@ -30,8 +30,8 @@ function assert(condition: unknown, message: string): asserts condition {
 const pdaSource = fs.readFileSync('src/pages/pda-warehouse-wait-process.ts', 'utf8')
 assert(pdaSource.includes('syncCuttingPickupSessionRuntimeFacts'), 'PDA 必须按 Session 快照补写待加工仓流水')
 assert(pdaSource.includes('appendPickupSessionWithWarehouseFactsRuntime'), 'PDA 必须原子形成 Session/Detail 与待加工仓流水')
-assert(!pdaSource.includes('warehouseSyncDeferred: true'), 'PDA 新确认不得再制造先保存领料、后补写流水的中间态')
-assert(!pdaSource.includes('领料已保存，待加工仓流水写入失败'), 'PDA 不得在流水失败后保留领料事实')
+assert(!pdaSource.includes('warehouseSyncDeferred: true'), 'PDA 新确认不得再制造先保存接收、后补写流水的中间态')
+assert(!pdaSource.includes('接收已保存，待加工仓流水写入失败'), 'PDA 不得在流水失败后保留接收事实')
 assert(pdaSource.includes('getPickupSessionByNodeId(pickupNodeId)'), 'PDA 重复确认必须优先返回历史 Session')
 assert(pdaSource.includes('retry-cutting-pickup-sync'), 'PDA 必须提供仓储回写重试')
 assert(!pdaSource.includes('确认按裁片任务从中转仓领回的数量'), 'PDA 不得再使用裁片任务和可编辑数量口径')
@@ -90,8 +90,8 @@ const duplicate = appendPickupSessionWithWarehouseFactsRuntime(
 )
 assert(first.pickupSessionId === duplicate.pickupSessionId, '节点关闭且旧版本重复提交必须幂等返回原 Session')
 assert(first.pickupRecordIds.length === node.items.length, '一次确认必须生成 N 条物料明细')
-assert(first.storageFootprint?.locationIds.length === 2, '领料 Session 必须保存一次性多库位存放范围')
-assert(first.toLocationRefs?.[0]?.locationId === 'LOC-A-01-01', '领料 Session 必须保存稳定库位路径')
+assert(first.storageFootprint?.locationIds.length === 2, '接收 Session 必须保存一次性多库位存放范围')
+assert(first.toLocationRefs?.[0]?.locationId === 'LOC-A-01-01', '接收 Session 必须保存稳定库位路径')
 assert(getPickupSessionByNodeId(node.nodeId, storage)?.pickupSessionId === first.pickupSessionId, '必须可按节点找回 Session 用于弱网恢复')
 
 const rollbackStorage = new MemoryStorage()
@@ -117,7 +117,7 @@ try {
 assert(
   rollbackStorage.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY) === prepBefore
   && rollbackStorage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) === ledgerBefore,
-  '任一待加工仓流水失败时，领料 Session/Detail 与流水必须共同回滚',
+  '任一待加工仓流水失败时，接收 Session/Detail 与流水必须共同回滚',
 )
 
 const crashRecoveryStorage = new MemoryStorage()

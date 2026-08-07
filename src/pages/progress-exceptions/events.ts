@@ -268,7 +268,7 @@ function handleRowAction(action: string, actionNode: HTMLElement): boolean {
 
   if (action === 'row-material') {
     const orderId = actionNode.dataset.orderId || ''
-    const title = orderId ? `领料进度-${orderId}` : '领料进度'
+    const title = orderId ? `接收进度-${orderId}` : '接收进度'
     const href = `/fcs/progress/material${orderId ? `?po=${encodeURIComponent(orderId)}` : ''}`
     openLinkedPage(title, href)
     state.rowActionMenuCaseId = null
@@ -357,7 +357,7 @@ function handleDrawerAction(action: string, actionNode: HTMLElement): boolean {
 
   if (action === 'drawer-view-material') {
     const orderId = actionNode.dataset.orderId || ''
-    const title = orderId ? `领料进度-${orderId}` : '领料进度'
+    const title = orderId ? `接收进度-${orderId}` : '接收进度'
     openLinkedPage(title, `/fcs/progress/material${orderId ? `?po=${encodeURIComponent(orderId)}` : ''}`)
     return true
   }
@@ -381,7 +381,7 @@ function handleDrawerAction(action: string, actionNode: HTMLElement): boolean {
   if (action === 'drawer-go-pda-pickup-dispute') {
     const handoverId = actionNode.dataset.handoverId || ''
     if (!handoverId) return true
-    openLinkedPage('待领料详情', `/fcs/pda/handover/${encodeURIComponent(handoverId)}`)
+    openLinkedPage('待接收详情', `/fcs/pda/handover/${encodeURIComponent(handoverId)}`)
     return true
   }
 
@@ -702,7 +702,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     if (!caseId) return true
     const dispute = getClaimDisputeByCaseId(caseId)
     if (!dispute) {
-      showProgressExceptionsToast('未找到对应的裁片领料数量异议', 'error')
+      showProgressExceptionsToast('未找到对应的裁片接收数量异议', 'error')
       return true
     }
 

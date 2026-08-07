@@ -87,9 +87,9 @@ function main(): void {
   assert(cutPieceSource.includes('listCutPieceWarehouseWritebacks('), `${cutPieceModel} 未读取正式裁片仓 writeback ledger`)
   assert(warehouseHubSource.includes('appendCuttingRuntimeEvent('), `${warehouseHubPage} 未写入待加工仓 runtime event ledger`)
   ;[
-    '中转仓领料',
+    '中转仓接收',
     '待加工仓扫码入仓',
-    '待加工仓加工领料',
+    '待加工仓加工接收',
     '待加工仓回收入仓',
   ].forEach((eventType) => {
     assert(warehouseHubSource.includes(eventType), `${warehouseHubPage} 缺少待加工仓事件写入：${eventType}`)

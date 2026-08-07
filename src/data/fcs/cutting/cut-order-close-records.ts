@@ -134,7 +134,7 @@ export function buildCutOrderCloseImpactItems(input: {
       impactKey: 'AVAILABLE_BALANCE',
       label: '仍有可用余额',
       value: formatCutOrderCloseLedgerQty(availableQty, unit),
-      detailText: availableQty > 0 ? '关闭后保留数量账，不再要求继续配料或领料。' : '当前无裁床可用余额。',
+      detailText: availableQty > 0 ? '关闭后保留数量账，不再要求继续配料或接收。' : '当前无裁床可用余额。',
       severity: availableQty > 0 ? 'warning' : 'info',
     },
     {

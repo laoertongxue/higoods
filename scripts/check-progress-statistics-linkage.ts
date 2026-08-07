@@ -178,7 +178,7 @@ assertProgressStatisticsConsistency()
   '生产进度',
   '进度总览',
   '面料配置',
-  '裁床领料',
+  '裁床接收',
   '特殊工艺回仓',
   '交出单',
   '车缝回写',
@@ -197,7 +197,7 @@ assertContains(linkageSource, 'includeTestFactories', '统计联动缺少测试�
 ;[
   '裁床进度联动',
   '配料数量',
-  '领料数量',
+  '接收数量',
   '菲票进度',
   '特殊工艺回仓',
   '裁片交出',
@@ -253,7 +253,7 @@ assertContains(linkageSource, 'receivedFeiTicketCount', '统计联动必须消�
 ].forEach((token) => assertContains(linkageSource + mobileWarehouseSource, token, `仓库统计缺少：${token}`))
 assertContains(linkageSource, 'stocktakeWaitReviewCount', '统计联动缺少待审核差异计数')
 assertContains(linkageSource, 'stocktakeAdjustedCount', '统计联动缺少已调整差异计数')
-assertContains(linkageSource, 'pickupCompletedOrderCount', '统计联动缺少已完成领料单计数')
+assertContains(linkageSource, 'pickupCompletedOrderCount', '统计联动缺少已完成接收单计数')
 assertContains(linkageSource, 'handoutCompletedOrderCount', '统计联动缺少已完成交出单计数')
 
 ;[
@@ -316,7 +316,7 @@ assertNoTokens(scopedSource, [
 ], '统计联动不得扩展完整仓储能力')
 assertNoTokens(scopedSource, [
   joinText(['PDA', '配料']),
-  joinText(['PDA', '领料']),
+  joinText(['PDA', '接收']),
   joinText(['PDA', '裁床']),
   joinText(['来', '料仓']),
   joinText(['半成品', '仓']),

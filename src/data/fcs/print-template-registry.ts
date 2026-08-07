@@ -177,7 +177,7 @@ export const printTemplateRegistry: PrintTemplateRegistration[] = [
   },
   {
     templateCode: 'PICKUP_SLIP',
-    templateName: '领料单',
+    templateName: '接收单',
     documentType: 'PICKUP_SLIP',
     supportedSourceTypes: ['PICKUP_SLIP_RECORD'],
     buildDocument: buildPickupSlipPrintDocument,

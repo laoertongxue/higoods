@@ -5,12 +5,12 @@ import type { SupplementMaterialSupplyDecisionSnapshot } from './supplement-supp
 export type SupplementMaterialPrepStatus =
   | '等待库存准备' | '采购中' | '等待染色' | '染色中' | '等待印花' | '印花中'
   | '等待到仓' | '部分到仓' | '可配料' | '部分配料' | '已配料'
-  | '部分领料' | '已领料' | '存在差异' | '已结束'
+  | '部分接收' | '已接收' | '存在差异' | '已结束'
 
 export const SUPPLEMENT_MATERIAL_PREP_STATUSES: readonly SupplementMaterialPrepStatus[] = [
   '等待库存准备', '采购中', '等待染色', '染色中', '等待印花', '印花中',
   '等待到仓', '部分到仓', '可配料', '部分配料', '已配料',
-  '部分领料', '已领料', '存在差异', '已结束',
+  '部分接收', '已接收', '存在差异', '已结束',
 ]
 
 export interface SupplementMaterialPrepDemandLine {

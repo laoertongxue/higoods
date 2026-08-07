@@ -343,7 +343,7 @@ for (const text of [
   '染色中 Yard',
   '裁剪中 Yard',
   '采购中 Yard',
-  '待领料',
+  '待接收',
   '待入库',
   '差额',
   'Yard',

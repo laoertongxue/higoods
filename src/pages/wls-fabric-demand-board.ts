@@ -123,7 +123,7 @@ function renderRawMaterial(row: FabricDemandBoardRow): string {
 function renderProcessQty(waitPickup: number, processingLabel: string, processingQty: number, waitInbound: number): string {
   return `
     <div class="space-y-1 text-xs">
-      <div class="flex justify-between gap-3"><span class="text-slate-500">待领料</span><span>${formatFabricDemandQty(waitPickup)}</span></div>
+      <div class="flex justify-between gap-3"><span class="text-slate-500">待接收</span><span>${formatFabricDemandQty(waitPickup)}</span></div>
       <div class="flex justify-between gap-3"><span class="text-slate-500">${processingLabel}</span><span>${formatFabricDemandQty(processingQty)}</span></div>
       <div class="flex justify-between gap-3"><span class="text-slate-500">待入库</span><span>${formatFabricDemandQty(waitInbound)}</span></div>
     </div>

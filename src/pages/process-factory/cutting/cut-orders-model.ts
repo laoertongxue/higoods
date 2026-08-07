@@ -231,7 +231,7 @@ export const cutOrderStageMeta: Record<CutOrderStageKey, { label: string; classN
 
 export const cutOrderRiskMeta: Record<CutOrderRiskKey, { label: string; className: string }> = {
   PREP_DELAY: { label: '配料数量不足', className: 'bg-orange-100 text-orange-700 border border-orange-200' },
-  CLAIM_EXCEPTION: { label: '领料差异', className: 'bg-rose-100 text-rose-700 border border-rose-200' },
+  CLAIM_EXCEPTION: { label: '接收差异', className: 'bg-rose-100 text-rose-700 border border-rose-200' },
   SHIP_URGENT: { label: '临近发货', className: 'bg-red-100 text-red-700 border border-red-200' },
   DATE_MISSING: { label: '日期缺失', className: 'bg-slate-100 text-slate-700 border border-slate-200' },
   STATUS_CONFLICT: { label: '状态不一致', className: 'bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200' },
@@ -481,8 +481,8 @@ function buildClaimSummary(line: CuttingMaterialLine): CutOrderSummaryMeta<Cutti
     line.receiveStatus === 'RECEIVED'
       ? `裁床已领 ${formatQty(line.receivedRollCount)} 卷 / ${formatQty(line.receivedLength)} 米。`
       : line.receiveStatus === 'PARTIAL'
-        ? `裁床已领 ${formatQty(line.receivedRollCount)} 卷，仍有余量可继续领料。`
-        : '当前尚未完成领料。'
+        ? `裁床已领 ${formatQty(line.receivedRollCount)} 卷，仍有余量可继续接收。`
+        : '当前尚未完成接收。'
 
   return createSummaryMeta(line.receiveStatus, meta.label, meta.className, detailText)
 }

@@ -836,7 +836,7 @@ function buildGapStateRow(
 
   if (gapCutQty > 0) {
     if (materialLine?.configStatus !== 'CONFIGURED' || materialLine?.receiveStatus !== 'RECEIVED') {
-      return { currentStateLabel: '待WMS领料入仓', nextActionLabel: '去待加工仓' }
+      return { currentStateLabel: '待WMS接收入仓', nextActionLabel: '去待加工仓' }
     }
     if (!record.hasSpreadingRecord) {
       return { currentStateLabel: '待铺布', nextActionLabel: '去唛架铺布' }

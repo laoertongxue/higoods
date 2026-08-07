@@ -214,7 +214,7 @@ test('阶段 8 生产单总览和裁片单完整详情使用独立页面', async
   await page.locator('button[data-nav*="/fcs/craft/cutting/production-progress-detail/"]').first().click()
   await expect(page).toHaveURL(/\/fcs\/craft\/cutting\/production-progress-detail\/[^/]+$/)
   await expect(page.locator('[data-testid="cutting-production-progress-detail-page"]')).toBeVisible()
-  for (const text of ['生产单详情', '裁片单', '唛架 / 铺布', '待交出仓 / 中转袋', '交出', '差异 / 关闭', '配料 / 领料记录']) {
+  for (const text of ['生产单详情', '裁片单', '唛架 / 铺布', '待交出仓 / 中转袋', '交出', '差异 / 关闭', '配料 / 接收记录']) {
     await expect(page.locator('body')).toContainText(text)
   }
   await expectNoMainHorizontalScroll(page)
@@ -347,7 +347,7 @@ test('阶段 8 独立详情页覆盖中转袋和捆条，不使用侧边栏承�
   expect(errors).toEqual([])
 })
 
-test('阶段 8 PDA 裁床执行按当前投影阻断未领料任务', async ({ page }) => {
+test('阶段 8 PDA 裁床执行按当前投影阻断未接收任务', async ({ page }) => {
   const errors = collectBrowserErrors(page)
   await seedPdaSession(page)
   await page.setViewportSize({ width: 390, height: 844 })
@@ -363,8 +363,8 @@ test('阶段 8 PDA 裁床执行按当前投影阻断未领料任务', async ({ p
   ]
   for (const taskId of taskIds) {
     await gotoPda(page, `/fcs/pda/cutting/spreading/${taskId}`)
-    await expect(page.locator('body')).toContainText('去领料')
-    await expect(page.locator('body')).toContainText('没有领料记录，不能开工、铺布或裁剪。')
+    await expect(page.locator('body')).toContainText('去接收')
+    await expect(page.locator('body')).toContainText('没有接收记录，不能开工、铺布或裁剪。')
     for (const forbidden of ['开始铺布', '完成铺布', '开始裁剪', '完成裁剪']) {
       await expect(page.locator('body')).not.toContainText(forbidden)
     }

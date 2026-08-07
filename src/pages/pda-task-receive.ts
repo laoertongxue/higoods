@@ -629,7 +629,7 @@ function renderWholeOrderFiveStepHint(task: ProcessTask): string {
   if (!isWholeOrderFiveStepTask(task)) return ''
   return `
     <div class="rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-700">
-      接单后按确认领料 → 开始做 → 上传进度 → 交给${escapeHtml(task.handoverReceiverName || '仓库')} → 仓库待确认执行，不直接完工。
+      接单后按确认接收 → 开始做 → 上传进度 → 交给${escapeHtml(task.handoverReceiverName || '仓库')} → 仓库待确认执行，不直接完工。
     </div>
   `
 }
