@@ -17,9 +17,12 @@ async function expectPfosActive(page: Page): Promise<void> {
 
 async function expectPfosSidebarGroups(page: Page): Promise<void> {
   const sidebar = getDesktopSidebar(page)
-  for (const label of ['工作台', '裁床厂管理', '印花厂管理', '染厂管理']) {
+  for (const label of ['裁床厂管理', '印花厂管理', '染厂管理']) {
     await expect(sidebar.locator(`[data-menu-group-header="${label}"]`)).toBeVisible()
   }
+  await expect(sidebar.locator('[data-menu-group-header="工作台"]')).toHaveCount(0)
+  await expect(sidebar.locator('[data-item-key="pfos-workbench"]')).toHaveCount(0)
+  await expect(sidebar.locator('[data-tab-key="pfos-workbench-overview"]')).toHaveCount(0)
 }
 
 async function openSidebarChild(page: Page, parentKey: string, childKey: string): Promise<void> {
@@ -46,7 +49,7 @@ test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 960 })
 })
 
-test('顶部系统新增 PFOS，点击后进入工艺工作台', async ({ page }) => {
+test('顶部系统新增 PFOS，点击后进入工艺总览', async ({ page }) => {
   await page.goto('/fcs/workbench/overview')
 
   await expect(page.locator('[data-action="switch-system"][data-system-id="pfos"]')).toBeVisible()

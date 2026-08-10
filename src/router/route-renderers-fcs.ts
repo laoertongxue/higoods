@@ -25,6 +25,23 @@ function createAsyncRenderer<TArgs extends unknown[]>(
   }
 }
 
+export const renderLacePurchaseDemandsPage = createAsyncRenderer(
+  () => import('../pages/process-factory/accessory/lace/purchase-demands'),
+  'renderLacePurchaseDemandsPage',
+)
+export const renderLaceWorkOrdersPage = createAsyncRenderer(
+  () => import('../pages/process-factory/accessory/lace/work-orders'),
+  'renderLaceWorkOrdersPage',
+)
+export const renderLaceWorkOrderDetailPage = createAsyncRenderer<[string]>(
+  () => import('../pages/process-factory/accessory/lace/work-order-detail'),
+  'renderLaceWorkOrderDetailPage',
+)
+export const renderLaceHandoverRecordsPage = createAsyncRenderer(
+  () => import('../pages/process-factory/accessory/lace/handover-records'),
+  'renderLaceHandoverRecordsPage',
+)
+
 export const renderTaskBreakdownPage = createAsyncRenderer(() => import('../pages/task-breakdown'), 'renderTaskBreakdownPage')
 export const renderCapabilityPage = createAsyncRenderer(() => import('../pages/capability'), 'renderCapabilityPage')
 export const renderFactoryPerformancePage = createAsyncRenderer(

@@ -148,6 +148,10 @@ import {
   renderCraftWoolWorkOrdersPage,
   renderCraftWoolWaitHandoverWarehousePage,
   renderCraftWoolWaitProcessWarehousePage,
+  renderLaceHandoverRecordsPage,
+  renderLacePurchaseDemandsPage,
+  renderLaceWorkOrderDetailPage,
+  renderLaceWorkOrdersPage,
   renderPostFinishingQcOrdersPage,
   renderPostFinishingRecheckOrdersPage,
   renderPostFinishingRecheckOrderDetailPage,
@@ -380,6 +384,11 @@ export const routes: RouteRegistry = {
       renderRouteRedirect('/fcs/craft/wool/work-orders', '正在跳转到毛织加工单'),
     '/fcs/craft/wool/orders': () =>
       renderRouteRedirect('/fcs/craft/wool/work-orders', '正在跳转到毛织加工单'),
+    '/fcs/craft/accessory/lace': () =>
+      renderRouteRedirect('/fcs/craft/accessory/lace/purchase-demands', '正在跳转到花边采购需求'),
+    '/fcs/craft/accessory/lace/purchase-demands': () => renderLacePurchaseDemandsPage(),
+    '/fcs/craft/accessory/lace/work-orders': () => renderLaceWorkOrdersPage(),
+    '/fcs/craft/accessory/lace/handover-records': () => renderLaceHandoverRecordsPage(),
     '/fcs/craft/post-finishing': () =>
       renderRouteRedirect('/fcs/craft/post-finishing/tasks', '正在跳转到后道阶段任务'),
     '/fcs/craft/post-finishing/tasks': () => renderPostFinishingTasksPage(),
@@ -402,6 +411,10 @@ export const routes: RouteRegistry = {
     '/fcs/trace/unit-price': () => renderTraceUnitPricePage(),
   },
   dynamicRoutes: [
+    {
+      pattern: /^\/fcs\/craft\/accessory\/lace\/work-orders\/([^/?]+)(?:\?.*)?$/,
+      render: (match) => renderLaceWorkOrderDetailPage(decodeURIComponent(match[1])),
+    },
     {
       pattern: /^\/fcs\/progress\/board\/tasks\/([^/?]+)(?:\?.*)?$/,
       render: (match) => renderProgressTaskDetailPage(decodeURIComponent(match[1])),

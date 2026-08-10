@@ -391,20 +391,6 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
   ],
   pfos: [
     {
-      title: '工作台',
-      icon: 'LayoutDashboard',
-      items: [
-        {
-          key: 'pfos-workbench',
-          title: '工作台',
-          icon: 'LayoutDashboard',
-          children: [
-            { key: 'pfos-workbench-overview', title: '总览', icon: 'LayoutDashboard', href: '/fcs/craft/workbench/overview' },
-          ],
-        },
-      ],
-    } as MenuGroup & { icon: string },
-    {
       title: '裁床厂管理',
       icon: 'Scissors',
       items: [
@@ -537,12 +523,28 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
       ],
     } as MenuGroup & { icon: string },
     {
-      title: '后道阶段管理',
+      title: '辅料工厂管理',
+      icon: 'Paperclip',
+      items: [
+        {
+          key: 'pfos-accessory-lace',
+          title: '花边厂管理',
+          icon: 'Flower2',
+          children: [
+            { key: 'pfos-accessory-lace-purchase-demands', title: '采购需求', icon: 'ShoppingCart', href: '/fcs/craft/accessory/lace/purchase-demands' },
+            { key: 'pfos-accessory-lace-work-orders', title: '花边生产单', icon: 'ClipboardList', href: '/fcs/craft/accessory/lace/work-orders' },
+            { key: 'pfos-accessory-lace-handovers', title: '交出记录', icon: 'ArrowLeftRight', href: '/fcs/craft/accessory/lace/handover-records' },
+          ],
+        },
+      ],
+    } as MenuGroup & { icon: string },
+    {
+      title: '后道工厂管理',
       icon: 'PackageCheck',
       items: [
         {
           key: 'pfos-post-finishing',
-          title: '后道阶段管理',
+          title: '后道工厂管理',
           icon: 'PackageCheck',
           children: [
             { key: 'pfos-post-finishing-tasks', title: '阶段任务', icon: 'ListChecks', href: '/fcs/craft/post-finishing/tasks' },
@@ -562,6 +564,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
       title: '仓储管理',
       items: [
         { key: 'wls-fabric-demand-board', title: '面料需求看板', icon: 'PanelsTopLeft', href: '/wls/fabric-demand-board' },
+        { key: 'wls-accessory-receipts', title: '中央辅料仓收货', icon: 'PackageCheck', href: '/wls/accessory-receipts' },
         { key: 'inventory', title: '库存管理', icon: 'Archive', href: '/wls/inventory' },
         { key: 'inbound', title: '入库管理', icon: 'ArrowDownToLine', href: '/wls/inbound' },
         { key: 'outbound', title: '出库管理', icon: 'ArrowUpFromLine', href: '/wls/outbound' },
