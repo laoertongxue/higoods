@@ -398,8 +398,9 @@ const packageSource = read('package.json')
 
 for (const requiredText of [
   '创建合并任务', '搜索生产单', '车缝+烫包', '裁剪+车缝+烫包',
-  '请再次确认', '车缝的辅料配料情况以及库存情况', '普通裁片齐套', '裁床放行数量',
-  '裁床确认目标数量', '菲票装袋', '信息不完善只提示风险，不阻断生产分配',
+  '请再次确认', '本生产单车缝所需辅料的库存与配料情况', '裁片齐套、放行及目标（SKU 维度）',
+  '裁床目标', '已确认放行', '回货规则预览（自然日）', '% 回货节点', 'data-return-ratio=', 'milestone.targetQty',
+  '菲票装袋', '信息不完善只提示风险，不阻断生产分配',
   '同一SKU不能拆数量', 'BAG_AWARE', 'FREE', '不生成拆袋重装待办',
   '谨慎确认价格，一经提交确认不得修改。', '生产合同已生成', '是否立即打印合同',
 ]) assert(workbenchSource.includes(requiredText), `统一分配页缺少：${requiredText}`)

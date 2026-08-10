@@ -142,6 +142,7 @@
     "check:combined-dyeing": "tsx scripts/check-combined-dyeing.ts && tsx scripts/check-dye-list-reentry.ts",
     "check:dispatch-acceptance-sla": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-dispatch-acceptance-sla.ts",
     "check:fcs-unified-assignment-foundation": "tsx scripts/check-fcs-unified-assignment-foundation.ts",
+    "check:fcs-sewing-preparation-return-preview": "tsx scripts/check-fcs-sewing-preparation-return-preview.ts",
     "check:production-contract-template-fidelity": "tsx scripts/check-production-contract-template-fidelity.ts",
     "check:fcs-unified-dispatch-contract-return": "tsx scripts/check-fcs-unified-assignment-foundation.ts",
     "check:fcs-dispatch-bagging": "tsx scripts/check-fcs-dispatch-bagging.ts",

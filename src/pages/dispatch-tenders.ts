@@ -23,8 +23,12 @@ import {
 } from '../data/fcs/sewing-delivery-sla.ts'
 import { classifyTaskFulfillmentPolicy } from '../data/fcs/task-fulfillment-policy.ts'
 import { createEffectiveTaskAssignment } from '../data/fcs/effective-task-assignments.ts'
-import { createProductionReturnRuleSnapshot } from '../data/fcs/production-return-fulfillment.ts'
+import {
+  buildProductionReturnRulePreview,
+  createProductionReturnRuleSnapshot,
+} from '../data/fcs/production-return-fulfillment.ts'
 import { generateProductionContract, getProductionContract } from '../data/fcs/production-contracts.ts'
+import { listRuntimeTaskTenderRecords } from '../data/fcs/runtime-task-tenders.ts'
 
 type TenderStatus = 'BIDDING' | 'AWAIT_AWARD' | 'AWARDED'
 
@@ -74,6 +78,7 @@ export interface TenderRow {
   awardedPrice?: number
   awardReason?: string
   remark?: string
+  businessAssignedAt?: string
   createdAt: string
   createdBy: string
 }
@@ -402,57 +407,53 @@ function formatDeviation(
 }
 
 function projectRuntimeTenderRows(now: string): TenderRow[] {
+  const recordsByTaskId = new Map(listRuntimeTaskTenderRecords().map((record) => [record.taskId, record] as const))
   return listRuntimeProcessTasks().flatMap((task) => {
-    const localTender = dispatchBoardState.tenderState[task.taskId]
+    const localTender = recordsByTaskId.get(task.taskId)
     if (!localTender || task.assignmentMode !== 'BIDDING') return []
 
-    const factoryQuotes: FactoryQuoteEntry[] = localTender.factoryQuotes
-      ? localTender.factoryQuotes.map((quote) => ({ ...quote }))
-      : localTender.factoryPool.map((factoryId, index) => {
-          const hasQuoted = localTender.participatingFactoryIds?.includes(factoryId) ?? false
-          return {
-            factoryId,
-            factoryName: localTender.factoryPoolNames[index] ?? factoryId,
-            hasQuoted,
-            quotePrice: hasQuoted
-              ? localTender.currentMinPrice ?? localTender.currentMaxPrice ?? localTender.standardPrice
-              : undefined,
-          }
-        })
+    const quotesByFactoryId = new Map(localTender.quotes.map((quote) => [quote.factoryId, quote] as const))
+    const factoryQuotes: FactoryQuoteEntry[] = localTender.factoryPool.map((factory) => {
+      const quote = quotesByFactoryId.get(factory.factoryId)
+      return quote
+        ? { ...quote, hasQuoted: true }
+        : { ...factory, hasQuoted: false }
+    })
     const hasValidQuote = factoryQuotes.some(
       (quote) => quote.hasQuoted && quote.quotePrice != null && Number.isFinite(quote.quotePrice),
     )
     const biddingFinished = compareSewingDeliveryDateTimes(localTender.biddingDeadline, now) <= 0
     const status: TenderStatus = task.assignmentStatus === 'AWARDED'
       ? 'AWARDED'
-      : localTender.tenderStatus === 'BIDDING' && biddingFinished && hasValidQuote
+      : biddingFinished && hasValidQuote
         ? 'AWAIT_AWARD'
-        : localTender.tenderStatus
+        : 'BIDDING'
 
     return [{
       tenderId: localTender.tenderId,
       taskId: task.taskId,
       productionOrderId: task.productionOrderId,
       processNameZh: task.processNameZh,
-      qty: task.qty,
+      qty: task.scopeQty,
       qtyUnit: task.qtyUnit,
       standardPrice: localTender.standardPrice,
       currency: localTender.currency,
       unit: localTender.unit,
       factoryPoolCount: localTender.factoryPool.length,
-      factoryPoolNames: [...localTender.factoryPoolNames],
+      factoryPoolNames: localTender.factoryPool.map((factory) => factory.factoryName),
       factoryQuotes,
       minPrice: localTender.minPrice,
       maxPrice: localTender.maxPrice,
       biddingDeadline: localTender.biddingDeadline,
       taskDeadline: localTender.taskDeadline,
       status,
-      awardedFactoryId: task.assignedFactoryId ?? localTender.awardedFactoryId,
-      awardedFactory: task.assignedFactoryName ?? localTender.awardedFactoryName,
-      awardedPrice: task.dispatchPrice ?? localTender.awardedPrice,
+      awardedFactoryId: task.assignedFactoryId,
+      awardedFactory: task.assignedFactoryName,
+      awardedPrice: task.dispatchPrice,
       remark: localTender.remark,
-      createdAt: localTender.createdAt,
-      createdBy: '跟单A',
+      businessAssignedAt: task.businessAssignedAt || localTender.businessAssignedAt,
+      createdAt: localTender.assignmentOperatedAt,
+      createdBy: localTender.createdBy,
     }]
   })
 }
@@ -502,6 +503,51 @@ function toEffectiveTender(tender: TenderRow): TenderRow {
 function getViewTender(now = formatOperationLocalWallClock()): TenderRow | null {
   if (!state.viewTenderId) return null
   return getAllTenders(now).find((tender) => tender.tenderId === state.viewTenderId) ?? null
+}
+
+export function resolveTenderBusinessAssignedAt(
+  tender: Pick<TenderRow, 'businessAssignedAt' | 'createdAt'>,
+  task?: Pick<RuntimeProcessTask, 'businessAssignedAt' | 'assignmentOperatedAt'> | null,
+): string {
+  return task?.businessAssignedAt
+    || tender.businessAssignedAt
+    || task?.assignmentOperatedAt
+    || tender.createdAt
+}
+
+function renderTenderReturnRulePreview(tender: TenderRow): string {
+  const task = getRuntimeTaskById(tender.taskId)
+  if (!task) return ''
+  const policy = classifyTaskFulfillmentPolicy(task)
+  const businessAssignedAt = resolveTenderBusinessAssignedAt(tender, task)
+  try {
+    const preview = buildProductionReturnRulePreview({
+      assignedQty: tender.qty,
+      businessAssignedAt,
+      policy,
+    })
+    if (!preview) return ''
+    return `
+      <div class="rounded-lg border border-blue-200 bg-blue-50/70 p-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <p class="text-sm font-semibold text-blue-900">定标后的分阶段回货要求</p>
+          <span class="text-xs text-blue-700">业务分配日期 ${escapeHtml(preview.assignmentDate)} 为第 1 自然日</span>
+        </div>
+        <div class="mt-2 grid grid-cols-3 gap-2">
+          ${preview.milestones.map((milestone) => `
+            <div class="rounded border border-blue-200 bg-white px-2.5 py-2">
+              <p class="text-sm font-semibold text-blue-900">${Math.round(milestone.ratio * 100)}% · 第 ${milestone.naturalDay} 天</p>
+              <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(milestone.deadlineDate)} 前累计回货</p>
+              <p class="mt-1 text-sm font-semibold tabular-nums">${milestone.targetQty.toLocaleString()} 件</p>
+            </div>
+          `).join('')}
+        </div>
+        <p class="mt-2 text-xs text-blue-700">此处为定标前预览；二次确认后按同一业务日期与数量生成正式回货规则快照及合同。</p>
+      </div>
+    `
+  } catch (error) {
+    return `<div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">回货规则预览失败：${escapeHtml(error instanceof Error ? error.message : '数据异常')}</div>`
+  }
 }
 
 function getStats(now = formatOperationLocalWallClock()): { bidding: number; awaitAward: number; awarded: number; total: number } {
@@ -757,6 +803,7 @@ function confirmAwardInView(now = formatOperationLocalWallClock()): void {
   const generatedContractIds: string[] = []
   for (const awardedTask of awardResult.tasks ?? []) {
     const policy = classifyTaskFulfillmentPolicy(awardedTask)
+    const businessAssignedAt = resolveTenderBusinessAssignedAt(tender, awardedTask)
     const skuLines = awardedTask.scopeSkuLines.length
       ? awardedTask.scopeSkuLines.map((line) => ({ skuCode: line.skuCode, color: line.color, size: line.size, qty: line.qty }))
       : [{ skuCode: awardedTask.skuCode || 'SKU-ALL', color: awardedTask.skuColor || '混色', size: awardedTask.skuSize || '混码', qty: awardedTask.scopeQty }]
@@ -774,7 +821,7 @@ function confirmAwardInView(now = formatOperationLocalWallClock()): void {
       frozenPrice: selectedQuote.quotePrice,
       priceCurrency: tender.currency,
       priceUnit: tender.unit,
-      businessAssignedAt: now,
+      businessAssignedAt,
       operatedAt: now,
       operatedBy: '平台定标员',
     })
@@ -785,7 +832,7 @@ function confirmAwardInView(now = formatOperationLocalWallClock()): void {
       factoryId: assignment.factoryId,
       factoryName: assignment.factoryName,
       assignedQty: assignment.assignedQty,
-      businessAssignedAt: now,
+      businessAssignedAt,
       policy,
     })
     const contract = generateProductionContract({
@@ -1146,7 +1193,7 @@ function renderViewTenderSheet(tender: TenderRow | null): string {
                         <textarea class="w-full rounded-md border bg-background px-3 py-2 text-sm" rows="3" placeholder="请填写定标理由，如报价低于限价或高于限价时须填写说明…" data-tender-field="view.awardReason">${escapeHtml(state.viewAwardReason)}</textarea>
                       </div>
 
-                      ${state.viewAwardSecondConfirm && selectedQuote ? `<div class="rounded-lg border-2 border-amber-400 bg-amber-50 p-3"><p class="font-semibold text-red-700">谨慎确认价格，一经提交确认不得修改。</p><p class="mt-1 text-xs text-amber-800">中标工厂：${escapeHtml(selectedQuote.factoryName)} · 中标价：${selectedQuote.quotePrice?.toLocaleString()} ${escapeHtml(tender.currency)}/${escapeHtml(tender.unit)}。提交后冻结并作为结算唯一价格来源。</p></div>` : ''}
+                      ${state.viewAwardSecondConfirm && selectedQuote ? `<div class="rounded-lg border-2 border-amber-400 bg-amber-50 p-3"><p class="font-semibold text-red-700">谨慎确认价格，一经提交确认不得修改。</p><p class="mt-1 text-xs text-amber-800">中标工厂：${escapeHtml(selectedQuote.factoryName)} · 中标价：${selectedQuote.quotePrice?.toLocaleString()} ${escapeHtml(tender.currency)}/${escapeHtml(tender.unit)}。提交后冻结并作为结算唯一价格来源。</p></div>${renderTenderReturnRulePreview(tender)}` : ''}
                       <div class="flex items-center justify-between pt-1">
                         <p class="text-xs text-muted-foreground">${
                           selectedQuote

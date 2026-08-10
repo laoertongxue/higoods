@@ -412,6 +412,13 @@ export interface RuntimeSewingTaskReassignmentResult {
   assignedQty?: number
 }
 
+export interface RuntimeSewingTaskReassignmentScopePreview {
+  sourceTaskId: string
+  originalAssignedQty: number
+  confirmedReceivedQty: number
+  remainingQty: number
+}
+
 const runtimeTaskOverrides = new Map<string, RuntimeTaskOverride>()
 const runtimeTaskSplitPlans = new Map<string, RuntimeTaskSplitPlan>()
 const runtimeMergedTaskPlans = new Map<string, {
@@ -3142,6 +3149,22 @@ export function applyRuntimeDirectDispatchMeta(input: RuntimeDirectDispatchMetaI
   }
 }
 
+export function getRuntimeSewingTaskReassignmentScopePreview(
+  sourceTaskId: string,
+  operatedAt = formatOperationLocalWallClock(),
+): RuntimeSewingTaskReassignmentScopePreview | null {
+  const source = getRuntimeTaskById(sourceTaskId)
+  const snapshot = getSewingDeliverySlaSnapshot(sourceTaskId)
+  if (!source || classifySewingDeliverySla(source) === null || !snapshot?.active) return null
+  const confirmedReceivedQty = sumSewingDeliveryConfirmedReceiptQty(sourceTaskId, operatedAt)
+  return {
+    sourceTaskId,
+    originalAssignedQty: snapshot.assignedQty,
+    confirmedReceivedQty,
+    remainingQty: Math.max(snapshot.assignedQty - confirmedReceivedQty, 0),
+  }
+}
+
 export function reassignRuntimeSewingTask(
   input: RuntimeSewingTaskReassignmentInput,
 ): RuntimeSewingTaskReassignmentResult {
@@ -3169,8 +3192,8 @@ export function reassignRuntimeSewingTask(
   if (compareSewingDeliveryDateTimes(input.businessAssignedAt, input.operatedAt) > 0) {
     return reject('业务分配时间不能晚于当前操作时间')
   }
-  const confirmedReceivedQty = sumSewingDeliveryConfirmedReceiptQty(input.sourceTaskId, input.operatedAt)
-  const remainingQty = Math.max(snapshot.assignedQty - confirmedReceivedQty, 0)
+  const scopePreview = getRuntimeSewingTaskReassignmentScopePreview(input.sourceTaskId, input.operatedAt)
+  const remainingQty = scopePreview?.remainingQty ?? 0
   if (remainingQty <= 0) return reject('原任务已全部实收，无剩余数量可改派')
   if (isThirdPartyFactoryRatingGovernanceTarget(input.targetFactoryId)) {
     if (!getThirdPartyFactoryRatingSnapshot(input.targetFactoryId)) {

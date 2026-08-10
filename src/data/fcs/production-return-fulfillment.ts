@@ -11,6 +11,13 @@ export interface ProductionReturnMilestoneSnapshot {
   deadlineDate: string
 }
 
+export interface ProductionReturnRulePreview {
+  assignedQty: number
+  assignmentDate: string
+  fulfillmentRuleCode: Exclude<FulfillmentRuleCode, 'NO_STAGED_RETURN_RULE'>
+  milestones: ProductionReturnMilestoneSnapshot[]
+}
+
 export interface ProductionReturnRuleSnapshot {
   snapshotId: string
   assignmentId: string
@@ -130,6 +137,27 @@ export function calculateNaturalDayDeadline(assignmentDate: string, naturalDay: 
   return addNaturalDays(assignmentDate, naturalDay - 1)
 }
 
+export function buildProductionReturnRulePreview(input: {
+  assignedQty: number
+  businessAssignedAt: string
+  policy: TaskFulfillmentPolicy
+}): ProductionReturnRulePreview | null {
+  if (input.policy.fulfillmentRuleCode === 'NO_STAGED_RETURN_RULE') return null
+  if (!Number.isFinite(input.assignedQty) || input.assignedQty <= 0) throw new Error('分配数量必须大于0')
+  const assignedQty = Math.floor(input.assignedQty)
+  const assignmentDate = assertDate(input.businessAssignedAt, '业务分配时间')
+  return {
+    assignedQty,
+    assignmentDate,
+    fulfillmentRuleCode: input.policy.fulfillmentRuleCode,
+    milestones: input.policy.milestones.map((milestone) => ({
+      ...milestone,
+      targetQty: milestone.ratio === 1 ? assignedQty : Math.ceil(assignedQty * milestone.ratio),
+      deadlineDate: calculateNaturalDayDeadline(assignmentDate, milestone.naturalDay),
+    })),
+  }
+}
+
 export function createProductionReturnRuleSnapshot(input: {
   assignmentId: string
   runtimeTaskId: string
@@ -140,9 +168,8 @@ export function createProductionReturnRuleSnapshot(input: {
   businessAssignedAt: string
   policy: TaskFulfillmentPolicy
 }): ProductionReturnRuleSnapshot | null {
-  if (input.policy.fulfillmentRuleCode === 'NO_STAGED_RETURN_RULE') return null
-  if (!Number.isFinite(input.assignedQty) || input.assignedQty <= 0) throw new Error('分配数量必须大于0')
-  const assignmentDate = assertDate(input.businessAssignedAt, '业务分配时间')
+  const preview = buildProductionReturnRulePreview(input)
+  if (!preview) return null
   snapshotSeq += 1
   const snapshot: ProductionReturnRuleSnapshot = {
     snapshotId: `RET-SLA-${String(snapshotSeq).padStart(6, '0')}`,
@@ -151,14 +178,10 @@ export function createProductionReturnRuleSnapshot(input: {
     productionOrderId: input.productionOrderId,
     factoryId: input.factoryId,
     factoryName: input.factoryName,
-    assignedQty: input.assignedQty,
-    assignmentDate,
-    fulfillmentRuleCode: input.policy.fulfillmentRuleCode,
-    milestones: input.policy.milestones.map((milestone) => ({
-      ...milestone,
-      targetQty: Math.ceil(input.assignedQty * milestone.ratio),
-      deadlineDate: calculateNaturalDayDeadline(assignmentDate, milestone.naturalDay),
-    })),
+    assignedQty: preview.assignedQty,
+    assignmentDate: preview.assignmentDate,
+    fulfillmentRuleCode: preview.fulfillmentRuleCode,
+    milestones: preview.milestones.map((milestone) => ({ ...milestone })),
     active: true,
   }
   const nextAssignment = getEffectiveTaskAssignment(input.assignmentId)

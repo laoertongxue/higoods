@@ -5,12 +5,14 @@ import {
   createMatrixEventState,
   type BuildReleaseMatrixInput,
   type CutPieceFact,
+  type CutPieceRequirement,
   type CutPieceReleaseMatrix,
   type MatrixEvent,
   type MatrixEventState,
   type MatrixEventType,
   type MatrixTargetStatus,
   type ReleaseTargetPreview,
+  type ReleaseSourceStatus,
   type SupplementPartShortage,
 } from './cut-piece-release-domain.ts'
 
@@ -139,6 +141,33 @@ export interface CutPieceReleaseSummary {
   releaseAvailableStatus: CutPieceReleaseAvailableStatus | null
   totalTargetQty: number
   latestReleaseVersion: number | null
+}
+
+export type CutPieceDispatchReadinessStatus = '已满足' | '齐套不足' | '部分放行' | '风险放行' | '待维护目标' | '待同步'
+
+export interface CutPieceDispatchReadinessSkuLine {
+  skuCode: string
+  color: string
+  size: string
+  taskQty: number
+  targetQty: number | null
+  completeKitQty: number | null
+  releaseConfirmQty: number | null
+  riskReleaseQty: number | null
+  status: CutPieceDispatchReadinessStatus
+  reason: string
+}
+
+export interface CutPieceDispatchReadiness {
+  productionOrderId: string
+  productionOrderNo: string
+  hasRecord: boolean
+  recordNo: string
+  targetStatus: MatrixTargetStatus | '待同步'
+  releaseAvailableStatus: CutPieceReleaseAvailableStatus | '待同步'
+  latestUpdatedAt: string
+  lines: CutPieceDispatchReadinessSkuLine[]
+  warningCount: number
 }
 
 export type CutPieceReleaseAvailableStatus =
@@ -450,7 +479,7 @@ function buildReleaseRecord(item: ReleaseRepositoryItem): CutPieceReleaseRecord 
   const releaseStatus = latestVersion?.releaseStatus ?? deriveReleaseAvailableStatus(item)
   return {
     recordId: `cpr-${item.input.productionOrderId}`,
-    recordNo: `CPR-${item.input.productionOrderNo.replace(/^PO/, '')}`,
+    recordNo: `CPR-${item.input.productionOrderNo.replace(/^PO-?/, '')}`,
     productionOrderId: item.input.productionOrderId,
     productionOrderNo: item.input.productionOrderNo,
     taskId: `cut-release-${item.input.productionOrderId}`,
@@ -725,6 +754,50 @@ function bootstrapRepository(): void {
       materialIds: input.materialIds,
     })
   }
+
+  addRepositoryItem({
+    productionOrderId: 'PO-202603-0002',
+    productionOrderNo: 'PO-202603-0002',
+    spuCode: 'SPU-2024-005',
+    planQtyByColorSize: { Grey: { S: 500, M: 700, L: 800, XL: 500 } },
+    requirements: [
+      { materialId: 'FAB', materialName: 'Hoodie 抓绒主面料', partId: 'body', partName: '衣身', piecesPerGarment: 1 },
+      { materialId: 'LIN', materialName: '帽里布', partId: 'hood-lining', partName: '帽里', piecesPerGarment: 1 },
+      { materialId: 'RIB', materialName: '罗纹', partId: 'cuff', partName: '袖口与下摆', piecesPerGarment: 2 },
+    ],
+    facts: createSeedFacts({
+      productionOrderId: 'PO-202603-0002', eventId: 'spread-po-0002-01', cutOrderId: 'cut-po-0002-a', cutOrderNo: 'CUT-260303-002-01', spreadingOrderNo: 'PB-PO-0002-01', occurredAt: '2026-08-10 08:20:00',
+      requirements: [
+        { materialId: 'FAB', materialName: 'Hoodie 抓绒主面料', partId: 'body', partName: '衣身', piecesPerGarment: 1 },
+        { materialId: 'LIN', materialName: '帽里布', partId: 'hood-lining', partName: '帽里', piecesPerGarment: 1 },
+        { materialId: 'RIB', materialName: '罗纹', partId: 'cuff', partName: '袖口与下摆', piecesPerGarment: 2 },
+      ],
+      quantities: {
+        Grey: {
+          FAB: { S: 500, M: 700, L: 800, XL: 500 },
+          LIN: { S: 500, M: 680, L: 760, XL: 450 },
+          RIB: { S: 490, M: 660, L: 720, XL: 430 },
+        },
+      },
+    }),
+  }, 'Jaket Hoodie Unisex', ['CUT-260303-002-01'], simpleMatrixEvent({
+    eventId: 'spread-po-0002-01', productionOrderId: 'PO-202603-0002', occurredAt: '2026-08-10 08:20:00', operator: '裁床操作员 Rudi', reason: '按 Grey 各尺码登记当前有效裁片事实。', cutOrderId: 'cut-po-0002-a', cutOrderNo: 'CUT-260303-002-01', spreadingOrderNo: 'PB-PO-0002-01',
+  }))
+  addSourceState('PO-202603-0002', { cutOrderId: 'cut-po-0002-a', cutOrderNo: 'CUT-260303-002-01', changedAt: '2026-08-10 08:20:00', operator: '裁床操作员 Rudi', reason: '当前裁片事实持续更新。', materialIds: ['FAB', 'LIN', 'RIB'] })
+  const hoodieTarget = confirmCutPieceReleaseTarget({
+    productionOrderId: 'PO-202603-0002',
+    matrixVersion: 1,
+    colorSizeTargets: { 'Grey::S': 500, 'Grey::M': 700, 'Grey::L': 800, 'Grey::XL': 500 },
+    confirmedBy: '裁床文员 Siti',
+  })
+  if (!hoodieTarget.ok) throw new Error(`初始化 PO-202603-0002 目标快照失败：${hoodieTarget.message}`)
+  const hoodieRelease = confirmCutPieceReleaseAvailableQty({
+    productionOrderId: 'PO-202603-0002', basisMatrixVersion: 1, basisTargetVersion: 1,
+    releaseQtyByColorSize: { 'Grey::S': 490, 'Grey::M': 680, 'Grey::L': 720, 'Grey::XL': 430 },
+    riskReason: 'Grey M 码有 20 件罗纹尚未完成齐套点收，裁床主管确认可先行放行。',
+    confirmedBy: '裁床主管 王敏', confirmedAt: '2026-08-10 09:15:00',
+  })
+  if (!hoodieRelease.ok) throw new Error(`初始化 PO-202603-0002 放行快照失败：${hoodieRelease.message}`)
 
   addRepositoryItem({
     productionOrderId: 'po-14672',
@@ -1383,7 +1456,7 @@ export function getCutPieceReleaseSummaryForProductionOrder(productionOrderId: s
     targetQtyByColorSize,
     shortageCellCount: targetPreviewForCurrentMatrix(item)?.differences.filter((difference) => difference.status === '需补').length ?? 0,
     latestMatrixVersion: item.versions[item.versions.length - 1]?.version ?? 0,
-    latestUpdatedAt: item.latestUpdateAt,
+    latestUpdatedAt: [item.latestUpdateAt, latestVersion?.confirmedAt || ''].sort().at(-1) || item.latestUpdateAt,
     ppicAvailableDispatchQty: latestVersion?.totalReleaseConfirmQty ?? 0,
     totalReleaseConfirmQty: latestVersion?.totalReleaseConfirmQty ?? 0,
     totalRiskReleaseQty: latestVersion?.totalRiskReleaseQty ?? 0,
@@ -1391,6 +1464,98 @@ export function getCutPieceReleaseSummaryForProductionOrder(productionOrderId: s
     releaseAvailableStatus: latestVersion?.releaseStatus ?? deriveReleaseAvailableStatus(item),
     totalTargetQty: latestVersion?.totalTargetQty ?? totalTargetQty,
     latestReleaseVersion: latestVersion?.releaseVersionNo ?? null,
+  }
+}
+
+function normalizeReadinessText(value: string): string {
+  return String(value || '').trim().toLowerCase().replace(/[\s_-]+/g, '')
+}
+
+export function getCutPieceDispatchReadinessForTask(input: {
+  productionOrderId: string
+  productionOrderNo?: string
+  skuLines: Array<{ skuCode: string; color: string; size: string; qty: number }>
+}): CutPieceDispatchReadiness {
+  const productionOrderKey = input.productionOrderId || input.productionOrderNo || ''
+  const record = listCutPieceReleaseRecords().find((candidate) => (
+    candidate.productionOrderId === productionOrderKey
+    || candidate.productionOrderNo === productionOrderKey
+    || candidate.productionOrderId === input.productionOrderNo
+    || candidate.productionOrderNo === input.productionOrderNo
+  ))
+  const missingLines = input.skuLines.map<CutPieceDispatchReadinessSkuLine>((line) => ({
+    skuCode: line.skuCode,
+    color: line.color,
+    size: line.size,
+    taskQty: line.qty,
+    targetQty: null,
+    completeKitQty: null,
+    releaseConfirmQty: null,
+    riskReleaseQty: null,
+    status: '待同步',
+    reason: '尚未读取到该生产单的裁片齐套、目标与放行记录。',
+  }))
+  if (!record) {
+    return {
+      productionOrderId: input.productionOrderId,
+      productionOrderNo: input.productionOrderNo || input.productionOrderId,
+      hasRecord: false,
+      recordNo: '',
+      targetStatus: '待同步',
+      releaseAvailableStatus: '待同步',
+      latestUpdatedAt: '',
+      lines: missingLines,
+      warningCount: missingLines.length,
+    }
+  }
+
+  const lines = input.skuLines.map<CutPieceDispatchReadinessSkuLine>((taskLine) => {
+    const exact = record.skuLines.find((line) => normalizeReadinessText(line.skuCode) === normalizeReadinessText(taskLine.skuCode))
+    const byColorSize = record.skuLines.filter((line) => (
+      normalizeReadinessText(line.colorName) === normalizeReadinessText(taskLine.color)
+      && normalizeReadinessText(line.sizeCode) === normalizeReadinessText(taskLine.size)
+    ))
+    const source = exact || (byColorSize.length === 1 ? byColorSize[0] : null)
+    if (!source) return { ...missingLines.find((line) => line.skuCode === taskLine.skuCode)!, reason: '裁片记录存在，但该颜色与尺码尚未形成唯一可匹配事实。' }
+    const targetQty = record.targetStatus === '已确认' ? source.releaseQty : null
+    const completeKitQty = source.completeKitQty
+    const releaseConfirmQty = source.releaseConfirmQty
+    const riskReleaseQty = source.riskReleaseQty
+    let status: CutPieceDispatchReadinessStatus = '已满足'
+    let reason = '目标、齐套与已确认放行数量均满足本次任务范围。'
+    if (targetQty == null) {
+      status = '待维护目标'; reason = '裁床尚未确认该 SKU 的目标数量。'
+    } else if (riskReleaseQty > 0) {
+      status = '风险放行'; reason = `已确认放行中有 ${riskReleaseQty} 件超过当前齐套数量，须关注裁床风险说明。`
+    } else if (releaseConfirmQty < taskLine.qty) {
+      status = '部分放行'; reason = `当前已确认放行 ${releaseConfirmQty} 件，少于本次任务 ${taskLine.qty} 件。`
+    } else if (completeKitQty < taskLine.qty) {
+      status = '齐套不足'; reason = `当前齐套 ${completeKitQty} 件，少于本次任务 ${taskLine.qty} 件。`
+    }
+    return {
+      skuCode: taskLine.skuCode,
+      color: taskLine.color,
+      size: taskLine.size,
+      taskQty: taskLine.qty,
+      targetQty,
+      completeKitQty,
+      releaseConfirmQty,
+      riskReleaseQty,
+      status,
+      reason,
+    }
+  })
+  const latestReleaseVersion = getLatestEffectiveVersion(record.productionOrderId)
+  return {
+    productionOrderId: record.productionOrderId,
+    productionOrderNo: record.productionOrderNo,
+    hasRecord: true,
+    recordNo: record.recordNo,
+    targetStatus: record.targetStatus,
+    releaseAvailableStatus: record.releaseAvailableStatus,
+    latestUpdatedAt: [record.latestUpdateAt, latestReleaseVersion?.confirmedAt || ''].sort().at(-1) || record.latestUpdateAt,
+    lines,
+    warningCount: lines.filter((line) => line.status !== '已满足').length,
   }
 }
 

@@ -10,12 +10,15 @@ import {
   cancelFixedMergedTask,
   createFixedMergedTask,
   evaluateFixedMergedTask,
+  evaluateRuntimeTenderAwardDispatchPolicy,
   getRuntimeTaskById,
+  getRuntimeSewingTaskReassignmentScopePreview,
   listRuntimeProcessTasks,
   reassignRuntimeSewingTask,
   upsertRuntimeTaskTender,
   type RuntimeProcessTask,
 } from '../data/fcs/runtime-process-tasks.ts'
+import { upsertRuntimeTaskTenderRecord } from '../data/fcs/runtime-task-tenders.ts'
 import { listBusinessFactoryMasterRecords } from '../data/fcs/factory-master-store.ts'
 import type { Factory } from '../data/fcs/factory-types.ts'
 import { classifyTaskFulfillmentPolicy } from '../data/fcs/task-fulfillment-policy.ts'
@@ -29,7 +32,12 @@ import {
   listCurrentEffectiveTaskAssignments,
   supersedeEffectiveTaskAssignmentsForReassignment,
 } from '../data/fcs/effective-task-assignments.ts'
-import { createProductionReturnRuleSnapshot } from '../data/fcs/production-return-fulfillment.ts'
+import {
+  buildProductionReturnRulePreview,
+  createProductionReturnRuleSnapshot,
+} from '../data/fcs/production-return-fulfillment.ts'
+import { getCutPieceDispatchReadinessForTask } from '../data/fcs/cut-piece-release.ts'
+import { getMaterialPrepDispatchReadinessForTask } from '../data/fcs/cutting/production-material-prep.ts'
 import {
   addSignedContractScans,
   generateProductionContract,
@@ -207,6 +215,24 @@ function listEligibleFactoriesForTask(task: RuntimeProcessTask): Factory[] {
   return listBusinessFactoryMasterRecords()
     .filter((factory) => factoryCanAcceptTask(factory, task))
     .slice(0, 20)
+}
+
+function listEligibleTenderFactoriesForTask(task: RuntimeProcessTask): Factory[] {
+  const evaluatedAt = formatOperationLocalWallClock()
+  const referencePrice = Number(task.standardPrice || task.dispatchPrice || 1)
+  return listEligibleFactoriesForTask(task).filter((factory) => {
+    const decision = evaluateRuntimeTenderAwardDispatchPolicy({
+      taskId: task.taskId,
+      factoryId: factory.id,
+      factoryName: factory.name,
+      awardedAt: evaluatedAt,
+      awardedPrice: referencePrice,
+      by: '生产计划员',
+      riskConfirmed: true,
+      supervisorAssigned: true,
+    })
+    return decision?.allowed !== false
+  })
 }
 
 function isAutoDispatchScopeTask(task: RuntimeProcessTask): boolean {
@@ -577,9 +603,75 @@ function renderBaggingOverview(snapshot: DispatchBaggingSnapshot): string {
   </section>`
 }
 
-function renderSewingPreparationOverview(task: RuntimeProcessTask): string {
-  const materialImage = (src: string, alt: string) => `<span class="relative flex h-16 w-full items-center justify-center overflow-hidden rounded bg-slate-50"><img src="${src}" alt="${alt}" class="h-full w-full object-cover" onerror="this.hidden=true;this.nextElementSibling.hidden=false"/><span hidden class="px-1 text-center text-[10px] text-red-600">物料图加载失败</span></span>`
-  return `<section class="grid gap-3 md:grid-cols-2" data-unified-sewing-preparation><article class="rounded-lg border p-4"><h3 class="font-semibold">车缝的辅料配料情况以及库存情况</h3><div class="mt-3 grid grid-cols-3 gap-2 text-xs"><div>${materialImage('/materials/accessory-button.jpg', '纽扣真实物料图')}<p class="mt-1">纽扣：已配 ${Math.round(task.scopeQty * .8)}套</p><p>库存 ${task.scopeQty * 3}粒</p></div><div>${materialImage('/materials/accessory-zipper.jpg', '拉链真实物料图')}<p class="mt-1">拉链：已配 ${task.scopeQty}条</p><p>库存 ${task.scopeQty * 2}条</p></div><div>${materialImage('/materials/accessory-label.jpg', '洗水标真实物料图')}<p class="mt-1">洗水标：待补 ${Math.ceil(task.scopeQty * .1)}件</p><p>库存 ${task.scopeQty}件</p></div></div></article><article class="rounded-lg border p-4"><h3 class="font-semibold">裁片齐套、放行及目标</h3><dl class="mt-3 grid grid-cols-2 gap-2 text-sm"><div><dt class="text-muted-foreground">普通裁片齐套</dt><dd>${Math.ceil(task.scopeQty * .78)}件</dd></div><div><dt class="text-muted-foreground">辅助工艺裁片</dt><dd>${Math.ceil(task.scopeQty * .4)}件</dd></div><div><dt class="text-muted-foreground">特种工艺裁片</dt><dd>${Math.ceil(task.scopeQty * .25)}件</dd></div><div><dt class="text-muted-foreground">毛织片</dt><dd>${Math.ceil(task.scopeQty * .1)}件</dd></div><div><dt class="text-muted-foreground">裁床放行数量</dt><dd>${Math.ceil(task.scopeQty * .7)}件</dd></div><div><dt class="text-muted-foreground">裁床确认目标数量</dt><dd>${task.scopeQty}件</dd></div></dl></article></section>`
+function formatPreparationQty(value: number | null, unit = '件'): string {
+  if (value == null) return '-'
+  return `${Number(value).toLocaleString('zh-CN', { maximumFractionDigits: 2 })}${unit}`
+}
+
+function renderSewingPreparationOverview(task: RuntimeProcessTask, selectedSkuCodes: Set<string>): string {
+  const sourceLines = task.scopeSkuLines.length
+    ? task.scopeSkuLines
+    : [{ skuCode: task.skuCode || 'SKU-ALL', color: task.skuColor || '混色', size: task.skuSize || '混码', qty: task.scopeQty }]
+  const selectedLines = sourceLines.filter((line) => selectedSkuCodes.has(line.skuCode))
+  const cutPieceReadiness = getCutPieceDispatchReadinessForTask({
+    productionOrderId: task.productionOrderId,
+    productionOrderNo: task.productionOrderNo,
+    skuLines: selectedLines,
+  })
+  const materialReadiness = getMaterialPrepDispatchReadinessForTask(task)
+  const cutStatusClass = (status: string) => status === '已满足'
+    ? 'bg-emerald-50 text-emerald-700'
+    : status === '待同步' || status === '待维护目标'
+      ? 'bg-slate-100 text-slate-600'
+      : 'bg-amber-50 text-amber-800'
+  const cutRows = cutPieceReadiness.lines.map((line) => `<tr class="border-t align-top">
+    <td class="p-2"><b>${escapeHtml(line.skuCode)}</b></td>
+    <td class="p-2">${escapeHtml(line.color)} / ${escapeHtml(line.size)}</td>
+    <td class="p-2 text-right">${formatPreparationQty(line.taskQty)}</td>
+    <td class="p-2 text-right">${formatPreparationQty(line.targetQty)}</td>
+    <td class="p-2 text-right">${formatPreparationQty(line.completeKitQty)}</td>
+    <td class="p-2 text-right">${formatPreparationQty(line.releaseConfirmQty)}</td>
+    <td class="p-2 text-right">${formatPreparationQty(line.riskReleaseQty)}</td>
+    <td class="p-2"><span class="rounded px-2 py-1 text-xs ${cutStatusClass(line.status)}">${escapeHtml(line.status)}</span><p class="mt-1 max-w-[300px] text-xs text-muted-foreground">${escapeHtml(line.reason)}</p></td>
+  </tr>`).join('')
+  const materialRows = materialReadiness.lines.map((line) => `<tr class="border-t align-top">
+    <td class="p-2"><div class="flex min-w-[220px] gap-2"><button class="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded border bg-slate-50" aria-label="查看${escapeHtml(line.materialName)}高清物料图" data-unified-action="preview-image" data-image="${escapeHtml(line.materialImageUrl)}" data-label="${escapeHtml(line.materialName)}"><img src="${escapeHtml(line.materialImageUrl)}" alt="${escapeHtml(line.materialName)}真实物料图" class="h-full w-full object-cover" onerror="this.hidden=true;this.nextElementSibling.hidden=false"/><span hidden class="px-1 text-center text-[10px] text-red-600">图片加载失败</span></button><div><b>${escapeHtml(line.materialName)}</b><p class="text-xs text-muted-foreground">${escapeHtml(line.materialSku)}</p><p class="text-xs text-muted-foreground">${escapeHtml(line.color)} · ${escapeHtml(line.spec)}</p></div></div></td>
+    <td class="p-2 text-right">${formatPreparationQty(line.requiredQty, line.unit)}</td>
+    <td class="p-2 text-right">${formatPreparationQty(line.confirmedPrepQty, line.unit)}</td>
+    <td class="p-2 text-right">${formatPreparationQty(line.remainingPrepQty, line.unit)}</td>
+    <td class="p-2 text-right">${formatPreparationQty(line.availableStockQty, line.unit)}</td>
+    <td class="p-2"><span class="rounded px-2 py-1 text-xs ${line.ready ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'}">${escapeHtml(line.linePrepStatus)}</span><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.upstreamProgressStatus)}${line.upstreamDocumentNo ? ` · ${escapeHtml(line.upstreamDocumentNo)}` : ''}</p></td>
+  </tr>`).join('')
+  return `<section class="space-y-3" data-unified-sewing-preparation>
+    <article class="rounded-lg border p-4" data-unified-cut-piece-readiness>
+      <div class="flex flex-wrap items-start justify-between gap-2"><div><h3 class="font-semibold">裁片齐套、放行及目标（SKU 维度）</h3><p class="mt-1 text-xs text-muted-foreground">按颜色+尺码读取裁床当前有效事实；信息不全只提示风险，不阻断分配。</p></div><p class="text-xs text-muted-foreground">${cutPieceReadiness.hasRecord ? `${escapeHtml(cutPieceReadiness.recordNo)} · 更新 ${escapeHtml(cutPieceReadiness.latestUpdatedAt)}` : '尚未读取到裁片放行记录'}</p></div>
+      <div class="mt-3 overflow-auto"><table class="w-full min-w-[920px] text-left text-xs"><thead class="bg-slate-50"><tr><th class="p-2">SKU</th><th class="p-2">颜色/尺码</th><th class="p-2 text-right">本次任务</th><th class="p-2 text-right">裁床目标</th><th class="p-2 text-right">当前齐套</th><th class="p-2 text-right">已确认放行</th><th class="p-2 text-right">其中风险放行</th><th class="p-2">状态/说明</th></tr></thead><tbody>${cutRows || '<tr><td colspan="8" class="p-6 text-center text-muted-foreground">当前未选择 SKU。</td></tr>'}</tbody></table></div>
+    </article>
+    <article class="rounded-lg border p-4" data-unified-material-prep-readiness>
+      <div class="flex flex-wrap items-start justify-between gap-2"><div><h3 class="font-semibold">本生产单车缝所需辅料的库存与配料情况</h3><p class="mt-1 text-xs text-muted-foreground">数量来自生产单配料事实，不根据任务数量在页面内估算。</p></div><p class="text-xs ${materialReadiness.ready ? 'text-emerald-700' : 'text-amber-700'}">${escapeHtml(materialReadiness.summaryText)}</p></div>
+      <div class="mt-3 overflow-auto"><table class="w-full min-w-[900px] text-left text-xs"><thead class="bg-slate-50"><tr><th class="p-2">辅料/物料</th><th class="p-2 text-right">生产单所需</th><th class="p-2 text-right">已确认配料</th><th class="p-2 text-right">未配数量</th><th class="p-2 text-right">当前库存</th><th class="p-2">配料/上游状态</th></tr></thead><tbody>${materialRows || '<tr><td colspan="6" class="p-6 text-center text-muted-foreground">尚未读取到该生产单的车缝辅料配料明细；可继续分配，由 PPIC 按实际情况确认。</td></tr>'}</tbody></table></div>
+    </article>
+  </section>`
+}
+
+function renderReturnRulePreview(
+  policy: ReturnType<typeof classifyTaskFulfillmentPolicy>,
+  assignedQty: number,
+  businessAssignedAt: string,
+  mode: AssignMode,
+): string {
+  if (policy.fulfillmentRuleCode === 'NO_STAGED_RETURN_RULE') return ''
+  try {
+    const preview = buildProductionReturnRulePreview({ assignedQty, businessAssignedAt, policy })
+    if (!preview) return ''
+    return `<section class="rounded-lg border border-blue-200 bg-blue-50/40 p-4" data-unified-return-rule-preview>
+      <div class="flex flex-wrap items-start justify-between gap-2"><div><h3 class="font-semibold">回货规则预览（自然日）</h3><p class="mt-1 text-xs text-muted-foreground">分配日 ${escapeHtml(preview.assignmentDate)} 为第 1 个自然日；数量为截止当日的累计应回货数量，合同只打印日期，不打印具体时间。</p></div><b class="text-sm">当前计算数量：${preview.assignedQty.toLocaleString()}件</b></div>
+      <div class="mt-3 grid gap-2 md:grid-cols-3">${preview.milestones.map((milestone) => `<article class="rounded border bg-white p-3" data-return-ratio="${milestone.ratio}"><p class="text-sm font-semibold">${Math.round(milestone.ratio * 100)}% 回货节点</p><p class="mt-1 text-xs text-muted-foreground">第 ${milestone.naturalDay} 个自然日 · ${escapeHtml(milestone.deadlineDate)}</p><p class="mt-2 text-base font-bold">累计≥ ${milestone.targetQty.toLocaleString()}件</p></article>`).join('')}</div>
+      ${mode === 'BIDDING' ? '<p class="mt-2 text-xs text-blue-800">竞价阶段仅预览；定标时使用本次业务分配日期与最终定标任务数量生成有效回货快照。</p>' : ''}
+    </section>`
+  } catch (error) {
+    return `<div class="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800" data-unified-return-rule-preview-error>${escapeHtml(error instanceof Error ? error.message : '回货规则暂时无法计算')}</div>`
+  }
 }
 
 function renderBagAwareSelection(snapshot: DispatchBaggingSnapshot, dialog: DispatchDialogState): string {
@@ -599,6 +691,12 @@ function renderPlainSkuSelection(task: RuntimeProcessTask, dialog: DispatchDialo
   return `<section><h3 class="text-sm font-semibold">本次分配SKU（同一SKU不能拆数量）</h3><div class="mt-2 grid gap-2 md:grid-cols-2">${lines.map((line) => `<label class="flex items-start justify-between gap-2 rounded border p-3 text-sm"><span><input type="checkbox" data-unified-sku="${escapeHtml(line.skuCode)}" ${dialog.selectedSkuCodes.has(line.skuCode) ? 'checked' : ''}/> ${escapeHtml(line.skuCode)} · ${escapeHtml(line.color)} · ${escapeHtml(line.size)}</span><b>${line.qty.toLocaleString()}件</b></label>`).join('')}</div></section>`
 }
 
+function renderReassignmentScope(task: RuntimeProcessTask): string {
+  const preview = getRuntimeSewingTaskReassignmentScopePreview(task.taskId)
+  if (!preview) return '<section class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">当前任务没有可用的生效车缝分配快照，不能改派。</section>'
+  return `<section class="rounded-lg border p-4" data-unified-reassignment-scope><h3 class="text-sm font-semibold">本次改派范围</h3><p class="mt-1 text-xs text-muted-foreground">改派以原有效分配减去截至当前已确认实收数量为准，不在页面内另外勾选 SKU 或修改数量。</p><dl class="mt-3 grid gap-2 text-sm sm:grid-cols-3"><div class="rounded bg-slate-50 p-3"><dt class="text-muted-foreground">原分配数量</dt><dd class="font-semibold">${preview.originalAssignedQty.toLocaleString()}件</dd></div><div class="rounded bg-slate-50 p-3"><dt class="text-muted-foreground">已确认实收</dt><dd class="font-semibold">${preview.confirmedReceivedQty.toLocaleString()}件</dd></div><div class="rounded bg-blue-50 p-3"><dt class="text-blue-700">本次改派数量</dt><dd class="font-bold text-blue-800">${preview.remainingQty.toLocaleString()}件</dd></div></dl></section>`
+}
+
 function baggingDecisionSummary(task: RuntimeProcessTask, dialog: DispatchDialogState): string {
   const snapshot = buildDispatchBaggingSnapshot(task)
   const impact = evaluateDispatchBagSelection(snapshot, dialog.selectedSkuCodes)
@@ -615,18 +713,21 @@ function renderDispatchDialog(): string {
   const bagging = buildDispatchBaggingSnapshot(task)
   const impact = evaluateDispatchBagSelection(bagging, dialog.selectedSkuCodes)
   const selectedQty = skuLines.filter((line) => dialog.selectedSkuCodes.has(line.skuCode)).reduce((sum, line) => sum + line.qty, 0)
+  const reassignmentScope = dialog.mode === 'REASSIGN' ? getRuntimeSewingTaskReassignmentScopePreview(task.taskId) : null
+  const effectiveAssignedQty = dialog.mode === 'REASSIGN' ? (reassignmentScope?.remainingQty ?? 0) : selectedQty
   const isSecond = dialog.confirmStage === 2
   return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><button class="absolute inset-0 bg-slate-900/40" data-unified-action="close-dispatch"></button><section class="relative z-10 max-h-[92vh] w-full max-w-6xl overflow-auto rounded-lg bg-white shadow-xl"><header class="border-b p-5"><h2 class="text-lg font-semibold">${dialog.mode === 'DIRECT' ? '直接派单' : dialog.mode === 'REASSIGN' ? '车缝任务改派' : '发起竞价'} · ${escapeHtml(task.taskNo || task.taskId)}</h2><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(policy.taskTypeLabel)}</p></header><div class="space-y-4 p-5">
     ${dialog.error ? `<div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">${escapeHtml(dialog.error)}</div>` : ''}
-    ${isSecond && dialog.mode !== 'BIDDING' ? `<div class="rounded-lg border-2 border-amber-400 bg-amber-50 p-4"><h3 class="font-bold text-amber-900">二次确认${dialog.mode === 'REASSIGN' ? '改派' : '派单'}价格</h3><p class="mt-2 text-base font-semibold text-red-700">谨慎确认价格，一经提交确认不得修改。</p><p class="mt-3 text-sm">工厂：${escapeHtml(factories.find((item) => item.id === dialog.factoryId)?.name || '未选择')} · 数量：${selectedQty}件 · 派单价：${escapeHtml(dialog.price)} IDR/件</p>${policy.startsWithSewing ? `<p class="mt-2 text-sm">分配方式：${dialog.distributionMode === 'BAG_AWARE' ? '按菲票装袋推荐' : '自由分配'} · 可保持整袋 ${impact.intactBagCodes.length} 袋 · 受影响 ${impact.affectedBagCodes.length} 袋</p>` : ''}${dialog.mode === 'REASSIGN' ? `<p class="mt-2 text-sm">改派原因：${escapeHtml(dialog.reassignReason)}</p>` : ''}<p class="mt-2 text-xs text-amber-800">提交后价格冻结，结算只能读取本次有效分配的冻结价。</p></div>` : `
+    ${isSecond && dialog.mode !== 'BIDDING' ? `<div class="rounded-lg border-2 border-amber-400 bg-amber-50 p-4"><h3 class="font-bold text-amber-900">二次确认${dialog.mode === 'REASSIGN' ? '改派' : '派单'}价格</h3><p class="mt-2 text-base font-semibold text-red-700">谨慎确认价格，一经提交确认不得修改。</p><p class="mt-3 text-sm">工厂：${escapeHtml(factories.find((item) => item.id === dialog.factoryId)?.name || '未选择')} · 数量：${effectiveAssignedQty.toLocaleString()}件 · 派单价：${escapeHtml(dialog.price)} IDR/件</p>${policy.startsWithSewing ? `<p class="mt-2 text-sm">分配方式：${dialog.distributionMode === 'BAG_AWARE' ? '按菲票装袋推荐' : '自由分配'} · 可保持整袋 ${impact.intactBagCodes.length} 袋 · 受影响 ${impact.affectedBagCodes.length} 袋</p>` : ''}${dialog.mode === 'REASSIGN' ? `<p class="mt-2 text-sm">改派原因：${escapeHtml(dialog.reassignReason)}</p>` : ''}<p class="mt-2 text-xs text-amber-800">提交后价格冻结，结算只能读取本次有效分配的冻结价。</p></div>${renderReturnRulePreview(policy, effectiveAssignedQty, dialog.businessAssignedAt, dialog.mode)}` : `
       ${policy.startsWithSewing ? `<fieldset><legend class="text-sm font-semibold">分配方式</legend><label class="mr-5 text-sm"><input type="radio" name="distributionMode" data-unified-field="distributionMode" value="BAG_AWARE" ${dialog.distributionMode === 'BAG_AWARE' ? 'checked' : ''}/> 按菲票装袋情况分配（默认）</label><label class="text-sm"><input type="radio" name="distributionMode" data-unified-field="distributionMode" value="FREE" ${dialog.distributionMode === 'FREE' ? 'checked' : ''}/> 自由分配</label><p class="mt-1 text-xs text-muted-foreground">自由分配不生成拆袋重装待办；PPIC实际接收时，裁床待交出仓读取最新车缝任务再决定是否拆袋重装。</p></fieldset>` : ''}
-      ${policy.startsWithSewing ? `<p class="rounded bg-blue-50 p-2 text-xs text-blue-800">信息不完善只提示风险，不阻断生产分配。</p>${renderSewingPreparationOverview(task)}` : ''}
+      ${policy.requiresSewingReadinessContext ? `<p class="rounded bg-blue-50 p-2 text-xs text-blue-800">信息不完善只提示风险，不阻断生产分配。</p>${renderSewingPreparationOverview(task, dialog.selectedSkuCodes)}` : ''}
       ${policy.startsWithSewing ? renderBaggingOverview(bagging) : ''}
       ${dialog.baggingNotice ? `<div class="rounded border border-blue-200 bg-blue-50 p-2 text-xs text-blue-700">${escapeHtml(dialog.baggingNotice)}</div>` : ''}
-      ${policy.startsWithSewing ? (dialog.distributionMode === 'BAG_AWARE' ? renderBagAwareSelection(bagging, dialog) : renderFreeSelection(bagging, dialog)) : renderPlainSkuSelection(task, dialog)}
-      <p class="text-xs">已选 ${dialog.selectedSkuCodes.size} 个SKU，共 ${selectedQty.toLocaleString()}件</p>
+      ${dialog.mode === 'REASSIGN' ? renderReassignmentScope(task) : policy.startsWithSewing ? (dialog.distributionMode === 'BAG_AWARE' ? renderBagAwareSelection(bagging, dialog) : renderFreeSelection(bagging, dialog)) : renderPlainSkuSelection(task, dialog)}
+      <p class="text-xs">${dialog.mode === 'REASSIGN' ? `本次改派 ${effectiveAssignedQty.toLocaleString()}件` : `已选 ${dialog.selectedSkuCodes.size} 个SKU，共 ${selectedQty.toLocaleString()}件`}</p>
       ${dialog.mode !== 'BIDDING' ? `<label class="block text-sm">承接工厂<select class="mt-1 h-9 w-full rounded border px-3" data-unified-field="factoryId"><option value="">请选择工厂</option>${factories.map((factory) => `<option value="${escapeHtml(factory.id)}" ${dialog.factoryId === factory.id ? 'selected' : ''} ${dialog.mode === 'REASSIGN' && factory.id === task.assignedFactoryId ? 'disabled' : ''}>${escapeHtml(factory.name)}</option>`).join('')}</select></label><label class="block text-sm">派单价（IDR/件）<input type="number" min="1" class="mt-1 h-9 w-full rounded border px-3" data-unified-field="price" value="${escapeHtml(dialog.price)}"/></label>${dialog.mode === 'REASSIGN' ? `<label class="block text-sm">改派原因<textarea class="mt-1 min-h-20 w-full rounded border p-3" data-unified-field="reassignReason" placeholder="必填，说明本次改派原因">${escapeHtml(dialog.reassignReason)}</textarea></label>` : ''}` : `<label class="block text-sm">竞价截止时间<input type="datetime-local" class="mt-1 h-9 w-full rounded border px-3" data-unified-field="tenderDeadline" value="${escapeHtml(dialog.tenderDeadline)}"/></label>`}
       <label class="block text-sm">业务分配日期/时间<input type="datetime-local" class="mt-1 h-9 w-full rounded border px-3" data-unified-field="businessAssignedAt" value="${escapeHtml(dialog.businessAssignedAt)}"/><span class="mt-1 block text-xs text-muted-foreground">回货规则按日期计算，分配日期为第1个自然日；合同只打印日期，不打印具体时间。</span></label>
+      ${renderReturnRulePreview(policy, effectiveAssignedQty, dialog.businessAssignedAt, dialog.mode)}
       ${policy.startsWithSewing ? '<div class="rounded bg-amber-50 p-3 text-sm text-amber-800">准备数据、库存风险、多个来源袋及混装袋只用于提示，不阻断派单或竞价。</div>' : ''}`}
     </div><footer class="flex justify-end gap-2 border-t p-4"><button class="rounded border px-4 py-2 text-sm" data-unified-action="${isSecond ? 'back-dispatch' : 'close-dispatch'}">${isSecond ? '返回修改' : '取消'}</button><button class="rounded bg-blue-600 px-4 py-2 text-sm text-white" data-unified-action="confirm-dispatch">${isSecond ? '确认提交并冻结价格' : dialog.mode === 'BIDDING' ? '确认发起竞价' : '下一步：二次确认价格'}</button></footer></section></div>`
 }
@@ -1104,8 +1205,12 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
   const action = actionNode.dataset.unifiedAction
   const taskId = actionNode.dataset.taskId || ''
   if (action === 'close-all') {
-    state.detailTaskId = null; state.dispatch = null; state.merge = null; state.autoDispatch = null; state.contractPromptId = null; state.uploadContractId = null
     const imagePreview = document.querySelector<HTMLElement>('[data-unified-image-preview]')
+    if (imagePreview?.innerHTML.trim()) {
+      imagePreview.innerHTML = ''
+      return true
+    }
+    state.detailTaskId = null; state.dispatch = null; state.merge = null; state.autoDispatch = null; state.contractPromptId = null; state.uploadContractId = null
     if (imagePreview) imagePreview.innerHTML = ''
     refreshRoot(); return true
   }
@@ -1168,9 +1273,9 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
     try {
       if (state.dispatch.mode !== 'BIDDING' && state.dispatch.confirmStage === 1) {
         if (!state.dispatch.factoryId) throw new Error('请选择承接工厂')
-        if (state.dispatch.selectedSkuCodes.size === 0) throw new Error('请至少选择一个完整SKU')
+        if (state.dispatch.mode !== 'REASSIGN' && state.dispatch.selectedSkuCodes.size === 0) throw new Error('请至少选择一个完整SKU')
         const task = getRuntimeTaskById(state.dispatch.taskId)
-        if (task && classifyTaskFulfillmentPolicy(task).startsWithSewing && state.dispatch.distributionMode === 'BAG_AWARE' && !selectionMatchesRecommendationGroups(buildDispatchBaggingSnapshot(task), state.dispatch.selectedSkuCodes)) throw new Error('按菲票装袋分配时必须整组选择；如需拆开组内SKU，请切换“自由分配”。')
+        if (state.dispatch.mode !== 'REASSIGN' && task && classifyTaskFulfillmentPolicy(task).startsWithSewing && state.dispatch.distributionMode === 'BAG_AWARE' && !selectionMatchesRecommendationGroups(buildDispatchBaggingSnapshot(task), state.dispatch.selectedSkuCodes)) throw new Error('按菲票装袋分配时必须整组选择；如需拆开组内SKU，请切换“自由分配”。')
         state.dispatch.confirmStage = 2
         if (state.dispatch.mode === 'REASSIGN' && !state.dispatch.reassignReason.trim()) throw new Error('请填写改派原因')
       } else if (state.dispatch.mode !== 'BIDDING') {
@@ -1195,14 +1300,39 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
               by: '生产计划员',
             })
           : sourceTask
+        const tenderId = `TD-${Date.now()}`
+        const assignmentOperatedAt = formatOperationLocalWallClock()
+        const businessAssignedAt = toWallClock(state.dispatch.businessAssignedAt)
+        const eligibleTenderFactories = listEligibleTenderFactoriesForTask(tenderTask)
+        if (eligibleTenderFactories.length === 0) throw new Error('当前没有符合任务能力要求的候选工厂，不能发起竞价')
+        const standardPrice = Number(tenderTask.standardPrice || tenderTask.dispatchPrice || 1200)
         upsertRuntimeTaskTender(tenderTask.taskId, {
-          tenderId: `TD-${Date.now()}`,
+          tenderId,
           biddingDeadline: toWallClock(state.dispatch.tenderDeadline),
           taskDeadline: '',
-          businessAssignedAt: toWallClock(state.dispatch.businessAssignedAt),
-          assignmentOperatedAt: formatOperationLocalWallClock(),
+          businessAssignedAt,
+          assignmentOperatedAt,
           distributionMode: policy.startsWithSewing ? state.dispatch.distributionMode : 'FREE',
         }, '生产计划员')
+        upsertRuntimeTaskTenderRecord({
+          tenderId,
+          taskId: tenderTask.taskId,
+          businessAssignedAt,
+          assignmentOperatedAt,
+          biddingDeadline: toWallClock(state.dispatch.tenderDeadline),
+          taskDeadline: '',
+          distributionMode: policy.startsWithSewing ? state.dispatch.distributionMode : 'FREE',
+          factoryPool: eligibleTenderFactories.map((factory) => ({ factoryId: factory.id, factoryName: factory.name })),
+          standardPrice,
+          minPrice: Math.max(1, Math.floor(standardPrice * 0.8)),
+          maxPrice: Math.ceil(standardPrice * 1.2),
+          currency: tenderTask.standardPriceCurrency || 'IDR',
+          unit: tenderTask.standardPriceUnit || tenderTask.qtyUnit || '件',
+          remark: policy.startsWithSewing
+            ? `按${state.dispatch.distributionMode === 'BAG_AWARE' ? '菲票装袋情况' : '自由分配'}发起竞价`
+            : '由任务分配工作台发起竞价',
+          createdBy: '生产计划员',
+        })
         state.feedback = `${policy.startsWithSewing ? `已按${state.dispatch.distributionMode === 'BAG_AWARE' ? '菲票装袋情况' : '自由分配'}` : '已'}为${tenderTask.taskNo || tenderTask.taskId}发起竞价；未确定工厂前不生成合同。定标时须二次确认中标价并冻结。`
         state.dispatch = null
       }

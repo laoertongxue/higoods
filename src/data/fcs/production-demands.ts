@@ -188,7 +188,7 @@ const seedProductionDemands: ProductionDemand[] = [
   }),
   createDemandSeed({
     demandId: 'DEM-202603-0005', legacyType: 'ID_PURCHASE', legacyOrderNo: '240780', sourceSystem: 'LEGACY',
-    spuCode: 'SPU-2024-005', spuName: 'Jaket Hoodie Unisex', imageUrl: '/placeholder.svg?height=80&width=80',
+    spuCode: 'SPU-2024-005', spuName: 'Jaket Hoodie Unisex', imageUrl: '/jacket-sample.jpg',
     category: 'Outerwear', marketScopes: ['ID'], priority: 'NORMAL', demandStatus: 'CONVERTED', techPackStatus: 'RELEASED', techPackVersionLabel: 'v2.1',
     requiredDeliveryDate: '2026-05-01', constraintsNote: 'Fleece 280gsm. Resleting harus kuat.',
     skuLines: [
