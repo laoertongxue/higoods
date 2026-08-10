@@ -81,7 +81,7 @@
 - `npm run check:list-page-governance:static`：未通过；唯一命中 `src/pages/wls-fabric-demand-board.ts` 缺少标准列表声明。该文件不在本任务改动范围；本次花边列表由 V1.5 专项、命名页面和标准列表模板检查直接验证，未修改范围外页面、基线或检查脚本绕过门禁。
 - `npm run build`：通过。
 - CodeGraph 同步与状态：通过；1475 个文件、45358 个节点、164121 条边，待同步 0，工作树匹配。
-- `npm run workflow:verify -- --output /private/tmp/lace-factory-task-receipt-v15.json --task-boundary "辅料工厂管理第一阶段 V1.5：默认加工投入、投入 SKU／单位用量例外修改、列表详情与文档矩阵闭环"`：已在沙箱外重跑；绑定 HEAD `9773936367b0597883419d5d599bdd74a4c62cba`、当前任务差异和 CodeGraph。收据状态为 `implemented`，唯一 blocker 为范围外 `npm run check:list-page-governance` 命中的 `src/pages/wls-fabric-demand-board.ts`。
+- `npm run workflow:verify -- --output /private/tmp/lace-factory-task-receipt-v15.json --task-boundary "辅料工厂管理第一阶段 V1.5：默认加工投入、投入 SKU／单位用量例外修改、列表详情与文档矩阵闭环"`：已在沙箱外重跑；提交前绑定基点 HEAD `9773936367b0597883419d5d599bdd74a4c62cba`、完整任务差异和 CodeGraph。该差异形成提交 `ec2365fd` 并由 `405f1c48` 合入本地 `main`。收据状态为 `implemented`，唯一 blocker 为范围外 `npm run check:list-page-governance` 命中的 `src/pages/wls-fabric-demand-board.ts`。
 
 ### 浏览器验证
 
