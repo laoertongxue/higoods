@@ -81,7 +81,7 @@ assertNotIncludes(factoryProfile, "craftName: '复检'", '复检是回货后的�
 assertIncludes(mergedTaskDomain, '车缝+烫包', '合并任务规则必须使用实际工序名称烫包')
 assertNotIncludes(mergedTaskDomain, '车缝+后道', '合并任务规则不得把阶段名当作实际工序')
 
-;['后道阶段管理', '阶段任务', '实际工序单', '质检单', '复检单', '阶段待加工仓', '阶段待交出仓'].forEach((label) => {
+;['后道工厂管理', '阶段任务', '实际工序单', '质检单', '复检单', '阶段待加工仓', '阶段待交出仓'].forEach((label) => {
   assertIncludes(appShell, label, `后道阶段菜单缺少 ${label}`)
 })
 ;[

@@ -39,6 +39,14 @@ const renderPlaceholderPage = createAsyncRenderer(
   'renderPlaceholderPage',
 )
 const renderRouteNotFound = createAsyncRenderer(() => import('../pages/placeholder'), 'renderRouteNotFound')
+const renderWlsAccessoryReceiptsPage = createAsyncRenderer(
+  () => import('../pages/wls-accessory-receipts'),
+  'renderWlsAccessoryReceiptsPage',
+)
+const renderPmsPurchaseOrdersPage = createAsyncRenderer(
+  () => import('../pages/pms-purchase-orders'),
+  'renderPmsPurchaseOrdersPage',
+)
 
 const exactBaseRoutes: Record<string, () => Promise<string>> = {
   '/': async () => {
@@ -48,8 +56,10 @@ const exactBaseRoutes: Record<string, () => Promise<string>> = {
   '/pcs/workspace': () => renderRouteRedirect('/pcs/workspace/overview', '正在跳转到商品中心工作台'),
   '/fcs/workspace': () => renderRouteRedirect('/fcs/workbench/overview', '正在跳转到工厂生产协同工作台'),
   '/fcs': () => renderRouteRedirect('/fcs/workbench/overview', '正在跳转到工厂生产协同工作台'),
+  '/pms/purchase-order': () => renderPmsPurchaseOrdersPage(),
   '/wls': () => renderRouteRedirect('/wls/fabric-demand-board', '正在跳转到面料需求看板'),
   '/wls/fabric-demand-board': () => renderWlsFabricDemandBoardPage(),
+  '/wls/accessory-receipts': () => renderWlsAccessoryReceiptsPage(),
 }
 
 let fcsRoutesPromise: Promise<RouteRegistry> | null = null

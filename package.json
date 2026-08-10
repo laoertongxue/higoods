@@ -233,6 +233,8 @@
     "test:cutting:all:e2e": "npm run build && CUTTING_E2E_USE_PREVIEW=false PLAYWRIGHT_REUSE_EXISTING_SERVER=false CUTTING_E2E_PORT=43177 CUTTING_E2E_EXPECT_TIMEOUT=60000 CUTTING_E2E_TEST_TIMEOUT=300000 playwright test tests/cutting-*.spec.ts --workers=1",
     "check:process-factory-tabs-and-post-finishing": "tsx scripts/check-process-factory-tabs-and-post-finishing.ts",
     "test:process-factory-tabs-and-post-finishing:e2e": "playwright test tests/process-factory-tabs-and-post-finishing.spec.ts",
+    "check:lace-factory-management": "node --import tsx scripts/check-lace-factory-management.ts",
+    "check:lace-product-delivery-docs": "node --import tsx scripts/check-lace-product-delivery-docs.ts",
     "test:production-order-change-final:e2e": "playwright test --config=playwright.production-order-change.config.ts",
     "test:supplement-management-list-template:e2e": "PLAYWRIGHT_REUSE_EXISTING_SERVER=false CUTTING_E2E_PORT=$(node -e \"const net=require('node:net');const server=net.createServer();server.listen(0,'127.0.0.1',()=>{console.log(server.address().port);server.close()})\") playwright test tests/supplement-management-list-template.spec.ts",
     "test:production-preparation-timing:e2e": "PLAYWRIGHT_REUSE_EXISTING_SERVER=false CUTTING_E2E_PORT=$(node -e \"const net=require('node:net');const server=net.createServer();server.listen(0,'127.0.0.1',()=>{console.log(server.address().port);server.close()})\") playwright test tests/production-preparation-timing-filters.spec.ts"

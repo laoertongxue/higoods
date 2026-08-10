@@ -203,6 +203,7 @@ import { handleCraftWoolWarehouseEvent } from '../pages/process-factory/wool/war
 import { handleSpecialCraftTaskOrdersEvent } from '../pages/process-factory/special-craft/task-orders'
 import { handleSpecialCraftTaskDetailEvent } from '../pages/process-factory/special-craft/task-detail'
 import { handleSpecialCraftWarehouseEvent } from '../pages/process-factory/special-craft/warehouse'
+import { handleAccessoryFactoryManagementEvent } from '../pages/process-factory/accessory/lace/events'
 import {
   handleFcsMaterialPrepListEvent,
 } from '../pages/fcs/material-prep/list'
@@ -236,6 +237,13 @@ const CUTTING_PICKUP_LIST_PATHS = new Set([
 
 export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
+  if (
+    pathname.startsWith('/fcs/craft/accessory/lace')
+    || pathname.startsWith('/wls/accessory-receipts')
+    || pathname.startsWith('/pms/purchase-order')
+  ) {
+    return handleAccessoryFactoryManagementEvent(target, event)
+  }
   if (pathname.startsWith('/fcs/dispatch/workbench')) {
     return handleUnifiedDispatchWorkbenchEvent(target, event)
   }
