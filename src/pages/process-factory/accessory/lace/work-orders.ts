@@ -8,10 +8,8 @@ import {
   countPendingPurchaseChanges,
   listLaceProductionOrders,
   LACE_FACTORY_OPERATOR,
-  LACE_FACTORY_SUPERVISOR,
   PLATFORM_ADMIN,
   startLaceProduction,
-  type LaceActor,
   type LaceHandoverStatus,
   type LaceReceiptSummaryStatus,
   type LaceProductionOrderView,
@@ -37,7 +35,6 @@ import {
 type WorkOrderTaskTab = 'all' | 'purchase-change' | LaceProductionStatus
 
 interface WorkOrderListState extends ProcessOrderListControllerState {
-  actorRole: 'operator' | 'supervisor' | 'platform'
   taskTab: WorkOrderTaskTab
   keyword: string
   handoverStatus: '' | LaceHandoverStatus
@@ -58,7 +55,6 @@ const state: WorkOrderListState = {
   preferences: { order: [], visibleKeys: [], frozenKeys: [], pageSize: 10 },
   preferencesLoaded: false,
   showColumnSettings: false,
-  actorRole: 'operator',
   taskTab: 'all',
   keyword: '',
   handoverStatus: '',
@@ -69,14 +65,8 @@ const state: WorkOrderListState = {
   feedbackOk: true,
 }
 
-function currentListActor(): LaceActor {
-  if (state.actorRole === 'supervisor') return LACE_FACTORY_SUPERVISOR
-  if (state.actorRole === 'platform') return PLATFORM_ADMIN
-  return LACE_FACTORY_OPERATOR
-}
-
 function allRows(): LaceProductionOrderView[] {
-  return listLaceProductionOrders(currentListActor())
+  return listLaceProductionOrders(PLATFORM_ADMIN)
 }
 
 function matchesTaskTab(order: LaceProductionOrderView): boolean {
@@ -116,10 +106,9 @@ function actionClass(action: LaceWorkOrderAction): string {
 
 function detailActionHref(order: LaceProductionOrderView, action: LaceWorkOrderActionKey): string {
   const detailPath = `/fcs/craft/accessory/lace/work-orders/${encodeURIComponent(order.workOrderId)}`
-  const actorQuery = `actor=${encodeURIComponent(state.actorRole)}`
-  if (action === 'view-detail') return `${detailPath}?${actorQuery}`
+  if (action === 'view-detail') return detailPath
   if (action === 'view-change') {
-    return `/fcs/craft/accessory/lace/purchase-demands?actor=${encodeURIComponent(state.actorRole)}&viewChange=1&purchaseOrderId=${encodeURIComponent(order.purchaseOrderId)}`
+    return `/fcs/craft/accessory/lace/purchase-demands?viewChange=1&purchaseOrderId=${encodeURIComponent(order.purchaseOrderId)}`
   }
   const queryAction: Partial<Record<LaceWorkOrderActionKey, string>> = {
     'report-completion': 'report',
@@ -129,11 +118,11 @@ function detailActionHref(order: LaceProductionOrderView, action: LaceWorkOrderA
     'cancel-order': 'cancel',
     'restore-order': 'restore',
   }
-  return `${detailPath}?${actorQuery}&action=${encodeURIComponent(queryAction[action] ?? '')}`
+  return `${detailPath}?action=${encodeURIComponent(queryAction[action] ?? '')}`
 }
 
 function renderRowActions(order: LaceProductionOrderView): string {
-  const actions = listExecutableLaceWorkOrderActions(order, currentListActor())
+  const actions = listExecutableLaceWorkOrderActions(order, PLATFORM_ADMIN)
   return `<div class="flex min-w-[20rem] flex-wrap gap-1.5" data-lace-work-order-actions="${escapeHtml(order.workOrderId)}">${actions.map((action) => {
     const commonClass = `rounded-md border px-2.5 py-1.5 text-xs font-medium ${actionClass(action)}`
     if (action.key === 'start-production') {
@@ -258,7 +247,7 @@ function renderStats(): string {
     { label: '待接收', value: `${rows.filter((order) => order.status === '待接收').length} 单` },
     { label: '加工中', value: `${rows.filter((order) => order.status === '加工中').length} 单` },
     { label: '已完结', value: `${rows.filter((order) => order.status === '已完结').length} 单` },
-    { label: '采购变更待查看', value: `${countPendingPurchaseChanges(currentListActor())} 个采购单／${pendingWorkOrders} 张生产单` },
+    { label: '采购变更待查看', value: `${countPendingPurchaseChanges(PLATFORM_ADMIN)} 个采购单／${pendingWorkOrders} 张生产单` },
   ])
 }
 
@@ -283,7 +272,7 @@ function renderInner(): string {
   const view = controller.getView()
   return renderStandardListPage({
     title: '花边生产单',
-    primaryActionsHtml: `<div class="flex flex-wrap items-center gap-3"><span class="text-sm text-slate-500">一个采购单 SKU 只对应一张生产单</span><label class="flex items-center gap-2 text-sm"><span class="text-slate-500">当前操作身份</span><select class="h-9 rounded-md border bg-white px-3" data-lace-work-orders-field="actorRole" data-skip-page-rerender="true"><option value="operator" ${state.actorRole === 'operator' ? 'selected' : ''}>${escapeHtml(LACE_FACTORY_OPERATOR.actorName)} · 业务员</option><option value="supervisor" ${state.actorRole === 'supervisor' ? 'selected' : ''}>${escapeHtml(LACE_FACTORY_SUPERVISOR.actorName)} · 主管</option><option value="platform" ${state.actorRole === 'platform' ? 'selected' : ''}>${escapeHtml(PLATFORM_ADMIN.actorName)} · 兜底</option></select></label></div>`,
+    primaryActionsHtml: '<span class="text-sm text-slate-500">一个采购单 SKU 只对应一张生产单</span>',
     feedbackHtml: `<div data-lace-work-orders-feedback>${renderLaceFeedback(state.feedback, state.feedbackOk)}</div>`,
     filtersHtml: `<div class="space-y-3"><div data-lace-work-orders-tabs-surface>${renderTaskTabs()}</div><div data-lace-work-orders-secondary-filters>${renderFilters()}</div></div>`,
     statsHtml: `<div data-lace-work-orders-stats-surface>${renderStats()}</div>`,
@@ -339,15 +328,6 @@ export function handleLaceWorkOrdersEvent(target: HTMLElement, event?: Event): b
     if (name === 'receiptStatus') state.receiptStatus = field.value as WorkOrderListState['receiptStatus']
     if (name === 'dueDateFrom') state.dueDateFrom = field.value
     if (name === 'dueDateTo') state.dueDateTo = field.value
-    if (name === 'actorRole' && event?.type === 'change') {
-      state.actorRole = field.value as WorkOrderListState['actorRole']
-      state.currentPage = 1
-      state.feedback = `已切换为 ${currentListActor().actorName}；统计、可见生产单、动作和命令均按当前身份重新计算。`
-      state.feedbackOk = true
-      controller.refresh()
-      refreshListChrome()
-      return true
-    }
     if (name === 'pageSize' && event?.type === 'change') {
       controller.setPageSize(Number(field.value))
       controller.refresh()
@@ -367,8 +347,8 @@ export function handleLaceWorkOrdersEvent(target: HTMLElement, event?: Event): b
   if (action === 'start-production') {
     const workOrderId = actionNode.dataset.workOrderId || ''
     try {
-      const nextOrder = startLaceProduction(workOrderId, currentListActor())
-      state.feedback = `${nextOrder.workOrderNo} 已确认接收并进入“加工中”；操作日志已记录当前身份。`
+      const nextOrder = startLaceProduction(workOrderId, LACE_FACTORY_OPERATOR)
+      state.feedback = `${nextOrder.workOrderNo} 已确认接收并进入“加工中”；操作日志已记录花边厂业务员。`
       state.feedbackOk = true
     } catch (error) {
       state.feedback = `未保存：${error instanceof Error ? error.message : String(error)}。请刷新状态后重试。`

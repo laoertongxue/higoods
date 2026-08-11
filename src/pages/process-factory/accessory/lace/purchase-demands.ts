@@ -12,8 +12,6 @@ import {
   listLaceProductionOrders,
   listLacePurchaseDemands,
   markPurchaseChangeViewed,
-  LACE_FACTORY_OPERATOR,
-  LACE_FACTORY_SUPERVISOR,
   PLATFORM_ADMIN,
   type LaceActor,
   type LaceProductionOrderView,
@@ -67,7 +65,6 @@ export interface PurchaseDemandRow {
 }
 
 interface PurchaseDemandState extends ProcessOrderListControllerState {
-  actorRole: 'operator' | 'supervisor' | 'platform'
   keyword: string
   changeStatus: '' | '待查看' | '已查看' | '无新变更'
   productionStatus: '' | LaceProductionStatus
@@ -90,7 +87,6 @@ const state: PurchaseDemandState = {
   preferences: { order: [], visibleKeys: [], frozenKeys: [], pageSize: 10 },
   preferencesLoaded: false,
   showColumnSettings: false,
-  actorRole: 'operator',
   keyword: '',
   changeStatus: '',
   productionStatus: '',
@@ -101,12 +97,6 @@ const state: PurchaseDemandState = {
   drawerPurchaseOrderId: '',
   feedback: '',
   feedbackOk: true,
-}
-
-function currentDemandActor(): LaceActor {
-  if (state.actorRole === 'supervisor') return LACE_FACTORY_SUPERVISOR
-  if (state.actorRole === 'platform') return PLATFORM_ADMIN
-  return LACE_FACTORY_OPERATOR
 }
 
 function toNormalRow(
@@ -216,7 +206,7 @@ export function buildLacePurchaseDemandRows(input: {
 }
 
 function allRows(): PurchaseDemandRow[] {
-  const actor = currentDemandActor()
+  const actor = PLATFORM_ADMIN
   return buildLacePurchaseDemandRows({
     actor,
     demands: listLacePurchaseDemands(actor),
@@ -334,7 +324,7 @@ function renderChangeDrawer(): string {
   if (!purchaseOrder) return ''
   const change = [...purchaseOrder.changeHistory].sort((left, right) => right.toVersion - left.toVersion)[0]
   if (!change) return ''
-  const workOrders = listLaceProductionOrders(currentDemandActor()).filter((order) => order.purchaseOrderId === purchaseOrder.purchaseOrderId)
+  const workOrders = listLaceProductionOrders(PLATFORM_ADMIN).filter((order) => order.purchaseOrderId === purchaseOrder.purchaseOrderId)
   return `<div class="fixed inset-0 z-[80]" role="dialog" aria-modal="true" aria-label="采购变更详情"><button type="button" class="absolute inset-0 bg-black/40" data-lace-demand-action="close-change" data-skip-page-rerender="true" aria-label="关闭采购变更详情"></button><aside class="absolute inset-y-0 right-0 flex w-full max-w-2xl flex-col bg-white shadow-2xl"><header class="flex items-start justify-between border-b p-5"><div><h2 class="text-lg font-semibold">采购单 ${escapeHtml(purchaseOrder.purchaseOrderNo)} 变更详情</h2><p class="mt-1 text-sm text-slate-500">V${change.fromVersion} → V${change.toVersion} · ${escapeHtml(change.changedByName)} · ${formatJakartaTime(change.changedAt)}</p><p class="mt-1 text-xs text-amber-800">已查看仅表示业务人员看过完整对比，不表示审批或接受。</p></div><button type="button" class="rounded-md border px-3 py-1.5 text-sm" data-lace-demand-action="close-change" data-skip-page-rerender="true">关闭</button></header><div class="flex-1 space-y-5 overflow-y-auto p-5"><section><h3 class="mb-2 font-semibold">变更前后</h3><div class="overflow-hidden rounded-md border"><table class="w-full text-left text-sm"><thead class="bg-slate-50 text-xs text-slate-500"><tr><th class="px-3 py-2">字段</th><th class="px-3 py-2">变更前</th><th class="px-3 py-2">变更后</th></tr></thead><tbody>${change.fields.map((field) => `<tr class="border-t"><td class="px-3 py-3 font-medium">${escapeHtml(field.label)}</td><td class="px-3 py-3 text-slate-500">${escapeHtml(field.beforeValue)}</td><td class="px-3 py-3 font-medium text-amber-900">${escapeHtml(field.afterValue)}</td></tr>`).join('')}</tbody></table></div></section><section><h3 class="mb-2 font-semibold">受影响花边生产单</h3><div class="space-y-2">${workOrders.map((order) => `<article class="rounded-md border p-3"><div class="flex items-center justify-between gap-3"><button class="font-medium text-blue-700 hover:underline" data-nav="/fcs/craft/accessory/lace/work-orders/${encodeURIComponent(order.workOrderId)}">${escapeHtml(order.workOrderNo)}</button>${renderLaceStatusBadge(order.status, order.status === '已完结' ? 'green' : order.status === '加工中' ? 'blue' : order.status === '已取消' ? 'red' : 'slate')}</div><div class="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-600 sm:grid-cols-4"><span>计划 ${formatLaceQty(order.planQty, order.unit)}</span><span>完工 ${formatLaceQty(order.completedQty, order.unit)}</span><span>交出 ${formatLaceQty(order.handedOverQty, order.unit)}</span><span>实收 ${formatLaceQty(order.receivedQty, order.unit)}</span></div></article>`).join('')}</div></section></div></aside></div>`
 }
 
@@ -345,12 +335,12 @@ function renderOverlays(): string {
 function renderInner(): string {
   controller.ensurePreferencesLoaded()
   const view = controller.getView()
-  const actor = currentDemandActor()
+  const actor = PLATFORM_ADMIN
   const pendingCount = countPendingPurchaseChanges(actor)
   const rows = allRows()
   return `${renderStandardListPage({
     title: '花边采购需求',
-    primaryActionsHtml: `<div class="flex flex-wrap items-center gap-3"><span class="text-sm text-slate-500">当前工厂：Renda Jaya 花边厂</span><label class="flex items-center gap-2 text-sm"><span class="text-slate-500">当前查看身份</span><select class="h-9 rounded-md border bg-white px-3" data-lace-demand-field="actorRole" data-skip-page-rerender="true"><option value="operator" ${state.actorRole === 'operator' ? 'selected' : ''}>${escapeHtml(LACE_FACTORY_OPERATOR.actorName)} · 业务员</option><option value="supervisor" ${state.actorRole === 'supervisor' ? 'selected' : ''}>${escapeHtml(LACE_FACTORY_SUPERVISOR.actorName)} · 主管</option><option value="platform" ${state.actorRole === 'platform' ? 'selected' : ''}>${escapeHtml(PLATFORM_ADMIN.actorName)} · 兜底</option></select></label></div>`,
+    primaryActionsHtml: '<span class="text-sm text-slate-500">当前工厂：Renda Jaya 花边厂</span>',
     feedbackHtml: `<div data-lace-demand-feedback>${renderLaceFeedback(state.feedback, state.feedbackOk)}</div>`,
     filtersHtml: renderFilters(),
     statsHtml: renderStandardListStats([
@@ -387,13 +377,11 @@ export function renderLacePurchaseDemandsPage(): string {
   resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
   if (typeof window !== 'undefined') {
     const params = new URL(window.location.href).searchParams
-    const requestedActor = params.get('actor')
-    if (requestedActor === 'operator' || requestedActor === 'supervisor' || requestedActor === 'platform') state.actorRole = requestedActor
     const requestedPurchaseOrderId = params.get('viewChange') === '1' ? params.get('purchaseOrderId') ?? '' : ''
     if (requestedPurchaseOrderId) {
-      markPurchaseChangeViewed(requestedPurchaseOrderId, currentDemandActor())
+      markPurchaseChangeViewed(requestedPurchaseOrderId, PLATFORM_ADMIN)
       state.drawerPurchaseOrderId = requestedPurchaseOrderId
-      state.feedback = `${currentDemandActor().actorName} 正在查看采购单 ${getAccessoryPurchaseOrder(requestedPurchaseOrderId)?.purchaseOrderNo ?? ''} 的完整变更；仅表示已查看。`
+      state.feedback = `正在查看采购单 ${getAccessoryPurchaseOrder(requestedPurchaseOrderId)?.purchaseOrderNo ?? ''} 的完整变更；仅表示已查看。`
       state.feedbackOk = true
     }
   }
@@ -414,13 +402,6 @@ export function handleLacePurchaseDemandsEvent(target: HTMLElement, event?: Even
     if (name === 'dueDateTo') state.dueDateTo = field.value
     if (name === 'targetWarehouseName') state.targetWarehouseName = field.value
     if (name === 'generationResult') state.generationResult = field.value as PurchaseDemandState['generationResult']
-    if (name === 'actorRole' && event?.type === 'change') {
-      state.actorRole = field.value as PurchaseDemandState['actorRole']
-      state.drawerPurchaseOrderId = ''
-      state.feedback = `已切换为 ${currentDemandActor().actorName}，采购变更待查看按当前用户重新计算。`
-      state.feedbackOk = true
-      refreshAll()
-    }
     if (name === 'pageSize' && event?.type === 'change') {
       controller.setPageSize(Number(field.value))
       controller.refresh()
@@ -475,10 +456,9 @@ export function handleLacePurchaseDemandsEvent(target: HTMLElement, event?: Even
   }
   if (action === 'view-change') {
     const purchaseOrderId = actionNode.dataset.purchaseOrderId || ''
-    const actor = currentDemandActor()
-    markPurchaseChangeViewed(purchaseOrderId, actor)
+    markPurchaseChangeViewed(purchaseOrderId, PLATFORM_ADMIN)
     state.drawerPurchaseOrderId = purchaseOrderId
-    state.feedback = `${actor.actorName} 已查看采购单 ${getAccessoryPurchaseOrder(purchaseOrderId)?.purchaseOrderNo ?? ''} 的当前变更版本`
+    state.feedback = `已查看采购单 ${getAccessoryPurchaseOrder(purchaseOrderId)?.purchaseOrderNo ?? ''} 的当前变更版本`
     state.feedbackOk = true
     refreshAll()
     return true

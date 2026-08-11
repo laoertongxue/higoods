@@ -131,7 +131,7 @@ test('确认接收、加工填报、完成与撤销完成不依赖实际投入',
   await expect(page.locator('[data-lace-detail-section="processing-input"]')).not.toContainText('修改加工投入')
   await expect(page.locator('[data-lace-detail-section="processing-input"]')).toContainText('不可修改')
 
-  await page.locator('[data-lace-detail-field="actorRole"]').selectOption({ label: '花边厂主管' })
+  await expect(page.locator('[data-lace-detail-field="actorRole"]')).toHaveCount(0)
   await page.getByRole('button', { name: '撤销完成' }).click()
   await page.locator('[data-lace-detail-field="undoReason"]').fill('继续补产')
   await page.getByRole('dialog').filter({ hasText: '撤销完成' }).getByRole('button', { name: '确认撤销' }).click()

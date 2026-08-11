@@ -18,7 +18,6 @@ import {
   updateLaceCompletionReport,
   LaceDomainError,
   type CreateLaceCompletionCommand,
-  type LaceActor,
   type LaceProductionOrderView,
   type LaceProcessingInputUpdate,
   type UpdateLaceCompletionCommand,
@@ -66,7 +65,6 @@ const state: {
   overlayError: string
   feedback: string
   feedbackOk: boolean
-  actorRole: '花边厂业务员' | '花边厂主管' | '平台主管'
   activeTab: DetailTab
 } = {
   workOrderId: '',
@@ -75,7 +73,6 @@ const state: {
   overlayError: '',
   feedback: '',
   feedbackOk: true,
-  actorRole: '花边厂业务员',
   activeTab: 'production',
 }
 
@@ -95,20 +92,8 @@ function ensureLaceDetailEscapeBinding(): void {
   }, true)
 }
 
-function currentLaceDetailActor(): LaceActor {
-  if (state.actorRole === '花边厂主管') return LACE_FACTORY_SUPERVISOR
-  if (state.actorRole === '平台主管') return PLATFORM_ADMIN
-  return LACE_FACTORY_OPERATOR
-}
-
-function currentActorQueryRole(): 'operator' | 'supervisor' | 'platform' {
-  if (state.actorRole === '花边厂主管') return 'supervisor'
-  if (state.actorRole === '平台主管') return 'platform'
-  return 'operator'
-}
-
 function currentOrder(): LaceProductionOrderView | undefined {
-  return getLaceProductionOrderView(state.workOrderId, currentLaceDetailActor())
+  return getLaceProductionOrderView(state.workOrderId, PLATFORM_ADMIN)
 }
 
 function productionTone(status: LaceProductionOrderView['status']): 'blue' | 'green' | 'red' | 'slate' {
@@ -140,7 +125,7 @@ function detailActionClass(action: LaceWorkOrderAction): string {
 }
 
 function renderHeaderActions(order: LaceProductionOrderView): string {
-  return listExecutableLaceWorkOrderActions(order, currentLaceDetailActor(), false)
+  return listExecutableLaceWorkOrderActions(order, PLATFORM_ADMIN, false)
     .map((action) => `<button type="button" class="rounded-md border px-3 py-2 text-sm font-medium ${detailActionClass(action)}" data-lace-detail-action="${escapeHtml(detailActionName(action.key))}" data-skip-page-rerender="true">${escapeHtml(action.label)}</button>`)
     .join('')
 }
@@ -154,7 +139,7 @@ function renderChangeBanner(order: LaceProductionOrderView): string {
   const description = pending
     ? `当前生产单已同步到采购 V${order.purchaseVersion}。请先查看前后值及数量影响；查看仅代表已读，不表示审批或接受。`
     : `当前生产单读取采购 V${order.purchaseVersion}；生产、交出和收货状态仍独立计算。`
-  return `<section class="flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-3 ${classes}" data-lace-detail-section="purchase-change-banner"><div><strong>${escapeHtml(title)}</strong><p class="mt-1 text-xs">${escapeHtml(description)}</p></div><button type="button" class="rounded-md border bg-white px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-50" data-nav="/fcs/craft/accessory/lace/purchase-demands?actor=${encodeURIComponent(currentActorQueryRole())}&viewChange=1&purchaseOrderId=${encodeURIComponent(order.purchaseOrderId)}">查看采购变更</button></section>`
+  return `<section class="flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-3 ${classes}" data-lace-detail-section="purchase-change-banner"><div><strong>${escapeHtml(title)}</strong><p class="mt-1 text-xs">${escapeHtml(description)}</p></div><button type="button" class="rounded-md border bg-white px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-50" data-nav="/fcs/craft/accessory/lace/purchase-demands?viewChange=1&purchaseOrderId=${encodeURIComponent(order.purchaseOrderId)}">查看采购变更</button></section>`
 }
 
 function renderInputSection(order: LaceProductionOrderView): string {
@@ -168,7 +153,7 @@ function renderInputSection(order: LaceProductionOrderView): string {
 
 function renderSourceSection(order: LaceProductionOrderView): string {
   const source = order.demandSource
-  return `<section class="rounded-lg border bg-white"><header class="border-b px-4 py-3"><h2 class="font-semibold">需求来源</h2><p class="mt-1 text-xs text-slate-500">来源快照只读，由 PMS 采购事实同步；同一采购单 SKU 的多个款式来源仍合并为一张生产单。</p></header><div class="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4"><div><span class="text-xs text-slate-500">采购单／版本</span><div class="mt-1 font-medium">${escapeHtml(source.purchaseOrderNo)} · V${source.purchaseVersion}</div><div class="text-xs text-slate-500">采购员：${escapeHtml(source.buyerName)}</div></div><div><span class="text-xs text-slate-500">供应商／花边厂</span><div class="mt-1 font-medium">${escapeHtml(source.supplierName)}</div><div class="text-xs text-slate-500">${escapeHtml(source.factoryName)}</div></div><div><span class="text-xs text-slate-500">采购数量／交期</span><div class="mt-1 font-medium">${formatLaceQty(source.planQty, source.unit)}</div><div class="text-xs text-slate-500">${escapeHtml(source.dueDate)}</div></div><div><span class="text-xs text-slate-500">目标仓库</span><div class="mt-1 font-medium">${escapeHtml(source.targetWarehouseName)}</div></div><div class="sm:col-span-2"><span class="text-xs text-slate-500">全部关联款式</span><div class="mt-2">${renderLaceSourceStyles(source.sourceLines, 'h-14 w-14')}</div></div><div class="sm:col-span-2"><span class="text-xs text-slate-500">来源行／采购备注</span><div class="mt-1 text-sm">${escapeHtml(source.sourceLineIds.join('、'))}</div><div class="mt-1 text-sm text-slate-600">${escapeHtml(source.sourceNote || '无')}</div></div></div><div class="flex flex-wrap items-center justify-between gap-3 border-t bg-slate-50 px-4 py-3"><div>${order.purchaseChangeStatus === '待查看' ? renderLaceStatusBadge('采购已变更 · 待查看', 'yellow') : order.purchaseChangeStatus === '已查看' ? renderLaceStatusBadge('采购变更 · 已查看', 'slate') : renderLaceStatusBadge('无新变更', 'slate')}</div><button type="button" class="text-sm font-medium text-blue-700 hover:underline" data-nav="/fcs/craft/accessory/lace/purchase-demands?actor=${encodeURIComponent(currentActorQueryRole())}&viewChange=1&purchaseOrderId=${encodeURIComponent(order.purchaseOrderId)}">查看该采购单完整变更</button></div></section>`
+  return `<section class="rounded-lg border bg-white"><header class="border-b px-4 py-3"><h2 class="font-semibold">需求来源</h2><p class="mt-1 text-xs text-slate-500">来源快照只读，由 PMS 采购事实同步；同一采购单 SKU 的多个款式来源仍合并为一张生产单。</p></header><div class="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4"><div><span class="text-xs text-slate-500">采购单／版本</span><div class="mt-1 font-medium">${escapeHtml(source.purchaseOrderNo)} · V${source.purchaseVersion}</div><div class="text-xs text-slate-500">采购员：${escapeHtml(source.buyerName)}</div></div><div><span class="text-xs text-slate-500">供应商／花边厂</span><div class="mt-1 font-medium">${escapeHtml(source.supplierName)}</div><div class="text-xs text-slate-500">${escapeHtml(source.factoryName)}</div></div><div><span class="text-xs text-slate-500">采购数量／交期</span><div class="mt-1 font-medium">${formatLaceQty(source.planQty, source.unit)}</div><div class="text-xs text-slate-500">${escapeHtml(source.dueDate)}</div></div><div><span class="text-xs text-slate-500">目标仓库</span><div class="mt-1 font-medium">${escapeHtml(source.targetWarehouseName)}</div></div><div class="sm:col-span-2"><span class="text-xs text-slate-500">全部关联款式</span><div class="mt-2">${renderLaceSourceStyles(source.sourceLines, 'h-14 w-14')}</div></div><div class="sm:col-span-2"><span class="text-xs text-slate-500">来源行／采购备注</span><div class="mt-1 text-sm">${escapeHtml(source.sourceLineIds.join('、'))}</div><div class="mt-1 text-sm text-slate-600">${escapeHtml(source.sourceNote || '无')}</div></div></div><div class="flex flex-wrap items-center justify-between gap-3 border-t bg-slate-50 px-4 py-3"><div>${order.purchaseChangeStatus === '待查看' ? renderLaceStatusBadge('采购已变更 · 待查看', 'yellow') : order.purchaseChangeStatus === '已查看' ? renderLaceStatusBadge('采购变更 · 已查看', 'slate') : renderLaceStatusBadge('无新变更', 'slate')}</div><button type="button" class="text-sm font-medium text-blue-700 hover:underline" data-nav="/fcs/craft/accessory/lace/purchase-demands?viewChange=1&purchaseOrderId=${encodeURIComponent(order.purchaseOrderId)}">查看该采购单完整变更</button></div></section>`
 }
 
 function renderOutputSection(order: LaceProductionOrderView): string {
@@ -177,12 +162,12 @@ function renderOutputSection(order: LaceProductionOrderView): string {
 }
 
 function renderCompletionRecords(order: LaceProductionOrderView): string {
-  const reports = listLaceCompletionReports(order.workOrderId, currentLaceDetailActor())
+  const reports = listLaceCompletionReports(order.workOrderId, PLATFORM_ADMIN)
   return `<section class="overflow-hidden rounded-lg border bg-white"><header class="flex items-center justify-between border-b px-4 py-3"><div><h2 class="font-semibold">加工填报记录</h2><p class="mt-1 text-xs text-slate-500">多次填报累计完工为 ${formatLaceQty(order.completedQty, order.unit)}；记录不物理删除。</p></div></header><div class="overflow-x-auto"><table class="w-full min-w-[760px] text-left text-sm"><thead class="bg-slate-50 text-xs text-slate-500"><tr><th class="px-4 py-3">记录号</th><th class="px-4 py-3">本次完工</th><th class="px-4 py-3">填报人／时间</th><th class="px-4 py-3">备注</th><th class="px-4 py-3">修改历史</th><th class="px-4 py-3">操作</th></tr></thead><tbody>${reports.length ? reports.map((report) => `<tr class="border-t"><td class="px-4 py-3 font-mono text-xs">${escapeHtml(report.reportId)}</td><td class="px-4 py-3 font-semibold">${formatLaceQty(report.qty, report.unit)}</td><td class="px-4 py-3"><div>${escapeHtml(report.reporterName)}</div><div class="text-xs text-slate-500">${formatJakartaTime(report.reportedAt)}</div></td><td class="px-4 py-3">${escapeHtml(report.note || '—')}</td><td class="px-4 py-3 text-xs">${report.revisions.length ? report.revisions.map((revision) => `${formatLaceQty(revision.previousQty, report.unit)} → ${formatLaceQty(revision.revisedQty, report.unit)}｜${revision.reason}`).join('<br>') : '无'}</td><td class="px-4 py-3">${order.status === '加工中' ? `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-lace-detail-action="open-edit-report" data-report-id="${escapeHtml(report.reportId)}" data-skip-page-rerender="true">修改</button>` : '<span class="text-xs text-slate-400">当前状态已锁定</span>'}</td></tr>`).join('') : '<tr><td colspan="6" class="px-4 py-10 text-center text-slate-500">暂无加工填报</td></tr>'}</tbody></table></div></section>`
 }
 
 function renderHandoverRecords(order: LaceProductionOrderView): string {
-  const handovers = listLaceHandovers(order.workOrderId, currentLaceDetailActor())
+  const handovers = listLaceHandovers(order.workOrderId, PLATFORM_ADMIN)
   return `<section class="overflow-hidden rounded-lg border bg-white"><header class="border-b px-4 py-3"><h2 class="font-semibold">交出记录</h2><p class="mt-1 text-xs text-slate-500">每次成功交出生成一条独立记录；一次性交出全部也只有一条。</p></header><div class="overflow-x-auto"><table class="w-full min-w-[900px] text-left text-sm"><thead class="bg-slate-50 text-xs text-slate-500"><tr><th class="px-4 py-3">交出单</th><th class="px-4 py-3">本次／前后累计</th><th class="px-4 py-3">双方</th><th class="px-4 py-3">包装／送货</th><th class="px-4 py-3">时间</th><th class="px-4 py-3">下游</th></tr></thead><tbody>${handovers.length ? handovers.map((handover) => `<tr class="border-t"><td class="px-4 py-3 font-medium">${escapeHtml(handover.handoverNo)}</td><td class="px-4 py-3"><strong>${formatLaceQty(handover.qty, handover.unit)}</strong><div class="text-xs text-slate-500">${formatLaceQty(handover.cumulativeBefore, handover.unit)} → ${formatLaceQty(handover.cumulativeAfter, handover.unit)}</div></td><td class="px-4 py-3"><div>${escapeHtml(handover.fromFactoryName)}</div><div class="text-xs text-slate-500">→ ${escapeHtml(handover.toWarehouseName)}</div></td><td class="px-4 py-3"><div>${escapeHtml(handover.deliveryNo)} · ${handover.packageCount} 包</div><div class="text-xs text-slate-500">${escapeHtml(handover.packageNote || '无')}</div></td><td class="px-4 py-3">${formatJakartaTime(handover.handedOverAt)}</td><td class="px-4 py-3">${renderLaceStatusBadge(handover.receiptStatus, handover.receiptStatus === '已收货' ? 'green' : 'yellow')}</td></tr>`).join('') : '<tr><td colspan="6" class="px-4 py-10 text-center text-slate-500">暂无交出记录</td></tr>'}</tbody></table></div></section>`
 }
 
@@ -215,11 +200,11 @@ function renderOverlay(order: LaceProductionOrderView): string {
     return dialog('修改加工投入', renderInputMaintenanceBody(order), 'save-input', '保存修改')
   }
   if (state.overlay.kind === 'report') {
-    return dialog('加工填报', `<div class="grid gap-4 sm:grid-cols-2"><label><span class="mb-1 block text-xs text-slate-500">本次完工数量</span><div class="flex items-center gap-2"><input type="number" min="0.01" step="0.01" class="h-9 w-full rounded-md border px-3" data-lace-detail-field="reportQty"><span>${escapeHtml(order.unit)}</span></div></label><label><span class="mb-1 block text-xs text-slate-500">填报人</span><input class="h-9 w-full rounded-md border bg-slate-50 px-3" value="${escapeHtml(currentLaceDetailActor().actorName)}" disabled></label></div><label class="mt-4 block"><span class="mb-1 block text-xs text-slate-500">备注</span><textarea class="min-h-20 w-full rounded-md border p-3" data-lace-detail-field="reportNote"></textarea></label><p class="mt-3 text-xs text-slate-500">提交后累计达到或超过计划的 1.5 倍时，系统会再弹出一次确认；少产和普通超产不限制。</p>`, 'save-report', '保存加工填报')
+    return dialog('加工填报', `<div class="grid gap-4 sm:grid-cols-2"><label><span class="mb-1 block text-xs text-slate-500">本次完工数量</span><div class="flex items-center gap-2"><input type="number" min="0.01" step="0.01" class="h-9 w-full rounded-md border px-3" data-lace-detail-field="reportQty"><span>${escapeHtml(order.unit)}</span></div></label><label><span class="mb-1 block text-xs text-slate-500">填报人</span><input class="h-9 w-full rounded-md border bg-slate-50 px-3" value="${escapeHtml(LACE_FACTORY_OPERATOR.actorName)}" disabled></label></div><label class="mt-4 block"><span class="mb-1 block text-xs text-slate-500">备注</span><textarea class="min-h-20 w-full rounded-md border p-3" data-lace-detail-field="reportNote"></textarea></label><p class="mt-3 text-xs text-slate-500">提交后累计达到或超过计划的 1.5 倍时，系统会再弹出一次确认；少产和普通超产不限制。</p>`, 'save-report', '保存加工填报')
   }
   if (state.overlay.kind === 'edit-report') {
     const reportId = state.overlay.reportId
-    const report = listLaceCompletionReports(order.workOrderId, currentLaceDetailActor()).find((item) => item.reportId === reportId)
+    const report = listLaceCompletionReports(order.workOrderId, PLATFORM_ADMIN).find((item) => item.reportId === reportId)
     if (!report) return ''
     return dialog('修改加工填报', `<label class="block"><span class="mb-1 block text-xs text-slate-500">修改后数量</span><div class="flex items-center gap-2"><input type="number" min="0.01" step="0.01" class="h-9 w-full rounded-md border px-3" value="${report.qty}" data-lace-detail-field="reportQty"><span>${escapeHtml(order.unit)}</span></div></label><label class="mt-4 block"><span class="mb-1 block text-xs text-slate-500">修改原因</span><textarea class="min-h-20 w-full rounded-md border p-3" data-lace-detail-field="revisionReason" placeholder="必填；日志保留修改前后值"></textarea></label>`, 'save-edit-report', '保存修改')
   }
@@ -228,7 +213,7 @@ function renderOverlay(order: LaceProductionOrderView): string {
     const submittedQty = overlay.command.qty
     const resulting = overlay.mode === 'create'
       ? order.completedQty + (overlay.command as CreateLaceCompletionCommand).qty
-      : order.completedQty - (listLaceCompletionReports(order.workOrderId, currentLaceDetailActor()).find((item) => item.reportId === (overlay.command as UpdateLaceCompletionCommand).reportId)?.qty ?? 0) + (overlay.command as UpdateLaceCompletionCommand).qty
+      : order.completedQty - (listLaceCompletionReports(order.workOrderId, PLATFORM_ADMIN).find((item) => item.reportId === (overlay.command as UpdateLaceCompletionCommand).reportId)?.qty ?? 0) + (overlay.command as UpdateLaceCompletionCommand).qty
     const excessQty = Math.max(0, resulting - order.planQty)
     const ratio = order.planQty > 0 ? `${((resulting / order.planQty) * 100).toFixed(2)}%` : '—'
     return dialog('超量完工二次确认', `<div class="rounded-md border border-amber-300 bg-amber-50 p-4 text-amber-950"><strong>累计完工达到计划的 1.5 倍，请核对后再保存</strong><div class="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3"><div><span class="block text-xs text-amber-800">计划数量</span><strong>${formatLaceQty(order.planQty, order.unit)}</strong></div><div><span class="block text-xs text-amber-800">提交前累计完工</span><strong>${formatLaceQty(order.completedQty, order.unit)}</strong></div><div><span class="block text-xs text-amber-800">本次完工数量</span><strong>${formatLaceQty(submittedQty, order.unit)}</strong></div><div><span class="block text-xs text-amber-800">提交后累计完工</span><strong>${formatLaceQty(resulting, order.unit)}</strong></div><div><span class="block text-xs text-amber-800">超出计划数量</span><strong>${formatLaceQty(excessQty, order.unit)}</strong></div><div><span class="block text-xs text-amber-800">相对计划比例</span><strong>${ratio}</strong></div></div><p class="mt-3 text-sm">确认业务数量无误后仍可保存；本动作不增加审批状态。</p></div>`, 'confirm-overproduction', '仍要提交')
@@ -291,10 +276,7 @@ function renderInner(): string {
         <div class="flex flex-wrap items-center gap-2"><h1 class="text-2xl font-semibold">${escapeHtml(order.workOrderNo)}</h1>${renderLaceStatusBadge(order.status, productionTone(order.status))}</div>
         <p class="mt-1 text-sm text-slate-500">${escapeHtml(order.demandSource.factoryName)} · 采购单 ${escapeHtml(order.demandSource.purchaseOrderNo)} · ${escapeHtml(order.processingOutput.skuCode)}</p>
       </div>
-      <div class="flex flex-col items-end gap-2">
-        <label class="flex items-center gap-2 text-xs text-slate-500"><span>当前操作身份</span><select class="h-8 rounded-md border bg-white px-2 text-sm text-slate-800" data-lace-detail-field="actorRole" data-skip-page-rerender="true"><option value="花边厂业务员" ${state.actorRole === '花边厂业务员' ? 'selected' : ''}>花边厂业务员</option><option value="花边厂主管" ${state.actorRole === '花边厂主管' ? 'selected' : ''}>花边厂主管</option><option value="平台主管" ${state.actorRole === '平台主管' ? 'selected' : ''}>平台主管（兜底）</option></select></label>
-        <div class="flex flex-wrap justify-end gap-2">${renderHeaderActions(order)}</div>
-      </div>
+      <div class="flex flex-wrap justify-end gap-2">${renderHeaderActions(order)}</div>
     </header>
     <div data-lace-detail-feedback>${renderLaceFeedback(state.feedback, state.feedbackOk)}</div>
     ${renderChangeBanner(order)}
@@ -363,7 +345,7 @@ export function renderLaceWorkOrderDetailPage(workOrderId: string): string {
   const isDifferentOrder = state.workOrderId !== workOrderId
   const isFreshEntry = !rootElement()
   const params = typeof window === 'undefined' ? new URLSearchParams() : new URL(window.location.href).searchParams
-  const entryKey = `${workOrderId}|${params.get('actor') ?? ''}|${params.get('action') ?? ''}`
+  const entryKey = `${workOrderId}|${params.get('action') ?? ''}`
   if (isDifferentOrder || isFreshEntry || state.entryKey !== entryKey) {
     state.workOrderId = workOrderId
     state.entryKey = entryKey
@@ -372,11 +354,6 @@ export function renderLaceWorkOrderDetailPage(workOrderId: string): string {
     state.feedback = ''
     state.feedbackOk = true
     state.activeTab = 'production'
-
-    const actor = params.get('actor')
-    if (actor === 'supervisor') state.actorRole = '花边厂主管'
-    else if (actor === 'platform') state.actorRole = '平台主管'
-    else state.actorRole = '花边厂业务员'
 
     const queryAction = params.get('action')
     const actionMap: Partial<Record<string, { key: LaceWorkOrderActionKey; tab: DetailTab; overlay: DetailOverlay }>> = {
@@ -390,13 +367,13 @@ export function renderLaceWorkOrderDetailPage(workOrderId: string): string {
     const intent = queryAction ? actionMap[queryAction] : undefined
     const order = currentOrder()
     if (intent && order) {
-      const executable = listExecutableLaceWorkOrderActions(order, currentLaceDetailActor(), false)
+      const executable = listExecutableLaceWorkOrderActions(order, PLATFORM_ADMIN, false)
         .some((action) => action.key === intent.key)
       if (executable) {
         state.activeTab = intent.tab
         state.overlay = intent.overlay
       } else {
-        state.feedback = '当前身份或生产单状态不可执行该操作；页面未打开操作弹窗。'
+        state.feedback = '当前生产单状态不可执行该操作；页面未打开操作弹窗。'
         state.feedbackOk = false
       }
     }
@@ -411,16 +388,6 @@ export function handleLaceWorkOrderDetailEvent(target: HTMLElement, event?: Even
     state.overlay = null
     state.overlayError = ''
     refreshOverlays()
-    return true
-  }
-  const actorField = target.closest<HTMLSelectElement>('[data-lace-detail-field="actorRole"]')
-  if (actorField) {
-    state.actorRole = actorField.value as typeof state.actorRole
-    state.overlay = null
-    state.overlayError = ''
-    state.feedback = `当前操作身份已切换为${currentLaceDetailActor().actorName}；所有动作按该身份校验并写入日志。`
-    state.feedbackOk = true
-    refreshAll()
     return true
   }
   const actionNode = target.closest<HTMLElement>('[data-lace-detail-action]')
@@ -438,7 +405,7 @@ export function handleLaceWorkOrderDetailEvent(target: HTMLElement, event?: Even
   if (!order) return false
   try {
     if (action === 'start-production') {
-      startLaceProduction(order.workOrderId, currentLaceDetailActor())
+      startLaceProduction(order.workOrderId, LACE_FACTORY_OPERATOR)
       closeOverlayWithFeedback('已确认接收生产任务并进入加工中；默认加工投入保持不变。')
       return true
     }
@@ -475,7 +442,7 @@ export function handleLaceWorkOrderDetailEvent(target: HTMLElement, event?: Even
         order.workOrderId,
         updates,
         readTextField(scope, '[data-lace-detail-field="inputReason"]'),
-        currentLaceDetailActor(),
+        LACE_FACTORY_OPERATOR,
       )
       closeOverlayWithFeedback('加工投入的 SKU 与单位用量已保存；计划投入已自动重算，生产状态未改变。')
       return true
@@ -486,7 +453,7 @@ export function handleLaceWorkOrderDetailEvent(target: HTMLElement, event?: Even
         qty: readNumberField(scope, '[data-lace-detail-field="reportQty"]'),
         note: readTextField(scope, '[data-lace-detail-field="reportNote"]'),
         clientActionId: state.overlay.clientActionId,
-        actor: currentLaceDetailActor(),
+        actor: LACE_FACTORY_OPERATOR,
       }
       try {
         createLaceCompletionReport(command)
@@ -505,7 +472,7 @@ export function handleLaceWorkOrderDetailEvent(target: HTMLElement, event?: Even
         reportId: state.overlay.reportId,
         qty: readNumberField(scope, '[data-lace-detail-field="reportQty"]'),
         reason: readTextField(scope, '[data-lace-detail-field="revisionReason"]'),
-        actor: currentLaceDetailActor(),
+        actor: LACE_FACTORY_OPERATOR,
       }
       try {
         updateLaceCompletionReport(command)
@@ -526,12 +493,12 @@ export function handleLaceWorkOrderDetailEvent(target: HTMLElement, event?: Even
       return true
     }
     if (action === 'save-complete') {
-      completeLaceProduction(order.workOrderId, readTextField(scope, '[data-lace-detail-field="completeReason"]'), currentLaceDetailActor())
+      completeLaceProduction(order.workOrderId, readTextField(scope, '[data-lace-detail-field="completeReason"]'), LACE_FACTORY_OPERATOR)
       closeOverlayWithFeedback('花边生产单已完结；历史记录保留，剩余有效完工仍可交出。')
       return true
     }
     if (action === 'save-undo-complete') {
-      undoLaceProductionCompletion(order.workOrderId, readTextField(scope, '[data-lace-detail-field="undoReason"]'), currentLaceDetailActor())
+      undoLaceProductionCompletion(order.workOrderId, readTextField(scope, '[data-lace-detail-field="undoReason"]'), LACE_FACTORY_SUPERVISOR)
       closeOverlayWithFeedback('已撤销完成并回到加工中；完工、交出和收货事实未回滚。')
       return true
     }
@@ -544,7 +511,7 @@ export function handleLaceWorkOrderDetailEvent(target: HTMLElement, event?: Even
         packageNote: readTextField(scope, '[data-lace-detail-field="packageNote"]'),
         expectedReceiverName: readTextField(scope, '[data-lace-detail-field="receiverName"]'),
         clientActionId: state.overlay.clientActionId,
-        actor: currentLaceDetailActor(),
+        actor: LACE_FACTORY_OPERATOR,
       })
       closeOverlayWithFeedback('交出成功：已生成一条交出记录和一条 WLS 待收货记录。')
       return true
@@ -554,14 +521,14 @@ export function handleLaceWorkOrderDetailEvent(target: HTMLElement, event?: Even
       cancelLaceProductionOrder({
         workOrderId: order.workOrderId,
         reason: readTextField(scope, '[data-lace-detail-field="cancelReason"]'),
-        actor: currentLaceDetailActor(),
+        actor: LACE_FACTORY_SUPERVISOR,
         secondConfirmed: Boolean(checkbox?.checked),
       })
       closeOverlayWithFeedback('花边生产单已取消，历史事实和日志均保留。')
       return true
     }
     if (action === 'save-restore') {
-      restoreCancelledLaceProductionOrder(order.workOrderId, readTextField(scope, '[data-lace-detail-field="restoreReason"]'), currentLaceDetailActor())
+      restoreCancelledLaceProductionOrder(order.workOrderId, readTextField(scope, '[data-lace-detail-field="restoreReason"]'), PLATFORM_ADMIN)
       closeOverlayWithFeedback('已恢复原生产单；系统未生成第二张生产单。')
       return true
     }
