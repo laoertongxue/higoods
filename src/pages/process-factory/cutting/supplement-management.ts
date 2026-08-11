@@ -3296,6 +3296,7 @@ function ensureMockSupplementOrders(): void {
       confirmationIdentity: `supplement-page-seed-${index + 1}`,
       supplyRiskConfirmed: true,
     }
+    const createdAt = `2026-07-23 ${String(9 + Math.floor(index / 6)).padStart(2, '0')}:${String((index % 6) * 10).padStart(2, '0')}`
     const confirmationKey = buildSupplementConfirmationIdentity(variedDraft)
     const existingSeed = state.records.find((record) => record.confirmationKey === confirmationKey)
     if (existingSeed) {
@@ -3312,8 +3313,11 @@ function ensureMockSupplementOrders(): void {
             draft: variedDraft,
             createdBy: creators[index % creators.length],
             processWorkOrderRefs: [],
+            supplyDecisionSnapshots: [],
+            createdPurchaseOrderRefs: [],
             confirmationKey,
             requestFingerprint: buildSupplementRequestFingerprint(variedDraft),
+            createdAt,
           }),
         }
     if (!confirmed.ok) continue

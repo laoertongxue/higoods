@@ -468,6 +468,10 @@ assert(
   new Set(supplementRecords.map((record) => record.confirmationKey)).size === supplementRecords.length,
   '全部补料确认键必须唯一，不得跨生产单复用确认身份',
 )
+assert(
+  supplementRecords.every((record) => typeof record.createdAt === 'string' && record.createdAt.trim()),
+  '进入接收列表的每条补料记录必须有创建时间，确保需求顺序可稳定比较',
+)
 supplementRecords.flatMap((record) => record.processWorkOrderRefs).forEach((ref) => {
   assert(getProcessWorkOrderById(ref.workOrderId), `补料加工单引用必须可解析：${ref.workOrderId}`)
   const processResults = ref.processType === 'DYE' ? dyeResults : printResults
