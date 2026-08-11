@@ -417,8 +417,11 @@ for (const requiredText of ['本厂责任范围', '开始生产', 'PDA 只负责
 assert(!pdaMergedBranch.includes('complete-fixed-merged-task'))
 assert(!pdaMergedBranch.includes('执行里程碑'))
 
-for (const requiredText of ['生产单进度跟踪', '回货履约', '违反回货规则', '截止前1天提醒', '截止当天提醒', '逾期后首日警告', '同一节点各类提醒只产生一次']) {
+for (const requiredText of ['生产单进度跟踪', '加工厂 / 回货履约', '履约数据不完整', '已逾期', '今日到期', '明日到期', '即将到期', '截止前1天提醒', '截止当天提醒', '逾期后首日警告', '同一节点各类提醒只产生一次']) {
   assert(progressSource.includes(requiredText), `生产单进度页缺少：${requiredText}`)
+}
+for (const removedText of ['违反回货规则', '最近节点', '车缝加工厂']) {
+  assert(!progressSource.includes(removedText), `生产单进度页不应残留：${removedText}`)
 }
 assert(!progressSource.includes('超过1天已升级'))
 assert(contractPrintSource.includes('renderProductionContractMasterTemplate'))

@@ -44,6 +44,9 @@ const sewingTask = getRuntimeTaskById('TASKGEN-202603-0002-002__ORDER')
 assert(sewingTask, 'PO-202603-0002 必须存在可分配的独立车缝任务')
 assert.equal(sewingTask.productionOrderId, 'PO-202603-0002')
 assert.equal(sewingTask.scopeQty, 2500)
+assert.equal(sewingTask.standardPrice, 1200, '独立车缝任务必须从任务生成事实源取得有效标准价')
+assert.equal(sewingTask.standardPriceCurrency, 'IDR')
+assert.equal(sewingTask.standardPriceUnit, '件')
 assert.deepEqual(
   sewingTask.scopeSkuLines.map((line) => [line.skuCode, line.color, line.size, line.qty]),
   [
@@ -229,7 +232,6 @@ try {
     factoryPool: [{ factoryId: 'FAC-CHECK-001', factoryName: '验收工厂' }],
     standardPrice: 1500,
     minPrice: 1200,
-    maxPrice: 1800,
     currency: 'IDR',
     unit: '件',
     remark: '验证业务分配日期与招标报价共享事实',

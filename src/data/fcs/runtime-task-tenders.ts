@@ -5,6 +5,7 @@ export interface RuntimeTaskTenderFactory {
   factoryAddress?: string
   factoryType?: string
   capabilitySummary?: string
+  notifiedAt?: string
 }
 
 export type RuntimeTaskTenderPoolMode = 'ALL_ELIGIBLE' | 'MANUAL'
@@ -47,7 +48,6 @@ export interface RuntimeTaskTenderRecord {
   factoryPool: RuntimeTaskTenderFactory[]
   standardPrice: number
   minPrice: number
-  maxPrice: number
   currency: string
   unit: string
   remark: string
@@ -60,6 +60,7 @@ export interface RuntimeTaskTenderRecord {
   awardedFactoryId?: string
   awardedFactoryName?: string
   awardedPrice?: number
+  awardReason?: string
 }
 
 // 以招标单号保存历史记录。同一任务取消旧竞价后可以重新发起，但旧招标单必须继续留痕。
@@ -85,6 +86,7 @@ export function upsertRuntimeTaskTenderRecord(
   input: Omit<RuntimeTaskTenderRecord, 'quotes'> & { quotes?: RuntimeTaskTenderQuote[] },
 ): RuntimeTaskTenderRecord {
   const current = runtimeTaskTenderRecords.get(input.tenderId)
+  if (current) throw new Error(`招标单 ${input.tenderId} 已创建，任务范围、工厂池和最低允许报价均已冻结`)
   const latestForTask = getLatestTaskRecord(input.taskId)
   if (
     latestForTask &&
@@ -108,6 +110,16 @@ export function upsertRuntimeTaskTenderRecord(
   if (toDateMs(input.biddingDeadline) <= toDateMs(input.assignmentOperatedAt)) {
     throw new Error('竞价截止时间必须晚于业务分配时间')
   }
+  if (!Number.isFinite(input.standardPrice) || input.standardPrice <= 0) {
+    throw new Error('发起竞价前必须存在有效的工序标准价')
+  }
+  if (!Number.isFinite(input.minPrice) || input.minPrice <= 0) {
+    throw new Error('最低允许报价必须为正数')
+  }
+  if (input.minPrice > input.standardPrice) {
+    throw new Error('最低允许报价不能高于工序标准价')
+  }
+  if (!input.currency.trim() || !input.unit.trim()) throw new Error('竞价价格必须明确币种和计价单位')
 
   const record: RuntimeTaskTenderRecord = {
     ...input,
@@ -135,8 +147,8 @@ export function recordRuntimeTaskTenderQuote(
     throw new Error(`工厂 ${quote.factoryName} 已提交报价，不允许修改`)
   }
   if (!Number.isFinite(quote.quotePrice) || quote.quotePrice <= 0) throw new Error('报价金额必须为正数')
-  if (quote.quotePrice < record.minPrice || quote.quotePrice > record.maxPrice) {
-    throw new Error(`报价必须在 ${record.minPrice.toLocaleString()} 至 ${record.maxPrice.toLocaleString()} ${record.currency}/${record.unit} 范围内`)
+  if (quote.quotePrice < record.minPrice) {
+    throw new Error(`报价不能低于最低允许报价 ${record.minPrice.toLocaleString()} ${record.currency}/${record.unit}`)
   }
   const next = cloneRecord({ ...record, quotes: [...record.quotes, quote] })
   runtimeTaskTenderRecords.set(record.tenderId, next)
@@ -180,6 +192,7 @@ export function markRuntimeTaskTenderAwarded(input: {
   factoryName: string
   awardedPrice: number
   awardedAt: string
+  awardReason?: string
 }): RuntimeTaskTenderRecord {
   const record = getLatestTaskRecord(input.taskId)
   if (!record) throw new Error(`任务 ${input.taskId} 尚未创建招标单`)
@@ -189,12 +202,16 @@ export function markRuntimeTaskTenderAwarded(input: {
   const quote = record.quotes.find((item) => item.factoryId === input.factoryId)
   if (!quote) throw new Error(`工厂 ${input.factoryName} 未提交报价，不能定标`)
   if (quote.quotePrice !== input.awardedPrice) throw new Error('中标价格必须与工厂原始报价完全一致')
+  if (input.awardedPrice > record.standardPrice && !input.awardReason?.trim()) {
+    throw new Error('中标价高于工序标准价时必须填写价格差异说明')
+  }
   const next = cloneRecord({
     ...record,
     awardedAt: input.awardedAt,
     awardedFactoryId: input.factoryId,
     awardedFactoryName: input.factoryName,
     awardedPrice: input.awardedPrice,
+    awardReason: input.awardReason?.trim() || undefined,
   })
   runtimeTaskTenderRecords.set(record.tenderId, next)
   return cloneRecord(next)

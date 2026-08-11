@@ -1721,7 +1721,7 @@ const PDA_GENERIC_BIDDING_TENDERS: PdaMobileBiddingTenderMock[] = PDA_GENERIC_PR
     factoryPoolCount: PROCESS_PROFILES.find((item) => item.key === task.mockProcessKey)?.biddingFactoryPoolCount || 3,
     biddingDeadline: task.taskDeadline,
     taskDeadline: task.taskDeadline || '',
-    standardPrice: task.standardPrice || 0,
+    minPrice: task.standardPrice || 1,
     currency: task.standardPriceCurrency || 'CNY',
     factoryId: task.assignedFactoryId || '',
   }))

@@ -90,14 +90,11 @@ interface BiddingTender {
   processName: string
   qty: number
   qtyUnit: string
-  factoryPoolCount: number
   biddingDeadline: string
   taskDeadline: string
-  standardPrice: number
+  minPrice: number
   currency: string
   skuCount?: number
-  minPrice?: number
-  maxPrice?: number
 }
 
 interface QuotedTender {
@@ -524,14 +521,11 @@ function getActiveBiddingTenders(): BiddingTender[] {
         processName,
         qty: tender.runtimeShared ? tender.qty : (task?.qty ?? tender.qty),
         qtyUnit,
-        factoryPoolCount: tender.factoryPoolCount,
         biddingDeadline: tender.biddingDeadline,
         taskDeadline: task?.taskDeadline || tender.taskDeadline,
-        standardPrice: task?.standardPrice ?? tender.standardPrice,
         currency: task?.standardPriceCurrency || task?.dispatchPriceCurrency || tender.currency,
         skuCount: tender.skuCount,
         minPrice: tender.minPrice,
-        maxPrice: tender.maxPrice,
       } satisfies BiddingTender
     })
     .sort((left, right) => left.biddingDeadline.localeCompare(right.biddingDeadline))
@@ -895,10 +889,9 @@ function renderPendingQuoteItem(tender: BiddingTender): string {
           ${renderFieldRow('工序', processName)}
           ${renderFieldRow('任务范围', `${tender.skuCount ?? '-'} 个 SKU（整任务）`)}
           ${renderFieldRow('数量', `${tender.qty} ${tender.qtyUnit}`)}
-          ${renderFieldRow('工厂池', `${tender.factoryPoolCount} 家`)}
           ${renderFieldRow('竞价截止', tender.biddingDeadline)}
           ${renderFieldRow('任务截止', tender.taskDeadline)}
-          ${renderFieldRow('工序标准价', `${tender.standardPrice.toLocaleString()} ${tender.currency}/${tender.qtyUnit}`)}
+          ${renderFieldRow('最低允许报价', `${tender.minPrice.toLocaleString()} ${tender.currency}/${tender.qtyUnit}`)}
         </div>
       </div>
 
@@ -1168,10 +1161,8 @@ function renderQuoteDialog(quotingTender: BiddingTender | null): string {
             ${
               quotingTender
                 ? `<div class="space-y-1 text-xs text-muted-foreground">
-                    <p>工序标准价参考：${quotingTender.standardPrice.toLocaleString()} ${escapeHtml(quotingTender.currency)}/${escapeHtml(quotingTender.qtyUnit)}</p>
-                    ${quotingTender.minPrice != null && quotingTender.maxPrice != null
-                      ? `<p>允许报价范围：${quotingTender.minPrice.toLocaleString()} 至 ${quotingTender.maxPrice.toLocaleString()} ${escapeHtml(quotingTender.currency)}/${escapeHtml(quotingTender.qtyUnit)}</p>`
-                      : ''}
+                    <p>最低允许报价：${quotingTender.minPrice.toLocaleString()} ${escapeHtml(quotingTender.currency)}/${escapeHtml(quotingTender.qtyUnit)}</p>
+                    <p>报价达到最低允许报价即可提交；提交后不可修改。</p>
                   </div>`
                 : ''
             }
@@ -1565,6 +1556,11 @@ export function handlePdaTaskReceiveEvent(target: HTMLElement): boolean {
 
     const quotingTenderId = state.quotingTenderId
     if (!quotingTenderId) return true
+    const quotingTender = getActiveBiddingTenders().find((tender) => tender.tenderId === quotingTenderId)
+    if (quotingTender && Number(state.quoteAmount) < quotingTender.minPrice) {
+      showTaskReceiveToast(`报价不能低于最低允许报价 ${quotingTender.minPrice.toLocaleString()} ${quotingTender.currency}/${quotingTender.qtyUnit}`)
+      return true
+    }
     const quotedAt = nowTimestamp()
     const quoteSnapshot: SubmittedQuoteSnapshot = {
       quotedPrice: Number(state.quoteAmount),

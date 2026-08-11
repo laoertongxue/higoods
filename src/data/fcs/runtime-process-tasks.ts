@@ -370,6 +370,7 @@ export interface RuntimeTaskTenderAwardInput {
   factoryName: string
   awardedAt: string
   awardedPrice: number
+  priceDiffReason?: string
   by: string
   riskConfirmed?: boolean
   supervisorAssigned?: boolean
@@ -2662,6 +2663,9 @@ export function prepareRuntimeTaskTenderAward(
   if (!Number.isFinite(input.awardedPrice) || input.awardedPrice <= 0) {
     throw new Error(`任务 ${input.taskId} 中标价格必须为正数`)
   }
+  if (task.standardPrice != null && input.awardedPrice > task.standardPrice && !input.priceDiffReason?.trim()) {
+    throw new Error(`任务 ${input.taskId} 中标价高于工序标准价，必须填写价格差异说明`)
+  }
   assertTenderAwardRatingPolicy(input, task)
   return {
     input: { ...input },
@@ -2686,6 +2690,7 @@ export function awardRuntimeTaskTender(input: RuntimeTaskTenderAwardInput): Runt
         dispatchPrice: input.awardedPrice,
         dispatchPriceCurrency: originalTask.standardPriceCurrency ?? 'IDR',
         dispatchPriceUnit: originalTask.standardPriceUnit ?? originalTask.qtyUnit,
+        priceDiffReason: input.priceDiffReason?.trim() || undefined,
         ...(requiresFactoryAcceptance
           ? {
               acceptanceStatus: 'PENDING' as const,
@@ -2700,7 +2705,7 @@ export function awardRuntimeTaskTender(input: RuntimeTaskTenderAwardInput): Runt
             }),
       },
       'TENDER_AWARD',
-      `平台定标给 ${input.factoryName}，中标价 ${input.awardedPrice.toLocaleString()} ${originalTask.standardPriceCurrency ?? 'IDR'}/${originalTask.standardPriceUnit ?? originalTask.qtyUnit}`,
+      `平台定标给 ${input.factoryName}，中标价 ${input.awardedPrice.toLocaleString()} ${originalTask.standardPriceCurrency ?? 'IDR'}/${originalTask.standardPriceUnit ?? originalTask.qtyUnit}${input.priceDiffReason?.trim() ? `；价格差异说明：${input.priceDiffReason.trim()}` : ''}`,
       input.by,
     )
     if (!updated) throw new Error(`任务 ${input.taskId} 定标提交失败`)

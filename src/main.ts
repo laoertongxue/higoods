@@ -729,6 +729,10 @@ async function dispatchPcsInputEvent(target: Element): Promise<boolean> {
 
 async function closeDialogsOnEscape(): Promise<boolean> {
   const pathname = appStore.getState().pathname
+  if (pathname.startsWith('/fcs/progress/production-orders') || pathname.startsWith('/fcs/production_order_track/index')) {
+    const productionOrderProgressTrackingPage = await getProductionOrderProgressTrackingPageModule()
+    return productionOrderProgressTrackingPage.closeProductionOrderProgressOverlay()
+  }
   if (pathname.startsWith('/fcs/factories/profile')) {
     try {
       const factoryProfilePage = await getFactoryProfilePageModule()

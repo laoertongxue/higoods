@@ -242,7 +242,7 @@ export function listPdaCuttingBiddingTenderMocks(): PdaMobileBiddingTenderMock[]
       factoryPoolCount: scenario.factoryPoolCount || 1,
       biddingDeadline: scenario.biddingDeadline || scenario.acceptDeadline,
       taskDeadline: scenario.taskDeadline,
-      standardPrice: scenario.standardPrice,
+      minPrice: scenario.standardPrice,
       currency: scenario.currency,
       factoryId: scenario.assignedFactoryId,
     }))

@@ -909,6 +909,7 @@ function getOrderQty(orderId: string): number {
 function resolveGeneratedTaskStandardPrice(processCode: string): number | undefined {
   const prices: Record<string, number> = {
     PROC_CUT: 1000,
+    PROC_SEW: 1200,
     PROC_IRON_PACK: 2000,
     PROC_LASER_CUT: 1600,
     PROC_SPECIAL_CRAFT: 1800,

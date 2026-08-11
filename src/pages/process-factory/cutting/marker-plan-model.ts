@@ -10,6 +10,7 @@ import {
   type CuttingTaskLink,
 } from '../../../data/fcs/cutting/cutting-task-routing.ts'
 import { findStyleArchiveByCode } from '../../../data/pcs-style-archive-repository.ts'
+import { getBrowserLocalStorage } from '../../../data/browser-storage.ts'
 import {
   getCurrentTechPackVersionByStyleId,
   getTechnicalDataVersionContentById,
@@ -246,7 +247,7 @@ function sanitizeKey(value: string): string {
 }
 
 function listReferencedCutOrderIdsFromSpreadingStorage(
-  storage: Pick<Storage, 'getItem'> | null = typeof localStorage === 'undefined' ? null : localStorage,
+  storage: Pick<Storage, 'getItem'> | null = getBrowserLocalStorage(),
 ): string[] {
   if (!storage) return []
   try {

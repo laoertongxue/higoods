@@ -5,6 +5,16 @@ import { renderStandardListTable, type StandardListColumn } from '../components/
 import type { StandardListColumnPreferences } from '../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../components/ui/pagination.ts'
 import { listProductionContracts } from '../data/fcs/production-contracts.ts'
+import {
+  addNaturalDays,
+  projectProductionOrderReturnSummary,
+  type ProductionOrderReturnListStatus,
+  type ProductionOrderReturnSummary,
+} from '../data/fcs/production-return-fulfillment.ts'
+import {
+  ensureProductionReturnProgressMockFacts,
+  PRODUCTION_RETURN_PROGRESS_DEMO_TODAY,
+} from '../data/fcs/production-return-progress-mock.ts'
 import { escapeHtml } from '../utils.ts'
 
 type RiskLevel = '高风险' | '中风险' | '低风险' | '无风险'
@@ -27,6 +37,7 @@ interface FactoryReturnProgress {
     deadline: string
     confirmedQty: number
     status: '已达成' | '明日到期' | '今日到期' | '已逾期' | '未到期'
+    reminderState: string
   }>
 }
 
@@ -69,6 +80,8 @@ interface OnlineProductionProgressRecord {
   procurementRows: Array<{ no: string; sku: string; status: string }>
   inventoryRows: Array<{ sku: string; required: number; stock: number; unit: string }>
   returnProgress: FactoryReturnProgress[]
+  returnSummary: ProductionOrderReturnSummary
+  returnExpectation: 'STAGED' | 'BIDDING' | 'NONE'
 }
 
 interface ProgressTrackingState {
@@ -88,7 +101,7 @@ interface ProgressTrackingState {
   createEnd: string
   qtyMin: string
   qtyMax: string
-  returnStatus: string
+  returnStatus: ProductionOrderReturnListStatus | ''
   contractStatus: string
   page: number
   pageSize: number
@@ -105,50 +118,48 @@ const state: ProgressTrackingState = {
 
 const IMAGE_URLS = ['/shirt-sample.jpg', '/dress-sample-1.jpg', '/cardigan-sample.jpg', '/tshirt-sample.jpg', '/pants-sample.jpg', '/lace-dress-sample.jpg', '/jacket-sample.jpg', '/denim-shorts-sample.jpg']
 
-function milestoneStatus(index: number, rowIndex: number): FactoryReturnProgress['milestones'][number]['status'] {
-  const variants: FactoryReturnProgress['milestones'][number]['status'][][] = [
-    ['已达成', '今日到期', '未到期'],
-    ['已达成', '已逾期', '已逾期'],
-    ['已达成', '明日到期', '未到期'],
-    ['已逾期', '已逾期', '已逾期'],
-  ]
-  return variants[rowIndex % variants.length][index]
-}
-
-function makeReturnProgress(rowIndex: number, qty: number): FactoryReturnProgress[] {
-  const factoryCount = rowIndex % 4 === 0 ? 2 : rowIndex % 3 === 0 ? 1 : 0
-  return Array.from({ length: factoryCount }, (_, factoryIndex) => {
-    const assignedQty = factoryCount === 2 ? (factoryIndex === 0 ? Math.ceil(qty * .6) : Math.floor(qty * .4)) : qty
-    const days = rowIndex % 5 === 0 ? [5, 9, 10] : [4, 8, 9]
-    const ratios = [.3, .7, 1]
-    const statuses = ratios.map((_, milestoneIndex) => milestoneStatus(milestoneIndex, rowIndex + factoryIndex))
+function mapReturnProgress(summary: ProductionOrderReturnSummary): FactoryReturnProgress[] {
+  const tomorrow = addNaturalDays(PRODUCTION_RETURN_PROGRESS_DEMO_TODAY, 1)
+  return summary.assignments.map((assignment) => {
+    const snapshot = assignment.projection.snapshot
+    const ruleLabel = snapshot.milestones.map((item) => `第${item.naturalDay}天≥${Math.round(item.ratio * 100)}%`).join('，')
     return {
-      assignmentId: `ASG-PO-${16234 - rowIndex}-${factoryIndex + 1}`,
-      factoryId: `ID-F${String(3 + factoryIndex).padStart(3, '0')}`,
-      factoryName: factoryIndex === 0 ? '万隆车缝厂' : '棉兰卫星车缝厂',
-      taskName: rowIndex % 5 === 0 ? '车缝 → 开扣眼 → 烫包' : '独立车缝',
-      assignedQty,
-      returnedQty: statuses[1] === '已逾期' ? Math.ceil(assignedQty * .35) : Math.ceil(assignedQty * .72),
-      contractNo: `SC-PO${16234 - rowIndex}-${factoryIndex + 1}`,
-      scanCount: (rowIndex + factoryIndex) % 3 === 0 ? 0 : 2,
-      ruleLabel: days[0] === 4 ? '第4天≥30%，第8天≥70%，第9天100%' : '第5天≥30%，第9天≥70%，第10天100%',
-      milestones: ratios.map((ratio, milestoneIndex) => ({
-        day: days[milestoneIndex],
-        ratio,
-        targetQty: Math.ceil(assignedQty * ratio),
-        deadline: `2026-08-${String(4 + days[milestoneIndex]).padStart(2, '0')}`,
-        confirmedQty: milestoneIndex === 0 ? Math.ceil(assignedQty * .32) : milestoneIndex === 1 ? Math.ceil(assignedQty * .35) : Math.ceil(assignedQty * .35),
-        status: statuses[milestoneIndex],
+      assignmentId: snapshot.assignmentId,
+      factoryId: snapshot.factoryId,
+      factoryName: snapshot.factoryName,
+      taskName: snapshot.fulfillmentRuleCode === 'SEWING_ONLY' ? '独立车缝' : snapshot.fulfillmentRuleCode === 'SEWING_TO_IRON_PACK' ? '车缝+烫包' : '裁剪+车缝+烫包',
+      assignedQty: snapshot.assignedQty,
+      returnedQty: assignment.projection.confirmedReturnedQty,
+      scanCount: 0,
+      ruleLabel,
+      milestones: assignment.projection.milestones.map((item) => ({
+        day: item.naturalDay,
+        ratio: item.ratio,
+        targetQty: item.targetQty,
+        deadline: item.deadlineDate,
+        confirmedQty: item.confirmedQtyByDeadline,
+        status: item.status === 'REACHED' ? '已达成' : item.status === 'OVERDUE' ? '已逾期' : item.status === 'DUE_TODAY' ? '今日到期' : item.deadlineDate === tomorrow ? '明日到期' : '未到期',
+        reminderState: item.ratio === assignment.focusMilestone.ratio ? assignment.reminderState : item.status === 'REACHED' ? '节点已达成，无需提醒' : '尚未到提醒时间',
       })),
     }
   })
 }
+
+ensureProductionReturnProgressMockFacts()
 
 const orders: OnlineProductionProgressRecord[] = Array.from({ length: 43 }, (_, index) => {
   const qty = [800, 1000, 309, 300, 786, 661, 703, 748, 600, 1163][index % 10]
   const poNo = `PO${16234 - index}`
   const dye = index % 3 === 0
   const print = index % 3 !== 0
+  const returnExpectation: OnlineProductionProgressRecord['returnExpectation'] = index === 4 ? 'BIDDING' : index <= 3 ? 'STAGED' : 'NONE'
+  const returnSummary = projectProductionOrderReturnSummary({
+    productionOrderId: poNo,
+    today: PRODUCTION_RETURN_PROGRESS_DEMO_TODAY,
+    expectedStagedReturn: returnExpectation === 'STAGED',
+    bidding: returnExpectation === 'BIDDING',
+  })
+  const returnProgress = mapReturnProgress(returnSummary)
   return {
     productionOrderId: poNo,
     productionOrderNo: poNo,
@@ -174,10 +185,10 @@ const orders: OnlineProductionProgressRecord[] = Array.from({ length: 43 }, (_, 
     breakdownStatus: index % 5 === 0 ? '已拆解' : '未拆解',
     riskLevel: (['高风险', '中风险', '低风险', '无风险'] as RiskLevel[])[index % 4],
     techPackVersion: `v1.${index % 5}`,
-    sewingFactories: makeReturnProgress(index, qty).map((item) => item.factoryName),
+    sewingFactories: returnProgress.map((item) => item.factoryName),
     orderAt: `2026-08-04 ${String(9 - Math.floor(index / 8)).padStart(2, '0')}:${String((54 - index * 3 + 60) % 60).padStart(2, '0')}:11`,
     firstMaterialAt: `2026-08-04 ${String(9 - Math.floor(index / 8)).padStart(2, '0')}:${String((54 - index * 3 + 60) % 60).padStart(2, '0')}:12`,
-    sewingAssignedAt: index % 3 === 0 ? '2026-08-04 10:20:00' : undefined,
+    sewingAssignedAt: returnSummary.primary ? `${returnSummary.primary.projection.snapshot.assignmentDate} 10:20:00` : undefined,
     firstRegistrationAt: index % 8 === 0 ? '2026-08-04 15:10:00' : undefined,
     firstInboundAt: index % 9 === 0 ? '2026-08-05 08:30:00' : undefined,
     dyePrintRows: [
@@ -189,7 +200,9 @@ const orders: OnlineProductionProgressRecord[] = Array.from({ length: 43 }, (_, 
       { sku: 'FLSZ24116-white', required: qty, stock: 654056, unit: '米' },
       { sku: `WLID009-${index % 2 ? 'asaya' : 'chicmore'}`, required: qty, stock: index % 5 === 0 ? Math.ceil(qty * .8) : 27561, unit: '件' },
     ],
-    returnProgress: makeReturnProgress(index, qty),
+    returnProgress,
+    returnSummary,
+    returnExpectation,
   }
 })
 
@@ -212,7 +225,7 @@ function filterOrders(): OnlineProductionProgressRecord[] {
     && (!state.deliveryEnd || Boolean(order.sewingAssignedAt && order.sewingAssignedAt.slice(0, 10) <= state.deliveryEnd))
     && (!state.createStart || order.orderAt.slice(0, 10) >= state.createStart)
     && (!state.createEnd || order.orderAt.slice(0, 10) <= state.createEnd)
-    && (!state.returnStatus || order.returnProgress.some((progress) => progress.milestones.some((item) => item.status === state.returnStatus)))
+    && (!state.returnStatus || order.returnSummary.status === state.returnStatus)
     && (!state.contractStatus || order.returnProgress.some((progress) => state.contractStatus === 'SIGNED' ? progress.scanCount > 0 : state.contractStatus === 'MISSING_SCAN' ? Boolean(progress.contractNo && progress.scanCount === 0) : state.contractStatus === 'NOT_APPLICABLE' ? !progress.contractNo : false))
     && (min == null || order.qty >= min)
     && (max == null || order.qty <= max)
@@ -231,19 +244,40 @@ function compactProgress(label: string, value: number): string {
 }
 
 function highestReturnRisk(row: OnlineProductionProgressRecord): { label: string; tone: string; progress?: FactoryReturnProgress; node?: FactoryReturnProgress['milestones'][number] } | null {
-  const candidates = row.returnProgress.flatMap((progress) => progress.milestones.map((node) => ({ progress, node, rank: node.status === '已逾期' ? 4 : node.status === '今日到期' ? 3 : node.status === '明日到期' ? 2 : node.status === '已达成' ? 1 : 0 }))).sort((a, b) => b.rank - a.rank)
-  const highest = candidates[0]
-  if (!highest) return null
-  return { label: highest.node.status === '已逾期' ? '违反回货规则' : highest.node.status, tone: highest.node.status === '已逾期' ? 'border-red-200 bg-red-50 text-red-700' : highest.node.status === '今日到期' ? 'border-orange-200 bg-orange-50 text-orange-700' : highest.node.status === '明日到期' ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-green-200 bg-green-50 text-green-700', progress: highest.progress, node: highest.node }
+  const summary = row.returnSummary
+  const tone = summary.status === 'DATA_INCOMPLETE' || summary.status === 'OVERDUE'
+    ? 'border-red-200 bg-red-50 text-red-700'
+    : summary.status === 'DUE_TODAY'
+      ? 'border-orange-200 bg-orange-50 text-orange-700'
+      : summary.status === 'DUE_TOMORROW'
+        ? 'border-amber-200 bg-amber-50 text-amber-700'
+        : summary.status === 'REACHED'
+          ? 'border-green-200 bg-green-50 text-green-700'
+          : 'border-blue-200 bg-blue-50 text-blue-700'
+  if (!summary.primary) return { label: summary.statusLabel, tone }
+  const progress = row.returnProgress.find((item) => item.assignmentId === summary.primary?.projection.snapshot.assignmentId)
+  const node = progress?.milestones.find((item) => item.ratio === summary.primary?.focusMilestone.ratio)
+  return { label: summary.statusLabel, tone, progress, node }
+}
+
+function renderReturnListCell(row: OnlineProductionProgressRecord): string {
+  const summary = row.returnSummary
+  const fulfillment = highestReturnRisk(row)
+  if (!summary.primary || !fulfillment?.progress || !fulfillment.node) {
+    return `<button class="w-full rounded border p-2 text-left text-xs ${fulfillment?.tone || 'border-slate-200'}" data-progress-action="view-return" data-order-id="${row.productionOrderId}"><b>${escapeHtml(summary.statusLabel)}</b><p class="mt-1 text-muted-foreground">${escapeHtml(summary.message || '查看回货履约详情')}</p></button>`
+  }
+  const milestone = summary.primary.focusMilestone
+  const shortage = Math.max(0, milestone.targetQty - milestone.confirmedQtyByDeadline)
+  return `<button class="w-full rounded border p-2 text-left text-xs ${fulfillment.tone}" data-progress-action="view-return" data-order-id="${row.productionOrderId}"><div class="flex justify-between gap-2"><b>${escapeHtml(summary.statusLabel)}</b><span>${escapeHtml(fulfillment.progress.factoryName)}</span></div><p class="mt-1">第${milestone.naturalDay}自然日 · ${Math.round(milestone.ratio * 100)}% · 截止 ${milestone.deadlineDate}</p><p>应回 ${milestone.targetQty}件 · 按期确认 ${milestone.confirmedQtyByDeadline}件 · 缺 ${shortage}件</p><p class="mt-1 font-medium">${escapeHtml(summary.primary.reminderState)}</p>${summary.additionalFactoryCount || summary.additionalRiskNodeCount ? `<p class="mt-1 text-muted-foreground">另有 ${summary.additionalFactoryCount} 家工厂、${summary.additionalRiskNodeCount} 个未达成节点，点击查看全部</p>` : ''}</button>`
 }
 
 const columns: StandardListColumn<OnlineProductionProgressRecord>[] = [
   { key: 'base', title: '基础信息', width: 230, required: true, freezeable: true, render: (row) => `<div class="flex gap-2"><button data-progress-action="preview-image" data-url="${row.imageUrl}" data-label="${escapeHtml(row.spu)}"><img src="${row.imageUrl}" alt="${escapeHtml(row.spu)}款式实拍图" class="h-16 w-14 rounded border object-cover"/></button><div class="text-xs"><b>Spu：${escapeHtml(row.spu)}</b><p>生产单：<span class="text-blue-600">${escapeHtml(row.productionOrderNo)}</span></p><p>需求单：<span class="text-blue-600">${escapeHtml(row.demandNo)}</span></p><p class="mt-1"><span class="rounded bg-orange-50 px-1 text-orange-600">${row.sampleType}</span> <span class="rounded bg-blue-50 px-1 text-blue-600">${row.saleType}</span></p><p>做货难度：${escapeHtml(row.difficulty)}</p></div></div>` },
   { key: 'process', title: '工序进度', width: 150, render: (row) => `<div class="space-y-1">${compactProgress('配料进度', row.materialPercent)}${compactProgress('裁片进度', row.cuttingPercent)}${compactProgress('登记进度', row.registrationPercent)}${compactProgress('入库进度', row.inboundPercent)}</div>` },
   { key: 'flow', title: '数据流转', width: 150, render: (row) => `<div class="grid grid-cols-2 gap-x-2 text-xs"><span>计划</span><b>${row.qty}</b><span>裁片齐套</span><b>${row.cutReadyQty}</b><span>裁片完成</span><b>${row.cutCompletedQty}</b><span>登记</span><b>${row.registeredQty}</b><span>入库</span><b>${row.inboundQty}</b><span>QC合格</span><b class="text-green-600">${row.qcQualifiedQty}</b><span>返工</span><b class="text-orange-600">${row.qcReworkQty}</b></div>` },
-  { key: 'status', title: '状态', width: 155, render: (row) => { const fulfillment = highestReturnRisk(row); return `<span class="rounded bg-blue-50 px-2 py-1 text-xs text-blue-700">${row.status}</span><p class="mt-2 text-xs">拆解：${row.breakdownStatus}</p>${fulfillment ? `<span class="mt-2 inline-flex rounded border px-2 py-0.5 text-xs ${fulfillment.tone}">${escapeHtml(fulfillment.label)}</span>` : `<span class="mt-2 inline-flex rounded border px-2 py-0.5 text-xs ${riskTone(row.riskLevel)}">${row.riskLevel}</span>`}<p class="mt-1 text-xs">技术包：${row.techPackVersion}</p>` } },
-  { key: 'factory', title: '车缝加工厂', width: 165, render: (row) => row.sewingFactories.length ? row.sewingFactories.map((name, index) => `<p class="text-xs ${index ? 'mt-1 border-t pt-1' : ''}">${escapeHtml(name)}</p>`).join('') : '<span class="text-xs text-muted-foreground">无</span>' },
-  { key: 'time', title: '时间', width: 225, render: (row) => { const fulfillment = highestReturnRisk(row); return `<dl class="grid grid-cols-[74px_1fr] gap-x-2 text-[11px]"><dt>生产下单</dt><dd>${row.orderAt}</dd><dt>拆解</dt><dd>${row.breakdownAt || '-'}</dd><dt>首次配料</dt><dd>${row.firstMaterialAt}</dd><dt>首次接收</dt><dd>${row.firstPickupAt || '-'}</dd><dt>裁片开始</dt><dd>${row.cuttingStartedAt || '-'}</dd><dt>裁片完成</dt><dd>${row.cuttingCompletedAt || '-'}</dd><dt>车缝派单</dt><dd>${row.sewingAssignedAt || '-'}</dd><dt>首次登记</dt><dd>${row.firstRegistrationAt || '-'}</dd><dt>首次入库</dt><dd>${row.firstInboundAt || '-'}</dd>${fulfillment?.node && fulfillment.progress ? `<dt class="mt-1 text-red-700">最近节点</dt><dd class="mt-1 text-red-700">${fulfillment.node.deadline} · ${escapeHtml(fulfillment.progress.factoryName)} · 缺${Math.max(0, fulfillment.node.targetQty - fulfillment.node.confirmedQty)}件</dd>` : ''}</dl>` } },
+  { key: 'status', title: '状态', width: 155, render: (row) => `<span class="rounded bg-blue-50 px-2 py-1 text-xs text-blue-700">${row.status}</span><p class="mt-2 text-xs">拆解：${row.breakdownStatus}</p><span class="mt-2 inline-flex rounded border px-2 py-0.5 text-xs ${riskTone(row.riskLevel)}">${row.riskLevel}</span><p class="mt-1 text-xs">技术包：${row.techPackVersion}</p>` },
+  { key: 'factory', title: '加工厂 / 回货履约', width: 290, render: renderReturnListCell },
+  { key: 'time', title: '时间', width: 225, render: (row) => `<dl class="grid grid-cols-[74px_1fr] gap-x-2 text-[11px]"><dt>生产下单</dt><dd>${row.orderAt}</dd><dt>拆解</dt><dd>${row.breakdownAt || '-'}</dd><dt>首次配料</dt><dd>${row.firstMaterialAt}</dd><dt>首次接收</dt><dd>${row.firstPickupAt || '-'}</dd><dt>裁片开始</dt><dd>${row.cuttingStartedAt || '-'}</dd><dt>裁片完成</dt><dd>${row.cuttingCompletedAt || '-'}</dd><dt>车缝派单</dt><dd>${row.sewingAssignedAt || '-'}</dd><dt>首次登记</dt><dd>${row.firstRegistrationAt || '-'}</dd><dt>首次入库</dt><dd>${row.firstInboundAt || '-'}</dd></dl>` },
   { key: 'dyePrint', title: '印染状态', width: 220, render: (row) => row.dyePrintRows.map((item) => `<div class="mb-2 flex gap-2 rounded border p-2 text-[11px]"><button data-progress-action="preview-image" data-url="/materials/fabric-main.jpg" data-label="${escapeHtml(item.sku)}"><img src="/materials/fabric-main.jpg" alt="${escapeHtml(item.sku)}物料实拍图" class="h-10 w-10 rounded object-cover"/></button><div><b>${item.type} <span class="text-blue-600">${item.no}</span></b><p>Sku：${escapeHtml(item.sku)}</p><p>0/${item.qty} <span class="rounded bg-orange-50 px-1 text-orange-600">${item.status}</span></p></div></div>`).join('') || '<span class="text-xs">无</span>' },
   { key: 'procurement', title: '物料采购', width: 175, render: (row) => row.procurementRows.map((item) => `<div class="mb-2 rounded border p-2 text-[11px]"><p>采购单：<span class="text-blue-600">${item.no}</span> <span class="rounded bg-orange-50 px-1 text-orange-600">${item.status}</span></p><p>Sku：${escapeHtml(item.sku)}</p></div>`).join('') || '<span class="text-xs">无采购单</span>' },
   { key: 'inventory', title: '库存物料', width: 210, render: (row) => row.inventoryRows.map((item, index) => `<div class="mb-2 flex gap-2 text-[11px]"><button data-progress-action="preview-image" data-url="${index ? '/materials/accessory-label.jpg' : '/materials/fabric-main.jpg'}" data-label="${escapeHtml(item.sku)}"><img src="${index ? '/materials/accessory-label.jpg' : '/materials/fabric-main.jpg'}" alt="${escapeHtml(item.sku)}物料实拍图" class="h-9 w-9 rounded object-cover"/></button><div><b>${escapeHtml(item.sku)}</b><p>需${item.required}${item.unit} / 库 <span class="${item.stock < item.required ? 'text-red-600' : 'text-green-600'}">${item.stock}</span></p></div></div>`).join('') },
@@ -254,6 +288,20 @@ const preferences: StandardListColumnPreferences = { order: columns.filter((item
 
 function selectOptions(values: string[], selected: string, placeholder = '全部'): string {
   return `<option value="">${placeholder}</option>${values.map((value) => `<option value="${escapeHtml(value)}" ${selected === value ? 'selected' : ''}>${escapeHtml(value)}</option>`).join('')}`
+}
+
+function renderReturnStatusOptions(): string {
+  const options: Array<[ProductionOrderReturnListStatus, string]> = [
+    ['DATA_INCOMPLETE', '履约数据不完整'],
+    ['OVERDUE', '已逾期'],
+    ['DUE_TODAY', '今日到期'],
+    ['DUE_TOMORROW', '明日到期'],
+    ['UPCOMING', '即将到期'],
+    ['REACHED', '已达成'],
+    ['NO_RULE', '无分阶段回货规则'],
+    ['BIDDING', '竞价中'],
+  ]
+  return `<option value="">全部</option>${options.map(([value, label]) => `<option value="${value}" ${state.returnStatus === value ? 'selected' : ''}>${label}</option>`).join('')}`
 }
 
 function renderFilters(): string {
@@ -271,7 +319,7 @@ function renderFilters(): string {
     <label class="text-xs">送去工厂时间<div class="mt-1 flex gap-1"><input type="date" class="h-9 min-w-0 rounded border px-1" data-progress-field="deliveryStart" value="${state.deliveryStart}"/><input type="date" class="h-9 min-w-0 rounded border px-1" data-progress-field="deliveryEnd" value="${state.deliveryEnd}"/></div></label>
     <label class="text-xs">生产下单时间<div class="mt-1 flex gap-1"><input type="date" class="h-9 min-w-0 rounded border px-1" data-progress-field="createStart" value="${state.createStart}"/><input type="date" class="h-9 min-w-0 rounded border px-1" data-progress-field="createEnd" value="${state.createEnd}"/></div></label>
     <label class="text-xs">下单数量<div class="mt-1 flex gap-1"><input type="number" class="h-9 min-w-0 rounded border px-2" data-progress-field="qtyMin" value="${state.qtyMin}" placeholder="最小值"/><input type="number" class="h-9 min-w-0 rounded border px-2" data-progress-field="qtyMax" value="${state.qtyMax}" placeholder="最大值"/></div></label>
-    <label class="text-xs">回货履约<select class="mt-1 h-9 w-full rounded border px-2" data-progress-field="returnStatus">${selectOptions(['明日到期','今日到期','已逾期','已达成'], state.returnStatus)}</select></label>
+    <label class="text-xs">回货履约<select class="mt-1 h-9 w-full rounded border px-2" data-progress-field="returnStatus">${renderReturnStatusOptions()}</select></label>
     <label class="text-xs">合同状态<select class="mt-1 h-9 w-full rounded border px-2" data-progress-field="contractStatus"><option value="">全部</option><option value="MISSING_SCAN" ${state.contractStatus === 'MISSING_SCAN' ? 'selected' : ''}>待上传签订扫描件</option><option value="SIGNED" ${state.contractStatus === 'SIGNED' ? 'selected' : ''}>已签订</option><option value="NOT_APPLICABLE" ${state.contractStatus === 'NOT_APPLICABLE' ? 'selected' : ''}>不适用</option></select></label>
     <div class="flex items-end"><button class="h-9 rounded border px-4 text-sm" data-progress-action="reset">重置</button></div>
   </div>`
@@ -295,12 +343,12 @@ function riskRank(progress: FactoryReturnProgress): number {
 function renderReturnProgress(order: OnlineProductionProgressRecord): string {
   const liveContracts = listProductionContracts({ productionOrderId: order.productionOrderId })
   const progressRows = [...order.returnProgress].sort((a, b) => riskRank(b) - riskRank(a))
-  if (!progressRows.length) return '<div class="rounded border border-dashed p-5 text-sm text-muted-foreground">尚未产生需要阶段性回货跟踪的有效分配。回货规则与是否生成合同分别判断。</div>'
+  if (!progressRows.length) return `<div class="rounded border border-dashed p-5 text-sm text-muted-foreground"><b>${escapeHtml(order.returnSummary.statusLabel)}</b><p class="mt-1">${escapeHtml(order.returnSummary.message || '尚未产生需要阶段性回货跟踪的有效分配。')}</p><p class="mt-1">回货规则与是否生成合同分别判断。</p></div>`
   return `<div class="space-y-3"><p class="rounded border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">每个阶段性回货节点固定产生 3 次提醒：截止前1天提醒、截止当天提醒、逾期后首日警告；同一节点各类提醒只产生一次。</p>${progressRows.map((progress, index) => {
     const liveContract = liveContracts.find((contract) => contract.assignmentId === progress.assignmentId)
     const contractId = liveContract?.contractId || progress.contractId
     const scanCount = liveContract?.scans.length ?? progress.scanCount
-    return `<article class="rounded-lg border ${index === 0 && riskRank(progress) > 0 ? 'border-red-300 shadow-sm' : ''}"><header class="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3"><div><b>${escapeHtml(progress.factoryName)}</b><span class="ml-2 rounded bg-slate-100 px-2 py-0.5 text-xs">${escapeHtml(progress.taskName)}</span><p class="mt-1 text-xs text-muted-foreground">分配 ${progress.assignedQty}件 · 已确认回货 ${progress.returnedQty}件 · 仅累计本工厂/本分配记录</p></div><div class="flex gap-3 text-sm">${contractId ? `<a class="text-blue-600" target="_blank" href="/fcs/contracts/print?contractId=${encodeURIComponent(contractId)}">查看/打印合同</a>` : ''}${progress.contractNo ? `<span>合同：${escapeHtml(liveContract?.contractNo || progress.contractNo)}</span>` : '<span class="text-muted-foreground">该任务不生成合同</span>'}<span class="${scanCount ? 'text-green-600' : 'text-amber-600'}">扫描图 ${scanCount} 张</span></div></header><div class="p-4"><p class="mb-3 text-sm"><b>回货规则：</b>${escapeHtml(progress.ruleLabel)}（自然日；分配日为第1天；合同不打印具体时间）</p><div class="grid gap-3 md:grid-cols-3">${progress.milestones.map((item) => `<div class="rounded border p-3 ${milestoneTone(item.status)}"><div class="flex justify-between"><b>第${item.day}自然日 · ${Math.round(item.ratio * 100)}%</b><span>${item.status}</span></div><p class="mt-2 text-sm">截止：${item.deadline}</p><p class="text-sm">应回 ${item.targetQty}件 · 按期确认 ${item.confirmedQty}件</p>${item.status === '明日到期' ? '<p class="mt-2 text-xs font-semibold">截止前1天提醒</p>' : item.status === '今日到期' ? '<p class="mt-2 text-xs font-semibold">截止当天提醒</p>' : item.status === '已逾期' ? '<p class="mt-2 text-xs font-semibold">逾期后首日警告（本节点仅一次）</p>' : ''}</div>`).join('')}</div><p class="mt-3 text-xs text-muted-foreground">到货确认日期决定节点达成；质检、复检是流程节点，不改变到货确认日期。原工厂回货仍归原分配，不与新工厂互相抵扣。</p></div></article>`
+    return `<article class="rounded-lg border ${index === 0 && riskRank(progress) > 0 ? 'border-red-300 shadow-sm' : ''}"><header class="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3"><div><b>${escapeHtml(progress.factoryName)}</b><span class="ml-2 rounded bg-slate-100 px-2 py-0.5 text-xs">${escapeHtml(progress.taskName)}</span><p class="mt-1 text-xs text-muted-foreground">分配 ${progress.assignedQty}件 · 已确认回货 ${progress.returnedQty}件 · 仅累计本工厂/本分配记录</p></div><div class="flex gap-3 text-sm">${contractId ? `<a class="text-blue-600" target="_blank" href="/fcs/contracts/print?contractId=${encodeURIComponent(contractId)}">查看/打印合同</a>` : ''}${progress.contractNo ? `<span>合同：${escapeHtml(liveContract?.contractNo || progress.contractNo)}</span>` : '<span class="text-muted-foreground">合同状态按任务类型独立判断</span>'}<span class="${scanCount ? 'text-green-600' : 'text-amber-600'}">扫描图 ${scanCount} 张</span></div></header><div class="p-4"><p class="mb-3 text-sm"><b>回货规则：</b>${escapeHtml(progress.ruleLabel)}（自然日；分配日为第1天；合同不打印具体时间）</p><div class="grid gap-3 md:grid-cols-3">${progress.milestones.map((item) => `<div class="rounded border p-3 ${milestoneTone(item.status)}"><div class="flex justify-between"><b>第${item.day}自然日 · ${Math.round(item.ratio * 100)}%</b><span>${item.status}</span></div><p class="mt-2 text-sm">截止：${item.deadline}</p><p class="text-sm">应回 ${item.targetQty}件 · 按期确认 ${item.confirmedQty}件</p><p class="mt-2 text-xs font-semibold">${escapeHtml(item.reminderState)}</p></div>`).join('')}</div><p class="mt-3 text-xs text-muted-foreground">到货确认日期决定节点达成；质检、复检是流程节点，不改变到货确认日期。原工厂回货仍归原分配，不与新工厂互相抵扣。</p></div></article>`
   }).join('')}</div>`
 }
 
@@ -380,7 +428,7 @@ export function handleProductionOrderProgressEvent(eventTarget: HTMLElement): bo
   const orderId = actionNode.dataset.orderId || ''
   if (action === 'reset') {
     Object.assign(state, { keyword: '', sampleType: '', status: '', riskLevel: '', hasNode: '', sewingAssigned: '', saleType: '', dyeStatus: '', printStatus: '', cuttingStatus: '', deliveryStart: '', deliveryEnd: '', createStart: '', createEnd: '', qtyMin: '', qtyMax: '', returnStatus: '', contractStatus: '', page: 1 })
-  } else if (action === 'detail') state.detailOrderId = orderId
+  } else if (action === 'detail' || action === 'view-return') state.detailOrderId = orderId
   else if (action === 'close-detail') state.detailOrderId = null
   else if (action === 'expand') state.expandedOrderId = state.expandedOrderId === orderId ? null : orderId
   else if (action === 'preview-image') state.imagePreview = { url: actionNode.dataset.url || '', label: actionNode.dataset.label || '款式' }
@@ -391,4 +439,16 @@ export function handleProductionOrderProgressEvent(eventTarget: HTMLElement): bo
   if (action === 'reset') refreshRoot()
   else refreshResults()
   return true
+}
+
+export function closeProductionOrderProgressOverlay(): boolean {
+  if (state.imagePreview) {
+    state.imagePreview = null
+    return true
+  }
+  if (state.detailOrderId) {
+    state.detailOrderId = null
+    return true
+  }
+  return false
 }

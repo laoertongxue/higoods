@@ -21,6 +21,17 @@ function dispatchDialog(page: Page) {
   return page.locator('[data-unified-action="close-dispatch"]').first().locator('xpath=following-sibling::section[1]')
 }
 
+async function confirmTenderLaunch(page: Page, minPrice = '1200') {
+  let dialog = dispatchDialog(page)
+  const minPriceInput = dialog.locator('[data-unified-field="tenderMinPrice"]')
+  if (!(await minPriceInput.inputValue())) await minPriceInput.fill(minPrice)
+  dialog = dispatchDialog(page)
+  await dialog.getByRole('button', { name: '下一步：二次确认竞价' }).click()
+  dialog = dispatchDialog(page)
+  await expect(dialog.getByRole('heading', { name: '二次确认发起竞价' })).toBeVisible()
+  await dialog.getByRole('button', { name: '确认发起竞价并冻结工厂池与最低价' }).click()
+}
+
 test.beforeAll(() => {
   fs.mkdirSync(evidenceDir, { recursive: true })
 })
@@ -117,28 +128,72 @@ test('整任务竞价冻结工厂池并贯通 PDA 报价、管理端定标，改
   await expect(dialog).toContainText('本次竞价为整个任务')
   await expect(dialog).toContainText('不选择、不拆分 SKU')
   await expect(dialog.locator('[data-unified-sku]')).toHaveCount(0)
-  const tenderPool = dialog.locator('[data-unified-tender-pool]')
-  await expect(tenderPool.getByRole('heading', { name: '竞价工厂池' })).toBeVisible()
+  let tenderPool = dialog.locator('[data-unified-tender-pool]')
+  await expect(tenderPool.getByRole('heading', { name: '本次竞价工厂池' })).toBeVisible()
   await expect(tenderPool).toContainText('全部符合竞价条件的工厂')
-  await expect(tenderPool).toContainText('页面展示数量不会截断实际工厂池')
+  await expect(tenderPool).toContainText('页面完整展示全部工厂，提交时不会截断本次工厂池')
   await tenderPool.screenshot({ path: path.join(evidenceDir, 'whole-task-tender-factory-pool.png') })
   await tenderPool.locator('[data-unified-field="tenderPoolMode"][value="MANUAL"]').check()
   dialog = dispatchDialog(page)
-  await expect(dialog.locator('[data-unified-field="tenderFactoryKeyword"]')).toBeVisible()
-  await expect(dialog.locator('[data-unified-field="tenderFactoryType"]')).toBeVisible()
-  await expect(dialog.locator('[data-unified-action="select-visible-tender-factories"]')).toBeVisible()
-  await dialog.locator('[data-unified-field="tenderPoolMode"][value="ALL_ELIGIBLE"]').check()
+  tenderPool = dialog.locator('[data-unified-tender-pool]')
+  await expect(tenderPool.locator('[data-unified-tender-transfer]')).toBeVisible()
+  await expect(tenderPool.locator('[data-unified-tender-candidates]')).toContainText('候选工厂')
+  await expect(tenderPool.locator('[data-unified-tender-selected-pool]')).toContainText('本次竞价工厂池')
+  await expect(tenderPool.locator('[data-unified-field="tenderFactoryKeyword"]')).toBeVisible()
+  await expect(tenderPool.locator('[data-unified-field="tenderFactoryType"]')).toBeVisible()
+  const initialCandidateCount = await tenderPool.locator('[data-unified-tender-candidate]').count()
+  expect(initialCandidateCount).toBeGreaterThan(0)
+  await expect(tenderPool.locator('[data-unified-tender-pool-factory]')).toHaveCount(0)
+
+  await tenderPool.locator('[data-unified-tender-candidate]').first().check()
+  await expect(tenderPool.locator('[data-unified-tender-candidate]').first()).toBeChecked()
+  await expect(tenderPool.locator('[data-unified-tender-pool-factory]')).toHaveCount(0)
+  await tenderPool.locator('[data-unified-action="add-checked-tender-factories"]').click()
+  tenderPool = dispatchDialog(page).locator('[data-unified-tender-pool]')
+  await expect(tenderPool.locator('[data-unified-tender-candidate]')).toHaveCount(initialCandidateCount - 1)
+  await expect(tenderPool.locator('[data-unified-tender-pool-factory]')).toHaveCount(1)
+
+  const selectedFactoryName = (await tenderPool.locator('[data-unified-tender-pool-factory]').first().locator('xpath=following-sibling::span[1]//b').innerText()).trim()
+  await tenderPool.locator('[data-unified-field="tenderFactoryKeyword"]').fill('__NO_MATCH__')
+  tenderPool = dispatchDialog(page).locator('[data-unified-tender-pool]')
+  await expect(tenderPool.locator('[data-unified-tender-candidate]')).toHaveCount(0)
+  await expect(tenderPool.locator('[data-unified-tender-pool-factory]')).toHaveCount(1)
+  await expect(tenderPool.locator('[data-unified-tender-selected-pool]')).toContainText(selectedFactoryName)
+  await tenderPool.locator('[data-unified-field="tenderFactoryKeyword"]').fill('')
+  tenderPool = dispatchDialog(page).locator('[data-unified-tender-pool]')
+  await tenderPool.locator('[data-unified-tender-pool-factory]').check()
+  await tenderPool.locator('[data-unified-action="remove-checked-tender-factories"]').click()
+  tenderPool = dispatchDialog(page).locator('[data-unified-tender-pool]')
+  await expect(tenderPool.locator('[data-unified-tender-candidate]')).toHaveCount(initialCandidateCount)
+  await expect(tenderPool.locator('[data-unified-tender-pool-factory]')).toHaveCount(0)
+
+  await tenderPool.locator('[data-unified-action="add-visible-tender-factories"]').click()
+  tenderPool = dispatchDialog(page).locator('[data-unified-tender-pool]')
+  await expect(tenderPool.locator('[data-unified-tender-candidate]')).toHaveCount(0)
+  await expect(tenderPool.locator('[data-unified-tender-pool-factory]')).toHaveCount(initialCandidateCount)
+  const selectedPoolNames = await tenderPool.locator('[data-unified-tender-pool-factory]').evaluateAll((inputs) => inputs.map((input) => input.parentElement?.innerText?.split('\n')[0] || ''))
+  await tenderPool.screenshot({ path: path.join(evidenceDir, 'whole-task-tender-transfer-pool.png') })
+
   dialog = dispatchDialog(page)
   await dialog.locator('[data-unified-field="businessAssignedAt"]').fill('2026-08-05T09:22')
   dialog = dispatchDialog(page)
   await dialog.locator('[data-unified-field="tenderDeadline"]').fill('2026-08-06T18:00')
+  dialog = dispatchDialog(page)
+  await dialog.locator('[data-unified-field="tenderMinPrice"]').fill('1200')
   dialog = dispatchDialog(page)
   const biddingReturnPreview = dialog.locator('[data-unified-return-rule-preview]').last()
   await expect(biddingReturnPreview).toContainText('竞价阶段仅预览')
   await expect(dialog.locator('[data-return-ratio="0.3"]')).toContainText('2026-08-08')
   await expect(dialog.locator('[data-return-ratio="1"]')).toContainText('2026-08-13')
   await biddingReturnPreview.screenshot({ path: path.join(evidenceDir, 'bidding-return-preview.png') })
-  await dialog.getByRole('button', { name: '确认发起竞价' }).click()
+  await dialog.getByRole('button', { name: '下一步：二次确认竞价' }).click()
+  dialog = dispatchDialog(page)
+  await expect(dialog.getByRole('heading', { name: '二次确认发起竞价' })).toBeVisible()
+  await expect(dialog).toContainText(`工厂池：手动选择部分工厂 · ${initialCandidateCount} 家`)
+  await expect(dialog.locator('[data-unified-tender-confirmed-factories] > *')).toHaveText(selectedPoolNames)
+  await expect(dialog).toContainText('最低允许报价：1200 IDR/件')
+  await dialog.screenshot({ path: path.join(evidenceDir, 'whole-task-tender-second-confirm.png') })
+  await dialog.getByRole('button', { name: '确认发起竞价并冻结工厂池与最低价' }).click()
   await expect(page.locator('[data-unified-action="close-dispatch"]')).toHaveCount(0)
 
   const tenderFact = await page.evaluate(async () => {
@@ -163,7 +218,6 @@ test('整任务竞价冻结工厂池并贯通 PDA 报价、管理端定标，改
       qty: record.taskSnapshot.qty,
       standardPrice: record.standardPrice,
       minPrice: record.minPrice,
-      maxPrice: record.maxPrice,
     }
   })
   expect(tenderFact.businessAssignedAt).toBe('2026-08-05 09:22:00')
@@ -183,7 +237,8 @@ test('整任务竞价冻结工厂池并贯通 PDA 报价、管理端定标，改
   await tenderTodo.getByRole('button', { name: '去报价' }).click()
   const quoteDialog = page.getByRole('heading', { name: '立即报价' }).locator('xpath=ancestor::article[1]')
   await expect(quoteDialog).toContainText('本次报价覆盖整个任务：4 个 SKU，共 2500 件，不支持拆分报价。')
-  await expect(quoteDialog).toContainText(`允许报价范围：${tenderFact.minPrice.toLocaleString()} 至 ${tenderFact.maxPrice.toLocaleString()} IDR/件`)
+  await expect(quoteDialog).toContainText(`最低允许报价：${tenderFact.minPrice.toLocaleString()} IDR/件`)
+  await expect(quoteDialog).toContainText('报价达到最低允许报价即可提交；提交后不可修改。')
   await quoteDialog.screenshot({ path: path.join(evidenceDir, 'whole-task-tender-pda-quote.png') })
   await quoteDialog.locator('[data-pda-tr-field="quoteAmount"]').fill(String(tenderFact.standardPrice))
   await quoteDialog.locator('[data-pda-tr-field="deliveryDays"]').fill('9')
@@ -285,8 +340,7 @@ test('取消竞价必须二次确认，旧招标留痕且任务可重新发起�
   await dialog.locator('[data-unified-field="businessAssignedAt"]').fill('2026-08-07T09:00')
   dialog = dispatchDialog(page)
   await dialog.locator('[data-unified-field="tenderDeadline"]').fill('2026-08-07T18:00')
-  dialog = dispatchDialog(page)
-  await dialog.getByRole('button', { name: '确认发起竞价' }).click()
+  await confirmTenderLaunch(page)
 
   const firstTender = await page.evaluate(async () => {
     const tenderModule = await import('/src/data/fcs/runtime-task-tenders.ts')
@@ -341,8 +395,7 @@ test('取消竞价必须二次确认，旧招标留痕且任务可重新发起�
   await dialog.locator('[data-unified-field="businessAssignedAt"]').fill('2026-08-07T09:05')
   dialog = dispatchDialog(page)
   await dialog.locator('[data-unified-field="tenderDeadline"]').fill('2026-08-07T19:00')
-  dialog = dispatchDialog(page)
-  await dialog.getByRole('button', { name: '确认发起竞价' }).click()
+  await confirmTenderLaunch(page)
 
   const relaunchedFacts = await page.evaluate(async ({ taskId, tenderId }) => {
     const tenderModule = await import('/src/data/fcs/runtime-task-tenders.ts')

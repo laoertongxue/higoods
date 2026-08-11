@@ -13,12 +13,17 @@ const STYLE_ARCHIVE_STORE_VERSION = 3
 let memorySnapshot: StyleArchiveStoreSnapshot | null = null
 
 function canUseStorage(): boolean {
-  return (
-    typeof localStorage !== 'undefined' &&
-    typeof localStorage.getItem === 'function' &&
-    typeof localStorage.setItem === 'function' &&
-    typeof localStorage.removeItem === 'function'
-  )
+  try {
+    if (typeof window === 'undefined') return false
+    const storage = window.localStorage
+    return (
+      typeof storage?.getItem === 'function' &&
+      typeof storage.setItem === 'function' &&
+      typeof storage.removeItem === 'function'
+    )
+  } catch {
+    return false
+  }
 }
 
 function cloneRecord(record: StyleArchiveShellRecord): StyleArchiveShellRecord {

@@ -515,10 +515,9 @@ function renderReceiveSpecificSection(task: ProcessTask, tab: ReceiveDetailTabKe
       `
         <div class="grid grid-cols-2 gap-3">
           ${renderField('招标单号', pendingQuoteTender.tenderId)}
-          ${renderField('工厂池数量', `${pendingQuoteTender.factoryPoolCount} 家`)}
           ${renderField('竞价截止时间', pendingQuoteTender.biddingDeadline)}
           ${renderField('任务截止时间', pendingQuoteTender.taskDeadline)}
-          ${renderField('工序标准价', `${pendingQuoteTender.standardPrice.toLocaleString()} ${pendingQuoteTender.currency}/${pendingQuoteTender.qtyUnit}`)}
+          ${renderField('最低允许报价', `${pendingQuoteTender.minPrice.toLocaleString()} ${pendingQuoteTender.currency}/${pendingQuoteTender.qtyUnit}`)}
           ${renderField('当前报价状态', '待报价')}
         </div>
         <div class="rounded bg-blue-50 px-3 py-2 text-xs text-blue-700">当前仍在招标阶段，确认款式与交付要求后可直接报价。</div>

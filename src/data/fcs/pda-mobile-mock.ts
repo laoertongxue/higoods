@@ -25,12 +25,10 @@ export interface PdaMobileBiddingTenderMock {
   factoryPoolCount: number
   biddingDeadline: string
   taskDeadline: string
-  standardPrice: number
+  minPrice: number
   currency: string
   factoryId: string
   skuCount?: number
-  minPrice?: number
-  maxPrice?: number
   runtimeShared?: boolean
 }
 
@@ -76,7 +74,7 @@ const NON_CUTTING_BIDDING_TENDERS: PdaMobileBiddingTenderMock[] = [
     factoryPoolCount: 5,
     biddingDeadline: '2026-03-22 20:00:00',
     taskDeadline: '2026-03-25 18:00:00',
-    standardPrice: 4.3,
+    minPrice: 4.3,
     currency: 'CNY',
     factoryId: 'ID-F001',
   },
@@ -90,7 +88,7 @@ const NON_CUTTING_BIDDING_TENDERS: PdaMobileBiddingTenderMock[] = [
     factoryPoolCount: 3,
     biddingDeadline: '2026-03-23 10:00:00',
     taskDeadline: '2026-03-25 20:00:00',
-    standardPrice: 1.8,
+    minPrice: 1.8,
     currency: 'CNY',
     factoryId: 'ID-F001',
   },
@@ -219,12 +217,10 @@ export function listPdaBiddingTendersByFactoryId(factoryId: string): PdaMobileBi
       factoryPoolCount: record.factoryPool.length,
       biddingDeadline: record.biddingDeadline,
       taskDeadline: record.taskDeadline,
-      standardPrice: record.standardPrice,
+      minPrice: record.minPrice,
       currency: record.currency,
       factoryId,
       skuCount: record.taskSnapshot.skuLines.length,
-      minPrice: record.minPrice,
-      maxPrice: record.maxPrice,
       runtimeShared: true,
     }))
   const rows = [

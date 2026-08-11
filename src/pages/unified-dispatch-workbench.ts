@@ -22,8 +22,11 @@ import {
 } from '../data/fcs/runtime-process-tasks.ts'
 import {
   captureRuntimeTaskTenderRecordStore,
+  getRuntimeTaskTenderRecord,
   listRuntimeTaskTenderRecords,
+  resolveRuntimeTaskTenderStatus,
   restoreRuntimeTaskTenderRecordStore,
+  runtimeTaskTenderStatusLabel,
   upsertRuntimeTaskTenderRecord,
 } from '../data/fcs/runtime-task-tenders.ts'
 import { listBusinessFactoryMasterRecords } from '../data/fcs/factory-master-store.ts'
@@ -88,11 +91,14 @@ interface DispatchDialogState {
   factoryId: string
   businessAssignedAt: string
   price: string
+  tenderMinPrice: string
   tenderDeadline: string
   tenderPoolMode: 'ALL_ELIGIBLE' | 'MANUAL'
   tenderFactoryKeyword: string
   tenderFactoryType: string
   selectedTenderFactoryIds: Set<string>
+  checkedTenderCandidateIds: Set<string>
+  checkedTenderPoolIds: Set<string>
   reassignReason: string
   selectedSkuCodes: Set<string>
   confirmStage: 1 | 2
@@ -458,6 +464,14 @@ function currentContract(taskId: string) {
   return listProductionContracts({ runtimeTaskId: taskId }).find((item) => item.status === 'EFFECTIVE')
 }
 
+function tenderRemainingLabel(deadline: string): string {
+  const diff = new Date(deadline.replace(' ', 'T')).getTime() - Date.now()
+  if (!Number.isFinite(diff) || diff <= 0) return '已截止'
+  const hours = Math.floor(diff / 3_600_000)
+  const minutes = Math.floor((diff % 3_600_000) / 60_000)
+  return hours >= 24 ? `${Math.floor(hours / 24)}天${hours % 24}小时` : `${hours}小时${minutes}分`
+}
+
 const columns: StandardListColumn<RuntimeProcessTask>[] = [
   {
     key: 'taskObject', title: '任务对象', width: 300, required: true, freezeable: true,
@@ -485,6 +499,12 @@ const columns: StandardListColumn<RuntimeProcessTask>[] = [
   {
     key: 'assignment', title: '分配信息', width: 190,
     render: (task) => {
+      const tender = getRuntimeTaskTenderRecord(task.taskId)
+      const tenderStatus = tender ? resolveRuntimeTaskTenderStatus(tender) : null
+      if (tender && tenderStatus && ['BIDDING', 'AWAIT_AWARD', 'NO_QUOTE'].includes(tenderStatus)) {
+        const lowest = tender.quotes.length ? Math.min(...tender.quotes.map((quote) => quote.quotePrice)) : null
+        return `<b>${escapeHtml(runtimeTaskTenderStatusLabel[tenderStatus])} · ${escapeHtml(tender.tenderId)}</b><p class="mt-1 text-xs">本次竞价工厂池 ${tender.factoryPool.length} 家</p><p class="text-xs text-muted-foreground">已报价 ${tender.quotes.length}/${tender.factoryPool.length} · ${lowest == null ? '暂无报价' : `当前最低 ${lowest.toLocaleString()} ${escapeHtml(tender.currency)}/${escapeHtml(tender.unit)}`}</p><p class="text-xs text-orange-700">${escapeHtml(tender.biddingDeadline.slice(0, 16))} · ${escapeHtml(tenderRemainingLabel(tender.biddingDeadline))}</p>`
+      }
       const assignment = listCurrentEffectiveTaskAssignments(task.taskId)[0]
       const mode = assignmentModeValue(task) === 'BIDDING' ? '竞价' : assignment?.operatedBy.includes('自动分配') ? '自动直接派单' : '人工直接派单'
       const acceptance = task.acceptanceStatus === 'ACCEPTED' ? '已接单' : task.acceptanceStatus === 'REJECTED' ? '已拒绝' : task.assignedFactoryName ? '待接单' : '尚未进入接单'
@@ -493,7 +513,16 @@ const columns: StandardListColumn<RuntimeProcessTask>[] = [
   },
   {
     key: 'price', title: '价格', width: 210,
-    render: (task) => { const status = taskPriceStatus(task); const currency = task.dispatchPriceCurrency || task.standardPriceCurrency || 'IDR'; const unit = task.dispatchPriceUnit || task.standardPriceUnit || '件'; const labels: Record<string, string> = { NO_STANDARD: '无标准价', PENDING: '待确认', ABOVE: '高于标准', BELOW: '低于标准', MATCH: '符合标准' }; return `<p>标准价：${task.standardPrice != null ? `${task.standardPrice.toLocaleString()} ${escapeHtml(currency)}/${escapeHtml(unit)}` : '—'}</p><p class="mt-1">派单价：${task.dispatchPrice != null ? `${task.dispatchPrice.toLocaleString()} ${escapeHtml(currency)}/${escapeHtml(unit)}` : '—'}</p><span class="mt-1 inline-flex rounded bg-slate-100 px-2 py-0.5 text-xs">${escapeHtml(labels[status])}${task.dispatchPrice != null ? ' · 已冻结' : ''}</span>` },
+    render: (task) => {
+      const tender = getRuntimeTaskTenderRecord(task.taskId)
+      const status = taskPriceStatus(task)
+      const currency = task.dispatchPriceCurrency || task.standardPriceCurrency || tender?.currency || 'IDR'
+      const unit = task.dispatchPriceUnit || task.standardPriceUnit || tender?.unit || '件'
+      const labels: Record<string, string> = { NO_STANDARD: '无标准价', PENDING: '待确认', ABOVE: '高于标准', BELOW: '低于标准', MATCH: '符合标准' }
+      const tenderStatus = tender ? resolveRuntimeTaskTenderStatus(tender) : null
+      if (tender && tenderStatus && ['BIDDING', 'AWAIT_AWARD', 'NO_QUOTE'].includes(tenderStatus)) return `<p>标准价：${tender.standardPrice.toLocaleString()} ${escapeHtml(currency)}/${escapeHtml(unit)}</p><p class="mt-1 font-medium text-amber-700">最低允许报价：${tender.minPrice.toLocaleString()} ${escapeHtml(currency)}/${escapeHtml(unit)}</p><span class="mt-1 inline-flex rounded bg-orange-50 px-2 py-0.5 text-xs text-orange-700">工厂池与最低价已冻结</span>`
+      return `<p>标准价：${task.standardPrice != null ? `${task.standardPrice.toLocaleString()} ${escapeHtml(currency)}/${escapeHtml(unit)}` : '—'}</p><p class="mt-1">派单价：${task.dispatchPrice != null ? `${task.dispatchPrice.toLocaleString()} ${escapeHtml(currency)}/${escapeHtml(unit)}` : '—'}</p><span class="mt-1 inline-flex rounded bg-slate-100 px-2 py-0.5 text-xs">${escapeHtml(labels[status])}${task.dispatchPrice != null ? ' · 已冻结' : ''}</span>`
+    },
   },
   {
     key: 'actions', title: '操作', width: 250, required: true, actionColumn: true,
@@ -502,6 +531,7 @@ const columns: StandardListColumn<RuntimeProcessTask>[] = [
       return `<div class="flex flex-wrap gap-x-3 gap-y-1 text-sm">
         <button class="text-blue-600" data-unified-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">详情</button>
         ${task.assignmentStatus === 'UNASSIGNED' ? `<button class="text-blue-600" data-unified-action="open-direct" data-task-id="${escapeHtml(task.taskId)}">直接派单</button><button class="text-blue-600" data-unified-action="open-bidding" data-task-id="${escapeHtml(task.taskId)}">发起竞价</button>` : ''}
+        ${task.assignmentStatus === 'BIDDING' && getRuntimeTaskTenderRecord(task.taskId) ? `<a class="text-blue-600" href="/fcs/dispatch/tenders?tenderId=${encodeURIComponent(getRuntimeTaskTenderRecord(task.taskId)!.tenderId)}" data-nav="/fcs/dispatch/tenders?tenderId=${encodeURIComponent(getRuntimeTaskTenderRecord(task.taskId)!.tenderId)}">查看竞价</a>` : ''}
         ${['ASSIGNED', 'AWARDED'].includes(task.assignmentStatus) && classifyTaskFulfillmentPolicy(task).startsWithSewing ? `<button class="text-amber-700" data-unified-action="open-reassign" data-task-id="${escapeHtml(task.taskId)}">改派</button>` : ''}
         ${task.mergeSourceTaskIds?.length && task.assignmentStatus === 'UNASSIGNED' ? `<button class="text-red-600" data-unified-action="open-cancel-merge" data-task-id="${escapeHtml(task.taskId)}">撤销合并</button>` : ''}
         ${contract ? `<button class="text-blue-600" data-unified-action="open-contract" data-contract-id="${escapeHtml(contract.contractId)}">合同</button>` : ''}
@@ -720,21 +750,65 @@ function renderWholeTaskTenderScope(task: RuntimeProcessTask): string {
   return `<section class="rounded-lg border border-blue-200 bg-blue-50/30 p-4" data-unified-whole-task-tender-scope><div class="flex flex-wrap items-center justify-between gap-2"><div><h3 class="text-sm font-semibold text-blue-900">本次竞价为整个任务</h3><p class="mt-1 text-xs text-blue-800">不选择、不拆分 SKU；中标工厂承接当前任务的全部范围。</p></div><b class="text-sm text-blue-900">${lines.length} 个SKU，共 ${task.scopeQty.toLocaleString()}件</b></div><details class="mt-3"><summary class="cursor-pointer text-xs font-medium text-blue-800">展开查看完整 SKU 明细</summary><div class="mt-2 grid gap-2 md:grid-cols-2">${lines.map((line) => `<div class="flex items-center justify-between rounded border bg-white p-3 text-sm"><span>${escapeHtml(line.skuCode)} · ${escapeHtml(line.color)} · ${escapeHtml(line.size)}</span><b>${line.qty.toLocaleString()}件</b></div>`).join('')}</div></details></section>`
 }
 
+function listVisibleTenderFactoryCandidates(task: RuntimeProcessTask, dialog: DispatchDialogState): Factory[] {
+  const keyword = dialog.tenderFactoryKeyword.trim().toLowerCase()
+  return listEligibleTenderFactoriesForTask(task)
+    .filter((factory) => !dialog.selectedTenderFactoryIds.has(factory.id))
+    .filter((factory) => dialog.tenderFactoryType === 'ALL' || factory.factoryType === dialog.tenderFactoryType)
+    .filter((factory) => !keyword || [factory.name, factory.code, factory.address, getTenderFactoryCapabilitySummary(factory, task)]
+      .some((value) => String(value || '').toLowerCase().includes(keyword)))
+}
+
+function renderTenderFactoryCard(factory: Factory, task: RuntimeProcessTask, side: 'CANDIDATE' | 'POOL', checked: boolean): string {
+  const inputAttr = side === 'CANDIDATE' ? 'data-unified-tender-candidate' : 'data-unified-tender-pool-factory'
+  return `<label class="flex items-start gap-3 rounded border p-3 text-sm ${checked ? 'border-blue-400 bg-blue-50' : 'bg-white'}"><input class="mt-1" type="checkbox" ${inputAttr}="${escapeHtml(factory.id)}" data-unified-tender-selection-field="${side}" data-skip-page-rerender="true" ${checked ? 'checked' : ''}/><span class="min-w-0 flex-1"><b>${escapeHtml(factory.name)}</b><small class="mt-1 block text-muted-foreground">${escapeHtml(factory.code)} · ${escapeHtml(factory.address || '地址未维护')}</small><small class="mt-1 block text-blue-700">${escapeHtml(getTenderFactoryCapabilitySummary(factory, task))} · PDA已启用</small></span></label>`
+}
+
 function renderTenderFactoryPool(task: RuntimeProcessTask, dialog: DispatchDialogState): string {
   const allFactories = listEligibleTenderFactoriesForTask(task)
-  const keyword = dialog.tenderFactoryKeyword.trim().toLowerCase()
-  const visibleFactories = allFactories.filter((factory) => {
-    if (dialog.tenderFactoryType !== 'ALL' && factory.factoryType !== dialog.tenderFactoryType) return false
-    if (!keyword) return true
-    return [factory.name, factory.code, factory.address, getTenderFactoryCapabilitySummary(factory, task)]
-      .some((value) => String(value || '').toLowerCase().includes(keyword))
-  })
-  const selectedIds = dialog.tenderPoolMode === 'ALL_ELIGIBLE'
-    ? new Set(allFactories.map((factory) => factory.id))
-    : dialog.selectedTenderFactoryIds
+  const visibleCandidates = listVisibleTenderFactoryCandidates(task, dialog)
+  const selectedFactories = allFactories.filter((factory) => dialog.selectedTenderFactoryIds.has(factory.id))
   const factoryTypes = Array.from(new Set(allFactories.map((factory) => factory.factoryType))).sort()
   const excludedCount = listBusinessFactoryMasterRecords().length - allFactories.length
-  return `<section class="space-y-3 rounded-lg border p-4" data-unified-tender-pool><div class="flex flex-wrap items-start justify-between gap-2"><div><h3 class="text-sm font-semibold">竞价工厂池</h3><p class="mt-1 text-xs text-muted-foreground">候选工厂已同时通过任务能力、允许竞价及 PDA 启用校验。发起后工厂池冻结。</p></div><span class="rounded bg-slate-100 px-2 py-1 text-xs">符合条件 ${allFactories.length} 家 · 排除 ${Math.max(0, excludedCount)} 家</span></div><fieldset class="flex flex-wrap gap-5 text-sm"><label><input type="radio" name="tenderPoolMode" data-unified-field="tenderPoolMode" value="ALL_ELIGIBLE" ${dialog.tenderPoolMode === 'ALL_ELIGIBLE' ? 'checked' : ''}/> 全部符合竞价条件的工厂</label><label><input type="radio" name="tenderPoolMode" data-unified-field="tenderPoolMode" value="MANUAL" ${dialog.tenderPoolMode === 'MANUAL' ? 'checked' : ''}/> 手动选择部分工厂</label></fieldset>${dialog.tenderPoolMode === 'MANUAL' ? `<div class="grid gap-2 sm:grid-cols-2"><label class="text-xs text-muted-foreground">搜索工厂<input class="mt-1 h-9 w-full rounded border px-3 text-sm" data-unified-field="tenderFactoryKeyword" placeholder="工厂名称 / 编码 / 地址 / 能力" value="${escapeHtml(dialog.tenderFactoryKeyword)}"/></label><label class="text-xs text-muted-foreground">工厂类型<select class="mt-1 h-9 w-full rounded border px-3 text-sm" data-unified-field="tenderFactoryType"><option value="ALL">全部类型</option>${factoryTypes.map((type) => `<option value="${escapeHtml(type)}" ${dialog.tenderFactoryType === type ? 'selected' : ''}>${escapeHtml(type)}</option>`).join('')}</select></label></div><div class="flex flex-wrap items-center justify-between gap-2 text-xs"><span>筛选结果 ${visibleFactories.length} 家；已选 ${selectedIds.size} 家</span><span class="flex gap-2"><button type="button" class="rounded border px-2 py-1" data-unified-action="select-visible-tender-factories">选择全部筛选结果</button><button type="button" class="rounded border px-2 py-1" data-unified-action="clear-tender-factories">清空已选</button></span></div><div class="max-h-64 space-y-2 overflow-auto rounded border p-2">${visibleFactories.length ? visibleFactories.map((factory) => `<label class="flex items-start gap-3 rounded border p-3 text-sm ${selectedIds.has(factory.id) ? 'border-blue-300 bg-blue-50/40' : ''}"><input class="mt-1" type="checkbox" data-unified-tender-factory="${escapeHtml(factory.id)}" ${selectedIds.has(factory.id) ? 'checked' : ''}/><span class="min-w-0 flex-1"><b>${escapeHtml(factory.name)}</b><small class="mt-1 block text-muted-foreground">${escapeHtml(factory.code)} · ${escapeHtml(factory.address || '地址未维护')}</small><small class="mt-1 block text-blue-700">${escapeHtml(getTenderFactoryCapabilitySummary(factory, task))} · PDA已启用</small></span></label>`).join('') : '<p class="p-4 text-center text-sm text-muted-foreground">当前筛选条件下没有工厂</p>'}</div>` : `<div class="rounded bg-blue-50 p-3 text-sm text-blue-800">将向全部 ${allFactories.length} 家符合条件的工厂发起竞价；页面展示数量不会截断实际工厂池。</div>`}</section>`
+  return `<section class="space-y-3 rounded-lg border p-4" data-unified-tender-pool>
+    <div class="flex flex-wrap items-start justify-between gap-2">
+      <div>
+        <h3 class="text-sm font-semibold">本次竞价工厂池</h3>
+        <p class="mt-1 text-xs text-muted-foreground">候选工厂已同时通过任务能力、允许竞价及 PDA 启用校验。发起后工厂池冻结。</p>
+      </div>
+      <span class="rounded bg-slate-100 px-2 py-1 text-xs">符合条件 ${allFactories.length} 家 · 排除 ${Math.max(0, excludedCount)} 家</span>
+    </div>
+    <fieldset class="flex flex-wrap gap-5 text-sm">
+      <label><input type="radio" name="tenderPoolMode" data-unified-field="tenderPoolMode" data-skip-page-rerender="true" value="ALL_ELIGIBLE" ${dialog.tenderPoolMode === 'ALL_ELIGIBLE' ? 'checked' : ''}/> 全部符合竞价条件的工厂</label>
+      <label><input type="radio" name="tenderPoolMode" data-unified-field="tenderPoolMode" data-skip-page-rerender="true" value="MANUAL" ${dialog.tenderPoolMode === 'MANUAL' ? 'checked' : ''}/> 手动选择部分工厂</label>
+    </fieldset>
+    ${dialog.tenderPoolMode === 'MANUAL'
+      ? `<div class="grid items-stretch gap-3 lg:grid-cols-[minmax(0,1fr)_7rem_minmax(0,1fr)]" data-unified-tender-transfer>
+          <section class="flex min-h-80 min-w-0 flex-col overflow-hidden rounded-lg border bg-slate-50/50" data-unified-tender-candidates>
+            <header class="border-b bg-white p-3"><div class="flex items-center justify-between gap-2"><b class="text-sm">候选工厂</b><span class="text-xs text-muted-foreground">${visibleCandidates.length} 家可选</span></div><p class="mt-1 text-xs text-muted-foreground">仅展示尚未加入本次工厂池的合格工厂</p></header>
+            <div class="grid gap-2 border-b bg-white p-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+              <label class="text-xs text-muted-foreground">搜索工厂<input class="mt-1 h-9 w-full rounded border px-3 text-sm" data-unified-field="tenderFactoryKeyword" data-skip-page-rerender="true" placeholder="名称 / 编码 / 地址 / 能力" value="${escapeHtml(dialog.tenderFactoryKeyword)}"/></label>
+              <label class="text-xs text-muted-foreground">工厂类型<select class="mt-1 h-9 w-full rounded border px-3 text-sm" data-unified-field="tenderFactoryType" data-skip-page-rerender="true"><option value="ALL">全部类型</option>${factoryTypes.map((type) => `<option value="${escapeHtml(type)}" ${dialog.tenderFactoryType === type ? 'selected' : ''}>${escapeHtml(type)}</option>`).join('')}</select></label>
+            </div>
+            <div class="max-h-80 flex-1 space-y-2 overflow-auto p-2">${visibleCandidates.length
+              ? visibleCandidates.map((factory) => renderTenderFactoryCard(factory, task, 'CANDIDATE', dialog.checkedTenderCandidateIds.has(factory.id))).join('')
+              : `<p class="p-6 text-center text-sm text-muted-foreground">${selectedFactories.length === allFactories.length && allFactories.length ? '全部符合条件的工厂均已进入右侧工厂池' : '当前筛选条件下没有可选工厂'}</p>`}</div>
+          </section>
+          <div class="flex items-center justify-center gap-2 lg:flex-col" aria-label="工厂池穿梭操作">
+            <button type="button" class="min-w-24 rounded border border-blue-300 bg-white px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-50" data-unified-action="add-checked-tender-factories" title="将左侧勾选工厂加入本次竞价工厂池">加入 &gt;</button>
+            <button type="button" class="min-w-24 rounded border px-3 py-2 text-xs hover:bg-slate-50" data-unified-action="add-visible-tender-factories" title="将当前筛选结果全部加入本次竞价工厂池">全部加入 &gt;&gt;</button>
+            <button type="button" class="min-w-24 rounded border border-blue-300 bg-white px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-50" data-unified-action="remove-checked-tender-factories" title="将右侧勾选工厂移出本次竞价工厂池">&lt; 移除</button>
+            <button type="button" class="min-w-24 rounded border px-3 py-2 text-xs hover:bg-slate-50" data-unified-action="clear-tender-factories" title="清空本次竞价工厂池">&lt;&lt; 全部移除</button>
+          </div>
+          <section class="flex min-h-80 min-w-0 flex-col overflow-hidden rounded-lg border border-blue-200 bg-blue-50/20" data-unified-tender-selected-pool>
+            <header class="border-b border-blue-200 bg-blue-50 p-3"><div class="flex items-center justify-between gap-2"><b class="text-sm text-blue-900">本次竞价工厂池</b><span class="rounded bg-white px-2 py-1 text-xs font-medium text-blue-800">已选 ${selectedFactories.length} 家</span></div><p class="mt-1 text-xs text-blue-800">右侧工厂是本次提交与二次确认的唯一工厂池</p></header>
+            <div class="max-h-[25.5rem] flex-1 space-y-2 overflow-auto p-2">${selectedFactories.length
+              ? selectedFactories.map((factory) => renderTenderFactoryCard(factory, task, 'POOL', dialog.checkedTenderPoolIds.has(factory.id))).join('')
+              : '<p class="p-6 text-center text-sm text-muted-foreground">尚未选择工厂，请从左侧勾选并加入</p>'}</div>
+          </section>
+        </div>`
+      : `<section class="overflow-hidden rounded-lg border border-blue-200 bg-blue-50/20" data-unified-tender-selected-pool><header class="flex flex-wrap items-center justify-between gap-2 border-b border-blue-200 bg-blue-50 p-3"><div><b class="text-sm text-blue-900">本次竞价工厂池（全部符合条件）</b><p class="mt-1 text-xs text-blue-800">系统自动纳入全部合格工厂，切换到手动模式后才能自行增减。</p></div><span class="rounded bg-white px-2 py-1 text-xs font-medium text-blue-800">${allFactories.length} 家</span></header><div class="grid max-h-64 gap-2 overflow-auto p-2 md:grid-cols-2">${allFactories.map((factory) => `<div class="rounded border bg-white p-3 text-sm"><b>${escapeHtml(factory.name)}</b><small class="mt-1 block text-muted-foreground">${escapeHtml(factory.code)} · ${escapeHtml(factory.address || '地址未维护')}</small><small class="mt-1 block text-blue-700">${escapeHtml(getTenderFactoryCapabilitySummary(factory, task))} · PDA已启用</small></div>`).join('') || '<p class="p-6 text-center text-sm text-muted-foreground">当前没有符合条件的工厂</p>'}</div><p class="border-t border-blue-200 p-3 text-xs text-blue-800">页面完整展示全部工厂，提交时不会截断本次工厂池。</p></section>`}
+  </section>`
 }
 
 function renderReassignmentScope(task: RuntimeProcessTask): string {
@@ -747,6 +821,22 @@ function baggingDecisionSummary(task: RuntimeProcessTask, dialog: DispatchDialog
   const snapshot = buildDispatchBaggingSnapshot(task)
   const impact = evaluateDispatchBagSelection(snapshot, dialog.selectedSkuCodes)
   return `${dialog.distributionMode === 'BAG_AWARE' ? '按菲票装袋推荐' : '自由分配'}；快照${snapshot.updatedAt}；保持整袋${impact.intactBagCodes.length}袋；受影响${impact.affectedBagCodes.length}袋`
+}
+
+function renderTenderPriceSettings(task: RuntimeProcessTask, dialog: DispatchDialogState): string {
+  const currency = task.standardPriceCurrency || 'IDR'
+  const unit = task.standardPriceUnit || task.qtyUnit || '件'
+  return `<section class="grid gap-3 rounded-lg border p-4 sm:grid-cols-2"><div><p class="text-sm text-muted-foreground">工序标准价（平台内部）</p><b>${task.standardPrice != null && task.standardPrice > 0 ? `${task.standardPrice.toLocaleString()} ${escapeHtml(currency)}/${escapeHtml(unit)}` : '未维护，不能发起竞价'}</b></div><label class="block text-sm">最低允许报价（${escapeHtml(currency)}/${escapeHtml(unit)}）<input type="number" min="1" class="mt-1 h-9 w-full rounded border px-3" data-unified-field="tenderMinPrice" value="${escapeHtml(dialog.tenderMinPrice)}" placeholder="必填；不得高于工序标准价"/><span class="mt-1 block text-xs text-muted-foreground">由计划人员本次手动设定，发起后冻结；达到该价格即可报价，高于标准价时定标需说明原因。</span></label></section>`
+}
+
+function renderTenderLaunchConfirmation(task: RuntimeProcessTask, dialog: DispatchDialogState): string {
+  const eligible = listEligibleTenderFactoriesForTask(task)
+  const poolFactories = dialog.tenderPoolMode === 'ALL_ELIGIBLE'
+    ? eligible
+    : eligible.filter((factory) => dialog.selectedTenderFactoryIds.has(factory.id))
+  const currency = task.standardPriceCurrency || 'IDR'
+  const unit = task.standardPriceUnit || task.qtyUnit || '件'
+  return `<section class="rounded-lg border-2 border-amber-400 bg-amber-50 p-4" data-unified-tender-second-confirm><h3 class="font-bold text-amber-900">二次确认发起竞价</h3><p class="mt-2 text-sm">任务：${escapeHtml(task.taskNo || task.taskId)} · ${task.scopeSkuLines.length || 1} 个SKU · ${task.scopeQty.toLocaleString()}件</p><p class="mt-1 text-sm">工厂池：${dialog.tenderPoolMode === 'ALL_ELIGIBLE' ? '全部符合条件工厂' : '手动选择部分工厂'} · ${poolFactories.length} 家</p><div class="mt-2 flex flex-wrap gap-2" data-unified-tender-confirmed-factories>${poolFactories.map((factory) => `<span class="rounded border border-amber-300 bg-white px-2 py-1 text-xs">${escapeHtml(factory.name)}</span>`).join('')}</div><p class="mt-2 text-sm">最低允许报价：${escapeHtml(dialog.tenderMinPrice)} ${escapeHtml(currency)}/${escapeHtml(unit)} · 截止：${escapeHtml(dialog.tenderDeadline.replace('T', ' '))}</p><p class="mt-1 text-sm">业务分配时间：${escapeHtml(dialog.businessAssignedAt.replace('T', ' '))}</p><p class="mt-2 font-semibold text-red-700">确认后整个任务进入竞价，本次工厂池、最低允许报价与任务范围全部冻结。</p></section>`
 }
 
 function renderDispatchDialog(): string {
@@ -768,6 +858,7 @@ function renderDispatchDialog(): string {
   const isSecond = dialog.confirmStage === 2
   return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><button class="absolute inset-0 bg-slate-900/40" data-unified-action="close-dispatch"></button><section class="relative z-10 max-h-[92vh] w-full max-w-6xl overflow-auto rounded-lg bg-white shadow-xl"><header class="border-b p-5"><h2 class="text-lg font-semibold">${dialog.mode === 'DIRECT' ? '直接派单' : dialog.mode === 'REASSIGN' ? '车缝任务改派' : '发起竞价'} · ${escapeHtml(task.taskNo || task.taskId)}</h2><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(policy.taskTypeLabel)}</p></header><div class="space-y-4 p-5">
     ${dialog.error ? `<div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">${escapeHtml(dialog.error)}</div>` : ''}
+    ${isSecond && dialog.mode === 'BIDDING' ? renderTenderLaunchConfirmation(task, dialog) : ''}
     ${isSecond && dialog.mode !== 'BIDDING' ? `<div class="rounded-lg border-2 border-amber-400 bg-amber-50 p-4"><h3 class="font-bold text-amber-900">二次确认${dialog.mode === 'REASSIGN' ? '改派' : '派单'}价格</h3><p class="mt-2 text-base font-semibold text-red-700">谨慎确认价格，一经提交确认不得修改。</p><p class="mt-3 text-sm">工厂：${escapeHtml(factories.find((item) => item.id === dialog.factoryId)?.name || '未选择')} · 数量：${effectiveAssignedQty.toLocaleString()}件 · 派单价：${escapeHtml(dialog.price)} IDR/件</p>${policy.startsWithSewing ? `<p class="mt-2 text-sm">分配方式：${dialog.distributionMode === 'BAG_AWARE' ? '按菲票装袋推荐' : '自由分配'} · 可保持整袋 ${impact.intactBagCodes.length} 袋 · 受影响 ${impact.affectedBagCodes.length} 袋</p>` : ''}${dialog.mode === 'REASSIGN' ? `<p class="mt-2 text-sm">改派原因：${escapeHtml(dialog.reassignReason)}</p>` : ''}<p class="mt-2 text-xs text-amber-800">提交后价格冻结，结算只能读取本次有效分配的冻结价。</p></div>${renderReturnRulePreview(policy, effectiveAssignedQty, dialog.businessAssignedAt, dialog.mode)}` : `
       ${policy.startsWithSewing && dialog.mode !== 'BIDDING' ? `<fieldset><legend class="text-sm font-semibold">分配方式</legend><label class="mr-5 text-sm"><input type="radio" name="distributionMode" data-unified-field="distributionMode" value="BAG_AWARE" ${dialog.distributionMode === 'BAG_AWARE' ? 'checked' : ''}/> 按菲票装袋情况分配（默认）</label><label class="text-sm"><input type="radio" name="distributionMode" data-unified-field="distributionMode" value="FREE" ${dialog.distributionMode === 'FREE' ? 'checked' : ''}/> 自由分配</label><p class="mt-1 text-xs text-muted-foreground">自由分配不生成拆袋重装待办；PPIC实际接收时，裁床待交出仓读取最新车缝任务再决定是否拆袋重装。</p></fieldset>` : ''}
       ${policy.requiresSewingReadinessContext ? `<p class="rounded bg-blue-50 p-2 text-xs text-blue-800">信息不完善只提示风险，不阻断生产分配。</p>${renderSewingPreparationOverview(task, dialog.selectedSkuCodes)}` : ''}
@@ -776,10 +867,11 @@ function renderDispatchDialog(): string {
       ${dialog.mode === 'BIDDING' ? renderWholeTaskTenderScope(task) : dialog.mode === 'REASSIGN' ? renderReassignmentScope(task) : policy.startsWithSewing ? (dialog.distributionMode === 'BAG_AWARE' ? renderBagAwareSelection(bagging, dialog) : renderFreeSelection(bagging, dialog)) : renderPlainSkuSelection(task, dialog)}
       <p class="text-xs">${dialog.mode === 'REASSIGN' ? `本次改派 ${effectiveAssignedQty.toLocaleString()}件` : dialog.mode === 'BIDDING' ? `本次竞价 ${skuLines.length} 个SKU，共 ${task.scopeQty.toLocaleString()}件；不允许拆分` : `已选 ${dialog.selectedSkuCodes.size} 个SKU，共 ${selectedQty.toLocaleString()}件`}</p>
       ${dialog.mode !== 'BIDDING' ? `<label class="block text-sm">承接工厂<select class="mt-1 h-9 w-full rounded border px-3" data-unified-field="factoryId"><option value="">请选择工厂</option>${factories.map((factory) => `<option value="${escapeHtml(factory.id)}" ${dialog.factoryId === factory.id ? 'selected' : ''} ${dialog.mode === 'REASSIGN' && factory.id === task.assignedFactoryId ? 'disabled' : ''}>${escapeHtml(factory.name)}</option>`).join('')}</select></label><label class="block text-sm">派单价（IDR/件）<input type="number" min="1" class="mt-1 h-9 w-full rounded border px-3" data-unified-field="price" value="${escapeHtml(dialog.price)}"/></label>${dialog.mode === 'REASSIGN' ? `<label class="block text-sm">改派原因<textarea class="mt-1 min-h-20 w-full rounded border p-3" data-unified-field="reassignReason" placeholder="必填，说明本次改派原因">${escapeHtml(dialog.reassignReason)}</textarea></label>` : ''}` : `${renderTenderFactoryPool(task, dialog)}<label class="block text-sm">竞价截止时间<input type="datetime-local" class="mt-1 h-9 w-full rounded border px-3" data-unified-field="tenderDeadline" value="${escapeHtml(dialog.tenderDeadline)}"/></label>`}
+      ${dialog.mode === 'BIDDING' ? renderTenderPriceSettings(task, dialog) : ''}
       <label class="block text-sm">业务分配日期/时间<input type="datetime-local" class="mt-1 h-9 w-full rounded border px-3" data-unified-field="businessAssignedAt" value="${escapeHtml(dialog.businessAssignedAt)}"/><span class="mt-1 block text-xs text-muted-foreground">回货规则按日期计算，分配日期为第1个自然日；合同只打印日期，不打印具体时间。</span></label>
       ${renderReturnRulePreview(policy, effectiveAssignedQty, dialog.businessAssignedAt, dialog.mode)}
       ${policy.startsWithSewing ? `<div class="rounded bg-amber-50 p-3 text-sm text-amber-800">准备数据、库存风险、多个来源袋及混装袋只用于提示，不阻断派单或竞价。${dialog.mode === 'BIDDING' ? '竞价为整个任务，装袋事实不用于拆分竞价范围。' : ''}</div>` : ''}`}
-    </div><footer class="flex justify-end gap-2 border-t p-4"><button class="rounded border px-4 py-2 text-sm" data-unified-action="${isSecond ? 'back-dispatch' : 'close-dispatch'}">${isSecond ? '返回修改' : '取消'}</button><button class="rounded bg-blue-600 px-4 py-2 text-sm text-white" data-unified-action="confirm-dispatch">${isSecond ? '确认提交并冻结价格' : dialog.mode === 'BIDDING' ? '确认发起竞价' : '下一步：二次确认价格'}</button></footer></section></div>`
+    </div><footer class="flex justify-end gap-2 border-t p-4"><button class="rounded border px-4 py-2 text-sm" data-unified-action="${isSecond ? 'back-dispatch' : 'close-dispatch'}">${isSecond ? '返回修改' : '取消'}</button><button class="rounded bg-blue-600 px-4 py-2 text-sm text-white" data-unified-action="confirm-dispatch">${isSecond ? dialog.mode === 'BIDDING' ? '确认发起竞价并冻结工厂池与最低价' : '确认提交并冻结价格' : dialog.mode === 'BIDDING' ? '下一步：二次确认竞价' : '下一步：二次确认价格'}</button></footer></section></div>`
 }
 
 function renderMergeDialog(): string {
@@ -949,6 +1041,20 @@ function refreshRoot(): void {
   if (root) root.outerHTML = renderUnifiedDispatchWorkbenchPage()
 }
 
+function refreshTenderFactoryPool(focusField = ''): void {
+  const task = state.dispatch ? getRuntimeTaskById(state.dispatch.taskId) : null
+  const current = document.querySelector<HTMLElement>('[data-unified-tender-pool]')
+  if (!state.dispatch || state.dispatch.mode !== 'BIDDING' || !task || !current) {
+    refreshRoot()
+    return
+  }
+  current.outerHTML = renderTenderFactoryPool(task, state.dispatch)
+  if (!focusField) return
+  const next = document.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-unified-field="${focusField}"]`)
+  next?.focus()
+  if (next instanceof HTMLInputElement) next.setSelectionRange(next.value.length, next.value.length)
+}
+
 function openDispatch(taskId: string, mode: AssignMode): void {
   const task = getRuntimeTaskById(taskId)
   if (!task) return
@@ -958,7 +1064,6 @@ function openDispatch(taskId: string, mode: AssignMode): void {
   if (tenderDeadlineDate.getHours() >= 18) tenderDeadlineDate.setDate(tenderDeadlineDate.getDate() + 1)
   tenderDeadlineDate.setHours(18, 0, 0, 0)
   const skuCodes = (task.scopeSkuLines.length ? task.scopeSkuLines : [{ skuCode: task.skuCode || 'SKU-ALL' }]).map((line) => line.skuCode)
-  const eligibleTenderFactories = mode === 'BIDDING' ? listEligibleTenderFactoriesForTask(task) : []
   state.dispatch = {
     taskId,
     mode,
@@ -966,11 +1071,14 @@ function openDispatch(taskId: string, mode: AssignMode): void {
     factoryId: '',
     businessAssignedAt: formatDateTimeLocal(now),
     price: String(task.standardPrice || task.dispatchPrice || 1200),
+    tenderMinPrice: '',
     tenderDeadline: formatDateTimeLocal(formatOperationLocalWallClock(tenderDeadlineDate)),
     tenderPoolMode: 'ALL_ELIGIBLE',
     tenderFactoryKeyword: '',
     tenderFactoryType: 'ALL',
-    selectedTenderFactoryIds: new Set(eligibleTenderFactories.map((factory) => factory.id)),
+    selectedTenderFactoryIds: new Set(),
+    checkedTenderCandidateIds: new Set(),
+    checkedTenderPoolIds: new Set(),
     reassignReason: '',
     selectedSkuCodes: new Set(skuCodes),
     confirmStage: 1,
@@ -1213,13 +1321,15 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
           })
         }
       }
-      if (name === 'tenderPoolMode' && field.value === 'ALL_ELIGIBLE') {
-        const task = getRuntimeTaskById(state.dispatch.taskId)
-        state.dispatch.selectedTenderFactoryIds = new Set(task ? listEligibleTenderFactoriesForTask(task).map((factory) => factory.id) : [])
+      if (name === 'tenderPoolMode') {
+        state.dispatch.checkedTenderCandidateIds = new Set()
+        state.dispatch.checkedTenderPoolIds = new Set()
       }
+      if (name === 'tenderFactoryKeyword' || name === 'tenderFactoryType') state.dispatch.checkedTenderCandidateIds = new Set()
       state.dispatch.confirmStage = 1
       state.dispatch.error = ''
-      refreshRoot()
+      if (name === 'tenderPoolMode' || name === 'tenderFactoryKeyword' || name === 'tenderFactoryType') refreshTenderFactoryPool(name === 'tenderFactoryKeyword' ? name : '')
+      else refreshRoot()
     } else if (name === 'keyword') {
       state.keyword = field.value
       state.page = 1
@@ -1254,14 +1364,22 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
     refreshRoot()
     return true
   }
-  const tenderFactory = target.closest<HTMLInputElement>('[data-unified-tender-factory]')
-  if (tenderFactory && state.dispatch?.mode === 'BIDDING') {
-    const factoryId = tenderFactory.dataset.unifiedTenderFactory || ''
-    if (tenderFactory.checked) state.dispatch.selectedTenderFactoryIds.add(factoryId)
-    else state.dispatch.selectedTenderFactoryIds.delete(factoryId)
+  const tenderCandidate = target.closest<HTMLInputElement>('[data-unified-tender-candidate]')
+  if (tenderCandidate && state.dispatch?.mode === 'BIDDING' && state.dispatch.tenderPoolMode === 'MANUAL') {
+    const factoryId = tenderCandidate.dataset.unifiedTenderCandidate || ''
+    if (tenderCandidate.checked) state.dispatch.checkedTenderCandidateIds.add(factoryId)
+    else state.dispatch.checkedTenderCandidateIds.delete(factoryId)
     state.dispatch.confirmStage = 1
     state.dispatch.error = ''
-    refreshRoot()
+    return true
+  }
+  const tenderPoolFactory = target.closest<HTMLInputElement>('[data-unified-tender-pool-factory]')
+  if (tenderPoolFactory && state.dispatch?.mode === 'BIDDING' && state.dispatch.tenderPoolMode === 'MANUAL') {
+    const factoryId = tenderPoolFactory.dataset.unifiedTenderPoolFactory || ''
+    if (tenderPoolFactory.checked) state.dispatch.checkedTenderPoolIds.add(factoryId)
+    else state.dispatch.checkedTenderPoolIds.delete(factoryId)
+    state.dispatch.confirmStage = 1
+    state.dispatch.error = ''
     return true
   }
   const bagGroup = target.closest<HTMLInputElement>('[data-unified-bag-group]')
@@ -1316,22 +1434,44 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
     state.dispatch.confirmStage = 1
     refreshRoot(); return true
   }
-  if (action === 'select-visible-tender-factories' && state.dispatch?.mode === 'BIDDING') {
+  if (action === 'add-checked-tender-factories' && state.dispatch?.mode === 'BIDDING' && state.dispatch.tenderPoolMode === 'MANUAL') {
     const task = getRuntimeTaskById(state.dispatch.taskId)
     if (task) {
-      const keyword = state.dispatch.tenderFactoryKeyword.trim().toLowerCase()
-      listEligibleTenderFactoriesForTask(task)
-        .filter((factory) => state.dispatch?.tenderFactoryType === 'ALL' || factory.factoryType === state.dispatch?.tenderFactoryType)
-        .filter((factory) => !keyword || [factory.name, factory.code, factory.address, getTenderFactoryCapabilitySummary(factory, task)].some((value) => String(value || '').toLowerCase().includes(keyword)))
-        .forEach((factory) => state.dispatch?.selectedTenderFactoryIds.add(factory.id))
+      const eligibleIds = new Set(listEligibleTenderFactoriesForTask(task).map((factory) => factory.id))
+      state.dispatch.checkedTenderCandidateIds.forEach((factoryId) => {
+        if (eligibleIds.has(factoryId)) state.dispatch?.selectedTenderFactoryIds.add(factoryId)
+      })
     }
+    state.dispatch.checkedTenderCandidateIds = new Set()
+    state.dispatch.checkedTenderPoolIds = new Set()
+    state.dispatch.confirmStage = 1
     state.dispatch.error = ''
-    refreshRoot(); return true
+    refreshTenderFactoryPool(); return true
   }
-  if (action === 'clear-tender-factories' && state.dispatch?.mode === 'BIDDING') {
-    state.dispatch.selectedTenderFactoryIds = new Set()
+  if (action === 'add-visible-tender-factories' && state.dispatch?.mode === 'BIDDING' && state.dispatch.tenderPoolMode === 'MANUAL') {
+    const task = getRuntimeTaskById(state.dispatch.taskId)
+    if (task) listVisibleTenderFactoryCandidates(task, state.dispatch).forEach((factory) => state.dispatch?.selectedTenderFactoryIds.add(factory.id))
+    state.dispatch.checkedTenderCandidateIds = new Set()
+    state.dispatch.checkedTenderPoolIds = new Set()
+    state.dispatch.confirmStage = 1
     state.dispatch.error = ''
-    refreshRoot(); return true
+    refreshTenderFactoryPool(); return true
+  }
+  if (action === 'remove-checked-tender-factories' && state.dispatch?.mode === 'BIDDING' && state.dispatch.tenderPoolMode === 'MANUAL') {
+    state.dispatch.checkedTenderPoolIds.forEach((factoryId) => state.dispatch?.selectedTenderFactoryIds.delete(factoryId))
+    state.dispatch.checkedTenderCandidateIds = new Set()
+    state.dispatch.checkedTenderPoolIds = new Set()
+    state.dispatch.confirmStage = 1
+    state.dispatch.error = ''
+    refreshTenderFactoryPool(); return true
+  }
+  if (action === 'clear-tender-factories' && state.dispatch?.mode === 'BIDDING' && state.dispatch.tenderPoolMode === 'MANUAL') {
+    state.dispatch.selectedTenderFactoryIds = new Set()
+    state.dispatch.checkedTenderCandidateIds = new Set()
+    state.dispatch.checkedTenderPoolIds = new Set()
+    state.dispatch.confirmStage = 1
+    state.dispatch.error = ''
+    refreshTenderFactoryPool(); return true
   }
   if (action === 'open-auto-config') { ensureAutoDispatchConfigs(); state.autoDispatch = { mode: 'CONFIG', confirmStage: 1, error: '' }; refreshRoot(); return true }
   if (action === 'open-auto-execute') { ensureAutoDispatchConfigs(); state.autoDispatch = { mode: 'EXECUTE', confirmStage: 1, error: '' }; refreshRoot(); return true }
@@ -1361,7 +1501,21 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
   }
   if (action === 'confirm-dispatch' && state.dispatch) {
     try {
-      if (state.dispatch.mode !== 'BIDDING' && state.dispatch.confirmStage === 1) {
+      if (state.dispatch.mode === 'BIDDING' && state.dispatch.confirmStage === 1) {
+        const task = getRuntimeTaskById(state.dispatch.taskId)
+        if (!task) throw new Error('任务已变化，请刷新')
+        if (!task.standardPrice || task.standardPrice <= 0) throw new Error('当前任务未维护有效工序标准价，不能发起竞价')
+        const minPrice = Number(state.dispatch.tenderMinPrice)
+        if (!Number.isFinite(minPrice) || minPrice <= 0) throw new Error('请填写有效的最低允许报价')
+        if (minPrice > task.standardPrice) throw new Error('最低允许报价不能高于工序标准价')
+        if (!state.dispatch.tenderDeadline) throw new Error('请填写竞价截止时间')
+        const eligible = listEligibleTenderFactoriesForTask(task)
+        const selectedCount = state.dispatch.tenderPoolMode === 'ALL_ELIGIBLE'
+          ? eligible.length
+          : [...state.dispatch.selectedTenderFactoryIds].filter((factoryId) => eligible.some((factory) => factory.id === factoryId)).length
+        if (selectedCount === 0) throw new Error('本次竞价工厂池至少需要一家符合条件的工厂')
+        state.dispatch.confirmStage = 2
+      } else if (state.dispatch.mode !== 'BIDDING' && state.dispatch.confirmStage === 1) {
         if (!state.dispatch.factoryId) throw new Error('请选择承接工厂')
         if (state.dispatch.mode !== 'REASSIGN' && state.dispatch.selectedSkuCodes.size === 0) throw new Error('请至少选择一个完整SKU')
         const task = getRuntimeTaskById(state.dispatch.taskId)
@@ -1398,6 +1552,14 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
         const eligibleTenderFactories = listEligibleTenderFactoriesForTask(tenderTask)
         if (eligibleTenderFactories.length === 0) throw new Error('当前没有同时满足任务能力、允许竞价及PDA启用条件的工厂，不能发起竞价')
         const eligibleById = new Map(eligibleTenderFactories.map((factory) => [factory.id, factory] as const))
+        if (state.dispatch.tenderPoolMode === 'MANUAL') {
+          const invalidIds = [...state.dispatch.selectedTenderFactoryIds].filter((factoryId) => !eligibleById.has(factoryId))
+          if (invalidIds.length) {
+            const masters = listBusinessFactoryMasterRecords()
+            const names = invalidIds.map((factoryId) => masters.find((factory) => factory.id === factoryId)?.name || factoryId)
+            throw new Error(`已选工厂资格发生变化：${names.join('、')}。请返回重新选择；系统不会静默移除。`)
+          }
+        }
         const selectedPool = state.dispatch.tenderPoolMode === 'ALL_ELIGIBLE'
           ? eligibleTenderFactories
           : [...state.dispatch.selectedTenderFactoryIds].flatMap((factoryId) => {
@@ -1405,7 +1567,11 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
               return factory ? [factory] : []
             })
         if (selectedPool.length === 0) throw new Error('手动选择工厂池时，至少选择一家符合条件的工厂')
-        const standardPrice = Number(tenderTask.standardPrice || tenderTask.dispatchPrice || 1200)
+        const standardPrice = Number(tenderTask.standardPrice)
+        if (!Number.isFinite(standardPrice) || standardPrice <= 0) throw new Error('当前任务未维护有效工序标准价，不能发起竞价')
+        const minPrice = Number(state.dispatch.tenderMinPrice)
+        if (!Number.isFinite(minPrice) || minPrice <= 0) throw new Error('请填写有效的最低允许报价')
+        if (minPrice > standardPrice) throw new Error('最低允许报价不能高于工序标准价')
         const runtimeSnapshot = captureRuntimeDirectDispatchState()
         const tenderSnapshot = captureRuntimeTaskTenderRecordStore()
         try {
@@ -1442,10 +1608,10 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
               factoryAddress: factory.address,
               factoryType: factory.factoryType,
               capabilitySummary: getTenderFactoryCapabilitySummary(factory, tenderTask),
+              notifiedAt: assignmentOperatedAt,
             })),
             standardPrice,
-            minPrice: Math.max(1, Math.floor(standardPrice * 0.8)),
-            maxPrice: Math.ceil(standardPrice * 1.2),
+            minPrice,
             currency: tenderTask.standardPriceCurrency || 'IDR',
             unit: tenderTask.standardPriceUnit || tenderTask.qtyUnit || '件',
             remark: '由任务分配工作台按整个任务范围发起竞价；不拆分SKU',

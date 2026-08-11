@@ -64,6 +64,7 @@ export interface FactoryQuoteEntry {
   quoteTime?: string
   deliveryDays?: number
   remark?: string
+  notifiedAt?: string
 }
 
 export interface TenderRow {
@@ -81,7 +82,6 @@ export interface TenderRow {
   factoryPoolNames: string[]
   factoryQuotes: FactoryQuoteEntry[]
   minPrice: number
-  maxPrice: number
   biddingDeadline: string
   taskDeadline: string
   status: TenderStatus
@@ -129,7 +129,6 @@ const MOCK_TENDERS: TenderRow[] = [
       { factoryId: 'ID-F004', factoryName: '泗水裁片厂', hasQuoted: false },
     ],
     minPrice: 12000,
-    maxPrice: 16000,
     biddingDeadline: '2026-03-20 18:00:00',
     taskDeadline: '2026-04-10 18:00:00',
     status: 'BIDDING',
@@ -170,7 +169,7 @@ const MOCK_TENDERS: TenderRow[] = [
         factoryId: 'ID-F021',
         factoryName: '万隆裁片厂',
         hasQuoted: true,
-        quotePrice: 10200,
+        quotePrice: 11200,
         quoteTime: '2026-03-10 09:18',
         deliveryDays: 14,
         remark: '急单可缩短2天',
@@ -193,7 +192,6 @@ const MOCK_TENDERS: TenderRow[] = [
       },
     ],
     minPrice: 11000,
-    maxPrice: 15500,
     biddingDeadline: '2026-03-10 18:00:00',
     taskDeadline: '2026-04-05 18:00:00',
     status: 'AWAIT_AWARD',
@@ -239,7 +237,6 @@ const MOCK_TENDERS: TenderRow[] = [
       },
     ],
     minPrice: 11500,
-    maxPrice: 15000,
     biddingDeadline: '2026-03-08 18:00:00',
     taskDeadline: '2026-04-01 18:00:00',
     status: 'AWARDED',
@@ -267,6 +264,13 @@ interface RuntimeTenderBatchAwardInput extends Omit<RuntimeTaskTenderAwardInput,
 interface TendersPageState {
   keyword: string
   statusFilter: 'ALL' | TenderStatus
+  processFilter: string
+  factoryFilter: string
+  quoteFilter: 'ALL' | 'QUOTED' | 'UNQUOTED'
+  createdStart: string
+  createdEnd: string
+  deadlineStart: string
+  deadlineEnd: string
   localAwards: Record<string, LocalAward>
   viewTenderId: string | null
   viewAwardFactoryId: string
@@ -282,6 +286,13 @@ interface TendersPageState {
 const state: TendersPageState = {
   keyword: '',
   statusFilter: 'ALL',
+  processFilter: 'ALL',
+  factoryFilter: 'ALL',
+  quoteFilter: 'ALL',
+  createdStart: '',
+  createdEnd: '',
+  deadlineStart: '',
+  deadlineEnd: '',
   localAwards: {},
   viewTenderId: null,
   viewAwardFactoryId: '',
@@ -293,6 +304,8 @@ const state: TendersPageState = {
   viewCancelSecondConfirm: false,
   awardContractId: null,
 }
+
+let initializedQueryTenderId: string | null | undefined
 
 function calcRemaining(deadline: string): string {
   const end = new Date(deadline.replace(' ', 'T')).getTime()
@@ -384,13 +397,13 @@ function projectRuntimeTenderRows(now: string): TenderRow[] {
       factoryPoolNames: localTender.factoryPool.map((factory) => factory.factoryName),
       factoryQuotes,
       minPrice: localTender.minPrice,
-      maxPrice: localTender.maxPrice,
       biddingDeadline: localTender.biddingDeadline,
       taskDeadline: localTender.taskDeadline,
       status,
       awardedFactoryId: isCurrentTaskTender ? task.assignedFactoryId : localTender.awardedFactoryId,
       awardedFactory: isCurrentTaskTender ? task.assignedFactoryName : localTender.awardedFactoryName,
       awardedPrice: isCurrentTaskTender ? task.dispatchPrice : localTender.awardedPrice,
+      awardReason: localTender.awardReason,
       remark: localTender.remark,
       businessAssignedAt: task.businessAssignedAt || localTender.businessAssignedAt,
       createdAt: localTender.assignmentOperatedAt,
@@ -517,6 +530,17 @@ function getFilteredTenders(now = formatOperationLocalWallClock()): TenderRow[] 
 
   return allTenders.filter((tender) => {
     if (state.statusFilter !== 'ALL' && tender.status !== state.statusFilter) return false
+    if (state.processFilter !== 'ALL' && tender.processNameZh !== state.processFilter) return false
+    if (state.factoryFilter !== 'ALL' && !tender.factoryQuotes.some((factory) => factory.factoryId === state.factoryFilter)) return false
+    const quotedCount = tender.factoryQuotes.filter((factory) => factory.hasQuoted).length
+    if (state.quoteFilter === 'QUOTED' && quotedCount === 0) return false
+    if (state.quoteFilter === 'UNQUOTED' && quotedCount === tender.factoryPoolCount) return false
+    const createdDate = tender.createdAt.slice(0, 10)
+    const deadlineDate = tender.biddingDeadline.slice(0, 10)
+    if (state.createdStart && createdDate < state.createdStart) return false
+    if (state.createdEnd && createdDate > state.createdEnd) return false
+    if (state.deadlineStart && deadlineDate < state.deadlineStart) return false
+    if (state.deadlineEnd && deadlineDate > state.deadlineEnd) return false
 
     if (keyword) {
       return (
@@ -628,6 +652,7 @@ export function awardRuntimeTenderTasks(input: RuntimeTenderBatchAwardInput): {
         factoryName: awardInput.factoryName,
         awardedPrice: awardInput.awardedPrice,
         awardedAt: awardInput.awardedAt,
+        awardReason: awardInput.priceDiffReason,
       })
     })
     return { ok: true, tasks }
@@ -702,9 +727,8 @@ function confirmAwardInView(now = formatOperationLocalWallClock()): void {
   )
   if (!selectedQuote || selectedQuote.quotePrice == null) return
 
-  const priceOutOfRange =
-    selectedQuote.quotePrice < tender.minPrice || selectedQuote.quotePrice > tender.maxPrice
-  if (priceOutOfRange && state.viewAwardReason.trim() === '') return
+  const needsPriceDifferenceReason = selectedQuote.quotePrice > tender.standardPrice
+  if (needsPriceDifferenceReason && state.viewAwardReason.trim() === '') return
   const selectedPolicyDecision = getTenderAwardPolicyDecision(tender, selectedQuote, now)
   if (selectedPolicyDecision && !selectedPolicyDecision.allowed) {
     showTenderToast(selectedPolicyDecision.reason)
@@ -723,6 +747,7 @@ function confirmAwardInView(now = formatOperationLocalWallClock()): void {
     factoryName: selectedQuote.factoryName,
     awardedAt: now,
     awardedPrice: selectedQuote.quotePrice,
+    priceDiffReason: state.viewAwardReason.trim() || undefined,
     by: '平台定标员',
     riskConfirmed: state.viewAwardRiskConfirmedByFactoryId[selectedQuote.factoryId] === true,
     supervisorAssigned: state.viewAwardSupervisorAssignedByFactoryId[selectedQuote.factoryId] === true,
@@ -879,9 +904,7 @@ function renderViewTenderSheet(tender: TenderRow | null): string {
   const quotedRows = tender.factoryQuotes.filter((quote) => quote.hasQuoted && quote.quotePrice != null)
   const selectedQuote = quotedRows.find((quote) => quote.factoryId === state.viewAwardFactoryId)
   const selectedPrice = selectedQuote?.quotePrice
-  const priceOutOfRange =
-    selectedPrice != null && (selectedPrice < tender.minPrice || selectedPrice > tender.maxPrice)
-  const needReason = priceOutOfRange
+  const needReason = selectedPrice != null && selectedPrice > tender.standardPrice
   const selectedPolicyDecision = selectedQuote ? getTenderAwardPolicyDecision(tender, selectedQuote) : null
   const canConfirm =
     effectiveStatus === 'AWAIT_AWARD' &&
@@ -956,8 +979,7 @@ function renderViewTenderSheet(tender: TenderRow | null): string {
             <p class="mb-2 text-[10px] text-amber-700">以下价格信息仅供平台内部定标参考，工厂不可见</p>
             ${[
               ['工序标准价', `${tender.standardPrice.toLocaleString()} ${tender.currency}/${tender.unit}`, ''],
-              ['最低限价', `${tender.minPrice.toLocaleString()} ${tender.currency}/${tender.unit}`, 'font-medium text-amber-700'],
-              ['最高限价', `${tender.maxPrice.toLocaleString()} ${tender.currency}/${tender.unit}`, 'font-medium text-red-700'],
+              ['最低允许报价', `${tender.minPrice.toLocaleString()} ${tender.currency}/${tender.unit}`, 'font-medium text-amber-700'],
             ]
               .map(
                 ([key, value, className]) => `
@@ -1030,7 +1052,6 @@ function renderViewTenderSheet(tender: TenderRow | null): string {
                       : null
 
                   const belowMin = quote.quotePrice != null && quote.quotePrice < tender.minPrice
-                  const aboveMax = quote.quotePrice != null && quote.quotePrice > tender.maxPrice
                   const isAwarded = effectiveAward?.awardedFactoryId === quote.factoryId
 
                   return `
@@ -1038,6 +1059,7 @@ function renderViewTenderSheet(tender: TenderRow | null): string {
                       <div class="flex items-center justify-between gap-2">
                         <div class="flex flex-wrap items-center gap-2">
                           <span class="text-sm font-medium">${escapeHtml(quote.factoryName)}</span>
+                          <span class="inline-flex rounded border border-blue-200 bg-blue-50 px-1.5 py-0 text-[10px] font-medium text-blue-700">PDA消息已发送 · ${escapeHtml((quote.notifiedAt || tender.createdAt).slice(0, 16))}</span>
                           ${
                             isAwarded
                               ? '<span class="inline-flex rounded border border-green-200 bg-green-100 px-1.5 py-0 text-[10px] font-medium text-green-700">中标</span>'
@@ -1049,13 +1071,8 @@ function renderViewTenderSheet(tender: TenderRow | null): string {
                               : '<span class="inline-flex items-center gap-0.5 rounded border border-gray-200 bg-gray-50 px-1.5 py-0 text-[10px] font-medium text-gray-500"><i data-lucide="x" class="h-2.5 w-2.5"></i>未报价</span>'
                           }
                           ${
-                            aboveMax
-                              ? '<span class="inline-flex rounded border border-red-200 bg-red-50 px-1.5 py-0 text-[10px] font-medium text-red-700">高于最高限价</span>'
-                              : ''
-                          }
-                          ${
                             belowMin
-                              ? '<span class="inline-flex rounded border border-orange-200 bg-orange-50 px-1.5 py-0 text-[10px] font-medium text-orange-700">低于最低限价</span>'
+                              ? '<span class="inline-flex rounded border border-orange-200 bg-orange-50 px-1.5 py-0 text-[10px] font-medium text-orange-700">低于最低允许报价（无效）</span>'
                               : ''
                           }
                         </div>
@@ -1137,7 +1154,6 @@ function renderViewTenderSheet(tender: TenderRow | null): string {
                                       tender.currency,
                                       tender.unit,
                                     )
-                                    const isHigh = (quote.quotePrice as number) > tender.maxPrice
                                     const isLow = (quote.quotePrice as number) < tender.minPrice
 
                                     return `
@@ -1149,13 +1165,8 @@ function renderViewTenderSheet(tender: TenderRow | null): string {
                                           <span class="flex flex-wrap items-center gap-1.5">
                                             <span class="text-sm font-medium">${escapeHtml(quote.factoryName)}</span>
                                             ${
-                                              isHigh
-                                                ? '<span class="inline-flex rounded border border-red-200 bg-red-50 px-1.5 py-0 text-[10px] font-medium text-red-700">高于最高限价</span>'
-                                                : ''
-                                            }
-                                            ${
                                               isLow
-                                                ? '<span class="inline-flex rounded border border-orange-200 bg-orange-50 px-1.5 py-0 text-[10px] font-medium text-orange-700">低于最低限价</span>'
+                                                ? '<span class="inline-flex rounded border border-orange-200 bg-orange-50 px-1.5 py-0 text-[10px] font-medium text-orange-700">低于最低允许报价（无效）</span>'
                                                 : ''
                                             }
                                           </span>
@@ -1181,13 +1192,9 @@ function renderViewTenderSheet(tender: TenderRow | null): string {
                       <div class="space-y-1.5">
                         <p class="text-xs font-medium text-muted-foreground">
                           定标说明
-                          ${
-                            needReason
-                              ? '<span class="ml-1 text-red-500">*（所选报价超出限价范围，必填）</span>'
-                              : '<span class="ml-1 text-muted-foreground">（可选）</span>'
-                          }
+                          ${needReason ? '<span class="ml-1 text-red-500">*（中标价高于工序标准价，必填）</span>' : '<span class="ml-1 text-muted-foreground">（可选）</span>'}
                         </p>
-                        <textarea class="w-full rounded-md border bg-background px-3 py-2 text-sm" rows="3" placeholder="请填写定标理由，如报价低于限价或高于限价时须填写说明…" data-tender-field="view.awardReason">${escapeHtml(state.viewAwardReason)}</textarea>
+                        <textarea class="w-full rounded-md border bg-background px-3 py-2 text-sm" rows="3" placeholder="请填写定标理由；中标价高于工序标准价时必须说明原因" data-tender-field="view.awardReason">${escapeHtml(state.viewAwardReason)}</textarea>
                       </div>
 
                       ${state.viewAwardSecondConfirm && selectedQuote ? `<div class="rounded-lg border-2 border-amber-400 bg-amber-50 p-3"><p class="font-semibold text-red-700">谨慎确认价格，一经提交确认不得修改。</p><p class="mt-1 text-xs text-amber-800">中标工厂：${escapeHtml(selectedQuote.factoryName)} · 中标价：${selectedQuote.quotePrice?.toLocaleString()} ${escapeHtml(tender.currency)}/${escapeHtml(tender.unit)}。提交后冻结并作为结算唯一价格来源。</p></div>${renderTenderReturnRulePreview(tender)}` : ''}
@@ -1258,6 +1265,7 @@ function renderRow(tender: TenderRow): string {
       <td class="whitespace-nowrap px-3 py-3 text-xs tabular-nums">${
         quoted > 0 ? `<span class="text-blue-700">${escapeHtml(summary.minStr)}</span>` : '<span class="text-muted-foreground">暂无报价</span>'
       }</td>
+      <td class="whitespace-nowrap px-3 py-3 text-xs font-medium tabular-nums text-amber-700">${tender.minPrice.toLocaleString()} ${escapeHtml(tender.currency)}/${escapeHtml(tender.unit)}</td>
       <td class="whitespace-nowrap px-3 py-3 text-xs tabular-nums text-muted-foreground">${tender.standardPrice.toLocaleString()} ${escapeHtml(tender.currency)}/${escapeHtml(tender.unit)}</td>
       <td class="whitespace-nowrap px-3 py-3 text-xs text-muted-foreground">${escapeHtml(tender.biddingDeadline.slice(0, 16))}</td>
       <td class="whitespace-nowrap px-3 py-3">
@@ -1290,12 +1298,32 @@ function renderRow(tender: TenderRow): string {
 }
 
 export function renderDispatchTendersPage(now = formatOperationLocalWallClock()): string {
+  if (typeof window !== 'undefined') {
+    const queryTenderId = new URLSearchParams(window.location.search).get('tenderId')?.trim() || null
+    const isEnteringTenderPage = typeof document !== 'undefined'
+      && !document.querySelector('[data-dispatch-tenders-page]')
+    if (initializedQueryTenderId !== queryTenderId || Boolean(queryTenderId && isEnteringTenderPage)) {
+      const previousQueryTenderId = initializedQueryTenderId
+      initializedQueryTenderId = queryTenderId
+
+      if (queryTenderId) {
+        state.keyword = queryTenderId
+        openViewDrawer(queryTenderId, now)
+      } else if (previousQueryTenderId) {
+        state.keyword = ''
+        closeViewDrawer()
+      }
+    }
+  }
   const stats = getStats(now)
   const filtered = getFilteredTenders(now)
   const viewTender = getViewTender(now)
+  const allTenders = getAllTenders(now)
+  const processOptions = [...new Set(allTenders.map((tender) => tender.processNameZh))].sort()
+  const factoryOptions = [...new Map(allTenders.flatMap((tender) => tender.factoryQuotes).map((factory) => [factory.factoryId, factory.factoryName] as const)).entries()].sort((left, right) => left[1].localeCompare(right[1], 'zh-CN'))
 
   return `
-    <div class="space-y-6">
+    <div class="space-y-6" data-dispatch-tenders-page>
       <div class="flex items-center justify-between">
         <div>
           <h1 class="text-2xl font-bold">招标单管理</h1>
@@ -1347,6 +1375,12 @@ export function renderDispatchTendersPage(now = formatOperationLocalWallClock())
           <option value="CANCELLED" ${state.statusFilter === 'CANCELLED' ? 'selected' : ''}>已取消</option>
         </select>
 
+        <select class="h-9 w-36 rounded-md border bg-background px-3 text-sm" data-tender-field="filter.process"><option value="ALL">全部工序</option>${processOptions.map((process) => `<option value="${escapeHtml(process)}" ${state.processFilter === process ? 'selected' : ''}>${escapeHtml(process)}</option>`).join('')}</select>
+        <select class="h-9 w-44 rounded-md border bg-background px-3 text-sm" data-tender-field="filter.factory"><option value="ALL">全部池内工厂</option>${factoryOptions.map(([id, name]) => `<option value="${escapeHtml(id)}" ${state.factoryFilter === id ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}</select>
+        <select class="h-9 w-36 rounded-md border bg-background px-3 text-sm" data-tender-field="filter.quote"><option value="ALL">全部报价情况</option><option value="QUOTED" ${state.quoteFilter === 'QUOTED' ? 'selected' : ''}>已有报价</option><option value="UNQUOTED" ${state.quoteFilter === 'UNQUOTED' ? 'selected' : ''}>仍有未报价</option></select>
+        <label class="text-xs text-muted-foreground">创建日期<input type="date" class="ml-1 h-9 rounded border px-2" data-tender-field="filter.createdStart" value="${state.createdStart}"/></label><span>—</span><input type="date" aria-label="创建日期止" class="h-9 rounded border px-2" data-tender-field="filter.createdEnd" value="${state.createdEnd}"/>
+        <label class="text-xs text-muted-foreground">截止日期<input type="date" class="ml-1 h-9 rounded border px-2" data-tender-field="filter.deadlineStart" value="${state.deadlineStart}"/></label><span>—</span><input type="date" aria-label="截止日期止" class="h-9 rounded border px-2" data-tender-field="filter.deadlineEnd" value="${state.deadlineEnd}"/>
+
         <button class="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-muted" data-tender-action="reset-filter">
           <i data-lucide="refresh-cw" class="h-4 w-4"></i>
         </button>
@@ -1369,6 +1403,7 @@ export function renderDispatchTendersPage(now = formatOperationLocalWallClock())
               <th class="whitespace-nowrap px-3 py-2 text-left font-medium">报价进度</th>
               <th class="whitespace-nowrap px-3 py-2 text-left font-medium">当前最高报价</th>
               <th class="whitespace-nowrap px-3 py-2 text-left font-medium">当前最低报价</th>
+              <th class="whitespace-nowrap px-3 py-2 text-left font-medium">最低允许报价</th>
               <th class="whitespace-nowrap px-3 py-2 text-left font-medium">工序标准价</th>
               <th class="whitespace-nowrap px-3 py-2 text-left font-medium">竞价截止</th>
               <th class="whitespace-nowrap px-3 py-2 text-left font-medium">距结束</th>
@@ -1381,7 +1416,7 @@ export function renderDispatchTendersPage(now = formatOperationLocalWallClock())
           <tbody>
             ${
               filtered.length === 0
-                ? '<tr><td colspan="18" class="py-10 text-center text-muted-foreground">暂无招标单数据</td></tr>'
+                ? '<tr><td colspan="19" class="py-10 text-center text-muted-foreground">暂无招标单数据</td></tr>'
                 : filtered.map((tender) => renderRow(tender)).join('')
             }
           </tbody>
@@ -1404,6 +1439,13 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement |
     state.statusFilter = node.value as 'ALL' | TenderStatus
     return
   }
+  if (field === 'filter.process') { state.processFilter = node.value; return }
+  if (field === 'filter.factory') { state.factoryFilter = node.value; return }
+  if (field === 'filter.quote') { state.quoteFilter = node.value as TendersPageState['quoteFilter']; return }
+  if (field === 'filter.createdStart') { state.createdStart = node.value; return }
+  if (field === 'filter.createdEnd') { state.createdEnd = node.value; return }
+  if (field === 'filter.deadlineStart') { state.deadlineStart = node.value; return }
+  if (field === 'filter.deadlineEnd') { state.deadlineEnd = node.value; return }
 
   if (field === 'view.awardReason') {
     state.viewAwardReason = node.value
@@ -1463,6 +1505,13 @@ export function handleDispatchTendersEvent(
   if (action === 'reset-filter') {
     state.keyword = ''
     state.statusFilter = 'ALL'
+    state.processFilter = 'ALL'
+    state.factoryFilter = 'ALL'
+    state.quoteFilter = 'ALL'
+    state.createdStart = ''
+    state.createdEnd = ''
+    state.deadlineStart = ''
+    state.deadlineEnd = ''
     return true
   }
 

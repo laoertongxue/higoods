@@ -5,6 +5,7 @@ import {
 import { cuttingOrderProgressRecords } from '../../../data/fcs/cutting/order-progress.ts'
 import { listMarkerPlanCutOrderSourceRecords } from '../../../data/fcs/cutting/marker-plan-source.ts'
 import type { CuttingOrderProgressRecord } from '../../../data/fcs/cutting/types.ts'
+import { getBrowserLocalStorage, readBrowserStorageItem } from '../../../data/browser-storage.ts'
 import type { CuttingSummaryBuildOptions } from './summary-model.ts'
 import {
   createEmptyStore,
@@ -31,7 +32,9 @@ export interface MarkerPlanProjection {
 
 function readStoredMarkerPlans(): MarkerPlan[] {
   try {
-    return deserializeMarkerPlanStorage(localStorage.getItem(getMarkerPlanStorageKey()))
+    return deserializeMarkerPlanStorage(
+      readBrowserStorageItem(getBrowserLocalStorage(), getMarkerPlanStorageKey()),
+    )
   } catch {
     return []
   }

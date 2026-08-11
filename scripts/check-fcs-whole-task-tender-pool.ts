@@ -66,7 +66,6 @@ function makeRecord(overrides: Partial<RuntimeTaskTenderRecord> = {}): RuntimeTa
     ],
     standardPrice: 1500,
     minPrice: 1200,
-    maxPrice: 1800,
     currency: 'IDR',
     unit: '件',
     remark: '整任务竞价候选工厂池专项验收',
@@ -85,6 +84,10 @@ try {
   assert.equal(wholeTaskRecord.taskSnapshot.skuLines.reduce((sum, line) => sum + line.qty, 0), 500)
   assert.equal(wholeTaskRecord.factoryPool.length, 2)
   assert.equal(resolveRuntimeTaskTenderStatus(wholeTaskRecord, '2099-08-11 10:00:00'), 'BIDDING')
+  assert.throws(
+    () => upsertRuntimeTaskTenderRecord(makeRecord()),
+    /任务范围、工厂池和最低允许报价均已冻结/,
+  )
 
   assert.equal(
     listPdaBiddingTendersByFactoryId('FAC-CHECK-POOL-A').some((item) => item.tenderId === wholeTaskRecord.tenderId),
@@ -118,10 +121,10 @@ try {
     () => recordRuntimeTaskTenderQuote(wholeTaskRecord.taskId, {
       factoryId: 'FAC-CHECK-POOL-A',
       factoryName: '验收竞价工厂 A',
-      quotePrice: 1900,
+      quotePrice: 1199,
       quoteTime: '2099-08-11 10:00:00',
     }),
-    /报价必须在/,
+    /不能低于最低允许报价/,
   )
 
   recordRuntimeTaskTenderQuote(wholeTaskRecord.taskId, {
@@ -166,6 +169,13 @@ try {
     }),
     /未提交报价/,
   )
+  recordRuntimeTaskTenderQuote(wholeTaskRecord.taskId, {
+    factoryId: 'FAC-CHECK-POOL-B',
+    factoryName: '验收竞价工厂 B',
+    factoryCode: 'CHECK-B',
+    quotePrice: 1450,
+    quoteTime: '2099-08-11 11:30:00',
+  })
   assert.throws(
     () => markRuntimeTaskTenderAwarded({
       taskId: wholeTaskRecord.taskId,
@@ -183,6 +193,8 @@ try {
     awardedPrice: 1480,
     awardedAt: '2099-08-12 18:01:00',
   })
+  assert.equal(Math.min(...awarded.quotes.map((quote) => quote.quotePrice)), 1450)
+  assert.equal(awarded.awardedPrice, 1480, '定标必须由人工选择，不得自动强制最低报价工厂中标')
   assert.equal(resolveRuntimeTaskTenderStatus(awarded, '2099-08-12 18:02:00'), 'AWARDED')
   assert.equal(
     listPdaAwardedTenderNoticesByFactoryId('FAC-CHECK-POOL-A').some((item) => item.tenderId === wholeTaskRecord.tenderId),
@@ -192,6 +204,40 @@ try {
     listPdaAwardedTenderNoticesByFactoryId('FAC-CHECK-POOL-B').some((item) => item.tenderId === wholeTaskRecord.tenderId),
     false,
   )
+
+  const aboveStandardRecord = upsertRuntimeTaskTenderRecord(makeRecord({
+    tenderId: 'TD-CHECK-ABOVE-STANDARD-001',
+    taskId: 'TASK-CHECK-ABOVE-STANDARD-001',
+    taskSnapshot: {
+      ...makeRecord().taskSnapshot,
+      taskNo: 'TASKGEN-CHECK-ABOVE-STANDARD-001',
+    },
+  }))
+  recordRuntimeTaskTenderQuote(aboveStandardRecord.taskId, {
+    factoryId: 'FAC-CHECK-POOL-A',
+    factoryName: '验收竞价工厂 A',
+    quotePrice: 1700,
+    quoteTime: '2099-08-11 10:30:00',
+  })
+  assert.throws(
+    () => markRuntimeTaskTenderAwarded({
+      taskId: aboveStandardRecord.taskId,
+      factoryId: 'FAC-CHECK-POOL-A',
+      factoryName: '验收竞价工厂 A',
+      awardedPrice: 1700,
+      awardedAt: '2099-08-12 18:01:00',
+    }),
+    /中标价高于工序标准价时必须填写价格差异说明/,
+  )
+  const aboveStandardAward = markRuntimeTaskTenderAwarded({
+    taskId: aboveStandardRecord.taskId,
+    factoryId: 'FAC-CHECK-POOL-A',
+    factoryName: '验收竞价工厂 A',
+    awardedPrice: 1700,
+    awardedAt: '2099-08-12 18:01:00',
+    awardReason: '交期满足生产单要求，确认接受高于标准价的报价',
+  })
+  assert.equal(aboveStandardAward.awardReason, '交期满足生产单要求，确认接受高于标准价的报价')
 
   const noQuoteRecord = upsertRuntimeTaskTenderRecord(makeRecord({
     tenderId: 'TD-CHECK-NO-QUOTE-001',
@@ -276,13 +322,40 @@ try {
   const tenderPageSource = readFileSync(path.join(projectRoot, 'src/pages/dispatch-tenders.ts'), 'utf8')
   const pdaSource = readFileSync(path.join(projectRoot, 'src/pages/pda-task-receive.ts'), 'utf8')
   assert.match(workbenchSource, /renderWholeTaskTenderScope\(task\)/)
-  assert.match(workbenchSource, /竞价工厂池/)
-  assert.match(workbenchSource, /页面展示数量不会截断实际工厂池/)
+  assert.match(workbenchSource, /本次竞价工厂池/)
+  assert.match(workbenchSource, /data-unified-tender-transfer/)
+  assert.match(workbenchSource, /data-unified-tender-candidates/)
+  assert.match(workbenchSource, /data-unified-tender-selected-pool/)
+  assert.match(workbenchSource, /data-unified-tender-selection-field="\$\{side\}"/)
+  assert.match(workbenchSource, /data-skip-page-rerender="true"/, '穿梭选择器复选框和筛选控件必须避开全页重绘及点击 preventDefault')
+  assert.match(workbenchSource, /data-unified-action="add-checked-tender-factories"/)
+  assert.match(workbenchSource, /data-unified-action="add-visible-tender-factories"/)
+  assert.match(workbenchSource, /data-unified-action="remove-checked-tender-factories"/)
+  assert.match(workbenchSource, /右侧工厂是本次提交与二次确认的唯一工厂池/)
+  assert.match(workbenchSource, /data-unified-tender-confirmed-factories/)
+  assert.doesNotMatch(workbenchSource, /data-unified-tender-factory=/, '候选勾选不得再直接代表正式工厂池成员')
+  assert.doesNotMatch(workbenchSource, /select-visible-tender-factories|选择全部筛选结果|清空已选/)
+  assert.match(workbenchSource, /二次确认发起竞价/)
+  assert.match(workbenchSource, /最低允许报价/)
+  assert.match(workbenchSource, /data-nav="\/fcs\/dispatch\/tenders\?tenderId=/, '工作台招标单深链应走 SPA 导航，避免竞价运行事实因整页刷新丢失')
+  assert.doesNotMatch(workbenchSource, /最高限价|允许报价范围/)
+  assert.match(workbenchSource, /页面完整展示全部工厂，提交时不会截断本次工厂池/)
   assert.doesNotMatch(workbenchSource, /listEligibleTenderFactoriesForTask\(task\)\.slice\(0,\s*20\)/)
   assert.doesNotMatch(tenderPageSource, /新建招标单/)
   assert.match(tenderPageSource, /cancelRuntimeTaskTender/)
   assert.match(tenderPageSource, /二次确认取消竞价/)
+  assert.match(tenderPageSource, /全部池内工厂/)
+  assert.match(tenderPageSource, /全部报价情况/)
+  assert.match(tenderPageSource, /PDA消息已发送/)
+  assert.match(tenderPageSource, /最低允许报价/)
+  assert.match(tenderPageSource, /initializedQueryTenderId !== queryTenderId/)
+  assert.match(tenderPageSource, /queryTenderId && isEnteringTenderPage/)
+  assert.match(tenderPageSource, /data-dispatch-tenders-page/)
+  assert.match(tenderPageSource, /state\.keyword = queryTenderId/)
+  assert.match(tenderPageSource, /else if \(previousQueryTenderId\)/)
+  assert.doesNotMatch(tenderPageSource, /最高限价/)
   assert.match(pdaSource, /recordRuntimeTaskTenderQuote/)
+  assert.doesNotMatch(pdaSource, /工序标准价|当前最低价|最高限价/)
 
   console.log('FCS 整任务竞价、候选工厂池、PDA 报价与定标共享事实检查通过')
 } finally {

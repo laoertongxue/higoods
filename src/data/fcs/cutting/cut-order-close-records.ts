@@ -1,4 +1,5 @@
 import { getGeneratedCutOrderSourceRecordById } from './generated-cut-orders.ts'
+import { getBrowserLocalStorage } from '../../browser-storage.ts'
 import {
   getMaterialLedgerProjectionByCutOrder,
   type MaterialLedgerProjection,
@@ -15,6 +16,10 @@ const CUTTING_CUT_ORDER_REOPEN_DELETED_KEY_PREFIX = `${CUTTING_CUT_ORDER_REOPEN_
 const CUTTING_CUT_ORDER_REOPEN_RESERVATION_KEY_PREFIX = `${CUTTING_CUT_ORDER_REOPEN_RECORDS_STORAGE_KEY}:reservation:`
 
 export type CutOrderLifecycleStorage = Pick<Storage, 'getItem' | 'setItem'> & Partial<Pick<Storage, 'removeItem' | 'key' | 'length'>>
+
+function getDefaultCutOrderLifecycleStorage(): CutOrderLifecycleStorage | null {
+  return getBrowserLocalStorage() as CutOrderLifecycleStorage | null
+}
 
 export type CutOrderCloseReasonCode = NonNullable<CuttingOrderProgressRecord['closeReasonCode']>
 export type CutOrderCloseSourceType = '差异确认' | '人工关闭' | '生产单取消' | '款式取消' | '其他来源'
@@ -298,7 +303,7 @@ function mergeCloseRecords(records: CutOrderCloseRecord[], deletedIds: Set<strin
 }
 
 export function listStoredCutOrderCloseRecords(
-  storage: CutOrderLifecycleStorage | null = typeof localStorage === 'undefined' ? null : localStorage,
+  storage: CutOrderLifecycleStorage | null = getDefaultCutOrderLifecycleStorage(),
 ): CutOrderCloseRecord[] {
   if (!storage || typeof storage.getItem !== 'function') return []
   return mergeCloseRecords([
@@ -309,7 +314,7 @@ export function listStoredCutOrderCloseRecords(
 
 export function saveStoredCutOrderCloseRecords(
   records: CutOrderCloseRecord[],
-  storage: Pick<Storage, 'setItem'> | null = typeof localStorage === 'undefined' ? null : localStorage,
+  storage: Pick<Storage, 'setItem'> | null = getDefaultCutOrderLifecycleStorage(),
 ): void {
   if (!storage || typeof storage.setItem !== 'function') return
   storage.setItem(CUTTING_CUT_ORDER_CLOSE_RECORDS_STORAGE_KEY, serializeCutOrderCloseRecordsStorage(records))
@@ -450,7 +455,7 @@ export function createCutOrderLifecycleOperationKey(
 export function createNextCutOrderCloseRecordIdentity(
   cutOrderId: string,
   cutOrderNo: string,
-  storage: CutOrderLifecycleStorage | null = typeof localStorage === 'undefined' ? null : localStorage,
+  storage: CutOrderLifecycleStorage | null = getDefaultCutOrderLifecycleStorage(),
   operationKey = '',
 ): Pick<CutOrderCloseRecord, 'closeRecordId' | 'closeRecordNo'> {
   const sequence = nextLifecycleSequence(listStoredCutOrderCloseRecords(storage), cutOrderId, cutOrderNo, 'closeRecordId', 'closeRecordNo')
@@ -461,7 +466,7 @@ export function createNextCutOrderCloseRecordIdentity(
 
 export function upsertStoredCutOrderCloseRecord(
   record: CutOrderCloseRecord,
-  storage: CutOrderLifecycleStorage | null = typeof localStorage === 'undefined' ? null : localStorage,
+  storage: CutOrderLifecycleStorage | null = getDefaultCutOrderLifecycleStorage(),
 ): CutOrderLifecycleWriteResult<CutOrderCloseRecord> {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const records = listStoredCutOrderCloseRecords(storage)
@@ -512,7 +517,7 @@ export function upsertStoredCutOrderCloseRecord(
 
 export function rollbackStoredCutOrderCloseRecordWrite(
   handle: CutOrderLifecycleRollbackHandle,
-  storage: CutOrderLifecycleStorage | null = typeof localStorage === 'undefined' ? null : localStorage,
+  storage: CutOrderLifecycleStorage | null = getDefaultCutOrderLifecycleStorage(),
 ): boolean {
   if (!storage || handle.kind !== 'close') return false
   const remaining = releaseLifecycleReservation(storage, handle)
@@ -522,7 +527,7 @@ export function rollbackStoredCutOrderCloseRecordWrite(
 
 export function removeStoredCutOrderCloseRecord(
   closeRecordId: string,
-  storage: CutOrderLifecycleStorage | null = typeof localStorage === 'undefined' ? null : localStorage,
+  storage: CutOrderLifecycleStorage | null = getDefaultCutOrderLifecycleStorage(),
 ): boolean {
   const key = closeRecordId.trim()
   if (!key) return false
@@ -608,7 +613,7 @@ function mergeReopenRecords(records: CutOrderReopenRecord[], deletedIds: Set<str
 }
 
 export function listStoredCutOrderReopenRecords(
-  storage: CutOrderLifecycleStorage | null = typeof localStorage === 'undefined' ? null : localStorage,
+  storage: CutOrderLifecycleStorage | null = getDefaultCutOrderLifecycleStorage(),
 ): CutOrderReopenRecord[] {
   if (!storage || typeof storage.getItem !== 'function') return []
   return mergeReopenRecords([
@@ -619,7 +624,7 @@ export function listStoredCutOrderReopenRecords(
 
 export function saveStoredCutOrderReopenRecords(
   records: CutOrderReopenRecord[],
-  storage: Pick<Storage, 'setItem'> | null = typeof localStorage === 'undefined' ? null : localStorage,
+  storage: Pick<Storage, 'setItem'> | null = getDefaultCutOrderLifecycleStorage(),
 ): void {
   if (!storage || typeof storage.setItem !== 'function') return
   storage.setItem(CUTTING_CUT_ORDER_REOPEN_RECORDS_STORAGE_KEY, serializeCutOrderReopenRecordsStorage(records))
@@ -628,7 +633,7 @@ export function saveStoredCutOrderReopenRecords(
 export function createNextCutOrderReopenRecordIdentity(
   cutOrderId: string,
   cutOrderNo: string,
-  storage: CutOrderLifecycleStorage | null = typeof localStorage === 'undefined' ? null : localStorage,
+  storage: CutOrderLifecycleStorage | null = getDefaultCutOrderLifecycleStorage(),
   operationKey = '',
 ): Pick<CutOrderReopenRecord, 'reopenRecordId' | 'reopenRecordNo'> {
   const sequence = nextLifecycleSequence(listStoredCutOrderReopenRecords(storage), cutOrderId, cutOrderNo, 'reopenRecordId', 'reopenRecordNo')
@@ -639,7 +644,7 @@ export function createNextCutOrderReopenRecordIdentity(
 
 export function upsertStoredCutOrderReopenRecord(
   record: CutOrderReopenRecord,
-  storage: CutOrderLifecycleStorage | null = typeof localStorage === 'undefined' ? null : localStorage,
+  storage: CutOrderLifecycleStorage | null = getDefaultCutOrderLifecycleStorage(),
 ): CutOrderLifecycleWriteResult<CutOrderReopenRecord> {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const records = listStoredCutOrderReopenRecords(storage)
@@ -690,7 +695,7 @@ export function upsertStoredCutOrderReopenRecord(
 
 export function rollbackStoredCutOrderReopenRecordWrite(
   handle: CutOrderLifecycleRollbackHandle,
-  storage: CutOrderLifecycleStorage | null = typeof localStorage === 'undefined' ? null : localStorage,
+  storage: CutOrderLifecycleStorage | null = getDefaultCutOrderLifecycleStorage(),
 ): boolean {
   if (!storage || handle.kind !== 'reopen') return false
   const remaining = releaseLifecycleReservation(storage, handle)
@@ -700,7 +705,7 @@ export function rollbackStoredCutOrderReopenRecordWrite(
 
 export function removeStoredCutOrderReopenRecord(
   reopenRecordId: string,
-  storage: CutOrderLifecycleStorage | null = typeof localStorage === 'undefined' ? null : localStorage,
+  storage: CutOrderLifecycleStorage | null = getDefaultCutOrderLifecycleStorage(),
 ): boolean {
   const key = reopenRecordId.trim()
   if (!key) return false

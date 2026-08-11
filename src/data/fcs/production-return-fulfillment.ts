@@ -74,6 +74,35 @@ export interface ProductionReturnReminder {
   message: string
 }
 
+export type ProductionOrderReturnListStatus =
+  | 'DATA_INCOMPLETE'
+  | 'OVERDUE'
+  | 'DUE_TODAY'
+  | 'DUE_TOMORROW'
+  | 'UPCOMING'
+  | 'REACHED'
+  | 'NO_RULE'
+  | 'BIDDING'
+
+export interface ProductionOrderReturnAssignmentSummary {
+  projection: ProductionReturnProjection
+  status: Exclude<ProductionOrderReturnListStatus, 'DATA_INCOMPLETE' | 'NO_RULE' | 'BIDDING'>
+  focusMilestone: ProductionReturnMilestoneProjection
+  reminderState: string
+}
+
+export interface ProductionOrderReturnSummary {
+  productionOrderId: string
+  status: ProductionOrderReturnListStatus
+  statusLabel: string
+  primary?: ProductionOrderReturnAssignmentSummary
+  assignments: ProductionOrderReturnAssignmentSummary[]
+  activeAssignmentCount: number
+  additionalFactoryCount: number
+  additionalRiskNodeCount: number
+  message?: string
+}
+
 export type ReturnReceiptAssignmentResolution =
   | { resolution: 'MATCHED'; assignmentId: string; reason: string }
   | { resolution: 'MANUAL_REVIEW'; candidateAssignmentIds: string[]; reason: string }
@@ -339,6 +368,121 @@ export function listProductionReturnReminderLogs(input: { assignmentId?: string;
     .filter((item) => !input.assignmentId || item.assignmentId === input.assignmentId)
     .filter((item) => !input.factoryId || item.factoryId === input.factoryId)
     .map((item) => ({ ...item }))
+}
+
+const RETURN_LIST_STATUS_LABEL: Record<ProductionOrderReturnListStatus, string> = {
+  DATA_INCOMPLETE: '履约数据不完整',
+  OVERDUE: '已逾期',
+  DUE_TODAY: '今日到期',
+  DUE_TOMORROW: '明日到期',
+  UPCOMING: '即将到期',
+  REACHED: '已达成',
+  NO_RULE: '无分阶段回货规则',
+  BIDDING: '竞价中',
+}
+
+function resolveAssignmentListStatus(
+  projection: ProductionReturnProjection,
+  today: string,
+): ProductionOrderReturnAssignmentSummary {
+  const todayDay = dateToEpochDay(today)
+  const overdue = projection.milestones.find((item) => item.status === 'OVERDUE')
+  const dueToday = projection.milestones.find((item) => item.status === 'DUE_TODAY')
+  const dueTomorrow = projection.milestones.find((item) => item.status === 'UPCOMING' && dateToEpochDay(item.deadlineDate) - todayDay === 1)
+  const upcoming = projection.milestones.find((item) => item.status === 'UPCOMING')
+  const focusMilestone = overdue || dueToday || dueTomorrow || upcoming || projection.milestones[projection.milestones.length - 1]
+  const status: ProductionOrderReturnAssignmentSummary['status'] = overdue
+    ? 'OVERDUE'
+    : dueToday
+      ? 'DUE_TODAY'
+      : dueTomorrow
+        ? 'DUE_TOMORROW'
+        : upcoming
+          ? 'UPCOMING'
+          : 'REACHED'
+  const expectedReminderType: ReturnReminderType | null = status === 'DUE_TOMORROW'
+    ? 'DUE_TOMORROW'
+    : status === 'DUE_TODAY'
+      ? 'DUE_TODAY'
+      : status === 'OVERDUE'
+        ? 'OVERDUE'
+        : null
+  const hasReminder = expectedReminderType != null && listProductionReturnReminderLogs({
+    assignmentId: projection.snapshot.assignmentId,
+    factoryId: projection.snapshot.factoryId,
+  }).some((item) => item.milestoneRatio === focusMilestone.ratio && item.reminderType === expectedReminderType)
+  const reminderState = status === 'REACHED'
+    ? '节点已达成，无需提醒'
+    : expectedReminderType == null
+      ? '尚未到提醒时间'
+      : expectedReminderType === 'OVERDUE'
+        ? `逾期警告${hasReminder ? '已发送' : '待发送'}`
+        : `${expectedReminderType === 'DUE_TOMORROW' ? '截止前1天提醒' : '截止当天提醒'}${hasReminder ? '已发送' : '待发送'}`
+  return { projection, status, focusMilestone, reminderState }
+}
+
+export function projectProductionOrderReturnSummary(input: {
+  productionOrderId: string
+  today: string
+  expectedStagedReturn?: boolean
+  bidding?: boolean
+}): ProductionOrderReturnSummary {
+  const today = assertDate(input.today, '查询日期')
+  if (input.bidding) {
+    return {
+      productionOrderId: input.productionOrderId,
+      status: 'BIDDING',
+      statusLabel: RETURN_LIST_STATUS_LABEL.BIDDING,
+      assignments: [], activeAssignmentCount: 0, additionalFactoryCount: 0, additionalRiskNodeCount: 0,
+      message: '竞价中，定标后开始计算回货履约',
+    }
+  }
+  const snapshots = listProductionReturnRuleSnapshots({ activeOnly: true })
+    .filter((snapshot) => snapshot.productionOrderId === input.productionOrderId)
+  if (snapshots.length === 0) {
+    const status: ProductionOrderReturnListStatus = input.expectedStagedReturn ? 'DATA_INCOMPLETE' : 'NO_RULE'
+    return {
+      productionOrderId: input.productionOrderId,
+      status,
+      statusLabel: RETURN_LIST_STATUS_LABEL[status],
+      assignments: [], activeAssignmentCount: 0, additionalFactoryCount: 0, additionalRiskNodeCount: 0,
+      message: status === 'DATA_INCOMPLETE' ? '任务已具备分阶段回货规则，但尚未形成有效分配快照' : '该生产单当前没有适用的分阶段回货规则',
+    }
+  }
+  const invalid = snapshots.find((snapshot) => (
+    !snapshot.assignmentId || !snapshot.factoryId || !snapshot.factoryName || snapshot.assignedQty <= 0
+    || snapshot.milestones.length !== 3
+    || snapshot.milestones.some((item) => item.targetQty <= 0 || !item.deadlineDate)
+  ))
+  if (invalid) {
+    return {
+      productionOrderId: input.productionOrderId,
+      status: 'DATA_INCOMPLETE',
+      statusLabel: RETURN_LIST_STATUS_LABEL.DATA_INCOMPLETE,
+      assignments: [], activeAssignmentCount: snapshots.length, additionalFactoryCount: Math.max(0, snapshots.length - 1), additionalRiskNodeCount: 0,
+      message: `分配 ${invalid.assignmentId || invalid.snapshotId} 的回货履约数据不完整`,
+    }
+  }
+  const assignments = snapshots.map((snapshot) => resolveAssignmentListStatus(projectProductionReturnFulfillment({
+    snapshot,
+    receipts: listProductionReturnReceipts({ assignmentId: snapshot.assignmentId, factoryId: snapshot.factoryId }),
+    today,
+  }), today))
+  const rank: Record<ProductionOrderReturnAssignmentSummary['status'], number> = { OVERDUE: 6, DUE_TODAY: 5, DUE_TOMORROW: 4, UPCOMING: 3, REACHED: 2 }
+  assignments.sort((left, right) => rank[right.status] - rank[left.status] || left.focusMilestone.deadlineDate.localeCompare(right.focusMilestone.deadlineDate))
+  const primary = assignments[0]
+  const factoryCount = new Set(assignments.map((item) => item.projection.snapshot.factoryId)).size
+  const riskNodes = assignments.flatMap((item) => item.projection.milestones).filter((item) => item.status !== 'REACHED').length
+  return {
+    productionOrderId: input.productionOrderId,
+    status: primary.status,
+    statusLabel: RETURN_LIST_STATUS_LABEL[primary.status],
+    primary,
+    assignments,
+    activeAssignmentCount: assignments.length,
+    additionalFactoryCount: Math.max(0, factoryCount - 1),
+    additionalRiskNodeCount: Math.max(0, riskNodes - 1),
+  }
 }
 
 export function invalidateProductionReturnRuleSnapshot(

@@ -1,5 +1,6 @@
 import { buildWoolFactWorkflowMockStore } from './mock-data.ts'
 import { isKnownFactoryWarehouseLocation } from '../factory-internal-warehouse-locations.ts'
+import { getBrowserLocalStorage } from '../../browser-storage.ts'
 import { WOOL_DEFAULT_WAREHOUSE_BY_LOCATION } from './types.ts'
 import { normalizeWoolBatchNo, validateWoolWarehouseLedger } from './warehouse-ledger.ts'
 import type {
@@ -65,12 +66,10 @@ function cloneStore(store: WoolDomainStore): WoolDomainStore {
 }
 
 function getStorage(): WoolStorage | null {
-  try {
-    const candidate = (globalThis as { localStorage?: WoolStorage }).localStorage
-    return candidate ?? null
-  } catch {
-    return null
-  }
+  const candidate = getBrowserLocalStorage()
+  return candidate && typeof candidate.setItem === 'function'
+    ? candidate as WoolStorage
+    : null
 }
 
 function isWoolV2StoreStructure(value: unknown): value is WoolDomainStore {
