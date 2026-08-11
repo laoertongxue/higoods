@@ -144,6 +144,7 @@
     "check:dispatch-acceptance-sla": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-dispatch-acceptance-sla.ts",
     "check:fcs-unified-assignment-foundation": "tsx scripts/check-fcs-unified-assignment-foundation.ts",
     "check:fcs-sewing-preparation-return-preview": "tsx scripts/check-fcs-sewing-preparation-return-preview.ts",
+    "check:fcs-whole-task-tender-pool": "tsx scripts/check-fcs-whole-task-tender-pool.ts",
     "check:production-contract-template-fidelity": "tsx scripts/check-production-contract-template-fidelity.ts",
     "check:fcs-unified-dispatch-contract-return": "tsx scripts/check-fcs-unified-assignment-foundation.ts",
     "check:fcs-dispatch-bagging": "tsx scripts/check-fcs-dispatch-bagging.ts",
@@ -248,7 +249,7 @@
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
-    "@playwright/test": "^1.53.2",
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

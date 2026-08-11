@@ -236,6 +236,7 @@ const ASSIGNMENT_STATUS_LABEL: Record<TaskAssignmentStatus, string> = {
   ASSIGNING: '分配中',
   ASSIGNED: '已派单',
   BIDDING: '竞价中',
+  AWAIT_AWARD: '待定标',
   AWARDED: '已中标',
 }
 
@@ -252,6 +253,7 @@ const ASSIGNMENT_STATUS_COLOR_CLASS: Record<TaskAssignmentStatus, string> = {
   ASSIGNING: 'bg-amber-100 text-amber-700 border-amber-200',
   ASSIGNED: 'bg-blue-100 text-blue-700 border-blue-200',
   BIDDING: 'bg-purple-100 text-purple-700 border-purple-200',
+  AWAIT_AWARD: 'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200',
   AWARDED: 'bg-green-100 text-green-700 border-green-200',
 }
 

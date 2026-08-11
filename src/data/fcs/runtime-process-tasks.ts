@@ -1121,7 +1121,11 @@ function applyFixedMergedTaskPlan(tasks: RuntimeProcessTask[], plan: {
 }
 
 function applyFixedMergedTaskDemo(tasks: RuntimeProcessTask[]): RuntimeProcessTask[] {
-  const sewingAwardedPdaDemoSource = tasks.find((task) => task.taskId === 'TASKGEN-202603-083-004__ORDER')
+  const sewingAwardedPdaDemoSource = tasks.find((task) =>
+    task.productionOrderId === 'PO-202603-083'
+    && task.scopeType === 'ORDER'
+    && isRuntimeIndependentSewingTask(task),
+  )
   const cuttingSewingIronPackSourceIds = ['CUTTING', 'SEWING', 'IRON_PACK']
     .map((processCode) => tasks.find((task) =>
       task.productionOrderId === 'PO-202603-0102'
@@ -2578,6 +2582,61 @@ export function upsertRuntimeTaskTender(
 
   recomputeRuntimeTransitionsForOrder(task.productionOrderId)
   return updated
+}
+
+export function cancelRuntimeTaskTender(input: {
+  taskId: string
+  tenderId: string
+  cancelledAt: string
+  cancelledBy: string
+  reason: string
+}): RuntimeProcessTask {
+  const task = getRuntimeTaskById(input.taskId)
+  if (!task) throw new Error(`任务 ${input.taskId} 不存在或已被移除`)
+  if (task.assignmentMode !== 'BIDDING' || !task.tenderId) {
+    throw new Error(`任务 ${input.taskId} 尚未发起竞价，不可取消`)
+  }
+  if (task.tenderId !== input.tenderId) {
+    throw new Error(`任务 ${input.taskId} 当前竞价单不是 ${input.tenderId}`)
+  }
+  if (task.assignmentStatus === 'AWARDED' || task.assignedFactoryId || task.awardedAt) {
+    throw new Error(`任务 ${input.taskId} 已定标，不可取消竞价`)
+  }
+  if (task.startedAt || task.status === 'IN_PROGRESS' || task.status === 'DONE') {
+    throw new Error(`任务 ${input.taskId} 已进入生产执行，不可取消竞价`)
+  }
+  if (!input.cancelledAt.trim() || !input.cancelledBy.trim()) {
+    throw new Error('取消竞价缺少操作时间或操作人')
+  }
+  if (!input.reason.trim()) throw new Error('取消竞价必须填写原因')
+
+  const updated = updateRuntimeTaskWithAudit(
+    input.taskId,
+    {
+      assignmentMode: 'DIRECT',
+      assignmentStatus: 'UNASSIGNED',
+      tenderId: undefined,
+      biddingDeadline: undefined,
+      businessAssignedAt: undefined,
+      assignmentOperatedAt: undefined,
+      assignedFactoryId: undefined,
+      assignedFactoryName: undefined,
+      awardedAt: undefined,
+      dispatchPrice: undefined,
+      dispatchPriceCurrency: undefined,
+      dispatchPriceUnit: undefined,
+      acceptanceStatus: undefined,
+      acceptedAt: undefined,
+      acceptedBy: undefined,
+      distributionMode: undefined,
+    },
+    'TENDER_CANCEL',
+    `取消竞价 ${input.tenderId}：${input.reason.trim()}`,
+    input.cancelledBy,
+  )
+  if (!updated) throw new Error(`任务 ${input.taskId} 取消竞价失败`)
+  recomputeRuntimeTransitionsForOrder(task.productionOrderId)
+  return getRuntimeTaskById(input.taskId) ?? updated
 }
 
 export function prepareRuntimeTaskTenderAward(

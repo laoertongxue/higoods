@@ -510,7 +510,7 @@ function buildDirectTaskSet(profile: GenericProcessProfile, baseIndex: number): 
   const pendingAcceptDeadline =
     profile.key === 'SEWING'
       ? relativeDateTime(8)
-      : profile.key === 'IRONING'
+      : profile.key === 'IRON_PACK'
         ? relativeDateTime(2)
         : nowLike(29, '10:00:00')
   return [

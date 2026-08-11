@@ -11,6 +11,7 @@ export interface ReceiveScopedTenderLike {
   processName?: string
   processCode?: string
   taskId?: string
+  runtimeShared?: boolean
 }
 
 type ReceiveTaskResolver = (taskId: string) => ProcessTask | null
@@ -91,7 +92,7 @@ export function filterReceiveQuotedTenders<T extends ReceiveScopedTenderLike>(
 ): T[] {
   return tenders.filter(
     (tender) =>
-      submittedTenderIds.has(tender.tenderId) &&
+      (submittedTenderIds.has(tender.tenderId) || tender.runtimeShared === true) &&
       isReceiveEligibleTender(tender, tender.taskId ? resolveTask(tender.taskId) : null, selectedFactoryId),
   )
 }
