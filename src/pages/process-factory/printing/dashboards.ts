@@ -1,150 +1,17 @@
-import { escapeHtml } from '../../../utils'
-import { listPrintWorkOrders } from '../../../data/fcs/printing-task-domain.ts'
-import { getPrintingDashboardMetrics } from '../../../data/fcs/process-statistics-domain.ts'
-import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts'
 import {
-  formatPrintQty,
-  getPrintQuantityLabel,
-  getPrintPrinterSummary,
-  renderMetricCard,
-  renderPageHeader,
-  renderSection,
-  renderWorkOrderStatusBadge,
-} from './shared'
-
-function renderBuckets(): string {
-  const { statistics } = getPrintingDashboardMetrics()
-  return `
-    <section class="grid gap-3 md:grid-cols-4 xl:grid-cols-8">
-      ${renderMetricCard('今日待打印面料米数 / 裁片数量', `${statistics.waitProcessFabricMeters} 米`, '统一待加工仓')}
-      ${renderMetricCard('今日打印完成面料米数 / 裁片数量', `${statistics.printCompletedFabricMeters} 米`, '执行节点')}
-      ${renderMetricCard('今日转印完成面料米数 / 裁片数量', `${statistics.transferCompletedFabricMeters} 米`, '执行节点')}
-      ${renderMetricCard('当前待送货面料米数 / 裁片数量', `${statistics.waitHandoverFabricMeters} 米`, '统一待交出仓')}
-      ${renderMetricCard('当前待回写记录数', String(statistics.waitWritebackHandoverCount), '接收方待回写')}
-      ${renderMetricCard('当前待审核记录数', String(statistics.waitReviewCount), '接收方回写后待平台审核')}
-      ${renderMetricCard('当前有差异记录数', String(statistics.differenceRecordCount), '统一差异记录')}
-      ${renderMetricCard('已交出面料米数 / 裁片数量', `${statistics.handedOverFabricMeters} 米`, '统一交出记录')}
-      ${renderMetricCard('实收面料米数 / 裁片数量', `${statistics.receivedFabricMeters} 米`, '接收方确认收货')}
-    </section>
-  `
-}
-
-function renderDistribution(): string {
-  const { statusRows, factoryRows } = getPrintingDashboardMetrics()
-  const statusHtml = statusRows
-    .map((row) => `
-      <div class="flex items-center justify-between rounded-md border bg-background px-3 py-2 text-sm">
-        <span>${escapeHtml(row.label)}</span>
-        <span class="font-semibold">${row.count}</span>
-      </div>
-    `)
-    .join('')
-  const factoryHtml = factoryRows
-    .map((row) => `
-      <tr class="border-b last:border-b-0">
-        <td class="px-3 py-3 text-sm">${escapeHtml(formatFactoryDisplayName(row.factoryName, row.factoryId))}</td>
-        <td class="px-3 py-3 text-sm">${row.workOrderCount}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(row.objectType)} / ${escapeHtml(row.qtyUnit)}</td>
-        <td class="px-3 py-3 text-sm">${row.plannedQty} ${escapeHtml(row.qtyUnit)}</td>
-        <td class="px-3 py-3 text-sm">${row.doneQty} ${escapeHtml(row.qtyUnit)}</td>
-        <td class="px-3 py-3 text-sm">${row.handoverQty} ${escapeHtml(row.qtyUnit)}</td>
-        <td class="px-3 py-3 text-sm">${row.diffQty} ${escapeHtml(row.qtyUnit)}</td>
-        <td class="px-3 py-3 text-sm">${row.completionRate}%</td>
-      </tr>
-    `)
-    .join('')
-
-  return `
-    <div class="grid gap-4 xl:grid-cols-[0.9fr_1.4fr]">
-      ${renderSection('按状态维度的印花加工单分布', `<div class="grid gap-2 md:grid-cols-2">${statusHtml}</div>`)}
-      ${renderSection(
-        '按工厂维度的印花执行进度',
-        `
-          <div class="overflow-x-auto">
-            <table class="min-w-full text-left text-sm">
-              <thead class="bg-slate-50 text-xs text-muted-foreground">
-                <tr>
-                  <th class="px-3 py-2 font-medium">工厂</th>
-                  <th class="px-3 py-2 font-medium">作用对象 / 单位</th>
-                  <th class="px-3 py-2 font-medium">加工单数</th>
-                  <th class="px-3 py-2 font-medium">加工计划数量（按工单单位）</th>
-                  <th class="px-3 py-2 font-medium">执行完成面料米数 / 裁片数量</th>
-                  <th class="px-3 py-2 font-medium">已交出面料米数 / 裁片数量</th>
-                  <th class="px-3 py-2 font-medium">差异面料米数 / 裁片数量</th>
-                  <th class="px-3 py-2 font-medium">完成率</th>
-                </tr>
-              </thead>
-              <tbody>${factoryHtml}</tbody>
-            </table>
-          </div>
-        `,
-      )}
-    </div>
-  `
-}
-
-function renderBoardList(): string {
-  const rows = listPrintWorkOrders()
-    .map((order) => {
-      const printer = getPrintPrinterSummary(order)
-      const pendingText =
-        order.status === 'WAIT_HANDOVER'
-          ? '待送货'
-          : order.status === 'HANDOVER_WAIT_RECEIVE'
-            ? '待回写'
-            : order.status === 'PARTIAL_HANDOVER'
-              ? '待审核'
-              : order.status === 'FULL_HANDOVER'
-                ? '全部交出'
-                : order.status === 'HANDOVER_DIFFERENCE'
-                  ? '收货差异'
-                  : '跟进中'
-      return `
-        <tr class="border-b last:border-b-0">
-          <td class="px-3 py-3 font-mono text-xs">${escapeHtml(order.printOrderNo)}</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(order.taskNo)}</td>
-          <td class="px-3 py-3">${renderWorkOrderStatusBadge(order.status)}</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(formatFactoryDisplayName(order.printFactoryName, order.printFactoryId))}</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(printer.printerNo)}</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(getPrintQuantityLabel(order))}：${formatPrintQty(order.plannedQty, order.qtyUnit)}</td>
-          <td class="px-3 py-3 text-sm">${formatPrintQty(printer.outputQty, order.qtyUnit)}</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(pendingText)}</td>
-        </tr>
-      `
-    })
-    .join('')
-
-  return renderSection(
-    '印花大屏',
-    `
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-left text-sm">
-          <thead class="bg-slate-50 text-xs text-muted-foreground">
-            <tr>
-              <th class="px-3 py-2 font-medium">印花单号</th>
-              <th class="px-3 py-2 font-medium">印花任务</th>
-              <th class="px-3 py-2 font-medium">当前状态</th>
-              <th class="px-3 py-2 font-medium">工厂</th>
-              <th class="px-3 py-2 font-medium">打印机</th>
-              <th class="px-3 py-2 font-medium">加工计划数量（对象 / 单位）</th>
-              <th class="px-3 py-2 font-medium">打印完成面料米数 / 裁片数量</th>
-              <th class="px-3 py-2 font-medium">待处理</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    `,
-  )
-}
+  PRINTING_HANDOVER_STATUS_LABEL,
+  PRINTING_PROCESSING_STATUS_LABEL,
+  formatPrintingQty,
+  listPrintingWorkOrders,
+} from '../../../data/fcs/printing-work-order-business.ts'
+import { buildPrintingWorkOrderDetailLink } from '../../../data/fcs/fcs-route-links.ts'
+import { escapeHtml } from '../../../utils.ts'
 
 export function renderCraftPrintingDashboardsPage(): string {
-  return `
-    <div class="space-y-4 p-4">
-      ${renderPageHeader('印花大屏', '')}
-      ${renderBuckets()}
-      ${renderDistribution()}
-      ${renderBoardList()}
-    </div>
-  `
+  const rows = listPrintingWorkOrders()
+  const attention = rows.filter((row) => row.processingStatus !== 'CANCELLED' && (row.processingStatus !== 'PROCESS_COMPLETED' || row.handoverStatus !== 'RECEIVED' || row.handover.objectionQty > 0))
+  return `<div class="min-h-full space-y-4 bg-slate-950 p-5 text-white"><header class="flex items-center justify-between"><div><h1 class="text-2xl font-semibold">印花执行大屏</h1><p class="mt-1 text-sm text-slate-300">现场只跟进加工五态与交出六态；花型/打印/转印保留在工艺要求和纸面确认单。</p></div><div class="rounded-lg bg-white/10 px-4 py-2 text-sm">待跟进 ${attention.length} 张</div></header>
+    <section class="grid gap-3 md:grid-cols-3 xl:grid-cols-5"><article class="rounded-xl bg-blue-500/20 p-4"><p class="text-xs text-blue-100">待接收投入</p><strong class="mt-2 block text-3xl">${rows.filter((row) => row.processingStatus === 'WAIT_INPUT_RECEIPT').length}</strong></article><article class="rounded-xl bg-indigo-500/20 p-4"><p class="text-xs text-indigo-100">加工中</p><strong class="mt-2 block text-3xl">${rows.filter((row) => row.processingStatus === 'PROCESSING').length}</strong></article><article class="rounded-xl bg-amber-500/20 p-4"><p class="text-xs text-amber-100">待交出/部分交出</p><strong class="mt-2 block text-3xl">${rows.filter((row) => ['WAIT_HANDOVER', 'PARTIAL_HANDOVER'].includes(row.handoverStatus)).length}</strong></article><article class="rounded-xl bg-cyan-500/20 p-4"><p class="text-xs text-cyan-100">已交出待接收/部分接收</p><strong class="mt-2 block text-3xl">${rows.filter((row) => ['HANDOVER_WAIT_RECEIVE', 'PARTIAL_RECEIVED'].includes(row.handoverStatus)).length}</strong></article><article class="rounded-xl bg-red-500/20 p-4"><p class="text-xs text-red-100">存在差异/异议</p><strong class="mt-2 block text-3xl">${rows.filter((row) => row.handover.diffQty > 0 || row.handover.objectionQty > 0).length}</strong></article></section>
+    <section class="overflow-hidden rounded-xl border border-white/10 bg-white/5"><div class="overflow-x-auto"><table class="min-w-[1200px] w-full text-left text-sm"><thead class="bg-white/5 text-xs text-slate-300"><tr><th class="p-3">印花单</th><th class="p-3">需求来源</th><th class="p-3">加工投入</th><th class="p-3">固定加工产出</th><th class="p-3">加工厂</th><th class="p-3">加工状态</th><th class="p-3">交出状态</th><th class="p-3 text-right">完成/计划</th><th class="p-3 text-right">交出/接收</th><th class="p-3">当前跟进</th></tr></thead><tbody>${attention.map((order) => `<tr class="border-t border-white/10"><td class="p-3"><a class="font-mono text-blue-300" href="${escapeHtml(buildPrintingWorkOrderDetailLink(order.workOrderId))}" data-nav="${escapeHtml(buildPrintingWorkOrderDetailLink(order.workOrderId))}">${escapeHtml(order.printOrderNo)}</a></td><td class="p-3">${escapeHtml(order.demandSource.sourceLabel)}</td><td class="p-3"><p>${escapeHtml(order.plannedInput.materialName)}</p><p class="font-mono text-xs text-slate-400">${escapeHtml(order.actualInput.actualSku)}</p></td><td class="p-3 font-mono text-xs">${escapeHtml(order.output.sku)}</td><td class="p-3">${escapeHtml(order.printFactoryName)}</td><td class="p-3">${escapeHtml(PRINTING_PROCESSING_STATUS_LABEL[order.processingStatus])}</td><td class="p-3">${escapeHtml(PRINTING_HANDOVER_STATUS_LABEL[order.handoverStatus])}</td><td class="p-3 text-right">${formatPrintingQty(order.output.completedQty)} / ${formatPrintingQty(order.output.plannedQty)} Yard</td><td class="p-3 text-right">${formatPrintingQty(order.handover.handedOverQty)} / ${formatPrintingQty(order.handover.receivedQty)} Yard</td><td class="p-3">${order.handover.objectionQty ? `<span class="text-red-300">${order.handover.objectionQty} 条异议待处理</span>` : order.processingStatus === 'PROCESSING' ? '跟进加工完成' : ['HANDOVER_WAIT_RECEIVE', 'PARTIAL_RECEIVED'].includes(order.handoverStatus) ? '跟进下游接收' : '按当前主动作处理'}</td></tr>`).join('')}</tbody></table></div></section>
+  </div>`
 }

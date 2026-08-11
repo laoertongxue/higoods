@@ -10,7 +10,6 @@ const controllerConsumers = [
 const sourceDetailConsumers = [
   'src/pages/process-print-orders.ts',
   'src/pages/process-dye-orders.ts',
-  'src/pages/process-factory/printing/work-order-detail.ts',
   'src/pages/process-factory/dyeing/work-order-detail.ts',
 ]
 
@@ -20,6 +19,10 @@ for (const path of controllerConsumers) {
 for (const path of sourceDetailConsumers) {
   assert.match(read(path), /getProcessWorkOrderSourceDetailRows/, `${path} 必须复用加工单来源详情 helper`)
 }
+const redesignedPrintingDetail = read('src/pages/process-factory/printing/work-order-detail.ts')
+assert.match(redesignedPrintingDetail, /PRINTING_DEMAND_SOURCE_LABEL/, '印花工厂详情必须读取印花加工单四类需求来源事实')
+assert.match(redesignedPrintingDetail, /getPrintingWorkOrderById/, '印花工厂详情必须读取投入、固定产出与双状态统一模型')
+assert.doesNotMatch(redesignedPrintingDetail, /getProcessWorkOrderSourceDetailRows/, '印花工厂详情不得回退到缺少采购来源的旧加工单来源 helper')
 
 const sourceLabelDefinition = 'src/data/fcs/process-work-order-domain.ts'
 const productionFiles = [

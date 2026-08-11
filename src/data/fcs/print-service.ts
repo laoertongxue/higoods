@@ -2,6 +2,9 @@ import type { TaskRouteCardSourceType } from './task-print-cards.ts'
 
 export type PrintDocumentType =
   | 'TASK_ROUTE_CARD'
+  | 'PRINTING_INFO_SHEET'
+  | 'PRINTING_CONFIRMATION'
+  | 'PRINTING_ROLL_LABEL'
   | 'TASK_DELIVERY_CARD'
   | 'PRODUCTION_CONFIRMATION'
   | 'MATERIAL_PREP_SLIP'
@@ -24,6 +27,7 @@ export type PrintDocumentType =
 
 export type PrintSourceType =
   | TaskRouteCardSourceType
+  | 'PRINTING_ROLL_RECORD'
   | 'POST_FINISHING_WORK_ORDER'
   | 'HANDOVER_RECORD'
   | 'MATERIAL_PREP_RECORD'

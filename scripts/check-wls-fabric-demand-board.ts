@@ -310,14 +310,23 @@ const menuSource = read('src/data/app-shell-config.ts')
 const routesSource = read('src/router/routes.ts')
 const renderersSource = read('src/router/route-renderers.ts')
 const mainSource = read('src/main.ts')
+const pageSource = read('src/pages/wls-fabric-demand-board.ts')
 
 assertIncludes(menuSource, '面料需求看板', 'WLS 菜单缺少面料需求看板')
 assertIncludes(menuSource, '/wls/fabric-demand-board', 'WLS 菜单缺少面料需求看板路径')
 assertIncludes(routesSource, '/wls/fabric-demand-board', '路由缺少 /wls/fabric-demand-board')
 assertIncludes(renderersSource, 'renderWlsFabricDemandBoardPage', '缺少 WLS 面料需求看板渲染器')
 assertIncludes(mainSource, 'handleWlsFabricDemandBoardEvent', '主事件流缺少 WLS 面料需求看板事件处理')
+assertIncludes(pageSource, '// @page-pattern: list', '面料需求看板必须声明标准列表页模式')
+assertIncludes(pageSource, 'renderStandardListPage', '面料需求看板必须使用标准列表页骨架')
+assertIncludes(pageSource, 'createProcessOrderListController', '面料需求看板必须使用共享列表控制器')
+assertIncludes(pageSource, 'locallyManagedEvents: true', '面料需求看板分页、排序和列设置必须局部更新')
 
 const html = renderWlsFabricDemandBoardPage()
+assertIncludes(html, 'data-standard-list-page', '面料需求看板缺少标准列表页标记')
+assertIncludes(html, 'data-standard-list-scroll', '宽表必须仅在表格容器内滚动')
+assertIncludes(html, 'data-standard-list-sort-icon="none"', '可排序列必须显示未排序图标')
+assertIncludes(html, 'data-fabric-demand-list-field="pageSize" data-skip-page-rerender="true"', '每页条数必须在局部事件中切换')
 for (const text of [
   '面料需求看板',
   '数据搜索区',

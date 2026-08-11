@@ -26,6 +26,8 @@ function getSearchParams(): URLSearchParams {
 }
 
 function inferSourceType(documentType: PrintDocumentType, handoverRecordId: string): PrintSourceType | '' {
+  if (documentType === 'PRINTING_INFO_SHEET' || documentType === 'PRINTING_CONFIRMATION') return 'PRINTING_WORK_ORDER'
+  if (documentType === 'PRINTING_ROLL_LABEL') return 'PRINTING_ROLL_RECORD'
   if (documentType === 'TASK_DELIVERY_CARD' && handoverRecordId) return 'HANDOVER_RECORD'
   if (documentType === 'MATERIAL_PREP_SLIP') return 'MATERIAL_PREP_RECORD'
   if (documentType === 'PICKUP_SLIP') return 'PICKUP_SLIP_RECORD'
@@ -106,6 +108,7 @@ export function renderUnifiedPrintPreviewPage(input?: Partial<PrintDocumentBuild
             </div>
             <div class="flex flex-wrap gap-2">
               ${document.printMeta.returnHref ? `<button class="rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="${escapeHtml(document.printMeta.returnHref)}">返回业务单据</button>` : ''}
+              <button class="rounded-md border px-3 py-2 text-sm hover:bg-slate-50" onclick="window.print()">下载 PDF</button>
               <button class="rounded-md border px-3 py-2 text-sm hover:bg-slate-50" onclick="window.print()">打印</button>
             </div>
           </div>

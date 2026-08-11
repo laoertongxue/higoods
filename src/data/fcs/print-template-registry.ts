@@ -61,6 +61,14 @@ import {
 import { renderDyeWorkOrderFlowCardTemplate } from '../../pages/print/templates/dye-work-order-flow-card-template.ts'
 import { buildProductionContractPrintDocument, renderProductionContractTemplate } from '../../pages/print/templates/production-contract-template.ts'
 import { PRODUCTION_CONTRACT_MASTER_TEMPLATE_CODE } from '../../pages/print/templates/production-contract-master-template.ts'
+import {
+  buildPrintingConfirmationDocument,
+  buildPrintingInfoSheetDocument,
+  buildPrintingRollLabelDocument,
+  renderPrintingConfirmationDocument,
+  renderPrintingInfoSheetDocument,
+  renderPrintingRollLabelDocument,
+} from '../../pages/print/templates/printing-work-order-template.ts'
 
 export interface PrintTemplateRegistration {
   templateCode: string
@@ -72,6 +80,30 @@ export interface PrintTemplateRegistration {
 }
 
 export const printTemplateRegistry: PrintTemplateRegistration[] = [
+  {
+    templateCode: 'PRINTING_INFO_SHEET_V2',
+    templateName: '印花信息单',
+    documentType: 'PRINTING_INFO_SHEET',
+    supportedSourceTypes: ['PRINTING_WORK_ORDER'],
+    buildDocument: buildPrintingInfoSheetDocument,
+    render: renderPrintingInfoSheetDocument,
+  },
+  {
+    templateCode: 'PRINTING_CONFIRMATION_V2',
+    templateName: '印花确认单',
+    documentType: 'PRINTING_CONFIRMATION',
+    supportedSourceTypes: ['PRINTING_WORK_ORDER'],
+    buildDocument: buildPrintingConfirmationDocument,
+    render: renderPrintingConfirmationDocument,
+  },
+  {
+    templateCode: 'PRINTING_ROLL_LABEL_V2',
+    templateName: '加工产出卷条码',
+    documentType: 'PRINTING_ROLL_LABEL',
+    supportedSourceTypes: ['PRINTING_ROLL_RECORD'],
+    buildDocument: buildPrintingRollLabelDocument,
+    render: renderPrintingRollLabelDocument,
+  },
   {
     templateCode: PRODUCTION_CONTRACT_MASTER_TEMPLATE_CODE,
     templateName: 'SPK & Komitmen Jadwal Pengembalian',
@@ -323,6 +355,9 @@ export function renderPrintDocument(document: PrintDocument): string {
 
 export const requiredPrintDocumentTypes: PrintDocumentType[] = [
   'PRODUCTION_CONTRACT',
+  'PRINTING_INFO_SHEET',
+  'PRINTING_CONFIRMATION',
+  'PRINTING_ROLL_LABEL',
   'TASK_ROUTE_CARD',
   'TASK_DELIVERY_CARD',
   'MATERIAL_PREP_SLIP',

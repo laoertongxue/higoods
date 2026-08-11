@@ -238,6 +238,7 @@ const listController = createProcessOrderListController({
   columnSettingsTitle: '印花加工单列设置',
   emptyText: '暂无加工单',
   getRows: getFilteredOrders,
+  locallyManagedEvents: true,
 })
 
 function hydrateInsertedIcons(root: ParentNode): void {

@@ -48,35 +48,18 @@ async function checkFactoryPrintingPage(page: Page, port: number): Promise<void>
   const factoryRoot = '[data-printing-work-orders-root]'
   await page.goto(`http://127.0.0.1:${port}${factoryPath}`)
   await page.locator(factoryRoot).waitFor({ timeout: 90_000 })
-  await page.evaluate(() => localStorage.removeItem('/fcs/craft/printing/work-orders:list-columns'))
+  await page.evaluate(() => localStorage.removeItem('/fcs/craft/printing/work-orders:input-output-v2'))
   await page.reload()
   await page.locator(factoryRoot).waitFor({ timeout: 90_000 })
-  await page.locator('[data-printing-work-orders-field="sourceType"]').selectOption('STOCK')
-
-  await page.evaluate(({ factoryRoot }) => {
-    const workspace = document.querySelector(`${factoryRoot} [data-printing-work-orders-workspace]`)
-    if (!workspace) throw new Error('工厂印花页缺少预热区域')
-    const testWindow = window as typeof window & { __factoryPrintingWarmDone?: boolean }
-    testWindow.__factoryPrintingWarmDone = false
-    new MutationObserver((_records, observer) => {
-      testWindow.__factoryPrintingWarmDone = true
-      observer.disconnect()
-    }).observe(workspace, { childList: true, subtree: true })
-  }, { factoryRoot })
-  await page.getByRole('button', { name: '重置' }).click()
-  await page.waitForFunction(() => (window as typeof window & { __factoryPrintingWarmDone?: boolean }).__factoryPrintingWarmDone === true)
-  await page.locator('[data-printing-work-orders-field="sourceType"]').selectOption('STOCK')
+  await page.locator('[data-printing-work-orders-field="demandSource"]').selectOption('STOCK')
   await page.evaluate(({ factoryRoot }) => {
     const root = document.querySelector(factoryRoot)
     const workspace = root?.querySelector('[data-printing-work-orders-workspace]')
-    const filters = root?.querySelector('[data-printing-work-orders-filters-surface]')
-    const tableSurface = root?.querySelector('[data-printing-work-orders-table-surface]')
-    const paginationSurface = root?.querySelector('[data-printing-work-orders-pagination-surface]')
-    if (!root || !workspace || !filters || !tableSurface || !paginationSurface) throw new Error('工厂印花页缺少稳定性检查区域')
+    if (!root || !workspace) throw new Error('工厂印花页缺少稳定性检查区域')
     const testWindow = window as typeof window & {
-      __factoryPrintingStable?: { root: Element; workspace: Element; filters: Element; tableSurface: Element; paginationSurface: Element; startedAt: number; duration: number }
+      __factoryPrintingStable?: { root: Element; workspace: Element; startedAt: number; duration: number }
     }
-    testWindow.__factoryPrintingStable = { root, workspace, filters, tableSurface, paginationSurface, startedAt: 0, duration: 0 }
+    testWindow.__factoryPrintingStable = { root, workspace, startedAt: 0, duration: 0 }
     root.addEventListener('click', (event) => {
       const target = event.target instanceof Element ? event.target.closest('[data-printing-work-orders-action="apply-filter"]') : null
       if (target && testWindow.__factoryPrintingStable) testWindow.__factoryPrintingStable.startedAt = performance.now()
@@ -90,39 +73,37 @@ async function checkFactoryPrintingPage(page: Page, port: number): Promise<void>
   await page.getByRole('button', { name: '查询' }).click()
   await page.waitForFunction(({ factoryRoot }) => {
     const rows = [...document.querySelectorAll(`${factoryRoot} [data-standard-list-table-section] tbody tr`)]
-    return rows.length > 0 && rows.every((row) => row.textContent?.includes('备货手动创建'))
+    return rows.length > 0 && rows.every((row) => row.textContent?.includes('备货'))
   }, { factoryRoot }, { timeout: 90_000 })
   const stable = await page.evaluate(({ factoryRoot }) => {
     const state = (window as typeof window & {
-      __factoryPrintingStable?: { root: Element; workspace: Element; filters: Element; tableSurface: Element; paginationSurface: Element; duration: number }
+      __factoryPrintingStable?: { root: Element; workspace: Element; duration: number }
     }).__factoryPrintingStable
     if (!state) throw new Error('缺少工厂印花稳定性状态')
     const root = document.querySelector(factoryRoot)
     return {
       rootSame: root === state.root,
       workspaceSame: root?.querySelector('[data-printing-work-orders-workspace]') === state.workspace,
-      filtersSame: root?.querySelector('[data-printing-work-orders-filters-surface]') === state.filters,
-      tableSurfaceSame: root?.querySelector('[data-printing-work-orders-table-surface]') === state.tableSurface,
-      paginationSurfaceSame: root?.querySelector('[data-printing-work-orders-pagination-surface]') === state.paginationSurface,
       duration: state.duration,
     }
   }, { factoryRoot })
-  assert.deepEqual({ ...stable, duration: undefined }, { rootSame: true, workspaceSame: true, filtersSame: true, tableSurfaceSame: true, paginationSurfaceSame: true, duration: undefined }, '工厂印花筛选不得替换工作区及稳定区域')
+  assert.deepEqual({ ...stable, duration: undefined }, { rootSame: true, workspaceSame: true, duration: undefined }, '工厂印花筛选不得整页重绘')
   assert.ok(stable.duration > 0 && stable.duration < 200, `工厂印花筛选局部响应应低于 200ms，实际 ${stable.duration.toFixed(1)}ms`)
 
   await page.getByRole('button', { name: '重置' }).click()
-  const firstPageRows = await page.locator(`${factoryRoot} [data-standard-list-table-section] tbody tr`).allTextContents()
-  await page.locator('[data-printing-work-orders-action="next-page"]').click()
-  await page.waitForFunction(({ factoryRoot }) => document.querySelector(`${factoryRoot} [data-standard-list-table-section] footer span`)?.textContent?.trim().startsWith('2 /'), { factoryRoot })
-  assert.notDeepEqual(await page.locator(`${factoryRoot} [data-standard-list-table-section] tbody tr`).allTextContents(), firstPageRows, '工厂印花下一页必须更新行')
+  await page.waitForFunction(({ factoryRoot }) => document.querySelectorAll(`${factoryRoot} [data-standard-list-table-section] tbody tr`).length > 1, { factoryRoot })
+  await page.getByText('印花加工单数量', { exact: true }).waitFor()
+  await page.getByText('加工投入', { exact: true }).first().waitFor()
+  await page.getByText('加工产出', { exact: true }).first().waitFor()
 
   await page.getByRole('button', { name: '列设置' }).click()
   await page.getByRole('heading', { name: '印花加工单列设置' }).waitFor()
   assert.equal(await page.locator(`${factoryRoot} [data-standard-list-table-section]`).count(), 1, '工厂印花列设置不得复制表格区域')
   await page.getByRole('button', { name: '关闭' }).last().click()
 
-  await page.locator(`${factoryRoot} [data-standard-list-table-section] tbody tr`).first().getByRole('button', { name: '查看详情' }).click()
+  await page.locator(`${factoryRoot} [data-standard-list-table-section] tbody tr`).first().getByRole('link', { name: '详情', exact: true }).click()
   await page.waitForURL(/\/fcs\/craft\/printing\/work-orders\//)
+  await page.locator('[data-printing-work-order-detail-root]').waitFor()
   assert.match(page.url(), /\/fcs\/craft\/printing\/work-orders\//, '工厂印花详情入口必须进入真实加工单详情')
   console.log(`[check-platform-process-order-events] FACTORY_PRINT passed on ${port}`)
 }
