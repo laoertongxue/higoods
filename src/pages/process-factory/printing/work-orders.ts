@@ -111,7 +111,7 @@ function renderActions(order: PrintingWorkOrderBusinessRecord): string {
 
 const columns: StandardListColumn<PrintingWorkOrderBusinessRecord>[] = [
   {
-    key: 'select', title: '选择', width: 64, required: true,
+    key: 'select', title: '选择', width: 64, align: 'center', required: true, leadingControlColumn: true,
     render: (order) => `<input type="checkbox" aria-label="选择 ${escapeHtml(order.printOrderNo)}" data-printing-action="toggle-select" data-work-order-id="${escapeHtml(order.workOrderId)}" ${selectedWorkOrderIds.has(order.workOrderId) ? 'checked' : ''}>`,
   },
   {

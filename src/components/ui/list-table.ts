@@ -13,6 +13,7 @@ export interface StandardListColumn<T> {
   required?: boolean
   freezeable?: boolean
   sortable?: boolean
+  leadingControlColumn?: boolean
   actionColumn?: boolean
   /**
    * 返回可信 HTML。调用方必须先对来自业务数据的纯文本执行 HTML 转义。
@@ -57,7 +58,8 @@ function orderedColumns<T>(
   }
 
   const byKey = new Map(columns.map((column) => [column.key, column]))
-  const seen = new Set<string>()
+  const leadingControls = columns.filter((column) => column.leadingControlColumn && !column.actionColumn)
+  const seen = new Set(leadingControls.map((column) => column.key))
   const regular: StandardListColumn<T>[] = []
 
   for (const key of orderedKeys) {
@@ -72,7 +74,7 @@ function orderedColumns<T>(
     regular.push(column)
   }
 
-  return [...regular, ...columns.filter((column) => column.actionColumn)]
+  return [...leadingControls, ...regular, ...columns.filter((column) => column.actionColumn)]
 }
 
 function alignmentClass(align: 'left' | 'center' | 'right' | undefined): string {
@@ -101,12 +103,13 @@ function visibleTableColumns<T>(
   const visible = orderedColumns(columns, preferences.order).filter((column) =>
     isColumnVisible(column, visibleKeys),
   )
+  const leadingControls = visible.filter((column) => column.leadingControlColumn && !column.actionColumn)
   const actionColumns = visible.filter((column) => column.actionColumn)
-  const regularColumns = visible.filter((column) => !column.actionColumn)
+  const regularColumns = visible.filter((column) => !column.actionColumn && !column.leadingControlColumn)
   const frozenColumns = regularColumns.filter((column) => column.freezeable && frozenKeys.has(column.key))
   const scrollableColumns = regularColumns.filter((column) => !column.freezeable || !frozenKeys.has(column.key))
 
-  return [...frozenColumns, ...scrollableColumns, ...actionColumns]
+  return [...leadingControls, ...frozenColumns, ...scrollableColumns, ...actionColumns]
 }
 
 function frozenClass(
@@ -258,7 +261,7 @@ export function renderStandardListTable<T>(config: StandardListTableConfig<T>): 
   const leftOffsets = new Map<string, number>()
   let frozenWidth = 0
   for (const column of columns) {
-    if (!column.actionColumn && column.freezeable && frozenKeys.has(column.key)) {
+    if (!column.actionColumn && (column.leadingControlColumn || (column.freezeable && frozenKeys.has(column.key)))) {
       leftOffsets.set(column.key, frozenWidth)
       frozenWidth += columnWidth(column)
     }
@@ -377,7 +380,9 @@ export function renderStandardListColumnSettings<T>(
   const frozenKeys = new Set(config.preferences.frozenKeys)
   const frozenWidth = columns.reduce(
     (sum, column) => sum + (
-      isColumnVisible(column, visibleKeys) && frozenKeys.has(column.key) && !column.actionColumn
+      isColumnVisible(column, visibleKeys)
+        && (column.leadingControlColumn || frozenKeys.has(column.key))
+        && !column.actionColumn
         ? columnWidth(column)
         : 0
     ),
@@ -389,11 +394,12 @@ export function renderStandardListColumnSettings<T>(
     <div class="space-y-2">
       ${columns.map((column) => {
         const isAction = Boolean(column.actionColumn)
-        const isFrozen = frozenKeys.has(column.key)
-        const freezeDisabled = !column.freezeable || (
+        const isLeadingControl = Boolean(column.leadingControlColumn)
+        const isFrozen = isLeadingControl || frozenKeys.has(column.key)
+        const freezeDisabled = isLeadingControl || !column.freezeable || (
           !isFrozen && frozenWidth + columnWidth(column) > config.maxFrozenWidth
         )
-        const dragAttributes = isAction
+        const dragAttributes = isAction || isLeadingControl
           ? 'draggable="false"'
           : `draggable="true" data-standard-list-column-drag data-drag-source="${escapeHtml(column.key)}" data-drop-target="${escapeHtml(column.key)}"`
 
@@ -405,7 +411,7 @@ export function renderStandardListColumnSettings<T>(
             ${config.skipPageRerender ? 'data-skip-page-rerender="true"' : ''}
             ${dragAttributes}
           >
-            ${isAction ? '' : '<i data-lucide="grip-vertical" class="h-4 w-4 shrink-0 cursor-grab text-muted-foreground" aria-hidden="true"></i>'}
+            ${isAction || isLeadingControl ? '' : '<i data-lucide="grip-vertical" class="h-4 w-4 shrink-0 cursor-grab text-muted-foreground" aria-hidden="true"></i>'}
             <span class="min-w-0 flex-1 truncate text-sm font-medium">${escapeHtml(column.title)}</span>
             ${isAction ? '' : renderSettingCheckbox({
               label: '显示',
