@@ -177,6 +177,22 @@ export const printTemplateRegistry: PrintTemplateRegistration[] = [
     render: renderLabelPrintTemplate,
   },
   {
+    templateCode: 'FEI_TICKET_WHITE_THERMAL',
+    templateName: '普通部位菲票白色热敏纸模板',
+    documentType: 'FEI_TICKET_LABEL',
+    supportedSourceTypes: ['FEI_TICKET_RECORD'],
+    buildDocument: buildFeiTicketLabelPrintDocument,
+    render: renderLabelPrintTemplate,
+  },
+  {
+    templateCode: 'FEI_TICKET_YELLOW_THERMAL',
+    templateName: '特殊工艺部位菲票黄色热敏纸模板',
+    documentType: 'FEI_TICKET_LABEL',
+    supportedSourceTypes: ['FEI_TICKET_RECORD'],
+    buildDocument: buildFeiTicketLabelPrintDocument,
+    render: renderLabelPrintTemplate,
+  },
+  {
     templateCode: 'TRANSFER_BAG_LABEL',
     templateName: '中转袋 / 周转口袋 / 周转箱二维码',
     documentType: 'TRANSFER_BAG_LABEL',

@@ -6,8 +6,10 @@ import {
 } from '../production-order-tech-pack-runtime.ts'
 import {
   getDedicatedSpecialCraftFactorySeed,
+  specialCraftDedicatedFactorySeeds,
   type SpecialCraftDedicatedFactorySeed,
 } from '../special-craft-dedicated-factories.ts'
+import { getCraftManagementDomain } from '../process-craft-dict.ts'
 import {
   listGeneratedCutOrderSourceRecords,
   type GeneratedCutOrderPieceRow,
@@ -37,10 +39,12 @@ import {
 
 export const FEI_TICKET_SOURCE_BASIS = '实际裁剪产出' as const
 export const FEI_TICKET_SOURCE_BASIS_TYPE = 'ACTUAL_CUTTING_OUTPUT' as const
+export const FEI_TICKET_MANUAL_SOURCE_BASIS = '手动唛架建票' as const
+export const FEI_TICKET_MANUAL_SOURCE_BASIS_TYPE = 'MANUAL_MARKER_PLAN' as const
 export const FEI_TICKET_WAITING_SOURCE_BASIS_TYPE = 'WAITING_ACTUAL_CUTTING_OUTPUT' as const
 
-export type FeiTicketSourceBasis = typeof FEI_TICKET_SOURCE_BASIS
-export type FeiTicketSourceBasisType = typeof FEI_TICKET_SOURCE_BASIS_TYPE
+export type FeiTicketSourceBasis = typeof FEI_TICKET_SOURCE_BASIS | typeof FEI_TICKET_MANUAL_SOURCE_BASIS
+export type FeiTicketSourceBasisType = typeof FEI_TICKET_SOURCE_BASIS_TYPE | typeof FEI_TICKET_MANUAL_SOURCE_BASIS_TYPE
 export type WaitingFeiTicketSourceBasisType = typeof FEI_TICKET_WAITING_SOURCE_BASIS_TYPE
 export type FeiTicketSpecialCraftCategory = '辅助工艺' | '特种工艺'
 export type FeiTicketSpecialCraftReceiverFactoryType = '辅助工艺厂' | '特种工艺厂' | '内部裁床工艺' | '其他'
@@ -277,6 +281,26 @@ export interface GeneratedFeiTicketSourceRecord {
   issuedAt: string
   qrPayload: FeiTicketQrPayload
   qrValue: string
+  manualBatchId?: string
+  manualMarkerMemberId?: string
+  manualCreatedBy?: string
+  manualUpdatedAt?: string
+  manualUpdatedBy?: string
+  manualRemark?: string
+  manualFirstPrintedAt?: string
+  manualLatestReprintedAt?: string
+  manualPrintCount?: number
+  manualLastPrintedBy?: string
+  manualPrintHistory?: Array<{
+    action: 'PRINT' | 'REPRINT'
+    printedAt: string
+    printedBy: string
+    reason: string
+    paperColor: 'WHITE' | 'YELLOW'
+    templateCode: string
+    labelSize: string
+    sourceRange: string[]
+  }>
 }
 
 export interface GeneratedFeiTicketTraceMatrixRow {
@@ -529,7 +553,7 @@ function getSpecialCraftReceiverFactory(
 }
 
 function createFeiTicketSpecialCraft(
-  line: SpreadingPieceOutputLine,
+  line: Pick<SpreadingPieceOutputLine, 'outputLineId' | 'partCode' | 'partName' | 'sizeCode' | 'actualCutPieceQty' | 'bundleQty'>,
   options: {
     index: number
     craftCategory: FeiTicketSpecialCraftCategory
@@ -557,109 +581,44 @@ function createFeiTicketSpecialCraft(
   }
 }
 
-function buildFeiTicketSpecialCrafts(
-  line: SpreadingPieceOutputLine,
-  sequenceNo: number,
+export function resolveFeiTicketSpecialCraftsForPart(
+  line: Pick<SpreadingPieceOutputLine, 'outputLineId' | 'productionOrderId' | 'partCode' | 'partName' | 'sizeCode' | 'actualCutPieceQty' | 'bundleQty'>,
 ): FeiTicketSpecialCraft[] {
-  const scenarioIndex = (sequenceNo - 1) % 9
-  const seedCrafts: Array<Omit<Parameters<typeof createFeiTicketSpecialCraft>[1], 'index'>> = []
+  const normalizePartKey = (value: string | undefined): string => normalizeText(value).toLocaleLowerCase('zh-CN')
+  const partCode = normalizePartKey(line.partCode)
+  const partName = normalizePartKey(line.partName)
+  const matchedPart = getProductionOrderCutPieceParts(line.productionOrderId).find((part) => {
+    const candidateCode = normalizePartKey(part.partCode)
+    const candidateName = normalizePartKey(part.partNameCn)
+    return Boolean(
+      (partCode && candidateCode === partCode)
+      || (partName && candidateName === partName)
+      || (partCode && candidateName === partCode)
+      || (partName && candidateCode === partName),
+    )
+  })
 
-  if (scenarioIndex === 0) {
-    seedCrafts.push({
-      craftCategory: '辅助工艺',
-      craftType: '烫画',
-      operationId: 'AUX-OP-HEAT-TRANSFER',
-      requirementSource: '技术包',
-    })
-  }
-
-  if (scenarioIndex === 1) {
-    seedCrafts.push({
-      craftCategory: '辅助工艺',
-      craftType: '绣花',
-      operationId: 'AUX-OP-EMBROIDERY',
-      requirementSource: '技术包',
-    })
-  }
-
-  if (scenarioIndex === 2) {
-    seedCrafts.push({
-      craftCategory: '特种工艺',
-      craftType: '模板工序',
-      operationId: 'SPC-OP-TEMPLATE-PROCESS',
-      requirementSource: '裁片单明细',
-    })
-  }
-
-  if (scenarioIndex === 3) {
-    seedCrafts.push(
-      {
-        craftCategory: '辅助工艺',
-        craftType: '绣花',
-        operationId: 'AUX-OP-EMBROIDERY',
+  return (matchedPart?.specialCrafts || [])
+    .filter((craft) => !craft.selectedTargetObject || craft.selectedTargetObject === '已裁部位')
+    .map((craft, index) => {
+      const factorySeed = specialCraftDedicatedFactorySeeds.find(
+        (seed) => seed.craftCode === craft.craftCode || seed.craftName === craft.craftName,
+      )
+      const managementDomain = factorySeed?.managementDomain
+        || getCraftManagementDomain(craft.craftCode)
+        || getCraftManagementDomain(craft.craftName)
+      const craftCategory: FeiTicketSpecialCraftCategory = managementDomain === 'AUXILIARY_CRAFT_FACTORY'
+        ? '辅助工艺'
+        : '特种工艺'
+      return createFeiTicketSpecialCraft(line, {
+        index,
+        craftCategory,
+        craftType: normalizeText(craft.displayName) || normalizeText(craft.craftName) || normalizeText(craft.processName),
+        operationId: factorySeed?.operationId,
         requirementSource: '技术包',
-      },
-      {
-        craftCategory: '辅助工艺',
-        craftType: '压褶',
-        operationId: 'AUX-OP-PLEATING',
-        requirementSource: '裁片单明细',
-      },
-      {
-        craftCategory: '特种工艺',
-        craftType: '模板工序',
-        operationId: 'SPC-OP-TEMPLATE-PROCESS',
-        requirementSource: '实际裁剪产出',
-      },
-    )
-  }
-
-  if (scenarioIndex === 4) {
-    seedCrafts.push(
-      {
-        craftCategory: '辅助工艺',
-        craftType: '压褶',
-        operationId: 'AUX-OP-PLEATING',
-        requirementSource: '裁片单明细',
-      },
-      {
-        craftCategory: '特种工艺',
-        craftType: '激光开袋',
-        operationId: 'SPC-OP-LASER-POCKET',
-        requirementSource: '实际裁剪产出',
-      },
-    )
-  }
-
-  if (scenarioIndex === 5) {
-    seedCrafts.push({
-      craftCategory: '特种工艺',
-      craftType: '激光定位裁',
-      requirementSource: '人工修正',
-      remark: '工艺类型明确，承接工厂尚未维护。',
+        remark: factorySeed ? '' : '技术包已配置工艺，承接工厂尚未维护。',
+      })
     })
-  }
-
-  if (scenarioIndex === 6) {
-    seedCrafts.push({
-      craftCategory: '辅助工艺',
-      craftType: '捆条',
-      operationId: 'CUTTING-INTERNAL-BINDING-STRIP',
-      requirementSource: '裁片单明细',
-      remark: '捆条在裁床内部工艺组承接。',
-    })
-  }
-
-  if (scenarioIndex === 7) {
-    seedCrafts.push({
-      craftCategory: '辅助工艺',
-      craftType: '直喷',
-      operationId: 'AUX-OP-DIRECT-PRINT',
-      requirementSource: '技术包',
-    })
-  }
-
-  return seedCrafts.map((craft, index) => createFeiTicketSpecialCraft(line, { ...craft, index }))
 }
 
 export function formatFeiTicketSpecialCraftDisplayLabel(crafts: FeiTicketSpecialCraft[]): string {
@@ -1749,7 +1708,7 @@ function buildFeiRecordsFromSpreadingSessions(
       piecePartCodes: [],
       piecePartNames: [],
     }
-    const specialCrafts = buildFeiTicketSpecialCrafts(line, sequenceNo)
+    const specialCrafts = resolveFeiTicketSpecialCraftsForPart(line)
     const secondaryCrafts = unique(specialCrafts.map((craft) => craft.craftName))
     const craftSequenceVersion = specialCrafts.length
       ? `actual-output-special-craft:${secondaryCrafts.join('+')}`

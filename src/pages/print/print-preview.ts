@@ -10,6 +10,10 @@ import type {
   PrintSourceType,
 } from '../../data/fcs/print-service.ts'
 import { renderUnifiedPrintStyles } from './print-styles.ts'
+import {
+  listManualFeiTicketSources,
+  recordManualFeiTicketPrint,
+} from '../../data/fcs/cutting/manual-fei-tickets.ts'
 
 function decodeParam(value: string): string {
   try {
@@ -23,6 +27,17 @@ function getSearchParams(): URLSearchParams {
   const pathname = appStore.getState().pathname
   const [, query] = pathname.split('?')
   return new URLSearchParams(query ?? '')
+}
+
+function getOperationReason(): string {
+  return (getSearchParams().get('reason') || '').trim()
+}
+
+function hasMatchedManualFeiTicket(sourceId: string): boolean {
+  const sourceIds = new Set(decodeParam(sourceId).split(',').map((item) => item.trim()).filter(Boolean))
+  return listManualFeiTicketSources().some((record) =>
+    [record.feiTicketId, record.feiTicketNo, record.sourceOutputLineId].some((value) => sourceIds.has(value)),
+  )
 }
 
 function inferSourceType(documentType: PrintDocumentType, handoverRecordId: string): PrintSourceType | '' {
@@ -56,12 +71,37 @@ function resolveInput(input?: Partial<PrintDocumentBuildInput>): PrintDocumentBu
     || params.get('sourceType')
     || inferSourceType(documentType, handoverRecordId)) as PrintSourceType
   const sourceId = input?.sourceId || params.get('sourceId') || handoverRecordId
+  const paperColor = input?.paperColor || (params.get('paperColor') as PrintDocumentBuildInput['paperColor']) || undefined
   return {
     documentType,
     sourceType,
     sourceId,
     handoverRecordId,
+    paperColor,
   }
+}
+
+export function handleUnifiedPrintPreviewEvent(target: HTMLElement): boolean {
+  const actionNode = target.closest<HTMLElement>('[data-print-preview-action]')
+  if (!actionNode) return false
+  const action = actionNode.dataset.printPreviewAction
+  if (action !== 'print' && action !== 'download-pdf') return false
+  if (action === 'print') {
+    const input = resolveInput()
+    if (input.documentType === 'FEI_TICKET_LABEL' || input.documentType === 'FEI_TICKET_REPRINT_LABEL') {
+      const document = buildPrintDocument(input)
+      recordManualFeiTicketPrint({
+        sourceIds: decodeParam(input.sourceId).split(',').map((item) => item.trim()).filter(Boolean),
+        printedBy: '裁床打票员',
+        reason: getOperationReason(),
+        paperColor: document.thermalPaperColor === 'YELLOW' ? 'YELLOW' : 'WHITE',
+        templateCode: document.templateCode,
+        labelSize: document.labelSize,
+      })
+    }
+  }
+  window.print()
+  return true
 }
 
 function renderPreviewFailure(message: string, backHref = '/fcs/progress/board'): string {
@@ -88,6 +128,14 @@ export function renderUnifiedPrintPreviewPage(input?: Partial<PrintDocumentBuild
   if (!resolved.sourceType || !resolved.sourceId) {
     return renderPreviewFailure('缺少打印来源或来源 ID，无法生成打印预览。')
   }
+  const operationReason = getOperationReason()
+  if (
+    resolved.documentType === 'FEI_TICKET_REPRINT_LABEL'
+    && hasMatchedManualFeiTicket(resolved.sourceId)
+    && !operationReason
+  ) {
+    return renderPreviewFailure('手动菲票补打必须填写补打原因，请返回菲票明细重新发起补打。', '/fcs/craft/cutting/fei-tickets')
+  }
 
   try {
     const document = buildPrintDocument({
@@ -95,6 +143,7 @@ export function renderUnifiedPrintPreviewPage(input?: Partial<PrintDocumentBuild
       sourceType: decodeParam(resolved.sourceType),
       sourceId: decodeParam(resolved.sourceId),
       handoverRecordId: resolved.handoverRecordId ? decodeParam(resolved.handoverRecordId) : undefined,
+      paperColor: resolved.paperColor,
     } as PrintDocumentBuildInput)
 
     return `
@@ -105,11 +154,13 @@ export function renderUnifiedPrintPreviewPage(input?: Partial<PrintDocumentBuild
             <div>
               <h1 class="text-lg font-semibold">${escapeHtml(document.documentTitle)}打印预览</h1>
               <p class="mt-1 text-xs text-muted-foreground">打印前请在浏览器打印设置中关闭页眉和页脚。该提示不会被打印。</p>
+              ${document.thermalPaperColor ? `<p class="mt-2 rounded-md border px-3 py-2 text-sm font-semibold ${document.thermalPaperColor === 'YELLOW' ? 'border-amber-400 bg-amber-50 text-amber-900' : 'border-blue-300 bg-blue-50 text-blue-800'}">请再次确认打印机已装入${document.thermalPaperColor === 'YELLOW' ? '黄色' : '白色'}热敏纸；本批次 ${document.totalCopies || 1} 张。</p>` : ''}
+              ${resolved.documentType === 'FEI_TICKET_REPRINT_LABEL' && operationReason ? `<p class="mt-2 text-xs text-slate-600">补打原因：${escapeHtml(operationReason)}</p>` : ''}
             </div>
             <div class="flex flex-wrap gap-2">
               ${document.printMeta.returnHref ? `<button class="rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="${escapeHtml(document.printMeta.returnHref)}">返回业务单据</button>` : ''}
-              <button class="rounded-md border px-3 py-2 text-sm hover:bg-slate-50" onclick="window.print()">下载 PDF</button>
-              <button class="rounded-md border px-3 py-2 text-sm hover:bg-slate-50" onclick="window.print()">打印</button>
+              <button class="rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-print-preview-action="download-pdf">下载 PDF</button>
+              <button class="rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-print-preview-action="print">打印</button>
             </div>
           </div>
         </div>

@@ -15,6 +15,7 @@ import {
   type PrintMode,
   type PrintPaperType,
   type PrintQrCode,
+  type PrintThermalPaperColor,
 } from '../../../data/fcs/print-service.ts'
 import { buildFeiTicketPrintProjection } from '../../process-factory/cutting/fei-ticket-print-projection.ts'
 import { encodeCarrierQr } from '../../../data/fcs/cutting/qr-codes.ts'
@@ -24,6 +25,7 @@ import {
 import {
   listSpreadingResultGeneratedFeiTickets,
 } from '../../../data/fcs/cutting/generated-fei-tickets.ts'
+import { listManualFeiTicketSources } from '../../../data/fcs/cutting/manual-fei-tickets.ts'
 import { getCuttingCutOrderTaskPrintSourceById } from '../../../data/fcs/cutting-task-print-source.ts'
 import { buildBindingProcessOrders } from '../../process-factory/cutting/binding-strip-orders.ts'
 import { buildTransferBagsProjection } from '../../process-factory/cutting/transfer-bags-projection.ts'
@@ -205,7 +207,7 @@ function stripFeiTicketLabelPrefix(value: string): string {
 }
 
 function listFeiRecords(documentType?: PrintDocumentType, bindingRecords = listBindingFeiRecords()): AnyFeiTicket[] {
-  const generated = listSpreadingResultGeneratedFeiTickets().map(generatedTicketToRecord)
+  const generated = [...listSpreadingResultGeneratedFeiTickets(), ...listManualFeiTicketSources()].map(generatedTicketToRecord)
   const cuttingRecords = documentType === 'FEI_TICKET_LABEL'
     ? generated
     : [...((buildFeiTicketPrintProjection().ticketRecords || []) as AnyFeiTicket[]), ...generated]
@@ -298,7 +300,6 @@ function buildFeiLabelItem(record: AnyFeiTicket, input: PrintDocumentBuildInput,
   const isBindingTicket = record.ticketSourceType === 'BINDING_STRIP'
   const isReprint = documentType === 'FEI_TICKET_REPRINT_LABEL'
   const ticketNo = toText(record.ticketNo || record.feiTicketNo)
-  const title = isReprint ? '菲票补打标签' : isBindingTicket ? '捆条菲票' : '菲票'
   const printProjection = buildFeiTicketLabelPrintProjection(record)
   const version = resolveFeiPrintVersion(record, mode)
   const maxCraftPrintLines = printProjection.templateSize === '15cm x 10cm' ? 4 : 2
@@ -307,6 +308,12 @@ function buildFeiLabelItem(record: AnyFeiTicket, input: PrintDocumentBuildInput,
     ? `${printProjection.hasSpecialCraftLabel}：${joinLabelLines(craftLines, maxCraftPrintLines)}`
     : printProjection.hasSpecialCraftLabel
   const handoverCraftValue = joinLabelLines(printProjection.specialCraftHandoverLines, maxCraftPrintLines)
+  const hasSpecialCraft = !isBindingTicket && craftLines.length > 0
+  const title = isBindingTicket
+    ? '捆条菲票'
+    : hasSpecialCraft
+      ? isReprint ? '特殊工艺菲票补打（黄色热敏纸）' : '特殊工艺菲票（黄色热敏纸）'
+      : isReprint ? '菲票补打标签' : '菲票'
 
   const baseFields = isBindingTicket
     ? fields([
@@ -353,11 +360,17 @@ function buildFeiLabelItem(record: AnyFeiTicket, input: PrintDocumentBuildInput,
         { label: '唛架方案', value: printProjection.markerPlanNo },
         { label: '唛架编号+铺布单号', value: printProjection.markerSpreadingLabel, emphasis: true },
         { label: '版本', value: version },
-        { label: '特殊工艺', value: craftPrintValue },
-        { label: '特殊工艺交出', value: handoverCraftValue },
-        { label: '承接工厂', value: joinLabelLines(printProjection.receiverFactoryDisplayLines, maxCraftPrintLines) },
-        { label: '特殊工艺 / 承接工厂', value: handoverCraftValue },
+        ...(hasSpecialCraft ? [
+          { label: '特殊工艺', value: craftPrintValue, emphasis: true },
+          { label: '承接工厂', value: joinLabelLines(printProjection.receiverFactoryDisplayLines, maxCraftPrintLines), emphasis: true },
+          { label: '特殊工艺 / 承接工厂', value: handoverCraftValue, emphasis: true },
+        ] : []),
       ])
+
+  if (!isBindingTicket) {
+    const titleField = baseFields.find((field) => field.label === '菲票标题')
+    if (titleField && hasSpecialCraft) titleField.value = title
+  }
 
   return {
     labelTitle: title,
@@ -369,6 +382,7 @@ function buildFeiLabelItem(record: AnyFeiTicket, input: PrintDocumentBuildInput,
     isVoid: false,
     isReprint,
     printMode: undefined,
+    thermalPaperColor: isBindingTicket ? undefined : hasSpecialCraft ? 'YELLOW' : 'WHITE',
   }
 }
 
@@ -430,6 +444,7 @@ function buildBaseLabelDocument(input: PrintDocumentBuildInput, options: {
     copyIndex: 1,
     totalCopies: options.labelItems.length,
     labelItems: options.labelItems,
+    thermalPaperColor: firstItem?.thermalPaperColor,
   }
 }
 
@@ -441,23 +456,53 @@ function resolveFeiMode(documentType: PrintDocumentType): PrintMode {
 export function buildFeiTicketLabelPrintDocument(input: PrintDocumentBuildInput): PrintDocument {
   const mode = resolveFeiMode(input.documentType)
   const records = listFeiRecordsForSource(input.sourceId, input.documentType)
+  if (!records.length) throw new Error('没有找到可打印的菲票记录。')
+  const partRecords = records.filter((record) => record.ticketSourceType !== 'BINDING_STRIP')
+  const actualPaperColors = uniqueBy(
+    partRecords.map((record) => ({
+      color: (buildFeiTicketLabelPrintProjection(record).specialCraftDisplayLines.some((line) => line && line !== '无') ? 'YELLOW' : 'WHITE') as PrintThermalPaperColor,
+    })),
+    (item) => item.color,
+  ).map((item) => item.color)
+  if (actualPaperColors.length > 1) throw new Error('白色热敏纸菲票与黄色热敏纸菲票不能合并打印，请返回明细页分 Tab 操作。')
+  if (input.paperColor && actualPaperColors.length && input.paperColor !== actualPaperColors[0]) {
+    throw new Error(`所选菲票实际应使用${actualPaperColors[0] === 'YELLOW' ? '黄色' : '白色'}热敏纸，与打印请求不一致。`)
+  }
+  const missingFactoryRecord = partRecords.find((record) => (record.specialCrafts || []).some((craft: AnyFeiTicket) =>
+    !craft.receiverFactoryId
+    || craft.receiverFactoryId === 'PENDING-SPECIAL-CRAFT-FACTORY'
+    || !craft.receiverFactoryName
+    || String(craft.receiverFactoryName).includes('待补'),
+  ))
+  if (missingFactoryRecord) {
+    throw new Error(`${toText(missingFactoryRecord.ticketNo || missingFactoryRecord.feiTicketNo)} 存在特殊工艺但承接工厂未明确，禁止正式打印。`)
+  }
+  const isBindingTicket = records.some((record) => record.ticketSourceType === 'BINDING_STRIP')
   const items = records.map((record) => buildFeiLabelItem(record, input, mode))
-  const paperType: PrintPaperType = items.length > 1
+  const paperType: PrintPaperType = isBindingTicket && items.length > 1
     ? 'A4_LABEL_GRID'
     : items.some(needsWideFeiLabel)
       ? 'LABEL_150_100'
       : 'LABEL_100_100'
-  const isBindingTicket = records.some((record) => record.ticketSourceType === 'BINDING_STRIP')
+  const thermalPaperColor = actualPaperColors[0]
   const bindingOrderId = toText(records.find((record) => record.ticketSourceType === 'BINDING_STRIP')?.bindingOrderId, '')
   const bindingRouteToken = bindingOrderId.startsWith('binding:') ? bindingOrderId : `binding:${bindingOrderId}`
   return buildBaseLabelDocument(input, {
-    title: isBindingTicket && mode === '首次打印' ? '捆条菲票标签' : mode === '补打' ? '菲票补打标签' : '菲票标签',
+    title: isBindingTicket && mode === '首次打印'
+      ? '捆条菲票标签'
+      : thermalPaperColor === 'YELLOW'
+        ? mode === '补打' ? '特殊工艺菲票补打（黄色热敏纸）' : '特殊工艺菲票（黄色热敏纸）'
+        : mode === '补打' ? '菲票补打标签（白色热敏纸）' : '菲票标签（白色热敏纸）',
     subtitle: mode === '补打'
       ? '补打标签'
         : isBindingTicket
           ? '捆条菲票。'
         : '菲票。',
-    templateCode: TEMPLATE_BY_DOCUMENT[input.documentType] || 'FEI_TICKET_LABEL',
+    templateCode: isBindingTicket
+      ? TEMPLATE_BY_DOCUMENT[input.documentType] || 'FEI_TICKET_LABEL'
+      : thermalPaperColor === 'YELLOW'
+        ? 'FEI_TICKET_YELLOW_THERMAL'
+        : 'FEI_TICKET_WHITE_THERMAL',
     sourceType: 'FEI_TICKET_RECORD',
     paperType,
     mode,
@@ -707,11 +752,14 @@ function renderFeiTicketBusinessLabelItem(item: PrintLabelItem, paperType: Print
   if (isBindingStripFeiLabelItem(item)) return renderBindingStripFeiBusinessLabelItem(item, paperType)
 
   const qr = item.qrCode
+  const isSpecialCraftTicket = item.thermalPaperColor === 'YELLOW'
   return `
-    <section class="print-label-card fei-ticket-business-card ${item.isVoid ? 'print-label-card-void' : ''} ${item.isReprint ? 'print-label-card-reprint' : ''} label-paper-${paperType.toLowerCase().replace(/_/g, '-')}">
-      <div class="fei-ticket-business-title">${escapeHtml(getLabelFieldValue(item, '菲票标题', item.labelTitle))}</div>
+    <section class="print-label-card fei-ticket-business-card ${isSpecialCraftTicket ? 'fei-ticket-business-special' : 'fei-ticket-business-normal'} ${item.isVoid ? 'print-label-card-void' : ''} ${item.isReprint ? 'print-label-card-reprint' : ''} label-paper-${paperType.toLowerCase().replace(/_/g, '-')}">
+      <div class="fei-ticket-business-title"><span>${escapeHtml(getLabelFieldValue(item, '菲票标题', item.labelTitle))}</span>${isSpecialCraftTicket ? '<strong class="fei-ticket-special-title-mark">特殊工艺 · 黄色热敏纸</strong>' : ''}</div>
       <div class="fei-ticket-business-body">
         <div class="fei-ticket-business-grid">
+          ${isSpecialCraftTicket ? renderFeiBusinessCell('生产单号（PO）', getLabelFieldValue(item, '生产单'), { emphasis: true }) : ''}
+          ${isSpecialCraftTicket ? renderFeiBusinessCell('SPU', getLabelFieldValue(item, 'SPU'), { emphasis: true }) : ''}
           ${renderFeiBusinessCell('面料 / 颜色', getLabelFieldValue(item, '面料/颜色', getLabelFieldValue(item, '面料')), { emphasis: true })}
           ${renderFeiBusinessCell('唛架编号+铺布单号', getLabelFieldValue(item, '唛架编号+铺布单号'), { emphasis: true })}
           ${renderFeiBusinessCell('部位', getLabelFieldValue(item, '部位'), { emphasis: true })}
@@ -719,7 +767,7 @@ function renderFeiTicketBusinessLabelItem(item: PrintLabelItem, paperType: Print
           ${renderFeiBusinessCell('部位数量', getLabelFieldValue(item, '部位数量'), { emphasis: true })}
           ${renderFeiBusinessCell('编号区间', getLabelFieldValue(item, '编号区间'), { emphasis: true })}
           ${renderFeiBusinessCell('适用SKU', getLabelFieldValue(item, '适用SKU'), { className: 'fei-ticket-business-span-2' })}
-          ${renderFeiBusinessCell('特殊工艺 / 承接工厂', getLabelFieldValue(item, '特殊工艺 / 承接工厂', getLabelFieldValue(item, '特殊工艺交出', getLabelFieldValue(item, '特殊工艺'))), { className: 'fei-ticket-business-span-2', emphasis: true })}
+          ${isSpecialCraftTicket ? renderFeiBusinessCell('特殊工艺 / 承接工厂', getLabelFieldValue(item, '特殊工艺 / 承接工厂', getLabelFieldValue(item, '特殊工艺交出', getLabelFieldValue(item, '特殊工艺'))), { className: 'fei-ticket-business-span-2', emphasis: true }) : ''}
           ${renderFeiBusinessCell('菲票号', getLabelFieldValue(item, '菲票号'), { emphasis: true })}
           ${renderFeiBusinessCell('本票裁片', getLabelFieldValue(item, '本票裁片'))}
         </div>
@@ -778,6 +826,13 @@ export function renderLabelPrintTemplate(doc: PrintDocument): string {
   }]
   const paperType = doc.paperType
   const isGrid = paperType === 'A4_LABEL_GRID'
+  if (!isGrid) {
+    return items.map((item) => `
+      <article class="print-label-paper label-paper-${paperType.toLowerCase().replace(/_/g, '-')}">
+        <div class="print-label-single-sheet">${renderLabelItem(item, paperType)}</div>
+      </article>
+    `).join('')
+  }
   return `
     <article class="${isGrid ? 'print-paper-a4 print-label-grid-a4' : `print-label-paper label-paper-${paperType.toLowerCase().replace(/_/g, '-')}`}">
       <div class="${isGrid ? 'print-label-grid-sheet' : 'print-label-single-sheet'}">

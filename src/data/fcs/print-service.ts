@@ -104,6 +104,7 @@ export interface PrintDifferenceBlock {
 
 export type PrintMode = '首次打印' | '继续打印' | '补打' | '普通打印'
 export type PrintLabelLayout = '单张标签' | 'A4 多列标签' | 'A4 多行标签'
+export type PrintThermalPaperColor = 'WHITE' | 'YELLOW'
 
 export interface PrintLabelItem {
   labelTitle: string
@@ -116,6 +117,7 @@ export interface PrintLabelItem {
   isVoid?: boolean
   isReprint?: boolean
   printMode?: PrintMode
+  thermalPaperColor?: PrintThermalPaperColor
 }
 
 export interface PrintMeta {
@@ -162,6 +164,7 @@ export interface PrintDocument {
   copyIndex?: number
   totalCopies?: number
   labelItems?: PrintLabelItem[]
+  thermalPaperColor?: PrintThermalPaperColor
 }
 
 export interface PrintDocumentBuildInput {
@@ -169,6 +172,7 @@ export interface PrintDocumentBuildInput {
   sourceType: PrintSourceType
   sourceId: string
   handoverRecordId?: string
+  paperColor?: PrintThermalPaperColor
 }
 
 function encodeParam(value: string): string {

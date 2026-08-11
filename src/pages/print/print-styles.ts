@@ -438,12 +438,29 @@ export function renderUnifiedPrintStyles(): string {
       }
 
       .fei-ticket-business-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 2mm;
         border: 1px solid #111827;
         border-bottom: 0;
         padding: 2.2mm 2mm;
         font-size: 21px;
         font-weight: 800;
         line-height: 1.04;
+      }
+
+      .fei-ticket-business-special .fei-ticket-business-title {
+        border-width: 2px;
+      }
+
+      .fei-ticket-special-title-mark {
+        flex: 0 0 auto;
+        border: 2px solid #111827;
+        padding: 1.2mm 1.8mm;
+        font-size: 10px;
+        line-height: 1;
+        white-space: nowrap;
       }
 
       .fei-ticket-business-body {

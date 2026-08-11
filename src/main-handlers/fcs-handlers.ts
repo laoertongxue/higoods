@@ -96,6 +96,7 @@ import {
 import { handleUnifiedDispatchWorkbenchEvent, isUnifiedDispatchWorkbenchDialogOpen } from '../pages/unified-dispatch-workbench'
 import { handleProductionContractCenterEvent } from '../pages/production-contract-center'
 import { handleProductionContractPrintEvent } from '../pages/production-contract-print'
+import { handleUnifiedPrintPreviewEvent } from '../pages/print/print-preview'
 import {
   handleDispatchTendersEvent,
   isDispatchTendersDialogOpen,
@@ -237,6 +238,9 @@ const CUTTING_PICKUP_LIST_PATHS = new Set([
 
 export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
+  if (pathname === '/fcs/print/preview') {
+    return handleUnifiedPrintPreviewEvent(target)
+  }
   if (
     pathname.startsWith('/fcs/craft/accessory/lace')
     || pathname.startsWith('/wls/accessory-receipts')
