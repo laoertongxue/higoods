@@ -36,6 +36,10 @@ test('印花加工单列表完整保留线上信息并按投入、来源、产�
   for (const text of ['印花加工单数量', '计划投入', '实际使用', '完成', '已交出', '已接收']) {
     await expect(stats.getByText(text, { exact: true })).toBeVisible()
   }
+  const summaryItems = stats.locator('[data-printing-summary-item]')
+  await expect(summaryItems).toHaveCount(6)
+  const summaryItemTops = await summaryItems.evaluateAll((items) => items.map((item) => Math.round(item.getBoundingClientRect().top)))
+  expect(new Set(summaryItemTops).size).toBe(1)
 
   for (const header of ['印花加工单', '商品信息', '需求来源', '加工投入', '印花要求', '加工产出', '数量进度', '加工厂/时间', '加工状态', '交出状态', '打印信息', '备注', '操作']) {
     await expect(root.getByRole('columnheader', { name: new RegExp(header) })).toBeVisible()
@@ -46,6 +50,43 @@ test('印花加工单列表完整保留线上信息并按投入、来源、产�
   await expect(root.getByRole('button', { name: '印花确认单', exact: true }).first()).toBeVisible()
   await expect(root.getByRole('button', { name: '产出卷条码', exact: true }).first()).toBeVisible()
   await expect(root).not.toContainText('打印任务流转卡')
+
+  const scrollSurface = root.locator('[data-standard-list-scroll]')
+  const orderHeader = root.locator('th[data-column-key="order"]')
+  const inputHeader = root.locator('th[data-column-key="input"]')
+  const outputHeader = root.locator('th[data-column-key="output"]')
+  const actionsHeader = root.locator('th[data-column-key="actions"]')
+  await expect(orderHeader).toHaveCSS('position', 'sticky')
+  await expect(actionsHeader).toHaveCSS('position', 'sticky')
+  await expect(inputHeader).not.toHaveCSS('position', 'sticky')
+  await expect(outputHeader).not.toHaveCSS('position', 'sticky')
+  const actionHeaderBox = await actionsHeader.boundingBox()
+  expect(actionHeaderBox).toBeTruthy()
+  expect(actionHeaderBox!.width).toBeLessThanOrEqual(191)
+
+  const positionsBeforeScroll = await Promise.all([orderHeader, inputHeader, actionsHeader].map(async (header) => (await header.boundingBox())!.x))
+  await scrollSurface.evaluate((element) => {
+    element.scrollLeft = 700
+    element.dispatchEvent(new Event('scroll'))
+  })
+  const positionsAfterScroll = await Promise.all([orderHeader, inputHeader, actionsHeader].map(async (header) => (await header.boundingBox())!.x))
+  expect(Math.abs(positionsAfterScroll[0] - positionsBeforeScroll[0])).toBeLessThanOrEqual(1)
+  expect(positionsAfterScroll[1]).toBeLessThan(positionsBeforeScroll[1] - 500)
+  expect(Math.abs(positionsAfterScroll[2] - positionsBeforeScroll[2])).toBeLessThanOrEqual(1)
+
+  const firstRowActions = root.locator('[data-printing-row-actions]').first()
+  await expect(firstRowActions).toHaveCSS('display', 'grid')
+  const actionGridColumns = await firstRowActions.evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').filter(Boolean).length)
+  expect(actionGridColumns).toBe(2)
+  const rowActionButtons = firstRowActions.locator('[data-printing-row-action]')
+  expect(await rowActionButtons.count()).toBeGreaterThanOrEqual(4)
+  const actionRows = await rowActionButtons.evaluateAll((items) => items.reduce<Record<string, number>>((groups, item) => {
+    const top = String(Math.round(item.getBoundingClientRect().top))
+    groups[top] = (groups[top] || 0) + 1
+    return groups
+  }, {}))
+  expect(Math.max(...Object.values(actionRows))).toBeLessThanOrEqual(2)
+  for (const action of await rowActionButtons.all()) await expect(action).toHaveCSS('border-top-width', '0px')
 
   await root.locator('[data-printing-work-orders-field="demandSource"]').selectOption('PURCHASE')
   await root.getByRole('button', { name: '查询', exact: true }).click()

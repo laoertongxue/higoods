@@ -1,7 +1,7 @@
 // @page-pattern: list
 
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
-import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
+import { renderStandardListPage } from '../../../components/ui/list-page.ts'
 import { type StandardListColumn } from '../../../components/ui/list-table.ts'
 import {
   resetStandardListEntryTransientStateOnRouteEntry,
@@ -60,7 +60,7 @@ const state: {
   showColumnSettings: boolean
 } = {
   keyword: '', processingStatus: '', handoverStatus: '', demandSource: '', legacyStatus: '', salesType: '', factory: '', craft: '', receiver: '', materialType: '', changedInput: '', historicalSupplement: '', creationMethod: '', hasDifference: '', timeType: 'ORDERED', dateStart: '', dateEnd: '', currentPage: 1, sort: null,
-  preferences: { order: [], visibleKeys: [], frozenKeys: ['order', 'input', 'output'], pageSize: 10 }, preferencesLoaded: false, showColumnSettings: false,
+  preferences: { order: [], visibleKeys: [], frozenKeys: ['order'], pageSize: 10 }, preferencesLoaded: false, showColumnSettings: false,
 }
 
 const selectedWorkOrderIds = new Set<string>()
@@ -92,20 +92,20 @@ function handoverBadge(status: PrintingHandoverStatus): string {
 }
 
 function actionButton(label: string, action: string, order: PrintingWorkOrderBusinessRecord, className = ''): string {
-  return `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-slate-50 ${className}" data-printing-action="${escapeHtml(action)}" data-work-order-id="${escapeHtml(order.workOrderId)}">${escapeHtml(label)}</button>`
+  return `<button type="button" class="inline-flex min-h-7 w-full items-center justify-center whitespace-nowrap rounded px-1.5 py-1 text-xs text-blue-700 hover:bg-blue-50 ${className}" data-printing-row-action data-printing-action="${escapeHtml(action)}" data-work-order-id="${escapeHtml(order.workOrderId)}">${escapeHtml(label)}</button>`
 }
 
 function printAction(label: string, documentType: 'PRINTING_INFO_SHEET' | 'PRINTING_CONFIRMATION', order: PrintingWorkOrderBusinessRecord): string {
-  return `<button type="button" class="rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-700" data-printing-action="open-print" data-document-type="${documentType}" data-work-order-id="${escapeHtml(order.workOrderId)}">${escapeHtml(label)}</button>`
+  return `<button type="button" class="inline-flex min-h-7 w-full items-center justify-center whitespace-nowrap rounded px-1.5 py-1 text-xs text-blue-700 hover:bg-blue-50" data-printing-row-action data-printing-action="open-print" data-document-type="${documentType}" data-work-order-id="${escapeHtml(order.workOrderId)}">${escapeHtml(label)}</button>`
 }
 
 function renderActions(order: PrintingWorkOrderBusinessRecord): string {
-  return `<div class="flex flex-wrap justify-end gap-1.5">
-    <a class="rounded-md border px-2 py-1 text-xs hover:bg-slate-50" href="${escapeHtml(buildPrintingWorkOrderDetailLink(order.workOrderId))}" data-nav="${escapeHtml(buildPrintingWorkOrderDetailLink(order.workOrderId))}">详情</a>
+  return `<div class="grid w-full grid-cols-2 gap-x-1 gap-y-0.5" data-printing-row-actions>
+    <a class="inline-flex min-h-7 w-full items-center justify-center whitespace-nowrap rounded px-1.5 py-1 text-xs text-blue-700 hover:bg-blue-50" href="${escapeHtml(buildPrintingWorkOrderDetailLink(order.workOrderId))}" data-printing-row-action data-nav="${escapeHtml(buildPrintingWorkOrderDetailLink(order.workOrderId))}">详情</a>
     ${order.output.completedQty === 0 ? actionButton('调整投入', 'change-input', order) : ''}
     ${printAction('印花信息单', 'PRINTING_INFO_SHEET', order)}
     ${printAction('印花确认单', 'PRINTING_CONFIRMATION', order)}
-    ${actionButton('产出卷条码', 'open-barcodes', order, 'border-amber-200 bg-amber-50 text-amber-700')}
+    ${actionButton('产出卷条码', 'open-barcodes', order, 'text-amber-700 hover:bg-amber-50')}
   </div>`
 }
 
@@ -127,7 +127,7 @@ const columns: StandardListColumn<PrintingWorkOrderBusinessRecord>[] = [
     render: (order) => `<div class="space-y-1 text-xs">${statusBadge(PRINTING_DEMAND_SOURCE_LABEL[order.demandSource.type], 'blue')}<p class="font-medium">${escapeHtml(order.demandSource.sourceLabel)}</p><p>供料：${escapeHtml(order.plannedInput.supplySource)}</p><p>${escapeHtml(order.plannedInput.sourceWarehouseName)}：${formatPrintingQty(order.plannedInput.sourceWarehouseStockQty)} Yard</p><p>待加工仓：${formatPrintingQty(order.plannedInput.pendingWarehouseStockQty)} Yard</p><p>白胚库存：${formatPrintingQty(order.plannedInput.whiteStockQty)} Yard</p></div>`,
   },
   {
-    key: 'input', title: '加工投入', width: 260, required: true, freezeable: true, sortable: true, sortValue: (order) => order.plannedInput.sku,
+    key: 'input', title: '加工投入', width: 260, required: true, sortable: true, sortValue: (order) => order.plannedInput.sku,
     render: (order) => `<div class="flex items-start gap-2">${imageButton(order.plannedInput)}<div class="min-w-0 space-y-1 text-xs"><p class="font-medium">[${order.plannedInput.objectType}] ${escapeHtml(order.plannedInput.materialName)}</p><p>SPU：${escapeHtml(order.plannedInput.spu)}</p><p class="break-all font-mono">计划：${escapeHtml(order.plannedInput.sku)}</p><p class="break-all font-mono">实际：${escapeHtml(order.actualInput.actualSku || '未接收')}</p><p>库存：${formatPrintingQty(order.plannedInput.currentStockQty)} · 待印：${formatPrintingQty(order.plannedInput.pendingPrintQty)} Yard</p>${order.inputChanges.length ? statusBadge(`已换料 ${order.inputChanges.length} 次`, 'amber') : ''}</div></div>`,
   },
   {
@@ -135,7 +135,7 @@ const columns: StandardListColumn<PrintingWorkOrderBusinessRecord>[] = [
     render: (order) => `<div class="space-y-1 text-xs"><p class="font-medium">${escapeHtml(order.requirement.craftName)} · ${escapeHtml(order.requirement.type)}</p><p>深浅：${escapeHtml(order.requirement.shade)} · 温度：${escapeHtml(order.requirement.temperature)}</p><p>印花面别：${escapeHtml(order.requirement.printSide)}</p><div class="flex flex-wrap gap-2"><div class="flex items-center gap-1">${imageButton(order.requirement.frontPattern, 'h-9 w-9')}<span>${escapeHtml(order.requirement.frontPattern.patternNo)}</span></div>${order.requirement.insidePattern ? `<div class="flex items-center gap-1">${imageButton(order.requirement.insidePattern, 'h-9 w-9')}<span>${escapeHtml(order.requirement.insidePattern.patternNo)}</span></div>` : ''}</div></div>`,
   },
   {
-    key: 'output', title: '加工产出', width: 260, required: true, freezeable: true, sortable: true, sortValue: (order) => order.output.sku,
+    key: 'output', title: '加工产出', width: 260, required: true, sortable: true, sortValue: (order) => order.output.sku,
     render: (order) => `<div class="flex items-start gap-2">${imageButton(order.output)}<div class="min-w-0 space-y-1 text-xs"><p class="font-medium">[${order.output.objectType}] ${escapeHtml(order.output.materialName)}</p><p>SPU：${escapeHtml(order.output.spu)}</p><p class="break-all font-mono font-medium text-emerald-700">${escapeHtml(order.output.sku)}</p><p class="text-slate-500">固定产出，不随投入换料改变</p></div></div>`,
   },
   {
@@ -156,7 +156,7 @@ const columns: StandardListColumn<PrintingWorkOrderBusinessRecord>[] = [
     render: (order) => `<div class="space-y-1 text-xs"><p>打印机：${escapeHtml(order.printerNo)}</p><p>转印完成：${formatPrintingQty(order.transferCompletedQty)}</p><p>待接收：${formatPrintingQty(order.pendingWritebackQty)}</p>${order.printingDocumentsNeedReprint ? statusBadge('信息单/确认单需重印', 'amber') : ''}</div>`,
   },
   { key: 'remark', title: '备注', width: 220, render: (order) => `<p class="text-xs leading-5">${escapeHtml(order.remark || '—')}</p>` },
-  { key: 'actions', title: '操作', width: 330, required: true, actionColumn: true, render: renderActions },
+  { key: 'actions', title: '操作', width: 190, required: true, actionColumn: true, render: renderActions },
 ]
 
 function selectedTime(order: PrintingWorkOrderBusinessRecord): string {
@@ -213,7 +213,7 @@ function filteredRows(): PrintingWorkOrderBusinessRecord[] {
 const listController = createProcessOrderListController({
   state, columns, preferenceKey: PREFERENCE_KEY, pageSizeOptions: PAGE_SIZE_OPTIONS, eventPrefix: EVENT_PREFIX,
   rootSelector: '[data-printing-work-orders-root]', tableSurfaceSelector: '[data-printing-work-orders-table-surface]', paginationSurfaceSelector: '[data-printing-work-orders-pagination-surface]', overlaysSurfaceSelector: '[data-printing-work-orders-overlays-surface]',
-  defaultFrozenKeys: ['order', 'input', 'output'], columnSettingsTitle: '印花加工单列设置', emptyText: '没有符合条件的印花加工单', getRows: filteredRows, locallyManagedEvents: true,
+  defaultFrozenKeys: ['order'], columnSettingsTitle: '印花加工单列设置', emptyText: '没有符合条件的印花加工单', getRows: filteredRows, locallyManagedEvents: true,
 })
 
 function option(value: string, label: string, selected: string): string {
@@ -253,14 +253,20 @@ function renderFilters(): string {
 
 function renderStats(rows: PrintingWorkOrderBusinessRecord[]): string {
   const summary = getPrintingWorkOrderSummary(rows)
-  return renderStandardListStats([
+  const items = [
     { label: '印花加工单数量', value: summary.orderCount },
     { label: '计划投入', value: `${formatPrintingQty(summary.plannedInputQty)} Yard` },
     { label: '实际使用', value: `${formatPrintingQty(summary.usedInputQty)} Yard` },
     { label: '完成', value: `${formatPrintingQty(summary.completedOutputQty)} Yard` },
     { label: '已交出', value: `${formatPrintingQty(summary.handedOverQty)} Yard` },
     { label: '已接收', value: `${formatPrintingQty(summary.receivedQty)} Yard` },
-  ])
+  ]
+  return `<div class="grid grid-cols-6 gap-2" data-standard-list-stats data-printing-summary-row>${items.map((item) => `
+    <div class="flex h-12 min-w-0 items-center justify-between gap-1 rounded-lg border bg-card px-2" data-printing-summary-item>
+      <span class="whitespace-nowrap text-[11px] text-muted-foreground">${escapeHtml(item.label)}</span>
+      <strong class="whitespace-nowrap text-[13px] font-semibold tabular-nums">${escapeHtml(String(item.value))}</strong>
+    </div>
+  `).join('')}</div>`
 }
 
 function renderWorkspace(): string {

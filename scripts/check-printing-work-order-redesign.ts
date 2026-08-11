@@ -198,6 +198,18 @@ for (const requiredText of [
 assert.ok(!listHtml.includes('采购单数量'), '列表不得展示或关注线上采购单数量 572')
 assert.ok(!listHtml.includes('打印任务流转卡'), '调整后的印花加工单不得暴露第四类打印单据')
 assert.ok(!listHtml.includes('待回写'), '上下游交接文案必须统一为交出、接收，不得继续显示待回写')
+assert.ok(listHtml.includes('data-printing-summary-row'), '六项汇总必须使用印花加工单单行容器')
+assert.equal((listHtml.match(/data-printing-summary-item/g) || []).length, 6, '单行汇总必须完整展示六项指标')
+const listHeaderTags = [...listHtml.matchAll(/<th[\s\S]*?<\/th>/g)].map((match) => match[0])
+const headerTag = (key: string) => listHeaderTags.find((tag) => tag.includes(`data-column-key="${key}"`)) || ''
+assert.match(headerTag('order'), /\bsticky\b/, '印花加工单列必须固定在左侧')
+assert.match(headerTag('order'), /\bleft-0\b/, '印花加工单列必须固定在左侧起点')
+assert.match(headerTag('actions'), /\bsticky\b/, '操作列必须固定在右侧')
+assert.match(headerTag('actions'), /\bright-0\b/, '操作列必须固定在右侧起点')
+for (const key of ['input', 'output']) assert.doesNotMatch(headerTag(key), /\bsticky\b/, `${key} 列必须随中间内容横向滚动`)
+assert.match(headerTag('actions'), /width: 190px/, '操作列宽度必须收窄为 190px')
+assert.ok(listHtml.includes('data-printing-row-actions'), '操作单元格必须声明双列动作布局')
+assert.ok(listHtml.includes('grid-cols-2'), '操作单元格每行最多只能展示两个文字操作')
 
 const detailHtml = renderCraftPrintingWorkOrderDetailPage('PWO-25336')
 for (const requiredText of [
